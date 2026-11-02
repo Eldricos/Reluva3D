@@ -236,15 +236,22 @@ Jit::Jit(const Layout& layout) : layout_(layout), index_(size_t(layout.blockMask
         uint8_t* toNative = w.rel32();
         w.rbx({0x3b}, kEax, L.runNative), exitIf(0x83);  // cmp eax, [natives]; jae exit
         w.rbx({0x80}, 7, L.stop), w.u8(0), exitIf(0x85); // cmp byte [stop], 0; jne exit
-        w.u8(0x89), w.u8(0xc1);                          // mov ecx, eax
-        w.u8(0xc1), w.u8(0xe9), w.u8(15);                // shr ecx, 15
-        w.u8(0x31), w.u8(0xc1);                          // xor ecx, eax
-        w.u8(0x81), w.u8(0xe1), w.u32(L.blockMask);      // and ecx, mask: the slot
-        w.u8(0x89), w.u8(0xca);                          // mov edx, ecx
+        // The slot: Cpu::slotOf, the top bits of eip * 0x9e3779b1.
+        int bits = 0;
+        while ((uint64_t(1) << bits) <= L.blockMask)
+            ++bits;
+        w.u8(0x69), w.u8(0xc8), w.u32(0x9e3779b1u);      // imul ecx, eax, 0x9e3779b1
+        w.u8(0xc1), w.u8(0xe9), w.u8(uint8_t(32 - bits)); // shr ecx, 32 - bits
+        w.u8(0x83), w.u8(0xe1), w.u8(0xfe);              // and ecx, ~1: the pair's first
         w.u8(0x48), w.u8(0xc1), w.u8(0xe1), w.u8(4);     // shl rcx, 4
         w.u8(0x49), w.u8(0xb8), w.u64(reinterpret_cast<uint64_t>(index_.data())); // mov r8, index
         w.u8(0x4c), w.u8(0x01), w.u8(0xc1);              // add rcx, r8: its entry
-        w.u8(0x39), w.u8(0x01), exitIf(0x85);            // cmp [start], eax; jne exit
+        // Either of the pair (one cache line).
+        w.u8(0x39), w.u8(0x01);                          // cmp [start], eax
+        w.u8(0x74), w.u8(12);                            // je found
+        w.u8(0x48), w.u8(0x83), w.u8(0xc1), w.u8(16);    // add rcx, 16: the other  (4)
+        w.u8(0x39), w.u8(0x01), exitIf(0x85);            // cmp [start], eax; jne exit (2 + 6)
+        // found:
         w.rbx({0x44, 0x8b}, 1, L.epoch);                 // mov r9d, [codeEpoch]
         w.u8(0x44), w.u8(0x39), w.u8(0x49), w.u8(4), exitIf(0x85); // cmp [epoch], r9d; jne exit
         w.u8(0x44), w.u8(0x8b), w.u8(0x49), w.u8(8);     // mov r9d, [code]

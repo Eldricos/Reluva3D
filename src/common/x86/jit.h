@@ -67,7 +67,8 @@ public:
         uint32_t nativeBase;
         int (*callNative)(void*);
         // the blocks (Cpu::Block, `blockSize` bytes each, `blockMask` + 1 of
-        // them, by (eip ^ eip >> 15) & blockMask).
+        // them, a power of two, in pairs, by Cpu::slotOf: eip * 0x9e3779b1's
+        // top bits, the low one cleared: a block is in either of the pair).
         const uint8_t* blocks;
         uint32_t blockSize, blockMask;
     };

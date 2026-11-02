@@ -531,7 +531,12 @@ void Cpu::runCached(uint32_t returnAddress, uint32_t nativeStart) {
                 fault("instruction limit reached");
             fault("stopped");
         }
-        Block& b = blocks[(eip ^ (eip >> 15)) & (kBlockEntries - 1)];
+        const uint32_t pair = slotOf(eip);
+        uint8_t& recent = recent_[pair >> 1];
+        // The one of the pair it's in, else the one used less lately.
+        const uint32_t way = blocks[pair].start == eip ? 0 : blocks[pair + 1].start == eip ? 1 : recent ^ 1;
+        recent = uint8_t(way);
+        Block& b = blocks[pair + way];
         bool fresh = b.start == eip;
         if (fresh && b.epoch != codeEpoch_) {
             uint64_t differ = 0;
@@ -562,7 +567,7 @@ void Cpu::runCached(uint32_t returnAddress, uint32_t nativeStart) {
         // much of this loop's time.
         for (uint32_t to : b.next)
             if (to != 0xffffffffu)
-                RELUVA_PREFETCH(&blocks[(to ^ (to >> 15)) & (kBlockEntries - 1)]);
+                RELUVA_PREFETCH(&blocks[slotOf(to)]);
         const Cached* e = b.ops;
         const Cached* const last = e + b.count - 1;
         if (executed_ + b.count <= end) {

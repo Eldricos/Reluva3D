@@ -304,6 +304,16 @@ private:
         uint64_t code[kBlockWords]{};
     };
     static constexpr uint32_t kBlockEntries = 1u << 15;
+    // A block's pair of slots (it's in either: a hot block another hot one
+    // shares its slot with had them take each other's place millions of
+    // times in a game's attract sequence), the first of them: the top bits
+    // of its start times 2^32 / phi (Fibonacci hashing), the low one
+    // cleared. The Jit's dispatch works it out the same way.
+    static uint32_t slotOf(uint32_t eip) { return ((eip * 0x9e3779b1u) >> (32 - 15)) & ~1u; }
+    // Which of each pair was used last (bit 0: the second), for the one to
+    // replace.
+    std::vector<uint8_t> recent_ = std::vector<uint8_t>(kBlockEntries / 2);
+    static_assert(kBlockEntries == 1u << 15, "slotOf's bits");
     static_assert(sizeof(Cached) == 24, "a cached instruction in 24 bytes");
     std::vector<Block> blocks_;
     std::unique_ptr<Jit> jit_; // made with the blocks, if it can be
