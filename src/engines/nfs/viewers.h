@@ -342,7 +342,8 @@ private:
     std::vector<uint32_t> meshIndices_;
     gfx::MeshId cutMesh_ = 0;
     std::vector<uint32_t> cutIndices_;
-    void cutFar(std::vector<Batch>& list, const gfx::Vec3& eye, const gfx::Vec3& forward);
+    void cutFar(std::vector<Batch>& list, const gfx::Vec3& eye, const gfx::Vec3& forward,
+                const gfx::Mat4* model = nullptr);
     std::vector<gfx::TextureId> textures_;
     std::map<std::string, ShapeBank> banks_; // loaded sheets, by file name
     std::map<std::string, std::pair<gfx::TextureId, bool>> pictures_; // "sheet/number" -> texture, additive
@@ -362,10 +363,16 @@ private:
     Horizon horizon_;
     std::string skyError_;
     gfx::MeshId skyMesh_ = 0;
+    // The sky's shading, the earth's and the horizon picture as the game
+    // draws them (skyRow, hrz.md): 8 flat quads each in front of the
+    // camera, remade each frame; and whether the game would draw no sky
+    // and clear to black (skyBlack).
+    gfx::MeshId horizonMesh_ = 0;
     gfx::TextureId horizonPicture_ = 0;
-    uint32_t domeIndices_ = 0, earthIndices_ = 0, bandIndices_ = 0; // earth's: the dome's first
-    // The sun (or moon) and the clouds, ranges of the sky mesh's indices
-    // after the band's.
+    bool skyBlack_ = false;
+    void updateHorizon(const gfx::Vec3& forward);
+    int roadSliceAt() const; // the virtual road's slice nearest the camera
+    // The sun (or moon) and the clouds, ranges of the sky mesh's indices.
     gfx::TextureId sunPicture_ = 0, cloudPicture_ = 0;
     uint32_t sunFirst_ = 0, sunIndices_ = 0, cloudFirst_ = 0, cloudIndices_ = 0;
     bool sunAdditive_ = true, sunInFront_ = false;
@@ -463,6 +470,29 @@ private:
     };
     std::vector<LightRun> lightRuns_;
     void prepareHeadlights(int here, const gfx::Vec3& eye, const gfx::Vec3& forward);
+    // Computer cars (J, by night): a few Corvettes on the virtual road
+    // ahead of the camera, two going its way and one coming, each lit by
+    // the game's headlight pass after the camera's car (headlightIntensity).
+    struct ComputerCar {
+        std::array<float, 3> at{}; // the car's position, track coordinates
+        float heading = 0;         // atan2(x, z) of its forward
+    };
+    bool computerCars_ = false;
+    std::vector<ComputerCar> cars_;
+    gfx::MeshId carMesh_ = 0;
+    gfx::TextureId carSkin_ = 0; // owned by textures_
+    uint32_t carIndices_ = 0;
+    float carHalfLength_ = 2.40644f, carRideHeight_ = 0.65f;
+    std::string carError_;
+    void loadCar();
+    void placeCars();
+    // Moving objects this frame: each one's matrix and its batches, cut
+    // at the reach as the placed objects are (0x41b640 queues them too).
+    struct MovingFrame {
+        gfx::Mat4 model{};
+        std::vector<Batch> batches;
+    };
+    std::vector<MovingFrame> movingFrame_;
     bool mirrored_ = false; // U: the mirrored track (0x6fd4c4), with set 1
     int variant_ = 0;
     int detail_ = 3, textureSet_ = 0, block_ = 0; // detail 3: by distance, as the game

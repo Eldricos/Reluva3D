@@ -542,6 +542,27 @@ the lamps' lobes and a sharp far edge ahead of the car
 (`Hometown_Night` 0:40, `Summit_Night` 2:17), which is what the page
 draws by default.
 
+**Other cars' lights** (`0x41c670`, November 2026). The pass goes
+through the race's cars in their list's order (`0x5efac8`, count
+`0x5efd9c`) for each block: a car in play, not hidden, within 150 of the
+block's centre, whose light isn't behind the camera by more than its
+reach (`0x41bc50`) nor outside the view (`0x41bf30`), is lit with
+intensity 1 − 0.75 × (cars already lit for this block / all the race's
+cars) (`headlightIntensity`): with 8 cars the first gets 1, the fifth
+0.625. A police car's second light (`+0x734`, the roof light) goes
+through another pass (`0x41ab40`), not followed. A corner in several
+lights is raised to the highest, byte by byte. The Tracks page's `J`
+puts three Corvettes (`car.fce`, high detail parts, `car00.tga`) on the
+virtual road ahead of the camera, two going its way 15 and 35 units on
+and one coming 25 on, in the middle of the first lane, their wheels on
+the road, each with low beams after the camera's car in the pass. In
+`nfs-host`'s night race on Hometown (no projection) the road ahead of
+the cars that pulled away is lit to the bend, uniformly as far as their
+reach goes and ending at whole polygons; the page with `J` and
+`Shift+E` from the player's grid place shows the same kind of pool
+round each car. The computer cars' colours, ride height (the model's
+half height, 0.67) and the AI's own light state are assumptions.
+
 **The headlights in footage** (November 2026). In the night clips the
 pool ahead of the car is a flat band with a fairly sharp far edge on
 the road (`Hometown_Night` 0:40, `Summit_Night` 2:17, 2:53), while snow
@@ -606,8 +627,15 @@ the camera, with view level 1 (`K` draws every block instead, and
 1, 2, 3 fix the road's detail; 4 goes back to the game's choice). It
 drops far polygons as the game does (`polygonInReach`): each frame, a
 batch whose polygons' first corners may straddle 500 ahead is drawn
-from indices of only those within it (not with `K`, nor for moving
-objects).
+from indices of only those within it (not with `K`).
+
+**Moving objects** get the same test (November 2026): in the placed
+objects' groups (`0x41ca40`) a type-3 object is placed at its key
+(`0x40f4b0`), its vertices moved and projected by `0x41a9b0`, and then
+queued by the same loop as the static ones (`0x41b640`), which drops a
+polygon whose queued first corner (the file's vertex 1), as placed, is
+more than the view's `+0x30` ahead. The page cuts them the same way,
+each frame from their corners as placed.
 
 ## Tools
 

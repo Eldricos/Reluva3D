@@ -268,7 +268,12 @@ What was built, with each format written up in `docs/formats/nfs/`:
     markings;
   - the baked vertex lighting, scaled by the sky's ambient light;
   - cut-outs and additive glows;
-  - the sky dome and horizon picture in four variants;
+  - the sky in four variants, drawn as the game draws it: the sky's and
+    earth's shading and the horizon picture as rows of flat quads in
+    front of the camera, the sun and moon, clouds and lightning, the
+    sky's top as the clear colour, through the game's 90° view
+    ([hrz.md](../formats/nfs/hrz.md)); `RELUVA_NFS_TRACK_CAMERA="x y z
+    yaw pitch"` places the camera as a view of `nfs-host`'s;
   - the moving objects animated along their keys (Hometown's water
     wheel turns at its mill);
   - the virtual road's walls as a guide, with the road's edges from its
@@ -292,13 +297,15 @@ What was built, with each format written up in `docs/formats/nfs/`:
     car is made up (its speed 40 or 18, its centre a unit in from the
     wall) and the random numbers aren't the game's.
   - the blocks the game draws from the camera's, and its cut-off of
-    polygons whose first corner is more than 500 ahead, by night too
-    ([frd.md](../formats/nfs/frd.md), Which blocks are drawn);
+    polygons whose first corner is more than 500 ahead, by night too and
+    for moving objects ([frd.md](../formats/nfs/frd.md), Which blocks
+    are drawn);
   - by night, the headlights of a car at the camera as the game's pass
     lights them: `glw2` projected on polygons whose texture lacks flag
     `0x04`, the light's colour as a floor on the others' corners
     (key E: off, low and high beams; Shift+E: the projection off, as
-    `nfs-host`'s `config.dat` has it);
+    `nfs-host`'s `config.dat` has it); key J adds three computer cars
+    on the road ahead, each lit by the same pass after the camera's car;
   - the mirrored track (key U): texture set 1 and the view flipped left
     to right, its culling turned with it, as the game's mirror flag
     does; checked against a mirrored `nfs-host` race on Hometown.

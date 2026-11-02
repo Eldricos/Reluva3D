@@ -63,6 +63,42 @@ on, as above. The track's coordinates are left-handed (the road's
 right is (z, 0, −x) of its forward), so turning right raises h, as the
 tiles show, left to right.
 
+### Flat rows in front of the camera
+
+The game draws the sky's shading, the earth's and the horizon picture
+each as a row of eight flat quads (`0x479160`, `0x479500`, read November
+2026), not round the camera:
+
+- From the camera's forward on the ground (its matrix's third row, y
+  set to 0, normalised) it takes three points at the horizon radius
+  along it: there, `height` above, and a slot's arc (radius × 2π / 16)
+  to the right ((z, 0, −x) of the forward, made as −forward × up).
+- It moves them 4 slots and the heading's fraction of a slot to the left
+  (16 × h less 16 × h rounded, the FPU's rounding to nearest), then steps
+  8 slots to the right (`0x4792e0`): 9 points along the bottom, 9 along
+  the top, all in one vertical plane at the radius. Quad i is slot
+  (16 × h rounded + i) mod 16. Heights are the world's less the camera's y.
+- The points go through the camera's own projection (`0x479370`), so the
+  rows tilt with its pitch and stay straight across the screen; a slot
+  is 126 pixels wide at the centre of the game's 90° view (square
+  pixels, `0x4bf260`).
+- Each quad (`0x478cb0`) has its colours at its corners: the sky's bottom
+  corners the slot's two edge colours (edge 16 is edge 0, `0x55d1bc`),
+  its top the top colour, unfogged (queued flag 4); the earth's top
+  corners its top colour, its bottom its base colour, fogged.
+- The horizon picture's row (`0x479b90`) runs from the base plus its
+  bottom to the base plus its top; each tile's top is at the tile's
+  height over the tallest tile's (`0x478bb0`; 1 on the retail sheets)
+  and its top left corner is pushed a hundredth of the tile's width
+  further left. With the mirror flag slots 8-15 take their corners in
+  the other order: the tile flipped.
+
+**The clear colour** (THRASH state 3, `0x47a4c0`) is the sky's top
+colour, so above the sky's row the screen shows it. With the black
+horizon flag, or on Lost Canyons (track 5) while the camera's car is on
+road slices 906 to 1064 (`0x4217e0`, the car's `+0xEC`), it is black and
+the game draws no sky at all (in a link race it also lays a black quad).
+
 ### In the order the game draws them
 
 - **The sky's shading**, unfogged: a band at the horizon radius from the
@@ -211,18 +247,19 @@ The Tracks page draws as the game does, above, with the functions in
 `hrz.h` (`horizonTurn`, `skyBaseColours`, `cloudHeight`,
 `cloudBrightness`, `cloudDrift`, `sceneryFogValue`, `skyFogValue`):
 
-- **The dome.** The earth's colours from the base up to the midpoint
-  (the horizon), then the sky's from the midpoint to the top, its
-  colours at the horizon by slot. Its 32 segments start at slot 0, two a
-  slot, placed by the rotation as the game's.
-- **The horizon picture.** The track sheet's first eight pictures
-  side by side, a tile a slot, twice round a band at the horizon radius,
-  the second copy flipped with the mirror flag. The band is a cylinder
-  in 3D, so towards the screen's sides it is spaced as a projection, not
-  as the game's flat quads. Its v runs a texel in from the picture's top
-  and bottom: the strip's texture repeats, and at v = 0 the filter mixed
-  the bottom row into the top, a dashed line along the hills' tops that
-  the game doesn't have (it looked like far power lines; below).
+- **The sky's and earth's shading and the horizon picture** as the
+  game's flat rows (`skyRow`, `horizonTile`), remade each frame: eight
+  quads each in a plane at the horizon radius in front of the camera,
+  coloured and tiled by slot as above, the picture's tiles from a strip
+  of the track sheet's first eight pictures (clamped, so no row of one
+  edge bleeds into the other). Until November 2026 they were a dome and
+  a cylindrical band round the camera, which bent the horizon when the
+  view tilted and spaced the tiles differently towards the screen's
+  sides.
+- **The clear colour** is the sky's top colour, and black with no sky
+  drawn where the game has that (`skyBlack`).
+- **The view** is the game's, 90° across at 4:3 (it was 72° until
+  November 2026).
 - **The sun or moon.** The variant's picture (`SUND`, `SUNN`, `SUNW`, and
   `SNNW` for night with weather where a track has one, else `SUNW`) at
   the game's place and size, facing the camera, upright or, with
@@ -239,8 +276,7 @@ The Tracks page draws as the game does, above, with the functions in
   (`DrawCall::tableFog`). Within a dynamic fog region (by the block the
   camera is in), the colour and density go from the start's to the
   apex's between the before and centre blocks, then to the end's by the
-  after block. The clear colour is the fog colour. `Y` turns fog off
-  and on.
+  after block. `Y` turns fog off and on.
 - **Ambient light.** The percentages scale the track's baked vertex
   lighting.
 - **Lightning.** The game's bolts, chances, jitter, life and flash,
@@ -355,6 +391,19 @@ times as m:ss), against the Tracks page and frames from `nfs-host`:
   (point-sampled), not the card's.
 - **Lightning** is in none of the clips (no weather), so it stays
   unchecked.
+
+- **The flat rows** (November 2026). `nfs-host` day and night races on
+  Hometown with the camera record (`0x7a3d14`, the sky code's argument)
+  dumped while the player waits on the grid, and the page given the same
+  place, heading and pitch (`RELUVA_NFS_TRACK_CAMERA`): the poles, fences
+  and horizon hills land on the same pixels, and the sky's band starts
+  at the same row (about 120 of 480 by night) with the same gradient,
+  (16, 16, 24) to (41, 40, 24) in the host's 16-bit steps against
+  (18, 18, 28) to (38, 37, 31); above it both show the top colour, the
+  clear colour. The day sky agrees within the clouds' random layout.
+  Tilted and turned views on Hometown and Rocky Pass draw the horizon
+  straight across, as the code has it; there is no host frame with the
+  camera pitched far to compare with.
 
 Not checked against the game:
 

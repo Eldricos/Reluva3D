@@ -1081,6 +1081,10 @@ void testHeadlights() {
     CHECK(plain.fadeFrom == 20 && plain.reach == 40 && plain.colour == 0xFFFFFFFFu);
     const Headlight dim = carHeadlight(1, true, {0, 0, 0}, 0, 0.25f);
     CHECK(dim.fadeFrom == 2.5f && dim.reach == 10);
+    // Each further car the pass lights for a block gets less (0x41c670):
+    // 1 - lit / cars x 0.75.
+    CHECK(headlightIntensity(0, 8) == 1 && headlightIntensity(4, 8) == 0.625f && headlightIntensity(8, 8) == 0.25f);
+    CHECK(headlightIntensity(0, 0) == 1);
     const Headlight east = carHeadlight(1, true, {0, 0, 0}, 1.5707963f);
     CHECK(std::fabs(east.right[2] + 1) < 1e-5f && std::fabs(east.forward[0] - std::cos(kTilt)) < 1e-5f);
     // The light's place (0x42d160): up by +0x10C, a quarter of the half
@@ -1143,6 +1147,54 @@ void testHorizon() {
     CHECK(std::fabs(horizonTurn(hometown) - 0.25f) < 1e-4f);
     hometown.rotation = -90;
     CHECK(std::fabs(horizonTurn(hometown) - 0.75f) < 1e-4f);
+
+    // The sky's flat rows (0x479160, 0x479500): eight quads in a plane at
+    // the radius along the forward on the ground, a slot's arc wide, from
+    // 4 slots and the heading's fraction of one to the left.
+    {
+        Horizon flat;
+        flat.radius = 1500;
+        const float step = 1500 * 6.2831853f / 16;
+        // Along +z, looking up: heading 0, so 16 x frac(0 + 0.5) = 8, no fraction.
+        const SkyRow row = skyRow(flat, {0, 0.3f, 1}, -10, 600);
+        CHECK(row.firstSlot == 8);
+        CHECK(std::fabs(row.bottom[4][0]) < 1e-3f && std::fabs(row.bottom[4][2] - 1500) < 1e-3f);
+        CHECK(std::fabs(row.bottom[0][0] + 4 * step) < 1e-2f && std::fabs(row.bottom[8][0] - 4 * step) < 1e-2f);
+        CHECK(row.bottom[3][1] == -10 && row.top[3][1] == 590 && std::fabs(row.top[8][2] - 1500) < 1e-3f);
+        // A quarter slot to the right: the row a quarter step to the left
+        // (the right of +z is +x), the view's centre a quarter into slot 12.
+        const float a = 6.2831853f / 64;
+        const SkyRow turned = skyRow(flat, {std::sin(a), 0, std::cos(a)}, 0, 1);
+        const float across = turned.bottom[4][0] * std::cos(a) - turned.bottom[4][2] * std::sin(a);
+        const float ahead = turned.bottom[4][0] * std::sin(a) + turned.bottom[4][2] * std::cos(a);
+        CHECK(turned.firstSlot == 8 && std::fabs(across + step / 4) < 1e-2f && std::fabs(ahead - 1500) < 1e-2f);
+        // Along -x: heading 0.75, slot 16 x 0.25 = 4; with the rotation
+        // 90, 16 x frac(1.5) = 8; nearer the next slot, rounded up.
+        CHECK(skyRow(flat, {-2, 0, 0}, 0, 1).firstSlot == 4);
+        flat.rotation = 90;
+        CHECK(skyRow(flat, {-2, 0, 0}, 0, 1).firstSlot == 8);
+        flat.rotation = 0;
+        const float b = 6.2831853f * 0.7f / 16;
+        const SkyRow late = skyRow(flat, {std::sin(b), 0, std::cos(b)}, 0, 1);
+        CHECK(late.firstSlot == 9);
+        CHECK(std::fabs(late.bottom[4][0] * std::cos(b) - late.bottom[4][2] * std::sin(b) - 0.3f * step) < 1e-2f);
+        CHECK(skyRow(flat, {0, 1, 0}, 0, 1).firstSlot == 8); // straight up: along +z
+        // The horizon picture's tiles (0x478bb0): twice round, the second
+        // time mirrored with the mirror flag.
+        bool flipped = true;
+        CHECK(horizonTile(flat, 3, &flipped) == 3 && !flipped);
+        CHECK(horizonTile(flat, 11, &flipped) == 3 && !flipped);
+        flat.mirror = true;
+        CHECK(horizonTile(flat, 7, &flipped) == 7 && !flipped);
+        CHECK(horizonTile(flat, 8, &flipped) == 7 && flipped);
+        CHECK(horizonTile(flat, 15, &flipped) == 0 && flipped);
+        // No sky, black (0x47a4c0): the flag, or Lost Canyons' slices
+        // 906-1064.
+        CHECK(!skyBlack(flat, 5, 905) && skyBlack(flat, 5, 906) && skyBlack(flat, 5, 1064));
+        CHECK(!skyBlack(flat, 5, 1065) && !skyBlack(flat, 0, 1000));
+        flat.blackHorizon = true;
+        CHECK(skyBlack(flat, 0, 0));
+    }
     hometown.cloudDomeOffset = {-100, 250};
     CHECK(std::fabs(cloudHeight(hometown, 0) - 650) < 0.01f);
     CHECK(std::fabs(cloudHeight(hometown, 3000) + 100) < 0.01f);

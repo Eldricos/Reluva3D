@@ -168,6 +168,13 @@ struct Headlight {
     float nearPlane = 1, fadeFrom = 10, reach = 40; // fading from fadeFrom to nothing at reach
     uint32_t colour = 0;                             // ARGB, alpha too
 };
+// The intensity the pass gives a car's light (0x41c670, 0x41a800): 1 less
+// three quarters of the share of the race's cars (all of them, 0x5efd9c)
+// it has already lit for this block, so the first car lit gets 1 and each
+// further one less, never below a quarter.
+inline float headlightIntensity(int litBefore, int carCount) {
+    return carCount > 0 ? 1.0f - static_cast<float>(litBefore) / static_cast<float>(carCount) * 0.75f : 1.0f;
+}
 // beams: the car's light state (0 off, 1 low, 2 high; the headlight key
 // steps through them, 0x40de50). projected: the projtex option is on with
 // the z-buffer (0x6fbc3c, 0x7a3a60). Low beams fade from 10 to 40 in

@@ -149,6 +149,55 @@ std::array<Horizon::Rgb, 16> skyBaseColours(const Horizon& h) {
     return out;
 }
 
+// 0x479160: the forward on the ground, its heading in turns with a half
+// and the rotation added (kept 0 to 1), and three points at the radius
+// along it: there, `height` above, and a slot's arc (radius x 2 pi / 16)
+// to the right ((z, 0, -x) of the forward, as -forward x up). 0x479500
+// moves them 4 slots and the heading's fraction of a slot left, then
+// steps 8 slots right from there (0x4792e0). The slot of the first quad
+// is the heading x 16 rounded (the FPU's rounding, to nearest).
+SkyRow skyRow(const Horizon& h, const std::array<float, 3>& forward, float bottom, float height) {
+    constexpr double kTau = 6.283185307179586;
+    double fx = forward[0], fz = forward[2];
+    const double length = std::sqrt(fx * fx + fz * fz);
+    if (length > 0) {
+        fx /= length;
+        fz /= length;
+    } else {
+        fx = 0;
+        fz = 1;
+    }
+    double heading = std::atan2(fx, fz) / kTau + 0.5 + horizonTurn(h);
+    heading -= std::floor(heading);
+    const double slots = heading * 16;
+    const double first = std::nearbyint(slots);
+    const double radius = h.radius > 0 ? h.radius : 1;
+    const double step = radius * kTau / 16;
+    const double start = -(4 + (slots - first)) * step; // along the right
+    SkyRow row;
+    for (size_t i = 0; i < 9; ++i) {
+        const double along = start + static_cast<double>(i) * step;
+        const float x = static_cast<float>(fx * radius + fz * along);
+        const float z = static_cast<float>(fz * radius - fx * along);
+        row.bottom[i] = {x, bottom, z};
+        row.top[i] = {x, bottom + height, z};
+    }
+    row.firstSlot = static_cast<int>(first) % 16;
+    return row;
+}
+
+int horizonTile(const Horizon& h, int slot, bool* flipped) {
+    slot = (slot % 16 + 16) % 16;
+    const bool mirror = h.mirror && slot >= 8;
+    if (flipped)
+        *flipped = mirror;
+    return (mirror ? 15 - slot : slot) % 8;
+}
+
+bool skyBlack(const Horizon& h, int track, int roadSlice) {
+    return h.blackHorizon || (track == 5 && roadSlice > 0x389 && roadSlice < 0x429);
+}
+
 // 0x47adc0: off1 + 3 off2 cos(r / 3000 quarter turns); less, for the
 // nimbus (0x47b2b6), brightness / 255 x 3 off2 / 2 x (nimbus / 100,
 // rounded down: only 100 counts).

@@ -67,6 +67,27 @@ float horizonTurn(const Horizon& h); // the rotation, in turns, 0 to 1
 // side's colour at edge 0, stepping an eighth of the way to the far
 // side's each edge, and back.
 std::array<Horizon::Rgb, 16> skyBaseColours(const Horizon& h);
+// A row of the sky as nfs3.exe lays it out each frame (0x479160,
+// 0x479500): eight flat quads side by side in one vertical plane at the
+// horizon radius along the camera's forward on the ground, each a slot
+// (2 pi radius / 16) wide, between the heights bottom and bottom + height
+// (the camera's taken away). Its 9 bottom and 9 top corners are
+// camera-relative, in the track's coordinates, left to right; quad i is
+// slot (firstSlot + i) % 16. The game projects them with the camera, so
+// they tilt with its pitch. The sky's shading, the earth's and the
+// horizon picture are each such a row (0x479680, 0x4799d0, 0x479b90).
+struct SkyRow {
+    std::array<std::array<float, 3>, 9> bottom{}, top{};
+    int firstSlot = 0;
+};
+SkyRow skyRow(const Horizon& h, const std::array<float, 3>& forward, float bottom, float height);
+// The horizon picture's tile for a slot (0x478bb0): slot mod 8, or with
+// the mirror flag, for slots 8-15, 15 - slot drawn flipped.
+int horizonTile(const Horizon& h, int slot, bool* flipped = nullptr);
+// Whether the game draws no sky and clears to black (0x47a4c0): the black
+// horizon flag, or on Lost Canyons (track 5) while the camera's car is on
+// road slices 906 to 1064. Otherwise the clear colour is the sky's top.
+bool skyBlack(const Horizon& h, int track, int roadSlice);
 // The cloud dome's height above the camera at a distance r along the
 // ground, for a point of that brightness (with nimbus 100, brighter
 // points hang lower), and its grid: 13 x 13 points 450 apart, -3000 to
