@@ -743,7 +743,10 @@ Progress:
     read, and blocks going on to the next in the native code. The
     program's thread on the route 26% quicker than with the
     interpreter's loop (40 s from 54 s), the same instructions and
-    frames. A profile at 1024x768 then showed 35 to 40 frames a second. `RELUVA_NO_JIT=1` in the environment runs
+    frames. A profile at 1024x768 then showed 35 to 40 frames a second,
+    and 45 in the game (35 to 50) with the dispatch in native code.
+    Then blocks kept aside rather than made again, and the x87 unit
+    made: 35 s on the route, from 54 s with the interpreter. `RELUVA_NO_JIT=1` in the environment runs
     without it, to compare.
 - Not there yet:
   - **more speed**: the program's own code (NetImmerse's scene graph,

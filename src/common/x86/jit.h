@@ -47,6 +47,7 @@ public:
     // Where the Cpu keeps what the code reads and writes.
     struct Layout {
         size_t reg, eip, start, epoch, fsBase, eflags; // offsets into the Cpu
+        size_t fpuRegs, fpuTop, fpuTags, fpuControl;   // Cpu::fpu's
         const uint8_t* memory;                 // its memory
         const uint8_t* pages;                  // a byte per page, nonzero where code was cached
         uint32_t span;                         // the memory's size less the first page (Cpu::valid)
@@ -93,6 +94,20 @@ public:
         JmpRm,
         CallRm,
         Ret,
+        // The x87 unit on Cpu::fpu's doubles, as the handlers have them
+        // (SSE2's double arithmetic, which theirs compiles to; precision
+        // control's 24 bits by way of float). `size` 4 or 8 for a memory
+        // operand's; `alu` the operation (0 ADD, 1 MUL, 4 SUB, 5 SUBR, 6
+        // DIV, 7 DIVR); `cc` 1 to pop after; `rm` st(i)'s i.
+        FLoad,     // push the memory operand
+        FLoadInt,  // push the memory operand's 32-bit integer
+        FLoadSt,   // push st(i)
+        FStore,    // the memory operand <- st(0)
+        FStoreSt,  // st(i) <- st(0)
+        FArith,    // st(0) <- st(0) op the memory operand
+        FArithSt0, // st(0) <- st(0) op st(i)
+        FArithSti, // st(i) <- st(i) op st(0)
+        Fxch,
     };
     struct Op {
         Kind kind = Kind::Call;

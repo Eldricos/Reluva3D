@@ -15,6 +15,7 @@
 #include <new>
 #include <string>
 #include <string_view>
+#include <unordered_map>
 #include <utility>
 #include <vector>
 
@@ -314,6 +315,16 @@ private:
         uint64_t end = 0;
     } run_;
     void compileBlock(Block& b);
+    // Blocks with native code that others took the place of in the table,
+    // by their start, to put back as they were (decoded and made) when
+    // their address comes round again with the same bytes: the table is
+    // direct-mapped, and making blocks again had been a fifteenth of a
+    // game's time. Forgotten all at once when there are too many.
+    std::unordered_map<uint32_t, std::unique_ptr<Block>> spare_;
+    static constexpr size_t kSpareBlocks = 1u << 15;
+    // The block for `at`, from spare_ if it's there and its bytes are the
+    // same, else made (build).
+    void rebuild(Block& b, uint32_t at);
     static void jitMemoryFault(void* cpu, uint32_t address, uint32_t size); // for the Jit's code
     void decode(Cached& e, uint32_t at);
     void build(Block& b, uint32_t at);

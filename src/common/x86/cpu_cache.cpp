@@ -493,6 +493,8 @@ void Cpu::runCached(uint32_t returnAddress, uint32_t nativeStart) {
             Jit::Layout l{};
             l.reg = at(reg.data()), l.eip = at(&eip), l.start = at(&instructionStart_), l.epoch = at(&codeEpoch_);
             l.eflags = at(&eflags);
+            l.fpuRegs = at(fpu.regs.data()), l.fpuTop = at(&fpu.top), l.fpuTags = at(&fpu.tags);
+            l.fpuControl = at(&fpu.control);
             l.fsBase = at(&fsBase), l.memory = memory_.data(), l.pages = codePages_.data(), l.span = span_;
             l.memoryFault = &Cpu::jitMemoryFault;
             l.executed = at(&executed_), l.countingBlock = at(&counting_.block), l.countingStart = at(&counting_.start);
@@ -548,7 +550,7 @@ void Cpu::runCached(uint32_t returnAddress, uint32_t nativeStart) {
             b.epoch = codeEpoch_;
         }
         if (!fresh)
-            build(b, eip);
+            rebuild(b, eip);
         // The blocks it may go to next, into the cache while it runs: the
         // table is larger than the caches, and finding the next block was
         // much of this loop's time.
@@ -611,6 +613,7 @@ namespace {
 struct Made {
     Jit::Kind kind;
     uint8_t alu, form, size, cc;
+    bool lahf = true; // needs Jit::flagsOps
 };
 struct MadeTable {
     std::unordered_map<const void*, Made> map;
@@ -642,6 +645,27 @@ const std::unordered_map<const void*, Made>& madeWithFlags() {
         [&]<int... Cc>(std::integer_sequence<int, Cc...>) {
             ((m[&O::jcc<Cc>] = {K::Jcc, 0, 0, 4, uint8_t(Cc)}), ...);
         }(std::make_integer_sequence<int, 16>{});
+        // The x87 unit (no flags).
+        m[&O::fLoadMem<true>] = {K::FLoad, 0, 0, 8, 0, false}, m[&O::fLoadMem<false>] = {K::FLoad, 0, 0, 4, 0, false};
+        m[&O::fStoreMem<true, false>] = {K::FStore, 0, 0, 8, 0, false};
+        m[&O::fStoreMem<true, true>] = {K::FStore, 0, 0, 8, 1, false};
+        m[&O::fStoreMem<false, false>] = {K::FStore, 0, 0, 4, 0, false};
+        m[&O::fStoreMem<false, true>] = {K::FStore, 0, 0, 4, 1, false};
+        m[&O::fLoadInt] = {K::FLoadInt, 0, 0, 4, 0, false};
+        m[&O::fLoadSt] = {K::FLoadSt, 0, 0, 4, 0, false};
+        m[&O::fStoreSt<false>] = {K::FStoreSt, 0, 0, 4, 0, false};
+        m[&O::fStoreSt<true>] = {K::FStoreSt, 0, 0, 4, 1, false};
+        m[&O::fxch] = {K::Fxch, 0, 0, 4, 0, false};
+        auto arith = [&]<int R>(std::integral_constant<int, R>) { // not the compares (2, 3)
+            m[&O::fArithMem<R, true>] = {K::FArith, R, 0, 8, 0, false};
+            m[&O::fArithMem<R, false>] = {K::FArith, R, 0, 4, 0, false};
+            m[&O::fArithSt0<R>] = {K::FArithSt0, R, 0, 4, 0, false};
+            m[&O::fArithSti<R, false>] = {K::FArithSti, R, 0, 4, 0, false};
+            m[&O::fArithSti<R, true>] = {K::FArithSti, R, 0, 4, 1, false};
+        };
+        [&]<int... R>(std::integer_sequence<int, R...>) {
+            (arith(std::integral_constant<int, R>{}), ...);
+        }(std::integer_sequence<int, 0, 1, 4, 5, 6, 7>{});
         return m.map;
     }();
     return made;
@@ -690,7 +714,7 @@ void Cpu::compileBlock(Block& b) {
         else if (run == &O::ret)
             o.kind = K::Ret;
         else if (auto it = madeWithFlags().find(reinterpret_cast<const void*>(run));
-                 flags && it != madeWithFlags().end()) {
+                 it != madeWithFlags().end() && (flags || !it->second.lahf)) {
             o.kind = it->second.kind, o.alu = it->second.alu, o.form = it->second.form;
             o.size = it->second.size, o.cc = it->second.cc;
             if (run == &O::incDecReg<0> || run == &O::incDecReg<5>)
@@ -773,6 +797,34 @@ void Cpu::build(Block& b, uint32_t at) {
     for (uint32_t page = (at >= 3 ? at - 3 : 0) >> 12; page <= (at + 8u * b.words - 1) >> 12; ++page)
         codePages_[page] = 1;
     b.epoch = codeEpoch_;
+}
+
+void Cpu::rebuild(Block& b, uint32_t at) {
+    if (b.jit && b.start != 0xffffffffu && b.start != at) { // put by for when it comes round again
+        if (spare_.size() >= kSpareBlocks)
+            spare_.clear();
+        auto& kept = spare_[b.start];
+        if (!kept)
+            kept = std::make_unique<Block>();
+        *kept = b;
+    }
+    if (auto it = spare_.find(at); it != spare_.end()) {
+        Block& k = *it->second;
+        bool same = valid(at, 8u * k.words);
+        for (int w = 0; same && w < k.words; ++w) {
+            uint64_t now;
+            std::memcpy(&now, memory_.data() + at + 8 * uint32_t(w), 8);
+            same = ((now ^ k.code[w]) & (w == k.words - 1 ? k.lastMask : ~uint64_t(0))) == 0;
+        }
+        if (same) {
+            b = k;
+            b.epoch = codeEpoch_;
+            spare_.erase(it);
+            return;
+        }
+        spare_.erase(it);
+    }
+    build(b, at);
 }
 
 // Makes the entry for the instruction at `at`: a handler of its own if it's

@@ -301,7 +301,7 @@ Jit::~Jit() {
 const uint8_t* Jit::compile(const Op* ops, int count, uint32_t end) {
     if (!base_)
         return nullptr;
-    const size_t most = size_t(count) * 160 + 64;
+    const size_t most = size_t(count) * 320 + 64;
     if (used_ + most > size_)
         return nullptr;
     const Layout& L = layout_;
@@ -399,6 +399,15 @@ const uint8_t* Jit::compile(const Op* ops, int count, uint32_t end) {
             case Kind::PushReg:
             case Kind::PushImm:
             case Kind::PopReg:
+            case Kind::FLoad:
+            case Kind::FLoadInt:
+            case Kind::FLoadSt:
+            case Kind::FStore:
+            case Kind::FStoreSt:
+            case Kind::FArith:
+            case Kind::FArithSt0:
+            case Kind::FArithSti:
+            case Kind::Fxch:
                 continue;
             case Kind::Alu:
                 if (n.alu != 2 && n.alu != 3 && n.alu <= 8)
@@ -439,6 +448,66 @@ const uint8_t* Jit::compile(const Op* ops, int count, uint32_t end) {
         w.u8(0x83), w.u8(0xe8), w.u8(4);
         w.rbx({0x89}, kEax, regAt(4));
         store(o, kEdx, 4);
+    };
+    // The x87 unit. st(i) is regs[(top + i) & 7]: its index into ecx (st(0))
+    // or edx (st(i)), and xmm0 or xmm1 to or from [rbx + index*8 + regs].
+    auto st0Index = [&] { w.rbx({0x0f, 0xb6}, kEcx, L.fpuTop); }; // movzx ecx, byte [top]
+    auto stIndex = [&](int i) { // edx <- (ecx + i) & 7
+        w.u8(0x8d), w.u8(0x51), w.u8(uint8_t(i)); // lea edx, [rcx + i]
+        w.u8(0x83), w.u8(0xe2), w.u8(7);          // and edx, 7
+    };
+    // movsd: `op` 0x10 load, 0x11 store; xmm `x`; index register `idx` (ecx 1, edx 2).
+    auto fpuReg = [&](uint8_t op, int x, int idx) {
+        w.u8(0xf2), w.u8(0x0f), w.u8(op), w.u8(uint8_t(0x84 | x << 3)), w.u8(uint8_t(0xc3 | idx << 3));
+        w.u32(uint32_t(L.fpuRegs));
+    };
+    auto round = [&] { // Cpu::fpuRound on xmm0: through float when precision control is 0
+        w.u8(0x66), w.u8(0xf7), w.u8(0x83), w.u32(uint32_t(L.fpuControl)), w.u8(0x00), w.u8(0x03); // test word [control], 0x300
+        w.u8(0x75), w.u8(8);                                                 // jnz past
+        w.u8(0xf2), w.u8(0x0f), w.u8(0x5a), w.u8(0xc0);                      // cvtsd2ss xmm0, xmm0
+        w.u8(0xf3), w.u8(0x0f), w.u8(0x5a), w.u8(0xc0);                      // cvtss2sd xmm0, xmm0
+    };
+    // xmm0 <- xmm0 op xmm1, for arith's R (0 ADD, 1 MUL, 4 SUB, 5 SUBR, 6 DIV, 7 DIVR).
+    auto fpuOp = [&](int r) {
+        static constexpr uint8_t kOp[8] = {0x58, 0x59, 0, 0, 0x5c, 0x5c, 0x5e, 0x5e};
+        if (r == 5 || r == 7) { // y op x
+            w.u8(0xf2), w.u8(0x0f), w.u8(kOp[r]), w.u8(0xc8); // op xmm1, xmm0
+            w.u8(0x66), w.u8(0x0f), w.u8(0x28), w.u8(0xc1);   // movapd xmm0, xmm1
+        } else
+            w.u8(0xf2), w.u8(0x0f), w.u8(kOp[r]), w.u8(0xc1); // op xmm0, xmm1
+        round();
+    };
+    // xmm `x` <- the memory operand as a double (Cpu's loadReal: a double
+    // as two 32-bit loads, or a float widened).
+    auto loadRealTo = [&](const Op& o, int x) {
+        address(o);
+        load(o, kEdx, 4);
+        w.u8(0x66), w.u8(0x0f), w.u8(0x6e), w.u8(uint8_t(0xc2 | x << 3)); // movd xmm(x), edx
+        if (o.size == 8) {
+            w.u8(0x83), w.u8(0xc0), w.u8(4); // add eax, 4
+            load(o, kEdx, 4);
+            w.u8(0x66), w.u8(0x0f), w.u8(0x6e), w.u8(0xd2);                   // movd xmm2, edx
+            w.u8(0x66), w.u8(0x0f), w.u8(0x62), w.u8(uint8_t(0xc2 | x << 3)); // punpckldq xmm(x), xmm2
+        } else
+            w.u8(0xf3), w.u8(0x0f), w.u8(0x5a), w.u8(uint8_t(0xc0 | x << 3 | x)); // cvtss2sd
+    };
+    auto push = [&] { // Cpu::fpuPush of xmm0: top down, the register, its tag cleared
+        st0Index();
+        w.u8(0xff), w.u8(0xc9);           // dec ecx
+        w.u8(0x83), w.u8(0xe1), w.u8(7);  // and ecx, 7
+        w.rbx({0x88}, kEcx, L.fpuTop);    // mov [top], cl
+        fpuReg(0x11, 0, kEcx);
+        w.rbx({0x0f, 0xb6}, kEax, L.fpuTags); // movzx eax, byte [tags]
+        w.u8(0x0f), w.u8(0xb3), w.u8(0xc8);   // btr eax, ecx
+        w.rbx({0x88}, kEax, L.fpuTags);
+    };
+    auto pop = [&] { // Cpu::fpuPop (ecx st(0)'s index): its tag set, top up
+        w.rbx({0x0f, 0xb6}, kEax, L.fpuTags);
+        w.u8(0x0f), w.u8(0xab), w.u8(0xc8); // bts eax, ecx
+        w.rbx({0x88}, kEax, L.fpuTags);
+        w.u8(0xff), w.u8(0xc1);             // inc ecx
+        w.u8(0x83), w.u8(0xe1), w.u8(7);
+        w.rbx({0x88}, kEcx, L.fpuTop);
     };
     bool eipSet = false; // by the last: a handler sets it
     for (int i = 0; i < count; ++i) {
@@ -505,6 +574,73 @@ const uint8_t* Jit::compile(const Op* ops, int count, uint32_t end) {
                 } else
                     storeReg(o.form == 1 ? o.reg : o.form == 2 ? 0 : o.rm, kEdx, size);
             }
+            break;
+        }
+        case Kind::FLoad:
+            loadRealTo(o, 0);
+            push();
+            break;
+        case Kind::FLoadInt:
+            address(o);
+            load(o, kEdx, 4);
+            w.u8(0xf2), w.u8(0x0f), w.u8(0x2a), w.u8(0xc2); // cvtsi2sd xmm0, edx
+            push();
+            break;
+        case Kind::FLoadSt:
+            st0Index(), stIndex(o.rm), fpuReg(0x10, 0, kEdx); // st(i), before the push
+            push();
+            break;
+        case Kind::FStore:
+            // storeReal of st(0), popped first if it's to be (the address
+            // doesn't depend on it, and neither faults).
+            st0Index(), fpuReg(0x10, 0, kEcx);
+            if (o.cc)
+                pop();
+            if (o.size == 8)
+                w.u8(0x66), w.u8(0x48), w.u8(0x0f), w.u8(0x7e), w.u8(0xc2); // movq rdx, xmm0
+            else {
+                w.u8(0xf2), w.u8(0x0f), w.u8(0x5a), w.u8(0xc0); // cvtsd2ss xmm0, xmm0
+                w.u8(0x66), w.u8(0x0f), w.u8(0x7e), w.u8(0xc2); // movd edx, xmm0
+            }
+            address(o);
+            store(o, kEdx, 4);
+            if (o.size == 8) {
+                w.u8(0x48), w.u8(0xc1), w.u8(0xea), w.u8(32); // shr rdx, 32
+                w.u8(0x83), w.u8(0xc0), w.u8(4);              // add eax, 4
+                store(o, kEdx, 4);
+            }
+            break;
+        case Kind::FStoreSt:
+            st0Index(), fpuReg(0x10, 0, kEcx);
+            stIndex(o.rm), fpuReg(0x11, 0, kEdx);
+            if (o.cc)
+                pop();
+            break;
+        case Kind::Fxch:
+            st0Index(), stIndex(o.rm);
+            fpuReg(0x10, 0, kEcx), fpuReg(0x10, 1, kEdx);
+            fpuReg(0x11, 1, kEcx), fpuReg(0x11, 0, kEdx);
+            break;
+        case Kind::FArith:
+            loadRealTo(o, 1);
+            st0Index(), fpuReg(0x10, 0, kEcx);
+            fpuOp(o.alu);
+            fpuReg(0x11, 0, kEcx);
+            break;
+        case Kind::FArithSt0:
+            st0Index(), stIndex(o.rm);
+            fpuReg(0x10, 0, kEcx), fpuReg(0x10, 1, kEdx);
+            fpuOp(o.alu);
+            fpuReg(0x11, 0, kEcx);
+            break;
+        case Kind::FArithSti: {
+            static constexpr int kSwap[8] = {0, 1, 2, 3, 5, 4, 7, 6};
+            st0Index(), stIndex(o.rm);
+            fpuReg(0x10, 0, kEdx), fpuReg(0x10, 1, kEcx); // st(i) op st(0)
+            fpuOp(kSwap[o.alu]);
+            fpuReg(0x11, 0, kEdx);
+            if (o.cc)
+                pop();
             break;
         }
         case Kind::Jcc: {
