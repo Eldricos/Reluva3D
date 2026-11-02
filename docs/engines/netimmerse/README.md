@@ -13,15 +13,26 @@ saving, options, sound (in 3D, with music) and every mission work. All 51
 Adventure missions are solved by the game's own solutions in automated
 runs, and Mission One has also been played through by hand.
 
-It's slow for now: the game draws in software in the interpreter. Loading
-takes about 20 seconds, and the menus run at about 17 frames a second on 4
-cores.
+The game's code runs in an x86 emulator that turns it into native code
+(a JIT) on x86-64 Windows and Linux, and its drawing is done in software
+on the processor. At 1024x768x32 on a current desktop the menus run at
+about 35 frames a second and missions at about 45, lower in wide shots
+with much on screen.
 
 A data viewer of the game's files comes with it: archives, models (with
 their animation), textures, fonts, sounds and text.
 
 How it was built, measured and checked is in
-[alphateam.md](alphateam.md).
+[alphateam.md](alphateam.md). Also:
+
+- [known-differences.md](known-differences.md): where it behaves
+  differently from the original, and why;
+- [unconfirmed.md](unconfirmed.md): what hasn't been checked against the
+  original yet, and the format fields still guessed;
+- [testing.md](testing.md): the playthrough checklist, how to report a
+  problem, and the automated checks;
+- [reverse-engineering.md](reverse-engineering.md): how it was all worked
+  out, the rules followed and the tools.
 
 ## Using it
 
