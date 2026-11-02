@@ -15,6 +15,35 @@ settled, move it to the format page it belongs to and take it off here.
   reason to run the original under a debugger.
   [dialogue.md](../../formats/awe/dialogue.md), section 9.10.
 
+- **A walk eases out the gesture under way.** The game's walk start
+  (`0x441160`) calls `0x4048f0`, which eases every finite gesture out
+  over 0.3 s, once the path is set; Reluva does the same, so no one
+  slides along in an idle variation. Read, not watched. The one slide
+  left on the route is Hardman's in Sirkeci.Market_05 (`walka 10 17` in
+  the fountain talk): he has no walk file, so the game, by the same
+  code, moves him at 150 units a second with no walk (`0x4422d9`).
+  [characters.md](../../formats/awe/characters.md#walking-a-path).
+- **A new game from the menu starts afresh.** `reset` (`0x411aa0`)
+  empties the conversations heard (`[0x498810]+0x2b4`), and going to the
+  main menu changes the place (`0x422640`), so Play drops the scenes
+  kept (`0x4229a5` -> `0x423430`). Read from the code; in Reluva, a game
+  left for the menu and started again was checked by hand.
+  [characters.md](../../formats/awe/characters.md#leaving-a-scene-and-coming-back),
+  [dialogue.md](../../formats/awe/dialogue.md), section 7.
+- **The interface's last row of one letter.** `0x414720` draws a wrapped
+  text's last row only if it's longer than one character (`0x414b34`),
+  though `0x414c30` counts it in the height. Reluva does the same; no
+  text in the install is known to end that way.
+  [interface.md](../../formats/awe/interface.md).
+
+## Not read yet
+
+- **A character's routine when its scene is shown again.** Reluva starts
+  it from its beginning; whether the game's goes on from where it was
+  hasn't been read. Routines are short loops of gestures, so it's hard
+  to see either way.
+  [characters.md](../../formats/awe/characters.md#leaving-a-scene-and-coming-back).
+
 ## Meanings inferred
 
 - **Fields loaded but never read.** The common `b54`, `b58`, `b68`,

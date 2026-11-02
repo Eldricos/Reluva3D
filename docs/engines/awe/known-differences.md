@@ -23,11 +23,25 @@ The format pages give the detail; this page gathers them.
   makes the frame's targets again. Shadow edges stay hard (their mask is
   made on the CPU). See [options.md](../../formats/awe/options.md).
 
+- **Characters are skinned and lit on the CPU**, each frame, spread over
+  the machine's cores, as Direct3D's fixed-function pipeline would light
+  them: the same colours, by the same per-vertex formula. Their meshes
+  stay on the GPU and only the vertices are sent each frame. See
+  [lighting.md](../../formats/awe/lighting.md) and
+  [awe.md](../awe.md#frame-time).
 - **Text is drawn by Reluva's own TrueType renderer**, not Windows'.
   The game's fonts are used, sized as Windows sizes them, but letters can
   differ a little in their edges: in the walkthrough the dialogue's lines
   come out about 2 % wider than Reluva's. Where the lines break is the
-  same (the game's rule, [dialogue.md](../../formats/awe/dialogue.md)).
+  same everywhere text is wrapped: the spoken line, the choices and a
+  movie's subtitles (`0x43db80`) and the interface's text (`0x414720`)
+  all use the game's rule, two spaces kept after a sentence's end
+  ([dialogue.md](../../formats/awe/dialogue.md),
+  [interface.md](../../formats/awe/interface.md)).
+- **A choice low in the box is always drawn.** The game leaves out a
+  choice whose rows would reach y 745 (`0x43d1cb`: its top plus its
+  height); the choices never get that far down, so Reluva doesn't test
+  it.
 
 ## Characters and animation
 
@@ -62,8 +76,10 @@ The format pages give the detail; this page gathers them.
   place loaded; Reluva reads a scene again when it's shown. What the
   game would have kept is kept instead: characters' positions, and what
   scripts left them doing (paused, their shadow, what they hold, an
-  endless animation), by scene, until a new place is loaded; the
-  player's position per scene. Objects' `hide` and `show` don't need
+  endless animation), by scene, until a new place is loaded (an act's
+  location, or a `scene` in another place: the main menu counts as one,
+  so a game left for it starts afresh); the player's position per
+  scene. Objects' `hide` and `show` don't need
   keeping: entering a scene tests every object's condition afresh in the
   game too. A character's own routine starts from its beginning again.
   Saves are in the game's own format either way. See

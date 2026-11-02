@@ -132,6 +132,12 @@ the folder directly. CLion and Qt Creator also open `CMakeLists.txt` directly.
 A console window opens next to the game window and shows Reluva's log
 messages, which is useful during development.
 
+**Environment variables** (e.g. `RELUVA_PERF=1`, which writes where each
+frame's time goes): add an `env` line to the same `reluva.exe` entry in
+`launch.vs.json` (below), `"env": { "RELUVA_PERF": "1" }`; or, in a
+terminal, `set RELUVA_PERF=1` (Command Prompt) or
+`$env:RELUVA_PERF = "1"` (PowerShell) before starting `reluva.exe` there.
+
 **Passing command-line arguments** (e.g. to start the testbed directly): in
 Solution Explorer, right-click `CMakeLists.txt` → **Add Debug Configuration**
 (or **Debug and Launch Settings**) → **reluva.exe**. In the `launch.vs.json`

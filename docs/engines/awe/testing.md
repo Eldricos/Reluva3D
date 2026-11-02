@@ -49,6 +49,21 @@ dialogue choice. These were set side by side with the walkthrough
 recordings to check how scenes look (see
 [reverse-engineering.md](reverse-engineering.md)).
 
+### Frame time
+
+With the environment variable `RELUVA_PERF` set, Reluva writes to its
+console, every three seconds, the scene, the frames a second and where
+a frame's time goes (2D, characters, present); see
+[awe.md](../awe.md#frame-time). Set it where Reluva is started:
+`set RELUVA_PERF=1` in a Command Prompt, `$env:RELUVA_PERF = "1"` in
+PowerShell (`set` there makes a PowerShell variable the program never
+sees), `RELUVA_PERF=1 ./reluva` on Linux and macOS, or an `env` entry in
+Visual Studio's `launch.vs.json` (see [BUILDING.md](../../BUILDING.md)).
+
+`awe-acts -play <route> -mouse -3d -draw` plays the route in a window
+drawing every frame, so two builds can be timed on the same scenes, and
+their `-shot` frames compared byte for byte.
+
 ### What the automated checks don't cover
 
 - The real window: the operating system's events, the audio device, a
@@ -73,7 +88,12 @@ wrong, and if possible compare with the same moment of a recording.
 - [ ] Sound: music, effects and voices play, and their volume sliders
       work; nothing crackles or stops.
 - [ ] Frame rate: walking, the moving train's windows, snow and steam
-      stay smooth; fades take about a third of a second.
+      stay smooth; fades take about a third of a second. A scene below
+      your screen's refresh rate: its `RELUVA_PERF` lines (above).
+- [ ] Walking: characters walk from their first step, turning on the
+      spot first where they face away; none slides along mid-gesture
+      (Hardman in the market's fountain talk does in the original too:
+      he has no walk).
 - [ ] The cursor: the right verb over hotspots, doors, characters and
       items; the item in hand as the cursor; the top bar comes down at
       the top of the screen.
@@ -95,6 +115,8 @@ wrong, and if possible compare with the same moment of a recording.
       load: the scene, items, characters' places and the music come back.
 - [ ] Overwrite a save; the thumbnail and name show in the slot.
 - [ ] Load a save made by the original game, if you have one.
+- [ ] Leave a game for the main menu and press Play: a new game, the
+      first conversation and the market's characters as at the start.
 
 ### Off the route
 
