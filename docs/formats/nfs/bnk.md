@@ -278,8 +278,10 @@ MMX `0x4ffda2` replaces the mixers (`0x51f580` 8-bit mono, `0x51f680`,
   L × 256 (`0x51f5b0`, `0x51f780`); the mixer multiplies with `pmulhw`,
   so a 16-bit sample s gives ⌊L × s / 256⌋ (`0x51f7dc`), rounded down.
   An 8-bit sample goes in as the high byte of a word whose low byte
-  is left from the previous pass (`punpcklbw mm6, mm5`, `0x51f60c`):
-  an error under 1/256 of a step.
+  is left from the previous pass (`punpcklbw mm6, mm5`, `0x51f60c`).
+  That low byte is a byte of the samples before, so the error is up
+  to one 8-bit step (255 in 16 bits), not 1/256 of one: about half a
+  step too high on average (measured below).
 - **The bus.** Each voice is added with signed saturation (`paddsw`,
   `0x51f7eb`), so the bus clips at ±32767, half scale, voice by voice,
   in the order the voices are mixed.
@@ -295,7 +297,7 @@ MMX `0x4ffda2` replaces the mixers (`0x51f580` 8-bit mono, `0x51f680`,
 The float path (`0x520a40` and on, `0x521d00`): gain L × 1/127
 (`0x56ad10`; at 127 exactly 1, with no multiply), sums kept in float,
 and one rounding at the end, to nearest (adding 1.5 × 2²³, `0x55188c`),
-then a clip to −32768..32767 (`0x521d34`). So the two differ:
+then a clip to −32768..32767 (`0x521d34`). So the two differ (predicted; measured under Run side by side below):
 - the gain: L/128 with MMX, L/127 without, 0.07 dB quieter;
 - rounding: down at every step with MMX, about −1 step per voice on
   average, against one rounding to nearest;
@@ -337,8 +339,10 @@ The interpreter now decodes MMX ([x86.md](../../engines/x86.md)), and
 capstone found no others). They are all behind the flag CPUID sets
 (`0x5643b4`, written at `0x4f1dd4`):
 - the sound mixer: the mixers `0x51f5dd`-`0x51f897` (8 and 16 bits,
-  mono and stereo), the scalar edges `0x520830` and `0x520a10`, the
-  mix downs `0x520870` and `0x52091f`, the bus clear `0x5209a0` (and
+  mono and stereo), the mix downs, one per output format (`0x520830`
+  8-bit mono, `0x520870` 8-bit stereo, `0x520a10` 16-bit mono,
+  `0x520920` 16-bit stereo; set at `0x4ffe05`-`0x4ffe36`, chosen by
+  `iSNDmixreinit`), the bus clear `0x5209a0` (and
   `emms` at `0x520a00`), the resamplers `0x5270f0`, `0x527170`
   (8 bits), `0x527210`, `0x527290` (16 bits);
 - the EA-XA decoders `0x52d1a0` (mono) and `0x52d250` (stereo), chosen
@@ -354,8 +358,8 @@ counted the routines' entries) ran without a fault, the same in three
 runs. The MMX routines ran: the 16-bit mixers (`0x51f7ad` 44,405 times,
 `0x51f897` 47,030), the 16-bit resamplers (`0x527210` 29,531,
 `0x527290` 26,783), the bus clear (22,522), the EA-XA decoders (30,519
-and 47,387) and the copy (141,833). The 8-bit routines did not (the
-race's sounds are 16-bit), nor did any float mixer or resampler. The
+and 47,387) and the copy (141,833). The 8-bit routines did not (no
+sound in the game is 8-bit, below), nor did any float mixer or resampler. The
 recording (`-wav`, by the game's clock) against the float path's:
 - **Level**: −0.03 dB over the run. The spectra agree within 0.5 dB in
   each band (0-250 Hz up to 9-11 kHz), in the menus and in the race.
@@ -371,8 +375,83 @@ recording (`-wav`, by the game's clock) against the float path's:
   voices start at slightly different moments. So the predicted rounding,
   about −0.9 steps a voice, could not be seen in a race: it is far below
   the content's own offset (means of −15 to +180 steps). A check of that
-  needs the two mixers run on the same voices, as `nfs-native-check`
-  runs its routines.
+  needs the two mixers run on the same voices: that is the next part.
+
+**Run side by side** (November 2026). `reluva-tool nfs-mmx-check <game>
+[trials]` loads the game twice, both in the interpreter with no native
+routines. It sets the mixer up (`0x4fff18`, for 16-bit stereo output)
+with the MMX flag (`0x5643b4`) clear in one and set in the other. Then
+it starts the same voices in both with `iSNDmixstart` (`0x5000b8`) and
+mixes 4,096 frames with `0x500864`, as the game does. So each side runs
+the game's whole chain: decoder, resampler, mixer, bus and mix down.
+The voices are `Gen.bnk` 29, 32, 41 (PCM), 33, 35 (EA-XA) and the
+Corvette's `car.bnk` 0 and 1, and noise; at levels, pans and pitches
+picked at random or set. The numbers below are from 40 trials, in
+output steps, MMX less float. "Gain out" is MMX less float × 127/128.
+- **Gain.** A least-squares fit of MMX on float gives 0.99214-0.99221
+  in every case: 127/128 (0.99219). So it is L/128 against L/127.
+- **Rounding, one voice.** With the gain taken out, one voice is about
+  1 step low. Pitched voices are −1.00 (resampled samples have every
+  fraction). At the output's rate it depends on the level: the bus gets
+  ⌊L × s / 256⌋, and if L is a multiple of 2^k only 256 / 2^k fractions
+  occur. Measured: L 127 −0.98, 100 −0.96, 64 −0.73, 32 −0.84, 8 −0.94,
+  −19 −0.97 (RMS 0.96-1.17). The bus rounds down by half a bus step on
+  average, and the mix down doubles that.
+- **Rounding adds up.** At L = 32, 1, 2, 3 and 5 voices are −0.83,
+  −1.67, −2.49, −4.23 at the output's rate, and −1.00, −2.00, −3.00,
+  −4.98 pitched (0.602 or 1.375). So it is −1 a voice, not −0.9; the
+  earlier −0.9 was L = 32 at the output's rate. With 5 voices, 42% of
+  samples are 5 or more steps low, 28% 4, 20% 3, 0.1% within 0.5.
+- **Random voices.** 1-6 real voices at random pans and pitches: gain
+  out −3.49, RMS 16.9; clipped 0.40% (float 0.42%).
+- **The mix down** (`0x520920`) doubles each bus word with saturation,
+  exactly: checked on 4,096 random words. It adds no offset of its own.
+- **The lowest bit.** Every non-zero MMX sample below 32,767 is even, in
+  every case (float: 49-55%). Only the top, 32,767, is odd.
+- **The bus saturates.** A voice made loud (× 4) at L = 127, step 1:
+  three copies, then two negated. The float mix is the voice, clipped
+  (output RMS 25,281). The MMX bus stops at 32,767 after the first
+  copies, and the two negated ones take it toward 0 (output RMS 9,721;
+  apart by RMS 22,020). The other way round (two negated, then three)
+  the two agree: gain out −4.73, RMS 4.8. One voice can't reach full
+  scale with MMX: at most 2 × ⌊32,767 × 127 / 256⌋ = 32,510. So with
+  that voice float clips 40.6% of samples, MMX none.
+- **EA-XA.** The MMX decoder (`0x52d1a0`) decodes lower. At L = 127, the
+  MMX mix of the bank's EA-XA is 12.2 steps under the MMX mix of the
+  same sound decoded by Reluva (`audio::decodeEaXa`) as PCM (RMS 16.6,
+  max 40). The float path's decoder is within 0.18 of it (RMS 2.0,
+  max 12). So with EA-XA the MMX path is about 13 steps low in all.
+- **8-bit sources.** No retail sound is 8-bit (below), so the check makes
+  some: the high bytes of the real sounds. The float path reads an
+  8-bit sample as the signed byte × 256 (its table at `0xa0c2a0`: 0x7f
+  32,512, 0x80 −32,768). The MMX mixer's low byte (above) makes it high
+  by about L steps: one mono voice at step 1, +121.7 at L 127, +62.3 at
+  64, +29.9 at 32 (RMS 148, 75, 37). Pitched, the 8-bit resampler
+  (`0x5270f0`, `0x527170`, its edge `0x51f9de`) rounds down again, so
+  it is less: +61 and +63 for mono at 0.602 and 1.375, +97 and +94 for
+  stereo. The gain stays 0.988-0.991. The sound is otherwise sane: the
+  same wave, a little noise and a small DC offset.
+- **Other output formats.** The game asks for 16-bit stereo only. The
+  others were run too. 16-bit mono (`0x520a10`) adds left and right with
+  saturation and doesn't double, so its lowest bit is even half the
+  time; gain out −2.41. 8-bit mono (`0x520830`, the same sum's high
+  byte) is −0.51 of an 8-bit step; 8-bit stereo (`0x520870`) −0.01.
+
+The check counts the MMX routines' entries as they run. The 8-bit
+mixers (`0x51f5dd` 768 times, `0x51f6c7` 432), resamplers (`0x5270f0`
+288, `0x527170` 288, `0x51f9de` 144) and the three mix downs the game
+never asks for (`0x520830`, `0x520870`, `0x520a10`, 160 each) all ran,
+without a fault, as did the 16-bit routines and `0x52d1a0`.
+
+**No 8-bit sounds.** A sound is 8-bit only with a PT tag `0x81` of 8
+(`iSNDplatformresolve`; 16 by default, `0x522557`). A scan of every
+file of the install and the CD for PT headers (13,919: the banks, those
+in `.viv` files, the `.mus` streams and the movies) found no `0x81` at
+all: 9,717 MicroTalk, 3,333 EA-XA and 869 PCM, all 16-bit. `nfs3.exe`
+holds no PT header of its own. The front end's sounds (`fesfx.bnk`),
+the speech (MicroTalk) and the music are all 16-bit.
+So the 8-bit MMX routines never run in the retail game; only the
+side-by-side check runs them.
 
 **Unread voice fields** (`0x00`, `0x08`). The voices are one static
 array, 16 of 0x60 bytes at `0xa09b3c`, and voice pointers are only ever

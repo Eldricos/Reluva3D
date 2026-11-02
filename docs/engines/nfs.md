@@ -1158,6 +1158,15 @@ Started. Done so far:
   spectrum; it is not sample for sample the same (bnk.md says why).
   `-count ADDR` (repeatable) prints how many times the instruction at
   ADDR ran, as the routines' counts there were taken.
+  `reluva-tool nfs-mmx-check <game> [trials]` runs the two mixers on the
+  same voices: the game twice in the interpreter, the MMX flag clear in
+  one and set in the other, each voice started with `iSNDmixstart` and
+  mixed with the game's own routines. It prints, for real and random
+  voices, how the MMX output differs from the float one sample by
+  sample (the mean and RMS, with and without the 127/128 gain, the
+  share of even samples, clipping), and how often each MMX routine ran.
+  It also runs the 8-bit routines, which no retail sound uses. The
+  results are in bnk.md (Run side by side).
 - **Memory written at a moment** (`nfs-host -poke WHEN:ADDR:VALUE[:SIZE]`,
   as many as wanted). It puts a game state in place without the menus.
   WHEN is `ms=N`, once the game's clock reaches N (checked at each thread
@@ -1432,9 +1441,9 @@ README.md.
   wet (their banks lack sounds 31 and 0); what the game does then
   wasn't followed. The music's place bonus for 2nd and 3rd, its
   one-racer tables and 8-lap races weren't run, nor what picks a
-  track's rock or tech stream ([mus.md](../formats/nfs/mus.md)) The MMX mixer is compared
-  with the float one from its transcription only: the interpreter has
-  no MMX ([bnk.md](../formats/nfs/bnk.md)).
+  track's rock or tech stream ([mus.md](../formats/nfs/mus.md)). The MMX
+  mixer's 8-bit routines run only in `nfs-mmx-check`: no retail sound
+  is 8-bit ([bnk.md](../formats/nfs/bnk.md)).
 - The car handling in full: the tyre model, steering and gear changes,
   landing, and the computer cars' simpler model. The race types, the
   network kinds, `carp.txt`'s place in memory, the engine and the car

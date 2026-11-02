@@ -6,6 +6,7 @@
 #include "backends/sockets/socket_net.h"
 #include "common/audio/wav.h"
 #include "common/events.h"
+#include "common/fs.h"
 #include "common/image.h"
 #include "common/x86/pokes.h"
 #include "engines/nfs/bnk.h"
@@ -93,6 +94,7 @@ const char* const kUsageLines =
     "                       [-present voodoo2a.dll] (the renderer the game is told of, -renderer's loaded in\n"
     "                       its place; the default; none: as -renderer)\n"
     "  reluva-tool nfs-native-check <game folder> [trials]\n"
+    "  reluva-tool nfs-mmx-check <game folder> [trials]\n"
     "  reluva-tool nfs-huff-check <game folder> [out dir]\n"
     "  reluva-tool nfs-survey <folder>... [-v]\n"
     "  reluva-tool nfs-page <game folder> <out.tga> <page> [key...]\n";
@@ -1701,6 +1703,476 @@ int cmdNfsNativeCheck(int argc, char** argv) {
     return failed ? 1 : 0;
 }
 
+// Runs the game's own sound mixer (iSND's, bnk.md) twice on the same
+// voices: with its float routines and with its MMX ones, both in the
+// interpreter, the game's code as it is. Starts the voices with
+// iSNDmixstart (0x5000b8) and mixes with 0x500864, as the game does, after
+// setting the mixer up (0x4fff18) with the MMX flag (0x5643b4) clear or
+// set; then compares the outputs sample by sample.
+int cmdNfsMmxCheck(int argc, char** argv) {
+    if (argc < 3) {
+        std::fprintf(stderr, "usage: reluva-tool nfs-mmx-check <game folder> [trials]\n");
+        return 2;
+    }
+    using reluva::x86::Cpu;
+    const int trials = argc > 3 ? std::max(1, std::atoi(argv[3])) : 40;
+    const auto folders = reluva::nfs::findFolders(argv[2], {}, "nfs3.exe");
+    reluva::nfs::GameHost::Options options;
+    options.nativeRoutines = false;
+    options.saveFolder = stdfs::temp_directory_path() / "reluva-mmx-check";
+    reluva::nfs::GameHost floatHost(folders, options), mmxHost(folders, options);
+    reluva::nfs::GameHost* hosts[2] = {&floatHost, &mmxHost};
+    constexpr uint32_t kDataSize = 1 << 22, kOutSize = 1 << 16;
+    uint32_t stack[2], data[2], out[2];
+    for (int i = 0; i < 2; ++i) {
+        if (reluva::Error e = hosts[i]->load())
+            return fail(e);
+        stack[i] = hosts[i]->process().memory().alloc(1 << 16);
+        data[i] = hosts[i]->process().memory().alloc(kDataSize);
+        out[i] = hosts[i]->process().memory().alloc(kOutSize);
+        if (!stack[i] || !data[i] || !out[i])
+            return fail(reluva::Error::fail("no memory"));
+    }
+    // The MMX routines' entries, counted as they run.
+    const std::pair<uint32_t, const char*> watched[] = {
+        {0x51f5dd, "mix 8-bit mono"},       {0x51f6c7, "mix 8-bit stereo"},       {0x51f7ad, "mix 16-bit mono"},
+        {0x51f897, "mix 16-bit stereo"},    {0x5270f0, "resample 8-bit mono"},    {0x527170, "resample 8-bit stereo"},
+        {0x51f9de, "8-bit resample edge"},  {0x527210, "resample 16-bit mono"},   {0x527290, "resample 16-bit stereo"},
+        {0x52d1a0, "EA-XA mono"},           {0x520830, "mix down 8-bit mono"},    {0x520870, "mix down 8-bit stereo"},
+        {0x520a10, "mix down 16-bit mono"}, {0x520920, "mix down 16-bit stereo"}, {0x5209a0, "bus clear"},
+    };
+    constexpr size_t kWatched = std::size(watched);
+    uint64_t runs[kWatched] = {};
+    mmxHost.cpu().trace = [&](Cpu& c) {
+        if (c.eip < 0x51f5dd || c.eip > 0x52d1a0)
+            return;
+        for (size_t k = 0; k < kWatched; ++k)
+            if (c.eip == watched[k].first)
+                ++runs[k];
+    };
+    // A voice as iSNDplatformplay hands it over: the data as the game holds
+    // it, its format (1 8-bit mono, 2 8-bit stereo, 4 16-bit mono, 8 16-bit
+    // stereo), compression (0 PCM, 7 EA-XA), levels and 16.16 step.
+    struct Voice {
+        std::vector<uint8_t> bytes;
+        uint32_t samples = 0;
+        int format = 4, compression = 0, left = 0, right = 0;
+        uint32_t step = 0x10000;
+        int quality = 50;
+    };
+    // The mix of `voices` in `frames` frames of output format `outFormat`
+    // (the same flags), by the float (0) or MMX (1) routines, as signed
+    // values (8-bit outputs centred).
+    auto render = [&](int i, const std::vector<Voice>& voices, int frames, int outFormat, std::vector<int>& result) {
+        auto& c = hosts[i]->cpu();
+        const uint32_t top = stack[i] + (1 << 16) - 64;
+        uint32_t ignored = 0;
+        c.write32(0x5643b4, uint32_t(i));
+        c.reg[Cpu::ESP] = top;
+        c.reg[Cpu::EAX] = uint32_t(outFormat);
+        c.reg[Cpu::EDX] = 0x500036; // the voice-ended callback: a ret
+        if (reluva::Error e = c.call(0x4fff18, {}, ignored))
+            return e;
+        uint32_t at = data[i];
+        for (size_t k = 0; k < voices.size(); ++k) {
+            const Voice& v = voices[k];
+            if (at + v.bytes.size() > data[i] + kDataSize)
+                return reluva::Error::fail("voices too long");
+            for (size_t n = 0; n < v.bytes.size(); ++n)
+                c.write8(at + uint32_t(n), v.bytes[n]);
+            c.reg[Cpu::ESP] = top;
+            c.reg[Cpu::EAX] = uint32_t(k);
+            c.reg[Cpu::EDX] = uint32_t(v.format);
+            c.reg[Cpu::EBX] = uint32_t(v.compression);
+            c.reg[Cpu::ECX] = 1; // played once
+            if (reluva::Error e = c.call(0x5000b8,
+                                         {at, v.samples, 0xffffffffu, 0xffffffffu, uint32_t(v.left), uint32_t(v.right),
+                                          v.step, uint32_t(v.quality), 0},
+                                         ignored))
+                return e;
+            at += (uint32_t(v.bytes.size()) + 15) & ~15u;
+        }
+        const int perFrame = outFormat == 8 ? 4 : outFormat == 1 ? 1 : 2;
+        if (uint32_t(frames * perFrame) > kOutSize)
+            return reluva::Error::fail("too many frames");
+        c.reg[Cpu::ESP] = top;
+        c.reg[Cpu::EAX] = out[i];
+        c.reg[Cpu::EDX] = uint32_t(frames);
+        if (reluva::Error e = c.call(0x500864, {}, ignored))
+            return e;
+        result.clear();
+        if (outFormat == 8 || outFormat == 4)
+            for (int n = 0; n < frames * perFrame / 2; ++n)
+                result.push_back(int16_t(c.read16(out[i] + 2 * uint32_t(n))));
+        else
+            for (int n = 0; n < frames * perFrame; ++n)
+                result.push_back(int(c.read8(out[i] + uint32_t(n))) - 128);
+        return reluva::Error::success();
+    };
+    // The differences of MMX (m) from float (f), over many samples.
+    struct Diff {
+        uint64_t n = 0, nonzero = 0, even = 0, nonzeroF = 0, evenF = 0, clipM = 0, clipF = 0;
+        double sum = 0, sum2 = 0, sumG = 0, sumG2 = 0, mf = 0, ff = 0;
+        int maxAbs = 0, limit = 32767;
+        std::map<int, uint64_t> hist;
+        void add(int m, int f) {
+            ++n;
+            const int d = m - f;
+            const double g = m - f * 127.0 / 128.0; // with the gain taken out
+            sum += d, sum2 += double(d) * d, sumG += g, sumG2 += g * g;
+            maxAbs = std::max(maxAbs, std::abs(d));
+            ++hist[std::clamp(int(std::lround(g)), -5, 5)];
+            if (m && m != limit) // the top, 32767, is odd
+                ++nonzero, even += (m & 1) == 0;
+            if (f && f != limit)
+                ++nonzeroF, evenF += (f & 1) == 0;
+            clipM += m >= limit || m <= -limit - 1;
+            clipF += f >= limit || f <= -limit - 1;
+            if (std::abs(f) < limit - 1000 && std::abs(m) < limit - 1000)
+                mf += double(m) * f, ff += double(f) * f;
+        }
+        void print(const char* name) const {
+            if (!n) {
+                std::printf("%-34s no samples\n", name);
+                return;
+            }
+            std::printf("%-34s %7llu: m-f mean %+7.2f rms %7.2f max %5d; gain out: mean "
+                        "%+6.2f rms %6.2f; "
+                        "gain %.5f; even %5.1f%% (float %4.1f%%); clip %.2f%%/%.2f%%\n",
+                        name, (unsigned long long)n, sum / n, std::sqrt(sum2 / n), maxAbs, sumG / n,
+                        std::sqrt(sumG2 / n), ff > 0 ? mf / ff : 0.0, nonzero ? 100.0 * even / nonzero : 0.0,
+                        nonzeroF ? 100.0 * evenF / nonzeroF : 0.0, 100.0 * clipM / n, 100.0 * clipF / n);
+        }
+        void printHist() const {
+            std::printf("%36s", "m - f x 127/128, rounded:");
+            for (const auto& [k, c] : hist)
+                std::printf(" %s%d %.1f%%", k == -5 ? "<=" : k == 5 ? ">=" : "", k, 100.0 * c / n);
+            std::printf("\n");
+        }
+    };
+    int failures = 0;
+    auto compare = [&](const std::vector<Voice>& voices, int frames, int outFormat, Diff& diff,
+                       std::vector<int>* floatOut = nullptr, std::vector<int>* mmxOut = nullptr) {
+        std::vector<int> r[2];
+        for (int i = 0; i < 2; ++i)
+            if (reluva::Error e = render(i, voices, frames, outFormat, r[i])) {
+                if (failures++ < 5)
+                    std::printf("%s mixer failed: %s\n", i ? "MMX" : "float", e.message.c_str());
+                return;
+            }
+        diff.limit = outFormat & 3 ? 127 : 32767;
+        for (size_t k = 0; k < r[0].size(); ++k)
+            diff.add(r[1][k], r[0][k]);
+        if (floatOut)
+            *floatOut = r[0];
+        if (mmxOut)
+            *mmxOut = r[1];
+    };
+
+    uint64_t seed = 0x9e3779b97f4a7c15ull;
+    auto random = [&seed] {
+        seed ^= seed << 13, seed ^= seed >> 7, seed ^= seed << 17;
+        return seed;
+    };
+    // The data of a voice from 16-bit samples (interleaved when stereo):
+    // as 16-bit or as signed 8-bit (the high byte).
+    auto pcm = [](const std::vector<int16_t>& s, int channels, bool eightBit) {
+        Voice v;
+        v.format = eightBit ? (channels == 2 ? 2 : 1) : (channels == 2 ? 8 : 4);
+        v.samples = uint32_t(s.size() / size_t(channels));
+        for (int16_t x : s) {
+            if (eightBit)
+                v.bytes.push_back(uint8_t(x >> 8));
+            else
+                v.bytes.push_back(uint8_t(x)), v.bytes.push_back(uint8_t(uint16_t(x) >> 8));
+        }
+        return v;
+    };
+    const int frames = 4096;
+
+    // The real sounds: Gen.bnk 29, 32, 41 (PCM), 33, 35 (EA-XA) and the
+    // Corvette's car.bnk 0, 1 (stereo PCM, their left channel).
+    struct Real {
+        std::string name;
+        std::vector<int16_t> samples;
+        std::vector<uint8_t> eaxa; // the data as in the bank, when EA-XA
+        uint32_t count = 0;
+    };
+    std::vector<Real> real;
+    auto addBank = [&](const std::vector<uint8_t>& bankData, const std::string& name,
+                       std::initializer_list<int> slots) {
+        reluva::nfs::SoundBank bank;
+        if (reluva::nfs::parseSoundBank(bankData, bank))
+            return;
+        for (int s : slots) {
+            if (s >= int(bank.slots.size()) || !bank.slots[size_t(s)])
+                continue;
+            const auto& h = *bank.slots[size_t(s)];
+            reluva::audio::Sound sound;
+            if (reluva::nfs::decodeBankSound(bankData, h, sound) || sound.samples.empty())
+                continue;
+            Real r{name + " " + std::to_string(s), {}, {}, h.samples};
+            for (size_t k = 0; k < sound.samples.size(); k += size_t(sound.channels)) // the left
+                r.samples.push_back(sound.samples[k]);
+            if (h.compression == reluva::nfs::SoundHeader::kEaXa)
+                r.eaxa.assign(bankData.begin() + h.dataOffset, bankData.end());
+            real.push_back(std::move(r));
+        }
+    };
+    std::vector<uint8_t> bankData;
+    if (auto p = reluva::fs::findFile(folders.install, "GameData/Audio/SFX/gen.bnk"); p && readFile(*p, bankData))
+        addBank(bankData, "Gen.bnk", {29, 32, 41, 33, 35});
+    if (auto p = reluva::fs::findFile(folders.install, "GameData/CarModel/Corv/car.viv")) {
+        VivArchive viv;
+        if (!viv.open(p->string()) && !viv.read("car.bnk", bankData))
+            addBank(bankData, "Corv car.bnk", {0, 1});
+    }
+    if (real.empty())
+        return fail(reluva::Error::fail("no Gen.bnk or Corvette car.bnk in the install"));
+    std::printf("sounds:");
+    for (const Real& r : real)
+        std::printf(" %s (%zu samples%s)", r.name.c_str(), r.samples.size(), r.eaxa.empty() ? "" : ", EA-XA");
+    std::printf("\n");
+    // `count` samples of a real sound from `offset`, repeated as needed,
+    // scaled by `scale` (saturated).
+    auto realSamples = [&](size_t which, size_t offset, size_t count, double scale = 1.0) {
+        const auto& s = real[which % real.size()].samples;
+        std::vector<int16_t> v(count);
+        for (size_t k = 0; k < count; ++k)
+            v[k] = int16_t(std::clamp(std::lround(s[(offset + k) % s.size()] * scale), -32768l, 32767l));
+        return v;
+    };
+    auto need = [&](uint32_t step) { return size_t(uint64_t(frames + 64) * step >> 16) + 64; };
+
+    // The float path's 8-bit samples (its table at 0xa0c2a0, after the set-up).
+    {
+        std::vector<int> ignored;
+        if (reluva::Error e = render(0, {}, 256, 8, ignored))
+            return fail(e);
+        auto& c = floatHost.cpu();
+        auto f = [&](int k) { return std::bit_cast<float>(c.read32(0xa0c2a0 + 4 * uint32_t(k))); };
+        std::printf("float 8-bit table: 0x00 %g, 0x7f %g, 0x80 %g, 0xff %g\n", f(0), f(0x7f), f(0x80), f(0xff));
+    }
+
+    // 1. One real voice at the output's rate, by level.
+    std::printf("\none real voice, step 1, 16-bit mono PCM, by level (L = R):\n");
+    for (int level : {127, 100, 64, 32, 8, -19}) {
+        Diff d;
+        for (size_t s = 0; s < real.size(); ++s) {
+            Voice v = pcm(realSamples(s, 0, need(0x10000)), 1, false);
+            v.left = v.right = level;
+            compare({v}, frames, 8, d);
+        }
+        d.print(("  L " + std::to_string(level)).c_str());
+    }
+    // 2. Several real voices into one bus, at L = 32, at the output's rate
+    // and pitched.
+    for (uint32_t step : {0x10000u, 0x9a00u, 0x16000u}) {
+        std::printf("\nreal voices at L = 32, step %.3f:\n", step / 65536.0);
+        for (int count : {1, 2, 3, 5}) {
+            Diff d;
+            for (int t = 0; t < std::max(1, trials / 8); ++t) {
+                std::vector<Voice> voices;
+                for (int k = 0; k < count; ++k) {
+                    Voice v = pcm(realSamples(size_t(k + t), size_t(random() % 20000), need(step)), 1, false);
+                    v.left = v.right = 32;
+                    v.step = step;
+                    voices.push_back(v);
+                }
+                compare(voices, frames, 8, d);
+            }
+            d.print(("  " + std::to_string(count) + " voices").c_str());
+            if (count == 5 && step == 0x10000)
+                d.printHist();
+        }
+    }
+    // 3. Pans and pitches at random, real voices, 1-6 of them, mono and
+    // stereo sources.
+    {
+        Diff d;
+        for (int t = 0; t < trials; ++t) {
+            std::vector<Voice> voices;
+            const int count = 1 + int(random() % 6);
+            for (int k = 0; k < count; ++k) {
+                const uint32_t step = random() % 4 == 0 ? 0x10000 : 0x4000 + uint32_t(random() % 0x1c000);
+                const bool stereo = random() % 3 == 0;
+                std::vector<int16_t> s = realSamples(random(), random() % 20000, need(step) * (stereo ? 2 : 1));
+                Voice v = pcm(s, stereo ? 2 : 1, false);
+                const int volume = int(random() % 128), pan = int(random() % 128);
+                v.left = volume * (127 - pan) / 127, v.right = volume * pan / 127;
+                v.step = step;
+                voices.push_back(v);
+            }
+            compare(voices, frames, 8, d);
+        }
+        std::printf("\n");
+        d.print("random pans and pitches, real");
+        d.printHist();
+    }
+    // 4. Noise at full scale, random levels (some negative), formats and pitches.
+    {
+        Diff d;
+        for (int t = 0; t < trials; ++t) {
+            std::vector<Voice> voices;
+            const int count = 1 + int(random() % 4);
+            for (int k = 0; k < count; ++k) {
+                const uint32_t step = random() % 4 == 0 ? 0x10000 : 0x2000 + uint32_t(random() % 0x7e000);
+                const bool stereo = random() % 2 == 0;
+                std::vector<int16_t> s(need(step) * (stereo ? 2 : 1));
+                for (auto& x : s)
+                    x = int16_t(random());
+                Voice v = pcm(s, stereo ? 2 : 1, false);
+                v.left = int(random() % 256) - 128, v.right = int(random() % 256) - 128;
+                v.step = step;
+                voices.push_back(v);
+            }
+            compare(voices, frames, 8, d);
+        }
+        d.print("random noise, levels, pitches");
+    }
+    // 5. EA-XA, as in the bank: the decoders too (0x52d1a0 with MMX). Each
+    // path's EA-XA mix is also set against its mix of the samples decoded
+    // by Reluva (audio::decodeEaXa), as 16-bit PCM.
+    {
+        Diff d, ownFloat, ownMmx;
+        for (size_t s = 0; s < real.size(); ++s) {
+            if (real[s].eaxa.empty())
+                continue;
+            Voice v;
+            v.bytes = real[s].eaxa;
+            if (v.bytes.size() > kDataSize / 2)
+                v.bytes.resize(kDataSize / 2);
+            v.samples = real[s].count;
+            v.compression = 7;
+            v.left = v.right = 127;
+            const int n = std::min<int>(frames, int(real[s].count) - 64) & ~255;
+            if (n <= 0)
+                continue;
+            std::vector<int> f, m, pf, pm;
+            compare({v}, n, 8, d, &f, &m);
+            Voice p = pcm(realSamples(s, 0, size_t(n) + 64), 1, false);
+            p.left = p.right = 127;
+            Diff ignored;
+            compare({p}, n, 8, ignored, &pf, &pm);
+            for (size_t k = 0; k < f.size() && k < pf.size(); ++k)
+                ownFloat.add(f[k], pf[k]), ownMmx.add(m[k], pm[k]);
+        }
+        std::printf("\n");
+        d.print("EA-XA, L 127, step 1");
+        ownFloat.print("  float: EA-XA less PCM");
+        ownMmx.print("  MMX: EA-XA less PCM");
+    }
+    // 6. 8-bit sources (no retail sound is 8-bit): the 8-bit MMX mixers and
+    // resamplers.
+    std::printf("\n8-bit sources (the high bytes of the real sounds):\n");
+    for (int stereo = 0; stereo < 2; ++stereo)
+        for (uint32_t step : {0x10000u, 0x9a00u, 0x16000u}) {
+            Diff d;
+            for (int t = 0; t < std::max(1, trials / 8); ++t) {
+                std::vector<Voice> voices;
+                for (int k = 0; k < 1 + t % 3; ++k) {
+                    Voice v = pcm(realSamples(size_t(k + t), random() % 20000, need(step) * (stereo ? 2 : 1)),
+                                  stereo ? 2 : 1, true);
+                    v.left = 32 + 30 * k, v.right = 90 - 20 * k;
+                    v.step = step;
+                    voices.push_back(v);
+                }
+                compare(voices, frames, 8, d);
+            }
+            char name[64];
+            std::snprintf(name, sizeof name, "  %s, step %.3f", stereo ? "stereo" : "mono", step / 65536.0);
+            d.print(name);
+        }
+    for (int level : {127, 64, 32}) {
+        Diff d;
+        for (size_t s = 0; s < real.size(); ++s) {
+            Voice v = pcm(realSamples(s, 0, need(0x10000)), 1, true);
+            v.left = v.right = level;
+            compare({v}, frames, 8, d);
+        }
+        d.print(("  one mono voice, step 1, L " + std::to_string(level)).c_str());
+    }
+    // 7. The other output formats (the game asks for 16-bit stereo).
+    std::printf("\noutput formats, real voices at random levels and pitches:\n");
+    for (int outFormat : {1, 2, 4, 8}) {
+        Diff d;
+        for (int t = 0; t < std::max(1, trials / 4); ++t) {
+            std::vector<Voice> voices;
+            for (int k = 0; k < 1 + t % 3; ++k) {
+                const uint32_t step = 0x8000 + uint32_t(random() % 0x10000);
+                Voice v = pcm(realSamples(size_t(k + t), random() % 20000, need(step)), 1, false);
+                v.left = int(random() % 128), v.right = int(random() % 128);
+                v.step = step;
+                voices.push_back(v);
+            }
+            compare(voices, frames, outFormat, d);
+        }
+        static const char* const names[9] = {"", "  8-bit mono",   "  8-bit stereo", "", "  16-bit mono", "", "",
+                                             "", "  16-bit stereo"};
+        d.print(names[outFormat]);
+    }
+    // 8. The bus saturating: a voice made loud (x 4), three copies of it,
+    // then two negated; and the other way round.
+    std::printf("\nloud voices (a real one x 4, L = 127, step 1):\n");
+    {
+        size_t loudest = 0;
+        for (size_t s = 0; s < real.size(); ++s)
+            if (real[s].samples.size() > real[loudest].samples.size())
+                loudest = s;
+        const std::vector<int16_t> loud = realSamples(loudest, 0, need(0x10000), 4.0);
+        std::vector<int16_t> negated(loud.size());
+        for (size_t k = 0; k < loud.size(); ++k)
+            negated[k] = int16_t(std::min(32767, -int(loud[k])));
+        for (int order = 0; order < 2; ++order) {
+            std::vector<Voice> voices;
+            for (int k = 0; k < 5; ++k) {
+                const bool neg = order == 0 ? k >= 3 : k < 2;
+                Voice v = pcm(neg ? negated : loud, 1, false);
+                v.left = v.right = 127;
+                voices.push_back(v);
+            }
+            Diff d;
+            std::vector<int> f, m;
+            compare(voices, frames, 8, d, &f, &m);
+            d.print(order == 0 ? "  3 loud, then 2 negated" : "  2 negated, then 3 loud");
+            double rms[2] = {};
+            for (size_t k = 0; k < f.size() && k < m.size(); ++k)
+                rms[0] += double(f[k]) * f[k], rms[1] += double(m[k]) * m[k];
+            if (!f.empty())
+                std::printf("%36s float %.0f, MMX %.0f\n", "output rms:", std::sqrt(rms[0] / double(f.size())),
+                            std::sqrt(rms[1] / double(f.size())));
+        }
+    }
+    // 9. The MMX mix down by itself (0x520920) on random bus words.
+    {
+        auto& c = mmxHost.cpu();
+        c.write32(0x5643b4, 1);
+        int bad = 0;
+        for (int t = 0; t < 8; ++t) {
+            std::vector<int16_t> words(512);
+            for (size_t k = 0; k < words.size(); ++k) {
+                words[k] = int16_t(random());
+                c.write16(data[1] + 2 * uint32_t(k), uint16_t(words[k]));
+            }
+            c.reg[Cpu::ESP] = stack[1] + (1 << 16) - 64;
+            uint32_t ignored = 0;
+            if (reluva::Error e = c.call(0x520920, {256, data[1], out[1]}, ignored))
+                return fail(e);
+            for (size_t k = 0; k < words.size(); ++k)
+                bad += int16_t(c.read16(out[1] + 2 * uint32_t(k))) != std::clamp(2 * int(words[k]), -32768, 32767);
+        }
+        std::printf("\nMMX mix down 0x520920 on 4096 random words: %s\n",
+                    bad ? (std::to_string(bad) + " not 2 x the word, saturated").c_str()
+                        : "each 2 x the word, saturated");
+    }
+    std::printf("\nMMX routines run:");
+    for (size_t k = 0; k < kWatched; ++k)
+        std::printf("%s %s (%06x) %llu", k ? "," : "", watched[k].second, watched[k].first,
+                    (unsigned long long)runs[k]);
+    std::printf("\n");
+    return failures ? 1 : 0;
+}
+
 // Draws one of the engine's viewer pages after the keys given, as the
 // engine would, without a window: for checking pages and taking pictures
 // of them.
@@ -1845,6 +2317,8 @@ int runNfsCommand(int argc, char** argv) {
         return cmdNfsHost(argc, argv);
     if (std::strcmp(cmd, "nfs-native-check") == 0)
         return cmdNfsNativeCheck(argc, argv);
+    if (std::strcmp(cmd, "nfs-mmx-check") == 0)
+        return cmdNfsMmxCheck(argc, argv);
     if (std::strcmp(cmd, "nfs-huff-check") == 0)
         return cmdNfsHuffCheck(argc, argv);
     if (std::strcmp(cmd, "mad-info") == 0)
