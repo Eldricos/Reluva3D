@@ -33,6 +33,8 @@ public:
     ~GameMusic() { stop(); }
 
     // A tune picked from the race or cruising list (`seed` picks which).
+    // The same tune asked for again while it plays (a race restarted)
+    // plays on, as the game's does.
     Error start(const SearchSet& files, audio::Mixer& mixer, bool race, uint32_t seed);
     // The CD player's tracks (Reluva's: the game's player played an audio
     // CD): every tune of the race list, then of the cruising list, by its
@@ -68,6 +70,8 @@ private:
     float still_ = 0; // seconds stopped
     bool idle_ = false, wasChased_ = false, wasPaused_ = false;
     bool menu_ = false;
+    bool race_ = false;
+    uint32_t seed_ = 0;
 };
 
 } // namespace reluva::age

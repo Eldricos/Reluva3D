@@ -1104,7 +1104,8 @@ void testLessons() {
     f.busted = true;
     CHECK(j.step(f) == R::Failed);
 
-    // Follow: escaped fails; kept up with for the time passes.
+    // Follow: escaped fails; kept up with to its end passes, however long
+    // (its TimeLimit isn't a clock).
     LessonSettings follow;
     follow.event = LessonEvent::Follow;
     follow.timeLimit = 36;
@@ -1117,7 +1118,9 @@ void testLessons() {
     CHECK(j.step(f) == R::Failed && j.message() == 222);
     j.start(follow);
     f.targetDistance = 30;
-    f.clock = 36;
+    f.clock = 88;
+    CHECK(j.step(f) == R::Going && j.timeLeft(f.clock) < 0);
+    f.targetDone = true;
     CHECK(j.step(f) == R::Passed && j.message() == 221);
 
     // Gates: in time, or not.
@@ -2005,6 +2008,8 @@ void testMusic(const std::filesystem::path& tmp) {
     st.paused = true;
     music.update(1, st);
     CHECK(music.segment() == "P");
+    // The race restarted: the tune plays on, not from its start.
+    CHECK(!music.start(files, mixer, false, 0) && music.segment() == "P");
     music.stop();
     CHECK(music.segment().empty());
     CHECK(music.start(files, mixer, true, 0)); // no race list

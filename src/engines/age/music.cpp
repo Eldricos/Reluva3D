@@ -97,7 +97,14 @@ Error GameMusic::startTrack(const SearchSet& files, audio::Mixer& mixer, size_t 
 }
 
 Error GameMusic::start(const SearchSet& files, audio::Mixer& mixer, bool race, uint32_t seed) {
+    if (performance_ && !menu_ && mixer_ == &mixer && race == race_ && seed == seed_) {
+        still_ = 0;
+        idle_ = wasPaused_ = false;
+        return Error::success();
+    }
     stop();
+    race_ = race;
+    seed_ = seed;
     const std::vector<MusicSet> sets = readSets(files, race);
     if (sets.empty())
         return Error::fail(std::string(race ? "singlerace" : "singleroam") + ".csv: no music");

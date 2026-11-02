@@ -70,12 +70,18 @@ countdown, then:
   0:45:21"), the lap under way last. After each checkpoint the time so
   far (this lap's in a circuit) shows under the car for a few seconds,
   with "Lap time" over it at a lap's end; "Final lap!" shows there too.
+  A car put back after sinking gets "Sleep with the fishes!" (string
+  30) over the road, as the footage shows off San Francisco's piers;
+  in London Reluva shows "More tea, vicar?" (642, its neighbour in the
+  list), not yet seen in footage.
   "Ready...", "Set...", "Go!" and the lessons' messages are over the
   road, at y 110. The speed, gear, revs and damage meter are bottom left
   ([age-driving.md](age-driving.md)), the map bottom right. The game's
   text is Gill Sans MT (its string table names the fonts and sizes);
   Reluva uses its own font.
-- The results list the racers by where they got to, with their times.
+- The results list the racers by where they got to, with their times,
+  a row a second as the game's fill in, the opponents by their grid
+  slots ("Opponent 1"..., the game's strings 13-20).
 - **Traffic, pedestrians and police** are as the race's settings say
   (its Ambient, Peds and Cops columns, and its aimap's exceptions and
   police): see [age-traffic.md](age-traffic.md). Busted by the police,
@@ -160,7 +166,7 @@ the rules from those:
 | Event | Lessons | Messages | Reluva's rule |
 |---|---|---|---|
 | 0 | Frequent Flyer, London Leap, River Dancing | "Take the jump to hit all checkpoints", "Good jumping!" | every checkpoint in time |
-| 2 | Straight, With Chaser, Follow That Car!, Midterm 3 (SF), Final (London) | "Follow that car!", "You Won!", "Car escaped!" | stay within 120 m of the car (its aimap opponent) until the time's up, or until it's at its end with you near; farther, "Car escaped!" |
+| 2 | Straight, With Chaser, Follow That Car!, Midterm 3 (SF), Final (London) | "Follow that car!", "You Won!", "Car escaped!" | stay within 120 m of the car (its aimap opponent) until it's at its end with you near; farther, "Car escaped!". Untimed, with no clock: in the footage Straight, With Chaser (TimeLimit 36) runs 88 s and Midterm 3 92 s before "You Won!" |
 | 3 | The Heat Is On, Artful Dodging | "Practice evading your pursuers!", "Lose your pursuers before you finish!", "You survived the gauntlet!" | all of the aimap's police chase from the start; the end counts once none is chasing; busted fails |
 | 4 | Turn It Up!, Cutting Corners, Midterm 1, Final (SF) | "Maintain %.0f through the checkpoints", "You have not maintained the minimum speed!" | every checkpoint at the row's first extra column (50 or 40 mph) or faster |
 | 5 | Keep It Clean, Round You'll Go | "Don't even touch another car!", "You scraped the paint!" | touching a car (the traffic's or the police's) fails |
@@ -228,7 +234,9 @@ segment, read from the `.sgt` files' tempo tracks: Bullet races at 140
 bpm and its Cops segment is at 155, and the 0.78 s pattern heard after
 Bridge Bash's last checkpoint is two of its beats. The beat stops in the
 seconds after the finish, then Results plays.
-Paused, the tune's Pause segment plays. Both lists' last three columns
+Restarting a race doesn't restart the tune: in the footage the groove
+runs straight on into the new attempt, and Reluva's does too. Paused,
+the tune's Pause segment plays (no footage has the pause menu). Both lists' last three columns
 name the **big-air motif**: GrooverStyle's `BigAir` pattern (a motif,
 one measure of two parts) with the `BigAir` band. A second off the
 ground (Reluva's measure of big air), it plays once over the tune, from

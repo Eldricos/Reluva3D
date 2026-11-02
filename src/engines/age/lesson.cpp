@@ -56,6 +56,10 @@ void LessonJudge::start(const LessonSettings& lesson) {
 }
 
 float LessonJudge::timeLeft(float clock) const {
+    // A follow lesson isn't timed: its TimeLimit (36 s in Straight, With
+    // Chaser) is no clock, as the footage shows its car followed for 88 s.
+    if (lesson_.event == LessonEvent::Follow)
+        return -1;
     return lesson_.timeLimit > 0 ? lesson_.timeLimit - std::max(0.0f, clock) - penalty_ : -1;
 }
 
@@ -109,13 +113,7 @@ LessonJudge::Result LessonJudge::step(const Frame& f) {
         return result_;
     }
     const float left = timeLeft(f.clock);
-    if (e == LessonEvent::Follow && lesson_.timeLimit > 0 && left <= 0) {
-        // Kept up with it for the lesson's time.
-        result_ = Result::Passed;
-        show(msg::kYouWon);
-        return result_;
-    }
-    if (lesson_.timeLimit > 0 && left <= 0) {
+    if (e != LessonEvent::Follow && lesson_.timeLimit > 0 && left <= 0) {
         fail(e == LessonEvent::CopChase     ? msg::kChaseTimesUp
              : e == LessonEvent::Destroy    ? msg::kDestroyTimesUp
              : e == LessonEvent::NoTouching ? msg::kTouchTimesUp
