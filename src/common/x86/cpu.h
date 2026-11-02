@@ -326,6 +326,7 @@ private:
     // same, else made (build).
     void rebuild(Block& b, uint32_t at);
     static void jitMemoryFault(void* cpu, uint32_t address, uint32_t size); // for the Jit's code
+    static int jitCallNative(void* cpu);
     void decode(Cached& e, uint32_t at);
     void build(Block& b, uint32_t at);
     // A block's bytes are checked again only when code may have changed

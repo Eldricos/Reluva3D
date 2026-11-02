@@ -503,10 +503,7 @@ void Cpu::runCached(uint32_t returnAddress, uint32_t nativeStart) {
             l.runEnd = at(&run_.end);
             l.blocks = reinterpret_cast<const uint8_t*>(blocks_.data());
             l.blockSize = uint32_t(sizeof(Block)), l.blockMask = kBlockEntries - 1;
-            l.blockStart = offsetof(Block, start), l.blockEpoch = offsetof(Block, epoch);
-            l.blockCount = offsetof(Block, count), l.blockGeneration = offsetof(Block, jitGeneration);
-            l.blockJit = offsetof(Block, jit);
-            static_assert(sizeof(Block::count) == 1 && sizeof(Block::jitGeneration) == 4, "as the Jit reads them");
+            l.nativeBase = nativeBase_, l.callNative = &Cpu::jitCallNative;
             jit_ = std::make_unique<Jit>(l);
             if (!jit_->ready())
                 jit_.reset();
@@ -551,6 +548,14 @@ void Cpu::runCached(uint32_t returnAddress, uint32_t nativeStart) {
         }
         if (!fresh)
             rebuild(b, eip);
+        // The dispatch's index, as the slot now is (whatever else ran it
+        // last, it mustn't find code that isn't this block's).
+        const auto index = [&] {
+            const bool made = jit_ && b.jit && b.jitGeneration == jit_->generation();
+            if (jit_)
+                jit_->setEntry(uint32_t(&b - blocks), b.start, b.epoch, made ? b.jit : nullptr, b.count);
+        };
+        index();
         // The blocks it may go to next, into the cache while it runs: the
         // table is larger than the caches, and finding the next block was
         // much of this loop's time.
@@ -569,8 +574,10 @@ void Cpu::runCached(uint32_t returnAddress, uint32_t nativeStart) {
             if (jit && b.start == eip) { // (not one rebuilt each time it runs)
                 // Made on its second run: many blocks made run once, and
                 // are made again for another address before the next.
-                if (b.jitGeneration != jit->generation() && ++b.runs >= 2)
+                if (b.jitGeneration != jit->generation() && ++b.runs >= 2) {
                     compileBlock(b);
+                    index();
+                }
                 if (b.jit && b.jitGeneration == jit->generation()) {
                     // Counted while it runs: native code a native's call back
                     // in made mustn't be forgotten under it (compileBlock).
@@ -601,7 +608,9 @@ void Cpu::runCached(uint32_t returnAddress, uint32_t nativeStart) {
                     break;
             }
         }
-    } while (eip != returnAddress && eip < nativeStart);
+        // (A native the Jit's dispatch called may have asked the thread to
+        // yield: runUntil sees to it.)
+    } while (eip != returnAddress && eip < nativeStart && !yield_);
 }
 
 // The block's native code: each instruction's start stored, its handler
@@ -737,6 +746,23 @@ void Cpu::compileBlock(Block& b) {
 
 void Cpu::jitMemoryFault(void* cpu, uint32_t address, uint32_t size) {
     static_cast<Cpu*>(cpu)->memoryFault(address, size);
+}
+
+// A native at eip, from the Jit's dispatch, as runUntil's step() calls it:
+// out of any block's count, and with no made code under it but the
+// dispatch's (which reset() keeps), so a run it calls back into may make
+// the buffer afresh.
+int Cpu::jitCallNative(void* cpu) {
+    Cpu& c = *static_cast<Cpu*>(cpu);
+    c.counting_.block = nullptr;
+    c.instructionStart_ = c.eip;
+    struct Out {
+        int& d;
+        explicit Out(int& n) : d(n) { --d; }
+        ~Out() { ++d; }
+    } out{c.jitDepth_};
+    c.callNative(c.eip);
+    return c.yield_ ? 0 : 1;
 }
 
 void Cpu::uncountBlock() {

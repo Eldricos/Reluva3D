@@ -11,6 +11,7 @@
 #include <memory>
 #include <optional>
 #include <string>
+#include <unordered_map>
 #include <vector>
 
 namespace reluva::x86 {
@@ -79,6 +80,9 @@ private:
     };
     Win32Process& process_;
     std::map<uint32_t, Entry> pointers_; // interface pointer -> object
+    // The same, by object: its pointers (each interface's), to find them
+    // without walking every one made.
+    std::unordered_map<const ComObject*, std::vector<std::pair<const ComInterface*, uint32_t>>> byObject_;
     uint32_t dispatch(const ComInterface& iface, int index, Cpu& c);
     void release(ComObject* object);
 };

@@ -5,6 +5,7 @@
 
 #include <cstddef>
 #include <cstdint>
+#include <vector>
 
 namespace reluva::x86 {
 
@@ -27,8 +28,9 @@ namespace reluva::x86 {
 // is over (eip at its return address or a native), or asked to stop, it
 // finds the next block, and if that's there with its bytes unchanged
 // since checked (the code epoch), made in this generation and within the
-// instruction limit, counts it and jumps to its code. Anything else goes
-// back to runCached, which sees to it.
+// instruction limit, counts it and jumps to its code. A native function
+// at eip is called from there too (Layout::callNative), and the dispatch
+// goes on after it. Anything else goes back to runCached, which sees to it.
 //
 // The code lives in one buffer of executable memory, which says how to
 // unwind through it (C++ exceptions, the faults, pass through it):
@@ -58,11 +60,15 @@ public:
         // the stop flag (a byte), and the run's return address, where
         // natives start and the count's limit (runCached's);
         size_t executed, countingBlock, countingStart, stop, runReturn, runNative, runEnd;
+        // Where the natives are (from here up), and what runs one at eip
+        // (Cpu::callNative's way), giving whether to go on (0: the run
+        // stops for the thread to yield).
+        uint32_t nativeBase;
+        int (*callNative)(void*);
         // the blocks (Cpu::Block, `blockSize` bytes each, `blockMask` + 1 of
-        // them, by (eip ^ eip >> 15) & blockMask), and offsets into one.
+        // them, by (eip ^ eip >> 15) & blockMask).
         const uint8_t* blocks;
         uint32_t blockSize, blockMask;
-        size_t blockStart, blockEpoch, blockCount, blockGeneration, blockJit;
     };
     explicit Jit(const Layout& layout);
     ~Jit();
@@ -131,6 +137,11 @@ public:
     // on, so code kept from an older one is known to be gone.
     void reset();
     uint32_t generation() const { return generation_; }
+    // What the dispatch knows of the block in table slot `slot`: where it
+    // starts, the code epoch its bytes were last checked in, its code
+    // (nullptr: none to run) and its count. The Cpu sets it as it checks,
+    // makes and runs blocks; reset() takes all the code away.
+    void setEntry(uint32_t slot, uint32_t start, uint32_t epoch, const uint8_t* code, uint32_t count);
 
 private:
     Layout layout_;
@@ -138,6 +149,13 @@ private:
     size_t size_ = 0, used_ = 0, bodyStart_ = 0;
     uint32_t generation_ = 1;
     const uint8_t* dispatch_ = nullptr; // where each block's code goes at its end
+    // The dispatch's index of the table, 16 bytes a slot: a 32nd of the
+    // blocks' size, so it stays in the processor's caches where the table
+    // doesn't (its first read had been half the dispatch's time).
+    struct Entry {
+        uint32_t start = 0xffffffffu, epoch = 0, code = 0, count = 0; // code: an offset into the buffer
+    };
+    std::vector<Entry> index_;
     void (*entry_)(void*, const uint8_t*) = nullptr;
     void* unwind_ = nullptr; // what was registered, to take back
 };

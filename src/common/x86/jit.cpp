@@ -167,7 +167,7 @@ bool Jit::supported() {
 #endif
 }
 
-Jit::Jit(const Layout& layout) : layout_(layout) {
+Jit::Jit(const Layout& layout) : layout_(layout), index_(size_t(layout.blockMask) + 1) {
 #if defined(RELUVA_JIT_WINDOWS) || defined(RELUVA_JIT_LINUX)
     base_ = allocate(kBufferSize);
     if (!base_)
@@ -229,36 +229,44 @@ Jit::Jit(const Layout& layout) : layout_(layout) {
         auto exitIf = [&](uint8_t cc) { w.u8(0x0f), w.u8(cc), exits[n++] = w.rel32(); };
         w.rbx({0x8b}, kEax, L.eip);                      // mov eax, [eip]
         w.rbx({0x3b}, kEax, L.runReturn), exitIf(0x84);  // cmp eax, [return]; je exit
+        w.u8(0x3d), w.u32(L.nativeBase);                 // cmp eax, natives
+        w.u8(0x0f), w.u8(0x83);                          // jae native
+        uint8_t* toNative = w.rel32();
         w.rbx({0x3b}, kEax, L.runNative), exitIf(0x83);  // cmp eax, [natives]; jae exit
         w.rbx({0x80}, 7, L.stop), w.u8(0), exitIf(0x85); // cmp byte [stop], 0; jne exit
         w.u8(0x89), w.u8(0xc1);                          // mov ecx, eax
         w.u8(0xc1), w.u8(0xe9), w.u8(15);                // shr ecx, 15
         w.u8(0x31), w.u8(0xc1);                          // xor ecx, eax
-        w.u8(0x81), w.u8(0xe1), w.u32(L.blockMask);      // and ecx, mask
-        w.u8(0x48), w.u8(0x69), w.u8(0xc9), w.u32(L.blockSize); // imul rcx, rcx, size
-        w.u8(0x48), w.u8(0xba), w.u64(reinterpret_cast<uint64_t>(L.blocks)); // mov rdx, blocks
-        w.u8(0x48), w.u8(0x01), w.u8(0xd1);              // add rcx, rdx
-        auto rcxAt = [&](std::initializer_list<uint8_t> op, int r, size_t disp) { // op [rcx + disp32]
-            for (uint8_t b : op)
-                w.u8(b);
-            w.u8(uint8_t(0x81 | r << 3));
-            w.u32(uint32_t(disp));
-        };
-        rcxAt({0x39}, kEax, L.blockStart), exitIf(0x85); // cmp [start], eax; jne exit
-        w.rbx({0x8b}, kEdx, L.epoch);                    // mov edx, [codeEpoch]
-        rcxAt({0x39}, kEdx, L.blockEpoch), exitIf(0x85); // cmp [epoch], edx; jne exit
-        w.u8(0x48), w.u8(0xba), w.u64(reinterpret_cast<uint64_t>(&generation_)); // mov rdx, &generation
-        w.u8(0x8b), w.u8(0x12);                          // mov edx, [rdx]
-        rcxAt({0x39}, kEdx, L.blockGeneration), exitIf(0x85); // cmp [its generation], edx; jne exit
-        rcxAt({0x48, 0x8b}, kEdx, L.blockJit);           // mov rdx, [jit]
-        w.u8(0x48), w.u8(0x85), w.u8(0xd2), exitIf(0x84); // test rdx, rdx; jz exit
-        rcxAt({0x44, 0x0f, 0xb6}, 0, L.blockCount);      // movzx r8d, byte [count]
+        w.u8(0x81), w.u8(0xe1), w.u32(L.blockMask);      // and ecx, mask: the slot
+        w.u8(0x89), w.u8(0xca);                          // mov edx, ecx
+        w.u8(0x48), w.u8(0xc1), w.u8(0xe1), w.u8(4);     // shl rcx, 4
+        w.u8(0x49), w.u8(0xb8), w.u64(reinterpret_cast<uint64_t>(index_.data())); // mov r8, index
+        w.u8(0x4c), w.u8(0x01), w.u8(0xc1);              // add rcx, r8: its entry
+        w.u8(0x39), w.u8(0x01), exitIf(0x85);            // cmp [start], eax; jne exit
+        w.rbx({0x44, 0x8b}, 1, L.epoch);                 // mov r9d, [codeEpoch]
+        w.u8(0x44), w.u8(0x39), w.u8(0x49), w.u8(4), exitIf(0x85); // cmp [epoch], r9d; jne exit
+        w.u8(0x44), w.u8(0x8b), w.u8(0x49), w.u8(8);     // mov r9d, [code]
+        w.u8(0x45), w.u8(0x85), w.u8(0xc9), exitIf(0x84); // test r9d, r9d; jz exit
+        w.u8(0x44), w.u8(0x8b), w.u8(0x41), w.u8(12);    // mov r8d, [count]
         w.rbx({0x4c, 0x03}, 0, L.executed);              // add r8, [executed]
         w.rbx({0x4c, 0x3b}, 0, L.runEnd), exitIf(0x87);  // cmp r8, [end]; ja exit
         w.rbx({0x4c, 0x89}, 0, L.executed);              // mov [executed], r8
-        w.rbx({0x48, 0x89}, kEcx, L.countingBlock);      // mov [counting block], rcx
+        // The block counted: its place in the table (not read).
+        w.u8(0x48), w.u8(0x69), w.u8(0xd2), w.u32(L.blockSize); // imul rdx, rdx, size
+        w.u8(0x48), w.u8(0xb9), w.u64(reinterpret_cast<uint64_t>(L.blocks)); // mov rcx, blocks
+        w.u8(0x48), w.u8(0x01), w.u8(0xca);              // add rdx, rcx
+        w.rbx({0x48, 0x89}, kEdx, L.countingBlock);      // mov [counting block], rdx
         w.rbx({0x89}, kEax, L.countingStart);            // mov [counting start], eax
-        w.u8(0xff), w.u8(0xe2);                          // jmp rdx
+        w.u8(0x48), w.u8(0xb9), w.u64(reinterpret_cast<uint64_t>(base_)); // mov rcx, buffer
+        w.u8(0x4c), w.u8(0x01), w.u8(0xc9);              // add rcx, r9
+        w.u8(0xff), w.u8(0xe1);                          // jmp rcx
+        // A native: called (the return address is here, in the part of the
+        // buffer reset() keeps), then on to the next block, or out.
+        Emitter::patch(toNative, w.at);
+        w.bytes(kFirstArgCpu);
+        w.call(reinterpret_cast<const void*>(L.callNative));
+        w.u8(0x85), w.u8(0xc0), exitIf(0x84);            // test eax, eax; jz exit
+        w.u8(0xe9), Emitter::patch(w.rel32(), dispatch_); // jmp dispatch
         for (int i = 0; i < n; ++i)
             Emitter::patch(exits[i], w.at);
         w.bytes(kEpilogue); // back to runCached
@@ -805,6 +813,12 @@ const uint8_t* Jit::compile(const Op* ops, int count, uint32_t end) {
 void Jit::reset() {
     used_ = bodyStart_;
     ++generation_;
+    for (Entry& e : index_)
+        e.code = 0;
+}
+
+void Jit::setEntry(uint32_t slot, uint32_t start, uint32_t epoch, const uint8_t* code, uint32_t count) {
+    index_[slot] = {start, epoch, code ? uint32_t(code - base_) : 0u, count};
 }
 
 } // namespace reluva::x86

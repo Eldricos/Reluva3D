@@ -42,23 +42,43 @@ constexpr uint32_t kInvalidHandle = 0xffffffffu;
 
 Arena::Arena(Cpu& cpu, uint32_t start, uint32_t end) : cpu_(cpu) {
     if (end > start)
-        free_[start] = end - start;
+        addFree(start, end - start);
+}
+
+int Arena::bucket(uint32_t size) {
+    int b = 0;
+    while (b < 32 && (uint64_t(1) << (b + 1)) <= size)
+        ++b;
+    return b;
+}
+
+void Arena::addFree(uint32_t start, uint32_t size) {
+    free_[start] = size;
+    bySize_[bucket(size)].insert(start);
+}
+
+void Arena::removeFree(std::map<uint32_t, uint32_t>::iterator it) {
+    bySize_[bucket(it->second)].erase(it->first);
+    free_.erase(it);
 }
 
 void Arena::release(uint32_t start, uint32_t size) {
     auto next = free_.lower_bound(start);
     if (next != free_.end() && start + size == next->first) {
         size += next->second;
-        next = free_.erase(next);
+        auto gone = next++;
+        removeFree(gone);
     }
     if (next != free_.begin()) {
         auto prev = std::prev(next);
         if (prev->first + prev->second == start) {
-            prev->second += size;
+            const uint32_t at = prev->first, joined = prev->second + size;
+            removeFree(prev);
+            addFree(at, joined);
             return;
         }
     }
-    free_[start] = size;
+    addFree(start, size);
 }
 
 uint32_t Arena::alloc(uint32_t size, uint32_t align) {
@@ -67,16 +87,37 @@ uint32_t Arena::alloc(uint32_t size, uint32_t align) {
     size = (size + 15) & ~15u;
     if (align < 16)
         align = 16;
-    for (auto it = free_.begin(); it != free_.end(); ++it) {
+    auto fits = [&](uint32_t start, uint32_t length) {
+        const uint32_t aligned = (start + align - 1) & ~(align - 1);
+        return !(aligned < start || uint64_t(aligned - start) + size > length);
+    };
+    // The first fit (the lowest start that holds it), as walking free_ in
+    // order finds it: the first of each bucket whose sizes all hold it, and
+    // the blocks of the buckets that may, in order up to that.
+    const uint64_t surely = uint64_t(size) + align - 1;
+    uint32_t best = 0;
+    bool found = false;
+    for (int b = 32; b >= 0 && (uint64_t(1) << b) >= surely; --b)
+        if (!bySize_[b].empty() && (!found || *bySize_[b].begin() < best))
+            best = *bySize_[b].begin(), found = true;
+    for (int b = bucket(size); b <= 32 && (uint64_t(1) << b) < surely; ++b)
+        for (uint32_t start : bySize_[b]) {
+            if (found && start >= best)
+                break;
+            if (fits(start, free_.at(start))) {
+                best = start, found = true;
+                break;
+            }
+        }
+    if (found) {
+        auto it = free_.find(best);
         const uint32_t start = it->first, length = it->second;
         const uint32_t aligned = (start + align - 1) & ~(align - 1);
-        if (aligned < start || uint64_t(aligned - start) + size > length)
-            continue;
-        free_.erase(it);
+        removeFree(it);
         if (aligned > start)
-            free_[start] = aligned - start;
+            addFree(start, aligned - start);
         if (aligned - start + size < length)
-            free_[aligned + size] = length - (aligned - start) - size;
+            addFree(aligned + size, length - (aligned - start) - size);
         used_[aligned] = size;
         std::memset(cpu_.memory().data() + aligned, 0, size);
         cpu_.noteWrite(aligned, size);
@@ -94,11 +135,11 @@ bool Arena::claim(uint32_t address, uint32_t size) {
     const uint32_t start = it->first, length = it->second;
     if (uint64_t(address) + size > uint64_t(start) + length)
         return false;
-    free_.erase(it);
+    removeFree(it);
     if (address > start)
-        free_[start] = address - start;
+        addFree(start, address - start);
     if (address + size < start + length)
-        free_[address + size] = start + length - address - size;
+        addFree(address + size, start + length - address - size);
     used_[address] = size;
     std::memset(cpu_.memory().data() + address, 0, size);
     cpu_.noteWrite(address, size);

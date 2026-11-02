@@ -746,7 +746,20 @@ Progress:
     frames. A profile at 1024x768 then showed 35 to 40 frames a second,
     and 45 in the game (35 to 50) with the dispatch in native code.
     Then blocks kept aside rather than made again, and the x87 unit
-    made: 35 s on the route, from 54 s with the interpreter. `RELUVA_NO_JIT=1` in the environment runs
+    made: 35 s on the route, from 54 s with the interpreter.
+  - The attract sequence before the menu (example levels played with
+    scripted cameras, loading each) ran at 30 frames a second, the
+    program's thread busy four fifths of the time: four times the
+    instructions of a mission's frame. Timing every native there found
+    a quarter of the thread in them: operator new and free (`Arena`'s
+    first fit walked every free block below the one it took; now
+    blocks are also kept by size, finding the same block), creating and
+    releasing vertex buffers (COM's pointers were searched one by one
+    for an object's; now by object, freed in the same order), and 33
+    million memcpys of a few bytes, the streams' reads, each going back
+    out of the native code (now called from its dispatch). The heap
+    hands out the same addresses, so the instructions and frames are
+    the same. `RELUVA_NO_JIT=1` in the environment runs
     without it, to compare.
 - Not there yet:
   - **more speed**: the program's own code (NetImmerse's scene graph,

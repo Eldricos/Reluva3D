@@ -3,6 +3,8 @@
 
 #include "common/x86/com.h"
 
+#include <algorithm>
+
 #include <cstdio>
 #include <cstdlib>
 
@@ -26,12 +28,14 @@ void ComHost::define(ComInterface& iface) {
 }
 
 uint32_t ComHost::pointer(const std::shared_ptr<ComObject>& object, const ComInterface& iface) {
-    for (const auto& [p, e] : pointers_)
-        if (e.object == object && e.iface == &iface)
+    auto& mine = byObject_[object.get()];
+    for (const auto& [i, p] : mine)
+        if (i == &iface)
             return p;
     const uint32_t p = process_.memory().alloc(8);
     process_.cpu().write32(p, iface.vtable);
     pointers_[p] = {object, &iface};
+    mine.push_back({&iface, p});
     return p;
 }
 
@@ -41,13 +45,19 @@ ComObject* ComHost::object(uint32_t pointer) const {
 }
 
 void ComHost::release(ComObject* object) {
-    for (auto it = pointers_.begin(); it != pointers_.end();) {
-        if (it->second.object.get() == object) {
-            process_.memory().free(it->first);
-            it = pointers_.erase(it);
-        } else {
-            ++it;
-        }
+    auto found = byObject_.find(object);
+    if (found == byObject_.end())
+        return;
+    // Freed lowest first, as walking pointers_ in order did (the heap's
+    // later blocks depend on it).
+    std::vector<uint32_t> gone;
+    for (const auto& [i, p] : found->second)
+        gone.push_back(p);
+    byObject_.erase(found);
+    std::sort(gone.begin(), gone.end());
+    for (uint32_t p : gone) {
+        process_.memory().free(p);
+        pointers_.erase(p); // the object may go with its last pointer: last
     }
 }
 

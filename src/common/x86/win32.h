@@ -12,6 +12,7 @@
 #include <filesystem>
 #include <functional>
 #include <map>
+#include <set>
 #include <memory>
 #include <optional>
 #include <string>
@@ -36,6 +37,16 @@ public:
 private:
     Cpu& cpu_;
     std::map<uint32_t, uint32_t> free_, used_; // start -> size
+    // The free blocks' starts again, by their size's power of two (bucket
+    // b: sizes from 2^b up to 2^(b+1)), to find the first fit without
+    // walking every block below it: a fit is the lowest start among the
+    // blocks that hold the size whatever their alignment (the first of
+    // each bucket big enough) and those of the buckets that may hold it,
+    // tried in order below that.
+    std::set<uint32_t> bySize_[33];
+    static int bucket(uint32_t size);
+    void addFree(uint32_t start, uint32_t size);
+    void removeFree(std::map<uint32_t, uint32_t>::iterator it);
     void release(uint32_t start, uint32_t size);
 };
 
