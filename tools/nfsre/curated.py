@@ -61,6 +61,7 @@ STRUCTS = {
     0x658: ('ai_reverse_count', 's32'), 0x6F0: ('overspeed', 'f32', 'most over the section speed (0x4052e0)'),
     0x710: ('cop_flags', 'u8', '0x10 siren, 0x40 stopping the target, 0x80 doing the ticket'), 0x720: ('cop_stop_step', 's32', 'step + 24 at the first close step'),
     0x730: ('cop_nearest_racer', 'ptr'), 0x7D8: ('ai_stuck_count', 's32'), 0x9A4: ('bust_partner', 'ptr'),
+    0x99C: ('spiked_wheels', 'u32', 'wheel mask set by an armed spike strip (0x4297d0)'), 0x714: ('cop_index', 's32', 'a cop\'s index: its spike strip 0x7dd850 + i*0x50'),
   }),
   # carp.txt in memory (P); table in physics.md
   'carp': dict(size=0x4ac, desc='carp.txt in memory (P), pointed to by car+0x528; 16 at 0x5eabe0?', fields={
@@ -238,6 +239,23 @@ FUNCS = {
   0x4025c0: ('cop_ai_chase', CAR, 'computer cop chase; gives up past t_ticket_times +4/+0 slices'),
   0x455834: ('results_sort_compare', None, 'results sort by key 0x559618: 1 +0x238, 2 +0x2B8, 5 tickets given, 6 tickets, 7 quota time +0x2D4'),
   0x4cef00: ('track_record_lap', None, '(track) -> record lap time from the track records'),
+  # cop (footage: the player as the cop)
+  0x404ff0: ('cop_scan_racers', CAR, 'nearest racer within 50 slices -> +0x730; racer list states (0x485180)'),
+  0x4052e0: ('cop_update_overspeed', CAR, 'racers within 50 slices: +0x6F0 = most over the section speed'),
+  0x4053b0: ('cop_pick_target', CAR, 'siren on, +0x730 over by > 2 m/s -> cop_set_target(2)'),
+  0x404f80: ('cop_siren_key', CAR, 'horn key toggles +0x710 bit 0x10'),
+  0x404e40: ('cop_spike_key', CAR, 'S: lay (armed at step+0xC0), refuse (0x12) or clear (0x11)'),
+  0x4c9dd0: ('spike_lay', None, '(cop index, slice, lane, arm step) -> 0x7dd850 + i*0x50'),
+  0x4c9f50: ('spike_clear', None, '(cop index)'),
+  0x4c9f70: ('spike_draw', None, 'blinks (step bit 0x10) until armed, then solid'),
+  0x4ca160: ('spike_hit_test', CAR, 'armed strips within 1 slice: mask of the wheels on one'),
+  0x4297d0: ('car_spike_check', CAR, 'racer on an armed strip: clear it, +0x99C |= wheels, 0x401650'),
+  0x401650: ('spike_hit_racer', None, '(racer, cop index): record +0x1C = 2 (pulled over), cop targets it'),
+  0x4040e0: ('cop_after_ticket', CAR, 'from cop_ticket: frees the chase record, clears a human cop strip'),
+  0x485180: ('hud_cop_list_set', None, '(player, row, state, car): racer row text, "%d %s - %d %s %s" when +0x6F0 > 2'),
+  0x48a660: ('hud_draw_cop_list', None, "cop's racer list: rows by state 1 arrested, 2 finished, 3 far, 4 near, 5 nearest, 7 target (yellow)"),
+  0x47d480: ('hud_cop_target_radar', None, 'green radar panel while the cop has a target (list state 7)'),
+  0x47d580: ('hud_cop_target_box', None, 'box round the target car on screen'),
 }
 
 # globals: addr -> (name, type, desc)

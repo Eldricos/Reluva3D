@@ -858,7 +858,8 @@ then gives the car +0x200 bit 0x20.
   - `0x4052e0`: each racer within 50 slices gets +0x6F0 = the most it
     has been over the section's speed (`0x40ed40`);
   - `0x404ff0`: the nearest racer within 50 slices (by slice, then by
-    distance) into +0x730, and the radar (`0x485180`);
+    distance) into +0x730, and the rows of the cop's racer list
+    (`0x485180`);
   - `0x404f80`: the **horn key** (bit 0x08, +0x50E) toggles the siren,
     +0x710 bit 0x10 (+0x734 1 or 0), once a press;
   - `0x404e40`: the spike strip (bit 0x80);
@@ -987,7 +988,99 @@ code gives. The HUD says "tickets: 0/3", laps + 1, as `0x474640` sets
   Pursuit turned them off (`0x4746ab`).
 - No spike strip and no "ARRESTED" banner are seen; the player is
   never the cop, so the human cop's 3 s stop and the cop's quota
-  (+0x2D4) aren't seen either.
+  (+0x2D4) aren't seen either (they are in the next section).
+
+### Seen in footage (the player as the cop)
+
+Three YouTube recordings of a one-player Hot Pursuit with the player
+(OGC) as the cop: `Atlantica_Night` (Pursuit Corvette, 8 laps, track
+2), `Aquatica_Night` (Pursuit Diablo SV, 2 laps, track 6) and
+`Empire_City_Night` (Pursuit El Niño, 2 laps, track 8). Each has six
+computer racers and "tickets: 0/6", as `0x474640` sets. Times are the
+HUD's race clock unless marked "clip". The game runs 64 steps a
+second. The HUD there has the racer list on (other layouts hide it).
+
+- **The cop's HUD.** A racer list: name, "n tickets" and speed in KPH
+  (`0x48a660`, rows set by `0x404ff0` through `0x485180`). A row is
+  dark grey past 50 slices (no speed), grey within 50, light grey for
+  the nearest, **yellow for the target**, and "arrested" (text 330)
+  once out. During a chase a green radar panel shows at the top left
+  (`0x47d480`, only while the cop has a target) and a box marks the
+  target car. A row of eight spikes at the top right is the spike
+  strip (below). There is no radar detector: `0x482b00` draws it
+  only for a racer. The top centre is the mirror, the top right dial
+  the rev counter.
+- **The chase starts** (footage and code agree). `Empire_City_Night`:
+  the light bar comes on at 0:02.62 (H). The chase starts at 0:03.23:
+  Ram Rod's row turns yellow and the radar panel comes up, as his
+  speed goes from 77 to 81 KPH. Empire City's limit there is 20.12
+  m/s (`0x40ed40`), and 20.12 + 2 m/s is 79.6 KPH. Gotcha (80 KPH) and
+  Ace (82 KPH) were over it 0.3 s before and weren't taken: only the
+  nearest racer (+0x730) is tested (`0x4053b0`).
+- **The stop.** 18 stops, six a clip. At the step the stop scene
+  starts the target shows 0-35 KPH (Atlantica 35, 3, 9, 3, 11, 13;
+  Aquatica 10, 8, 9, 10, 1, 11; Empire 9, 6, 0, 0, 7, 6), so under
+  both 20.12 and 11.18 m/s; the clips can't tell which applies. Most
+  targets were rammed or spun first (`Empire_City_Night` 1:26.95-1:28.34:
+  Wild One 163 to 7 KPH after a side hit). The 7 m can't be measured.
+  A chase can be short: 1.5 s from the yellow row to the scene (Empire,
+  clip 99.60-101.13).
+- **The scene lasts 192 steps.** The HUD is gone for 3.03-3.07 s at
+  all 18 stops: state 5 with a human cop's +0x28 = step + 192.
+  The race clock runs on (`Atlantica_Night` 0:48.89 to 0:52.06). The
+  camera is fixed beside the racer's car, an officer on foot at its
+  door and the cop car behind with its lights on. There is no
+  "TICKETED" banner: `0x482b00` returns early for a cop with +0x9A4
+  set.
+- **After the ticket.** The ticket count goes up by one and the row
+  says "arrested" after one ticket, with 8 laps as with 2:
+  `0x6fd4bc` = 1. The arrested car stays at the roadside and the cop
+  drives on (Empire 1:31.8). The siren is off (`0x401e40`); the next
+  yellow row comes 2.7 s after the scene at the soonest (Empire, clip
+  38.17-40.83), so H was pressed again.
+- **A target not stopped.** `Atlantica_Night` 2:48-2:56: Gotcha is
+  the target, crashed and at 0 KPH for 5 s, but the cop isn't within
+  7 m and nothing happens. At 2:56 the yellow row moves to Ace, who is
+  stopped. How the target changed (siren off and on, probably) isn't
+  seen.
+- **The quota.** The sixth ticket ends the race. The results' quota
+  time is the race clock at the end of the sixth scene: Atlantica
+  scene from 5:01.7, quota 5:04.78; Aquatica 3:31.3, 3:34.34; Empire
+  2:55.8, 2:58.87. So +0x2D4 = step − 512 at the ticket, as
+  `0x401ff0` does. The HUD then comes back for 3.4-3.8 s with the
+  lap counter at the last lap (the cop's counter shows the lowest lap
+  of the racers still in, `0x482b00`) and the clock from 0:00, then
+  the results.
+- **The results.** "Pursuit Summary": Player (OGC, the car), Busts
+  "6/6 (Met Quota)" (text 404), Quota Time, and "Sort By". Then
+  Performance, Track Records and "Race Summary": each racer N/A,
+  Busted, tickets 1. With one cop the sort by +0x2D4 isn't seen. In
+  a run where the scripted cop gave no tickets (`cop-list`, nfs-host)
+  the race ended when the racers finished: Busts 0/6, Quota Time N/A.
+- **Speech.** No `copspch` line is heard (the racer's ticket lines
+  aren't played for a cop). The officer bank is `off02a` in Atlantica
+  and Aquatica and `off08a` in Empire City (lines only in those
+  banks), never B or C; the dispatcher is `disp02` in Aquatica and
+  `disp08` in Empire City. Atlantica's dispatcher lines are all
+  shared, but one (slot 20) is only in `disp02` and `disp08`. That
+  fits the track-mod-4 rule (bnk.md).
+- **No computer cops** are seen on the player's side in any clip:
+  the stops, scenes and racer list show only the player's car.
+- **Spike strips: not settled.** The spike row at the top right
+  dims (it is still drawn, greyer) once before each of the 18 stops,
+  1.4 to 10 s before the scene, and at no other time. The 14 dims not
+  cut by a scene or the race's end last 2.90-2.97 s, close to the
+  strip's 0xC0 steps (3 s, [net.md](net.md)). So the player probably
+  laid a strip in every chase. No strip is seen on the dark roads, and
+  no racer is seen hitting one. In nfs-host (`cop-spike2`, our exe) the row
+  goes away entirely from an S press until a later press clears the
+  strip (14 s), not for 3 s. So either the recorded game differs, or
+  the strips were cleared at once some other way.
+- **The racer list's "over".** `0x485180` writes "%d %s - %d %s %s"
+  ("81 KPH - 8 KPH over", text 350) for a racer with +0x6F0 over 2
+  m/s. The clips never show it, not even for the target, which must
+  be over that to be chased. Not settled: another version, or the
+  text is clipped.
 
 ## Other car fields
 
@@ -1090,14 +1183,16 @@ of every access to those offsets):
 
 - The cop's stop and ticket (`0x40554a` on, state 5, `0x401ff0`) are
   read, not seen at run time: the scripted cop never caught a slow
-  target. A computer cop's stop of a human racer is seen in footage
-  (above): 6 s, as the table says. What `0x4127b0` plays (probably the "pull over" speech) and
+  target. In footage, a computer cop's stop of a human racer lasts
+  6 s, as the table says, and a human cop's stop of a computer racer
+  3 s, with the quota time as `0x401ff0` gives (above). What `0x4127b0` plays (probably the "pull over" speech) and
   `0x401580`, `0x401c20` (at the stop's start) and `0x401e20`,
   `0x4040e0` (after the ticket) do aren't followed. +0x2D4 is used by
   the results screen's sort (`0x455834`, key 7, `0x559618`; key 6
   sorts by tickets taken, 5 by tickets given): cops that made their
   quota first, earliest +0x2D4 first, then by tickets given. The cop
-  game's results screen isn't in the footage.
+  game's results screen is in the footage, but with one cop only, so
+  the sort isn't seen.
 - The computer cop's own driver (`0x4032e5`, `0x402e10`, `0x4025c0`)
   and the AI racer's busted states (6, 7 in `0x409c03`) aren't
   followed, nor are the per-track factors at `0x56ef94`.

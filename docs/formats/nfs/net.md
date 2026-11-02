@@ -327,11 +327,29 @@ called only from a cop's states (`0x405860`, `0x4058ad`, next to the
 siren's `0x404f80`): once per press (car +0x513), if the cop
 (car +0x714, its own index in the car list, set at `0x4012e3`) has no
 strip out (`0x7dd850` + car × 0x50), it lays one on
-the track at the cop's place (`0x4c9dd0`, +0x1C) for 0xC0 ticks, drawn by
-`0x4c9f70`, and plays radio speech (`0x40b9c0`) and sound 0x10; a strip
-still out gives sound 0x12, an old one is cleared (`0x4c9f50`) with sound
-0x11. The sounds play only for the car on screen. In a race (not a
-pursuit) the press is sent and nothing happens.
+the track at the cop's place (`0x4c9dd0`, +0x1C) with an arming step
+of step + 0xC0 (3 s), and plays radio speech (`0x40b9c0`) and sound
+0x10. A press before that step gives sound 0x12 and nothing else; a
+press after it clears the strip (`0x4c9f50`) with sound 0x11. The
+sounds play only for the car on screen. In a race (not a pursuit) the
+press is sent and nothing happens.
+
+The strip doesn't go away by itself. Until the arming step it blinks
+(`0x4c9f70` draws it only while bit 0x10 of the steps left is clear)
+and catches nothing; from then on it is drawn solid and stays until it
+is cleared: by the cop's next press, by the ticket (`0x4040e0`, for a
+human cop), or by a racer driving onto it. Each step a racer still in
+the race and on the ground is tested against armed strips within one
+slice (`0x4297d0`, `0x4ca160`, the four wheels against the strip's
+quad). A hit clears the strip, sets the racer's +0x99C to the wheels
+that touched it and +0x621 bit 0x40, and `0x401650` marks the racer's
+chase record pulled over (+0x1C = 2); a human cop without a target
+then takes it as one if it is within 20 slices and speeding (or
+already chased). The cop's
+HUD row of eight spikes is not drawn while the cop has a strip out
+(`0x483ef3`; in nfs-host, `cop-spike2`, it went at the press and came
+back at the clearing press 14 s later). The map shows the strip
+(`0x48d4c0`).
 
 Seen in a run (October 2026, `nfs-host -poke`, docs/engines/nfs.md): a
 single-player Hot Pursuit with the player in the Pursuit Corvette
@@ -600,7 +618,8 @@ was the lower.
   game sends them only when launched by EA's online service, whose NPS
   DLL isn't on the CD. The Positional/Controller pair is built but never
   shown (count 2 at `0x43f4b2`); whether some build showed it isn't known.
-- Spike strips weren't seen laid. The way there was found but not
+- Spike strips weren't seen laid in a network game (footage of a
+  one-player cop game: [physics.md](physics.md)). The way there was found but not
   finished: Hot Pursuit is in the lobby's race-type list (click the
   header at 240,77, then 208,108), and police cars are offered in Hot
   Pursuit (mask 0x2008), but the script didn't reach them in Player
