@@ -156,8 +156,9 @@ speedometer read by digit templates, "Final lap!" found by template.
   Shadows High, and no Smart Rendering box (a different version's
   screen from the files Reluva reads). No run uses Low textures, so
   flag 0x8000's reading stays untested.
-- **Other things seen**: a Blitz's countdown looks down on the car from
-  above; Checkpoint and Circuit clocks count up, Blitz and timed
+- **Other things seen**: every race's countdown starts with the camera
+  high over the grid, looking down on the car, and brings it down
+  behind the car by the start (Reluva does this now); Checkpoint and Circuit clocks count up, Blitz and timed
   lessons' down; the loading screens' tips include "In a Checkpoint
   Race, the finish line appears only after you've cleared the final
   checkpoint" and "Amateurs must place in the top 3 to unlock a race's
