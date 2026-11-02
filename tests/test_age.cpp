@@ -549,6 +549,14 @@ void testTunnels() {
     // Two walls, eight pieces of arch, the strip, half the start's end each
     // side (four pieces each).
     CHECK(mesh.batches.size() == 1 && mesh.batches[0].indices.size() == (4 + 16 + 2 + 8) * 3);
+    // Flag 0x4: a band 2 m deep (the second height) hanging under the
+    // deck's edges, besides the 5 m walls (the freeway's 0x7).
+    CHECK(!readPsdl(buildPsdl({10 << 3, 1, 9 << 3 | 3, 0x7, 0x500, 0x200, 0x80 | 2 << 3 | 2, 0, 1, 3, 2}), psdl));
+    buildCityMesh(psdl, mesh);
+    float lowest = 1;
+    for (const gfx::Vertex& v : mesh.vertices)
+        lowest = std::min(lowest, v.pos[1]);
+    CHECK(std::fabs(lowest + 2) < 1e-4f);
     // The lower height is the walls' either way round (San Francisco's
     // tunnels: 9 then 7).
     CHECK(!readPsdl(buildPsdl({10 << 3, 1, 9 << 3 | 3, 0x103, 0x900, 0x700, 0x80 | 2 << 3 | 2, 0, 1, 3, 2}), psdl));
