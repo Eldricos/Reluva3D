@@ -42,6 +42,9 @@ namespace reluva::clue {
 // its weather, voices, steps and menu sounds so (the CD's music, the videos
 // and the loading's loop not).
 inline void playAsClueExe(audio::Sound& s) { s.rate = s.rate * 65 / 64; }
+// And at volume 100 of Miles' 127 (0x42EB80, 0x42ECB0, 0x42EBC0 pass 0x64),
+// under the master volume.
+constexpr int kClueSoundVolume = audio::kMaxVolume * 100 / 127;
 
 // Who plays a suspect, as the set-up screens choose.
 struct Player {

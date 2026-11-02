@@ -177,8 +177,12 @@ std::string FrontEnd::readText(const std::string& file) const {
 void FrontEnd::applyVolumes() {
     if (!mixer_)
         return;
+    // As Clue.exe's preferences set them (0x415E6D): the master volume
+    // Miles' for the sounds and voices (AIL_set_digital_master_volume), the
+    // music's the CD's own (AIL_redbook_set_volume), the one not under the
+    // other.
     const int master = prefs_.masterVolume * audio::kMaxVolume / 100;
-    mixer_->setTypeVolume(audio::SoundType::Music, master * prefs_.musicVolume / 100);
+    mixer_->setTypeVolume(audio::SoundType::Music, prefs_.musicVolume * audio::kMaxVolume / 100);
     mixer_->setTypeVolume(audio::SoundType::Speech, master);
     mixer_->setTypeVolume(audio::SoundType::Effects, master);
 }
@@ -275,7 +279,7 @@ void FrontEnd::go(Screen s) {
             if (const std::filesystem::path* p = data_.find("load music loop22khz.wav")) {
                 auto loop = std::make_shared<audio::Sound>();
                 if (!audio::decodeSound(readFile(*p), *loop))
-                    loadingSound_ = mixer_->play(loop, audio::SoundType::Effects, audio::kMaxVolume, 0, true);
+                    loadingSound_ = mixer_->play(loop, audio::SoundType::Effects, kClueSoundVolume, 0, true);
             }
         showDialog(kLoading);
         break;
@@ -891,7 +895,7 @@ void FrontEnd::menuThunder() {
     if (!mixer_ || (stormSound_ != audio::kNoSound && mixer_->isPlaying(stormSound_)))
         return;
     if (auto s = loadSound(data_, "mnThndr1.wav"))
-        stormSound_ = mixer_->play(s, audio::SoundType::Effects, audio::kMaxVolume, 0, true);
+        stormSound_ = mixer_->play(s, audio::SoundType::Effects, kClueSoundVolume, 0, true);
 }
 
 void FrontEnd::startFlash(int id) {
@@ -902,7 +906,7 @@ void FrontEnd::startFlash(int id) {
     // opens hides the flashes (0x40C420).
     if (mixer_)
         if (auto s = loadSound(data_, "mnThndr2.wav"))
-            mixer_->play(s, audio::SoundType::Effects);
+            mixer_->play(s, audio::SoundType::Effects, kClueSoundVolume);
     flashUntil_ = now_ + 1000;
     flashClick_ = id;
 }

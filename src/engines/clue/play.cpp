@@ -1393,7 +1393,7 @@ void Play::updateAmbience() {
                 gust_ = audio::kNoSound;
                 if (w.gust > 0)
                     if (const auto loop = loadSound(kGust[w.gust]))
-                        gust_ = mixer_->play(loop, audio::SoundType::Effects, audio::kMaxVolume * 100 / 127, 0, true);
+                        gust_ = mixer_->play(loop, audio::SoundType::Effects, kClueSoundVolume, 0, true);
             }
             if (next == 5)
                 sound(kBigThunder[ambientRng_() % 2]);
@@ -1701,9 +1701,9 @@ void Play::sound(const std::string& file, bool voice) {
     if (voice) {
         if (voice_ != audio::kNoSound)
             mixer_->stop(voice_);
-        voice_ = mixer_->play(s, audio::SoundType::Speech);
+        voice_ = mixer_->play(s, audio::SoundType::Speech, kClueSoundVolume);
     } else
-        mixer_->play(s, audio::SoundType::Effects);
+        mixer_->play(s, audio::SoundType::Effects, kClueSoundVolume);
 }
 
 void Play::startVideo(const std::string& file) {
