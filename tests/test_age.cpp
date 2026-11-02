@@ -535,6 +535,16 @@ void testTunnels() {
             wallTop = std::max(wallTop, v.pos[1]);
     }
     CHECK(std::fabs(crown - 7) < 1e-4f && std::fabs(wallTop - 5.5f) < 1e-4f);
+    // The walls' texture runs up them from its first row at the foot.
+    int foot = 0, head = 0;
+    for (const gfx::Vertex& v : mesh.vertices)
+        if (std::fabs(v.normal[1]) < 1e-3f && std::fabs(v.normal[0]) > 0.999f) {
+            if (v.pos[1] == 0)
+                foot += v.uv[1] == 0;
+            else if (std::fabs(v.pos[1] - 5.5f) < 1e-4f)
+                head += v.uv[1] == 1;
+        }
+    CHECK(foot > 0 && head > 0);
     // Two walls, eight pieces of arch, the strip, half the start's end each
     // side (four pieces each).
     CHECK(mesh.batches.size() == 1 && mesh.batches[0].indices.size() == (4 + 16 + 2 + 8) * 3);
