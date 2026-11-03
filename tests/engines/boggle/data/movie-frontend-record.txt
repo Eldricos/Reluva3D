@@ -1,0 +1,7 @@
+# The record of boggle.unit.frontend (tests/engines/boggle/unit/frontend.cpp).
+# Written by `reluva-tests boggle.unit.frontend --update`; review its diff before committing.
+movie.0: 168ec611558bc8c8
+movie.1: cc908ea8cd5f8ac8
+movie.2: 096926526f1a97b2
+movie.3: ce38dc5b65688512
+movie.4: 096926526f1a97b2

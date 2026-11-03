@@ -27,7 +27,9 @@ from the original game.
 Classic's round animation and WAV effects are enabled by default. The timer
 starts after the opening finishes, and closing finishes before results/review.
 The launcher can disable **Classic round animations** or **Classic sound
-effects** independently. **Classic music** offers no music (default), a selected
+effects** independently. **Intro and menu animations** plays the intro with
+its soundtrack and available animated mode buttons; Escape skips the intro.
+See [movie playback and scope](movies.md). **Classic music** offers no music (default), a selected
 installed track, or a random track chosen per launch. See [music](music.md) and [presentation behavior and evidence](presentation.md).
 
 In the launcher's game options, choose Original or Master and a round duration:
@@ -47,7 +49,7 @@ Game ID: `boggle1997`. Add the installed folder containing `Boggle.exe`, or
 its equivalent expanded `Boggle/` directory on the supplied CD. The CD root
 and compressed-only installers are not recognized as runnable directories.
 **Import Game** accepts the install, the expanded CD folder, or the CD root
-containing it, and copies the English Classic set (40 files with menu artwork) into your external
+containing it, and copies the English Classic set (45 files with menu artwork and clips) into your external
 library. See [import scope and validation](import.md).
 
 Detection requires measured prefix-MD5/size signatures for `Boggle.exe`,
@@ -94,16 +96,21 @@ Supported formats:
 - [Binary word dictionaries](formats/dictionary.md).
 - [Single-stream 16-bit AVI / Microsoft Video 1](../../common/avi-video1.md)
   for the two Classic lid clips.
+- [AVI / Cinepak with optional PCM soundtrack](../../common/avi-cinepak.md)
+  for the intro and mode buttons.
 - BMP and PCM WAV through the existing shared readers.
 
 Not decoded: INSO `.DAT` definitions,
-Cinepak and paletted/timer AVI media, and TrueType fonts. The current checker
+paletted/timer AVI media and TrueType fonts. The current checker
 also does not interpret PE dialog layouts or validate every asset the original
 program may request. Some bitmap paths
 in the EXE are absent from the supplied copies; see the
 [remaining research questions](../../plans/boggle-1997/unconfirmed.md).
 
 ## Tests
+
+`movie-check <folder>` decodes available intro/menu clips and their PCM,
+reporting only counts and checksums.
 
 `frontend-check <folder>` validates the optional game-selection background and
 reports a decoded checksum.

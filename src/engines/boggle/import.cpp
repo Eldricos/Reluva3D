@@ -2,6 +2,7 @@
 // Copyright (C) 2026 The Reluva contributors
 #include "engines/boggle/import.h"
 #include "engines/boggle/classic/options.h"
+#include "engines/boggle/frontend/media.h"
 #include "common/fs.h"
 #include <map>
 
@@ -46,6 +47,10 @@ Error classicImportPlan(const std::filesystem::path& root, const DetectedGame& g
         add(std::string("Waves/")+name+".wav");
     for (const auto* name : classicMusicFiles) add(std::string("Waves/")+name+".wav");
     if (fs::findFile(root,"Bitmaps/Select1.bmp")) add("Bitmaps/Select1.bmp");
+    for (const auto* name : menuMovieNames) {
+        const auto path=std::string("Anims/")+name+".avi";
+        if(fs::findFile(root,path))add(path);
+    }
     ImportPlan plan; plan.game = game;
     for (const auto& [key,path] : paths) {
         std::filesystem::path from;
@@ -55,7 +60,7 @@ Error classicImportPlan(const std::filesystem::path& root, const DetectedGame& g
         plan.files.push_back({from,path,uint64_t(size),std::nullopt});
     }
     plan.notes = {
-        "U.S. English Classic Original and Master, including round clips, effects and WAV music.",
+        "U.S. English Classic Original and Master, with available intro/menu movies, round clips, effects and WAV music.",
         "Boggle.exe is retained only for release identification; no original code is executed.",
         "Copies selected resources only. Installers, bundled system libraries and personal dictionaries are excluded.",
         "Other game modes, languages and CD-device music are not supported by this import."

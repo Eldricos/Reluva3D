@@ -51,6 +51,7 @@ public:
             music.emplace_back(std::to_string(i),std::move(title));
         }
         return {
+            {"frontend_movies", "Intro and menu animations", "Play the installed intro with its soundtrack and animate available mode buttons. Escape skips the intro.", true, {}},
             {"classic_menu", "Game selection menu", "Choose Classic and its board before play; disable to open the existing round screen directly.", true, {}},
             {"classic_music", "Classic music", "Loop an installed WAV track independently of sound effects. Random chooses once per launch.", true, std::move(music)},
             {"classic_sound", "Classic sound effects", "Play the installed game's WAV sound effects.", true, {}},

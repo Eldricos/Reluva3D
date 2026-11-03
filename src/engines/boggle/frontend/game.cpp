@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 // Copyright (C) 2026 The Reluva contributors
 #include "engines/boggle/frontend/game.h"
+#include "engines/boggle/frontend/media.h"
 #include "engines/boggle/classic/game.h"
 #include "engines/boggle/classic/options.h"
 #include "engines/boggle/resources.h"
@@ -36,15 +37,22 @@ std::string duration(uint64_t ms) {
     const auto seconds=ms/1000;
     return std::to_string(seconds/60)+":"+(seconds%60 ? "30" : "00");
 }
-void selection(Surface& s,const image::Image& background) {
+void selection(Surface& s,const image::Image& background,const FrontendMedia& media,uint64_t elapsed) {
     fill(s,{0,0,640,480},dark);
     if(!background.rgba.empty()) image::blit(s,background,0,0);
     else { text(s,56,70,"BOGGLE",white,5); text(s,56,142,"CHOOSE A GAME",muted,2); }
     button(s,classic,"CLASSIC",true);
+    if(media.button(s,0,classic.x+6,classic.y+4,elapsed)) {
+        fill(s,{classic.x+2,classic.y+97,classic.w-4,13},dark);
+        text(s,classic.x+10,classic.y+99,"CLASSIC");
+    }
     const char* names[]={"BREAKAWAY","BATTLE","SPACE","IN YOUR FACE"};
     for(int i=0;i<4;++i) {
         const Box b{154+i*112,288,110,112};button(s,b,names[i],false,false);
-        text(s,b.x+10,369,"Unavailable",muted);
+        if(media.button(s,size_t(i+1),b.x+5,b.y+4,elapsed)) {
+            fill(s,{b.x+2,b.y+85,b.w-4,25},dark);
+            text(s,b.x+8,b.y+87,names[i],muted);text(s,b.x+8,b.y+99,"Unavailable",muted);
+        } else text(s,b.x+10,369,"Unavailable",muted);
     }
     text(s,40,425,"Enter: Classic",white,2);button(s,exit,"LAUNCHER (L)");
 }
@@ -86,6 +94,8 @@ Error FrontendGame::run() {
         if(auto err=resources.image("Bitmaps/Select1.bmp",background)) return err;
         if(background.w!=640 || background.h!=480) return Error::fail("Unsupported game-selection bitmap dimensions");
     }
+    FrontendMedia media;
+    if(auto err=media.open(resources,target_.path,options.movies))return err;
     auto graphics=[&]() {
         system_.setTextInput(false); system_.setMouseCursorVisible(true);
         auto err=system_.initGraphics(640,480,PixelFormat::RGBA32);
@@ -93,6 +103,12 @@ Error FrontendGame::run() {
         return err;
     };
     if(auto err=graphics()) return err;
+    if(options.movies) {
+        bool quit=false;
+        if(auto err=FrontendMedia::intro(system_,resources,target_.path,quit))return err;
+        if(quit)return Error::success();
+    }
+    uint64_t menuStarted=system_.getMillis();
     Surface screen;screen.create(640,480,PixelFormat::RGBA32);
     Page page=Page::Selection;
     uint64_t timedDuration=options.duration ? options.duration : 180000;
@@ -141,11 +157,11 @@ Error FrontendGame::run() {
             // Window close / launcher requests still take effect immediately.
             while(system_.pollEvent(event))
                 if(event.type==EventType::Quit || event.type==EventType::ReturnToLauncher) return Error::success();
-            page=Page::Selection;
+            page=Page::Selection;menuStarted=system_.getMillis();
         }
         if(page==Page::Version) setup(screen,options);
         else if(page==Page::Players) players(screen,options);
-        else selection(screen,background);
+        else {const auto now=system_.getMillis();selection(screen,background,media,now>=menuStarted ? now-menuStarted : 0); }
         system_.updateScreen(screen);system_.delayMillis(16);
     }
 }

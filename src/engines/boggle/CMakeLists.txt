@@ -8,6 +8,7 @@ reluva_add_engine(boggle
     SOURCES
         boggle.cpp
         frontend/game.cpp
+        frontend/media.cpp
         import.cpp
         resources.cpp
         formats/text_resources.cpp
@@ -54,4 +55,4 @@ reluva_add_gamedata_test(boggle
     GAME boggle1997
     ENV RELUVA_BOGGLE1997
     SCRIPT ${tests}/gamedata.cmake
-    STEPS release resources dictionaries classic master presentation music import frontend)
+    STEPS release resources dictionaries classic master presentation music import frontend movies)

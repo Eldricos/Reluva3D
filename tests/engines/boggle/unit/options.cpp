@@ -31,7 +31,7 @@ void settings() {
 void advertised(const std::filesystem::path& tmp) {
     const auto* meta = findEngine("boggle"); CHECK(meta); if (!meta) return;
     const auto options = meta->options("boggle1997", tmp);
-    CHECK(options.size() == 6); CHECK(meta->options("unknown",tmp).empty());
+    CHECK(options.size() == 7); CHECK(meta->options("unknown",tmp).empty());
     std::map<std::string,std::string> defaults;
     std::set<std::string> seconds;
     for (const auto& option : options) {

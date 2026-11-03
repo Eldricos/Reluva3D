@@ -23,9 +23,9 @@ Error readClassicOptions(const std::map<std::string,std::string>& settings, Clas
             return Error::fail("Unsupported Classic duration; choose Not Timed or 1 to 5 minutes in 30-second steps");
         parsed.duration = seconds * 1000;
     }
-    for (const auto& [key, flag] : {std::pair{"classic_sound", &parsed.sound}, std::pair{"classic_animations", &parsed.animations}, std::pair{"classic_menu", &parsed.menu}}) {
+    for (const auto& [key, flag] : {std::pair{"classic_sound", &parsed.sound}, std::pair{"classic_animations", &parsed.animations}, std::pair{"classic_menu", &parsed.menu}, std::pair{"frontend_movies", &parsed.movies}}) {
         if (auto it = settings.find(key); it != settings.end()) {
-            if (it->second != "0" && it->second != "1") return Error::fail("Classic sound/animation/menu options must be 0 or 1");
+            if (it->second != "0" && it->second != "1") return Error::fail("Classic sound/animation/menu/movie options must be 0 or 1");
             *flag = it->second == "1";
         }
     }

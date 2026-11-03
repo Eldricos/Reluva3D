@@ -5,6 +5,7 @@
 #include "tests/engines/boggle/fixtures.h"
 #include "tests/engines/boggle/system.h"
 #include "tests/support/test.h"
+#include "tests/support/cinepak_fixture.h"
 using namespace reluva;
 using namespace reluva::boggle;
 namespace {
@@ -125,6 +126,59 @@ void musicLifetime(const std::filesystem::path& tmp) {
     CHECK(sys.audioHashes.size()==2);
     if(sys.audioHashes.size()==2) CHECK(sys.audioHashes[0]==sys.audioHashes[1]);
 }
+void movies(const std::filesystem::path& tmp) {
+    auto t=target(tmp);using test::fixtures::grayMovie;
+    fixtures::write(t.path/"Anims/INTRO.AVI",grayMovie(300,180));
+    fixtures::write(t.path/"Anims/ClsBut8.avi",grayMovie(100,100,false));
+    fixtures::ScriptedSystem sys;sys.audioSupported=true;sys.audioRequiresGraphics=true;
+    sys.clock=[](size_t f)->uint64_t{return f*100;};
+    sys.events=[](size_t f)->std::vector<Event>{
+        using namespace fixtures;
+        if(f==2)return {keyEvent(key::Return)}; // ignored on natural intro completion
+        if(f==3)return {keyEvent(key::Escape)}; // main menu Escape remains inactive
+        if(f==5)return {keyEvent('l')};
+        return {};
+    };
+    sys.present=[&](const Surface& screen,size_t f){
+        if(f<2){const auto* p=screen.row(60)+20*4;CHECK(p[0]==(f?90:30) && p[3]==255);}
+        if(f==2)CHECK(!sys.audioCallback);
+    };
+    auto game=findEngine("boggle")->create(sys,t);CHECK(!game->run());CHECK(sys.frame==5);
+    CHECK(sys.audioStarted && sys.audioStopped && !sys.audioCallback && !sys.textEnabled);
+    if(sys.hashes.size()==5) {
+        CHECK(sys.hashes[2]!=sys.hashes[3] && sys.hashes[2]==sys.hashes[4]);
+        test::Record record;
+        for(size_t i=0;i<sys.hashes.size();++i)record.add("movie."+std::to_string(i),sys.hashes[i]);
+        record.check(std::filesystem::path(RELUVA_SOURCE_DIR)/"tests/engines/boggle/data/movie-frontend-record.txt",
+                     "boggle.unit.frontend","tests/engines/boggle/unit/frontend.cpp");
+    }
+    fixtures::ScriptedSystem skip;skip.clock=[](size_t f)->uint64_t{return f*10;};
+    skip.events=[](size_t f)->std::vector<Event>{
+        using namespace fixtures;
+        if(f==0){auto e=keyEvent(key::Escape);e.repeat=true;return {e};}
+        if(f==1)return {keyEvent(key::Escape),keyEvent(key::Return)};
+        if(f==2)return {keyEvent('l')};
+        return {};
+    };
+    game=findEngine("boggle")->create(skip,t);CHECK(!game->run());
+    CHECK(skip.frame==2 && !skip.audioStarted && !skip.audioCallback);
+    if(skip.hashes.size()==2 && sys.hashes.size()==5)CHECK(skip.hashes[1]==sys.hashes[2]);
+    for(auto type:{EventType::Quit,EventType::ReturnToLauncher}) {
+        fixtures::ScriptedSystem quit;quit.audioSupported=true;
+        quit.events=[type](size_t f)->std::vector<Event>{if(f==1){Event e;e.type=type;return {e};}return {};};
+        game=findEngine("boggle")->create(quit,t);CHECK(!game->run());
+        CHECK(quit.frame==1 && quit.audioStopped && !quit.audioCallback);
+    }
+    fixtures::write(t.path/"Anims/INTRO.AVI","broken");
+    fixtures::ScriptedSystem bad;game=findEngine("boggle")->create(bad,t);CHECK(bool(game->run()) && !bad.audioStarted);
+    t.settings["frontend_movies"]="0";
+    bad.events=[](size_t)->std::vector<Event>{return {fixtures::keyEvent('l')};};
+    game=findEngine("boggle")->create(bad,t);CHECK(!game->run() && !bad.audioStarted);
+    t.settings.erase("frontend_movies");fixtures::write(t.path/"Anims/ClsBut8.avi",grayMovie(4,4,false));
+    fixtures::ScriptedSystem dimensions;game=findEngine("boggle")->create(dimensions,t);
+    CHECK(bool(game->run()) && dimensions.w==0);
+}
+
 void timerAndErrors(const std::filesystem::path& tmp) {
     auto t=target(tmp);t.settings["classic_seconds"]="60";
     fixtures::ScriptedSystem sys;
@@ -156,5 +210,6 @@ static const test::Suite suite("boggle.unit.frontend",{
     {"mouse navigation, legacy artwork fallback and global exit",[](const auto& tmp){mouseAndGuards(tmp);}},
     {"owner-confirmed Escape behavior on selection, version and Players",[](const auto& tmp){escapePages(tmp);}},
     {"random music stays selected across menu re-entry and releases output",[](const auto& tmp){musicLifetime(tmp);}},
+    {"Cinepak intro completion/skip, PCM cleanup, animated buttons and disabled media",[](const auto& tmp){movies(tmp);}},
     {"timer starts with play, input boundaries and invalid artwork/settings",[](const auto& tmp){timerAndErrors(tmp);}},
 });

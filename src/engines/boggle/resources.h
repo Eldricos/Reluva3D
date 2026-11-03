@@ -5,6 +5,7 @@
 #include "common/audio/sound.h"
 #include "common/image.h"
 #include "common/video/avi_video1.h"
+#include "common/video/avi_cinepak.h"
 #include "common/pe_resources.h"
 #include "engines/boggle/formats/mesh.h"
 #include "engines/boggle/formats/dictionary.h"
@@ -31,6 +32,7 @@ public:
     Error language(std::string_view name, Language& out) const;
     Error image(std::string_view name, image::Image& out) const;
     Error animation(std::string_view name, video::AviVideo1& out) const;
+    Error movie(std::string_view name, video::AviCinepak& out) const;
     Error sound(std::string_view name, audio::Sound& out) const;
     // Validates every supported file in the known resource folders. Requires
     // at least one of each category; dictionaries/video/fonts are not counted

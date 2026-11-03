@@ -78,6 +78,11 @@ Error Resources::animation(std::string_view name, video::AviVideo1& out) const {
     if (auto err = archive_.read(name, bytes)) return err;
     return out.read(bytes);
 }
+Error Resources::movie(std::string_view name, video::AviCinepak& out) const {
+    out = {}; std::vector<uint8_t> bytes;
+    if (auto err = archive_.read(name, bytes)) return err;
+    return out.read(bytes);
+}
 Error Resources::sound(std::string_view name, audio::Sound& out) const {
     out = {};
     std::vector<uint8_t> bytes;

@@ -1,6 +1,7 @@
 # Game selection and Classic setup
 
-The engine now opens a game-selection screen before Classic. When present,
+The engine now plays the available intro, then opens game selection before
+Classic. Escape skips the intro; see [movie playback](movies.md). When present,
 `Bitmaps/Select1.bmp` supplies the installed game's 640x480 background. The
 controls are native: choose Classic, then Original or Master, the round length,
 then confirm the Players screen and choose Play. Play starts the existing roll/opening sequence immediately; it does
@@ -76,8 +77,9 @@ native engine, and no disassembly or retail UI text is included in Git.
   `0x4546d4` / `0x454716`, depending on display depth. The bitmap loader
   `0x4622d0` opens a filename and returns null on open failure at `0x4622ed`.
   These calls are not a proven embedded-bitmap fallback. All four files are
-  absent from the supplied expanded trees. Whether this separate title path
-  is used by the owner's VM launch remains unconfirmed.
+  absent from the supplied expanded trees. The owner reports an Intro-video-to-main-menu flow. The native engine uses
+  that available AVI path; these absent bitmap files do not gate it. The
+  separate title-bitmap path remains unreconstructed.
 - The earlier outstanding-evidence list incorrectly included `GS1CS.bmp` among
   missing files. It is present in both original manifests and copies, at
   300x200; SHA-256 `c3a90f5dabe13f87182b18d5ed290dbbede8a4f8a37d05b5b0cdf7db1c22debf`.
@@ -92,15 +94,15 @@ identify the original files. No additional external implementation was consulted
 ## Scope and validation
 
 This is the first frontend navigation pass, not a recreation of the original
-frontend or Classic board layout. The intro and animated mode buttons await a
+frontend or Classic board layout. The intro and available mode buttons now use the independent
 Cinepak reader. Full player configuration, original dialogs, fonts, original cursor/menu
 sounds and original Classic overlays/timer/results rendering remain unfinished.
 The owner confirmed this original VM sequence: Intro video (Escape skips to
 main menu) -> Select Game Type (Escape does nothing) -> Select Version
 (Original/Master; Escape returns to main menu) -> Players (Escape returns to
 main menu) -> Game (Escape does nothing). The native frontend now follows the
-confirmed post-intro stage order and Escape behavior. Intro skipping awaits the
-movie reader. The native setup/Players layout, one-player confirmation and
+confirmed post-intro stage order and Escape behavior. Intro skipping is now
+implemented. The native setup/Players layout, one-player confirmation and
 additional shortcuts remain implementation choices, not original UI claims.
 Escape also leaves native results visible; the owner's description did not
 separately establish Escape behavior on the original results screen.
@@ -108,7 +110,8 @@ separately establish Escape behavior on the original results screen.
 The background is optional so existing 39-file imports continue to work using
 a native selection background. A present but malformed image or wrong
 640x480 dimensions produce an explicit error. New imports include the image
-when available and contain 40 files for the supplied release. See [import](import.md).
+and five available button clips, containing 45 files for the supplied release.
+See [import](import.md).
 
 Synthetic records cover selection, version, Players, Master/Original play, scoring, results,
 return and re-entry using invented BMP pixels and data. Additional checks cover

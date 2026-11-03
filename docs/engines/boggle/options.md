@@ -16,6 +16,9 @@ launcher affects the next launch, not a running round.
 The Game selection menu option (`classic_menu`, default `1`) enables native
 selection/setup before play. Disable it with `0` for direct Classic entry.
 Menu changes to variant/duration apply for the engine session only.
+**Intro and menu animations** (`frontend_movies`, default `1`) independently
+controls the Cinepak frontend clips and intro soundtrack; `0` skips them.
+It does not change Classic roll/lid animations. See [movies](movies.md).
 
 The launcher persists its per-target settings as `classic_variant` = `original`
 or `master` and `classic_seconds` = `0`, or 60..300 in steps of 30.

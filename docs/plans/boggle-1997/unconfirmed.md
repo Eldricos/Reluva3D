@@ -44,8 +44,9 @@ by the static inspection and must not become undocumented assumptions in code.
   A subsequent VM check confirms distinct seven- and eight-letter cues replacing
   Writing; native Windows music/effects playback also passed the owner's test.
   Precise sequence timing still needs comparison. Full original overlays,
-  full original frontend dialogs/animation, paletted/timer AVI and Cinepak remain
-  unsupported. Native selection and Classic setup now exist with installed
+  full original frontend dialogs and paletted/timer AVI remain unsupported.
+  Cinepak intro and available mode-button animation now exist; exact original
+  hover triggers, menu sound and audio/video latency still need comparison. Native selection and Classic setup now exist with installed
   selection artwork and a one-human Players confirmation. The owner has confirmed
   the original screen order and Escape behavior; the native post-intro stage
   order and Escape handling now follow those observations. Exact layout and
@@ -57,7 +58,7 @@ by the static inspection and must not become undocumented assumptions in code.
   resource set; only dependency tracing and end-to-end runs can establish
   sufficiency for all original features. A tested Classic import set now covers
   the native English Classic Original/Master slice and existing detection markers
-  (40 files with menu artwork, or the earlier 39-file subset);
+  (45 files with menu artwork/clips, or the earlier 39/40-file subsets);
   the owner also confirmed that CD importing works. See
   [import scope](../../engines/boggle/import.md). It is not a full-game minimum.
 
