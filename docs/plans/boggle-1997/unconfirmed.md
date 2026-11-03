@@ -55,3 +55,7 @@ Research evidence must cite a manifest SHA-256 and file offset/RVA or a
 repeatable observation. Keep retail assets, dictionary entries, screenshots,
 decompiler output and raw logs outside Git. Record confirmed results in the
 inspection/specifications and remove an uncertainty only when evidence resolves it.
+
+- WAV background music now supports the fifteen installed tracks and an independent
+  launcher selector. Original CD-device music remains unsupported. Track timing
+  and continuity still need VM listening checks; see [music evidence](../../engines/boggle/music.md).

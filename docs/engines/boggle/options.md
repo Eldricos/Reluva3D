@@ -64,8 +64,8 @@ Master rules and, following the owner's correction, the full set of UI duration
 choices established by the slider checks. Native Windows checks of this new
 Master/options build remain separate from the owner's earlier successful Original workflow tests.
 Matching AI, networking, Chess Timer, background play, cube orientation, original menus,
-full original animation overlays and background music are outside the variant
-change. Classic lid clips and sound effects are now supported by the
+full original animation overlays are outside the variant change.
+[WAV background music](music.md) is available through a separate selector. Classic lid clips and sound effects are now supported by the
 [presentation layer](presentation.md), with independent on/off launcher settings.
 
 ## Native validation

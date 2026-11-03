@@ -4,6 +4,7 @@
 #include "common/audio/mixer.h"
 #include "engines/boggle/resources.h"
 #include <array>
+#include "engines/boggle/classic/options.h"
 
 namespace reluva::boggle {
 enum class Cue { Shake, ClickDown, ClickUp, Writing, Seven, Eight, Tick, GameOver, Count };
@@ -11,7 +12,7 @@ class ClassicAudio {
 public:
     explicit ClassicAudio(System& system) : system_(system), mixer_(system.audioRate()) {}
     ~ClassicAudio();
-    Error open(const Resources& resources, bool enabled);
+    Error open(const Resources& resources, bool enabled, int music = musicNone, uint32_t seed = 0x1997);
     void play(Cue cue);
     void beginRound(bool loopShake = true);
     void stopShake();
@@ -21,7 +22,8 @@ private:
     System& system_;
     audio::Mixer mixer_;
     bool active_ = false;
-    audio::SoundHandle shake_ = 0;
+    audio::SoundHandle shake_ = 0, musicHandle_ = 0;
+    std::shared_ptr<audio::Sound> music_;
     std::array<std::shared_ptr<audio::Sound>,size_t(Cue::Count)> sounds_{};
     std::array<audio::SoundHandle,size_t(Cue::Count)> handles_{};
     std::array<bool,11> countdown_{};

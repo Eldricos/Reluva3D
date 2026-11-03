@@ -5,10 +5,22 @@
 
 namespace reluva::boggle {
 ClassicAudio::~ClassicAudio() { if (active_) system_.stopAudio(); }
-Error ClassicAudio::open(const Resources& resources, bool enabled) {
-    if (!enabled) return Error::success();
+Error ClassicAudio::open(const Resources& resources, bool enabled, int music, uint32_t seed) {
+    if (music < musicRandom || music >= int(classicMusicFiles.size()))
+        return Error::fail("Unsupported Classic music track");
+    if (music == musicRandom) {
+        // Native selection once per launch, independent of the board generator.
+        seed = seed * 1664525u + 1013904223u;
+        music = int(seed % classicMusicFiles.size());
+    }
+    if (music >= 0) {
+        auto sound = std::make_shared<audio::Sound>();
+        if (auto err = resources.sound(std::string("Waves/")+classicMusicFiles[size_t(music)]+".wav",*sound)) return err;
+        music_ = std::move(sound);
+    }
+    if (!enabled && !music_) return Error::success();
     const char* names[] = {"Shake", "ClkDown", "ClkUp", "Writing", "Seven", "Eight", "Tick", "GameOver"};
-    for (size_t i=0;i<sounds_.size();++i) {
+    for (size_t i=0;enabled && i<sounds_.size();++i) {
         auto sound = std::make_shared<audio::Sound>();
         if (auto err = resources.sound(std::string("Waves/")+names[i]+".wav",*sound)) return err;
         sounds_[i] = std::move(sound);
@@ -19,7 +31,7 @@ Error ClassicAudio::open(const Resources& resources, bool enabled) {
     return Error::success();
 }
 void ClassicAudio::play(Cue cue) {
-    if (!active_) return;
+    if (!active_ || size_t(cue) >= sounds_.size() || !sounds_[size_t(cue)]) return;
     if (cue == Cue::Shake) {
         stopShake(); shake_ = mixer_.play(sounds_[size_t(cue)],audio::SoundType::Effects,256,0,true);
     } else {
@@ -28,8 +40,10 @@ void ClassicAudio::play(Cue cue) {
     }
 }
 void ClassicAudio::beginRound(bool loopShake) {
-    mixer_.stopAll(); shake_=0; handles_.fill(0); countdown_.fill(false);
-    if (active_) shake_ = mixer_.play(sounds_[size_t(Cue::Shake)],audio::SoundType::Effects,256,0,loopShake);
+    mixer_.stopType(audio::SoundType::Effects); shake_=0; handles_.fill(0); countdown_.fill(false);
+    if (active_ && music_ && !mixer_.isPlaying(musicHandle_))
+        musicHandle_ = mixer_.play(music_,audio::SoundType::Music,256,0,true);
+    if (active_ && sounds_[size_t(Cue::Shake)]) shake_ = mixer_.play(sounds_[size_t(Cue::Shake)],audio::SoundType::Effects,256,0,loopShake);
 }
 void ClassicAudio::stopShake() { if (shake_) mixer_.stop(shake_); shake_=0; }
 void ClassicAudio::countdown(uint64_t remaining) {

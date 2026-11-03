@@ -321,9 +321,34 @@ void presentationWorkflow(const std::filesystem::path& tmp) {
     CHECK(master.hashes.size()==5 && master.textStopped && !master.audioStarted);
 }
 
+void musicWorkflow(const std::filesystem::path& tmp) {
+    namespace fixtures = boggle::fixtures;
+    const auto install=tmp/"install"; fixtures::classicInstall(install);
+    fixtures::write(install/"Waves/Clasical.wav",fixtures::wave());
+    GameTarget target; target.gameId="boggle1997"; target.path=install; target.savePath=tmp/"saves";
+    target.settings={{"classic_music","0"},{"classic_sound","0"},{"classic_animations","0"},{"classic_seconds","0"}};
+    fixtures::ScriptedSystem sys; sys.audioSupported=true; sys.audioRequiresGraphics=true;
+    sys.events=[](size_t frame)->std::vector<Event>{
+        if(frame==1 || frame==5)return {fixtures::keyEvent(key::Return)};
+        if(frame==3)return {fixtures::keyEvent(key::F1)};
+        if(frame==7)return {fixtures::keyEvent(key::Escape)};
+        return {};
+    };
+    const auto* meta=findEngine("boggle"); CHECK(meta); if(!meta)return;
+    auto game=meta->create(sys,target); if(auto err=game->run())return test::fail(err.message);
+    CHECK(sys.audioStarted && sys.audioStopped && !sys.audioCallback);
+    CHECK(sys.audioHashes.size()==7);
+    if(sys.audioHashes.size()==7) {
+        std::vector<int16_t> silence(512); const auto quiet=test::Hash().bytes(silence.data(),silence.size()*sizeof(int16_t)).hex();
+        CHECK(sys.audioHashes[0]==quiet);
+        for(size_t i=1;i<sys.audioHashes.size();++i) CHECK(sys.audioHashes[i]!=quiet);
+    }
+}
+
 } // namespace
 
 static const reluva::test::Suite suite("boggle.engine", {
+    {"music-only start, finish, results, replay and callback cleanup",[](const auto& tmp){musicWorkflow(tmp);}},
     {"animated start/expiry/review, timer gating, sound and early exit",[](const auto& tmp){presentationWorkflow(tmp);}},
     {"Master geometry, configured deadline, replay and untimed finish", [](const auto& tmp) { masterWorkflow(tmp); }},
     {"rejected words, dictionary choices, write failure and engine restart", [](const auto& tmp) { dictionaryWorkflow(tmp); }},

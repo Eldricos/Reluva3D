@@ -4,7 +4,7 @@ The `boggle` engine recognizes the supplied multilingual Windows file set
 and offers early single-player **Classic Original and Master** in U.S. English.
 Original uses 4x4 dice with a three-letter minimum; Master uses 5x5 with a
 four-letter minimum. Both have dictionary validation, scoring and results.
-Classic lid/roll animation and sound effects are available. Other modes,
+Classic lid/roll animation, sound effects and WAV background music are available. Other modes,
 original menus, AI and networking are unfinished.
 See [scope and rule evidence](classic.md) and the
 [original/native comparison procedure](comparison.md).
@@ -19,7 +19,8 @@ from the original game.
 Classic's round animation and WAV effects are enabled by default. The timer
 starts after the opening finishes, and closing finishes before results/review.
 The launcher can disable **Classic round animations** or **Classic sound
-effects** independently. See [presentation behavior and evidence](presentation.md).
+effects** independently. **Classic music** offers no music (default), a selected
+installed track, or a random track chosen per launch. See [music](music.md) and [presentation behavior and evidence](presentation.md).
 
 In the launcher's game options, choose Original or Master and a round duration:
 1–5 minutes in 30-second steps, or Not Timed. Three minutes is the default.
@@ -93,6 +94,9 @@ in the EXE are absent from the supplied copies; see the
 [remaining research questions](../../plans/boggle-1997/unconfirmed.md).
 
 ## Tests
+
+`music-check <folder>` validates all fifteen installed WAV loop tracks and
+reports counts/checksums without exporting samples.
 
 `presentation-check` decodes both Classic lid clips and eight sound cues,
 reporting only counts and checksums.

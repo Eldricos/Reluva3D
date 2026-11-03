@@ -41,6 +41,39 @@ void sounds(const std::filesystem::path& tmp) {
     { ClassicAudio audio(muted); CHECK(bool(audio.open(r,true))); }
     CHECK(!muted.audioStarted);
 }
+void music(const std::filesystem::path& tmp) {
+    // Invented stereo-output expectations from a two-sample mono waveform.
+    for (size_t i=0;i<classicMusicFiles.size();++i) {
+        auto data = fixtures::wave();
+        test::fixtures::put16(data,44,uint16_t(100+i));
+        test::fixtures::put16(data,46,uint16_t(900+i));
+        fixtures::write(tmp / "Waves" / (std::string(classicMusicFiles[i])+".wav"),data);
+    }
+    Resources r; CHECK(!r.open(tmp));
+    for (int i=0;i<int(classicMusicFiles.size());++i) {
+        fixtures::ScriptedSystem sys; sys.audioSupported=true;
+        {
+            ClassicAudio audio(sys); CHECK(!audio.open(r,false,i));
+            CHECK(silent(sys.pump(3))); // Ready screen does not start playback.
+            audio.beginRound(); CHECK(sys.pump(1)[0]==100+i);
+            audio.recorded(7); audio.countdown(0); // FX disabled, music remains.
+            audio.beginRound(); // Replay must preserve the music cursor.
+            const auto next = sys.pump(1)[0]; CHECK(next > 100+i);
+            CHECK(!silent(sys.pump(1000))); // loops beyond the original two samples
+        }
+        CHECK(sys.audioStopped && !sys.audioCallback);
+    }
+    fixtures::ScriptedSystem a,b; a.audioSupported=b.audioSupported=true;
+    { ClassicAudio first(a),second(b);
+      CHECK(!first.open(r,false,musicRandom,123)); CHECK(!second.open(r,false,musicRandom,123));
+      first.beginRound(); second.beginRound(); CHECK(a.pump(200)==b.pump(200)); }
+    fixtures::ScriptedSystem sys;
+    { ClassicAudio audio(sys); CHECK(bool(audio.open(r,false,15))); }
+    fixtures::write(tmp / "Waves/Clasical.wav","broken");
+    { ClassicAudio audio(sys); CHECK(bool(audio.open(r,false,0))); }
+    { ClassicAudio audio(sys); CHECK(!audio.open(r,false)); }
+    CHECK(!sys.audioStarted);
+}
 void transitions() {
     ClassicTransition t; CHECK(t.type()==Transition::None); CHECK(!t.finish(1000));
     t.begin(Transition::Opening,1000); CHECK(t.frame(999)==0 && t.frame(1099)==0 && t.frame(1100)==1);
@@ -52,5 +85,6 @@ void transitions() {
 }
 static const test::Suite suite("boggle.unit.presentation", {
     {"cue selection, countdown deduplication, looping and audio lifetime",[](const auto& tmp){sounds(tmp);}},
+    {"music catalog, independent mute, looping and replay continuity",[](const auto& tmp){music(tmp);}},
     {"opening/closing frame bounds and transition deadlines",[](const auto&){transitions();}},
 });

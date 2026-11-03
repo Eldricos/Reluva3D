@@ -2,6 +2,8 @@
 // Copyright (C) 2026 The Reluva contributors
 #include "engines/engine.h"
 #include "engines/boggle/classic/game.h"
+#include "engines/boggle/classic/options.h"
+#include "engines/boggle/resources.h"
 
 namespace reluva::boggle {
 namespace {
@@ -25,9 +27,18 @@ public:
     std::vector<DetectedGame> detect(const std::filesystem::path& dir) const override {
         return detectFromTable(id(), kVariants, dir);
     }
-    std::vector<GameOption> options(const std::string& gameId, const std::filesystem::path&) const override {
+    std::vector<GameOption> options(const std::string& gameId, const std::filesystem::path& dir) const override {
         if (gameId != "boggle1997") return {};
+        std::vector<std::pair<std::string,std::string>> music = {{"none","No music"},{"random","Random track"}};
+        Resources resources; Language language;
+        if (!resources.open(dir)) (void)resources.language("Language/English.dll",language);
+        for (size_t i=0;i<classicMusicFiles.size();++i) {
+            std::string title = "Track " + std::to_string(i+1);
+            for (const auto& text : language.strings) if (text.id == 0x32c9+i) { title = text.text; break; }
+            music.emplace_back(std::to_string(i),std::move(title));
+        }
         return {
+            {"classic_music", "Classic music", "Loop an installed WAV track independently of sound effects. Random chooses once per launch.", true, std::move(music)},
             {"classic_sound", "Classic sound effects", "Play the installed game's WAV sound effects.", true, {}},
             {"classic_animations", "Classic round animations", "Play the installed Classic lid/roll clips before and after each round.", true, {}},
             {"classic_variant", "Classic variant", "Original: 4 x 4, minimum 3 letters. Master: 5 x 5, minimum 4 letters.", true,

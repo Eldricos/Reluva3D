@@ -24,6 +24,19 @@ Error readClassicOptions(const std::map<std::string,std::string>& settings, Clas
             *flag = it->second == "1";
         }
     }
+    if (auto it = settings.find("classic_music"); it != settings.end()) {
+        const auto& text = it->second;
+        if (text == "none") parsed.music = musicNone;
+        else if (text == "random") parsed.music = musicRandom;
+        else {
+            int track = -1;
+            const auto result = std::from_chars(text.data(), text.data()+text.size(), track);
+            if (result.ec != std::errc{} || result.ptr != text.data()+text.size() ||
+                track < 0 || track >= int(classicMusicFiles.size()) || text != std::to_string(track))
+                return Error::fail("Unsupported Classic music track");
+            parsed.music = track;
+        }
+    }
     out = parsed; return Error::success();
 }
 } // namespace reluva::boggle

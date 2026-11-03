@@ -149,7 +149,7 @@ Error ClassicGame::run() {
     if (auto err = sys_.initGraphics(width, height, PixelFormat::RGBA32)) return err;
     sys_.setWindowTitle(options.variant == ClassicVariant::Master ? "Reluva - Boggle Classic Master" : "Reluva - Boggle Classic Original");
     // Start output after the window and framebuffer are ready.
-    if (auto err = sound.open(resources,options.sound)) return err;
+    if (auto err = sound.open(resources,options.sound,options.music,uint32_t(sys_.getMillis()))) return err;
     sys_.setMouseCursorVisible(true); sys_.setTextInput(true);
     struct TextInputCleanup { System& system; ~TextInputCleanup() { system.setTextInput(false); } } cleanup{sys_};
     Surface screen; screen.create(width, height, PixelFormat::RGBA32);

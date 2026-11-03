@@ -3,7 +3,7 @@
 This pass adds the owner's Classic roll/lid animation and WAV effects to the
 native Original/Master round flow. The ready screen, board, results and controls
 remain the native prototype interface; original title/mode menus, dialog layouts,
-fonts, background music and the other modes are not recreated by this pass.
+fonts and the other modes are not recreated by this pass.
 
 ## Runtime flow
 
@@ -87,8 +87,8 @@ seven- or eight-plus-letter words, so those special cues remain supported by
 executable analysis rather than a VM observation. Precise opening/timer
 alignment and the sub-second zero-bucket boundary were not measured; those
 schedules still come from executable analysis and deterministic native tests.
-The original also plays music, as the owner noted; native background music
-remains unimplemented.
+The original also plays music, as the owner noted; native WAV loop music is
+now supported through the independent [music setting](music.md).
 
 ## Validation
 

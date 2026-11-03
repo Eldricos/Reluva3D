@@ -22,13 +22,16 @@ void settings() {
         CHECK(bool(readClassicOptions({{"classic_seconds",bad}}, options)));
         CHECK(options.side() == 4 && options.duration == 180000);
     }
+    CHECK(options.music == musicNone);
+    for (const char* bad : {"", "-1", "15", "01", "+1", " 1", "1x", "999999999999999999"})
+        CHECK(bool(readClassicOptions({{"classic_music",bad}}, options)));
     CHECK(bool(readClassicOptions({{"classic_variant",""}}, options)));
     CHECK(bool(readClassicOptions({{"classic_variant","unknown"}}, options)));
 }
 void advertised(const std::filesystem::path& tmp) {
     const auto* meta = findEngine("boggle"); CHECK(meta); if (!meta) return;
     const auto options = meta->options("boggle1997", tmp);
-    CHECK(options.size() == 4); CHECK(meta->options("unknown",tmp).empty());
+    CHECK(options.size() == 5); CHECK(meta->options("unknown",tmp).empty());
     std::map<std::string,std::string> defaults;
     std::set<std::string> seconds;
     for (const auto& option : options) {
