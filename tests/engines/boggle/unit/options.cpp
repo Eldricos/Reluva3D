@@ -13,12 +13,12 @@ void settings() {
     CHECK(!readClassicOptions({}, options)); CHECK(options.side() == 4 && options.duration == 180000);
     CHECK(!readClassicOptions({{"classic_variant","master"}}, options)); CHECK(options.side() == 5 && options.duration == 180000);
     CHECK(std::string(options.dice()) == "Dicts/EngMas.dst"); CHECK(std::string(options.palette()) == "Palettes/ClsM1Pal.pal");
-    for (int seconds = 60; seconds <= 300; seconds += 60) {
+    for (int seconds = 60; seconds <= 300; seconds += 30) {
         CHECK(!readClassicOptions({{"classic_seconds",std::to_string(seconds)}}, options));
         CHECK(options.duration == uint64_t(seconds)*1000);
     }
     CHECK(!readClassicOptions({{"classic_seconds","0"}}, options)); CHECK(options.duration == 0);
-    for (const char* bad : {"", "-1", "1", "59", "61", "90", "150", "210", "270", "301", "3600", "180ms", " 180", "180 ", "0xb4", "999999999999999999999999"}) {
+    for (const char* bad : {"", "-1", "1", "59", "61", "119", "149", "301", "3600", "180ms", " 180", "180 ", "0xb4", "999999999999999999999999"}) {
         CHECK(bool(readClassicOptions({{"classic_seconds",bad}}, options)));
         CHECK(options.side() == 4 && options.duration == 180000);
     }
@@ -44,7 +44,7 @@ void advertised(const std::filesystem::path& tmp) {
             if (option.key == "classic_seconds") seconds.insert(value);
         }
     }
-    CHECK(seconds == std::set<std::string>({"0","60","120","180","240","300"}));
+    CHECK(seconds == std::set<std::string>({"0","60","90","120","150","180","210","240","270","300"}));
     ClassicOptions parsed; CHECK(!readClassicOptions(defaults, parsed));
     CHECK(parsed.variant == ClassicVariant::Original && parsed.duration == 180000);
 }

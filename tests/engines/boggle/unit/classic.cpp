@@ -109,7 +109,7 @@ void master(const std::filesystem::path& tmp) {
     round.finish(); CHECK(!round.decide(DictionaryChoice::YesAll)); CHECK(user.contains("CAAX"));
     CHECK(!round.start(100)); CHECK(round.submit("CAAX",101) == Submission::Accepted);
     round.finish();
-    for (uint64_t seconds = 60; seconds <= 300; seconds += 60) {
+    for (uint64_t seconds = 60; seconds <= 300; seconds += 30) {
         const uint64_t ms = seconds * 1000;
         CHECK(!round.board(b,ms)); CHECK(round.remaining(0) == ms && round.timed());
         CHECK(!round.start(1000,ms)); round.tick(1000+ms-1); CHECK(round.phase() == RoundPhase::Playing);

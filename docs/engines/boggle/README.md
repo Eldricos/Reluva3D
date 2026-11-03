@@ -22,7 +22,7 @@ The launcher can disable **Classic round animations** or **Classic sound
 effects** independently. See [presentation behavior and evidence](presentation.md).
 
 In the launcher's game options, choose Original or Master and a round duration:
-1, 2, 3, 4 or 5 minutes, or Not Timed. Three minutes is the default.
+1–5 minutes in 30-second steps, or Not Timed. Three minutes is the default.
 End an untimed round with F1 or End Round. See
 [settings and reference evidence](options.md).
 

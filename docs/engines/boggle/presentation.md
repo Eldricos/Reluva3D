@@ -80,8 +80,15 @@ The AVI decoder is independently implemented in shared code; see its
 [format and reference checks](../../common/avi-video1.md). The existing shared
 WAV decoder and mixer handle sounds. Retail files, decoded frames/audio,
 disassembly, reference harnesses and recordings stay outside every Git worktree.
-A VM observation of perceived sequencing/cues has been requested; the current
-schedule comes from executable analysis and deterministic native tests.
+The owner subsequently heard startup shaking, a selection effect, writing for
+words, ticking in the last ten seconds and ringing at expiry in the original
+VM. These corroborate the broad cue roles above. The owner could not obtain
+seven- or eight-plus-letter words, so those special cues remain supported by
+executable analysis rather than a VM observation. Precise opening/timer
+alignment and the sub-second zero-bucket boundary were not measured; those
+schedules still come from executable analysis and deterministic native tests.
+The original also plays music, as the owner noted; native background music
+remains unimplemented.
 
 ## Validation
 
