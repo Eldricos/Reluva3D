@@ -42,7 +42,8 @@ public:
     bool pollEvent(Event& event) override {
         if (loaded_ != frame) {
             loaded_ = frame; at_ = 0;
-            queued_ = frame >= 30 ? std::vector<Event>{keyEvent(key::Escape)} : events(frame);
+            Event stop; stop.type = EventType::ReturnToLauncher;
+            queued_ = frame >= 30 ? std::vector<Event>{stop} : events(frame);
         }
         if (at_ == queued_.size()) return false;
         event = queued_[at_++]; return true;

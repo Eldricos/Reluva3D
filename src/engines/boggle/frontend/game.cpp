@@ -17,6 +17,7 @@ struct Box {
 constexpr Box classic{40,288,112,112}, original{48,155,252,65}, master{340,155,252,65},
               less{174,258,48,36}, more{418,258,48,36}, untimed{224,312,192,36},
               play{340,388,252,48}, back{48,388,252,48}, exit{462,420,140,36};
+enum class Page { Selection, Version, Players };
 constexpr Color white{245,245,255}, muted{170,181,205}, dark{17,15,35}, gold{224,189,99};
 void fill(Surface& s,Box b,Color c) {
     for(int y=std::max(0,b.y);y<std::min(s.h,b.y+b.h);++y)
@@ -45,7 +46,7 @@ void selection(Surface& s,const image::Image& background) {
         const Box b{154+i*112,288,110,112};button(s,b,names[i],false,false);
         text(s,b.x+10,369,"Unavailable",muted);
     }
-    text(s,40,425,"Enter: Classic",white,2);button(s,exit,"LAUNCHER (ESC)");
+    text(s,40,425,"Enter: Classic",white,2);button(s,exit,"LAUNCHER (L)");
 }
 void setup(Surface& s,const ClassicOptions& options) {
     fill(s,{0,0,640,480},dark);fill(s,{24,26,592,2},gold);
@@ -59,9 +60,19 @@ void setup(Surface& s,const ClassicOptions& options) {
     button(s,less,"-",false,options.duration!=0);button(s,more,"+",false,options.duration!=0);
     text(s,252,270,options.duration ? duration(options.duration) : "NOT TIMED",white,2);
     button(s,untimed,"NO TIMER (T)",options.duration==0);
-    button(s,back,"BACK (ESC)");button(s,play,"PLAY (ENTER)",true);
+    button(s,back,"MAIN MENU (ESC)");button(s,play,"PLAYERS (ENTER)",true);
     text(s,48,458,"1/2: board   Left/Right: duration   T: timer",muted);
 }
+void players(Surface& s,const ClassicOptions& options) {
+    fill(s,{0,0,640,480},dark);fill(s,{24,26,592,2},gold);
+    text(s,48,48,"PLAYERS",white,3);
+    text(s,48,110,options.variant==ClassicVariant::Master ? "CLASSIC MASTER" : "CLASSIC ORIGINAL",gold,2);
+    text(s,48,170,"PLAYER 1: HUMAN",white,2);
+    text(s,48,214,"U.S. English  |  No computer players",muted);
+    text(s,48,260,options.duration ? "Round length: "+duration(options.duration) : "Round length: Not Timed",white,2);
+    button(s,back,"MAIN MENU (ESC)");button(s,play,"PLAY (ENTER)",true);
+}
+
 }
 Error FrontendGame::run() {
     ClassicOptions options;
@@ -83,7 +94,7 @@ Error FrontendGame::run() {
     };
     if(auto err=graphics()) return err;
     Surface screen;screen.create(640,480,PixelFormat::RGBA32);
-    bool configuring=false;
+    Page page=Page::Selection;
     uint64_t timedDuration=options.duration ? options.duration : 180000;
     for(;;) {
         bool launch=false, changed=false;
@@ -94,13 +105,13 @@ Error FrontendGame::run() {
             const bool isKey=event.type==EventType::KeyDown && !event.repeat;
             const bool click=event.type==EventType::MouseDown && event.button==MouseButton::Left;
             auto pressed=[&](Box box){return click && box.contains(event.mouseX,event.mouseY);};
-            if(!configuring) {
-                if((isKey && event.key==key::Escape) || pressed(exit)) return Error::success();
+            if(page==Page::Selection) {
+                if((isKey && event.key=='l') || pressed(exit)) return Error::success();
                 if((isKey && (event.key==key::Return || event.key==key::KpEnter || event.key=='c')) || pressed(classic)) {
-                    configuring=true;changed=true;
+                    page=Page::Version;changed=true;
                 }
-            } else {
-                if((isKey && event.key==key::Escape) || pressed(back)) { configuring=false;changed=true; }
+            } else if(page==Page::Version) {
+                if((isKey && event.key==key::Escape) || pressed(back)) { page=Page::Selection;changed=true; }
                 else if((isKey && event.key=='1') || pressed(original)) options.variant=ClassicVariant::Original;
                 else if((isKey && event.key=='2') || pressed(master)) options.variant=ClassicVariant::Master;
                 else if((isKey && event.key=='t') || pressed(untimed)) {
@@ -109,7 +120,12 @@ Error FrontendGame::run() {
                     options.duration=std::max<uint64_t>(60000,options.duration-30000);timedDuration=options.duration;
                 } else if(options.duration && ((isKey && event.key==key::Right) || pressed(more))) {
                     options.duration=std::min<uint64_t>(300000,options.duration+30000);timedDuration=options.duration;
-                } else if((isKey && (event.key==key::Return || event.key==key::KpEnter)) || pressed(play)) launch=true;
+                } else if((isKey && (event.key==key::Return || event.key==key::KpEnter)) || pressed(play)) {
+                    page=Page::Players;changed=true;
+                }
+            } else {
+                if((isKey && event.key==key::Escape) || pressed(back)) { page=Page::Selection;changed=true; }
+                else if((isKey && (event.key==key::Return || event.key==key::KpEnter)) || pressed(play)) launch=true;
             }
         }
         if(launch) {
@@ -125,9 +141,11 @@ Error FrontendGame::run() {
             // Window close / launcher requests still take effect immediately.
             while(system_.pollEvent(event))
                 if(event.type==EventType::Quit || event.type==EventType::ReturnToLauncher) return Error::success();
-            configuring=false;
+            page=Page::Selection;
         }
-        if(configuring) setup(screen,options);else selection(screen,background);
+        if(page==Page::Version) setup(screen,options);
+        else if(page==Page::Players) players(screen,options);
+        else selection(screen,background);
         system_.updateScreen(screen);system_.delayMillis(16);
     }
 }

@@ -46,7 +46,10 @@ by the static inspection and must not become undocumented assumptions in code.
   Precise sequence timing still needs comparison. Full original overlays,
   full original frontend dialogs/animation, paletted/timer AVI and Cinepak remain
   unsupported. Native selection and Classic setup now exist with installed
-  selection artwork, but their full original flow still needs VM comparison. See
+  selection artwork and a one-human Players confirmation. The owner has confirmed
+  the original screen order and Escape behavior; the native post-intro stage
+  order and Escape handling now follow those observations. Exact layout and
+  full player configuration still need implementation/comparison. See
   [presentation evidence](../../engines/boggle/presentation.md).
 - Exact UI layout and appearance across resource DLLs, fonts, palette modes
   and display settings. Successful media decoding is not a rendering match.

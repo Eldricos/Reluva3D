@@ -10,8 +10,9 @@ See [scope and rule evidence](classic.md) and the
 [original/native comparison procedure](comparison.md).
 
 The default game-selection screen opens Classic with Enter. Choose Original
-or Master and a duration, then Play / Enter to start. Escape returns from a
-round to game selection, and from selection to the launcher. See
+or Master and a duration, advance to Players, then Play / Enter to start.
+Escape returns to selection from version/setup or Players; it does nothing
+on selection or in-game. Use Menu / F3 in-game or Launcher / L on selection. See
 [frontend scope and controls](frontend.md). Disable **Game selection menu** in
 launcher options to use the previous direct Ready screen.
 

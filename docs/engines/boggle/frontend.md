@@ -3,19 +3,24 @@
 The engine now opens a game-selection screen before Classic. When present,
 `Bitmaps/Select1.bmp` supplies the installed game's 640x480 background. The
 controls are native: choose Classic, then Original or Master, the round length,
-and Play. Play starts the existing roll/opening sequence immediately; it does
+then confirm the Players screen and choose Play. Play starts the existing roll/opening sequence immediately; it does
 not require another Enter on the round's Ready screen. Other game modes are
 shown as unavailable and cannot be started.
 
 Keyboard controls:
 
-- Selection: Enter, keypad Enter or C opens Classic; Escape returns to the launcher.
-- Setup: 1 selects Original; 2 selects Master. Left/Right adjust the timed
+- Selection: Enter, keypad Enter or C opens Classic. Escape does nothing.
+  The native Launcher button / L returns to the launcher.
+- Version/setup: 1 selects Original; 2 selects Master. Left/Right adjust the timed
   duration in 30-second steps, bounded to 1:00..5:00. T toggles no timer and
-  restores the last timed duration. Enter/keypad Enter plays; Escape goes back.
-- During a menu-launched round, Escape returns to game selection. Window close
-  and Return to Launcher requests leave the engine directly. Replay and New
-  Board retain their existing round behavior.
+  restores the last timed duration. Enter/keypad Enter advances to Players.
+  Escape or Main Menu returns to selection.
+- Players: confirms the supported one-human-player session, chosen version and
+  duration. Enter/keypad Enter plays. Escape or Main Menu returns directly to
+  selection, rather than to version selection.
+- During a menu-launched game, Escape does nothing. The explicit native Menu
+  button / F3 returns to selection. Window close and Return to Launcher requests
+  leave the engine directly. Replay and New Board retain their existing behavior.
 
 Mouse controls provide the same choices. Selection changes, Back and Play do
 not consume another navigation action from the same input batch. Pending round
@@ -31,7 +36,8 @@ use the launcher's settings. A random music choice is made once per engine
 launch, including across menu re-entry. Returning to menus stops the round's
 music; entering Classic again restarts that same selected loop. Replay within
 Classic continues its existing music cursor. These are explicit native policies;
-exact original menu audio and navigation still need VM comparison.
+exact original menu audio still needs VM comparison. Launcher/L and Menu/F3
+are native convenience controls, not claimed original shortcuts.
 
 **Game selection menu**, enabled by default in launcher options, is saved as
 `classic_menu=1`. Disable it (`0`) to use the previous direct Classic Ready screen
@@ -87,18 +93,24 @@ identify the original files. No additional external implementation was consulted
 
 This is the first frontend navigation pass, not a recreation of the original
 frontend or Classic board layout. The intro and animated mode buttons await a
-Cinepak reader. Player setup, original dialogs, fonts, original cursor/menu
+Cinepak reader. Full player configuration, original dialogs, fonts, original cursor/menu
 sounds and original Classic overlays/timer/results rendering remain unfinished.
-VM checks of the original screen sequence and Escape behavior are pending.
-The native setup layout and shortcuts above are deliberate implementation
-choices, not original behavior claims.
+The owner confirmed this original VM sequence: Intro video (Escape skips to
+main menu) -> Select Game Type (Escape does nothing) -> Select Version
+(Original/Master; Escape returns to main menu) -> Players (Escape returns to
+main menu) -> Game (Escape does nothing). The native frontend now follows the
+confirmed post-intro stage order and Escape behavior. Intro skipping awaits the
+movie reader. The native setup/Players layout, one-player confirmation and
+additional shortcuts remain implementation choices, not original UI claims.
+Escape also leaves native results visible; the owner's description did not
+separately establish Escape behavior on the original results screen.
 
 The background is optional so existing 39-file imports continue to work using
 a native selection background. A present but malformed image or wrong
 640x480 dimensions produce an explicit error. New imports include the image
 when available and contain 40 files for the supplied release. See [import](import.md).
 
-Synthetic records cover selection, setup, Master/Original play, scoring, results,
+Synthetic records cover selection, version, Players, Master/Original play, scoring, results,
 return and re-entry using invented BMP pixels and data. Additional checks cover
 mouse input, repeat and input-batch guards, unavailable modes, window/launcher
 exit, delayed menu time, exact round expiry, invalid media/settings, old imports
@@ -121,3 +133,13 @@ the execution tracer). An external SDL dummy-video/audio run from the fresh
 and exit with nonzero output audio. Private captures were inspected locally.
 These software checks do not establish Windows playback or original UI parity.
 All 737 original install files remain unchanged against their SHA-256 manifest.
+
+After the owner's VM report, synthetic navigation checks explicitly verify inactive
+Escape on the main menu and in-game, Escape-to-main from both version selection
+and Players, the Players confirmation gate, and explicit native Menu/F3 exits.
+The existing direct-entry option retains its earlier Escape-to-launcher policy.
+The revised flow passes all 19 Boggle checks and ASan/UBSan; the ordinary full
+suite remains 31 passing checks with 19 optional data checks skipped. A new
+external SDL run traversed both Players confirmations, reached live Master and
+Original boards, ignored Escape in-game, and exited through the explicit native
+controls with nonzero audio. No claim of full original player-setup UI is made.

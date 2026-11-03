@@ -103,7 +103,7 @@ void draw(Surface& screen, const ClassicRound& round, uint64_t now,
     label(screen, 24, 535, reviewing ? "Choose one of the four dictionary options." : message.empty() ? (ready ? "Press Enter when ready. The timer starts with the board." : playing ? "Enter: submit   Backspace: undo   Right click: clear" : "Enter: replay this board   F2: new board") : message, muted);
     if (!reviewing) { rect(screen, 24, 557, 180, 29, {48, 88, 120}); label(screen, 35, 566, playing ? "END ROUND (F1)" : "START / REPLAY (ENTER)"); }
     if (!playing && !reviewing) { rect(screen, 216, 557, 158, 29, {48, 88, 120}); label(screen, 227, 566, "NEW BOARD (F2)"); }
-    label(screen, 610, 566, fromMenu ? "ESC: MENU" : "ESC: LAUNCHER", muted);
+    label(screen, 610, 566, fromMenu ? "MENU (F3)" : "ESC: LAUNCHER", muted);
     if (const auto* word = round.candidate()) {
         rect(screen, 24, 182, 752, 270, {50, 78, 108});
         rect(screen, 27, 185, 746, 264, {22, 40, 60});
@@ -213,8 +213,15 @@ Error ClassicGame::run() {
         while (sys_.pollEvent(event)) {
             if (auto err = advance()) return err;
             if (event.type == EventType::Quit || event.type == EventType::ReturnToLauncher ||
-                (event.type == EventType::KeyDown && event.key == key::Escape && !event.repeat)) {
-                returnToMenu_ = fromMenu_ && event.type == EventType::KeyDown; running = false; break;
+                (event.type == EventType::KeyDown && event.key == key::Escape && !event.repeat && !fromMenu_)) {
+                running = false; break;
+            }
+            // Escape is inactive in the original game. Provide an explicit
+            // native menu action without changing that observed key behavior.
+            if (fromMenu_ && ((event.type == EventType::KeyDown && !event.repeat && event.key == key::F1+2) ||
+                (transition.type() == Transition::None && event.type == EventType::MouseDown && event.button == MouseButton::Left &&
+                 hit(event.mouseX,event.mouseY,610,557,166,29)))) {
+                returnToMenu_ = true; running = false; break;
             }
             if (transition.type() != Transition::None) continue;
             if (round.candidate()) {
