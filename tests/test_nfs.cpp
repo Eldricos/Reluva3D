@@ -1208,6 +1208,201 @@ void testCarLighting() {
     CHECK(!carLightGlow("SMLN", 0, 1, false, false, 8, 1).shown);
 }
 
+void testCarReflection() {
+    // 0x49c880 and 0x49ca50: integer HSV, the hue a turn in 256.
+    CHECK((rgbToHsv({255, 0, 0}) == std::array<int, 3>{0, 255, 255}));
+    CHECK((rgbToHsv({0, 255, 0}) == std::array<int, 3>{85, 255, 255}));
+    CHECK((rgbToHsv({128, 128, 128}) == std::array<int, 3>{0, 0, 128}));
+    CHECK((rgbToHsv({100, 150, 200}) == std::array<int, 3>{149, 128, 200}));
+    CHECK((hsvToRgb({0, 255, 255}) == std::array<int, 3>{255, 0, 0}));
+    CHECK((hsvToRgb({85, 255, 255}) == std::array<int, 3>{2, 255, 0}));
+    CHECK((hsvToRgb({40, 0, 90}) == std::array<int, 3>{90, 90, 90}) && (hsvToRgb({40, 200, 0}) == std::array<int, 3>{0, 0, 0}));
+    // 0x4ba350: the sky's hue; value 128 + 200 x 127 / 512 = 177, less a
+    // quarter of the paint's value (112) for the normal one; all x 255 / 256.
+    CarReflection r = carReflection(0xff7f7f7fu, {100, 150, 200}, 112, 0);
+    CHECK((r.normal >> 24) == 149 * 255 / 256 && (r.strong >> 24) == 177 * 255 / 256);
+    CHECK((r.normal & 0xff) > ((r.normal >> 16) & 0xff) && (r.strong & 0xff) > ((r.strong >> 16) & 0xff));
+    // The strong one keeps half the sky's saturation, the normal 96 / 256.
+    CHECK((r.strong & 0xff) - ((r.strong >> 16) & 0xff) > (r.normal & 0xff) - ((r.normal >> 16) & 0xff));
+    // Deep under cover the sky is the car's own grey, both dimmed to half.
+    r = carReflection(0xff7f7f7fu, {100, 150, 200}, 0, 8);
+    CHECK((r.strong >> 24) == (128 + 127 * 127 / 512) * 128 / 256 && ((r.strong >> 16) & 0xff) == (r.strong & 0xff));
+    // The frame (0x49d780): from a camera 5 ahead along z, x is the
+    // track's -x and z points from the camera to the car.
+    auto f = reflectionFrame({0, 0, 5});
+    CHECK(std::fabs(f[0][0] + 1) < 1e-5f && std::fabs(f[1][1] - 1) < 1e-5f && std::fabs(f[2][2] + 1) < 1e-5f);
+    f = reflectionFrame({0, 5, 0}); // from straight above
+    CHECK(std::fabs(f[2][1] + 1) < 1e-5f);
+}
+
+void testLightEffects() {
+    // 0x491190: glw0 fading with the depth, glw3 at full colour; none
+    // nearer than 1 or past 256, nor blinking off.
+    const LightLook white{0xffffffffu, 4, true};
+    CHECK(!lightQuads(white, 0.5f).shown && !lightQuads(white, 300).shown && !lightQuads({0xffffffffu, 4, false}, 10).shown);
+    LightQuads q = lightQuads(white, 1);
+    CHECK(q.shown && q.glowColour == 0xfefefefeu && q.flareColour == 0xffffffffu);
+    CHECK(std::fabs(q.screenHalf - 0.1f) < 1e-6f && std::fabs(q.worldHalf - 1.05f) < 1e-6f);
+    CHECK(lightQuads(white, 128).glowColour == 0x7f7f7f7fu && lightQuads(white, 256).glowColour == 0);
+    // 0x491bc0: a headlight 10 ahead facing the camera: 1 either side,
+    // 7.5 long towards the camera, 166 / 256 of the glow's colour.
+    RainFlare f = rainFlare({0, 1, 10}, {0, 2, 0}, {0, 0, -1}, 2, 0xffffffffu);
+    CHECK(f.shown && f.colour == 0xa5a5a5a5u && std::fabs(f.depth - 10) < 1e-5f);
+    CHECK(std::fabs(f.corners[0][0] - 1) < 1e-5f && std::fabs(f.corners[0][1] - 10) < 1e-5f);
+    CHECK(std::fabs(f.corners[1][0] + 1) < 1e-5f && std::fabs(f.corners[2][1] - 2.5f) < 1e-5f);
+    // Far away it is 30 long at most; seen side on, as long as half wide.
+    CHECK(std::fabs(rainFlare({0, 1, 100}, {0, 2, 0}, {0, 0, -1}, 2, 0).corners[3][1] - 70) < 1e-4f);
+    CHECK(std::fabs(rainFlare({0, 1, 10}, {0, 2, 0}, {1, 0, 0}, 2, 0).corners[3][1] - 9) < 1e-5f);
+    CHECK(!rainFlare({0, 1, 0}, {0, 5, 0}, {0, 0, 1}, 2, 0).shown);
+    CHECK(wetSurface(1) && wetSurface(10) && !wetSurface(14) && !wetSurface(0) && !wetSurface(2));
+    // 0x4b8740 and 0x492980: the beam's colour over 30 % fog, and its cone.
+    CHECK(fogBeamColour(30, 2) == 0 && fogBeamColour(60, 2) == 0xe4ffffffu && fogBeamColour(45, 1) == 0x39ffffffu);
+    const std::array<float, 3> right{1, 0, 0}, up{0, 1, 0}, ahead{0, 0, 1};
+    FogBeam b = fogBeam({0, 0, 0}, right, up, ahead, {0, 0, -50}, 0x80ffffffu);
+    CHECK(b.shown && b.nearRing.size() == 7 && b.farRing.size() == 7 && b.colour == 0x80ffffffu);
+    CHECK(std::fabs(b.farRing[0][2] - 6) < 1e-5f && std::fabs(std::hypot(b.farRing[2][0], b.farRing[2][1]) - 0.75f) < 1e-5f);
+    CHECK(std::fabs(std::hypot(b.nearRing[3][0], b.nearRing[3][1]) - 0.1f) < 1e-5f && b.nearRing[3][2] == 0);
+    CHECK(fogBeam({0, 0, 0}, right, up, ahead, {0, 0, 98}, 0x80ffffffu).nearRing.size() == 4); // 3 quads at least
+    CHECK(fogBeam({0, 0, 0}, right, up, ahead, {0, 0, 30}, 0x80ffffffu).colour == 0); // looking into it
+    CHECK(!fogBeam({0, 0, 0}, right, up, ahead, {0, 0, -150}, 0x80ffffffu).shown);
+}
+
+namespace {
+// A straight road along +z, a point every 4: two lanes each side, 4
+// wide (the bytes 8), walls 10 away, road strips in lanes 5-8.
+TrackCollision straightRoad(int points, uint8_t codes = 0x44) {
+    TrackCollision col;
+    for (int i = 0; i < points; ++i) {
+        TrackCollision::RoadPoint p;
+        p.position = {0, 0, 4.0f * static_cast<float>(i)};
+        p.normal = {0, 1, 0};
+        p.forward = {0, 0, 1};
+        p.right = {1, 0, 0};
+        p.leftWall = p.rightWall = 10;
+        p.extra = {0x22, 8, 8};
+        p.unknown = 0x3c0u | static_cast<uint32_t>(codes) << 16;
+        col.road.push_back(p);
+    }
+    return col;
+}
+} // namespace
+
+void testComputerDriving() {
+    TrackCollision col = straightRoad(200);
+    const auto& p = col.road[0];
+    // 0x40e2b0: 7 + offset / width, rounded to the nearest (even on a tie).
+    CHECK(aiLaneAt(p, 1) == 7 && aiLaneAt(p, 2) == 7 && aiLaneAt(p, 2.1f) == 8 && aiLaneAt(p, 6) == 9);
+    CHECK(aiLaneAt(p, -1) == 6 && aiLaneAt(p, -3) == 5 && aiLaneAt(p, 100) == 13);
+    // 0x40daf0: lane middles, the lanes past the road a half width out,
+    // kept within the walls.
+    CHECK(aiLaneOffset(p, 7, 1) == 2 && aiLaneOffset(p, 8, 1) == 6 && aiLaneOffset(p, 6, 1) == -2);
+    CHECK(aiLaneOffset(p, 9, 1) == 9 && aiLaneOffset(p, 9, 1.5f) == 8.5f && aiLaneOffset(p, 4, 1) == -9);
+    CHECK(aiLaneOffset(p, 7, 1, 1) == 3);
+    CHECK(aiLaneOpen(p, 5) && aiLaneOpen(p, 8) && !aiLaneOpen(p, 9) && !aiLaneOpen(p, 4));
+    // The speed table: speeds for slice pairs, then a byte a slice.
+    std::vector<uint8_t> speeds(16, 0);
+    speeds.insert(speeds.end(), 100, 40);
+    speeds.insert(speeds.end(), 200, 0x80); // the best line in lane 8
+    CHECK(aiLineLane(speeds, 3, 200) == 8 && aiLineLane({}, 3, 200) == 7);
+    // The drivers' factors (0x408dc0) and the tracks' (0x40e410).
+    CHECK(aiDriverFactor({2, false, 2}, 0) == 1 && std::fabs(aiDriverFactor({0, true, 4}, 128) - 0.94f * 1.05f) < 1e-6f);
+    CHECK(std::fabs(aiDriverFactor({1, true, 0}, 384) - 0.97f * 0.95f * 0.95f) < 1e-6f);
+    CHECK(aiTrackFactor(0) == 0.82f && aiTrackFactor(1) == 0.84f);
+
+    AiCarData data;
+    data.accel.fill(4);
+    data.maxBrake = 10;
+    data.topSpeedCap = 80;
+    // One car: the best line's vote (10 for skill 2) takes it a lane
+    // right, its aim 0.2 a step towards the lane's middle; there it stays.
+    AiCar car;
+    car.slice = 10;
+    car.halfWidth = 1;
+    car.driver = {2, false, 2};
+    car.offset = 2;
+    car.speed = 40;
+    std::vector<AiCar> cars{car};
+    aiStep(cars, 0, col, speeds, data, 1, 1, false);
+    CHECK(cars[0].pick == 8 && cars[0].target == 6 && std::fabs(cars[0].offset - 2.2f) < 1e-5f);
+    for (int step = 2; step < 40; ++step)
+        aiStep(cars, 0, col, speeds, data, step, 1, false);
+    // In lane 8, with no road strip in lane 9 beside it (0x40d1f0), it is
+    // nudged a half width left of the lane's middle.
+    CHECK(cars[0].pick == 8 && cars[0].lane == 8 && cars[0].offset == 5 && !cars[0].braking);
+    // Too fast for the table: the brakes (x 1.25 for an AI racer), held
+    // only while more than 5 m/s over.
+    cars[0].speed = 60;
+    aiStep(cars, 0, col, speeds, data, 50, 1, false);
+    CHECK(cars[0].braking && std::fabs(cars[0].speed - (60 - 12.5f / 64)) < 1e-4f && cars[0].wanted == 40);
+    cars[0].speed = 44;
+    aiStep(cars, 0, col, speeds, data, 51, 1, false);
+    CHECK(!cars[0].braking && cars[0].speed < 44);
+    // Slower: the acceleration table (x 0.9 with ai Normal).
+    cars[0].speed = 30;
+    aiStep(cars, 0, col, speeds, data, 52, 1, false);
+    CHECK(std::fabs(cars[0].speed - (30 + 3.6f / 64)) < 1e-4f);
+
+    // Held up behind a car in its lane within 2 slices, wanting more than
+    // 8.94 m/s over its speed: its lights a step up for 64 steps (0x40de50),
+    // its speed wanted the other's (0x4094d0).
+    AiCar ahead = cars[0];
+    ahead.slice = 11;
+    ahead.speed = 20;
+    cars[0].speed = 20;
+    cars[0].beams = 1;
+    cars.push_back(ahead);
+    aiStep(cars, 0, col, speeds, data, 100, 1, false);
+    CHECK(cars[0].flashing && cars[0].beams == 2 && cars[0].wanted == 20);
+    cars[1].slice = 100; // gone
+    for (int step = 101; step <= 164; ++step)
+        aiStep(cars, 0, col, speeds, data, step, 1, false);
+    CHECK(cars[0].flashing && cars[0].beams == 2);
+    aiStep(cars, 0, col, speeds, data, 165, 1, false);
+    CHECK(!cars[0].flashing && cars[0].beams == 1);
+    // By day the lights come on for the flash.
+    cars[0].beams = 0;
+    cars[0].speed = 20;
+    cars[1].slice = 11;
+    aiStep(cars, 0, col, speeds, data, 200, 1, false);
+    CHECK(cars[0].beams == 1);
+    // A car going the other way keeps to its own right (lanes under 7).
+    std::vector<AiCar> oncoming{car};
+    oncoming[0].way = -1;
+    oncoming[0].slice = 150;
+    for (int step = 1; step < 40; ++step)
+        aiStep(oncoming, 0, col, speeds, data, step, 1, false);
+    CHECK(oncoming[0].lane < 7);
+
+    // Cover (0x420bf0) and how far it reaches (0x4ba350).
+    TrackCollision tunnel = straightRoad(40);
+    for (int i = 10; i <= 20; ++i)
+        tunnel.road[size_t(i)].unknown = (tunnel.road[size_t(i)].unknown & 0xffff) | 0x22u << 16;
+    CHECK(pointCovered(tunnel.road[15], {1, 0, 60}) && !pointCovered(tunnel.road[5], {1, 0, 20}));
+    CHECK(coverDepth(tunnel, 15, {1, 0, 60}) == 6 && coverDepth(tunnel, 11, {1, 0, 44}) == 2 && coverDepth(tunnel, 5, {1, 0, 20}) == 0);
+    TrackCollision::RoadPoint half = col.road[0];
+    half.unknown = 0x20u << 16; // covered on the left only; the right's 0 takes the left's
+    CHECK(pointCovered(half, {-1, 0, 0}) && pointCovered(half, {1, 0, 0}));
+    half.unknown = 0x24u << 16;
+    CHECK(pointCovered(half, {-1, 0, 0}) && !pointCovered(half, {1, 0, 0}));
+    // The road polygons' surfaces (byte 1 & 0x3F of their records).
+    Track::Block block;
+    block.polygonRoad = {0, 0x41, 0, 0, 0, 0, 0, 0, 0, 14};
+    CHECK(roadSurface(block, 0) == 1 && roadSurface(block, 1) == 14 && roadSurface(block, 2) == 0);
+
+    // carp.txt's fields for the computer.
+    std::string carp = "top speed cap [m/s](15)\n78.23\nmaximum braking deceleration(18)\n10.06\n";
+    for (int row = 0; row < 8; ++row) {
+        carp += "AI ACC" + std::to_string(row) + " acceleration table section(" + std::to_string(67 + row) + ")\n";
+        for (int i = 0; i < 14; ++i)
+            carp += std::to_string(row * 14 + i) + ".5,";
+        carp += "\n";
+    }
+    AiCarData parsed;
+    CHECK(parseCarpAi(carp, parsed) && std::fabs(parsed.topSpeedCap - 78.23f) < 1e-4f && std::fabs(parsed.maxBrake - 10.06f) < 1e-4f);
+    CHECK(parsed.accel[0] == 0.5f && parsed.accel[111] == 111.5f);
+    CHECK(!parseCarpAi("maximum braking deceleration(18)\n10\n", parsed));
+}
+
 void testHorizon() {
     // Comments (one inside a line, as the retail files have), one fog
     // region, then the 48 values after the regions.
@@ -2203,6 +2398,9 @@ int main() {
     testPlacedSounds();
     testHeadlights();
     testCarLighting();
+    testCarReflection();
+    testLightEffects();
+    testComputerDriving();
     testHorizon();
     testCollision();
     testSoundBank();

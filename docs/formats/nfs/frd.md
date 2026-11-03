@@ -83,9 +83,8 @@ also decoded (October 2026, from a survey of all nine tracks):
   a u32 type. The positions are on the tracks where lights would be:
   `trk000`'s type 1 lights sit on its town centre's street lamps. The
   types run 0 to 15 and differ by track (`trk000` 1 and 7, `trk004`
-  13, `trk007` 3 and 13...). Every type is drawn with `glw0` of
-  `Render/pc/sfx.fsh` (and, November 2026, a second quad of `glw3`,
-  `0x4918ca`, which the page doesn't draw yet); the type (& 15) picks a colour, a size and a
+  13, `trk007` 3 and 13...). Every type is drawn with `glw0` and
+  `glw3` of `Render/pc/sfx.fsh` (below); the type (& 15) picks a colour, a size and a
   blink from a table in nfs3.exe (`0x55e3dc`, 12 bytes each, used by
   `0x491190`). A blinking light is hidden while
   ((t + phase) >> shift) & 1, t the tick count (64 a second):
@@ -106,6 +105,28 @@ also decoded (October 2026, from a survey of all nine tracks):
   | 11 | `FF1E95E3` | 2.5 | |
   | 12 | `FF1E95E3` | 3.125 | 6, 0 |
   | 13 | `FFE0E027` | 3.75 | |
+
+  **The two quads** (`0x491190`, November 2026). The light's centre is
+  put into the camera's view (+0x38 position, +0x44 rows) and drawn
+  only when its depth z is from 1 to 256 (`0x49126b`: the float's bits
+  compared as integers) and its centre is inside the screen's window
+  (outcode 0); otherwise neither quad is drawn. Both face the camera,
+  turned by ¼ turn × (x / z + 1) (`0x53bcb8`) as the cars' glows are
+  (fce.md), and go to the depth-sorted list at depth z:
+  - `glw0` (`0x8b47bc`) at a fixed size on the screen: its corners
+    0.025 (`0x53bcb0`) × size × the projection's scales (320 and
+    −330.33 in a 640 × 480 race) from the centre, not divided by z; its
+    colour (alpha too) × k / 256, k = min((256 − round(z)) × 256,
+    0xFFFF) >> 8 (`0x491364`), so it fades out towards 256;
+  - `glw3` (`0x8b4840`, from `0x4918ca`) in perspective: its corners
+    1.05 / z (`0x53bca8`) × 0.25 (`0x53bcc0`) × size × the scales from
+    the centre, 0.2625 × size units, in the full colour.
+
+  In `nfs-host` (a night race on Hometown with the player's car poked
+  onto road slice 520, the town centre, `t4-town`) the lamps show the
+  `glw0` star at the same few pixels whatever their distance and the
+  small `glw3` cross over it; the Tracks page from the game's camera
+  dumped there draws them at the same places and sizes.
 
   Two options change them. With the Direct3D renderer (`d3da`) only,
   the effects intensity slider (`SFX_INTENSITY`, a float at `0x6fbc38`,
@@ -144,11 +165,11 @@ also decoded (October 2026, from a survey of all nine tracks):
   Graphics screen (`graphics.mnu`) and in `psgraph.mnu`. So the lights
   above, the particles ([col.md](col.md)) and the rest below go by the
   Special Effects option. Its other readers:
-  - `0x491bc0` (from the car drawing, `0x4b8d74`, `0x4b8e8d`): the rain,
-    skipped when Off or without weather (`0x6fd4cc`);
-  - `0x492980` (per car, `0x4b8efe`): a glow drawn at the car with the
-    effects intensity, skipped when Off (the car's lights, by the look
-    of it; not followed);
+  - `0x491bc0` (from the car drawing, `0x4b8d74`, `0x4b8e8d`): a car
+    light's flare on the wet road, skipped when Off or without weather
+    (`0x6fd4cc`) ([fce.md](fce.md), Lighting);
+  - `0x492980` (per car, `0x4b8efe`): a headlight's beam in fog, with the
+    effects intensity, skipped when Off ([fce.md](fce.md), Lighting);
   - `0x4c6f00` (per view, `0x4bc267`, `0x4bc2e5`): skipped when Off. It
     draws up to 64 strips of 0x340 bytes (`0x560110`, count
     `0x7d5758`), laid down per wheel from `0x429cf1` and `0x429ea8`
@@ -223,8 +244,12 @@ at 3 is the music zone, 4-9: the game
 sends it to the Pathfinder map as an event when the car nears a slice
 where it changes ([mus.md](mus.md), The events the game sends).
 
-The Tracks page shows each light as a `glw0` glow facing the camera, in
-its type's colour and size and blinking as the table above has it, and each sound as a cyan diamond. It plays the sounds as the game does:
+The Tracks page shows each light as the game's two quads facing the
+camera (`lightQuads`), in its type's colour and size and blinking as the
+table above has it, none with the Special Effects option Off (key Q),
+and each sound as a cyan diamond. It takes the screen's x scale for
+both of `glw0`'s directions (square pixels; the game's y scale is 3 %
+larger). It plays the sounds as the game does:
 only each block's first, louder by the game's inverse square and panned
 by side; the nearest loop within 300 units (the game takes the first of
 the blocks seen) and one-shots when the timer picks a frame, counting
@@ -606,17 +631,98 @@ siren on. Each is placed as the game places a car:
   `0x2C`, set by `0x4a0d20` from the model) along the road's normal; the
   model is drawn 0.145 higher in y (`0x540120`, `0x4bab70`); its rows
   the road's;
-- driving along the slices at the speed table's speed for the slice
-  (`speedsF.bin`; `speedsR.bin` going the other way; `aiSlicesSpeed`);
+- driven as the computer drives (below; `speedsF.bin`'s speeds, and
+  `speedsR.bin`'s going the other way), its side offset the computer's
+  aim;
 - with the lights a computer car starts with, its headlights placed by
   its own half length (+0x11C, the model's), and its headlight part
   (12) drawn only with them on, as `0x4bab70` does.
 
 They light each other and the track as above (and are lit by the
-camera's car), their colours, glows and the roof light's sweep as in
-[fce.md](fce.md), Lighting. Left out: braking, the computer's
-flashing, lane changes, the rain's flares (`0x491bc0`) and the beam
-glow in fog (`0x492980`).
+camera's car), their colours, reflections, glows, the rain's flares,
+the fog's beams and the roof light's sweep as in [fce.md](fce.md),
+Lighting.
+
+**The computer cars' driving** (nfs3.exe, November 2026; `aiStep`).
+Each step (64 a second) an AI racer runs `car_driver_ai` (`0x409c00`,
+state 1) and `car_ai_model` (`0x408600`). The page runs the parts that
+pick its speed and lane for each of the three cars in turn, and moves
+them along the slices at the speed that leaves:
+
+- **Its lanes** (`0x40e350`): +0x638 the lane at its side offset
+  (`0x40e2b0`: 7 + round(offset / the right lanes' width), 6 + ... on
+  the left, with the x87's rounding to the nearest, 0-13), +0x63C and
+  +0x640 those at offset − and + (its width across the road − 0.5).
+- **The speed wanted** (`0x409330`): the speed table's byte for its
+  slice pair × the speed scale (+0x7BC: the driver's factor `0x408dc0`
+  × the track's `0x40ee80`, at most 1; the page leaves out the catch-up),
+  under the top speed cap × the track's factor. The page's two Corvettes
+  have Lead Foot's (skill 2) and, ahead of him, Mulligan's (skill 0, a
+  surging driver), from the drivers' table (`0x55226c`).
+- **Flashing** (`0x404840`): first the flash is undone when its 64 steps
+  are up (`0x40deb0`: high beams back to low, low back to off); then,
+  with a car ahead in its lane within 2 slices (`0x56ef3c`, `0x56ef48`
+  from `0x40cfc0`) and the speed wanted more than 8.94 m/s
+  (`0x536194`) over its speed, past the race's start (`0x40f050`), the
+  lights go a step up for 64 steps (`0x40de50`: off to low, low to high,
+  high to off). With a human ahead it also sounds its horn
+  (`0x411750`). In practice a car flashes when it is held up behind a
+  slower one, or while accelerating out of a bend with a car close
+  ahead.
+- **Keeping behind** (`0x4094d0`): behind a car going its way in its
+  lane, not a police car, that is slower than it wants, within 2 slices
+  its speed wanted becomes that car's; at 2, it is lowered by half the
+  difference.
+- **The lane votes**: 14 rows of three counts, for the lane left of it,
+  its own and the one right of it (`0x56ee90`), cleared each step; the
+  lane with the highest sum is chosen, its own on a tie, left before
+  right (`0x40da30`, into `0x56ef74`). The rows: 0, keep right of the
+  way it runs (`0x40cee0`, `0x56f230` 1 on every track: +1 for a lane on
+  its right, −3 on its left); 1, −4 for a side lane with a car beside it
+  within 2 (`0x40d9f0`); 2, +40 back towards the road's lanes where
+  they end ahead (`0x40d2e0`; on track 6, slices 295-360, −40 left for
+  racers); 3, −30 for the lane just past the road's lanes, −80 if the
+  wall leaves less than its half width there, −1000 beyond, then +22 for
+  any row-3 count not 0 (`0x40d3d0`, `0x409660`); 4, −1000 for a lane
+  with no road strip here (col.md's mask, bit 14 − lane; it also nudges
+  the aim a half width away) and −65 for one without a strip on a slice
+  before the one its speed reaches (`0x40d1f0`); 6 and 7, cars ahead
+  within 10 slices: a slower one going its way −3 to −8 by the speed
+  difference less the slices past 5, one coming the other way −35 +
+  35 / 8 × the time to meet it (`0x40d800`); 8, a driver of personality
+  under 3: −0.5 and −0.1 × how much faster it is and wants to be than a
+  car ahead, more when close (`0x409920`); 9 and 10, +5 for a lane with
+  no car ahead, −6 (−24 for a police car) for one within 3
+  (`0x4097c0`); 11, the best line: the speed table's lane nibble 4 slices
+  ahead, worth 6 for a driver of skill 0, else 10, or 12 with personality
+  over 2 (`ai_lane_vote_line`, `0x4096b0`; not for a car running the
+  other way). Halved for a car only partly in that lane. Left out:
+  `0x40d720` (a list at `0x7dd850`, not followed), the grudge
+  (`0x409840`) and the human behind (`0x4095d0`).
+- **The aim** (`0x40daf0`): the chosen lane's middle, (L − 7 + ½) right
+  lanes' widths or (6 − L + ½) left ones'; for the lane just past the
+  road's lanes, the car's half width past the edge; within the walls
+  less the half width; then the nudge. +0x7C8 moves 0.2 a step towards
+  it (`0x408870`), the car's +0x7B8 following. A car aimed at a lane's
+  middle 1.5 widths out reckons itself a lane further on (1.5 rounds to
+  2), so the lanes' votes are taken from there; next to a lane without
+  a strip it is nudged back.
+- **Its speed** (`0x4066c0`): towards the speed wanted, up by the
+  acceleration table of its `carp.txt` (P +0x2EC, one value a m/s at
+  round(speed − 0.5), × 0.9 with ai Normal past race distance 100 and
+  × 0.9 in the weather under 45 m/s; nothing over the top speed cap ×
+  its scale), down by the maximum braking deceleration × 1.25 for an AI
+  racer (× 2 for a police car instead; `0x4063e0`). **The brake** (+0x505,
+  and +0x509 for the glows) is 255 only when it is more than 5 m/s too
+  fast (`0x53624c`); under that it slows without its brake lights. The
+  speed tables drop at bends, so the cars brake into them.
+
+In a scratch run of 30,000 steps (almost 8 minutes) on each of tracks
+0-4 with the page's three cars, they braked into the bends on every
+track (41-173 of the 1,875 samples), changed lanes along the best line
+and round each other, and flashed their lights on `trk002` and
+`trk003` (a car accelerating out of a bend close behind another, or
+meeting the police car in its lane), not on the other three.
 
 **The headlights in footage** (November 2026). In the night clips the
 pool ahead of the car is a flat band with a fairly sharp far edge on

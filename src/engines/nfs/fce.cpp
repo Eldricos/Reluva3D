@@ -270,4 +270,170 @@ std::array<float, 2> reflectionUv(float x, float y, float z) {
     return {x * k + 0.5f, y * k + 0.5f};
 }
 
+std::array<int, 3> rgbToHsv(const std::array<int, 3>& rgb) {
+    const int r = rgb[0], g = rgb[1], b = rgb[2];
+    const int mx = std::max({r, g, b}), mn = std::min({r, g, b}), d = mx - mn;
+    int64_t h = 0;
+    int s = 0;
+    // 16.16 sixths of a turn: (x % d << 16) / d + (x / d << 16).
+    auto fixed = [&](int x) { return static_cast<int64_t>(x % d) * 65536 / d + static_cast<int64_t>(x / d) * 65536; };
+    if (mx != 0 && d != 0) {
+        s = d * 256 / mx;
+        if (mx == r)
+            h = fixed(g - b);
+        else if (mx == g)
+            h = fixed(b - r) + 0x20000;
+        else
+            h = fixed(r - g) + 0x40000;
+        h /= 6;
+        if (h < 0)
+            h += 0x10000;
+    }
+    // x 256, rounded half up (0x49c9b3).
+    const int hue = static_cast<int>((h * 256 + 0x8000) >> 16);
+    return {std::clamp(hue, 0, 255), std::clamp(s, 0, 255), std::clamp(mx, 0, 255)};
+}
+
+std::array<int, 3> hsvToRgb(const std::array<int, 3>& hsv) {
+    const int h = hsv[0], s = hsv[1], v = hsv[2];
+    if (v < 1)
+        return {0, 0, 0};
+    if (s < 1)
+        return {std::min(v, 255), std::min(v, 255), std::min(v, 255)};
+    const int sector = h * 6 >> 8;
+    const int64_t f = static_cast<int64_t>(h * 6 - (sector << 8)) * 256; // 16.16
+    auto rounded = [](int64_t x) { return static_cast<int>((x + 0x8000) >> 16); };
+    const int q = (256 - rounded(s * f)) * v >> 8;
+    const int t = (256 - rounded(s * (0x10000 - f))) * v >> 8;
+    const int p = v * (256 - s) >> 8;
+    std::array<int, 3> out{};
+    switch (sector) {
+    case 0: out = {v, t, p}; break;
+    case 1: out = {q, v, p}; break;
+    case 2: out = {p, v, t}; break;
+    case 3: out = {p, q, v}; break;
+    case 4: out = {t, p, v}; break;
+    case 5: out = {v, p, q}; break;
+    default: break;
+    }
+    for (int& c : out)
+        c = std::clamp(c, 0, 255);
+    return out;
+}
+
+CarReflection carReflection(uint32_t carColour, const std::array<int, 3>& sky, int paintValue, int coverDepth) {
+    const std::array<int, 3> car{static_cast<int>(carColour >> 16 & 0xff), static_cast<int>(carColour >> 8 & 0xff),
+                                 static_cast<int>(carColour & 0xff)};
+    const std::array<int, 3> carHsv = rgbToHsv(car);
+    std::array<int, 3> mixed = sky;
+    int dim = 0x100, weight = 0x100;
+    if (coverDepth > 0) {
+        dim = 0x100 - 16 * coverDepth;
+        weight = 0x100 - 32 * coverDepth;
+        for (int i = 0; i < 3; ++i)
+            mixed[size_t(i)] = sky[size_t(i)] * weight / 256 + car[size_t(i)] * (0x100 - weight) / 256;
+    }
+    const std::array<int, 3> skyHsv = rgbToHsv(mixed);
+    const int value = skyHsv[2] * carHsv[2] / 512 + 0x80;
+    const int normalValue = std::clamp(value - (paintValue >> 2), 0x7f, 0xff);
+    const int strongValue = std::clamp(value, 0x7f, 0xff);
+    auto argb = [](int alpha, const std::array<int, 3>& c) {
+        return static_cast<uint32_t>(alpha) << 24 | static_cast<uint32_t>(c[0]) << 16 | static_cast<uint32_t>(c[1]) << 8 |
+               static_cast<uint32_t>(c[2]);
+    };
+    const uint32_t normal = argb(normalValue, hsvToRgb({skyHsv[0], std::clamp(skyHsv[1] * 0x60 / 256, 0, 255), normalValue}));
+    const uint32_t strong = argb(strongValue, hsvToRgb({skyHsv[0], std::clamp(skyHsv[1] >> 1, 0, 255), strongValue}));
+    const uint32_t k = static_cast<uint32_t>(std::min(dim * 0x100, 0xffff) >> 8 & 0xff);
+    auto scale = [&](uint32_t c) {
+        return (((c & 0xff00ff00u) >> 8) * k & 0xff00ff00u) | ((c & 0x00ff00ffu) * k >> 8 & 0x00ff00ffu);
+    };
+    return {scale(normal), scale(strong)};
+}
+
+std::array<std::array<float, 3>, 3> reflectionFrame(const std::array<float, 3>& d) {
+    constexpr float kTurn = 6.28318530718f;
+    const float yaw = (std::atan2(d[0], d[2]) / kTurn - 0.5f) * kTurn;
+    const float pitch = (std::atan2(std::sqrt(d[0] * d[0] + d[2] * d[2]), d[1]) / kTurn - 0.25f) * kTurn;
+    const float c = std::cos(yaw), s = std::sin(yaw), cp = std::cos(pitch), sp = std::sin(pitch);
+    // The columns of Ry(yaw) Rx(pitch), rows of vectors on the left.
+    return {{{c, 0, s}, {s * sp, cp, -c * sp}, {-s * cp, sp, c * cp}}};
+}
+
+RainFlare rainFlare(const std::array<float, 3>& light, const std::array<float, 3>& camera,
+                    const std::array<float, 3>& facing, float size, uint32_t glowColour) {
+    RainFlare f;
+    float dx = light[0] - camera[0], dz = light[2] - camera[2];
+    const float length = std::sqrt(dx * dx + dz * dz);
+    if (length == 0)
+        return f;
+    dx /= length;
+    dz /= length;
+    const float seen = -(facing[0] * dx + facing[2] * dz) * length;
+    const float half = size * 0.5f;
+    const float streak = half <= seen * 0.75f ? std::min(seen * 0.75f, 30.0f) : half;
+    // d x up (0x4e0160), and the streak back towards the camera.
+    const float sx = -dz * half, sz = dx * half, tx = -dx * streak, tz = -dz * streak;
+    f.corners = {{{light[0] - sx, light[2] - sz},
+                  {light[0] + sx, light[2] + sz},
+                  {light[0] + sx + tx, light[2] + sz + tz},
+                  {light[0] - sx + tx, light[2] - sz + tz}}};
+    f.colour = (((glowColour & 0xff00ff00u) >> 8) * 0xa6 & 0xff00ff00u) | ((glowColour & 0x00ff00ffu) * 0xa6 >> 8 & 0x00ff00ffu);
+    f.depth = seen;
+    f.shown = true;
+    return f;
+}
+
+FogBeam fogBeam(const std::array<float, 3>& lamp, const std::array<float, 3>& right, const std::array<float, 3>& up,
+                const std::array<float, 3>& forward, const std::array<float, 3>& camera, uint32_t colour) {
+    FogBeam b;
+    constexpr float kTurn = 6.28318530718f;
+    std::array<float, 3> d{camera[0] - lamp[0], camera[1] - lamp[1], camera[2] - lamp[2]};
+    const float distance = std::sqrt(d[0] * d[0] + d[1] * d[1] + d[2] * d[2]);
+    if (distance == 0 || distance > 100 || (colour & 0x7fffffff) == 0)
+        return b;
+    for (float& c : d)
+        c /= distance;
+    auto dot = [](const std::array<float, 3>& a, const std::array<float, 3>& x) {
+        return a[0] * x[0] + a[1] * x[1] + a[2] * x[2];
+    };
+    const float f = dot(d, forward), r = dot(d, right), u = dot(d, up);
+    // Truncated (0x4dfd56), then 3-12.
+    const int n = std::clamp(static_cast<int>((1 - distance * 0.01f) * 12), 3, 12);
+    const float start = 0.5f * (-0.5f - (r + u) * 0.5f);
+    float w = std::atan2(0.75f, 6.0f) / kTurn * 5;
+    w = w > 1 ? 1 : w < 0.05f ? 0.05f : w;
+    if (f > 1 - w) {
+        const float k = 1 - (f - 1 + w) / w;
+        uint32_t out = 0;
+        for (int shift = 0; shift < 32; shift += 8)
+            out |= static_cast<uint32_t>(std::clamp(static_cast<int>(static_cast<float>((colour >> shift) & 0xff) * k), 0, 255))
+                   << shift;
+        colour = out;
+    }
+    b.colour = colour;
+    for (int i = 0; i <= n; ++i) {
+        const float a = (start + static_cast<float>(i) / static_cast<float>(n)) * kTurn;
+        for (int ring = 0; ring < 2; ++ring) {
+            const float radius = ring ? 0.75f : 0.1f, ahead = ring ? 6.0f : 0.0f;
+            std::array<float, 3> p{};
+            for (int k = 0; k < 3; ++k)
+                p[size_t(k)] = lamp[size_t(k)] + right[size_t(k)] * std::cos(a) * radius + up[size_t(k)] * std::sin(a) * radius +
+                               forward[size_t(k)] * ahead;
+            (ring ? b.farRing : b.nearRing).push_back(p);
+        }
+    }
+    b.shown = true;
+    return b;
+}
+
+uint32_t fogBeamColour(float fogPercent, int beams) {
+    if (fogPercent <= 30)
+        return 0;
+    float share = std::min((fogPercent - 30) / 30.0f, 1.0f);
+    if (beams == 1)
+        share *= 0.5f;
+    const int alpha = std::clamp(static_cast<int>(std::nearbyint(share * 228)), 0, 255);
+    return static_cast<uint32_t>(alpha) << 24 | 0xffffffu;
+}
+
 } // namespace reluva::nfs

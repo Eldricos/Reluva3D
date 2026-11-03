@@ -41,6 +41,8 @@ constexpr const char* kHorizonSuffix[] = {"", "n", "w", "nw"};
 // tracks (SNNW), the weather's on the rest.
 constexpr const char* kSunPicture[] = {"SUND", "SUNN", "SUNW", "SNNW"};
 constexpr const char* kCloudPicture[] = {"CLDD", "CLDN", "CLWD", "CLWN"};
+// The cars' sphere map (0x47ac30 loads it into 0x6ff9a0, 0x563a90).
+constexpr const char* kEnvPicture[] = {"CHRD", "CHRN", "CHRW", "CHNW"};
 // The game's ticks (0x7d3684 counts them): 641 in 10 seconds of a race.
 // Moving objects' key delays and the clouds' drift are in them.
 constexpr int kGameTicksPerSecond = 64;
@@ -134,7 +136,7 @@ void TrackPage::releaseSky() {
     skyHeights_.clear();
     bolts_.clear();
     sunRotate_ = skyChanged_ = false;
-    horizonPicture_ = sunPicture_ = cloudPicture_ = 0; // owned by textures_
+    horizonPicture_ = sunPicture_ = cloudPicture_ = envPicture_ = 0; // owned by textures_
     sunFirst_ = sunIndices_ = cloudFirst_ = cloudIndices_ = 0;
 }
 
@@ -145,7 +147,7 @@ void TrackPage::release() {
     soundBank_ = {};
     soundSlots_.clear();
     marks_.clear();
-    glowPicture_ = 0; // owned by textures_
+    glowPicture_ = glow1Picture_ = glow4Picture_ = 0; // owned by textures_
     if (renderer_ && markMesh_)
         renderer_->destroyMesh(markMesh_);
     markMesh_ = 0;
@@ -333,6 +335,7 @@ void TrackPage::loadSky() {
 
     // The sun from its picture's text ("A200 B45 R25 ROTATE"; fsh.md).
     std::string sunText;
+    envPicture_ = skyPicture(kEnvPicture[variant_], nullptr);
     sunPicture_ = skyPicture(kSunPicture[variant_], &sunText);
     if (!sunPicture_ && variant_ == 3)
         sunPicture_ = skyPicture("SUNW", &sunText);
@@ -1223,6 +1226,9 @@ void TrackPage::loadCars() {
                     cm.error = err.message;
                 else if (Error err2 = parseModel(data, model))
                     cm.error = err2.message;
+            } else if (name == folder + "carp.txt") {
+                if (!files_.read(f, data))
+                    (void)parseCarpAi(std::string(data.begin(), data.end()), cm.ai);
             } else if (name == folder + "car00.tga" && !cm.skin) {
                 image::Image img;
                 if (!files_.read(f, data) && !image::decode(data, img) &&
@@ -1237,15 +1243,25 @@ void TrackPage::loadCars() {
         }
         cm.halfSize = model.halfSize;
         cm.dummies = model.dummies;
+        cm.paintValue = model.primaryColours.empty() ? 0 : static_cast<int>(std::min<uint32_t>(model.primaryColours[0].hsbx[2], 255));
         auto addPart = [&](size_t pi) {
             const Model::Part& part = model.parts[pi];
             for (uint32_t t = part.firstTriangle;
                  t < part.firstTriangle + part.triangleCount && t < model.triangles.size(); ++t) {
                 const Model::Triangle& tri = model.triangles[t];
+                bool whole = true;
+                for (uint32_t vi : tri.vertices)
+                    whole = whole && vi < model.vertices.size();
+                if (!whole)
+                    continue;
+                // The body and the headlights reflect, the wheels not (0x4bb200).
+                if ((pi == 0 || pi == 12) && !(tri.flags & Model::Triangle::kNoReflection))
+                    for (int k = 0; k < 3; ++k) {
+                        cm.envFrom.push_back(static_cast<uint32_t>(cm.vertices.size()) + static_cast<uint32_t>(k));
+                        cm.envStrong.push_back((tri.flags & Model::Triangle::kStrongReflection) != 0);
+                    }
                 for (int k = 0; k < 3; ++k) {
                     const uint32_t vi = tri.vertices[size_t(k)];
-                    if (vi >= model.vertices.size())
-                        break;
                     gfx::Vertex v{};
                     v.pos[0] = model.vertices[vi][0] + part.position[0];
                     v.pos[1] = model.vertices[vi][1] + part.position[1];
@@ -1262,6 +1278,7 @@ void TrackPage::loadCars() {
         for (size_t pi = 0; pi < 5 && pi < model.parts.size(); ++pi)
             addPart(pi);
         cm.bodyVertices = static_cast<uint32_t>(cm.vertices.size());
+        cm.envBodyVertices = static_cast<uint32_t>(cm.envFrom.size());
         if (model.parts.size() > 12)
             addPart(12);
         cm.lightVertices = static_cast<uint32_t>(cm.vertices.size()) - cm.bodyVertices;
@@ -1281,15 +1298,17 @@ void TrackPage::loadCars() {
 
 void TrackPage::releaseCars() {
     for (ComputerCar& c : cars_)
-        if (renderer_ && c.mesh)
-            renderer_->destroyMesh(c.mesh);
+        for (gfx::MeshId m : {c.mesh, c.envMesh})
+            if (renderer_ && m)
+                renderer_->destroyMesh(m);
     cars_.clear();
     for (CarModel& cm : carModels_)
         cm = {}; // skins owned by textures_
-    if (renderer_ && carGlowMesh_)
-        renderer_->destroyMesh(carGlowMesh_);
-    carGlowMesh_ = 0;
-    carGlowQuads_ = carGlowCapacity_ = 0;
+    for (gfx::MeshId m : {carGlowMesh_, carFlareMesh_, carBeamMesh_})
+        if (renderer_ && m)
+            renderer_->destroyMesh(m);
+    carGlowMesh_ = carFlareMesh_ = carBeamMesh_ = 0;
+    carGlowQuads_ = carGlowCapacity_ = carFlareQuads_ = carFlareCapacity_ = carBeamQuads_ = carBeamCapacity_ = 0;
     glow3Picture_ = 0; // owned by textures_
     carError_.clear();
     speedsForward_.clear();
@@ -1304,8 +1323,9 @@ void TrackPage::releaseCars() {
 // with the lights a computer car has (startingBeams).
 void TrackPage::placeCars() {
     for (ComputerCar& c : cars_)
-        if (c.mesh)
-            renderer_->destroyMesh(c.mesh);
+        for (gfx::MeshId m : {c.mesh, c.envMesh})
+            if (m)
+                renderer_->destroyMesh(m);
     cars_.clear();
     carError_.clear();
     for (const CarModel& cm : carModels_)
@@ -1320,7 +1340,9 @@ void TrackPage::placeCars() {
     const float look = std::sin(yaw_) * rp.forward[0] + std::cos(yaw_) * rp.forward[2];
     const int way = look >= 0 ? 1 : -1;
     const bool night = variant_ == 1 || variant_ == 3, weather = variant_ >= 2;
-    auto put = [&](float distance, int heading, int nth, int model, bool siren) {
+    const int track = std::atoi(tracks_[index_].substr(3).c_str());
+    aiTime_ = 0;
+    auto put = [&](float distance, int heading, int nth, int model, bool siren, const AiDriver& driver) {
         int at = here;
         for (float gone = 0; gone < distance;) {
             const int next = ((at + way) % n + n) % n;
@@ -1344,6 +1366,30 @@ void TrackPage::placeCars() {
         c.lane = heading > 0 ? 7 + k : 6 - k;
         c.beams = startingBeams(night, weather, false);
         const CarModel& cm = carModels_[size_t(model)];
+        // As the computer drives it (aiStep): at its lane's middle, at the
+        // speed it wants here.
+        c.ai.slice = at;
+        c.ai.way = heading;
+        c.ai.halfWidth = cm.halfSize[0];
+        c.ai.driver = driver;
+        c.ai.cop = siren;
+        c.ai.scale = std::min(aiDriverFactor(driver, aiStep_) * aiTrackFactor(track), 1.0f);
+        c.ai.lane = c.ai.laneLeft = c.ai.laneRight = c.ai.pick = c.lane;
+        c.ai.offset = c.ai.target = aiLaneOffset(p, c.lane, cm.halfSize[0]);
+        c.ai.beams = c.beams;
+        const auto& speeds = heading > 0 || speedsBackward_.empty() ? speedsForward_ : speedsBackward_;
+        c.ai.speed = c.ai.wanted = aiSlicesSpeed(speeds, at) * c.ai.scale;
+        c.speed = c.ai.speed;
+        if (!cm.envFrom.empty()) {
+            std::vector<gfx::Vertex> env(cm.envFrom.size());
+            std::vector<uint32_t> indices(env.size());
+            for (size_t i = 0; i < env.size(); ++i) {
+                env[i] = cm.vertices[cm.envFrom[i]];
+                indices[i] = static_cast<uint32_t>(i);
+            }
+            if (renderer_->createMesh(env, indices, c.envMesh))
+                c.envMesh = 0;
+        }
         if (renderer_->createMesh(cm.vertices, [&] {
                 std::vector<uint32_t> indices(cm.vertices.size());
                 for (size_t i = 0; i < indices.size(); ++i)
@@ -1354,9 +1400,12 @@ void TrackPage::placeCars() {
         carRows(c);
         cars_.push_back(c);
     };
-    put(15, way, 0, 0, false);
-    put(25, -way, 0, 1, true);
-    put(35, way, 1, 0, false);
+    // Drivers from the game's table (0x55226c): Lead Foot (skill 2) behind
+    // Mulligan (skill 0, surging), so the first catches the second up; the
+    // police car with Smooth's.
+    put(15, way, 0, 0, false, {2, false, 2});
+    put(25, -way, 0, 1, true, {2, false, 2});
+    put(35, way, 1, 0, false, {0, true, 4});
 }
 
 // Where a car is on the road this frame (track coordinates): between its
@@ -1398,8 +1447,9 @@ void TrackPage::carRows(ComputerCar& car) const {
         v *= static_cast<float>(car.way);
     const CarModel& cm = carModels_[size_t(car.model)];
     const float halfWidth = cm.halfSize[0];
-    float side = car.lane >= 7 ? (static_cast<float>(car.lane - 7) + 0.5f) * a.extra[2] * 0.5f
-                               : -(static_cast<float>(6 - car.lane) + 0.5f) * a.extra[1] * 0.5f;
+    // Its side offset as the computer has it (aiStep: its lane's middle,
+    // moving 0.2 a step towards a new lane's), kept within the walls.
+    float side = car.ai.offset;
     side = std::max(std::min(side, a.rightWall - halfWidth), halfWidth - a.leftWall);
     car.up = normal;
     car.right = unit(cross(normal, forward)); // left-handed: up x forward
@@ -1408,19 +1458,40 @@ void TrackPage::carRows(ComputerCar& car) const {
         car.at[size_t(k)] = position[size_t(k)] + roadRight[size_t(k)] * side + normal[size_t(k)] * cm.halfSize[1];
 }
 
-// Each car on along its slices at the speed the computer wants there
-// (aiSlicesSpeed: speedsF.bin going the slices' way, speedsR.bin the
-// other), its lane kept.
+// The cars driven as the computer drives (aiStep), 64 steps a second, in
+// the list's order: the speed and lane each step, then on along its
+// slices at that speed (speedsF.bin's speeds going the slices' way,
+// speedsR.bin's the other), its aim across the road as the step left it.
 void TrackPage::moveCars(float dt) {
     const auto& road = collision_.road;
     const int n = static_cast<int>(road.size());
     if (n < 2)
         return;
-    for (ComputerCar& c : cars_) {
-        if (carsMoving_) {
-            const int i = static_cast<int>(std::floor(c.slice)) % n;
-            c.speed = aiSlicesSpeed(c.way > 0 || speedsBackward_.empty() ? speedsForward_ : speedsBackward_, i);
-            float left = c.speed * dt; // metres to go this frame
+    const int track = std::atoi(tracks_[index_].substr(3).c_str());
+    const bool weather = variant_ >= 2;
+    if (carsMoving_)
+        aiTime_ = std::min(aiTime_ + dt, 0.25f);
+    std::vector<AiCar> ai;
+    for (; carsMoving_ && aiTime_ >= 1.0f / kGameTicksPerSecond; aiTime_ -= 1.0f / kGameTicksPerSecond) {
+        ++aiStep_;
+        ai.clear();
+        for (ComputerCar& c : cars_) {
+            c.ai.slice = static_cast<int>(std::floor(c.slice)) % n;
+            ai.push_back(c.ai);
+        }
+        for (size_t i = 0; i < cars_.size(); ++i) {
+            ComputerCar& c = cars_[i];
+            const CarModel& cm = carModels_[size_t(c.model)];
+            ai[i].scale = std::min(aiDriverFactor(ai[i].driver, aiStep_) * aiTrackFactor(track), 1.0f);
+            aiStep(ai, i, collision_, c.way > 0 || speedsBackward_.empty() ? speedsForward_ : speedsBackward_, cm.ai,
+                   aiStep_, track, weather);
+            c.ai = ai[i];
+            c.speed = c.ai.speed;
+            c.lane = c.ai.lane;
+            c.beams = c.ai.beams;
+            // 0x4b8740: the fog beams' picture moves by int(speed + 1) a step.
+            c.beamScroll = (c.beamScroll + static_cast<int>(c.speed + 1)) & 0x7ff;
+            float left = c.speed / kGameTicksPerSecond; // metres to go this step
             for (int guard = 0; left > 0 && guard < 64; ++guard) {
                 const int at = static_cast<int>(std::floor(c.slice)) % n;
                 const auto& a = road[size_t(at)].position;
@@ -1436,9 +1507,11 @@ void TrackPage::moveCars(float dt) {
                 if (c.slice >= static_cast<float>(n))
                     c.slice -= static_cast<float>(n);
             }
+            ai[i].slice = static_cast<int>(std::floor(c.slice)) % n;
         }
-        carRows(c);
     }
+    for (ComputerCar& c : cars_)
+        carRows(c);
 }
 
 Headlight TrackPage::cameraLight() const {
@@ -1448,7 +1521,7 @@ Headlight TrackPage::cameraLight() const {
     return light;
 }
 
-bool TrackPage::roadColoursAt(const std::array<float, 3>& at, std::array<uint32_t, 4>& corners) const {
+bool TrackPage::roadPolygonAt(const std::array<float, 3>& at, int& block, size_t& index) const {
     // The blocks around the nearest one (by its centre on the ground).
     int nearest = -1;
     float best = 1e30f;
@@ -1466,12 +1539,10 @@ bool TrackPage::roadColoursAt(const std::array<float, 3>& at, std::array<uint32_
     for (int16_t nb : track_.blocks[size_t(nearest)].neighbours)
         if (nb >= 0 && nb < static_cast<int>(track_.blocks.size()) && nb != nearest)
             blocks.push_back(nb);
-    std::array<int, 3> ambient{100, 100, 100};
-    if (skyError_.empty())
-        ambient = horizon_.ambient;
     for (int bi : blocks) {
         const Track::Block& b = track_.blocks[size_t(bi)];
-        for (const Track::Polygon& p : b.polygons[4]) {
+        for (size_t pi = 0; pi < b.polygons[4].size(); ++pi) {
+            const Track::Polygon& p = b.polygons[4][pi];
             bool inside = true, any = false;
             float sign = 0;
             for (int k = 0; k < 4 && inside; ++k) {
@@ -1490,16 +1561,74 @@ bool TrackPage::roadColoursAt(const std::array<float, 3>& at, std::array<uint32_
                 sign = c;
                 any = true;
             }
-            if (!inside || !any)
-                continue;
-            for (int k = 0; k < 4; ++k) {
-                const uint16_t v = p.vertices[size_t(k)];
-                corners[size_t(k)] = ambientScaled(v < b.colours.size() ? b.colours[v] : 0xff7f7f7fu, ambient);
+            if (inside && any) {
+                block = bi;
+                index = pi;
+                return true;
             }
-            return true;
         }
     }
     return false;
+}
+
+float TrackPage::roadHeightAt(int block, size_t index, float x, float z) const {
+    const Track::Block& b = track_.blocks[size_t(block)];
+    const Track::Polygon& p = b.polygons[4][index];
+    const auto& v0 = b.vertices[p.vertices[0]];
+    const auto& v1 = b.vertices[p.vertices[1]];
+    const auto& v2 = b.vertices[p.vertices[2]];
+    const auto& v3 = b.vertices[p.vertices[3]];
+    // The plane through the corners' middle, across the diagonals.
+    const std::array<float, 3> a{v2[0] - v0[0], v2[1] - v0[1], v2[2] - v0[2]}, c{v3[0] - v1[0], v3[1] - v1[1], v3[2] - v1[2]};
+    const std::array<float, 3> nrm{a[1] * c[2] - a[2] * c[1], a[2] * c[0] - a[0] * c[2], a[0] * c[1] - a[1] * c[0]};
+    const float mx = (v0[0] + v1[0] + v2[0] + v3[0]) / 4, my = (v0[1] + v1[1] + v2[1] + v3[1]) / 4,
+                mz = (v0[2] + v1[2] + v2[2] + v3[2]) / 4;
+    if (std::fabs(nrm[1]) < 1e-6f)
+        return my;
+    return my - (nrm[0] * (x - mx) + nrm[2] * (z - mz)) / nrm[1];
+}
+
+bool TrackPage::roadColoursAt(const std::array<float, 3>& at, std::array<uint32_t, 4>& corners) const {
+    int block = -1;
+    size_t index = 0;
+    if (!roadPolygonAt(at, block, index))
+        return false;
+    std::array<int, 3> ambient{100, 100, 100};
+    if (skyError_.empty())
+        ambient = horizon_.ambient;
+    const Track::Block& b = track_.blocks[size_t(block)];
+    const Track::Polygon& p = b.polygons[4][index];
+    for (int k = 0; k < 4; ++k) {
+        const uint16_t v = p.vertices[size_t(k)];
+        corners[size_t(k)] = ambientScaled(v < b.colours.size() ? b.colours[v] : 0xff7f7f7fu, ambient);
+    }
+    return true;
+}
+
+uint32_t TrackPage::uploadQuads(std::vector<gfx::Vertex>& quads, gfx::MeshId& mesh, uint32_t& capacity) {
+    const uint32_t count = static_cast<uint32_t>(quads.size() / 4);
+    if (count == 0)
+        return 0;
+    if (count > capacity || !mesh) {
+        if (mesh)
+            renderer_->destroyMesh(mesh);
+        mesh = 0;
+        capacity = std::max<uint32_t>(count * 2, 32);
+        std::vector<uint32_t> indices;
+        for (uint32_t i = 0; i < capacity; ++i)
+            for (uint32_t k : {0u, 1u, 2u, 0u, 2u, 3u})
+                indices.push_back(4 * i + k);
+        quads.resize(size_t(capacity) * 4);
+        if (renderer_->createMesh(quads, indices, mesh)) {
+            mesh = 0;
+            capacity = 0;
+            return 0;
+        }
+        return count;
+    }
+    quads.resize(size_t(capacity) * 4);
+    renderer_->setMeshVertices(mesh, quads);
+    return count;
 }
 
 // Each car's colour, as the game's (car_draw_wheels and the drawing
@@ -1507,15 +1636,21 @@ bool TrackPage::roadColoursAt(const std::array<float, 3>& at, std::array<uint32_
 // (carShadeColour; 0x4ba810 averages it under the car and its wheels,
 // here under the car), by night with the other cars' lights on it
 // (carLitBy, 0x4b97b0; the camera's car's too), each vertex lit from the
-// horizon's light direction (carVertexColour). And its light glows
+// horizon's light direction (carVertexColour). Its reflection (0x4ba350,
+// 0x49de20): the body's and headlights' corners on the sky's sphere map
+// by their normals in the frame of the camera's view of the car
+// (reflectionFrame), in carReflection's colours. And its light glows
 // (carLightGlow) as quads facing the camera, turned by their place across
-// the screen as 0x492370 turns them.
+// the screen as 0x492370 turns them; in the weather each glow's flare on
+// a wet road (rainFlare, 0x491bc0), in the fog each headlight's beam
+// (fogBeam, 0x492980).
 void TrackPage::prepareCars(const gfx::Vec3& eye, const gfx::Vec3& forward, const gfx::Vec3& right,
-                            const gfx::Vec3& up) {
-    carGlowQuads_ = 0;
+                            const gfx::Vec3& up, float fogDensity) {
+    carGlowQuads_ = carFlareQuads_ = carBeamQuads_ = 0;
     if (!computerCars_ || cars_.empty())
         return;
-    const bool night = variant_ == 1 || variant_ == 3;
+    const bool night = variant_ == 1 || variant_ == 3, weather = variant_ >= 2;
+    const bool effects = sfxLevel_ != 2; // the Special Effects option not Off
     const std::array<float, 3> light = carLightDirection(skyError_.empty() ? horizon_.rotation : 0);
     // The race's lights, in the list's order: the camera's car's, then each car's.
     std::vector<CarLights> lights;
@@ -1534,8 +1669,26 @@ void TrackPage::prepareCars(const gfx::Vec3& eye, const gfx::Vec3& forward, cons
             lights.push_back(l);
         }
     }
+    // The sky's colour the reflection takes (0x6ff9f8, the clear colour).
+    std::array<int, 3> sky{0, 0, 0};
+    if (skyError_.empty() && !skyBlack_)
+        sky = horizon_.skyTop;
     const std::array<float, 3> camera{eye[0], eye[1], -eye[2]};
-    std::vector<gfx::Vertex> glows;
+    const int n = static_cast<int>(collision_.road.size());
+    std::vector<gfx::Vertex> glows, flares, beams;
+    auto vertex = [](const std::array<float, 3>& track, float u, float v, uint32_t colour) {
+        gfx::Vertex out{};
+        out.pos[0] = track[0];
+        out.pos[1] = track[1];
+        out.pos[2] = -track[2];
+        out.uv[0] = u;
+        out.uv[1] = v;
+        out.color[0] = static_cast<uint8_t>(colour >> 16);
+        out.color[1] = static_cast<uint8_t>(colour >> 8);
+        out.color[2] = static_cast<uint8_t>(colour);
+        out.color[3] = static_cast<uint8_t>(colour >> 24);
+        return out;
+    };
     for (size_t ci = 0; ci < cars_.size(); ++ci) {
         ComputerCar& c = cars_[ci];
         const CarModel& cm = carModels_[size_t(c.model)];
@@ -1547,15 +1700,18 @@ void TrackPage::prepareCars(const gfx::Vec3& eye, const gfx::Vec3& forward, cons
             c.colour = carLitBy(c.colour, c.at, others);
         }
         const CarShade shade = carShade(c.colour);
+        auto normalOf = [&](uint32_t i) {
+            const auto& nm = cm.normals[i];
+            std::array<float, 3> w{};
+            for (int k = 0; k < 3; ++k)
+                w[size_t(k)] = c.right[size_t(k)] * nm[0] + c.up[size_t(k)] * nm[1] + c.forward[size_t(k)] * nm[2];
+            return w;
+        };
         if (c.mesh) {
             std::vector<gfx::Vertex> vertices = cm.vertices;
             for (size_t i = 0; i < vertices.size(); ++i) {
-                const auto& nm = cm.normals[i];
-                float d = 0;
-                for (int k = 0; k < 3; ++k)
-                    d += (c.right[size_t(k)] * nm[0] + c.up[size_t(k)] * nm[1] + c.forward[size_t(k)] * nm[2]) *
-                         light[size_t(k)];
-                const uint32_t colour = carVertexColour(shade, d);
+                const std::array<float, 3> w = normalOf(static_cast<uint32_t>(i));
+                const uint32_t colour = carVertexColour(shade, w[0] * light[0] + w[1] * light[1] + w[2] * light[2]);
                 vertices[i].color[0] = static_cast<uint8_t>(colour >> 16);
                 vertices[i].color[1] = static_cast<uint8_t>(colour >> 8);
                 vertices[i].color[2] = static_cast<uint8_t>(colour);
@@ -1563,25 +1719,89 @@ void TrackPage::prepareCars(const gfx::Vec3& eye, const gfx::Vec3& forward, cons
             }
             renderer_->setMeshVertices(c.mesh, vertices);
         }
+        if (c.envMesh && reflections_ && envPicture_) {
+            const int slice = n > 0 ? static_cast<int>(std::floor(c.slice)) % n : 0;
+            const CarReflection refl =
+                carReflection(c.colour, sky, cm.paintValue, n > 0 ? coverDepth(collision_, slice, c.at) : 0);
+            const uint32_t normal = dimLight(refl.normal, lightIntensity_), strong = dimLight(refl.strong, lightIntensity_);
+            const auto frame = reflectionFrame({camera[0] - c.at[0], camera[1] - c.at[1], camera[2] - c.at[2]});
+            std::vector<gfx::Vertex> env(cm.envFrom.size());
+            for (size_t i = 0; i < env.size(); ++i) {
+                const std::array<float, 3> w = normalOf(cm.envFrom[i]);
+                float axis[3];
+                for (int a = 0; a < 3; ++a)
+                    axis[a] = w[0] * frame[size_t(a)][0] + w[1] * frame[size_t(a)][1] + w[2] * frame[size_t(a)][2];
+                const auto uv = reflectionUv(axis[0], axis[1], axis[2]);
+                const uint32_t colour = cm.envStrong[i] ? strong : normal;
+                env[i] = cm.vertices[cm.envFrom[i]];
+                env[i].uv[0] = uv[0];
+                env[i].uv[1] = uv[1];
+                env[i].color[0] = static_cast<uint8_t>(colour >> 16);
+                env[i].color[1] = static_cast<uint8_t>(colour >> 8);
+                env[i].color[2] = static_cast<uint8_t>(colour);
+                env[i].color[3] = static_cast<uint8_t>(colour >> 24);
+            }
+            renderer_->setMeshVertices(c.envMesh, env);
+        }
         // The glows: each dummy where the model is drawn (the position
         // plus 0.145 up, 0x540120).
         const float brightness = carGlowBrightness(c.colour);
+        const float phase = static_cast<float>(skyTick_ % 32) * 0.03125f;
+        const char flash = c.siren ? (phase <= 0.5f ? 'O' : 'E') : '\0';
+        const uint32_t beamColour = effects ? dimLight(fogBeamColour(fogDensity, c.beams), lightIntensity_) : 0;
+        const bool covered = n > 0 && pointCovered(collision_.road[size_t(static_cast<int>(std::floor(c.slice)) % n)], c.at);
         for (const Model::Dummy& dm : cm.dummies) {
             std::array<float, 3> at{};
             for (int k = 0; k < 3; ++k)
                 at[size_t(k)] = c.at[size_t(k)] + c.right[size_t(k)] * dm.position[0] + c.up[size_t(k)] * dm.position[1] +
                                 c.forward[size_t(k)] * dm.position[2];
             at[1] += 0.145f;
+            // The beam in the fog, for a headlight that is on, facing the
+            // camera or not.
+            if (beamColour && !dm.name.empty() && dm.name[0] == 'H' &&
+                (c.beams != 0 || (flash != '\0' && dm.name.size() > 3 && dm.name[3] == flash))) {
+                const FogBeam beam = fogBeam(at, c.right, c.up, c.forward, camera, beamColour);
+                const float scroll = static_cast<float>(c.beamScroll) / 2048.0f;
+                const size_t segments = beam.shown ? beam.nearRing.size() - 1 : 0;
+                for (size_t i = 0; i < segments; ++i) {
+                    const float u0 = static_cast<float>(i) / static_cast<float>(segments),
+                                u1 = static_cast<float>(i + 1) / static_cast<float>(segments);
+                    beams.push_back(vertex(beam.farRing[i + 1], u1, -scroll, 0));
+                    beams.push_back(vertex(beam.farRing[i], u0, -scroll, 0));
+                    beams.push_back(vertex(beam.nearRing[i], u0, 1 - scroll, beam.colour));
+                    beams.push_back(vertex(beam.nearRing[i + 1], u1, 1 - scroll, beam.colour));
+                }
+            }
             std::array<float, 3> toCamera{camera[0] - at[0], camera[1] - at[1], camera[2] - at[2]};
             const float distance = std::sqrt(toCamera[0] * toCamera[0] + toCamera[1] * toCamera[1] + toCamera[2] * toCamera[2]);
             if (distance <= 0)
                 continue;
             const float facing =
                 (c.forward[0] * toCamera[0] + c.forward[1] * toCamera[1] + c.forward[2] * toCamera[2]) / distance;
-            const CarGlow g = carLightGlow(dm.name, facing, c.beams, false, c.siren, static_cast<int>(skyTick_), brightness);
+            const CarGlow g =
+                carLightGlow(dm.name, facing, c.beams, c.ai.braking, c.siren, static_cast<int>(skyTick_), brightness);
             if (!g.shown || g.size <= 0)
                 continue;
             const uint32_t colour = dimLight(g.colour, lightIntensity_);
+            // The rain's flare under a tail light or headlight (not a roof
+            // light) whose dummy's fifth letter isn't N, on a wet road out
+            // of cover.
+            if (effects && weather && !covered && (dm.name[0] == 'T' || dm.name[0] == 'H') &&
+                !(dm.name.size() > 4 && dm.name[4] == 'N')) {
+                int block = -1;
+                size_t index = 0;
+                if (roadPolygonAt(at, block, index) && wetSurface(roadSurface(track_.blocks[size_t(block)], index))) {
+                    const float way = dm.name[0] == 'T' ? -1.0f : 1.0f;
+                    const RainFlare f = rainFlare(at, camera, {c.forward[0] * way, c.forward[1] * way, c.forward[2] * way},
+                                                  g.size, dimLight(g.colour, lightIntensity_));
+                    if (f.shown)
+                        for (int k = 0; k < 4; ++k) {
+                            const auto& p = f.corners[size_t(k)];
+                            flares.push_back(vertex({p[0], roadHeightAt(block, index, p[0], p[1]) + 0.125f, p[1]},
+                                                    k == 1 || k == 2 ? 1.0f : 0.0f, k >= 2 ? 1.0f : 0.0f, f.colour));
+                        }
+                }
+            }
             // Pulled towards the camera: the roof lights by 0.75 as the
             // game has them, the others (drawn at the body's depth) by 0.3
             // here, so the body doesn't hide them.
@@ -1610,27 +1830,9 @@ void TrackPage::prepareCars(const gfx::Vec3& eye, const gfx::Vec3& forward, cons
             }
         }
     }
-    carGlowQuads_ = static_cast<uint32_t>(glows.size() / 4);
-    if (glows.empty())
-        return;
-    if (carGlowQuads_ > carGlowCapacity_) {
-        if (carGlowMesh_)
-            renderer_->destroyMesh(carGlowMesh_);
-        carGlowMesh_ = 0;
-        carGlowCapacity_ = std::max<uint32_t>(carGlowQuads_ * 2, 32);
-        std::vector<uint32_t> indices;
-        for (uint32_t i = 0; i < carGlowCapacity_; ++i)
-            for (uint32_t k : {0u, 1u, 2u, 0u, 2u, 3u})
-                indices.push_back(4 * i + k);
-        glows.resize(size_t(carGlowCapacity_) * 4);
-        if (renderer_->createMesh(glows, indices, carGlowMesh_)) {
-            carGlowMesh_ = 0;
-            carGlowCapacity_ = carGlowQuads_ = 0;
-        }
-        return;
-    }
-    glows.resize(size_t(carGlowCapacity_) * 4);
-    renderer_->setMeshVertices(carGlowMesh_, glows);
+    carGlowQuads_ = uploadQuads(glows, carGlowMesh_, carGlowCapacity_);
+    carFlareQuads_ = uploadQuads(flares, carFlareMesh_, carFlareCapacity_);
+    carBeamQuads_ = uploadQuads(beams, carBeamMesh_, carBeamCapacity_);
 }
 
 // The cars as lit (prepareCars), their headlights' part only with the
@@ -1667,6 +1869,21 @@ void TrackPage::drawCars(const gfx::DrawCall& base) {
         car.firstIndex = 0;
         car.indexCount = cm.bodyVertices + (c.beams ? cm.lightVertices : 0);
         renderer_->draw(car);
+        // The reflection (0x49dbf0 queues it with the polygon): the sphere
+        // map added by the corner colour's alpha (THRASH blend 1), the
+        // headlights' only with them on.
+        if (c.envMesh && reflections_ && envPicture_ && textured_) {
+            gfx::DrawCall env = car;
+            env.mesh = c.envMesh;
+            env.texture = envPicture_;
+            env.alphaSource = gfx::ColorSource::Vertex;
+            env.state.src = gfx::Blend::SrcAlpha;
+            env.state.dst = gfx::Blend::One;
+            env.state.depthWrite = false;
+            env.indexCount = c.beams ? static_cast<uint32_t>(cm.envFrom.size()) : cm.envBodyVertices;
+            if (env.indexCount)
+                renderer_->draw(env);
+        }
     }
 }
 
@@ -1693,6 +1910,13 @@ void TrackPage::loadMarks() {
             image::Image img;
             if (!decodeShape(shape, img) && !renderer_->createTexture(img.w, img.h, img.rgba.data(), {}, glow3Picture_))
                 textures_.push_back(glow3Picture_);
+        } else if (shape.name == "glw1" || shape.name == "glw4") {
+            // The fog's beams (0x492980 draws with 0x8b47e8, glw1) and the
+            // rain's flares (0x491bc0 with 0x8b486c, glw4).
+            image::Image img;
+            gfx::TextureId& id = shape.name == "glw1" ? glow1Picture_ : glow4Picture_;
+            if (!decodeShape(shape, img) && !renderer_->createTexture(img.w, img.h, img.rgba.data(), {}, id))
+                textures_.push_back(id);
         } else if (shape.name == "glw2") {
             // The headlights' picture (0x4d5538 loads it into 0x8b4814,
             // which 0x41a120 draws with); clamped, its edges black.
@@ -1705,9 +1929,11 @@ void TrackPage::loadMarks() {
         }
     if (marks_.empty())
         return;
-    std::vector<gfx::Vertex> vertices(marks_.size() * 4);
+    // Two quads a mark: the glw0 glows (or the sounds' diamonds), then
+    // the lights' glw3 quads.
+    std::vector<gfx::Vertex> vertices(marks_.size() * 8);
     std::vector<uint32_t> indices;
-    for (uint32_t i = 0; i < marks_.size(); ++i)
+    for (uint32_t i = 0; i < 2 * marks_.size(); ++i)
         for (uint32_t k : {0u, 1u, 2u, 0u, 2u, 3u})
             indices.push_back(4 * i + k);
     if (Error err = renderer_->createMesh(vertices, indices, markMesh_))
@@ -1715,40 +1941,63 @@ void TrackPage::loadMarks() {
     loadSounds();
 }
 
-// Each mark as a quad facing the camera: a light's glow as its type has
-// it (lightLook: colour, size, blinking at the sky's ticks), a small cyan
-// diamond for a sound.
-void TrackPage::drawMarks(const gfx::Vec3& eye, const gfx::Vec3& right, const gfx::Vec3& up) {
+// Each mark as a quad facing the camera: a light as 0x491190 draws it
+// (lightQuads: colour, size and blinking at the sky's ticks as its type
+// has them), glw0 at a fixed size on the screen, its colour fading with
+// the depth to nothing at 256, and glw3 in perspective, both turned by a
+// quarter of a turn times (x / z + 1) and only while the light's centre
+// is on the screen at a depth of 1 to 256, none with the Special Effects
+// option Off; a small cyan diamond for a sound.
+void TrackPage::drawMarks(const gfx::Vec3& eye, const gfx::Vec3& forward, const gfx::Vec3& right, const gfx::Vec3& up) {
     if (!markMesh_ || !marksShown_)
         return;
-    (void)eye;
-    std::vector<gfx::Vertex> vertices;
-    vertices.reserve(marks_.size() * 4);
-    for (const Mark& m : marks_) {
-        LightLook look = m.light ? lightLook(static_cast<uint32_t>(m.value), skyTick_) : LightLook{};
-        look.color = dimLight(look.color, lightIntensity_);
-        const float half = !m.light ? 0.6f : look.shown ? look.size : 0.0f;
-        for (int corner = 0; corner < 4; ++corner) {
-            const float x = corner == 1 || corner == 2 ? 1.0f : -1.0f, y = corner >= 2 ? 1.0f : -1.0f;
-            gfx::Vertex v{};
-            for (int i = 0; i < 3; ++i)
-                v.pos[i] = m.at[size_t(i)] + (right[size_t(i)] * x + up[size_t(i)] * y) * half;
-            v.uv[0] = (x + 1) / 2;
-            v.uv[1] = (1 - y) / 2;
-            if (m.light) {
-                v.color[0] = static_cast<uint8_t>(look.color >> 16);
-                v.color[1] = static_cast<uint8_t>(look.color >> 8);
-                v.color[2] = static_cast<uint8_t>(look.color);
-                v.color[3] = static_cast<uint8_t>(look.color >> 24);
-            } else {
+    std::vector<gfx::Vertex> vertices(marks_.size() * 8);
+    const size_t second = marks_.size() * 4; // the glw3 quads
+    for (size_t mi = 0; mi < marks_.size(); ++mi) {
+        const Mark& m = marks_[mi];
+        if (!m.light) {
+            for (int corner = 0; corner < 4; ++corner) {
+                const float x = corner == 1 || corner == 2 ? 1.0f : -1.0f, y = corner >= 2 ? 1.0f : -1.0f;
+                gfx::Vertex& v = vertices[mi * 4 + size_t(corner)];
                 // The diamond: the quad's corners pulled in to its edges' middles.
                 for (int i = 0; i < 3; ++i)
-                    v.pos[i] = m.at[size_t(i)] + (corner % 2 ? right[size_t(i)] * x : up[size_t(i)] * y) * half;
+                    v.pos[i] = m.at[size_t(i)] + (corner % 2 ? right[size_t(i)] * x : up[size_t(i)] * y) * 0.6f;
                 v.color[0] = 60;
                 v.color[1] = v.color[2] = v.color[3] = 255;
             }
-            vertices.push_back(v);
+            continue;
         }
+        const gfx::Vec3 d{m.at[0] - eye[0], m.at[1] - eye[1], m.at[2] - eye[2]};
+        const float z = d[0] * forward[0] + d[1] * forward[1] + d[2] * forward[2];
+        const float x = d[0] * right[0] + d[1] * right[1] + d[2] * right[2];
+        const float y = d[0] * up[0] + d[1] * up[1] + d[2] * up[2];
+        // On the screen: 90 degrees across, 4:3 (kFieldOfView).
+        if (sfxLevel_ == 2 || z <= 0 || std::fabs(x) > z || std::fabs(y) > 0.75f * z)
+            continue;
+        const LightQuads q = lightQuads(lightLook(static_cast<uint32_t>(m.value), skyTick_), z);
+        if (!q.shown)
+            continue;
+        const float angle = (x / z + 1) * 0.25f * 2 * kPi;
+        auto quad = [&](size_t first, float half, uint32_t colour) {
+            colour = dimLight(colour, lightIntensity_);
+            for (int corner = 0; corner < 4; ++corner) {
+                const float a = angle + static_cast<float>(corner) * kPi / 2;
+                const float cx = std::cos(a) * half, cy = std::sin(a) * half;
+                gfx::Vertex& v = vertices[first + size_t(corner)];
+                for (int i = 0; i < 3; ++i)
+                    v.pos[i] = m.at[size_t(i)] + right[size_t(i)] * cx + up[size_t(i)] * cy;
+                v.uv[0] = corner == 1 || corner == 2 ? 1.0f : 0.0f;
+                v.uv[1] = corner >= 2 ? 1.0f : 0.0f;
+                v.color[0] = static_cast<uint8_t>(colour >> 16);
+                v.color[1] = static_cast<uint8_t>(colour >> 8);
+                v.color[2] = static_cast<uint8_t>(colour);
+                v.color[3] = static_cast<uint8_t>(colour >> 24);
+            }
+        };
+        // A fixed share of the screen's half width: at depth z that many
+        // times z units across here (tan 45 degrees is 1).
+        quad(mi * 4, q.screenHalf * z, q.glowColour);
+        quad(second + mi * 4, q.worldHalf, q.flareColour);
     }
     renderer_->setMeshVertices(markMesh_, vertices);
     gfx::DrawCall call;
@@ -1765,13 +2014,18 @@ void TrackPage::drawMarks(const gfx::Vec3& eye, const gfx::Vec3& right, const gf
         else
             list.push_back({uint32_t(i), uint32_t(i + 1)});
     }
-    call.texture = glowPicture_;
     call.state.src = gfx::Blend::SrcAlpha;
     call.state.dst = gfx::Blend::One;
-    for (const auto& [from, to] : lights) {
-        call.firstIndex = 6 * from;
-        call.indexCount = 6 * (to - from);
-        renderer_->draw(call);
+    const uint32_t marks = static_cast<uint32_t>(marks_.size());
+    for (const auto& [texture, offset] : {std::pair{glowPicture_, 0u}, std::pair{glow3Picture_, marks}}) {
+        if (!texture)
+            continue;
+        call.texture = texture;
+        for (const auto& [from, to] : lights) {
+            call.firstIndex = 6 * (offset + from);
+            call.indexCount = 6 * (to - from);
+            renderer_->draw(call);
+        }
     }
     call.texture = 0;
     call.state.dst = gfx::Blend::Zero;
@@ -2106,6 +2360,8 @@ void TrackPage::handleEvent(const Event& ev) {
         case '3': detail_ = 2; break;
         case '4': detail_ = 3; break;
         case 'k': allBlocks_ = !allBlocks_; break;
+        case 'z': reflections_ = !reflections_; break;
+        case 'q': sfxLevel_ = (sfxLevel_ + 1) % 3; break;
         case 'j':
             // Computer cars on the road ahead; Shift+J stops or starts them.
             if (ev.mods & keymod::Shift) {
@@ -2123,8 +2379,10 @@ void TrackPage::handleEvent(const Event& ev) {
             // The lights a race starts with (startingBeams): the camera's
             // car is a human's, the computer cars not.
             beams_ = startingBeams(variant_ % 2 == 1, variant_ >= 2, true);
-            for (ComputerCar& c : cars_)
-                c.beams = startingBeams(variant_ % 2 == 1, variant_ >= 2, false);
+            for (ComputerCar& c : cars_) {
+                c.beams = c.ai.beams = startingBeams(variant_ % 2 == 1, variant_ >= 2, false);
+                c.ai.flashing = false;
+            }
             if (renderer_ && error_.empty()) {
                 loadSky();
                 loadSounds();
@@ -2332,7 +2590,7 @@ void TrackPage::update(uint64_t nowMs) {
             }
         }
         moveCars(dt);
-        prepareCars(eye, forward, right, up);
+        prepareCars(eye, forward, right, up, fogDensity);
         prepareHeadlights(here, eye, forward);
     }
     // The clear colour: the sky's top (THRASH state 3, 0x47a4c0), black
@@ -2544,7 +2802,7 @@ void TrackPage::update(uint64_t nowMs) {
         movingPass(kAdditive);
     }
 
-    drawMarks(eye, right, up);
+    drawMarks(eye, forward, right, up);
     // The cars' glows (prepareCars), added over the scene but not through
     // it, as the track's lights are.
     if (carGlowMesh_ && carGlowQuads_ && glow3Picture_) {
@@ -2559,6 +2817,25 @@ void TrackPage::update(uint64_t nowMs) {
         glow.firstIndex = 0;
         glow.indexCount = carGlowQuads_ * 6;
         renderer_->draw(glow);
+    }
+    // The rain's flares on the road (glw4) and the fog's beams (glw1),
+    // added the same way.
+    for (const auto& [mesh, quads, texture] :
+         {std::tuple{carFlareMesh_, carFlareQuads_, glow4Picture_}, std::tuple{carBeamMesh_, carBeamQuads_, glow1Picture_}}) {
+        if (!mesh || !quads || !texture)
+            continue;
+        gfx::DrawCall add;
+        add.mesh = mesh;
+        add.rgbSource = add.alphaSource = gfx::ColorSource::Vertex;
+        add.texture = texture;
+        add.state.cull = gfx::Cull::None;
+        add.state.depthWrite = false;
+        add.state.depthBias = true;
+        add.state.src = gfx::Blend::SrcAlpha;
+        add.state.dst = gfx::Blend::One;
+        add.firstIndex = 0;
+        add.indexCount = quads * 6;
+        renderer_->draw(add);
     }
     if (marksShown_)
         updateSounds(eye, right);
@@ -2599,11 +2876,23 @@ void TrackPage::update(uint64_t nowMs) {
         }
         if (lightIntensity_ < 1)
             line += "  lights " + std::to_string(static_cast<int>(lightIntensity_ * 100)) + "%";
+        if (sfxLevel_ != 0)
+            line += sfxLevel_ == 1 ? "  effects low" : "  effects off";
+        if (!reflections_)
+            line += "  no reflections";
         if (mirrored_)
             line += "  mirrored";
-        if (computerCars_)
-            line += carError_.empty() ? "  " + std::to_string(cars_.size()) + " computer cars" + (carsMoving_ ? "" : " (stopped)")
+        if (computerCars_) {
+            int braking = 0, flashing = 0;
+            for (const ComputerCar& c : cars_) {
+                braking += c.ai.braking ? 1 : 0;
+                flashing += c.ai.flashing ? 1 : 0;
+            }
+            line += carError_.empty() ? "  " + std::to_string(cars_.size()) + " computer cars" + (carsMoving_ ? "" : " (stopped)") +
+                                            (braking ? ", " + std::to_string(braking) + " braking" : "") +
+                                            (flashing ? ", " + std::to_string(flashing) + " flashing" : "")
                                       : "  " + carError_;
+        }
         if (variant_ % 2 == 1) {
             static constexpr const char* kBeams[] = {"headlights off", "low beams", "high beams"};
             line += std::string("  ") + kBeams[beams_] + (beams_ && !projected_ ? " (not projected)" : "") +
@@ -2617,7 +2906,7 @@ void TrackPage::update(uint64_t nowMs) {
         if (!collisionError_.empty())
             lines.push_back(collisionError_);
     }
-    lines.push_back("PgUp/PgDn: track  WASD/arrows/drag: move  N/B: block  1-3: detail  H: sky  I: lights  P: wall hit  E: headlights  J: cars  U: mirror  T V L O G X F Y M: toggles");
+    lines.push_back("PgUp/PgDn: track  WASD/arrows/drag: move  N/B: block  1-3: detail  H: sky  I: lights  P: wall hit  E: headlights  J: cars  Z: reflections  Q: effects  U: mirror  T V L O G X F Y M: toggles");
     for (size_t i = 0; i < lines.size(); ++i) {
         const int y = i + 1 == lines.size() ? kFrameH - font::kLineHeight - 4 : 4 + static_cast<int>(i) * font::kLineHeight;
         for (int yy = y - 2; yy < y + font::kLineHeight - 1; ++yy)

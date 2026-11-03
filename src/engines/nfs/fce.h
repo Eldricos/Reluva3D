@@ -101,6 +101,71 @@ float carGlowBrightness(uint32_t colour);
 CarGlow carLightGlow(const std::string& dummy, float facing, int beams, bool braking, bool siren, int step,
                      float brightness);
 
+// nfs3.exe's colour conversions (0x49c880, 0x49ca50), every value 0-255
+// and the hue a full turn in 256, in its integer steps.
+std::array<int, 3> rgbToHsv(const std::array<int, 3>& rgb);
+std::array<int, 3> hsvToRgb(const std::array<int, 3>& hsv);
+// The reflection's two corner colours for a car (0x4ba350, kept by
+// 0x49d800 at 0x55e6dc and 0x55e6e0; fce.md, Lighting), ARGB, from the
+// car's shading colour (carShadeColour, carLitBy), the sky's colour (the
+// sky's top, the clear colour 0x6ff9f8; black where no sky is drawn), the
+// value of the car's paint in HSV (+0x8B0) and coverDepth() (frd.h).
+// Under cover the sky is mixed towards the car's colour, 32 / 256 of it
+// a slice to the cover's end, and both colours are dimmed 16 / 256 a
+// slice. Each takes the sky's hue; the normal one a 96 / 256 of its
+// saturation, the strong one half; their value and alpha 128 + the sky's
+// value x the car's / 512, at least 127, the normal one less a quarter of
+// the paint's value; both then x (256 - 16 n) / 256 (255 / 256 in the open).
+struct CarReflection {
+    uint32_t normal = 0x7f7f7f7f, strong = 0xffffffff;
+};
+CarReflection carReflection(uint32_t carColour, const std::array<int, 3>& sky, int paintValue, int coverDepth);
+// The frame a car's normals (in the track) are turned into for the
+// sphere map (0x49d780, 0x49de20): the car's view from the camera, yaw
+// atan2(dx, dz) - 1/2 turn and pitch atan2(sqrt(dx^2 + dz^2), dy) - 1/4
+// turn of d = camera - car, without roll; its x, y and z axes in the
+// track. Then reflectionUv(n . x, n . y, n . z).
+std::array<std::array<float, 3>, 3> reflectionFrame(const std::array<float, 3>& toCamera);
+
+// A car light's flare on the wet road (0x491bc0, in the weather, for
+// the T and H glows whose dummy's fifth letter isn't N): glw4 of sfx.fsh
+// on the road under the light, from the light towards the camera on the
+// ground. d is the light less the camera on the ground, L its length and
+// L' = L x (the way the light faces . -d / L); the quad is size / 2 wide
+// either side of the light, and 0.75 L' long (at most 30), or as long as
+// it is half wide when that is more; its colour the glow's x 166 / 256.
+// corners: on the ground (x, z) in the order the picture's corners
+// (0, 0), (1, 0), (1, 1), (0, 1) take; the game sets each 0.125 above the
+// road polygon there. depth: L', the game's sorting depth.
+struct RainFlare {
+    bool shown = false;
+    std::array<std::array<float, 2>, 4> corners{};
+    uint32_t colour = 0;
+    float depth = 0;
+};
+RainFlare rainFlare(const std::array<float, 3>& light, const std::array<float, 3>& camera,
+                    const std::array<float, 3>& facing, float size, uint32_t glowColour);
+// A headlight's beam in the fog (0x492980, for each H dummy while the fog
+// is over 30 %): a cone of glw1 of sfx.fsh from a ring of radius 0.1 at
+// the lamp, in the colour, to one of 0.75 six units ahead along the car's
+// forward, in black; n quads (n = 12 x (1 - D / 100), 3-12; none past
+// D = 100, the distance to the camera), its seam turned from the camera
+// by 1/2 x (-1/2 - (r + u) / 2) turns (r, u: the way to the camera along
+// the car's right and up). Looking into it (its forward . the way to the
+// camera f over 1 - w, w = 5 atan2(0.75, 6) in turns) dims the colour by
+// (f - 1 + w) / w. v runs from -scroll (far) to 1 - scroll (near), u
+// from 0 to 1 round the ring. Points in the track's coordinates.
+struct FogBeam {
+    bool shown = false;
+    std::vector<std::array<float, 3>> nearRing, farRing; // n + 1 points each
+    uint32_t colour = 0;                                   // the near ring's
+};
+FogBeam fogBeam(const std::array<float, 3>& lamp, const std::array<float, 3>& right, const std::array<float, 3>& up,
+                const std::array<float, 3>& forward, const std::array<float, 3>& camera, uint32_t colour);
+// The beam's colour (0x4b8740): white, alpha 228 x min((fog - 30) / 30,
+// 1), half that on low beams; nothing with the fog at 30 or less.
+uint32_t fogBeamColour(float fogPercent, int beams);
+
 // The texture pages of a GameData/Render/pc model (cone.art, copN.art):
 // one image each, in page order (fce.md).
 Error parseArt(const std::vector<uint8_t>& data, std::vector<image::Image>& pages);

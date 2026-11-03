@@ -158,8 +158,40 @@ From nfs3.exe (November 2026), the drawing of a car (`car_draw_wheels`
   (sin θ, 0.5, cos θ) made a unit vector, θ the `.hrz` rotation
   (degrees × 65536 / 360, the game's sine table; `carLightDirection`).
   Fixed for the track: the car is lit from the sky's rotation, not the
-  sun's picture. The reflection colours (`0x4ba350`, `0x49d800`) are
-  worked out from the sky's colour and not followed.
+  sun's picture.
+- **The reflection** (`0x4ba350`, November 2026; `carReflection`,
+  `reflectionFrame`). Only with the option at `0x6fbc24` on (on from a
+  234 MHz processor up, frd.md) and not in the rear-view mirror (view 1, whose winding `0x4349a0` turns); the body (part 0,
+  or 5 at the lower detail) and the headlights (12) get it, the wheels
+  not (`0x4bb200`, `0x4bab70`). The picture is the sky's sphere map,
+  `CHRD`, `CHRN`, `CHRW` or `CHNW` of the track's `sky.fsh` by the
+  variant (`0x47ac30`, at `0x6ff9a0`). Its two corner colours:
+  - from the car's colour above (after `carLitBy`) in HSV (`0x49c880`,
+    integer, the hue a turn in 256) and the sky's colour (`0x6ff9f8`,
+    the clear colour: the sky's top, black where no sky is drawn,
+    hrz.md);
+  - under cover (`0x420bf0` at the car's slice, col.md) the cover's
+    reach n (the first n from 1 at which slice ± n isn't covered, 8 at
+    most) mixes the sky towards the car's colour, the sky's share
+    256 − 32 n of 256, and dims both colours by (256 − 16 n) / 256;
+  - the mixed sky in HSV gives the hue; the normal colour (`0x55e6dc`)
+    96 / 256 of its saturation, the strong one (`0x55e6e0`, flag 0x2)
+    half; their value and alpha 128 + the sky's value × the car's value
+    / 512, held to 127-255, the normal one less a quarter of the paint's
+    value (+0x8B0, the paint colour's HSV value from the set-up, kept by
+    `0x4b7a60`; a race's dump has the cars' fce colours there, the
+    Corvette's first 0, 255, 112). Back to RGB (`0x49ca50`), × the dim
+    (255 / 256 in the open), then × the effects intensity (`0x49d800`).
+
+  The map's place for a corner (`0x49de20`, `0x49db70`): its normal
+  turned with the car into the track, then into the frame of the
+  camera's view of the car (`0x49d780`, kept at `0x55e6ec`): d = the
+  camera less the car, yaw atan2(dx, dz) − ½ turn, pitch
+  atan2(√(dx² + dz²), dy) − ¼ turn, Ry(yaw) Rx(pitch), no roll; so z
+  points from the camera to the car and x along the view's right. Then
+  u, v = 0.5 + (x, y) × 0.707106 / √(2 (1 + |z|)), y upwards: the map
+  has the sky in its lower half. The Tracks page draws it over each
+  computer car (key Z).
 - **The glows** (`0x4b8740`, `carLightGlow`), one per dummy by its
   name's letters: H a headlight, T a tail light, S a roof light; the
   second F (facing forward) or R (back); the third L or R (a roof
@@ -168,7 +200,8 @@ From nfs3.exe (November 2026), the drawing of a car (`car_draw_wheels`
   the camera (−d for R), drawn when d > 0, and with b = 1 − 0.3 ×
   (r + g + b) / 765 of the car's colour, at least 0.7
   (`carGlowBrightness`):
-  - T, with the lights on or braking (+0x509): red, alpha (198 braking,
+  - T, with the lights on or braking (+0x509, the brake held: only when
+    more than 5 m/s too fast, frd.md): red, alpha (198 braking,
     else 128) × min(1, 4d) × b, size max(d, 0.25) × 0.8 × b;
   - H, with the lights on, or a police car's siren on and its fourth
     letter O in the first half of the 32-step cycle, E in the second:
@@ -184,8 +217,50 @@ From nfs3.exe (November 2026), the drawing of a car (`car_draw_wheels`
   lights along with `glw0`) added by its alpha, its corners `size`
   from its centre, turned by ¼ turn × (x / z + 1) across the screen.
   The Tracks page draws the T and H glows 0.3 nearer than the lamp (the
-  game gives them the body's depth). In the weather `0x491bc0` adds
-  flares on the road and in fog `0x492980` a beam: not drawn.
+  game gives them the body's depth).
+- **The rain's flares** (`0x491bc0`, November 2026; `rainFlare`). For
+  each T or H glow drawn whose dummy's fifth letter isn't N, with the
+  Special Effects option not Off, in the weather (`0x6fd4cc`), the car's
+  slice not covered and not in the mirror (view 1): the road polygon under the
+  light (`trackpos_build`), and only on a surface the table at
+  `0x55308c` (16 surfaces × 0x24 bytes, a row of 16 per weather kind)
+  gives 10: surfaces 1, 4, 6, 7, 10, 11 and 12 in rain or snow (the two
+  rows agree there), the polygon's record byte 1 & 0x3F (frd.md). A
+  `glw4` quad (`0x8b486c`, a glow at the top smeared down) on the
+  ground from the light towards the camera: with d the light less the
+  camera on the ground, L its length and L' = L × (−the light's way ·
+  d / L) (the car's forward for H, backward for T), half wide size / 2
+  (`0x53bcc8`) either side, long 0.75 L' (`0x53bce0`), at most 30, or
+  the half width when that is more; its corners 0.125 above the light's
+  road polygon's plane (`0x4968a0`, `0x53bcf0`); the glow's colour × 166
+  / 256, then × the effects intensity; sorted at L'.
+- **The fog's beam** (`0x492980`, from `0x4b8efe`; `fogBeam`,
+  `fogBeamColour`). For each H dummy with the lights on (or flashing
+  with the siren), facing the camera or not, while the fog's density
+  this frame (`0x678b40`, set by the sky's draw, `0x470ad0`) is over 30:
+  white, alpha 228 × min((fog − 30) / 30, 1) (`0x53ffe0`-`0x540000`),
+  half on low beams. Within 100 of the camera (D), n = 12 × (1 − D /
+  100) truncated, 3-12, quads of `glw1` (`0x8b47e8`, cloud-like noise)
+  round a cone along the car's forward: a ring of radius 0.1 at the lamp
+  in the colour, one of 0.75 six units ahead in black and clear, its
+  first corner at ½ × (−½ − (r + u) / 2) turns (r, u: the unit vector to
+  the camera along the car's right and up). Looking into it (that
+  vector · forward f above 1 − w, w = 5 × atan2(0.75, 6) in turns,
+  0.099) the colour is × (1 − (f − 1 + w) / w), truncated. v runs from
+  −s at the far ring to 1 − s at the lamp, u round the ring, s = (+0x944
+  & 0x7FF) / 2048, +0x944 going up by int(the speed along the car's
+  forward + 1) a step: the picture streams along the beam with the
+  speed. Sorted at the deepest corner − 0.4.
+
+  The Tracks page draws both for its computer cars, added by their
+  alpha over the scene but not through it. Checked in `nfs-host` (a
+  night race in the rain on Hometown, `-count`): in its first 2,338
+  frames `0x491bc0` reached its quad 1,905 times of 2,014 calls, the
+  road's surface 1, and the intro's shots show short red smears on the
+  wet road under the cars' tail lights, the picture's bright top a
+  little in front of the light, as the page has them; `0x492980` was
+  called as often, the fog there being 60. No frame showed a car facing
+  the camera close enough to compare a beam.
 
 ## How the game loads a model
 

@@ -4,9 +4,11 @@
 #pragma once
 
 #include "common/types.h"
+#include "engines/nfs/col.h"
 
 #include <array>
 #include <cstdint>
+#include <string>
 #include <vector>
 
 namespace reluva::nfs {
@@ -137,6 +139,21 @@ LightLook lightLook(uint32_t type, uint64_t tick);
 // renderer's SFX_INTENSITY option, 0-1; 1 leaves it as it is), each byte
 // alpha included, as 0x491223 does.
 uint32_t dimLight(uint32_t color, float intensity);
+// The two quads 0x491190 draws for a light (frd.md, Lights), both turned
+// as the cars' glows are, and only while the light's centre is on the
+// screen at a depth z from 1 to 256: glw0 at a fixed size on the screen,
+// screenHalf of the projection's x scale (320 in a 640-wide race) from
+// its centre, 0.025 x size, in the colour times (256 - z) / 256 (each
+// byte, alpha too); and glw3 (0x4918ca) in perspective, worldHalf units,
+// 1.05 x 0.25 x size, in the full colour.
+struct LightQuads {
+    bool shown = false;
+    uint32_t glowColour = 0; // glw0
+    float screenHalf = 0;
+    uint32_t flareColour = 0; // glw3
+    float worldHalf = 0;
+};
+LightQuads lightQuads(const LightLook& look, float depth);
 
 // Which road detail the game draws a block at (0 low, 1 medium, 2 high),
 // or -1 for not at all, by the distance on the ground from the camera to
@@ -296,5 +313,98 @@ struct OneShotTimer {
         return true;
     }
 };
+
+// Whether a point is under cover (0x420bf0): the road point's side code
+// (col.md) on the point's side of it is 2; the right side's is the low
+// nibble, unless that is 0, then the left's.
+bool pointCovered(const TrackCollision::RoadPoint& p, const std::array<float, 3>& at);
+// How far from a covered car's slice the cover ends (0x4ba350): the first
+// n from 1 at which slice + n or slice - n is not covered (at the car's
+// place), 8 when both still are at 7; 0 when the car isn't covered.
+int coverDepth(const TrackCollision& col, int slice, const std::array<float, 3>& at);
+// A road polygon's surface (the block's 8-byte record for it, byte 1
+// & 0x3F, as 0x4207e0 reads it), list 4's polygon `index`; 0 without one.
+int roadSurface(const Track::Block& b, size_t index);
+// Whether the rain's flares (0x491bc0) are drawn on a surface: in the
+// weather, the table at 0x55308c (by surface and the weather's kind, rain
+// or snow, which agree for the 16 surfaces) says 10: surfaces 1, 4, 6, 7,
+// 10, 11 and 12.
+bool wetSurface(int surface);
+
+// The computer's driving (physics.md: the drivers, the speed wanted, the
+// lane votes), as nfs3.exe's AI racer does it each step (64 a second,
+// car_driver_ai 0x409c00 and car_ai_model 0x408600), for cars kept on
+// the virtual road. Lanes are 0-13, 7 and up right of the road's point
+// along its right vector, whichever way the car runs.
+struct AiCarData {
+    std::array<float, 112> accel{}; // AI ACC0-7 (P +0x2EC), m/s/s at each m/s
+    float maxBrake = 10;            // maximum braking deceleration (P +0x1D8)
+    float topSpeedCap = 70;         // P +0x1CC
+};
+// The fields of a car's carp.txt the computer's driving reads; false when
+// one is missing.
+bool parseCarpAi(const std::string& text, AiCarData& out);
+
+// The drivers' table (0x55226c): skill 0-2, whether they surge (+0xC 0)
+// and the personality 0-5.
+struct AiDriver {
+    int skill = 1;
+    bool surges = false;
+    int personality = 2;
+};
+// The driver's factor on the speed wanted (0x408dc0): skill 0 x 0.94, 1
+// x 0.97; surging x 1.05 when (step >> 7) & 3 is 1, x 0.95 when 3;
+// personality 0 x 0.95, 1 x 0.97.
+float aiDriverFactor(const AiDriver& d, int step);
+// The single race's per-track factor with ai Normal (0x40e410, 0x40ee80):
+// 0.82 on tracks 0, 3, 5 and 7, 0.84 on the others.
+float aiTrackFactor(int track);
+
+struct AiCar {
+    int slice = 0;      // the road point behind it (+0x1C)
+    int way = 1;        // +1 running the slices' way, -1 against (+0x620 bit 0x1000)
+    float offset = 0;   // its side offset, the aim now (+0x7C8, the car's +0x7B8 kept on it)
+    float target = 0;   // the offset wanted (+0x7B4)
+    float speed = 0;    // m/s along its way (+0x7C4)
+    float wanted = 0;   // the speed wanted (+0x7B0), as a size
+    float scale = 1;    // the speed scale (+0x7BC): aiDriverFactor x aiTrackFactor, at most 1
+    float halfWidth = 1.183f;
+    AiDriver driver;
+    bool cop = false;   // +0x200 bit 0x20: weighs more in the votes of the cars behind
+    int lane = 7, laneLeft = 7, laneRight = 7; // +0x638, +0x63C, +0x640
+    int beams = 0;      // +0x660
+    bool flashing = false; // +0x620 bit 8, until flashUntil (+0x644)
+    int flashUntil = 0;
+    bool braking = false; // +0x509 not 0: the brake held (ai_brake's 255)
+    int pick = 7;       // the lane chosen (0x56ef74)
+};
+// The lane at a side offset (0x40e2b0): 7 + the offset over the right
+// lanes' width rounded to the nearest (6 + over the left's, for one on
+// the left), 0-13.
+int aiLaneAt(const TrackCollision::RoadPoint& p, float offset);
+// Whether a lane has road at a point (0x40e200, 0x40e270): bit 14 - lane
+// of the point's strip mask.
+bool aiLaneOpen(const TrackCollision::RoadPoint& p, int lane);
+// The side offset the computer aims at for a lane (0x40daf0): a lane's
+// middle, (L - 7 + 1/2) widths right or (6 - L + 1/2) left; for the lane
+// just past the road's lanes, a half width of the car past the road's
+// edge; within the walls less the half width; then moved `nudge` half
+// widths right (0x56ef78, from the lanes' strips).
+float aiLaneOffset(const TrackCollision::RoadPoint& p, int lane, float halfWidth, int nudge = 0);
+// The speed table's best line lane for a slice (0x40e0c0): the high
+// nibble of the byte after the speeds; 7 without the table.
+int aiLineLane(const std::vector<uint8_t>& speeds, int slice, int sliceCount);
+// One step of the computer's driving for cars[self], as an AI racer
+// (+0x200 bit 8) past the race's start: the lanes it is on, the speed
+// wanted (the speed table for its slice x its scale, held under the top
+// speed cap x the track factor), flashing its lights when held up behind
+// a car in its lane (0x404840), keeping behind it (0x4094d0), the lane
+// votes and the lane chosen (lane_votes_start, ai_lane_vote_line,
+// lane_votes_ahead, lane_choose), its aim moved 0.2 towards the offset
+// wanted (0x408870), and its speed towards the speed wanted by the
+// acceleration table or the brakes (0x4064f0, 0x4063e0), the brake held
+// only when more than 5 m/s too fast. speeds: the table for its way.
+void aiStep(std::vector<AiCar>& cars, size_t self, const TrackCollision& col, const std::vector<uint8_t>& speeds,
+            const AiCarData& data, int step, int track, bool weather);
 
 } // namespace reluva::nfs

@@ -265,6 +265,11 @@ private:
 //   P: a wall hit at the nearest virtual-road wall ahead, its particles as
 //   the game makes them for that side's code (Shift+P: a fast hit, 40;
 //   else 18); held, it repeats
+//   E: the camera's car's headlights (off, low, high; Shift+E projection,
+//   Ctrl+E the game's light test)   J: computer cars (Shift+J stops them)
+//   Z: the cars' reflections (the game's option at 0x6fbc24)
+//   Q: the Special Effects option: High, Low, Off (no track lights, rain
+//   flares or fog beams)   Y: fog   M: lights and sounds   U: mirrored
 class TrackPage : public Page {
 public:
     TrackPage(const GameFiles& files, const GameFolders& folders, audio::Mixer* mixer = nullptr);
@@ -415,7 +420,11 @@ private:
     gfx::TextureId glowPicture_ = 0;
     bool marksShown_ = true;
     void loadMarks();
-    void drawMarks(const gfx::Vec3& eye, const gfx::Vec3& right, const gfx::Vec3& up);
+    // Each light as 0x491190 draws it (lightQuads): glw0 at a fixed size
+    // on the screen, fading with the depth, and glw3 in perspective.
+    void drawMarks(const gfx::Vec3& eye, const gfx::Vec3& forward, const gfx::Vec3& right, const gfx::Vec3& up);
+    gfx::TextureId glow1Picture_ = 0, glow4Picture_ = 0; // sfx.fsh glw1 (the fog's beams), glw4 (the rain's flares)
+    int sfxLevel_ = 0; // Q: the Special Effects option (0x6fbc30): 0 High, 1 Low, 2 Off
     // The track's placed sounds (tr3dNN.bnk of the variant), as the game
     // plays them (frd.md, Sounds): one loop at a time, one-shots at random.
     audio::Mixer* mixer_ = nullptr;
@@ -473,10 +482,14 @@ private:
     void prepareHeadlights(int here, const gfx::Vec3& eye, const gfx::Vec3& forward);
     // Computer cars (J): two Corvettes going the camera's way and a police
     // car coming with its siren on, on the virtual road ahead in lanes as
-    // the computer picks their middles (0x40daf0), driving along the road's
-    // points at the speed tables' speeds (Shift+J stops and starts them).
-    // Each sits on the road as the game's box does, lit as the game lights
-    // a car, with its light glows, and lights the track by night after the
+    // the computer picks their middles (0x40daf0), driven along the road's
+    // points as the computer drives (aiStep, 64 steps a second): the
+    // speed tables' speeds by the driver, braking for bends, the lane
+    // votes and lane changes, flashing their lights when held up (Shift+J
+    // stops and starts them). Each sits on the road as the game's box
+    // does, lit as the game lights a car, with its reflection, its light
+    // glows (the tail lights brighter while braking), the rain's flares
+    // and the fog's beams, and lights the track by night after the
     // camera's car (headlightIntensity), its roof light too.
     struct CarModel {
         // Parts 0-4 (body, wheels), then 12 (headlights, drawn with the
@@ -489,6 +502,15 @@ private:
         std::array<float, 3> halfSize{1.183f, 0.669f, 2.40644f};
         std::vector<Model::Dummy> dummies;
         std::string error;
+        // The reflection (0x49de20 with 0x4ba350's sphere map): the
+        // vertices of the body's (part 0) and then the headlights' (12)
+        // triangles without kNoReflection, by their index in vertices, and
+        // whether each has kStrongReflection (0x55e6e0's colour).
+        std::vector<uint32_t> envFrom;
+        std::vector<bool> envStrong;
+        uint32_t envBodyVertices = 0;
+        AiCarData ai;      // its carp.txt
+        int paintValue = 0; // the first paint colour's value (fce.md; +0x8B0)
     };
     std::array<CarModel, 2> carModels_; // the Corvette, the police Corvette
     struct ComputerCar {
@@ -498,19 +520,28 @@ private:
         int way = 1;           // +1 along the slices' order, -1 against it
         int lane = 7;          // 0-13, 7 and up right of the road's middle
         float speed = 0;       // m/s
-        int beams = 1;         // startingBeams()
+        int beams = 1;         // startingBeams(), and as flashed
+        AiCar ai;              // the computer's driving (aiStep)
+        int beamScroll = 0;    // +0x944: the fog beams' picture, moved by the speed
         // This frame, in track coordinates: the position (+0x98) and rows.
         std::array<float, 3> at{}, right{}, up{}, forward{};
         uint32_t colour = 0xff7f7f7f; // its shading (carShadeColour, carLitBy)
-        gfx::MeshId mesh = 0;
+        gfx::MeshId mesh = 0, envMesh = 0;
     };
-    bool computerCars_ = false, carsMoving_ = true;
+    bool computerCars_ = false, carsMoving_ = true, reflections_ = true;
+    float aiTime_ = 0; // seconds not yet stepped
+    int aiStep_ = 0;   // the cars' steps, the game's step count for them
+    gfx::TextureId envPicture_ = 0; // sky.fsh's sphere map of the variant (CHRD, CHRN, CHRW, CHNW)
     std::vector<ComputerCar> cars_;
     std::vector<uint8_t> speedsForward_, speedsBackward_; // speedsF.bin, speedsR.bin
     std::string carError_;
     gfx::TextureId glow3Picture_ = 0; // sfx.fsh glw3, the cars' glows; owned by textures_
-    gfx::MeshId carGlowMesh_ = 0;
-    uint32_t carGlowQuads_ = 0, carGlowCapacity_ = 0;
+    gfx::MeshId carGlowMesh_ = 0, carFlareMesh_ = 0, carBeamMesh_ = 0;
+    uint32_t carGlowQuads_ = 0, carGlowCapacity_ = 0, carFlareQuads_ = 0, carFlareCapacity_ = 0, carBeamQuads_ = 0,
+             carBeamCapacity_ = 0;
+    // Quads (4 vertices each) into a mesh of indexed quads, grown as
+    // needed; the count drawn.
+    uint32_t uploadQuads(std::vector<gfx::Vertex>& quads, gfx::MeshId& mesh, uint32_t& capacity);
     void loadCars();
     void releaseCars();
     void placeCars();
@@ -518,11 +549,18 @@ private:
     void carRows(ComputerCar& car) const;
     // The cars' colours and glows for this frame (prepareCars), before
     // the headlights are made; drawn by drawCars.
-    void prepareCars(const gfx::Vec3& eye, const gfx::Vec3& forward, const gfx::Vec3& right, const gfx::Vec3& up);
+    // fogDensity: the fog's percent this frame, for the beams.
+    void prepareCars(const gfx::Vec3& eye, const gfx::Vec3& forward, const gfx::Vec3& right, const gfx::Vec3& up,
+                     float fogDensity);
     void drawCars(const gfx::DrawCall& base);
     // The road polygon under a point (track coordinates): its four
     // corners' colours as the game keeps them, scaled by the ambient light.
     bool roadColoursAt(const std::array<float, 3>& at, std::array<uint32_t, 4>& corners) const;
+    // The high-detail road polygon (list 4) under a point on the ground:
+    // its block and index.
+    bool roadPolygonAt(const std::array<float, 3>& at, int& block, size_t& index) const;
+    // The height of a road polygon's plane at a point on the ground.
+    float roadHeightAt(int block, size_t index, float x, float z) const;
     // The camera's car's light (prepareHeadlights), for the cars' shading.
     Headlight cameraLight() const;
     // Moving objects this frame: each one's matrix and its batches, cut

@@ -279,7 +279,12 @@ What was built, with each format written up in `docs/formats/nfs/`:
   - the virtual road's walls as a guide, with the road's edges from its
     lane counts and widths (key G);
   - the lights in their types' colours, sizes and blinking, from the
-    game's table ([frd.md](../formats/nfs/frd.md), Lights);
+    game's table, each as its two quads: `glw0` at a fixed size on the
+    screen fading out to 256 away, and `glw3` in perspective, only while
+    the light's centre is on the screen ([frd.md](../formats/nfs/frd.md),
+    Lights; checked against a night frame of Hometown's town centre in
+    `nfs-host`); key Q steps the Special Effects option (High, Low,
+    Off: no track lights, rain flares or fog beams);
   - animated textures (the river through Hometown's covered bridge),
     two-sided polygons, and see-through ones (trk002's and trk006's
     blue panels) blended half grey over what's behind, though not
@@ -307,13 +312,20 @@ What was built, with each format written up in `docs/formats/nfs/`:
     human's car starts; Shift+E: the projection off, as `nfs-host`'s
     `config.dat` has it; Ctrl+E: the game's test of each block against
     each light off); key J adds two Corvettes going the camera's way and
-    a police Corvette coming with its siren on, in the computer's lane
-    middles, their boxes on the road, driving along the road's points at
-    the speed tables' speeds (Shift+J stops them), lit as the game lights
-    a car, with their tail-light, headlight and roof-light glows, and
-    lighting the track by night after the camera's car, the roof light
-    too ([frd.md](../formats/nfs/frd.md), Other cars' lights;
-    [fce.md](../formats/nfs/fce.md), Lighting);
+    a police Corvette coming with its siren on, their boxes on the road,
+    driven as the computer drives, 64 steps a second: the speed tables'
+    speeds by the driver's and track's factors, the acceleration table
+    and brakes from each car's `carp.txt`, the lane votes and lane
+    changes, keeping behind a slower car in the lane and flashing their
+    lights when held up (Shift+J stops them). They are lit as the game
+    lights a car, with its reflection of the sky's sphere map in the
+    colours the game works out (key Z: off), their tail-light, headlight
+    and roof-light glows (the tail lights brighter while braking, more
+    than 5 m/s too fast, at bends), in the weather each glow's flare on a
+    wet road and in fog over 30 % each headlight's beam, and they light
+    the track by night after the camera's car, the roof light too
+    ([frd.md](../formats/nfs/frd.md), Other cars' lights, The computer
+    cars; [fce.md](../formats/nfs/fce.md), Lighting);
   - the mirrored track (key U): texture set 1 and the view flipped left
     to right, its culling turned with it, as the game's mirror flag
     does; checked against a mirrored `nfs-host` race on Hometown.

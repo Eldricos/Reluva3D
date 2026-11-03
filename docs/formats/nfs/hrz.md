@@ -94,7 +94,9 @@ each as a row of eight flat quads (`0x479160`, `0x479500`, read November
   the other order: the tile flipped.
 
 **The clear colour** (THRASH state 3, `0x47a4c0`) is the sky's top
-colour, so above the sky's row the screen shows it. With the black
+colour, so above the sky's row the screen shows it. It is kept at
+`0x6ff9f8` (set by the loader `0x478340` too), where the cars'
+reflection takes it as the sky's colour (`0x4ba350`, fce.md, Lighting). With the black
 horizon flag, or on Lost Canyons (track 5) while the camera's car is on
 road slices 906 to 1064 (`0x4217e0`, the car's `+0xEC`), it is black and
 the game draws no sky at all (in a link race it also lays a black quad).
