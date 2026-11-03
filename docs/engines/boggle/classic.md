@@ -74,7 +74,8 @@ and visually checked; no capture is committed. The owner subsequently compiled
 and ran the playable slice in Visual Studio 2022 and completed one round
 without issues. The first original-game VM report subsequently confirmed
 immediate scoring, duplicate/minimum-length behavior and loss of unfinished
-input at expiry. Its reported total does not yet match the literal native
-replay, and it reveals missing rejected-word history and user-dictionary
-prompts. Findings and remaining checks are in the
+input at expiry. After the owner corrected one transcribed word, native replay
+accepted all nine words and matched the original total of nine points without
+any rule changes. Missing rejected-word history and user-dictionary prompts
+remain known differences. Findings and remaining checks are in the
 [VM comparison procedure](comparison.md).

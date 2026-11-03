@@ -29,23 +29,25 @@ user dictionary, with No to all / Yes to all / No / Yes choices.
 | Two-letter attempt | Both reject; original shows a notice, native uses inline feedback |
 | Rejected-word history | Original keeps red entries; native currently shows transient feedback only |
 | User-dictionary prompt | Observed after the round; native prompt and persistence are unimplemented |
-| Submitted round total | Unresolved: original reported nine points, literal native replay yields eight |
+| Submitted round total | Matched after the owner corrected one transcribed word: nine accepted words, nine points |
 | Qu, longer-word scoring and exact timing | Still require suitable observations |
 
-The submitted observation contains nine words. Eight have valid paths and
-score one point each in native replay; one is a dictionary member with no
-valid touching-cube path on the reported board. A separate exhaustive search
-agrees with that path result. A transcription check is pending; do not change
-adjacency or scoring to force a matching total. Individual original word
-credits and actual submission timestamps were not reported. Replay times
-were assigned only to place submissions safely before expiry, not measured.
-The duplicate and minimum-length probes in the replay were synthetic additions;
-only their general observed behavior was supplied. The original board, word
-list, detailed paths and output remain outside Git.
+The owner corrected one transcribed word and confirmed the corrected word was
+accepted by the original. Replaying the corrected nine-word sequence on the
+observed board accepts every word for one point each and finishes with nine
+points, matching the reported original total. The earlier eight-point result
+is resolved as a transcription error; no rule or dictionary change was needed.
 
-Final-score equivalence for this observation remains **unresolved**, and the
-rejected-word/user-dictionary interface is a **known difference**. Native test
-success alone does not establish full original-game compatibility.
+Actual submission timestamps were not reported. Replay times were assigned
+only to place submissions safely before expiry, not measured. Duplicate and
+minimum-length probes in the replay were synthetic additions; only their
+general observed behavior was supplied. The original board, word list,
+correction details, detailed paths and raw output remain outside Git.
+
+Final-score equivalence for this observation is **confirmed**. The
+rejected-word/user-dictionary interface remains a **known difference**, and
+Qu, longer-word scoring and precise timing still need suitable observations.
+This one-round comparison does not establish full original-game compatibility.
 
 Select U.S. English, Classic, Original, one human player, and no AI/opponents.
 Keep the default three-minute limit and three-letter minimum. Use a fresh
