@@ -15,9 +15,37 @@ scoring table. English dictionary routine comparisons, scoring and adjacency
 reference checks are described in [Classic evidence](classic.md) and the
 [dictionary specification](formats/dictionary.md).
 
-The following end-to-end VM comparisons are **pending**: word adjudication,
-Qu input/counting, duplicate handling, timer/input expiry and final results.
-Native test success alone does not resolve these observations.
+The first owner VM report confirms immediate scoring, loss of unfinished input
+at expiry, no visible action on a repeated word, and a minimum-three-letter
+notice for a two-letter attempt. It also reveals an unimplemented workflow:
+rejected words remain in red and the round-end UI offers to add them to the
+user dictionary, with No to all / Yes to all / No / Yes choices.
+
+| Behavior | Comparison status |
+|---|---|
+| Immediate scoring | Confirmed by owner; native submissions also score immediately |
+| Unfinished input at expiry | Confirmed lost; native engine clears pending input |
+| Repeated word | Original visibly does nothing; native score/list stay unchanged but show feedback text |
+| Two-letter attempt | Both reject; original shows a notice, native uses inline feedback |
+| Rejected-word history | Original keeps red entries; native currently shows transient feedback only |
+| User-dictionary prompt | Observed after the round; native prompt and persistence are unimplemented |
+| Submitted round total | Unresolved: original reported nine points, literal native replay yields eight |
+| Qu, longer-word scoring and exact timing | Still require suitable observations |
+
+The submitted observation contains nine words. Eight have valid paths and
+score one point each in native replay; one is a dictionary member with no
+valid touching-cube path on the reported board. A separate exhaustive search
+agrees with that path result. A transcription check is pending; do not change
+adjacency or scoring to force a matching total. Individual original word
+credits and actual submission timestamps were not reported. Replay times
+were assigned only to place submissions safely before expiry, not measured.
+The duplicate and minimum-length probes in the replay were synthetic additions;
+only their general observed behavior was supplied. The original board, word
+list, detailed paths and output remain outside Git.
+
+Final-score equivalence for this observation remains **unresolved**, and the
+rejected-word/user-dictionary interface is a **known difference**. Native test
+success alone does not establish full original-game compatibility.
 
 Select U.S. English, Classic, Original, one human player, and no AI/opponents.
 Keep the default three-minute limit and three-letter minimum. Use a fresh
@@ -34,8 +62,8 @@ replay that board through the native model. Record a Qu cube as **one token**
 Record the 16 faces, submissions in order, approximate elapsed times, visible
 response and final credited points per word. Distinguish a word that is typed,
 a word entered into a candidate list, and a word finally credited. The native
-prototype currently judges immediately; original adjudication timing itself is
-one of the things being checked.
+prototype judges immediately, as the owner now reports for the original.
+Continue distinguishing candidate input from credited words in later checks.
 
 | Case | What to try | What to record |
 |---|---|---|

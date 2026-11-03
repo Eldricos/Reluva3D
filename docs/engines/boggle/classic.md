@@ -71,6 +71,10 @@ commands pass AddressSanitizer and UndefinedBehaviorSanitizer with leak
 checking disabled because the execution tracer does not support it. The
 native screen was also rendered with the owner's external letter atlases
 and visually checked; no capture is committed. The owner subsequently compiled
-and ran the playable slice in Visual Studio 2022 and completed one round without issues. This is a smoke check, not yet
-a full original/native comparison. The next checks and current pending status
-are in the [VM comparison procedure](comparison.md).
+and ran the playable slice in Visual Studio 2022 and completed one round
+without issues. The first original-game VM report subsequently confirmed
+immediate scoring, duplicate/minimum-length behavior and loss of unfinished
+input at expiry. Its reported total does not yet match the literal native
+replay, and it reveals missing rejected-word history and user-dictionary
+prompts. Findings and remaining checks are in the
+[VM comparison procedure](comparison.md).
