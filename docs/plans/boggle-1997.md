@@ -1,6 +1,11 @@
 # Boggle (1997): engine implementation plan
 
 Status: planning, 2 November 2026. No Boggle support is implemented yet.
+
+The subsequent [stage 1 static inspection](boggle-1997/inspection.md)
+records successful Drive access, resource findings, detection candidates and
+remaining access/behavioral limits. The initial access failure below is historical.
+
 Target supplied by the owner: Hasbro Interactive's Boggle (1997), developed
 by PCA, Inc. and Third-i Productions. Confirm the precise edition, language
 and credits from the supplied media before publishing a compatibility claim.
@@ -235,7 +240,10 @@ on the Boggle branch; this plan never authorizes merging into another branch.
 
 ## Immediate next action
 
-Obtain approved read access to the supplied install and CD directories outside
-Git, then perform milestone 1. The dictionary/resource inventory and runtime
-boundary are the principal unknowns. Set effort estimates only after those are
-resolved; a title and release year are insufficient for a reliable schedule.
+Stage 1 static inspection is recorded in [the inspection report](boggle-1997/inspection.md),
+with [remaining evidence gaps](boggle-1997/unconfirmed.md). Drive access works,
+the expanded install and CD files match, and the proposed boundary is original
+native C++ over retail resources. Next is milestone 2, the scaffold and measured
+detection; dictionary-format research is the main subsequent implementation risk.
+Original-game observation and the oversized compressed archive remain unverified.
+Set effort estimates after the dictionary and behavior questions are resolved.
