@@ -25,10 +25,14 @@ private:
 };
 enum class RoundPhase { Ready, Playing, Results };
 enum class Submission { Accepted, NotPlaying, InvalidLetters, TooShort, UnknownWord, NotOnBoard, Duplicate, SelectPath };
+class UserDictionary;
+enum class WordState { Accepted, Pending, Added, Declined };
+enum class DictionaryChoice { Yes, No, YesAll, NoAll };
 struct AcceptedWord { std::string word; int points = 0; std::vector<size_t> path; };
+struct RoundWord { AcceptedWord entry; WordState state = WordState::Accepted; };
 class ClassicRound {
 public:
-    explicit ClassicRound(const Dictionary& dictionary) : dictionary_(dictionary) {}
+    explicit ClassicRound(const Dictionary& dictionary, UserDictionary* user = nullptr) : dictionary_(dictionary), user_(user) {}
     Error board(Board board); // only between rounds; clears previous result
     Error start(uint64_t now, uint64_t duration = 180000);
     void tick(uint64_t now);
@@ -38,9 +42,14 @@ public:
     RoundPhase phase() const { return phase_; }
     const Board& board() const { return board_; }
     const std::vector<AcceptedWord>& accepted() const { return accepted_; }
+    const std::vector<RoundWord>& words() const { return words_; }
+    const RoundWord* candidate() const;
+    Error decide(DictionaryChoice choice);
     int score() const { return score_; }
 private:
     const Dictionary& dictionary_;
+    UserDictionary* user_ = nullptr;
+    std::vector<RoundWord> words_;
     Board board_;
     RoundPhase phase_ = RoundPhase::Ready;
     uint64_t started_ = 0, duration_ = 180000;

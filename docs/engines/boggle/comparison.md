@@ -17,7 +17,8 @@ reference checks are described in [Classic evidence](classic.md) and the
 
 The first owner VM report confirms immediate scoring, loss of unfinished input
 at expiry, no visible action on a repeated word, and a minimum-three-letter
-notice for a two-letter attempt. It also reveals an unimplemented workflow:
+notice for a two-letter attempt. It also established the workflow now
+implemented in the native slice:
 rejected words remain in red and the round-end UI offers to add them to the
 user dictionary, with No to all / Yes to all / No / Yes choices.
 
@@ -25,10 +26,11 @@ user dictionary, with No to all / Yes to all / No / Yes choices.
 |---|---|
 | Immediate scoring | Confirmed by owner; native submissions also score immediately |
 | Unfinished input at expiry | Confirmed lost; native engine clears pending input |
-| Repeated word | Original visibly does nothing; native score/list stay unchanged but show feedback text |
+| Repeated word | Original visibly does nothing; native score/list stay unchanged without duplicate feedback |
 | Two-letter attempt | Both reject; original shows a notice, native uses inline feedback |
-| Rejected-word history | Original keeps red entries; native currently shows transient feedback only |
-| User-dictionary prompt | Observed after the round; native prompt and persistence are unimplemented |
+| Rejected-word history | Native keeps pending words in red; see the user-dictionary specification |
+| User-dictionary prompt | Observed after the round; native four-choice review and per-target saves now implemented |
+| Deferred points and eligibility | Owner confirms points count immediately, Yes keeps them, No removes them, and impossible board paths cannot enter the list |
 | Submitted round total | Matched after the owner corrected one transcribed word: nine accepted words, nine points |
 | Five- and six-letter scoring | Additional observed round matches: eleven accepted words, eighteen points |
 | Qu spelling and letter-count scoring | Observed Qu round matches: seven accepted words, eight points; five letters using four cubes score two |
@@ -64,7 +66,8 @@ general observed behavior was supplied. The original board, word list,
 correction details, detailed paths and raw output remain outside Git.
 
 Final-score equivalence for these three observations is **confirmed**. The
-rejected-word/user-dictionary interface remains a **known difference**.
+rejected-word/user-dictionary workflow is now implemented; see
+[its evidence, persistence contract and scope](user-dictionary.md).
 Seven- and eight-plus-letter play, bare-Q behavior, input-method differences
 and precise timing still need suitable observations. These comparisons do not
 establish full original-game compatibility.
@@ -146,7 +149,9 @@ nonblank/noncomment lines must each contain four space-separated faces. Later
 lines contain `<elapsed milliseconds> <word>`; `-` advances time without a
 submission. Times are measured from round start and must be nondecreasing.
 Blank lines and whole-line `#` comments are allowed. No inline comments or
-cube-path arguments are accepted. A single file represents a single round, without pause or
+cube-path arguments are accepted. The command does not load native user words
+or resolve dictionary choices: an unknown word on the board now has provisional
+points and stays pending. Its score is not final until review in the game. A single file represents a single round, without pause or
 replay. Limits: 64 KiB/file, 256 characters/line, 256 steps, 64 bytes/word and
 elapsed times through 3,600,000 ms. Keep optional explanatory notes separately.
 
@@ -174,7 +179,7 @@ On Windows, substitute the actual build and game locations:
 ```
 
 Each output row gives its step number, supplied time, native submission result,
-points added, running total, accepted count, phase and remaining milliseconds.
+points added, running total, accepted count, phase, remaining milliseconds and pending-review count.
 It omits submitted words and board faces. A successful exit means the scenario
 ran, **not** that VM behavior matched. A valid word at exactly 180,000 ms must
 produce `not-playing` with the score unchanged in this native model. Use `-`

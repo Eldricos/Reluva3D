@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 // Copyright (C) 2026 The Reluva contributors
 #include "engines/boggle/classic/round.h"
+#include "engines/boggle/classic/user_dictionary.h"
 #include "tests/support/test.h"
 #include <algorithm>
 
@@ -48,7 +49,7 @@ void rounds() {
     CHECK(round.submit("QUITS",1350,{5,6,7,3}) == Submission::Accepted); CHECK(round.score() == 4);
     CHECK(round.submit("ACA",1400) == Submission::NotOnBoard);
     CHECK(round.submit("ZZZ",1400) == Submission::NotOnBoard);
-    CHECK(round.submit("NOTAWORD",1400) == Submission::UnknownWord);
+    CHECK(round.submit("NOTAWORD",1400) == Submission::NotOnBoard);
     CHECK(round.submit("C A T",1400) == Submission::InvalidLetters);
     CHECK(bool(round.board(b))); CHECK(round.remaining(1999) == 1);
     CHECK(round.submit("CATS",2000) == Submission::NotPlaying);
@@ -58,6 +59,39 @@ void rounds() {
     round.finish(); CHECK(round.remaining(3000) == 0); CHECK(round.accepted().size() == 1);
     CHECK(!round.board(b)); CHECK(round.phase() == RoundPhase::Ready && round.accepted().empty());
 }
+void review(const std::filesystem::path& tmp) {
+    auto d = dictionary(); UserDictionary user; CHECK(!user.load(tmp / "save"));
+    ClassicRound round(d, &user); CHECK(!round.board(board())); CHECK(!round.start(0));
+    CHECK(round.submit("CAT",1) == Submission::Accepted);
+    CHECK(round.submit("CAX",2) == Submission::UnknownWord);
+    CHECK(round.submit("cax",3) == Submission::Duplicate);
+    CHECK(round.submit("XAC",4) == Submission::UnknownWord);
+    CHECK(round.submit("CATI",5) == Submission::UnknownWord);
+    CHECK(round.submit("CATIZ",6) == Submission::NotOnBoard);
+    CHECK(round.score() == 4); // CATI is four letters, so each entry is one point.
+    CHECK(round.words().size() == 4 && round.accepted().size() == 1);
+    CHECK(!round.candidate()); round.finish(); CHECK(round.candidate());
+    CHECK(bool(round.start(10))); CHECK(bool(round.board(board())));
+    CHECK(!round.decide(DictionaryChoice::Yes)); CHECK(user.contains("CAX"));
+    CHECK(round.candidate()->entry.word == "XAC"); CHECK(round.score() == 4);
+    CHECK(!round.decide(DictionaryChoice::No)); CHECK(!user.contains("XAC")); CHECK(round.score() == 3);
+    CHECK(round.words()[2].state == WordState::Declined);
+    CHECK(!round.decide(DictionaryChoice::YesAll)); CHECK(user.contains("CATI")); CHECK(!round.candidate());
+    CHECK(round.accepted().size() == 3 && round.score() == 3);
+    UserDictionary restarted; CHECK(!restarted.load(tmp / "save"));
+    ClassicRound again(d, &restarted); CHECK(!again.board(board())); CHECK(!again.start(0));
+    CHECK(again.submit("CAX",1) == Submission::Accepted); CHECK(again.score() == 1);
+    again.finish(); CHECK(!again.candidate());
+    ClassicRound decline(d); CHECK(!decline.board(board())); CHECK(!decline.start(0));
+    CHECK(decline.submit("CAX",1) == Submission::UnknownWord);
+    CHECK(decline.submit("XAC",2) == Submission::UnknownWord); decline.finish();
+    CHECK(bool(decline.decide(DictionaryChoice::YesAll))); // absent save: no decisions consumed
+    CHECK(decline.candidate() && decline.score() == 2);
+    CHECK(!decline.decide(DictionaryChoice::NoAll)); CHECK(decline.score() == 0 && !decline.candidate());
+    CHECK(decline.words()[0].state == WordState::Declined && decline.words()[1].state == WordState::Declined);
+    CHECK(!decline.start(100)); CHECK(decline.words().empty());
+}
+
 void scoringAndGeneration() {
     for (size_t i = 0; i <= 16; ++i) {
         const int expected = i < 3 ? 0 : i < 5 ? 1 : i == 5 ? 2 : i == 6 ? 3 : i == 7 ? 5 : 11;
@@ -81,5 +115,6 @@ void scoringAndGeneration() {
 static const test::Suite suite("boggle.unit.classic", {
     {"adjacency, multi-letter tiles, paths and visit limits", [](const auto&) { paths(); }},
     {"submission, duplicates, timeout boundary and replay", [](const auto&) { rounds(); }},
+    {"pending words, all four decisions and persistence across rounds", [](const auto& tmp) { review(tmp); }},
     {"verified scoring and deterministic dice generation", [](const auto&) { scoringAndGeneration(); }},
 });

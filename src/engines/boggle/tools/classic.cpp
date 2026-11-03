@@ -72,16 +72,17 @@ int cmdReplay(int argc, char** argv) {
     if ((err = round.board(std::move(board))) || (err = round.start(0))) {
         std::fprintf(stderr, "%s\n", err.message.c_str()); return 1;
     }
-    std::printf("Native replay only; compare each numbered row with VM observations.\n");
+    std::printf("Native replay only; pending words carry provisional points. Dictionary approvals are not resolved here.\n");
     for (size_t i = 0; i < steps.size(); ++i) {
         const auto& step = steps[i]; const int before = round.score();
         round.tick(step.elapsed);
         const bool tick = step.word == "-";
         const char* result = tick ? "tick" : status(round.submit(step.word, step.elapsed));
-        std::printf("step %zu: ms %llu, %s, points %+d, score %d, words %zu, %s, remaining %llu\n",
+        size_t pending = 0; for (const auto& word : round.words()) if (word.state == WordState::Pending) ++pending;
+        std::printf("step %zu: ms %llu, %s, points %+d, score %d, words %zu, %s, remaining %llu, pending %zu\n",
             i + 1, static_cast<unsigned long long>(step.elapsed), result, round.score() - before,
             round.score(), round.accepted().size(), round.phase() == RoundPhase::Results ? "results" : "playing",
-            static_cast<unsigned long long>(round.remaining(step.elapsed)));
+            static_cast<unsigned long long>(round.remaining(step.elapsed)), pending);
     }
     // No automatic expiry: a trace may intentionally stop before the deadline.
     return 0;

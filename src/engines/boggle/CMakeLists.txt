@@ -11,6 +11,7 @@ reluva_add_engine(boggle
         formats/text_resources.cpp
         formats/mesh.cpp
         formats/dictionary.cpp
+        classic/user_dictionary.cpp
         classic/round.cpp
         classic/game.cpp)
 
@@ -32,9 +33,10 @@ reluva_add_engine_tests(boggle
         ${tests}/unit/resources.cpp
         ${tests}/unit/dictionary.cpp
         ${tests}/unit/classic.cpp
+        ${tests}/unit/user_dictionary.cpp
         ${tests}/engine.cpp
     TOPICS
-        unit.detection unit.resources unit.dictionary unit.classic engine)
+        unit.detection unit.resources unit.dictionary unit.classic unit.user_dictionary engine)
 
 # Optional tests with the owner's data; raw output stays outside Git.
 reluva_add_gamedata_test(boggle

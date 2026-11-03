@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 // Copyright (C) 2026 The Reluva contributors
 #include "engines/boggle/classic/round.h"
+#include "engines/boggle/classic/user_dictionary.h"
 #include <algorithm>
 #include <cstdlib>
 #include <numeric>
@@ -100,15 +101,17 @@ PathResult Board::find(std::string_view word, std::vector<size_t>& path, size_t 
 }
 Error ClassicRound::board(Board board) {
     if (phase_ == RoundPhase::Playing) return Error::fail("Finish the current round before replacing its board");
+    if (candidate()) return Error::fail("Resolve pending words before replacing the board");
     if (board.faces().empty()) return Error::fail("Board is empty");
-    board_ = std::move(board); phase_ = RoundPhase::Ready; score_ = 0; accepted_.clear();
+    board_ = std::move(board); phase_ = RoundPhase::Ready; score_ = 0; accepted_.clear(); words_.clear();
     return Error::success();
 }
 Error ClassicRound::start(uint64_t now, uint64_t duration) {
     if (phase_ == RoundPhase::Playing) return Error::fail("Round is already running");
+    if (candidate()) return Error::fail("Resolve pending words before replaying");
     if (board_.faces().empty() || dictionary_.words().empty() || !duration || duration > 3600000)
         return Error::fail("A board, dictionary and valid duration are required");
-    started_ = now; duration_ = duration; phase_ = RoundPhase::Playing; score_ = 0; accepted_.clear();
+    started_ = now; duration_ = duration; phase_ = RoundPhase::Playing; score_ = 0; accepted_.clear(); words_.clear();
     return Error::success();
 }
 uint64_t ClassicRound::remaining(uint64_t now) const {
@@ -126,8 +129,7 @@ Submission ClassicRound::submit(std::string_view input, uint64_t now, const std:
     std::string word;
     if (!englishWord(input, word)) return Submission::InvalidLetters;
     if (word.size() < 3) return Submission::TooShort;
-    if (!dictionary_.contains(word)) return Submission::UnknownWord;
-    for (const auto& accepted : accepted_) if (accepted.word == word) return Submission::Duplicate;
+    for (const auto& prior : words_) if (prior.entry.word == word) return Submission::Duplicate;
     std::vector<size_t> path;
     if (!selected.empty()) {
         if (!board_.matches(word, selected)) return Submission::NotOnBoard;
@@ -138,7 +140,37 @@ Submission ClassicRound::submit(std::string_view input, uint64_t now, const std:
         if (result == PathResult::Missing) return Submission::NotOnBoard;
     }
     const int points = classicPoints(word.size());
-    score_ += points; accepted_.push_back({std::move(word), points, std::move(path)});
-    return Submission::Accepted;
+    const bool known = dictionary_.contains(word) || (user_ && user_->contains(word));
+    AcceptedWord entry{std::move(word), points, std::move(path)};
+    score_ += points;
+    if (known) accepted_.push_back(entry);
+    words_.push_back({std::move(entry), known ? WordState::Accepted : WordState::Pending});
+    return known ? Submission::Accepted : Submission::UnknownWord;
+}
+const RoundWord* ClassicRound::candidate() const {
+    if (phase_ != RoundPhase::Results) return nullptr;
+    for (const auto& word : words_) if (word.state == WordState::Pending) return &word;
+    return nullptr;
+}
+Error ClassicRound::decide(DictionaryChoice choice) {
+    if (!candidate()) return Error::fail("No word is awaiting a dictionary decision");
+    const bool yes = choice == DictionaryChoice::Yes || choice == DictionaryChoice::YesAll;
+    const bool all = choice == DictionaryChoice::YesAll || choice == DictionaryChoice::NoAll;
+    std::vector<size_t> indexes; std::vector<std::string> additions;
+    for (size_t i = 0; i < words_.size(); ++i) if (words_[i].state == WordState::Pending) {
+        indexes.push_back(i); additions.push_back(words_[i].entry.word);
+        if (!all) break;
+    }
+    if (yes) {
+        if (!user_) return Error::fail("No save directory is available for user words. Choose No to continue.");
+        if (auto err = user_->add(additions)) return err;
+    }
+    for (size_t i : indexes) {
+        auto& word = words_[i];
+        word.state = yes ? WordState::Added : WordState::Declined;
+        if (yes) accepted_.push_back(word.entry);
+        else score_ -= word.entry.points;
+    }
+    return Error::success();
 }
 } // namespace reluva::boggle

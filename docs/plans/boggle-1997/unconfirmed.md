@@ -14,7 +14,10 @@ by the static inspection and must not become undocumented assumptions in code.
 - Full registry/CD lookup contract, marker semantics and behavior without
   the original CD. Strings such as `SourceDirectory` are research leads.
 - Multilingual normalization and Spanish legacy-byte lookup aliases; AI and
-  user dictionary behavior. Binary `.dic` structure and English membership
+  multilingual user dictionary behavior. English deferred review and native
+  persistence now exist:
+  [evidence and limits](../../engines/boggle/user-dictionary.md).
+  Binary `.dic` structure and English membership
   are now validated: [dictionary specification](../../engines/boggle/formats/dictionary.md).
 - INSO `.DAT` layout, definition rendering and DLL ordinal contracts.
 - Exact purpose of duplicate or unused-looking dictionary files. Determine
@@ -24,7 +27,10 @@ by the static inspection and must not become undocumented assumptions in code.
   complete multi-letter faces are confirmed in executable analysis.
 - The five modes' board sizes, rules, scoring, timers, difficulty, player
   counts, camera behavior, animations and AI behavior.
-- Save/high-score/user-dictionary persistence and writable-path behavior.
+- Save/high-score persistence, original user-dictionary editing/settings,
+  multilingual behavior and original import/editor interoperability. Deferred
+  scoring and path eligibility are corroborated by the owner in the VM.
+  Native English user words persist separately from the original installation.
 - Network wire protocol, DirectPlay/Third-i session model, host authority,
   timeouts, discovery, synchronization and interoperability.
 - Several bitmap paths embedded in the EXE, including `Bitmaps/Title1.bmp`,

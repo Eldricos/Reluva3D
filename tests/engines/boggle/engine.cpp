@@ -14,6 +14,7 @@
 
 #include "engines/registry.h"
 #include "engines/boggle/resources.h"
+#include "engines/boggle/classic/user_dictionary.h"
 #include "tests/engines/boggle/fixtures.h"
 #include "tests/engines/boggle/system.h"
 
@@ -105,8 +106,105 @@ void engineTest(const std::filesystem::path& tmp) {
               "tests/engines/boggle/engine.cpp");
 }
 
+void dictionaryWorkflow(const std::filesystem::path& tmp) {
+    using namespace boggle::fixtures;
+    const auto dir = tmp / "install", save = tmp / "saves";
+    classicInstall(dir);
+    const auto* meta = findEngine("boggle"); CHECK(meta); if (!meta) return;
+    GameTarget target; target.path = dir; target.savePath = save;
+    ScriptedSystem system;
+    system.events = [](size_t frame) -> std::vector<Event> {
+        if (frame == 1 || frame == 3 || frame == 5 || frame == 7 || frame == 9 || frame == 14 || frame == 16)
+            return {keyEvent(key::Return)};
+        if (frame == 2 || frame == 15) return {textEvent("aaaaa")};
+        if (frame == 4) return {textEvent("aaaaaa")};
+        if (frame == 6) return {textEvent("aaaaaaa")};
+        if (frame == 8) return {textEvent("aaaaaaaa")};
+        if (frame == 10 || frame == 17) return {keyEvent(key::F1)};
+        if (frame == 11) return {keyEvent('1')}; // Yes
+        if (frame == 12) return {keyEvent('2')}; // No
+        if (frame == 13) return {keyEvent('3')}; // Yes to all
+        if (frame == 18) return {keyEvent(key::Escape)};
+        return {};
+    };
+    auto game = meta->create(system,target); if (auto err = game->run()) return test::fail(err.message);
+    CHECK(system.hashes.size() == 18 && !system.textEnabled && system.textStopped);
+    boggle::UserDictionary saved; CHECK(!saved.load(save, dir));
+    CHECK(saved.words().size() == 3 && saved.contains("AAAAA") && saved.contains("AAAAAAA") && saved.contains("AAAAAAAA"));
+    CHECK(!saved.contains("AAAAAA"));
+    // A separately constructed engine must read the addition from disk.
+    ScriptedSystem restarted;
+    restarted.events = [](size_t frame) -> std::vector<Event> {
+        if (frame == 1 || frame == 3) return {keyEvent(key::Return)};
+        if (frame == 2) return {textEvent("aaaaa")};
+        if (frame == 4) return {keyEvent(key::F1)};
+        if (frame == 5) return {keyEvent(key::Escape)};
+        return {};
+    };
+    game = meta->create(restarted,target); if (auto err = game->run()) return test::fail(err.message);
+    CHECK(restarted.hashes.size() == 5);
+    if (system.hashes.size() == 18 && restarted.hashes.size() == 5) CHECK(system.hashes[17] == restarted.hashes[4]);
+    // Save failure must retain the candidate, then No to all must still work.
+    target.savePath = tmp / "blocked";
+    std::filesystem::create_directories(target.savePath / "EnglishUser.dic.tmp");
+    ScriptedSystem failure;
+    failure.events = [](size_t frame) -> std::vector<Event> {
+        if (frame == 1 || frame == 3 || frame == 5) return {keyEvent(key::Return)}; // Enter cannot approve
+        if (frame == 2) return {textEvent("aaaaaa")};
+        if (frame == 4) return {keyEvent(key::F1)};
+        if (frame == 6) return {keyEvent('1')}; // failed save
+        if (frame == 7) return {mouseEvent(EventType::MouseDown,620,368)}; // No to all
+        if (frame == 8) return {keyEvent(key::Escape)};
+        return {};
+    };
+    game = meta->create(failure,target); if (auto err = game->run()) return test::fail(err.message);
+    CHECK(failure.hashes.size() == 8 && !failure.textEnabled && failure.textStopped);
+    CHECK(!std::filesystem::exists(target.savePath / "EnglishUser.dic"));
+    if (failure.hashes.size() == 8) CHECK(failure.hashes[4] == failure.hashes[5]);
+    std::string multiDice; for (int i = 0; i < 16; ++i) multiDice += "AB,AB,AB,AB,AB,AB\n";
+    write(dir / "Dicts/EngOrg.dst", multiDice);
+    ScriptedSystem history;
+    history.events = [](size_t frame) -> std::vector<Event> {
+        if (frame == 1) {
+            std::vector<Event> events{keyEvent(key::Return)};
+            for (size_t n = 2; n <= 16; ++n) {
+                std::string word; for (size_t i = 0; i < n; ++i) word += "AB";
+                events.push_back(textEvent(word.substr(0,16)));
+                if (word.size() > 16) events.push_back(textEvent(word.substr(16)));
+                events.push_back(keyEvent(key::Return));
+            }
+            return events;
+        }
+        if (frame == 2) return {keyEvent(key::PageUp)};
+        if (frame == 3) return {keyEvent(key::PageDown)};
+        if (frame == 4) return {keyEvent(key::F1)};
+        if (frame == 5) return {keyEvent('4')};
+        if (frame == 6) return {keyEvent(key::Escape)};
+        return {};
+    };
+    target.savePath = tmp / "history-save";
+    game = meta->create(history,target); if (auto err = game->run()) return test::fail(err.message);
+    CHECK(history.hashes.size() == 6);
+    if (history.hashes.size() == 6) {
+        CHECK(history.hashes[1] != history.hashes[2]);
+        CHECK(history.hashes[1] == history.hashes[3]);
+    }
+    test::Record rec;
+    if (system.hashes.size() == 18) {
+        rec.add("dictionary.red",system.hashes[9]); rec.add("dictionary.prompt",system.hashes[10]);
+        rec.add("dictionary.no",system.hashes[12]); rec.add("dictionary.yes_all",system.hashes[13]);
+        rec.add("dictionary.reloaded",system.hashes[17]);
+    }
+    if (failure.hashes.size() == 8) {
+        rec.add("dictionary.save_error",failure.hashes[6]); rec.add("dictionary.no_all",failure.hashes[7]);
+    }
+    rec.check(RELUVA_SOURCE_DIR "/tests/engines/boggle/data/dictionary-record.txt", "boggle.engine",
+              "tests/engines/boggle/engine.cpp");
+}
+
 } // namespace
 
 static const reluva::test::Suite suite("boggle.engine", {
+    {"rejected words, dictionary choices, write failure and engine restart", [](const auto& tmp) { dictionaryWorkflow(tmp); }},
     {"synthetic resources and Classic round", [](const std::filesystem::path& tmp) { engineTest(tmp); }},
 });

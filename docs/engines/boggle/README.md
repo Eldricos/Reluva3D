@@ -14,6 +14,12 @@ a new board between rounds, and Escape returns to the launcher. The initial
 board uses a fixed native seed for reproducible checks; its shuffle differs
 from the original game.
 
+Unknown words with a valid path stay in red and carry provisional points. At
+round end, review them with Yes / No / Yes to all / No to all (buttons or keys
+1 / 2 / 3 / 4). Approved words persist in the launcher's per-game save folder.
+Use Page Up / Page Down to browse a long word list. See the
+[user-dictionary behavior and evidence](user-dictionary.md).
+
 ## Detection
 
 Game ID: `boggle1997`. Add the installed folder containing `Boggle.exe`, or

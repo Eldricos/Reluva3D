@@ -2,6 +2,7 @@
 // Copyright (C) 2026 The Reluva contributors
 #include "engines/boggle/classic/game.h"
 #include "engines/boggle/classic/round.h"
+#include "engines/boggle/classic/user_dictionary.h"
 #include "engines/boggle/resources.h"
 #include "common/font.h"
 #include <algorithm>
@@ -46,16 +47,16 @@ const char* feedback(Submission result) {
     case Submission::NotPlaying: return "The round has ended.";
     case Submission::InvalidLetters: return "Enter a word using A-Z.";
     case Submission::TooShort: return "Use at least 3 letters.";
-    case Submission::UnknownWord: return "Not in this dictionary.";
+    case Submission::UnknownWord: return "Not in dictionary. Review after this round.";
     case Submission::NotOnBoard: return "No matching path on this board.";
-    case Submission::Duplicate: return "Already counted.";
+    case Submission::Duplicate: return "";;
     case Submission::SelectPath: return "Please select this word on the board.";
     }
     return "";
 }
 void draw(Surface& screen, const ClassicRound& round, uint64_t now,
           const image::Image& letters, const image::Image& qu, const Palette& palette,
-          const std::string& input, const std::vector<size_t>& path, const std::string& message) {
+          const std::string& input, const std::vector<size_t>& path, const std::string& message, size_t scroll) {
     rect(screen, 0, 0, width, height, dark);
     rect(screen, 0, 0, width, 76, {29, 49, 70});
     const auto& accent = palette[1]; rect(screen, 24, 76, 752, 2, {accent.r, accent.g, accent.b});
@@ -64,6 +65,7 @@ void draw(Surface& screen, const ClassicRound& round, uint64_t now,
     const auto seconds = (round.remaining(now) + 999) / 1000;
     char timer[48]; std::snprintf(timer, sizeof(timer), "%llu:%02llu", (unsigned long long)(seconds / 60), (unsigned long long)(seconds % 60));
     label(screen, 670, 25, timer, white, 3);
+    const bool reviewing = round.candidate() != nullptr;
     const bool ready = round.phase() == RoundPhase::Ready, playing = round.phase() == RoundPhase::Playing;
     for (size_t i = 0; i < round.board().faces().size(); ++i) {
         const int x = boardX + int(i % 4) * cellSize, y = boardY + int(i / 4) * cellSize;
@@ -75,20 +77,40 @@ void draw(Surface& screen, const ClassicRound& round, uint64_t now,
     }
     label(screen, 430, 102, ready ? "READY" : playing ? "ROUND IN PROGRESS" : "ROUND COMPLETE", white, 2);
     label(screen, 430, 140, "SCORE  " + std::to_string(round.score()), {110, 220, 200}, 2);
-    label(screen, 430, 179, "WORDS  " + std::to_string(round.accepted().size()), muted);
+    std::vector<const RoundWord*> words;
+    for (const auto& word : round.words()) if (word.state != WordState::Declined) words.push_back(&word);
+    label(screen, 430, 179, "WORDS  " + std::to_string(words.size()), muted);
     rect(screen, 430, 204, 346, 260, {24, 42, 62});
-    const auto& words = round.accepted(); const size_t begin = words.size() > 14 ? words.size() - 14 : 0;
-    for (size_t i = begin; i < words.size(); ++i) {
-        std::string shown = words[i].word; if (shown.size() > 23) shown = shown.substr(0, 20) + "...";
-        label(screen, 442, 217 + int(i - begin) * 17, shown);
-        label(screen, 739, 217 + int(i - begin) * 17, std::to_string(words[i].points), {110, 220, 200});
+    const size_t maximum = words.size() > 14 ? words.size() - 14 : 0;
+    const size_t begin = maximum - std::min(scroll, maximum);
+    for (size_t i = begin; i < std::min(words.size(), begin + 14); ++i) {
+        const auto& entry = words[i]->entry;
+        const bool rejected = words[i]->state == WordState::Pending || words[i]->state == WordState::Declined;
+        const Ink ink = rejected ? Ink{255, 116, 116} : white;
+        std::string shown = entry.word; if (shown.size() > 23) shown = shown.substr(0, 20) + "...";
+        label(screen, 442, 217 + int(i - begin) * 17, shown, ink);
+        label(screen, 739, 217 + int(i - begin) * 17, words[i]->state == WordState::Declined ? "-" : std::to_string(entry.points), rejected ? ink : Ink{110, 220, 200});
     }
+    if (words.size() > 14) label(screen, 430, 470, "PgUp/PgDn: word history", muted);
     rect(screen, 24, 485, 752, 43, {35, 57, 81});
-    label(screen, 35, 497, input.empty() ? (playing ? "Type or select a word..." : "Press Enter to start or replay") : input.substr(input.size() > 50 ? input.size() - 50 : 0), white, input.size() > 29 ? 1 : 2);
-    label(screen, 24, 535, message.empty() ? (ready ? "Press Enter when ready. The timer starts with the board." : playing ? "Enter: submit   Backspace: undo   Right click: clear" : "Enter: replay this board   F2: new board") : message, muted);
-    rect(screen, 24, 557, 180, 29, {48, 88, 120}); label(screen, 35, 566, playing ? "END ROUND (F1)" : "START / REPLAY (ENTER)");
-    if (!playing) { rect(screen, 216, 557, 158, 29, {48, 88, 120}); label(screen, 227, 566, "NEW BOARD (F2)"); }
+    label(screen, 35, 497, input.empty() ? (reviewing ? "Review pending words before the next round." : playing ? "Type or select a word..." : "Press Enter to start or replay") : input.substr(input.size() > 50 ? input.size() - 50 : 0), white, input.size() > 29 ? 1 : 2);
+    label(screen, 24, 535, reviewing ? "Choose one of the four dictionary options." : message.empty() ? (ready ? "Press Enter when ready. The timer starts with the board." : playing ? "Enter: submit   Backspace: undo   Right click: clear" : "Enter: replay this board   F2: new board") : message, muted);
+    if (!reviewing) { rect(screen, 24, 557, 180, 29, {48, 88, 120}); label(screen, 35, 566, playing ? "END ROUND (F1)" : "START / REPLAY (ENTER)"); }
+    if (!playing && !reviewing) { rect(screen, 216, 557, 158, 29, {48, 88, 120}); label(screen, 227, 566, "NEW BOARD (F2)"); }
     label(screen, 610, 566, "ESC: LAUNCHER", muted);
+    if (const auto* word = round.candidate()) {
+        rect(screen, 24, 182, 752, 270, {50, 78, 108});
+        rect(screen, 27, 185, 746, 264, {22, 40, 60});
+        label(screen, 48, 206, "ADD TO YOUR DICTIONARY?", white, 2);
+        label(screen, 48, 244, word->entry.word, {255, 116, 116}, word->entry.word.size() > 40 ? 1 : 2);
+        label(screen, 48, 282, "Yes keeps this word's points. No removes them.", muted);
+        label(screen, 48, 306, "All applies to the remaining words in this round.", muted);
+        for (int i = 0; i < 4; ++i) rect(screen, 40 + i * 184, 352, 168, 40, {48, 88, 120});
+        label(screen, 54, 368, "YES (1)"); label(screen, 238, 368, "NO (2)");
+        label(screen, 422, 368, "YES TO ALL (3)"); label(screen, 606, 368, "NO TO ALL (4)");
+        if (!message.empty()) label(screen, 48, 416, message.substr(0, 88), muted);
+    }
+
 }
 }
 Error ClassicGame::run() {
@@ -103,7 +125,9 @@ Error ClassicGame::run() {
     if (auto err = resources.image("Textures/LettersQu.bmp", qu)) return err;
     if (letters.w != 512 || letters.h != 512 || qu.w != 512 || qu.h != 512 || dice.side != 4)
         return Error::fail("Unsupported Classic Original letter atlas or dice layout");
-    ClassicRound round(dictionary); Board board; uint32_t seed = 0x1997;
+    UserDictionary user;
+    if (auto err = user.load(target_.savePath, target_.path)) return err;
+    ClassicRound round(dictionary, &user); Board board; uint32_t seed = 0x1997;
     if (auto err = Board::generate(dice, seed, board)) return err;
     if (auto err = round.board(std::move(board))) return err;
     if (auto err = sys_.initGraphics(width, height, PixelFormat::RGBA32)) return err;
@@ -111,9 +135,9 @@ Error ClassicGame::run() {
     sys_.setMouseCursorVisible(true); sys_.setTextInput(true);
     struct TextInputCleanup { System& system; ~TextInputCleanup() { system.setTextInput(false); } } cleanup{sys_};
     Surface screen; screen.create(width, height, PixelFormat::RGBA32);
-    std::string input, message; std::vector<size_t> selected;
-    bool running = true, dragging = false, resultsVisible = false;
-    auto clear = [&] { input.clear(); selected.clear(); };
+    std::string input, message; std::vector<size_t> selected; size_t scroll = 0;
+    bool running = true, dragging = false, resultsVisible = false, promptVisible = false;
+    auto clear = [&] { input.clear(); selected.clear(); scroll = 0; };
     auto updateInput = [&] { input.clear(); for (size_t i : selected) input += round.board().faces()[i]; };
     auto startOrFinish = [&]() -> Error {
         if (round.phase() == RoundPhase::Results && !resultsVisible) return Error::success();
@@ -151,10 +175,27 @@ Error ClassicGame::run() {
             advance();
             if (event.type == EventType::Quit || event.type == EventType::ReturnToLauncher ||
                 (event.type == EventType::KeyDown && event.key == key::Escape)) { running = false; break; }
+            if (round.candidate()) {
+                int choice = -1;
+                if (promptVisible && event.type == EventType::KeyDown && !event.repeat && event.key >= '1' && event.key <= '4')
+                    choice = int(event.key - '1');
+                if (promptVisible && event.type == EventType::MouseDown && event.button == MouseButton::Left)
+                    for (int i = 0; i < 4; ++i) if (hit(event.mouseX, event.mouseY, 40 + i * 184, 352, 168, 40)) choice = i;
+                if (choice >= 0) {
+                    const DictionaryChoice choices[] = {DictionaryChoice::Yes, DictionaryChoice::No, DictionaryChoice::YesAll, DictionaryChoice::NoAll};
+                    if (auto err = round.decide(choices[choice])) message = err.message;
+                    else { message.clear(); promptVisible = false; resultsVisible = false; }
+                }
+                continue;
+            }
             if (event.type == EventType::KeyDown) {
                 if ((event.key == key::Return || event.key == key::KpEnter) && !event.repeat) {
                     if (round.phase() != RoundPhase::Playing) { if (auto err = startOrFinish()) return err; }
                     else { const auto result = round.submit(input, sys_.getMillis(), selected); message = feedback(result); if (result != Submission::SelectPath) clear(); }
+                } else if (event.key == key::PageUp || event.key == key::PageDown) {
+                    const size_t count = size_t(std::count_if(round.words().begin(), round.words().end(), [](const auto& word) { return word.state != WordState::Declined; }));
+                    const size_t maximum = count > 14 ? count - 14 : 0;
+                    scroll = event.key == key::PageUp ? std::min(maximum, scroll + 7) : scroll - std::min(scroll, size_t(7));
                 } else if (event.key == key::Backspace && round.phase() == RoundPhase::Playing) {
                     if (!selected.empty()) { selected.pop_back(); updateInput(); }
                     else if (!input.empty()) input.pop_back();
@@ -178,9 +219,10 @@ Error ClassicGame::run() {
             else if (event.type == EventType::MouseUp && event.button == MouseButton::Left) dragging = false;
         }
         if (!running) break;
-        draw(screen, round, sys_.getMillis(), letters, qu, palette, input, selected, message);
+        draw(screen, round, sys_.getMillis(), letters, qu, palette, input, selected, message, scroll);
         sys_.updateScreen(screen);
         if (round.phase() == RoundPhase::Results) resultsVisible = true;
+        promptVisible = round.candidate() != nullptr;
         sys_.delayMillis(16);
     }
     return Error::success();

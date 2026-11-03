@@ -44,7 +44,9 @@ atlases and an independently drawn layout/debug font. It does not recreate
 PE dialog layouts, TrueType typography, AVI lid animations or sound. The
 clock advances while the round is active, including when focus is lost;
 matching original pause/focus behavior remains future work. Saved games,
-user dictionaries, definitions, AI, multiplayer and persistence are absent.
+definitions, AI, multiplayer and general game-state persistence are absent.
+[English user dictionaries and rejected-word review](user-dictionary.md) are
+implemented separately in the per-target save folder.
 
 All original data and reference harnesses stay outside Git. Synthetic boards,
 word trees, event-driven system tests and checksum records provide the
@@ -80,6 +82,8 @@ any rule changes. Two additional owner rounds also match: eleven words for
 eighteen points, and seven words for eight points on a Qu board. The latter
 corroborates two-letter Qu faces and letter-based scoring; the former exercises
 word lengths through six. Seven/eight-plus-letter play and bare-Q behavior
-remain untested in the VM. Missing rejected-word history and user-dictionary
-prompts remain known differences. Findings and remaining checks are in the
+remain untested in the VM. Rejected-word history, deferred dictionary choices
+and isolated persistence are now implemented; their additional provenance and tests are documented in
+[user-dictionary behavior](user-dictionary.md). Findings and remaining checks
+are in the
 [VM comparison procedure](comparison.md).
