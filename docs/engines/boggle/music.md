@@ -8,7 +8,9 @@ text or audio is included in the repository.
 
 Music starts with the first round, loops through play, closing, review and
 results, and continues across replay without restarting its cursor. Leaving the
-engine stops audio before its mixer is destroyed. Music and sound effects are
+engine stops audio before its mixer is destroyed. Returning to game selection
+also stops round audio; entering Classic again restarts the same selected track.
+A random choice stays fixed across menu re-entry within one engine launch. Music and sound effects are
 independent: disabling effects still allows music, and selecting no music does
 not disable effects. Missing audio hardware remains nonfatal. A selected track
 that is missing or malformed reports an error. No music requires no music files.

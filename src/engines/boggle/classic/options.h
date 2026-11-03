@@ -16,11 +16,13 @@ enum class ClassicVariant { Original, Master };
 struct ClassicOptions {
     ClassicVariant variant = ClassicVariant::Original;
     uint64_t duration = 180000; // milliseconds; zero means Not Timed
-    bool sound = true, animations = true;
+    bool sound = true, animations = true, menu = true;
     int music = musicNone;
     size_t side() const { return variant == ClassicVariant::Master ? 5 : 4; }
     const char* dice() const { return variant == ClassicVariant::Master ? "Dicts/EngMas.dst" : "Dicts/EngOrg.dst"; }
     const char* palette() const { return variant == ClassicVariant::Master ? "Palettes/ClsM1Pal.pal" : "Palettes/ClsO1Pal.pal"; }
 };
+// Select once for a native game session; does not emulate the original RNG.
+int chooseClassicMusic(int choice, uint32_t seed);
 Error readClassicOptions(const std::map<std::string,std::string>& settings, ClassicOptions& out);
 } // namespace reluva::boggle

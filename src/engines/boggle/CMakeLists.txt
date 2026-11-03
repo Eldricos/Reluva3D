@@ -7,6 +7,7 @@ reluva_add_engine(boggle
     ACCESSOR boggleMetaEngine
     SOURCES
         boggle.cpp
+        frontend/game.cpp
         import.cpp
         resources.cpp
         formats/text_resources.cpp
@@ -22,6 +23,7 @@ reluva_add_engine(boggle
 reluva_add_engine_tools(boggle
     SOURCES
         tools/files.cpp
+        tools/frontend.cpp
         tools/import.cpp
         tools/presentation.cpp
         tools/resources.cpp
@@ -36,6 +38,7 @@ reluva_add_engine_tests(boggle
     SOURCES
         ${tests}/unit/detection.cpp
         ${tests}/unit/import.cpp
+        ${tests}/unit/frontend.cpp
         ${tests}/unit/resources.cpp
         ${tests}/unit/dictionary.cpp
         ${tests}/unit/presentation.cpp
@@ -44,11 +47,11 @@ reluva_add_engine_tests(boggle
         ${tests}/unit/user_dictionary.cpp
         ${tests}/engine.cpp
     TOPICS
-        unit.detection unit.import unit.resources unit.dictionary unit.classic unit.options unit.presentation unit.user_dictionary engine)
+        unit.detection unit.frontend unit.import unit.resources unit.dictionary unit.classic unit.options unit.presentation unit.user_dictionary engine)
 
 # Optional tests with the owner's data; raw output stays outside Git.
 reluva_add_gamedata_test(boggle
     GAME boggle1997
     ENV RELUVA_BOGGLE1997
     SCRIPT ${tests}/gamedata.cmake
-    STEPS release resources dictionaries classic master presentation music import)
+    STEPS release resources dictionaries classic master presentation music import frontend)

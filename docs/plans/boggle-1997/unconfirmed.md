@@ -33,9 +33,10 @@ by the static inspection and must not become undocumented assumptions in code.
   Native English user words persist separately from the original installation.
 - Network wire protocol, DirectPlay/Third-i session model, host authority,
   timeouts, discovery, synchronization and interoperability.
-- Several bitmap paths embedded in the EXE, including `Bitmaps/Title1.bmp`,
-  `Bitmaps/Title3.bmp` and `Bitmaps/GS1CS.bmp`, are absent from both supplied
-  expanded trees. Determine whether they are unused paths, require other
+- The separate title-sequence paths `Bitmaps/Title1.bmp`, `Bitmaps/Title3.bmp`,
+  `Bitmaps/hasbro1.bmp` and `Bitmaps/hasbro3.bmp` are absent from both supplied
+  expanded trees. `GS1CS.bmp` was incorrectly listed as absent earlier; it is
+  present in both manifests and copies. See [frontend evidence](../../engines/boggle/frontend.md). Determine whether they are unused paths, require other
   packaging/extraction, or reflect incomplete resources before promising
   original menu/intro behavior. Present-file reader checks do not resolve this.
 - Classic roll/lid and WAV playback now exist; the owner has corroborated startup,
@@ -43,14 +44,17 @@ by the static inspection and must not become undocumented assumptions in code.
   A subsequent VM check confirms distinct seven- and eight-letter cues replacing
   Writing; native Windows music/effects playback also passed the owner's test.
   Precise sequence timing still needs comparison. Full original overlays,
-  frontend menus, paletted/timer AVI and Cinepak remain unsupported. See
+  full original frontend dialogs/animation, paletted/timer AVI and Cinepak remain
+  unsupported. Native selection and Classic setup now exist with installed
+  selection artwork, but their full original flow still needs VM comparison. See
   [presentation evidence](../../engines/boggle/presentation.md).
 - Exact UI layout and appearance across resource DLLs, fonts, palette modes
   and display settings. Successful media decoding is not a rendering match.
 - A proven minimum runtime file set. The inspection proposes a conservative
   resource set; only dependency tracing and end-to-end runs can establish
-  sufficiency for all original features. A tested 39-file import set now covers
-  the native English Classic Original/Master slice and existing detection markers;
+  sufficiency for all original features. A tested Classic import set now covers
+  the native English Classic Original/Master slice and existing detection markers
+  (40 files with menu artwork, or the earlier 39-file subset);
   the owner also confirmed that CD importing works. See
   [import scope](../../engines/boggle/import.md). It is not a full-game minimum.
 

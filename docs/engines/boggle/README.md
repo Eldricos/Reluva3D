@@ -5,14 +5,21 @@ and offers early single-player **Classic Original and Master** in U.S. English.
 Original uses 4x4 dice with a three-letter minimum; Master uses 5x5 with a
 four-letter minimum. Both have dictionary validation, scoring and results.
 Classic lid/roll animation, sound effects and WAV background music are available. Other modes,
-original menus, AI and networking are unfinished.
+the full original frontend, AI and networking are unfinished.
 See [scope and rule evidence](classic.md) and the
 [original/native comparison procedure](comparison.md).
 
-Press Enter to start, type a word and press Enter to submit. Alternatively,
+The default game-selection screen opens Classic with Enter. Choose Original
+or Master and a duration, then Play / Enter to start. Escape returns from a
+round to game selection, and from selection to the launcher. See
+[frontend scope and controls](frontend.md). Disable **Game selection menu** in
+launcher options to use the previous direct Ready screen.
+
+During play, type a word and press Enter to submit. Alternatively,
 click or drag through touching cubes, then press Enter. Backspace undoes input;
 right click clears it. F1 ends a round, Enter replays the same board, F2 creates
-a new board between rounds, and Escape returns to the launcher. The initial
+a new board between rounds. With the menu disabled, Escape returns directly
+to the launcher. The initial
 board uses a fixed native seed for reproducible checks; its shuffle differs
 from the original game.
 
@@ -39,7 +46,7 @@ Game ID: `boggle1997`. Add the installed folder containing `Boggle.exe`, or
 its equivalent expanded `Boggle/` directory on the supplied CD. The CD root
 and compressed-only installers are not recognized as runnable directories.
 **Import Game** accepts the install, the expanded CD folder, or the CD root
-containing it, and copies the 39-file English Classic set into your external
+containing it, and copies the English Classic set (40 files with menu artwork) into your external
 library. See [import scope and validation](import.md).
 
 Detection requires measured prefix-MD5/size signatures for `Boggle.exe`,
@@ -96,6 +103,9 @@ in the EXE are absent from the supplied copies; see the
 [remaining research questions](../../plans/boggle-1997/unconfirmed.md).
 
 ## Tests
+
+`frontend-check <folder>` validates the optional game-selection background and
+reports a decoded checksum.
 
 `import-check <source folder>` validates and fingerprints the Classic import
 plan without copying files.

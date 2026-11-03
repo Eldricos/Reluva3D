@@ -6,9 +6,9 @@ in your external game library. The launcher previews the copy plan before
 copying. **Add Game** can still use the original installed folder directly.
 Neither operation runs the Windows installer or original executable.
 
-The plan copies 39 files (12,699,713 bytes for the supplied release): the current
+The plan now copies 40 files (13,007,991 bytes for the supplied release): the current
 U.S. English Classic Original/Master dependencies plus the existing detection
-markers. This supports all native Classic options, including both lid clips,
+markers and the optional game-selection background. This supports all native Classic options, including both lid clips,
 eight effects and fifteen music tracks. Source paths are matched without regard
 to case and destination names are consistent across platforms. The plan is
 stable and does not recursively copy unknown files.
@@ -19,6 +19,7 @@ stable and does not recursively copy unknown files.
 | Original/Master dice and palettes | `Dicts/EngOrg.dst`, `Dicts/EngMas.dst`, `Palettes/ClsO1Pal.pal`, `Palettes/ClsM1Pal.pal` |
 | Cube lettering | `Textures/Letters.bmp`, `Textures/LettersQu.bmp` |
 | Round clips | `Anims/ClsO1All.avi`, `Anims/ClsM1All.avi` |
+| Game-selection background (when present) | `Bitmaps/Select1.bmp` |
 | Effects and music | The eight cues in [presentation](presentation.md) and fifteen paths established in [music](music.md) |
 | Additional detection markers | `Boggle.exe`, `Palettes/Title.pal`, `Scripts/Die.x`, `Anims/INTRO.AVI`, `Fonts/TARA.TTF`, `Bitmaps/ClsM1CS.bmp` |
 
@@ -69,7 +70,10 @@ reluva-tool boggle import-check /external/Boggle
 To preview filenames use `reluva-tool import /external/CD`; adding a destination
 argument performs the copy just as the launcher does. Keep redirected output
 and any copied files outside Git worktrees. The two supplied sources produce
-39 files / 12,699,713 bytes, checksum `31ad9a484df0af2bd5d4c6e16eb4bd38`.
+40 files / 13,007,991 bytes, checksum `83fd9b02d89500220a026c13c828d999`.
+Earlier 39-file imports lack only this optional background and remain supported;
+without it the plan retains 39 files / 12,699,713 bytes and checksum
+`31ad9a484df0af2bd5d4c6e16eb4bd38` for the supplied Classic subset.
 The digest covers ordered destination names (NUL terminated) and full-file MD5
 values, independently of source directory spelling. It checks reproducibility,
 not authenticity beyond the existing release signatures.
@@ -86,7 +90,7 @@ retail detection.
 The optional `boggle.gamedata.import` step copies to a fresh temporary directory
 under the required external analysis directory, compares all selected file
 checksums, confirms detection, and runs both Classic board checks plus animation,
-effects and music checks against the copy. It removes that test copy after
+effects and music checks plus optional menu-art validation against the copy. It removes that test copy after
 success. Raw logs stay outside Git; committed records contain metadata only.
 
 Both supplied expanded copies pass that optional import step with the same
@@ -101,3 +105,9 @@ normal full CTest run has 30 passing checks and 18 optional data checks skipped
 without configured game paths. Boggle tests and actual CD-root plan hashing also
 pass ASan/UBSan, with LeakSanitizer disabled for the execution tracer. All 737
 original install files still match the recorded SHA-256 manifest.
+
+The frontend pass adds `Select1.bmp` when available; missing optional artwork
+uses native menu drawing and does not prevent importing an older Classic-only
+copy. The original 39-file Windows import confirmation above predates this
+addition. The extended 40-file import and menu flow have native Linux checks;
+the new frontend still needs the owner's Windows test. See [frontend](frontend.md).

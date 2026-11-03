@@ -4,6 +4,11 @@
 #include <charconv>
 
 namespace reluva::boggle {
+int chooseClassicMusic(int choice, uint32_t seed) {
+    if (choice != musicRandom) return choice;
+    seed = seed * 1664525u + 1013904223u;
+    return int(seed % classicMusicFiles.size());
+}
 Error readClassicOptions(const std::map<std::string,std::string>& settings, ClassicOptions& out) {
     out = {}; ClassicOptions parsed;
     if (auto it = settings.find("classic_variant"); it != settings.end()) {
@@ -18,9 +23,9 @@ Error readClassicOptions(const std::map<std::string,std::string>& settings, Clas
             return Error::fail("Unsupported Classic duration; choose Not Timed or 1 to 5 minutes in 30-second steps");
         parsed.duration = seconds * 1000;
     }
-    for (const auto& [key, flag] : {std::pair{"classic_sound", &parsed.sound}, std::pair{"classic_animations", &parsed.animations}}) {
+    for (const auto& [key, flag] : {std::pair{"classic_sound", &parsed.sound}, std::pair{"classic_animations", &parsed.animations}, std::pair{"classic_menu", &parsed.menu}}) {
         if (auto it = settings.find(key); it != settings.end()) {
-            if (it->second != "0" && it->second != "1") return Error::fail("Classic sound/animation options must be 0 or 1");
+            if (it->second != "0" && it->second != "1") return Error::fail("Classic sound/animation/menu options must be 0 or 1");
             *flag = it->second == "1";
         }
     }

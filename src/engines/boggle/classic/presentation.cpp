@@ -8,11 +8,7 @@ ClassicAudio::~ClassicAudio() { if (active_) system_.stopAudio(); }
 Error ClassicAudio::open(const Resources& resources, bool enabled, int music, uint32_t seed) {
     if (music < musicRandom || music >= int(classicMusicFiles.size()))
         return Error::fail("Unsupported Classic music track");
-    if (music == musicRandom) {
-        // Native selection once per launch, independent of the board generator.
-        seed = seed * 1664525u + 1013904223u;
-        music = int(seed % classicMusicFiles.size());
-    }
+    music = chooseClassicMusic(music,seed);
     if (music >= 0) {
         auto sound = std::make_shared<audio::Sound>();
         if (auto err = resources.sound(std::string("Waves/")+classicMusicFiles[size_t(music)]+".wav",*sound)) return err;

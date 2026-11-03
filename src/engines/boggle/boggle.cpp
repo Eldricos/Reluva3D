@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 // Copyright (C) 2026 The Reluva contributors
 #include "engines/engine.h"
-#include "engines/boggle/classic/game.h"
+#include "engines/boggle/frontend/game.h"
 #include "engines/boggle/classic/options.h"
 #include "engines/boggle/resources.h"
 #include "engines/boggle/import.h"
@@ -51,6 +51,7 @@ public:
             music.emplace_back(std::to_string(i),std::move(title));
         }
         return {
+            {"classic_menu", "Game selection menu", "Choose Classic and its board before play; disable to open the existing round screen directly.", true, {}},
             {"classic_music", "Classic music", "Loop an installed WAV track independently of sound effects. Random chooses once per launch.", true, std::move(music)},
             {"classic_sound", "Classic sound effects", "Play the installed game's WAV sound effects.", true, {}},
             {"classic_animations", "Classic round animations", "Play the installed Classic lid/roll clips before and after each round.", true, {}},
@@ -63,7 +64,7 @@ public:
         };
     }
     std::unique_ptr<Engine> create(System& system, const GameTarget& target) const override {
-        return std::make_unique<ClassicGame>(system, target);
+        return std::make_unique<FrontendGame>(system, target);
     }
 };
 } // namespace

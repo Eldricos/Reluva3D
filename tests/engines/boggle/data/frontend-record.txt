@@ -1,0 +1,11 @@
+# The record of boggle.unit.frontend (tests/engines/boggle/unit/frontend.cpp).
+# Written by `reluva-tests boggle.unit.frontend --update`; review its diff before committing.
+navigation.0: db269adb1ff32c47
+navigation.1: 961b3d07ed2bdd1d
+navigation.2: ac9b94b8b5ff3778
+navigation.3: bbc1ec6f1f72acc8
+navigation.4: 964c007a17a9d0fd
+navigation.5: db269adb1ff32c47
+navigation.6: be548af577c6a7b9
+navigation.7: 4278d8bbc78c74ce
+navigation.8: db269adb1ff32c47

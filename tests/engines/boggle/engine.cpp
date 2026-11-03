@@ -59,6 +59,7 @@ void engineTest(const std::filesystem::path& tmp) {
     };
     system.clock = [](size_t frame) -> uint64_t { return frame >= 6 ? 180010 : frame * 10; };
     GameTarget target; target.settings = {{"classic_sound","0"},{"classic_animations","0"}}; target.path = dir; target.gameId = "boggle1997";
+    target.settings["classic_menu"]="0";
     auto game = engine->create(system,target);
     if (auto err = game->run()) return test::fail(err.message);
     CHECK(system.frame == 9 && system.w == 800 && system.h == 600);
@@ -127,6 +128,7 @@ void dictionaryWorkflow(const std::filesystem::path& tmp) {
         if (frame == 18) return {keyEvent(key::Escape)};
         return {};
     };
+    target.settings["classic_menu"]="0";
     auto game = meta->create(system,target); if (auto err = game->run()) return test::fail(err.message);
     CHECK(system.hashes.size() == 18 && !system.textEnabled && system.textStopped);
     boggle::UserDictionary saved; CHECK(!saved.load(save, dir));
@@ -221,6 +223,7 @@ void masterWorkflow(const std::filesystem::path& tmp) {
         return {};
     };
     timed.clock = [](size_t frame) -> uint64_t { return frame >= 9 ? 60010 : frame*10; };
+    target.settings["classic_menu"]="0";
     auto game = meta->create(timed,target); if (auto err = game->run()) return test::fail(err.message);
     CHECK(timed.hashes.size() == 11 && !timed.textEnabled && timed.textStopped);
     if (timed.hashes.size() == 11) CHECK(timed.hashes[1] == timed.hashes[10]);
@@ -278,6 +281,7 @@ void presentationWorkflow(const std::filesystem::path& tmp) {
         const uint64_t times[]={0,10,1010,3110,4410,4420,4430,4440,64409,64410,65509,65510,65520};
         return times[std::min(f,size_t(12))];
     };
+    target.settings["classic_menu"]="0";
     auto game=meta->create(sys,target);if(auto err=game->run())return test::fail(err.message);
     CHECK(sys.hashes.size()==12 && sys.audioStarted && sys.audioStopped && !sys.audioCallback);
     CHECK(sys.audioHashes.size()==12);
@@ -313,7 +317,7 @@ void presentationWorkflow(const std::filesystem::path& tmp) {
     game=meta->create(review,target);if(auto err=game->run())return test::fail(err.message);
     CHECK(review.hashes.size()==9 && review.audioStopped && !review.audioCallback);
     if(review.hashes.size()==9){CHECK(review.hashes[7]!=review.hashes[6]);CHECK(review.hashes[8]!=review.hashes[7]);}
-    target.settings={{"classic_variant","master"},{"classic_seconds","0"},{"classic_sound","0"}};
+    target.settings={{"classic_menu","0"},{"classic_variant","master"},{"classic_seconds","0"},{"classic_sound","0"}};
     ScriptedSystem master;
     master.events=[](size_t f)->std::vector<Event>{if(f==1)return{keyEvent(key::Return)};if(f==3)return{keyEvent(key::F1)};if(f==5)return{keyEvent(key::Escape)};return{};};
     master.clock=[](size_t f)->uint64_t{const uint64_t times[]={0,10,4410,4420,5520,5530};return times[std::min(f,size_t(5))];};
@@ -335,6 +339,7 @@ void musicWorkflow(const std::filesystem::path& tmp) {
         return {};
     };
     const auto* meta=findEngine("boggle"); CHECK(meta); if(!meta)return;
+    target.settings["classic_menu"]="0";
     auto game=meta->create(sys,target); if(auto err=game->run())return test::fail(err.message);
     CHECK(sys.audioStarted && sys.audioStopped && !sys.audioCallback);
     CHECK(sys.audioHashes.size()==7);

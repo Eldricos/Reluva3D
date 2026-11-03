@@ -58,7 +58,7 @@ std::string feedback(Submission result, size_t minimum) {
 }
 void draw(Surface& screen, const ClassicRound& round, uint64_t now,
           const image::Image& letters, const image::Image& qu, const Palette& palette,
-          const std::string& input, const std::vector<size_t>& path, const std::string& message, size_t scroll) {
+          const std::string& input, const std::vector<size_t>& path, const std::string& message, size_t scroll, bool fromMenu) {
     rect(screen, 0, 0, width, height, dark);
     rect(screen, 0, 0, width, 76, {29, 49, 70});
     const auto& accent = palette[1]; rect(screen, 24, 76, 752, 2, {accent.r, accent.g, accent.b});
@@ -103,7 +103,7 @@ void draw(Surface& screen, const ClassicRound& round, uint64_t now,
     label(screen, 24, 535, reviewing ? "Choose one of the four dictionary options." : message.empty() ? (ready ? "Press Enter when ready. The timer starts with the board." : playing ? "Enter: submit   Backspace: undo   Right click: clear" : "Enter: replay this board   F2: new board") : message, muted);
     if (!reviewing) { rect(screen, 24, 557, 180, 29, {48, 88, 120}); label(screen, 35, 566, playing ? "END ROUND (F1)" : "START / REPLAY (ENTER)"); }
     if (!playing && !reviewing) { rect(screen, 216, 557, 158, 29, {48, 88, 120}); label(screen, 227, 566, "NEW BOARD (F2)"); }
-    label(screen, 610, 566, "ESC: LAUNCHER", muted);
+    label(screen, 610, 566, fromMenu ? "ESC: MENU" : "ESC: LAUNCHER", muted);
     if (const auto* word = round.candidate()) {
         rect(screen, 24, 182, 752, 270, {50, 78, 108});
         rect(screen, 27, 185, 746, 264, {22, 40, 60});
@@ -120,6 +120,7 @@ void draw(Surface& screen, const ClassicRound& round, uint64_t now,
 }
 }
 Error ClassicGame::run() {
+    returnToMenu_ = false;
     ClassicOptions options;
     if (auto err = readClassicOptions(target_.settings, options)) return err;
     Resources resources;
@@ -205,13 +206,16 @@ Error ClassicGame::run() {
         } else if (playing && round.timed()) sound.countdown(round.remaining(now));
         return Error::success();
     };
+    if (fromMenu_) { if (auto err = startOrFinish()) return err; }
     while (running) {
         if (auto err = advance()) return err;
         Event event;
         while (sys_.pollEvent(event)) {
             if (auto err = advance()) return err;
             if (event.type == EventType::Quit || event.type == EventType::ReturnToLauncher ||
-                (event.type == EventType::KeyDown && event.key == key::Escape)) { running = false; break; }
+                (event.type == EventType::KeyDown && event.key == key::Escape && !event.repeat)) {
+                returnToMenu_ = fromMenu_ && event.type == EventType::KeyDown; running = false; break;
+            }
             if (transition.type() != Transition::None) continue;
             if (round.candidate()) {
                 int choice = -1;
@@ -266,7 +270,7 @@ Error ClassicGame::run() {
                 std::copy_n(frame.pixel(x*frame.w/width,y*frame.h/height),4,screen.row(y)+x*4);
             rect(screen,0,height-40,width,40,dark);
             label(screen,24,height-25,transition.type() == Transition::Opening ? "Rolling dice and opening the lid..." : "Closing the lid...");
-        } else draw(screen, round, sys_.getMillis(), letters, qu, palette, input, selected, message, scroll);
+        } else draw(screen, round, sys_.getMillis(), letters, qu, palette, input, selected, message, scroll, fromMenu_);
         sys_.updateScreen(screen);
         if (transition.type() == Transition::None && round.phase() == RoundPhase::Results) resultsVisible = true;
         promptVisible = transition.type() == Transition::None && round.candidate() != nullptr;

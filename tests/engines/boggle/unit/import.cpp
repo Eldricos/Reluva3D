@@ -42,6 +42,9 @@ void selection(const std::filesystem::path& tmp) {
     ImportPlan duplicate;
     CHECK(!classicImportPlan(root,synthetic,{{"Identity.bin","",-1},{"Dicts/English.dic","",-1}},duplicate));
     CHECK(duplicate.files.size()==plan.files.size());
+    fixtures::write(root/"Bitmaps/Select1.bmp",fixtures::bitmap());
+    ImportPlan art; CHECK(!classicImportPlan(root,synthetic,{{"Identity.bin","",-1}},art));
+    CHECK(art.files.size()==plan.files.size()+1);
     uint64_t last=0;
     CHECK(!runImport(plan,dest,[&](uint64_t done,uint64_t expected){CHECK(done>=last && done<=expected);last=done;return true;}));
     CHECK(last==total);

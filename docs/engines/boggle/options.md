@@ -1,7 +1,7 @@
 # Classic variants and round duration
 
 The native U.S. English Classic slice offers Original and Master through the
-launcher's game options. Original uses 4x4 dice and a three-letter minimum;
+launcher's game options and the in-game [Classic setup](frontend.md). Original uses 4x4 dice and a three-letter minimum;
 Master uses 5x5 dice and a four-letter minimum. These are variants of Classic,
 not implementations of Boggle's other game modes.
 
@@ -12,6 +12,10 @@ and review pending dictionary words. The selected duration appears before the
 round starts and applies again on replay. New Board changes the board while
 keeping the selected variant and duration. Changing these options in the
 launcher affects the next launch, not a running round.
+
+The Game selection menu option (`classic_menu`, default `1`) enables native
+selection/setup before play. Disable it with `0` for direct Classic entry.
+Menu changes to variant/duration apply for the engine session only.
 
 The launcher persists its per-target settings as `classic_variant` = `original`
 or `master` and `classic_seconds` = `0`, or 60..300 in steps of 30.
