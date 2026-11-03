@@ -63,4 +63,25 @@ inline void install(const std::filesystem::path& path) {
     write(path / "Bitmaps/demo.bmp", bitmap());
     write(path / "Waves/demo.wav", wave());
 }
+// A generated flat texture, not a retail letter atlas.
+inline std::vector<uint8_t> atlas() {
+    auto image = bitmap();
+    image.resize(54 + 512 * 512 * 3, 240);
+    test::fixtures::put32(image, 2, uint32_t(image.size()));
+    test::fixtures::put32(image, 18, 512); test::fixtures::put32(image, 22, 512);
+    test::fixtures::put32(image, 34, 512 * 512 * 3);
+    return image;
+}
+inline void classicInstall(const std::filesystem::path& path) {
+    std::vector<uint8_t> dict(12);
+    const char words[] = "AAA\0AAAA\0";
+    test::fixtures::put32(dict, 4, 1); test::fixtures::put32(dict, 8, uint32_t(sizeof(words)));
+    dict.insert(dict.end(), words, words + sizeof(words));
+    write(path / "Dicts/English.dic", dict);
+    std::string diceText; for (size_t i = 0; i < 16; ++i) diceText += "A,A,A,A,A,A\n";
+    write(path / "Dicts/EngOrg.dst", diceText);
+    write(path / "Palettes/ClsO1Pal.pal", palette());
+    write(path / "Textures/Letters.bmp", atlas());
+    write(path / "Textures/LettersQu.bmp", atlas());
+}
 } // namespace reluva::boggle::fixtures

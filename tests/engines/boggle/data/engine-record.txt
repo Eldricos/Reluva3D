@@ -8,3 +8,8 @@ resources.dice: 16
 resources.vertices: 3
 resources.strings: 1
 resources.decoded: 63792a4a3ac436bf7e621d898de620bb
+classic.ready: 58dc77e9df4507c3
+classic.accepted: 1daa193f107fa351
+classic.duplicate: 8da63e2cd035dd0e
+classic.expired: e8266a04ddc291d2
+classic.replay: a571a666b6ce7071

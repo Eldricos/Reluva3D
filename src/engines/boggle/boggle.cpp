@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 // Copyright (C) 2026 The Reluva contributors
 #include "engines/engine.h"
+#include "engines/boggle/classic/game.h"
 
 namespace reluva::boggle {
 namespace {
@@ -17,12 +18,6 @@ const std::vector<GameVariant> kVariants = {
       {"Fonts/TARA.TTF", "", 54348}, {"Waves/Shake.wav", "", -1},
       {"Bitmaps/ClsM1CS.bmp", "", 61078}, {"Textures/Letters.bmp", "", -1}}},
 };
-class BoggleEngine : public Engine {
-public:
-    Error run() override {
-        return Error::fail("Boggle is recognized, but gameplay is not available yet.");
-    }
-};
 class BoggleMetaEngine : public MetaEngine {
 public:
     const char* id() const override { return "boggle"; }
@@ -30,8 +25,8 @@ public:
     std::vector<DetectedGame> detect(const std::filesystem::path& dir) const override {
         return detectFromTable(id(), kVariants, dir);
     }
-    std::unique_ptr<Engine> create(System&, const GameTarget&) const override {
-        return std::make_unique<BoggleEngine>();
+    std::unique_ptr<Engine> create(System& system, const GameTarget& target) const override {
+        return std::make_unique<ClassicGame>(system, target);
     }
 };
 } // namespace

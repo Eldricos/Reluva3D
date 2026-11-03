@@ -5,21 +5,23 @@ by the static inspection and must not become undocumented assumptions in code.
 
 - Exact retail edition, patch level and original CD pressing. A 1997 PE
   timestamp and December 2000 copied-file timestamps are not release proof.
-- Original-game execution. No suitable Windows reference environment or
-  Wine was available; no original program was executed. Collect About-screen,
-  mode/options, graphics, input, timing, scoring and network observations
-  before making behavioral compatibility claims.
+- The owner can run the original in a Windows VM and has confirmed Classic
+  Original's timer, minimum length and scoring. Broader input, focus/pause,
+  graphics, timing and network observations remain needed. See
+  [Classic evidence](../../engines/boggle/classic.md).
 - `cd/data.z` contents and SHA-256. It exceeds the executor's 32 MiB transfer
   limit. No compressed installation archive was extracted or installer run.
 - Full registry/CD lookup contract, marker semantics and behavior without
   the original CD. Strings such as `SourceDirectory` are research leads.
-- Nonempty `.dic` encoding, indexes, normalization, encodings/accents,
-  minimum-word rules, word membership and AI dictionary behavior.
+- Multilingual normalization and Spanish legacy-byte lookup aliases; AI and
+  user dictionary behavior. Binary `.dic` structure and English membership
+  are now validated: [dictionary specification](../../engines/boggle/formats/dictionary.md).
 - INSO `.DAT` layout, definition rendering and DLL ordinal contracts.
 - Exact purpose of duplicate or unused-looking dictionary files. Determine
   the files the selected language actually opens before pruning an import.
-- Dice-set use and randomization: the `.dst` row/field counts are observed;
-  face order, generator, seed, shuffle and multi-letter behavior are not.
+- Original generator seed and shuffle equivalence. The prototype uses an
+  independent deterministic generator; Classic adjacency, no cube reuse and
+  complete multi-letter faces are confirmed in executable analysis.
 - The five modes' board sizes, rules, scoring, timers, difficulty, player
   counts, camera behavior, animations and AI behavior.
 - Save/high-score/user-dictionary persistence and writable-path behavior.
@@ -35,8 +37,7 @@ by the static inspection and must not become undocumented assumptions in code.
 - A proven minimum runtime file set. The inspection proposes a conservative
   resource set; only dependency tracing and end-to-end runs can establish
   sufficiency. Detection and initial resource readers now exist; see the
-  [engine README](../../engines/boggle/README.md). Gameplay and importing
-  are still unavailable.
+  [engine README](../../engines/boggle/README.md). An early Classic Original slice is playable; importing remains unavailable.
 
 Research evidence must cite a manifest SHA-256 and file offset/RVA or a
 repeatable observation. Keep retail assets, dictionary entries, screenshots,

@@ -29,7 +29,7 @@ interfaces, and any notes on testing and differences from the original.
 |---|---|---|
 | `idtech3` | Star Trek: Voyager - Elite Force (and, later, other Quake III engine games) | [engines/idtech3/](engines/idtech3/README.md) |
 | `newworlds` | Star Trek: New Worlds | [engines/newworlds/](engines/newworlds/README.md) |
-| `boggle` | Boggle (1997): detection and initial resource readers | [engines/boggle/](engines/boggle/README.md) |
+| `boggle` | Boggle (1997): readers and early Classic Original | [engines/boggle/](engines/boggle/README.md) |
 | `testbed` | A built-in test pattern, no game | — |
 
 ## Adding docs

@@ -6,6 +6,7 @@
 #include "common/image.h"
 #include "common/pe_resources.h"
 #include "engines/boggle/formats/mesh.h"
+#include "engines/boggle/formats/dictionary.h"
 #include "engines/boggle/formats/text_resources.h"
 
 namespace reluva::boggle {
@@ -25,6 +26,7 @@ public:
     Error palette(std::string_view name, Palette& out) const;
     Error diceSet(std::string_view name, DiceSet& out) const;
     Error mesh(std::string_view name, Mesh& out) const;
+    Error dictionary(std::string_view name, Dictionary& out) const;
     Error language(std::string_view name, Language& out) const;
     Error image(std::string_view name, image::Image& out) const;
     Error sound(std::string_view name, audio::Sound& out) const;

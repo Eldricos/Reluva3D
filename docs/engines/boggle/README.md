@@ -1,8 +1,17 @@
 # Boggle (1997)
 
 The `boggle` engine recognizes the supplied multilingual Windows file set
-and reads its initial resources. **Gameplay is not available yet.** Starting
-an added game returns an explicit unsupported-gameplay message.
+and offers an early single-player **Classic Original** round in U.S. English.
+It has a 4x4 board, dictionary validation, a three-minute timer, scoring and
+results. Other modes, original menus, audio, AI and networking are unfinished.
+See [scope and rule evidence](classic.md).
+
+Press Enter to start, type a word and press Enter to submit. Alternatively,
+click or drag through touching cubes, then press Enter. Backspace undoes input;
+right click clears it. F1 ends a round, Enter replays the same board, F2 creates
+a new board between rounds, and Escape returns to the launcher. The initial
+board uses a fixed native seed for reproducible checks; its shuffle differs
+from the original game.
 
 ## Detection
 
@@ -27,7 +36,7 @@ outside the repository and other Git worktrees.
 
 `Resources` (`src/engines/boggle/resources.h`) provides case-insensitive
 access to palettes, dice sets, meshes, PE language resources/UTF-8 strings,
-images and sounds. `resource-check` visits every supported file in the known
+images, sounds and binary word dictionaries. `resource-check` visits every supported file in the known
 resource directories and produces a checksum of decoded values, with fixed
 byte order and stable path sorting. It does not write assets or print retail
 text, face lists or geometry.
@@ -52,27 +61,36 @@ Supported formats:
 - [JASC palettes and dice-set text](formats/text-resources.md).
 - [The observed DirectX text mesh subset](formats/mesh.md).
 - [Shared PE resource and string-table reader](../../common/pe-resources.md).
+- [Binary word dictionaries](formats/dictionary.md).
 - BMP and PCM WAV through the existing shared readers.
 
-Not decoded: nonempty `.dic` word dictionaries, INSO `.DAT` definitions,
+Not decoded: INSO `.DAT` definitions,
 AVI/Cinepak/Microsoft Video 1 media and TrueType fonts. The current checker
-also does not interpret PE dialog layouts, render a scene, execute gameplay,
-or validate every asset the original program may request. Some bitmap paths
+also does not interpret PE dialog layouts or validate every asset the original
+program may request. Some bitmap paths
 in the EXE are absent from the supplied copies; see the
 [remaining research questions](../../plans/boggle-1997/unconfirmed.md).
 
 ## Tests
 
-`reluva-tests boggle` runs synthetic detection/resource tests and the
+`dictionary-check` decodes all eight binary dictionaries and reports only
+counts and checksums. `dictionary-query` checks an ASCII English word.
+`classic-check` validates every dictionary word against the deterministic
+initial board, checks submissions, duplicates, scoring and expiration, and
+reports only counts and a checksum. No tool exports word lists.
+
+`reluva-tests boggle` runs synthetic detection/resource/dictionary/round tests and the
 `boggle.engine` record. `common.unit.pe_resources` tests the shared binary
 reader. All fixtures are assembled from original code; no retail bytes or
 face/word lists are embedded. Tests cover UTF-16 surrogate pairs, language
 selection, invalid offsets/counts, truncation, topology, finite numbers,
-partial-result clearing and case-insensitive file access. A decoded palette
+partial-result clearing and case-insensitive file access. Scripted engine tests
+exercise keyboard and mouse input, timeout, results, replay and text-input
+cleanup using synthetic assets; rendered states have checksum records. A decoded palette
 change must change the resource checksum even when counts remain the same.
 
 Optional local game-data tests check positive detection and the complete
-supported resource survey. Without a game path they skip. When running them,
+supported resource survey, dictionary decoding and deterministic Classic round. Without a game path they skip. When running them,
 explicitly select an analysis output directory outside all Git worktrees:
 
 ```sh
