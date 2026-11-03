@@ -30,7 +30,9 @@ user dictionary, with No to all / Yes to all / No / Yes choices.
 | Rejected-word history | Original keeps red entries; native currently shows transient feedback only |
 | User-dictionary prompt | Observed after the round; native prompt and persistence are unimplemented |
 | Submitted round total | Matched after the owner corrected one transcribed word: nine accepted words, nine points |
-| Qu, longer-word scoring and exact timing | Still require suitable observations |
+| Five- and six-letter scoring | Additional observed round matches: eleven accepted words, eighteen points |
+| Qu spelling and letter-count scoring | Observed Qu round matches: seven accepted words, eight points; five letters using four cubes score two |
+| Seven/eight-plus-letter play, bare Q and exact timing | Still require suitable observations |
 
 The owner corrected one transcribed word and confirmed the corrected word was
 accepted by the original. Replaying the corrected nine-word sequence on the
@@ -38,16 +40,34 @@ observed board accepts every word for one point each and finishes with nine
 points, matching the reported original total. The earlier eight-point result
 is resolved as a transcription error; no rule or dictionary change was needed.
 
+Two additional owner VM rounds now also match native replay:
+
+| Observation | Native accepted words | Original reported total | Native total |
+|---|---:|---:|---:|
+| First corrected round | 9 | 9 | 9 |
+| Round exercising five/six-letter words | 11 | 18 | 18 |
+| Round containing a Qu cube | 7 | 8 | 8 |
+
+The second round exercises three-, four-, five- and six-letter words. The Qu
+round includes a five-letter word using four cubes: native scoring awards two
+points for its five letters, reproducing the reported total. Counting cubes
+instead would produce seven points for that round. This corroborates the
+original executable analysis and existing synthetic multi-letter-face tests;
+no implementation change was needed. Original per-word credit and input method
+were not separately reported. Bare-Q rejection and keyboard-versus-mouse input
+behavior remain untested in the original.
+
 Actual submission timestamps were not reported. Replay times were assigned
 only to place submissions safely before expiry, not measured. Duplicate and
 minimum-length probes in the replay were synthetic additions; only their
 general observed behavior was supplied. The original board, word list,
 correction details, detailed paths and raw output remain outside Git.
 
-Final-score equivalence for this observation is **confirmed**. The
-rejected-word/user-dictionary interface remains a **known difference**, and
-Qu, longer-word scoring and precise timing still need suitable observations.
-This one-round comparison does not establish full original-game compatibility.
+Final-score equivalence for these three observations is **confirmed**. The
+rejected-word/user-dictionary interface remains a **known difference**.
+Seven- and eight-plus-letter play, bare-Q behavior, input-method differences
+and precise timing still need suitable observations. These comparisons do not
+establish full original-game compatibility.
 
 Select U.S. English, Classic, Original, one human player, and no AI/opponents.
 Keep the default three-minute limit and three-letter minimum. Use a fresh
