@@ -20,19 +20,14 @@ void scaled(Surface& screen,const image::Image& image,int x,int y,int w,int h,bo
             if(!key || p[0] || p[1] || p[2])std::copy_n(p,4,screen.row(py)+px*4);
         }
 }
-struct Vertex {int x,y,u=0,v=0;};
+using Vertex=ProjectedVertex;
 int64_t edge(Vertex a,Vertex b,int x,int y) {return int64_t(b.x-a.x)*(y-a.y)-int64_t(b.y-a.y)*(x-a.x);}
 Vertex point(bool master,int u,int v,int d) {
     // Native approximation of the open tray, measured in the source 640x480
     // images. This is not the original 3D camera/projection or dice rotation.
     const std::array<ClassicPoint,4> p=master ? std::array<ClassicPoint,4>{{{137,107},{418,107},{447,351},{94,351}}}
                                                 : std::array<ClassicPoint,4>{{{135,145},{386,142},{409,350},{109,350}}};
-    auto interpolate=[&](bool x) {
-        auto n=[&](size_t i){return x ? p[i].x : p[i].y;};
-        const int64_t sum=int64_t(n(0))*(d-u)*(d-v)+int64_t(n(1))*u*(d-v)+int64_t(n(2))*u*v+int64_t(n(3))*(d-u)*v;
-        return int(sum*5/(int64_t(d)*d*4));
-    };
-    return {interpolate(true),interpolate(false)};
+    return PlaneProjection(p).project(u,v,d,5,4);
 }
 std::array<Vertex,4> cell(bool master,size_t index,size_t side,int margin=6) {
     const int x=int(index%side)*100,y=int(index/side)*100,d=int(side)*100;
@@ -48,7 +43,13 @@ void triangle(Surface& screen,Vertex a,Vertex b,Vertex c,Color color,const image
             if(wa<0 || wb<0 || wc<0)continue;
             auto* out=screen.row(y)+x*4;
             if(texture) {
-                const int u=int((wa*a.u+wb*b.u+wc*c.u)/area),v=int((wa*a.v+wb*b.v+wc*c.v)/area);
+                // Interpolate texture coordinates divided by depth, then undo
+                // that division. Affine UVs introduce a diagonal seam and bend
+                // letter strokes on the tilted plane.
+                const int64_t qa=wa*a.reciprocalDepth,qb=wb*b.reciprocalDepth,qc=wc*c.reciprocalDepth;
+                const int64_t divisor=qa+qb+qc;
+                if(!divisor)continue;
+                const int u=int((qa*a.u+qb*b.u+qc*c.u)/divisor),v=int((qa*a.v+qb*b.v+qc*c.v)/divisor);
                 std::copy_n(texture->pixel(u,v),4,out);
             } else {out[0]=color.r;out[1]=color.g;out[2]=color.b;out[3]=255;}
         }

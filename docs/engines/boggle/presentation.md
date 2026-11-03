@@ -1,9 +1,9 @@
 # Classic round presentation and sound
 
 This pass adds the owner's Classic roll/lid animation and WAV effects to the
-native Original/Master round flow. The ready screen, board, results and controls
-remain the native prototype interface; original title/mode menus, dialog layouts,
-fonts and the other modes are not recreated by this pass.
+native Original/Master round flow. This document describes the round transition and audio behavior. Installed
+scenes, panels and the later dice projection are documented in [Classic layout](layout.md);
+intro/mode playback is documented in [movies](movies.md).
 
 ## Runtime flow
 
@@ -23,12 +23,14 @@ The native opening phase lasts 4.4 seconds and closing lasts 1.1 seconds.
 Scheduling uses elapsed time rather than blocking sleeps. Late frames advance
 to the current image; the timer still starts at the actual end of opening.
 Decoded 640x480 frames are scaled into the native 800x600 framebuffer. Original
-3D cube overlays/camera movement and timer AVI effects are not composited into
-the native interface, so this is not an original-screen rendering match.
+moving 3D cube overlays/camera movement during the opening and closing clips
+remain unimplemented. The playable board uses a native projective layout and
+indexed hourglass animation; see [Classic layout](layout.md).
 
 The launcher's **Classic round animations** and **Classic sound effects**
 checkboxes are on by default. Disabling animations preserves immediate-start
-prototype behavior and skips loading AVI data; sound can remain enabled with
+behavior and skips transition playback. With installed artwork enabled, the
+scene still loads from AVI and the hourglass still animates; sound can remain enabled with
 a single shake cue. Disabling sound skips WAV loading/device startup. A missing
 audio device permits silent play. Missing/corrupt enabled media fails explicitly;
 no external codec DLLs or original executable instructions are used at runtime.

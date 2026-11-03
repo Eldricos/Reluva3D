@@ -73,6 +73,10 @@ inspection/specifications and remove an uncertainty only when evidence resolves 
   and continuity still need VM listening checks; see [music evidence](../../engines/boggle/music.md).
 
 The next presentation comparison is the new [Classic layout](../../engines/boggle/layout.md):
-verify timer/word/score positions in both variants, then refine the native
-projection and font. This does not block the existing playable Classic slice.
+verify timer/word/score positions in both variants, then refine calibration and font. Native dice now use a consistent
+projective plane with perspective-correct texture sampling. This does not block the existing playable Classic slice.
 The owner has now confirmed both startup movies play.
+
+The owner confirmed the installed Classic artwork works on Windows. The next
+projection refinement retains measured tray corners; exact original camera,
+individual cube rotations and fonts remain unverified.

@@ -2,12 +2,12 @@
 // Copyright (C) 2026 The Reluva contributors
 #pragma once
 #include "engines/boggle/classic/options.h"
+#include "engines/boggle/classic/projection.h"
 #include "engines/boggle/classic/round.h"
 #include "engines/boggle/resources.h"
 #include <optional>
 namespace reluva::boggle {
 std::array<std::string,3> classicArtworkPaths(ClassicVariant variant);
-struct ClassicPoint { int x=0,y=0; };
 class ClassicArtwork {
 public:
     Error open(const Resources& resources,const std::filesystem::path& root,const ClassicOptions& options,

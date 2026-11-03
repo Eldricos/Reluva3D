@@ -16,6 +16,7 @@ reluva_add_engine(boggle
         formats/dictionary.cpp
         classic/presentation.cpp
         classic/layout.cpp
+        classic/projection.cpp
         classic/options.cpp
         classic/user_dictionary.cpp
         classic/round.cpp

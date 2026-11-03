@@ -1,0 +1,39 @@
+// SPDX-License-Identifier: GPL-3.0-or-later
+// Copyright (C) 2026 The Reluva contributors
+#include "engines/boggle/classic/projection.h"
+#include <algorithm>
+#include <cstdlib>
+namespace reluva::boggle {
+PlaneProjection::PlaneProjection(const std::array<ClassicPoint,4>& p) {
+    // Bound intermediate products even for invalid caller-supplied corners.
+    for(const auto& point:p)if(std::abs(int64_t(point.x))>2048 || std::abs(int64_t(point.y))>2048)return;
+    int64_t winding=0;
+    for(size_t i=0;i<4;++i) {
+        const auto a=p[i],b=p[(i+1)%4],c=p[(i+2)%4];
+        const int64_t cross=int64_t(b.x-a.x)*(c.y-b.y)-int64_t(b.y-a.y)*(c.x-b.x);
+        if(!cross || (winding && (cross>0)!=(winding>0)))return;
+        winding=cross;
+    }
+    const int64_t dx1=p[1].x-p[2].x,dx2=p[3].x-p[2].x,dx3=p[0].x-p[1].x+p[2].x-p[3].x;
+    const int64_t dy1=p[1].y-p[2].y,dy2=p[3].y-p[2].y,dy3=p[0].y-p[1].y+p[2].y-p[3].y;
+    const int64_t det=dx1*dy2-dx2*dy1;
+    if(!det)return;
+    const int64_t g=dx3*dy2-dx2*dy3,h=dx1*dy3-dx3*dy1;
+    coefficients_={int64_t(p[1].x-p[0].x)*det+g*p[1].x,
+                   int64_t(p[3].x-p[0].x)*det+h*p[3].x,int64_t(p[0].x)*det,
+                   int64_t(p[1].y-p[0].y)*det+g*p[1].y,
+                   int64_t(p[3].y-p[0].y)*det+h*p[3].y,int64_t(p[0].y)*det,g,h};
+    determinant_=det;
+}
+ProjectedVertex PlaneProjection::project(int u,int v,int units,int numerator,int denominator) const {
+    if(!determinant_ || units<1 || units>1024 || u<0 || v<0 || u>units || v>units ||
+       numerator<1 || numerator>8 || denominator<1 || denominator>8)return {-1,-1,0,0,0};
+    const auto& c=coefficients_;
+    const int64_t depth=c[6]*u+c[7]*v+determinant_*units;
+    if(!depth)return {-1,-1,0,0,0};
+    const int x=int((c[0]*u+c[1]*v+c[2]*units)*numerator/(depth*denominator));
+    const int y=int((c[3]*u+c[4]*v+c[5]*units)*numerator/(depth*denominator));
+    const int64_t reciprocal=std::min<int64_t>(int64_t(1)<<30,std::abs(determinant_)*(int64_t(1)<<30)/std::abs(depth));
+    return {x,y,0,0,reciprocal};
+}
+} // namespace reluva::boggle
