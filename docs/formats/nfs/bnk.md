@@ -874,7 +874,114 @@ night clips have no sound 31 or 0 to find (above).
   `off00C` slot 17 and `disp00` slot 16 are heard where the log puts
   them. At the player's ticket (`c3-spch`) `copspch` slot 18 plays,
   with the radio muted. Which slot is said when is in
-  [physics.md](physics.md) (The radio).
+  [physics.md](physics.md) (The radio), and what each says in What
+  the radio lines say, below.
+
+## What the radio lines say
+
+Worked out in November 2026 (`c5-speech`): the English `off00A`-`C`,
+`off02A`, `disp00`, `disp02`, `copspch` and one car's `IP..spch` banks
+were decoded with `bnk-wav` and run through a local speech-to-text
+model (faster-whisper `small.en`, on the CPU), then matched to the
+slots the code asks for (`0x40ab20` and the call routines,
+[physics.md](physics.md), The radio). The words aren't kept here, only
+what each line is for. Slot numbers are hex. A range means the code
+picks one at random.
+
+**The officer banks** (`off%02xA`-`C`, entries 11-13). The three
+voices say the same things in their own words; the track's banks
+differ only in the unit numbers, the dispatch name and the places.
+
+| Slot | What it is | Said by |
+|---|---|---|
+| 0x10-0x17 | the officer's call sign: his unit number "to" the dispatch (County on Hometown's banks, Central on Atlantica's); slot 0x10 + the cop's index | `0x40aa20`, first in every call unless he spoke last |
+| 0x1A-0x1B | the suspect has crashed / wrecked | kind 0x23, `0x40bc30`, once a chase record (+0x54 bit 8, `0x403910`) |
+| 0x1D | asks for a wrecker (tow truck) | kind 0x1A, after 0x1E-0x1F half the time |
+| 0x1E-0x1F | his car is disabled, he can't go on | kind 0x19, `0x40bba0`, once a cop (+0x711 bit 0x10, `0x403950`) |
+| 0x20-0x23 | he has lost the suspect | kind 0xC, `0x40b480` (a human target lost) |
+| 0x24-0x27 | he has the suspect again | kind 0xB, `0x40b530`, before the car's line, unless a strip or roadblock line was just said (`0x5524f4`) |
+| 0x28-0x2B | asks for backup | kind 0xF, `0x40b720` (the call for help, `0x4043a0`) |
+| 0x2C-0x2F | the suspect is done / caught / in custody | kind 0x13 (0x2C-0x2E) or 0x14, arrested (0x2C-0x2F), `0x40b670`, a computer racer ticketed |
+| 0x31 | the suspect missed the spike strip | kind 0x1D, `0x40bca0`, the strip's racer near (`0x403df0`) |
+| 0x32 | the suspect ran the roadblock | kind 0x1E, `0x40bd00` (`0x403ed0`) |
+| 0x33-0x34 | asks for / recommends a roadblock | kind 0x1C, `0x40b860` (`0x403b20`) |
+| 0x35-0x36 | the roadblock is in place | kind 0x22, `0x40bac0` (state 10) |
+| 0x37-0x38 | asks for / recommends a spike strip | kind 0x1B, `0x40b910` (`0x4039c0`) |
+| 0x39-0x3B | the strip is laid; 0x3A and 0x3B add the side, left and right (voice C says only that it's laid) | kinds 0x1F, 0x20, 0x21, `0x40b9c0` |
+| 0x3C-0x3F | how fast the suspect is going: over 100, 120, 140 and 180 mph (`off02A` was heard as 160 for the last) | `0x40b190` (above 44.7, 53.6, 62.6, 80.5 m/s) |
+| 0x40-0x5F | a place: "at", "by" or "on" a landmark | `0x40aeb0` |
+| 0x60-0x7F | the same places with "near" or "from" | `0x40aeb0` (place + 0x20) |
+| 0x7E, 0x7F | "a quarter mile", "a half mile", said before a "from" place | `0x40aeb0`: 0x7F when the nearest place is over 100 slices off, 0x7E over 50 |
+
+Slots 0x18-0x19, 0x1C and 0x30 are empty, and kind 0x18 (slots
+0x0C-0x0D, `0x40b7f9`, which has no caller) has no line in any bank.
+The strip's variants fit the lanes (physics.md): an even cop's strip
+lies right of the middle and says 0x3B (variant 2, kind 0x21), an odd
+one's left, 0x3A (variant 0, kind 0x20), and variant 1 the plain 0x39.
+
+**The places** come from the track's table at `0x560aa0` (one per
+track, 0-8): rows of 16 bytes, the first slice, the slice past the
+last, a kind and the slot; −1 ends it. `0x4c8550` takes the row the
+target's slice (a little ahead, by the queue's length) falls in; out
+of all rows `0x4c8470` takes the nearest. In a row the "at" form is
+said (kind 2: either form at random). Off the rows, kind 0 says the
+"near/from" form, kind 1 the "at" form, or a quarter or half mile and
+the "from" form when over 50 or 100 slices off, and kind 2 either. Hometown has 11 rows
+(slots 0x40-0x49), Atlantica 15. Tracks 4-7 have tables of their own
+but take tracks 0-3's banks (track modulo 4), so a bank holds the
+places of both tracks: in `off00` Hometown's table uses 0x40-0x49 and
+Country Woods' some of those and 0x4B-0x51 (0x4A and 0x52 are in the
+bank but in neither table); in `off02` Atlantica's uses 0x40-0x4F and
+Aquatica's goes to 0x58.
+
+**The dispatcher banks** (`disp%02x`, entry 14):
+
+| Slot | What it is | Said by |
+|---|---|---|
+| 0x10 | "all units be advised" | `0x40aa70(0x10)`: a new chase (`0x40b220`), a strip or roadblock in place when he last spoke over 1,000 sound steps ago |
+| 0x11 | an attention-all-units call | `0x40aa70(0x11)`: a cop joins (`0x40b330`), a chase taken again (`0x40b530`) |
+| 0x12 | calling the available units | `0x40aa70(0x12)`, the call for help (`0x40b720`) |
+| 0x13 | "all units" said twice | no caller found |
+| 0x14-0x1B | "unit" and the officer's number; slot 0x14 + the cop's index | `0x40aa90`, and `0x40a970` half the time |
+| 0x20 | "ten-four" | `0x40a970` with a form (after the officer's message) |
+| 0x21 | acknowledged | not asked for by the code read |
+| 0x22 | go ahead | `0x40a970` form 0, half the time |
+| 0x24-0x2B | "go ahead" and the unit's number; 0x24 + the index | `0x40a970` form 0, otherwise |
+| 0x30-0x33 | the unit is requesting backup / assistance | kind 0x10, the call for help |
+| 0x34-0x35 | go ahead with / cleared for a spike strip | kind 0x1B |
+| 0x37 | the strip has been laid | kinds 0x1F-0x21 (0x36 says the same, unused) |
+| 0x3A-0x3B | go ahead with / cleared for a roadblock | kind 0x1C |
+| 0x3C | the roadblock is set up | kind 0x22 |
+| 0x40-0x7F | the places, as in the officer banks; the dispatcher repeats the officer's last place (`0x5524f8`), with the quarter or half mile first when the officer gave one (`0x552520`) | `0x40aeb0(0, ...)` |
+
+So a call goes: officer's call sign, the dispatcher's "go ahead
+(unit)" (`0x40a970`), the message, a place or speed, a click, then the
+dispatcher's reply: his opener (0x10-0x12), "unit" and number, the
+message's reply, perhaps a place; or only "ten-four".
+
+**The car's name** (`IP<colour>spch.bnk`, entries 15 on, all three
+voices and the dispatcher in one bank): 0x00 the dispatcher's "in
+pursuit of a" and the colour and car; 0x10-0x12 voice A (cop index mod
+8 0, 3, 6), 0x20-0x22 voice B (2, 5, 7), 0x30-0x32 voice C (1, 4) (by
+`0x40a580`): +0 "in pursuit of" the car (kind 8, a new chase), +1
+"joining pursuit of" it (kind 9, and kind 0xB, taken again), +2 "I
+have it in sight" (kind 10, also kind 9's other form). `IPncspch` names
+the car with no colour.
+
+**`copspch`** (entry 8, the officer at the car, not over the radio):
+
+| Slot | What it is | Said by |
+|---|---|---|
+| 0x00-0x09 | shouts through the loudspeaker: stop, pull over, police, slow down | `0x4c89b0` (one at random, not the last), from `0x4127c0`: `0x401520` with cheat bit 0x10, every 384 steps at a chased target over 8.94 m/s |
+| 0x10-0x12 | a warning, let off lightly | the ticket scene (`0x401580` → `0x4c8b30`): 4 or more tickets left 0x10-0x11, 3 left 0x11-0x12 |
+| 0x13 | the final warning: next time he's arrested | 2 tickets left |
+| 0x20-0x22 | out of the car, you're under arrest | 1 left (the arrest) |
+
+In `c3-radio`'s first call (cop 1, voice C, 71.10 s) that reads: unit
+46's call sign (0x11), "in pursuit of" the car (car bank 0x30), by the
+covered bridges (0x43, Hometown's row for slices 171-224), over 100
+mph (0x3C); then the dispatcher: all units be advised (0x10), unit 46
+(0x15), "in pursuit of" the car (0x00), the same place (0x43).
 
 ## EA-XA ADPCM
 
