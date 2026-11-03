@@ -49,8 +49,9 @@ by the static inspection and must not become undocumented assumptions in code.
   and display settings. Successful media decoding is not a rendering match.
 - A proven minimum runtime file set. The inspection proposes a conservative
   resource set; only dependency tracing and end-to-end runs can establish
-  sufficiency. Detection and initial resource readers now exist; see the
-  [engine README](../../engines/boggle/README.md). An early Classic Original slice is playable; importing remains unavailable.
+  sufficiency for all original features. A tested 39-file import set now covers
+  the native English Classic Original/Master slice and existing detection markers;
+  see [import scope](../../engines/boggle/import.md). It is not a full-game minimum.
 
 Research evidence must cite a manifest SHA-256 and file offset/RVA or a
 repeatable observation. Keep retail assets, dictionary entries, screenshots,

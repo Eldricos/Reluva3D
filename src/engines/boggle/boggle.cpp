@@ -4,6 +4,8 @@
 #include "engines/boggle/classic/game.h"
 #include "engines/boggle/classic/options.h"
 #include "engines/boggle/resources.h"
+#include "engines/boggle/import.h"
+#include "common/fs.h"
 
 namespace reluva::boggle {
 namespace {
@@ -26,6 +28,17 @@ public:
     const char* name() const override { return "Boggle (1997)"; }
     std::vector<DetectedGame> detect(const std::filesystem::path& dir) const override {
         return detectFromTable(id(), kVariants, dir);
+    }
+    std::vector<ImportPlan> planImport(const std::filesystem::path& source) const override {
+        std::vector<std::filesystem::path> roots{source};
+        if (auto expanded = fs::findDirectory(source,"Boggle")) roots.push_back(*expanded);
+        for (const auto& root : roots) {
+            const auto found = detect(root);
+            if (found.empty()) continue;
+            ImportPlan plan;
+            if (!classicImportPlan(root,found.front(),kVariants.front().files,plan)) return {std::move(plan)};
+        }
+        return {};
     }
     std::vector<GameOption> options(const std::string& gameId, const std::filesystem::path& dir) const override {
         if (gameId != "boggle1997") return {};

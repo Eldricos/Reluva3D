@@ -37,8 +37,10 @@ Use Page Up / Page Down to browse a long word list. See the
 
 Game ID: `boggle1997`. Add the installed folder containing `Boggle.exe`, or
 its equivalent expanded `Boggle/` directory on the supplied CD. The CD root
-and compressed-only installers are not recognized as runnable directories;
-Import Game is not implemented yet.
+and compressed-only installers are not recognized as runnable directories.
+**Import Game** accepts the install, the expanded CD folder, or the CD root
+containing it, and copies the 39-file English Classic set into your external
+library. See [import scope and validation](import.md).
 
 Detection requires measured prefix-MD5/size signatures for `Boggle.exe`,
 `Language/English.dll` and `Dicts/English.dic`, plus representative resources
@@ -95,6 +97,9 @@ in the EXE are absent from the supplied copies; see the
 
 ## Tests
 
+`import-check <source folder>` validates and fingerprints the Classic import
+plan without copying files.
+
 `music-check <folder>` validates all fifteen installed WAV loop tracks and
 reports counts/checksums without exporting samples.
 
@@ -120,7 +125,8 @@ cleanup using synthetic assets; rendered states have checksum records. A decoded
 change must change the resource checksum even when counts remain the same.
 
 Optional local game-data tests check positive detection and the complete
-supported resource survey, dictionary decoding and deterministic Original/Master rounds. Without a game path they skip. When running them,
+supported resource survey, dictionary decoding, deterministic Original/Master rounds,
+and a complete external import/copy check. Without a game path they skip. When running them,
 explicitly select an analysis output directory outside all Git worktrees:
 
 ```sh
