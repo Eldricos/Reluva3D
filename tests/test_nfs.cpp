@@ -949,6 +949,50 @@ void testParticles() {
           corners[3] == (ParticleVec{8.5f, 5.5f, 5}) && d.tail == (ParticleVec{7, 5, 5}));
 }
 
+void testViewAndRoadFrame() {
+    // The screen (0x4dbce0, 0x4bf260): 90 degrees across, 36 up for each
+    // half, at 640 x 480: 320 and -330.33; 75 degrees: 37 and 30.
+    const ViewScreen s = viewScreen(0, 0, 640, 480);
+    CHECK(std::fabs(s.sx - 320) < 1e-3f && std::fabs(s.sy + 330.332f) < 1e-2f && s.cx == 320 && s.cy == 240);
+    CHECK(s.right == 640 && s.bottom == 480);
+    const ViewScreen narrow = viewScreen(0, 0, 640, 480, 75, true);
+    CHECK(std::fabs(narrow.sx + 320 / std::tan(37 * 0.0174532925f)) < 1e-2f);
+    CHECK(std::fabs(narrow.sy + 240 / std::tan(30 * 0.0174532925f)) < 1e-2f);
+
+    // The road's frame on a polygon: the virtual road vector its record's
+    // byte 0 picks (up, forward as s16 / 32768), right up x forward, the
+    // point its vertex 1.
+    Track::Block b;
+    b.vertices = {{0, 5, 0}, {10, 5, 0}, {10, 5, 10}, {0, 5, 10}};
+    Track::Polygon p;
+    p.vertices = {0, 1, 2, 3};
+    b.polygons[4] = {p};
+    b.polygonRoad = {1, 0, 0, 0, 0, 0, 0, 0};
+    auto put = [&](int16_t v) {
+        b.virtualRoad.push_back(static_cast<uint8_t>(v));
+        b.virtualRoad.push_back(static_cast<uint8_t>(static_cast<uint16_t>(v) >> 8));
+    };
+    for (int16_t v : {0, 0, 0, 0, 0, 0}) // entry 0, unused
+        put(v);
+    // Entry 1: tilted up across (a camber of 0.1 / 1), forward along z.
+    const float tilt = 0.1f / std::sqrt(1.01f);
+    for (int16_t v : {static_cast<int16_t>(-tilt * 32768), static_cast<int16_t>(32768 / std::sqrt(1.01f) - 1),
+                      int16_t(0), int16_t(0), int16_t(0), int16_t(32767)})
+        put(v);
+    RoadFrame f;
+    CHECK(polygonRoadFrame(b, 0, f));
+    CHECK(f.point == (std::array<float, 3>{10, 5, 0}));
+    CHECK(std::fabs(f.right[0] - 0.995f) < 1e-3f && std::fabs(f.right[1] - 0.0995f) < 1e-3f);
+    // On the plane: 5 m to the right of the point it's 0.5 up; a point
+    // above it is taken along the up (so a little to the left), not down.
+    CHECK(std::fabs(roadFrameHeight(f, {15, 5.5f, 0}) - 5.5f) < 1e-3f);
+    const float above = roadFrameHeight(f, {15, 7.5f, 0});
+    CHECK(above > 5.5f && above < 5.7f);
+    CHECK(std::fabs(roadFrameHeight(f, {10, 5, 30}) - 5) < 1e-3f); // along the forward
+    b.virtualRoad.resize(12);
+    CHECK(!polygonRoadFrame(b, 0, f));
+}
+
 void testTrack() {
     const Bytes file = makeTrack();
     Track t;
@@ -1423,6 +1467,26 @@ void testHorizon() {
     if (h.fogRegions.size() == 1)
         CHECK(h.fogRegions[0].apex.colour[2] == 22 && h.fogRegions[0].end.density == 70 &&
               h.fogRegions[0].afterSlice == 200);
+    {
+        // The fog by the camera's road slice (0x478e10): Lost Canyons' day
+        // region, 850-910-1000 from 50 % (44, 28, 38) to 10 % black.
+        Horizon lc;
+        lc.fogColour = {44, 28, 38};
+        lc.fogDensity = 50;
+        Horizon::FogRegion r;
+        r.beforeSlice = 850;
+        r.centreSlice = 910;
+        r.afterSlice = 1000;
+        r.start = {{44, 28, 38}, 50};
+        r.apex = {{0, 0, 0}, 10};
+        r.end = {{0, 0, 0}, 20};
+        lc.fogRegions = {r};
+        CHECK(fogAtSlice(lc, 120).density == 50 && fogAtSlice(lc, 849).colour == (Horizon::Rgb{44, 28, 38}));
+        CHECK(fogAtSlice(lc, 850).density == 50 && fogAtSlice(lc, 910).density == 10);
+        const Horizon::FogPoint mid = fogAtSlice(lc, 880);
+        CHECK(mid.density == 30 && mid.colour == (Horizon::Rgb{22, 14, 19}));
+        CHECK(fogAtSlice(lc, 955).density == 15 && fogAtSlice(lc, 1000).density == 20 && fogAtSlice(lc, 1001).density == 50);
+    }
     CHECK(h.cloudType == 1 && h.visualHeight == 500 && h.cloudDomeOffset == (std::array<int, 2>{-100, 250}));
     CHECK(h.mirror && !h.blackHorizon && h.radius == 1500 && h.hasPixmap);
     CHECK(h.shadedBase == -1200 && h.shadedHeight == 1800 && h.pixmapBottom == 1150);
@@ -2397,6 +2461,7 @@ int main() {
     testReflectionUv();
     testPlacedSounds();
     testHeadlights();
+    testViewAndRoadFrame();
     testCarLighting();
     testCarReflection();
     testLightEffects();

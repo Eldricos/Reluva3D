@@ -114,6 +114,38 @@ Error parseHorizon(std::string_view text, Horizon& out) {
 
 // From nfs3.exe (0x470ad0 and 0x470b20, with the multiplier made as the
 // .hrz is read, 0x47a88e): 5 x (100 - density), clamped to 5..500.
+Horizon::FogPoint fogAtSlice(const Horizon& h, int slice) {
+    Horizon::FogPoint out{h.fogColour, h.fogDensity};
+    for (const Horizon::FogRegion& r : h.fogRegions) {
+        if (slice < r.beforeSlice || slice > r.afterSlice)
+            continue;
+        // f, the share of the far point: (centre - slice) / (centre -
+        // before) of the start before the centre, (slice - centre) /
+        // (after - centre) of the end past it; the apex's own at the
+        // centre or with no slices to go.
+        const Horizon::FogPoint* far = nullptr;
+        float f = 0;
+        if (slice < r.centreSlice && r.centreSlice != r.beforeSlice) {
+            far = &r.start;
+            f = static_cast<float>(r.centreSlice - slice) / static_cast<float>(r.centreSlice - r.beforeSlice);
+        } else if (slice > r.centreSlice && r.afterSlice != r.centreSlice) {
+            far = &r.end;
+            f = static_cast<float>(slice - r.centreSlice) / static_cast<float>(r.afterSlice - r.centreSlice);
+        }
+        out = r.apex;
+        if (far) {
+            auto mixed = [&](int apex, int other) {
+                return static_cast<int>(static_cast<float>(apex) * (1 - f) + static_cast<float>(other) * f);
+            };
+            for (int i = 0; i < 3; ++i)
+                out.colour[size_t(i)] = mixed(r.apex.colour[size_t(i)], far->colour[size_t(i)]);
+            out.density = mixed(r.apex.density, far->density);
+        }
+        return out;
+    }
+    return out;
+}
+
 int sceneryFogValue(int density) {
     return density == 0 ? 0 : 5 * std::clamp(100 - density, 1, 100);
 }

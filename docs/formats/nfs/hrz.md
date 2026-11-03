@@ -16,7 +16,9 @@ Every retail file has, in order:
 - the number of dynamic fog regions (0 to 15 in the retail files);
 - 15 numbers per region:
   - start, apex and end, each r, g, b and density;
-  - the slices (track blocks) before, at the centre and after.
+  - the road slices before, at the centre and after (virtual road
+    slices, not blocks: Lost Canyons' two regions run from slice 850 to
+    1077, round the covered stretch of slices 906-1064).
 - 48 numbers, as their comments name them:
   - **Clouds:** cloud type (1 additive, 2 blended); fog clouds;
     lightning and its chance; visual height; cloud dome offset (2); cloud
@@ -242,7 +244,15 @@ value v is:
   horizon picture, 1500 away, is fogged about half.
 
 The density and colour are the dynamic fog region's where the camera is,
-as below; the same density goes into both values.
+as below; the same density goes into both values. **Which region**
+(`0x478e10`, November 2026): the camera's car's road slice (`0x4217e0`,
+its `+0xEC`, or `+0x84` when that is below 0) against each region's
+before and after slices, the first that holds it. Before the centre the
+colour and density are the apex's × (1 − f) + the start's × f, f =
+(centre − slice) / (centre − before); past it the apex's and the end's
+by (slice − centre) / (after − centre); at the centre, or with no slices
+between, the apex's; each truncated (`0x4dfd56`). Outside every region,
+the horizon's own (`0x55d26c`, `0x55d270`).
 
 With `softtria.dll` the game draws none of this: the sky is the clear
 colour, fog stays off, and it uses the 8-bit texture set
@@ -267,8 +277,13 @@ The Tracks page draws as the game does, above, with the functions in
   sides.
 - **The clear colour** is the sky's top colour, and black with no sky
   drawn where the game has that (`skyBlack`).
-- **The view** is the game's, 90° across at 4:3 (it was 72° until
-  November 2026).
+- **The view** is the game's: 90° across and 72° up at 640 × 480
+  (`viewScreen`, from `0x4dbce0` and `0x4bf260`: half angles of 45 and
+  45 × 13 / 16 = 36 whole degrees, so x scaled by 320 and y by 330.33,
+  pixels 3 % taller than wide; with the `viewangle` option, `0x6fbc40`,
+  at 1, 75° across and 60° up). It was 72° across until November 2026,
+  then 90° across with square pixels (2 atan 0.75 up) until the
+  projection was read.
 - **The sun or moon.** The variant's picture (`SUND`, `SUNN`, `SUNW`, and
   `SNNW` for night with weather where a track has one, else `SUNW`) at
   the game's place and size, facing the camera, upright or, with
@@ -282,10 +297,14 @@ The Tracks page draws as the game does, above, with the functions in
   textures have none: the night's `CLDN` is black with one-texel stars
   (at most 100), which mipmaps averaged nearly away.
 - **Fog.** The game's curve and values, per pixel over the depth
-  (`DrawCall::tableFog`). Within a dynamic fog region (by the block the
-  camera is in), the colour and density go from the start's to the
-  apex's between the before and centre blocks, then to the end's by the
-  after block. `Y` turns fog off and on.
+  (`DrawCall::tableFog`). Within a dynamic fog region, by the camera's
+  road slice as above (`fogAtSlice`), the colour and density go from the
+  start's to the apex's between the before and centre slices, then to
+  the end's by the after slice. `Y` turns fog off and on. Until November
+  2026 the page looked the regions up by the camera's block, which no
+  region's slices reach on most tracks: in Lost Canyons' covered stretch
+  it fogged at the day's 50 % towards (44, 28, 38) where the game has
+  10 % towards black.
 - **Ambient light.** The percentages scale the track's baked vertex
   lighting.
 - **Lightning.** The game's bolts, chances, jitter, life and flash,
@@ -413,6 +432,24 @@ times as m:ss), against the Tracks page and frames from `nfs-host`:
   Tilted and turned views on Hometown and Rocky Pass draw the horizon
   straight across, as the code has it; there is no host frame with the
   camera pitched far to compare with.
+
+- **Lost Canyons' covered stretch** (November 2026). An `nfs-host` day
+  race with the player's car poked onto slice 960 (`t5-lc2`, frame 3206,
+  the camera dumped at the same sky draw) and its THRASH list written
+  out (`-gpudump`): the road and rock vertices go to the card with
+  their baked colours as stored (ambient 100 %), fog value 450 (density
+  10) in black, and the frame is their texels × colours fogged so. The
+  page from that camera was 11-23 % brighter in red and green and
+  23-80 % in blue (more with distance) at the 140 polygons' middles: it
+  took the fog region by the camera's block (119), outside both of
+  Lost Canyons' regions (slices 850-1077), so fogged at 50 % towards
+  (44, 28, 38). Looked up by slice, the page is 5-9 % brighter (11-41 %
+  in blue, far off), about what the host's 16-bit frames take off by
+  truncating to 5, 6 and 5 bits at these dark levels (3.5, 1.5 and 3.5
+  on average). The projection matches too: the best vertical scale of
+  the page's frame against the host's is 1.00, where 0.97 (the page's
+  old 3 % shorter view) fits worse here, on Hometown's town by day and
+  at night.
 
 Not checked against the game:
 

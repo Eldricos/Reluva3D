@@ -216,8 +216,23 @@ From nfs3.exe (November 2026), the drawing of a car (`car_draw_wheels`
   `0x4d5370`; `0x492370` draws it, `0x491190` too for the track's
   lights along with `glw0`) added by its alpha, its corners `size`
   from its centre, turned by ¼ turn × (x / z + 1) across the screen.
-  The Tracks page draws the T and H glows 0.3 nearer than the lamp (the
-  game gives them the body's depth).
+
+  **Its depth** (`0x492370`, November 2026). The quad is projected at
+  the light's place (only when that is from 0 to 300 deep, `0x43960001`
+  compared as an integer, and its centre on the screen), its corners
+  `size` × the screen's scales / z, but its 1 / z, the depth the
+  z-buffer tests and the sorting key, are taken from the sixth argument
+  plus the seventh, the light's own z when the sixth is 0. For the T and
+  H glows the car's drawing (`0x4bb200`, `0x4bab70` → `0x4b8740`)
+  passes the least view depth of the body's vertices (`0x49de20` for
+  part 0, part 5 at the lower detail: the minimum of the transformed
+  vertices' z in `0x49d9d0`) and 0, so a glow is as near as the body's
+  nearest point: the body never hides it, while anything nearer than
+  the car does. The roof lights pass 0 and −0.75: their own depth less
+  0.75. The Tracks page does the same: each quad is moved along its ray
+  to that depth and scaled with it, which leaves it on the same pixels.
+  Until November 2026 it pulled the T and H glows 0.3 towards the
+  camera instead, which let the body hide them when seen from the side.
 - **The rain's flares** (`0x491bc0`, November 2026; `rainFlare`). For
   each T or H glow drawn whose dummy's fifth letter isn't N, with the
   Special Effects option not Off, in the weather (`0x6fd4cc`), the car's
@@ -231,9 +246,25 @@ From nfs3.exe (November 2026), the drawing of a car (`car_draw_wheels`
   camera on the ground, L its length and L' = L × (−the light's way ·
   d / L) (the car's forward for H, backward for T), half wide size / 2
   (`0x53bcc8`) either side, long 0.75 L' (`0x53bce0`), at most 30, or
-  the half width when that is more; its corners 0.125 above the light's
-  road polygon's plane (`0x4968a0`, `0x53bcf0`); the glow's colour × 166
-  / 256, then × the effects intensity; sorted at L'.
+  the half width when that is more; the glow's colour × 166 / 256, then
+  × the effects intensity; sorted at L'. **Its height** (November
+  2026): `trackpos_build` (`0x420650`) finds the road polygon under the
+  light and puts the light on the road by `0x4969c0`; the corners start
+  at that height and each is put on the road the same way by
+  `0x4968a0`, then raised 0.125 (`0x53bcf0`). Both take the point into
+  the road's frame at the track position (`trackpos_road_frame`,
+  `0x420230`: with a polygon found, `+0x64` = 2, its up and forward the
+  block's virtual road vector that the polygon's 8-byte record's byte 0
+  picks, frd.md, six s16 / 32768; right = up × forward; the point the
+  polygon's vertex 1), drop the part along the up, and take the point
+  back: the height is point.y + ((p − point) · right) right.y +
+  ((p − point) · forward) forward.y. On a cambered road that isn't the
+  height straight below, which the page took until November 2026
+  (`polygonRoadFrame`, `roadFrameHeight`). Without a polygon there is
+  no flare. On Hometown and Lost Canyons the vector a road polygon's
+  record picks is the polygon's own normal or its negative (a wall's),
+  which the projection doesn't mind: within 0.99 for all but 27 of
+  Hometown's 11,624.
 - **The fog's beam** (`0x492980`, from `0x4b8efe`; `fogBeam`,
   `fogBeamColour`). For each H dummy with the lights on (or flashing
   with the siren), facing the camera or not, while the fog's density
@@ -259,8 +290,14 @@ From nfs3.exe (November 2026), the drawing of a car (`car_draw_wheels`
   road's surface 1, and the intro's shots show short red smears on the
   wet road under the cars' tail lights, the picture's bright top a
   little in front of the light, as the page has them; `0x492980` was
-  called as often, the fog there being 60. No frame showed a car facing
-  the camera close enough to compare a beam.
+  called as often, the fog there being 60. A day race in the rain on
+  Hometown with the player held on slice 230 (fog 85) and a computer
+  car held six slices on, turned to face it 2 m to the side (`t5-fog`,
+  `-pokeevery` of its position, rows and speed) shows that car's two
+  headlight glows and their short flares on the road below them, and no
+  beam: looking into it the beam's colour is scaled to nearly nothing,
+  as the code has it. The page's stand-in cars can't be placed there,
+  so the page wasn't compared.
 
 ## How the game loads a model
 

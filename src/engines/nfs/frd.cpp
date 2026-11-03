@@ -367,6 +367,34 @@ Headlight sirenLight(const std::array<float, 3>& carAt, const std::array<float, 
     return h;
 }
 
+ViewScreen viewScreen(int left, int top, int width, int height, int viewAngle, bool mirrored) {
+    // 0x4dbce0: the half angles in whole degrees, (a x 13) >> 4 rounded
+    // towards zero.
+    const int across = viewAngle / 2, up = across * 13 / 16;
+    // 0x4bf260: tan of the angle x 0x5401c4 (pi / 180 as a float) on the
+    // x87, then x 0x5401c0 (0.5).
+    const double degree = static_cast<double>(0.017453279f);
+    const double w = width, h = height;
+    double sx = w, sy = w; // with no angle across: the window's width
+    if (across != 0) {
+        const double t = std::tan(across * degree);
+        sx = w / t;
+        sy = up != 0 ? h / std::tan(up * degree) : w / t;
+    }
+    ViewScreen s;
+    s.sx = static_cast<float>(sx) * 0.5f;
+    s.sy = -static_cast<float>(sy) * 0.5f;
+    if (mirrored)
+        s.sx = -s.sx;
+    s.cx = static_cast<float>(width) * 0.5f + static_cast<float>(left);
+    s.cy = static_cast<float>(height) * 0.5f + static_cast<float>(top);
+    s.left = static_cast<float>(left);
+    s.right = static_cast<float>(left + width);
+    s.top = static_cast<float>(top);
+    s.bottom = static_cast<float>(top + height);
+    return s;
+}
+
 bool lightMissesBlock(const Headlight& light, const std::array<std::array<float, 3>, 4>& corners, float zoom,
                       bool bothWays, const ViewScreen& screen) {
     zoom = std::min(zoom, 1.0f);
@@ -596,6 +624,35 @@ int coverDepth(const TrackCollision& col, int slice, const std::array<float, 3>&
 
 int roadSurface(const Track::Block& b, size_t index) {
     return 8 * index + 1 < b.polygonRoad.size() ? b.polygonRoad[8 * index + 1] & 0x3f : 0;
+}
+
+bool polygonRoadFrame(const Track::Block& b, size_t index, RoadFrame& out) {
+    if (8 * index >= b.polygonRoad.size() || index >= b.polygons[4].size())
+        return false;
+    const size_t record = b.polygonRoad[8 * index];
+    if (12 * record + 12 > b.virtualRoad.size())
+        return false;
+    const Track::Polygon& p = b.polygons[4][index];
+    if (p.vertices[1] >= b.vertices.size())
+        return false;
+    auto s16 = [&](size_t k) {
+        const size_t at = 12 * record + 2 * k;
+        return static_cast<float>(static_cast<int16_t>(b.virtualRoad[at] | (b.virtualRoad[at + 1] << 8))) / 32768.0f;
+    };
+    out.up = {s16(0), s16(1), s16(2)};
+    out.forward = {s16(3), s16(4), s16(5)};
+    const auto& u = out.up;
+    const auto& f = out.forward;
+    out.right = {u[1] * f[2] - u[2] * f[1], u[2] * f[0] - u[0] * f[2], u[0] * f[1] - u[1] * f[0]};
+    out.point = b.vertices[p.vertices[1]];
+    return true;
+}
+
+float roadFrameHeight(const RoadFrame& f, const std::array<float, 3>& p) {
+    const std::array<float, 3> d{p[0] - f.point[0], p[1] - f.point[1], p[2] - f.point[2]};
+    const float along = d[0] * f.right[0] + d[1] * f.right[1] + d[2] * f.right[2];
+    const float ahead = d[0] * f.forward[0] + d[1] * f.forward[1] + d[2] * f.forward[2];
+    return f.point[1] + along * f.right[1] + ahead * f.forward[1];
 }
 
 bool wetSurface(int surface) {

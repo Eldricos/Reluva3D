@@ -23,7 +23,7 @@ struct Horizon {
     };
     struct FogRegion {
         FogPoint start, apex, end;
-        int beforeSlice = 0, centreSlice = 0, afterSlice = 0; // blocks
+        int beforeSlice = 0, centreSlice = 0, afterSlice = 0; // road slices
     };
 
     Rgb fogColour{};
@@ -55,6 +55,13 @@ Error parseHorizon(std::string_view text, Horizon& out);
 // Fog) for a fog density in percent: for the scenery, and for the sky's
 // horizon picture, earth and clouds, which it fogs less by the horizon's
 // radius and the fog's effect on the pixmap. 0 for no fog.
+// The fog where the camera's car is (0x478e10): the horizon's own colour
+// and density, or within the first dynamic fog region whose slices hold
+// `slice` (the car's road slice, +0xEC, by 0x4217e0; not its block), the
+// start's mixed towards the apex's by the slices from the before one to
+// the centre, then the apex's towards the end's to the after one; the
+// mix x87 floats, each value truncated (0x4dfd56).
+Horizon::FogPoint fogAtSlice(const Horizon& h, int slice);
 int sceneryFogValue(int density);
 int skyFogValue(const Horizon& h, int density);
 

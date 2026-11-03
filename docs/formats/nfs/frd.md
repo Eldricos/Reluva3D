@@ -247,9 +247,12 @@ where it changes ([mus.md](mus.md), The events the game sends).
 The Tracks page shows each light as the game's two quads facing the
 camera (`lightQuads`), in its type's colour and size and blinking as the
 table above has it, none with the Special Effects option Off (key Q),
-and each sound as a cyan diamond. It takes the screen's x scale for
-both of `glw0`'s directions (square pixels; the game's y scale is 3 %
-larger). It plays the sounds as the game does:
+and each sound as a cyan diamond. Its view is the game's (`viewScreen`,
+hrz.md): x scaled by 320 and y by 330.33, so `glw0`'s corners, 0.025 ×
+size × z units from the centre across and up, land on the game's pixels,
+3 % taller than wide. Until November 2026 the page's pixels were square
+(the view 2 atan 0.75 high instead of 72°), so everything stood 3 %
+lower than in the game. It plays the sounds as the game does:
 only each block's first, louder by the game's inverse square and panned
 by side; the nearest loop within 300 units (the game takes the first of
 the blocks seen) and one-shots when the timer picks a frame, counting
@@ -410,7 +413,17 @@ drew them added in full (`<additive>`) or blended over before. An
 `nfs-host` frame driving through the bridge by day (`r1-on2`, frame
 3342 at 0:42.79 on the race clock) shows the shafts as faint grey
 wedges from the right-hand windows across the floor, as the page now
-draws them from block 21; they weren't compared pixel for pixel.
+draws them from block 21. Compared pixel for pixel (November 2026,
+`t5-br`: the car held on slice 207 inside the bridge, frame 2646 with
+the camera dumped at that sky draw; `t5-brg`, its THRASH list): the
+game sends the 17 shaft quads it draws as picture 21 (16 × 16 grey, mean
+46, alpha 255) in `7F7F7F7F`, blend mode 1, fogged at 175 towards
+(183, 184, 190), the fog of the region at slice 207 (density 65), as the
+page draws them. The wedges fall on the same pixels; walls, floor and
+ceiling are 3-6 brighter on the page (the host's 16-bit truncation),
+the shafts' brightest overlaps about 11 more. Each added layer is
+truncated again in the host's 16-bit frame, which would account for
+that; not proven.
 
 **Texture flag `0x04` and the headlights.** `0x41ae90` is called for
 each car (the loop at `0x41c6cc` over the cars, `0x5efac8`) and each
@@ -536,8 +549,8 @@ within 150 of the block's centre on the ground (`0x536cbc` = 150²):
   ratio held to 0..1. Behind the car a light has no colour (`+0x74` is
   0 for cars).
 - **Each polygon** of the block's road and roadside at its detail, object
-  layers 0 to 2 and, at high detail, the lane markings (`0x41ae90`; not
-  the placed objects), with its first corner within the reach and
+  layers 0 to 2 and, at high detail, the lane markings (`0x41ae90`; the
+  placed objects have their own pass, below), with its first corner within the reach and
   facing the view as for drawing: if `projtex` is on with the z-buffer
   and its texture lacks `0x04`, two triangles (corners 0, 1, 2 and 0, 2,
   3) of `glw2` from `sfx.fsh` (128 × 128, two lamps and a halo; loaded
@@ -567,6 +580,30 @@ polygons. The night clips show the projected picture: a white pool with
 the lamps' lobes and a sharp far edge ahead of the car
 (`Hometown_Night` 0:40, `Summit_Night` 2:17), which is what the page
 draws by default.
+
+**The placed objects** (`0x41c310`, November 2026). Each placed
+object of a group drawn (`0x41ca40`: type 4 at its reference point,
+type 3 at its key, others at the origin) is lit by night, except in the
+mirror (view 1): for each car in the race's list in play, not hidden,
+within 150 of the object's place on the ground (`0x536cb4`, a double
+22,500), its roof light with the siren on and then its headlights with
+them on, each skipped as for a block (`0x41bc50`; `0x41bf30` or
+`0x41bc90` with the outline of the block the group belongs to) and at
+full strength (`0x41a800` with 1, not reduced for the cars already lit),
+raise each vertex fully inside the light (no outcode) to the light's
+colour, byte by byte, as the block pass raises a flag-`0x04` polygon's
+corners. That is whatever the object's textures and the `projtex`
+option: placed objects never get the projected picture. Hometown's lamp
+posts in the town centre are such objects (8 vertices each, two crossed
+two-sided quads of picture 101, block 65's first group): in `nfs-host`'s
+night race (`t4-town`, frame 2720) they stand bright green in the
+player's high beams, where the page drew them nearly black. The page
+now lights its still objects so, and draws a raised colour over a
+two-sided polygon without culling it (it culled the far side of every
+two-sided polygon's raise, so a crossed quad seen from its back got
+none); with `projtex` off (Shift+E) as `nfs-host` has it, the posts,
+fences and shop fronts there match the frame. Moving objects aren't lit
+on the page.
 
 **Other cars' lights** (`0x41c670`, November 2026). The pass goes
 through the race's cars in their list's order (`0x5efac8`, count
@@ -696,9 +733,26 @@ them along the slices at the speed that leaves:
   (`0x4097c0`); 11, the best line: the speed table's lane nibble 4 slices
   ahead, worth 6 for a driver of skill 0, else 10, or 12 with personality
   over 2 (`ai_lane_vote_line`, `0x4096b0`; not for a car running the
-  other way). Halved for a car only partly in that lane. Left out:
-  `0x40d720` (a list at `0x7dd850`, not followed), the grudge
-  (`0x409840`) and the human behind (`0x4095d0`).
+  other way). Halved for a car only partly in that lane. Left out, as
+  the page has nothing they act on (read November 2026):
+  - `0x40d720`: eight 0x50-byte records at `0x7dd850` (in use when
+    the first word isn't 0; a slice at +0x34, a lane at +0x38): a lane
+    holding one 1 to 5 slices ahead in the car's direction gets −50 in
+    row 5 (`0x56eecc`),
+    and if it is the car's own lane its +0x7B0 is scaled by
+    `0x536724`. What fills the records (roadblocks or wrecks, most
+    likely) wasn't followed;
+  - the grudge (`0x409840`): a driver of personality over 2 with
+    +0x6E4 above 0, +0x7D4 0 and a target car at +0x624 sets bit 0x80 of
+    +0x621 when the target is the nearest car ahead in one of its three
+    lanes 0 to 4 slices on (`0x56ef38`, `0x56ef44`); no vote of its own;
+  - the human behind (`0x4095d0`): a driver of personality over 2, past
+    the start (`0x40f050`) and while `0x56ec80` is at most 4, adds 15
+    in row 12 (`0x56ef20`) for each lane whose nearest car behind
+    (`0x56ef50`, a flag at `0x56ef6e`) is a human's (+0x200 bit 4)
+    within 10 slices: it blocks a human. The page's camera is no racer,
+    so this never applies there;
+  - the catch-up of the speed scale.
 - **The aim** (`0x40daf0`): the chosen lane's middle, (L − 7 + ½) right
   lanes' widths or (6 − L + ½) left ones'; for the lane just past the
   road's lanes, the car's half width past the edge; within the walls
@@ -781,7 +835,10 @@ the placed objects' loop, `0x41b6e2`, and the headlight pass,
 `0x41d620` leaves alone: only `+0x28`, `+0x38` and `+0x3c` (the
 blocks' reach and the detail distances, read as floats at `+0x34`,
 `+0x40` and `+0x44`) are scaled by the view level and the night. So
-the cut-off is 500 by night too, where the blocks' reach is 375.
+the cut-off is 500 by night too, where the blocks' reach is 375. Not compared on a moving object against a frame: Hometown's spinner
+(at (−563, 2, 442)) stands about 500 ahead of road slices 489-491, but
+`nfs-host` frames from there (`t5-hd`, the car poked onto slices 489
+and 491) show the town's buildings in front of it, as the page does.
 
 The Tracks page draws the same set of blocks from the block nearest
 the camera, with view level 1 (`K` draws every block instead, and

@@ -46,11 +46,14 @@ constexpr const char* kEnvPicture[] = {"CHRD", "CHRN", "CHRW", "CHNW"};
 // The game's ticks (0x7d3684 counts them): 641 in 10 seconds of a race.
 // Moving objects' key delays and the clouds' drift are in them.
 constexpr int kGameTicksPerSecond = 64;
-// The camera's vertical field of view (radians), as gfx::perspective has it.
-// The game's view: 90 degrees across at 640 x 480 with square pixels
-// (0x4bf260; a slot of the horizon, 22.5 degrees, is 126 pixels wide), so
-// 2 atan(0.75) high.
-const float kFieldOfView = 2 * std::atan(0.75f);
+// The game's screen at 640 x 480 (viewScreen: 0x4dbce0, 0x4bf260): 90
+// degrees across (sx 320) and 72 up (sy -330.33), so its pixels are
+// 330.33 / 320 taller than wide. The tangents of the half angles, and the
+// vertical field of view (radians) as gfx::perspective has it.
+const ViewScreen kScreen = viewScreen(0, 0, kFrameW, kFrameH);
+const float kTanAcross = static_cast<float>(kFrameW) / 2 / kScreen.sx; // 1
+const float kTanUp = static_cast<float>(kFrameH) / 2 / -kScreen.sy;    // tan 36 degrees
+const float kFieldOfView = 2 * std::atan(kTanUp);
 
 std::string lower(const std::string& s) { return fs::toLower(s); }
 
@@ -58,13 +61,6 @@ void setColour(gfx::Vertex& v, const Horizon::Rgb& c) {
     for (int i = 0; i < 3; ++i)
         v.color[i] = static_cast<uint8_t>(std::clamp(c[i], 0, 255));
     v.color[3] = 255;
-}
-
-Horizon::Rgb mix(const Horizon::Rgb& a, const Horizon::Rgb& b, float t) {
-    Horizon::Rgb out;
-    for (int i = 0; i < 3; ++i)
-        out[i] = static_cast<int>(a[i] + (b[i] - a[i]) * t);
-    return out;
 }
 
 // The matrix placing a moving object at a key: the key's rotation (a
@@ -668,25 +664,10 @@ int TrackPage::roadSliceAt() const {
     return best;
 }
 
-void TrackPage::fogAt(int block, Horizon::Rgb& colour, float& density) const {
-    colour = horizon_.fogColour;
-    density = static_cast<float>(horizon_.fogDensity);
-    for (const Horizon::FogRegion& r : horizon_.fogRegions) {
-        auto lerp = [&](const Horizon::FogPoint& a, const Horizon::FogPoint& b, float t) {
-            colour = mix(a.colour, b.colour, t);
-            density = a.density + (b.density - a.density) * t;
-        };
-        if (block >= r.beforeSlice && block < r.centreSlice) {
-            lerp(r.start, r.apex, float(block - r.beforeSlice) / float(r.centreSlice - r.beforeSlice));
-            return;
-        }
-        if (block >= r.centreSlice && block <= r.afterSlice) {
-            lerp(r.apex, r.end, r.afterSlice > r.centreSlice
-                                    ? float(block - r.centreSlice) / float(r.afterSlice - r.centreSlice)
-                                    : 0.0f);
-            return;
-        }
-    }
+void TrackPage::fogAt(int slice, Horizon::Rgb& colour, float& density) const {
+    const Horizon::FogPoint f = fogAtSlice(horizon_, slice);
+    colour = f.colour;
+    density = static_cast<float>(f.density);
 }
 
 void TrackPage::load(int index) {
@@ -1042,7 +1023,8 @@ void TrackPage::prepareHeadlights(int here, const gfx::Vec3& eye, const gfx::Vec
         for (int i = 0; i < 3; ++i)
             ambient[i] = static_cast<float>(horizon_.ambient[size_t(i)]) / 100.0f;
     std::vector<gfx::Vertex> projectedTris; // the projected picture's triangles
-    std::map<gfx::TextureId, std::vector<gfx::Vertex>> floors; // the colour raised, by texture
+    // The colour raised, by texture and two-sidedness (flag 0x10).
+    std::map<std::pair<gfx::TextureId, bool>, std::vector<gfx::Vertex>> floors;
     auto vertexAt = [](const Track::Vec3& p) {
         gfx::Vertex v{};
         v.pos[0] = p[0];
@@ -1156,7 +1138,7 @@ void TrackPage::prepareHeadlights(int here, const gfx::Vec3& eye, const gfx::Vec
                                                    : picture(sheet, tex.picture, false, &additive);
                 if (additive || (tex.flags & Track::Texture::kSeeThrough))
                     continue;
-                auto& into = floors[id];
+                auto& into = floors[{id, (p.flags & Track::Polygon::kTwoSided) != 0}];
                 for (int k : {0, 2, 1, 0, 3, 2}) {
                     const uint16_t vertex = p.vertices[size_t(k)];
                     gfx::Vertex v = vertexAt(b.vertices[vertex]);
@@ -1176,11 +1158,115 @@ void TrackPage::prepareHeadlights(int here, const gfx::Vec3& eye, const gfx::Vec
                 }
             }
     }
+    // The placed objects (0x41c310, from 0x41ca40 for each object of the
+    // block's groups drawn: 0-2 by night): for each car within 150 of the
+    // object's place (0x536cb4), its roof light and then its headlights,
+    // each at full strength (0x41a800 with 1) and skipped as for the block
+    // (0x41bc50, 0x41bf30 / 0x41bc90 with the block's outline), raise the
+    // colour of each of the object's vertices fully inside the light, as
+    // the block's pass raises the corners of polygons with texture flag
+    // 0x04, whatever the object's textures and the projtex option. Not in
+    // the mirror (view 1). The still objects here (type 4, at their
+    // reference point).
+    if (objects_)
+        for (const auto& [block, blockDetail] : blocksInView(here)) {
+            (void)blockDetail;
+            const Track::Block& b = track_.blocks[size_t(block)];
+            for (size_t g = 0; g < 3; ++g) {
+                const size_t group = static_cast<size_t>(block) * 4 + g;
+                if (group >= track_.extraObjects.size())
+                    break;
+                for (const Track::ExtraObject& o : track_.extraObjects[group]) {
+                    if (o.type != 4 || o.vertices.empty() || o.colours.size() < o.vertices.size())
+                        continue;
+                    std::vector<bool> raised(o.vertices.size(), false);
+                    std::vector<uint32_t> raisedTo(o.vertices.size(), 0);
+                    bool anyRaised = false;
+                    auto pass = [&](const Headlight& light, bool roofLight) {
+                        const float behind = (light.at[0] - eye[0]) * forward[0] + (light.at[1] - eye[1]) * forward[1] +
+                                             (-light.at[2] - eye[2]) * forward[2];
+                        if (behind < -light.reach)
+                            return;
+                        if (lightTest_ && lightMissesBlock(light, b.corners, 1, roofLight))
+                            return;
+                        for (size_t i = 0; i < o.vertices.size(); ++i) {
+                            const std::array<float, 3> at{o.vertices[i][0] + o.reference[0], o.vertices[i][1] + o.reference[1],
+                                                          o.vertices[i][2] + o.reference[2]};
+                            const HeadlightPoint pt = headlightAt(light, at);
+                            if (pt.outside != 0)
+                                continue;
+                            raised[i] = anyRaised = true;
+                            uint32_t& to = raisedTo[i];
+                            for (int shift = 0; shift < 32; shift += 8)
+                                if (((pt.colour >> shift) & 0xff) > ((to >> shift) & 0xff))
+                                    to = (to & ~(0xffu << shift)) | (pt.colour & (0xffu << shift));
+                        }
+                    };
+                    for (const Car& car : cars) {
+                        const float dx = car.at[0] - o.reference[0], dz = car.at[2] - o.reference[2];
+                        if (dx * dx + dz * dz > 150.0f * 150.0f)
+                            continue;
+                        if (car.siren)
+                            pass(sirenLight(car.at, car.right, car.up, car.forward, static_cast<int>(skyTick_)), true);
+                        if (car.beams == 0)
+                            continue;
+                        Headlight light = carHeadlight(car.beams, projected_, car.at, car.right, car.up, car.forward, 1);
+                        light.at = headlightPlace(light, car.at, car.up, car.halfLength);
+                        pass(light, false);
+                    }
+                    if (!anyRaised)
+                        continue;
+                    for (const Track::Polygon& p : o.polygons) {
+                        bool any = false, whole = true;
+                        for (uint16_t vertex : p.vertices) {
+                            whole = whole && vertex < o.vertices.size();
+                            any = any || (vertex < raised.size() && raised[vertex]);
+                        }
+                        if (!any || !whole)
+                            continue;
+                        // The first corner as queued (the file's vertex 1) within reach.
+                        const Track::Vec3& c0 = o.vertices[p.vertices[size_t(polygonSlot(0, true))]];
+                        if (!polygonInReach((c0[0] + o.reference[0] - eye[0]) * forward[0] +
+                                            (c0[1] + o.reference[1] - eye[1]) * forward[1] +
+                                            (-(c0[2] + o.reference[2]) - eye[2]) * forward[2]))
+                            continue;
+                        const Track::Texture& tex =
+                            track_.textures[p.textureAt(skyTick_) < track_.textures.size() ? p.textureAt(skyTick_) : p.texture];
+                        bool additive = false;
+                        const gfx::TextureId id = tex.lane ? picture(kLaneSheet, tex.picture, true, &additive)
+                                                           : picture(sheet, tex.picture, false, &additive);
+                        if (additive || (tex.flags & Track::Texture::kSeeThrough))
+                            continue;
+                        auto& into = floors[{id, (p.flags & Track::Polygon::kTwoSided) != 0}];
+                        for (int k : {0, 2, 1, 0, 3, 2}) {
+                            const uint16_t vertex = p.vertices[size_t(polygonSlot(k, true))];
+                            const Track::Vec3& v0 = o.vertices[vertex];
+                            gfx::Vertex v = vertexAt({v0[0] + o.reference[0], v0[1] + o.reference[1], v0[2] + o.reference[2]});
+                            v.uv[0] = tex.corners[size_t(2 * k)];
+                            v.uv[1] = tex.corners[size_t(2 * k + 1)];
+                            if (raised[vertex]) {
+                                const uint32_t baked = o.colours[vertex], lit = raisedTo[vertex];
+                                for (int i = 0; i < 3; ++i) {
+                                    const int shift = 16 - 8 * i;
+                                    const float own =
+                                        static_cast<float>((baked >> shift) & 0xff) * (vertexLight_ ? ambient[i] : 1);
+                                    const float up = static_cast<float>((lit >> shift) & 0xff) - own;
+                                    v.color[i] = static_cast<uint8_t>(std::clamp(up, 0.0f, 255.0f));
+                                }
+                            }
+                            v.color[3] = 255;
+                            into.push_back(v);
+                        }
+                    }
+                }
+            }
+        }
     std::vector<gfx::Vertex> vertices = std::move(projectedTris);
     if (!vertices.empty())
         lightRuns_.push_back({headlightPicture_, true, 0, static_cast<uint32_t>(vertices.size())});
-    for (auto& [id, list] : floors) {
-        lightRuns_.push_back({id, false, static_cast<uint32_t>(vertices.size()), static_cast<uint32_t>(list.size())});
+    for (auto& [key, list] : floors) {
+        lightRuns_.push_back(
+            {key.first, false, static_cast<uint32_t>(vertices.size()), static_cast<uint32_t>(list.size()), key.second});
         vertices.insert(vertices.end(), list.begin(), list.end());
     }
     if (vertices.empty())
@@ -1275,8 +1361,11 @@ void TrackPage::loadCars() {
                 }
             }
         };
-        for (size_t pi = 0; pi < 5 && pi < model.parts.size(); ++pi)
+        for (size_t pi = 0; pi < 5 && pi < model.parts.size(); ++pi) {
             addPart(pi);
+            if (pi == 0)
+                cm.partZeroVertices = static_cast<uint32_t>(cm.vertices.size());
+        }
         cm.bodyVertices = static_cast<uint32_t>(cm.vertices.size());
         cm.envBodyVertices = static_cast<uint32_t>(cm.envFrom.size());
         if (model.parts.size() > 12)
@@ -1743,6 +1832,22 @@ void TrackPage::prepareCars(const gfx::Vec3& eye, const gfx::Vec3& forward, cons
             }
             renderer_->setMeshVertices(c.envMesh, env);
         }
+        // The body's nearest depth (0x49de20 for part 0 gives the least
+        // view depth of its vertices, 0x49d9d0), the depth the tail lights'
+        // and headlights' glows are drawn at (0x4bb200 -> 0x4b8740 ->
+        // 0x492370's sixth argument).
+        const std::array<float, 3> view{forward[0], forward[1], -forward[2]};
+        float bodyDepth = 65535.0f;
+        for (uint32_t i = 0; i < cm.partZeroVertices; ++i) {
+            const float* v = cm.vertices[i].pos;
+            float depth = 0;
+            for (int k = 0; k < 3; ++k) {
+                const float track = c.at[size_t(k)] + c.right[size_t(k)] * v[0] + c.up[size_t(k)] * v[1] -
+                                    c.forward[size_t(k)] * v[2] + (k == 1 ? 0.145f : 0.0f);
+                depth += (track - camera[size_t(k)]) * view[size_t(k)];
+            }
+            bodyDepth = std::min(bodyDepth, depth);
+        }
         // The glows: each dummy where the model is drawn (the position
         // plus 0.145 up, 0x540120).
         const float brightness = carGlowBrightness(c.colour);
@@ -1794,29 +1899,47 @@ void TrackPage::prepareCars(const gfx::Vec3& eye, const gfx::Vec3& forward, cons
                     const float way = dm.name[0] == 'T' ? -1.0f : 1.0f;
                     const RainFlare f = rainFlare(at, camera, {c.forward[0] * way, c.forward[1] * way, c.forward[2] * way},
                                                   g.size, dimLight(g.colour, lightIntensity_));
+                    // The heights (0x491bc0): the light put on the road by
+                    // trackpos_build (0x4969c0), each corner at that height
+                    // taken onto the road the same way (0x4968a0), 0.125 above
+                    // it; with the road point's frame instead of the
+                    // polygon's (no records), at the light's road height.
+                    RoadFrame frame;
+                    const bool own = polygonRoadFrame(track_.blocks[size_t(block)], index, frame);
+                    const float ground = own ? roadFrameHeight(frame, at) : roadHeightAt(block, index, at[0], at[2]);
                     if (f.shown)
                         for (int k = 0; k < 4; ++k) {
                             const auto& p = f.corners[size_t(k)];
-                            flares.push_back(vertex({p[0], roadHeightAt(block, index, p[0], p[1]) + 0.125f, p[1]},
-                                                    k == 1 || k == 2 ? 1.0f : 0.0f, k >= 2 ? 1.0f : 0.0f, f.colour));
+                            const float h = own ? roadFrameHeight(frame, {p[0], ground, p[1]}) + 0.125f : ground;
+                            flares.push_back(vertex({p[0], h, p[1]}, k == 1 || k == 2 ? 1.0f : 0.0f,
+                                                    k >= 2 ? 1.0f : 0.0f, f.colour));
                         }
                 }
             }
-            // Pulled towards the camera: the roof lights by 0.75 as the
-            // game has them, the others (drawn at the body's depth) by 0.3
-            // here, so the body doesn't hide them.
-            const float nearer = g.nearer > 0 ? g.nearer : 0.3f;
-            gfx::Vec3 centre{at[0] + toCamera[0] / distance * nearer, at[1] + toCamera[1] / distance * nearer,
-                             -(at[2] + toCamera[2] / distance * nearer)};
-            // Turned by a quarter of a turn times (x / z + 1) (0x53bd00).
-            const gfx::Vec3 d{centre[0] - eye[0], centre[1] - eye[1], centre[2] - eye[2]};
+            // 0x492370: only for a centre from 0 to 300 deep and on the
+            // screen; projected at the light's place, sized by its depth,
+            // but with the depth given: the body's nearest for the tail
+            // lights and headlights, so neither the body hides them nor
+            // they show through what is in front of the car; the roof
+            // lights' own less 0.75. Here the quad is moved along the ray
+            // to that depth and scaled with it, the same on the screen.
+            const gfx::Vec3 lamp{at[0], at[1], -at[2]};
+            const gfx::Vec3 d{lamp[0] - eye[0], lamp[1] - eye[1], lamp[2] - eye[2]};
             const float x = d[0] * right[0] + d[1] * right[1] + d[2] * right[2];
+            const float y = d[0] * up[0] + d[1] * up[1] + d[2] * up[2];
             const float z = d[0] * forward[0] + d[1] * forward[1] + d[2] * forward[2];
-            const float turn = (z > 0 ? x / z : 0) + 1;
-            const float angle = turn * 0.25f * 2 * kPi;
+            if (z <= 0 || z > 300 || std::fabs(x) > kTanAcross * z || std::fabs(y) > kTanUp * z)
+                continue;
+            const float depth = g.nearer > 0 ? z - g.nearer : bodyDepth;
+            if (depth <= 0)
+                continue;
+            const float scale = depth / z;
+            const gfx::Vec3 centre{eye[0] + d[0] * scale, eye[1] + d[1] * scale, eye[2] + d[2] * scale};
+            // Turned by a quarter of a turn times (x / z + 1) (0x53bd00).
+            const float angle = (x / z + 1) * 0.25f * 2 * kPi;
             for (int corner = 0; corner < 4; ++corner) {
                 const float a = angle + static_cast<float>(corner) * kPi / 2;
-                const float cx = std::cos(a) * g.size, cy = std::sin(a) * g.size;
+                const float cx = std::cos(a) * g.size * scale, cy = std::sin(a) * g.size * scale;
                 gfx::Vertex v{};
                 for (int k = 0; k < 3; ++k)
                     v.pos[k] = centre[size_t(k)] + right[size_t(k)] * cx + up[size_t(k)] * cy;
@@ -1971,8 +2094,8 @@ void TrackPage::drawMarks(const gfx::Vec3& eye, const gfx::Vec3& forward, const 
         const float z = d[0] * forward[0] + d[1] * forward[1] + d[2] * forward[2];
         const float x = d[0] * right[0] + d[1] * right[1] + d[2] * right[2];
         const float y = d[0] * up[0] + d[1] * up[1] + d[2] * up[2];
-        // On the screen: 90 degrees across, 4:3 (kFieldOfView).
-        if (sfxLevel_ == 2 || z <= 0 || std::fabs(x) > z || std::fabs(y) > 0.75f * z)
+        // On the screen: 90 degrees across, 72 up (kScreen).
+        if (sfxLevel_ == 2 || z <= 0 || std::fabs(x) > kTanAcross * z || std::fabs(y) > kTanUp * z)
             continue;
         const LightQuads q = lightQuads(lightLook(static_cast<uint32_t>(m.value), skyTick_), z);
         if (!q.shown)
@@ -1994,8 +2117,10 @@ void TrackPage::drawMarks(const gfx::Vec3& eye, const gfx::Vec3& forward, const 
                 v.color[3] = static_cast<uint8_t>(colour >> 24);
             }
         };
-        // A fixed share of the screen's half width: at depth z that many
-        // times z units across here (tan 45 degrees is 1).
+        // A fixed size on the screen: the game's corners are screenHalf x
+        // sx pixels across and x sy up, here screenHalf x z units, which
+        // the view's own scales (kScreen) turn into the same pixels, 3 %
+        // taller than wide.
         quad(mi * 4, q.screenHalf * z, q.glowColour);
         quad(second + mi * 4, q.worldHalf, q.flareColour);
     }
@@ -2254,7 +2379,7 @@ void TrackPage::prepareParticles(const gfx::Vec3& eye, const gfx::Vec3& forward,
     }
     // In the track's coordinates (z mirrored).
     const ParticleVec r{right[0], right[1], -right[2]}, u{up[0], up[1], -up[2]};
-    const float focal = static_cast<float>(kFrameH) / 2 / std::tan(kFieldOfView / 2); // pixels
+    const float focal = kScreen.sx; // pixels
     struct Shown {
         Particle* p;
         float depth;
@@ -2499,7 +2624,7 @@ void TrackPage::update(uint64_t nowMs) {
 
     const gfx::Vec3 eye{eye_[0], eye_[1], eye_[2]};
     gfx::Mat4 viewProj =
-        gfx::multiply(gfx::perspective(kFieldOfView, float(kFrameW) / float(kFrameH), 0.5f, 6000.0f),
+        gfx::multiply(gfx::perspective(kFieldOfView, kTanAcross / kTanUp, 0.5f, 6000.0f),
                       gfx::lookAlong(eye, forward, {0, 1, 0}));
     // The mirrored track: the game negates its projection's x scale
     // (0x4bf260, by 0x6fd4c4), so the picture is flipped left to right and
@@ -2513,7 +2638,7 @@ void TrackPage::update(uint64_t nowMs) {
     Horizon::Rgb fog;
     float fogDensity = 0;
     const int here = nearestBlock();
-    fogAt(here, fog, fogDensity);
+    fogAt(roadSliceAt(), fog, fogDensity); // by the camera's road slice (0x478e10)
     if (!fog_)
         fogDensity = 0;
     tickSky(nowMs);
@@ -2754,7 +2879,7 @@ void TrackPage::update(uint64_t nowMs) {
                 light.state.src = run.picture ? gfx::Blend::SrcAlpha : gfx::Blend::One;
                 light.state.dst = gfx::Blend::One;
                 light.state.alphaTest = run.picture ? gfx::AlphaTest::None : gfx::AlphaTest::Ge128;
-                light.state.cull = cullBack_ ? backFaces : gfx::Cull::None;
+                light.state.cull = cullBack_ && !run.twoSided ? backFaces : gfx::Cull::None;
                 light.firstIndex = run.first;
                 light.indexCount = run.count;
                 renderer_->draw(light);

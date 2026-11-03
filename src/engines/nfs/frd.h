@@ -240,6 +240,15 @@ struct ViewScreen {
 // `zoom`, the camera's +0x54 held to 1 at most, beyond z; for a roof
 // light, beyond |z|) and all outside one side of the screen's window
 // when projected with the light as the camera (or all behind it).
+// The screen the game sets up for a view (0x4dbce0 -> 0x4bf260): from
+// the view angle in degrees (viewangle, 0x6fbc40: 90, or 75 when it is 1;
+// 0x4dbcc0) the half angle across a = angle / 2 and the half angle up
+// a x 13 / 16, both whole degrees (45 and 36; 37 and 30), and
+// sx = width / 2 / tan a, sy = -(height / 2 / tan(a x 13 / 16)) (in the
+// x87's precision, degrees x 0.0174532793), cx, cy the window's middle;
+// sx negated on the mirrored track. So at 640 x 480 and 90 degrees the
+// view is 90 degrees across and 72 up, its pixels 330.33 / 320 tall.
+ViewScreen viewScreen(int left, int top, int width, int height, int viewAngle = 90, bool mirrored = false);
 bool lightMissesBlock(const Headlight& light, const std::array<std::array<float, 3>, 4>& corners,
                       float zoom = 1, bool bothWays = false, const ViewScreen& screen = {});
 // Where nfs3.exe puts a car's light (0x42d160): the car's position
@@ -330,6 +339,20 @@ int roadSurface(const Track::Block& b, size_t index);
 // or snow, which agree for the 16 surfaces) says 10: surfaces 1, 4, 6, 7,
 // 10, 11 and 12.
 bool wetSurface(int surface);
+// The road's frame on list 4's polygon `index` as a track position on it
+// has it (trackpos_road_frame 0x420230 with +0x64 = 2, which 0x41e990 sets
+// on finding the polygon): up and forward the block's virtual road vector
+// (12 bytes, six s16 / 32768) that the polygon's 8-byte record's byte 0
+// picks, right up x forward, and the point the polygon's vertex 1
+// (+0x24, from 0x41e6a0's +0x54). False without the records.
+struct RoadFrame {
+    std::array<float, 3> right{1, 0, 0}, up{0, 1, 0}, forward{0, 0, 1}, point{};
+};
+bool polygonRoadFrame(const Track::Block& b, size_t index, RoadFrame& out);
+// The height 0x4968a0 (and its fixed-point twin 0x4969c0) gives a point:
+// the point taken into the frame, its part along the up dropped, and back:
+// point.y + ((p - point) . right) right.y + ((p - point) . forward) forward.y.
+float roadFrameHeight(const RoadFrame& f, const std::array<float, 3>& p);
 
 // The computer's driving (physics.md: the drivers, the speed wanted, the
 // lane votes), as nfs3.exe's AI racer does it each step (64 a second,

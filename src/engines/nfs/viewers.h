@@ -403,7 +403,7 @@ private:
     float lightIntensity_ = 1; // the game's SFX_INTENSITY, which dims lights
     // The fog where the camera is: the base fog, or a dynamic region's
     // (hrz.md), its colour and density (percent).
-    void fogAt(int block, Horizon::Rgb& colour, float& density) const;
+    void fogAt(int slice, Horizon::Rgb& colour, float& density) const;
     int nearestBlock() const; // to the camera, by the blocks' centres
 
     // The blocks' lights (glows) and sounds (markers), in the world: a
@@ -477,6 +477,7 @@ private:
         gfx::TextureId texture = 0;
         bool picture = false; // the projected picture, else a texture's colour floor
         uint32_t first = 0, count = 0; // indices
+        bool twoSided = false; // polygons with flag 0x10, not culled
     };
     std::vector<LightRun> lightRuns_;
     void prepareHeadlights(int here, const gfx::Vec3& eye, const gfx::Vec3& forward);
@@ -498,6 +499,7 @@ private:
         std::vector<gfx::Vertex> vertices;
         std::vector<std::array<float, 3>> normals;
         uint32_t bodyVertices = 0, lightVertices = 0;
+        uint32_t partZeroVertices = 0; // the body's (part 0), first in vertices
         gfx::TextureId skin = 0; // owned by textures_
         std::array<float, 3> halfSize{1.183f, 0.669f, 2.40644f};
         std::vector<Model::Dummy> dummies;

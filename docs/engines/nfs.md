@@ -271,7 +271,9 @@ What was built, with each format written up in `docs/formats/nfs/`:
   - the sky in four variants, drawn as the game draws it: the sky's and
     earth's shading and the horizon picture as rows of flat quads in
     front of the camera, the sun and moon, clouds and lightning, the
-    sky's top as the clear colour, through the game's 90° view
+    sky's top as the clear colour, through the game's view, 90° across
+    and 72° up with its pixels 3 % taller than wide, and the fog of the
+    dynamic fog region at the camera's road slice
     ([hrz.md](../formats/nfs/hrz.md)); `RELUVA_NFS_TRACK_CAMERA="x y z
     yaw pitch"` places the camera as a view of `nfs-host`'s;
   - the moving objects animated along their keys (Hometown's water
@@ -307,7 +309,8 @@ What was built, with each format written up in `docs/formats/nfs/`:
     are drawn);
   - by night, the headlights of a car at the camera as the game's pass
     lights them: `glw2` projected on polygons whose texture lacks flag
-    `0x04`, the light's colour as a floor on the others' corners
+    `0x04`, the light's colour as a floor on the others' corners and on
+    the still placed objects' vertices (Hometown's lamp posts)
     (key E: off, low and high beams, high at first by night as a
     human's car starts; Shift+E: the projection off, as `nfs-host`'s
     `config.dat` has it; Ctrl+E: the game's test of each block against
@@ -320,9 +323,10 @@ What was built, with each format written up in `docs/formats/nfs/`:
     lights when held up (Shift+J stops them). They are lit as the game
     lights a car, with its reflection of the sky's sphere map in the
     colours the game works out (key Z: off), their tail-light, headlight
-    and roof-light glows (the tail lights brighter while braking, more
+    and roof-light glows at the game's depths (the body's nearest point,
+    a roof light's own less 0.75; the tail lights brighter while braking, more
     than 5 m/s too fast, at bends), in the weather each glow's flare on a
-    wet road and in fog over 30 % each headlight's beam, and they light
+    wet road, on the road's plane as the game puts it, and in fog over 30 % each headlight's beam, and they light
     the track by night after the camera's car, the roof light too
     ([frd.md](../formats/nfs/frd.md), Other cars' lights, The computer
     cars; [fce.md](../formats/nfs/fce.md), Lighting);
