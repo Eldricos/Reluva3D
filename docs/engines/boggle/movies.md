@@ -100,3 +100,5 @@ actual Hasbro movie and gap, started the game intro, then reached Master and
 Original play through SDL dummy output. Four distinct audio sessions (publisher,
 game intro and both Classic entries) were observed, with nonzero mixed output.
 This remains software integration evidence rather than a Windows playback claim.
+
+The owner subsequently confirmed that both intro movies now play on Windows.

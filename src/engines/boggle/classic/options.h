@@ -16,7 +16,7 @@ enum class ClassicVariant { Original, Master };
 struct ClassicOptions {
     ClassicVariant variant = ClassicVariant::Original;
     uint64_t duration = 180000; // milliseconds; zero means Not Timed
-    bool sound = true, animations = true, menu = true, movies = true;
+    bool sound = true, animations = true, menu = true, movies = true, artwork = true;
     int music = musicNone;
     size_t side() const { return variant == ClassicVariant::Master ? 5 : 4; }
     const char* dice() const { return variant == ClassicVariant::Master ? "Dicts/EngMas.dst" : "Dicts/EngOrg.dst"; }

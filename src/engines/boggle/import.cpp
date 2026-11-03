@@ -2,6 +2,7 @@
 // Copyright (C) 2026 The Reluva contributors
 #include "engines/boggle/import.h"
 #include "engines/boggle/classic/options.h"
+#include "engines/boggle/classic/layout.h"
 #include "engines/boggle/frontend/media.h"
 #include "common/fs.h"
 #include <map>
@@ -52,6 +53,8 @@ Error classicImportPlan(const std::filesystem::path& root, const DetectedGame& g
         const auto path=std::string("Anims/")+name+".avi";
         if(fs::findFile(root,path))add(path);
     }
+    for(auto variant:{ClassicVariant::Original,ClassicVariant::Master})
+        for(const auto& path:classicArtworkPaths(variant))if(fs::findFile(root,path))add(path);
     ImportPlan plan; plan.game = game;
     for (const auto& [key,path] : paths) {
         std::filesystem::path from;

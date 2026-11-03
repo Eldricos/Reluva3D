@@ -1,8 +1,8 @@
-# AVI / 16-bit Microsoft Video 1
+# AVI / Microsoft Video 1
 
 `common/video/avi_video1.h` reads a bounded, single-video-stream RIFF AVI and
-decodes 16-bit Microsoft Video 1 (`CRAM` / `MSVC`) into opaque RGBA frames.
-This is the subset observed in the owner's Boggle Classic lid clips, not a
+decodes 8-bit indexed and 16-bit Microsoft Video 1 (`CRAM` / `MSVC`) into opaque RGBA frames.
+This is the subset observed in the owner's Boggle Classic lid and hourglass clips, not a
 general Windows codec host. It uses no OS codecs or runtime FFmpeg dependency.
 
 ## Layout and decoding
@@ -36,7 +36,7 @@ Limits: 64 MiB input, 512 frames, 2048 pixels per dimension, 128 MiB decoded
 RGBA and eight nested list levels. Dimensions must be positive multiples of
 four. Sizes, padding, frame counts, formats and stream start/timing fields are
 validated before image allocation. A second stream list, audio/interleaved
-streams, 8-bit paletted Video 1, Cinepak and OpenDML/multi-RIFF forms are not
+streams, palette-change commands, Cinepak and OpenDML/multi-RIFF forms are not
 supported. Unsupported data fails explicitly rather than selecting a codec
 from filenames or executing bundled libraries.
 
@@ -61,3 +61,21 @@ solid, two/eight-color, quadrant and bottom-up decoding, delta skips, truncation
 invalid dimensions/counts, bad codecs, decoded-size limits and failure clearing.
 The optional Boggle presentation survey records only counts and checksums;
 reference dumps and captures remain outside Git.
+
+## Indexed frames
+
+The 8-bit path reads the bounded RGBQUAD palette following the DIB header,
+using `biClrUsed` or 256 entries. Every decoded index is checked against the
+palette. Skip blocks retain prior indices. A pattern with high byte below
+`0x80` carries two one-byte indices; high bytes `0x90..0xff` carry eight,
+one pair per quadrant. Other non-skip codes fill a block with the low-byte
+index. Frames remain bottom-up with opaque output alpha. Palette changes
+inside the movie are rejected rather than silently ignored.
+
+Format facts were checked against Mike Melanson's
+[Description of the Microsoft Video-1 Decoding Algorithm](https://multimedia.cx/video1.txt),
+v1.2 (2003), published under GNU FDL 1.2 or later without invariant sections.
+Only format facts were used; no specification prose or decoder code was copied.
+All 77 frames of `ClsO1Tim.avi` / `ClsM1Tim.avi` match the external FFmpeg
+7.1.5 reference in RGBA. Invented unit fixtures exercise both indexed pattern
+modes, solid colors, delta skips, palette bounds and truncated color data.

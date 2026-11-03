@@ -96,3 +96,11 @@ check, not a claim that the original shuffle produces the same board. Optional
 game-data records contain only counts/checksums. `classic-replay` also accepts
 `master` and a duration to compare an externally observed 5x5 board; see the
 [comparison procedure](comparison.md).
+
+## Installed artwork
+
+**Classic installed artwork** (`classic_artwork`, default `1`) enables the
+installed scenes, player/word panels and animated hourglass when available.
+Older copies without the additional bundle use the prototype view. Set `0`
+to select that view explicitly. This does not mute audio or skip round clips.
+See [layout and resource requirements](layout.md).

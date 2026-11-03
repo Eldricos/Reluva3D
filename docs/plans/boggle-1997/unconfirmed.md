@@ -44,7 +44,8 @@ by the static inspection and must not become undocumented assumptions in code.
   A subsequent VM check confirms distinct seven- and eight-letter cues replacing
   Writing; native Windows music/effects playback also passed the owner's test.
   Precise sequence timing still needs comparison. Full original overlays,
-  full original frontend dialogs and paletted/timer AVI remain unsupported.
+  full original frontend dialogs remain unsupported. Indexed timer AVI now decodes;
+  the native Classic layout uses installed panels with approximate cube geometry.
   Cinepak intro and available mode-button animation now exist; exact original
   hover triggers, menu sound and audio/video latency still need comparison. Native selection and Classic setup now exist with installed
   selection artwork and a one-human Players confirmation. The owner has confirmed
@@ -58,7 +59,7 @@ by the static inspection and must not become undocumented assumptions in code.
   resource set; only dependency tracing and end-to-end runs can establish
   sufficiency for all original features. A tested Classic import set now covers
   the native English Classic Original/Master slice and existing detection markers
-  (46 files with menu artwork/clips, or the earlier 39/40/45-file subsets);
+  (52 files with Classic/menu artwork, or the earlier 39/40/45/46-file subsets);
   the owner also confirmed that CD importing works. See
   [import scope](../../engines/boggle/import.md). It is not a full-game minimum.
 
@@ -70,3 +71,8 @@ inspection/specifications and remove an uncertainty only when evidence resolves 
 - WAV background music now supports the fifteen installed tracks and an independent
   launcher selector. Original CD-device music remains unsupported. Track timing
   and continuity still need VM listening checks; see [music evidence](../../engines/boggle/music.md).
+
+The next presentation comparison is the new [Classic layout](../../engines/boggle/layout.md):
+verify timer/word/score positions in both variants, then refine the native
+projection and font. This does not block the existing playable Classic slice.
+The owner has now confirmed both startup movies play.

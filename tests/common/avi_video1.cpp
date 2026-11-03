@@ -3,6 +3,7 @@
 #include "common/video/avi_video1.h"
 #include "tests/support/avi_fixture.h"
 #include "tests/support/test.h"
+#include <algorithm>
 using namespace reluva;
 using namespace reluva::test::fixtures;
 namespace {
@@ -23,6 +24,20 @@ void blocks() {
     CHECK(!clip.read(avi(8,4,{solid})));
     CHECK(clip.frames[0].pixel(0,0)[0]==255 && clip.frames[0].pixel(7,0)[1]==255);
 }
+void indexed() {
+    video::AviVideo1 clip;CHECK(!clip.read(avi8(4,4,{{1,0,2,3},{1,0x84}})));
+    CHECK(clip.frames.size()==2);if(clip.frames.size()!=2)return;
+    auto pixel=[&](int x,int y,uint8_t color){const auto* p=clip.frames[0].pixel(x,y);CHECK(p[0]==color && p[1]==255-color && p[2]==uint8_t(color*3) && p[3]==255);};
+    pixel(0,3,2);pixel(1,3,3);CHECK(clip.frames[0].rgba==clip.frames[1].rgba);
+    CHECK(!clip.read(avi8(4,4,{{0,0x90,0,1,2,3,4,5,6,7}})));
+    pixel(0,3,1);pixel(2,3,3);pixel(1,1,5);pixel(3,0,6);
+    CHECK(!clip.read(avi8(4,4,{{7,0x88}})));pixel(2,2,7);
+    CHECK(bool(clip.read(avi8(4,4,{{2,0x80}},2))));CHECK(clip.frames.empty());
+    CHECK(bool(clip.read(avi8(4,4,{{0,0x90,0,1,2,3,4,5,6}}))));
+    CHECK(bool(clip.read(avi8(4,4,{{0,0x80}},257))));
+    auto data=avi8(4,4,{{0,0x80}});auto f=std::search(data.begin(),data.end(),"strf","strf"+4)-data.begin();avi32(data,size_t(f)+8+32,257);
+    CHECK(bool(clip.read(data)));CHECK(clip.frames.empty() && clip.width==0);
+}
 void invalid() {
     const auto good=classicAvi();video::AviVideo1 clip;
     for(size_t n=0;n<good.size();++n){auto bytes=good;bytes.resize(n);CHECK(bool(clip.read(bytes)));CHECK(clip.frames.empty());}
@@ -42,5 +57,6 @@ void invalid() {
 }
 static const test::Suite suite("common.unit.avi_video1", {
     {"two/eight colors, bottom-up blocks, solids and delta skips",[](const auto&){blocks();}},
+    {"indexed solids, two/eight colors, palette bounds and retained blocks",[](const auto&){indexed();}},
     {"bounds, truncation, unsupported formats and clearing",[](const auto&){invalid();}},
 });

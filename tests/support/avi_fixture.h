@@ -23,6 +23,17 @@ inline std::vector<uint8_t> avi(int w, int h, const std::vector<std::vector<uint
     std::vector<uint8_t> body{'A','V','I',' '}; body.insert(body.end(),header.begin(),header.end());
     auto movie=aviList("movi",frames); body.insert(body.end(),movie.begin(),movie.end()); return aviChunk("RIFF",body);
 }
+inline std::vector<uint8_t> avi8(int w,int h,const std::vector<std::vector<uint8_t>>& packets,unsigned colors=256) {
+    std::vector<uint8_t> main(56),stream(56),format(40+size_t(colors)*4);
+    avi32(main,16,uint32_t(packets.size()));avi32(main,24,1);avi32(main,32,w);avi32(main,36,h);
+    std::memcpy(stream.data(),"vidsMSVC",8);avi32(stream,20,1);avi32(stream,24,30);avi32(stream,32,uint32_t(packets.size()));
+    avi32(format,0,40);avi32(format,4,w);avi32(format,8,h);avi32(format,12,0x80001);std::memcpy(format.data()+16,"CRAM",4);avi32(format,32,colors);
+    for(unsigned i=0;i<colors;++i){format[40+i*4]=uint8_t(i*3);format[41+i*4]=uint8_t(255-i);format[42+i*4]=uint8_t(i);}
+    auto header=aviList("hdrl",{aviChunk("avih",main),aviList("strl",{aviChunk("strh",stream),aviChunk("strf",format)})});
+    std::vector<std::vector<uint8_t>> frames;for(const auto& p:packets)frames.push_back(aviChunk("00dc",p));
+    std::vector<uint8_t> body{'A','V','I',' '};body.insert(body.end(),header.begin(),header.end());
+    auto movie=aviList("movi",frames);body.insert(body.end(),movie.begin(),movie.end());return aviChunk("RIFF",body);
+}
 inline void aviWord(std::vector<uint8_t>& out,uint16_t n) { out.push_back(uint8_t(n));out.push_back(uint8_t(n>>8)); }
 inline std::vector<uint8_t> classicAvi() {
     std::vector<std::vector<uint8_t>> packets;

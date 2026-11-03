@@ -51,6 +51,7 @@ public:
             music.emplace_back(std::to_string(i),std::move(title));
         }
         return {
+            {"classic_artwork", "Classic installed artwork", "Use available Classic scene, panels and hourglass assets. Older imports keep the prototype layout.", true, {}},
             {"frontend_movies", "Intro and menu animations", "Play the installed publisher/game intros with their soundtracks and animate available mode buttons. Escape skips the intro.", true, {}},
             {"classic_menu", "Game selection menu", "Choose Classic and its board before play; disable to open the existing round screen directly.", true, {}},
             {"classic_music", "Classic music", "Loop an installed WAV track independently of sound effects. Random chooses once per launch.", true, std::move(music)},

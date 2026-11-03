@@ -102,4 +102,26 @@ inline void presentationInstall(const std::filesystem::path& path) {
         write(path / "Waves" / (std::string(name)+".wav"),data);
     }
 }
+// Entirely invented flat panels and indexed animation frames.
+inline void artworkInstall(const std::filesystem::path& path) {
+    presentationInstall(path);
+    for (const auto* prefix : {"ClsO1", "ClsM1"}) {
+        for (bool names : {false,true}) {
+            const int w=names?497:143,h=names?32:480,stride=(w*3+3)&~3;
+            auto b=bitmap();b.resize(54+size_t(stride)*h, names?40:180);
+            test::fixtures::put32(b,2,uint32_t(b.size()));test::fixtures::put32(b,18,w);
+            test::fixtures::put32(b,22,h);test::fixtures::put32(b,34,stride*h);
+            write(path / "Bitmaps" / (std::string(prefix)+(names?"N.bmp":"W.bmp")),b);
+        }
+        const bool master=std::string(prefix)=="ClsM1";
+        const int w=master?80:68,h=master?140:128;
+        std::vector<std::vector<uint8_t>> packets;
+        for(int frame=0;frame<(master?39:38);++frame) {
+            std::vector<uint8_t> packet;
+            for(int block=0;block<w*h/16;++block){packet.push_back(uint8_t(frame+1));packet.push_back(0x80);}
+            packets.push_back(std::move(packet));
+        }
+        write(path / "Anims" / (std::string(prefix)+"Tim.avi"),test::fixtures::avi8(w,h,packets));
+    }
+}
 } // namespace reluva::boggle::fixtures

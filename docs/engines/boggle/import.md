@@ -6,9 +6,9 @@ in your external game library. The launcher previews the copy plan before
 copying. **Add Game** can still use the original installed folder directly.
 Neither operation runs the Windows installer or original executable.
 
-The plan now copies 46 files (15,164,297 bytes for the supplied release): the current
+The plan now copies 52 files (15,734,987 bytes for the supplied release): the current
 U.S. English Classic Original/Master dependencies plus the existing detection
-markers, the optional game-selection background, publisher intro and five mode-button clips. This supports all native Classic options, including both lid clips,
+markers, the optional game-selection background, publisher intro, five mode-button clips and six optional Classic artwork files. This supports all native Classic options, including both lid clips,
 eight effects and fifteen music tracks. Source paths are matched without regard
 to case and destination names are consistent across platforms. The plan is
 stable and does not recursively copy unknown files.
@@ -18,6 +18,7 @@ stable and does not recursively copy unknown files.
 | English rules and music labels | `Dicts/English.dic`, `Language/English.dll` |
 | Original/Master dice and palettes | `Dicts/EngOrg.dst`, `Dicts/EngMas.dst`, `Palettes/ClsO1Pal.pal`, `Palettes/ClsM1Pal.pal` |
 | Cube lettering | `Textures/Letters.bmp`, `Textures/LettersQu.bmp` |
+| Classic panels and hourglasses (when present) | The six paths in [Classic layout](layout.md) |
 | Round clips | `Anims/ClsO1All.avi`, `Anims/ClsM1All.avi` |
 | Game-selection background and buttons (when present) | `Bitmaps/Select1.bmp`, plus the five clips listed in [movie playback](movies.md) |
 | Effects and music | The eight cues in [presentation](presentation.md) and fifteen paths established in [music](music.md) |
@@ -70,7 +71,9 @@ reluva-tool boggle import-check /external/Boggle
 To preview filenames use `reluva-tool import /external/CD`; adding a destination
 argument performs the copy just as the launcher does. Keep redirected output
 and any copied files outside Git worktrees. The two supplied sources produce
-46 files / 15,164,297 bytes, checksum `65d8cd90bfb14962f0d8da74d3ebcfd0`.
+52 files / 15,734,987 bytes, checksum `ea3fe01057225b21dfa387e95bf5f620`.
+The preceding 46-file set lacks the six Classic artwork files and has checksum
+`65d8cd90bfb14962f0d8da74d3ebcfd0`.
 The preceding 45-file set lacks only Hasbro and has checksum
 `9fa2df147dd9cefe8039e1d912caa57c`.
 Earlier 40-file imports lack Hasbro and the five optional button clips and retain
@@ -127,3 +130,9 @@ reported that the Hasbro intro did not play. The previous 45-file plan omitted
 `Anims/Hasbro.avi`. It is now included when present, bringing the supplied set
 to 46 files. Re-import from the CD or full install to add it; older subsets
 remain playable while skipping the absent publisher stage.
+
+The owner has since confirmed both intros play. This pass adds the six optional
+Classic panel/hourglass files and validates native artwork rendering against a
+fresh import. Re-import to obtain the 52-file set; older copies retain the
+prototype Classic view. Missing files are optional for old subsets, while a
+partially present artwork bundle reports an error when that variant starts.

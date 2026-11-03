@@ -4,7 +4,7 @@ The `boggle` engine recognizes the supplied multilingual Windows file set
 and offers early single-player **Classic Original and Master** in U.S. English.
 Original uses 4x4 dice with a three-letter minimum; Master uses 5x5 with a
 four-letter minimum. Both have dictionary validation, scoring and results.
-Classic lid/roll animation, sound effects and WAV background music are available. Other modes,
+Classic installed scenes, word panels, animated hourglasses, lid/roll animation, sound effects and WAV background music are available. Other modes,
 the full original frontend, AI and networking are unfinished.
 See [scope and rule evidence](classic.md) and the
 [original/native comparison procedure](comparison.md).
@@ -49,7 +49,7 @@ Game ID: `boggle1997`. Add the installed folder containing `Boggle.exe`, or
 its equivalent expanded `Boggle/` directory on the supplied CD. The CD root
 and compressed-only installers are not recognized as runnable directories.
 **Import Game** accepts the install, the expanded CD folder, or the CD root
-containing it, and copies the English Classic set (46 files with menu artwork and clips) into your external
+containing it, and copies the English Classic set (52 files with Classic and menu artwork and clips) into your external
 library. See [import scope and validation](import.md).
 
 Detection requires measured prefix-MD5/size signatures for `Boggle.exe`,
@@ -94,20 +94,25 @@ Supported formats:
 - [The observed DirectX text mesh subset](formats/mesh.md).
 - [Shared PE resource and string-table reader](../../common/pe-resources.md).
 - [Binary word dictionaries](formats/dictionary.md).
-- [Single-stream 16-bit AVI / Microsoft Video 1](../../common/avi-video1.md)
-  for the two Classic lid clips.
+- [Single-stream 8/16-bit AVI / Microsoft Video 1](../../common/avi-video1.md)
+  for the Classic lid and hourglass clips.
 - [AVI / Cinepak with optional PCM soundtrack](../../common/avi-cinepak.md)
   for the intro and mode buttons.
 - BMP and PCM WAV through the existing shared readers.
 
 Not decoded: INSO `.DAT` definitions,
-paletted/timer AVI media and TrueType fonts. The current checker
+TrueType fonts. The current checker
 also does not interpret PE dialog layouts or validate every asset the original
 program may request. Some bitmap paths
 in the EXE are absent from the supplied copies; see the
 [remaining research questions](../../plans/boggle-1997/unconfirmed.md).
 
+See [Classic artwork and layout](layout.md) for scope, resource selection and fallback.
+
 ## Tests
+
+`artwork-check <folder>` validates both optional Classic artwork bundles and
+reports checksums of native rendered states without exporting images.
 
 `movie-check <folder>` decodes available intro/menu clips and their PCM,
 reporting only counts and checksums.

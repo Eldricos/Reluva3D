@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 // Copyright (C) 2026 The Reluva contributors
 #include "engines/boggle/classic/game.h"
+#include "engines/boggle/classic/layout.h"
 #include "engines/boggle/classic/round.h"
 #include "engines/boggle/classic/options.h"
 #include "engines/boggle/classic/presentation.h"
@@ -58,7 +59,12 @@ std::string feedback(Submission result, size_t minimum) {
 }
 void draw(Surface& screen, const ClassicRound& round, uint64_t now,
           const image::Image& letters, const image::Image& qu, const Palette& palette,
-          const std::string& input, const std::vector<size_t>& path, const std::string& message, size_t scroll, bool fromMenu) {
+          const std::string& input, const std::vector<size_t>& path, const std::string& message, size_t scroll, bool fromMenu,
+          const ClassicArtwork& artwork,uint64_t duration) {
+    const bool reviewing = round.candidate() != nullptr;
+    const bool ready = round.phase() == RoundPhase::Ready, playing = round.phase() == RoundPhase::Playing;
+    if(artwork.active()) artwork.draw(screen,round,now,duration,letters,qu,path,scroll);
+    else {
     rect(screen, 0, 0, width, height, dark);
     rect(screen, 0, 0, width, 76, {29, 49, 70});
     const auto& accent = palette[1]; rect(screen, 24, 76, 752, 2, {accent.r, accent.g, accent.b});
@@ -71,8 +77,7 @@ void draw(Surface& screen, const ClassicRound& round, uint64_t now,
     char timer[48]; std::snprintf(timer, sizeof(timer), "%llu:%02llu", (unsigned long long)(seconds / 60), (unsigned long long)(seconds % 60));
     if (round.timed()) label(screen, 670, 25, timer, white, 3);
     else label(screen, 652, 32, "NOT TIMED", white, 2);
-    const bool reviewing = round.candidate() != nullptr;
-    const bool ready = round.phase() == RoundPhase::Ready, playing = round.phase() == RoundPhase::Playing;
+
     for (size_t i = 0; i < round.board().faces().size(); ++i) {
         const int x = boardX + int(i % side) * cellSize, y = boardY + int(i / side) * cellSize;
         const bool selected = std::find(path.begin(), path.end(), i) != path.end();
@@ -98,12 +103,13 @@ void draw(Surface& screen, const ClassicRound& round, uint64_t now,
         label(screen, 739, 217 + int(i - begin) * 17, words[i]->state == WordState::Declined ? "-" : std::to_string(entry.points), rejected ? ink : Ink{110, 220, 200});
     }
     if (words.size() > 14) label(screen, 430, 470, "PgUp/PgDn: word history", muted);
-    rect(screen, 24, 485, 752, 43, {35, 57, 81});
+    }
+    rect(screen, 24, 485, artwork.active()?580:752, 43, {35, 57, 81});
     label(screen, 35, 497, input.empty() ? (reviewing ? "Review pending words before the next round." : playing ? "Type or select a word..." : "Press Enter to start or replay") : input.substr(input.size() > 50 ? input.size() - 50 : 0), white, input.size() > 29 ? 1 : 2);
     label(screen, 24, 535, reviewing ? "Choose one of the four dictionary options." : message.empty() ? (ready ? "Press Enter when ready. The timer starts with the board." : playing ? "Enter: submit   Backspace: undo   Right click: clear" : "Enter: replay this board   F2: new board") : message, muted);
     if (!reviewing) { rect(screen, 24, 557, 180, 29, {48, 88, 120}); label(screen, 35, 566, playing ? "END ROUND (F1)" : "START / REPLAY (ENTER)"); }
     if (!playing && !reviewing) { rect(screen, 216, 557, 158, 29, {48, 88, 120}); label(screen, 227, 566, "NEW BOARD (F2)"); }
-    label(screen, 610, 566, fromMenu ? "MENU (F3)" : "ESC: LAUNCHER", muted);
+    label(screen, artwork.active()?450:610, 566, fromMenu ? "MENU (F3)" : "ESC: LAUNCHER", muted);
     if (const auto* word = round.candidate()) {
         rect(screen, 24, 182, 752, 270, {50, 78, 108});
         rect(screen, 27, 185, 746, 264, {22, 40, 60});
@@ -140,6 +146,8 @@ Error ClassicGame::run() {
         if (auto err = resources.animation(path,clip)) return err;
         if (clip.frames.size() != 55) return Error::fail("Unsupported Classic round animation length");
     }
+    ClassicArtwork artwork;
+    if(auto err=artwork.open(resources,target_.path,options,clip))return err;
     ClassicAudio sound(sys_);
     ClassicTransition transition;
     UserDictionary user;
@@ -180,8 +188,14 @@ Error ClassicGame::run() {
     };
     auto select = [&](int x, int y) {
         const size_t side = round.board().side(); const int cellSize = boardSize / int(side);
-        if (round.phase() != RoundPhase::Playing || !hit(x, y, boardX, boardY, cellSize * int(side), cellSize * int(side))) return;
-        const size_t cell = size_t((y - boardY) / cellSize) * side + size_t((x - boardX) / cellSize);
+        if(round.phase()!=RoundPhase::Playing)return;
+        size_t cell=0;
+        if(artwork.active()) {
+            const auto found=artwork.cellAt(x,y,side);if(!found)return;cell=*found;
+        } else {
+            if(!hit(x,y,boardX,boardY,cellSize*int(side),cellSize*int(side)))return;
+            cell=size_t((y-boardY)/cellSize)*side+size_t((x-boardX)/cellSize);
+        }
         if (!selected.empty() && cell == selected.back()) return;
         if (std::find(selected.begin(), selected.end(), cell) != selected.end()) { message = "That cube is already used."; return; }
         if (!selected.empty() && !round.board().adjacent(selected.back(), cell)) { message = "Choose a touching cube."; return; }
@@ -220,7 +234,7 @@ Error ClassicGame::run() {
             // native menu action without changing that observed key behavior.
             if (fromMenu_ && ((event.type == EventType::KeyDown && !event.repeat && event.key == key::F1+2) ||
                 (transition.type() == Transition::None && event.type == EventType::MouseDown && event.button == MouseButton::Left &&
-                 hit(event.mouseX,event.mouseY,610,557,166,29)))) {
+                 hit(event.mouseX,event.mouseY,artwork.active()?432:610,557,artwork.active()?172:166,29)))) {
                 returnToMenu_ = true; running = false; break;
             }
             if (transition.type() != Transition::None) continue;
@@ -243,7 +257,8 @@ Error ClassicGame::run() {
                     else { const auto result = round.submit(input, sys_.getMillis(), selected); message = feedback(result, round.minimum()); if (result == Submission::Accepted || result == Submission::UnknownWord) sound.recorded(round.words().back().entry.word.size()); if (result != Submission::SelectPath) clear(); }
                 } else if (event.key == key::PageUp || event.key == key::PageDown) {
                     const size_t count = size_t(std::count_if(round.words().begin(), round.words().end(), [](const auto& word) { return word.state != WordState::Declined; }));
-                    const size_t maximum = count > 14 ? count - 14 : 0;
+                    const size_t visible=artwork.active()?ClassicArtwork::visibleWords:14;
+                    const size_t maximum = count > visible ? count - visible : 0;
                     scroll = event.key == key::PageUp ? std::min(maximum, scroll + 7) : scroll - std::min(scroll, size_t(7));
                 } else if (event.key == key::Backspace && round.phase() == RoundPhase::Playing) {
                     if (!selected.empty()) { selected.pop_back(); updateInput(); }
@@ -277,7 +292,7 @@ Error ClassicGame::run() {
                 std::copy_n(frame.pixel(x*frame.w/width,y*frame.h/height),4,screen.row(y)+x*4);
             rect(screen,0,height-40,width,40,dark);
             label(screen,24,height-25,transition.type() == Transition::Opening ? "Rolling dice and opening the lid..." : "Closing the lid...");
-        } else draw(screen, round, sys_.getMillis(), letters, qu, palette, input, selected, message, scroll, fromMenu_);
+        } else draw(screen, round, sys_.getMillis(), letters, qu, palette, input, selected, message, scroll, fromMenu_,artwork,options.duration);
         sys_.updateScreen(screen);
         if (transition.type() == Transition::None && round.phase() == RoundPhase::Results) resultsVisible = true;
         promptVisible = transition.type() == Transition::None && round.candidate() != nullptr;
