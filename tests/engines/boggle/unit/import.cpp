@@ -8,6 +8,7 @@
 #include "tests/engines/boggle/fixtures.h"
 #include "tests/support/test.h"
 #include <set>
+#include <algorithm>
 using namespace reluva;
 using namespace reluva::boggle;
 namespace {
@@ -45,6 +46,10 @@ void selection(const std::filesystem::path& tmp) {
     fixtures::write(root/"Bitmaps/Select1.bmp",fixtures::bitmap());
     ImportPlan art; CHECK(!classicImportPlan(root,synthetic,{{"Identity.bin","",-1}},art));
     CHECK(art.files.size()==plan.files.size()+1);
+    fixtures::write(root/"Anims/Hasbro.avi","synthetic optional movie");
+    ImportPlan publisher; CHECK(!classicImportPlan(root,synthetic,{{"Identity.bin","",-1}},publisher));
+    CHECK(publisher.files.size()==art.files.size()+1);
+    CHECK(std::any_of(publisher.files.begin(),publisher.files.end(),[](const auto& f){return f.to=="Anims/Hasbro.avi";}));
     uint64_t last=0;
     CHECK(!runImport(plan,dest,[&](uint64_t done,uint64_t expected){CHECK(done>=last && done<=expected);last=done;return true;}));
     CHECK(last==total);

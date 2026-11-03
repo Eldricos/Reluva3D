@@ -6,9 +6,9 @@ in your external game library. The launcher previews the copy plan before
 copying. **Add Game** can still use the original installed folder directly.
 Neither operation runs the Windows installer or original executable.
 
-The plan now copies 45 files (13,892,691 bytes for the supplied release): the current
+The plan now copies 46 files (15,164,297 bytes for the supplied release): the current
 U.S. English Classic Original/Master dependencies plus the existing detection
-markers, the optional game-selection background and five mode-button clips. This supports all native Classic options, including both lid clips,
+markers, the optional game-selection background, publisher intro and five mode-button clips. This supports all native Classic options, including both lid clips,
 eight effects and fifteen music tracks. Source paths are matched without regard
 to case and destination names are consistent across platforms. The plan is
 stable and does not recursively copy unknown files.
@@ -70,8 +70,10 @@ reluva-tool boggle import-check /external/Boggle
 To preview filenames use `reluva-tool import /external/CD`; adding a destination
 argument performs the copy just as the launcher does. Keep redirected output
 and any copied files outside Git worktrees. The two supplied sources produce
-45 files / 13,892,691 bytes, checksum `9fa2df147dd9cefe8039e1d912caa57c`.
-Earlier 40-file imports lack only the five optional button clips and retain
+46 files / 15,164,297 bytes, checksum `65d8cd90bfb14962f0d8da74d3ebcfd0`.
+The preceding 45-file set lacks only Hasbro and has checksum
+`9fa2df147dd9cefe8039e1d912caa57c`.
+Earlier 40-file imports lack Hasbro and the five optional button clips and retain
 checksum `83fd9b02d89500220a026c13c828d999`. The original 39-file imports also
 lack the optional background and remain supported;
 without it the plan retains 39 files / 12,699,713 bytes and checksum
@@ -115,7 +117,13 @@ addition. The extended 40-file import and menu flow have native Linux checks;
 the new frontend still needs the owner's Windows test. See [frontend](frontend.md).
 
 Intro/menu movie support adds five optional button clips to new imports. The
-intro was already included for detection. Re-import to obtain the full 45-file
+intro was already included for detection. Re-import to obtain the full 46-file
 set; earlier 39/40-file copies use static fallback for missing button clips.
 The movie pass has native Linux integration checks and still needs the owner's
 Windows movie/audio test. See [movies](movies.md).
+
+The owner subsequently confirmed game-intro and button playback on Windows but
+reported that the Hasbro intro did not play. The previous 45-file plan omitted
+`Anims/Hasbro.avi`. It is now included when present, bringing the supplied set
+to 46 files. Re-import from the CD or full install to add it; older subsets
+remain playable while skipping the absent publisher stage.

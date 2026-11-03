@@ -109,8 +109,8 @@ separately establish Escape behavior on the original results screen.
 
 The background is optional so existing 39-file imports continue to work using
 a native selection background. A present but malformed image or wrong
-640x480 dimensions produce an explicit error. New imports include the image
-and five available button clips, containing 45 files for the supplied release.
+640x480 dimensions produce an explicit error. New imports include the image,
+the publisher movie and five available button clips, containing 46 files for the supplied release.
 See [import](import.md).
 
 Synthetic records cover selection, version, Players, Master/Original play, scoring, results,

@@ -25,7 +25,7 @@ int movies(int argc,char**argv) {
     if(argc!=3){std::fprintf(stderr,"usage: reluva-tool boggle movie-check <game folder>\n");return 2;}
     reluva::boggle::Resources resources;
     if(auto err=resources.open(argv[2])){std::fprintf(stderr,"%s\n",err.message.c_str());return 1;}
-    std::vector<std::string> paths{"Anims/INTRO.AVI"};
+    std::vector<std::string> paths{"Anims/Hasbro.avi","Anims/INTRO.AVI"};
     for(const auto* name:reluva::boggle::menuMovieNames)paths.push_back(std::string("Anims/")+name+".avi");
     reluva::Md5 digest;size_t movies=0,frames=0,audioFrames=0;
     auto number=[&](uint32_t n){uint8_t b[4];for(int i=0;i<4;++i)b[i]=uint8_t(n>>(8*i));digest.update(b,4);};

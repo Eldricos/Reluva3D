@@ -47,6 +47,7 @@ Error classicImportPlan(const std::filesystem::path& root, const DetectedGame& g
         add(std::string("Waves/")+name+".wav");
     for (const auto* name : classicMusicFiles) add(std::string("Waves/")+name+".wav");
     if (fs::findFile(root,"Bitmaps/Select1.bmp")) add("Bitmaps/Select1.bmp");
+    if (fs::findFile(root,"Anims/Hasbro.avi")) add("Anims/Hasbro.avi");
     for (const auto* name : menuMovieNames) {
         const auto path=std::string("Anims/")+name+".avi";
         if(fs::findFile(root,path))add(path);

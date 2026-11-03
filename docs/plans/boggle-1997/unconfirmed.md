@@ -58,7 +58,7 @@ by the static inspection and must not become undocumented assumptions in code.
   resource set; only dependency tracing and end-to-end runs can establish
   sufficiency for all original features. A tested Classic import set now covers
   the native English Classic Original/Master slice and existing detection markers
-  (45 files with menu artwork/clips, or the earlier 39/40-file subsets);
+  (46 files with menu artwork/clips, or the earlier 39/40/45-file subsets);
   the owner also confirmed that CD importing works. See
   [import scope](../../engines/boggle/import.md). It is not a full-game minimum.
 

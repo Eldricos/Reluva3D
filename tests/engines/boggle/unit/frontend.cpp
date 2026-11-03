@@ -179,6 +179,49 @@ void movies(const std::filesystem::path& tmp) {
     CHECK(bool(game->run()) && dimensions.w==0);
 }
 
+void publisherSequence(const std::filesystem::path& tmp) {
+    auto t=target(tmp);
+    fixtures::write(t.path/"Anims/Hasbro.avi",test::fixtures::grayMovie(320,240));
+    fixtures::write(t.path/"Anims/INTRO.AVI",test::fixtures::grayMovie(300,180));
+    fixtures::ScriptedSystem natural;natural.audioSupported=true;
+    natural.clock=[](size_t f)->uint64_t{return f*100;};
+    natural.events=[](size_t f)->std::vector<Event>{if(f==15)return {fixtures::keyEvent('l')};return {};};
+    natural.present=[&](const Surface& screen,size_t f){
+        if(f<2){CHECK(screen.pixels[0]==(f?90:30));CHECK(bool(natural.audioCallback));}
+        if(f>=2 && f<12){CHECK(!natural.audioCallback);CHECK(screen.pixels[0]==0);}
+        if(f==12 || f==13){const auto* p=screen.row(60)+20*4;CHECK(p[0]==(f==12?30:90));CHECK(bool(natural.audioCallback));}
+        if(f==14)CHECK(!natural.audioCallback);
+    };
+    auto game=findEngine("boggle")->create(natural,t);CHECK(!game->run());
+    CHECK(natural.frame==15 && natural.audioHashes.size()==4 && !natural.audioCallback);
+    // Skipping either the publisher or the intervening gap skips the complete
+    // remaining sequence, even when the later game movie is malformed.
+    fixtures::write(t.path/"Anims/INTRO.AVI","not decoded after skip");
+    for(size_t skipFrame:{size_t(0),size_t(2),size_t(3)}) {
+        fixtures::ScriptedSystem skip;skip.audioSupported=true;
+        skip.clock=[](size_t f)->uint64_t{return f*100;};
+        skip.events=[skipFrame](size_t f)->std::vector<Event>{
+            if(f==skipFrame)return {fixtures::keyEvent(key::Escape),fixtures::keyEvent(key::Return)};
+            if(f==skipFrame+1)return {fixtures::keyEvent('l')};
+            return {};
+        };
+        game=findEngine("boggle")->create(skip,t);CHECK(!game->run());
+        CHECK(skip.frame==skipFrame+1 && !skip.audioCallback);
+        if(natural.hashes.size()==15 && skip.hashes.size()==skipFrame+1)CHECK(skip.hashes.back()==natural.hashes[14]);
+    }
+    fixtures::write(t.path/"Anims/INTRO.AVI",test::fixtures::grayMovie(300,180));
+    for(auto type:{EventType::Quit,EventType::ReturnToLauncher})for(size_t frame:{size_t(1),size_t(3),size_t(13)}) {
+        fixtures::ScriptedSystem quit;quit.audioSupported=true;
+        quit.clock=[](size_t f)->uint64_t{return f*100;};
+        quit.events=[frame,type](size_t f)->std::vector<Event>{if(f==frame){Event e;e.type=type;return {e};}return {};};
+        game=findEngine("boggle")->create(quit,t);CHECK(!game->run());CHECK(quit.frame==frame && !quit.audioCallback);
+    }
+    fixtures::write(t.path/"Anims/Hasbro.avi","broken");
+    fixtures::ScriptedSystem invalid;game=findEngine("boggle")->create(invalid,t);CHECK(bool(game->run()));
+    t.settings["frontend_movies"]="0";invalid.events=[](size_t)->std::vector<Event>{return {fixtures::keyEvent('l')};};
+    game=findEngine("boggle")->create(invalid,t);CHECK(!game->run());
+}
+
 void timerAndErrors(const std::filesystem::path& tmp) {
     auto t=target(tmp);t.settings["classic_seconds"]="60";
     fixtures::ScriptedSystem sys;
@@ -211,5 +254,6 @@ static const test::Suite suite("boggle.unit.frontend",{
     {"owner-confirmed Escape behavior on selection, version and Players",[](const auto& tmp){escapePages(tmp);}},
     {"random music stays selected across menu re-entry and releases output",[](const auto& tmp){musicLifetime(tmp);}},
     {"Cinepak intro completion/skip, PCM cleanup, animated buttons and disabled media",[](const auto& tmp){movies(tmp);}},
+    {"publisher then game intro, one-second gap, sequence skip and cleanup",[](const auto& tmp){publisherSequence(tmp);}},
     {"timer starts with play, input boundaries and invalid artwork/settings",[](const auto& tmp){timerAndErrors(tmp);}},
 });

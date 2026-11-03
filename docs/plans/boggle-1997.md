@@ -248,7 +248,7 @@ Drive access and dictionary research are resolved. Classic Original/Master,
 with owner VM rule checks and Windows smoke/workflow tests documented in the
 engine pages. Classic lid clips and sound effects are now integrated; their
 presentation has owner Windows audio and VM cue corroboration. Import Game now
-copies a tested English Classic set (45 files with menu artwork/clips) from the install or expanded CD; see
+copies a tested English Classic set (46 files with menu artwork/clips) from the install or expanded CD; see
 [import scope](../engines/boggle/import.md). Native game selection and Classic setup now provide navigation into both variants;
 The Cinepak intro and mode buttons now play; see [frontend scope](../engines/boggle/frontend.md)
 and [movie playback](../engines/boggle/movies.md). Current gaps include full

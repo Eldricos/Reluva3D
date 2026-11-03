@@ -27,8 +27,8 @@ from the original game.
 Classic's round animation and WAV effects are enabled by default. The timer
 starts after the opening finishes, and closing finishes before results/review.
 The launcher can disable **Classic round animations** or **Classic sound
-effects** independently. **Intro and menu animations** plays the intro with
-its soundtrack and available animated mode buttons; Escape skips the intro.
+effects** independently. **Intro and menu animations** plays the publisher/game intros with
+their soundtracks and available animated mode buttons; Escape skips the intro.
 See [movie playback and scope](movies.md). **Classic music** offers no music (default), a selected
 installed track, or a random track chosen per launch. See [music](music.md) and [presentation behavior and evidence](presentation.md).
 
@@ -49,7 +49,7 @@ Game ID: `boggle1997`. Add the installed folder containing `Boggle.exe`, or
 its equivalent expanded `Boggle/` directory on the supplied CD. The CD root
 and compressed-only installers are not recognized as runnable directories.
 **Import Game** accepts the install, the expanded CD folder, or the CD root
-containing it, and copies the English Classic set (45 files with menu artwork and clips) into your external
+containing it, and copies the English Classic set (46 files with menu artwork and clips) into your external
 library. See [import scope and validation](import.md).
 
 Detection requires measured prefix-MD5/size signatures for `Boggle.exe`,
