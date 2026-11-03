@@ -348,7 +348,7 @@ FUNCS = {
   0x40ab20: ('radio_message', None, '(who, cop, kind) the line(s) for a message kind 8-0x23'),
   0x40aa20: ('radio_call_number', None, '(cop) officer slot 0x10 + cop index unless he spoke last'),
   0x40a970: ('radio_dispatch_ack', None, '(cop, form) dispatcher acknowledgement lines'),
-  0x40aeb0: ('radio_say_where', None, '(who, cop) place line for the slice the target will reach (0x4c8550)'),
+  0x40aeb0: ('radio_say_where', None, '(who, cop) place line for the slice the speaking cop will reach (its +0x1C + speed/6 x queued x 2; 0x4c8550)'),
   0x40b190: ('radio_say_speed', None, '(who, target, cop) lines 0x3C-0x3F above 44.7/53.6/62.6/80.5 m/s'),
   0x40a380: ('radio_click', None, '(ch, side) siren bank (entry 5) slot 0x20-0x28'),
   0x40a330: ('radio_timers_step', None, '0x5524c8 and per-cop counters + 1'),
@@ -385,6 +385,17 @@ FUNCS = {
   # c4 (two cops: network, results)
   0x455c10: ('results_sort_list', None, '(list 0 racers / 1 cops, key, reverse) sorts the result cars 0x6647b0 + list*0x9AC0 (compare 0x455840) into 0x5595d8'),
   0x46f510: ('results_pursuit_summary', None, 'Pursuit Summary: cops sorted each frame by the chosen column, Player key 8, Busts 5 reversed, Quota Time 7 (the default)'),
+  # s6 (sound questions, November 2026)
+  0x4032e5: ('cop_ai_turn', CAR, 'a computer cop\'s turn: on its roof -> radio once (0x403950); the states (table 0x4032a4); a target on its roof -> radio once a record (0x403910)'),
+  0x403910: ('cop_ai_target_crashed', CAR, 'target on its roof: kind 0x23 once a record (+0x54 bit 8), even when the radio had no room'),
+  0x403950: ('cop_ai_disabled', CAR, 'cop on its roof: kinds 0x19/0x1A once (+0x711 bit 0x10, cleared when upright again)'),
+  0x41d210: ('track_placed_sounds', None, 'the .frd sounds near the camera: kind 0 a loop on slot 18, kind 1 one-shots at random moments on slot 19 (track bank, entry 3)'),
+  0x51f750: ('mmx_mix16_mono_setup', None, 'MMX path: sets the voice\'s mixer 0x51f7ad and its level set-up 0x51f774'),
+  0x51f774: ('mmx_mix16_mono_levels', None, '(levels, L, R) four words L*256, four words R*256'),
+  0x51f7ad: ('mmx_mix16_mono', None, '(levels, count, src, bus) pmulhw by level, paddsw into the stereo 16-bit bus'),
+  0x51f850: ('mmx_mix16_stereo_setup', None, 'MMX path: sets 0x51f897 and its level set-up 0x51f874'),
+  0x51f874: ('mmx_mix16_stereo_levels', None, '(levels, L, R) words L*256, R*256, twice'),
+  0x51f897: ('mmx_mix16_stereo', None, '(levels, frames, src, bus) as 0x51f7ad for stereo sources'),
 }
 
 # globals: addr -> (name, type, desc)

@@ -216,6 +216,8 @@ public:
     // 16-bit units) going to L+R and to L-R, for voices whose two levels
     // have the same sign (front) and for those with opposite signs (behind,
     // in Dolby). Mixed ahead of the play cursor, by the game's lead.
+    // With Options::mmx, taken at the MMX mixers' entries instead (the mix
+    // itself still the game's, in the interpreter).
     struct VoiceEnergy {
         uint64_t ms = 0;
         uint32_t calls = 0, rearCalls = 0;
@@ -433,6 +435,8 @@ private:
     std::vector<VoiceEnergy>* voiceLog_ = nullptr; // logVoices'
     uint32_t voiceWindowMs_ = 100;
     void voiceMixed(bool rear, double c, double s, uint32_t calls);
+    bool mmxVoicesHooked_ = false;
+    void hookMmxMixers(); // -voices with MMX: at the MMX mixers' entries (native_sound.cpp)
     std::vector<int16_t>* soundRecord_ = nullptr; // recordSound's
     int soundRecordRate_ = 0;
     uint64_t soundRecordNextMs_ = 0; // when the next step is due

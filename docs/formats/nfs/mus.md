@@ -236,8 +236,17 @@ queued as the one before it starts, so it plays a section later.
   - `sq-1a`, 4 laps: lap 0 0 both; lap 1 50 and 0; lap 2 100 and 50;
     lap 3 100 both.
   - `sq-1c`, 8 laps: lap 0 0 both; laps 1-3 50 and 0; laps 4 and 5 100
-    and 50; lap 7 100 both. (Lap 6 not leading wasn't seen: the music's
-    lap went to 7 at the zones before the place changed.)
+    and 50; lap 7 100 both. Lap 6 not leading wasn't seen there (the
+    music's lap went to 7 at the zones before the place changed).
+  - `s6-l6`, 8 laps, the place held at 2 from the start
+    (`-pokeevery at=0x412d85:0x5e13dc:2`) and the car's lap poked to 4,
+    6 and 7 (55, 65, 78 s). The lap the tables take is the greater of
+    the music's lap and the car's (`0x4133ad`-`0x4133c3`), so the poke
+    counts at once. Lap 4 set 50; at lap 6 the value stayed 50 (no call
+    needed; the word at `0x5645c6`, which follows the calls, 0 before
+    the first and 50 after it, still read 50 at 65.0 s); lap 7 set 100.
+    So not leading, lap 6 is 50, as laps 4 and 5: the table sends laps
+    4-6 to one case (`0x4134b2`, `0x412d34`).
 - **The sections** follow the routes for the value in all these runs
   (`hometech`: 60 of 63 in `sq-8`, 81 of 86 in `sq-1c`; `homerock`: 36
   of 41 in `sq-pl`); the others are the zones' events.
@@ -276,6 +285,16 @@ race of `sn-m1`, `sn-h1`, `sq-8` and `sq-1a` played tech (`alpitech`,
 `hometech`; at `0x4108a6` esi is `0x5368e0`, `tech`). So `sn-m1`'s
 `alpitech` against the footage's `Summit_Day` `alpirock` is the
 alternation (or the setting), not day or night.
+
+Two races in one session (`s6-t6`, `s6-t11`, November 2026; byte
+0xA4 at 2, Hometown, `-watch` at `0x4a36c6` and at `0x4108a6`, where
+esi names the stream): the first race flipped `0x552854` at 37.4 s
+and played `tech` (41.0 s). Restarting it from the pause menu (Esc,
+Restart, Yes) doesn't go back through `0x4a3690`: no flip, and the
+race opened `tech` again (76.0 s). Quitting to the main menu (Esc,
+Quit, Main Menu, Yes) and clicking Race started a new one: the flip
+at 96.4 s and `rock` at 100.0 s (esi `0x5368d8`). So the alternation
+is by race started from the front end; a restart keeps the stream.
 
 ## Seen in footage (November 2026)
 

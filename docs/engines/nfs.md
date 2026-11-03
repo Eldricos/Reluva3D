@@ -581,6 +581,29 @@ Started. Done so far:
   mixer runs about 100 ms ahead of the recording (the best match of the
   two series' L+R, correlation 0.97).
 
+  With `-mmx` the game mixes with its integer routines, in the
+  interpreter, and the native mixers never run, so `-voices` logged
+  nothing. Now `-voices` with `-mmx` puts a native function at the
+  entries of the two 16-bit MMX mixers (`0x51f7ad` mono, `0x51f897`
+  stereo; `GameHost::hookMmxMixers`, `native_sound.cpp`; the 8-bit
+  ones play no retail sound). It reads the call's levels (words L × 256)
+  and source samples, adds up what the call will add as `pmulhw` gives
+  it, doubled as the mix down doubles it (so in the float path's
+  units; the bus's saturation left out), then does the routine's first
+  four instructions, whose 7 bytes it replaces, and goes on at the
+  fifth: the mix stays the game's. It goes in only with `-voices`.
+  Tested on the race above (`s6-mx1`, `-mmx -deterministic 50000`,
+  `70000:+up`, 120 s) against the float path (`s6-fl1`): 1,104 windows
+  (1,121 with floats), the sums against the recording's L+R correlate
+  0.933 at the 100 ms lead (0.938 with floats), their energy is 0.55
+  dB over the recording's from 72 s on (0.54), and the side against
+  the middle is −12.85 dB in the sums and −12.86 dB in the recording
+  (−12.91 and −12.92 with floats). The hook replaces four
+  instructions, so the clock of instructions moves: the recording
+  parts from that of `-mmx` without `-voices` at the first sound (7.7
+  s), the voices starting a little apart, as the MMX and float runs do
+  ([bnk.md](../formats/nfs/bnk.md)); its level is 0.02 dB lower.
+
   Placement, surround and slow frames were checked on 200-second runs
   into a race (`nfs-host -native -wav`):
   - **Placement.** iSND pans and places sounds itself, inside the mix it

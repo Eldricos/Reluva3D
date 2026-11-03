@@ -207,6 +207,83 @@ void GameHost::addNativeSound() {
 void GameHost::logVoices(std::vector<VoiceEnergy>* to, uint32_t windowMs) {
     voiceLog_ = to;
     voiceWindowMs_ = windowMs ? windowMs : 100;
+    if (to && options_.mmx && !mmxVoicesHooked_)
+        hookMmxMixers();
+}
+
+// With MMX the game mixes with its integer routines, in the interpreter
+// (bnk.md, The MMX path), so the native mixers above never run. For
+// -voices the two 16-bit mixers (0x51f7ad mono, 0x51f897 stereo; the
+// 8-bit ones play no retail sound) get a native function at their entry
+// that measures what the call will add and then does the routine's first
+// four instructions (push ebp; mov ebp, esp; pushad; mov esi, [ebp+8]),
+// whose bytes it replaces, and goes on at the fifth: the mix itself is
+// still the game's. Put in only when asked for, so a run without -voices
+// runs as before.
+//
+// mix(levels, count, src, dst): levels as words L x 256 (mono: four of
+// the left's, then four of the right's; stereo: left, right, left,
+// right), src 16-bit samples (count of them, or count frames), dst the
+// stereo 16-bit bus, which the mix down doubles. What a frame adds is
+// taken as pmulhw gives it, (L x 256 x s) >> 16, doubled, so in the same
+// units as the float path's; the bus's saturation is left out.
+void GameHost::hookMmxMixers() {
+    static const uint8_t prologue[7] = {0x55, 0x8b, 0xec, 0x60, 0x8b, 0x75, 0x08};
+    struct Mixer {
+        uint32_t address;
+        const char* name;
+        bool stereoSource;
+    };
+    static const Mixer mixers[] = {{0x51f7ad, "nfs3.exe MMX mix mono (voices)", false},
+                                   {0x51f897, "nfs3.exe MMX mix stereo (voices)", true}};
+    for (const Mixer& m : mixers) {
+        bool same = true;
+        for (uint32_t i = 0; i < sizeof prologue; ++i)
+            same = same && cpu_->read8(m.address + i) == prologue[i];
+        if (!same)
+            continue;
+        const uint32_t address = m.address;
+        const bool stereoSource = m.stereoSource;
+        const uint32_t native = cpu_->addNative(m.name, [this, address, stereoSource](Cpu& c) {
+            if (voiceLog_) {
+                const uint32_t levels = arg(c, 0), src = arg(c, 2);
+                const int32_t count = int32_t(arg(c, 1));
+                const int32_t left = int16_t(c.read16(levels)),
+                              right = int16_t(c.read16(levels + (stereoSource ? 2 : 8)));
+                Added added;
+                for (int32_t i = 0; i < count; ++i) {
+                    const int32_t sl = int16_t(c.read16(src + uint32_t(i) * (stereoSource ? 4 : 2)));
+                    const int32_t sr = stereoSource ? int16_t(c.read16(src + uint32_t(i) * 4 + 2)) : sl;
+                    const double l = 2.0 * double((left * sl) >> 16), r = 2.0 * double((right * sr) >> 16);
+                    added.c += (l + r) * (l + r);
+                    added.s += (l - r) * (l - r);
+                }
+                added.rear = left != 0 && right != 0 && (left < 0) != (right < 0);
+                voiceMixed(added.rear, added.c, added.s, 1);
+            }
+            // The routine's first instructions, then on from the fifth.
+            auto push = [&c](uint32_t v) {
+                c.reg[Cpu::ESP] -= 4;
+                c.write32(c.reg[Cpu::ESP], v);
+            };
+            push(c.reg[Cpu::EBP]);
+            c.reg[Cpu::EBP] = c.reg[Cpu::ESP];
+            const uint32_t esp = c.reg[Cpu::ESP];
+            for (int r : {Cpu::EAX, Cpu::ECX, Cpu::EDX, Cpu::EBX})
+                push(c.reg[r]);
+            push(esp);
+            for (int r : {Cpu::EBP, Cpu::ESI, Cpu::EDI})
+                push(c.reg[r]);
+            c.reg[Cpu::ESI] = c.read32(c.reg[Cpu::EBP] + 8);
+            push(address + sizeof prologue); // where the native's return goes
+            return 0u;
+        });
+        cpu_->write8(address, 0xe9); // JMP rel32
+        cpu_->write32(address + 1, native - (address + 5));
+        cpu_->write8(address + 5, 0x90);
+        cpu_->write8(address + 6, 0x90);
+        mmxVoicesHooked_ = true;
+    }
 }
 
 void GameHost::voiceMixed(bool rear, double c, double s, uint32_t calls) {

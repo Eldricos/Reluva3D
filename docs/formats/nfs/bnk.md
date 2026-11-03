@@ -752,7 +752,18 @@ esi being the kept object's record):
   tick 1562 to 0 by 1898. Muted (`sq-ec3`, as `sq-rr2`) the race is
   silent from 95 to 105 s, 118 to 128 s and so on; it sounds from 110
   to 117.4 s and from 129 to 149.6 s, the times object 2 and object 4
-  play, so they are heard (and something else at 105-109 s).
+  play, so they are heard. The sound at 105-109 s is a placed sound
+  (`s6-ec1`, the same run with `-watch` at `0x417080` and `0x4182b0`
+  and `-voices`): slot 19, the `.frd`'s one-shots (kind 1,
+  `0x41d210`), playing the track bank's sound 5 (the same in `tram08`
+  and `tr3d08`), a 1-second sound at 11025 Hz,
+  started 15 times from 101.0 to 111.9 s, 0.2 to 1.4 s apart. Its
+  volume rose as the car came near (2 at 101.0 s, 22 at 105.2 s, 50
+  at 105.9 s, 127 from 106.6 s), and the mixer's sum goes from
+  silence to sound at 105.6 s. The only other voice then is slot 18,
+  the track's loop, which asks for sound 12 of the 12-slot bank (0-11;
+  [frd.md](frd.md)) at volume 1-3 from 98.0 to 100.0 s: nothing plays.
+  Slot 21 (object 2) starts at 109.76 s.
 
 **When they come naturally** (November 2026). The cycle runs from the
 race's set-up: the tick is ((`0x7d3684` & ~1) + phase) mod L
@@ -888,6 +899,27 @@ slots the code asks for (`0x40ab20` and the call routines,
 what each line is for. Slot numbers are hex. A range means the code
 picks one at random.
 
+Re-checked in November 2026 (`s6-speech`): the lines that came out
+unclear were run again through the larger `medium.en` model, and
+compared by ear-proxy:
+- **`off02A` 0x3F says 160, not 180.** Its 0x3C-0x3E are the very
+  samples of `off00A`'s (the same voice: identical, sample for
+  sample), but 0x3F is another take (correlation −0.01, 1.71 s against
+  1.72 s). Both models hear 160 in it (`small.en` 0.98 sure of the
+  word) and 180 in `off00A`'s. Its spectrum has a fricative (most of
+  the energy over 3.5 kHz, 40 ms) at 1.20 s, in the number: the s of
+  "sixty"; `off00A`'s 0x3F has none after "he's". So voice A on
+  Atlantica's and Aquatica's banks says 160 for the line the code says
+  above 80.5 m/s (180 mph).
+- The dispatcher's 0x20 is "ten-four" and 0x13 "all units" twice
+  (`medium.en`); his 0x16 is "unit" and the number, swallowed. His
+  0x11 stays unclear to both models (an opener, said where a cop
+  joins); its purpose is from the code.
+- The rest that differ between the models (186 lines compared, of
+  `off00A`-`C`) differ in a word that doesn't change what the line is
+  for (a dispatch name, a unit number's wording; 0x2C-0x2F give the
+  police code for "situation in hand", the suspect caught).
+
 **The officer banks** (`off%02xA`-`C`, entries 11-13). The three
 voices say the same things in their own words; the track's banks
 differ only in the unit numbers, the dispatch name and the places.
@@ -908,10 +940,15 @@ differ only in the unit numbers, the dispatch name and the places.
 | 0x35-0x36 | the roadblock is in place | kind 0x22, `0x40bac0` (state 10) |
 | 0x37-0x38 | asks for / recommends a spike strip | kind 0x1B, `0x40b910` (`0x4039c0`) |
 | 0x39-0x3B | the strip is laid; 0x3A and 0x3B add the side, left and right (voice C says only that it's laid) | kinds 0x1F, 0x20, 0x21, `0x40b9c0` |
-| 0x3C-0x3F | how fast the suspect is going: over 100, 120, 140 and 180 mph (`off02A` was heard as 160 for the last) | `0x40b190` (above 44.7, 53.6, 62.6, 80.5 m/s) |
+| 0x3C-0x3F | how fast the suspect is going: over 100, 120, 140 and 180 mph; `off02A` says 160 for the last (below) | `0x40b190` (above 44.7, 53.6, 62.6, 80.5 m/s) |
 | 0x40-0x5F | a place: "at", "by" or "on" a landmark | `0x40aeb0` |
 | 0x60-0x7F | the same places with "near" or "from" | `0x40aeb0` (place + 0x20) |
 | 0x7E, 0x7F | "a quarter mile", "a half mile", said before a "from" place | `0x40aeb0`: 0x7F when the nearest place is over 100 slices off, 0x7E over 50 |
+
+Heard in runs ([physics.md](physics.md), Radio runs; the cars' roofs
+poked): a disabled cop said 0x1F then the wrecker 0x1D and a place, a
+crash 0x1B and a place, and the places along Hometown came from its
+rows as read, by the speaking cop's slice.
 
 Slots 0x18-0x19, 0x1C and 0x30 are empty, and kind 0x18 (slots
 0x0C-0x0D, `0x40b7f9`, which has no caller) has no line in any bank.
@@ -922,7 +959,8 @@ one's left, 0x3A (variant 0, kind 0x20), and variant 1 the plain 0x39.
 **The places** come from the track's table at `0x560aa0` (one per
 track, 0-8): rows of 16 bytes, the first slice, the slice past the
 last, a kind and the slot; −1 ends it. `0x4c8550` takes the row the
-target's slice (a little ahead, by the queue's length) falls in; out
+speaking cop's slice (a little ahead, by its speed and the queue's
+length) falls in; out
 of all rows `0x4c8470` takes the nearest. In a row the "at" form is
 said (kind 2: either form at random). Off the rows, kind 0 says the
 "near/from" form, kind 1 the "at" form, or a quarter or half mile and
@@ -939,7 +977,7 @@ Aquatica's goes to 0x58.
 | Slot | What it is | Said by |
 |---|---|---|
 | 0x10 | "all units be advised" | `0x40aa70(0x10)`: a new chase (`0x40b220`), a strip or roadblock in place when he last spoke over 1,000 sound steps ago |
-| 0x11 | an attention-all-units call | `0x40aa70(0x11)`: a cop joins (`0x40b330`), a chase taken again (`0x40b530`) |
+| 0x11 | an opener, unclear to the speech models (an attention-all-units call?) | `0x40aa70(0x11)`: a cop joins (`0x40b330`), a chase taken again (`0x40b530`) |
 | 0x12 | calling the available units | `0x40aa70(0x12)`, the call for help (`0x40b720`) |
 | 0x13 | "all units" said twice | no caller found |
 | 0x14-0x1B | "unit" and the officer's number; slot 0x14 + the cop's index | `0x40aa90`, and `0x40a970` half the time |

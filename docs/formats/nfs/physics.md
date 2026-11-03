@@ -1408,7 +1408,9 @@ exchange:
 - often the dispatcher's acknowledgement (`0x40a970`);
 - the message (`0x40ab20(1, cop, kind)`), and for some kinds where
   (`0x40aeb0`: a place line from the track's slice table
-  `0x560aa0`, read by `0x4c8550`, for the slice the target will reach)
+  `0x560aa0`, read by `0x4c8550`, for the slice the speaking cop will
+  reach: its own slice, +0x1C, plus its speed (+0x7C0) / 6 × the lines
+  queued × 2, `0x40af3c`-`0x40af89`)
   or how fast (`0x40b190`: lines 0x3C-0x3F above 44.7, 53.6, 62.6 and
   80.5 m/s);
 - a click from the siren bank (`0x40a380`: entry 5, slot 0x20-0x28);
@@ -1480,7 +1482,7 @@ units be advised" (a new chase; a strip or roadblock set when he last
 spoke over 1,000 sound steps ago), 0x11 (a cop joining, a chase taken
 again), 0x12 "available units" (the call for help). `0x40aeb0` gives
 the place: the row of the track's table (`0x560aa0`, rows of first
-slice, end, kind, slot) for the target's slice a little ahead, or the
+slice, end, kind, slot) for the speaking cop's slice a little ahead, or the
 nearest row, said as "at/by" (the slot, 0x40-0x5F) or "near/from"
 (+0x20), with "a quarter mile" (0x7E, 50 slices off) or "a half mile"
 (0x7F, 100) first; the dispatcher repeats the officer's last place
@@ -1489,6 +1491,38 @@ nearest row, said as "at/by" (the slot, 0x40-0x5F) or "near/from"
 sign, in pursuit of the car, by the covered bridges (Hometown slices
 171-224), over 100 mph; the dispatcher's all units, unit 46, in pursuit
 of the car, by the covered bridges.
+
+**Radio runs** (`s6-r1`-`r3`, November 2026: the racer-side pursuit
+of `c3-radio`, Hometown, the computer driving the player's car, the
+lines watched at `0x4c85f4`, the place look-ups at `0x40af89`). A
+disabled cop and a crash need a car on its roof (`0x402c80`: upright
++0x10C below 0, not in the air), which the computer's chase never
+gave, so the upright was poked just before the test (`-pokeevery`,
+cop 0 at `0x40330f` from its 2,950th time, 102.4 s; the target at
+`0x403774` from its 212th, 102.3 s), only into the read: the cars
+weren't turned over.
+- **Disabled** (`s6-r3`, cop 0, voice A, `0x403950` at 102.37 s): its
+  call sign (0x10), the dispatcher's "go ahead, unit 20" (0x24), "car
+  disabled" (0x1F), the wrecker (0x1D, the random half), the place
+  (0x48, the slice ahead 412, in Hometown's row 409-418), a click. No
+  reply follows. The bit (+0x711 0x10) clears when the cop is upright
+  again, so with the poke held it spoke again (0x1F or 0x1E, mostly
+  with 0x1D) every 3 to 12 s.
+- **Crashed** (`s6-r2`, car 0 chased by cop 0, `0x403910` at
+  102.25 s): the call sign (0x10), the dispatcher's "unit 20" (0x14)
+  and "go ahead" (0x22), "suspect has crashed" (0x1B), the place
+  (0x48, slice 411), a click; no reply. The record's bit (+0x54 8) is
+  set even when the radio has no room: in `s6-r1` the crash came at
+  109.1 s, with a call for backup queued, and was never said.
+- **The places** (all three runs, the speaking cop's slice ahead and
+  the line): 167 → 0x43 (4 slices before row 171-224, kind 1: the
+  "at" form); 323 → 0x40 (in row 322-341); 411-412 → 0x48 (in row
+  409-418, kind 0, the "at" form inside); 390-425, off the rows →
+  0x68 (the nearest, 409-418, kind 0: "near/from"); 769 → 0x69 (row
+  667-700, kind 0, 69 slices off: "near", no distance, as kind 0
+  gives none); 453 → 0x41 (row 469-491, kind 1, 16 off: "at"). Each
+  dispatcher's reply repeated the officer's place. So the table works
+  as read, by the cop's slice.
 
 **Picking a target** (`0x402e10`, in every state but 3, 5 and 6):
 racers still in, free (+0x634 passed) and within 16 slices, scored by
@@ -1985,10 +2019,11 @@ of every access to those offsets):
   A human racer driven by keys was chased and ticketed (`c6-h2`), but
   it had crashed and stopped first. `0x401370` is read (the top
   speed). What each radio line
-  says is in bnk.md (What the radio lines say); which line the place
-  table gives on each track's real roads, and kinds 0x19, 0x1A and
-  0x23 (a disabled cop, a crash), weren't heard in a run. Whether the
+  says is in bnk.md (What the radio lines say); the disabled cop, the
+  crash and the places were run (above, Radio runs). Whether the
   officer's side test is ever failed on a real road wasn't run.
+  Which place line the tables give on the other tracks' roads, and the
+  quarter and half mile, weren't heard.
 - Why the recorded game's spike icon dims for 3 s and its racer list
   has no "over" text, when this exe hides the icon until the strip is
   cleared and shows the text: probably another build, not found.
