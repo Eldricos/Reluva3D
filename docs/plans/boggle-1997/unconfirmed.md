@@ -40,8 +40,9 @@ by the static inspection and must not become undocumented assumptions in code.
   original menu/intro behavior. Present-file reader checks do not resolve this.
 - Classic roll/lid and WAV playback now exist; the owner has corroborated startup,
   selection, writing, final-countdown ticking and expiry ringing in the VM.
-  Precise sequence timing, long-word cues and native Windows media playback
-  still need comparison. Full original overlays,
+  A subsequent VM check confirms distinct seven- and eight-letter cues replacing
+  Writing; native Windows music/effects playback also passed the owner's test.
+  Precise sequence timing still needs comparison. Full original overlays,
   frontend menus, paletted/timer AVI and Cinepak remain unsupported. See
   [presentation evidence](../../engines/boggle/presentation.md).
 - Exact UI layout and appearance across resource DLLs, fonts, palette modes

@@ -82,9 +82,10 @@ WAV decoder and mixer handle sounds. Retail files, decoded frames/audio,
 disassembly, reference harnesses and recordings stay outside every Git worktree.
 The owner subsequently heard startup shaking, a selection effect, writing for
 words, ticking in the last ten seconds and ringing at expiry in the original
-VM. These corroborate the broad cue roles above. The owner could not obtain
-seven- or eight-plus-letter words, so those special cues remain supported by
-executable analysis rather than a VM observation. Precise opening/timer
+VM. A subsequent VM check confirmed that seven- and eight-letter words each
+play their own distinct cue instead of the standard writing sound. This
+corroborates the native length-based selection; the extension of Eight to
+lengths above eight remains established by executable analysis. Precise opening/timer
 alignment and the sub-second zero-bucket boundary were not measured; those
 schedules still come from executable analysis and deterministic native tests.
 The original also plays music, as the owner noted; native WAV loop music is
@@ -103,8 +104,9 @@ prior records. No retail pixels, samples or word/face lists are fixtures.
 
 An external native SDL run with dummy video/audio output rendered the flow and
 produced nonzero PCM through the real backend callback. This checks software
-integration, not physical sound output or Windows compatibility. The new
-presentation still needs the owner's Windows/VM comparison.
+integration through a dummy device. The owner subsequently confirmed that
+native music and sound effects work on their Windows setup. Precise transition
+timing and visual matching remain separate comparison work.
 
 For both supplied expanded data copies, `presentation-check <folder>` reports
 2 clips / 110 frames and 8 sounds / 146,905 audio frames, checksum

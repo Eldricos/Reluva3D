@@ -45,8 +45,9 @@ clean-room process; the native implementation executes no original code.
   Options handling stops/reloads/replays music at `0x417387`..`0x4173c4`.
 
 The owner heard music in the original VM. Exact track choice and continuity
-across transitions have not yet been corroborated by listening. Seven- and
-8+-letter effect cues remain a separate pending VM check.
+across transitions have not yet been explicitly corroborated by listening.
+The owner subsequently confirmed distinct seven- and eight-letter word cues
+in the VM, each replacing the standard writing sound; see [presentation](presentation.md).
 
 ## Validation
 
@@ -60,8 +61,8 @@ Existing gameplay and presentation records remain unchanged.
 `reluva-tool boggle music-check <folder>` decodes every track and reports only
 frame counts and a checksum of rates, channel counts, frame counts and PCM in
 explicit little-endian order. Optional game-data tests keep raw output outside
-all Git worktrees and commit only metadata. Windows playback still needs the
-owner's test of this version.
+all Git worktrees and commit only metadata. The owner tested this version on
+Windows and confirmed that music and sound effects work.
 
 Both supplied data copies decode to 15 tracks / 3,108,331 audio frames,
 checksum `f0a87351902d54d16a2da6a9b64dcb63`. All 15 Boggle CTest checks pass
@@ -72,5 +73,5 @@ and engine tests and the actual-track decoder check also pass ASan/UBSan
 
 An external music-only SDL run using dummy video/audio mixed 270,336 output
 frames with nonzero PCM through the real backend callback. This validates
-software integration; physical sound output and Windows playback remain
-separate owner checks.
+software integration through a dummy device. The owner's subsequent Windows
+playback confirmation provides a separate native listening check.
