@@ -303,7 +303,8 @@ uint32_t scaleArgb(uint32_t colour, uint32_t k) {
     return (((colour & 0xff00ff00u) >> 8) * k & 0xff00ff00u) | ((colour & 0x00ff00ffu) * k >> 8 & 0x00ff00ffu);
 }
 
-Headlight carHeadlight(int beams, bool projected, const std::array<float, 3>& at, float heading, float intensity) {
+Headlight carHeadlight(int beams, bool projected, const std::array<float, 3>& at, const std::array<float, 3>& right,
+                       const std::array<float, 3>& up, const std::array<float, 3>& forward, float intensity) {
     Headlight h;
     h.at = at;
     // 0x42d253-0x42d31b.
@@ -324,14 +325,11 @@ Headlight carHeadlight(int beams, bool projected, const std::array<float, 3>& at
     // reach x intensity, or a unit after the start if that's further.
     h.fadeFrom *= intensity;
     h.reach = std::max(h.fadeFrom + 1, h.reach * intensity);
-    // The car's rows (right, up, forward) with up and forward turned
-    // about the right by the tilt (0x4ea9e0): forward goes down.
+    // The car's rows with up and forward turned about the right by the
+    // tilt (0x4ea9e0): forward goes down.
     constexpr float kTau = 6.28318530718f;
     const float s = std::sin(tilt * kTau), c = std::cos(tilt * kTau);
-    const std::array<float, 3> forward{std::sin(heading), 0, std::cos(heading)};
-    const std::array<float, 3> up{0, 1, 0};
-    // Left-handed: the right of a forward (x, 0, z) is (z, 0, -x).
-    h.right = {forward[2], 0, -forward[0]};
+    h.right = right;
     for (int i = 0; i < 3; ++i) {
         h.up[size_t(i)] = forward[size_t(i)] * s + up[size_t(i)] * c;
         h.forward[size_t(i)] = forward[size_t(i)] * c - up[size_t(i)] * s;
@@ -339,11 +337,85 @@ Headlight carHeadlight(int beams, bool projected, const std::array<float, 3>& at
     return h;
 }
 
+Headlight carHeadlight(int beams, bool projected, const std::array<float, 3>& at, float heading, float intensity) {
+    const std::array<float, 3> forward{std::sin(heading), 0, std::cos(heading)};
+    // Left-handed: the right of a forward (x, 0, z) is (z, 0, -x).
+    return carHeadlight(beams, projected, at, {forward[2], 0, -forward[0]}, {0, 1, 0}, forward, intensity);
+}
+
+Headlight sirenLight(const std::array<float, 3>& carAt, const std::array<float, 3>& right,
+                     const std::array<float, 3>& up, const std::array<float, 3>& forward, int step) {
+    Headlight h;
+    // 0x42d020: the place, the car's position plus its up row (0x4dffb0).
+    for (int i = 0; i < 3; ++i)
+        h.at[size_t(i)] = carAt[size_t(i)] + up[size_t(i)];
+    // The turn (0x42cff0: (step mod 32) x 1/32), about the up (0x4eaab0):
+    // rows right and forward mixed by its sine and cosine.
+    constexpr float kTau = 6.28318530718f;
+    const float turn = static_cast<float>(((step % 32) + 32) % 32) * 0.03125f;
+    const float s = std::sin(turn * kTau), c = std::cos(turn * kTau);
+    for (int i = 0; i < 3; ++i) {
+        h.right[size_t(i)] = right[size_t(i)] * c - forward[size_t(i)] * s;
+        h.forward[size_t(i)] = right[size_t(i)] * s + forward[size_t(i)] * c;
+    }
+    h.up = up;
+    h.nearPlane = 3.5f;
+    h.fadeFrom = 15;
+    h.reach = 30;
+    h.colour = 0xFF8080FFu;
+    h.backColour = 0xFFFF8080u;
+    return h;
+}
+
+bool lightMissesBlock(const Headlight& light, const std::array<std::array<float, 3>, 4>& corners, float zoom,
+                      bool bothWays, const ViewScreen& screen) {
+    zoom = std::min(zoom, 1.0f);
+    uint8_t shared = 0xff;
+    for (const auto& corner : corners) {
+        const std::array<float, 3> d{corner[0] - light.at[0], corner[1] - light.at[1], corner[2] - light.at[2]};
+        auto dot = [&](const std::array<float, 3>& v) { return d[0] * v[0] + d[1] * v[1] + d[2] * v[2]; };
+        const float x = dot(light.right), y = dot(light.up);
+        float z = dot(light.forward);
+        if (std::fabs(z) == 0)
+            z = 1.5259022e-05f;
+        // Outcodes as for drawing, against the screen's window: the
+        // floats' bits compared as integers (0x41c0a6), so a negative
+        // value is outside below the bound.
+        const float inverse = 1 / z;
+        uint8_t code = 0;
+        if (!(inverse >= 0) || inverse >= screen.inverseDepth) {
+            code = 0x10;
+        } else {
+            const float sxp = screen.cx + screen.sx * inverse * x, syp = screen.cy + screen.sy * inverse * y;
+            if (syp < 0 || syp < screen.top)
+                code |= 8;
+            else if (syp > screen.bottom)
+                code |= 4;
+            if (sxp < 0 || sxp < screen.left)
+                code |= 1;
+            else if (sxp > screen.right)
+                code |= 2;
+        }
+        shared &= code;
+        // 0x41c138: a corner no wider than it is deep keeps the block.
+        if (std::fabs(x) * zoom <= (bothWays ? std::fabs(z) : z))
+            return false;
+    }
+    return shared != 0;
+}
+
+std::array<float, 3> headlightPlace(const Headlight& light, const std::array<float, 3>& carAt,
+                                    const std::array<float, 3>& carUp, float halfLength, float upright) {
+    const float along = halfLength * 0.25f; // 0x5373b0
+    std::array<float, 3> out{};
+    for (int i = 0; i < 3; ++i)
+        out[size_t(i)] = carAt[size_t(i)] + carUp[size_t(i)] * upright + light.forward[size_t(i)] * along;
+    return out;
+}
+
 std::array<float, 3> headlightPlace(const Headlight& light, const std::array<float, 3>& carAt, float halfLength,
                                     float upright) {
-    const float along = halfLength * 0.25f; // 0x5373b0
-    return {carAt[0] + light.forward[0] * along, carAt[1] + upright + light.forward[1] * along,
-            carAt[2] + light.forward[2] * along};
+    return headlightPlace(light, carAt, {0, 1, 0}, halfLength, upright);
 }
 
 HeadlightPoint headlightAt(const Headlight& light, const std::array<float, 3>& point) {
@@ -357,9 +429,18 @@ HeadlightPoint headlightAt(const Headlight& light, const std::array<float, 3>& p
     const float inverse = z < 1 ? 1.0f : 1 / z;
     p.u = (x * inverse + 1) * 0.5f;
     p.v = (y * inverse + 1) * 0.5f;
+    uint32_t colour = light.colour;
     if (z <= 0) {
-        p.outside = 0x10; // and no colour: a car's light has none behind (+0x74)
-        return p;
+        // A car's light has no colour behind (+0x74 is 0); a roof light
+        // takes the point as one ahead, negated, in its back colour.
+        if (light.backColour == 0) {
+            p.outside = 0x10;
+            return p;
+        }
+        x = -x;
+        y = -y;
+        z = -z;
+        colour = light.backColour;
     }
     if (z < light.nearPlane)
         p.outside |= 0x10;
@@ -378,7 +459,7 @@ HeadlightPoint headlightAt(const Headlight& light, const std::array<float, 3>& p
         const float across = std::clamp(std::fabs(x) / z, 0.0f, 1.0f), high = std::clamp(std::fabs(y) / z, 0.0f, 1.0f);
         const float fade = z > light.fadeFrom ? 1 - (z - light.fadeFrom) / (light.reach - light.fadeFrom) : 1.0f;
         const long k = std::lround((1 - (across + high) * 0.5f) * fade * 65536.0f);
-        p.colour = scaleArgb(light.colour, static_cast<uint32_t>(std::clamp(k, 0L, 0xffffL)) >> 8);
+        p.colour = scaleArgb(colour, static_cast<uint32_t>(std::clamp(k, 0L, 0xffffL)) >> 8);
     }
     return p;
 }
@@ -387,6 +468,59 @@ bool headlightTriangle(const HeadlightPoint& a, const HeadlightPoint& b, const H
     if ((a.outside & b.outside & c.outside) != 0 || ((a.outside | b.outside | c.outside) & 0x20) != 0)
         return false;
     return ((a.colour | b.colour | c.colour) >> 24) >= 8;
+}
+
+uint32_t carLitBy(uint32_t colour, const std::array<float, 3>& carAt, const std::vector<CarLights>& others) {
+    int sum[3] = {0, 0, 0}, count = 0;
+    auto add = [&](uint32_t c, float k) {
+        ++count;
+        for (int i = 0; i < 3; ++i)
+            sum[i] += static_cast<int>(std::lrint(static_cast<float>((c >> (16 - 8 * i)) & 0xff) * k));
+    };
+    auto inFrame = [&](const Headlight& l, float& x, float& y, float& z) {
+        const std::array<float, 3> d{carAt[0] - l.at[0], carAt[1] - l.at[1], carAt[2] - l.at[2]};
+        x = d[0] * l.right[0] + d[1] * l.right[1] + d[2] * l.right[2];
+        y = d[0] * l.up[0] + d[1] * l.up[1] + d[2] * l.up[2];
+        z = d[0] * l.forward[0] + d[1] * l.forward[1] + d[2] * l.forward[2];
+    };
+    for (const CarLights& o : others) {
+        bool headlights = true;
+        if (o.sirenOn) {
+            headlights = false;
+            float x, y, z;
+            inFrame(o.siren, x, y, z);
+            uint32_t c = o.siren.colour;
+            if (z < 0) {
+                z = -z;
+                c = o.siren.backColour;
+            }
+            if (o.siren.nearPlane <= z && z <= o.siren.reach && std::fabs(x) <= z && std::fabs(y) <= z) {
+                add(c, 1 - z / o.siren.reach);
+                headlights = true; // 0x4b9a7f: on to the headlights
+            }
+        }
+        if (headlights && o.headlightOn) {
+            const Headlight& l = o.headlight;
+            float x, y, z;
+            inFrame(l, x, y, z);
+            if (l.nearPlane <= z && z <= l.reach && std::fabs(x) <= z && std::fabs(y) <= z)
+                add(l.colour, (1 - std::fabs(x) / z) * (1 - z / l.reach));
+        }
+    }
+    if (count == 0)
+        return colour;
+    uint32_t out = 0xff000000u;
+    for (int i = 0; i < 3; ++i) {
+        const int shift = 16 - 8 * i;
+        const int c = static_cast<int>((colour >> shift) & 0xff) + sum[i] / count;
+        out |= static_cast<uint32_t>(std::clamp(c, 0, 255)) << shift;
+    }
+    return out;
+}
+
+float aiSlicesSpeed(const std::vector<uint8_t>& speeds, int slice) {
+    const size_t at = 16 + static_cast<size_t>(std::max(slice, 0) / 2);
+    return at < speeds.size() ? static_cast<float>(speeds[at]) : 64.0f;
 }
 
 LightLook lightLook(uint32_t type, uint64_t tick) {

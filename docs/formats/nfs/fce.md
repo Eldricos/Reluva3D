@@ -133,6 +133,60 @@ one, or none). Taking y downward on screen is Reluva's reading.
 Every car uses only page 0. The `Render/pc` models (the cone and
 `cop0`-`cop4`) use pages 0-6, from their `.art` files.
 
+## Lighting
+
+From nfs3.exe (November 2026), the drawing of a car (`car_draw_wheels`
+`0x4bab70` and its siblings):
+
+- **The car's colour** (`0x4ba810`, `carShadeColour`): the track's
+  shading where the car is, each channel the mean of the four corners
+  of the road polygon under it (`0x4206f0`, `FF7F7F7F` without one),
+  averaged again over the car's and its four wheels' polygons. The
+  track's colours are kept already scaled by the horizon's ambient
+  percentages (`0x419660`, integer, truncated). By night (`0x4b97b0`,
+  `carLitBy`) each other car whose lights are on adds, when this car's
+  position is inside its light (near plane to reach, no wider or higher
+  than deep), the light's colour × (1 − |x| / z)(1 − z / reach), a roof
+  light's × (1 − z / reach) (z as |z|, its red behind; that car's
+  headlights only count then); the lights' sum is divided by their
+  number and added, at most 255.
+- **Each vertex** (`0x49d8f0`, `0x49da30`, `carShade`,
+  `carVertexColour`): base = (r / 3, g / 3, b / 2), top = 2 × the
+  colour (at most 255), colour = base + (top − base) × n · L when
+  n · L > 0, else base, n the vertex's normal turned with the car.
+  L (`0x55d2a8`, set by the horizon loader `0x478340`) is
+  (sin θ, 0.5, cos θ) made a unit vector, θ the `.hrz` rotation
+  (degrees × 65536 / 360, the game's sine table; `carLightDirection`).
+  Fixed for the track: the car is lit from the sky's rotation, not the
+  sun's picture. The reflection colours (`0x4ba350`, `0x49d800`) are
+  worked out from the sky's colour and not followed.
+- **The glows** (`0x4b8740`, `carLightGlow`), one per dummy by its
+  name's letters: H a headlight, T a tail light, S a roof light; the
+  second F (facing forward) or R (back); the third L or R (a roof
+  light's side); the fourth O or E (which police headlight flashes
+  first). With d the car's forward · the unit vector from the light to
+  the camera (−d for R), drawn when d > 0, and with b = 1 − 0.3 ×
+  (r + g + b) / 765 of the car's colour, at least 0.7
+  (`carGlowBrightness`):
+  - T, with the lights on or braking (+0x509): red, alpha (198 braking,
+    else 128) × min(1, 4d) × b, size max(d, 0.25) × 0.8 × b;
+  - H, with the lights on, or a police car's siren on and its fourth
+    letter O in the first half of the 32-step cycle, E in the second:
+    white, alpha 255 × min(1, 4d) × b, size d × 0.8 × b × (1.5 on high
+    beams);
+  - S, a police car's siren on: p = 2 × (step mod 32) / 32, folded back
+    above 1; L blue (`0xFF8080FF`) with p, R red (`0xFFFF8080`) with
+    1 − p: alpha 255 × p × b, size max(p, 0.25) × 1.5 × b, pulled 0.75
+    towards the camera.
+
+  Each is a `glw3` quad (`0x8b4840`, loaded from `sfx.fsh` by
+  `0x4d5370`; `0x492370` draws it, `0x491190` too for the track's
+  lights along with `glw0`) added by its alpha, its corners `size`
+  from its centre, turned by ¼ turn × (x / z + 1) across the screen.
+  The Tracks page draws the T and H glows 0.3 nearer than the lamp (the
+  game gives them the body's depth). In the weather `0x491bc0` adds
+  flares on the road and in fog `0x492980` a beam: not drawn.
+
 ## How the game loads a model
 
 Read from nfs3.exe (October 2026). The car loader (`0x4b7a60`) reads the

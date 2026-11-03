@@ -84,7 +84,8 @@ also decoded (October 2026, from a survey of all nine tracks):
   `trk000`'s type 1 lights sit on its town centre's street lamps. The
   types run 0 to 15 and differ by track (`trk000` 1 and 7, `trk004`
   13, `trk007` 3 and 13...). Every type is drawn with `glw0` of
-  `Render/pc/sfx.fsh`; the type (& 15) picks a colour, a size and a
+  `Render/pc/sfx.fsh` (and, November 2026, a second quad of `glw3`,
+  `0x4918ca`, which the page doesn't draw yet); the type (& 15) picks a colour, a size and a
   blink from a table in nfs3.exe (`0x55e3dc`, 12 bytes each, used by
   `0x491190`). A blinking light is hidden while
   ((t + phase) >> shift) & 1, t the tick count (64 a second):
@@ -527,8 +528,8 @@ The Tracks page lights a car at the camera, heading where it looks, its
 light placed as the game's from the car's position: the camera taken as
 the car's, upright, as long as the Corvette (half length 2.40644), so
 1 above it and 0.6 ahead along the tilted forward (`headlightPlace`). By
-night, low beams at first, `E` stepping through off, low and high as the
-game's key, and Shift+E turning the projection (`projtex`) off and on.
+night, high beams at first as a human's car starts (`startingBeams`), `E`
+stepping through off, low and high as the game's key, and Shift+E turning the projection (`projtex`) off and on.
 The projected triangles are added with `glw2` as above; a raised colour
 is drawn as its difference from the polygon's own (baked and ambient)
 colour, added over the polygon's picture. The functions are
@@ -545,23 +546,77 @@ draws by default.
 **Other cars' lights** (`0x41c670`, November 2026). The pass goes
 through the race's cars in their list's order (`0x5efac8`, count
 `0x5efd9c`) for each block: a car in play, not hidden, within 150 of the
-block's centre, whose light isn't behind the camera by more than its
-reach (`0x41bc50`) nor outside the view (`0x41bf30`), is lit with
-intensity 1 − 0.75 × (cars already lit for this block / all the race's
-cars) (`headlightIntensity`): with 8 cars the first gets 1, the fifth
-0.625. A police car's second light (`+0x734`, the roof light) goes
-through another pass (`0x41ab40`), not followed. A corner in several
-lights is raised to the highest, byte by byte. The Tracks page's `J`
-puts three Corvettes (`car.fce`, high detail parts, `car00.tga`) on the
-virtual road ahead of the camera, two going its way 15 and 35 units on
-and one coming 25 on, in the middle of the first lane, their wheels on
-the road, each with low beams after the camera's car in the pass. In
-`nfs-host`'s night race on Hometown (no projection) the road ahead of
-the cars that pulled away is lit to the bend, uniformly as far as their
-reach goes and ending at whole polygons; the page with `J` and
-`Shift+E` from the player's grid place shows the same kind of pool
-round each car. The computer cars' colours, ride height (the model's
-half height, 0.67) and the AI's own light state are assumptions.
+block's centre. A police car with its siren on (+0x200 bit 0x20,
++0x734) first lights the block with its roof light, then any car with
+its lights on with its headlights. Each light is skipped when it is
+behind the camera by more than its reach (`0x41bc50`) or misses the
+block (`0x41bf30`, for the roof light `0x41bc90`, `lightMissesBlock`):
+the block's four outline corners (+0x84, `Track::Block::corners`) are
+put into the light's frame (+0x688, +0x6B8, the light's world-to-light
+transform made by `0x42d160`), projected with the screen's constants
+as if the light were the camera (`0x56009c`-`0x5600a8`: 320, −330.33,
+320, 240 in a 640 × 480 race; window `0x7d34f8`-`0x7d350c`), and the
+block is left out only when every corner is wider than it is deep
+(|x| × the camera's +0x54, held to 1, and 1 when 0 as the dumps have
+it, beyond z, or |z| for the roof light) and all four share an
+outcode. A headlight is lit with intensity 1 − 0.75 × (cars already
+lit for this block / all the race's cars) (`headlightIntensity`).
+
+**The roof light** (`0x42d020`, `sirenLight`) is a second light record
+at +0x734: a unit above the car along its up row, its frame the car's
+turned about the up by (step mod 32) / 32 of a turn; near plane 3.5,
+fading from 15 to nothing at 30, `0xFF8080FF` ahead and `0xFFFF8080`
+(+0x74 of the record) behind: `0x41a550` takes a point behind as one
+ahead, negated, in that colour. Its pass (`0x41ab40`) raises the
+corner colours of every polygon of the road, roadside and object
+layers 0-2 (not the lane markings), whatever the texture, and is not
+counted for the intensity. A corner in several lights is raised to the
+highest, byte by byte.
+
+**The lights a car starts with** (`0x42bcb0`, `startingBeams`): off;
+low beams in the weather; by night high beams for a human's car
+(+0x200 bit 4) and low beams for the others. The computer steps them up
+for 64 steps when held up (`0x40de50`, back by `0x40deb0`). An
+`nfs-host` night race on Hometown (`-dumpmem` of the cars at
+`0x5e1120`) has the human on 2 and all seven computer racers on 1,
+their lights at +0x6AC 0.88 above +0x98 and their fades 20 to 40 (40 to
+60 for the human) in white, `projtex` being off.
+
+**The roadside brightness at night is the player's own high beams.**
+Hometown's night frames light the road, grass and fences to the bend.
+The same race with `oppnumber` (`0x6fd4d0`) 0 and traffic off
+(`0x6fd4e8` 1) shows it just as much, alone on the grid; poking the
+player's +0x660 to 0 each frame (`-pokeevery at=0x47a880:0x5e1780:0`)
+leaves road and roadside dark. Other cars only add their own pools.
+
+The Tracks page's `J` puts three cars on the virtual road ahead of the
+camera, from its nearest slice: two Corvettes going its way 15 and 35
+units on, in the first and second lanes on their right, and a police
+Corvette (`Vcop`) coming 25 on in the first lane on its right, its
+siren on. Each is placed as the game places a car:
+
+- in the middle of its lane as the computer aims (`0x40daf0`): lanes
+  are numbered 0-13, 7 and up right of the road's point, a lane the
+  slice's lane width / 2 wide, lane L ≥ 7 centred (L − 7 + ½) widths
+  right, L ≤ 6 (6 − L + ½) widths left; kept within the walls less the
+  car's half width;
+- its box on the road: there is no suspension, and `car_clearance`
+  (`0x4a0440`) is 0 when the box's lowest corner touches the road's
+  plane, so the position is the half height (+0x118, the model's
+  `0x2C`, set by `0x4a0d20` from the model) along the road's normal; the
+  model is drawn 0.145 higher in y (`0x540120`, `0x4bab70`); its rows
+  the road's;
+- driving along the slices at the speed table's speed for the slice
+  (`speedsF.bin`; `speedsR.bin` going the other way; `aiSlicesSpeed`);
+- with the lights a computer car starts with, its headlights placed by
+  its own half length (+0x11C, the model's), and its headlight part
+  (12) drawn only with them on, as `0x4bab70` does.
+
+They light each other and the track as above (and are lit by the
+camera's car), their colours, glows and the roof light's sweep as in
+[fce.md](fce.md), Lighting. Left out: braking, the computer's
+flashing, lane changes, the rain's flares (`0x491bc0`) and the beam
+glow in fog (`0x492980`).
 
 **The headlights in footage** (November 2026). In the night clips the
 pool ahead of the car is a flat band with a fairly sharp far edge on

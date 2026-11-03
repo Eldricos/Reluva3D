@@ -460,6 +460,7 @@ private:
     // texture's with the colour added.
     int beams_ = 1;         // E: 0 off, 1 low, 2 high, as the game's key
     bool projected_ = true; // Shift+E: the projtex option
+    bool lightTest_ = true; // Ctrl+E: the game's test of each block against each light (0x41bf30)
     gfx::MeshId lightMesh_ = 0;
     size_t lightCapacity_ = 0; // vertices the mesh holds
     gfx::TextureId headlightPicture_ = 0; // owned by textures_
@@ -470,22 +471,60 @@ private:
     };
     std::vector<LightRun> lightRuns_;
     void prepareHeadlights(int here, const gfx::Vec3& eye, const gfx::Vec3& forward);
-    // Computer cars (J, by night): a few Corvettes on the virtual road
-    // ahead of the camera, two going its way and one coming, each lit by
-    // the game's headlight pass after the camera's car (headlightIntensity).
-    struct ComputerCar {
-        std::array<float, 3> at{}; // the car's position, track coordinates
-        float heading = 0;         // atan2(x, z) of its forward
+    // Computer cars (J): two Corvettes going the camera's way and a police
+    // car coming with its siren on, on the virtual road ahead in lanes as
+    // the computer picks their middles (0x40daf0), driving along the road's
+    // points at the speed tables' speeds (Shift+J stops and starts them).
+    // Each sits on the road as the game's box does, lit as the game lights
+    // a car, with its light glows, and lights the track by night after the
+    // camera's car (headlightIntensity), its roof light too.
+    struct CarModel {
+        // Parts 0-4 (body, wheels), then 12 (headlights, drawn with the
+        // lights on), z negated as on the Cars page; and each vertex's
+        // normal as stored (the model's own, left-handed coordinates).
+        std::vector<gfx::Vertex> vertices;
+        std::vector<std::array<float, 3>> normals;
+        uint32_t bodyVertices = 0, lightVertices = 0;
+        gfx::TextureId skin = 0; // owned by textures_
+        std::array<float, 3> halfSize{1.183f, 0.669f, 2.40644f};
+        std::vector<Model::Dummy> dummies;
+        std::string error;
     };
-    bool computerCars_ = false;
+    std::array<CarModel, 2> carModels_; // the Corvette, the police Corvette
+    struct ComputerCar {
+        int model = 0;
+        bool siren = false;    // a police car with its siren on
+        float slice = 0;       // along the virtual road: a slice and the way to the next
+        int way = 1;           // +1 along the slices' order, -1 against it
+        int lane = 7;          // 0-13, 7 and up right of the road's middle
+        float speed = 0;       // m/s
+        int beams = 1;         // startingBeams()
+        // This frame, in track coordinates: the position (+0x98) and rows.
+        std::array<float, 3> at{}, right{}, up{}, forward{};
+        uint32_t colour = 0xff7f7f7f; // its shading (carShadeColour, carLitBy)
+        gfx::MeshId mesh = 0;
+    };
+    bool computerCars_ = false, carsMoving_ = true;
     std::vector<ComputerCar> cars_;
-    gfx::MeshId carMesh_ = 0;
-    gfx::TextureId carSkin_ = 0; // owned by textures_
-    uint32_t carIndices_ = 0;
-    float carHalfLength_ = 2.40644f, carRideHeight_ = 0.65f;
+    std::vector<uint8_t> speedsForward_, speedsBackward_; // speedsF.bin, speedsR.bin
     std::string carError_;
-    void loadCar();
+    gfx::TextureId glow3Picture_ = 0; // sfx.fsh glw3, the cars' glows; owned by textures_
+    gfx::MeshId carGlowMesh_ = 0;
+    uint32_t carGlowQuads_ = 0, carGlowCapacity_ = 0;
+    void loadCars();
+    void releaseCars();
     void placeCars();
+    void moveCars(float dt);
+    void carRows(ComputerCar& car) const;
+    // The cars' colours and glows for this frame (prepareCars), before
+    // the headlights are made; drawn by drawCars.
+    void prepareCars(const gfx::Vec3& eye, const gfx::Vec3& forward, const gfx::Vec3& right, const gfx::Vec3& up);
+    void drawCars(const gfx::DrawCall& base);
+    // The road polygon under a point (track coordinates): its four
+    // corners' colours as the game keeps them, scaled by the ambient light.
+    bool roadColoursAt(const std::array<float, 3>& at, std::array<uint32_t, 4>& corners) const;
+    // The camera's car's light (prepareHeadlights), for the cars' shading.
+    Headlight cameraLight() const;
     // Moving objects this frame: each one's matrix and its batches, cut
     // at the reach as the placed objects are (0x41b640 queues them too).
     struct MovingFrame {

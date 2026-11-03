@@ -98,6 +98,13 @@ colour, so above the sky's row the screen shows it. With the black
 horizon flag, or on Lost Canyons (track 5) while the camera's car is on
 road slices 906 to 1064 (`0x4217e0`, the car's `+0xEC`), it is black and
 the game draws no sky at all (in a link race it also lays a black quad).
+Checked in `nfs-host` (November 2026): the player's car poked onto
+Lost Canyons' slice 960 by day (position, rows and +0x1C at a sky draw)
+shows the sky black from about ten frames on, under the canyon's
+overhang, and the Tracks page from the game's camera dumped there
+(`0x7a3d14`) draws the same black sky and the same rock edges to a few
+pixels. In the first frames after the poke the sky is still drawn
+(pink): +0xEC follows the car's new slice a little later.
 
 ### In the order the game draws them
 

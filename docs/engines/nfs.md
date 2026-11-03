@@ -303,9 +303,17 @@ What was built, with each format written up in `docs/formats/nfs/`:
   - by night, the headlights of a car at the camera as the game's pass
     lights them: `glw2` projected on polygons whose texture lacks flag
     `0x04`, the light's colour as a floor on the others' corners
-    (key E: off, low and high beams; Shift+E: the projection off, as
-    `nfs-host`'s `config.dat` has it); key J adds three computer cars
-    on the road ahead, each lit by the same pass after the camera's car;
+    (key E: off, low and high beams, high at first by night as a
+    human's car starts; Shift+E: the projection off, as `nfs-host`'s
+    `config.dat` has it; Ctrl+E: the game's test of each block against
+    each light off); key J adds two Corvettes going the camera's way and
+    a police Corvette coming with its siren on, in the computer's lane
+    middles, their boxes on the road, driving along the road's points at
+    the speed tables' speeds (Shift+J stops them), lit as the game lights
+    a car, with their tail-light, headlight and roof-light glows, and
+    lighting the track by night after the camera's car, the roof light
+    too ([frd.md](../formats/nfs/frd.md), Other cars' lights;
+    [fce.md](../formats/nfs/fce.md), Lighting);
   - the mirrored track (key U): texture set 1 and the view flipped left
     to right, its culling turned with it, as the game's mirror flag
     does; checked against a mirrored `nfs-host` race on Hometown.

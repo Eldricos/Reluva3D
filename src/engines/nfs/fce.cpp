@@ -148,6 +148,123 @@ Error parseArt(const std::vector<uint8_t>& data, std::vector<image::Image>& page
     return Error::success();
 }
 
+CarShade carShade(uint32_t colour) {
+    CarShade s;
+    const int r = static_cast<int>((colour >> 16) & 0xff), g = static_cast<int>((colour >> 8) & 0xff),
+              b = static_cast<int>(colour & 0xff);
+    s.base = {r / 3, g / 3, b >> 1};
+    s.top = {std::min(2 * r, 255), std::min(2 * g, 255), std::min(2 * b, 255)};
+    return s;
+}
+
+uint32_t carVertexColour(const CarShade& shade, float normalDotLight) {
+    uint32_t out = 0xff000000u;
+    const int k = normalDotLight > 0 ? static_cast<int>(std::lrint(normalDotLight * 65536.0f)) : 0;
+    for (int i = 0; i < 3; ++i) {
+        int c = shade.base[size_t(i)];
+        if (k > 0) {
+            const uint32_t add =
+                static_cast<uint32_t>(k) * static_cast<uint32_t>(shade.top[size_t(i)] - shade.base[size_t(i)]) >> 16;
+            c = static_cast<int>(std::min<uint32_t>(static_cast<uint32_t>(c) + add, static_cast<uint32_t>(shade.top[size_t(i)])));
+        }
+        out |= static_cast<uint32_t>(std::clamp(c, 0, 255)) << (16 - 8 * i);
+    }
+    return out;
+}
+
+std::array<float, 3> carLightDirection(int rotationDegrees) {
+    // 0x55d1f0 = degrees x 65536 / 360 (integer), the table's 1024 steps
+    // a turn (0x4f2380 sine, 0x4f23f0 cosine).
+    const int units = rotationDegrees * 65536 / 360;
+    const double turn = static_cast<double>(units) / 65536.0 * 6.283185307179586;
+    std::array<float, 3> d{static_cast<float>(std::sin(turn)), 0.5f, static_cast<float>(std::cos(turn))};
+    const float length = std::sqrt(d[0] * d[0] + d[1] * d[1] + d[2] * d[2]);
+    for (float& v : d)
+        v /= length;
+    return d;
+}
+
+uint32_t carShadeColour(const std::array<uint32_t, 4>& corners) {
+    uint32_t out = 0xff000000u;
+    for (int shift = 0; shift < 24; shift += 8) {
+        uint32_t sum = 0;
+        for (uint32_t c : corners)
+            sum += (c >> shift) & 0xff;
+        out |= (sum >> 2) << shift;
+    }
+    return out;
+}
+
+uint32_t ambientScaled(uint32_t colour, const std::array<int, 3>& ambientPercent) {
+    uint32_t out = colour & 0xff000000u;
+    for (int i = 0; i < 3; ++i) {
+        const int shift = 16 - 8 * i;
+        const int c = ambientPercent[size_t(i)] * static_cast<int>((colour >> shift) & 0xff) / 100;
+        out |= (static_cast<uint32_t>(c) & 0xff) << shift;
+    }
+    return out;
+}
+
+float carGlowBrightness(uint32_t colour) {
+    const float sum = static_cast<float>(((colour >> 16) & 0xff) + ((colour >> 8) & 0xff) + (colour & 0xff));
+    // 0x53ffc8 = 1/765, 0x53ffd0 = 0.3; under 0.7 (0x53ffd8) it is 0.7.
+    const float b = 1.0f - sum * (1.0f / 765.0f) * 0.3f;
+    return b < 0.7f ? 0.7f : std::min(b, 1.0f);
+}
+
+namespace {
+uint32_t glowAlpha(float value) {
+    const long a = std::lrint(value);
+    return static_cast<uint32_t>(std::clamp(a, 0L, 255L)) << 24;
+}
+} // namespace
+
+CarGlow carLightGlow(const std::string& dummy, float facing, int beams, bool braking, bool siren, int step,
+                     float brightness) {
+    CarGlow g;
+    auto letter = [&](size_t i) { return i < dummy.size() ? dummy[i] : '\0'; };
+    // The siren's phase (0x42cff0): (step mod 32) / 32; the flashing
+    // headlight's letter O for its first half, E for the second, and the
+    // roof lights' share, up and down twice as fast (0x540004, 0x540008).
+    const float phase = static_cast<float>(((step % 32) + 32) % 32) * 0.03125f;
+    const char flash = siren ? (phase <= 0.5f ? 'O' : 'E') : '\0';
+    float share = phase * 2;
+    if (share > 1)
+        share = 2 - share;
+    float seen = 0; // how much the light faces the camera
+    if (letter(1) == 'R' || letter(1) == 'F') {
+        seen = letter(1) == 'R' ? -facing : facing;
+        if (seen > 0) {
+            const float across = seen > 0.25f ? 1.0f : seen * 4; // 0x540010, 0x540018
+            if (letter(1) == 'R') {
+                // Red, brighter when braking (198 instead of 128).
+                g.size = std::max(seen, 0.25f) * 0.8f * brightness;
+                g.colour = glowAlpha((braking ? 198.0f : 128.0f) * across * brightness) | 0xff0000u;
+            } else {
+                // White, half as large again on high beams.
+                g.size = brightness * seen * 0.8f * (beams == 2 ? 1.5f : 1.0f);
+                g.colour = glowAlpha(across * 255.0f * brightness) | 0xffffffu;
+            }
+        }
+    }
+    switch (letter(0)) {
+    case 'T': g.shown = (beams != 0 || braking) && seen > 0; break;
+    case 'H': g.shown = (beams != 0 || (flash != '\0' && flash == letter(3))) && seen > 0; break;
+    case 'S':
+        if (siren) {
+            // Blue on the left (+0x7A4), red on the right (+0x7A8), in turn.
+            const float v = letter(2) == 'L' ? share : 1 - share;
+            g.size = brightness * std::max(v, 0.25f) * 1.5f; // 0x540038
+            g.colour = glowAlpha(v * 255.0f * brightness) | (letter(2) == 'L' ? 0x8080ffu : 0xff8080u);
+            g.nearer = 0.75f;
+            g.shown = true;
+        }
+        break;
+    default: break;
+    }
+    return g;
+}
+
 std::array<float, 2> reflectionUv(float x, float y, float z) {
     const float k = 0.707106f / std::sqrt(2 * (1 + std::fabs(z)));
     return {x * k + 0.5f, y * k + 0.5f};

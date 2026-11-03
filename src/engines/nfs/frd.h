@@ -167,6 +167,10 @@ struct Headlight {
     std::array<float, 3> at{}, right{}, up{}, forward{};
     float nearPlane = 1, fadeFrom = 10, reach = 40; // fading from fadeFrom to nothing at reach
     uint32_t colour = 0;                             // ARGB, alpha too
+    // The colour behind it (the light record's +0x74): 0 for a car's
+    // headlights, which light nothing behind; a police car's roof light
+    // shines both ways (sirenLight).
+    uint32_t backColour = 0;
 };
 // The intensity the pass gives a car's light (0x41c670, 0x41a800): 1 less
 // three quarters of the share of the race's cars (all of them, 0x5efd9c)
@@ -184,6 +188,43 @@ inline float headlightIntensity(int litBefore, int carCount) {
 // intensity (1 for the first car the pass lights, 0x41a800).
 Headlight carHeadlight(int beams, bool projected, const std::array<float, 3>& at, float heading,
                        float intensity = 1);
+// The same for a car whose rows (right, up, forward; track coordinates)
+// are given, on a sloping or banked road.
+Headlight carHeadlight(int beams, bool projected, const std::array<float, 3>& at, const std::array<float, 3>& right,
+                       const std::array<float, 3>& up, const std::array<float, 3>& forward, float intensity = 1);
+// The light state a car starts a race with (0x42bcb0): off, but low beams
+// in the weather (0x6fd4cc), and by night (0x6fd4c8) high beams for a
+// human's car (+0x200 bit 4) and low beams for the others (computer
+// racers, traffic, the police). The computer flashes its lights a step up
+// for 64 steps when it is held up (0x40de50, undone by 0x40deb0).
+inline int startingBeams(bool night, bool weather, bool human) {
+    return night ? (human ? 2 : 1) : weather ? 1 : 0;
+}
+// A police car's roof light with its siren on (+0x734, set by 0x42d020
+// each frame): a unit above the car along its up row, its frame the
+// car's turned about the up by (step mod 32) / 32 of a turn, so it sweeps
+// round twice a second; from 3.5 it fades from 15 to nothing at 30, in
+// 0xFF8080FF (blue) ahead and 0xFFFF8080 (red) behind (+0x7A4, +0x7A8).
+// Its pass (0x41ab40) only raises vertex colours, of every polygon of the
+// lists the headlights take but the lane markings, whatever its texture.
+Headlight sirenLight(const std::array<float, 3>& carAt, const std::array<float, 3>& right,
+                     const std::array<float, 3>& up, const std::array<float, 3>& forward, int step);
+// The screen the game projects with (0x56009c-0x5600a8 and the clip
+// window at 0x7d34f8-0x7d350c; as an nfs-host race at 640 x 480 has them):
+// x = cx + sx x / z, y = cy + sy y / z, inside left-right and top-bottom,
+// and 1 / z below inverseDepth (z beyond 1).
+struct ViewScreen {
+    float sx = 320, sy = -330.332f, cx = 320, cy = 240;
+    float left = 0, right = 640, top = 0, bottom = 480, inverseDepth = 1;
+};
+// Whether the game leaves a block out of a light's pass (0x41bf30; for a
+// roof light 0x41bc90): its outline's four corners (Track::Block::corners)
+// turned into the light's frame, each wider than its depth (|x| times
+// `zoom`, the camera's +0x54 held to 1 at most, beyond z; for a roof
+// light, beyond |z|) and all outside one side of the screen's window
+// when projected with the light as the camera (or all behind it).
+bool lightMissesBlock(const Headlight& light, const std::array<std::array<float, 3>, 4>& corners,
+                      float zoom = 1, bool bothWays = false, const ViewScreen& screen = {});
 // Where nfs3.exe puts a car's light (0x42d160): the car's position
 // (+0x98) plus its up row (+0xCC) times +0x10C (its up . the road's
 // normal, 1 on level road), plus a quarter of its half length (+0x11C)
@@ -194,9 +235,14 @@ Headlight carHeadlight(int beams, bool projected, const std::array<float, 3>& at
 // is upright: its up the track's.
 std::array<float, 3> headlightPlace(const Headlight& light, const std::array<float, 3>& carAt, float halfLength,
                                     float upright = 1);
+// The same with the car's up row (track coordinates).
+std::array<float, 3> headlightPlace(const Headlight& light, const std::array<float, 3>& carAt,
+                                    const std::array<float, 3>& carUp, float halfLength, float upright = 1);
 // A point in the light: its place on the picture, its colour (0 outside
 // the reach) and the game's outcodes: 1 left, 2 right, 4 below, 8 above
 // the frustum, 0x10 before the near plane or behind, 0x20 past the reach.
+// A light with a back colour (a roof light) takes a point behind it as
+// one ahead with x, y and z negated, in that colour (0x41a550).
 struct HeadlightPoint {
     float u = 0, v = 0;
     uint32_t colour = 0;
@@ -210,6 +256,28 @@ bool headlightTriangle(const HeadlightPoint& a, const HeadlightPoint& b, const H
 // Each byte of an ARGB colour times k / 256 (k 0-255), as the game scales
 // light colours (0x41a3e0, 0x491223).
 uint32_t scaleArgb(uint32_t colour, uint32_t k);
+
+// Another car's lights on a car (0x4b97b0, by night, before it is
+// drawn): for each car in play but this one whose lights are on, this
+// car's position in each light's frame. A headlight within its near
+// plane and reach, no wider or higher than deep, adds its colour (+0x6D0,
+// unscaled) times (1 - |x| / z) (1 - z / reach); a police car's roof
+// light (z taken as |z|, its back colour behind) times 1 - z / reach,
+// and then that car's headlights may add theirs too (only then). The
+// sum of each channel over the lights that add is divided by their
+// number (truncated) and added to the car's colour, at most 255.
+struct CarLights {
+    Headlight headlight;
+    bool headlightOn = false;
+    Headlight siren;
+    bool sirenOn = false;
+};
+uint32_t carLitBy(uint32_t colour, const std::array<float, 3>& carAt, const std::vector<CarLights>& others);
+
+// The computer's speed table (speedsF.bin, or speedsR.bin for the track
+// run backward; physics.md): after a 16-byte header, one byte per two
+// road slices, the speed wanted in m/s (0x40e080). 64 without the file.
+float aiSlicesSpeed(const std::vector<uint8_t>& speeds, int slice);
 
 // A placed sound's volume (0-127) at a distance in track units, as
 // 0x41d210 has it: 2^16 over (distance in 1/16 units)^2 / 2^10, at most 127.

@@ -1092,6 +1092,120 @@ void testHeadlights() {
     const std::array<float, 3> at = headlightPlace(low, {10, 2, 30}, 2.4f);
     CHECK(std::fabs(at[0] - 10) < 1e-5f && std::fabs(at[2] - (30 + 0.6f * std::cos(kTilt))) < 1e-5f);
     CHECK(std::fabs(at[1] - (3 - 0.6f * std::sin(kTilt))) < 1e-5f);
+    // With the car's rows: the same light for an upright car; on a banked
+    // car the place goes up its own up row.
+    const Headlight rows = carHeadlight(1, true, {0, 1, 0}, {1, 0, 0}, {0, 1, 0}, {0, 0, 1});
+    CHECK(std::fabs(rows.forward[1] - low.forward[1]) < 1e-6f && rows.reach == low.reach && rows.backColour == 0);
+    const std::array<float, 3> banked = headlightPlace(low, {0, 0, 0}, {0.6f, 0.8f, 0}, 2.4f);
+    CHECK(std::fabs(banked[0] - 0.6f) < 1e-5f && std::fabs(banked[1] - (0.8f - 0.6f * std::sin(kTilt))) < 1e-5f);
+
+    // The lights a race starts with (0x42bcb0): a human's high beams by
+    // night, the computer's low; low for all in the weather by day.
+    CHECK(startingBeams(true, false, true) == 2 && startingBeams(true, false, false) == 1);
+    CHECK(startingBeams(false, true, true) == 1 && startingBeams(false, false, false) == 0);
+    CHECK(startingBeams(true, true, false) == 1);
+
+    // A roof light (0x42d020): a unit up, turned a step's 1/32 of a turn
+    // about the up; blue ahead, red behind (0x41a550 negates the point).
+    const Headlight roof = sirenLight({5, 0, 0}, {1, 0, 0}, {0, 1, 0}, {0, 0, 1}, 8); // a quarter turn
+    CHECK(roof.at[1] == 1 && roof.nearPlane == 3.5f && roof.fadeFrom == 15 && roof.reach == 30);
+    CHECK(std::fabs(roof.forward[0] - 1) < 1e-5f && std::fabs(roof.right[2] + 1) < 1e-5f);
+    CHECK(roof.colour == 0xFF8080FFu && roof.backColour == 0xFFFF8080u);
+    p = headlightAt(roof, {15, 1, 0}); // 10 ahead
+    CHECK(p.outside == 0 && p.colour == 0xFE7F7FFEu);
+    p = headlightAt(roof, {-5, 1, 0}); // 10 behind: red
+    CHECK(p.outside == 0 && p.colour == 0xFEFE7F7Fu);
+    p = headlightAt(roof, {7, 1, 0}); // 2 ahead: within the near plane
+    CHECK((p.outside & 0x10) != 0);
+    CHECK(sirenLight({0, 0, 0}, {1, 0, 0}, {0, 1, 0}, {0, 0, 1}, 40).forward[0] ==
+          sirenLight({0, 0, 0}, {1, 0, 0}, {0, 1, 0}, {0, 0, 1}, 8).forward[0]);
+
+    // The block test (0x41bf30): a block ahead is kept; one whose corners
+    // are all wider than deep and off one side is left out; one all
+    // behind too, unless the light shines both ways (0x41bc90).
+    const Headlight flat = carHeadlight(1, true, {0, 0, 0}, {1, 0, 0}, {0, 1, 0}, {0, 0, 1});
+    auto square = [](float x, float z, float half) {
+        return std::array<std::array<float, 3>, 4>{std::array<float, 3>{x - half, 0, z - half}, {x + half, 0, z - half},
+                                                   {x + half, 0, z + half}, {x - half, 0, z + half}};
+    };
+    CHECK(!lightMissesBlock(flat, square(0, 30, 10)));
+    CHECK(lightMissesBlock(flat, square(60, 20, 10)) && lightMissesBlock(flat, square(-60, 20, 10)));
+    CHECK(!lightMissesBlock(flat, square(30, 20, 15))); // one corner within
+    CHECK(lightMissesBlock(flat, square(0, -40, 10)));
+    CHECK(!lightMissesBlock(roof, square(-20, 0, 5), 1, true) && lightMissesBlock(roof, square(0, 60, 5), 1, true));
+    // Straddling both sides: no outcode shared, so kept.
+    CHECK(!lightMissesBlock(flat, {std::array<float, 3>{-40, 0, 5}, {40, 0, 5}, {40, 0, 6}, {-40, 0, 6}}));
+
+    // Other cars' lights on a car (0x4b97b0): (1 - |x| / z)(1 - z / reach)
+    // of a headlight's colour, the lights' mean added.
+    CarLights behind;
+    behind.headlight = carHeadlight(2, false, {0, 0, 0}, {1, 0, 0}, {0, 1, 0}, {0, 0, 1});
+    behind.headlightOn = true;
+    const std::array<float, 3> ahead{0, -0.8f, 30}; // in the beam's frame roughly 30 along
+    const uint32_t lit = carLitBy(0xff101010u, ahead, {behind});
+    CHECK(lit == 0xff919191u); // 0x10 + 255 x (1 - 29.6 / 60)
+    CHECK(carLitBy(0xff101010u, {0, 0, -5}, {behind}) == 0xff101010u); // behind it
+    CarLights cop;
+    cop.siren = roof;
+    cop.sirenOn = true;
+    cop.headlight = behind.headlight;
+    cop.headlightOn = true;
+    // In the roof light's beam (10 ahead of it): 1 - 10/30 of its blue,
+    // and then the headlights' share too; out of it, not even those.
+    const uint32_t blue = carLitBy(0xff000000u, {15, 1, 0}, {cop});
+    CHECK((blue & 0xff) > ((blue >> 16) & 0xff));
+    CHECK(carLitBy(0xff000000u, {5, 1, 30}, {cop}) == 0xff000000u);
+
+    // The speed tables: a byte per two slices after 16, 64 without one.
+    std::vector<uint8_t> speeds(16, 0);
+    speeds.push_back(20);
+    speeds.push_back(35);
+    CHECK(aiSlicesSpeed(speeds, 1) == 20 && aiSlicesSpeed(speeds, 2) == 35 && aiSlicesSpeed(speeds, 9) == 64);
+    CHECK(aiSlicesSpeed({}, 0) == 64);
+}
+
+void testCarLighting() {
+    // 0x49d8f0: base a third of red and green, half of blue; top twice,
+    // at most 255. 0x49da30: base + (top - base) x n . L when lit.
+    const CarShade s = carShade(0xff906030u);
+    CHECK(s.base[0] == 48 && s.base[1] == 32 && s.base[2] == 24);
+    CHECK(s.top[0] == 255 && s.top[1] == 192 && s.top[2] == 96);
+    CHECK(carVertexColour(s, -0.5f) == 0xff302018u && carVertexColour(s, 0) == 0xff302018u);
+    CHECK(carVertexColour(s, 1) == 0xffffc060u);
+    CHECK(carVertexColour(s, 0.5f) == ((0xffu << 24) | (151u << 16) | (112u << 8) | 60u));
+    // The light's direction from the horizon's rotation (0x478340).
+    const auto north = carLightDirection(0), east = carLightDirection(90);
+    CHECK(std::fabs(north[2] - 2 / std::sqrt(5.0f)) < 1e-5f && std::fabs(north[1] - 1 / std::sqrt(5.0f)) < 1e-5f);
+    CHECK(std::fabs(east[0] - 2 / std::sqrt(5.0f)) < 1e-4f && std::fabs(east[2]) < 1e-4f);
+    // The shading under the car (0x4206f0) and the ambient light (0x419660).
+    CHECK(carShadeColour({0xff102030u, 0xff102030u, 0xff203040u, 0xff203041u}) == 0xff182838u);
+    CHECK(ambientScaled(0x80ff8040u, {50, 100, 33}) == 0x807f8015u);
+    // The glows' brightness (0x4b87a0): 1 - 0.3 x sum / 765, 0.7 at least.
+    CHECK(carGlowBrightness(0xff000000u) == 1 && carGlowBrightness(0xffffffffu) == 0.7f);
+    CHECK(std::fabs(carGlowBrightness(0xff7f7f7fu) - (1 - 0.3f * 381 / 765)) < 1e-5f);
+
+    // The glows (0x4b8740). A tail light seen from behind: red, 128 or
+    // 198 braking; only with the lights on or braking.
+    CarGlow g = carLightGlow("TRLN", -1, 1, false, false, 0, 1);
+    CHECK(g.shown && g.colour == 0x80ff0000u && std::fabs(g.size - 0.8f) < 1e-6f && g.nearer == 0);
+    CHECK(carLightGlow("TRLN", -1, 0, true, false, 0, 1).colour == 0xc6ff0000u);
+    CHECK(!carLightGlow("TRLN", -1, 0, false, false, 0, 1).shown && !carLightGlow("TRLN", 1, 1, false, false, 0, 1).shown);
+    // Seen from the side: dimmer under a quarter, the size kept at 0.25 of it.
+    g = carLightGlow("TRRN", -0.1f, 1, false, false, 0, 0.7f);
+    CHECK(g.colour == ((uint32_t(std::lrint(128 * 0.4f * 0.7f)) << 24) | 0xff0000u));
+    CHECK(std::fabs(g.size - 0.25f * 0.8f * 0.7f) < 1e-6f);
+    // A headlight from ahead: white, half as large again on high beams.
+    g = carLightGlow("HFLO", 1, 2, false, false, 0, 1);
+    CHECK(g.shown && g.colour == 0xffffffffu && std::fabs(g.size - 1.2f) < 1e-6f);
+    // A police car's: flashing in turn with the siren on, lights off.
+    CHECK(carLightGlow("HFLO", 1, 0, false, true, 4, 1).shown && !carLightGlow("HFRE", 1, 0, false, true, 4, 1).shown);
+    CHECK(!carLightGlow("HFLO", 1, 0, false, true, 20, 1).shown && carLightGlow("HFRE", 1, 0, false, true, 20, 1).shown);
+    // The roof lights: blue left, red right, rising and falling in turn.
+    g = carLightGlow("SMLN", 0, 0, false, true, 8, 1); // phase 1/4: share 1/2
+    CHECK(g.shown && g.colour == 0x808080ffu && std::fabs(g.size - 0.75f) < 1e-6f && g.nearer == 0.75f);
+    g = carLightGlow("SMRN", 0, 0, false, true, 16, 1); // share 1: red gone
+    CHECK(g.colour == 0x00ff8080u && std::fabs(g.size - 0.375f) < 1e-6f);
+    CHECK(!carLightGlow("SMLN", 0, 1, false, false, 8, 1).shown);
 }
 
 void testHorizon() {
@@ -2088,6 +2202,7 @@ int main() {
     testReflectionUv();
     testPlacedSounds();
     testHeadlights();
+    testCarLighting();
     testHorizon();
     testCollision();
     testSoundBank();
