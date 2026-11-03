@@ -156,7 +156,7 @@ or resolve dictionary choices: an unknown word on the board now has provisional
 points and stays pending. Its score is not final until review in the game.
 A single file represents a single round, without pause or
 replay. Optional arguments after the scenario path are `original|master` and
-seconds (`0` for Not Timed, otherwise 60..300 by 30); defaults are Original and
+seconds (`0` for Not Timed, otherwise 60, 120, 180, 240 or 300); defaults are Original and
 180 seconds. Limits: 64 KiB/file, 256 characters/line, 256 steps, 64 bytes/word and
 elapsed times through 3,600,000 ms. Keep optional explanatory notes separately.
 
@@ -207,7 +207,9 @@ behavior, dictionary membership, input handling and adjudication timing.
 
 For Master, repeat the observations with a 5x5 board, four-letter minimum,
 and the chosen duration recorded. The native variant and options are now
-implemented; original-game Master round observations remain to be collected.
+implemented; the owner has confirmed Master's three-minute default, four-letter minimum,
+whole-minute duration choices and scoring table. A recorded Master round
+remains to be compared.
 Verify three-letter rejection, four-letter scoring and Qu independently of
 cube count. Check an untimed round remains active until ended manually, and
 check a short timed round separately. See [options evidence](options.md) for

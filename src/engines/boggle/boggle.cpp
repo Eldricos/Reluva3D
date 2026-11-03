@@ -31,9 +31,8 @@ public:
             {"classic_variant", "Classic variant", "Original: 4 x 4, minimum 3 letters. Master: 5 x 5, minimum 4 letters.", true,
              {{"original", "Original"}, {"master", "Master"}}},
             {"classic_seconds", "Round duration", "Used for each Classic round; Not Timed ends with End Round (F1).", true,
-             {{"180", "3 minutes (default)"}, {"60", "1 minute"}, {"90", "1 minute 30 seconds"},
-              {"120", "2 minutes"}, {"150", "2 minutes 30 seconds"}, {"210", "3 minutes 30 seconds"},
-              {"240", "4 minutes"}, {"270", "4 minutes 30 seconds"}, {"300", "5 minutes"}, {"0", "Not Timed"}}},
+             {{"180", "3 minutes (default)"}, {"60", "1 minute"}, {"120", "2 minutes"},
+              {"240", "4 minutes"}, {"300", "5 minutes"}, {"0", "Not Timed"}}},
         };
     }
     std::unique_ptr<Engine> create(System& system, const GameTarget& target) const override {

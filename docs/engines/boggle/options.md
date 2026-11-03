@@ -6,16 +6,16 @@ Master uses 5x5 dice and a four-letter minimum. These are variants of Classic,
 not implementations of Boggle's other game modes.
 
 Select **Classic variant** and **Round duration** before starting the game.
-Both variants default to three minutes. Timed durations are 1:00 through 5:00
-in 30-second steps. **Not Timed** disables expiry; use End Round / F1 to finish
+Both variants default to three minutes. Timed durations are 1, 2, 3, 4 or 5
+minutes. **Not Timed** disables expiry; use End Round / F1 to finish
 and review pending dictionary words. The selected duration appears before the
 round starts and applies again on replay. New Board changes the board while
 keeping the selected variant and duration. Changing these options in the
 launcher affects the next launch, not a running round.
 
 The launcher persists its per-target settings as `classic_variant` = `original`
-or `master` and `classic_seconds` = `0`, or 60..300 in steps of 30. An absent
-setting uses Original / 180 seconds. Invalid saved values produce an explicit
+or `master` and `classic_seconds` = `0`, `60`, `120`, `180`, `240` or `300`.
+An absent setting uses Original / 180 seconds. Invalid saved values produce an explicit
 error; the engine does not silently substitute different rules. The original
 registry/profile is not read or modified.
 
@@ -37,8 +37,11 @@ Addresses below are executable virtual addresses:
   seconds and converts to milliseconds.
 - The Classic options page's slider initializes at `0x424890` with positions
   2..10. Its change handler `0x42bc10` converts position to seconds by
-  multiplying by 30. This gives 60..300 seconds in 30-second steps. The
-  language DLL's dialog resources label whole minutes and include Not Timed.
+  multiplying by 30. This establishes an internal numeric conversion, not
+  which positions a player can select in the complete UI. The language DLL's
+  dialog resources label whole minutes and include Not Timed. The owner's VM
+  check confirms selectable durations of 1, 2, 3, 4 or 5 minutes, plus no timer;
+  native choices and validation follow that observed UI.
 - Classic's scorer `0x41a040` uses word length and the variant's minimum.
   The previously documented 66 scorer and 881 adjacency comparisons include
   a four-letter minimum and all 5x5 cell pairs. Master scores four letters as
@@ -47,17 +50,19 @@ Addresses below are executable virtual addresses:
 
 An external reference harness executed the owner's options loader and slider
 handlers with bounded profile/window callbacks. All 28 default/timer/position
-checks passed: default 180 seconds, each timed choice, Not Timed, and all nine
-slider positions. It also checked the slider's range. Original bytes, resource
-text, disassembly and reference harnesses remain outside Git. The native
+checks passed: default 180 seconds, the internal timer conversions, Not Timed,
+and all nine slider positions. It also checked the slider's range. Original
+bytes, resource text, disassembly and reference harnesses remain outside Git. The native
 implementation independently parses settings, chooses data readers, applies
 board-based rules and uses its own clock model; it executes no original code.
 
-The owner's earlier VM observations and Windows workflow checks concern
-Original. A VM corroboration of Master defaults/options has been requested;
-this implementation's Master and duration evidence currently comes from the
-executable/resources and the scoped reference checks above. Matching AI,
-networking, Chess Timer, background play, cube orientation, original menus,
+The owner subsequently confirmed Master's three-minute default, four-letter
+minimum, whole-minute duration choices, no-timer option and the same scoring
+table as Original in the original-game VM. These observations corroborate the
+Master rules and narrow the UI duration choices beyond the internal slider
+conversion checks. Native Windows checks of this new Master/options build
+remain separate from the owner's earlier successful Original workflow tests.
+Matching AI, networking, Chess Timer, background play, cube orientation, original menus,
 animations and sound is outside this change.
 
 ## Native validation

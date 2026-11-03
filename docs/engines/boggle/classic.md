@@ -93,4 +93,7 @@ Master and configurable duration support is documented separately in
 [Classic options](options.md), including provenance, default/range checks and
 metadata-only real-data verification. The owner reports the preceding English
 user-dictionary workflow also works in the Windows build; this does not yet
-establish Windows/VM validation of Master.
+establish Windows validation of the native Master build. The owner has now
+confirmed the original's Master defaults, four-letter minimum, whole-minute
+duration choices, no-timer option and scoring table in the VM; see
+[Classic options](options.md).

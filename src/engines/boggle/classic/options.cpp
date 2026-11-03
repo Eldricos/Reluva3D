@@ -14,8 +14,8 @@ Error readClassicOptions(const std::map<std::string,std::string>& settings, Clas
         uint64_t seconds = 0; const auto& text = it->second;
         const auto result = std::from_chars(text.data(), text.data() + text.size(), seconds);
         if (result.ec != std::errc{} || result.ptr != text.data() + text.size() ||
-            (seconds != 0 && (seconds < 60 || seconds > 300 || seconds % 30)))
-            return Error::fail("Unsupported Classic duration; choose Not Timed or 1 to 5 minutes in 30-second steps");
+            (seconds != 0 && (seconds < 60 || seconds > 300 || seconds % 60)))
+            return Error::fail("Unsupported Classic duration; choose Not Timed or 1, 2, 3, 4 or 5 minutes");
         parsed.duration = seconds * 1000;
     }
     out = parsed; return Error::success();
