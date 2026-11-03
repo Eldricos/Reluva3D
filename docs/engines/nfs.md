@@ -1166,6 +1166,13 @@ Started. Done so far:
   spectrum; it is not sample for sample the same (bnk.md says why).
   `-count ADDR` (repeatable) prints how many times the instruction at
   ADDR ran, as the routines' counts there were taken.
+  `-drive CAR:TARGET:FROMMS[:TOMS[:GAP]]` steers a human's car (its
+  record's address) at another car from FROMMS to TOMS: it writes the
+  steering and pedals where the game unpacks the controls (`0x4314c9`),
+  at full gas or holding GAP metres behind the target at its speed, for
+  scripted chases in either player's car (`-drivesign -1` turns the
+  steering's sign round). It was made for the Hot Pursuit runs in
+  [physics.md](../formats/nfs/physics.md).
   `reluva-tool nfs-mmx-check <game> [trials]` runs the two mixers on the
   same voices: the game twice in the interpreter, the MMX flag clear in
   one and set in the other, each voice started with `iSNDmixstart` and

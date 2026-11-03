@@ -576,6 +576,7 @@ loads the banks into a table of 12-byte entries at `0x571124`
 | 8 | `copspch` | `0x4141d0` |
 | 9-14 | `tutor` (9), `vocasst` (10), the `off%02xA`-`C` (11-13) and `disp%02x` (14) speech, numbered by the track modulo 4 (Seen in footage, below) | `0x4144f3`-`0x4147e1` |
 | 22 | another traffic bank (`s...`) | `0x413e0a` |
+| 15 on | in a Hot Pursuit, one per racer (`0x56ee28`[car]): `IP<colour>spch.bnk` from the car's `IPspch<language>.viv` (colours bk, bl, br, dk, gr, lt, or, pu, rd, sv, wt, yl), or `IPncspch.bnk` (no colour) about one time in six; the car named on the radio, slot 0x00 for the dispatcher and 0x10, 0x20, 0x30 for the officers' voices ([physics.md](physics.md), The radio) | `0x40a010`, `0x413750` |
 
 `0x4138e0` loads the cars' banks (`scar.bnk`, `car.bnk`, `ocar.bnk`) at
 an index it is passed (+0 the bank, +8 its memory, as `0x410b50`).
@@ -867,6 +868,13 @@ night clips have no sound 31 or 0 to find (above).
   0-3 and 8 have banks. `Aquatica_Night` (track 6) likewise plays
   `disp02` lines (slot 36, the same in `disp08`), not `disp00` or
   `disp03` ones.
+- **In nfs-host** (`c3-radio`, Hometown, a racer's pursuit): the
+  radio's lines start at `0x4c85f4` from `off00A`-`C`, `disp00`, the
+  racers' `IP..spch` banks and clicks of `siren.bnk` slots 0x20-0x28;
+  `off00C` slot 17 and `disp00` slot 16 are heard where the log puts
+  them. At the player's ticket (`c3-spch`) `copspch` slot 18 plays,
+  with the radio muted. Which slot is said when is in
+  [physics.md](physics.md) (The radio).
 
 ## EA-XA ADPCM
 

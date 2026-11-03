@@ -88,6 +88,8 @@ const char* const kUsageLines =
     "                       [-mhz N] (the processor's clock the time stamp counter shows; 300 by default)\n"
     "                       [-mmx] (CPUID reports MMX: the game mixes its sound with its MMX routines)\n"
     "                       [-count ADDR] (how many times the instruction at ADDR ran; repeatable)\n"
+    "                       [-drive CAR:TARGET:FROMMS[:TOMS[:GAP]]] (CAR, a human's, steered at TARGET from\n"
+    "                       the controls; full gas, or GAP metres behind at its speed) [-drivesign -1]\n"
     "                       [-hotspots from to] (instructions counted by where they run, 16-byte blocks)\n"
     "                       [-gpulog] (THRASH recorded as for the GPU; each frame's list summed up)\n"
     "                       [-gpudump list dir] (that list in full: list.csv and its textures)\n"
@@ -1028,6 +1030,17 @@ int cmdNfsHost(int argc, char** argv) {
     uint64_t framesFrom = 0; // the first frame shown that -frames writes
     std::string forceLogFile; // the forces the game asks for, each time they change, as CSV
     reluva::x86::Pokes pokes; // memory written, or saved, at moments of the run
+    // -drive: a human's car steered at another car, its controls written as
+    // the game unpacks them (0x4314c9, after the steering and pedals): a
+    // steady pair of hands for scripted chases.
+    struct Driver {
+        uint32_t car = 0, target = 0;
+        uint64_t from = 0, to = ~0ull;
+        float gap = 0; // 0: full gas; else metres behind the target, at its speed
+        uint64_t logged = 0;
+    };
+    std::vector<Driver> drivers;
+    float driveSign = 1; // the steering's sign (the car's right row against the keys)
     for (int a = 3; a < argc; ++a) {
         const std::string arg = argv[a];
         if (arg == "-args" && a + 1 < argc)
@@ -1046,6 +1059,23 @@ int cmdNfsHost(int argc, char** argv) {
             watchLimit = std::atoi(argv[++a]);
         else if (arg == "-watch" && a + 1 < argc)
             watch.push_back(uint32_t(std::strtoul(argv[++a], nullptr, 0)));
+        else if (arg == "-drive" && a + 1 < argc) {
+            Driver d;
+            char* at = argv[++a];
+            d.car = uint32_t(std::strtoul(at, &at, 0));
+            if (*at == ':')
+                d.target = uint32_t(std::strtoul(at + 1, &at, 0));
+            if (*at == ':')
+                d.from = std::strtoull(at + 1, &at, 10);
+            if (*at == ':')
+                d.to = std::strtoull(at + 1, &at, 10);
+            if (*at == ':')
+                d.gap = std::strtof(at + 1, &at);
+            if (!d.car || !d.target)
+                return fail(Error::fail("-drive: CAR:TARGET:FROMMS[:TOMS[:GAP]]"));
+            drivers.push_back(d);
+        } else if (arg == "-drivesign" && a + 1 < argc)
+            driveSign = std::strtof(argv[++a], nullptr) < 0 ? -1.0f : 1.0f;
         else if (arg == "-count" && a + 1 < argc)
             counted.push_back({uint32_t(std::strtoul(argv[++a], nullptr, 0)), 0});
         else if (arg == "-watchread" && a + 1 < argc) { // ADDR, or reg+OFF / reg-OFF (eax ... edi)
@@ -1266,8 +1296,42 @@ int cmdNfsHost(int argc, char** argv) {
     std::map<uint32_t, uint64_t> hot;
     // Tracing every instruction costs: only when asked for.
     const bool hotspots = hotTo > hotFrom, tracePokes = pokes.needsTrace();
-    if (hotspots || traceCount > 0 || !watch.empty() || tracePokes || !counted.empty())
+    if (hotspots || traceCount > 0 || !watch.empty() || tracePokes || !counted.empty() || !drivers.empty())
         host.cpu().trace = [&](reluva::x86::Cpu& c) {
+            if (c.eip == 0x4314c9)
+                for (auto& d : drivers) {
+                    const uint64_t now = host.process().now();
+                    if (c.reg[reluva::x86::Cpu::ECX] != d.car || now < d.from || now >= d.to)
+                        continue;
+                    auto f = [&](uint32_t a) { return std::bit_cast<float>(c.read32(a)); };
+                    const float dx = f(d.target + 0x98) - f(d.car + 0x98), dz = f(d.target + 0xa0) - f(d.car + 0xa0);
+                    const float across = dx * f(d.car + 0x190) + dz * f(d.car + 0x198);
+                    const float along = dx * f(d.car + 0x1a8) + dz * f(d.car + 0x1b0);
+                    const float angle = std::atan2(across, along), dist = std::sqrt(dx * dx + dz * dz);
+                    auto speed = [&](uint32_t car) {
+                        const float x = f(car + 0xa4), y = f(car + 0xa8), z = f(car + 0xac);
+                        return std::sqrt(x * x + y * y + z * z);
+                    };
+                    const float v = speed(d.car), vt = speed(d.target);
+                    const int steer = int(std::clamp(driveSign * angle / 0.35f * 127.0f, -128.0f, 127.0f));
+                    int gas = 255, brake = 0;
+                    if (d.gap > 0) {
+                        const float wanted = vt + 0.5f * (dist - d.gap);
+                        gas = v < wanted ? 255 : 0;
+                        brake = v > wanted + 2 ? 255 : 0;
+                    }
+                    if (c.read8(d.car + 0x50b) == 1) // in neutral (a cop starts so): ask for first gear
+                        c.reg[reluva::x86::Cpu::EAX] = (c.reg[reluva::x86::Cpu::EAX] & ~0xffu) | 2;
+                    c.write32(d.car + 0x518, uint32_t(steer));
+                    c.write8(d.car + 0x504, uint8_t(gas));
+                    c.write8(d.car + 0x505, uint8_t(brake));
+                    if (now >= d.logged + 500) {
+                        d.logged = now;
+                        std::printf("  drive %08x at %08x ms %llu: %.1f m, %.2f rad, %.1f against %.1f m/s, steer %d gas %d"
+                                    " brake %d\n",
+                                    d.car, d.target, (unsigned long long)now, dist, angle, v, vt, steer, gas, brake);
+                    }
+                }
             for (auto& [address, n] : counted)
                 n += c.eip == address;
             if (hotspots && c.executed() >= hotFrom && c.executed() < hotTo)
