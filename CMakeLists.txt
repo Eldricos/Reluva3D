@@ -78,6 +78,7 @@ add_library(reluva_common STATIC
     src/common/gfx3d.cpp
     src/common/net.cpp
     src/common/pe.cpp
+    src/common/pe_resources.cpp
     src/common/x86/cpu.cpp
     src/common/x86/fpu.cpp
     src/common/x86/win32.cpp
@@ -144,5 +145,6 @@ reluva_finish_tool(
 # docs/DEVELOPMENT.md (Tests).
 reluva_add_tests(common
     SOURCES ${PROJECT_SOURCE_DIR}/tests/common/unit.cpp
-    TOPICS unit.hashes unit.files unit.archives unit.text unit.audio unit.image unit.net unit.x86)
+            ${PROJECT_SOURCE_DIR}/tests/common/pe_resources.cpp
+    TOPICS unit.hashes unit.files unit.archives unit.text unit.audio unit.image unit.net unit.x86 unit.pe_resources)
 reluva_finish_tests()

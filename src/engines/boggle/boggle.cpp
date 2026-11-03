@@ -1,0 +1,44 @@
+// SPDX-License-Identifier: GPL-3.0-or-later
+// Copyright (C) 2026 The Reluva contributors
+#include "engines/engine.h"
+
+namespace reluva::boggle {
+namespace {
+// Measured from the owner's install and matching expanded CD directory;
+// docs/plans/boggle-1997/inspection.md and manifests record provenance.
+// This multilingual copy's exact pressing/patch label is not established.
+const std::vector<GameVariant> kVariants = {
+    {"boggle1997", "Boggle (1997, multilingual)", "multilingual", "windows",
+     {{"Boggle.exe", "72f212ea3c87e3c47d480164b8a0f981", 656384},
+      {"Language/English.dll", "b5d3759c5103ff9c2ddeb8debc3dce2a", 124416},
+      {"Dicts/English.dic", "fd7191cd64475101ad717be88ef9985a", 718084},
+      {"Dicts/EngOrg.dst", "", 209}, {"Palettes/Title.pal", "", 2716},
+      {"Scripts/Die.x", "", 4496}, {"Anims/INTRO.AVI", "", 4311730},
+      {"Fonts/TARA.TTF", "", 54348}, {"Waves/Shake.wav", "", -1},
+      {"Bitmaps/ClsM1CS.bmp", "", 61078}, {"Textures/Letters.bmp", "", -1}}},
+};
+class BoggleEngine : public Engine {
+public:
+    Error run() override {
+        return Error::fail("Boggle is recognized, but gameplay is not available yet.");
+    }
+};
+class BoggleMetaEngine : public MetaEngine {
+public:
+    const char* id() const override { return "boggle"; }
+    const char* name() const override { return "Boggle (1997)"; }
+    std::vector<DetectedGame> detect(const std::filesystem::path& dir) const override {
+        return detectFromTable(id(), kVariants, dir);
+    }
+    std::unique_ptr<Engine> create(System&, const GameTarget&) const override {
+        return std::make_unique<BoggleEngine>();
+    }
+};
+} // namespace
+} // namespace reluva::boggle
+namespace reluva {
+const MetaEngine& boggleMetaEngine() {
+    static const boggle::BoggleMetaEngine instance;
+    return instance;
+}
+} // namespace reluva

@@ -1,0 +1,10 @@
+# The record of boggle.engine (tests/engines/boggle/engine.cpp).
+# Written by `reluva-tests boggle.engine --update`; review its diff before committing.
+detect.games: 0
+resources.images: 1
+resources.sounds: 1
+resources.palettes: 1
+resources.dice: 16
+resources.vertices: 3
+resources.strings: 1
+resources.decoded: 63792a4a3ac436bf7e621d898de620bb

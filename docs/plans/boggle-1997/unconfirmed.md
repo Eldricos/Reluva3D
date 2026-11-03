@@ -25,11 +25,18 @@ by the static inspection and must not become undocumented assumptions in code.
 - Save/high-score/user-dictionary persistence and writable-path behavior.
 - Network wire protocol, DirectPlay/Third-i session model, host authority,
   timeouts, discovery, synchronization and interoperability.
+- Several bitmap paths embedded in the EXE, including `Bitmaps/Title1.bmp`,
+  `Bitmaps/Title3.bmp` and `Bitmaps/GS1CS.bmp`, are absent from both supplied
+  expanded trees. Determine whether they are unused paths, require other
+  packaging/extraction, or reflect incomplete resources before promising
+  original menu/intro behavior. Present-file reader checks do not resolve this.
 - Exact UI layout and appearance across resource DLLs, fonts, palette modes
   and display settings. Successful media decoding is not a rendering match.
 - A proven minimum runtime file set. The inspection proposes a conservative
   resource set; only dependency tracing and end-to-end runs can establish
-  sufficiency. No Boggle engine, recognition table or importer exists yet.
+  sufficiency. Detection and initial resource readers now exist; see the
+  [engine README](../../engines/boggle/README.md). Gameplay and importing
+  are still unavailable.
 
 Research evidence must cite a manifest SHA-256 and file offset/RVA or a
 repeatable observation. Keep retail assets, dictionary entries, screenshots,

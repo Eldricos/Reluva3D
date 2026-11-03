@@ -3,6 +3,9 @@
 Stage 1 of [the implementation plan](../boggle-1997.md). This is static
 inspection of the owner's supplied files, not a claim that the replacement
 engine can play them. All findings were made on `engine/boggle-1997`.
+Current detection and initial reader support are documented in the
+[engine README](../../engines/boggle/README.md); statements below describe the
+stage 1 inspection before implementation.
 
 ## Sources and method
 
