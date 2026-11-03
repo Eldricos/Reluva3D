@@ -33,7 +33,7 @@ struct RoundWord { AcceptedWord entry; WordState state = WordState::Accepted; };
 class ClassicRound {
 public:
     explicit ClassicRound(const Dictionary& dictionary, UserDictionary* user = nullptr) : dictionary_(dictionary), user_(user) {}
-    Error board(Board board); // only between rounds; clears previous result
+    Error board(Board board, uint64_t duration = 180000); // only between rounds; clears previous result
     Error start(uint64_t now, uint64_t duration = 180000);
     void tick(uint64_t now);
     void finish() { if (phase_ == RoundPhase::Playing) phase_ = RoundPhase::Results; }
@@ -45,6 +45,8 @@ public:
     const std::vector<RoundWord>& words() const { return words_; }
     const RoundWord* candidate() const;
     Error decide(DictionaryChoice choice);
+    size_t minimum() const { return board_.side() == 5 ? 4 : 3; }
+    bool timed() const { return duration_ != 0; }
     int score() const { return score_; }
 private:
     const Dictionary& dictionary_;

@@ -84,4 +84,10 @@ inline void classicInstall(const std::filesystem::path& path) {
     write(path / "Textures/Letters.bmp", atlas());
     write(path / "Textures/LettersQu.bmp", atlas());
 }
+inline void masterInstall(const std::filesystem::path& path) {
+    classicInstall(path);
+    std::string text; for (size_t i = 0; i < 25; ++i) text += "A,A,A,A,A,A\n";
+    write(path / "Dicts/EngMas.dst", text);
+    write(path / "Palettes/ClsM1Pal.pal", palette());
+}
 } // namespace reluva::boggle::fixtures

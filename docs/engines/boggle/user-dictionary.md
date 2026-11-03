@@ -1,6 +1,6 @@
 # Classic rejected words and user dictionary
 
-Scope: U.S. English, single-player Classic Original, with the native round's
+Scope: U.S. English, single-player Classic Original or Master, with the native round's
 existing independent board/path model. Game data remains read-only. This adds
 word review and per-target persistence, not original menus, multiplayer word
 cancellation, a dictionary editor or multilingual user-word normalization.
@@ -53,7 +53,8 @@ original settings and multilingual behavior remain outside this slice.
 
 ## Native behavior
 
-A normalized word of at least three letters with a valid path is submitted
+A normalized word meeting the variant's minimum (Original three letters,
+Master four) with a valid path is submitted
 once. Main/user dictionary words count normally. An unknown word stays in the
 history in red and carries provisional length-based points until reviewed.
 Invalid characters, too-short words and words without a board path never enter
@@ -87,8 +88,9 @@ unreadable files fail explicitly, rather than being overwritten as empty data.
 An absent save path allows play/declining, but cannot approve additions.
 
 The engine never writes the installed `Dicts/EnglishUser.dic`, and does not
-automatically import or merge it. The native user list is loaded on each
-engine start and consulted alongside the owner's main English dictionary.
+automatically import or merge it. Both Classic variants share that target's native user list; a saved three-letter
+word still cannot bypass Master's four-letter minimum. The list is loaded on
+each engine start and consulted alongside the owner's main English dictionary.
 The original dictionary files remain authoritative for main-list membership;
 a user addition changes only that target's native word list.
 

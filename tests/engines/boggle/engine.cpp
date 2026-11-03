@@ -202,9 +202,66 @@ void dictionaryWorkflow(const std::filesystem::path& tmp) {
               "tests/engines/boggle/engine.cpp");
 }
 
+void masterWorkflow(const std::filesystem::path& tmp) {
+    using namespace boggle::fixtures;
+    const auto dir = tmp / "install"; masterInstall(dir);
+    const auto* meta = findEngine("boggle"); CHECK(meta); if (!meta) return;
+    GameTarget target; target.path = dir; target.gameId = "boggle1997";
+    target.settings = {{"classic_variant","master"},{"classic_seconds","60"}};
+    ScriptedSystem timed;
+    timed.events = [](size_t frame) -> std::vector<Event> {
+        if (frame == 1 || frame == 3 || frame == 10) return {keyEvent(key::Return)};
+        if (frame == 2) return {textEvent("aaa")};
+        if (frame == 4) return {mouseEvent(EventType::MouseDown,113,410)};
+        if (frame == 5) return {mouseEvent(EventType::MouseMove,186,410)};
+        if (frame == 6) return {mouseEvent(EventType::MouseMove,259,410)};
+        if (frame == 7) return {mouseEvent(EventType::MouseMove,332,410)};
+        if (frame == 8) return {mouseEvent(EventType::MouseUp,332,410),keyEvent(key::Return)};
+        if (frame == 11) return {keyEvent(key::Escape)};
+        return {};
+    };
+    timed.clock = [](size_t frame) -> uint64_t { return frame >= 9 ? 60010 : frame*10; };
+    auto game = meta->create(timed,target); if (auto err = game->run()) return test::fail(err.message);
+    CHECK(timed.hashes.size() == 11 && !timed.textEnabled && timed.textStopped);
+    if (timed.hashes.size() == 11) CHECK(timed.hashes[1] == timed.hashes[10]);
+    target.settings["classic_seconds"] = "0";
+    ScriptedSystem untimed;
+    untimed.events = [](size_t frame) -> std::vector<Event> {
+        if (frame == 1 || frame == 3 || frame == 6) return {keyEvent(key::Return)};
+        if (frame == 2) return {textEvent("aaaa")};
+        if (frame == 4) return {keyEvent(key::F1 + 1)}; // cannot replace a running board
+        if (frame == 5 || frame == 7) return {keyEvent(key::F1)};
+        if (frame == 8) return {keyEvent(key::Escape)};
+        return {};
+    };
+    untimed.clock = [](size_t frame) -> uint64_t { return frame >= 4 ? UINT64_C(5000000000) : frame*10; };
+    game = meta->create(untimed,target); if (auto err = game->run()) return test::fail(err.message);
+    CHECK(untimed.hashes.size() == 8 && !untimed.textEnabled && untimed.textStopped);
+    if (untimed.hashes.size() == 8) {
+        CHECK(untimed.hashes[3] == untimed.hashes[4]);
+        CHECK(untimed.hashes[1] == untimed.hashes[6]);
+    }
+    target.settings["classic_seconds"] = "301";
+    ScriptedSystem invalid;
+    game = meta->create(invalid,target); CHECK(bool(game->run())); CHECK(invalid.frame == 0 && invalid.w == 0);
+    test::Record rec;
+    if (timed.hashes.size() == 11) {
+        rec.add("master.ready",timed.hashes[0]); rec.add("master.minimum",timed.hashes[3]);
+        rec.add("master.last_cube",timed.hashes[8]); rec.add("master.expired",timed.hashes[9]);
+        rec.add("master.replay",timed.hashes[10]);
+    }
+    if (untimed.hashes.size() == 8) {
+        rec.add("untimed.ready",untimed.hashes[0]); rec.add("untimed.running",untimed.hashes[4]);
+        rec.add("untimed.finished",untimed.hashes[5]); rec.add("untimed.replay",untimed.hashes[6]);
+    }
+    rec.check(RELUVA_SOURCE_DIR "/tests/engines/boggle/data/master-record.txt", "boggle.engine",
+              "tests/engines/boggle/engine.cpp");
+}
+
 } // namespace
 
 static const reluva::test::Suite suite("boggle.engine", {
+    {"Master geometry, configured deadline, replay and untimed finish", [](const auto& tmp) { masterWorkflow(tmp); }},
     {"rejected words, dictionary choices, write failure and engine restart", [](const auto& tmp) { dictionaryWorkflow(tmp); }},
     {"synthetic resources and Classic round", [](const std::filesystem::path& tmp) { engineTest(tmp); }},
 });

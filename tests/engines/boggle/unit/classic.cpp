@@ -92,6 +92,43 @@ void review(const std::filesystem::path& tmp) {
     CHECK(!decline.start(100)); CHECK(decline.words().empty());
 }
 
+void master(const std::filesystem::path& tmp) {
+    auto d = dictionary(); UserDictionary user; CHECK(!user.load(tmp / "save")); CHECK(!user.add({"CAT"}));
+    Board b; std::vector<std::string> faces(25, "X");
+    faces[20] = "C"; faces[21] = "A"; faces[22] = "T"; faces[23] = "S"; faces[24] = "Qu";
+    faces[19] = "I"; faces[18] = "T"; faces[16] = "A";
+    CHECK(!b.set(5, faces)); CHECK(!b.adjacent(4,5)); CHECK(b.adjacent(18,24));
+    CHECK(!b.matches("QUQU",{24,24}));
+    ClassicRound round(d,&user); CHECK(!round.board(b)); CHECK(round.minimum() == 4);
+    CHECK(!round.start(0)); CHECK(round.submit("CAT",1) == Submission::TooShort);
+    CHECK(round.submit("CAX",1) == Submission::TooShort); CHECK(round.words().empty());
+    CHECK(round.submit("CATS",2,{20,21,22,23}) == Submission::Accepted); CHECK(round.score() == 1);
+    CHECK(round.submit("QUIT",3,{24,19,18}) == Submission::Accepted); CHECK(round.score() == 2);
+    CHECK(round.submit("QUITS",4,{24,19,18,23}) == Submission::Accepted); CHECK(round.score() == 4);
+    CHECK(round.submit("CAAX",5,{20,21,16,11}) == Submission::UnknownWord); CHECK(round.score() == 5);
+    round.finish(); CHECK(!round.decide(DictionaryChoice::YesAll)); CHECK(user.contains("CAAX"));
+    CHECK(!round.start(100)); CHECK(round.submit("CAAX",101) == Submission::Accepted);
+    round.finish();
+    for (uint64_t seconds = 60; seconds <= 300; seconds += 30) {
+        const uint64_t ms = seconds * 1000;
+        CHECK(!round.board(b,ms)); CHECK(round.remaining(0) == ms && round.timed());
+        CHECK(!round.start(1000,ms)); round.tick(1000+ms-1); CHECK(round.phase() == RoundPhase::Playing);
+        CHECK(round.submit("CATS",1000+ms) == Submission::NotPlaying);
+        CHECK(round.score() == 0 && round.remaining(1000+ms) == 0);
+    }
+    CHECK(!round.board(b,0)); CHECK(!round.timed() && round.remaining(0) == 0);
+    CHECK(!round.start(1000,0)); round.tick(UINT64_MAX);
+    CHECK(round.phase() == RoundPhase::Playing); CHECK(round.submit("CATS",UINT64_MAX) == Submission::Accepted);
+    CHECK(round.score() == 1);
+    CHECK(round.submit("CAAXX",UINT64_MAX,{20,21,16,11,6}) == Submission::UnknownWord);
+    CHECK(round.score() == 3 && !round.candidate()); round.finish();
+    CHECK(round.phase() == RoundPhase::Results && round.candidate());
+    CHECK(!round.decide(DictionaryChoice::NoAll)); CHECK(round.score() == 1);
+    CHECK(bool(round.start(0,3600001))); CHECK(bool(round.board(b,3600001)));
+    CHECK(!round.board(board())); CHECK(round.minimum() == 3 && round.timed());
+    CHECK(!round.start(0)); CHECK(round.submit("CAT",1) == Submission::Accepted);
+}
+
 void scoringAndGeneration() {
     for (size_t i = 0; i <= 16; ++i) {
         const int expected = i < 3 ? 0 : i < 5 ? 1 : i == 5 ? 2 : i == 6 ? 3 : i == 7 ? 5 : 11;
@@ -116,5 +153,6 @@ static const test::Suite suite("boggle.unit.classic", {
     {"adjacency, multi-letter tiles, paths and visit limits", [](const auto&) { paths(); }},
     {"submission, duplicates, timeout boundary and replay", [](const auto&) { rounds(); }},
     {"pending words, all four decisions and persistence across rounds", [](const auto& tmp) { review(tmp); }},
+    {"Master minimum, last cube, Qu, user words and all timer modes", [](const auto& tmp) { master(tmp); }},
     {"verified scoring and deterministic dice generation", [](const auto&) { scoringAndGeneration(); }},
 });

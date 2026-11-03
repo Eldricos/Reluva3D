@@ -2,6 +2,7 @@
 // Copyright (C) 2026 The Reluva contributors
 #include "engines/boggle/classic/game.h"
 #include "engines/boggle/classic/round.h"
+#include "engines/boggle/classic/options.h"
 #include "engines/boggle/classic/user_dictionary.h"
 #include "engines/boggle/resources.h"
 #include "common/font.h"
@@ -10,7 +11,7 @@
 
 namespace reluva::boggle {
 namespace {
-constexpr int width = 800, height = 600, boardX = 24, boardY = 100, cellSize = 92;
+constexpr int width = 800, height = 600, boardX = 24, boardY = 100, boardSize = 368;
 struct Ink { uint8_t r, g, b; };
 constexpr Ink white{246, 249, 255}, muted{164, 184, 205}, dark{18, 32, 48};
 void rect(Surface& screen, int x, int y, int w, int h, Ink color) {
@@ -27,7 +28,7 @@ bool hit(int x, int y, int left, int top, int w, int h) {
     return x >= left && y >= top && x < left + w && y < top + h;
 }
 void glyph(Surface& screen, int x, int y, const std::string& face,
-           const image::Image& letters, const image::Image& qu) {
+           const image::Image& letters, const image::Image& qu, int cellSize) {
     if (face.size() != 1 && face != "QU") { label(screen, x + 14, y + 25, face, {0, 0, 220}, 2); return; }
     const unsigned index = unsigned(face[0] - 'A');
     const auto& atlas = face == "QU" ? qu : letters;
@@ -41,15 +42,15 @@ void glyph(Surface& screen, int x, int y, const std::string& face,
             std::copy_n(p, 4, out);
         }
 }
-const char* feedback(Submission result) {
+std::string feedback(Submission result, size_t minimum) {
     switch (result) {
     case Submission::Accepted: return "Counted!";
     case Submission::NotPlaying: return "The round has ended.";
     case Submission::InvalidLetters: return "Enter a word using A-Z.";
-    case Submission::TooShort: return "Use at least 3 letters.";
+    case Submission::TooShort: return "Use at least " + std::to_string(minimum) + " letters.";
     case Submission::UnknownWord: return "Not in dictionary. Review after this round.";
     case Submission::NotOnBoard: return "No matching path on this board.";
-    case Submission::Duplicate: return "";;
+    case Submission::Duplicate: return "";
     case Submission::SelectPath: return "Please select this word on the board.";
     }
     return "";
@@ -60,20 +61,24 @@ void draw(Surface& screen, const ClassicRound& round, uint64_t now,
     rect(screen, 0, 0, width, height, dark);
     rect(screen, 0, 0, width, 76, {29, 49, 70});
     const auto& accent = palette[1]; rect(screen, 24, 76, 752, 2, {accent.r, accent.g, accent.b});
-    label(screen, 24, 18, "BOGGLE / CLASSIC ORIGINAL", white, 2);
-    label(screen, 24, 50, "U.S. English  |  4 x 4  |  3-letter minimum", muted);
+    const size_t side = round.board().side();
+    const int cellSize = boardSize / int(side);
+    const bool master = side == 5;
+    label(screen, 24, 18, master ? "BOGGLE / CLASSIC MASTER" : "BOGGLE / CLASSIC ORIGINAL", white, 2);
+    label(screen, 24, 50, master ? "U.S. English  |  5 x 5  |  4-letter minimum" : "U.S. English  |  4 x 4  |  3-letter minimum", muted);
     const auto seconds = (round.remaining(now) + 999) / 1000;
     char timer[48]; std::snprintf(timer, sizeof(timer), "%llu:%02llu", (unsigned long long)(seconds / 60), (unsigned long long)(seconds % 60));
-    label(screen, 670, 25, timer, white, 3);
+    if (round.timed()) label(screen, 670, 25, timer, white, 3);
+    else label(screen, 652, 32, "NOT TIMED", white, 2);
     const bool reviewing = round.candidate() != nullptr;
     const bool ready = round.phase() == RoundPhase::Ready, playing = round.phase() == RoundPhase::Playing;
     for (size_t i = 0; i < round.board().faces().size(); ++i) {
-        const int x = boardX + int(i % 4) * cellSize, y = boardY + int(i / 4) * cellSize;
+        const int x = boardX + int(i % side) * cellSize, y = boardY + int(i / side) * cellSize;
         const bool selected = std::find(path.begin(), path.end(), i) != path.end();
         rect(screen, x, y, cellSize - 2, cellSize - 2, selected ? Ink{57, 180, 221} : Ink{86, 107, 130});
         rect(screen, x + 3, y + 3, cellSize - 8, cellSize - 8, white);
-        if (!ready) glyph(screen, x, y, round.board().faces()[i], letters, qu);
-        else label(screen, x + 30, y + 27, "?", {76, 95, 120}, 3);
+        if (!ready) glyph(screen, x, y, round.board().faces()[i], letters, qu, cellSize);
+        else label(screen, x + (cellSize - 32) / 2, y + (cellSize - 38) / 2, "?", {76, 95, 120}, 3);
     }
     label(screen, 430, 102, ready ? "READY" : playing ? "ROUND IN PROGRESS" : "ROUND COMPLETE", white, 2);
     label(screen, 430, 140, "SCORE  " + std::to_string(round.score()), {110, 220, 200}, 2);
@@ -114,24 +119,26 @@ void draw(Surface& screen, const ClassicRound& round, uint64_t now,
 }
 }
 Error ClassicGame::run() {
+    ClassicOptions options;
+    if (auto err = readClassicOptions(target_.settings, options)) return err;
     Resources resources;
     if (auto err = resources.open(target_.path)) return err;
     Dictionary dictionary; DiceSet dice; Palette palette;
     image::Image letters, qu;
     if (auto err = resources.dictionary("Dicts/English.dic", dictionary)) return err;
-    if (auto err = resources.diceSet("Dicts/EngOrg.dst", dice)) return err;
-    if (auto err = resources.palette("Palettes/ClsO1Pal.pal", palette)) return err;
+    if (auto err = resources.diceSet(options.dice(), dice)) return err;
+    if (auto err = resources.palette(options.palette(), palette)) return err;
     if (auto err = resources.image("Textures/Letters.bmp", letters)) return err;
     if (auto err = resources.image("Textures/LettersQu.bmp", qu)) return err;
-    if (letters.w != 512 || letters.h != 512 || qu.w != 512 || qu.h != 512 || dice.side != 4)
-        return Error::fail("Unsupported Classic Original letter atlas or dice layout");
+    if (letters.w != 512 || letters.h != 512 || qu.w != 512 || qu.h != 512 || dice.side != options.side())
+        return Error::fail("Unsupported Classic letter atlas or dice layout");
     UserDictionary user;
     if (auto err = user.load(target_.savePath, target_.path)) return err;
     ClassicRound round(dictionary, &user); Board board; uint32_t seed = 0x1997;
     if (auto err = Board::generate(dice, seed, board)) return err;
-    if (auto err = round.board(std::move(board))) return err;
+    if (auto err = round.board(std::move(board), options.duration)) return err;
     if (auto err = sys_.initGraphics(width, height, PixelFormat::RGBA32)) return err;
-    sys_.setWindowTitle("Reluva - Boggle Classic Original");
+    sys_.setWindowTitle(options.variant == ClassicVariant::Master ? "Reluva - Boggle Classic Master" : "Reluva - Boggle Classic Original");
     sys_.setMouseCursorVisible(true); sys_.setTextInput(true);
     struct TextInputCleanup { System& system; ~TextInputCleanup() { system.setTextInput(false); } } cleanup{sys_};
     Surface screen; screen.create(width, height, PixelFormat::RGBA32);
@@ -143,18 +150,19 @@ Error ClassicGame::run() {
         if (round.phase() == RoundPhase::Results && !resultsVisible) return Error::success();
         resultsVisible = false; clear(); message.clear();
         if (round.phase() == RoundPhase::Playing) round.finish();
-        else if (auto err = round.start(sys_.getMillis())) return err;
+        else if (auto err = round.start(sys_.getMillis(), options.duration)) return err;
         return Error::success();
     };
     auto newBoard = [&]() -> Error {
         if (round.phase() == RoundPhase::Playing) return Error::success();
         if (auto err = Board::generate(dice, ++seed, board)) return err;
-        if (auto err = round.board(std::move(board))) return err;
+        if (auto err = round.board(std::move(board), options.duration)) return err;
         resultsVisible = false; clear(); message.clear(); return Error::success();
     };
     auto select = [&](int x, int y) {
-        if (round.phase() != RoundPhase::Playing || !hit(x, y, boardX, boardY, cellSize * 4, cellSize * 4)) return;
-        const size_t cell = size_t((y - boardY) / cellSize) * 4 + size_t((x - boardX) / cellSize);
+        const size_t side = round.board().side(); const int cellSize = boardSize / int(side);
+        if (round.phase() != RoundPhase::Playing || !hit(x, y, boardX, boardY, cellSize * int(side), cellSize * int(side))) return;
+        const size_t cell = size_t((y - boardY) / cellSize) * side + size_t((x - boardX) / cellSize);
         if (!selected.empty() && cell == selected.back()) return;
         if (std::find(selected.begin(), selected.end(), cell) != selected.end()) { message = "That cube is already used."; return; }
         if (!selected.empty() && !round.board().adjacent(selected.back(), cell)) { message = "Choose a touching cube."; return; }
@@ -191,7 +199,7 @@ Error ClassicGame::run() {
             if (event.type == EventType::KeyDown) {
                 if ((event.key == key::Return || event.key == key::KpEnter) && !event.repeat) {
                     if (round.phase() != RoundPhase::Playing) { if (auto err = startOrFinish()) return err; }
-                    else { const auto result = round.submit(input, sys_.getMillis(), selected); message = feedback(result); if (result != Submission::SelectPath) clear(); }
+                    else { const auto result = round.submit(input, sys_.getMillis(), selected); message = feedback(result, round.minimum()); if (result != Submission::SelectPath) clear(); }
                 } else if (event.key == key::PageUp || event.key == key::PageDown) {
                     const size_t count = size_t(std::count_if(round.words().begin(), round.words().end(), [](const auto& word) { return word.state != WordState::Declined; }));
                     const size_t maximum = count > 14 ? count - 14 : 0;

@@ -99,36 +99,37 @@ PathResult Board::find(std::string_view word, std::vector<size_t>& path, size_t 
     path.clear();
     return exhausted ? PathResult::Limit : PathResult::Missing;
 }
-Error ClassicRound::board(Board board) {
+Error ClassicRound::board(Board board, uint64_t duration) {
     if (phase_ == RoundPhase::Playing) return Error::fail("Finish the current round before replacing its board");
     if (candidate()) return Error::fail("Resolve pending words before replacing the board");
-    if (board.faces().empty()) return Error::fail("Board is empty");
+    if (board.faces().empty() || duration > 3600000) return Error::fail("A board and valid duration are required");
+    duration_ = duration;
     board_ = std::move(board); phase_ = RoundPhase::Ready; score_ = 0; accepted_.clear(); words_.clear();
     return Error::success();
 }
 Error ClassicRound::start(uint64_t now, uint64_t duration) {
     if (phase_ == RoundPhase::Playing) return Error::fail("Round is already running");
     if (candidate()) return Error::fail("Resolve pending words before replaying");
-    if (board_.faces().empty() || dictionary_.words().empty() || !duration || duration > 3600000)
+    if (board_.faces().empty() || dictionary_.words().empty() || duration > 3600000)
         return Error::fail("A board, dictionary and valid duration are required");
     started_ = now; duration_ = duration; phase_ = RoundPhase::Playing; score_ = 0; accepted_.clear(); words_.clear();
     return Error::success();
 }
 uint64_t ClassicRound::remaining(uint64_t now) const {
-    if (phase_ == RoundPhase::Results) return 0;
+    if (phase_ == RoundPhase::Results || !timed()) return 0;
     if (phase_ == RoundPhase::Ready) return duration_;
     const uint64_t elapsed = now >= started_ ? now - started_ : 0;
     return elapsed >= duration_ ? 0 : duration_ - elapsed;
 }
 void ClassicRound::tick(uint64_t now) {
-    if (phase_ == RoundPhase::Playing && !remaining(now)) phase_ = RoundPhase::Results;
+    if (phase_ == RoundPhase::Playing && timed() && !remaining(now)) phase_ = RoundPhase::Results;
 }
 Submission ClassicRound::submit(std::string_view input, uint64_t now, const std::vector<size_t>& selected) {
     tick(now);
     if (phase_ != RoundPhase::Playing) return Submission::NotPlaying;
     std::string word;
     if (!englishWord(input, word)) return Submission::InvalidLetters;
-    if (word.size() < 3) return Submission::TooShort;
+    if (word.size() < minimum()) return Submission::TooShort;
     for (const auto& prior : words_) if (prior.entry.word == word) return Submission::Duplicate;
     std::vector<size_t> path;
     if (!selected.empty()) {
@@ -139,7 +140,7 @@ Submission ClassicRound::submit(std::string_view input, uint64_t now, const std:
         if (result == PathResult::Limit) return Submission::SelectPath;
         if (result == PathResult::Missing) return Submission::NotOnBoard;
     }
-    const int points = classicPoints(word.size());
+    const int points = classicPoints(word.size(), minimum());
     const bool known = dictionary_.contains(word) || (user_ && user_->contains(word));
     AcceptedWord entry{std::move(word), points, std::move(path)};
     score_ += points;

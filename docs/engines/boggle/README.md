@@ -1,9 +1,9 @@
 # Boggle (1997)
 
 The `boggle` engine recognizes the supplied multilingual Windows file set
-and offers an early single-player **Classic Original** round in U.S. English.
-It has a 4x4 board, dictionary validation, a three-minute timer, scoring and
-results. Other modes, original menus, audio, AI and networking are unfinished.
+and offers early single-player **Classic Original and Master** in U.S. English.
+Original uses 4x4 dice with a three-letter minimum; Master uses 5x5 with a
+four-letter minimum. Both have dictionary validation, scoring and results. Other modes, original menus, audio, AI and networking are unfinished.
 See [scope and rule evidence](classic.md) and the
 [original/native comparison procedure](comparison.md).
 
@@ -13,6 +13,11 @@ right click clears it. F1 ends a round, Enter replays the same board, F2 creates
 a new board between rounds, and Escape returns to the launcher. The initial
 board uses a fixed native seed for reproducible checks; its shuffle differs
 from the original game.
+
+In the launcher's game options, choose Original or Master and a round duration:
+1–5 minutes in 30-second steps, or Not Timed. Three minutes is the default.
+End an untimed round with F1 or End Round. See
+[settings and reference evidence](options.md).
 
 Unknown words with a valid path stay in red and carry provisional points. At
 round end, review them with Yes / No / Yes to all / No to all (buttons or keys
@@ -82,8 +87,8 @@ in the EXE are absent from the supplied copies; see the
 
 `dictionary-check` decodes all eight binary dictionaries and reports only
 counts and checksums. `dictionary-query` checks an ASCII English word.
-`classic-check` validates every dictionary word against the deterministic
-initial board, checks submissions, duplicates, scoring and expiration, and
+`classic-check <folder> [original|master]` validates every dictionary word
+against the deterministic initial board, checks submissions, duplicates, scoring and expiration, and
 reports only counts and a checksum. `classic-replay` uses an externally
 recorded board and timed submissions to help compare VM observations; its
 numbered output omits faces and words. No tool exports word lists.
@@ -99,7 +104,7 @@ cleanup using synthetic assets; rendered states have checksum records. A decoded
 change must change the resource checksum even when counts remain the same.
 
 Optional local game-data tests check positive detection and the complete
-supported resource survey, dictionary decoding and deterministic Classic round. Without a game path they skip. When running them,
+supported resource survey, dictionary decoding and deterministic Original/Master rounds. Without a game path they skip. When running them,
 explicitly select an analysis output directory outside all Git worktrees:
 
 ```sh

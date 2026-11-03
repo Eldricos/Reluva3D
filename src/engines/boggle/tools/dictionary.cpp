@@ -2,6 +2,7 @@
 // Copyright (C) 2026 The Reluva contributors
 #include "engines/boggle/resources.h"
 #include "engines/boggle/classic/round.h"
+#include "engines/boggle/classic/options.h"
 #include "common/md5.h"
 #include "tools/tool.h"
 #include <cstdio>
@@ -47,11 +48,13 @@ int cmdDictionaryQuery(int argc, char** argv) {
 }
 int cmdClassicCheck(int argc, char** argv) {
     using namespace reluva::boggle;
-    if (argc != 3) { std::fprintf(stderr, "usage: reluva-tool boggle classic-check <game folder>\n"); return 2; }
+    if (argc != 3 && argc != 4) { std::fprintf(stderr, "usage: reluva-tool boggle classic-check <game folder> [original|master]\n"); return 2; }
+    ClassicOptions options;
+    if (auto err = readClassicOptions({{"classic_variant", argc == 4 ? argv[3] : "original"}}, options)) { std::fprintf(stderr,"%s\n",err.message.c_str()); return 2; }
     Resources resources; Dictionary dictionary; DiceSet dice; Board board;
     auto err = resources.open(argv[2]);
     if (!err) err = resources.dictionary("Dicts/English.dic", dictionary);
-    if (!err) err = resources.diceSet("Dicts/EngOrg.dst", dice);
+    if (!err) err = resources.diceSet(options.dice(), dice);
     if (!err) err = Board::generate(dice, 0x1997, board);
     if (err) { std::fprintf(stderr, "%s\n", err.message.c_str()); return 1; }
     ClassicRound round(dictionary);
@@ -61,7 +64,7 @@ int cmdClassicCheck(int argc, char** argv) {
     reluva::Md5 digest;
     size_t count = 0; int points = 0;
     for (const auto& word : dictionary.words()) {
-        if (word.size() < 3) continue;
+        if (word.size() < round.minimum()) continue;
         std::vector<size_t> path;
         const auto found = board.find(word, path);
         if (found == PathResult::Limit) { std::fprintf(stderr, "Path search budget exceeded\n"); return 1; }
@@ -70,19 +73,19 @@ int cmdClassicCheck(int argc, char** argv) {
             round.submit(word, 1000) != Submission::Duplicate) {
             std::fprintf(stderr, "Round acceptance mismatch\n"); return 1;
         }
-        ++count; points += classicPoints(word.size());
+        ++count; points += classicPoints(word.size(), round.minimum());
         digest.update(word.data(), word.size()); digest.update("\0", 1);
     }
     round.tick(181000);
     if (!count || round.score() != points || round.phase() != RoundPhase::Results || round.remaining(181000)) {
         std::fprintf(stderr, "Round result mismatch\n"); return 1;
     }
-    std::printf("Classic Original: seed 6551, accepted %zu, score %d, duration 180000 ms\n", count, points);
+    std::printf("Classic %s: seed 6551, accepted %zu, score %d, duration 180000 ms\n", options.side() == 5 ? "Master" : "Original", count, points);
     std::printf("decoded Classic: %s\n", digest.hexDigest().c_str());
     return 0;
 }
 const reluva::tool::Commands commands("boggle", {
-    {"classic-check", "<game folder>", "validate a deterministic Classic round; report counts/checksum only", cmdClassicCheck},
+    {"classic-check", "<game folder> [original|master]", "validate a deterministic Classic round; report counts/checksum only", cmdClassicCheck},
     {"dictionary-check", "<game folder>", "decode all eight binary dictionaries; report counts/checksums only", cmdDictionaryCheck},
     {"dictionary-query", "<game folder> <ASCII word>", "check U.S. English membership and prefix lookup", cmdDictionaryQuery},
 });

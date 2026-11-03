@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 // Copyright (C) 2026 The Reluva contributors
 #include "engines/boggle/classic/round.h"
+#include "engines/boggle/classic/options.h"
 #include "engines/boggle/resources.h"
 #include "tools/tool.h"
 #include <charconv>
@@ -25,8 +26,13 @@ const char* status(Submission result) {
 }
 struct Step { uint64_t elapsed; std::string word; };
 int cmdReplay(int argc, char** argv) {
-    if (argc != 4) {
-        std::fprintf(stderr, "usage: reluva-tool boggle classic-replay <game folder> <external scenario file>\n"); return 2;
+    if (argc < 4 || argc > 6) {
+        std::fprintf(stderr, "usage: reluva-tool boggle classic-replay <game folder> <external scenario file> [original|master] [seconds]\n"); return 2;
+    }
+    ClassicOptions options;
+    if (auto err = readClassicOptions({{"classic_variant", argc >= 5 ? argv[4] : "original"},
+                                       {"classic_seconds", argc == 6 ? argv[5] : "180"}}, options)) {
+        std::fprintf(stderr, "%s\n", err.message.c_str()); return 2;
     }
     // Validate the complete bounded scenario before running any submissions.
     // Neither diagnostics nor results echo observed faces or word lists.
@@ -46,9 +52,9 @@ int cmdReplay(int argc, char** argv) {
         if (line.size() > 256 || line.find('\0') != std::string::npos) return invalid();
         std::istringstream fields(line); std::string first, extra;
         if (!(fields >> first) || first.starts_with('#')) continue;
-        if (row < 4) {
+        if (row < options.side()) {
             faces.push_back(first);
-            for (int i = 1; i < 4; ++i) { if (!(fields >> first)) return invalid(); faces.push_back(first); }
+            for (size_t i = 1; i < options.side(); ++i) { if (!(fields >> first)) return invalid(); faces.push_back(first); }
             if (fields >> extra) return invalid();
             ++row;
         } else {
@@ -61,15 +67,15 @@ int cmdReplay(int argc, char** argv) {
             steps.push_back({elapsed, std::move(word)});
         }
     }
-    if (row != 4 || steps.empty()) return invalid();
+    if (row != options.side() || steps.empty()) return invalid();
     Board board;
-    if (auto err = board.set(4, faces)) { std::fprintf(stderr, "%s\n", err.message.c_str()); return 2; }
+    if (auto err = board.set(options.side(), faces)) { std::fprintf(stderr, "%s\n", err.message.c_str()); return 2; }
     Resources resources; Dictionary dictionary;
     auto err = resources.open(argv[2]);
     if (!err) err = resources.dictionary("Dicts/English.dic", dictionary);
     if (err) { std::fprintf(stderr, "%s\n", err.message.c_str()); return 1; }
     ClassicRound round(dictionary);
-    if ((err = round.board(std::move(board))) || (err = round.start(0))) {
+    if ((err = round.board(std::move(board), options.duration)) || (err = round.start(0, options.duration))) {
         std::fprintf(stderr, "%s\n", err.message.c_str()); return 1;
     }
     std::printf("Native replay only; pending words carry provisional points. Dictionary approvals are not resolved here.\n");
@@ -88,6 +94,6 @@ int cmdReplay(int argc, char** argv) {
     return 0;
 }
 const reluva::tool::Commands commands("boggle", {
-    {"classic-replay", "<game folder> <external scenario file>", "replay an observed board and timed submissions; print numbered native results", cmdReplay},
+    {"classic-replay", "<game folder> <external scenario file> [original|master] [seconds]", "replay an observed board and timed submissions; print numbered native results", cmdReplay},
 });
 }

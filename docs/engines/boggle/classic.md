@@ -1,8 +1,8 @@
-# Classic Original: first playable slice
+# Classic: playable single-player slice
 
-Scope: one local player, U.S. English, 4x4 dice, typed or mouse-selected words,
-a timed round, scores and results. This is not complete support for Boggle's
-five modes or the original menu, animation, sound and networking systems.
+Scope: one local player, U.S. English, Original (4x4) or Master (5x5), typed
+or mouse-selected words, configurable timed/untimed rounds, scores and results.
+This is not complete support for Boggle's five modes or the original menu, animation, sound and networking systems.
 
 ## Rule provenance
 
@@ -15,8 +15,8 @@ with SHA-256 `5768d2fbdaf5435deb2cc2e076f1756736f0178532195f73b2e19ee114395639`:
   scorer `0x41a040`. The loader reads `GameLength` with default 180 seconds
   and converts to milliseconds; the scorer switches on complete string length.
 - Board selection at `0x40be03` sets 4x4 and minimum three for Original;
-  the alternate branch sets 5x5 and minimum four. The first UI only offers
-  Original, without claiming the other mode is implemented.
+  the alternate branch sets 5x5 and minimum four for Master. Both variants
+  are now selectable; see [options evidence and tests](options.md).
 - Classic array adjacency uses `0x407fb0`: horizontal, vertical and diagonal
   neighbors with row/column edge checks, with no wrapping.
 - Word traversal `0x443790` marks a cube used at `0x4437e8`, tests that mark
@@ -32,7 +32,7 @@ is outside this single-player slice.
 
 ## Deliberate prototype behavior
 
-The initial board uses the retail `EngOrg.dst` dice with a deterministic
+The initial board uses the retail `EngOrg.dst` or `EngMas.dst` dice with a deterministic
 native generator and seed. It is fixed across launches for reproducible
 validation. New boards use the same independent generator with a new seed;
 it is not the original executable's random algorithm or shuffle sequence.
@@ -87,3 +87,10 @@ and isolated persistence are now implemented; their additional provenance and te
 [user-dictionary behavior](user-dictionary.md). Findings and remaining checks
 are in the
 [VM comparison procedure](comparison.md).
+
+
+Master and configurable duration support is documented separately in
+[Classic options](options.md), including provenance, default/range checks and
+metadata-only real-data verification. The owner reports the preceding English
+user-dictionary workflow also works in the Windows build; this does not yet
+establish Windows/VM validation of Master.

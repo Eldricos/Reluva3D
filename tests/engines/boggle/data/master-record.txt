@@ -1,0 +1,11 @@
+# The record of boggle.engine (tests/engines/boggle/engine.cpp).
+# Written by `reluva-tests boggle.engine --update`; review its diff before committing.
+master.ready: b87474aaae8bb178
+master.minimum: 5f9017950362f7bf
+master.last_cube: 5b87ae33bd42c127
+master.expired: c5a158fab02c67a0
+master.replay: cf445568454ab937
+untimed.ready: c0b91ebaa0a25da0
+untimed.running: 7c0be84d9c9dd35f
+untimed.finished: 2dfa52937ab4f9aa
+untimed.replay: 09e5707ea54ab4af

@@ -16,7 +16,7 @@ Each engine is a module that can run a family of games.
 |---|---|---|---|
 | `idtech3` | Star Trek: Voyager - Elite Force (1.0, 1.2, Expansion Pack) | Playable: single player, Holomatch (multiplayer, LAN and Internet), mods | [docs/engines/idtech3](docs/engines/idtech3/README.md) |
 | `newworlds` | Star Trek: New Worlds | Data viewer, first missions playable on their maps; off by default | [docs/engines/newworlds](docs/engines/newworlds/README.md) |
-| `boggle` | Boggle (1997, supplied multilingual file set) | Early U.S. English Classic Original; other modes unfinished | [docs/engines/boggle](docs/engines/boggle/README.md) |
+| `boggle` | Boggle (1997, supplied multilingual file set) | Early U.S. English Classic Original/Master; other modes unfinished | [docs/engines/boggle](docs/engines/boggle/README.md) |
 | `testbed` | A test pattern, no game | For checking a system's graphics, sound and input | — |
 
 ## Requirements

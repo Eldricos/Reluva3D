@@ -1,4 +1,4 @@
-# Classic Original: comparison with the Windows original
+# Classic: comparison with the Windows original
 
 This is a reference procedure, not a claim that the pending cases match.
 Use the owner's original executable in the VM and the Boggle branch's native
@@ -144,15 +144,20 @@ input interface. It loads the owner's English dictionary and a supplied board,
 then submits words in order with an injected clock. It does not use the native
 shuffle. It does not compare against VM results automatically or certify a match.
 
-Create `C:\BoggleResearch\round.txt` (outside the repository). The first four
-nonblank/noncomment lines must each contain four space-separated faces. Later
+Create `C:\BoggleResearch\round.txt` (outside the repository). For the default
+Original variant, the first four
+nonblank/noncomment lines must each contain four space-separated faces. With
+the optional `master` argument, use five rows of five faces. Later
 lines contain `<elapsed milliseconds> <word>`; `-` advances time without a
 submission. Times are measured from round start and must be nondecreasing.
 Blank lines and whole-line `#` comments are allowed. No inline comments or
 cube-path arguments are accepted. The command does not load native user words
 or resolve dictionary choices: an unknown word on the board now has provisional
-points and stays pending. Its score is not final until review in the game. A single file represents a single round, without pause or
-replay. Limits: 64 KiB/file, 256 characters/line, 256 steps, 64 bytes/word and
+points and stays pending. Its score is not final until review in the game.
+A single file represents a single round, without pause or
+replay. Optional arguments after the scenario path are `original|master` and
+seconds (`0` for Not Timed, otherwise 60..300 by 30); defaults are Original and
+180 seconds. Limits: 64 KiB/file, 256 characters/line, 256 steps, 64 bytes/word and
 elapsed times through 3,600,000 ms. Keep optional explanatory notes separately.
 
 This example is an **invented board and trace**, not retail data or a VM result:
@@ -181,7 +186,7 @@ On Windows, substitute the actual build and game locations:
 Each output row gives its step number, supplied time, native submission result,
 points added, running total, accepted count, phase, remaining milliseconds and pending-review count.
 It omits submitted words and board faces. A successful exit means the scenario
-ran, **not** that VM behavior matched. A valid word at exactly 180,000 ms must
+ran, **not** that VM behavior matched. For the default three-minute round, a valid word at exactly 180,000 ms must
 produce `not-playing` with the score unchanged in this native model. Use `-`
 at that time if the VM did not actually receive an attempted submission.
 Do not invent human event timestamps to turn a coarse observation into a precise
@@ -198,3 +203,12 @@ repository updates should contain behavior findings and independently invented
 regression fixtures only. Mark each checklist case passed, mismatched,
 inconclusive or not tested. Fix a discrepancy only after distinguishing rule
 behavior, dictionary membership, input handling and adjudication timing.
+
+
+For Master, repeat the observations with a 5x5 board, four-letter minimum,
+and the chosen duration recorded. The native variant and options are now
+implemented; original-game Master round observations remain to be collected.
+Verify three-letter rejection, four-letter scoring and Qu independently of
+cube count. Check an untimed round remains active until ended manually, and
+check a short timed round separately. See [options evidence](options.md) for
+what is already confirmed by executable analysis and routine comparisons.
