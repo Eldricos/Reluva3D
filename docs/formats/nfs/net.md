@@ -158,6 +158,19 @@ serial and modem) but for the seed. Tournament and Knockout set Full Grid,
 traffic off and their own laps; Hot Pursuit sets Full Grid (`0x44bedd`,
 `0x44c095`, `0x44c23b`). The lobby showed "Opponent Car... Class B" for the captured 2.
 
+**A Hot Pursuit with two cops** (`c4-net1`, TCP, November 2026; the
+pursuit itself is in [physics.md](physics.md), Two cops over the
+network). With `0x6fd3b8` = 3 held in the host's lobby and `0x6fd2bc`
+= 12 (the Pursuit Corvette) in both copies, the host sent 02 with +1 = 3
+(traffic and `oppnumber` left at 0 and 2), and every 03 carried +0x14 =
+12, the key 0x20 and flags 0x52. The race's 05 gave both players'
+records role 9 (+0x18, 1 | 8: a cop), the five computer racers 2 and
+the traffic car 4, and the header 0 human racers (+0x17C), 2 cops
+(+0x180), 5 computer racers (+0x184), no computer cops and one traffic
+car, quota (`0x6fd4b8`, +0x11C) 3 and out (`0x6fd4bc`) 3. In the race
+only 06 went: the chase, the stop and the ticket send nothing, and both
+copies made them at the same steps.
+
 **Pausing** (08, `0x4c55a0`, `0x4c5720`). The u32 at +4:
 
 | +4 | Sent by | Meaning |

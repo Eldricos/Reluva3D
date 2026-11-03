@@ -366,15 +366,32 @@ FUNCS = {
   0x40bac0: ('radio_roadblock_set', None, 'kind 0x22, state 10'),
   0x40bba0: ('radio_cop_once', None, 'kinds 0x19, 0x1A, once a cop'), 0x40bc30: ('radio_record_once', None, 'kind 0x23, once a record'),
   0x40bca0: ('radio_strip_near', None, 'kind 0x1D'), 0x40bd00: ('radio_roadblock_near', None, 'kind 0x1E'),
+  # c5 (what the radio lines say, November 2026; slots in bnk.md)
+  0x40aa70: ('radio_dispatch_opener', None, '(slot) dispatcher 0x10 all units / 0x11 / 0x12 available units'),
+  0x40aa90: ('radio_dispatch_unit', None, '(cop) dispatcher slot 0x14 + cop index: unit n'),
+  0x40aea0: ('radio_stub_aea0', None, 'empty (ret)'), 0x40a940: ('radio_stub_a940', None, 'empty (ret)'),
+  0x40a950: ('radio_cop_quiet_reset', None, '(index, 1) 0x56ee68[index] = 0'),
+  0x4c8470: ('radio_place_row_nearest', None, '(slice, out) nearest place row: slot, slices off, kind'),
+  0x4127c0: ('cop_shout_at_target', None, '(cop) copspch shout 0x4c89b0, pan by the target'),
+  0x4c89b0: ('copspch_shout', None, '(cop, pan, player) copspch slot 0-9 at random, not the last (0x560ac4)'),
   0x4042b0: ('cop_drop_target', None, '(cop) human cop: off the record (0x401a20), target cleared, siren off'),
   0x401a20: ('chase_record_remove_cop', None, '(cop) out of its record\'s cop list (+0x2C, +0x30)'),
   0x4205a0: ('trackpos_at_point', None, '(point, 1, slice) track position for a point, y put on the road; returns the 0x78-byte position'),
   0x420650: ('trackpos_build', None, '0x41e940 + 0x41f6e0 + road height 0x4969c0'),
   0x4207e0: ('trackpos_surface', None, '(pos, check) byte 1 of the polygon record +0x18 (& 0x3F the surface)'),
+  # c4 (two cops: network, results)
+  0x455c10: ('results_sort_list', None, '(list 0 racers / 1 cops, key, reverse) sorts the result cars 0x6647b0 + list*0x9AC0 (compare 0x455840) into 0x5595d8'),
+  0x46f510: ('results_pursuit_summary', None, 'Pursuit Summary: cops sorted each frame by the chosen column, Player key 8, Busts 5 reversed, Quota Time 7 (the default)'),
 }
 
 # globals: addr -> (name, type, desc)
 GLOBALS = {
+  0x560aa0: ('t_radio_places', 'u32[9]', 'per track: rows (first slice, end, kind 0 near/from 1 at 2 either, slot), -1 ends'),
+  0x5524ec: ('g_radio_last_cop', 's32', 'index of the cop who spoke last, -1 none'),
+  0x5524c8: ('g_radio_since_dispatch', 's32', 'sound steps since the dispatcher last replied in full'),
+  0x5524f4: ('g_radio_skip_again', 's32', '1 after a strip/roadblock near line: kind 0xB skips its got-him-again line'),
+  0x5524f8: ('g_radio_cop_place', 's32[10]', "per cop: the last place slot said, -1 once the dispatcher repeated it"),
+  0x552520: ('g_radio_cop_distance', 's32[10]', 'per cop: 0x7E/0x7F quarter/half mile said with the place, else 0'),
   0x552e1c: ('g_seethrough_colour', 'u32', 'corner colour of texture-flag-0x02 polygons: 0x7F7F7F7F (x effects intensity with Direct3D), 0x41b9b0'),
   0x7a0420: ('g_net_gameinfo', 'u8[0x54]', 'NET_newgame info: +0x1c name, +0x4c most players (2 or 8); +0x3c-+0x4b never set'),
   0x7a22e8: ('g_net_serial_link', 'u8[0x30]', 'serial/modem open parameters'),
@@ -429,6 +446,8 @@ GLOBALS = {
   0x6fd2b4: ('g_record_lap', 's32', "track record lap, HUD top right (mode 3)"),
   0x6fbc64: ('g_hud_time_mode', 's32', 'HUD top-right field 1-5, 3 record lap'),
   0x559618: ('g_results_sort_key', 's32', ''), 0x55961c: ('g_results_sort_reverse', 's32', ''),
+  0x6647b0: ('g_result_cars', 'u8[79232]', 'two lists of 16 car copies (0x9AC each): 0 racers, 1 cops (0x66e270)'),
+  0x677d30: ('g_result_counts', 's32[2]', 'cars in each result list'), 0x5595d8: ('g_results_order', 's16[32]', 'sorted indexes, 16 per list'),
   0x553740: ('t_wall_particle_kind', 's32[8]', 'by wall code'), 0x553760: ('t_wall_sound_material', 's32[8]', 'by wall code'),
   0x6fbbe4: ('g_music_tune', 's32', "config.dat 0xA4 'tunenames': 0 rock, 1 tech, 2 alternate (default), 3-12 a tune, 13 random"),
   0x552854: ('g_music_tech', 's32', '1 = tech stream; flipped at each race start (0x4a36c6)'),

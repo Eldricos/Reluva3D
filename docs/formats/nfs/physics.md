@@ -1124,6 +1124,42 @@ then gives the car +0x200 bit 0x20.
   and the stop test began at 92.01 s; 6 at 92.64 s, the ticket at
   95.70 s.
 
+  **A whole chase by keys** (`c5-b1`, November 2026: the two cop pokes
+  at `0x474ca0` and nothing else poked, no `-drive`). Keys: R at 61.0
+  s (the cop to slice 80, one behind the leader, standing), A at 61.1,
+  keypad 8 and 6 from 61.15 s (6 off at 62.8, 8 off at 63.0), keypad 2
+  63.01-63.9 s, H at 63.8 s. The cop pulled about 5 m right into the
+  racers' line and stopped, with the siren on before car 1, the last
+  racer, got there:
+  - 63.885 s: the siren (`0x404fce`) and in the same step car 1, the
+    nearest racer, at 40 m/s and over the limit, the target
+    (`0x4019a1`, `0x405879`, state 4).
+  - About 64.3 s car 1 ran into the cop (41 m/s, then 7.5 m/s 0.25 s
+    later). 64.327 s: the first step of the stop test (`0x40559b`);
+    64.702 s (0.375 s, 24 steps on): record +0x1C = 2 (`0x40554a`,
+    then again at each check until it stopped).
+  - 64.925 s: car 1 5 → 6 (`0x409f71`, under 3 m/s); 64.929 s: state 5
+    (`0x4058bf`).
+  - 67.942 s (3.01 s, 192 steps): the ticket (`0x401ff0`), back to 3
+    (`0x405911`); the cop was put at slice 126 (`0x405220`), car 1
+    left at the roadside in its state 4.
+  So the rules hold with nothing poked: the target taken at H as the
+  nearest racer over by 2 m/s, the 24-step hold, the stop when the
+  target is stopped, 192 steps to the ticket. It is the `cq-ram4`
+  block with H before the crash instead of after.
+
+  **A chase from behind by keys wasn't finished.** The Pursuit car
+  (`0x6fd2bc` 12), full gas from rest on the automatic box, took about
+  10 s to 37 m/s (`c5-s1`, `c5-i1`), while the racers cruise at 36-43
+  m/s, so a target taken as it passes (car 1 in `c5-s1`, car 4 in
+  `c5-i2`) was 100 m ahead by 69 s and the chase would need 20 s or
+  more of steering through Hometown's bends before the cop could close
+  in. Driven straight it hit a wall at 73 s and lost the target at
+  300 m (`0x401a80` at 81.8 s and 83.1 s). Keys steered by a script
+  that re-ran the game (deterministic) and kept the keys that agreed
+  with the next run's positions (`c5-i3`-`c5-i7`) got about 1.3 s
+  further a run, to 69.3 s, and were stopped there.
+
   **`-drive`**: `nfs-host -drive CAR:TARGET:FROMMS[:TOMS[:GAP]]`
   writes a human car's steering (+0x518) and pedals (+0x504, +0x505)
   at `0x4314c9` each tick, after the game unpacks the controls: the
@@ -1158,6 +1194,62 @@ then gives the car +0x200 bit 0x20.
   (3.0 s). In split screen there is no scene: both halves stay in the
   race view, the officer at car 2 in both, and only the ticketing
   cop's half loses its HUD (frame 2320, 53.1 s).
+
+  **Two cops over the network** (`c4-net1`, November 2026). Two
+  copies over TCP (127.0.0.12 hosting, 127.0.0.13 joining, Controller
+  Updates, so lockstep), the clicks of the network test in
+  [nfs.md](../../engines/nfs.md); `0x6fd2bc` = 12 held in both copies
+  from 40 s and `0x6fd3b8` = 3 held in the host from 60 s, so the
+  lobby's 02 carried race type 3 and each 03 car 12 (net.md). The set-up
+  is the network branch of `0x474640` (link kinds 2-4): a role of 9
+  (1 | 8) for each player in a police car, and with no human racer,
+  computer racers = 8 − the traffic (1 with traffic on and under 6
+  cops) − the cops, at most 6, and quota = out = laps + 1. The 05 had
+  0 human racers, 2 cops, 5 computer racers (cars 2-6), no computer
+  cops, one traffic car (7), quota 3 and out at 3: not split screen's
+  3 and 1. The HUD read "tickets: 0/3". Car 2 was held near the grid
+  (+0x7B0 0 at each `0x408600`, +0x6F0 5 at its first), both cops were
+  driven at it by `-drive` with a 3 m gap, run in both copies for both
+  cars (the steering comes from the game's state only, so the copies
+  stay in step), and both sirens were poked at the 400th `0x405740`.
+  The same steps in both copies: both cops took car 2 at step 514
+  (`0x4019a1`, `0x405879`), the joiner's car began the stop test at
+  step 692 (`0x40559b`), at step 734 the host's car (car 0) entered 5
+  and dropped it (`0x4042b0`) and the joiner's (car 1) did the stop,
+  and the ticket came at step 928 (`0x401ff0`); only the game's
+  milliseconds differed (the stop at 122.13 s in A, 125.12 s in B).
+  Dumps of the eight cars at the ticket (`0x405911`) agree in place,
+  speed, states and tickets (car 1 +0x2CC 1, +0x2D0 5; car 2 +0x2C8 1;
+  record +0 1, +4 5, the host's car back in 3); what differs is
+  pointers into each copy's heap (+0x20, +0x60, +0x314-+0x4C8) and
+  +0x738-+0x797, +0x8B4, +0x934. Nothing about the chase, stop or
+  ticket goes over the network: in the race only 06 went (the host
+  sent 3,574 frames and took 5,374 words, 255 and 361 of them from
+  the chase to the ticket); each copy works the stop out from the same
+  controls.
+
+  **The results with two cops** (`c4-res1` to `c4-res3`, November
+  2026). The split-screen run above with `0x6fd4b8` (the quota) poked
+  to 1 at 41 s and car 3 held as car 2 (+0x6F0 5). In `c4-res2` only
+  player 1's siren was on at 45 s; driven at car 2, it ticketed it at
+  55.89 s (step 1000, +0x2D4 488); then player 2's siren (56 s) and
+  `-drive` at car 3 gave the second ticket at 76.75 s (+0x2D4 1822).
+  A human cop whose tickets given reach the quota is finished
+  (`0x4ce4e9` in `0x4ce280`: +0x2C4 = 3, +0x238 = the step), so with
+  both finished the race ended and the Pursuit Summary came at about
+  88 s. Its draw (`0x46f510`) sorts the cops' list (list 1, cars at
+  `0x66e270`) each frame by `0x455c10` with the key of the column
+  chosen: Player 8 (the names, set-up +0x34), Busts 5 reversed, Quota
+  Time 7; ties go by +0x238. It opens on Quota Time (`0x455c10(1, 7,
+  0)` from the first frame): "Player1, Pursuit Corvette, 1/1 (Met
+  Quota), 0:07.62" above "Pursuit Diablo SV" (player 2, no name),
+  "0:28.46", the time being +0x2D4 / 64 cut to hundredths. Clicking a
+  column's title (`c4-res3`: at 95.7, 102.7 and 109.7 s) moved the
+  "Sort By" arrow over it and the key to 8, then 5 (reverse 1), then
+  7: by Player the nameless player 2 came first, by Busts (tied, so
+  by +0x238) and by Quota Time player 1 (frames 3400, 3700, 4200). In
+  `c4-res1`, where player 2 made the quota first (0:06.50 against
+  0:13.71), it was first under Quota Time.
 
 Checked at run time (`sw1-cop3`): the Hot Pursuit pokes put at
 `0x474ca0`, before the set-up picks its function by the race type
@@ -1305,6 +1397,42 @@ matches best from 71.20 s and `disp00` slot 16 from 76.64 s (0.072 and
 0.088, others 0.04-0.05). The voice is not placed: every line has the
 same volume.
 
+**What each kind says** (read from `0x40ab20`, `0x40a970`,
+`0x40aeb0` and the calls; the lines transcribed, November 2026, in
+[bnk.md](bnk.md), What the radio lines say). `0x40ab20(who, cop,
+kind)` picks the slot, the same numbers in the officer's and the
+dispatcher's banks where both speak: kinds 8, 9 and 10 the car's bank
+(officer 0x10, 0x11, 0x12 + the voice's 0/0x10/0x20, `0x40a580`;
+dispatcher 0x00); 0xB the officer's "got him again" (0x24-0x27, skipped
+right after a strip or roadblock line, `0x5524f4`) then the car's
+0x11; 0xC and 0xD lost him (0x20-0x23); 0xF backup (0x28-0x2B); 0x10
+the dispatcher's "unit asks for backup" (0x30-0x33); 0x13 0x2C-0x2E
+and 0x14 0x2C-0x2F, the suspect caught; 0x19 disabled (0x1E-0x1F);
+0x1A a wrecker (0x1D); 0x1B a strip asked for (officer 0x37-0x38,
+dispatcher's go-ahead 0x34-0x35); 0x1C a roadblock (0x33-0x34;
+0x3A-0x3B); 0x1D missed the strip (0x31), 0x1E ran the roadblock
+(0x32), both setting `0x5524f4`; 0x1F, 0x20, 0x21 the strip laid
+(officer 0x39, 0x3A on the left, 0x3B on the right; dispatcher 0x37);
+0x22 the roadblock set (0x35-0x36; 0x3C); 0x23 crashed (0x1A-0x1B);
+0x18 0x0C-0x0D, empty slots. `0x40a970(cop, form)` is the dispatcher's
+answer when the cop didn't speak last: form 0, "go ahead, unit n"
+(0x24 + index) or, half the time, "unit n" (0x14 + index, half of
+those) and "go ahead" (0x22); another form, perhaps "unit n" and
+"ten-four" (0x20). `0x40aa70` is the dispatcher's opener: 0x10 "all
+units be advised" (a new chase; a strip or roadblock set when he last
+spoke over 1,000 sound steps ago), 0x11 (a cop joining, a chase taken
+again), 0x12 "available units" (the call for help). `0x40aeb0` gives
+the place: the row of the track's table (`0x560aa0`, rows of first
+slice, end, kind, slot) for the target's slice a little ahead, or the
+nearest row, said as "at/by" (the slot, 0x40-0x5F) or "near/from"
+(+0x20), with "a quarter mile" (0x7E, 50 slices off) or "a half mile"
+(0x7F, 100) first; the dispatcher repeats the officer's last place
+(`0x5524f8`, `0x552520`). `0x40b190` says the speed (0x3C-0x3F: over
+100, 120, 140, 180 mph). So `c3-radio`'s first call is unit 46's call
+sign, in pursuit of the car, by the covered bridges (Hometown slices
+171-224), over 100 mph; the dispatcher's all units, unit 46, in pursuit
+of the car, by the covered bridges.
+
 **Picking a target** (`0x402e10`, in every state but 3, 5 and 6):
 racers still in, free (+0x634 passed) and within 16 slices, scored by
 `0x403f80`. A racer scores only when it is already chased (record
@@ -1332,6 +1460,33 @@ is not enough), the stop starts within 16 m, or at any distance once
 the step has passed the record's +0x28. Failing a test clears
 +0x710 bit 0x40. With cheat bit 0x10, `0x401520` adds speech
 (`0x4127c0`) every 384 steps at a target over 8.94 m/s.
+
+**A fourth cop, run** (`c4-four6`, `c4-four7`, November 2026). The
+racer's pursuit below with the player's car driven by the computer
+held to 15 m/s (+0x7B0 at each `0x408600`), +0x711 bit 1 poked on
+cops 3, 4, 5 and 7 (2 and 6 have it), car 1's +0x6F0 = 5, and
+`0x56ea50` poked to −1e6 from 45 s so that no cop could stop anyone
+(at −1 a racer creeping backwards still passed). The calls for help
+then piled cops on car 1, which raced on at 50 m/s: 3 on its record
+at 96 s (cops 2, 3, 5), 4 at 110 s, 5 at 116 s. A computer racer
+scores only the cops / 3 less those on it (`0x403f80`), so the
+joiners came by the orders of kind 3, not by picking. At 116.0 s
+three pokes: the record (`0x56e470`) +0x1C = 2, as a strip does
+(`0x401650`), +0x28 = 0x7fffffff, and `0x56ea50` back to 11.176;
+in `c4-four7` also car 1's tickets (+0x2C8) = 5, which makes the stop
+448 steps. Car 1 pulled over (5 → 6 at 119.91 s). Cop 3 began a hold
+at 13.57 m (limit 20, 160 steps; car 1 was in 5 still) and the stop
+at 119.98 s, step 5066, within 16 m (`0x40240a`); cop 7 (124.99 s)
+and cop 2 (125.15 s) came within 16 m and began theirs: +0x50 3.
+From the next calls (125.17 s) cops 4 and 5, 90-100 m back, took the
+doubled limit (`0x4021ef`). In `c4-four6` the ticket came at
+126.01 s (step 5452, 5066 + 384) with them still 45-55 m away. In
+`c4-four7` cop 4 began its hold at **35.53 m against 40 m** (126.19
+s, `0x40237a`, 160 steps) and cop 5 at 35.44 m (126.41 s): holds
+that the 20 m would have refused. Cop 4 then came within 16 m and
+began the fourth stop at 126.72 s (+0x50 4); cop 5 began another
+hold at 19.06 m (126.92 s), and cop 2 gave the ticket at 127.01 s
+(step 5516), so neither hold ran its 160 steps.
 
 **Run** (November 2026, nfs-host, a racer's Hot Pursuit on Hometown:
 the single race's clicks with `-poke at=0x474ca0:0x6fd3b8:3`, a normal
@@ -1545,7 +1700,8 @@ second. The HUD there has the racer list on (other layouts hide it).
 - **The results.** "Pursuit Summary": Player (OGC, the car), Busts
   "6/6 (Met Quota)" (text 404), Quota Time, and "Sort By". Then
   Performance, Track Records and "Race Summary": each racer N/A,
-  Busted, tickets 1. With one cop the sort by +0x2D4 isn't seen. In
+  Busted, tickets 1. With one cop the sort by +0x2D4 isn't seen (with
+  two, run: "The results with two cops", above). In
   a run where the scripted cop gave no tickets (`cop-list`, nfs-host)
   the race ended when the racers finished: Busts 0/6, Quota Time N/A.
 - **Speech.** No `copspch` line is heard (the racer's ticket lines
@@ -1698,23 +1854,30 @@ of every access to those offsets):
   (`c3-bumpA`), and with two human cops in split screen sharing one
   target (`c3-two3`). A computer cop's stop of a human racer plays
   `copspch` by the tickets left (`c3-spch`: slot 0x12 with 3 left).
-  Not run: a network game with two cops (the set-up reads the same
-  roles, `0x474640`, so it should share targets as split screen does),
-  and a fourth computer cop joining a stop from up to 40 m (+0x50 ≥ 3).
-  +0x2D4 is used by the results screen's sort (`0x455834`, key 7,
-  `0x559618`; key 6 sorts by tickets taken, 5 by tickets given): cops
-  that made their quota first, earliest +0x2D4 first, then by tickets
-  given; with two cops it should show, but the results screen wasn't
-  reached.
+  Run since (`c4-`, November 2026): two cops over TCP sharing one
+  target, the copies agreeing step for step with nothing but 06 sent
+  (`c4-net1`); a fourth computer cop's hold begun at 35.5 m against
+  the doubled 40 m (`c4-four7`); and the Pursuit Summary with two cops
+  that made the quota, sorted by Quota Time (key 7) by default and by
+  Player or Busts when those titles are clicked (`c4-res3`). Left
+  open: those were set up with pokes (sirens, `-drive`, a held racer,
+  the quota poked to 1, the bust speed disabled and the record set);
+  no fourth cop's 40 m hold ran its full 160 steps (the ticket came
+  first); and the network game wasn't run to its results, nor with
+  the siren from the H key going through 06.
 - The computer cops' driver (`0x4032e0`) was run in a racer's pursuit
   (`r2-cop1`, `r2-cop4`, `r2-cop5`, `c3-spk6`): chases, calls for help,
   two roadblocks, strips and a racer running over one, and the
-  player's ticket. Not seen: the player driving through a whole chase
-  by hand (the runs drove its car by the computer and gave it back to
-  the human only to stop). `0x401370` isn't followed. The radio
-  calls' slots are known (above), but what each line says isn't
-  written down, nor the place table `0x560aa0`; whether the officer's
-  side test is ever failed on a real road wasn't run.
+  player's ticket. A whole chase by keys was run with the player as
+  the cop, but only as a block (`c5-b1`); a chase from behind, closing
+  in on a racer at speed and ramming it, by keys alone, wasn't
+  finished (the cop car is slower off the mark than the racers
+  cruise). Not run either: a human racer chased through a whole
+  pursuit by hand. `0x401370` isn't followed. What each radio line
+  says is in bnk.md (What the radio lines say); which line the place
+  table gives on each track's real roads, and kinds 0x19, 0x1A and
+  0x23 (a disabled cop, a crash), weren't heard in a run. Whether the
+  officer's side test is ever failed on a real road wasn't run.
 - Why the recorded game's spike icon dims for 3 s and its racer list
   has no "over" text, when this exe hides the icon until the strip is
   cleared and shows the text: probably another build, not found.
