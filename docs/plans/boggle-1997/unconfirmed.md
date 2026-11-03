@@ -79,4 +79,10 @@ The owner has now confirmed both startup movies play.
 
 The owner confirmed the installed Classic artwork works on Windows. The next
 projection refinement retains measured tray corners; exact original camera,
-individual cube rotations and fonts remain unverified.
+the exact original orientation generator and fonts remain unverified.
+
+The owner confirmed the projective dice refinement works on Windows and
+observed the original auto-orient setting: aligned cubes when enabled, quarter
+turns permitted when disabled. Native orientation settings now implement that
+display choice. The original default, random-turn assignment and any manual
+rotation interaction still need verification.

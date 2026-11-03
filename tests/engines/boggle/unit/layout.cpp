@@ -2,12 +2,32 @@
 // Copyright (C) 2026 The Reluva contributors
 #include "engines/boggle/classic/layout.h"
 #include "engines/boggle/classic/game.h"
+#include "engines/boggle/classic/orientation.h"
 #include "tests/engines/boggle/fixtures.h"
 #include "tests/engines/boggle/system.h"
 #include "tests/support/test.h"
 using namespace reluva;
 using namespace reluva::boggle;
 namespace {
+void orientation() {
+    constexpr int expected[4][9]={{1,2,3,4,5,6,7,8,9},{7,4,1,8,5,2,9,6,3},
+                                 {9,8,7,6,5,4,3,2,1},{3,6,9,2,5,8,1,4,7}};
+    for(unsigned turns=0;turns<4;++turns)for(int y=0;y<3;++y)for(int x=0;x<3;++x) {
+        const auto p=cubeTexturePoint(x,y,2,turns);
+        CHECK(p[1]*3+p[0]+1==expected[turns][y*3+x]);
+    }
+    for(size_t side:{4u,5u}) {
+        std::array<bool,4> seen{};bool changed=false;
+        for(size_t cell=0;cell<side*side;++cell) {
+            CHECK(cubeQuarterTurns(0x1997,cell,true)==0);
+            const unsigned turns=cubeQuarterTurns(0x1997,cell,false);
+            CHECK(turns<4);seen[turns]=true;
+            CHECK(turns==cubeQuarterTurns(0x1997,cell,false));
+            changed|=turns!=cubeQuarterTurns(0x1998,cell,false);
+        }
+        CHECK(changed);CHECK(seen[0] && seen[1] && seen[2] && seen[3]);
+    }
+}
 void projection() {
     PlaneProjection rectangle({{{0,0},{100,0},{100,100},{0,100}}});
     const auto center=rectangle.project(1,1,2);
@@ -80,6 +100,9 @@ void rendering(const std::filesystem::path& tmp) {
         CHECK(round.submit("AAAAA",90001)==Submission::UnknownWord);capture("pending",90001);
         round.finish();CHECK(!round.decide(DictionaryChoice::NoAll));capture("results",180000);
         CHECK(!round.start(0,0));capture("untimed",90000);
+        round.finish();CHECK(!round.start(0));
+        options.autoOrient=false;CHECK(!artwork.open(resources,tmp,options,{}));
+        capture("quarter-turns",0,{side*side-1}); // includes the distinct Qu atlas
     }
     record.check(RELUVA_SOURCE_DIR "/tests/engines/boggle/data/layout-record.txt","boggle.unit.layout","tests/engines/boggle/unit/layout.cpp");
 }
@@ -119,11 +142,55 @@ void mouse(const std::filesystem::path& tmp) {
     record.check(RELUVA_SOURCE_DIR "/tests/engines/boggle/data/layout-mouse-record.txt","boggle.unit.layout","tests/engines/boggle/unit/layout.cpp");
     CHECK(sys.textStopped);
 }
+void orientationGame(const std::filesystem::path& tmp) {
+    fixtures::artworkInstall(tmp / "install");
+    auto atlas=fixtures::atlas();
+    for(size_t y=0;y<512;++y)for(size_t x=0;x<512;++x) {
+        const size_t at=54+(y*512+x)*3;
+        atlas[at]=uint8_t(x/2);atlas[at+1]=uint8_t(y/2);atlas[at+2]=uint8_t((x+y)/4);
+    }
+    fixtures::write(tmp / "install/Textures/Letters.bmp",atlas);
+    fixtures::write(tmp / "install/Textures/LettersQu.bmp",atlas);
+    test::Record record;
+    for(bool master:{false,true})for(bool artwork:{false,true}) {
+        std::vector<std::string> alignedPanel;
+        for(bool autoOrient:{true,false}) {
+            GameTarget target;target.path=tmp / "install";target.savePath=tmp / "save";
+            target.settings={{"classic_variant",master?"master":"original"},{"classic_artwork",artwork?"1":"0"},
+                             {"classic_auto_orient",autoOrient?"1":"0"},{"classic_animations","0"},{"classic_sound","0"}};
+            fixtures::ScriptedSystem sys;sys.clock=[](size_t){return uint64_t(0);};
+            sys.events=[](size_t frame) -> std::vector<Event> {
+                if(frame==1 || frame==4 || frame==7)return {fixtures::keyEvent(key::Return)};
+                if(frame==2)return {fixtures::textEvent("AAAA"),fixtures::keyEvent(key::Return)};
+                if(frame==3 || frame==5)return {fixtures::keyEvent(key::F1)};
+                if(frame==6)return {fixtures::keyEvent(key::F1+1)};
+                if(frame==8)return {fixtures::keyEvent(key::Escape)};
+                return {};
+            };
+            std::vector<std::string> panels;
+            sys.present=[&](const Surface& screen,size_t) {
+                test::Hash hash;const int x=artwork?621:430;
+                for(int y=0;y<480;++y)hash.bytes(screen.row(y)+x*4,size_t(screen.w-x)*4);
+                panels.push_back(hash.hex());
+            };
+            ClassicGame game(sys,target);CHECK(!game.run());CHECK(sys.hashes.size()==8);
+            if(sys.hashes.size()!=8)continue;
+            CHECK(sys.hashes[1]==sys.hashes[4]); // Replay retains orientations.
+            CHECK((sys.hashes[1]==sys.hashes[7])==autoOrient); // New seed changes only rotated view.
+            if(autoOrient)alignedPanel=panels;else CHECK(panels==alignedPanel); // same words, score and time
+            const std::string prefix=std::string(master?"master.":"original.")+(artwork?"art.":"plain.")+(autoOrient?"aligned.":"rotated.");
+            for(size_t i=0;i<sys.hashes.size();++i)record.add(prefix+std::to_string(i),sys.hashes[i]);
+        }
+    }
+    record.check(RELUVA_SOURCE_DIR "/tests/engines/boggle/data/orientation-record.txt","boggle.unit.layout","tests/engines/boggle/unit/layout.cpp");
+}
 }
 static const test::Suite suite("boggle.unit.layout",{
+    {"clockwise atlas sampling and independent per-board orientations",[](const auto&){orientation();}},
     {"plane projection, analytic perspective and invalid geometry",[](const auto&){projection();}},
     {"source-derived timer progression and bounds",[](const auto&){progress();}},
     {"variant projection, selected cells and round render states",[](const auto& tmp){rendering(tmp);}},
     {"legacy imports, partial bundles, malformed dimensions and disabled artwork",[](const auto& tmp){fallback(tmp);}},
     {"Master last-row mouse entry, scoring, results and replay",[](const auto& tmp){mouse(tmp);}},
+    {"both variants and renderers preserve scoring, replay and new-board behavior",[](const auto& tmp){orientationGame(tmp);}},
 });

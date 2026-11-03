@@ -8,7 +8,7 @@ tray's perspective. A single projective plane maps the grid onto the measured
 tray corners. Letter textures use reciprocal-depth interpolation across each
 cube top; mouse hit testing uses those same projected polygons.
 
-This is an intermediate presentation pass. Cube projection, lighting, rotation,
+This is an intermediate presentation pass. Cube projection, lighting,
 font, input box, buttons and digital-clock placement are native approximations;
 this does not establish pixel matching with the original Direct3D screen.
 The original toolbar, player-management dialogs and word-panel paging buttons
@@ -72,12 +72,13 @@ bundles. A scripted Master round selects four last-row cubes, submits a word,
 ends and replays the round. Checksum records contain only invented fixtures.
 
 `reluva-tool boggle artwork-check <folder>` validates both available bundles
-and renders start, halfway and results states, reporting counts/checksums only.
+and renders aligned start, halfway, results and quarter-turned start states,
+reporting counts/checksums only.
 The optional game-data and fresh-import checks run it against the supplied
 resources outside Git. Captures, reference dumps and original media stay outside
 all Git worktrees. The owner confirmed the installed-artwork pass works on Windows. Exact
 appearance still needs VM comparison. The subsequent projective-plane/texture
-refinement has native checks and awaits its Windows test.
+refinement was subsequently confirmed working by the owner on Windows.
 
 The supplied install passes all 22 Boggle CTest checks, including the new
 artwork and fresh-import checks. The normal full suite passes 33 checks and
@@ -93,7 +94,7 @@ its equally spaced rows converge toward a vanishing point. The current native
 renderer fits one homography to the same measured tray corners and interpolates
 texture coordinates with reciprocal depth. This changes the rows and letter
 mapping while retaining the earlier corner calibration and hit-test polygons.
-It does not establish the original camera parameters, cube rotation or lighting.
+It does not establish the original camera parameters, orientation generator or lighting.
 No additional assets or import changes are required.
 
 The projection uses bounded integer homogeneous coordinates and integer
@@ -106,3 +107,19 @@ no external renderer code was consulted or copied.
 
 The layout tests and actual-resource artwork checker also pass AddressSanitizer
 and UndefinedBehaviorSanitizer (LeakSanitizer disabled for the execution tracer).
+
+## Auto-orientation
+
+The [Auto-orient cubes setting](options.md#cube-orientation) now controls each
+cube's texture orientation in both renderers. Its behavior follows the owner's
+VM observation; the assignment of quarter turns is independent native code.
+Textures rotate in their own face coordinates before perspective projection.
+The same inverse sample transform handles upright, clockwise quarter turn,
+half turn and counterclockwise quarter turn, including the separate Qu atlas.
+
+Synthetic asymmetric textures check all four orientations. Scripted rounds in
+both variants and both renderers compare the word/score/time panels with the
+setting enabled and disabled, and verify stable replay and changed New Board
+orientations. The existing aligned rendering records remain unchanged. New
+records add rotated states made only from invented fixtures. Actual-resource
+checks now also render the quarter-turned view without exporting images.

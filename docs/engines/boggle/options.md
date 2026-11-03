@@ -104,3 +104,19 @@ installed scenes, player/word panels and animated hourglass when available.
 Older copies without the additional bundle use the prototype view. Set `0`
 to select that view explicitly. This does not mute audio or skip round clips.
 See [layout and resource requirements](layout.md).
+
+## Cube orientation
+
+**Auto-orient cubes** (`classic_auto_orient`, default `1`) keeps all English
+letters upright in both Original and Master. Disable it before launch to give
+individual cubes a 0, 90, 180 or 270 degree display rotation. This also applies
+to the fallback view and rotates Qu as a complete face.
+
+The owner observed an auto-orient option in the original VM: enabled cubes
+share an orientation; disabled cubes can have quarter-turn orientations.
+The native implementation uses an independent deterministic presentation seed.
+It does not consume the board generator or alter letters, adjacency, submitted
+words, scoring or hit-test geometry. Replay keeps orientations; New Board uses
+the new board seed. The native default preserves the existing upright view;
+the original default and exact orientation generator are not established.
+Manual cube-rotation controls still need reference verification.

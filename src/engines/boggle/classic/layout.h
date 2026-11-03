@@ -14,13 +14,13 @@ public:
                const video::AviVideo1& prepared);
     bool active() const { return active_; }
     void draw(Surface& screen,const ClassicRound& round,uint64_t now,uint64_t duration,
-              const image::Image& letters,const image::Image& qu,const std::vector<size_t>& selected,size_t scroll) const;
+              const image::Image& letters,const image::Image& qu,const std::vector<size_t>& selected,size_t scroll,uint32_t boardSeed=0x1997) const;
     std::optional<size_t> cellAt(int x,int y,size_t side) const;
     ClassicPoint cellCenter(size_t cell,size_t side) const;
     static size_t timerFrame(uint64_t remaining,uint64_t duration);
     static constexpr size_t visibleWords=24;
 private:
-    bool active_=false,master_=false;
+    bool active_=false,master_=false,autoOrient_=true;
     image::Image open_,closed_,words_,names_;
     video::AviVideo1 timer_;
 };

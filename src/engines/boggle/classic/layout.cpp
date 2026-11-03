@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 // Copyright (C) 2026 The Reluva contributors
 #include "engines/boggle/classic/layout.h"
+#include "engines/boggle/classic/orientation.h"
 #include "common/font.h"
 #include "common/fs.h"
 #include <algorithm>
@@ -72,7 +73,7 @@ Error ClassicArtwork::open(const Resources& resources,const std::filesystem::pat
     if(auto err=resources.image(paths[0],words_))return err;
     if(auto err=resources.image(paths[1],names_))return err;
     if(auto err=resources.animation(paths[2],timer_))return err;
-    master_=options.variant==ClassicVariant::Master;
+    master_=options.variant==ClassicVariant::Master;autoOrient_=options.autoOrient;
     if(words_.w!=143 || words_.h!=480 || names_.w!=497 || names_.h!=32 ||
        timer_.width!=(master_?80:68) || timer_.height!=(master_?140:128) || timer_.frames.size()!=(master_?39:38))
         return Error::fail("Unsupported Classic artwork dimensions or timer length");
@@ -106,7 +107,7 @@ std::optional<size_t> ClassicArtwork::cellAt(int x,int y,size_t side) const {
     return {};
 }
 void ClassicArtwork::draw(Surface& screen,const ClassicRound& round,uint64_t now,uint64_t duration,
-                          const image::Image& letters,const image::Image& qu,const std::vector<size_t>& selected,size_t scroll) const {
+                          const image::Image& letters,const image::Image& qu,const std::vector<size_t>& selected,size_t scroll,uint32_t boardSeed) const {
     const bool playing=round.phase()==RoundPhase::Playing;
     scaled(screen,playing?open_:closed_,0,0,800,600);
     scaled(screen,names_,0,0,621,40);scaled(screen,words_,621,0,179,600);
@@ -127,8 +128,12 @@ void ClassicArtwork::draw(Surface& screen,const ClassicRound& round,uint64_t now
             const auto& texture=face=="QU" ? qu : letters;const int index=face[0]-'A';
             const int x=index%5*512/6,y=index/5*512/6;
             const int right=(index%5+1)*512/6-1,bottom=(index/5+1)*512/6-1;
-            inner[0].u=x;inner[0].v=y;inner[1].u=right;inner[1].v=y;
-            inner[2].u=right;inner[2].v=bottom;inner[3].u=x;inner[3].v=bottom;
+            constexpr std::array<std::array<int,2>,4> corners={{{0,0},{1,0},{1,1},{0,1}}};
+            const unsigned turns=cubeQuarterTurns(boardSeed,i,autoOrient_);
+            for(size_t n=0;n<4;++n) {
+                const auto uv=cubeTexturePoint(corners[n][0],corners[n][1],1,turns);
+                inner[n].u=x+uv[0]*(right-x);inner[n].v=y+uv[1]*(bottom-y);
+            }
             quad(screen,inner,white,&texture);
         } else {
             quad(screen,inner,white);const auto center=cellCenter(i,side);

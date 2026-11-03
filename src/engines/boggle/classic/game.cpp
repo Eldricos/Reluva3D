@@ -2,6 +2,7 @@
 // Copyright (C) 2026 The Reluva contributors
 #include "engines/boggle/classic/game.h"
 #include "engines/boggle/classic/layout.h"
+#include "engines/boggle/classic/orientation.h"
 #include "engines/boggle/classic/round.h"
 #include "engines/boggle/classic/options.h"
 #include "engines/boggle/classic/presentation.h"
@@ -30,7 +31,7 @@ bool hit(int x, int y, int left, int top, int w, int h) {
     return x >= left && y >= top && x < left + w && y < top + h;
 }
 void glyph(Surface& screen, int x, int y, const std::string& face,
-           const image::Image& letters, const image::Image& qu, int cellSize) {
+           const image::Image& letters, const image::Image& qu, int cellSize,unsigned turns) {
     if (face.size() != 1 && face != "QU") { label(screen, x + 14, y + 25, face, {0, 0, 220}, 2); return; }
     const unsigned index = unsigned(face[0] - 'A');
     const auto& atlas = face == "QU" ? qu : letters;
@@ -39,7 +40,8 @@ void glyph(Surface& screen, int x, int y, const std::string& face,
     const int sw = int(index % 5 + 1) * 512 / 6 - sx, sh = int(index / 5 + 1) * 512 / 6 - sy;
     for (int dy = 0; dy < cellSize - 12; ++dy)
         for (int dx = 0; dx < cellSize - 12; ++dx) {
-            const auto* p = atlas.pixel(sx + dx * sw / (cellSize - 12), sy + dy * sh / (cellSize - 12));
+            const auto uv=cubeTexturePoint(dx,dy,cellSize-13,turns);
+            const auto* p = atlas.pixel(sx + uv[0] * sw / (cellSize - 12), sy + uv[1] * sh / (cellSize - 12));
             auto* out = screen.row(y + 6 + dy) + (x + 6 + dx) * 4;
             std::copy_n(p, 4, out);
         }
@@ -60,10 +62,10 @@ std::string feedback(Submission result, size_t minimum) {
 void draw(Surface& screen, const ClassicRound& round, uint64_t now,
           const image::Image& letters, const image::Image& qu, const Palette& palette,
           const std::string& input, const std::vector<size_t>& path, const std::string& message, size_t scroll, bool fromMenu,
-          const ClassicArtwork& artwork,uint64_t duration) {
+          const ClassicArtwork& artwork,uint64_t duration,uint32_t boardSeed,bool autoOrient) {
     const bool reviewing = round.candidate() != nullptr;
     const bool ready = round.phase() == RoundPhase::Ready, playing = round.phase() == RoundPhase::Playing;
-    if(artwork.active()) artwork.draw(screen,round,now,duration,letters,qu,path,scroll);
+    if(artwork.active()) artwork.draw(screen,round,now,duration,letters,qu,path,scroll,boardSeed);
     else {
     rect(screen, 0, 0, width, height, dark);
     rect(screen, 0, 0, width, 76, {29, 49, 70});
@@ -83,7 +85,7 @@ void draw(Surface& screen, const ClassicRound& round, uint64_t now,
         const bool selected = std::find(path.begin(), path.end(), i) != path.end();
         rect(screen, x, y, cellSize - 2, cellSize - 2, selected ? Ink{57, 180, 221} : Ink{86, 107, 130});
         rect(screen, x + 3, y + 3, cellSize - 8, cellSize - 8, white);
-        if (!ready) glyph(screen, x, y, round.board().faces()[i], letters, qu, cellSize);
+        if (!ready) glyph(screen, x, y, round.board().faces()[i], letters, qu, cellSize,cubeQuarterTurns(boardSeed,i,autoOrient));
         else label(screen, x + (cellSize - 32) / 2, y + (cellSize - 38) / 2, "?", {76, 95, 120}, 3);
     }
     label(screen, 430, 102, ready ? "READY" : playing ? "ROUND IN PROGRESS" : "ROUND COMPLETE", white, 2);
@@ -292,7 +294,7 @@ Error ClassicGame::run() {
                 std::copy_n(frame.pixel(x*frame.w/width,y*frame.h/height),4,screen.row(y)+x*4);
             rect(screen,0,height-40,width,40,dark);
             label(screen,24,height-25,transition.type() == Transition::Opening ? "Rolling dice and opening the lid..." : "Closing the lid...");
-        } else draw(screen, round, sys_.getMillis(), letters, qu, palette, input, selected, message, scroll, fromMenu_,artwork,options.duration);
+        } else draw(screen, round, sys_.getMillis(), letters, qu, palette, input, selected, message, scroll, fromMenu_,artwork,options.duration,seed,options.autoOrient);
         sys_.updateScreen(screen);
         if (transition.type() == Transition::None && round.phase() == RoundPhase::Results) resultsVisible = true;
         promptVisible = transition.type() == Transition::None && round.candidate() != nullptr;

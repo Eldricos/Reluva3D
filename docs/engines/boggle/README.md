@@ -24,6 +24,10 @@ to the launcher. The initial
 board uses a fixed native seed for reproducible checks; its shuffle differs
 from the original game.
 
+**Auto-orient cubes** keeps letters upright by default. Disable it in the
+launcher's game options for individual quarter-turn orientations, including Qu.
+Replay retains orientations; New Board changes them. See [orientation settings](options.md#cube-orientation).
+
 Classic's round animation and WAV effects are enabled by default. The timer
 starts after the opening finishes, and closing finishes before results/review.
 The launcher can disable **Classic round animations** or **Classic sound

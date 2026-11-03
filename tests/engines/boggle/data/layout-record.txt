@@ -6,9 +6,11 @@ original.half: cfd97a31cb9fbc3b
 original.pending: ecf226c79878e266
 original.results: 8fcd5cd87043c73c
 original.untimed: ebb22f3cbfbfca3f
+original.quarter-turns: 8f1e1cedf7ce3b4c
 master.ready: 8fca11ca90529f1c
 master.start: ad4de9be9cb8d575
 master.half: 7439b982677640b5
 master.pending: cbed9268cae9ff84
 master.results: e9758a3385a86914
 master.untimed: a9055b510739d2f5
+master.quarter-turns: 2e933a399c0ba8dd

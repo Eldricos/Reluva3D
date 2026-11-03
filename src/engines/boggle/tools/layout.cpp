@@ -31,6 +31,11 @@ int check(int argc,char** argv) {
             round.tick(now);artwork.draw(screen,round,now,180000,letters,qu,{},0);
             digest.update(screen.pixels.data(),screen.pixels.size());++frames;
         }
+        options.autoOrient=false;
+        if(auto error=artwork.open(resources,argv[2],options,{}))return failed(error);
+        if(auto error=round.start(0))return failed(error);
+        artwork.draw(screen,round,0,180000,letters,qu,{},0);
+        digest.update(screen.pixels.data(),screen.pixels.size());++frames;
         ++variants;
     }
     std::printf("Classic artwork variants %zu, rendered states %zu\n",variants,frames);
