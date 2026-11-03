@@ -51,7 +51,8 @@ by the static inspection and must not become undocumented assumptions in code.
   resource set; only dependency tracing and end-to-end runs can establish
   sufficiency for all original features. A tested 39-file import set now covers
   the native English Classic Original/Master slice and existing detection markers;
-  see [import scope](../../engines/boggle/import.md). It is not a full-game minimum.
+  the owner also confirmed that CD importing works. See
+  [import scope](../../engines/boggle/import.md). It is not a full-game minimum.
 
 Research evidence must cite a manifest SHA-256 and file offset/RVA or a
 repeatable observation. Keep retail assets, dictionary entries, screenshots,

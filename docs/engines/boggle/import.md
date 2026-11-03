@@ -93,8 +93,10 @@ Both supplied expanded copies pass that optional import step with the same
 record. The CD root produces the same plan as its expanded `Boggle` subfolder.
 External SDL dummy video/audio runs using only the 39-file copy reached native
 Original and Master play and produced nonzero audio. These checks establish
-software integration; the launcher's import workflow still needs the owner's
-Windows test. All 17 Boggle CTest checks pass with the supplied install. The
+software integration. The owner subsequently confirmed that importing the
+game from the CD works on their Windows setup. This confirms the import
+workflow; it does not separately establish post-import play in both variants.
+All 17 Boggle CTest checks pass with the supplied install. The
 normal full CTest run has 30 passing checks and 18 optional data checks skipped
 without configured game paths. Boggle tests and actual CD-root plan hashing also
 pass ASan/UBSan, with LeakSanitizer disabled for the execution tracer. All 737
