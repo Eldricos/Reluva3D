@@ -171,6 +171,19 @@ car, quota (`0x6fd4b8`, +0x11C) 3 and out (`0x6fd4bc`) 3. In the race
 only 06 went: the chase, the stop and the ticket send nothing, and both
 copies made them at the same steps.
 
+**The siren by H** (`c6-net3`, `c6-net5`, November 2026). The H key's
+bit 0x08 goes in the player's 06 and then in the host's frames as that
+car's word, and each copy's `0x404f80` turns the siren on in the same
+step. In `c6-net5` the joiner held H for 1 s: 11 host frames carried
+car 1's `00000008`, and the siren and the target came at step 786 in
+both copies. A tap can be lost. In `c6-net3` the joiner's 100 ms press
+went out in three 06s (125.03-125.09 s) and reached the host, but the
+host sent no frame from 124.92 to 125.36 s, and the frames after it
+carried 0: the host puts in each car's last word when it builds a
+frame, so a press that ends between two frames is not seen. The race
+to the Pursuit Summary is in physics.md (The network game to its
+results).
+
 **Pausing** (08, `0x4c55a0`, `0x4c5720`). The u32 at +4:
 
 | +4 | Sent by | Meaning |
