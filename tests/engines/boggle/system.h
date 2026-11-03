@@ -23,6 +23,9 @@ public:
     size_t frame = 0;
     std::vector<std::string> hashes;
     bool textEnabled = false, textStopped = false;
+    bool audioSupported = false, audioStarted = false, audioStopped = false, audioRequiresGraphics = false;
+    AudioCallback audioCallback;
+    std::vector<std::string> audioHashes;
     int w = 0, h = 0;
     Error initGraphics(int width, int height, PixelFormat format) override {
         w = width; h = height;
@@ -32,6 +35,7 @@ public:
     void setWindowTitle(const std::string&) override {}
     void updateScreen(const Surface& screen) override {
         hashes.push_back(test::Hash().bytes(screen.pixels).hex());
+        if (audioCallback) { auto pcm = pump(256); audioHashes.push_back(test::Hash().bytes(pcm.data(),pcm.size()*sizeof(int16_t)).hex()); }
         if (present) present(screen,frame);
         ++frame;
     }
@@ -46,8 +50,16 @@ public:
     void setTextInput(bool enabled) override { textEnabled = enabled; if (!enabled) textStopped = true; }
     uint64_t getMillis() const override { return clock ? clock(frame) : frame * 10; }
     void delayMillis(uint32_t) override {}
-    Error startAudio(AudioCallback) override { return Error::fail("No audio in scripted system"); }
-    void stopAudio() override {}
+    Error startAudio(AudioCallback callback) override {
+        if (!audioSupported || (audioRequiresGraphics && !w)) return Error::fail("No audio in scripted system");
+        audioCallback = std::move(callback); audioStarted = true; return Error::success();
+    }
+    void stopAudio() override { audioCallback = {}; audioStopped = true; }
+    std::vector<int16_t> pump(size_t frames) {
+        std::vector<int16_t> pcm(frames*2);
+        if (audioCallback) audioCallback(pcm.data(),int(frames));
+        return pcm;
+    }
     int audioRate() const override { return 22050; }
 private:
     size_t loaded_ = size_t(-1), at_ = 0;

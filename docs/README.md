@@ -15,6 +15,7 @@ requirements, building, running and contributing. The rest is here.
 - [x86.md](common/x86.md): the x86 interpreter that runs 32-bit Windows game
   code (Elite Force's single-player DLLs), and its Windows stand-ins.
 - [bink.md](common/bink.md): Bink videos.
+- [avi-video1.md](common/avi-video1.md): bounded AVI / 16-bit Microsoft Video 1 clips.
 - [pe-resources.md](common/pe-resources.md): PE resource directories and UTF-8 string tables, read without executing code.
 - [wise.md](common/wise.md): Wise installers, taken apart without running
   them (Elite Force's patch).

@@ -72,6 +72,7 @@ add_library(reluva_common STATIC
     src/common/md4.cpp
     src/common/archive.cpp
     src/common/zip.cpp
+    src/common/video/avi_video1.cpp
     src/common/video/bink.cpp
     src/common/video/bink_tables.cpp
     src/common/image.cpp
@@ -145,6 +146,7 @@ reluva_finish_tool(
 # docs/DEVELOPMENT.md (Tests).
 reluva_add_tests(common
     SOURCES ${PROJECT_SOURCE_DIR}/tests/common/unit.cpp
+            ${PROJECT_SOURCE_DIR}/tests/common/avi_video1.cpp
             ${PROJECT_SOURCE_DIR}/tests/common/pe_resources.cpp
-    TOPICS unit.hashes unit.files unit.archives unit.text unit.audio unit.image unit.net unit.x86 unit.pe_resources)
+    TOPICS unit.hashes unit.files unit.archives unit.text unit.audio unit.image unit.net unit.x86 unit.pe_resources unit.avi_video1)
 reluva_finish_tests()

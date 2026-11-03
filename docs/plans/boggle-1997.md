@@ -1,7 +1,8 @@
 # Boggle (1997): engine implementation plan
 
-Initial plan: 2 November 2026. Detection and initial resource readers are now
-implemented; [current support](../engines/boggle/README.md) excludes gameplay.
+Initial plan: 2 November 2026. This document preserves the original milestones
+and historical access limits; [current support](../engines/boggle/README.md)
+now includes playable Classic variants, user dictionaries and presentation.
 
 The subsequent [stage 1 static inspection](boggle-1997/inspection.md)
 records successful Drive access, resource findings, detection candidates and
@@ -241,10 +242,12 @@ on the Boggle branch; this plan never authorizes merging into another branch.
 
 ## Immediate next action
 
-Stage 1 static inspection is recorded in [the inspection report](boggle-1997/inspection.md),
-with [remaining evidence gaps](boggle-1997/unconfirmed.md). Drive access works,
-the expanded install and CD files match, and the proposed boundary is original
-native C++ over retail resources. The scaffold, measured detection and initial resource readers are implemented.
-Dictionary-format research is the main subsequent implementation risk.
-Original-game observation and the oversized compressed archive remain unverified.
-Set effort estimates after the dictionary and behavior questions are resolved.
+Stage 1 static inspection is recorded in [the inspection report](boggle-1997/inspection.md).
+Drive access and dictionary research are resolved. Classic Original/Master,
+whole-minute/untimed options and isolated user-word persistence are implemented,
+with owner VM rule checks and Windows smoke/workflow tests documented in the
+engine pages. Classic lid clips and sound effects are now integrated; their
+new presentation needs owner Windows/VM corroboration. Current gaps include
+original frontend menus, remaining media formats, other modes, AI/networking,
+and importer support. See [current support](../engines/boggle/README.md) and
+[remaining evidence gaps](boggle-1997/unconfirmed.md) before choosing the next slice.

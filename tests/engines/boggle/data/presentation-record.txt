@@ -1,0 +1,9 @@
+# The record of boggle.engine (tests/engines/boggle/engine.cpp).
+# Written by `reluva-tests boggle.engine --update`; review its diff before committing.
+media.opening: c478ec58a762bd45
+media.open_lid: 076ec519f3d9bd45
+media.playing: d1df21a8885d7fb1
+media.counted: 38ea63cd20e62491
+media.closing: 0d3e28937cb58d25
+media.results: e8266a04ddc291d2
+media.audio: b51b680c78a92307

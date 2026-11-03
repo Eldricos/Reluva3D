@@ -58,7 +58,7 @@ void engineTest(const std::filesystem::path& tmp) {
         return {};
     };
     system.clock = [](size_t frame) -> uint64_t { return frame >= 6 ? 180010 : frame * 10; };
-    GameTarget target; target.path = dir; target.gameId = "boggle1997";
+    GameTarget target; target.settings = {{"classic_sound","0"},{"classic_animations","0"}}; target.path = dir; target.gameId = "boggle1997";
     auto game = engine->create(system,target);
     if (auto err = game->run()) return test::fail(err.message);
     CHECK(system.frame == 9 && system.w == 800 && system.h == 600);
@@ -111,7 +111,7 @@ void dictionaryWorkflow(const std::filesystem::path& tmp) {
     const auto dir = tmp / "install", save = tmp / "saves";
     classicInstall(dir);
     const auto* meta = findEngine("boggle"); CHECK(meta); if (!meta) return;
-    GameTarget target; target.path = dir; target.savePath = save;
+    GameTarget target; target.settings = {{"classic_sound","0"},{"classic_animations","0"}}; target.path = dir; target.savePath = save;
     ScriptedSystem system;
     system.events = [](size_t frame) -> std::vector<Event> {
         if (frame == 1 || frame == 3 || frame == 5 || frame == 7 || frame == 9 || frame == 14 || frame == 16)
@@ -206,8 +206,8 @@ void masterWorkflow(const std::filesystem::path& tmp) {
     using namespace boggle::fixtures;
     const auto dir = tmp / "install"; masterInstall(dir);
     const auto* meta = findEngine("boggle"); CHECK(meta); if (!meta) return;
-    GameTarget target; target.path = dir; target.gameId = "boggle1997";
-    target.settings = {{"classic_variant","master"},{"classic_seconds","60"}};
+    GameTarget target; target.settings = {{"classic_sound","0"},{"classic_animations","0"}}; target.path = dir; target.gameId = "boggle1997";
+    target.settings = {{"classic_variant","master"},{"classic_seconds","60"},{"classic_sound","0"},{"classic_animations","0"}};
     ScriptedSystem timed;
     timed.events = [](size_t frame) -> std::vector<Event> {
         if (frame == 1 || frame == 3 || frame == 10) return {keyEvent(key::Return)};
@@ -258,9 +258,73 @@ void masterWorkflow(const std::filesystem::path& tmp) {
               "tests/engines/boggle/engine.cpp");
 }
 
+void presentationWorkflow(const std::filesystem::path& tmp) {
+    using namespace boggle::fixtures;
+    const auto dir=tmp / "install"; presentationInstall(dir);
+    const auto* meta=findEngine("boggle"); CHECK(meta); if(!meta)return;
+    GameTarget target; target.path=dir; target.settings={{"classic_seconds","60"}};
+    ScriptedSystem sys;sys.audioSupported=true;sys.audioRequiresGraphics=true;
+    sys.events=[](size_t f)->std::vector<Event>{
+        if(f==1 || f==6 || f==7)return{keyEvent(key::Return)};
+        if(f==11)return{keyEvent(key::Return),keyEvent(key::F1+1)};
+        if(f==2)return{textEvent("aaaaa"),keyEvent(key::F1+1)}; // ignored during opening
+        if(f==5)return{textEvent("aaa")};
+        if(f==8)return{textEvent("aaaaa")}; // expires with unfinished input
+        if(f==10)return{keyEvent('1')}; // cannot approve before a prompt exists
+        if(f==12)return{keyEvent(key::Escape)};
+        return{};
+    };
+    sys.clock=[](size_t f)->uint64_t{
+        const uint64_t times[]={0,10,1010,3110,4410,4420,4430,4440,64409,64410,65509,65510,65520};
+        return times[std::min(f,size_t(12))];
+    };
+    auto game=meta->create(sys,target);if(auto err=game->run())return test::fail(err.message);
+    CHECK(sys.hashes.size()==12 && sys.audioStarted && sys.audioStopped && !sys.audioCallback);
+    CHECK(sys.audioHashes.size()==12);
+    CHECK(sys.textStopped && !sys.textEnabled);
+    // Closing ends at frame 11; buffered Enter must not restart before results.
+    if(sys.hashes.size()==12) {
+        CHECK(sys.hashes[4]!=sys.hashes[3]);
+        test::Record rec;
+        rec.add("media.opening",sys.hashes[1]);rec.add("media.open_lid",sys.hashes[3]);
+        rec.add("media.playing",sys.hashes[4]);rec.add("media.counted",sys.hashes[6]);
+        rec.add("media.closing",sys.hashes[9]);rec.add("media.results",sys.hashes[11]);
+        test::Hash pcm;for(const auto& hash:sys.audioHashes)pcm.text(hash);
+        rec.add("media.audio",pcm.hex());
+        rec.check(RELUVA_SOURCE_DIR "/tests/engines/boggle/data/presentation-record.txt","boggle.engine","tests/engines/boggle/engine.cpp");
+    }
+    // Exit during opening must stop the callback before the mixer is destroyed.
+    ScriptedSystem quit;quit.audioSupported=true;
+    quit.events=[](size_t f)->std::vector<Event>{if(f==1)return{keyEvent(key::Return)};if(f==2)return{keyEvent(key::Escape)};return{};};
+    game=meta->create(quit,target);if(auto err=game->run())return test::fail(err.message);
+    CHECK(quit.hashes.size()==2 && quit.audioStopped && !quit.audioCallback && quit.textStopped);
+    // An unknown word's review is postponed until closing finishes.
+    ScriptedSystem review;review.audioSupported=true;
+    review.events=[](size_t f)->std::vector<Event>{
+        if(f==1 || f==4)return{keyEvent(key::Return)};
+        if(f==3)return{textEvent("aaaaa")};
+        if(f==5)return{keyEvent(key::F1)};
+        if(f==6)return{keyEvent('4')};
+        if(f==8)return{keyEvent('4')};
+        if(f==9)return{keyEvent(key::Escape)};
+        return{};
+    };
+    review.clock=[](size_t f)->uint64_t{const uint64_t times[]={0,10,4410,4420,4430,4440,4450,5540,5550,5560};return times[std::min(f,size_t(9))];};
+    game=meta->create(review,target);if(auto err=game->run())return test::fail(err.message);
+    CHECK(review.hashes.size()==9 && review.audioStopped && !review.audioCallback);
+    if(review.hashes.size()==9){CHECK(review.hashes[7]!=review.hashes[6]);CHECK(review.hashes[8]!=review.hashes[7]);}
+    target.settings={{"classic_variant","master"},{"classic_seconds","0"},{"classic_sound","0"}};
+    ScriptedSystem master;
+    master.events=[](size_t f)->std::vector<Event>{if(f==1)return{keyEvent(key::Return)};if(f==3)return{keyEvent(key::F1)};if(f==5)return{keyEvent(key::Escape)};return{};};
+    master.clock=[](size_t f)->uint64_t{const uint64_t times[]={0,10,4410,4420,5520,5530};return times[std::min(f,size_t(5))];};
+    game=meta->create(master,target);if(auto err=game->run())return test::fail(err.message);
+    CHECK(master.hashes.size()==5 && master.textStopped && !master.audioStarted);
+}
+
 } // namespace
 
 static const reluva::test::Suite suite("boggle.engine", {
+    {"animated start/expiry/review, timer gating, sound and early exit",[](const auto& tmp){presentationWorkflow(tmp);}},
     {"Master geometry, configured deadline, replay and untimed finish", [](const auto& tmp) { masterWorkflow(tmp); }},
     {"rejected words, dictionary choices, write failure and engine restart", [](const auto& tmp) { dictionaryWorkflow(tmp); }},
     {"synthetic resources and Classic round", [](const std::filesystem::path& tmp) { engineTest(tmp); }},

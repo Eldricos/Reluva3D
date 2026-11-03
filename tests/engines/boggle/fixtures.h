@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 // Copyright (C) 2026 The Reluva contributors
 #pragma once
+#include "tests/support/avi_fixture.h"
 #include "tests/support/pe_resources_fixture.h"
 #include <filesystem>
 #include <fstream>
@@ -89,5 +90,16 @@ inline void masterInstall(const std::filesystem::path& path) {
     std::string text; for (size_t i = 0; i < 25; ++i) text += "A,A,A,A,A,A\n";
     write(path / "Dicts/EngMas.dst", text);
     write(path / "Palettes/ClsM1Pal.pal", palette());
+}
+inline void presentationInstall(const std::filesystem::path& path) {
+    masterInstall(path);
+    write(path / "Anims/ClsO1All.avi",test::fixtures::classicAvi());
+    write(path / "Anims/ClsM1All.avi",test::fixtures::classicAvi());
+    size_t i=0;
+    for (const char* name : {"Shake","ClkDown","ClkUp","Writing","Seven","Eight","Tick","GameOver"}) {
+        auto data = wave(); ++i;
+        test::fixtures::put16(data,44,uint16_t(i*1000)); test::fixtures::put16(data,46,uint16_t(-int(i*1000)));
+        write(path / "Waves" / (std::string(name)+".wav"),data);
+    }
 }
 } // namespace reluva::boggle::fixtures

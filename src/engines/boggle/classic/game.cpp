@@ -3,6 +3,7 @@
 #include "engines/boggle/classic/game.h"
 #include "engines/boggle/classic/round.h"
 #include "engines/boggle/classic/options.h"
+#include "engines/boggle/classic/presentation.h"
 #include "engines/boggle/classic/user_dictionary.h"
 #include "engines/boggle/resources.h"
 #include "common/font.h"
@@ -132,6 +133,14 @@ Error ClassicGame::run() {
     if (auto err = resources.image("Textures/LettersQu.bmp", qu)) return err;
     if (letters.w != 512 || letters.h != 512 || qu.w != 512 || qu.h != 512 || dice.side != options.side())
         return Error::fail("Unsupported Classic letter atlas or dice layout");
+    video::AviVideo1 clip;
+    if (options.animations) {
+        const char* path = options.side() == 5 ? "Anims/ClsM1All.avi" : "Anims/ClsO1All.avi";
+        if (auto err = resources.animation(path,clip)) return err;
+        if (clip.frames.size() != 55) return Error::fail("Unsupported Classic round animation length");
+    }
+    ClassicAudio sound(sys_);
+    ClassicTransition transition;
     UserDictionary user;
     if (auto err = user.load(target_.savePath, target_.path)) return err;
     ClassicRound round(dictionary, &user); Board board; uint32_t seed = 0x1997;
@@ -139,21 +148,30 @@ Error ClassicGame::run() {
     if (auto err = round.board(std::move(board), options.duration)) return err;
     if (auto err = sys_.initGraphics(width, height, PixelFormat::RGBA32)) return err;
     sys_.setWindowTitle(options.variant == ClassicVariant::Master ? "Reluva - Boggle Classic Master" : "Reluva - Boggle Classic Original");
+    // Start output after the window and framebuffer are ready.
+    if (auto err = sound.open(resources,options.sound)) return err;
     sys_.setMouseCursorVisible(true); sys_.setTextInput(true);
     struct TextInputCleanup { System& system; ~TextInputCleanup() { system.setTextInput(false); } } cleanup{sys_};
     Surface screen; screen.create(width, height, PixelFormat::RGBA32);
     std::string input, message; std::vector<size_t> selected; size_t scroll = 0;
     bool running = true, dragging = false, resultsVisible = false, promptVisible = false;
-    auto clear = [&] { input.clear(); selected.clear(); scroll = 0; };
+    auto clear = [&] { input.clear(); selected.clear(); scroll = 0; dragging = false; };
     auto updateInput = [&] { input.clear(); for (size_t i : selected) input += round.board().faces()[i]; };
     auto startOrFinish = [&]() -> Error {
         if (round.phase() == RoundPhase::Results && !resultsVisible) return Error::success();
         resultsVisible = false; clear(); message.clear();
-        if (round.phase() == RoundPhase::Playing) round.finish();
-        else if (auto err = round.start(sys_.getMillis(), options.duration)) return err;
+        if (round.phase() == RoundPhase::Playing) {
+            round.finish(); sound.stopShake();
+            if (options.animations) transition.begin(Transition::Closing,sys_.getMillis());
+        } else {
+            sound.beginRound(options.animations);
+            if (options.animations) transition.begin(Transition::Opening,sys_.getMillis());
+            else if (auto err = round.start(sys_.getMillis(), options.duration)) return err;
+        }
         return Error::success();
     };
     auto newBoard = [&]() -> Error {
+        if (round.phase() == RoundPhase::Results && !resultsVisible) return Error::success();
         if (round.phase() == RoundPhase::Playing) return Error::success();
         if (auto err = Board::generate(dice, ++seed, board)) return err;
         if (auto err = round.board(std::move(board), options.duration)) return err;
@@ -167,22 +185,34 @@ Error ClassicGame::run() {
         if (std::find(selected.begin(), selected.end(), cell) != selected.end()) { message = "That cube is already used."; return; }
         if (!selected.empty() && !round.board().adjacent(selected.back(), cell)) { message = "Choose a touching cube."; return; }
         if (selected.empty()) input.clear();
-        selected.push_back(cell); updateInput(); message.clear();
+        selected.push_back(cell); updateInput(); message.clear(); sound.play(Cue::ClickDown);
     };
-    auto advance = [&] {
+    auto advance = [&]() -> Error {
+        const uint64_t now = sys_.getMillis();
+        const auto type = transition.type();
+        if (type == Transition::Opening && transition.frame(now) >= 31) sound.stopShake();
+        if (transition.finish(now) && type == Transition::Opening) {
+            sound.stopShake();
+            if (auto err = round.start(now,options.duration)) return err;
+        }
+        if (transition.type() != Transition::None) return Error::success();
         const bool playing = round.phase() == RoundPhase::Playing;
-        round.tick(sys_.getMillis());
+        round.tick(now);
         if (playing && round.phase() == RoundPhase::Results) {
             clear(); dragging = false; resultsVisible = false; message = "Time is up.";
-        }
+            sound.stopShake(); sound.countdown(0);
+            if (options.animations) transition.begin(Transition::Closing,now);
+        } else if (playing && round.timed()) sound.countdown(round.remaining(now));
+        return Error::success();
     };
     while (running) {
-        advance();
+        if (auto err = advance()) return err;
         Event event;
         while (sys_.pollEvent(event)) {
-            advance();
+            if (auto err = advance()) return err;
             if (event.type == EventType::Quit || event.type == EventType::ReturnToLauncher ||
                 (event.type == EventType::KeyDown && event.key == key::Escape)) { running = false; break; }
+            if (transition.type() != Transition::None) continue;
             if (round.candidate()) {
                 int choice = -1;
                 if (promptVisible && event.type == EventType::KeyDown && !event.repeat && event.key >= '1' && event.key <= '4')
@@ -199,7 +229,7 @@ Error ClassicGame::run() {
             if (event.type == EventType::KeyDown) {
                 if ((event.key == key::Return || event.key == key::KpEnter) && !event.repeat) {
                     if (round.phase() != RoundPhase::Playing) { if (auto err = startOrFinish()) return err; }
-                    else { const auto result = round.submit(input, sys_.getMillis(), selected); message = feedback(result, round.minimum()); if (result != Submission::SelectPath) clear(); }
+                    else { const auto result = round.submit(input, sys_.getMillis(), selected); message = feedback(result, round.minimum()); if (result == Submission::Accepted || result == Submission::UnknownWord) sound.recorded(round.words().back().entry.word.size()); if (result != Submission::SelectPath) clear(); }
                 } else if (event.key == key::PageUp || event.key == key::PageDown) {
                     const size_t count = size_t(std::count_if(round.words().begin(), round.words().end(), [](const auto& word) { return word.state != WordState::Declined; }));
                     const size_t maximum = count > 14 ? count - 14 : 0;
@@ -224,13 +254,22 @@ Error ClassicGame::run() {
                 else if (hit(event.mouseX, event.mouseY, 216, 557, 158, 29)) { if (auto err = newBoard()) return err; }
                 else { dragging = true; select(event.mouseX, event.mouseY); }
             } else if (event.type == EventType::MouseMove && dragging) select(event.mouseX, event.mouseY);
-            else if (event.type == EventType::MouseUp && event.button == MouseButton::Left) dragging = false;
+            else if (event.type == EventType::MouseUp && event.button == MouseButton::Left) {
+                if (dragging && !selected.empty()) sound.play(Cue::ClickUp);
+                dragging = false;
+            }
         }
         if (!running) break;
-        draw(screen, round, sys_.getMillis(), letters, qu, palette, input, selected, message, scroll);
+        if (transition.type() != Transition::None) {
+            const auto& frame = clip.frames[transition.frame(sys_.getMillis())];
+            for (int y=0;y<height;++y) for (int x=0;x<width;++x)
+                std::copy_n(frame.pixel(x*frame.w/width,y*frame.h/height),4,screen.row(y)+x*4);
+            rect(screen,0,height-40,width,40,dark);
+            label(screen,24,height-25,transition.type() == Transition::Opening ? "Rolling dice and opening the lid..." : "Closing the lid...");
+        } else draw(screen, round, sys_.getMillis(), letters, qu, palette, input, selected, message, scroll);
         sys_.updateScreen(screen);
-        if (round.phase() == RoundPhase::Results) resultsVisible = true;
-        promptVisible = round.candidate() != nullptr;
+        if (transition.type() == Transition::None && round.phase() == RoundPhase::Results) resultsVisible = true;
+        promptVisible = transition.type() == Transition::None && round.candidate() != nullptr;
         sys_.delayMillis(16);
     }
     return Error::success();

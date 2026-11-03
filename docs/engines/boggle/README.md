@@ -3,7 +3,9 @@
 The `boggle` engine recognizes the supplied multilingual Windows file set
 and offers early single-player **Classic Original and Master** in U.S. English.
 Original uses 4x4 dice with a three-letter minimum; Master uses 5x5 with a
-four-letter minimum. Both have dictionary validation, scoring and results. Other modes, original menus, audio, AI and networking are unfinished.
+four-letter minimum. Both have dictionary validation, scoring and results.
+Classic lid/roll animation and sound effects are available. Other modes,
+original menus, AI and networking are unfinished.
 See [scope and rule evidence](classic.md) and the
 [original/native comparison procedure](comparison.md).
 
@@ -13,6 +15,11 @@ right click clears it. F1 ends a round, Enter replays the same board, F2 creates
 a new board between rounds, and Escape returns to the launcher. The initial
 board uses a fixed native seed for reproducible checks; its shuffle differs
 from the original game.
+
+Classic's round animation and WAV effects are enabled by default. The timer
+starts after the opening finishes, and closing finishes before results/review.
+The launcher can disable **Classic round animations** or **Classic sound
+effects** independently. See [presentation behavior and evidence](presentation.md).
 
 In the launcher's game options, choose Original or Master and a round duration:
 1, 2, 3, 4 or 5 minutes, or Not Timed. Three minutes is the default.
@@ -74,16 +81,21 @@ Supported formats:
 - [The observed DirectX text mesh subset](formats/mesh.md).
 - [Shared PE resource and string-table reader](../../common/pe-resources.md).
 - [Binary word dictionaries](formats/dictionary.md).
+- [Single-stream 16-bit AVI / Microsoft Video 1](../../common/avi-video1.md)
+  for the two Classic lid clips.
 - BMP and PCM WAV through the existing shared readers.
 
 Not decoded: INSO `.DAT` definitions,
-AVI/Cinepak/Microsoft Video 1 media and TrueType fonts. The current checker
+Cinepak and paletted/timer AVI media, and TrueType fonts. The current checker
 also does not interpret PE dialog layouts or validate every asset the original
 program may request. Some bitmap paths
 in the EXE are absent from the supplied copies; see the
 [remaining research questions](../../plans/boggle-1997/unconfirmed.md).
 
 ## Tests
+
+`presentation-check` decodes both Classic lid clips and eight sound cues,
+reporting only counts and checksums.
 
 `dictionary-check` decodes all eight binary dictionaries and reports only
 counts and checksums. `dictionary-query` checks an ASCII English word.

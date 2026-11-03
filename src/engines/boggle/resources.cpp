@@ -72,6 +72,12 @@ Error Resources::image(std::string_view name, image::Image& out) const {
     if (auto err = archive_.read(name, bytes)) return err;
     return image::decode(bytes, out);
 }
+Error Resources::animation(std::string_view name, video::AviVideo1& out) const {
+    out = {};
+    std::vector<uint8_t> bytes;
+    if (auto err = archive_.read(name, bytes)) return err;
+    return out.read(bytes);
+}
 Error Resources::sound(std::string_view name, audio::Sound& out) const {
     out = {};
     std::vector<uint8_t> bytes;

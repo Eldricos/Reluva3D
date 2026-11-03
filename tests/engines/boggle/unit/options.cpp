@@ -28,11 +28,15 @@ void settings() {
 void advertised(const std::filesystem::path& tmp) {
     const auto* meta = findEngine("boggle"); CHECK(meta); if (!meta) return;
     const auto options = meta->options("boggle1997", tmp);
-    CHECK(options.size() == 2); CHECK(meta->options("unknown",tmp).empty());
+    CHECK(options.size() == 4); CHECK(meta->options("unknown",tmp).empty());
     std::map<std::string,std::string> defaults;
     std::set<std::string> seconds;
     for (const auto& option : options) {
-        CHECK(!option.choices.empty()); if (option.choices.empty()) continue;
+        if (option.choices.empty()) {
+            defaults[option.key] = option.defaultOn ? "1" : "0";
+            for (const auto* value : {"0","1"}) { ClassicOptions parsed; CHECK(!readClassicOptions({{option.key,value}},parsed)); }
+            ClassicOptions bad; CHECK(bool(readClassicOptions({{option.key,"2"}},bad))); continue;
+        }
         defaults[option.key] = option.choices.front().first;
         for (const auto& [value,label] : option.choices) {
             CHECK(!label.empty()); ClassicOptions parsed;

@@ -38,6 +38,10 @@ by the static inspection and must not become undocumented assumptions in code.
   expanded trees. Determine whether they are unused paths, require other
   packaging/extraction, or reflect incomplete resources before promising
   original menu/intro behavior. Present-file reader checks do not resolve this.
+- Classic roll/lid and WAV playback now exist; perceived sequence/cue timing
+  still needs the owner's Windows/VM comparison. Full original overlays,
+  frontend menus, paletted/timer AVI and Cinepak remain unsupported. See
+  [presentation evidence](../../engines/boggle/presentation.md).
 - Exact UI layout and appearance across resource DLLs, fonts, palette modes
   and display settings. Successful media decoding is not a rendering match.
 - A proven minimum runtime file set. The inspection proposes a conservative

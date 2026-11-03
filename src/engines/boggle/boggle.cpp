@@ -28,6 +28,8 @@ public:
     std::vector<GameOption> options(const std::string& gameId, const std::filesystem::path&) const override {
         if (gameId != "boggle1997") return {};
         return {
+            {"classic_sound", "Classic sound effects", "Play the installed game's WAV sound effects.", true, {}},
+            {"classic_animations", "Classic round animations", "Play the installed Classic lid/roll clips before and after each round.", true, {}},
             {"classic_variant", "Classic variant", "Original: 4 x 4, minimum 3 letters. Master: 5 x 5, minimum 4 letters.", true,
              {{"original", "Original"}, {"master", "Master"}}},
             {"classic_seconds", "Round duration", "Used for each Classic round; Not Timed ends with End Round (F1).", true,
