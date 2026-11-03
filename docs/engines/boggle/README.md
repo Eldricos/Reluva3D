@@ -4,7 +4,8 @@ The `boggle` engine recognizes the supplied multilingual Windows file set
 and offers an early single-player **Classic Original** round in U.S. English.
 It has a 4x4 board, dictionary validation, a three-minute timer, scoring and
 results. Other modes, original menus, audio, AI and networking are unfinished.
-See [scope and rule evidence](classic.md).
+See [scope and rule evidence](classic.md) and the
+[original/native comparison procedure](comparison.md).
 
 Press Enter to start, type a word and press Enter to submit. Alternatively,
 click or drag through touching cubes, then press Enter. Backspace undoes input;
@@ -77,7 +78,9 @@ in the EXE are absent from the supplied copies; see the
 counts and checksums. `dictionary-query` checks an ASCII English word.
 `classic-check` validates every dictionary word against the deterministic
 initial board, checks submissions, duplicates, scoring and expiration, and
-reports only counts and a checksum. No tool exports word lists.
+reports only counts and a checksum. `classic-replay` uses an externally
+recorded board and timed submissions to help compare VM observations; its
+numbered output omits faces and words. No tool exports word lists.
 
 `reluva-tests boggle` runs synthetic detection/resource/dictionary/round tests and the
 `boggle.engine` record. `common.unit.pe_resources` tests the shared binary

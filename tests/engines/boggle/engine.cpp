@@ -85,6 +85,22 @@ void engineTest(const std::filesystem::path& tmp) {
     if (auto err = game->run()) return test::fail(err.message);
     CHECK(mouse.hashes.size() == 6 && !mouse.textEnabled && mouse.textStopped);
     if (mouse.hashes.size() == 6 && system.hashes.size() == 9) CHECK(mouse.hashes[5] == system.hashes[3]);
+    // Unfinished input and an Enter event arriving exactly at the deadline
+    // must not add a word or restart before results have been displayed.
+    boggle::fixtures::ScriptedSystem expiry;
+    expiry.events = [](size_t frame) -> std::vector<Event> {
+        using namespace boggle::fixtures;
+        if (frame == 1 || frame == 3 || frame == 5) return {keyEvent(key::Return)};
+        if (frame == 2) return {textEvent("aaa")};
+        if (frame == 4) return {textEvent("aaaa")};
+        if (frame == 6) return {keyEvent(key::Escape)};
+        return {};
+    };
+    expiry.clock = [](size_t frame) -> uint64_t { return frame >= 5 ? 180010 : frame * 10; };
+    game = engine->create(expiry,target);
+    if (auto err = game->run()) return test::fail(err.message);
+    CHECK(expiry.hashes.size() == 6 && !expiry.textEnabled && expiry.textStopped);
+    if (expiry.hashes.size() == 6 && system.hashes.size() == 9) CHECK(expiry.hashes[5] == system.hashes[6]);
     rec.check(RELUVA_SOURCE_DIR "/tests/engines/boggle/data/engine-record.txt", "boggle.engine",
               "tests/engines/boggle/engine.cpp");
 }

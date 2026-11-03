@@ -19,7 +19,8 @@ reluva_add_engine_tools(boggle
     SOURCES
         tools/files.cpp
         tools/resources.cpp
-        tools/dictionary.cpp)
+        tools/dictionary.cpp
+        tools/classic.cpp)
 
 # Its tests (tests/engines/boggle/), in reluva-tests: the unit tests by
 # topic, and the engine test, without game files (its record in

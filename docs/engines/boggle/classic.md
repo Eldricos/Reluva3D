@@ -70,5 +70,7 @@ Synthetic parser, model and scripted-engine tests and both real-data reader
 commands pass AddressSanitizer and UndefinedBehaviorSanitizer with leak
 checking disabled because the execution tracer does not support it. The
 native screen was also rendered with the owner's external letter atlases
-and visually checked; no capture is committed. Windows/Visual Studio testing
-of this new playable slice remains for the owner to perform.
+and visually checked; no capture is committed. The owner subsequently compiled
+and ran the playable slice in Visual Studio 2022 and completed one round without issues. This is a smoke check, not yet
+a full original/native comparison. The next checks and current pending status
+are in the [VM comparison procedure](comparison.md).
