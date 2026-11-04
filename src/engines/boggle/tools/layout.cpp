@@ -2,9 +2,30 @@
 // Copyright (C) 2026 The Reluva contributors
 #include "engines/boggle/classic/layout.h"
 #include "common/md5.h"
+#include "common/fs.h"
 #include "tools/tool.h"
 #include <cstdio>
 namespace {
+int fonts(int argc,char** argv) {
+    using namespace reluva;
+    if(argc!=3){std::fprintf(stderr,"usage: reluva-tool boggle font-check <game folder>\n");return 2;}
+    boggle::Resources resources;
+    if(auto error=resources.open(argv[2])){std::fprintf(stderr,"%s\n",error.message.c_str());return 1;}
+    Md5 digest;size_t count=0;int advance=0;
+    if(fs::findFile(argv[2],"Fonts/KPSI.TTF")) {
+        font::TrueTypeAscii font;
+        if(auto error=resources.font("Fonts/KPSI.TTF",18,font)){std::fprintf(stderr,"%s\n",error.message.c_str());return 1;}
+        for(char c=32;c<=126;++c) {
+            const std::string text(1,c);const int width=font.measure(text);advance+=width;
+            const uint8_t n[4]={uint8_t(width),uint8_t(width>>8),0,0};digest.update(n,4);
+            Surface screen;screen.create(64,64,PixelFormat::RGBA32);
+            font.draw(screen,12,40,text,{240,220,180},52);digest.update(screen.pixels.data(),screen.pixels.size());
+        }
+        count=1;
+    }
+    std::printf("Classic handwriting fonts %zu, ASCII glyphs %zu, advance pixels %d\n",count,count*95,advance);
+    std::printf("decoded font: %s\n",digest.hexDigest().c_str());return 0;
+}
 int check(int argc,char** argv) {
     using namespace reluva;
     using namespace reluva::boggle;
@@ -41,5 +62,5 @@ int check(int argc,char** argv) {
     std::printf("Classic artwork variants %zu, rendered states %zu\n",variants,frames);
     std::printf("decoded artwork: %s\n",digest.hexDigest().c_str());return 0;
 }
-const reluva::tool::Commands commands("boggle",{{"artwork-check","<game folder>","validate and render Classic artwork; report metadata only",check}});
+const reluva::tool::Commands commands("boggle",{{"artwork-check","<game folder>","validate and render Classic artwork; report metadata only",check},{"font-check","<game folder>","validate and rasterize optional ASCII handwriting; report metadata only",fonts}});
 }

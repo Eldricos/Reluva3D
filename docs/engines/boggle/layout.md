@@ -11,6 +11,7 @@ cube top; mouse hit testing uses those same projected polygons.
 This is an intermediate presentation pass. Cube projection, lighting,
 font, input box, buttons and digital-clock placement are native approximations;
 this does not establish pixel matching with the original Direct3D screen.
+The optional [handwriting font](fonts.md) now renders submitted words.
 The original toolbar, player-management dialogs and word-panel paging buttons
 are not implemented. Page Up / Page Down still browse the submitted words.
 The panel labels WORDS and SCORE describe native counters; they do not claim
@@ -80,9 +81,9 @@ all Git worktrees. The owner confirmed the installed-artwork pass works on Windo
 appearance still needs VM comparison. The subsequent projective-plane/texture
 refinement was subsequently confirmed working by the owner on Windows.
 
-The supplied install passes all 22 Boggle CTest checks, including the new
-artwork and fresh-import checks. The normal full suite passes 33 checks and
-skips 21 unconfigured optional data checks. Shared Video 1 tests also pass with
+The supplied install passes all 23 Boggle CTest checks, including the new
+artwork and fresh-import checks. The normal full suite passes 34 checks and
+skips 22 unconfigured optional data checks. Shared Video 1 tests also pass with
 the Boggle engine disabled. All 737 original install files match their recorded
 SHA-256 hashes after validation.
 
@@ -123,3 +124,7 @@ setting enabled and disabled, and verify stable replay and changed New Board
 orientations. The existing aligned rendering records remain unchanged. New
 records add rotated states made only from invented fixtures. Actual-resource
 checks now also render the quarter-turned view without exporting images.
+
+The owner confirmed the orientation update works and clarified that cubes are
+randomly oriented at round start with auto-orient disabled; players cannot
+rotate them manually. The current implementation follows that interaction.

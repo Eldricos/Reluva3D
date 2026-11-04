@@ -92,6 +92,7 @@ add_library(reluva_common STATIC
     src/common/audio/mixer.cpp
     src/common/audio/mp3.cpp
     src/common/audio/wav.cpp
+    src/common/font_truetype.cpp
     src/common/font.cpp
     src/common/text.cpp)
 target_include_directories(reluva_common PUBLIC src)
@@ -146,9 +147,10 @@ reluva_finish_tool(
 # engine's (reluva_add_engine_tests in its CMakeLists.txt). See
 # docs/DEVELOPMENT.md (Tests).
 reluva_add_tests(common
-    SOURCES ${PROJECT_SOURCE_DIR}/tests/common/unit.cpp
+    SOURCES ${PROJECT_SOURCE_DIR}/tests/common/font_truetype.cpp
+            ${PROJECT_SOURCE_DIR}/tests/common/unit.cpp
             ${PROJECT_SOURCE_DIR}/tests/common/avi_video1.cpp
             ${PROJECT_SOURCE_DIR}/tests/common/avi_cinepak.cpp
             ${PROJECT_SOURCE_DIR}/tests/common/pe_resources.cpp
-    TOPICS unit.hashes unit.files unit.archives unit.text unit.audio unit.image unit.net unit.x86 unit.pe_resources unit.avi_video1 unit.avi_cinepak)
+    TOPICS unit.font_truetype unit.hashes unit.files unit.archives unit.text unit.audio unit.image unit.net unit.x86 unit.pe_resources unit.avi_video1 unit.avi_cinepak)
 reluva_finish_tests()

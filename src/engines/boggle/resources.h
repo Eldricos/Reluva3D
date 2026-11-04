@@ -4,6 +4,7 @@
 #include "common/archive.h"
 #include "common/audio/sound.h"
 #include "common/image.h"
+#include "common/font_truetype.h"
 #include "common/video/avi_video1.h"
 #include "common/video/avi_cinepak.h"
 #include "common/pe_resources.h"
@@ -34,6 +35,7 @@ public:
     Error animation(std::string_view name, video::AviVideo1& out) const;
     Error movie(std::string_view name, video::AviCinepak& out) const;
     Error sound(std::string_view name, audio::Sound& out) const;
+    Error font(std::string_view name,int pixelHeight,font::TrueTypeAscii& out) const;
     // Validates every supported file in the known resource folders. Requires
     // at least one of each category; dictionaries/video/fonts are not counted
     // as supported by this check. Never writes files or executes game code.

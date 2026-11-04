@@ -1,0 +1,4 @@
+# The record of boggle.unit.layout (tests/engines/boggle/unit/layout.cpp).
+# Written by `reluva-tests boggle.unit.layout --update`; review its diff before committing.
+fallback: 93c1c095504eb8ae
+handwriting: a06879a6d4c2221e

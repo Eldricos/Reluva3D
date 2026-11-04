@@ -6,6 +6,7 @@
 #include "tests/engines/boggle/fixtures.h"
 #include "tests/engines/boggle/system.h"
 #include "tests/support/test.h"
+#include "tests/support/truetype_fixture.h"
 using namespace reluva;
 using namespace reluva::boggle;
 namespace {
@@ -184,6 +185,27 @@ void orientationGame(const std::filesystem::path& tmp) {
     }
     record.check(RELUVA_SOURCE_DIR "/tests/engines/boggle/data/orientation-record.txt","boggle.unit.layout","tests/engines/boggle/unit/layout.cpp");
 }
+void handwriting(const std::filesystem::path& tmp) {
+    fixtures::artworkInstall(tmp);Resources resources;CHECK(!resources.open(tmp));
+    Dictionary dictionary;CHECK(!resources.dictionary("Dicts/English.dic",dictionary));
+    image::Image letters,qu;CHECK(!resources.image("Textures/Letters.bmp",letters));CHECK(!resources.image("Textures/LettersQu.bmp",qu));
+    Board board;CHECK(!board.set(4,std::vector<std::string>(16,"A")));
+    ClassicRound round(dictionary);CHECK(!round.board(board));CHECK(!round.start(0));
+    CHECK(round.submit("AAAA",1)==Submission::Accepted);
+    CHECK(round.submit("AAAAA",2)==Submission::UnknownWord);
+    CHECK(round.submit(std::string(16,'A'),3)==Submission::UnknownWord);
+    Surface screen;screen.create(800,600,PixelFormat::RGBA32);ClassicArtwork artwork;ClassicOptions options;
+    auto capture=[&]{artwork.draw(screen,round,10,180000,letters,qu,{},0);return test::Hash().bytes(screen.pixels).hex();};
+    CHECK(!artwork.open(resources,tmp,options,{}));const auto fallback=capture();
+    fixtures::write(tmp / "Fonts/KPSI.TTF",test::fixtures::asciiTrueType());CHECK(!resources.open(tmp));
+    CHECK(!artwork.open(resources,tmp,options,{}));const auto installed=capture();CHECK(installed!=fallback);
+    options.handwriting=false;CHECK(!artwork.open(resources,tmp,options,{}));CHECK(capture()==fallback);
+    fixtures::write(tmp / "Fonts/KPSI.TTF","malformed");CHECK(!resources.open(tmp));options.handwriting=true;
+    CHECK(bool(artwork.open(resources,tmp,options,{})));CHECK(!artwork.active());
+    options.handwriting=false;CHECK(!artwork.open(resources,tmp,options,{}));CHECK(capture()==fallback);
+    test::Record record;record.add("fallback",fallback);record.add("handwriting",installed);
+    record.check(RELUVA_SOURCE_DIR "/tests/engines/boggle/data/handwriting-record.txt","boggle.unit.layout","tests/engines/boggle/unit/layout.cpp");
+}
 }
 static const test::Suite suite("boggle.unit.layout",{
     {"clockwise atlas sampling and independent per-board orientations",[](const auto&){orientation();}},
@@ -193,4 +215,5 @@ static const test::Suite suite("boggle.unit.layout",{
     {"legacy imports, partial bundles, malformed dimensions and disabled artwork",[](const auto& tmp){fallback(tmp);}},
     {"Master last-row mouse entry, scoring, results and replay",[](const auto& tmp){mouse(tmp);}},
     {"both variants and renderers preserve scoring, replay and new-board behavior",[](const auto& tmp){orientationGame(tmp);}},
+    {"optional handwriting, word fitting, rejected words and corrupt-font fallback",[](const auto& tmp){handwriting(tmp);}},
 });

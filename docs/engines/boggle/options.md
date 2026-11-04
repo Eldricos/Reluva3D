@@ -119,4 +119,12 @@ It does not consume the board generator or alter letters, adjacency, submitted
 words, scoring or hit-test geometry. Replay keeps orientations; New Board uses
 the new board seed. The native default preserves the existing upright view;
 the original default and exact orientation generator are not established.
-Manual cube-rotation controls still need reference verification.
+The owner subsequently confirmed that cubes start randomly oriented when
+auto-orient is off and cannot be rotated manually. Native behavior follows
+that observation.
+
+## Word-list font
+
+**Classic handwriting font** (`classic_handwriting`, default `1`) uses the
+installed KPSI font in the artwork word list. Set `0` for the built-in font;
+older imports without KPSI also retain it. See [font support and limits](fonts.md).

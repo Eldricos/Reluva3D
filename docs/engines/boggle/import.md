@@ -6,9 +6,9 @@ in your external game library. The launcher previews the copy plan before
 copying. **Add Game** can still use the original installed folder directly.
 Neither operation runs the Windows installer or original executable.
 
-The plan now copies 52 files (15,734,987 bytes for the supplied release): the current
+The plan now copies 53 files (15,784,379 bytes for the supplied release): the current
 U.S. English Classic Original/Master dependencies plus the existing detection
-markers, the optional game-selection background, publisher intro, five mode-button clips and six optional Classic artwork files. This supports all native Classic options, including both lid clips,
+markers, the optional game-selection background, publisher intro, five mode-button clips and six optional Classic artwork files plus the handwriting font. This supports all native Classic options, including both lid clips,
 eight effects and fifteen music tracks. Source paths are matched without regard
 to case and destination names are consistent across platforms. The plan is
 stable and does not recursively copy unknown files.
@@ -19,6 +19,7 @@ stable and does not recursively copy unknown files.
 | Original/Master dice and palettes | `Dicts/EngOrg.dst`, `Dicts/EngMas.dst`, `Palettes/ClsO1Pal.pal`, `Palettes/ClsM1Pal.pal` |
 | Cube lettering | `Textures/Letters.bmp`, `Textures/LettersQu.bmp` |
 | Classic panels and hourglasses (when present) | The six paths in [Classic layout](layout.md) |
+| Word-list handwriting (when present) | `Fonts/KPSI.TTF`; see [font support](fonts.md) |
 | Round clips | `Anims/ClsO1All.avi`, `Anims/ClsM1All.avi` |
 | Game-selection background and buttons (when present) | `Bitmaps/Select1.bmp`, plus the five clips listed in [movie playback](movies.md) |
 | Effects and music | The eight cues in [presentation](presentation.md) and fifteen paths established in [music](music.md) |
@@ -71,7 +72,9 @@ reluva-tool boggle import-check /external/Boggle
 To preview filenames use `reluva-tool import /external/CD`; adding a destination
 argument performs the copy just as the launcher does. Keep redirected output
 and any copied files outside Git worktrees. The two supplied sources produce
-52 files / 15,734,987 bytes, checksum `ea3fe01057225b21dfa387e95bf5f620`.
+53 files / 15,784,379 bytes, checksum `5ac28ba02bc10e9607afa1dc800ca671`.
+The preceding 52-file set lacks KPSI and has checksum
+`ea3fe01057225b21dfa387e95bf5f620`.
 The preceding 46-file set lacks the six Classic artwork files and has checksum
 `65d8cd90bfb14962f0d8da74d3ebcfd0`.
 The preceding 45-file set lacks only Hasbro and has checksum
@@ -136,3 +139,8 @@ Classic panel/hourglass files and validates native artwork rendering against a
 fresh import. Re-import to obtain the 52-file set; older copies retain the
 prototype Classic view. Missing files are optional for old subsets, while a
 partially present artwork bundle reports an error when that variant starts.
+
+The handwriting pass adds optional `Fonts/KPSI.TTF`. Re-import to obtain the
+53-file set; earlier copies continue using the built-in word-list font. The
+fresh-copy check also validates and rasterizes its ASCII subset, reporting
+metadata only. No font files or decoded glyphs are included in the repository.

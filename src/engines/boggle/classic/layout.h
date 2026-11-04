@@ -23,5 +23,6 @@ private:
     bool active_=false,master_=false,autoOrient_=true;
     image::Image open_,closed_,words_,names_;
     video::AviVideo1 timer_;
+    font::TrueTypeAscii handwriting_;
 };
 } // namespace reluva::boggle

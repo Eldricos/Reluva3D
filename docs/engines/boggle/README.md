@@ -102,10 +102,11 @@ Supported formats:
   for the Classic lid and hourglass clips.
 - [AVI / Cinepak with optional PCM soundtrack](../../common/avi-cinepak.md)
   for the intro and mode buttons.
+- [Printable ASCII TrueType outlines](../../common/font-truetype.md), used for
+  the [Classic handwriting font](fonts.md).
 - BMP and PCM WAV through the existing shared readers.
 
-Not decoded: INSO `.DAT` definitions,
-TrueType fonts. The current checker
+Not decoded: INSO `.DAT` definitions and broader font/language forms. The resource checker
 also does not interpret PE dialog layouts or validate every asset the original
 program may request. Some bitmap paths
 in the EXE are absent from the supplied copies; see the
@@ -114,6 +115,9 @@ in the EXE are absent from the supplied copies; see the
 See [Classic artwork and layout](layout.md) for scope, resource selection and fallback.
 
 ## Tests
+
+`font-check <folder>` validates the optional handwriting font and reports
+ASCII coverage/advance checksums without exporting glyphs.
 
 `artwork-check <folder>` validates both optional Classic artwork bundles and
 reports checksums of native rendered states without exporting images.

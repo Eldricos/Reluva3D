@@ -30,6 +30,11 @@ bool fileIs(const std::string& path, std::string_view dir, std::string_view exte
     return path.starts_with(dir) && path.ends_with(extension);
 }
 }
+Error Resources::font(std::string_view name,int pixelHeight,font::TrueTypeAscii& out) const {
+    out={};std::vector<uint8_t> bytes;
+    if(auto error=archive_.read(name,bytes))return error;
+    return out.read(bytes,pixelHeight);
+}
 Error Resources::palette(std::string_view name, Palette& out) const {
     out = {};
     std::vector<uint8_t> bytes;

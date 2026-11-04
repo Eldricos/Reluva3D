@@ -86,6 +86,8 @@ Error ClassicArtwork::open(const Resources& resources,const std::filesystem::pat
         if(still.frames.size()!=55)return Error::fail("Unsupported Classic scene length");
         open_=std::move(still.frames[43]);closed_=std::move(still.frames[54]);
     }
+    if(options.handwriting && fs::findFile(root,"Fonts/KPSI.TTF"))
+        if(auto error=resources.font("Fonts/KPSI.TTF",18,handwriting_))return error;
     active_=true;return Error::success();
 }
 size_t ClassicArtwork::timerFrame(uint64_t remaining,uint64_t duration) {
@@ -153,8 +155,18 @@ void ClassicArtwork::draw(Surface& screen,const ClassicRound& round,uint64_t now
     for(size_t i=begin;i<std::min(words.size(),begin+visibleWords);++i) {
         const auto& word=*words[i];auto shown=word.entry.word;if(shown.size()>19)shown=shown.substr(0,16)+"...";
         const auto color=word.state==WordState::Pending ? Color{180,0,0} : black;
-        font::drawText(screen,633,58+int(i-begin)*17,shown,color);
-        font::drawText(screen,774,58+int(i-begin)*17,std::to_string(word.entry.points),color);
+        if(handwriting_.loaded()) {
+            shown=word.entry.word;
+            if(handwriting_.measure(shown)>132) {
+                while(!shown.empty() && handwriting_.measure(shown+"...")>132)shown.pop_back();
+                shown+="...";
+            }
+            handwriting_.draw(screen,633,72+int(i-begin)*17,shown,color,132);
+            handwriting_.draw(screen,772,72+int(i-begin)*17,std::to_string(word.entry.points),color,24);
+        } else {
+            font::drawText(screen,633,58+int(i-begin)*17,shown,color);
+            font::drawText(screen,774,58+int(i-begin)*17,std::to_string(word.entry.points),color);
+        }
     }
     if(words.size()>visibleWords)font::drawText(screen,633,494,"PGUP/PGDN",white);
     font::drawText(screen,633,530,"WORDS  "+std::to_string(words.size()),white,2);

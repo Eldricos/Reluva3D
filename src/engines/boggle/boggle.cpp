@@ -51,6 +51,7 @@ public:
             music.emplace_back(std::to_string(i),std::move(title));
         }
         return {
+            {"classic_handwriting", "Classic handwriting font", "Use the installed handwriting font for the Classic artwork word list when available.", true, {}},
             {"classic_auto_orient", "Auto-orient cubes", "Keep letters upright. Disable for individual quarter-turn orientations.", true, {}},
             {"classic_artwork", "Classic installed artwork", "Use available Classic scene, panels and hourglass assets. Older imports keep the prototype layout.", true, {}},
             {"frontend_movies", "Intro and menu animations", "Play the installed publisher/game intros with their soundtracks and animate available mode buttons. Escape skips the intro.", true, {}},

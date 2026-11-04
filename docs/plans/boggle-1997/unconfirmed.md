@@ -59,7 +59,7 @@ by the static inspection and must not become undocumented assumptions in code.
   resource set; only dependency tracing and end-to-end runs can establish
   sufficiency for all original features. A tested Classic import set now covers
   the native English Classic Original/Master slice and existing detection markers
-  (52 files with Classic/menu artwork, or the earlier 39/40/45/46-file subsets);
+  (53 files with Classic/menu artwork and handwriting font, or the earlier 39/40/45/46/52-file subsets);
   the owner also confirmed that CD importing works. See
   [import scope](../../engines/boggle/import.md). It is not a full-game minimum.
 
@@ -84,5 +84,11 @@ the exact original orientation generator and fonts remain unverified.
 The owner confirmed the projective dice refinement works on Windows and
 observed the original auto-orient setting: aligned cubes when enabled, quarter
 turns permitted when disabled. Native orientation settings now implement that
-display choice. The original default, random-turn assignment and any manual
-rotation interaction still need verification.
+display choice. The original default and exact random-turn assignment still need verification.
+The owner subsequently confirmed random orientations at start and no manual
+rotation control; native interaction follows that behavior.
+
+The owner confirmed the orientation update works. The next font pass adds
+installed KPSI handwriting to the Classic word list with a native ASCII
+rasterizer; exact original text sizing, weight and layout still need comparison.
+See [font evidence and limits](../../engines/boggle/fonts.md).
