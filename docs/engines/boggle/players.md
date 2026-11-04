@@ -75,5 +75,6 @@ All 25 Boggle CTest checks pass with the supplied install. The normal full suite
 passes 36 checks and skips 22 optional data checks without configured paths.
 Player/frontend/layout tests also pass ASan/UBSan with LeakSanitizer disabled
 for the execution tracer. Test files and names are invented; committed records
-contain only their checksums. This pass still needs the owner's Windows test.
+contain only their checksums. The owner confirmed name changing works on Windows; detailed restart/recovery
+observations remain separate from the native tests.
 No new assets or re-import are required.

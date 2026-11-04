@@ -103,3 +103,10 @@ The owner confirmed the word-history controls compile and work. The next native
 Players step adds one human name with isolated persistence; original name-entry
 workflow, original player database and multi-player/high-score associations
 remain unverified. See [player naming and evidence](../../engines/boggle/players.md).
+
+The owner confirmed name changing works. The native completed-round review now
+shows final kept-word totals, selectable stored paths and direct replay/new-board
+controls. Original Game Over dialog 16008 and word-review dialog 15700 are
+identified, but exact original navigation and end-of-round lid state still need
+VM corroboration. The setup routine's close/raise sequence is not evidence of
+round-end behavior. See [results evidence and native scope](../../engines/boggle/results.md).

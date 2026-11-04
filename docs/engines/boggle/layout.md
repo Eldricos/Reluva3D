@@ -83,8 +83,8 @@ all Git worktrees. The owner confirmed the installed-artwork pass works on Windo
 appearance still needs VM comparison. The subsequent projective-plane/texture
 refinement was subsequently confirmed working by the owner on Windows.
 
-The supplied install passes all 25 Boggle CTest checks, including the new
-artwork and fresh-import checks. The normal full suite passes 36 checks and
+The supplied install passes all 26 Boggle CTest checks, including the new
+artwork and fresh-import checks. The normal full suite passes 37 checks and
 skips 22 unconfigured optional data checks. Shared Video 1 tests also pass with
 the Boggle engine disabled. All 737 original install files match their recorded
 SHA-256 hashes after validation.
@@ -134,3 +134,7 @@ rotate them manually. The current implementation follows that interaction.
 The owner confirmed the handwriting update works. History controls now reserve
 the area below 23 rows for arrows and a visible range; exact original visible
 capacity and other UI details remain unverified.
+
+The native [completed-round review](results.md) now uses the open scene and
+draws dice after closing, with numbered stored paths for selected words. This
+visible-board choice is native; original round-end lid state remains unverified.

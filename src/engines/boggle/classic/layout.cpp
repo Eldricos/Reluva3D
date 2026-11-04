@@ -111,8 +111,8 @@ std::optional<size_t> ClassicArtwork::cellAt(int x,int y,size_t side) const {
 }
 void ClassicArtwork::draw(Surface& screen,const ClassicRound& round,uint64_t now,uint64_t duration,
                           const image::Image& letters,const image::Image& qu,const std::vector<size_t>& selected,size_t scroll,uint32_t boardSeed,std::string_view player) const {
-    const bool playing=round.phase()==RoundPhase::Playing;
-    scaled(screen,playing?open_:closed_,0,0,800,600);
+    const bool boardVisible=round.phase()!=RoundPhase::Ready;
+    scaled(screen,boardVisible?open_:closed_,0,0,800,600);
     scaled(screen,names_,0,0,621,40);scaled(screen,words_,621,0,179,600);
     const Color white{245,245,255},black{12,12,20};
     font::drawText(screen,12,13,player.size()>15?std::string(player.substr(0,12))+"...":std::string(player),white);
@@ -120,7 +120,7 @@ void ClassicArtwork::draw(Surface& screen,const ClassicRound& round,uint64_t now
     font::drawText(screen,180,13,master_?"CLASSIC MASTER":"CLASSIC ORIGINAL",white);
     font::drawText(screen,638,12,player,white,player.size()>12?1:2);
     const size_t side=round.board().side();
-    if(playing)for(size_t i=0;i<side*side;++i) {
+    if(boardVisible)for(size_t i=0;i<side*side;++i) {
         auto outer=cell(master_,i,side),inner=cell(master_,i,side,10);
         auto front=outer;front[0]=outer[3];front[1]=outer[2];front[2].y+=7;front[3].y+=7;
         quad(screen,front,{90,96,115});
@@ -142,10 +142,16 @@ void ClassicArtwork::draw(Surface& screen,const ClassicRound& round,uint64_t now
             quad(screen,inner,white);const auto center=cellCenter(i,side);
             font::drawText(screen,center.x-int(face.size())*3,center.y-5,face,{0,0,190});
         }
+        if(round.phase()==RoundPhase::Results && marked) {
+            const auto at=std::find(selected.begin(),selected.end(),i);
+            const auto number=std::to_string(size_t(at-selected.begin())+1);
+            box(screen,inner[0].x+2,inner[0].y+2,int(number.size())*6+2,11,{20,48,60});
+            font::drawText(screen,inner[0].x+3,inner[0].y+3,number,white);
+        }
     }
     const uint64_t remaining=round.remaining(now);
     const int tx=master_?0:38,ty=master_?119:123,tw=master_?100:85,th=master_?175:160;
-    if(playing && round.timed())scaled(screen,timer_.frames[timerFrame(remaining,duration)],tx,ty,tw,th,true);
+    if(boardVisible && round.timed())scaled(screen,timer_.frames[timerFrame(remaining,duration)],tx,ty,tw,th,true);
     box(screen,tx,ty+th+6,105,30,{12,10,24});
     char time[32];const auto seconds=remaining/1000;
     std::snprintf(time,sizeof(time),"%llu:%02llu",(unsigned long long)(seconds/60),(unsigned long long)(seconds%60));
@@ -155,7 +161,10 @@ void ClassicArtwork::draw(Surface& screen,const ClassicRound& round,uint64_t now
     const auto view=wordHistoryView(words.size(),visibleWords,scroll);
     const size_t begin=view.begin;
     for(size_t i=begin;i<view.end;++i) {
-        const auto& word=*words[i];auto shown=word.entry.word;if(shown.size()>19)shown=shown.substr(0,16)+"...";
+        const auto& word=*words[i];
+        if(round.phase()==RoundPhase::Results && !selected.empty() && word.entry.path==selected)
+            box(screen,630,58+int(i-begin)*17,164,17,{225,226,173});
+        auto shown=word.entry.word;if(shown.size()>19)shown=shown.substr(0,16)+"...";
         const auto color=word.state==WordState::Pending ? Color{180,0,0} : black;
         if(handwriting_.loaded()) {
             shown=word.entry.word;
