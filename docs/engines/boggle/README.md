@@ -11,6 +11,8 @@ See [scope and rule evidence](classic.md) and the
 
 The default game-selection screen opens Classic with Enter. Choose Original
 or Master and a duration, advance to Players, then Play / Enter to start.
+Change Name / N on Players edits the human name, remembered for this game.
+See [player naming and persistence](players.md).
 Escape returns to selection from version/setup or Players; it does nothing
 on selection or in-game. Use Menu / F3 in-game or Launcher / L on selection. See
 [frontend scope and controls](frontend.md). Disable **Game selection menu** in

@@ -98,3 +98,8 @@ now follow the measured original one-row direction/step behavior, with bounded
 ranges, full-page keys and wheel support. Original font-dependent list capacity
 and exact wheel/key behavior remain unverified. See
 [history controls and evidence](../../engines/boggle/history.md).
+
+The owner confirmed the word-history controls compile and work. The next native
+Players step adds one human name with isolated persistence; original name-entry
+workflow, original player database and multi-player/high-score associations
+remain unverified. See [player naming and evidence](../../engines/boggle/players.md).

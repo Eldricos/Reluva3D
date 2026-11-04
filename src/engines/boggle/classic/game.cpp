@@ -4,6 +4,7 @@
 #include "engines/boggle/classic/layout.h"
 #include "engines/boggle/classic/orientation.h"
 #include "engines/boggle/classic/history.h"
+#include "engines/boggle/classic/player.h"
 #include "engines/boggle/classic/round.h"
 #include "engines/boggle/classic/options.h"
 #include "engines/boggle/classic/presentation.h"
@@ -63,10 +64,10 @@ std::string feedback(Submission result, size_t minimum) {
 void draw(Surface& screen, const ClassicRound& round, uint64_t now,
           const image::Image& letters, const image::Image& qu, const Palette& palette,
           const std::string& input, const std::vector<size_t>& path, const std::string& message, size_t scroll, bool fromMenu,
-          const ClassicArtwork& artwork,uint64_t duration,uint32_t boardSeed,bool autoOrient) {
+          const ClassicArtwork& artwork,uint64_t duration,uint32_t boardSeed,bool autoOrient,std::string_view player) {
     const bool reviewing = round.candidate() != nullptr;
     const bool ready = round.phase() == RoundPhase::Ready, playing = round.phase() == RoundPhase::Playing;
-    if(artwork.active()) artwork.draw(screen,round,now,duration,letters,qu,path,scroll,boardSeed);
+    if(artwork.active()) artwork.draw(screen,round,now,duration,letters,qu,path,scroll,boardSeed,player);
     else {
     rect(screen, 0, 0, width, height, dark);
     rect(screen, 0, 0, width, 76, {29, 49, 70});
@@ -80,6 +81,8 @@ void draw(Surface& screen, const ClassicRound& round, uint64_t now,
     char timer[48]; std::snprintf(timer, sizeof(timer), "%llu:%02llu", (unsigned long long)(seconds / 60), (unsigned long long)(seconds % 60));
     if (round.timed()) label(screen, 670, 25, timer, white, 3);
     else label(screen, 652, 32, "NOT TIMED", white, 2);
+
+    if(player!="PLAYER 1")label(screen,430,125,std::string(player),muted);
 
     for (size_t i = 0; i < round.board().faces().size(); ++i) {
         const int x = boardX + int(i % side) * cellSize, y = boardY + int(i / side) * cellSize;
@@ -132,6 +135,11 @@ Error ClassicGame::run() {
     returnToMenu_ = false;
     ClassicOptions options;
     if (auto err = readClassicOptions(target_.settings, options)) return err;
+    PlayerProfile profile;
+    if(auto error=profile.load(target_.savePath,target_.path))return error;
+    std::string player=profile.name();
+    if(const auto it=target_.settings.find("classic_player_name");it!=target_.settings.end())
+        if(!playerName(it->second,player))return Error::fail("Invalid session player name");
     Resources resources;
     if (auto err = resources.open(target_.path)) return err;
     Dictionary dictionary; DiceSet dice; Palette palette;
@@ -306,7 +314,7 @@ Error ClassicGame::run() {
                 std::copy_n(frame.pixel(x*frame.w/width,y*frame.h/height),4,screen.row(y)+x*4);
             rect(screen,0,height-40,width,40,dark);
             label(screen,24,height-25,transition.type() == Transition::Opening ? "Rolling dice and opening the lid..." : "Closing the lid...");
-        } else draw(screen, round, sys_.getMillis(), letters, qu, palette, input, selected, message, scroll, fromMenu_,artwork,options.duration,seed,options.autoOrient);
+        } else draw(screen, round, sys_.getMillis(), letters, qu, palette, input, selected, message, scroll, fromMenu_,artwork,options.duration,seed,options.autoOrient,player);
         sys_.updateScreen(screen);
         if (transition.type() == Transition::None && round.phase() == RoundPhase::Results) resultsVisible = true;
         promptVisible = transition.type() == Transition::None && round.candidate() != nullptr;

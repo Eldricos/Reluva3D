@@ -55,4 +55,5 @@ Records contain only checksums of those invented fixtures.
 The supplied install passes all 24 Boggle CTest checks. The normal suite passes
 35 checks and skips 22 unconfigured optional data checks. The history/layout
 checks also pass ASan/UBSan with LeakSanitizer disabled for the execution tracer.
-The new controls still need the owner's Windows test and original-VM comparison.
+The owner confirmed the controls work on Windows; exact original-VM appearance
+and key/wheel comparison remain open.

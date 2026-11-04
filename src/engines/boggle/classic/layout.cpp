@@ -110,15 +110,15 @@ std::optional<size_t> ClassicArtwork::cellAt(int x,int y,size_t side) const {
     return {};
 }
 void ClassicArtwork::draw(Surface& screen,const ClassicRound& round,uint64_t now,uint64_t duration,
-                          const image::Image& letters,const image::Image& qu,const std::vector<size_t>& selected,size_t scroll,uint32_t boardSeed) const {
+                          const image::Image& letters,const image::Image& qu,const std::vector<size_t>& selected,size_t scroll,uint32_t boardSeed,std::string_view player) const {
     const bool playing=round.phase()==RoundPhase::Playing;
     scaled(screen,playing?open_:closed_,0,0,800,600);
     scaled(screen,names_,0,0,621,40);scaled(screen,words_,621,0,179,600);
     const Color white{245,245,255},black{12,12,20};
-    font::drawText(screen,12,13,"PLAYER 1",white);
+    font::drawText(screen,12,13,player.size()>15?std::string(player.substr(0,12))+"...":std::string(player),white);
     font::drawText(screen,113,13,std::to_string(round.score()),white);
     font::drawText(screen,180,13,master_?"CLASSIC MASTER":"CLASSIC ORIGINAL",white);
-    font::drawText(screen,638,12,"PLAYER 1",white,2);
+    font::drawText(screen,638,12,player,white,player.size()>12?1:2);
     const size_t side=round.board().side();
     if(playing)for(size_t i=0;i<side*side;++i) {
         auto outer=cell(master_,i,side),inner=cell(master_,i,side,10);

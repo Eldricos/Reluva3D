@@ -4,7 +4,7 @@ The engine now plays the available intro, then opens game selection before
 Classic. Escape skips the intro; see [movie playback](movies.md). When present,
 `Bitmaps/Select1.bmp` supplies the installed game's 640x480 background. The
 controls are native: choose Classic, then Original or Master, the round length,
-then confirm the Players screen and choose Play. Play starts the existing roll/opening sequence immediately; it does
+then choose the human player name on Players and choose Play. Play starts the existing roll/opening sequence immediately; it does
 not require another Enter on the round's Ready screen. Other game modes are
 shown as unavailable and cannot be started.
 
@@ -16,8 +16,9 @@ Keyboard controls:
   duration in 30-second steps, bounded to 1:00..5:00. T toggles no timer and
   restores the last timed duration. Enter/keypad Enter advances to Players.
   Escape or Main Menu returns to selection.
-- Players: confirms the supported one-human-player session, chosen version and
-  duration. Enter/keypad Enter plays. Escape or Main Menu returns directly to
+- Players: shows the supported one-human-player name, chosen version and
+  duration. Change Name / N opens the native name editor; save or cancel returns
+  to Players. Enter/keypad Enter plays. Escape or Main Menu returns directly to
   selection, rather than to version selection.
 - During a menu-launched game, Escape does nothing. The explicit native Menu
   button / F3 returns to selection. Window close and Return to Launcher requests
@@ -26,7 +27,7 @@ Keyboard controls:
 Mouse controls provide the same choices. Selection changes, Back and Play do
 not consume another navigation action from the same input batch. Pending round
 input is discarded before menus become interactive again; global quit requests
-still take effect. Text entry is active only in the round, and audio output is
+still take effect. Text entry is active only in the name editor or round, and audio output is
 released before returning to menus or changing graphics modes.
 
 The setup starts from the launcher's saved Classic options. Menu changes apply
@@ -146,3 +147,6 @@ suite remains 31 passing checks with 19 optional data checks skipped. A new
 external SDL run traversed both Players confirmations, reached live Master and
 Original boards, ignored Escape in-game, and exited through the explicit native
 controls with nonzero audio. No claim of full original player-setup UI is made.
+
+The [native player name](players.md) is now editable and remembered separately
+from original data. Full original player configuration remains unfinished.

@@ -18,6 +18,7 @@ reluva_add_engine(boggle
         classic/layout.cpp
         classic/projection.cpp
         classic/options.cpp
+        classic/player.cpp
         classic/user_dictionary.cpp
         classic/round.cpp
         classic/game.cpp)
@@ -40,6 +41,7 @@ reluva_add_engine_tools(boggle
 set(tests ${PROJECT_SOURCE_DIR}/tests/engines/boggle)
 reluva_add_engine_tests(boggle
     SOURCES
+        ${tests}/unit/player.cpp
         ${tests}/unit/history.cpp
         ${tests}/unit/layout.cpp
         ${tests}/unit/detection.cpp
@@ -53,7 +55,7 @@ reluva_add_engine_tests(boggle
         ${tests}/unit/user_dictionary.cpp
         ${tests}/engine.cpp
     TOPICS
-        unit.history unit.layout unit.detection unit.frontend unit.import unit.resources unit.dictionary unit.classic unit.options unit.presentation unit.user_dictionary engine)
+        unit.player unit.history unit.layout unit.detection unit.frontend unit.import unit.resources unit.dictionary unit.classic unit.options unit.presentation unit.user_dictionary engine)
 
 # Optional tests with the owner's data; raw output stays outside Git.
 reluva_add_gamedata_test(boggle

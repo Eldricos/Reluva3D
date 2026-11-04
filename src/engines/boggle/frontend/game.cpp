@@ -4,6 +4,7 @@
 #include "engines/boggle/frontend/media.h"
 #include "engines/boggle/classic/game.h"
 #include "engines/boggle/classic/options.h"
+#include "engines/boggle/classic/player.h"
 #include "engines/boggle/resources.h"
 #include "common/fs.h"
 #include "common/font.h"
@@ -18,6 +19,7 @@ struct Box {
 constexpr Box classic{40,288,112,112}, original{48,155,252,65}, master{340,155,252,65},
               less{174,258,48,36}, more{418,258,48,36}, untimed{224,312,192,36},
               play{340,388,252,48}, back{48,388,252,48}, exit{462,420,140,36};
+constexpr Box changeName{48,310,252,40},nameField{88,188,464,42},saveName{88,296,210,40},cancelName{318,296,210,40};
 enum class Page { Selection, Version, Players };
 constexpr Color white{245,245,255}, muted{170,181,205}, dark{17,15,35}, gold{224,189,99};
 void fill(Surface& s,Box b,Color c) {
@@ -71,21 +73,35 @@ void setup(Surface& s,const ClassicOptions& options) {
     button(s,back,"MAIN MENU (ESC)");button(s,play,"PLAYERS (ENTER)",true);
     text(s,48,458,"1/2: board   Left/Right: duration   T: timer",muted);
 }
-void players(Surface& s,const ClassicOptions& options) {
+void players(Surface& s,const ClassicOptions& options,const PlayerProfile& profile) {
     fill(s,{0,0,640,480},dark);fill(s,{24,26,592,2},gold);
     text(s,48,48,"PLAYERS",white,3);
     text(s,48,110,options.variant==ClassicVariant::Master ? "CLASSIC MASTER" : "CLASSIC ORIGINAL",gold,2);
-    text(s,48,170,"PLAYER 1: HUMAN",white,2);
+    text(s,48,170,"PLAYER: "+profile.name(),white,2);
     text(s,48,214,"U.S. English  |  No computer players",muted);
     text(s,48,260,options.duration ? "Round length: "+duration(options.duration) : "Round length: Not Timed",white,2);
+    button(s,changeName,"CHANGE NAME (N)");
+    text(s,324,326,profile.persistent()?"Remembered for this game":"This session only",muted);
     button(s,back,"MAIN MENU (ESC)");button(s,play,"PLAY (ENTER)",true);
 }
 
+void nameEditor(Surface& s,const std::string& draft,bool selected,const std::string& error) {
+    fill(s,{64,120,512,234},gold);fill(s,{66,122,508,230},dark);
+    text(s,88,143,"PLAYER NAME",white,2);
+    fill(s,nameField,gold);fill(s,{90,190,460,38},selected?Color{43,83,112}:Color{28,31,49});
+    text(s,100,201,draft,white,2);
+    text(s,88,244,"Up to 18 characters. Ctrl+A: replace name",muted);
+    if(!error.empty())text(s,88,265,error.substr(0,76),{255,150,130});
+    button(s,saveName,"SAVE (ENTER)",true);button(s,cancelName,"CANCEL (ESC)");
+}
 }
 Error FrontendGame::run() {
     ClassicOptions options;
     if(auto err=readClassicOptions(target_.settings,options)) return err;
     if(!options.menu) { ClassicGame game(system_,target_); return game.run(); }
+    PlayerProfile profile;
+    if(auto error=profile.load(target_.savePath,target_.path))return error;
+    struct TextCleanup {System& system;~TextCleanup(){system.setTextInput(false);}} cleanup{system_};
     options.music = chooseClassicMusic(options.music,uint32_t(system_.getMillis()));
     Resources resources; image::Image background;
     if(auto err=resources.open(target_.path)) return err;
@@ -111,6 +127,8 @@ Error FrontendGame::run() {
     uint64_t menuStarted=system_.getMillis();
     Surface screen;screen.create(640,480,PixelFormat::RGBA32);
     Page page=Page::Selection;
+    bool editingName=false,selectAll=false;
+    std::string draftName,nameError;
     uint64_t timedDuration=options.duration ? options.duration : 180000;
     for(;;) {
         bool launch=false, changed=false;
@@ -121,6 +139,27 @@ Error FrontendGame::run() {
             const bool isKey=event.type==EventType::KeyDown && !event.repeat;
             const bool click=event.type==EventType::MouseDown && event.button==MouseButton::Left;
             auto pressed=[&](Box box){return click && box.contains(event.mouseX,event.mouseY);};
+            if(editingName) {
+                if((isKey && event.key==key::Escape) || pressed(cancelName)) {
+                    editingName=false;system_.setTextInput(false);changed=true;
+                } else if((isKey && (event.key==key::Return || event.key==key::KpEnter)) || pressed(saveName)) {
+                    if(auto error=profile.rename(draftName))nameError=error.message;
+                    else {editingName=false;system_.setTextInput(false);changed=true;}
+                } else if((isKey && event.key=='a' && (event.mods&keymod::Ctrl)) || pressed(nameField))selectAll=true;
+                else if(event.type==EventType::KeyDown && (event.key==key::Backspace || event.key==key::Delete)) {
+                    if(selectAll)draftName.clear();else if(!draftName.empty())draftName.pop_back();
+                    selectAll=false;nameError.clear();
+                } else if(event.type==EventType::TextInput) {
+                    const auto end=std::find(std::begin(event.text),std::end(event.text),'\0');
+                    const std::string text(event.text,end);
+                    if(text.empty())continue;
+                    const bool printable=std::all_of(text.begin(),text.end(),[](unsigned char c){return c>=32 && c<=126;});
+                    if(!printable)nameError="Use printable English characters.";
+                    else if((selectAll?0:draftName.size())+text.size()>18)nameError="Use at most 18 characters.";
+                    else {if(selectAll)draftName.clear();draftName+=text;selectAll=false;nameError.clear();}
+                }
+                continue;
+            }
             if(page==Page::Selection) {
                 if((isKey && event.key=='l') || pressed(exit)) return Error::success();
                 if((isKey && (event.key==key::Return || event.key==key::KpEnter || event.key=='c')) || pressed(classic)) {
@@ -140,12 +179,17 @@ Error FrontendGame::run() {
                     page=Page::Players;changed=true;
                 }
             } else {
-                if((isKey && event.key==key::Escape) || pressed(back)) { page=Page::Selection;changed=true; }
+                if((isKey && event.key=='n') || pressed(changeName)) {
+                    draftName=profile.name();nameError.clear();selectAll=true;editingName=true;
+                    system_.setTextInput(true);changed=true;
+                } else if((isKey && event.key==key::Escape) || pressed(back)) { page=Page::Selection;changed=true; }
                 else if((isKey && (event.key==key::Return || event.key==key::KpEnter)) || pressed(play)) launch=true;
             }
         }
         if(launch) {
+            system_.setTextInput(false);
             GameTarget selected=target_;
+            selected.settings["classic_player_name"]=profile.name();
             selected.settings["classic_variant"]=options.variant==ClassicVariant::Master ? "master" : "original";
             selected.settings["classic_seconds"]=std::to_string(options.duration/1000);
             selected.settings["classic_music"]=options.music==musicNone ? "none" : std::to_string(options.music);
@@ -160,7 +204,10 @@ Error FrontendGame::run() {
             page=Page::Selection;menuStarted=system_.getMillis();
         }
         if(page==Page::Version) setup(screen,options);
-        else if(page==Page::Players) players(screen,options);
+        else if(page==Page::Players) {
+            players(screen,options,profile);
+            if(editingName)nameEditor(screen,draftName,selectAll,nameError);
+        }
         else {const auto now=system_.getMillis();selection(screen,background,media,now>=menuStarted ? now-menuStarted : 0); }
         system_.updateScreen(screen);system_.delayMillis(16);
     }

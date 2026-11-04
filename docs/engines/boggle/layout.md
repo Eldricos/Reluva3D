@@ -12,7 +12,8 @@ This is an intermediate presentation pass. Cube projection, lighting,
 font, input box, buttons and digital-clock placement are native approximations;
 this does not establish pixel matching with the original Direct3D screen.
 The optional [handwriting font](fonts.md) now renders submitted words.
-The original toolbar and player-management dialogs are not implemented.
+The original toolbar and full player-management dialogs are not implemented.
+A [native one-human name editor](players.md) now supplies the round headers.
 [Word-panel history controls](history.md) now provide clickable arrows, page
 keys and mouse-wheel browsing.
 The panel labels WORDS and SCORE describe native counters; they do not claim
@@ -82,8 +83,8 @@ all Git worktrees. The owner confirmed the installed-artwork pass works on Windo
 appearance still needs VM comparison. The subsequent projective-plane/texture
 refinement was subsequently confirmed working by the owner on Windows.
 
-The supplied install passes all 24 Boggle CTest checks, including the new
-artwork and fresh-import checks. The normal full suite passes 35 checks and
+The supplied install passes all 25 Boggle CTest checks, including the new
+artwork and fresh-import checks. The normal full suite passes 36 checks and
 skips 22 unconfigured optional data checks. Shared Video 1 tests also pass with
 the Boggle engine disabled. All 737 original install files match their recorded
 SHA-256 hashes after validation.
