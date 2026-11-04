@@ -3,6 +3,7 @@
 #include "engines/boggle/classic/game.h"
 #include "engines/boggle/classic/layout.h"
 #include "engines/boggle/classic/orientation.h"
+#include "engines/boggle/classic/history.h"
 #include "engines/boggle/classic/round.h"
 #include "engines/boggle/classic/options.h"
 #include "engines/boggle/classic/presentation.h"
@@ -94,9 +95,9 @@ void draw(Surface& screen, const ClassicRound& round, uint64_t now,
     for (const auto& word : round.words()) if (word.state != WordState::Declined) words.push_back(&word);
     label(screen, 430, 179, "WORDS  " + std::to_string(words.size()), muted);
     rect(screen, 430, 204, 346, 260, {24, 42, 62});
-    const size_t maximum = words.size() > 14 ? words.size() - 14 : 0;
-    const size_t begin = maximum - std::min(scroll, maximum);
-    for (size_t i = begin; i < std::min(words.size(), begin + 14); ++i) {
+    const auto view=wordHistoryView(words.size(),14,scroll);
+    const size_t begin=view.begin;
+    for (size_t i = begin; i < view.end; ++i) {
         const auto& entry = words[i]->entry;
         const bool rejected = words[i]->state == WordState::Pending || words[i]->state == WordState::Declined;
         const Ink ink = rejected ? Ink{255, 116, 116} : white;
@@ -166,6 +167,11 @@ Error ClassicGame::run() {
     Surface screen; screen.create(width, height, PixelFormat::RGBA32);
     std::string input, message; std::vector<size_t> selected; size_t scroll = 0;
     bool running = true, dragging = false, resultsVisible = false, promptVisible = false;
+    int pointerX=-1,pointerY=-1;
+    auto browse=[&](int64_t rows) {
+        const size_t count=size_t(std::count_if(round.words().begin(),round.words().end(),[](const auto& word){return word.state!=WordState::Declined;}));
+        scroll=scrollWordHistory(scroll,count,artwork.active()?ClassicArtwork::visibleWords:14,rows);
+    };
     auto clear = [&] { input.clear(); selected.clear(); scroll = 0; dragging = false; };
     auto updateInput = [&] { input.clear(); for (size_t i : selected) input += round.board().faces()[i]; };
     auto startOrFinish = [&]() -> Error {
@@ -239,6 +245,9 @@ Error ClassicGame::run() {
                  hit(event.mouseX,event.mouseY,artwork.active()?432:610,557,artwork.active()?172:166,29)))) {
                 returnToMenu_ = true; running = false; break;
             }
+            if(event.type==EventType::MouseMove || event.type==EventType::MouseDown || event.type==EventType::MouseUp) {
+                pointerX=event.mouseX;pointerY=event.mouseY;
+            }
             if (transition.type() != Transition::None) continue;
             if (round.candidate()) {
                 int choice = -1;
@@ -258,10 +267,8 @@ Error ClassicGame::run() {
                     if (round.phase() != RoundPhase::Playing) { if (auto err = startOrFinish()) return err; }
                     else { const auto result = round.submit(input, sys_.getMillis(), selected); message = feedback(result, round.minimum()); if (result == Submission::Accepted || result == Submission::UnknownWord) sound.recorded(round.words().back().entry.word.size()); if (result != Submission::SelectPath) clear(); }
                 } else if (event.key == key::PageUp || event.key == key::PageDown) {
-                    const size_t count = size_t(std::count_if(round.words().begin(), round.words().end(), [](const auto& word) { return word.state != WordState::Declined; }));
-                    const size_t visible=artwork.active()?ClassicArtwork::visibleWords:14;
-                    const size_t maximum = count > visible ? count - visible : 0;
-                    scroll = event.key == key::PageUp ? std::min(maximum, scroll + 7) : scroll - std::min(scroll, size_t(7));
+                    const int64_t page=artwork.active()?ClassicArtwork::visibleWords:14;
+                    browse(event.key==key::PageUp?page:-page);
                 } else if (event.key == key::Backspace && round.phase() == RoundPhase::Playing) {
                     if (!selected.empty()) { selected.pop_back(); updateInput(); }
                     else if (!input.empty()) input.pop_back();
@@ -275,10 +282,15 @@ Error ClassicGame::run() {
                 if (!englishWord(std::string_view(event.text, size_t(end - event.text)), normalized)) { message = "Use A-Z for this English round."; continue; }
                 if (input.size() + normalized.size() > 64) { message = "Word is too long."; continue; }
                 selected.clear(); input += normalized; message.clear();
+            } else if(event.type==EventType::MouseWheel) {
+                const bool over=artwork.active()?hit(pointerX,pointerY,621,52,179,448):hit(pointerX,pointerY,430,204,346,260);
+                if(over){browse(int64_t(event.wheelY)*3);dragging=false;}
             } else if (event.type == EventType::MouseDown && event.button == MouseButton::Right) {
                 clear(); message.clear(); dragging = false;
             } else if (event.type == EventType::MouseDown && event.button == MouseButton::Left) {
-                if (hit(event.mouseX, event.mouseY, 24, 557, 180, 29)) { if (auto err = startOrFinish()) return err; }
+                if(artwork.active() && (historyOlder.contains(event.mouseX,event.mouseY) || historyNewer.contains(event.mouseX,event.mouseY))) {
+                    browse(historyOlder.contains(event.mouseX,event.mouseY)?1:-1);dragging=false;
+                } else if (hit(event.mouseX, event.mouseY, 24, 557, 180, 29)) { if (auto err = startOrFinish()) return err; }
                 else if (hit(event.mouseX, event.mouseY, 216, 557, 158, 29)) { if (auto err = newBoard()) return err; }
                 else { dragging = true; select(event.mouseX, event.mouseY); }
             } else if (event.type == EventType::MouseMove && dragging) select(event.mouseX, event.mouseY);

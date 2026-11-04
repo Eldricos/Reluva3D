@@ -41,8 +41,8 @@ only font/glyph counts, total advance and a coverage checksum. Fresh-import
 checks run the same survey on the copied resources. Synthetic integration tests
 cover a missing font, enabled handwriting, word fitting, pending-word color,
 explicit disable and corrupt-font recovery. The shared reader tests cover curves,
-winding, packed coordinates and malformed data. Windows appearance comparison
-is still needed for this pass.
+winding, packed coordinates and malformed data. The owner confirmed this pass works on Windows. Exact original appearance
+still needs VM comparison.
 
 The supplied install passes all 23 Boggle checks, including the external
 53-file import and font survey. The normal full suite passes 34 checks and

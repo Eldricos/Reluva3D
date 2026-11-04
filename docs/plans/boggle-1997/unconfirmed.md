@@ -92,3 +92,9 @@ The owner confirmed the orientation update works. The next font pass adds
 installed KPSI handwriting to the Classic word list with a native ASCII
 rasterizer; exact original text sizing, weight and layout still need comparison.
 See [font evidence and limits](../../engines/boggle/fonts.md).
+
+The owner confirmed the handwriting update works. Native word-history arrows
+now follow the measured original one-row direction/step behavior, with bounded
+ranges, full-page keys and wheel support. Original font-dependent list capacity
+and exact wheel/key behavior remain unverified. See
+[history controls and evidence](../../engines/boggle/history.md).

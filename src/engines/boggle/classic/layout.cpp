@@ -2,6 +2,7 @@
 // Copyright (C) 2026 The Reluva contributors
 #include "engines/boggle/classic/layout.h"
 #include "engines/boggle/classic/orientation.h"
+#include "engines/boggle/classic/history.h"
 #include "common/font.h"
 #include "common/fs.h"
 #include <algorithm>
@@ -151,8 +152,9 @@ void ClassicArtwork::draw(Surface& screen,const ClassicRound& round,uint64_t now
     font::drawText(screen,tx+6,ty+th+12,round.timed()?time:"NOT TIMED",white,round.timed()?2:1);
     std::vector<const RoundWord*> words;
     for(const auto& word:round.words())if(word.state!=WordState::Declined)words.push_back(&word);
-    const size_t maximum=words.size()>visibleWords ? words.size()-visibleWords : 0,begin=maximum-std::min(scroll,maximum);
-    for(size_t i=begin;i<std::min(words.size(),begin+visibleWords);++i) {
+    const auto view=wordHistoryView(words.size(),visibleWords,scroll);
+    const size_t begin=view.begin;
+    for(size_t i=begin;i<view.end;++i) {
         const auto& word=*words[i];auto shown=word.entry.word;if(shown.size()>19)shown=shown.substr(0,16)+"...";
         const auto color=word.state==WordState::Pending ? Color{180,0,0} : black;
         if(handwriting_.loaded()) {
@@ -168,7 +170,15 @@ void ClassicArtwork::draw(Surface& screen,const ClassicRound& round,uint64_t now
             font::drawText(screen,774,58+int(i-begin)*17,std::to_string(word.entry.points),color);
         }
     }
-    if(words.size()>visibleWords)font::drawText(screen,633,494,"PGUP/PGDN",white);
+    if(view.maximum) {
+        const std::array<HistoryButton,2> buttons={historyOlder,historyNewer};
+        const bool enabled[]={view.begin>0,view.end<words.size()};
+        for(size_t n=0;n<buttons.size();++n) {
+            const auto b=buttons[n];box(screen,b.x,b.y,b.w,b.h,{30,42,62});
+            font::drawText(screen,b.x+7,b.y+6,n?"v":"^",enabled[n]?white:Color{88,99,113});
+        }
+        font::drawText(screen,633,479,std::to_string(view.begin+1)+"-"+std::to_string(view.end)+"/"+std::to_string(words.size()),black);
+    }
     font::drawText(screen,633,530,"WORDS  "+std::to_string(words.size()),white,2);
     font::drawText(screen,633,568,"SCORE  "+std::to_string(round.score()),white,2);
 }

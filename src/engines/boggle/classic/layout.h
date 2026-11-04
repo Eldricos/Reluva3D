@@ -18,7 +18,7 @@ public:
     std::optional<size_t> cellAt(int x,int y,size_t side) const;
     ClassicPoint cellCenter(size_t cell,size_t side) const;
     static size_t timerFrame(uint64_t remaining,uint64_t duration);
-    static constexpr size_t visibleWords=24;
+    static constexpr size_t visibleWords=23;
 private:
     bool active_=false,master_=false,autoOrient_=true;
     image::Image open_,closed_,words_,names_;
