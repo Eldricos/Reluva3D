@@ -1,0 +1,3 @@
+# The record of stharbinger.engine (tests/engines/stharbinger/engine.cpp).
+# Written by `reluva-tests stharbinger.engine --update`; review its diff before committing.
+detect.games: 0

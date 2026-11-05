@@ -59,6 +59,13 @@ struct ImportPlan {
     };
     std::vector<File> files;
     std::vector<std::string> notes;
+    // What else the person importing may add (MetaEngine::addToImport): a
+    // patch's installer, and a folder (an expansion's CD, say), with how the
+    // launcher offers them; an empty label offers none.
+    std::string addPatchLabel = "Add patch...";
+    std::string addPatchTooltip = "Apply the game's patch (its installer, e.g. eliteforcepatch1_2.exe) as it's copied";
+    std::string addFolderLabel = "Add expansion...";
+    std::string addFolderTooltip = "Copy an expansion too, from its CD (or a folder it was installed to)";
     uint64_t totalBytes() const {
         uint64_t n = 0;
         for (const File& f : files)

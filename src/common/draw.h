@@ -11,11 +11,15 @@ namespace reluva {
 
 struct Point {
     int x = 0, y = 0;
+    constexpr Point() = default;
+    constexpr Point(int px, int py) : x(px), y(py) {}
 };
 
 // Left and top inside, right and bottom outside.
 struct Rect {
     int left = 0, top = 0, right = 0, bottom = 0;
+    constexpr Rect() = default;
+    constexpr Rect(int l, int t, int r, int b) : left(l), top(t), right(r), bottom(b) {}
     int width() const { return right - left; }
     int height() const { return bottom - top; }
     bool contains(int x, int y) const { return x >= left && x < right && y >= top && y < bottom; }

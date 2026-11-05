@@ -612,16 +612,20 @@ void Launcher::drawImport() {
         ImGui::EndDisabled();
         ImGui::BeginDisabled(pickInProgress_);
         if (!patching) {
-            ImGui::SameLine();
-            if (ImGui::Button("Add patch..."))
-                pickPatch(Pick::PatchForImport);
-            if (ImGui::IsItemHovered())
-                ImGui::SetTooltip("Apply the game's patch (its installer, e.g. eliteforcepatch1_2.exe) as it's copied");
-            ImGui::SameLine();
-            if (ImGui::Button("Add expansion..."))
-                pickExpansion(Pick::PatchForImport);
-            if (ImGui::IsItemHovered())
-                ImGui::SetTooltip("Copy an expansion too, from its CD (or a folder it was installed to)");
+            if (!plan.addPatchLabel.empty()) {
+                ImGui::SameLine();
+                if (ImGui::Button(plan.addPatchLabel.c_str()))
+                    pickPatch(Pick::PatchForImport);
+                if (ImGui::IsItemHovered())
+                    ImGui::SetTooltip("%s", plan.addPatchTooltip.c_str());
+            }
+            if (!plan.addFolderLabel.empty()) {
+                ImGui::SameLine();
+                if (ImGui::Button(plan.addFolderLabel.c_str()))
+                    pickExpansion(Pick::PatchForImport);
+                if (ImGui::IsItemHovered())
+                    ImGui::SetTooltip("%s", plan.addFolderTooltip.c_str());
+            }
             ImGui::SameLine();
             if (ImGui::Button("Change folder...")) {
                 pickInProgress_ = true;

@@ -48,13 +48,25 @@ bool windowsNameLess(std::string_view a, std::string_view b) {
     return a < b;
 }
 
+std::string_view withoutIsoVersion(std::string_view name) {
+    const size_t semi = name.rfind(';');
+    if (semi == std::string_view::npos || semi + 1 == name.size() ||
+        name.find_first_not_of("0123456789", semi + 1) != std::string_view::npos)
+        return name;
+    return name.substr(0, semi);
+}
+
 static std::optional<stdfs::path> findEntry(const stdfs::path& dir, const std::string& lowerName) {
     std::error_code ec;
+    std::optional<stdfs::path> versioned; // "name;1", from a CD, if there's no plain "name"
     for (stdfs::directory_iterator it(dir, ec), end; !ec && it != end; it.increment(ec)) {
-        if (toLower(it->path().filename().string()) == lowerName)
+        const std::string name = toLower(it->path().filename().string());
+        if (name == lowerName)
             return it->path();
+        if (!versioned && withoutIsoVersion(name) == lowerName)
+            versioned = it->path();
     }
-    return std::nullopt;
+    return versioned;
 }
 
 static std::optional<stdfs::path> findPath(const stdfs::path& dir, std::string_view relative) {

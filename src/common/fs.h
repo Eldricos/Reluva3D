@@ -24,8 +24,12 @@ std::string toLower(std::string_view s);
 // give it the same order.
 bool windowsNameLess(std::string_view a, std::string_view b);
 
+// A name without the ";1" version some CD mounts show ("DEEP.EXE;1").
+std::string_view withoutIsoVersion(std::string_view name);
+
 // Find a file under `dir` ignoring case, as old Windows/DOS games expect.
-// `relative` may contain '/' separated components ("data/sound.bin").
+// `relative` may contain '/' separated components ("data/sound.bin"); a
+// name with a CD's ";1" version is found too, if there's none without.
 std::optional<stdfs::path> findFile(const stdfs::path& dir, std::string_view relative);
 // The same for a folder.
 std::optional<stdfs::path> findDirectory(const stdfs::path& dir, std::string_view relative);
