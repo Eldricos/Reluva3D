@@ -200,12 +200,25 @@ lists are empty.
   wide-pavement roads, nor its other kind 3 roads. The second holds only
   roads with a kind 0 or 1 sidewalk on either side, the walkable ones
   (345 and 434). Traffic's and pedestrians' tables, it seems.
-- Every list is the roads of whole junctions, so filtered: in the second
-  table a junction's own (182 of San Francisco's 214 junction blocks) or
-  for a road block those at both ends of its road (432 of 547); in the
-  first, wider, a median of 7-8 junctions two or three junctions out.
-  Which junctions exactly hasn't been found (nearest by distance, by
-  steps through the blocks or by visibility come closest, 785 of 1,066).
+- The lists are built junction by junction, then for each block; their
+  order (not sorted) shows how. A junction's list is the roads of every
+  junction it can see within 250 m (the first table) or 50 m (the
+  second), itself included, in junction order, each junction's roads in
+  its slot order, none twice. A block's is the lists of its junctions in
+  turn, none twice: a junction block's own; a road block's, for each of
+  its roads, the junctions at end 0 and end 1; any other block's, the
+  junctions of the road blocks beside its edges, then those of the
+  other blocks beside it (one step). From the game's own junction lists
+  this rebuilds 1,162 of San Francisco's 1,171 blocks and 1,334 and
+  1,340 of London's 1,341 in each table (the misses by San Francisco's
+  junction 187, whose stored centre is 680 m from its roads, and two
+  London oddities). "Can see" fits a ray from 5 m above one junction's
+  centre to 5 m above the other's, against the city's ground, roofs,
+  facades and the placed models' bounds: right for 2,058 of San
+  Francisco's 2,083 pairs and 4,203 of London's 4,229 (lower or higher
+  eyes do worse; the landmarks count, Buckingham Palace and Westminster
+  Abbey among them). The game's exact test isn't known. Within 250 m the
+  distance alone, along the roads or across, isn't it.
 
 Worked out by reading the lists against the roads' sidewalk kinds and
 the junctions' road lists. A lookup of nearby roads for each block, for

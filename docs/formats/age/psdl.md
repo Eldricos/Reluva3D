@@ -345,11 +345,15 @@ count), and the road's control at its other end isn't 0 (give way):
 San Francisco 436 ends, London 405, the older `sfai.psdl` 538, no
 exceptions. The second condition matters only for twelve two-lane
 one-way roads, those whose first word is 0x041, not 0x441; why isn't
-known. Bit 7 is set on every give-way end and on others, and goes with
-the road across the junction (whose curb corners vertices 2-3 and 6-7
-are) being a turn rather than straight on: an angle of more than 39°
-between the curb lines fits 747 of San Francisco's 753 ends, more than
-62° 1,061 of London's 1,080. The exact test isn't known.
+known. Bit 7 says the road across the junction (whose curb corners vertices
+2-3 are, 6-7 for end 0) is a turn rather than straight on. With u the
+road's own corners (vertices 1 minus 0) and w the other's (3 minus 2)
+across the ground, θ = atan2(u × w, u · w): set when θ is over 30°, or
+over 50° where the other road's end there points back at this one
+(any threshold from 28.5-32.3° and 46-59.4° fits). Exact for all 1,080
+of London's ends and 753 of San Francisco's 755 (the misses by its
+broken junction 187); no end turning the other way (θ below 0) has
+it. Why two thresholds isn't known.
 
 A second look, comparing each bit with everything the `.bai` and the
 blocks say of the same road, settled more of them:
@@ -400,6 +404,6 @@ like, none). See [pathset.md](pathset.md).
 
 Block flags 0x80 and 0x20 exactly; bits 6 and 7 of the divider's
 kind; a junction tunnel's word 3 and what its masks in words 6-9 mark;
-the tunnels' flag 0x4000; the exact test for the end bytes' bit 7. The program's
+the tunnels' flag 0x4000. The program's
 own handling of these is encrypted (see ../../engines/age.md), so they're
 for observation of the game running.
