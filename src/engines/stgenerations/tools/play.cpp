@@ -167,7 +167,7 @@ int cmdPlay(int argc, char** argv) {
 
 const reluva::tool::Commands commands("stgenerations", {
     {"play", "<game folder> [options]",
-     "run the game without a window: keys and clicks at given times (--key 2000:esc, --click 3000:120,40),\n"
+     "run the game without a window: keys and clicks at given times (--key 2000:esc, --click 3000:120,40), "
      "pictures of the screen (--shot 5000:title.png), each frame's checksum (--frames); --until <ms> ends it",
      cmdPlay},
 });
