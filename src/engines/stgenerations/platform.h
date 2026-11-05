@@ -121,6 +121,10 @@ public:
 
     // --- Sound ------------------------------------------------------------
     audio::Mixer* getMixer() { return mixer_; }
+    // Whether the mixer is heard: without a sound device nothing pulls it,
+    // so the game plays nothing (as STG-Engine's mixer, not ready, did).
+    void setSoundOutput(bool on) { soundOutput_ = on; }
+    bool hasSoundOutput() const { return soundOutput_; }
 
     // --- Saves and settings -----------------------------------------------
     // The game's own folder for its files (made when written to).
@@ -136,6 +140,7 @@ public:
 
 private:
     void refreshCursor();
+    Point clampToScreen(int x, int y) const;
     bool translate(const reluva::Event& in, Event& out);
 
     System& system_;
@@ -158,6 +163,7 @@ private:
     int buttons_ = 0;
     int modifiers_ = 0;
     bool textInput_ = false;
+    bool soundOutput_ = true;
     bool quit_ = false;
 };
 

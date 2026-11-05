@@ -82,12 +82,15 @@ public:
     int getVolumeForSoundType(SoundType type) const;
 
     audio::Mixer& mixer() { return mixer_; }
+    // Off: nothing is played (no sound device to pull the mixer).
+    void setEnabled(bool on) { enabled_ = on; }
 
 private:
     static audio::SoundType toType(SoundType type);
     static int toVolume(int volume) { return (volume < 0 ? 0 : volume > 255 ? 255 : volume) * audio::kMaxVolume / 255; }
 
     audio::Mixer& mixer_;
+    bool enabled_ = true;
     int typeVolume_[4] = {kMaxMixerVolume, kMaxMixerVolume, kMaxMixerVolume, kMaxMixerVolume};
 };
 

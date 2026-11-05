@@ -11,6 +11,8 @@
 #include "common/bytes.h"
 #include "common/stream.h"
 #include "engines/stgenerations/audio.h"
+#include "engines/stgenerations/platform.h"
+#include "engines/stgenerations/tools/scripted_system.h"
 
 #include <cstdlib>
 
@@ -174,7 +176,45 @@ static void mixer_kinds() {
     CHECK(!mixer.isSoundHandleActive(none));
 }
 
+// Without a sound device nothing pulls the mixer: nothing is played, so no
+// sound is kept waiting for ever.
+static void no_sound_output() {
+    audio::Mixer out(22050);
+    Mixer mixer(out);
+    mixer.setEnabled(false);
+    SoundHandle h;
+    mixer.playStream(Mixer::kMusicSoundType, &h, makeRawStream(makePCM16(10, 1), 22050, kRaw16Bits | kRawLittleEndian));
+    CHECK(!mixer.isSoundHandleActive(h) && !mixer.isSoundTypeActive(Mixer::kMusicSoundType));
+}
+
+// The platform's input: the mouse kept in the screen, as the original's
+// window gave it; buttons held; text typed only while asked for.
+static void platform_input() {
+    ScriptedSystem sys;
+    Platform platform(sys, nullptr, {});
+    platform.initSize(640, 480);
+    reluva::Event e;
+    e.type = reluva::EventType::MouseMove;
+    e.mouseX = -20, e.mouseY = 700;
+    sys.schedule(0, e);
+    e.type = reluva::EventType::MouseDown;
+    e.button = MouseButton::Left;
+    e.mouseX = 900, e.mouseY = 10;
+    sys.schedule(0, e);
+    sys.type(0, "a");
+    stgenerations::Event got;
+    CHECK(platform.pollEvent(got) && got.type == kEventMousemove && got.mouse == Point(0, 479));
+    CHECK(platform.pollEvent(got) && got.type == kEventLbuttondown && got.mouse == Point(639, 10));
+    CHECK(platform.getButtonState() == 1);
+    CHECK(!platform.pollEvent(got)); // text, while none is asked for
+    platform.setTextInput(true);
+    sys.type(0, "b");
+    CHECK(platform.pollEvent(got) && got.type == kEventKeydown && got.kbd.ascii == 'b' && got.kbd.keycode == 0);
+}
+
 static const reluva::test::Suite suite("stgenerations.unit.audio", {
+    {"no sound output", [](const std::filesystem::path&) { no_sound_output(); }},
+    {"platform input", [](const std::filesystem::path&) { platform_input(); }},
     {"raw stream formats", [](const std::filesystem::path&) { raw_stream_formats(); }},
     {"looping stream", [](const std::filesystem::path&) { looping_stream(); }},
     {"wave parsing", [](const std::filesystem::path&) { wave_parsing(); }},

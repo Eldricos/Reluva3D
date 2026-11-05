@@ -41,8 +41,18 @@ bool discIn(const std::filesystem::path& dir, GamePart::Kind& kind) {
     return true;
 }
 
+// The installed game: DATA/COMMON.DAT and an executable (sgens.exe, or
+// any for a release whose executable is named otherwise).
 bool installIn(const std::filesystem::path& dir) {
-    return fs::findFile(dir, "sgens.exe") && fs::findFile(dir, "DATA/COMMON.DAT");
+    if (!fs::findFile(dir, "DATA/COMMON.DAT"))
+        return false;
+    if (fs::findFile(dir, "sgens.exe"))
+        return true;
+    std::error_code ec;
+    for (const auto& entry : std::filesystem::directory_iterator(dir, ec))
+        if (entry.is_regular_file(ec) && text::hasSuffixIgnoreCase(entry.path().filename().string(), ".exe"))
+            return true;
+    return false;
 }
 
 // Search a buffer for an ASCII string, or its UTF-16LE form, ignoring case.

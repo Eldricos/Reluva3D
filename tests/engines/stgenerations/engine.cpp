@@ -16,7 +16,9 @@
 #include "common/fs.h"
 #include "common/stream.h"
 #include "engines/registry.h"
+#include "engines/stgenerations/game/generations.h"
 #include "engines/stgenerations/game/random.h"
+#include "engines/stgenerations/platform.h"
 #include "engines/stgenerations/tools/scripted_system.h"
 #include "tests/engines/stgenerations/support.h"
 #include "tests/support/record.h"
@@ -343,6 +345,26 @@ void engineTest(const std::filesystem::path& tmp) {
     for (const char* name : {"stg.s00", "stg.s09"})
         rec.add(std::string("save.") + name, fileHash(tmp / "saves" / name));
     rec.add("settings", fileHash(tmp / "saves/settings.ini"));
+
+    // The resource viewer: the settings' volumes reach the mixer there too.
+    {
+        ScriptedSystem viewer;
+        audio::Mixer mixer(viewer.audioRate());
+        viewer.attachMixer(&mixer);
+        Platform platform(viewer, &mixer, tmp / "viewer-saves");
+        Options o;
+        o.gameDir = game;
+        o.viewer = true;
+        o.musicVolume = 128;
+        o.speechVolume = 64;
+        viewer.quit(500);
+        Generations g(&platform, o);
+        const Error verr = g.run();
+        rec.add("viewer", verr ? "failed: " + verr.message : std::string("ok"));
+        rec.add("viewer.volumes", std::to_string(mixer.typeVolume(audio::SoundType::Music)) + " music, " +
+                                      std::to_string(mixer.typeVolume(audio::SoundType::Speech)) + " speech, " +
+                                      std::to_string(mixer.typeVolume(audio::SoundType::Effects)) + " effects");
+    }
 
     rec.check(RELUVA_SOURCE_DIR "/tests/engines/stgenerations/data/engine-record.txt", "stgenerations.engine",
               "tests/engines/stgenerations/engine.cpp");

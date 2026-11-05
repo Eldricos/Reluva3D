@@ -46,6 +46,7 @@ Generations::Generations(Platform* system, Options options)
     if (audio::Mixer* mixer = _system->getMixer()) {
         _mixerWrapper = std::make_unique<Mixer>(*mixer);
         _mixer = _mixerWrapper.get();
+        _mixer->setEnabled(_system->hasSoundOutput());
     }
 }
 
@@ -96,6 +97,8 @@ Error Generations::run() {
                            (int32_t)_random.getRandomNumberRng(0, 2000) - 1000,
                            (int32_t)_random.getRandomNumberRng(1, 1000) });
 
+    // The volumes, whatever runs: the game, or the resource viewer.
+    loadSettings();
     startFrontEnd();
 
     uint32_t lastFrame = _system->getMillis();

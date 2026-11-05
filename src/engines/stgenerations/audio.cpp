@@ -106,7 +106,7 @@ void Mixer::playStream(SoundType type, SoundHandle* handle, std::unique_ptr<audi
                        uint8_t volume, int8_t balance) {
     (void)id;
     SoundHandle h;
-    if (stream)
+    if (stream && enabled_)
         h.val = mixer_.play(std::shared_ptr<audio::Stream>(std::move(stream)), toType(type), toVolume(volume),
                             std::clamp<int>(balance, -audio::kMaxPan, audio::kMaxPan));
     if (handle)

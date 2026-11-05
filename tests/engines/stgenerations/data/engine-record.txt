@@ -28,3 +28,5 @@ run.until: 18586
 save.stg.s00: 0bec2033b551960c (1032 bytes)
 save.stg.s09: 054d5afb035296be (1042 bytes)
 settings: 6900894e93e9e6a2 (166 bytes)
+viewer: ok
+viewer.volumes: 128 music, 64 speech, 192 effects

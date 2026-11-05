@@ -123,9 +123,11 @@ public:
         audio::Mixer mixer(sys_.audioRate());
         mixer.setMasterVolume(settings::volume(target_.settings, settings::kMasterVolume));
         // No sound card shouldn't stop anyone playing.
-        if (Error err = audio::startMixerOutput(sys_, mixer))
-            log::warning("No sound: %s", err.message.c_str());
+        const Error audioErr = audio::startMixerOutput(sys_, mixer);
+        if (audioErr)
+            log::warning("No sound: %s", audioErr.message.c_str());
         Platform platform(sys_, &mixer, target_.savePath);
+        platform.setSoundOutput(!audioErr);
         platform.setWindowCaption("Reluva - " + target_.description);
         Error result;
         {

@@ -125,6 +125,11 @@ changing what was there (each engine's tests and records are the same):
   STG-Engine's did; the volumes are scaled the same. STG-Engine's mixer let
   a sound replace another of the same id; the game never used that.
   "Plain" sounds (none in the game) share the effects' volume.
+- **Pictures:** 32-bit BMPs with bit fields are read by their masks (STG-
+  Engine took them as B, G, R whatever the masks said); none of the game's
+  are. Duplicate names in an archive are listed once, as before.
+- **Without a sound device**, nothing is played, as STG-Engine's mixer
+  did when it wasn't ready.
 - **The screen:** STG-Engine's backend converted 0xAARRGGBB frames;
   `Platform` does it now. Changing between 8-bit and true colour (the
   bridge, combat, the movies) is the same.

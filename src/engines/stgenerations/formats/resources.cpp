@@ -6,6 +6,7 @@
 #include <algorithm>
 #include <map>
 #include <optional>
+#include <set>
 
 #include "common/archive.h"
 #include "common/log.h"
@@ -66,7 +67,18 @@ public:
     explicit SharedArchive(std::shared_ptr<ZipArchive> zip) : zip_(std::move(zip)) {}
     std::vector<std::string> list() const override { return zip_->list(); }
     bool has(std::string_view name) const override { return zip_->has(name); }
-    Error read(std::string_view name, std::vector<uint8_t>& out) const override { return zip_->read(name, out); }
+    // Stored files whatever their CRC says, as ResourceManager::open reads them.
+    Error read(std::string_view name, std::vector<uint8_t>& out) const override {
+        const ZipArchive::Entry* e = zip_->entry(name);
+        if (!e)
+            return Error::fail(zip_->describe() + ": no " + std::string(name));
+        bool crcOk = true;
+        Error err = zip_->readUnchecked(*e, out, crcOk);
+        if (!err && !crcOk)
+            log::warning("%s:%s is damaged (its CRC doesn't match); played as it is", zip_->describe().c_str(),
+                         e->name.c_str());
+        return err;
+    }
     std::string describe() const override { return zip_->describe(); }
 
 private:
@@ -197,11 +209,15 @@ void ResourceManager::scan() {
             _sounds.push_back({archive, name});
     };
 
-    // Archives in name order, members in archive order.
-    for (const auto& entry : _archives)
+    // Archives in name order, members in archive order, a name repeated in
+    // an archive once.
+    for (const auto& entry : _archives) {
+        std::set<std::string> seen;
         for (const ZipArchive::Entry& member : entry.second->entries())
-            if (!member.name.empty() && member.name.back() != '/')
+            if (!member.name.empty() && member.name.back() != '/' &&
+                seen.insert(normalizeArchiveName(member.name)).second)
                 add(entry.first, member.name);
+    }
 
     // Loose files in the data folders, if any, in each folder's order.
     for (const std::filesystem::path& dir : _dataDirs) {

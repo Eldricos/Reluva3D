@@ -133,7 +133,7 @@ Error decodeInfo(const uint8_t* data, size_t size, size_t info, const uint8_t* p
         for (int i = 0; i < count; ++i) {
             const size_t at = paletteAt + size_t(i) * 4;
             if (at + 4 > size)
-                return Error::fail("BMP: too short for its palette");
+                break; // cut short: the rest black
             out.palette.setColor(i, data[at + 2], data[at + 1], data[at]);
         }
         out.paletteColors = count;

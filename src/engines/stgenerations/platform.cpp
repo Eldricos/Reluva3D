@@ -104,8 +104,17 @@ void Platform::refreshCursor() {
 }
 
 void Platform::setTextInput(bool on) {
+    if (on == textInput_)
+        return;
     textInput_ = on;
     system_.setTextInput(on);
+}
+
+Point Platform::clampToScreen(int x, int y) const {
+    // In the screen, as the original's window gave it (in the borders, or
+    // dragged out of the window, at its edge).
+    const int w = screen_.w > 0 ? screen_.w : 640, h = screen_.h > 0 ? screen_.h : 480;
+    return Point(std::clamp(x, 0, w - 1), std::clamp(y, 0, h - 1));
 }
 
 bool Platform::translate(const reluva::Event& in, Event& out) {
@@ -153,14 +162,14 @@ bool Platform::translate(const reluva::Event& in, Event& out) {
         out.kbd.flags = uint8_t(modifiers_);
         return true;
     case reluva::EventType::MouseMove:
-        mouse_ = Point(in.mouseX, in.mouseY);
+        mouse_ = clampToScreen(in.mouseX, in.mouseY);
         out.type = kEventMousemove;
         out.mouse = mouse_;
         return true;
     case reluva::EventType::MouseDown:
     case reluva::EventType::MouseUp: {
         const bool down = in.type == reluva::EventType::MouseDown;
-        mouse_ = Point(in.mouseX, in.mouseY);
+        mouse_ = clampToScreen(in.mouseX, in.mouseY);
         out.mouse = mouse_;
         int bit = 0;
         switch (in.button) {
