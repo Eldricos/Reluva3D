@@ -2,6 +2,7 @@
 // Copyright (C) 2026 The Reluva contributors
 #include "engines/boggle/classic/player.h"
 #include <fstream>
+#include <algorithm>
 namespace reluva::boggle {
 namespace {
 Error regular(const std::filesystem::path& path) {
@@ -28,7 +29,7 @@ bool playerName(std::string_view input,std::string& normalized) {
     normalized=std::string(input.substr(first,last-first+1));return true;
 }
 Error PlayerProfile::load(const std::filesystem::path& savePath,const std::filesystem::path& gamePath) {
-    name_="PLAYER 1";file_.clear();loaded_=false;
+    name_="PLAYER 1";history_={name_};file_.clear();loaded_=false;
     if(savePath.empty()){loaded_=true;return Error::success();}
     std::error_code ec;const auto save=std::filesystem::weakly_canonical(savePath,ec);
     if(ec)return Error::fail("Cannot resolve player save directory");
@@ -43,31 +44,44 @@ Error PlayerProfile::load(const std::filesystem::path& savePath,const std::files
     if(ec)return Error::fail("Cannot inspect player profile");
     if(!present){source=backup;present=std::filesystem::exists(backup,ec);}
     if(ec)return Error::fail("Cannot inspect player profile backup");
-    std::string name="PLAYER 1";
+    std::vector<std::string> names{"PLAYER 1"};
     if(present) {
         std::ifstream in(source,std::ios::binary|std::ios::ate);
-        if(!in || in.tellg()<0 || in.tellg()>128)return Error::fail("Cannot read bounded player profile");
-        in.seekg(0);std::string header,line,extra;
-        if(!std::getline(in,header) || !std::getline(in,line))return Error::fail("Invalid player profile");
-        if(!header.empty() && header.back()=='\r')header.pop_back();
-        if(!line.empty() && line.back()=='\r')line.pop_back();
-        if(header!="RELUVA BOGGLE PLAYER 1" || !playerName(line,name) || std::getline(in,extra) || in.bad())
-            return Error::fail("Invalid player profile");
+        if(!in || in.tellg()<0 || in.tellg()>1024)return Error::fail("Cannot read bounded player profile");
+        in.seekg(0);std::string header,line;
+        auto nextLine=[&](std::string& text){if(!std::getline(in,text))return false;if(!text.empty() && text.back()=='\r')text.pop_back();return true;};
+        if(!nextLine(header) || (header!="RELUVA BOGGLE PLAYER 1" && header!="RELUVA BOGGLE PLAYER 2"))return Error::fail("Invalid player profile");
+        names.clear();
+        while(nextLine(line)) {
+            std::string name;
+            if(!playerName(line,name) || names.size()==maximumNames ||
+               (header=="RELUVA BOGGLE PLAYER 1" && !names.empty()) ||
+               (header=="RELUVA BOGGLE PLAYER 2" && name!=line) ||
+               std::find(names.begin(),names.end(),name)!=names.end())return Error::fail("Invalid player profile");
+            names.push_back(std::move(name));
+        }
+        if(in.bad() || names.empty())return Error::fail("Invalid player profile");
     }
-    file_=file;name_=std::move(name);loaded_=true;return Error::success();
+    file_=file;history_=std::move(names);name_=history_.front();loaded_=true;return Error::success();
 }
+
 Error PlayerProfile::rename(std::string_view input) {
     if(!loaded_)return Error::fail("Player profile has not loaded");
     std::string next;
     if(!playerName(input,next))return Error::fail("Use 1 to 18 printable English characters for the player name.");
     if(next==name_)return Error::success();
-    if(file_.empty()){name_=std::move(next);return Error::success();}
+    auto names=history_;
+    names.erase(std::remove(names.begin(),names.end(),next),names.end());
+    names.insert(names.begin(),next);if(names.size()>maximumNames)names.resize(maximumNames);
+    if(file_.empty()){name_=std::move(next);history_=std::move(names);return Error::success();}
     const auto temp=file_.parent_path() / "Player.txt.tmp",backup=file_.parent_path() / "Player.txt.bak";
     for(const auto& path:{file_,temp,backup})if(auto error=regular(path))return error;
     std::error_code ec;std::filesystem::create_directories(file_.parent_path(),ec);if(ec)return failed();
     {
         std::ofstream out(temp,std::ios::binary|std::ios::trunc);
-        out<<"RELUVA BOGGLE PLAYER 1\n"<<next<<'\n';out.flush();if(!out)return failed();
+        out<<"RELUVA BOGGLE PLAYER 2\n";
+        for(const auto& name:names)out<<name<<'\n';
+        out.flush();if(!out)return failed();
         out.close();if(!out)return failed();
     }
     const bool present=std::filesystem::exists(file_,ec);if(ec)return failed();
@@ -80,6 +94,6 @@ Error PlayerProfile::rename(std::string_view input) {
         if(present){std::error_code restore;std::filesystem::rename(backup,file_,restore);}
         return failed();
     }
-    name_=std::move(next);std::filesystem::remove(backup,ec);return Error::success();
+    name_=std::move(next);history_=std::move(names);std::filesystem::remove(backup,ec);return Error::success();
 }
 } // namespace reluva::boggle

@@ -145,3 +145,10 @@ used human names and Beginner/Intermediate/Advanced/Mr. Boggle opponents, plus
 end-of-round cancellation of shared words in human/human and human/computer
 games. Original name-history restart persistence, player-turn sequencing and
 AI timing/strength remain unresolved. See [confirmed player observations](../../engines/boggle/competition.md#owner-vm-corroboration).
+
+The owner confirmed the competition foundation compiles and works. Native Players
+now recalls saved human names through a dropdown, with a bounded per-target
+most-recent history and version-1 profile migration. Original history lifetime,
+ordering/capacity and on-disk format remain unverified. Additional live player
+slots, computers and their turn/timing behavior remain future work. See
+[human selection and native history policies](../../engines/boggle/players.md).

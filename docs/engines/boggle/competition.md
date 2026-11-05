@@ -86,8 +86,9 @@ The owner subsequently confirmed the following in the original Classic game:
 These observations corroborate the player controls, opponent labels and shared-word
 scoring evidence above. They also establish a human-name history in the original
 selector; retention across process restarts, its file format and duplicate-name
-selection rules have not been established. The current native profile still
-stores one human name, rather than reproducing this history. Computer timing,
+selection rules have not been established. The native profile now retains a bounded human-name history for selecting its
+one supported human slot; see [name selection and native limits](players.md).
+It does not import the original player database. Computer timing,
 difficulty behavior, turn order and the Traditional/Chess Timer options remain
 separate research and implementation work.
 

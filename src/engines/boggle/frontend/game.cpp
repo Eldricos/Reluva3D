@@ -19,6 +19,8 @@ struct Box {
 constexpr Box classic{40,288,112,112}, original{48,155,252,65}, master{340,155,252,65},
               less{174,258,48,36}, more{418,258,48,36}, untimed{224,312,192,36},
               play{340,388,252,48}, back{48,388,252,48}, exit{462,420,140,36};
+constexpr size_t nameRows=8;
+constexpr Box playerChoice{48,162,544,40},nameList{48,204,544,228};
 constexpr Box changeName{48,310,252,40},nameField{88,188,464,42},saveName{88,296,210,40},cancelName{318,296,210,40};
 enum class Page { Selection, Version, Players };
 constexpr Color white{245,245,255}, muted{170,181,205}, dark{17,15,35}, gold{224,189,99};
@@ -77,7 +79,7 @@ void players(Surface& s,const ClassicOptions& options,const PlayerProfile& profi
     fill(s,{0,0,640,480},dark);fill(s,{24,26,592,2},gold);
     text(s,48,48,"PLAYERS",white,3);
     text(s,48,110,options.variant==ClassicVariant::Master ? "CLASSIC MASTER" : "CLASSIC ORIGINAL",gold,2);
-    text(s,48,170,"PLAYER: "+profile.name(),white,2);
+    button(s,playerChoice,"PLAYER: "+profile.name()+"  v (P)");
     text(s,48,214,"U.S. English  |  No computer players",muted);
     text(s,48,260,options.duration ? "Round length: "+duration(options.duration) : "Round length: Not Timed",white,2);
     button(s,changeName,"CHANGE NAME (N)");
@@ -85,6 +87,19 @@ void players(Surface& s,const ClassicOptions& options,const PlayerProfile& profi
     button(s,back,"MAIN MENU (ESC)");button(s,play,"PLAY (ENTER)",true);
 }
 
+void nameDropdown(Surface& s,const PlayerProfile& profile,size_t selected,size_t scroll,const std::string& error) {
+    fill(s,nameList,gold);fill(s,{50,206,540,224},dark);
+    text(s,60,214,"PREVIOUS HUMAN NAMES",gold);
+    const auto& names=profile.history();
+    for(size_t row=0;row<nameRows && scroll+row<names.size();++row) {
+        const auto index=scroll+row;const int y=234+int(row)*20;
+        if(index==selected)fill(s,{56,y,528,20},{43,83,112});
+        text(s,64,y+5,names[index]);
+    }
+    text(s,60,400,"Up/Down: choose   Enter/click: select   Esc: cancel",muted);
+    if(!error.empty())text(s,60,416,error.substr(0,84),{255,150,130});
+    else text(s,60,416,std::to_string(selected+1)+" / "+std::to_string(names.size())+"   PgUp/PgDn: page",muted);
+}
 void nameEditor(Surface& s,const std::string& draft,bool selected,const std::string& error) {
     fill(s,{64,120,512,234},gold);fill(s,{66,122,508,230},dark);
     text(s,88,143,"PLAYER NAME",white,2);
@@ -127,7 +142,8 @@ Error FrontendGame::run() {
     uint64_t menuStarted=system_.getMillis();
     Surface screen;screen.create(640,480,PixelFormat::RGBA32);
     Page page=Page::Selection;
-    bool editingName=false,selectAll=false;
+    bool editingName=false,selectAll=false,selectingName=false;
+    size_t nameSelection=0,nameScroll=0;
     std::string draftName,nameError;
     uint64_t timedDuration=options.duration ? options.duration : 180000;
     for(;;) {
@@ -139,6 +155,34 @@ Error FrontendGame::run() {
             const bool isKey=event.type==EventType::KeyDown && !event.repeat;
             const bool click=event.type==EventType::MouseDown && event.button==MouseButton::Left;
             auto pressed=[&](Box box){return click && box.contains(event.mouseX,event.mouseY);};
+            if(selectingName) {
+                const auto last=profile.history().size()-1;
+                auto choose=[&]() {
+                    const auto name=profile.history()[nameSelection];
+                    if(auto error=profile.rename(name))nameError=error.message;
+                    else {selectingName=false;changed=true;nameError.clear();}
+                };
+                if((isKey && event.key==key::Escape) || (click && !nameList.contains(event.mouseX,event.mouseY))) {
+                    selectingName=false;changed=true;nameError.clear();
+                } else if(isKey && (event.key==key::Return || event.key==key::KpEnter))choose();
+                else if(click && event.mouseX>=56 && event.mouseX<584 && event.mouseY>=234 && event.mouseY<394) {
+                    const size_t index=nameScroll+size_t((event.mouseY-234)/20);
+                    if(index<profile.history().size()){nameSelection=index;choose();}
+                } else {
+                    int64_t delta=0;
+                    if(isKey && event.key==key::Up)delta=-1;
+                    if(isKey && event.key==key::Down)delta=1;
+                    if(isKey && event.key==key::PageUp)delta=-int64_t(nameRows);
+                    if(isKey && event.key==key::PageDown)delta=int64_t(nameRows);
+                    if(isKey && event.key==key::Home)delta=-int64_t(last);
+                    if(isKey && event.key==key::End)delta=int64_t(last);
+                    if(event.type==EventType::MouseWheel)delta=-int64_t(event.wheelY)*3;
+                    if(delta) {nameSelection=size_t(std::clamp<int64_t>(int64_t(nameSelection)+delta,0,int64_t(last)));nameError.clear();}
+                    if(nameSelection<nameScroll)nameScroll=nameSelection;
+                    if(nameSelection>=nameScroll+nameRows)nameScroll=nameSelection-nameRows+1;
+                }
+                continue;
+            }
             if(editingName) {
                 if((isKey && event.key==key::Escape) || pressed(cancelName)) {
                     editingName=false;system_.setTextInput(false);changed=true;
@@ -179,7 +223,9 @@ Error FrontendGame::run() {
                     page=Page::Players;changed=true;
                 }
             } else {
-                if((isKey && event.key=='n') || pressed(changeName)) {
+                if((isKey && event.key=='p') || pressed(playerChoice)) {
+                    selectingName=true;nameSelection=0;nameScroll=0;nameError.clear();changed=true;
+                } else if((isKey && event.key=='n') || pressed(changeName)) {
                     draftName=profile.name();nameError.clear();selectAll=true;editingName=true;
                     system_.setTextInput(true);changed=true;
                 } else if((isKey && event.key==key::Escape) || pressed(back)) { page=Page::Selection;changed=true; }
@@ -206,6 +252,7 @@ Error FrontendGame::run() {
         if(page==Page::Version) setup(screen,options);
         else if(page==Page::Players) {
             players(screen,options,profile);
+            if(selectingName)nameDropdown(screen,profile,nameSelection,nameScroll,nameError);
             if(editingName)nameEditor(screen,draftName,selectAll,nameError);
         }
         else {const auto now=system_.getMillis();selection(screen,background,media,now>=menuStarted ? now-menuStarted : 0); }
