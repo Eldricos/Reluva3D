@@ -76,10 +76,11 @@ reluva_add_engine_tests(stgenerations
     TOPICS
         unit.detection unit.formats unit.script unit.level unit.hud unit.combat unit.campaign unit.sound unit.canvas unit.audio engine)
 
-# Its engine test with the game's own files, when it has one (see
-# docs/DEVELOPMENT.md, Engine tests):
-# reluva_add_gamedata_test(stgenerations
-#     GAME <game id>
-#     ENV RELUVA_<GAME>
-#     SCRIPT ${tests}/gamedata.cmake
-#     STEPS release ...)
+# Its engine test with the game's own files (tests/engines/stgenerations/
+# gamedata.cmake): RELUVA_STGENERATIONS=<the game's folder> ctest -L
+# gamedata. See docs/DEVELOPMENT.md (Engine tests).
+reluva_add_gamedata_test(stgenerations
+    GAME stgenerations
+    ENV RELUVA_STGENERATIONS
+    SCRIPT ${tests}/gamedata.cmake
+    STEPS release archives pictures levels sounds movies front_end mission combat)
