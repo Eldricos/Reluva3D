@@ -48,7 +48,7 @@ void scoreTable(Surface& screen,const HighScores& scores,const std::string& erro
     }
     if(rows.empty())label(screen,160,218,error.empty()?"No positive scores yet.":"Table unavailable.",muted);
     if(!error.empty())label(screen,160,392,error.substr(0,80),{255,116,116});
-    label(screen,160,410,"Native ranking: one best per name; ten names across Classic.",muted);
+    label(screen,160,410,"Top ten Classic scores; player names may repeat.",muted);
     label(screen,160,426,!error.empty()?"Scores unavailable until a successful retry.":scores.persistent()?"Saved in your launcher profile.":"Session only; no save directory configured.",muted);
     rect(screen,scoresClose.x,scoresClose.y,scoresClose.w,scoresClose.h,{48,88,120});label(screen,460,460,"CLOSE (ENTER / H)");
     if(!error.empty()){rect(screen,scoresRetry.x,scoresRetry.y,scoresRetry.w,scoresRetry.h,{48,88,120});label(screen,172,460,"RETRY (R)");}

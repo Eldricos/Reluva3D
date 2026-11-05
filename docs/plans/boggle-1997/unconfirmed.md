@@ -118,8 +118,10 @@ presence; original filtering, view navigation and INSO definitions remain
 unverified. See [all-word discovery and limits](../../engines/boggle/all-words.md).
 
 The owner confirmed the All Words update works. The native high-score table
-now records finalized positive personal bests in isolated storage. VM checks
+now records finalized positive round scores in isolated storage. VM checks
 confirm one shared Classic board across versions/durations and qualification
-for manually ended rounds. Original repeated-name, tie, zero-score, replay
+for manually ended rounds. A subsequent VM check confirms repeated names are
+allowed and the board holds ten scores; native storage now preserves each
+qualifying round, including repeated names and identical scores. Original tie, zero-score, replay
 policies and original score-file persistence remain unverified. See
 [high-score scope and evidence](../../engines/boggle/highscores.md).

@@ -17,19 +17,27 @@ void ranking(const std::filesystem::path& tmp) {
     fixtures::write(game / "HighScores.txt","ORIGINAL UNTOUCHED");HighScores scores;
     CHECK(!scores.load(save,game));CHECK(scores.persistent());CHECK(!scores.record(original,180000,0,"Alex"));CHECK(!std::filesystem::exists(save));
     CHECK(!scores.record(original,180000,12,"Alex"));CHECK(!scores.record(original,180000,12,"Sam"));
-    const auto before=read(file);CHECK(!scores.record(original,180000,9,"Alex"));CHECK(read(file)==before);
+    CHECK(!scores.record(original,180000,9,"Alex"));
+    CHECK(!scores.record(original,180000,12,"Alex"));
     HighScores restart;CHECK(!restart.load(save,game));auto rows=restart.table();
-    CHECK(rows.size()==2 && rows[0].name=="Alex" && rows[1].name=="Sam");
+    CHECK(rows.size()==4 && rows[0].name=="Alex" && rows[1].name=="Sam" && rows[2].name=="Alex" && rows[3].score==9);
     CHECK(!restart.record(master,180000,13,"Sam"));CHECK(restart.table()[0].name=="Sam");
-    CHECK(!restart.record(original,0,14,"Alex"));CHECK(restart.table().size()==2 && restart.table()[0].duration==0);
+    CHECK(!restart.record(original,0,14,"Alex"));CHECK(restart.table().size()==6 && restart.table()[0].duration==0);
     CHECK(!restart.record(master,90000,15,"Sam"));CHECK(restart.table()[0].duration==90000);
     for(int i=0;i<12;++i)CHECK(!restart.record(original,180000,20+i,"Player "+std::to_string(i)));
     rows=restart.table();CHECK(rows.size()==10 && rows.front().score==31 && rows.back().score==22);
     const auto top=read(file);CHECK(!restart.record(original,180000,22,"Too late"));CHECK(read(file)==top);
     CHECK(!restart.record(original,180000,100,"Player 2"));CHECK(restart.table().size()==10);
     CHECK(read(game / "HighScores.txt")=="ORIGINAL UNTOUCHED");
+    CHECK(!restart.load(tmp / "same-name",game));
+    for(int i=0;i<11;++i)CHECK(!restart.record(original,180000,7,"Alex"));
+    CHECK(restart.table().size()==10);CHECK(!restart.load(tmp / "same-name",game));
+    CHECK(restart.table().size()==10);for(const auto& row:restart.table())CHECK(row.name=="Alex" && row.score==7);
+    const auto ten=read(tmp / "same-name/HighScores.txt");
     CHECK(bool(restart.record(original,30000,2,"Bad duration")));CHECK(bool(restart.record(original,60000,-1,"Alex")));
     CHECK(bool(restart.record(original,60000,1,"\n")));
+    fixtures::write(tmp / "same-name/HighScores.txt",ten+"original\t180\t7\tAlex\n");
+    CHECK(bool(restart.load(tmp / "same-name",game)));
     CHECK(!restart.load({},game));CHECK(!restart.persistent());CHECK(!restart.record(original,180000,2,"Session"));CHECK(restart.table().size()==1);
 }
 void storage(const std::filesystem::path& tmp) {
@@ -42,7 +50,7 @@ void storage(const std::filesystem::path& tmp) {
     CHECK(!scores.load(save,game));CHECK(scores.table()[0].score==9);CHECK(!scores.record(original,180000,10,"Alex"));
     CHECK(std::filesystem::exists(file) && !std::filesystem::exists(save / "HighScores.txt.bak"));
     for(const auto& bad:{std::string{},std::string("WRONG\n"),std::string("original\t180\t1\tAlex\n"),
-        std::string("RELUVA BOGGLE HIGHSCORES 1\noriginal\t180\t1\tAlex\noriginal\t180\t2\tAlex\n"),
+        std::string("RELUVA BOGGLE HIGHSCORES 1\noriginal\t180\t1\tAlex\noriginal\t180\t0\tAlex\n"),
         std::string("RELUVA BOGGLE HIGHSCORES 1\noriginal\t0180\t1\tAlex\n"),
         std::string("RELUVA BOGGLE HIGHSCORES 1\noriginal\t180\t2147483648\tAlex\n"),
         std::string("RELUVA BOGGLE HIGHSCORES 1\noriginal\t180\t1\t Alex\n"),std::string(4097,'X')}) {
@@ -88,14 +96,19 @@ void retry(const std::filesystem::path& tmp) {
         if(f==1)return {textEvent("AAAA"),keyEvent(key::Return),keyEvent(key::F1)};
         if(f==2)return {keyEvent('h')};
         if(f==3){CHECK(read(target.savePath / "HighScores.txt")=="CORRUPT");std::filesystem::remove(target.savePath / "HighScores.txt");return {keyEvent('r')};}
-        if(f==4){Event quit;quit.type=EventType::Quit;return {quit};}return {};
+        if(f==4)return {keyEvent('r'),keyEvent(key::Return),keyEvent(key::Return)};
+        if(f==5)return {keyEvent(key::Return)};
+        if(f==6)return {textEvent("AAAA"),keyEvent(key::Return),keyEvent(key::F1)};
+        if(f==7)return {keyEvent('h')};
+        if(f==8){Event quit;quit.type=EventType::Quit;return {quit};}return {};
     };
-    ClassicGame game(sys,target);CHECK(!game.run());CHECK(sys.hashes.size()==4 && !sys.textEnabled);
-    HighScores loaded;CHECK(!loaded.load(target.savePath,target.path));CHECK(loaded.table().size()==1);
+    ClassicGame game(sys,target);CHECK(!game.run());CHECK(sys.hashes.size()==8 && !sys.textEnabled);
+    HighScores loaded;CHECK(!loaded.load(target.savePath,target.path));CHECK(loaded.table().size()==2);
+    if(loaded.table().size()==2)CHECK(loaded.table()[0]==loaded.table()[1]);
 }
 }
 static const test::Suite suite("boggle.unit.highscores",{
-    {"personal bests, stable ties, shared Classic table, top ten and restart",[](const auto& tmp){ranking(tmp);}},
+    {"repeated names and identical scores, stable ties, top ten and restart",[](const auto& tmp){ranking(tmp);}},
     {"bounded parsing, backup recovery, failed writes and source isolation",[](const auto& tmp){storage(tmp);}},
     {"post-adjudication recording, both variants/renderers, modal guards and discovery",[](const auto& tmp){gameFlow(tmp);}},
     {"corrupt scores do not block play, explicit retry and global exit",[](const auto& tmp){retry(tmp);}},

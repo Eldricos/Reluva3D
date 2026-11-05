@@ -5,7 +5,6 @@
 #include <algorithm>
 #include <charconv>
 #include <fstream>
-#include <set>
 namespace reluva::boggle {
 namespace {
 Error regular(const std::filesystem::path& path) {
@@ -58,7 +57,6 @@ Error HighScores::load(const std::filesystem::path& savePath,const std::filesyst
         in.seekg(0);std::string line;
         auto nextLine=[&]{if(!std::getline(in,line))return false;if(!line.empty() && line.back()=='\r')line.pop_back();return true;};
         if(!nextLine() || line!="RELUVA BOGGLE HIGHSCORES 1")return Error::fail("Invalid native high-score header");
-        std::set<std::string> seen;
         while(nextLine()) {
             const auto a=line.find('\t'),b=a==std::string::npos?a:line.find('\t',a+1),c=b==std::string::npos?b:line.find('\t',b+1);
             if(c==std::string::npos || rows.size()==10)return Error::fail("Invalid native high-score row");
@@ -66,7 +64,7 @@ Error HighScores::load(const std::filesystem::path& savePath,const std::filesyst
             const auto mode=variant=="original"?ClassicVariant::Original:ClassicVariant::Master;
             if((variant!="original" && variant!="master") || !number(std::string_view(line).substr(a+1,b-a-1),seconds) || seconds>300 ||
                !category(mode,seconds*1000) || !number(std::string_view(line).substr(b+1,c-b-1),score) || !score || score>INT32_MAX ||
-               !playerName(std::string_view(line).substr(c+1),name) || name!=line.substr(c+1) || !seen.emplace(name).second)
+               !playerName(std::string_view(line).substr(c+1),name) || name!=line.substr(c+1))
                 return Error::fail("Invalid native high-score row");
             rows.push_back({mode,seconds*1000,int(score),name});
         }
@@ -81,9 +79,7 @@ Error HighScores::record(ClassicVariant variant,uint64_t duration,int score,std:
     if(!loaded_)return Error::fail("High scores are unavailable; reload the table before retrying");
     std::string name;if(!category(variant,duration) || score<0 || !playerName(input,name))return Error::fail("Invalid native high-score entry");
     if(!score)return Error::success();
-    auto rows=rows_;const auto existing=std::find_if(rows.begin(),rows.end(),[&](const auto& row){return row.name==name;});
-    if(existing!=rows.end()){if(existing->score>=score)return Error::success();*existing={variant,duration,score,name};}
-    else rows.push_back({variant,duration,score,name});
+    auto rows=rows_;rows.push_back({variant,duration,score,name});
     order(rows);if(rows.size()>10)rows.resize(10);
     if(rows==rows_)return Error::success();
     if(!file_.empty()) {

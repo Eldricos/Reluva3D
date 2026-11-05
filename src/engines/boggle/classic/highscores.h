@@ -12,8 +12,9 @@ struct HighScore {
     std::string name;
     bool operator==(const HighScore&) const = default;
 };
-// Native personal bests: ten names across Classic. Original score files
-// are neither read nor modified. A failed write leaves the old table intact.
+// Native high scores: ten round scores across Classic; names may repeat.
+// Original score files are neither read nor modified. A failed write leaves
+// the old table intact.
 class HighScores {
 public:
     Error load(const std::filesystem::path& savePath,const std::filesystem::path& gamePath);

@@ -14,15 +14,17 @@ words, unfinished input and missed-word discovery never contribute points.
 Recording happens once when finalized results are published; browsing results
 or opening the table does not submit another score.
 
-This pass uses a native **personal-best policy**: the ten highest positive
-scores from distinct, case-sensitive player names, one best per name across
-Classic. A strictly higher result replaces that name's entry, including its
-version/duration metadata. Equal scores preserve their previous order; an equal
-or lower result does not write. Zero-score rounds do not create a file. Renaming
-a player does not rewrite historical names. The original's repeated-name,
-tie, zero-score and replay policies have not yet been corroborated; this is not
-a claim of matching them. Original dialog 16007 has ten name/score/skill rows,
-which establishes its capacity and fields, not its ranking algorithm.
+The table keeps the ten highest positive **round scores**, allowing repeated
+player names and identical score rows. The owner verified repeated names and
+the ten-entry limit in the original VM. Each qualifying finished round adds
+its own entry rather than replacing that player's earlier result. A replay is
+a new round and can earn another entry; viewing results and retrying after a
+successful save cannot. Renaming a player does not rewrite historical names.
+
+Equal scores preserve their previous order; a new score tied with the tenth
+entry does not displace it. Zero-score rounds do not create a file. These tie,
+zero-score and replay policies remain native choices pending original VM
+corroboration. Original dialog 16007 also has ten name/score/skill rows.
 
 ## Storage and recovery
 
@@ -36,8 +38,8 @@ original\t180\t12\tExample Player
 
 The example uses literal `\t` notation for tab separators. Rows contain
 version, configured seconds (zero means untimed), positive score and the native
-printable-ASCII player name. Loading accepts LF/CRLF, at most ten unique names
-and 4 KiB. Invalid numbers, modes, durations, names and duplicate names reject
+printable-ASCII player name. Loading accepts LF/CRLF, at most ten score rows
+and 4 KiB. Invalid numbers, modes, durations, names and excessive row counts reject
 the whole file. No retail data or original score-file interpretation is involved.
 
 Writes use `.tmp` and `.bak` siblings, check stream completion, replace through
@@ -62,19 +64,22 @@ with name controls 15400–15409, score controls 15410–15419 and skill control
 15420–15429. Game Over dialog 16008 offers View Highscores. Executable/DLL identity
 and the Game Over caller evidence are recorded in [results.md](results.md).
 The owner confirmed in the VM that all Classic versions/durations share the
-same board and manually ended games qualify. The native implementation was
+same board, manually ended games qualify, repeated names are allowed and the
+board holds ten scores. The native implementation was
 written independently; no original routine or score data was copied.
 
-`boggle.unit.highscores` tests shared grouping, improvements, ties, top-ten
+`boggle.unit.highscores` tests shared grouping, repeated names/identical rows, ties, top-ten
 limits, restart, session-only storage, strict parsing, interrupted writes,
 backup recovery, source-folder/symlink protection and failed-write preservation.
 Scripted Original/Master rounds with both renderers check adjudication before
 recording, untimed/manual endings, modal controls, unchanged discovery scores,
-retry after a corrupt file and global exit cleanup.
+retry after a corrupt file, repeated replay scores, no duplicate recording
+from successful-save retries and global exit cleanup.
 
 All 29 Boggle checks pass with the supplied install. The full normal suite
 passes 39 checks and skips 23 optional data checks. High-score and results tests
 also pass ASan/UBSan with LeakSanitizer disabled for the execution tracer.
 SDL dummy runs render both versions using installed artwork; captures remain
 outside Git. All 737 supplied installed files retain their manifest hashes.
+Existing native score files remain compatible; no migration or reset is needed.
 Windows owner testing of this stage remains pending. No re-import is required.
