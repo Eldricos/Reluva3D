@@ -904,12 +904,36 @@ static const reluva::test::Suite textSuite("common.unit.text", {
     {"strings", [](const std::filesystem::path&) { testTextHelpers(); }},
 });
 
+// A paused sound keeps its place and plays on from there; it still counts
+// as playing, and can be stopped while paused.
+static void testMixerPause() {
+    using namespace reluva::audio;
+    auto s = std::make_shared<Sound>();
+    s->rate = 22050, s->channels = 1, s->samples = {1, 2, 3, 4};
+    std::vector<int16_t> out(8);
+    Mixer m(22050);
+    const SoundHandle h = m.play(std::shared_ptr<const Sound>(s), SoundType::Effects);
+    m.mix(out.data(), 1);
+    CHECK(out[0] == 1 && !m.isPaused(h));
+    m.setPaused(h, true);
+    m.mix(out.data(), 2);
+    CHECK(out[0] == 0 && out[3] == 0 && m.isPlaying(h) && m.isPaused(h) && m.position(h) == 1.0);
+    m.setPaused(h, false);
+    m.mix(out.data(), 2);
+    CHECK(out[0] == 2 && out[2] == 3 && !m.isPaused(h));
+    m.setPaused(h, true);
+    m.stop(h);
+    CHECK(!m.isPlaying(h) && !m.isPaused(h));
+    m.setPaused(kNoSound, true); // nothing to pause
+}
+
 static const reluva::test::Suite audioSuite("common.unit.audio", {
     {"wav", [](const std::filesystem::path&) { testWav(); }},
     {"mp3", [](const std::filesystem::path&) { testMp3(); }},
     {"mixer", [](const std::filesystem::path&) { testMixer(); }},
     {"streams", [](const std::filesystem::path&) { testAudioStreams(); }},
     {"mixer streams", [](const std::filesystem::path&) { testMixerStreams(); }},
+    {"mixer pause", [](const std::filesystem::path&) { testMixerPause(); }},
 });
 
 static const reluva::test::Suite imageSuite("common.unit.image", {

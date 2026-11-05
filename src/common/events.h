@@ -31,6 +31,10 @@ constexpr uint32_t F1 = 0x110; // F1..F12 are consecutive
 constexpr uint32_t Kp0 = 0x120; // the numeric keypad's 0..9 are consecutive, whatever NumLock says
 constexpr uint32_t KpPeriod = 0x12a;
 constexpr uint32_t KpEnter = 0x12b;
+constexpr uint32_t KpPlus = 0x12c;
+constexpr uint32_t KpMinus = 0x12d;
+constexpr uint32_t KpMultiply = 0x12e;
+constexpr uint32_t KpDivide = 0x12f;
 
 constexpr uint32_t LShift = 0x130;
 constexpr uint32_t RShift = 0x131;
@@ -66,6 +70,10 @@ enum class EventType {
     JoyAxis,
     JoyHat,
     JoyRemoved,
+    // The window got or lost the keyboard's focus (the player switched to
+    // another program and back), for games that pause meanwhile.
+    FocusGained,
+    FocusLost,
 };
 
 namespace joyhat {

@@ -58,6 +58,11 @@ public:
     // isn't playing).
     double position(SoundHandle handle) const;
 
+    // A paused sound keeps its place and plays on from there when
+    // unpaused; it still counts as playing.
+    void setPaused(SoundHandle handle, bool paused);
+    bool isPaused(SoundHandle handle) const;
+
     void setVolume(SoundHandle handle, int volume);
     void setPan(SoundHandle handle, int pan);
     // A type's volume (the player's music, speech and effects settings),
@@ -82,6 +87,7 @@ private:
         SoundType type;
         int volume, pan;
         bool loop;
+        bool paused = false;
         double position = 0; // in the sound's frames
         bool done = false;
         // A stream's: the frames either side of `position`, and the next.
