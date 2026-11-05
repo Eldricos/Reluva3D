@@ -51,8 +51,9 @@ scene and offers an inline final summary with direct replay/new-board controls.
 It does not replay a raise-lid animation after closing. This is a native review
 layout, not a recreation of the original modal Game Over/word dialogs. Cube
 badges, keyboard selection and right-click summary are native controls.
-Highscores, INSO definitions, multiple player columns and exact original dialog
-behavior remain outside this pass. Missed words are now available through the
+INSO definitions, multiple player columns and exact original dialog
+behavior remain outside this pass. A separate native [high-score table](highscores.md)
+is now available after finalization. Missed words are now available through the
 separate [All Words view](all-words.md).
 No original implementation was translated or copied.
 

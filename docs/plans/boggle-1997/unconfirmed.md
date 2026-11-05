@@ -116,3 +116,10 @@ English and saved custom words after adjudication, with potential points kept
 separate from final score. Dialog 15700 establishes the original feature's
 presence; original filtering, view navigation and INSO definitions remain
 unverified. See [all-word discovery and limits](../../engines/boggle/all-words.md).
+
+The owner confirmed the All Words update works. The native high-score table
+now records finalized positive personal bests in isolated storage. VM checks
+confirm one shared Classic board across versions/durations and qualification
+for manually ended rounds. Original repeated-name, tie, zero-score, replay
+policies and original score-file persistence remain unverified. See
+[high-score scope and evidence](../../engines/boggle/highscores.md).

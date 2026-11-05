@@ -11,8 +11,8 @@ original.plain.7: b7e8a9d8372c65f6
 original.plain.8: c16040af92c2bce9
 original.plain.9: a276f26304028e4d
 original.plain.10: a276f26304028e4d
-original.plain.11: 9b4c4a7925902e85
-original.plain.12: f307b5f158826195
+original.plain.11: 06d33b39cfca15bf
+original.plain.12: f1b07ecddeb1021f
 original.plain.13: a571a666b6ce7071
 original.art.0: 748d62b608562085
 original.art.1: 30feb2d654f4e9f0
@@ -25,8 +25,8 @@ original.art.7: 956e93ec0661df0c
 original.art.8: 789467499b6442d8
 original.art.9: 046e1d086c7ebc0b
 original.art.10: 046e1d086c7ebc0b
-original.art.11: d407bfab91db7a27
-original.art.12: 8f6b75637386d462
+original.art.11: f553531aeaffae6d
+original.art.12: 6c2dc7220bb06958
 original.art.13: 748d62b608562085
 master.plain.0: 0531097edf1a9957
 master.plain.1: 99e6bc52421b1936
@@ -39,8 +39,8 @@ master.plain.7: 5a7288de6d9a33f8
 master.plain.8: 68cacff2f258df0f
 master.plain.9: 48d5762826601c2f
 master.plain.10: 48d5762826601c2f
-master.plain.11: 3da2a6661ad7023d
-master.plain.12: c295068a91276b35
+master.plain.11: eaf98d38e9bdfbbb
+master.plain.12: b3ac4d924a6807db
 master.plain.13: 0531097edf1a9957
 master.art.0: 515e2b357c02dcaf
 master.art.1: 2d9156a386b91136
@@ -53,6 +53,6 @@ master.art.7: 8d1d8595a14fe07a
 master.art.8: d2acbefa74fed993
 master.art.9: ef1909f38a4417c0
 master.art.10: ef1909f38a4417c0
-master.art.11: 73e2fc50d261dcf1
-master.art.12: 730ce57189a70634
+master.art.11: a0e9efb4244f66d7
+master.art.12: 8676b63a1e2a9012
 master.art.13: 515e2b357c02dcaf

@@ -4,6 +4,7 @@
 #include "engines/boggle/classic/layout.h"
 #include "engines/boggle/classic/orientation.h"
 #include "engines/boggle/classic/history.h"
+#include "engines/boggle/classic/highscores.h"
 #include "engines/boggle/classic/player.h"
 #include "engines/boggle/classic/results.h"
 #include "engines/boggle/classic/round.h"
@@ -19,6 +20,8 @@ namespace reluva::boggle {
 namespace {
 constexpr int width = 800, height = 600, boardX = 24, boardY = 100, boardSize = 368;
 struct Ink { uint8_t r, g, b; };
+constexpr HistoryButton scoresArtwork{216,448,158,29}, scoresPrototype{618,76,158,24};
+constexpr HistoryButton scoresClose{448,450,184,30}, scoresRetry{160,450,184,30};
 constexpr Ink white{246, 249, 255}, muted{164, 184, 205}, dark{18, 32, 48};
 void rect(Surface& screen, int x, int y, int w, int h, Ink color) {
     for (int row = std::max(0, y); row < std::min(screen.h, y + h); ++row)
@@ -32,6 +35,23 @@ void label(Surface& screen, int x, int y, std::string_view text, Ink ink = white
 }
 bool hit(int x, int y, int left, int top, int w, int h) {
     return x >= left && y >= top && x < left + w && y < top + h;
+}
+void scoreTable(Surface& screen,const HighScores& scores,const std::string& error) {
+    rect(screen,128,94,544,404,{22,40,60});
+    label(screen,160,116,"HIGH SCORES",white,2);
+    label(screen,160,150,"CLASSIC / ALL VERSIONS AND ROUND LENGTHS",muted);
+    label(screen,160,174,"RANK");label(screen,210,174,"NAME");label(screen,400,174,"VERSION");label(screen,550,174,"SCORE");
+    const auto rows=scores.table();
+    for(size_t i=0;i<rows.size();++i) {
+        const int y=198+int(i)*19;
+        label(screen,160,y,std::to_string(i+1));label(screen,210,y,rows[i].name);label(screen,400,y,rows[i].variant==ClassicVariant::Master?"MASTER":"ORIGINAL");label(screen,550,y,std::to_string(rows[i].score));
+    }
+    if(rows.empty())label(screen,160,218,error.empty()?"No positive scores yet.":"Table unavailable.",muted);
+    if(!error.empty())label(screen,160,392,error.substr(0,80),{255,116,116});
+    label(screen,160,410,"Native ranking: one best per name; ten names across Classic.",muted);
+    label(screen,160,426,!error.empty()?"Scores unavailable until a successful retry.":scores.persistent()?"Saved in your launcher profile.":"Session only; no save directory configured.",muted);
+    rect(screen,scoresClose.x,scoresClose.y,scoresClose.w,scoresClose.h,{48,88,120});label(screen,460,460,"CLOSE (ENTER / H)");
+    if(!error.empty()){rect(screen,scoresRetry.x,scoresRetry.y,scoresRetry.w,scoresRetry.h,{48,88,120});label(screen,172,460,"RETRY (R)");}
 }
 void glyph(Surface& screen, int x, int y, const std::string& face,
            const image::Image& letters, const image::Image& qu, int cellSize,unsigned turns) {
@@ -128,6 +148,8 @@ void draw(Surface& screen, const ClassicRound& round, uint64_t now,
         const auto b=artwork.active()?allWordsArtwork:allWordsPrototype;
         rect(screen,b.x,b.y,b.w,b.h,{48,88,120});
         label(screen,b.x+8,b.y+8,results.allWords()?"COUNTED WORDS (A)":"ALL WORDS (A)");
+        const auto h=artwork.active()?scoresArtwork:scoresPrototype;
+        rect(screen,h.x,h.y,h.w,h.h,{48,88,120});label(screen,h.x+8,h.y+8,"HIGH SCORES (H)");
     }
     const auto detail=message.empty() && results.allWords()?"Blue: missed words / potential points. Final score unchanged.":message;
     label(screen, 24, 535, reviewing ? "Choose one of the four dictionary options." : detail.empty() ? (ready ? "Press Enter when ready. The timer starts with the board." : playing ? "Enter: submit   Backspace: undo   Right click: clear" : results.words().empty()?"No words counted. Enter: replay   F2: new board":"Click a word or use Up/Down to review its path and points.") : detail, muted);
@@ -181,6 +203,9 @@ Error ClassicGame::run() {
     ClassicTransition transition;
     UserDictionary user;
     if (auto err = user.load(target_.savePath, target_.path)) return err;
+    HighScores highScores;
+    auto scoreError=highScores.load(target_.savePath,target_.path);
+    bool scoreAttempted=false,scoreOpen=false;
     ClassicRound round(dictionary, &user); RoundResults results; Board board; uint32_t seed = 0x1997;
     if (auto err = Board::generate(dice, seed, board)) return err;
     if (auto err = round.board(std::move(board), options.duration)) return err;
@@ -206,10 +231,14 @@ Error ClassicGame::run() {
         clear();message.clear();
         if(results.allWords())scroll=wordHistoryView(results.words().size(),artwork.active()?ClassicArtwork::visibleWords:14,0).maximum;
     };
+    auto saveScore=[&]() {
+        scoreAttempted=true;
+        if(!scoreError)scoreError=highScores.record(options.variant,options.duration,results.score(),player);
+    };
     auto updateInput = [&] { input.clear(); for (size_t i : selected) input += round.board().faces()[i]; };
     auto startOrFinish = [&]() -> Error {
         if (round.phase() == RoundPhase::Results && !resultsVisible) return Error::success();
-        resultsVisible = false; results.clear(); clear(); message.clear();
+        resultsVisible = false; results.clear(); scoreAttempted=false; clear(); message.clear();
         if (round.phase() == RoundPhase::Playing) {
             round.finish(); sound.stopShake();
             if (options.animations) transition.begin(Transition::Closing,sys_.getMillis());
@@ -225,7 +254,7 @@ Error ClassicGame::run() {
         if (round.phase() == RoundPhase::Playing) return Error::success();
         if (auto err = Board::generate(dice, ++seed, board)) return err;
         if (auto err = round.board(std::move(board), options.duration)) return err;
-        resultsVisible = false; results.clear(); clear(); message.clear(); return Error::success();
+        resultsVisible = false; results.clear(); scoreAttempted=false; clear(); message.clear(); return Error::success();
     };
     auto reviewWord=[&](size_t index) {
         if(!results.ready() || index>=results.words().size())return;
@@ -273,22 +302,33 @@ Error ClassicGame::run() {
     if (fromMenu_) { if (auto err = startOrFinish()) return err; }
     while (running) {
         if (auto err = advance()) return err;
-        Event event;
+        Event event;bool scoreDismissed=false;
         while (sys_.pollEvent(event)) {
             if (auto err = advance()) return err;
             if (event.type == EventType::Quit || event.type == EventType::ReturnToLauncher ||
-                (event.type == EventType::KeyDown && event.key == key::Escape && !event.repeat && !fromMenu_)) {
+                (event.type == EventType::KeyDown && event.key == key::Escape && !event.repeat && !fromMenu_ && !scoreOpen && !scoreDismissed)) {
                 running = false; break;
             }
             // Escape is inactive in the original game. Provide an explicit
             // native menu action without changing that observed key behavior.
-            if (fromMenu_ && ((event.type == EventType::KeyDown && !event.repeat && event.key == key::F1+2) ||
+            if (!scoreOpen && !scoreDismissed && fromMenu_ && ((event.type == EventType::KeyDown && !event.repeat && event.key == key::F1+2) ||
                 (transition.type() == Transition::None && event.type == EventType::MouseDown && event.button == MouseButton::Left &&
                  hit(event.mouseX,event.mouseY,artwork.active()?432:610,557,artwork.active()?172:166,29)))) {
                 returnToMenu_ = true; running = false; break;
             }
             if(event.type==EventType::MouseMove || event.type==EventType::MouseDown || event.type==EventType::MouseUp) {
                 pointerX=event.mouseX;pointerY=event.mouseY;
+            }
+            if(scoreDismissed)continue;
+            if(scoreOpen) {
+                const bool key=event.type==EventType::KeyDown && !event.repeat;
+                const bool click=event.type==EventType::MouseDown && event.button==MouseButton::Left;
+                if((key && (event.key==key::Return || event.key==key::KpEnter || event.key==key::Escape || event.key=='h')) ||
+                   (click && scoresClose.contains(event.mouseX,event.mouseY))) {scoreOpen=false;scoreDismissed=true;}
+                else if(scoreError && ((key && event.key=='r') || (click && scoresRetry.contains(event.mouseX,event.mouseY)))) {
+                    scoreError=highScores.load(target_.savePath,target_.path);saveScore();
+                }
+                continue;
             }
             if (transition.type() != Transition::None) continue;
             if (round.candidate()) {
@@ -306,6 +346,11 @@ Error ClassicGame::run() {
             }
             if(round.phase()==RoundPhase::Results && !results.ready()) {
                 if(auto error=results.build(round))return error;
+            }
+            if(resultsVisible && results.ready() && ((event.type==EventType::KeyDown && !event.repeat && event.key=='h') ||
+               (event.type==EventType::MouseDown && event.button==MouseButton::Left &&
+                (artwork.active()?scoresArtwork:scoresPrototype).contains(event.mouseX,event.mouseY)))) {
+                scoreOpen=true;dragging=false;continue;
             }
             if(resultsVisible && results.ready() && ((event.type==EventType::KeyDown && !event.repeat && event.key=='a') ||
                (event.type==EventType::MouseDown && event.button==MouseButton::Left &&
@@ -364,13 +409,15 @@ Error ClassicGame::run() {
         if (!running) break;
         if(transition.type()==Transition::None && round.phase()==RoundPhase::Results && !round.candidate() && !results.ready())
             if(auto error=results.build(round))return error;
+        if(results.ready() && !scoreAttempted)saveScore();
         if (transition.type() != Transition::None) {
             const auto& frame = clip.frames[transition.frame(sys_.getMillis())];
             for (int y=0;y<height;++y) for (int x=0;x<width;++x)
                 std::copy_n(frame.pixel(x*frame.w/width,y*frame.h/height),4,screen.row(y)+x*4);
             rect(screen,0,height-40,width,40,dark);
             label(screen,24,height-25,transition.type() == Transition::Opening ? "Rolling dice and opening the lid..." : "Closing the lid...");
-        } else draw(screen, round, sys_.getMillis(), letters, qu, palette, input, selected, message, scroll, fromMenu_,artwork,options.duration,seed,options.autoOrient,player,results);
+        } else draw(screen, round, sys_.getMillis(), letters, qu, palette, input, selected, results.ready() && scoreError && message.empty()?"High scores unavailable. H: details / retry.":message, scroll, fromMenu_,artwork,options.duration,seed,options.autoOrient,player,results);
+        if(scoreOpen)scoreTable(screen,highScores,scoreError.message);
         sys_.updateScreen(screen);
         if (transition.type() == Transition::None && round.phase() == RoundPhase::Results) resultsVisible = true;
         promptVisible = transition.type() == Transition::None && round.candidate() != nullptr;

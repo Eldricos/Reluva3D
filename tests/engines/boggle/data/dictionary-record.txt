@@ -3,7 +3,7 @@
 dictionary.red: 79707c2ff423f1b9
 dictionary.prompt: 677636c8d5c498b2
 dictionary.no: e0e713f5a819b976
-dictionary.yes_all: 79d58bad75917b97
-dictionary.reloaded: d72d0751b9f70065
+dictionary.yes_all: f18ef702a9551e15
+dictionary.reloaded: f2cf4689e0972077
 dictionary.save_error: 1842563ccfba5702
-dictionary.no_all: 233c75676dc2e57a
+dictionary.no_all: 90846d688dbc19e0

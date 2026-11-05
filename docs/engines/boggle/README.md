@@ -25,7 +25,8 @@ a new board between rounds. After dictionary review, click a counted word or
 use Up/Down to inspect its numbered cube path and points. Right-click restores
 the final summary. All Words / A reveals available and missed words with
 potential points, while retaining the final score. See [completed-round review](results.md)
-and [all-word discovery](all-words.md). With the menu disabled, Escape returns directly
+and [all-word discovery](all-words.md). High Scores / H opens the shared Classic
+[personal-best table](highscores.md) after results are finalized. With the menu disabled, Escape returns directly
 to the launcher. The initial
 board uses a fixed native seed for reproducible checks; its shuffle differs
 from the original game.

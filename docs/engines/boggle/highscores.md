@@ -1,0 +1,80 @@
+# Classic high scores
+
+After the round and dictionary review finish, **High Scores / H** opens the
+native Classic table. Enter, Escape, H or Close dismisses it; closing consumes
+the remaining events in that input batch so it cannot also start a replay.
+The table lists rank, player name, Original/Master version and score. Quit and
+Return to Launcher still work while it is open.
+
+All Classic versions and round lengths share one table, including manually
+ended and untimed games. The owner verified the shared Classic grouping and
+manual-end qualification in the original VM. Other game modes remain unsupported.
+Only the final score after all dictionary decisions can be recorded. Declined
+words, unfinished input and missed-word discovery never contribute points.
+Recording happens once when finalized results are published; browsing results
+or opening the table does not submit another score.
+
+This pass uses a native **personal-best policy**: the ten highest positive
+scores from distinct, case-sensitive player names, one best per name across
+Classic. A strictly higher result replaces that name's entry, including its
+version/duration metadata. Equal scores preserve their previous order; an equal
+or lower result does not write. Zero-score rounds do not create a file. Renaming
+a player does not rewrite historical names. The original's repeated-name,
+tie, zero-score and replay policies have not yet been corroborated; this is not
+a claim of matching them. Original dialog 16007 has ten name/score/skill rows,
+which establishes its capacity and fields, not its ranking algorithm.
+
+## Storage and recovery
+
+The launcher target's separate save directory contains `HighScores.txt`.
+It is an original native format, independent of original game score files:
+
+```text
+RELUVA BOGGLE HIGHSCORES 1
+original\t180\t12\tExample Player
+```
+
+The example uses literal `\t` notation for tab separators. Rows contain
+version, configured seconds (zero means untimed), positive score and the native
+printable-ASCII player name. Loading accepts LF/CRLF, at most ten unique names
+and 4 KiB. Invalid numbers, modes, durations, names and duplicate names reject
+the whole file. No retail data or original score-file interpretation is involved.
+
+Writes use `.tmp` and `.bak` siblings, check stream completion, replace through
+a backup and restore that backup on a failed replacement where possible. A
+missing main file can recover from `.bak`; an unfinished `.tmp` is not loaded.
+A corrupt main file is not silently overwritten. File symlinks and non-files
+are rejected; the canonical save directory must be outside the original game
+folder. This is local single-process persistence; concurrent writers and
+power-loss durability are not guaranteed.
+
+A load/save error leaves gameplay and the final score available. The results
+hint directs the player to H for the error and **Retry / R**. Retry reloads the
+table and attempts the same finalized result; it does not bypass validation or
+destroy a corrupt file. With no configured save directory, scores last only for
+the current Classic game session. Tables are per launcher target, not shared
+across separately imported copies.
+
+## Evidence and validation
+
+Read-only inspection of the supplied English DLL found standard dialog 16007
+with name controls 15400–15409, score controls 15410–15419 and skill controls
+15420–15429. Game Over dialog 16008 offers View Highscores. Executable/DLL identity
+and the Game Over caller evidence are recorded in [results.md](results.md).
+The owner confirmed in the VM that all Classic versions/durations share the
+same board and manually ended games qualify. The native implementation was
+written independently; no original routine or score data was copied.
+
+`boggle.unit.highscores` tests shared grouping, improvements, ties, top-ten
+limits, restart, session-only storage, strict parsing, interrupted writes,
+backup recovery, source-folder/symlink protection and failed-write preservation.
+Scripted Original/Master rounds with both renderers check adjudication before
+recording, untimed/manual endings, modal controls, unchanged discovery scores,
+retry after a corrupt file and global exit cleanup.
+
+All 29 Boggle checks pass with the supplied install. The full normal suite
+passes 39 checks and skips 23 optional data checks. High-score and results tests
+also pass ASan/UBSan with LeakSanitizer disabled for the execution tracer.
+SDL dummy runs render both versions using installed artwork; captures remain
+outside Git. All 737 supplied installed files retain their manifest hashes.
+Windows owner testing of this stage remains pending. No re-import is required.
