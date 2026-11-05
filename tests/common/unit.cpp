@@ -6,12 +6,16 @@
 #include "common/audio/decode.h"
 #include "common/audio/mixer.h"
 #include "common/audio/mp3.h"
+#include "common/audio/stream.h"
 #include "common/audio/wav.h"
+#include "tests/common/data/smacker_videos.h"
 #include "tests/common/data/tone440_mp3.h"
 #include "tests/common/data/x86_testdll.h"
 #include "common/archive.h"
 #include "common/config.h"
+#include "common/dcl.h"
 #include "common/detection.h"
+#include "common/draw.h"
 #include "common/font.h"
 #include "common/fs.h"
 #include "common/gfx3d.h"
@@ -19,8 +23,13 @@
 #include "common/md4.h"
 #include "common/md5.h"
 #include "common/net.h"
+#include "common/palette.h"
+#include "common/settings.h"
+#include "common/stream.h"
 #include "common/text.h"
+#include "common/video/smacker.h"
 #include "common/x86/cpu.h"
+#include "common/x86/disasm.h"
 #include "common/x86/win32.h"
 #include "common/zip.h"
 #include "common/inflate.h"
@@ -91,6 +100,32 @@ static void testConfig(const std::filesystem::path& tmp) {
     CHECK(c.get("foo", "path") == "/games/foo bar");
     CHECK(c.targets().size() == 1);
     CHECK(c.get("foo", "missing", "dflt") == "dflt");
+
+    // Settings at three levels: every game's, an engine's games', a game's
+    // own; the most specific wins, and an engine's section is no game.
+    c.set("foo", "engine", "eng");
+    c.set("bar", "engine", "other");
+    c.set(Config::kGlobalSection, settings::kVsync, "0");
+    c.set(Config::kGlobalSection, settings::kSmooth, "1");
+    c.set(Config::engineSection("eng"), settings::kSmooth, "0");
+    c.set(Config::engineSection("eng"), settings::kWindowScale, "auto");
+    c.set("foo", settings::kWindowScale, "3");
+    CHECK(c.targets().size() == 2 && Config::isEngineSection(Config::engineSection("eng")));
+    auto foo = c.settingsFor("foo"), bar = c.settingsFor("bar");
+    CHECK(foo[settings::kVsync] == "0" && foo[settings::kSmooth] == "0" && foo[settings::kWindowScale] == "3");
+    CHECK(bar[settings::kSmooth] == "1" && bar.count(settings::kWindowScale) == 0);
+    c.unset("foo", settings::kWindowScale);
+    CHECK(!c.has("foo", settings::kWindowScale) && c.settingsFor("foo")[settings::kWindowScale] == "auto");
+
+    // As the frontend and engines read them: unset is Reluva's default.
+    CHECK(settings::display({}) == DisplayOptions{});
+    const DisplayOptions d = settings::display(c.settingsFor("foo"));
+    CHECK(!d.fullscreen && d.windowScale == DisplayOptions::kAutoScale && !d.integerScaling && !d.smooth && !d.vsync);
+    CHECK(settings::display({{settings::kWindowScale, "2"}, {settings::kIntegerScaling, "1"}}).windowScale == 2);
+    CHECK(settings::volume({}, settings::kMasterVolume) == audio::kMaxVolume);
+    CHECK(settings::volume({{settings::kMasterVolume, "200"}}, settings::kMasterVolume) == audio::kMaxBoostVolume);
+    CHECK(settings::volume({{settings::kMasterVolume, "50"}}, settings::kMasterVolume) == audio::kMaxVolume / 2);
+    CHECK(settings::volume({{settings::kMasterVolume, "x"}}, settings::kMasterVolume, 30) == audio::kMaxVolume * 30 / 100);
     std::filesystem::remove_all(tmp);
 }
 
@@ -213,7 +248,7 @@ static void testMixer() {
     m.mix(out.data(), 2);
     CHECK(!m.isPlaying(l) && out[0] == 0);
     // Nothing to play.
-    CHECK(m.play(nullptr, SoundType::Effects) == kNoSound && m.play(make(22050, 1, {}), SoundType::Effects) == kNoSound);
+    CHECK(m.play(std::shared_ptr<const Sound>(), SoundType::Effects) == kNoSound && m.play(make(22050, 1, {}), SoundType::Effects) == kNoSound);
 }
 
 // Raw deflate streams made with zlib (window bits -15): a stored block, one
@@ -439,6 +474,18 @@ static void testImage() {
     image::blit(s, img, 1, 0);
     image::blit(s, img, 5, 5); // clipped away
     CHECK(s.row(0)[0] == 0 && s.row(0)[4] == 128 && s.row(0)[7] == 255);
+
+    // PNG written (stored, uncompressed) and read back the same, alpha kept;
+    // more than one deflate block.
+    image::Image png;
+    png.w = 200;
+    png.h = 90;
+    for (int y = 0; y < png.h; ++y)
+        for (int x = 0; x < png.w; ++x)
+            png.rgba.insert(png.rgba.end(), {uint8_t(x), uint8_t(y), uint8_t(x ^ y), uint8_t(x * 3 + y)});
+    image::Image pngBack;
+    CHECK(!image::decode(image::encodePng(png), pngBack) && pngBack.w == 200 && pngBack.h == 90 &&
+          pngBack.rgba == png.rgba);
 }
 
 static void testGfxMath() {
@@ -558,6 +605,281 @@ static void testX86Dll() {
     }
 }
 
+static void testStreams(const std::filesystem::path& tmp) {
+    MemoryReadStream s(std::vector<uint8_t>{0x34, 0x12, 0x78, 0x56, 0x34, 0x12, 'h', 'i', 0, 9});
+    CHECK(s.readUint16LE() == 0x1234);
+    CHECK(s.readUint32LE() == 0x12345678u);
+    CHECK(s.readCString() == "hi");
+    CHECK(s.readByte() == 9);
+    CHECK(!s.eos() && !s.err());
+    s.readByte();
+    CHECK(s.eos() && s.err());
+    CHECK(s.seek(2) && s.readAll().size() == 8);
+    // A part of a shared buffer.
+    auto buffer = std::make_shared<const std::vector<uint8_t>>(std::vector<uint8_t>{1, 2, 3, 4, 5});
+    MemoryReadStream part(buffer, 3, 10);
+    CHECK(part.size() == 2 && part.readByte() == 4 && part.seek(-1, SEEK_END) && part.readByte() == 5);
+
+    MemoryWriteStream w;
+    w.writeUint16LE(0x0102);
+    w.writeUint32LE(0x03040506);
+    w.writeFixedString("abc", 5);
+    w.writeFixedString("toolong", 2);
+    CHECK(w.size() == 13 && w.data()[0] == 2 && w.data()[2] == 6 && w.data()[6] == 'a' && w.data()[9] == 0 &&
+          w.data()[11] == 't' && w.data()[12] == 'o');
+    std::filesystem::create_directories(tmp);
+    std::vector<uint8_t> back;
+    CHECK(writeFile(tmp / "out.bin", w.data()) && readFile(tmp / "out.bin", back) && back == w.data());
+    CHECK(!readFile(tmp / "missing.bin", back));
+}
+
+static void testTextHelpers() {
+    CHECK(text::toUpper("Cc.All") == "CC.ALL" && text::equalsIgnoreCase("Cc.All", "CC.ALL") &&
+          !text::equalsIgnoreCase("CC.AL", "CC.ALL"));
+    CHECK((text::split("a,b,,c", ',') == std::vector<std::string>{"a", "b", "", "c"}));
+    CHECK(text::trim("  x y \t\n") == "x y" && text::trim("   ").empty());
+    CHECK(text::format("%d-%s-%04x", 7, "z", 0xbeef) == "7-z-beef");
+    CHECK(fs::normalizeDosPath("ds9\\art\\b\\r\\brdg0000.cmp") == "DS9/ART/B/R/BRDG0000.CMP");
+    CHECK(fs::normalizeDosPath("/SOUND//tick.raw/") == "SOUND/TICK.RAW");
+    CHECK(fs::normalizeDosPath("DEEP.EXE;1") == "DEEP.EXE");
+}
+
+static void testDcl() {
+    // The example from Mark Adler's blast.c: "AIAIAIAIAIAIA".
+    const uint8_t packed[] = {0x00, 0x04, 0x82, 0x24, 0x25, 0x8f, 0x80, 0x7f};
+    std::vector<uint8_t> out;
+    CHECK(decompressDCL(packed, sizeof(packed), out));
+    CHECK(std::string(out.begin(), out.end()) == "AIAIAIAIAIAIA");
+    const uint8_t bad[] = {0x02, 0x09, 0xff};
+    CHECK(!decompressDCL(bad, sizeof(bad), out));
+}
+
+static void testDrawAndPalette() {
+    Surface dst, src;
+    draw::create(dst, 4, 4);
+    draw::create(src, 3, 3, 7);
+    *draw::at(src, 1, 1) = 0;
+    draw::blit(dst, src, 2, 2, 0);
+    CHECK(*draw::at(dst, 2, 2) == 7 && *draw::at(dst, 3, 3) == 0 && *draw::at(dst, 1, 1) == 0);
+    draw::blit(dst, src, -2, -2);
+    CHECK(*draw::at(dst, 0, 0) == 7 && *draw::at(dst, 1, 0) == 0);
+    draw::fill(dst, 1);
+    draw::frameRect(dst, 0, 0, 4, 4, 9);
+    CHECK(*draw::at(dst, 0, 0) == 9 && *draw::at(dst, 3, 2) == 9 && *draw::at(dst, 1, 1) == 1);
+    draw::fillRect(dst, 2, 2, 10, 10, 5);
+    CHECK(*draw::at(dst, 3, 3) == 5 && *draw::at(dst, 1, 3) == 9 && !draw::empty(dst) && draw::empty(Surface()));
+
+    uint8_t vga[768] = {};
+    vga[3] = 63;
+    vga[4] = 32;
+    Palette pal;
+    pal.loadVga(vga);
+    CHECK(pal.data()[3] == 255 && pal.data()[4] == 130 && pal.findBestColor(250, 0, 0) == 1);
+    CHECK(pal.colors()[1].r == 255 && pal.colors()[1].g == 130 && pal.colors()[0].r == 0);
+}
+
+static void testAudioStreams() {
+    using namespace reluva::audio;
+    int16_t buf[5];
+    RawStream u8(std::vector<uint8_t>{0x80, 0xff}, RawStream::Format::U8, 22050);
+    CHECK(u8.read(buf, 4) == 2 && buf[0] == 0 && buf[1] == 127 << 8 && u8.ended());
+    RawStream s16(std::vector<uint8_t>{0x00, 0x80}, RawStream::Format::S16LE, 22050);
+    CHECK(s16.read(buf, 4) == 1 && buf[0] == -32768);
+    RawStream be(std::vector<uint8_t>{0x12, 0x34}, RawStream::Format::S16BE, 22050);
+    CHECK(be.read(buf, 4) == 1 && buf[0] == 0x1234);
+    RawStream s8(std::vector<uint8_t>{0xff}, RawStream::Format::S8, 22050, false, 3);
+    CHECK(s8.read(buf, 5) == 3 && buf[2] == -256 && s8.ended());
+    RawStream forever(std::vector<uint8_t>{0x90}, RawStream::Format::U8, 22050, false, 0);
+    CHECK(forever.read(buf, 5) == 5 && !forever.ended());
+
+    QueuingStream q(22050, false);
+    q.queue({1, 2, 3});
+    CHECK(q.queued() == 3 && q.read(buf, 5) == 5); // padded with silence until finished
+    CHECK(buf[2] == 3 && buf[3] == 0);
+    q.queue({4});
+    q.finish();
+    CHECK(!q.ended() && q.read(buf, 5) == 1 && buf[0] == 4 && q.ended());
+    RawStream whole(std::vector<uint8_t>(5000, 0x80), RawStream::Format::U8, 22050);
+    CHECK(readAll(whole).size() == 5000);
+}
+
+static void testMixerStreams() {
+    using namespace reluva::audio;
+    std::vector<int16_t> out(2 * 64);
+    Mixer m(22050);
+    // A stream plays to its end, then frees its channel.
+    const SoundHandle a = m.play(std::make_shared<RawStream>(std::vector<uint8_t>(100, 0xc0), RawStream::Format::U8,
+                                                              22050),
+                                 SoundType::Effects);
+    CHECK(a != kNoSound && m.isPlaying(a));
+    m.mix(out.data(), 64);
+    CHECK(out[0] == 64 << 8 && out[0] == out[1] && m.position(a) == 64.0);
+    m.mix(out.data(), 64);
+    CHECK(!m.isPlaying(a) && out[2 * 63] == 0);
+    // Type and master volumes, and twice as loud.
+    m.setTypeVolume(SoundType::Speech, kMaxVolume / 2);
+    m.play(std::make_shared<RawStream>(std::vector<uint8_t>(100, 0xc0), RawStream::Format::U8, 22050),
+           SoundType::Speech);
+    m.mix(out.data(), 8);
+    CHECK(out[0] == (64 << 8) / 2);
+    m.stopAll();
+    m.setMasterVolume(kMaxBoostVolume);
+    m.play(std::make_shared<RawStream>(std::vector<uint8_t>(100, 0xa0), RawStream::Format::U8, 22050),
+           SoundType::Music);
+    m.mix(out.data(), 8);
+    CHECK(out[0] == (32 << 8) * 2 && m.masterVolume() == kMaxBoostVolume);
+    m.stopAll();
+    m.setMasterVolume(kMaxVolume);
+    m.setTypeVolume(SoundType::Effects, kMaxBoostVolume + 100);
+    CHECK(m.typeVolume(SoundType::Effects) == kMaxBoostVolume);
+    // A decoded sound follows the master volume too.
+    auto sound = std::make_shared<Sound>();
+    sound->rate = 22050, sound->channels = 1, sound->samples = {1000, 1000};
+    m.setMasterVolume(kMaxVolume / 2);
+    m.play(std::shared_ptr<const Sound>(sound), SoundType::Music);
+    m.mix(out.data(), 1);
+    CHECK(out[0] == 500);
+    m.stopAll();
+    m.setMasterVolume(kMaxVolume);
+    // A queue fed while it plays, kept by the engine too: half the rate,
+    // so each sample is heard twice (interpolated).
+    auto q = std::make_shared<QueuingStream>(11025, false);
+    q->queue({0, 1000, 2000});
+    const SoundHandle h = m.play(q, SoundType::Music);
+    m.mix(out.data(), 4);
+    CHECK(out[0] == 0 && out[2] == 500 && out[4] == 1000 && out[6] == 1500);
+    q->finish();
+    m.mix(out.data(), 8);
+    CHECK(!m.isPlaying(h));
+}
+
+static void checkSmacker(const uint8_t* smk, size_t smkSize, const uint8_t* rgb, const uint8_t* pcm, size_t pcmSize,
+                         bool stereo) {
+    smacker::Decoder decoder;
+    CHECK(decoder.load(std::make_unique<MemoryReadStream>(std::vector<uint8_t>(smk, smk + smkSize))));
+    CHECK(decoder.width() == 32 && decoder.height() == 16 && decoder.frameCount() == 4);
+    CHECK(decoder.frameMicros() == 100000u && decoder.hasAudio() && decoder.audioRate() == 22050);
+    CHECK(decoder.audioStereo() == stereo);
+    const size_t frameBytes = 32 * 16 * 3;
+    int mismatched = 0;
+    std::vector<int16_t> sound;
+    for (int f = 0; f < 4; f++) {
+        CHECK(decoder.decodeNextFrame());
+        const Surface& s = decoder.surface();
+        const uint8_t* pal = decoder.palette();
+        for (int i = 0; i < 32 * 16; i++) {
+            const uint8_t* c = pal + s.pixels[size_t(i)] * 3;
+            const uint8_t* e = rgb + size_t(f) * frameBytes + size_t(i) * 3;
+            if (c[0] != e[0] || c[1] != e[1] || c[2] != e[2])
+                mismatched++;
+        }
+        std::vector<int16_t> a = decoder.takeAudio();
+        sound.insert(sound.end(), a.begin(), a.end());
+    }
+    CHECK(!decoder.decodeNextFrame());
+    CHECK(mismatched == 0);
+    CHECK(sound.size() == pcmSize / 2);
+    int soundMismatched = 0;
+    for (size_t i = 0; i < sound.size() && i * 2 + 1 < pcmSize; i++)
+        if (sound[i] != int16_t(pcm[i * 2] | (pcm[i * 2 + 1] << 8)))
+            soundMismatched++;
+    CHECK(soundMismatched == 0);
+}
+
+static void testSmacker() {
+    // Compared with FFmpeg's decoding of the same files (smacker_videos.h).
+    checkSmacker(kSmackerTest2, sizeof kSmackerTest2, kSmackerTest2Rgb, kSmackerTest2Pcm, sizeof kSmackerTest2Pcm,
+                 false);
+    checkSmacker(kSmackerTest4, sizeof kSmackerTest4, kSmackerTest4Rgb, kSmackerTest4Pcm, sizeof kSmackerTest4Pcm,
+                 true);
+    smacker::Decoder bad;
+    CHECK(!bad.load(std::make_unique<MemoryReadStream>(std::vector<uint8_t>(200, 0x55))));
+}
+
+static void testX86Disassembler() {
+    // Hand-checked against the Intel manuals' opcode maps; the text as
+    // capstone writes it. Each at 0x10000.
+    struct Case {
+        std::vector<uint8_t> bytes;
+        const char* text;
+    };
+    const Case cases[] = {
+        {{0x55}, "push ebp"},
+        {{0x89, 0xe5}, "mov ebp, esp"},
+        {{0x83, 0xec, 0x10}, "sub esp, 0x10"},
+        {{0x8b, 0x45, 0x08}, "mov eax, dword ptr [ebp + 8]"},
+        {{0x89, 0x45, 0xf8}, "mov dword ptr [ebp - 8], eax"},
+        {{0xe8, 0x00, 0x01, 0x00, 0x00}, "call 0x10105"},
+        {{0x74, 0x05}, "je 0x10007"},
+        {{0x0f, 0x85, 0x10, 0x00, 0x00, 0x00}, "jne 0x10016"},
+        {{0xeb, 0xfe}, "jmp 0x10000"},
+        {{0x8d, 0x04, 0x8d, 0x10, 0x00, 0x00, 0x00}, "lea eax, [ecx*4 + 0x10]"},
+        {{0x8d, 0x44, 0x24, 0x04}, "lea eax, [esp + 4]"},
+        {{0x8b, 0x04, 0x85, 0x00, 0x00, 0x05, 0x00}, "mov eax, dword ptr [eax*4 + 0x50000]"},
+        {{0x8b, 0x4c, 0x9e, 0xfc}, "mov ecx, dword ptr [esi + ebx*4 - 4]"},
+        {{0x0f, 0xb6, 0xc0}, "movzx eax, al"},
+        {{0x0f, 0xbf, 0x46, 0x02}, "movsx eax, word ptr [esi + 2]"},
+        {{0xd9, 0x45, 0xfc}, "fld dword ptr [ebp - 4]"},
+        {{0xdd, 0x1d, 0x00, 0x00, 0x05, 0x00}, "fstp qword ptr [0x50000]"},
+        {{0xdb, 0x2d, 0x00, 0x00, 0x05, 0x00}, "fld xword ptr [0x50000]"},
+        {{0xde, 0xc9}, "fmulp st(1), st(0)"},
+        {{0xd8, 0xc1}, "fadd st(0), st(1)"},
+        {{0xdf, 0xe0}, "fnstsw ax"},
+        {{0xd9, 0xe8}, "fld1"},
+        {{0xd9, 0xc9}, "fxch st(1)"},
+        {{0xf3, 0xa5}, "rep movsd dword ptr es:[edi], dword ptr [esi]"},
+        {{0xf2, 0xae}, "repne scasb al, byte ptr es:[edi]"},
+        {{0xaa}, "stosb byte ptr es:[edi], al"},
+        {{0xc3}, "ret"},
+        {{0xc2, 0x08, 0x00}, "ret 8"},
+        {{0x6a, 0xff}, "push -1"},
+        {{0x68, 0x00, 0x00, 0x05, 0x00}, "push 0x50000"},
+        {{0x83, 0xe4, 0xf0}, "and esp, 0xfffffff0"},
+        {{0x83, 0xc4, 0xf8}, "add esp, -8"},
+        {{0xc7, 0x05, 0x10, 0x00, 0x05, 0x00, 0x01, 0x00, 0x00, 0x00}, "mov dword ptr [0x50010], 1"},
+        {{0x66, 0x89, 0x03}, "mov word ptr [ebx], ax"},
+        {{0x66, 0xc7, 0x45, 0xfe, 0x34, 0x12}, "mov word ptr [ebp - 2], 0x1234"},
+        {{0xa1, 0x00, 0x00, 0x05, 0x00}, "mov eax, dword ptr [0x50000]"},
+        {{0x64, 0x8b, 0x00}, "mov eax, dword ptr fs:[eax]"},
+        {{0xff, 0x15, 0x00, 0x10, 0x05, 0x00}, "call dword ptr [0x51000]"},
+        {{0xff, 0xe0}, "jmp eax"},
+        {{0x0f, 0xaf, 0xc1}, "imul eax, ecx"},
+        {{0x6b, 0xc0, 0x0c}, "imul eax, eax, 0xc"},
+        {{0xc1, 0xe0, 0x04}, "shl eax, 4"},
+        {{0xd1, 0xf8}, "sar eax, 1"},
+        {{0x0f, 0xa4, 0xc2, 0x05}, "shld edx, eax, 5"},
+        {{0x0f, 0xbc, 0xc8}, "bsf ecx, eax"},
+        {{0x0f, 0x94, 0xc0}, "sete al"},
+        {{0x0f, 0x44, 0xc1}, "cmove eax, ecx"},
+        {{0x0f, 0xba, 0xe0, 0x03}, "bt eax, 3"},
+        {{0xf0, 0x0f, 0xc1, 0x01}, "lock xadd dword ptr [ecx], eax"},
+        {{0x3c, 0x20}, "cmp al, 0x20"},
+        {{0xf7, 0xd8}, "neg eax"},
+        {{0x99}, "cdq"},
+        {{0x66, 0x98}, "cbw"},
+        {{0x9b}, "wait"},
+    };
+    for (const Case& c : cases) {
+        const x86::Instruction i = x86::disassemble(c.bytes.data(), c.bytes.size(), 0x10000);
+        const std::string text = i.operands.empty() ? i.mnemonic : i.mnemonic + " " + i.operands;
+        if (!i.valid || i.size != int(c.bytes.size()) || text != c.text) {
+            std::printf("  disassembled \"%s\" (%d bytes), expected \"%s\" (%zu)\n", text.c_str(), i.size, c.text,
+                        c.bytes.size());
+            CHECK(false);
+        }
+    }
+    // Direct jumps say where they go.
+    const uint8_t call[] = {0xe8, 0xfb, 0xff, 0xff, 0xff};
+    const x86::Instruction c = x86::disassemble(call, sizeof call, 0x10000);
+    CHECK(c.hasTarget && c.target == 0x10000 && !x86::disassemble(cases[0].bytes.data(), 1, 0).hasTarget);
+    // Not instructions: one byte, to show as data; cut short too.
+    const uint8_t bad[] = {0x0f, 0xff, 0x8f, 0xc8, 0xe8, 0x00};
+    const x86::Instruction b0 = x86::disassemble(bad, 2, 0), b1 = x86::disassemble(bad + 2, 2, 0),
+                           b2 = x86::disassemble(bad + 4, 2, 0);
+    CHECK(!b0.valid && b0.size == 1 && b0.mnemonic == "db" && b0.operands == "0xf");
+    CHECK(!b1.valid && b1.size == 1 && !b2.valid && b2.size == 1);
+}
+
 static const reluva::test::Suite hashesSuite("common.unit.hashes", {
     {"md5", [](const std::filesystem::path&) { testMd5(); }},
     {"md4", [](const std::filesystem::path&) { testMd4(); }},
@@ -567,27 +889,37 @@ static const reluva::test::Suite filesSuite("common.unit.files", {
     {"filesystem and detection", [](const std::filesystem::path& tmp) { testFsAndDetection(tmp / "fs"); }},
     {"config", [](const std::filesystem::path& tmp) { testConfig(tmp / "cfg"); }},
     {"search set", [](const std::filesystem::path& tmp) { testSearchSet(tmp / "search"); }},
+    {"streams", [](const std::filesystem::path& tmp) { testStreams(tmp / "streams"); }},
 });
 
 static const reluva::test::Suite archivesSuite("common.unit.archives", {
     {"zip", [](const std::filesystem::path& tmp) { testZip(tmp / "zip"); }},
     {"inflate and wise", [](const std::filesystem::path& tmp) { testInflateAndWise(tmp / "wise"); }},
+    {"dcl", [](const std::filesystem::path&) { testDcl(); }},
 });
 
 static const reluva::test::Suite textSuite("common.unit.text", {
     {"utf16", [](const std::filesystem::path&) { testUtf16(); }},
     {"font", [](const std::filesystem::path&) { testFont(); }},
+    {"strings", [](const std::filesystem::path&) { testTextHelpers(); }},
 });
 
 static const reluva::test::Suite audioSuite("common.unit.audio", {
     {"wav", [](const std::filesystem::path&) { testWav(); }},
     {"mp3", [](const std::filesystem::path&) { testMp3(); }},
     {"mixer", [](const std::filesystem::path&) { testMixer(); }},
+    {"streams", [](const std::filesystem::path&) { testAudioStreams(); }},
+    {"mixer streams", [](const std::filesystem::path&) { testMixerStreams(); }},
 });
 
 static const reluva::test::Suite imageSuite("common.unit.image", {
     {"image", [](const std::filesystem::path&) { testImage(); }},
     {"3d math", [](const std::filesystem::path&) { testGfxMath(); }},
+    {"8-bit drawing and palettes", [](const std::filesystem::path&) { testDrawAndPalette(); }},
+});
+
+static const reluva::test::Suite videoSuite("common.unit.video", {
+    {"smacker", [](const std::filesystem::path&) { testSmacker(); }},
 });
 
 static const reluva::test::Suite netSuite("common.unit.net", {
@@ -597,4 +929,5 @@ static const reluva::test::Suite netSuite("common.unit.net", {
 static const reluva::test::Suite x86Suite("common.unit.x86", {
     {"instructions", [](const std::filesystem::path&) { testX86Instructions(); }},
     {"test dll", [](const std::filesystem::path&) { testX86Dll(); }},
+    {"disassembler", [](const std::filesystem::path&) { testX86Disassembler(); }},
 });

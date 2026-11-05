@@ -94,6 +94,19 @@ private:
     // Every game's options, for the list (found once per game).
     std::map<std::string, std::vector<GameOption>> listOptions_;
     std::string listLabel(const std::string& name);
+
+    // Settings at three levels (common/settings.h): for every game, for an
+    // engine's games, and with each game. The Settings window edits the
+    // first two; the selected game's own are shown with its options.
+    bool settingsOpen_ = false;
+    std::string settingsEngine_; // the engine whose games' settings the window shows; "" for every game
+    void drawSettingsWindow();
+    // One setting kept in `section`: its value there, or the one above it
+    // (`engineId`'s, then every game's, then the default) when unset.
+    void drawSetting(const std::string& section, const std::string& engineId, const GameOption& option);
+    // `from`: where it comes from ("default", "every game's", "engine's").
+    std::string inheritedValue(const std::string& section, const std::string& engineId, const GameOption& option,
+                               std::string* from = nullptr) const;
 };
 
 } // namespace reluva

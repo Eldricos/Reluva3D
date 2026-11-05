@@ -42,6 +42,7 @@ public:
     void setMouseCursorVisible(bool visible) override;
     void setVideoMode(int width, int height, bool fullscreen) override;
     void setRelativeMouse(bool on) override;
+    void setDisplayOptions(const DisplayOptions& options) override;
     uint64_t getMillis() const override;
     void delayMillis(uint32_t ms) override;
     Error startAudio(AudioCallback callback) override;
@@ -55,6 +56,9 @@ private:
     static constexpr int kAudioRate = 44100;
     static void SDLCALL audioThunk(void* userdata, SDL_AudioStream* stream, int additional, int total);
     void release3D();
+    // The game's picture, width x height, shown as display_ says: scaled
+    // into the window (and the window sized, if asked).
+    void applyPresentation(int width, int height);
 
     SDL_Window* window_ = nullptr;
     SDL_Joystick* joystick_ = nullptr; // the first connected, whose events are passed on
@@ -69,6 +73,8 @@ private:
     uint32_t palette_[256] = {};          // RGBA32, byte order R,G,B,A
     std::vector<uint32_t> convertBuffer_; // CLUT8 -> RGBA32 staging
     bool quitRequested_ = false;
+    DisplayOptions display_;            // the game's; the launcher's are the defaults
+    int launcherW_ = 0, launcherH_ = 0; // the window's size before a game resized it
 
     SDL_AudioStream* audioStream_ = nullptr;
     AudioCallback audioCallback_;

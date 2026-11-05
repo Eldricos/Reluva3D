@@ -15,6 +15,7 @@ Each engine is a module that can run a family of games.
 | Engine | Games | State | Docs |
 |---|---|---|---|
 | `idtech3` | Star Trek: Voyager - Elite Force (1.0, 1.2, Expansion Pack) | Playable: single player, Holomatch (multiplayer, LAN and Internet), mods | [docs/engines/idtech3](docs/engines/idtech3/README.md) |
+| `stharbinger` | Star Trek: Deep Space Nine - Harbinger (DOS, two CDs) | Every part of the game runs; being checked against the original | [docs/engines/stharbinger](docs/engines/stharbinger/README.md) |
 | `newworlds` | Star Trek: New Worlds | Data viewer, first missions playable on their maps; off by default | [docs/engines/newworlds](docs/engines/newworlds/README.md) |
 | `testbed` | A test pattern, no game | For checking a system's graphics, sound and input | — |
 
@@ -154,6 +155,7 @@ per line:
 
 ```
 idtech3=enabled
+stharbinger=enabled
 newworlds=disabled
 ```
 
@@ -199,6 +201,31 @@ render check and troubleshooting.
 - **Start** (or a double-click) plays the selected game. Settings for the
   selected game, where an engine has them, are shown below the buttons.
 
+### Settings
+
+Settings are kept at three levels, and a game takes the most specific one
+set:
+
+- **Every game:** **Settings...**, with *Every game* chosen.
+- **An engine's games:** **Settings...**, with *All <engine> games* chosen.
+  An engine's own settings, where it has some, are here too.
+- **One game:** *This game's settings*, under the selected game's buttons.
+
+Each setting starts out unset: Reluva's default, or what's set at the
+level above (the list shows which). The settings every engine has:
+
+| Setting | Choices | Default |
+|---|---|---|
+| Start in | a window, full screen | a window |
+| Window size | as it is, 2x where it fits, 1x to 4x the game's picture | as it is |
+| Scaling | any size (letterboxed), whole multiples only | any size |
+| Pixels | sharp, smoothed | sharp |
+| Vertical sync | on, off | on |
+| Master volume | 0% to 200% | 100% |
+
+They're stored in `reluva.ini`: every game's in `[reluva]`, an engine's in
+`[engine:<engine>]`, a game's in its own section.
+
 In a game:
 
 - **Ctrl+F5** returns to the launcher.
@@ -227,7 +254,8 @@ Everything goes in SDL's preferences folder for Reluva:
 
 In it:
 
-- **`reluva.ini`:** the launcher's list of games, and their settings.
+- **`reluva.ini`:** the launcher's list of games, and the settings (for
+  every game, each engine's games, and each game).
 - **`games/<name>/`:** each game's own files: its settings, saved games,
   screenshots and downloads.
 - **`library/`:** games copied by *Import Game...*.
@@ -235,12 +263,13 @@ In it:
 ## Repository layout
 
 ```
-src/common/          platform-independent core: the System interface, events, surfaces, config,
-                     case-insensitive file lookup, detection, archives (folders, .zip/.pk3) and
-                     search sets, images, text and fonts, the 3D rendering interface (gfx3d.h),
-                     installers (Wise), and shared interpreters and decoders
-  audio/             sound decoders and the mixer: WAV (PCM, IMA ADPCM), MP3
-  video/             video decoders (Bink)
+src/common/          platform-independent core: the System interface, events, surfaces and 8-bit
+                     drawing, palettes, config, case-insensitive file lookup, byte streams,
+                     detection, archives (folders, .zip/.pk3) and search sets, PKWARE DCL, images,
+                     text and fonts, logging, the 3D rendering interface (gfx3d.h), installers
+                     (Wise), and shared interpreters and decoders
+  audio/             sound decoders, streams and the mixer: WAV (PCM, IMA ADPCM), MP3, raw PCM
+  video/             video decoders (Bink, Smacker)
   x86/               an x86 interpreter and Windows stand-ins, for games' native code
 src/backends/sdl3/   the only code that touches SDL: window, rendering (2D and 3D, on SDL's GPU
                      API), input, audio

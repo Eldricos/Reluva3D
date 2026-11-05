@@ -16,6 +16,22 @@
 
 namespace reluva {
 
+// How a game's picture is shown in the window. The defaults are Reluva's
+// own: the window kept as it is, the picture letterboxed into it at any
+// size with sharp pixels, waiting for the display's refresh. Set from the
+// display settings (settings.h) by the frontend before a game starts.
+struct DisplayOptions {
+    static constexpr int kAutoScale = -1;
+    bool fullscreen = false;     // start in full screen (Alt+Enter still switches)
+    int windowScale = 0;         // the window as a multiple of the game's size; 0: as it is;
+                                 // kAutoScale: 2 where it fits, else 1
+    bool integerScaling = false; // whole multiples only, with borders
+    bool smooth = false;         // smoothed (linear) instead of sharp pixels, when scaled
+    bool vsync = true;           // wait for the display's refresh
+
+    bool operator==(const DisplayOptions&) const = default;
+};
+
 // Everything an engine may ask of the platform. Engines must never include
 // SDL (or any other backend) headers; they go through this interface so the
 // backend can be swapped or extended (GPU rendering, consoles, web...).
@@ -59,6 +75,10 @@ public:
     // width x height (when it fits on the screen; the frame is letterboxed
     // in whatever size the window is).
     virtual void setVideoMode(int width, int height, bool fullscreen) { (void)width, (void)height, (void)fullscreen; }
+    // How the picture is shown (the player's display settings): taken up by
+    // the next initGraphics() or init3D(); vsync at once. Backends without a
+    // window ignore it.
+    virtual void setDisplayOptions(const DisplayOptions& options) { (void)options; }
 
     // --- Time ---------------------------------------------------------------
     virtual uint64_t getMillis() const = 0;

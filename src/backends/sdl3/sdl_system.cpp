@@ -149,7 +149,7 @@ Error SdlSystem::init3D(int width, int height, gfx::Renderer3D*& out) {
     if (Error err = r->init(width, height))
         return err;
     renderer3d_ = std::move(r);
-    SDL_SetRenderLogicalPresentation(renderer_, width, height, SDL_LOGICAL_PRESENTATION_LETTERBOX);
+    applyPresentation(width, height);
     out = renderer3d_.get();
     return Error::success();
 }
@@ -161,6 +161,15 @@ void SdlSystem::resetForLauncher() {
     relativeMouse_ = false;
     SDL_SetWindowRelativeMouseMode(window_, false);
     SDL_SetWindowFullscreen(window_, false);
+    // The display settings were the game's: the launcher has Reluva's own,
+    // and its window back as it was.
+    if (!(display_ == DisplayOptions{}))
+        SDL_SetRenderVSync(renderer_, 1);
+    display_ = DisplayOptions{};
+    if (launcherW_ > 0) {
+        SDL_SetWindowSize(window_, launcherW_, launcherH_);
+        launcherW_ = launcherH_ = 0;
+    }
     release3D();
     if (gameTexture_) {
         SDL_DestroyTexture(gameTexture_);
@@ -179,7 +188,7 @@ Error SdlSystem::initGraphics(int width, int height, PixelFormat format) {
                                      SDL_TEXTUREACCESS_STREAMING, width, height);
     if (!gameTexture_)
         return Error::fail(std::string("SDL_CreateTexture failed: ") + SDL_GetError());
-    SDL_SetTextureScaleMode(gameTexture_, SDL_SCALEMODE_NEAREST);
+    SDL_SetTextureScaleMode(gameTexture_, display_.smooth ? SDL_SCALEMODE_LINEAR : SDL_SCALEMODE_NEAREST);
 
     gameW_ = width;
     gameH_ = height;
@@ -188,10 +197,49 @@ Error SdlSystem::initGraphics(int width, int height, PixelFormat format) {
     for (int i = 0; i < 256; ++i)
         palette_[i] = packRgba(0, 0, 0, 255);
 
-    // Letterbox the game framebuffer into the window at any size, and map
-    // mouse coordinates back into framebuffer pixels.
-    SDL_SetRenderLogicalPresentation(renderer_, width, height, SDL_LOGICAL_PRESENTATION_LETTERBOX);
+    applyPresentation(width, height);
     return Error::success();
+}
+
+void SdlSystem::applyPresentation(int width, int height) {
+    // The window as a multiple of the game's size, when asked and it fits
+    // on the screen (not in full screen, nor when the player maximised it).
+    const Uint64 flags = SDL_GetWindowFlags(window_);
+    if (display_.windowScale != 0 && !(flags & (SDL_WINDOW_FULLSCREEN | SDL_WINDOW_MAXIMIZED))) {
+        SDL_Rect usable{};
+        if (SDL_GetDisplayUsableBounds(SDL_GetDisplayForWindow(window_), &usable)) {
+            int scale = display_.windowScale;
+            if (scale == DisplayOptions::kAutoScale)
+                scale = 2 * width <= usable.w && 2 * height <= usable.h ? 2 : 1;
+            while (scale > 1 && (scale * width > usable.w || scale * height > usable.h))
+                --scale;
+            int w = 0, h = 0;
+            SDL_GetWindowSize(window_, &w, &h);
+            if (w != scale * width || h != scale * height) {
+                if (launcherW_ == 0) {
+                    launcherW_ = w;
+                    launcherH_ = h;
+                }
+                SDL_SetWindowSize(window_, scale * width, scale * height);
+                SDL_SyncWindow(window_);
+            }
+        }
+    }
+    // Scale the frame into the window at any size (letterboxed), or by whole
+    // multiples only, and map mouse coordinates back into its pixels.
+    SDL_SetRenderLogicalPresentation(renderer_, width, height,
+                                     display_.integerScaling ? SDL_LOGICAL_PRESENTATION_INTEGER_SCALE
+                                                             : SDL_LOGICAL_PRESENTATION_LETTERBOX);
+}
+
+void SdlSystem::setDisplayOptions(const DisplayOptions& options) {
+    display_ = options;
+    SDL_SetRenderVSync(renderer_, options.vsync ? 1 : 0);
+    if (options.fullscreen && !(SDL_GetWindowFlags(window_) & SDL_WINDOW_FULLSCREEN)) {
+        SDL_SetWindowFullscreenMode(window_, nullptr);
+        SDL_SetWindowFullscreen(window_, true);
+        SDL_SyncWindow(window_);
+    }
 }
 
 void SdlSystem::setPalette(const Color* colors, int start, int count) {

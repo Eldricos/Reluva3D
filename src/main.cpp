@@ -5,6 +5,7 @@
 #include "common/config.h"
 #include "common/detection.h"
 #include "common/fs.h"
+#include "common/settings.h"
 #include "engines/registry.h"
 #include "launcher/launcher.h"
 
@@ -65,11 +66,11 @@ int main(int argc, char** argv) {
     if (argc >= 2) {
         std::string name = argv[1];
         if (name == "testbed")
-            direct = GameTarget{"testbed", "testbed", "testbed", "Testbed", {}, {}, {}};
-        else if (config.hasSection(name) && name != Config::kGlobalSection)
+            direct = GameTarget{"testbed", "testbed", "testbed", "Testbed", {}, {}, config.settingsFor("testbed")};
+        else if (config.hasSection(name) && name != Config::kGlobalSection && !Config::isEngineSection(name))
             direct = GameTarget{name, config.get(name, "engine"), config.get(name, "gameid"),
                                 config.get(name, "description", name), config.get(name, "path"), {},
-                                config.values(name)};
+                                config.settingsFor(name)};
         else {
             std::fprintf(stderr, "Unknown target '%s'\n", name.c_str());
             return 1;
@@ -87,6 +88,9 @@ int main(int argc, char** argv) {
 
         // Each game's own files (settings, saves) go in a folder named after its target.
         target->savePath = dataDir() / "games" / target->target;
+        // How the picture is shown: the player's display settings for it
+        // (Reluva's own where none are set); the launcher puts its own back.
+        system.setDisplayOptions(settings::display(target->settings));
         SDL_Log("Starting %s (%s)", target->description.c_str(), meta->name());
         auto engine = meta->create(system, *target);
         Error err = engine->run();

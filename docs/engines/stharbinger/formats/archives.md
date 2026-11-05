@@ -1,0 +1,16 @@
+# Archives (.CAT, .LST, .ALL)
+
+*Star Trek: Deep Space Nine – Harbinger* (Viacom New Media, 1996), DOS, two CDs.
+Worked out from the data and from `DEEP.EXE`. All values are little-endian.
+Addresses like `0x1DD32` are virtual addresses in `DEEP.EXE`'s LE image (code
+object at `0x10000`, data at `0x50000`); see
+[REVERSE_ENGINEERING.md](../REVERSE_ENGINEERING.md).
+
+## Archives (`NAME.CAT`, `NAME.LST`, `NAME.ALL`)
+
+- `.LST`: `u32` offsets into `.ALL`, normally one more than the number of entries (the last is the file size).
+- `.ALL`: the entries back to back, with no headers.
+- `.CAT` (optional): text, CRLF lines: the entry count, then one name per entry.
+
+Entry *i* is `ALL[offset[i] .. offset[i+1]]`. Without a `.CAT`, entries are used by
+index (dialogue audio, script archives indexed by scene slot).
