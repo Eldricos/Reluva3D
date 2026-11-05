@@ -20,9 +20,9 @@
 # A command that fails fails the step. What each prints (paths taken out) is
 # checksummed, with a summary line, into a record:
 # tests/engines/stharbinger/data/gamedata/<release>/<step>.txt. The step
-# passes when its record is the same as the committed one. There are no
-# committed records yet: make the first with RELUVA_GAMEDATA_UPDATE=1 from a
-# copy of the game, and check them (see docs/engines/stharbinger/TESTING.md).
+# passes when its record is the same as the committed one. Records so far:
+# both-discs (the English release, made on Linux); make others with
+# RELUVA_GAMEDATA_UPDATE=1, and check them (docs/engines/stharbinger/TESTING.md).
 #
 # Environment: RELUVA_STHARBINGER, the game's folder; and those of the shared
 # helpers (cmake/ReluvaGamedata.cmake): RELUVA_GAMEDATA_UPDATE=1,

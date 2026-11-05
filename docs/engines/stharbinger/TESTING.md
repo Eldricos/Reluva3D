@@ -21,9 +21,22 @@ code (`common.unit.video`, `.archives`, `.audio`).
 runs the game-files test (`tests/engines/stharbinger/gamedata.cmake`): the
 game's parts and files, what its data holds, and every conversation played
 through three times. The path is anything the launcher takes: a CD, both CDs
-side by side, an install, or Reluva's import of them. No records are
-committed for it yet: make them with `RELUVA_GAMEDATA_UPDATE=1` from a copy of
-the game (see [DEVELOPMENT.md](../../DEVELOPMENT.md#engine-tests)).
+side by side, an install, or Reluva's import of them.
+
+The records are in `tests/engines/stharbinger/data/gamedata/<release>/`, one
+file per step: `both-discs/`, made from the English release with both CDs, on
+Linux. That run played 210 conversations (70 in each of three runs) through
+903 reply menus with none stuck, read the 269 lines of credits from
+`DEEP.EXE`, and listed every scene and dialogue script (5,941 lines of
+dialogue). There are none yet for disc 1 alone (`disc-1/`) or another
+release: make them with `RELUVA_GAMEDATA_UPDATE=1`
+(see [DEVELOPMENT.md](../../DEVELOPMENT.md#engine-tests)).
+
+On Windows the `conversations` step can differ from the Linux record with
+nothing broken: it picks replies with the C library's `rand()`, whose numbers
+differ between systems. Keep a baseline of your own there with
+`RELUVA_GAMEDATA_RECORDS=<a folder>` (and `RELUVA_GAMEDATA_UPDATE=1` the first
+time).
 
 ## Checked on the real discs (with STDS9H, before the port)
 
