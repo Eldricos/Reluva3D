@@ -457,28 +457,38 @@ void Launcher::drawOptions() {
 }
 
 std::string Launcher::inheritedValue(const std::string& section, const std::string& engineId,
-                                     const GameOption& option) const {
+                                     const GameOption& option, std::string* from) const {
     const GameOption o = asChoices(option);
     const std::string engineSection = engineId.empty() ? std::string() : Config::engineSection(engineId);
-    if (section != engineSection && !engineSection.empty() && config_.has(engineSection, o.key))
+    if (section != engineSection && !engineSection.empty() && config_.has(engineSection, o.key)) {
+        if (from)
+            *from = "engine's";
         return config_.get(engineSection, o.key);
-    if (section != Config::kGlobalSection && config_.has(Config::kGlobalSection, o.key))
+    }
+    if (section != Config::kGlobalSection && config_.has(Config::kGlobalSection, o.key)) {
+        if (from)
+            *from = "every game's";
         return config_.get(Config::kGlobalSection, o.key);
+    }
+    if (from)
+        *from = "default";
     return o.choices.front().first;
 }
 
 void Launcher::drawSetting(const std::string& section, const std::string& engineId, const GameOption& option) {
     const GameOption o = asChoices(option);
     const bool set = config_.has(section, o.key);
-    const std::string inherited = inheritedValue(section, engineId, o);
-    const std::string from = section == Config::kGlobalSection   ? "default"
-                             : Config::isEngineSection(section) ? "as for every game"
-                                                                : "as for its engine's games";
+    std::string from;
+    const std::string inherited = inheritedValue(section, engineId, o, &from);
+    // Unset, it's what the level above has: shown with where that is.
     const std::string inheritedText = shownValue(o, inherited) + " (" + from + ")";
     const std::string shown = set ? shownValue(o, config_.get(section, o.key)) : inheritedText;
     ImGui::TextUnformatted(o.label.c_str());
-    if (!o.tooltip.empty() && ImGui::IsItemHovered())
-        ImGui::SetTooltip("%s", o.tooltip.c_str());
+    if (ImGui::IsItemHovered())
+        ImGui::SetTooltip("%s%s", o.tooltip.empty() ? "" : (o.tooltip + "\n\n").c_str(),
+                          set ? "Set here; the first choice in the list takes the level above's again."
+                              : "Not set here: as the level above has it (engine's: all this engine's games; "
+                                "every game's: Settings..., Every game).");
     ImGui::SetNextItemWidth(-1);
     if (ImGui::BeginCombo(("##" + section + o.key).c_str(), shown.c_str())) {
         if (ImGui::Selectable(inheritedText.c_str(), !set)) {

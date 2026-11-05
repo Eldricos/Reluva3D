@@ -29,6 +29,10 @@ Error decode(const std::vector<uint8_t>& data, Image& out);
 // most programs write them); alpha is dropped.
 std::vector<uint8_t> encodeTga(const Image& img);
 
+// Encode the image as a PNG (8-bit RGBA, its rows stored without
+// compression: larger than a compressing encoder's, read by every program).
+std::vector<uint8_t> encodePng(const Image& img);
+
 // Copy the image into an RGBA32 surface with its top-left corner at (x, y),
 // clipped to it, blending by alpha over what's there.
 void blit(Surface& dst, const Image& img, int x, int y);

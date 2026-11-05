@@ -55,11 +55,15 @@ function(find_folder var dir name)
 endfunction()
 
 # Runs reluva-tool with the arguments given; fails the step if it fails.
-# The output, with the game's folder and timings taken out, in <var>.
+# The output, with the game's folder, the build's output folder and timings
+# taken out, in <var>.
 function(run_tool var)
     execute_process(COMMAND "${TOOL}" ${ARGN}
         OUTPUT_VARIABLE out ERROR_VARIABLE out RESULT_VARIABLE rc TIMEOUT 1800)
     string(REPLACE "${game_dir}" "<game>" out "${out}")
+    if(NOT "${OUTPUT}" STREQUAL "")
+        string(REPLACE "${OUTPUT}" "<output>" out "${out}")
+    endif()
     string(REGEX REPLACE " in [0-9]+(\\.[0-9]+)? s" "" out "${out}")
     if(NOT rc EQUAL 0)
         list(JOIN ARGN " " shown)

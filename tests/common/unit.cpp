@@ -29,6 +29,7 @@
 #include "common/text.h"
 #include "common/video/smacker.h"
 #include "common/x86/cpu.h"
+#include "common/x86/disasm.h"
 #include "common/x86/win32.h"
 #include "common/zip.h"
 #include "common/inflate.h"
@@ -473,6 +474,18 @@ static void testImage() {
     image::blit(s, img, 1, 0);
     image::blit(s, img, 5, 5); // clipped away
     CHECK(s.row(0)[0] == 0 && s.row(0)[4] == 128 && s.row(0)[7] == 255);
+
+    // PNG written (stored, uncompressed) and read back the same, alpha kept;
+    // more than one deflate block.
+    image::Image png;
+    png.w = 200;
+    png.h = 90;
+    for (int y = 0; y < png.h; ++y)
+        for (int x = 0; x < png.w; ++x)
+            png.rgba.insert(png.rgba.end(), {uint8_t(x), uint8_t(y), uint8_t(x ^ y), uint8_t(x * 3 + y)});
+    image::Image pngBack;
+    CHECK(!image::decode(image::encodePng(png), pngBack) && pngBack.w == 200 && pngBack.h == 90 &&
+          pngBack.rgba == png.rgba);
 }
 
 static void testGfxMath() {
@@ -783,6 +796,90 @@ static void testSmacker() {
     CHECK(!bad.load(std::make_unique<MemoryReadStream>(std::vector<uint8_t>(200, 0x55))));
 }
 
+static void testX86Disassembler() {
+    // Hand-checked against the Intel manuals' opcode maps; the text as
+    // capstone writes it. Each at 0x10000.
+    struct Case {
+        std::vector<uint8_t> bytes;
+        const char* text;
+    };
+    const Case cases[] = {
+        {{0x55}, "push ebp"},
+        {{0x89, 0xe5}, "mov ebp, esp"},
+        {{0x83, 0xec, 0x10}, "sub esp, 0x10"},
+        {{0x8b, 0x45, 0x08}, "mov eax, dword ptr [ebp + 8]"},
+        {{0x89, 0x45, 0xf8}, "mov dword ptr [ebp - 8], eax"},
+        {{0xe8, 0x00, 0x01, 0x00, 0x00}, "call 0x10105"},
+        {{0x74, 0x05}, "je 0x10007"},
+        {{0x0f, 0x85, 0x10, 0x00, 0x00, 0x00}, "jne 0x10016"},
+        {{0xeb, 0xfe}, "jmp 0x10000"},
+        {{0x8d, 0x04, 0x8d, 0x10, 0x00, 0x00, 0x00}, "lea eax, [ecx*4 + 0x10]"},
+        {{0x8d, 0x44, 0x24, 0x04}, "lea eax, [esp + 4]"},
+        {{0x8b, 0x04, 0x85, 0x00, 0x00, 0x05, 0x00}, "mov eax, dword ptr [eax*4 + 0x50000]"},
+        {{0x8b, 0x4c, 0x9e, 0xfc}, "mov ecx, dword ptr [esi + ebx*4 - 4]"},
+        {{0x0f, 0xb6, 0xc0}, "movzx eax, al"},
+        {{0x0f, 0xbf, 0x46, 0x02}, "movsx eax, word ptr [esi + 2]"},
+        {{0xd9, 0x45, 0xfc}, "fld dword ptr [ebp - 4]"},
+        {{0xdd, 0x1d, 0x00, 0x00, 0x05, 0x00}, "fstp qword ptr [0x50000]"},
+        {{0xdb, 0x2d, 0x00, 0x00, 0x05, 0x00}, "fld xword ptr [0x50000]"},
+        {{0xde, 0xc9}, "fmulp st(1), st(0)"},
+        {{0xd8, 0xc1}, "fadd st(0), st(1)"},
+        {{0xdf, 0xe0}, "fnstsw ax"},
+        {{0xd9, 0xe8}, "fld1"},
+        {{0xd9, 0xc9}, "fxch st(1)"},
+        {{0xf3, 0xa5}, "rep movsd dword ptr es:[edi], dword ptr [esi]"},
+        {{0xf2, 0xae}, "repne scasb al, byte ptr es:[edi]"},
+        {{0xaa}, "stosb byte ptr es:[edi], al"},
+        {{0xc3}, "ret"},
+        {{0xc2, 0x08, 0x00}, "ret 8"},
+        {{0x6a, 0xff}, "push -1"},
+        {{0x68, 0x00, 0x00, 0x05, 0x00}, "push 0x50000"},
+        {{0x83, 0xe4, 0xf0}, "and esp, 0xfffffff0"},
+        {{0x83, 0xc4, 0xf8}, "add esp, -8"},
+        {{0xc7, 0x05, 0x10, 0x00, 0x05, 0x00, 0x01, 0x00, 0x00, 0x00}, "mov dword ptr [0x50010], 1"},
+        {{0x66, 0x89, 0x03}, "mov word ptr [ebx], ax"},
+        {{0x66, 0xc7, 0x45, 0xfe, 0x34, 0x12}, "mov word ptr [ebp - 2], 0x1234"},
+        {{0xa1, 0x00, 0x00, 0x05, 0x00}, "mov eax, dword ptr [0x50000]"},
+        {{0x64, 0x8b, 0x00}, "mov eax, dword ptr fs:[eax]"},
+        {{0xff, 0x15, 0x00, 0x10, 0x05, 0x00}, "call dword ptr [0x51000]"},
+        {{0xff, 0xe0}, "jmp eax"},
+        {{0x0f, 0xaf, 0xc1}, "imul eax, ecx"},
+        {{0x6b, 0xc0, 0x0c}, "imul eax, eax, 0xc"},
+        {{0xc1, 0xe0, 0x04}, "shl eax, 4"},
+        {{0xd1, 0xf8}, "sar eax, 1"},
+        {{0x0f, 0xa4, 0xc2, 0x05}, "shld edx, eax, 5"},
+        {{0x0f, 0xbc, 0xc8}, "bsf ecx, eax"},
+        {{0x0f, 0x94, 0xc0}, "sete al"},
+        {{0x0f, 0x44, 0xc1}, "cmove eax, ecx"},
+        {{0x0f, 0xba, 0xe0, 0x03}, "bt eax, 3"},
+        {{0xf0, 0x0f, 0xc1, 0x01}, "lock xadd dword ptr [ecx], eax"},
+        {{0x3c, 0x20}, "cmp al, 0x20"},
+        {{0xf7, 0xd8}, "neg eax"},
+        {{0x99}, "cdq"},
+        {{0x66, 0x98}, "cbw"},
+        {{0x9b}, "wait"},
+    };
+    for (const Case& c : cases) {
+        const x86::Instruction i = x86::disassemble(c.bytes.data(), c.bytes.size(), 0x10000);
+        const std::string text = i.operands.empty() ? i.mnemonic : i.mnemonic + " " + i.operands;
+        if (!i.valid || i.size != int(c.bytes.size()) || text != c.text) {
+            std::printf("  disassembled \"%s\" (%d bytes), expected \"%s\" (%zu)\n", text.c_str(), i.size, c.text,
+                        c.bytes.size());
+            CHECK(false);
+        }
+    }
+    // Direct jumps say where they go.
+    const uint8_t call[] = {0xe8, 0xfb, 0xff, 0xff, 0xff};
+    const x86::Instruction c = x86::disassemble(call, sizeof call, 0x10000);
+    CHECK(c.hasTarget && c.target == 0x10000 && !x86::disassemble(cases[0].bytes.data(), 1, 0).hasTarget);
+    // Not instructions: one byte, to show as data; cut short too.
+    const uint8_t bad[] = {0x0f, 0xff, 0x8f, 0xc8, 0xe8, 0x00};
+    const x86::Instruction b0 = x86::disassemble(bad, 2, 0), b1 = x86::disassemble(bad + 2, 2, 0),
+                           b2 = x86::disassemble(bad + 4, 2, 0);
+    CHECK(!b0.valid && b0.size == 1 && b0.mnemonic == "db" && b0.operands == "0xf");
+    CHECK(!b1.valid && b1.size == 1 && !b2.valid && b2.size == 1);
+}
+
 static const reluva::test::Suite hashesSuite("common.unit.hashes", {
     {"md5", [](const std::filesystem::path&) { testMd5(); }},
     {"md4", [](const std::filesystem::path&) { testMd4(); }},
@@ -832,4 +929,5 @@ static const reluva::test::Suite netSuite("common.unit.net", {
 static const reluva::test::Suite x86Suite("common.unit.x86", {
     {"instructions", [](const std::filesystem::path&) { testX86Instructions(); }},
     {"test dll", [](const std::filesystem::path&) { testX86Dll(); }},
+    {"disassembler", [](const std::filesystem::path&) { testX86Disassembler(); }},
 });

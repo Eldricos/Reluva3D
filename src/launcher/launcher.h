@@ -104,7 +104,9 @@ private:
     // One setting kept in `section`: its value there, or the one above it
     // (`engineId`'s, then every game's, then the default) when unset.
     void drawSetting(const std::string& section, const std::string& engineId, const GameOption& option);
-    std::string inheritedValue(const std::string& section, const std::string& engineId, const GameOption& option) const;
+    // `from`: where it comes from ("default", "every game's", "engine's").
+    std::string inheritedValue(const std::string& section, const std::string& engineId, const GameOption& option,
+                               std::string* from = nullptr) const;
 };
 
 } // namespace reluva
