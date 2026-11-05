@@ -15,6 +15,7 @@ Each engine is a module that can run a family of games.
 | Engine | Games | State | Docs |
 |---|---|---|---|
 | `idtech3` | Star Trek: Voyager - Elite Force (1.0, 1.2, Expansion Pack) | Playable: single player, Holomatch (multiplayer, LAN and Internet), mods | [docs/engines/idtech3](docs/engines/idtech3/README.md) |
+| `stharbinger` | Star Trek: Deep Space Nine - Harbinger (DOS, two CDs) | Every part of the game runs; being checked against the original | [docs/engines/stharbinger](docs/engines/stharbinger/README.md) |
 | `newworlds` | Star Trek: New Worlds | Data viewer, first missions playable on their maps; off by default | [docs/engines/newworlds](docs/engines/newworlds/README.md) |
 | `testbed` | A test pattern, no game | For checking a system's graphics, sound and input | — |
 
@@ -154,6 +155,7 @@ per line:
 
 ```
 idtech3=enabled
+stharbinger=enabled
 newworlds=disabled
 ```
 
