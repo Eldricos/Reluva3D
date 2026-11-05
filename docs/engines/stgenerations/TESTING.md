@@ -65,6 +65,13 @@ With a copy of the 2 CD English release (installed, and both CDs):
   walking; space combat's briefing and console.
 - **In a window** (`reluva` under X, SDL's renderer): the picture scaled,
   clicks where they should be, the game's pointer as the system's.
+- **Against STG-Engine itself:** STG-Engine, built from its `main` and run
+  headless on the same files, went into the first away mission, walked a
+  few steps and quick-saved. That save, copied in as `stg.s00`, loads in
+  this engine (F7 in a mission, its quick load, or the menu): the 3D
+  view it shows is the same as STG-Engine's when it saved, pixel for
+  pixel, the console's status line aside. So STG-Engine's saves carry
+  over, and the port draws a mission as STG-Engine did.
 
 That copy has a few damaged files, which the game reads as the original
 would:
