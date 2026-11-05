@@ -65,7 +65,7 @@ void gameFlow(const std::filesystem::path& tmp) {
     for(bool isMaster:{false,true})for(bool art:{false,true})for(bool approve:{false,true}) {
         const auto root=tmp / (std::to_string(isMaster)+std::to_string(art)+std::to_string(approve));
         fixtures::artworkInstall(root / "game");GameTarget target;target.path=root / "game";target.savePath=root / "save";
-        target.settings={{"classic_variant",isMaster?"master":"original"},{"classic_seconds","0"},{"classic_artwork",art?"1":"0"},{"classic_sound","0"},{"classic_animations","0"},{"classic_player_name","Alex"}};
+        target.settings={{"classic_seed","6551"},{"classic_variant",isMaster?"master":"original"},{"classic_seconds","0"},{"classic_artwork",art?"1":"0"},{"classic_sound","0"},{"classic_animations","0"},{"classic_player_name","Alex"}};
         fixtures::ScriptedSystem sys;sys.clock=[](size_t){return uint64_t(0);};
         sys.events=[&](size_t f)->std::vector<Event>{using namespace fixtures;
             if(f==0)return {keyEvent(key::Return)};
@@ -89,7 +89,7 @@ void gameFlow(const std::filesystem::path& tmp) {
 }
 void retry(const std::filesystem::path& tmp) {
     fixtures::artworkInstall(tmp / "game");GameTarget target;target.path=tmp / "game";target.savePath=tmp / "save";
-    target.settings={{"classic_sound","0"},{"classic_animations","0"}};
+    target.settings={{"classic_seed","6551"},{"classic_sound","0"},{"classic_animations","0"}};
     fixtures::write(target.savePath / "HighScores.txt","CORRUPT");fixtures::ScriptedSystem sys;
     sys.events=[&](size_t f)->std::vector<Event>{using namespace fixtures;
         if(f==0)return {keyEvent(key::Return)};

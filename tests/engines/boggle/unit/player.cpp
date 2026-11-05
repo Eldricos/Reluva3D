@@ -47,7 +47,7 @@ void malformed(const std::filesystem::path& tmp) {
 void editing(const std::filesystem::path& tmp) {
     fixtures::artworkInstall(tmp / "install");
     GameTarget target;target.path=tmp / "install";target.savePath=tmp / "save";
-    target.settings={{"classic_sound","0"},{"classic_animations","0"},{"frontend_movies","0"}};
+    target.settings={{"classic_seed","6551"},{"classic_sound","0"},{"classic_animations","0"},{"frontend_movies","0"}};
     fixtures::ScriptedSystem sys;sys.clock=[](size_t){return uint64_t(0);};
     sys.events=[&](size_t frame)->std::vector<Event> {
         using namespace fixtures;

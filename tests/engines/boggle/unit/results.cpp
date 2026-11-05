@@ -54,7 +54,7 @@ void review(const std::filesystem::path& tmp) {
     for(bool master:{false,true})for(bool art:{false,true}) {
         const auto root=tmp / (std::string(master?"master-":"original-")+(art?"art":"plain"));fixtures::artworkInstall(root);
         GameTarget target;target.path=root;target.savePath=root.parent_path() / (root.filename().string()+"-save");
-        target.settings={{"classic_variant",master?"master":"original"},{"classic_artwork",art?"1":"0"},{"classic_seconds","60"},{"classic_animations","0"},{"classic_sound","0"}};
+        target.settings={{"classic_seed","6551"},{"classic_variant",master?"master":"original"},{"classic_artwork",art?"1":"0"},{"classic_seconds","60"},{"classic_animations","0"},{"classic_sound","0"}};
         fixtures::ScriptedSystem sys;sys.clock=[](size_t f){return f<2?uint64_t(0):uint64_t(60000);};
         auto row=fixtures::mouseEvent(EventType::MouseDown,art?640:450,art?60:220);
         sys.events=[&](size_t f)->std::vector<Event>{
@@ -87,7 +87,7 @@ void missedReview(const std::filesystem::path& tmp) {
     for(bool master:{false,true})for(bool art:{false,true}) {
         const auto root=tmp / (std::string(master?"master-":"original-")+(art?"art":"plain"));fixtures::artworkInstall(root);
         GameTarget target;target.path=root;target.savePath=root.parent_path() / (root.filename().string()+"-save");
-        target.settings={{"classic_variant",master?"master":"original"},{"classic_artwork",art?"1":"0"},{"classic_animations","0"},{"classic_sound","0"}};
+        target.settings={{"classic_seed","6551"},{"classic_variant",master?"master":"original"},{"classic_artwork",art?"1":"0"},{"classic_animations","0"},{"classic_sound","0"}};
         UserDictionary user;CHECK(!user.load(target.savePath,root));CHECK(!user.add({"AAAAA"}));
         fixtures::ScriptedSystem sys;sys.clock=[](size_t){return uint64_t(0);};
         Event toggle=fixtures::mouseEvent(EventType::MouseDown,art?30:438,art?460:82);
@@ -131,7 +131,7 @@ void missedPages(const std::filesystem::path& tmp) {
     bytes.push_back(0);test::fixtures::put32(bytes,4,1);test::fixtures::put32(bytes,8,uint32_t(bytes.size()-12));
     fixtures::write(tmp / "install/Dicts/English.dic",bytes);
     GameTarget target;target.path=tmp / "install";target.savePath=tmp / "save";
-    target.settings={{"classic_variant","master"},{"classic_animations","0"},{"classic_sound","0"}};
+    target.settings={{"classic_seed","6551"},{"classic_variant","master"},{"classic_animations","0"},{"classic_sound","0"}};
     fixtures::ScriptedSystem sys;sys.clock=[](size_t){return uint64_t(0);};
     sys.events=[](size_t f)->std::vector<Event>{
         using namespace fixtures;

@@ -240,18 +240,24 @@ tests pass, provenance is recorded, remaining compatibility limits are accurate,
 and a source-only diff contains no retail content. Changes remain exclusively
 on the Boggle branch; this plan never authorizes merging into another branch.
 
-## Immediate next action
+## Current stage and next actions
 
-Stage 1 static inspection is recorded in [the inspection report](boggle-1997/inspection.md).
-Drive access and dictionary research are resolved. Classic Original/Master,
-30-second/untimed options and isolated user-word persistence are implemented,
-with owner VM rule checks and Windows smoke/workflow tests documented in the
-engine pages. Classic lid clips and sound effects are now integrated; their
-presentation has owner Windows audio and VM cue corroboration. Import Game now
-copies a tested English Classic set (46 files with menu artwork/clips) from the install or expanded CD; see
-[import scope](../engines/boggle/import.md). Native game selection and Classic setup now provide navigation into both variants;
-The Cinepak intro and mode buttons now play; see [frontend scope](../engines/boggle/frontend.md)
-and [movie playback](../engines/boggle/movies.md). Current gaps include full
-original frontend dialogs, remaining media formats, original Classic layout,
-other modes and AI/networking. See [current support](../engines/boggle/README.md) and
-[remaining evidence gaps](boggle-1997/unconfirmed.md) before choosing the next slice.
+Stage 1 inspection and resource access are complete. The current native slice
+supports English Classic Original/Master, 30-second/untimed options, installed
+presentation/audio, one human player name, isolated user dictionaries, final
+score/path review, all-word discovery and a shared ten-score Classic table.
+The owner has tested these stages on Windows. Import supports 53 English
+Classic files from the install or expanded CD; older supported subsets retain
+fallback presentation. Original game files remain outside Git.
+
+Ordinary launches, menu re-entry and New Board now use fresh native seeds,
+while Replay retains its board. Explicit seeds keep tests and reference tools
+reproducible. See [seed behavior](../engines/boggle/randomization.md) for native
+choices, checks and remaining original-RNG uncertainty.
+
+Next research should establish the remaining player/AI workflow and duplicate
+word scoring before expanding Classic beyond one human. Other modes,
+multilingual input, INSO definitions, original dialogs and networking remain
+separate milestones. Check [current support](../engines/boggle/README.md) and
+[evidence gaps](boggle-1997/unconfirmed.md) before selecting each slice. These
+notes do not claim full-game compatibility or authorize changes to other branches.

@@ -123,7 +123,7 @@ void mouse(const std::filesystem::path& tmp) {
     ClassicOptions options;options.variant=ClassicVariant::Master;
     ClassicArtwork artwork;CHECK(!artwork.open(resources,tmp / "install",options,{}));
     GameTarget target;target.path=tmp / "install";target.savePath=tmp / "save";
-    target.settings={{"classic_variant","master"},{"classic_animations","0"},{"classic_sound","0"}};
+    target.settings={{"classic_seed","6551"},{"classic_variant","master"},{"classic_animations","0"},{"classic_sound","0"}};
     fixtures::ScriptedSystem sys;
     sys.events=[&](size_t frame) -> std::vector<Event> {
         if(frame==1)return {fixtures::keyEvent(key::Return)};
@@ -157,7 +157,7 @@ void orientationGame(const std::filesystem::path& tmp) {
         std::vector<std::string> alignedPanel;
         for(bool autoOrient:{true,false}) {
             GameTarget target;target.path=tmp / "install";target.savePath=tmp / "save";
-            target.settings={{"classic_variant",master?"master":"original"},{"classic_artwork",artwork?"1":"0"},
+            target.settings={{"classic_seed","6551"},{"classic_variant",master?"master":"original"},{"classic_artwork",artwork?"1":"0"},
                              {"classic_auto_orient",autoOrient?"1":"0"},{"classic_animations","0"},{"classic_sound","0"}};
             fixtures::ScriptedSystem sys;sys.clock=[](size_t){return uint64_t(0);};
             sys.events=[](size_t frame) -> std::vector<Event> {

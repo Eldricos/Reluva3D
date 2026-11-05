@@ -8,6 +8,7 @@
 #include "engines/boggle/classic/player.h"
 #include "engines/boggle/classic/results.h"
 #include "engines/boggle/classic/round.h"
+#include "engines/boggle/classic/seed.h"
 #include "engines/boggle/classic/options.h"
 #include "engines/boggle/classic/presentation.h"
 #include "engines/boggle/classic/user_dictionary.h"
@@ -206,7 +207,7 @@ Error ClassicGame::run() {
     HighScores highScores;
     auto scoreError=highScores.load(target_.savePath,target_.path);
     bool scoreAttempted=false,scoreOpen=false;
-    ClassicRound round(dictionary, &user); RoundResults results; Board board; uint32_t seed = 0x1997;
+    ClassicRound round(dictionary, &user); RoundResults results; Board board; uint32_t seed = options.seed?*options.seed:freshClassicSeed();
     if (auto err = Board::generate(dice, seed, board)) return err;
     if (auto err = round.board(std::move(board), options.duration)) return err;
     if (auto err = sys_.initGraphics(width, height, PixelFormat::RGBA32)) return err;
@@ -252,7 +253,8 @@ Error ClassicGame::run() {
     auto newBoard = [&]() -> Error {
         if (round.phase() == RoundPhase::Results && !resultsVisible) return Error::success();
         if (round.phase() == RoundPhase::Playing) return Error::success();
-        if (auto err = Board::generate(dice, ++seed, board)) return err;
+        seed=options.seed?seed+1:freshClassicSeed();
+        if (auto err = Board::generate(dice, seed, board)) return err;
         if (auto err = round.board(std::move(board), options.duration)) return err;
         resultsVisible = false; results.clear(); scoreAttempted=false; clear(); message.clear(); return Error::success();
     };

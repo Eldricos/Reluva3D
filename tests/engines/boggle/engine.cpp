@@ -58,7 +58,7 @@ void engineTest(const std::filesystem::path& tmp) {
         return {};
     };
     system.clock = [](size_t frame) -> uint64_t { return frame >= 6 ? 180010 : frame * 10; };
-    GameTarget target; target.settings = {{"classic_sound","0"},{"classic_animations","0"}}; target.path = dir; target.gameId = "boggle1997";
+    GameTarget target; target.settings = {{"classic_seed","6551"},{"classic_sound","0"},{"classic_animations","0"}}; target.path = dir; target.gameId = "boggle1997";
     target.settings["classic_menu"]="0";
     auto game = engine->create(system,target);
     if (auto err = game->run()) return test::fail(err.message);
@@ -112,7 +112,7 @@ void dictionaryWorkflow(const std::filesystem::path& tmp) {
     const auto dir = tmp / "install", save = tmp / "saves";
     classicInstall(dir);
     const auto* meta = findEngine("boggle"); CHECK(meta); if (!meta) return;
-    GameTarget target; target.settings = {{"classic_sound","0"},{"classic_animations","0"}}; target.path = dir; target.savePath = save;
+    GameTarget target; target.settings = {{"classic_seed","6551"},{"classic_sound","0"},{"classic_animations","0"}}; target.path = dir; target.savePath = save;
     ScriptedSystem system;
     system.events = [](size_t frame) -> std::vector<Event> {
         if (frame == 1 || frame == 3 || frame == 5 || frame == 7 || frame == 9 || frame == 14 || frame == 16)
@@ -208,8 +208,8 @@ void masterWorkflow(const std::filesystem::path& tmp) {
     using namespace boggle::fixtures;
     const auto dir = tmp / "install"; masterInstall(dir);
     const auto* meta = findEngine("boggle"); CHECK(meta); if (!meta) return;
-    GameTarget target; target.settings = {{"classic_sound","0"},{"classic_animations","0"}}; target.path = dir; target.gameId = "boggle1997";
-    target.settings = {{"classic_variant","master"},{"classic_seconds","60"},{"classic_sound","0"},{"classic_animations","0"}};
+    GameTarget target; target.settings = {{"classic_seed","6551"},{"classic_sound","0"},{"classic_animations","0"}}; target.path = dir; target.gameId = "boggle1997";
+    target.settings = {{"classic_seed","6551"},{"classic_variant","master"},{"classic_seconds","60"},{"classic_sound","0"},{"classic_animations","0"}};
     ScriptedSystem timed;
     timed.events = [](size_t frame) -> std::vector<Event> {
         if (frame == 1 || frame == 3 || frame == 10) return {keyEvent(key::Return)};
@@ -265,7 +265,7 @@ void presentationWorkflow(const std::filesystem::path& tmp) {
     using namespace boggle::fixtures;
     const auto dir=tmp / "install"; presentationInstall(dir);
     const auto* meta=findEngine("boggle"); CHECK(meta); if(!meta)return;
-    GameTarget target; target.path=dir; target.settings={{"classic_seconds","60"}};
+    GameTarget target; target.path=dir; target.settings={{"classic_seed","6551"},{"classic_seconds","60"}};
     ScriptedSystem sys;sys.audioSupported=true;sys.audioRequiresGraphics=true;
     sys.events=[](size_t f)->std::vector<Event>{
         if(f==1 || f==6 || f==7)return{keyEvent(key::Return)};
@@ -317,7 +317,7 @@ void presentationWorkflow(const std::filesystem::path& tmp) {
     game=meta->create(review,target);if(auto err=game->run())return test::fail(err.message);
     CHECK(review.hashes.size()==9 && review.audioStopped && !review.audioCallback);
     if(review.hashes.size()==9){CHECK(review.hashes[7]!=review.hashes[6]);CHECK(review.hashes[8]!=review.hashes[7]);}
-    target.settings={{"classic_menu","0"},{"classic_variant","master"},{"classic_seconds","0"},{"classic_sound","0"}};
+    target.settings={{"classic_seed","6551"},{"classic_menu","0"},{"classic_variant","master"},{"classic_seconds","0"},{"classic_sound","0"}};
     ScriptedSystem master;
     master.events=[](size_t f)->std::vector<Event>{if(f==1)return{keyEvent(key::Return)};if(f==3)return{keyEvent(key::F1)};if(f==5)return{keyEvent(key::Escape)};return{};};
     master.clock=[](size_t f)->uint64_t{const uint64_t times[]={0,10,4410,4420,5520,5530};return times[std::min(f,size_t(5))];};
@@ -330,7 +330,7 @@ void musicWorkflow(const std::filesystem::path& tmp) {
     const auto install=tmp/"install"; fixtures::classicInstall(install);
     fixtures::write(install/"Waves/Clasical.wav",fixtures::wave());
     GameTarget target; target.gameId="boggle1997"; target.path=install; target.savePath=tmp/"saves";
-    target.settings={{"classic_music","0"},{"classic_sound","0"},{"classic_animations","0"},{"classic_seconds","0"}};
+    target.settings={{"classic_seed","6551"},{"classic_music","0"},{"classic_sound","0"},{"classic_animations","0"},{"classic_seconds","0"}};
     fixtures::ScriptedSystem sys; sys.audioSupported=true; sys.audioRequiresGraphics=true;
     sys.events=[](size_t frame)->std::vector<Event>{
         if(frame==1 || frame==5)return {fixtures::keyEvent(key::Return)};

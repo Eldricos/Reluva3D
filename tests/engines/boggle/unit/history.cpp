@@ -61,7 +61,7 @@ void browsing(const std::filesystem::path& tmp) {
         dictionary.push_back(0);test::fixtures::put32(dictionary,4,mask);test::fixtures::put32(dictionary,8,uint32_t(dictionary.size()-12));
         fixtures::write(root / "Dicts/English.dic",dictionary);
         GameTarget target;target.path=root;target.savePath=root.parent_path() / (root.filename().string()+"-save");
-        target.settings={{"classic_variant",master?"master":"original"},{"classic_artwork",art?"1":"0"},{"classic_animations","0"},{"classic_sound","0"}};
+        target.settings={{"classic_seed","6551"},{"classic_variant",master?"master":"original"},{"classic_artwork",art?"1":"0"},{"classic_animations","0"},{"classic_sound","0"}};
         fixtures::ScriptedSystem sys;sys.clock=[](size_t){return uint64_t(0);};
         sys.events=[&](size_t frame)->std::vector<Event> {
             if(frame==0 || frame==13)return {fixtures::keyEvent(key::Return)};

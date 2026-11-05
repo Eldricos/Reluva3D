@@ -32,9 +32,11 @@ is outside this single-player slice.
 
 ## Deliberate prototype behavior
 
-The initial board uses the retail `EngOrg.dst` or `EngMas.dst` dice with a deterministic
-native generator and seed. It is fixed across launches for reproducible
-validation. New boards use the same independent generator with a new seed;
+The board uses the retail `EngOrg.dst` or `EngMas.dst` dice with a deterministic
+native generator. Normal launches and New Board choose fresh native seeds;
+Replay retains the board. Developer overrides and tools keep reproducible
+validation available; see [board seed selection](randomization.md).
+New boards use the same independent generator;
 it is not the original executable's random algorithm or shuffle sequence.
 The original generator at `0x443530` uses a different swap/face-selection
 procedure. No seed-identical original behavior is claimed.
@@ -62,7 +64,7 @@ the independent native model. A default-returning profile hook confirmed the
 original options loader's 180,000 ms default. The harness and original bytes
 remain outside Git.
 
-For the supplied English dictionary and initial native seed `0x1997`, the
+For the supplied English dictionary and explicit reference seed `0x1997`, the
 metadata-only `classic-check` finds 130 valid words, totaling 179 points. It
 checks each acceptance and duplicate, verifies each path, and expires the
 round at its deadline. Both supplied expanded trees produce checksum

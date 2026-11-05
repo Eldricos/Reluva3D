@@ -128,3 +128,8 @@ that observation.
 **Classic handwriting font** (`classic_handwriting`, default `1`) uses the
 installed KPSI font in the artwork word list. Set `0` for the built-in font;
 older imports without KPSI also retain it. See [font support and limits](fonts.md).
+
+Normal launches and New Board use fresh native board seeds. Developers can
+retain controlled runs through the strict `classic_seed` target setting; see
+[seed behavior and reproducible checks](randomization.md). This adds no launcher
+option and does not affect the installed dice resources.

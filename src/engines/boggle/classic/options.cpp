@@ -42,6 +42,13 @@ Error readClassicOptions(const std::map<std::string,std::string>& settings, Clas
             parsed.music = track;
         }
     }
+    if(auto it=settings.find("classic_seed");it!=settings.end()) {
+        uint32_t seed=0;const auto& text=it->second;
+        const auto result=std::from_chars(text.data(),text.data()+text.size(),seed);
+        if(result.ec!=std::errc{} || result.ptr!=text.data()+text.size() || text!=std::to_string(seed))
+            return Error::fail("Classic replay seed must be an unsigned 32-bit decimal integer");
+        parsed.seed=seed;
+    }
     out = parsed; return Error::success();
 }
 } // namespace reluva::boggle

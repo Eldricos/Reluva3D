@@ -22,8 +22,8 @@ by the static inspection and must not become undocumented assumptions in code.
 - INSO `.DAT` layout, definition rendering and DLL ordinal contracts.
 - Exact purpose of duplicate or unused-looking dictionary files. Determine
   the files the selected language actually opens before pruning an import.
-- Original generator seed and shuffle equivalence. The prototype uses an
-  independent deterministic generator; Classic adjacency, no cube reuse and
+- Original generator seed and shuffle equivalence. Native play uses an
+  independent generator with fresh seeds; Classic adjacency, no cube reuse and
   complete multi-letter faces are confirmed in executable analysis.
 - The five modes' board sizes, rules, scoring, timers, difficulty, player
   counts, camera behavior, animations and AI behavior.
@@ -125,3 +125,9 @@ allowed and the board holds ten scores; native storage now preserves each
 qualifying round, including repeated names and identical scores. Original tie, zero-score, replay
 policies and original score-file persistence remain unverified. See
 [high-score scope and evidence](../../engines/boggle/highscores.md).
+
+The owner confirmed the corrected ten-score table works, including repeated
+player names. Normal Classic launches, menu re-entry and New Board now use
+fresh native seeds; Replay retains its board/orientations. Tests and resource
+tools retain explicit seeds. Original RNG equivalence remains unverified. See
+[board randomization scope](../../engines/boggle/randomization.md).

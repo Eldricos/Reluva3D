@@ -27,9 +27,9 @@ the final summary. All Words / A reveals available and missed words with
 potential points, while retaining the final score. See [completed-round review](results.md)
 and [all-word discovery](all-words.md). High Scores / H opens the shared Classic
 [high-score table](highscores.md) after results are finalized. With the menu disabled, Escape returns directly
-to the launcher. The initial
-board uses a fixed native seed for reproducible checks; its shuffle differs
-from the original game.
+to the launcher. Normal launches and New Board now use fresh native seeds;
+Replay keeps the current board. The shuffle differs from the original game.
+See [board variety and reproducible checks](randomization.md).
 
 **Auto-orient cubes** keeps letters upright by default. Disable it in the
 launcher's game options for individual quarter-turn orientations, including Qu.
@@ -61,7 +61,7 @@ Game ID: `boggle1997`. Add the installed folder containing `Boggle.exe`, or
 its equivalent expanded `Boggle/` directory on the supplied CD. The CD root
 and compressed-only installers are not recognized as runnable directories.
 **Import Game** accepts the install, the expanded CD folder, or the CD root
-containing it, and copies the English Classic set (52 files with Classic and menu artwork and clips) into your external
+containing it, and copies the English Classic set (53 files with Classic/menu artwork, clips and handwriting font) into your external
 library. See [import scope and validation](import.md).
 
 Detection requires measured prefix-MD5/size signatures for `Boggle.exe`,

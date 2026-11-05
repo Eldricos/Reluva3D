@@ -21,7 +21,7 @@ void artwork(const std::filesystem::path& path) {
 GameTarget target(const std::filesystem::path& tmp) {
     fixtures::masterInstall(tmp/"install");
     GameTarget t;t.path=tmp/"install";t.savePath=tmp/"saves";t.gameId="boggle1997";
-    t.settings={{"classic_sound","0"},{"classic_animations","0"}};return t;
+    t.settings={{"classic_seed","6551"},{"classic_sound","0"},{"classic_animations","0"}};return t;
 }
 void navigation(const std::filesystem::path& tmp) {
     auto t=target(tmp);artwork(t.path);

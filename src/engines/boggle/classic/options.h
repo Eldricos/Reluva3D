@@ -4,6 +4,7 @@
 #include "common/types.h"
 #include <map>
 #include <array>
+#include <optional>
 
 namespace reluva::boggle {
 // Resource filenames only; display titles are read from the installed DLL.
@@ -18,6 +19,7 @@ struct ClassicOptions {
     uint64_t duration = 180000; // milliseconds; zero means Not Timed
     bool sound = true, animations = true, menu = true, movies = true, artwork = true, autoOrient = true, handwriting = true;
     int music = musicNone;
+    std::optional<uint32_t> seed; // developer replay override; absent in normal play
     size_t side() const { return variant == ClassicVariant::Master ? 5 : 4; }
     const char* dice() const { return variant == ClassicVariant::Master ? "Dicts/EngMas.dst" : "Dicts/EngOrg.dst"; }
     const char* palette() const { return variant == ClassicVariant::Master ? "Palettes/ClsM1Pal.pal" : "Palettes/ClsO1Pal.pal"; }
