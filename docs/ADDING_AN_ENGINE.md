@@ -42,8 +42,17 @@ and adds `<name>=enabled` to `engines.cfg`. Build it: it compiles, and
 - **Fill in `kVariants`** in `<name>.cpp`, one entry per release (language,
   platform, patch level). The launcher's *Add Game...* then finds it.
 - **Copying from a CD or an installer** (*Import Game...*) is the
-  `MetaEngine`'s `planImport`; settings shown in the launcher are its
-  `options`. See `src/engines/engine.h`.
+  `MetaEngine`'s `planImport`. See `src/engines/engine.h`.
+- **Settings.** A game's choices that depend on what's in its folder (an
+  expansion, a mod) are the `MetaEngine`'s `options`. Settings for all its
+  games, which each game can also set for itself (the engine's sound
+  volumes, say, or its developer options), are its `engineOptions`: the
+  launcher shows them under **Settings...** and with each game. The engine
+  reads every setting from `GameTarget::settings`, already merged.
+- **The settings every engine has** (`src/common/settings.h`): the display
+  ones are applied for it before `run()`; the master volume it applies to
+  its mixer itself:
+  `mixer.setMasterVolume(settings::volume(target.settings, settings::kMasterVolume))`.
 
 ## 3. Make it run
 

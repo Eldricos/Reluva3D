@@ -199,6 +199,31 @@ render check and troubleshooting.
 - **Start** (or a double-click) plays the selected game. Settings for the
   selected game, where an engine has them, are shown below the buttons.
 
+### Settings
+
+Settings are kept at three levels, and a game takes the most specific one
+set:
+
+- **Every game:** **Settings...**, with *Every game* chosen.
+- **An engine's games:** **Settings...**, with *All <engine> games* chosen.
+  An engine's own settings, where it has some, are here too.
+- **One game:** *This game's settings*, under the selected game's buttons.
+
+Each setting starts out unset: Reluva's default, or what's set at the
+level above (the list shows which). The settings every engine has:
+
+| Setting | Choices | Default |
+|---|---|---|
+| Start in | a window, full screen | a window |
+| Window size | as it is, 2x where it fits, 1x to 4x the game's picture | as it is |
+| Scaling | any size (letterboxed), whole multiples only | any size |
+| Pixels | sharp, smoothed | sharp |
+| Vertical sync | on, off | on |
+| Master volume | 0% to 200% | 100% |
+
+They're stored in `reluva.ini`: every game's in `[reluva]`, an engine's in
+`[engine:<engine>]`, a game's in its own section.
+
 In a game:
 
 - **Ctrl+F5** returns to the launcher.
@@ -227,7 +252,8 @@ Everything goes in SDL's preferences folder for Reluva:
 
 In it:
 
-- **`reluva.ini`:** the launcher's list of games, and their settings.
+- **`reluva.ini`:** the launcher's list of games, and the settings (for
+  every game, each engine's games, and each game).
 - **`games/<name>/`:** each game's own files: its settings, saved games,
   screenshots and downloads.
 - **`library/`:** games copied by *Import Game...*.

@@ -24,6 +24,7 @@
 #include "common/md5.h"
 #include "common/net.h"
 #include "common/palette.h"
+#include "common/settings.h"
 #include "common/stream.h"
 #include "common/text.h"
 #include "common/video/smacker.h"
@@ -98,6 +99,32 @@ static void testConfig(const std::filesystem::path& tmp) {
     CHECK(c.get("foo", "path") == "/games/foo bar");
     CHECK(c.targets().size() == 1);
     CHECK(c.get("foo", "missing", "dflt") == "dflt");
+
+    // Settings at three levels: every game's, an engine's games', a game's
+    // own; the most specific wins, and an engine's section is no game.
+    c.set("foo", "engine", "eng");
+    c.set("bar", "engine", "other");
+    c.set(Config::kGlobalSection, settings::kVsync, "0");
+    c.set(Config::kGlobalSection, settings::kSmooth, "1");
+    c.set(Config::engineSection("eng"), settings::kSmooth, "0");
+    c.set(Config::engineSection("eng"), settings::kWindowScale, "auto");
+    c.set("foo", settings::kWindowScale, "3");
+    CHECK(c.targets().size() == 2 && Config::isEngineSection(Config::engineSection("eng")));
+    auto foo = c.settingsFor("foo"), bar = c.settingsFor("bar");
+    CHECK(foo[settings::kVsync] == "0" && foo[settings::kSmooth] == "0" && foo[settings::kWindowScale] == "3");
+    CHECK(bar[settings::kSmooth] == "1" && bar.count(settings::kWindowScale) == 0);
+    c.unset("foo", settings::kWindowScale);
+    CHECK(!c.has("foo", settings::kWindowScale) && c.settingsFor("foo")[settings::kWindowScale] == "auto");
+
+    // As the frontend and engines read them: unset is Reluva's default.
+    CHECK(settings::display({}) == DisplayOptions{});
+    const DisplayOptions d = settings::display(c.settingsFor("foo"));
+    CHECK(!d.fullscreen && d.windowScale == DisplayOptions::kAutoScale && !d.integerScaling && !d.smooth && !d.vsync);
+    CHECK(settings::display({{settings::kWindowScale, "2"}, {settings::kIntegerScaling, "1"}}).windowScale == 2);
+    CHECK(settings::volume({}, settings::kMasterVolume) == audio::kMaxVolume);
+    CHECK(settings::volume({{settings::kMasterVolume, "200"}}, settings::kMasterVolume) == audio::kMaxBoostVolume);
+    CHECK(settings::volume({{settings::kMasterVolume, "50"}}, settings::kMasterVolume) == audio::kMaxVolume / 2);
+    CHECK(settings::volume({{settings::kMasterVolume, "x"}}, settings::kMasterVolume, 30) == audio::kMaxVolume * 30 / 100);
     std::filesystem::remove_all(tmp);
 }
 

@@ -27,7 +27,9 @@ struct GameTarget {
     // not exist yet. Set by the frontend.
     std::filesystem::path savePath;
     // Everything stored for it, the engine's own options among them
-    // (MetaEngine::options).
+    // (MetaEngine::options and engineOptions), and the settings for every
+    // game and for its engine's (common/settings.h), merged as
+    // Config::settingsFor does: the most specific one set wins.
     std::map<std::string, std::string> settings;
 };
 
@@ -67,6 +69,12 @@ public:
     virtual std::vector<GameOption> options(const std::string& /*gameId*/, const std::filesystem::path& /*dir*/) const {
         return {};
     }
+    // Settings for all of the engine's games, which each game can also set
+    // for itself: the launcher shows them under Settings (for all its
+    // games) and with each game, and the game gets them in its
+    // GameTarget::settings, merged (Config::settingsFor). Each GameOption's
+    // first choice (or defaultOn) is what it is when set nowhere.
+    virtual std::vector<GameOption> engineOptions() const { return {}; }
     // Adds what `file` holds for `plan`'s game (its patch: the patched
     // files, in place of the plan's own); false, with why in `message`, if
     // it isn't one the engine knows.

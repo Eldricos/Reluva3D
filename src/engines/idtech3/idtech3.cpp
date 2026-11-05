@@ -17,6 +17,7 @@
 
 #include "common/audio/mixer.h"
 #include "common/fs.h"
+#include "common/settings.h"
 #include "common/zip.h"
 #include "engines/engine.h"
 #include "engines/idtech3/filesystem.h"
@@ -68,6 +69,7 @@ public:
 
         // One mixer for every page's sounds; without audio output, none.
         audio::Mixer mixer(sys_.audioRate());
+        mixer.setMasterVolume(settings::volume(target_.settings, settings::kMasterVolume));
         const bool audioOut = !audio::startMixerOutput(sys_, mixer);
         struct AudioOff { // stops the output before the mixer goes
             System& sys;

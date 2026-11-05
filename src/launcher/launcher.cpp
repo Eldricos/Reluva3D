@@ -4,6 +4,7 @@
 #include "launcher/launcher.h"
 
 #include "backends/sdl3/sdl_system.h"
+#include "common/settings.h"
 #include "engines/registry.h"
 
 #include <imgui.h>
@@ -13,6 +14,58 @@
 #include <imgui_impl_sdlrenderer3.h>
 
 namespace reluva {
+
+namespace {
+
+// The settings every engine has (common/settings.h), as the launcher shows
+// them. Each one's first choice is Reluva's default.
+const std::vector<GameOption>& sharedSettings() {
+    static const std::vector<GameOption> list = [] {
+        std::vector<GameOption> v;
+        v.push_back({settings::kFullscreen, "Start in", "Alt+Enter switches between the two in a game.", true,
+                     {{"0", "A window"}, {"1", "Full screen"}}});
+        v.push_back({settings::kWindowScale, "Window size",
+                     "The window's size for a game, as a multiple of the game's own picture.", true,
+                     {{"", "As it is"}, {"auto", "2x where it fits, else 1x"}, {"1", "1x"}, {"2", "2x"}, {"3", "3x"},
+                      {"4", "4x"}}});
+        v.push_back({settings::kIntegerScaling, "Scaling",
+                     "Whole multiples keep every pixel the same size, with black borders.\n"
+                     "They only show where the picture is scaled by an uneven amount (most full screens).",
+                     true, {{"0", "Any size, letterboxed"}, {"1", "Whole multiples only"}}});
+        v.push_back({settings::kSmooth, "Pixels", "Smoothing only shows where the picture is scaled by an uneven amount.",
+                     true, {{"0", "Sharp"}, {"1", "Smoothed"}}});
+        v.push_back({settings::kVsync, "Vertical sync", "Wait for the display's refresh: no tearing.", true,
+                     {{"1", "On"}, {"0", "Off"}}});
+        GameOption volume{settings::kMasterVolume, "Master volume", "Every sound, as a share of how the game plays it.",
+                          true, {}};
+        volume.choices.push_back({"100", "100%"});
+        for (int p = 0; p <= 200; p += 10)
+            if (p != 100)
+                volume.choices.push_back({std::to_string(p), std::to_string(p) + "%"});
+        v.push_back(volume);
+        return v;
+    }();
+    return list;
+}
+
+// A checkbox option as a list, for showing it beside its inherited value.
+GameOption asChoices(const GameOption& o) {
+    if (!o.choices.empty())
+        return o;
+    GameOption c = o;
+    c.choices = o.defaultOn ? std::vector<std::pair<std::string, std::string>>{{"1", "On"}, {"0", "Off"}}
+                            : std::vector<std::pair<std::string, std::string>>{{"0", "Off"}, {"1", "On"}};
+    return c;
+}
+
+std::string shownValue(const GameOption& o, const std::string& value) {
+    for (const auto& [v, text] : o.choices)
+        if (v == value)
+            return text;
+    return value;
+}
+
+} // namespace
 
 Launcher::Launcher(SdlSystem& system, Config& config) : sys_(system), config_(config) {
     IMGUI_CHECKVERSION();
@@ -172,8 +225,12 @@ void Launcher::drawUi(std::optional<GameTarget>& launch, bool& quit) {
     drawOptions();
 
     ImGui::Spacing();
+    if (ImGui::Button("Settings...", bsize))
+        settingsOpen_ = true;
+    if (ImGui::IsItemHovered())
+        ImGui::SetTooltip("Display and sound settings for every game, and each engine's settings for its games");
     if (ImGui::Button("Run Testbed", bsize))
-        launch = GameTarget{"testbed", "testbed", "testbed", "Testbed", {}, {}, {}};
+        launch = GameTarget{"testbed", "testbed", "testbed", "Testbed", {}, {}, config_.settingsFor("testbed")};
 
     ImGui::Spacing();
     if (ImGui::Button("Quit", bsize))
@@ -185,6 +242,7 @@ void Launcher::drawUi(std::optional<GameTarget>& launch, bool& quit) {
     ImGui::TextUnformatted(status_.empty() ? "Ready." : status_.c_str());
 
     drawImport();
+    drawSettingsWindow();
 
     // Several games matched one folder: let the user pick.
     if (!pendingChoices_.empty()) {
@@ -349,7 +407,9 @@ void Launcher::drawOptions() {
             if (const MetaEngine* meta = findEngine(config_.get(selected_, "engine")))
                 options_ = meta->options(config_.get(selected_, "gameid"), config_.get(selected_, "path"));
     }
-    if (options_.empty())
+    const bool haveGame = config_.hasSection(selected_) && selected_ != Config::kGlobalSection &&
+                          !Config::isEngineSection(selected_);
+    if (!haveGame)
         return;
     ImGui::Spacing();
     ImGui::Separator();
@@ -384,6 +444,96 @@ void Launcher::drawOptions() {
         if (!o.tooltip.empty() && ImGui::IsItemHovered())
             ImGui::SetTooltip("%s", o.tooltip.c_str());
     }
+    // The game's own settings: each as set for its engine's games (or every
+    // game) until changed here.
+    const std::string engineId = config_.get(selected_, "engine");
+    if (ImGui::CollapsingHeader("This game's settings")) {
+        if (const MetaEngine* meta = findEngine(engineId))
+            for (const GameOption& o : meta->engineOptions())
+                drawSetting(selected_, engineId, o);
+        for (const GameOption& o : sharedSettings())
+            drawSetting(selected_, engineId, o);
+    }
+}
+
+std::string Launcher::inheritedValue(const std::string& section, const std::string& engineId,
+                                     const GameOption& option) const {
+    const GameOption o = asChoices(option);
+    const std::string engineSection = engineId.empty() ? std::string() : Config::engineSection(engineId);
+    if (section != engineSection && !engineSection.empty() && config_.has(engineSection, o.key))
+        return config_.get(engineSection, o.key);
+    if (section != Config::kGlobalSection && config_.has(Config::kGlobalSection, o.key))
+        return config_.get(Config::kGlobalSection, o.key);
+    return o.choices.front().first;
+}
+
+void Launcher::drawSetting(const std::string& section, const std::string& engineId, const GameOption& option) {
+    const GameOption o = asChoices(option);
+    const bool set = config_.has(section, o.key);
+    const std::string inherited = inheritedValue(section, engineId, o);
+    const std::string from = section == Config::kGlobalSection   ? "default"
+                             : Config::isEngineSection(section) ? "as for every game"
+                                                                : "as for its engine's games";
+    const std::string inheritedText = shownValue(o, inherited) + " (" + from + ")";
+    const std::string shown = set ? shownValue(o, config_.get(section, o.key)) : inheritedText;
+    ImGui::TextUnformatted(o.label.c_str());
+    if (!o.tooltip.empty() && ImGui::IsItemHovered())
+        ImGui::SetTooltip("%s", o.tooltip.c_str());
+    ImGui::SetNextItemWidth(-1);
+    if (ImGui::BeginCombo(("##" + section + o.key).c_str(), shown.c_str())) {
+        if (ImGui::Selectable(inheritedText.c_str(), !set)) {
+            config_.unset(section, o.key);
+            config_.save();
+        }
+        for (const auto& [v, text] : o.choices)
+            if (ImGui::Selectable((text + "##" + v).c_str(), set && config_.get(section, o.key) == v)) {
+                config_.set(section, o.key, v);
+                config_.save();
+            }
+        ImGui::EndCombo();
+    }
+}
+
+void Launcher::drawSettingsWindow() {
+    if (!settingsOpen_)
+        return;
+    const float scale = ImGui::GetStyle().FontScaleDpi;
+    ImGui::SetNextWindowSize(ImVec2(460 * scale, 560 * scale), ImGuiCond_FirstUseEver);
+    if (!ImGui::Begin("Settings", &settingsOpen_)) {
+        ImGui::End();
+        return;
+    }
+    // Whose settings: every game's, or one engine's games' (those it has).
+    const MetaEngine* engine = settingsEngine_.empty() ? nullptr : findEngine(settingsEngine_);
+    const std::string current = engine ? std::string("All ") + engine->name() + " games" : "Every game";
+    ImGui::TextUnformatted("Settings for");
+    ImGui::SetNextItemWidth(-1);
+    if (ImGui::BeginCombo("##settingsfor", current.c_str())) {
+        if (ImGui::Selectable("Every game", !engine))
+            settingsEngine_.clear();
+        for (const MetaEngine* e : allEngines()) {
+            if (std::string(e->id()) == "testbed")
+                continue;
+            if (ImGui::Selectable((std::string("All ") + e->name() + " games").c_str(), engine == e))
+                settingsEngine_ = e->id();
+        }
+        ImGui::EndCombo();
+    }
+    ImGui::TextDisabled("A game's own settings are shown with it, below its buttons.");
+    ImGui::Separator();
+    const std::string section = engine ? Config::engineSection(engine->id()) : Config::kGlobalSection;
+    if (engine) {
+        const auto own = engine->engineOptions();
+        if (!own.empty()) {
+            ImGui::SeparatorText(engine->name());
+            for (const GameOption& o : own)
+                drawSetting(section, engine->id(), o);
+        }
+    }
+    ImGui::SeparatorText("Display and sound");
+    for (const GameOption& o : sharedSettings())
+        drawSetting(section, engine ? engine->id() : "", o);
+    ImGui::End();
 }
 
 GameTarget Launcher::launchTarget(const std::string& name) {
@@ -555,7 +705,8 @@ void Launcher::finishImport() {
 
 GameTarget Launcher::targetFromConfig(const std::string& name) const {
     return GameTarget{name, config_.get(name, "engine"), config_.get(name, "gameid"),
-                      config_.get(name, "description", name), config_.get(name, "path"), {}, config_.values(name)};
+                      config_.get(name, "description", name), config_.get(name, "path"), {},
+                      config_.settingsFor(name)};
 }
 
 } // namespace reluva
