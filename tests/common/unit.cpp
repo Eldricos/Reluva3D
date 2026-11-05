@@ -646,6 +646,11 @@ static void testStreams(const std::filesystem::path& tmp) {
     CHECK(b.readFixedString(4) == "ab");
     CHECK(b.readLine() == "one" && b.readLine() == "two" && b.readLine() == "3" && b.readLine() == "4" && b.eos());
     CHECK(b.readLine().empty());
+    MemoryWriteStream wbe;
+    wbe.writeUint32BE(0x01020304);
+    wbe.writeUint16BE(0x0506);
+    wbe.writeString("ok");
+    CHECK((wbe.data() == std::vector<uint8_t>{1, 2, 3, 4, 5, 6, 'o', 'k'}));
     MemoryReadStream shortBE(std::vector<uint8_t>{1});
     CHECK(shortBE.readUint32BE() == 0x01000000u && shortBE.err());
 }
@@ -1098,6 +1103,14 @@ static void testMixerPause() {
     m.stop(h);
     CHECK(!m.isPlaying(h) && !m.isPaused(h));
     m.setPaused(kNoSound, true); // nothing to pause
+    // Everything paused: silence, and the sound plays on afterwards.
+    const SoundHandle g = m.play(std::shared_ptr<const Sound>(s), SoundType::Music);
+    m.setAllPaused(true);
+    m.mix(out.data(), 2);
+    CHECK(out[0] == 0 && m.allPaused() && m.position(g) == 0.0);
+    m.setAllPaused(false);
+    m.mix(out.data(), 1);
+    CHECK(out[0] == 1 && !m.allPaused());
 }
 
 static const reluva::test::Suite audioSuite("common.unit.audio", {

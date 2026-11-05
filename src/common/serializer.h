@@ -72,6 +72,8 @@ public:
     void syncAsUint32(uint32_t& value) { syncAsInt(value, 4); }
     void syncAsSint32(int32_t& value) { syncAsInt(value, 4); }
     void syncAsUint64(uint64_t& value) { syncAsInt(value, 8); }
+    // An int in 32 bits.
+    void syncAsInt(int& value) { syncAsInt(value, 4); }
     // A double's bits, as they are.
     void syncAsDouble(double& value) {
         uint64_t bits = 0;

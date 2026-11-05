@@ -71,6 +71,16 @@ std::string SeekableReadStream::readLine() {
     return line;
 }
 
+void MemoryWriteStream::writeUint16BE(uint16_t v) {
+    data_.push_back(uint8_t(v >> 8));
+    data_.push_back(uint8_t(v));
+}
+
+void MemoryWriteStream::writeUint32BE(uint32_t v) {
+    writeUint16BE(uint16_t(v >> 16));
+    writeUint16BE(uint16_t(v));
+}
+
 std::string ReadStream::readCString() {
     std::string s;
     uint8_t c;

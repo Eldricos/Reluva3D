@@ -62,6 +62,10 @@ public:
     // unpaused; it still counts as playing.
     void setPaused(SoundHandle handle, bool paused);
     bool isPaused(SoundHandle handle) const;
+    // Every sound held where it is (the game paused), apart from each
+    // sound's own pause; mix() gives silence meanwhile.
+    void setAllPaused(bool paused);
+    bool allPaused() const;
 
     void setVolume(SoundHandle handle, int volume);
     void setPan(SoundHandle handle, int pan);
@@ -106,6 +110,7 @@ private:
     SoundHandle nextHandle_ = 1;
     int typeVolume_[kSoundTypes] = {kMaxVolume, kMaxVolume, kMaxVolume};
     int masterVolume_ = kMaxVolume;
+    bool allPaused_ = false;
     std::vector<int32_t> accumulator_; // mix()'s working buffer, stereo
 };
 

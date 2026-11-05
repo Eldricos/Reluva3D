@@ -81,6 +81,10 @@ public:
     void writeByte(uint8_t v) { data_.push_back(v); }
     void writeUint16LE(uint16_t v);
     void writeUint32LE(uint32_t v);
+    void writeUint16BE(uint16_t v);
+    void writeUint32BE(uint32_t v);
+    // The string's bytes, without a NUL.
+    void writeString(const std::string& s) { write(s.data(), uint32_t(s.size())); }
     // A string in a field of `size` bytes, padded with NULs (cut if longer).
     void writeFixedString(const std::string& s, uint32_t size);
     const std::vector<uint8_t>& data() const { return data_; }

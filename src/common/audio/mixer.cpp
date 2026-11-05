@@ -102,6 +102,16 @@ bool Mixer::isPaused(SoundHandle handle) const {
     return c && c->paused;
 }
 
+void Mixer::setAllPaused(bool paused) {
+    std::lock_guard<std::mutex> lock(mutex_);
+    allPaused_ = paused;
+}
+
+bool Mixer::allPaused() const {
+    std::lock_guard<std::mutex> lock(mutex_);
+    return allPaused_;
+}
+
 void Mixer::setPan(SoundHandle handle, int pan) {
     std::lock_guard<std::mutex> lock(mutex_);
     if (Channel* c = find(handle))
@@ -204,7 +214,7 @@ void Mixer::mix(int16_t* out, int frames) {
     std::lock_guard<std::mutex> lock(mutex_);
     accumulator_.assign(size_t(frames) * 2, 0);
     for (Channel& c : channels_) {
-        if (c.done || c.paused)
+        if (c.done || c.paused || allPaused_)
             continue;
         // In 1/65536ths: the sound's volume x its type's x the master
         // volume (as recorded at their defaults).
