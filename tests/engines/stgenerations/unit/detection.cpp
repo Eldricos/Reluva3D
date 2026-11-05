@@ -186,6 +186,34 @@ static void import_piece_by_piece() {
     CHECK(!engine->addToImport(plan, other.path(), message) && message.find("Generations") != std::string::npos);
 }
 
+// A CD copied with errors: the two CDs' STELLAR.DATs differ, and the
+// import takes the whole one, whichever CD it's on.
+static void import_takes_the_whole_copy() {
+    stgtest::TempDir t;
+    writeInstall(t, "install/");
+    writeDisc(t, "cd1/", 1);
+    writeDisc(t, "cd2/", 2);
+    std::vector<uint8_t> good = test::buildZip({{"DESIGN/STATES.INI", test::toBytes("[Start]\r\nIntro\r\n"), {}}});
+    std::vector<uint8_t> bad = good;
+    bad[30 + 17 + 2] ^= 0x40; // a bit of the file's data: its CRC no longer matches
+    t.writeFile("cd1/GENS/STELLAR.DAT", bad);
+    t.writeFile("cd2/GENS/STELLAR.DAT", good);
+    const MetaEngine* engine = findEngine("stgenerations");
+    std::vector<ImportPlan> found = engine->planImport(t.path());
+    CHECK_EQUAL(found.size(), size_t(1));
+    if (found.empty())
+        return;
+    const auto it = std::find_if(found[0].files.begin(), found[0].files.end(), [](const ImportPlan::File& f) {
+        return f.to.find("STELLAR.DAT") != std::string::npos;
+    });
+    CHECK(it != found[0].files.end() && it->to == "disc2/GENS/STELLAR.DAT" &&
+          it->from.parent_path().parent_path().filename() == "cd2");
+    // The same on both: the first CD's, as before.
+    t.writeFile("cd1/GENS/STELLAR.DAT", good);
+    found = engine->planImport(t.path());
+    CHECK(!found.empty() && plans(found[0], "disc1/GENS/STELLAR.DAT") && !plans(found[0], "disc2/GENS/STELLAR.DAT"));
+}
+
 // The CDs' folders given (STG-Engine's --cd1 and --cd2, the cd1 and cd2
 // settings here): searched as an import's are, the installed files first.
 static void cd_folders_given() {
@@ -209,5 +237,6 @@ static const reluva::test::Suite suite("stgenerations.unit.detection", {
     {"releases", [](const std::filesystem::path&) { releases(); }},
     {"import with both cds", [](const std::filesystem::path&) { import_with_both_cds(); }},
     {"import piece by piece", [](const std::filesystem::path&) { import_piece_by_piece(); }},
+    {"import takes the whole copy", [](const std::filesystem::path&) { import_takes_the_whole_copy(); }},
     {"cd folders given", [](const std::filesystem::path&) { cd_folders_given(); }},
 });

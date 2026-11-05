@@ -53,6 +53,7 @@ reluva_add_engine(stgenerations
 reluva_add_engine_tools(stgenerations
     SOURCES
         tools/files.cpp
+        tools/data.cpp
         tools/play.cpp)
 
 # Its tests (tests/engines/stgenerations/), in reluva-tests: the unit tests by

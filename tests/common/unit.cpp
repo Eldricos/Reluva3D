@@ -361,6 +361,12 @@ static void testZip(const std::filesystem::path& tmp) {
     damaged[30 + 5] = 'X'; // the file's data, after the 30-byte header and name
     test::writeFile(path, damaged);
     CHECK(!zip.open(path) && zip.read("a.txt", data));
+    // Unchecked, a stored entry is read as it is, saying its CRC is wrong.
+    bool crcOk = true;
+    CHECK(!zip.readUnchecked(*zip.entry("a.txt"), data, crcOk) && !crcOk && data == toBytes("Xbc"));
+    test::writeFile(tmp / "good.zip", test::buildZip({{"a.txt", toBytes("abc"), {}}}));
+    CHECK(!zip.open(tmp / "good.zip") && !zip.readUnchecked(*zip.entry("a.txt"), data, crcOk) && crcOk &&
+          data == toBytes("abc"));
     test::writeFile(path, toBytes("definitely not a zip archive"));
     CHECK(zip.open(path));
     std::filesystem::remove_all(tmp);

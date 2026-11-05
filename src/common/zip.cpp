@@ -163,6 +163,16 @@ Error ZipArchive::read(std::string_view name, std::vector<uint8_t>& out) const {
 }
 
 Error ZipArchive::read(const Entry& e, std::vector<uint8_t>& out) const {
+    bool crcOk = true;
+    if (Error err = readUnchecked(e, out, crcOk))
+        return err;
+    if (!crcOk)
+        return Error::fail(path_.string() + ": " + e.name + ": CRC mismatch");
+    return Error::success();
+}
+
+Error ZipArchive::readUnchecked(const Entry& e, std::vector<uint8_t>& out, bool& crcOk) const {
+    crcOk = true;
     const std::string where = path_.string() + ": " + e.name;
     // Opened per read so a const archive can be read from several threads.
     std::ifstream in(path_, std::ios::binary);
@@ -186,8 +196,11 @@ Error ZipArchive::read(const Entry& e, std::vector<uint8_t>& out) const {
     } else {
         return Error::fail(where + ": unsupported compression method " + std::to_string(e.method));
     }
-    if (crc32(out.data(), out.size()) != e.crc)
-        return Error::fail(where + ": CRC mismatch");
+    if (crc32(out.data(), out.size()) != e.crc) {
+        if (e.method != 0)
+            return Error::fail(where + ": CRC mismatch");
+        crcOk = false;
+    }
     return Error::success();
 }
 

@@ -249,8 +249,16 @@ std::unique_ptr<SeekableReadStream> ResourceManager::open(const ResourceRef& ref
             return nullptr;
     } else {
         std::shared_ptr<ZipArchive> zip = getArchive(ref.archive);
-        if (!zip || !zip->has(ref.name) || zip->read(ref.name, data))
+        const ZipArchive::Entry* entry = zip ? zip->entry(ref.name) : nullptr;
+        // A stored file whose CRC doesn't match is read all the same, as the
+        // original (and STG-Engine) read them: some copies of the game have
+        // a few bits wrong in some of their music.
+        bool crcOk = true;
+        if (!entry || zip->readUnchecked(*entry, data, crcOk))
             return nullptr;
+        if (!crcOk)
+            log::warning("%s:%s is damaged (its CRC doesn't match); played as it is", ref.archive.c_str(),
+                         entry->name.c_str());
     }
     return std::make_unique<MemoryReadStream>(std::move(data));
 }

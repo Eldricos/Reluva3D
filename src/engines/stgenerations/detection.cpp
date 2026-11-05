@@ -7,6 +7,7 @@
 #include "common/fs.h"
 #include "common/stream.h"
 #include "common/text.h"
+#include "common/zip.h"
 #include "engines/stgenerations/formats/resources.h"
 
 #include <algorithm>
@@ -86,6 +87,28 @@ uint64_t sizeOf(const std::filesystem::path& p) {
     std::error_code ec;
     const auto n = std::filesystem::file_size(p, ec);
     return ec ? 0 : uint64_t(n);
+}
+
+// How many of an archive's members can't be read as they should (damaged
+// data, or a wrong CRC); -1 if it isn't an archive at all.
+int damagedMembers(const std::filesystem::path& file) {
+    ZipArchive zip;
+    if (zip.open(file))
+        return -1;
+    int damaged = 0;
+    for (const ZipArchive::Entry& e : zip.entries()) {
+        std::vector<uint8_t> data;
+        if (!e.name.empty() && e.name.back() != '/' && zip.read(e, data))
+            ++damaged;
+    }
+    return damaged;
+}
+
+bool sameFile(const std::filesystem::path& a, const std::filesystem::path& b) {
+    if (sizeOf(a) != sizeOf(b))
+        return false;
+    std::vector<uint8_t> x, y;
+    return readFile(a, x) && readFile(b, y) && x == y;
 }
 
 bool planned(const ImportPlan& plan, const std::string& to) {
@@ -178,11 +201,23 @@ void addPartToImport(ImportPlan& plan, const GamePart& part) {
         if (!file)
             continue;
         // Files on both CDs are the same: one copy, from the first CD added.
-        bool have = false;
-        for (const char* other : {"disc1/GENS/", "disc2/GENS/"})
-            have = have || planned(plan, std::string(other) + f->name);
-        if (have)
+        // Unless the copies differ (a CD read badly when it was copied) and
+        // the other CD's archive is the whole one: then that one.
+        auto have = std::find_if(plan.files.begin(), plan.files.end(), [&](const ImportPlan::File& p) {
+            return text::equalsIgnoreCase(p.to, std::string("disc1/GENS/") + f->name) ||
+                   text::equalsIgnoreCase(p.to, std::string("disc2/GENS/") + f->name);
+        });
+        if (have != plan.files.end()) {
+            if (text::hasSuffixIgnoreCase(f->name, ".dat") && !sameFile(have->from, *file)) {
+                const int planned = damagedMembers(have->from), here = damagedMembers(*file);
+                if (here >= 0 && (planned < 0 || here < planned)) {
+                    have->from = *file;
+                    have->to = folder + f->name;
+                    have->size = sizeOf(*file);
+                }
+            }
             continue;
+        }
         plan.files.push_back({*file, folder + f->name, sizeOf(*file), std::nullopt});
     }
 }
