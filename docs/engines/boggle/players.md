@@ -57,9 +57,11 @@ Players stage between version selection and play.
 
 The new one-human editor, 18-character limit, save/cancel interaction and profile
 format are independently implemented native policies. Exact original name-entry
-navigation, player-file persistence, multiple human players, AI and high-score
-association still need verification. This does not read or emulate the original
-player database.
+navigation, player-file persistence, multiple human players and AI timing
+still need verification. The [competition research and scoring foundation](competition.md)
+now identifies four original player slots, the opponent dropdown labels and
+shared-word cancellation; it does not yet add live opponents or turns. This
+does not read or emulate the original player database.
 
 ## Validation
 

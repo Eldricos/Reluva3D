@@ -131,3 +131,11 @@ player names. Normal Classic launches, menu re-entry and New Board now use
 fresh native seeds; Replay retains its board/orientations. Tests and resource
 tools retain explicit seeds. Original RNG equivalence remains unverified. See
 [board randomization scope](../../engines/boggle/randomization.md).
+
+The owner confirmed fresh boards and Replay work. The next Classic player
+stage has an independent final competition-scoring model: shared words cancel
+for every owner, after dictionary decisions finish. Original routines passed
+16,384 isolated synthetic score comparisons, and four player controls plus
+four opponent levels were identified in the DLL/caller. Live player turns,
+AI timing/strength, the Traditional/Chess Timer options and full configuration
+remain unimplemented and need VM corroboration. See [competition evidence](../../engines/boggle/competition.md).

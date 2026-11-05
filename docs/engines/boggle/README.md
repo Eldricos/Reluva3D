@@ -124,6 +124,11 @@ See [Classic artwork and layout](layout.md) for scope, resource selection and fa
 
 ## Tests
 
+`competition-check <folder>` verifies final shared-word scoring for one-, two-
+and four-player reference cases on both Classic boards. This exercises the
+[multiplayer scoring foundation](competition.md); live opponents/player turns
+are not enabled yet.
+
 `all-words-check <folder>` verifies complete vocabulary on both initial boards
 against independent dictionary lookups, reporting only counts/checksums.
 

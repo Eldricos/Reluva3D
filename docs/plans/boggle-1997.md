@@ -255,8 +255,10 @@ while Replay retains its board. Explicit seeds keep tests and reference tools
 reproducible. See [seed behavior](../engines/boggle/randomization.md) for native
 choices, checks and remaining original-RNG uncertainty.
 
-Next research should establish the remaining player/AI workflow and duplicate
-word scoring before expanding Classic beyond one human. Other modes,
+The next player stage now has a tested [competition-scoring foundation](../engines/boggle/competition.md),
+with original shared-word cancellation established through isolated checks.
+Research must still establish the remaining player/AI workflow, turn order and
+opponent timing before expanding live Classic beyond one human. Other modes,
 multilingual input, INSO definitions, original dialogs and networking remain
 separate milestones. Check [current support](../engines/boggle/README.md) and
 [evidence gaps](boggle-1997/unconfirmed.md) before selecting each slice. These

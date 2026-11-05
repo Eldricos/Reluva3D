@@ -22,6 +22,7 @@ reluva_add_engine(boggle
         classic/user_dictionary.cpp
         classic/solver.cpp
         classic/highscores.cpp
+        classic/competition.cpp
         classic/results.cpp
         classic/seed.cpp
         classic/round.cpp
@@ -30,6 +31,7 @@ reluva_add_engine(boggle
 # Its reluva-tool commands (reluva-tool help boggle lists them).
 reluva_add_engine_tools(boggle
     SOURCES
+        tools/competition.cpp
         tools/solver.cpp
         tools/layout.cpp
         tools/files.cpp
@@ -46,6 +48,7 @@ reluva_add_engine_tools(boggle
 set(tests ${PROJECT_SOURCE_DIR}/tests/engines/boggle)
 reluva_add_engine_tests(boggle
     SOURCES
+        ${tests}/unit/competition.cpp
         ${tests}/unit/highscores.cpp
         ${tests}/unit/seed.cpp
         ${tests}/unit/solver.cpp
@@ -64,11 +67,11 @@ reluva_add_engine_tests(boggle
         ${tests}/unit/user_dictionary.cpp
         ${tests}/engine.cpp
     TOPICS
-        unit.highscores unit.seed unit.solver unit.results unit.player unit.history unit.layout unit.detection unit.frontend unit.import unit.resources unit.dictionary unit.classic unit.options unit.presentation unit.user_dictionary engine)
+        unit.competition unit.highscores unit.seed unit.solver unit.results unit.player unit.history unit.layout unit.detection unit.frontend unit.import unit.resources unit.dictionary unit.classic unit.options unit.presentation unit.user_dictionary engine)
 
 # Optional tests with the owner's data; raw output stays outside Git.
 reluva_add_gamedata_test(boggle
     GAME boggle1997
     ENV RELUVA_BOGGLE1997
     SCRIPT ${tests}/gamedata.cmake
-    STEPS release resources dictionaries classic master presentation music import frontend movies artwork font allwords)
+    STEPS release resources dictionaries classic master presentation music import frontend movies artwork font allwords competition)
