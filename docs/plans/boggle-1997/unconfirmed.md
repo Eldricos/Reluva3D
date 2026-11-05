@@ -139,3 +139,9 @@ for every owner, after dictionary decisions finish. Original routines passed
 four opponent levels were identified in the DLL/caller. Live player turns,
 AI timing/strength, the Traditional/Chess Timer options and full configuration
 remain unimplemented and need VM corroboration. See [competition evidence](../../engines/boggle/competition.md).
+
+Owner VM corroboration now confirms four player dropdowns containing previously
+used human names and Beginner/Intermediate/Advanced/Mr. Boggle opponents, plus
+end-of-round cancellation of shared words in human/human and human/computer
+games. Original name-history restart persistence, player-turn sequencing and
+AI timing/strength remain unresolved. See [confirmed player observations](../../engines/boggle/competition.md#owner-vm-corroboration).

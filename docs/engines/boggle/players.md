@@ -63,6 +63,13 @@ now identifies four original player slots, the opponent dropdown labels and
 shared-word cancellation; it does not yet add live opponents or turns. This
 does not read or emulate the original player database.
 
+The owner subsequently confirmed that all four original dropdowns list previously
+used human names plus Beginner, Intermediate, Advanced and Mr. Boggle computer
+opponents. Original human-name history is therefore an observed feature; its
+restart persistence and on-disk contract remain unverified. The current one-name
+native profile does not implement that history yet. Shared-word cancellation was
+also confirmed for both human/human and human/computer rounds.
+
 ## Validation
 
 Synthetic tests cover names and bounds, restart, missing/default profiles,

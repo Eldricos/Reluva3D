@@ -74,6 +74,23 @@ The harness, binary images and raw research outputs remain outside Git. The
 native model uses an independently written ownership map; no disassembly or
 original routine was translated into engine code.
 
+## Owner VM corroboration
+
+The owner subsequently confirmed the following in the original Classic game:
+
+- Four dropdown menus offer previously used human player names and the four
+  computer choices Beginner, Intermediate, Advanced and Mr. Boggle, in that order.
+- At round end, words found by both players lose their points in both
+  human-versus-human and human-versus-computer games.
+
+These observations corroborate the player controls, opponent labels and shared-word
+scoring evidence above. They also establish a human-name history in the original
+selector; retention across process restarts, its file format and duplicate-name
+selection rules have not been established. The current native profile still
+stores one human name, rather than reproducing this history. Computer timing,
+difficulty behavior, turn order and the Traditional/Chess Timer options remain
+separate research and implementation work.
+
 ## Tools and validation
 
 `reluva-tool boggle competition-check <game folder>` discovers playable words
