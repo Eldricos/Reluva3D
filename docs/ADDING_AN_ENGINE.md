@@ -60,6 +60,11 @@ and adds `<name>=enabled` to `engines.cfg`. Build it: it compiles, and
   or 3D through `src/common/gfx3d.h`), input events, sound, timing. Never
   include SDL; use `src/common/` for files, archives, images, sound,
   video and fonts, and add there what another engine could use too.
+- **A mouse pointer of the game's own** goes to `System::setMouseCursor`
+  (a `Cursor` from `src/common/cursor.h`, made from the game's palette
+  indices with `cursor::fromIndexed`). The backend shows it as the
+  system's pointer, scaled as the picture is, so it moves as smoothly as
+  any; the engine needn't draw it into its frames.
 - **Code layout.** As it grows, keep files by topic in subfolders (the
   game's formats, its pages, its game logic), as `src/engines/idtech3/`
   does, and list them in its `CMakeLists.txt`.

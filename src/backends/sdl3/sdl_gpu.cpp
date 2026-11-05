@@ -822,6 +822,8 @@ void SdlGpuRenderer::endFrame(const Surface* overlay) {
         SDL_UpdateTexture(overlay_, nullptr, overlay->pixels.data(), overlay->pitch);
         SDL_RenderTexture(renderer_, overlay_, nullptr, nullptr);
     }
+    if (beforePresent_)
+        beforePresent_();
     SDL_RenderPresent(renderer_);
 }
 

@@ -99,7 +99,8 @@ add_library(reluva_common STATIC
     src/common/palette.cpp
     src/common/draw.cpp
     src/common/settings.cpp
-    src/common/dcl.cpp)
+    src/common/dcl.cpp
+    src/common/cursor.cpp)
 target_include_directories(reluva_common PUBLIC src)
 # Third-party headers (third_party/, see each README) as system includes, so
 # our warnings don't apply to them.

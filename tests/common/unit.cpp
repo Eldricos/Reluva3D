@@ -13,11 +13,13 @@
 #include "tests/common/data/x86_testdll.h"
 #include "common/archive.h"
 #include "common/config.h"
+#include "common/cursor.h"
 #include "common/dcl.h"
 #include "common/detection.h"
 #include "common/draw.h"
 #include "common/font.h"
 #include "common/fs.h"
+#include "common/headless_system.h"
 #include "common/gfx3d.h"
 #include "common/image.h"
 #include "common/md4.h"
@@ -936,10 +938,80 @@ static const reluva::test::Suite audioSuite("common.unit.audio", {
     {"mixer pause", [](const std::filesystem::path&) { testMixerPause(); }},
 });
 
+// Cursors (common/cursor.h): made from palette indices or a surface,
+// scaled with their hotspot, and drawn by a backend that has to.
+static void testCursors() {
+    using namespace reluva;
+    uint8_t palette[768] = {};
+    palette[3] = 255, palette[4] = 0, palette[5] = 0;       // 1: red
+    palette[6] = 0, palette[7] = 0, palette[8] = 255;       // 2: blue
+    // 3 x 2, index 0 see-through, the hotspot at (1, 1); rows 4 bytes apart.
+    const uint8_t pixels[8] = {0, 1, 2, 9, 1, 0, 1, 9};
+    Cursor c = cursor::fromIndexed(pixels, 3, 2, 4, palette, 0, 1, 1);
+    CHECK(c.w == 3 && c.h == 2 && c.hotX == 1 && c.hotY == 1 && !c.empty());
+    CHECK(c.pixel(0, 0)[3] == 0 && c.pixel(1, 0)[0] == 255 && c.pixel(1, 0)[3] == 255);
+    CHECK(c.pixel(2, 0)[2] == 255 && c.pixel(2, 0)[0] == 0 && c.pixel(1, 1)[3] == 0);
+    CHECK(cursor::fromIndexed(nullptr, 3, 2, 4, palette, 0, 0, 0).empty() && Cursor{}.empty());
+
+    // From a CLUT8 surface: the same.
+    Surface s;
+    s.create(3, 2, PixelFormat::CLUT8);
+    std::copy_n(pixels, 3, s.row(0));
+    std::copy_n(pixels + 4, 3, s.row(1));
+    Color colors[256] = {};
+    colors[1] = {255, 0, 0};
+    colors[2] = {0, 0, 255};
+    CHECK(cursor::fromSurface(s, colors, 0, 1, 1) == c);
+    // From RGBA32: as it is.
+    Surface rgba;
+    rgba.create(2, 1, PixelFormat::RGBA32);
+    rgba.row(0)[0] = 9, rgba.row(0)[3] = 128;
+    const Cursor r = cursor::fromSurface(rgba, nullptr, -1, 0, 0);
+    CHECK(r.w == 2 && r.pixel(0, 0)[0] == 9 && r.pixel(0, 0)[3] == 128 && r.pixel(1, 0)[3] == 0);
+
+    // Twice the size, sharp: each pixel a 2 x 2 block, the hotspot with it.
+    const Cursor big = cursor::scaled(c, 2);
+    CHECK(big.w == 6 && big.h == 4 && big.hotX == 2 && big.hotY == 2);
+    CHECK(big.pixel(2, 0)[0] == 255 && big.pixel(3, 1)[0] == 255 && big.pixel(0, 0)[3] == 0 && big.pixel(5, 1)[2] == 255);
+    CHECK(cursor::scaled(c, 1) == c);
+    // Smoothed: a see-through neighbour fades the alpha, not the colour.
+    const Cursor soft = cursor::scaled(c, 1.5f, true);
+    CHECK(soft.w == 5 && soft.h == 3);
+    bool faded = false;
+    for (int y = 0; y < soft.h; ++y)
+        for (int x = 0; x < soft.w; ++x) {
+            const uint8_t* p = soft.pixel(x, y);
+            if (p[3] > 0 && p[3] < 255 && p[1] == 0)
+                faded = true;
+        }
+    CHECK(faded);
+
+    // Drawn with the hotspot at (0, 0), so its top left is off the surface:
+    // clipped, see-through pixels left as they were.
+    Surface target;
+    target.create(4, 4, PixelFormat::RGBA32);
+    for (auto& b : target.pixels)
+        b = 50;
+    cursor::draw(target, c, 0, 0);
+    CHECK(target.row(0)[0] == 50 && target.row(0)[4] == 255 && target.row(0)[5] == 0 && target.row(0)[8] == 50);
+    cursor::draw(target, c, 3, 3); // its red pixel at (3, 2), its blue at (4, 2): off the surface
+    CHECK(target.row(2)[12] == 255 && target.row(2)[13] == 0);
+
+    // The headless System keeps what it was given.
+    HeadlessSystem sys;
+    System& base = sys;
+    base.setMouseCursor(&c);
+    CHECK(sys.cursor() == c && sys.cursorChanges() == 1);
+    base.setMouseCursorVisible(false);
+    base.setMouseCursor(nullptr);
+    CHECK(sys.cursor().empty() && !sys.cursorVisible() && sys.cursorChanges() == 2);
+}
+
 static const reluva::test::Suite imageSuite("common.unit.image", {
     {"image", [](const std::filesystem::path&) { testImage(); }},
     {"3d math", [](const std::filesystem::path&) { testGfxMath(); }},
     {"8-bit drawing and palettes", [](const std::filesystem::path&) { testDrawAndPalette(); }},
+    {"cursors", [](const std::filesystem::path&) { testCursors(); }},
 });
 
 static const reluva::test::Suite videoSuite("common.unit.video", {
