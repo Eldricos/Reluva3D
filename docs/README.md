@@ -16,6 +16,7 @@ requirements, building, running and contributing. The rest is here.
   code (Elite Force's single-player DLLs), and its Windows stand-ins.
 - [bink.md](common/bink.md): Bink videos.
 - [smacker.md](common/smacker.md): Smacker videos.
+- [cinepak.md](common/cinepak.md): Cinepak videos, in AVI files.
 - [dcl.md](common/dcl.md): PKWARE DCL ("implode") compression.
 - [wise.md](common/wise.md): Wise installers, taken apart without running
   them (Elite Force's patch).
