@@ -95,7 +95,16 @@ made. Reluva reads it as "keep full detail": the help's Texture Quality
 alone. Better filtering for near surfaces would fit too; footage at a
 low texture quality would tell them apart.
 
-0x10000 isn't known. It's on 1,055 of the 1,166 car textures (not the
+The flags are the developers' texture converter's settings, texture by
+texture: `mm2tex.ar` holds its log, `texture/tc.out` (3,424 rows: source
+folder, texture, type, size, mips, bits, palette), and its `bits` column
+equals the flags of all 3,288 shipped textures it names, with no
+exceptions. Beside it are `textures.txt` (an older list of 2,083 source
+pictures), `last.bfg`, `tc-jj.out` and `diff.log`. The 377 textures it
+doesn't name (an older conversion: the water's frames, San Francisco's
+palette skies, most `_lo` roads) never have 0x10000.
+
+0x10000 isn't known for sure. It's on 1,055 of the 1,166 car textures (not the
 fire engine's and semi's shared `vplafrance*`, the F350's backs, the
 trailers, glows or `carbottom`), all 32 skies (in San Francisco every
 24-bit single-level `sky_*_f`, none of the palette `sky_*_l`), the
@@ -106,7 +115,16 @@ textures, `p_fence_blk*`, `treesmall*_s`). The full-detail member of each
 sky and road pair has it, which suggests a texture-quality tier; it
 isn't the shaders, reflections (their maps are separate, and trees and
 fences have it), the size, format or mips. No file lists texture
-properties.
+properties but `tc.out`, which gives the flag, not why. By folder
+(skies 32 of 32, player vehicles 1,280 of 1,443, ambient vehicles 0 of
+44, the cities 34 of 949 and 22 of 678) it's set texture by texture.
+`scene/modtypes.ini` says "global.tsh is always loaded; player vehicles
+also use %s.tsh", and only player vehicles have a texture sheet (not
+trailers or ambient cars), which fits: 0x10000 most likely marks a
+texture with an entry in a texture sheet (`.tsh`, not shipped). Such
+textures mostly kept their source size and a short mip chain (1,299 of
+the 1,413 have fewer levels than a full chain, against 40 of 1,791 of
+the rest), so the entry seems to set their detail too.
 
 ## Animated textures
 

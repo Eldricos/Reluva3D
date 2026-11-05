@@ -78,7 +78,7 @@ public:
     // finest: a level is chosen as if they were 1/detail further away).
     void setSkyShown(bool on) { skyShown_ = on; }
     // Cloud Shadows (the Graphics Options): 0 none, 1 low (still), 2 high
-    // (drifting with the wind). By day only.
+    // (drifting with the wind by day). At night, the night tile's pools.
     void setCloudShadows(int level) { cloudShadows_ = level; }
     void setModelDistance(float metres) { modelDistance_ = metres; }
     void setModelDetail(float detail) { detail_ = detail; }

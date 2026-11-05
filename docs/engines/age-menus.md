@@ -183,11 +183,15 @@ What the options do in Reluva:
   - Cloud Shadows: `texture/shadmap_day.tga`, a 128-pixel tile that's
     white with a cloud pattern in its alpha (182-255), laid on the city
     from above and multiplied in, so the shadows darken it by up to
-    29%; still at Low, drifting with the wind at High, by day only. The
-    tile's size on the ground (240 m) and the drift (2.5 m/s) are
-    Reluva's. Its night counterpart, `shadmap_nite.tga`, is a grid of
-    soft light pools in the same form, not used: what the game laid it
-    over isn't known.
+    29%; still at Low, drifting with the wind at High. The tile's size
+    on the ground (240 m) and the drift (2.5 m/s) are Reluva's. At night
+    its counterpart `shadmap_nite.tga` is laid the same way, still: a
+    4 x 4 grid of soft pools of light 32 pixels apart (alpha 79-255, the
+    ground between darkened to 31-75%), at 116 m to the tile so the pools
+    are the street lamps' 29 m apart (`propdefs.csv`). Nothing in the
+    files names it, so how the game used it is Reluva's reading: it
+    can't follow the lamps themselves, which stand along streets at every
+    angle.
   - Texture Quality: the city's textures are halved once at High, twice
     at Medium and three times at Low (to 16 pixels at least), but for
     those whose flag 0x8000 Reluva reads as "keep full detail": the
