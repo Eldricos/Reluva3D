@@ -110,3 +110,9 @@ controls. Original Game Over dialog 16008 and word-review dialog 15700 are
 identified, but exact original navigation and end-of-round lid state still need
 VM corroboration. The setup routine's close/raise sequence is not evidence of
 round-end behavior. See [results evidence and native scope](../../engines/boggle/results.md).
+
+The owner confirmed native final scores work. All Words now discovers playable
+English and saved custom words after adjudication, with potential points kept
+separate from final score. Dialog 15700 establishes the original feature's
+presence; original filtering, view navigation and INSO definitions remain
+unverified. See [all-word discovery and limits](../../engines/boggle/all-words.md).

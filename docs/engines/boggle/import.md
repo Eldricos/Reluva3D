@@ -144,3 +144,7 @@ The handwriting pass adds optional `Fonts/KPSI.TTF`. Re-import to obtain the
 53-file set; earlier copies continue using the built-in word-list font. The
 fresh-copy check also validates and rasterizes its ASCII subset, reporting
 metadata only. No font files or decoded glyphs are included in the repository.
+
+The All Words pass adds no import dependencies. The fresh-copy checks also
+verify complete board vocabulary against independent per-word lookups, emitting
+counts and checksums only.

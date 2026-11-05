@@ -61,8 +61,8 @@ void review(const std::filesystem::path& tmp) {
             using namespace fixtures;
             if(f==0 || f==9 || f==13)return {keyEvent(key::Return)};
             if(f==1)return {textEvent("AAAA"),keyEvent(key::Return),textEvent("AAAAA"),keyEvent(key::Return),textEvent("AAAAAA")};
-            if(f==3)return {keyEvent(key::Return),keyEvent(key::F1+1)};
-            if(f==4)return {keyEvent('2'),keyEvent(key::Return)}; // final results must be displayed first
+            if(f==3)return {keyEvent('a'),keyEvent(key::Return),keyEvent(key::F1+1)};
+            if(f==4)return {keyEvent('2'),keyEvent(key::Return),keyEvent('a')}; // final results must be displayed first
             if(f==5 || f==11)return {row};
             if(f==8)return {keyEvent(key::Down)};
             if(f==6){auto right=row;right.button=MouseButton::Right;return {right};}
@@ -82,8 +82,76 @@ void review(const std::filesystem::path& tmp) {
     }
     record.check(RELUVA_SOURCE_DIR "/tests/engines/boggle/data/results-record.txt","boggle.unit.results","tests/engines/boggle/unit/results.cpp");
 }
+void missedReview(const std::filesystem::path& tmp) {
+    test::Record record;
+    for(bool master:{false,true})for(bool art:{false,true}) {
+        const auto root=tmp / (std::string(master?"master-":"original-")+(art?"art":"plain"));fixtures::artworkInstall(root);
+        GameTarget target;target.path=root;target.savePath=root.parent_path() / (root.filename().string()+"-save");
+        target.settings={{"classic_variant",master?"master":"original"},{"classic_artwork",art?"1":"0"},{"classic_animations","0"},{"classic_sound","0"}};
+        UserDictionary user;CHECK(!user.load(target.savePath,root));CHECK(!user.add({"AAAAA"}));
+        fixtures::ScriptedSystem sys;sys.clock=[](size_t){return uint64_t(0);};
+        Event toggle=fixtures::mouseEvent(EventType::MouseDown,art?30:438,art?460:82);
+        sys.events=[&](size_t f)->std::vector<Event> {
+            using namespace fixtures;
+            if(f==0 || f==9 || f==14)return {keyEvent(key::Return)};
+            if(f==1)return {keyEvent('a'),toggle}; // unavailable while playing
+            if(f==2)return {textEvent("AAAA"),keyEvent(key::Return)};
+            if(f==3 || f==10)return {keyEvent(key::F1)};
+            if(f==4 || f==8 || f==11)return {keyEvent('a')};
+            if(f==5 || f==12)return {keyEvent(key::Up)};
+            if(f==6){auto right=toggle;right.button=MouseButton::Right;return {right};}
+            if(f==7)return {toggle};
+            if(f==13)return {keyEvent(key::F1+1)};
+            if(f==15)return {keyEvent(key::Escape)};
+            return {};
+        };
+        std::vector<std::string> scores;
+        sys.present=[&](const Surface& screen,size_t) {
+            test::Hash hash;const int left=art?630:430,top=art?565:135,bottom=art?590:165;
+            for(int y=top;y<bottom;++y)hash.bytes(screen.row(y)+left*4,size_t(screen.w-left)*4);
+            scores.push_back(hash.hex());
+        };
+        ClassicGame game(sys,target);CHECK(!game.run());CHECK(sys.hashes.size()==15);
+        if(sys.hashes.size()!=15)continue;
+        CHECK(sys.hashes[0]==sys.hashes[1] && sys.hashes[0]==sys.hashes[9] && sys.hashes[0]==sys.hashes[14]);
+        CHECK(sys.hashes[3]==sys.hashes[7]);CHECK(sys.hashes[4]==sys.hashes[6] && sys.hashes[4]==sys.hashes[8]);
+        CHECK(sys.hashes[4]!=sys.hashes[5]);CHECK(scores[3]==scores[4] && scores[4]==scores[5]);
+        CHECK(scores[10]==scores[11] && scores[11]==scores[12]); // empty-round discovery awards nothing
+        UserDictionary after;CHECK(!after.load(target.savePath,root));CHECK(after.words()==user.words());
+        const auto prefix=std::string(master?"master.":"original.")+(art?"art.":"plain.");
+        for(size_t i=0;i<sys.hashes.size();++i)record.add(prefix+std::to_string(i),sys.hashes[i]);
+    }
+    record.check(RELUVA_SOURCE_DIR "/tests/engines/boggle/data/missed-words-record.txt","boggle.unit.results","tests/engines/boggle/unit/results.cpp");
+}
+void missedPages(const std::filesystem::path& tmp) {
+    fixtures::artworkInstall(tmp / "install");std::string dice;for(int i=0;i<25;++i)dice+="AB,AB,AB,AB,AB,AB\n";
+    fixtures::write(tmp / "install/Dicts/EngMas.dst",dice);
+    std::vector<uint8_t> bytes(12);std::string word="AB";
+    for(size_t i=2;i<=25;++i){word+="AB";bytes.insert(bytes.end(),word.begin(),word.end());bytes.push_back(0);}
+    bytes.push_back(0);test::fixtures::put32(bytes,4,1);test::fixtures::put32(bytes,8,uint32_t(bytes.size()-12));
+    fixtures::write(tmp / "install/Dicts/English.dic",bytes);
+    GameTarget target;target.path=tmp / "install";target.savePath=tmp / "save";
+    target.settings={{"classic_variant","master"},{"classic_animations","0"},{"classic_sound","0"}};
+    fixtures::ScriptedSystem sys;sys.clock=[](size_t){return uint64_t(0);};
+    sys.events=[](size_t f)->std::vector<Event>{
+        using namespace fixtures;
+        if(f==0)return {keyEvent(key::Return)};
+        if(f==1)return {keyEvent(key::F1)};
+        if(f==2)return {keyEvent('a')};
+        if(f==3)return {keyEvent(key::PageDown)};
+        if(f==4)return {keyEvent(key::PageUp)};
+        if(f==5)return {keyEvent(key::Down)};
+        if(f==6){auto e=mouseEvent(EventType::MouseDown,640,60);e.button=MouseButton::Right;return {e};}
+        if(f==7)return {keyEvent(key::Escape)};
+        return {};
+    };
+    ClassicGame game(sys,target);CHECK(!game.run());CHECK(sys.hashes.size()==7);
+    if(sys.hashes.size()==7){CHECK(sys.hashes[2]!=sys.hashes[3]);CHECK(sys.hashes[2]==sys.hashes[4]);CHECK(sys.hashes[2]==sys.hashes[6]);}
+}
 }
 static const test::Suite suite("boggle.unit.results",{
+    {"all-word page navigation and viewport preservation on deselection",[](const auto& tmp){missedPages(tmp);}},
+    {"missed-word toggles, saved vocabulary, read-only scores, replay and new boards",[](const auto& tmp){missedReview(tmp);}},
     {"adjudicated snapshots, approved/declined words, Qu and immutable replay",[](const auto& tmp){adjudication(tmp);}},
     {"paged row mapping, empty areas and history button precedence",[](const auto&){pagedRows();}},
     {"timeout, discarded input, final score, selected paths, replay and new board",[](const auto& tmp){review(tmp);}},

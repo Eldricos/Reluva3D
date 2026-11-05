@@ -24,7 +24,8 @@ when the last dictionary decision and Enter arrive together.
 A results snapshot is published only from a finished round with no pending
 words. It owns its kept rows/paths and checks their point total against the
 round score. Replay and New Board clear it and any review selection. An empty
-round has a zero summary and no selectable rows. History arrows take precedence
+round has a zero counted summary and no selectable submitted rows. The optional
+[All Words view](all-words.md) can still show missed words without awarding points. History arrows take precedence
 over the bottom row, so clicking them cannot accidentally select a word.
 
 ## Original evidence and native presentation choices
@@ -50,8 +51,9 @@ scene and offers an inline final summary with direct replay/new-board controls.
 It does not replay a raise-lid animation after closing. This is a native review
 layout, not a recreation of the original modal Game Over/word dialogs. Cube
 badges, keyboard selection and right-click summary are native controls.
-Highscores, missed/unsubmitted dictionary words, INSO definitions, multiple
-player columns and exact original dialog behavior remain outside this pass.
+Highscores, INSO definitions, multiple player columns and exact original dialog
+behavior remain outside this pass. Missed words are now available through the
+separate [All Words view](all-words.md).
 No original implementation was translated or copied.
 
 ## Validation
@@ -70,5 +72,9 @@ All 26 Boggle checks pass with the supplied install. The normal full suite passe
 history and layout tests, plus the actual-resource artwork checker, pass
 ASan/UBSan (LeakSanitizer disabled for the execution tracer). External SDL dummy
 runs render actual Original/Master summaries and numbered paths; captures stay
-outside Git. The new native review still needs the owner's Windows test and VM
-comparison. No re-import, new assets or new settings are required.
+outside Git. The owner confirmed final scores work on Windows. Exact original flow and
+detailed review comparison remain pending. No re-import, new assets or new settings are required.
+
+All Words / A now switches the display vocabulary independently of the counted
+snapshot. The final summary uses the counted total in either view. Paths for
+counted submissions remain unchanged; potential points are labelled separately.

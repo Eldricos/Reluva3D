@@ -23,7 +23,9 @@ click or drag through touching cubes, then press Enter. Backspace undoes input;
 right click clears it. F1 ends a round, Enter replays the same board, F2 creates
 a new board between rounds. After dictionary review, click a counted word or
 use Up/Down to inspect its numbered cube path and points. Right-click restores
-the final summary. See [completed-round review](results.md). With the menu disabled, Escape returns directly
+the final summary. All Words / A reveals available and missed words with
+potential points, while retaining the final score. See [completed-round review](results.md)
+and [all-word discovery](all-words.md). With the menu disabled, Escape returns directly
 to the launcher. The initial
 board uses a fixed native seed for reproducible checks; its shuffle differs
 from the original game.
@@ -120,6 +122,9 @@ in the EXE are absent from the supplied copies; see the
 See [Classic artwork and layout](layout.md) for scope, resource selection and fallback.
 
 ## Tests
+
+`all-words-check <folder>` verifies complete vocabulary on both initial boards
+against independent dictionary lookups, reporting only counts/checksums.
 
 `font-check <folder>` validates the optional handwriting font and reports
 ASCII coverage/advance checksums without exporting glyphs.

@@ -110,7 +110,7 @@ std::optional<size_t> ClassicArtwork::cellAt(int x,int y,size_t side) const {
     return {};
 }
 void ClassicArtwork::draw(Surface& screen,const ClassicRound& round,uint64_t now,uint64_t duration,
-                          const image::Image& letters,const image::Image& qu,const std::vector<size_t>& selected,size_t scroll,uint32_t boardSeed,std::string_view player) const {
+                          const image::Image& letters,const image::Image& qu,const std::vector<size_t>& selected,size_t scroll,uint32_t boardSeed,std::string_view player,const RoundResults* review) const {
     const bool boardVisible=round.phase()!=RoundPhase::Ready;
     scaled(screen,boardVisible?open_:closed_,0,0,800,600);
     scaled(screen,names_,0,0,621,40);scaled(screen,words_,621,0,179,600);
@@ -157,7 +157,9 @@ void ClassicArtwork::draw(Surface& screen,const ClassicRound& round,uint64_t now
     std::snprintf(time,sizeof(time),"%llu:%02llu",(unsigned long long)(seconds/60),(unsigned long long)(seconds%60));
     font::drawText(screen,tx+6,ty+th+12,round.timed()?time:"NOT TIMED",white,round.timed()?2:1);
     std::vector<const RoundWord*> words;
-    for(const auto& word:round.words())if(word.state!=WordState::Declined)words.push_back(&word);
+    const bool all=review && review->ready() && review->allWords();
+    if(all)for(const auto& word:review->words())words.push_back(&word);
+    else for(const auto& word:round.words())if(word.state!=WordState::Declined)words.push_back(&word);
     const auto view=wordHistoryView(words.size(),visibleWords,scroll);
     const size_t begin=view.begin;
     for(size_t i=begin;i<view.end;++i) {
@@ -165,7 +167,7 @@ void ClassicArtwork::draw(Surface& screen,const ClassicRound& round,uint64_t now
         if(round.phase()==RoundPhase::Results && !selected.empty() && word.entry.path==selected)
             box(screen,630,58+int(i-begin)*17,164,17,{225,226,173});
         auto shown=word.entry.word;if(shown.size()>19)shown=shown.substr(0,16)+"...";
-        const auto color=word.state==WordState::Pending ? Color{180,0,0} : black;
+        const auto color=word.state==WordState::Pending ? Color{180,0,0} : all && review->missed(word.entry.word)?Color{25,65,135}:black;
         if(handwriting_.loaded()) {
             shown=word.entry.word;
             if(handwriting_.measure(shown)>132) {
@@ -188,7 +190,7 @@ void ClassicArtwork::draw(Surface& screen,const ClassicRound& round,uint64_t now
         }
         font::drawText(screen,633,479,std::to_string(view.begin+1)+"-"+std::to_string(view.end)+"/"+std::to_string(words.size()),black);
     }
-    font::drawText(screen,633,530,"WORDS  "+std::to_string(words.size()),white,2);
+    font::drawText(screen,633,530,std::string(all?"ALL    ":"WORDS  ")+std::to_string(words.size()),white,2);
     font::drawText(screen,633,568,"SCORE  "+std::to_string(round.score()),white,2);
 }
 } // namespace reluva::boggle

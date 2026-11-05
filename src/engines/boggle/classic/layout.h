@@ -4,6 +4,7 @@
 #include "engines/boggle/classic/options.h"
 #include "engines/boggle/classic/projection.h"
 #include "engines/boggle/classic/round.h"
+#include "engines/boggle/classic/results.h"
 #include "engines/boggle/resources.h"
 #include <optional>
 #include <string_view>
@@ -15,7 +16,7 @@ public:
                const video::AviVideo1& prepared);
     bool active() const { return active_; }
     void draw(Surface& screen,const ClassicRound& round,uint64_t now,uint64_t duration,
-              const image::Image& letters,const image::Image& qu,const std::vector<size_t>& selected,size_t scroll,uint32_t boardSeed=0x1997,std::string_view player="PLAYER 1") const;
+              const image::Image& letters,const image::Image& qu,const std::vector<size_t>& selected,size_t scroll,uint32_t boardSeed=0x1997,std::string_view player="PLAYER 1",const RoundResults* review=nullptr) const;
     std::optional<size_t> cellAt(int x,int y,size_t side) const;
     ClassicPoint cellCenter(size_t cell,size_t side) const;
     static size_t timerFrame(uint64_t remaining,uint64_t duration);
