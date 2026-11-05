@@ -19,6 +19,9 @@ public:
     // 768 bytes of 6-bit VGA DAC values (0..63), as DOS games store them.
     void loadVga(const uint8_t* vga);
     void setColor(int index, uint8_t r, uint8_t g, uint8_t b);
+    void getColor(int index, uint8_t& r, uint8_t& g, uint8_t& b) const {
+        r = data_[size_t(index) * 3], g = data_[size_t(index) * 3 + 1], b = data_[size_t(index) * 3 + 2];
+    }
     // R, G, B for each entry in turn.
     const uint8_t* data() const { return data_.data(); }
     uint8_t* data() { return data_.data(); }

@@ -13,6 +13,7 @@ struct Point {
     int x = 0, y = 0;
     constexpr Point() = default;
     constexpr Point(int px, int py) : x(px), y(py) {}
+    bool operator==(const Point&) const = default;
 };
 
 // Left and top inside, right and bottom outside.
@@ -23,6 +24,25 @@ struct Rect {
     int width() const { return right - left; }
     int height() const { return bottom - top; }
     bool contains(int x, int y) const { return x >= left && x < right && y >= top && y < bottom; }
+    bool contains(Point p) const { return contains(p.x, p.y); }
+    bool isEmpty() const { return left >= right || top >= bottom; }
+    bool intersects(const Rect& r) const { return left < r.right && r.left < right && top < r.bottom && r.top < bottom; }
+    // Only what's inside `r` too; all zeros when nothing is.
+    void clip(const Rect& r) {
+        left = left > r.left ? left : r.left;
+        top = top > r.top ? top : r.top;
+        right = right < r.right ? right : r.right;
+        bottom = bottom < r.bottom ? bottom : r.bottom;
+        if (isEmpty())
+            left = top = right = bottom = 0;
+    }
+    void translate(int dx, int dy) {
+        left += dx;
+        right += dx;
+        top += dy;
+        bottom += dy;
+    }
+    bool operator==(const Rect&) const = default;
 };
 
 // Drawing on 8-bit (CLUT8) surfaces, for games that draw in palette

@@ -28,6 +28,11 @@ public:
     uint16_t readUint16LE();
     uint32_t readUint32LE();
     int16_t readSint16LE() { return int16_t(readUint16LE()); }
+    int32_t readSint32LE() { return int32_t(readUint32LE()); }
+    uint16_t readUint16BE();
+    uint32_t readUint32BE();
+    // `len` bytes, up to the first NUL among them.
+    std::string readFixedString(uint32_t len);
     // Up to a NUL byte (not included) or the end.
     std::string readCString();
 
@@ -44,6 +49,9 @@ public:
     bool skip(uint32_t n) { return seek(n, SEEK_CUR); }
     // The rest of the stream.
     std::vector<uint8_t> readAll();
+    // Up to the end of the line (LF, CR LF or CR; not included) or of the
+    // stream.
+    std::string readLine();
 };
 
 // A stream over bytes in memory: its own, or a part of a buffer shared with

@@ -69,6 +69,41 @@ uint32_t toLatin1(uint32_t cp) {
     }
 }
 
+std::string toLower(std::string_view s) {
+    std::string out(s);
+    for (char& c : out)
+        c = char(std::tolower(static_cast<unsigned char>(c)));
+    return out;
+}
+
+bool hasSuffixIgnoreCase(std::string_view s, std::string_view suffix) {
+    return suffix.size() <= s.size() && equalsIgnoreCase(s.substr(s.size() - suffix.size()), suffix);
+}
+
+bool matchGlob(std::string_view s, std::string_view pattern) {
+    size_t i = 0, p = 0;
+    size_t star = std::string_view::npos, mark = 0; // the last '*' and where it was tried from
+    while (i < s.size()) {
+        if (p < pattern.size() && pattern[p] == '*') {
+            star = p++;
+            mark = i;
+        } else if (p < pattern.size() &&
+                   (pattern[p] == '?' || std::tolower(static_cast<unsigned char>(pattern[p])) ==
+                                             std::tolower(static_cast<unsigned char>(s[i])))) {
+            ++p;
+            ++i;
+        } else if (star != std::string_view::npos) {
+            p = star + 1;
+            i = ++mark;
+        } else {
+            return false;
+        }
+    }
+    while (p < pattern.size() && pattern[p] == '*')
+        ++p;
+    return p == pattern.size();
+}
+
 std::string toUpper(std::string_view s) {
     std::string out(s);
     for (char& c : out)

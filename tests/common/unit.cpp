@@ -13,6 +13,7 @@
 #include "tests/common/data/x86_testdll.h"
 #include "common/archive.h"
 #include "common/bmp.h"
+#include "common/bytes.h"
 #include "common/config.h"
 #include "common/cursor.h"
 #include "common/dcl.h"
@@ -637,6 +638,16 @@ static void testStreams(const std::filesystem::path& tmp) {
     std::vector<uint8_t> back;
     CHECK(writeFile(tmp / "out.bin", w.data()) && readFile(tmp / "out.bin", back) && back == w.data());
     CHECK(!readFile(tmp / "missing.bin", back));
+
+    // Big-endian and signed values, fixed-length strings, lines.
+    MemoryReadStream b(std::vector<uint8_t>{0x12, 0x34, 0x12, 0x34, 0x56, 0x78, 0xFE, 0xFF, 0xFF, 0xFF, 'a', 'b', 0,
+                                            'z', 'o', 'n', 'e', '\r', '\n', 't', 'w', 'o', '\r', '3', '\n', '4'});
+    CHECK(b.readUint16BE() == 0x1234 && b.readUint32BE() == 0x12345678u && b.readSint32LE() == -2);
+    CHECK(b.readFixedString(4) == "ab");
+    CHECK(b.readLine() == "one" && b.readLine() == "two" && b.readLine() == "3" && b.readLine() == "4" && b.eos());
+    CHECK(b.readLine().empty());
+    MemoryReadStream shortBE(std::vector<uint8_t>{1});
+    CHECK(shortBE.readUint32BE() == 0x01000000u && shortBE.err());
 }
 
 static void testTextHelpers() {
@@ -648,6 +659,29 @@ static void testTextHelpers() {
     CHECK(fs::normalizeDosPath("ds9\\art\\b\\r\\brdg0000.cmp") == "DS9/ART/B/R/BRDG0000.CMP");
     CHECK(fs::normalizeDosPath("/SOUND//tick.raw/") == "SOUND/TICK.RAW");
     CHECK(fs::normalizeDosPath("DEEP.EXE;1") == "DEEP.EXE");
+    CHECK(text::toLower("Cc.ALL") == "cc.all" && text::hasSuffixIgnoreCase("COMMON.Dat", ".dat") &&
+          !text::hasSuffixIgnoreCase("at", ".dat"));
+    CHECK(text::matchGlob("MUSIC.1", "music.?") && !text::matchGlob("MUSIC.12", "MUSIC.?"));
+    CHECK(text::matchGlob("view.ovr", "*.OVR") && text::matchGlob("a.b.c", "*.*.*") && text::matchGlob("", "*"));
+    CHECK(!text::matchGlob("abc", "a*d") && text::matchGlob("abcbd", "a*b?") && !text::matchGlob("x", ""));
+    // Bytes in a buffer, and the four-character codes they hold.
+    const uint8_t bytes[8] = {'R', 'I', 'F', 'F', 0x10, 0x20, 0x30, 0x40};
+    CHECK(readLE32(bytes) == tagLE('R', 'I', 'F', 'F') && readBE32(bytes) == tagBE('R', 'I', 'F', 'F'));
+    CHECK(readLE64(bytes) == (uint64_t(0x40302010) << 32 | tagLE('R', 'I', 'F', 'F')));
+    uint8_t out[4] = {};
+    writeLE32(out, 0x04030201);
+    writeLE16(out, 0x0605);
+    CHECK(out[0] == 5 && out[1] == 6 && out[2] == 3 && out[3] == 4);
+    // Rectangles.
+    Rect r(0, 0, 10, 10);
+    CHECK(r.contains(Point(9, 9)) && !r.contains(Point(10, 0)) && r.intersects(Rect(9, 9, 20, 20)) &&
+          !r.intersects(Rect(10, 0, 20, 5)));
+    r.clip(Rect(5, -5, 20, 8));
+    CHECK(r == Rect(5, 0, 10, 8) && !r.isEmpty());
+    r.translate(1, 2);
+    CHECK(r == Rect(6, 2, 11, 10));
+    r.clip(Rect(50, 50, 60, 60));
+    CHECK(r == Rect() && r.isEmpty());
 }
 
 static void testDcl() {

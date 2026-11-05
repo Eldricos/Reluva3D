@@ -3,6 +3,8 @@
 
 #include "common/stream.h"
 
+#include <algorithm>
+
 #include <cstring>
 #include <fstream>
 
@@ -27,6 +29,46 @@ uint32_t ReadStream::readUint32LE() {
     if (read(b, 4) != 4)
         err_ = true;
     return uint32_t(b[0]) | (uint32_t(b[1]) << 8) | (uint32_t(b[2]) << 16) | (uint32_t(b[3]) << 24);
+}
+
+uint16_t ReadStream::readUint16BE() {
+    uint8_t b[2] = {0, 0};
+    if (read(b, 2) != 2)
+        err_ = true;
+    return uint16_t(b[0] << 8 | b[1]);
+}
+
+uint32_t ReadStream::readUint32BE() {
+    uint8_t b[4] = {0, 0, 0, 0};
+    if (read(b, 4) != 4)
+        err_ = true;
+    return uint32_t(b[0]) << 24 | uint32_t(b[1]) << 16 | uint32_t(b[2]) << 8 | uint32_t(b[3]);
+}
+
+std::string ReadStream::readFixedString(uint32_t len) {
+    std::string s(len, '\0');
+    if (len && read(s.data(), len) != len)
+        err_ = true;
+    s.resize(std::min<size_t>(s.find('\0'), len));
+    return s;
+}
+
+std::string SeekableReadStream::readLine() {
+    std::string line;
+    uint8_t c = 0;
+    while (read(&c, 1) == 1) {
+        if (c == '\n')
+            break;
+        if (c == '\r') {
+            // The LF of a CR LF; any other byte is put back.
+            uint8_t next = 0;
+            if (read(&next, 1) == 1 && next != '\n')
+                seek(-1, SEEK_CUR);
+            break;
+        }
+        line += char(c);
+    }
+    return line;
 }
 
 std::string ReadStream::readCString() {
