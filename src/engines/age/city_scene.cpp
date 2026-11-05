@@ -358,18 +358,23 @@ void CityScene::setLighting(int index) {
 
 void CityScene::drawCloudShadows() {
     // texture/shadmap_day.tga: white, its alpha a tile of cloud shadow
-    // (182-255), laid over the city from above and multiplied in. Its size
-    // on the ground and its drift are Reluva's choice.
-    constexpr float kTile = 240;   // metres the tile covers
-    constexpr float kDrift = 2.5f; // m/s, with the wind (High)
-    if (!cityMesh_ || cloudShadows_ <= 0 || lampsLit())
+    // (182-255), laid over the city from above and multiplied in. At
+    // night shadmap_nite.tga, the same but a 4 x 4 grid of soft pools of
+    // light (alpha 79-255), laid so its pools are the street lamps' 29 m
+    // apart, still. The day tile's size and drift are Reluva's choice.
+    constexpr float kDayTile = 240;   // metres the tile covers
+    constexpr float kNightTile = 116; // 4 pools of 29 m
+    constexpr float kDrift = 2.5f;    // m/s, with the wind (High, by day)
+    if (!cityMesh_ || cloudShadows_ <= 0)
         return;
+    const bool night = lampsLit();
+    const float kTile = night ? kNightTile : kDayTile;
     bool translucent = false;
-    const gfx::TextureId clouds = textures_->get("shadmap_day", translucent, true);
+    const gfx::TextureId clouds = textures_->get(night ? "shadmap_nite" : "shadmap_day", translucent, true);
     if (!clouds)
         return;
     const float drift =
-        cloudShadows_ >= 2
+        cloudShadows_ >= 2 && !night
             ? kDrift / kTile * std::chrono::duration<float>(std::chrono::steady_clock::now() - loadedAt_).count()
             : 0;
     for (const Batch& b : batches_) {

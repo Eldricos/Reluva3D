@@ -272,23 +272,27 @@ something not in the file.
 
 **0x80** marks a block with more to collide with than its floor, it
 seems:
-- On road blocks it's having walls or railings: a road block has 0x80
-  exactly when it has a tunnel attribute, but for 4 in San Francisco
-  (561, 647, 651, 652) and 1 in London (857) of 1,039 (127 and 23 with
-  both, 412 and 472 with neither). That's San Francisco's elevated
-  freeway (112 of its 149): every raised road block that isn't a tunnel
-  has `s_wall_veg` walls.
+- On road blocks it's a tunnel attribute with flag 0x4 (the 2 m band)
+  or 0x4000 (railings): exactly so in all 556 of San Francisco's road
+  blocks and 646 of London's 647 (857, a short bridge piece between
+  railed blocks, has it without; 939 and 970, like it, don't). That's
+  San Francisco's elevated freeway (112 of its 149), its walls all with
+  0x4; the four with plain walls (561, 647, 651, 652) haven't it.
+- On a junction at street level it's a raised (0x40) block next to it:
+  exactly, San Francisco 7 of 7 and 0 of 203, London 17 of 17 and 0 of
+  265 (so London's 1021-1030, by raised roads, and not San Francisco's
+  walled 971, 973, 1092).
 - The others (15 and 22 blocks, all 0x84) are ground under ramp, tunnel
   mouth and bridge models with a `.ter` (10 and 5); the Underground's and
   Broadway tunnel's entrances (San Francisco's 131, 133, London's 10),
   whose models carry the instance flag 0x2000, only ever found in 0x80
   blocks (15 instances); and London's 32 Underground junctions with
   station models (`subway_a`, `_c`, `_f`) and no 10-word tunnel.
-- Not exact: some junctions with walls lack it (San Francisco 971, 973,
-  1092), some without have it (London 1021-1030, `r1_stone256`), and
-  empty Embankment ground has it (San Francisco 122, 126, 312; London
-  245-298, seven blocks). A model's `.ter` alone isn't it: 89 San
-  Francisco blocks without 0x80 hold `.ter` bounds.
+- Not exact on ground: San Francisco's 15 all touch a raised block, but
+  so do 8 without it; at one ramp the ground on one corner has it, on
+  the other not. London's Underground junctions with a 10-word tunnel
+  and four others (1329-1338) haven't it. A model's `.ter` alone isn't
+  it: 89 San Francisco blocks without 0x80 hold `.ter` bounds.
 
 In the older `sfai.psdl` 0x80 is only on 144 building blocks and the
 freeway is plain 0x48, so the shipped cities' 0x20 and 0x80 were
