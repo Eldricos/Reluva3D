@@ -23,7 +23,6 @@
 #include "tests/support/zip_writer.h"
 
 #include <algorithm>
-#include <functional>
 #include <map>
 
 using namespace reluva;
@@ -178,7 +177,10 @@ Bytes makeWav(int ms) {
 Bytes menuPicture(const std::string& name, int frames, int width = 32) {
     const int h = 24 * frames;
     Bytes px(size_t(width) * h, 0);
-    const size_t seed = std::hash<std::string>{}(name);
+    // A seed from the name, the same on every system (unlike std::hash).
+    size_t seed = 0;
+    for (char c : name)
+        seed = seed * 31 + uint8_t(c);
     for (size_t i = 0; i < px.size(); i++)
         px[i] = uint8_t(((i % size_t(width)) * 3 + (i / size_t(width)) + seed) % 5 == 0);
     return stgtest::makeBMP8(width, h, px, false);

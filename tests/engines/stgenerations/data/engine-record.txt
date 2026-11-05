@@ -11,16 +11,16 @@ run.frames: 639
 run.size: 640x480
 run.title: Reluva - Star Trek: Generations (a release Reluva doesn't know)
 screen.2000: title: 90c889a514deab85
-screen.3500: menu: f07791c3693bd439
-screen.4500: new game?: 4aa0be4b90b01a3a
+screen.3500: menu: 30f1ebbafa2212c6
+screen.4500: new game?: 7649e156e144da66
 screen.5150: movie, frame 1: 08eb2e19a385a925
 screen.5450: movie, frame 4: 62d4d9eb28c3c925
 screen.7000: bridge: a06da2fdfd3614a5
-screen.8000: menu over the bridge: 710870ba4fc1e40a
-screen.10000: save, named: 733aa14a4fc4bbb1
+screen.8000: menu over the bridge: e349723a4d814ecd
+screen.10000: save, named: 5460719d29446ee5
 screen.11000: saved: a06da2fdfd3614a5
-screen.12500: settings: e3ee882bce14b1b1
-screen.15000: load: 7bd33879dc28eb81
+screen.12500: settings: f58759170858b7c6
+screen.15000: load: a5cb1c8a722db79e
 screen.17000: loaded: a06da2fdfd3614a5
 cursor.menu: 15x15 8a7befd674c19a35
 cursor.after: the system's
