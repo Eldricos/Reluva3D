@@ -296,8 +296,27 @@ From nfs3.exe (November 2026), the drawing of a car (`car_draw_wheels`
   `-pokeevery` of its position, rows and speed) shows that car's two
   headlight glows and their short flares on the road below them, and no
   beam: looking into it the beam's colour is scaled to nearly nothing,
-  as the code has it. The page's stand-in cars can't be placed there,
-  so the page wasn't compared.
+  as the code has it.
+
+  The page compared with the game's frames (November 2026), its cars
+  placed from the frame's car dump (`RELUVA_NFS_TRACK_CARS`) and its
+  camera from the same sky draw (`RELUVA_NFS_TRACK_CAMERA`):
+  - **The fog** (`t5-fog`, sky draw 500, frame 2700): the car facing
+    the camera 36 ahead shows two white headlight glows, their short
+    flares on the wet road below and no beam on both, the glows of the
+    same size. The page's car is paler, more fogged: 145, 140, 141 on its
+    lower body against the game's 171, 168, 166.
+  - **By day** (`t6-day`, Hometown on the grid, sky draw 150, frame
+    2345; four cars 19-74 ahead): in the same places in the view (the
+    page's window has another shape). The game's cars are other models
+    than the page's Corvette, so the reflections can only be compared
+    roughly: the game's silver car
+    19 ahead shows the sky as grey-white bands along its flanks, the
+    page's Corvette deep blue streaks of `CHRD`'s sky there.
+  - **By night** (`t6-night`, Hometown, sky draw 150, frame 2345, the
+    cars 70 and more ahead, `projtex` off): both show the cars' red tail
+    light glows, small and of the same size, the bodies dark grey; the
+    page's bodies a little lighter.
 
 ## How the game loads a model
 

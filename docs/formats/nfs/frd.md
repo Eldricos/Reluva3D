@@ -421,9 +421,24 @@ game sends the 17 shaft quads it draws as picture 21 (16 × 16 grey, mean
 (183, 184, 190), the fog of the region at slice 207 (density 65), as the
 page draws them. The wedges fall on the same pixels; walls, floor and
 ceiling are 3-6 brighter on the page (the host's 16-bit truncation),
-the shafts' brightest overlaps about 11 more. Each added layer is
-truncated again in the host's 16-bit frame, which would account for
-that; not proven.
+the shafts' brightest overlaps about 11 more.
+
+That the overlaps' difference is the host's 16-bit frame was checked
+offline (November 2026, `t6-scripts/shaftcount.py`, `trunc565.py`).
+Rasterised from `t5-brg`'s THRASH list, the 17 quads cover 10,635
+pixels once, 8,219 twice and 12,866 three times (the grey wedges), and
+4-12 times only in the white patch at the far end, which is at 255
+both on the page and in the game. `nfs-host`'s native THRASH
+(`thrash_native.cpp`) reads each pixel back from 5:6:5 as × 255 / 31
+(× 255 / 63 for green), adds the colour × alpha / 255 truncated, and
+stores it truncated to 5:6:5 again; the page adds in 8 bits. Run on
+floor values of 40-70 and layers of picture 21 × `7F` (15-30, × 127 /
+255 each), the page comes out above the host by 2.4 (red, blue) and 1.4
+(green) with no layer, 5.2 and 3.5 with one, 8.2 and 5.8 with two and
+10.5 and 7.5 with three: the three-layer wedges' 11 is what the
+truncation per layer gives, and the walls' 3-6 is about 2 of it and
+something else (the textures' filtering or the fog) besides. The page
+keeps its 8-bit adds.
 
 **Texture flag `0x04` and the headlights.** `0x41ae90` is called for
 each car (the loop at `0x41c6cc` over the cars, `0x5efac8`) and each
@@ -602,8 +617,22 @@ now lights its still objects so, and draws a raised colour over a
 two-sided polygon without culling it (it culled the far side of every
 two-sided polygon's raise, so a crossed quad seen from its back got
 none); with `projtex` off (Shift+E) as `nfs-host` has it, the posts,
-fences and shop fronts there match the frame. Moving objects aren't lit
-on the page.
+fences and shop fronts there match the frame.
+
+Moving objects are lit too (`0x41ca40`, November 2026): for a type-3
+object the loop takes its key's matrix and position (`0x40f4b0` at
+`g_step`), moves and projects its vertices (`0x41a9b0`) and then calls
+`0x41c310` with that matrix and position, the same as for a still
+object: the 150 test from the key's position, each vertex put through
+the matrix (`0x4e0430`) before `0x41a550` lights it, the block's outline
+the group's block's. The type-3 branch only runs with the loop's last
+argument set; with it clear a moving object is skipped altogether. The
+page lights its moving objects so, at their place this frame. `0x41c310`
+also skips a car with +0x88 set (no forces, `0x4068a0`) as well as one
+hidden or out of play; the page has no such cars. Not compared against
+a night frame: of Hometown's two moving objects the water wheel stands
+off the road at the mill and the other (the last group, 141 keys) flies
+over the start, out of a car's headlights.
 
 **Other cars' lights** (`0x41c670`, November 2026). The pass goes
 through the race's cars in their list's order (`0x5efac8`, count
@@ -669,8 +698,8 @@ siren on. Each is placed as the game places a car:
   model is drawn 0.145 higher in y (`0x540120`, `0x4bab70`); its rows
   the road's;
 - driven as the computer drives (below; `speedsF.bin`'s speeds, and
-  `speedsR.bin`'s going the other way), its side offset the computer's
-  aim;
+  `speedsR.bin`'s going the other way), its side offset driven towards
+  the computer's aim (below);
 - with the lights a computer car starts with, its headlights placed by
   its own half length (+0x11C, the model's), and its headlight part
   (12) drawn only with them on, as `0x4bab70` does.
@@ -679,6 +708,53 @@ They light each other and the track as above (and are lit by the
 camera's car), their colours, reflections, glows, the rain's flares,
 the fog's beams and the roof light's sweep as in [fce.md](fce.md),
 Lighting.
+
+`RELUVA_NFS_TRACK_CARS=<dump>` places them instead from a dump of the
+game's car records (`-dumpmem ...:0x5e1120:0x4d60:file`, 0x9AC bytes a
+car; `parseCarDump`): each car in play and not hidden (+0x89, +0x200 bit
+0x40) at its +0x98 with its rows (+0xC0), lights (+0x660), brake
+(+0x509), roof light (+0x734 with +0x200 bit 0x20) and beam scroll
+(+0x944), a police car as `Vcop` and any other as the Corvette, held
+there. The human's car is left out, the camera standing for it, unless
+`RELUVA_NFS_TRACK_CARS_HUMAN` is set. With `RELUVA_NFS_TRACK_CAMERA`
+from the same sky draw the page shows the game's frame's cars;
+`RELUVA_NFS_TRACK_STEP=<g_step>` (`0x7d3684`) holds the moving objects
+at that step's keys.
+
+**The police car's driving** (`aiCopStep`, November 2026). The page's
+police car drives as a computer cop (`car_driver_cop`, `0x4032e0`;
+[physics.md](physics.md), The computer cops' driver), not by the racers'
+rules. Its driver acts when the gate lets it, (step / 2 + its place in
+the list) mod 4 = 0 on the 32 Hz task, every 8 steps; between, only the
+aim and the speed move (`0x408870`, `0x4066c0`, as for a racer). With
+its siren on it starts in state 7 (a run with the siren), else 1
+(patrol), both `cop_ai_drive` (`0x403270`): `lane_votes_start` (its
+lanes, keeping right, the cars round it), the speed wanted the track
+section's speed (`0x40ed40`, per-track slice ranges) × 2 or × 1.19, at
+most its top speed (`0x401370`: `carp.txt`'s maximum velocity, field
+14, × 1.1 with +0x711 bit 1), then `0x40bff0` (behind a slower car in
+its lane its speed less 10 × the share of round(its speed × 0.579 −
+0.5), at least 4, slices it is in; × 0.4 for one coming at it),
+`lane_votes_ahead` and `lane_choose`. No flashing, no best line, none of
+rows 8-10 and no `0x409660` bonus: those are the racers'. Then
+`cop_ai_pick_target` (`0x402e10`): a racer within 16 slices over the
+section's speed by more than 6.71 m/s (`0x403f80`, `0x536104`) scores
+max(cops / 3, 1) less the cops already on it, and the best scoring
+over 0 becomes its target: state 5, the chase, the siren on. Chasing,
+its speed wanted is `0x402420`'s: the top speed more than 8 slices
+behind or when the target is faster, else slices × (top − its speed) ×
+0.125 + its speed + 5.81 m/s; past it × 0.5 its speed (× 0.2 when it is
+the car behind in the cop's lane, `0x56ef54`); its votes `0x402750`'s
+(rows 6 and 13: 70 for the target's lane when it comes the other way, 10
+behind it or more than 5 slices on, else 30 beside it and 10 its own);
+under 15.65 m/s or on its slice, within 4 slices, it aims at the
+target's side offset (+0x711 bit 2, `0x406b60`). A target running the
+other way turns it (`0x402910` flips +0x621 bit 0x10) when it isn't 12
+slices past it; the page turns it on the spot from standing, where the
+game's car turns on the road. Over 50 slices away (`0x5521ac` +4 for a
+racer with no tickets) the chase is given up: patrol, siren off. The
+reversing, roadblocks, strips, stops and calls for help aren't
+followed.
 
 **The computer cars' driving** (nfs3.exe, November 2026; `aiStep`).
 Each step (64 a second) an AI racer runs `car_driver_ai` (`0x409c00`,
@@ -692,7 +768,10 @@ them along the slices at the speed that leaves:
   +0x640 those at offset − and + (its width across the road − 0.5).
 - **The speed wanted** (`0x409330`): the speed table's byte for its
   slice pair × the speed scale (+0x7BC: the driver's factor `0x408dc0`
-  × the track's `0x40ee80`, at most 1; the page leaves out the catch-up),
+  × the track's `0x40ee80` × the catch-up `0x4090a0`, at most 1: the
+  page takes the camera's car as the race's human, at race distance 0,
+  and each racer's distance as the slices from the camera's slice along
+  its way),
   under the top speed cap × the track's factor. The page's two Corvettes
   have Lead Foot's (skill 2) and, ahead of him, Mulligan's (skill 0, a
   surging driver), from the drivers' table (`0x55226c`).
@@ -751,8 +830,7 @@ them along the slices at the speed that leaves:
     in row 12 (`0x56ef20`) for each lane whose nearest car behind
     (`0x56ef50`, a flag at `0x56ef6e`) is a human's (+0x200 bit 4)
     within 10 slices: it blocks a human. The page's camera is no racer,
-    so this never applies there;
-  - the catch-up of the speed scale.
+    so this never applies there.
 - **The aim** (`0x40daf0`): the chosen lane's middle, (L − 7 + ½) right
   lanes' widths or (6 − L + ½) left ones'; for the lane just past the
   road's lanes, the car's half width past the edge; within the walls
@@ -770,6 +848,35 @@ them along the slices at the speed that leaves:
   and +0x509 for the glows) is 255 only when it is more than 5 m/s too
   fast (`0x53624c`); under that it slows without its brake lights. The
   speed tables drop at bends, so the cars brake into them.
+
+- **The side offset as driven** (+0x7B8, `aiMove`): the game's car is
+  steered at its aim (+0x7C8) by the controllers above and its lanes
+  (`0x40e350`) are taken at +0x7B8, the car's own offset, not at the aim.
+  The page drove each car exactly on its aim until November 2026, and a
+  car aimed at a lane's middle 1.5 widths out then sat in the lane past
+  it for good. The page now moves +0x7B8 towards the aim as a spring and
+  damper (100 /s², 14 /s, at most 70 × (1 + 0.0015 × speed) m/s²),
+  fitted to `-watchmem` of car 1's +0x7B0-+0x7CC over 376 steps of a
+  Hometown race (`t6-watch`): 1.1 m rms, about as good from 0.6 to 1 of
+  critical damping; the rest is the road's bends and the car's heading,
+  which the page doesn't model.
+
+**Against the game's racers** (November 2026, `t6-log`: Hometown by
+day, the human left on the grid, the cars' records dumped every 0.5 s
+from 50 to 78 s; `t6-sim/aisim` runs `aiStep` with the catch-up from the
+50 s dump, every car with the Corvette's `carp.txt`, `behave.py`
+compares). Over the 28 s the seven racers' speed scales match the
+dumps' (0.656-0.738: 0.82 × the driver × 0.9 or 0.8 by place; the page's
+places differ from the game's now and then, so car 2 stayed at 0.656
+where the game's went up to 0.738), their mean speeds are within 3 m/s
+(34.8-38.3 in the game, 36.7-38.1 on the page) and they end a few slices
+from where the game's are (1-12). The game's cars weave: +0x7B4 goes between
+lanes 7, 8 and the one past the road's edge every second or two, and
++0x638 changes in 17-23 of the 56 half-second samples per car. The
+page's changed in 2-6 with the car on its aim, and in 7-21 with the side
+offset as driven. Braking: one sample in the game (car 1), none on the
+page. Flashing: none in the game's samples, one on the page (car 1,
+held up at the start).
 
 In a scratch run of 30,000 steps (almost 8 minutes) on each of tracks
 0-4 with the page's three cars, they braked into the bends on every
@@ -835,10 +942,21 @@ the placed objects' loop, `0x41b6e2`, and the headlight pass,
 `0x41d620` leaves alone: only `+0x28`, `+0x38` and `+0x3c` (the
 blocks' reach and the detail distances, read as floats at `+0x34`,
 `+0x40` and `+0x44`) are scaled by the view level and the night. So
-the cut-off is 500 by night too, where the blocks' reach is 375. Not compared on a moving object against a frame: Hometown's spinner
+the cut-off is 500 by night too, where the blocks' reach is 375. Hometown's spinner
 (at (−563, 2, 442)) stands about 500 ahead of road slices 489-491, but
 `nfs-host` frames from there (`t5-hd`, the car poked onto slices 489
 and 491) show the town's buildings in front of it, as the page does.
+
+Compared on a moving object (November 2026, `t6-cut`): Hometown's
+last group has an object (30 vertices, 12 across) flying a loop over
+the start, 141 keys 25 steps apart. With the human's car poked onto
+slice 886 (looking south down the road), at steps 700-800 (`0x7d3684`,
+dumped with the camera) it passes 440 to 506 ahead, 118 to the right
+and 24 up, over open fields. In the game's frames it is a dark blob of
+3-4 pixels at 440 ahead, 2 at 467, 1-2 at 476 and gone from about 486;
+on the page with the same camera and `RELUVA_NFS_TRACK_STEP` 7-8 of its
+pixels at 470-480, 1-3 at 486-490 and none from 492, its far corners
+having gone first. Both lose it as its first corners pass 500.
 
 The Tracks page draws the same set of blocks from the block nearest
 the camera, with view level 1 (`K` draws every block instead, and

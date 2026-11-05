@@ -309,6 +309,7 @@ private:
         std::vector<Track::ExtraObject::Key> keys;
         int keyDelay = 0;
         std::vector<Batch> batches;
+        size_t group = 0, object = 0; // in track_.extraObjects
     };
     // Animated polygons of one kind with the same delay and frame count:
     // a copy of each for every frame, which drawing picks by the tick.
@@ -547,6 +548,8 @@ private:
     void loadCars();
     void releaseCars();
     void placeCars();
+    std::vector<DumpedCar> carDump_; // RELUVA_NFS_TRACK_CARS: the cars as a game dump has them
+    void placeDumpedCars();
     void moveCars(float dt);
     void carRows(ComputerCar& car) const;
     // The cars' colours and glows for this frame (prepareCars), before
@@ -570,8 +573,10 @@ private:
     struct MovingFrame {
         gfx::Mat4 model{};
         std::vector<Batch> batches;
+        int moving = -1; // in moving_
     };
     std::vector<MovingFrame> movingFrame_;
+    long long fixedStep_ = -1; // RELUVA_NFS_TRACK_STEP: the moving objects at that game step
     bool mirrored_ = false; // U: the mirrored track (0x6fd4c4), with set 1
     int variant_ = 0;
     int detail_ = 3, textureSet_ = 0, block_ = 0; // detail 3: by distance, as the game

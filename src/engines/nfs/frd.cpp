@@ -693,6 +693,9 @@ bool parseCarpAi(const std::string& text, AiCarData& out) {
     if (!values(15, v))
         return false;
     out.topSpeedCap = v[0];
+    if (!values(14, v))
+        return false;
+    out.maxVelocity = v[0];
     if (!values(18, v))
         return false;
     out.maxBrake = v[0];
@@ -757,8 +760,72 @@ int aiLineLane(const std::vector<uint8_t>& speeds, int slice, int sliceCount) {
     return speeds.size() > 16 && at < speeds.size() ? speeds[at] >> 4 : 7;
 }
 
-void aiStep(std::vector<AiCar>& cars, size_t self, const TrackCollision& col, const std::vector<uint8_t>& speeds,
-            const AiCarData& data, int step, int track, bool weather) {
+namespace {
+
+// The side offset's spring (1/s/s), damping (1/s) and greatest
+// acceleration (m/s/s, x (1 + 0.0015 x speed) as 0x4076b0 has its 38),
+// fitted to car 1 +0x7B8 against its +0x7C8 over 376 steps of a
+// Hometown race (t6-watch: 1.1 m rms, as good as any from 0.6 to 1 of
+// critical damping; the rest is the road and the heading, not modelled).
+constexpr float kAiSideSpring = 100.0f, kAiSideDamping = 14.0f, kAiSideAccel = 70.0f;
+
+// The aim and the speed each step (0x408870, 0x4066c0 with 0x4064f0 and
+// 0x4063e0).
+void aiMove(AiCar& me, const AiCarData& data, bool weather) {
+    // ai_lane_ramp (0x408870): the aim 0.2 a step towards it.
+    if (me.offset < me.target)
+        me.offset = std::min(me.offset + 0.2f, me.target);
+    else
+        me.offset = std::max(me.offset - 0.2f, me.target);
+    // The side offset as driven (+0x7B8): the side controller of 0x4076b0
+    // pulls the car towards the aim, the heading term damping it; here a
+    // spring and damper fitted to nfs-host's car 1 on Hometown (frd.md).
+    if (!me.sideKept) {
+        me.side = me.offset;
+        me.sideSpeed = 0;
+        me.sideKept = true;
+    } else {
+        const float limit = kAiSideAccel * (1 + 0.0015f * me.speed);
+        const float a = std::clamp(kAiSideSpring * (me.offset - me.side) - kAiSideDamping * me.sideSpeed, -limit, limit);
+        me.sideSpeed += a / 64.0f;
+        me.side += me.sideSpeed / 64.0f;
+    }
+    // The speed (0x4066c0): towards the speed wanted by the acceleration
+    // (0x4064f0) or the brakes (0x4063e0), not past it.
+    const float error = me.wanted - me.speed;
+    if (error > 0) {
+        me.braking = false;
+        int at = static_cast<int>(std::nearbyint(me.speed - 0.5f));
+        at = std::clamp(at, 0, 111);
+        float a = data.accel[size_t(at)];
+        if (me.racer && (me.speed > data.topSpeedCap * me.scale || me.speed > data.topSpeedCap))
+            a = 0;
+        a *= 0.9f; // ai Normal past race distance 100
+        if (weather && at < 45)
+            a *= 0.9f;
+        me.speed = std::min(me.speed + a / 64.0f, me.wanted);
+    } else {
+        float b = data.maxBrake;
+        if (me.cop)
+            b *= 2;
+        else
+            b *= 1.25f; // an AI racer (+0x200 bit 8)
+        me.braking = error <= -5.0f;
+        me.speed = std::max(me.speed - b / 64.0f, me.wanted);
+    }
+}
+
+// What a cop's driver does this call (car_driver_cop 0x4032e0): the
+// section's speed x k (cop_ai_drive) or the chase's (0x402420).
+struct CopCall {
+    float k = 1.19f;
+    bool chase = false;
+};
+
+// One step of the computer's driving: as a racer (cop null), or a cop's
+// driver's call.
+void aiDrive(std::vector<AiCar>& cars, size_t self, const TrackCollision& col, const std::vector<uint8_t>& speeds,
+             const AiCarData& data, int step, int track, bool weather, const CopCall* cop) {
     const int n = static_cast<int>(col.road.size());
     if (n < 2 || self >= cars.size())
         return;
@@ -780,9 +847,11 @@ void aiStep(std::vector<AiCar>& cars, size_t self, const TrackCollision& col, co
     auto vote = [&](int row, int column, int amount) { votes[row][column] += amount; };
 
     // lane_votes_start (0x40dd60): the car's lanes (0x40e350).
-    me.lane = aiLaneAt(here, me.offset);
-    me.laneLeft = aiLaneAt(here, me.offset - me.halfWidth + 0.5f);
-    me.laneRight = aiLaneAt(here, me.offset + me.halfWidth - 0.5f);
+    if (!me.sideKept)
+        me.side = me.offset;
+    me.lane = aiLaneAt(here, me.side);
+    me.laneLeft = aiLaneAt(here, me.side - me.halfWidth + 0.5f);
+    me.laneRight = aiLaneAt(here, me.side + me.halfWidth - 0.5f);
     const int lane = me.lane;
     // 0x40cee0: keep to the right of the way it runs (0x56f230, 1 on
     // every track); lanes 7 and up are its right going the slices' way.
@@ -839,10 +908,49 @@ void aiStep(std::vector<AiCar>& cars, size_t self, const TrackCollision& col, co
     }
     auto along = [](const AiCar& c) { return static_cast<float>(c.way) * c.speed; }; // +0x7C0
 
-    // car_ai_speed_wanted (0x409330): the table's speed for the slice
-    // pair, by the scale, under the top speed cap by the track's factor.
-    me.wanted = std::min(aiSlicesSpeed(speeds, me.slice) * std::min(me.scale, 1.0f),
-                         data.topSpeedCap * aiTrackFactor(track));
+    // A cop's chase (0x401780): the slices to its target along its way,
+    // which lane it is in (0x56ea64: 0 left, 1 the same, 2 right).
+    const AiCar* target = cop && me.chasing >= 0 && static_cast<size_t>(me.chasing) < cars.size() ? &cars[size_t(me.chasing)]
+                                                                                               : nullptr;
+    const int toTarget = target ? sliceDiff(target->slice, me.slice) * me.way : 0;
+    const int targetSide = target ? (target->lane < lane ? 0 : target->lane == lane ? 1 : 2) : 1;
+    const float top = data.maxVelocity * (me.copFast ? 1.1f : 1.0f); // 0x401370
+    if (!cop) {
+        // car_ai_speed_wanted (0x409330): the table's speed for the slice
+        // pair, by the scale, under the top speed cap by the track's factor.
+        me.wanted = std::min(aiSlicesSpeed(speeds, me.slice) * std::min(me.scale, 1.0f),
+                             data.topSpeedCap * aiTrackFactor(track));
+    } else if (!cop->chase || !target) {
+        // ai_speed_wanted_section (0x401430): the section's speed x k, at
+        // most the top speed.
+        me.wanted = std::min(trackSectionSpeed(track, me.slice) * cop->k, top);
+        // 0x40bff0: behind the car ahead in its lane going its way, slower
+        // than it wants, at the speed's reach in slices (at least 4) or
+        // nearer, its speed less 10 x the share of that reach it is in;
+        // one coming at it x 0.4.
+        if (carAhead[1]) {
+            const AiCar& o = *carAhead[1];
+            if (o.way == me.way) {
+                const int reachOf = std::max(std::abs(static_cast<int>(std::nearbyint(o.speed * 0.5793742757821553 - 0.5))), 4);
+                if (me.wanted - o.speed > 0 && reachOf >= aheadBy[1] && o.speed >= 3.0f)
+                    me.wanted = o.speed - static_cast<float>(reachOf - aheadBy[1]) * 10.0f / static_cast<float>(reachOf);
+            } else {
+                me.wanted *= 0.4f;
+            }
+        }
+    } else {
+        // 0x402420: at the top speed more than 8 slices behind it or when
+        // it is faster, else closing by the slices; past it, x 0.5 its
+        // speed (x 0.2 for the car behind in its lane, 0x56ef54).
+        if (toTarget >= 0) {
+            if (toTarget > 8 || top < target->speed)
+                me.wanted = top;
+            else
+                me.wanted = static_cast<float>(toTarget) * (top - target->speed) * 0.125f + target->speed + 5.81139f;
+        } else {
+            me.wanted = target->speed * (carBehind[1] == target ? 0.2f : 0.5f);
+        }
+    }
     // 0x404840: the lights flashed back (0x40deb0), then flashed again
     // when held up behind a car in its lane within 2 slices, wanting
     // more than 8.94 m/s over its speed (0x40de50: a step up for 64 steps).
@@ -853,14 +961,14 @@ void aiStep(std::vector<AiCar>& cars, size_t self, const TrackCollision& col, co
         else if (me.beams == 2)
             me.beams = 1;
     }
-    if (carAhead[1] && aheadBy[1] < 2 && me.speed + 8.9406f < me.wanted && !me.flashing) {
+    if (!cop && carAhead[1] && aheadBy[1] < 2 && me.speed + 8.9406f < me.wanted && !me.flashing) {
         me.flashing = true;
         me.flashUntil = step + 64;
         me.beams = me.beams == 0 ? 1 : me.beams > 1 ? 0 : 2;
     }
     // 0x4094d0: behind a slower car (not a police car) going its way in
     // its lane, its speed within 2 slices, half the difference less at 2.
-    if (carAhead[1] && !carAhead[1]->cop && carAhead[1]->way == me.way) {
+    if (!cop && carAhead[1] && !carAhead[1]->cop && carAhead[1]->way == me.way) {
         const float over = me.wanted - carAhead[1]->speed;
         if (over > 0) {
             if (aheadBy[1] < 2)
@@ -870,7 +978,7 @@ void aiStep(std::vector<AiCar>& cars, size_t self, const TrackCollision& col, co
         }
     }
     // 0x409920 (personality under 3): against the lanes of slower cars.
-    if (me.driver.personality < 3)
+    if (!cop && me.driver.personality < 3)
         for (int c = 0; c < 3; ++c) {
             const AiCar* o = carAhead[size_t(c)];
             if (!o)
@@ -888,7 +996,7 @@ void aiStep(std::vector<AiCar>& cars, size_t self, const TrackCollision& col, co
             }
         }
     // 0x4097c0: for empty lanes, against lanes with a car within 3.
-    for (int c = 0; c < 3; ++c) {
+    for (int c = 0; c < 3 && !cop; ++c) {
         if (!carAhead[size_t(c)])
             vote(9, c, 5);
         else if (aheadBy[size_t(c)] < 3) {
@@ -900,7 +1008,7 @@ void aiStep(std::vector<AiCar>& cars, size_t self, const TrackCollision& col, co
     }
     // ai_lane_vote_line (0x4096b0): the best line's lane 4 slices on, for
     // a car running the race's way.
-    if (me.way > 0) {
+    if (!cop && me.way > 0) {
         const int line = aiLineLane(speeds, ahead(4), n);
         if (line != 0) {
             const int weight = me.driver.skill == 0 ? 6 : me.driver.personality < 3 ? 10 : 12;
@@ -914,7 +1022,7 @@ void aiStep(std::vector<AiCar>& cars, size_t self, const TrackCollision& col, co
     const int far = ahead(look);
     const TrackCollision::RoadPoint& there = point(far);
     // 0x40d2e0: back onto the road's lanes where they end ahead.
-    if (track == 6 && me.way > 0 && me.slice >= 0x127 && me.slice <= 0x168) {
+    if (track == 6 && me.way > 0 && !cop && me.slice >= 0x127 && me.slice <= 0x168) {
         vote(2, 0, -40);
     } else if ((lane < 7 - there.leftLanes() || lane > there.rightLanes() + 6) && 7 - leftLanes <= lane &&
                lane <= rightLanes + 6) {
@@ -995,10 +1103,35 @@ void aiStep(std::vector<AiCar>& cars, size_t self, const TrackCollision& col, co
         vote(1, 0, -4);
     if (carAhead[2] && aheadBy[2] < 2)
         vote(1, 2, -4);
-    // lane_votes_bonus (0x409660).
-    for (int c = 0; c < 3; ++c)
+    // lane_votes_bonus (0x409660), the racers'.
+    for (int c = 0; c < 3 && !cop; ++c)
         if (votes[3][c] != 0)
             votes[3][c] += 22;
+    // The chase's votes (0x402750, rows 6 and 13): for the target's lane,
+    // 70 when it comes the other way, 10 behind it or more than 5 slices
+    // on, else the lane beside it 30 and its own 10 (both sides beside it
+    // 30 when in the cop's lane).
+    if (cop && cop->chase && target) {
+        if (toTarget < 0)
+            votes[13][targetSide] += 10;
+        else if (toTarget == 0)
+            ;
+        else if (target->way != me.way)
+            votes[6][targetSide] += 70;
+        else if (toTarget > 5)
+            votes[13][targetSide] += 10;
+        else if (targetSide == 0) {
+            votes[13][1] += 30;
+            votes[13][0] += 10;
+        } else if (targetSide == 1) {
+            votes[13][1] += 10;
+            votes[13][2] += 30;
+            votes[13][0] += 30;
+        } else {
+            votes[13][2] += 10;
+            votes[13][1] += 30;
+        }
+    }
     // lane_choose_best (0x40da30): the sums, the same lane on a tie.
     int sum[3] = {};
     for (const auto& row : votes)
@@ -1013,34 +1146,206 @@ void aiStep(std::vector<AiCar>& cars, size_t self, const TrackCollision& col, co
         pick = lane + 1;
     me.pick = std::clamp(pick, 0, 13);
     me.target = aiLaneOffset(here, me.pick, me.halfWidth, me.way > 0 ? nudge : -nudge);
-    // ai_lane_ramp (0x408870): the aim 0.2 a step towards it.
-    if (me.offset < me.target)
-        me.offset = std::min(me.offset + 0.2f, me.target);
-    else
-        me.offset = std::max(me.offset - 0.2f, me.target);
-    // The speed (0x4066c0): towards the speed wanted by the acceleration
-    // (0x4064f0) or the brakes (0x4063e0), not past it.
-    const float error = me.wanted - me.speed;
-    if (error > 0) {
-        me.braking = false;
-        int at = static_cast<int>(std::nearbyint(me.speed - 0.5f));
-        at = std::clamp(at, 0, 111);
-        float a = data.accel[size_t(at)];
-        if (me.speed > data.topSpeedCap * me.scale || me.speed > data.topSpeedCap)
-            a = 0;
-        a *= 0.9f; // ai Normal past race distance 100
-        if (weather && at < 45)
-            a *= 0.9f;
-        me.speed = std::min(me.speed + a / 64.0f, me.wanted);
-    } else {
-        float b = data.maxBrake;
-        if (me.cop)
-            b *= 2;
-        else
-            b *= 1.25f; // an AI racer (+0x200 bit 8)
-        me.braking = error <= -5.0f;
-        me.speed = std::max(me.speed - b / 64.0f, me.wanted);
+    // A cop near its slower target steers at it (0x402750 sets +0x711
+    // bit 2 under 15.65 m/s or on its slice; 0x406b60 within 4 slices):
+    // its aim its side offset.
+    if (cop && cop->chase && target && (target->speed < 15.64605f || toTarget == 0) && std::abs(toTarget) <= 4)
+        me.target = target->side;
+    if (!cop)
+        aiMove(me, data, weather);
+}
+
+} // namespace
+
+void aiStep(std::vector<AiCar>& cars, size_t self, const TrackCollision& col, const std::vector<uint8_t>& speeds,
+            const AiCarData& data, int step, int track, bool weather) {
+    aiDrive(cars, self, col, speeds, data, step, track, weather, nullptr);
+}
+
+float trackSectionSpeed(int track, int slice) {
+    const unsigned s = static_cast<unsigned>(slice);
+    switch (track) {
+    case 0:
+        if (s < 0x277 && s > 0x1e8)
+            return 13.4109f;
+        return 22.3515f;
+    case 1:
+        if (s < 0x3e9) {
+            if (s > 0x316)
+                return 31.2921f;
+            if (s > 0xaa)
+                return 29.05695f;
+        }
+        return 24.58665f;
+    case 2:
+        return 22.3515f;
+    case 3:
+        return s < 0x56f && s > 0x528 ? 13.889f : 22.2224f;
+    case 4:
+        if (s < 0x154 && s > 0x127)
+            return 8.9406f;
+        return 22.3515f;
+    case 5:
+    case 6:
+        return 22.3515f;
+    case 7:
+        return s < 0x65f && s > 0x60d ? 13.889f : 22.2224f;
+    case 8:
+        if (s < 0x3e9 && s > 400)
+            return 15.64605f;
+        return 20.11635f;
+    default:
+        return 20.11635f;
     }
+}
+
+int aiRacersAhead(int humanDistance, const std::vector<int>& racerDistances) {
+    if (racerDistances.empty())
+        return 0;
+    size_t ahead = 0;
+    for (int d : racerDistances)
+        ahead += d > humanDistance ? 1 : 0;
+    return ahead == 0 ? 0 : ahead == racerDistances.size() ? 2 : 1;
+}
+
+float aiCatchUpFactor(const AiRace& race, int distance, int place) {
+    if (!race.human)
+        return 1;
+    const bool cup = race.raceType == 1 || race.raceType == 2; // Tournament, Knockout
+    float f = 1;
+    if (race.ahead == 0) {
+        const int behind = cup && race.expert ? 5 : race.aggressive ? 10 : 15;
+        if (behind + distance < race.humanDistance)
+            f = cup ? 1.15f : 1.1f;
+    } else if (race.ahead != 2) {
+        const int ahead = cup && race.expert ? 100 : race.aggressive ? 70 : 50;
+        if (distance >= ahead + race.humanDistance)
+            f = 0.85f;
+    } else if (race.aggressive) {
+        f = 0.95f;
+    } else if (race.raceType == 3) {
+        f = 0.85f;
+    } else if (place < 6 || race.link != 0) {
+        f = 0.9f;
+    } else {
+        f = 0.8f;
+    }
+    if (race.raceType == 2 && race.track == 8 && f < 1)
+        f = 1;
+    if (race.link > 1 && f > 1)
+        f = 1;
+    return f;
+}
+
+void aiCopStep(std::vector<AiCar>& cars, size_t self, const TrackCollision& col, const AiCarData& data, int step,
+               int track, bool weather) {
+    const int n = static_cast<int>(col.road.size());
+    if (n < 2 || self >= cars.size())
+        return;
+    AiCar& me = cars[self];
+    auto sliceDiff = [&](int a, int b) { // 0x40e120
+        int d = a - b;
+        if (d > n / 2)
+            d -= n;
+        else if (d < -(n / 2))
+            d += n;
+        return d;
+    };
+    // 0x40df10 -> 0x401240: the driver acts every 8 steps, on its phase.
+    if (((step / 2 + me.phase) & 3) == 0 && (step & 1) == 0) {
+        if (me.copState == 0)
+            me.copState = me.siren ? 7 : 1;
+        if (me.copState == 5) {
+            const AiCar* t = me.chasing >= 0 && static_cast<size_t>(me.chasing) < cars.size() ? &cars[size_t(me.chasing)]
+                                                                                           : nullptr;
+            // Lost past the table's slices (0x5521ac +4: 50 with no tickets).
+            if (!t || std::abs(sliceDiff(t->slice, me.slice)) > 50) {
+                me.chasing = -1;
+                me.copState = 1;
+                me.siren = false;
+            } else if (t->speed >= 3.0f && t->way != me.way) {
+                // 0x402910: turned to the target's way when it isn't more
+                // than 12 slices past it that way; the page turns it on the
+                // spot, from standing.
+                if (sliceDiff(me.slice, t->slice) * t->way < 12) {
+                    me.way = t->way;
+                    me.speed = 0;
+                    me.sideSpeed = 0;
+                }
+            }
+        }
+        CopCall call;
+        call.k = me.copState == 7 ? 2.0f : 1.19f;
+        call.chase = me.copState == 5;
+        aiDrive(cars, self, col, {}, data, step, track, weather, &call);
+        // cop_ai_pick_target (0x402e10), patrolling or on its run: the
+        // racer within 16 slices with the best score (0x403f80), over the
+        // section's speed by more than 6.71 m/s; with one cop in the race
+        // the score is 1 less the cops on it.
+        if (me.copState == 1 || me.copState == 7) {
+            int best = -1, bestScore = 0;
+            for (size_t i = 0; i < cars.size(); ++i) {
+                const AiCar& o = cars[i];
+                if (i == self || !o.racer || std::abs(sliceDiff(o.slice, me.slice)) >= 16)
+                    continue;
+                if (o.speed <= trackSectionSpeed(track, o.slice) + 6.70545f)
+                    continue;
+                int on = 0;
+                for (const AiCar& c : cars)
+                    on += c.cop && c.chasing == static_cast<int>(i) ? 1 : 0;
+                const int cops = static_cast<int>(std::count_if(cars.begin(), cars.end(), [](const AiCar& c) { return c.cop; }));
+                const int score = std::max(cops / 3, 1) - on;
+                if (score > bestScore) {
+                    best = static_cast<int>(i);
+                    bestScore = score;
+                }
+            }
+            if (best >= 0) {
+                me.chasing = best;
+                me.copState = 5;
+                me.siren = true; // cop_set_target: the siren on
+            }
+        }
+    }
+    aiMove(me, data, weather);
+}
+
+std::vector<DumpedCar> parseCarDump(const std::vector<uint8_t>& bytes) {
+    constexpr size_t kStride = 0x9ac;
+    std::vector<DumpedCar> out;
+    auto u32 = [&](size_t at) {
+        uint32_t v = 0;
+        std::memcpy(&v, bytes.data() + at, 4);
+        return v;
+    };
+    auto f32 = [&](size_t at) {
+        float v = 0;
+        std::memcpy(&v, bytes.data() + at, 4);
+        return v;
+    };
+    for (size_t base = 0; base + kStride <= bytes.size(); base += kStride) {
+        DumpedCar c;
+        c.inPlay = bytes[base + 0x89] != 0;
+        const uint32_t flags = u32(base + 0x200);
+        c.human = (flags & 4) != 0;
+        c.cop = (flags & 0x20) != 0;
+        c.hidden = (flags & 0x40) != 0;
+        c.siren = c.cop && u32(base + 0x734) != 0;
+        c.braking = bytes[base + 0x509] != 0;
+        c.slice = static_cast<int>(u32(base + 0x1c));
+        c.beams = static_cast<int>(u32(base + 0x660));
+        c.beamScroll = static_cast<int>(u32(base + 0x944) & 0x7ff);
+        c.speed = f32(base + 0x7c4);
+        c.offset = f32(base + 0x7b8);
+        for (int k = 0; k < 3; ++k) {
+            c.at[size_t(k)] = f32(base + 0x98 + 4 * size_t(k));
+            c.right[size_t(k)] = f32(base + 0xc0 + 4 * size_t(k));
+            c.up[size_t(k)] = f32(base + 0xcc + 4 * size_t(k));
+            c.forward[size_t(k)] = f32(base + 0xd8 + 4 * size_t(k));
+        }
+        out.push_back(c);
+    }
+    return out;
 }
 
 } // namespace reluva::nfs

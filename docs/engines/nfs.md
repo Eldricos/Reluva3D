@@ -310,17 +310,25 @@ What was built, with each format written up in `docs/formats/nfs/`:
   - by night, the headlights of a car at the camera as the game's pass
     lights them: `glw2` projected on polygons whose texture lacks flag
     `0x04`, the light's colour as a floor on the others' corners and on
-    the still placed objects' vertices (Hometown's lamp posts)
+    the placed objects' vertices, still (Hometown's lamp posts) and
+    moving, at their place this frame
     (key E: off, low and high beams, high at first by night as a
     human's car starts; Shift+E: the projection off, as `nfs-host`'s
     `config.dat` has it; Ctrl+E: the game's test of each block against
     each light off); key J adds two Corvettes going the camera's way and
     a police Corvette coming with its siren on, their boxes on the road,
     driven as the computer drives, 64 steps a second: the speed tables'
-    speeds by the driver's and track's factors, the acceleration table
+    speeds by the driver's and track's factors and the catch-up (the
+    camera's car the race's human), the acceleration table
     and brakes from each car's `carp.txt`, the lane votes and lane
     changes, keeping behind a slower car in the lane and flashing their
-    lights when held up (Shift+J stops them). They are lit as the game
+    lights when held up (Shift+J stops them); the police car by the
+    computer cops' driver, patrolling, on a run with its siren or
+    chasing a speeding racer. `RELUVA_NFS_TRACK_CARS=<dump>` places
+    them as a dump of `nfs-host`'s car records has them (the human's car
+    left out unless `RELUVA_NFS_TRACK_CARS_HUMAN` is set) and
+    `RELUVA_NFS_TRACK_STEP=<step>` holds the moving objects at that
+    game step, for frame-for-frame comparison. They are lit as the game
     lights a car, with its reflection of the sky's sphere map in the
     colours the game works out (key Z: off), their tail-light, headlight
     and roof-light glows at the game's depths (the body's nearest point,

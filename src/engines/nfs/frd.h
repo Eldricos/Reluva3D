@@ -363,6 +363,7 @@ struct AiCarData {
     std::array<float, 112> accel{}; // AI ACC0-7 (P +0x2EC), m/s/s at each m/s
     float maxBrake = 10;            // maximum braking deceleration (P +0x1D8)
     float topSpeedCap = 70;         // P +0x1CC
+    float maxVelocity = 70;         // P +0x1C8, the cops' top speed (0x401370)
 };
 // The fields of a car's carp.txt the computer's driving reads; false when
 // one is missing.
@@ -386,7 +387,13 @@ float aiTrackFactor(int track);
 struct AiCar {
     int slice = 0;      // the road point behind it (+0x1C)
     int way = 1;        // +1 running the slices' way, -1 against (+0x620 bit 0x1000)
-    float offset = 0;   // its side offset, the aim now (+0x7C8, the car's +0x7B8 kept on it)
+    float offset = 0;   // the aim now (+0x7C8)
+    // Its side offset as driven (+0x7B8), which its lanes are taken at
+    // (0x40e350): the car steered towards the aim (aiMove), lagging and
+    // overshooting it a little as the game's controllers do; with
+    // `sideKept` false taken as the aim.
+    float side = 0, sideSpeed = 0;
+    bool sideKept = false;
     float target = 0;   // the offset wanted (+0x7B4)
     float speed = 0;    // m/s along its way (+0x7C4)
     float wanted = 0;   // the speed wanted (+0x7B0), as a size
@@ -400,6 +407,17 @@ struct AiCar {
     int flashUntil = 0;
     bool braking = false; // +0x509 not 0: the brake held (ai_brake's 255)
     int pick = 7;       // the lane chosen (0x56ef74)
+    // A computer cop's driver (car_driver_cop 0x4032e0, physics.md), for
+    // a cop: its state +0x70C (1 patrol, 5 the chase, 7 a run with the
+    // siren on), its target (+0x624, `chasing`, an index into the cars, -1 none),
+    // its phase (car +0, the gate 0x401240 letting it act when (step / 2
+    // + phase) mod 4 is 0) and +0x711 bit 1 (x 1.1 on its top speed).
+    int copState = 0;
+    int chasing = -1;
+    int phase = 0;
+    bool copFast = false;
+    bool siren = false; // +0x710 bit 0x10 (+0x734)
+    bool racer = true;  // in the race's racers (0x5efd94's list): not a cop or traffic
 };
 // The lane at a side offset (0x40e2b0): 7 + the offset over the right
 // lanes' width rounded to the nearest (6 + over the left's, for one on
@@ -429,5 +447,55 @@ int aiLineLane(const std::vector<uint8_t>& speeds, int slice, int sliceCount);
 // only when more than 5 m/s too fast. speeds: the table for its way.
 void aiStep(std::vector<AiCar>& cars, size_t self, const TrackCollision& col, const std::vector<uint8_t>& speeds,
             const AiCarData& data, int step, int track, bool weather);
+
+// The track section's speed (0x40ed40): by track and slice, hard-coded
+// ranges, 8.94 to 31.29 m/s.
+float trackSectionSpeed(int track, int slice);
+
+// The catch-up factor on a racer's speed scale (0x4090a0), by the human
+// furthest on (0x56ebb8) and how many computer racers are ahead of him
+// (0x404c80, 0x56ebb4: 0 none, 1 some, 2 all). Race distances in slices.
+// raceType 0x6fd3b8 (1, 2 Tournament and Knockout; 3 Hot Pursuit),
+// aggressive the ai option (0x6fd4d8 1), expert the game level, network
+// 0x6fd3ac's link kind.
+struct AiRace {
+    bool human = true;     // a human in the race (0x56ebb8 not 0)
+    int humanDistance = 0; // his race distance (+8)
+    int ahead = 0;         // 0x56ebb4
+    int raceType = 0, track = 0, link = 0;
+    bool aggressive = false, expert = false;
+};
+int aiRacersAhead(int humanDistance, const std::vector<int>& racerDistances);
+float aiCatchUpFactor(const AiRace& race, int distance, int place);
+
+// One step of a computer cop's driver (car_driver_cop 0x4032e0) for
+// cars[self] (copState set), then its aim and speed as aiStep moves them
+// (0x408870, 0x4066c0, each step). The driver acts only when the gate
+// lets it (every 8 steps): patrol (1, cop_ai_drive 0x403270 with 1.19)
+// and the run with the siren (7, with 2): the lanes and the cars round
+// it (lane_votes_start), the speed wanted the section's speed x k under
+// its top speed (0x401430, 0x401370), kept behind the car ahead in its
+// lane or x 0.4 for one coming at it (0x40bff0), lane_votes_ahead and
+// the lane chosen; and the target (0x402e10): a racer within 16 slices
+// over the section's speed by more than 6.71 m/s (0x403f80) starts the
+// chase (5): the speed wanted 0x402420 by the slices to it (0x401780),
+// the aim at its side offset (0x406b00), given up past 50 slices
+// (0x5521ac +4 for a racer with no tickets).
+void aiCopStep(std::vector<AiCar>& cars, size_t self, const TrackCollision& col, const AiCarData& data, int step,
+               int track, bool weather);
+
+// A car record of a dump of nfs3.exe's cars (0x5e1120, 0x9AC bytes a
+// car; physics.md): in play +0x89, flags +0x200 (4 a human, 0x20 a cop,
+// 0x40 hidden), the slice +0x1C, the position +0x98 and rows +0xC0 (right,
+// up, forward), the brake +0x509, the lights +0x660, the roof light
+// +0x734 (on with a cop's siren), the fog beams' scroll +0x944, the speed
+// +0x7C4 and side offset +0x7B8.
+struct DumpedCar {
+    bool inPlay = false, human = false, cop = false, hidden = false, siren = false, braking = false;
+    int slice = 0, beams = 0, beamScroll = 0;
+    float speed = 0, offset = 0;
+    std::array<float, 3> at{}, right{}, up{}, forward{};
+};
+std::vector<DumpedCar> parseCarDump(const std::vector<uint8_t>& bytes);
 
 } // namespace reluva::nfs

@@ -7,6 +7,7 @@
 #include "common/fs.h"
 
 #include <algorithm>
+#include <functional>
 #include <cctype>
 #include <cmath>
 #include <cstdio>
@@ -799,7 +800,8 @@ void TrackPage::load(int index) {
             if (o.type == 4) {
                 add(slot, groups[size_t(slot)], o.vertices, o.colours, o.reference, -1, true, o.polygons);
             } else if (!o.keys.empty()) {
-                moving_.push_back({own ? static_cast<int>(block) : -1, o.keys, o.keyDelay, {}});
+                moving_.push_back({own ? static_cast<int>(block) : -1, o.keys, o.keyDelay, {}, gi,
+                                   static_cast<size_t>(&o - track_.extraObjects[gi].data())});
                 movingGroups.emplace_back();
                 add(-1, movingGroups.back(), o.vertices, o.colours, {}, 1, true, o.polygons);
             }
@@ -895,6 +897,23 @@ void TrackPage::load(int index) {
             yaw_ = yaw;
             pitch_ = pitch;
         }
+    }
+    // RELUVA_NFS_TRACK_CARS=<file>: the cars placed from a dump of the
+    // game's car records (0x5e1120, 0x9AC bytes a car), shown at once.
+    if (const char* step = std::getenv("RELUVA_NFS_TRACK_STEP"))
+        fixedStep_ = std::atoll(step);
+    carDump_.clear();
+    if (const char* dump = std::getenv("RELUVA_NFS_TRACK_CARS")) {
+        std::vector<uint8_t> bytes;
+        if (FILE* f = std::fopen(dump, "rb")) {
+            uint8_t buffer[4096];
+            for (size_t got; (got = std::fread(buffer, 1, sizeof buffer, f)) > 0;)
+                bytes.insert(bytes.end(), buffer, buffer + got);
+            std::fclose(f);
+        }
+        carDump_ = parseCarDump(bytes);
+        if (!carDump_.empty())
+            computerCars_ = true;
     }
     if (computerCars_) {
         loadCars();
@@ -1166,9 +1185,97 @@ void TrackPage::prepareHeadlights(int here, const gfx::Vec3& eye, const gfx::Vec
     // colour of each of the object's vertices fully inside the light, as
     // the block's pass raises the corners of polygons with texture flag
     // 0x04, whatever the object's textures and the projtex option. Not in
-    // the mirror (view 1). The still objects here (type 4, at their
-    // reference point).
-    if (objects_)
+    // the mirror (view 1). The still objects (type 4) at their reference
+    // point; the moving ones (type 3) as placed at their key this frame
+    // (0x41ca40 calls 0x41c310 with the key's matrix and position from
+    // 0x40f4b0, the distance taken from that position), the others at the
+    // origin.
+    // place: an object vertex into track coordinates; centre: the
+    // object's place on the ground; outline: the group's block (null for
+    // the last group, drawn from everywhere).
+    auto lightObject = [&](const Track::ExtraObject& o, const std::function<Track::Vec3(const Track::Vec3&)>& place,
+                           const Track::Vec3& centre, const Track::Block* outline) {
+        if (o.vertices.empty() || o.colours.size() < o.vertices.size())
+            return;
+        std::vector<bool> raised(o.vertices.size(), false);
+        std::vector<uint32_t> raisedTo(o.vertices.size(), 0);
+        std::vector<Track::Vec3> at(o.vertices.size());
+        for (size_t i = 0; i < o.vertices.size(); ++i)
+            at[i] = place(o.vertices[i]);
+        bool anyRaised = false;
+        auto pass = [&](const Headlight& light, bool roofLight) {
+            const float behind = (light.at[0] - eye[0]) * forward[0] + (light.at[1] - eye[1]) * forward[1] +
+                                 (-light.at[2] - eye[2]) * forward[2];
+            if (behind < -light.reach)
+                return;
+            if (lightTest_ && outline && lightMissesBlock(light, outline->corners, 1, roofLight))
+                return;
+            for (size_t i = 0; i < o.vertices.size(); ++i) {
+                const HeadlightPoint pt = headlightAt(light, at[i]);
+                if (pt.outside != 0)
+                    continue;
+                raised[i] = anyRaised = true;
+                uint32_t& to = raisedTo[i];
+                for (int shift = 0; shift < 32; shift += 8)
+                    if (((pt.colour >> shift) & 0xff) > ((to >> shift) & 0xff))
+                        to = (to & ~(0xffu << shift)) | (pt.colour & (0xffu << shift));
+            }
+        };
+        for (const Car& car : cars) {
+            const float dx = car.at[0] - centre[0], dz = car.at[2] - centre[2];
+            if (dx * dx + dz * dz > 150.0f * 150.0f)
+                continue;
+            if (car.siren)
+                pass(sirenLight(car.at, car.right, car.up, car.forward, static_cast<int>(skyTick_)), true);
+            if (car.beams == 0)
+                continue;
+            Headlight light = carHeadlight(car.beams, projected_, car.at, car.right, car.up, car.forward, 1);
+            light.at = headlightPlace(light, car.at, car.up, car.halfLength);
+            pass(light, false);
+        }
+        if (!anyRaised)
+            return;
+        for (const Track::Polygon& p : o.polygons) {
+            bool any = false, whole = true;
+            for (uint16_t vertex : p.vertices) {
+                whole = whole && vertex < o.vertices.size();
+                any = any || (vertex < raised.size() && raised[vertex]);
+            }
+            if (!any || !whole)
+                continue;
+            // The first corner as queued (the file's vertex 1) within reach.
+            const Track::Vec3& c0 = at[p.vertices[size_t(polygonSlot(0, true))]];
+            if (!polygonInReach((c0[0] - eye[0]) * forward[0] + (c0[1] - eye[1]) * forward[1] +
+                                (-c0[2] - eye[2]) * forward[2]))
+                continue;
+            const Track::Texture& tex =
+                track_.textures[p.textureAt(skyTick_) < track_.textures.size() ? p.textureAt(skyTick_) : p.texture];
+            bool additive = false;
+            const gfx::TextureId id = tex.lane ? picture(kLaneSheet, tex.picture, true, &additive)
+                                               : picture(sheet, tex.picture, false, &additive);
+            if (additive || (tex.flags & Track::Texture::kSeeThrough))
+                continue;
+            auto& into = floors[{id, (p.flags & Track::Polygon::kTwoSided) != 0}];
+            for (int k : {0, 2, 1, 0, 3, 2}) {
+                const uint16_t vertex = p.vertices[size_t(polygonSlot(k, true))];
+                gfx::Vertex v = vertexAt(at[vertex]);
+                v.uv[0] = tex.corners[size_t(2 * k)];
+                v.uv[1] = tex.corners[size_t(2 * k + 1)];
+                if (raised[vertex]) {
+                    const uint32_t baked = o.colours[vertex], lit = raisedTo[vertex];
+                    for (int i = 0; i < 3; ++i) {
+                        const int shift = 16 - 8 * i;
+                        const float own = static_cast<float>((baked >> shift) & 0xff) * (vertexLight_ ? ambient[i] : 1);
+                        const float up = static_cast<float>((lit >> shift) & 0xff) - own;
+                        v.color[i] = static_cast<uint8_t>(std::clamp(up, 0.0f, 255.0f));
+                    }
+                }
+                v.color[3] = 255;
+                into.push_back(v);
+            }
+        }
+    };
+    if (objects_) {
         for (const auto& [block, blockDetail] : blocksInView(here)) {
             (void)blockDetail;
             const Track::Block& b = track_.blocks[size_t(block)];
@@ -1176,91 +1283,37 @@ void TrackPage::prepareHeadlights(int here, const gfx::Vec3& eye, const gfx::Vec
                 const size_t group = static_cast<size_t>(block) * 4 + g;
                 if (group >= track_.extraObjects.size())
                     break;
-                for (const Track::ExtraObject& o : track_.extraObjects[group]) {
-                    if (o.type != 4 || o.vertices.empty() || o.colours.size() < o.vertices.size())
-                        continue;
-                    std::vector<bool> raised(o.vertices.size(), false);
-                    std::vector<uint32_t> raisedTo(o.vertices.size(), 0);
-                    bool anyRaised = false;
-                    auto pass = [&](const Headlight& light, bool roofLight) {
-                        const float behind = (light.at[0] - eye[0]) * forward[0] + (light.at[1] - eye[1]) * forward[1] +
-                                             (-light.at[2] - eye[2]) * forward[2];
-                        if (behind < -light.reach)
-                            return;
-                        if (lightTest_ && lightMissesBlock(light, b.corners, 1, roofLight))
-                            return;
-                        for (size_t i = 0; i < o.vertices.size(); ++i) {
-                            const std::array<float, 3> at{o.vertices[i][0] + o.reference[0], o.vertices[i][1] + o.reference[1],
-                                                          o.vertices[i][2] + o.reference[2]};
-                            const HeadlightPoint pt = headlightAt(light, at);
-                            if (pt.outside != 0)
-                                continue;
-                            raised[i] = anyRaised = true;
-                            uint32_t& to = raisedTo[i];
-                            for (int shift = 0; shift < 32; shift += 8)
-                                if (((pt.colour >> shift) & 0xff) > ((to >> shift) & 0xff))
-                                    to = (to & ~(0xffu << shift)) | (pt.colour & (0xffu << shift));
-                        }
-                    };
-                    for (const Car& car : cars) {
-                        const float dx = car.at[0] - o.reference[0], dz = car.at[2] - o.reference[2];
-                        if (dx * dx + dz * dz > 150.0f * 150.0f)
-                            continue;
-                        if (car.siren)
-                            pass(sirenLight(car.at, car.right, car.up, car.forward, static_cast<int>(skyTick_)), true);
-                        if (car.beams == 0)
-                            continue;
-                        Headlight light = carHeadlight(car.beams, projected_, car.at, car.right, car.up, car.forward, 1);
-                        light.at = headlightPlace(light, car.at, car.up, car.halfLength);
-                        pass(light, false);
-                    }
-                    if (!anyRaised)
-                        continue;
-                    for (const Track::Polygon& p : o.polygons) {
-                        bool any = false, whole = true;
-                        for (uint16_t vertex : p.vertices) {
-                            whole = whole && vertex < o.vertices.size();
-                            any = any || (vertex < raised.size() && raised[vertex]);
-                        }
-                        if (!any || !whole)
-                            continue;
-                        // The first corner as queued (the file's vertex 1) within reach.
-                        const Track::Vec3& c0 = o.vertices[p.vertices[size_t(polygonSlot(0, true))]];
-                        if (!polygonInReach((c0[0] + o.reference[0] - eye[0]) * forward[0] +
-                                            (c0[1] + o.reference[1] - eye[1]) * forward[1] +
-                                            (-(c0[2] + o.reference[2]) - eye[2]) * forward[2]))
-                            continue;
-                        const Track::Texture& tex =
-                            track_.textures[p.textureAt(skyTick_) < track_.textures.size() ? p.textureAt(skyTick_) : p.texture];
-                        bool additive = false;
-                        const gfx::TextureId id = tex.lane ? picture(kLaneSheet, tex.picture, true, &additive)
-                                                           : picture(sheet, tex.picture, false, &additive);
-                        if (additive || (tex.flags & Track::Texture::kSeeThrough))
-                            continue;
-                        auto& into = floors[{id, (p.flags & Track::Polygon::kTwoSided) != 0}];
-                        for (int k : {0, 2, 1, 0, 3, 2}) {
-                            const uint16_t vertex = p.vertices[size_t(polygonSlot(k, true))];
-                            const Track::Vec3& v0 = o.vertices[vertex];
-                            gfx::Vertex v = vertexAt({v0[0] + o.reference[0], v0[1] + o.reference[1], v0[2] + o.reference[2]});
-                            v.uv[0] = tex.corners[size_t(2 * k)];
-                            v.uv[1] = tex.corners[size_t(2 * k + 1)];
-                            if (raised[vertex]) {
-                                const uint32_t baked = o.colours[vertex], lit = raisedTo[vertex];
-                                for (int i = 0; i < 3; ++i) {
-                                    const int shift = 16 - 8 * i;
-                                    const float own =
-                                        static_cast<float>((baked >> shift) & 0xff) * (vertexLight_ ? ambient[i] : 1);
-                                    const float up = static_cast<float>((lit >> shift) & 0xff) - own;
-                                    v.color[i] = static_cast<uint8_t>(std::clamp(up, 0.0f, 255.0f));
-                                }
-                            }
-                            v.color[3] = 255;
-                            into.push_back(v);
-                        }
-                    }
-                }
+                for (const Track::ExtraObject& o : track_.extraObjects[group])
+                    if (o.type == 4)
+                        lightObject(
+                            o,
+                            [&](const Track::Vec3& v) {
+                                return Track::Vec3{v[0] + o.reference[0], v[1] + o.reference[1], v[2] + o.reference[2]};
+                            },
+                            o.reference, &b);
             }
         }
+        // The moving objects as drawn this frame (movingFrame_, from
+        // blocks shown), their matrix in the world (z negated).
+        for (const MovingFrame& m : movingFrame_) {
+            if (m.moving < 0 || static_cast<size_t>(m.moving) >= moving_.size())
+                continue;
+            const Moving& mv = moving_[size_t(m.moving)];
+            if (mv.group >= track_.extraObjects.size() || mv.object >= track_.extraObjects[mv.group].size())
+                continue;
+            if (mv.block >= 0 && mv.group % 4 == 3)
+                continue; // the fourth group: by day only
+            const Track::ExtraObject& o = track_.extraObjects[mv.group][mv.object];
+            const Track::Block* outline = mv.block >= 0 ? &track_.blocks[size_t(mv.block)] : nullptr;
+            lightObject(
+                o,
+                [&](const Track::Vec3& v) {
+                    const gfx::Vec3 w = gfx::transformPoint(m.model, {v[0], v[1], -v[2]});
+                    return Track::Vec3{w[0], w[1], -w[2]};
+                },
+                Track::Vec3{m.model[12], m.model[13], -m.model[14]}, outline);
+        }
+    }
     std::vector<gfx::Vertex> vertices = std::move(projectedTris);
     if (!vertices.empty())
         lightRuns_.push_back({headlightPicture_, true, 0, static_cast<uint32_t>(vertices.size())});
@@ -1424,6 +1477,10 @@ void TrackPage::placeCars() {
     const int here = roadSliceAt();
     if (here < 0 || road.size() < 30 || !carError_.empty())
         return;
+    if (!carDump_.empty()) {
+        placeDumpedCars();
+        return;
+    }
     const int n = static_cast<int>(road.size());
     const auto& rp = road[size_t(here)];
     const float look = std::sin(yaw_) * rp.forward[0] + std::cos(yaw_) * rp.forward[2];
@@ -1462,12 +1519,16 @@ void TrackPage::placeCars() {
         c.ai.halfWidth = cm.halfSize[0];
         c.ai.driver = driver;
         c.ai.cop = siren;
+        c.ai.siren = siren;
+        c.ai.racer = !siren;
+        c.ai.phase = static_cast<int>(cars_.size());
         c.ai.scale = std::min(aiDriverFactor(driver, aiStep_) * aiTrackFactor(track), 1.0f);
         c.ai.lane = c.ai.laneLeft = c.ai.laneRight = c.ai.pick = c.lane;
         c.ai.offset = c.ai.target = aiLaneOffset(p, c.lane, cm.halfSize[0]);
         c.ai.beams = c.beams;
         const auto& speeds = heading > 0 || speedsBackward_.empty() ? speedsForward_ : speedsBackward_;
-        c.ai.speed = c.ai.wanted = aiSlicesSpeed(speeds, at) * c.ai.scale;
+        c.ai.speed = c.ai.wanted = siren ? std::min(trackSectionSpeed(track, at) * 2.0f, cm.ai.maxVelocity)
+                                         : aiSlicesSpeed(speeds, at) * c.ai.scale;
         c.speed = c.ai.speed;
         if (!cm.envFrom.empty()) {
             std::vector<gfx::Vertex> env(cm.envFrom.size());
@@ -1495,6 +1556,61 @@ void TrackPage::placeCars() {
     put(15, way, 0, 0, false, {2, false, 2});
     put(25, -way, 0, 1, true, {2, false, 2});
     put(35, way, 1, 0, false, {0, true, 4});
+}
+
+// The cars of a dump of the game's car records (RELUVA_NFS_TRACK_CARS),
+// each where the game has it: its position, rows, lights, brake and
+// siren, the fog beams' scroll; a police car (+0x200 bit 0x20) as the
+// police Corvette, the others as the Corvette. The human's car (+0x200 bit
+// 4) is left out, as the camera stands for it, unless
+// RELUVA_NFS_TRACK_CARS_HUMAN is set; so are cars out of play or hidden.
+// They stay where the dump has them.
+void TrackPage::placeDumpedCars() {
+    const int n = static_cast<int>(collision_.road.size());
+    const bool withHuman = std::getenv("RELUVA_NFS_TRACK_CARS_HUMAN") != nullptr;
+    for (const DumpedCar& d : carDump_) {
+        if (!d.inPlay || d.hidden || (d.human && !withHuman))
+            continue;
+        ComputerCar c;
+        c.model = d.cop ? 1 : 0;
+        c.siren = d.siren;
+        c.slice = n > 0 ? static_cast<float>(((d.slice % n) + n) % n) : 0;
+        const auto& p = collision_.road[size_t(c.slice)];
+        c.way = d.forward[0] * p.forward[0] + d.forward[1] * p.forward[1] + d.forward[2] * p.forward[2] >= 0 ? 1 : -1;
+        c.speed = d.speed;
+        c.beams = d.beams;
+        c.beamScroll = d.beamScroll;
+        c.ai.slice = static_cast<int>(c.slice);
+        c.ai.way = c.way;
+        c.ai.speed = d.speed;
+        c.ai.offset = c.ai.target = c.ai.side = d.offset;
+        c.ai.sideKept = true;
+        c.ai.beams = d.beams;
+        c.ai.braking = d.braking;
+        c.ai.cop = d.cop;
+        c.ai.siren = d.siren;
+        c.at = d.at;
+        c.right = d.right;
+        c.up = d.up;
+        c.forward = d.forward;
+        const CarModel& cm = carModels_[size_t(c.model)];
+        if (!cm.envFrom.empty()) {
+            std::vector<gfx::Vertex> env(cm.envFrom.size());
+            std::vector<uint32_t> indices(env.size());
+            for (size_t i = 0; i < env.size(); ++i) {
+                env[i] = cm.vertices[cm.envFrom[i]];
+                indices[i] = static_cast<uint32_t>(i);
+            }
+            if (renderer_->createMesh(env, indices, c.envMesh))
+                c.envMesh = 0;
+        }
+        std::vector<uint32_t> indices(cm.vertices.size());
+        for (size_t i = 0; i < indices.size(); ++i)
+            indices[i] = static_cast<uint32_t>(i);
+        if (renderer_->createMesh(cm.vertices, indices, c.mesh))
+            c.mesh = 0;
+        cars_.push_back(c);
+    }
 }
 
 // Where a car is on the road this frame (track coordinates): between its
@@ -1536,9 +1652,10 @@ void TrackPage::carRows(ComputerCar& car) const {
         v *= static_cast<float>(car.way);
     const CarModel& cm = carModels_[size_t(car.model)];
     const float halfWidth = cm.halfSize[0];
-    // Its side offset as the computer has it (aiStep: its lane's middle,
-    // moving 0.2 a step towards a new lane's), kept within the walls.
-    float side = car.ai.offset;
+    // Its side offset as driven (+0x7B8, aiMove: following the aim,
+    // which moves 0.2 a step towards a new lane's middle), kept within
+    // the walls.
+    float side = car.ai.sideKept ? car.ai.side : car.ai.offset;
     side = std::max(std::min(side, a.rightWall - halfWidth), halfWidth - a.leftWall);
     car.up = normal;
     car.right = unit(cross(normal, forward)); // left-handed: up x forward
@@ -1556,11 +1673,24 @@ void TrackPage::moveCars(float dt) {
     const int n = static_cast<int>(road.size());
     if (n < 2)
         return;
+    if (!carDump_.empty())
+        return; // as the dump has them
     const int track = std::atoi(tracks_[index_].substr(3).c_str());
     const bool weather = variant_ >= 2;
     if (carsMoving_)
         aiTime_ = std::min(aiTime_ + dt, 0.25f);
     std::vector<AiCar> ai;
+    auto sliceDiff = [&](int a, int b) { // 0x40e120
+        int d = a - b;
+        if (d > n / 2)
+            d -= n;
+        else if (d < -(n / 2))
+            d += n;
+        return d;
+    };
+    // The camera's car is the race's human (0x56ebb8): the racers' race
+    // distances are taken from its slice along their way.
+    const int human = roadSliceAt();
     for (; carsMoving_ && aiTime_ >= 1.0f / kGameTicksPerSecond; aiTime_ -= 1.0f / kGameTicksPerSecond) {
         ++aiStep_;
         ai.clear();
@@ -1568,16 +1698,40 @@ void TrackPage::moveCars(float dt) {
             c.ai.slice = static_cast<int>(std::floor(c.slice)) % n;
             ai.push_back(c.ai);
         }
+        // The catch-up (0x404c80, 0x4090a0): how many racers are ahead of
+        // the human, and each racer's place.
+        AiRace race;
+        race.human = human >= 0;
+        race.track = track;
+        std::vector<int> distance(cars_.size(), 0), racerDistances;
+        for (size_t i = 0; i < cars_.size(); ++i)
+            if (ai[i].racer && human >= 0) {
+                distance[i] = sliceDiff(ai[i].slice, human) * ai[i].way;
+                racerDistances.push_back(distance[i]);
+            }
+        race.ahead = aiRacersAhead(0, racerDistances);
         for (size_t i = 0; i < cars_.size(); ++i) {
             ComputerCar& c = cars_[i];
             const CarModel& cm = carModels_[size_t(c.model)];
-            ai[i].scale = std::min(aiDriverFactor(ai[i].driver, aiStep_) * aiTrackFactor(track), 1.0f);
-            aiStep(ai, i, collision_, c.way > 0 || speedsBackward_.empty() ? speedsForward_ : speedsBackward_, cm.ai,
-                   aiStep_, track, weather);
+            if (ai[i].cop) {
+                aiCopStep(ai, i, collision_, cm.ai, aiStep_, track, weather);
+            } else {
+                int place = 1 + (race.human && 0 > distance[i] ? 1 : 0);
+                for (int d : racerDistances)
+                    place += d > distance[i] ? 1 : 0;
+                ai[i].scale = std::min(aiDriverFactor(ai[i].driver, aiStep_) * aiCatchUpFactor(race, distance[i], place) *
+                                           aiTrackFactor(track),
+                                       1.0f);
+                aiStep(ai, i, collision_, c.way > 0 || speedsBackward_.empty() ? speedsForward_ : speedsBackward_, cm.ai,
+                       aiStep_, track, weather);
+            }
             c.ai = ai[i];
+            c.way = c.ai.way;
             c.speed = c.ai.speed;
             c.lane = c.ai.lane;
             c.beams = c.ai.beams;
+            if (c.ai.cop)
+                c.siren = c.ai.siren;
             // 0x4b8740: the fog beams' picture moves by int(speed + 1) a step.
             c.beamScroll = (c.beamScroll + static_cast<int>(c.speed + 1)) & 0x7ff;
             float left = c.speed / kGameTicksPerSecond; // metres to go this step
@@ -2505,6 +2659,8 @@ void TrackPage::handleEvent(const Event& ev) {
             // car is a human's, the computer cars not.
             beams_ = startingBeams(variant_ % 2 == 1, variant_ >= 2, true);
             for (ComputerCar& c : cars_) {
+                if (!carDump_.empty())
+                    break; // the lights as the dump has them
                 c.beams = c.ai.beams = startingBeams(variant_ % 2 == 1, variant_ >= 2, false);
                 c.ai.flashing = false;
             }
@@ -2686,14 +2842,19 @@ void TrackPage::update(uint64_t nowMs) {
         // towards the next by the ticks since.
         movingFrame_.clear();
         if (objects_)
-            for (const Moving& m : moving_) {
+            for (size_t mi = 0; mi < moving_.size(); ++mi) {
+                const Moving& m = moving_[mi];
                 if ((m.block >= 0 && !shown[size_t(m.block)]) || m.keys.size() < 2)
                     continue;
                 const int delay = m.keyDelay >= 1 && m.keyDelay <= 400 ? m.keyDelay : 6;
-                const float ticks = static_cast<float>(nowMs % 100000000) * kGameTicksPerSecond / 1000.0f;
+                // RELUVA_NFS_TRACK_STEP=<g_step> holds them at the game's
+                // step (0x7d3684), for comparing with nfs-host's frames.
+                const float ticks = fixedStep_ >= 0 ? static_cast<float>(fixedStep_)
+                                                    : static_cast<float>(nowMs % 100000000) * kGameTicksPerSecond / 1000.0f;
                 const float t = ticks / static_cast<float>(delay);
                 const size_t k = static_cast<size_t>(t) % (m.keys.size() - 1);
-                movingFrame_.push_back({keyMatrix(m.keys[k], m.keys[k + 1], t - std::floor(t)), m.batches});
+                movingFrame_.push_back(
+                    {keyMatrix(m.keys[k], m.keys[k + 1], t - std::floor(t)), m.batches, static_cast<int>(mi)});
             }
         cutIndices_.clear();
         if (!allBlocks_) {

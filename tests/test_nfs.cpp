@@ -1434,7 +1434,7 @@ void testComputerDriving() {
     CHECK(roadSurface(block, 0) == 1 && roadSurface(block, 1) == 14 && roadSurface(block, 2) == 0);
 
     // carp.txt's fields for the computer.
-    std::string carp = "top speed cap [m/s](15)\n78.23\nmaximum braking deceleration(18)\n10.06\n";
+    std::string carp = "maximum velocity of car [m/s](14)\n77.5\ntop speed cap [m/s](15)\n78.23\nmaximum braking deceleration(18)\n10.06\n";
     for (int row = 0; row < 8; ++row) {
         carp += "AI ACC" + std::to_string(row) + " acceleration table section(" + std::to_string(67 + row) + ")\n";
         for (int i = 0; i < 14; ++i)
@@ -1445,6 +1445,137 @@ void testComputerDriving() {
     CHECK(parseCarpAi(carp, parsed) && std::fabs(parsed.topSpeedCap - 78.23f) < 1e-4f && std::fabs(parsed.maxBrake - 10.06f) < 1e-4f);
     CHECK(parsed.accel[0] == 0.5f && parsed.accel[111] == 111.5f);
     CHECK(!parseCarpAi("maximum braking deceleration(18)\n10\n", parsed));
+}
+
+void testComputerCatchUpAndCops() {
+    // The track sections' speeds (0x40ed40), the switch falling through.
+    CHECK(trackSectionSpeed(0, 0x200) == 13.4109f && trackSectionSpeed(0, 10) == 22.3515f);
+    CHECK(trackSectionSpeed(1, 0x317) == 31.2921f && trackSectionSpeed(1, 0xab) == 29.05695f && trackSectionSpeed(1, 5) == 24.58665f);
+    CHECK(trackSectionSpeed(4, 0x130) == 8.9406f && trackSectionSpeed(4, 5) == 22.3515f);
+    CHECK(trackSectionSpeed(8, 500) == 15.64605f && trackSectionSpeed(8, 5) == 20.11635f);
+    // The catch-up (0x4090a0), as nfs-host's dumps of Hometown have it
+    // (+0x7BC): the human behind them all, places 2-5 x 0.9 and 6-8 x
+    // 0.8; some ahead, one 50 or more slices ahead x 0.85; none ahead,
+    // one over 15 behind x 1.1.
+    CHECK(aiRacersAhead(1, {85, 87, 92}) == 2 && aiRacersAhead(230, {236, 84}) == 1 && aiRacersAhead(196, {40}) == 0);
+    CHECK(aiRacersAhead(0, {}) == 0);
+    AiRace race;
+    race.humanDistance = 1;
+    race.ahead = 2;
+    CHECK(aiCatchUpFactor(race, 92, 5) == 0.9f && aiCatchUpFactor(race, 88, 6) == 0.8f);
+    race.raceType = 3;
+    CHECK(aiCatchUpFactor(race, 88, 6) == 0.85f);
+    race = {};
+    race.humanDistance = 230;
+    race.ahead = 1;
+    CHECK(aiCatchUpFactor(race, 236, 1) == 1 && aiCatchUpFactor(race, 280, 1) == 0.85f && aiCatchUpFactor(race, 279, 1) == 1);
+    race.ahead = 0;
+    race.humanDistance = 196;
+    CHECK(aiCatchUpFactor(race, 40, 8) == 1.1f && aiCatchUpFactor(race, 181, 2) == 1);
+    race.raceType = 2;
+    race.expert = true;
+    CHECK(aiCatchUpFactor(race, 190, 2) == 1.15f);
+    race.link = 2;
+    CHECK(aiCatchUpFactor(race, 40, 8) == 1);
+    race = {};
+    race.human = false;
+    CHECK(aiCatchUpFactor(race, 0, 8) == 1);
+
+    // A computer cop (0x4032e0): it acts every 8 steps on its phase.
+    TrackCollision col = straightRoad(200);
+    AiCarData data;
+    data.accel.fill(4);
+    data.maxBrake = 10;
+    data.maxVelocity = 70;
+    AiCar cop;
+    cop.cop = true;
+    cop.racer = false;
+    cop.slice = 100;
+    cop.halfWidth = 1;
+    cop.offset = cop.target = 2;
+    cop.speed = 10;
+    cop.wanted = 20;
+    std::vector<AiCar> cars{cop};
+    aiCopStep(cars, 0, col, data, 2, 1, false); // (2 / 2 + 0) & 3 = 1: not its call
+    CHECK(cars[0].copState == 0 && std::fabs(cars[0].speed - (10 + 3.6f / 64)) < 1e-4f);
+    aiCopStep(cars, 0, col, data, 8, 1, false);
+    // Patrolling on track 1's slice 100: 24.59 x 1.19.
+    CHECK(cars[0].copState == 1 && std::fabs(cars[0].wanted - 24.58665f * 1.19f) < 1e-4f);
+    // With the siren: x 2, at most its top speed.
+    cars[0].copState = 7;
+    aiCopStep(cars, 0, col, data, 16, 1, false);
+    CHECK(std::fabs(cars[0].wanted - 24.58665f * 2) < 1e-4f);
+    // A racer within 16 slices over the section's speed by more than
+    // 6.71 m/s becomes its target, and the chase begins (5).
+    AiCar racer;
+    racer.slice = 110;
+    racer.halfWidth = 1;
+    racer.offset = racer.target = 2;
+    racer.speed = 24.58665f + 6.6f;
+    cars.push_back(racer);
+    aiCopStep(cars, 0, col, data, 24, 1, false);
+    CHECK(cars[0].copState == 7 && cars[0].chasing == -1);
+    cars[1].speed = 24.58665f + 6.8f;
+    aiCopStep(cars, 0, col, data, 32, 1, false);
+    CHECK(cars[0].copState == 5 && cars[0].chasing == 1 && cars[0].siren);
+    // The chase's speed (0x402420): 10 slices behind, the top speed;
+    // within 8, closing: slices x (top - its speed) / 8 + its speed + 5.81.
+    aiCopStep(cars, 0, col, data, 40, 1, false);
+    CHECK(cars[0].wanted == 70);
+    cars[0].slice = 106;
+    aiCopStep(cars, 0, col, data, 48, 1, false);
+    CHECK(std::fabs(cars[0].wanted - (4 * (70 - cars[1].speed) * 0.125f + cars[1].speed + 5.81139f)) < 1e-3f);
+    // Turned to a target coming the other way (0x402910), lost past 50.
+    cars[1].way = -1;
+    aiCopStep(cars, 0, col, data, 56, 1, false);
+    CHECK(cars[0].way == -1);
+    cars[1].slice = 170;
+    aiCopStep(cars, 0, col, data, 64, 1, false);
+    CHECK(cars[0].copState == 1 && cars[0].chasing == -1 && !cars[0].siren);
+
+    // The side offset as driven (+0x7B8) follows the aim, lagging it,
+    // and the lanes are taken there (0x40e350).
+    AiCar weaver;
+    weaver.slice = 50;
+    weaver.halfWidth = 1;
+    weaver.offset = weaver.target = 2;
+    weaver.speed = 30;
+    weaver.wanted = 30;
+    std::vector<AiCar> lone{weaver};
+    std::vector<uint8_t> flat(16, 0);
+    flat.insert(flat.end(), 100, 30);
+    aiStep(lone, 0, col, flat, data, 1, 1, false); // the first step takes the aim as it
+    CHECK(lone[0].sideKept && lone[0].side == 2);
+    lone[0].offset = 5.9f;
+    lone[0].target = 5.9f;
+    aiStep(lone, 0, col, flat, data, 2, 1, false);
+    CHECK(lone[0].side > 2 && lone[0].side < 2.2f && lone[0].lane == 7);
+    for (int step = 3; step < 200; ++step)
+        aiStep(lone, 0, col, flat, data, step, 1, false);
+    CHECK(std::fabs(lone[0].side - lone[0].offset) < 0.05f);
+
+    // A dump of the game's car records (0x9AC bytes each).
+    std::vector<uint8_t> dump(2 * 0x9ac, 0);
+    auto put32 = [&](size_t at, uint32_t v) { std::memcpy(dump.data() + at, &v, 4); };
+    auto putF = [&](size_t at, float v) { std::memcpy(dump.data() + at, &v, 4); };
+    dump[0x89] = 1;
+    put32(0x200, 5);
+    put32(0x1c, 230);
+    putF(0x98, 472.5f);
+    putF(0xd8 + 8, 1);
+    put32(0x660, 2);
+    const size_t b = 0x9ac;
+    dump[b + 0x89] = 1;
+    put32(b + 0x200, 0x2b);
+    put32(b + 0x734, 1);
+    dump[b + 0x509] = 255;
+    put32(b + 0x944, 0x1801);
+    putF(b + 0x7c4, 31.5f);
+    const std::vector<DumpedCar> parsedCars = parseCarDump(dump);
+    CHECK(parsedCars.size() == 2 && parsedCars[0].human && !parsedCars[0].cop && parsedCars[0].slice == 230);
+    CHECK(parsedCars[0].at[0] == 472.5f && parsedCars[0].forward[2] == 1 && parsedCars[0].beams == 2 && !parsedCars[0].siren);
+    CHECK(parsedCars[1].cop && parsedCars[1].siren && parsedCars[1].braking && parsedCars[1].beamScroll == 1 &&
+          parsedCars[1].speed == 31.5f && !parsedCars[1].human);
 }
 
 void testHorizon() {
@@ -2466,6 +2597,7 @@ int main() {
     testCarReflection();
     testLightEffects();
     testComputerDriving();
+    testComputerCatchUpAndCops();
     testHorizon();
     testCollision();
     testSoundBank();

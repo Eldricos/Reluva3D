@@ -707,6 +707,14 @@ or 1 with `MADLAND`; the speed wanted is × it.
   network game, × 0.8 behind. Never under 1 in Knockout on track 8,
   never over 1 in a network game. As the product is kept at most 1,
   the catch-up's × 1.1 only undoes the other factors.
+  Checked against three Hometown dumps (+0x7BC, +8, +0x2BC; November
+  2026): the human on the grid behind all seven (`t4-town`), places 2-5
+  at 0.82 × the driver × 0.9 and 6-8 × 0.8; the human second with one
+  racer 6 slices ahead (`t5-fog`), no factor; none ahead, the racers
+  140-156 slices behind (`t5-hd`), 0.82 × 1.1 = 0.902. The place
+  (+0x2BC) counts from 1. The Tracks page's stand-in racers take the
+  catch-up with the camera's car as the human (`aiCatchUpFactor`,
+  `aiRacersAhead`; [frd.md](frd.md)).
 - `0x408f10`: in a network game with positional updates, a factor
   by the distance to the local player (1 + (2 − slices) × `0x53640c`).
 
@@ -1307,6 +1315,9 @@ step `0x4019a1` targeted car 1 (`0x5e1acc`) and `0x405879` went to
 state 4. Without H (`sw1-cop2`) the player stayed in state 3.
 
 ### The computer cops' driver (`0x4032e0`)
+
+The Tracks page's stand-in police car drives by this driver's states 1,
+5 and 7 (`aiCopStep`; [frd.md](frd.md), The police car's driving).
 
 Read (November 2026), then run (below). A computer cop's state is
 +0x70C; its orders come in an 8-byte record at +0x7AC (+0 the kind, +1
