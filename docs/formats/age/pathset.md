@@ -61,13 +61,17 @@ were placed and went stale as the city was re-cut; points within 3 m of
 each other in different files share a word 89% and 78% of the time.
 Reluva places points by their positions and doesn't need them.
 
-The start word looks like the point a path starts at (the San Francisco
-ferry's is 29 of its 30 points, and two of London's are 2 and 3);
-Reluva starts boats there. It's 0 in 1,731 paths, the last point in 303
-(mostly loops), others in 164, and one past the end in 33, which reads
-like an editor's cursor. The header's third word is the path count less
-one in 53 of 101 files (fewer in 46), the editor's current path it
-seems; not used.
+The start word is the path editor's selected point, and the header's
+third word its selected path, it seems, not the game's: comparing the
+files' versions (`bak/` against the current, `decals` against
+`decals01`, `decals_good` against `decals_bad`), the start word changes
+in 32 paths whose points don't, and sits on edited points; 39 paths
+point one past their end; the selected path's start word is set in 51
+of 99 files (24% of others), and in four pairs it's the newest path.
+It's 0 in 2,020 of the 2,697 paths, the last point in 383, others in
+255. Reluva starts boats there anyway (the San Francisco ferry at 29 of
+its 30 points), which does no harm; whether the game does would take
+footage.
 
 Three files stop short: London's `blitz10.pathset` (in `giz_pcar01_l`'s
 points), `blitz11.pathset` (whose second path also has a nonsense end
