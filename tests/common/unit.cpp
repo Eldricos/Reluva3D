@@ -6,12 +6,16 @@
 #include "common/audio/decode.h"
 #include "common/audio/mixer.h"
 #include "common/audio/mp3.h"
+#include "common/audio/stream.h"
 #include "common/audio/wav.h"
+#include "tests/common/data/smacker_videos.h"
 #include "tests/common/data/tone440_mp3.h"
 #include "tests/common/data/x86_testdll.h"
 #include "common/archive.h"
 #include "common/config.h"
+#include "common/dcl.h"
 #include "common/detection.h"
+#include "common/draw.h"
 #include "common/font.h"
 #include "common/fs.h"
 #include "common/gfx3d.h"
@@ -19,7 +23,10 @@
 #include "common/md4.h"
 #include "common/md5.h"
 #include "common/net.h"
+#include "common/palette.h"
+#include "common/stream.h"
 #include "common/text.h"
+#include "common/video/smacker.h"
 #include "common/x86/cpu.h"
 #include "common/x86/win32.h"
 #include "common/zip.h"
@@ -213,7 +220,7 @@ static void testMixer() {
     m.mix(out.data(), 2);
     CHECK(!m.isPlaying(l) && out[0] == 0);
     // Nothing to play.
-    CHECK(m.play(nullptr, SoundType::Effects) == kNoSound && m.play(make(22050, 1, {}), SoundType::Effects) == kNoSound);
+    CHECK(m.play(std::shared_ptr<const Sound>(), SoundType::Effects) == kNoSound && m.play(make(22050, 1, {}), SoundType::Effects) == kNoSound);
 }
 
 // Raw deflate streams made with zlib (window bits -15): a stored block, one
@@ -558,6 +565,197 @@ static void testX86Dll() {
     }
 }
 
+static void testStreams(const std::filesystem::path& tmp) {
+    MemoryReadStream s(std::vector<uint8_t>{0x34, 0x12, 0x78, 0x56, 0x34, 0x12, 'h', 'i', 0, 9});
+    CHECK(s.readUint16LE() == 0x1234);
+    CHECK(s.readUint32LE() == 0x12345678u);
+    CHECK(s.readCString() == "hi");
+    CHECK(s.readByte() == 9);
+    CHECK(!s.eos() && !s.err());
+    s.readByte();
+    CHECK(s.eos() && s.err());
+    CHECK(s.seek(2) && s.readAll().size() == 8);
+    // A part of a shared buffer.
+    auto buffer = std::make_shared<const std::vector<uint8_t>>(std::vector<uint8_t>{1, 2, 3, 4, 5});
+    MemoryReadStream part(buffer, 3, 10);
+    CHECK(part.size() == 2 && part.readByte() == 4 && part.seek(-1, SEEK_END) && part.readByte() == 5);
+
+    MemoryWriteStream w;
+    w.writeUint16LE(0x0102);
+    w.writeUint32LE(0x03040506);
+    w.writeFixedString("abc", 5);
+    w.writeFixedString("toolong", 2);
+    CHECK(w.size() == 13 && w.data()[0] == 2 && w.data()[2] == 6 && w.data()[6] == 'a' && w.data()[9] == 0 &&
+          w.data()[11] == 't' && w.data()[12] == 'o');
+    std::filesystem::create_directories(tmp);
+    std::vector<uint8_t> back;
+    CHECK(writeFile(tmp / "out.bin", w.data()) && readFile(tmp / "out.bin", back) && back == w.data());
+    CHECK(!readFile(tmp / "missing.bin", back));
+}
+
+static void testTextHelpers() {
+    CHECK(text::toUpper("Cc.All") == "CC.ALL" && text::equalsIgnoreCase("Cc.All", "CC.ALL") &&
+          !text::equalsIgnoreCase("CC.AL", "CC.ALL"));
+    CHECK((text::split("a,b,,c", ',') == std::vector<std::string>{"a", "b", "", "c"}));
+    CHECK(text::trim("  x y \t\n") == "x y" && text::trim("   ").empty());
+    CHECK(text::format("%d-%s-%04x", 7, "z", 0xbeef) == "7-z-beef");
+    CHECK(fs::normalizeDosPath("ds9\\art\\b\\r\\brdg0000.cmp") == "DS9/ART/B/R/BRDG0000.CMP");
+    CHECK(fs::normalizeDosPath("/SOUND//tick.raw/") == "SOUND/TICK.RAW");
+    CHECK(fs::normalizeDosPath("DEEP.EXE;1") == "DEEP.EXE");
+}
+
+static void testDcl() {
+    // The example from Mark Adler's blast.c: "AIAIAIAIAIAIA".
+    const uint8_t packed[] = {0x00, 0x04, 0x82, 0x24, 0x25, 0x8f, 0x80, 0x7f};
+    std::vector<uint8_t> out;
+    CHECK(decompressDCL(packed, sizeof(packed), out));
+    CHECK(std::string(out.begin(), out.end()) == "AIAIAIAIAIAIA");
+    const uint8_t bad[] = {0x02, 0x09, 0xff};
+    CHECK(!decompressDCL(bad, sizeof(bad), out));
+}
+
+static void testDrawAndPalette() {
+    Surface dst, src;
+    draw::create(dst, 4, 4);
+    draw::create(src, 3, 3, 7);
+    *draw::at(src, 1, 1) = 0;
+    draw::blit(dst, src, 2, 2, 0);
+    CHECK(*draw::at(dst, 2, 2) == 7 && *draw::at(dst, 3, 3) == 0 && *draw::at(dst, 1, 1) == 0);
+    draw::blit(dst, src, -2, -2);
+    CHECK(*draw::at(dst, 0, 0) == 7 && *draw::at(dst, 1, 0) == 0);
+    draw::fill(dst, 1);
+    draw::frameRect(dst, 0, 0, 4, 4, 9);
+    CHECK(*draw::at(dst, 0, 0) == 9 && *draw::at(dst, 3, 2) == 9 && *draw::at(dst, 1, 1) == 1);
+    draw::fillRect(dst, 2, 2, 10, 10, 5);
+    CHECK(*draw::at(dst, 3, 3) == 5 && *draw::at(dst, 1, 3) == 9 && !draw::empty(dst) && draw::empty(Surface()));
+
+    uint8_t vga[768] = {};
+    vga[3] = 63;
+    vga[4] = 32;
+    Palette pal;
+    pal.loadVga(vga);
+    CHECK(pal.data()[3] == 255 && pal.data()[4] == 130 && pal.findBestColor(250, 0, 0) == 1);
+    CHECK(pal.colors()[1].r == 255 && pal.colors()[1].g == 130 && pal.colors()[0].r == 0);
+}
+
+static void testAudioStreams() {
+    using namespace reluva::audio;
+    int16_t buf[5];
+    RawStream u8(std::vector<uint8_t>{0x80, 0xff}, RawStream::Format::U8, 22050);
+    CHECK(u8.read(buf, 4) == 2 && buf[0] == 0 && buf[1] == 127 << 8 && u8.ended());
+    RawStream s16(std::vector<uint8_t>{0x00, 0x80}, RawStream::Format::S16LE, 22050);
+    CHECK(s16.read(buf, 4) == 1 && buf[0] == -32768);
+    RawStream be(std::vector<uint8_t>{0x12, 0x34}, RawStream::Format::S16BE, 22050);
+    CHECK(be.read(buf, 4) == 1 && buf[0] == 0x1234);
+    RawStream s8(std::vector<uint8_t>{0xff}, RawStream::Format::S8, 22050, false, 3);
+    CHECK(s8.read(buf, 5) == 3 && buf[2] == -256 && s8.ended());
+    RawStream forever(std::vector<uint8_t>{0x90}, RawStream::Format::U8, 22050, false, 0);
+    CHECK(forever.read(buf, 5) == 5 && !forever.ended());
+
+    QueuingStream q(22050, false);
+    q.queue({1, 2, 3});
+    CHECK(q.queued() == 3 && q.read(buf, 5) == 5); // padded with silence until finished
+    CHECK(buf[2] == 3 && buf[3] == 0);
+    q.queue({4});
+    q.finish();
+    CHECK(!q.ended() && q.read(buf, 5) == 1 && buf[0] == 4 && q.ended());
+    RawStream whole(std::vector<uint8_t>(5000, 0x80), RawStream::Format::U8, 22050);
+    CHECK(readAll(whole).size() == 5000);
+}
+
+static void testMixerStreams() {
+    using namespace reluva::audio;
+    std::vector<int16_t> out(2 * 64);
+    Mixer m(22050);
+    // A stream plays to its end, then frees its channel.
+    const SoundHandle a = m.play(std::make_shared<RawStream>(std::vector<uint8_t>(100, 0xc0), RawStream::Format::U8,
+                                                              22050),
+                                 SoundType::Effects);
+    CHECK(a != kNoSound && m.isPlaying(a));
+    m.mix(out.data(), 64);
+    CHECK(out[0] == 64 << 8 && out[0] == out[1] && m.position(a) == 64.0);
+    m.mix(out.data(), 64);
+    CHECK(!m.isPlaying(a) && out[2 * 63] == 0);
+    // Type and master volumes, and twice as loud.
+    m.setTypeVolume(SoundType::Speech, kMaxVolume / 2);
+    m.play(std::make_shared<RawStream>(std::vector<uint8_t>(100, 0xc0), RawStream::Format::U8, 22050),
+           SoundType::Speech);
+    m.mix(out.data(), 8);
+    CHECK(out[0] == (64 << 8) / 2);
+    m.stopAll();
+    m.setMasterVolume(kMaxBoostVolume);
+    m.play(std::make_shared<RawStream>(std::vector<uint8_t>(100, 0xa0), RawStream::Format::U8, 22050),
+           SoundType::Music);
+    m.mix(out.data(), 8);
+    CHECK(out[0] == (32 << 8) * 2 && m.masterVolume() == kMaxBoostVolume);
+    m.stopAll();
+    m.setMasterVolume(kMaxVolume);
+    m.setTypeVolume(SoundType::Effects, kMaxBoostVolume + 100);
+    CHECK(m.typeVolume(SoundType::Effects) == kMaxBoostVolume);
+    // A decoded sound follows the master volume too.
+    auto sound = std::make_shared<Sound>();
+    sound->rate = 22050, sound->channels = 1, sound->samples = {1000, 1000};
+    m.setMasterVolume(kMaxVolume / 2);
+    m.play(std::shared_ptr<const Sound>(sound), SoundType::Music);
+    m.mix(out.data(), 1);
+    CHECK(out[0] == 500);
+    m.stopAll();
+    m.setMasterVolume(kMaxVolume);
+    // A queue fed while it plays, kept by the engine too: half the rate,
+    // so each sample is heard twice (interpolated).
+    auto q = std::make_shared<QueuingStream>(11025, false);
+    q->queue({0, 1000, 2000});
+    const SoundHandle h = m.play(q, SoundType::Music);
+    m.mix(out.data(), 4);
+    CHECK(out[0] == 0 && out[2] == 500 && out[4] == 1000 && out[6] == 1500);
+    q->finish();
+    m.mix(out.data(), 8);
+    CHECK(!m.isPlaying(h));
+}
+
+static void checkSmacker(const uint8_t* smk, size_t smkSize, const uint8_t* rgb, const uint8_t* pcm, size_t pcmSize,
+                         bool stereo) {
+    smacker::Decoder decoder;
+    CHECK(decoder.load(std::make_unique<MemoryReadStream>(std::vector<uint8_t>(smk, smk + smkSize))));
+    CHECK(decoder.width() == 32 && decoder.height() == 16 && decoder.frameCount() == 4);
+    CHECK(decoder.frameMicros() == 100000u && decoder.hasAudio() && decoder.audioRate() == 22050);
+    CHECK(decoder.audioStereo() == stereo);
+    const size_t frameBytes = 32 * 16 * 3;
+    int mismatched = 0;
+    std::vector<int16_t> sound;
+    for (int f = 0; f < 4; f++) {
+        CHECK(decoder.decodeNextFrame());
+        const Surface& s = decoder.surface();
+        const uint8_t* pal = decoder.palette();
+        for (int i = 0; i < 32 * 16; i++) {
+            const uint8_t* c = pal + s.pixels[size_t(i)] * 3;
+            const uint8_t* e = rgb + size_t(f) * frameBytes + size_t(i) * 3;
+            if (c[0] != e[0] || c[1] != e[1] || c[2] != e[2])
+                mismatched++;
+        }
+        std::vector<int16_t> a = decoder.takeAudio();
+        sound.insert(sound.end(), a.begin(), a.end());
+    }
+    CHECK(!decoder.decodeNextFrame());
+    CHECK(mismatched == 0);
+    CHECK(sound.size() == pcmSize / 2);
+    int soundMismatched = 0;
+    for (size_t i = 0; i < sound.size() && i * 2 + 1 < pcmSize; i++)
+        if (sound[i] != int16_t(pcm[i * 2] | (pcm[i * 2 + 1] << 8)))
+            soundMismatched++;
+    CHECK(soundMismatched == 0);
+}
+
+static void testSmacker() {
+    // Compared with FFmpeg's decoding of the same files (smacker_videos.h).
+    checkSmacker(kSmackerTest2, sizeof kSmackerTest2, kSmackerTest2Rgb, kSmackerTest2Pcm, sizeof kSmackerTest2Pcm,
+                 false);
+    checkSmacker(kSmackerTest4, sizeof kSmackerTest4, kSmackerTest4Rgb, kSmackerTest4Pcm, sizeof kSmackerTest4Pcm,
+                 true);
+    smacker::Decoder bad;
+    CHECK(!bad.load(std::make_unique<MemoryReadStream>(std::vector<uint8_t>(200, 0x55))));
+}
+
 static const reluva::test::Suite hashesSuite("common.unit.hashes", {
     {"md5", [](const std::filesystem::path&) { testMd5(); }},
     {"md4", [](const std::filesystem::path&) { testMd4(); }},
@@ -567,27 +765,37 @@ static const reluva::test::Suite filesSuite("common.unit.files", {
     {"filesystem and detection", [](const std::filesystem::path& tmp) { testFsAndDetection(tmp / "fs"); }},
     {"config", [](const std::filesystem::path& tmp) { testConfig(tmp / "cfg"); }},
     {"search set", [](const std::filesystem::path& tmp) { testSearchSet(tmp / "search"); }},
+    {"streams", [](const std::filesystem::path& tmp) { testStreams(tmp / "streams"); }},
 });
 
 static const reluva::test::Suite archivesSuite("common.unit.archives", {
     {"zip", [](const std::filesystem::path& tmp) { testZip(tmp / "zip"); }},
     {"inflate and wise", [](const std::filesystem::path& tmp) { testInflateAndWise(tmp / "wise"); }},
+    {"dcl", [](const std::filesystem::path&) { testDcl(); }},
 });
 
 static const reluva::test::Suite textSuite("common.unit.text", {
     {"utf16", [](const std::filesystem::path&) { testUtf16(); }},
     {"font", [](const std::filesystem::path&) { testFont(); }},
+    {"strings", [](const std::filesystem::path&) { testTextHelpers(); }},
 });
 
 static const reluva::test::Suite audioSuite("common.unit.audio", {
     {"wav", [](const std::filesystem::path&) { testWav(); }},
     {"mp3", [](const std::filesystem::path&) { testMp3(); }},
     {"mixer", [](const std::filesystem::path&) { testMixer(); }},
+    {"streams", [](const std::filesystem::path&) { testAudioStreams(); }},
+    {"mixer streams", [](const std::filesystem::path&) { testMixerStreams(); }},
 });
 
 static const reluva::test::Suite imageSuite("common.unit.image", {
     {"image", [](const std::filesystem::path&) { testImage(); }},
     {"3d math", [](const std::filesystem::path&) { testGfxMath(); }},
+    {"8-bit drawing and palettes", [](const std::filesystem::path&) { testDrawAndPalette(); }},
+});
+
+static const reluva::test::Suite videoSuite("common.unit.video", {
+    {"smacker", [](const std::filesystem::path&) { testSmacker(); }},
 });
 
 static const reluva::test::Suite netSuite("common.unit.net", {

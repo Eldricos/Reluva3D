@@ -30,6 +30,11 @@ std::optional<stdfs::path> findFile(const stdfs::path& dir, std::string_view rel
 // The same for a folder.
 std::optional<stdfs::path> findDirectory(const stdfs::path& dir, std::string_view relative);
 
+// A path as a DOS game names it, for comparing: upper case, '/' between
+// folders (none doubled, none at the end), and without the ";1" version
+// that some CD mounts show ("DATA\\Deep.exe;1" is "DATA/DEEP.EXE").
+std::string normalizeDosPath(std::string_view path);
+
 // MD5 (hex) of the first `maxBytes` bytes of a file, or of the whole file
 // when maxBytes is 0. Returns nullopt if the file can't be read.
 std::optional<std::string> md5File(const stdfs::path& file, uint64_t maxBytes);

@@ -235,12 +235,13 @@ In it:
 ## Repository layout
 
 ```
-src/common/          platform-independent core: the System interface, events, surfaces, config,
-                     case-insensitive file lookup, detection, archives (folders, .zip/.pk3) and
-                     search sets, images, text and fonts, the 3D rendering interface (gfx3d.h),
-                     installers (Wise), and shared interpreters and decoders
-  audio/             sound decoders and the mixer: WAV (PCM, IMA ADPCM), MP3
-  video/             video decoders (Bink)
+src/common/          platform-independent core: the System interface, events, surfaces and 8-bit
+                     drawing, palettes, config, case-insensitive file lookup, byte streams,
+                     detection, archives (folders, .zip/.pk3) and search sets, PKWARE DCL, images,
+                     text and fonts, logging, the 3D rendering interface (gfx3d.h), installers
+                     (Wise), and shared interpreters and decoders
+  audio/             sound decoders, streams and the mixer: WAV (PCM, IMA ADPCM), MP3, raw PCM
+  video/             video decoders (Bink, Smacker)
   x86/               an x86 interpreter and Windows stand-ins, for games' native code
 src/backends/sdl3/   the only code that touches SDL: window, rendering (2D and 3D, on SDL's GPU
                      API), input, audio

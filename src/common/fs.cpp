@@ -18,6 +18,25 @@ std::string toLower(std::string_view s) {
     return out;
 }
 
+std::string normalizeDosPath(std::string_view path) {
+    std::string out;
+    out.reserve(path.size());
+    for (size_t i = 0; i < path.size(); i++) {
+        char c = path[i];
+        // ISO 9660 version suffixes ("DEEP.EXE;1"), shown by some CD mounts.
+        if (c == ';' && i + 1 < path.size() && path.find_first_not_of("0123456789", i + 1) == std::string_view::npos)
+            break;
+        if (c == '\\')
+            c = '/';
+        if (c == '/' && (out.empty() || out.back() == '/'))
+            continue;
+        out += char(std::toupper(static_cast<unsigned char>(c)));
+    }
+    if (!out.empty() && out.back() == '/')
+        out.pop_back();
+    return out;
+}
+
 bool windowsNameLess(std::string_view a, std::string_view b) {
     auto upper = [](char c) { return c >= 'a' && c <= 'z' ? static_cast<unsigned char>(c - 'a' + 'A') : static_cast<unsigned char>(c); };
     const size_t n = std::min(a.size(), b.size());

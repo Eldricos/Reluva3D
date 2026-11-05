@@ -74,6 +74,7 @@ add_library(reluva_common STATIC
     src/common/zip.cpp
     src/common/video/bink.cpp
     src/common/video/bink_tables.cpp
+    src/common/video/smacker.cpp
     src/common/image.cpp
     src/common/gfx3d.cpp
     src/common/net.cpp
@@ -87,10 +88,16 @@ add_library(reluva_common STATIC
     src/common/wise.cpp
     src/common/audio/decode.cpp
     src/common/audio/mixer.cpp
+    src/common/audio/stream.cpp
     src/common/audio/mp3.cpp
     src/common/audio/wav.cpp
     src/common/font.cpp
-    src/common/text.cpp)
+    src/common/text.cpp
+    src/common/stream.cpp
+    src/common/log.cpp
+    src/common/palette.cpp
+    src/common/draw.cpp
+    src/common/dcl.cpp)
 target_include_directories(reluva_common PUBLIC src)
 # Third-party headers (third_party/, see each README) as system includes, so
 # our warnings don't apply to them.
@@ -144,5 +151,5 @@ reluva_finish_tool(
 # docs/DEVELOPMENT.md (Tests).
 reluva_add_tests(common
     SOURCES ${PROJECT_SOURCE_DIR}/tests/common/unit.cpp
-    TOPICS unit.hashes unit.files unit.archives unit.text unit.audio unit.image unit.net unit.x86)
+    TOPICS unit.hashes unit.files unit.archives unit.text unit.audio unit.image unit.video unit.net unit.x86)
 reluva_finish_tests()

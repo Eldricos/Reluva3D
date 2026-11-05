@@ -15,6 +15,8 @@ requirements, building, running and contributing. The rest is here.
 - [x86.md](common/x86.md): the x86 interpreter that runs 32-bit Windows game
   code (Elite Force's single-player DLLs), and its Windows stand-ins.
 - [bink.md](common/bink.md): Bink videos.
+- [smacker.md](common/smacker.md): Smacker videos.
+- [dcl.md](common/dcl.md): PKWARE DCL ("implode") compression.
 - [wise.md](common/wise.md): Wise installers, taken apart without running
   them (Elite Force's patch).
 
