@@ -32,6 +32,7 @@ interfaces, and any notes on testing and differences from the original.
 | `idtech3` | Star Trek: Voyager - Elite Force (and, later, other Quake III engine games) | [engines/idtech3/](engines/idtech3/README.md) |
 | `stharbinger` | Star Trek: Deep Space Nine - Harbinger | [engines/stharbinger/](engines/stharbinger/README.md) |
 | `newworlds` | Star Trek: New Worlds | [engines/newworlds/](engines/newworlds/README.md) |
+| `stgenerations` | Star Trek: Generations | [engines/stgenerations/](engines/stgenerations/README.md) |
 | `testbed` | A built-in test pattern, no game | — |
 
 ## Adding docs

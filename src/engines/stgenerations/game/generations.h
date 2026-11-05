@@ -46,7 +46,7 @@ struct Options {
     std::filesystem::path gameDir;  // the installed game (or an import of it, discs in disc1/ and disc2/)
     std::filesystem::path cd1, cd2; // the discs' folders, when not in the game's
     std::string description;        // the release, as detection names it
-    bool unknownVariant = false;     // found by its executable alone: the resource viewer only
+    bool unknownVariant = false;     // found by its executable alone, not by kVariants: warned about
     // Developer: the resource viewer instead of the game; start the story
     // at one of its sections; or straight into space combat n.
     bool viewer = false;
