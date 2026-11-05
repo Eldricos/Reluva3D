@@ -26,8 +26,8 @@ constexpr const char* kGameId = "ds9harbinger";
 constexpr const char* kTitle = "Star Trek: Deep Space Nine - Harbinger";
 
 // The releases it recognises by their files' signatures, as `reluva --hash
-// <files...>` prints them: none yet, as no one with the CDs has hashed them.
-// Until then the game is recognised by the files it has (findGameParts).
+// <files...>` prints them. A release not listed is still recognised by the
+// files it has (findGameParts), as the game with no release named.
 //
 // Each entry's files are relative to one CD (or an install) as it is, not
 // to the folder added: recogniseRelease looks for them in each part of the
@@ -40,8 +40,11 @@ constexpr const char* kTitle = "Star Trek: Deep Space Nine - Harbinger";
 // DS9/TORPEDOS/CD only says which disc a CD is, the same in every release:
 // leave it out.
 const std::vector<GameVariant> kVariants = {
-    // {"ds9harbinger", "Star Trek: Deep Space Nine - Harbinger", "en", "dos",
-    //  {{"SSE/SSE.ALL", "<md5>", <size>}, {"SSE/SSE.LST", "<md5>", <size>}, {"SSE/SSE.CAT", "<md5>", <size>}}},
+    // The English release, from its disc 1.
+    {"ds9harbinger", "Star Trek: Deep Space Nine - Harbinger", "en", "dos",
+     {{"SSE/SSE.ALL", "0919fbe659e77bf6538441e6636039c6", 2865766},
+      {"SSE/SSE.LST", "638945e4fb2e7a965da5b6c26a1b649d", 308},
+      {"SSE/SSE.CAT", "73439fbcff8912977f44888eae834f38", 779}}},
 };
 
 // The settings (MetaEngine::engineOptions), as kept in reluva.ini.

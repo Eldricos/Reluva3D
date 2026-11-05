@@ -40,9 +40,14 @@ Which release it is comes from Reluva's table of the releases' file
 signatures (`kVariants` in `stharbinger.cpp`). Its entries are checked
 against each part of the game found, each CD as it is, so a CD is
 recognised alone, beside the other, or in Reluva's import (`disc1/`,
-`disc2/`); the part with the scripts is tried first. The table is empty
-until someone with the CDs runs `reluva --hash` on disc 1's files, for each
-release and language the game was sold in:
+`disc2/`); the part with the scripts is tried first.
+
+| Release | Disc 1's files |
+|---|---|
+| English (DOS) | `SSE/SSE.ALL` (2,865,766 bytes), `SSE/SSE.LST` (308), `SSE/SSE.CAT` (779) |
+
+For another release or language, run `reluva --hash` on disc 1's files
+from the CD's root (so the names include `SSE/`) and add its entry:
 
 - `SSE/SSE.ALL`: the installer's archive. `DEEP.EXE`, the scripts and the
   dialogue text are only inside it on the CD, so another build or language
@@ -54,8 +59,8 @@ release and language the game was sold in:
 
 `DS9/TORPEDOS/CD` only says which disc a CD is, the same in every release,
 so it's no use there. A disc-2 file (a video in `DS9/INTRO`, say) can be
-added for a release that differs on disc 2. Until the table has entries,
-and for any release not in it, the file check names the game.
+added for a release that differs on disc 2. For any release not in the
+table, the file check names the game.
 
 ## Using it
 
