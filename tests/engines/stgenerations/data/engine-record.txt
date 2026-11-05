@@ -1,0 +1,3 @@
+# The record of stgenerations.engine (tests/engines/stgenerations/engine.cpp).
+# Written by `reluva-tests stgenerations.engine --update`; review its diff before committing.
+detect.games: 0
