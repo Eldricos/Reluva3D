@@ -2,7 +2,7 @@
 # Written by `reluva-tests stharbinger.engine --update`; review its diff before committing.
 detect.disc1: ds9harbinger Star Trek: Deep Space Nine - Harbinger (disc 1)
 detect.disc2: 0
-import.plan: 9 files 2a0a70becc4ad19f +disc2
+import.plan: 9 files 9d9be86c7307b69b +disc2
 detect.library: ds9harbinger Star Trek: Deep Space Nine - Harbinger
 run.result: ok
 run.size: 640x480

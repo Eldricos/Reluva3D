@@ -72,9 +72,11 @@ std::string partFolder(const GamePart& part) {
     return part.disc >= 0 ? "disc" + std::to_string(part.disc + 1) : "install";
 }
 
-// Every file of a part, to be copied under its partFolder.
+// Every file of a part, to be copied under its partFolder, in name order
+// (the same on every system).
 void addPart(ImportPlan& plan, const GamePart& part) {
     const std::string to = partFolder(part);
+    const size_t first = plan.files.size();
     std::error_code ec;
     for (std::filesystem::recursive_directory_iterator it(part.folder, ec), end; !ec && it != end;
          it.increment(ec)) {
@@ -84,6 +86,8 @@ void addPart(ImportPlan& plan, const GamePart& part) {
         const std::string rel = it->path().lexically_relative(part.folder).generic_string();
         plan.files.push_back({it->path(), to + "/" + std::string(fs::withoutIsoVersion(rel)), size, std::nullopt});
     }
+    std::sort(plan.files.begin() + std::ptrdiff_t(first), plan.files.end(),
+              [](const ImportPlan::File& a, const ImportPlan::File& b) { return fs::windowsNameLess(a.to, b.to); });
 }
 
 std::string describeParts(const std::vector<GamePart>& parts) {
