@@ -81,4 +81,23 @@ bool playable(const std::vector<GamePart>& parts) {
     return scripts && data;
 }
 
+std::optional<DetectedGame> recogniseRelease(const std::string& engineId, const std::vector<GamePart>& parts,
+                                             const std::vector<GameVariant>& table) {
+    if (table.empty())
+        return std::nullopt;
+    std::vector<const GamePart*> order;
+    for (const GamePart& p : parts)
+        if (p.scripts)
+            order.push_back(&p);
+    for (const GamePart& p : parts)
+        if (!p.scripts)
+            order.push_back(&p);
+    for (const GamePart* p : order) {
+        const auto found = detectFromTable(engineId, table, p->folder);
+        if (!found.empty())
+            return found.front();
+    }
+    return std::nullopt;
+}
+
 } // namespace reluva::stharbinger

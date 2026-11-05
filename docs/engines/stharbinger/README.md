@@ -34,11 +34,28 @@ STDS9H's tests and Reluva's own, but hasn't been played on the discs yet.
 Recognised by the game's files (`findGameParts`,
 `src/engines/stharbinger/detection.cpp`): disc 1's scripts (`SSE/SSE.ALL`, or
 an install's `CC.ALL`) and the data on the discs (`DS9/`), each CD's number
-in `DS9/TORPEDOS/CD`. Reluva's way is a table of the releases' file
-signatures (`kVariants` in `stharbinger.cpp`); it's empty until someone with
-the CDs runs `reluva --hash` on disc 1's `SSE/SSE.ALL` and `DS9/TORPEDOS/CD`
-and disc 2's `DS9/TORPEDOS/CD`, for each language the game was sold in. The
-file check stays as a fallback for now.
+in `DS9/TORPEDOS/CD`.
+
+Which release it is comes from Reluva's table of the releases' file
+signatures (`kVariants` in `stharbinger.cpp`). Its entries are checked
+against each part of the game found, each CD as it is, so a CD is
+recognised alone, beside the other, or in Reluva's import (`disc1/`,
+`disc2/`); the part with the scripts is tried first. The table is empty
+until someone with the CDs runs `reluva --hash` on disc 1's files, for each
+release and language the game was sold in:
+
+- `SSE/SSE.ALL`: the installer's archive. `DEEP.EXE`, the scripts and the
+  dialogue text are only inside it on the CD, so another build or language
+  changes it. Its signature is of its first 5,000 bytes and its size, and
+  the start may be the same in every release, so:
+- `SSE/SSE.LST` and `SSE/SSE.CAT`: small, and they say where each file
+  inside the archive starts and what it's called, so any change inside
+  shows in them.
+
+`DS9/TORPEDOS/CD` only says which disc a CD is, the same in every release,
+so it's no use there. A disc-2 file (a video in `DS9/INTRO`, say) can be
+added for a release that differs on disc 2. Until the table has entries,
+and for any release not in it, the file check names the game.
 
 ## Using it
 

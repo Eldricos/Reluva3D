@@ -7,6 +7,7 @@
 //
 //   reluva-tests stharbinger.unit.detection
 
+#include "common/fs.h"
 #include "engines/registry.h"
 #include "engines/stharbinger/detection.h"
 #include "tests/engines/stharbinger/fixtures.h"
@@ -124,6 +125,52 @@ void testCdVersions(const std::filesystem::path& tmp) {
                                            [](const auto& f) { return f.to == "disc1/SSE/SSE.ALL"; }));
 }
 
+// A table entry for a file of one part, as `reluva --hash` gives it.
+FileSignature signature(const std::filesystem::path& part, const std::string& name, int64_t sizeDelta = 0) {
+    const auto path = fs::findFile(part, name);
+    std::error_code ec;
+    return {name, path ? fs::md5File(*path, kDetectionHashBytes).value_or("") : "",
+            path ? int64_t(std::filesystem::file_size(*path, ec)) + sizeDelta : -1};
+}
+
+void testReleaseTable(const std::filesystem::path& tmp) {
+    makeDisc(tmp / "cd1", 0, false);
+    makeDisc(tmp / "cd2", 1, false);
+    makeDisc(tmp / "both" / "first", 0, true);
+    makeDisc(tmp / "both" / "second", 1, false);
+    putFile(tmp / "cd2" / "DS9" / "INTRO" / "VNM.SMK", bytes("a video"));
+    putFile(tmp / "both" / "second" / "DS9" / "INTRO" / "VNM.SMK", bytes("a video"));
+
+    // Disc 1's release, by its files as they are on the CD; and a disc 2
+    // entry, of another release, for the order.
+    const std::vector<GameVariant> table = {
+        {"ds9harbinger", "Harbinger (test release)", "de", "dos",
+         {signature(tmp / "cd1", "SSE/SSE.ALL"), signature(tmp / "cd1", "SSE/SSE.LST"),
+          signature(tmp / "cd1", "SSE/SSE.CAT")}},
+        {"ds9harbinger", "Harbinger (disc 2 entry)", "fr", "dos", {signature(tmp / "cd2", "DS9/INTRO/VNM.SMK")}},
+    };
+    auto name = [&](const std::filesystem::path& dir) {
+        const auto r = recogniseRelease("stharbinger", findGameParts(dir), table);
+        return r ? r->description + " " + r->language : std::string("(none)");
+    };
+    // Found in each part, wherever it is: a CD alone, both side by side
+    // (any case, any names), Reluva's import of them.
+    CHECK(name(tmp / "cd1") == "Harbinger (test release) de");
+    CHECK(name(tmp / "both") == "Harbinger (test release) de");
+    auto plans = engine().planImport(tmp / "cd1");
+    std::string message;
+    CHECK(plans.size() == 1 && engine().addToImport(plans[0], tmp / "cd2", message));
+    CHECK(!runImport(plans[0], tmp / "library", [](uint64_t, uint64_t) { return true; }));
+    CHECK(name(tmp / "library") == "Harbinger (test release) de");
+    // The part with the scripts first: disc 2's entry only for disc 2 alone.
+    CHECK(name(tmp / "cd2") == "Harbinger (disc 2 entry) fr");
+    // A file of another size is another release; no table, no release.
+    const std::vector<GameVariant> other = {
+        {"ds9harbinger", "Other", "en", "dos", {signature(tmp / "cd1", "SSE/SSE.ALL", 1)}}};
+    CHECK(!recogniseRelease("stharbinger", findGameParts(tmp / "both"), other));
+    CHECK(!recogniseRelease("stharbinger", findGameParts(tmp / "both"), {}));
+}
+
 } // namespace
 
 static const reluva::test::Suite
@@ -133,4 +180,5 @@ static const reluva::test::Suite
               {"detect", [](const std::filesystem::path& tmp) { testDetect(tmp); }},
               {"import both discs", [](const std::filesystem::path& tmp) { testImport(tmp); }},
               {"cd versions", [](const std::filesystem::path& tmp) { testCdVersions(tmp); }},
+    {"release table per part", [](const std::filesystem::path& tmp) { testReleaseTable(tmp); }},
           });

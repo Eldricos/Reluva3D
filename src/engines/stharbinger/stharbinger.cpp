@@ -28,11 +28,20 @@ constexpr const char* kTitle = "Star Trek: Deep Space Nine - Harbinger";
 // The releases it recognises by their files' signatures, as `reluva --hash
 // <files...>` prints them: none yet, as no one with the CDs has hashed them.
 // Until then the game is recognised by the files it has (findGameParts).
-// The first entries to add: disc 1's SSE/SSE.ALL and DS9/TORPEDOS/CD, disc
-// 2's DS9/TORPEDOS/CD, for each language the game was sold in.
+//
+// Each entry's files are relative to one CD (or an install) as it is, not
+// to the folder added: recogniseRelease looks for them in each part of the
+// game found, so a CD is recognised alone, beside the other, or in an
+// import (disc1/, disc2/). The files to hash, from disc 1, for each
+// release and language the game was sold in: SSE/SSE.ALL (the installer's
+// archive: DEEP.EXE, the scripts and the dialogue text are inside it, so
+// another build or language changes its size), and SSE/SSE.LST and
+// SSE/SSE.CAT (small: where each file inside it starts, and their names).
+// DS9/TORPEDOS/CD only says which disc a CD is, the same in every release:
+// leave it out.
 const std::vector<GameVariant> kVariants = {
     // {"ds9harbinger", "Star Trek: Deep Space Nine - Harbinger", "en", "dos",
-    //  {{"SSE/SSE.ALL", "<md5>", <size>}, {"DS9/TORPEDOS/CD", "<md5>", <size>}}},
+    //  {{"SSE/SSE.ALL", "<md5>", <size>}, {"SSE/SSE.LST", "<md5>", <size>}, {"SSE/SSE.CAT", "<md5>", <size>}}},
 };
 
 // The settings (MetaEngine::engineOptions), as kept in reluva.ini.
@@ -164,21 +173,19 @@ public:
     const char* name() const override { return kTitle; }
 
     std::vector<DetectedGame> detect(const std::filesystem::path& dir) const override {
-        // By the files' signatures where they're known, else by the files
-        // the game has: enough to play from (disc 1, or an install beside
-        // the CDs' data).
-        std::vector<DetectedGame> found = detectFromTable(id(), kVariants, dir);
-        if (!found.empty())
-            return found;
+        // Enough to play from (disc 1, or an install beside the CDs'
+        // data); then which release, by its parts' file signatures where
+        // they're known, else by the files it has.
         const std::vector<GamePart> parts = findGameParts(dir);
         if (!playable(parts))
             return {};
+        DetectedGame game = recogniseRelease(id(), parts, kVariants)
+                                .value_or(DetectedGame{id(), kGameId, kTitle, "en", "dos"});
         const bool disc1 = std::any_of(parts.begin(), parts.end(), [](const GamePart& p) { return p.disc == 0; });
         const bool disc2 = std::any_of(parts.begin(), parts.end(), [](const GamePart& p) { return p.disc == 1; });
-        std::string description = kTitle;
         if (disc1 != disc2)
-            description += disc1 ? " (disc 1)" : " (disc 2)";
-        return {DetectedGame{id(), kGameId, description, "en", "dos"}};
+            game.description += disc1 ? " (disc 1)" : " (disc 2)";
+        return {game};
     }
 
     std::vector<ImportPlan> planImport(const std::filesystem::path& source) const override {
