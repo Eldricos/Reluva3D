@@ -703,7 +703,9 @@ bool Generations::readSaveHeader(int slot, std::string& description, std::string
     return !in->eos();
 }
 
-std::string Generations::saveDate() {
+std::string Generations::saveDate() const {
+    if (!_options.fixedSaveDate.empty())
+        return _options.fixedSaveDate;
     std::time_t now = std::time(nullptr);
     char text[32];
     if (!std::strftime(text, sizeof text, "%m/%d %H:%M", std::localtime(&now)))

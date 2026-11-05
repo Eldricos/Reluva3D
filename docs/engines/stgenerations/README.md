@@ -129,6 +129,7 @@ Not part of the game, for studying it:
 | `story=<section>` | reluva.ini | Start the story at a section of `STATES.INI`, as if a new game had got there (`story=Amargosa2`; `story=list` prints them with console output on) |
 | `combat=<n>` | reluva.ini | Start in space combat n (1-25) |
 | `cd1=<folder>`, `cd2=<folder>` | reluva.ini | The CDs' folders, when they aren't in the game's own |
+| `fixed_save_date=<date>` | reluva.ini | For tests: saved games dated this (`01/01 00:00`), not by the clock, so a run is the same whenever it's made |
 
 ### Saved games
 

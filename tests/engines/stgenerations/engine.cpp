@@ -273,7 +273,9 @@ void engineTest(const std::filesystem::path& tmp) {
     rec.add("detect.imported", found[0].gameId + ": " + found[0].description);
 
     // Played as the launcher runs it.
-    GameTarget target{"stg", found[0].engineId, found[0].gameId, found[0].description, game, tmp / "saves", {}};
+    // Saves dated the same whenever the test runs.
+    GameTarget target{"stg", found[0].engineId, found[0].gameId, found[0].description,
+                      game, tmp / "saves", {{"fixed_save_date", "01/01 00:00"}}};
     ScriptedSystem sys;
     std::map<uint64_t, std::string> marks; // what each moment shows
     std::vector<std::pair<uint64_t, std::string>> seen;
@@ -338,12 +340,8 @@ void engineTest(const std::filesystem::path& tmp) {
     rec.add("cursor.menu", cursorSeen);
     rec.add("cursor.after", sys.cursor().empty() ? std::string("the system's") : std::string("the game's"));
     rec.add("run.until", int64_t(sys.getMillis()));
-    // The saves: the date in each changes from run to run, so their sizes.
-    for (const char* name : {"stg.s00", "stg.s09"}) {
-        Bytes data;
-        rec.add(std::string("save.") + name,
-                readFile(tmp / "saves" / name, data) ? std::to_string(data.size()) + " bytes" : std::string("none"));
-    }
+    for (const char* name : {"stg.s00", "stg.s09"})
+        rec.add(std::string("save.") + name, fileHash(tmp / "saves" / name));
     rec.add("settings", fileHash(tmp / "saves/settings.ini"));
 
     rec.check(RELUVA_SOURCE_DIR "/tests/engines/stgenerations/data/engine-record.txt", "stgenerations.engine",

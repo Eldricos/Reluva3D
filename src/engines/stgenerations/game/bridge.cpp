@@ -662,7 +662,8 @@ void Bridge::setCourse(int sun, bool fromScript) {
     e.destination = sun;
     flags(e.name).insert(14);
     e.state = 4;
-    _contextMode = _contextMode; // the button goes idle while travelling
+    // The context button keeps its mode while travelling (STG-Engine set it
+    // to itself here, which did nothing; see UNCONFIRMED.md).
     _busy = true;
     setControls(false);
 }

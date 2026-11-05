@@ -1438,7 +1438,7 @@ void SpaceCombat::drawConsole(Canvas& screen) {
     const Ship& e = _ships[0];
 
     // Left, the target; right, the Enterprise and the helm menu.
-    auto state = [this](const Ship& s) {
+    auto state = [](const Ship& s) {
         int destroyed = 0;
         if (s.cls)
             for (int k = ShipClass::kWeapons; k <= ShipClass::kCloak; k++)

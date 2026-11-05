@@ -70,6 +70,8 @@ int cmdPlay(int argc, char** argv) {
     Options options;
     options.gameDir = argv[2];
     options.description = "Star Trek: Generations";
+    // Saves dated the same on every run, as the menu shows them.
+    options.fixedSaveDate = "01/01 00:00";
     std::filesystem::path saves;
     uint64_t until = 60000;
     uint32_t seed = 1;

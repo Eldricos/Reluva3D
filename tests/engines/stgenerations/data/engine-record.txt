@@ -25,6 +25,6 @@ screen.17000: loaded: a06da2fdfd3614a5
 cursor.menu: 15x15 8a7befd674c19a35
 cursor.after: the system's
 run.until: 18586
-save.stg.s00: 1032 bytes
-save.stg.s09: 1042 bytes
+save.stg.s00: 0bec2033b551960c (1032 bytes)
+save.stg.s09: 054d5afb035296be (1042 bytes)
 settings: 6900894e93e9e6a2 (166 bytes)

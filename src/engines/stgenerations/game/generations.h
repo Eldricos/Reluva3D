@@ -56,6 +56,9 @@ struct Options {
     // (its menu keeps them there): 0..256 volumes, difficulty 0..2.
     int musicVolume = 192, effectsVolume = 192, speechVolume = 192;
     int difficulty = -1; // as the game's menu starts it
+    // For tests: the date saved games are given, in place of the clock's,
+    // so runs are the same whenever they're made.
+    std::string fixedSaveDate;
     int subtitles = -1, largeWindow = -1, lookspring = -1; // -1: the game's own default
 };
 
@@ -198,7 +201,8 @@ private:
     void playMenuSound(int id);
     std::vector<OptionsMenu::Slot> listSaves();
     bool readSaveHeader(int slot, std::string& description, std::string& date);
-    static std::string saveDate();
+    // When a game is saved, as the menu shows it ("11/05 21:52").
+    std::string saveDate() const;
     // Poll events; true on a key or click (or quitting).
     bool waitForSkip();
     // Show a bitmap full screen in its own palette.

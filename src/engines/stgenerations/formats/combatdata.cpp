@@ -584,14 +584,12 @@ bool ShipClass::loadAll(const std::string& text, std::vector<ShipClass>& classes
             }
         }
         // The shields' leak tables, one line of 13 per shield the ship has.
-        int shield = 0;
         for (int s = 1; s <= 4; s++) {
             if (c.systems[s].max < 0 || j >= lines.size() || lines[j].size() != 13)
                 continue;
             for (int k = 0; k < 13; k++)
                 c.bleed[s][k] = std::atoi(lines[j][k].c_str());
             j++;
-            shield++;
         }
         if (j < lines.size() && lines[j].size() >= 3) {
             c.phaserRange = std::atoi(lines[j][1].c_str());

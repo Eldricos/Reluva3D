@@ -58,6 +58,8 @@ constexpr const char* kCd1 = "cd1";
 constexpr const char* kCd2 = "cd2";
 constexpr const char* kDebugLevel = "debug_level";
 constexpr const char* kDebugChannels = "debug_channels";
+// For tests: saved games dated this, not by the clock.
+constexpr const char* kFixedSaveDate = "fixed_save_date";
 
 GameOption volumeOption(const char* key, const char* label, const char* tooltip) {
     // The original's default is three quarters of the way up.
@@ -94,6 +96,7 @@ Options optionsFor(const GameTarget& target) {
     o.viewer = setting(target, kStartMode) == "viewer";
     o.story = setting(target, kStory);
     o.combat = std::atoi(setting(target, kCombat).c_str());
+    o.fixedSaveDate = setting(target, kFixedSaveDate);
     // Percent to the game's 0..256 volumes.
     o.musicVolume = percent(target, kMusicVolume, 75) * 256 / 100;
     o.effectsVolume = percent(target, kEffectsVolume, 75) * 256 / 100;

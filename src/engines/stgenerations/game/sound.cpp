@@ -18,7 +18,6 @@ namespace {
 
 const char* const kDebugChannel = "sound";
 const double kFixed = 65536.0;
-const double kPi = 3.14159265358979323846;
 const uint32_t kCueStart = 0x12345678;
 const uint32_t kCueEnd = 0x87654321;
 const int kSoundSection = 3;
