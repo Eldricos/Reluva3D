@@ -39,7 +39,7 @@ struct Directive {
 
 typedef std::vector<Directive> DirectiveList;
 
-// Scene commands, after DEEP.EXE's own names (a ? in docs/SCRIPT_REFERENCE.md
+// Scene commands, after DEEP.EXE's own names (a ? in docs/engines/stharbinger/formats/script-reference.md
 // marks names inferred from behaviour).
 enum Command {
     kCmdAnim = 0x64,
@@ -63,7 +63,7 @@ enum Command {
     kCmdJump = 0x76,
     kCmdIfNE = 0x77,
     kCmdSwitch = 0x78,
-    kCmdDeath = 0x79, // listed as SOUNDSOFF? in older listings
+    kCmdDeath = 0x79,       // DEATH (SOUNDSOFF? in older listings)
     kCmdAnimDef = 0x7A,
     kCmdActionSeq = 0x7B,
     kCmdRandom = 0x7D,
@@ -82,7 +82,7 @@ enum Command {
     kCmdAnimFram = 0x8A,
     kCmdAnimEnd = 0x8B,
     kCmdAnimSuspend = 0x8C,
-    kCmdRequireDisc = 0x8D, // listed as AMBIENT?
+    kCmdRequireDisc = 0x8D, // CDCHANGE (AMBIENT? in older listings)
     kCmdAnimUnsus = 0x8E,
     kCmdHotType = 0x8F,
     kCmdAnimsOff = 0x90,

@@ -23,7 +23,7 @@ namespace reluva::stharbinger {
 class Harbinger;
 
 // Runs the game: the scene scripts with their hotspots, timers, animations and
-// sounds. The behaviour follows DEEP.EXE (docs/SCRIPT_REFERENCE.md, "Run-time
+// sounds. The behaviour follows DEEP.EXE (docs/engines/stharbinger/formats/script-reference.md, "Run-time
 // behaviour").
 //
 // Script model: when a scene is entered its script runs from the top until

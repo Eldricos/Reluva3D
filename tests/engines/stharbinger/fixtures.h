@@ -7,7 +7,7 @@
 
 #pragma once
 
-#include "common/system.h"
+#include "common/headless_system.h"
 #include "engines/stharbinger/formats/script.h"
 #include "engines/stharbinger/harbinger.h"
 #include "engines/stharbinger/platform.h"
@@ -21,28 +21,8 @@
 
 namespace reluva::stharbinger::testing {
 
-// A System with no window and no sound, its clock moved only by delays.
-class NullSystem : public System {
-public:
-    Error initGraphics(int width, int height, PixelFormat) override {
-        w = width;
-        h = height;
-        return Error::success();
-    }
-    void setPalette(const Color*, int, int) override {}
-    void updateScreen(const Surface&) override { ++frames; }
-    void setWindowTitle(const std::string& t) override { title = t; }
-    bool pollEvent(Event&) override { return false; }
-    uint64_t getMillis() const override { return millis; }
-    void delayMillis(uint32_t ms) override { millis += ms; }
-    Error startAudio(AudioCallback) override { return Error::fail("no sound in tests"); }
-    void stopAudio() override {}
-    int audioRate() const override { return 22050; }
-
-    int w = 0, h = 0, frames = 0;
-    uint64_t millis = 0;
-    std::string title;
-};
+// The tests' System: no window, no sound, a clock moved only by delays.
+using NullSystem = HeadlessSystem;
 
 // The game in `dir`, as the engine runs it.
 inline Options optionsFor(const std::filesystem::path& dir) {

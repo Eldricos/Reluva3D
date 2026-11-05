@@ -32,7 +32,11 @@ reluva_add_engine(stharbinger
 # Its reluva-tool commands (reluva-tool help stharbinger lists them).
 reluva_add_engine_tools(stharbinger
     SOURCES
-        tools/files.cpp)
+        tools/files.cpp
+        tools/archives.cpp
+        tools/scripts.cpp
+        tools/dialogue.cpp
+        tools/exe.cpp)
 
 # Its tests (tests/engines/stharbinger/), in reluva-tests: the unit tests by
 # topic, and the engine test, without game files (its record in
@@ -47,10 +51,11 @@ reluva_add_engine_tests(stharbinger
     TOPICS
         unit.detection unit.formats unit.game engine)
 
-# Its engine test with the game's own files, when it has one (see
-# docs/DEVELOPMENT.md, Engine tests):
-# reluva_add_gamedata_test(stharbinger
-#     GAME <game id>
-#     ENV RELUVA_<GAME>
-#     SCRIPT ${tests}/gamedata.cmake
-#     STEPS release ...)
+# Its engine test with the game's own files (tests/engines/stharbinger/
+# gamedata.cmake): RELUVA_STHARBINGER=<the game's folder> ctest -L gamedata.
+# See docs/DEVELOPMENT.md (Engine tests).
+reluva_add_gamedata_test(stharbinger
+    GAME ds9harbinger
+    ENV RELUVA_STHARBINGER
+    SCRIPT ${tests}/gamedata.cmake
+    STEPS release info scripts conversations)

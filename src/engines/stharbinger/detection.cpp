@@ -41,12 +41,12 @@ GamePart examine(const std::filesystem::path& path) {
     part.scripts = hasAny(path, {"CC.ALL", "SSE/CC.ALL", "SSE/SSE.ALL"});
     part.data = hasAny(path, {"DS9/ANIMS", "DS9/PALETTES", "ANIMS", "PALETTES"});
     part.exe = hasAny(path, {"DEEP.EXE", "SSE/DEEP.EXE"});
-    if (part.scripts || part.data || part.exe)
-        part.disc = readDiscNumber(path);
+    part.disc = readDiscNumber(path);
     return part;
 }
 
-bool isPart(const GamePart& p) { return p.scripts || p.data || p.exe; }
+// One of the CDs (it says which), or a folder with some of the game.
+bool isPart(const GamePart& p) { return p.scripts || p.data || p.exe || p.disc >= 0; }
 
 } // namespace
 
