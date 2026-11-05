@@ -2,9 +2,9 @@
 
 This stage establishes the final shared-word scoring model for the next
 player/opponent work. It does not enable multiple players or computers in the
-live game yet. The current playable session remains one human. Player turn
-order, computer timing/difficulty and their UI must be established and integrated
-separately; adding invented opponents would not establish original compatibility.
+live game yet. The current playable session remains one human. The owner has
+corroborated the broad turn-mode distinctions below. Live turn scheduling, computer timing/difficulty and their UI still need implementation
+and further boundary checks.
 
 `ClassicCompetition` accepts one to four distinct, completed `ClassicRound`
 objects on exactly the same Original or Master board. Every player's dictionary
@@ -52,8 +52,9 @@ Intermediate, Advanced and Mr. Boggle. Strings 14000–14004 have different labe
 and must not be substituted for this dropdown without checking their callers.
 
 Classic options resources 10823/10834 contain Chess Timer (1299) and Traditional
-Play (1300), with optional computer cursor/background controls. Their operational
-semantics, defaults and selection of resource variants remain to be corroborated.
+Play (1300), with optional computer cursor/background controls. The
+broad turn-mode behavior now has owner VM corroboration below. Defaults,
+precise timer accounting and selection of resource variants remain unverified.
 Dialog 15900 at offset `0x5374` has a next-player message and OK, which establishes
 a player transition prompt but does not alone establish when it appears.
 
@@ -82,15 +83,27 @@ The owner subsequently confirmed the following in the original Classic game:
   computer choices Beginner, Intermediate, Advanced and Mr. Boggle, in that order.
 - At round end, words found by both players lose their points in both
   human-versus-human and human-versus-computer games.
+- Traditional Play gives each player a whole-round turn before advancing to
+  the next player, for both humans and computers.
+- Chess Timer advances to the next player after each word, for both humans
+  and computers.
+- An option allows computers to play at the same time as other players.
+  Another option controls whether a computer moves the cursor during its turn.
 
 These observations corroborate the player controls, opponent labels and shared-word
 scoring evidence above. They also establish a human-name history in the original
 selector; retention across process restarts, its file format and duplicate-name
 selection rules have not been established. The native profile now retains a bounded human-name history for selecting its
 one supported human slot; see [name selection and native limits](players.md).
-It does not import the original player database. Computer timing,
-difficulty behavior, turn order and the Traditional/Chess Timer options remain
-separate research and implementation work.
+It does not import the original player database. The concurrent-computer and
+cursor options are separate from the Traditional/Chess Timer turn mode; they
+must not be collapsed into one opponent setting.
+
+Still unverified: computer strength/cadence, exact timer accounting across turns,
+expiry and untimed behavior with several players, whether rejected/repeated
+attempts advance a Chess turn, and the detailed interaction between background
+computers and the selected turn mode. The broad turn rules above are now observed
+facts, while those boundaries and the live controller remain future work.
 
 ## Tools and validation
 

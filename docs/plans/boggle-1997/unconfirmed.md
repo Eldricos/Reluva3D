@@ -152,3 +152,10 @@ most-recent history and version-1 profile migration. Original history lifetime,
 ordering/capacity and on-disk format remain unverified. Additional live player
 slots, computers and their turn/timing behavior remain future work. See
 [human selection and native history policies](../../engines/boggle/players.md).
+
+The owner has now confirmed the broad turn modes: Traditional gives each human
+or computer a whole-round turn, while Chess Timer advances after each word.
+Concurrent computer play and computer cursor movement are separately selectable.
+Precise timer accounting, rejected/repeated-attempt turn boundaries and computer
+strength/cadence remain unverified; the live turn controller is not implemented.
+See [owner turn-mode observations](../../engines/boggle/competition.md#owner-vm-corroboration).
