@@ -370,11 +370,11 @@ FUNCS = {
   0x40bba0: ('radio_cop_once', None, 'kinds 0x19, 0x1A, once a cop'), 0x40bc30: ('radio_record_once', None, 'kind 0x23, once a record'),
   0x40bca0: ('radio_strip_near', None, 'kind 0x1D'), 0x40bd00: ('radio_roadblock_near', None, 'kind 0x1E'),
   # c5 (what the radio lines say, November 2026; slots in bnk.md)
-  0x40aa70: ('radio_dispatch_opener', None, '(slot) dispatcher 0x10 all units / 0x11 / 0x12 available units'),
+  0x40aa70: ('radio_dispatch_opener', None, '(slot) dispatcher 0x10 all units be advised / 0x11 all units / 0x12 available units'),
   0x40aa90: ('radio_dispatch_unit', None, '(cop) dispatcher slot 0x14 + cop index: unit n'),
   0x40aea0: ('radio_stub_aea0', None, 'empty (ret)'), 0x40a940: ('radio_stub_a940', None, 'empty (ret)'),
   0x40a950: ('radio_cop_quiet_reset', None, '(index, 1) 0x56ee68[index] = 0'),
-  0x4c8470: ('radio_place_row_nearest', None, '(slice, out) nearest place row: slot, slices off, kind'),
+  0x4c8470: ('radio_place_row_nearest', None, '(slice, out) nearest place row: slot, slices off, kind; no wrap: before the first row the first, past the last the last'),
   0x4127c0: ('cop_shout_at_target', None, '(cop) copspch shout 0x4c89b0, pan by the target'),
   0x4c89b0: ('copspch_shout', None, '(cop, pan, player) copspch slot 0-9 at random, not the last (0x560ac4)'),
   0x4042b0: ('cop_drop_target', None, '(cop) human cop: off the record (0x401a20), target cleared, siren off'),
@@ -396,6 +396,9 @@ FUNCS = {
   0x51f850: ('mmx_mix16_stereo_setup', None, 'MMX path: sets 0x51f897 and its level set-up 0x51f874'),
   0x51f874: ('mmx_mix16_stereo_levels', None, '(levels, L, R) words L*256, R*256, twice'),
   0x51f897: ('mmx_mix16_stereo', None, '(levels, frames, src, bus) as 0x51f7ad for stereo sources'),
+  # s7 (radio places on other tracks, November 2026)
+  0x4e0d88: ('rand_next', None, 'multi-word add-with-carry generator, state 0x5644e0-0x5644f4; callers take its low bits (the place form, & 1)'),
+  0x4dfd56: ('fpu_round', None, 'ST0 rounded (the place look-ahead: speed / 6)'),
 }
 
 # globals: addr -> (name, type, desc)
@@ -470,4 +473,5 @@ GLOBALS = {
   0x5525d0: ('t_music_tech_quieter', 's32[10]', 'race music volume less this for tech: 15 6 15 0 15 6 15 0 0 0'),
   0x55eb2c: ('g_cmdline_flags', 'u32[2]', 'bit n = option n of the table 0x55eb34 (-softtri ... -speedline); 20 -e3demo 21 -msdemo 24 -demoaudio force rock'),
   0x5645c6: ('g_music_control', 'u8', 'SNDpathcontrol value 0-127'),
+  0x5644e0: ('g_rand_state', 'u32[6]', 'rand_next (0x4e0d88): five sums and a counter (0x5644f4)'),
 }

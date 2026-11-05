@@ -1479,8 +1479,8 @@ answer when the cop didn't speak last: form 0, "go ahead, unit n"
 those) and "go ahead" (0x22); another form, perhaps "unit n" and
 "ten-four" (0x20). `0x40aa70` is the dispatcher's opener: 0x10 "all
 units be advised" (a new chase; a strip or roadblock set when he last
-spoke over 1,000 sound steps ago), 0x11 (a cop joining, a chase taken
-again), 0x12 "available units" (the call for help). `0x40aeb0` gives
+spoke over 1,000 sound steps ago), 0x11 "all units" (a cop joining, a chase taken
+again; bnk.md), 0x12 "available units" (the call for help). `0x40aeb0` gives
 the place: the row of the track's table (`0x560aa0`, rows of first
 slice, end, kind, slot) for the speaking cop's slice a little ahead, or the
 nearest row, said as "at/by" (the slot, 0x40-0x5F) or "near/from"
@@ -1523,6 +1523,30 @@ weren't turned over.
   gives none); 453 → 0x41 (row 469-491, kind 1, 16 off: "at"). Each
   dispatcher's reply repeated the officer's place. So the table works
   as read, by the cop's slice.
+
+**Radio runs on other tracks** (`s7-t2`-`t4`, 200 s; `s7-L3`, `L4`,
+`L7`, 400 s, `s7-L5`, 300 s; November 2026). The same pursuit, with
+the track `0x6fd4ac` poked at `0x474ca0` (2 Atlantica, 3 Rocky Pass,
+4 Country Woods, 5 Lost Canyons, 7 The Summit). Chases began at 78 to
+90 s. Every place said fits the track's table, by the cop's slice a
+little ahead (bnk.md, The places). Rocky Pass and The Summit, which
+have no row between slices 42 and 591, gave the half mile (0x7F) nine
+times and the quarter mile (0x7E) once (`s7-L7`, slice 496, 95 slices
+before row 591-651), each with the "from" place, and the dispatcher
+repeated both.
+
+**No roll without a poke** (`s7-x1`-`x4`, 200 s; `s7-y1`-`y4`, 300 s;
+November 2026). The player's car, with no computer driver, was steered
+by `-drive` at full gas from 50 s: at cop cars 3 and 2 on Hometown
+(`x1`, `x2`), at cop car 3 on Rocky Pass (`x4`), and at car 1, the
+other racer, on Hometown, Redrock Ridge, Rocky Pass and Lost Canyons
+(`x3`, `y4`, `y2`, `y3`, `y1`). It reached 54 m/s and hit cars (within
+3 m at over 15 m/s in `y4`, 0.4 m in `x3`), but mostly stuck on walls,
+as it steers straight at its target. `-count` showed `0x403950`,
+`0x403910`, `0x40bba0` and `0x40bc30` never ran: no car went onto its
+roof, so no disabled cop and no crash was said. The strips and
+roadblocks these runs gave (dispatcher 0x31-0x33) didn't turn anyone
+over either. None of the earlier runs logged these routines.
 
 **Picking a target** (`0x402e10`, in every state but 3, 5 and 6):
 racers still in, free (+0x634 passed) and within 16 slices, scored by
@@ -2022,8 +2046,13 @@ of every access to those offsets):
   says is in bnk.md (What the radio lines say); the disabled cop, the
   crash and the places were run (above, Radio runs). Whether the
   officer's side test is ever failed on a real road wasn't run.
-  Which place line the tables give on the other tracks' roads, and the
-  quarter and half mile, weren't heard.
+  The other tracks' places and the quarter and half mile were heard
+  (above, Radio runs on other tracks). A disabled cop or a crash
+  without a poke wasn't: no car rolled in the 15 `s7-` runs (counted in
+  the eight `s7-x*`, `s7-y*`);
+  it needs a cleaner ram at speed, or a jump, than `-drive` gives.
+  Why the "from" place after Hometown's half mile wasn't started in
+  `s7-x1` is not known.
 - Why the recorded game's spike icon dims for 3 s and its racer list
   has no "over" text, when this exe hides the icon until the strip is
   cleared and shows the text: probably another build, not found.

@@ -912,9 +912,23 @@ compared by ear-proxy:
   Atlantica's and Aquatica's banks says 160 for the line the code says
   above 80.5 m/s (180 mph).
 - The dispatcher's 0x20 is "ten-four" and 0x13 "all units" twice
-  (`medium.en`); his 0x16 is "unit" and the number, swallowed. His
-  0x11 stays unclear to both models (an opener, said where a cop
-  joins); its purpose is from the code.
+  (`medium.en`); his 0x16 is "unit" and the number, swallowed.
+- **The dispatcher's 0x11 is "all units"** (`s7-speech`). It is one
+  sample, the same in `disp00`-`03` and `disp08` (identical files).
+  `large-v3` (from Hugging Face, int8 on the CPU) still can't make it
+  out unaided: raw, band-passed (250-3,600 Hz), noise-gated, slowed and
+  normalised it gives three different guesses and one blank, its
+  first word 0.44 sure at best.
+  With a short police-radio prompt it hears "all units" every time,
+  but unsure of the words (0.01-0.97). Two checks settle it. The
+  Spanish dispatcher's 0x11 is heard the same in all five forms (each
+  word 0.8 sure or more) as "to all units", in a set that matches the
+  English: 0x10 the notice to all units, 0x12 all available units,
+  0x13 all units twice. And by spectral distance (DTW over log bands)
+  the English 0x11 is nearest to each half of 0x13 (0.14), not to 0x10,
+  0x12 or other short lines (0.17-0.34). The code agrees: it is the
+  opener before "unit n" when a cop joins a chase (`0x40b330`) or takes
+  it up again (`0x40b530`).
 - The rest that differ between the models (186 lines compared, of
   `off00A`-`C`) differ in a word that doesn't change what the line is
   for (a dispatch name, a unit number's wording; 0x2C-0x2F give the
@@ -948,7 +962,8 @@ differ only in the unit numbers, the dispatch name and the places.
 Heard in runs ([physics.md](physics.md), Radio runs; the cars' roofs
 poked): a disabled cop said 0x1F then the wrecker 0x1D and a place, a
 crash 0x1B and a place, and the places along Hometown came from its
-rows as read, by the speaking cop's slice.
+rows as read, by the speaking cop's slice. The other tracks' places,
+and 0x7E and 0x7F, are under The places, below (`s7-` runs).
 
 Slots 0x18-0x19, 0x1C and 0x30 are empty, and kind 0x18 (slots
 0x0C-0x0D, `0x40b7f9`, which has no caller) has no line in any bank.
@@ -972,12 +987,50 @@ Country Woods' some of those and 0x4B-0x51 (0x4A and 0x52 are in the
 bank but in neither table); in `off02` Atlantica's uses 0x40-0x4F and
 Aquatica's goes to 0x58.
 
+The nearest row isn't looked for round the lap: a slice before the
+first row takes the first, one past the last row takes the last
+(`0x4c8470`). The distance is to the row's near end. So the quarter
+and half mile come only in long gaps that end in a kind 1 row:
+Rocky Pass and The Summit (tracks 3 and 7, bank `off03`) have kind 1
+rows at 0-42 and 591-651 and none between, and Hometown has them
+before slice 171 and past 911.
+
+**Heard on other tracks** (`s7-t2`-`t4`, `s7-L3`-`L7`, November 2026:
+the racer's pursuit of the Radio runs on tracks 2-5 and 7; physics.md).
+Each place said matched the table read above, by the speaking cop's
+slice a little ahead:
+- **Atlantica** (2, `off02`): 671 → 0x42 (in row 654-697); 745 →
+  0x44 (733-756); off the rows, all kind 0, the "near" form: 226 →
+  0x63, 436 and 523 → 0x61, 712 → 0x62.
+- **Rocky Pass** (3): 804 → 0x43 one time and 0x63 another (row
+  781-818, kind 2); 734 → 0x43; 237 and 272 → **0x7F, 0x61** (195 and
+  230 slices past row 0-42); 364-416 → **0x7F, 0x64** (175-227 before
+  row 591-651).
+- **Country Woods** (4, `off00`): 385 → 0x4D; 283 → 0x42 (12 past
+  row 264-271, kind 1: "at", under 50); 409-429 → 0x6E (row 400-406,
+  kind 0); 654 → 0x50 (45 past row 595-609, kind 1); 1364 → 0x44
+  (past the last row, kind 1).
+- **Lost Canyons** (5, `off01`): 268-280 → 0x4C, 595-604 → 0x58,
+  795 → 0x59, 1412-1417 → 0x5C, each in its row.
+- **The Summit** (7, `off03`): **496 → 0x7E, 0x64** (the quarter
+  mile: 95 before row 591-651); 163, 272 → 0x7F, 0x61; 326 → 0x7F,
+  0x64; 555 → 0x44 (36 off); 74 → 0x41; 1512 → 0x51; 1518 and 1529 →
+  0x62 (row 1551-1632, kind 0, nearer than 1463-1480).
+
+Each time the dispatcher's reply repeated the distance and the place
+(0x7E or 0x7F, then the "from" slot). On Hometown the look-ahead
+wraps past the lap's end: in `s7-x1` cop car 6 at slice 944 looked at
+slice 57, 114 before row 171-224 (kind 1), and said 0x7F (151.05 s and
+again 187.59 s, voice C, after "joining pursuit"). Both times the
+"from" place (0x63, which `off00C` has) wasn't started after it; why
+is not known.
+
 **The dispatcher banks** (`disp%02x`, entry 14):
 
 | Slot | What it is | Said by |
 |---|---|---|
 | 0x10 | "all units be advised" | `0x40aa70(0x10)`: a new chase (`0x40b220`), a strip or roadblock in place when he last spoke over 1,000 sound steps ago |
-| 0x11 | an opener, unclear to the speech models (an attention-all-units call?) | `0x40aa70(0x11)`: a cop joins (`0x40b330`), a chase taken again (`0x40b530`) |
+| 0x11 | "all units" (a short opener; `s7-speech`, above) | `0x40aa70(0x11)`: a cop joins (`0x40b330`), a chase taken again (`0x40b530`) |
 | 0x12 | calling the available units | `0x40aa70(0x12)`, the call for help (`0x40b720`) |
 | 0x13 | "all units" said twice | no caller found |
 | 0x14-0x1B | "unit" and the officer's number; slot 0x14 + the cop's index | `0x40aa90`, and `0x40a970` half the time |
