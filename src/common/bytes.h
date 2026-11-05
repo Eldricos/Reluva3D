@@ -37,6 +37,11 @@ inline void writeLE32(void* p, uint32_t v) {
     b[0] = uint8_t(v), b[1] = uint8_t(v >> 8), b[2] = uint8_t(v >> 16), b[3] = uint8_t(v >> 24);
 }
 
+inline void writeBE32(void* p, uint32_t v) {
+    uint8_t* b = static_cast<uint8_t*>(p);
+    b[0] = uint8_t(v >> 24), b[1] = uint8_t(v >> 16), b[2] = uint8_t(v >> 8), b[3] = uint8_t(v);
+}
+
 // A four-character code as little-endian files store it: 'R','I','F','F'
 // read with readLE32.
 constexpr uint32_t tagLE(char a, char b, char c, char d) {

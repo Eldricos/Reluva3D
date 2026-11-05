@@ -62,9 +62,18 @@ set(tests ${PROJECT_SOURCE_DIR}/tests/engines/stgenerations)
 reluva_add_engine_tests(stgenerations
     SOURCES
         ${tests}/unit/detection.cpp
+        ${tests}/unit/formats.cpp
+        ${tests}/unit/script.cpp
+        ${tests}/unit/level.cpp
+        ${tests}/unit/hud.cpp
+        ${tests}/unit/combat.cpp
+        ${tests}/unit/campaign.cpp
+        ${tests}/unit/sound.cpp
+        ${tests}/unit/canvas.cpp
+        ${tests}/unit/audio.cpp
         ${tests}/engine.cpp
     TOPICS
-        unit.detection engine)
+        unit.detection unit.formats unit.script unit.level unit.hud unit.combat unit.campaign unit.sound unit.canvas unit.audio engine)
 
 # Its engine test with the game's own files, when it has one (see
 # docs/DEVELOPMENT.md, Engine tests):

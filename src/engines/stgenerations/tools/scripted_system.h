@@ -50,6 +50,16 @@ public:
         e.type = reluva::EventType::MouseUp;
         schedule(at + 70, e);
     }
+    // Typed text, a character at a time, while the game takes text.
+    void type(uint64_t at, const std::string& text) {
+        for (char c : text) {
+            reluva::Event e;
+            e.type = reluva::EventType::TextInput;
+            e.text[0] = c;
+            schedule(at, e);
+            at += 30;
+        }
+    }
     void quit(uint64_t at) {
         reluva::Event e;
         e.type = reluva::EventType::Quit;

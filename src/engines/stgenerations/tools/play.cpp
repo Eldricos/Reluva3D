@@ -10,6 +10,8 @@
 #include "common/md5.h"
 #include "common/stream.h"
 #include "common/text.h"
+#include "common/log.h"
+#include "engines/stgenerations/debug.h"
 #include "engines/stgenerations/game/generations.h"
 #include "engines/stgenerations/game/random.h"
 #include "engines/stgenerations/platform.h"
@@ -61,8 +63,8 @@ int cmdPlay(int argc, char** argv) {
         std::fprintf(stderr,
                      "usage: reluva-tool stgenerations play <game folder> [--cd1 <dir>] [--cd2 <dir>] [--viewer]\n"
                      "       [--story <section>] [--combat <n>] [--seed <n>] [--saves <dir>] [--until <ms>]\n"
-                     "       [--key <ms>:<name>] [--click <ms>:<x>,<y>] [--rclick <ms>:<x>,<y>]\n"
-                     "       [--shot <ms>:<file.png>] [--frames]\n");
+                     "       [--key <ms>:<name>] [--click <ms>:<x>,<y>] [--rclick <ms>:<x>,<y>] [--type <ms>:<text>]\n"
+                     "       [--shot <ms>:<file.png>] [--frames] [--debug <level>] [--channels resources,scripts,sound]\n");
         return 2;
     }
     Options options;
@@ -88,6 +90,12 @@ int cmdPlay(int argc, char** argv) {
         else if (a == "--saves") saves = v, ++i;
         else if (a == "--until") until = std::strtoull(v, nullptr, 10), ++i;
         else if (a == "--frames") listFrames = true;
+        else if (a == "--debug") log::setDebugLevel(std::atoi(v)), ++i;
+        else if (a == "--channels") {
+            for (const std::string& c : text::split(v, ','))
+                enableDebugChannel(c);
+            ++i;
+        }
         else if (a == "--key" && timeAndRest(v, at, rest)) {
             const uint32_t k = keyNamed(rest);
             if (k == key::Unknown) {
@@ -101,6 +109,9 @@ int cmdPlay(int argc, char** argv) {
             if (std::sscanf(rest.c_str(), "%d,%d", &x, &y) != 2)
                 return 2;
             sys.click(at, x, y, a == "--click" ? MouseButton::Left : MouseButton::Right);
+            ++i;
+        } else if (a == "--type" && timeAndRest(v, at, rest)) {
+            sys.type(at, rest);
             ++i;
         } else if (a == "--shot" && timeAndRest(v, at, rest)) {
             shots[at] = rest;
