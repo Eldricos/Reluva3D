@@ -106,16 +106,25 @@ public:
         }
         return false;
     }
+    // Sound output as a backend's: pulled as time passes.
+    Error startAudio(AudioCallback callback) override {
+        audio_ = std::move(callback);
+        return Error::success();
+    }
+    void stopAudio() override { audio_ = nullptr; }
     void delayMillis(uint32_t ms) override {
         HeadlessSystem::delayMillis(ms);
         // The mixer plays on as time passes.
-        if (mixer_) {
+        if (mixer_ || audio_) {
             pending_ += uint64_t(ms) * uint64_t(audioRate());
             const int frames = int(pending_ / 1000);
             pending_ %= 1000;
             if (frames > 0) {
                 scratch_.resize(size_t(frames) * 2);
-                mixer_->mix(scratch_.data(), frames);
+                if (audio_)
+                    audio_(scratch_.data(), frames);
+                else
+                    mixer_->mix(scratch_.data(), frames);
             }
         }
     }
@@ -126,6 +135,7 @@ public:
 private:
     std::deque<Scheduled> events_;
     audio::Mixer* mixer_ = nullptr;
+    AudioCallback audio_;
     uint64_t pending_ = 0;
     std::vector<int16_t> scratch_;
     PixelFormat format_ = PixelFormat::CLUT8;
