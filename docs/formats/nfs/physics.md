@@ -1634,6 +1634,39 @@ times and the quarter mile (0x7E) once (`s7-L7`, slice 496, 95 slices
 before row 591-651), each with the "from" place, and the dispatcher
 repeated both.
 
+**Why `s7-x1` lost the "from" place** (`c8-q1`-`q3`, November 2026:
+`s7-x1` run again, `ram.sh x1 200 0 -drive 0x5e1120:0x5e2e24:50000`,
+with `0x4c8653` (a line queued; edi the count before), `0x4c85ce` (a
+line handed over with channel 0 free; ecx `0x560118`), `0x4c8b30`,
+`0x4c8aeb`, `0x4c8ad7` and `0x401e40` watched). The run repeats `s7-x1`
+line for line. **The second line was queued; a stop of the player
+then flushed the queue.**
+- At 140.17 s cop 6 (index 4, voice C) joined (`0x40b330`, room 4 of
+  11 with 7 queued) and queued its call sign 0x14, the car line, 0x7F,
+  **0x63** (queue places 7-10), a click, the dispatcher's 0x18 and 0x20
+  and a click: 15 queued. The room test asked for 4 of the 8 lines,
+  but the 16 places held them all (`0x4c8653`: none at 16); nothing
+  was refused. The dispatcher's own call (`0x40a910(3)`, 11 queued)
+  had no room, so he gave only the short reply.
+- 151.05 s: 0x7F started (`off00C` slot 127, 0.84 s). 151.10 s: cop 7
+  queued a new call (9 lines, places 5-13).
+- 151.495 s: cop 3's stop of the player began (`0x401e40`; cop 6's at
+  151.503 s). `0x4c8b30` (player 0, 3 tickets left) muted channel 0
+  (`SNDvol` 0: the 0x7F was cut 0.45 s in) and set `0x560118`.
+- 151.90-152.27 s: as each muted or skipped line "ended", `0x4c86d0`
+  handed the next to `0x4c85a0` and took it off the queue. With the
+  channel free and `0x560118` set, `0x4c85a0` neither starts nor keeps
+  it (`0x4c85d0`). All 14 went, 0x63 first, about two each 0.06 s.
+- 157.59 s: the `copspch` line over, `0x4c8ac0` cleared `0x560118`
+  (`0x4c8aeb`). The next line was a new call at 166.26 s.
+- The second time is the same: 0x7F at 187.59 s, cop 4's stop of the
+  player at 188.08 s (2 tickets left), 10 queued lines dropped, 0x63
+  among them; `copspch` over at 194.19 s.
+
+So any line queued when a computer cop's stop of a human racer starts
+is lost, and the line playing is muted. `off00C` has slot 0x63 (`bnk-info`:
+present, 1.00 s); no priority, room or timer is involved.
+
 **No roll without a poke** (`s7-x1`-`x4`, 200 s; `s7-y1`-`y4`, 300 s;
 November 2026). The player's car, with no computer driver, was steered
 by `-drive` at full gas from 50 s: at cop cars 3 and 2 on Hometown
@@ -1646,6 +1679,93 @@ as it steers straight at its target. `-count` showed `0x403950`,
 roof, so no disabled cop and no crash was said. The strips and
 roadblocks these runs gave (dispatcher 0x31-0x33) didn't turn anyone
 over either. None of the earlier runs logged these routines.
+
+**What a disabled cop or a crash needs, from the code** (read,
+November 2026: `callers`, `gxref`, `gdecomp`, the disassembly).
+- **One way in each.** `0x403950` is called only at `0x40331c` and
+  `0x403910` only at `0x403781`, both in the computer cop's turn
+  `0x4032e5`; `0x40bba0` is called only from `0x403950` (`0x403961`)
+  and `0x40bc30` only from `0x403910` (`0x40392a`). Both turn on
+  `0x402c80` (+0x10C below 0 and +0x164, the air ticks, 0). No damage,
+  wall, hit or timer reaches them, and nothing else says 0x1B or
+  0x1E-0x1F.
+- **The disabled cop**: at every turn of every computer cop, in any
+  state, before the state switch (`0x40330f`); the turn comes every 8
+  steps (`0x40df10` → `0x401240`), so the cop need lie on its roof only
+  up to 1/8 s to be seen. Said once (+0x711 bit 0x10, set at
+  `0x403966`; cleared at `0x403323` at a turn the cop is not on its
+  roof), with room for 4 lines (`0x40bba0`: `0x40a910(4)`, so at most 7
+  queued). The player is never such a cop: `0x4032e5` drives only
+  computer cops, and with one player as the cop `0x474640` makes none
+  (`g_num_ai_cops` 0; 2 only with the `-msdemo` command-line flag,
+  `0x55eb2c` bit 21).
+- **The crash**: only in state 5, after the stop test (`0x402110` at
+  `0x403745`) has returned 0, when the target (+0x624) is on its roof
+  (`0x403776`); then the rest of the turn is skipped. Once a record
+  (+0x54 bit 8, tested at `0x403922`, set at `0x40393b` even when
+  `0x40bc30` found no room for its 3 lines).
+- **What +0x10C is.** Only `0x4a2690` writes it (`0x4a26ef`, and 1.0
+  at `0x4a0e5b` when a car is put on a slice): the car's up row · the
+  road's up (+0x130). So "on its roof" is against the road, not the
+  world.
+- **Only flat on the roof counts.** `0x4a2830` sets +0x164 to 1 (air
+  mode) whenever `0x49fde0` says |+0x10C| ≤ 0.9; in a pursuit
+  (`0x6fd4a0` 0, `0x4746bd`) that is its only test. The landing
+  (`0x4a1ce0`) clears +0x164 only when |+0x10C| > 0.9, every spin under
+  0.6, the speed into the road under 0.5 and the clearance 0 or less.
+  So a car is on the ground only within 25° of flat on its wheels or
+  on its roof, and `0x402c80` is true only for +0x10C under −0.9. A
+  car on its side stays in air mode and never counts.
+- **No roll on the road.** On the ground `0x4a1610` writes the roll and
+  pitch rates (+0xE4, +0xEC) every tick: towards the road plane, at
+  most 0.5 rad/s, on the side the car is on (the sign of +0x10C), or 0
+  once within 0.02 (`0x4a1b18`-`0x4a1cc6`). Tyre torque (`0x4ae391`)
+  and hits are written over. A car turns over only in air mode: in the
+  air (clearance over 0.6, spins held within ±2.4 rad/s, `0x4a20c0`)
+  or tipped past 25°, where the box's corners are pushed out of the
+  road (`0x4a1210` → `0x42ee10`). To be seen, it must turn 155° or more
+  from flat before it comes to rest.
+- **The reset gives time.** `0x429260` (from `0x42b900`, 32 times a
+  second) starts the timer +0x8A0 at 700 (`0x5efdc0`, set at
+  `0x42c5f4`; 175 with `0x6fd4a0`, not in a pursuit) when the car is
+  tipped (its up · the road's under 0.75, 41°), on surface 0 or 0xE,
+  or +0x184 is set (`0x429452`). Each tick takes 1 (a computer car, or
+  +0x10C under 0.1), 2 more (+0x20 or +0x24 0, or those surfaces), 8
+  more (on the ground under 1 m/s), 1 more (a human tipped with the
+  gas over 200). At 0, `0x428f90` puts the car 5 slices on
+  (`0x5efdcc`), 1.5 m up and still. A car at rest on its roof is
+  moved within about 78 ticks (2.4 s), long enough for a cop's turn;
+  one on its side, in air mode, within about 7 s.
+
+**Rolls by keys** (`c8-f1`, `c8-f2`, `c8-r1`, `c8-r2`, November 2026:
+the racer's pursuit, only the race type and the track poked at
+`0x474ca0`, the player's car by fixed keys; `-count` on `0x403950`,
+`0x403910`, `0x40bba0`, `0x40bc30`, `0x428f90` and `0x429452`).
+- Hometown (`c8-f1`, `c6-h2`'s keys, then keypad 6 and 4 pulses with
+  the gas held): cop 3 took the player at 138.48 s and cop 6 joined
+  (146.15 s), as in `c6-h2`; their stops began at 150.23 and 150.29 s
+  and cop 6 gave the ticket at 156.26 s. `c8-f2`: the gas from the
+  start (50 s).
+- Redrock Ridge (`c8-r1`, `c8-r2`): the gas from the start, two steering
+  pulses. The road's points (`tr01.col`) have a crest at slice 78, 467
+  m from the line, where the road drops to −7.7°: a car leaves the
+  ground there above about 43 m/s (g over the crest's curvature). Both
+  went over it at 39-41 m/s and on to 47-49 m/s, then hit a wall at
+  slice 104 (`c8-r2`: 49.3 m/s to 0.5 m/s in a second) or 123 (`c8-r1`).
+  The car dumps (each second) show +0x10C 1.00 throughout.
+- In all four `0x429452` never ran: no car of the eight tipped even 41°
+  against the road, and no reset came (`0x428f90` 0). None of the
+  four routines ran. The player was never chased in `c8-r1`/`r2`.
+- So a disabled cop or a crash isn't reached this way: wall and car
+  hits at up to 49 m/s leave the car flat (the on-road code takes out
+  any roll), and a crest gives seconds of flight at best with no roll
+  rate to turn it over. Other long drops: Hometown slice 199 (in the
+  covered bridges, the road drops 16°; off at about 29 m/s), Rocky Pass
+  and The Summit slice 311 (17.6°, 30 m/s), Lost Canyons and Redrock
+  360 (35 m/s); the `s6-`/`s7-` chases ran through Hometown's covered
+  bridges with no roll. Not tried: a car that leaves the ground
+  while hit from the side (a roll rate from `0x42ee10` kept in the
+  air), or a car landing on another.
 
 **Picking a target** (`0x402e10`, in every state but 3, 5 and 6):
 racers still in, free (+0x634 passed) and within 16 slices, scored by
@@ -2182,12 +2302,20 @@ of every access to those offsets):
   crash and the places were run (above, Radio runs). Whether the
   officer's side test is ever failed on a real road wasn't run.
   The other tracks' places and the quarter and half mile were heard
-  (above, Radio runs on other tracks). A disabled cop or a crash
-  without a poke wasn't: no car rolled in the 15 `s7-` runs (counted in
-  the eight `s7-x*`, `s7-y*`);
-  it needs a cleaner ram at speed, or a jump, than `-drive` gives.
-  Why the "from" place after Hometown's half mile wasn't started in
-  `s7-x1` is not known.
+  (above, Radio runs on other tracks). Why the "from" place after
+  Hometown's half mile wasn't started in `s7-x1` is settled (`c8-q1`-`q3`,
+  above): a stop of the player began 0.45 s into the 0x7F line, and
+  `copspch` muted it and flushed the 14 lines queued behind it. A
+  disabled cop or a crash without a poke is still not heard: only a
+  car flat on its roof (+0x10C under −0.9, on the ground) reaches
+  them, there is no damage, wall or timer path, and the on-road code
+  takes out any roll (above, What a disabled cop or a crash needs). No
+  car rolled in the 15 `s7-` runs nor in the four keys-only `c8-f*`,
+  `c8-r*` runs, where no car even tipped 41° (`0x429452` never ran),
+  with wall hits at up to 49 m/s and Redrock's crest at 40 m/s. Left
+  open: whether any reachable situation (a car hit from the side as it
+  leaves the ground, one landing on another) turns a car over; with
+  the player as the only cop no computer cop exists to say either.
 - Why the recorded game's spike icon dims for 3 s and its racer list
   has no "over" text, when this exe hides the icon until the strip is
   cleared and shows the text: probably another build, not found.

@@ -960,7 +960,8 @@ differ only in the unit numbers, the dispatch name and the places.
 | 0x7E, 0x7F | "a quarter mile", "a half mile", said before a "from" place | `0x40aeb0`: 0x7F when the nearest place is over 100 slices off, 0x7E over 50 |
 
 Heard in runs ([physics.md](physics.md), Radio runs; the cars' roofs
-poked): a disabled cop said 0x1F then the wrecker 0x1D and a place, a
+poked: no car turned over in the runs without it; physics.md, What a disabled cop
+or a crash needs): a disabled cop said 0x1F then the wrecker 0x1D and a place, a
 crash 0x1B and a place, and the places along Hometown came from its
 rows as read, by the speaking cop's slice. The other tracks' places,
 and 0x7E and 0x7F, are under The places, below (`s7-` runs).
@@ -1022,8 +1023,12 @@ Each time the dispatcher's reply repeated the distance and the place
 wraps past the lap's end: in `s7-x1` cop car 6 at slice 944 looked at
 slice 57, 114 before row 171-224 (kind 1), and said 0x7F (151.05 s and
 again 187.59 s, voice C, after "joining pursuit"). Both times the
-"from" place (0x63, which `off00C` has) wasn't started after it; why
-is not known.
+"from" place (0x63) was queued but never started. `off00C` has slot
+0x63 (`bnk-info`: 1.00 s), and the queue had room (15 of 16). A
+computer cop's stop of the player began 0.45 s into the 0x7F: the
+`copspch` line (`0x4c8b30`) muted the radio and set `0x560118`, and
+while that is set every queued line handed to `0x4c85a0` is dropped
+(`c8-q1`-`q3`, physics.md: Why `s7-x1` lost the "from" place).
 
 **The dispatcher banks** (`disp%02x`, entry 14):
 

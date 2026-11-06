@@ -340,7 +340,7 @@ FUNCS = {
   0x4c7610: ('polys_depth_sort', None, '(list) into 800 buckets by +0x1C, farthest first'),
   0x412d60: ('car_lap_music', CAR, 'lap handler: music lap, the control value (0x4133ad-0x41352a), reset timer event 0'),
   # c3 (Hot Pursuit radio, officer side, shared stops, November 2026)
-  0x4c85a0: ('radio_line_play', None, '(record of 9 dwords: slot, vol, pitch, pan, bank, channel, kind, -, car) start on channel 0/1 or queue (16, 0x7dd398)'),
+  0x4c85a0: ('radio_line_play', None, '(record of 9 dwords: slot, vol, pitch, pan, bank, channel, kind, -, car) start on channel 0/1 or queue (16, 0x7dd398); dropped when the channel is free and 0x560118 is set (copspch), so 0x4c86d0 empties the queue then'),
   0x4c86d0: ('radio_queue_step', None, '(channel) from the sound step: next queued radio line when the last ends'),
   0x40a910: ('radio_has_room', None, '(n, kind) 0 when n + queued > 11; 2 when kind == 0x5524f0'),
   0x40a410: ('radio_say', None, '(ch, who, slot, cop) who 0 dispatcher (entry 14), else officer bank by cop index mod 8 (table 0x40a3f0)'),
@@ -389,6 +389,14 @@ FUNCS = {
   0x4032e5: ('cop_ai_turn', CAR, 'a computer cop\'s turn: on its roof -> radio once (0x403950); the states (table 0x4032a4); a target on its roof -> radio once a record (0x403910)'),
   0x403910: ('cop_ai_target_crashed', CAR, 'target on its roof: kind 0x23 once a record (+0x54 bit 8), even when the radio had no room'),
   0x403950: ('cop_ai_disabled', CAR, 'cop on its roof: kinds 0x19/0x1A once (+0x711 bit 0x10, cleared when upright again)'),
+  # c8 (rolls and the dropped place line, November 2026)
+  0x49fde0: ('car_flat_or_roof', CAR, '1 when |upright| > 0.9 (with 0x6fd4a0 and a human: upright < -0.9 or > 0.5); 0 puts the car in air mode (0x4a2830), and the landing ends only on 1'),
+  0x429260: ('car_reset_timer', CAR, '+0x8A0: 700 (0x5efdc0) when tipped (up . road up < 0.75), surface 0/0xE or +0x184; -1/-2/-8/-1 a tick; at 0 -> 0x428f90'),
+  0x428f90: ('car_reset_tipped', CAR, 'tipped, spinning, off the surface or in the air: put 5 slices on (0x5efdcc), 1.5 m up, still'),
+  0x4a20c0: ('car_air_spin_clamp', CAR, 'in the air: spins held within +-2.4'),
+  0x42ee10: ('car_contact_impulse', CAR, 'impulse at a contact point (walls 0x4304b0, cars 0x42efe0, body under the road 0x4a1210)'),
+  0x4c8ac0: ('copspch_end_check', None, 'from 0x4c86d0: a copspch line over -> clears 0x560118'),
+  0x4c8370: ('radio_reset', None, 'race set-up (0x4129c0, from 0x4c45f0): radio channels and queues empty, 0x560118 0'),
   0x41d210: ('track_placed_sounds', None, 'the .frd sounds near the camera: kind 0 a loop on slot 18, kind 1 one-shots at random moments on slot 19 (track bank, entry 3)'),
   0x51f750: ('mmx_mix16_mono_setup', None, 'MMX path: sets the voice\'s mixer 0x51f7ad and its level set-up 0x51f774'),
   0x51f774: ('mmx_mix16_mono_levels', None, '(levels, L, R) four words L*256, four words R*256'),
