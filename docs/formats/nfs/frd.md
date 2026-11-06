@@ -252,6 +252,58 @@ the slice's `.col` point) at 12,667 of the 9 tracks' 12,706 slices,
 and a polygon's corners are 0 front left, 1 front right, 2 back right,
 3 back left, so side 1 is the left and side 2 the right (November
 2026, from the files and the runs `d2-w1`, `d2-w2`; physics.md, +0xC).
+
+**The 39 other slices** (November 2026, from `tr02.frd` and `tr02.col`
+read with the repo's readers and a script outside the repo) are
+Atlantica's slices 429-448 and 500-518 (blocks 53-56 and 62-64): two
+stretches where the road runs under a roof, a flat ceiling 19.1 units
+above the road (7.3 at 500-518), reaching from the wall on the road's
+left to 13-30 units right of the `.col` point, and open on the right.
+There the run is the cross-section from the roof's right end: the roof
+from right to left (3 polygons, facing down), down the left wall (3
+upright polygons at 429-448, 1 at 500-518), then the road and its edge
+from left to right as at every other slice. It isn't a fork, a second
+level or a reversed list: the polygons chain as everywhere (vertices 0
+and 3 of each are vertices 1 and 2 of the one before it), and none is
+degenerate except one road triangle (slice 503). Facing down, the roof
+polygons have corner 0 at the front right. The roofs and walls of other
+tracks' tunnels and overhangs (Rocky Pass slice 380, Atlantica 220)
+come at the run's end, after the right wall, so the check finds those
+runs in order. The roof and wall polygons' road records have surface
+14 (record byte 1 & 0xF).
+
+What the road finding does there (read from `0x41e990` and run in a
+model of its loops over the dumped runs, not in the game): its inside
+tests are on x and z only; a polygon of surface 14 is never taken as
+found; and each walk, up from the middle and down from the one below
+it, stops at a surface-14 polygon once the sum |dx| + |dz| from the
+point to its corners 0 and 2 grows (`0x41ebe3`-`0x41eca5`, and the same
+before `0x41ef49`). So the middle polygon it starts from, (count − 1)/2,
+is a piece of the left wall here, and:
+
+- a point on the road is found in the same road polygon as at a slice
+  without the roof;
+- a point right of the road gets side 2, as everywhere (`0x41ebd7`: not
+  inside the last polygon, but on its side of the edge it shares with
+  the one before);
+- a point left of the road, inside the wall, gets side 1 or none. Side
+  1 (`0x41ee86`) needs the down walk to reach the first polygon, and is
+  then tested against that polygon's edge 1-2; on a roof polygon,
+  mirrored, that edge's inner side is to its left, so side 1 still
+  means the left. In the model, of 195 points 0.5-8 units beyond the
+  `.col` left wall in these slices 82 got side 1 and 113 none (the
+  walk stopped on the roof); none got side 2, and no point right of
+  the road got side 1. When +0x70 is kept from a failed search, a point
+  that stays there gets side 1 and none at alternate calls.
+
+So the marks keep their meaning. A missing side 1 doesn't change the
+wall: those points are behind the left wall; a car's corner there has
+no polygon either way (off the road, `0x430350`); and `0x41fd60` adds
+bit 1 from the car's own polygon's edge 1-2 whenever the corner's
+polygon isn't the car's. That holds while the car's centre is on the
+leftmost road polygon, 3 units wide here. This wasn't checked by
+driving into those walls.
+
 The byte
 at 3 is the music zone, 4-9: the game
 sends it to the Pathfinder map as an event when the car nears a slice

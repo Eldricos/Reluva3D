@@ -108,6 +108,33 @@ are driven by `0x40bf50` from their 0b statuses (`0x42c4c4`), and the
 results are made to agree with 0c. Where the front end would set Hot
 Pursuit it sets Knockout instead (`0x452b11`).
 
+**The CD's `Patch/npspatchnfs3.exe` isn't that DLL** (November 2026,
+unpacked outside the repo: the MS cabinet in the file's overlay at
+0x182C3 with cabextract, its `data1.cab` with unshield; the PE files'
+exports, imports, version resources and strings, not their code). It
+is an InstallShield 5 self-extracting installer (stub dated
+1997-12-17, files 1998-11-18) of EA's "Network Play System
+(Patching)" 1.02, the auto-updater the CD's `Patch/README.txt`
+describes ("Need for Speed III Update Check"). It installs
+`npspatch.exe` (PatchClient 2.0, 1998-11-12), `npspatch.dll` (2.0,
+exporting only `NPSDoUpdate` and `NPSAbortUpdate`; WinSock TCP of its
+own), Pocket Soft's RTPatch 4.11 `patchw32.dll` (`RTPatchApply32`...),
+`NPSExec.exe`, seven `npspNNNN.dll` string DLLs and the MSVC/MFC
+runtimes, and writes the patch server `nps-patch.ea.com:4556` and the
+versions under `HKLM\SOFTWARE\Electronic Arts\Network Play System`.
+A second script (`nfs3\setup.ins`) finds the game through `App
+Paths\nfs3.exe` and its program group and adds the Update Check
+shortcut to `NPSPatch.exe /PACKAGE` with the package `nfs3.exe`.
+Whatever patches there were came from that server at run time: the
+package holds no `nfs3.exe`, no RTPatch file and nothing that patches
+the game, and no file in it exports or names `NPSSendMessage`,
+`NPSConnectToServer`, `NPSAddCommChannel` or any other of the 33
+`NPS...` entries the game looks up (`0x4a54f0`). `npspatch.exe` only names a DLL type
+`NPSClientDLL` among those it can load from the `...\Network Play
+System\DLL` key. So the online service's client DLL isn't on the CD in
+this form either, and the patched copy below is a byte patch made for
+these captures, not EA's.
+
 **Captured with positional updates.** In a copy of the game (`nfs3.exe`
 patched: `0x43f43e` and `0x43f451` store 1, so Connect Players turns
 `0x6fd50c` on), two copies raced Hometown over TCP as before. No 06 went
@@ -786,7 +813,12 @@ was the lower.
   (Messages, 09). No run used a joystick over the network.
 - 0b, 0c and 0d were captured only from a patched copy: the unpatched
   game sends them only when launched by EA's online service, whose NPS
-  DLL isn't on the CD. The Positional/Controller pair is built but never
+  DLL isn't on the CD. The patched copy is a byte patch of these
+  captures (Positional updates), not EA's: the CD's
+  `Patch/npspatchnfs3.exe`, checked November 2026, is the installer
+  of EA's auto-updater and holds no game code, no patch of `nfs3.exe`
+  and no NPS client DLL (Positional updates). The
+  Positional/Controller pair is built but never
   shown (count 2 at `0x43f4b2`); whether some build showed it isn't known.
 - Settled (November 2026, Bit 0x80): a strip was laid in a network
   game through the lobby's menus (`c7-net10`), and only the S press
@@ -799,7 +831,9 @@ was the lower.
   session is abandoned. Settled too (read, not run): `0x4a5d10`'s
   send (`0x7a22e4` 2) is one `NPSSendMessage` call with no retry or
   failure handling (At the limit). Left open: what the NPS DLL itself
-  does with a send, as the DLL isn't on the CD.
+  does with a send (transport, framing, retries), as the DLL isn't on
+  the CD: not even in `Patch/npspatchnfs3.exe`, whose updater DLL
+  exports only `NPSDoUpdate` and `NPSAbortUpdate` (Positional updates).
 - What other EA games put in `dec`'s +0x4C-0x5B (zero from this one,
   which never reads them: IPX, `dec`). Settled: `add`'s +0x1C is the
   game's password, empty from this game, checked by the host only
