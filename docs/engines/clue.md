@@ -535,7 +535,15 @@ As the original, from its recordings and its How to Play texts:
   (not a door's square, not one of the floor pieces with key 1100)
   walks the suspect there, round the furniture, and moves it nowhere in
   the game; a move being planned is dropped (`Clue.exe` 0x423B5B,
-  0x424900). Reluva finds the way through the room's free 32-unit cells.
+  0x424900). The way is `Clue.exe`'s way-finder's (0x41A0C0), over the
+  house's 32-unit cells (their middles the points; blocked under things'
+  boxes, 0x427FC0, not under the suspects): breadth first from the
+  suspect's cell to the one clicked, stepping up, down, right, left, then
+  up-right, down-right, down-left, up-left, to cells free and in the room,
+  a slanting step only where neither cell it passes between is blocked;
+  then back from the cell clicked to the first such cell a step nearer
+  each time. The walk goes through those cells' middles. Reluva does the
+  same.
 - **No Die Roll**: the first icon shows the moves left; plan the move
   the same way and click its last square again (or the icon) to walk.
   Suggesting, accusing and the secret passages cost three moves.

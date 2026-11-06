@@ -700,35 +700,63 @@ std::deque<std::pair<int, int>> Play::roomRoute(int worldX, int worldY) const {
                 if (t.time == 1100)
                     return {};
     const Walker& w = walkers_[size_t(s)];
-    // Through the room's free 32-unit cells, eight ways (not across a
-    // blocked corner): the shortest way, by a search from where it stands.
+    // Clue.exe's way-finder (0x41A0C0), over the house's 32-unit cells (their
+    // middles the points, 0x421100; blocked where a thing's box stands,
+    // 0x427FC0): from the suspect's cell, breadth first, until the cell
+    // clicked is reached. A step goes up, down, right, left, then up-right,
+    // down-right, down-left, up-left, to a cell not blocked and in the same
+    // room; a slanting step only when neither cell it passes between is
+    // blocked. Then back from the cell clicked, each time to the first cell
+    // in that order that is free, in the room and a step nearer; the way is
+    // those cells, the suspect's own left out.
     using Cell = std::pair<int, int>;
-    const auto inRoom = [&](const Cell& c) {
-        return !blocked_.count(c) && board_.roomAt(Board::squareAt(c.first * 32 + 16, c.second * 32 + 16)) == room;
+    const auto blocked = [&](const Cell& c) { return blocked_.count(c) != 0; };
+    const auto open = [&](const Cell& c) {
+        return !blocked(c) && board_.roomAt(Board::squareAt(c.first * 32 + 16, c.second * 32 + 16)) == room;
     };
+    static const int kStep[8][2] = {{0, -1}, {0, 1}, {1, 0}, {-1, 0}, {1, -1}, {1, 1}, {-1, 1}, {-1, -1}};
     const Cell from{cell32(w.x), cell32(w.y)}, to{cell32(worldX), cell32(worldY)};
-    if (!inRoom(to) || from == to)
+    if (!open(to) || from == to)
         return {};
-    std::map<Cell, Cell> came{{from, from}};
-    std::deque<Cell> open{from};
-    while (!open.empty() && !came.count(to) && came.size() < 4096) {
-        const Cell c = open.front();
-        open.pop_front();
-        for (int dy = -1; dy <= 1; ++dy)
-            for (int dx = -1; dx <= 1; ++dx) {
-                const Cell n{c.first + dx, c.second + dy};
-                if ((dx || dy) && !came.count(n) && inRoom(n) &&
-                    (!dx || !dy || (inRoom({c.first + dx, c.second}) && inRoom({c.first, c.second + dy})))) {
-                    came[n] = c;
-                    open.push_back(n);
-                }
-            }
+    std::map<Cell, int> steps{{from, 0}};
+    std::deque<Cell> queue{from};
+    bool reached = false;
+    while (!queue.empty() && steps.size() < 4096) {
+        const Cell c = queue.front();
+        queue.pop_front();
+        if (c == to) {
+            reached = true;
+            break;
+        }
+        for (const auto& d : kStep) {
+            const Cell n{c.first + d[0], c.second + d[1]};
+            if (steps.count(n) || !open(n))
+                continue;
+            if (d[0] && d[1] && (blocked({c.first, c.second + d[1]}) || blocked({c.first + d[0], c.second})))
+                continue;
+            steps[n] = steps.at(c) + 1;
+            queue.push_back(n);
+        }
     }
-    if (!came.count(to))
+    if (!reached)
         return {};
     std::deque<std::pair<int, int>> route;
-    for (Cell c = to; c != from; c = came.at(c))
+    Cell c = to;
+    for (int k = steps.at(to); k > 0; --k) {
         route.push_front({c.first * 32 + 16, c.second * 32 + 16});
+        bool back = false;
+        for (const auto& d : kStep) {
+            const Cell n{c.first + d[0], c.second + d[1]};
+            const auto it = steps.find(n);
+            if (it != steps.end() && it->second == k - 1 && open(n)) {
+                c = n;
+                back = true;
+                break;
+            }
+        }
+        if (!back)
+            return {};
+    }
     return route;
 }
 
@@ -1475,6 +1503,9 @@ void Play::clickView(int x, int y) {
     // 0x423B5B), whether or not it may move.
     if (game_.place(s).inRoom() && board_.roomAt(sq) == game_.place(s).room &&
         std::none_of(board_.doors().begin(), board_.doors().end(), [&](const Board::Door& d) { return d.inside == sq; })) {
+        const Walker& w = walkers_[size_t(s)];
+        if (cell32(wx) == cell32(w.x) && cell32(wy) == cell32(w.y))
+            return; // where it stands: a way of no steps, nothing to do
         if (roomRoute(wx, wy).empty())
             sound("nogo.wav");
         else

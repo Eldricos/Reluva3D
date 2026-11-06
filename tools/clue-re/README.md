@@ -66,6 +66,7 @@ the repository's root after a build:
 | `harness/doors*`, `bd`, `near`, `rel`, `boxoff`, `fr`, `tim`, `ftim`, `levels*`, `wholehouse`, `lookrender`, `sameview`, `idbuf*`, `windows`, `tickone` | Questions about the board, the drawing order, boxes, lighting and the house's look, one each. |
 | `harness/harness` | Drives Reluva headless by a script of keys, clicks and waits, saving screenshots: `harness clue <game> <out> wait:2 key:x click:320,96 shot:name ...` |
 | `harness/fullgame`, `netgame` | Whole games, alone and over the network, without a display. |
+| `harness/roomwalk` | Walks about a room: the ways to its cells from where the suspect stands, and the walk the `RoomWalk` command plays (`roomwalk <game> <room>`). |
 
 ## Recordings (`py/`)
 
