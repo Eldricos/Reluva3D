@@ -12,21 +12,28 @@
 #include "tests/common/data/tone440_mp3.h"
 #include "tests/common/data/x86_testdll.h"
 #include "common/archive.h"
+#include "common/bmp.h"
+#include "common/bytes.h"
 #include "common/config.h"
+#include "common/cursor.h"
 #include "common/dcl.h"
 #include "common/detection.h"
 #include "common/draw.h"
 #include "common/font.h"
 #include "common/fs.h"
+#include "common/headless_system.h"
 #include "common/gfx3d.h"
 #include "common/image.h"
 #include "common/md4.h"
 #include "common/md5.h"
 #include "common/net.h"
 #include "common/palette.h"
+#include "common/serializer.h"
 #include "common/settings.h"
 #include "common/stream.h"
 #include "common/text.h"
+#include "common/video/avi.h"
+#include "common/video/cinepak.h"
 #include "common/video/smacker.h"
 #include "common/x86/cpu.h"
 #include "common/x86/disasm.h"
@@ -354,6 +361,12 @@ static void testZip(const std::filesystem::path& tmp) {
     damaged[30 + 5] = 'X'; // the file's data, after the 30-byte header and name
     test::writeFile(path, damaged);
     CHECK(!zip.open(path) && zip.read("a.txt", data));
+    // Unchecked, a stored entry is read as it is, saying its CRC is wrong.
+    bool crcOk = true;
+    CHECK(!zip.readUnchecked(*zip.entry("a.txt"), data, crcOk) && !crcOk && data == toBytes("Xbc"));
+    test::writeFile(tmp / "good.zip", test::buildZip({{"a.txt", toBytes("abc"), {}}}));
+    CHECK(!zip.open(tmp / "good.zip") && !zip.readUnchecked(*zip.entry("a.txt"), data, crcOk) && crcOk &&
+          data == toBytes("abc"));
     test::writeFile(path, toBytes("definitely not a zip archive"));
     CHECK(zip.open(path));
     std::filesystem::remove_all(tmp);
@@ -631,6 +644,21 @@ static void testStreams(const std::filesystem::path& tmp) {
     std::vector<uint8_t> back;
     CHECK(writeFile(tmp / "out.bin", w.data()) && readFile(tmp / "out.bin", back) && back == w.data());
     CHECK(!readFile(tmp / "missing.bin", back));
+
+    // Big-endian and signed values, fixed-length strings, lines.
+    MemoryReadStream b(std::vector<uint8_t>{0x12, 0x34, 0x12, 0x34, 0x56, 0x78, 0xFE, 0xFF, 0xFF, 0xFF, 'a', 'b', 0,
+                                            'z', 'o', 'n', 'e', '\r', '\n', 't', 'w', 'o', '\r', '3', '\n', '4'});
+    CHECK(b.readUint16BE() == 0x1234 && b.readUint32BE() == 0x12345678u && b.readSint32LE() == -2);
+    CHECK(b.readFixedString(4) == "ab");
+    CHECK(b.readLine() == "one" && b.readLine() == "two" && b.readLine() == "3" && b.readLine() == "4" && b.eos());
+    CHECK(b.readLine().empty());
+    MemoryWriteStream wbe;
+    wbe.writeUint32BE(0x01020304);
+    wbe.writeUint16BE(0x0506);
+    wbe.writeString("ok");
+    CHECK((wbe.data() == std::vector<uint8_t>{1, 2, 3, 4, 5, 6, 'o', 'k'}));
+    MemoryReadStream shortBE(std::vector<uint8_t>{1});
+    CHECK(shortBE.readUint32BE() == 0x01000000u && shortBE.err());
 }
 
 static void testTextHelpers() {
@@ -642,6 +670,29 @@ static void testTextHelpers() {
     CHECK(fs::normalizeDosPath("ds9\\art\\b\\r\\brdg0000.cmp") == "DS9/ART/B/R/BRDG0000.CMP");
     CHECK(fs::normalizeDosPath("/SOUND//tick.raw/") == "SOUND/TICK.RAW");
     CHECK(fs::normalizeDosPath("DEEP.EXE;1") == "DEEP.EXE");
+    CHECK(text::toLower("Cc.ALL") == "cc.all" && text::hasSuffixIgnoreCase("COMMON.Dat", ".dat") &&
+          !text::hasSuffixIgnoreCase("at", ".dat"));
+    CHECK(text::matchGlob("MUSIC.1", "music.?") && !text::matchGlob("MUSIC.12", "MUSIC.?"));
+    CHECK(text::matchGlob("view.ovr", "*.OVR") && text::matchGlob("a.b.c", "*.*.*") && text::matchGlob("", "*"));
+    CHECK(!text::matchGlob("abc", "a*d") && text::matchGlob("abcbd", "a*b?") && !text::matchGlob("x", ""));
+    // Bytes in a buffer, and the four-character codes they hold.
+    const uint8_t bytes[8] = {'R', 'I', 'F', 'F', 0x10, 0x20, 0x30, 0x40};
+    CHECK(readLE32(bytes) == tagLE('R', 'I', 'F', 'F') && readBE32(bytes) == tagBE('R', 'I', 'F', 'F'));
+    CHECK(readLE64(bytes) == (uint64_t(0x40302010) << 32 | tagLE('R', 'I', 'F', 'F')));
+    uint8_t out[4] = {};
+    writeLE32(out, 0x04030201);
+    writeLE16(out, 0x0605);
+    CHECK(out[0] == 5 && out[1] == 6 && out[2] == 3 && out[3] == 4);
+    // Rectangles.
+    Rect r(0, 0, 10, 10);
+    CHECK(r.contains(Point(9, 9)) && !r.contains(Point(10, 0)) && r.intersects(Rect(9, 9, 20, 20)) &&
+          !r.intersects(Rect(10, 0, 20, 5)));
+    r.clip(Rect(5, -5, 20, 8));
+    CHECK(r == Rect(5, 0, 10, 8) && !r.isEmpty());
+    r.translate(1, 2);
+    CHECK(r == Rect(6, 2, 11, 10));
+    r.clip(Rect(50, 50, 60, 60));
+    CHECK(r == Rect() && r.isEmpty());
 }
 
 static void testDcl() {
@@ -885,11 +936,144 @@ static const reluva::test::Suite hashesSuite("common.unit.hashes", {
     {"md4", [](const std::filesystem::path&) { testMd4(); }},
 });
 
+// BMPs keeping their palette indices (common/bmp.h): 8-bit stored bottom
+// up, RLE8, 4-bit, 24-bit, and a DIB without the file header.
+static void testBmp() {
+    using namespace reluva;
+    using Bytes = std::vector<uint8_t>;
+    auto le = [](Bytes& b, uint32_t v, int n) {
+        for (int i = 0; i < n; ++i)
+            b.push_back(uint8_t(v >> (8 * i)));
+    };
+    // BITMAPINFOHEADER, a palette of `colors` (entry i: R i*10, G 1, B 2),
+    // then `pixels`; with a BITMAPFILEHEADER first if `file`.
+    auto make = [&](int w, int h, int bits, uint32_t compression, int colors, const Bytes& pixels, bool file) {
+        Bytes info;
+        le(info, 40, 4);
+        le(info, uint32_t(w), 4);
+        le(info, uint32_t(h), 4);
+        le(info, 1, 2);
+        le(info, uint32_t(bits), 2);
+        le(info, compression, 4);
+        le(info, uint32_t(pixels.size()), 4);
+        le(info, 0, 4);
+        le(info, 0, 4);
+        le(info, uint32_t(colors), 4);
+        le(info, 0, 4);
+        for (int i = 0; i < colors; ++i)
+            info.insert(info.end(), {2, 1, uint8_t(i * 10), 0});
+        Bytes out;
+        if (file) {
+            out = {'B', 'M'};
+            le(out, uint32_t(14 + info.size() + pixels.size()), 4);
+            le(out, 0, 4);
+            le(out, uint32_t(14 + info.size()), 4);
+        }
+        out.insert(out.end(), info.begin(), info.end());
+        out.insert(out.end(), pixels.begin(), pixels.end());
+        return out;
+    };
+    image::Bitmap bmp;
+    // 3 x 2, 8-bit, bottom up: rows padded to 4 bytes, the last row first.
+    CHECK(!image::decodeBmp(make(3, 2, 8, 0, 4, {3, 2, 1, 0, 0, 1, 2, 0}, true), bmp));
+    CHECK(bmp.indexed() && bmp.surface.w == 3 && bmp.surface.h == 2 && bmp.paletteColors == 4);
+    CHECK(bmp.surface.row(0)[0] == 0 && bmp.surface.row(0)[2] == 2 && bmp.surface.row(1)[0] == 3);
+    CHECK(bmp.palette.data()[3 * 3] == 30 && bmp.palette.data()[3 * 3 + 1] == 1 && bmp.palette.data()[3 * 3 + 2] == 2);
+    CHECK(bmp.palette.data()[4 * 3] == 0); // past the file's colours: black
+    // RLE8 top down (negative height): a run, single pixels, end of line, a delta.
+    const Bytes rle = {2, 7, 0, 3, 1, 2, 3, 0 /* padding */, 0, 0, 0, 2, 2, 0, 1, 9, 0, 1};
+    CHECK(!image::decodeBmp(make(5, -2, 8, 1, 10, rle, true), bmp));
+    CHECK(bmp.surface.row(0)[0] == 7 && bmp.surface.row(0)[1] == 7 && bmp.surface.row(0)[2] == 1 &&
+          bmp.surface.row(0)[4] == 3 && bmp.surface.row(1)[0] == 0 && bmp.surface.row(1)[2] == 9);
+    // 4-bit: two pixels a byte, the high nibble first.
+    CHECK(!image::decodeBmp(make(3, 1, 4, 0, 16, {0x12, 0x30, 0, 0}, true), bmp));
+    CHECK(bmp.surface.row(0)[0] == 1 && bmp.surface.row(0)[1] == 2 && bmp.surface.row(0)[2] == 3 && bmp.paletteColors == 16);
+    // 24-bit: B, G, R as RGBA32.
+    CHECK(!image::decodeBmp(make(1, 1, 24, 0, 0, {30, 20, 10, 0}, true), bmp));
+    CHECK(!bmp.indexed() && bmp.surface.row(0)[0] == 10 && bmp.surface.row(0)[2] == 30 && bmp.surface.row(0)[3] == 255);
+    // A DIB: the pixels right after the palette.
+    const Bytes dib = make(2, 1, 8, 0, 2, {1, 0, 0, 0}, false);
+    CHECK(!image::decodeDib(dib.data(), dib.size(), bmp) && bmp.surface.row(0)[0] == 1 && bmp.palette.data()[3] == 10);
+    // Not BMPs, or cut short.
+    CHECK(image::decodeBmp(Bytes{'X', 'Y'}, bmp) && bmp.surface.w == 0);
+    Bytes cut = make(4, 4, 8, 0, 2, {1, 2, 3, 4}, true);
+    CHECK(image::decodeBmp(cut, bmp));
+    CHECK(image::decodeBmp(make(1, 1, 2, 0, 4, {0, 0, 0, 0}, true), bmp)); // 2 bits per pixel isn't a BMP depth
+}
+
+// The serializer writes what it reads: little-endian values of the size
+// asked for, signed ones sign-extended, strings and vectors with their
+// lengths; a short read fails.
+static void testSerializer() {
+    using namespace reluva;
+    int32_t a = -2;
+    uint16_t b = 0xBEEF;
+    int16_t c = -300;
+    bool d = true;
+    double e = 1.5;
+    std::string f = "Picard";
+    std::vector<int> g = {1, -1, 70000};
+    int64_t wide = -5;
+    MemoryWriteStream out;
+    {
+        Serializer s(nullptr, &out);
+        CHECK(s.isSaving() && !s.isLoading());
+        s.syncAsSint32(a);
+        s.syncAsUint16(b);
+        s.syncAsSint16(c);
+        s.syncAsBool(d);
+        s.syncAsDouble(e);
+        s.syncString(f);
+        s.syncVector(g, [](Serializer& t, int& v) { t.syncAsInt(v, 3); });
+        s.syncAsInt(wide, 2);
+        s.syncCount(7);
+        CHECK(!s.err());
+    }
+    const std::vector<uint8_t> expectStart = {0xFE, 0xFF, 0xFF, 0xFF, 0xEF, 0xBE, 0xD4, 0xFE, 1};
+    CHECK(out.size() == 4 + 2 + 2 + 1 + 8 + 4 + 6 + 4 + 9 + 2 + 4);
+    CHECK(std::equal(expectStart.begin(), expectStart.end(), out.data().begin()));
+    // The vector's third element in three bytes: 70000 = 0x011170.
+    CHECK(out.data()[4 + 2 + 2 + 1 + 8 + 4 + 6 + 4 + 6] == 0x70 && out.data()[4 + 2 + 2 + 1 + 8 + 4 + 6 + 4 + 8] == 0x01);
+
+    int32_t a2 = 0;
+    uint16_t b2 = 0;
+    int16_t c2 = 0;
+    bool d2 = false;
+    double e2 = 0;
+    std::string f2;
+    std::vector<int> g2;
+    int64_t wide2 = 0;
+    MemoryReadStream in(out.data());
+    Serializer s(&in, nullptr);
+    s.syncAsSint32(a2);
+    s.syncAsUint16(b2);
+    s.syncAsSint16(c2);
+    s.syncAsBool(d2);
+    s.syncAsDouble(e2);
+    s.syncString(f2);
+    s.syncVector(g2, [](Serializer& t, int& v) { t.syncAsInt(v, 3); });
+    s.syncAsInt(wide2, 2);
+    s.syncCount(7);
+    CHECK(!s.err() && a2 == a && b2 == b && c2 == c && d2 && e2 == e && f2 == f && g2 == g && wide2 == -5);
+    // Reading on past the end fails; so does a count that differs.
+    uint32_t more = 0;
+    s.syncAsUint32(more);
+    CHECK(s.err());
+    MemoryWriteStream counted;
+    Serializer w(nullptr, &counted);
+    w.syncCount(3);
+    MemoryReadStream back(counted.data());
+    Serializer r(&back, nullptr);
+    r.syncCount(4);
+    CHECK(r.err());
+}
+
 static const reluva::test::Suite filesSuite("common.unit.files", {
     {"filesystem and detection", [](const std::filesystem::path& tmp) { testFsAndDetection(tmp / "fs"); }},
     {"config", [](const std::filesystem::path& tmp) { testConfig(tmp / "cfg"); }},
     {"search set", [](const std::filesystem::path& tmp) { testSearchSet(tmp / "search"); }},
     {"streams", [](const std::filesystem::path& tmp) { testStreams(tmp / "streams"); }},
+    {"serializer", [](const std::filesystem::path&) { testSerializer(); }},
 });
 
 static const reluva::test::Suite archivesSuite("common.unit.archives", {
@@ -904,22 +1088,280 @@ static const reluva::test::Suite textSuite("common.unit.text", {
     {"strings", [](const std::filesystem::path&) { testTextHelpers(); }},
 });
 
+// A paused sound keeps its place and plays on from there; it still counts
+// as playing, and can be stopped while paused.
+static void testMixerPause() {
+    using namespace reluva::audio;
+    auto s = std::make_shared<Sound>();
+    s->rate = 22050, s->channels = 1, s->samples = {1, 2, 3, 4};
+    std::vector<int16_t> out(8);
+    Mixer m(22050);
+    const SoundHandle h = m.play(std::shared_ptr<const Sound>(s), SoundType::Effects);
+    m.mix(out.data(), 1);
+    CHECK(out[0] == 1 && !m.isPaused(h));
+    m.setPaused(h, true);
+    m.mix(out.data(), 2);
+    CHECK(out[0] == 0 && out[3] == 0 && m.isPlaying(h) && m.isPaused(h) && m.position(h) == 1.0);
+    m.setPaused(h, false);
+    m.mix(out.data(), 2);
+    CHECK(out[0] == 2 && out[2] == 3 && !m.isPaused(h));
+    m.setPaused(h, true);
+    m.stop(h);
+    CHECK(!m.isPlaying(h) && !m.isPaused(h));
+    m.setPaused(kNoSound, true); // nothing to pause
+    // Everything paused: silence, and the sound plays on afterwards.
+    const SoundHandle g = m.play(std::shared_ptr<const Sound>(s), SoundType::Music);
+    m.setAllPaused(true);
+    m.mix(out.data(), 2);
+    CHECK(out[0] == 0 && m.allPaused() && m.position(g) == 0.0);
+    m.setAllPaused(false);
+    m.mix(out.data(), 1);
+    CHECK(out[0] == 1 && !m.allPaused());
+}
+
 static const reluva::test::Suite audioSuite("common.unit.audio", {
     {"wav", [](const std::filesystem::path&) { testWav(); }},
     {"mp3", [](const std::filesystem::path&) { testMp3(); }},
     {"mixer", [](const std::filesystem::path&) { testMixer(); }},
     {"streams", [](const std::filesystem::path&) { testAudioStreams(); }},
     {"mixer streams", [](const std::filesystem::path&) { testMixerStreams(); }},
+    {"mixer pause", [](const std::filesystem::path&) { testMixerPause(); }},
 });
+
+// Cursors (common/cursor.h): made from palette indices or a surface,
+// scaled with their hotspot, and drawn by a backend that has to.
+static void testCursors() {
+    using namespace reluva;
+    uint8_t palette[768] = {};
+    palette[3] = 255, palette[4] = 0, palette[5] = 0;       // 1: red
+    palette[6] = 0, palette[7] = 0, palette[8] = 255;       // 2: blue
+    // 3 x 2, index 0 see-through, the hotspot at (1, 1); rows 4 bytes apart.
+    const uint8_t pixels[8] = {0, 1, 2, 9, 1, 0, 1, 9};
+    Cursor c = cursor::fromIndexed(pixels, 3, 2, 4, palette, 0, 1, 1);
+    CHECK(c.w == 3 && c.h == 2 && c.hotX == 1 && c.hotY == 1 && !c.empty());
+    CHECK(c.pixel(0, 0)[3] == 0 && c.pixel(1, 0)[0] == 255 && c.pixel(1, 0)[3] == 255);
+    CHECK(c.pixel(2, 0)[2] == 255 && c.pixel(2, 0)[0] == 0 && c.pixel(1, 1)[3] == 0);
+    CHECK(cursor::fromIndexed(nullptr, 3, 2, 4, palette, 0, 0, 0).empty() && Cursor{}.empty());
+
+    // From a CLUT8 surface: the same.
+    Surface s;
+    s.create(3, 2, PixelFormat::CLUT8);
+    std::copy_n(pixels, 3, s.row(0));
+    std::copy_n(pixels + 4, 3, s.row(1));
+    Color colors[256] = {};
+    colors[1] = {255, 0, 0};
+    colors[2] = {0, 0, 255};
+    CHECK(cursor::fromSurface(s, colors, 0, 1, 1) == c);
+    // From RGBA32: as it is.
+    Surface rgba;
+    rgba.create(2, 1, PixelFormat::RGBA32);
+    rgba.row(0)[0] = 9, rgba.row(0)[3] = 128;
+    const Cursor r = cursor::fromSurface(rgba, nullptr, -1, 0, 0);
+    CHECK(r.w == 2 && r.pixel(0, 0)[0] == 9 && r.pixel(0, 0)[3] == 128 && r.pixel(1, 0)[3] == 0);
+
+    // Twice the size, sharp: each pixel a 2 x 2 block, the hotspot with it.
+    const Cursor big = cursor::scaled(c, 2);
+    CHECK(big.w == 6 && big.h == 4 && big.hotX == 2 && big.hotY == 2);
+    CHECK(big.pixel(2, 0)[0] == 255 && big.pixel(3, 1)[0] == 255 && big.pixel(0, 0)[3] == 0 && big.pixel(5, 1)[2] == 255);
+    CHECK(cursor::scaled(c, 1) == c);
+    // Smoothed: a see-through neighbour fades the alpha, not the colour.
+    const Cursor soft = cursor::scaled(c, 1.5f, true);
+    CHECK(soft.w == 5 && soft.h == 3);
+    bool faded = false;
+    for (int y = 0; y < soft.h; ++y)
+        for (int x = 0; x < soft.w; ++x) {
+            const uint8_t* p = soft.pixel(x, y);
+            if (p[3] > 0 && p[3] < 255 && p[1] == 0)
+                faded = true;
+        }
+    CHECK(faded);
+
+    // Drawn with the hotspot at (0, 0), so its top left is off the surface:
+    // clipped, see-through pixels left as they were.
+    Surface target;
+    target.create(4, 4, PixelFormat::RGBA32);
+    for (auto& b : target.pixels)
+        b = 50;
+    cursor::draw(target, c, 0, 0);
+    CHECK(target.row(0)[0] == 50 && target.row(0)[4] == 255 && target.row(0)[5] == 0 && target.row(0)[8] == 50);
+    cursor::draw(target, c, 3, 3); // its red pixel at (3, 2), its blue at (4, 2): off the surface
+    CHECK(target.row(2)[12] == 255 && target.row(2)[13] == 0);
+
+    // The headless System keeps what it was given.
+    HeadlessSystem sys;
+    System& base = sys;
+    base.setMouseCursor(&c);
+    CHECK(sys.cursor() == c && sys.cursorChanges() == 1);
+    base.setMouseCursorVisible(false);
+    base.setMouseCursor(nullptr);
+    CHECK(sys.cursor().empty() && !sys.cursorVisible() && sys.cursorChanges() == 2);
+}
 
 static const reluva::test::Suite imageSuite("common.unit.image", {
     {"image", [](const std::filesystem::path&) { testImage(); }},
     {"3d math", [](const std::filesystem::path&) { testGfxMath(); }},
     {"8-bit drawing and palettes", [](const std::filesystem::path&) { testDrawAndPalette(); }},
+    {"cursors", [](const std::filesystem::path&) { testCursors(); }},
+    {"bmp with its palette", [](const std::filesystem::path&) { testBmp(); }},
 });
+
+// Cinepak frames and an AVI holding them, built here: an 8 x 4 picture
+// of two blocks, the first V1 (one 2x2 cell per quarter), the second V4.
+namespace cinepak_test {
+using Bytes = std::vector<uint8_t>;
+void be(Bytes& b, uint32_t v, int n) {
+    for (int i = n - 1; i >= 0; --i)
+        b.push_back(uint8_t(v >> (8 * i)));
+}
+void le(Bytes& b, uint32_t v, int n) {
+    for (int i = 0; i < n; ++i)
+        b.push_back(uint8_t(v >> (8 * i)));
+}
+Bytes chunk(int id, const Bytes& body) {
+    Bytes b{uint8_t(id)};
+    be(b, uint32_t(body.size()) + 4, 3);
+    b.insert(b.end(), body.begin(), body.end());
+    return b;
+}
+// One strip holding `chunks`, in a frame of its own.
+Bytes frame(const Bytes& chunks, bool intra) {
+    Bytes strip{uint8_t(intra ? 0x10 : 0x11)};
+    be(strip, 12 + uint32_t(chunks.size()), 3);
+    be(strip, 0, 2); // y1
+    be(strip, 0, 2); // x1
+    be(strip, 4, 2); // y2
+    be(strip, 8, 2); // x2
+    strip.insert(strip.end(), chunks.begin(), chunks.end());
+    Bytes f{0};
+    be(f, 10 + uint32_t(strip.size()), 3);
+    be(f, 8, 2);
+    be(f, 4, 2);
+    be(f, 1, 2);
+    f.insert(f.end(), strip.begin(), strip.end());
+    return f;
+}
+Bytes firstFrame() {
+    const Bytes v1 = {10, 20, 30, 40, 0, 0, 100, 100, 100, 100, 10, uint8_t(-5)};
+    const Bytes v4 = {200, 201, 202, 203, 0, 0};
+    Bytes image;
+    be(image, 0x40000000, 4); // block 0 V1, block 1 V4
+    image.insert(image.end(), {0, 0, 0, 0, 0});
+    Bytes chunks;
+    for (const Bytes& c : {chunk(0x22, v1), chunk(0x20, v4), chunk(0x30, image)})
+        chunks.insert(chunks.end(), c.begin(), c.end());
+    return frame(chunks, true);
+}
+Bytes secondFrame() {
+    Bytes image;
+    be(image, 0x80000000, 4); // block 0 coded as V1 (entry 1), block 1 skipped
+    image.push_back(1);
+    return frame(chunk(0x31, image), false);
+}
+bool is(const reluva::Surface& s, int x, int y, int r, int g, int b) {
+    const uint8_t* p = s.row(y) + x * 4;
+    return p[0] == r && p[1] == g && p[2] == b && p[3] == 255;
+}
+bool grey(const reluva::Surface& s, int x, int y, int v) { return is(s, x, y, v, v, v); }
+} // namespace cinepak_test
+
+static void testCinepak() {
+    using namespace cinepak_test;
+    reluva::cinepak::Decoder decoder(8, 4);
+    const Bytes f = firstFrame();
+    CHECK(decoder.decode(f.data(), uint32_t(f.size())));
+    const reluva::Surface& p = decoder.surface();
+    CHECK(p.w == 8 && p.h == 4 && p.format == reluva::PixelFormat::RGBA32);
+    // V1: each luma sample covers 2 x 2 pixels.
+    CHECK(grey(p, 0, 0, 10) && grey(p, 1, 1, 10) && grey(p, 2, 0, 20) && grey(p, 0, 2, 30) && grey(p, 3, 3, 40));
+    // V4: four 2 x 2 cells, each pixel its own sample.
+    CHECK(grey(p, 4, 0, 200) && grey(p, 5, 0, 201) && grey(p, 4, 1, 202) && grey(p, 5, 1, 203) && grey(p, 6, 0, 200));
+    // An inter frame redraws the coded block only, from the kept codebook:
+    // Y 100, U 10, V -5 is R 90, G 100, B 120.
+    const Bytes g = secondFrame();
+    CHECK(decoder.decode(g.data(), uint32_t(g.size())));
+    CHECK(is(p, 0, 0, 90, 100, 120) && grey(p, 5, 0, 201));
+    // A dropped frame keeps the picture; a stub isn't a frame.
+    CHECK(decoder.decode(nullptr, 0) && is(p, 0, 0, 90, 100, 120));
+    const uint8_t stub[4] = {};
+    CHECK(!decoder.decode(stub, 4));
+}
+
+static void testAvi() {
+    using namespace cinepak_test;
+    const Bytes video1 = firstFrame(), video2 = secondFrame();
+    auto tag = [](Bytes& b, const char* t) { b.insert(b.end(), t, t + 4); };
+    auto riff = [&](Bytes& b, const char* t, const Bytes& body) {
+        tag(b, t);
+        le(b, uint32_t(body.size()), 4);
+        b.insert(b.end(), body.begin(), body.end());
+        if (body.size() & 1)
+            b.push_back(0);
+    };
+    auto list = [&](const char* type, const Bytes& body) {
+        Bytes b;
+        tag(b, type);
+        b.insert(b.end(), body.begin(), body.end());
+        return b;
+    };
+    Bytes avih, vstrh, vstrf, astrh, astrf, hdrl, vstrl, astrl, movi, avi;
+    le(avih, 50000, 4);
+    avih.resize(56);
+    tag(vstrh, "vids");
+    tag(vstrh, "cvid");
+    vstrh.resize(56);
+    le(vstrf, 40, 4);
+    le(vstrf, 8, 4);
+    le(vstrf, 4, 4);
+    vstrf.resize(40);
+    tag(astrh, "auds");
+    astrh.resize(56);
+    le(astrf, 1, 2);
+    le(astrf, 2, 2);
+    le(astrf, 22050, 4);
+    le(astrf, 88200, 4);
+    le(astrf, 4, 2);
+    le(astrf, 16, 2);
+    riff(vstrl, "strh", vstrh);
+    riff(vstrl, "strf", vstrf);
+    riff(astrl, "strh", astrh);
+    riff(astrl, "strf", astrf);
+    riff(hdrl, "avih", avih);
+    riff(hdrl, "LIST", list("strl", vstrl));
+    riff(hdrl, "LIST", list("strl", astrl));
+    riff(movi, "00db", video1);
+    riff(movi, "01wb", Bytes{1, 2, 3, 4});
+    riff(movi, "00id", video2); // as Star Trek: Generations names its inter frames
+    riff(movi, "01wb", Bytes{5, 6, 7, 8});
+    riff(avi, "LIST", list("hdrl", hdrl));
+    riff(avi, "LIST", list("movi", movi));
+    Bytes file;
+    riff(file, "RIFF", list("AVI ", avi));
+
+    reluva::avi::Decoder movie;
+    CHECK(movie.load(std::make_unique<reluva::MemoryReadStream>(file)));
+    CHECK(movie.width() == 8 && movie.height() == 4 && movie.frameCount() == 2 && movie.frameMicros() == 50000);
+    CHECK(movie.videoCodec() == reluva::avi::fourcc("cvid") && movie.canDecode());
+    CHECK(movie.hasAudio() && movie.audioRate() == 22050 && movie.audioChannels() == 2 && movie.audioBits() == 16);
+    CHECK(movie.audio().size() == 8 && movie.audio()[4] == 5);
+    CHECK(movie.decodeNextFrame() && grey(movie.surface(), 0, 0, 10) && movie.currentFrame() == 0);
+    CHECK(movie.decodeNextFrame() && is(movie.surface(), 0, 0, 90, 100, 120) && movie.endOfVideo());
+    CHECK(!movie.decodeNextFrame());
+    std::vector<uint8_t> raw;
+    CHECK(movie.readFrame(1, raw) && raw == video2 && !movie.readFrame(2, raw));
+    // Not an AVI, or one in another codec.
+    reluva::avi::Decoder other;
+    CHECK(!other.load(std::make_unique<reluva::MemoryReadStream>(Bytes{'R', 'I', 'F', 'F', 0, 0, 0, 0})));
+    Bytes msvc = file;
+    const auto at = std::search(msvc.begin(), msvc.end(), std::begin("cvid"), std::begin("cvid") + 4);
+    std::copy_n("MSVC", 4, at);
+    CHECK(other.load(std::make_unique<reluva::MemoryReadStream>(msvc)) && !other.canDecode() &&
+          other.videoCodec() == reluva::avi::fourcc("MSVC") && !other.decodeNextFrame() && other.surface().w == 0);
+}
 
 static const reluva::test::Suite videoSuite("common.unit.video", {
     {"smacker", [](const std::filesystem::path&) { testSmacker(); }},
+    {"cinepak", [](const std::filesystem::path&) { testCinepak(); }},
+    {"avi", [](const std::filesystem::path&) { testAvi(); }},
 });
 
 static const reluva::test::Suite netSuite("common.unit.net", {

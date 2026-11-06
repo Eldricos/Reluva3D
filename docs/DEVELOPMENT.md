@@ -94,7 +94,9 @@ Notes for developers. Building and running are covered in the
   `common`), and the suite's topic in `TOPICS`, so ctest runs it. The
   `tests.coverage` test fails if a suite is missing from `TOPICS`.
 - **CI.** The workflow (`.github/workflows/ci.yml`) builds and runs the
-  tests on Linux, macOS and Windows for every push and pull request. It
+  tests on Linux, macOS and Windows for every push and pull request (macOS
+  is off for now: its job has `if: false`, as no macOS runner is available
+  to the repository; remove that line to turn it back on). It
   also builds each engine alone, every other disabled, so no engine comes
   to rely on another's code. To try that locally, point
   `-DRELUVA_ENGINES_FILE` at a list of your own, or use
@@ -252,8 +254,8 @@ renderer and compares them with the reference frames there:
 - **The comparison.** Probe points must match within a tolerance, and the
   whole frame must match in 4×4 blocks, but for a few at edges, which GPUs
   rasterize slightly differently.
-- **In CI** it runs on macOS (Metal) and on Linux (Vulkan, on Mesa's
-  software driver).
+- **In CI** it runs on Linux (Vulkan, on Mesa's software driver), and on
+  macOS (Metal) when that job is on (it's off for now: see Tests, CI).
 - **On Linux without a display,** run it under `xvfb-run`.
 - **`--out <folder>`** keeps the frames drawn, and where they differ.
 - **After a change meant to alter the frames,** `--update` writes new
@@ -272,6 +274,16 @@ renderer and compares them with the reference frames there:
   changing `draw.vert` or `draw.frag`, run
   `src/backends/sdl3/shaders/build.sh`. It needs `glslang-tools` and
   `spirv-cross`.
+
+## Cursors
+
+- **A game's own pointer** (`System::setMouseCursor`) becomes the system's
+  pointer, made again whenever the picture's scale changes (the window
+  resized, full screen, another display), with a second, sharper picture
+  for high-density screens.
+- **Where a system can't show it** (too large, say), the backend draws it
+  over the picture itself. `RELUVA_SOFTWARE_CURSOR=1` forces that, to try
+  it. The testbed shows both: press C in it.
 
 ## Floating point
 

@@ -61,6 +61,9 @@ jobs:
 
   macos:
     name: macOS (Metal)
+    # Off for now: no macOS runner is given to this repository's jobs
+    # (they're cancelled before one starts). Remove this line to run it.
+    if: false
     runs-on: macos-14
     steps:
       - uses: actions/checkout@v7

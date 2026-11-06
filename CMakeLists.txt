@@ -75,6 +75,8 @@ add_library(reluva_common STATIC
     src/common/video/bink.cpp
     src/common/video/bink_tables.cpp
     src/common/video/smacker.cpp
+    src/common/video/cinepak.cpp
+    src/common/video/avi.cpp
     src/common/image.cpp
     src/common/gfx3d.cpp
     src/common/net.cpp
@@ -99,7 +101,9 @@ add_library(reluva_common STATIC
     src/common/palette.cpp
     src/common/draw.cpp
     src/common/settings.cpp
-    src/common/dcl.cpp)
+    src/common/dcl.cpp
+    src/common/cursor.cpp
+    src/common/bmp.cpp)
 target_include_directories(reluva_common PUBLIC src)
 # Third-party headers (third_party/, see each README) as system includes, so
 # our warnings don't apply to them.

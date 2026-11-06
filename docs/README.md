@@ -16,6 +16,7 @@ requirements, building, running and contributing. The rest is here.
   code (Elite Force's single-player DLLs), and its Windows stand-ins.
 - [bink.md](common/bink.md): Bink videos.
 - [smacker.md](common/smacker.md): Smacker videos.
+- [cinepak.md](common/cinepak.md): Cinepak videos, in AVI files.
 - [dcl.md](common/dcl.md): PKWARE DCL ("implode") compression.
 - [wise.md](common/wise.md): Wise installers, taken apart without running
   them (Elite Force's patch).
@@ -31,6 +32,7 @@ interfaces, and any notes on testing and differences from the original.
 | `idtech3` | Star Trek: Voyager - Elite Force (and, later, other Quake III engine games) | [engines/idtech3/](engines/idtech3/README.md) |
 | `stharbinger` | Star Trek: Deep Space Nine - Harbinger | [engines/stharbinger/](engines/stharbinger/README.md) |
 | `newworlds` | Star Trek: New Worlds | [engines/newworlds/](engines/newworlds/README.md) |
+| `stgenerations` | Star Trek: Generations | [engines/stgenerations/](engines/stgenerations/README.md) |
 | `testbed` | A built-in test pattern, no game | — |
 
 ## Adding docs

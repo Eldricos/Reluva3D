@@ -10,6 +10,7 @@
 #include <algorithm>
 #include <cstddef>
 #include <cstdint>
+#include <functional>
 #include <unordered_map>
 #include <vector>
 
@@ -27,6 +28,9 @@ public:
     SdlGpuRenderer& operator=(const SdlGpuRenderer&) = delete;
 
     Error init(int width, int height);
+    // Called after each frame is drawn into the window, before it's
+    // presented (in the frame's coordinates): the backend's software cursor.
+    void setBeforePresent(std::function<void()> fn) { beforePresent_ = std::move(fn); }
 
     Error createTexture(int width, int height, const uint8_t* rgba, const gfx::TextureParams& params,
                         gfx::TextureId& out) override;
@@ -96,6 +100,7 @@ private:
     SDL_GPUTexture* depth_ = nullptr;
     SDL_Texture* colorView_ = nullptr;
     SDL_Texture* overlay_ = nullptr;
+    std::function<void()> beforePresent_;
     // The frame through the brightness curve, shown instead when it isn't
     // 1: drawn from the frame (a texture of it, frameTexture_) with a quad
     // over the whole of it.

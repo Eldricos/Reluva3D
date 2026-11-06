@@ -5,6 +5,7 @@
 #include "backends/sdl3/sdl_gpu.h"
 #include "backends/sockets/socket_net.h"
 
+#include <cmath>
 #include <cstring>
 
 namespace reluva {
@@ -53,6 +54,14 @@ uint32_t translateKey(SDL_Keycode k) {
         return key::KpPeriod;
     if (k == SDLK_KP_ENTER)
         return key::KpEnter;
+    if (k == SDLK_KP_PLUS)
+        return key::KpPlus;
+    if (k == SDLK_KP_MINUS)
+        return key::KpMinus;
+    if (k == SDLK_KP_MULTIPLY)
+        return key::KpMultiply;
+    if (k == SDLK_KP_DIVIDE)
+        return key::KpDivide;
     return key::Unknown;
 }
 
@@ -80,6 +89,7 @@ SdlSystem::SdlSystem() = default;
 SdlSystem::~SdlSystem() {
     stopAudio();
     release3D();
+    releaseCursor();
     if (gameTexture_)
         SDL_DestroyTexture(gameTexture_);
     if (joystick_)
@@ -149,6 +159,7 @@ Error SdlSystem::init3D(int width, int height, gfx::Renderer3D*& out) {
     if (Error err = r->init(width, height))
         return err;
     renderer3d_ = std::move(r);
+    renderer3d_->setBeforePresent([this] { drawSoftwareCursor(); });
     applyPresentation(width, height);
     out = renderer3d_.get();
     return Error::success();
@@ -157,6 +168,9 @@ Error SdlSystem::init3D(int width, int height, gfx::Renderer3D*& out) {
 void SdlSystem::resetForLauncher() {
     stopAudio();
     SDL_StopTextInput(window_);
+    cursor_.reset();
+    releaseCursor();
+    cursorVisible_ = true;
     SDL_ShowCursor();
     relativeMouse_ = false;
     SDL_SetWindowRelativeMouseMode(window_, false);
@@ -230,6 +244,7 @@ void SdlSystem::applyPresentation(int width, int height) {
     SDL_SetRenderLogicalPresentation(renderer_, width, height,
                                      display_.integerScaling ? SDL_LOGICAL_PRESENTATION_INTEGER_SCALE
                                                              : SDL_LOGICAL_PRESENTATION_LETTERBOX);
+    refreshCursor();
 }
 
 void SdlSystem::setDisplayOptions(const DisplayOptions& options) {
@@ -266,7 +281,9 @@ void SdlSystem::updateScreen(const Surface& surface) {
     SDL_SetRenderDrawColor(renderer_, 0, 0, 0, 255);
     SDL_RenderClear(renderer_);
     SDL_RenderTexture(renderer_, gameTexture_, nullptr, nullptr);
+    drawSoftwareCursor();
     SDL_RenderPresent(renderer_);
+    lastPresent_ = SDL_GetTicks();
 }
 
 void SdlSystem::setWindowTitle(const std::string& title) { SDL_SetWindowTitle(window_, title.c_str()); }
@@ -310,6 +327,20 @@ bool SdlSystem::pollEvent(Event& out) {
             out.repeat = ev.key.repeat;
             return true;
         case SDL_EVENT_MOUSE_MOTION:
+            mouseX_ = ev.motion.x;
+            mouseY_ = ev.motion.y;
+            mouseInside_ = true;
+            // A cursor we draw moves only when the picture is shown again:
+            // show the last one again, not more often than the display can.
+            if (softwareCursor_ && cursorVisible_ && !relativeMouse_ && gameTexture_ && !renderer3d_ &&
+                SDL_GetTicks() - lastPresent_ >= 8) {
+                SDL_SetRenderDrawColor(renderer_, 0, 0, 0, 255);
+                SDL_RenderClear(renderer_);
+                SDL_RenderTexture(renderer_, gameTexture_, nullptr, nullptr);
+                drawSoftwareCursor();
+                SDL_RenderPresent(renderer_);
+                lastPresent_ = SDL_GetTicks();
+            }
             out.type = EventType::MouseMove;
             out.mouseX = static_cast<int>(ev.motion.x);
             out.mouseY = static_cast<int>(ev.motion.y);
@@ -374,7 +405,16 @@ bool SdlSystem::pollEvent(Event& out) {
             out.type = EventType::TextInput;
             SDL_strlcpy(out.text, ev.text.text, sizeof out.text);
             return true;
+        case SDL_EVENT_WINDOW_FOCUS_LOST:
+            out.type = EventType::FocusLost;
+            return true;
         case SDL_EVENT_WINDOW_FOCUS_GAINED:
+            if (relativeMouse_) {
+                SDL_SetWindowRelativeMouseMode(window_, false);
+                SDL_SetWindowRelativeMouseMode(window_, true);
+            }
+            out.type = EventType::FocusGained;
+            return true;
         case SDL_EVENT_WINDOW_RESIZED:
         case SDL_EVENT_WINDOW_ENTER_FULLSCREEN:
         case SDL_EVENT_WINDOW_LEAVE_FULLSCREEN:
@@ -384,6 +424,17 @@ bool SdlSystem::pollEvent(Event& out) {
                 SDL_SetWindowRelativeMouseMode(window_, false);
                 SDL_SetWindowRelativeMouseMode(window_, true);
             }
+            refreshCursor(); // the picture's scale may have changed
+            break;
+        case SDL_EVENT_WINDOW_PIXEL_SIZE_CHANGED:
+        case SDL_EVENT_WINDOW_DISPLAY_SCALE_CHANGED:
+            refreshCursor();
+            break;
+        case SDL_EVENT_WINDOW_MOUSE_ENTER:
+            mouseInside_ = true;
+            break;
+        case SDL_EVENT_WINDOW_MOUSE_LEAVE:
+            mouseInside_ = false;
             break;
         default:
             break; // ignore everything else
@@ -400,10 +451,134 @@ void SdlSystem::setTextInput(bool on) {
 }
 
 void SdlSystem::setMouseCursorVisible(bool visible) {
-    if (visible)
+    cursorVisible_ = visible;
+    // A cursor we draw keeps the system's pointer hidden.
+    if (visible && !softwareCursor_)
         SDL_ShowCursor();
     else
         SDL_HideCursor();
+}
+
+void SdlSystem::setMouseCursor(const Cursor* cursor) {
+    if (!cursor || cursor->empty()) {
+        if (!cursor_)
+            return;
+        cursor_.reset();
+        releaseCursor();
+        setMouseCursorVisible(cursorVisible_);
+        return;
+    }
+    if (cursor_ && *cursor_ == *cursor)
+        return; // games often set the same one again
+    cursor_ = *cursor;
+    // A new picture: made again, whatever the scale.
+    sdlCursorScale_ = 0;
+    if (cursorTexture_) {
+        SDL_DestroyTexture(cursorTexture_);
+        cursorTexture_ = nullptr;
+    }
+    refreshCursor();
+}
+
+void SdlSystem::releaseCursor() {
+    if (sdlCursor_) {
+        SDL_SetCursor(SDL_GetDefaultCursor());
+        SDL_DestroyCursor(sdlCursor_);
+        sdlCursor_ = nullptr;
+    }
+    sdlCursorScale_ = 0;
+    if (cursorTexture_) {
+        SDL_DestroyTexture(cursorTexture_);
+        cursorTexture_ = nullptr;
+    }
+    softwareCursor_ = false;
+}
+
+void SdlSystem::refreshCursor() {
+    if (!cursor_ || !window_ || !renderer_)
+        return;
+    // How many of the window's pixels a game pixel takes now, and how many
+    // of its points (the system's pointer is sized in points; a second
+    // picture gives it the pixels on high-density screens).
+    int lw = 0, lh = 0;
+    SDL_RendererLogicalPresentation mode = SDL_LOGICAL_PRESENTATION_DISABLED;
+    SDL_GetRenderLogicalPresentation(renderer_, &lw, &lh, &mode);
+    float pixelScale = 1;
+    SDL_FRect rect{};
+    if (lw > 0 && SDL_GetRenderLogicalPresentationRect(renderer_, &rect) && rect.w > 0)
+        pixelScale = rect.w / float(lw);
+    float density = SDL_GetWindowPixelDensity(window_);
+    if (!(density > 0))
+        density = 1;
+    const float pointScale = pixelScale / density;
+
+    // RELUVA_SOFTWARE_CURSOR=1 draws it ourselves, to try that path.
+    const char* forced = SDL_getenv("RELUVA_SOFTWARE_CURSOR");
+    const bool software = forced && *forced && std::strcmp(forced, "0") != 0;
+    if (!software) {
+        if (sdlCursor_ && sdlCursorScale_ == pixelScale)
+            return;
+        const Cursor points = cursor::scaled(*cursor_, pointScale, display_.smooth);
+        SDL_Surface* surface = SDL_CreateSurfaceFrom(points.w, points.h, SDL_PIXELFORMAT_RGBA32,
+                                                     const_cast<uint8_t*>(points.rgba.data()), points.w * 4);
+        Cursor pixels;
+        SDL_Surface* dense = nullptr;
+        if (surface && density != 1) {
+            pixels = cursor::scaled(*cursor_, pixelScale, display_.smooth);
+            dense = SDL_CreateSurfaceFrom(pixels.w, pixels.h, SDL_PIXELFORMAT_RGBA32, pixels.rgba.data(), pixels.w * 4);
+            if (dense)
+                SDL_AddSurfaceAlternateImage(surface, dense);
+        }
+        SDL_Cursor* made = surface ? SDL_CreateColorCursor(surface, points.hotX, points.hotY) : nullptr;
+        if (dense)
+            SDL_DestroySurface(dense);
+        if (surface)
+            SDL_DestroySurface(surface);
+        if (made) {
+            SDL_SetCursor(made);
+            if (sdlCursor_)
+                SDL_DestroyCursor(sdlCursor_);
+            sdlCursor_ = made;
+            sdlCursorScale_ = pixelScale;
+            if (cursorTexture_) {
+                SDL_DestroyTexture(cursorTexture_);
+                cursorTexture_ = nullptr;
+            }
+            softwareCursor_ = false;
+            setMouseCursorVisible(cursorVisible_);
+            return;
+        }
+        SDL_Log("The game's cursor can't be the system's pointer (%s): drawing it", SDL_GetError());
+    }
+    // Drawn by us, over the picture, scaled with it.
+    if (sdlCursor_) {
+        SDL_SetCursor(SDL_GetDefaultCursor());
+        SDL_DestroyCursor(sdlCursor_);
+        sdlCursor_ = nullptr;
+        sdlCursorScale_ = 0;
+    }
+    if (!cursorTexture_) {
+        cursorTexture_ = SDL_CreateTexture(renderer_, SDL_PIXELFORMAT_RGBA32, SDL_TEXTUREACCESS_STATIC, cursor_->w,
+                                           cursor_->h);
+        if (cursorTexture_) {
+            SDL_UpdateTexture(cursorTexture_, nullptr, cursor_->rgba.data(), cursor_->w * 4);
+            SDL_SetTextureBlendMode(cursorTexture_, SDL_BLENDMODE_BLEND);
+        }
+    }
+    if (cursorTexture_)
+        SDL_SetTextureScaleMode(cursorTexture_, display_.smooth ? SDL_SCALEMODE_LINEAR : SDL_SCALEMODE_NEAREST);
+    softwareCursor_ = true;
+    if (!mouseInside_)
+        mouseInside_ = SDL_GetMouseFocus() == window_;
+    setMouseCursorVisible(cursorVisible_);
+}
+
+void SdlSystem::drawSoftwareCursor() {
+    if (!softwareCursor_ || !cursorTexture_ || !cursor_ || !cursorVisible_ || !mouseInside_ || relativeMouse_)
+        return;
+    const SDL_FRect dst{std::floor(mouseX_) - float(cursor_->hotX), std::floor(mouseY_) - float(cursor_->hotY),
+                        float(cursor_->w), float(cursor_->h)};
+    SDL_RenderTexture(renderer_, cursorTexture_, nullptr, &dst);
 }
 
 void SdlSystem::setVideoMode(int width, int height, bool fullscreen) {

@@ -17,6 +17,7 @@ Each engine is a module that can run a family of games.
 | `idtech3` | Star Trek: Voyager - Elite Force (1.0, 1.2, Expansion Pack) | Playable: single player, Holomatch (multiplayer, LAN and Internet), mods | [docs/engines/idtech3](docs/engines/idtech3/README.md) |
 | `stharbinger` | Star Trek: Deep Space Nine - Harbinger (DOS, two CDs) | Every part of the game runs; being checked against the original | [docs/engines/stharbinger](docs/engines/stharbinger/README.md) |
 | `newworlds` | Star Trek: New Worlds | Data viewer, first missions playable on their maps; off by default | [docs/engines/newworlds](docs/engines/newworlds/README.md) |
+| `stgenerations` | Star Trek: Generations (Windows, two CDs) | Every part of the game runs; a full playthrough to come | [docs/engines/stgenerations](docs/engines/stgenerations/README.md) |
 | `testbed` | A test pattern, no game | For checking a system's graphics, sound and input | — |
 
 ## Requirements
@@ -157,6 +158,7 @@ per line:
 idtech3=enabled
 stharbinger=enabled
 newworlds=disabled
+stgenerations=enabled
 ```
 
 - **Leaving an engine out.** Set it to `disabled` (say, one that doesn't
@@ -238,7 +240,7 @@ What each game's pages and keys are is in its engine's docs.
 | Command | What it does |
 |---|---|
 | `reluva <name>` | Starts a game from the launcher's list directly, by its entry's name |
-| `reluva testbed` | The test pattern: **Esc** to exit, **Space** for a tone |
+| `reluva testbed` | The test pattern: **Esc** to exit, **Space** for a tone, **C** for a cursor of its own |
 | `reluva --hash <files...>` | Prints files' detection signatures, for an engine's table of releases |
 | `reluva-tool` | Developer tools for studying games' files: `reluva-tool <engine> <command>`; alone, it lists the engines and the commands for any game |
 
