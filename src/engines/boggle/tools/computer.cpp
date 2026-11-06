@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 // Copyright (C) 2026 The Reluva contributors
 #include "engines/boggle/classic/computer.h"
+#include "engines/boggle/classic/cursor.h"
 #include "engines/boggle/classic/options.h"
 #include "engines/boggle/resources.h"
 #include "common/md5.h"
@@ -26,7 +27,13 @@ int check(int argc,char** argv) {
             ClassicRound round(english);if(auto e=round.board(board,0))return fail(e);
             if(auto e=round.start(0,0))return fail(e);
             number(uint32_t(board.side()));number(seed);number(uint32_t(slot));number(level);number(uint32_t(plan.words().size()));
+            std::vector<ClassicPoint> centers;
+            for(size_t i=0;i<board.faces().size();++i)centers.push_back({int(i%board.side())*100,int(i/board.side())*100});
             for(uint64_t now=6000;!plan.exhausted();now+=6000) {
+                const auto* pending=plan.nextWord();const auto due=plan.due();
+                const auto traced=computerCursorFrame(*pending,centers,{0,0},due,due,{900,500});
+                if(!traced.active || traced.cubes!=pending->path.size() || plan.nextWord()!=pending || plan.due()!=due)
+                    return fail(Error::fail("Computer cursor preview changed a plan or failed to finish its path"));
                 const auto* word=plan.take(now);
                 if(!word || plan.take(now) || round.submit(word->word,now,word->path)!=Submission::Accepted)
                     return fail(Error::fail("Computer plan failed paced dictionary/path validation"));

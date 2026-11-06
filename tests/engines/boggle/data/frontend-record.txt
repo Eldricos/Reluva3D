@@ -2,17 +2,17 @@
 # Written by `reluva-tests boggle.unit.frontend --update`; review its diff before committing.
 navigation.0: 3c6aad5661499679
 navigation.1: 1644a91c892cb92d
-navigation.2: 9fd0c6e497c51e60
+navigation.2: 0eb4ac559c949129
 navigation.3: 3c6aad5661499679
 navigation.4: 3c6aad5661499679
 navigation.5: 745bded044c9ee09
-navigation.6: 9fd0c6e497c51e60
+navigation.6: 0eb4ac559c949129
 navigation.7: 7b2d55302e2fe518
 navigation.8: eb8a300cd0712ee8
 navigation.9: 74a4d7f95fb0590c
 navigation.10: 74a4d7f95fb0590c
 navigation.11: 3c6aad5661499679
 navigation.12: 745bded044c9ee09
-navigation.13: dadd3e7ce9878ef0
+navigation.13: 7f135512040c80b9
 navigation.14: 5dbbad3e943d08c6
 navigation.15: 3c6aad5661499679

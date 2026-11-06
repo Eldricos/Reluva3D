@@ -196,3 +196,12 @@ timed game early, and stopping with the last human in untimed play. The native
 implementation incorporates these corrections. Original AI strength/cadence,
 precise initial-start and intermediate dictionary-review timing remain
 unverified. Optional visible computer cursor movement remains future work.
+
+The next stage adds [optional visible computer cursor movement](../../engines/boggle/cursor.md)
+for both boards and turn modes. It previews legal cube paths without changing
+word plans, scoring or submission timing, restores the user pointer across
+handoffs/exits, and stays inactive in background play. The original `MoveCursor`
+profile references corroborate the option. The owner then confirmed ordered cube visits followed by moving to the word
+list to submit in both turn modes, plus word-list click submission for humans.
+Both are implemented. Exact highlighting, input progression and sound still
+need comparison; interpolation and arrow appearance remain explicitly native.

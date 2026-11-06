@@ -54,11 +54,11 @@ A handoff to a computer is displayed once, then starts automatically. A handoff
 to a human waits for Start Turn / Enter. Computer words enter the visible list
 with their normal length-dependent writing cue. Human typing/cube clicks cannot
 submit on a computer's behalf. F1 can retire the active computer, and Menu /
-Launcher actions remain available. Computers do not move the pointer or expose
-their future words. [Background play](background.md) now runs computers alongside
+Launcher actions remain available. Computers keep their paths hidden unless
+[Computer Cursor / V](cursor.md) enables visible tracing. [Background play](background.md) now runs computers alongside
 human turns with hidden words and visible running scores; the final summary
 provides word-list review. Optional visible
-computer cursor movement remains a future stage.
+computer cursor movement now uses a separate [native presentation option](cursor.md).
 
 ## Evidence and limits
 

@@ -80,7 +80,8 @@ need corroboration. Exact turn-transition animation timing and original dialog
 navigation also remain unverified. [Chess Timer](chess.md) shares its controller with
 humans and computers. [Background play](background.md) now provides hidden
 computer submissions during human turns. Matching the original AI
-strength/cadence and computer cursor movement remain separate future work.
+strength/cadence remains future work. [Computer Cursor / V](cursor.md) now
+provides an optional native cube trace during visible turns.
 
 ## Validation
 

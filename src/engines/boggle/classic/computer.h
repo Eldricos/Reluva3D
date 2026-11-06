@@ -16,6 +16,8 @@ public:
     const AcceptedWord* take(uint64_t elapsed);
     // Hidden play catches up in logical order, independent of frame/input rate.
     const AcceptedWord* takeScheduled(uint64_t elapsed,uint64_t& submittedAt);
+    const AcceptedWord* nextWord() const { return exhausted()?nullptr:&words_[at_]; }
+    uint64_t due() const { return due_; }
     bool exhausted() const { return at_==words_.size(); }
     const std::vector<AcceptedWord>& words() const { return words_; }
 private:

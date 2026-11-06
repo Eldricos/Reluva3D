@@ -144,3 +144,9 @@ participation on or off when both a human and computer are assigned. The
 session setting `classic_background` accepts only `0` and `1`, defaulting to `0`.
 All-computer rosters use visible turns. This adds no launcher checkbox or import
 file; see [background play and native timing limits](background.md).
+
+On Players, V / Computer Cursor enables an independent native trace for visible
+computer turns. Background play suppresses it; all-computer visible rosters can
+use it. The session setting `classic_cursor` accepts only `0` and `1`, defaulting
+to `0`; no launcher checkbox or import dependency is added. See
+[cursor controls and native presentation policy](cursor.md).

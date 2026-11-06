@@ -7,7 +7,7 @@ four-letter minimum. Both have dictionary validation, scoring and results.
 [Traditional Play](traditional.md) and [Chess Timer](chess.md) support one to four
 local humans and computers on the same board, with shared-word cancellation and per-player results.
 Classic installed scenes, word panels, animated hourglasses, lid/roll animation, sound effects and WAV background music are available. Other modes,
-the full original frontend, original AI strength/cadence, computer cursor movement and networking are unfinished.
+the full original frontend, original AI strength/cadence and networking are unfinished.
 See [scope and rule evidence](classic.md) and the
 [original/native comparison procedure](comparison.md).
 
@@ -21,14 +21,16 @@ computer assigned, B / Computer Background Play runs computers alongside the
 humans, showing current scores while keeping computer words hidden; see [background controls and timing limits](background.md). See
 [Traditional controls](traditional.md) and [Chess Timer clocks/turns](chess.md).
 See [computer setup, native strength policy and limits](computers.md) and
-[player naming and persistence](players.md).
+[player naming and persistence](players.md). For visible computer turns,
+V / Computer Cursor on Players enables an animated cube trace; see
+[cursor controls and native presentation limits](cursor.md).
 Escape returns to selection from version/setup or Players; it does nothing
 on selection or in-game. Use Menu / F3 in-game or Launcher / L on selection. See
 [frontend scope and controls](frontend.md). Disable **Game selection menu** in
 launcher options to use the previous direct Ready screen.
 
 During play, type a word and press Enter to submit. Alternatively,
-click or drag through touching cubes, then press Enter. Backspace undoes input;
+click or drag through touching cubes, then press Enter or click the word list. Backspace undoes input;
 right click clears it. F1 ends a round, Enter replays the same board, F2 creates
 a new board between rounds. After dictionary review, click a counted word or
 use Up/Down to inspect its numbered cube path and points. Right-click restores

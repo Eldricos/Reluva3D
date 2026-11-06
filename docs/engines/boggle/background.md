@@ -73,7 +73,8 @@ menu does not publish a partial match or save its unfinished scores.
 The original English DLL describes all-computer play disabling background play
 in string 9002, and the owner previously corroborated separate background and
 cursor options. That is the evidence for the all-computer fallback and separate
-native switch. Optional visible computer cursor movement remains unimplemented.
+native switch. The separate [visible computer cursor](cursor.md) option is now
+available and stays inactive during background play.
 No original algorithm, disassembly or retail data was copied into this stage.
 
 ## Validation

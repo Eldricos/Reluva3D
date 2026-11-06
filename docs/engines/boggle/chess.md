@@ -10,7 +10,8 @@ runs. Invalid values fail before graphics start. [Computer opponents](computers.
 use an explicit native strength/pacing policy. [Background play](background.md)
 keeps computers out of the turn rotation, shows their running scores and reveals
 words at the final review;
-computer cursor movement remains unimplemented.
+[visible computer cursor movement](cursor.md) is available as an independent
+Players option.
 
 ## Word turns and clocks
 

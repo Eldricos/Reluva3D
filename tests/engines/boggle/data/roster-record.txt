@@ -1,12 +1,12 @@
 # The record of boggle.unit.traditional (tests/engines/boggle/unit/traditional.cpp).
 # Written by `reluva-tests boggle.unit.traditional --update`; review its diff before committing.
 roster.0: 6f8c421db0d27529
-roster.1: 2316a4616dfd8cd0
+roster.1: 7cf3de165d03a819
 roster.2: 6258d970e39da4e8
 roster.3: a6fe3adf63cf2934
 roster.4: c9fbe976a02b209a
 roster.5: 3b3e54ad7661c868
-roster.6: 95a571e96c64374e
+roster.6: 65610032376b548f
 roster.7: 4c3b5b72e874f510
 roster.8: e007c6f0ed93c4b6
 roster.9: 2512f522105cf015
@@ -14,11 +14,11 @@ roster.10: 94f49b91af474d2f
 roster.11: a82d90f18a6924eb
 roster.12: 1fec3e3abb85cbda
 roster.13: 6f8c421db0d27529
-roster.14: 95a571e96c64374e
+roster.14: 65610032376b548f
 roster.15: 3b3e54ad7661c868
 roster.16: 8588ba94020b664b
 roster.17: 6258d970e39da4e8
-roster.18: 2316a4616dfd8cd0
+roster.18: 7cf3de165d03a819
 roster.19: 4c3b5b72e874f510
 roster.20: 59318e5c49539e29
 roster.21: 1fec3e3abb85cbda
