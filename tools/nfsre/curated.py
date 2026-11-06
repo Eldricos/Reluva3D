@@ -99,7 +99,7 @@ STRUCTS = {
     0x0: ('car_key', 'u8[16]', 'front-end car +0x31C, 0xff x16 outside 0-0x31 (0x4781b0); only in the 05 copy and replay/config blocks'),
     0x10: ('slot', 's32'), 0x14: ('car_number', 's32'), 0x18: ('role', 's32', '1 player 2 computer (|8 police, 0x474640)'),
     0x1C: ('automatic', 's32'), 0x20: ('colour', 'u8[4]'),
-    0x24: ('steer_ramp_flag', 's32', 'msg 09 flag 1'), 0x28: ('flag09_2', 's32'), 0x2C: ('brake_ramp_flag', 's32', 'msg 09 flag 3'),
+    0x24: ('steer_ramp_flag', 's32', 'msg 09 flag 1'), 0x28: ('flag09_2', 's32', 'msg 09 flag 2 (gas); no reader found'), 0x2C: ('brake_ramp_flag', 's32', 'msg 09 flag 3'),
     0x30: ('driver', 's32'), 0x34: ('name', 'u8[12]'),
     0x40: ('engine_tuning', 'f32'), 0x44: ('brake_balance', 'f32'), 0x48: ('steering_speed', 'f32'),
     0x4C: ('gear_rat', 'f32'), 0x50: ('susp_stiffness', 'f32'), 0x54: ('aero', 'f32'), 0x58: ('tire_factor', 'f32'),
@@ -111,7 +111,20 @@ STRUCTS = {
   }),
   'netplayer': dict(size=0x60, desc='network player record (msg 03), 0x79f5f0 + slot*0x60', fields={}),
   'netstatus': dict(size=20, desc='status rows 0x7dd070 + slot*20 (msg 0b)', fields={}),
-  'inputdev': dict(size=0x88, desc='input device records 0x6fc970 + n*0x88', fields={}),
+  'inputdev': dict(size=0x88, desc='input device records 0x6fc970 + n*0x88', fields={
+    0x0: ('kind_flags', 'u32', '1 joystick, 2 wheel, 4 gamepad (0x436980); |8 force feedback (0x435788)'),
+    0x4: ('name', 'u8[0x32]', 'DirectInput product name'),
+  }),
+  'trackpos': dict(size=0x78, desc='track position (car+0xC; stack copies in 0x4205a0, 0x4304b0)', fields={
+    0x0: ('block', 'ptr', '0x571370 + (slice>>3)*0x5c0'), 0x4: ('point', 's32[3]', '16.16'),
+    0x10: ('slice', 's32'), 0x14: ('polygon', 'ptr', '14-byte road polygon or 0'), 0x18: ('poly_record', 'ptr', '8-byte record'),
+    0x1C: ('poly_vector', 'ptr', 'block +0x59C + record byte 0 * 12'), 0x20: ('slice_record', 'ptr', 'first polygon, count'),
+    0x24: ('corners', 's32[12]', 'vertices 1, 0, 3, 2 as 16.16'), 0x54: ('corner_ptrs', 'ptr[4]'),
+    0x64: ('frame_source', 's32', '1 slice, 2 a polygon was found (0x420230 needs this and +0x14)'),
+    0x68: ('slice_changed', 'u16'), 0x6A: ('changed', 'u16', 'slice or polygon'),
+    0x6C: ('off_side', 's32', '0 on a polygon, 1 beyond the first polygon, 2 beyond the last (wall side bits)'),
+    0x70: ('poly_index', 's32', 'in the slice run, -1 reset'), 0x74: ('mode', 's32', '0x41f6e0 third argument'),
+  }),
 }
 
 # arrays of structs at fixed addresses: name -> (addr, struct, count)
@@ -407,6 +420,30 @@ FUNCS = {
   # s7 (radio places on other tracks, November 2026)
   0x4e0d88: ('rand_next', None, 'multi-word add-with-carry generator, state 0x5644e0-0x5644f4; callers take its low bits (the place form, & 1)'),
   0x4dfd56: ('fpu_round', None, 'ST0 rounded (the place look-ahead: speed / 6)'),
+  # c9 (track position fields, network open items, November 2026)
+  0x41e940: ('trackpos_reset', None, '(slice, pos) no polygon: +0x14/+0x18/+0x6C 0, +0x64 1, +0x70 -1, +0x10 slice'),
+  0x41e420: ('trackpos_slice_update', None, '(point, pos) walks the slice (0x41e470); +0x68/+0x6A = slice changed'),
+  0x41e6a0: ('trackpos_corner_ptrs', None, '(pos) +0x54..+0x60 = polygon vertices 1, 0, 3, 2'),
+  0x41e7c0: ('trackpos_corner_ints', None, '(pos) +0x24..+0x50 the four corners as 16.16 ints'),
+  0x41e990: ('trackpos_find_polygon', None, '(point, pos) walk the slice run from the middle; found: +0x64 2, +0x6C 0; beyond the first/last polygon: +0x6C 1/2'),
+  0x41f090: ('trackpos_find_wide', None, '(point, pos) every polygon of 7 nearby slices (0x552e88)'),
+  0x41f330: ('trackpos_find_linked', None, '(point, pos, slice) tries the slice record\'s linked slices (+4, +6)'),
+  0x41f500: ('trackpos_fallback', None, '(point, pos) +0x6C set: snap to the run\'s edge polygon (+0x64 2, +0x6C kept); else retry 1/32 towards the road point'),
+  0x41f650: ('trackpos_research', None, '(point, pos) 0x41e420, 0x41e990, 0x41f330, 0x41f500; sets +0x68/+0x6A'),
+  0x41f6e0: ('trackpos_update', None, '(point, pos, mode) +0x74 mode; 0 slice only (+0x64 1); else keep the polygon if still inside, or 0x41f650'),
+  0x41f870: ('trackpos_step_side', None, '(side bit, pos, out) neighbour: 1 polygon i-1, 2 i+1, 4 slice+1, 8 slice-1'),
+  0x41fd60: ('trackpos_wall_bits', None, '(corner pt, car pos, corner pos, out dy) both +0x6C ORed, |1/|2 within 1.5 of edge 1-2/3-0, |4/|8 past edge 0-1/2-3'),
+  0x430210: ('wall_normal_for_side', None, '(side bit, out normal, pos) the wall normal from that polygon edge, y 0'),
+  0x430350: ('car_corner_offroad', CAR, '(car, corner pos) 1 when no polygon record, +0x6C set, surface 0 or 14; else by heights'),
+  0x4304b0: ('car_track_walls', CAR, 'per corner: track position, 0x430350, 0x41fd60, 0x41f870, normal 0x430210, impulse 0x42ee10; car +0x170 the wall hit'),
+  0x49fe70: ('car_trackpos_update', CAR, 'car+0xC: 0x41f6e0(pos, car+0xC, 1 - car+0x88)'),
+  0x436980: ('inputdev_enum_cb', None, 'DirectInput EnumDevices callback: record kind 4 gamepad (subtype 4), 2 wheel (6), else 1; name = product name'),
+  0x435690: ('inputdev_caps', None, '(n) the device record 0x5f1ff8 + n*0x88: |8 force feedback (DIDC_FORCEFEEDBACK), button/POV/axis masks'),
+  0x472b60: ('inputdevs_refresh', None, 'copies the device records to g_inputdevs 0x6fc970'),
+  0x43c000: ('binding_is_digital', None, '(binding) 1 unless kind 1 (an axis) of a device without flag 4 (gamepad): msg 09 flags'),
+  0x5144b0: ('ipx_setgame', None, 'NET_setgame for IPX: add message, +0x1C the password (strncpy 16), answer rsp'),
+  0x5133a0: ('ipx_gather_dispatch', None, 'joining tags: dec -> record +0x3C..; add: password vs game +0x3C (BadPsswd -1, GameFull -2, DenyJoin -3)'),
+  0x49f380: ('netgame_list_add', None, 'NET_getgames callback: entry 0x79fce0 + n*0x40: +0 name, +0x1C..+0x28 dec +0x4C..+0x4F (never read), +0x2C address'),
 }
 
 # globals: addr -> (name, type, desc)

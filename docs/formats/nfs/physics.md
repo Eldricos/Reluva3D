@@ -954,7 +954,9 @@ then gives the car +0x200 bit 0x20.
     for the spot (`0x41e940`, `0x41f6e0`) and puts the spot's height
     on the road there (`0x4969c0`): hence the 0.94 m. It gives back
     the 0x78-byte track position, and `0x401d78` keeps the side only
-    when its +0x6C is 0, its polygon (+0x14) is set, and the surface of
+    when its +0x6C is 0 (the spot is not beyond either outer edge of
+    the slice's road polygons: Other car fields, +0xC), its polygon
+    (+0x14) is set, and the surface of
     the polygon's 8-byte record (+0x18, byte 1 & 0x3F, the same code
     `0x4207e0` gives the car's +0x18C) is neither 0 nor 14. Else he
     goes to the other side, unchecked.
@@ -2175,8 +2177,9 @@ second. The HUD there has the racer list on (other layouts hide it).
   (`0x49fee0`). The three vectors are the point's normal, forward and
   right bytes (16-18, 20-22, 24-26; `0x420230` reads them as ints at
   +0xD, +0x11, +0x15 and shifts down 24). On a road polygon with its
-  own normal (track position +0x14 set, +0x6C 0, +0x64 2) up and forward
-  come from the polygon and right is their cross product. `0x4a0aa0`,
+  own normal (track position +0x14 set, +0x6C 0, +0x64 2: the point is
+  inside a polygon, next bullet) up and forward come from the polygon
+  and right is their cross product. `0x4a0aa0`,
   which puts a car on a slice (start, reset `0x429100`'s callers,
   `0x40cd80`), writes the point's vectors directly and normalises them
   (`0x4972f0`). So +0x13C is the road's own direction at the car,
@@ -2185,6 +2188,66 @@ second. The HUD there has the racer list on (other layouts hide it).
   through +0x148 with up +0x130 (−32000 when up y ≤ 0.1). It is not
   the matrix at +0x190 the human's tick uses. The step loop skips a car
   whose **+0x89** is 0 (`0x49ffab`, `0x4a284d`): +0x89 is "in play".
+
+- **+0xC, the track position** (0x78 bytes; read November 2026 from
+  every access in `0x41e420`-`0x420840`, the `field` tool's
+  displacement lists for +0x64/+0x6C/+0x70 there, and the callers of
+  `0x41e940`, `0x41f6e0`, `0x420230`, `0x4207e0`, `0x41fd60`). Copies
+  of it, built the same way, are made on the stack for points that
+  are not the car (`0x4205a0`/`0x420650`: the officer's spot, lights'
+  flares; `0x4304b0`: each corner of the car). Its fields: +0 the
+  slice's block (`0x571370` + (slice >> 3) × 0x5C0), +4/+8/+0xC the
+  point (16.16), +0x10 the slice, +0x14 the road polygon (14 bytes,
+  frd.md) or 0, +0x18 its 8-byte record, +0x1C the record's vector
+  (block +0x59C + record byte 0 × 12), +0x20 the slice's position
+  record (frd.md: first polygon, count), +0x54-+0x60 pointers to the
+  polygon's vertices 1, 0, 3, 2 (`0x41e6a0`: "corners" 0-3 below) and
+  +0x24-+0x53 those corners as 16.16 ints (`0x41e7c0`), and:
+  - **+0x64, the frame's source**: 1 (`0x41e940`; `0x41f6e0` with
+    mode 0) until a polygon is found, then 2 (`0x41e990`, `0x41f090`,
+    `0x41f500`, `0x41f870`). Nothing sets it back to 1 when a later
+    search fails, which is why `0x420230` also wants +0x14. Its only
+    reader is `0x420230`.
+  - **+0x6C, the side the point is off**: 0 when it is inside a
+    polygon of the slice's run (set with +0x64 = 2, and at the start
+    of each search, `0x41ea00`); **1** when the search walked down to
+    the run's first polygon and the point is beyond its outer edge
+    (`0x41ee86`), **2** when it walked up to the last one and is beyond
+    that one's (`0x41ebd7`). Corners 1-2 (vertices 0-3) of polygon i
+    are the edge it shares with i−1 and corners 3-0 (vertices 2-1) the
+    one with i+1 (the inside tests of `0x41e990`, `0x41f870`'s
+    neighbour steps). With +0x6C set and
+    nothing found, `0x41f500` puts the position on that edge polygon
+    (+0x14, +0x18, +0x1C, +0x64 = 2) but leaves +0x6C, so `0x420230`
+    still takes the road point's frame. Readers: `0x41e990` (a set side
+    restarts the search from the run's middle), `0x41f500`, `0x420230`,
+    `0x430350`, `0x41fd60` and `0x401d78`.
+  - **The walls.** The values are the side bits of the car-against-
+    track test `0x4304b0` (from `car_collisions_task` `0x4311d0`): for
+    each corner of the car it builds a position from the car's
+    (`0x41f6e0`); `0x430350` calls the corner off the road when it has
+    no polygon record, +0x6C is set, or the surface is 0 or 14 (else it
+    goes by heights); then
+    `0x41fd60` ORs the car's and the corner's +0x6C and adds 1 or 2 when
+    the corner is within 1.5 units of the edge 1-2 or 3-0 of the car's
+    polygon, 4 or 8 past its edge 0-1 or 2-3 (the slice's ends);
+    `0x41f870` steps to the neighbour (polygon i−1 for 1, i+1 for 2,
+    slice +1 for 4, −1 for 8), and `0x430210` makes the wall's normal
+    from that edge.
+  - +0x68 u16 1 when the slice changed in the last update, +0x6A u16 1
+    when the slice or polygon did (`0x41e420`, `0x41f650`); +0x70 the
+    polygon's number in the run (−1 at a reset); +0x74 the mode given
+    to `0x41f6e0` (0: the slice only, no polygon; the car's own update
+    `0x49fe70` passes 1 − +0x88, so a car with +0x88 set keeps only its
+    slice; `0x4207e0` sets −1 when asked about a position without a
+    polygon).
+  - Run (`c9-tp1`, November 2026: Redrock, racer's pursuit by keys,
+    `-count` and `-watch` on `0x41ebd7`, `0x41ee86`, 40 stops): side 1
+    was set 1,299 times, side 2 55 times; at the stops side 1 came with
+    +0x70 0 (slices 33-36 and 99) and side 2 with +0x70 11 (slices
+    62-72), as read. `0x41f570` (the edge snap) ran 1,302 times and the
+    wall step `0x4308e2` 1,316. All 40 stops were stack copies
+    (`0x4304b0`'s corners).
 
 - **+0x8, the race distance** (int; the network status message sends
   its low 16 bits). `0x42ce10`, from the Sc32 task `0x42ce70`: lap
@@ -2319,8 +2382,16 @@ of every access to those offsets):
 - Why the recorded game's spike icon dims for 3 s and its racer list
   has no "over" text, when this exe hides the icon until the strip is
   cleared and shows the text: probably another build, not found.
-- What the track position's +0x64 and +0x6C are, that pick the
-  polygon's frame over the road point's in `0x420230`.
+- Settled (November 2026, Other car fields, +0xC): the track
+  position's +0x64 is where the frame comes from (1 the slice, 2 a
+  polygon was found) and +0x6C the side of the slice's road polygons
+  the point is beyond (0 on a polygon, 1 past the first's outer edge,
+  2 past the last's), the side bits of the wall test `0x4304b0`. Left
+  open: which of 1 and 2 is the driver's left. The `c9-tp1` stops,
+  taken against car 0's road point and right (+0x148, +0x124), don't
+  settle it: side 1's corners were 6.5-16.5 m left of it, side 2's
+  from 0.7 m right to 6.3 m left (the corners may not all be car 0's,
+  and the road point need not be the run's middle).
 - The lane votes' own rules (`0x40cee0`, `0x40cfc0`, `0x40d1f0`,
   `0x40d2e0`, `0x40d3d0`, `0x40d720`-`0x40d9f0`): how a computer car
   weighs cars ahead and the best line.

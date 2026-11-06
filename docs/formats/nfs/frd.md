@@ -239,7 +239,14 @@ are one record per slice of the track (8 per block; the block's first
 slice is its start position): a u16 first polygon and a u8 count, the
 run of high-detail road polygons (list 4) across that slice, then a
 u8 and −1. The game finds which road polygon a car is on by starting
-from the run's middle one and walking sideways (`0x41e990`). The byte
+from the run's middle one and walking sideways (`0x41e990`), into a
+0x78-byte track position ([physics.md](physics.md), Other car fields,
++0xC): polygon i shares its edge from vertex 0 to 3 with polygon i−1
+and its edge from 1 to 2 with i+1, and its edge 0-1 faces the next
+slice (`0x41e6a0` takes the vertices as 1, 0, 3, 2; `0x41e990`,
+`0x41f870`, `0x41fd60`). A point beyond the first polygon's or the
+last's outer edge is marked with side 1 or 2 (+0x6C), the side bits
+the walls use. The byte
 at 3 is the music zone, 4-9: the game
 sends it to the Pathfinder map as an event when the car nears a slice
 where it changes ([mus.md](mus.md), The events the game sends).

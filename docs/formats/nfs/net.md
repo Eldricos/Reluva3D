@@ -62,7 +62,7 @@ sleeping 10 + 50 × i ms, before giving up on the player.
 | `0a` | any | chat: NUL-ended text (`Player1: hi`); the host passes it on | `0x42d710` |
 | `07` | 20 | link set-up over serial and modem (`0x4c4310`): +4 u32 the frame count `0x79c1a4`; +8 the player's name (`Player1`). Stored at `0x7d3650` (Serial, below) | `0x4c4190` |
 | `08` | 12 | the pause menu: +4 u32 an operation, +8 u32 a frame (below); +1-3 whatever the buffer held | `0x4c5b00` |
-| `09` | 16 | +1 the sender's car; +4, +8, +0xC three u32 flags for its steering, gas and brake bindings, kept in the set-up's car (+0x14-0x1C, `0x6fd550` + car × 0x6C). `0x43c000` gives 1 unless the control is bound to an input device's axis (binding kind 1) and that device's record (`0x6fc970` + n × 0x88) lacks flag 4; so 1 for keys | `0x43dab0` |
+| `09` | 16 | +1 the sender's car; +4, +8, +0xC three u32 flags for its steering, gas and brake bindings, kept in the set-up's car (+0x14-0x1C, `0x6fd550` + car × 0x6C). `0x43c000` gives 1 unless the control is bound to an input device's axis (binding kind 1) and that device's record (`0x6fc970` + n × 0x88) lacks flag 4; so 1 for keys. **Flag 4 is a gamepad** (read November 2026): the record's first u32 is set when DirectInput lists the device (`0x436980`, the EnumDevices callback): 4 for a joystick of subtype 4 (gamepad), 2 for subtype 6 (wheel), else 1; `0x435690` adds 8 when its capabilities have force feedback (DIDC_FORCEFEEDBACK, `0x435788`); `0x472b60` copies the records to `0x6fc970`. So the flag is 0 only for a joystick's or a wheel's axis: an analogue control. Of the three, the receiver reads the steering's (set-up +0x24: ramp the steering, physics.md) and the brake's (+0x2C); no reader of the gas's (+0x28, written at `0x43daef`, `0x49adc8`) was found | `0x43dab0` |
 | `0b` | 14 + 2 per AI car | a status every 32 steps (`0x4c7bd0`, [nfs-threads.md](../../engines/nfs-threads.md)). Positional updates only (below) | `0x4c7d30` |
 | `0c` | 196 | +1 a car; +4 0xC0 bytes of the car's race record (car + 0x224: finish time, laps), copied in. Sent at the race's end (`0x4c7ea0`, from `0x455423`, the results), the local car's to the host and the host's for every car, between barriers 0x22 and 0x23 (90 s). Positional updates only | `0x4c7f90` |
 | `0d` | 2 | +1 a car that has finished: its +0x2C4 is set to 3 (`0x4c7e50`). Sent with each 0b once the local car has finished (`0x4c7d09`). Positional updates only | `0x4c7e80` |
@@ -484,8 +484,8 @@ node 6, BE socket 2); +0x14 8 bytes, zero. Then:
 
 | Tag | Bytes | After the head | Built at |
 |---|---|---|---|
-| `dec` | 176 | +0x1C the game's GUID (BE u32, u16, u16, 8 bytes: the one in its `EAGAME.` name); +0x2C its name (32, `Player1`); +0x4C-0x5F the game's record +0x74-0x87, which is the game's own info (`NET_newgame`'s, `0x7a0420` here) +0x3C-0x4F: 4 bytes, BE u16, u16, u32, u32 and +0x5C BE u32 the most players, 8 (`0x7a046c`: 2 for Client/Server, 8 for Peer-to-Peer, `0x49e6be`; `0x5132a0` stops there). The game never writes `0x7a045c`-`0x7a046b`, so +0x4C-0x5B are 0: room left for the application. +0x60-0x6F and +0x74 on aren't written by the builder (stack). +0x70 BE the mask of player rows in use (game +0x50, 0 before anyone joined). A copy finding the game reads them back the same way (`0x513a5e`-`0x513bcb`) | `0x513030` |
-| `add` | 140 | +0x1C a 16-byte string (zero); +0x2C 0x5C bytes of the joining player's record (+0x30 of its game object): its IPX address at +0x2C, its name at +0x74 (`Player1`); +0x88 is whatever the stack held (`fd9d64ff`) | `0x5144b0` (NET_setgame) |
+| `dec` | 176 | +0x1C the game's GUID (BE u32, u16, u16, 8 bytes: the one in its `EAGAME.` name); +0x2C its name (32, `Player1`); +0x4C-0x5F the game's record +0x74-0x87, which is the game's own info (`NET_newgame`'s, `0x7a0420` here) +0x3C-0x4F: 4 bytes, BE u16, u16, u32, u32 and +0x5C BE u32 the most players, 8 (`0x7a046c`: 2 for Client/Server, 8 for Peer-to-Peer, `0x49e6be`; `0x5132a0` stops there). The game never writes `0x7a045c`-`0x7a046b`, so +0x4C-0x5B are 0: room left for the application. A copy looking for games (NET_getgames) puts +0x4C-0x5F in its record +0x3C-0x4F (`0x5133a0`: 4 bytes, BE u16, u16, u32, u32, u32); nfs3's callback (`0x49f380`) keeps only the 4 bytes at +0x4C-0x4F, each as a u32 at +0x1C-0x28 of its list entry (`0x79fce0` + n × 0x40: +0 the name, +0x2C the address), and nothing reads those (the list's users `0x43f220`, `0x43fdd0`, `0x440810`, `0x440894` read the name and the address). So this game doesn't read +0x4C-0x5B. +0x60-0x6F and +0x74 on aren't written by the builder (stack). +0x70 BE the mask of player rows in use (game +0x50, 0 before anyone joined). A copy finding the game reads them back the same way (`0x513a5e`-`0x513bcb`) | `0x513030` |
+| `add` | 140 | +0x1C the game's **password** (16 bytes, NUL-padded: `0x4e0e30` is strncpy with padding; NET_setgame's third argument, which nfs3 passes as "" from `0x49e869`, so zero). The host compares it with its own (game +0x3C, NET_newgame's third argument, also "" from `0x49e78a`) only when its own is not empty, and answers a mismatch with an `rsp` of BE −1 ("BadPsswd", `0x513d07`-`0x513e25`; full is BE −2, "GameFull", and a refusal by the game's callback BE −3, "DenyJoin"); +0x2C 0x5C bytes of the joining player's record (+0x30 of its game object): its IPX address at +0x2C, its name at +0x74 (`Player1`); +0x88 is whatever the stack held (`fd9d64ff`) | `0x5144b0` (NET_setgame) |
 | `rsp` | 36 | +0x1C BE 1, taken; +0x20 BE the player's row in the game's table (0x64-byte rows at game +0x88), 0 for the first | `0x5137b9` |
 
 How found: the captures' bytes, then the builders: `dec`'s fields at
@@ -664,6 +664,20 @@ counts are its 93-95 ms, modem's 25 its 195 ms and IPX's 32 its 250
 ms. In a race the game, not the window,
 stopped the sending: the lockstep stalls before 63 packets are out.
 
+**At the limit** (read November 2026, `0x4a60e0`): nothing else holds
+a link under its 63 buffers. A send the layer refuses (`nobuffers`)
+fails back to `net_send`, which tries again 9 times, sleeping 10 + 50 ×
+i ms (1.9 s in all) while the network thread goes on resending and
+taking acknowledgements. If it still fails: a copy with one link (not
+the host, `0x7a22da` 0, or Client/Server, `0x7a22e4` 0) abandons the
+session (`0x7a22dc` and `0x7a22de` 1); the host, sending to its
+players, drops that player over the network (`0x7a22e0` 3:
+`0x49ecf0`, which sends 0e) and abandons the session over serial or
+modem. One exception: on the one-link path in Peer-to-Peer (`0x7a22e4`
+1) a 06 that fails is not tried again; `net_send` sets `0x7a2290`,
+which nothing reads, and the frame is lost. (`0x7a22e4` 2 goes to
+`0x4a5d10` instead, not read here.)
+
 **TCP** has no reliable layer: its open (`0x4f7380`) gives the link
 table `0x566e8c`, whose send is `0x4f7030` itself. That keeps one message
 being sent; a send that would block (WSAEWOULDBLOCK, WSAENOBUFS) is
@@ -704,8 +718,8 @@ was the lower.
   players' driver numbers were 0 and 6. (Answered above: the records'
   +0-0xF are the cars' keys, the header's +0x190 is the first of them,
   and +0xF0 is `copassist`.)
-- What an input device's flag 4 is (09's flags are 0 only for an axis of
-  a device without it); no run used a joystick over the network.
+- Settled (November 2026): an input device's flag 4 is a gamepad
+  (Messages, 09). No run used a joystick over the network.
 - 0b, 0c and 0d were captured only from a patched copy: the unpatched
   game sends them only when launched by EA's online service, whose NPS
   DLL isn't on the CD. The Positional/Controller pair is built but never
@@ -716,8 +730,11 @@ was the lower.
   header at 240,77, then 208,108), and police cars are offered in Hot
   Pursuit (mask 0x2008), but the script didn't reach them in Player
   Car's list.
-- Whether anything but the game's lockstep keeps a link under its 63
-  buffers.
-- What other EA games put in `dec`'s +0x4C-0x5B (zero from this one);
-  `add`'s 16-byte string at +0x1C (zero in the capture: perhaps a
-  password).
+- Settled (November 2026, IPX, At the limit): nothing but the
+  lockstep keeps a link under its 63 buffers; at the limit `net_send`
+  retries for 1.9 s, then the host drops the player (network) or the
+  session is abandoned. Not read: `0x4a5d10`'s send (`0x7a22e4` 2).
+- What other EA games put in `dec`'s +0x4C-0x5B (zero from this one,
+  which never reads them: IPX, `dec`). Settled: `add`'s +0x1C is the
+  game's password, empty from this game, checked by the host only
+  when its own is set.
