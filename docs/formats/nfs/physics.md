@@ -750,6 +750,10 @@ towards +0x7B4, which took the values 4.0, 12.0 and 17.1 (lanes) and
 about 0.5 m/s (43.6-43.7 for 44.0; 36.9 for 36.5), from 0 to 12 m/s in
 1.8 s. +0x7BC was 0.66 throughout (the human behind all of them).
 
+- (November 2026: the yaw rates below are in turns a second, the side
+  term of `0x4076b0` is a side speed wanted and its "heading term" the
+  velocity along the right of the road two slices on, `0x406a80`; the
+  Tracks page models all three, [frd.md](frd.md), The controllers.)
 - **`0x4076b0`** (on the road, lined up, fast): yaw rate wanted = −2.5
   × heading error, in ±0.8; side term = −5 × (+0x7B8 − +0x7C8), in ±32
   and ±0.5 × +0xB8; under 22.35 m/s these are kept within 0.129 and

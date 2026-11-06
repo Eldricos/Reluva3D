@@ -335,13 +335,16 @@ What was built, with each format written up in `docs/formats/nfs/`:
     lights when held up (Shift+J stops them), their drivers acting every
     8 steps and their model at 32 Hz as the game's, their lanes taken at
     the side offset as the game measures it (so a car at a lane's middle
-    weaves between the two lanes as the game's do), cutting a bend as a
-    car steering at the point 1.7 s ahead does; the police car by the
+    weaves between the two lanes as the game's do), moved across by the
+    game's three controllers (pushed in the road's frame when fast,
+    turned towards the point 1.7 s ahead when slow or sliding) and kept
+    within the walls; the police car by the
     computer cops' driver, patrolling, on a run with its siren or
     chasing a racer that has been over the section's speed (+0x6F0),
     reversing when past a stopped one, holding a slow one (160-224 steps
     by its race distance) until it pulls over, stopping it with the
-    officer on foot beside it (the track's `copN.fce`) and giving the
+    officer on foot beside it (the track's `copN.fce`, on the road's
+    polygons, lit as a car, track 8's with his red light) and giving the
     ticket; a second police car 800 m on, patrolling, for the chasing
     one's calls for help (a strip by the chase's heat, backup); key C
     orders the free one as the game's chasing cops order a free one, in
@@ -353,16 +356,18 @@ What was built, with each format written up in `docs/formats/nfs/`:
     police car's state, its racer's and its last radio call (no speech).
     `RELUVA_NFS_TRACK_CARS=<dump>` places
     them as a dump of `nfs-host`'s car records has them (the human's car
-    left out unless `RELUVA_NFS_TRACK_CARS_HUMAN` is set),
+    left out unless `RELUVA_NFS_TRACK_CARS_HUMAN` is set, but its
+    headlights, the camera's car's, where the dump has it),
     `RELUVA_NFS_TRACK_CARS_SETUP=<dump>` (the race's set-up records at
     `0x6fd52c`) gives each its own model by its key, in its paint, and
     `RELUVA_NFS_TRACK_STEP=<step>` holds the moving objects at that
     game step, for frame-for-frame comparison. Their skins are recoloured
     by the paint as the game's loader does and the right way up
     ([fce.md](../formats/nfs/fce.md), The skin's paint). They are lit as the game
-    lights a car, with its reflection of the sky's sphere map in the
+    lights a car (a near one by night also by the track's lights within
+    16, `0x4b9550`), with its reflection of the sky's sphere map in the
     colours the game works out (key Z: off), their tail-light, headlight
-    and roof-light glows (fogged as the scenery) at the game's depths (the body's nearest point,
+    and roof-light glows (fogged as the scenery, point-sampled) at the game's depths (the body's nearest point,
     a roof light's own less 0.75; the tail lights brighter while braking, more
     than 5 m/s too fast, at bends), in the weather each glow's flare on a
     wet road, on the road's plane as the game puts it, and in fog over 30 % each headlight's beam, and they light

@@ -299,6 +299,27 @@ struct CarLights {
     bool sirenOn = false;
 };
 uint32_t carLitBy(uint32_t colour, const std::array<float, 3>& carAt, const std::vector<CarLights>& others);
+// The track's lights on a near car (0x4b9550, by night, after carLitBy:
+// only for a car drawn at the nearest detail, 0x4bae00, and for the
+// officer on foot, 0x4b9bc0). For each of the seven slices from the
+// car's slice - 3 to + 3 (wrapping), every light of that slice's block
+// (slice >> 3; so a block's lights count once for each of its slices
+// there) whose colour 0x491120 gives (lightLook: none while blinking
+// off, none with the Special Effects option Off) and whose distance from
+// the car is under 16 (0x496550 on 16.16 integers: the largest of |dx|
+// and |dy| plus a quarter of the other, then the same with |dz|) adds
+// its colour times 1 - d / 16 (0x10000 - (d >> 4), each channel >> 16);
+// the sums divided by their count are added, at most 255.
+int lightDistance(const std::array<int32_t, 3>& a, const std::array<int32_t, 3>& b);
+uint32_t carLitByTrackLights(uint32_t colour, const std::array<float, 3>& carAt, int slice, int slices,
+                             const Track& track, uint64_t tick, bool effectsOff);
+// The detail a car is drawn at (0x4bb5d0): the mean of its box's eight
+// corners' view depths against the table at 0x55fdf4 by the car detail
+// option (0x6fbc1c; 0: 30, 60, 120, 300; 1: -, 45, 90, 300; 2: -, 20, 60,
+// 300), the first three x 0.75 by night or in a network game and all x
+// 0.6 in the mirror: 0 the nearest (only with option 0), 3 the farthest,
+// -1 past them.
+int carDetailLevel(float meanDepth, int option, bool night, bool mirror = false);
 
 // The computer's speed table (speedsF.bin, or speedsR.bin for the track
 // run backward; physics.md): after a 16-byte header, one byte per two
@@ -334,6 +355,19 @@ int coverDepth(const TrackCollision& col, int slice, const std::array<float, 3>&
 // A road polygon's surface (the block's 8-byte record for it, byte 1
 // & 0x3F, as 0x4207e0 reads it), list 4's polygon `index`; 0 without one.
 int roadSurface(const Track::Block& b, size_t index);
+// Where a point is across a slice's run of road polygons (the block's
+// positions record for the slice: a u16 first polygon of list 4 and a u8
+// count), as the track position's search has it (0x41e990 from the
+// run's middle, stepping to polygon i - 1 past its edge from vertex 0 to
+// 3 and to i + 1 past its edge from 1 to 2, on the ground): 0 inside
+// polygon `polygon`, 1 beyond the first polygon's outer edge, 2 beyond
+// the last's (the +0x6C side; physics.md, +0xC). -1 without a run.
+int sliceRunSide(const Track::Block& b, int sliceInBlock, const std::array<float, 3>& point, size_t& polygon);
+// Whether the officer's spot is kept (0x401d78, after 0x4205a0 builds a
+// track position for it at the racer's slice): only inside a polygon of
+// the slice's run (+0x6C 0) with a record whose surface is neither 0 nor
+// 14; else cop_officer_place takes the other side, unchecked.
+bool officerSpotOnRoad(const Track& track, int slice, const std::array<float, 3>& point);
 // Whether the rain's flares (0x491bc0) are drawn on a surface: in the
 // weather, the table at 0x55308c (by surface and the weather's kind, rain
 // or snow, which agree for the 16 surfaces) says 10: surfaces 1, 4, 6, 7,
@@ -401,6 +435,14 @@ struct AiCar {
     // steers by it.
     float side = 0, sideSpeed = 0, lateral = 0, along = 0;
     bool sideKept = false;
+    // The game's model across the road (aiMove; car_ai_model 0x408600):
+    // `sideSpeed` the velocity along the slice's right, `carSide` along the
+    // car's own right (+0x4EC), `heading` its yaw off its way along the
+    // road (radians, towards its right), `yawRate` (+0x4FC), the slice
+    // the velocity was last measured at, and the controller last used.
+    float carSide = 0, heading = 0, yawRate = 0, headingError = 0; // headingError: 0x56ec60, turns
+    int velSlice = -1;
+    enum Steer : uint8_t { Rails, Slow, Slide } steer = Rails;
     float target = 0;   // the offset wanted (+0x7B4)
     float speed = 0;    // m/s along its way (+0x7C4)
     float wanted = 0;   // the speed wanted (+0x7B0), as a size
@@ -552,15 +594,30 @@ int aiLineLane(const std::vector<uint8_t>& speeds, int slice, int sliceCount);
 // for its way.
 void aiStep(std::vector<AiCar>& cars, size_t self, const TrackCollision& col, const std::vector<uint8_t>& speeds,
             const AiCarData& data, int step, int track, bool weather);
+// One step (64 a second) of a computer car's motion across the road, as
+// the game's model has it (car_ai_model 0x408600 on the even steps, then
+// ai_integrate 0x4071a0): its heading error to the point it steers at
+// (0x406e50, 0x406d40, 0x406980: from 4 slices on to about 1.7 s ahead,
+// short of a 45-degree turn, moved across by the aim +0x7C8), then one of
+// three controllers. ai_ctl_rails (0x4076b0; on the slice's lanes, lined
+// up within 0.04 of a turn, at 13.41 m/s or more) pushes the car across
+// in the road's frame: the side speed wanted is -5 x (+0x7B8 - aim), in
+// +-32 and +-half its speed (under 22.35 m/s +-0.129 x the speed), against
+// its velocity along the right of the road 2 slices on (0x406a80), with a
+// gain of 4 and at most 38 (both x (1 + 0.0015 x speed)); its yaw only
+// turns the car. ai_ctl_slow (0x407c30; reversing or under 13.41 m/s) and
+// ai_ctl_slide (0x407fa0; off the lanes, off the line, under 0.5 m/s or
+// slipping) turn it towards the point and damp its sideways slip, so it
+// goes where it points. The velocity is kept across a slice's end (the
+// frame turns, so a car running straight on drifts wide on a bend); the
+// car stays within the slice's walls (0x4304b0). `offset` is the aim,
+// `speed` its speed, `along` how far it is along its slice (set by whoever
+// moves it); `side` comes out as the game measures +0x7B8.
+void aiSteerStep(AiCar& car, const TrackCollision& col, int step);
 // Whether a computer car's driver acts on a step (0x40df10 -> 0x401240,
 // for racers and cops alike): the drivers are a 32 Hz task, on the even
 // steps, let through when (step / 2 + its phase, car +0) mod 4 is 0.
 bool aiDriverActs(const AiCar& car, int step);
-// How far a computer car sits inside a bend as it steers at the point
-// ahead (0x406e50 with 0x406d40, 0x406980: about 1.7 s on, 4-20 slices,
-// short of a 45-degree turn) rather than along the road: a share of the
-// point's offset across the car's slice, along the slice's right.
-float aiBendCut(const TrackCollision& col, const AiCar& car);
 
 // The track section's speed (0x40ed40): by track and slice, hard-coded
 // ranges, 8.94 to 31.29 m/s.

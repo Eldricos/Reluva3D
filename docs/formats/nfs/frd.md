@@ -854,6 +854,61 @@ black one 42, 28, 24 against 42, 39, 35; the game's are a little redder
 blue and red to 8 levels). Nothing was found to fix at that size; a
 nearer car in a night frame would settle it.
 
+**Night cars at size** (November 2026, `d7-runs`). Two deterministic
+Hometown night races (`nfs-host -deterministic 50000`, 5.1 billion
+instructions) with the player held on a slice and two computer cars
+held just ahead of him from the 300th sky draw (`-pokeevery` of their
+positions and rows, `facepoke.py`), dumped at the 500th (camera, cars,
+set-up) and their THRASH list at frame 2700 (`-gpudump`; a second run
+the same for the frames): `d7-night1` on slices 230-234 (an F355 12 m
+ahead, 85 pixels wide, a Diablo 24 m ahead coming the other way) and
+`d7-lamp2` on slices 554-557 by the town's red light (type 7, slice
+558). The list gives each car's lit colour exactly: its vertices' colours
+are `carShade`'s base (a third, a third, a half) and top, so the colour is
+three times the darkest vertex's red and green and twice its blue
+(`0x49d8f0`). Found and fixed:
+- **The camera's car's headlights** were put at the camera (in the
+  cockpit, or behind the car) with the Corvette's length; the game's are
+  the human's car's own (`0x42d160`: its position, rows and half length).
+  With a dump the page now takes the human's car from it for that light.
+  The F355: the game 156-158, 168-170, 182-183, the page 163, 176, 189
+  before, 157, 170, 183 after; the Diablo 75-77, 87-89, 100-101 against
+  74, 87, 100.
+- **The track's lights on near cars** (`0x4b9550`, `carLitByTrackLights`).
+  The nearest detail's drawing (`0x4bae00`, detail level 0 of `0x4bb5d0`,
+  `carDetailLevel`: the mean depth of the car's box's corners under 30,
+  × 0.75 by night, and only with the car detail option `0x6fbc1c` 0, as
+  nfs-host's `config.dat` has it; levels 1-3 under 60, 120 and 300, the
+  table at `0x55fdf4`) adds after `0x4b97b0` the track's lights near the
+  car: for each slice from the car's − 3 to + 3, each light of that
+  slice's block (so a block's lights count once for each of those slices
+  in it) whose colour `0x491120` gives (the light table's, none while
+  blinking off or with the Special Effects option Off), within 16 by
+  `0x496550`'s distance (on 16.16 integers: the largest of |dx|, |dy|
+  plus a quarter of the other, then the same with |dz|), adds its colour
+  × (1 − d / 16) (`0x10000 − (d >> 4)`, each channel `>> 16`); the
+  sums over their count are added, at most 255. The page left this out.
+  By the red light (`d7-lamp2`) the game's cars were 174-176, 174-176,
+  180-181 and 132-134, 135-137, 142-143; the page now gives 174, 175, 181
+  and 134, 137, 142 with the light on (166, 175, 181 and 132, 144, 149
+  while it blinks off): that is the red the game's night cars had more.
+- **The glows** were filtered; they are point-sampled now (thrash.md,
+  Texture filtering), their corners from texel centre to texel centre as
+  `0x492370` has them (u, v 1/64 to 63/64 of `glw3`'s 32).
+
+The tail lights' glows then match: the F355's left one's red pixels
+centred 1.7 pixels higher on the page (the page's cars are placed from
+the dump, taken at the sky draw before the frame's poke; from the raw
+dump they were 6 pixels higher), their mean 93, 24, 32 against 92, 22,
+27; the box of the F355's back 57, 41, 49 against 52, 39, 45, the
+Diablo's 61, 57, 68 against 54, 56, 68. The reflection's colours were
+already the list's (`7e63637e`, `88626288`, `845f5f84`). Not drawn by
+the page: **the car's shadow** (`0x4b81a0`): a quad under the car's box
+on the road (`0x4b7f80`, `0x4968a0`), raised by `0x53ffc0`, black with
+alpha 0x6F (the list's `6fffffff` on a black 32 × 32 picture, `0x8b4898`),
+cast along the horizon's light direction by day only (flat under the car
+by night, in the weather or in the mirror).
+
 **The police car's driving** (`aiCopStep`, November 2026). The page's
 police car drives as a computer cop (`car_driver_cop`, `0x4032e0`;
 [physics.md](physics.md), The computer cops' driver), not by the racers'
@@ -926,15 +981,45 @@ has them:
 - **The officer on foot** (November 2026; `drawOfficers`): as the stop
   begins `cop_officer_place` (`0x401c20`, `0x401b50`) puts him 2 m from
   the racer along its slice's right towards the road's middle, at the
-  road's height, turned to the racer's heading; `draw_officer`
+  road's height, upright and turned to the racer's heading
+  (`mat_rot_y_turns` of +0x210, not the road's slope); `draw_officer`
   (`0x4b9bc0`) draws him within 100 m, until the ticket (`0x401e20`).
   His model is the track's `Render/pc/copN.fce` with its `.art` pages
   (`0x4b7c60`, loaded with `0x49d450`: cop0 on tracks 0 and 4, cop2 on 2
   and 6, cop3 on 3 and 7, cop4 on 8, cop1 on 1 and 5), raised by its half
-  height (+0x2C), in the corner colours 0x4F4F4F to 0x7F7F7F
-  (`0x49d800`). The page leaves out `0x401d78`'s check that the spot is
-  on the road's polygons (else the other side) and the red light of
-  track 8's officer (the model's dummy, `0x492370`).
+  height (+0x2C). Read again in November 2026 (`0x4b9bc0` and the
+  functions it calls):
+  - **The spot on the road** (`0x401d78`): after `0x4205a0` builds a
+    track position for the spot at the racer's slice, the side is kept
+    only when its +0x6C is 0 (inside a polygon of the slice's run; the
+    run's polygons share edge 1-2 of polygon i with edge 0-3 of i + 1 on
+    every track, 10,665 of 10,665 pairs on Hometown, all but 118 of
+    the nine tracks' 149,877), the polygon and its record are set and the
+    record's surface (byte 1 & 0x3F) is neither 0 nor 14; else he goes to
+    the other side, unchecked (`sliceRunSide`, `officerSpotOnRoad`).
+  - **His lighting**: as a car's, not two fixed colours. The colour is the
+    road's under the racer (`0x4206f0` on the racer's track position, the
+    mean of its polygon's four corners); by night, out of the mirror,
+    with the other cars' lights on the racer (`0x4b97b0`, `carLitBy`) and
+    the track's (`0x4b9550`, below, The track's lights on near cars);
+    then `0x49d8f0` (`carShade`: a third, a half and twice the colour)
+    and `0x49da30` per vertex against the horizon's light direction
+    (`0x49d760` with `0x55d2a8`), when `0x6fbc20` is on (`0x49d750`; on
+    from 167 MHz up). `0x49d800(0x4F4F4F4F, 0x7F7F7F7F)` gives the two
+    colours of the **reflection** (`0x55e6dc`, `0x55e6e0`, × the effects
+    intensity under Direct3D), and the model is drawn with the sky's
+    sphere map (`0x563a90` → `0x6ff9a0`, +4 its handle) as the last
+    argument of `0x49d5c0` → `0x49de20`, so the triangles without fce
+    flag 1 reflect it: only cop2 has any (12 of 439; the other four
+    models' triangles all have flag 1). The page had taken the two
+    reflection colours for his light and dark.
+  - **Track 8's red light**: with the model's dummy count (+0x34) not 0
+    (cop4's one dummy at 0.03, 0.80, 0.24), the dummy (+0x38) through his
+    frame and place (`0x4e0430`), and d = his forward · the view's
+    forward (view +0x2C): when d < 0 (he faces the camera) a glow
+    (`0x492370`) in 0xFFFF0000, size −d × 0.1 (`0x5400f8`), at his nearest
+    depth (the least view depth `0x49d5c0` returns).
+  The page now does all three.
 - **Orders** (+0x7AC, `cop_ai_order` `0x403830`, taken by
   `cop_ai_order_start` `0x403030` once, and again in patrol at each call
   without a target): kind 0, to the roadside: facing the order's first
@@ -1175,17 +1260,12 @@ them along the slices at the speed that leaves:
   `aiChord`), steers the spring by the measured one and takes the lanes
   there. The polygons' own road vectors (the game's +0x124) aren't used:
   the slice's right stands for them.
-- **The side offset as driven** (+0x7B8, `aiMove`): the game's car is
-  steered at its aim (+0x7C8) by the controllers above and its lanes
+- **The side offset as driven** (+0x7B8, `aiMove`, `aiSteerStep`): the
+  game's car is moved across the road by its controllers and its lanes
   (`0x40e350`) are taken at +0x7B8, the car's own offset, not at the aim.
-  The page drove each car exactly on its aim until November 2026, and a
-  car aimed at a lane's middle 1.5 widths out then sat in the lane past
-  it for good. The page now moves +0x7B8 towards the aim as a spring and
-  damper (100 /s², 14 /s, at most 70 × (1 + 0.0015 × speed) m/s²),
-  fitted to `-watchmem` of car 1's +0x7B0-+0x7CC over 376 steps of a
-  Hometown race (`t6-watch`): 1.1 m rms, about as good from 0.6 to 1 of
-  critical damping; the rest is the road's bends and the car's heading,
-  which the page doesn't model.
+  The page drove each car exactly on its aim until November 2026, then
+  by a fitted spring, and since by the game's model (below, The
+  controllers).
 
 **Against the game's racers** (November 2026, `t6-log`: Hometown by
 day, the human left on the grid, the cars' records dumped every 0.5 s
@@ -1216,24 +1296,89 @@ two cars (none in the game). The page's cars now aim at lane 7's middle
 (3-14 samples aimed at 12 m against the game's 7-40): the rest of the
 difference is the game's own steering, which the spring stands for.
 
-**The bend's cut** (`aiBendCut`, November 2026, `d6-runs/sim`). The
-game's car doesn't follow its aim along the road: `0x406e50` steers it
-at a point ahead (`0x406d40`: the slice from `0x406980`, 4 slices on and
-then to speed × 1.7 / 6 slices, 4 to 20, short of a 45° turn, moved
-across by the aim), and the controllers (`0x4076b0`, `0x407fa0`) turn it
-towards that point. A car chasing a point L ahead on a bend of curvature
-k settles k L² / 2 inside it, and that is the point's offset across the
-car's slice; the page's spring now pulls the side offset to the aim plus
-that offset (at most 6 m), taken from the slices' points, not fitted.
-Against `t6-log` (`aisim` from the 50 s dump, `weave.py`): +0x638
-changes in 13-18 of the 56 samples per car (110 in all; the game's
-17-23, 143; 21-29, 169, before), and the aim is past 8 m (lane 8, 12 m)
-in 12-24 samples per car (122; the game's 10-41, 162; 1-14, 50, before).
-Mean speeds 36.4-37.8 m/s. A share of the offset was tried too (0.05 to
-1.5): 0.25 came nearest on both counts together (107 and 139), the full
-offset second (110, 122), none of them on both; the rest is the
-controllers' own lag and overshoot, which the spring (fitted without the
-cut on `t6-watch`) stands for and which was not fitted again.
+**The bend's cut** (`aiBendCut`, November 2026, `d6-runs/sim`; taken
+out again). The page had read `0x406e50`'s point ahead as what the car
+follows, and pulled its spring to the aim plus the point's offset across
+the car's slice (at most 6 m). The controllers (below) show the point
+only turns the car, and only the slow and sliding controllers make it go
+where it points: replayed against the game's own +0x7B8 (`d7-watch2`,
+below) the aim plus the cut is 5.14 m rms off, the aim alone 0.67.
+
+**The controllers** (November 2026; `car_ai_model` `0x408600`,
+`ai_ctl_rails` `0x4076b0`, `ai_ctl_slow` `0x407c30`, `ai_ctl_slide`
+`0x407fa0`, `ai_integrate` `0x4071a0`, gains from `ai_gains_init`
+`0x405e60`; `aiSteerStep`). Each 32 Hz call the aim moves 0.2
+(`ai_lane_ramp`), `ai_heading_error` (`0x4070c0`) takes the heading less
+the direction to the point (`0x406e50` → `0x406d40`: the slice from
+`0x406980`, moved across along the car's road right by the aim), in
+turns within ±0.5, and one controller runs:
+- `ai_ctl_slow` reversing or going backwards;
+- `ai_ctl_slide` with +0x7B8 off the slice's lanes (beyond lanes ×
+  width either side), the heading error over 0.04 (`0x5363ac`) × the
+  surface's grip (`0x5523d8`, 1 on dry road), under 0.5 m/s
+  (`0x5363b4`), or over 2.5 m/s (`0x5363bc`) with the side slip over half
+  the speed (`0x5363c4`);
+- `ai_ctl_slow` under 13.41 m/s (`0x5363cc`); else `ai_ctl_rails`.
+
+`ai_ctl_rails` pushes the car across **in the road's frame**: the side
+speed wanted is −5 × (+0x7B8 − aim) (`0x56ebd4`), in ±32 (`0x56ebd8`) and
+± half the ground speed (`0x53634c`), and under 22.35 m/s (`0x56ebf4`)
+± 0.129 × the speed (`0x56ebf8`); `0x406a80` gives the car's velocity
+along the right of the road two slices on (`slice_ahead(car, 2)`), and
+the force along the road polygon's right (+0x124) is (wanted − that) × 4
+(`0x56ebe0`), at most 38 (`0x56ebdc`), both × (1 + 0.0015 × speed)
+(`0x536354`). Its yaw only turns the car: the yaw rate wanted −2.5 × the
+error (`0x56ebe4`) in ±0.8 (`0x56ebe8`; under 22.35 m/s ± 0.012 × the
+speed, `0x56ebfc`), the yaw force 5 × the difference (`0x56ebf0`) in ±0.8
+(`0x56ebec`). `ai_ctl_slow` and `ai_ctl_slide` work in the car's frame: a
+yaw rate wanted from the error (−2.5, at most 1.6 and 0.02 × the ground
+speed; −3, at most 3 and 0.04 × it), its force × 10 (× 10 × 0.5 for the
+slide) in ±0.8 (±1), and the car's own side speed (+0x4EC) pulled
+towards sin(error) × speed at most 16 and 0.01 × the ground speed (× 3,
+in ±38), or towards the error × −30 at most 32, the ground speed and 0.2
+× it (× 6, in ±40): the car goes where it points. `ai_integrate` adds the
+forces × 1/32 s to the world velocity and the yaw rate. The yaw rate is
+in turns a second: in radians the road's bends (Hometown's slices
+10-20 turn 2-5° a slice) put the heading error past 0.04 at once and the
+car slides off; in turns `d7-watch2` uses the three controllers 1,109,
+59 and 140 times in 1,308 calls, as `gh1-ai` counted 1,166, 63 and 65.
+
+The page keeps this in each slice's frame: the velocity along the
+slice's right, the heading off its way, the yaw rate and the car's side
+slip; at a slice's end the world velocity is kept and measured in the
+new slice's frame (the frame turns, so a car running straight on is
+carried wide of a bend, which the rails' velocity two slices on pushes
+back against); the car moves by its velocity along the slice's right,
+and stays within the slice's walls (the car against the track,
+`0x4304b0`: a stopped or blocked car no longer slides past them).
+
+**Checked against the game** (`d7-watch2`, November 2026: Hometown by
+day as `t6-watch`, `-watchmem` of car 1's +0x1C-+0x7CC, its slice and
++0x7B0-+0x7CC kept; 1,308 samples, one each 32 Hz call, slices 4-250,
+41 s; `d7-runs/sim/replay`). Driving `aiSteerStep` with the game's aim
+and speed, slice by slice: 0.62 m rms from the game's +0x7B8, against
+0.67 m for the spring (100, 14, fitted on `t6-watch`) and 5.14 m for the
+spring with the bend's cut. In a lane change from 4 to 12 m (samples
+104-150, about 1.5 s) the model stays within 0.4 m of the game's car,
+behind it by a sample or two. **Against `t6-log`** (`aisim` from
+the 50 s dump, `weave.py`): +0x638 changes in 16-26 of the 56 samples
+per car, 140 in all (the game's 17-23, 143; with the cut 13-18, 110), and
+the aim is past 8 m in 4-20 samples per car, 66 (the game's 10-41, 162;
+with the cut 122): the lanes are changed as often, but the cars sit in
+lane 8 less. Mean speeds 36.3-37.8 m/s (the game's 34.8-38.3), braking
+in one sample for four cars. **The roadside cop** (`d7-runs/sim/park`,
+the police car ordered to lay a strip from every 8th slice of Hometown,
+120 stops): with the spring and the cut it parked past a wall 81 times,
+by up to 5 m (it was pulled on to lane 5 − L's aim at the wall less its
+half width, the cut on top, and kept moving across once stopped); now
+never, a median 3.3 m inside the road's edge (at most 4.8 past it, at
+least 4.6 from the wall): `car_off_lanes` (`0x402f70`) stops it as soon
+as +0x7B8 rounds into the lane past the road's lanes (past the outer
+lane's middle), and stopped (`car_stop_hard`) it no longer moves across.
+The roadside order itself is the game's: kind 0, `cop_ai_vote_roadside`
+(`0x402d90`: +100 for the nearer edge's lane while within lanes 6 − L to
+7 + R, its own beyond), its aim clamped to the walls less its half width
+(`0x40daf0`).
 
 In a scratch run of 30,000 steps (almost 8 minutes) on each of tracks
 0-4 with the page's three cars, they braked into the bends on every
