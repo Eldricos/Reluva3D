@@ -814,6 +814,9 @@ private:
     // the menus return to, the view grabbed for a thumbnail.
     std::unique_ptr<SaveGame> restoring_;
     std::map<std::string, SaveGame::Placement> npcPositions_;
+    // The puzzle box opened: the game's box object (made when its place is
+    // loaded, 0x433290) keeps it, while its scenes are kept.
+    bool boxOpenedHere_ = false;
     // What else a character carried when its scene was left, by the same
     // key as npcPositions_ (the game keeps the scene, and the character
     // as scripts left it).

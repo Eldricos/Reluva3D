@@ -187,6 +187,7 @@ bool ScenePage::preloadData(const std::vector<uint8_t>& data, const std::string&
     positions_.clear();
     npcPositions_.clear();
     keptCharacters_.clear();
+    boxOpenedHere_ = false;
     for (const auto& [name, v] : save->tags)
         state_.tags[fs::toLower(name)] = v;
     for (const auto& [name, v] : save->timers)

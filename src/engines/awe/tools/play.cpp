@@ -485,13 +485,15 @@ public:
         out.insert("last " + s.lastScene); // "lastscene" is tested (where the shoes are compared)
         for (const auto& [name, v] : s.tags)
             out.insert("tag " + name + " " + std::to_string(v));
-        // Each item and state, with how many there are (just taken or in
-        // hand: in the bag).
+        // Each item and state (just taken or in hand: in the bag), and
+        // whether there's more than one: a second shows, but a third is no
+        // new state (a puzzle solved again after a load gives its item again,
+        // as the game's does, and the search would go on taking them).
         std::map<std::string, int> items;
         for (const GameState::Item& i : s.items)
             items[i.name + " " + std::to_string(i.state == 1 || i.state == 3 ? 2 : i.state)]++;
         for (const auto& [item, n] : items)
-            out.insert("item " + item + (n > 1 ? " x" + std::to_string(n) : ""));
+            out.insert("item " + item + (n > 1 ? " x2+" : ""));
         for (const auto& [key, t] : s.talks)
             out.insert("talk " + key + " " + std::to_string(t.status) + " " + std::to_string(t.nest));
         for (const auto& [name, v] : s.texts)

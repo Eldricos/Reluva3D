@@ -170,6 +170,7 @@ void ScenePage::openPuzzle(const std::string& kind) {
         b.state[4] = tagOr0(state_, "puzzlebox_top");
         b.selected = tagOr0(state_, "puzzlebox_arrowpiece");
         b.misses = tagOr0(state_, "puzzlebox_misses");
+        b.solved = boxOpenedHere_;
     }
 }
 
@@ -482,11 +483,19 @@ void ScenePage::puzzleClick(int x, int y) {
         } else if (boxMoveCorrect(piece, arrow)) {
             playSound("slidepuzzle" + std::to_string(msvcRand(puzzleSeed_) % 3 + 1));
             if (b.step == 9 && piece == 4 && arrow == 1) {
-                // Open (3.7).
-                b.solved = true;
+                // Open (3.7), and the box's tags removed (0x43407d..0x4340e2),
+                // none written after: entered again, or a save made here
+                // loaded, it's a box from the start, not one a move from
+                // giving the locket again.
+                b.solved = boxOpenedHere_ = true;
                 playSound("puzzlelid");
                 runner_->run("show topopen, wait 1.9, hide topopen, talk gen_puzzle 6, tag puzzlebox_solved, fade in "
                              "exalocket, talk gen_takeobject 1, fade out exalocket, take locket");
+                for (const char* tag : {"puzzlebox_endupper", "puzzlebox_endlower", "puzzlebox_side", "puzzlebox_top",
+                                        "puzzlebox_moveindex", "puzzlebox_arrowpiece", "puzzlebox_misses"})
+                    state_.tags.erase(tag);
+                draw();
+                return;
             } else {
                 int& s = b.state[piece];
                 if (s == 1 && arrow == 2)

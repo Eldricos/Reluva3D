@@ -138,7 +138,21 @@ The lid then opens (`topopen.bik`, the side drawn over it within
 puzzlebox_solved`.
 
 **State between visits.** Kept in seven tags: `puzzlebox_moveindex`,
-`_endupper`, `_endlower`, `_side`, `_top`, `_arrowpiece` and `_misses`.
+`_endupper`, `_endlower`, `_side`, `_top`, `_arrowpiece` and `_misses`,
+written after every move. Opening the box removes all seven (`0x43407d` to
+`0x4340e2`, through `0x4108c0`) and writes none after. That it's open is
+the box object's own (+0xa4, cleared only by its constructor `0x433290`,
+when its place's scenes are loaded): it stays open on coming back while
+the place's scenes are kept, and a saved game doesn't keep it, so a save
+made in the close-up after opening loads as a box from the start, whose
+solving gives the locket again (in the game as in Reluva).
+
+Reluva had kept the tags at the last move and nothing to say the box was
+open, so coming back to it, or loading there, left it one move from
+giving the locket again; it now removes them, and keeps the box open
+until a new place (`boxOpenedHere_`). The route's search (`awe game-run
+-solve`), which loads its saves all the time, had gone round taking
+lockets.
 
 ## In Reluva
 

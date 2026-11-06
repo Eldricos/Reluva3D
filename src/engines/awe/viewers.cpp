@@ -383,6 +383,7 @@ ScenePage::ScenePage(ViewerContext& ctx) : Page(ctx) {
             positions_.clear();
             npcPositions_.clear();
             keptCharacters_.clear();
+            boxOpenedHere_ = false;
         }
         beginLoad(location, true);
     };
@@ -787,6 +788,7 @@ void ScenePage::updateLoad() {
                 positions_.clear();
                 npcPositions_.clear();
                 keptCharacters_.clear();
+                boxOpenedHere_ = false;
             }
             beginLoad(l.location, false);
         }
@@ -876,6 +878,7 @@ void ScenePage::newGame() {
     restoring_.reset();
     npcPositions_.clear();
     keptCharacters_.clear();
+    boxOpenedHere_ = false;
     gameScene_.clear();
     previousMenu_.clear();
     yesNo_.reset();
