@@ -457,8 +457,9 @@ Skipped before step 512 (the start) and for a car not in play (+0x89).
    upright** (+0x10C > 0.9, `0x4a2af7`).
 5. Clearance < 0.6: on the road (`0x4a1610`: push out of the road,
    zero the speed along the road's up when it is under +0.5 m/s, turn
-   the body towards the road at most 0.5 rad/s) or landing (`0x4a1ce0`, below). Else in
-   the air: +0x164 counts, spin kept within ±2.4 (`0x4a20c0`).
+   the body towards the road at most 0.5 turn/s) or landing (`0x4a1ce0`, below). Else in
+   the air: +0x164 counts, spin kept within ±2.4 turns/s (`0x4a20c0`; the spin's unit, below
+   at Rolls in the air).
 
 **Landing** (`0x4a1ce0`): when the velocity (+0xA4) goes into the road
 (its dot with the road's normal is negative), `0x4a1210` finds a part
@@ -1393,7 +1394,56 @@ then gives the car +0x200 bit 0x20.
     run to run: the racers reached the line on lap 2 at 242-255 s.
     With other runs loading the machine, three runs (`c7-net5`,
     `c7-net7`, a first `c7-net10`) lost the menu clicks and never left
-    Game Setup.
+    Game Setup. The cause is the seed (`0x6fd3b4`, the host's
+    `GetTickCount` at start-up, `0x47242c`, sent in 02 +0x20): 0x1603
+    in `c7-net10`, 0x1611 in `c7-net3`. With `nfs-host -deterministic
+    50000` in both copies (`d1-n1`, `d1-n2`, November 2026, the same
+    lobby clicks) it was 0x1768 in both runs, and the race repeated
+    step for step: at 135 s the five racers' +0x6F0 were the same
+    to 0.1 and their places one slice apart, because the race started
+    0.18 s later in the second run (101.86 and 102.04 s; the copies'
+    own clocks differ by up to 1.5 s, as the waits for the other copy
+    are counted in instructions).
+
+  **A network stop by a ram** (`d1-n3`, `d1-n4`, November 2026). The
+  same two copies with `-deterministic 50000`, the lobby by clicks,
+  no pokes and no `-drive`: only the host's keys. The racers' lap-1
+  ends were taken from `d1-n3` (dumps every 0.25 s): car 2 and car 3
+  passed 6.6 m from the host's grid spot (810, 134) at 247.0 and
+  249.0 s, car 4 at 250.3 s, car 5, the last, about 253.4 s, about
+  41 m/s. In `d1-n4` the host held Space (handbrake, word `00000004`)
+  from 100 s, so its cop stayed on the grid (slice 957, 0 m/s) instead
+  of rolling to the sign post; after car 4 had gone by, Space was let
+  go and A pressed at 250.6 s, keypad 8 and 4 (`80ff0000`) at
+  250.7-252.1 s, keypad 8 alone to 252.3 s, keypad 2 252.31-253.2 s,
+  H at 252.9 s (`0000ff08`). The cop moved about 12 m (to (822, 137)
+  by 253.0 s) at up to 10.4 m/s, across car 5's line. In both copies,
+  by each copy's clock (host / joiner):
+  - 252.994 / 251.377 s: the siren (`0x404fce`) and in the same step
+    car 5 (`0x5e417c`), the nearest racer, the target (`0x4019a1`,
+    record `0x56e530`), state 4 (`0x405879`). At 253.0 s the cop was
+    4.4 m from car 5, at 6.8 m/s.
+  - About 253.1 s car 5 ran into it: 40.9 m/s, then 16.2 m/s 0.25 s
+    later. 253.068 / 251.431 s: the first step of the stop test
+    (`0x40559b`); 253.438 / 251.799 s (24 steps): record +0x1C = 2
+    (`0x40554a`, then at each check, 30 times).
+  - Car 5 in its state 5 crept on at about 10 m/s, the cop beside it,
+    and went to 6 only at 258.668 / 257.089 s (`0x409f71`, 320 steps
+    on, as in `c3-bumpA`); the cop to state 5 the same step
+    (`0x4058bf`).
+  - 261.743 / 260.216 s: the ticket (`0x401ff0`, step 0x27FA = 10234
+    in both), the cop back to 3 (`0x405911`), car 5 back to its state
+    2 (racing) by 262 s.
+  In the race only 06 went (and two 04 barriers at the start): 5,124
+  frames from the host, 5,058 from the joiner to 262 s; the keys are
+  in car 0's word of the host's frames from 250.0 s, in the order
+  above. So a stop by a ram over the network needs nothing but the
+  keys, once the race repeats: the plan was made on one run and worked
+  on the next, the 0.2 s shift of the start being under the 2.4 s
+  gap between car 4 and car 5. It is a block, as `cq-ram4` and
+  `c5-b1` in one player: the cop drove into the racer's line and the
+  racer hit it; a chase from behind ending in a pin (`c7-q1`) was not
+  done over the network.
 
 Checked at run time (`sw1-cop3`): the Hot Pursuit pokes put at
 `0x474ca0`, before the set-up picks its function by the race type
@@ -1720,10 +1770,10 @@ November 2026: `callers`, `gxref`, `gdecomp`, the disassembly).
   car on its side stays in air mode and never counts.
 - **No roll on the road.** On the ground `0x4a1610` writes the roll and
   pitch rates (+0xE4, +0xEC) every tick: towards the road plane, at
-  most 0.5 rad/s, on the side the car is on (the sign of +0x10C), or 0
+  most 0.5 turn/s (180°/s; the unit is turns, see Rolls in the air), on the side the car is on (the sign of +0x10C), or 0
   once within 0.02 (`0x4a1b18`-`0x4a1cc6`). Tyre torque (`0x4ae391`)
   and hits are written over. A car turns over only in air mode: in the
-  air (clearance over 0.6, spins held within ±2.4 rad/s, `0x4a20c0`)
+  air (clearance over 0.6, spins held within ±2.4 turns/s, `0x4a20c0`)
   or tipped past 25°, where the box's corners are pushed out of the
   road (`0x4a1210` → `0x42ee10`). To be seen, it must turn 155° or more
   from flat before it comes to rest.
@@ -1765,9 +1815,111 @@ the racer's pursuit, only the race type and the track poked at
   covered bridges, the road drops 16°; off at about 29 m/s), Rocky Pass
   and The Summit slice 311 (17.6°, 30 m/s), Lost Canyons and Redrock
   360 (35 m/s); the `s6-`/`s7-` chases ran through Hometown's covered
-  bridges with no roll. Not tried: a car that leaves the ground
-  while hit from the side (a roll rate from `0x42ee10` kept in the
-  air), or a car landing on another.
+  bridges with no roll. Not tried then: a car that leaves the ground
+  while hit from the side, or a car landing on another. A bank at the
+  road's edge turned out to be the way (below, A roll by keys).
+
+**Rolls in the air, from the code** (read November 2026: `gdecomp`
+of the cached export, `asm`, `field car 0xe4`, the constants read
+from the exe).
+- **The spin is in turns a second**, not radians. `0x4a2f11` calls
+  `0x4a2e20` with 32 (edx), which turns the body each tick by +0xE4,
+  +0xE8, +0xEC / 32 through `0x4a2cc0`; its rotations (`0x4dfd80`,
+  `0x4dfde0`, `0x4dfe40`) take turns (`0x4ea930`: × 2π, `0x54b6b0`).
+  The contact code takes the point's velocity as v + (spin × 6.2831845)
+  × r (`0x42ee10`, `0x42f280`). So the air clamp (`0x4a20c0`, ±2.4,
+  `0x4019999a`) is 864°/s, the on-road pull (`0x4a1610`, 0.5) 180°/s
+  and the landing's 0.6 (`0x53c88c`) 216°/s. 155° is 0.43 turn: 0.18 s
+  at the air clamp, 0.24 s at the 1.8 of the contact clamp below. **The
+  clamps don't make a roll over impossible.**
+- **What an impulse gives** (`0x42e820`, from `0x42ee10` and
+  `0x42f280`): J is a momentum, × 0.75 when over 5 m/s × the mass
+  (`0x5373bc`, `0x5537ac`); the velocity gains J's part along the
+  contact's r̂ / mass, and the spin f × (r̂ × J) / (mass × +0x120 ×
+  2π) (`0x5373c4` = 1/2π), then every spin is held within ±1.8
+  (`0x42e720`, `0x5537b0`). +0x120 is the box's half diagonal and
+  +0xB4 1 / mass (the player's car in `c8-r1`: mass +0xB0 1472, half
+  sizes 1.18, 0.67, 2.41, +0x120 2.76): 0.058 turn/s per m/s of J /
+  mass across r̂, 0.043 over 5 m/s. Against a wall or the road
+  (`0x42ee10`) J is the point's momentum into the surface and f 1; car
+  against car (`0x42f280`, after the box test `0x42fee0` in
+  `0x430c80`) J is the whole relative velocity of the contact point ×
+  the other car's mass and f = mass / (both masses), and a strength
+  over 5 (`0x5373f4`) adds 1 to +0x164: **a hard car hit puts both
+  cars in air mode**.
+- **Where roll can come from.** On the ground `0x4304b0` tests the
+  wall at 4 corners at the centre's height, the wall's normal flat
+  (its y 0), so r̂ × n is upright: walls give a grounded car yaw
+  only. In air mode it takes 8 corners at ± the half height: a
+  corner's lever for roll is 0.67 / 2.76 = 0.24, about 0.010 turn/s
+  per m/s into the wall, and a level car's top and bottom corners on
+  the same wall cancel. A car hit at the same height as the hitter
+  gets the same: only a contact off the centre's height rolls it.
+- **What takes roll out.** On the ground, `0x4a1610` sets it every
+  tick (above). In air mode on the road (clearance under 0.6) the
+  landing multiplies every spin by 0.5 + e (0.6 at e = 0.1) each tick,
+  but only while +0x10C > 0.9 with the car moving into the road and
+  its body under it; a hit's roll then adds up to s / 32 / (1 − 0.6),
+  0.078 × s turn, so one hit tips a car past 25° only with s ≥ 0.9
+  turn/s (J / mass ≥ 15 m/s at the full lever, 21 m/s over the
+  0.75 cut). Past 25° nothing damps: the spin stays until a contact
+  changes it (`d2-b2`: +0xE4-+0xEC −0.01, −0.38, 0.08 for 1.25 s).
+  In the air (clearance over 0.6) only the clamp acts.
+- So no number in the code forbids it: what is needed is a car tipped
+  past 25° (so out of the landing's damping) with some roll left,
+  which a slope under one side gives better than any hit.
+
+**A roll by keys** (`d2-b1`-`b10` but `b4`, November 2026: Hometown,
+the racer's pursuit, only the race type and track poked at
+`0x474ca0`; the gas from 40 s and one left-key pulse; car 0 dumped
+every 0.125 s; `-count` on `0x429452`, `0x403950`, `0x403910`,
+`0x40bba0`, `0x40bc30`, `0x428f90`). Hometown's road run has a bank
+at its left edge from the grid to about slice 25, 23-27 m left of
+the road points, rising 1.7-3.1 m (21-35°; the run's polygons
+against the `.col` points, a script outside the repo). Without
+steering (`d2-h0`) the car ran onto it at 30 m/s at 57 s and tipped
+15° (+0x10C 0.965, air mode).
+- A pulse from 54.0 to 55.0 s (`d2-b8`): the car reached the bank at
+  slice 13 at 25 m/s (55.6 s), slowed to 7-9 m/s on it in air mode
+  (+0x10C under 0.9 from 56.4 s), tipped past 41° at 56.69 s
+  (`0x429452`, the reset timer started), rolled on over the bank's
+  edge (+0x10C 0.29 at 58.0 s, −0.52 at 59.0 s) and came to rest on
+  its roof at slice 16, out of air mode (+0x164 0, +0x10C −0.95) at
+  59.5 s. At 62.0 s `0x428f90` put it back upright 5 slices on.
+- The same from 54.5-55.5 s (`d2-b6`: past 41° at 56.95 s, on its roof
+  on the ground at 59.25 s, reset by 61.9 s) and 53.8-55.3 s (`d2-b10`:
+  56.06 s, 58.5 s, reset by 61.25 s). 54.2-55.7 s (`d2-b9`) went to
+  +0x10C 0.075 (86°) and fell back; 54.0-55.5 s (`d2-b2`), 54.0-56.0 s
+  (`b5`) stopped at 0.77-0.78 (39-40°, short of the 0.75 test); 53.0-54.0, 55.0-55.6, 53.5-
+  55.5 s (`b1`, `b3`, `b7`) stayed under 15°.
+- So the player's own car can lie flat on its roof by keys alone:
+  `0x402c80` is true for it for 2.5-2.8 s, the time the reset takes.
+  No line came: `0x403910` needs a computer cop in state 5 with this
+  car its target at one of its turns (every 8 steps) in that time,
+  and at 59 s on Hometown no cop is chasing yet (`c8-f1`: cop 3 took
+  the player at 138.48 s). `0x403950` needs a computer cop on its roof,
+  which keys can't steer onto a bank.
+- **The crash line, heard** (`d2-c4`, `d2-c4v`, November 2026: the
+  same set-up, `c6-h2`'s keys, A at 133.0 s and keypad 8 held from
+  133.5 s, then the left key 139.2-140.2 s; cars 0-7 dumped every
+  0.25 s, cop state +0x70C, target +0x624). The player stays on the
+  grid until 133 s, so cop 3 meets it at the start: it took the
+  player at 138.475 s at slice 14 (`0x4019a1`, as in `c6-h2`) and was
+  in state 5 on it from then on, slices behind. The left pulse put the
+  car on the grid's bank at slice 21 (140.25 s, air mode), past 41° at
+  140.65 s (`0x429452`), over (+0x10C −0.10 at 141.75 s) and onto its
+  roof on the ground at slice 26 at 142.25 s (+0x164 0, +0x10C −0.97),
+  where it lay until the reset (`0x428f90`, slice 32, by 145.5 s).
+  Cop 3's turn reached `0x403910` at 142.221 s, and `0x40bc30` ran
+  once (cop 3, `0x5e2e24`) and queued three lines (`0x4c85a0`);
+  `0x403910` ran 26 times in all (every turn while the car lay
+  there; the record's +0x54 bit 8 kept it to one call of
+  `0x40bc30`). The radio started officer bank entry 0xC's slot 0x1A,
+  "the suspect has crashed" (bnk.md), at 148.869 s (`0x4c85f4`), after
+  the lines already queued. Nothing of the cars was poked. The other
+  pulses (`d2-c1` 138.6-139.6 s, `c2` and `c6` 139.0-140.0/140.6 s,
+  `c3` 139.0-140.3 s, `c5` 138.8-139.8 s) tipped the car to 67° at
+  most, or not at all, and fell back.
 
 **Picking a target** (`0x402e10`, in every state but 3, 5 and 6):
 racers still in, free (+0x634 passed) and within 16 slices, scored by
@@ -1883,6 +2035,29 @@ record's +0x1C is 2 and the target has stopped.
   15 and 15 m). In these runs the cops that join come from behind (the
   calls for help), so the case needs a fourth cop that is ahead when
   the racer stops; none was.
+- **What it needs, and tries without pokes** (read and run, November
+  2026). The 40 m comes only with the record's +0x50 at 3, and each
+  cop adds to it once (`0x401e40`; a cop in its stop, state 6, doesn't
+  run `0x402110` again), so four cops must be on one record. The
+  first stop sets +0x28 = step + 384 for a computer cop (step + 192
+  for a human one, `0x401e40`), so the other two stops and the fourth
+  cop's hold must begin before that, or a hold that ends late moves it
+  on. Runs with nothing poked but the race type, the player's car a
+  human one: `d1-r1` and `d1-r3` (`-drive` behind car 1 at a 15 m gap,
+  to 150 and 160 s), `d1-r2` (`-drive` at cop 2 from 70 s: it hit a
+  wall at slice 167, 80 s) and `d1-c1` (keys only: a dash to 29 m/s,
+  then full lock with the gas pulsed: into the wall at slice 32, 61 s).
+  No record had more than 2 cops on it: in `d1-r1` car 1 was stopped
+  by cop 3 alone, which met it head on (hold from 76.24 s, stop within
+  16 m at 80.48 s, ticket 86.62 s), later by cop 5 (stop 114.43 s,
+  ticket 120.55 s), and the player by cops 3 and 5, both behind it
+  (stops at 118.72 and 120.78 s, +0x50 2; the player back in its
+  state 2 by 126 s). `r2-cop1` (the player's car
+  driven by the computer at 50 m/s for 65 s) had at most 3 (125-133
+  s). Cops join only by the calls for help, one per 320 steps, and are
+  often lost past the table's slices; the five on car 1 in `c4-four7`
+  came with the bust speed poked out. So a fourth cop on one racer,
+  let alone one ahead, was not seen in a game with no pokes.
 
 **Run** (November 2026, nfs-host, a racer's Hot Pursuit on Hometown:
 the single race's clicks with `-poke at=0x474ca0:0x6fd3b8:3`, a normal
@@ -2248,6 +2423,38 @@ second. The HUD there has the racer list on (other layouts hide it).
     62-72), as read. `0x41f570` (the edge snap) ran 1,302 times and the
     wall step `0x4308e2` 1,316. All 40 stops were stack copies
     (`0x4304b0`'s corners).
+  - **Side 1 is the driver's left, side 2 his right** (November 2026),
+    driving the track's forward way (slice numbers rising) on an
+    unmirrored track. From the files: over all nine tracks (each
+    slice's run of list-4 polygons in the `.frd`, against the slice's
+    `.col` point; a script outside the repo), the run's last polygon's
+    centre is along the point's right bytes from its first's at
+    12,667 of the 12,706 slices (the 39 others all on Atlantica, not
+    looked at), the
+    first polygon's outer edge (vertices 0-3) a median 17-35 m along
+    −right by track and the last's (1-2) 10-27 m along +right; edge 0-1 is the
+    front one at every polygon and vertex 1 lies right of vertex 0
+    at 80-91 % of them (Hometown, Redrock, Lost Canyons), so a polygon's corners are 0 front left, 1 front right, 2
+    back right, 3 back left. The right bytes are the cross of the
+    normal and forward bytes in that order (up × forward) at every
+    slice, which is the driver's right in the game's left-handed space
+    (x right, y up, z forward; [fce.md](fce.md), and `viewScreen`'s
+    positive x scale in frd.h). Run (`d2-w1`, `d2-w2`, Redrock,
+    racer's pursuit, set-up pokes only, the gas from 40 s; car 0
+    dumped every 0.25 s, `-watch` on `0x41ee86`/`0x41ebd7` with the
+    corner's point, slice and +0x70): with the left key held
+    56-58 s (`d2-w1`, steering −128) car 0 went to −22.7 m along
+    the `.col` right and stopped against the left wall at slice 25
+    (+0x70 1); every side mark within 3.4 m of it was side 1
+    (`0x41ee86`, +0x70 0, −26 m). With the right key (`d2-w2`,
+    steering +127) it hit the right wall at 57.4 s (32.9 → 14.5 m/s,
+    +0x70 up to 10) at +9-10 m, and the marks by it were side 2
+    (`0x41ebd7` at 57.31-57.62 s, +0x70 11 of 12, corners 11.6-12.1 m
+    along +right, the right wall at 11.6). Car 0's own +0x6C stayed 0
+    (its centre never left the run). On a track run backward
+    (`0x6fd4c0`) side 1 is on the driver's right; with the mirror flag
+    (`0x6fd4c4`) only the picture is flipped, so side 1 is drawn on the
+    screen's right.
 
 - **+0x8, the race distance** (int; the network status message sends
   its low 16 bits). `0x42ce10`, from the Sc32 task `0x42ce70`: lap
@@ -2345,10 +2552,17 @@ of every access to those offsets):
   a cop drives in too fast for a hold wholly beyond 20 m; past a
   stopped target it is asked for 0 m/s and stands, so a fourth cop
   20-40 m ahead would hold to the end. No run had a fourth cop
-  ahead (`c7-f1`). The network game was run to its results with
+  ahead (`c7-f1`), and with no pokes no record had more than 2 cops
+  (`d1-r1`, `d1-r3`; 3 in `r2-cop1`), while the 40 m needs four on
+  one record (Why a hold beyond 20 m needs a cop past the target):
+  still open. The network game was run to its results with
   nothing forced (`c7-net10`): the lobby's menus by clicks, a stop by
   a strip laid with S, the race ended by the racers' laps. A block
-  by keys failed there (the racers steer round a standing cop).
+  by keys failed there (the racers steer round a standing cop) while
+  the race differed run to run; with `-deterministic` in both copies
+  it repeats, and a block planned on one run (`d1-n3`) stopped and
+  ticketed car 5 in both copies on the next (`d1-n4`). Left open: a
+  network chase from behind ending in a pin (`c7-q1`'s kind).
 - The computer cops' driver (`0x4032e0`) was run in a racer's pursuit
   (`r2-cop1`, `r2-cop4`, `r2-cop5`, `c3-spk6`): chases, calls for help,
   two roadblocks, strips and a racer running over one, and the
@@ -2375,10 +2589,21 @@ of every access to those offsets):
   takes out any roll (above, What a disabled cop or a crash needs). No
   car rolled in the 15 `s7-` runs nor in the four keys-only `c8-f*`,
   `c8-r*` runs, where no car even tipped 41° (`0x429452` never ran),
-  with wall hits at up to 49 m/s and Redrock's crest at 40 m/s. Left
-  open: whether any reachable situation (a car hit from the side as it
-  leaves the ground, one landing on another) turns a car over; with
-  the player as the only cop no computer cop exists to say either.
+  with wall hits at up to 49 m/s and Redrock's crest at 40 m/s. Since
+  (`d2-b6`, `b8`, `b10`, above, A roll by keys): the player's car,
+  steered by one key pulse onto the bank left of Hometown's grid,
+  rolled onto its roof and lay there 2.5-2.8 s until the reset, with
+  no poke of car state; `0x429452` ran. The code puts no limit in the
+  way (the spins are in turns/s; Rolls in the air). **The crash is
+  now heard without a poke** (`d2-c4`, `d2-c4v`): the player left on
+  the grid until cop 3 took it at 138.475 s, then rolled onto the
+  same bank by one left pulse; `0x403910` and `0x40bc30` ran at
+  142.221 s and slot 0x1A was said at 148.869 s. Left open: the
+  disabled cop (`0x403950`), which needs a computer cop on its roof
+  (keys steer only the player); and whether a side hit in the air or
+  a car landing on another can roll a car (not run: banks did it
+  first). With the player as the only cop no computer cop exists to
+  say either.
 - Why the recorded game's spike icon dims for 3 s and its racer list
   has no "over" text, when this exe hides the icon until the strip is
   cleared and shows the text: probably another build, not found.
@@ -2386,12 +2611,15 @@ of every access to those offsets):
   position's +0x64 is where the frame comes from (1 the slice, 2 a
   polygon was found) and +0x6C the side of the slice's road polygons
   the point is beyond (0 on a polygon, 1 past the first's outer edge,
-  2 past the last's), the side bits of the wall test `0x4304b0`. Left
-  open: which of 1 and 2 is the driver's left. The `c9-tp1` stops,
-  taken against car 0's road point and right (+0x148, +0x124), don't
-  settle it: side 1's corners were 6.5-16.5 m left of it, side 2's
-  from 0.7 m right to 6.3 m left (the corners may not all be car 0's,
-  and the road point need not be the run's middle).
+  2 past the last's), the side bits of the wall test `0x4304b0`.
+  Which is the driver's left is settled too (November 2026, same
+  bullet): side 1 is the left and side 2 the right, driving forward
+  on an unmirrored track, from the polygon order against the `.col`
+  right bytes on all nine tracks and the wall runs `d2-w1` (left
+  wall, side 1) and `d2-w2` (right wall, side 2). The `c9-tp1` stops
+  hadn't settled it because +0x148 need not be the `.col` point on a
+  polygon (lateral offsets against it jumped by up to 8 m between
+  dumps in `d2-w1`; against the `.col` point they were smooth).
 - The lane votes' own rules (`0x40cee0`, `0x40cfc0`, `0x40d1f0`,
   `0x40d2e0`, `0x40d3d0`, `0x40d720`-`0x40d9f0`): how a computer car
   weighs cars ahead and the best line.
