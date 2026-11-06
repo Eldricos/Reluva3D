@@ -29,11 +29,6 @@ happens; [TESTING.md](TESTING.md#still-to-check) has what to look at.
 - **Three actor animations** (ACTOR_STATE_1, 4 and 5) are taken to be pain
   and deaths, from where the scripts use them (`formats/opcodes.cpp`).
 
-- **The bridge's context button while the Enterprise travels**
-  (`game/bridge.cpp`, `setCourse`): it keeps its mode. STG-Engine's code
-  says it goes idle, but the line did nothing; which the original does
-  hasn't been seen.
-
 ## Assumed
 
 - **The screen:** 640x480 in 256 colours (`game/screen.h`), with the

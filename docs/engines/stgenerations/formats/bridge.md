@@ -29,4 +29,10 @@ tenth every 500 ms. `SDTimer d` sets a deadline d past the stardate shown, and
 `Wait Timer` holds until it's passed with the Enterprise at a star.
 `OnTransport`/`OnTactical` don't wait: they arm the panel's button, which
 lights when a short-range scan has found Soran in the Enterprise's system.
+They are the only things that set what it offers (the panel's +0x170: 1
+transport, 2 tactical; set by 0x474149, called only from their commands,
+0x418349 and 0x4182FC, and kept in 0x56F840 for the next panel): a warp
+doesn't change it, the button is only off while the controls are. Nothing
+in the original sets it back to nothing, even a new game; this engine does
+on a new game, which makes no difference as each section arms it again.
 `IfClue` is true when the last away mission set any outcome code.

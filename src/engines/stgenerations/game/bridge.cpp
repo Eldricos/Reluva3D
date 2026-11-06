@@ -662,8 +662,9 @@ void Bridge::setCourse(int sun, bool fromScript) {
     e.destination = sun;
     flags(e.name).insert(14);
     e.state = 4;
-    // The context button keeps its mode while travelling (STG-Engine set it
-    // to itself here, which did nothing; see UNCONFIRMED.md).
+    // The context button keeps its mode while travelling, as the original's:
+    // only OnTransport and OnTactical set it (0x418349 and 0x4182FC, through
+    // 0x474149); the button is off meanwhile only because the controls are.
     _busy = true;
     setControls(false);
 }
