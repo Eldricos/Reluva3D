@@ -10,7 +10,7 @@ namespace reluva::idtech3 {
 
 // Splits the text files id Tech 3 games use (shader scripts, the BSP entity
 // lump, .arena/.skin/.cfg files) into tokens, as described in
-// docs/formats/idtech3/text.md: a token is a "quoted string" (without its
+// docs/engines/idtech3/formats/text.md: a token is a "quoted string" (without its
 // quotes) or a run of characters up to the next whitespace; // and /* */
 // comments are skipped.
 class Lexer {

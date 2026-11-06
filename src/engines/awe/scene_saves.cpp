@@ -4,7 +4,7 @@
 // The Scenes page's saved games: the game's save format (savegame.h), its
 // menus (Menu.InGame, Menu.Save, Menu.Load) and their save and load
 // screens, quick saves, and restoring a save. See
-// docs/formats/awe/saves.md.
+// docs/engines/awe/saves.md.
 
 #include "engines/awe/viewers.h"
 

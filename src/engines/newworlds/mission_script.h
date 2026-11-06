@@ -15,8 +15,8 @@
 namespace reluva::newworlds {
 
 // Reluva's own mission scripts: what a mission reacts to and how, written
-// from recordings of play (docs/formats/newworlds/play*.md), since the
-// game keeps its scripts in STNW.exe. The format (docs/formats/newworlds/
+// from recordings of play (docs/engines/newworlds/play*.md), since the
+// game keeps its scripts in STNW.exe. The format (docs/engines/newworlds/
 // mission-scripts.md):
 //
 //   mission F1 F                     a mission and the side it's played as
@@ -126,7 +126,7 @@ private:
 // did, for the side ('F', 'K', 'R'): the mission won or lost, an objective
 // met, power low, production held up (Federation), a building finished
 // (its name, B_f...com, A_k...com, B_r...com); the first of these that
-// applies, or empty. Matched in recordings (docs/formats/newworlds/media.md).
+// applies, or empty. Matched in recordings (docs/engines/newworlds/media.md).
 std::string announcementFor(const ScriptEvent& event, const std::vector<MissionRun::Output>& out, char side);
 
 } // namespace reluva::newworlds

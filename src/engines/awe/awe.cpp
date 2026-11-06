@@ -2,7 +2,7 @@
 // Copyright (C) 2026 The Reluva contributors
 
 // The AWE Productions engine (clean-room reimplementation): Agatha
-// Christie: Murder on the Orient Express. See docs/engines/awe.md.
+// Christie: Murder on the Orient Express. See docs/engines/awe/README.md.
 //
 // Everything in this engine must come from the game's data files, observed
 // behaviour of the original, or documented reverse engineering of a legally
@@ -16,6 +16,7 @@
 
 #include "common/archive.h"
 #include "common/audio/mixer.h"
+#include "common/settings.h"
 #include "engines/awe/viewers.h"
 
 #include <cstdio>
@@ -47,6 +48,7 @@ public:
             return err;
         screen_.create(awe::kScreenW, awe::kScreenH, PixelFormat::RGBA32);
         audio::Mixer mixer(sys_.audioRate());
+        mixer.setMasterVolume(settings::volume(target_.settings, settings::kMasterVolume));
         const bool audioOut = !audio::startMixerOutput(sys_, mixer);
         struct AudioStop {
             System& sys;

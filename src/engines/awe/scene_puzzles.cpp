@@ -5,7 +5,7 @@
 // (0x43ec00), the baggage car's safe (0x434390) and the puzzle box
 // (0x433290). Each sees a click before the hotspot under it, every left
 // button release, the scene's "action" verbs and conditions. See
-// docs/formats/awe/puzzles.md.
+// docs/engines/awe/puzzles.md.
 
 #include "engines/awe/viewers.h"
 

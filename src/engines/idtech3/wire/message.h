@@ -10,7 +10,7 @@
 
 namespace reluva::idtech3::wire {
 
-// Elite Force's messages (protocol 24, docs/formats/idtech3/eliteforce-network.md):
+// Elite Force's messages (protocol 24, docs/engines/idtech3/formats/eliteforce-network.md):
 // a plain bit stream, each byte filled from its lowest bit up and each
 // value written lowest bit first, so values needn't start on a byte.
 // Strings and raw bytes do: one that would start inside a byte starts

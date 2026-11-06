@@ -4,7 +4,7 @@
 // The Scenes page's options: the game's settings (Music, Sound, Gamma,
 // Captions, Shadows, Water, Fog, Rain, AntiAlias), what they change, and
 // the options screen (Menu.Options's PUZZ options: 0x42bd40). See
-// docs/formats/awe/options.md.
+// docs/engines/awe/options.md.
 
 #include "engines/awe/viewers.h"
 

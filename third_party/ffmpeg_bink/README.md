@@ -13,4 +13,4 @@ in Reluva under the GPL 3.0. Reluva's decoder,
 `src/common/video/bink_video.cpp`, is its own code. FFmpeg's decoder
 (`bink.c`, `binkdsp.c`, `binkaudio.c`) was its reference for what the
 published description of the format leaves out. See
-`docs/formats/bink.md`.
+`docs/common/bink_video.md`.

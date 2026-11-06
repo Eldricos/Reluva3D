@@ -16,7 +16,7 @@
 // at once or waits for what it started (a walk, a fade, a line of
 // dialogue) to say it's over; then the next one runs, on the next update
 // (a fade at once). A verb ending in "a" (walka, talka, fadea...) starts
-// the same thing without waiting. See docs/formats/awe/script.md.
+// the same thing without waiting. See docs/engines/awe/script.md.
 
 namespace reluva::awe {
 

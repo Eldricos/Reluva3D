@@ -28,7 +28,7 @@ namespace reluva::awe {
 namespace {
 
 // RELUVA_PERF=1: where a frame's time goes, written out every few seconds
-// (docs/engines/awe.md).
+// (docs/engines/awe/README.md).
 struct FramePerf {
     bool on = std::getenv("RELUVA_PERF") != nullptr;
     double total = 0, draw2d = 0, layers = 0, characters = 0, skin = 0, present = 0;
@@ -1285,7 +1285,7 @@ void ScenePage::draw() {
         return loop != loops_.end() ? loop->second.frame : picture(o->text("file"));
     };
     // Placed as the game's sprites are: scaled, turned about the top-left
-    // corner, moved (docs/formats/awe/ac2.md).
+    // corner, moved (docs/engines/awe/ac2.md).
     auto place = [&](const Ac2Record* o, bool keepAlpha) {
         if (const auto ps = particles_.find(o); ps != particles_.end())
             return drawParticles(ps->second, keepAlpha);
@@ -2058,7 +2058,7 @@ void ScenePage::update(uint64_t nowMs) {
                 c.actor->animator().poseFor(prop->model(), propPoses[i].back());
             }
         }
-        // The shadows (docs/formats/awe/shadows.md): the game's stencil,
+        // The shadows (docs/engines/awe/shadows.md): the game's stencil,
         // on the GPU as the game's is; made on the CPU as the frame is
         // drawn where the device has no stencil buffer.
         const bool shadows = options_.get(GameOptions::Shadows);
@@ -2087,7 +2087,7 @@ void ScenePage::update(uint64_t nowMs) {
                 order.push_back({i, -1});
         }
         // Lit by the scene's lights, each with its own material, which its
-        // props share (docs/formats/awe/lighting.md).
+        // props share (docs/engines/awe/lighting.md).
         SceneLighting lighting = sceneLighting(scene_, state_, lightConditions_);
         {
             const gfx::Vec3 e = cam.eye();

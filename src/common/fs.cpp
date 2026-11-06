@@ -18,13 +18,55 @@ std::string toLower(std::string_view s) {
     return out;
 }
 
+std::string normalizeDosPath(std::string_view path) {
+    std::string out;
+    out.reserve(path.size());
+    for (size_t i = 0; i < path.size(); i++) {
+        char c = path[i];
+        // ISO 9660 version suffixes ("DEEP.EXE;1"), shown by some CD mounts.
+        if (c == ';' && i + 1 < path.size() && path.find_first_not_of("0123456789", i + 1) == std::string_view::npos)
+            break;
+        if (c == '\\')
+            c = '/';
+        if (c == '/' && (out.empty() || out.back() == '/'))
+            continue;
+        out += char(std::toupper(static_cast<unsigned char>(c)));
+    }
+    if (!out.empty() && out.back() == '/')
+        out.pop_back();
+    return out;
+}
+
+bool windowsNameLess(std::string_view a, std::string_view b) {
+    auto upper = [](char c) { return c >= 'a' && c <= 'z' ? static_cast<unsigned char>(c - 'a' + 'A') : static_cast<unsigned char>(c); };
+    const size_t n = std::min(a.size(), b.size());
+    for (size_t i = 0; i < n; ++i)
+        if (upper(a[i]) != upper(b[i]))
+            return upper(a[i]) < upper(b[i]);
+    if (a.size() != b.size())
+        return a.size() < b.size();
+    return a < b;
+}
+
+std::string_view withoutIsoVersion(std::string_view name) {
+    const size_t semi = name.rfind(';');
+    if (semi == std::string_view::npos || semi + 1 == name.size() ||
+        name.find_first_not_of("0123456789", semi + 1) != std::string_view::npos)
+        return name;
+    return name.substr(0, semi);
+}
+
 static std::optional<stdfs::path> findEntry(const stdfs::path& dir, const std::string& lowerName) {
     std::error_code ec;
+    std::optional<stdfs::path> versioned; // "name;1", from a CD, if there's no plain "name"
     for (stdfs::directory_iterator it(dir, ec), end; !ec && it != end; it.increment(ec)) {
-        if (toLower(it->path().filename().string()) == lowerName)
+        const std::string name = toLower(it->path().filename().string());
+        if (name == lowerName)
             return it->path();
+        if (!versioned && withoutIsoVersion(name) == lowerName)
+            versioned = it->path();
     }
-    return std::nullopt;
+    return versioned;
 }
 
 static std::optional<stdfs::path> findPath(const stdfs::path& dir, std::string_view relative) {

@@ -4,7 +4,7 @@
 // The Scenes page's characters outdoors: the footprints they leave in the
 // snow (MODL footprints, in OUTD scenes: 0x43fda0, 0x43fd00) and their
 // breath in the cold (MODL breath: a BRTH particle system at the upper
-// lip, 0x425f50). See docs/formats/awe/characters.md.
+// lip, 0x425f50). See docs/engines/awe/characters.md.
 
 #include "engines/awe/viewers.h"
 

@@ -30,7 +30,7 @@ struct BotMatch {
 // what others say (rchat.c), and the files they share: synonyms (syn.c),
 // random words (rnd.c) and the templates for understanding chat
 // (match.c). Behaviour and formats read from the GPL ioquake3 bot library
-// (be_ai_chat.c); docs/formats/idtech3/aas.md; new code.
+// (be_ai_chat.c); docs/engines/idtech3/formats/aas.md; new code.
 class BotChat {
 public:
     static constexpr size_t kMessageSize = 256;

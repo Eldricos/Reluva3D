@@ -4,7 +4,7 @@
 // .mdr models (Raven's skeletal format, "RDM5" version 2: Elite Force's
 // player models). The layout, the packed bones and how a vertex is placed
 // by its bones were read from the GPL ioquake3 renderer (qfiles.h,
-// tr_model.c, tr_animation.c); docs/formats/idtech3/mdr.md describes
+// tr_model.c, tr_animation.c); docs/engines/idtech3/formats/mdr.md describes
 // them. This is new code written from that description.
 //
 // The model is posed here, once for each frame, into the same form as an

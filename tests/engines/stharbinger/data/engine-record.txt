@@ -1,0 +1,13 @@
+# The record of stharbinger.engine (tests/engines/stharbinger/engine.cpp).
+# Written by `reluva-tests stharbinger.engine --update`; review its diff before committing.
+detect.disc1: ds9harbinger Star Trek: Deep Space Nine - Harbinger (disc 1)
+detect.disc2: 0
+import.plan: 9 files 9d9be86c7307b69b +disc2
+detect.library: ds9harbinger Star Trek: Deep Space Nine - Harbinger
+run.result: ok
+run.size: 640x480
+run.screens: 151 5041b1268201f7b8
+run.palettes: 12 19f137b7941ffbe5
+run.sound: 132388 frames, peak 11520 31ac724f823323cd
+run.titles: Reluva - Star Trek: Deep Space Nine - Harbinger
+run.files: (none)

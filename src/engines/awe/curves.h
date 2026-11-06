@@ -14,7 +14,7 @@
 // header's Format byte names how its knots and controls are stored. They
 // are expanded here to the plain B-spline curves Reluva evaluates, giving
 // the same values as granny2.dll's GrannyCurveExtractKnotValues, bit for
-// bit. See docs/formats/awe/gr2.md ("Compressed curves").
+// bit. See docs/engines/awe/gr2.md ("Compressed curves").
 
 namespace reluva::awe {
 

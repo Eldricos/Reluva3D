@@ -90,6 +90,6 @@ private:
 
 // The master servers (sv_master1 to sv_master5), created with defaults
 // if not set: Raven's (long gone), then three of the community's.
-std::vector<std::string> masterServerNames(CvarStore& cvars);
+std::vector<std::string> masterServerNames(CvarStore& cvars, const std::vector<std::string>& defaults);
 
 } // namespace reluva::idtech3

@@ -12,7 +12,7 @@
 
 // Bink audio, the DCT form (the one Murder on the Orient Express's movies
 // use), decoding a BinkFile's audio packets to 16-bit samples. See
-// docs/formats/bink.md: the MultimediaWiki's "Bink Audio", with FFmpeg's
+// docs/common/bink_video.md: the MultimediaWiki's "Bink Audio", with FFmpeg's
 // decoder as the reference for what that leaves open.
 
 namespace reluva::video {

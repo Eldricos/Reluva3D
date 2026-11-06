@@ -10,7 +10,7 @@
 // A scene's camera (its CAMR record), and where its characters stand.
 // The game hands the record's fields to Granny's camera
 // (GrannyBuildCameraMatrices); the matrices here are the ones granny2.dll
-// builds, matched to within a thousandth (docs/formats/awe/ac2.md).
+// builds, matched to within a thousandth (docs/engines/awe/ac2.md).
 
 namespace reluva::awe {
 

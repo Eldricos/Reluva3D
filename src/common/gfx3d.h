@@ -95,9 +95,13 @@ enum class ColorSource : uint8_t { Constant, Vertex, OneMinusVertex, Lighting };
 
 // Moves vertices on the GPU each frame.
 struct Deform {
-    enum class Type : uint8_t { None, Wave, Bulge, Move } type = Type::None;
+    enum class Type : uint8_t { None, Wave, Bulge, Move, Normal } type = Type::None;
     // Wave: along the normal by the wave's value, its phase offset by
     // (x + y + z) * spread. Move: by `vector` times the wave's value.
+    // Normal: the positions stay; each normal is pushed along x, y and z
+    // by the wave's amplitude times a noise of the position (and time
+    // times the wave's frequency), then made unit length again, for
+    // lighting that shimmers.
     Wave wave;
     float spread = 0;
     Vec3 vector{};
@@ -145,6 +149,13 @@ struct DrawCall {
     // > 0: the fragment's alpha is instead clamp(distance from the camera
     // / fogDistance), for blending a fog colour over drawn geometry.
     float fogDistance = 0;
+    // > 0: the fragment's alpha is instead how fogged it is in a fog
+    // volume, as Quake 3 has it: by its distance along the view axis
+    // over fogDepth, scaled down by how far it is under the volume's
+    // surface, fogPlane (xyz: the normal out of the volume, w: its
+    // distance; a zero normal: no surface, inside everywhere).
+    float fogDepth = 0;
+    std::array<float, 4> fogPlane{0, 0, 0, 1};
     std::array<Deform, 2> deforms{};
     float time = 0;              // seconds, for the deforms
     bool followCamera = false;   // positions are relative to the camera (skies)
@@ -212,12 +223,16 @@ public:
     // (whatever their depth); Inside draws only where marked; None (the
     // default, again each frame) neither. The marks are cleared each frame
     // and kept by clearDepth(). Without a stencil buffer, false and no
-    // marks.
-    enum class StencilMode : uint8_t { None, Mark, Inside };
+    // marks. SkyMark and SkyInside do the same with marks of their own (the
+    // sky, drawn only where the level's sky surfaces are seen), apart from
+    // the others.
+    enum class StencilMode : uint8_t { None, Mark, Inside, SkyMark, SkyInside };
     virtual bool hasStencil() const = 0;
     virtual void setStencilMode(StencilMode mode) = 0;
-    // The value Mark writes (where a draw passes its depth test) and
-    // Inside compares with: 1 at the start of each frame.
+    // A value of the engine's own for Mark to write (where a draw passes
+    // its depth test) and Inside to compare with, whole: the stencil as a
+    // number (AWE's shadows: 1 shadowed, 2 the player, 0 the others),
+    // until the frame ends. Without it, Mark and Inside keep to their bit.
     virtual void setStencilReference(uint8_t ref) { (void)ref; }
     // A mirrored view: the draws that follow have their faces' winding
     // the other way round, so culling keeps the same faces (until set

@@ -10,7 +10,7 @@
 #include <vector>
 
 // How the game finds the object under the mouse (motoe.exe's scene pick,
-// 0x435eb0), for its cursor and its clicks. See docs/formats/awe/ac2.md.
+// 0x435eb0), for its cursor and its clicks. See docs/engines/awe/ac2.md.
 
 namespace reluva::awe {
 

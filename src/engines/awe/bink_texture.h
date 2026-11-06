@@ -16,7 +16,7 @@ namespace reluva::awe {
 // the texture's SubFormat, plus 1 if its layout has alpha. Only what the
 // game's files use is decoded: flags 4 and 5 (a wavelet codec, colours
 // as luma and two differences, 5 with an alpha plane); others fail.
-// docs/formats/awe/gr2.md describes the format.
+// docs/engines/awe/gr2.md describes the format.
 Error decodeBinkTexture(int width, int height, uint32_t flags, const std::vector<uint8_t>& in,
                         std::vector<uint8_t>& rgba);
 

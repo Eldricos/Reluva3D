@@ -3,7 +3,7 @@
 
 // The Scenes page's inventory: an item in hand used on a hotspot or a
 // character (0x41c050, Text\uselist.txt), and items combined
-// (Text\combinelist.txt, 0x418cf0). See docs/formats/awe/script.md.
+// (Text\combinelist.txt, 0x418cf0). See docs/engines/awe/script.md.
 
 #include "engines/awe/viewers.h"
 

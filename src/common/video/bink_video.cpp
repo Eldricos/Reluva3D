@@ -9,7 +9,7 @@
 
 #include "common/video/bink_video.h"
 
-#include "bink_tables.h"
+#include "ffmpeg_bink/bink_tables.h" // third_party/ffmpeg_bink, not common/video's
 
 #include <algorithm>
 #include <cstring>

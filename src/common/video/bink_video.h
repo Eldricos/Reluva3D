@@ -10,7 +10,7 @@
 #include <vector>
 
 // Bink video (revisions d to i; not b), decoding a BinkFile's video
-// packets into YUV 4:2:0 planes and RGBA. See docs/formats/bink.md for
+// packets into YUV 4:2:0 planes and RGBA. See docs/common/bink_video.md for
 // where its workings come from: the published description of the
 // format, with FFmpeg's decoder as the reference for what that leaves out
 // (its tables are in third_party/ffmpeg_bink).

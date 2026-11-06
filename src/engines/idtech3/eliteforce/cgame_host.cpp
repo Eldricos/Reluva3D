@@ -4,6 +4,7 @@
 #include "engines/idtech3/eliteforce/cgame_host.h"
 
 #include "engines/idtech3/md3.h"
+#include "engines/idtech3/shader.h"
 
 #include <array>
 #include <cstdlib>
@@ -19,7 +20,7 @@ namespace {
 
 // Elite Force cgame.qvm system calls (Quake III's client game order; the
 // seen ones checked against the game's own calls, see
-// docs/formats/idtech3/eliteforce-syscalls.md).
+// docs/engines/idtech3/formats/eliteforce-syscalls.md).
 enum CgameCall : int {
     Print = 0,
     Error_ = 1,
@@ -78,7 +79,12 @@ enum CgameCall : int {
     GetUserCmd = 55,
     SetUserCmdValue = 56,
     RRegisterShaderNoMip = 57,
+    RRegisterShader3D = 59, // (name) -> handle, 0 if there's no such picture
     MemoryRemaining = 58,
+    // ("model", text): made once, for the local player only, with a name
+    // the client game put together in a buffer of its own; taken as
+    // setting that cvar, as it would the model the player now has.
+    SetLocalCvar = 60,
     Floor = 107, // (x) -> x rounded down, a float; Quake III's client game number too
 };
 
@@ -175,7 +181,13 @@ std::vector<std::string> tokenize(const std::string& line) {
 } // namespace
 
 void CgameHost::newSnapshot(GameHost::Snapshot snapshot) {
-    ++snapshotNumber_;
+    // Numbered as the original's client numbers them, by the message they
+    // came in: Init's serverMessageNum is the game state's, and the client
+    // game takes only snapshots numbered after it.
+    if (snapshot.messageNum > snapshotNumber_)
+        snapshotNumber_ = snapshot.messageNum;
+    else
+        ++snapshotNumber_;
     snapshotTime_ = snapshot.serverTime;
     snapshots_[snapshotNumber_] = std::move(snapshot);
     while (snapshots_.size() > 32)
@@ -286,7 +298,13 @@ int32_t CgameHost::systemCall(Qvm& vm, int number, const int32_t* a) {
         return 0;
     }
     case CvarUpdate: cvars_.updateVmCvar(vm, a[0]); return 0;
-    case CvarSet: cvars_.set(str(0, 256), str(1, 256)); return 0;
+    case CvarSet: cvars_.set(str(0, 256), str(1, 256), true); return 0; // forced, as the original's Cvar_Set
+    case SetLocalCvar:
+        // Holomatch's engine sets the cvar forced (read-only ones too),
+        // without counting it as a change of the player's settings to send.
+        // Reluva sends them only on connecting, so a forced set is enough.
+        cvars_.set(str(0, 256), str(1, 256), true);
+        return 0;
     case CvarVariableStringBuffer: vm.writeString(a[1], cvars_.string(str(0, 256)), a[2]); return 0;
     case Argc: return int32_t(args_.size());
     case Argv: vm.writeString(a[1], a[0] >= 0 && size_t(a[0]) < args_.size() ? args_[size_t(a[0])] : "", a[2]); return 0;
@@ -301,6 +319,8 @@ int32_t CgameHost::systemCall(Qvm& vm, int number, const int32_t* a) {
     case FsRead: return vmFiles_.read(vm, a[0], a[1], a[2]);
     case FsFCloseFile: vmFiles_.close(a[0]); return 0;
     case AddCommand: commands_.push_back(str(0, 64)); return 0;
+    case SendClientCommand: clientCommands_.push_back(str(0, 1024)); return 0;
+    case SendConsoleCommand: consoleCommands_.push_back(str(0, 1024)); return 0;
     case UpdateScreen: // the loading screen
         if (updateScreen)
             updateScreen();
@@ -330,6 +350,12 @@ int32_t CgameHost::systemCall(Qvm& vm, int number, const int32_t* a) {
     case RRegisterSkin: return skins_.add(str(0, 256));
     case RRegisterShader:
     case RRegisterShaderNoMip: return shaders_.add(str(0, 256));
+    case RRegisterShader3D: {
+        // The CTF flags' team pictures (models/flags/<team>_red): 0 for a
+        // team without one, and the client game takes the default.
+        const std::string name = str(0, 256);
+        return findImage(files_, name).empty() ? 0 : shaders_.add(name);
+    }
     case RClearScene: scene_.clear(); return 0;
     case RSetColor: // (rgba or 0 for white)
         if (!a[0])
@@ -405,27 +431,7 @@ int32_t CgameHost::systemCall(Qvm& vm, int number, const int32_t* a) {
         }
         return kTempBoxModel;
     case CmPointContents: // (point, model)
-    case CmTransformedPointContents: { // (point, model, origin, angles): turning not yet followed
-        Vec3f p{};
-        for (int i = 0; i < 3; ++i) {
-            p[size_t(i)] = Qvm::asFloat(vm.readInt(a[0] + 4 * i));
-            if (number == CmTransformedPointContents && a[2])
-                p[size_t(i)] -= Qvm::asFloat(vm.readInt(a[2] + 4 * i));
-        }
-        if (a[1] == kTempBoxModel) {
-            for (int i = 0; i < 3; ++i)
-                if (p[size_t(i)] < tempBoxMins_[size_t(i)] || p[size_t(i)] > tempBoxMaxs_[size_t(i)])
-                    return 0;
-            return contents::Body;
-        }
-        if (!map_)
-            return 0;
-        if (!world_)
-            world_ = std::make_unique<CollisionWorld>(*map_);
-        return world_->pointContents(p, a[1]);
-    }
-    case CmBoxTrace: // (results, start, end, mins, maxs, model, brushmask)
-    case CmTransformedBoxTrace: { // ... origin, angles: turning not yet followed
+    case CmTransformedPointContents: { // (point, model, origin, angles)
         auto vec = [&](int32_t addr) {
             Vec3f v{};
             if (addr)
@@ -433,22 +439,51 @@ int32_t CgameHost::systemCall(Qvm& vm, int number, const int32_t* a) {
                     v[size_t(i)] = Qvm::asFloat(vm.readInt(addr + 4 * i));
             return v;
         };
-        Vec3f start = vec(a[1]), end = vec(a[2]);
-        const Vec3f mins = vec(a[3]), maxs = vec(a[4]), origin = number == CmTransformedBoxTrace ? vec(a[7]) : Vec3f{};
-        for (int i = 0; i < 3; ++i) {
-            start[size_t(i)] -= origin[size_t(i)];
-            end[size_t(i)] -= origin[size_t(i)];
+        const bool transformed = number == CmTransformedPointContents;
+        const Vec3f point = vec(a[0]), origin = transformed ? vec(a[2]) : Vec3f{},
+                    angles = transformed ? vec(a[3]) : Vec3f{};
+        if (a[1] == kTempBoxModel) {
+            for (int i = 0; i < 3; ++i) {
+                const float p = point[size_t(i)] - origin[size_t(i)];
+                if (p < tempBoxMins_[size_t(i)] || p > tempBoxMaxs_[size_t(i)])
+                    return 0;
+            }
+            return contents::Body;
         }
+        if (!map_)
+            return 0;
+        if (!world_)
+            world_ = std::make_unique<CollisionWorld>(*map_);
+        return world_->transformedPointContents(point, a[1], origin, angles);
+    }
+    case CmBoxTrace: // (results, start, end, mins, maxs, model, brushmask)
+    case CmTransformedBoxTrace: { // ... origin, angles
+        auto vec = [&](int32_t addr) {
+            Vec3f v{};
+            if (addr)
+                for (int i = 0; i < 3; ++i)
+                    v[size_t(i)] = Qvm::asFloat(vm.readInt(addr + 4 * i));
+            return v;
+        };
+        const bool transformed = number == CmTransformedBoxTrace;
+        const Vec3f start = vec(a[1]), end = vec(a[2]), mins = vec(a[3]), maxs = vec(a[4]);
+        const Vec3f origin = transformed ? vec(a[7]) : Vec3f{}, angles = transformed ? vec(a[8]) : Vec3f{};
         TraceResult t;
-        if (a[5] == kTempBoxModel)
-            t = CollisionWorld::traceBox(start, end, mins, maxs, tempBoxMins_, tempBoxMaxs_, contents::Body);
-        else if (map_) {
+        if (a[5] == kTempBoxModel) {
+            // A box isn't turned, as the original's.
+            Vec3f s = start, e = end;
+            for (int i = 0; i < 3; ++i) {
+                s[size_t(i)] -= origin[size_t(i)];
+                e[size_t(i)] -= origin[size_t(i)];
+            }
+            t = CollisionWorld::traceBox(s, e, mins, maxs, tempBoxMins_, tempBoxMaxs_, contents::Body);
+            for (int i = 0; i < 3; ++i)
+                t.endPos[size_t(i)] += origin[size_t(i)];
+        } else if (map_) {
             if (!world_)
                 world_ = std::make_unique<CollisionWorld>(*map_);
-            t = world_->trace(start, end, mins, maxs, a[5], a[6]);
+            t = world_->transformedTrace(start, end, mins, maxs, a[5], a[6], origin, angles);
         }
-        for (int i = 0; i < 3; ++i)
-            t.endPos[size_t(i)] += origin[size_t(i)];
         writeTrace(vm, a[0], t, t.fraction < 1 ? 1022 : 1023);
         return 0;
     }

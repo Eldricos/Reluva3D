@@ -14,7 +14,7 @@
 
 // The conditions the game's scenes and tables test: when a scene's object
 // is shown ("moving >0"), which of an object's scripts runs ("act 04a,
-// !tag micheladmonish"), which music plays. See docs/formats/awe/ac2.md.
+// !tag micheladmonish"), which music plays. See docs/engines/awe/ac2.md.
 //
 // The game's evaluator (motoe.exe 0x407ae0, a clause 0x407cb0):
 //
@@ -99,7 +99,7 @@ struct GameState {
     std::function<bool(const std::vector<std::string>& words)> canTalk;
     std::string location; // the location's folder ("calais.hall"), for "location"
     // Each clause tested and whether it held, for a tool that follows what
-    // the game looks at (reluva-tool awe-acts -solve).
+    // the game looks at (reluva-tool awe acts -solve).
     std::function<void(std::string_view clause, bool holds)> onTest;
 
     // The first item of that name in one of `states` (any if empty), as

@@ -13,7 +13,7 @@
 namespace reluva::idtech3 {
 
 // A compiled map (.bsp, "IBSP" version 46). Field names follow the lumps
-// described in docs/formats/idtech3/bsp.md; all values are little-endian
+// described in docs/engines/idtech3/formats/bsp.md; all values are little-endian
 // in the file and converted on load.
 
 struct BspShader {

@@ -17,7 +17,7 @@
 // times their track masks: a full-body "base" animation (idle1, walk,
 // rotatel) under gestures that weigh only the bones they move. The head's
 // (1) and the eyes' (2) are laid over the body's pose, each bone pulled
-// toward theirs by its mask. See docs/formats/awe/characters.md.
+// toward theirs by its mask. See docs/engines/awe/characters.md.
 
 namespace reluva::awe {
 

@@ -8,8 +8,10 @@
 #include "common/types.h"
 
 #include <filesystem>
+#include <map>
 #include <memory>
 #include <string>
+#include <utility>
 #include <vector>
 
 namespace reluva {
@@ -24,6 +26,21 @@ struct GameTarget {
     // Where the engine may keep files for this game (settings, saves); may
     // not exist yet. Set by the frontend.
     std::filesystem::path savePath;
+    // Everything stored for it, the engine's own options among them
+    // (MetaEngine::options and engineOptions), and the settings for every
+    // game and for its engine's (common/settings.h), merged as
+    // Config::settingsFor does: the most specific one set wins.
+    std::map<std::string, std::string> settings;
+};
+
+// A choice the launcher offers for a game, stored with it as `key` = "1"
+// or "0".
+struct GameOption {
+    std::string key, label, tooltip;
+    bool defaultOn = true;
+    // A list to pick from instead of a checkbox: each value (kept in the
+    // entry's settings) and what's shown for it; the first is the default.
+    std::vector<std::pair<std::string, std::string>> choices;
 };
 
 // A running game. Created by its MetaEngine, run once, then destroyed.
@@ -45,6 +62,27 @@ public:
     virtual const char* name() const = 0;
 
     virtual std::vector<DetectedGame> detect(const std::filesystem::path& dir) const = 0;
+    // The games in `source` that can be imported (copied into a folder of
+    // their own to run from): none unless the engine knows how.
+    virtual std::vector<ImportPlan> planImport(const std::filesystem::path& /*source*/) const { return {}; }
+    // The choices it offers for the game in `dir` (none by default).
+    virtual std::vector<GameOption> options(const std::string& /*gameId*/, const std::filesystem::path& /*dir*/) const {
+        return {};
+    }
+    // Settings for all of the engine's games, which each game can also set
+    // for itself: the launcher shows them under Settings (for all its
+    // games) and with each game, and the game gets them in its
+    // GameTarget::settings, merged (Config::settingsFor). Each GameOption's
+    // first choice (or defaultOn) is what it is when set nowhere.
+    virtual std::vector<GameOption> engineOptions() const { return {}; }
+    // Adds what `file` holds for `plan`'s game (its patch: the patched
+    // files, in place of the plan's own); false, with why in `message`, if
+    // it isn't one the engine knows.
+    virtual bool addToImport(ImportPlan& /*plan*/, const std::filesystem::path& /*file*/,
+                             std::string& message) const {
+        message = "not a file Reluva can use for this game";
+        return false;
+    }
     virtual std::unique_ptr<Engine> create(System& system, const GameTarget& target) const = 0;
 };
 
