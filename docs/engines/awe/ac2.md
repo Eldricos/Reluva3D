@@ -504,8 +504,8 @@ from the vertical FOV and the 4:3 frame. This was found by calling the
 DLL's own functions (`GrannyInitializeDefaultCamera`,
 `GrannySetCameraAspectRatios`, `GrannyBuildCameraMatrices`,
 `GrannyWorldSpaceToWindowSpace`) in the x86 interpreter
-(`reluva-tool awe camera`). Reluva's matrices match them to within 1e-7
-for every camera tried, and `awe check` compares them for a whole
+(`reluva-tool awe camera-check`). Reluva's matrices match them to within 1e-7
+for every camera tried, and `awe files-check` compares them for a whole
 install. Roll's place in the order is a guess, since no camera seen so far
 uses it.
 
@@ -545,7 +545,7 @@ outside a room are 0 too: the walls' 1s keep a search inside.
   say whether the cell is open (0 or 3).
 - **Scripts:** `walk a b` walks to cell (a, b). In the samples, 17 of the
   18 such commands in scenes with the player's character are reachable
-  from where it stands; `awe check` counts them for a whole install.
+  from where it stands; `awe files-check` counts them for a whole install.
   `walk sp1` and the like walk to a character's walk point (the `POINT`s
   of its `WALK` part); a name walks to that object (`0x440b30`).
 - **Paths** (`0x440ce0`): from the character's cell to the goal's, if they
@@ -627,7 +627,7 @@ outside a room are 0 too: the walls' 1s keep a search inside.
     22,480 searches below came out differently: a waypoint more on a
     straight stretch, or one a cell over, where two nearly equal values
     compare the other way.)
-  - **The check:** `reluva-tool awe path <game folder> -all [pairs]
+  - **The check:** `reluva-tool awe path-check <game folder> -all [pairs]
     [-double]`
     plans paths between random open cells of every scene, four ways each
     (3s open or not, 2s allowed or not). It plans each both with the
@@ -707,7 +707,7 @@ Item states (the inventory's `+0x1620`): 1 just taken, 2 in the bag, 3
 in hand, 4 used up (kept for `restore`), 5 a passport, 6 a fingerprint
 card, 7 taken away by `remove all`.
 
-`reluva-tool awe scripts` counts the words of the install's 2,175
+`reluva-tool awe script-check` counts the words of the install's 2,175
 conditions. Reluva's evaluator is `testCondition`
 (`src/engines/awe/conditions.cpp`).
 

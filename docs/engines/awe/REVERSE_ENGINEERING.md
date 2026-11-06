@@ -54,28 +54,28 @@ original to check Reluva's own code against them:
 - **Granny:** Oodle1 decompression, the Bink-compressed textures and the
   compressed animation curves were written natively, then compared with
   `granny2.dll` run in the interpreter, byte for byte (bit for bit for
-  the curves) on every file of the install (`awe check`). See
+  the curves) on every file of the install (`awe files-check`). See
   [gr2.md](gr2.md).
 - **Whole poses:** a model posed by an animation, by Reluva and by
-  `granny2.dll`'s own sampling, compared bone by bone (`awe pose`) over
+  `granny2.dll`'s own sampling, compared bone by bone (`awe pose-check`) over
   every model and animation pair. This found the Count's slumped pose:
   curves with no knots, which Granny reads as the identity.
 - **Movies:** each movie and video loop decoded by Reluva and by the
   game's `binkw32.dll`, its frames copied out as the game copies them,
-  compared pixel by pixel (`awe bink`). This found Reluva's colour
+  compared pixel by pixel (`awe bink-check`). This found Reluva's colour
   conversion rounding differently from Bink's, by up to 7.
 - **The path-finder:** Reluva's port of `motoe.exe`'s path planning was
   compared with the game's own code in the interpreter: 22,480 searches
   over the 281 scenes with a walk grid, every point and heading the same
-  (`awe path -all`). See [ac2.md](ac2.md).
+  (`awe path-check -all`). See [ac2.md](ac2.md).
 
 ## Sweeping the install
 
 Readers were run over every file of the install (`reluva-tool
-awe check`): every scene, Granny file, text table, movie and sound. A
+awe files-check`): every scene, Granny file, text table, movie and sound. A
 reader that skips a field, reads past an end, or meets an unknown record
-says so. `awe scripts` lists every verb and condition word the scripts
-use, so each could be handled; `awe ac2-dump` and `awe table` show single
+says so. `awe script-check` lists every verb and condition word the scripts
+use, so each could be handled; `awe ac2-dump` and `awe table-show` show single
 files. Counts over the install (values of a field, which scenes use
 what) went into the docs.
 
@@ -109,7 +109,7 @@ subtitles' places and colours.
 
 ## Playing the game without a player
 
-`reluva-tool awe acts` plays the game headless, with Reluva's own
+`reluva-tool awe game-run` plays the game headless, with Reluva's own
 engine:
 
 - **The route** (`-solve`): a search from a new game to the credits,

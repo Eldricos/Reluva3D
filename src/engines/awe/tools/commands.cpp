@@ -154,7 +154,7 @@ int cmdGr2Model(int argc, char** argv) {
         }
     }
     if (file.empty()) {
-        std::fprintf(stderr, "usage: reluva-tool awe gr2-model <model.gr2> [-anim <anim.gr2> <seconds>] [-obj out.obj] "
+        std::fprintf(stderr, "usage: reluva-tool awe model-dump <model.gr2> [-anim <anim.gr2> <seconds>] [-obj out.obj] "
                              "[-track bone]\n");
         return 2;
     }
@@ -310,7 +310,7 @@ int cmdAc2Dump(int argc, char** argv) {
 // script commands where they parse as some.
 int cmdAweTable(int argc, char** argv) {
     if (argc != 3) {
-        std::fprintf(stderr, "usage: reluva-tool awe table <file.txt>\n");
+        std::fprintf(stderr, "usage: reluva-tool awe table-show <file.txt>\n");
         return 2;
     }
     std::vector<uint8_t> data;
@@ -341,7 +341,7 @@ int cmdAweTable(int argc, char** argv) {
 // it, and saves the screen as a TGA file.
 int cmdAweShot(int argc, char** argv) {
     if (argc < 5) {
-        std::fprintf(stderr, "usage: reluva-tool awe shot <game folder> <scenes|pictures|text|sounds|movies> <out.tga> "
+        std::fprintf(stderr, "usage: reluva-tool awe page-shot <game folder> <scenes|pictures|text|sounds|movies> <out.tga> "
                              "[key...]\n  keys: left right up down pgup pgdn home end esc enter f1..f12, or one character;\n"
                              "  savedir:<folder> for the game\'s saves; ms:N lets N milliseconds pass;\n"
                              "  move:x,y, click:x,y and release:x,y move, click and let go of the mouse, rclick:x,y\n"
@@ -404,7 +404,7 @@ int cmdAweShot(int argc, char** argv) {
         }
         if (k.rfind("start:", 0) == 0) {
             // A game started at an act or a developer's save, played on
-            // till it settles (as awe acts does).
+            // till it settles (as awe game-run does).
             if (auto* scenes = dynamic_cast<awe::ScenePage*>(page.get())) {
                 scenes->startAt(k.substr(6));
                 for (int quiet = 0, n = 0; n < 60000 && quiet < 300; n++) {
@@ -464,18 +464,18 @@ int cmdAweShot(int argc, char** argv) {
 // the scene it settles in is then clicked, each from the act afresh; with
 // -explore n, n clicks follow, each the one tried least so far. What
 // the scripts ask that Reluva doesn't do, or can't find, is listed.
-// reluva-tool awe regress <game folder> <route.txt> [-3d] [-quick]: the
+// reluva-tool awe game-check <game folder> <route.txt> [-3d] [-quick]: the
 // checks a change to the engine should pass, one after another, each a
 // whole game from a new game: the route by the mouse; by the player's
 // hand alone (inputs only); saved and loaded after every action; and
 // wandering off it (two seeds, one with -quick). With -3d the first runs
 // with a window's renderer (under a display). The route is a playthrough
-// file (awe acts -solve; its own, made from the install, isn't committed:
+// file (awe game-run -solve; its own, made from the install, isn't committed:
 // it names the game's files); if the file isn't there it's searched for
 // first, with -mouse -characters, and kept there.
 int cmdAweRegress(int argc, char** argv) {
     if (argc < 4) {
-        std::fprintf(stderr, "usage: reluva-tool awe regress <game folder> <route.txt> [-3d] [-quick]\n");
+        std::fprintf(stderr, "usage: reluva-tool awe game-check <game folder> <route.txt> [-3d] [-quick]\n");
         return 1;
     }
     const std::string game = argv[2], route = argv[3];
@@ -485,7 +485,7 @@ int cmdAweRegress(int argc, char** argv) {
         quick |= std::strcmp(argv[i], "-quick") == 0;
     }
     auto run = [&](const std::string& name, std::vector<std::string> args) {
-        std::vector<std::string> all = {argv[0], "acts", game};
+        std::vector<std::string> all = {argv[0], "game-run", game};
         all.insert(all.end(), args.begin(), args.end());
         std::vector<char*> av;
         for (std::string& a : all)
@@ -525,13 +525,13 @@ int cmdAweRegress(int argc, char** argv) {
     return failed ? 1 : 0;
 }
 
-// reluva-tool awe bink <game folder> <movie.bik>... [-frames n]: each movie
+// reluva-tool awe bink-check <game folder> <movie.bik>... [-frames n]: each movie
 // decoded by Reluva and by the game's binkw32.dll (run in the x86
 // interpreter, its frames copied out as the game copies them), frame by
 // frame: how many pixels differ, and by how much at most.
 int cmdAweBink(int argc, char** argv) {
     if (argc < 4) {
-        std::fprintf(stderr, "usage: reluva-tool awe bink <game folder> <movie.bik>... [-frames n]\n");
+        std::fprintf(stderr, "usage: reluva-tool awe bink-check <game folder> <movie.bik>... [-frames n]\n");
         return 1;
     }
     reluva::DirectoryArchive files;
@@ -652,13 +652,13 @@ int cmdAweBink(int argc, char** argv) {
     return failed ? 1 : 0;
 }
 
-// reluva-tool awe pose <game folder> <model.gr2> <animation.gr2> [seconds...]:
+// reluva-tool awe pose-check <game folder> <model.gr2> <animation.gr2> [seconds...]:
 // the model posed by the animation, Reluva's way (computePose) and
 // granny2.dll's (run in the x86 interpreter), bone by bone: the largest
 // difference in each bone's world matrix.
 int cmdAwePose(int argc, char** argv) {
     if (argc < 5) {
-        std::fprintf(stderr, "usage: reluva-tool awe pose <game folder> <model.gr2> <animation.gr2> [seconds...]\n");
+        std::fprintf(stderr, "usage: reluva-tool awe pose-check <game folder> <model.gr2> <animation.gr2> [seconds...]\n");
         return 1;
     }
     reluva::DirectoryArchive files;
@@ -725,7 +725,7 @@ int cmdAwePose(int argc, char** argv) {
 
 int cmdAweActs(int argc, char** argv) {
     if (argc < 3) {
-        std::fprintf(stderr, "usage: reluva-tool awe acts <game folder> [act|slotN...] [-hotspots] [-explore n] [-t seconds] [-v]\n");
+        std::fprintf(stderr, "usage: reluva-tool awe game-run <game folder> [act|slotN...] [-hotspots] [-explore n] [-t seconds] [-v]\n");
         return 2;
     }
     for (int i = 3; i < argc; i++)
@@ -764,7 +764,7 @@ int cmdAweActs(int argc, char** argv) {
     HeadlessSystem sys;
     reluva::Surface screen;
     screen.create(awe::kScreenW, awe::kScreenH, reluva::PixelFormat::RGBA32);
-    awe::ViewerContext ctx{sys, files, nullptr, screen, std::filesystem::temp_directory_path() / "reluva-awe acts",
+    awe::ViewerContext ctx{sys, files, nullptr, screen, std::filesystem::temp_directory_path() / "reluva-awe game-run",
                            nullptr, {}, -1};
     int problems = 0;
     // Runs the game on till it settles; false if it sticks.
@@ -929,7 +929,7 @@ int cmdAweActs(int argc, char** argv) {
 // characters (and any points given) land on the screen.
 int cmdAweCamera(int argc, char** argv) {
     if (argc < 4) {
-        std::fprintf(stderr, "usage: reluva-tool awe camera <game folder> <scene.ac2> [x y z]...\n");
+        std::fprintf(stderr, "usage: reluva-tool awe camera-check <game folder> <scene.ac2> [x y z]...\n");
         return 2;
     }
     std::vector<uint8_t> data;
@@ -1123,7 +1123,7 @@ int cmdBinkInfo(int argc, char** argv) {
 // same size (the buffers' old memory aside, the same layout).
 int cmdAweSave(int argc, char** argv) {
     if (argc < 3) {
-        std::fprintf(stderr, "usage: reluva-tool awe save <slot.ac2>... [-v]\n");
+        std::fprintf(stderr, "usage: reluva-tool awe save-check <slot.ac2>... [-v]\n");
         return 2;
     }
     bool verbose = false;
@@ -1179,20 +1179,20 @@ int cmdAweSave(int argc, char** argv) {
 
 // The engine's reluva-tool commands (reluva-tool help awe lists them).
 const reluva::tool::Commands commands("awe", {
-    {"check", "<game folder> [-gr2|-ac2|-text|-bik|-sound|-oodle] [-only text] [-textures] [-curves] [-j threads] [-v]",
+    {"files-check", "<game folder> [-gr2|-ac2|-text|-bik|-sound|-oodle] [-only text] [-textures] [-curves] [-j threads] [-v]",
      "read every file of an install of the kind asked (all by default) and report what doesn't read",
      aweCheckCommand},
-    {"camera", "<game folder> <scene.ac2> [x y z]...",
+    {"camera-check", "<game folder> <scene.ac2> [x y z]...",
      "a scene's camera by Reluva and by granny2.dll, and where points land on the screen by each", cmdAweCamera},
     {"bink-info", "<file.bik> [-frames]", "a Bink movie's header and frames; -yuv, -wav, -tga to decode it", cmdBinkInfo},
     {"gr2-info", "<file.gr2> [-t] [-n elements]", "a Granny file's sections and elements", cmdGr2Info},
-    {"gr2-model", "<model.gr2> [-anim <anim.gr2> <seconds>] [-obj out.obj] [-track bone]",
+    {"model-dump", "<model.gr2> [-anim <anim.gr2> <seconds>] [-obj out.obj] [-track bone]",
      "a model's meshes and skeleton, posed by an animation, written as OBJ", cmdGr2Model},
-    {"table", "<file.txt>", "a text table as the engine reads it", cmdAweTable},
-    {"shot", "<game folder> <scenes|pictures|text|sounds|movies> <out.tga> [key...]",
+    {"table-show", "<file.txt>", "a text table as the engine reads it", cmdAweTable},
+    {"page-shot", "<game folder> <scenes|pictures|text|sounds|movies> <out.tga> [key...]",
      "a page of the viewer drawn without a window after the keys, clicks and waits given, saved as a TGA",
      cmdAweShot},
-    {"acts",
+    {"game-run",
      "<game folder> [act|slotN...] [-hotspots] [-explore n] [-t seconds] [-v]\n"
      "      <game folder> -solve <out.txt> [-from <playthrough>] [-budget n] [-level n] [-noclimb] [-goal text] "
      "[-characters] [-v]\n"
@@ -1201,18 +1201,18 @@ const reluva::tool::Commands commands("awe", {
      "play the acts without a player as far as they go; -solve searches for a way from a new game to the "
      "credits, -play plays one back (-3d in a window, -draw drawing every frame)",
      cmdAweActs},
-    {"regress", "<game folder> <route.txt> [-3d] [-quick]",
+    {"game-check", "<game folder> <route.txt> [-3d] [-quick]",
      "the checks a change should pass: the route by the mouse and by the hand, saved and loaded after every "
      "action, and wandering off it",
      cmdAweRegress},
-    {"pose", "<game folder> <model.gr2> <animation.gr2> [seconds...]",
+    {"pose-check", "<game folder> <model.gr2> <animation.gr2> [seconds...]",
      "a model posed by an animation, by Reluva and by granny2.dll, compared bone by bone", cmdAwePose},
-    {"bink", "<game folder> <movie.bik>... [-frames n] [-yuv]",
+    {"bink-check", "<game folder> <movie.bik>... [-frames n] [-yuv]",
      "movies decoded by Reluva and by the game's binkw32.dll, compared pixel by pixel", cmdAweBink},
     {"ac2-dump", "<scene.ac2>...", "a scene's records and fields", cmdAc2Dump},
-    {"path", "<game folder> <scene.ac2> <a0> <b0> <a1> <b1> | -all [pairs]",
+    {"path-check", "<game folder> <scene.ac2> <a0> <b0> <a1> <b1> | -all [pairs]",
      "paths planned by Reluva's port and by motoe.exe's code, compared", reluva::awe::aweCommandPath},
-    {"scripts", "<game folder> [-v]", "every script in the install read, and the verbs it uses that Reluva lacks",
+    {"script-check", "<game folder> [-v]", "every script in the install read, and the verbs it uses that Reluva lacks",
      reluva::awe::aweCommandScripts},
-    {"save", "<slot.ac2>... [-v]", "a saved game's records, read and written back", cmdAweSave},
+    {"save-check", "<slot.ac2>... [-v]", "a saved game's records, read and written back", cmdAweSave},
 });

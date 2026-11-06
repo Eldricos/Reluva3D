@@ -82,7 +82,7 @@ public:
     // `loopBack` or `loopForward`, as a looping animation `duration` long,
     // wrapping round at its start or its end; `normalize` makes a
     // quaternion unit length. The reference Curve::evaluate is checked
-    // against (reluva-tool awe check -curves).
+    // against (reluva-tool awe files-check -curves).
     Error evaluateCurve(uint32_t address, const std::vector<float>& identity, bool normalize, bool loopBack,
                         bool loopForward, float duration, float t, std::vector<float>& out);
 

@@ -393,7 +393,7 @@ Error loadAnimation(const Gr2File& file, Animation& out) {
                 *curves[c] = readCurve(curve);
                 // An old-format curve with no knots is the identity: Granny
                 // gives no move, no turn, unit scale, not the bone's rest
-                // (checked with granny2.dll: awe pose). Count Andrenyi's
+                // (checked with granny2.dll: awe pose-check). Count Andrenyi's
                 // sitidle1 has such curves for his neck and collarbones.
                 if (curves[c]->knots.empty()) {
                     curves[c]->degree = 0;

@@ -203,7 +203,7 @@ The page then does the following:
 
 ## Playing the acts headless
 
-`reluva-tool awe acts <install> [act|slotN...]` plays without a window
+`reluva-tool awe game-run <install> [act|slotN...]` plays without a window
 and without a player. Each act is started as `act <x>` starts it (its
 PreLoad, its location, its Post Load), or each developers' save is loaded
 (`preload slotN, load`). Then the game runs on, with movies skipped,
@@ -246,9 +246,9 @@ rather than as -99.
 
 The explorer above clicks at random, and gets stuck where the game wants
 a player who knows what to do: 01A's market, 04A's eavesdropping, 04D's
-kimono, and the evidence of 06B and 07A. `awe acts <install> -solve
+kimono, and the evidence of 06B and 07A. `awe game-run <install> -solve
 <out.txt>` searches instead for a way from a new game (the main menu,
-Play) to the end credits, and `awe acts <install> -play <out.txt>` plays
+Play) to the end credits, and `awe game-run <install> -play <out.txt>` plays
 one back from a new game. On the English install the search, from a new
 game, takes seven minutes and finds a way of 1,098 actions, which plays
 back in a minute and reaches the credits.
@@ -293,7 +293,7 @@ a scene with nothing to do. On the English install three runs (seeds 1
 to 3, every 10 actions) made 9,900 actions off the route in about 190
 scenes, with 330 loads, and found nothing.
 
-**Checking a change: `reluva-tool awe regress <install> <route.txt>
+**Checking a change: `reluva-tool awe game-check <install> <route.txt>
 [-3d] [-quick]`** runs the whole-game checks one after another and ends
 with a summary, "all passed" or which failed (its exit code 1):
 
@@ -305,9 +305,9 @@ with a summary, "all passed" or which failed (its exit code 1):
    seed 1 only with `-quick`).
 
 Each passes when the credits are reached and nothing is listed. The
-route file is a playthrough from `awe acts -solve`; it isn't in the
+route file is a playthrough from `awe game-run -solve`; it isn't in the
 repository, as it names the game's own files. If it isn't there,
-`awe regress` searches for one first (with `-mouse -characters`, a few
+`awe game-check` searches for one first (with `-mouse -characters`, a few
 minutes) and keeps it there for next time. On the English install the
 four quick checks take about ten minutes.
 
@@ -480,7 +480,7 @@ Barnaby's ham radio in 07A (its messages are read as text) and act 8's
 evidence choices (lines with no speaker, chosen as pictures). In Sirkeci
 market the gaps between the cleaver conversation's voiced lines come
 within 40 ms of a recording of the game's (each voice found in both by
-its loudness envelope). `awe check -sound` decodes all 3,423 sound files
+its loudness envelope). `awe files-check -sound` decodes all 3,423 sound files
 of the English install, about four and a half hours.
 
 A sample was also played in a real window (Xvfb, with clicks from

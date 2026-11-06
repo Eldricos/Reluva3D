@@ -51,7 +51,7 @@ make Reluva work with the game. The objects and the addresses read:
   Fonts and colours are `Text\fonts.txt`'s, by their place in the list
   from 0.
 
-`reluva-tool awe shot` pictures of Reluva's screens are compared by eye
+`reluva-tool awe page-shot` pictures of Reluva's screens are compared by eye
 with the pictures the game's code places.
 
 ## When the interface is there
@@ -350,7 +350,7 @@ shows and what a click uses, on what the game's pick finds there
 ([ac2.md](ac2.md#the-mouse-picking-and-cursors)). F9 shows Reluva's info
 panel in a game (I is the inventory's).
 
-`reluva-tool awe shot` shows the screens without a window:
+`reluva-tool awe page-shot` shows the screens without a window:
 `start:slot12` starts a game at a developers' save, `run:<script>` runs a
 script (`run:startpass michel`), `click:x,y` and `rclick:x,y` click.
-`reluva-tool awe acts -explore` combines items too.
+`reluva-tool awe game-run -explore` combines items too.

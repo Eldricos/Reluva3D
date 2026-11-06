@@ -26,7 +26,7 @@ Reluva work with the game:
   `0x416450`, `0x4164e0`);
 - the caret (`0x434c91`, in the save screen's draw `0x434b90`).
 
-`reluva-tool awe save` reads the 15 developer saves to their last byte
+`reluva-tool awe save-check` reads the 15 developer saves to their last byte
 with the layout below, and writes each back to the same size.
 
 ## The file

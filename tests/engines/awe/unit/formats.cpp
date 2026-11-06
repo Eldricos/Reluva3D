@@ -510,7 +510,7 @@ void testBinkTexture() {
 }
 
 // Salon_01's camera, against what granny2.dll's GrannyBuildCameraMatrices
-// and GrannyWorldSpaceToWindowSpace give for it (reluva-tool awe camera).
+// and GrannyWorldSpaceToWindowSpace give for it (reluva-tool awe camera-check).
 
 } // namespace
 

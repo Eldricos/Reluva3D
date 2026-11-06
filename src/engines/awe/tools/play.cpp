@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 // Copyright (C) 2026 The Reluva contributors
 
-// reluva-tool awe acts -solve and -play: a player that looks for a way
+// reluva-tool awe game-run -solve and -play: a player that looks for a way
 // through the game, and plays a way found back. See
 // docs/engines/awe/acts.md ("Finding a playthrough").
 //
@@ -880,10 +880,10 @@ struct Node {
 } // namespace
 
 int aweCommandSolve(int argc, char** argv) {
-    reloadDiffs = 0; // (awe regress runs several in one process)
-    // reluva-tool awe acts <game> -solve <out> [-from <file>] [-budget n] [-level n] [-noclimb]
+    reloadDiffs = 0; // (awe game-check runs several in one process)
+    // reluva-tool awe game-run <game> -solve <out> [-from <file>] [-budget n] [-level n] [-noclimb]
     //     [-goal text] [-t s] [-v]
-    // reluva-tool awe acts <game> -play <file> [-list] [-reload] [-log n] [-mouse] [-3d [-draw] | -characters]
+    // reluva-tool awe game-run <game> -play <file> [-list] [-reload] [-log n] [-mouse] [-3d [-draw] | -characters]
     // [-sound] [-wav file]
     //     [-shot n|<n>c<k> out.tga]... [-shots dir] [-v]
     DirectoryArchive files;

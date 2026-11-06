@@ -77,7 +77,7 @@ Moved to their format pages; kept here so the reasoning can be found:
   part. The Count had come out 1.6 to 1.9 times brighter in the
   recording, sitting upright where Reluva had him slumped: a bug in
   reading Granny curves with no knots, found by posing his `sitidle1`
-  with granny2.dll (`awe pose`) and fixed.
+  with granny2.dll (`awe pose-check`) and fixed.
   [gr2.md](gr2.md).
 - **The x87's precision:** 24 bits, not 53. Direct3D 8's `CreateDevice`
   sets it, the game doesn't ask it not to, and the path-finder is made

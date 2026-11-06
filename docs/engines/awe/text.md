@@ -17,7 +17,7 @@ Worked out from the files themselves (`acts.txt`, `itemlist.txt`,
   but tabs are padding.
 - `0` in a cell means none.
 
-`reluva-tool awe table <file>` prints a table row by row, with each
+`reluva-tool awe table-show <file>` prints a table row by row, with each
 cell's commands split out.
 
 ## The tables

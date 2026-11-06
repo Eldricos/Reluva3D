@@ -143,7 +143,7 @@ Error loadAnimation(const Gr2File& file, Animation& out);
 // Replaces the animation's compressed curves, as loadAnimation() expanded
 // them from `file`, with granny2.dll's expansion of them
 // (GrannyCurveExtractKnotValues): the reference the native one is checked
-// against (reluva-tool awe check).
+// against (reluva-tool awe files-check).
 Error expandCurvesWithDll(const Gr2File& file, GrannyDll& dll, Animation& out);
 // Where the first animation's tracks' curves (position, orientation,
 // scale/shear; 0 where a track has none) are in the DLL's copy of `file`,

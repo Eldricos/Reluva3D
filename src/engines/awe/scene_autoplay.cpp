@@ -2,7 +2,7 @@
 // Copyright (C) 2026 The Reluva contributors
 
 // The Scenes page driven by a tool instead of a player (reluva-tool
-// awe acts): a game started at an act or a developer's save, moved on by a
+// awe game-run): a game started at an act or a developer's save, moved on by a
 // player who only waits, skips the movies and takes the first choice, and
 // the scene's hotspots tried one by one. What it logs is how the acts are
 // checked; see docs/engines/awe/acts.md.

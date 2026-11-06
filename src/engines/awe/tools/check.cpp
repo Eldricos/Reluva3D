@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 // Copyright (C) 2026 The Reluva contributors
 
-// reluva-tool awe check: reads every Granny file, scene and text file of an
+// reluva-tool awe files-check: reads every Granny file, scene and text file of an
 // install, the way the engine does, and reports what fails or looks
 // unusual. The regression test for anyone with the game (no game data is
 // committed).
@@ -1061,7 +1061,7 @@ int aweCheckCommand(int argc, char** argv) {
         }
     }
     if (folder.empty()) {
-        std::fprintf(stderr, "usage: reluva-tool awe check <game folder> [-gr2|-ac2|-text|-bik|-sound|-oodle] "
+        std::fprintf(stderr, "usage: reluva-tool awe files-check <game folder> [-gr2|-ac2|-text|-bik|-sound|-oodle] "
                              "[-only text] [-textures] [-curves] [-j threads] [-v]\n");
         return 2;
     }

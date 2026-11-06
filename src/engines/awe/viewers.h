@@ -168,7 +168,7 @@ public:
     bool wantsEscape() const override { return movie_ != nullptr || playing_; }
     bool quitRequested() const override { return quit_; }
 
-    // For tools (reluva-tool awe acts; scene_autoplay.cpp): a game started
+    // For tools (reluva-tool awe game-run; scene_autoplay.cpp): a game started
     // without the menus at an act ("04a": its PreLoad, location and Post
     // Load) or from a developer's save ("slot7"); every line of the script
     // log passed on; and a player who only waits: movies skipped, the
@@ -224,7 +224,7 @@ public:
     // taken apart (the combine page's right-hand box, then the gears).
     std::vector<std::string> decombinable();
     bool decombineItem(const std::string& item);
-    // For a player that searches (reluva-tool awe acts -solve): the story
+    // For a player that searches (reluva-tool awe game-run -solve): the story
     // state; the game saved to memory and loaded from it as the save and
     // load screens do; who picks the dialogue's choices (the index, or -1
     // for the tool's own: the one taken least); the items whose back has
@@ -275,7 +275,7 @@ public:
     // away before it's used; a car is gone to by the bar, shown by the
     // mouse at the top; combining puts the parts in the combine page's
     // boxes and turns the gears; and so on. So a route can be played by
-    // the mouse and keys alone (awe acts -hand).
+    // the mouse and keys alone (awe game-run -hand).
     struct HandGoal {
         enum class Kind { Click, Use, Travel, Combine, Flip, Compare } kind = Kind::Click;
         size_t target = 0;              // Click, Use: the clickable

@@ -75,14 +75,14 @@ scenes, two Granny files, the text tables, two backgrounds):
   at a path. G shows a scene's grid over its background, and clicking
   the floor walks the player's character there along a path planned as
   the game's own path-finder plans it: a native port, checked point for
-  point against `motoe.exe`'s code (`awe path -all`).
+  point against `motoe.exe`'s code (`awe path-check -all`).
 - **Scripts: the runner works.** Commands run as the game's runner runs
   them: queued as events, each finishing at once or when what it started
   is over, the `a` forms not waiting, the door macros and script files
   expanded (see [script.md](script.md)).
   Clicking a hotspot in the Scenes page runs its script: walks, scene
   changes, sounds, items, tags, dialogue and the characters' verbs work.
-  `reluva-tool awe scripts` lists every command an install's scripts
+  `reluva-tool awe script-check` lists every command an install's scripts
   use, and every word of its conditions; every one is handled. Items
   are picked up in the inventory and used on hotspots and characters.
 - **The mouse: as the game's.** The object under it is found by the
@@ -148,22 +148,22 @@ scenes, two Granny files, the text tables, two backgrounds):
 - **reluva-tool:**
   - `awe ac2-dump` (one scene in full, or many checked to their ends);
   - `awe gr2-info` (sections, and with `-t` the whole type tree);
-  - `awe gr2-model` (a summary, posed by an animation, written as OBJ with
+  - `awe model-dump` (a summary, posed by an animation, written as OBJ with
     its textures);
-  - `awe table` (a text table with its commands split);
-  - `awe shot` (a viewer page drawn without a window, saved as TGA);
-  - `awe camera` (a scene's camera as granny2.dll and Reluva build it);
-  - `awe check` (every Granny file, scene, text file and movie of an
+  - `awe table-show` (a text table with its commands split);
+  - `awe page-shot` (a viewer page drawn without a window, saved as TGA);
+  - `awe camera-check` (a scene's camera as granny2.dll and Reluva build it);
+  - `awe files-check` (every Granny file, scene, text file and movie of an
     install read, with cameras and compressed curves compared against the
     DLL, and with `-textures` and `-oodle` the textures and sections too:
     the regression test);
-  - `awe pose` (a model posed by an animation, by Reluva and by
+  - `awe pose-check` (a model posed by an animation, by Reluva and by
     granny2.dll, compared bone by bone);
-  - `awe bink` (movies decoded by Reluva and by the game's binkw32.dll,
+  - `awe bink-check` (movies decoded by Reluva and by the game's binkw32.dll,
     compared pixel by pixel; `-yuv` before the colour conversion);
-  - `awe path` (paths planned by Reluva's port and by `motoe.exe`'s code,
+  - `awe path-check` (paths planned by Reluva's port and by `motoe.exe`'s code,
     compared; `-all` over every scene);
-  - `awe acts` (every act, or developers' save, played without a window
+  - `awe game-run` (every act, or developers' save, played without a window
     or a player, as far as it goes: what the scripts ask that Reluva
     doesn't do; `-hotspots`, `-explore n` to click on; `-solve` to
     search for a way from a new game to the credits, `-play` to play one
@@ -171,7 +171,7 @@ scenes, two Granny files, the text tables, two backgrounds):
     with `RELUVA_PERF`);
   - `awe bink-info` (a movie's header and frames; `-yuv`, `-wav`, `-tga` to
     decode it);
-  - `awe save` (a saved game's records, read and written back).
+  - `awe save-check` (a saved game's records, read and written back).
 - **Tests:** `tests/engines/awe/unit/`, on files built in the tests:
   `reluva-tests awe` (suites `awe.unit.formats`, `.scene`, `.script`,
   `.dialogue`, `.characters`, `.saves`).
@@ -192,13 +192,13 @@ Corrections to the plan below:
   folders' few JPEGs are extras.
 
 Sweeps over the full English install (`awe ac2-dump` over all 394 scenes,
-`awe check -gr2` over all 1,803 Granny files) found no records, fields
+`awe files-check -gr2` over all 1,803 Granny files) found no records, fields
 or member types beyond those Reluva reads.
 
 Next:
 
 1. The game plays from a new game to the end credits without a window:
-   `reluva-tool awe acts <install> -solve` finds a way of 1,098 actions
+   `reluva-tool awe game-run <install> -solve` finds a way of 1,098 actions
    in seven minutes, and `-play` plays it back (see
    [acts.md](acts.md#a-playthrough-from-a-new-game--solve-and--play)).
    With `-mouse -characters` the player clicks points the game's pick
@@ -407,7 +407,7 @@ where a frame's time goes every three seconds (to the console, with the
 scene): the 2D (the pictures put together into layers, the interface,
 the text, the cursor), the characters (posed, skinned and lit, onto the
 GPU, drawn) and the present (the GPU's frame and the overlay shown).
-`reluva-tool awe acts <install> -play <route> -mouse -3d -draw` plays a
+`reluva-tool awe game-run <install> -play <route> -mouse -3d -draw` plays a
 route in a window drawing every frame, so builds can be compared on the
 same scenes.
 

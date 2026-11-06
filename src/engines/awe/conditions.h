@@ -99,7 +99,7 @@ struct GameState {
     std::function<bool(const std::vector<std::string>& words)> canTalk;
     std::string location; // the location's folder ("calais.hall"), for "location"
     // Each clause tested and whether it held, for a tool that follows what
-    // the game looks at (reluva-tool awe acts -solve).
+    // the game looks at (reluva-tool awe game-run -solve).
     std::function<void(std::string_view clause, bool holds)> onTest;
 
     // The first item of that name in one of `states` (any if empty), as

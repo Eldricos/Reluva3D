@@ -18,7 +18,7 @@ From `motoe.exe`'s runner, read in a disassembler:
 - `0x409a80` ("event done: %s current event: %s", in its debug strings)
   ends the event under way.
 
-`reluva-tool awe scripts <install>` reads every command in an install
+`reluva-tool awe script-check <install>` reads every command in an install
 (scene scripts and their conditional scripts, scene event lists, the text
 tables, the dialogue event files) and counts them by verb, with their
 argument counts and examples. The numbers below are from the English

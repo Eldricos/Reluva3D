@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 // Copyright (C) 2026 The Reluva contributors
 
-// reluva-tool awe scripts: every script command in an install, counted by
+// reluva-tool awe script-check: every script command in an install, counted by
 // verb: the scenes' scripts (their objects' scripts and conditional
 // scripts, and their event lists), the text tables' cells and the dialogue
 // event files. What the script runner has to do, from the data.
@@ -65,7 +65,7 @@ std::string join(const Command& c) {
 
 int aweCommandScripts(int argc, char** argv) {
     if (argc < 3) {
-        std::fprintf(stderr, "usage: reluva-tool awe scripts <game folder> [-v]\n");
+        std::fprintf(stderr, "usage: reluva-tool awe script-check <game folder> [-v]\n");
         return 2;
     }
     const bool verbose = argc > 3 && std::string(argv[3]) == "-v";

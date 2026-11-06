@@ -24,18 +24,18 @@ from 3D Studio MAX 8 by the "Granny Standard Exporter, SDK version
   arguments Granny's public SDK header gives:
   - `GrannyDecompressData(Format, FileIsByteReversed, CompressedSize,
     Compressed, Stop0, Stop1, DecompressedSize, Decompressed)`, by
-    `reluva-tool awe check -oodle`;
+    `reluva-tool awe files-check -oodle`;
   - `GrannyBinkDecompressTexture(Width, Height, Flags, CompressedSize,
-    Compressed, DestLayout, DestStride, Dest)`, by `awe check -gr2
+    Compressed, DestLayout, DestStride, Dest)`, by `awe files-check -gr2
     -textures`. The flags were taken from the DLL's own call to it in
     `GrannyCopyTextureImage`: the texture's `SubFormat`, plus 1 if its
     layout has alpha. Its start-up asks for the Windows directory, which
     Reluva provides;
   - `GrannyCurveExtractKnotValues`, on files the DLL loads itself, by
-    `awe check -gr2`;
+    `awe files-check -gr2`;
   - `GrannyEvaluateCurveAtT(Dimension, Normalize, BackwardsLoop, Curve,
     ForwardsLoop, CurveDuration, t, Result, IdentityVector)`, by
-    `awe check -gr2 -curves`. The order of its arguments was checked in
+    `awe files-check -gr2 -curves`. The order of its arguments was checked in
     its code (0x50050740 passes them on to 0x50017cd0); see "Evaluating
     curves" below.
 
@@ -47,7 +47,7 @@ from 3D Studio MAX 8 by the "Granny Standard Exporter, SDK version
   in the files).
 - The results were checked by eye. Poirot was rendered with his three
   textures, posed by the walk animation at 0.3 s
-  (`reluva-tool awe gr2-model ... -anim ... -obj`).
+  (`reluva-tool awe model-dump ... -anim ... -obj`).
 
 ## Container
 
@@ -111,7 +111,7 @@ From the disassembly of the game's `granny2.dll` (image base
 | 0x5004ed60 | halves a model's counts |
 | 0x5004ee70 | the steps of the binary search in the cumulative table |
 
-`reluva-tool awe check <game> -oodle` decompresses every compressed
+`reluva-tool awe files-check <game> -oodle` decompresses every compressed
 section of every file both natively and with the DLL (in the
 interpreter) and compares them byte for byte; see "Verification" below.
 
@@ -248,10 +248,10 @@ length; a new one is read as a value in [0, 65).
 
 ### Verification
 
-`reluva-tool awe check <game> -oodle` on the full install: 1,803 files,
+`reluva-tool awe files-check <game> -oodle` on the full install: 1,803 files,
 4,034 compressed sections (181 MB decompressed), all identical to the
 DLL's. The DLL in the interpreter took 757 s (summed over the threads),
-the native decoder 10 s. `awe check -gr2` went from 260 s to 5 s.
+the native decoder 10 s. `awe files-check -gr2` went from 260 s to 5 s.
 
 The unit test encodes a short stream by hand (`tests/engines/awe/unit/formats.cpp`): a
 model's first two symbols need no table, so a few plain values and bits
@@ -390,7 +390,7 @@ the DLL rounds twice, so `curves.cpp` is built without them.
   counts are 0x500065a0 and 0x50005950 (4n values: n knots), 0x50004160
   (`DaK32fC32f`), 0x50004170 (constants: 1) and 0x5001d960 (identity:
   0).
-- The check: `reluva-tool awe check <game> -gr2` loads every animation,
+- The check: `reluva-tool awe files-check <game> -gr2` loads every animation,
   then has the DLL load the file too (`GrannyReadEntireFileFromMemory`)
   and expand each compressed curve with `GrannyCurveExtractKnotValues`,
   in Reluva's x86 interpreter. It compares degree, knots and controls bit
@@ -504,7 +504,7 @@ with more than one knot would have lost five of their nine values.
 
 ### Verification
 
-`reluva-tool awe check <game> -gr2 -curves` evaluates every curve of
+`reluva-tool awe files-check <game> -gr2 -curves` evaluates every curve of
 every animation both ways. The DLL loads the file itself, and
 `GrannyEvaluateCurveAtT` evaluates the curve in Reluva's x86 interpreter.
 Each curve is evaluated at 0, at the duration, at up to 32 of its knots
@@ -524,7 +524,7 @@ That is float rounding: the largest position difference is a step of a
 float at a few hundred units. The check fails above 8 ε.
 
 **Whole poses.** That check skipped curves with no knots, and so missed
-how they're read. `reluva-tool awe pose <game> <model> <animation>
+how they're read. `reluva-tool awe pose-check <game> <model> <animation>
 [seconds...]` poses the model both ways: Reluva's `computePose`, and
 granny2.dll's `GrannyInstantiateModel`, `GrannyPlayControlledAnimation`,
 `GrannySetModelClock`, `GrannySampleModelAnimations` and
@@ -552,7 +552,7 @@ it out of the pose; Reluva takes it out where it places the character
 About 80 animations also have vector tracks: "Displacement Max
 Triangles", "value", "TrackMasktrackmask". These are settings that 3D
 Studio MAX animated, which the exporter kept. Nothing suggests the game
-uses them, so they aren't read (`awe check` counts them).
+uses them, so they aren't read (`awe files-check` counts them).
 
 ## Bink textures
 
@@ -729,7 +729,7 @@ zeroed in the interpreter), and Reluva gives the same.
 
 ### Verification
 
-`reluva-tool awe check <game> -gr2 -textures` decodes every Bink
+`reluva-tool awe files-check <game> -gr2 -textures` decodes every Bink
 texture of the install both ways and compares the RGBA bytes. Over the
 full install (1,803 files) there are 278 Bink textures, from 64×64 to
 1024×1024 (and 512×256, 1024×256): 251 with flags 4 and 27 with flags 5.

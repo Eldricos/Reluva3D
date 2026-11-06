@@ -12,7 +12,7 @@
 // reluva-tool's commands for the AWE engine (registered in commands.cpp;
 // reluva-tool help awe lists them), and what they share.
 
-// reluva-tool awe check: every Granny file, scene and text file of an
+// reluva-tool awe files-check: every Granny file, scene and text file of an
 // install read, failures reported (check.cpp).
 int aweCheckCommand(int argc, char** argv);
 
@@ -100,14 +100,14 @@ public:
     }
 };
 
-// reluva-tool awe path: the game's path between two cells beside Reluva's
+// reluva-tool awe path-check: the game's path between two cells beside Reluva's
 // (path.cpp).
 int aweCommandPath(int argc, char** argv);
-// reluva-tool awe scripts: every script command of an install, by verb
+// reluva-tool awe script-check: every script command of an install, by verb
 // (scripts.cpp).
 int aweCommandScripts(int argc, char** argv);
 
-// reluva-tool awe acts -solve and -play: a playthrough searched for, and
+// reluva-tool awe game-run -solve and -play: a playthrough searched for, and
 // one played back (play.cpp).
 int aweCommandSolve(int argc, char** argv);
 } // namespace reluva::awe

@@ -13,9 +13,9 @@ the text tables, scenes, Granny files, Oodle1, the dialogue manager
 (choices, picture choices, the wheel, talk starts), lighting and so on,
 on small made-up data. They need no game files and run in CI.
 
-### The whole game: `reluva-tool awe regress`
+### The whole game: `reluva-tool awe game-check`
 
-    reluva-tool awe regress <game folder> <route.txt> [-3d] [-quick]
+    reluva-tool awe game-check <game folder> <route.txt> [-3d] [-quick]
 
 Plays the whole game four ways, each from a new game, and ends with a
 summary (exit code 1 if anything failed):
@@ -36,15 +36,15 @@ summary (exit code 1 if anything failed):
    on loading, not done or with nothing to do is listed.
 
 Each passes when the end credits are reached and nothing is listed. The
-route file comes from `awe acts -solve`. It isn't in the repository, as
-it names the game's files; `awe regress` searches for one if the file
+route file comes from `awe game-run -solve`. It isn't in the repository, as
+it names the game's files; `awe game-check` searches for one if the file
 isn't there and keeps it. On the English install the quick run takes
 about ten minutes. The options are described in
 [acts.md](acts.md).
 
 ### Frames to look at
 
-`awe acts -play <route> -mouse -3d -shots <dir>` saves the screen before
+`awe game-run -play <route> -mouse -3d -shots <dir>` saves the screen before
 every action (1,105 for the route); `-shot <n>c<k>` before a given
 dialogue choice. These were set side by side with the walkthrough
 recordings to check how scenes look (see
@@ -61,7 +61,7 @@ PowerShell (`set` there makes a PowerShell variable the program never
 sees), `RELUVA_PERF=1 ./reluva` on Linux and macOS, or an `env` entry in
 Visual Studio's `launch.vs.json` (see [../../DEVELOPMENT.md](../../DEVELOPMENT.md)).
 
-`awe acts -play <route> -mouse -3d -draw` plays the route in a window
+`awe game-run -play <route> -mouse -3d -draw` plays the route in a window
 drawing every frame, so two builds can be timed on the same scenes, and
 their `-shot` frames compared byte for byte.
 

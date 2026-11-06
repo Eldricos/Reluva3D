@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 // Copyright (C) 2026 The Reluva contributors
 
-// reluva-tool awe path: Reluva's port of the game's path-finder beside the
+// reluva-tool awe path-check: Reluva's port of the game's path-finder beside the
 // game's own (motoe.exe's, run in the x86 interpreter), on one scene's
 // walk grid or, with -all, on many cells of every scene.
 
@@ -130,8 +130,8 @@ int compareAll(GamePathFinder& game, const std::string& folder, int perScene) {
 int aweCommandPath(int argc, char** argv) {
     const bool all = argc >= 4 && std::strcmp(argv[3], "-all") == 0;
     if (argc < 4 || (!all && argc < 8)) {
-        std::fprintf(stderr, "usage: reluva-tool awe path <game folder> <scene.ac2> <a0> <b0> <a1> <b1>\n"
-                             "       reluva-tool awe path <game folder> -all [pairs per scene] [-double]\n"
+        std::fprintf(stderr, "usage: reluva-tool awe path-check <game folder> <scene.ac2> <a0> <b0> <a1> <b1>\n"
+                             "       reluva-tool awe path-check <game folder> -all [pairs per scene] [-double]\n"
                              "  Reluva's path-finder beside the game's (from motoe.exe); -all compares them\n"
                              "  point for point between random cells of every scene\n");
         return 2;

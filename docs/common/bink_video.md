@@ -51,7 +51,7 @@ the Orient Express has 46 movies in `Movies/`, plus looping videos in
     FFmpeg keeps the whole block.
 
 - **Checked against the game's own `binkw32.dll`** (Murder on the Orient
-  Express's, run in Reluva's x86 interpreter: `reluva-tool awe bink
+  Express's, run in Reluva's x86 interpreter: `reluva-tool awe bink-check
   <game folder> <movie.bik>... [-frames n] [-yuv]`). The DLL opens the
   movie from memory and its frames are copied out as the game copies
   them (`BinkCopyToBufferRect`, 32-bit; with an alpha plane, 32-bit with
@@ -82,7 +82,7 @@ divided by 32768 and truncated toward zero:
 Each chroma sample serves its 2×2 pixels. The DLL's path without MMX
 (taken in the interpreter, which has none) gives the same, except that
 it clamps Y − 16 to 219 as well: they can differ only where Y is over 235,
-by up to 24 in the install's movies. `awe bink` counts those pixels
+by up to 24 in the install's movies. `awe bink-check` counts those pixels
 apart; Reluva follows the MMX path, which players' machines take.
 
 ## Notes
@@ -98,7 +98,7 @@ apart; Reluva follows the MMX path, which players' machines take.
 - Speed: `logos.bik`'s 539 1024×768 frames decode in about 2 seconds,
   about 280 frames a second.
 
-`reluva-tool awe check <game folder> -bik` decodes every movie and loop
+`reluva-tool awe files-check <game folder> -bik` decodes every movie and loop
 of an install (several at once) and reports any failures.
 
 ## Still to do
