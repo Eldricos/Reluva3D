@@ -2,7 +2,8 @@
 
 RAD Game Tools' Granny 2 format: 1,803 files under `Models/<who>/`. Each
 character folder has a model (`poirot_model.GR2`; some also have a
-detailed `_model_1024`) and one file per animation (`poirot_walk.GR2`),
+more detailed `_model_1024`, which the game never loads: nothing in
+`motoe.exe` or the scenes names it) and one file per animation (`poirot_walk.GR2`),
 plus sounds tied to animations (`poirot_walk.wav`). They were exported
 from 3D Studio MAX 8 by the "Granny Standard Exporter, SDK version
 2.5.0.10" (the files say so).

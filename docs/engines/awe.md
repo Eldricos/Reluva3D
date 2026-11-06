@@ -224,7 +224,7 @@ matched ignoring case.
 | `Locations/<Area>/Cutouts` | foreground pieces drawn over characters (probably), a few `.bik` | PNG/JPG/TGA/Bink | images yes |
 | `Locations/Menu.*` | the menus are scenes like any other | `.ac2` + images | — |
 | `Text/Scripts/slot0..14.ac2` (25 KB → 365 KB) | per-chapter game state? Starting saves? | `.ac2` | — |
-| `Models/<Character>/*.GR2` (1,803) | `<name>_model.GR2` mesh + skeleton, one GR2 per animation (`poirot_walk.GR2`), face animations (`_f*`), `_model_1024` high-detail meshes | Granny 2 | — |
+| `Models/<Character>/*.GR2` (1,803) | `<name>_model.GR2` mesh + skeleton, one GR2 per animation (`poirot_walk.GR2`), face animations (`_f*`), `_model_1024` more detailed meshes the game never loads | Granny 2 | — |
 | `Models/<Character>/*.wav` | footstep/move sounds tied to animations | WAV | `common/audio` |
 | `Movies/*.bik` (46, 570 MB) | cutscenes | Bink 1 (2006 predates Bink 2) | — |
 | `Elements/Binks`, `Elements/Water` | looping video textures: flames, curtains, water, blizzard | Bink | — |
@@ -442,11 +442,17 @@ from 5 to 2.3 ms a frame and the characters from 9 to 3.4 ms.
   `.ac2` reads to its end, every name an `.ac2` mentions exists). These are
   the regression tests for anyone with the game.
 
-## Open questions for whoever has the game
+## Questions once open, now answered
 
-- Which release this is (patches, other languages). The listing shows the
-  English retail release, dated 2006-11-05.
-- The game's actual resolution settings (1024×768 only? 800×600?) and
-  whether `_model_1024` is the high-detail setting.
-- Recordings or screenshots of the original running, for checking
-  rendering, timing and interface layout later.
+- **The release:** the English retail release, 1.0, its files dated
+  2006-11-05. Other languages and patched releases haven't been tried.
+- **The resolution:** 1024×768 only. The device's back buffer is set to
+  1024 by 768 (`0x401d99`, `0x401db2`) and the display modes are
+  searched for 1024×768 alone (`0x401e0d`); the options offer no other.
+- **The `_model_1024` files** (31 in the install) are never loaded:
+  nothing in `motoe.exe` names them (it holds no "1024" at all) and no
+  scene or table does. The scenes name the `_model` files, so these are
+  left over from making the game, not a detail setting.
+- **Recordings of the original:** a walkthrough's videos, calibrated
+  against the install's backgrounds, were used to check how scenes,
+  text and fades look ([reverse-engineering.md](awe/reverse-engineering.md)).
