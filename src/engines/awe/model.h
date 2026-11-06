@@ -41,6 +41,10 @@ struct Bone {
 struct ModelTexture {
     std::string name; // the artist's file name, for display
     int width = 0, height = 0;
+    // The MIP levels its image has in the file: the game makes its texture
+    // with that many (0x427de2), so 1 (every texture in the install) is
+    // none to filter between.
+    int levels = 1;
     std::vector<uint8_t> rgba; // empty if it couldn't be decoded
 };
 

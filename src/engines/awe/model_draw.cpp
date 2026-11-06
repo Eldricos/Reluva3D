@@ -20,8 +20,14 @@ Error openGr2(const Archive& files, const std::string& name, Gr2File& out) {
 GpuModel::GpuModel(gfx::Renderer3D& renderer, Model model) : renderer_(renderer), model_(std::move(model)) {
     for (const ModelTexture& t : model_.textures) {
         gfx::TextureId id = 0;
+        // Filtered linearly, the MIP levels too (0x4273bb), but only those
+        // the file has: with one, none (0x427de2 makes the texture with
+        // the file's count). Only the first is decoded, so more would be
+        // made here.
+        gfx::TextureParams params;
+        params.mipmaps = t.levels > 1;
         if (!t.rgba.empty())
-            renderer_.createTexture(t.width, t.height, t.rgba.data(), {}, id);
+            renderer_.createTexture(t.width, t.height, t.rgba.data(), params, id);
         textures_.push_back(id);
     }
 }

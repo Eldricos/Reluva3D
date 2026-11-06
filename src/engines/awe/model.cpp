@@ -163,6 +163,7 @@ Error loadModel(const Gr2File& file, Model& out) {
             tex.name = tex.name.substr(slash + 1);
         tex.width = int(t.number("Width"));
         tex.height = int(t.number("Height"));
+        tex.levels = std::max(1, int(t.element("Images", 0).count("MIPLevels")));
         const int encoding = int(t.number("Encoding"));
         const std::vector<uint8_t> data = textureBytes(file, t);
         if (!data.empty()) {

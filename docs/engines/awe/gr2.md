@@ -289,7 +289,17 @@ prints the whole tree.
   mouth). The game presumably doesn't draw the boxes; the viewer hides
   them.
 - **Textures:** inside the model files (Poirot's: three, 512×512),
-  `Encoding` 3 (Bink). See "Bink textures" below.
+  `Encoding` 3 (Bink). See "Bink textures" below. Each has one image of
+  one MIP level (all 907 in the install's 100 model files), and the game
+  makes its Direct3D texture with as many levels as the image has
+  (`0x427db0`: `CreateTexture` at `0x427de2`, its Levels the image's
+  `MIPLevelCount`; `0x427cb0` likewise for DXT ones, copying each level
+  in). It filters linearly, between levels too (`0x4273bb`: stages 0 and
+  1, magnification, minification and MIP filters all 2), but with one
+  level there's nothing to filter between: the characters have no
+  mipmaps. Reluva makes them as the file says (`ModelTexture::levels`);
+  until the merge with main it had the GPU make a whole chain, which
+  blurred distant characters a little.
 - **Animations:** one per file: name, duration (walk: 0.8 s), time step
   (1/60), and a track group of transform tracks, one per bone. The 2.5
   exporter writes plain curves: `Degree` (2 here), `Knots` (times) and
