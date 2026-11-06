@@ -519,6 +519,10 @@ struct AiCar {
     // Its race distance less the leading human's (its +8 less 0x56ebb8's
     // +8), set by whoever runs the race: the stop's hold (0x402110).
     int raceDistance = 0;
+    // Its own race distance (+8, in slices, laps counted) and place in the
+    // race (+0x1FC, 0 the leader), and the racers in the race (0x5efd94),
+    // for aiAtRaceStart; the default is well past the start.
+    int distance = 1 << 20, place = 0, racers = 8;
     // Its wheels where they meet the road (x right, z forward of its
     // place; the model's parts 1-4): a strip catches them (0x4ca160).
     std::array<std::array<float, 2>, 4> wheels{{{-0.8f, 1.3f}, {0.8f, 1.3f}, {-0.8f, -1.3f}, {0.8f, -1.3f}}};
@@ -576,8 +580,18 @@ float aiLaneOffset(const TrackCollision::RoadPoint& p, int lane, float halfWidth
 // The speed table's best line lane for a slice (0x40e0c0): the high
 // nibble of the byte after the speeds; 7 without the table.
 int aiLineLane(const std::vector<uint8_t>& speeds, int slice, int sliceCount);
+// Whether a car is still at the race's start (0x40f050 with `extra`): its
+// race distance (+8) plus 14 x its place (+0x1FC) is not past 400 slices
+// with 5 or more racers (0x5efd94), 200 with 2 to 4, 50 with one, each 26
+// less on a backward track (g_backward), plus `extra`. Until then the
+// racers' driver leaves out flashing (0x404840), the human behind
+// (0x4095d0), the empty lanes' and near cars' votes (0x4097c0, rows 9 and
+// 10) and the best line's (ai_lane_vote_line, row 11): with 8 racers
+// that is the first 302-400 slices of the race (on Hometown's first
+// lap about 65 s), most of t6-log's window.
+bool aiAtRaceStart(int distance, int place, int racers, bool backward = false, int extra = 0);
 // One step (of 64 a second) of the computer's driving for cars[self], as
-// an AI racer (+0x200 bit 8) past the race's start. Its driver
+// an AI racer (+0x200 bit 8). Its driver
 // (car_driver_ai 0x409c00) acts only when aiDriverActs lets it, every 8
 // steps: the lanes it is on (at its side offset as measured), the speed
 // wanted (the speed table for its slice x its scale, held under the top
@@ -666,7 +680,8 @@ void aiCopStep(std::vector<AiCar>& cars, size_t self, const TrackCollision& col,
 // 0x40 hidden), the slice +0x1C, the position +0x98 and rows +0xC0 (right,
 // up, forward), the brake +0x509, the lights +0x660, the roof light
 // +0x734 (on with a cop's siren), the fog beams' scroll +0x944, the speed
-// +0x7C4 and side offset +0x7B8, the paint +0x8A8-+0x8B0.
+// +0x7C4 and side offset +0x7B8, the paint +0x8A8-+0x8B0, the officer
+// +0x8E4-+0x918.
 struct DumpedCar {
     bool inPlay = false, human = false, cop = false, hidden = false, siren = false, braking = false;
     int slice = 0, beams = 0, beamScroll = 0;
@@ -674,6 +689,11 @@ struct DumpedCar {
     std::array<int, 3> paint{}; // the paint in HSV (+0x8A8, +0x8AC, +0x8B0)
     int setup = -1; // its set-up record (+0x220 points at 0x6fd52c + 0x6C each), -1 elsewhere
     std::array<float, 3> at{}, right{}, up{}, forward{};
+    // The officer on foot beside it (+0x8E4 and +0x8E8 both set, by
+    // cop_officer_place 0x401c20 until 0x401e20 clears them): his place on
+    // the road (+0x910) and rows (+0x8EC: right, up, forward).
+    bool officer = false;
+    std::array<float, 3> officerAt{}, officerRight{}, officerUp{}, officerForward{};
 };
 std::vector<DumpedCar> parseCarDump(const std::vector<uint8_t>& bytes);
 

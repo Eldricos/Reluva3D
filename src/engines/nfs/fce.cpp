@@ -445,6 +445,33 @@ RainFlare rainFlare(const std::array<float, 3>& light, const std::array<float, 3
     return f;
 }
 
+std::array<std::array<float, 3>, 4> carShadowQuad(const std::array<std::array<float, 3>, 4>& onRoad,
+                                                  const std::array<float, 3>& light, float halfHeight, bool cast) {
+    std::array<std::array<float, 3>, 4> out = onRoad;
+    if (cast) {
+        // 0x4b7a30: corner i's neighbours (3, 1), (0, 2), (1, 3), (2, 0).
+        static constexpr int kNext[4][2] = {{3, 1}, {0, 2}, {1, 3}, {2, 0}};
+        for (int i = 0; i < 4; ++i)
+            for (int nb : kNext[i]) {
+                std::array<float, 3> e{};
+                for (size_t k = 0; k < 3; ++k)
+                    e[k] = onRoad[size_t(i)][k] - onRoad[size_t(nb)][k];
+                const float length = std::sqrt(e[0] * e[0] + e[1] * e[1] + e[2] * e[2]);
+                if (length <= 0)
+                    continue;
+                for (float& c : e)
+                    c /= length;
+                const float d = e[0] * light[0] + e[1] * light[1] + e[2] * light[2];
+                const float push = d < 0 ? -d * halfHeight : 0.0f;
+                for (size_t k = 0; k < 3; ++k)
+                    out[size_t(i)][k] += e[k] * push;
+            }
+    }
+    for (auto& c : out)
+        c[1] += 0.125f;
+    return out;
+}
+
 FogBeam fogBeam(const std::array<float, 3>& lamp, const std::array<float, 3>& right, const std::array<float, 3>& up,
                 const std::array<float, 3>& forward, const std::array<float, 3>& camera, uint32_t colour) {
     FogBeam b;

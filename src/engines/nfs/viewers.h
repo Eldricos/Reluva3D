@@ -563,6 +563,11 @@ private:
         uint32_t colour = 0xff7f7f7f; // its shading (carShadeColour, carLitBy)
         size_t paint = 0;     // its model's primary colour (+0x8A8 in a dump)
         int paintValue = -1;  // +0x8B0 as a dump has it; else the paint's
+        // From a dump: the officer on foot beside it (+0x8E4 and +0x8E8 set,
+        // cop_officer_place 0x401c20): where he stands on the road (+0x910)
+        // and his rows (+0x8EC: right, up, forward).
+        bool dumpedOfficer = false;
+        std::array<float, 3> officerAt{}, officerRight{1, 0, 0}, officerForward{0, 0, 1};
         gfx::MeshId mesh = 0, envMesh = 0;
     };
     bool computerCars_ = false, carsMoving_ = true, reflections_ = true;
@@ -636,6 +641,12 @@ private:
     void loadOfficer();
     void drawOfficers(const gfx::DrawCall& base);
     uint32_t stripQuads_ = 0, stripCapacity_ = 0;
+    // The cars' shadows (0x4b81a0, carShadowQuad): sfx.fsh's shad in
+    // 0x6FFFFFFF, one quad a car, blended by source alpha.
+    gfx::MeshId shadowMesh_ = 0;
+    uint32_t shadowQuads_ = 0, shadowCapacity_ = 0;
+    gfx::TextureId shadowPicture_ = 0; // owned by textures_
+    void drawShadows(const gfx::DrawCall& base);
     void carRows(ComputerCar& car) const;
     // The cars' colours and glows for this frame (prepareCars), before
     // the headlights are made; drawn by drawCars.

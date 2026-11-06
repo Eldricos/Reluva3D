@@ -144,7 +144,7 @@ void TrackPage::release() {
     soundBank_ = {};
     soundSlots_.clear();
     marks_.clear();
-    glowPicture_ = glow1Picture_ = glow4Picture_ = 0; // owned by textures_
+    glowPicture_ = glow1Picture_ = glow4Picture_ = shadowPicture_ = 0; // owned by textures_
     if (renderer_ && markMesh_)
         renderer_->destroyMesh(markMesh_);
     markMesh_ = 0;
@@ -1728,7 +1728,7 @@ void TrackPage::releaseCars() {
                 renderer_->destroyMesh(m);
     cars_.clear();
     carModels_.assign(2, CarModel{}); // skins owned by textures_
-    for (gfx::MeshId m : {carGlowMesh_, carFlareMesh_, carBeamMesh_, stripMesh_, officerMesh_, officerEnvMesh_})
+    for (gfx::MeshId m : {carGlowMesh_, carFlareMesh_, carBeamMesh_, stripMesh_, officerMesh_, officerEnvMesh_, shadowMesh_})
         if (renderer_ && m)
             renderer_->destroyMesh(m);
     officerMesh_ = officerEnvMesh_ = 0;
@@ -1737,6 +1737,8 @@ void TrackPage::releaseCars() {
     officerVertices_.clear();
     carGlowMesh_ = carFlareMesh_ = carBeamMesh_ = stripMesh_ = 0;
     stripQuads_ = stripCapacity_ = 0;
+    shadowMesh_ = 0;
+    shadowQuads_ = shadowCapacity_ = 0;
     carGlowQuads_ = carGlowCapacity_ = carFlareQuads_ = carFlareCapacity_ = carBeamQuads_ = carBeamCapacity_ = 0;
     glow3Picture_ = 0; // owned by textures_
     carError_.clear();
@@ -1916,6 +1918,10 @@ void TrackPage::placeDumpedCars() {
         c.right = d.right;
         c.up = d.up;
         c.forward = d.forward;
+        c.dumpedOfficer = d.officer;
+        c.officerAt = d.officerAt;
+        c.officerRight = d.officerRight;
+        c.officerForward = d.officerForward;
         const CarModel& cm = carModels_[size_t(c.model)];
         if (!cm.envFrom.empty()) {
             std::vector<gfx::Vertex> env(cm.envFrom.size());
@@ -2288,7 +2294,7 @@ uint32_t TrackPage::uploadQuads(std::vector<gfx::Vertex>& quads, gfx::MeshId& me
 // (fogBeam, 0x492980).
 void TrackPage::prepareCars(const gfx::Vec3& eye, const gfx::Vec3& forward, const gfx::Vec3& right,
                             const gfx::Vec3& up, float fogDensity) {
-    carGlowQuads_ = carFlareQuads_ = carBeamQuads_ = 0;
+    carGlowQuads_ = carFlareQuads_ = carBeamQuads_ = shadowQuads_ = 0;
     if (!computerCars_ || cars_.empty())
         return;
     const bool night = variant_ == 1 || variant_ == 3, weather = variant_ >= 2;
@@ -2317,7 +2323,7 @@ void TrackPage::prepareCars(const gfx::Vec3& eye, const gfx::Vec3& forward, cons
         sky = horizon_.skyTop;
     const std::array<float, 3> camera{eye[0], eye[1], -eye[2]};
     const int n = static_cast<int>(collision_.road.size());
-    std::vector<gfx::Vertex> glows, flares, beams;
+    std::vector<gfx::Vertex> glows, flares, beams, shadows;
     auto vertex = [](const std::array<float, 3>& track, float u, float v, uint32_t colour) {
         gfx::Vertex out{};
         out.pos[0] = track[0];
@@ -2387,6 +2393,40 @@ void TrackPage::prepareCars(const gfx::Vec3& eye, const gfx::Vec3& forward, cons
             if (n > 0 && carDetailLevel(depth, 0, true) == 0)
                 c.colour = carLitByTrackLights(c.colour, c.at, static_cast<int>(std::floor(c.slice)) % n, n, track_,
                                                skyTick_, !effects);
+        }
+        // The shadow (0x4b81a0): the box's bottom corners on the road, cast
+        // away from the light by day out of the weather; the page has no
+        // mirror view, and its cars are never off the ground (+0x184) or
+        // without a road under them (+0x20), which leave it out.
+        {
+            int block = -1;
+            size_t index = 0;
+            RoadFrame frame;
+            const bool onRoad = roadPolygonAt(c.at, block, index);
+            const bool own = onRoad && polygonRoadFrame(track_.blocks[size_t(block)], index, frame);
+            std::array<std::array<float, 3>, 4> corners{};
+            const float w = cm.halfSize[0], h = cm.halfSize[1], l = cm.halfSize[2];
+            const std::array<std::array<float, 2>, 4> box{{{-w, l}, {w, l}, {w, -l}, {-w, -l}}};
+            for (size_t k = 0; k < 4; ++k) {
+                auto& p = corners[k];
+                for (size_t a = 0; a < 3; ++a)
+                    p[a] = c.at[a] + c.right[a] * box[k][0] - c.up[a] * h + c.forward[a] * box[k][1];
+                // 0x4968a0 on the car's road frame, then the road found
+                // there (trackpos_build) when it is up to 0.25 above.
+                float plane = own ? roadFrameHeight(frame, p) : onRoad ? roadHeightAt(block, index, p[0], p[2]) : p[1];
+                int b2 = -1;
+                size_t i2 = 0;
+                if (roadPolygonAt({p[0], plane, p[2]}, b2, i2)) {
+                    const float road = roadHeightAt(b2, i2, p[0], p[2]);
+                    if (road > plane && road < plane + 0.25f)
+                        plane = road;
+                }
+                p[1] = plane;
+            }
+            const auto quad = carShadowQuad(corners, light, h, !night && !weather);
+            for (size_t k = 0; k < 4; ++k)
+                shadows.push_back(vertex(quad[k], k == 1 || k == 2 ? 0.984375f : 0.015625f, k >= 2 ? 0.984375f : 0.015625f,
+                                         kCarShadowColour));
         }
         const CarShade shade = carShade(c.colour);
         auto normalOf = [&](uint32_t i) {
@@ -2537,39 +2577,52 @@ void TrackPage::prepareCars(const gfx::Vec3& eye, const gfx::Vec3& forward, cons
     // model's dummy, 0x492370 in 0xFFFF0000, size 0.1 x how far he faces
     // the camera, at his nearest depth).
     officer_ = {};
-    for (const ComputerCar& cop : cars_) {
-        if (!officerMesh_ || n <= 0 || !cop.ai.cop || cop.ai.copState != 6 || cop.ai.chasing < 0 ||
-            static_cast<size_t>(cop.ai.chasing) >= cars_.size())
-            continue;
-        const size_t ti = static_cast<size_t>(cop.ai.chasing);
+    for (size_t ci = 0; ci < cars_.size() && officerMesh_ && n > 0; ++ci) {
+        const ComputerCar& cop = cars_[ci];
+        size_t ti = ci;
+        std::array<float, 3> at{}, f{0, 0, 1}, r{1, 0, 0};
+        if (cop.dumpedOfficer) {
+            // A dump's officer: where the game put him (on the road), his
+            // rows; draw_officer raises him by his half height.
+            at = cop.officerAt;
+            f = cop.officerForward;
+            r = cop.officerRight;
+        } else {
+            if (!cop.ai.cop || cop.ai.copState != 6 || cop.ai.chasing < 0 || static_cast<size_t>(cop.ai.chasing) >= cars_.size())
+                continue;
+            ti = static_cast<size_t>(cop.ai.chasing);
+            const ComputerCar& t = cars_[ti];
+            const CarModel& tm = carModels_[size_t(t.model)];
+            const int slice = ((t.ai.slice % n) + n) % n;
+            const auto& rp = collision_.road[size_t(slice)];
+            auto spotAt = [&](float side) {
+                std::array<float, 3> spot{};
+                for (size_t k = 0; k < 3; ++k)
+                    spot[k] = t.at[k] - t.up[k] * tm.halfSize[1] + rp.right[k] * side;
+                return spot;
+            };
+            float side = t.ai.side > 0 ? -2.0f : 2.0f;
+            at = spotAt(side);
+            if (!officerSpotOnRoad(track_, slice, at))
+                at = spotAt(-side);
+            f = {t.forward[0], 0, t.forward[2]};
+            const float fl = std::sqrt(f[0] * f[0] + f[2] * f[2]);
+            if (fl > 0)
+                f = {f[0] / fl, 0, f[2] / fl};
+            else
+                f = {0, 0, 1};
+            r = {f[2], 0, -f[0]};
+        }
         const ComputerCar& t = cars_[ti];
-        const CarModel& tm = carModels_[size_t(t.model)];
         const int slice = ((t.ai.slice % n) + n) % n;
-        const auto& rp = collision_.road[size_t(slice)];
-        auto spotAt = [&](float side) {
-            std::array<float, 3> at{};
-            for (size_t k = 0; k < 3; ++k)
-                at[k] = t.at[k] - t.up[k] * tm.halfSize[1] + rp.right[k] * side;
-            return at;
-        };
-        float side = t.ai.side > 0 ? -2.0f : 2.0f;
-        std::array<float, 3> at = spotAt(side);
-        if (!officerSpotOnRoad(track_, slice, at))
-            at = spotAt(-side);
         at[1] += officerHalfHeight_;
         const float dx = at[0] - eye_[0], dy = at[1] - eye_[1], dz = -at[2] - eye_[2];
         if (dx * dx + dy * dy + dz * dz > 100.0f * 100.0f)
             continue;
-        std::array<float, 3> f{t.forward[0], 0, t.forward[2]};
-        const float fl = std::sqrt(f[0] * f[0] + f[2] * f[2]);
-        if (fl > 0)
-            f = {f[0] / fl, 0, f[2] / fl};
-        else
-            f = {0, 0, 1};
         officer_.shown = true;
         officer_.at = at;
         officer_.forward = f;
-        officer_.right = {f[2], 0, -f[0]};
+        officer_.right = r;
         std::array<uint32_t, 4> corners{};
         uint32_t colour = roadColoursAt(t.at, corners) ? carShadeColour(corners) : 0xff7f7f7fu;
         if (night) {
@@ -2621,6 +2674,7 @@ void TrackPage::prepareCars(const gfx::Vec3& eye, const gfx::Vec3& forward, cons
         }
     }
     stripQuads_ = uploadQuads(strips, stripMesh_, stripCapacity_);
+    shadowQuads_ = uploadQuads(shadows, shadowMesh_, shadowCapacity_);
     carBeamQuads_ = uploadQuads(beams, carBeamMesh_, carBeamCapacity_);
 }
 
@@ -2690,6 +2744,29 @@ void TrackPage::drawCars(const gfx::DrawCall& base) {
     drawOfficers(car);
 }
 
+// The cars' shadows (prepareCars): over the road and its markings, by the
+// texel's alpha times the colour's (0x6F), source alpha and its inverse
+// as the THRASH list has them (blend on, mode 0), not writing the depth.
+void TrackPage::drawShadows(const gfx::DrawCall& base) {
+    if (!computerCars_ || !shadowMesh_ || !shadowQuads_ || !shadowPicture_ || !textured_)
+        return;
+    gfx::DrawCall shadow = base;
+    shadow.mesh = shadowMesh_;
+    shadow.model = gfx::identity();
+    shadow.texture = shadowPicture_;
+    shadow.rgbSource = shadow.alphaSource = gfx::ColorSource::Vertex;
+    shadow.color = {1, 1, 1, 1};
+    shadow.state.cull = gfx::Cull::None;
+    shadow.state.alphaTest = gfx::AlphaTest::None;
+    shadow.state.depthWrite = false;
+    shadow.state.depthBias = true;
+    shadow.state.src = gfx::Blend::SrcAlpha;
+    shadow.state.dst = gfx::Blend::OneMinusSrcAlpha;
+    shadow.firstIndex = 0;
+    shadow.indexCount = shadowQuads_ * 6;
+    renderer_->draw(shadow);
+}
+
 // The blocks' lights and sounds (frd.md), and the glow picture.
 void TrackPage::loadMarks() {
     marks_.clear();
@@ -2718,6 +2795,12 @@ void TrackPage::loadMarks() {
             image::Image img;
             if (!decodeShape(shape, img) && !renderer_->createTexture(img.w, img.h, img.rgba.data(), glideTextureParams(), glow3Picture_))
                 textures_.push_back(glow3Picture_);
+        } else if (shape.name == "shad") {
+            // The cars' shadows (0x4b81a0 draws with 0x8b4898, which 0x4d5370
+            // loads with shad: 32 x 32, a dark blue with soft-edged alpha).
+            image::Image img;
+            if (!decodeShape(shape, img) && !renderer_->createTexture(img.w, img.h, img.rgba.data(), glideTextureParams(), shadowPicture_))
+                textures_.push_back(shadowPicture_);
         } else if (shape.name == "glw1" || shape.name == "glw4") {
             // The fog's beams (0x492980 draws with 0x8b47e8, glw1) and the
             // rain's flares (0x491bc0 with 0x8b486c, glw4).
@@ -3606,6 +3689,7 @@ void TrackPage::update(uint64_t nowMs) {
         call.state.depthBias = true;
         pass(lanes, kSolid);
         call.state.depthBias = false;
+        drawShadows(call);
         // The headlights (prepareHeadlights), over the scenery: the picture
         // added by the light's alpha (THRASH blend 1, source alpha and one,
         // as the queued polygons' flag 1 sets it), and the raised colours.

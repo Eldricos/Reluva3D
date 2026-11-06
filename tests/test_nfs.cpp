@@ -1334,6 +1334,24 @@ void testLightEffects() {
     CHECK(std::fabs(rainFlare({0, 1, 10}, {0, 2, 0}, {1, 0, 0}, 2, 0).corners[3][1] - 9) < 1e-5f);
     CHECK(!rainFlare({0, 1, 0}, {0, 5, 0}, {0, 0, 1}, 2, 0).shown);
     CHECK(wetSurface(1) && wetSurface(10) && !wetSurface(14) && !wetSurface(0) && !wetSurface(2));
+    // 0x4b81a0: the shadow's corners pushed along their edges away from
+    // the light by the half height, all 0.125 up; flat without the cast.
+    {
+        const std::array<std::array<float, 3>, 4> box{{{-1, 0, 2}, {1, 0, 2}, {1, 0, -2}, {-1, 0, -2}}};
+        const auto lit = carShadowQuad(box, {1, 0, 0}, 0.5f, true);
+        CHECK(std::fabs(lit[0][0] + 1.5f) < 1e-6f && std::fabs(lit[3][0] + 1.5f) < 1e-6f);
+        CHECK(lit[1][0] == 1 && lit[2][0] == 1 && lit[0][2] == 2 && lit[3][2] == -2);
+        CHECK(lit[0][1] == 0.125f && lit[2][1] == 0.125f);
+        // From high in front and to the right: the left and back corners
+        // pushed by their share; the front right one stays.
+        const float k = 1 / std::sqrt(3.0f);
+        const auto high = carShadowQuad(box, {k, k, k}, 0.6f, true);
+        CHECK(high[1][0] == 1 && high[1][2] == 2);
+        CHECK(std::fabs(high[3][0] + 1 + k * 0.6f) < 1e-5f && std::fabs(high[3][2] + 2 + k * 0.6f) < 1e-5f);
+        CHECK(std::fabs(high[0][0] + 1 + k * 0.6f) < 1e-5f && high[0][2] == 2);
+        const auto flat = carShadowQuad(box, {1, 0, 0}, 0.5f, false);
+        CHECK(flat[0][0] == -1 && flat[0][1] == 0.125f && kCarShadowColour == 0x6fffffffu);
+    }
     // 0x4b8740 and 0x492980: the beam's colour over 30 % fog, and its cone.
     CHECK(fogBeamColour(30, 2) == 0 && fogBeamColour(60, 2) == 0xe4ffffffu && fogBeamColour(45, 1) == 0x39ffffffu);
     const std::array<float, 3> right{1, 0, 0}, up{0, 1, 0}, ahead{0, 0, 1};
@@ -1412,6 +1430,22 @@ void testComputerDriving() {
     CHECK(std::fabs(cars[0].offset - 2.2f) < 1e-5f);
     for (int step = 2; step < 80; ++step)
         aiStep(cars, 0, col, speeds, data, step, 1, false);
+    // At the race's start (0x40f050): 400 slices with 5 or more racers,
+    // 200 with 2-4, 50 with one, 26 less backwards, the place x 14 added.
+    CHECK(aiAtRaceStart(400, 0, 8) && !aiAtRaceStart(401, 0, 8) && aiAtRaceStart(302, 7, 8) && !aiAtRaceStart(303, 7, 8));
+    CHECK(aiAtRaceStart(200, 0, 2) && !aiAtRaceStart(201, 0, 4) && !aiAtRaceStart(51, 0, 1));
+    CHECK(!aiAtRaceStart(375, 0, 8, true) && aiAtRaceStart(374, 0, 8, true) && aiAtRaceStart(474, 0, 8, false, 100));
+    {
+        // There the best line's vote is left out: the car keeps its lane
+        // (keeping right gives lane 8 only +1 against its own lane's +1).
+        std::vector<AiCar> early{car};
+        early[0].distance = 100;
+        aiStep(early, 0, col, speeds, data, 0, 1, false);
+        CHECK(early[0].pick == 7 && early[0].target == 2);
+        early[0].distance = 401;
+        aiStep(early, 0, col, speeds, data, 8, 1, false);
+        CHECK(early[0].pick == 8);
+    }
     // In lane 8, with no road strip in lane 9 beside it (0x40d1f0), it is
     // nudged a half width left of the lane's middle.
     CHECK(cars[0].pick == 8 && cars[0].lane == 8 && cars[0].offset == 5 && !cars[0].braking);
@@ -1451,6 +1485,16 @@ void testComputerDriving() {
     cars[1].slice = 11;
     aiStep(cars, 0, col, speeds, data, 200, 1, false);
     CHECK(cars[0].beams == 1);
+    // Not at the race's start (0x404840 asks 0x40f050).
+    {
+        std::vector<AiCar> early = cars;
+        early[0].beams = 0;
+        early[0].flashing = false;
+        early[0].speed = 20;
+        early[0].distance = 0;
+        aiStep(early, 0, col, speeds, data, 208, 1, false);
+        CHECK(!early[0].flashing && early[0].beams == 0 && early[0].wanted == 20);
+    }
     // A car going the other way keeps to its own right (lanes under 7).
     std::vector<AiCar> oncoming{car};
     oncoming[0].way = -1;
@@ -1663,7 +1707,16 @@ void testComputerCatchUpAndCops() {
     dump[b + 0x509] = 255;
     put32(b + 0x944, 0x1801);
     putF(b + 0x7c4, 31.5f);
+    // The officer on foot beside the second car (+0x8E4, +0x8E8, +0x8EC rows, +0x910).
+    put32(b + 0x8e4, 1);
+    put32(b + 0x8e8, 1);
+    putF(b + 0x904 + 8, 1);
+    putF(b + 0x8ec, 1);
+    putF(b + 0x910, 742.75f);
+    putF(b + 0x918, -266.25f);
     const std::vector<DumpedCar> parsedCars = parseCarDump(dump);
+    CHECK(!parsedCars[0].officer && parsedCars[1].officer && parsedCars[1].officerAt[0] == 742.75f &&
+          parsedCars[1].officerAt[2] == -266.25f && parsedCars[1].officerForward[2] == 1 && parsedCars[1].officerRight[0] == 1);
     CHECK(parsedCars.size() == 2 && parsedCars[0].human && !parsedCars[0].cop && parsedCars[0].slice == 230);
     CHECK(parsedCars[0].at[0] == 472.5f && parsedCars[0].forward[2] == 1 && parsedCars[0].beams == 2 && !parsedCars[0].siren);
     CHECK(parsedCars[1].cop && parsedCars[1].siren && parsedCars[1].braking && parsedCars[1].beamScroll == 1 &&
