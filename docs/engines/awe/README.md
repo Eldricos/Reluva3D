@@ -201,8 +201,8 @@ or member types beyond those Reluva reads.
 Next:
 
 1. The game plays from a new game to the end credits without a window:
-   `reluva-tool awe game-run <install> -solve` finds a way of 1,098 actions
-   in seven minutes, and `-play` plays it back (see
+   `reluva-tool awe game-run <install> -solve` finds a way of 1,075 actions
+   in about a quarter of an hour, and `-play` plays it back (see
    [acts.md](acts.md#a-playthrough-from-a-new-game--solve-and--play)).
    With `-mouse -characters` the player clicks points the game's pick
    finds, and the characters' routines run; `-3d` draws in a window.

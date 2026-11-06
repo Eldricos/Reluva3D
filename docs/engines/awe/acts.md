@@ -250,8 +250,9 @@ kimono, and the evidence of 06B and 07A. `awe game-run <install> -solve
 <out.txt>` searches instead for a way from a new game (the main menu,
 Play) to the end credits, and `awe game-run <install> -play <out.txt>` plays
 one back from a new game. On the English install the search, from a new
-game, takes seven minutes and finds a way of 1,098 actions, which plays
-back in a minute and reaches the credits.
+game, takes about a quarter of an hour (854 s, with `-mouse -characters`)
+and finds a way of 1,075 actions, which plays back in a minute and
+reaches the credits.
 
 **The playthrough** is a text file, an action a line: `new` (a new game),
 `click|<scene>|<object>|<n>|<choices>` (the n-th clickable of that name in
