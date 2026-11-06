@@ -1,17 +1,18 @@
 # Local Traditional Classic
 
-Classic Original and Master now support one to four local humans in Traditional
+Classic Original and Master now support one to four local humans or computers in Traditional
 Play. Each active player takes a full round on the same generated board. The
-owner corroborated this broad turn rule in the original VM; computer opponents and
-network play are not implemented in this stage. [Chess Timer](chess.md) is now
+owner corroborated this broad turn rule in the original VM. Computer setup and
+native strength/cadence are described in [computer opponents](computers.md). Network
+play remains unimplemented. [Chess Timer](chess.md) is now
 available as the alternate local-human turn mode.
 
 ## Setup
 
 On Players, use **Change Name / N** to create human names as before. Choose
-**Local Players / M** to configure four human slots. Click a slot or press 1–4,
-then select a remembered name with the existing dropdown controls. Slots 2–4
-also offer an explicit empty-slot entry. Slot 1 always has a human. Done / Enter
+**Local Players / M** to configure four player slots. Click a slot or press 1–4,
+then select a remembered human name or a computer with the existing dropdown controls. Slots 2–4
+also offer an explicit empty-slot entry. Slot 1 always has a player, human or computer. Done / Enter
 or Escape closes this panel; a separate Play / Enter starts the game. To add a
 name, close the panel, use Change Name, then return to Local Players.
 
@@ -21,8 +22,8 @@ native policy pending original duplicate-name setup checks. The roster lasts
 for the current frontend session, including returning to the menu between
 matches. Only the existing primary name/history persists across launches; no
 new original player files or registry settings are read or written. The direct
-Ready route with the menu disabled remains one human. No computer choices are
-advertised as playable.
+Ready route with the menu disabled remains one human. Computer handoffs start
+automatically after one visible handoff frame; human handoffs require confirmation.
 
 ## Turns and results
 
@@ -76,8 +77,8 @@ review currently occurs after each player's turn, using the existing shared
 native user dictionary; an approved word can therefore be recognized during a
 later turn. Original multi-player review timing and user-dictionary scope still
 need corroboration. Exact turn-transition animation timing and original dialog
-navigation also remain unverified. [Chess Timer](chess.md) now has its own human
-controller. AI strength/cadence, background
+navigation also remain unverified. [Chess Timer](chess.md) shares its controller with
+humans and computers. Matching the original AI strength/cadence, background
 computer play and computer cursor movement remain separate future work.
 
 ## Validation

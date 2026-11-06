@@ -1,4 +1,4 @@
-plan: 41ea1843dba502c9 | decoded import: 5ac28ba02bc10e9607afa1dc800ca671
+plan: 2b7c0e98bdbbbf1d | decoded import: 7b5ee8f010ce0863aef6272fb06f0204
 original: 9e89d2ea5f1676de | decoded Classic: a91ea21b964e624c58011d9af99f0259
 master: 502e08b1b2820bbf | decoded Classic: 00300e30cd27a974e8768335fa9502c4
 presentation: 566ff4744da63f86 | decoded presentation: 631bbf21384eacdaa178b71ef2c7c056
@@ -9,3 +9,4 @@ artwork: 14a69fde1cd4aad0 | decoded artwork: 4435bc30e97af289b175190047dfaf90
 font: d95aa010cbe9a291 | decoded font: c17da155d78f17e71d32137d3f5b1521
 allwords: 58f65b9a3d851c1a | decoded all words: 8422ca959f8ecd50164ea97972c4c274
 competition: b317e177a336ac35 | decoded competitions: be5fae83b0735277bba82da2d5d62d3f
+computer: fb7e8cc607535d3b | decoded computers: 3a0f0641f91550787fcf69d76ac4d0b6

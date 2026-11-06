@@ -1,24 +1,24 @@
 # The record of boggle.unit.traditional (tests/engines/boggle/unit/traditional.cpp).
 # Written by `reluva-tests boggle.unit.traditional --update`; review its diff before committing.
-roster.0: b99a7906fbf191f9
-roster.1: 43d8e2a852c25a68
-roster.2: 6d8e1df7fe0ff758
-roster.3: 0e9c4dd239488cc2
-roster.4: 0e8c64564f28aa17
-roster.5: ca532979a2272dd8
-roster.6: cac4d6fdcb6b39b6
+roster.0: 6f8c421db0d27529
+roster.1: ddb0fa1bc88270cd
+roster.2: 6258d970e39da4e8
+roster.3: a6fe3adf63cf2934
+roster.4: c9fbe976a02b209a
+roster.5: 3b3e54ad7661c868
+roster.6: 37bbce8b44bc1bfb
 roster.7: 4c3b5b72e874f510
 roster.8: e007c6f0ed93c4b6
 roster.9: 2512f522105cf015
 roster.10: 94f49b91af474d2f
 roster.11: a82d90f18a6924eb
 roster.12: 1fec3e3abb85cbda
-roster.13: b99a7906fbf191f9
-roster.14: cac4d6fdcb6b39b6
-roster.15: ca532979a2272dd8
-roster.16: 6d1e7589a24fb866
-roster.17: 6d8e1df7fe0ff758
-roster.18: 43d8e2a852c25a68
+roster.13: 6f8c421db0d27529
+roster.14: 37bbce8b44bc1bfb
+roster.15: 3b3e54ad7661c868
+roster.16: 8588ba94020b664b
+roster.17: 6258d970e39da4e8
+roster.18: ddb0fa1bc88270cd
 roster.19: 4c3b5b72e874f510
 roster.20: 59318e5c49539e29
 roster.21: 1fec3e3abb85cbda

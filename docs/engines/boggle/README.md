@@ -5,9 +5,9 @@ and offers early local **Classic Original and Master** in U.S. English.
 Original uses 4x4 dice with a three-letter minimum; Master uses 5x5 with a
 four-letter minimum. Both have dictionary validation, scoring and results.
 [Traditional Play](traditional.md) and [Chess Timer](chess.md) support one to four
-local humans on the same board, with shared-word cancellation and per-player results.
+local humans and turn-based computers on the same board, with shared-word cancellation and per-player results.
 Classic installed scenes, word panels, animated hourglasses, lid/roll animation, sound effects and WAV background music are available. Other modes,
-the full original frontend, AI and networking are unfinished.
+the full original frontend, original AI strength/cadence, concurrent computers and networking are unfinished.
 See [scope and rule evidence](classic.md) and the
 [original/native comparison procedure](comparison.md).
 
@@ -15,10 +15,11 @@ The default game-selection screen opens Classic with Enter. Choose Original
 or Master and a duration, advance to Players, then Play / Enter to start.
 Change Name / N on Players edits the human name, remembered for this game.
 Click the player-name dropdown or press P to recall a previous human name.
-Local Players / M assigns up to four local humans from the remembered names;
+Local Players / M assigns up to four humans or computer opponents;
 press C on Players to choose Traditional or Chess Timer. See
 [Traditional controls](traditional.md) and [Chess Timer clocks/turns](chess.md).
-See [player naming and persistence](players.md).
+See [computer setup, native strength policy and limits](computers.md) and
+[player naming and persistence](players.md).
 Escape returns to selection from version/setup or Players; it does nothing
 on selection or in-game. Use Menu / F3 in-game or Launcher / L on selection. See
 [frontend scope and controls](frontend.md). Disable **Game selection menu** in
@@ -67,7 +68,7 @@ Game ID: `boggle1997`. Add the installed folder containing `Boggle.exe`, or
 its equivalent expanded `Boggle/` directory on the supplied CD. The CD root
 and compressed-only installers are not recognized as runnable directories.
 **Import Game** accepts the install, the expanded CD folder, or the CD root
-containing it, and copies the English Classic set (53 files with Classic/menu artwork, clips and handwriting font) into your external
+containing it, and copies the English Classic set (54 files with Classic/menu artwork, clips, handwriting font and computer vocabulary) into your external
 library. See [import scope and validation](import.md).
 
 Detection requires measured prefix-MD5/size signatures for `Boggle.exe`,
@@ -133,7 +134,11 @@ See [Classic artwork and layout](layout.md) for scope, resource selection and fa
 `competition-check <folder>` verifies final shared-word scoring for one-, two-
 and four-player reference cases on both Classic boards. This exercises the
 [multiplayer scoring model](competition.md) used by live Traditional human
-turns. Computer opponents remain unsupported.
+turns and computer opponents.
+
+`computer-check <folder>` validates 64 native computer plans and all their
+submissions against the supplied vocabulary, both boards and all four levels.
+It reports counts/checksums only; see [computer scope and evidence](computers.md).
 
 `all-words-check <folder>` verifies complete vocabulary on both initial boards
 against independent dictionary lookups, reporting only counts/checksums.

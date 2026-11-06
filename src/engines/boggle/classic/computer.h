@@ -1,0 +1,24 @@
+// SPDX-License-Identifier: GPL-3.0-or-later
+// Copyright (C) 2026 The Reluva contributors
+#pragma once
+#include "engines/boggle/classic/round.h"
+namespace reluva::boggle {
+// Identity is explicit: a human can use any of these display names.
+enum class ComputerLevel { Human = -1, Beginner, Intermediate, Advanced, MrBoggle };
+bool validComputerLevel(ComputerLevel level);
+std::string computerName(ComputerLevel level);
+// Independent native policy, not a reproduction of the original AI algorithm.
+// Times are cumulative active milliseconds, excluding handoff/other turns.
+class ComputerPlan {
+public:
+    Error build(const Board& board,const Dictionary& vocabulary,const Dictionary& english,
+                ComputerLevel level,uint32_t seed,size_t slot,size_t visits=500000);
+    const AcceptedWord* take(uint64_t elapsed);
+    bool exhausted() const { return at_==words_.size(); }
+    const std::vector<AcceptedWord>& words() const { return words_; }
+private:
+    std::vector<AcceptedWord> words_;
+    size_t at_=0;
+    uint64_t interval_=0,due_=0;
+};
+} // namespace reluva::boggle

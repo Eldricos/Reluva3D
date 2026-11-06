@@ -135,6 +135,6 @@ retain controlled runs through the strict `classic_seed` target setting; see
 option and does not affect the installed dice resources.
 
 On Players, C / the mode button now selects Traditional or [Chess Timer](chess.md)
-for local humans. This is separate from the original background-computer/cursor
+for local humans and [computer opponents](computers.md). This is separate from the original background-computer/cursor
 options. The private `classic_turns` target value also supports controlled runs;
 no new launcher checkbox is added.

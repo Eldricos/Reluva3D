@@ -1,6 +1,6 @@
 # Classic: playable local slice
 
-Scope: one to four local humans in Traditional Play or Chess Timer, U.S. English, Original (4x4) or Master (5x5), typed
+Scope: one to four local humans or turn-based computers in Traditional Play or Chess Timer, U.S. English, Original (4x4) or Master (5x5), typed
 or mouse-selected words, configurable timed/untimed rounds, scores and results.
 This is not complete support for Boggle's five modes or the original menu, animation, sound and networking systems.
 
@@ -101,3 +101,6 @@ establish Windows validation of the native Master build. The owner has now
 confirmed the original's Master defaults, four-letter minimum, 30-second
 duration increments, no-timer option and scoring table in the VM; see
 [Classic options](options.md).
+
+See [computer opponents](computers.md) for setup, native strength/cadence and the
+remaining original-AI comparison work.

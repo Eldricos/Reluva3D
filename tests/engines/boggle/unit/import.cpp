@@ -50,6 +50,10 @@ void selection(const std::filesystem::path& tmp) {
     ImportPlan publisher; CHECK(!classicImportPlan(root,synthetic,{{"Identity.bin","",-1}},publisher));
     CHECK(publisher.files.size()==art.files.size()+1);
     CHECK(std::any_of(publisher.files.begin(),publisher.files.end(),[](const auto& f){return f.to=="Anims/Hasbro.avi";}));
+    fixtures::write(root/"Dicts/AI.dic",std::string("synthetic optional AI vocabulary"));
+    ImportPlan ai;CHECK(!classicImportPlan(root,synthetic,{{"Identity.bin","",-1}},ai));
+    CHECK(ai.files.size()==publisher.files.size()+1);
+    CHECK(std::count_if(ai.files.begin(),ai.files.end(),[](const auto& f){return f.to=="Dicts/AI.dic";})==1);
     uint64_t last=0;
     CHECK(!runImport(plan,dest,[&](uint64_t done,uint64_t expected){CHECK(done>=last && done<=expected);last=done;return true;}));
     CHECK(last==total);

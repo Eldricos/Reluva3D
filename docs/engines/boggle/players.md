@@ -32,9 +32,11 @@ The name appears in the artwork's player strip and word-panel header, and in
 the prototype round view. Longer artwork headers use smaller text or a shortened
 strip label to fit. Original/Master, replay and New Board retain the chosen
 name. Direct Classic entry also loads it; re-enable the selection menu to edit.
-The current name/history is the primary human. [Local Players / M](traditional.md)
-now configures up to four local humans for Traditional Play or
-[Chess Timer](chess.md). Press C on Players to select the turn mode. AI and network
+The current name/history supplies the default primary human. [Local Players / M](traditional.md)
+now configures up to four humans or [computer opponents](computers.md) for
+Traditional Play or [Chess Timer](chess.md). Press C on Players to select the
+turn mode. Choosing a computer leaves the saved human name/history unchanged;
+Change Name or the human-name dropdown restores a human in slot 1. Network
 players remain unsupported.
 
 ## Native persistence

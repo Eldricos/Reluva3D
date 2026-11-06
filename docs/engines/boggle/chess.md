@@ -1,17 +1,18 @@
 # Local Classic Chess Timer
 
-Original and Master now support Chess Timer for one to four local humans.
+Original and Master now support Chess Timer for one to four local humans or computers.
 On Players, click the mode button or press **C** to switch between Traditional
-and Chess Timer, then use Local Players / M to configure humans as before.
+and Chess Timer, then use Local Players / M to configure human or computer players.
 A separate Play / Enter starts the match. Traditional remains the native
 default. The mode/roster lasts for the frontend session; the private target
 setting `classic_turns=chess` or `traditional` also selects it for controlled
-runs. Invalid values fail before graphics start. Computer opponents, background
-computer play and computer cursor movement remain unimplemented.
+runs. Invalid values fail before graphics start. [Computer opponents](computers.md)
+use an explicit native strength/pacing policy; background play and computer
+cursor movement remain unimplemented.
 
 ## Word turns and clocks
 
-Each human has a separate time budget. Only the active player's time advances;
+Each participant has a separate time budget. Only the active player's time advances;
 other players' time, the initial opening and hidden handoff waits do not consume
 that budget. Returning to a player resumes their remaining time and preserves
 their submitted words. The existing 1–5 minute settings in 30-second steps and

@@ -176,3 +176,11 @@ Local-human [Chess Timer](../../engines/boggle/chess.md) now implements this flo
 An external harness also matches 4,608 original positive-budget pause/resume
 observations. Exact animation/dialog timing, no-path/short-attempt turn boundaries
 and multiplayer review scheduling remain open; AI is still unimplemented.
+
+The owner confirmed Chess Timer compiles and works. The next stage adds playable
+turn-based Beginner, Intermediate, Advanced and Mr. Boggle opponents, including
+all-computer rosters, using an independently written native strength/pacing
+policy. Both turn controllers retain shared-word cancellation; computers stay
+out of human history and the high-score table. New imports include `AI.dic`.
+Original AI cadence/strength, exhaustion behavior, background play and cursor
+movement remain open. See [computer evidence, limits and checks](../../engines/boggle/computers.md).

@@ -16,6 +16,7 @@
 #include "engines/boggle/classic/user_dictionary.h"
 #include "engines/boggle/resources.h"
 #include "common/font.h"
+#include "common/fs.h"
 #include <algorithm>
 #include <cstdio>
 #include <memory>
@@ -211,13 +212,21 @@ Error ClassicGame::run() {
     if(const auto it=target_.settings.find("classic_player_name");it!=target_.settings.end())
         if(!playerName(it->second,player))return Error::fail("Invalid session player name");
     const auto names=players_.empty()?std::vector<std::string>{player}:players_;
-    if(names.empty() || names.size()>4)return Error::fail("Classic needs one to four humans");
+    if(names.empty() || names.size()>4)return Error::fail("Classic needs one to four players");
     for(const auto& name:names){std::string normalized;if(!playerName(name,normalized) || normalized!=name)return Error::fail("Invalid Classic player name");}
+    const auto kinds=computers_.empty()?std::vector<ComputerLevel>(names.size(),ComputerLevel::Human):computers_;
+    if(kinds.size()!=names.size() || !std::all_of(kinds.begin(),kinds.end(),validComputerLevel))
+        return Error::fail("Invalid Classic computer roster");
+    const bool hasComputer=std::any_of(kinds.begin(),kinds.end(),[](auto kind){return kind!=ComputerLevel::Human;});
     Resources resources;
     if (auto err = resources.open(target_.path)) return err;
-    Dictionary dictionary; DiceSet dice; Palette palette;
+    Dictionary dictionary,computerDictionary; DiceSet dice; Palette palette;
     image::Image letters, qu;
     if (auto err = resources.dictionary("Dicts/English.dic", dictionary)) return err;
+    if(hasComputer) {
+        if(!fs::findFile(target_.path,"Dicts/AI.dic"))return Error::fail("Computer players need Dicts/AI.dic. Re-import the game from your CD or installation.");
+        if(auto error=resources.dictionary("Dicts/AI.dic",computerDictionary))return error;
+    }
     if (auto err = resources.diceSet(options.dice(), dice)) return err;
     if (auto err = resources.palette(options.palette(), palette)) return err;
     if (auto err = resources.image("Textures/Letters.bmp", letters)) return err;
@@ -242,15 +251,19 @@ Error ClassicGame::run() {
     std::vector<std::string> finishedNotices;
     RoundResults results;Board board;uint32_t seed=options.seed?*options.seed:freshClassicSeed();
     std::vector<std::unique_ptr<ClassicRound>> rounds;size_t turn=0,reviewPlayer=0,nextTurn=0;ClassicCompetition competition;PlayerClocks clocks;
+    std::vector<ComputerPlan> computers(names.size());std::vector<uint64_t> started(names.size());
     auto resetRounds=[&](const Board& cubes)->Error {
         std::vector<std::unique_ptr<ClassicRound>> next;
+        std::vector<ComputerPlan> plans(names.size());
         for(size_t i=0;i<names.size();++i) {
+            if(kinds[i]!=ComputerLevel::Human)
+                if(auto error=plans[i].build(cubes,computerDictionary,dictionary,kinds[i],seed,i))return error;
             auto current=std::make_unique<ClassicRound>(dictionary,&user);
             if(auto error=current->board(cubes,options.duration))return error;
             next.push_back(std::move(current));
         }
         if(auto error=clocks.reset(names.size()))return error;
-        rounds=std::move(next);turn=reviewPlayer=nextTurn=0;competition.clear();finishedNotices.clear();return Error::success();
+        rounds=std::move(next);computers=std::move(plans);std::fill(started.begin(),started.end(),0);turn=reviewPlayer=nextTurn=0;competition.clear();finishedNotices.clear();return Error::success();
     };
     auto round=[&]()->ClassicRound& {return *rounds[competition.ready()?reviewPlayer:turn];};
     auto gameTime=[&](){return chess?clocks.elapsed(competition.ready()?reviewPlayer:turn,sys_.getMillis()):sys_.getMillis();};
@@ -289,15 +302,17 @@ Error ClassicGame::run() {
         scoreAttempted=true;
         if(!scoreError) {
             std::vector<HighScore> scores;
-            if(competition.ready())for(size_t i=0;i<names.size();++i)scores.push_back({options.variant,options.duration,competition.players()[i].score,names[i]});
-            else scores.push_back({options.variant,options.duration,results.score(),names[0]});
-            scoreError=highScores.recordBatch(scores);
+            if(competition.ready()) {
+                for(size_t i=0;i<names.size();++i)if(kinds[i]==ComputerLevel::Human)
+                    scores.push_back({options.variant,options.duration,competition.players()[i].score,names[i]});
+            } else if(kinds[0]==ComputerLevel::Human)scores.push_back({options.variant,options.duration,results.score(),names[0]});
+            if(!scores.empty())scoreError=highScores.recordBatch(scores);
         }
     };
     auto updateInput = [&] { input.clear(); for (size_t i : selected) input += round().board().faces()[i]; };
     auto startOrFinish = [&]() -> Error {
         if (round().phase() == RoundPhase::Results && !resultsVisible) return Error::success();
-        if(competition.ready()) {
+        if(competition.ready() || (names.size()==1 && round().phase()==RoundPhase::Results)) {
             const auto cubes=round().board();if(auto error=resetRounds(cubes))return error;
         }
         resultsVisible = false; results.clear(); scoreAttempted=false; clear(); message.clear();
@@ -309,7 +324,8 @@ Error ClassicGame::run() {
             if (options.animations) transition.begin(Transition::Opening,sys_.getMillis());
             else {
                 if(chess)if(auto error=clocks.activate(turn,sys_.getMillis()))return error;
-                if(auto error=round().start(chess?0:sys_.getMillis(),options.duration))return error;
+                started[turn]=sys_.getMillis();
+                if(auto error=round().start(chess?0:started[turn],options.duration))return error;
             }
         }
         return Error::success();
@@ -392,6 +408,7 @@ Error ClassicGame::run() {
         if (transition.finish(now) && type == Transition::Opening) {
             sound.stopShake();
             if(chess)if(auto error=clocks.activate(turn,now))return error;
+            started[turn]=now;
             if (auto err = round().start(chess?0:now,options.duration)) return err;
         }
         if (transition.type() != Transition::None) return Error::success();
@@ -402,8 +419,20 @@ Error ClassicGame::run() {
         } else if (playing && round().timed() && !handoff) sound.countdown(round().remaining(gameTime()),chess?turn:0);
         return Error::success();
     };
+    auto acceptHandoff=[&]()->Error {
+        turn=nextTurn;handoff=false;handoffVisible=false;resultsVisible=false;
+        if(chess) {
+            clear();message.clear();
+            if(auto error=clocks.activate(turn,sys_.getMillis()))return error;
+            if(round().phase()==RoundPhase::Ready)if(auto error=round().start(0,options.duration))return error;
+        } else if(auto error=startOrFinish())return error;
+        return Error::success();
+    };
     if (fromMenu_) { if (auto err = startOrFinish()) return err; }
     while (running) {
+        // Render each handoff once before an automatic computer turn starts.
+        if(handoff && handoffVisible && kinds[nextTurn]!=ComputerLevel::Human)
+            if(auto error=acceptHandoff())return error;
         if (auto err = advance()) return err;
         Event event;bool scoreDismissed=false;
         while (sys_.pollEvent(event)) {
@@ -426,12 +455,7 @@ Error ClassicGame::run() {
             if(handoff) {
                 if(handoffVisible && ((event.type==EventType::KeyDown && !event.repeat && (event.key==key::Return || event.key==key::KpEnter)) ||
                    (event.type==EventType::MouseDown && event.button==MouseButton::Left && hit(event.mouseX,event.mouseY,80,380,640,60)))) {
-                    turn=nextTurn;handoff=false;handoffVisible=false;resultsVisible=false;
-                    if(chess) {
-                        clear();message.clear();
-                        if(auto error=clocks.activate(turn,sys_.getMillis()))return error;
-                        if(round().phase()==RoundPhase::Ready)if(auto error=round().start(0,options.duration))return error;
-                    } else if(auto error=startOrFinish())return error;
+                    if(auto error=acceptHandoff())return error;
                     scoreDismissed=true;
                 }
                 continue;
@@ -494,6 +518,12 @@ Error ClassicGame::run() {
                     reviewWord(*row);continue;
                 }
             }
+            if(kinds[turn]!=ComputerLevel::Human && round().phase()==RoundPhase::Playing) {
+                const bool end=(event.type==EventType::KeyDown && !event.repeat && event.key==key::F1) ||
+                    (event.type==EventType::MouseDown && event.button==MouseButton::Left && hit(event.mouseX,event.mouseY,24,557,180,29));
+                if(end)if(auto error=startOrFinish())return error;
+                continue; // human typing and cube input cannot submit for a computer
+            }
             if (event.type == EventType::KeyDown) {
                 if(resultsVisible && results.ready() && (event.key==key::Up || event.key==key::Down)) {
                     if(!results.words().empty()) {
@@ -539,6 +569,26 @@ Error ClassicGame::run() {
             }
         }
         if (!running) break;
+        if(!handoff && !competition.ready() && transition.type()==Transition::None &&
+           kinds[turn]!=ComputerLevel::Human && round().phase()==RoundPhase::Playing) {
+            auto& plan=computers[turn];
+            const uint64_t now=gameTime();
+            const uint64_t elapsed=chess?now:(now>=started[turn]?now-started[turn]:0);
+            if(plan.exhausted()) {
+                // Untimed and Chess participants retire rather than wait forever
+                // or cycle empty turns. Traditional timed players keep their clock.
+                if(chess || !round().timed()){if(auto error=startOrFinish())return error;}
+                else message="Computer has no more words. Waiting for the timer / F1: end.";
+            } else if(const auto* word=plan.take(elapsed)) {
+                const auto outcome=round().submit(word->word,now,word->path);
+                if(outcome==Submission::Accepted) {
+                    input=word->word;selected.clear();message="Computer playing / F1: end player";
+                    sound.recorded(word->word.size());
+                    if(auto error=passWord())return error;
+                } else if(outcome==Submission::NotPlaying)timeout(sys_.getMillis());
+                else return Error::fail("Computer plan produced an invalid Classic submission");
+            } else message="Computer playing / F1: end player";
+        }
         if(transition.type()==Transition::None && round().phase()==RoundPhase::Results && !round().candidate() && !results.ready() && !handoff)
             if(auto error=publish())return error;
         if(results.ready() && !scoreAttempted)saveScore();

@@ -132,3 +132,8 @@ LeakSanitizer disabled for the execution tracer. The diagnostic checks six
 competitions and fourteen player results, checksum
 `be5fae83b0735277bba82da2d5d62d3f`. All 737 supplied installed files retain their
 manifest hashes. No new assets, re-import or save migration are needed.
+
+The [computer-opponent stage](computers.md) now connects four typed computer
+levels to the same Traditional/Chess controllers and final ownership scoring.
+Only human final scores enter the native high-score batch. Original AI
+strength/cadence remains unverified; the playable policy is explicitly native.
