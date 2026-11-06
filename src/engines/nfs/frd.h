@@ -392,7 +392,14 @@ struct AiCar {
     // (0x40e350): the car steered towards the aim (aiMove), lagging and
     // overshooting it a little as the game's controllers do; with
     // `sideKept` false taken as the aim.
-    float side = 0, sideSpeed = 0;
+    // `side` is +0x7B8 as the game measures it (0x4a2bc0: the car's place
+    // less its slice's road point, along the right), `lateral` the car's
+    // own place across the road from the line between the slice's point
+    // and the next, `along` how far it is from the one to the other (0-1,
+    // set by whoever moves it): on a bend the measured offset changes
+    // across a slice while the car goes straight on, and the controller
+    // steers by it.
+    float side = 0, sideSpeed = 0, lateral = 0, along = 0;
     bool sideKept = false;
     float target = 0;   // the offset wanted (+0x7B4)
     float speed = 0;    // m/s along its way (+0x7C4)
@@ -408,8 +415,9 @@ struct AiCar {
     bool braking = false; // +0x509 not 0: the brake held (ai_brake's 255)
     int pick = 7;       // the lane chosen (0x56ef74)
     // A computer cop's driver (car_driver_cop 0x4032e0, physics.md), for
-    // a cop: its state +0x70C (1 patrol, 5 the chase, 7 a run with the
-    // siren on), its target (+0x624, `chasing`, an index into the cars, -1 none),
+    // a cop: its state +0x70C (1 patrol, 2 driving to its order, 3 to the
+    // roadside, 4 stopped there, 5 the chase, 6 the stop, 7 a run with the
+    // siren on, 8-11 to a roadblock and across the road), its target (+0x624, `chasing`, an index into the cars, -1 none),
     // its phase (car +0, the gate 0x401240 letting it act when (step / 2
     // + phase) mod 4 is 0) and +0x711 bit 1 (x 1.1 on its top speed).
     int copState = 0;
@@ -418,7 +426,59 @@ struct AiCar {
     bool copFast = false;
     bool siren = false; // +0x710 bit 0x10 (+0x734)
     bool racer = true;  // in the race's racers (0x5efd94's list): not a cop or traffic
+    // A cop's orders (+0x7AC, cop_ai_order 0x403830): the kind (0 to the
+    // roadside, 1 drive to, 2 patrol, 3 a run with the siren, 4 a
+    // roadblock; -1 none), taken once (+1), the slice range (from, length:
+    // 0x40f000) and the way to face for a patrol (+6: 1 against the
+    // slices); the racer it watches (+0x730).
+    int orderKind = -1;
+    bool orderTaken = false;
+    int orderFrom = 0, orderLength = 0;
+    bool orderAgainst = false;
+    int watching = -1;
+    bool stripWanted = false; // +0x711 bit 8: lays a strip at the roadside
+    bool blockWatch = false;  // +0x711 bit 4: a roadblock, watching its racer by
+    bool across = false;      // turned across the road (0x403180, state 11)
+    bool headed = false;      // +0x710 bit 0x20 (state 2)
+    int index = 0;            // +0x714, the cop's own index: its strip's lane
+    // Its strip (0x7dd850 + index x 0x50, spike_lay 0x4c9dd0): out, the
+    // slice and lane, the racer near radioed (+0x711 bit 0x20).
+    bool stripOn = false, stripNear = false;
+    int stripSlice = 0, stripLane = 7;
+    bool reversing = false;   // +0x7D4 (ai_reverse_set)
+    bool holding = false;     // +0x710 bit 0x40: the stop test held since
+    int holdUntil = 0;        // +0x720
+    int waitFrom = 0, waitNear = 0; // +0x72C, +0x728: waiting for the watched racer
+    // A racer's chase record (+0x628: +0x1C 2 pulled over, +0x28 the step
+    // the stop or the ticket ends, +0x50 the cops stopping it), its state
+    // (+0x6E0: 1 racing, 5 pulling over, 6 stopped), +0x6EC, its tickets
+    // (+0x2C8) and the step it is free of chases to (+0x634).
+    bool pulledOver = false;
+    int recordStep = 0, stopping = 0;
+    int pursuit = 1, pullUntil = 0;
+    int tickets = 0, chaseFree = 0;
+    // The last radio call, by its routine's address (aiRadioCall), and the
+    // step it was made at; the game queues the lines as speech (physics.md,
+    // The radio), the stand-in only notes it.
+    uint32_t radio = 0;
+    int radioStep = -1;
 };
+// What a radio call (its routine's address, physics.md's table) says, in
+// a few words; empty for an unknown one.
+const char* aiRadioCall(uint32_t call);
+// Where a strip lies (spike_lay 0x4c9dd0 with 0x4c9bc0): across the
+// lane's middle (aiLaneOffset's, its half's lane width from bytes 0x17 or
+// 0x1B), 1.5 lane widths long: offsets `from` to `to` along the road's
+// right at the slice's point.
+void aiStripSpan(const TrackCollision::RoadPoint& p, int lane, float& from, float& to);
+// The orders the page's dispatcher key gives the police car, as the
+// chasing cops' calls give a free cop (physics.md): a strip (0x4039c0: an
+// order of kind 0 from its slice - 6, 3 slices, +0x711 bit 8), a roadblock
+// (0x403b20: kind 4 at a slice, the siren on, +0x711 bit 4) or a patrol
+// (kind 2), each watching a racer.
+void aiOrderStrip(AiCar& cop, int racer, int sliceCount);
+void aiOrderRoadblock(AiCar& cop, int racer, int slice);
+void aiOrderPatrol(AiCar& cop);
 // The lane at a side offset (0x40e2b0): 7 + the offset over the right
 // lanes' width rounded to the nearest (6 + over the left's, for one on
 // the left), 0-13.
@@ -435,18 +495,28 @@ float aiLaneOffset(const TrackCollision::RoadPoint& p, int lane, float halfWidth
 // The speed table's best line lane for a slice (0x40e0c0): the high
 // nibble of the byte after the speeds; 7 without the table.
 int aiLineLane(const std::vector<uint8_t>& speeds, int slice, int sliceCount);
-// One step of the computer's driving for cars[self], as an AI racer
-// (+0x200 bit 8) past the race's start: the lanes it is on, the speed
+// One step (of 64 a second) of the computer's driving for cars[self], as
+// an AI racer (+0x200 bit 8) past the race's start. Its driver
+// (car_driver_ai 0x409c00) acts only when aiDriverActs lets it, every 8
+// steps: the lanes it is on (at its side offset as measured), the speed
 // wanted (the speed table for its slice x its scale, held under the top
 // speed cap x the track factor), flashing its lights when held up behind
 // a car in its lane (0x404840), keeping behind it (0x4094d0), the lane
 // votes and the lane chosen (lane_votes_start, ai_lane_vote_line,
-// lane_votes_ahead, lane_choose), its aim moved 0.2 towards the offset
-// wanted (0x408870), and its speed towards the speed wanted by the
-// acceleration table or the brakes (0x4064f0, 0x4063e0), the brake held
-// only when more than 5 m/s too fast. speeds: the table for its way.
+// lane_votes_ahead with the strips' 0x40d720, lane_choose); pulled over
+// (its record's +0x1C = 2) it pulls over (5) and stops (6) until the
+// ticket. The model (car_ai_physics, 32 Hz: the even steps) moves its aim
+// 0.2 towards the offset wanted (0x408870) and its speed over 1/32 s
+// towards the speed wanted by the acceleration table or the brakes
+// (0x4064f0, 0x4063e0), the brake held only when more than 5 m/s too
+// fast; its side offset follows the aim every step. speeds: the table
+// for its way.
 void aiStep(std::vector<AiCar>& cars, size_t self, const TrackCollision& col, const std::vector<uint8_t>& speeds,
             const AiCarData& data, int step, int track, bool weather);
+// Whether a computer car's driver acts on a step (0x40df10 -> 0x401240,
+// for racers and cops alike): the drivers are a 32 Hz task, on the even
+// steps, let through when (step / 2 + its phase, car +0) mod 4 is 0.
+bool aiDriverActs(const AiCar& car, int step);
 
 // The track section's speed (0x40ed40): by track and slice, hard-coded
 // ranges, 8.94 to 31.29 m/s.
@@ -469,18 +539,22 @@ int aiRacersAhead(int humanDistance, const std::vector<int>& racerDistances);
 float aiCatchUpFactor(const AiRace& race, int distance, int place);
 
 // One step of a computer cop's driver (car_driver_cop 0x4032e0) for
-// cars[self] (copState set), then its aim and speed as aiStep moves them
-// (0x408870, 0x4066c0, each step). The driver acts only when the gate
-// lets it (every 8 steps): patrol (1, cop_ai_drive 0x403270 with 1.19)
-// and the run with the siren (7, with 2): the lanes and the cars round
-// it (lane_votes_start), the speed wanted the section's speed x k under
-// its top speed (0x401430, 0x401370), kept behind the car ahead in its
-// lane or x 0.4 for one coming at it (0x40bff0), lane_votes_ahead and
-// the lane chosen; and the target (0x402e10): a racer within 16 slices
-// over the section's speed by more than 6.71 m/s (0x403f80) starts the
-// chase (5): the speed wanted 0x402420 by the slices to it (0x401780),
-// the aim at its side offset (0x406b00), given up past 50 slices
-// (0x5521ac +4 for a racer with no tickets).
+// cars[self] (copState set), then its aim and speed as aiStep moves them.
+// The driver acts only when the gate lets it (every 8 steps): its orders
+// (cop_ai_order_start 0x403030: to the roadside and a strip, patrol, a
+// run with the siren, a roadblock), patrol (1, cop_ai_drive 0x403270
+// with 1.19) and the run with the siren (7, with 2): the lanes and the
+// cars round it, the section's speed x k under its top speed (0x401430,
+// 0x401370), kept behind the car ahead in its lane or x 0.4 for one coming
+// at it (0x40bff0), lane_votes_ahead and the lane chosen; the roadside (3,
+// 6.5 m/s, 0x402d90), stopped there (4) laying its strip (0x403d30); a
+// roadblock (8, 9 at 6 m/s, 10 in place, 11 across the road, 0x403180);
+// the target (0x402e10): a racer within 16 slices over the section's
+// speed by more than 6.71 m/s (0x403f80) starts the chase (5,
+// cop_ai_chase 0x4025c0 with 0x402420: closing, reversing when past it),
+// given up past t_ticket_times' slices; the stop test (0x402110) and the
+// stop (6, cop_stop_begin 0x401e40) to the ticket (0x401ff0). Its strip's
+// hits are tested each step (0x4297d0).
 void aiCopStep(std::vector<AiCar>& cars, size_t self, const TrackCollision& col, const AiCarData& data, int step,
                int track, bool weather);
 
@@ -489,11 +563,13 @@ void aiCopStep(std::vector<AiCar>& cars, size_t self, const TrackCollision& col,
 // 0x40 hidden), the slice +0x1C, the position +0x98 and rows +0xC0 (right,
 // up, forward), the brake +0x509, the lights +0x660, the roof light
 // +0x734 (on with a cop's siren), the fog beams' scroll +0x944, the speed
-// +0x7C4 and side offset +0x7B8.
+// +0x7C4 and side offset +0x7B8, the paint +0x8A8-+0x8B0.
 struct DumpedCar {
     bool inPlay = false, human = false, cop = false, hidden = false, siren = false, braking = false;
     int slice = 0, beams = 0, beamScroll = 0;
     float speed = 0, offset = 0;
+    std::array<int, 3> paint{}; // the paint in HSV (+0x8A8, +0x8AC, +0x8B0)
+    int setup = -1; // its set-up record (+0x220 points at 0x6fd52c + 0x6C each), -1 elsewhere
     std::array<float, 3> at{}, right{}, up{}, forward{};
 };
 std::vector<DumpedCar> parseCarDump(const std::vector<uint8_t>& bytes);

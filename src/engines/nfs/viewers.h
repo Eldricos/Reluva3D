@@ -514,8 +514,22 @@ private:
         uint32_t envBodyVertices = 0;
         AiCarData ai;      // its carp.txt
         int paintValue = 0; // the first paint colour's value (fce.md; +0x8B0)
+        std::string folder; // gamedata/carmodel/<name>/car.viv/
+        int serial = -1;    // carp.txt's serial number, the set-up's car key
+        // The skin as stored and the model's paints, for recolouring it
+        // (skinTexel); the textures made, by primary colour.
+        image::Image skinImage;
+        Model colours; // only the colour lists, for primaryFor/secondaryFor
+        std::map<size_t, gfx::TextureId> skins; // owned by textures_
     };
-    std::array<CarModel, 2> carModels_; // the Corvette, the police Corvette
+    // The Corvette, the police Corvette, then any other car a dump's
+    // set-up names (RELUVA_NFS_TRACK_CARS_SETUP), by its serial number.
+    std::vector<CarModel> carModels_{2};
+    void loadCarModel(CarModel& cm);
+    int carModelForSerial(int serial);
+    // The skin of a model in one of its paints (0x49d320's recolouring).
+    gfx::TextureId carSkin(size_t model, size_t paint);
+    std::vector<std::array<uint8_t, 16>> carSetup_; // RELUVA_NFS_TRACK_CARS_SETUP: each car's key
     struct ComputerCar {
         int model = 0;
         bool siren = false;    // a police car with its siren on
@@ -529,6 +543,8 @@ private:
         // This frame, in track coordinates: the position (+0x98) and rows.
         std::array<float, 3> at{}, right{}, up{}, forward{};
         uint32_t colour = 0xff7f7f7f; // its shading (carShadeColour, carLitBy)
+        size_t paint = 0;     // its model's primary colour (+0x8A8 in a dump)
+        int paintValue = -1;  // +0x8B0 as a dump has it; else the paint's
         gfx::MeshId mesh = 0, envMesh = 0;
     };
     bool computerCars_ = false, carsMoving_ = true, reflections_ = true;
@@ -551,6 +567,14 @@ private:
     std::vector<DumpedCar> carDump_; // RELUVA_NFS_TRACK_CARS: the cars as a game dump has them
     void placeDumpedCars();
     void moveCars(float dt);
+    // Key C, the dispatcher: the police car ordered as a chasing cop's
+    // calls order a free one (physics.md): a strip (0x4039c0), then a
+    // roadblock (0x403b20) 20 slices on, then back to patrol, watching the
+    // racer nearest it; the strips laid drawn as dark bars across a lane.
+    void dispatchCop();
+    int dispatchNext_ = 0;
+    gfx::MeshId stripMesh_ = 0;
+    uint32_t stripQuads_ = 0, stripCapacity_ = 0;
     void carRows(ComputerCar& car) const;
     // The cars' colours and glows for this frame (prepareCars), before
     // the headlights are made; drawn by drawCars.

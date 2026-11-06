@@ -105,6 +105,33 @@ CarGlow carLightGlow(const std::string& dummy, float facing, int beams, bool bra
 // and the hue a full turn in 256, in its integer steps.
 std::array<int, 3> rgbToHsv(const std::array<int, 3>& rgb);
 std::array<int, 3> hsvToRgb(const std::array<int, 3>& hsv);
+// A car skin's rows as the game's loader takes them (0x49d320 ->
+// 0x49cd00): in the order the file stores them, from the start of the
+// pixel data, whatever the header's origin bit; texture row 0 is the
+// first row stored. A decoded TGA (top row first) whose descriptor has
+// bit 5 clear (stored from the bottom, as every car00.tga but Knoc's)
+// is turned back over. Before November 2026 Reluva drew the skins the
+// other way up: the Corvette without its tail lights.
+void skinRowsAsStored(const std::vector<uint8_t>& tga, image::Image& img);
+
+// A car skin's texel as the car loader makes it (0x49d320 -> 0x49cea0 ->
+// 0x49cd00, each texel to 1:5:5:5): alpha 0 transparent; alpha 1-127
+// recoloured with the paint, 128-254 with the paint's secondary colour,
+// 255 kept (fce.md, The skin's paint). Recolouring (0x49cc50): t the
+// texel's blue in 5 bits x 8, over 255 - the colour's fourth value
+// unless that is 255; the value min(trunc(brightness x t), 255); then
+// the colour's hue and saturation at that value (hsvToRgb), to 5 bits.
+// RGBA in and out; a null colour keeps those texels as they are.
+std::array<uint8_t, 4> skinTexel(const std::array<uint8_t, 4>& rgba, const Model::Colour* paint,
+                                 const Model::Colour* secondary);
+// The secondary colour going with a paint (0x49d240): that of the
+// model's primary colour nearest to it, by the RGB of the two in HSV
+// (hsvToRgb) and the distance between them; 0 without colours.
+size_t secondaryFor(const Model& model, const std::array<int, 3>& paintHsv);
+// The model's primary colour nearest a paint in HSV (as secondaryFor), so
+// that its fourth value goes with the paint the game keeps (+0x8A8).
+size_t primaryFor(const Model& model, const std::array<int, 3>& paintHsv);
+
 // The reflection's two corner colours for a car (0x4ba350, kept by
 // 0x49d800 at 0x55e6dc and 0x55e6e0; fce.md, Lighting), ARGB, from the
 // car's shading colour (carShadeColour, carLitBy), the sky's colour (the

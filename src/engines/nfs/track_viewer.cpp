@@ -903,6 +903,20 @@ void TrackPage::load(int index) {
     if (const char* step = std::getenv("RELUVA_NFS_TRACK_STEP"))
         fixedStep_ = std::atoll(step);
     carDump_.clear();
+    // RELUVA_NFS_TRACK_CARS_SETUP=<file>: a dump of the race's set-up
+    // records (0x6fd52c, 0x6C bytes a car), whose keys (the cars' serial
+    // numbers) give each dumped car its own model.
+    carSetup_.clear();
+    if (const char* setup = std::getenv("RELUVA_NFS_TRACK_CARS_SETUP"))
+        if (FILE* f = std::fopen(setup, "rb")) {
+            uint8_t record[0x6c];
+            while (std::fread(record, 1, sizeof record, f) == sizeof record) {
+                std::array<uint8_t, 16> key{};
+                std::copy(record, record + 16, key.begin());
+                carSetup_.push_back(key);
+            }
+            std::fclose(f);
+        }
     if (const char* dump = std::getenv("RELUVA_NFS_TRACK_CARS")) {
         std::vector<uint8_t> bytes;
         if (FILE* f = std::fopen(dump, "rb")) {
@@ -1305,10 +1319,15 @@ void TrackPage::prepareHeadlights(int here, const gfx::Vec3& eye, const gfx::Vec
                 continue; // the fourth group: by day only
             const Track::ExtraObject& o = track_.extraObjects[mv.group][mv.object];
             const Track::Block* outline = mv.block >= 0 ? &track_.blocks[size_t(mv.block)] : nullptr;
+            // The mesh keeps a moving object's vertices unmirrored (added
+            // with mirror 1), the key's matrix mirroring them into the
+            // world; lit at those same places. Until November 2026 they
+            // were mirrored first, so the light was worked out and drawn at
+            // the object's mirror image (frd.md, The placed objects).
             lightObject(
                 o,
                 [&](const Track::Vec3& v) {
-                    const gfx::Vec3 w = gfx::transformPoint(m.model, {v[0], v[1], -v[2]});
+                    const gfx::Vec3 w = gfx::transformPoint(m.model, {v[0], v[1], v[2]});
                     return Track::Vec3{w[0], w[1], -w[2]};
                 },
                 Track::Vec3{m.model[12], m.model[13], -m.model[14]}, outline);
@@ -1346,84 +1365,166 @@ void TrackPage::prepareHeadlights(int here, const gfx::Vec3& eye, const gfx::Vec
     renderer_->setMeshVertices(lightMesh_, vertices);
 }
 
-// The computer cars' models: the Corvette and the police Corvette, their
-// high detail parts (the body and wheels, parts 0-4, and the headlights,
-// part 12: fce.md) with their car00.tga, z negated as on the Cars page.
+namespace {
+// carp.txt's first value, "Serial Number(0)" (the car's key, net.md); -1
+// without it.
+int carpSerial(const std::string& text) {
+    const size_t at = text.find("Serial Number");
+    const size_t line = at == std::string::npos ? at : text.find('\n', at);
+    return line == std::string::npos ? -1 : std::atoi(text.c_str() + line + 1);
+}
+} // namespace
+
+// The computer cars' models: the Corvette and the police Corvette (and
+// any other car a dump's set-up names), their high detail parts (the body
+// and wheels, parts 0-4, and the headlights, part 12: fce.md) with their
+// car00.tga, recoloured in their paint as the game's loader does
+// (carSkin), z negated as on the Cars page.
+void TrackPage::loadCarModel(CarModel& cm) {
+    if (!cm.vertices.empty() || !cm.error.empty())
+        return;
+    const std::string folder = cm.folder;
+    Model model;
+    for (const FileRef& f : files_.files()) {
+        const std::string name = lower(f.name);
+        std::vector<uint8_t> data;
+        if (name == folder + "car.fce") {
+            if (Error err = files_.read(f, data))
+                cm.error = err.message;
+            else if (Error err2 = parseModel(data, model))
+                cm.error = err2.message;
+        } else if (name == folder + "carp.txt") {
+            if (!files_.read(f, data)) {
+                const std::string text(data.begin(), data.end());
+                (void)parseCarpAi(text, cm.ai);
+                cm.serial = carpSerial(text);
+            }
+        } else if (name == folder + "car00.tga" && cm.skinImage.rgba.empty()) {
+            if (!files_.read(f, data) && !image::decode(data, cm.skinImage))
+                skinRowsAsStored(data, cm.skinImage);
+        }
+    }
+    if (model.parts.empty()) {
+        if (cm.error.empty())
+            cm.error = "No " + folder.substr(18, 4) + " model for the computer cars";
+        return;
+    }
+    cm.halfSize = model.halfSize;
+    cm.dummies = model.dummies;
+    cm.paintValue = model.primaryColours.empty() ? 0 : static_cast<int>(std::min<uint32_t>(model.primaryColours[0].hsbx[2], 255));
+    cm.colours.primaryColours = model.primaryColours;
+    cm.colours.secondaryColours = model.secondaryColours;
+    auto addPart = [&](size_t pi) {
+        const Model::Part& part = model.parts[pi];
+        for (uint32_t t = part.firstTriangle;
+             t < part.firstTriangle + part.triangleCount && t < model.triangles.size(); ++t) {
+            const Model::Triangle& tri = model.triangles[t];
+            bool whole = true;
+            for (uint32_t vi : tri.vertices)
+                whole = whole && vi < model.vertices.size();
+            if (!whole)
+                continue;
+            // The body and the headlights reflect, the wheels not (0x4bb200).
+            if ((pi == 0 || pi == 12) && !(tri.flags & Model::Triangle::kNoReflection))
+                for (int k = 0; k < 3; ++k) {
+                    cm.envFrom.push_back(static_cast<uint32_t>(cm.vertices.size()) + static_cast<uint32_t>(k));
+                    cm.envStrong.push_back((tri.flags & Model::Triangle::kStrongReflection) != 0);
+                }
+            for (int k = 0; k < 3; ++k) {
+                const uint32_t vi = tri.vertices[size_t(k)];
+                gfx::Vertex v{};
+                v.pos[0] = model.vertices[vi][0] + part.position[0];
+                v.pos[1] = model.vertices[vi][1] + part.position[1];
+                v.pos[2] = -(model.vertices[vi][2] + part.position[2]);
+                v.uv[0] = tri.u[size_t(k)];
+                v.uv[1] = tri.v[size_t(k)];
+                v.normal[1] = 1;
+                v.color[0] = v.color[1] = v.color[2] = v.color[3] = 255;
+                cm.vertices.push_back(v);
+                cm.normals.push_back(vi < model.normals.size() ? model.normals[vi] : std::array<float, 3>{0, 1, 0});
+            }
+        }
+    };
+    for (size_t pi = 0; pi < 5 && pi < model.parts.size(); ++pi) {
+        addPart(pi);
+        if (pi == 0)
+            cm.partZeroVertices = static_cast<uint32_t>(cm.vertices.size());
+    }
+    cm.bodyVertices = static_cast<uint32_t>(cm.vertices.size());
+    cm.envBodyVertices = static_cast<uint32_t>(cm.envFrom.size());
+    if (model.parts.size() > 12)
+        addPart(12);
+    cm.lightVertices = static_cast<uint32_t>(cm.vertices.size()) - cm.bodyVertices;
+}
+
+// The car model whose carp.txt has this serial number (the set-up's car
+// key, net.md: the Corvette's 0x13), loaded once; -1 without one.
+int TrackPage::carModelForSerial(int serial) {
+    for (size_t m = 0; m < carModels_.size(); ++m)
+        if (carModels_[m].serial == serial && carModels_[m].error.empty())
+            return static_cast<int>(m);
+    for (const FileRef& f : files_.files()) {
+        const std::string name = lower(f.name);
+        const std::string head = "gamedata/carmodel/", tail = "/car.viv/carp.txt";
+        if (name.rfind(head, 0) != 0 || name.size() <= head.size() + tail.size() ||
+            name.compare(name.size() - tail.size(), tail.size(), tail) != 0)
+            continue;
+        std::vector<uint8_t> data;
+        if (files_.read(f, data) || carpSerial(std::string(data.begin(), data.end())) != serial)
+            continue;
+        const std::string folder = name.substr(0, name.size() - std::string("carp.txt").size());
+        for (size_t m = 0; m < carModels_.size(); ++m)
+            if (carModels_[m].folder == folder)
+                return carModels_[m].error.empty() ? static_cast<int>(m) : -1;
+        CarModel cm;
+        cm.folder = folder;
+        cm.serial = serial;
+        loadCarModel(cm);
+        if (!cm.error.empty())
+            return -1;
+        carModels_.push_back(std::move(cm));
+        return static_cast<int>(carModels_.size() - 1);
+    }
+    return -1;
+}
+
+gfx::TextureId TrackPage::carSkin(size_t model, size_t paint) {
+    if (model >= carModels_.size())
+        return 0;
+    CarModel& cm = carModels_[model];
+    if (auto it = cm.skins.find(paint); it != cm.skins.end())
+        return it->second;
+    gfx::TextureId id = 0;
+    if (!cm.skinImage.rgba.empty()) {
+        const Model& m = cm.colours;
+        const Model::Colour* primary = paint < m.primaryColours.size() ? &m.primaryColours[paint] : nullptr;
+        const Model::Colour* second = nullptr;
+        if (primary && !m.secondaryColours.empty()) {
+            const size_t k = secondaryFor(m, {static_cast<int>(primary->hsbx[0] & 0xff), static_cast<int>(primary->hsbx[1] & 0xff),
+                                             static_cast<int>(primary->hsbx[2] & 0xff)});
+            second = &m.secondaryColours[k];
+        }
+        std::vector<uint8_t> rgba = cm.skinImage.rgba;
+        for (size_t i = 0; i + 3 < rgba.size(); i += 4) {
+            const auto t = skinTexel({rgba[i], rgba[i + 1], rgba[i + 2], rgba[i + 3]}, primary, second);
+            std::copy(t.begin(), t.end(), rgba.begin() + static_cast<std::ptrdiff_t>(i));
+        }
+        if (!renderer_->createTexture(cm.skinImage.w, cm.skinImage.h, rgba.data(), {}, id))
+            textures_.push_back(id);
+        else
+            id = 0;
+    }
+    cm.skins[paint] = id;
+    return id;
+}
+
 void TrackPage::loadCars() {
     static constexpr const char* kFolders[] = {"gamedata/carmodel/corv/car.viv/", "gamedata/carmodel/vcop/car.viv/"};
-    for (size_t m = 0; m < carModels_.size(); ++m) {
-        CarModel& cm = carModels_[m];
-        if (!cm.vertices.empty() || !cm.error.empty())
-            continue;
-        const std::string folder = kFolders[m];
-        Model model;
-        for (const FileRef& f : files_.files()) {
-            const std::string name = lower(f.name);
-            std::vector<uint8_t> data;
-            if (name == folder + "car.fce") {
-                if (Error err = files_.read(f, data))
-                    cm.error = err.message;
-                else if (Error err2 = parseModel(data, model))
-                    cm.error = err2.message;
-            } else if (name == folder + "carp.txt") {
-                if (!files_.read(f, data))
-                    (void)parseCarpAi(std::string(data.begin(), data.end()), cm.ai);
-            } else if (name == folder + "car00.tga" && !cm.skin) {
-                image::Image img;
-                if (!files_.read(f, data) && !image::decode(data, img) &&
-                    !renderer_->createTexture(img.w, img.h, img.rgba.data(), {}, cm.skin))
-                    textures_.push_back(cm.skin);
-            }
-        }
-        if (model.parts.empty()) {
-            if (cm.error.empty())
-                cm.error = "No " + folder.substr(18, 4) + " model for the computer cars";
-            continue;
-        }
-        cm.halfSize = model.halfSize;
-        cm.dummies = model.dummies;
-        cm.paintValue = model.primaryColours.empty() ? 0 : static_cast<int>(std::min<uint32_t>(model.primaryColours[0].hsbx[2], 255));
-        auto addPart = [&](size_t pi) {
-            const Model::Part& part = model.parts[pi];
-            for (uint32_t t = part.firstTriangle;
-                 t < part.firstTriangle + part.triangleCount && t < model.triangles.size(); ++t) {
-                const Model::Triangle& tri = model.triangles[t];
-                bool whole = true;
-                for (uint32_t vi : tri.vertices)
-                    whole = whole && vi < model.vertices.size();
-                if (!whole)
-                    continue;
-                // The body and the headlights reflect, the wheels not (0x4bb200).
-                if ((pi == 0 || pi == 12) && !(tri.flags & Model::Triangle::kNoReflection))
-                    for (int k = 0; k < 3; ++k) {
-                        cm.envFrom.push_back(static_cast<uint32_t>(cm.vertices.size()) + static_cast<uint32_t>(k));
-                        cm.envStrong.push_back((tri.flags & Model::Triangle::kStrongReflection) != 0);
-                    }
-                for (int k = 0; k < 3; ++k) {
-                    const uint32_t vi = tri.vertices[size_t(k)];
-                    gfx::Vertex v{};
-                    v.pos[0] = model.vertices[vi][0] + part.position[0];
-                    v.pos[1] = model.vertices[vi][1] + part.position[1];
-                    v.pos[2] = -(model.vertices[vi][2] + part.position[2]);
-                    v.uv[0] = tri.u[size_t(k)];
-                    v.uv[1] = tri.v[size_t(k)];
-                    v.normal[1] = 1;
-                    v.color[0] = v.color[1] = v.color[2] = v.color[3] = 255;
-                    cm.vertices.push_back(v);
-                    cm.normals.push_back(vi < model.normals.size() ? model.normals[vi] : std::array<float, 3>{0, 1, 0});
-                }
-            }
-        };
-        for (size_t pi = 0; pi < 5 && pi < model.parts.size(); ++pi) {
-            addPart(pi);
-            if (pi == 0)
-                cm.partZeroVertices = static_cast<uint32_t>(cm.vertices.size());
-        }
-        cm.bodyVertices = static_cast<uint32_t>(cm.vertices.size());
-        cm.envBodyVertices = static_cast<uint32_t>(cm.envFrom.size());
-        if (model.parts.size() > 12)
-            addPart(12);
-        cm.lightVertices = static_cast<uint32_t>(cm.vertices.size()) - cm.bodyVertices;
+    if (carModels_.size() < 2)
+        carModels_.resize(2);
+    for (size_t m = 0; m < 2; ++m) {
+        carModels_[m].folder = kFolders[m];
+        loadCarModel(carModels_[m]);
     }
     // The speed tables, for the cars' speeds.
     const std::string trackFolder = "gamedata/tracks/" + tracks_[index_] + "/";
@@ -1444,12 +1545,12 @@ void TrackPage::releaseCars() {
             if (renderer_ && m)
                 renderer_->destroyMesh(m);
     cars_.clear();
-    for (CarModel& cm : carModels_)
-        cm = {}; // skins owned by textures_
-    for (gfx::MeshId m : {carGlowMesh_, carFlareMesh_, carBeamMesh_})
+    carModels_.assign(2, CarModel{}); // skins owned by textures_
+    for (gfx::MeshId m : {carGlowMesh_, carFlareMesh_, carBeamMesh_, stripMesh_})
         if (renderer_ && m)
             renderer_->destroyMesh(m);
-    carGlowMesh_ = carFlareMesh_ = carBeamMesh_ = 0;
+    carGlowMesh_ = carFlareMesh_ = carBeamMesh_ = stripMesh_ = 0;
+    stripQuads_ = stripCapacity_ = 0;
     carGlowQuads_ = carGlowCapacity_ = carFlareQuads_ = carFlareCapacity_ = carBeamQuads_ = carBeamCapacity_ = 0;
     glow3Picture_ = 0; // owned by textures_
     carError_.clear();
@@ -1522,6 +1623,7 @@ void TrackPage::placeCars() {
         c.ai.siren = siren;
         c.ai.racer = !siren;
         c.ai.phase = static_cast<int>(cars_.size());
+        c.ai.index = 0; // the one police car
         c.ai.scale = std::min(aiDriverFactor(driver, aiStep_) * aiTrackFactor(track), 1.0f);
         c.ai.lane = c.ai.laneLeft = c.ai.laneRight = c.ai.pick = c.lane;
         c.ai.offset = c.ai.target = aiLaneOffset(p, c.lane, cm.halfSize[0]);
@@ -1573,6 +1675,15 @@ void TrackPage::placeDumpedCars() {
             continue;
         ComputerCar c;
         c.model = d.cop ? 1 : 0;
+        if (d.setup >= 0 && static_cast<size_t>(d.setup) < carSetup_.size() && carSetup_[size_t(d.setup)][0] != 0xff) {
+            const int m = carModelForSerial(carSetup_[size_t(d.setup)][0]);
+            if (m >= 0)
+                c.model = m;
+        }
+        // Its paint: the model's primary colour nearest the dump's (+0x8A8),
+        // and the value the reflection takes (+0x8B0).
+        c.paint = primaryFor(carModels_[size_t(c.model)].colours, d.paint);
+        c.paintValue = std::clamp(d.paint[2], 0, 255);
         c.siren = d.siren;
         c.slice = n > 0 ? static_cast<float>(((d.slice % n) + n) % n) : 0;
         const auto& p = collision_.road[size_t(c.slice)];
@@ -1583,7 +1694,7 @@ void TrackPage::placeDumpedCars() {
         c.ai.slice = static_cast<int>(c.slice);
         c.ai.way = c.way;
         c.ai.speed = d.speed;
-        c.ai.offset = c.ai.target = c.ai.side = d.offset;
+        c.ai.offset = c.ai.target = c.ai.side = c.ai.lateral = d.offset;
         c.ai.sideKept = true;
         c.ai.beams = d.beams;
         c.ai.braking = d.braking;
@@ -1655,13 +1766,67 @@ void TrackPage::carRows(ComputerCar& car) const {
     // Its side offset as driven (+0x7B8, aiMove: following the aim,
     // which moves 0.2 a step towards a new lane's middle), kept within
     // the walls.
-    float side = car.ai.sideKept ? car.ai.side : car.ai.offset;
+    float side = car.ai.sideKept ? car.ai.lateral : car.ai.offset;
     side = std::max(std::min(side, a.rightWall - halfWidth), halfWidth - a.leftWall);
+    // Across the road at a roadblock (0x403180: a quarter turn, 0.75 of a
+    // turn about y, on its slice): facing its left.
+    if (car.ai.across) {
+        const std::array<float, 3> r = unit(cross(normal, forward));
+        forward = {-r[0], -r[1], -r[2]};
+    }
     car.up = normal;
     car.right = unit(cross(normal, forward)); // left-handed: up x forward
     car.forward = cross(car.right, normal);
     for (int k = 0; k < 3; ++k)
         car.at[size_t(k)] = position[size_t(k)] + roadRight[size_t(k)] * side + normal[size_t(k)] * cm.halfSize[1];
+}
+
+void TrackPage::dispatchCop() {
+    const int n = static_cast<int>(collision_.road.size());
+    if (!computerCars_ || !carDump_.empty() || n < 2)
+        return;
+    for (ComputerCar& c : cars_) {
+        if (!c.ai.cop)
+            continue;
+        auto sliceDiff = [&](int a, int b) {
+            int d = a - b;
+            if (d > n / 2)
+                d -= n;
+            else if (d < -(n / 2))
+                d += n;
+            return d;
+        };
+        int racer = -1, best = n;
+        for (size_t i = 0; i < cars_.size(); ++i)
+            if (cars_[i].ai.racer && std::abs(sliceDiff(cars_[i].ai.slice, c.ai.slice)) < best) {
+                best = std::abs(sliceDiff(cars_[i].ai.slice, c.ai.slice));
+                racer = static_cast<int>(i);
+            }
+        // Orders go to a free cop: the chase is dropped.
+        c.ai.chasing = -1;
+        c.ai.holding = c.ai.reversing = c.ai.across = false;
+        c.ai.copState = 1;
+        switch (dispatchNext_) {
+        case 0:
+            c.ai.stripOn = false;
+            aiOrderStrip(c.ai, racer, n);
+            c.ai.radio = 0x40b910;
+            break;
+        case 1:
+            aiOrderRoadblock(c.ai, racer, ((c.ai.slice + 20 * c.ai.way) % n + n) % n);
+            c.ai.radio = 0x40b860;
+            break;
+        default:
+            c.ai.stripOn = c.ai.stripWanted = c.ai.blockWatch = false;
+            c.ai.siren = false;
+            aiOrderPatrol(c.ai);
+            c.ai.radio = 0;
+            break;
+        }
+        c.ai.radioStep = aiStep_;
+        dispatchNext_ = (dispatchNext_ + 1) % 3;
+        break;
+    }
 }
 
 // The cars driven as the computer drives (aiStep), 64 steps a second, in
@@ -1696,6 +1861,7 @@ void TrackPage::moveCars(float dt) {
         ai.clear();
         for (ComputerCar& c : cars_) {
             c.ai.slice = static_cast<int>(std::floor(c.slice)) % n;
+            c.ai.along = c.slice - std::floor(c.slice);
             ai.push_back(c.ai);
         }
         // The catch-up (0x404c80, 0x4090a0): how many racers are ahead of
@@ -1734,16 +1900,19 @@ void TrackPage::moveCars(float dt) {
                 c.siren = c.ai.siren;
             // 0x4b8740: the fog beams' picture moves by int(speed + 1) a step.
             c.beamScroll = (c.beamScroll + static_cast<int>(c.speed + 1)) & 0x7ff;
-            float left = c.speed / kGameTicksPerSecond; // metres to go this step
+            // Metres to go this step, backwards along its way while
+            // reversing (a speed under 0).
+            float left = std::fabs(c.speed) / kGameTicksPerSecond;
+            const int dir = c.speed < 0 ? -c.way : c.way;
             for (int guard = 0; left > 0 && guard < 64; ++guard) {
                 const int at = static_cast<int>(std::floor(c.slice)) % n;
                 const auto& a = road[size_t(at)].position;
                 const auto& b = road[size_t((at + 1) % n)].position;
                 const float length = std::max(std::hypot(b[0] - a[0], b[1] - a[1], b[2] - a[2]), 0.01f);
                 const float t = c.slice - std::floor(c.slice);
-                const float room = c.way > 0 ? (1 - t) * length : (t > 0 ? t : 1) * length;
+                const float room = dir > 0 ? (1 - t) * length : (t > 0 ? t : 1) * length;
                 const float step = std::min(left, room);
-                c.slice += static_cast<float>(c.way) * step / length;
+                c.slice += static_cast<float>(dir) * step / length;
                 left -= step;
                 if (c.slice < 0)
                     c.slice += static_cast<float>(n);
@@ -1751,6 +1920,7 @@ void TrackPage::moveCars(float dt) {
                     c.slice -= static_cast<float>(n);
             }
             ai[i].slice = static_cast<int>(std::floor(c.slice)) % n;
+            ai[i].along = c.slice - std::floor(c.slice);
         }
     }
     for (ComputerCar& c : cars_)
@@ -1965,7 +2135,8 @@ void TrackPage::prepareCars(const gfx::Vec3& eye, const gfx::Vec3& forward, cons
         if (c.envMesh && reflections_ && envPicture_) {
             const int slice = n > 0 ? static_cast<int>(std::floor(c.slice)) % n : 0;
             const CarReflection refl =
-                carReflection(c.colour, sky, cm.paintValue, n > 0 ? coverDepth(collision_, slice, c.at) : 0);
+                carReflection(c.colour, sky, c.paintValue >= 0 ? c.paintValue : cm.paintValue,
+                              n > 0 ? coverDepth(collision_, slice, c.at) : 0);
             const uint32_t normal = dimLight(refl.normal, lightIntensity_), strong = dimLight(refl.strong, lightIntensity_);
             const auto frame = reflectionFrame({camera[0] - c.at[0], camera[1] - c.at[1], camera[2] - c.at[2]});
             std::vector<gfx::Vertex> env(cm.envFrom.size());
@@ -2109,6 +2280,23 @@ void TrackPage::prepareCars(const gfx::Vec3& eye, const gfx::Vec3& forward, cons
     }
     carGlowQuads_ = uploadQuads(glows, carGlowMesh_, carGlowCapacity_);
     carFlareQuads_ = uploadQuads(flares, carFlareMesh_, carFlareCapacity_);
+    // The strips laid (spike_lay 0x4c9dd0): a bar across the lane's middle,
+    // 1.5 lane widths long, on the road at the strip's slice.
+    std::vector<gfx::Vertex> strips;
+    for (const ComputerCar& c : cars_) {
+        if (!c.ai.stripOn || n < 2)
+            continue;
+        const auto& p = collision_.road[size_t(((c.ai.stripSlice % n) + n) % n)];
+        float from = 0, to = 0;
+        aiStripSpan(p, c.ai.stripLane, from, to);
+        for (const auto& [side, along] : {std::pair{from, -0.3f}, std::pair{to, -0.3f}, std::pair{to, 0.3f}, std::pair{from, 0.3f}}) {
+            std::array<float, 3> at{};
+            for (size_t k = 0; k < 3; ++k)
+                at[k] = p.position[k] + p.right[k] * side + p.forward[k] * along + p.normal[k] * 0.05f;
+            strips.push_back(vertex(at, 0, 0, 0xff303030u));
+        }
+    }
+    stripQuads_ = uploadQuads(strips, stripMesh_, stripCapacity_);
     carBeamQuads_ = uploadQuads(beams, carBeamMesh_, carBeamCapacity_);
 }
 
@@ -2117,6 +2305,19 @@ void TrackPage::prepareCars(const gfx::Vec3& eye, const gfx::Vec3& forward, cons
 void TrackPage::drawCars(const gfx::DrawCall& base) {
     if (!computerCars_)
         return;
+    if (stripMesh_ && stripQuads_) {
+        gfx::DrawCall strip = base;
+        strip.mesh = stripMesh_;
+        strip.model = gfx::identity();
+        strip.texture = 0;
+        strip.rgbSource = gfx::ColorSource::Vertex;
+        strip.color = {1, 1, 1, 1};
+        strip.state.cull = gfx::Cull::None;
+        strip.state.depthBias = true;
+        strip.firstIndex = 0;
+        strip.indexCount = stripQuads_ * 6;
+        renderer_->draw(strip);
+    }
     gfx::DrawCall car = base;
     car.rgbSource = gfx::ColorSource::Vertex;
     car.color = {1, 1, 1, 1};
@@ -2129,7 +2330,7 @@ void TrackPage::drawCars(const gfx::DrawCall& base) {
             continue;
         const CarModel& cm = carModels_[size_t(c.model)];
         car.mesh = c.mesh;
-        car.texture = textured_ ? cm.skin : 0;
+        car.texture = textured_ ? carSkin(size_t(c.model), c.paint) : 0;
         // Track rows into the world (z negated); the model's z is stored
         // negated, so its column is the forward negated, then flipped.
         gfx::Mat4 m = gfx::identity();
@@ -2639,6 +2840,7 @@ void TrackPage::handleEvent(const Event& ev) {
         case '3': detail_ = 2; break;
         case '4': detail_ = 3; break;
         case 'k': allBlocks_ = !allBlocks_; break;
+        case 'c': dispatchCop(); break;
         case 'z': reflections_ = !reflections_; break;
         case 'q': sfxLevel_ = (sfxLevel_ + 1) % 3; break;
         case 'j':
@@ -3035,6 +3237,19 @@ void TrackPage::update(uint64_t nowMs) {
             light.state.depthWrite = false;
             light.state.depthBias = true;
             for (const LightRun& run : lightRuns_) {
+                // Fogged as the scenery: the game's raised corners are the
+                // polygon's own colours, fogged with it (black here, as this
+                // is added over the fogged polygon); the projected picture
+                // is a polygon of its own, which Glide mixes towards the fog
+                // colour before adding it. Until November 2026 neither was
+                // fogged, so by night the lit scenery lacked the fog's
+                // darkening (d5-wheel: 25-35 % too bright at 43 m in
+                // Hometown's density 60).
+                if (sceneryFog > 0) {
+                    fogDraw(light, sceneryFog);
+                    if (!run.picture)
+                        light.tableFogColor = {0, 0, 0};
+                }
                 light.texture = run.picture || textured_ ? run.texture : 0;
                 light.alphaSource = run.picture ? gfx::ColorSource::Vertex : gfx::ColorSource::Constant;
                 light.state.src = run.picture ? gfx::Blend::SrcAlpha : gfx::Blend::One;
@@ -3102,6 +3317,12 @@ void TrackPage::update(uint64_t nowMs) {
         glow.state.dst = gfx::Blend::One;
         glow.firstIndex = 0;
         glow.indexCount = carGlowQuads_ * 6;
+        // Fogged as the scenery (the game sends them with the frame's fog
+        // state, d5-fog's THRASH list: fog 75 on the glows and flares as on
+        // the car): Glide mixes each pixel towards the fog colour before
+        // adding it, so in fog a glow's dark edges add the fog's colour.
+        if (sceneryFog > 0)
+            fogDraw(glow, sceneryFog);
         renderer_->draw(glow);
     }
     // The rain's flares on the road (glw4) and the fog's beams (glw1),
@@ -3121,6 +3342,8 @@ void TrackPage::update(uint64_t nowMs) {
         add.state.dst = gfx::Blend::One;
         add.firstIndex = 0;
         add.indexCount = quads * 6;
+        if (sceneryFog > 0)
+            fogDraw(add, sceneryFog);
         renderer_->draw(add);
     }
     if (marksShown_)
@@ -3185,6 +3408,38 @@ void TrackPage::update(uint64_t nowMs) {
                     (lightTest_ ? "" : " (no light test)");
         }
         lines.push_back(line);
+        if (computerCars_ && carDump_.empty())
+            for (const ComputerCar& c : cars_) {
+                if (!c.ai.cop)
+                    continue;
+                // The police car's state (+0x70C) and its last radio call,
+                // for 5 s (the stand-in plays no speech).
+                static constexpr const char* kStates[] = {"",
+                                                          "patrol",
+                                                          "to its order",
+                                                          "to the roadside",
+                                                          "stopped at the roadside",
+                                                          "chasing",
+                                                          "stopping a racer",
+                                                          "run with the siren",
+                                                          "to a roadblock",
+                                                          "slowing for it",
+                                                          "at the roadblock",
+                                                          "across the road"};
+                std::string cop = std::string("police: ") + kStates[std::clamp(c.ai.copState, 0, 11)];
+                if (c.ai.reversing)
+                    cop += ", reversing";
+                if (c.ai.stripOn)
+                    cop += ", strip out at slice " + std::to_string(c.ai.stripSlice);
+                int tickets = 0;
+                for (const ComputerCar& o : cars_)
+                    tickets += o.ai.tickets;
+                if (tickets)
+                    cop += ", " + std::to_string(tickets) + " ticket" + (tickets > 1 ? "s" : "");
+                if (c.ai.radio && aiStep_ - c.ai.radioStep < 5 * kGameTicksPerSecond)
+                    cop += std::string("  radio: ") + aiRadioCall(c.ai.radio);
+                lines.push_back(cop);
+            }
         if (!hitText_.empty())
             lines.push_back(hitText_ + "  (" + std::to_string(particles_.live()) + " particles)");
         if (!skyError_.empty())
@@ -3192,7 +3447,7 @@ void TrackPage::update(uint64_t nowMs) {
         if (!collisionError_.empty())
             lines.push_back(collisionError_);
     }
-    lines.push_back("PgUp/PgDn: track  WASD/arrows/drag: move  N/B: block  1-3: detail  H: sky  I: lights  P: wall hit  E: headlights  J: cars  Z: reflections  Q: effects  U: mirror  T V L O G X F Y M: toggles");
+    lines.push_back("PgUp/PgDn: track  WASD/arrows/drag: move  N/B: block  1-3: detail  H: sky  I: lights  P: wall hit  E: headlights  J: cars  C: police orders  Z: reflections  Q: effects  U: mirror  T V L O G X F Y M: toggles");
     for (size_t i = 0; i < lines.size(); ++i) {
         const int y = i + 1 == lines.size() ? kFrameH - font::kLineHeight - 4 : 4 + static_cast<int>(i) * font::kLineHeight;
         for (int yy = y - 2; yy < y + font::kLineHeight - 1; ++yy)

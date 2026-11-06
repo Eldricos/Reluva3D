@@ -769,29 +769,45 @@ namespace {
 // critical damping; the rest is the road and the heading, not modelled).
 constexpr float kAiSideSpring = 100.0f, kAiSideDamping = 14.0f, kAiSideAccel = 70.0f;
 
-// The aim and the speed each step (0x408870, 0x4066c0 with 0x4064f0 and
-// 0x4063e0).
-void aiMove(AiCar& me, const AiCarData& data, bool weather) {
-    // ai_lane_ramp (0x408870): the aim 0.2 a step towards it.
+// The aim and the speed (0x408870, 0x4066c0 with 0x4064f0 and 0x4063e0),
+// for one step of 64 a second. The computer's model (car_ai_physics
+// 0x4088f0) is a 32 Hz task: on the even steps only, its time step
+// 0x56ec58 1/32 s, so the aim moves 0.2 every other step (3.2 in the
+// half second, as t6-log's dumps have it). The side offset as driven is
+// the car's own motion, every step.
+void aiMove(AiCar& me, const AiCarData& data, bool weather, int step, float chord) {
+    // The side offset as driven (+0x7B8): the side controller of 0x4076b0
+    // pulls the car towards the aim, the heading term damping it; here a
+    // spring and damper fitted to nfs-host's car 1 on Hometown (frd.md).
+    // What it steers by is the offset as the game measures it (0x4a2bc0:
+    // the car's place less its slice's road point, along the road's right
+    // there), which moves by the road's bend across the slice (`chord`)
+    // while the car's own place across the road (`lateral`) doesn't.
+    if (!me.sideKept) {
+        me.side = me.offset;
+        me.lateral = me.side - me.along * chord;
+        me.sideSpeed = 0;
+        me.sideKept = true;
+    } else {
+        me.side = me.lateral + me.along * chord;
+        const float limit = kAiSideAccel * (1 + 0.0015f * me.speed);
+        const float a = std::clamp(kAiSideSpring * (me.offset - me.side) - kAiSideDamping * me.sideSpeed, -limit, limit);
+        me.sideSpeed += a / 64.0f;
+        me.lateral += me.sideSpeed / 64.0f;
+        me.side = me.lateral + me.along * chord;
+    }
+    if ((step & 1) != 0)
+        return;
+    // ai_lane_ramp (0x408870): the aim 0.2 a call towards it; then
+    // ai_reverse_end: reversing, the aim is the road's point.
     if (me.offset < me.target)
         me.offset = std::min(me.offset + 0.2f, me.target);
     else
         me.offset = std::max(me.offset - 0.2f, me.target);
-    // The side offset as driven (+0x7B8): the side controller of 0x4076b0
-    // pulls the car towards the aim, the heading term damping it; here a
-    // spring and damper fitted to nfs-host's car 1 on Hometown (frd.md).
-    if (!me.sideKept) {
-        me.side = me.offset;
-        me.sideSpeed = 0;
-        me.sideKept = true;
-    } else {
-        const float limit = kAiSideAccel * (1 + 0.0015f * me.speed);
-        const float a = std::clamp(kAiSideSpring * (me.offset - me.side) - kAiSideDamping * me.sideSpeed, -limit, limit);
-        me.sideSpeed += a / 64.0f;
-        me.side += me.sideSpeed / 64.0f;
-    }
+    if (me.reversing)
+        me.offset = 0;
     // The speed (0x4066c0): towards the speed wanted by the acceleration
-    // (0x4064f0) or the brakes (0x4063e0), not past it.
+    // (0x4064f0) or the brakes (0x4063e0), not past it, over 1/32 s.
     const float error = me.wanted - me.speed;
     if (error > 0) {
         me.braking = false;
@@ -803,7 +819,7 @@ void aiMove(AiCar& me, const AiCarData& data, bool weather) {
         a *= 0.9f; // ai Normal past race distance 100
         if (weather && at < 45)
             a *= 0.9f;
-        me.speed = std::min(me.speed + a / 64.0f, me.wanted);
+        me.speed = std::min(me.speed + a / 32.0f, me.wanted);
     } else {
         float b = data.maxBrake;
         if (me.cop)
@@ -811,21 +827,42 @@ void aiMove(AiCar& me, const AiCarData& data, bool weather) {
         else
             b *= 1.25f; // an AI racer (+0x200 bit 8)
         me.braking = error <= -5.0f;
-        me.speed = std::max(me.speed - b / 64.0f, me.wanted);
+        me.speed = std::max(me.speed - b / 32.0f, me.wanted);
     }
 }
 
+// How far the road's line moves across from a slice's point to the
+// next's, along the slice's right (unit): the measured side offset of a
+// car going straight on gains that much over the slice.
+float aiChord(const TrackCollision& col, int slice) {
+    const int n = static_cast<int>(col.road.size());
+    if (n < 2)
+        return 0;
+    const auto& a = col.road[size_t(((slice % n) + n) % n)];
+    const auto& b = col.road[size_t(((slice + 1) % n + n) % n)];
+    float d = 0, r = 0;
+    for (size_t k = 0; k < 3; ++k) {
+        d += (b.position[k] - a.position[k]) * a.right[k];
+        r += a.right[k] * a.right[k];
+    }
+    return r > 0 ? d / std::sqrt(r) : 0;
+}
+
 // What a cop's driver does this call (car_driver_cop 0x4032e0): the
-// section's speed x k (cop_ai_drive) or the chase's (0x402420).
+// section's speed x k + plus (cop_ai_drive, ai_speed_wanted_section), the
+// chase's (cop_ai_chase, 0x402420), the way to the roadside (state 3), or
+// only its lanes (state 10 with a racer near); or a racer pulling over
+// (its state 5: 0x408b30, 0x408bd0).
 struct CopCall {
-    float k = 1.19f;
+    enum Kind { Section, Chase, Roadside, LanesOnly, PullOver } kind = Section;
+    float k = 1.19f, plus = 0;
     bool chase = false;
 };
 
 // One step of the computer's driving: as a racer (cop null), or a cop's
 // driver's call.
 void aiDrive(std::vector<AiCar>& cars, size_t self, const TrackCollision& col, const std::vector<uint8_t>& speeds,
-             const AiCarData& data, int step, int track, bool weather, const CopCall* cop) {
+             const AiCarData& data, int step, int track, bool /*weather*/, const CopCall* cop) {
     const int n = static_cast<int>(col.road.size());
     if (n < 2 || self >= cars.size())
         return;
@@ -848,7 +885,9 @@ void aiDrive(std::vector<AiCar>& cars, size_t self, const TrackCollision& col, c
 
     // lane_votes_start (0x40dd60): the car's lanes (0x40e350).
     if (!me.sideKept)
-        me.side = me.offset;
+        me.side = me.lateral = me.offset;
+    else
+        me.side = me.lateral + me.along * aiChord(col, me.slice);
     me.lane = aiLaneAt(here, me.side);
     me.laneLeft = aiLaneAt(here, me.side - me.halfWidth + 0.5f);
     me.laneRight = aiLaneAt(here, me.side + me.halfWidth - 0.5f);
@@ -871,7 +910,7 @@ void aiDrive(std::vector<AiCar>& cars, size_t self, const TrackCollision& col, c
     }
     // 0x40cfc0: the nearest car ahead and behind in each of the three
     // lanes, within the speed's reach in slices (at least 10).
-    const int reach = std::max(static_cast<int>(me.speed * 2.0f * 0.1667f), 10);
+    const int reach = std::max(static_cast<int>(std::fabs(me.speed) * 2.0f * 0.1667f), 10);
     std::array<const AiCar*, 3> carAhead{}, carBehind{};
     std::array<int, 3> aheadBy{reach, reach, reach}, behindBy{-reach, -reach, -reach};
     std::array<bool, 3> aheadCentre{}, behindCentre{};
@@ -907,6 +946,33 @@ void aiDrive(std::vector<AiCar>& cars, size_t self, const TrackCollision& col, c
         }
     }
     auto along = [](const AiCar& c) { return static_cast<float>(c.way) * c.speed; }; // +0x7C0
+    const CopCall::Kind kind = cop ? cop->kind : CopCall::Section;
+    // The lane picked from the sums (lane_choose_best 0x40da30, the same
+    // lane on a tie) and its aim (0x40daf0).
+    auto choose = [&](int nudge) {
+        int sum[3] = {};
+        for (const auto& row : votes)
+            for (int c = 0; c < 3; ++c)
+                sum[c] += row[c];
+        int pick = lane, best = sum[1];
+        if (best < sum[0]) {
+            pick = lane - 1;
+            best = sum[0];
+        }
+        if (best < sum[2])
+            pick = lane + 1;
+        me.pick = std::clamp(pick, 0, 13);
+        me.target = aiLaneOffset(here, me.pick, me.halfWidth, me.way > 0 ? nudge : -nudge);
+    };
+    const bool atEdge = lane == 6 - leftLanes || lane == rightLanes + 7;
+    if (kind == CopCall::PullOver) {
+        // 0x408b30: 11 m/s until in the lane past the road's lanes, then 0;
+        // 0x408bd0: +150 for the nearer edge's lane, or its own there.
+        me.wanted = atEdge ? 0.0f : 11.0f;
+        vote(3, atEdge ? 1 : lane < 7 ? 0 : 2, 150);
+        choose(0);
+        return;
+    }
 
     // A cop's chase (0x401780): the slices to its target along its way,
     // which lane it is in (0x56ea64: 0 left, 1 the same, 2 right).
@@ -915,15 +981,43 @@ void aiDrive(std::vector<AiCar>& cars, size_t self, const TrackCollision& col, c
     const int toTarget = target ? sliceDiff(target->slice, me.slice) * me.way : 0;
     const int targetSide = target ? (target->lane < lane ? 0 : target->lane == lane ? 1 : 2) : 1;
     const float top = data.maxVelocity * (me.copFast ? 1.1f : 1.0f); // 0x401370
-    if (!cop) {
+    bool chaseSection = false; // cop_ai_chase gave the section's speed x 1.19
+    if (kind == CopCall::Chase && target) {
+        // cop_ai_chase (0x4025c0): within 16 slices, or with the target
+        // pulled over, 0x402420; else behind it the top speed, reversing
+        // ended (ai_reverse_set 1); 16 or more past it the section's
+        // speed x 1.19, facing the target's way (+0x621 bit 0x10 from
+        // 0x56ea5c).
+        const int off = std::abs(toTarget);
+        if (!target->pulledOver && off >= 16) {
+            if (toTarget >= 0) {
+                me.wanted = top;
+                me.reversing = false;
+            } else {
+                chaseSection = true;
+                if (target->way != me.way && target->speed >= 3.0f) {
+                    me.way = target->way;
+                    me.speed = 0;
+                    me.sideSpeed = 0;
+                }
+            }
+        }
+    }
+    if (kind == CopCall::LanesOnly) {
+        // the speed wanted as it was
+    } else if (kind == CopCall::Roadside) {
+        // State 3 (ai_speed_wanted_section with 0 and 6.5): 6.5 m/s.
+        me.wanted = std::min(6.5f, top);
+    } else if (!cop) {
         // car_ai_speed_wanted (0x409330): the table's speed for the slice
         // pair, by the scale, under the top speed cap by the track's factor.
         me.wanted = std::min(aiSlicesSpeed(speeds, me.slice) * std::min(me.scale, 1.0f),
                              data.topSpeedCap * aiTrackFactor(track));
-    } else if (!cop->chase || !target) {
-        // ai_speed_wanted_section (0x401430): the section's speed x k, at
-        // most the top speed.
-        me.wanted = std::min(trackSectionSpeed(track, me.slice) * cop->k, top);
+    } else if (kind != CopCall::Chase || !target || chaseSection) {
+        // ai_speed_wanted_section (0x401430): the section's speed x k + plus,
+        // at most the top speed.
+        const float k = chaseSection ? 1.19f : cop->k, plus = chaseSection ? 0.0f : cop->plus;
+        me.wanted = std::min(trackSectionSpeed(track, me.slice) * k + plus, top);
         // 0x40bff0: behind the car ahead in its lane going its way, slower
         // than it wants, at the speed's reach in slices (at least 4) or
         // nearer, its speed less 10 x the share of that reach it is in;
@@ -938,17 +1032,31 @@ void aiDrive(std::vector<AiCar>& cars, size_t self, const TrackCollision& col, c
                 me.wanted *= 0.4f;
             }
         }
-    } else {
-        // 0x402420: at the top speed more than 8 slices behind it or when
-        // it is faster, else closing by the slices; past it, x 0.5 its
-        // speed (x 0.2 for the car behind in its lane, 0x56ef54).
-        if (toTarget >= 0) {
+    } else if (std::abs(toTarget) < 16 || target->pulledOver) {
+        // 0x402420. Reversing (+0x7D4): behind it, the target's speed along
+        // the cop's way x (slices x 0.1 + 1); past it, slices x 5 (back).
+        // Else: at the top speed more than 8 slices behind it or when it is
+        // faster, else closing by the slices; past it, x 0.5 its speed (x
+        // 0.2 for the car behind in its lane, 0x56ef54), and when under 3
+        // m/s more than 7 slices past, reversing at 9.83 m/s
+        // (ai_reverse_set 0, 0xc11d5ac4).
+        const float targetAlong = target->speed * static_cast<float>(target->way * me.way);
+        if (me.reversing) {
+            if (toTarget >= 0)
+                me.wanted = targetAlong * (static_cast<float>(toTarget) * 0.1f + 1.0f);
+            else
+                me.wanted = static_cast<float>(toTarget) * 5.0f;
+        } else if (toTarget >= 0) {
             if (toTarget > 8 || top < target->speed)
                 me.wanted = top;
             else
                 me.wanted = static_cast<float>(toTarget) * (top - target->speed) * 0.125f + target->speed + 5.81139f;
         } else {
             me.wanted = target->speed * (carBehind[1] == target ? 0.2f : 0.5f);
+            if (me.speed < 3.0f && toTarget < -7) {
+                me.reversing = true;
+                me.wanted = -9.834f;
+            }
         }
     }
     // 0x404840: the lights flashed back (0x40deb0), then flashed again
@@ -1016,13 +1124,24 @@ void aiDrive(std::vector<AiCar>& cars, size_t self, const TrackCollision& col, c
         }
     }
     // lane_votes_ahead (0x40ddb0), at the slice the speed reaches.
-    int look = static_cast<int>(std::nearbyint(me.speed * 2.5f * (1.0f / 6.0f) - 0.5f));
+    int look = static_cast<int>(std::nearbyint(std::fabs(me.speed) * 2.5f * (1.0f / 6.0f) - 0.5f));
     if (look < 10)
         look = 9;
     const int far = ahead(look);
     const TrackCollision::RoadPoint& there = point(far);
+    const bool roadside = kind == CopCall::Roadside;
+    if (roadside) {
+        // 0x402d90: +100 for the nearer road edge's lane (its own off the
+        // road's lanes); the state's other rows are 0x40d720, 0x40d800 and
+        // 0x40d9f0 below.
+        if (6 - leftLanes <= lane && lane <= rightLanes + 7)
+            vote(3, lane < 7 ? 0 : 2, 100);
+        else
+            vote(3, 1, 100);
+    }
     // 0x40d2e0: back onto the road's lanes where they end ahead.
-    if (track == 6 && me.way > 0 && !cop && me.slice >= 0x127 && me.slice <= 0x168) {
+    if (roadside) {
+    } else if (track == 6 && me.way > 0 && !cop && me.slice >= 0x127 && me.slice <= 0x168) {
         vote(2, 0, -40);
     } else if ((lane < 7 - there.leftLanes() || lane > there.rightLanes() + 6) && 7 - leftLanes <= lane &&
                lane <= rightLanes + 6) {
@@ -1031,7 +1150,7 @@ void aiDrive(std::vector<AiCar>& cars, size_t self, const TrackCollision& col, c
     // 0x40d1f0: no road in a lane here (-1000, and a nudge away), or
     // ahead (-65).
     int nudge = 0;
-    {
+    if (!roadside) {
         std::vector<int> slices{me.slice}; // up to the slice reached, not it
         bool reached = false;
         if (far != me.slice)
@@ -1055,7 +1174,7 @@ void aiDrive(std::vector<AiCar>& cars, size_t self, const TrackCollision& col, c
             }
     }
     // 0x40d3d0: the lanes past the road's edges, and off it.
-    {
+    if (!roadside) {
         const float leftRoom = here.leftWall - static_cast<float>(leftLanes) * here.extra[1] * 0.5f;
         const float rightRoom = here.rightWall - static_cast<float>(rightLanes) * here.extra[2] * 0.5f;
         auto edge = [&](int l) { return l == 6 - leftLanes || l == rightLanes + 7; };
@@ -1069,6 +1188,21 @@ void aiDrive(std::vector<AiCar>& cars, size_t self, const TrackCollision& col, c
         for (int c = 0; c < 3; ++c)
             if (off(lane - 1 + c))
                 vote(3, c, -1000);
+    }
+    // 0x40d720: a lane with a strip laid 1-5 slices ahead (0x7dd850's
+    // records, by its cop) -50; in its own lane the speed wanted x 0.9.
+    for (const AiCar& c : cars) {
+        if (!c.stripOn)
+            continue;
+        const int d = sliceDiff(c.stripSlice, me.slice) * me.way;
+        if (d <= 0 || d >= 6)
+            continue;
+        for (int k = 0; k < 3; ++k)
+            if (lane + k - 1 == c.stripLane) {
+                vote(5, k, -50);
+                if (k == 1)
+                    me.wanted *= 0.9f;
+            }
     }
     // 0x40d800: against lanes with slower cars ahead within 10, and cars
     // coming the other way, by the time to meet them.
@@ -1118,7 +1252,7 @@ void aiDrive(std::vector<AiCar>& cars, size_t self, const TrackCollision& col, c
             ;
         else if (target->way != me.way)
             votes[6][targetSide] += 70;
-        else if (toTarget > 5)
+        else if (toTarget > 5 || target->pulledOver)
             votes[13][targetSide] += 10;
         else if (targetSide == 0) {
             votes[13][1] += 30;
@@ -1132,34 +1266,70 @@ void aiDrive(std::vector<AiCar>& cars, size_t self, const TrackCollision& col, c
             votes[13][1] += 30;
         }
     }
-    // lane_choose_best (0x40da30): the sums, the same lane on a tie.
-    int sum[3] = {};
-    for (const auto& row : votes)
-        for (int c = 0; c < 3; ++c)
-            sum[c] += row[c];
-    int pick = lane, best = sum[1];
-    if (best < sum[0]) {
-        pick = lane - 1;
-        best = sum[0];
-    }
-    if (best < sum[2])
-        pick = lane + 1;
-    me.pick = std::clamp(pick, 0, 13);
-    me.target = aiLaneOffset(here, me.pick, me.halfWidth, me.way > 0 ? nudge : -nudge);
+    // lane_choose_best (0x40da30) and the aim.
+    choose(nudge);
     // A cop near its slower target steers at it (0x402750 sets +0x711
     // bit 2 under 15.65 m/s or on its slice; 0x406b60 within 4 slices):
     // its aim its side offset.
-    if (cop && cop->chase && target && (target->speed < 15.64605f || toTarget == 0) && std::abs(toTarget) <= 4)
+    if (cop && cop->chase && target && ((target->speed < 15.64605f && !me.reversing) || toTarget == 0) &&
+        std::abs(toTarget) <= 4)
         me.target = target->side;
-    if (!cop)
-        aiMove(me, data, weather);
 }
 
 } // namespace
 
 void aiStep(std::vector<AiCar>& cars, size_t self, const TrackCollision& col, const std::vector<uint8_t>& speeds,
             const AiCarData& data, int step, int track, bool weather) {
-    aiDrive(cars, self, col, speeds, data, step, track, weather, nullptr);
+    if (self >= cars.size())
+        return;
+    // car_driver_ai (0x409c00) goes through the same gate as the cops'
+    // driver (0x40df10 -> 0x401240): a 32 Hz task let through when
+    // (step / 2 + car +0) mod 4 is 0, so it acts every 8 steps.
+    AiCar& me = cars[self];
+    if (aiDriverActs(me, step)) {
+        auto copsOn = [&]() {
+            int on = 0;
+            for (const AiCar& c : cars)
+                on += c.cop && c.chasing == static_cast<int>(self) ? 1 : 0;
+            return on;
+        };
+        // Its states (+0x6E0): 1 racing until its record is pulled over
+        // (cop_target_is_stopped_ 0x401500), then 5 for 320 steps at most
+        // (+0x6EC), pulling over to the road's edge (0x408b30, 0x408bd0),
+        // 6 stopped once under 3 m/s, back to 1 when the ticket clears the
+        // record; with no cops on the record back to 1 (0x409b40).
+        if (me.pursuit == 1 && me.pulledOver) {
+            me.pursuit = 5;
+            me.pullUntil = step + 320;
+        }
+        if (me.pursuit == 5) {
+            CopCall pull;
+            pull.kind = CopCall::PullOver;
+            aiDrive(cars, self, col, speeds, data, step, track, weather, &pull);
+            if (std::fabs(me.speed) < 3.0f || me.pullUntil < step) {
+                if (copsOn() == 0) {
+                    me.pursuit = 1;
+                    me.pulledOver = false;
+                } else
+                    me.pursuit = 6;
+            }
+        } else if (me.pursuit == 6) {
+            me.wanted = 0;
+            me.speed *= 0.5f; // car_stop_hard
+            if (!me.pulledOver)
+                me.pursuit = 1;
+            if (copsOn() == 0) {
+                me.pursuit = 1;
+                me.pulledOver = false;
+            }
+        } else
+            aiDrive(cars, self, col, speeds, data, step, track, weather, nullptr);
+    }
+    aiMove(me, data, weather, step, aiChord(col, me.slice));
+}
+
+bool aiDriverActs(const AiCar& car, int step) {
+    return (step & 1) == 0 && ((step / 2 + car.phase) & 3) == 0;
 }
 
 float trackSectionSpeed(int track, int slice) {
@@ -1237,6 +1407,99 @@ float aiCatchUpFactor(const AiRace& race, int distance, int place) {
     return f;
 }
 
+namespace {
+
+// t_ticket_times (0x5521ac), by tickets: the slices a chase is given up
+// past (+4 with +0x711 bit 1), the steps a racer is then free of chases
+// (+8) and the steps a ticket takes (+0xC).
+struct TicketTimes {
+    int giveUp, giveUpFast, free, wait;
+};
+constexpr TicketTimes kTicketTimes[8] = {{50, 65, 960, 384}, {50, 65, 960, 384}, {70, 75, 896, 384}, {70, 85, 768, 384},
+                                         {90, 105, 640, 384}, {90, 105, 576, 448}, {90, 115, 512, 448}, {90, 115, 512, 448}};
+const TicketTimes& ticketTimes(int tickets) { return kTicketTimes[std::clamp(tickets, 0, 7)]; }
+
+// A car's place in the track (its slice's point, on towards the next by
+// `along`, its side offset along the right), for the distances the cops'
+// tests take (dist_approx).
+std::array<float, 3> aiPlace(const TrackCollision& col, const AiCar& c) {
+    const int n = static_cast<int>(col.road.size());
+    const auto& a = col.road[size_t(((c.slice % n) + n) % n)];
+    const auto& b = col.road[size_t(((c.slice + 1) % n + n) % n)];
+    std::array<float, 3> out{};
+    for (size_t k = 0; k < 3; ++k)
+        out[k] = a.position[k] + (b.position[k] - a.position[k]) * c.along + a.right[k] * c.lateral;
+    return out;
+}
+
+float aiDistance(const TrackCollision& col, const AiCar& a, const AiCar& b) {
+    const auto p = aiPlace(col, a), q = aiPlace(col, b);
+    return std::sqrt((p[0] - q[0]) * (p[0] - q[0]) + (p[1] - q[1]) * (p[1] - q[1]) + (p[2] - q[2]) * (p[2] - q[2]));
+}
+
+void radioCall(AiCar& cop, uint32_t call, int step) {
+    cop.radio = call;
+    cop.radioStep = step;
+}
+
+} // namespace
+
+const char* aiRadioCall(uint32_t call) {
+    switch (call) {
+    case 0x40b220: return "in pursuit (a cop takes a target)";
+    case 0x40b670: return "suspect ticketed";
+    case 0x40b720: return "requesting backup";
+    case 0x40b910: return "requesting a spike strip";
+    case 0x40b860: return "requesting a roadblock";
+    case 0x40b9c0: return "spike strip laid";
+    case 0x40bac0: return "roadblock in place";
+    case 0x40bca0: return "suspect missed the strip";
+    case 0x40bd00: return "suspect ran the roadblock";
+    case 0x40b480: return "lost him";
+    default: return "";
+    }
+}
+
+void aiStripSpan(const TrackCollision::RoadPoint& p, int lane, float& from, float& to) {
+    const float width = static_cast<float>(lane < 7 ? p.extra[1] : p.extra[2]) * 0.5f;
+    const float middle = lane < 7 ? -(static_cast<float>(6 - lane) + 0.5f) * width : (static_cast<float>(lane - 7) + 0.5f) * width;
+    from = middle - 0.75f * width;
+    to = middle + 0.75f * width;
+}
+
+void aiOrderStrip(AiCar& cop, int racer, int sliceCount) {
+    int from = cop.slice - 6;
+    if (from < 0)
+        from += sliceCount;
+    cop.orderKind = 0;
+    cop.orderTaken = false;
+    cop.orderFrom = from;
+    cop.orderLength = 3;
+    cop.orderAgainst = false;
+    cop.watching = racer;
+    cop.blockWatch = false;
+    cop.stripWanted = true;
+}
+
+void aiOrderRoadblock(AiCar& cop, int racer, int slice) {
+    cop.orderKind = 4;
+    cop.orderTaken = false;
+    cop.orderFrom = slice;
+    cop.orderLength = 0;
+    cop.orderAgainst = false;
+    cop.watching = racer;
+    cop.siren = true;
+    cop.blockWatch = true;
+}
+
+void aiOrderPatrol(AiCar& cop) {
+    cop.orderKind = 2;
+    cop.orderTaken = false;
+    cop.orderFrom = cop.orderLength = 0;
+    cop.orderAgainst = (cop.index & 1) != 0;
+    cop.watching = -1;
+}
+
 void aiCopStep(std::vector<AiCar>& cars, size_t self, const TrackCollision& col, const AiCarData& data, int step,
                int track, bool weather) {
     const int n = static_cast<int>(col.road.size());
@@ -1251,63 +1514,402 @@ void aiCopStep(std::vector<AiCar>& cars, size_t self, const TrackCollision& col,
             d += n;
         return d;
     };
+    auto inRange = [&](int slice) { // 0x40f000: from to from + length, round the track
+        const int from = me.orderFrom;
+        int to = from + me.orderLength;
+        if (me.orderLength < 0 && to < 0)
+            to += n;
+        else if (to >= n)
+            to -= n;
+        if (to < from)
+            return slice >= from || slice <= to;
+        return from <= slice && slice <= to;
+    };
+    // cop_ai_order_head (0x403000, 0x4028e0): facing the order's first
+    // slice; the page turns the car on the spot.
+    auto face = [&](bool against) {
+        const int way = against ? -1 : 1;
+        if (me.way != way) {
+            me.way = way;
+            me.speed = 0;
+            me.sideSpeed = 0;
+            me.reversing = false;
+        }
+    };
+    auto head = [&]() { face(sliceDiff(me.orderFrom, me.slice) < 0); };
+    auto target = [&]() -> AiCar* {
+        return me.chasing >= 0 && static_cast<size_t>(me.chasing) < cars.size() ? &cars[size_t(me.chasing)] : nullptr;
+    };
+    // cop_lose_target (0x401a80): the chase given up, the siren off.
+    auto lose = [&]() {
+        me.chasing = -1;
+        me.siren = false;
+        me.holding = false;
+        me.reversing = false;
+    };
+    // cop_set_target (0x4018b0): the chase begins, the siren on; the only
+    // cop on the racer radios (0x40b220 from 0x404070).
+    auto setTarget = [&](int racer) {
+        me.chasing = racer;
+        me.copState = 5;
+        me.siren = true;
+        me.across = false;
+        radioCall(me, 0x40b220, step);
+    };
+    // The strip's hits (0x4297d0 each step, 0x4ca160): a racer in the
+    // race on its slice, its wheels within the strip's span, runs over it:
+    // the strip cleared (0x4c9f50), the racer pulled over (spike_hit_racer
+    // 0x401650: its record's +0x1C = 2) and, when it has been over the
+    // section's speed by more than 2 m/s (+0x6F0; here its speed now),
+    // the strip's cop takes it as its target, the record's +0x28 = step +
+    // 320.
+    if (me.stripOn) {
+        const auto& p = col.road[size_t(((me.stripSlice % n) + n) % n)];
+        float from = 0, to = 0;
+        aiStripSpan(p, me.stripLane, from, to);
+        for (size_t i = 0; i < cars.size(); ++i) {
+            AiCar& o = cars[i];
+            if (!o.racer || o.slice != me.stripSlice || o.side + o.halfWidth < from || o.side - o.halfWidth > to)
+                continue;
+            me.stripOn = me.stripNear = me.stripWanted = false;
+            o.pulledOver = true;
+            if (!target() && o.speed > trackSectionSpeed(track, o.slice) + 2.0f) {
+                setTarget(static_cast<int>(i));
+                o.recordStep = step + 320;
+            }
+            break;
+        }
+    }
     // 0x40df10 -> 0x401240: the driver acts every 8 steps, on its phase.
-    if (((step / 2 + me.phase) & 3) == 0 && (step & 1) == 0) {
+    if (aiDriverActs(me, step)) {
         if (me.copState == 0)
             me.copState = me.siren ? 7 : 1;
-        if (me.copState == 5) {
-            const AiCar* t = me.chasing >= 0 && static_cast<size_t>(me.chasing) < cars.size() ? &cars[size_t(me.chasing)]
-                                                                                           : nullptr;
-            // Lost past the table's slices (0x5521ac +4: 50 with no tickets).
-            if (!t || std::abs(sliceDiff(t->slice, me.slice)) > 50) {
-                me.chasing = -1;
-                me.copState = 1;
-                me.siren = false;
-            } else if (t->speed >= 3.0f && t->way != me.way) {
-                // 0x402910: turned to the target's way when it isn't more
-                // than 12 slices past it that way; the page turns it on the
-                // spot, from standing.
-                if (sliceDiff(me.slice, t->slice) * t->way < 12) {
-                    me.way = t->way;
-                    me.speed = 0;
-                    me.sideSpeed = 0;
-                }
+        // cop_ai_spike_watch (0x403df0): radio once as the watched racer
+        // comes within 30 slices of the strip, clear it 50 past.
+        if (me.stripOn && me.watching >= 0 && static_cast<size_t>(me.watching) < cars.size()) {
+            const int d = sliceDiff(me.stripSlice, cars[size_t(me.watching)].slice);
+            if (d < 0 && d > -30 && !me.stripNear) {
+                me.stripNear = true;
+                radioCall(me, 0x40bca0, step);
+            }
+            if (d < -49 && d > -(n / 4)) {
+                me.stripOn = me.stripWanted = false;
+                aiOrderPatrol(me);
             }
         }
+        // cop_ai_block_watch (0x403ed0): the watched racer 5 slices past.
+        if (me.blockWatch && me.watching >= 0 && static_cast<size_t>(me.watching) < cars.size()) {
+            const int d = sliceDiff(me.slice, cars[size_t(me.watching)].slice);
+            if (d < -4 && d > -(n / 4)) {
+                if (d > -20 && me.copState == 10)
+                    radioCall(me, 0x40bd00, step);
+                me.blockWatch = false;
+                me.across = false;
+                aiOrderPatrol(me);
+            }
+        }
+        // A new order (cop_ai_order_is_new, cop_ai_order_start 0x403030).
+        auto orderStart = [&]() {
+            switch (me.orderKind) {
+            case 0:
+                if (inRange(me.slice))
+                    me.copState = 3;
+                else {
+                    head();
+                    me.copState = 1;
+                }
+                break;
+            case 1:
+                me.copState = 2;
+                break;
+            case 3:
+                if (!inRange(me.slice)) {
+                    head();
+                    if (me.copState != 7) {
+                        me.copState = 7;
+                        me.siren = true;
+                    }
+                }
+                break;
+            case 4:
+                if (!inRange(me.slice)) {
+                    head();
+                    if (me.copState != 8) {
+                        me.siren = true;
+                        me.copState = 8;
+                    }
+                } else {
+                    me.siren = true;
+                    me.copState = 10;
+                }
+                break;
+            case 2:
+                face(me.orderAgainst);
+                me.copState = 1;
+                break;
+            default:
+                break;
+            }
+        };
+        if (me.orderKind >= 0 && !me.orderTaken) {
+            me.orderTaken = true;
+            orderStart();
+        }
         CopCall call;
-        call.k = me.copState == 7 ? 2.0f : 1.19f;
-        call.chase = me.copState == 5;
-        aiDrive(cars, self, col, {}, data, step, track, weather, &call);
-        // cop_ai_pick_target (0x402e10), patrolling or on its run: the
-        // racer within 16 slices with the best score (0x403f80), over the
-        // section's speed by more than 6.71 m/s; with one cop in the race
-        // the score is 1 less the cops on it.
-        if (me.copState == 1 || me.copState == 7) {
-            int best = -1, bestScore = 0;
+        // cop_ai_pick_target (0x402e10): a racer within 16 slices, free of
+        // chases (+0x634), over the section's speed by more than 6.71 m/s
+        // (0x403f80) or pulled over (its record's counts), scoring
+        // max(cops / 3, 1) less the cops on it. With a strip out or at a
+        // roadblock it waits (960 steps at most) for the racer it watches,
+        // within 4 slices for 256 steps.
+        auto pick = [&]() {
+            int best = -1, bestScore = 0, bestBy = 0;
+            const int cops = static_cast<int>(std::count_if(cars.begin(), cars.end(), [](const AiCar& c) { return c.cop; }));
             for (size_t i = 0; i < cars.size(); ++i) {
                 const AiCar& o = cars[i];
-                if (i == self || !o.racer || std::abs(sliceDiff(o.slice, me.slice)) >= 16)
+                if (i == self || !o.racer || o.chaseFree >= step)
                     continue;
-                if (o.speed <= trackSectionSpeed(track, o.slice) + 6.70545f)
+                const int by = sliceDiff(o.slice, me.slice);
+                if (std::abs(by) >= 16)
+                    continue;
+                if (static_cast<int>(i) != me.watching && !o.pulledOver &&
+                    o.speed <= trackSectionSpeed(track, o.slice) + 6.70545f)
                     continue;
                 int on = 0;
                 for (const AiCar& c : cars)
                     on += c.cop && c.chasing == static_cast<int>(i) ? 1 : 0;
-                const int cops = static_cast<int>(std::count_if(cars.begin(), cars.end(), [](const AiCar& c) { return c.cop; }));
-                const int score = std::max(cops / 3, 1) - on;
+                const int score = static_cast<int>(i) == me.watching ? cops : std::max(cops / 3, 1) - on;
                 if (score > bestScore) {
                     best = static_cast<int>(i);
                     bestScore = score;
+                    bestBy = by;
                 }
             }
-            if (best >= 0) {
-                me.chasing = best;
-                me.copState = 5;
-                me.siren = true; // cop_set_target: the siren on
+            if (best < 0) {
+                me.waitFrom = me.waitNear = 0;
+                return;
             }
+            if (me.stripOn || me.blockWatch) {
+                if (me.waitFrom == 0)
+                    me.waitFrom = step;
+                if (step - me.waitFrom < 0x3c1) {
+                    if (best != me.watching || std::abs(bestBy) > 4)
+                        return;
+                    if (me.waitNear == 0)
+                        me.waitNear = step;
+                    if (step - me.waitNear < 0x101)
+                        return;
+                }
+            }
+            me.waitFrom = me.waitNear = 0;
+            setTarget(best);
+        };
+        // cop_ai_stop_check (0x402110), chasing: with the target pulled
+        // over and stopped (its state 6), within 16 m, the stop; else, within
+        // 20 m (40 with 3 cops stopping it), the target at 11.18 m/s or
+        // less: held 192 steps (0x40237a; 160 or 224 by its race distance
+        // from the human's, not modelled), then the record's +0x1C = 2,
+        // +0x28 = step + 320.
+        auto stopCheck = [&](AiCar& t) {
+            const bool stopped = t.pursuit == 6;
+            const float d = aiDistance(col, me, t);
+            if (t.pulledOver && stopped && d < 16.0f)
+                return true;
+            const float near = (t.stopping < 3 ? 1.0f : 2.0f) * 20.0f;
+            if (d >= near || t.speed > 11.18f) {
+                me.holding = false;
+                return t.pulledOver && stopped && t.recordStep < step;
+            }
+            if (me.holding) {
+                if (me.holdUntil < step) {
+                    t.pulledOver = true;
+                    t.recordStep = step + 320;
+                    return stopped;
+                }
+                return false;
+            }
+            me.holdUntil = step + 192;
+            me.holding = true;
+            return false;
+        };
+        switch (me.copState) {
+        default:
+            me.copState = 1;
+            [[fallthrough]];
+        case 1:
+        case 2:
+            call.k = 1.19f;
+            aiDrive(cars, self, col, {}, data, step, track, weather, &call);
+            pick();
+            if (target())
+                me.copState = 5;
+            else if (me.copState == 1 && me.orderKind >= 0)
+                orderStart();
+            else if (me.copState == 2) {
+                if (inRange(me.slice))
+                    me.headed = false;
+                else if (!me.headed) {
+                    head();
+                    me.headed = true;
+                }
+            }
+            break;
+        case 3:
+            call.kind = CopCall::Roadside;
+            aiDrive(cars, self, col, {}, data, step, track, weather, &call);
+            {
+                const auto& p = col.road[size_t(((me.slice % n) + n) % n)];
+                // car_off_lanes (0x402f70), then the strip (cop_ai_lay_spikes
+                // 0x403d30): lane 7 for an even cop, 6 for an odd one.
+                if (me.lane < 7 - p.leftLanes() || me.lane > p.rightLanes() + 6) {
+                    me.copState = 4;
+                    if (me.stripWanted && !me.stripOn) {
+                        me.stripOn = true;
+                        me.stripNear = false;
+                        me.stripSlice = me.slice;
+                        me.stripLane = (me.index & 1) ? 6 : 7;
+                        radioCall(me, 0x40b9c0, step);
+                    }
+                }
+            }
+            if (target())
+                me.copState = 5;
+            break;
+        case 4:
+        case 11:
+            // Stopped (car_stop_hard: speed halved a call), at the roadside or
+            // across the road.
+            me.wanted = 0;
+            me.speed *= me.copState == 11 ? 0.125f : 0.5f;
+            pick();
+            if (target()) {
+                me.copState = 5;
+                me.across = false;
+            }
+            break;
+        case 5: {
+            AiCar* t = target();
+            const int give = t ? (me.copFast ? ticketTimes(t->tickets).giveUpFast : ticketTimes(t->tickets).giveUp) : 0;
+            if (!t || std::abs(sliceDiff(t->slice, me.slice) * me.way) > give) {
+                lose();
+                me.copState = 1;
+                break;
+            }
+            // 0x402910: turned to a target coming the other way when it
+            // isn't 12 slices past it that way.
+            if (t->speed >= 3.0f && t->way != me.way && sliceDiff(me.slice, t->slice) * t->way < 12) {
+                me.way = t->way;
+                me.speed = 0;
+                me.sideSpeed = 0;
+                me.reversing = false;
+            }
+            call.kind = CopCall::Chase;
+            call.chase = true;
+            aiDrive(cars, self, col, {}, data, step, track, weather, &call);
+            if (stopCheck(*t)) {
+                // cop_stop_begin (0x401e40): the nearest cop on the record
+                // does the ticket, the siren off; the first sets the
+                // record's +0x28 to the ticket's wait.
+                me.copState = 6;
+                me.siren = false;
+                me.reversing = false;
+                if (++t->stopping == 1)
+                    t->recordStep = step + ticketTimes(t->tickets).wait;
+            }
+            break;
+        }
+        case 6: {
+            me.wanted = 0;
+            me.speed *= 0.5f;
+            AiCar* t = target();
+            if (t && step <= t->recordStep)
+                break;
+            if (t) {
+                // cop_ticket (0x401ff0): the record cleared, a ticket more,
+                // free of chases for t_ticket_times' +8; cop_after_ticket
+                // (0x4040e0) radios (0x40b670) and sends it on patrol.
+                t->pulledOver = false;
+                t->stopping = 0;
+                ++t->tickets;
+                t->chaseFree = step + ticketTimes(t->tickets).free;
+                radioCall(me, 0x40b670, step);
+            }
+            lose();
+            me.stripWanted = me.stripOn = false;
+            aiOrderPatrol(me);
+            me.copState = 1;
+            break;
+        }
+        case 7:
+        case 8:
+            call.k = 2.0f;
+            aiDrive(cars, self, col, {}, data, step, track, weather, &call);
+            pick();
+            if (target()) {
+                me.copState = 5;
+                break;
+            }
+            if (me.orderKind < 0)
+                break; // the page's run with the siren, with no order
+            if (!inRange(me.slice))
+                head();
+            else if (me.copState == 8)
+                me.copState = 9;
+            else {
+                // The run's end: an order of kind 2, patrol, the siren off.
+                me.orderKind = 2;
+                me.copState = 1;
+                me.siren = false;
+            }
+            break;
+        case 9:
+            call.k = 0;
+            call.plus = 6.0f;
+            aiDrive(cars, self, col, {}, data, step, track, weather, &call);
+            pick();
+            if (target()) {
+                me.copState = 5;
+                break;
+            }
+            if (!inRange(me.slice))
+                head();
+            else if (std::fabs(me.speed) <= 6.5f) {
+                me.copState = 10;
+                radioCall(me, 0x40bac0, step);
+            }
+            break;
+        case 10: {
+            if (!inRange(me.slice)) {
+                head();
+                call.k = 0;
+                call.plus = 6.0f;
+                aiDrive(cars, self, col, {}, data, step, track, weather, &call);
+            } else {
+                // cop_ai_roadblock_turn (0x403180): with no racer within
+                // 240 m, a quarter turn on its slice, speed 0: state 11.
+                bool near = false;
+                for (size_t i = 0; i < cars.size(); ++i)
+                    near = near || (i != self && cars[i].racer && aiDistance(col, me, cars[i]) < 240.0f);
+                if (!near) {
+                    me.across = true;
+                    me.wanted = 0;
+                    me.speed *= 0.5f;
+                    me.copState = 11;
+                } else {
+                    call.kind = CopCall::LanesOnly;
+                    aiDrive(cars, self, col, {}, data, step, track, weather, &call);
+                }
+            }
+            pick();
+            if (target()) {
+                me.copState = 5;
+                me.across = false;
+            }
+            break;
+        }
         }
     }
-    aiMove(me, data, weather);
+    aiMove(me, data, weather, step, aiChord(col, me.slice));
 }
 
 std::vector<DumpedCar> parseCarDump(const std::vector<uint8_t>& bytes) {
@@ -1337,6 +1939,11 @@ std::vector<DumpedCar> parseCarDump(const std::vector<uint8_t>& bytes) {
         c.beamScroll = static_cast<int>(u32(base + 0x944) & 0x7ff);
         c.speed = f32(base + 0x7c4);
         c.offset = f32(base + 0x7b8);
+        for (size_t k = 0; k < 3; ++k)
+            c.paint[k] = static_cast<int>(u32(base + 0x8a8 + 4 * k));
+        const uint32_t setup = u32(base + 0x220);
+        if (setup >= 0x6fd52c && (setup - 0x6fd52c) % 0x6c == 0 && (setup - 0x6fd52c) / 0x6c < 16)
+            c.setup = static_cast<int>((setup - 0x6fd52c) / 0x6c);
         for (int k = 0; k < 3; ++k) {
             c.at[size_t(k)] = f32(base + 0x98 + 4 * size_t(k));
             c.right[size_t(k)] = f32(base + 0xc0 + 4 * size_t(k));

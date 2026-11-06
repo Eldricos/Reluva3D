@@ -1456,8 +1456,10 @@ state 4. Without H (`sw1-cop2`) the player stayed in state 3.
 
 ### The computer cops' driver (`0x4032e0`)
 
-The Tracks page's stand-in police car drives by this driver's states 1,
-5 and 7 (`aiCopStep`; [frd.md](frd.md), The police car's driving).
+The Tracks page's stand-in police car drives by this driver's states 1
+to 11, with the reversing, strips, roadblocks, stops and tickets below
+(`aiCopStep`; [frd.md](frd.md), The police car's driving, and its
+orders, strips, roadblocks, reversing and stops).
 
 Read (November 2026), then run (below). A computer cop's state is
 +0x70C; its orders come in an 8-byte record at +0x7AC (+0 the kind, +1
@@ -1492,8 +1494,11 @@ range), both with the siren on (+0x710 bit 0x10). Then by state:
   middle and odd cops' left. The same bits pick its radio line
   (`0x40b9c0` variant: 2 even, 0 odd, 1 when the index & 2;
   2 − that backwards). A cop with a strip out radios
-  once as its racer comes within 30 slices of it, and clears it when
-  the racer is 50 slices past (`0x403df0`).
+  once as its racer is past it by less than 30 slices (`0x403df0`:
+  strip slice − racer slice from −1 to −29, `0x40bca0`, kind 0x1D, the
+  officer's "missed the strip"), and clears it when the racer is 50
+  slices past (November 2026: the test's sign read again; it was written
+  up as the racer coming within 30).
 - **7**, **8**: the siren on, the section's speed × 2. 7 (a call for
   help, below) goes back to 1 with the siren off once in the order's
   slices. 8 goes to **9** there (6 m/s) and, at 6.5 m/s or less, **10**
@@ -1588,8 +1593,8 @@ The calls and when they come:
 | `0x40b860` | a roadblock asked for (`0x403b20`) | 0x1C |
 | `0x40b9c0` | a strip laid (`0x403d30`, and a human cop's S, `0x404e40`) | 0x1F-0x21 |
 | `0x40bac0` | a roadblock in place (state 10) | 0x22 |
-| `0x40bca0` | the strip's racer near (`0x403df0`) | 0x1D |
-| `0x40bd00` | the roadblock's racer near (`0x403ed0`) | 0x1E |
+| `0x40bca0` | the strip's racer past it, under 30 slices (`0x403df0`) | 0x1D |
+| `0x40bd00` | the roadblock's racer 5-19 slices past it, from state 10 (`0x403ed0`) | 0x1E |
 | `0x40bba0` | once a cop (+0x711 bit 0x10, `0x403950`) | 0x19, 0x1A |
 | `0x40bc30` | once a record (+0x54 bit 8, `0x403910`) | 0x23 |
 

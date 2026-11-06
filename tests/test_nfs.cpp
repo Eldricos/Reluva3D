@@ -1358,7 +1358,12 @@ void testComputerDriving() {
     data.maxBrake = 10;
     data.topSpeedCap = 80;
     // One car: the best line's vote (10 for skill 2) takes it a lane
-    // right, its aim 0.2 a step towards the lane's middle; there it stays.
+    // right, its aim 0.2 a call of the 32 Hz model (the even steps)
+    // towards the lane's middle; there it stays. Its driver acts on the
+    // steps the gate lets through (0x401240): (step / 2 + phase) mod 4 = 0
+    // on the even ones, every 8 steps.
+    CHECK(aiDriverActs(AiCar{}, 0) && aiDriverActs(AiCar{}, 8) && !aiDriverActs(AiCar{}, 1) && !aiDriverActs(AiCar{}, 2) &&
+          !aiDriverActs(AiCar{}, 9));
     AiCar car;
     car.slice = 10;
     car.halfWidth = 1;
@@ -1366,9 +1371,11 @@ void testComputerDriving() {
     car.offset = 2;
     car.speed = 40;
     std::vector<AiCar> cars{car};
-    aiStep(cars, 0, col, speeds, data, 1, 1, false);
+    aiStep(cars, 0, col, speeds, data, 0, 1, false);
     CHECK(cars[0].pick == 8 && cars[0].target == 6 && std::fabs(cars[0].offset - 2.2f) < 1e-5f);
-    for (int step = 2; step < 40; ++step)
+    aiStep(cars, 0, col, speeds, data, 1, 1, false); // an odd step: the aim stays
+    CHECK(std::fabs(cars[0].offset - 2.2f) < 1e-5f);
+    for (int step = 2; step < 80; ++step)
         aiStep(cars, 0, col, speeds, data, step, 1, false);
     // In lane 8, with no road strip in lane 9 beside it (0x40d1f0), it is
     // nudged a half width left of the lane's middle.
@@ -1376,15 +1383,15 @@ void testComputerDriving() {
     // Too fast for the table: the brakes (x 1.25 for an AI racer), held
     // only while more than 5 m/s over.
     cars[0].speed = 60;
-    aiStep(cars, 0, col, speeds, data, 50, 1, false);
-    CHECK(cars[0].braking && std::fabs(cars[0].speed - (60 - 12.5f / 64)) < 1e-4f && cars[0].wanted == 40);
+    aiStep(cars, 0, col, speeds, data, 80, 1, false);
+    CHECK(cars[0].braking && std::fabs(cars[0].speed - (60 - 12.5f / 32)) < 1e-4f && cars[0].wanted == 40);
     cars[0].speed = 44;
-    aiStep(cars, 0, col, speeds, data, 51, 1, false);
+    aiStep(cars, 0, col, speeds, data, 82, 1, false);
     CHECK(!cars[0].braking && cars[0].speed < 44);
-    // Slower: the acceleration table (x 0.9 with ai Normal).
+    // Slower: the acceleration table (x 0.9 with ai Normal), over 1/32 s.
     cars[0].speed = 30;
-    aiStep(cars, 0, col, speeds, data, 52, 1, false);
-    CHECK(std::fabs(cars[0].speed - (30 + 3.6f / 64)) < 1e-4f);
+    aiStep(cars, 0, col, speeds, data, 84, 1, false);
+    CHECK(std::fabs(cars[0].speed - (30 + 3.6f / 32)) < 1e-4f);
 
     // Held up behind a car in its lane within 2 slices, wanting more than
     // 8.94 m/s over its speed: its lights a step up for 64 steps (0x40de50),
@@ -1395,13 +1402,13 @@ void testComputerDriving() {
     cars[0].speed = 20;
     cars[0].beams = 1;
     cars.push_back(ahead);
-    aiStep(cars, 0, col, speeds, data, 100, 1, false);
+    aiStep(cars, 0, col, speeds, data, 104, 1, false);
     CHECK(cars[0].flashing && cars[0].beams == 2 && cars[0].wanted == 20);
     cars[1].slice = 100; // gone
-    for (int step = 101; step <= 164; ++step)
+    for (int step = 105; step <= 175; ++step)
         aiStep(cars, 0, col, speeds, data, step, 1, false);
-    CHECK(cars[0].flashing && cars[0].beams == 2);
-    aiStep(cars, 0, col, speeds, data, 165, 1, false);
+    CHECK(cars[0].flashing && cars[0].beams == 2); // its 64 steps were up at 168, its next call 176
+    aiStep(cars, 0, col, speeds, data, 176, 1, false);
     CHECK(!cars[0].flashing && cars[0].beams == 1);
     // By day the lights come on for the flash.
     cars[0].beams = 0;
@@ -1497,7 +1504,7 @@ void testComputerCatchUpAndCops() {
     cop.wanted = 20;
     std::vector<AiCar> cars{cop};
     aiCopStep(cars, 0, col, data, 2, 1, false); // (2 / 2 + 0) & 3 = 1: not its call
-    CHECK(cars[0].copState == 0 && std::fabs(cars[0].speed - (10 + 3.6f / 64)) < 1e-4f);
+    CHECK(cars[0].copState == 0 && std::fabs(cars[0].speed - (10 + 3.6f / 32)) < 1e-4f);
     aiCopStep(cars, 0, col, data, 8, 1, false);
     // Patrolling on track 1's slice 100: 24.59 x 1.19.
     CHECK(cars[0].copState == 1 && std::fabs(cars[0].wanted - 24.58665f * 1.19f) < 1e-4f);
@@ -2571,6 +2578,179 @@ void testSound3d() {
     CHECK(near(spatialize(listener, s).doppler, 1));
 }
 
+void testComputerPursuits() {
+    // Lanes 4 wide (bytes 8), two each side, walls 10 away.
+    TrackCollision col = straightRoad(200);
+    AiCarData data;
+    data.accel.fill(4);
+    data.maxBrake = 10;
+    data.maxVelocity = 70;
+    data.topSpeedCap = 80;
+    std::vector<uint8_t> flat(16, 0);
+    flat.insert(flat.end(), 100, 30);
+
+    // The side offset as the game measures it (0x4a2bc0): from the slice's
+    // point along its right, so on a bend it moves across the slice while
+    // the car goes straight on.
+    TrackCollision bent = straightRoad(20);
+    for (size_t i = 6; i < bent.road.size(); ++i)
+        bent.road[i].position[0] = 0.5f * static_cast<float>(i - 5);
+    AiCar measured;
+    measured.slice = 6;
+    measured.halfWidth = 1;
+    measured.offset = measured.target = measured.side = measured.lateral = 2;
+    measured.sideKept = true;
+    measured.along = 0.5f;
+    measured.speed = measured.wanted = 30;
+    std::vector<AiCar> one{measured};
+    aiStep(one, 0, bent, flat, data, 0, 1, false);
+    CHECK(std::fabs(one[0].side - one[0].lateral - 0.25f) < 1e-4f); // half the slice's 0.5
+
+    // A strip (spike_lay 0x4c9dd0): across lane 7's middle, 1.5 lanes long.
+    float from = 0, to = 0;
+    aiStripSpan(col.road[0], 7, from, to);
+    CHECK(from == -1 && to == 5);
+    aiStripSpan(col.road[0], 6, from, to);
+    CHECK(from == -5 && to == 1);
+
+    // The police car ordered to lay one (0x4039c0's order: kind 0 from its
+    // slice - 6, 3 slices): it turns back to the range, goes to the
+    // roadside (3), stops off the lanes (4) and lays it in lane 7 (an even
+    // cop), radioing (0x40b9c0).
+    AiCar cop;
+    cop.cop = true;
+    cop.racer = false;
+    cop.slice = 100;
+    cop.halfWidth = 1;
+    cop.offset = cop.target = 2;
+    cop.phase = 1;
+    AiCar racer;
+    racer.slice = 60;
+    racer.halfWidth = 1;
+    racer.offset = racer.target = 2;
+    racer.speed = racer.wanted = 30;
+    std::vector<AiCar> cars{racer, cop};
+    aiOrderStrip(cars[1], 0, 200);
+    CHECK(cars[1].orderKind == 0 && cars[1].orderFrom == 94 && cars[1].orderLength == 3 && cars[1].stripWanted);
+    int laid = -1;
+    for (int step = 0; step < 64 * 20 && laid < 0; ++step) {
+        cars[1].along = 0;
+        aiCopStep(cars, 1, col, data, step, 1, false);
+        if (step % 16 == 0) // on along its way, a slice each 16 steps at most
+            cars[1].slice = std::clamp(cars[1].slice + (cars[1].speed > 1 ? cars[1].way : cars[1].speed < -1 ? -cars[1].way : 0), 0, 199);
+        if (cars[1].stripOn)
+            laid = step;
+    }
+    CHECK(laid > 0 && cars[1].copState == 4 && cars[1].way == -1 && cars[1].stripLane == 7 && cars[1].radio == 0x40b9c0);
+    CHECK(cars[1].stripSlice >= 94 && cars[1].stripSlice <= 97);
+    // A racer 1-5 slices before it in that lane: -50 there, its speed
+    // wanted x 0.9 (0x40d720), so it moves over.
+    cars[0].slice = cars[1].stripSlice - 3;
+    cars[0].offset = cars[0].target = cars[0].side = cars[0].lateral = 2;
+    cars[0].sideKept = true;
+    aiStep(cars, 0, col, flat, data, 0, 1, false);
+    CHECK(cars[0].pick != 7 && std::fabs(cars[0].wanted - 30 * 0.9f) < 1e-4f);
+    // Run over, it is pulled over (0x401650) and the cop takes it as its
+    // target; the racer pulls over (5), and stops (6).
+    cars[0].slice = cars[1].stripSlice;
+    cars[0].offset = cars[0].target = cars[0].side = cars[0].lateral = 2;
+    cars[0].speed = 40;
+    aiCopStep(cars, 1, col, data, 1, 1, false);
+    CHECK(!cars[1].stripOn && cars[0].pulledOver && cars[1].chasing == 0 && cars[1].copState == 5 && cars[1].siren);
+    aiStep(cars, 0, col, flat, data, 8, 1, false);
+    CHECK(cars[0].pursuit == 5 && cars[0].wanted == 11);
+    cars[0].speed = 2;
+    aiStep(cars, 0, col, flat, data, 16, 1, false);
+    CHECK(cars[0].pursuit == 6);
+    // The cop within 16 m of it: the stop (6), and 384 steps later the
+    // ticket (0x401ff0): free of chases for 960 steps, back on patrol.
+    cars[1].slice = cars[0].slice;
+    cars[1].way = 1;
+    cars[1].offset = cars[1].target = cars[1].side = cars[1].lateral = cars[0].lateral;
+    aiCopStep(cars, 1, col, data, 2 * 64 + 6, 1, false); // (67 + 1) & 3 = 0
+    CHECK(cars[1].copState == 6 && !cars[1].siren && cars[0].recordStep == 134 + 384);
+    aiCopStep(cars, 1, col, data, 134 + 384, 1, false); // not past it yet
+    CHECK(cars[1].copState == 6);
+    aiCopStep(cars, 1, col, data, 134 + 392, 1, false);
+    CHECK(cars[1].copState == 1 && cars[1].chasing == -1 && cars[0].tickets == 1 && !cars[0].pulledOver &&
+          cars[0].chaseFree == 526 + 960 && cars[1].radio == 0x40b670 && cars[1].orderKind == 2);
+    aiStep(cars, 0, col, flat, data, 528, 1, false);
+    CHECK(cars[0].pursuit == 1);
+
+    // The chase: past its stopped target by more than 7 slices and under
+    // 3 m/s, the cop reverses at 9.83 m/s (0x402420), its aim the road's
+    // point (ai_reverse_end); then slices x 5 back.
+    AiCar chaser = cop;
+    chaser.phase = 0;
+    chaser.slice = 120;
+    chaser.copState = 5;
+    chaser.chasing = 0;
+    chaser.speed = 0;
+    std::vector<AiCar> chase{racer, chaser};
+    chase[0].slice = 110;
+    chase[0].speed = 0;
+    chase[0].pulledOver = true;
+    chase[0].pursuit = 6;
+    chase[0].recordStep = 1000; // the stop's step not yet past (0x402110)
+    aiCopStep(chase, 1, col, data, 0, 1, false);
+    CHECK(chase[1].reversing && std::fabs(chase[1].wanted + 9.834f) < 1e-4f && chase[1].offset == 0);
+    aiCopStep(chase, 1, col, data, 8, 1, false);
+    CHECK(chase[1].reversing && chase[1].wanted == -50 && chase[1].speed < 0);
+
+    // A roadblock (0x403b20's order, kind 4) at its own slice with no racer
+    // within 240 m: in place (10), radioing (0x40bac0), then across the road
+    // (11, 0x403180); the racer 5 slices past it (0x403ed0): patrol.
+    AiCar blocker = cop;
+    blocker.phase = 0;
+    blocker.slice = 50;
+    blocker.speed = 0;
+    std::vector<AiCar> block{racer, blocker};
+    block[0].slice = 150; // 400 m off
+    aiOrderRoadblock(block[1], 0, 50);
+    aiCopStep(block, 1, col, data, 0, 1, false);
+    CHECK(block[1].copState == 11 && block[1].across && block[1].siren);
+    block[0].slice = 56;
+    aiCopStep(block, 1, col, data, 8, 1, false);
+    CHECK(!block[1].across && !block[1].blockWatch && block[1].orderKind == 2);
+    CHECK(std::string(aiRadioCall(0x40b670)) == "suspect ticketed" && std::string(aiRadioCall(0x123)).empty());
+}
+
+void testSkinPaint() {
+    // The loader's recolouring (0x49cd00, 0x49cc50): alpha under 128 the
+    // paint, 128-254 its secondary colour, 255 kept, 0 transparent.
+    Model::Colour paint{{44, 12, 128, 128}}, second{{126, 48, 38, 128}};
+    const auto painted = skinTexel({105, 105, 106, 50}, &paint, &second);
+    // t = 104 / 127, the value trunc(128 t) = 104, at hue 44 and saturation
+    // 12, to 5 bits.
+    const auto expect = hsvToRgb({44, 12, 104});
+    CHECK(painted[0] == ((expect[0] >> 3) << 3) && painted[1] == ((expect[1] >> 3) << 3) && painted[2] == ((expect[2] >> 3) << 3) &&
+          painted[3] == 255);
+    const auto window = skinTexel({120, 117, 116, 200}, &paint, &second);
+    const auto expectWindow = hsvToRgb({126, 48, 33}); // trunc(38 x 112 / 127)
+    CHECK(window[2] == ((expectWindow[2] >> 3) << 3) && window[0] == ((expectWindow[0] >> 3) << 3));
+    CHECK((skinTexel({10, 20, 30, 255}, &paint, &second) == std::array<uint8_t, 4>{10, 20, 30, 255}));
+    CHECK(skinTexel({10, 20, 30, 0}, &paint, &second)[3] == 0);
+    CHECK((skinTexel({10, 20, 30, 50}, nullptr, nullptr) == std::array<uint8_t, 4>{10, 20, 30, 255}));
+    // The rows as stored (0x49cd00): a TGA stored from the bottom (bit 5 of
+    // byte 17 clear) is turned back over after decoding; one from the top
+    // is left.
+    image::Image two;
+    two.w = 1;
+    two.h = 2;
+    two.rgba = {1, 1, 1, 1, 2, 2, 2, 2};
+    std::vector<uint8_t> header(18, 0);
+    skinRowsAsStored(header, two);
+    CHECK(two.rgba[0] == 2 && two.rgba[4] == 1);
+    header[17] = 0x28;
+    skinRowsAsStored(header, two);
+    CHECK(two.rgba[0] == 2);
+    // The colour a paint goes with (0x49d240), by RGB distance.
+    Model m;
+    m.primaryColours = {Model::Colour{{0, 255, 99, 108}}, Model::Colour{{44, 12, 128, 128}}};
+    m.secondaryColours = {Model::Colour{{1, 1, 1, 1}}, Model::Colour{{2, 2, 2, 2}}};
+    CHECK(primaryFor(m, {43, 12, 128}) == 1 && secondaryFor(m, {0, 250, 100}) == 0);
+}
+
 int main() {
     const stdfs::path tmp = stdfs::temp_directory_path() / "reluva_nfs_tests";
     stdfs::remove_all(tmp);
@@ -2598,6 +2778,8 @@ int main() {
     testLightEffects();
     testComputerDriving();
     testComputerCatchUpAndCops();
+    testComputerPursuits();
+    testSkinPaint();
     testHorizon();
     testCollision();
     testSoundBank();

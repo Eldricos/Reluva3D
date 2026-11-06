@@ -321,6 +321,68 @@ std::array<int, 3> hsvToRgb(const std::array<int, 3>& hsv) {
     return out;
 }
 
+void skinRowsAsStored(const std::vector<uint8_t>& tga, image::Image& img) {
+    if (tga.size() < 18 || (tga[17] & 0x20) != 0 || img.w <= 0 || img.h <= 1)
+        return;
+    const size_t row = static_cast<size_t>(img.w) * 4;
+    for (size_t top = 0, bottom = static_cast<size_t>(img.h) - 1; top < bottom; ++top, --bottom)
+        std::swap_ranges(img.rgba.begin() + static_cast<std::ptrdiff_t>(top * row),
+                         img.rgba.begin() + static_cast<std::ptrdiff_t>((top + 1) * row),
+                         img.rgba.begin() + static_cast<std::ptrdiff_t>(bottom * row));
+}
+
+std::array<uint8_t, 4> skinTexel(const std::array<uint8_t, 4>& rgba, const Model::Colour* paint,
+                                 const Model::Colour* secondary) {
+    if (rgba[3] == 0)
+        return {rgba[0], rgba[1], rgba[2], 0};
+    const Model::Colour* with = rgba[3] < 0x80 ? paint : rgba[3] < 0xff ? secondary : nullptr;
+    if (!with)
+        return {rgba[0], rgba[1], rgba[2], 255};
+    float t = static_cast<float>((rgba[2] >> 3) << 3);
+    const int fourth = static_cast<int>(with->hsbx[3]);
+    if (fourth != 0xff)
+        t = t / (255.0f - static_cast<float>(fourth));
+    const int value = std::min(static_cast<int>(static_cast<double>(with->hsbx[2]) * double(t)), 255);
+    const std::array<int, 3> rgb =
+        hsvToRgb({static_cast<int>(with->hsbx[0] & 0xff), static_cast<int>(with->hsbx[1] & 0xff), std::max(value, 0)});
+    auto five = [](int v) { return static_cast<uint8_t>((v >> 3) << 3); };
+    return {five(rgb[0]), five(rgb[1]), five(rgb[2]), 255};
+}
+
+namespace {
+size_t nearestColour(const std::vector<Model::Colour>& list, const std::array<int, 3>& paintHsv) {
+    const std::array<int, 3> want = hsvToRgb(paintHsv);
+    size_t best = 0;
+    float bestDistance = 1000;
+    for (size_t i = 0; i < list.size(); ++i) {
+        const std::array<int, 3> rgb = hsvToRgb({static_cast<int>(list[i].hsbx[0] & 0xff), static_cast<int>(list[i].hsbx[1] & 0xff),
+                                                 static_cast<int>(list[i].hsbx[2] & 0xff)});
+        float d = 0;
+        for (size_t k = 0; k < 3; ++k)
+            d += static_cast<float>((rgb[k] - want[k]) * (rgb[k] - want[k]));
+        d = std::sqrt(d);
+        if (d < bestDistance) {
+            best = i;
+            bestDistance = d;
+        }
+    }
+    return best;
+}
+} // namespace
+
+size_t primaryFor(const Model& model, const std::array<int, 3>& paintHsv) {
+    return nearestColour(model.primaryColours, paintHsv);
+}
+
+size_t secondaryFor(const Model& model, const std::array<int, 3>& paintHsv) {
+    // 0x49d240 walks the primary colours (+0x800, up to the secondaries'
+    // count +0x900) and gives the nearest one's index into +0x904.
+    std::vector<Model::Colour> list = model.primaryColours;
+    if (list.size() > model.secondaryColours.size())
+        list.resize(model.secondaryColours.size());
+    return nearestColour(list, paintHsv);
+}
+
 CarReflection carReflection(uint32_t carColour, const std::array<int, 3>& sky, int paintValue, int coverDepth) {
     const std::array<int, 3> car{static_cast<int>(carColour >> 16 & 0xff), static_cast<int>(carColour >> 8 & 0xff),
                                  static_cast<int>(carColour & 0xff)};

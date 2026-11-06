@@ -488,6 +488,25 @@ page draws them. The wedges fall on the same pixels; walls, floor and
 ceiling are 3-6 brighter on the page (the host's 16-bit truncation),
 the shafts' brightest overlaps about 11 more.
 
+**Brightness against the host's frames** (November 2026). The bridge's
+walls and ceiling again (`t5-br` frame 2646, the page from the same
+camera, `d5-runs/out/br-page.png`), region by region: the page is above
+the host by 3.2-4.6 in red and blue and 2.1-2.7 in green on the walls
+and ceiling, 4.6-6.6 on the floor under the shafts. `nfs-host` draws
+these frames itself (`thrash_native.cpp`): textures point-sampled, the
+colour × texel and the fog in floats, each pixel truncated to an integer
+and then to 5:6:5 (`to565`), and read back for the frame as × 255 / 31
+(× 255 / 63 for green). Put through that read-back (`(c >> 3) × 255 / 31`,
+`(c >> 2) × 255 / 63`), the page's frame comes within 0.6-1.6 of the
+host's on the walls and ceiling and 3.2-3.9 on the floor, where the
+shafts' added layers each lose their truncation again (above). The
+rest, about one level, is the host's float-to-integer truncation before
+the 5:6:5 one and the page's rounding to 8 bits. So the walls' brightness
+is the host's 16-bit frame, not the page's drawing: nothing in the
+game's code makes walls darker. The `.col` side codes 1-4 (col.md) play
+no part in it: their only readers pick the wall hits' particles and
+sounds, the push-back and cover.
+
 That the overlaps' difference is the host's 16-bit frame was checked
 offline (November 2026, `t6-scripts/shaftcount.py`, `trunc565.py`).
 Rasterised from `t5-brg`'s THRASH list, the 17 quads cover 10,635
@@ -694,10 +713,40 @@ the group's block's. The type-3 branch only runs with the loop's last
 argument set; with it clear a moving object is skipped altogether. The
 page lights its moving objects so, at their place this frame. `0x41c310`
 also skips a car with +0x88 set (no forces, `0x4068a0`) as well as one
-hidden or out of play; the page has no such cars. Not compared against
-a night frame: of Hometown's two moving objects the water wheel stands
-off the road at the mill and the other (the last group, 141 keys) flies
-over the start, out of a car's headlights.
+hidden or out of play; the page has no such cars.
+
+Compared against a night frame (November 2026, `d5-wheel`: Hometown by
+night, the player's car held from sky draw 300 on slice 600, 4 m right
+of the road's point, turned to face the water wheel at the mill
+(−563, 442), 43 m off; frame 2700 with the camera, cars, set-up and
+`g_step` (1603) dumped at sky draw 500; `d5-wheelg`, the same run's
+THRASH list). The wheel's 30 vertices placed by the page's key matrix
+and projected with the game's camera land on the list's within 0.24
+pixels at step 1606 (the frame is drawn three steps after the sky draw's
+dump; `RELUVA_NFS_TRACK_STEP=1606`), so the matrix is the game's. Two
+differences, both fixed:
+- **The lit object was the mirror image.** The page keeps a moving
+  object's vertices unmirrored in its mesh (z as stored, the key's matrix
+  mirroring them into the world) but put them through the matrix with z
+  negated for the light, so the light was worked out at the object's
+  mirror image and its raised colours drawn there: a bright copy of the
+  wheel beside the real one, which stayed dark. It now lights them where
+  they are drawn. The game's list has the wheel's wood and paddles at
+  0xC3-0xE4 grey (`0x41c310`'s raise), what the page's light gives at
+  those places within 1-10.
+- **The raised colours weren't fogged.** At night nearly all the lit
+  scenery's brightness is the raise, which the page adds as a pass of its
+  own; the game raises the corners' colours and fogs the polygon with
+  them (Hometown's night fog there: value 200, density 60, black, as
+  the list's batches have it). The page drew the pass unfogged: 25-35 %
+  too bright at 43 m (the mill's wall 74, 68, 58 against the game's 56,
+  53, 44). The raise is now fogged towards black (it is added over the
+  fogged polygon) and the projected picture, a polygon of its own that
+  Glide mixes towards the fog colour before adding, towards the fog's
+  colour. After both: the mill's wall 60, 56, 48 and 64, 58, 50 against
+  56, 53, 44 and 62, 57, 47; the trough's front 106, 99, 90 against 103,
+  96, 86; the grass 71, 57, 40 against 68, 56, 36, the 2-4 of the host's
+  16-bit frame (below, Brightness against the host's frames).
 
 **Other cars' lights** (`0x41c670`, November 2026). The pass goes
 through the race's cars in their list's order (`0x5efac8`, count
@@ -780,7 +829,14 @@ car; `parseCarDump`): each car in play and not hidden (+0x89, +0x200 bit
 0x40) at its +0x98 with its rows (+0xC0), lights (+0x660), brake
 (+0x509), roof light (+0x734 with +0x200 bit 0x20) and beam scroll
 (+0x944), a police car as `Vcop` and any other as the Corvette, held
-there. The human's car is left out, the camera standing for it, unless
+there. With `RELUVA_NFS_TRACK_CARS_SETUP=<dump>` (`-dumpmem
+...:0x6fd52c:0x360:file`, the race's set-up records, 0x6C bytes a car;
+November 2026) each car gets its own model: the car record's +0x220
+points at its set-up record, whose first byte, the car's key, is its
+`carp.txt` serial number (net.md: 0x13 `Corv`, 2 `f355`, 0xF `Cout`),
+and its paint is the model's primary colour nearest the
+record's +0x8A8-+0x8B0 (hue, saturation, value; fce.md, The skin's
+paint), the reflection taking +0x8B0. The human's car is left out, the camera standing for it, unless
 `RELUVA_NFS_TRACK_CARS_HUMAN` is set. With `RELUVA_NFS_TRACK_CAMERA`
 from the same sky draw the page shows the game's frame's cars;
 `RELUVA_NFS_TRACK_STEP=<g_step>` (`0x7d3684`) holds the moving objects
@@ -817,13 +873,99 @@ target's side offset (+0x711 bit 2, `0x406b60`). A target running the
 other way turns it (`0x402910` flips +0x621 bit 0x10) when it isn't 12
 slices past it; the page turns it on the spot from standing, where the
 game's car turns on the road. Over 50 slices away (`0x5521ac` +4 for a
-racer with no tickets) the chase is given up: patrol, siren off. The
-reversing, roadblocks, strips, stops and calls for help aren't
-followed.
+racer with no tickets) the chase is given up: patrol, siren off.
+
+**The police car's orders, strips, roadblocks, reversing and stops**
+(November 2026; `aiCopStep`; physics.md, The computer cops' driver).
+The page's police car now runs the driver's other states as the code
+has them:
+- **The chase** (`cop_ai_chase`, `0x4025c0`): within 16 slices, or with
+  the target pulled over, `0x402420`; 16 or more behind it, the top
+  speed; 16 or more past it, the section's speed × 1.19, facing the
+  target's way. `0x402420`, past a target, under 3 m/s and more than 7
+  slices off, **reverses** (`ai_reverse_set(0)`, +0x7D4): −9.83 m/s
+  (`0xc11d5ac4`), then slices × 5 (`0x53608c`) while past it and the
+  target's speed × (slices × 0.1 + 1) once behind it; reversing, the aim
+  is the road's point (`ai_reverse_end` sets +0x7C8 to 0 each model
+  call). The chase is given up past `t_ticket_times` (`0x5521ac`, by the
+  target's tickets: 50, 50, 70, 70, 90 slices; +4 of the record with
+  +0x711 bit 1).
+- **The stop** (`cop_ai_stop_check`, `0x402110`): with the target
+  pulled over (its record's +0x1C = 2) and stopped (its state 6) within
+  16 m (`0x536074`), or the record's +0x28 past; else within 20 m
+  (`0x53607c`, 40 with three cops stopping it), the target at 11.18 m/s
+  or less (`0x56ea50`), the cop on the ground and upright (> 0.5): held
+  192 steps (160 or 224 by the target's race distance from the leading
+  human's, ±60; the page takes 192), then the record's +0x1C = 2 and
+  +0x28 = step + 320. The racer (`car_driver_ai` states 5 and 6): 11
+  m/s (`0x408b30`) and +150 for the nearer road edge's lane
+  (`0x408bd0`) until in the lane past the road's lanes, then 0; under
+  3 m/s, or after 320 steps, stopped (6, `car_stop_hard`: the speed
+  halved a call). The cop's stop (6, `cop_stop_begin` `0x401e40`): the
+  siren off, the record's +0x28 = step + `t_ticket_times`[tickets]
+  +0xC (384 steps, 448 from 5 tickets); past it the ticket (`cop_ticket`
+  `0x401ff0`): the record cleared, a ticket more, free of chases for
+  +8 (960 steps after the first), `cop_after_ticket` (`0x4040e0`)
+  radios and orders a patrol. The officer on foot isn't drawn.
+- **Orders** (+0x7AC, `cop_ai_order` `0x403830`, taken by
+  `cop_ai_order_start` `0x403030` once, and again in patrol at each call
+  without a target): kind 0, to the roadside: facing the order's first
+  slice (`0x4028e0`), patrol until within its range (`0x40f000`: the
+  first slice to first + length), then state 3 (6.5 m/s, +100 for the
+  nearer edge's lane, `0x402d90`, and rows 5-7 and 1) and, off the lanes
+  (`0x402f70`), 4: stopped, and with +0x711 bit 8 **a strip**
+  (`cop_ai_lay_spikes` `0x403d30`) at its slice, lane 7 (6 for an odd
+  cop). Kind 4, **a roadblock**: the siren on, 8 (× 2) to the slice,
+  9 (6 m/s), 10 at 6.5 m/s or less (radio `0x40bac0`); with no racer
+  within 240 m (`0x5360f4`) a quarter turn on its slice (`0x403180`),
+  speed 0: 11, across the road, stopped hard (`car_stop_hard` three
+  times a call); with one near it keeps to its lanes. Kind 2, patrol
+  facing +6's way; kind 3, the run with the siren.
+- **The strip** (`spike_lay`, `0x4c9dd0` with `0x4c9bc0`): across the
+  lane's middle, 0.75 lane widths either side (`0x18000` × the half's
+  lane width / 2), 0.5 above the road (`0x540360`): 12 m on Hometown's
+  8 m lanes, as `r2-cop5` measured. Each step (`0x4297d0`, `0x4ca160`) a
+  racer on its slice whose wheels cross it runs over it: the strip is
+  cleared (`0x4c9f50`), the racer pulled over (`spike_hit_racer`
+  `0x401650`), and when it has been over the section's speed by more
+  than 2 m/s (+0x6F0; the page takes its speed then) the strip's cop
+  takes it as its target and the record's +0x28 = step + 320. The cop
+  watching (+0x730) radios once its racer is past the strip by less
+  than 30 slices (`0x403df0`, `0x40bca0`: "missed the strip") and clears
+  it 50 past; a roadblock's cop gives up when its racer is 5 slices past
+  it (`0x403ed0`, radio `0x40bd00` from state 10).
+- **Waiting** (`cop_ai_pick_target`): with a strip out or at a
+  roadblock, a cop takes a target only once its watched racer has been
+  within 4 slices for 256 steps, or after 960.
+
+The heat that has a chasing cop order strips and roadblocks from free
+cops (`0x4039c0`, `0x403b20`) needs other cops, and the page has one:
+its **key C** gives the orders those calls give, in turn: a strip (kind 0
+from its slice − 6, 3 slices, +0x711 bit 8), a roadblock (kind 4, 20
+slices on along its way) and a patrol, each watching the racer nearest
+it, the chase dropped. A racer close by and speeding is taken as a
+target first, as the game's cops do. The radio plays no speech: the info
+line shows the police car's state and its last call for 5 s (of
+physics.md's table, those the page's cases make: a target taken
+`0x40b220`, a strip or roadblock asked for `0x40b910`, `0x40b860`, a
+strip laid `0x40b9c0`, a roadblock set `0x40bac0`, missed the strip
+`0x40bca0`, ran the roadblock `0x40bd00`, ticketed `0x40b670`); strips
+are drawn as dark bars. A run (`d5-runs/sim/copsim`, Hometown, two
+racers at 35 m/s from slices 300 and 280, the police car at 360 given
+the strip order): it turned back, reached the roadside at slice 357 at
+2.3 s and laid the strip in lane 7 at 2.4 s; the first racer ran over it
+at 52 m/s at 7.7 s, pulled over (5) and stopped (6) at slice 375 by
+11.8 s; the cop began the stop at 12.7 s and gave the ticket at 18.8 s
+(384 steps); both drove on. With the roadblock order (kind 4 at slice
+380) it was in place at 7.4 s but, the racers within 240 m, never
+turned across: the first racer passing at 57 m/s became its target. A
+racer held at 10 m/s was held 192 steps within 20 m, pulled over,
+stopped and ticketed.
 
 **The computer cars' driving** (nfs3.exe, November 2026; `aiStep`).
-Each step (64 a second) an AI racer runs `car_driver_ai` (`0x409c00`,
-state 1) and `car_ai_model` (`0x408600`). The page runs the parts that
+An AI racer runs `car_driver_ai` (`0x409c00`, state 1) every 8 steps and
+`car_ai_model` (`0x408600`) every other step (below, When the driver
+acts). The page runs the parts that
 pick its speed and lane for each of the three cars in turn, and moves
 them along the slices at the speed that leaves:
 
@@ -877,15 +1019,15 @@ them along the slices at the speed that leaves:
   (`0x4097c0`); 11, the best line: the speed table's lane nibble 4 slices
   ahead, worth 6 for a driver of skill 0, else 10, or 12 with personality
   over 2 (`ai_lane_vote_line`, `0x4096b0`; not for a car running the
-  other way). Halved for a car only partly in that lane. Left out, as
-  the page has nothing they act on (read November 2026):
-  - `0x40d720`: eight 0x50-byte records at `0x7dd850` (in use when
-    the first word isn't 0; a slice at +0x34, a lane at +0x38): a lane
-    holding one 1 to 5 slices ahead in the car's direction gets −50 in
-    row 5 (`0x56eecc`),
-    and if it is the car's own lane its +0x7B0 is scaled by
-    `0x536724`. What fills the records (roadblocks or wrecks, most
-    likely) wasn't followed;
+  other way). Halved for a car only partly in that lane. 5, the spike
+  strips (`0x40d720`, November 2026): eight 0x50-byte records at
+  `0x7dd850`, one per cop (in use when the first word isn't 0; a slice
+  at +0x34, a lane at +0x38), are the strips `spike_lay` (`0x4c9dd0`)
+  lays: a lane holding one 1 to 5 slices ahead in the car's direction
+  gets −50 in row 5 (`0x56eecc`), and in the car's own lane its +0x7B0
+  is × 0.9 (`0x536724`). The page has them since its police car lays
+  strips (below). Left out, as the page has nothing they act on (read
+  November 2026):
   - the grudge (`0x409840`): a driver of personality over 2 with
     +0x6E4 above 0, +0x7D4 0 and a target car at +0x624 sets bit 0x80 of
     +0x621 when the target is the nearest car ahead in one of its three
@@ -914,6 +1056,34 @@ them along the slices at the speed that leaves:
   fast (`0x53624c`); under that it slows without its brake lights. The
   speed tables drop at bends, so the cars brake into them.
 
+- **When the driver acts** (November 2026). `car_driver_ai` goes
+  through the same gate as the cops' driver (`0x40df10` → `0x401240`,
+  `step_phase_skip(8, car +0)`): a 32 Hz task let through when
+  (step / 2 + the car's index) mod 4 is 0, so a racer's speed wanted and
+  lane are worked out every 8 steps, each car on its own phase
+  (`aiDriverActs`). Its model (`car_ai_physics`, `0x4088f0` →
+  `car_ai_model` `0x408600`) is a 32 Hz task too, its time step
+  `0x56ec58` 1/32 s: the aim moves 0.2 a call (`ai_lane_ramp`), 3.2 m in
+  half a second, as the `t6-log` dumps show (car 1's +0x7C8 from 5.0 to
+  8.2 to 11.4), and the speed changes by the acceleration × 1/32. The
+  page ran both every step, the aim at twice the game's rate.
+- **The side offset as measured** (November 2026). +0x7B8 is not the
+  car's own place across the road but `0x4a2bc0`'s (from `0x42ce70`
+  each step): the car's position less its slice's road point, along the
+  right of the road polygon under it (+0x124, `car_road_frame`). On a
+  bend the line from one slice's point to the next moves across the
+  slice's right (on Hometown's first 200 slices by −0.5 to +0.5 m, 1.7 at
+  slice 170), so a car going straight on measures a side offset changing
+  across each slice and jumping back at the next, and its controller
+  steers by that. A car aimed at a lane's middle sits on the rounding
+  boundary of `0x40e2b0` (½ a width), so its +0x638 flips between the two
+  lanes with every few centimetres: in the dumps car 6 at +0x7B8 3.86 to
+  4.20, lane 7 below 4 and 8 above. The page now keeps the car's own
+  place (`lateral`, drawn) and the offset as measured (`side`, +0x7B8:
+  `lateral` + how far it is along the slice × the slice's chord,
+  `aiChord`), steers the spring by the measured one and takes the lanes
+  there. The polygons' own road vectors (the game's +0x124) aren't used:
+  the slice's right stands for them.
 - **The side offset as driven** (+0x7B8, `aiMove`): the game's car is
   steered at its aim (+0x7C8) by the controllers above and its lanes
   (`0x40e350`) are taken at +0x7B8, the car's own offset, not at the aim.
@@ -942,6 +1112,18 @@ page's changed in 2-6 with the car on its aim, and in 7-21 with the side
 offset as driven. Braking: one sample in the game (car 1), none on the
 page. Flashing: none in the game's samples, one on the page (car 1,
 held up at the start).
+
+Again with the driver's gate, the 32 Hz model and the side offset as
+measured (`d5-runs/sim`, `aisim` with each car's phase its index,
+November 2026): +0x638 changes in 21-29 of the 56 samples per car (the
+game's 17-23); the gate and the 32 Hz model alone gave 5-18, so it is
+the measured offset flipping at the lanes' middles that makes the
+weaving. Mean speeds 36.5-38.0 m/s (the game's 34.8-38.3), braking in
+one sample for five cars (the game's one car), flashing 1-3 times for
+two cars (none in the game). The page's cars now aim at lane 7's middle
+(4 m) most of the time as the game's do, but cross to lane 8 less often
+(3-14 samples aimed at 12 m against the game's 7-40): the rest of the
+difference is the game's own steering, which the spring stands for.
 
 In a scratch run of 30,000 steps (almost 8 minutes) on each of tracks
 0-4 with the page's three cars, they braked into the bends on every

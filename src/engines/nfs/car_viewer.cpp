@@ -146,7 +146,7 @@ void CarPage::load(int index) {
             std::vector<uint8_t> tga;
             image::Image img;
             if (!files_.read(f, tga) && !image::decode(tga, img) &&
-                !renderer_->createTexture(img.w, img.h, img.rgba.data(), {}, skin_)) {
+                (skinRowsAsStored(tga, img), !renderer_->createTexture(img.w, img.h, img.rgba.data(), {}, skin_))) {
                 skinName_ = baseName(f.name);
             }
             break;

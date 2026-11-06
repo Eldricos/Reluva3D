@@ -298,25 +298,80 @@ From nfs3.exe (November 2026), the drawing of a car (`car_draw_wheels`
   beam: looking into it the beam's colour is scaled to nearly nothing,
   as the code has it.
 
-  The page compared with the game's frames (November 2026), its cars
-  placed from the frame's car dump (`RELUVA_NFS_TRACK_CARS`) and its
-  camera from the same sky draw (`RELUVA_NFS_TRACK_CAMERA`):
-  - **The fog** (`t5-fog`, sky draw 500, frame 2700): the car facing
-    the camera 36 ahead shows two white headlight glows, their short
-    flares on the wet road below and no beam on both, the glows of the
-    same size. The page's car is paler, more fogged: 145, 140, 141 on its
-    lower body against the game's 171, 168, 166.
-  - **By day** (`t6-day`, Hometown on the grid, sky draw 150, frame
-    2345; four cars 19-74 ahead): in the same places in the view (the
-    page's window has another shape). The game's cars are other models
-    than the page's Corvette, so the reflections can only be compared
-    roughly: the game's silver car
-    19 ahead shows the sky as grey-white bands along its flanks, the
-    page's Corvette deep blue streaks of `CHRD`'s sky there.
-  - **By night** (`t6-night`, Hometown, sky draw 150, frame 2345, the
-    cars 70 and more ahead, `projtex` off): both show the cars' red tail
-    light glows, small and of the same size, the bodies dark grey; the
-    page's bodies a little lighter.
+- **The fog** (November 2026, `d5-fog`: `t5-fog` again with
+  `-gpudump 2700`, the THRASH list of the frame). A car is fogged as
+  the scenery is, by the card's table fog: its batches carry the frame's
+  fog value (75, density 85, as the road's) and colour, and each vertex
+  its own 1/w, w its depth in the view (0.0262-0.0292: w 34.2-38.2 for
+  car 1, 36.4 ahead by the dumps), so Glide fogs each pixel by its own
+  depth, after the texture and the lit vertex colour, before blending.
+  The reflection's pass, the glows and the rain's flares come with the
+  same fog: an added picture is mixed towards the fog's colour and then
+  added, so in fog a glow's dark edges add the fog's colour. The page
+  fogged the car so, but not its glows, flares and beams; now it does.
+
+The page compared with the game's frames (November 2026), its cars
+placed from the frame's car dump (`RELUVA_NFS_TRACK_CARS`) and its
+camera from the same sky draw (`RELUVA_NFS_TRACK_CAMERA`):
+- **The fog** (`t5-fog`, sky draw 500, frame 2700): the car facing the
+  camera 36 ahead shows two white headlight glows, their short flares on
+  the wet road below and no beam on both, the glows of the same size.
+  The page's car was paler, more fogged (145, 140, 141 on its lower
+  body against the game's 171, 168, 166): it was the Corvette, the
+  game's the F355 in silver (set-up key 2). With its own model and paint
+  (`RELUVA_NFS_TRACK_CARS_SETUP`, `d5-fog2`'s set-up dump) and the skin
+  the right way up (below), the car's box (21 × 12 pixels) is 140, 134,
+  128 on the page put through the host's 16-bit frame (frd.md,
+  Brightness against the host's frames) against the game's 141, 136,
+  130, its lower body 100, 97, 94 against 103, 99, 92. The game's car
+  has the sharper contrast of point-sampled textures.
+- **By day** (`t6-day`, Hometown on the grid, sky draw 150, frame 2345;
+  four cars 19-74 ahead; `d5-day`'s set-up dump): the page now draws the
+  game's models, the F355 19 ahead in silver, the `Cout` 37 ahead and
+  two Corvettes, so the reflections compare on the same model. The
+  F355's reflection colours are the game's exactly (`b7b7b4aa` and
+  `d7d7d2c1`, the list's and `carReflection`'s for colour FFFFFFFF, the
+  sky's top 177, 170, 142 and paint value 128). Its box (60 × 20 pixels):
+  73, 71, 68 on the page (16-bit) against 67, 65, 60, the rows within 2-13
+  but for its roof's edge; both show the sky as grey-white bands along
+  the flanks.
+- **By night** (`t6-night`, Hometown, sky draw 150, frame 2345, the
+  cars 70 and more ahead, `projtex` off): both show the cars' red tail
+  light glows, small and of the same size, the bodies dark grey; the
+  page's bodies a little lighter.
+
+## The skin's paint
+
+From nfs3.exe (November 2026). The loader (`0x49d320` → `0x49cea0` →
+`0x49cd00`) turns `car00.tga` into the card's 1:5:5:5 texture (128 × 128
+in `nfs-host`'s lists), texel by texel, by its alpha:
+- 0: transparent (the alpha bit clear);
+- 1-127: recoloured with the paint (the record the set-up's colour
+  picks, kept at +0x8A8-+0x8B0 as hue, saturation and value);
+- 128-254: recoloured with the secondary colour (`0x904`) of the
+  primary colour nearest the paint (`0x49d240`: each primary colour's
+  RGB by `0x49ca50` against the paint's, the least distance; up to the
+  secondaries' count): the windows;
+- 255: kept.
+
+The recolouring (`0x49cc50`): t = the texel's blue in 5 bits × 8, over
+255 − the colour's fourth value unless that is 255 (`0x53c668`); the
+value is trunc(the colour's brightness × t), at most 255; the colour's
+hue and saturation at that value back to RGB (`0x49ca50`), to 5 bits.
+`skinTexel` does the same. Checked on `d5-fog`'s list: the F355's
+skin recoloured with its colour 3 (44, 12, 128, 128) and secondary
+(126, 48, 38, 128) and sampled at every second texel comes within 2.4 of
+the list's texture on the painted texels, 0.3 on the windows and 1.1 on
+those kept; the skin as stored is 13.5 and 84.6 off there.
+
+**The rows** are taken as the file stores them (`0x49cd00` walks the
+pixel data from its start), whatever the header's origin bit: texture
+row 0 is the first row stored, the bottom one of every `car00.tga` but
+`Knoc`'s (byte 17 bit 5 clear). Reluva decodes images top row first, so
+until November 2026 the Track and Cars pages drew every skin upside
+down: the Corvette from behind showed no tail lights, the F355 its
+lights below its grille. Both pages now turn the rows back
+(`skinRowsAsStored`).
 
 ## How the game loads a model
 
