@@ -137,3 +137,12 @@ The [computer-opponent stage](computers.md) now connects four typed computer
 levels to the same Traditional/Chess controllers and final ownership scoring.
 Only human final scores enter the native high-score batch. Original AI
 strength/cadence remains unverified; the playable policy is explicitly native.
+
+The owner later confirmed background computers make no visible moves in both
+Classic turn modes; their final scores and words appear after the human's time
+ends, and computer scores do not enter View Highscores. Native
+[background play](background.md) now applies these presentation/scoring rules,
+with a continuous computer budget across player switches. A further VM check
+confirms visible running totals, full-budget completion when all humans end a
+timed game early, and last-human stopping for untimed games. Exact AI cadence
+and intermediate dictionary-review timing remain unverified.

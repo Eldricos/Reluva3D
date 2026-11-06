@@ -14,6 +14,8 @@ public:
     Error build(const Board& board,const Dictionary& vocabulary,const Dictionary& english,
                 ComputerLevel level,uint32_t seed,size_t slot,size_t visits=500000);
     const AcceptedWord* take(uint64_t elapsed);
+    // Hidden play catches up in logical order, independent of frame/input rate.
+    const AcceptedWord* takeScheduled(uint64_t elapsed,uint64_t& submittedAt);
     bool exhausted() const { return at_==words_.size(); }
     const std::vector<AcceptedWord>& words() const { return words_; }
 private:

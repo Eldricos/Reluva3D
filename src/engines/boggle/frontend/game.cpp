@@ -20,7 +20,7 @@ constexpr Box classic{40,288,112,112}, original{48,155,252,65}, master{340,155,2
               less{174,258,48,36}, more{418,258,48,36}, untimed{224,312,192,36},
               play{340,388,252,48}, back{48,388,252,48}, exit{462,420,140,36};
 constexpr size_t nameRows=8;
-constexpr Box turnMode{48,352,544,28};
+constexpr Box turnMode{48,352,544,28},backgroundPlay{48,224,544,28};
 constexpr Box localPlayers{324,310,268,40};
 constexpr Box playerChoice{48,162,544,40},nameList{48,204,544,228};
 constexpr Box changeName{48,310,252,40},nameField{88,188,464,42},saveName{88,296,210,40},cancelName{318,296,210,40};
@@ -77,12 +77,12 @@ void setup(Surface& s,const ClassicOptions& options) {
     button(s,back,"MAIN MENU (ESC)");button(s,play,"PLAYERS (ENTER)",true);
     text(s,48,458,"1/2: board   Left/Right: duration   T: timer",muted);
 }
-void players(Surface& s,const ClassicOptions& options,const PlayerProfile& profile,const std::array<std::string,4>& roster) {
+void players(Surface& s,const ClassicOptions& options,const PlayerProfile& profile,const std::array<std::string,4>& roster,bool backgroundAvailable) {
     fill(s,{0,0,640,480},dark);fill(s,{24,26,592,2},gold);
     text(s,48,48,"PLAYERS",white,3);
     text(s,48,110,options.variant==ClassicVariant::Master ? "CLASSIC MASTER" : "CLASSIC ORIGINAL",gold,2);
     button(s,playerChoice,"HUMAN NAME: "+profile.name()+"  v (P)");
-    text(s,48,214,"U.S. English  |  Turn-based computers available",muted);
+    button(s,backgroundPlay,backgroundAvailable?(options.background?"COMPUTER BACKGROUND PLAY: ON (B)":"COMPUTER BACKGROUND PLAY: OFF (B)"):"BACKGROUND PLAY NEEDS A HUMAN AND COMPUTER",options.background && backgroundAvailable,backgroundAvailable);
     text(s,48,260,options.duration ? "Round length: "+duration(options.duration) : "Round length: Not Timed",white,2);
     button(s,changeName,"CHANGE NAME (N)");
     button(s,localPlayers,"LOCAL PLAYERS (M)");
@@ -160,6 +160,13 @@ Error FrontendGame::run() {
     std::vector<ComputerLevel> choiceKinds;std::optional<size_t> emptyChoice;
     size_t nameSelection=0,nameScroll=0;
     std::string draftName,nameError;
+    auto backgroundAvailable=[&]() {
+        bool human=false,computer=false;
+        for(size_t i=0;i<roster.size();++i)if(!roster[i].empty()) {
+            if(kinds[i]==ComputerLevel::Human)human=true;else computer=true;
+        }
+        return human && computer;
+    };
     uint64_t timedDuration=options.duration ? options.duration : 180000;
     for(;;) {
         bool launch=false, changed=false;
@@ -268,6 +275,7 @@ Error FrontendGame::run() {
                 }
             } else {
                 if((isKey && event.key=='c') || pressed(turnMode)) {options.turns=options.turns==ClassicTurnMode::Chess?ClassicTurnMode::Traditional:ClassicTurnMode::Chess;changed=true;}
+                else if(((isKey && event.key=='b') || pressed(backgroundPlay)) && backgroundAvailable()) {options.background=!options.background;changed=true;}
                 else if((isKey && event.key=='m') || pressed(localPlayers)) {rosterOpen=true;changed=true;}
                 else if((isKey && event.key=='p') || pressed(playerChoice)) {
                     fromRoster=false;choices=profile.history();choiceKinds.assign(choices.size(),ComputerLevel::Human);emptyChoice.reset();selectingName=true;nameSelection=0;nameScroll=0;nameError.clear();changed=true;
@@ -281,6 +289,7 @@ Error FrontendGame::run() {
         if(launch) {
             system_.setTextInput(false);
             GameTarget selected=target_;
+            selected.settings["classic_background"]=options.background?"1":"0";
             selected.settings["classic_turns"]=options.turns==ClassicTurnMode::Chess?"chess":"traditional";
             selected.settings["classic_player_name"]=profile.name();
             selected.settings["classic_variant"]=options.variant==ClassicVariant::Master ? "master" : "original";
@@ -300,7 +309,7 @@ Error FrontendGame::run() {
         }
         if(page==Page::Version) setup(screen,options);
         else if(page==Page::Players) {
-            players(screen,options,profile,roster);
+            players(screen,options,profile,roster,backgroundAvailable());
             if(rosterOpen)rosterScreen(screen,roster);
             if(selectingName)nameDropdown(screen,choices,nameSelection,nameScroll,nameError,fromRoster);
             if(editingName)nameEditor(screen,draftName,selectAll,nameError);

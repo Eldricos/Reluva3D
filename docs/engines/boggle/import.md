@@ -154,3 +154,6 @@ The computer-opponent stage adds `Dicts/AI.dic` when available. Older 53-file
 imports remain usable with humans. Re-import to add the computer vocabulary;
 selecting a computer without it fails with a clear message before play starts.
 The 64-plan computer validator also runs on the imported copy.
+
+Background play adds no import files. Fresh-copy validation also checks hidden
+computer schedules at coarse and fine service intervals; see [background validation](background.md).

@@ -1,7 +1,7 @@
 # Classic computer opponents
 
 Original and Master support Beginner, Intermediate, Advanced and Mr. Boggle in
-Traditional Play and Chess Timer. On Players, open **Local Players / M**, choose
+Traditional Play and Chess Timer, with optional [background play](background.md). On Players, open **Local Players / M**, choose
 any of the four slots, and select a computer entry. Slots 2–4 may be empty.
 Slot 1 may also be a computer; an all-computer match is supported. The roster is
 session-only. Computer selection never changes the saved human name/history.
@@ -11,7 +11,8 @@ Computers use `Dicts/AI.dic` from the owner's installation, intersected with
 `Dicts/English.dic`. The bounded board solver finds one legal path per eligible
 word, including Qu, without cube reuse. Approved personal words do not expand
 computer vocabulary. Every computer submission goes through the normal round
-validator, scoring, sound cues and shared-word cancellation. Computers appear in
+validator, scoring and shared-word cancellation. Visible turns play word-length
+sound cues; hidden background submissions are silent. Computers appear in
 match results and word review, but only humans enter the high-score table.
 
 The supplied install/CD has the needed dictionary. New imports include it when
@@ -54,8 +55,10 @@ to a human waits for Start Turn / Enter. Computer words enter the visible list
 with their normal length-dependent writing cue. Human typing/cube clicks cannot
 submit on a computer's behalf. F1 can retire the active computer, and Menu /
 Launcher actions remain available. Computers do not move the pointer or expose
-their future words. Concurrent background play and optional cursor movement are
-separate future stages.
+their future words. [Background play](background.md) now runs computers alongside
+human turns with hidden words and visible running scores; the final summary
+provides word-list review. Optional visible
+computer cursor movement remains a future stage.
 
 ## Evidence and limits
 
@@ -74,11 +77,13 @@ and English language resources establish:
 - The end-game score loop around `0x41b335` checks the player's computer predicate
   (vtable offset `0x68`) and skips the high-score writer for computer players.
 - The English DLL's string 9002 describes all-computer play disabling background
-  play. The native all-computer setup has no background execution option.
+  play. The native all-computer setup likewise uses visible turns.
 - The owner confirmed Traditional whole-round turns, Chess word turns and
   cancellation of shared words for human/computer matches. Visible computer
   cadence, exhaustion behavior and detailed original vocabulary selection
-  still need reference checks.
+  still need reference checks. A later owner check corroborates hidden background
+  moves in both modes, final score/word-list reveal and computer high-score
+  exclusion; see [background timing limits](background.md).
 
 The installed `AI.dic` is 108,774 bytes, SHA-256
 `f05dfb3b5f2771ac98cf75a838dc74303700beb67cc292ca065a5641e3466f1d`.

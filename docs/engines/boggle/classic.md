@@ -1,6 +1,6 @@
 # Classic: playable local slice
 
-Scope: one to four local humans or turn-based computers in Traditional Play or Chess Timer, U.S. English, Original (4x4) or Master (5x5), typed
+Scope: one to four local humans or visible/background computers in Traditional Play or Chess Timer, U.S. English, Original (4x4) or Master (5x5), typed
 or mouse-selected words, configurable timed/untimed rounds, scores and results.
 This is not complete support for Boggle's five modes or the original menu, animation, sound and networking systems.
 

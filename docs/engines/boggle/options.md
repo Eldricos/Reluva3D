@@ -138,3 +138,9 @@ On Players, C / the mode button now selects Traditional or [Chess Timer](chess.m
 for local humans and [computer opponents](computers.md). This is separate from the original background-computer/cursor
 options. The private `classic_turns` target value also supports controlled runs;
 no new launcher checkbox is added.
+
+On Players, B / Computer Background Play independently switches hidden computer
+participation on or off when both a human and computer are assigned. The
+session setting `classic_background` accepts only `0` and `1`, defaulting to `0`.
+All-computer rosters use visible turns. This adds no launcher checkbox or import
+file; see [background play and native timing limits](background.md).

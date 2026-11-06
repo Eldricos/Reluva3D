@@ -58,9 +58,9 @@ void scoreTable(Surface& screen,const HighScores& scores,const std::string& erro
     rect(screen,scoresClose.x,scoresClose.y,scoresClose.w,scoresClose.h,{48,88,120});label(screen,460,460,"CLOSE (ENTER / H)");
     if(!error.empty()){rect(screen,scoresRetry.x,scoresRetry.y,scoresRetry.w,scoresRetry.h,{48,88,120});label(screen,172,460,"RETRY (R)");}
 }
-void matchTable(Surface& screen,const std::vector<std::string>& names,const ClassicCompetition& competition,bool chess) {
+void matchTable(Surface& screen,const std::vector<std::string>& names,const ClassicCompetition& competition,bool chess,bool background) {
     rect(screen,128,94,544,404,{22,40,60});label(screen,160,116,"CLASSIC RESULTS",white,2);
-    label(screen,160,150,chess?"CHESS TIMER / SHARED WORDS SCORE ZERO":"TRADITIONAL / SHARED WORDS SCORE ZERO",muted);
+    label(screen,160,150,std::string(chess?"CHESS TIMER":"TRADITIONAL")+(background?" / BACKGROUND CPU":"")+" / SHARED WORDS SCORE ZERO",muted);
     for(size_t i=0;i<names.size();++i) {
         label(screen,160,190+int(i)*40,std::to_string(i+1)+"  "+names[i],white,2);
         label(screen,550,190+int(i)*40,std::to_string(competition.players()[i].score),white,2);
@@ -68,6 +68,14 @@ void matchTable(Surface& screen,const std::vector<std::string>& names,const Clas
     label(screen,160,380,"1-4 or click a name: review that player's words",muted);
     label(screen,160,410,"Grey words in review were shared / worth zero.",muted);
     rect(screen,448,450,184,30,{48,88,120});label(screen,460,460,"CLOSE (ENTER / V)");
+}
+void liveScores(Surface& screen,const std::vector<std::string>& names,
+                const std::vector<std::unique_ptr<ClassicRound>>& rounds,const ClassicCompetition& competition) {
+    rect(screen,0,590,width,10,dark);
+    for(size_t i=0;i<names.size();++i) {
+        const int score=competition.ready()?competition.players()[i].score:rounds[i]->score();
+        label(screen,12+int(i)*196,591,std::to_string(i+1)+" "+names[i]+" "+std::to_string(score));
+    }
 }
 void handoffScreen(Surface& screen,std::string_view next,bool chess,uint64_t remaining,bool timed,const std::vector<std::string>& finished) {
     rect(screen,0,0,width,height,dark);
@@ -218,6 +226,11 @@ Error ClassicGame::run() {
     if(kinds.size()!=names.size() || !std::all_of(kinds.begin(),kinds.end(),validComputerLevel))
         return Error::fail("Invalid Classic computer roster");
     const bool hasComputer=std::any_of(kinds.begin(),kinds.end(),[](auto kind){return kind!=ComputerLevel::Human;});
+    const size_t humans=size_t(std::count(kinds.begin(),kinds.end(),ComputerLevel::Human));
+    // As in the observed all-computer setup, background play needs a human.
+    const bool background=options.background && hasComputer && humans;
+    const size_t foregroundCount=background?humans:names.size();
+    auto foreground=[&](size_t i){return !background || kinds[i]==ComputerLevel::Human;};
     Resources resources;
     if (auto err = resources.open(target_.path)) return err;
     Dictionary dictionary,computerDictionary; DiceSet dice; Palette palette;
@@ -250,7 +263,8 @@ Error ClassicGame::run() {
     bool scoreAttempted=false,scoreOpen=false,matchOpen=false,handoff=false,handoffVisible=false;
     std::vector<std::string> finishedNotices;
     RoundResults results;Board board;uint32_t seed=options.seed?*options.seed:freshClassicSeed();
-    std::vector<std::unique_ptr<ClassicRound>> rounds;size_t turn=0,reviewPlayer=0,nextTurn=0;ClassicCompetition competition;PlayerClocks clocks;
+    std::vector<std::unique_ptr<ClassicRound>> rounds;size_t turn=0,reviewPlayer=0,nextTurn=0;ClassicCompetition competition;PlayerClocks clocks,backgroundClock;
+    bool backgroundStarted=false,backgroundFinished=false;
     std::vector<ComputerPlan> computers(names.size());std::vector<uint64_t> started(names.size());
     auto resetRounds=[&](const Board& cubes)->Error {
         std::vector<std::unique_ptr<ClassicRound>> next;
@@ -260,17 +274,22 @@ Error ClassicGame::run() {
                 if(auto error=plans[i].build(cubes,computerDictionary,dictionary,kinds[i],seed,i))return error;
             auto current=std::make_unique<ClassicRound>(dictionary,&user);
             if(auto error=current->board(cubes,options.duration))return error;
+            if(!foreground(i))if(auto error=current->start(0,options.duration))return error;
             next.push_back(std::move(current));
         }
         if(auto error=clocks.reset(names.size()))return error;
-        rounds=std::move(next);computers=std::move(plans);std::fill(started.begin(),started.end(),0);turn=reviewPlayer=nextTurn=0;competition.clear();finishedNotices.clear();return Error::success();
+        if(auto error=backgroundClock.reset(1))return error;
+        backgroundStarted=backgroundFinished=false;
+        rounds=std::move(next);computers=std::move(plans);std::fill(started.begin(),started.end(),0);
+        turn=0;while(!foreground(turn))++turn;
+        reviewPlayer=nextTurn=turn;competition.clear();finishedNotices.clear();return Error::success();
     };
     auto round=[&]()->ClassicRound& {return *rounds[competition.ready()?reviewPlayer:turn];};
     auto gameTime=[&](){return chess?clocks.elapsed(competition.ready()?reviewPlayer:turn,sys_.getMillis()):sys_.getMillis();};
     auto nextChessPlayer=[&]()->std::optional<size_t> {
         for(size_t step=1;step<=rounds.size();++step) {
             const auto index=(turn+step)%rounds.size();
-            if(rounds[index]->phase()!=RoundPhase::Results)return index;
+            if(foreground(index) && rounds[index]->phase()!=RoundPhase::Results)return index;
         }
         return {};
     };
@@ -310,6 +329,16 @@ Error ClassicGame::run() {
         }
     };
     auto updateInput = [&] { input.clear(); for (size_t i : selected) input += round().board().faces()[i]; };
+    auto startBackground=[&](uint64_t now)->Error {
+        if(!background || backgroundStarted)return Error::success();
+        if(auto error=backgroundClock.activate(0,now))return error;
+        backgroundStarted=true;return Error::success();
+    };
+    auto settleBackground=[&](uint64_t now) {
+        if(!background || !backgroundStarted || backgroundFinished)return;
+        for(size_t i=0;i<names.size();++i)if(foreground(i) && rounds[i]->phase()!=RoundPhase::Results)return;
+        backgroundClock.stop(now);backgroundFinished=true;
+    };
     auto startOrFinish = [&]() -> Error {
         if (round().phase() == RoundPhase::Results && !resultsVisible) return Error::success();
         if(competition.ready() || (names.size()==1 && round().phase()==RoundPhase::Results)) {
@@ -318,14 +347,16 @@ Error ClassicGame::run() {
         resultsVisible = false; results.clear(); scoreAttempted=false; clear(); message.clear();
         if (round().phase() == RoundPhase::Playing) {
             round().finish(); sound.stopShake();if(chess)clocks.stop(sys_.getMillis());
+            settleBackground(sys_.getMillis());
             if (options.animations && (!chess || !nextChessPlayer()))transition.begin(Transition::Closing,sys_.getMillis());
         } else {
             sound.beginRound(options.animations);
             if (options.animations) transition.begin(Transition::Opening,sys_.getMillis());
             else {
-                if(chess)if(auto error=clocks.activate(turn,sys_.getMillis()))return error;
                 started[turn]=sys_.getMillis();
+                if(chess)if(auto error=clocks.activate(turn,started[turn]))return error;
                 if(auto error=round().start(chess?0:started[turn],options.duration))return error;
+                if(auto error=startBackground(started[turn]))return error;
             }
         }
         return Error::success();
@@ -352,15 +383,40 @@ Error ClassicGame::run() {
         finishedNotices.clear();
         if(endedCurrent)finishedNotices.push_back(names[turn]);
         for(size_t i=(turn+1)%names.size();i!=target;i=(i+1)%names.size())
-            if(rounds[i]->phase()==RoundPhase::Results)finishedNotices.push_back(names[i]);
+            if(foreground(i) && rounds[i]->phase()==RoundPhase::Results)finishedNotices.push_back(names[i]);
         nextTurn=target;handoff=true;handoffVisible=false;resultsVisible=false;
+    };
+    auto advanceBackground=[&](bool finish)->Error {
+        if(!background)return Error::success();
+        const uint64_t now=sys_.getMillis();
+        settleBackground(now);
+        // The owner confirmed one continuous budget across player switches.
+        // Timed computers complete the full budget when all humans end early;
+        // untimed computers stop at the last human's end, before dictionary review.
+        const uint64_t elapsed=options.duration && backgroundFinished?
+            options.duration:backgroundClock.elapsed(0,now);
+        // Words at the exact deadline cannot enter a timed Classic round.
+        const uint64_t horizon=options.duration?std::min(elapsed,options.duration-1):elapsed;
+        for(size_t i=0;i<names.size();++i)if(!foreground(i)) {
+            uint64_t submittedAt=0;
+            while(const auto* word=computers[i].takeScheduled(horizon,submittedAt))
+                if(rounds[i]->submit(word->word,submittedAt,word->path)!=Submission::Accepted)
+                    return Error::fail("Background computer produced an invalid Classic submission");
+            if(finish)rounds[i]->finish();
+        }
+        return Error::success();
     };
     auto publish=[&]()->Error {
         if(names.size()==1)return results.build(round());
         if(!competition.ready()) {
             if(chess) {
                 if(const auto next=nextChessPlayer()){queueChessHandoff(*next,true);return Error::success();}
-            } else if(turn+1<rounds.size()){nextTurn=turn+1;handoff=true;handoffVisible=false;return Error::success();}
+            } else {
+                for(size_t i=turn+1;i<rounds.size();++i)if(foreground(i)) {
+                    nextTurn=i;handoff=true;handoffVisible=false;return Error::success();
+                }
+            }
+            if(auto error=advanceBackground(true))return error;
             std::vector<const ClassicRound*> input;for(const auto& current:rounds)input.push_back(current.get());
             if(auto error=competition.build(input))return error;
             reviewPlayer=0;matchOpen=true;
@@ -373,11 +429,11 @@ Error ClassicGame::run() {
     };
     auto timeout=[&](uint64_t now) {
         clear();dragging=false;resultsVisible=false;message="Time is up.";
-        sound.stopShake();if(chess)clocks.stop(now);sound.countdown(0,chess?turn:0);
+        sound.stopShake();if(chess)clocks.stop(now);settleBackground(now);sound.countdown(0,chess?turn:0);
         if(options.animations && (!chess || !nextChessPlayer()))transition.begin(Transition::Closing,now);
     };
     auto passWord=[&]()->Error {
-        if(!chess || names.size()==1)return Error::success();
+        if(!chess || foregroundCount==1)return Error::success();
         const auto now=sys_.getMillis();clocks.stop(now);
         round().tick(clocks.elapsed(turn,now));
         if(round().phase()==RoundPhase::Results){timeout(now);return Error::success();}
@@ -410,6 +466,7 @@ Error ClassicGame::run() {
             if(chess)if(auto error=clocks.activate(turn,now))return error;
             started[turn]=now;
             if (auto err = round().start(chess?0:now,options.duration)) return err;
+            if(auto error=startBackground(now))return error;
         }
         if (transition.type() != Transition::None) return Error::success();
         const bool playing = round().phase() == RoundPhase::Playing;
@@ -569,6 +626,7 @@ Error ClassicGame::run() {
             }
         }
         if (!running) break;
+        if(auto error=advanceBackground(false))return error;
         if(!handoff && !competition.ready() && transition.type()==Transition::None &&
            kinds[turn]!=ComputerLevel::Human && round().phase()==RoundPhase::Playing) {
             auto& plan=computers[turn];
@@ -600,7 +658,8 @@ Error ClassicGame::run() {
             rect(screen,0,height-40,width,40,dark);
             label(screen,24,height-25,transition.type() == Transition::Opening ? "Rolling dice and opening the lid..." : "Closing the lid...");
         } else draw(screen, round(), gameTime(), letters, qu, palette, input, selected, results.ready() && scoreError && message.empty()?"High scores unavailable. H: details / retry.":competition.ready() && message.empty()?"1-4: player review / V: match scores / Up-Down: word path":message, scroll, fromMenu_,artwork,options.duration,seed,options.autoOrient,names[competition.ready()?reviewPlayer:turn],results,chess);
-        if(matchOpen)matchTable(screen,names,competition,chess);
+        if(background)liveScores(screen,names,rounds,competition);
+        if(matchOpen)matchTable(screen,names,competition,chess,background);
         if(scoreOpen)scoreTable(screen,highScores,scoreError.message);
         sys_.updateScreen(screen);
         if(handoff)handoffVisible=true;

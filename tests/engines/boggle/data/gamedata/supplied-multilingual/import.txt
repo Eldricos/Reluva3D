@@ -10,3 +10,4 @@ font: d95aa010cbe9a291 | decoded font: c17da155d78f17e71d32137d3f5b1521
 allwords: 58f65b9a3d851c1a | decoded all words: 8422ca959f8ecd50164ea97972c4c274
 competition: b317e177a336ac35 | decoded competitions: be5fae83b0735277bba82da2d5d62d3f
 computer: fb7e8cc607535d3b | decoded computers: 3a0f0641f91550787fcf69d76ac4d0b6
+background: 9188c0ce24267919 | decoded background: be11fe8ed0d288b82d0628077322d91b

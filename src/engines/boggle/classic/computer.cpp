@@ -48,4 +48,8 @@ const AcceptedWord* ComputerPlan::take(uint64_t elapsed) {
         std::numeric_limits<uint64_t>::max():elapsed+interval_;
     return &words_[at_++];
 }
+const AcceptedWord* ComputerPlan::takeScheduled(uint64_t elapsed,uint64_t& submittedAt) {
+    if(exhausted() || elapsed<due_)return nullptr;
+    submittedAt=due_;return take(due_);
+}
 } // namespace reluva::boggle

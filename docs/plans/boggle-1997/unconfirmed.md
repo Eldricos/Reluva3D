@@ -184,3 +184,15 @@ policy. Both turn controllers retain shared-word cancellation; computers stay
 out of human history and the high-score table. New imports include `AI.dic`.
 Original AI cadence/strength, exhaustion behavior, background play and cursor
 movement remain open. See [computer evidence, limits and checks](../../engines/boggle/computers.md).
+
+The owner confirmed the first computer-opponent stage compiles and works. A VM
+check also established hidden background participation in both Classic turn
+modes, final computer score then word-list presentation, and high-score
+exclusion. Native [background play](../../engines/boggle/background.md) now adds
+an independent Players switch and keeps computers out of the human rotation.
+A further owner check confirms a continuous computer budget through switches,
+visible current scores, full-budget computer completion when all humans end a
+timed game early, and stopping with the last human in untimed play. The native
+implementation incorporates these corrections. Original AI strength/cadence,
+precise initial-start and intermediate dictionary-review timing remain
+unverified. Optional visible computer cursor movement remains future work.

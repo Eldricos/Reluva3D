@@ -78,8 +78,9 @@ native user dictionary; an approved word can therefore be recognized during a
 later turn. Original multi-player review timing and user-dictionary scope still
 need corroboration. Exact turn-transition animation timing and original dialog
 navigation also remain unverified. [Chess Timer](chess.md) shares its controller with
-humans and computers. Matching the original AI strength/cadence, background
-computer play and computer cursor movement remain separate future work.
+humans and computers. [Background play](background.md) now provides hidden
+computer submissions during human turns. Matching the original AI
+strength/cadence and computer cursor movement remain separate future work.
 
 ## Validation
 

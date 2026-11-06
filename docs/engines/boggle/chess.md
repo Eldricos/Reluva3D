@@ -7,8 +7,10 @@ A separate Play / Enter starts the match. Traditional remains the native
 default. The mode/roster lasts for the frontend session; the private target
 setting `classic_turns=chess` or `traditional` also selects it for controlled
 runs. Invalid values fail before graphics start. [Computer opponents](computers.md)
-use an explicit native strength/pacing policy; background play and computer
-cursor movement remain unimplemented.
+use an explicit native strength/pacing policy. [Background play](background.md)
+keeps computers out of the turn rotation, shows their running scores and reveals
+words at the final review;
+computer cursor movement remains unimplemented.
 
 ## Word turns and clocks
 

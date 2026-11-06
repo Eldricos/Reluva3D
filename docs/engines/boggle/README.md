@@ -5,9 +5,9 @@ and offers early local **Classic Original and Master** in U.S. English.
 Original uses 4x4 dice with a three-letter minimum; Master uses 5x5 with a
 four-letter minimum. Both have dictionary validation, scoring and results.
 [Traditional Play](traditional.md) and [Chess Timer](chess.md) support one to four
-local humans and turn-based computers on the same board, with shared-word cancellation and per-player results.
+local humans and computers on the same board, with shared-word cancellation and per-player results.
 Classic installed scenes, word panels, animated hourglasses, lid/roll animation, sound effects and WAV background music are available. Other modes,
-the full original frontend, original AI strength/cadence, concurrent computers and networking are unfinished.
+the full original frontend, original AI strength/cadence, computer cursor movement and networking are unfinished.
 See [scope and rule evidence](classic.md) and the
 [original/native comparison procedure](comparison.md).
 
@@ -16,7 +16,9 @@ or Master and a duration, advance to Players, then Play / Enter to start.
 Change Name / N on Players edits the human name, remembered for this game.
 Click the player-name dropdown or press P to recall a previous human name.
 Local Players / M assigns up to four humans or computer opponents;
-press C on Players to choose Traditional or Chess Timer. See
+press C on Players to choose Traditional or Chess Timer. With a human and
+computer assigned, B / Computer Background Play runs computers alongside the
+humans, showing current scores while keeping computer words hidden; see [background controls and timing limits](background.md). See
 [Traditional controls](traditional.md) and [Chess Timer clocks/turns](chess.md).
 See [computer setup, native strength policy and limits](computers.md) and
 [player naming and persistence](players.md).
@@ -135,6 +137,10 @@ See [Classic artwork and layout](layout.md) for scope, resource selection and fa
 and four-player reference cases on both Classic boards. This exercises the
 [multiplayer scoring model](competition.md) used by live Traditional human
 turns and computer opponents.
+
+`background-check <folder>` verifies 256 hidden schedules with coarse/fine
+service intervals, timed deadlines and canonical word validation. It reports
+metadata only; see [background validation](background.md).
 
 `computer-check <folder>` validates 64 native computer plans and all their
 submissions against the supplied vocabulary, both boards and all four levels.

@@ -19,6 +19,7 @@ struct ClassicOptions {
     ClassicTurnMode turns=ClassicTurnMode::Traditional;
     ClassicVariant variant = ClassicVariant::Original;
     uint64_t duration = 180000; // milliseconds; zero means Not Timed
+    bool background = false; // hidden computers alongside human turns
     bool sound = true, animations = true, menu = true, movies = true, artwork = true, autoOrient = true, handwriting = true;
     int music = musicNone;
     std::optional<uint32_t> seed; // developer replay override; absent in normal play
