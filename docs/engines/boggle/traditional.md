@@ -2,8 +2,9 @@
 
 Classic Original and Master now support one to four local humans in Traditional
 Play. Each active player takes a full round on the same generated board. The
-owner corroborated this broad turn rule in the original VM; computer opponents,
-Chess Timer and network play are not implemented in this stage.
+owner corroborated this broad turn rule in the original VM; computer opponents and
+network play are not implemented in this stage. [Chess Timer](chess.md) is now
+available as the alternate local-human turn mode.
 
 ## Setup
 
@@ -75,7 +76,8 @@ review currently occurs after each player's turn, using the existing shared
 native user dictionary; an approved word can therefore be recognized during a
 later turn. Original multi-player review timing and user-dictionary scope still
 need corroboration. Exact turn-transition animation timing and original dialog
-navigation also remain unverified. Chess Timer, AI strength/cadence, background
+navigation also remain unverified. [Chess Timer](chess.md) now has its own human
+controller. AI strength/cadence, background
 computer play and computer cursor movement remain separate future work.
 
 ## Validation

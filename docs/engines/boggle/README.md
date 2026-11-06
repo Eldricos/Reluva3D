@@ -4,8 +4,8 @@ The `boggle` engine recognizes the supplied multilingual Windows file set
 and offers early local **Classic Original and Master** in U.S. English.
 Original uses 4x4 dice with a three-letter minimum; Master uses 5x5 with a
 four-letter minimum. Both have dictionary validation, scoring and results.
-[Traditional Play](traditional.md) supports one to four local humans on the
-same board, with shared-word cancellation and per-player results.
+[Traditional Play](traditional.md) and [Chess Timer](chess.md) support one to four
+local humans on the same board, with shared-word cancellation and per-player results.
 Classic installed scenes, word panels, animated hourglasses, lid/roll animation, sound effects and WAV background music are available. Other modes,
 the full original frontend, AI and networking are unfinished.
 See [scope and rule evidence](classic.md) and the
@@ -16,7 +16,8 @@ or Master and a duration, advance to Players, then Play / Enter to start.
 Change Name / N on Players edits the human name, remembered for this game.
 Click the player-name dropdown or press P to recall a previous human name.
 Local Players / M assigns up to four local humans from the remembered names;
-see [Traditional setup and turn controls](traditional.md).
+press C on Players to choose Traditional or Chess Timer. See
+[Traditional controls](traditional.md) and [Chess Timer clocks/turns](chess.md).
 See [player naming and persistence](players.md).
 Escape returns to selection from version/setup or Players; it does nothing
 on selection or in-game. Use Menu / F3 in-game or Launcher / L on selection. See

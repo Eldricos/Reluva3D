@@ -15,6 +15,10 @@ Error readClassicOptions(const std::map<std::string,std::string>& settings, Clas
         if (it->second == "master") parsed.variant = ClassicVariant::Master;
         else if (it->second != "original") return Error::fail("Unsupported Classic variant; choose Original or Master in game options");
     }
+    if(auto it=settings.find("classic_turns");it!=settings.end()) {
+        if(it->second=="chess")parsed.turns=ClassicTurnMode::Chess;
+        else if(it->second!="traditional")return Error::fail("Classic turn mode must be traditional or chess");
+    }
     if (auto it = settings.find("classic_seconds"); it != settings.end()) {
         uint64_t seconds = 0; const auto& text = it->second;
         const auto result = std::from_chars(text.data(), text.data() + text.size(), seconds);

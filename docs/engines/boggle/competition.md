@@ -2,7 +2,8 @@
 
 The final shared-word model now backs [live Traditional local-human matches](traditional.md)
 with one to four humans. The owner corroborated the broad turn-mode distinctions
-below. Computer opponents and Chess Timer scheduling remain unimplemented;
+below. [Chess Timer](chess.md) now also uses this model for local humans.
+Computer opponents remain unimplemented;
 precise timing/strength behavior still needs further boundary checks.
 
 `ClassicCompetition` accepts one to four distinct, completed `ClassicRound`
@@ -98,11 +99,12 @@ It does not import the original player database. The concurrent-computer and
 cursor options are separate from the Traditional/Chess Timer turn mode; they
 must not be collapsed into one opponent setting.
 
-Still unverified: computer strength/cadence, exact timer accounting across turns,
-expiry and untimed behavior with several players, whether rejected/repeated
-attempts advance a Chess turn, and the detailed interaction between background
-computers and the selected turn mode. The broad turn rules above are now observed
-facts, while those boundaries remain future work. The live Traditional human controller is now implemented.
+A later owner VM check confirms separate paused Chess clocks, deferred checking
+of unknown words, a short-word notice, repeat-to-pass behavior, and continued
+play with a finished-player notice after someone runs out of time. The native
+[Chess controller and clock checks](chess.md) now implement those broad rules.
+Exact animation/dialog timing, multiplayer review scheduling, short/no-path turn
+boundaries and computer strength/cadence remain unverified.
 
 ## Tools and validation
 

@@ -70,7 +70,7 @@ table as Original in the original-game VM. These observations corroborate the
 Master rules and, following the owner's correction, the full set of UI duration
 choices established by the slider checks. Native Windows checks of this new
 Master/options build remain separate from the owner's earlier successful Original workflow tests.
-Matching AI, networking, Chess Timer, background play, cube orientation, original menus,
+Matching AI, networking, background play, cube orientation, original menus,
 full original animation overlays are outside the variant change.
 [WAV background music](music.md) is available through a separate selector. Classic lid clips and sound effects are now supported by the
 [presentation layer](presentation.md), with independent on/off launcher settings.
@@ -133,3 +133,8 @@ Normal launches and New Board use fresh native board seeds. Developers can
 retain controlled runs through the strict `classic_seed` target setting; see
 [seed behavior and reproducible checks](randomization.md). This adds no launcher
 option and does not affect the installed dice resources.
+
+On Players, C / the mode button now selects Traditional or [Chess Timer](chess.md)
+for local humans. This is separate from the original background-computer/cursor
+options. The private `classic_turns` target value also supports controlled runs;
+no new launcher checkbox is added.

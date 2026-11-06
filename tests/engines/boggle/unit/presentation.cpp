@@ -29,6 +29,13 @@ void sounds(const std::filesystem::path& tmp) {
         audio.countdown(0); CHECK(silent(sys.pump(32)));
         audio.beginRound(false); auto pcm=sys.pump(100); CHECK(pcm[0]==1000 && pcm.back()==0);
         audio.countdown(0); CHECK(sys.pump(32)[0]==8000);
+        audio.countdown(9000,0);CHECK(sys.pump(32)[0]==7000);
+        audio.countdown(9000,1);CHECK(sys.pump(32)[0]==7000);
+        audio.countdown(9000,0);CHECK(silent(sys.pump(32)));
+        audio.countdown(9000,1);CHECK(silent(sys.pump(32)));
+        audio.countdown(0,1);CHECK(sys.pump(32)[0]==8000);
+        audio.countdown(0,1);CHECK(silent(sys.pump(32)));
+        audio.countdown(0,4);CHECK(silent(sys.pump(32)));
     }
     CHECK(sys.audioStopped && !sys.audioCallback);
     fixtures::ScriptedSystem unavailable;

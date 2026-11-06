@@ -167,3 +167,12 @@ follow owner VM observations. Original multi-player dictionary-review timing,
 name-slot edge cases and exact transition dialogs remain unverified; computer
 opponents and Chess Timer are not implemented. See [Traditional scope and
 validation](../../engines/boggle/traditional.md).
+
+The owner confirmed Traditional works, then clarified Chess Timer: each player's
+clock stops during other turns; repeats pass without adding another entry;
+unknown words wait for review; short words show a notice; and expired players
+do not end the match, with a finished/next-player notice on later rotation.
+Local-human [Chess Timer](../../engines/boggle/chess.md) now implements this flow.
+An external harness also matches 4,608 original positive-budget pause/resume
+observations. Exact animation/dialog timing, no-path/short-attempt turn boundaries
+and multiplayer review scheduling remain open; AI is still unimplemented.

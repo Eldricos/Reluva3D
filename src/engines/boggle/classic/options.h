@@ -13,8 +13,10 @@ inline constexpr std::array<const char*,15> classicMusicFiles = {
     "Beach", "Volvo", "LoveBead", "Safari", "Strut", "Snappin", "Blonde", "Texas"
 };
 inline constexpr int musicNone = -1, musicRandom = -2;
+enum class ClassicTurnMode { Traditional, Chess };
 enum class ClassicVariant { Original, Master };
 struct ClassicOptions {
+    ClassicTurnMode turns=ClassicTurnMode::Traditional;
     ClassicVariant variant = ClassicVariant::Original;
     uint64_t duration = 180000; // milliseconds; zero means Not Timed
     bool sound = true, animations = true, menu = true, movies = true, artwork = true, autoOrient = true, handwriting = true;

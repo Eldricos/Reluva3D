@@ -36,16 +36,17 @@ void ClassicAudio::play(Cue cue) {
     }
 }
 void ClassicAudio::beginRound(bool loopShake) {
-    mixer_.stopType(audio::SoundType::Effects); shake_=0; handles_.fill(0); countdown_.fill(false);
+    mixer_.stopType(audio::SoundType::Effects); shake_=0; handles_.fill(0); for(auto& ticks:countdown_)ticks.fill(false);
     if (active_ && music_ && !mixer_.isPlaying(musicHandle_))
         musicHandle_ = mixer_.play(music_,audio::SoundType::Music,256,0,true);
     if (active_ && sounds_[size_t(Cue::Shake)]) shake_ = mixer_.play(sounds_[size_t(Cue::Shake)],audio::SoundType::Effects,256,0,loopShake);
 }
 void ClassicAudio::stopShake() { if (shake_) mixer_.stop(shake_); shake_=0; }
-void ClassicAudio::countdown(uint64_t remaining) {
+void ClassicAudio::countdown(uint64_t remaining,size_t player) {
+    if(player>=countdown_.size())return;
     const uint64_t second = remaining/1000;
-    if (second > 10 || countdown_[size_t(second)]) return;
-    countdown_[size_t(second)] = true;
+    if (second > 10 || countdown_[player][size_t(second)]) return;
+    countdown_[player][size_t(second)] = true;
     play(second ? Cue::Tick : Cue::GameOver);
 }
 void ClassicAudio::recorded(size_t letters) { play(letters >= 8 ? Cue::Eight : letters == 7 ? Cue::Seven : Cue::Writing); }

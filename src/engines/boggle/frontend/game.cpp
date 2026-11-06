@@ -20,6 +20,7 @@ constexpr Box classic{40,288,112,112}, original{48,155,252,65}, master{340,155,2
               less{174,258,48,36}, more{418,258,48,36}, untimed{224,312,192,36},
               play{340,388,252,48}, back{48,388,252,48}, exit{462,420,140,36};
 constexpr size_t nameRows=8;
+constexpr Box turnMode{48,352,544,28};
 constexpr Box localPlayers{324,310,268,40};
 constexpr Box playerChoice{48,162,544,40},nameList{48,204,544,228};
 constexpr Box changeName{48,310,252,40},nameField{88,188,464,42},saveName{88,296,210,40},cancelName{318,296,210,40};
@@ -86,7 +87,7 @@ void players(Surface& s,const ClassicOptions& options,const PlayerProfile& profi
     button(s,changeName,"CHANGE NAME (N)");
     button(s,localPlayers,"LOCAL PLAYERS (M)");
     const auto count=std::count_if(roster.begin(),roster.end(),[](const auto& name){return !name.empty();});
-    text(s,48,362,"Traditional: "+std::to_string(count)+(count==1?" human":" humans"),muted);
+    button(s,turnMode,std::string(options.turns==ClassicTurnMode::Chess?"CHESS TIMER":"TRADITIONAL")+" / "+std::to_string(count)+(count==1?" HUMAN":" HUMANS")+" (C: CHANGE)");
     button(s,back,"MAIN MENU (ESC)");button(s,play,"PLAY (ENTER)",true);
 }
 
@@ -257,7 +258,8 @@ Error FrontendGame::run() {
                     page=Page::Players;changed=true;
                 }
             } else {
-                if((isKey && event.key=='m') || pressed(localPlayers)) {rosterOpen=true;changed=true;}
+                if((isKey && event.key=='c') || pressed(turnMode)) {options.turns=options.turns==ClassicTurnMode::Chess?ClassicTurnMode::Traditional:ClassicTurnMode::Chess;changed=true;}
+                else if((isKey && event.key=='m') || pressed(localPlayers)) {rosterOpen=true;changed=true;}
                 else if((isKey && event.key=='p') || pressed(playerChoice)) {
                     fromRoster=false;choices=profile.history();selectingName=true;nameSelection=0;nameScroll=0;nameError.clear();changed=true;
                 } else if((isKey && event.key=='n') || pressed(changeName)) {
@@ -270,6 +272,7 @@ Error FrontendGame::run() {
         if(launch) {
             system_.setTextInput(false);
             GameTarget selected=target_;
+            selected.settings["classic_turns"]=options.turns==ClassicTurnMode::Chess?"chess":"traditional";
             selected.settings["classic_player_name"]=profile.name();
             selected.settings["classic_variant"]=options.variant==ClassicVariant::Master ? "master" : "original";
             selected.settings["classic_seconds"]=std::to_string(options.duration/1000);

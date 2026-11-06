@@ -2,6 +2,7 @@
 // Copyright (C) 2026 The Reluva contributors
 #include "engines/boggle/classic/game.h"
 #include "engines/boggle/classic/competition.h"
+#include "engines/boggle/classic/turn_clock.h"
 #include "engines/boggle/classic/layout.h"
 #include "engines/boggle/classic/orientation.h"
 #include "engines/boggle/classic/history.h"
@@ -56,9 +57,9 @@ void scoreTable(Surface& screen,const HighScores& scores,const std::string& erro
     rect(screen,scoresClose.x,scoresClose.y,scoresClose.w,scoresClose.h,{48,88,120});label(screen,460,460,"CLOSE (ENTER / H)");
     if(!error.empty()){rect(screen,scoresRetry.x,scoresRetry.y,scoresRetry.w,scoresRetry.h,{48,88,120});label(screen,172,460,"RETRY (R)");}
 }
-void matchTable(Surface& screen,const std::vector<std::string>& names,const ClassicCompetition& competition) {
+void matchTable(Surface& screen,const std::vector<std::string>& names,const ClassicCompetition& competition,bool chess) {
     rect(screen,128,94,544,404,{22,40,60});label(screen,160,116,"CLASSIC RESULTS",white,2);
-    label(screen,160,150,"TRADITIONAL / SHARED WORDS SCORE ZERO",muted);
+    label(screen,160,150,chess?"CHESS TIMER / SHARED WORDS SCORE ZERO":"TRADITIONAL / SHARED WORDS SCORE ZERO",muted);
     for(size_t i=0;i<names.size();++i) {
         label(screen,160,190+int(i)*40,std::to_string(i+1)+"  "+names[i],white,2);
         label(screen,550,190+int(i)*40,std::to_string(competition.players()[i].score),white,2);
@@ -67,9 +68,17 @@ void matchTable(Surface& screen,const std::vector<std::string>& names,const Clas
     label(screen,160,410,"Grey words in review were shared / worth zero.",muted);
     rect(screen,448,450,184,30,{48,88,120});label(screen,460,460,"CLOSE (ENTER / V)");
 }
-void handoffScreen(Surface& screen,std::string_view next) {
-    rect(screen,0,0,width,height,dark);label(screen,80,140,"NEXT PLAYER",white,3);
-    label(screen,80,220,next,white,3);label(screen,80,310,"The same board / a full round for each player.",muted);
+void handoffScreen(Surface& screen,std::string_view next,bool chess,uint64_t remaining,bool timed,const std::vector<std::string>& finished) {
+    rect(screen,0,0,width,height,dark);
+    if(chess && !finished.empty()) {
+        label(screen,80,100,"PLAYER FINISHED",white,2);
+        for(size_t i=0;i<finished.size();++i)label(screen,80,140+int(i)*22,finished[i]+"'s game is over.",muted);
+    } else label(screen,80,140,"NEXT PLAYER",white,3);
+    label(screen,80,220,chess && !finished.empty()?std::string(next)+" is up.":std::string(next),white,3);
+    if(chess) {
+        const auto seconds=(remaining+999)/1000;
+        label(screen,80,310,timed?"Your paused timer: "+std::to_string(seconds/60)+":"+(seconds%60<10?"0":"")+std::to_string(seconds%60):"Chess Timer / Not Timed",muted);
+    } else label(screen,80,310,"The same board / a full round for each player.",muted);
     rect(screen,80,380,640,60,{48,88,120});label(screen,100,402,"START TURN (ENTER)",white,2);
     label(screen,80,480,"Pass the controls, then start when ready.",muted);
 }
@@ -105,7 +114,7 @@ std::string feedback(Submission result, size_t minimum) {
 void draw(Surface& screen, const ClassicRound& round, uint64_t now,
           const image::Image& letters, const image::Image& qu, const Palette& palette,
           const std::string& input, const std::vector<size_t>& path, const std::string& message, size_t scroll, bool fromMenu,
-          const ClassicArtwork& artwork,uint64_t duration,uint32_t boardSeed,bool autoOrient,std::string_view player,const RoundResults& results) {
+          const ClassicArtwork& artwork,uint64_t duration,uint32_t boardSeed,bool autoOrient,std::string_view player,const RoundResults& results,bool chess) {
     const bool reviewing = round.candidate() != nullptr;
     const bool ready = round.phase() == RoundPhase::Ready, playing = round.phase() == RoundPhase::Playing;
     if(artwork.active()) artwork.draw(screen,round,now,duration,letters,qu,path,scroll,boardSeed,player,&results);
@@ -173,7 +182,7 @@ void draw(Surface& screen, const ClassicRound& round, uint64_t now,
     }
     const auto detail=message.empty() && results.allWords()?"Blue: missed words / potential points. Final score unchanged.":message;
     label(screen, 24, 535, reviewing ? "Choose one of the four dictionary options." : detail.empty() ? (ready ? "Press Enter when ready. The timer starts with the board." : playing ? "Enter: submit   Backspace: undo   Right click: clear" : results.words().empty()?"No words counted. Enter: replay   F2: new board":"Click a word or use Up/Down to review its path and points.") : detail, muted);
-    if (!reviewing) { rect(screen, 24, 557, 180, 29, {48, 88, 120}); label(screen, 35, 566, playing ? "END ROUND (F1)" : ready ? "START / REPLAY (ENTER)" : "REPLAY (ENTER)"); }
+    if (!reviewing) { rect(screen, 24, 557, 180, 29, {48, 88, 120}); label(screen, 35, 566, playing ? (chess?"END PLAYER (F1)":"END ROUND (F1)") : ready ? "START / REPLAY (ENTER)" : "REPLAY (ENTER)"); }
     if (!playing && !reviewing) { rect(screen, 216, 557, 158, 29, {48, 88, 120}); label(screen, 227, 566, "NEW BOARD (F2)"); }
     label(screen, artwork.active()?450:610, 566, fromMenu ? "MENU (F3)" : "ESC: LAUNCHER", muted);
     if (const auto* word = round.candidate()) {
@@ -195,14 +204,15 @@ Error ClassicGame::run() {
     returnToMenu_ = false;
     ClassicOptions options;
     if (auto err = readClassicOptions(target_.settings, options)) return err;
+    const bool chess=options.turns==ClassicTurnMode::Chess;
     PlayerProfile profile;
     if(auto error=profile.load(target_.savePath,target_.path))return error;
     std::string player=profile.name();
     if(const auto it=target_.settings.find("classic_player_name");it!=target_.settings.end())
         if(!playerName(it->second,player))return Error::fail("Invalid session player name");
     const auto names=players_.empty()?std::vector<std::string>{player}:players_;
-    if(names.empty() || names.size()>4)return Error::fail("Traditional Classic needs one to four humans");
-    for(const auto& name:names){std::string normalized;if(!playerName(name,normalized) || normalized!=name)return Error::fail("Invalid Traditional player name");}
+    if(names.empty() || names.size()>4)return Error::fail("Classic needs one to four humans");
+    for(const auto& name:names){std::string normalized;if(!playerName(name,normalized) || normalized!=name)return Error::fail("Invalid Classic player name");}
     Resources resources;
     if (auto err = resources.open(target_.path)) return err;
     Dictionary dictionary; DiceSet dice; Palette palette;
@@ -229,8 +239,9 @@ Error ClassicGame::run() {
     HighScores highScores;
     auto scoreError=highScores.load(target_.savePath,target_.path);
     bool scoreAttempted=false,scoreOpen=false,matchOpen=false,handoff=false,handoffVisible=false;
+    std::vector<std::string> finishedNotices;
     RoundResults results;Board board;uint32_t seed=options.seed?*options.seed:freshClassicSeed();
-    std::vector<std::unique_ptr<ClassicRound>> rounds;size_t turn=0,reviewPlayer=0;ClassicCompetition competition;
+    std::vector<std::unique_ptr<ClassicRound>> rounds;size_t turn=0,reviewPlayer=0,nextTurn=0;ClassicCompetition competition;PlayerClocks clocks;
     auto resetRounds=[&](const Board& cubes)->Error {
         std::vector<std::unique_ptr<ClassicRound>> next;
         for(size_t i=0;i<names.size();++i) {
@@ -238,9 +249,18 @@ Error ClassicGame::run() {
             if(auto error=current->board(cubes,options.duration))return error;
             next.push_back(std::move(current));
         }
-        rounds=std::move(next);turn=reviewPlayer=0;competition.clear();return Error::success();
+        if(auto error=clocks.reset(names.size()))return error;
+        rounds=std::move(next);turn=reviewPlayer=nextTurn=0;competition.clear();finishedNotices.clear();return Error::success();
     };
     auto round=[&]()->ClassicRound& {return *rounds[competition.ready()?reviewPlayer:turn];};
+    auto gameTime=[&](){return chess?clocks.elapsed(competition.ready()?reviewPlayer:turn,sys_.getMillis()):sys_.getMillis();};
+    auto nextChessPlayer=[&]()->std::optional<size_t> {
+        for(size_t step=1;step<=rounds.size();++step) {
+            const auto index=(turn+step)%rounds.size();
+            if(rounds[index]->phase()!=RoundPhase::Results)return index;
+        }
+        return {};
+    };
     if(auto error=Board::generate(dice,seed,board))return error;
     if(auto error=resetRounds(board))return error;
     if (auto err = sys_.initGraphics(width, height, PixelFormat::RGBA32)) return err;
@@ -282,12 +302,15 @@ Error ClassicGame::run() {
         }
         resultsVisible = false; results.clear(); scoreAttempted=false; clear(); message.clear();
         if (round().phase() == RoundPhase::Playing) {
-            round().finish(); sound.stopShake();
-            if (options.animations) transition.begin(Transition::Closing,sys_.getMillis());
+            round().finish(); sound.stopShake();if(chess)clocks.stop(sys_.getMillis());
+            if (options.animations && (!chess || !nextChessPlayer()))transition.begin(Transition::Closing,sys_.getMillis());
         } else {
             sound.beginRound(options.animations);
             if (options.animations) transition.begin(Transition::Opening,sys_.getMillis());
-            else if (auto err = round().start(sys_.getMillis(), options.duration)) return err;
+            else {
+                if(chess)if(auto error=clocks.activate(turn,sys_.getMillis()))return error;
+                if(auto error=round().start(chess?0:sys_.getMillis(),options.duration))return error;
+            }
         }
         return Error::success();
     };
@@ -309,10 +332,19 @@ Error ClassicGame::run() {
         message+=" | Right click: summary";
         scroll=results.scrollFor(index,artwork.active(),scroll);dragging=false;
     };
+    auto queueChessHandoff=[&](size_t target,bool endedCurrent) {
+        finishedNotices.clear();
+        if(endedCurrent)finishedNotices.push_back(names[turn]);
+        for(size_t i=(turn+1)%names.size();i!=target;i=(i+1)%names.size())
+            if(rounds[i]->phase()==RoundPhase::Results)finishedNotices.push_back(names[i]);
+        nextTurn=target;handoff=true;handoffVisible=false;resultsVisible=false;
+    };
     auto publish=[&]()->Error {
         if(names.size()==1)return results.build(round());
         if(!competition.ready()) {
-            if(turn+1<rounds.size()){handoff=true;handoffVisible=false;return Error::success();}
+            if(chess) {
+                if(const auto next=nextChessPlayer()){queueChessHandoff(*next,true);return Error::success();}
+            } else if(turn+1<rounds.size()){nextTurn=turn+1;handoff=true;handoffVisible=false;return Error::success();}
             std::vector<const ClassicRound*> input;for(const auto& current:rounds)input.push_back(current.get());
             if(auto error=competition.build(input))return error;
             reviewPlayer=0;matchOpen=true;
@@ -322,6 +354,20 @@ Error ClassicGame::run() {
     auto chooseReview=[&](size_t index)->Error {
         if(index>=names.size())return Error::success();
         reviewPlayer=index;clear();message.clear();return results.build(round(),competition.players()[index]);
+    };
+    auto timeout=[&](uint64_t now) {
+        clear();dragging=false;resultsVisible=false;message="Time is up.";
+        sound.stopShake();if(chess)clocks.stop(now);sound.countdown(0,chess?turn:0);
+        if(options.animations && (!chess || !nextChessPlayer()))transition.begin(Transition::Closing,now);
+    };
+    auto passWord=[&]()->Error {
+        if(!chess || names.size()==1)return Error::success();
+        const auto now=sys_.getMillis();clocks.stop(now);
+        round().tick(clocks.elapsed(turn,now));
+        if(round().phase()==RoundPhase::Results){timeout(now);return Error::success();}
+        const auto next=nextChessPlayer();
+        if(!next)return Error::fail("Chess Timer has no next player after a recorded word");
+        queueChessHandoff(*next,false);return Error::success();
     };
     auto select = [&](int x, int y) {
         const size_t side = round().board().side(); const int cellSize = boardSize / int(side);
@@ -345,16 +391,15 @@ Error ClassicGame::run() {
         if (type == Transition::Opening && transition.frame(now) >= 31) sound.stopShake();
         if (transition.finish(now) && type == Transition::Opening) {
             sound.stopShake();
-            if (auto err = round().start(now,options.duration)) return err;
+            if(chess)if(auto error=clocks.activate(turn,now))return error;
+            if (auto err = round().start(chess?0:now,options.duration)) return err;
         }
         if (transition.type() != Transition::None) return Error::success();
         const bool playing = round().phase() == RoundPhase::Playing;
-        round().tick(now);
+        round().tick(gameTime());
         if (playing && round().phase() == RoundPhase::Results) {
-            clear(); dragging = false; resultsVisible = false; message = "Time is up.";
-            sound.stopShake(); sound.countdown(0);
-            if (options.animations) transition.begin(Transition::Closing,now);
-        } else if (playing && round().timed()) sound.countdown(round().remaining(now));
+            timeout(now);
+        } else if (playing && round().timed() && !handoff) sound.countdown(round().remaining(gameTime()),chess?turn:0);
         return Error::success();
     };
     if (fromMenu_) { if (auto err = startOrFinish()) return err; }
@@ -381,8 +426,12 @@ Error ClassicGame::run() {
             if(handoff) {
                 if(handoffVisible && ((event.type==EventType::KeyDown && !event.repeat && (event.key==key::Return || event.key==key::KpEnter)) ||
                    (event.type==EventType::MouseDown && event.button==MouseButton::Left && hit(event.mouseX,event.mouseY,80,380,640,60)))) {
-                    ++turn;handoff=false;handoffVisible=false;resultsVisible=false;
-                    if(auto error=startOrFinish())return error;
+                    turn=nextTurn;handoff=false;handoffVisible=false;resultsVisible=false;
+                    if(chess) {
+                        clear();message.clear();
+                        if(auto error=clocks.activate(turn,sys_.getMillis()))return error;
+                        if(round().phase()==RoundPhase::Ready)if(auto error=round().start(0,options.duration))return error;
+                    } else if(auto error=startOrFinish())return error;
                     scoreDismissed=true;
                 }
                 continue;
@@ -454,7 +503,7 @@ Error ClassicGame::run() {
                     }
                 } else if ((event.key == key::Return || event.key == key::KpEnter) && !event.repeat) {
                     if (round().phase() != RoundPhase::Playing) { if (auto err = startOrFinish()) return err; }
-                    else { const auto result = round().submit(input, sys_.getMillis(), selected); message = feedback(result, round().minimum()); if (result == Submission::Accepted || result == Submission::UnknownWord) sound.recorded(round().words().back().entry.word.size()); if (result != Submission::SelectPath) clear(); }
+                    else { const auto result = round().submit(input, gameTime(), selected); message = feedback(result, round().minimum()); if (result == Submission::Accepted || result == Submission::UnknownWord) sound.recorded(round().words().back().entry.word.size()); if (result != Submission::SelectPath) clear(); if(result==Submission::NotPlaying)timeout(sys_.getMillis()); if(result==Submission::Accepted || result==Submission::UnknownWord || (chess && result==Submission::Duplicate))if(auto error=passWord())return error; }
                 } else if (event.key == key::PageUp || event.key == key::PageDown) {
                     const int64_t page=artwork.active()?ClassicArtwork::visibleWords:14;
                     browse(event.key==key::PageUp?page:-page);
@@ -493,15 +542,15 @@ Error ClassicGame::run() {
         if(transition.type()==Transition::None && round().phase()==RoundPhase::Results && !round().candidate() && !results.ready() && !handoff)
             if(auto error=publish())return error;
         if(results.ready() && !scoreAttempted)saveScore();
-        if(handoff)handoffScreen(screen,names[turn+1]);
+        if(handoff)handoffScreen(screen,names[nextTurn],chess,rounds[nextTurn]->remaining(clocks.elapsed(nextTurn,sys_.getMillis())),rounds[nextTurn]->timed(),finishedNotices);
         else if (transition.type() != Transition::None) {
             const auto& frame = clip.frames[transition.frame(sys_.getMillis())];
             for (int y=0;y<height;++y) for (int x=0;x<width;++x)
                 std::copy_n(frame.pixel(x*frame.w/width,y*frame.h/height),4,screen.row(y)+x*4);
             rect(screen,0,height-40,width,40,dark);
             label(screen,24,height-25,transition.type() == Transition::Opening ? "Rolling dice and opening the lid..." : "Closing the lid...");
-        } else draw(screen, round(), sys_.getMillis(), letters, qu, palette, input, selected, results.ready() && scoreError && message.empty()?"High scores unavailable. H: details / retry.":competition.ready() && message.empty()?"1-4: player review / V: match scores / Up-Down: word path":message, scroll, fromMenu_,artwork,options.duration,seed,options.autoOrient,names[competition.ready()?reviewPlayer:turn],results);
-        if(matchOpen)matchTable(screen,names,competition);
+        } else draw(screen, round(), gameTime(), letters, qu, palette, input, selected, results.ready() && scoreError && message.empty()?"High scores unavailable. H: details / retry.":competition.ready() && message.empty()?"1-4: player review / V: match scores / Up-Down: word path":message, scroll, fromMenu_,artwork,options.duration,seed,options.autoOrient,names[competition.ready()?reviewPlayer:turn],results,chess);
+        if(matchOpen)matchTable(screen,names,competition,chess);
         if(scoreOpen)scoreTable(screen,highScores,scoreError.message);
         sys_.updateScreen(screen);
         if(handoff)handoffVisible=true;

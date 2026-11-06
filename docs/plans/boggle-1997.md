@@ -259,7 +259,9 @@ The next player stage now has a tested [competition-scoring foundation](../engin
 with original shared-word cancellation established through isolated checks.
 [Traditional Play](../engines/boggle/traditional.md) now supports up to four local
 humans, full-round turns, hidden handoffs and final shared-word cancellation.
-Computer behavior and Chess Timer accounting remain the next player milestones. Other modes,
+[Chess Timer](../engines/boggle/chess.md) now supports local-human word turns
+and independent paused budgets, including repeat-to-pass and finished-player
+notices corroborated by the owner. Computer behavior remains the next player milestone. Other modes,
 multilingual input, INSO definitions, original dialogs and networking remain
 separate milestones. Check [current support](../engines/boggle/README.md) and
 [evidence gaps](boggle-1997/unconfirmed.md) before selecting each slice. These

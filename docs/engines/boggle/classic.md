@@ -1,6 +1,6 @@
 # Classic: playable local slice
 
-Scope: one to four local humans in Traditional Play, U.S. English, Original (4x4) or Master (5x5), typed
+Scope: one to four local humans in Traditional Play or Chess Timer, U.S. English, Original (4x4) or Master (5x5), typed
 or mouse-selected words, configurable timed/untimed rounds, scores and results.
 This is not complete support for Boggle's five modes or the original menu, animation, sound and networking systems.
 
@@ -47,8 +47,8 @@ PE dialog layouts or TrueType typography. Classic lid AVI animation and WAV
 effects are now integrated: [presentation evidence](presentation.md). The
 clock advances while the round is active, including when focus is lost;
 matching original pause/focus behavior remains future work. Saved games,
-definitions, AI, network play, Chess Timer and general game-state persistence
-are absent. Local Traditional human turns are implemented separately.
+definitions, AI, network play and general game-state persistence are absent.
+Local Traditional and [Chess Timer](chess.md) human turns are implemented separately.
 [English user dictionaries and rejected-word review](user-dictionary.md) are
 implemented separately in the per-target save folder.
 

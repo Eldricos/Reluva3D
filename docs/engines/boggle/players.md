@@ -33,7 +33,8 @@ the prototype round view. Longer artwork headers use smaller text or a shortened
 strip label to fit. Original/Master, replay and New Board retain the chosen
 name. Direct Classic entry also loads it; re-enable the selection menu to edit.
 The current name/history is the primary human. [Local Players / M](traditional.md)
-now configures up to four local humans for Traditional Play. AI and network
+now configures up to four local humans for Traditional Play or
+[Chess Timer](chess.md). Press C on Players to select the turn mode. AI and network
 players remain unsupported.
 
 ## Native persistence

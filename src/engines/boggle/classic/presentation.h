@@ -16,7 +16,7 @@ public:
     void play(Cue cue);
     void beginRound(bool loopShake = true);
     void stopShake();
-    void countdown(uint64_t remaining);
+    void countdown(uint64_t remaining,size_t player=0);
     void recorded(size_t letters);
 private:
     System& system_;
@@ -26,7 +26,7 @@ private:
     std::shared_ptr<audio::Sound> music_;
     std::array<std::shared_ptr<audio::Sound>,size_t(Cue::Count)> sounds_{};
     std::array<audio::SoundHandle,size_t(Cue::Count)> handles_{};
-    std::array<bool,11> countdown_{};
+    std::array<std::array<bool,11>,4> countdown_{};
 };
 enum class Transition { None, Opening, Closing };
 class ClassicTransition {
