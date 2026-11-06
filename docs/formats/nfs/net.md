@@ -834,6 +834,18 @@ was the lower.
   does with a send (transport, framing, retries), as the DLL isn't on
   the CD: not even in `Patch/npspatchnfs3.exe`, whose updater DLL
   exports only `NPSDoUpdate` and `NPSAbortUpdate` (Positional updates).
+- A network chase from behind ending in a pin (`c7-q1`'s kind, one
+  player) was not run over TCP in November 2026 either. The method is
+  ready (`d1-n4`: `-deterministic 50000` in both copies, the race
+  repeating step for step, keys planned on one run and used on the
+  next), but such a chase is many seconds of steering by keys at
+  speed, each try a pair of runs of some 260 s of game time to the
+  first lap's end. What it needs from the code is the same as in one
+  player (physics.md, state 4): the human cop within 7 m (the
+  `0x4965b0` measure) of a target under the limit `0x404c50` picks
+  (20.12 or 11.18 m/s, physics.md, Which limit) for 24 steps, then
+  the racer's pull-over; only the host's keys (bits in
+  car 0's word of 06) would go over the link.
 - What other EA games put in `dec`'s +0x4C-0x5B (zero from this one,
   which never reads them: IPX, `dec`). Settled: `add`'s +0x1C is the
   game's password, empty from this game, checked by the host only
