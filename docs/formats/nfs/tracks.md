@@ -254,13 +254,25 @@ lap `0x552860`, the car's lap +0x204 and +0x1C read:
 | 7 Summit (`e3-lap7`) | 4, 9 | 9 to 4 (1549), 67.4 s | yes |
 | 8 Empire City (`e3-lap8`) | 4, 7 | 7 to 4 (1202), 65.2 s | yes; at the line (69.9 s) already 1 |
 | 0 backward (`e3-lap0r`, `0x6fd4c0` = 1) | 4, 5 | 5 to 4 (slice 186, driving down), 71.2 s | yes |
+| 1 backward (`e5-lap1r`) | 4, 5 | 5 to 4 (189), 71.1 s | yes |
+| 3 backward (`e5-lap3r`) | 4, 5 | 5 to 4 (171), 69.3 s | yes |
+| 4 backward (`e5-lap4r`) | 4, 5 | 5 to 4 (186), 71.2 s | yes |
+| 5 backward (`e5-lap5r`) | 4, 5 | 5 to 4 (197), 70.7 s | yes |
+| 7 backward (`e5-lap7r`) | 4, 5 | 5 to 4 (170), 69.2 s | yes |
 
 So the zones count a lap early on Hometown, Redrock Ridge, Rocky Pass,
-Summit and Empire City forward, and Hometown backward; on Atlantica,
-Country Woods, Lost Canyons and Aquatica only the line does. The zone
+Summit and Empire City forward, and on every track with a backward pair
+backward (0, 1, 3, 4, 5, 7; November 2026, `e5-lap1r` and the rest:
+`e5-runs/lapr.sh`, the same set-up with `0x6fd4c0` = 1, the car put on
+the road point 70 slices up from zone 5's first slice, `lapplace.py`);
+forward on Atlantica, Country Woods, Lost Canyons and Aquatica only the
+line does. Backward the change came at the slice just below zone 5's
+first (189, 171, 197, 170 for its 190, 172, 198, 171), on Country Woods
+and Hometown with +0x1C at 186 for 191 (+0x1C as read at the watch;
+why five slices below wasn't looked into). The zone
 changed with +0x1C on the new zone's first slice each time, with no
 look-ahead ([mus.md](mus.md)). Two runs show the wrong-way branch
-too, as a side effect of the poke: on Summit and backward on Hometown
+too, as a side effect of the poke: on Summit and on every backward run
 the jump onto the far slice came with the wrong-way flag (+0x998) set
 (the car still facing the grid's way), and the jump's zone change (4 to
 9; 4 to 5) matched the pair the other way round, so the count went to
@@ -279,9 +291,8 @@ change put it back to 0.
   backward: no code treats track 2 apart, its −1s are only data.
   Without a pair the music's lap still follows the real lap, at the
   line. In runs the pairs count on tracks 0, 1, 3, 7 and 8 forward
-  and on Hometown backward. Only Hometown was run backward. By the
-  zones table above, every track with a backward pair (4, 5) (0, 1, 3,
-  4, 5, 7) has zone 5 second from the line, so driven backward its
-  last change is 5 to 4 and the pair should count on all six;
-  Atlantica would too, but its row is −1, and Empire City's second
-  zone is its one-slice 7.
+  and backward on all six tracks with the pair (4, 5) (0, 1, 3, 4, 5,
+  7), each with zone 5 second from the line, so driven backward its
+  last change is 5 to 4, as run (November 2026, Music laps).
+  Atlantica would count too, but its row is −1, and Empire City's
+  second zone is its one-slice 7.

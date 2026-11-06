@@ -389,6 +389,11 @@ What was built, with each format written up in `docs/formats/nfs/`:
     particle slots at `0x7ddfd0`) holds a dump's particles where they
     were; their pictures are the day's `SP` set by day and `SN` by night,
     fogged ([col.md](../formats/nfs/col.md), Tyre smoke, Over the cars).
+    By day the smoke was about 10 levels brighter than in nfs-host's
+    frames: the host truncated each blended layer to 5:6:5, where
+    `voodoo2a.dll` has Glide dither 4x4; the host's native drawing now
+    dithers, and the smoke is within 3-4 of the page's (November 2026;
+    [thrash.md](../formats/nfs/thrash.md), Dithering).
     The page starts with the z-buffer and the headlights' projection off,
     as nfs-host runs the game (Shift+E turns both on): its pool on the
     road then matches the hosted game's, and particles nearer than a
@@ -1542,16 +1547,21 @@ README.md.
 
 ## Open questions
 
-- How the computer racers meet each other: from `t6-log`'s 50 s dump
-  the page's cars now want the game's speeds and accelerate as its code
-  says, but its cars have no force model on the hills, so after a few
-  seconds they are a slice or three from the game's and the meetings
-  that make the game's overtakes (car 3 past car 4 at Hometown's slices
-  91-107) don't happen: 130 lane changes against the game's 143
-  ([frd.md](../formats/nfs/frd.md), Why car 3 didn't overtake). The
-  road search's marks of the other side near bends' walls are what the
-  code does (frd.md, The search beyond its first slice); whether a car
-  against such a wall is pushed the wrong way wasn't driven.
+- How the computer racers meet each other: the page's cars now have
+  the game's forward force and gravity on the hills (`0x4076b0`,
+  `0x4a2a0c`), so from `t6-log`'s 50 s dump their speeds follow the
+  game's within 0.86 m/s rms until the cars meet (1.50 before), with
+  149 lane changes against the game's 143 and 167 samples past 8 m
+  against 162 ([frd.md](../formats/nfs/frd.md), The force model). The
+  game's overtake at Hometown's slices 91-107 comes from a hit between
+  cars 3 and 4, which the page's cars, never touching, don't have, and
+  from a lane car 3 chose at 61.5 s that the page's doesn't. The road
+  search's marks of the other side near bends' walls are what the
+  code does (frd.md, The search beyond its first slice); a car against
+  such a wall isn't pushed the wrong way by it: the wall test steps
+  from the car's own polygon and makes its normals from that polygon's
+  edges, and a mark of the other side finds road there (read, and driven
+  on Rocky Pass, `e5-wall1`).
 - How the wall hits' particles look in play (read from the code only;
   their sounds are measured, not listened to), and wall code 3's
   material: the code tells it from code 5 only by its sound (material
@@ -1562,14 +1572,15 @@ README.md.
   sums are measured. The moving objects' sounds and their fades are
   heard in recordings with the engines and music muted, each against a
   twin run without that sound (`e3-ec-fade`, `e3-rr-m2`); with the
-  engines on, only Redrock's sound 8 wasn't measured against a twin
-  ([bnk.md](../formats/nfs/bnk.md), The moving objects' sounds). By
+  engines and music on, Redrock's sound 8 adds about 1.4 dB over its
+  2 s, as much as the mix moves by itself (`e5-rr-m3`; [bnk.md](../formats/nfs/bnk.md),
+  The moving objects' sounds). By
   night or in the wet Hometown skips its objects' sounds (`0x41bc20`)
   and Summit plays into an empty voice. The music's rules (place bonus,
   one-racer tables, 8 laps, the rock or tech stream and a chosen tune,
   the zone pairs that count a lap) are checked in runs
   ([mus.md](../formats/nfs/mus.md), [tracks.md](../formats/nfs/tracks.md));
-  only Hometown's lap pair was run backward. The MMX
+  the backward pair (4, 5) counts on all six tracks that have it. The MMX
   mixer's 8-bit routines run only in `nfs-mmx-check`: no retail sound
   is 8-bit ([bnk.md](../formats/nfs/bnk.md)).
 - The car handling in full: the tyre model, steering and gear changes,

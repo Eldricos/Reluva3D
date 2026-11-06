@@ -855,8 +855,20 @@ few ms apart. The level (RMS of 16-bit samples, by 0.5 or 0.25 s):
   against 6,799 at 109.25 s to 9,879 against 7,907 at 110.5 s, the
   same from 111.0 s. So the −2 row's sound raises the level by 2-3 dB
   over its length, as loud as the two loops together (about 6,600 of
-  its own). With the engines and music on it wasn't measured against a
-  twin; the correlation of `sq-rr2` (above) didn't find it then.
+  its own). **With the engines and music on** (November 2026,
+  `e5-rr-m3` against `e5-rr-bg3`: the same runs without the mute pokes,
+  `e5-runs/rrsnd.sh`) sound 8 starts at the same moments (90.84 s,
+  volume 121; 108.85 s, 120; slot 19) and the two recordings have the
+  same level in every quarter second until then. Over a bed of about 10,000 (the
+  engines and music, against 6,900 muted) it adds 6,300 and 6,000 in
+  amplitude over its first 2 s, +1.5 and +1.3 dB (by quarter seconds
+  +0.6 to +2.7 dB, 4,000-9,200). After it the runs drift apart (the
+  mix differs from the first play on): from 94 to 107.5 s their quarter
+  seconds differ by −3.6 to +2.3 dB, 0.43 dB on average either way. So
+  with everything on, sound 8 raises the level by about as much as
+  the mix itself moves from one quarter second to the next: there, but
+  not standing out; the correlation of `sq-rr2` (above) didn't find it
+  either.
 
 ## Seen in footage (November 2026)
 

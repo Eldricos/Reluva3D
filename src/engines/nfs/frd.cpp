@@ -957,6 +957,8 @@ bool parseCarpAi(const std::string& text, AiCarData& out) {
     if (!values(18, v))
         return false;
     out.maxBrake = v[0];
+    if (values(30, v))
+        out.latGrip = v[0];
     for (int row = 0; row < 8; ++row) {
         if (!values(67 + row, v) || v.size() < 14)
             return false;
@@ -1147,6 +1149,7 @@ void aiSteerStep(AiCar& me, const TrackCollision& col, int step) {
                 }
                 const float k15 = 1 + 0.0015f * me.speed;
                 const float force = clampTo(-(a4 - wantedSide) * 4.0f * k15, 38.0f * k15);
+                me.sideForce = force;
                 me.sideSpeed += force / 32.0f;
                 me.yawRate += clampTo(-(me.yawRate - wantedYaw) * 5.0f, 0.8f) / 32.0f;
                 roadFrame = true;
@@ -1206,30 +1209,91 @@ void aiMove(AiCar& me, const AiCarData& data, bool weather, int step, const Trac
         me.offset = std::max(me.offset - 0.2f, me.target);
     if (me.reversing)
         me.offset = 0;
-    // The speed (0x4066c0): towards the speed wanted by the acceleration
-    // (0x4064f0) or the brakes (0x4063e0), not past it, over 1/32 s.
+    // The speed: the game's computer cars (car_ai_physics 0x4088f0 without
+    // +0x88; 0x4066c0's "towards the speed wanted, not past it" is only
+    // for a car with +0x88, which no racer in t6-log had) are pushed by a
+    // forward force from the controller, integrated over 1/32 s
+    // (ai_integrate 0x4071a0), with gravity along the road from the
+    // dynamics task (0x4a2830). ai_ctl_rails (0x4076b0): the acceleration
+    // (0x4064f0) while the speed is under the speed wanted, else minus
+    // the braking (0x4063e0), with no dead band and nothing stopping it at
+    // the speed wanted, so the speed chatters just under it; accelerating
+    // over 44.703 m/s (0x53635c) and faster than it slips sideways, a
+    // racer (+0x200 bit 1) loses 3.45 (0x536364) / its lateral grip
+    // multiplier, another car its side force / (speed x 0.5).
+    // ai_ctl_slow (0x407c30, the speed wanted at most 16.41 m/s) and
+    // ai_ctl_slide (0x407fa0) accelerate only when more than 1 m/s under
+    // it, else brake; reversing (+0x7D4) the slow controller drives back
+    // towards minus the speed wanted.
     const float error = me.wanted - me.speed;
-    if (error > 0) {
-        me.braking = false;
-        int at = static_cast<int>(std::nearbyint(me.speed - 0.5f));
-        at = std::clamp(at, 0, 111);
-        float a = data.accel[size_t(at)];
+    auto accel = [&]() {
         if (me.racer && (me.speed > data.topSpeedCap * me.scale || me.speed > data.topSpeedCap))
-            a = 0;
+            return 0.0f;
+        const int at = std::clamp(static_cast<int>(std::nearbyint(std::fabs(me.speed) - 0.5f)), 0, 111);
+        float a = data.accel[size_t(at)];
         if (me.distance > 100) // ai Normal (0x6fd4f0 0) past race distance 100 (+8, 0x406591)
             a *= 0.9f;
         if (weather && at < 45)
             a *= 0.9f;
-        me.speed = std::min(me.speed + a / 32.0f, me.wanted);
-    } else {
+        return a;
+    };
+    auto brake = [&](float err) {
+        // ai_brake: none for a car stopped with the brake held and nothing
+        // wanted (within 0.5 m/s, 0x536234); the brake (+0x509) held only
+        // when more than 5 m/s too fast.
+        if (me.braking && me.wanted == 0 && std::fabs(err) < 0.5f)
+            return 0.0f;
         float b = data.maxBrake;
         if (me.cop)
             b *= 2;
-        else
+        if (me.speed < 0)
+            b *= 2;
+        if (me.racer && !me.cop)
             b *= 1.25f; // an AI racer (+0x200 bit 8)
-        me.braking = error <= -5.0f;
-        me.speed = std::max(me.speed - b / 32.0f, me.wanted);
+        me.braking = !(me.speed != 0 && err > -5.0f);
+        return b;
+    };
+    float force = 0;
+    if (me.steer == AiCar::Rails) {
+        if (error > 0) {
+            force = accel();
+            me.braking = false;
+            if (force > 0 && me.speed > std::fabs(me.carSide) && me.speed > 44.703f)
+                force -= me.racer && data.latGrip != 0 ? 3.45f / data.latGrip
+                                                       : std::fabs(me.sideForce) / std::fabs(me.speed * 0.5f);
+        } else {
+            force = -brake(error);
+        }
+        if (me.speed < 0)
+            force = -force;
+    } else {
+        float w = std::fabs(me.wanted);
+        if (me.steer == AiCar::Slow)
+            w = std::min(w, 16.4109f);
+        if (me.steer == AiCar::Slow && me.reversing) {
+            if (-w < me.speed) {
+                force = -accel();
+                me.braking = false;
+            } else {
+                force = brake(0); // 0x407f3d: the error passed as 0
+            }
+        } else if (w - me.speed > 1.0f) {
+            force = accel();
+            me.braking = false;
+        } else {
+            force = -brake(w - me.speed);
+        }
     }
+    // Gravity along the road (0x4a2a0c: -0.30656 m/s a tick, 0x53c8dc, x
+    // the road's forward's rise x its forward), added while the car is
+    // upright: along the way it runs, minus the rise that way.
+    float rise = 0;
+    if (const int n = static_cast<int>(col.road.size()); n > 0) {
+        const auto& f = col.road[size_t(((me.slice % n) + n) % n)].forward;
+        const float length = std::sqrt(f[0] * f[0] + f[1] * f[1] + f[2] * f[2]);
+        rise = length > 0 ? f[1] / length * static_cast<float>(me.way < 0 ? -1 : 1) : 0;
+    }
+    me.speed += force / 32.0f - 0.3065625f * rise;
 }
 
 // How far the road's line moves across from a slice's point to the

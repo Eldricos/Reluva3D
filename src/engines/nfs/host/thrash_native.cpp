@@ -28,6 +28,20 @@ uint32_t from565(uint16_t v) {
 
 uint16_t to565(uint32_t r, uint32_t g, uint32_t b) { return uint16_t((r >> 3) << 11 | (g >> 2) << 5 | (b >> 3)); }
 
+// Glide's 4x4 ordered dither into 5:6:5: each channel scaled to its bits
+// plus a threshold from the Bayer matrix at the pixel, (2k + 1) / 32 of a
+// step, then truncated, so a region keeps its colour on average where
+// plain truncation loses up to a step (8 of 255 in red and blue). The
+// hardware's own rounding isn't known here; this is the matrix's.
+uint16_t to565Dithered(uint32_t r, uint32_t g, uint32_t b, int x, int y) {
+    static constexpr uint32_t kBayer[16] = {0, 8, 2, 10, 12, 4, 14, 6, 3, 11, 1, 9, 15, 7, 13, 5};
+    const uint32_t t = (2 * kBayer[(y & 3) * 4 + (x & 3)] + 1) * 255;
+    const uint32_t r5 = std::min(31u, (r * 31 * 32 + t) / (255 * 32));
+    const uint32_t g6 = std::min(63u, (g * 63 * 32 + t) / (255 * 32));
+    const uint32_t b5 = std::min(31u, (b * 31 * 32 + t) / (255 * 32));
+    return uint16_t(r5 << 11 | g6 << 5 | b5);
+}
+
 } // namespace
 
 void NativeThrash::setTarget(uint32_t address, int pitch, int width, int height) {
@@ -115,6 +129,7 @@ void NativeThrash::setState(uint32_t id, uint32_t value) {
         break;
     }
     case 0x2: cull_ = int(value); break;
+    case 0x5: dither_ = value != 0; break;
     case 0x6: gouraud_ = value != 0; break;
     case 0xd: wrap_ = value != 0; break;
     case 0x68: blend_ = int(value & 3); break;
@@ -186,10 +201,10 @@ NativeThrash::Vertex NativeThrash::vertex(uint32_t address) const {
 }
 
 void NativeThrash::plot(int x, int y, uint32_t argb) {
-    put(cpu_.memory().data() + target_ + size_t(y) * size_t(pitch_) + size_t(x) * 2, argb);
+    put(cpu_.memory().data() + target_ + size_t(y) * size_t(pitch_) + size_t(x) * 2, argb, x, y);
 }
 
-void NativeThrash::put(uint8_t* p, uint32_t argb) {
+void NativeThrash::put(uint8_t* p, uint32_t argb, int x, int y) {
     uint32_t r = (argb >> 16) & 255, g = (argb >> 8) & 255, b = argb & 255;
     const uint32_t a = argb >> 24;
     if (a < 255) {
@@ -218,7 +233,7 @@ void NativeThrash::put(uint8_t* p, uint32_t argb) {
             break;
         }
     }
-    const uint16_t v = to565(r, g, b);
+    const uint16_t v = dither_ ? to565Dithered(r, g, b, x, y) : to565(r, g, b);
     p[0] = uint8_t(v);
     p[1] = uint8_t(v >> 8);
     ++pixels_;
@@ -347,8 +362,10 @@ void NativeThrash::rasterize(const Vertex& a, const Vertex& b, const Vertex& c) 
                 bl += (float(fogColour_ & 255) - bl) * f;
             }
             if (draw)
-                put(p, uint32_t(std::clamp(al, 0.0f, 255.0f)) << 24 | uint32_t(std::clamp(r, 0.0f, 255.0f)) << 16 |
-                           uint32_t(std::clamp(g, 0.0f, 255.0f)) << 8 | uint32_t(std::clamp(bl, 0.0f, 255.0f)));
+                put(p,
+                    uint32_t(std::clamp(al, 0.0f, 255.0f)) << 24 | uint32_t(std::clamp(r, 0.0f, 255.0f)) << 16 |
+                        uint32_t(std::clamp(g, 0.0f, 255.0f)) << 8 | uint32_t(std::clamp(bl, 0.0f, 255.0f)),
+                    x, y);
             for (int i = 0; i < kValues; ++i)
                 v[i] += dx[i];
         }
