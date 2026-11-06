@@ -1816,8 +1816,9 @@ the racer's pursuit, only the race type and the track poked at
   and The Summit slice 311 (17.6°, 30 m/s), Lost Canyons and Redrock
   360 (35 m/s); the `s6-`/`s7-` chases ran through Hometown's covered
   bridges with no roll. Not tried then: a car that leaves the ground
-  while hit from the side, or a car landing on another. A bank at the
-  road's edge turned out to be the way (below, A roll by keys).
+  while hit from the side, or a car landing on another (since: below,
+  Rolls from car hits). A bank at the road's edge turned out to be the
+  way (below, A roll by keys).
 
 **Rolls in the air, from the code** (read November 2026: `gdecomp`
 of the cached export, `asm`, `field car 0xe4`, the constants read
@@ -1920,6 +1921,143 @@ steering (`d2-h0`) the car ran onto it at 30 m/s at 57 s and tipped
   pulses (`d2-c1` 138.6-139.6 s, `c2` and `c6` 139.0-140.0/140.6 s,
   `c3` 139.0-140.3 s, `c5` 138.8-139.8 s) tipped the car to 67° at
   most, or not at all, and fell back.
+
+**Rolls from car hits, from the code** (read November 2026: `gdecomp`
+and `asm` of `0x4310c0`, `0x430c80`, `0x42fee0`, `0x42f550`,
+`0x42dd60`, `0x42e010`, `0x42e2c0`, `0x42e4f0`, `0x42f8c0`, `0x42fe10`,
+`0x42f280`, `0x42e820`, `0x42e720`; the constants read from the exe).
+- **Cars are boxes in 3D, not 2D.** `car_collisions_task` (`0x4311d0`)
+  hands each car in play to `0x4310c0`, which tries it against each
+  car handed in before it that step (list `0x5efe10`) when |dx|, |dy|
+  and |dz| between the centres are each under the sum of their +0x120
+  (half diagonals): the height counts like the rest. `0x430c80` then
+  calls the box test `0x42fee0` while it finds a point inside, at most
+  33 times, and the impulse `0x42f280` once at the last point found
+  (`0x5efe84`). `0x42fee0` puts the other car in this car's frame (rows
+  +0xC0, +0xCC, +0xD8, half sizes +0x114, +0x118, +0x11C) and
+  `0x42f550` tries 28 points in order: the other's 6 face centres
+  inside this box (`0x42dd60`), this car's 6 inside the other's
+  (`0x42e010`), the other's 8 corners (`0x42e2c0`), then this one's 8
+  (`0x42e4f0`); the first inside is the contact. The top and bottom
+  faces' centres are among them, so a car above another is met. Two
+  boxes crossing edge to edge with no face centre or corner inside are
+  missed. After each point found, `0x42fe10` moves both cars apart
+  along the line between their centres (not along a face), 0.25 m
+  (`0x537404`) in all, each by the other's share of the two masses
+  (+0xB0); 4 such rounds a call.
+- **No contact normal is used.** `0x42f8c0` works out a face normal
+  (`0x5efe78`; from the velocity difference when that is over 15 m/s,
+  `0x5373fc`), but nothing outside it reads `0x5efe78`. In `0x42f280`
+  a car's J is (the other's point velocity − its own, each v + 2π
+  spin × r) × the other's mass, used only while closing (centre line
+  · J < 0), with f = its mass / both masses. `0x42e820` cuts J × 0.75
+  when |J| > 5 × its mass (`0x5373bc`, float 5; `0x5537ac`), adds
+  −(J · r̂) f / mass along **J's own direction** (so the hit takes the
+  sideways slip along too) and f (r̂ × J) / (mass × +0x120 × 2π) to
+  the spin, then holds each spin within ±1.8 (`0x42e720`). r̂ is the
+  unit vector from the car's centre to the point: the lever is the
+  angle between r̂ and J, not the distance. The strength it returns
+  is that velocity part + f |r̂ × J| / mass; over 5 (`0x5373f4`,
+  double) adds 1 to +0x164.
+- **The numbers** (two cars of 1472, +0x120 2.76, half sizes 1.18,
+  0.67, 2.41, as the player's in `c8-r1`): at a closing speed u of the
+  two points, J f / mass = u / 2, × 0.75 above 5 m/s. The strength is
+  at least 0.375 u, over 5 from about 13 m/s: any real hit sets air
+  mode. The spin is 0.75 × ½ × u sin θ / (2.76 × 2π) = **0.0216 u sin
+  θ turn/s** (θ between r̂ and u); for a side-on u the roll (about the
+  car's forward axis) is 0.0216 u × r̂'s up part in the car's frame.
+  - Level and at one height (side-on or T-bone): a face centre lies at
+    its car's centre height, so a face-centre contact has r̂ flat for
+    both cars: yaw, no roll. A corner (only when no face centre is
+    inside) has r̂'s up part 0.67 / 2.76 = 0.24 for the car whose
+    corner it is: 0.0052 u, 0.10 turn/s at 20 m/s, 0.26 at 50.
+  - The car hit lying lower than the hitter by h (up to its half
+    height 0.67, the hitter's face centre inside its box): r̂'s up part
+    is h / √(h² + d²), d the distance across (at most 1.18); at h 0.6,
+    d 1.0 about 0.5, so 0.011 u: **0.22 turn/s at 20 m/s side-on, 0.33
+    at 30, 0.44 at 40, 0.55 at 50.** The hitter's r̂ goes to its own
+    face centre, flat: no roll for it. Higher than 0.67 above, only the
+    hitter's lower corners can be inside, with about the same lever.
+  - The clamps don't bind: one hit gives at most about 0.6 turn/s, under
+    both the contact clamp 1.8 and the air clamp 2.4. 155° (0.43 turn)
+    at 0.55 turn/s takes 0.78 s of spin left alone. On the road (+0x10C
+    > 0.9) the landing's damping lets a spin s tip the car 0.078 × s
+    turn at most (Rolls in the air): 15° at 0.55; 25° needs s ≥ 0.9,
+    that is about 82 m/s side-on at h 0.6. In the air (clearance over
+    0.6) nothing takes it out, so a car flying for 0.8-1 s more after a
+    40-50 m/s side-on hit at that height would roll past 155°, or land
+    past 25° still turning. The hit repeats each step while the points
+    still close, so a second contact can add.
+- **One car landing on another.** The lower car's top face centre (0,
+  +0.67, 0) inside the upper's box, or the upper's bottom face centre
+  inside the lower's: r̂ is that car's own up (or down), the full
+  lever. The speed of the fall lies along r̂ and gives no spin, only
+  the push apart (the upper up, the lower down into the road); a slide
+  across gives roll, **0.0216 × u turn/s** (0.22 at 10 m/s across, 0.43
+  at 20), a slide along gives pitch. The car on top is over 0.6 m
+  above the road (+0x15C), so the road code treats it as in the air:
+  its spin is kept, gravity (0.3066 m/s a tick) brings it down again
+  and each step's contact adds more. Nothing in the code stops a car
+  resting on another.
+
+**Rolls from car hits, run** (`d3-` runs, November 2026: the racer's
+pursuit, only the race type and track poked at `0x474ca0`; the
+player's car by `-drive` at car 1 or 2 with full gas or a gap, and
+keypad 2; cars 0-7 or 0-15 dumped every 0.125 s; `-count` and
+`-watch` on the contacts `0x430cbd`, the hard hits `0x42f4a2` and
+`0x42f53b` (+0x164 + 1), and `0x429452`, `0x403950`, `0x403910`,
+`0x40bba0`, `0x40bc30`, `0x428f90`). The race starts at about 50 s.
+- **Hard hits on the road leave the cars flat.** Hometown (`d3-e1`,
+  `e3`: the player at car 1 or 2 from 38 s; `g1`, `g2`: at car 1 with
+  a 3 m or 1 m gap from 50 s): cop 3, driving the wrong way from slice
+  239, met car 1 nearly head-on at slice 150 at 73.60 s (car 1 at 42.4
+  m/s, the cop at 12.9): both hard hits, car 1 down to 15.7 m/s, air
+  mode at the 73.625 s dump and out by 73.75 s, spins at most 0.19
+  turn/s. The player then ran into cop 3 at 74.29 s (42.9 to 27.9 m/s)
+  and car 1 at 74.75 s. 49-78 contacts and 1-8 hard hits a car a run;
+  +0x10C stayed at 0.984 or more for all twelve cars in play, and
+  `0x429452` never ran. Redrock (`d3-e2`, `g6`): the player into car
+  1's back at 82.69 s, 47 against 39 m/s: both 0.999. (`0x429452`
+  ran for traffic car 10 at 85.02 s with +0x10C 1.00 in every dump,
+  so for its surface or +0x184, not a tip.)
+- **A flying car into a standing one** (`d3-h84`, `h85`, `h86`:
+  Hometown as `e1`, the `-drive` ended and keypad 2 held from 84, 85
+  or 86 s, so that the player stood just past the covered bridges'
+  drop at slice 199 with cop 3, in state 5 on it, behind). `h85`: the
+  player stood at slice 205; cop 3 came off the drop in the air (22
+  air ticks, clearance 0.59, its centre 1.0 m above the player's, 37.9
+  m/s and falling at 11.6 m/s) and hit it from behind at 90.129 s (hard
+  for both): the player shoved from 0.2 to 17.7 m/s, cop 3 down to
+  20.1, then spins at most 0.18 turn/s (yaw), the roll part 0.04, and
+  +0x10C 0.984 or more for both. A hit along the cars' length gives
+  pitch and yaw, not roll (above). `h84` (88.66 s) and `h86` (91.70 s)
+  met on the road at 17-21 m/s: the same, less.
+- **Alone in the air** (`d3-g3`: Redrock, the player at car 1 with a 3
+  m gap from 50 s, never caught up): the player left the road at the
+  crest (slices 78-84) at 64.9-65.6 s at 50 m/s, clearance up to 0.98,
+  17 air ticks, and landed flat; car 1, 95 m ahead, only hopped at 44
+  m/s (clearance 0.53, not air mode). `d3-g4`, the same run on to 200
+  s for the second lap's crest, had the player standing from about 121
+  s, after hard hits among it, car 1 and cops at 111-117 s (32 in the
+  run; `0x429452` for it at 100.779 s and the reset at 123.132 s, not
+  dumped), so it never got there.
+- **A roll with no car** (`d3-g5`: `e1` run on to 110 s). Steering
+  back at car 1 after passing it at 56 m/s, the player ran off
+  Hometown's road at slice 320 at 40 m/s, up the ground beside it from
+  9 to 21.8 m, and flew for 2.8 s (+0x164 to 91) with spins −0.19,
+  −0.20, −0.24 unchanged all the way (nothing damps in the air):
+  +0x10C −0.60 at 102.5 s, 0.97 as it touched at 104.0 s, then over
+  again onto its roof on the ground at slice 322 at 105.5 s (+0x10C
+  −0.98, +0x164 0) until the reset (`0x428f90`, 107.574 s); `0x429452`
+  at 101.379 s. Cop 3 was in state 5 on it at slice 323: `0x403910`
+  ran 17 times and `0x40bc30` once, the crash line queued again
+  (`d2-c4`), with only `-drive` and the set-up pokes. No hard hit came
+  between 97.7 and 109.6 s.
+- In none of these runs did a computer cop tip 41°: `0x403950` and
+  `0x40bba0` never ran. No run had a side-on hit with a car in the air
+  or one car landing across another: cars in the air (the crests and
+  drops above, a few tenths of a second) were within 6 m of another
+  car only in `h85`.
 
 **Picking a target** (`0x402e10`, in every state but 3, 5 and 6):
 racers still in, free (+0x634 passed) and within 16 slices, scored by
@@ -2429,8 +2567,9 @@ second. The HUD there has the racer list on (other layouts hide it).
     slice's run of list-4 polygons in the `.frd`, against the slice's
     `.col` point; a script outside the repo), the run's last polygon's
     centre is along the point's right bytes from its first's at
-    12,667 of the 12,706 slices (the 39 others all on Atlantica, not
-    looked at), the
+    12,667 of the 12,706 slices (the 39 others are Atlantica's roofed
+    slices 429-448 and 500-518, whose runs start over the roof:
+    [frd.md](frd.md), The 39 other slices), the
     first polygon's outer edge (vertices 0-3) a median 17-35 m along
     −right by track and the last's (1-2) 10-27 m along +right; edge 0-1 is the
     front one at every polygon and vertex 1 lies right of vertex 0
@@ -2600,10 +2739,22 @@ of every access to those offsets):
   same bank by one left pulse; `0x403910` and `0x40bc30` ran at
   142.221 s and slot 0x1A was said at 148.869 s. Left open: the
   disabled cop (`0x403950`), which needs a computer cop on its roof
-  (keys steer only the player); and whether a side hit in the air or
-  a car landing on another can roll a car (not run: banks did it
-  first). With the player as the only cop no computer cop exists to
-  say either.
+  (keys steer only the player; no computer cop tipped 41° in any `d3-`
+  run). Whether a side hit in the air or a car landing on another can
+  roll a car is settled from the code but not seen (above, Rolls from
+  car hits): cars are 3D boxes (`0x42fee0`, top and bottom faces
+  included), and only a contact off the car's centre height rolls it,
+  about 0.011 u turn/s side-on 0.6 m above or below the centre (0.44
+  at 40 m/s), 0.0216 u for a slide across a car under or on top; the
+  clamps allow it, but on the road the landing's damping takes it out
+  (a hit tips 25° only from about 82 m/s), so it needs the car to stay
+  in the air some 0.8 s after the hit. Run (`d3-`): hard hits on the
+  road at up to 42 m/s and a cop flying 1 m high into the standing
+  player from behind (`d3-h85`) left every car within 11° of flat; no
+  run had a side-on hit in the air or a car landing across another.
+  The player rolled by itself off Hometown's road at slice 320 at 40
+  m/s (`d3-g5`), and the crash line was queued again. With the player
+  as the only cop no computer cop exists to say either.
 - Why the recorded game's spike icon dims for 3 s and its racer list
   has no "over" text, when this exe hides the icon until the strip is
   cleared and shows the text: probably another build, not found.
