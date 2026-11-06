@@ -927,6 +927,24 @@ void TrackPage::load(int index) {
         if (!carDump_.empty())
             computerCars_ = true;
     }
+    // RELUVA_NFS_TRACK_PARTICLES=<file>: the particles as a dump of the
+    // game's 600 slots (0x7ddfd0, 128 bytes each) has them, held there (as
+    // a car dump holds the cars) for comparing with the frame.
+    particlesHeld_ = false;
+    if (const char* dump = std::getenv("RELUVA_NFS_TRACK_PARTICLES")) {
+        particlesHeld_ = true;
+        std::vector<uint8_t> bytes;
+        if (FILE* f = std::fopen(dump, "rb")) {
+            uint8_t buffer[4096];
+            for (size_t got; (got = std::fread(buffer, 1, sizeof buffer, f)) > 0;)
+                bytes.insert(bytes.end(), buffer, buffer + got);
+            std::fclose(f);
+        }
+        const std::vector<Particle> loaded = parseParticleDump(bytes);
+        particles_.clear();
+        for (size_t i = 0; i < loaded.size(); ++i)
+            particles_.particles()[i] = loaded[i];
+    }
     if (computerCars_) {
         loadCars();
         placeCars();
@@ -1378,8 +1396,8 @@ int carpSerial(const std::string& text) {
 } // namespace
 
 // The computer cars' models: the Corvette and the police Corvette (and
-// any other car a dump's set-up names), their high detail parts (the body
-// and wheels, parts 0-4, and the headlights, part 12: fce.md) with their
+// any other car a dump's set-up names), the parts of each of the four
+// details (carDetailParts: fce.md, Vertices and parts) with their
 // car00.tga, recoloured in their paint as the game's loader does
 // (carSkin), z negated as on the Cars page.
 void TrackPage::loadCarModel(CarModel& cm) {
@@ -1418,7 +1436,9 @@ void TrackPage::loadCarModel(CarModel& cm) {
     cm.paintValue = model.primaryColours.empty() ? 0 : static_cast<int>(std::min<uint32_t>(model.primaryColours[0].hsbx[2], 255));
     cm.colours.primaryColours = model.primaryColours;
     cm.colours.secondaryColours = model.secondaryColours;
-    auto addPart = [&](size_t pi) {
+    // reflects: the detail's first body part and the headlights (0x4bae00,
+    // 0x4bab70, 0x4baa50 pass the sphere map with them, not the wheels).
+    auto addPart = [&](size_t pi, bool reflects) {
         const Model::Part& part = model.parts[pi];
         for (uint32_t t = part.firstTriangle;
              t < part.firstTriangle + part.triangleCount && t < model.triangles.size(); ++t) {
@@ -1428,13 +1448,11 @@ void TrackPage::loadCarModel(CarModel& cm) {
                 whole = whole && vi < model.vertices.size();
             if (!whole)
                 continue;
-            // The body and the headlights reflect, the wheels not (0x4bb200).
-            if ((pi == 0 || pi == 12) && !(tri.flags & Model::Triangle::kNoReflection))
-                for (int k = 0; k < 3; ++k) {
-                    cm.envFrom.push_back(static_cast<uint32_t>(cm.vertices.size()) + static_cast<uint32_t>(k));
+            for (int k : carTriangleCorners(tri.flags)) {
+                if (reflects && !(tri.flags & Model::Triangle::kNoReflection)) {
+                    cm.envFrom.push_back(static_cast<uint32_t>(cm.vertices.size()));
                     cm.envStrong.push_back((tri.flags & Model::Triangle::kStrongReflection) != 0);
                 }
-            for (int k = 0; k < 3; ++k) {
                 const uint32_t vi = tri.vertices[size_t(k)];
                 gfx::Vertex v{};
                 v.pos[0] = model.vertices[vi][0] + part.position[0];
@@ -1449,16 +1467,23 @@ void TrackPage::loadCarModel(CarModel& cm) {
             }
         }
     };
-    for (size_t pi = 0; pi < 5 && pi < model.parts.size(); ++pi) {
-        addPart(pi);
-        if (pi == 0)
-            cm.partZeroVertices = static_cast<uint32_t>(cm.vertices.size());
+    for (int d = 0; d < 4; ++d) {
+        CarModel::Detail& at = cm.details[size_t(d)];
+        const CarDetailParts parts = carDetailParts(d, model.parts.size());
+        at.first = static_cast<uint32_t>(cm.vertices.size());
+        at.envFirst = static_cast<uint32_t>(cm.envFrom.size());
+        for (size_t i = 0; i < parts.body.size(); ++i) {
+            addPart(size_t(parts.body[i]), i == 0);
+            if (i == 0)
+                at.depthPart = static_cast<uint32_t>(cm.vertices.size()) - at.first;
+        }
+        at.body = static_cast<uint32_t>(cm.vertices.size()) - at.first;
+        at.envBody = static_cast<uint32_t>(cm.envFrom.size()) - at.envFirst;
+        if (parts.headlights)
+            addPart(12, true);
+        at.lights = static_cast<uint32_t>(cm.vertices.size()) - at.first - at.body;
+        at.envLights = static_cast<uint32_t>(cm.envFrom.size()) - at.envFirst - at.envBody;
     }
-    cm.bodyVertices = static_cast<uint32_t>(cm.vertices.size());
-    cm.envBodyVertices = static_cast<uint32_t>(cm.envFrom.size());
-    if (model.parts.size() > 12)
-        addPart(12);
-    cm.lightVertices = static_cast<uint32_t>(cm.vertices.size()) - cm.bodyVertices;
 }
 
 // The car model whose carp.txt has this serial number (the set-up's car
@@ -1824,7 +1849,8 @@ void TrackPage::placeCars() {
         c.ai.beams = c.beams;
         const auto& speeds = heading > 0 || speedsBackward_.empty() ? speedsForward_ : speedsBackward_;
         c.ai.speed = c.ai.wanted = siren ? std::min(trackSectionSpeed(track, at) * 2.0f, cm.ai.maxVelocity)
-                                         : aiSlicesSpeed(speeds, at) * c.ai.scale;
+                                         : std::min(aiSlicesSpeed(speeds, at), cm.ai.topSpeedCap * aiTrackFactor(track)) *
+                                               c.ai.scale;
         c.speed = c.ai.speed;
         if (!cm.envFrom.empty()) {
             std::vector<gfx::Vertex> env(cm.envFrom.size());
@@ -1922,6 +1948,20 @@ void TrackPage::placeDumpedCars() {
         c.officerAt = d.officerAt;
         c.officerRight = d.officerRight;
         c.officerForward = d.officerForward;
+        // The tyres (car_spiked_effects 0x42a560): each wheel's skid level
+        // and the surface under it (0x429b40: its road polygon's, else the
+        // car's +0x18C).
+        c.velocity = d.velocity;
+        c.wheelAt = d.wheelAt;
+        c.weather = d.weather;
+        for (int w = 0; w < 4; ++w) {
+            c.skid[size_t(w)] = wheelSkidLevel(w, d.frontSkid, d.rearSkid, d.airborne, d.upright);
+            int block = -1;
+            size_t index = 0;
+            c.wheelSurface[size_t(w)] = roadPolygonAt(d.wheelAt[size_t(w)], block, index)
+                                            ? roadSurface(track_.blocks[size_t(block)], index)
+                                            : d.surface;
+        }
         const CarModel& cm = carModels_[size_t(c.model)];
         if (!cm.envFrom.empty()) {
             std::vector<gfx::Vertex> env(cm.envFrom.size());
@@ -2295,6 +2335,7 @@ uint32_t TrackPage::uploadQuads(std::vector<gfx::Vertex>& quads, gfx::MeshId& me
 void TrackPage::prepareCars(const gfx::Vec3& eye, const gfx::Vec3& forward, const gfx::Vec3& right,
                             const gfx::Vec3& up, float fogDensity) {
     carGlowQuads_ = carFlareQuads_ = carBeamQuads_ = shadowQuads_ = 0;
+    carSort_.clear();
     if (!computerCars_ || cars_.empty())
         return;
     const bool night = variant_ == 1 || variant_ == 3, weather = variant_ >= 2;
@@ -2380,17 +2421,54 @@ void TrackPage::prepareCars(const gfx::Vec3& eye, const gfx::Vec3& forward, cons
         const CarModel& cm = carModels_[size_t(c.model)];
         std::array<uint32_t, 4> corners{};
         c.colour = roadColoursAt(c.at, corners) ? carShadeColour(corners) : 0xff7f7f7fu;
+        // The detail (0x4bb5d0): the mean view depth of the box's eight
+        // corners (+0x114-+0x11C either way along the rows from +0x98),
+        // which is the depth of its centre; the car detail option taken
+        // as High (0, as nfs-host's config.dat has it).
+        {
+            const float depth = (c.at[0] - eye[0]) * forward[0] + (c.at[1] - eye[1]) * forward[1] +
+                                (-c.at[2] - eye[2]) * forward[2];
+            c.detail = carDetailLevel(depth, 0, night);
+            // Its sort depth without the z-buffer (0x49c420 -> 0x4c7400 with
+            // +0x8B8 - 9.5 + 9.5, in quarter-metre buckets) is that mean;
+            // the box's nearest corner and its screen bounds go with it.
+            CarSort sort;
+            sort.mean = depth;
+            sort.nearest = depth;
+            sort.x0 = sort.y0 = 1e9f;
+            sort.x1 = sort.y1 = -1e9f;
+            bool behind = false;
+            for (int k = 0; k < 8; ++k) {
+                const float sx = k & 1 ? 1.0f : -1.0f, sy = k & 2 ? 1.0f : -1.0f, sz = k & 4 ? 1.0f : -1.0f;
+                float d[3];
+                for (size_t a = 0; a < 3; ++a) {
+                    const float p = c.at[a] + c.right[a] * sx * cm.halfSize[0] + c.up[a] * sy * cm.halfSize[1] +
+                                    c.forward[a] * sz * cm.halfSize[2];
+                    d[a] = (a == 2 ? -p : p) - eye[a];
+                }
+                const float z = d[0] * forward[0] + d[1] * forward[1] + d[2] * forward[2];
+                sort.nearest = std::min(sort.nearest, z);
+                if (z <= 0.1f) {
+                    behind = true;
+                    continue;
+                }
+                const float x = (d[0] * right[0] + d[1] * right[1] + d[2] * right[2]) / z,
+                            y = (d[0] * up[0] + d[1] * up[1] + d[2] * up[2]) / z;
+                sort.x0 = std::min(sort.x0, x);
+                sort.x1 = std::max(sort.x1, x);
+                sort.y0 = std::min(sort.y0, y);
+                sort.y1 = std::max(sort.y1, y);
+            }
+            if (!behind && c.detail >= 0)
+                carSort_.push_back(sort);
+        }
         if (night) {
             std::vector<CarLights> others = lights;
             others.erase(others.begin() + static_cast<std::ptrdiff_t>(ci + 1));
             c.colour = carLitBy(c.colour, c.at, others);
             // At the nearest detail (0x4bae00) the track's lights too
-            // (0x4b9550). The mean depth of the box's corners is the car's
-            // own; the car detail option taken as High (0, as nfs-host's
-            // config.dat has it).
-            const float depth = (c.at[0] - eye[0]) * forward[0] + (c.at[1] - eye[1]) * forward[1] +
-                                (-c.at[2] - eye[2]) * forward[2];
-            if (n > 0 && carDetailLevel(depth, 0, true) == 0)
+            // (0x4b9550).
+            if (n > 0 && c.detail == 0)
                 c.colour = carLitByTrackLights(c.colour, c.at, static_cast<int>(std::floor(c.slice)) % n, n, track_,
                                                skyTick_, !effects);
         }
@@ -2479,7 +2557,8 @@ void TrackPage::prepareCars(const gfx::Vec3& eye, const gfx::Vec3& forward, cons
         // 0x492370's sixth argument).
         const std::array<float, 3> view{forward[0], forward[1], -forward[2]};
         float bodyDepth = 65535.0f;
-        for (uint32_t i = 0; i < cm.partZeroVertices; ++i) {
+        const CarModel::Detail& shown = cm.details[size_t(std::max(c.detail, 0))];
+        for (uint32_t i = shown.first; i < shown.first + shown.depthPart; ++i) {
             const float* v = cm.vertices[i].pos;
             float depth = 0;
             for (int k = 0; k < 3; ++k) {
@@ -2699,9 +2778,10 @@ void TrackPage::drawCars(const gfx::DrawCall& base) {
     gfx::DrawCall car = base;
     car.rgbSource = gfx::ColorSource::Vertex;
     car.color = {1, 1, 1, 1};
-    // Not culled (some of its triangles are two-sided), and its skin's
-    // alpha (the reflection's share, fce.md) not tested.
-    car.state.cull = gfx::Cull::None;
+    // Facing away culled as 0x49dbf0 does (the two-sided triangles are in
+    // the mesh both ways round), and its skin's alpha (the reflection's
+    // share, fce.md) not tested.
+    car.state.cull = mirrored_ ? gfx::Cull::Front : gfx::Cull::Back;
     car.state.alphaTest = gfx::AlphaTest::None;
     for (const ComputerCar& c : cars_) {
         if (!c.mesh)
@@ -2722,8 +2802,11 @@ void TrackPage::drawCars(const gfx::DrawCall& base) {
         m[13] = c.at[1] + 0.145f; // the model drawn 0.145 above the position (0x540120)
         m[14] = -c.at[2];
         car.model = m;
-        car.firstIndex = 0;
-        car.indexCount = cm.bodyVertices + (c.beams ? cm.lightVertices : 0);
+        if (c.detail < 0)
+            continue;
+        const CarModel::Detail& d = cm.details[size_t(c.detail)];
+        car.firstIndex = d.first;
+        car.indexCount = d.body + (c.beams ? d.lights : 0);
         renderer_->draw(car);
         // The reflection (0x49dbf0 queues it with the polygon): the sphere
         // map added by the corner colour's alpha (THRASH blend 1), the
@@ -2736,7 +2819,8 @@ void TrackPage::drawCars(const gfx::DrawCall& base) {
             env.state.src = gfx::Blend::SrcAlpha;
             env.state.dst = gfx::Blend::One;
             env.state.depthWrite = false;
-            env.indexCount = c.beams ? static_cast<uint32_t>(cm.envFrom.size()) : cm.envBodyVertices;
+            env.firstIndex = d.envFirst;
+            env.indexCount = d.envBody + (c.beams ? d.envLights : 0);
             if (env.indexCount)
                 renderer_->draw(env);
         }
@@ -3087,6 +3171,8 @@ void TrackPage::hitWall(bool fast) {
 // then the particles' step (0x4cb2c0 runs after the cars in the "Sc64"
 // list). Not more than a second's worth at once.
 void TrackPage::tickParticles(uint64_t nowMs) {
+    if (particlesHeld_)
+        return;
     if (!particleStartMs_ || nowMs < particleStartMs_)
         particleStartMs_ = nowMs;
     const uint64_t target = (nowMs - particleStartMs_) * kGameTicksPerSecond / 1000;
@@ -3097,14 +3183,22 @@ void TrackPage::tickParticles(uint64_t nowMs) {
         for (const WallHit& hit : pendingHits_)
             wallHitParticles(particles_, hit, tick, particleRandom_);
         pendingHits_.clear();
+        // The tyres' smoke (0x42a480, from the cars' task before the
+        // particles' step), for the cars a dump holds as it has them.
+        if (computerCars_)
+            for (const ComputerCar& c : cars_)
+                for (int w = 0; w < 4; ++w)
+                    if (wheelSmokes(w, c.skid[size_t(w)], c.wheelSurface[size_t(w)], c.weather))
+                        tyreSmoke(particles_, w, c.wheelAt[size_t(w)], c.velocity, c.right, tick, particleRandom_);
         particles_.step(tick, particleRandom_);
     }
 }
 
-// A kind's picture: SNnn of sfx.fsh, SPnn at night (0x4cb590).
+// A kind's picture (0x4cb590): SPnn of sfx.fsh by day, SNnn at night (the
+// night flag 0x6fd4c8 set: 0x4cb64a jumps to the SP name when it is 0).
 gfx::TextureId TrackPage::particlePicture(int kind) {
     char name[8];
-    std::snprintf(name, sizeof name, "%s%02d", variant_ % 2 ? "SP" : "SN", kind % 100);
+    std::snprintf(name, sizeof name, "%s%02d", variant_ % 2 ? "SN" : "SP", kind % 100);
     if (auto it = particlePictures_.find(name); it != particlePictures_.end())
         return it->second;
     gfx::TextureId id = 0;
@@ -3168,20 +3262,61 @@ void TrackPage::prepareParticles(const gfx::Vec3& eye, const gfx::Vec3& forward,
     }
     std::sort(shown.begin(), shown.end(), [](const Shown& a, const Shown& b) { return a.depth > b.depth; });
     std::vector<gfx::Vertex> vertices(kQuads * 4);
+    // The pictures' corners at the texels' centres, 1/64 to 63/64 of the 32 x
+    // 32 pictures (e1-t8s0's THRASH list, the smoke's quads); the streaks'
+    // as before (no streak in a list yet).
     static constexpr float kUv[4][2] = {{0, 0}, {1, 0}, {1, 1}, {0, 1}};
+    static constexpr float kCentred[4][2] = {
+        {0.015625f, 0.015625f}, {0.984375f, 0.015625f}, {0.984375f, 0.984375f}, {0.015625f, 0.984375f}};
     for (size_t q = 0; q < shown.size(); ++q) {
         Particle& p = *shown[q].p;
         const ParticleTemplate& t = *particleTemplate(p.kind);
         const float pixel = shown[q].depth / focal;
-        const std::array<ParticleVec, 4> corners =
+        std::array<ParticleVec, 4> corners =
             t.streak ? streakCorners(p, r, u, pixel, p.size / pixel) : pictureCorners(p, r, u, p.size);
+        // Without the z-buffer (projected_ off, as nfs-host runs the game)
+        // the particles' quads and the cars go into the same depth buckets
+        // (0x4c7480 and 0x4c7400: round(4 x depth), the quad's the mean of
+        // its corners', the car's the mean of its box's), drawn back to
+        // front with no depth test (setstate 4 0): a particle in a bucket
+        // no farther than a car's covers it. The page's depth test gets the
+        // same by putting such a quad, along the lines from the eye, just in
+        // front of the nearest corner of each car it overlaps on the screen.
+        if (!projected_) {
+            const float depth = shown[q].depth;
+            float to = depth;
+            float px0 = 1e9f, px1 = -1e9f, py0 = 1e9f, py1 = -1e9f;
+            for (const ParticleVec& c : corners) {
+                const float d[3] = {c[0] - eye[0], c[1] - eye[1], -c[2] - eye[2]};
+                const float z = std::max(d[0] * forward[0] + d[1] * forward[1] + d[2] * forward[2], 0.1f);
+                const float x = (d[0] * right[0] + d[1] * right[1] + d[2] * right[2]) / z,
+                            y = (d[0] * up[0] + d[1] * up[1] + d[2] * up[2]) / z;
+                px0 = std::min(px0, x);
+                px1 = std::max(px1, x);
+                py0 = std::min(py0, y);
+                py1 = std::max(py1, y);
+            }
+            for (const CarSort& c : carSort_)
+                if (std::lround(4 * depth) <= std::lround(4 * c.mean) && c.nearest < to && px1 > c.x0 && px0 < c.x1 &&
+                    py1 > c.y0 && py0 < c.y1)
+                    to = std::max(c.nearest - 0.01f, 0.2f);
+            if (to < depth) {
+                const float k = to / depth;
+                for (ParticleVec& c : corners) {
+                    const float w[3] = {c[0], c[1], -c[2]};
+                    for (size_t a = 0; a < 3; ++a)
+                        c[a] = eye[a] + (w[a] - eye[a]) * k;
+                    c[2] = -c[2];
+                }
+            }
+        }
         for (int k = 0; k < 4; ++k) {
             gfx::Vertex& v = vertices[q * 4 + size_t(k)];
             v.pos[0] = corners[size_t(k)][0];
             v.pos[1] = corners[size_t(k)][1];
             v.pos[2] = -corners[size_t(k)][2];
-            v.uv[0] = kUv[k][0];
-            v.uv[1] = kUv[k][1];
+            v.uv[0] = t.streak ? kUv[k][0] : kCentred[k][0];
+            v.uv[1] = t.streak ? kUv[k][1] : kCentred[k][1];
             v.normal[1] = 1;
             v.color[0] = static_cast<uint8_t>(p.colour >> 16);
             v.color[1] = static_cast<uint8_t>(p.colour >> 8);
@@ -3200,10 +3335,17 @@ void TrackPage::prepareParticles(const gfx::Vec3& eye, const gfx::Vec3& forward,
 
 // Over the scene, tested against its depth but not written to it: blended
 // by their alpha, or added (polygon flag 1, as the lights' glows; inferred).
-void TrackPage::drawParticles() {
+// Fogged as the scenery: e1-t8s0's THRASH list sends the smoke's quads with
+// the frame's fog state (475, as the track's).
+void TrackPage::drawParticles(float fog, const std::array<float, 3>& fogColour) {
     if (particleRuns_.empty())
         return;
     gfx::DrawCall call;
+    if (fog > 0) {
+        call.tableFog = fog;
+        call.tableFogFromDepth = true;
+        call.tableFogColor = fogColour;
+    }
     call.mesh = particleMesh_;
     call.rgbSource = call.alphaSource = gfx::ColorSource::Vertex;
     call.state.cull = gfx::Cull::None;
@@ -3314,7 +3456,8 @@ void TrackPage::handleEvent(const Event& ev) {
                 stopSounds();
             break;
         case 'e':
-            // Shift+E: the projected picture (the projtex option) on or off;
+            // Shift+E: the z-buffer and the projected picture (the projtex
+            // option) on or off (projected_);
             // E: off, low and high beams in turn, as the game's key (0x40de50).
             // Ctrl+E: the game's test of each block against each light.
             if (ev.mods & keymod::Shift)
@@ -3468,7 +3611,6 @@ void TrackPage::update(uint64_t nowMs) {
                 skyBlack(horizon_, std::atoi(tracks_[index_].substr(3).c_str()), roadSliceAt());
     const gfx::Vec3 up{-std::sin(pitch_) * std::sin(yaw_), std::cos(pitch_), std::sin(pitch_) * std::cos(yaw_)};
     tickParticles(nowMs);
-    prepareParticles(eye, forward, right, up);
 
     // The batches to draw: the blocks the game draws from here, each at its
     // detail (or the one chosen), lanes only at high detail (0x41cdc0);
@@ -3543,6 +3685,8 @@ void TrackPage::update(uint64_t nowMs) {
         prepareCars(eye, forward, right, up, fogDensity);
         prepareHeadlights(here, eye, forward);
     }
+    // After the cars: their sort depths (carSort_) place the particles.
+    prepareParticles(eye, forward, right, up);
     // The clear colour: the sky's top (THRASH state 3, 0x47a4c0), black
     // where the game draws no sky, and without a sky the fog's.
     Horizon::Rgb clear = fog;
@@ -3811,7 +3955,7 @@ void TrackPage::update(uint64_t nowMs) {
     }
     if (marksShown_)
         updateSounds(eye, right);
-    drawParticles();
+    drawParticles(sceneryFog, {fog[0] / 255.0f, fog[1] / 255.0f, fog[2] / 255.0f});
 
     std::fill(overlay_.pixels.begin(), overlay_.pixels.end(), uint8_t(0));
     std::vector<std::string> lines = {"Tracks  " + std::to_string(index_ + 1) + "/" + std::to_string(tracks_.size()) +

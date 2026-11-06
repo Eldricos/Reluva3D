@@ -117,7 +117,7 @@ Direct3D:
 | 0x1 | texture handle |
 | 0x2 | cull: 0 none, 1 counter-clockwise, 2 clockwise |
 | 0x3 | clear colour, 0xAARRGGBB |
-| 0x4 | z test and write; the game sends 0 with softtria |
+| 0x4 | z test and write; the game sends 0 with softtria (and under nfs-host, whose `voodoo2a.dll` is softtria: `e1-tl1`'s frame 2818 sends it 0 four times and never 1, so the game draws by depth order, col.md, Over the cars) |
 | 0x6 | shading: 0 flat (the first vertex's colour), 1 Gouraud |
 | 0x7 | texture filtering |
 | 0x9 | antialiasing |

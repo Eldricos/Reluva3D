@@ -379,7 +379,20 @@ What was built, with each format written up in `docs/formats/nfs/`:
     weather), and they light
     the track by night after the camera's car, the roof light too
     ([frd.md](../formats/nfs/frd.md), Other cars' lights, The computer
-    cars; [fce.md](../formats/nfs/fce.md), Lighting);
+    cars; [fce.md](../formats/nfs/fce.md), Lighting). Each is drawn at
+    the detail its distance gives it, with that detail's parts, and with
+    its triangles facing away left out unless two-sided, as the game
+    does (November 2026; before, the high parts at every distance and no
+    culling, which showed the wheel arches' insides as black wedges;
+    fce.md, Facing away). A dumped car whose rear tyres skid makes the
+    game's tyre smoke, and `RELUVA_NFS_TRACK_PARTICLES=<dump>` (the 600
+    particle slots at `0x7ddfd0`) holds a dump's particles where they
+    were; their pictures are the day's `SP` set by day and `SN` by night,
+    fogged ([col.md](../formats/nfs/col.md), Tyre smoke, Over the cars).
+    The page starts with the z-buffer and the headlights' projection off,
+    as nfs-host runs the game (Shift+E turns both on): its pool on the
+    road then matches the hosted game's, and particles nearer than a
+    car's middle are drawn over it as the game's depth order draws them;
   - the mirrored track (key U): texture set 1 and the view flipped left
     to right, its culling turned with it, as the game's mirror flag
     does; checked against a mirrored `nfs-host` race on Hometown.
@@ -1529,6 +1542,16 @@ README.md.
 
 ## Open questions
 
+- How the computer racers meet each other: from `t6-log`'s 50 s dump
+  the page's cars now want the game's speeds and accelerate as its code
+  says, but its cars have no force model on the hills, so after a few
+  seconds they are a slice or three from the game's and the meetings
+  that make the game's overtakes (car 3 past car 4 at Hometown's slices
+  91-107) don't happen: 130 lane changes against the game's 143
+  ([frd.md](../formats/nfs/frd.md), Why car 3 didn't overtake). The
+  road search's marks of the other side near bends' walls are what the
+  code does (frd.md, The search beyond its first slice); whether a car
+  against such a wall is pushed the wrong way wasn't driven.
 - How the wall hits' particles look in play (read from the code only;
   their sounds are measured, not listened to), and wall code 3's
   material: the code tells it from code 5 only by its sound (material

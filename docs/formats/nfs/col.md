@@ -423,10 +423,84 @@ flags; quads are sorted by depth (`0x4c7610`) with the scene's.
   under 1, kinds with `+0x58` bit 0 are dimmed as the lights are
   (`0x4cbf2f`; [frd.md](frd.md), Lights).
 
-**Pictures** (`0x4cb590`): `SNnn` of `GameData/Render/pc/sfx.fsh` for
-kind nn, `SPnn` when the night flag (`0x6fd4c8`) is set. `SN03` (sparks)
-is 8 × 8, opaque, yellow; `SN02` (dust) a dark brown puff and `SN06`
-(smoke) a grey one, 32 × 32 with alpha.
+**Pictures** (`0x4cb590`): `SPnn` of `GameData/Render/pc/sfx.fsh` for
+kind nn by day, `SNnn` by night. The first account here had them the
+other way round; the code is `cmp dword [0x6fd4c8], 0` / `je 0x4cb5ad`
+(`0x4cb64a`), and `0x4cb5ad` pushes `'SP%02d'` (`0x540430`), the
+fall-through `'SN%02d'` (`0x540428`); `0x4d4080` loads each into
+`0x7ddd68` + kind × 44 (November 2026). The day set is the brighter:
+`SP06` (smoke) is grey, its red 33-148 at the texels where `SN06`'s is
+9-75, their alphas the same (up to 217); in `e1-t8s0`'s THRASH list
+(Empire City by day, frame 2818) the smoke's texture is 33-153 in 4-bit
+steps, `SP06` as uploaded at 4:4:4:4. `SN03` (sparks) is 8 × 8, opaque,
+yellow; `SN02` (dust) a dark brown puff, 32 × 32 with alpha. The Track
+page took `SN` by day until November 2026, so its smoke and dust by day
+were the night's, about half as bright.
+
+**In a THRASH list** (`e1-t8s0`, Empire City by day, Hot Pursuit with
+racer 1 held 18 m ahead by pokes; the particles' 600 slots dumped at sky
+draw 400, the frame the list is of): the 8 live particles (all kind 6,
+from the held car's rear wheels, below) are 8 quads of one batch, after
+the cars and glows, on the 32 × 32 picture with blend 1 mode 0 (source
+alpha over), each corner in the particle's colour (`64F1F1F1`,
+`5CEDEDED`, `4CE5E5E5`, `3EDEDEDE` for lives 199, 183, 151, 123), their
+corners' u, v 1/64 to 63/64, fogged as the scenery (the batch carries
+the frame's fog state, 475). The dump's positions projected with the
+dumped camera land on the quads' centres to 0.1 pixel, and their
+half sizes (size × 320 / depth) on the quads' extents.
+
+**Over the cars** (November 2026). In that frame the smoke's batch comes
+after all the car's polygons and covers its back, by day greying it and
+by night (`e1-t8s1`, `SN06`) darkening it: nfs-host's renderer runs
+without a z-buffer (`0x7a3a60` 0, `setstate(0x4, 0)`: thrash.md), and
+then the game draws its sorted items back to front in 2,000 buckets of a
+quarter metre. A car goes in whole (`0x49c420` → `0x4c7400`) at its
+box's mean view depth (`+0x8B8` − 9.5 + 9.5, `0x7dcfe0` and `0x7dcfdc`
+both 9.5 without the z-buffer, `0x4c7a60`), bucket round(4 × depth); a
+particle's quad (`0x4cc5c0` → `polys_depth_sort` `0x4c7610` →
+`0x4c7480`) at the mean of its corners' depths the same way, after the
+cars. So a particle no farther than a car's middle is drawn over all of
+it: the held car's smoke at 18.0-18.2 against the car's 18.7. With the
+z-buffer (`0x4c7610`'s other branch, 800 buckets, and the car drawn at
+once by `0x4349d0`) the car's nearer polygons would hide it. The Track
+page, which draws with a depth test, follows nfs-host while its
+projection is off (Shift+E): a quad the buckets put over a car it
+overlaps on the screen is moved along the lines from the eye to just in
+front of the car's nearest corner.
+
+**Tyre smoke** (November 2026; `wheelSkidLevel`, `wheelSmokes`,
+`tyreSmoke` in fce.h). `car_spiked_effects` (`0x42a560`, the cars'
+64 Hz task) works out each wheel's skid level (`+0x94C` + 4 × wheel:
+0 front left, 1 front right, 2 rear right, 3 rear left): 0 with the car
+in the air (`+0x164`) or tipped (`+0x10C` under 0.9, `0x537278`); else
+the tyres' skid level (physics.md, Tyres) × 7.5 for a front wheel
+(`+0x5C0`, `0x537280`) and as it is for a rear one (`+0x5C4`), held to
+0-10 (`0x537288`). Then `0x42a480` for the wheel: with the level not 0
+and the surface under it (`0x429b40`: the wheel's road polygon's, or
+the car's `+0x18C`; & 0xF) marked in the table at `0x553080` (rows of
+0x24 bytes by surface, 0x240 by weather `+0x160`; `+0x10` is 1 for dry
+surfaces 1, 4, 7, 10, 11 and 12 and 0 for every surface in rain or
+snow), a skid mark (`car_wheel_skid_mark` `0x429d20`, not drawn on the
+page), and for a rear wheel with the level over 5 (`0x537270`) smoke:
+`0x4cb010` with kind 6 at the wheel's road point (its track position,
+`+0x300` + 0x78 × wheel, the 16.16 point at `+4`), the template's count
+(1) of `0x4ca850` at scale 1 (kind 6's `+0x0C` speed scale is 0), a the
+car's velocity (`+0xA4`) made a unit vector (`0x4972f0`, left at 0 when
+it is 0), b the car's right row (`+0xC0`) for wheels 1 and 2 and its
+negative for 0 and 3, whose particles also spin the other way, c the
+velocity × 0.5 (`0x540408`). The same table's `+0x0C` kind is what
+`0x42a280` throws from each wheel on dirt and grass (not followed).
+`car_smoke_tick` (`0x42b480`) is the hit's smoke (physics.md, +0x8D4),
+another emitter.
+
+In `e1-t8s0` the kind-6 call (`0x42a543`, `-count` and `-watch`) ran 42
+times: twice for the player's car at 49.0 s, at the start, and 40 times
+for the held car between 51.9 and 60.0 s, `+0x5C4` 10.0 and the rear
+levels 10 at each, so the 8 puffs of its dump come in
+pairs a few hundred milliseconds apart; at the dump itself the levels
+were 0. The Track page draws a dump's particles where the dump has them
+(`RELUVA_NFS_TRACK_PARTICLES`, held as the cars are) and makes the
+smoke of a dumped car whose rear levels are over 5, each 64 Hz tick.
 
 **Against footage** (November 2026; clips as in [hrz.md](hrz.md)).
 No clip has a clear wall hit near the camera, so the wall hits' own
@@ -453,8 +527,10 @@ unchecked.
 **Inferred, not followed:** that flags bit 0 means the quad is added
 rather than blended (the lights' glows set it too, `0x49155f`, and the
 Track page adds those); that the picture is multiplied by the corners'
-colour; which corner of the picture goes where; whether particles are
-fogged. The Track page also works the streak in the world rather than
+colour; which corner of the picture goes where. That particles are
+fogged and their pictures' corners sit on texel centres is from the
+smoke's quads in `e1-t8s0`'s list (above); a spark's streak hasn't been
+in a list. The Track page also works the streak in the world rather than
 on the screen, doesn't round sizes to pixels, and makes up the car (its
 speed 40 or 18, impact 10, `+0x15c` 0, the contact half a unit in from
 the wall's line and up from the road, the centre a unit further in).

@@ -5,6 +5,7 @@
 
 #include "common/types.h"
 #include "engines/nfs/col.h"
+#include "engines/nfs/particles.h"
 
 #include <array>
 #include <cstdint>
@@ -363,6 +364,42 @@ int roadSurface(const Track::Block& b, size_t index);
 // polygon `polygon`, 1 beyond the first polygon's outer edge, 2 beyond
 // the last's (the +0x6C side; physics.md, +0xC). -1 without a run.
 int sliceRunSide(const Track::Block& b, int sliceInBlock, const std::array<float, 3>& point, size_t& polygon);
+// The track position's search for the road polygon under a point, as
+// 0x41e990 does it (from trackpos_build, for a car, its corners, its
+// wheels, a light...). From the slice's run of list-4 polygons (its
+// positions record), starting at `index` when that is in 0 .. count - 2
+// and `side` is 0 (+0x70 kept from the last search), else at
+// (count - 1) / 2: a walk up (to i + 1) and then one down (to i - 1),
+// each taking a polygon as found when the point is inside it on x and z
+// (corners as 0x41e6a0 takes them, 1, 0, 3, 2) and its record's surface
+// (byte 1 & 0xF) isn't 14. A walk goes on while the sum |dx| + |dz| from
+// the point to the polygon's corners 1 and 3 (truncated) shrinks, and past
+// a polygon where it grows only when that polygon is of surface 14
+// (0x41eca2-0x41ecd2, 0x41ef51-0x41ef81). Reaching the last polygon
+// without finding, side 2 is set (once a search, while it is 0) when the
+// point is on the inner side of that polygon's edge 0-3 (0x41ebd7); the
+// first, side 1 by its edge 1-2 (0x41ee86). Then the next slice of the
+// steps +1, -2, +3 ... +11 (0x552e58) from the one before, up to 11
+// slices, the start kept: the up walk holds it to count - 2 (0x41ea35),
+// the down walk starts at start - 1 as it is (0x41ecf6), so after a step
+// to a slice with fewer polygons it reads polygons past that slice's run
+// (the next slices', or past the block's list). A point not found leaves
+// `side` as last set and `index` where the last down walk stopped.
+struct RoadSearch {
+    int slice = 0;  // +0x10: the slice searched from (kept)
+    int index = -1; // +0x70
+    int side = 0;   // +0x6C
+    // Out: the polygon found (its slice, and its index in list 4 of that
+    // slice's block), how many polygons the down walks read past their
+    // slice's run, and whether one would have read past its block's list 4
+    // (not done here: the search stops, unfound).
+    bool found = false;
+    int foundSlice = -1, polygon = -1;
+    int pastRun = 0;
+    bool beyondBlock = false;
+};
+bool roadSearch(const Track& track, RoadSearch& s, float x, float z);
+
 // Whether the officer's spot is kept (0x401d78, after 0x4205a0 builds a
 // track position for it at the racer's slice): only inside a polygon of
 // the slice's run (+0x6C 0) with a record whose surface is neither 0 nor
@@ -694,7 +731,20 @@ struct DumpedCar {
     // the road (+0x910) and rows (+0x8EC: right, up, forward).
     bool officer = false;
     std::array<float, 3> officerAt{}, officerRight{}, officerUp{}, officerForward{};
+    // For its tyres' smoke (wheelSkidLevel, fce.h): the velocity (+0xA4),
+    // the tyres' skid levels front and rear (+0x5C0, +0x5C4), the air
+    // ticks (+0x164, s16), how upright it is (+0x10C), its weather
+    // (+0x160), the surface under it (+0x18C) and each wheel's road point
+    // (its track position at +0x300 + 0x78 x wheel: the 16.16 point at +4).
+    std::array<float, 3> velocity{};
+    float frontSkid = 0, rearSkid = 0, upright = 1;
+    bool airborne = false;
+    int weather = 0, surface = 0;
+    std::array<std::array<float, 3>, 4> wheelAt{};
 };
 std::vector<DumpedCar> parseCarDump(const std::vector<uint8_t>& bytes);
+// A dump of the particles' 600 slots (0x7ddfd0, 128 bytes each: particles.h's
+// offsets), the live ones (+0 life not 0) as they are there.
+std::vector<Particle> parseParticleDump(const std::vector<uint8_t>& bytes);
 
 } // namespace reluva::nfs
