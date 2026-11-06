@@ -88,4 +88,8 @@ reluva_add_gamedata_test(awe
     GAME motoe
     ENV RELUVA_MOTOE
     SCRIPT ${tests}/gamedata.cmake
-    STEPS release files scripts route)
+    STEPS release files scripts route-search route)
+# The route's search can take more than the hour each step is given.
+if(RELUVA_BUILD_TESTS)
+    set_tests_properties(awe.gamedata.route-search PROPERTIES TIMEOUT 7200)
+endif()

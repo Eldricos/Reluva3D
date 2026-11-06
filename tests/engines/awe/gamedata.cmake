@@ -17,12 +17,14 @@
 #            (files-check)
 #   scripts  every script's commands counted, and the verbs Reluva doesn't
 #            know (script-check)
-#   route    the whole game, from a new game to the credits, four ways: by
-#            the mouse with sound, by the hand alone, saved and loaded after
-#            every action, and wandering off the route (game-check -quick).
-#            The route is searched for the first time (game-run -solve, about
-#            ten minutes) and kept in the build, as it names the game's
-#            files; its checksum is in the record.
+#   route-search  a way from a new game to the credits (game-run -solve),
+#            searched for the first time and kept in the build
+#            (gamedata/awe/route.txt), as it names the game's files; its
+#            checksum is in the record. A search takes up to an hour or so,
+#            so it has a step of its own, with a longer time.
+#   route    the whole game by that route, four ways: by the mouse with
+#            sound, by the hand alone, saved and loaded after every action,
+#            and wandering off it (game-check -quick).
 # A command that fails fails the step. What each prints (paths and timings
 # taken out) is checksummed, with a summary line, into a record:
 # tests/engines/awe/data/gamedata/<release>/<step>.txt. The step passes when
@@ -56,13 +58,24 @@ elseif(STEP STREQUAL "files")
     record_run(files "Everything read|failed" awe files-check "${game_dir}" -j 4)
 elseif(STEP STREQUAL "scripts")
     record_run(scripts "commands of" awe script-check "${game_dir}")
+elseif(STEP STREQUAL "route-search")
+    set(route "${OUTPUT}/route.txt")
+    if(NOT EXISTS "${route}")
+        # (Not run_tool: a search can take longer than its half hour.)
+        file(MAKE_DIRECTORY "${OUTPUT}")
+        execute_process(COMMAND "${TOOL}" awe game-run "${game_dir}" -solve "${route}.part" -mouse -characters
+            OUTPUT_VARIABLE out ERROR_VARIABLE out RESULT_VARIABLE rc TIMEOUT 7000)
+        if(NOT rc EQUAL 0)
+            message(FATAL_ERROR "The search for a route failed (${rc}):\n${out}")
+        endif()
+        file(RENAME "${route}.part" "${route}")
+    endif()
+    record_file(route.txt "${route}")
 elseif(STEP STREQUAL "route")
     set(route "${OUTPUT}/route.txt")
     if(NOT EXISTS "${route}")
-        file(MAKE_DIRECTORY "${OUTPUT}")
-        run_tool(solved awe game-run "${game_dir}" -solve "${route}" -mouse -characters)
+        message(FATAL_ERROR "No route: the route-search step makes it (ctest -R awe.gamedata.route-search)")
     endif()
-    record_file(route.txt "${route}")
     record_run(route "all passed|FAILED" awe game-check "${game_dir}" "${route}" -quick)
 else()
     message(FATAL_ERROR "Unknown step ${STEP}")

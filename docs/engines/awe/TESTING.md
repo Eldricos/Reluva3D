@@ -52,12 +52,14 @@ the steps show as skipped.
 | `awe.gamedata.release` | What the game is (`detect`) |
 | `awe.gamedata.files` | Every Granny file, scene, text, movie and sound read; the cameras and compressed curves compared with `granny2.dll`'s (`awe files-check`) |
 | `awe.gamedata.scripts` | Every script's commands counted, and any verb Reluva doesn't know (`awe script-check`) |
-| `awe.gamedata.route` | The whole game four ways, as below (`awe game-check -quick`) |
+| `awe.gamedata.route-search` | A way from a new game to the credits, searched for once (`awe game-run -solve`) |
+| `awe.gamedata.route` | The whole game by it, four ways, as below (`awe game-check -quick`) |
 
-The route step searches for the route the first time (`awe game-run
--solve`, about ten minutes) and keeps it in the build
+The search runs the first time only, and keeps the route in the build
 (`gamedata/awe/route.txt`), as it names the game's files; the record holds
-its checksum, so a search that finds another route shows. Each step's
+its checksum, so a search that finds another route shows. It has a step of
+its own, with two hours to run, as it can take more than the hour each
+step is given. Each step's
 output is kept in the build (`gamedata/awe/<step>/`), the previous run's
 beside it, and its checksum and summary line go in the record,
 `tests/engines/awe/data/gamedata/english-1.0/<step>.txt` (made on Linux;
