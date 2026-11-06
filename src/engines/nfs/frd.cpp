@@ -746,6 +746,133 @@ int sliceRunSide(const Track::Block& b, int sliceInBlock, const std::array<float
     return -1;
 }
 
+bool roadSearch(const Track& track, RoadSearch& s, float x, float z) {
+    s.found = false;
+    s.foundSlice = s.polygon = -1;
+    s.beyondBlock = false;
+    const int slices = static_cast<int>(track.blocks.size()) * 8;
+    if (slices <= 0)
+        return false;
+    struct Run {
+        const Track::Block* block = nullptr;
+        int first = 0, count = 0;
+    };
+    auto runOf = [&](int slice) {
+        Run r;
+        const Track::Block& b = track.blocks[size_t(slice >> 3)];
+        const size_t at = 8 * static_cast<size_t>(slice & 7);
+        if (at + 3 <= b.positions.size()) {
+            r.block = &b;
+            r.first = b.positions[at] | b.positions[at + 1] << 8;
+            r.count = b.positions[at + 2];
+        }
+        return r;
+    };
+    // A polygon's corners as 0x41e6a0 takes them (+0x54-+0x60: vertices 1,
+    // 0, 3, 2) and its surface; false past the block's list.
+    struct Poly {
+        std::array<Track::Vec3, 4> c{};
+        int surface = 0;
+    };
+    auto polyOf = [&](const Run& r, int index, Poly& out) {
+        const auto& list = r.block->polygons[4];
+        const int at = r.first + index;
+        if (at < 0 || at >= static_cast<int>(list.size()))
+            return false;
+        const Track::Polygon& p = list[size_t(at)];
+        static constexpr int kOrder[4] = {1, 0, 3, 2};
+        for (int k = 0; k < 4; ++k) {
+            const uint16_t v = p.vertices[size_t(kOrder[k])];
+            if (v >= r.block->vertices.size())
+                return false;
+            out.c[size_t(k)] = r.block->vertices[v];
+        }
+        out.surface = 8 * size_t(at) + 1 < r.block->polygonRoad.size() ? r.block->polygonRoad[8 * size_t(at) + 1] & 0xf : 0;
+        return true;
+    };
+    // The point on the inner side of the edge from a to b (the x87
+    // compares as 0x41ea86 does).
+    auto inner = [&](const Track::Vec3& a, const Track::Vec3& b) {
+        return (b[2] - a[2]) * (x - a[0]) >= (b[0] - a[0]) * (z - a[2]);
+    };
+    auto inside = [&](const Poly& p) {
+        return inner(p.c[2], p.c[1]) && inner(p.c[1], p.c[0]) && inner(p.c[3], p.c[2]) && inner(p.c[0], p.c[3]);
+    };
+    auto distance = [&](const Poly& p) {
+        // +0x54 and +0x5C: the polygon's vertices 1 and 3.
+        return static_cast<int>(std::fabs(z - p.c[0][2]) + std::fabs(x - p.c[0][0]) + std::fabs(z - p.c[2][2]) +
+                                std::fabs(x - p.c[2][0]));
+    };
+    static constexpr int kSteps[11] = {1, -2, 3, -4, 5, -6, 7, -8, 9, -10, 11};
+    int slice = ((s.slice % slices) + slices) % slices;
+    const Run run0 = runOf(slice);
+    int start = s.index;
+    if (start < 0 || run0.count - 1 <= start || s.side != 0)
+        start = (run0.count - 1) / 2;
+    s.side = 0;
+    for (int step = 0; step < 11; ++step) {
+        const Run r = runOf(slice);
+        if (r.block && r.count > 0) {
+            Poly p;
+            // Up.
+            int i = start > r.count - 1 ? r.count - 2 : start;
+            int best = 0x7fffffff;
+            while (i <= r.count - 1) {
+                if (!polyOf(r, i, p))
+                    return s.beyondBlock = true, false;
+                if (inside(p) && p.surface != 14) {
+                    s.found = true;
+                    s.foundSlice = slice;
+                    s.polygon = r.first + i;
+                    s.index = i;
+                    s.side = 0;
+                    return true;
+                }
+                if (i == r.count - 1) {
+                    if (s.side == 0 && inner(p.c[2], p.c[1]))
+                        s.side = 2;
+                    break;
+                }
+                const int d = distance(p);
+                if (best < d && p.surface != 14)
+                    break;
+                best = d;
+                ++i;
+            }
+            // Down, from the start as it is.
+            i = start - 1;
+            best = 0x7fffffff;
+            while (i >= 0) {
+                if (i >= r.count)
+                    ++s.pastRun;
+                if (!polyOf(r, i, p))
+                    return s.beyondBlock = true, false;
+                if (inside(p) && p.surface != 14) {
+                    s.found = true;
+                    s.foundSlice = slice;
+                    s.polygon = r.first + i;
+                    s.index = i;
+                    s.side = 0;
+                    return true;
+                }
+                if (i == 0) {
+                    if (s.side == 0 && inner(p.c[0], p.c[3]))
+                        s.side = 1;
+                    break;
+                }
+                const int d = distance(p);
+                if (best < d && p.surface != 14)
+                    break;
+                best = d;
+                --i;
+            }
+            s.index = i;
+        }
+        slice = (((slice + kSteps[step]) % slices) + slices) % slices;
+    }
+    return false;
+}
+
 bool officerSpotOnRoad(const Track& track, int slice, const std::array<float, 3>& point) {
     if (slice < 0 || static_cast<size_t>(slice >> 3) >= track.blocks.size())
         return false;
@@ -1089,7 +1216,8 @@ void aiMove(AiCar& me, const AiCarData& data, bool weather, int step, const Trac
         float a = data.accel[size_t(at)];
         if (me.racer && (me.speed > data.topSpeedCap * me.scale || me.speed > data.topSpeedCap))
             a = 0;
-        a *= 0.9f; // ai Normal past race distance 100
+        if (me.distance > 100) // ai Normal (0x6fd4f0 0) past race distance 100 (+8, 0x406591)
+            a *= 0.9f;
         if (weather && at < 45)
             a *= 0.9f;
         me.speed = std::min(me.speed + a / 32.0f, me.wanted);
@@ -1287,9 +1415,10 @@ void aiDrive(std::vector<AiCar>& cars, size_t self, const TrackCollision& col, c
         me.wanted = std::min(6.5f, top);
     } else if (!cop) {
         // car_ai_speed_wanted (0x409330): the table's speed for the slice
-        // pair, by the scale, under the top speed cap by the track's factor.
-        me.wanted = std::min(aiSlicesSpeed(speeds, me.slice) * std::min(me.scale, 1.0f),
-                             data.topSpeedCap * aiTrackFactor(track));
+        // pair held under the top speed cap by the track's factor
+        // (0x4093ab-0x4093ca), then by the scale (0x409464).
+        me.wanted = std::min(aiSlicesSpeed(speeds, me.slice), data.topSpeedCap * aiTrackFactor(track)) *
+                    std::min(me.scale, 1.0f);
     } else if (kind != CopCall::Chase || !target || chaseSection) {
         // ai_speed_wanted_section (0x401430): the section's speed x k + plus,
         // at most the top speed.
@@ -2483,7 +2612,58 @@ std::vector<DumpedCar> parseCarDump(const std::vector<uint8_t>& bytes) {
             c.officerAt[size_t(k)] = f32(base + 0x910 + 4 * size_t(k));
         }
         c.officer = u32(base + 0x8e4) != 0 && u32(base + 0x8e8) != 0;
+        for (size_t k = 0; k < 3; ++k)
+            c.velocity[k] = f32(base + 0xa4 + 4 * k);
+        c.frontSkid = f32(base + 0x5c0);
+        c.rearSkid = f32(base + 0x5c4);
+        c.upright = f32(base + 0x10c);
+        c.airborne = (u32(base + 0x164) & 0xffff) != 0;
+        c.weather = static_cast<int>(u32(base + 0x160));
+        c.surface = static_cast<int>(u32(base + 0x18c) & 0x3f);
+        for (size_t w = 0; w < 4; ++w)
+            for (size_t k = 0; k < 3; ++k)
+                c.wheelAt[w][k] = static_cast<float>(static_cast<int32_t>(u32(base + 0x304 + 0x78 * w + 4 * k))) / 65536.0f;
         out.push_back(c);
+    }
+    return out;
+}
+
+std::vector<Particle> parseParticleDump(const std::vector<uint8_t>& bytes) {
+    std::vector<Particle> out;
+    auto i32 = [&](size_t at) {
+        int32_t v = 0;
+        std::memcpy(&v, bytes.data() + at, 4);
+        return v;
+    };
+    auto f32 = [&](size_t at) {
+        float v = 0;
+        std::memcpy(&v, bytes.data() + at, 4);
+        return v;
+    };
+    for (size_t base = 0; base + 128 <= bytes.size() && out.size() < size_t(ParticleSystem::kSlots); base += 128) {
+        Particle p;
+        p.life = i32(base);
+        if (p.life == 0)
+            continue;
+        p.kind = i32(base + 4);
+        p.lifeMax = i32(base + 8);
+        for (size_t k = 0; k < 3; ++k) {
+            p.position[k] = f32(base + 0xc + 4 * k);
+            p.velocity[k] = f32(base + 0x18 + 4 * k);
+        }
+        p.size = f32(base + 0x24);
+        p.baseSize = f32(base + 0x28);
+        p.growth = f32(base + 0x2c);
+        p.angle = f32(base + 0x30);
+        p.spin = f32(base + 0x34);
+        p.wobbleAngle = f32(base + 0x40);
+        p.wobbleTurn = f32(base + 0x44);
+        p.wobble = f32(base + 0x48);
+        p.wobbleGrowth = f32(base + 0x4c);
+        p.colour = static_cast<uint32_t>(i32(base + 0x54));
+        p.halved = bytes[base + 0x7d] != 0;
+        p.children = bytes[base + 0x7e];
+        out.push_back(p);
     }
     return out;
 }

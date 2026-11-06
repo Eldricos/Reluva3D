@@ -5,6 +5,7 @@
 
 #include "common/image.h"
 #include "common/types.h"
+#include "engines/nfs/particles.h"
 
 #include <array>
 #include <cstdint>
@@ -208,6 +209,55 @@ FogBeam fogBeam(const std::array<float, 3>& lamp, const std::array<float, 3>& ri
 // The beam's colour (0x4b8740): white, alpha 228 x min((fog - 30) / 30,
 // 1), half that on low beams; nothing with the fog at 30 or less.
 uint32_t fogBeamColour(float fogPercent, int beams);
+
+// The parts a car is drawn with at a detail (0x4bb4c0, by carDetailLevel,
+// frd.h): with 12 parts or more, 0 the high body and wheels (0x4bae00:
+// parts 0, 1-4), 1 the medium ones (0x4bab70: 5, 6-9), both with the
+// headlights (12) while they are on; 2 the small body (0x4baa50: 10); 3 the
+// tiny one (0x4ba960: 11). With fewer (traffic and police) 0-2 take parts
+// 0-4 (0x4bb200) and 3 part 5 (0x4bb110), without headlights. Each part is
+// drawn by 0x49de20 -> 0x49dbf0, which leaves out a triangle facing away
+// on the screen unless it is two-sided (fce.md flag 0x4, the polygon's
+// bit 0 from 0x49cfa0) and one whose three corners are outside the same
+// side of the view. The first body part is the one whose nearest corner
+// sets the glows' depth.
+struct CarDetailParts {
+    std::vector<int> body;
+    bool headlights = false;
+};
+CarDetailParts carDetailParts(int detail, size_t partCount);
+// How a triangle's corners go into a mesh drawn with back faces culled:
+// as stored, and a two-sided one (flag 0x4) also the other way round, its
+// corners keeping their normals (0x49da30 lights a corner by its normal
+// whichever way the triangle faces). The corner order, 3 or 6 entries.
+std::vector<int> carTriangleCorners(uint32_t flags);
+
+// A car's tyre smoke (car_spiked_effects 0x42a560, each 64 Hz step from
+// the +0x61C task, each wheel: 0 front left, 1 front right, 2 rear right,
+// 3 rear left). A wheel's skid level (+0x94C + 4 x wheel) is 0 in the air
+// (+0x164 set) or tipped (+0x10C under 0.9); else the tyres' skid level
+// (physics.md, Tyres) x 7.5 for a front wheel (+0x5C0) and as it is for a
+// rear one (+0x5C4), each held to 0..10.
+float wheelSkidLevel(int wheel, float frontSkid, float rearSkid, bool airborne, float upright);
+// Whether a wheel smokes this step (0x42a480): its skid level not 0 and
+// the surface under it (car +0x18C, or the wheel's road polygon's, 0x429b40;
+// & 0xF) marked for skid marks for the car's weather (+0x160: 0 dry, 1
+// rain, 2 snow) in the table at 0x553080 (+0x10 of 0x24-byte rows, 0x240
+// a weather: dry 1, 4, 7, 10, 11, 12; none in rain or snow); then a rear
+// wheel with the level over 5 (0x537270) smokes (and every such wheel
+// lays a mark, car_wheel_skid_mark 0x429d20, not drawn here).
+bool wheelSmokes(int wheel, float level, int surface, int weather);
+bool skidMarkSurface(int surface, int weather);
+// The smoke itself (0x4cb010 with kind 6): the kind's count of particles
+// (1) at the wheel's road point (its track position's 16.16 point, car
+// +0x300 + 0x78 x wheel + 4), each spawned (0x4ca850) at scale 1 (kind
+// 6's speed scale, +0xC of its template, is 0), along the car's velocity
+// (+0xA4) made a unit vector (0x4972f0, left at 0 when it is 0), across
+// its right row (+0xC0) for the right wheels and against it for the left
+// (0 and 3, whose particles also spin the other way), and with half the
+// velocity to inherit (x the template's 0.5).
+void tyreSmoke(ParticleSystem& system, int wheel, const ParticleVec& at, const ParticleVec& velocity,
+               const ParticleVec& right, uint32_t tick, ParticleRandom& random, int horizon = 0);
 
 // The texture pages of a GameData/Render/pc model (cone.art, copN.art):
 // one image each, in page order (fce.md).

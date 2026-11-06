@@ -272,37 +272,84 @@ come at the run's end, after the right wall, so the check finds those
 runs in order. The roof and wall polygons' road records have surface
 14 (record byte 1 & 0xF).
 
-What the road finding does there (read from `0x41e990` and run in a
-model of its loops over the dumped runs, not in the game): its inside
-tests are on x and z only; a polygon of surface 14 is never taken as
-found; and each walk, up from the middle and down from the one below
-it, stops at a surface-14 polygon once the sum |dx| + |dz| from the
-point to its corners 0 and 2 grows (`0x41ebe3`-`0x41eca5`, and the same
-before `0x41ef49`). So the middle polygon it starts from, (count − 1)/2,
-is a piece of the left wall here, and:
+What the road finding does there (read from `0x41e990`; corrected
+November 2026, below): its inside tests are on x and z only; a polygon
+of surface 14 is never taken as found; and each walk, up from the middle
+and down from the one below it, goes on while the sum |dx| + |dz| from
+the point to the polygon's vertices 1 and 3 (`+0x54`, `+0x5c`) shrinks,
+and past a polygon where it grows only when that polygon is of surface
+14 (`0x41eca2`-`0x41ecd2`: `cmp al, 0xe` / `jne 0x41ecf6` stops the
+walk up on any other surface; the same at `0x41ef51`-`0x41ef81` for the
+walk down). So the middle polygon it starts from, (count − 1)/2, is a
+piece of the left wall here, the walks pass over the roof and wall
+polygons, and:
 
 - a point on the road is found in the same road polygon as at a slice
   without the roof;
 - a point right of the road gets side 2, as everywhere (`0x41ebd7`: not
   inside the last polygon, but on its side of the edge it shares with
   the one before);
-- a point left of the road, inside the wall, gets side 1 or none. Side
-  1 (`0x41ee86`) needs the down walk to reach the first polygon, and is
-  then tested against that polygon's edge 1-2; on a roof polygon,
-  mirrored, that edge's inner side is to its left, so side 1 still
-  means the left. In the model, of 195 points 0.5-8 units beyond the
-  `.col` left wall in these slices 82 got side 1 and 113 none (the
-  walk stopped on the roof); none got side 2, and no point right of
-  the road got side 1. When +0x70 is kept from a failed search, a point
-  that stays there gets side 1 and none at alternate calls.
+- a point left of the road, inside the wall, gets side 1 (`0x41ee86`,
+  the down walk reaching the first polygon over the roof's: on a roof
+  polygon, mirrored, the edge 1-2 it is tested against has its inner
+  side to its left, so side 1 still means the left). With the search
+  rewritten in C++ (`roadSearch`, frd.h) over the dumped runs, all 624
+  points 0.5-8 units beyond the `.col` left wall in these 39 slices get
+  side 1, none side 2, and the 622 right of the road side 2 (2 found on
+  the road). The first account here (October 2026) had the stop rule
+  the wrong way round in its model of the loops (stopping on surface
+  14), and so found 113 of 195 such points with no side.
 
-So the marks keep their meaning. A missing side 1 doesn't change the
+So the marks keep their meaning. A missing side 1 wouldn't change the
 wall: those points are behind the left wall; a car's corner there has
 no polygon either way (off the road, `0x430350`); and `0x41fd60` adds
 bit 1 from the car's own polygon's edge 1-2 whenever the corner's
-polygon isn't the car's. That holds while the car's centre is on the
-leftmost road polygon, 3 units wide here. This wasn't checked by
-driving into those walls.
+polygon isn't the car's. This wasn't checked by driving into those
+walls.
+
+**The search beyond its first slice** (November 2026; `roadSearch`,
+the two open items of the road finding, settled from the code). When
+neither walk finds the point, `0x41efa5`-`0x41f013` moves `+0x10` by
+the next step of `0x552e58` (1, −2, 3, −4 ... 11: the slices +1, −1, +2,
+−2 ... +5, −5, +6 from the first) and walks that slice's run, up to 11
+slices, then puts `+0x10` back (`0x41f018`).
+
+- **The opposite side's mark.** The side is set at most once a search
+  (`0x41eba3`, `0x41ee52`: only while `+0x6C` is 0), at whichever slice
+  a walk first ends on its run's first or last polygon, and the test
+  there is only that the point is on the inner side of that polygon's
+  other edge, not that it lies beyond the slice's end. On a bend a point
+  beyond one wall of its own slice can be on that side of the other end
+  polygon of a slice 3-5 away, and the search marks it with that side.
+  Over the nine tracks (points 0.5-8 units beyond each slice's `.col`
+  walls, the search carried from point to point outwards as a car's is),
+  the points within a unit of a wall that end with the other side's
+  mark: Hometown 16 of 3,836, Redrock Ridge 5, Rocky Pass 110 of 5,932,
+  Country Woods 75, Aquatica 14, The Summit 406 of 6,892 (Rocky Pass and
+  The Summit share stretches; on The Summit 564 come from the first
+  slice's own walk down over surface-14 polygons), and none on
+  Atlantica, Lost Canyons or Empire City. On Rocky Pass, of the wrong marks within two
+  units of a wall, those set 3-5 slices away (52 at +5, 43 at −5, 28 at
+  −4, 24 at +4 of the first slice, by walks up; 49 more by walks down). That is what the code does; whether a car
+  pressed against a wall there is pushed the wrong way wasn't driven.
+- **Reading past the run.** The walk up holds its start to count − 2
+  of the slice it is on (`0x41ea31`-`0x41ea38`; −1 for a run of one, so
+  it begins one polygon before the run), but the walk down starts from
+  the first slice's start less one as it is (`0x41ecf6`, `[ebp-8]` is
+  set only at `0x41e9e0`/`0x41e9f7`). After a step to a slice with fewer
+  polygons than that, it reads polygons past the slice's run: the next
+  slices' polygons of the block's list 4, or, from the block's last
+  slices, memory past the list. Over the points above it happens 361
+  times on Lost Canyons (164 of them past the block's list), 130 on
+  Redrock Ridge, 26 on Empire City, 19 on Atlantica, a few elsewhere
+  (`roadSearch` counts them, `pastRun`, and stops unfound where the
+  game would read past the list); in a Python model of the loops none of
+  the polygons read so finds the point. In a
+  race it didn't come up: `e1-lc` (Lost Canyons, 8 cars, set-up pokes
+  only, 6,000,000,000 instructions, `-watch 0x41ed08` with the start
+  `+0x70` and the slice's record) had 6,882 walks down and none starting
+  past its run, nor any on Rocky Pass (`e1-rp`, 847). A side mark was
+  set once in the two (side 1, Lost Canyons slice 70).
 
 The byte
 at 3 is the music zone, 4-9: the game
@@ -539,6 +586,28 @@ or 20 to 60) is set from the same option at `0x42d253`; that this is
 the headlights comes from that and the option's name, not from seeing
 it. Over the nine tracks, every lane marking and every roadside polygon has `0x04`, as
 do 30 % of object polygons and 5 % of the road's.
+
+**As nfs-host runs it** (November 2026). The hosted game has no projected
+picture: its renderer is `voodoo2a.dll` loaded as `softtria`, a software
+renderer, for which `0x472eaa` turns the z-buffer (`0x7a3a60`) and
+projected textures off, and `e1-tl1`'s THRASH log of frame 2818 (Empire
+City by night, `-thrashlog 2818 2818`) sends `setstate(0x4, 0)`, z test
+and write off, four times and never on. So every polygon only has its
+vertices raised. Read against `d8-t8g1`'s list (the same night frame):
+of the 100 vertices of the blocks near the player that the page's lights
+raise (the human's high beams and racer 1's low beams, `carHeadlight`
+without projection), 98 have the list's colour exactly (the light's grey
+replacing the vertex's, `ff474747`, `ffdcdcdc`...) and the other 2 keep
+their own red there, byte by byte the higher, as the page draws them;
+the 23 left unlit match the list's unlit `ff030306`. The Track page drew
+the projected picture by default (Shift+E), which doubled the pool's
+brightness against the game's frame: the road in front 112, 102, 91
+against the game's 62, 58, 57 (mean of x 300-400, y 250-262 at 640 ×
+480), the lit wall on the left 35, 28, 22 against 54, 46, 35. It now
+starts with the z-buffer and the projection off, as nfs-host has them
+(65, 60, 60 and 58, 48, 39: within the 16-bit frame's truncation);
+Shift+E turns both on, as a 3D card's game with the projtex option
+would draw.
 
 The picture is the shape at that place in the track's sheet,
 `trNN0.qfs` (or `trNN1.qfs`, an alternative set that differs in a few
@@ -1220,12 +1289,13 @@ them along the slices at the speed that leaves:
   the left, with the x87's rounding to the nearest, 0-13), +0x63C and
   +0x640 those at offset − and + (its width across the road − 0.5).
 - **The speed wanted** (`0x409330`): the speed table's byte for its
-  slice pair × the speed scale (+0x7BC: the driver's factor `0x408dc0`
+  slice pair, held under the top speed cap × the track's factor, then ×
+  the speed scale (+0x7BC: the driver's factor `0x408dc0`
   × the track's `0x40ee80` × the catch-up `0x4090a0`, at most 1: the
   page takes the camera's car as the race's human, at race distance 0,
   and each racer's distance as the slices from the camera's slice along
-  its way),
-  under the top speed cap × the track's factor. The page's two Corvettes
+  its way). Until November 2026 the page held the scaled speed under the
+  cap (below, Why car 3 didn't overtake). The page's two Corvettes
   have Lead Foot's (skill 2) and, ahead of him, Mulligan's (skill 0, a
   surging driver), from the drivers' table (`0x55226c`).
 - **Flashing** (`0x404840`): first the flash is undone when its 64 steps
@@ -1315,7 +1385,8 @@ them along the slices at the speed that leaves:
   a strip it is nudged back.
 - **Its speed** (`0x4066c0`): towards the speed wanted, up by the
   acceleration table of its `carp.txt` (P +0x2EC, one value a m/s at
-  round(speed − 0.5), × 0.9 with ai Normal past race distance 100 and
+  round(speed − 0.5), × 0.9 with ai Normal past race distance 100 (only
+  then: the page took it from the start until November 2026) and
   × 0.9 in the weather under 45 m/s; nothing over the top speed cap ×
   its scale), down by the maximum braking deceleration × 1.25 for an AI
   racer (× 2 for a police car instead; `0x4063e0`). **The brake** (+0x505,
@@ -1479,7 +1550,49 @@ counted are mostly +0x638 flipping at a lane's middle (4 and 12 m are
 lane boundaries), which the page's cars sit on a little less often. The
 replay of `d7-watch2` is unchanged (0.62 m rms; the controllers rails
 1,109, slow 59, slide 140), and the roadside cop (`park`, 120 stops)
-still never parks past a wall. **The roadside cop** (`d7-runs/sim/park`,
+still never parks past a wall.
+
+**Why car 3 didn't overtake** (November 2026). In the game (`d8-votes`,
+`0x40daf0` watched) car 3 comes up behind car 4 at slices 91-94 at
+64.0-64.5 s, the two a slice apart: car 4's speed wanted falls 42.3 →
+31.4 (row 8 and the keeping behind), car 3 brakes from 42.4 to 31.4 and
+its votes (row 7 for car 4 in its lane, row 3) pick lane 7, then 6, and
+it swings out to −11.7 m before coming back at 107. On the page the two
+never met: its cars had run faster from the start, car 4 three slices
+ahead of the game's by 61.5 s. Two causes, both from the code:
+- **The speed wanted** (`0x409330`) is the table's byte held under the
+  top speed cap × the track's factor first (`0x4093ab`-`0x4093ca`, into
+  +0x7B0), and only then × the scale (`0x409464`). The page took the
+  table × the scale and held that under the cap, so a racer on a stretch
+  where the table is over the cap (88 at Hometown's start, 69 further
+  on; the cap 78.23 × 0.82 = 64.15 for the Corvette) wanted 63.0 instead
+  of 45.9. With the order fixed (`aiStep`, and the cars the page places)
+  the page's values are the game's +0x7B0 to the 0.1: per car 44.0, 44.0,
+  45.9, 44.5 and 46.8, 46.5 and 48.9, 49.5, 46.5 and 48.9 (the f355 and
+  Countach, serials 2 and 15, have the cap 81.81: 67.08 × the scale).
+  `aisim` now takes each car's own `carp.txt` by the set-up's key, as
+  the page does; it had given every car the Corvette's.
+- **The acceleration** (`ai_accel` `0x4064f0`) is × 0.9 only with the
+  AI level Normal (`0x6fd4f0` 0) and the race distance (+8) over 100
+  (`0x406591`); the page took it always. Through the window the dumps'
+  +8 run 1-205, so the cars accelerated 10 % too little at the start;
+  now the speeds from the 50 s dump follow the game's within 0.8 m/s for
+  the first 4 s (car 3: 8.0, 11.3, 14.7, 18.1 against 8.8, 12.1, 15.2,
+  18.5 at 0.5 s steps; the dump's first speed is 0.4 low). Past that the
+  game's cars accelerate by their force model on the hills (car 4: 3.5
+  to 6.9 m/s² against the table's 4.5-6.9), which the page doesn't have.
+
+Re-measured (`e1-runs/sim/aisim`, the same window): +0x638 changes in
+14-24 samples per car, 130 in all (cars 1-7: 15, 21, 14, 24, 22, 16, 18;
+the game's 17, 23, 23, 19, 21, 21, 19), the aim past 8 m 193 (43, 29,
+24, 23, 19, 11, 44; the game's 162). The speed scales (+0x7BC) agree
+with the game's to the end of the window but where the places change
+(from 68 s: car 2's 0.656 → 0.738 and car 4's × 0.889, the catch-up),
+and the cars still don't meet as the game's do: car 3 reaches slice 94
+when the game's does (64.5 s), but car 4 is 3 slices ahead of the
+game's (its hills), so car 3 isn't held up and doesn't overtake. The
+replay of `d7-watch2` stays at 0.62 m rms (rails 1,109, slow 59, slide
+140) and `park` at 120 stops, none past a wall. **The roadside cop** (`d7-runs/sim/park`,
 the police car ordered to lay a strip from every 8th slice of Hometown,
 120 stops): with the spring and the cut it parked past a wall 81 times,
 by up to 5 m (it was pulled on to lane 5 − L's aim at the wall less its

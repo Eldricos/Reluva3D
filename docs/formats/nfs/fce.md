@@ -119,6 +119,38 @@ The flags, as the game draws (`0x49d0e0` copies them to its polygons;
 
 `0x10`, `0x20` and `0x80` are never tested.
 
+**Facing away** (November 2026). `0x49cfa0` (when the model is loaded)
+moves the flags into its polygons' byte +7: `0x4` to bit 0, `0x8` to
+bit 1, `0x1` to bit 2, `0x2` to bit 3. `0x49dbf0` (per part, from
+`0x49de20`) leaves out a triangle whose bit 0 is clear and whose screen
+corners wind the wrong way (the sign of the cross product of two
+edges, xored with `0x554e4c`), and one whose three corners are outside
+the same side of the view (their outcodes, +0x14, ANDed); the rest are
+queued with their reflection. Most triangles are wound the same way
+against their vertices' normals; the exceptions are the insides of the
+wheel arches, which face down and out (the Diablo's part 0 has 45 of its
+528 triangles wound against its smoothed normals, all flag `0x1` or
+`0x80` round the wheels; the F355's 53 of 484, all flag `0x1`). Seen
+from the side away from them, those are the thin black wedges the Track
+page showed sticking out by the wheels, at a car's corner (`d8-day1`'s
+F355 from behind: two thin black lines either side of it, gone in the
+game's frame; the arch triangles' texture there is black, `0.146,
+0.549` on the Diablo's skin), with or without the shadow, until it
+culled as the game does (November 2026:
+`carTriangleCorners`, a two-sided triangle in its mesh both ways round).
+
+**Which parts at which distance** (`0x4bb5d0` → `0x4bb4c0`,
+`carDetailParts`). The car's detail is its box's mean view depth (the
+eight corners of ±`+0x114`-`+0x11C` along its rows) × 0.125 against the
+car detail option's row of `0x55fdf4` (frd.md, `carDetailLevel`): 0
+`0x4bae00` parts 0, 12 (lights on), 1-4, with the track's lights by
+night; 1 `car_draw_wheels` `0x4bab70` parts 5, 12, 6-9; 2 `0x4baa50`
+part 10; 3 `0x4ba960` part 11; past the last, not drawn. A model of
+fewer than 12 parts (traffic, police) takes parts 0-4 at 0-2
+(`0x4bb200`) and part 5 at 3 (`0x4bb110`). The reflection goes with the
+detail's body part (0, 5, 10 or 11) and the headlights. The Track page
+drew parts 0-4 and 12 at every distance until November 2026.
+
 **The reflection** (`0x49db70`, drawn at `0x43400f`): each reflecting
 triangle is drawn again with a sphere map of the track's sky (`CHRD`,
 `CHRN`, `CHRW` or `CHNW` in `sky.fsh`), added with source alpha (THRASH

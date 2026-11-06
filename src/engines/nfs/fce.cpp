@@ -525,4 +525,63 @@ uint32_t fogBeamColour(float fogPercent, int beams) {
     return static_cast<uint32_t>(alpha) << 24 | 0xffffffu;
 }
 
+CarDetailParts carDetailParts(int detail, size_t partCount) {
+    CarDetailParts out;
+    if (detail < 0 || detail > 3)
+        return out;
+    if (partCount >= 12) {
+        static const std::vector<int> kBodies[4] = {{0, 1, 2, 3, 4}, {5, 6, 7, 8, 9}, {10}, {11}};
+        out.body = kBodies[detail];
+        out.headlights = detail <= 1 && partCount > 12;
+    } else if (detail < 3)
+        out.body = {0, 1, 2, 3, 4};
+    else
+        out.body = {5};
+    out.body.erase(std::remove_if(out.body.begin(), out.body.end(), [&](int p) { return size_t(p) >= partCount; }),
+                   out.body.end());
+    return out;
+}
+
+std::vector<int> carTriangleCorners(uint32_t flags) {
+    if (flags & Model::Triangle::kTwoSided)
+        return {0, 1, 2, 0, 2, 1};
+    return {0, 1, 2};
+}
+
+float wheelSkidLevel(int wheel, float frontSkid, float rearSkid, bool airborne, float upright) {
+    if (airborne || upright < 0.9f) // 0x42a6a9: +0x164, +0x10C against 0x537278
+        return 0;
+    const double level = wheel < 2 ? static_cast<double>(frontSkid * 7.5f) : static_cast<double>(rearSkid);
+    return static_cast<float>(std::clamp(level, 0.0, 10.0));
+}
+
+bool skidMarkSurface(int surface, int weather) {
+    // +0x10 of the rows at 0x553080, dry; every row of rain and snow is 0.
+    static constexpr bool kDry[16] = {false, true, false, false, true, false, false, true,
+                                      false, false, true, true,  true,  false, false, false};
+    return weather == 0 && kDry[surface & 0xf];
+}
+
+bool wheelSmokes(int wheel, float level, int surface, int weather) {
+    return level != 0 && skidMarkSurface(surface, weather) && wheel >= 2 && level > 5;
+}
+
+void tyreSmoke(ParticleSystem& system, int wheel, const ParticleVec& at, const ParticleVec& velocity,
+               const ParticleVec& right, uint32_t tick, ParticleRandom& random, int horizon) {
+    const ParticleTemplate* t = particleTemplate(6);
+    if (!t)
+        return;
+    ParticleVec along = velocity;
+    const float length = std::sqrt(along[2] * along[2] + along[0] * along[0] + along[1] * along[1]);
+    if (length != 0)
+        for (float& v : along)
+            v *= 1.0f / length;
+    const float side = wheel == 0 || wheel == 3 ? -1.0f : 1.0f;
+    const ParticleVec across{right[0] * side, right[1] * side, right[2] * side};
+    const ParticleVec half{velocity[0] * 0.5f, velocity[1] * 0.5f, velocity[2] * 0.5f};
+    for (int i = 0; i < t->count; ++i)
+        if (Particle* p = system.spawn(6, at, 1.0f, along, across, half, tick, random, horizon))
+            p->spin *= side;
+}
+
 } // namespace reluva::nfs

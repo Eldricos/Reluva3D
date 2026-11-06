@@ -599,6 +599,21 @@ void putU32(Bytes& b, size_t at, uint32_t v) {
 }
 
 void testModel() {
+    // The parts each detail draws (0x4bb4c0): a car of 13 parts.
+    {
+        const CarDetailParts near = carDetailParts(0, 13), mid = carDetailParts(1, 13), small = carDetailParts(2, 13),
+                             tiny = carDetailParts(3, 13);
+        CHECK(near.body == (std::vector<int>{0, 1, 2, 3, 4}) && near.headlights);
+        CHECK(mid.body == (std::vector<int>{5, 6, 7, 8, 9}) && mid.headlights);
+        CHECK(small.body == (std::vector<int>{10}) && !small.headlights && tiny.body == (std::vector<int>{11}) && !tiny.headlights);
+        // 12 parts: no headlights; traffic and police (6 parts): 0-4 then 5.
+        CHECK(!carDetailParts(0, 12).headlights && carDetailParts(0, 12).body.size() == 5);
+        CHECK(carDetailParts(2, 6).body == (std::vector<int>{0, 1, 2, 3, 4}) && carDetailParts(3, 6).body == (std::vector<int>{5}));
+        CHECK(carDetailParts(-1, 13).body.empty() && carDetailParts(4, 13).body.empty());
+        // A two-sided triangle (flag 0x4) both ways round, the rest as stored.
+        CHECK(carTriangleCorners(0) == (std::vector<int>{0, 1, 2}) && carTriangleCorners(1) == (std::vector<int>{0, 1, 2}));
+        CHECK(carTriangleCorners(5) == (std::vector<int>{0, 1, 2, 0, 2, 1}));
+    }
     // Two parts: a triangle and a quad (two triangles), 7 vertices.
     constexpr size_t kData = 0x1f04;
     const uint32_t nV = 7, nT = 3;
@@ -876,6 +891,41 @@ void testParticles() {
     // Nothing moving: not made.
     sys.clear();
     CHECK(sys.spawn(6, {}, 0, {}, {}, {}, 0, random) && sys.live() == 0);
+
+    // Tyre smoke (0x42a480 -> 0x4cb010, kind 6). The skid levels: front x
+    // 7.5 and rear as they are, held to 0..10; none in the air or tipped.
+    CHECK(wheelSkidLevel(0, 0.5f, 0, false, 1) == 3.75f && wheelSkidLevel(1, 2, 0, false, 1) == 10 &&
+          wheelSkidLevel(2, 0, 12, false, 1) == 10 && wheelSkidLevel(3, 0, -1, false, 1) == 0);
+    CHECK(wheelSkidLevel(2, 0, 8, true, 1) == 0 && wheelSkidLevel(2, 0, 8, false, 0.85f) == 0);
+    // Only rear wheels over 5, on the dry surfaces marked for skid marks
+    // (0x553090: 1, 4, 7, 10, 11, 12), none in rain or snow.
+    CHECK(wheelSmokes(2, 10, 1, 0) && wheelSmokes(3, 5.5f, 12, 0) && !wheelSmokes(3, 5, 1, 0));
+    CHECK(!wheelSmokes(0, 10, 1, 0) && !wheelSmokes(2, 10, 2, 0) && !wheelSmokes(2, 10, 1, 1) && !wheelSmokes(2, 10, 14, 0));
+    CHECK(skidMarkSurface(4, 0) && skidMarkSurface(0x41, 0) && !skidMarkSurface(5, 0) && !skidMarkSurface(1, 2));
+    // A left rear wheel's puff: along the velocity made a unit vector, out
+    // to the left (against the right row), half the velocity inherited
+    // (x 0.5), spinning the other way.
+    sys.clear();
+    random.script = {0x8000, 0x8000, 0x8000, 0x8000, 0x8000, 0x8000};
+    tyreSmoke(sys, 3, {1303, 0, 950}, {4, 0, 0}, {0, 0, 1}, 0, random);
+    CHECK(sys.live() == 1);
+    {
+        const Particle& q = sys.particles()[0];
+        CHECK(q.kind == 6 && q.life == 256 && q.position[0] == 1303 && q.colour == 0x7fffffff);
+        CHECK(std::fabs(q.velocity[0] - 1.5f) < 1e-6f && std::fabs(q.velocity[1] - 1.5f) < 1e-6f &&
+              std::fabs(q.velocity[2] + 0.5f) < 1e-6f && std::fabs(q.spin + 0.1f) < 1e-6f);
+    }
+    // A right one goes out to the right; a held car (no velocity) still
+    // gets the up and across speeds.
+    sys.clear();
+    random.script = {0x8000, 0x8000, 0x8000, 0x8000, 0x8000, 0x8000};
+    tyreSmoke(sys, 2, {0, 0, 0}, {0, 0, 0}, {0, 0, 1}, 8, random);
+    CHECK(sys.live() == 1 && sys.particles()[0].velocity[2] == 0.5f && sys.particles()[0].velocity[0] == 0 &&
+          std::fabs(sys.particles()[0].spin - 0.1f) < 1e-6f);
+    // Its throttle (one in four pairs of ticks): nothing at tick 2.
+    sys.clear();
+    tyreSmoke(sys, 2, {0, 0, 0}, {1, 0, 0}, {0, 0, 1}, 2, random);
+    CHECK(sys.live() == 0);
 
     // A spark: along × a + across × b + up, then falling and moving 1/64 of
     // its velocity a game tick, the rest every other tick.
@@ -1461,6 +1511,23 @@ void testComputerDriving() {
     cars[0].speed = 30;
     aiStep(cars, 0, col, speeds, data, 84, 1, false);
     CHECK(std::fabs(cars[0].speed - (30 + 3.6f / 32)) < 1e-4f);
+    {
+        // Not past race distance 100 (0x406591): the table as it is.
+        std::vector<AiCar> start{cars[0]};
+        start[0].speed = 30;
+        start[0].distance = 100;
+        aiStep(start, 0, col, speeds, data, 84, 1, false);
+        CHECK(std::fabs(start[0].speed - (30 + 4.0f / 32)) < 1e-4f);
+        // The speed wanted (0x409330): the table's 40 held under the cap x
+        // the track's factor (25 x 0.84 = 21) before the scale (0.5): 10.5,
+        // not the scaled 20 under 21.
+        AiCarData capped = data;
+        capped.topSpeedCap = 25;
+        start[0].scale = 0.5f;
+        start[0].distance = 1 << 20;
+        aiStep(start, 0, col, speeds, capped, 88, 1, false);
+        CHECK(std::fabs(start[0].wanted - 21.0f * 0.5f) < 1e-4f);
+    }
 
     // Held up behind a car in its lane within 2 slices, wanting more than
     // 8.94 m/s over its speed: its lights a step up for 64 steps (0x40de50),
@@ -1545,6 +1612,79 @@ void testComputerDriving() {
     CHECK(sliceRunSide(run, 0, {-7, 0, 2}, found) == 1 && found == 0);
     CHECK(sliceRunSide(run, 0, {9, 0, 2}, found) == 2 && found == 2);
     CHECK(sliceRunSide(run, 1, {0, 0, 2}, found) == -1); // no record for slice 1
+    // The track position's search (0x41e990) over the same run: found in
+    // polygons 0 and 2, not in 1 (surface 14); beyond the run's ends side 1
+    // (0x41ee86) and side 2 (0x41ebd7), nothing found at the other slices
+    // (they have no records).
+    {
+        RoadSearch rs;
+        CHECK(roadSearch(runTrack, rs, 5, 2) && rs.foundSlice == 0 && rs.polygon == 2 && rs.index == 2);
+        rs = {};
+        CHECK(roadSearch(runTrack, rs, -5, 2) && rs.polygon == 0 && rs.side == 0);
+        rs = {};
+        CHECK(!roadSearch(runTrack, rs, 9, 2) && rs.side == 2);
+        rs = {};
+        CHECK(!roadSearch(runTrack, rs, -7, 2) && rs.side == 1);
+        rs = {};
+        CHECK(!roadSearch(runTrack, rs, 0, 2) && rs.side == 0 && !rs.found);
+        // A walk goes on past a polygon farther than the one before only
+        // when it is of surface 14 (0x41ecd2): the run's polygon 2 is far
+        // off and of surface 14, so the walk up from polygon 1 goes on to
+        // 3, which holds the point.
+        Track far;
+        far.blocks.resize(1);
+        Track::Block& fb = far.blocks[0];
+        for (float x : {-2.0f, 2.0f, 6.0f, 20.0f, 24.0f, -6.0f}) {
+            fb.vertices.push_back({x, 0, 4});
+            fb.vertices.push_back({x, 0, 0});
+        }
+        auto quad = [&](uint16_t left, uint16_t right) {
+            Track::Polygon q;
+            q.vertices = {uint16_t(2 * left), uint16_t(2 * right), uint16_t(2 * right + 1), uint16_t(2 * left + 1)};
+            fb.polygons[4].push_back(q);
+        };
+        quad(0, 1); // x -2..2
+        quad(1, 2); // 2..6, the start ((4 - 1) / 2)
+        quad(3, 4); // 20..24, surface 14
+        quad(5, 0); // -6..-2
+        fb.positions = {0, 0, 4, 0, 0xff, 0xff, 0xff, 0xff};
+        fb.polygonRoad = {0, 1, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 14, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0};
+        rs = {};
+        CHECK(roadSearch(far, rs, -4, 2) && rs.polygon == 3 && rs.foundSlice == 0);
+        fb.polygonRoad[17] = 4; // the far polygon a road one: the walk stops there
+        rs = {};
+        CHECK(!roadSearch(far, rs, -4, 2));
+        // The down walk starts from the first slice's start less one, held
+        // to nothing (0x41ecf6): from slice 0 (5 polygons, start 2) to
+        // slice 1 (1 polygon) it reads polygon 1 of slice 1's run, which is
+        // slice 2's first, and finds the point there.
+        Track rows;
+        rows.blocks.resize(1);
+        Track::Block& rb = rows.blocks[0];
+        auto rowQuad = [&](float x0, float x1, float z0) {
+            const uint16_t v = static_cast<uint16_t>(rb.vertices.size());
+            rb.vertices.push_back({x0, 0, z0 + 4});
+            rb.vertices.push_back({x1, 0, z0 + 4});
+            rb.vertices.push_back({x1, 0, z0});
+            rb.vertices.push_back({x0, 0, z0});
+            Track::Polygon q;
+            q.vertices = {v, uint16_t(v + 1), uint16_t(v + 2), uint16_t(v + 3)};
+            rb.polygons[4].push_back(q);
+            for (uint8_t byte : {0, 1, 0, 0, 0, 0, 0, 0})
+                rb.polygonRoad.push_back(byte);
+        };
+        for (int i = 0; i < 5; ++i)
+            rowQuad(-10.0f + 4.0f * static_cast<float>(i), -6.0f + 4.0f * static_cast<float>(i), 0);
+        rowQuad(-2, 2, 4);
+        rowQuad(-2, 2, 8);
+        rb.positions = {0, 0, 5, 0, 0xff, 0xff, 0xff, 0xff, 5, 0, 1, 0, 0xff, 0xff, 0xff, 0xff, 6, 0, 1, 0, 0xff, 0xff, 0xff, 0xff};
+        rs = {};
+        CHECK(roadSearch(rows, rs, 0, 10) && rs.foundSlice == 1 && rs.polygon == 6 && rs.index == 1 && rs.pastRun == 1);
+        // From slice 2 itself it is found where it is.
+        rs = {};
+        rs.slice = 2;
+        CHECK(roadSearch(rows, rs, 0, 10) && rs.foundSlice == 2 && rs.polygon == 6 && rs.index == 0 && rs.pastRun == 0);
+    }
     // The officer's spot (0x401d78): kept on polygons 0 (surface 1) and 2
     // (4), not on 1 (surface 14) or off the run.
     CHECK(officerSpotOnRoad(runTrack, 0, {-5, 0, 2}) && officerSpotOnRoad(runTrack, 0, {5, 0, 2}));
@@ -1714,7 +1854,35 @@ void testComputerCatchUpAndCops() {
     putF(b + 0x8ec, 1);
     putF(b + 0x910, 742.75f);
     putF(b + 0x918, -266.25f);
+    // Its tyres (+0x5C0, +0x5C4, +0x164, +0x10C, +0x160, +0x18C, the wheels' 16.16 points).
+    putF(b + 0x5c0, 0.5f);
+    putF(b + 0x5c4, 12.0f);
+    putF(b + 0x10c, 1.0f);
+    put32(b + 0x18c, 0x41);
+    putF(b + 0xa4, 3.0f);
+    put32(b + 0x304 + 2 * 0x78, static_cast<uint32_t>(1302 * 65536 + 32768));
+    put32(b + 0x304 + 2 * 0x78 + 8, static_cast<uint32_t>(-951 * 65536));
+    put32(0x164, 3);
     const std::vector<DumpedCar> parsedCars = parseCarDump(dump);
+    CHECK(parsedCars[1].frontSkid == 0.5f && parsedCars[1].rearSkid == 12.0f && parsedCars[1].upright == 1 &&
+          !parsedCars[1].airborne && parsedCars[0].airborne && parsedCars[1].surface == 1 && parsedCars[1].velocity[0] == 3 &&
+          parsedCars[1].wheelAt[2][0] == 1302.5f && parsedCars[1].wheelAt[2][2] == -951.0f);
+    // The particles' slots (0x7ddfd0, 128 bytes each): the live ones.
+    {
+        std::vector<uint8_t> parts(3 * 128, 0);
+        auto p32 = [&](size_t at, uint32_t v) { std::memcpy(parts.data() + at, &v, 4); };
+        auto pF = [&](size_t at, float v) { std::memcpy(parts.data() + at, &v, 4); };
+        p32(128, 199);
+        p32(128 + 4, 6);
+        p32(128 + 8, 256);
+        pF(128 + 0xc, 1303.25f);
+        pF(128 + 0x24, 1.5f);
+        p32(128 + 0x54, 0x64f1f1f1);
+        parts[128 + 0x7d] = 1;
+        const std::vector<Particle> live = parseParticleDump(parts);
+        CHECK(live.size() == 1 && live[0].life == 199 && live[0].kind == 6 && live[0].lifeMax == 256 &&
+              live[0].position[0] == 1303.25f && live[0].size == 1.5f && live[0].colour == 0x64f1f1f1 && live[0].halved);
+    }
     CHECK(!parsedCars[0].officer && parsedCars[1].officer && parsedCars[1].officerAt[0] == 742.75f &&
           parsedCars[1].officerAt[2] == -266.25f && parsedCars[1].officerForward[2] == 1 && parsedCars[1].officerRight[0] == 1);
     CHECK(parsedCars.size() == 2 && parsedCars[0].human && !parsedCars[0].cop && parsedCars[0].slice == 230);

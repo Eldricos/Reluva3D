@@ -281,8 +281,9 @@ private:
 //   P: a wall hit at the nearest virtual-road wall ahead, its particles as
 //   the game makes them for that side's code (Shift+P: a fast hit, 40;
 //   else 18); held, it repeats
-//   E: the camera's car's headlights (off, low, high; Shift+E projection,
-//   Ctrl+E the game's light test)   J: computer cars (Shift+J stops them)
+//   E: the camera's car's headlights (off, low, high; Shift+E the z-buffer
+//   and projection, off by default as in nfs-host; Ctrl+E the game's light
+//   test)   J: computer cars (Shift+J stops them)
 //   Z: the cars' reflections (the game's option at 0x6fbc24)
 //   Q: the Special Effects option: High, Low, Off (no track lights, rain
 //   flares or fog beams)   Y: fog   M: lights and sounds   U: mirrored
@@ -455,12 +456,13 @@ private:
     void loadSounds();
     void stopSounds();
     void updateSounds(const gfx::Vec3& eye, const gfx::Vec3& right);
-    // Wall-hit particles (particles.h), run at the game's 64 ticks a
-    // second and drawn as it draws them, with sfx.fsh's SNnn (SPnn at
-    // night) pictures.
+    // Wall hits' and tyres' particles (particles.h, tyreSmoke), run at the
+    // game's 64 ticks a second and drawn as it draws them, with sfx.fsh's
+    // SPnn (SNnn at night) pictures.
     ParticleSystem particles_;
     ParticleRandom particleRandom_;
     uint64_t particleTick_ = 0, particleStartMs_ = 0;
+    bool particlesHeld_ = false; // RELUVA_NFS_TRACK_PARTICLES: a dump's, held as it has them
     std::vector<WallHit> pendingHits_; // made at the next tick
     std::string hitText_;
     std::map<std::string, gfx::TextureId> particlePictures_; // by picture name, owned by textures_
@@ -477,7 +479,7 @@ private:
     void tickParticles(uint64_t nowMs);
     // Before the frame: the particles' quads; after the scene: drawn.
     void prepareParticles(const gfx::Vec3& eye, const gfx::Vec3& forward, const gfx::Vec3& right, const gfx::Vec3& up);
-    void drawParticles();
+    void drawParticles(float fog, const std::array<float, 3>& fogColour);
     // The headlights of a car at the camera, by night (frd.md, the
     // headlights): the game's pass over the blocks within 150, glw2 of
     // sfx.fsh projected on polygons whose texture lacks flag 0x04, the
@@ -485,7 +487,19 @@ private:
     // it. Rebuilt each frame as runs of triangles: the picture's, or a
     // texture's with the colour added.
     int beams_ = 1;         // E: 0 off, 1 low, 2 high, as the game's key
-    bool projected_ = true; // Shift+E: the projtex option
+    // Shift+E: the z-buffer in use (0x7a3a60) with the projtex option, so
+    // the headlights' projected picture; off as nfs-host runs the game
+    // (its renderer is softtria's path: 0x472eaa turns the z-buffer and
+    // projected textures off), which also draws the depth-sorted items
+    // (cars, particles) back to front without a depth test.
+    bool projected_ = false;
+    // Each car's view depths this frame (prepareCars): the box's mean (its
+    // sort depth, +0x8B8) and nearest corner, and its box's screen bounds.
+    struct CarSort {
+        float mean = 0, nearest = 0;
+        float x0 = 0, y0 = 0, x1 = 0, y1 = 0; // in the camera's x / z and y / z
+    };
+    std::vector<CarSort> carSort_;
     bool lightTest_ = true; // Ctrl+E: the game's test of each block against each light (0x41bf30)
     gfx::MeshId lightMesh_ = 0;
     size_t lightCapacity_ = 0; // vertices the mesh holds
@@ -510,26 +524,33 @@ private:
     // and the fog's beams, and lights the track by night after the
     // camera's car (headlightIntensity), its roof light too.
     struct CarModel {
-        // Parts 0-4 (body, wheels), then 12 (headlights, drawn with the
-        // lights on), z negated as on the Cars page; and each vertex's
-        // normal as stored (the model's own, left-handed coordinates).
+        // Each detail's parts (carDetailParts: the body and wheels, then
+        // the headlights, drawn with the lights on), one after another, z
+        // negated as on the Cars page, a two-sided triangle twice (once
+        // each way round, carTriangleCorners) so that the rest can be
+        // culled; and each vertex's normal as stored (the model's own,
+        // left-handed coordinates).
         std::vector<gfx::Vertex> vertices;
         std::vector<std::array<float, 3>> normals;
-        uint32_t bodyVertices = 0, lightVertices = 0;
-        uint32_t partZeroVertices = 0; // the body's (part 0), first in vertices
+        struct Detail {
+            uint32_t first = 0, body = 0, lights = 0; // vertices: from first, the body's, then the lights'
+            uint32_t depthPart = 0; // the first body part's (its nearest corner is the glows' depth)
+            uint32_t envFirst = 0, envBody = 0, envLights = 0; // the same in envFrom
+        };
+        std::array<Detail, 4> details{};
         gfx::TextureId skin = 0; // owned by textures_
         std::array<float, 3> halfSize{1.183f, 0.669f, 2.40644f};
         // Its wheels' places (parts 1-4: x right, z forward), for the strips.
         std::array<std::array<float, 2>, 4> wheels{{{-0.8f, 1.3f}, {0.8f, 1.3f}, {-0.8f, -1.3f}, {0.8f, -1.3f}}};
         std::vector<Model::Dummy> dummies;
         std::string error;
-        // The reflection (0x49de20 with 0x4ba350's sphere map): the
-        // vertices of the body's (part 0) and then the headlights' (12)
-        // triangles without kNoReflection, by their index in vertices, and
+        // The reflection (0x49de20 with 0x4ba350's sphere map): by detail,
+        // the vertices of the first body part's (0, 5, 10 or 11) and then
+        // the headlights' (12) triangles without kNoReflection, by their
+        // index in vertices (two-sided ones twice, as there), and
         // whether each has kStrongReflection (0x55e6e0's colour).
         std::vector<uint32_t> envFrom;
         std::vector<bool> envStrong;
-        uint32_t envBodyVertices = 0;
         AiCarData ai;      // its carp.txt
         int paintValue = 0; // the first paint colour's value (fce.md; +0x8B0)
         std::string folder; // gamedata/carmodel/<name>/car.viv/
@@ -556,6 +577,7 @@ private:
         int lane = 7;          // 0-13, 7 and up right of the road's middle
         float speed = 0;       // m/s
         int beams = 1;         // startingBeams(), and as flashed
+        int detail = 0;        // carDetailLevel this frame (-1: not drawn)
         AiCar ai;              // the computer's driving (aiStep)
         int beamScroll = 0;    // +0x944: the fog beams' picture, moved by the speed
         // This frame, in track coordinates: the position (+0x98) and rows.
@@ -568,6 +590,14 @@ private:
         // and his rows (+0x8EC: right, up, forward).
         bool dumpedOfficer = false;
         std::array<float, 3> officerAt{}, officerRight{1, 0, 0}, officerForward{0, 0, 1};
+        // From a dump, held as it has them: each wheel's skid level
+        // (wheelSkidLevel), the velocity (+0xA4), the wheels' road points
+        // and surfaces and the weather, for the tyres' smoke (wheelSmokes).
+        std::array<float, 4> skid{};
+        std::array<float, 3> velocity{};
+        std::array<std::array<float, 3>, 4> wheelAt{};
+        std::array<int, 4> wheelSurface{};
+        int weather = 0;
         gfx::MeshId mesh = 0, envMesh = 0;
     };
     bool computerCars_ = false, carsMoving_ = true, reflections_ = true;
