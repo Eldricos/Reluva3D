@@ -1,19 +1,19 @@
 # The record of boggle.unit.player (tests/engines/boggle/unit/player.cpp).
 # Written by `reluva-tests boggle.unit.player --update`; review its diff before committing.
 edit.0: 1fec3e3abb85cbda
-edit.1: 724e8e571f79292d
-edit.2: e7d59bf59b66c26c
-edit.3: 5f2d507d866c36e0
-edit.4: 832135a6c264a528
-edit.5: 929dfdbbe72c3414
-edit.6: 75323375bd981a48
-edit.7: d3327ac7aa2ffbf0
-edit.8: 929dfdbbe72c3414
-edit.9: 75323375bd981a48
-edit.10: 17a9b83155fb8ca8
-edit.11: 12964da2fc1b90cc
-edit.12: 54a2c3474abeadb0
-edit.13: 3d409c60eeff192c
+edit.1: 7cf716dff7015d7d
+edit.2: 92ceb1c45e40b1e8
+edit.3: 59c94c5257c1d06c
+edit.4: 64ad1f61304374f4
+edit.5: 33dcce0ca14a5ad0
+edit.6: fe172cdd33d34114
+edit.7: 3a244691efea98bc
+edit.8: 33dcce0ca14a5ad0
+edit.9: fe172cdd33d34114
+edit.10: 697dcefe300bbe74
+edit.11: 9974f22f1f0c8168
+edit.12: 45bbf3fea758907c
+edit.13: 333e9d8590a727a8
 edit.14: 16f47a3a10047bd8
 edit.15: 709746ed635bdce5
 edit.16: 16f47a3a10047bd8

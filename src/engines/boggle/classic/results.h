@@ -8,13 +8,16 @@
 namespace reluva::boggle {
 // An immutable view of the adjudicated round. Declined provisional entries
 // contribute neither a row nor points; pending entries prevent publication.
+struct CompetitionPlayer;
 class RoundResults {
 public:
     Error build(const ClassicRound& round);
-    void clear(){words_.clear();available_.clear();missed_.clear();board_={};score_=0;ready_=false;all_=false;availableReady_=false;}
+    Error build(const ClassicRound& round,const CompetitionPlayer& player);
+    bool shared(const std::string& word) const {return shared_.contains(word);}
+    void clear(){shared_.clear();counted_=0;words_.clear();available_.clear();missed_.clear();board_={};score_=0;ready_=false;all_=false;availableReady_=false;}
     bool ready() const {return ready_;}
     const std::vector<RoundWord>& words() const {return all_?available_:words_;}
-    size_t countedCount() const {return words_.size();}
+    size_t countedCount() const {return counted_;}
     bool allWords() const {return all_;}
     bool missed(const std::string& word) const {return all_ && missed_.contains(word);}
     Error showAll(bool enabled,const Dictionary& dictionary,const UserDictionary* user=nullptr);
@@ -24,6 +27,8 @@ public:
 private:
     bool ready_=false;
     int score_=0;
+    size_t counted_=0;
+    std::set<std::string> shared_;
     Board board_;
     bool all_=false,availableReady_=false;
     std::vector<RoundWord> words_,available_;

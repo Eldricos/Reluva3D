@@ -48,6 +48,7 @@ reluva_add_engine_tools(boggle
 set(tests ${PROJECT_SOURCE_DIR}/tests/engines/boggle)
 reluva_add_engine_tests(boggle
     SOURCES
+        ${tests}/unit/traditional.cpp
         ${tests}/unit/competition.cpp
         ${tests}/unit/highscores.cpp
         ${tests}/unit/seed.cpp
@@ -67,7 +68,7 @@ reluva_add_engine_tests(boggle
         ${tests}/unit/user_dictionary.cpp
         ${tests}/engine.cpp
     TOPICS
-        unit.competition unit.highscores unit.seed unit.solver unit.results unit.player unit.history unit.layout unit.detection unit.frontend unit.import unit.resources unit.dictionary unit.classic unit.options unit.presentation unit.user_dictionary engine)
+        unit.traditional unit.competition unit.highscores unit.seed unit.solver unit.results unit.player unit.history unit.layout unit.detection unit.frontend unit.import unit.resources unit.dictionary unit.classic unit.options unit.presentation unit.user_dictionary engine)
 
 # Optional tests with the owner's data; raw output stays outside Git.
 reluva_add_gamedata_test(boggle

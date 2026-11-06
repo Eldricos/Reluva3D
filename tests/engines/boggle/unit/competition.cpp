@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 // Copyright (C) 2026 The Reluva contributors
 #include "engines/boggle/classic/competition.h"
+#include "engines/boggle/classic/results.h"
 #include "engines/boggle/classic/user_dictionary.h"
 #include "tests/engines/boggle/fixtures.h"
 #include "tests/support/test.h"
@@ -38,6 +39,12 @@ void scoring() {
             if(row.word.entry.word=="QUAAA")CHECK(row.owners==3 && row.shared() && row.points==0 && row.word.entry.points==2 && row.word.entry.path.size()==4);
         }
     }
+    RoundResults review;CHECK(!review.build(*rounds[0],results.players()[0]));
+    CHECK(review.score()==3 && review.countedCount()==2 && review.words().size()==4);
+    CHECK(review.shared("AAAA") && review.shared("QUAAA") && review.words()[1].entry.points==0);
+    CHECK(!review.showAll(true,dict));CHECK(review.score()==3 && review.countedCount()==2 && review.shared("AAAA"));
+    auto corrupt=results.players()[0];++corrupt.score;CHECK(bool(review.build(*rounds[0],corrupt)));CHECK(!review.ready() && !review.shared("AAAA"));
+    CHECK(!review.build(*rounds[0]));CHECK(review.score()==6 && review.countedCount()==4 && !review.shared("AAAA"));
     CHECK(rounds[0]->score()==6 && rounds[1]->score()==6); // provisional source scores are untouched
     CHECK(!rounds[0]->start(1));CHECK(results.players()[0].score==3); // immutable completed match
     results.clear();CHECK(!results.ready() && results.players().empty());

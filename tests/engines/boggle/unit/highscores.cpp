@@ -40,6 +40,20 @@ void ranking(const std::filesystem::path& tmp) {
     CHECK(bool(restart.load(tmp / "same-name",game)));
     CHECK(!restart.load({},game));CHECK(!restart.persistent());CHECK(!restart.record(original,180000,2,"Session"));CHECK(restart.table().size()==1);
 }
+void batch(const std::filesystem::path& tmp) {
+    HighScores scores;CHECK(!scores.load(tmp / "save",tmp / "game"));
+    CHECK(!scores.record(original,180000,1,"Before"));const auto before=scores.table();
+    CHECK(bool(scores.recordBatch({})));CHECK(bool(scores.recordBatch(std::vector<HighScore>(5))));
+    CHECK(bool(scores.recordBatch({{original,180000,2,"Alex"},{master,0,4,"\n"}})));CHECK(scores.table()==before);
+    std::filesystem::create_directory(tmp / "save/HighScores.txt.tmp");
+    const std::vector<HighScore> match={{original,180000,2,"Alex"},{original,180000,3,"Sam"},{original,180000,5,"Alex"},{original,180000,0,"Zero"}};
+    CHECK(bool(scores.recordBatch(match)));CHECK(scores.table()==before);
+    HighScores restart;CHECK(!restart.load(tmp / "save",tmp / "game"));CHECK(restart.table()==before);
+    std::filesystem::remove(tmp / "save/HighScores.txt.tmp");CHECK(!scores.recordBatch(match));
+    CHECK(!restart.load(tmp / "save",tmp / "game"));CHECK(restart.table()==scores.table() && restart.table().size()==4);
+    CHECK(restart.table()[0].name=="Alex" && restart.table()[0].score==5 && restart.table()[2].name=="Alex");
+}
+
 void storage(const std::filesystem::path& tmp) {
     const auto save=tmp / "save",game=tmp / "game",file=save / "HighScores.txt";
     std::filesystem::create_directories(game);HighScores scores;CHECK(!scores.load(save,game));CHECK(!scores.record(original,180000,3,"Alex"));
@@ -108,6 +122,7 @@ void retry(const std::filesystem::path& tmp) {
 }
 }
 static const test::Suite suite("boggle.unit.highscores",{
+    {"atomic multi-human score batches validate and commit together",[](const auto& tmp){batch(tmp);}},
     {"repeated names and identical scores, stable ties, top ten and restart",[](const auto& tmp){ranking(tmp);}},
     {"bounded parsing, backup recovery, failed writes and source isolation",[](const auto& tmp){storage(tmp);}},
     {"post-adjudication recording, both variants/renderers, modal guards and discovery",[](const auto& tmp){gameFlow(tmp);}},

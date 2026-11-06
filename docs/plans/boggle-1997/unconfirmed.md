@@ -159,3 +159,11 @@ Concurrent computer play and computer cursor movement are separately selectable.
 Precise timer accounting, rejected/repeated-attempt turn boundaries and computer
 strength/cadence remain unverified; the live turn controller is not implemented.
 See [owner turn-mode observations](../../engines/boggle/competition.md#owner-vm-corroboration).
+
+Live Traditional Classic now supports one to four local humans, with session
+roster selection, full per-player rounds on the same board, hidden handoffs,
+shared-word review and atomic final score batches. Broad turn/scoring rules
+follow owner VM observations. Original multi-player dictionary-review timing,
+name-slot edge cases and exact transition dialogs remain unverified; computer
+opponents and Chess Timer are not implemented. See [Traditional scope and
+validation](../../engines/boggle/traditional.md).

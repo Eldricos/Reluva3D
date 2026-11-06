@@ -1,18 +1,18 @@
 # The record of boggle.unit.frontend (tests/engines/boggle/unit/frontend.cpp).
 # Written by `reluva-tests boggle.unit.frontend --update`; review its diff before committing.
 navigation.0: 3c6aad5661499679
-navigation.1: 724e8e571f79292d
-navigation.2: ee4c590000e7f6ac
+navigation.1: 7cf716dff7015d7d
+navigation.2: cf7ec04aff005528
 navigation.3: 3c6aad5661499679
 navigation.4: 3c6aad5661499679
-navigation.5: d065c40adb165e09
-navigation.6: ee4c590000e7f6ac
+navigation.5: a53291c0b7d0e7d9
+navigation.6: cf7ec04aff005528
 navigation.7: 7b2d55302e2fe518
 navigation.8: eb8a300cd0712ee8
 navigation.9: 74a4d7f95fb0590c
 navigation.10: 74a4d7f95fb0590c
 navigation.11: 3c6aad5661499679
-navigation.12: d065c40adb165e09
-navigation.13: 5994c0df009a711c
+navigation.12: a53291c0b7d0e7d9
+navigation.13: 43fcaa8469a56ad8
 navigation.14: 5dbbad3e943d08c6
 navigation.15: 3c6aad5661499679

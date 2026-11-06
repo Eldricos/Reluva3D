@@ -1,10 +1,9 @@
 # Classic competition: scoring foundation
 
-This stage establishes the final shared-word scoring model for the next
-player/opponent work. It does not enable multiple players or computers in the
-live game yet. The current playable session remains one human. The owner has
-corroborated the broad turn-mode distinctions below. Live turn scheduling, computer timing/difficulty and their UI still need implementation
-and further boundary checks.
+The final shared-word model now backs [live Traditional local-human matches](traditional.md)
+with one to four humans. The owner corroborated the broad turn-mode distinctions
+below. Computer opponents and Chess Timer scheduling remain unimplemented;
+precise timing/strength behavior still needs further boundary checks.
 
 `ClassicCompetition` accepts one to four distinct, completed `ClassicRound`
 objects on exactly the same Original or Master board. Every player's dictionary
@@ -26,9 +25,9 @@ merge their submissions.
 Invalid counts, null/repeated round pointers, mismatching boards, unfinished
 rounds or pending review fail with no partial published competition. Source
 round scores/words, user dictionaries and high-score files are not changed.
-The current single-player results screen continues using its existing path;
-future UI integration must use competition totals only after all player rounds
-and dictionary decisions finish, then record each eligible human result once.
+Single-player results retain their existing path. Live Traditional matches
+publish competition totals only after all player rounds and dictionary decisions
+finish, then save all eligible human scores as one native batch.
 
 ## Original evidence
 
@@ -94,7 +93,7 @@ These observations corroborate the player controls, opponent labels and shared-w
 scoring evidence above. They also establish a human-name history in the original
 selector; retention across process restarts, its file format and duplicate-name
 selection rules have not been established. The native profile now retains a bounded human-name history for selecting its
-one supported human slot; see [name selection and native limits](players.md).
+primary human and local-human slots; see [name selection and native limits](players.md).
 It does not import the original player database. The concurrent-computer and
 cursor options are separate from the Traditional/Chess Timer turn mode; they
 must not be collapsed into one opponent setting.
@@ -103,7 +102,7 @@ Still unverified: computer strength/cadence, exact timer accounting across turns
 expiry and untimed behavior with several players, whether rejected/repeated
 attempts advance a Chess turn, and the detailed interaction between background
 computers and the selected turn mode. The broad turn rules above are now observed
-facts, while those boundaries and the live controller remain future work.
+facts, while those boundaries remain future work. The live Traditional human controller is now implemented.
 
 ## Tools and validation
 
@@ -118,7 +117,8 @@ This diagnostic checks the native model; it does not simulate an AI opponent.
 `boggle.unit.competition` uses invented dictionaries and boards to check
 one/two/three/four players, shared and unique words, Qu scoring/paths, approved
 versus declined custom words, finalization guards, board identity and independent
-snapshots. Existing single-player tests still apply without record updates.
+snapshots. Existing single-player gameplay records remain unchanged; menu
+records now include the live local-player controls.
 The optional `boggle.gamedata.competition` check and import validation also run
 the diagnostic on supplied and freshly imported resources. Its records contain
 only metadata/checksums, with raw output outside Git.

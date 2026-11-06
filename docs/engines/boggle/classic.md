@@ -1,6 +1,6 @@
-# Classic: playable single-player slice
+# Classic: playable local slice
 
-Scope: one local player, U.S. English, Original (4x4) or Master (5x5), typed
+Scope: one to four local humans in Traditional Play, U.S. English, Original (4x4) or Master (5x5), typed
 or mouse-selected words, configurable timed/untimed rounds, scores and results.
 This is not complete support for Boggle's five modes or the original menu, animation, sound and networking systems.
 
@@ -27,8 +27,8 @@ with SHA-256 `5768d2fbdaf5435deb2cc2e076f1756736f0178532195f73b2e19ee114395639`:
 The native implementation uses independent row/column arithmetic, path search,
 word-set lookup and a clock-driven round model. It does not execute the EXE.
 The model rejects duplicate submissions after ASCII case normalization and
-scores accepted words once. Original multi-player duplicate-word cancellation
-is outside this single-player slice.
+scores accepted words once. [Traditional local-human matches](traditional.md) now cancel words kept by
+multiple players after all turns and dictionary decisions finish.
 
 ## Deliberate prototype behavior
 
@@ -47,7 +47,8 @@ PE dialog layouts or TrueType typography. Classic lid AVI animation and WAV
 effects are now integrated: [presentation evidence](presentation.md). The
 clock advances while the round is active, including when focus is lost;
 matching original pause/focus behavior remains future work. Saved games,
-definitions, AI, multiplayer and general game-state persistence are absent.
+definitions, AI, network play, Chess Timer and general game-state persistence
+are absent. Local Traditional human turns are implemented separately.
 [English user dictionaries and rejected-word review](user-dictionary.md) are
 implemented separately in the per-target save folder.
 

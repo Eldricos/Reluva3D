@@ -32,8 +32,9 @@ The name appears in the artwork's player strip and word-panel header, and in
 the prototype round view. Longer artwork headers use smaller text or a shortened
 strip label to fit. Original/Master, replay and New Board retain the chosen
 name. Direct Classic entry also loads it; re-enable the selection menu to edit.
-The supported session remains one human, with no AI, additional player slots or
-network players.
+The current name/history is the primary human. [Local Players / M](traditional.md)
+now configures up to four local humans for Traditional Play. AI and network
+players remain unsupported.
 
 ## Native persistence
 
@@ -78,17 +79,17 @@ Players stage between version selection and play.
 
 The new one-human editor, 18-character limit, save/cancel interaction and profile
 format are independently implemented native policies. Exact original name-entry
-navigation, player-file persistence, multiple human players and AI timing
+navigation, player-file persistence, original multi-player edge cases and AI timing
 still need verification. The [competition research and scoring foundation](competition.md)
 now identifies four original player slots, the opponent dropdown labels and
-shared-word cancellation; it does not yet add live opponents or turns. This
+shared-word cancellation. Traditional local-human turns now use that foundation. This
 does not read or emulate the original player database.
 
 The owner subsequently confirmed that all four original dropdowns list previously
 used human names plus Beginner, Intermediate, Advanced and Mr. Boggle computer
 opponents. Original human-name history is therefore an observed feature; its
 restart persistence and on-disk contract remain unverified. The native profile now implements bounded human-name history and selection
-for its one supported human slot. It does not import the original history. Shared-word cancellation was
+for its primary human and the local-human roster. It does not import the original history. Shared-word cancellation was
 also confirmed for both human/human and human/computer rounds.
 
 ## Validation

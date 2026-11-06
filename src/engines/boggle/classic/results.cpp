@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 // Copyright (C) 2026 The Reluva contributors
 #include "engines/boggle/classic/results.h"
+#include "engines/boggle/classic/competition.h"
 #include "engines/boggle/classic/layout.h"
 #include "engines/boggle/classic/solver.h"
 #include <map>
@@ -12,7 +13,23 @@ Error RoundResults::build(const ClassicRound& round) {
         words_.push_back(word);score_+=word.entry.points;
     }
     if(score_!=round.score()){clear();return Error::fail("Inconsistent final round score");}
-    board_=round.board();ready_=true;return Error::success();
+    counted_=words_.size();board_=round.board();ready_=true;return Error::success();
+}
+Error RoundResults::build(const ClassicRound& round,const CompetitionPlayer& player) {
+    if(auto error=build(round))return error;
+    if(words_.size()!=player.words.size()){clear();return Error::fail("Mismatching Classic competition rows");}
+    score_=0;counted_=0;
+    for(size_t i=0;i<words_.size();++i) {
+        const auto& row=player.words[i];auto& word=words_[i];
+        if(row.word.entry.word!=word.entry.word || row.word.entry.path!=word.entry.path || row.word.entry.points!=word.entry.points ||
+           row.word.state!=word.state || !row.owners || row.owners>15 || row.points!=(row.shared()?0:word.entry.points)) {
+            clear();return Error::fail("Invalid Classic competition row");
+        }
+        if(row.shared())shared_.insert(word.entry.word);else ++counted_;
+        word.entry.points=row.points;score_+=row.points;
+    }
+    if(score_!=player.score){clear();return Error::fail("Inconsistent Classic competition score");}
+    return Error::success();
 }
 Error RoundResults::showAll(bool enabled,const Dictionary& dictionary,const UserDictionary* user) {
     if(!ready_)return Error::fail("Finish the round and dictionary review before showing all words");

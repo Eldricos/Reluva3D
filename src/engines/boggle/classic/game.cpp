@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 // Copyright (C) 2026 The Reluva contributors
 #include "engines/boggle/classic/game.h"
+#include "engines/boggle/classic/competition.h"
 #include "engines/boggle/classic/layout.h"
 #include "engines/boggle/classic/orientation.h"
 #include "engines/boggle/classic/history.h"
@@ -16,6 +17,7 @@
 #include "common/font.h"
 #include <algorithm>
 #include <cstdio>
+#include <memory>
 
 namespace reluva::boggle {
 namespace {
@@ -53,6 +55,23 @@ void scoreTable(Surface& screen,const HighScores& scores,const std::string& erro
     label(screen,160,426,!error.empty()?"Scores unavailable until a successful retry.":scores.persistent()?"Saved in your launcher profile.":"Session only; no save directory configured.",muted);
     rect(screen,scoresClose.x,scoresClose.y,scoresClose.w,scoresClose.h,{48,88,120});label(screen,460,460,"CLOSE (ENTER / H)");
     if(!error.empty()){rect(screen,scoresRetry.x,scoresRetry.y,scoresRetry.w,scoresRetry.h,{48,88,120});label(screen,172,460,"RETRY (R)");}
+}
+void matchTable(Surface& screen,const std::vector<std::string>& names,const ClassicCompetition& competition) {
+    rect(screen,128,94,544,404,{22,40,60});label(screen,160,116,"CLASSIC RESULTS",white,2);
+    label(screen,160,150,"TRADITIONAL / SHARED WORDS SCORE ZERO",muted);
+    for(size_t i=0;i<names.size();++i) {
+        label(screen,160,190+int(i)*40,std::to_string(i+1)+"  "+names[i],white,2);
+        label(screen,550,190+int(i)*40,std::to_string(competition.players()[i].score),white,2);
+    }
+    label(screen,160,380,"1-4 or click a name: review that player's words",muted);
+    label(screen,160,410,"Grey words in review were shared / worth zero.",muted);
+    rect(screen,448,450,184,30,{48,88,120});label(screen,460,460,"CLOSE (ENTER / V)");
+}
+void handoffScreen(Surface& screen,std::string_view next) {
+    rect(screen,0,0,width,height,dark);label(screen,80,140,"NEXT PLAYER",white,3);
+    label(screen,80,220,next,white,3);label(screen,80,310,"The same board / a full round for each player.",muted);
+    rect(screen,80,380,640,60,{48,88,120});label(screen,100,402,"START TURN (ENTER)",white,2);
+    label(screen,80,480,"Pass the controls, then start when ready.",muted);
 }
 void glyph(Surface& screen, int x, int y, const std::string& face,
            const image::Image& letters, const image::Image& qu, int cellSize,unsigned turns) {
@@ -121,9 +140,9 @@ void draw(Surface& screen, const ClassicRound& round, uint64_t now,
         }
     }
     label(screen, 430, 102, ready ? "READY" : playing ? "ROUND IN PROGRESS" : "ROUND COMPLETE", white, 2);
-    label(screen, 430, 140, "SCORE  " + std::to_string(round.score()), {110, 220, 200}, 2);
+    label(screen, 430, 140, "SCORE  " + std::to_string(results.ready()?results.score():round.score()), {110, 220, 200}, 2);
     std::vector<const RoundWord*> words;
-    if(results.ready() && results.allWords())for(const auto& word:results.words())words.push_back(&word);
+    if(results.ready())for(const auto& word:results.words())words.push_back(&word);
     else for (const auto& word : round.words()) if (word.state != WordState::Declined) words.push_back(&word);
     label(screen, 430, 179, std::string(results.allWords()?"ALL WORDS  ":"WORDS  ") + std::to_string(words.size()), muted);
     rect(screen, 430, 204, 346, 260, {24, 42, 62});
@@ -132,7 +151,7 @@ void draw(Surface& screen, const ClassicRound& round, uint64_t now,
     for (size_t i = begin; i < view.end; ++i) {
         const auto& entry = words[i]->entry;
         const bool rejected = words[i]->state == WordState::Pending || words[i]->state == WordState::Declined;
-        const Ink ink = rejected ? Ink{255, 116, 116} : results.missed(entry.word)?Ink{130,180,255}:white;
+        const Ink ink = rejected ? Ink{255, 116, 116} : results.shared(entry.word)?Ink{156,156,156}:results.missed(entry.word)?Ink{130,180,255}:white;
         std::string shown = entry.word; if (shown.size() > 23) shown = shown.substr(0, 20) + "...";
         if(round.phase()==RoundPhase::Results && !path.empty() && entry.path==path)
             rect(screen,438,217+int(i-begin)*17,336,17,{48,88,120});
@@ -181,6 +200,9 @@ Error ClassicGame::run() {
     std::string player=profile.name();
     if(const auto it=target_.settings.find("classic_player_name");it!=target_.settings.end())
         if(!playerName(it->second,player))return Error::fail("Invalid session player name");
+    const auto names=players_.empty()?std::vector<std::string>{player}:players_;
+    if(names.empty() || names.size()>4)return Error::fail("Traditional Classic needs one to four humans");
+    for(const auto& name:names){std::string normalized;if(!playerName(name,normalized) || normalized!=name)return Error::fail("Invalid Traditional player name");}
     Resources resources;
     if (auto err = resources.open(target_.path)) return err;
     Dictionary dictionary; DiceSet dice; Palette palette;
@@ -206,10 +228,21 @@ Error ClassicGame::run() {
     if (auto err = user.load(target_.savePath, target_.path)) return err;
     HighScores highScores;
     auto scoreError=highScores.load(target_.savePath,target_.path);
-    bool scoreAttempted=false,scoreOpen=false;
-    ClassicRound round(dictionary, &user); RoundResults results; Board board; uint32_t seed = options.seed?*options.seed:freshClassicSeed();
-    if (auto err = Board::generate(dice, seed, board)) return err;
-    if (auto err = round.board(std::move(board), options.duration)) return err;
+    bool scoreAttempted=false,scoreOpen=false,matchOpen=false,handoff=false,handoffVisible=false;
+    RoundResults results;Board board;uint32_t seed=options.seed?*options.seed:freshClassicSeed();
+    std::vector<std::unique_ptr<ClassicRound>> rounds;size_t turn=0,reviewPlayer=0;ClassicCompetition competition;
+    auto resetRounds=[&](const Board& cubes)->Error {
+        std::vector<std::unique_ptr<ClassicRound>> next;
+        for(size_t i=0;i<names.size();++i) {
+            auto current=std::make_unique<ClassicRound>(dictionary,&user);
+            if(auto error=current->board(cubes,options.duration))return error;
+            next.push_back(std::move(current));
+        }
+        rounds=std::move(next);turn=reviewPlayer=0;competition.clear();return Error::success();
+    };
+    auto round=[&]()->ClassicRound& {return *rounds[competition.ready()?reviewPlayer:turn];};
+    if(auto error=Board::generate(dice,seed,board))return error;
+    if(auto error=resetRounds(board))return error;
     if (auto err = sys_.initGraphics(width, height, PixelFormat::RGBA32)) return err;
     sys_.setWindowTitle(options.variant == ClassicVariant::Master ? "Reluva - Boggle Classic Master" : "Reluva - Boggle Classic Original");
     // Start output after the window and framebuffer are ready.
@@ -222,7 +255,7 @@ Error ClassicGame::run() {
     int pointerX=-1,pointerY=-1;
     std::optional<size_t> reviewSelection;
     auto browse=[&](int64_t rows) {
-        const size_t count=results.ready()?results.words().size():size_t(std::count_if(round.words().begin(),round.words().end(),[](const auto& word){return word.state!=WordState::Declined;}));
+        const size_t count=results.ready()?results.words().size():size_t(std::count_if(round().words().begin(),round().words().end(),[](const auto& word){return word.state!=WordState::Declined;}));
         scroll=scrollWordHistory(scroll,count,artwork.active()?ClassicArtwork::visibleWords:14,rows);
     };
     auto clear = [&] { input.clear(); selected.clear(); scroll = 0; dragging = false; reviewSelection.reset(); };
@@ -234,42 +267,65 @@ Error ClassicGame::run() {
     };
     auto saveScore=[&]() {
         scoreAttempted=true;
-        if(!scoreError)scoreError=highScores.record(options.variant,options.duration,results.score(),player);
+        if(!scoreError) {
+            std::vector<HighScore> scores;
+            if(competition.ready())for(size_t i=0;i<names.size();++i)scores.push_back({options.variant,options.duration,competition.players()[i].score,names[i]});
+            else scores.push_back({options.variant,options.duration,results.score(),names[0]});
+            scoreError=highScores.recordBatch(scores);
+        }
     };
-    auto updateInput = [&] { input.clear(); for (size_t i : selected) input += round.board().faces()[i]; };
+    auto updateInput = [&] { input.clear(); for (size_t i : selected) input += round().board().faces()[i]; };
     auto startOrFinish = [&]() -> Error {
-        if (round.phase() == RoundPhase::Results && !resultsVisible) return Error::success();
+        if (round().phase() == RoundPhase::Results && !resultsVisible) return Error::success();
+        if(competition.ready()) {
+            const auto cubes=round().board();if(auto error=resetRounds(cubes))return error;
+        }
         resultsVisible = false; results.clear(); scoreAttempted=false; clear(); message.clear();
-        if (round.phase() == RoundPhase::Playing) {
-            round.finish(); sound.stopShake();
+        if (round().phase() == RoundPhase::Playing) {
+            round().finish(); sound.stopShake();
             if (options.animations) transition.begin(Transition::Closing,sys_.getMillis());
         } else {
             sound.beginRound(options.animations);
             if (options.animations) transition.begin(Transition::Opening,sys_.getMillis());
-            else if (auto err = round.start(sys_.getMillis(), options.duration)) return err;
+            else if (auto err = round().start(sys_.getMillis(), options.duration)) return err;
         }
         return Error::success();
     };
     auto newBoard = [&]() -> Error {
-        if (round.phase() == RoundPhase::Results && !resultsVisible) return Error::success();
-        if (round.phase() == RoundPhase::Playing) return Error::success();
+        if (round().phase() == RoundPhase::Results && !resultsVisible) return Error::success();
+        if (round().phase() == RoundPhase::Playing) return Error::success();
         seed=options.seed?seed+1:freshClassicSeed();
         if (auto err = Board::generate(dice, seed, board)) return err;
-        if (auto err = round.board(std::move(board), options.duration)) return err;
+        if(auto err=resetRounds(board))return err;
         resultsVisible = false; results.clear(); scoreAttempted=false; clear(); message.clear(); return Error::success();
     };
     auto reviewWord=[&](size_t index) {
         if(!results.ready() || index>=results.words().size())return;
         const auto& word=results.words()[index];reviewSelection=index;
         selected=word.entry.path;input=word.entry.word;
+        if(results.shared(word.entry.word)){message="Shared word / 0 points | Right click: summary";scroll=results.scrollFor(index,artwork.active(),scroll);dragging=false;return;}
         message=std::to_string(word.entry.points)+(results.missed(word.entry.word)?(word.entry.points==1?" potential point / not submitted":" potential points / not submitted"):word.entry.points==1?" point / ":" points / ");
         if(!results.missed(word.entry.word))message+=word.state==WordState::Added?"added to your dictionary":"dictionary word";
         message+=" | Right click: summary";
         scroll=results.scrollFor(index,artwork.active(),scroll);dragging=false;
     };
+    auto publish=[&]()->Error {
+        if(names.size()==1)return results.build(round());
+        if(!competition.ready()) {
+            if(turn+1<rounds.size()){handoff=true;handoffVisible=false;return Error::success();}
+            std::vector<const ClassicRound*> input;for(const auto& current:rounds)input.push_back(current.get());
+            if(auto error=competition.build(input))return error;
+            reviewPlayer=0;matchOpen=true;
+        }
+        return results.build(round(),competition.players()[reviewPlayer]);
+    };
+    auto chooseReview=[&](size_t index)->Error {
+        if(index>=names.size())return Error::success();
+        reviewPlayer=index;clear();message.clear();return results.build(round(),competition.players()[index]);
+    };
     auto select = [&](int x, int y) {
-        const size_t side = round.board().side(); const int cellSize = boardSize / int(side);
-        if(round.phase()!=RoundPhase::Playing)return;
+        const size_t side = round().board().side(); const int cellSize = boardSize / int(side);
+        if(round().phase()!=RoundPhase::Playing)return;
         size_t cell=0;
         if(artwork.active()) {
             const auto found=artwork.cellAt(x,y,side);if(!found)return;cell=*found;
@@ -279,7 +335,7 @@ Error ClassicGame::run() {
         }
         if (!selected.empty() && cell == selected.back()) return;
         if (std::find(selected.begin(), selected.end(), cell) != selected.end()) { message = "That cube is already used."; return; }
-        if (!selected.empty() && !round.board().adjacent(selected.back(), cell)) { message = "Choose a touching cube."; return; }
+        if (!selected.empty() && !round().board().adjacent(selected.back(), cell)) { message = "Choose a touching cube."; return; }
         if (selected.empty()) input.clear();
         selected.push_back(cell); updateInput(); message.clear(); sound.play(Cue::ClickDown);
     };
@@ -289,16 +345,16 @@ Error ClassicGame::run() {
         if (type == Transition::Opening && transition.frame(now) >= 31) sound.stopShake();
         if (transition.finish(now) && type == Transition::Opening) {
             sound.stopShake();
-            if (auto err = round.start(now,options.duration)) return err;
+            if (auto err = round().start(now,options.duration)) return err;
         }
         if (transition.type() != Transition::None) return Error::success();
-        const bool playing = round.phase() == RoundPhase::Playing;
-        round.tick(now);
-        if (playing && round.phase() == RoundPhase::Results) {
+        const bool playing = round().phase() == RoundPhase::Playing;
+        round().tick(now);
+        if (playing && round().phase() == RoundPhase::Results) {
             clear(); dragging = false; resultsVisible = false; message = "Time is up.";
             sound.stopShake(); sound.countdown(0);
             if (options.animations) transition.begin(Transition::Closing,now);
-        } else if (playing && round.timed()) sound.countdown(round.remaining(now));
+        } else if (playing && round().timed()) sound.countdown(round().remaining(now));
         return Error::success();
     };
     if (fromMenu_) { if (auto err = startOrFinish()) return err; }
@@ -308,12 +364,12 @@ Error ClassicGame::run() {
         while (sys_.pollEvent(event)) {
             if (auto err = advance()) return err;
             if (event.type == EventType::Quit || event.type == EventType::ReturnToLauncher ||
-                (event.type == EventType::KeyDown && event.key == key::Escape && !event.repeat && !fromMenu_ && !scoreOpen && !scoreDismissed)) {
+                (event.type == EventType::KeyDown && event.key == key::Escape && !event.repeat && !fromMenu_ && !scoreOpen && !matchOpen && !scoreDismissed)) {
                 running = false; break;
             }
             // Escape is inactive in the original game. Provide an explicit
             // native menu action without changing that observed key behavior.
-            if (!scoreOpen && !scoreDismissed && fromMenu_ && ((event.type == EventType::KeyDown && !event.repeat && event.key == key::F1+2) ||
+            if (!scoreOpen && !matchOpen && !scoreDismissed && fromMenu_ && ((event.type == EventType::KeyDown && !event.repeat && event.key == key::F1+2) ||
                 (transition.type() == Transition::None && event.type == EventType::MouseDown && event.button == MouseButton::Left &&
                  hit(event.mouseX,event.mouseY,artwork.active()?432:610,557,artwork.active()?172:166,29)))) {
                 returnToMenu_ = true; running = false; break;
@@ -322,6 +378,26 @@ Error ClassicGame::run() {
                 pointerX=event.mouseX;pointerY=event.mouseY;
             }
             if(scoreDismissed)continue;
+            if(handoff) {
+                if(handoffVisible && ((event.type==EventType::KeyDown && !event.repeat && (event.key==key::Return || event.key==key::KpEnter)) ||
+                   (event.type==EventType::MouseDown && event.button==MouseButton::Left && hit(event.mouseX,event.mouseY,80,380,640,60)))) {
+                    ++turn;handoff=false;handoffVisible=false;resultsVisible=false;
+                    if(auto error=startOrFinish())return error;
+                    scoreDismissed=true;
+                }
+                continue;
+            }
+            if(matchOpen) {
+                const bool keyDown=event.type==EventType::KeyDown && !event.repeat;
+                const bool click=event.type==EventType::MouseDown && event.button==MouseButton::Left;
+                std::optional<size_t> selectedPlayer;
+                if(keyDown && event.key>='1' && event.key<'1'+names.size())selectedPlayer=size_t(event.key-'1');
+                if(click && hit(event.mouseX,event.mouseY,150,180,480,int(names.size())*40))selectedPlayer=size_t((event.mouseY-180)/40);
+                if(selectedPlayer){if(auto error=chooseReview(*selectedPlayer))return error;matchOpen=false;scoreDismissed=true;}
+                else if((keyDown && (event.key==key::Return || event.key==key::KpEnter || event.key==key::Escape || event.key=='v')) ||
+                        (click && scoresClose.contains(event.mouseX,event.mouseY))) {matchOpen=false;scoreDismissed=true;}
+                continue;
+            }
             if(scoreOpen) {
                 const bool key=event.type==EventType::KeyDown && !event.repeat;
                 const bool click=event.type==EventType::MouseDown && event.button==MouseButton::Left;
@@ -333,7 +409,7 @@ Error ClassicGame::run() {
                 continue;
             }
             if (transition.type() != Transition::None) continue;
-            if (round.candidate()) {
+            if (round().candidate()) {
                 int choice = -1;
                 if (promptVisible && event.type == EventType::KeyDown && !event.repeat && event.key >= '1' && event.key <= '4')
                     choice = int(event.key - '1');
@@ -341,13 +417,18 @@ Error ClassicGame::run() {
                     for (int i = 0; i < 4; ++i) if (hit(event.mouseX, event.mouseY, 40 + i * 184, 352, 168, 40)) choice = i;
                 if (choice >= 0) {
                     const DictionaryChoice choices[] = {DictionaryChoice::Yes, DictionaryChoice::No, DictionaryChoice::YesAll, DictionaryChoice::NoAll};
-                    if (auto err = round.decide(choices[choice])) message = err.message;
+                    if (auto err = round().decide(choices[choice])) message = err.message;
                     else { message.clear(); promptVisible = false; resultsVisible = false; }
                 }
                 continue;
             }
-            if(round.phase()==RoundPhase::Results && !results.ready()) {
-                if(auto error=results.build(round))return error;
+            if(round().phase()==RoundPhase::Results && !results.ready()) {
+                if(names.size()>1 && !competition.ready())continue;
+                if(auto error=publish())return error;
+            }
+            if(resultsVisible && competition.ready() && event.type==EventType::KeyDown && !event.repeat) {
+                if(event.key=='v'){matchOpen=true;continue;}
+                if(event.key>='1' && event.key<'1'+names.size()){if(auto error=chooseReview(size_t(event.key-'1')))return error;continue;}
             }
             if(resultsVisible && results.ready() && ((event.type==EventType::KeyDown && !event.repeat && event.key=='h') ||
                (event.type==EventType::MouseDown && event.button==MouseButton::Left &&
@@ -372,19 +453,19 @@ Error ClassicGame::run() {
                         reviewWord(index);
                     }
                 } else if ((event.key == key::Return || event.key == key::KpEnter) && !event.repeat) {
-                    if (round.phase() != RoundPhase::Playing) { if (auto err = startOrFinish()) return err; }
-                    else { const auto result = round.submit(input, sys_.getMillis(), selected); message = feedback(result, round.minimum()); if (result == Submission::Accepted || result == Submission::UnknownWord) sound.recorded(round.words().back().entry.word.size()); if (result != Submission::SelectPath) clear(); }
+                    if (round().phase() != RoundPhase::Playing) { if (auto err = startOrFinish()) return err; }
+                    else { const auto result = round().submit(input, sys_.getMillis(), selected); message = feedback(result, round().minimum()); if (result == Submission::Accepted || result == Submission::UnknownWord) sound.recorded(round().words().back().entry.word.size()); if (result != Submission::SelectPath) clear(); }
                 } else if (event.key == key::PageUp || event.key == key::PageDown) {
                     const int64_t page=artwork.active()?ClassicArtwork::visibleWords:14;
                     browse(event.key==key::PageUp?page:-page);
-                } else if (event.key == key::Backspace && round.phase() == RoundPhase::Playing) {
+                } else if (event.key == key::Backspace && round().phase() == RoundPhase::Playing) {
                     if (!selected.empty()) { selected.pop_back(); updateInput(); }
                     else if (!input.empty()) input.pop_back();
                     message.clear();
-                } else if (event.key == key::F1 && !event.repeat && round.phase() == RoundPhase::Playing) {
+                } else if (event.key == key::F1 && !event.repeat && round().phase() == RoundPhase::Playing) {
                     if (auto err = startOrFinish()) return err;
                 } else if (event.key == key::F1 + 1 && !event.repeat) { if (auto err = newBoard()) return err; }
-            } else if (event.type == EventType::TextInput && round.phase() == RoundPhase::Playing) {
+            } else if (event.type == EventType::TextInput && round().phase() == RoundPhase::Playing) {
                 const auto end = std::find(std::begin(event.text), std::end(event.text), '\0');
                 std::string normalized;
                 if (!englishWord(std::string_view(event.text, size_t(end - event.text)), normalized)) { message = "Use A-Z for this English round."; continue; }
@@ -409,20 +490,23 @@ Error ClassicGame::run() {
             }
         }
         if (!running) break;
-        if(transition.type()==Transition::None && round.phase()==RoundPhase::Results && !round.candidate() && !results.ready())
-            if(auto error=results.build(round))return error;
+        if(transition.type()==Transition::None && round().phase()==RoundPhase::Results && !round().candidate() && !results.ready() && !handoff)
+            if(auto error=publish())return error;
         if(results.ready() && !scoreAttempted)saveScore();
-        if (transition.type() != Transition::None) {
+        if(handoff)handoffScreen(screen,names[turn+1]);
+        else if (transition.type() != Transition::None) {
             const auto& frame = clip.frames[transition.frame(sys_.getMillis())];
             for (int y=0;y<height;++y) for (int x=0;x<width;++x)
                 std::copy_n(frame.pixel(x*frame.w/width,y*frame.h/height),4,screen.row(y)+x*4);
             rect(screen,0,height-40,width,40,dark);
             label(screen,24,height-25,transition.type() == Transition::Opening ? "Rolling dice and opening the lid..." : "Closing the lid...");
-        } else draw(screen, round, sys_.getMillis(), letters, qu, palette, input, selected, results.ready() && scoreError && message.empty()?"High scores unavailable. H: details / retry.":message, scroll, fromMenu_,artwork,options.duration,seed,options.autoOrient,player,results);
+        } else draw(screen, round(), sys_.getMillis(), letters, qu, palette, input, selected, results.ready() && scoreError && message.empty()?"High scores unavailable. H: details / retry.":competition.ready() && message.empty()?"1-4: player review / V: match scores / Up-Down: word path":message, scroll, fromMenu_,artwork,options.duration,seed,options.autoOrient,names[competition.ready()?reviewPlayer:turn],results);
+        if(matchOpen)matchTable(screen,names,competition);
         if(scoreOpen)scoreTable(screen,highScores,scoreError.message);
         sys_.updateScreen(screen);
-        if (transition.type() == Transition::None && round.phase() == RoundPhase::Results) resultsVisible = true;
-        promptVisible = transition.type() == Transition::None && round.candidate() != nullptr;
+        if(handoff)handoffVisible=true;
+        if (transition.type() == Transition::None && round().phase() == RoundPhase::Results) resultsVisible = true;
+        promptVisible = transition.type() == Transition::None && round().candidate() != nullptr;
         sys_.delayMillis(16);
     }
     return Error::success();

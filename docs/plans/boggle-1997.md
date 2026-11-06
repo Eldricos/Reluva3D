@@ -244,7 +244,7 @@ on the Boggle branch; this plan never authorizes merging into another branch.
 
 Stage 1 inspection and resource access are complete. The current native slice
 supports English Classic Original/Master, 30-second/untimed options, installed
-presentation/audio, one human player name, isolated user dictionaries, final
+presentation/audio, remembered human names, isolated user dictionaries, final
 score/path review, all-word discovery and a shared ten-score Classic table.
 The owner has tested these stages on Windows. Import supports 53 English
 Classic files from the install or expanded CD; older supported subsets retain
@@ -257,8 +257,9 @@ choices, checks and remaining original-RNG uncertainty.
 
 The next player stage now has a tested [competition-scoring foundation](../engines/boggle/competition.md),
 with original shared-word cancellation established through isolated checks.
-Research must still establish the remaining player/AI workflow, turn order and
-opponent timing before expanding live Classic beyond one human. Other modes,
+[Traditional Play](../engines/boggle/traditional.md) now supports up to four local
+humans, full-round turns, hidden handoffs and final shared-word cancellation.
+Computer behavior and Chess Timer accounting remain the next player milestones. Other modes,
 multilingual input, INSO definitions, original dialogs and networking remain
 separate milestones. Check [current support](../engines/boggle/README.md) and
 [evidence gaps](boggle-1997/unconfirmed.md) before selecting each slice. These

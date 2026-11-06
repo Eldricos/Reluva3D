@@ -19,6 +19,7 @@ class HighScores {
 public:
     Error load(const std::filesystem::path& savePath,const std::filesystem::path& gamePath);
     Error record(ClassicVariant variant,uint64_t duration,int score,std::string_view name);
+    Error recordBatch(const std::vector<HighScore>& scores); // one atomic match snapshot
     std::vector<HighScore> table() const;
     bool persistent() const {return !file_.empty();}
 private:

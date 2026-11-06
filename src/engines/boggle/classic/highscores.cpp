@@ -76,10 +76,17 @@ Error HighScores::load(const std::filesystem::path& savePath,const std::filesyst
 std::vector<HighScore> HighScores::table() const { return rows_; }
 
 Error HighScores::record(ClassicVariant variant,uint64_t duration,int score,std::string_view input) {
+    return recordBatch({HighScore{variant,duration,score,std::string(input)}});
+}
+Error HighScores::recordBatch(const std::vector<HighScore>& scores) {
     if(!loaded_)return Error::fail("High scores are unavailable; reload the table before retrying");
-    std::string name;if(!category(variant,duration) || score<0 || !playerName(input,name))return Error::fail("Invalid native high-score entry");
-    if(!score)return Error::success();
-    auto rows=rows_;rows.push_back({variant,duration,score,name});
+    if(scores.empty() || scores.size()>4)return Error::fail("A Classic score batch needs one to four players");
+    auto rows=rows_;
+    for(const auto& score:scores) {
+        std::string name;
+        if(!category(score.variant,score.duration) || score.score<0 || !playerName(score.name,name))return Error::fail("Invalid native high-score entry");
+        if(score.score)rows.push_back({score.variant,score.duration,score.score,name});
+    }
     order(rows);if(rows.size()>10)rows.resize(10);
     if(rows==rows_)return Error::success();
     if(!file_.empty()) {

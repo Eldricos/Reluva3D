@@ -11,6 +11,8 @@ ended and untimed games. The owner verified the shared Classic grouping and
 manual-end qualification in the original VM. Other game modes remain unsupported.
 Only the final score after all dictionary decisions can be recorded. Declined
 words, unfinished input and missed-word discovery never contribute points.
+Traditional local-human matches now submit all positive final human scores in
+one atomic batch; failed saves leave the whole batch uncommitted.
 Recording happens once when finalized results are published; browsing results
 or opening the table does not submit another score.
 
