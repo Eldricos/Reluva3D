@@ -320,7 +320,39 @@ Each frame, each particle moves by its mode:
   y = 0. Emitted within ±spread in x and z, at the emitter's height.
 - **0, thrown:** emitted with a random direction: around by a in [0, 2π),
   out from straight up by b in [0, π/4], speeds (cos a·sin b·velocityX,
-  r·cos b·velocityY, sin a·sin b·velocityZ), r in [characters.md](characters.md#outdoors-footprints-and-breath). Then two
+  r·cos b·velocityY, sin a·sin b·velocityZ), r in [0.5, 1). Its position
+  is its start plus that velocity times its age, turned by the object's
+  rotation, with y lowered by ½·gravity·age². Below y = 0, or past its
+  lifetime, it starts again from where it is with its velocity times
+  bounce, as many times as bounces.
+
+New particles come burst at a time every interval seconds, at most 4,096.
+They are drawn as Direct3D point sprites (`POINTSPRITEENABLE`,
+`POINTSCALEENABLE`, `POINTSIZE` = size, `POINTSCALE_A` = `B` = 0,
+`C` = 1, `POINTSIZE_MAX` = 64): a square of size × the screen's height ÷
+the distance from the eye pixels, at most 64. The texture (the object's
+file) is multiplied by the vertex colour, with depth tested but not
+written. Reluva draws them as quads on the GPU each frame
+(`ScenePage::drawPointSprites`), between the layers' pictures, so a
+layer with particles in it isn't put together again every frame.
+
+In Salon_01, snow falls past each window (x −730 and 580, from y 300,
+falling at 300 a second, at depth −10500: in front of the snowscape, behind
+the moving countryside), shown while `weather >0`.
+
+### `MODL`, `ANIM`, `WALK`: models and characters
+
+- `MODL` (`0x426310`), counted: a u32 (`shadow`: the character casts
+  one), a pair list (models attached at load:
+  `models\poirot\hat_model.gr2`), breath (u32, +0xe30: a breath
+  particle system, `BRTH`, `breath01.tga`, follows the bone `Upper
+  Lip_R`, blowing forward, `0x425fa9`; the player in the snowy
+  exteriors, and one other character, have it), footprints (u32,
+  +0xe34: in an outdoor scene, `OUTD`, the character leaves footprint
+  models as it walks, `snowprint_model.gr2` with the tag `snowshoeson`,
+  else `footprint_model.gr2`, which fade, `0x43fda0`, `0x43fd00`; set
+  on the player in 50 scenes). Both are in
+  [characters.md](characters.md#outdoors-footprints-and-breath). Then two
   animation names (text, 32: `anim`, the
   skeleton's track mask `TrackMask<anim>` its animations are limited to,
   and `anim2`, a prefix tried on every animation's name: `sit` makes
