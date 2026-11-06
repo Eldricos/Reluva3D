@@ -133,7 +133,8 @@ uint32_t Win32Process::Module::exportAddress(const std::string& function) const 
     return 0;
 }
 
-Win32Process::Win32Process(Cpu& cpu, std::string exeName) : cpu_(cpu), exeName_(std::move(exeName)) {
+Win32Process::Win32Process(Cpu& cpu, std::string exeName, bool loadsExe)
+    : cpu_(cpu), exeName_(std::move(exeName)) {
     arena_ = std::make_unique<Arena>(cpu, 0x10000, cpu.nativeBase() & ~0xfffu);
     startMs_ = steadyMs();
     milliseconds = [this] { return uint32_t(steadyMs() - startMs_); };
@@ -141,9 +142,9 @@ Win32Process::Win32Process(Cpu& cpu, std::string exeName) : cpu_(cpu), exeName_(
     // The thread: its stack, and its information block (which FS points
     // at): the exception handler chain's head, the stack's bounds, its own
     // address and the process's block's.
-    // Not where programs (EXEs, which can't be relocated) ask to be loaded:
-    // 0x400000 and the few megabytes after it.
-    const bool reserved = arena_->claim(0x400000, 0xc00000);
+    // With an EXE to load, not where programs (which can't be relocated)
+    // ask to be loaded: 0x400000 and the few megabytes after it.
+    const bool reserved = loadsExe && arena_->claim(0x400000, 0xc00000);
     const uint32_t stack = arena_->alloc(kStackSize, 0x10000);
     if (reserved)
         arena_->free(0x400000);

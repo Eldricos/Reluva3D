@@ -37,7 +37,7 @@ GamePathFinder::~GamePathFinder() = default;
 
 Error GamePathFinder::load(const std::vector<uint8_t>& exe, bool single) {
     cpu_ = std::make_unique<x86::Cpu>(160u << 20);
-    process_ = std::make_unique<x86::Win32Process>(*cpu_);
+    process_ = std::make_unique<x86::Win32Process>(*cpu_, "host.exe", true);
     const x86::Win32Process::Module* module = nullptr;
     if (Error e = process_->load("motoe.exe", exe, module))
         return e;
