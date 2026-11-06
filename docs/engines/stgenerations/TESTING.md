@@ -15,7 +15,7 @@ Run by `reluva-tests stgenerations` (and ctest, and CI on every system):
 | `stgenerations.unit.formats` | Fonts, subtitles, overlays, sprite sets, script files |
 | `stgenerations.unit.canvas` | The game's drawing surface, BMPs, palettes |
 | `stgenerations.unit.audio` | The game's sound calls on Reluva's mixer |
-| `stgenerations.unit.detection` | The installed game and its CDs found, importing them (all at once, a part at a time, the whole copy of a damaged one), the files then searched |
+| `stgenerations.unit.detection` | The installed game and its CDs found, importing them (all at once, a part at a time, the whole copy of a damaged one, between the CDs or the install and a CD), the files then searched |
 | `stgenerations.engine` | The whole engine, on a game built in code: imported as the launcher does, then played: the title, the menu, a new game's movie, an automatic save, the bridge, a saved game named and loaded, the settings, quitting through the credits; recorded in `tests/engines/stgenerations/data/engine-record.txt` |
 
 STG-Engine's tests are all here, as these suites ([PORTING.md](PORTING.md#tests)).
@@ -80,7 +80,7 @@ would:
 |---|---|---|
 | `MUSIC.1`: `MUSI9038`, `MUSI2507`; `MUSIC.2`: `MUSI9020`, `MUSI9055`, `LOSE1`, `MUSI1502` | Stored with a few bits wrong (their CRCs don't match) | Played as they are, a warning in the console |
 | Disc 1's `STELLAR.DAT`: `SOUND/VOICES/COMP0213`, `COMP0152` | Damaged; disc 2's copy is whole | Import Game copies disc 2's |
-| `GALORN1.DAT`: `galorn1/sounds/troi0083.wav` | Damaged, in the install and on disc 2 alike | That line of Troi's is silent |
+| `GALORN1.DAT`: `galorn1/sounds/troi0083.wav` | Damaged, in the install and on disc 2 alike | That line of Troi's is silent; a whole `GALORN1.DAT` (in the install or on a CD) is the one Import Game copies |
 
 The install also holds folders of files someone took out of the archives
 (`DATA/amargos1/`, `COMMON/` and others, 194 pictures); the game doesn't

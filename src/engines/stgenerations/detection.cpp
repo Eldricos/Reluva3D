@@ -192,6 +192,48 @@ std::vector<DetectedGame> detectInstall(const std::string& engineId, const std::
     return {};
 }
 
+namespace {
+
+// `planned` copies `candidate` instead when the two differ (a disc read
+// badly when it was copied, say) and `candidate`, an archive, is the more
+// nearly whole of the two; where it's copied to stays as it was.
+void preferWhole(ImportPlan::File& planned, const std::filesystem::path& candidate) {
+    if (!text::hasSuffixIgnoreCase(planned.to, ".dat") || sameFile(planned.from, candidate))
+        return;
+    const int now = damagedMembers(planned.from), other = damagedMembers(candidate);
+    if (other >= 0 && (now < 0 || other < now)) {
+        planned.from = candidate;
+        planned.size = sizeOf(candidate);
+    }
+}
+
+ImportPlan::File* plannedFile(ImportPlan& plan, const std::string& to) {
+    for (ImportPlan::File& f : plan.files)
+        if (text::equalsIgnoreCase(f.to, to))
+            return &f;
+    return nullptr;
+}
+
+// The GENS folders of the CDs already in the plan, found from the files
+// planned from them.
+std::vector<std::filesystem::path> plannedCds(const ImportPlan& plan) {
+    std::vector<std::filesystem::path> out;
+    for (const ImportPlan::File& f : plan.files) {
+        for (const char* folder : {"disc1/GENS/", "disc2/GENS/"}) {
+            const std::string prefix = folder;
+            if (f.to.size() > prefix.size() && text::equalsIgnoreCase(f.to.substr(0, prefix.size()), prefix) &&
+                f.to.find('/', prefix.size()) == std::string::npos) {
+                const std::filesystem::path gens = f.from.parent_path();
+                if (std::find(out.begin(), out.end(), gens) == out.end())
+                    out.push_back(gens);
+            }
+        }
+    }
+    return out;
+}
+
+} // namespace
+
 void addPartToImport(ImportPlan& plan, const GamePart& part) {
     if (part.kind == GamePart::kInstall) {
         for (const std::string& rel : listTree(part.dir)) {
@@ -199,33 +241,46 @@ void addPartToImport(ImportPlan& plan, const GamePart& part) {
                 continue;
             plan.files.push_back({part.dir / rel, rel, sizeOf(part.dir / rel), std::nullopt});
         }
+        // The data files the setup copied in, which the CDs have too: the
+        // whole copy, if the install's isn't.
+        const std::vector<std::filesystem::path> cds = plannedCds(plan);
+        for (const DataFileLocation* f = dataFiles(); f->name; f++) {
+            ImportPlan::File* installed = f->installed ? plannedFile(plan, std::string("DATA/") + f->name) : nullptr;
+            if (!installed)
+                continue;
+            for (const std::filesystem::path& gens : cds)
+                if (const auto file = fs::findFile(gens, f->name))
+                    preferWhole(*installed, *file);
+        }
         return;
     }
     // From a CD, what the setup leaves on it, once.
     const std::filesystem::path gens = *fs::findDirectory(part.dir, "GENS");
     const std::string folder = part.kind == GamePart::kDisc1 ? "disc1/GENS/" : "disc2/GENS/";
     for (const DataFileLocation* f = dataFiles(); f->name; f++) {
-        if (f->installed || (part.kind == GamePart::kDisc1 ? !f->onDisc1 : !f->onDisc2))
+        if (part.kind == GamePart::kDisc1 ? !f->onDisc1 : !f->onDisc2)
             continue;
         const auto file = fs::findFile(gens, f->name);
         if (!file)
             continue;
+        // One the setup copied in: the CD's copy, in the install's place, if
+        // it's whole where the install's isn't.
+        if (f->installed) {
+            if (ImportPlan::File* installed = plannedFile(plan, std::string("DATA/") + f->name))
+                preferWhole(*installed, *file);
+            continue;
+        }
         // Files on both CDs are the same: one copy, from the first CD added.
-        // Unless the copies differ (a CD read badly when it was copied) and
-        // the other CD's archive is the whole one: then that one.
-        auto have = std::find_if(plan.files.begin(), plan.files.end(), [&](const ImportPlan::File& p) {
-            return text::equalsIgnoreCase(p.to, std::string("disc1/GENS/") + f->name) ||
-                   text::equalsIgnoreCase(p.to, std::string("disc2/GENS/") + f->name);
-        });
-        if (have != plan.files.end()) {
-            if (text::hasSuffixIgnoreCase(f->name, ".dat") && !sameFile(have->from, *file)) {
-                const int planned = damagedMembers(have->from), here = damagedMembers(*file);
-                if (here >= 0 && (planned < 0 || here < planned)) {
-                    have->from = *file;
-                    have->to = folder + f->name;
-                    have->size = sizeOf(*file);
-                }
-            }
+        // Unless the copies differ and the other CD's archive is the whole
+        // one: then that one.
+        ImportPlan::File* have = plannedFile(plan, std::string("disc1/GENS/") + f->name);
+        if (!have)
+            have = plannedFile(plan, std::string("disc2/GENS/") + f->name);
+        if (have) {
+            const std::filesystem::path before = have->from;
+            preferWhole(*have, *file);
+            if (have->from != before)
+                have->to = folder + f->name;
             continue;
         }
         plan.files.push_back({*file, folder + f->name, sizeOf(*file), std::nullopt});

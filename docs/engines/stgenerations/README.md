@@ -55,8 +55,10 @@ Wine), or use an install made before.
   library (the CDs' files in `disc1/` and `disc2/`). Pick a folder holding
   the install and both CDs (or copies of them) side by side, and all three
   are found at once; or start from any one of them and add the rest with
-  **Add CD or installed game...**. Where the two CDs' copies of a file
-  differ (one read badly when it was copied), the whole one is copied.
+  **Add CD or installed game...**. Where copies of an archive differ (one
+  read badly when it was copied), the whole one is copied: between the two
+  CDs, and between the install and a CD for the archives the setup copied
+  in (it still goes in the install's `DATA/`).
 - **Add Game...** on the install alone works too, but without the CDs
   there's no story to play: the launcher says so. The CDs can then be given
   in `reluva.ini` (`cd1=` and `cd2=`, below).

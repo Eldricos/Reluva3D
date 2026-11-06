@@ -214,6 +214,41 @@ static void import_takes_the_whole_copy() {
     CHECK(!found.empty() && plans(found[0], "disc1/GENS/STELLAR.DAT") && !plans(found[0], "disc2/GENS/STELLAR.DAT"));
 }
 
+// A file the setup copied in, damaged in the install but whole on its CD
+// (GALORN1.DAT is on disc 2): the CD's copy goes where the install's would,
+// whichever is added first.
+static void import_takes_the_whole_installed_file() {
+    std::vector<uint8_t> good = test::buildZip({{"galorn1/troi0083.wav", test::toBytes("Counsellor Troi"), {}}});
+    std::vector<uint8_t> bad = good;
+    bad[30 + 20 + 3] ^= 0x10; // a bit of the file's data: its CRC no longer matches
+    for (bool installFirst : {true, false}) {
+        stgtest::TempDir t;
+        writeInstall(t, "install/");
+        writeDisc(t, "cd1/", 1);
+        writeDisc(t, "cd2/", 2);
+        t.writeFile("install/DATA/GALORN1.DAT", bad);
+        t.writeFile("cd2/GENS/GALORN1.DAT", good);
+        const MetaEngine* engine = findEngine("stgenerations");
+        std::vector<ImportPlan> found = engine->planImport(t.path() / (installFirst ? "install" : "cd2"));
+        CHECK_EQUAL(found.size(), size_t(1));
+        if (found.empty())
+            continue;
+        ImportPlan plan = found[0];
+        std::string message;
+        CHECK(engine->addToImport(plan, t.path() / (installFirst ? "cd2" : "install"), message));
+        const auto it = std::find_if(plan.files.begin(), plan.files.end(),
+                                     [](const ImportPlan::File& f) { return f.to == "DATA/GALORN1.DAT"; });
+        CHECK(it != plan.files.end() && it->from.parent_path().parent_path().filename() == "cd2");
+        CHECK(!plans(plan, "disc2/GENS/GALORN1.DAT")); // only in the install's place
+        // Whole in both: the install's, as before.
+        t.writeFile("install/DATA/GALORN1.DAT", good);
+        found = engine->planImport(t.path());
+        const auto again = std::find_if(found[0].files.begin(), found[0].files.end(),
+                                        [](const ImportPlan::File& f) { return f.to == "DATA/GALORN1.DAT"; });
+        CHECK(again != found[0].files.end() && again->from.parent_path().parent_path().filename() == "install");
+    }
+}
+
 // The CDs' folders given (STG-Engine's --cd1 and --cd2, the cd1 and cd2
 // settings here): searched as an import's are, the installed files first.
 static void cd_folders_given() {
@@ -238,5 +273,6 @@ static const reluva::test::Suite suite("stgenerations.unit.detection", {
     {"import with both cds", [](const std::filesystem::path&) { import_with_both_cds(); }},
     {"import piece by piece", [](const std::filesystem::path&) { import_piece_by_piece(); }},
     {"import takes the whole copy", [](const std::filesystem::path&) { import_takes_the_whole_copy(); }},
+    {"import takes the whole installed file", [](const std::filesystem::path&) { import_takes_the_whole_installed_file(); }},
     {"cd folders given", [](const std::filesystem::path&) { cd_folders_given(); }},
 });
