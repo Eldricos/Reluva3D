@@ -451,8 +451,26 @@ times as m:ss), against the Tracks page and frames from `nfs-host`:
   old 3 % shorter view) fits worse here, on Hometown's town by day and
   at night.
 
-Not checked against the game:
-
-- **Units.** The track's coordinates are taken to be the units of the
-  game's depth w, as the horizon radius and the cloud tiles are; the
-  sun's and the road's directions agreeing supports it.
+- **Units** (November 2026, from the code and a run). The track's
+  coordinates are the units of the game's depth w, as the horizon
+  radius is. The track's blocks go to the screen through `0x41a970`
+  (from the block pass `0x41cdc0`), which calls `0x4bf4c0` with the
+  block's vertices as stored, the view's rows (+0x44) and its offset
+  (+0x38): (x', y', w) = v × rows + offset, then x = `0x5600a4` +
+  `0x56009c` × x' / w, y likewise, and 1/w goes into the vertex at +12,
+  THRASH's rhw. Nothing is scaled on the way: the projection's scales
+  are only in the screen x and y. The rows and offset are set each
+  frame by `0x422850` (from `0x4bc470` → `0x421450` → `0x421380` →
+  `0x4228e0`): the rows are the camera's orientation (+0x14, copied
+  from the camera's +0x2C, or the car's +0xC0 for the mirror) transposed
+  (`0x4e0110`), and the offset is −position × rows. So w is
+  (v − camera) · forward. The sky's rows (`0x479370`) use the same rows
+  on points taken relative to the camera. That the orientation has no
+  scale was checked in `nfs-host` (`e3-cam`, Hometown, `-watch
+  0x41a970` with the view's +0x38 to +0x64 read, 400 calls at 41.0-42.2
+  s): every row and column has length 1 to within 0.05 %, and they are
+  square to each other within 0.0005. In a recorded frame of Hometown
+  (`d5-fog`, `-gpudump`) the horizon picture's row, 1500 away, has rhw
+  0.000667-0.000680: w 1470-1499, the radius (less where the camera's
+  pitch tips the row's top towards it). A world unit is thus a unit of
+  w for the scenery, the sky and the fog alike.

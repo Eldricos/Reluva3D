@@ -1559,16 +1559,17 @@ README.md.
   look could name it ([col.md](../formats/nfs/col.md)).
 - How a real Pro Logic decoder of the time (with its surround delay
   and 7 kHz low-pass) would place the voices behind; only the matrix's
-  sums are measured. The moving objects' specials play in runs
-  (Summit's −3, Aquatica's −2), but no moving object's sound stands out
-  of the engines, in the recordings or in footage of the original; the
-  fades (Empire City) and Redrock's −2 row weren't run
-  ([bnk.md](../formats/nfs/bnk.md), The moving objects' sounds).
-  Hometown's loop and Summit's −3 row have no sound at night or in the
-  wet (their banks lack sounds 31 and 0); what the game does then
-  wasn't followed. The music's place bonus for 2nd and 3rd, its
-  one-racer tables and 8-lap races weren't run, nor what picks a
-  track's rock or tech stream ([mus.md](../formats/nfs/mus.md)). The MMX
+  sums are measured. The moving objects' sounds and their fades are
+  heard in recordings with the engines and music muted, each against a
+  twin run without that sound (`e3-ec-fade`, `e3-rr-m2`); with the
+  engines on, only Redrock's sound 8 wasn't measured against a twin
+  ([bnk.md](../formats/nfs/bnk.md), The moving objects' sounds). By
+  night or in the wet Hometown skips its objects' sounds (`0x41bc20`)
+  and Summit plays into an empty voice. The music's rules (place bonus,
+  one-racer tables, 8 laps, the rock or tech stream and a chosen tune,
+  the zone pairs that count a lap) are checked in runs
+  ([mus.md](../formats/nfs/mus.md), [tracks.md](../formats/nfs/tracks.md));
+  only Hometown's lap pair was run backward. The MMX
   mixer's 8-bit routines run only in `nfs-mmx-check`: no retail sound
   is 8-bit ([bnk.md](../formats/nfs/bnk.md)).
 - The car handling in full: the tyre model, steering and gear changes,

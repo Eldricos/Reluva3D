@@ -683,7 +683,13 @@ from the banks). What the game does about it (November 2026):
   `0x410e30`, is 0 on track 0 with night or weather on (`g_night`,
   `g_weather`), so the objects aren't looked at. In `sq-hn` (Hometown
   by night, 115 s, the car driven by the computer) `0x4113d7` was
-  never reached.
+  never reached. In the wet the same (November 2026, `e3-hw` against
+  `e3-hd`, Hometown, 100 s, the weather flag `0x6fd4cc` poked to 1 at
+  `0x474ca0` or left at 0, `-count`): `0x410e30` ran 1,892 times in
+  both, but the objects' loop (`0x410ec5`) ran 3,784 times dry and
+  never wet, and the play (`0x4113d7`) 876 times dry and never wet.
+  It is the only track the game spares this way: `0x41bc20` names no
+  other.
 - **Summit** plays anyway, and gets nothing. Its night and wet banks
   have 7 slots, slot 0 empty, so `iSNDplaytaggedpatch` (`0x501de8`)
   is given no patch and returns −8. A sound number past the bank's
@@ -695,7 +701,15 @@ from the banks). What the game does about it (November 2026):
   in its place. In `sq-sn` (Summit by night, 262 s) slot 21 played
   sound 0 from 233.1 s, 300 updates, its voice −8 throughout, and the
   −3 row started sound 0 on slot 19 at ticks 4992, 5632, 5760 and
-  5888 (multiples of 128), each giving voice −8.
+  5888 (multiples of 128), each giving voice −8. In the wet the same
+  (`e3-sw`, November 2026: Summit with `0x6fd4cc` poked to 1, the car
+  held at road point 1127, by object 0, for steps 700-1100, `-watch`
+  at `0x4113d7` and `0x4112d7` with the slot table read): slot 21 asked
+  for sound 0 375 times from 51.9 s, at volume 102 to 113, its voice
+  (`0x570e90`) −8 from the first step; the −3 row started sound 0 on
+  slot 19 six times, at ticks 768, 896, ... 1408 (every 128), its voice
+  (`0x570e80`) −8 as well. So by night or in the wet Summit's objects
+  are worked out and played every step, and are silent.
 
 **Checked in runs** (November 2026). In these runs the computer drove
 the player's car, so it went round the whole track: the car's task
@@ -810,6 +824,39 @@ in every race. Worked out from the `.col` keys and road points (block
   and stopped at 4256 (L − 120; `0x4113de`). Each time the mixer's call
   count fell by about a quarter when the sound stopped (95 to 66 at
   81.1 s, 93 to 71 at 107.3 s, in `-voices`).
+
+**Heard in recordings** (November 2026). The two placed runs again
+with `-wav` (22,050 Hz stereo, timed as the run's ms), the music and
+engines muted (`0x6fbbf0`, `0x6fbbf8` poked to 0 at `0x474ca0`), each
+against a twin run where only the moving objects' sound is taken
+away: in `e3-ec-bg` objects 2 and 4 ask for sound 31 (row +4 poked,
+`0x552692`, `0x5526b6`), which `tram08` lacks, so they go through the
+same code with voice −8; in `e3-rr-bg` Redrock's row 1 has +14 poked
+from −2 to −31 (`0x552642`), so it is no longer special and sound 8
+never starts. The plays logged are the same as in the `r2` runs, a
+few ms apart. The level (RMS of 16-bit samples, by 0.5 or 0.25 s):
+- **Empire City** (`e3-ec-fade` against `e3-ec-bg`). Object 4's sound
+  3 is most of the race's sound while it holds (76.5-78.0 s: 2,109
+  against 934, 3,001 against 283, 3,059 against 577); from 78.5 s other
+  sounds as loud are in both runs, and what sound 3 adds falls with its
+  fade: about 1,940 at 78.5 s (volume 76), 1,290 at 79.0 (63), 1,200 at
+  79.5 (47), 690 at 80.0 (31), nothing left above them by 80.5 (in
+  amplitude, √(a² − b²), roughly in proportion to the volume). Object
+  2's sound 6 is most of it from 103.5 s: 2,066 against 358 at 104.0
+  s, 2,709 against 511 at 106.0, then the fade (from 106.4 s, volume
+  112 to 1 at 107.35 s): 1,655 against 129 at 106.5, 863 against 0 at
+  107.0, 163 at 107.5, silence from 108.0 s in both. So both fades are
+  heard, as a fall to nothing over about a second.
+- **Redrock Ridge** (`e3-rr-m2` against `e3-rr-bg`). Sound 8, from
+  90.84 s and 108.85 s on slot 19 over sounds 7 and 6 (slots 20 and
+  21, volumes 121-123): 7,913 against 6,888 at 91.0 s, 9,461 against
+  6,778 at 91.25, 10,343 against 8,371 at 91.75, 9,116 against 6,877 at
+  92.5, the same in both from 93.25 s (its 2.34 s run out); and 9,568
+  against 6,799 at 109.25 s to 9,879 against 7,907 at 110.5 s, the
+  same from 111.0 s. So the −2 row's sound raises the level by 2-3 dB
+  over its length, as loud as the two loops together (about 6,600 of
+  its own). With the engines and music on it wasn't measured against a
+  twin; the correlation of `sq-rr2` (above) didn't find it then.
 
 ## Seen in footage (November 2026)
 
