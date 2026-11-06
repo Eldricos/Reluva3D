@@ -172,6 +172,22 @@ struct RainFlare {
 };
 RainFlare rainFlare(const std::array<float, 3>& light, const std::array<float, 3>& camera,
                     const std::array<float, 3>& facing, float size, uint32_t glowColour);
+// A car's shadow (0x4b81a0, drawn with each car at every detail): the
+// four bottom corners of its box (0x4b7f80: -+half width, -half height,
+// +-half length turned into the track, front left, front right, back
+// right, back left), each put on the road (the height 0x4968a0 gives on
+// the car's road frame; trackpos_build's road instead when it is up to
+// 0.25 above that). By day out of the weather and the mirror (`cast`)
+// each corner is pushed along its two edges (to the corners before and
+// after it, 0x4b7a30's table) away from the light: e the unit edge from
+// the neighbour to the corner, the corner moved by e x -(e . L) x the
+// car's half height when e . L < 0. Then each is raised 0.125 (0x53ffc0).
+// Drawn with sfx.fsh's shad (0x8b4898) in 0x6FFFFFFF, blended by source
+// alpha over the road, its corners texel centre to texel centre.
+std::array<std::array<float, 3>, 4> carShadowQuad(const std::array<std::array<float, 3>, 4>& onRoad,
+                                                  const std::array<float, 3>& light, float halfHeight, bool cast);
+constexpr uint32_t kCarShadowColour = 0x6fffffffu;
+
 // A headlight's beam in the fog (0x492980, for each H dummy while the fog
 // is over 30 %): a cone of glw1 of sfx.fsh from a ring of radius 0.1 at
 // the lamp, in the colour, to one of 0.75 six units ahead along the car's

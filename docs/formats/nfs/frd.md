@@ -902,12 +902,50 @@ the dump, taken at the sky draw before the frame's poke; from the raw
 dump they were 6 pixels higher), their mean 93, 24, 32 against 92, 22,
 27; the box of the F355's back 57, 41, 49 against 52, 39, 45, the
 Diablo's 61, 57, 68 against 54, 56, 68. The reflection's colours were
-already the list's (`7e63637e`, `88626288`, `845f5f84`). Not drawn by
-the page: **the car's shadow** (`0x4b81a0`): a quad under the car's box
-on the road (`0x4b7f80`, `0x4968a0`), raised by `0x53ffc0`, black with
-alpha 0x6F (the list's `6fffffff` on a black 32 × 32 picture, `0x8b4898`),
-cast along the horizon's light direction by day only (flat under the car
-by night, in the weather or in the mirror).
+already the list's (`7e63637e`, `88626288`, `845f5f84`).
+
+**The car's shadow** (`0x4b81a0`, November 2026; `carShadowQuad`,
+`drawShadows`). Each car's drawing at every detail calls it
+(`0x4baa50`, `0x4bab70`, `0x4bae00`, `0x4bb110`, `0x4bb200`); it does
+nothing for a car off the ground (+0x184 not 0) or without a road
+contact (+0x20 0). Read from the code:
+- `0x4b7f80` takes the box's four bottom corners, (∓ +0x114, −+0x118,
+  ± +0x11C) in the order front left, front right, back right, back
+  left, into the track by the car's rows (+0xC0) and place (+0x98), and
+  puts each on the road: the height `0x4968a0` gives on the car's road
+  frame (+0x124), or the road `trackpos_build` finds there when that is
+  up to 0.25 (`0x4000` in 16.16) above it.
+- By day, out of the weather and out of the mirror (view 1), each
+  corner is pushed along its two edges, to the corners before and after
+  it (`0x4b7a30`: 3 and 1, 0 and 2, 1 and 3, 2 and 0): e the unit
+  vector from the neighbour to the corner (`0x4e0000`, `0x4e01c0`), the
+  corner moved by e × −(e · L) × +0x118 when e · L < 0 (`0x4e0210`,
+  `0x4e0050`, `0x4dffb0`), L the horizon's light direction (`0x55d2a8`,
+  fce.md, Lighting): the shadow stretched away from the light by the
+  car's half height. By night, in the weather or the mirror it lies flat
+  under the box.
+- All four raised 0.125 (`0x53ffc0`), projected, and sent as one quad
+  (`0x4bbe90`, sorted by the car's depth, `0x4bc0b0`) with the picture
+  `0x8b4898`, which `0x4d5370` loads from `sfx.fsh`'s `shad` (32 × 32,
+  32-bit: colour 5, 8, 23 and an alpha of 0xFF inside a soft edge of
+  0x00-0xE4), each corner's colour 0x6FFFFFFF; a quad whose screen
+  winding is the wrong way (seen from below; reversed for a car on its
+  roof, +0xD0 < 0) is not sent.
+
+In a race's THRASH list (`d8-day1`: Hometown by day, the player and two
+cars held as `d7-night1`'s, `-gpudump 2700`) each car's shadow is a
+batch of two triangles of texture `shad`, blend on in mode 0 (source
+alpha, inverse source alpha), the corners `6fffffff` with u, v from 1/64
+to 63/64 in the corner order above. The page now draws it so, over the
+road and its markings without writing the depth; its corners put
+through the game's camera (`d8-runs/proj.py`) land within 0.2 pixels of
+the list's for both cars (the F355's (206.2, 284.0), (267.7, 283.5),
+(237.4, 297.0), (147.6, 297.5) against (206.2, 284.0), (267.7, 283.5),
+(237.4, 297.1), (147.6, 297.7)), cast to the left and back as the
+game's. By night (`d7-night1`'s list) the flat quads' x match to 0.1
+pixel and their y are 1.4 pixels off, as that run's cars are
+(above). The page's cars never leave the ground, and the page has no
+mirror view.
 
 **The police car's driving** (`aiCopStep`, November 2026). The page's
 police car drives as a computer cop (`car_driver_cop`, `0x4032e0`;
@@ -1020,6 +1058,38 @@ has them:
     (`0x492370`) in 0xFFFF0000, size −d × 0.1 (`0x5400f8`), at his nearest
     depth (the least view depth `0x49d5c0` returns).
   The page now does all three.
+  - **Checked on screen** (November 2026, `d8-runs`). `draw_cars`
+    (`0x4bbba0`) calls `draw_officer` for each car drawn (+0x8B4, its
+    detail, not −1) with +0x8E4 and +0x8E8 both set, whoever set them;
+    a dump's car records hold him (+0x8E4-+0x918), and the page now
+    draws a dump's officer where it has him (`DumpedCar::officer`).
+    - Hometown by day, a stop by keys alone (`d8-stop`: `r1-ram4`'s
+      keys, the player's cop ramming racer 1, H at 64.4 s; Hot Pursuit
+      and car 12 poked at `0x474ca0`): the officer at (742.79, 22.14,
+      −266.21) from 65.07 s; the dump at the 545th sky draw (65.82 s,
+      frame 2741) and that frame's THRASH list (`d8-stopg`). His
+      triangles' colours are the racer's: base `ff55556d`, from
+      0xFFFFFFDB, the page's colour for both to the bit; the frame and
+      the page agree on his place, pose and size (his body's mean
+      39, 39, 43 in the game, 40, 40, 50 on the page). The page's
+      camera is the dump's (the scene's fixed one by the racer).
+    - Track 8 by day and night (`d8-t8g0`, `d8-t8g1`, Hot Pursuit with
+      the player a racer; racer 1 held 18 m ahead with `facepoke.py` and
+      an officer poked beside it, +0x8E4 = +0x8E8 = 1, +0x910 2 m to
+      its left, +0x8EC facing the camera, from the 300th sky draw;
+      dumps at the 400th, lists 2818, frames 2816): the list's red
+      light is a `glw3` quad in `ffff0000` (blend mode 1), 3 pixels
+      across at (427.5-430.4, 229.6-232.6), depth 18.7, by day and by
+      night; on the page it falls on the same pixels (red at most 123 by
+      day and 98 by night in the game's frames, 99 on the page's by
+      night). By day the officer's base is `ff553a39` in the list and
+      on the page. By night the list has `ff2d2939` (0x877B72: the
+      road's 0x261A11 plus 97 from the player's headlights, the only
+      light reaching him, `0x4b97b0` dividing by the lights that
+      reach); the page gave 0x7C7067 with its projected headlights on,
+      and exactly 0x877B72 with them off (Shift+E), as `nfs-host`'s
+      `config.dat` has them, so for a comparison the page is to be set
+      so. Nothing on the officer or the red light differs.
 - **Orders** (+0x7AC, `cop_ai_order` `0x403830`, taken by
   `cop_ai_order_start` `0x403030` once, and again in patrol at each call
   without a target): kind 0, to the roadside: facing the order's first
@@ -1162,7 +1232,7 @@ them along the slices at the speed that leaves:
   are up (`0x40deb0`: high beams back to low, low back to off); then,
   with a car ahead in its lane within 2 slices (`0x56ef3c`, `0x56ef48`
   from `0x40cfc0`) and the speed wanted more than 8.94 m/s
-  (`0x536194`) over its speed, past the race's start (`0x40f050`), the
+  (`0x536194`) over its speed, past the race's start (`0x40f050`, below), the
   lights go a step up for 64 steps (`0x40de50`: off to low, low to high,
   high to off). With a human ahead it also sounds its horn
   (`0x411750`). In practice a car flashes when it is held up behind a
@@ -1195,7 +1265,8 @@ them along the slices at the speed that leaves:
   (`0x4097c0`); 11, the best line: the speed table's lane nibble 4 slices
   ahead, worth 6 for a driver of skill 0, else 10, or 12 with personality
   over 2 (`ai_lane_vote_line`, `0x4096b0`; not for a car running the
-  other way). Halved for a car only partly in that lane. 5, the spike
+  other way). Halved for a car only partly in that lane. Rows 9-12 and
+  the flashing only past the race's start (below). 5, the spike
   strips (`0x40d720`, November 2026): eight 0x50-byte records at
   `0x7dd850`, one per cop (in use when the first word isn't 0; a slice
   at +0x34, a lane at +0x38), are the strips `spike_lay` (`0x4c9dd0`)
@@ -1214,6 +1285,26 @@ them along the slices at the speed that leaves:
     (`0x56ef50`, a flag at `0x56ef6e`) is a human's (+0x200 bit 4)
     within 10 slices: it blocks a human. The page's camera is no racer,
     so this never applies there.
+- **The race's start** (`0x40f050`, November 2026; `aiAtRaceStart`).
+  The flashing (`0x404840`), the human behind (`0x4095d0`), the empty
+  lanes and near cars (`0x4097c0`) and the best line
+  (`ai_lane_vote_line`) each call `0x40f050(car, 0)` first (`xor edx,
+  edx` before the calls at `0x404920`, `0x4095fb`, `0x4096cb`,
+  `0x4097c8`) and do nothing while it returns 1: while the car's race
+  distance (+8, slices with the laps) plus 14 × its place (+0x1FC, 0 the
+  leader) is at most 400 with five or more racers (`0x5efd94`), 200 with
+  two to four, 50 with one, each 26 less on a backward track; the
+  grudge after a crash (`0x404a00`, from `car_impacts_task`) asks with
+  100 more. With eight racers that is the first 302 to 400 slices: in
+  `t6-log` (Hometown, eight racers, the dumps' +8 1-205 and +0x1FC 0-7)
+  the whole of the window. The page had applied them from the start.
+  **Checked** (`d8-votes`, November 2026: `t6-log`'s run again, with
+  `-watch 0x40daf0` and the votes `0x56ee90` (14 rows × 3), the nearest
+  cars `0x56ef38`, the pick `0x56ef74` and the car's +0, +0x1C,
+  +0x638-+0x640, +0x7B0-+0x7B8, +0x7C4 read at each `lane_target_offset`,
+  `d8-runs/votes.py`): in 2,542 decisions from 41 to 86 s rows 9, 10, 11
+  and 12 are never other than 0; rows 0, 1, 2, 3, 4, 7 and 8 are (2,542,
+  289, 74, 1,685, 229, 1,571, 719 times).
 - **The aim** (`0x40daf0`): the chosen lane's middle, (L − 7 + ½) right
   lanes' widths or (6 − L + ½) left ones'; for the lane just past the
   road's lanes, the car's half width past the edge; within the walls
@@ -1366,7 +1457,29 @@ per car, 140 in all (the game's 17-23, 143; with the cut 13-18, 110), and
 the aim is past 8 m in 4-20 samples per car, 66 (the game's 10-41, 162;
 with the cut 122): the lanes are changed as often, but the cars sit in
 lane 8 less. Mean speeds 36.3-37.8 m/s (the game's 34.8-38.3), braking
-in one sample for four cars. **The roadside cop** (`d7-runs/sim/park`,
+in one sample for four cars, flashing 1-2 times for three cars (none in
+the game). **With the race's start** (above; `d8-runs/sim/aisim`
+giving each car the dump's +8, +0x1FC and the eight racers, its +8
+counting the slices it passes): +0x638 changes in 10-21 samples per
+car, 120 in all (cars 1-7: 14, 20, 10, 18, 18, 21, 19; the game's 17,
+23, 23, 19, 21, 21, 19), the aim past 8 m in 8-47, 189 (47, 31, 14, 8,
+31, 13, 45; the game's 30, 10, 31, 25, 15, 10, 41), mean speeds 35.9-37.8
+m/s, braking in one sample for four cars, no flashing, as the game's.
+Without the best line's +10 and the empty lanes' +5 a car keeps right
+(row 0) until the edge's −30 + 22 holds it in lane 8, as the game's.
+Over the 1,568 decisions of the window the votes' rows now agree with
+the game's 1,570 (`d8-runs/sim/cmpvotes.py`): row 3 in 81 % of them (the
+game's 77 %), row 7 in 48 % (59 %), row 8 in 17 % (27 %), row 1 in 26 %
+(14 %); the pick left of the car's lane 747 times (707), its own 688
+(716), right 133 (147); the lanes 5-10 at the decisions 43, 126, 268,
+769, 345, 17 (the game's 45, 141, 320, 813, 251, 0). The rest is how
+the cars meet: the game's car 3 overtakes on the left lanes at slices
+94-107 (+0x7B8 to −11.7), the page's stays right, and the lane changes
+counted are mostly +0x638 flipping at a lane's middle (4 and 12 m are
+lane boundaries), which the page's cars sit on a little less often. The
+replay of `d7-watch2` is unchanged (0.62 m rms; the controllers rails
+1,109, slow 59, slide 140), and the roadside cop (`park`, 120 stops)
+still never parks past a wall. **The roadside cop** (`d7-runs/sim/park`,
 the police car ordered to lay a strip from every 8th slice of Hometown,
 120 stops): with the spring and the cut it parked past a wall 81 times,
 by up to 5 m (it was pulled on to lane 5 − L's aim at the wall less its

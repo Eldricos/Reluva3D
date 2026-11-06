@@ -1346,7 +1346,9 @@ void aiDrive(std::vector<AiCar>& cars, size_t self, const TrackCollision& col, c
         else if (me.beams == 2)
             me.beams = 1;
     }
-    if (!cop && carAhead[1] && aheadBy[1] < 2 && me.speed + 8.9406f < me.wanted && !me.flashing) {
+    // Racers past the race's start only (0x40f050), as rows 9-12 below.
+    const bool atStart = !cop && aiAtRaceStart(me.distance, me.place, me.racers);
+    if (!cop && !atStart && carAhead[1] && aheadBy[1] < 2 && me.speed + 8.9406f < me.wanted && !me.flashing) {
         me.flashing = true;
         me.flashUntil = step + 64;
         me.beams = me.beams == 0 ? 1 : me.beams > 1 ? 0 : 2;
@@ -1381,7 +1383,7 @@ void aiDrive(std::vector<AiCar>& cars, size_t self, const TrackCollision& col, c
             }
         }
     // 0x4097c0: for empty lanes, against lanes with a car within 3.
-    for (int c = 0; c < 3 && !cop; ++c) {
+    for (int c = 0; c < 3 && !cop && !atStart; ++c) {
         if (!carAhead[size_t(c)])
             vote(9, c, 5);
         else if (aheadBy[size_t(c)] < 3) {
@@ -1393,7 +1395,7 @@ void aiDrive(std::vector<AiCar>& cars, size_t self, const TrackCollision& col, c
     }
     // ai_lane_vote_line (0x4096b0): the best line's lane 4 slices on, for
     // a car running the race's way.
-    if (!cop && me.way > 0) {
+    if (!cop && !atStart && me.way > 0) {
         const int line = aiLineLane(speeds, ahead(4), n);
         if (line != 0) {
             const int weight = me.driver.skill == 0 ? 6 : me.driver.personality < 3 ? 10 : 12;
@@ -1603,6 +1605,13 @@ void aiStep(std::vector<AiCar>& cars, size_t self, const TrackCollision& col, co
             aiDrive(cars, self, col, speeds, data, step, track, weather, nullptr);
     }
     aiMove(me, data, weather, step, col);
+}
+
+bool aiAtRaceStart(int distance, int place, int racers, bool backward, int extra) {
+    int start = racers < 2 ? 50 : racers < 5 ? 200 : 400;
+    if (backward)
+        start -= 26;
+    return start + extra >= place * 14 + distance;
 }
 
 bool aiDriverActs(const AiCar& car, int step) {
@@ -2468,7 +2477,12 @@ std::vector<DumpedCar> parseCarDump(const std::vector<uint8_t>& bytes) {
             c.right[size_t(k)] = f32(base + 0xc0 + 4 * size_t(k));
             c.up[size_t(k)] = f32(base + 0xcc + 4 * size_t(k));
             c.forward[size_t(k)] = f32(base + 0xd8 + 4 * size_t(k));
+            c.officerRight[size_t(k)] = f32(base + 0x8ec + 4 * size_t(k));
+            c.officerUp[size_t(k)] = f32(base + 0x8f8 + 4 * size_t(k));
+            c.officerForward[size_t(k)] = f32(base + 0x904 + 4 * size_t(k));
+            c.officerAt[size_t(k)] = f32(base + 0x910 + 4 * size_t(k));
         }
+        c.officer = u32(base + 0x8e4) != 0 && u32(base + 0x8e8) != 0;
         out.push_back(c);
     }
     return out;

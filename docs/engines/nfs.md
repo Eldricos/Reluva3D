@@ -332,7 +332,9 @@ What was built, with each format written up in `docs/formats/nfs/`:
     camera's car the race's human), the acceleration table
     and brakes from each car's `carp.txt`, the lane votes and lane
     changes, keeping behind a slower car in the lane and flashing their
-    lights when held up (Shift+J stops them), their drivers acting every
+    lights when held up (Shift+J stops them; the page's cars are taken
+    as past the race's start, where the flashing, the best line's and the
+    empty lanes' votes begin), their drivers acting every
     8 steps and their model at 32 Hz as the game's, their lanes taken at
     the side offset as the game measures it (so a car at a lane's middle
     weaves between the two lanes as the game's do), moved across by the
@@ -357,7 +359,8 @@ What was built, with each format written up in `docs/formats/nfs/`:
     `RELUVA_NFS_TRACK_CARS=<dump>` places
     them as a dump of `nfs-host`'s car records has them (the human's car
     left out unless `RELUVA_NFS_TRACK_CARS_HUMAN` is set, but its
-    headlights, the camera's car's, where the dump has it),
+    headlights, the camera's car's, where the dump has it; an officer on
+    foot the dump has beside a car, +0x8E4, is drawn where it puts him),
     `RELUVA_NFS_TRACK_CARS_SETUP=<dump>` (the race's set-up records at
     `0x6fd52c`) gives each its own model by its key, in its paint, and
     `RELUVA_NFS_TRACK_STEP=<step>` holds the moving objects at that
@@ -370,7 +373,10 @@ What was built, with each format written up in `docs/formats/nfs/`:
     and roof-light glows (fogged as the scenery, point-sampled) at the game's depths (the body's nearest point,
     a roof light's own less 0.75; the tail lights brighter while braking, more
     than 5 m/s too fast, at bends), in the weather each glow's flare on a
-    wet road, on the road's plane as the game puts it, and in fog over 30 % each headlight's beam, and they light
+    wet road, on the road's plane as the game puts it, and in fog over 30 % each headlight's beam, each car's
+    shadow under it (`0x4b81a0`: `shad` of `sfx.fsh` in 0x6FFFFFFF on the
+    road under its box, cast away from the light by day out of the
+    weather), and they light
     the track by night after the camera's car, the roof light too
     ([frd.md](../formats/nfs/frd.md), Other cars' lights, The computer
     cars; [fce.md](../formats/nfs/fce.md), Lighting);
