@@ -47,7 +47,12 @@ public:
 
     // `cpu`'s memory, all of it the process's; `exeName` is the program
     // the DLLs are told loaded them (its command line and module name).
-    explicit Win32Process(Cpu& cpu, std::string exeName = "host.exe");
+    // `loadsExe`: an EXE will be loaded (which can't be relocated), so the
+    // stack is kept out of where EXEs ask to go, 0x400000 and the few
+    // megabytes after it; otherwise the memory is laid out as before that
+    // was asked for, which the engine tests' records depend on (the
+    // addresses things are loaded at show in their output).
+    explicit Win32Process(Cpu& cpu, std::string exeName = "host.exe", bool loadsExe = false);
     Cpu& cpu() { return cpu_; }
     Arena& memory() { return *arena_; }
 

@@ -183,6 +183,12 @@ public:
     // Replaces a mesh's indices (its vertices kept), as a level's visible
     // surfaces change.
     virtual Error setMeshIndices(MeshId id, const std::vector<uint32_t>& indices) = 0;
+    // Replaces a mesh's vertices (its indices kept), as a skinned model
+    // moves each frame; draws after see the new ones, frames before the old.
+    virtual Error setMeshVertices(MeshId id, const std::vector<Vertex>& vertices) {
+        (void)id, (void)vertices;
+        return Error::fail("Vertices can't be replaced");
+    }
     virtual void destroyMesh(MeshId id) = 0;
 
     // The size given to System::init3D: the frame's pixels.
@@ -223,6 +229,11 @@ public:
     enum class StencilMode : uint8_t { None, Mark, Inside, SkyMark, SkyInside };
     virtual bool hasStencil() const = 0;
     virtual void setStencilMode(StencilMode mode) = 0;
+    // A value of the engine's own for Mark to write (where a draw passes
+    // its depth test) and Inside to compare with, whole: the stencil as a
+    // number (AWE's shadows: 1 shadowed, 2 the player, 0 the others),
+    // until the frame ends. Without it, Mark and Inside keep to their bit.
+    virtual void setStencilReference(uint8_t ref) { (void)ref; }
     // A mirrored view: the draws that follow have their faces' winding
     // the other way round, so culling keeps the same faces (until set
     // back, and each frame).
@@ -230,6 +241,13 @@ public:
     // The brightness the finished frame is shown with: each colour raised
     // to 1 / gamma (1: as drawn), as the original's brightness setting.
     virtual void setGamma(float gamma) = 0;
+    // Multisampling (anti-aliasing) for the frames that follow: up to
+    // `samples` samples a pixel, the most of 4, 2 and 1 at or below it
+    // that the device has. Returns the count used (1: none).
+    virtual int setMultisampling(int samples) {
+        (void)samples;
+        return 1;
+    }
     // Presents the frame, with `overlay` (RGBA32, the frame's size, blended
     // by its alpha) on top if given.
     virtual void endFrame(const Surface* overlay) = 0;

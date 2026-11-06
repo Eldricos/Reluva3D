@@ -14,7 +14,8 @@ requirements, building, running and contributing. The rest is here.
 
 - [x86.md](common/x86.md): the x86 interpreter that runs 32-bit Windows game
   code (Elite Force's single-player DLLs), and its Windows stand-ins.
-- [bink.md](common/bink.md): Bink videos.
+- [bink.md](common/bink.md): Bink videos (Elite Force's cinematics, Murder
+  on the Orient Express's movies and video loops).
 - [smacker.md](common/smacker.md): Smacker videos.
 - [cinepak.md](common/cinepak.md): Cinepak videos, in AVI files.
 - [dcl.md](common/dcl.md): PKWARE DCL ("implode") compression.
@@ -33,6 +34,7 @@ interfaces, and any notes on testing and differences from the original.
 | `stharbinger` | Star Trek: Deep Space Nine - Harbinger | [engines/stharbinger/](engines/stharbinger/README.md) |
 | `newworlds` | Star Trek: New Worlds | [engines/newworlds/](engines/newworlds/README.md) |
 | `stgenerations` | Star Trek: Generations | [engines/stgenerations/](engines/stgenerations/README.md) |
+| `awe` | Agatha Christie: Murder on the Orient Express (and, later, AWE's other Agatha Christie games) | [engines/awe/](engines/awe/README.md) |
 | `testbed` | A built-in test pattern, no game | — |
 
 ## Adding docs

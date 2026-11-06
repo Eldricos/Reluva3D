@@ -80,22 +80,34 @@ function(reluva_finish_tests)
     add_test(NAME tests.coverage COMMAND reluva-tests --covered-by ${topics})
 endfunction()
 
-# reluva_add_engine_tools(<engine> SOURCES <file>...)
+# reluva_add_engine_tools(<engine> [WITH_SDL] SOURCES <file>...)
 #   An engine's reluva-tool commands (src/engines/<engine>/tools/), built into
 #   reluva-tool only when the engine is. Each file registers its commands
-#   (src/tools/tool.h). reluva_finish_tool makes the program.
+#   (src/tools/tool.h). WITH_SDL: they open a window of their own, through
+#   the SDL backend (src/backends/sdl3/), which reluva-tool is then built
+#   with. reluva_finish_tool makes the program.
 function(reluva_add_engine_tools name)
-    cmake_parse_arguments(ARG "" "" "SOURCES" ${ARGN})
+    cmake_parse_arguments(ARG "WITH_SDL" "" "SOURCES" ${ARGN})
     foreach(source IN LISTS ARG_SOURCES)
         get_filename_component(source "${source}" ABSOLUTE)
         set_property(GLOBAL APPEND PROPERTY RELUVA_TOOL_SOURCES "${source}")
     endforeach()
+    if(ARG_WITH_SDL)
+        set_property(GLOBAL PROPERTY RELUVA_TOOL_WITH_SDL ON)
+    endif()
 endfunction()
 
 function(reluva_finish_tool)
     get_property(sources GLOBAL PROPERTY RELUVA_TOOL_SOURCES)
+    get_property(with_sdl GLOBAL PROPERTY RELUVA_TOOL_WITH_SDL)
     add_executable(reluva-tool ${ARGN} ${PROJECT_SOURCE_DIR}/src/backends/sockets/socket_net.cpp ${sources})
     target_link_libraries(reluva-tool PRIVATE reluva_engines reluva_warnings)
+    if(with_sdl)
+        target_sources(reluva-tool PRIVATE
+            ${PROJECT_SOURCE_DIR}/src/backends/sdl3/sdl_system.cpp
+            ${PROJECT_SOURCE_DIR}/src/backends/sdl3/sdl_gpu.cpp)
+        target_link_libraries(reluva-tool PRIVATE SDL3::SDL3)
+    endif()
     if(WIN32)
         target_link_libraries(reluva-tool PRIVATE ws2_32 iphlpapi)
     endif()

@@ -138,7 +138,11 @@ void main() {
                                                                       noise4(vec4(p.x + 200.0, p.yz, when))));
         }
     }
-    vec3 world = mode2.x > 0.5 ? pos + eye.xyz : (model * vec4(pos, 1.0)).xyz;
+    // Kept homogeneous to the end: a projective model matrix (a planar
+    // shadow's, D3DXMatrixShadow) gives w other than 1. Everything else
+    // uses the position as it is, w being 1 for any other model matrix.
+    vec4 placed = mode2.x > 0.5 ? vec4(pos + eye.xyz, 1.0) : model * vec4(pos, 1.0);
+    vec3 world = placed.xyz;
     vec3 normal = normalize(mat3(model) * baseNormal);
 
     vec2 uv;
@@ -168,7 +172,7 @@ void main() {
     if (mode.w > 0.0)
         outColor = vec4(color.rgb, clamp(distance(world, eye.xyz) / mode.w, 0.0, 1.0));
     outWorld = world;
-    gl_Position = viewProj * vec4(world, 1.0);
+    gl_Position = viewProj * placed;
     outFog = vec2(0.0);
     if (mode2.z > 0.0) {
         // How deep under the fog's surface the vertex and the eye are;

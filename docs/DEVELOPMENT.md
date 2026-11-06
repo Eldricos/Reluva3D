@@ -107,8 +107,9 @@ Notes for developers. Building and running are covered in the
 Each engine can have two engine tests, besides its unit tests. They test the
 engine as a whole, so a change anywhere (in `src/common/`, say) that alters
 what an engine does is caught, even where no unit test looks. Elite Force
-(`idtech3`) has both, as does Harbinger (`stharbinger`, see
-[its TESTING.md](engines/stharbinger/TESTING.md)).
+(`idtech3`) has both, as do Harbinger (`stharbinger`, see
+[its TESTING.md](engines/stharbinger/TESTING.md)) and Murder on the Orient
+Express (`awe`, `RELUVA_MOTOE`, see [its TESTING.md](engines/awe/TESTING.md)).
 
 ### The basic engine test: no game files
 
@@ -307,6 +308,12 @@ on. Keep it off.
      ```json
      "args": [ "testbed" ]
      ```
+  3. Environment variables (e.g. `RELUVA_PERF=1`, with which the AWE
+     engine writes where each frame's time goes) go in the same entry:
+     `"env": { "RELUVA_PERF": "1" }`. From a terminal, set them before
+     starting `reluva.exe` there: `set RELUVA_PERF=1` in a Command Prompt,
+     `$env:RELUVA_PERF = "1"` in PowerShell (where `set` makes a
+     PowerShell variable the program never sees).
 
 ## Troubleshooting
 

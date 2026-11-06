@@ -18,6 +18,7 @@ Each engine is a module that can run a family of games.
 | `stharbinger` | Star Trek: Deep Space Nine - Harbinger (DOS, two CDs) | Every part of the game runs; being checked against the original | [docs/engines/stharbinger](docs/engines/stharbinger/README.md) |
 | `newworlds` | Star Trek: New Worlds | Data viewer, first missions playable on their maps; off by default | [docs/engines/newworlds](docs/engines/newworlds/README.md) |
 | `stgenerations` | Star Trek: Generations (Windows, two CDs) | Every part of the game runs; a full playthrough to come | [docs/engines/stgenerations](docs/engines/stgenerations/README.md) |
+| `awe` | Agatha Christie: Murder on the Orient Express (English 1.0) | Playable from a new game to the credits; being checked against the original | [docs/engines/awe](docs/engines/awe/README.md) |
 | `testbed` | A test pattern, no game | For checking a system's graphics, sound and input | — |
 
 ## Requirements
@@ -268,10 +269,10 @@ In it:
 src/common/          platform-independent core: the System interface, events, surfaces and 8-bit
                      drawing, palettes, config, case-insensitive file lookup, byte streams,
                      detection, archives (folders, .zip/.pk3) and search sets, PKWARE DCL, images,
-                     text and fonts, logging, the 3D rendering interface (gfx3d.h), installers
+                     text and fonts (built-in and TrueType), logging, the 3D rendering interface (gfx3d.h), installers
                      (Wise), and shared interpreters and decoders
   audio/             sound decoders, streams and the mixer: WAV (PCM, IMA ADPCM), MP3, raw PCM
-  video/             video decoders (Bink, Smacker)
+  video/             video decoders: Bink, Smacker, Cinepak in AVI
   x86/               an x86 interpreter and Windows stand-ins, for games' native code
 src/backends/sdl3/   the only code that touches SDL: window, rendering (2D and 3D, on SDL's GPU
                      API), input, audio
@@ -282,7 +283,8 @@ src/engines/         one folder per engine (its reluva-tool commands in its tool
 src/tools/           reluva-tool, with its commands for any game, and reluva-render-check
 tests/               the tests (reluva-tests) and their data: shared code's in common/, each
                      engine's in engines/<engine>/
-third_party/         outside code built in, each with its licence (minimp3, stb_image)
+third_party/         outside code built in, each with its licence (minimp3, stb_image,
+                     stb_truetype)
 docs/                documentation: shared in docs/common/, each engine's in docs/engines/<engine>/
 ```
 

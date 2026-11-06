@@ -33,6 +33,7 @@
 #include "common/stream.h"
 #include "common/text.h"
 #include "common/video/avi.h"
+#include "common/video/bink.h"
 #include "common/video/cinepak.h"
 #include "common/video/smacker.h"
 #include "common/x86/cpu.h"
@@ -1358,10 +1359,95 @@ static void testAvi() {
           other.videoCodec() == reluva::avi::fourcc("MSVC") && !other.decodeNextFrame() && other.surface().w == 0);
 }
 
+// A Bink file built here: two frames, one audio track of `packets` (each
+// the size it says it decodes to, then its blocks) on the first frame.
+static std::vector<uint8_t> makeBink(uint16_t audioFlags, uint16_t rate, const std::vector<uint8_t>& audio) {
+    std::vector<uint8_t> f;
+    auto u32 = [&](uint32_t v) {
+        for (int i = 0; i < 4; i++)
+            f.push_back(uint8_t(v >> (8 * i)));
+    };
+    auto u16 = [&](uint16_t v) { f.push_back(uint8_t(v)), f.push_back(uint8_t(v >> 8)); };
+    f = {'B', 'I', 'K', 'i'};
+    u32(0), u32(2), u32(100), u32(2), u32(64), u32(32), u32(25), u32(1), u32(0), u32(1);
+    u16(0), u16(2);            // the track's largest decoded size (unused)
+    u16(rate), u16(audioFlags); // rate, flags
+    u32(7);                    // its ID
+    const size_t index = f.size();
+    u32(0), u32(0), u32(0); // frame offsets, set below
+    const uint32_t frame0 = uint32_t(f.size());
+    // (Frames start at even offsets: bit 0 of an index entry marks keyframes.)
+    u32(uint32_t(audio.size()));
+    f.insert(f.end(), audio.begin(), audio.end());
+    f.insert(f.end(), {9, 9}); // video
+    if (f.size() & 1)
+        f.push_back(0);
+    const uint32_t frame1 = uint32_t(f.size());
+    u32(0); // no audio
+    f.insert(f.end(), {8, 8, 8, 8});
+    const uint32_t end = uint32_t(f.size());
+    for (int i = 0; i < 4; i++) {
+        f[index + size_t(i)] = uint8_t((frame0 | 1) >> (8 * i));
+        f[index + 4 + size_t(i)] = uint8_t(frame1 >> (8 * i));
+        f[index + 8 + size_t(i)] = uint8_t(end >> (8 * i));
+    }
+    return f;
+}
+
+// The header and the frame index.
+static void testBinkFile() {
+    const std::vector<uint8_t> f = makeBink(1u << 13 | 1u << 12, 22050, {0xd2, 0x04, 0, 0, 1, 2, 3, 4});
+    bink::Movie movie;
+    CHECK(!movie.open(f));
+    CHECK(movie.revision() == 'i' && movie.width() == 64 && movie.height() == 32 && movie.rateNumerator() == 25 &&
+          movie.rateDenominator() == 1 && !movie.hasAlpha());
+    const std::vector<bink::Movie::Track> tracks = movie.audioTracks();
+    CHECK(tracks.size() == 1 && tracks[0].channels == 2 && tracks[0].dct && tracks[0].rate == 22050);
+    CHECK(movie.audioRate() == 22050 && movie.audioChannels() == 2);
+    CHECK(movie.frameCount() == 2 && movie.frameInfo(0).key && !movie.frameInfo(1).key);
+    CHECK(movie.frameInfo(1).size == 8 && movie.largestFrame() == movie.frameInfo(0).size);
+}
+
+// A Bink audio block of nothing but zeros decodes to silence, of the
+// block's length (1024 less its overlap of 64 at 22050 Hz); a packet that
+// says it decodes to less is cut there.
+static void testBinkAudio() {
+    std::vector<uint8_t> bytes;
+    size_t pos = 0;
+    auto put = [&](uint32_t v, int n) {
+        for (int i = 0; i < n; i++, pos++) {
+            if (pos / 8 >= bytes.size())
+                bytes.push_back(0);
+            bytes[pos / 8] |= uint8_t(((v >> i) & 1) << (pos % 8));
+        }
+    };
+    put(0, 2);         // (skipped)
+    put(0, 29 * 2);    // the first two coefficients: zero floats
+    put(0, 8 * 23);    // 23 bands' quantisers
+    for (int run = 0; run < 2; run++) {
+        put(1, 1), put(15, 4); // a run of 64 x 8
+        put(0, 4);             // of width 0: zeros
+    }
+    while (pos % 32)
+        put(0, 1);
+    for (uint32_t says : {1920u, 1000u}) {
+        std::vector<uint8_t> packet = {uint8_t(says), uint8_t(says >> 8), 0, 0};
+        packet.insert(packet.end(), bytes.begin(), bytes.end());
+        bink::Movie movie;
+        CHECK(!movie.open(makeBink(1u << 12, 22050, packet)));
+        std::vector<int16_t> out;
+        CHECK(!movie.decodeAllAudio(out));
+        CHECK(out.size() == says / 2);
+        CHECK(std::all_of(out.begin(), out.end(), [](int16_t s) { return s == 0; }));
+    }
+}
+
 static const reluva::test::Suite videoSuite("common.unit.video", {
     {"smacker", [](const std::filesystem::path&) { testSmacker(); }},
     {"cinepak", [](const std::filesystem::path&) { testCinepak(); }},
     {"avi", [](const std::filesystem::path&) { testAvi(); }},
+    {"bink file", [](const std::filesystem::path&) { testBinkFile(); }},
+    {"bink audio", [](const std::filesystem::path&) { testBinkAudio(); }},
 });
 
 static const reluva::test::Suite netSuite("common.unit.net", {

@@ -13,7 +13,9 @@ namespace reluva::bink {
 
 // A Bink movie (RAD Game Tools' video format, .bik; docs/common/bink.md),
 // revisions f to i: its frames decoded one after another to YUV 4:2:0
-// planes (RGBA on request), with its first audio track's samples.
+// planes (RGBA on request), with its first audio track's samples. Elite
+// Force's cinematics and Murder on the Orient Express's movies and video
+// loops (all revision i) use it.
 class Movie {
 public:
     // Reads the header and frame index (the file is kept).
@@ -27,14 +29,37 @@ public:
     uint32_t rateDenominator() const { return rateDen_; }
     char revision() const { return revision_; }
 
+    // The header's flags (bit 20: an alpha plane, bit 17: grey).
+    uint32_t flags() const { return flags_; }
+    bool hasAlpha() const { return alpha_; }
+    // A frame as stored: its size in the file and whether it's a keyframe.
+    struct FrameInfo {
+        uint32_t size = 0;
+        bool key = false;
+    };
+    FrameInfo frameInfo(uint32_t i) const {
+        return i < frames_.size() ? FrameInfo{frames_[i].size, frames_[i].key} : FrameInfo{};
+    }
+    uint32_t largestFrame() const; // in bytes
+
     // The first audio track: none if 0.
     int audioRate() const { return audio_.empty() ? 0 : audio_[0].rate; }
     int audioChannels() const { return audio_.empty() ? 0 : audio_[0].outChannels; }
+    // Every audio track (only the first is decoded).
+    struct Track {
+        int rate = 0, channels = 0;
+        bool dct = false; // the DCT form, else the RDFT one
+    };
+    std::vector<Track> audioTracks() const;
 
     // The next frame: its picture into the planes and its sound (the first
     // track's, interleaved) appended to `sound` if given. False at the end.
     Error nextFrame(bool& more, std::vector<int16_t>* sound = nullptr);
     int frameNumber() const { return next_ - 1; } // the last one decoded
+    // Back to the first frame, which the next nextFrame() decodes again,
+    // from pictures as they were when the movie was opened: for a movie
+    // that loops.
+    void rewind();
     // The first audio track whole (interleaved), read ahead of the frames
     // (which then skip it).
     Error decodeAllAudio(std::vector<int16_t>& sound);
@@ -43,8 +68,13 @@ public:
     // their pitches.
     const std::vector<uint8_t>& decodedPlane(int i) const { return old_[size_t(i)]; }
     int pitch(int i) const { return i == 0 || i == 3 ? lumaPitch_ : chromaPitch_; }
-    // As RGBA, width x height, rows top first (BT.601, studio range).
-    void toRgba(std::vector<uint8_t>& out) const;
+    // As RGBA, width x height, rows top first (BT.601, studio range), its
+    // alpha the alpha plane's if it has one, else 255. Rounded: each pixel
+    // in fixed point, rounded once. Binkw32: as binkw32.dll's MMX path
+    // converts (each term truncated on its own; the AWE engine's movies
+    // were checked against it frame by frame).
+    enum class Rgb { Rounded, Binkw32 };
+    void toRgba(std::vector<uint8_t>& out, Rgb how = Rgb::Rounded) const;
 
     // --- Internals (public for the decoder's helpers) -----------------------
     struct Bits {
@@ -88,6 +118,7 @@ private:
     };
     enum Source { BlockTypes, SubBlockTypes, Colors, Pattern, XOff, YOff, IntraDC, InterDC, Run, SourceCount };
 
+    void clearPictures();
     void decodePlane(Bits& b, int plane, bool chroma);
     void readTree(Bits& b, Tree& t);
     int symbol(Bits& b, const Tree& t);
@@ -97,12 +128,15 @@ private:
     void readDCTCoefficients(Bits& b, int32_t block[64], bool intra);
     void readResidue(Bits& b, int32_t block[64], int masks);
     void decodeAudio(Audio& a, Bits& b, std::vector<int16_t>* sound);
+    // An audio packet (its decoded size, then the blocks) into `sound`.
+    void decodePacket(Audio& a, const uint8_t* packet, uint32_t length, std::vector<int16_t>& sound);
     void readAudioCoefficients(Audio& a, Bits& b, float* coeffs);
 
     std::vector<uint8_t> file_;
     char revision_ = 0;
     int width_ = 0, height_ = 0;
     uint32_t rateNum_ = 0, rateDen_ = 1;
+    uint32_t flags_ = 0;
     bool alpha_ = false, swapChroma_ = false;
     std::vector<Frame> frames_;
     std::vector<Audio> audio_;
