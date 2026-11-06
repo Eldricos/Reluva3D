@@ -391,7 +391,13 @@ defaults are the same. The master volume is Miles' for the game's
 sounds and voices (`AIL_set_digital_master_volume`), each of which plays
 at 100 of 127 under it; the music's is the CD's own
 (`AIL_redbook_set_volume`): the master volume doesn't touch the music.
-Reluva does the same (the videos at the master volume).
+The videos' sound is under neither: `AviPlayer.cpp` adds it to its
+DirectShow stream with the default audio renderer
+(`AddMediaStream(NULL, &MSPID_PrimaryAudio, AMMSF_ADDDEFAULTRENDERER, NULL)`,
+its error message names the call) and never sets its volume (the
+executable has no `IBasicAudio`), so it plays at the system's volume.
+Reluva does the same: the videos (the intro, the deal, the suggestions,
+the prison) at full whatever the sliders.
 
 ## Saved games
 

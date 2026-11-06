@@ -64,8 +64,6 @@ knowingly does differently is in [known-differences.md](known-differences.md).
   whole (0x1001C070). Nothing in the game is known to depend on them.
 - **Key 1800** on the hall's `r_logo` ([level.md](../../formats/clue/level.md)):
   `Clue.exe` never reads it.
-- **The suggestion videos' sound level**: see
-  [known-differences.md](known-differences.md#not-done-yet).
 
 ## Built from the code, not yet seen working
 

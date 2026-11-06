@@ -181,10 +181,13 @@ void FrontEnd::applyVolumes() {
     // As Clue.exe's preferences set them (0x415E6D): the master volume
     // Miles' for the sounds and voices (AIL_set_digital_master_volume), the
     // music's the CD's own (AIL_redbook_set_volume), the one not under the
-    // other.
+    // other. The videos' sound neither: AviPlayer.cpp hands it to
+    // DirectShow's own renderer (AddMediaStream with MSPID_PrimaryAudio and
+    // AMMSF_ADDDEFAULTRENDERER) and never sets its volume. So here Effects
+    // are all that Miles plays (sounds and voices), Speech the videos.
     const int master = prefs_.masterVolume * audio::kMaxVolume / 100;
     mixer_->setTypeVolume(audio::SoundType::Music, prefs_.musicVolume * audio::kMaxVolume / 100);
-    mixer_->setTypeVolume(audio::SoundType::Speech, master);
+    mixer_->setTypeVolume(audio::SoundType::Speech, audio::kMaxVolume);
     mixer_->setTypeVolume(audio::SoundType::Effects, master);
 }
 

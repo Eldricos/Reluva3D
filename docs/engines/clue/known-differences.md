@@ -26,9 +26,3 @@ Everything else follows the code, where the two were set side by side;
 where they still disagree (the computer players naming themselves, the
 weather's pace), Reluva follows the code and the question is in
 [unconfirmed.md](unconfirmed.md).
-
-## Not done yet
-
-| What | The original | Reluva |
-|---|---|---|
-| The suggestion videos' sound | Played by its own video player (DirectShow); how it is mixed with the rest isn't traced | Played under the master volume, at full |

@@ -67,7 +67,8 @@ ripped (`reluva-tool cue-rip CLUE.cue <game folder>`) for the music checks.
   loading screen plays its own loop; the game starts on track 2 and goes
   2, 3, 4, 2 ...; after a suggestion's video one of 2-4 starts by chance.
 - **Volumes** [rec]: the music slider changes only the music, the master
-  slider everything else. At the default settings the music should sit
+  slider the game's sounds and voices; the videos (the intro, the deal,
+  the suggestions) play at full whatever either says. At the default settings the music should sit
   about as loud against the effects as in the original [orig].
 
 ## 4. Pictures and animation

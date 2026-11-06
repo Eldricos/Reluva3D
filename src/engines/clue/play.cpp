@@ -1709,7 +1709,7 @@ void Play::sound(const std::string& file, bool voice) {
     if (voice) {
         if (voice_ != audio::kNoSound)
             mixer_->stop(voice_);
-        voice_ = mixer_->play(s, audio::SoundType::Speech, kClueSoundVolume);
+        voice_ = mixer_->play(s, audio::SoundType::Effects, kClueSoundVolume); // through Miles, as the sounds
     } else
         mixer_->play(s, audio::SoundType::Effects, kClueSoundVolume);
 }
