@@ -13,6 +13,58 @@ the text tables, scenes, Granny files, Oodle1, the dialogue manager
 (choices, picture choices, the wheel, talk starts), lighting and so on,
 on small made-up data. They need no game files and run in CI.
 
+### The basic engine test: no game files
+
+`awe.engine` (`tests/engines/awe/engine.cpp`) makes a small install of its
+own and plays it through the engine as the launcher starts it, so a change
+anywhere (in `src/common/`, say) that alters what the engine does is caught.
+CI runs it on Linux and Windows with the rest.
+
+- **The install:** stand-ins for `motoe.exe` and `granny2.dll` (found by
+  the fallback detection, which looks for the files whatever their
+  contents), `Text/itemlist.txt`, an `acts.txt` of one act, the main
+  menu's scene with its Play hotspot, and two scenes of a place of its own
+  (`Locations/Test`), with pictures made in the test.
+- **The play:** a new game (N) and its main menu; Play (`act 01a`); the
+  act's place loaded and its first scene; a click on its hotspot, which
+  sets a tag and goes to the next scene; a quick save (F2); back to the
+  launcher.
+- **The record** (`tests/engines/awe/data/engine-record.txt`): what's
+  detected, every screen shown (a checksum), the window's titles, and the
+  saved game's place, scene and tags (read back, as its bytes hold the date).
+- **When it fails:** it prints each line, with the old value beside any
+  that changed. If the change is meant, `reluva-tests awe.engine --update`,
+  review the record's diff, and commit it with the change.
+
+### The game-files test: with your own copy of the game
+
+Point `RELUVA_MOTOE` at the game's folder (the one holding `motoe.exe`) and
+run the steps labelled `gamedata` (`tests/engines/awe/gamedata.cmake`):
+
+    RELUVA_MOTOE=/path/to/Murder\ on\ the\ Orient\ Express ctest --test-dir build -L gamedata -R awe
+
+On Windows: `set RELUVA_MOTOE=C:\Games\Orient Express`, then
+`ctest --test-dir build -C Release -L gamedata -R awe`. Without the variable
+the steps show as skipped.
+
+| Step | What it runs |
+|---|---|
+| `awe.gamedata.release` | What the game is (`detect`) |
+| `awe.gamedata.files` | Every Granny file, scene, text, movie and sound read; the cameras and compressed curves compared with `granny2.dll`'s (`awe files-check`) |
+| `awe.gamedata.scripts` | Every script's commands counted, and any verb Reluva doesn't know (`awe script-check`) |
+| `awe.gamedata.route` | The whole game four ways, as below (`awe game-check -quick`) |
+
+The route step searches for the route the first time (`awe game-run
+-solve`, about ten minutes) and keeps it in the build
+(`gamedata/awe/route.txt`), as it names the game's files; the record holds
+its checksum, so a search that finds another route shows. Each step's
+output is kept in the build (`gamedata/awe/<step>/`), the previous run's
+beside it, and its checksum and summary line go in the record,
+`tests/engines/awe/data/gamedata/english-1.0/<step>.txt` (made on Linux;
+another release's go in a folder of their own, with
+`RELUVA_GAMEDATA_UPDATE=1`). See [DEVELOPMENT.md](../../DEVELOPMENT.md#engine-tests)
+for the shared helpers.
+
 ### The whole game: `reluva-tool awe game-check`
 
     reluva-tool awe game-check <game folder> <route.txt> [-3d] [-quick]

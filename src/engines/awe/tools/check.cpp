@@ -529,7 +529,7 @@ int checkGr2Files(const reluva::Archive& files, const std::filesystem::path& fol
     }
     const double seconds =
         std::chrono::duration<double>(std::chrono::steady_clock::now() - start).count();
-    std::printf("Granny: %zu files, %zu failed, %zu with warnings; %zu models, %zu animations (%.1f s)\n",
+    std::printf("Granny: %zu files, %zu failed, %zu with warnings; %zu models, %zu animations in %.1f s\n",
                 names.size(), failed, warned, models, animations, seconds);
     std::printf("  %zu animations with compressed curves, %zu with vector tracks (not used)\n", compressed,
                 withVectors);
@@ -959,7 +959,7 @@ int checkBink(const reluva::Archive& files, unsigned jobs, bool verbose) {
         if (!r.empty())
             std::printf("%s\n", r.c_str());
     }
-    std::printf("Bink: %zu files, %zu failed, %llu frames decoded (%.1f s)\n", names.size(), failed,
+    std::printf("Bink: %zu files, %zu failed, %llu frames decoded in %.1f s\n", names.size(), failed,
                 (unsigned long long)frames.load(),
                 std::chrono::duration<double>(std::chrono::steady_clock::now() - start).count());
     return failed ? 1 : 0;

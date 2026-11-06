@@ -65,7 +65,9 @@ reluva_add_engine_tools(awe
         tools/scripts.cpp)
 
 # Its tests (tests/engines/awe/), in reluva-tests: the unit tests by topic,
-# on files built in the tests. See docs/DEVELOPMENT.md (Tests).
+# on files built in the tests, and the engine test, without game files (a
+# small install played through, its record in data/engine-record.txt). See
+# docs/DEVELOPMENT.md (Tests).
 set(tests ${PROJECT_SOURCE_DIR}/tests/engines/awe)
 reluva_add_engine_tests(awe
     SOURCES
@@ -75,5 +77,15 @@ reluva_add_engine_tests(awe
         ${tests}/unit/dialogue.cpp
         ${tests}/unit/characters.cpp
         ${tests}/unit/saves.cpp
+        ${tests}/engine.cpp
     TOPICS
-        unit.formats unit.scene unit.script unit.dialogue unit.characters unit.saves)
+        unit.formats unit.scene unit.script unit.dialogue unit.characters unit.saves engine)
+
+# Its engine test with the game's own files (tests/engines/awe/gamedata.cmake):
+# RELUVA_MOTOE=<the game's folder> ctest -L gamedata. See docs/DEVELOPMENT.md
+# (Engine tests).
+reluva_add_gamedata_test(awe
+    GAME motoe
+    ENV RELUVA_MOTOE
+    SCRIPT ${tests}/gamedata.cmake
+    STEPS release files scripts route)

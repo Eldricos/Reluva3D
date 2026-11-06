@@ -134,6 +134,11 @@ int aweCommandScripts(int argc, char** argv) {
     };
     for (const std::string& name : files.list()) {
         const std::string lower = fs::toLower(name);
+        // Only scenes and text hold scripts: the rest (5 GB of movies and
+        // sounds) isn't read.
+        const std::string ext = lower.size() > 4 ? lower.substr(lower.size() - 4) : std::string();
+        if (ext != ".ac2" && ext != ".txt")
+            continue;
         std::vector<uint8_t> data;
         if (files.read(name, data))
             continue;

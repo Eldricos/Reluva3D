@@ -107,8 +107,9 @@ Notes for developers. Building and running are covered in the
 Each engine can have two engine tests, besides its unit tests. They test the
 engine as a whole, so a change anywhere (in `src/common/`, say) that alters
 what an engine does is caught, even where no unit test looks. Elite Force
-(`idtech3`) has both, as does Harbinger (`stharbinger`, see
-[its TESTING.md](engines/stharbinger/TESTING.md)).
+(`idtech3`) has both, as do Harbinger (`stharbinger`, see
+[its TESTING.md](engines/stharbinger/TESTING.md)) and Murder on the Orient
+Express (`awe`, `RELUVA_MOTOE`, see [its TESTING.md](engines/awe/TESTING.md)).
 
 ### The basic engine test: no game files
 

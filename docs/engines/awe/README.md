@@ -173,9 +173,11 @@ scenes, two Granny files, the text tables, two backgrounds):
   - `awe bink-info` (a movie's header and frames; `-yuv`, `-wav`, `-tga` to
     decode it);
   - `awe save-check` (a saved game's records, read and written back).
-- **Tests:** `tests/engines/awe/unit/`, on files built in the tests:
-  `reluva-tests awe` (suites `awe.unit.formats`, `.scene`, `.script`,
-  `.dialogue`, `.characters`, `.saves`).
+- **Tests:** the unit tests (`tests/engines/awe/unit/`, suites
+  `awe.unit.formats`, `.scene`, `.script`, `.dialogue`, `.characters`,
+  `.saves`) and the basic engine test (`awe.engine`), on files built in the
+  tests; and the game-files test (`awe.gamedata.*`, with `RELUVA_MOTOE`).
+  See [TESTING.md](TESTING.md).
 
 Corrections to the plan below:
 

@@ -493,7 +493,7 @@ int cmdAweRegress(int argc, char** argv) {
         const auto began = std::chrono::steady_clock::now();
         const int rc = reluva::awe::aweCommandSolve(int(av.size()), av.data());
         const double secs = std::chrono::duration<double>(std::chrono::steady_clock::now() - began).count();
-        std::printf("== %s: %s (%.0f s)\n\n", name.c_str(), rc == 0 ? "passed" : "FAILED", secs);
+        std::printf("== %s: %s in %.0f s\n\n", name.c_str(), rc == 0 ? "passed" : "FAILED", secs);
         std::fflush(stdout);
         return rc == 0;
     };
