@@ -546,6 +546,82 @@ uint32_t carLitBy(uint32_t colour, const std::array<float, 3>& carAt, const std:
     return out;
 }
 
+int lightDistance(const std::array<int32_t, 3>& a, const std::array<int32_t, 3>& b) {
+    // 0x496550: with its own abs (x < 1 negated) on each difference.
+    auto absd = [](int32_t x) { return x < 1 ? -x : x; };
+    int dx = absd(a[0] - b[0]), dy = absd(a[1] - b[1]), dz = absd(a[2] - b[2]);
+    int m = dy < dx ? dx + (dy >> 2) : dy + (dx >> 2);
+    if (dz < m)
+        dz >>= 2;
+    else
+        m >>= 2;
+    return m + dz;
+}
+
+uint32_t carLitByTrackLights(uint32_t colour, const std::array<float, 3>& carAt, int slice, int slices,
+                             const Track& track, uint64_t tick, bool effectsOff) {
+    if (slices <= 0 || effectsOff)
+        return colour;
+    const std::array<int32_t, 3> at{static_cast<int32_t>(std::lrint(double(carAt[0]) * 65536.0)),
+                                    static_cast<int32_t>(std::lrint(double(carAt[1]) * 65536.0)),
+                                    static_cast<int32_t>(std::lrint(double(carAt[2]) * 65536.0))};
+    int sum[3] = {0, 0, 0}, count = 0;
+    for (int k = -3; k < 4; ++k) {
+        int s = slice + k;
+        if (s < 0)
+            s += slices;
+        else if (s >= slices)
+            s -= slices;
+        const size_t block = static_cast<size_t>(s >> 3);
+        if (block >= track.blocks.size())
+            continue;
+        for (const Track::Block::Light& l : track.blocks[block].lightList) {
+            const LightLook look = lightLook(l.type & 0xffff, tick);
+            if (!look.shown || look.color == 0)
+                continue;
+            const std::array<int32_t, 3> p{static_cast<int32_t>(std::lrint(double(l.position[0]) * 65536.0)),
+                                           static_cast<int32_t>(std::lrint(double(l.position[1]) * 65536.0)),
+                                           static_cast<int32_t>(std::lrint(double(l.position[2]) * 65536.0))};
+            const int d = lightDistance(at, p);
+            if (d >= 0x100000)
+                continue;
+            const int w = 0x10000 - (d >> 4);
+            for (int i = 0; i < 3; ++i)
+                sum[i] += static_cast<int>((static_cast<int64_t>(w) * ((look.color >> (16 - 8 * i)) & 0xff)) >> 16);
+            ++count;
+        }
+    }
+    if (count == 0)
+        return colour;
+    uint32_t out = 0xff000000u;
+    for (int i = 0; i < 3; ++i) {
+        const int shift = 16 - 8 * i;
+        const int c = static_cast<int>((colour >> shift) & 0xff) + sum[i] / count;
+        out |= static_cast<uint32_t>(std::clamp(c, 0, 255)) << shift;
+    }
+    return out;
+}
+
+int carDetailLevel(float meanDepth, int option, bool night, bool mirror) {
+    static constexpr float kTable[3][4] = {{30, 60, 120, 300}, {0, 45, 90, 300}, {0, 20, 60, 300}};
+    if (option < 0 || option > 2)
+        return -1;
+    float t[4];
+    for (int i = 0; i < 4; ++i) {
+        t[i] = kTable[option][i];
+        if (night && i < 3)
+            t[i] *= 0.75f;
+        if (mirror)
+            t[i] *= 0.6f;
+    }
+    if (t[0] != 0 && meanDepth < t[0])
+        return 0;
+    for (int i = 1; i < 4; ++i)
+        if (meanDepth < t[i])
+            return i;
+    return -1;
+}
+
 float aiSlicesSpeed(const std::vector<uint8_t>& speeds, int slice) {
     const size_t at = 16 + static_cast<size_t>(std::max(slice, 0) / 2);
     return at < speeds.size() ? static_cast<float>(speeds[at]) : 64.0f;
@@ -624,6 +700,61 @@ int coverDepth(const TrackCollision& col, int slice, const std::array<float, 3>&
 
 int roadSurface(const Track::Block& b, size_t index) {
     return 8 * index + 1 < b.polygonRoad.size() ? b.polygonRoad[8 * index + 1] & 0x3f : 0;
+}
+
+int sliceRunSide(const Track::Block& b, int sliceInBlock, const std::array<float, 3>& point, size_t& polygon) {
+    const size_t at = 8 * static_cast<size_t>(sliceInBlock);
+    if (sliceInBlock < 0 || at + 3 > b.positions.size())
+        return -1;
+    const int first = b.positions[at] | b.positions[at + 1] << 8, count = b.positions[at + 2];
+    const auto& list = b.polygons[4];
+    if (count <= 0 || first + count > static_cast<int>(list.size()))
+        return -1;
+    // Which side of the line a-b a point is on, in plan.
+    auto cross = [](const Track::Vec3& a, const Track::Vec3& c, float x, float z) {
+        return (c[0] - a[0]) * (z - a[2]) - (c[2] - a[2]) * (x - a[0]);
+    };
+    auto past = [&](const Track::Polygon& p, int e0, int e1, int o0, int o1) {
+        const auto& v = b.vertices;
+        const auto &a = v[p.vertices[size_t(e0)]], &c = v[p.vertices[size_t(e1)]];
+        const float inside = cross(a, c, v[p.vertices[size_t(o0)]][0], v[p.vertices[size_t(o0)]][2]) +
+                             cross(a, c, v[p.vertices[size_t(o1)]][0], v[p.vertices[size_t(o1)]][2]);
+        const float here = cross(a, c, point[0], point[2]);
+        return inside * here < 0;
+    };
+    int i = first + count / 2;
+    for (int steps = 0; steps <= count; ++steps) {
+        const Track::Polygon& p = list[size_t(i)];
+        bool whole = true;
+        for (uint16_t vi : p.vertices)
+            whole = whole && vi < b.vertices.size();
+        if (!whole)
+            return -1;
+        if (past(p, 0, 3, 1, 2)) { // past the edge it shares with i - 1
+            if (i == first)
+                return polygon = size_t(i), 1;
+            --i;
+        } else if (past(p, 1, 2, 0, 3)) { // with i + 1
+            if (i == first + count - 1)
+                return polygon = size_t(i), 2;
+            ++i;
+        } else {
+            polygon = size_t(i);
+            return 0;
+        }
+    }
+    return -1;
+}
+
+bool officerSpotOnRoad(const Track& track, int slice, const std::array<float, 3>& point) {
+    if (slice < 0 || static_cast<size_t>(slice >> 3) >= track.blocks.size())
+        return false;
+    const Track::Block& b = track.blocks[size_t(slice >> 3)];
+    size_t polygon = 0;
+    if (sliceRunSide(b, slice & 7, point, polygon) != 0 || 8 * polygon + 1 >= b.polygonRoad.size())
+        return false;
+    const int surface = roadSurface(b, polygon);
+    return surface != 0 && surface != 14;
 }
 
 bool polygonRoadFrame(const Track::Block& b, size_t index, RoadFrame& out) {
@@ -762,40 +893,182 @@ int aiLineLane(const std::vector<uint8_t>& speeds, int slice, int sliceCount) {
 
 namespace {
 
-// The side offset's spring (1/s/s), damping (1/s) and greatest
-// acceleration (m/s/s, x (1 + 0.0015 x speed) as 0x4076b0 has its 38),
-// fitted to car 1 +0x7B8 against its +0x7C8 over 376 steps of a
-// Hometown race (t6-watch: 1.1 m rms, as good as any from 0.6 to 1 of
-// critical damping; the rest is the road and the heading, not modelled).
-constexpr float kAiSideSpring = 100.0f, kAiSideDamping = 14.0f, kAiSideAccel = 70.0f;
+// The computer's model across the road (car_ai_model 0x408600, a 32 Hz
+// task, then ai_integrate 0x4071a0), kept in the slice's frame: `sideSpeed`
+// the car's velocity along the slice's right (+0x124), `heading` its yaw
+// from the way it runs, towards its right, `yawRate` the spin about the
+// up (+0x4FC as the controllers read it), `carSide` its velocity along its
+// own right (+0x4EC). The world velocity is kept as a slice is left
+// (it is the frame that turns), so on a bend the car runs wide unless
+// pushed back. The controller (car_ai_model): ai_ctl_slow (0x407c30)
+// reversing; ai_ctl_slide (0x407fa0) off the slice's lanes, more than
+// 0.04 x the surface's grip off the point it steers at (dry: 1), under
+// 0.5 m/s or slipping sideways at more than half its speed (over
+// 2.5 m/s); ai_ctl_slow under 13.41 m/s; else ai_ctl_rails (0x4076b0).
+// Gains from ai_gains_init (0x405e60).
+constexpr float kPi = 3.14159265358979f;
+
+// The point steered at (0x406e50 -> 0x406d40 with 0x406980): from 4
+// slices on to the look-ahead slice (speed x 1.7 / 6, 4 to 20), short of
+// the first whose forward is 45 degrees or more off the car's slice's,
+// moved across along the car's road right by the aim.
+int aiSteerSlice(const TrackCollision& col, const AiCar& me) {
+    const int n = static_cast<int>(col.road.size());
+    auto at = [&](int s) -> const TrackCollision::RoadPoint& { return col.road[size_t(((s % n) + n) % n)]; };
+    const auto& here = at(me.slice);
+    const int far = std::clamp(static_cast<int>(std::fabs(me.speed) * 1.7f / 6.0f), 4, 20);
+    int k = 4;
+    for (; k < far; ++k) {
+        const auto& f = at(me.slice + me.way * (k + 1)).forward;
+        if (f[0] * here.forward[0] + f[2] * here.forward[2] <= 0.7f)
+            break;
+    }
+    return (((me.slice + me.way * k) % n) + n) % n;
+}
+
+float dot3(const std::array<float, 3>& a, const std::array<float, 3>& b) {
+    return a[0] * b[0] + a[1] * b[1] + a[2] * b[2];
+}
 
 // The aim and the speed (0x408870, 0x4066c0 with 0x4064f0 and 0x4063e0),
 // for one step of 64 a second. The computer's model (car_ai_physics
 // 0x4088f0) is a 32 Hz task: on the even steps only, its time step
 // 0x56ec58 1/32 s, so the aim moves 0.2 every other step (3.2 in the
-// half second, as t6-log's dumps have it). The side offset as driven is
-// the car's own motion, every step.
-void aiMove(AiCar& me, const AiCarData& data, bool weather, int step, float chord, float cut) {
-    // The side offset as driven (+0x7B8): the side controller of 0x4076b0
-    // pulls the car towards the aim, the heading term damping it; here a
-    // spring and damper fitted to nfs-host's car 1 on Hometown (frd.md).
-    // What it steers by is the offset as the game measures it (0x4a2bc0:
-    // the car's place less its slice's road point, along the road's right
-    // there), which moves by the road's bend across the slice (`chord`)
-    // while the car's own place across the road (`lateral`) doesn't.
-    if (!me.sideKept) {
+// half second, as t6-log's dumps have it). The car's own motion (its
+// side offset, heading) every step.
+float aiChord(const TrackCollision& col, int slice);
+
+} // namespace
+
+void aiSteerStep(AiCar& me, const TrackCollision& col, int step) {
+    const int n = static_cast<int>(col.road.size());
+    const float chord = aiChord(col, me.slice);
+    const TrackCollision::RoadPoint* here = n > 0 ? &col.road[size_t(((me.slice % n) + n) % n)] : nullptr;
+    const float way = me.way < 0 ? -1.0f : 1.0f;
+    if (!me.sideKept || !here) {
         me.side = me.offset;
         me.lateral = me.side - me.along * chord;
-        me.sideSpeed = 0;
+        me.sideSpeed = me.carSide = me.heading = me.yawRate = 0;
+        me.velSlice = me.slice;
         me.sideKept = true;
     } else {
-        me.side = me.lateral + me.along * chord;
-        const float limit = kAiSideAccel * (1 + 0.0015f * me.speed);
-        const float a = std::clamp(kAiSideSpring * (me.offset + cut - me.side) - kAiSideDamping * me.sideSpeed, -limit, limit);
-        me.sideSpeed += a / 64.0f;
-        me.lateral += me.sideSpeed / 64.0f;
+        // A new slice: the same velocity in the new slice's frame, the
+        // heading from the new way along the road.
+        if (me.velSlice != me.slice && me.velSlice >= 0 && me.velSlice < n) {
+            const auto& a = col.road[size_t(me.velSlice)];
+            std::array<float, 3> v{};
+            for (size_t k = 0; k < 3; ++k)
+                v[k] = way * me.speed * a.forward[k] + me.sideSpeed * a.right[k];
+            const float turn = std::atan2(dot3(here->forward, a.right), dot3(here->forward, a.forward));
+            me.sideSpeed = dot3(v, here->right);
+            me.heading -= turn;
+        }
+        me.velSlice = me.slice;
+        if ((step & 1) == 0) {
+            // ai_lane_ramp first (below, the same call); here the
+            // controller with the aim as it was.
+            const float ground = std::fabs(me.speed);
+            // The heading error: the car's heading less the direction to
+            // the point it steers at, in turns within +-0.5.
+            const int k = aiSteerSlice(col, me);
+            const auto& p = col.road[size_t(k)];
+            const auto& next = col.road[size_t((((me.slice + 1) % n) + n) % n)];
+            std::array<float, 3> d{};
+            for (size_t c = 0; c < 3; ++c) {
+                const float car = here->position[c] + here->right[c] * me.side +
+                                  (next.position[c] - here->position[c]) * me.along;
+                d[c] = p.position[c] + here->right[c] * me.offset - car;
+            }
+            const float toward = std::atan2(way * dot3(d, here->right), way * dot3(d, here->forward));
+            float error = (me.heading - toward) / (2 * kPi);
+            error -= std::nearbyint(error);
+            me.headingError = error;
+            // The car's velocity along its own right (+0x4EC): from the
+            // road-frame velocity and the heading.
+            const float ch = std::cos(me.heading), sh = std::sin(me.heading);
+            const float across = way * me.sideSpeed; // along the car's way's right
+            me.carSide = -me.speed * sh + across * ch;
+            const bool offLanes = me.side < -static_cast<float>(here->leftLanes()) * here->extra[1] * 0.5f ||
+                                  me.side > static_cast<float>(here->rightLanes()) * here->extra[2] * 0.5f;
+            const bool slipping = ground > 2.5f && std::fabs(me.carSide) > me.speed * 0.5f;
+            auto clampTo = [](float x, float limit) { return std::clamp(x, -limit, limit); };
+            bool roadFrame = false;
+            if (me.reversing || me.speed < 0) {
+                me.steer = AiCar::Slow;
+            } else if (offLanes || std::fabs(error) > 0.04f || me.speed < 0.5f || slipping) {
+                me.steer = AiCar::Slide;
+            } else if (me.speed < 13.4109f) {
+                me.steer = AiCar::Slow;
+            } else {
+                me.steer = AiCar::Rails;
+            }
+            if (me.steer == AiCar::Rails) {
+                // ai_ctl_rails: the side speed wanted -5 x (+0x7B8 - aim), in
+                // +-32 and +-half the ground speed (under 22.35 m/s +-0.129 x
+                // the speed), against the velocity along the right of the
+                // road 2 slices on (0x406a80); the force in the road's frame.
+                const auto& two = col.road[size_t((((me.slice + 2 * me.way) % n) + n) % n)];
+                std::array<float, 3> v{};
+                for (size_t c = 0; c < 3; ++c)
+                    v[c] = way * me.speed * here->forward[c] + me.sideSpeed * here->right[c];
+                const float a4 = dot3(v, two.right);
+                float wantedSide = clampTo(clampTo(-(me.side - me.offset) * 5.0f, 32.0f), ground * 0.5f);
+                float wantedYaw = clampTo(-error * 2.5f, 0.8f);
+                if (me.speed < 22.35f) {
+                    wantedSide = clampTo(wantedSide, me.speed * 0.129f);
+                    wantedYaw = clampTo(wantedYaw, me.speed * 0.012f);
+                }
+                const float k15 = 1 + 0.0015f * me.speed;
+                const float force = clampTo(-(a4 - wantedSide) * 4.0f * k15, 38.0f * k15);
+                me.sideSpeed += force / 32.0f;
+                me.yawRate += clampTo(-(me.yawRate - wantedYaw) * 5.0f, 0.8f) / 32.0f;
+                roadFrame = true;
+            } else if (me.steer == AiCar::Slow) {
+                // ai_ctl_slow: the yaw from the heading error, the side speed
+                // damped, in the car's frame.
+                const float wantedYaw = clampTo(clampTo(-error * 2.5f, 1.6f), ground * 0.02f);
+                const float wantedSide =
+                    clampTo(clampTo(std::sin(error * 2 * kPi) * me.speed, 16.0f), ground * 0.01f);
+                me.yawRate += clampTo(-(me.yawRate - wantedYaw) * 10.0f, 0.8f) / 32.0f;
+                me.carSide += clampTo(-(me.carSide - wantedSide) * 3.0f, 38.0f) / 32.0f;
+            } else {
+                // ai_ctl_slide: the same on the side speed, towards the point.
+                const float turn = clampTo(-error * 3.0f, 3.0f);
+                const float wantedYaw = clampTo(turn, ground * 0.04f);
+                const float wantedSide = clampTo(clampTo(clampTo(turn * 10.0f, 32.0f), ground), ground * 0.2f);
+                me.yawRate += clampTo(-(me.yawRate - wantedYaw) * 10.0f * 0.5f, 1.0f) / 32.0f;
+                me.carSide += clampTo(-(me.carSide - wantedSide) * 6.0f, 40.0f) / 32.0f;
+            }
+            if (!roadFrame)
+                me.sideSpeed = way * (me.speed * sh + me.carSide * ch);
+        }
+        // The physics step: the heading turns by the yaw rate, the car
+        // moves by its velocity: the measured offset by the velocity along
+        // the slice's right, the place from the slice's line less the line's
+        // own move across (aiChord over the slice's length).
+        me.heading += me.yawRate * 2 * kPi / 64.0f; // turns a second
+        float length = 1;
+        if (n > 1) {
+            const auto& a = here->position;
+            const auto& b = col.road[size_t((((me.slice + 1) % n) + n) % n)].position;
+            length = std::max(std::hypot(b[0] - a[0], b[1] - a[1], b[2] - a[2]), 0.01f);
+        }
+        me.lateral += (me.sideSpeed - way * me.speed * chord / length) / 64.0f;
+        // Not through the walls (the car against the track, 0x4304b0 with
+        // 0x430210): its sides kept within the slice's walls.
+        const float low = me.halfWidth - here->leftWall, high = here->rightWall - me.halfWidth;
+        if (low < high && (me.lateral < low || me.lateral > high)) {
+            me.lateral = std::clamp(me.lateral, low, high);
+            me.sideSpeed = me.carSide = 0;
+        }
         me.side = me.lateral + me.along * chord;
     }
+}
+
+namespace {
+
+void aiMove(AiCar& me, const AiCarData& data, bool weather, int step, const TrackCollision& col) {
+    aiSteerStep(me, col, step);
     if ((step & 1) != 0)
         return;
     // ai_lane_ramp (0x408870): the aim 0.2 a call towards it; then
@@ -849,38 +1122,6 @@ float aiChord(const TrackCollision& col, int slice) {
 }
 
 } // namespace
-
-float aiBendCut(const TrackCollision& col, const AiCar& me) {
-    const int n = static_cast<int>(col.road.size());
-    if (n < 2 || me.reversing)
-        return 0;
-    auto at = [&](int s) -> const TrackCollision::RoadPoint& { return col.road[size_t(((s % n) + n) % n)]; };
-    const auto& here = at(me.slice);
-    // 0x406980: 4 slices on, then to the look-ahead slice (0x40e1b0: speed
-    // x 1.7 / 6, 4 to 20), stopping where the road has turned 45 degrees
-    // (0x40ef70: the forwards' x-z dot 0.7 or less).
-    const int far = std::clamp(static_cast<int>(std::fabs(me.speed) * 1.7f / 6.0f), 4, 20);
-    int k = 4;
-    for (; k < far; ++k) {
-        const auto& f = at(me.slice + me.way * (k + 1)).forward;
-        if (f[0] * here.forward[0] + f[2] * here.forward[2] <= 0.7f)
-            break;
-    }
-    const auto& ahead = at(me.slice + me.way * k);
-    float dx = 0, dz = 0;
-    for (size_t i = 0; i < 3; ++i) {
-        const float d = ahead.position[i] - here.position[i];
-        dx += d * here.right[i];
-        dz += d * here.forward[i];
-    }
-    if (std::fabs(dz) < 1)
-        return 0;
-    // A car chasing a point L on along a steady bend of curvature k sits
-    // k L^2 / 2 inside it, which is the point's offset across the car's
-    // slice (dx): pure pursuit's own geometry, not fitted (frd.md, The
-    // computer cars' driving: 6 m at most).
-    return std::clamp(dx, -6.0f, 6.0f);
-}
 
 namespace {
 
@@ -1034,7 +1275,7 @@ void aiDrive(std::vector<AiCar>& cars, size_t self, const TrackCollision& col, c
                 if (target->way != me.way && target->speed >= 3.0f) {
                     me.way = target->way;
                     me.speed = 0;
-                    me.sideSpeed = 0;
+                    me.sideSpeed = me.carSide = me.heading = me.yawRate = 0;
                 }
             }
         }
@@ -1361,7 +1602,7 @@ void aiStep(std::vector<AiCar>& cars, size_t self, const TrackCollision& col, co
         } else
             aiDrive(cars, self, col, speeds, data, step, track, weather, nullptr);
     }
-    aiMove(me, data, weather, step, aiChord(col, me.slice), aiBendCut(col, me));
+    aiMove(me, data, weather, step, col);
 }
 
 bool aiDriverActs(const AiCar& car, int step) {
@@ -1623,7 +1864,7 @@ void aiCopStep(std::vector<AiCar>& cars, size_t self, const TrackCollision& col,
         if (me.way != way) {
             me.way = way;
             me.speed = 0;
-            me.sideSpeed = 0;
+            me.sideSpeed = me.carSide = me.heading = me.yawRate = 0;
             me.reversing = false;
         }
     };
@@ -2050,7 +2291,7 @@ void aiCopStep(std::vector<AiCar>& cars, size_t self, const TrackCollision& col,
             if (t->speed >= 3.0f && t->way != me.way && sliceDiff(me.slice, t->slice) * t->way < 12) {
                 me.way = t->way;
                 me.speed = 0;
-                me.sideSpeed = 0;
+                me.sideSpeed = me.carSide = me.heading = me.yawRate = 0;
                 me.reversing = false;
             }
             call.kind = CopCall::Chase;
@@ -2187,7 +2428,7 @@ void aiCopStep(std::vector<AiCar>& cars, size_t self, const TrackCollision& col,
         }
         }
     }
-    aiMove(me, data, weather, step, aiChord(col, me.slice), aiBendCut(col, me));
+    aiMove(me, data, weather, step, col);
 }
 
 std::vector<DumpedCar> parseCarDump(const std::vector<uint8_t>& bytes) {

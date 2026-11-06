@@ -155,8 +155,13 @@ the DLL or a capture) as point-sampled
 for minification and magnification, no mipmaps, the same for cars,
 scenery, the sky and the effects. The Track and Cars pages draw the
 track's pictures, the sky's, the cars' skins and reflection maps and the
-officer's pages so (`glideTextureParams`); the glows, beams and flares
-are still filtered.
+officer's pages so (`glideTextureParams`), and since November 2026 the
+glows, beams, flares, particles and the headlights' picture too: in the
+lists they are textured batches like the others (`d7-night1`'s frame
+2700: the cars' glows on `glw3`'s 32 × 32, mode 1, `e5ffffff` and
+`66ff0000`, their u, v 1/64 to 63/64; the fog's beams on `glw1`'s 32 ×
+32, `72ffffff`; `d5-fog`: the rain's flares on `glw4`'s 64 × 64), with
+no texture state of their own.
 
 ## Fog
 

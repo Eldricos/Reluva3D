@@ -584,6 +584,15 @@ private:
     void placeCars();
     std::vector<DumpedCar> carDump_; // RELUVA_NFS_TRACK_CARS: the cars as a game dump has them
     void placeDumpedCars();
+    // The human's car of a dump: its headlights are the camera car's
+    // (0x42d160 places them from the car's own position and rows, not the
+    // camera's, which may be in the cockpit or behind it).
+    struct HumanPose {
+        bool set = false;
+        std::array<float, 3> at{}, right{}, up{}, forward{};
+        float halfLength = 0;
+    };
+    HumanPose humanPose_;
     void moveCars(float dt);
     // Key C, the dispatcher: the police car ordered as a chasing cop's
     // calls order a free one (physics.md): a strip (0x4039c0), then a
@@ -607,6 +616,23 @@ private:
     std::vector<OfficerRun> officerRuns_;
     float officerHalfHeight_ = 0;
     std::vector<gfx::Vertex> officerVertices_;
+    // The triangles that reflect (not fce flag 1; only cop2's), as indices
+    // into officerVertices_, strong (flag 2) or not, and their mesh.
+    std::vector<uint32_t> officerEnvFrom_;
+    std::vector<bool> officerEnvStrong_;
+    gfx::MeshId officerEnvMesh_ = 0;
+    std::array<float, 3> officerDummy_{}; // the model's first dummy (cop4's red light)
+    bool officerHasDummy_ = false;
+    // This frame's officer (prepareCars): where he stands, upright, turned
+    // to the racer's heading, and his shading colour (draw_officer's: the
+    // road's under the racer, by night with the cars' and the track's
+    // lights on the racer).
+    struct OfficerShown {
+        bool shown = false;
+        std::array<float, 3> at{}, right{1, 0, 0}, forward{0, 0, 1}; // track coordinates, the model's origin
+        uint32_t colour = 0xff7f7f7f;
+    };
+    OfficerShown officer_;
     void loadOfficer();
     void drawOfficers(const gfx::DrawCall& base);
     uint32_t stripQuads_ = 0, stripCapacity_ = 0;

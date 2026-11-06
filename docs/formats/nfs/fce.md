@@ -149,7 +149,10 @@ From nfs3.exe (November 2026), the drawing of a car (`car_draw_wheels`
   than deep), the light's colour × (1 − |x| / z)(1 − z / reach), a roof
   light's × (1 − z / reach) (z as |z|, its red behind; that car's
   headlights only count then); the lights' sum is divided by their
-  number and added, at most 255.
+  number and added, at most 255. At the nearest detail (`0x4bae00`, by night) the
+  track's lights within 16 of the car add theirs the same way
+  (`0x4b9550`, `carLitByTrackLights`; [frd.md](frd.md), Night cars at
+  size), as for the officer on foot.
 - **Each vertex** (`0x49d8f0`, `0x49da30`, `carShade`,
   `carVertexColour`): base = (r / 3, g / 3, b / 2), top = 2 × the
   colour (at most 255), colour = base + (top − base) × n · L when
@@ -215,7 +218,9 @@ From nfs3.exe (November 2026), the drawing of a car (`car_draw_wheels`
   Each is a `glw3` quad (`0x8b4840`, loaded from `sfx.fsh` by
   `0x4d5370`; `0x492370` draws it, `0x491190` too for the track's
   lights along with `glw0`) added by its alpha, its corners `size`
-  from its centre, turned by ¼ turn × (x / z + 1) across the screen.
+  from its centre, turned by ¼ turn × (x / z + 1) across the screen,
+  point-sampled from texel centre to texel centre (u, v 1/64 to 63/64;
+  [thrash.md](thrash.md), Texture filtering).
 
   **Its depth** (`0x492370`, November 2026). The quad is projected at
   the light's place (only when that is from 0 to 300 deep, `0x43960001`

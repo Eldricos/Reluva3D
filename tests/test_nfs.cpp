@@ -1200,6 +1200,41 @@ void testHeadlights() {
     CHECK((blue & 0xff) > ((blue >> 16) & 0xff));
     CHECK(carLitBy(0xff000000u, {5, 1, 30}, {cop}) == 0xff000000u);
 
+    // The track's lights on a near car (0x4b9550): 0x496550's distance on
+    // 16.16 integers (the largest of |dx|, |dy| plus a quarter of the
+    // other, then the same with |dz|); within 16, the colour x (1 - d / 16),
+    // the mean of the lights in the seven slices' blocks added.
+    CHECK(lightDistance({0, 0, 0}, {0x40000, 0x10000, 0x20000}) == 0x40000 + 0x4000 + 0x8000);
+    CHECK(lightDistance({0, 0, 0}, {0x10000, 0, 0x80000}) == 0x80000 + 0x4000);
+    Track lights;
+    lights.blocks.resize(3);
+    Track::Block::Light red;
+    red.position = {0, 0, 8}; // 8 from the car: half its colour
+    red.type = 9;             // 0xffdf1616, steady
+    lights.blocks[1].lightList.push_back(red);
+    // Slice 12 (block 1): slices 9-15 are all in block 1, so the light
+    // counts seven times, its mean the same.
+    CHECK(carLitByTrackLights(0xff101010u, {0, 0, 0}, 12, 24, lights, 0, false) == 0xff7f1b1bu);
+    CHECK(carLitByTrackLights(0xff101010u, {0, 0, 0}, 12, 24, lights, 0, true) == 0xff101010u); // effects off
+    CHECK(carLitByTrackLights(0xff101010u, {0, 0, 24}, 12, 24, lights, 0, false) == 0xff101010u); // 16 away
+    Track::Block::Light white = red;
+    white.type = 2; // 0xffffffd2
+    white.position = {0, 0, -8};
+    lights.blocks[0].lightList.push_back(white);
+    // Slice 8: slices 5-7 in block 0 (the white light, 3 times) and 8-11
+    // in block 1 (the red, 4 times): (3 x 127 + 4 x 111) / 7 red.
+    const uint32_t both = carLitByTrackLights(0xff000000u, {0, 0, 0}, 8, 24, lights, 0, false);
+    CHECK(((both >> 16) & 0xff) == (3 * 127 + 4 * 111) / 7 && ((both >> 8) & 0xff) == (3 * 127 + 4 * 11) / 7);
+    Track::Block::Light blink = red;
+    blink.type = 7; // blinks on bit 6 of the step
+    lights.blocks[2].lightList.push_back(blink);
+    CHECK(carLitByTrackLights(0xff000000u, {0, 0, 0}, 20, 24, lights, 0, false) != 0xff000000u &&
+          carLitByTrackLights(0xff000000u, {0, 0, 0}, 20, 24, lights, 64, false) == 0xff000000u);
+    // The detail a car is drawn at (0x4bb5d0): the nearest only with the
+    // car detail option 0, its distances x 0.75 by night.
+    CHECK(carDetailLevel(25, 0, false) == 0 && carDetailLevel(25, 0, true) == 1 && carDetailLevel(25, 1, false) == 1 &&
+          carDetailLevel(10, 2, false) == 1 && carDetailLevel(250, 0, true) == 3 && carDetailLevel(301, 0, false) == -1);
+
     // The speed tables: a byte per two slices after 16, 64 without one.
     std::vector<uint8_t> speeds(16, 0);
     speeds.push_back(20);
@@ -1420,7 +1455,7 @@ void testComputerDriving() {
     std::vector<AiCar> oncoming{car};
     oncoming[0].way = -1;
     oncoming[0].slice = 150;
-    for (int step = 1; step < 40; ++step)
+    for (int step = 1; step < 80; ++step)
         aiStep(oncoming, 0, col, speeds, data, step, 1, false);
     CHECK(oncoming[0].lane < 7);
 
@@ -1439,6 +1474,37 @@ void testComputerDriving() {
     Track::Block block;
     block.polygonRoad = {0, 0x41, 0, 0, 0, 0, 0, 0, 0, 14};
     CHECK(roadSurface(block, 0) == 1 && roadSurface(block, 1) == 14 && roadSurface(block, 2) == 0);
+    // A slice's run of road polygons (the positions record: first, count)
+    // and where a point is across it (the track position's +0x6C): three
+    // polygons side by side, 4 wide, from x -6 to 6; polygon i's edge 0-3
+    // is the one it shares with i - 1, 1-2 with i + 1.
+    Track runTrack;
+    runTrack.blocks.resize(1);
+    Track::Block& run = runTrack.blocks[0];
+    for (int i = 0; i < 4; ++i) {
+        const float x = -6.0f + 4.0f * static_cast<float>(i);
+        run.vertices.push_back({x, 0, 4}); // front
+        run.vertices.push_back({x, 0, 0}); // back
+    }
+    for (uint16_t i = 0; i < 3; ++i) {
+        Track::Polygon poly;
+        // 0 front left, 1 front right, 2 back right, 3 back left
+        poly.vertices = {uint16_t(2 * i), uint16_t(2 * i + 2), uint16_t(2 * i + 3), uint16_t(2 * i + 1)};
+        run.polygons[4].push_back(poly);
+    }
+    run.positions = {0, 0, 3, 0, 0xff, 0xff, 0xff, 0xff};
+    run.polygonRoad = {0, 1, 0, 0, 0, 0, 0, 0, 0, 14, 0, 0, 0, 0, 0, 0, 0, 4, 0, 0, 0, 0, 0, 0};
+    size_t found = 99;
+    CHECK(sliceRunSide(run, 0, {0, 0, 2}, found) == 0 && found == 1);
+    CHECK(sliceRunSide(run, 0, {-5, 0, 2}, found) == 0 && found == 0);
+    CHECK(sliceRunSide(run, 0, {5, 0, 2}, found) == 0 && found == 2);
+    CHECK(sliceRunSide(run, 0, {-7, 0, 2}, found) == 1 && found == 0);
+    CHECK(sliceRunSide(run, 0, {9, 0, 2}, found) == 2 && found == 2);
+    CHECK(sliceRunSide(run, 1, {0, 0, 2}, found) == -1); // no record for slice 1
+    // The officer's spot (0x401d78): kept on polygons 0 (surface 1) and 2
+    // (4), not on 1 (surface 14) or off the run.
+    CHECK(officerSpotOnRoad(runTrack, 0, {-5, 0, 2}) && officerSpotOnRoad(runTrack, 0, {5, 0, 2}));
+    CHECK(!officerSpotOnRoad(runTrack, 0, {0, 0, 2}) && !officerSpotOnRoad(runTrack, 0, {-8, 0, 2}));
 
     // carp.txt's fields for the computer.
     std::string carp = "maximum velocity of car [m/s](14)\n77.5\ntop speed cap [m/s](15)\n78.23\nmaximum braking deceleration(18)\n10.06\n";
@@ -1564,9 +1630,21 @@ void testComputerCatchUpAndCops() {
     lone[0].target = 5.9f;
     aiStep(lone, 0, col, flat, data, 2, 1, false);
     CHECK(lone[0].side > 2 && lone[0].side < 2.2f && lone[0].lane == 7);
-    for (int step = 3; step < 200; ++step)
+    // Then it weaves about lane 7's middle as the game's cars do: the
+    // controller overshoots past 2 m, the lane at the offset (rounded at
+    // the lane's middle) flips to 8 and back, and the aim with it.
+    float lo = 100, hi = -100;
+    int flips = 0, last = lone[0].lane;
+    for (int step = 3; step < 400; ++step) {
         aiStep(lone, 0, col, flat, data, step, 1, false);
-    CHECK(std::fabs(lone[0].side - lone[0].offset) < 0.05f);
+        if (step > 100) {
+            lo = std::min(lo, lone[0].side);
+            hi = std::max(hi, lone[0].side);
+            flips += lone[0].lane != last ? 1 : 0;
+        }
+        last = lone[0].lane;
+    }
+    CHECK(lo > 0 && hi < 4.5f && flips >= 2);
 
     // A dump of the game's car records (0x9AC bytes each).
     std::vector<uint8_t> dump(2 * 0x9ac, 0);
@@ -2649,7 +2727,10 @@ void testComputerPursuits() {
             laid = step;
     }
     CHECK(laid > 0 && cars[1].copState == 4 && cars[1].way == -1 && cars[1].stripLane == 7 && cars[1].radio == 0x40b9c0);
-    CHECK(cars[1].stripSlice >= 94 && cars[1].stripSlice <= 97);
+    // Laid where it gets off the lanes, from the range's start on along its
+    // way: turning out at 6.5 m/s (ai_ctl_slow) takes it a few seconds,
+    // and this loop moves it on a slice each 16 steps.
+    CHECK(cars[1].stripSlice <= 97 && cars[1].stripSlice > 70);
     // A racer 1-5 slices before it in that lane: -50 there, its speed
     // wanted x 0.9 (0x40d720), so it moves over.
     cars[0].slice = cars[1].stripSlice - 3;
@@ -2853,17 +2934,65 @@ void testCopCalls() {
           stop[1].chasing == -1 && stop[1].copState == 1 && !stop[2].stripOn && stop[2].orderKind == 2 &&
           stop[0].stripCop == -1);
 
-    // The bend's cut (0x406e50, 0x406980): the point 30 x 1.7 / 6 = 8
-    // slices on lies 4 m right of a road drifting 0.5 m right a slice.
-    TrackCollision bent = straightRoad(40);
-    for (size_t i = 0; i < bent.road.size(); ++i)
-        bent.road[i].position[0] = 0.5f * static_cast<float>(i);
-    AiCar driver;
-    driver.slice = 10;
-    driver.speed = 30;
-    CHECK(std::fabs(aiBendCut(bent, driver) - 4) < 1e-4f && aiBendCut(col, driver) == 0);
-    driver.speed = 100; // 20 slices on, 10 m, kept to 6
-    CHECK(aiBendCut(bent, driver) == 6);
+    // The model across the road (aiSteerStep: car_ai_model 0x408600).
+    // ai_ctl_rails (0x4076b0), lined up at 30 m/s on the lanes: the side
+    // speed wanted -5 x (0 - 4) = 20, held to half the speed (15), against
+    // none along the right 2 slices on; force 4 x 1.045 x 15, kept to
+    // 38 x 1.045; 1/32 s of it.
+    AiCar steer;
+    steer.slice = 20;
+    steer.speed = 30;
+    steer.offset = 4;
+    steer.halfWidth = 1;
+    steer.sideKept = true;
+    steer.velSlice = 20;
+    aiSteerStep(steer, col, 0);
+    CHECK(steer.steer == AiCar::Rails && std::fabs(steer.sideSpeed - 38 * 1.045f / 32) < 1e-4f &&
+          std::fabs(steer.side - steer.sideSpeed / 64) < 1e-5f);
+    for (int k = 1; k < 192; ++k)
+        aiSteerStep(steer, col, k);
+    CHECK(std::fabs(steer.side - 4) < 0.1f && std::fabs(steer.sideSpeed) < 0.5f); // settled in 3 s
+    // Stopped, it doesn't move across (ai_ctl_slide, nothing wanted at 0).
+    AiCar still = steer;
+    still.speed = 0;
+    still.offset = -4;
+    for (int k = 0; k < 128; ++k)
+        aiSteerStep(still, col, k);
+    CHECK(still.steer == AiCar::Slide && std::fabs(still.side - steer.side) < 0.05f);
+    // Slow (ai_ctl_slow under 13.41 m/s), it turns towards the point and
+    // goes there, not past the wall (10, less its half width).
+    AiCar slow = steer;
+    slow.speed = 8;
+    slow.offset = 7;
+    slow.heading = slow.yawRate = slow.carSide = slow.sideSpeed = 0;
+    float most = 0;
+    for (int k = 0; k < 64 * 8; ++k) {
+        aiSteerStep(slow, col, k);
+        most = std::max(most, slow.side);
+    }
+    CHECK(slow.side > 6 && most <= 9.0f + 1e-4f && slow.heading != 0);
+    // A car pushed at the wall stops there.
+    AiCar wall = steer;
+    wall.offset = 30;
+    for (int k = 0; k < 256; ++k)
+        aiSteerStep(wall, col, k);
+    CHECK(std::fabs(wall.lateral - 9) < 1e-4f);
+    // On a bend the velocity is kept as the slice is left: running straight
+    // on, the car is carried wide of the turned road and pushed back.
+    TrackCollision bent = straightRoad(60);
+    for (size_t i = 30; i < bent.road.size(); ++i) {
+        const float a = 0.05f * static_cast<float>(i - 29);
+        bent.road[i].forward = {std::sin(a), 0, std::cos(a)};
+        bent.road[i].right = {std::cos(a), 0, -std::sin(a)};
+    }
+    AiCar turn = steer;
+    turn.slice = 29;
+    turn.velSlice = 29;
+    turn.side = turn.lateral = turn.offset = 0;
+    turn.sideSpeed = 0;
+    turn.slice = 30;
+    aiSteerStep(turn, bent, 1);
+    CHECK(std::fabs(turn.sideSpeed - 30 * std::sin(-0.05f)) < 1e-3f);
 }
 
 int main() {
