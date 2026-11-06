@@ -2068,7 +2068,7 @@ keypad 2; cars 0-7 or 0-15 dumped every 0.125 s; `-count` and
 racers still in, free (+0x634 passed) and within 16 slices, scored by
 `0x403f80`. A racer scores only when it is already chased (record
 +0x14), or 6.71 m/s over the section's speed now, or +0x6F0 over 2
-(`0x4014b0` keeps +0x6F0 for each one looked at). A computer racer
+(`0x4014b0` keeps +0x6F0 for each one looked at: the most it has been over the section's speed, not its speed; read again November 2026). The record's +0x14 counts chases lost (`cop_lose_target` `0x401a80` adds 1 when the last cop lets the racer go and no strip caught it; a human cop's `0x4052e0` sets it to 1 once +0x6F0 is over 2; the ticket clears it). A computer racer
 scores the cops / 3 (at least 1), a human the cops − 1, less the cops
 already on it; +0x730's car scores the most. A cop with a strip out
 or a roadblock waits up to 960 steps for its own racer within 4

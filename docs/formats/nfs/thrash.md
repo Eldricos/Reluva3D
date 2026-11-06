@@ -134,6 +134,29 @@ Direct3D:
 | 0x190-0x195 | assorted; 0x193 returns capabilities, 0x194 and 0x195 set source and destination blend from tables |
 | 0x2bd, 0x2bf, 0x2c2 | softtria's own; d3da ignores them and returns 0 |
 
+## Texture filtering
+
+What the game asks for (November 2026): state 0x7 is the texture
+filter, 0x8 the LOD bias and 0xb mipmapping. `voodoo2a.dll`'s `setstate`
+turns 0x7 into `grTexFilterMode(0, v, v)`, 0x8 into `grTexLodBiasValue`
+and 0xb into `grTexMipMapMode` (its jump at `0x600027a3`-`0x60002bd4`,
+the Glide entry points it looks up by name at `0x60001272`-`0x60001579`
+and keeps at `0x60011470`, `0x600114ec`, `0x600114bc`), and calls those
+three nowhere else. nfs3.exe sends none of them to it: of the calls
+through its pointer to `setstate` (`0x9ef96c`) only two pass 7, both in
+the text drawing `0x4d7160` (`0x4d7252` point-sampled for a scaled
+string, `0x4d7547` bilinear after it) and only with the Direct3D
+renderer (`0x7a3a58` bit 0x40); the renderer set-up `0x4b59c0` sends
+voodoo2a states 10, 4 and 2, and the wrapper `0x431900`'s callers pass
+other states. A race's list confirms it (`d6-tlog`, Hometown by night,
+`-thrashlog` of frame 2345: states 1, 2, 3, 4, 0xd, 0xe, 0xf, 0x15 and
+0x68 only). So Glide's defaults hold, which `grSstWinOpen` sets for each TMU (the Voodoo 2 Glide 2.x sources 3dfx released, `glide2x/cvg/glide/src/gsst.c`): point-sampled
+for minification and magnification, no mipmaps, the same for cars,
+scenery, the sky and the effects. The Track and Cars pages draw the
+track's pictures, the sky's, the cars' skins and reflection maps and the
+officer's pages so (`glideTextureParams`); the glows, beams and flares
+are still filtered.
+
 ## Fog
 
 The game fogs only with a 3dfx renderer. Its set-up for each renderer

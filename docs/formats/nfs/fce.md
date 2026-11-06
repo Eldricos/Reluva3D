@@ -371,7 +371,14 @@ row 0 is the first row stored, the bottom one of every `car00.tga` but
 until November 2026 the Track and Cars pages drew every skin upside
 down: the Corvette from behind showed no tail lights, the F355 its
 lights below its grille. Both pages now turn the rows back
-(`skinRowsAsStored`).
+(`skinRowsAsStored`). Checked on the Cars page from behind and in front
+(`RELUVA_NFS_CARS_VIEW`, November 2026): the Corvette's four round tail
+lights, the F355's and the Diablos' at the back with the plate below
+them, the F355's badge on its nose, the CLK-GTR's grille and lamps in
+front, the XK8's left badge reading the right way (its right one is
+mirrored by the model's own texture coordinates, the same picture used
+for both sides). The game draws the skins point-sampled with no mipmaps
+([thrash.md](thrash.md), Texture filtering), and so do the pages.
 
 ## How the game loads a model
 

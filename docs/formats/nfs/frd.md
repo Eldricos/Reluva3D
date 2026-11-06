@@ -842,6 +842,18 @@ from the same sky draw the page shows the game's frame's cars;
 `RELUVA_NFS_TRACK_STEP=<g_step>` (`0x7d3684`) holds the moving objects
 at that step's keys.
 
+The night comparison again with the game's own models (November 2026:
+`t6-night`'s 150th sky draw, camera, cars and the set-up dump of the same
+deterministic run, `d5-night-setup.bin`, whose end state hashes the same,
+30c7ac9b95d5cee3, as `d6-tlog`'s): the two nearest cars, about 10 pixels
+long in the game's 640 × 480, are a light car and a black one with red
+tail lights on both. The brightest quarter of each car's pixels: the
+light car 59, 50, 51 in the game against 50, 50, 56 on the page, the
+black one 42, 28, 24 against 42, 39, 35; the game's are a little redder
+(its tail lights take more of so few pixels, and its 5:6:5 colour rounds
+blue and red to 8 levels). Nothing was found to fix at that size; a
+nearer car in a night frame would settle it.
+
 **The police car's driving** (`aiCopStep`, November 2026). The page's
 police car drives as a computer cop (`car_driver_cop`, `0x4032e0`;
 [physics.md](physics.md), The computer cops' driver), not by the racers'
@@ -895,8 +907,10 @@ has them:
   16 m (`0x536074`), or the record's +0x28 past; else within 20 m
   (`0x53607c`, 40 with three cops stopping it), the target at 11.18 m/s
   or less (`0x56ea50`), the cop on the ground and upright (> 0.5): held
-  192 steps (160 or 224 by the target's race distance from the leading
-  human's, ±60; the page takes 192), then the record's +0x1C = 2 and
+  192 steps, or for a computer racer 160 when it is more than 60 slices
+  ahead of the leading human (its +8 less `0x56ebb8`'s +8) and 224 when
+  more than 60 behind (`0x40237a`; `aiStopHold`, the page's camera
+  standing for the human), then the record's +0x1C = 2 and
   +0x28 = step + 320. The racer (`car_driver_ai` states 5 and 6): 11
   m/s (`0x408b30`) and +150 for the nearer road edge's lane
   (`0x408bd0`) until in the lane past the road's lanes, then 0; under
@@ -906,7 +920,21 @@ has them:
   +0xC (384 steps, 448 from 5 tickets); past it the ticket (`cop_ticket`
   `0x401ff0`): the record cleared, a ticket more, free of chases for
   +8 (960 steps after the first), `cop_after_ticket` (`0x4040e0`)
-  radios and orders a patrol. The officer on foot isn't drawn.
+  radios, and every cop on the racer or watching it lets it go (no
+  chase lost; a watcher's strip taken up) and patrols; the racer's
+  +0x6F0 and chases lost are cleared.
+- **The officer on foot** (November 2026; `drawOfficers`): as the stop
+  begins `cop_officer_place` (`0x401c20`, `0x401b50`) puts him 2 m from
+  the racer along its slice's right towards the road's middle, at the
+  road's height, turned to the racer's heading; `draw_officer`
+  (`0x4b9bc0`) draws him within 100 m, until the ticket (`0x401e20`).
+  His model is the track's `Render/pc/copN.fce` with its `.art` pages
+  (`0x4b7c60`, loaded with `0x49d450`: cop0 on tracks 0 and 4, cop2 on 2
+  and 6, cop3 on 3 and 7, cop4 on 8, cop1 on 1 and 5), raised by its half
+  height (+0x2C), in the corner colours 0x4F4F4F to 0x7F7F7F
+  (`0x49d800`). The page leaves out `0x401d78`'s check that the spot is
+  on the road's polygons (else the other side) and the red light of
+  track 8's officer (the model's dummy, `0x492370`).
 - **Orders** (+0x7AC, `cop_ai_order` `0x403830`, taken by
   `cop_ai_order_start` `0x403030` once, and again in patrol at each call
   without a target): kind 0, to the roadside: facing the order's first
@@ -924,12 +952,30 @@ has them:
 - **The strip** (`spike_lay`, `0x4c9dd0` with `0x4c9bc0`): across the
   lane's middle, 0.75 lane widths either side (`0x18000` × the half's
   lane width / 2), 0.5 above the road (`0x540360`): 12 m on Hometown's
-  8 m lanes, as `r2-cop5` measured. Each step (`0x4297d0`, `0x4ca160`) a
-  racer on its slice whose wheels cross it runs over it: the strip is
-  cleared (`0x4c9f50`), the racer pulled over (`spike_hit_racer`
-  `0x401650`), and when it has been over the section's speed by more
-  than 2 m/s (+0x6F0; the page takes its speed then) the strip's cop
-  takes it as its target and the record's +0x28 = step + 320. The cop
+  8 m lanes, as `r2-cop5` measured. Its record holds a quad: the two
+  ends on the road at the slice's point and the same two 0.5 higher
+  (`0x540360`; `aiStripQuad`). Each step (`car_spike_check` `0x4297d0`,
+  `spike_hit_test` `0x4ca160`) a racer in the race, on the ground, within
+  a slice of an armed strip is tested wheel by wheel: the quad's four
+  corners are taken into the car's frame from the wheel (its record's
+  track positions at +0x304 + wheel × 0x78) and given out codes against
+  a box of ±0.5 m (`0x540388`, `0x540390`); a wheel whose four codes
+  share no side is on it (`aiStripWheels`, the page's wheels the model's
+  parts 1-4 on the road). A hit clears the strip (`0x4c9f50`), sets
+  +0x99C to the wheels and +0x621 bit 0x40, pulls the racer over
+  (`spike_hit_racer` `0x401650`: record +0x1C = 2, the cop's +0x711 bit
+  8 off) and, when its +0x6F0 is over 2 m/s, a cop is on it or it has
+  lost a chase, the strip's cop takes it if it has no target, the
+  record's +0x28 = step + 320 with a cop on it. A car at 40 m/s moves
+  0.6 m a step, so a wheel can step over the 1 m box. **+0x6F0** is
+  not the speed: it is the most the racer has been over its track
+  section's speed while a computer cop looked at it
+  (`racer_overspeed_update` `0x4014b0`, a maximum, from
+  `cop_ai_pick_target` for each racer within 16 slices of a free cop and
+  from `car_driver_cop` for the target each call; a human cop's
+  `0x4052e0` for racers within 50 slices), 0 after a ticket
+  (`0x401ff0`). Read as an integer against 0x40000000 it is over 2.0.
+  The cop
   watching (+0x730) radios once its racer is past the strip by less
   than 30 slices (`0x403df0`, `0x40bca0`: "missed the strip") and clears
   it 50 past; a roadblock's cop gives up when its racer is 5 slices past
@@ -938,9 +984,36 @@ has them:
   roadblock, a cop takes a target only once its watched racer has been
   within 4 slices for 256 steps, or after 960.
 
-The heat that has a chasing cop order strips and roadblocks from free
-cops (`0x4039c0`, `0x403b20`) needs other cops, and the page has one:
-its **key C** gives the orders those calls give, in turn: a strip (kind 0
+**The calls for help** (`car_driver_cop` `0x4032e5`; November 2026):
+every 320 steps of a chase (the record's +0x24, the first 640 after the
+chase began, +0x20) a chasing computer cop with no human cop in the race
+calls. The cop that asked last (+0x5C) only clears that. Another asks for
+a strip (`cop_ai_call_strip` `0x4039c0`): with none ordered (+0x58) and
+the heat, chases lost (+0x14) + cops on it (+0x2C) + tickets + (step −
++0x20) / 2048, over 6, the first time only a radio call (`0x40b910`,
++0x54 bit 2); after that the free cop nearest ahead of the racer, 51
+slices to ¾ of the track by slice number (negated on a track run
+backwards), gets the strip order. Failing that, a roadblock
+(`0x403b20`, human targets only) and then backup (`cop_call_backup`
+`0x4043a0`): only while the racer still scores for more cops
+(`0x403f80`: max(cops / 3, 1) less the cops on it, so never with five or
+fewer cops and one on it); a radio call once (`0x40b720`) 640 steps into
+a chase with one cop on it; the nearest free cop on the racer's other
+side within twice `t_ticket_times`' slices, and every free cop with
++0x711 bit 1 ahead within 8 times them, on a run with the siren (kind
+3, length 8) to halfway between it and the racer (`0x404340`).
+`cop_ai_target_score` also counts a racer that has lost a chase or
+whose +0x6F0 is over 2, as well as one over the section's speed by 6.71.
+A cop that takes a target while watching a racer for a strip or a
+roadblock stops watching and takes its strip up (`cop_set_target`
+`0x4018b0`), and the last cop to lose a racer not caught by a strip
+counts a chase lost (`cop_lose_target` `0x401a80`, never while it is
+pulled over). The page runs all of this with a **second police car**
+(J puts it 800 m on, patrolling the camera's way; its index 1, its
+strips in lane 6); with two cops the racers' heat reaches 6 only after
+chases lost or tickets (or about 3 minutes of one chase), and backup is
+never sent. Its **key C** gives the free cop (the first without a
+target) the orders those calls give, in turn: a strip (kind 0
 from its slice − 6, 3 slices, +0x711 bit 8), a roadblock (kind 4, 20
 slices on along its way) and a patrol, each watching the racer nearest
 it, the chase dropped. A racer close by and speeding is taken as a
@@ -961,6 +1034,24 @@ at 52 m/s at 7.7 s, pulled over (5) and stopped (6) at slice 375 by
 turned across: the first racer passing at 57 m/s became its target. A
 racer held at 10 m/s was held 192 steps within 20 m, pulled over,
 stopped and ticketed.
+
+**On the page** (November 2026, Xvfb, Hometown by day, the camera turned
+to look against the slices, J then C at once, Shift+C following the
+ordered cop; screenshots only for review, not kept): the second police
+car, 800 m on, turned back, stopped at the roadside and laid its strip
+in lane 6 (the racers' first lane going that way) within about 3 s;
+about 20 s on a racer at 51 m/s over the section's speed (+0x6F0) ran
+over it at step 1461-1488, was pulled over and stopped; the cop stopped
+it with the officer standing at the racer's road side, and gave the
+ticket ("1 ticket", radio "suspect ticketed"). In runs where the racer
+stayed out of lane 6 it went past ("missed the strip"), and when the
+cop's wait for its racer ran out it took it as a target and took the
+strip up, as `0x4018b0` does. Two faults of the page's were found and
+fixed on the way: a cop's step changed the racers stepped before it only
+for that step (a racer it pulled over was let go again), and the strip
+watch counted slices the slices' way where the game counts them the
+race's (`g_backward`): the page's racers may run either way, so it is
+taken by the watched racer's way.
 
 **The computer cars' driving** (nfs3.exe, November 2026; `aiStep`).
 An AI racer runs `car_driver_ai` (`0x409c00`, state 1) every 8 steps and
@@ -1124,6 +1215,25 @@ two cars (none in the game). The page's cars now aim at lane 7's middle
 (4 m) most of the time as the game's do, but cross to lane 8 less often
 (3-14 samples aimed at 12 m against the game's 7-40): the rest of the
 difference is the game's own steering, which the spring stands for.
+
+**The bend's cut** (`aiBendCut`, November 2026, `d6-runs/sim`). The
+game's car doesn't follow its aim along the road: `0x406e50` steers it
+at a point ahead (`0x406d40`: the slice from `0x406980`, 4 slices on and
+then to speed × 1.7 / 6 slices, 4 to 20, short of a 45° turn, moved
+across by the aim), and the controllers (`0x4076b0`, `0x407fa0`) turn it
+towards that point. A car chasing a point L ahead on a bend of curvature
+k settles k L² / 2 inside it, and that is the point's offset across the
+car's slice; the page's spring now pulls the side offset to the aim plus
+that offset (at most 6 m), taken from the slices' points, not fitted.
+Against `t6-log` (`aisim` from the 50 s dump, `weave.py`): +0x638
+changes in 13-18 of the 56 samples per car (110 in all; the game's
+17-23, 143; 21-29, 169, before), and the aim is past 8 m (lane 8, 12 m)
+in 12-24 samples per car (122; the game's 10-41, 162; 1-14, 50, before).
+Mean speeds 36.4-37.8 m/s. A share of the offset was tried too (0.05 to
+1.5): 0.25 came nearest on both counts together (107 and 139), the full
+offset second (110, 122), none of them on both; the rest is the
+controllers' own lag and overshoot, which the spring (fitted without the
+cut on `t6-watch`) stands for and which was not fitted again.
 
 In a scratch run of 30,000 steps (almost 8 minutes) on each of tracks
 0-4 with the page's three cars, they braked into the bends on every

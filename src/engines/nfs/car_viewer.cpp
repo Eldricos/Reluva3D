@@ -8,6 +8,8 @@
 
 #include <algorithm>
 #include <cmath>
+#include <cstdio>
+#include <cstdlib>
 #include <tuple>
 
 namespace reluva::nfs {
@@ -55,7 +57,23 @@ void CarPage::activate(System& sys) {
     }
     overlay_.create(kFrameW, kFrameH, PixelFormat::RGBA32);
     loadSkies();
+    // RELUVA_NFS_CARS_VIEW="model yaw pitch distance": the page opened on
+    // that model (its number on the page less 1), seen from there
+    // (radians; the distance in the model's radii, 2.6 by default), for
+    // screenshots that can be repeated.
+    const char* view = std::getenv("RELUVA_NFS_CARS_VIEW");
+    int wanted = index_;
+    float yaw = 0, pitch = 0, distance = 0;
+    const int got = view ? std::sscanf(view, "%d %f %f %f", &wanted, &yaw, &pitch, &distance) : 0;
+    if (got >= 1 && !models_.empty())
+        index_ = std::clamp(wanted, 0, static_cast<int>(models_.size()) - 1);
     load(index_);
+    if (got >= 3) {
+        yaw_ = yaw;
+        pitch_ = pitch;
+    }
+    if (got >= 4 && distance > 0)
+        distance_ = radius_ * distance;
 }
 
 void CarPage::deactivate() {
@@ -127,7 +145,7 @@ void CarPage::load(int index) {
             break;
         for (const image::Image& img : images) {
             gfx::TextureId id = 0;
-            renderer_->createTexture(img.w, img.h, img.rgba.data(), {}, id);
+            renderer_->createTexture(img.w, img.h, img.rgba.data(), glideTextureParams(), id);
             pages_.push_back(id);
         }
         skinName_ = baseName(f.name) + " (" + std::to_string(images.size()) + " pages)";
@@ -146,7 +164,7 @@ void CarPage::load(int index) {
             std::vector<uint8_t> tga;
             image::Image img;
             if (!files_.read(f, tga) && !image::decode(tga, img) &&
-                (skinRowsAsStored(tga, img), !renderer_->createTexture(img.w, img.h, img.rgba.data(), {}, skin_))) {
+                (skinRowsAsStored(tga, img), !renderer_->createTexture(img.w, img.h, img.rgba.data(), glideTextureParams(), skin_))) {
                 skinName_ = baseName(f.name);
             }
             break;
@@ -242,7 +260,7 @@ void CarPage::loadSkies() {
                 image::Image img;
                 gfx::TextureId id = 0;
                 if (shape.name == name && !decodeShape(shape, img) &&
-                    !renderer_->createTexture(img.w, img.h, img.rgba.data(), {}, id))
+                    !renderer_->createTexture(img.w, img.h, img.rgba.data(), glideTextureParams(), id))
                     skies_.push_back({name, id});
             }
         break;
