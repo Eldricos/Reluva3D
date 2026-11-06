@@ -118,7 +118,9 @@ private:
     // The batch to add to, a new one if the state changed.
     ThrashFrame::Batch& batch();
     void plot(int x, int y, uint32_t argb);
-    void put(uint8_t* pixel, uint32_t argb); // blends as the state says
+    // Blends as the state says, then to 5:6:5 (dithered at (x, y) while
+    // dithering is on).
+    void put(uint8_t* pixel, uint32_t argb, int x, int y);
 
     x86::Cpu& cpu_;
     uint32_t target_ = 0;
@@ -128,6 +130,9 @@ private:
     const Texture* texture_ = nullptr;
     uint32_t textureHandle_ = 0;
     int cull_ = 0;       // state 2: 0 none, 1 counter-clockwise, 2 clockwise
+    // State 5: dithering. voodoo2a.dll's setstate 5 calls grDitherMode(2)
+    // (4x4) for a value not 0, else grDitherMode(0); Glide starts at 4x4.
+    bool dither_ = true;
     bool gouraud_ = true; // state 6
     bool wrap_ = true;    // state 0xd: 1 wrap, 0 clamp
     int blend_ = 0;       // state 0x68: 0 alpha, 1 additive, 2 darken, 3 multiply

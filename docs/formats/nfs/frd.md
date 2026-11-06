@@ -330,8 +330,35 @@ slices, then puts `+0x10` back (`0x41f018`).
   slice's own walk down over surface-14 polygons), and none on
   Atlantica, Lost Canyons or Empire City. On Rocky Pass, of the wrong marks within two
   units of a wall, those set 3-5 slices away (52 at +5, 43 at −5, 28 at
-  −4, 24 at +4 of the first slice, by walks up; 49 more by walks down). That is what the code does; whether a car
-  pressed against a wall there is pushed the wrong way wasn't driven.
+  −4, 24 at +4 of the first slice, by walks up; 49 more by walks down). That is what the code does. **It doesn't push a car the wrong way**
+  (November 2026, read from `0x4304b0`, `0x41fd60`, `0x41f870`,
+  `0x430210`, `0x42ee10` with `gdecomp` and `asm`, and driven). For a
+  corner off the road `0x41fd60` ORs the car's and the corner's +0x6C
+  with its own bits from the corner against the **car's** polygon (1 or
+  2 within 1.5 units of its edge 1-2 or 3-0, 4 or 8 past its ends; only
+  the +0x6Cs when the corner's record is the car's). For each bit (4, 8,
+  1, 2, `0x42dd48`) `0x41f870` steps from a copy of the car's own track
+  position to that neighbour (i − 1, i + 1, the next or last slice; it
+  clears the copy's +0x6C); only where there is none, or it is surface
+  14, or `0x430350` finds the car below it, is that edge a wall, and its
+  normal is made from the car's polygon's edge (`0x430210`), so it
+  points into the road. With no wall found the push is from the corner
+  towards the car's middle. `car_contact_impulse` (`0x42ee10`) moves the
+  car out only by a corner's depth behind that edge (from one of the car
+  polygon's corners, car +0x30-+0x5C) and pushes only a corner moving
+  into it. A wrong mark (2 at a left wall) therefore adds a normal only
+  when the car's polygon has no road on its right, and even then from
+  the right edge, which a corner at the left is in front of: no push.
+  Over the found points with the car's middle 1.2 m inside the wall
+  (`e5-runs/sim/wrongside`), the step the other way from the car's
+  polygon is road at all 66 on Rocky Pass and all 220 on The Summit.
+  Driven (`e5-wall1`: Rocky Pass, the player's car held at slice 478
+  8.9 m left of the road point, 1.15 m inside the left wall, then let go
+  at 15 m/s forward and 6 m/s into the wall): from 52.37 to 54.02 s the
+  wall test found 26 corners off the road, 25 of them with the mark 2
+  (bits 3 and 7) and all with 1; every normal asked was side 1's (25),
+  and the 25 impulses pushed the car right, its speed across the road
+  from −5.1 to +1.2 m/s, its middle −8.8 to −8.4 m, never past the wall.
 - **Reading past the run.** The walk up holds its start to count − 2
   of the slice it is on (`0x41ea31`-`0x41ea38`; −1 for a run of one, so
   it begins one polygon before the run), but the walk down starts from
@@ -1383,7 +1410,8 @@ them along the slices at the speed that leaves:
   middle 1.5 widths out reckons itself a lane further on (1.5 rounds to
   2), so the lanes' votes are taken from there; next to a lane without
   a strip it is nudged back.
-- **Its speed** (`0x4066c0`): towards the speed wanted, up by the
+- **Its speed** (the force model since November 2026, below; before,
+  `0x4066c0`'s): towards the speed wanted, up by the
   acceleration table of its `carp.txt` (P +0x2EC, one value a m/s at
   round(speed − 0.5), × 0.9 with ai Normal past race distance 100 (only
   then: the page took it from the start until November 2026) and
@@ -1592,7 +1620,62 @@ and the cars still don't meet as the game's do: car 3 reaches slice 94
 when the game's does (64.5 s), but car 4 is 3 slices ahead of the
 game's (its hills), so car 3 isn't held up and doesn't overtake. The
 replay of `d7-watch2` stays at 0.62 m rms (rails 1,109, slow 59, slide
-140) and `park` at 120 stops, none past a wall. **The roadside cop** (`d7-runs/sim/park`,
+140) and `park` at 120 stops, none past a wall.
+
+**The force model** (November 2026, `aiMove`). `0x4066c0` (towards the
+speed wanted, not past it) is only `0x4068a0`'s, for a car with +0x88,
+set at `0x46681e` only; +0x88 was 0 for all eight cars in every
+`t6-log` dump. The racers are pushed instead (read from the code,
+`asm`, constants from the exe):
+- `ai_ctl_rails` (`0x4076b0`): the error is the speed wanted × the way
+  less the way × +0x7C0 (`0x407992`-`0x4079ae`); over 0 the
+  acceleration (`0x4064f0`), else minus the braking (`0x4063e0`,
+  `fchs` at `0x4079cf`), with no dead band and nothing that stops the
+  speed at the speed wanted: it goes past by the acceleration × 1/32
+  and is braked back, so it chatters just under it (the `gh1-ai`
+  43.6-43.7 for 44.0). Accelerating, with +0x4F4 over |+0x4EC| and over
+  44.703 m/s (`0x53635c`), the drive loses 3.45 (`0x536364`) / P's
+  lateral grip multiplier (+0x248) for a racer (+0x200 bit 1), else
+  |the side force| / |+0x4F4 × 0.5| (`0x407a28`-`0x407b2a`); for the
+  Corvette (3.3) 1.05 m/s². The sign is turned for +0x4F4 under 0, and
+  the force goes along the road polygon's forward (`0x56ec74`).
+- `ai_ctl_slow` (`0x407c30`) and `ai_ctl_slide` (`0x407fa0`): |the speed
+  wanted|, at most 16.4109 (`0x53637c`) for the slow one, less +0x4F4;
+  over 1 the acceleration, else minus the braking (`0x407ef3`-`0x407f1b`);
+  reversing (+0x7D4) the slow one accelerates backwards while +0x4F4 is
+  over minus that speed (`0x407f22`-`0x407f49`). Both along the car's
+  forward (+0x4E8).
+- `ai_integrate` (`0x4071a0`) adds the force × 1/32 s to the velocity;
+  `car_dynamics` (`0x4a2830`, `0x4a2a0c`-`0x4a2b19`) adds gravity:
+  −0.3065625 (`0x53c8dc`) × the road's forward's rise (+0x1AC) along
+  that forward, while the car is upright.
+
+The page now does this (the speed along the way, + the force × 1/32,
+less 0.3065625 × the slice's forward's rise the way it runs). Measured
+with `e5-runs/sim/aisim` (`t6-log`'s 50 s dump; each car's own
+`carp.txt`; November 2026 the sim also seeds each car's speed wanted
+(+0x7B0) and its place along its slice from the dump, where it had
+started every car at its slice's point with nothing wanted until its
+driver's first call, so a car braked on the first tick and was up to a
+slice behind; with that alone the old model gives 146 lane changes, 179
+samples past 8 m): from 50 to 64 s, before the game's cars meet, the
+speeds are within 0.86 m/s rms of the dumps' (1.50 before; the mean
+excess +0.32, was +1.07), car 4 at the end of it 2 slices from the
+game's (4 before) and car 3 1 behind; over the whole window 3.08 m/s
+rms (3.22). +0x638 changes in 149 samples (cars 1-7: 21, 24, 26, 16,
+21, 20, 21; the game's 143) and the aim is past 8 m in 167 (11, 32, 28,
+25, 16, 11, 44; the game's 162). Car 4 now holds 44.1-44.5 at
+Hometown's slices 69-83 as the game's does. Car 3 still doesn't go
+past car 4 on the left: in the game the two meet at slices 90-91 at
+64 s side by side (+0x7B8 13.65 and 12.19) and both lose about 10 m/s
+in half a second (42.4 → 31.4, 41.3 → 33.2), a hit, after which car 4
+aims at 4 m and car 3 swings out to −11.7. On the page car 3 reaches
+them as the game's does (slice 90 at 64 s) but in lane 7 (+0x7B8 3.8):
+from 61.5 s it aimed at 4 m where the game's aimed past the edge (17.18,
+then 12), so the two pass side by side; and the page's cars don't hit
+each other. The replay of
+`d7-watch2` is unchanged (0.62 m rms; rails 1,109, slow 59, slide 140)
+and `park` stops 120 times, none past a wall. **The roadside cop** (`d7-runs/sim/park`,
 the police car ordered to lay a strip from every 8th slice of Hometown,
 120 stops): with the spring and the cut it parked past a wall 81 times,
 by up to 5 m (it was pulled on to lane 5 − L's aim at the wall less its

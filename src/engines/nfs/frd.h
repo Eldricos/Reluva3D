@@ -435,6 +435,7 @@ struct AiCarData {
     float maxBrake = 10;            // maximum braking deceleration (P +0x1D8)
     float topSpeedCap = 70;         // P +0x1CC
     float maxVelocity = 70;         // P +0x1C8, the cops' top speed (0x401370)
+    float latGrip = 0;              // lateral acceleration grip multiplier (P +0x248, field 30)
 };
 // The fields of a car's carp.txt the computer's driving reads; false when
 // one is missing.
@@ -480,6 +481,7 @@ struct AiCar {
     float carSide = 0, heading = 0, yawRate = 0, headingError = 0; // headingError: 0x56ec60, turns
     int velSlice = -1;
     enum Steer : uint8_t { Rails, Slow, Slide } steer = Rails;
+    float sideForce = 0; // ai_ctl_rails' force across the road (0x56ec6c), for its drive's loss
     float target = 0;   // the offset wanted (+0x7B4)
     float speed = 0;    // m/s along its way (+0x7C4)
     float wanted = 0;   // the speed wanted (+0x7B0), as a size
@@ -638,11 +640,14 @@ bool aiAtRaceStart(int distance, int place, int racers, bool backward = false, i
 // lane_votes_ahead with the strips' 0x40d720, lane_choose); pulled over
 // (its record's +0x1C = 2) it pulls over (5) and stops (6) until the
 // ticket. The model (car_ai_physics, 32 Hz: the even steps) moves its aim
-// 0.2 towards the offset wanted (0x408870) and its speed over 1/32 s
-// towards the speed wanted by the acceleration table or the brakes
-// (0x4064f0, 0x4063e0), the brake held only when more than 5 m/s too
-// fast; its side offset follows the aim every step. speeds: the table
-// for its way.
+// 0.2 towards the offset wanted (0x408870) and pushes its speed over
+// 1/32 s by the controller's forward force: the acceleration table under
+// the speed wanted, else the brakes (0x4064f0, 0x4063e0; the slow and
+// sliding controllers brake within 1 m/s of it), not stopped at it, less
+// 3.45 / P's lateral grip multiplier accelerating over 44.703 m/s
+// (ai_ctl_rails 0x4076b0), with gravity along the road's rise (0x4a2a0c);
+// the brake held only when more than 5 m/s too fast; its side offset
+// follows the aim every step. speeds: the table for its way.
 void aiStep(std::vector<AiCar>& cars, size_t self, const TrackCollision& col, const std::vector<uint8_t>& speeds,
             const AiCarData& data, int step, int track, bool weather);
 // One step (64 a second) of a computer car's motion across the road, as

@@ -449,6 +449,16 @@ the frame's fog state, 475). The dump's positions projected with the
 dumped camera land on the quads' centres to 0.1 pixel, and their
 half sizes (size × 320 / depth) on the quads' extents.
 
+**Its brightness** (November 2026). By day the page's smoke was 9.5-10.7
+brighter than `nfs-host`'s frame of the same moment (Empire City frame
+2816, the region round the held car's tail), the scenery beside it only
+1.5-4. The colour fade, the picture (`SP06`, 4:4:4:4 as uploaded), the
+fog (475, both) and the blend (source alpha over, both) agree; the
+difference was the host's 16-bit buffer, which truncated each blended
+layer where `voodoo2a.dll` has Glide dither 4x4 ([thrash.md](thrash.md),
+Dithering). With the dither the smoke is 2.8-4.1 under the page's and
+the scenery 0.8-2.4 (`e5-t8d0`).
+
 **Over the cars** (November 2026). In that frame the smoke's batch comes
 after all the car's polygons and covers its back, by day greying it and
 by night (`e1-t8s1`, `SN06`) darkening it: nfs-host's renderer runs

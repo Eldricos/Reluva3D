@@ -1528,6 +1528,43 @@ void testComputerDriving() {
         aiStep(start, 0, col, speeds, capped, 88, 1, false);
         CHECK(std::fabs(start[0].wanted - 21.0f * 0.5f) < 1e-4f);
     }
+    {
+        // The force model (ai_ctl_rails 0x4076b0, ai_integrate 0x4071a0):
+        // nothing holds the speed at the speed wanted, so a car just under
+        // it goes past it by the acceleration and is braked back.
+        std::vector<AiCar> one{cars[0]};
+        one[0].speed = 39.99f;
+        aiStep(one, 0, col, speeds, data, 84, 1, false);
+        CHECK(one[0].wanted == 40 && std::fabs(one[0].speed - (39.99f + 3.6f / 32)) < 1e-4f);
+        aiStep(one, 0, col, speeds, data, 86, 1, false);
+        CHECK(!one[0].braking && std::fabs(one[0].speed - (39.99f + 3.6f / 32 - 12.5f / 32)) < 1e-4f);
+        // Accelerating over 44.703 m/s a racer's drive loses 3.45 / its
+        // lateral grip multiplier (0x536364).
+        std::vector<uint8_t> fast(16, 0);
+        fast.insert(fast.end(), 100, 60);
+        fast.insert(fast.end(), 200, 0x80);
+        AiCarData grip = data;
+        grip.latGrip = 3.45f / 2;
+        one[0].speed = 45;
+        aiStep(one, 0, col, fast, grip, 88, 1, false);
+        CHECK(one[0].wanted == 60 && std::fabs(one[0].speed - (45 + (3.6f - 2) / 32)) < 1e-4f);
+        // Gravity along the road (0x4a2a0c): -0.30656 m/s a tick x the
+        // forward's rise, the way the car runs: up a 10 % slope it loses
+        // 0.0306 m/s more a tick, running the other way it gains it.
+        TrackCollision hill = col;
+        for (auto& point : hill.road) {
+            const float k = 1 / std::sqrt(1.01f);
+            point.forward = {0, 0.1f * k, k};
+        }
+        std::vector<AiCar> up{cars[0]};
+        up[0].speed = 30;
+        aiStep(up, 0, hill, speeds, data, 84, 1, false);
+        CHECK(std::fabs(up[0].speed - (30 + 3.6f / 32 - 0.3065625f * 0.1f / std::sqrt(1.01f))) < 1e-4f);
+        up[0].way = -1;
+        up[0].speed = 30;
+        aiStep(up, 0, hill, speeds, data, 86, 1, false);
+        CHECK(std::fabs(up[0].speed - (30 + 3.6f / 32 + 0.3065625f * 0.1f / std::sqrt(1.01f))) < 1e-4f);
+    }
 
     // Held up behind a car in its lane within 2 slices, wanting more than
     // 8.94 m/s over its speed: its lights a step up for 64 steps (0x40de50),
@@ -1701,6 +1738,9 @@ void testComputerDriving() {
     AiCarData parsed;
     CHECK(parseCarpAi(carp, parsed) && std::fabs(parsed.topSpeedCap - 78.23f) < 1e-4f && std::fabs(parsed.maxBrake - 10.06f) < 1e-4f);
     CHECK(parsed.accel[0] == 0.5f && parsed.accel[111] == 111.5f);
+    CHECK(parsed.latGrip == 0); // field 30 left out: no drive loss over 44.703 m/s by it
+    CHECK(parseCarpAi(carp + "lateral acceleration grip multiplier(30)\n3.300000\n", parsed) &&
+          std::fabs(parsed.latGrip - 3.3f) < 1e-6f);
     CHECK(!parseCarpAi("maximum braking deceleration(18)\n10\n", parsed));
 }
 
@@ -2677,6 +2717,37 @@ void testThrashFog() {
     CHECK(draw(50000) == 0xf800); // on again, with the table it had
     t.setState(0xe, 0);
     CHECK(draw(50000) == 0);
+
+    // Dithered to 5:6:5 as Glide does (state 5, on from the start): a
+    // 4x4 block of grey 100 averages 100 in red (12.15 of 31 steps), where
+    // truncation gives 12 steps (98.7) everywhere; state 5 = 0 truncates.
+    {
+        auto grey = [&](uint32_t colour) {
+            for (int i = 0; i < 3; ++i)
+                std::memcpy(cpu.memory().data() + verts + 32 * i + 16, &colour, 4);
+            t.triangle(verts, verts + 32, verts + 64);
+            float sum = 0;
+            int distinct = 0, last = -1;
+            for (int y = 4; y < 8; ++y)
+                for (int x = 4; x < 8; ++x) {
+                    uint16_t p;
+                    std::memcpy(&p, cpu.memory().data() + target + y * 1280 + x * 2, 2);
+                    sum += float(p >> 11);
+                    distinct += int(p >> 11) != last && last >= 0 ? 1 : 0;
+                    last = int(p >> 11);
+                }
+            return std::make_pair(sum / 16, distinct);
+        };
+        put(0, 0, 0, 1);
+        put(1, 40, 0, 1);
+        put(2, 0, 40, 1);
+        const auto dithered = grey(0xff646464u);
+        CHECK(std::fabs(dithered.first - 100.0f * 31 / 255) < 0.07f && dithered.second > 0);
+        t.setState(0x5, 0);
+        const auto plain = grey(0xff646464u);
+        CHECK(plain.first == 12 && plain.second == 0);
+        t.setState(0x5, 1);
+    }
 
     // Recorded for the GPU, a batch carries its fog.
     t.setState(0xe, 250);

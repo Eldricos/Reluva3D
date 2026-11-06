@@ -118,6 +118,7 @@ Direct3D:
 | 0x2 | cull: 0 none, 1 counter-clockwise, 2 clockwise |
 | 0x3 | clear colour, 0xAARRGGBB |
 | 0x4 | z test and write; the game sends 0 with softtria (and under nfs-host, whose `voodoo2a.dll` is softtria: `e1-tl1`'s frame 2818 sends it 0 four times and never 1, so the game draws by depth order, col.md, Over the cars) |
+| 0x5 | dithering: not 0 `grDitherMode(2)` (4x4), 0 `grDitherMode(0)` (off); `voodoo2a.dll` sends itself 1 when it sets the video mode, the game never sends it (see Dithering) |
 | 0x6 | shading: 0 flat (the first vertex's colour), 1 Gouraud |
 | 0x7 | texture filtering |
 | 0x9 | antialiasing |
@@ -205,6 +206,41 @@ loaded:
 
 Clears aren't fogged. Each batch on the GPU carries the fog it was
 drawn with.
+
+## Dithering
+
+`voodoo2a.dll` draws into a 16-bit (5:6:5) buffer with Glide's 4x4
+ordered dither on (November 2026, read from the DLL with `pefile` and
+`capstone`). Its `setstate` (`0x60002790`) takes id 5 to the
+`grDitherMode` it looked up at start (`0x60011474`, from the name
+`_grDitherMode@4` at `0x6000f1f4`): `push 2` for a value not 0, else 0
+(`0x60002a94`-`0x60002ab4`, `0x60002b95`). Its own set-up of the states
+after `setvideomode` (`0x60002081`-`0x6000211f`, a run of
+`setstate(id, value)` calls) sends `setstate(5, 1)`, and the game never
+sends id 5: a `-thrashlog` of a whole race on Empire City (`e5-tl`,
+2,920 frames, 862,335 `setstate`s) has none, and of the 167 calls to
+the game's `setstate` wrapper (`0x431900`, the id in eax) none loads a
+5 (one takes its id from a record, `0x43485d`; that run didn't send 5
+either).
+
+`nfs-host`'s native drawing (`thrash_native.cpp`) had truncated each
+pixel to 5:6:5. A blend reads the pixel back from 5:6:5, so where
+translucent quads overlap, each layer lost up to a step (8 of 255 in
+red and blue) and with a low alpha the loss holds the colour back: the
+tyre smoke ([col.md](col.md), eight quads at alpha 62-100 × the picture's
+up to 217) came out 9.5-10.7 darker than on the Track page where the
+scenery round it was 1.5-4 darker. It now dithers as Glide is asked to
+(state 5, on from the start): each channel scaled to its bits plus the
+4x4 Bayer matrix's threshold at the pixel, (2k + 1) / 32 of a step,
+then truncated, so a region keeps its colour on average. The matrix is
+Glide's documented 4x4 one; the Voodoo's own rounding of it isn't known
+from the code. Measured on Empire City's frame 2816 (`e5-t8f0` before,
+`e5-t8d0` after, the page from the dumped camera, cars and particles):
+the smoke 2.8-4.1 under the page, the scenery round it 0.8-2.4 under;
+over the whole frame the host's mean rose by 2.1, 1.1, 3.1 in red,
+green and blue. Since the hashed end state of `-deterministic` runs
+holds the frame buffer, a `-native` run's hash differs from an older
+build's from the first frame drawn; the game's own state doesn't.
 
 ## Windows and frames
 
