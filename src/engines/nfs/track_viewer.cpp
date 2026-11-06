@@ -231,7 +231,8 @@ gfx::TextureId TrackPage::picture(const std::string& sheet, int number, bool lan
     }
     image::Image img;
     gfx::TextureId id = 0;
-    if (shape && !decodeShape(*shape, img) && !renderer_->createTexture(img.w, img.h, img.rgba.data(), {}, id)) {
+    if (shape && !decodeShape(*shape, img) &&
+        !renderer_->createTexture(img.w, img.h, img.rgba.data(), glideTextureParams(), id)) {
         textures_.push_back(id);
         // As the game's picture loader (0x4d40c3), which looks for exactly
         // "<additive>": tr000's and tr001's bare "additive" don't count.
@@ -258,9 +259,7 @@ gfx::TextureId TrackPage::skyPicture(const std::string& name, std::string* text)
                 return 0;
             // Without mipmaps, as THRASH's textures have none: averaged
             // down, the night's one-texel stars (CLDN) all but vanish.
-            gfx::TextureParams params;
-            params.mipmaps = false;
-            if (!renderer_->createTexture(img.w, img.h, img.rgba.data(), params, id))
+            if (!renderer_->createTexture(img.w, img.h, img.rgba.data(), glideTextureParams(), id))
                 textures_.push_back(id);
             return id;
         }
@@ -296,9 +295,8 @@ gfx::TextureId TrackPage::horizonStrip() {
             std::copy_n(tiles[size_t(i)].rgba.data() + size_t(y) * row, row,
                         strip.rgba.data() + size_t(y) * row * kTiles + size_t(i) * row);
     gfx::TextureId id = 0;
-    gfx::TextureParams params;
-    params.clamp = true; // each tile's quad takes its own part, edge to edge
-    if (renderer_->createTexture(strip.w, strip.h, strip.rgba.data(), params, id))
+    // Clamped: each tile's quad takes its own part, edge to edge.
+    if (renderer_->createTexture(strip.w, strip.h, strip.rgba.data(), glideTextureParams(true), id))
         return 0;
     textures_.push_back(id);
     return id;
@@ -1411,6 +1409,8 @@ void TrackPage::loadCarModel(CarModel& cm) {
     }
     cm.halfSize = model.halfSize;
     cm.dummies = model.dummies;
+    for (size_t w = 0; w < 4 && w + 1 < model.parts.size(); ++w)
+        cm.wheels[w] = {model.parts[w + 1].position[0], model.parts[w + 1].position[2]};
     cm.paintValue = model.primaryColours.empty() ? 0 : static_cast<int>(std::min<uint32_t>(model.primaryColours[0].hsbx[2], 255));
     cm.colours.primaryColours = model.primaryColours;
     cm.colours.secondaryColours = model.secondaryColours;
@@ -1509,7 +1509,7 @@ gfx::TextureId TrackPage::carSkin(size_t model, size_t paint) {
             const auto t = skinTexel({rgba[i], rgba[i + 1], rgba[i + 2], rgba[i + 3]}, primary, second);
             std::copy(t.begin(), t.end(), rgba.begin() + static_cast<std::ptrdiff_t>(i));
         }
-        if (!renderer_->createTexture(cm.skinImage.w, cm.skinImage.h, rgba.data(), {}, id))
+        if (!renderer_->createTexture(cm.skinImage.w, cm.skinImage.h, rgba.data(), glideTextureParams(), id))
             textures_.push_back(id);
         else
             id = 0;
@@ -1526,6 +1526,7 @@ void TrackPage::loadCars() {
         carModels_[m].folder = kFolders[m];
         loadCarModel(carModels_[m]);
     }
+    loadOfficer();
     // The speed tables, for the cars' speeds.
     const std::string trackFolder = "gamedata/tracks/" + tracks_[index_] + "/";
     speedsForward_.clear();
@@ -1539,6 +1540,142 @@ void TrackPage::loadCars() {
     }
 }
 
+// The officer's model (0x4b7c60 loads it with 0x49d450: the .fce and its
+// .art's pages): its triangles by page, z negated as the cars'.
+void TrackPage::loadOfficer() {
+    const int track = std::atoi(tracks_[index_].substr(3).c_str());
+    const int which = track == 0 || track == 4 ? 0 : track == 2 || track == 6 ? 2 : track == 3 || track == 7 ? 3 : track == 8 ? 4 : 1;
+    const std::string stem = "gamedata/render/pc/cop" + std::to_string(which);
+    std::vector<uint8_t> fce, art;
+    for (const FileRef& f : files_.files()) {
+        const std::string name = lower(f.name);
+        if (name == stem + ".fce")
+            (void)files_.read(f, fce);
+        else if (name == stem + ".art")
+            (void)files_.read(f, art);
+    }
+    Model model;
+    std::vector<image::Image> pages;
+    if (fce.empty() || parseModel(fce, model) || model.parts.empty() || art.empty() || parseArt(art, pages))
+        return;
+    officerHalfHeight_ = model.halfSize[1];
+    std::vector<gfx::TextureId> textures;
+    for (const image::Image& img : pages) {
+        gfx::TextureId id = 0;
+        if (!renderer_->createTexture(img.w, img.h, img.rgba.data(), glideTextureParams(), id))
+            textures_.push_back(id);
+        textures.push_back(id);
+    }
+    officerVertices_.clear();
+    officerRuns_.clear();
+    for (size_t page = 0; page < pages.size(); ++page) {
+        OfficerRun run;
+        run.texture = textures[page];
+        run.first = static_cast<uint32_t>(officerVertices_.size());
+        for (const Model::Part& part : model.parts)
+            for (uint32_t t = part.firstTriangle; t < part.firstTriangle + part.triangleCount && t < model.triangles.size(); ++t) {
+                const Model::Triangle& tri = model.triangles[t];
+                if (tri.texturePage != page)
+                    continue;
+                bool whole = true;
+                for (uint32_t vi : tri.vertices)
+                    whole = whole && vi < model.vertices.size();
+                if (!whole)
+                    continue;
+                for (size_t k = 0; k < 3; ++k) {
+                    const uint32_t vi = tri.vertices[k];
+                    gfx::Vertex v{};
+                    v.pos[0] = model.vertices[vi][0] + part.position[0];
+                    v.pos[1] = model.vertices[vi][1] + part.position[1];
+                    v.pos[2] = -(model.vertices[vi][2] + part.position[2]);
+                    v.uv[0] = tri.u[k];
+                    v.uv[1] = tri.v[k];
+                    const auto& nm = vi < model.normals.size() ? model.normals[vi] : Model::Vec3{0, 1, 0};
+                    v.normal[0] = nm[0];
+                    v.normal[1] = nm[1];
+                    v.normal[2] = -nm[2];
+                    v.color[0] = v.color[1] = v.color[2] = v.color[3] = 255;
+                    officerVertices_.push_back(v);
+                }
+            }
+        run.count = static_cast<uint32_t>(officerVertices_.size()) - run.first;
+        if (run.count)
+            officerRuns_.push_back(run);
+    }
+    std::vector<uint32_t> indices(officerVertices_.size());
+    for (size_t i = 0; i < indices.size(); ++i)
+        indices[i] = static_cast<uint32_t>(i);
+    if (officerVertices_.empty() || renderer_->createMesh(officerVertices_, indices, officerMesh_))
+        officerMesh_ = 0;
+}
+
+// The officer on foot by a stopped racer (cop_officer_place 0x401c20 with
+// cop_officer_spot 0x401b50, set as the stop begins, gone at the ticket,
+// 0x401e20): 2 m from the racer along its road's right, towards the
+// road's middle (the side the racer is not on), on the road (the spot
+// lowered by the racer's half height, the model raised by its own,
+// +0x2C), turned to the racer's heading (+0x210, 0x401b50's
+// mat_rot_y_turns); drawn within 100 m (draw_officer 0x4b9bc0), in the
+// corner colours it sets (0x49d800: 0x4F4F4F to 0x7F7F7F by the light).
+// The page skips 0x401d78's check of the spot against the road's polygons
+// (the other side when it is off them) and the red light Empire City's
+// officer carries (track 8, the model's dummy).
+void TrackPage::drawOfficers(const gfx::DrawCall& base) {
+    if (!officerMesh_ || officerRuns_.empty())
+        return;
+    const auto& road = collision_.road;
+    if (road.empty())
+        return;
+    for (const ComputerCar& cop : cars_) {
+        if (!cop.ai.cop || cop.ai.copState != 6 || cop.ai.chasing < 0 || static_cast<size_t>(cop.ai.chasing) >= cars_.size())
+            continue;
+        const ComputerCar& t = cars_[size_t(cop.ai.chasing)];
+        const CarModel& tm = carModels_[size_t(t.model)];
+        const auto& rp = road[size_t(t.ai.slice) % road.size()];
+        const float side = t.ai.side > 0 ? -2.0f : 2.0f;
+        std::array<float, 3> at{};
+        for (size_t k = 0; k < 3; ++k)
+            at[k] = t.at[k] - t.up[k] * tm.halfSize[1] + rp.right[k] * side + t.up[k] * officerHalfHeight_;
+        const float dx = at[0] - eye_[0], dy = at[1] - eye_[1], dz = -at[2] - eye_[2];
+        if (dx * dx + dy * dy + dz * dz > 100.0f * 100.0f)
+            continue;
+        // Lit as 0x49d800's two colours: dark 0x4F, light 0x7F.
+        std::vector<gfx::Vertex> vertices = officerVertices_;
+        const std::array<float, 3> light{0.4f, 0.8f, 0.45f};
+        for (gfx::Vertex& v : vertices) {
+            const float d = std::clamp(v.normal[0] * light[0] + v.normal[1] * light[1] - v.normal[2] * light[2], 0.0f, 1.0f);
+            const auto c = static_cast<uint8_t>(0x4f + (0x7f - 0x4f) * d);
+            v.color[0] = v.color[1] = v.color[2] = c;
+            v.color[3] = 255;
+        }
+        renderer_->setMeshVertices(officerMesh_, vertices);
+        gfx::DrawCall call = base;
+        call.mesh = officerMesh_;
+        call.rgbSource = gfx::ColorSource::Vertex;
+        call.color = {1, 1, 1, 1};
+        call.state.cull = gfx::Cull::None;
+        call.state.alphaTest = gfx::AlphaTest::Ge128; // the art's keyed texels
+        gfx::Mat4 m = gfx::identity();
+        for (int k = 0; k < 3; ++k) {
+            const float flip = k == 2 ? -1.0f : 1.0f;
+            m[size_t(k)] = t.right[size_t(k)] * flip;
+            m[size_t(4 + k)] = t.up[size_t(k)] * flip;
+            m[size_t(8 + k)] = -t.forward[size_t(k)] * flip;
+        }
+        m[12] = at[0];
+        m[13] = at[1];
+        m[14] = -at[2];
+        call.model = m;
+        for (const OfficerRun& run : officerRuns_) {
+            call.texture = textured_ ? run.texture : 0;
+            call.firstIndex = run.first;
+            call.indexCount = run.count;
+            renderer_->draw(call);
+        }
+        break; // one mesh, its colours set once a frame: the first stop's officer
+    }
+}
+
 void TrackPage::releaseCars() {
     for (ComputerCar& c : cars_)
         for (gfx::MeshId m : {c.mesh, c.envMesh})
@@ -1546,9 +1683,12 @@ void TrackPage::releaseCars() {
                 renderer_->destroyMesh(m);
     cars_.clear();
     carModels_.assign(2, CarModel{}); // skins owned by textures_
-    for (gfx::MeshId m : {carGlowMesh_, carFlareMesh_, carBeamMesh_, stripMesh_})
+    for (gfx::MeshId m : {carGlowMesh_, carFlareMesh_, carBeamMesh_, stripMesh_, officerMesh_})
         if (renderer_ && m)
             renderer_->destroyMesh(m);
+    officerMesh_ = 0;
+    officerRuns_.clear(); // pages owned by textures_
+    officerVertices_.clear();
     carGlowMesh_ = carFlareMesh_ = carBeamMesh_ = stripMesh_ = 0;
     stripQuads_ = stripCapacity_ = 0;
     carGlowQuads_ = carGlowCapacity_ = carFlareQuads_ = carFlareCapacity_ = carBeamQuads_ = carBeamCapacity_ = 0;
@@ -1570,6 +1710,7 @@ void TrackPage::placeCars() {
             if (m)
                 renderer_->destroyMesh(m);
     cars_.clear();
+    followCop_ = orderedCop_ = -1;
     carError_.clear();
     for (const CarModel& cm : carModels_)
         if (!cm.error.empty())
@@ -1623,7 +1764,11 @@ void TrackPage::placeCars() {
         c.ai.siren = siren;
         c.ai.racer = !siren;
         c.ai.phase = static_cast<int>(cars_.size());
-        c.ai.index = 0; // the one police car
+        c.ai.wheels = cm.wheels;
+        // The police cars' own indices (+0x714): the first even, its strip
+        // in lane 7, the second odd, in lane 6 (0x403d30).
+        for (const ComputerCar& o : cars_)
+            c.ai.index += siren && o.ai.cop ? 1 : 0;
         c.ai.scale = std::min(aiDriverFactor(driver, aiStep_) * aiTrackFactor(track), 1.0f);
         c.ai.lane = c.ai.laneLeft = c.ai.laneRight = c.ai.pick = c.lane;
         c.ai.offset = c.ai.target = aiLaneOffset(p, c.lane, cm.halfSize[0]);
@@ -1658,6 +1803,12 @@ void TrackPage::placeCars() {
     put(15, way, 0, 0, false, {2, false, 2});
     put(25, -way, 0, 1, true, {2, false, 2});
     put(35, way, 1, 0, false, {0, true, 4});
+    // A second police car 800 m on, going the camera's way on patrol, its
+    // siren off: a free cop for the chasing one's calls (cop_ai_call_strip
+    // 0x4039c0, cop_call_backup 0x4043a0) and the key C's orders.
+    put(800, way, 0, 1, true, {2, false, 2});
+    cars_.back().siren = cars_.back().ai.siren = false;
+    cars_.back().ai.copState = 1;
 }
 
 // The cars of a dump of the game's car records (RELUVA_NFS_TRACK_CARS),
@@ -1785,9 +1936,16 @@ void TrackPage::dispatchCop() {
     const int n = static_cast<int>(collision_.road.size());
     if (!computerCars_ || !carDump_.empty() || n < 2)
         return;
-    for (ComputerCar& c : cars_) {
-        if (!c.ai.cop)
-            continue;
+    // The first free police car (no target), else the first.
+    size_t pickCop = cars_.size();
+    for (size_t i = 0; i < cars_.size(); ++i)
+        if (cars_[i].ai.cop && (pickCop == cars_.size() || (cars_[pickCop].ai.chasing >= 0 && cars_[i].ai.chasing < 0)))
+            pickCop = i;
+    for (size_t ci = pickCop; ci < cars_.size(); ci = cars_.size()) {
+        ComputerCar& c = cars_[ci];
+        orderedCop_ = static_cast<int>(ci);
+        if (followCop_ >= 0)
+            followCop_ = orderedCop_;
         auto sliceDiff = [&](int a, int b) {
             int d = a - b;
             if (d > n / 2)
@@ -1825,7 +1983,6 @@ void TrackPage::dispatchCop() {
         }
         c.ai.radioStep = aiStep_;
         dispatchNext_ = (dispatchNext_ + 1) % 3;
-        break;
     }
 }
 
@@ -1879,6 +2036,7 @@ void TrackPage::moveCars(float dt) {
         for (size_t i = 0; i < cars_.size(); ++i) {
             ComputerCar& c = cars_[i];
             const CarModel& cm = carModels_[size_t(c.model)];
+            ai[i].raceDistance = distance[i]; // from the camera's car, the race's human
             if (ai[i].cop) {
                 aiCopStep(ai, i, collision_, cm.ai, aiStep_, track, weather);
             } else {
@@ -1922,6 +2080,10 @@ void TrackPage::moveCars(float dt) {
             ai[i].slice = static_cast<int>(std::floor(c.slice)) % n;
             ai[i].along = c.slice - std::floor(c.slice);
         }
+        // What a cop's step did to the cars stepped before it (a racer
+        // pulled over by its strip, its chase record) is kept too.
+        for (size_t i = 0; i < cars_.size(); ++i)
+            cars_[i].ai = ai[i];
     }
     for (ComputerCar& c : cars_)
         carRows(c);
@@ -2363,6 +2525,7 @@ void TrackPage::drawCars(const gfx::DrawCall& base) {
                 renderer_->draw(env);
         }
     }
+    drawOfficers(car);
 }
 
 // The blocks' lights and sounds (frd.md), and the glow picture.
@@ -2840,7 +3003,21 @@ void TrackPage::handleEvent(const Event& ev) {
         case '3': detail_ = 2; break;
         case '4': detail_ = 3; break;
         case 'k': allBlocks_ = !allBlocks_; break;
-        case 'c': dispatchCop(); break;
+        case 'c':
+            if (ev.mods & keymod::Shift) {
+                // Follow a police car (the last ordered, or the first) or stop.
+                if (followCop_ >= 0) {
+                    followCop_ = -1;
+                } else {
+                    followCop_ = orderedCop_;
+                    for (size_t i = 0; followCop_ < 0 && i < cars_.size(); ++i)
+                        if (cars_[i].ai.cop)
+                            followCop_ = static_cast<int>(i);
+                }
+            } else {
+                dispatchCop();
+            }
+            break;
         case 'z': reflections_ = !reflections_; break;
         case 'q': sfxLevel_ = (sfxLevel_ + 1) % 3; break;
         case 'j':
@@ -2960,6 +3137,40 @@ void TrackPage::update(uint64_t nowMs) {
         pitch_ = std::min(pitch_ + 1.0f * dt, 1.5f);
     if (held(key::Down))
         pitch_ = std::max(pitch_ - 1.0f * dt, -1.5f);
+    // Shift+C: behind and above the police car followed, along its way.
+    if (followCop_ >= 0 && static_cast<size_t>(followCop_) < cars_.size() && computerCars_) {
+        // Along the road its way (it may stand across it).
+        const ComputerCar& c = cars_[size_t(followCop_)];
+        const auto& rf = collision_.road[size_t(c.ai.slice) % collision_.road.size()].forward;
+        const float flat = std::max(std::hypot(rf[0], rf[2]), 1e-3f);
+        const float fx = rf[0] * static_cast<float>(c.way) / flat, fz = rf[2] * static_cast<float>(c.way) / flat;
+        // Stopping a racer: nearer, between the two, to see the officer.
+        std::array<float, 3> at = c.at;
+        float back = 22, up = 11;
+        if (c.ai.copState == 6 && c.ai.chasing >= 0 && static_cast<size_t>(c.ai.chasing) < cars_.size()) {
+            for (size_t k = 0; k < 3; ++k)
+                at[k] = (at[k] + cars_[size_t(c.ai.chasing)].at[k]) * 0.5f;
+            back = 11;
+            up = 5;
+        }
+        float dirX = fx, dirZ = fz;
+        // A strip out: past it, looking back at it the way its racer comes.
+        if (c.ai.stripOn && c.ai.watching >= 0 && static_cast<size_t>(c.ai.watching) < cars_.size()) {
+            const auto quad = aiStripQuad(collision_.road[size_t(c.ai.stripSlice) % collision_.road.size()], c.ai.stripLane);
+            for (size_t k = 0; k < 3; ++k)
+                at[k] = (quad[0][k] + quad[1][k]) * 0.5f;
+            const float w = static_cast<float>(-cars_[size_t(c.ai.watching)].way);
+            const auto& sf = collision_.road[size_t(c.ai.stripSlice) % collision_.road.size()].forward;
+            const float sl = std::max(std::hypot(sf[0], sf[2]), 1e-3f);
+            dirX = sf[0] * w / sl;
+            dirZ = sf[2] * w / sl;
+            back = 14;
+            up = 6;
+        }
+        eye_ = {at[0] - dirX * back, at[1] + up, -(at[2] - dirZ * back)};
+        yaw_ = std::atan2(dirX, dirZ);
+        pitch_ = -0.36f;
+    }
     const gfx::Vec3 forward{std::sin(yaw_) * std::cos(pitch_), std::sin(pitch_), -std::cos(yaw_) * std::cos(pitch_)};
     const gfx::Vec3 right{std::cos(yaw_), 0, std::sin(yaw_)};
     const float speed = (held(key::LShift) || held(key::RShift) ? 120.0f : 25.0f) * dt;
@@ -3429,6 +3640,17 @@ void TrackPage::update(uint64_t nowMs) {
                 std::string cop = std::string("police: ") + kStates[std::clamp(c.ai.copState, 0, 11)];
                 if (c.ai.reversing)
                     cop += ", reversing";
+                if (c.ai.chasing >= 0 && static_cast<size_t>(c.ai.chasing) < cars_.size()) {
+                    // Its target: caught by a strip (+0x621 bit 0x40), pulling
+                    // over (5) or stopped (6).
+                    const AiCar& t = cars_[size_t(c.ai.chasing)].ai;
+                    if (t.spiked)
+                        cop += ", its racer ran over the strip";
+                    if (t.pursuit == 5)
+                        cop += ", the racer pulling over";
+                    else if (t.pursuit == 6)
+                        cop += ", the racer stopped";
+                }
                 if (c.ai.stripOn)
                     cop += ", strip out at slice " + std::to_string(c.ai.stripSlice);
                 int tickets = 0;
@@ -3447,7 +3669,7 @@ void TrackPage::update(uint64_t nowMs) {
         if (!collisionError_.empty())
             lines.push_back(collisionError_);
     }
-    lines.push_back("PgUp/PgDn: track  WASD/arrows/drag: move  N/B: block  1-3: detail  H: sky  I: lights  P: wall hit  E: headlights  J: cars  C: police orders  Z: reflections  Q: effects  U: mirror  T V L O G X F Y M: toggles");
+    lines.push_back("PgUp/PgDn: track  WASD/arrows/drag: move  N/B: block  1-3: detail  H: sky  I: lights  P: wall hit  E: headlights  J: cars  C: police orders (Shift: follow)  Z: reflections  Q: effects  U: mirror  T V L O G X F Y M: toggles");
     for (size_t i = 0; i < lines.size(); ++i) {
         const int y = i + 1 == lines.size() ? kFrameH - font::kLineHeight - 4 : 4 + static_cast<int>(i) * font::kLineHeight;
         for (int yy = y - 2; yy < y + font::kLineHeight - 1; ++yy)

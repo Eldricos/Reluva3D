@@ -264,9 +264,17 @@ What was built, with each format written up in `docs/formats/nfs/`:
   its triangles' flags (two-sided, unlit) and the game's reflection of a
   track's sky ([fce.md](../formats/nfs/fce.md)).
   The levels go by a part's place, as the names can't be trusted.
+  Its pictures are point-sampled without mipmaps, as voodoo2a.dll's
+  Glide draws all of the game's ([thrash.md](../formats/nfs/thrash.md),
+  Texture filtering). `RELUVA_NFS_CARS_VIEW="model yaw pitch distance"`
+  opens it on a model, seen from there, for screenshots that repeat
+  (checked so in November 2026: tail lights at the back and plates below
+  them on the Corvette, F355, Diablo, police Diablo, CLK-GTR and XK8,
+  the XK8's right-hand badge mirrored by the model's own mapping).
 - **The Tracks page** draws each track. It shows:
   - the road at three details, roadside and placed objects, and lane
-    markings;
+    markings, their pictures point-sampled without mipmaps as the
+    game's Glide renderer draws them (thrash.md, Texture filtering);
   - the baked vertex lighting, scaled by the sky's ambient light;
   - cut-outs and additive glows;
   - the sky in four variants, drawn as the game draws it: the sky's and
@@ -327,15 +335,22 @@ What was built, with each format written up in `docs/formats/nfs/`:
     lights when held up (Shift+J stops them), their drivers acting every
     8 steps and their model at 32 Hz as the game's, their lanes taken at
     the side offset as the game measures it (so a car at a lane's middle
-    weaves between the two lanes as the game's do); the police car by the
+    weaves between the two lanes as the game's do), cutting a bend as a
+    car steering at the point 1.7 s ahead does; the police car by the
     computer cops' driver, patrolling, on a run with its siren or
-    chasing a speeding racer, reversing when past a stopped one, holding
-    a slow one until it pulls over, stopping it and giving the ticket;
-    key C orders it as the game's chasing cops order a free one, in turn
-    to lay a spike strip at the roadside (racers steer round it, one
-    running over it is pulled over), to set a roadblock (across the road
-    when no racer is within 240 m) and back to patrol; the info line
-    shows its state and its last radio call (no speech).
+    chasing a racer that has been over the section's speed (+0x6F0),
+    reversing when past a stopped one, holding a slow one (160-224 steps
+    by its race distance) until it pulls over, stopping it with the
+    officer on foot beside it (the track's `copN.fce`) and giving the
+    ticket; a second police car 800 m on, patrolling, for the chasing
+    one's calls for help (a strip by the chase's heat, backup); key C
+    orders the free one as the game's chasing cops order a free one, in
+    turn to lay a spike strip at the roadside (racers steer round it; one
+    whose wheels touch its quad is pulled over), to set a roadblock
+    (across the road when no racer is within 240 m) and back to patrol,
+    and Shift+C follows it with the camera (from past its strip while one
+    is out, near the racer while stopping one); the info line shows each
+    police car's state, its racer's and its last radio call (no speech).
     `RELUVA_NFS_TRACK_CARS=<dump>` places
     them as a dump of `nfs-host`'s car records has them (the human's car
     left out unless `RELUVA_NFS_TRACK_CARS_HUMAN` is set),

@@ -454,9 +454,32 @@ struct AiCar {
     // (+0x6E0: 1 racing, 5 pulling over, 6 stopped), +0x6EC, its tickets
     // (+0x2C8) and the step it is free of chases to (+0x634).
     bool pulledOver = false;
+    bool spiked = false; // +0x621 bit 0x40: a strip caught it (spike_hit_racer), until the ticket
     int recordStep = 0, stopping = 0;
     int pursuit = 1, pullUntil = 0;
     int tickets = 0, chaseFree = 0;
+    // The rest of the chase record the cops' calls read (cop_set_target
+    // 0x4018b0 opens it, +0x1C 1): +0x14 the chases lost (cop_lose_target
+    // 0x401a80), +0x20 the first chase's step, +0x24 the step of the last
+    // call for help (every 320 steps from 640 after the first chase),
+    // +0x54 what has been called (1 backup, 2 a strip asked for, 4 a
+    // roadblock), +0x58 the cop sent to lay a strip, +0x5C the cop that
+    // asked last (indices into the cars, -1 none).
+    bool recordOpen = false;
+    int chasesLost = 0, chaseFrom = 0, callAt = 0, calls = 0, stripCop = -1, caller = -1;
+    // +0x6F0: the most it has been over the track section's speed while a
+    // computer cop looked at it (racer_overspeed_update 0x4014b0: for each
+    // racer within 16 slices of a free cop as it looks for a target, and
+    // for its target each call while chasing), 0 after a ticket. Over 2
+    // m/s it makes the racer a target (0x403f80) and the strip's cop take
+    // it (0x401650).
+    float overspeed = 0;
+    // Its race distance less the leading human's (its +8 less 0x56ebb8's
+    // +8), set by whoever runs the race: the stop's hold (0x402110).
+    int raceDistance = 0;
+    // Its wheels where they meet the road (x right, z forward of its
+    // place; the model's parts 1-4): a strip catches them (0x4ca160).
+    std::array<std::array<float, 2>, 4> wheels{{{-0.8f, 1.3f}, {0.8f, 1.3f}, {-0.8f, -1.3f}, {0.8f, -1.3f}}};
     // The last radio call, by its routine's address (aiRadioCall), and the
     // step it was made at; the game queues the lines as speech (physics.md,
     // The radio), the stand-in only notes it.
@@ -471,6 +494,22 @@ const char* aiRadioCall(uint32_t call);
 // 0x1B), 1.5 lane widths long: offsets `from` to `to` along the road's
 // right at the slice's point.
 void aiStripSpan(const TrackCollision::RoadPoint& p, int lane, float& from, float& to);
+// The strip's quad (spike_lay 0x4c9dd0): its two ends on the road at the
+// slice's point (aiStripSpan's), and the same two 0.5 higher (0x540360).
+std::array<std::array<float, 3>, 4> aiStripQuad(const TrackCollision::RoadPoint& p, int lane);
+// Which wheels are on a strip (spike_hit_test 0x4ca160), a bit each: the
+// quad's corners taken into the car's frame from each wheel (`right`,
+// `up`, `forward` its rows, the wheels as AiCar::wheels from `at` on the
+// road), each given an out code against a box of ±0.5 round the wheel
+// (0x540388, 0x540390); a wheel whose four codes share no side is on it.
+unsigned aiStripWheels(const std::array<std::array<float, 3>, 4>& quad, const std::array<float, 3>& at,
+                       const std::array<float, 3>& right, const std::array<float, 3>& up,
+                       const std::array<float, 3>& forward, const std::array<std::array<float, 2>, 4>& wheels);
+// How long a cop holds a slow target before it is pulled over
+// (cop_ai_stop_check 0x402110, 0x40237a): 192 steps for a human; for a
+// computer racer 160 when it is more than 60 slices ahead of the leading
+// human, 224 when more than 60 behind, else 192.
+int aiStopHold(bool humanTarget, int raceDistance);
 // The orders the page's dispatcher key gives the police car, as the
 // chasing cops' calls give a free cop (physics.md): a strip (0x4039c0: an
 // order of kind 0 from its slice - 6, 3 slices, +0x711 bit 8), a roadblock
@@ -517,6 +556,11 @@ void aiStep(std::vector<AiCar>& cars, size_t self, const TrackCollision& col, co
 // for racers and cops alike): the drivers are a 32 Hz task, on the even
 // steps, let through when (step / 2 + its phase, car +0) mod 4 is 0.
 bool aiDriverActs(const AiCar& car, int step);
+// How far a computer car sits inside a bend as it steers at the point
+// ahead (0x406e50 with 0x406d40, 0x406980: about 1.7 s on, 4-20 slices,
+// short of a 45-degree turn) rather than along the road: a share of the
+// point's offset across the car's slice, along the slice's right.
+float aiBendCut(const TrackCollision& col, const AiCar& car);
 
 // The track section's speed (0x40ed40): by track and slice, hard-coded
 // ranges, 8.94 to 31.29 m/s.
@@ -553,8 +597,10 @@ float aiCatchUpFactor(const AiRace& race, int distance, int place);
 // speed by more than 6.71 m/s (0x403f80) starts the chase (5,
 // cop_ai_chase 0x4025c0 with 0x402420: closing, reversing when past it),
 // given up past t_ticket_times' slices; the stop test (0x402110) and the
-// stop (6, cop_stop_begin 0x401e40) to the ticket (0x401ff0). Its strip's
-// hits are tested each step (0x4297d0).
+// stop (6, cop_stop_begin 0x401e40) to the ticket (0x401ff0); every 320
+// steps of a chase its calls for help (a strip by the heat, 0x4039c0;
+// backup, 0x4043a0) to the free cops in `cars`. Its strip's hits are
+// tested each step (0x4297d0, 0x4ca160: the racers' wheels on its quad).
 void aiCopStep(std::vector<AiCar>& cars, size_t self, const TrackCollision& col, const AiCarData& data, int step,
                int track, bool weather);
 

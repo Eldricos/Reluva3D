@@ -40,6 +40,22 @@
 
 namespace reluva::nfs {
 
+// How the game's textures are sampled with voodoo2a.dll: the game never
+// sends THRASH's filter, LOD bias or mipmap states (7, 8, 0xb: no
+// setstate call in nfs3.exe passes them but the Direct3D-only text
+// drawing at 0x4d7252/0x4d7547), and voodoo2a calls grTexFilterMode and
+// grTexMipMapMode only from those states, so Glide's starting
+// state holds, taken as point-sampled, no mipmaps (thrash.md, Texture
+// filtering; November 2026). The Track and Cars pages draw the track's
+// pictures and the cars' skins so.
+inline gfx::TextureParams glideTextureParams(bool clamp = false) {
+    gfx::TextureParams params;
+    params.clamp = clamp;
+    params.mipmaps = false;
+    params.nearest = true;
+    return params;
+}
+
 class Page {
 public:
     virtual ~Page() = default;
@@ -503,6 +519,8 @@ private:
         uint32_t partZeroVertices = 0; // the body's (part 0), first in vertices
         gfx::TextureId skin = 0; // owned by textures_
         std::array<float, 3> halfSize{1.183f, 0.669f, 2.40644f};
+        // Its wheels' places (parts 1-4: x right, z forward), for the strips.
+        std::array<std::array<float, 2>, 4> wheels{{{-0.8f, 1.3f}, {0.8f, 1.3f}, {-0.8f, -1.3f}, {0.8f, -1.3f}}};
         std::vector<Model::Dummy> dummies;
         std::string error;
         // The reflection (0x49de20 with 0x4ba350's sphere map): the
@@ -573,7 +591,24 @@ private:
     // racer nearest it; the strips laid drawn as dark bars across a lane.
     void dispatchCop();
     int dispatchNext_ = 0;
+    // Shift+C: the camera behind the police car last given an order (or the
+    // first), following it (-1 not).
+    int followCop_ = -1, orderedCop_ = -1;
     gfx::MeshId stripMesh_ = 0;
+    // The officer on foot (draw_officer 0x4b9bc0): the track's cop model
+    // (0x4b7c60: Render/pc/cop0 on tracks 0 and 4, cop2 on 2 and 6, cop3 on
+    // 3 and 7, cop4 on 8, cop1 on the others) with its .art pages, one run
+    // of triangles a page; its half height (+0x2C).
+    struct OfficerRun {
+        gfx::TextureId texture = 0; // owned by textures_
+        uint32_t first = 0, count = 0;
+    };
+    gfx::MeshId officerMesh_ = 0;
+    std::vector<OfficerRun> officerRuns_;
+    float officerHalfHeight_ = 0;
+    std::vector<gfx::Vertex> officerVertices_;
+    void loadOfficer();
+    void drawOfficers(const gfx::DrawCall& base);
     uint32_t stripQuads_ = 0, stripCapacity_ = 0;
     void carRows(ComputerCar& car) const;
     // The cars' colours and glows for this frame (prepareCars), before

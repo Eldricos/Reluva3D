@@ -1512,19 +1512,26 @@ void testComputerCatchUpAndCops() {
     cars[0].copState = 7;
     aiCopStep(cars, 0, col, data, 16, 1, false);
     CHECK(std::fabs(cars[0].wanted - 24.58665f * 2) < 1e-4f);
-    // A racer within 16 slices over the section's speed by more than
-    // 6.71 m/s becomes its target, and the chase begins (5).
+    // A racer within 16 slices that has been over the section's speed by
+    // more than 2 m/s (+0x6F0, brought up to date as the cop looks,
+    // 0x4014b0) becomes its target (0x403f80), and the chase begins (5).
     AiCar racer;
     racer.slice = 110;
     racer.halfWidth = 1;
     racer.offset = racer.target = 2;
-    racer.speed = 24.58665f + 6.6f;
+    racer.speed = 24.58665f + 1.9f;
     cars.push_back(racer);
     aiCopStep(cars, 0, col, data, 24, 1, false);
-    CHECK(cars[0].copState == 7 && cars[0].chasing == -1);
-    cars[1].speed = 24.58665f + 6.8f;
+    CHECK(cars[0].copState == 7 && cars[0].chasing == -1 && std::fabs(cars[1].overspeed - 1.9f) < 1e-4f);
+    cars[1].speed = 24.58665f + 2.1f;
     aiCopStep(cars, 0, col, data, 32, 1, false);
-    CHECK(cars[0].copState == 5 && cars[0].chasing == 1 && cars[0].siren);
+    CHECK(cars[0].copState == 5 && cars[0].chasing == 1 && cars[0].siren && cars[1].recordOpen &&
+          cars[1].chaseFrom == 32 && cars[1].callAt == 32 + 640);
+    // The most it was over stays when it slows (+0x6F0 is a maximum).
+    cars[1].speed = 10;
+    aiCopStep(cars, 0, col, data, 40, 1, false);
+    CHECK(std::fabs(cars[1].overspeed - 2.1f) < 1e-4f);
+    cars[1].speed = 24.58665f + 2.1f;
     // The chase's speed (0x402420): 10 slices behind, the top speed;
     // within 8, closing: slices x (top - its speed) / 8 + its speed + 5.81.
     aiCopStep(cars, 0, col, data, 40, 1, false);
@@ -2650,13 +2657,24 @@ void testComputerPursuits() {
     cars[0].sideKept = true;
     aiStep(cars, 0, col, flat, data, 0, 1, false);
     CHECK(cars[0].pick != 7 && std::fabs(cars[0].wanted - 30 * 0.9f) < 1e-4f);
-    // Run over, it is pulled over (0x401650) and the cop takes it as its
-    // target; the racer pulls over (5), and stops (6).
-    cars[0].slice = cars[1].stripSlice;
+    // Its front wheels 0.6 m short of the strip's line: not on it (out
+    // codes against the wheels' +-0.5 m boxes, 0x4ca160).
+    cars[0].slice = cars[1].stripSlice - 1;
+    cars[0].along = (4.0f - 1.3f - 0.6f) / 4.0f;
     cars[0].offset = cars[0].target = cars[0].side = cars[0].lateral = 2;
     cars[0].speed = 40;
+    cars[0].overspeed = 15; // as a cop's look at it left +0x6F0
     aiCopStep(cars, 1, col, data, 1, 1, false);
-    CHECK(!cars[1].stripOn && cars[0].pulledOver && cars[1].chasing == 0 && cars[1].copState == 5 && cars[1].siren);
+    CHECK(cars[1].stripOn && !cars[0].pulledOver);
+    // Run over (the front wheels on its line), it is pulled over (0x401650)
+    // and the cop takes it as its target; the racer pulls over (5), and
+    // stops (6).
+    cars[0].along = (4.0f - 1.3f) / 4.0f;
+    aiCopStep(cars, 1, col, data, 1, 1, false);
+    CHECK(!cars[1].stripOn && cars[0].pulledOver && cars[0].spiked && cars[1].chasing == 0 && cars[1].copState == 5 &&
+          cars[1].siren && cars[0].recordStep == 1 + 320);
+    cars[0].slice = cars[1].stripSlice;
+    cars[0].along = 0;
     aiStep(cars, 0, col, flat, data, 8, 1, false);
     CHECK(cars[0].pursuit == 5 && cars[0].wanted == 11);
     cars[0].speed = 2;
@@ -2751,6 +2769,103 @@ void testSkinPaint() {
     CHECK(primaryFor(m, {43, 12, 128}) == 1 && secondaryFor(m, {0, 250, 100}) == 0);
 }
 
+// The police stand-in's rules from November 2026's reading (d6): the stop's
+// hold by race distance, the strip's quad and the wheels on it, the calls
+// for help by heat, and the bend a car cuts as it steers at a point ahead.
+void testCopCalls() {
+    // cop_ai_stop_check (0x402110, 0x40237a): 160 / 192 / 224 steps.
+    CHECK(aiStopHold(false, 61) == 160 && aiStopHold(false, 60) == 192 && aiStopHold(false, -61) == 224 &&
+          aiStopHold(false, 0) == 192 && aiStopHold(true, 100) == 192);
+
+    // spike_lay (0x4c9dd0): the quad's ends on the road, 0.5 above them.
+    TrackCollision col = straightRoad(200);
+    const auto quad = aiStripQuad(col.road[10], 7);
+    CHECK(quad[0][0] == -1 && quad[1][0] == 5 && quad[0][2] == 40 && quad[2][1] == 0.5f && quad[3][0] == -1);
+    // spike_hit_test (0x4ca160): the wheels within 0.5 m of it, a bit each.
+    const std::array<float, 3> right{1, 0, 0}, up{0, 1, 0}, forward{0, 0, 1};
+    const std::array<std::array<float, 2>, 4> wheels{{{-0.8f, 1.3f}, {0.8f, 1.3f}, {-0.8f, -1.3f}, {0.8f, -1.3f}}};
+    CHECK(aiStripWheels(quad, {2, 0, 39}, right, up, forward, wheels) == 3);   // the front ones 0.3 m past it
+    CHECK(aiStripWheels(quad, {2, 0, 38.1f}, right, up, forward, wheels) == 0); // 0.6 m short
+    CHECK(aiStripWheels(quad, {2, 0, 41.2f}, right, up, forward, wheels) == 12); // the rear ones on it
+    CHECK(aiStripWheels(quad, {7, 0, 38.7f}, right, up, forward, wheels) == 0);  // beside it
+    CHECK(aiStripWheels(quad, {5.6f, 0, 38.7f}, right, up, forward, wheels) == 1); // the left front at its end
+
+    // The calls for help (0x4032e5, cop_ai_call_strip 0x4039c0): a cop
+    // chasing a racer whose heat (chases lost + cops on it + tickets +
+    // time / 2048) is over 6 radios for a strip at its first call, and at
+    // a later one (another cop's, or its own after one that only cleared
+    // its turn) orders the free cop 51+ slices ahead to the roadside.
+    AiCarData data;
+    data.accel.fill(4);
+    data.maxBrake = 10;
+    data.maxVelocity = 70;
+    AiCar racer;
+    racer.slice = 100;
+    racer.halfWidth = 1;
+    racer.offset = racer.target = 2;
+    racer.speed = racer.wanted = 40;
+    racer.recordOpen = true;
+    racer.chasesLost = 6;
+    AiCar chaser;
+    chaser.cop = true;
+    chaser.racer = false;
+    chaser.slice = 98;
+    chaser.halfWidth = 1;
+    chaser.offset = chaser.target = 2;
+    chaser.copState = 5;
+    chaser.chasing = 0;
+    chaser.siren = true;
+    chaser.speed = 40;
+    AiCar free = chaser;
+    free.slice = 170;
+    free.copState = 1;
+    free.chasing = -1;
+    free.siren = false;
+    free.phase = 1;
+    free.index = 1;
+    std::vector<AiCar> cars{racer, chaser, free};
+    aiCopStep(cars, 1, col, data, 400, 1, false);
+    CHECK(cars[1].copState == 5 && cars[1].radio == 0x40b910 && (cars[0].calls & 2) && cars[0].caller == 1 &&
+          cars[0].callAt == 400 && cars[2].orderKind == -1);
+    aiCopStep(cars, 1, col, data, 720, 1, false); // within 320 steps: nothing
+    CHECK(cars[0].callAt == 400);
+    aiCopStep(cars, 1, col, data, 728, 1, false); // its own turn: only cleared
+    CHECK(cars[0].callAt == 728 && cars[0].caller == -1 && cars[2].orderKind == -1);
+    aiCopStep(cars, 1, col, data, 1056, 1, false);
+    CHECK(cars[2].orderKind == 0 && cars[2].stripWanted && cars[2].watching == 0 && cars[2].orderFrom == 164 &&
+          cars[0].stripCop == 2);
+    // Cool, it asks nothing: heat 0 + 1 + 0 - 3 + 0 is not over 3.
+    std::vector<AiCar> cool{racer, chaser, free};
+    cool[0].chasesLost = 0;
+    aiCopStep(cool, 1, col, data, 400, 1, false);
+    CHECK(cool[0].calls == 0 && cool[1].radio != 0x40b910);
+
+    // The ticket (0x401ff0, cop_after_ticket 0x4040e0): every cop on the
+    // racer or watching it lets it go, no chase lost, and patrols.
+    std::vector<AiCar> stop{racer, chaser, free};
+    stop[1].copState = 6;
+    stop[0].recordStep = 10;
+    stop[2].watching = 0;
+    stop[2].stripWanted = stop[2].stripOn = true;
+    stop[0].stripCop = 2;
+    aiCopStep(stop, 1, col, data, 400, 1, false);
+    CHECK(stop[0].tickets == 1 && stop[0].chasesLost == 0 && stop[0].overspeed == 0 && !stop[0].recordOpen &&
+          stop[1].chasing == -1 && stop[1].copState == 1 && !stop[2].stripOn && stop[2].orderKind == 2 &&
+          stop[0].stripCop == -1);
+
+    // The bend's cut (0x406e50, 0x406980): the point 30 x 1.7 / 6 = 8
+    // slices on lies 4 m right of a road drifting 0.5 m right a slice.
+    TrackCollision bent = straightRoad(40);
+    for (size_t i = 0; i < bent.road.size(); ++i)
+        bent.road[i].position[0] = 0.5f * static_cast<float>(i);
+    AiCar driver;
+    driver.slice = 10;
+    driver.speed = 30;
+    CHECK(std::fabs(aiBendCut(bent, driver) - 4) < 1e-4f && aiBendCut(col, driver) == 0);
+    driver.speed = 100; // 20 slices on, 10 m, kept to 6
+    CHECK(aiBendCut(bent, driver) == 6);
+}
+
 int main() {
     const stdfs::path tmp = stdfs::temp_directory_path() / "reluva_nfs_tests";
     stdfs::remove_all(tmp);
@@ -2779,6 +2894,7 @@ int main() {
     testComputerDriving();
     testComputerCatchUpAndCops();
     testComputerPursuits();
+    testCopCalls();
     testSkinPaint();
     testHorizon();
     testCollision();
