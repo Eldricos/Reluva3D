@@ -163,6 +163,7 @@ Error Movie::open(std::vector<uint8_t> file) {
     rateNum_ = le32(p + 28);
     rateDen_ = le32(p + 32);
     const uint32_t flags = le32(p + 36), tracks = le32(p + 40);
+    flags_ = flags;
     if (width_ <= 0 || height_ <= 0 || width_ > 4096 || height_ > 4096 || !rateNum_ || !rateDen_ || tracks > 256)
         return Error::fail("The Bink header is damaged");
     alpha_ = (flags & kAlphaFlag) != 0;
@@ -229,14 +230,7 @@ Error Movie::open(std::vector<uint8_t> file) {
     lumaRows_ = ((height_ + 7) >> 3) * 8;
     chromaPitch_ = ((width_ + 15) >> 4) * 8;
     chromaRows_ = ((height_ + 15) >> 4) * 8;
-    for (int i = 0; i < 4; ++i) {
-        const size_t pitch = size_t(i == 0 || i == 3 ? lumaPitch_ : chromaPitch_);
-        // Room past the end for a scaled (16 x 16) block in the last row or
-        // column of 8 x 8 ones, which reaches up to 8 rows and 8 bytes on.
-        const size_t size = pitch * size_t(i == 0 || i == 3 ? lumaRows_ : chromaRows_) + 8 * pitch + 8;
-        cur_[size_t(i)].assign(size, i == 3 ? 255 : 0);
-        old_[size_t(i)].assign(size, i == 3 ? 255 : 0);
-    }
+    clearPictures();
     // How many bits count each bundle's values for a row.
     const size_t blocks = size_t((width_ + 7) >> 3) * size_t((height_ + 7) >> 3);
     for (Bundle& b : bundles_)
@@ -279,10 +273,8 @@ Error Movie::nextFrame(bool& more, std::vector<int16_t>* sound) {
         left -= 4;
         if (length > left)
             return Error::fail("A Bink audio packet runs past its frame");
-        if (length >= 4 && t == 0 && sound) {
-            Bits b{p + 4, size_t(length - 4) * 8, 0};
-            decodeAudio(audio_[t], b, sound);
-        }
+        if (length >= 4 && t == 0 && sound)
+            decodePacket(audio_[t], p, length, *sound);
         p += length;
         left -= length;
     }
@@ -316,21 +308,95 @@ Error Movie::decodeAllAudio(std::vector<int16_t>& sound) {
         const uint32_t length = le32(p);
         if (length > f.size - 4)
             return Error::fail("A Bink audio packet runs past its frame");
-        if (length >= 4) {
-            Bits b{p + 8, size_t(length - 4) * 8, 0};
-            decodeAudio(audio_[0], b, &sound);
-        }
+        if (length >= 4)
+            decodePacket(audio_[0], p + 4, length, sound);
     }
     return Error::success();
 }
 
-void Movie::toRgba(std::vector<uint8_t>& out) const {
+void Movie::clearPictures() {
+    for (int i = 0; i < 4; ++i) {
+        const size_t pitch = size_t(i == 0 || i == 3 ? lumaPitch_ : chromaPitch_);
+        // Room past the end for a scaled (16 x 16) block in the last row or
+        // column of 8 x 8 ones, which reaches up to 8 rows and 8 bytes on.
+        const size_t size = pitch * size_t(i == 0 || i == 3 ? lumaRows_ : chromaRows_) + 8 * pitch + 8;
+        cur_[size_t(i)].assign(size, i == 3 ? 255 : 0);
+        old_[size_t(i)].assign(size, i == 3 ? 255 : 0);
+    }
+}
+
+void Movie::rewind() {
+    next_ = 0;
+    clearPictures();
+    lastColorHigh_ = 0;
+}
+
+uint32_t Movie::largestFrame() const {
+    uint32_t most = 0;
+    for (const Frame& f : frames_)
+        most = std::max(most, f.size);
+    return most;
+}
+
+std::vector<Movie::Track> Movie::audioTracks() const {
+    std::vector<Track> out;
+    for (const Audio& a : audio_)
+        out.push_back({a.rate, a.outChannels, a.dct});
+    return out;
+}
+
+void Movie::decodePacket(Audio& a, const uint8_t* packet, uint32_t length, std::vector<int16_t>& sound) {
+    // The packet starts with the size it decodes to, in bytes: the last
+    // block of a movie runs past it, and is cut there (so the sound lasts
+    // as long as the frames).
+    const uint32_t decoded = le32(packet);
+    const size_t before = sound.size();
+    Bits b{packet + 4, size_t(length - 4) * 8, 0};
+    decodeAudio(a, b, &sound);
+    if (decoded > 0 && sound.size() > before + decoded / 2)
+        sound.resize(before + decoded / 2);
+}
+
+void Movie::toRgba(std::vector<uint8_t>& out, Rgb how) const {
     // The newest frame is in old_ once swapped.
     const auto& y = old_[0];
     const auto& u = old_[1];
     const auto& v = old_[2];
     const auto& a = old_[3];
     out.resize(size_t(width_) * size_t(height_) * 4);
+    if (how == Rgb::Binkw32) {
+        // As binkw32.dll converts (its MMX path, 0x30013d00 in the AWE
+        // games' DLL, which any machine since the late 1990s takes):
+        // each term in fixed point and truncated on its own, before they're
+        // added and clamped. Y' = ((Y - 16, not below 0) * 4 * 0x4a85) >> 16;
+        // the chroma terms from tables of (c - 128) times 2.01723, 0.39177,
+        // 0.81300 and 1.59603, in 1/32768ths, truncated toward zero (built
+        // at 0x3000a990). See docs/common/bink.md.
+        struct Tables {
+            int b[256], gu[256], gv[256], r[256];
+            Tables() {
+                for (int c = 0; c < 256; c++) {
+                    b[c] = (-0x811a80 + 0x10235 * c) / 32768;
+                    gu[c] = (0x191280 - 0x3225 * c) / 32768;
+                    gv[c] = (0x340780 - 0x680f * c) / 32768;
+                    r[c] = (-0x662580 + 0xcc4b * c) / 32768;
+                }
+            }
+        };
+        static const Tables t;
+        for (int row = 0; row < height_; ++row)
+            for (int col = 0; col < width_; ++col) {
+                const int l = ((std::max(y[size_t(row) * size_t(lumaPitch_) + size_t(col)] - 16, 0) << 2) * 0x4a85) >> 16;
+                const size_t c = size_t(row / 2) * size_t(chromaPitch_) + size_t(col / 2);
+                const int U = u[c], V = v[c];
+                uint8_t* o = &out[(size_t(row) * size_t(width_) + size_t(col)) * 4];
+                o[0] = clampByte(l + t.r[V]);
+                o[1] = clampByte(l + t.gu[U] + t.gv[V]);
+                o[2] = clampByte(l + t.b[U]);
+                o[3] = alpha_ ? a[size_t(row) * size_t(lumaPitch_) + size_t(col)] : 255;
+            }
+        return;
+    }
     for (int row = 0; row < height_; ++row)
         for (int col = 0; col < width_; ++col) {
             const int Y = (y[size_t(row) * size_t(lumaPitch_) + size_t(col)] - 16) * 298;

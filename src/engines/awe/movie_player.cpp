@@ -3,52 +3,41 @@
 
 #include "engines/awe/movie_player.h"
 
-#include "common/video/bink_audio.h"
-
 #include <algorithm>
 
 namespace reluva::awe {
 
 Error MoviePlayer::open(std::vector<uint8_t> data, uint64_t nowMs, bool sound) {
     stop();
-    file_.reset();
-    video_.reset();
+    movie_.reset();
     soundtrack_.reset();
     frame_ = image::Image();
     next_ = 0;
     paused_ = false;
     error_.clear();
-    auto file = std::make_unique<video::BinkFile>();
-    auto video = std::make_unique<video::BinkVideoDecoder>();
-    Error e = file->open(std::move(data));
-    if (!e)
-        e = video->init(file->width(), file->height(), file->revision(), file->flags());
-    if (e)
+    auto movie = std::make_unique<bink::Movie>();
+    if (Error e = movie->open(std::move(data)))
         return e;
     // The soundtrack, decoded whole and played alongside.
-    if (sound && !file->audioTracks().empty()) {
-        const video::BinkAudioTrack& t = file->audioTracks()[0];
-        video::BinkAudioDecoder dec;
+    if (sound && movie->audioRate() > 0) {
         auto track = std::make_shared<audio::Sound>();
-        if (Error ae = dec.init(t.sampleRate, t.channels, t.dct)) {
+        if (Error ae = movie->decodeAllAudio(track->samples)) {
             error_ = "sound: " + ae.message;
         } else {
-            for (size_t i = 0; i < file->frameCount(); i++) {
-                video::BinkFile::Frame f;
-                if (!file->frame(i, f) && !f.audio.empty() && f.audio[0].size)
-                    dec.decode(f.audio[0].data, f.audio[0].size, track->samples, f.audioBytes[0]);
-            }
-            track->rate = t.sampleRate;
-            track->channels = t.channels;
+            track->rate = movie->audioRate();
+            track->channels = movie->audioChannels();
             track->format = 0;
             soundtrack_ = track;
         }
     }
-    file_ = std::move(file);
-    video_ = std::move(video);
+    movie_ = std::move(movie);
     startMs_ = nowMs;
     playSound(0);
     return Error::success();
+}
+
+double MoviePlayer::fps() const {
+    return movie_ && movie_->rateDenominator() ? double(movie_->rateNumerator()) / movie_->rateDenominator() : 0;
 }
 
 void MoviePlayer::playSound(double fromSeconds) {
@@ -71,7 +60,7 @@ void MoviePlayer::stop() {
 }
 
 void MoviePlayer::pause(bool paused, uint64_t nowMs) {
-    if (!file_ || paused == paused_)
+    if (!movie_ || paused == paused_)
         return;
     paused_ = paused;
     if (paused) {
@@ -84,40 +73,36 @@ void MoviePlayer::pause(bool paused, uint64_t nowMs) {
 }
 
 double MoviePlayer::seconds() const {
-    return file_ && file_->fps() > 0 ? double(next_) / file_->fps() : 0;
+    return fps() > 0 ? double(next_) / fps() : 0;
 }
 
 bool MoviePlayer::update(uint64_t nowMs) {
-    if (!file_ || paused_ || file_->frameCount() == 0 || file_->fps() <= 0)
+    if (!movie_ || paused_ || movie_->frameCount() == 0 || fps() <= 0)
         return false;
-    const size_t due = size_t(double(nowMs - std::min(nowMs, startMs_)) * file_->fps() / 1000.0);
+    const size_t due = size_t(double(nowMs - std::min(nowMs, startMs_)) * fps() / 1000.0);
     bool drawn = false;
-    while (next_ <= due && next_ < file_->frameCount()) {
-        video::BinkFile::Frame f;
-        Error e = file_->frame(next_, f);
-        if (!e)
-            e = video_->decode(f.video.data, f.video.size);
-        if (e)
+    while (next_ <= due && next_ < movie_->frameCount()) {
+        bool more = false;
+        if (Error e = movie_->nextFrame(more))
             error_ = "frame " + std::to_string(next_) + ": " + e.message;
         next_++;
         drawn = true;
     }
     if (drawn) {
-        video_->toRgba(frame_.rgba);
-        frame_.w = video_->width();
-        frame_.h = video_->height();
+        // As the game's binkw32.dll converts its frames.
+        movie_->toRgba(frame_.rgba, bink::Movie::Rgb::Binkw32);
+        frame_.w = movie_->width();
+        frame_.h = movie_->height();
     }
     return drawn;
 }
 
 bool MoviePlayer::done(uint64_t nowMs) const {
-    if (!file_)
-        return true;
-    if (file_->fps() <= 0)
+    if (!movie_ || fps() <= 0)
         return true;
     // The last frame shown for its time.
-    const double end = double(file_->frameCount()) * 1000.0 / file_->fps();
-    return next_ >= file_->frameCount() && double(nowMs - std::min(nowMs, startMs_)) >= end;
+    const double end = double(movie_->frameCount()) * 1000.0 / fps();
+    return next_ >= movie_->frameCount() && double(nowMs - std::min(nowMs, startMs_)) >= end;
 }
 
 } // namespace reluva::awe

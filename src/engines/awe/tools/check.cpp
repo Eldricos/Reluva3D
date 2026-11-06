@@ -11,9 +11,7 @@
 #include "common/archive.h"
 #include "common/audio/decode.h"
 #include "common/fs.h"
-#include "common/video/bink_audio.h"
-#include "common/video/bink_file.h"
-#include "common/video/bink_video.h"
+#include "common/video/bink.h"
 #include "engines/awe/ac2.h"
 #include "engines/awe/bink_texture.h"
 #include "engines/awe/camera.h"
@@ -924,41 +922,28 @@ int checkBink(const reluva::Archive& files, unsigned jobs, bool verbose) {
     auto worker = [&] {
         for (size_t i; (i = next++) < names.size();) {
             std::vector<uint8_t> data;
-            reluva::video::BinkFile bink;
-            reluva::video::BinkVideoDecoder video;
+            reluva::bink::Movie bink;
             reluva::Error e = files.read(names[i], data);
             if (!e)
                 e = bink.open(std::move(data));
-            if (!e)
-                e = video.init(bink.width(), bink.height(), bink.revision(), bink.flags());
-            std::vector<reluva::video::BinkAudioDecoder> audio(bink.audioTracks().size());
-            for (size_t t = 0; t < audio.size() && !e; t++)
-                if (reluva::Error ae = audio[t].init(bink.audioTracks()[t].sampleRate, bink.audioTracks()[t].channels,
-                                                     bink.audioTracks()[t].dct))
-                    e = reluva::Error::fail("audio track " + std::to_string(t) + ": " + ae.message);
+            // The sound whole (each packet cut at the size it says it
+            // decodes to), then every frame.
             std::vector<int16_t> pcm;
-            for (size_t f = 0; f < bink.frameCount() && !e; f++) {
-                reluva::video::BinkFile::Frame fr;
-                e = bink.frame(f, fr);
-                if (!e)
-                    e = video.decode(fr.video.data, fr.video.size);
-                for (size_t t = 0; t < audio.size() && !e; t++)
-                    if (fr.audio[t].size) {
-                        pcm.clear();
-                        e = audio[t].decode(fr.audio[t].data, fr.audio[t].size, pcm);
-                        // At least what the frame says (the last packet's
-                        // block runs past the end, and is cut there).
-                        if (!e && pcm.size() * 2 < fr.audioBytes[t])
-                            e = reluva::Error::fail("audio decoded to " + std::to_string(pcm.size() * 2) +
-                                                    " bytes, not " + std::to_string(fr.audioBytes[t]));
-                    }
+            if (!e && bink.audioRate() > 0) {
+                e = bink.decodeAllAudio(pcm);
+                if (!e && pcm.empty())
+                    e = reluva::Error::fail("no sound decoded");
+            }
+            for (uint32_t f = 0; f < bink.frameCount() && !e; f++) {
+                bool more = false;
+                e = bink.nextFrame(more);
                 if (e)
                     e = reluva::Error::fail("frame " + std::to_string(f) + ": " + e.message);
                 else
                     frames++;
             }
             char buf[200];
-            std::snprintf(buf, sizeof buf, "%dx%d, %zu frames, revision %c", bink.width(), bink.height(),
+            std::snprintf(buf, sizeof buf, "%dx%d, %u frames, revision %c", bink.width(), bink.height(),
                           bink.frameCount(), bink.revision() ? bink.revision() : '?');
             results[i] = e ? "FAIL " + names[i] + ": " + e.message : (verbose ? "ok   " + names[i] + ": " + buf : "");
         }

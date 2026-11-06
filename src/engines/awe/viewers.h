@@ -10,8 +10,7 @@
 #include "common/image.h"
 #include "common/system.h"
 #include "common/types.h"
-#include "common/video/bink_file.h"
-#include "common/video/bink_video.h"
+#include "common/video/bink.h"
 #include "engines/awe/ac2.h"
 #include "engines/awe/actor.h"
 #include "engines/awe/conditions.h"
@@ -370,8 +369,7 @@ private:
     // A video loop the scene shows (the countryside going by a window),
     // by the object that places it.
     struct Loop {
-        std::unique_ptr<video::BinkFile> file;
-        std::unique_ptr<video::BinkVideoDecoder> video;
+        std::unique_ptr<bink::Movie> movie;
         image::Image frame;
         size_t next = 0; // the frame to decode next
         float start = 0; // when it started (shown), in the page's seconds

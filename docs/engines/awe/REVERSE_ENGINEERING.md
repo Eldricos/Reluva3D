@@ -16,8 +16,9 @@ Only sources CONTRIBUTING.md allows:
 - **Recordings of the original game:** a ten-part walkthrough on video,
   and short clips recorded by the project's owner (used for the
   characters' shadows).
-- **Public write-ups:** the MultimediaWiki's Bink pages, and FFmpeg's
-  decoder for what they leave out (see [bink_video.md](../../common/bink_video.md)).
+- **Public write-ups:** the MultimediaWiki's Bink pages, and the
+  decoders that document what they leave out (see
+  [bink.md](../../common/bink.md)).
 
 No leaked or unlicensed code, nor anything derived from it, was used.
 

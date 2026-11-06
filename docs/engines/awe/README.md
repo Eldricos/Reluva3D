@@ -137,9 +137,10 @@ scenes, two Granny files, the text tables, two backgrounds):
   [characters.md](characters.md#outdoors-footprints-and-breath)).
 - **The game's fonts** (`Text/fonts.txt`, `Interface/Fonts`) are drawn
   with stb_truetype, and the movies' subtitles show under them.
-- **Bink movies: decoded.** Video and audio match FFmpeg's output
-  exactly (see [bink_video.md](../../common/bink_video.md)) and play in the
-  Movies page with their sound.
+- **Bink movies: decoded** by the decoder Elite Force uses too, the same
+  as the game's own `binkw32.dll` on every frame of all 87 files (see
+  [bink.md](../../common/bink.md)), and play in the Movies page with
+  their sound.
 - **Pages.** A game is played from the Scenes page (N starts one). The
   other pages are data viewers: Models (textured, animated, with the
   mouse to turn and zoom), Movies, Pictures, Text and Sounds.

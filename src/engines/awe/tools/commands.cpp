@@ -19,9 +19,7 @@
 #include "common/archive.h"
 #include "common/image.h"
 #include "common/system.h"
-#include "common/video/bink_file.h"
-#include "common/video/bink_audio.h"
-#include "common/video/bink_video.h"
+#include "common/video/bink.h"
 #include "tools/tool.h"
 
 #include <algorithm>
@@ -562,7 +560,7 @@ int cmdAweBink(int argc, char** argv) {
     int failed = 0;
     for (const std::string& movie : movies) {
         std::vector<uint8_t> data;
-        reluva::video::BinkFile bink;
+        reluva::bink::Movie bink;
         if (files.read(movie, data) || bink.open(data)) {
             std::printf("%s: can't read it\n", movie.c_str());
             failed++;
@@ -575,21 +573,18 @@ int cmdAweBink(int argc, char** argv) {
             failed++;
             continue;
         }
-        reluva::video::BinkVideoDecoder dec;
-        if (reluva::Error e = dec.init(bink.width(), bink.height(), bink.revision(), bink.flags())) {
-            std::printf("%s: %s\n", movie.c_str(), e.message.c_str());
-            failed++;
-            continue;
-        }
+        reluva::bink::Movie& dec = bink;
+        // A plane of the last frame decoded, and its row length.
+        auto plane = [&](int i) { return dec.decodedPlane(i).data(); };
+        auto stride = [&](int i) { return dec.pitch(i); };
         const bool alpha = bink.hasAlpha(); // an alpha plane: the game's surface 5
         size_t compared = 0, same = 0, worstFrame = 0;
         int worst = 0;
         uint64_t differing = 0, superwhite = 0;
         std::vector<uint8_t> theirs, ours;
-        for (size_t i = 0; i < bink.frameCount() && i < frames && i < limit; i++) {
-            reluva::video::BinkFile::Frame f;
-            bink.frame(i, f);
-            if (reluva::Error e = dec.decode(f.video.data, f.video.size)) {
+        for (size_t i = 0; i < size_t(bink.frameCount()) && i < frames && i < limit; i++) {
+            bool more = false;
+            if (reluva::Error e = dec.nextFrame(more)) {
                 std::printf("%s frame %zu: %s\n", movie.c_str(), i, e.message.c_str());
                 break;
             }
@@ -605,18 +600,18 @@ int cmdAweBink(int argc, char** argv) {
                 for (int y = 0; y < h; y++)
                     for (int x = 0; x < w; x++) {
                         const uint8_t* t = theirs.data() + (size_t(y) * size_t(w) + size_t(x & ~1)) * 2;
-                        int d = std::abs(int(dec.plane(0)[y * dec.stride(0) + x]) - int(t[(x & 1) * 2]));
+                        int d = std::abs(int(plane(0)[y * stride(0) + x]) - int(t[(x & 1) * 2]));
                         if ((x & 1) == 0) {
                             const int cx = x / 2, cy = y / 2;
-                            d = std::max(d, std::abs(int(dec.plane(1)[cy * dec.stride(1) + cx]) - int(t[1])));
-                            d = std::max(d, std::abs(int(dec.plane(2)[cy * dec.stride(2) + cx]) - int(t[3])));
+                            d = std::max(d, std::abs(int(plane(1)[cy * stride(1) + cx]) - int(t[1])));
+                            d = std::max(d, std::abs(int(plane(2)[cy * stride(2) + cx]) - int(t[3])));
                         }
                         frameDiffering += d != 0;
                         frameWorst = std::max(frameWorst, d);
                     }
                 ours.clear();
             } else {
-                dec.toRgba(ours);
+                dec.toRgba(ours, reluva::bink::Movie::Rgb::Binkw32);
             }
             for (size_t p = 0; p + 3 < ours.size() && p + 3 < theirs.size(); p += 4) {
                 // Theirs is B, G, R, X (A with alpha).
@@ -629,7 +624,7 @@ int cmdAweBink(int argc, char** argv) {
                 // clamps Y and its MMX path, which Reluva follows, doesn't:
                 // counted apart.
                 const size_t px = p / 4;
-                if (d && dec.plane(0)[int(px / size_t(w)) * dec.stride(0) + int(px % size_t(w))] > 235) {
+                if (d && plane(0)[int(px / size_t(w)) * stride(0) + int(px % size_t(w))] > 235) {
                     superwhite++;
                     continue;
                 }
@@ -1005,18 +1000,19 @@ int cmdBinkInfo(int argc, char** argv) {
     std::vector<uint8_t> data;
     if (!readFile(argv[2], data))
         return 1;
-    reluva::video::BinkFile bink;
+    reluva::bink::Movie bink;
     if (reluva::Error e = bink.open(std::move(data))) {
         std::fprintf(stderr, "%s\n", e.message.c_str());
         return 1;
     }
-    std::printf("Bink revision '%c': %dx%d, %zu frames at %u/%u (%.3f fps), flags 0x%08x%s%s, largest frame %u bytes\n",
-                bink.revision(), bink.width(), bink.height(), bink.frameCount(), bink.fpsNumerator(),
-                bink.fpsDenominator(), bink.fps(), bink.flags(), bink.hasAlpha() ? " (alpha)" : "",
-                bink.grayscale() ? " (grey)" : "", bink.largestFrame());
-    for (const reluva::video::BinkAudioTrack& t : bink.audioTracks())
-        std::printf("  audio track %u: %d Hz, %d channel%s, %s, flags 0x%04x\n", t.id, t.sampleRate, t.channels,
-                    t.channels == 1 ? "" : "s", t.dct ? "DCT" : "FFT", t.flags);
+    const double fps = bink.rateDenominator() ? double(bink.rateNumerator()) / bink.rateDenominator() : 0;
+    std::printf("Bink revision '%c': %dx%d, %u frames at %u/%u (%.3f fps), flags 0x%08x%s%s, largest frame %u bytes\n",
+                bink.revision(), bink.width(), bink.height(), bink.frameCount(), bink.rateNumerator(),
+                bink.rateDenominator(), fps, bink.flags(), bink.hasAlpha() ? " (alpha)" : "",
+                bink.flags() & (1u << 17) ? " (grey)" : "", bink.largestFrame());
+    for (const reluva::bink::Movie::Track& t : bink.audioTracks())
+        std::printf("  audio track: %d Hz, %d channel%s, %s\n", t.rate, t.channels, t.channels == 1 ? "" : "s",
+                    t.dct ? "DCT" : "RDFT");
     bool list = false;
     std::string yuvFile, tgaPrefix, wavFile;
     size_t yuvFrames = bink.frameCount(), tgaFrame = 0;
@@ -1034,62 +1030,46 @@ int cmdBinkInfo(int argc, char** argv) {
             tgaPrefix = std::string(argv[2]) + "_frame";
         }
     }
-    if (!wavFile.empty() && !bink.audioTracks().empty()) {
+    if (!wavFile.empty() && bink.audioRate() > 0) {
         // The first audio track, as a 16-bit WAV file.
-        const reluva::video::BinkAudioTrack& t = bink.audioTracks()[0];
-        reluva::video::BinkAudioDecoder dec;
-        if (reluva::Error e = dec.init(t.sampleRate, t.channels, t.dct)) {
-            std::fprintf(stderr, "%s\n", e.message.c_str());
-            return 1;
-        }
         std::vector<int16_t> pcm;
-        for (size_t i = 0; i < bink.frameCount(); i++) {
-            reluva::video::BinkFile::Frame f;
-            bink.frame(i, f);
-            if (!f.audio.empty() && f.audio[0].size)
-                if (reluva::Error e = dec.decode(f.audio[0].data, f.audio[0].size, pcm, f.audioBytes[0]))
-                    std::fprintf(stderr, "frame %zu: %s\n", i, e.message.c_str());
-        }
+        if (reluva::Error e = bink.decodeAllAudio(pcm))
+            std::fprintf(stderr, "%s\n", e.message.c_str());
+        const int rate = bink.audioRate(), channels = bink.audioChannels();
         std::ofstream wav(wavFile, std::ios::binary);
         auto u32 = [&](uint32_t v) { wav.write(reinterpret_cast<const char*>(&v), 4); };
         auto u16 = [&](uint16_t v) { wav.write(reinterpret_cast<const char*>(&v), 2); };
         const uint32_t bytes = uint32_t(pcm.size() * 2);
-        wav.write("RIFF", 4), u32(36 + bytes), wav.write("WAVEfmt ", 8), u32(16), u16(1), u16(uint16_t(t.channels));
-        u32(uint32_t(t.sampleRate)), u32(uint32_t(t.sampleRate * t.channels * 2)), u16(uint16_t(t.channels * 2)), u16(16);
+        wav.write("RIFF", 4), u32(36 + bytes), wav.write("WAVEfmt ", 8), u32(16), u16(1), u16(uint16_t(channels));
+        u32(uint32_t(rate)), u32(uint32_t(rate * channels * 2)), u16(uint16_t(channels * 2)), u16(16);
         wav.write("data", 4), u32(bytes);
         wav.write(reinterpret_cast<const char*>(pcm.data()), std::streamsize(bytes));
-        std::printf("wrote %s: %zu samples a channel (%.2f s)\n", wavFile.c_str(), pcm.size() / size_t(t.channels),
-                    double(pcm.size()) / t.channels / t.sampleRate);
+        std::printf("wrote %s: %zu samples a channel (%.2f s)\n", wavFile.c_str(), pcm.size() / size_t(channels),
+                    double(pcm.size()) / channels / rate);
     }
     if (!yuvFile.empty() || !tgaPrefix.empty()) {
         // Decodes the video: as raw YUV 4:2:0 (as ffmpeg -pix_fmt yuv420p
         // writes it, to compare), and one frame as a TGA picture.
-        reluva::video::BinkVideoDecoder dec;
-        if (reluva::Error e = dec.init(bink.width(), bink.height(), bink.revision(), bink.flags())) {
-            std::fprintf(stderr, "%s\n", e.message.c_str());
-            return 1;
-        }
         std::ofstream yuv;
         if (!yuvFile.empty())
             yuv.open(yuvFile, std::ios::binary);
         const size_t last = std::max(yuvFile.empty() ? 0 : yuvFrames, tgaPrefix.empty() ? 0 : tgaFrame + 1);
         const auto start = std::chrono::steady_clock::now();
         for (size_t i = 0; i < last && i < bink.frameCount(); i++) {
-            reluva::video::BinkFile::Frame f;
-            bink.frame(i, f);
-            if (reluva::Error e = dec.decode(f.video.data, f.video.size))
+            bool more = false;
+            if (reluva::Error e = bink.nextFrame(more))
                 std::fprintf(stderr, "frame %zu: %s\n", i, e.message.c_str());
             if (yuv && i < yuvFrames)
                 for (int p = 0; p < 3; p++) {
                     const int w = p ? (bink.width() + 1) / 2 : bink.width(), h = p ? (bink.height() + 1) / 2 : bink.height();
                     for (int y = 0; y < h; y++)
-                        yuv.write(reinterpret_cast<const char*>(dec.plane(p) + y * dec.stride(p)), w);
+                        yuv.write(reinterpret_cast<const char*>(bink.decodedPlane(p).data() + y * bink.pitch(p)), w);
                 }
             if (!tgaPrefix.empty() && i == tgaFrame) {
                 reluva::image::Image img;
                 img.w = bink.width();
                 img.h = bink.height();
-                dec.toRgba(img.rgba);
+                bink.toRgba(img.rgba, reluva::bink::Movie::Rgb::Binkw32);
                 const std::vector<uint8_t> tga = reluva::image::encodeTga(img);
                 const std::string name = tgaPrefix + std::to_string(i) + ".tga";
                 std::ofstream(name, std::ios::binary).write(reinterpret_cast<const char*>(tga.data()), std::streamsize(tga.size()));
@@ -1099,23 +1079,15 @@ int cmdBinkInfo(int argc, char** argv) {
         std::printf("decoded %zu frames in %.2f s\n", last,
                     std::chrono::duration<double>(std::chrono::steady_clock::now() - start).count());
     }
-    size_t keyframes = 0, videoBytes = 0, audioBytes = 0, decoded = 0;
-    for (size_t i = 0; i < bink.frameCount(); i++) {
-        reluva::video::BinkFile::Frame f;
-        if (reluva::Error e = bink.frame(i, f)) {
-            std::fprintf(stderr, "%s\n", e.message.c_str());
-            return 1;
-        }
-        keyframes += f.keyframe;
-        videoBytes += f.video.size;
-        for (size_t t = 0; t < f.audio.size(); t++)
-            audioBytes += f.audio[t].size, decoded += f.audioBytes[t];
+    size_t keyframes = 0, bytes = 0;
+    for (uint32_t i = 0; i < bink.frameCount(); i++) {
+        const reluva::bink::Movie::FrameInfo f = bink.frameInfo(i);
+        keyframes += f.key;
+        bytes += f.size;
         if (list)
-            std::printf("  frame %4zu%s: video %6zu bytes, audio %6zu bytes (%u bytes decoded)\n", i, f.keyframe ? " key" : "    ",
-                        f.video.size, f.audio.empty() ? 0 : f.audio[0].size, f.audioBytes.empty() ? 0 : f.audioBytes[0]);
+            std::printf("  frame %4u%s: %6u bytes\n", i, f.key ? " key" : "    ", f.size);
     }
-    std::printf("%zu keyframes; video %zu bytes, audio %zu bytes (%zu bytes decoded)\n", keyframes, videoBytes, audioBytes,
-                decoded);
+    std::printf("%zu keyframes; %zu bytes of frames\n", keyframes, bytes);
     return 0;
 }
 

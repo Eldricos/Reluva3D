@@ -8,7 +8,6 @@
 #include "common/parallel.h"
 #include "common/fs.h"
 #include "common/text.h"
-#include "common/video/bink_audio.h"
 #include "engines/awe/camera.h"
 #include "engines/awe/dialogue_box.h"
 #include "engines/awe/sprite.h"
@@ -16,6 +15,7 @@
 
 #include <algorithm>
 #include <chrono>
+#include <cmath>
 #include <cstdlib>
 #include <cctype>
 #include <cstdio>
@@ -1026,14 +1026,11 @@ void ScenePage::loadLoops() {
         if (!hasExtension(o->text("file"), {".bik"}))
             continue;
         Loop loop;
-        loop.file = std::make_unique<video::BinkFile>();
-        loop.video = std::make_unique<video::BinkVideoDecoder>();
+        loop.movie = std::make_unique<bink::Movie>();
         std::vector<uint8_t> data;
         Error e = ctx_.files.read(o->text("file"), data);
         if (!e)
-            e = loop.file->open(std::move(data));
-        if (!e)
-            e = loop.video->init(loop.file->width(), loop.file->height(), loop.file->revision(), loop.file->flags());
+            e = loop.movie->open(std::move(data));
         if (e) {
             error_ = o->text("file") + ": " + e.message;
             continue;
@@ -1049,10 +1046,12 @@ bool ScenePage::advanceLoops(float time) {
         // "Animated Effects" off: the flagged videos stay on their frame.
         if (frozen(*o) && !loop.frame.rgba.empty())
             continue;
-        const size_t count = loop.file->frameCount();
-        if (count == 0 || loop.file->fps() <= 0)
+        const bink::Movie& m = *loop.movie;
+        const size_t count = m.frameCount();
+        const double fps = m.rateDenominator() ? double(m.rateNumerator()) / m.rateDenominator() : 0;
+        if (count == 0 || fps <= 0)
             continue;
-        const size_t played = size_t(double(std::max(0.0f, time - loop.start)) * loop.file->fps());
+        const size_t played = size_t(double(std::max(0.0f, time - loop.start)) * fps);
         // BNKX loop 0 (its default is 1): played once, then held on its
         // last frame (0x4061d8).
         const Ac2Record* bnkx = o->part("BNKX");
@@ -1063,17 +1062,18 @@ bool ScenePage::advanceLoops(float time) {
         // Frames build on the one before: from the start again when it
         // has gone round.
         if (want + 1 < loop.next || loop.next == 0) {
-            loop.video->init(loop.file->width(), loop.file->height(), loop.file->revision(), loop.file->flags());
+            loop.movie->rewind();
             loop.next = 0;
         }
         for (; loop.next <= want; loop.next++) {
-            video::BinkFile::Frame f;
-            if (loop.file->frame(loop.next, f) || loop.video->decode(f.video.data, f.video.size))
+            bool more = false;
+            if (loop.movie->nextFrame(more) || !more)
                 break;
         }
-        loop.frame.w = loop.video->width();
-        loop.frame.h = loop.video->height();
-        loop.video->toRgba(loop.frame.rgba);
+        loop.frame.w = m.width();
+        loop.frame.h = m.height();
+        // As the game's binkw32.dll converts its frames.
+        loop.movie->toRgba(loop.frame.rgba, bink::Movie::Rgb::Binkw32);
         changed = true;
     }
     return changed;
@@ -3832,13 +3832,13 @@ void MoviePage::open() {
         info_ = e.message;
         return;
     }
-    const video::BinkFile& file = *player_.file();
+    const bink::Movie& movie = *player_.movie();
     char buf[160];
-    std::snprintf(buf, sizeof buf, "%dx%d, %zu frames at %.2f fps, revision %c", file.width(), file.height(),
-                  file.frameCount(), file.fps(), file.revision());
+    std::snprintf(buf, sizeof buf, "%dx%d, %u frames at %.2f fps, revision %c", movie.width(), movie.height(),
+                  movie.frameCount(), player_.fps(), movie.revision());
     info_ = buf;
     if (player_.hasSound())
-        info_ += ", sound " + std::to_string(file.audioTracks()[0].sampleRate) + " Hz";
+        info_ += ", sound " + std::to_string(movie.audioRate()) + " Hz";
     if (!player_.error().empty())
         info_ += ", " + player_.error();
     ctx_.setTitle("Movies: " + name);
@@ -3860,7 +3860,7 @@ void MoviePage::update(uint64_t nowMs) {
           (names_.empty() ? std::string("No movies") : names_[size_t(index_)]) + "  (" + std::to_string(index_ + 1) +
               "/" + std::to_string(names_.size()) + ")  " + info_ +
               (player_.loaded() ? "  frame " + std::to_string(player_.next()) + "/" +
-                                      std::to_string(player_.file()->frameCount())
+                                      std::to_string(player_.movie()->frameCount())
                                 : "") +
               (subtitles_.empty() ? "" : ", " + std::to_string(subtitles_.size()) + " subtitles"),
           {255, 230, 150});

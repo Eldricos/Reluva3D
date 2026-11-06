@@ -14,11 +14,8 @@ requirements, building, running and contributing. The rest is here.
 
 - [x86.md](common/x86.md): the x86 interpreter that runs 32-bit Windows game
   code (Elite Force's single-player DLLs), and its Windows stand-ins.
-- [bink.md](common/bink.md): Bink videos (`common/video/bink.cpp`, Elite
-  Force's cinematics).
-- [bink_video.md](common/bink_video.md): the other Bink decoder
-  (`common/video/bink_file`, `bink_video`, `bink_audio`, the AWE engine's
-  movies and textures); the two are to become one.
+- [bink.md](common/bink.md): Bink videos (Elite Force's cinematics, Murder
+  on the Orient Express's movies and video loops).
 - [smacker.md](common/smacker.md): Smacker videos.
 - [cinepak.md](common/cinepak.md): Cinepak videos, in AVI files.
 - [dcl.md](common/dcl.md): PKWARE DCL ("implode") compression.

@@ -272,7 +272,7 @@ src/common/          platform-independent core: the System interface, events, su
                      text and fonts (built-in and TrueType), logging, the 3D rendering interface (gfx3d.h), installers
                      (Wise), and shared interpreters and decoders
   audio/             sound decoders, streams and the mixer: WAV (PCM, IMA ADPCM), MP3, raw PCM
-  video/             video decoders: Bink (two decoders for now), Smacker, Cinepak in AVI
+  video/             video decoders: Bink, Smacker, Cinepak in AVI
   x86/               an x86 interpreter and Windows stand-ins, for games' native code
 src/backends/sdl3/   the only code that touches SDL: window, rendering (2D and 3D, on SDL's GPU
                      API), input, audio
@@ -284,7 +284,7 @@ src/tools/           reluva-tool, with its commands for any game, and reluva-ren
 tests/               the tests (reluva-tests) and their data: shared code's in common/, each
                      engine's in engines/<engine>/
 third_party/         outside code built in, each with its licence (minimp3, stb_image,
-                     stb_truetype, FFmpeg's Bink tables)
+                     stb_truetype)
 docs/                documentation: shared in docs/common/, each engine's in docs/engines/<engine>/
 ```
 

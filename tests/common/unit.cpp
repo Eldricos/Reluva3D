@@ -33,8 +33,7 @@
 #include "common/stream.h"
 #include "common/text.h"
 #include "common/video/avi.h"
-#include "common/video/bink_audio.h"
-#include "common/video/bink_file.h"
+#include "common/video/bink.h"
 #include "common/video/cinepak.h"
 #include "common/video/smacker.h"
 #include "common/x86/cpu.h"
@@ -1360,8 +1359,9 @@ static void testAvi() {
           other.videoCodec() == reluva::avi::fourcc("MSVC") && !other.decodeNextFrame() && other.surface().w == 0);
 }
 
-// A Bink file built here: its frames' audio and video packets split out.
-static void testBinkFile() {
+// A Bink file built here: two frames, one audio track of `packets` (each
+// the size it says it decodes to, then its blocks) on the first frame.
+static std::vector<uint8_t> makeBink(uint16_t audioFlags, uint16_t rate, const std::vector<uint8_t>& audio) {
     std::vector<uint8_t> f;
     auto u32 = [&](uint32_t v) {
         for (int i = 0; i < 4; i++)
@@ -1370,15 +1370,18 @@ static void testBinkFile() {
     auto u16 = [&](uint16_t v) { f.push_back(uint8_t(v)), f.push_back(uint8_t(v >> 8)); };
     f = {'B', 'I', 'K', 'i'};
     u32(0), u32(2), u32(100), u32(2), u32(64), u32(32), u32(25), u32(1), u32(0), u32(1);
-    u16(0), u16(2);                       // the track: two bytes, channels
-    u16(22050), u16(1u << 13 | 1u << 12); // rate, stereo DCT
-    u32(7);                               // its ID
+    u16(0), u16(2);            // the track's largest decoded size (unused)
+    u16(rate), u16(audioFlags); // rate, flags
+    u32(7);                    // its ID
     const size_t index = f.size();
     u32(0), u32(0), u32(0); // frame offsets, set below
     const uint32_t frame0 = uint32_t(f.size());
     // (Frames start at even offsets: bit 0 of an index entry marks keyframes.)
-    u32(4 + 4), u32(1234), f.insert(f.end(), {1, 2, 3, 4}); // audio: size, decoded bytes, data
-    f.insert(f.end(), {9, 9});                                // video
+    u32(uint32_t(audio.size()));
+    f.insert(f.end(), audio.begin(), audio.end());
+    f.insert(f.end(), {9, 9}); // video
+    if (f.size() & 1)
+        f.push_back(0);
     const uint32_t frame1 = uint32_t(f.size());
     u32(0); // no audio
     f.insert(f.end(), {8, 8, 8, 8});
@@ -1388,23 +1391,26 @@ static void testBinkFile() {
         f[index + 4 + size_t(i)] = uint8_t(frame1 >> (8 * i));
         f[index + 8 + size_t(i)] = uint8_t(end >> (8 * i));
     }
-    video::BinkFile bink;
-    CHECK(!bink.open(f));
-    CHECK(bink.revision() == 'i' && bink.width() == 64 && bink.height() == 32 && bink.fps() == 25);
-    CHECK(bink.audioTracks().size() == 1 && bink.audioTracks()[0].channels == 2 && bink.audioTracks()[0].dct &&
-          bink.audioTracks()[0].id == 7 && bink.audioTracks()[0].sampleRate == 22050);
-    CHECK(bink.frameCount() == 2);
-    video::BinkFile::Frame fr;
-    CHECK(!bink.frame(0, fr));
-    CHECK(fr.keyframe && fr.audio.size() == 1 && fr.audio[0].size == 4 && fr.audio[0].data[2] == 3);
-    CHECK(fr.audioBytes[0] == 1234 && fr.video.size == 2 && fr.video.data[0] == 9);
-    CHECK(!bink.frame(1, fr));
-    CHECK(!fr.keyframe && fr.audio[0].size == 0 && fr.video.size == 4);
-    CHECK(bink.frame(2, fr));
+    return f;
+}
+
+// The header and the frame index.
+static void testBinkFile() {
+    const std::vector<uint8_t> f = makeBink(1u << 13 | 1u << 12, 22050, {0xd2, 0x04, 0, 0, 1, 2, 3, 4});
+    bink::Movie movie;
+    CHECK(!movie.open(f));
+    CHECK(movie.revision() == 'i' && movie.width() == 64 && movie.height() == 32 && movie.rateNumerator() == 25 &&
+          movie.rateDenominator() == 1 && !movie.hasAlpha());
+    const std::vector<bink::Movie::Track> tracks = movie.audioTracks();
+    CHECK(tracks.size() == 1 && tracks[0].channels == 2 && tracks[0].dct && tracks[0].rate == 22050);
+    CHECK(movie.audioRate() == 22050 && movie.audioChannels() == 2);
+    CHECK(movie.frameCount() == 2 && movie.frameInfo(0).key && !movie.frameInfo(1).key);
+    CHECK(movie.frameInfo(1).size == 8 && movie.largestFrame() == movie.frameInfo(0).size);
 }
 
 // A Bink audio block of nothing but zeros decodes to silence, of the
-// block's length (1024 less its overlap of 64 at 22050 Hz).
+// block's length (1024 less its overlap of 64 at 22050 Hz); a packet that
+// says it decodes to less is cut there.
 static void testBinkAudio() {
     std::vector<uint8_t> bytes;
     size_t pos = 0;
@@ -1424,13 +1430,16 @@ static void testBinkAudio() {
     }
     while (pos % 32)
         put(0, 1);
-    video::BinkAudioDecoder dec;
-    CHECK(!dec.init(22050, 1, true));
-    std::vector<int16_t> out;
-    CHECK(!dec.decode(bytes.data(), bytes.size(), out));
-    CHECK(out.size() == 960);
-    CHECK(std::all_of(out.begin(), out.end(), [](int16_t s) { return s == 0; }));
-    CHECK(dec.init(22050, 1, false)); // the FFT form isn't supported
+    for (uint32_t says : {1920u, 1000u}) {
+        std::vector<uint8_t> packet = {uint8_t(says), uint8_t(says >> 8), 0, 0};
+        packet.insert(packet.end(), bytes.begin(), bytes.end());
+        bink::Movie movie;
+        CHECK(!movie.open(makeBink(1u << 12, 22050, packet)));
+        std::vector<int16_t> out;
+        CHECK(!movie.decodeAllAudio(out));
+        CHECK(out.size() == says / 2);
+        CHECK(std::all_of(out.begin(), out.end(), [](int16_t s) { return s == 0; }));
+    }
 }
 
 static const reluva::test::Suite videoSuite("common.unit.video", {

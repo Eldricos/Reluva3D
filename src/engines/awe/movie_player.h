@@ -6,8 +6,7 @@
 #include "common/audio/mixer.h"
 #include "common/types.h"
 #include "common/image.h"
-#include "common/video/bink_file.h"
-#include "common/video/bink_video.h"
+#include "common/video/bink.h"
 
 #include <cstdint>
 #include <memory>
@@ -38,11 +37,12 @@ public:
     void pause(bool paused, uint64_t nowMs);
     bool paused() const { return paused_; }
 
-    bool loaded() const { return file_ != nullptr; }
+    bool loaded() const { return movie_ != nullptr; }
     // Every frame shown and the time of the last gone by.
     bool done(uint64_t nowMs) const;
     const image::Image& frame() const { return frame_; }
-    const video::BinkFile* file() const { return file_.get(); }
+    const bink::Movie* movie() const { return movie_.get(); }
+    double fps() const; // the movie's frames a second (0 with none)
     bool hasSound() const { return soundtrack_ != nullptr; }
     // The frame to decode next, and the movie's time in seconds (by the
     // frames shown).
@@ -55,8 +55,7 @@ private:
     void playSound(double fromSeconds);
 
     audio::Mixer* mixer_;
-    std::unique_ptr<video::BinkFile> file_;
-    std::unique_ptr<video::BinkVideoDecoder> video_;
+    std::unique_ptr<bink::Movie> movie_;
     image::Image frame_;
     std::shared_ptr<audio::Sound> soundtrack_;
     audio::SoundHandle sound_ = audio::kNoSound;
