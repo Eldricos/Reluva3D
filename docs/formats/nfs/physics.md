@@ -34,6 +34,60 @@ implemented in Reluva.
   changes are acceleration × 1/32 (`0x53dea0`), gravity is 9.81/32 =
   0.306563 a tick (`0x53c8dc`).
 
+## The clock, the tick and the units of spin
+
+Read from the code (November 2026: `asm`, `xref`, `callers`, capstone
+over the exe; the constants read from the exe). This settles two
+things that had been deduced from runs: the computer controllers'
+yaw rates are in **turns a second**, and a `-watch` or `-watchmem`
+sample taken once per call of a 32 Hz car task comes **32 times a
+second** of game time.
+
+- **The timer.** Start-up calls `0x48eff0(128)` (`0x4b6160`): a
+  128 Hz multimedia timer ([nfs-threads.md](../../engines/nfs-threads.md)).
+  The controls thread (`0x42dc20`) is woken on every 4th tick, so it
+  makes 32 control frames a second (`0x48f675`-`0x48f680`: `0x79c4ac`
+  + 1 per frame).
+- **The step.** The race loop (`0x4c4e40`) runs two world steps per
+  control frame (the target is 2 × `0x560104`), so `g_step`
+  (`0x7d3684`, `inc` at `0x4c4a9c`) counts **64 a second**: the race
+  clock is (step − 512) / 64, a cop's turn every 8 steps is 8 a second,
+  the stop's 24 steps are 0.375 s.
+- **The two task lists.** `0x4c48d0` runs Sc64 (`0x7d368c`, at
+  `0x4c4a97`) every step, and Sc32 (`0x7d3690`, at `0x4c4a7f`) only when
+  the step is even (`test byte [0x7d3684], 1` at `0x4c4a6a`): 32 a
+  second. Every car task in the tables below that is said to run "each
+  tick" is in Sc32 (the human's `0x4ad7a3`, the computer's `0x4088f0`,
+  the dynamics `0x4a2830`, the drivers, the collisions); the position
+  (`0x4a2c60`, × `0x53c8ec` = 1/64) and the human's orientation are in
+  Sc64.
+- **The tick's length in the code.** The human's tick uses `0x53dea0`
+  (0.03125); the computer's model stores `0x3d000000` (1/32) into
+  `0x56ec58` at `0x408921` on each call, and `ai_integrate` (`0x4071a0`)
+  adds the forces × that to the velocity and the torques (+0x2F4,
+  +0x2F8, +0x2FC, put into the world by the car's rows) × that to the
+  spin +0xE4, +0xE8, +0xEC (`0x407328`-`0x40736e`). The landing's own
+  1/32 is `0x53c8f4`.
+- **The spin's unit.** The orientation task divides the spin by the
+  number in edx (`fild`, `fld1`, `fdivrp` at `0x4a2e6a`-`0x4a2e6f`)
+  and turns the body by the result about each axis with `0x4dfd80`,
+  `0x4dfde0`, `0x4dfe40` (from `0x4a2cc0`), which take turns (× 2π,
+  `0x54b6b0` = 6.283185). For a computer-driven car it is
+  `0x4a2f10` (`mov edx, 0x20`, in Sc32: 32 calls of spin/32 a second),
+  for a human `0x4a2f30` (`mov edx, 0x40`, in Sc64: 64 of spin/64).
+  Either way a spin of 1 turns the car one turn a second.
+- **The controllers' yaw.** `0x4088f0` puts the spin into the car's
+  frame (+0x4FC is the yaw part, stored at `0x408a4b`); `0x4076b0`
+  reads it at `0x40789d` and compares it with its wanted rate (−2.5 ×
+  the heading error, which is in turns: `0x4070c0`, ±0.5), and the
+  three controllers write the torque to +0x2F8 (`0x407c01` for
+  `0x407c30`), which `0x4071a0` adds × 1/32 to +0xE8. So the wanted
+  yaw rates (±0.8, ±1.6, ±3) are turns a second: 0.8 is 288°/s.
+- **`d7-watch2`'s rate.** Its 1,308 samples (one per `0x4088f0` call
+  for car 1) over 41 s are 31.9 a second, as the Sc32 list gives;
+  the `gh1-ai` counts (about 1,300 controller calls per car by 90 s,
+  from the start at 48.9 s) are the same rate.
+
 ## The race settings named
 
 From the front end's option table (`0x5563fc`, 20-byte rows: name,
@@ -810,8 +864,9 @@ vector at +0x124 × 8 × (+0x7B4 − +0x7B8) (`0x406880`), the spin zeroed,
 +0x4F4 = +0x7C0, and the car put on the road (`0x4a0980`).
 
 - The **speed wanted** (`0x409330`): +0x7B0 = the speed table's byte
-  for this slice pair (m/s). Over 67.05 m/s and with +0x700 < 1 it becomes
-  67.05 + (speed − 67.05) × +0x700. It is kept under P's top speed cap
+  for this slice pair (m/s). Over 67.05 m/s and with +0x700 over 1 it becomes
+  67.05 + (speed − 67.05) × +0x700 (`0x40936d`-`0x409392`: `fld1`,
+  `fcomp` with +0x700, `jae` past it when 1 ≥ +0x700). It is kept under P's top speed cap
   × `0x40ee80`'s factor.
 - **speedsF.bin / speedsR.bin** (`0x40e000`; R when `0x6fd4c0`, the
   track run backward): after a 16-byte header, one byte per two road
@@ -964,7 +1019,67 @@ then gives the car +0x200 bit 0x20.
     (+0x14) is set, and the surface of
     the polygon's 8-byte record (+0x18, byte 1 & 0x3F, the same code
     `0x4207e0` gives the car's +0x18C) is neither 0 nor 14. Else he
-    goes to the other side, unchecked.
+    goes to the other side, unchecked (`0x401dc4`: the side flipped,
+    `0x401b50` and `0x4205a0` again; `-count 0x401dc4` counts the
+    failures).
+  - **Where it can fail** (November 2026, from the files: each slice's
+    run of list-4 polygons in the `.frd` with its road record's
+    surface, measured along the slice's `.col` right from the `.col`
+    point, by a script outside the repo). The spot is always 2 m
+    towards the slice's road point, so it fails only where a surface
+    0 or 14 polygon (or no polygon) lies between a drivable one and
+    the road point, within 2 m of the car. At the runs' outer ends
+    (walls, banks) that never happens: the spot points inwards, away
+    from them. Inside the runs it does on all nine tracks (Hometown 21
+    slices, Redrock Ridge 90, Atlantica 202, Rocky Pass 13, Country
+    Woods 75, Lost Canyons 134, Aquatica 227, The Summit 9, Empire City
+    79, with a 0 or 14 polygon between drivable ones), but only some of
+    those lie between the car and the point. Places where it does:
+    - **Hometown slices 510-519** (the town centre): a surface-0
+      polygon 13.2 m wide, from −13.2 to 0 m, between the two
+      carriageways, with the road point on its right edge. A car on
+      the right carriageway (0 to +9.4 m) less than 2 m from that edge,
+      or on the left one (−23 to −13.2 m) less than 2 m from it, has
+      its spot on the 0 polygon.
+    - **Empire City slices 207-213**: a surface-0 strip from 0 to +5.5
+      m in the road's middle, the road point on its left edge: a car
+      within 2 m of it on either side.
+    - **Hometown slices 172-178** (the first covered bridge): a 3 m
+      surface-0 strip from −13.1 to −10 m between the road (−7.8 to
+      +7.8, with a 2.2 m edge) and a strip of surface 11, 2 or 3 to
+      its left (−22.6 to −13.1); a car on that left strip within 2 m of
+      the 0 strip (centre −15.1 to −13.1 m, so pressed against it).
+    - **Redrock Ridge slices 3-6, 12 and 21**, beside the grid: on the
+      wide area left of the road, a surface-0 polygon (−35.3 to −22.9
+      m at slices 3-6) with a surface-10 one beyond it; a car on the
+      far one within 2 m of it.
+    A car's own centre on surface 0 or 14 starts the reset timer
+    (`0x429452`), so the car must stand beside such a polygon, not on
+    it. The stops in the earlier runs were all in the open road (the
+    player's at Hometown slice 225, 1.8 m left of the point, in
+    `d1-r1`: its spot 0.2 m right of it, on the road).
+  - **Tried at the covered bridge** (`e2-h1`-`h15`, November 2026:
+    Hometown, the racer's pursuit, the set-up pokes only; the player
+    `-drive`n at car 1 from 38 s as in `d3-e1`, then keys: a left
+    pulse with keypad 4 from 81.5-81.8 s, keypad 6 to straighten,
+    keypad 2; cars 0-7 dumped every 0.25 s; `-count` and `-watch` on
+    `0x401c20`, `0x401dc4`, `0x401e40`, `0x401ff0`). Cop 3, in state 5
+    on the player since about 78 s, stopped it every time (its stop
+    `0x401e40` at 84.9-93.5 s and the ticket 384 steps on). The
+    player came to rest on the bridge's left strip in `h2`, `h3`
+    (slices 169-170, 19-24 m left), `h7`-`h15` (slices 173-177, 16.4
+    to 21.3 m left; the 0 strip's left edge is at 13.1 m), inside the
+    bridge on the road in `h4`-`h6` (4-7 m left), and in `h1` (a
+    hand-brake turn, the car facing backwards at slice 205) on the
+    road. `0x401c20` ran once in each and `0x401dc4` never: the side
+    test passed fifteen times. The nearest, `h15`, stood 3.3 m from
+    the strip's edge, nose-in (the car's forward along the road's
+    right: a half length of 2.41 m in the way), so its spot was 1.3 m
+    short of the strip. The strip is a wall to the car (`0x430350`:
+    a corner on surface 0 is off the road), so only a car standing
+    along it, its side within 0.85 m of it (centre 14.3-15.1 m left),
+    has its spot on it. The human's pull-over in state 6 also moved
+    the car back 0.6 m (`h15`: 16.0 → 16.6 m). Not reached.
   - **The 7 m** and the 300 m are not true distances: `0x4965b0` takes
     the largest of |dx|, |dy|, |dz| plus a quarter of each of the
     others (`0x53bedc` 0.25), so straight ahead it is 7 m and on a
@@ -2068,6 +2183,35 @@ keypad 2; cars 0-7 or 0-15 dumped every 0.125 s; `-count` and
   drops above, a few tenths of a second) were within 6 m of another
   car only in `h85`.
 
+**A cop drawn onto the bank** (`e2-a1`, `e2-a2`, November 2026:
+Hometown, the racer's pursuit, only the race type and track poked at
+`0x474ca0`; `d2-c4`'s keys, A at 133.0 s and keypad 8 from 133.5 s,
+then one left pulse with the gas let go at its end: 138.6-139.6 s in
+`a1`, 139.0-140.0 s in `a2`; cars 0-7 dumped every 0.25 s from 138 s;
+`-count` and `-watch` on `0x403950`, `0x40bba0`, `0x403910`,
+`0x429452`, `0x428f90`, `0x401e40`, `0x401c20`, `0x401dc4`,
+`0x401ff0`). The idea, from the code: a chasing computer cop sets
++0x711 bit 2 at each turn while its target is under 15.65 m/s
+(`0x402750`, `0x5360cc`; the bit is cleared at the start of each
+turn, `0x403308`), and with that bit and within 4 slices it steers
+at the target's place 0.4 s ahead (`0x406e50` → `0x406b60`), not at
+the road. So a target standing on the bank should bring the cop onto
+it. It did: in `a2` the player came to rest upright on the bank at
+slice 25-26 (x 922-925, 3 m above the road; +0x18C surface 2), cop 3
+(state 5 on it since 138.475 s, as in `d2-c4`) came at 29 m/s with
+bit 2 set (dumps 145-148 s), left the road (surface 1 → 11 → 2),
+slowed to 4 m/s and stopped 3.6 m from the player at 149 s on the
+bank, +0x10C 1.000 in every dump; its stop began at 148.123 s and
+cop 6 (0x5e4b28), which joined, gave the ticket at 154.139 s. In `a1`
+the player stopped at the bank's foot (slice 18-19, x 907-911) and
+cop 3 stopped beside it (stop 146.362 s, cop 6's ticket 152.381 s).
+No cop tipped: `0x403950` and `0x40bba0` never ran. The cop arrives
+slowly (the chase's speed wanted near a target is its speed + 5.81
+m/s, `0x402420`) and where the player could stand, the bank is gentle.
+A cop led across the steep part (slices 13-16 and 21-24, where the
+player rolled in `d2-b8` and `d2-c4`) is the next thing to try; the
+player can't stand there itself without rolling.
+
 **Picking a target** (`0x402e10`, in every state but 3, 5 and 6):
 racers still in, free (+0x634 passed) and within 16 slices, scored by
 `0x403f80`. A racer scores only when it is already chased (record
@@ -2205,6 +2349,37 @@ record's +0x1C is 2 and the target has stopped.
   often lost past the table's slices; the five on car 1 in `c4-four7`
   came with the bust speed poked out. So a fourth cop on one racer,
   let alone one ahead, was not seen in a game with no pokes.
+- **What raises the count, and a plan** (read November 2026:
+  `0x402e10`, `0x403f80`, `0x4043a0`, `0x403b20`, `0x401780`,
+  `0x402420`; not run). Cops join a record in three ways: a free cop
+  picks the racer (`0x402e10`, within 16 slices; a computer racer
+  scores the cops / 3 less those on it, a human the cops − 1 less
+  them, so picking adds a cop to a human's record more readily); the
+  call for help every 320 steps (`0x4043a0`: free cops on the far
+  side of the target within `0x5521ac`[tickets] × 2 slices, 100 for
+  0-1 tickets, 140 for 2-3, 180 from 4, and cops with +0x711 bit 1
+  within × 8, come with the siren and join on arrival); and the
+  roadblock (`0x403b20`, a human target only, heat over 3), whose two
+  cops are sent 51 slices or more **ahead** of the target. A
+  roadblock's cops (+0x711 bit 4) take no other racer while their own
+  (+0x730, the nearest) is away: `0x402e10` waits until it has been
+  within 4 slices for 256 steps (4 s), or 960 steps have passed, then
+  `0x4018b0` puts the cop on its record. A cop ahead of its target in
+  its own running direction is "past" it (`0x401780`: `0x56ea68` =
+  the slices to the target < 0), and once the record's +0x1C is 2 it
+  is asked for the target's speed × 0.5, 0 for a stopped racer: it
+  stands where it is. So the case needs: a human racer chased long
+  enough from behind for heat over 3 (cops on the record + chases
+  lost + tickets + time / 2048: a second chase after a ticket gives
+  it with two cops), a roadblock set ahead, the racer stopping 3-4
+  slices (about 20-25 m) short of it with two or more cops from
+  behind starting their stops within 16 m, then one roadblock cop
+  joining by the 4 s rule and, with +0x50 at 3, holding from 20-40 m
+  ahead. The two roadblock cops stand at their lanes across the same
+  slice, so one may be under 16 m and the other over 20 by the
+  `0x4965b0` measure, which weighs the lateral distance by a
+  quarter. That is minutes of driving by keys on a road the
+  roadblock's place decides; it wasn't run.
 
 **Run** (November 2026, nfs-host, a racer's Hot Pursuit on Hometown:
 the single race's clicks with `-poke at=0x474ca0:0x6fd3b8:3`, a normal
@@ -2487,6 +2662,67 @@ second. The HUD there has the racer list on (other layouts hide it).
   every length ("196 KPH"), so the text isn't cut by the box: another
   build again, as for the spike icon.
 
+## The handling, routine by routine
+
+An index of the car-handling code (November 2026), in the order a step
+runs it, with where each is written up. All are Sc32 tasks (32 a
+second, The clock above) unless marked Sc64. The ones not written up
+before were read for this index (`gdecomp`, `asm`, the constants read
+from the exe); none of them was run on its own.
+
+**Every car: the dynamics task `0x4a2830`** (Car dynamics, above).
+
+| Routine | Does |
+|---|---|
+| `0x4a2260` | downforce on the road over 10 m/s (computer cars doubled); drag by axis in the air |
+| `0x4a00d0`, `0x4a0440` | the road's height under the car (+0x158), the lowest corner's clearance (+0x15C) |
+| `0x4a21a0` | a roof over the road (slices where `0x420bf0` says covered): when the car's centre is above the road height plus the roof's height (`0x552e54`[slice]), a contact with the roof (`0x42efe0`, the road's down as the normal) and the air spin clamp `0x4a20c0` |
+| `0x4a1610` | on the road: out of the road, the speed into it taken out, the body turned towards the road plane at most 0.5 turn/s |
+| `0x4a1ce0`, `0x4a1210` | landing: twelve body points against the road, the speed along the normal and the spin × (0.5 + e) |
+| `0x4296c0` | at the landing's end (`0x4a2068`), only for a car that comes down flat on its roof (+0x10C ≤ −0.9, `0x537200`) and on the ground: a body wobble for the drawing, rate +0x8C4 = 1/240 and +0x8C8 = 24-35 ticks with a random sign, twice (+0x8CC, +0x8D0), read by the body drawing `0x42a7d0` |
+| `0x4a20c0` | in the air: each spin kept within ±2.4 turns/s |
+| `0x4a2690` | +0x10C, the car's up · the road's up |
+| `0x4a2630` | puts a car on the road's height (+0x9C = road + half height), clears +0x164, +0x8B and the vertical speed |
+
+**The human's car: `0x4ae4c1`** (+0x608), which calls `0x4ad7a3` on
+the road and upright, else the tipped path:
+
+| Routine | Does |
+|---|---|
+| `0x4ad250` | clears a wheel record (12 dwords), each of the four at the start of the tick |
+| `0x4ad672`, `0x4ad6eb` | the slip ratio +0x5B0 and the road speed +0x5A4 (+0x5B0 and +0x5A4, below) |
+| `0x4af254` | the yaw term added to the axles' slip (The human's car, step 3) |
+| `0x4a9bc4` | the controls: pedal and steering ramps, gears (Controls; Gears) |
+| `0x4a83d3` | the assists' pedal driver (The assists' driver) |
+| `0x4a90a0`, `0x4aa1b4`, `0x4a9769`, `0x4a97cb` | the automatic box, a manual change, the drop to third, reverse and neutral (Gears) |
+| `0x4ad2e1` | the front wheels' angle (The front wheels' angle) |
+| `0x4aeffc` | both pedals held, slow: velocity and spin × 0.8 |
+| `0x4aaed1` | the engine, drag, engine braking, the over-speed (The engine and gears) |
+| `0x4aab41` | the wheel loads, downforce, surface and weather grip (step 6) |
+| `0x4ae5c2` | the weight transfer, front to rear |
+| `0x4aca4f`, `0x4ac3af`, `0x4ac094`, `0x4abd9c` | a tyre, its friction circle, the hand-brake wheel, the Tire Factor's grip loss (Tyres) |
+| `0x4ae68e` | the forward acceleration (+0x4E8) ÷ the lateral grip multiplier (P +0x248), then, in a dry single race only (not weather 1 or 2, not a network game, not Tournament or Knockout), × the Tire Factor t: with t over 1 in reverse, neutral, first or second (gear byte ≤ 3) × (1 + 0.1 t) (`0x53deb4`); with t under 1 in any gear × (1 + 0.1 (t − 1)) (`0x53deb8`, `0x53debc`); +0x4E4 cleared |
+| `0x4ae79b` | gas ≥ 0.5, brake ≥ 0.75, \|steering\| > 64, under 5 m/s: velocity zeroed |
+| `0x4aea88` | **the yaw limit** (after the tyres' yaw is added, `0x4ae442`): with gas ≥ 0.5, brake ≥ 0.75, \|+0x51C\| > 64 and under 5 m/s the yaw (+0x4FC) is zeroed; with \|+0x51C\| under 4 in reverse it is × 0.95 (`0x53ded8`). Then L = turning circle radius (P +0x258) × \|yaw\| × 2π × 0.5 (`0x53dedc`, `0x53dee4`), the speed of a car on a circle of half that radius at that yaw: gripping (\|lateral\| < \|forward\|), when both speeds are under L the yaw × min(\|forward\| / L, 0.98), else × 0.95 (\|+0x5B0\| under 0.2) or 0.99. Sliding sideways, only under 2 m/s (`0x53defc`, the road-frame speed): the same limit or × 0.9 / 0.95, and the velocity × 0.7 under 5 m/s, else × 0.8. So the car can't turn tighter than its `carp.txt` turning circle allows |
+| `0x4ae85b`, `0x4ae98b` | the lateral damping, the hand brake's and over-rev's speed loss (step 8) |
+| `0x4af140` | the loss in neutral (The creep on the grid) |
+| `0x4aa8e7`, `0x4aa4f4` | **tipped or in the air** (+0x8A, or +0x10C < 0.9; also the computer's `0x408626`, `0x4089b0`): `0x4aa4f4` takes the road-frame lateral and forward speeds (+0x4EC, +0x4F4) and clears the over-speed flag, the slip ratio and both skid levels (+0x594, +0x5B0, +0x5C0, +0x5C4); `0x4aa8e7` is **the body's friction on the road**: only with the clearance under 0.2 (`0x3e4cccce` as an int) and the road's normal y at least 0.5 (`0x53dcc4`), the velocity's part along the road plane × 0.94 a tick and the spin about the road's normal × 0.98 (on the ground, +0x164 0); in air mode × 0.98 and × 0.998, and not at all when no axis of the car is near the road's normal (each pair of \|up · n\|, \|right · n\|, \|forward · n\| sums to 0.9 or less, `0x53dccc`). The roll and pitch spins are left alone: a car on its side or roof slides to a stop on the road |
+| `0x4a2f30` (Sc64) | the human's orientation by the spin / 64 |
+
+**The computer's cars: `0x4088f0`** (+0x608; The computer's cars):
+the car's frame (+0x4EC-+0x500), `0x408600` (the lane aim `0x408870`,
+the sound's gear and rpm `0x4061b0`, reversing `0x4060d0`, the point
+`0x406e50`, the heading error `0x4070c0`, one of the controllers
+`0x4076b0`, `0x407c30`, `0x407fa0`, the acceleration `0x4064f0` and
+braking `0x4063e0`), `0x4068a0` for a car with +0x88 (no forces),
+`0x407380` for a car out of the race, then `ai_integrate` `0x4071a0`
+(× 1/32) and the orientation `0x4a2f10` (spin / 32).
+
+**Both: the collisions** `0x4311d0` (wall `0x4304b0`, cars
+`0x4310c0` → `0x430c80`, `0x42fee0`, `0x42f280`, `0x42e820`; Rolls
+from car hits) and **the impacts** `0x42b900` (`0x42ac40`, the reset
+`0x429260` → `0x428f90`).
+
 ## Other car fields
 
 - **+0x124-+0x154, the road frame at the car.** `0x49ffa0` (from the
@@ -2703,14 +2939,17 @@ of every access to those offsets):
   ahead (`c7-f1`), and with no pokes no record had more than 2 cops
   (`d1-r1`, `d1-r3`; 3 in `r2-cop1`), while the 40 m needs four on
   one record (Why a hold beyond 20 m needs a cop past the target):
-  still open. The network game was run to its results with
+  still open. What adds cops to one record, and a plan through a
+  roadblock whose cops stand ahead of a stopped human racer, are read
+  (same section, What raises the count); not run. The network game was run to its results with
   nothing forced (`c7-net10`): the lobby's menus by clicks, a stop by
   a strip laid with S, the race ended by the racers' laps. A block
   by keys failed there (the racers steer round a standing cop) while
   the race differed run to run; with `-deterministic` in both copies
   it repeats, and a block planned on one run (`d1-n3`) stopped and
   ticketed car 5 in both copies on the next (`d1-n4`). Left open: a
-  network chase from behind ending in a pin (`c7-q1`'s kind).
+  network chase from behind ending in a pin (`c7-q1`'s kind; not run
+  in November 2026 either, net.md, What isn't known).
 - The computer cops' driver (`0x4032e0`) was run in a racer's pursuit
   (`r2-cop1`, `r2-cop4`, `r2-cop5`, `c3-spk6`): chases, calls for help,
   two roadblocks, strips and a racer running over one, and the
@@ -2725,7 +2964,12 @@ of every access to those offsets):
   speed). What each radio line
   says is in bnk.md (What the radio lines say); the disabled cop, the
   crash and the places were run (above, Radio runs). Whether the
-  officer's side test is ever failed on a real road wasn't run.
+  officer's side test is ever failed on a real road is still open:
+  the places where it can fail are found from the files (state 4,
+  Where it can fail), and fifteen stops at Hometown's first covered
+  bridge, the player brought up to 3.3 m from its surface-0 strip,
+  all passed (`e2-h1`-`h15`); the strip is a wall, so only a car
+  standing along it within 0.85 m reaches it.
   The other tracks' places and the quarter and half mile were heard
   (above, Radio runs on other tracks). Why the "from" place after
   Hometown's half mile wasn't started in `s7-x1` is settled (`c8-q1`-`q3`,
@@ -2749,7 +2993,10 @@ of every access to those offsets):
   142.221 s and slot 0x1A was said at 148.869 s. Left open: the
   disabled cop (`0x403950`), which needs a computer cop on its roof
   (keys steer only the player; no computer cop tipped 41° in any `d3-`
-  run). Whether a side hit in the air or a car landing on another can
+  run). A slow target does draw its chasing cop off the road to it
+  (+0x711 bit 2, `0x406b60`): in `e2-a2` cop 3 followed the player
+  onto Hometown's bank and stopped on it level (A cop drawn onto the
+  bank); a cop led across the bank's steep part wasn't tried. Whether a side hit in the air or a car landing on another can
   roll a car is settled from the code but not seen (above, Rolls from
   car hits): cars are 3D boxes (`0x42fee0`, top and bottom faces
   included), and only a contact off the car's centre height rolls it,
@@ -2760,7 +3007,10 @@ of every access to those offsets):
   in the air some 0.8 s after the hit. Run (`d3-`): hard hits on the
   road at up to 42 m/s and a cop flying 1 m high into the standing
   player from behind (`d3-h85`) left every car within 11° of flat; no
-  run had a side-on hit in the air or a car landing across another.
+  run had a side-on hit in the air or a car landing across another
+  (`e2-h1`, a hand-brake turn after the covered bridges' drop meant to
+  leave the player across cop 3's way, ended facing backwards and
+  reversing away: cop 3 passed 8.8 m from it).
   The player rolled by itself off Hometown's road at slice 320 at 40
   m/s (`d3-g5`), and the crash line was queued again. With the player
   as the only cop no computer cop exists to say either.
@@ -2783,3 +3033,15 @@ of every access to those offsets):
 - The lane votes' own rules (`0x40cee0`, `0x40cfc0`, `0x40d1f0`,
   `0x40d2e0`, `0x40d3d0`, `0x40d720`-`0x40d9f0`): how a computer car
   weighs cars ahead and the best line.
+- Settled (November 2026, The clock, the tick and the units of spin):
+  from the code, the computer controllers' yaw rates are turns a
+  second (the spin is turned into the body as spin / 32 in Sc32,
+  `0x4a2f10`, by rotations in turns), and a sample per `0x4088f0` call
+  is 32 a second (Sc32 runs on the even steps of 64, `0x4c4a6a`; the
+  128 Hz timer, `0x4b6160`, makes a control frame every 4th tick).
+- The car handling, as far as read (November 2026, The handling,
+  routine by routine): every routine of the human's tick, the
+  computer's model and the dynamics task is listed with what it does.
+  Not run on their own: the yaw limit (`0x4aea88`), the body's friction
+  on the road when tipped (`0x4aa8e7`), the Tire Factor on the forward
+  acceleration (`0x4ae68e`) and the roof wobble (`0x4296c0`).
