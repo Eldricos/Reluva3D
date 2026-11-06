@@ -113,8 +113,15 @@ game's calls to it (`0x4131xx`-`0x4136c6`, `0x418990`):
 - **The events the game sends:**
   - **4-9, the track's zones.** Every track has a music zone at each
     slice: byte 3 of the FRD block's 8-byte position records
-    ([frd.md](frd.md)). The game reads it 16 slices ahead of the car
-    and sends it when it changes. Hometown's laps run zones 4, 5, 6, 7;
+    ([frd.md](frd.md)). The game reads it at the car's own slice
+    (car +0x1C) and sends it when it changes. `0x4211c0` works out a
+    look-ahead from the car's velocity ((|x| + |z|) × 65536, +0xA4 and +0xAC) and then
+    replaces it with 0 (`0x421227`); the ±16 slices left after it
+    (`0x42122b`, `0x421232`, the sign by the wrong-way flag +0x998)
+    are reached by no jump (November 2026, read again; before then
+    this page said 16 ahead). In the runs of
+    [tracks.md](tracks.md) (Music laps) each zone change came with
+    +0x1C on the zone's first slice. Hometown's laps run zones 4, 5, 6, 7;
     the other tracks use 4-9 in four to six runs a lap.
   - **1, a pursuit starting** ("Start Cop Music"), sent as urgent.
     When the pursuit ends ("Back to Normal") the game sends the zone
@@ -295,6 +302,17 @@ race opened `tech` again (76.0 s). Quitting to the main menu (Esc,
 Quit, Main Menu, Yes) and clicking Race started a new one: the flip
 at 96.4 s and `rock` at 100.0 s (esi `0x5368d8`). So the alternation
 is by race started from the front end; a restart keeps the stream.
+
+A tune chosen (`e3-t5b`, `e3-t11`, `e3-t13`, November 2026; byte 0xA4
+at 5, 11 or 13, a first race on Hometown, `-watch` at `0x4108cb` with
+the name built at ebp+0x7E read, and `0x552854`): 5 (the `lost` pair's
+odd tune) opened `D:\GameData\Audio\pc\lostrock` with
+`.lin` (ebx 1 at `0x4107c0`) and `0x552854` 0; 11 ("Flimsy") opened
+`emprtech.lin`, `0x552854` 1 (its 51-in-100 draw came out tech); 13
+(Random) `homerock.lin`, 0. So `0x410030` sets `0x552854` from the
+tune after the race start's flip, and the stream follows it, not the
+alternation; Random is always rock. Hometown's own stream is not
+used: the prefix is the tune's.
 
 ## Seen in footage (November 2026)
 

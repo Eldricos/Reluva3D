@@ -229,7 +229,43 @@ Country Woods and Lost Canyons have (4, 9), but in the shipped FRDs
 their zone 9 is followed by 7 or 6, not 4, so their forward pair never
 matches either: of the forward pairs only tracks 0, 1, 3, 7 and 8 ever
 count. Either way the music's lap still follows the real one at the
-line. Read from the files and the code, not watched in a race.
+line.
+
+**Checked at run time** (November 2026, `nfs-host`, a 4-lap single
+race on each of tracks 0-8, the player's car driven by the computer).
+The car was put 54-80 slices before its lap's last zone change (the
+position, a still velocity, +0x1C and +0x4 poked every 100 ms of steps
+700-760, as the moving objects' runs in [bnk.md](bnk.md)), so it drove
+through the change on its own after the first 600 steps. Watched at
+`0x4135c6` (a zone change: dl the new zone, dh the old), `0x413645`
+(a lap counted, eax +1 or −1) and `0x4132f4` (the car's own lap), with
+the pair (`0x571240`, `0x571238`), the count `0x55285c`, the music's
+lap `0x552860`, the car's lap +0x204 and +0x1C read:
+
+| Track | Pair read | Last change (slice) | Counted |
+|---|---|---|---|
+| 0 Hometown (`e3-lap0`) | 4, 7 | 7 to 4 (823), 67.6 s | yes, +1 |
+| 1 Redrock Ridge (`e3-lap1`) | 4, 7 | 7 to 4 (1398), 65.6 s | yes; at the line (73.7 s) the music's lap was already 1 |
+| 2 Atlantica (`e3-lap2`) | −1, −1 | 6 to 4 (1287), 64.8 s | no; the music's lap became 1 from the car's at the line (71.0 s) |
+| 3 Rocky Pass (`e3-lap3`) | 4, 7 | 7 to 4 (1322), 64.7 s | yes |
+| 4 Country Woods (`e3-lap4`) | 4, 9 | 7 to 4 (1263), 66.2 s | no |
+| 5 Lost Canyons (`e3-lap5`) | 4, 9 | 6 to 4 (1572), 66.2 s | no |
+| 6 Aquatica (`e3-lap6b`) | −1, −1 | 6 to 7 at the line (slice 0), 65.5 s | no; the car's lap set it in the same step |
+| 7 Summit (`e3-lap7`) | 4, 9 | 9 to 4 (1549), 67.4 s | yes |
+| 8 Empire City (`e3-lap8`) | 4, 7 | 7 to 4 (1202), 65.2 s | yes; at the line (69.9 s) already 1 |
+| 0 backward (`e3-lap0r`, `0x6fd4c0` = 1) | 4, 5 | 5 to 4 (slice 186, driving down), 71.2 s | yes |
+
+So the zones count a lap early on Hometown, Redrock Ridge, Rocky Pass,
+Summit and Empire City forward, and Hometown backward; on Atlantica,
+Country Woods, Lost Canyons and Aquatica only the line does. The zone
+changed with +0x1C on the new zone's first slice each time, with no
+look-ahead ([mus.md](mus.md)). Two runs show the wrong-way branch
+too, as a side effect of the poke: on Summit and backward on Hometown
+the jump onto the far slice came with the wrong-way flag (+0x998) set
+(the car still facing the grid's way), and the jump's zone change (4 to
+9; 4 to 5) matched the pair the other way round, so the count went to
+−1 (the music's lap held at 0, `0x41365b`-`0x41366e`) before the real
+change put it back to 0.
 
 ## What isn't known
 
@@ -238,9 +274,14 @@ line. Read from the files and the code, not watched in a race.
   tournament and knockout have no traffic); `0x6fd470` is their level
   (0 Beginner, 1 Expert) and `0x6fd4f0` the `ai` option (0 Normal, 1
   Aggressive).
-- Partly answered above (Music laps): Aquatica never enters zone 4,
-  so no (4, x) pair fits it; Atlantica would fit (4, 6) forward and
-  (4, 5) backward: no code treats track 2 apart, its −1s are only
-  data. Without a pair the
-  music's lap still follows the real lap, at the line.
-- Not checked at run time.
+- Answered above (Music laps): Aquatica never enters zone 4, so no
+  (4, x) pair fits it; Atlantica would fit (4, 6) forward and (4, 5)
+  backward: no code treats track 2 apart, its −1s are only data.
+  Without a pair the music's lap still follows the real lap, at the
+  line. In runs the pairs count on tracks 0, 1, 3, 7 and 8 forward
+  and on Hometown backward. Only Hometown was run backward. By the
+  zones table above, every track with a backward pair (4, 5) (0, 1, 3,
+  4, 5, 7) has zone 5 second from the line, so driven backward its
+  last change is 5 to 4 and the pair should count on all six;
+  Atlantica would too, but its row is −1, and Empire City's second
+  zone is its one-slice 7.
