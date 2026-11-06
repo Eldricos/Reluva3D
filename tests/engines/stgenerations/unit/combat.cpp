@@ -20,6 +20,9 @@ using namespace reluva::stgenerations;
 
 namespace {
 
+// Not kPi: MSVC only has it with _USE_MATH_DEFINES.
+constexpr double kPi = 3.14159265358979323846;
+
 typedef std::vector<uint8_t> Bytes;
 
 void le(Bytes& b, uint32_t v, int n) {
@@ -228,7 +231,7 @@ static void combat_projection() {
     CHECK(!r.project(Vec3(0, 0, -100), x, y, depth));
     // Turning right brings the forward axis round to +x.
     Mat3 m;
-    m.rotate(M_PI / 2, 0, 0);
+    m.rotate(kPi / 2, 0, 0);
     CHECK(std::fabs(m.forward.x - 1) < 1e-6);
 }
 

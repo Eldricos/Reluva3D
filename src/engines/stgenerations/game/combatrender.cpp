@@ -9,6 +9,9 @@ namespace reluva::stgenerations {
 
 namespace {
 
+// Not kPi: MSVC only has it with _USE_MATH_DEFINES.
+constexpr double kPi = 3.14159265358979323846;
+
 const double kNear = 20;
 const double kAmbient = 0.55;
 
@@ -66,7 +69,7 @@ Mat3 Mat3::lookAlong(const Vec3& forward, const Vec3& upHint) {
 void CombatRenderer::setViewport(int w, int h, double fovDegrees) {
     _w = w;
     _h = h;
-    _focal = (w / 2.0) / std::tan(fovDegrees * M_PI / 360);
+    _focal = (w / 2.0) / std::tan(fovDegrees * kPi / 360);
     _depth.assign((size_t)w * h, 1e30f);
 }
 

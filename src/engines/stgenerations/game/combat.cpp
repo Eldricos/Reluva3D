@@ -14,11 +14,14 @@ namespace reluva::stgenerations {
 
 namespace {
 
+// Not kPi: MSVC only has it with _USE_MATH_DEFINES.
+constexpr double kPi = 3.14159265358979323846;
+
 const char* const kArchive = "COMBAT.DAT";
 // The viewscreen: the console's hole (0x54F650).
 const int kViewX = 52, kViewY = 10, kViewW = 532, kViewH = 231;
 // Rotation at full deflection: 228 angle units a frame at about 15 frames a second.
-const double kMaxTurn = 75 * M_PI / 180;
+const double kMaxTurn = 75 * kPi / 180;
 // The AI's clock (0x47B83E) runs at 291.3 ticks a second (0x537260).
 uint32_t ticks(int count) {
     return (uint32_t)(count * 1000 / 291.3 + 0.5);
@@ -338,7 +341,7 @@ void SpaceCombat::addShip(const MissionShip& line) {
         ship.radius = std::max(50.0f, ship.model->radius);
     // The mission's (x, y, z) is east, north and altitude (0x4A36A4).
     ship.position = Vec3(line.x, line.z, line.y);
-    ship.orientation = Mat3::fromYawPitch(line.yaw * M_PI / 180, line.pitch * M_PI / 180);
+    ship.orientation = Mat3::fromYawPitch(line.yaw * kPi / 180, line.pitch * kPi / 180);
     ship.wave = line.wave;
     ship.hidden = line.wave > 1;
     ship.soran = line.ai == "soran" || line.ai == "soran9" ? 1 : line.ai == "quarash" ? 2 : 0;

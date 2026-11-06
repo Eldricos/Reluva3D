@@ -17,6 +17,9 @@ namespace reluva::stgenerations {
 
 namespace {
 
+// Not kPi: MSVC only has it with _USE_MATH_DEFINES.
+constexpr double kPi = 3.14159265358979323846;
+
 const char* const kArchive = "STELLAR.DAT";
 const int kMapHeight = 362;
 const int kPanelTop = 362;
@@ -331,9 +334,9 @@ void Bridge::reset() {
         sun.destructTime = 0;
         for (Planet& planet : sun.planets) {
             readings(planet.name);
-            planet.angle = _random.getRandomNumber(359) * M_PI / 180;
+            planet.angle = _random.getRandomNumber(359) * kPi / 180;
             for (Planet::Moon& moon : planet.moons)
-                moon.angle = _random.getRandomNumber(359) * M_PI / 180;
+                moon.angle = _random.getRandomNumber(359) * kPi / 180;
         }
     }
     readings("SpaceStation");
@@ -960,9 +963,9 @@ void Bridge::updateMap(uint32_t ms) {
         else
             sun.destructTime = 0;
         for (Planet& planet : sun.planets) {
-            planet.angle += ms * 2 * M_PI / (1000 * std::max(1.0, planet.period));
+            planet.angle += ms * 2 * kPi / (1000 * std::max(1.0, planet.period));
             for (Planet::Moon& moon : planet.moons)
-                moon.angle += ms * 2 * M_PI / (1000 * moon.period);
+                moon.angle += ms * 2 * kPi / (1000 * moon.period);
         }
     }
 
@@ -1384,7 +1387,7 @@ void Bridge::planetPosition(const Planet& planet, int sun, double& x, double& y,
     double magnify = _ini.getDouble("Display", "DistanceMagnification", 400);
     double s = (_camera[2] - minZ) / (maxZ - minZ) + 0.8;
     double px = planet.distance * std::cos(planet.angle), py = planet.distance * std::sin(planet.angle), pz = 0;
-    double pitch = planet.pitch * M_PI / 180, cross = planet.intersect * M_PI / 180;
+    double pitch = planet.pitch * kPi / 180, cross = planet.intersect * kPi / 180;
     double ry = py * std::cos(pitch), rz = py * std::sin(pitch);
     py = ry;
     pz = rz;
@@ -1487,7 +1490,7 @@ void Bridge::drawDisc(Canvas& screen, const RgbImage& texture, int frame, int cx
             if (x < 0 || x >= screen.w || dx * dx + dy * dy > r * r)
                 continue;
             double nx = (double)dx / r, ny = (double)dy / r, nz = std::sqrt(std::max(0.0, 1 - nx * nx - ny * ny));
-            double u = 0.5 + std::atan2(nx, nz) / (2 * M_PI) + _time / 60000.0, v = 0.5 + std::asin(ny) / M_PI;
+            double u = 0.5 + std::atan2(nx, nz) / (2 * kPi) + _time / 60000.0, v = 0.5 + std::asin(ny) / kPi;
             int tx = ((int)(u * tw) % tw + tw) % tw, ty = std::max(0, std::min(th - 1, (int)(v * th)));
             uint32_t c = texture.getPixel(frame, tx, ty);
             if (!(c >> 24))
