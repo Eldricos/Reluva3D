@@ -184,6 +184,20 @@ frame, so a press that ends between two frames is not seen. The race
 to the Pursuit Summary is in physics.md (The network game to its
 results).
 
+**A stop by a ram, and a race that repeats** (`d1-n1` to `d1-n4`,
+November 2026; physics.md, A network stop by a ram). The race differs
+run to run because of the seed in 02 (+0x20, the host's
+`GetTickCount` at start-up). With `nfs-host -deterministic 50000` in
+both copies it was 0x1768 in every run and the race repeated step for
+step, the start moving by about 0.2 s of the copies' own clocks. Keys
+planned on one run then work on the next: in `d1-n4` the host's cop
+(Space held on the grid, then A, keypad 8 and 4, keypad 2, H) pulled
+into car 5's line, car 5 ran into it, and both copies made the stop
+test, the pull-over and the ticket at the same steps (ticket at step
+0x27FA). The race carried only 06 (5,124 frames from the host to
+262 s, the keys in car 0's word) and the two 04 barriers at its
+start.
+
 **Pausing** (08, `0x4c55a0`, `0x4c5720`). The u32 at +4:
 
 | +4 | Sent by | Meaning |
@@ -433,8 +447,30 @@ lobby's menus, nothing poked; physics.md). The host pressed S at its
 step 0x212), and on lap 2 car 4 ran over it in both: `0x4c9f50`,
 `0x401650`, the host's cop taking it as its target. The ticket came at
 step 0x258C in both copies. In a race only the controls go over
-(`c4-net1`), so each copy lays the strip from the host's controls
-(not checked in this run's `-netlog`).
+(`c4-net1`), so each copy lays the strip from the host's controls.
+
+**The strip goes over as one bit** (checked November 2026 in
+`c7-net10`'s `-netlog`, and read). In the race (100.9-402.8 s) the
+host sent only 06 (9,662 frames of 35 bytes) and the 04 barriers, and
+took only the joiner's 06 (8 bytes) and 04s; the 03s came after the
+results. The S press is in ten of the host's frames, 106.010 to
+106.292 s: `0021 06 00000080 00000000 ...`, that is car 0's word with
+byte 3 = 0x80 (the message's +1-+4 are that word, so the bit is
+message +4, 0x80; byte 6 of the TCP bytes counting the 2-byte length
+from 0). The joiner took the same ten
+frames (106.005-106.289 s), and its own 06s never carried 0x80.
+`0x431430` unpacks byte 3's 0x80 into car +0x512 (`0x43151b`, its only
+writer) in each copy, and `cop_spike_key` (`0x404e40`) acts on it once
+per press there: `0x4c9dd0(0, 957, 9, 0x212)` (eax the cop index
++0x714, edx the slice, ebx the lane, ecx the step: armed 192 steps
+on) at 106.078 s in the host and 106.064 s in the joiner. Nothing
+about the strip is sent: its record (`0x7dd850` + cop × 0x50), the
+racer's hit (`0x4297d0`, `0x4ca160` against each copy's own car
+positions), the clearing (`0x4c9f50`), the record's +0x1C (`0x401650`)
+and the ticket are each copy's own, from the same controls. Only the
+sounds differ: 0x10/0x11/0x12 play only in the copy whose player owns
+the cop (`g_local_slot` = the car's slot, or a link kind under 2); the
+radio line (`0x40b9c0`) is queued in both.
 
 The recorded game (one-player cop footage, physics.md) dims the row
 for about 3 s instead. In this exe the row is a single quad added to
@@ -676,7 +712,35 @@ players, drops that player over the network (`0x7a22e0` 3:
 modem. One exception: on the one-link path in Peer-to-Peer (`0x7a22e4`
 1) a 06 that fails is not tried again; `net_send` sets `0x7a2290`,
 which nothing reads, and the frame is lost. (`0x7a22e4` 2 goes to
-`0x4a5d10` instead, not read here.)
+`0x4a5d10` instead: below.)
+
+**`0x7a22e4` 2: the online service's send** (read November 2026,
+`0x4a5d10`, `0x4a54f0`, `0x4a5b00`, `0x4a5e50`; not run: the NPS DLL
+isn't on the CD). Only the command-line launch from EA's online
+service sets 2 (`0x49e080`, Positional updates above), and with it
+`net_send` (`0x4a60e0`) hands every message, before any of its own
+link tests, to `0x4a5d10(link, message, length)`. That is a single
+call through `0x7a21b8`, which `0x4a54f0` fills with
+`GetProcAddress(..., "NPSSendMessage")` from the NPS client DLL (with
+32 other `NPS...` entries, `0x7a2164`-`0x7a21e4`). Seven stack
+arguments (`add esp, 0x1c` at `0x4a5d65`): the server connection
+`0x55ecb0` (from `NPSConnectToServer`), the comm channel `0x7a215c`
+(1, opened by `NPSAddCommChannel(conn, 0x21, 1, ...)` in `0x4a5b00`
+with "FTCP", "nfs3nfs3", 0x29A and "Need For Speed 3"), then for link
+0 (to all) 0xC0 and a pointer to `0x7a20a0` (this copy's player
+number, from `-PNUM=`), for one link 0xB0 and a pointer to that link's
++0x34 byte (the peer's user number, which the DLL's notification
+0x203 writes into the link table at `0x7a231c` + slot × 0x6C,
+`0x4a5e50`; `0x4a5f30` finds a link by it); then a count of 1, the
+message and its length. So the game's own layers are skipped: no TCP
+length, no IPX tag or reliable header; the DLL frames and carries the
+message, and messages come back through the callback `0x4a5ef0`,
+which finds the link by the sender's number and calls its handler
+(link +0x20). Its result is not looked at: no retries, no sleeps, no
+`0x7a2290`, nothing dropped or abandoned on a failure, and no limit of
+its own (whatever the DLL has). `0x4a5d6e` is the same call on a
+second channel, `0x7a2160`; it has no callers and `0x7a2160` is only
+ever cleared (`0x4a5dd0`, which closes both channels and logs off).
 
 **TCP** has no reliable layer: its open (`0x4f7380`) gives the link
 table `0x566e8c`, whose send is `0x4f7030` itself. That keeps one message
@@ -724,16 +788,18 @@ was the lower.
   game sends them only when launched by EA's online service, whose NPS
   DLL isn't on the CD. The Positional/Controller pair is built but never
   shown (count 2 at `0x43f4b2`); whether some build showed it isn't known.
-- Spike strips weren't seen laid in a network game (footage of a
-  one-player cop game: [physics.md](physics.md)). The way there was found but not
-  finished: Hot Pursuit is in the lobby's race-type list (click the
-  header at 240,77, then 208,108), and police cars are offered in Hot
-  Pursuit (mask 0x2008), but the script didn't reach them in Player
-  Car's list.
+- Settled (November 2026, Bit 0x80): a strip was laid in a network
+  game through the lobby's menus (`c7-net10`), and only the S press
+  went over, as bit 0x80 of byte 3 of the host's car 0 word in ten 06
+  frames; each copy lays it, catches the racer and gives the ticket
+  itself.
 - Settled (November 2026, IPX, At the limit): nothing but the
   lockstep keeps a link under its 63 buffers; at the limit `net_send`
   retries for 1.9 s, then the host drops the player (network) or the
-  session is abandoned. Not read: `0x4a5d10`'s send (`0x7a22e4` 2).
+  session is abandoned. Settled too (read, not run): `0x4a5d10`'s
+  send (`0x7a22e4` 2) is one `NPSSendMessage` call with no retry or
+  failure handling (At the limit). Left open: what the NPS DLL itself
+  does with a send, as the DLL isn't on the CD.
 - What other EA games put in `dec`'s +0x4C-0x5B (zero from this one,
   which never reads them: IPX, `dec`). Settled: `add`'s +0x1C is the
   game's password, empty from this game, checked by the host only

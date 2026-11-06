@@ -246,7 +246,13 @@ and its edge from 1 to 2 with i+1, and its edge 0-1 faces the next
 slice (`0x41e6a0` takes the vertices as 1, 0, 3, 2; `0x41e990`,
 `0x41f870`, `0x41fd60`). A point beyond the first polygon's or the
 last's outer edge is marked with side 1 or 2 (+0x6C), the side bits
-the walls use. The byte
+the walls use. The run goes from left to right as the track is driven
+forward: its first polygon is on the driver's left (along −right of
+the slice's `.col` point) at 12,667 of the 9 tracks' 12,706 slices,
+and a polygon's corners are 0 front left, 1 front right, 2 back right,
+3 back left, so side 1 is the left and side 2 the right (November
+2026, from the files and the runs `d2-w1`, `d2-w2`; physics.md, +0xC).
+The byte
 at 3 is the music zone, 4-9: the game
 sends it to the Pathfinder map as an event when the car nears a slice
 where it changes ([mus.md](mus.md), The events the game sends).
