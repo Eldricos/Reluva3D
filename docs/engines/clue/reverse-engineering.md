@@ -150,7 +150,9 @@ pictures' sizes.
 
 ## What is kept where
 
-The disassembly lists, the scripts that searched them, the emulator
-script and the recording-analysis scripts were working tools, not kept in
-the repository: they work on the game's executables and recordings, which
-aren't in it either. What they found is in these pages, with addresses.
+The tools are in [tools/clue-re/](../../../tools/clue-re/): the
+executables' readers, the layout emulator, the small programs built
+against Reluva's code, and the recording-analysis scripts, with how to
+run each. What they make (the disassembly caches, pictures extracted from
+the game, frames and sound of recordings) stays out of the repository, as
+the game's files do.
