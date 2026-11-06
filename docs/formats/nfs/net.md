@@ -427,6 +427,15 @@ in its state 2 at 38-40 m/s. The strip stayed out (record +0 1 at
 came within a slice of it (`0x4ca1e7`), and at 196.78 s car 3
 (`0x5e2e24`) hit it with wheel 1 (mask 2): `0x4c9f50`, `0x401650`.
 
+Over TCP (`c7-net10`, November 2026, two cops set up through the
+lobby's menus, nothing poked; physics.md). The host pressed S at its
+106.0 s, before the start. Both copies laid the strip (`0x4c9dd0`,
+step 0x212), and on lap 2 car 4 ran over it in both: `0x4c9f50`,
+`0x401650`, the host's cop taking it as its target. The ticket came at
+step 0x258C in both copies. In a race only the controls go over
+(`c4-net1`), so each copy lays the strip from the host's controls
+(not checked in this run's `-netlog`).
+
 The recorded game (one-player cop footage, physics.md) dims the row
 for about 3 s instead. In this exe the row is a single quad added to
 or taken out of the HUD's quad list `0x749a38` (`0x49bd30`,

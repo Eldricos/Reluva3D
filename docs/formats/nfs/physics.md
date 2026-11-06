@@ -1190,6 +1190,46 @@ then gives the car +0x200 bit 0x20.
   still not done: it needs the cop driven cleanly through Hometown's
   bends for 20 s or more.
 
+  **A chase from behind by keys, to the ticket** (`c7-at0` to
+  `c7-q1`, November 2026: the two cop pokes and nothing else poked, no
+  `-drive`). The race was picked by clicks: Location... (65, 217),
+  the track's bar, Atlantica; Opponent Car... (65, 252), Class C.
+  - **Why there.** Atlantica's virtual road (`tr02.col`) runs straight
+    for 100 m, bends 34° left over slices 16-48, crosses a bridge 16 m
+    wide from slice 39 to 63, then runs straight and 21 m wide from
+    slice 64 to past 160. Class B racers cruise there at 42-44 m/s
+    (`c7-at1`), class C ones at 36-40 (`c7-at3`). The cop, with gas
+    from the start (69.5 s), made 37.4 m/s at 79 s, as fast as car 1,
+    and 43-44 m/s on the bridge, where car 1 held 39-41.
+  - **The keys.** A at 66 s, keypad 8 from 69.5 s (off at 89.4 s), H
+    at 72 s. Steering and brake in 0.1 s steps from 74.0 s to 93.4 s,
+    106 of them. The steering was planned from a run's logged state
+    with a rough model (the steer moving 32 a step of 0.05 s; 0.84
+    rad/s of turn at full lock at 35 m/s, lagging 0.2-0.35 s), then the
+    game was run again from the start, and the keys were kept as far
+    as the run followed the plan. Thirteen rounds of three runs
+    (`c7-k0c0` to `c7-k12c2`) took the cop through the bend and over
+    the bridge; the last taps were added by hand (`c7-m1` to `c7-q3`).
+  - **The run** (`c7-q1`). The siren came on at 72.1 s, and car 1 was
+    the target from 74.1 s (`0x4019a1`). The cop was 23-26 m behind
+    from 72 to 83 s, 15 m at 84.5 s on the bridge, 9 m at 86 s, and
+    beside car 1 at 87.5 s (the same slice, 7 m across). Keypad 6 at
+    87.6-88.0 s turned it into car 1. Side by side, 3 m apart, it
+    pushed car 1 from 6.6 m to 11.7 m right of the road's points,
+    against the right wall at 13 m: car 1 37 → 29 m/s by 89.4 s. With
+    the gas off and the brake on (89.4-90.0 s and 90.5-93.5 s) the cop
+    stayed a slice ahead of car 1, which was boxed in against the wall
+    and slowed: 21.5 m/s at 91.1 s.
+  - 91.23 s: the stop test (`0x40559b`). 91.67 s: record +0x1C = 2
+    (`0x40554a`), and car 1 pulled over (its state 5). 93.20 s: car 1
+    5 → 6 (`0x409f71`). 93.25 s: the cop to 5 (`0x4058bf`), 4-5 m
+    from it. 96.27 s: the ticket (`0x401ff0`, step 2234), the cop back
+    to 3.
+  - With the brake let off at 91.8 s or 92.0 s (`c7-p1`, `c7-p3`) car
+    1 still pulled over and stopped, but the cop rolled on to 10-15 m
+    and no stop came: the cop must be within 7 m when the target
+    stops.
+
   **`-drive`**: `nfs-host -drive CAR:TARGET:FROMMS[:TOMS[:GAP]]`
   writes a human car's steering (+0x518) and pedals (+0x504, +0x505)
   at `0x4314c9` each tick, after the game unpacks the controls: the
@@ -1304,6 +1344,54 @@ then gives the car +0x200 bit 0x20.
   and Game Setup. In `c6-net3` and `c6-net4` both sirens took car 2,
   the nearest: the farther cop dropped it at the stop (`0x4042b0`)
   and only one ticket came.
+
+  **A network pursuit with nothing forced** (`c7-lob1` to `c7-net10`,
+  November 2026). The same two copies over TCP, with no pokes and no
+  `-drive`. The set-up is all clicks and keys:
+  - **The lobby** (Multiplayer, Single Race) has the race type in the
+    bar at its top (click 240, 77): Single Race, Hot Pursuit, Knockout
+    (Beginner), Knockout (Expert), Tournament (Beginner), Tournament
+    (Expert). The host clicked Hot Pursuit (205, 110). Its Opponent
+    Car then read None.
+  - **The car.** Each player clicked Player Car... (65, 217), then the
+    car's bar (240, 77). The list shows nine rows and doesn't scroll
+    by a click on its arrow (the click picks the row under it). Down
+    pressed 11 times from Chevrolet Corvette and Enter picked Pursuit
+    Corvette (after Mercedes SL600, before a "(Bonus Pursuit)" row).
+    Back (60, 465). The joiner's lobby then listed two Pursuit
+    Corvettes, and Opponent Car read Class A.
+  - **The start.** Ready to Race on the joiner (354, 444), Start Race on
+    the host (366, 444). Both cops went 0 → 3 (`0x405782`) at about
+    101 s.
+  - **Without a stop** (`c7-net3`) the race ran until the racers had
+    done their two laps. Both copies then showed the Pursuit Summary,
+    two rows of "Player1, Pursuit Corvette, 0/3, N/A". So the race ends
+    without the quota.
+  - **A block by keys failed.** The host's cop rolls from the grid in
+    neutral and stops against a sign post at slice 2, 4.5 m right of
+    the racers' lap-2 line (the road frame's 16.9 m against their 12 m;
+    `c7-net1`, `c7-net2`). Full gas there left it at 900 rpm and
+    standing (`c7-net4`, `c7-net8`). Reset (R) put it in the road's
+    middle, 12 m off the line (`c7-net6`). Moved onto the line early,
+    it was steered round by every racer (`c7-net9`; in one player,
+    `c7-mi`, the same).
+  - **The stop by a strip** (`c7-net10`). The host pressed S at its
+    106.0 s, before the start. `0x4c9dd0` laid the strip in both
+    copies (106.08 s in the host, 106.06 s in the joiner). On lap 2
+    car 4 (`0x5e37d0`) ran over it: at 244.44 s in the host and 244.43
+    s in the joiner, `0x4c9f50`, `0x401650` and `0x4019a1` (the target,
+    siren on); state 4 at 244.47 s, state 5 at 247.96 s (`0x4058bf`),
+    and the ticket at step 0x258C (9612) in both (`0x401ff0`, 250.99 s
+    and 250.98 s), the cop back to 3.
+  - **The results.** At the race's end both copies showed the Pursuit
+    Summary: "Player1, Pursuit Corvette, 1/3, N/A" (the host) above
+    "Player1, Pursuit Corvette, 0/3, N/A". The host's screen offered
+    Start Race and Main Menu; the joiner's Race Again and Game Setup.
+  - **Not deterministic.** The copies agree with each other, but not
+    run to run: the racers reached the line on lap 2 at 242-255 s.
+    With other runs loading the machine, three runs (`c7-net5`,
+    `c7-net7`, a first `c7-net10`) lost the menu clicks and never left
+    Game Setup.
 
 Checked at run time (`sw1-cop3`): the Hot Pursuit pokes put at
 `0x474ca0`, before the set-up picks its function by the race type
@@ -1641,6 +1729,38 @@ set +0x28 = 5186 + 448; cops 7 and 2 held to 5618 and 5636, cops 5 and
 4 (40 m by then) to 5710 and 5736, each moving +0x28 on, and the
 ticket came at 6058, not 5634. A hold kept wholly beyond 20 m for 160
 steps was not seen: cops do not stay that far.
+
+**Why a hold beyond 20 m needs a cop past the target** (read,
+November 2026; run `c7-f1`). `0x402110` runs at every turn of state 5,
+after the chase (`0x403745`, after `0x4025c0`), behind the target or
+past it. The hold holds while the distance (`0x4965b0`) is under 20 m
+× 1 or 2, the target at most 11.18 m/s, the cop's +0x164 (time in
+the air) 0 and +0x10C over 0.5. The 16 m test returns 1 only once the
+record's +0x1C is 2 and the target has stopped.
+- **From behind** (`0x56ea68` 0) within 8 slices, `0x402420` asks for
+  the target's speed + 5.81 m/s + (top − target) × slices / 8. A slice
+  is about 6 m (Hometown: 5,747 m in 959 points), so 20-40 m is 3-7
+  slices. With a top near 50 m/s and the target at 11.18 m/s or less,
+  that closes at 20-40 m/s. Even the bare 5.81 m/s closes 14.5 m in
+  160 steps (2.5 s). So a cop behind cannot stay beyond 20 m for the
+  whole hold unless something stops it driving (`c6-four8`: 35.5 m to
+  under 16 m in 0.5 s).
+- **Past the target** (`0x56ea68` 1, with +0x1C 2 or within 16
+  slices), `0x402420` asks for the target's speed × 0.5 (× 0.2 for the
+  car at `0x56ef54`): 0 for a stopped racer. Only below 3 m/s
+  (`0x5360ac`) and more than 7 slices past does it reverse, at −9.83
+  m/s. So a cop past a stopped racer stands where it stopped, if
+  within 7 slices (about 42 m), or backs in to 7 slices and stands
+  there. A fourth cop standing 20-40 m ahead passes the 40 m test at
+  every call, never makes the 16 m test, and its hold runs its 160
+  steps.
+- **Seen** (`c7-f1`, `c6-four8` again with the cars dumped every 0.5
+  s): cop 3 went past car 1 as it pulled over and stood 3 slices
+  ahead of it, 16 m, at 0 m/s, from 120.0 s to the end of the run
+  (136 s). Cops 2, 4 and 5, all from behind, came in under 16 m (11,
+  15 and 15 m). In these runs the cops that join come from behind (the
+  calls for help), so the case needs a fourth cop that is ahead when
+  the racer stops; none was.
 
 **Run** (November 2026, nfs-host, a racer's Hot Pursuit on Hometown:
 the single race's clicks with `-poke at=0x474ca0:0x6fd3b8:3`, a normal
@@ -2038,19 +2158,23 @@ of every access to those offsets):
   open: those were set up with pokes (sirens, `-drive`, a held racer,
   the quota poked to 1, the bust speed disabled and the record set);
   a fourth cop's hold under the 40 m ran its 160 steps only with the
-  16 m test poked out (`c6-four10`; cops drive in too fast for a hold
-  wholly beyond 20 m). The network game was run to its results with
-  the sirens from H through 06 (`c6-net5`), but with the quota poked,
-  held racers and `-drive`.
+  16 m test poked out (`c6-four10`). The code says why: from behind,
+  a cop drives in too fast for a hold wholly beyond 20 m; past a
+  stopped target it is asked for 0 m/s and stands, so a fourth cop
+  20-40 m ahead would hold to the end. No run had a fourth cop
+  ahead (`c7-f1`). The network game was run to its results with
+  nothing forced (`c7-net10`): the lobby's menus by clicks, a stop by
+  a strip laid with S, the race ended by the racers' laps. A block
+  by keys failed there (the racers steer round a standing cop).
 - The computer cops' driver (`0x4032e0`) was run in a racer's pursuit
   (`r2-cop1`, `r2-cop4`, `r2-cop5`, `c3-spk6`): chases, calls for help,
   two roadblocks, strips and a racer running over one, and the
   player's ticket. A whole chase by keys was run with the player as
-  the cop, but only as a block (`c5-b1`); a chase from behind, closing
-  in on a racer at speed and ramming it, by keys alone, wasn't
-  finished (`c6-g4`, `c6-it*`: off the line the cop is as fast as the
-  racers when the gas is not held through the countdown, but they
-  cruise faster and Hometown's bends need steering for 20 s or more).
+  the cop, first as a block (`c5-b1`), then as a chase from behind
+  on Atlantica against class C racers, ending in a ram into the wall
+  and a stop and ticket (`c7-q1`; on Hometown the racers cruise
+  faster and the bends need steering for 20 s or more, `c6-g4`,
+  `c6-it*`).
   A human racer driven by keys was chased and ticketed (`c6-h2`), but
   it had crashed and stopped first. `0x401370` is read (the top
   speed). What each radio line
