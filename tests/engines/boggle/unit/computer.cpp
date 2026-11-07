@@ -4,6 +4,7 @@
 #include "engines/boggle/classic/game.h"
 #include "engines/boggle/classic/highscores.h"
 #include "engines/boggle/classic/player.h"
+#include "engines/boggle/classic/user_dictionary.h"
 #include "engines/registry.h"
 #include "tests/engines/boggle/fixtures.h"
 #include "tests/engines/boggle/system.h"
@@ -52,7 +53,7 @@ void planning() {
         ComputerPlan bad;CHECK(bool(bad.build(b,vocab,english,ComputerLevel::Human,0,0)) && bad.exhausted());
         CHECK(bool(bad.build(b,vocab,english,ComputerLevel(4),0,0)));CHECK(bool(bad.build(b,vocab,english,ComputerLevel::Beginner,0,4)));
         CHECK(bool(bad.build(b,vocab,english,ComputerLevel::MrBoggle,0,0,0)) && bad.words().empty());
-        CHECK(!bad.build(b,dictionary({"ZZZZ"}),english,ComputerLevel::MrBoggle,0,0) && bad.exhausted());
+        CHECK(!bad.build(b,vocab,dictionary({"ZZZZ"}),ComputerLevel::MrBoggle,0,0) && bad.exhausted());
         CHECK(!bad.build(b,vocab,english,ComputerLevel::MrBoggle,0,0));
         CHECK(bad.take(100000) && !bad.take(100000) && !bad.take(100999) && bad.take(101000));
     }
@@ -60,7 +61,8 @@ void planning() {
 GameTarget target(const std::filesystem::path& root,bool chess=false,bool art=false) {
     fixtures::artworkInstall(root/"game");GameTarget t;t.path=root/"game";t.savePath=root/"save";
     fixtures::write(t.path/"Dicts/AI.dic",dictionaryBytes({"AAA","AAAA","ZZZZ"}));
-    fixtures::write(t.path/"Dicts/English.dic",dictionaryBytes({"AAA","AAAA","AAAAA","AAAAAA"}));
+    fixtures::write(t.path/"Dicts/English.dic",dictionaryBytes({"AAA","AAAA"}));
+    UserDictionary user;CHECK(!user.load(t.savePath,t.path));CHECK(!user.add({"AAAAA","AAAAAA"}));
     t.settings={{"classic_seed","6551"},{"classic_seconds","0"},{"classic_turns",chess?"chess":"traditional"},
                 {"classic_sound","0"},{"classic_animations","0"},{"classic_artwork",art?"1":"0"},{"frontend_movies","0"}};return t;
 }
@@ -166,10 +168,70 @@ void timingAndReplay(const std::filesystem::path& tmp) {
     ClassicGame soloGame(human,solo);CHECK(!soloGame.run());HighScores scores;CHECK(!scores.load(solo.savePath,solo.path));
     const auto rows=scores.table();CHECK(rows.size()==2 && rows[0].score==2 && rows[1].score==1);
 }
+void vocabulary() {
+    CHECK(!usesCommonVocabulary(ComputerLevel::Human) && !usesCommonVocabulary(ComputerLevel::MrBoggle));
+    CHECK(!usesCommonVocabulary(ComputerLevel(4)));
+    for(bool master:{false,true}) {
+        Board board;std::vector<std::string> faces(master?25:16,"A");faces.back()="QU";CHECK(!board.set(master?5:4,faces));
+        const std::string commonLong(9,'A'),tooLong(10,'A'),exclusive(12,'A'),qu=std::string(8,'A')+"QU";
+        const auto english=dictionary({"AAA","AAAA",commonLong,tooLong,exclusive,qu});
+        const auto common=dictionary({"AAA","AAAA",commonLong,tooLong,qu,"ZZZZ"});
+        for(auto level:{ComputerLevel::Beginner,ComputerLevel::Intermediate,ComputerLevel::Advanced}) {
+            CHECK(usesCommonVocabulary(level));bool sawLong=false,sawQu=false;
+            for(uint32_t seed=0;seed<32;++seed) {
+                ComputerPlan plan;CHECK(!plan.build(board,common,english,level,seed,0));
+                for(const auto& word:plan.words()) {
+                    CHECK(common.contains(word.word) && english.contains(word.word) && board.matches(word.word,word.path));
+                    CHECK(word.word!=tooLong && word.word!=exclusive);
+                    sawLong|=word.word==commonLong;sawQu|=word.word==qu;
+                }
+            }
+            CHECK(sawLong && sawQu); // a common opponent is not restricted to the former minimum+N caps
+        }
+        ComputerPlan mr;Dictionary absentAuxiliary;
+        CHECK(!mr.build(board,absentAuxiliary,english,ComputerLevel::MrBoggle,6551,0));
+        CHECK(std::any_of(mr.words().begin(),mr.words().end(),[&](const auto& w){return w.word==exclusive;}));
+        CHECK(std::any_of(mr.words().begin(),mr.words().end(),[&](const auto& w){return w.word==tooLong;}));
+        CHECK(mr.words().size()==(master?5:6));
+    }
+}
+void mrBehavior(const std::filesystem::path& tmp) {
+    Board board;CHECK(!board.set(4,std::vector<std::string>(16,"A")));
+    std::vector<std::string> list;for(size_t length=3;length<=12;++length)list.push_back(std::string(length,'A'));
+    const auto english=dictionary(list);ComputerPlan mr;Dictionary auxiliary;
+    CHECK(!mr.build(board,auxiliary,english,ComputerLevel::MrBoggle,6551,0));CHECK(mr.words().size()==10);
+    for(size_t i=1;i<mr.words().size();++i)CHECK(mr.words()[i-1].word.size()>mr.words()[i].word.size());
+    class System : public fixtures::ScriptedSystem {
+    public:bool visible=true;void setMouseCursorVisible(bool value) override {visible=value;}
+    };
+    for(bool chess:{false,true})for(bool timed:{false,true})for(bool master:{false,true}) {
+        auto t=target(tmp/(std::to_string(chess)+std::to_string(timed)+std::to_string(master)));t.settings["classic_turns"]=chess?"chess":"traditional";
+        t.settings["classic_seconds"]=timed?"60":"0";t.settings["classic_variant"]=master?"master":"original";t.settings["classic_cursor"]="1";
+        System sys;sys.clock=[](size_t f){return uint64_t(f*1000);};
+        sys.events=[](size_t f)->std::vector<Event>{using namespace fixtures;
+            if(f==0)return {keyEvent(key::Return)};
+            if(f==4){Event stop;stop.type=EventType::Quit;return {stop};}
+            return {};
+        };
+        sys.present=[&](const Surface&,size_t frame){if(frame==3)CHECK(sys.visible);}; // already ended, without an extra wordless turn or timer wait
+        ClassicGame game(sys,t,false,{"CPU Mr. Boggle"},{ComputerLevel::MrBoggle});CHECK(!game.run() && sys.visible && sys.hashes.size()==4);
+        CHECK(!std::filesystem::exists(t.savePath/"HighScores.txt"));
+    }
+}
 void guards(const std::filesystem::path& tmp) {
     auto t=target(tmp);std::filesystem::remove(t.path/"Dicts/AI.dic");
     fixtures::ScriptedSystem sys;sys.events=[](size_t)->std::vector<Event>{return {fixtures::keyEvent(key::Escape)};};
     ClassicGame human(sys,t);CHECK(!human.run());
+    fixtures::ScriptedSystem mr;mr.events=[](size_t f)->std::vector<Event>{using namespace fixtures;
+        if(f==0)return {keyEvent(key::Return)};
+        if(f==5){Event stop;stop.type=EventType::Quit;return {stop};}
+        return {};
+    };mr.clock=[](size_t f){return uint64_t(f*1000);};
+    ClassicGame mainOnly(mr,t,false,{"CPU Mr. Boggle"},{ComputerLevel::MrBoggle});CHECK(!mainOnly.run() && mr.hashes.size()==5);
+    fixtures::write(t.path/"Dicts/AI.dic","invalid auxiliary dictionary");
+    fixtures::ScriptedSystem ignored;ignored.events=mr.events;ignored.clock=mr.clock;
+    ClassicGame noAuxiliaryRead(ignored,t,false,{"CPU Mr. Boggle"},{ComputerLevel::MrBoggle});CHECK(!noAuxiliaryRead.run());
+    std::filesystem::remove(t.path/"Dicts/AI.dic");
     ClassicGame missing(sys,t,false,{"CPU Beginner"},{ComputerLevel::Beginner});
     CHECK(missing.run().message.find("Re-import")!=std::string::npos);
     for(const auto& kinds:{std::vector<ComputerLevel>{ComputerLevel(4)},std::vector<ComputerLevel>(2,ComputerLevel::Human)}) {
@@ -199,6 +261,8 @@ static const test::Suite suite("boggle.unit.computer",{
     {"Traditional and Chess opponents cancel shared words, reject human input and save humans only",[](const auto& tmp){live(tmp);}},
     {"four computers finish both variants and turn modes without human handoff confirmation",[](const auto& tmp){computerOnly(tmp);}},
     {"exact CPU deadlines, opening and handoff exclusions, replay/new-board plan reset",[](const auto& tmp){timingAndReplay(tmp);}},
+    {"Classic common dictionary/search boundary versus full English Mr. Boggle",[](const auto&){vocabulary();}},
+    {"Mr. Boggle searches longest first and ends timed/untimed turns on exhaustion",[](const auto& tmp){mrBehavior(tmp);}},
     {"typed roster guards and older human-only imports",[](const auto& tmp){guards(tmp);}},
     {"primary computer choice does not rename or pollute remembered human profiles",[](const auto& tmp){frontend(tmp);}},
 });

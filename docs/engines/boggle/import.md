@@ -152,7 +152,9 @@ counts and checksums only.
 
 The computer-opponent stage adds `Dicts/AI.dic` when available. Older 53-file
 imports remain usable with humans. Re-import to add the computer vocabulary;
-selecting a computer without it fails with a clear message before play starts.
+selecting Beginner, Intermediate or Advanced without it fails with a clear
+message before play starts. Mr. Boggle now uses the existing English dictionary
+and does not require the auxiliary file.
 The 64-plan computer validator also runs on the imported copy.
 
 Background play adds no import files. Fresh-copy validation also checks hidden

@@ -95,8 +95,8 @@ untimed budgets. It compares coarse and fine service intervals and submits every
 word through the canonical round model. For both supplied install/CD copies:
 
 ```
-Background schedules 256, legal submissions 9625
-decoded background: be11fe8ed0d288b82d0628077322d91b
+Background schedules 256, legal submissions 13036
+decoded background: fc7b7fbb16e9a48dc099af0e27b906b6
 ```
 
 The optional game-data suite runs this check on the source and a fresh imported

@@ -205,3 +205,19 @@ profile references corroborate the option. The owner then confirmed ordered cube
 list to submit in both turn modes, plus word-list click submission for humans.
 Both are implemented. Exact highlighting, input progression and sound still
 need comparison; interpolation and arrow appearance remain explicitly native.
+
+The owner confirmed the cursor/list-submission stage works. The next pass
+corrects [AI vocabulary and Classic search limits](../../engines/boggle/computers.md):
+the first three levels use the auxiliary dictionary and a nine-letter prefix
+boundary, while Mr. Boggle uses the complete main-dictionary board vocabulary.
+Eight isolated original entry-point probes and six recursive boundary probes
+agree, including the final-Qu edge. The former native minimum+N caps are removed;
+sampling, ordering and pacing remain native, and full original AI equivalence is
+not claimed. Mr. Boggle-only rosters no longer require the auxiliary file.
+
+The owner then confirmed that Mr. Boggle tries longest words first and ends when
+all its words are found in timed and untimed play. This pass also implements
+those rules, avoiding an extra empty Chess turn after its final word.
+Common-opponent sampling/order, Mr. Boggle equal-length tie order and all thinking
+cadences remain native policies; common-opponent exhaustion needs a separate
+reference check.

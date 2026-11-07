@@ -20,7 +20,10 @@ press C on Players to choose Traditional or Chess Timer. With a human and
 computer assigned, B / Computer Background Play runs computers alongside the
 humans, showing current scores while keeping computer words hidden; see [background controls and timing limits](background.md). See
 [Traditional controls](traditional.md) and [Chess Timer clocks/turns](chess.md).
-See [computer setup, native strength policy and limits](computers.md) and
+Mr. Boggle uses the full English board vocabulary, tries longest words first and
+ends its visible turn when exhausted; the first three levels use
+the auxiliary AI dictionary with the verified Classic search boundary. See
+[computer setup, native selection/pacing and verified vocabulary](computers.md) and
 [player naming and persistence](players.md). For visible computer turns,
 V / Computer Cursor on Players enables an animated cube trace; see
 [cursor controls and native presentation limits](cursor.md).

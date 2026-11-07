@@ -5,6 +5,7 @@
 #include "engines/boggle/classic/highscores.h"
 #include "engines/boggle/classic/options.h"
 #include "engines/boggle/classic/player.h"
+#include "engines/boggle/classic/user_dictionary.h"
 #include "engines/boggle/resources.h"
 #include "engines/registry.h"
 #include "tests/engines/boggle/fixtures.h"
@@ -23,7 +24,8 @@ Event quit() {Event event;event.type=EventType::Quit;return event;}
 GameTarget target(const std::filesystem::path& root,bool chess=false,bool master=false,bool art=false) {
     fixtures::artworkInstall(root/"game");GameTarget t;t.path=root/"game";t.savePath=root/"save";
     fixtures::write(t.path/"Dicts/AI.dic",dictionaryBytes({"AAA","AAAA"}));
-    fixtures::write(t.path/"Dicts/English.dic",dictionaryBytes({"AAA","AAAA","AAAAA","AAAAAAA"}));
+    fixtures::write(t.path/"Dicts/English.dic",dictionaryBytes({"AAA","AAAA"}));
+    UserDictionary user;CHECK(!user.load(t.savePath,t.path));CHECK(!user.add({"AAAAA","AAAAAAA"}));
     t.settings={{"classic_seed","6551"},{"classic_seconds","0"},{"classic_turns",chess?"chess":"traditional"},
         {"classic_variant",master?"master":"original"},{"classic_background","1"},{"classic_sound","0"},
         {"classic_animations","0"},{"classic_artwork",art?"1":"0"},{"frontend_movies","0"}};return t;

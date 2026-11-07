@@ -7,11 +7,13 @@ namespace reluva::boggle {
 enum class ComputerLevel { Human = -1, Beginner, Intermediate, Advanced, MrBoggle };
 bool validComputerLevel(ComputerLevel level);
 std::string computerName(ComputerLevel level);
+// The first three Classic opponents use the separate AI vocabulary.
+bool usesCommonVocabulary(ComputerLevel level);
 // Independent native policy, not a reproduction of the original AI algorithm.
 // Times are cumulative active milliseconds, excluding handoff/other turns.
 class ComputerPlan {
 public:
-    Error build(const Board& board,const Dictionary& vocabulary,const Dictionary& english,
+    Error build(const Board& board,const Dictionary& commonVocabulary,const Dictionary& english,
                 ComputerLevel level,uint32_t seed,size_t slot,size_t visits=500000);
     const AcceptedWord* take(uint64_t elapsed);
     // Hidden play catches up in logical order, independent of frame/input rate.

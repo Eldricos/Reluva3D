@@ -238,8 +238,8 @@ Error ClassicGame::run() {
     Dictionary dictionary,computerDictionary; DiceSet dice; Palette palette;
     image::Image letters, qu;
     if (auto err = resources.dictionary("Dicts/English.dic", dictionary)) return err;
-    if(hasComputer) {
-        if(!fs::findFile(target_.path,"Dicts/AI.dic"))return Error::fail("Computer players need Dicts/AI.dic. Re-import the game from your CD or installation.");
+    if(std::any_of(kinds.begin(),kinds.end(),usesCommonVocabulary)) {
+        if(!fs::findFile(target_.path,"Dicts/AI.dic"))return Error::fail("Beginner, Intermediate and Advanced need Dicts/AI.dic. Re-import the game from your CD or installation.");
         if(auto error=resources.dictionary("Dicts/AI.dic",computerDictionary))return error;
     }
     if (auto err = resources.diceSet(options.dice(), dice)) return err;
@@ -670,9 +670,9 @@ Error ClassicGame::run() {
                 }
             }
             if(plan.exhausted()) {
-                // Untimed and Chess participants retire rather than wait forever
-                // or cycle empty turns. Traditional timed players keep their clock.
-                if(chess || !round().timed()){if(auto error=startOrFinish())return error;}
+                // Mr. Boggle ends on exhaustion in timed and untimed play.
+                // Other exhaustion policies remain the existing native choices.
+                if(chess || !round().timed() || kinds[turn]==ComputerLevel::MrBoggle){if(auto error=startOrFinish())return error;}
                 else message="Computer has no more words. Waiting for the timer / F1: end.";
             } else if(const auto* word=plan.take(elapsed)) {
                 const auto outcome=round().submit(word->word,now,word->path);
@@ -680,7 +680,9 @@ Error ClassicGame::run() {
                     input=word->word;selected.clear();message="Computer playing / F1: end player";
                     if(computerCursor)computerPointer=submitPoint;
                     sound.recorded(word->word.size());
-                    if(auto error=passWord())return error;
+                    if(kinds[turn]==ComputerLevel::MrBoggle && plan.exhausted()) {
+                        if(auto error=startOrFinish())return error;
+                    } else if(auto error=passWord())return error;
                 } else if(outcome==Submission::NotPlaying)timeout(sys_.getMillis());
                 else return Error::fail("Computer plan produced an invalid Classic submission");
             } else message="Computer playing / F1: end player";

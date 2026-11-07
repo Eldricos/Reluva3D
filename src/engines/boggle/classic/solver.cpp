@@ -7,15 +7,19 @@
 #include <set>
 namespace reluva::boggle {
 Error findBoardWords(const Board& board,const Dictionary& dictionary,const UserDictionary* user,
-                     std::vector<AcceptedWord>& out,size_t limit) {
+                     std::vector<AcceptedWord>& out,size_t limit,size_t prefixLimit) {
     out.clear();
     if(board.side()!=4 && board.side()!=5)return Error::fail("A Classic board is required for word discovery");
+    if(!prefixLimit || prefixLimit>64)return Error::fail("Unsupported board-word prefix limit");
     std::array<size_t,26> available{};
     for(const auto& face:board.faces())for(char c:face)++available[size_t(c-'A')];
     const size_t minimum=board.side()==5?4:3;
     std::set<std::string> eligible;
     auto add=[&](const std::string& word) {
         if(word.size()<minimum || word.size()>64)return;
+        if(word.size()>prefixLimit && !std::any_of(board.faces().begin(),board.faces().end(),[&](const auto& face) {
+            return face.size()<=word.size() && word.ends_with(face) && word.size()-face.size()<prefixLimit;
+        }))return;
         std::string normalized;if(!englishWord(word,normalized) || normalized!=word)return;
         std::array<size_t,26> used{};
         for(char c:word)if(++used[size_t(c-'A')]>available[size_t(c-'A')])return;
@@ -44,7 +48,8 @@ Error findBoardWords(const Board& board,const Dictionary& dictionary,const UserD
             const size_t lo=size_t(begin-words.begin()),hi=size_t(end-words.begin());
             used|=uint32_t(1)<<cell;path.push_back(cell);
             if(*begin==prefix && paths[lo].empty()){paths[lo]=path;++found;}
-            for(size_t next:neighbors[cell])if(!(used&(uint32_t(1)<<next)))self(self,next,used,lo,hi);
+            if(prefix.size()<prefixLimit)
+                for(size_t next:neighbors[cell])if(!(used&(uint32_t(1)<<next)))self(self,next,used,lo,hi);
             path.pop_back();
         }
         prefix.resize(length);

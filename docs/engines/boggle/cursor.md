@@ -75,7 +75,8 @@ repeats, invalid words and dictionary review. Pointer visibility must be restore
 All fixtures are invented and contain no retail cursor, board or word data.
 
 The existing metadata-only `computer-check` now also previews every planned
-path and verifies that previewing cannot consume/reschedule it. Its supplied-file
-checksum remains unchanged, covering 64 plans and 2,766 canonical submissions.
+path and verifies that previewing cannot consume/reschedule it. After the
+[AI vocabulary correction](computers.md), its supplied-file survey covers
+64 plans and 4,147 canonical submissions.
 The optional game-data suite repeats that validation on the install and a fresh
 external imported copy. No retail images or decoded word lists are exported.

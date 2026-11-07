@@ -3,8 +3,9 @@
 The final shared-word model now backs [live Traditional local-human matches](traditional.md)
 with one to four humans. The owner corroborated the broad turn-mode distinctions
 below. [Chess Timer](chess.md) now also uses this model for local humans.
-Computer opponents remain unimplemented;
-precise timing/strength behavior still needs further boundary checks.
+[Computer opponents](computers.md), [background play](background.md) and
+[cursor movement](cursor.md) now use the same ownership model. Original
+selection/pacing behavior still needs further boundary checks.
 
 `ClassicCompetition` accepts one to four distinct, completed `ClassicRound`
 objects on exactly the same Original or Master board. Every player's dictionary

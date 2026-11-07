@@ -33,6 +33,21 @@ void paths(const std::filesystem::path& tmp) {
     auto partial=dictionary({"AABB","ABAB"});CHECK(bool(findBoardWords(groups,partial,nullptr,found,3)));CHECK(found.empty());
     auto unavailable=dictionary({"ZZZ"});CHECK(!findBoardWords(board,unavailable,nullptr,found,0));CHECK(found.empty());
 }
+void bounded() {
+    Board board;std::vector<std::string> faces(16,"A");faces.back()="QU";CHECK(!board.set(4,faces));
+    auto words=dictionary({std::string(9,'A'),std::string(10,'A'),std::string(8,'A')+"QU",std::string(9,'A')+"QU"});
+    std::vector<AcceptedWord> found;CHECK(!findBoardWords(board,words,nullptr,found,500000,9));
+    CHECK(found.size()==2);
+    for(const auto& word:found) {
+        CHECK(board.matches(word.word,word.path));
+        CHECK(word.word.size()==9 || (word.word.size()==10 && board.faces()[word.path.back()]=="QU"));
+    }
+    CHECK(!findBoardWords(board,words,nullptr,found) && found.size()==4);
+    CHECK(bool(findBoardWords(board,words,nullptr,found,500000,0)) && found.empty());
+    CHECK(bool(findBoardWords(board,words,nullptr,found,500000,65)) && found.empty());
+    // Ineligible long words must not spend the bounded traversal's visit budget.
+    auto onlyLong=dictionary({std::string(10,'A')});CHECK(!findBoardWords(board,onlyLong,nullptr,found,0,9) && found.empty());
+}
 void masterAndResults(const std::filesystem::path& tmp) {
     const auto words=dictionary({"AAA","AAAA","AAAAA","AAAAAA"});
     Board master;CHECK(!master.set(5,std::vector<std::string>(25,"A")));
@@ -57,5 +72,6 @@ void masterAndResults(const std::filesystem::path& tmp) {
 }
 static const test::Suite suite("boggle.unit.solver",{
     {"complete English paths, adjacency, no reuse, Qu, deduplication and limits",[](const auto& tmp){paths(tmp);}},
+    {"prefix limits stop extensions, allow a final Qu crossing and clear failures",[](const auto&){bounded();}},
     {"Master minimum, repeated letters, saved words and score-preserving view toggles",[](const auto& tmp){masterAndResults(tmp);}},
 });

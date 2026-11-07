@@ -7,6 +7,8 @@
 #include "common/md5.h"
 #include "tools/tool.h"
 #include <cstdio>
+#include <algorithm>
+#include "engines/boggle/classic/solver.h"
 namespace {
 int check(int argc,char** argv) {
     using namespace reluva;using namespace reluva::boggle;
@@ -24,6 +26,21 @@ int check(int argc,char** argv) {
         if(auto e=Board::generate(dice,seed,board))return fail(e);
         for(size_t slot=0;slot<4;++slot)for(unsigned level=0;level<4;++level) {
             ComputerPlan plan;if(auto e=plan.build(board,vocabulary,english,ComputerLevel(level),seed,slot))return fail(e);
+            if(usesCommonVocabulary(ComputerLevel(level))) {
+                for(const auto& word:plan.words())
+                    if(!vocabulary.contains(word.word) || word.word.size()-board.faces()[word.path.back()].size()>=9)
+                        return fail(Error::fail("Common computer escaped its vocabulary/search boundary"));
+            } else {
+                if(!std::is_sorted(plan.words().begin(),plan.words().end(),[](const auto& a,const auto& b){return a.word.size()>b.word.size();}))
+                    return fail(Error::fail("Mr. Boggle did not prioritize longest words"));
+                std::vector<AcceptedWord> complete;
+                if(auto error=findBoardWords(board,english,nullptr,complete))return fail(error);
+                std::vector<std::string> expected,actual;
+                for(const auto& word:complete)expected.push_back(word.word);
+                for(const auto& word:plan.words())actual.push_back(word.word);
+                std::sort(actual.begin(),actual.end());
+                if(actual!=expected)return fail(Error::fail("Mr. Boggle did not retain the complete main-dictionary board vocabulary"));
+            }
             ClassicRound round(english);if(auto e=round.board(board,0))return fail(e);
             if(auto e=round.start(0,0))return fail(e);
             number(uint32_t(board.side()));number(seed);number(uint32_t(slot));number(level);number(uint32_t(plan.words().size()));
