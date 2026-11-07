@@ -253,10 +253,10 @@ lap `0x552860`, the car's lap +0x204 and +0x1C read:
 | 6 Aquatica (`e3-lap6b`) | −1, −1 | 6 to 7 at the line (slice 0), 65.5 s | no; the car's lap set it in the same step |
 | 7 Summit (`e3-lap7`) | 4, 9 | 9 to 4 (1549), 67.4 s | yes |
 | 8 Empire City (`e3-lap8`) | 4, 7 | 7 to 4 (1202), 65.2 s | yes; at the line (69.9 s) already 1 |
-| 0 backward (`e3-lap0r`, `0x6fd4c0` = 1) | 4, 5 | 5 to 4 (slice 186, driving down), 71.2 s | yes |
+| 0 backward (`e3-lap0r`, `0x6fd4c0` = 1) | 4, 5 | 5 to 4 (slice 186 after a reset from 191, below), 71.2 s | yes |
 | 1 backward (`e5-lap1r`) | 4, 5 | 5 to 4 (189), 71.1 s | yes |
 | 3 backward (`e5-lap3r`) | 4, 5 | 5 to 4 (171), 69.3 s | yes |
-| 4 backward (`e5-lap4r`) | 4, 5 | 5 to 4 (186), 71.2 s | yes |
+| 4 backward (`e5-lap4r`) | 4, 5 | 5 to 4 (186 after a reset from 191), 71.2 s | yes |
 | 5 backward (`e5-lap5r`) | 4, 5 | 5 to 4 (197), 70.7 s | yes |
 | 7 backward (`e5-lap7r`) | 4, 5 | 5 to 4 (170), 69.2 s | yes |
 
@@ -268,8 +268,7 @@ the road point 70 slices up from zone 5's first slice, `lapplace.py`);
 forward on Atlantica, Country Woods, Lost Canyons and Aquatica only the
 line does. Backward the change came at the slice just below zone 5's
 first (189, 171, 197, 170 for its 190, 172, 198, 171), on Country Woods
-and Hometown with +0x1C at 186 for 191 (+0x1C as read at the watch;
-why five slices below wasn't looked into). The zone
+and Hometown with +0x1C at 186 for 191. The zone
 changed with +0x1C on the new zone's first slice each time, with no
 look-ahead ([mus.md](mus.md)). Two runs show the wrong-way branch
 too, as a side effect of the poke: on Summit and on every backward run
@@ -278,6 +277,46 @@ the jump onto the far slice came with the wrong-way flag (+0x998) set
 9; 4 to 5) matched the pair the other way round, so the count went to
 −1 (the music's lap held at 0, `0x41365b`-`0x41366e`) before the real
 change put it back to 0.
+
+**Why 186 on Hometown and Country Woods** (November 2026, settled):
+the car was put 5 slices on by a reset just then; the zone lookup
+had nothing to do with it. From the code, `0x4211c0` reads the zone
+at the car's own slice +0x1C the same way in both directions: block
++0x1C >> 3 of the track's blocks (`0x571370`, 0x5C0 bytes each), the
+record +0x1C − the block's first slice (+0x584) of its positions
+(+0x58C), byte 3 (`0x421246`-`0x421293`). The slices keep the FRD's
+numbering when the track is run backward (nothing there tests
+`0x6fd4c0`), and the wrap at the table's ends (`0x421251`-`0x421260`)
+only serves the look-ahead, which is always 0 (`0x421227`). Both FRDs
+have zone 5 from slice 191 (block 23: 4 4 4 4 4 4 4 5; Redrock Ridge's
+from 190), and both tracks share these blocks. Watched: `e8-zr4`
+(Country Woods backward, `lapr.sh`'s set-up, `-watch 0x4135b6`, every
+call of the lookup, with +0x1C and the car's position) shows +0x1C
+192, 191, 191, 191 and then 186 at 71.152 s, the car's x, z jumping
+from (698.6, −720.0) to (724.8, −706.7) and standing there, and the
+same jump 209 to 204 at 65.01 s, still in zone 5. `e8-zq0` (Hometown,
+the same, `-watch 0x429100 -watch 0x428f90`) caught the reset:
+`0x429100` called from `0x409bbf` at 65.006 s (+0x1C 208) and 71.145
+s (+0x1C 191), the zone change following at 71.157. `0x409bbf` is in
+`0x409b70`, the computer driver's progress check (the car is driven
+by the computer's tasks in these runs): after step 0x480, when the
+car's race distance (+0x8) hasn't passed its best (+0x708) for 0x180
+steps (6 s), it calls `0x429100`, which puts the car `0x5efdcc` (5)
+slices on, −5 when backward (`0x42910d`-`0x4291af`), still. The
+saved steps (+0x704, read as the call's edx − 0x180) were 1152 and
+then 1544: up to step 0x480 (58.9 s here) the check only records the
+distance and the step (`0x409bc4`), and from then on this car's race
+distance never passed what it was at step 1152, so the check moved it
+at 1544 (65.0 s) and again 384 steps later at 1928 (71.1 s). Why its
+race distance stood still while it drove down from slice 260 wasn't
+followed; the car had been moved 70 slices by the placing pokes
+(51.9-52.8 s), the wrong-way flag set (above), as the other
+tracks' runs had too. On these two tracks the second move happened to
+cross zone 5's first slice; on the other tracks the change came at
+the slice just below it, so no move crossed their boundary (whether
+those cars were moved too wasn't watched). So it is a side effect
+of the test's placing, not of the music code: a car driving through
+gets the change at 190, as on the other tracks.
 
 ## What isn't known
 

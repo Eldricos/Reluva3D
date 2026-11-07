@@ -2814,7 +2814,8 @@ An index of the car-handling code (November 2026), in the order a step
 runs it, with where each is written up. All are Sc32 tasks (32 a
 second, The clock above) unless marked Sc64. The ones not written up
 before were read for this index (`gdecomp`, `asm`, the constants read
-from the exe); none of them was run on its own.
+from the exe). The key claims were then checked in runs (Checked in
+runs, below).
 
 **Every car: the dynamics task `0x4a2830`** (Car dynamics, above).
 
@@ -2849,10 +2850,10 @@ the road and upright, else the tipped path:
 | `0x4aca4f`, `0x4ac3af`, `0x4ac094`, `0x4abd9c` | a tyre, its friction circle, the hand-brake wheel, the Tire Factor's grip loss (Tyres) |
 | `0x4ae68e` | the forward acceleration (+0x4E8) ÷ the lateral grip multiplier (P +0x248), then, in a dry single race only (not weather 1 or 2, not a network game, not Tournament or Knockout), × the Tire Factor t: with t over 1 in reverse, neutral, first or second (gear byte ≤ 3) × (1 + 0.1 t) (`0x53deb4`); with t under 1 in any gear × (1 + 0.1 (t − 1)) (`0x53deb8`, `0x53debc`); +0x4E4 cleared |
 | `0x4ae79b` | gas ≥ 0.5, brake ≥ 0.75, \|steering\| > 64, under 5 m/s: velocity zeroed |
-| `0x4aea88` | **the yaw limit** (after the tyres' yaw is added, `0x4ae442`): with gas ≥ 0.5, brake ≥ 0.75, \|+0x51C\| > 64 and under 5 m/s the yaw (+0x4FC) is zeroed; with \|+0x51C\| under 4 in reverse it is × 0.95 (`0x53ded8`). Then L = turning circle radius (P +0x258) × \|yaw\| × 2π × 0.5 (`0x53dedc`, `0x53dee4`), the speed of a car on a circle of half that radius at that yaw: gripping (\|lateral\| < \|forward\|), when both speeds are under L the yaw × min(\|forward\| / L, 0.98), else × 0.95 (\|+0x5B0\| under 0.2) or 0.99. Sliding sideways, only under 2 m/s (`0x53defc`, the road-frame speed): the same limit or × 0.9 / 0.95, and the velocity × 0.7 under 5 m/s, else × 0.8. So the car can't turn tighter than its `carp.txt` turning circle allows |
+| `0x4aea88` | **the yaw limit** (after the tyres' yaw is added, `0x4ae442`): with gas ≥ 0.5, brake ≥ 0.75, \|+0x51C\| > 64 and under 5 m/s the yaw (+0x4FC) is zeroed; with \|+0x51C\| under 4 in reverse it is × 0.95 (`0x53ded8`). Then L = turning circle radius (P +0x258) × \|yaw\| × 2π × 0.5 (`0x53dedc`, `0x53dee4`), the speed of a car on a circle of half that radius at that yaw: gripping (\|lateral\| < \|forward\|), when both speeds are under L the yaw × min(\|forward\| / L, 0.98), else × 0.95 (\|+0x5B0\| under 0.2) or 0.99. Sliding sideways, only under 2 m/s (`0x53defc`, the road-frame speed): the same limit or × 0.9 / 0.95, and the velocity × 0.7 under 5 m/s, else × 0.8. So the car can't turn tighter than its `carp.txt` turning circle allows; in runs that cap is reached only near a standstill, and at driving speeds the yaw is simply × 0.95 a tick (Checked in runs, below) |
 | `0x4ae85b`, `0x4ae98b` | the lateral damping, the hand brake's and over-rev's speed loss (step 8) |
 | `0x4af140` | the loss in neutral (The creep on the grid) |
-| `0x4aa8e7`, `0x4aa4f4` | **tipped or in the air** (+0x8A, or +0x10C < 0.9; also the computer's `0x408626`, `0x4089b0`): `0x4aa4f4` takes the road-frame lateral and forward speeds (+0x4EC, +0x4F4) and clears the over-speed flag, the slip ratio and both skid levels (+0x594, +0x5B0, +0x5C0, +0x5C4); `0x4aa8e7` is **the body's friction on the road**: only with the clearance under 0.2 (`0x3e4cccce` as an int) and the road's normal y at least 0.5 (`0x53dcc4`), the velocity's part along the road plane × 0.94 a tick and the spin about the road's normal × 0.98 (on the ground, +0x164 0); in air mode × 0.98 and × 0.998, and not at all when no axis of the car is near the road's normal (each pair of \|up · n\|, \|right · n\|, \|forward · n\| sums to 0.9 or less, `0x53dccc`). The roll and pitch spins are left alone: a car on its side or roof slides to a stop on the road |
+| `0x4aa8e7` | **tipped or in the air** (+0x8A, or +0x10C < 0.9, `0x4ae4ee`-`0x4ae504`; also the computer's `0x408626`, `0x4089b0`): `0x4ae4c1` itself clears the over-speed flag, the slip ratio and both skid levels (+0x594, +0x5B0, +0x5C0, +0x5C4) and drops the rpm 500 a tick to the minimum (`0x4ae50a`-`0x4ae57f`), then calls `0x4aa8e7`. (`0x4aa4f4`, listed here before, isn't on this path: called from the dynamics task `0x4a2b52` and the walls `0x430c5b`, it takes the road-frame lateral and forward speeds into +0x4EC and +0x4F4, sets the rpm from the speed in gear (max(min rpm, |speed| × +0x52C[gear] × redline), not in neutral) and clears the same four fields.) `0x4aa8e7` is **the body's friction on the road**: only with the clearance under 0.2 (`0x3e4cccce` as an int) and the road's normal y at least 0.5 (`0x53dcc4`), the velocity's part along the road plane × 0.94 a tick and the spin about the road's normal × 0.98 (on the ground, +0x164 0); in air mode × 0.98 and × 0.998, and not at all when no axis of the car is near the road's normal (each pair of \|up · n\|, \|right · n\|, \|forward · n\| sums to 0.9 or less, `0x53dccc`). The roll and pitch spins are left alone: a car on its side or roof slides to a stop on the road |
 | `0x4a2f30` (Sc64) | the human's orientation by the spin / 64 |
 
 **The computer's cars: `0x4088f0`** (+0x608; The computer's cars):
@@ -2868,6 +2869,91 @@ braking `0x4063e0`), `0x4068a0` for a car with +0x88 (no forces),
 `0x4310c0` → `0x430c80`, `0x42fee0`, `0x42f280`, `0x42e820`; Rolls
 from car hits) and **the impacts** `0x42b900` (`0x42ac40`, the reset
 `0x429260` → `0x428f90`).
+
+### Checked in runs
+
+November 2026, the `e8-h` runs: `nfs-host -native -deterministic
+50000` on Hometown (track poke 0 at `0x474ca0`), a single race, dry,
+the player's car (record `0x5e1120`) driven by keys (`+up` for the
+gas, `+left`) or by `-drive 0x5e1120:0x5e1acc:41000` (steered at car 1,
+full gas). Each routine was watched at its first instruction and at
+its `ret` path (`-watch` with `-watchread` of the car's fields as
+absolute addresses), so each pair of lines is one call, in and out.
+The human's tick is first called at 40.98 s in these runs, and the
+car first moves at 49.1 s (the start, step 512; the gas held from 41 s
+only revs the engine until then). The player's car record gave P at `0x5eabe0` and
+the set-up record at `0x6fd52c` (`-dumpmem` of the record at 55 s,
+`e8-h0`); P +0x258 (the turning circle) read 6.1 and P +0x248 3.3.
+
+- **The yaw limit (`0x4aea88`)**, `e8-h1` (gas from 41 s, full left
+  50-52.5 s, then into the scenery). In and out at `0x4aea88` and
+  `0x4aeff3` with +0x4FC, +0x4F4, +0x4EC, +0x5B0, +0x51C and P +0x258:
+  all 393 calls on the gripping branch came out as the code predicts,
+  to float rounding. But **the cap itself almost never binds.** At
+  full lock the yaw rose to 0.297 turns/s at 9-12 m/s (a circle of
+  5-6.4 m radius, v / 2πω), well under the cap |forward| / (π × 6.1)
+  = 0.48-0.62 turns/s at those speeds; the cap is the circle of radius
+  P +0x258 / 2, 3.05 m, so +0x258 acts as a diameter. It bound twice in
+  the run, both when the car had stopped against a wall (0.58 m/s:
+  the yaw 0.0638 in, 0.0300 out, exactly 0.58 / (π × 6.1); 0.30 m/s:
+  0.0308 to 0.0155). Every other call took the "else" branch: the yaw
+  × 0.95 each tick (the slip ratio under 0.2 throughout), so at
+  driving speeds this routine is a **5% yaw damping a tick**, not a
+  limit. The sliding branch (|lateral| ≥ |forward|) came up once in
+  motion (2.45 forward, 3.22 lateral: the road-frame speed over 2 m/s,
+  so untouched, as the code says).
+- **The Tire Factor on the forward acceleration (`0x4ae68e`)**, `e8-h1`
+  and `e8-h3`, the set-up's Tire Factor (`0x6fd584`, set-up +0x58)
+  poked to 1.5 at 41 s and (in `e8-h1`) to 0.5 at 56 s; watched after
+  the ÷ P +0x248 (`0x4ae6c3`) and at the end (`0x4ae785`) with +0x4E8
+  and the gear byte. The ratio out / in was exactly **1.15** with t
+  1.5 in first and second (gear bytes 2 and 3; 132 and 141 calls in
+  `e8-h3`), exactly **1.00** in third (148 calls), and **0.95** with
+  t 0.5 in first and second (102, 89 calls): 1 + 0.1t when t > 1 in
+  the low gears only, and 1 + 0.1(t − 1) when t < 1 in any gear, as
+  read. So a Tire Factor over 1 adds 10% of itself to the push in the
+  first two gears and nothing above them, while one under 1 takes
+  off from every gear.
+- **Gear changes**, `e8-h3` (`-watch 0x4a9414`, the new gear in al,
+  with +0x4F4): the automatic box changed first to second at 19.33
+  m/s (53.02 s) and second to third at 36.18 m/s (57.42 s). With the
+  automatic ratios measured before (271.8 and 144.8 rpm per m/s, Gears
+  above) those are 5,254 and 5,239 rpm against R − R/8 = 5,250; the
+  test reads the road speed +0x5A4, not +0x4F4, which accounts for the
+  few rpm either side.
+- **The body's friction on the road (`0x4aa8e7`)**, `e8-h2` and
+  `e8-h4`: `e8-h0`'s run again (gas from 52 s), with the car turned on
+  its roof at 55 s by negating its right and up rows (+0xC0, +0xCC,
+  poked as dumped at that moment in `e8-h0`; the runs are deterministic
+  and the bytes replaced matched). +0x10C read −1.000, the clearance
+  0.000-0.004 and +0x164 0, so every tick took the tipped path
+  (`0x4ae588`) and the on-the-ground case: the velocity across the
+  road × **0.9400** each call (19.27 m/s at 55.06 s, 9.16 at 55.40,
+  1.05 at 56.51, 0.06 at 58.01) and nothing else moved it between calls
+  (18.109 out, 18.106 in at the next): the car slides to a stop in
+  about 1.5 s and stays on its roof. In `e8-h4` the yaw spin (+0xE8)
+  was also poked to 1 turn/s: × **0.9800** in each call, as read, but
+  between calls it lost a further 1.5-1.6% (0.9330 out, 0.9184 in at
+  the next), from code not looked at here. At 56 s `e8-h4` set +0x164
+  (air ticks) to 1 on the roof: for the next half second the calls
+  took the air case, velocity × **0.9800** and spin × **0.9980**,
+  then +0x164 cleared and 0.94 / 0.98 came back.
+- **Landing** was checked before (`sw1-f`, Car dynamics above): the
+  speed into the road × (0.5 + e) and the spin × (0.5 + e), with no
+  bounce; not run again.
+- **The computer cars' simpler model**, `e8-h5` (no keys, to 52 s;
+  `ai_integrate` watched at `0x407271`, the forces summed into +0x2E8,
+  the velocity before; `0x4072d9`, the velocity after; `0x407328`,
+  after the damping loop; the reads relative to ecx, the car). All 7
+  computer cars, 700 calls each point from the start (48.92-52 s): the
+  tick `0x56ec58` read 0.03125 every call, and every new velocity was
+  the old + the world force × 1/32 to float rounding (the first: car 1,
+  force (2.925, −0.017, −3.106), velocity (0.001, 0, −0.001) to (0.092,
+  −0.001, −0.098)). Their slip ratio +0x5B0 and road speed +0x5A4 read
+  0 throughout, as the code says (only the human's tick works them
+  out). The damping loop changed nothing: `0x56ec68` was 0 (the loop
+  skipped) or, on 3-5 calls a car, 1.0 with `0x56ec78` = 1 (one pass
+  × 1).
 
 ## Other car fields
 
@@ -3209,6 +3295,12 @@ of every access to those offsets):
 - The car handling, as far as read (November 2026, The handling,
   routine by routine): every routine of the human's tick, the
   computer's model and the dynamics task is listed with what it does.
-  Not run on their own: the yaw limit (`0x4aea88`), the body's friction
-  on the road when tipped (`0x4aa8e7`), the Tire Factor on the forward
-  acceleration (`0x4ae68e`) and the roof wobble (`0x4296c0`).
+  Checked in runs since (Checked in runs, `e8-h`): the yaw limit
+  (`0x4aea88`, which binds only near a standstill and otherwise damps
+  the yaw 5% a tick), the body's friction on the road when tipped and
+  in the air (`0x4aa8e7`), the Tire Factor on the forward acceleration
+  (`0x4ae68e`, 1.15 in first and second only with t 1.5), the gear
+  changes up and the computer cars' integration. Still not run: the
+  roof wobble (`0x4296c0`); the rest of the yaw spin's loss on a car on
+  its roof (1.5% a tick beyond `0x4aa8e7`'s 2%) wasn't traced to its
+  code.
