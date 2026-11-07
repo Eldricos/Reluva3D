@@ -3,7 +3,7 @@
 
 // How the original lays out its sky box and cloud texture coordinates, and
 // how it treats surfaces' lightmaps, was read from the GPL Quake III Arena
-// renderer (tr_sky.c, tr_bsp.c); docs/formats/idtech3/shader.md describes
+// renderer (tr_sky.c, tr_bsp.c); docs/engines/idtech3/formats/shader.md describes
 // it. This is new code written from that description.
 
 #include "engines/idtech3/world_renderer.h"
@@ -22,6 +22,7 @@ namespace {
 // Shaders sorting up to "see through" (5) are opaque: the surfaces
 // dynamic lights reach.
 constexpr float kLastOpaqueSort = 5;
+constexpr float kSkySort = -1; // the sky surfaces' batches: never drawn as surfaces
 
 gfx::Vertex toGfx(const BspVertex& v) {
     gfx::Vertex g;
@@ -74,6 +75,11 @@ void WorldRenderer::clear() {
     skySides_ = {};
     skyMaterial_ = -1;
     triangles_ = 0;
+}
+
+void WorldRenderer::drawFog(int material, const gfx::DrawCall& base, int fog, float time) const {
+    const Fog& f = fogs_[size_t(fog)];
+    shaders_.drawFog(material, base, f.color, f.distance, f.plane, time);
 }
 
 void WorldRenderer::buildSky(const ShaderDef& sky) {
@@ -164,6 +170,14 @@ Error WorldRenderer::load(const Bsp& bsp, const ShaderLibrary& library) {
             fog.color = def->fogColor;
             fog.distance = def->fogDistance;
         }
+        // The brush side the volume is seen through is its surface.
+        if (f.visibleSide >= 0 && f.brush >= 0 && size_t(f.brush) < bsp.brushes.size()) {
+            const size_t side = size_t(bsp.brushes[size_t(f.brush)].firstSide + f.visibleSide);
+            if (side < bsp.brushSides.size() && size_t(bsp.brushSides[side].plane) < bsp.planes.size()) {
+                const BspPlane& p = bsp.planes[size_t(bsp.brushSides[side].plane)];
+                fog.plane = {p.normal[0], p.normal[1], p.normal[2], p.dist};
+            }
+        }
         fogs_.push_back(fog);
     }
 
@@ -191,6 +205,9 @@ Error WorldRenderer::load(const Bsp& bsp, const ShaderLibrary& library) {
     std::vector<std::optional<Placed>> placed(bsp.surfaces.size());
     std::vector<BspVertex> patchVerts;
     std::vector<uint32_t> patchIndices;
+    // Curves cut as the original's: finely enough to stray from round by
+    // at most r_subdivisions units, neighbours stitched.
+    const std::vector<PatchGrid> grids = buildPatchGrids(bsp, subdivisions_);
     for (size_t mi = 0; mi < bsp.models.size(); ++mi) {
         const BspModel& model = bsp.models[mi];
         for (int si = model.firstSurface; si < model.firstSurface + model.numSurfaces; ++si) {
@@ -199,15 +216,23 @@ Error WorldRenderer::load(const Bsp& bsp, const ShaderLibrary& library) {
                 continue;
             // Triangle soups are always lit by their vertices, as are
             // surfaces without a lightmap.
-            const bool lightmapped = s.lightmap >= 0 && s.type != SurfaceType::TriangleSoup && !vertexLight_;
+            const bool lightmapped = s.lightmap >= 0 && size_t(s.lightmap) < lightmaps_.size() &&
+                                     s.type != SurfaceType::TriangleSoup && !vertexLight_;
             const int materialIndex = shaders_.material(bsp.shaders[size_t(s.shader)].name,
                                                         lightmapped ? Lighting::Lightmap : Lighting::Vertex);
             const ShaderCache::Material& mat = shaders_.get(materialIndex);
-            if (mat.skip)
-                continue;
+            // The sky's surfaces aren't drawn, but kept for where the sky
+            // shows (drawSkyShape), in batches of their own sort.
+            bool sky = false;
+            if (mat.skip) {
+                const ShaderDef* def = library.find(bsp.shaders[size_t(s.shader)].name);
+                if (!def || !def->sky || mi != 0)
+                    continue;
+                sky = true;
+            }
             // Quads that turn to face the camera: kept aside, rebuilt as
             // they're drawn (a quad each four vertices and six indices).
-            if (mat.autosprite && mi == 0 && s.type != SurfaceType::Patch && s.numVertices >= 4 &&
+            if (!sky && mat.autosprite && mi == 0 && s.type != SurfaceType::Patch && s.numVertices >= 4 &&
                 s.numVertices % 4 == 0 && s.numIndices == s.numVertices / 4 * 6) {
                 Sprite sp;
                 sp.surface = si;
@@ -224,7 +249,7 @@ Error WorldRenderer::load(const Bsp& bsp, const ShaderLibrary& library) {
                 sprites_.push_back(std::move(sp));
                 continue;
             }
-            const GroupKey key{mat.sort, materialIndex, lightmapped ? s.lightmap : -1, s.fog, int(mi)};
+            const GroupKey key{sky ? kSkySort : mat.sort, materialIndex, lightmapped ? s.lightmap : -1, s.fog, int(mi)};
             std::vector<uint32_t>& out = groups[key];
             const auto offset = uint32_t(out.size());
             const uint32_t base = uint32_t(vertices.size());
@@ -232,10 +257,7 @@ Error WorldRenderer::load(const Bsp& bsp, const ShaderLibrary& library) {
             if (s.type == SurfaceType::Patch) {
                 patchVerts.clear();
                 patchIndices.clear();
-                // Curves cut finely enough to stray from round by at most
-                // r_subdivisions units, as the original's.
-                tessellatePatch(v, s.patchWidth, s.patchHeight,
-                                patchLevel(v, s.patchWidth, s.patchHeight, subdivisions_), patchVerts, patchIndices);
+                triangulateGrid(grids[size_t(si)], patchVerts, patchIndices);
                 for (const BspVertex& pv : patchVerts)
                     vertices.push_back(toGfx(pv));
                 for (uint32_t i : patchIndices)
@@ -259,7 +281,7 @@ Error WorldRenderer::load(const Bsp& bsp, const ShaderLibrary& library) {
                     }
                 placed[size_t(si)] = p;
             }
-            if (mi == 0 && mat.sort <= kLastOpaqueSort && !deformed && out.size() > offset) {
+            if (mi == 0 && !sky && mat.sort <= kLastOpaqueSort && !deformed && out.size() > offset) {
                 Pending p{key, offset, uint32_t(out.size()) - offset, {1e9f, 1e9f, 1e9f}, {-1e9f, -1e9f, -1e9f}, si};
                 for (size_t vi = base; vi < vertices.size(); ++vi)
                     for (size_t k = 0; k < 3; ++k) {
@@ -335,7 +357,8 @@ Error WorldRenderer::load(const Bsp& bsp, const ShaderLibrary& library) {
     if (indices.empty())
         return Error::fail("The map has nothing to draw");
     for (const Batch& b : batches_)
-        sorts_.push_back(b.sort);
+        if (b.sort != kSkySort)
+            sorts_.push_back(b.sort);
     for (const Sprite& sp : sprites_)
         sorts_.push_back(sp.sort);
     std::sort(sorts_.begin(), sorts_.end());
@@ -365,6 +388,27 @@ void WorldRenderer::drawSky(float time) const {
             clouds.indexCount = cloudCount_;
             shaders_.draw(skyMaterial_, clouds, 0, time, true);
         }
+    }
+}
+
+void WorldRenderer::drawSkyShape(const gfx::DrawState& state) const {
+    const ViewSlot* view = culled();
+    for (size_t i = 0; i < batches_.size(); ++i) {
+        const Batch& b = batches_[i];
+        if (b.sort != kSkySort)
+            continue;
+        gfx::DrawCall call;
+        call.mesh = drawMesh();
+        call.firstIndex = b.firstIndex;
+        call.indexCount = b.indexCount;
+        if (view) {
+            if (!view->batchRanges[i].second)
+                continue;
+            call.firstIndex = view->batchRanges[i].first;
+            call.indexCount = view->batchRanges[i].second;
+        }
+        call.state = state;
+        r_.draw(call);
     }
 }
 
@@ -425,7 +469,7 @@ void WorldRenderer::drawSurfaces(float time, float sortMin, float sortMax, bool 
         }
         shaders_.draw(b.material, base, b.lightmap >= 0 ? lightmaps_[size_t(b.lightmap)] : 0, time);
         if (b.fog >= 0)
-            shaders_.drawFog(b.material, base, fogs_[size_t(b.fog)].color, fogs_[size_t(b.fog)].distance, time);
+            drawFog(b.material, base, b.fog, time);
     }
     drawSprites(time, sortMin, sortMax);
 }
@@ -729,8 +773,7 @@ void WorldRenderer::drawSprites(float time, float sortMin, float sortMax) const 
         const int lm = p.sprite->lightmap;
         shaders_.draw(p.sprite->material, base, lm >= 0 ? lightmaps_[size_t(lm)] : 0, time);
         if (p.sprite->fog >= 0)
-            shaders_.drawFog(p.sprite->material, base, fogs_[size_t(p.sprite->fog)].color,
-                             fogs_[size_t(p.sprite->fog)].distance, time);
+            drawFog(p.sprite->material, base, p.sprite->fog, time);
     }
     r_.destroyMesh(mesh);
 }
@@ -764,7 +807,7 @@ void WorldRenderer::drawModel(int model, const gfx::Mat4& transform, float time,
         base.indexCount = b.indexCount;
         shaders_.draw(b.material, base, b.lightmap >= 0 ? lightmaps_[size_t(b.lightmap)] : 0, time);
         if (b.fog >= 0)
-            shaders_.drawFog(b.material, base, fogs_[size_t(b.fog)].color, fogs_[size_t(b.fog)].distance, time);
+            drawFog(b.material, base, b.fog, time);
     }
 }
 

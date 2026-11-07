@@ -1,0 +1,6 @@
+intro: e514f404fd8b1cec | 60 frames, 414720 samples
+intro.pictures: 331f037ba3b7bdb6
+intro.sound: 7e40161c095f9690
+eflogo: b3c4f56b8e6f1a48 | 60 frames, 414720 samples
+eflogo.pictures: b30071b025fe03c1
+eflogo.sound: c5552b43f724e573

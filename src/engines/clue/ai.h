@@ -4,7 +4,7 @@
 #pragma once
 
 // The computer players, as Clue.exe's (read from its code; see
-// docs/engines/clue.md): what each knows of who holds which card, kept as
+// docs/engines/clue/README.md): what each knows of who holds which card, kept as
 // it keeps it, and its choices. The set-up screen's three levels differ
 // only in what each takes in of others' suggestions and accusations, and
 // in two of the choices (below).

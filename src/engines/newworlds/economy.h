@@ -15,7 +15,7 @@ namespace reluva::newworlds {
 
 // A colony's economy while playing: its stock, buildings going up, power,
 // mines and the resource processor. Built from what recordings show
-// (docs/formats/newworlds/game.md#the-colony): the costs are the training
+// (docs/engines/newworlds/game.md#the-colony): the costs are the training
 // missions' build menu's; rates and amounts not yet measured in the game
 // are named placeholders (vm-checklist.md).
 

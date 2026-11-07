@@ -1,5 +1,6 @@
 // Headless driver for checking engine screens: scripted keys, frames saved as PPM.
-#include "engines/registry.h"
+#include "engines/engine.h"
+namespace reluva { const MetaEngine& clueMetaEngine(); } // the Clue engine alone, without the registry
 #include "engines/engine.h"
 #include "backends/sockets/socket_net.h"
 #include <cstdio>
@@ -60,7 +61,7 @@ int main(int argc, char** argv) {
     for (int i = 4; i < argc; ++i) sys.script.push_back(argv[i]);
     GameTarget t{"t", "clue", argv[1], "", argv[2], {}};
     if (const char* sp = std::getenv("HARNESS_SAVE")) t.savePath = sp;
-    auto eng = findEngine("clue")->create(sys, t);
+    auto eng = clueMetaEngine().create(sys, t);
     Error err = eng->run();
     if (err) { std::printf("error: %s\n", err.message.c_str()); return 1; }
     return 0;

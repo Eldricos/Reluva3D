@@ -80,7 +80,7 @@ struct MansionLook {
     bool animate = true;
     bool characters = true; // the suspects where clue.lvl stands them (off when the game moves them)
     // "Lighting Effects": the house dark but near the revealing actors, as
-    // Clue.exe lights it (docs/engines/clue.md).
+    // Clue.exe lights it (docs/engines/clue/README.md).
     bool lighting = false;
 };
 
@@ -116,7 +116,7 @@ public:
         int layer = 0;
         int anchorX = 0, anchorY = 0; // on screen
         ScreenRect rect;              // of frame 0 on screen
-        // Its kind, as Clue.exe makes its object of it (docs/formats/clue/
+        // Its kind, as Clue.exe makes its object of it (docs/engines/clue/
         // level.md): the placement's tag's, or else the object's, primary
         // and secondary types. 0 a wall, 3 furniture, 4 and 5 hot spots,
         // 8 a secret passage, 12 drapes ...

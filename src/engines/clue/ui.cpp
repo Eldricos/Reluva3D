@@ -269,6 +269,11 @@ int DialogView::scroll(int id) const {
 
 void DialogView::focus(int id) { focus_ = id; }
 
+UiRect DialogView::rect(int id) const {
+    const ResiControl* c = dialog_.control(id);
+    return c ? rectOf(*c) : UiRect{};
+}
+
 UiRect DialogView::rectOf(const ResiControl& c) const {
     UiRect r{x_ + c.left, y_ + c.top, 0, 0};
     const std::string& name = c.type == ResiControl::TextButton ? c.animation : c.text;

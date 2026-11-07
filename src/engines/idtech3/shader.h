@@ -24,7 +24,7 @@ struct Directive {
 };
 
 // A rendering pass ("stage") of a shader, as described in
-// docs/formats/idtech3/shader.md. Every directive is also kept, as
+// docs/engines/idtech3/formats/shader.md. Every directive is also kept, as
 // written, in `directives`.
 struct ShaderStage {
     std::vector<std::string> maps; // one image, or animMap's frames

@@ -46,9 +46,9 @@ void VideoViewer::load() {
         error_ = err.message;
         return;
     }
-    if (player_.file().hasAudio()) {
+    if (player_.hasAudio()) {
         auto s = std::make_shared<audio::Sound>();
-        if (Error err = player_.file().audio(*s))
+        if (Error err = player_.audio(*s))
             error_ = err.message;
         else
             sound_ = s;
@@ -153,7 +153,7 @@ void VideoViewer::draw() {
             d[3] = 255;
         }
     }
-    const video::AviFile& avi = player_.file();
+    const Movie& avi = player_;
     char line[160];
     std::snprintf(line, sizeof line, "%dx%d %s, frame %zu/%zu at %.0f a second%s%s", avi.width(), avi.height(),
                   avi.videoCodec().c_str(), player_.frameShown() + 1, avi.frameCount(), avi.framesPerSecond(),

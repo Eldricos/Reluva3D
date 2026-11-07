@@ -15,7 +15,7 @@ namespace reluva::newworlds {
 
 // One of the game's fonts: a .fif (chunk tag 0x26, the glyph table) and the
 // .fbp image of the same name next to it (tag 0x16, a texture). See
-// docs/formats/newworlds/fif.md.
+// docs/engines/newworlds/fif.md.
 struct GameFont {
     struct Glyph {
         int x = 0, y = 0, width = 0, height = 0; // in the image; height 0: none

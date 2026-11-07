@@ -7,18 +7,21 @@
 // Everything in this engine must come from the game's data files, observed
 // behaviour of the original, or documented reverse engineering of a legally
 // owned copy. Never from leaked source code. See CONTRIBUTING.md and
-// docs/engines/clue.md.
+// docs/engines/clue/README.md.
 //
 // The game starts as the original does: its intro, then its menus, the
-// players' set-up and the mansion with the game's bar (frontend.h); the
-// rules themselves aren't played yet. F9 switches to a viewer of the
+// players' set-up and the game in the mansion, alone or over a network
+// (frontend.h, play.h). F9 switches to a viewer of the
 // game's data (the mansion, videos, animations, images, sounds and text;
 // see viewers.h for the keys), where Tab moves between its pages and F9 or
 // Esc goes back.
 
-#include "engines/engine.h"
+#include "common/fs.h"
+#include "common/settings.h"
+#include "common/stream.h"
 #include "engines/clue/frontend.h"
 #include "engines/clue/viewers.h"
+#include "engines/engine.h"
 
 namespace reluva {
 
@@ -76,6 +79,8 @@ public:
             return err;
         screen_.create(clue::kScreenW, clue::kScreenH, PixelFormat::RGBA32);
         audio::Mixer mixer(sys_.audioRate());
+        // The launcher's master volume, over the game's own sliders.
+        mixer.setMasterVolume(settings::volume(target_.settings, settings::kMasterVolume));
         const bool audioOut = !audio::startMixerOutput(sys_, mixer);
         struct AudioStop {
             System& sys;
@@ -214,7 +219,29 @@ public:
     const char* name() const override { return "Clue"; }
 
     std::vector<DetectedGame> detect(const std::filesystem::path& dir) const override {
-        return detectFromTable(id(), kVariants, dir);
+        std::vector<DetectedGame> found = detectFromTable(id(), kVariants, dir);
+        if (!found.empty())
+            return found;
+        // A release not in the table (another patch, another language's
+        // files): Clue.exe beside the ticker's sentences, an install's or the
+        // CD's. The sentences' "Miss Scarlett" tells the UK's.
+        if (!fs::findFile(dir, "Clue.exe"))
+            return found;
+        for (const char* ticker : {"Data/Classic/Text/TickerStrings.txt", "Data/US/Text/TickerStrings.txt",
+                                   "Data/UK/Text/TickerStrings.txt"}) {
+            const auto path = fs::findFile(dir, ticker);
+            if (!path)
+                continue;
+            std::vector<uint8_t> text;
+            readFile(*path, text);
+            const bool uk = std::string(text.begin(), text.end()).find("Scarlett") != std::string::npos;
+            found.push_back({id(), uk ? "clue-uk" : "clue",
+                             uk ? "Clue: Murder at Boddy Mansion (UK English, unknown release)"
+                                : "Clue: Murder at Boddy Mansion (unknown release)",
+                             uk ? "en-gb" : "en", "windows"});
+            break;
+        }
+        return found;
     }
 
     std::unique_ptr<Engine> create(System& system, const GameTarget& target) const override {

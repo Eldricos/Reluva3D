@@ -8,9 +8,9 @@
 #include "common/events.h"
 #include "common/system.h"
 #include "common/types.h"
-#include "common/video/avi.h"
 #include "engines/clue/game_data.h"
 #include "engines/clue/mansion.h"
+#include "engines/clue/movie.h"
 
 #include <cstdint>
 #include <filesystem>
@@ -107,7 +107,7 @@ private:
     audio::Mixer* mixer_;
     std::vector<std::filesystem::path> files_;
     int current_ = 0;
-    video::VideoPlayer player_;
+    Movie player_;
     std::shared_ptr<audio::Sound> sound_;
     audio::SoundHandle playing_ = audio::kNoSound;
     std::string error_;

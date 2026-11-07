@@ -12,7 +12,7 @@
 namespace reluva::newworlds {
 
 // A mission listed in level.dat, the main menu's list. See
-// docs/formats/newworlds/level.md.
+// docs/engines/newworlds/level.md.
 struct Level {
     std::string shortName; // "F1": also the map's name (map/f1.gmf)
     int maxPlayers = 0;
@@ -29,7 +29,7 @@ Error parseLevelList(std::string_view text, std::vector<Level>& out);
 // ignoring case; listed levels before commented-out ones; nullptr if none.
 const Level* levelForMap(const std::vector<Level>& levels, std::string_view mapName);
 
-// What a mission's short name ties together (see docs/formats/newworlds/level.md
+// What a mission's short name ties together (see docs/engines/newworlds/level.md
 // and media.md). A side is 'F', 'K' or 'R'.
 
 // The sides a mission is played from: all three for a joint mission (J1),

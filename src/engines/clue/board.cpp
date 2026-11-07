@@ -200,7 +200,7 @@ Error Board::build(const Level& level) {
 
     // Where suspects stand in a room. The original's squares, as two
     // recorded games show them on the board from above (most used first;
-    // docs/formats/clue/board.md), when they are the room's; then the
+    // docs/engines/clue/board.md), when they are the room's; then the
     // squares along the room's front edges (its largest x and y, nearest
     // the camera, where the original stands them), those clear of
     // furniture first, then the rest, each nearest the front corner first.

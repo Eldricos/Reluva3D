@@ -4,187 +4,138 @@
 #include "common/video/avi.h"
 
 #include <algorithm>
-#include <cctype>
-#include <cmath>
-#include <cstring>
+#include <cstdlib>
 
-namespace reluva::video {
+namespace reluva::avi {
 
-namespace {
-
-uint16_t u16(const std::vector<uint8_t>& d, size_t o) { return uint16_t(d[o] | d[o + 1] << 8); }
-uint32_t u32(const std::vector<uint8_t>& d, size_t o) { return uint32_t(u16(d, o)) | uint32_t(u16(d, o + 2)) << 16; }
-bool is(const std::vector<uint8_t>& d, size_t o, const char* id) { return std::memcmp(d.data() + o, id, 4) == 0; }
-
-// Calls f(chunk offset, data offset, data size) for each chunk from p to
-// end; a size running past the end is cut to it.
-template <typename F>
-void forEachChunk(const std::vector<uint8_t>& d, size_t p, size_t end, F f) {
-    while (p < end && end - p >= 8) {
-        const size_t size = std::min<size_t>(u32(d, p + 4), end - p - 8);
-        f(p, p + 8, size);
-        p += 8 + size + (size & 1); // chunks are padded to even sizes
+bool Decoder::load(std::unique_ptr<SeekableReadStream> stream) {
+    stream_ = std::move(stream);
+    cinepak_.reset();
+    frames_.clear();
+    audio_.clear();
+    width_ = height_ = 0;
+    frameMicros_ = 41666;
+    videoCodec_ = 0;
+    streams_ = 0;
+    videoStream_ = audioStream_ = -1;
+    audioRate_ = audioChannels_ = audioBits_ = 0;
+    current_ = -1;
+    if (!stream_ || stream_->readUint32LE() != fourcc("RIFF")) {
+        stream_.reset();
+        return false;
     }
+    const uint32_t size = stream_->readUint32LE();
+    if (stream_->readUint32LE() != fourcc("AVI ")) {
+        stream_.reset();
+        return false;
+    }
+    const uint32_t end = uint32_t(std::min<int64_t>(int64_t(size) + 8, stream_->size()));
+    if (!readList(end, 0) || videoStream_ < 0 || width_ <= 0 || height_ <= 0) {
+        stream_.reset();
+        return false;
+    }
+    if (audioStream_ < 0)
+        audio_.clear();
+    if (videoCodec_ == fourcc("cvid") || videoCodec_ == fourcc("CVID"))
+        cinepak_ = std::make_unique<cinepak::Decoder>(width_, height_);
+    return true;
 }
 
-} // namespace
+bool Decoder::readList(uint32_t end, int depth) {
+    if (depth > 8)
+        return false;
+    int streamType = -1; // within a strl list: 0 video, 1 audio
+    while (uint32_t(stream_->pos()) + 8 <= end) {
+        const uint32_t id = stream_->readUint32LE();
+        const uint32_t size = stream_->readUint32LE();
+        const uint32_t start = uint32_t(stream_->pos());
+        const uint32_t next = start + size + (size & 1);
+        if (stream_->err() || start + size > end)
+            break;
 
-Error AviFile::open(std::vector<uint8_t> data) {
-    *this = {};
-    data_ = std::move(data);
-    if (data_.size() < 12 || !is(data_, 0, "RIFF") || !is(data_, 8, "AVI "))
-        return Error::fail("not an AVI file");
-    // Some files have bytes after the RIFF form; they're left alone.
-    const size_t end = std::min<size_t>(data_.size(), size_t(8) + u32(data_, 4));
-    bool movie = false;
-    Error err;
-    forEachChunk(data_, 12, end, [&](size_t c, size_t p, size_t size) {
-        if (!is(data_, c, "LIST") || size < 4)
-            return;
-        if (is(data_, p, "hdrl") && !err)
-            err = readHeaders(p + 4, p + size);
-        else if (is(data_, p, "movi")) {
-            readMovie(p + 4, p + size);
-            movie = true;
-        }
-    });
-    if (err)
-        return err;
-    if (videoStream_ < 0)
-        return Error::fail("AVI file without video");
-    if (!movie)
-        return Error::fail("AVI file without its movie data");
-    return Error::success();
-}
-
-Error AviFile::readHeaders(size_t p, size_t end) {
-    uint32_t usPerFrame = 0;
-    int stream = 0;
-    forEachChunk(data_, p, end, [&](size_t c, size_t q, size_t size) {
-        if (is(data_, c, "avih") && size >= 4)
-            usPerFrame = u32(data_, q);
-        if (!is(data_, c, "LIST") || size < 4 || !is(data_, q, "strl"))
-            return;
-        // One stream: its header (strh), then its format (strf).
-        std::string type, handler;
-        uint32_t scale = 0, rate = 0;
-        forEachChunk(data_, q + 4, q + size, [&](size_t c2, size_t r, size_t n) {
-            if (is(data_, c2, "strh") && n >= 28) {
-                type.assign(reinterpret_cast<const char*>(data_.data() + r), 4);
-                handler.assign(reinterpret_cast<const char*>(data_.data() + r + 4), 4);
-                scale = u32(data_, r + 20);
-                rate = u32(data_, r + 24);
-            } else if (is(data_, c2, "strf")) {
-                if (type == "vids" && videoStream_ < 0 && n >= 20) {
-                    videoStream_ = stream;
-                    width_ = int(int32_t(u32(data_, r + 4)));
-                    height_ = std::abs(int(int32_t(u32(data_, r + 8))));
-                    videoCodec_.assign(reinterpret_cast<const char*>(data_.data() + r + 16), 4);
-                    if (videoCodec_[0] == 0)
-                        videoCodec_ = handler;
-                    for (char& ch : videoCodec_)
-                        ch = char(std::tolower(static_cast<unsigned char>(ch)));
-                    if (scale && rate)
-                        fps_ = double(rate) / scale;
-                } else if (type == "auds" && audioStream_ < 0 && n >= 16) {
-                    audioStream_ = stream;
-                    audioFormat_ = u16(data_, r);
-                    audioChannels_ = u16(data_, r + 2);
-                    audioRate_ = int(u32(data_, r + 4));
-                    audioBits_ = u16(data_, r + 14);
-                }
+        if (id == fourcc("LIST")) {
+            const uint32_t type = stream_->readUint32LE();
+            if (type == fourcc("strl"))
+                ++streams_;
+            if (!readList(start + size, depth + 1))
+                return false;
+        } else if (id == fourcc("avih")) {
+            frameMicros_ = stream_->readUint32LE();
+            if (!frameMicros_)
+                frameMicros_ = 41666;
+        } else if (id == fourcc("strh")) {
+            const uint32_t type = stream_->readUint32LE();
+            const uint32_t handler = stream_->readUint32LE();
+            if (type == fourcc("vids") && videoStream_ < 0) {
+                videoStream_ = streams_ - 1;
+                videoCodec_ = handler;
+                streamType = 0;
+            } else if (type == fourcc("auds") && audioStream_ < 0) {
+                audioStream_ = streams_ - 1;
+                streamType = 1;
+            } else {
+                streamType = -1;
             }
-        });
-        ++stream;
-    });
-    if (fps_ <= 0 && usPerFrame)
-        fps_ = 1e6 / usPerFrame;
-    if (fps_ <= 0 || fps_ > 1000)
-        return Error::fail("AVI frame rate out of range");
-    return Error::success();
-}
-
-void AviFile::readMovie(size_t p, size_t end) {
-    forEachChunk(data_, p, end, [&](size_t c, size_t q, size_t size) {
-        if (is(data_, c, "LIST")) { // "rec " groups a frame's chunks
-            if (size >= 4)
-                readMovie(q + 4, q + size);
-            return;
+        } else if (id == fourcc("strf")) {
+            if (streamType == 0 && size >= 12) {
+                stream_->readUint32LE(); // biSize
+                width_ = int32_t(stream_->readUint32LE());
+                height_ = std::abs(int32_t(stream_->readUint32LE()));
+            } else if (streamType == 1 && size >= 16) {
+                const uint16_t format = stream_->readUint16LE();
+                audioChannels_ = stream_->readUint16LE();
+                audioRate_ = int(stream_->readUint32LE());
+                stream_->readUint32LE(); // bytes a second
+                stream_->readUint16LE(); // block align
+                audioBits_ = stream_->readUint16LE();
+                if (format != 1) // PCM only
+                    audioStream_ = -2;
+            }
+        } else if ((id >> 16) == fourcc("..dc") >> 16 || (id >> 16) == fourcc("..db") >> 16 ||
+                   (id >> 16) == fourcc("..id") >> 16 || (id >> 16) == fourcc("..wb") >> 16) {
+            // "nndc"/"nndb" video (some games' inter frames are "nnid"),
+            // "nnwb" sound; nn is the stream's number.
+            const int number = (int(id & 0xFF) - '0') * 10 + (int((id >> 8) & 0xFF) - '0');
+            if ((id >> 16) == fourcc("..wb") >> 16) {
+                if (number == audioStream_ && size) {
+                    const size_t old = audio_.size();
+                    audio_.resize(old + size);
+                    audio_.resize(old + stream_->read(&audio_[old], size));
+                }
+            } else if (number == videoStream_) {
+                frames_.push_back({start, size});
+            }
         }
-        // "00dc": stream 00, compressed video ("db": uncompressed, but the
-        // name is used for key frames too); "01wb": stream 01, audio.
-        const uint8_t* id = data_.data() + c;
-        if (id[0] < '0' || id[0] > '9' || id[1] < '0' || id[1] > '9')
-            return;
-        const int stream = (id[0] - '0') * 10 + (id[1] - '0');
-        if (stream == videoStream_ && id[2] == 'd' && (id[3] == 'c' || id[3] == 'b'))
-            frames_.push_back({q, size});
-        else if (stream == audioStream_ && id[2] == 'w' && id[3] == 'b')
-            audioChunks_.push_back({q, size});
-    });
-}
-
-void AviFile::frame(size_t i, const uint8_t*& data, size_t& size) const {
-    data = data_.data() + frames_[i].offset;
-    size = frames_[i].size;
-}
-
-Error AviFile::audio(audio::Sound& out) const {
-    out = {};
-    if (!hasAudio())
-        return Error::fail("AVI file without sound");
-    if (audioFormat_ != 1 || (audioBits_ != 8 && audioBits_ != 16) || audioChannels_ < 1 || audioChannels_ > 2)
-        return Error::fail("AVI sound isn't 8- or 16-bit PCM");
-    out.rate = audioRate_;
-    out.channels = audioChannels_;
-    out.format = 1;
-    for (const Span& s : audioChunks_) {
-        const uint8_t* p = data_.data() + s.offset;
-        if (audioBits_ == 16)
-            for (size_t i = 0; i + 1 < s.size; i += 2)
-                out.samples.push_back(int16_t(p[i] | p[i + 1] << 8));
-        else
-            for (size_t i = 0; i < s.size; ++i)
-                out.samples.push_back(int16_t((p[i] - 128) << 8));
+        stream_->seek(next);
     }
-    // Whole frames of samples only.
-    out.samples.resize(out.samples.size() / size_t(out.channels) * size_t(out.channels));
-    return Error::success();
+    return true;
 }
 
-Error VideoPlayer::open(std::vector<uint8_t> data) {
-    decoder_.reset();
-    next_ = shown_ = 0;
-    if (Error err = file_.open(std::move(data)))
-        return err;
-    if (file_.videoCodec() != "cvid")
-        return Error::fail("AVI video in " + file_.videoCodec() + ", not Cinepak");
-    return seek(0);
+bool Decoder::readFrame(int index, std::vector<uint8_t>& out) {
+    out.clear();
+    if (!stream_ || index < 0 || index >= frameCount())
+        return false;
+    const Chunk& chunk = frames_[size_t(index)];
+    out.resize(chunk.size);
+    if (!chunk.size)
+        return true;
+    return stream_->seek(chunk.offset) && stream_->read(out.data(), chunk.size) == chunk.size;
 }
 
-double VideoPlayer::durationSeconds() const {
-    return file_.framesPerSecond() > 0 ? double(file_.frameCount()) / file_.framesPerSecond() : 0;
+bool Decoder::decodeNextFrame() {
+    if (!cinepak_ || endOfVideo())
+        return false;
+    ++current_;
+    std::vector<uint8_t> data;
+    if (!readFrame(current_, data))
+        return false;
+    cinepak_->decode(data.data(), uint32_t(data.size()));
+    return true;
 }
 
-Error VideoPlayer::seek(double seconds) {
-    if (file_.frameCount() == 0)
-        return Error::success();
-    const size_t target =
-        std::min(file_.frameCount() - 1, size_t(std::max(0.0, std::floor(seconds * file_.framesPerSecond()))));
-    // Frames build on the ones before: going back starts again.
-    if (target + 1 < next_) {
-        decoder_.reset();
-        next_ = 0;
-    }
-    for (; next_ <= target; ++next_) {
-        const uint8_t* data = nullptr;
-        size_t size = 0;
-        file_.frame(next_, data, size);
-        if (Error err = decoder_.decode(data, size))
-            return Error::fail("frame " + std::to_string(next_) + ": " + err.message);
-    }
-    shown_ = target;
-    return Error::success();
+const Surface& Decoder::surface() const {
+    static const Surface kEmpty;
+    return cinepak_ ? cinepak_->surface() : kEmpty;
 }
 
-} // namespace reluva::video
+} // namespace reluva::avi

@@ -8,10 +8,13 @@
 #include <cstddef>
 #include <cstring>
 #include <string>
+#include <vector>
 
 namespace reluva {
 
 namespace {
+
+constexpr uint8_t kStencilMarks = 3; // the stencil reference: a mirror's mark (1) and the sky's (2)
 
 Error sdlError(const char* what) { return Error::fail(std::string(what) + ": " + SDL_GetError()); }
 
@@ -29,6 +32,7 @@ struct VertexUniforms {
     float color[4];
     float mode[4];
     float mode2[4];
+    float fogPlane[4];
     float ambient[4], directed[4], lightDir[4];
     DeformUniforms deforms[2];
 };
@@ -63,6 +67,7 @@ uint32_t packState(const gfx::DrawState& s) {
 } // namespace
 
 SdlGpuRenderer::~SdlGpuRenderer() {
+    flush();
     if (cmd_) {
         if (pass_)
             SDL_EndGPURenderPass(pass_);
@@ -78,6 +83,8 @@ SdlGpuRenderer::~SdlGpuRenderer() {
             SDL_ReleaseGPUBuffer(device_, m.vertices);
         SDL_ReleaseGPUBuffer(device_, m.indices);
     }
+    if (transfer_)
+        SDL_ReleaseGPUTransferBuffer(device_, transfer_);
     for (auto& [key, p] : pipelines_)
         SDL_ReleaseGPUGraphicsPipeline(device_, p);
     for (SDL_GPUSampler* s : samplers_)
@@ -99,6 +106,93 @@ SdlGpuRenderer::~SdlGpuRenderer() {
         SDL_ReleaseGPUTexture(device_, color_);
     if (depth_)
         SDL_ReleaseGPUTexture(device_, depth_);
+    if (msaaColor_)
+        SDL_ReleaseGPUTexture(device_, msaaColor_);
+    if (msaaDepth_)
+        SDL_ReleaseGPUTexture(device_, msaaDepth_);
+}
+
+int SdlGpuRenderer::setMultisampling(int samples) {
+    // The most the device has for both the frame's format and the depth's.
+    wantSamples_ = SDL_GPU_SAMPLECOUNT_1;
+    for (SDL_GPUSampleCount c : {SDL_GPU_SAMPLECOUNT_4, SDL_GPU_SAMPLECOUNT_2}) {
+        const int n = c == SDL_GPU_SAMPLECOUNT_4 ? 4 : 2;
+        if (n <= samples && SDL_GPUTextureSupportsSampleCount(device_, SDL_GPU_TEXTUREFORMAT_R8G8B8A8_UNORM, c) &&
+            SDL_GPUTextureSupportsSampleCount(device_, depthFormat_, c)) {
+            wantSamples_ = c;
+            break;
+        }
+    }
+    return wantSamples_ == SDL_GPU_SAMPLECOUNT_4 ? 4 : wantSamples_ == SDL_GPU_SAMPLECOUNT_2 ? 2 : 1;
+}
+
+bool SdlGpuRenderer::makeMultisampleTargets() {
+    // Released once the GPU is done with them.
+    if (msaaColor_)
+        SDL_ReleaseGPUTexture(device_, msaaColor_);
+    if (msaaDepth_)
+        SDL_ReleaseGPUTexture(device_, msaaDepth_);
+    msaaColor_ = msaaDepth_ = nullptr;
+    for (auto& [key, p] : pipelines_)
+        if (p)
+            SDL_ReleaseGPUGraphicsPipeline(device_, p);
+    pipelines_.clear();
+    samples_ = wantSamples_;
+    if (samples_ == SDL_GPU_SAMPLECOUNT_1)
+        return true;
+    SDL_GPUTextureCreateInfo ci{};
+    ci.type = SDL_GPU_TEXTURETYPE_2D;
+    ci.format = SDL_GPU_TEXTUREFORMAT_R8G8B8A8_UNORM;
+    ci.usage = SDL_GPU_TEXTUREUSAGE_COLOR_TARGET;
+    ci.width = uint32_t(width_);
+    ci.height = uint32_t(height_);
+    ci.layer_count_or_depth = 1;
+    ci.num_levels = 1;
+    ci.sample_count = samples_;
+    msaaColor_ = SDL_CreateGPUTexture(device_, &ci);
+    ci.format = depthFormat_;
+    ci.usage = SDL_GPU_TEXTUREUSAGE_DEPTH_STENCIL_TARGET;
+    msaaDepth_ = SDL_CreateGPUTexture(device_, &ci);
+    if (msaaColor_ && msaaDepth_)
+        return true;
+    SDL_Log("Cannot create the multisampled frame: %s", SDL_GetError());
+    if (msaaColor_)
+        SDL_ReleaseGPUTexture(device_, msaaColor_);
+    if (msaaDepth_)
+        SDL_ReleaseGPUTexture(device_, msaaDepth_);
+    msaaColor_ = msaaDepth_ = nullptr;
+    samples_ = wantSamples_ = SDL_GPU_SAMPLECOUNT_1;
+    return false;
+}
+
+SDL_GPURenderPass* SdlGpuRenderer::beginPass(const SDL_FColor* clear, bool keepStencil) {
+    SDL_GPUColorTargetInfo color{};
+    color.load_op = clear ? SDL_GPU_LOADOP_CLEAR : SDL_GPU_LOADOP_LOAD;
+    if (clear)
+        color.clear_color = *clear;
+    SDL_GPUDepthStencilTargetInfo depth{};
+    if (msaaColor_) {
+        // Drawn multisampled and resolved into the frame; the samples are
+        // kept too, for a pass that goes on after clearDepth().
+        color.texture = msaaColor_;
+        color.resolve_texture = color_;
+        color.store_op = SDL_GPU_STOREOP_RESOLVE_AND_STORE;
+        depth.texture = msaaDepth_;
+    } else {
+        color.texture = color_;
+        color.store_op = SDL_GPU_STOREOP_STORE;
+        depth.texture = depth_;
+    }
+    depth.clear_depth = 1.0f;
+    depth.load_op = SDL_GPU_LOADOP_CLEAR;
+    depth.store_op = SDL_GPU_STOREOP_DONT_CARE;
+    depth.clear_stencil = 0;
+    depth.stencil_load_op = !hasStencil_   ? SDL_GPU_LOADOP_DONT_CARE
+                            : keepStencil ? SDL_GPU_LOADOP_LOAD
+                                          : SDL_GPU_LOADOP_CLEAR;
+    depth.stencil_store_op = hasStencil_ ? SDL_GPU_STOREOP_STORE : SDL_GPU_STOREOP_DONT_CARE;
+    passSamples_ = samples_;
+    return SDL_BeginGPURenderPass(cmd_, &color, 1, &depth);
 }
 
 Error SdlGpuRenderer::init(int width, int height) {
@@ -268,27 +362,16 @@ void SdlGpuRenderer::setDepthRange(float maxDepth) {
 void SdlGpuRenderer::clearDepth() {
     if (!pass_ || !cmd_)
         return;
-    // A new pass over the same frame: its colours kept, its depth cleared.
+    // A new pass over the same frame: its colours kept, its depth cleared,
+    // the marks kept.
     SDL_EndGPURenderPass(pass_);
-    SDL_GPUColorTargetInfo color{};
-    color.texture = color_;
-    color.load_op = SDL_GPU_LOADOP_LOAD;
-    color.store_op = SDL_GPU_STOREOP_STORE;
-    SDL_GPUDepthStencilTargetInfo depth{};
-    depth.texture = depth_;
-    depth.clear_depth = 1.0f;
-    depth.load_op = SDL_GPU_LOADOP_CLEAR;
-    depth.store_op = SDL_GPU_STOREOP_DONT_CARE;
-    // The marks kept.
-    depth.stencil_load_op = hasStencil_ ? SDL_GPU_LOADOP_LOAD : SDL_GPU_LOADOP_DONT_CARE;
-    depth.stencil_store_op = hasStencil_ ? SDL_GPU_STOREOP_STORE : SDL_GPU_STOREOP_DONT_CARE;
-    pass_ = SDL_BeginGPURenderPass(cmd_, &color, 1, &depth);
+    pass_ = beginPass(nullptr, true);
     boundPipeline_ = nullptr;
     boundMesh_ = 0;
     if (pass_ && viewport_.w > 0 && viewport_.h > 0)
         SDL_SetGPUViewport(pass_, &viewport_);
     if (pass_)
-        SDL_SetGPUStencilReference(pass_, 1);
+        SDL_SetGPUStencilReference(pass_, stencilRef_); // both kinds of mark, unless set
 }
 
 void SdlGpuRenderer::setStencilMode(StencilMode mode) {
@@ -296,31 +379,65 @@ void SdlGpuRenderer::setStencilMode(StencilMode mode) {
         stencilMode_ = mode;
 }
 
+void SdlGpuRenderer::setStencilReference(uint8_t ref) {
+    stencilRef_ = ref;
+    stencilWhole_ = true;
+    if (pass_)
+        SDL_SetGPUStencilReference(pass_, ref);
+}
+
 bool SdlGpuRenderer::upload(const void* data, uint32_t size, SDL_GPUBuffer* buffer, bool cycle) {
-    SDL_GPUTransferBufferCreateInfo ti{};
-    ti.usage = SDL_GPU_TRANSFERBUFFERUSAGE_UPLOAD;
-    ti.size = size;
-    SDL_GPUTransferBuffer* tb = SDL_CreateGPUTransferBuffer(device_, &ti);
-    if (!tb)
-        return false;
-    void* mapped = SDL_MapGPUTransferBuffer(device_, tb, false);
-    if (!mapped) {
-        SDL_ReleaseGPUTransferBuffer(device_, tb);
-        return false;
+    if (size == 0)
+        return true;
+    const auto offset = uint32_t(staging_.size());
+    const auto* bytes = static_cast<const uint8_t*>(data);
+    staging_.insert(staging_.end(), bytes, bytes + size);
+    pending_.push_back({buffer, offset, size, cycle});
+    return true;
+}
+
+bool SdlGpuRenderer::flush() {
+    if (pending_.empty())
+        return true;
+    const auto size = uint32_t(staging_.size());
+    if (!transfer_ || transferBytes_ < size) {
+        if (transfer_)
+            SDL_ReleaseGPUTransferBuffer(device_, transfer_);
+        SDL_GPUTransferBufferCreateInfo ti{};
+        ti.usage = SDL_GPU_TRANSFERBUFFERUSAGE_UPLOAD;
+        ti.size = std::max(size + size / 2, uint32_t(1) << 20);
+        transfer_ = SDL_CreateGPUTransferBuffer(device_, &ti);
+        transferBytes_ = transfer_ ? ti.size : 0;
     }
-    std::memcpy(mapped, data, size);
-    SDL_UnmapGPUTransferBuffer(device_, tb);
-    SDL_GPUCommandBuffer* cmd = SDL_AcquireGPUCommandBuffer(device_);
-    SDL_GPUCopyPass* copy = SDL_BeginGPUCopyPass(cmd);
-    SDL_GPUTransferBufferLocation src{};
-    src.transfer_buffer = tb;
-    SDL_GPUBufferRegion dst{};
-    dst.buffer = buffer;
-    dst.size = size;
-    SDL_UploadToGPUBuffer(copy, &src, &dst, cycle);
-    SDL_EndGPUCopyPass(copy);
-    const bool ok = SDL_SubmitGPUCommandBuffer(cmd);
-    SDL_ReleaseGPUTransferBuffer(device_, tb);
+    bool ok = transfer_ != nullptr;
+    // Cycled as it's mapped: the last frame's copies may still be reading it.
+    void* mapped = ok ? SDL_MapGPUTransferBuffer(device_, transfer_, true) : nullptr;
+    ok = mapped != nullptr;
+    SDL_GPUCommandBuffer* cmd = ok ? SDL_AcquireGPUCommandBuffer(device_) : nullptr;
+    if (mapped) {
+        std::memcpy(mapped, staging_.data(), size);
+        SDL_UnmapGPUTransferBuffer(device_, transfer_);
+    }
+    if (cmd) {
+        SDL_GPUCopyPass* copy = SDL_BeginGPUCopyPass(cmd);
+        for (const PendingUpload& u : pending_) {
+            SDL_GPUTransferBufferLocation src{};
+            src.transfer_buffer = transfer_;
+            src.offset = u.offset;
+            SDL_GPUBufferRegion dst{};
+            dst.buffer = u.buffer;
+            dst.size = u.size;
+            SDL_UploadToGPUBuffer(copy, &src, &dst, u.cycle);
+        }
+        SDL_EndGPUCopyPass(copy);
+        ok = SDL_SubmitGPUCommandBuffer(cmd);
+    } else {
+        ok = false;
+    }
+    pending_.clear();
+    staging_.clear();
+    // Bound buffers may have been cycled: bound again on the next draw.
+    boundMesh_ = 0;
     return ok;
 }
 
@@ -336,8 +453,7 @@ Error SdlGpuRenderer::createTexture(int width, int height, const uint8_t* rgba, 
     SDL_GPUTextureCreateInfo ci{};
     ci.type = SDL_GPU_TEXTURETYPE_2D;
     ci.format = SDL_GPU_TEXTUREFORMAT_R8G8B8A8_UNORM;
-    // Generating mipmaps renders into the texture.
-    ci.usage = SDL_GPU_TEXTUREUSAGE_SAMPLER | (levels > 1 ? SDL_GPU_TEXTUREUSAGE_COLOR_TARGET : 0);
+    ci.usage = SDL_GPU_TEXTUREUSAGE_SAMPLER;
     ci.width = uint32_t(width);
     ci.height = uint32_t(height);
     ci.layer_count_or_depth = 1;
@@ -346,34 +462,65 @@ Error SdlGpuRenderer::createTexture(int width, int height, const uint8_t* rgba, 
     if (!tex)
         return sdlError("Cannot create a texture");
 
-    const uint32_t size = uint32_t(width) * uint32_t(height) * 4;
+    // Every level made here, each pixel the average of the 2x2 above it
+    // (a lone row or column halves along the other side only), and all
+    // uploaded: a level left to the GPU to fill may keep whatever the
+    // memory held before.
+    struct Level {
+        int w, h;
+        uint32_t offset;
+    };
+    std::vector<Level> chain;
+    uint32_t size = 0;
+    for (int l = 0, w = width, h = height; l < levels; ++l, w = std::max(w / 2, 1), h = std::max(h / 2, 1)) {
+        chain.push_back({w, h, size});
+        size += uint32_t(w) * uint32_t(h) * 4;
+    }
     SDL_GPUTransferBufferCreateInfo ti{};
     ti.usage = SDL_GPU_TRANSFERBUFFERUSAGE_UPLOAD;
     ti.size = size;
     SDL_GPUTransferBuffer* tb = SDL_CreateGPUTransferBuffer(device_, &ti);
-    void* mapped = tb ? SDL_MapGPUTransferBuffer(device_, tb, false) : nullptr;
+    auto* mapped = static_cast<uint8_t*>(tb ? SDL_MapGPUTransferBuffer(device_, tb, false) : nullptr);
     if (!mapped) {
         if (tb)
             SDL_ReleaseGPUTransferBuffer(device_, tb);
         SDL_ReleaseGPUTexture(device_, tex);
         return sdlError("Cannot upload a texture");
     }
-    std::memcpy(mapped, rgba, size);
+    std::memcpy(mapped, rgba, size_t(width) * size_t(height) * 4);
+    for (size_t l = 1; l < chain.size(); ++l) {
+        const Level& up = chain[l - 1];
+        const Level& lv = chain[l];
+        const uint8_t* in = mapped + up.offset;
+        uint8_t* px = mapped + lv.offset;
+        const int sx = up.w > 1 ? 2 : 1, sy = up.h > 1 ? 2 : 1, n = sx * sy;
+        for (int y = 0; y < lv.h; ++y)
+            for (int x = 0; x < lv.w; ++x)
+                for (int c = 0; c < 4; ++c) {
+                    int sum = 0;
+                    for (int dy = 0; dy < sy; ++dy)
+                        for (int dx = 0; dx < sx; ++dx)
+                            sum += in[((y * sy + dy) * up.w + x * sx + dx) * 4 + c];
+                    px[(y * lv.w + x) * 4 + c] = uint8_t((sum + n / 2) / n);
+                }
+    }
     SDL_UnmapGPUTransferBuffer(device_, tb);
 
     SDL_GPUCommandBuffer* cmd = SDL_AcquireGPUCommandBuffer(device_);
     SDL_GPUCopyPass* copy = SDL_BeginGPUCopyPass(cmd);
-    SDL_GPUTextureTransferInfo src{};
-    src.transfer_buffer = tb;
-    SDL_GPUTextureRegion dst{};
-    dst.texture = tex;
-    dst.w = uint32_t(width);
-    dst.h = uint32_t(height);
-    dst.d = 1;
-    SDL_UploadToGPUTexture(copy, &src, &dst, false);
+    for (size_t l = 0; l < chain.size(); ++l) {
+        SDL_GPUTextureTransferInfo src{};
+        src.transfer_buffer = tb;
+        src.offset = chain[l].offset;
+        SDL_GPUTextureRegion dst{};
+        dst.texture = tex;
+        dst.mip_level = uint32_t(l);
+        dst.w = uint32_t(chain[l].w);
+        dst.h = uint32_t(chain[l].h);
+        dst.d = 1;
+        SDL_UploadToGPUTexture(copy, &src, &dst, false);
+    }
     SDL_EndGPUCopyPass(copy);
-    if (levels > 1)
-        SDL_GenerateMipmapsForGPUTexture(cmd, tex);
     SDL_SubmitGPUCommandBuffer(cmd);
     SDL_ReleaseGPUTransferBuffer(device_, tb);
 
@@ -427,8 +574,39 @@ Error SdlGpuRenderer::createMesh(const std::vector<gfx::Vertex>& vertices, const
         return err;
     }
     m.indexBytes = uint32_t(indices.size() * sizeof(uint32_t));
+    m.vertexBytes = uint32_t(vertices.size() * sizeof(gfx::Vertex));
     out = nextId_++;
     meshes_[out] = m;
+    return Error::success();
+}
+
+Error SdlGpuRenderer::setMeshVertices(gfx::MeshId id, const std::vector<gfx::Vertex>& vertices) {
+    auto it = meshes_.find(id);
+    if (it == meshes_.end() || vertices.empty() || it->second.sharedVertices)
+        return Error::fail("No such mesh, or no vertices");
+    // As setMeshIndices: into the buffer there is when they fit (cycled),
+    // else a bigger one.
+    const auto bytes = uint32_t(vertices.size() * sizeof(gfx::Vertex));
+    if (bytes <= it->second.vertexBytes) {
+        if (!upload(vertices.data(), bytes, it->second.vertices, true))
+            return sdlError("Cannot replace a mesh's vertices");
+    } else {
+        flush(); // nothing waiting for the old buffer
+        SDL_GPUBufferCreateInfo bi{};
+        bi.usage = SDL_GPU_BUFFERUSAGE_VERTEX;
+        bi.size = bytes;
+        SDL_GPUBuffer* buffer = SDL_CreateGPUBuffer(device_, &bi);
+        if (!buffer || !upload(vertices.data(), bytes, buffer)) {
+            if (buffer)
+                SDL_ReleaseGPUBuffer(device_, buffer);
+            return sdlError("Cannot replace a mesh's vertices");
+        }
+        SDL_ReleaseGPUBuffer(device_, it->second.vertices);
+        it->second.vertices = buffer;
+        it->second.vertexBytes = bytes;
+    }
+    if (boundMesh_ == id)
+        boundMesh_ = 0;
     return Error::success();
 }
 
@@ -447,6 +625,7 @@ Error SdlGpuRenderer::setMeshIndices(gfx::MeshId id, const std::vector<uint32_t>
         SDL_GPUBufferCreateInfo bi{};
         bi.usage = SDL_GPU_BUFFERUSAGE_INDEX;
         bi.size = bytes + bytes / 2;
+        flush(); // nothing waiting for the old buffer
         SDL_GPUBuffer* buffer = SDL_CreateGPUBuffer(device_, &bi);
         if (!buffer || !upload(indices.data(), bytes, buffer)) {
             if (buffer)
@@ -490,6 +669,7 @@ void SdlGpuRenderer::destroyMesh(gfx::MeshId id) {
     auto it = meshes_.find(id);
     if (it == meshes_.end())
         return;
+    flush(); // nothing waiting for its buffers
     if (!it->second.sharedVertices)
         SDL_ReleaseGPUBuffer(device_, it->second.vertices);
     SDL_ReleaseGPUBuffer(device_, it->second.indices);
@@ -497,7 +677,8 @@ void SdlGpuRenderer::destroyMesh(gfx::MeshId id) {
 }
 
 SDL_GPUGraphicsPipeline* SdlGpuRenderer::pipeline(const gfx::DrawState& state) {
-    const uint32_t key = packState(state) | uint32_t(stencilMode_) << 14 | uint32_t(mirrored_) << 16;
+    const uint32_t key = packState(state) | uint32_t(stencilMode_) << 14 | uint32_t(mirrored_) << 17 |
+                         uint32_t(stencilWhole_) << 18 | uint32_t(passSamples_) << 19;
     if (auto it = pipelines_.find(key); it != pipelines_.end())
         return it->second;
 
@@ -550,15 +731,23 @@ SDL_GPUGraphicsPipeline* SdlGpuRenderer::pipeline(const gfx::DrawState& state) {
     info.depth_stencil_state.enable_depth_write = state.depthWrite;
     info.depth_stencil_state.compare_op = state.depthEqual ? SDL_GPU_COMPAREOP_EQUAL : SDL_GPU_COMPAREOP_LESS_OR_EQUAL;
     if (stencilMode_ != StencilMode::None) {
-        // Mark: 1 wherever drawn; Inside: drawn only where it's 1.
+        // Mark: 1 wherever drawn (and the depth test passed); Inside:
+        // drawn only where it's 1. Mirrors' and portals' marks are the
+        // stencil's bit 1, the sky's bit 2: the reference has both, each
+        // mode masks its own. With a reference set (setStencilReference),
+        // Mark writes it whole and Inside compares the whole value.
+        const bool mark = stencilMode_ == StencilMode::Mark || stencilMode_ == StencilMode::SkyMark;
+        const bool sky = stencilMode_ == StencilMode::SkyMark || stencilMode_ == StencilMode::SkyInside;
         SDL_GPUStencilOpState op{};
         op.fail_op = op.depth_fail_op = SDL_GPU_STENCILOP_KEEP;
-        op.pass_op = stencilMode_ == StencilMode::Mark ? SDL_GPU_STENCILOP_REPLACE : SDL_GPU_STENCILOP_KEEP;
-        op.compare_op = stencilMode_ == StencilMode::Mark ? SDL_GPU_COMPAREOP_ALWAYS : SDL_GPU_COMPAREOP_EQUAL;
+        op.pass_op = mark ? SDL_GPU_STENCILOP_REPLACE : SDL_GPU_STENCILOP_KEEP;
+        op.compare_op = mark ? SDL_GPU_COMPAREOP_ALWAYS : SDL_GPU_COMPAREOP_EQUAL;
         info.depth_stencil_state.enable_stencil_test = true;
         info.depth_stencil_state.front_stencil_state = info.depth_stencil_state.back_stencil_state = op;
-        info.depth_stencil_state.compare_mask = info.depth_stencil_state.write_mask = 0xff;
+        info.depth_stencil_state.compare_mask = info.depth_stencil_state.write_mask =
+            stencilWhole_ ? 0xff : sky ? 2 : 1;
     }
+    info.multisample_state.sample_count = passSamples_;
     info.target_info.color_target_descriptions = &target;
     info.target_info.num_color_targets = 1;
     info.target_info.depth_stencil_format = depthFormat_;
@@ -580,30 +769,23 @@ void SdlGpuRenderer::beginFrame(const gfx::Mat4& viewProj, const gfx::Vec3& eye,
     cmd_ = SDL_AcquireGPUCommandBuffer(device_);
     if (!cmd_)
         return;
-    SDL_GPUColorTargetInfo color{};
-    color.texture = color_;
-    color.clear_color = {clear.r / 255.0f, clear.g / 255.0f, clear.b / 255.0f, 1.0f};
-    color.load_op = SDL_GPU_LOADOP_CLEAR;
-    color.store_op = SDL_GPU_STOREOP_STORE;
-    SDL_GPUDepthStencilTargetInfo depth{};
-    depth.texture = depth_;
-    depth.clear_depth = 1.0f;
-    depth.load_op = SDL_GPU_LOADOP_CLEAR;
-    depth.store_op = SDL_GPU_STOREOP_DONT_CARE;
-    // No marks to start with.
-    depth.clear_stencil = 0;
-    depth.stencil_load_op = hasStencil_ ? SDL_GPU_LOADOP_CLEAR : SDL_GPU_LOADOP_DONT_CARE;
-    depth.stencil_store_op = hasStencil_ ? SDL_GPU_STOREOP_STORE : SDL_GPU_STOREOP_DONT_CARE;
+    if (wantSamples_ != samples_)
+        makeMultisampleTargets();
     stencilMode_ = StencilMode::None;
+    stencilRef_ = kStencilMarks;
+    stencilWhole_ = false;
     mirrored_ = false;
-    pass_ = SDL_BeginGPURenderPass(cmd_, &color, 1, &depth);
+    // No marks to start with.
+    const SDL_FColor c = {clear.r / 255.0f, clear.g / 255.0f, clear.b / 255.0f, 1.0f};
+    pass_ = beginPass(&c, false);
     if (pass_)
-        SDL_SetGPUStencilReference(pass_, 1);
+        SDL_SetGPUStencilReference(pass_, stencilRef_); // both kinds of mark, unless set
 }
 
 void SdlGpuRenderer::draw(const gfx::DrawCall& call) {
     if (!pass_ || call.indexCount == 0)
         return;
+    flush();
     auto mesh = meshes_.find(call.mesh);
     if (mesh == meshes_.end())
         return;
@@ -660,6 +842,8 @@ void SdlGpuRenderer::draw(const gfx::DrawCall& call) {
     vu.mode[3] = call.fogDistance;
     vu.mode2[0] = call.followCamera ? 1.0f : 0.0f;
     vu.mode2[1] = call.backLerp;
+    vu.mode2[2] = call.fogDepth;
+    put(vu.fogPlane, call.fogPlane);
     for (size_t i = 0; i < call.deforms.size(); ++i) {
         const gfx::Deform& d = call.deforms[i];
         DeformUniforms& u = vu.deforms[i];
@@ -681,6 +865,7 @@ void SdlGpuRenderer::draw(const gfx::DrawCall& call) {
     SDL_PushGPUVertexUniformData(cmd_, 0, &vu, sizeof(vu));
     FragmentUniforms fu{};
     fu.params[0] = float(call.state.alphaTest);
+    fu.params[3] = call.fogDepth > 0 ? 1.0f : 0.0f;
     if (call.texture == frameTexture_) {
         fu.params[1] = 2; // the brightness pass
         fu.params[2] = 1.0f / gamma_;
@@ -734,6 +919,7 @@ void SdlGpuRenderer::capture(SDL_GPUTexture* frame) {
 }
 
 void SdlGpuRenderer::endFrame(const Surface* overlay) {
+    flush();
     stencilMode_ = StencilMode::None; // the brightness pass draws everything
     mirrored_ = false;
     if (pass_) {
@@ -754,6 +940,7 @@ void SdlGpuRenderer::endFrame(const Surface* overlay) {
         depth.stencil_load_op = SDL_GPU_LOADOP_DONT_CARE;
         depth.stencil_store_op = SDL_GPU_STOREOP_DONT_CARE;
         pass_ = SDL_BeginGPURenderPass(cmd_, &color, 1, &depth);
+        passSamples_ = SDL_GPU_SAMPLECOUNT_1;
         boundPipeline_ = nullptr;
         boundMesh_ = 0;
         viewProj_ = gfx::identity();
@@ -781,6 +968,8 @@ void SdlGpuRenderer::endFrame(const Surface* overlay) {
         SDL_UpdateTexture(overlay_, nullptr, overlay->pixels.data(), overlay->pitch);
         SDL_RenderTexture(renderer_, overlay_, nullptr, nullptr);
     }
+    if (beforePresent_)
+        beforePresent_();
     SDL_RenderPresent(renderer_);
 }
 

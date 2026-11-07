@@ -133,7 +133,8 @@ uint32_t Win32Process::Module::exportAddress(const std::string& function) const 
     return 0;
 }
 
-Win32Process::Win32Process(Cpu& cpu) : cpu_(cpu) {
+Win32Process::Win32Process(Cpu& cpu, std::string exeName, bool loadsExe)
+    : cpu_(cpu), exeName_(std::move(exeName)) {
     arena_ = std::make_unique<Arena>(cpu, 0x10000, cpu.nativeBase() & ~0xfffu);
     startMs_ = steadyMs();
     milliseconds = [this] { return uint32_t(steadyMs() - startMs_); };
@@ -141,7 +142,12 @@ Win32Process::Win32Process(Cpu& cpu) : cpu_(cpu) {
     // The thread: its stack, and its information block (which FS points
     // at): the exception handler chain's head, the stack's bounds, its own
     // address and the process's block's.
+    // With an EXE to load, not where programs (which can't be relocated)
+    // ask to be loaded: 0x400000 and the few megabytes after it.
+    const bool reserved = loadsExe && arena_->claim(0x400000, 0xc00000);
     const uint32_t stack = arena_->alloc(kStackSize, 0x10000);
+    if (reserved)
+        arena_->free(0x400000);
     stackTop_ = stack + kStackSize;
     tib_ = arena_->alloc(Cpu::kPageSize, Cpu::kPageSize);
     peb_ = arena_->alloc(Cpu::kPageSize, Cpu::kPageSize);
@@ -156,8 +162,8 @@ Win32Process::Win32Process(Cpu& cpu) : cpu_(cpu) {
     cpu.fsBase = tib_;
     cpu.setStack(stackTop_ - 16);
 
-    commandLine_ = arena_->alloc(64);
-    cpu.writeString(commandLine_, "stvoy.exe", 64);
+    commandLine_ = arena_->alloc(uint32_t(exeName_.size()) + 1);
+    cpu.writeString(commandLine_, exeName_, uint32_t(exeName_.size()) + 1);
     environment_ = arena_->alloc(16); // empty: two NULs
     environmentW_ = arena_->alloc(16);
     addStandIns();
@@ -362,7 +368,7 @@ void Win32Process::addStandIns() {
         return c.arg(0) ? moduleHandle(c.string(c.arg(0))) : kExeHandle;
     });
     stdcall(k, "GetModuleFileNameA", 3, [this](Cpu& c) {
-        std::string name = "stvoy.exe";
+        std::string name = exeName_;
         for (const auto& m : modules_)
             if (m->base == c.arg(0))
                 name = m->name;

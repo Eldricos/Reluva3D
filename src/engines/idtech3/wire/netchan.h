@@ -9,7 +9,7 @@
 namespace reluva::idtech3::wire {
 
 // One end of an established connection (protocol 24, see
-// docs/formats/idtech3/eliteforce-network.md): each message goes out as
+// docs/engines/idtech3/formats/eliteforce-network.md): each message goes out as
 // a datagram with its sequence number (and, from the client, its qport)
 // before it, in 1300-byte pieces if it's that long or longer, and
 // scrambled after its first 6 bytes; ones that come in out of order or

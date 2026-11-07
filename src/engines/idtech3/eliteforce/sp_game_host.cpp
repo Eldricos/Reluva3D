@@ -1,17 +1,30 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 // Copyright (C) 2026 The Reluva contributors
 
+#include "engines/idtech3/filesystem.h"
 #include "engines/idtech3/eliteforce/sp_game_host.h"
+
+#include "engines/idtech3/eliteforce/game_info.h"
 
 #include "common/md4.h"
 #include "common/x86/format.h"
 #include "engines/idtech3/eliteforce/game_layout.h"
+#include "engines/idtech3/raven/savegame.h"
+#include "engines/idtech3/entities.h"
+
+#include "common/detection.h"
+#include "common/md5.h"
+#include "common/archive.h"
+#include "common/fs.h"
+#include "engines/idtech3/vm_services.h"
 
 #include <algorithm>
 #include <array>
 #include <chrono>
 #include <cmath>
 #include <cstring>
+#include <istream>
+#include <sstream>
 
 namespace reluva::idtech3::eliteforce {
 
@@ -61,6 +74,11 @@ enum Import : int {
     Malloc = 38,
     Free = 39,
     ImportCount = 40,
+    // The Expansion Pack's engine's two more, by their places in its table
+    // (the rest move along: 16 and 17 by one, 18 on by two).
+    XpFsGetFileList = 16,
+    XpReadFromSaveGameOptional = 19,
+    XpImportCount = 42,
 };
 
 constexpr int32_t kMaxEntities = 1024;
@@ -79,30 +97,47 @@ std::string lower(std::string s) {
     return s;
 }
 
-std::string chunkName(uint32_t id) {
-    // Four characters, as the engine's own ('TIME' is 0x54494d45).
-    std::string s;
-    for (int i = 3; i >= 0; --i)
-        s += char((id >> (8 * i)) & 0xff);
-    return s;
-}
 
 } // namespace
 
-SpGameHost::SpGameHost(const SearchSet& files, CvarStore& cvars) : files_(files), cvars_(cvars) {}
+SpGameHost::SpGameHost(const SearchSet& files, CvarStore& cvars)
+    : files_(files), cvars_(cvars), serverWorld_([this](int32_t n, EntityShape& out) { return entityShape(n, out); }),
+      openFiles_(files) {}
+
+bool SpGameHost::entityShape(int32_t n, EntityShape& out) const {
+    const uint32_t a = entityAddress(n);
+    if (!a || !cpu_->valid(a, uint32_t(kEntity.owner + 4)))
+        return false;
+    out.origin = readVec(a + kEntity.currentOrigin);
+    out.angles = readVec(a + kEntity.currentAngles);
+    out.mins = readVec(a + kEntity.mins);
+    out.maxs = readVec(a + kEntity.maxs);
+    out.contents = int32_t(cpu_->read32(a + kEntity.contents));
+    const uint32_t owner = cpu_->read32(a + kEntity.owner);
+    out.owner = owner ? entityNumber(owner) : -1;
+    out.bmodel = cpu_->read32(a + kEntity.bmodel) != 0;
+    out.modelIndex = int32_t(cpu_->read32(a + kEntity.modelIndex));
+    return true;
+}
 
 SpGameHost::~SpGameHost() = default;
+
+int SpGameHost::importPosition(int slot) const {
+    if (!expansion_ || slot < AppendToSaveGame)
+        return slot;
+    return slot < SendConsoleCommand ? slot + 1 : slot + 2;
+}
 
 void SpGameHost::import(int slot, std::function<uint32_t(x86::Cpu&)> fn) {
     // cdecl: the caller pops the arguments.
     const uint32_t address = cpu_->addNative("engine[" + std::to_string(slot) + "]", [this, slot, fn](x86::Cpu& c) {
-        ++callCounts_[slot];
+        callCounts_.add(slot);
         if (trace)
             trace(slot, c.read32(c.reg[x86::Cpu::ESP]));
         c.reg[x86::Cpu::EAX] = fn(c);
         return 0u;
     });
-    cpu_->write32(imports_ + 4 * uint32_t(slot), address);
+    cpu_->write32(imports_ + 4 * uint32_t(importPosition(slot)), address);
 }
 
 uint32_t SpGameHost::text(const std::string& s) {
@@ -115,19 +150,28 @@ uint32_t SpGameHost::text(const std::string& s) {
 
 Error SpGameHost::load(const std::vector<uint8_t>& dll) {
     cpu_ = std::make_unique<x86::Cpu>(kMemory);
-    process_ = std::make_unique<x86::Win32Process>(*cpu_);
+    process_ = std::make_unique<x86::Win32Process>(*cpu_, kExeName);
     process_->output = [this](const std::string& s) {
         if (print)
             print(s);
     };
+    if (clock)
+        process_->milliseconds = clock;
     startMs_ = uint64_t(std::chrono::duration_cast<std::chrono::milliseconds>(
                             std::chrono::steady_clock::now().time_since_epoch())
                             .count());
+    // The Expansion Pack's (its own efgamex86.dll, 999,500 bytes) expects
+    // its engine's longer table.
+    {
+        Md5 md5;
+        md5.update(dll.data(), std::min<size_t>(dll.size(), kDetectionHashBytes));
+        expansion_ = dll.size() == 999500 && md5.hexDigest() == "f8f997ef96a09755f0d1c920c15ca773";
+    }
     if (Error e = process_->load("efgamex86.dll", dll, module_))
         return e;
     if (Error e = process_->attach(*module_))
         return e;
-    imports_ = process_->memory().alloc(4 * ImportCount);
+    imports_ = process_->memory().alloc(4 * (expansion_ ? XpImportCount : ImportCount));
     voiceVolume_ = process_->memory().alloc(4 * kMaxEntities);
     argvBuffer_ = process_->memory().alloc(kArgvSize);
     addImports();
@@ -178,15 +222,27 @@ int32_t SpGameHost::mapChecksum(const std::vector<uint8_t>& file) {
 }
 
 Error SpGameHost::startLevel(const std::string& mapName, std::shared_ptr<const Bsp> map, int32_t checksum,
-                             int32_t randomSeed) {
+                             int32_t randomSeed, int32_t loadMode) {
+    cvars_.applyLatched(); // as the original's server, before the level starts
     if (!map)
         return Error::fail("No map");
     if (!exports_)
         return Error::fail("The game isn't loaded");
     map_ = std::move(map);
     world_ = std::make_unique<CollisionWorld>(*map_);
+    {
+        // The light grid, for LightForPoint (the worldspawn's "gridsize").
+        float cell[3] = {64, 64, 128};
+        std::vector<Entity> entities;
+        if (!parseEntities(map_->entities, entities) && !entities.empty())
+            entities[0].vector("gridsize", cell);
+        lightGrid_ = LightGrid{};
+        lightGrid_.build(*map_, {cell[0], cell[1], cell[2]});
+    }
+    marks_.reset();
     areaPortals_ = std::make_unique<AreaPortals>(world_->areaCount());
-    linked_.clear();
+    serverWorld_.setLevel(map_.get(), world_.get(), areaPortals_.get(),
+                          [this] { return cvars_.find("cm_noAreas") && cvars_.integer("cm_noAreas"); });
     for (uint32_t a : levelText_)
         process_->memory().free(a);
     levelText_.clear();
@@ -197,16 +253,37 @@ Error SpGameHost::startLevel(const std::string& mapName, std::shared_ptr<const B
     cvars_.create("sv_maxclients", "1", CvarStore::ServerInfo | CvarStore::Latch);
     cvars_.create("g_gametype", "0", CvarStore::ServerInfo | CvarStore::Latch);
     cvars_.create("sv_cheats", "1", CvarStore::ServerInfo | CvarStore::ReadOnly);
-    levelTime_ = 0;
-    const uint32_t now = uint32_t(std::chrono::duration_cast<std::chrono::milliseconds>(
-                                      std::chrono::steady_clock::now().time_since_epoch())
-                                      .count() -
-                                  startMs_);
+    // The original's server starts a level's clock at 1000 ms, not 0: what
+    // the game schedules for "now plus a fraction" at spawn (a ref_tag
+    // linking itself into the camera's tags) would otherwise be due at 0,
+    // which is never.
+    levelTime_ = kStartTimeMs;
+    const uint32_t now = clock ? clock()
+                               : uint32_t(std::chrono::duration_cast<std::chrono::milliseconds>(
+                                              std::chrono::steady_clock::now().time_since_epoch())
+                                              .count() -
+                                          startMs_);
     // Init(mapname, checksum, entity text, level time, random seed, global
     // time, a saved game just loaded: no).
-    if (Error e = callGame(Init, {text(mapName), uint32_t(checksum), text(map_->entities), uint32_t(levelTime_),
-                                  uint32_t(randomSeed), now, 0}))
+    // The Expansion Pack's (as Jedi Outcast's): the spawn target after the
+    // map's name, and whether this is a level change last.
+    const std::vector<uint32_t> args =
+        expansion_ ? std::vector<uint32_t>{text(mapName), text(spawnTarget), uint32_t(checksum), text(map_->entities),
+                                           uint32_t(levelTime_), uint32_t(randomSeed), now, uint32_t(loadMode),
+                                           loadTransition ? 1u : 0u}
+                   : std::vector<uint32_t>{text(mapName), uint32_t(checksum), text(map_->entities), uint32_t(levelTime_),
+                                           uint32_t(randomSeed), now, uint32_t(loadMode)};
+    if (Error e = callGame(Init, args))
         return e;
+    // Frames to let the level settle before anyone joins, as the original's
+    // server runs them (three, then one more, 100 ms apart): the NPCs spawn
+    // in them, so they're there when the player's arrival starts the
+    // level's scripts, which find the entities they affect as they load.
+    for (int i = 0; i < 4; ++i) {
+        if (Error e = callGame(RunFrame, {uint32_t(levelTime_)}))
+            return e;
+        levelTime_ += kSettleFrameMs;
+    }
     // The server's and the system's settings, for the client game (as the
     // original's server sets them once the game is loaded).
     configstrings_[0] = infoString(CvarStore::ServerInfo);
@@ -214,11 +291,11 @@ Error SpGameHost::startLevel(const std::string& mapName, std::shared_ptr<const B
     return Error::success();
 }
 
-Error SpGameHost::connectPlayer(const std::string& userinfo, std::string& refused) {
+Error SpGameHost::connectPlayer(const std::string& userinfo, std::string& refused, int32_t loadMode) {
     userinfo_[0] = userinfo;
     uint32_t reason = 0;
     // ClientConnect(client, first time, saved game loaded)
-    if (Error e = callGame(ClientConnect, {0, 1, 0}, &reason))
+    if (Error e = callGame(ClientConnect, {0, 1, uint32_t(loadMode)}, &reason))
         return e;
     if (reason) {
         refused = cpu_->string(reason, 1024);
@@ -227,18 +304,148 @@ Error SpGameHost::connectPlayer(const std::string& userinfo, std::string& refuse
     // ClientBegin(client, usercmd, saved game loaded): an empty command.
     const uint32_t cmd = process_->memory().alloc(64);
     cpu_->write32(cmd, uint32_t(levelTime_));
-    const Error e = callGame(ClientBegin, {0, cmd, 0});
+    const Error e = callGame(ClientBegin, {0, cmd, uint32_t(loadMode)});
     process_->memory().free(cmd);
     return e;
 }
 
-Error SpGameHost::runFrame() {
+void SpGameHost::startVoice(int32_t entity, const std::string& name) {
+    auto log = [&](const std::string& text) {
+        if (voiceLog)
+            voiceLog("[" + std::to_string(levelTime_) + " ms] " + text);
+    };
+    if (entity < 0 || entity >= kMaxEntities || name.empty()) {
+        log("voice not counted: entity " + std::to_string(entity) + ", sound '" + name + "'");
+        return;
+    }
+    auto sound = soundLibrary_.find(name);
+    if (!sound || sound->rate <= 0 || sound->frames() == 0) {
+        log("voice not counted: " + name + " couldn't be read (entity " + std::to_string(entity) + ")");
+        return;
+    }
+    log("+" + std::to_string(entity) + " " + name + " " +
+        std::to_string(int64_t(sound->frames()) * 1000 / sound->rate) + " ms");
+    // Its peak, as the original's sound loading measures it: the largest
+    // sample's high byte, the scale its thresholds are taken against.
+    int peak = 0;
+    for (int16_t v : sound->samples)
+        peak = std::max(peak, std::abs(v >> 8));
+    voices_[entity] = {sound, levelTime_, float(peak)};
+    // Speaking from now, as the original marks it on starting (-1: started,
+    // silent so far), so the game sees it in the same frame.
+    if (voiceVolume_)
+        cpu_->write32(voiceVolume_ + 4 * uint32_t(entity), 0xffffffffu);
+}
+
+void SpGameHost::updateVoiceVolumes() {
+    // As the original's mixer does each pass: every entity 0, then each one
+    // speaking given how loud its voice is where it has got to (the mean
+    // square of ten samples a hundred apart, their high bytes) against
+    // s_threshold1-4 times the sound's peak: -1 quiet, then 5 to 8 (the
+    // client game shows the head skin that many after its first, the
+    // mouth's shapes). A line that has ended
+    // leaves 0, which ends the scripts' wait for it.
+    if (!voiceVolume_)
+        return;
+    std::memset(cpu_->memory().data() + voiceVolume_, 0, 4 * kMaxEntities);
+    auto threshold = [&](const char* name, float fallback) {
+        return cvars_.find(name) ? cvars_.value(name) : fallback;
+    };
+    const float t1 = threshold("s_threshold1", 0.5f), t2 = threshold("s_threshold2", 4.0f),
+                t3 = threshold("s_threshold3", 7.0f), t4 = threshold("s_threshold4", 8.0f);
+    for (auto it = voices_.begin(); it != voices_.end();) {
+        const Voice& v = it->second;
+        const size_t frames = v.sound->frames();
+        const size_t at = size_t(int64_t(levelTime_ - v.startMs) * v.sound->rate / 1000);
+        if (at >= frames) {
+            if (voiceLog)
+                voiceLog("[" + std::to_string(levelTime_) + " ms] -" + std::to_string(it->first));
+            it = voices_.erase(it);
+            continue;
+        }
+        int sum = 0, n = 0;
+        for (size_t i = at; i < frames && n < 10; i += 100, ++n) {
+            const int s = v.sound->samples[i * size_t(v.sound->channels)] >> 8;
+            sum += s * s;
+        }
+        const float level = float(sum / std::max(n, 1));
+        int32_t value = 8;
+        if (t1 * v.average > level)
+            value = -1;
+        else if (t2 * v.average > level)
+            value = 5;
+        else if (t3 * v.average > level)
+            value = 6;
+        else if (t4 * v.average > level)
+            value = 7;
+        cpu_->write32(voiceVolume_ + 4 * uint32_t(it->first), uint32_t(value));
+        ++it;
+    }
+}
+
+Error SpGameHost::runFrame(bool snapshot) {
     levelTime_ += kFrameMs;
+    updateVoiceVolumes();
     if (Error e = callGame(RunFrame, {uint32_t(levelTime_)}))
         return e;
-    if (cgameRunning_)
-        makeSnapshot();
+    if (snapshot)
+        sendSnapshot();
     return Error::success();
+}
+
+Error SpGameHost::writeLevel(bool autosave) { return callGame(WriteLevel, {autosave ? 1u : 0u}); }
+
+Error SpGameHost::readLevel(bool autosave) {
+    // (The Expansion Pack's: and whether it's a level change's.)
+    if (expansion_)
+        return callGame(ReadLevel, {autosave ? 1u : 0u, loadTransition ? 1u : 0u});
+    return callGame(ReadLevel, {autosave ? 1u : 0u});
+}
+
+void SpGameHost::replaceConfigstrings(const std::map<int32_t, std::string>& strings) {
+    configstrings_ = strings;
+}
+
+uint32_t SpGameHost::playerState() const {
+    // Client 0's: its entity's client pointer (the player state leads the
+    // game's client structure).
+    if (!entities())
+        return 0;
+    const uint32_t ps = cpu_->read32(entityAddress(0) + uint32_t(kEntity.client));
+    return cpu_->valid(ps, kPlayerStateSize) ? ps : 0;
+}
+
+int32_t SpGameHost::playerHealth() const {
+    const uint32_t ps = playerState();
+    return ps ? int32_t(cpu_->read32(ps + kPsHealth)) : 0;
+}
+
+void SpGameHost::savePlayer() {
+    // As the original's engine before a level change and an autosave: the
+    // player's state into cvars the game reads back when the next level
+    // starts (health, armour, weapons, the current weapon, its state, the
+    // view angles; ammunition; the Borg's adaptations).
+    cvars_.set("playersave", "");
+    const uint32_t ps = playerState();
+    if (!ps)
+        return;
+    auto i = [&](uint32_t at) { return int32_t(cpu_->read32(ps + at)); };
+    auto f = [&](uint32_t at) { return double(readFloat(ps + at)); };
+    char buf[256];
+    std::snprintf(buf, sizeof buf, "%i %i %i %i %i %f %f %f", i(0xbc), i(0xc8), i(0xc4), i(0x94), i(0x98), f(0x9c),
+                  f(0xa0), f(0xa4));
+    cvars_.set("playersave", buf);
+    for (uint32_t n = 0; n < 4; ++n)
+        cvars_.set("playerammo" + std::to_string(n), std::to_string(i(0x17c + 4 * n)));
+    for (uint32_t n = 0; n < 32; ++n)
+        cvars_.set("borgadapt" + std::to_string(n), std::to_string(i(0x18c + 4 * n)));
+}
+
+uint32_t SpGameHost::allowedToSaveHere(uint32_t flag) {
+    uint32_t result = 0;
+    if (callGame(GameAllowedToSaveHere, {flag}, &result))
+        return 0;
+    return result;
 }
 
 Error SpGameHost::consoleCommand(const std::string& text, bool* handled) {
@@ -318,150 +525,31 @@ Vec3f SpGameHost::entityVec(int32_t number, int32_t offset) const {
 
 void SpGameHost::linkEntity(uint32_t address) {
     const int32_t n = entityNumber(address);
-    if (n < 0 || !cpu_->valid(address, uint32_t(kEntity.owner + 4)))
+    EntityShape shape;
+    if (n < 0 || !entityShape(n, shape))
         return;
-    linked_.insert(n);
-    // Its box in the world, a unit larger all round; a turned brush model
-    // by its farthest corner.
-    const Vec3f origin = readVec(address + kEntity.currentOrigin), angles = readVec(address + kEntity.currentAngles);
-    const Vec3f mins = readVec(address + kEntity.mins), maxs = readVec(address + kEntity.maxs);
-    const bool bmodel = cpu_->read32(address + kEntity.bmodel) != 0;
     Vec3f absMin{}, absMax{};
-    if (bmodel && (angles[0] || angles[1] || angles[2])) {
-        float radius = 0;
-        for (int i = 0; i < 3; ++i) {
-            const float m = std::max(std::abs(mins[size_t(i)]), std::abs(maxs[size_t(i)]));
-            radius += m * m;
-        }
-        radius = std::sqrt(radius);
-        for (int i = 0; i < 3; ++i) {
-            absMin[size_t(i)] = origin[size_t(i)] - radius;
-            absMax[size_t(i)] = origin[size_t(i)] + radius;
-        }
-    } else {
-        for (int i = 0; i < 3; ++i) {
-            absMin[size_t(i)] = origin[size_t(i)] + mins[size_t(i)];
-            absMax[size_t(i)] = origin[size_t(i)] + maxs[size_t(i)];
-        }
-    }
-    for (int i = 0; i < 3; ++i) {
-        absMin[size_t(i)] -= 1;
-        absMax[size_t(i)] += 1;
-    }
+    serverWorld_.link(n, shape, absMin, absMax);
     writeVec(address + kEntity.absMin, absMin);
     writeVec(address + kEntity.absMax, absMax);
     cpu_->write32(address + kEntity.linked, 1);
-    // Its size for the client game: a brush model's marker, or a solid
-    // box's half width, depth and height (+32), a byte each.
-    int32_t solid = 0;
-    if (bmodel) {
-        solid = kSolidBrushModel;
-    } else if (cpu_->read32(address + kEntity.contents) & (1 | 0x2000000)) {
-        const auto clampByte = [](float v) { return std::clamp(int32_t(v), 1, 255); };
-        solid = (clampByte(maxs[2] + 32) << 16) | (clampByte(-mins[2]) << 8) | clampByte(maxs[0]);
-    }
-    cpu_->write32(address + kEntity.solid, uint32_t(solid));
+    cpu_->write32(address + kEntity.solid, uint32_t(ServerWorld::packedSolid(shape, kSolidBrushModel)));
 }
 
 void SpGameHost::unlinkEntity(uint32_t address) {
     const int32_t n = entityNumber(address);
     if (n < 0)
         return;
-    linked_.erase(n);
+    serverWorld_.unlink(n);
     cpu_->write32(address + kEntity.linked, 0);
 }
 
-std::pair<int, int> SpGameHost::entityAreas(int32_t n) const {
-    std::pair<int, int> areas{-1, -1};
-    if (!world_)
-        return areas;
-    std::vector<int> leafs;
-    world_->boxLeafs(entityVec(n, kEntity.absMin), entityVec(n, kEntity.absMax), leafs);
-    for (int leaf : leafs) {
-        const int area = world_->leafArea(leaf);
-        if (area < 0)
-            continue;
-        if (areas.first != -1 && areas.first != area)
-            areas.second = area;
-        else
-            areas.first = area;
-    }
-    return areas;
-}
-
-bool SpGameHost::areasConnected(int area1, int area2) const {
-    if (cvars_.find("cm_noAreas") && cvars_.integer("cm_noAreas"))
-        return true;
-    return areaPortals_ && areaPortals_->connected(area1, area2);
-}
-
-TraceResult SpGameHost::traceMove(const Vec3f& start, const Vec3f& mins, const Vec3f& maxs, const Vec3f& end,
-                                  int32_t passEntity, int32_t mask, int32_t& hit) {
-    TraceResult best;
-    hit = kEntityNone;
-    if (world_) {
-        best = world_->trace(start, end, mins, maxs, 0, mask);
-        hit = best.fraction < 1 ? kEntityWorld : kEntityNone;
-    }
-    Vec3f moveMin{}, moveMax{};
-    for (int i = 0; i < 3; ++i) {
-        moveMin[size_t(i)] = std::min(start[size_t(i)], end[size_t(i)]) + mins[size_t(i)] - 1;
-        moveMax[size_t(i)] = std::max(start[size_t(i)], end[size_t(i)]) + maxs[size_t(i)] + 1;
-    }
-    auto ownerOf = [&](int32_t n) {
-        const uint32_t owner = uint32_t(entityInt(n, kEntity.owner));
-        return owner ? entityNumber(owner) : -1;
-    };
-    const int32_t passOwner = passEntity >= 0 && passEntity < kMaxEntities ? ownerOf(passEntity) : -1;
-    for (int32_t n : linked_) {
-        if (best.allSolid)
-            break;
-        // Not the mover, nor what it owns or what owns it.
-        if (n == passEntity || (passEntity >= 0 && (ownerOf(n) == passEntity || n == passOwner)))
-            continue;
-        const int32_t contents = entityInt(n, kEntity.contents);
-        if (!(contents & mask))
-            continue;
-        const Vec3f absMin = entityVec(n, kEntity.absMin), absMax = entityVec(n, kEntity.absMax);
-        bool apart = false;
-        for (int i = 0; i < 3; ++i)
-            apart |= absMin[size_t(i)] > moveMax[size_t(i)] || absMax[size_t(i)] < moveMin[size_t(i)];
-        if (apart)
-            continue;
-        const Vec3f origin = entityVec(n, kEntity.currentOrigin);
-        TraceResult t;
-        if (entityInt(n, kEntity.bmodel) && world_) {
-            Vec3f s = start, e = end;
-            for (int i = 0; i < 3; ++i) {
-                s[size_t(i)] -= origin[size_t(i)];
-                e[size_t(i)] -= origin[size_t(i)];
-            }
-            t = world_->trace(s, e, mins, maxs, entityInt(n, kEntity.modelIndex), mask);
-            for (int i = 0; i < 3; ++i)
-                t.endPos[size_t(i)] += origin[size_t(i)];
-        } else {
-            Vec3f boxMin = entityVec(n, kEntity.mins), boxMax = entityVec(n, kEntity.maxs);
-            for (int i = 0; i < 3; ++i) {
-                boxMin[size_t(i)] += origin[size_t(i)];
-                boxMax[size_t(i)] += origin[size_t(i)];
-            }
-            t = CollisionWorld::traceBox(start, end, mins, maxs, boxMin, boxMax, contents);
-        }
-        if (t.allSolid || t.startSolid) {
-            best.allSolid |= t.allSolid;
-            best.startSolid = true;
-            hit = n;
-        }
-        if (t.fraction < best.fraction) {
-            const bool startSolid = best.startSolid;
-            best = t;
-            best.startSolid |= startSolid;
-            hit = n;
-        }
-    }
-    for (int i = 0; i < 3; ++i)
-        best.endPos[size_t(i)] = start[size_t(i)] + best.fraction * (end[size_t(i)] - start[size_t(i)]);
-    return best;
+ServerWorld::Placement SpGameHost::entityPlacement(int32_t n) const {
+    // As linked; or, for one marked linked in a saved game but not linked
+    // since, where its box says.
+    if (const ServerWorld::Placement* p = serverWorld_.placement(n))
+        return *p;
+    return serverWorld_.place(entityVec(n, kEntity.absMin), entityVec(n, kEntity.absMax));
 }
 
 void SpGameHost::writeTrace(uint32_t r, const TraceResult& t, int32_t hit) {
@@ -485,29 +573,6 @@ void SpGameHost::writeTrace(uint32_t r, const TraceResult& t, int32_t hit) {
     cpu_->write32(r + 44, uint32_t(t.surfaceFlags));
     cpu_->write32(r + 48, uint32_t(t.contents));
     cpu_->write32(r + 52, uint32_t(hit));
-}
-
-int32_t SpGameHost::pointContents(const Vec3f& point, int32_t passEntity) {
-    int32_t result = world_ ? world_->pointContents(point, 0) : 0;
-    for (int32_t n : linked_) {
-        if (n == passEntity)
-            continue;
-        const Vec3f origin = entityVec(n, kEntity.currentOrigin);
-        if (entityInt(n, kEntity.bmodel) && world_) {
-            const Vec3f local{point[0] - origin[0], point[1] - origin[1], point[2] - origin[2]};
-            if (world_->pointContents(local, entityInt(n, kEntity.modelIndex)))
-                result |= entityInt(n, kEntity.contents);
-        } else {
-            const Vec3f mins = entityVec(n, kEntity.mins), maxs = entityVec(n, kEntity.maxs);
-            bool inside = true;
-            for (int i = 0; i < 3; ++i)
-                inside &= point[size_t(i)] >= origin[size_t(i)] + mins[size_t(i)] &&
-                          point[size_t(i)] <= origin[size_t(i)] + maxs[size_t(i)];
-            if (inside)
-                result |= entityInt(n, kEntity.contents);
-        }
-    }
-    return result;
 }
 
 std::string SpGameHost::infoString(int32_t flag) const {
@@ -551,6 +616,10 @@ uint32_t SpGameHost::cvarStructure(const std::string& name) {
 }
 
 void SpGameHost::syncCvars() {
+    // (Done before every call into the game: only when something changed.)
+    if (cvars_.changes() == cvarChangesSynced_)
+        return;
+    cvarChangesSynced_ = cvars_.changes();
     for (auto& [key, m] : cvarMirrors_) {
         const CvarStore::Cvar* cv = cvars_.find(key);
         if (cv && cv->modificationCount != m.modificationCount)
@@ -563,47 +632,23 @@ void SpGameHost::syncCvars() {
 // FS_FOpenFile(path, &handle, mode): read from the game's search path; what
 // it writes is kept only until closed, for now.
 uint32_t SpGameHost::fsOpen(x86::Cpu& c, uint32_t pathAddress, uint32_t handleAddress, uint32_t mode) {
-    const std::string path = c.string(pathAddress, 256);
-    if (mode != 0) {
-        const uint32_t h = nextFile_++;
-        openFiles_[h] = OpenFile{{}, 0, true};
-        if (handleAddress)
-            c.write32(handleAddress, h);
-        return 0;
-    }
-    std::vector<uint8_t> data;
-    if (files_.read(path, data)) {
-        if (handleAddress)
-            c.write32(handleAddress, 0);
-        return 0xffffffffu;
-    }
-    const uint32_t length = uint32_t(data.size());
-    if (handleAddress) {
-        const uint32_t h = nextFile_++;
-        openFiles_[h] = OpenFile{std::move(data), 0, false};
-        c.write32(handleAddress, h);
-    }
-    return length;
+    uint32_t handle = 0;
+    const int32_t length = openFiles_.open(c.string(pathAddress, 256), int32_t(mode), handleAddress != 0, true, handle);
+    if (handleAddress)
+        c.write32(handleAddress, handle);
+    return uint32_t(length);
 }
 
 uint32_t SpGameHost::fsRead(x86::Cpu& c, uint32_t buffer, uint32_t length, uint32_t handle) {
-    auto it = openFiles_.find(handle);
-    if (it == openFiles_.end() || !c.valid(buffer, length))
+    if (!c.valid(buffer, length))
         return 0;
-    OpenFile& f = it->second;
-    const size_t n = std::min<size_t>(length, f.data.size() - f.position);
-    std::memcpy(c.memory().data() + buffer, f.data.data() + f.position, n);
-    f.position += n;
-    return uint32_t(n);
+    return uint32_t(openFiles_.read(handle, c.memory().data() + buffer, length));
 }
 
 uint32_t SpGameHost::fsWrite(x86::Cpu& c, uint32_t buffer, uint32_t length, uint32_t handle) {
-    auto it = openFiles_.find(handle);
-    if (it == openFiles_.end() || !c.valid(buffer, length))
+    if (!c.valid(buffer, length))
         return 0;
-    const uint8_t* p = c.memory().data() + buffer;
-    it->second.data.insert(it->second.data.end(), p, p + length);
-    return length;
+    return uint32_t(openFiles_.write(handle, c.memory().data() + buffer, length));
 }
 
 // --- The client game's system calls -------------------------------------------------
@@ -619,12 +664,46 @@ void SpGameHost::writeVmCvar(uint32_t address, const CvarStore::Cvar& cv) {
     cpu_->writeString(address + 16, cv.value, 256);
 }
 
+void SpGameHost::playAmbient(const std::vector<raven::AmbientSets::Sound>& sounds) {
+    if (!soundSystem)
+        return;
+    for (const raven::AmbientSets::Sound& s : sounds)
+        if (s.loop)
+            soundSystem->addAmbientLoop(s.entity, s.origin, s.volume, s.name);
+        else
+            soundSystem->startAmbientSound(s.entity, s.origin, s.volume, s.name);
+}
+
+int32_t SpGameHost::registerSkin(const std::string& name) {
+    // As Elite Force's renderer: name.skin, then name-1.skin to name-8.skin
+    // (a head's faces: blinking, the mouth's shapes) in the handles after
+    // it; the handle negated when there are any. The client game shows a
+    // face by adding to the first's handle.
+    const int32_t handle = skins_.add(name);
+    if (handle <= 0)
+        return handle;
+    auto [it, added] = skinFaces_.try_emplace(handle, 0);
+    const std::string lowerName = lower(name);
+    if (added && lowerName.size() > 5 && lowerName.compare(lowerName.size() - 5, 5, ".skin") == 0) {
+        const std::string base = name.substr(0, name.size() - 5);
+        for (int i = 1; i <= 8; ++i) {
+            const std::string face = base + "-" + std::to_string(i) + ".skin";
+            if (!files_.find(face))
+                break;
+            if (skins_.add(face) != handle + i)
+                break; // not next to it (registered before): can't be shown by number
+            ++it->second;
+        }
+    }
+    return it->second ? -handle : handle;
+}
+
 uint32_t SpGameHost::cgameCall(x86::Cpu& c) {
     // syscall(number, args...): the arguments after the number.
     auto a = [&c](int n) { return c.arg(n + 1); };
     auto str = [&](int n, size_t max = 1024) { return c.string(a(n), max); };
     const int number = int(c.arg(0));
-    ++cgameCallCounts_[number];
+    cgameCallCounts_.add(number);
     switch (number) {
     case 0: // Print(text)
         if (print)
@@ -647,7 +726,7 @@ uint32_t SpGameHost::cgameCall(x86::Cpu& c) {
         return 0;
     case 5: { // Cvar_Set(name, value)
         const std::string name = str(0, 256);
-        cvars_.set(name, str(1, 1024));
+        cvars_.set(name, str(1, 1024), true); // as the original's: read-only ones too
         if (cvarMirrors_.count(lower(name)))
             cvarStructure(name);
         return 0;
@@ -666,7 +745,7 @@ uint32_t SpGameHost::cgameCall(x86::Cpu& c) {
     case 9: return fsOpen(c, a(0), a(1), a(2));
     case 10: return fsRead(c, a(0), a(1), a(2));
     case 11: return fsWrite(c, a(0), a(1), a(2));
-    case 12: openFiles_.erase(a(0)); return 0;
+    case 12: openFiles_.close(a(0)); return 0;
     case 13: consoleCommands_.push_back(str(0, 4096)); return 0; // SendConsoleCommand
     case 14: clientCommands_.push_back(str(0, 256)); return 0;    // AddCommand(name)
     case 15: { // SendClientCommand(text): to the server game, as ClientCommand
@@ -677,7 +756,13 @@ uint32_t SpGameHost::cgameCall(x86::Cpu& c) {
             c.abort(e.message);
         return 0;
     }
-    case 16: return 0; // UpdateScreen()
+    case 16: // UpdateScreen(): while loading, the client game's loading screen shown
+        if (updateScreen && !inUpdateScreen_) {
+            inUpdateScreen_ = true;
+            updateScreen();
+            inUpdateScreen_ = false;
+        }
+        return 0;
     // Collision, for the client game's prediction: the same map.
     case 17: return 0;                                                  // CM_LoadMap(name)
     case 18: return world_ ? uint32_t(world_->modelCount()) : 0;        // CM_NumInlineModels()
@@ -687,12 +772,11 @@ uint32_t SpGameHost::cgameCall(x86::Cpu& c) {
         return kTempBoxModel;
     case 21:   // CM_PointContents(point, model)
     case 22: { // CM_TransformedPointContents(point, model, origin, angles)
-        Vec3f p = readVec(a(0));
-        if (number == 22) {
-            const Vec3f origin = readVec(a(2));
-            for (int i = 0; i < 3; ++i)
-                p[size_t(i)] -= origin[size_t(i)];
-        }
+        const Vec3f point = readVec(a(0));
+        const Vec3f origin = number == 22 ? readVec(a(2)) : Vec3f{}, angles = number == 22 ? readVec(a(3)) : Vec3f{};
+        Vec3f p = point;
+        for (int i = 0; i < 3; ++i)
+            p[size_t(i)] -= origin[size_t(i)];
         if (a(1) == kTempBoxModel) {
             if (tempBoxes_.empty())
                 return 0;
@@ -701,18 +785,50 @@ uint32_t SpGameHost::cgameCall(x86::Cpu& c) {
                     return 0;
             return 1;
         }
-        return world_ ? uint32_t(world_->pointContents(p, int(a(1)))) : 0;
+        return world_ ? uint32_t(world_->transformedPointContents(point, int(a(1)), origin, angles)) : 0;
     }
     case 23: clientTrace(c, false); return 0; // CM_BoxTrace
     case 24: clientTrace(c, true); return 0;  // CM_TransformedBoxTrace
-    case 25: return 0;                        // CM_MarkFragments: no wall marks yet
+    case 25: { // CM_MarkFragments(numPoints, points, projection, maxPoints, pointBuffer, maxFragments, fragmentBuffer)
+        // -> fragments: the pieces of the level under a mark (scorches,
+        // bullet holes), each (first point, point count) into the points.
+        const uint32_t count = a(0);
+        if (!map_ || count < 3 || count > 64 || !c.valid(a(1), count * 12) || !c.valid(a(2), 12))
+            return 0;
+        if (!marks_)
+            marks_ = std::make_unique<MarkSurfaces>(*map_, 4.0f);
+        std::vector<Vec3f> polygon;
+        for (uint32_t i = 0; i < count; ++i)
+            polygon.push_back(readVec(a(1) + 12 * i));
+        std::vector<Vec3f> points;
+        std::vector<MarkSurfaces::Fragment> fragments;
+        marks_->mark(polygon, readVec(a(2)), std::min<uint32_t>(a(3), 4096), std::min<uint32_t>(a(5), 1024), points,
+                     fragments);
+        if (!c.valid(a(4), uint32_t(points.size()) * 12) || !c.valid(a(6), uint32_t(fragments.size()) * 8))
+            return 0;
+        for (size_t i = 0; i < points.size(); ++i)
+            writeVec(a(4) + uint32_t(i) * 12, points[i]);
+        for (size_t i = 0; i < fragments.size(); ++i) {
+            c.write32(a(6) + uint32_t(i) * 8, uint32_t(fragments[i].firstPoint));
+            c.write32(a(6) + uint32_t(i) * 8 + 4, uint32_t(fragments[i].numPoints));
+        }
+        return uint32_t(fragments.size());
+    }
     // Sound, played if there's somewhere to play it.
     case 26: // S_StartSound(origin or 0, entity, channel, sfx)
+        if (voiceLog && (a(2) == 3 || a(2) == 4 || sounds_.name(int32_t(a(3))).find("voice") != std::string::npos))
+            voiceLog("[" + std::to_string(levelTime_) + " ms] sound on entity " + std::to_string(int32_t(a(1))) +
+                     ", channel " + std::to_string(int32_t(a(2))) + ": " + sounds_.name(int32_t(a(3))));
+        if (a(2) == 3 || a(2) == 4)
+            startVoice(int32_t(a(1)), sounds_.name(int32_t(a(3))));
         if (soundSystem)
             soundSystem->startSound(a(0) ? std::optional<Vec3f>(readVec(a(0))) : std::nullopt, int(a(1)), int(a(2)),
                                     sounds_.name(int32_t(a(3))));
         return 0;
     case 27: // S_StartLocalSound(sfx, channel)
+        if (voiceLog && (a(1) == 3 || a(1) == 4 || sounds_.name(int32_t(a(0))).find("voice") != std::string::npos))
+            voiceLog("[" + std::to_string(levelTime_) + " ms] local sound, channel " + std::to_string(int32_t(a(1))) +
+                     ": " + sounds_.name(int32_t(a(0))));
         if (soundSystem)
             soundSystem->startLocalSound(sounds_.name(int32_t(a(0))), int(a(1)));
         return 0;
@@ -742,18 +858,24 @@ uint32_t SpGameHost::cgameCall(x86::Cpu& c) {
     // The renderer: what's registered and drawn is recorded.
     case 38: return 0; // R_LoadWorldMap(name)
     case 39: return uint32_t(models_.add(str(0, 256)));
-    case 40: return uint32_t(skins_.add(str(0, 256)));
+    case 40: return uint32_t(registerSkin(str(0, 256))); // R_RegisterSkin(name)
     case 41:
-    case 42: return uint32_t(shaders_.add(str(0, 256)));
+    case 42: { // R_RegisterShader, R_RegisterShaderNoMip: 0 if it can't be found
+        const std::string name = str(0, 256);
+        return shaderExists && !shaderExists(name) ? 0 : uint32_t(shaders_.add(name));
+    }
     case 43: scene_.clear(); return 0; // R_ClearScene
     case 44:                           // R_AddRefEntityToScene(refEntity)
         if (c.valid(a(0), kRefEntitySize))
             scene_.addEntity(c.memory().data() + a(0), kRefEntitySize, 0);
         return 0;
-    case 45: { // R_LightForPoint(point, ambient, directed, direction): a plain light for now
-        writeVec(a(1), {128, 128, 128});
-        writeVec(a(2), {128, 128, 128});
-        writeVec(a(3), {0, 0, 1});
+    case 45: { // R_LightForPoint(point, ambient, directed, direction) -> whether the level has a light grid
+        if (lightGrid_.empty())
+            return 0;
+        const PointLight light = lightGrid_.sample(readVec(a(0)), false);
+        writeVec(a(1), {light.ambient[0], light.ambient[1], light.ambient[2]});
+        writeVec(a(2), {light.directed[0], light.directed[1], light.directed[2]});
+        writeVec(a(3), {light.direction[0], light.direction[1], light.direction[2]});
         return 1;
     }
     case 46: { // R_AddPolyToScene(shader, vertex count, vertices)
@@ -780,7 +902,16 @@ uint32_t SpGameHost::cgameCall(x86::Cpu& c) {
         pictures_.push_back({f(0), f(1), f(2), f(3), f(4), f(5), f(6), f(7), int32_t(a(8)), color_});
         return 0;
     }
-    case 51: case 54: return 0; // the saved game's picture; rotated pictures: not yet
+    case 51: { // R_DrawScreenShot(x, y, w, h): the screen capture, over the pictures so far
+        auto f = [&](int n) { return readFloat(c.reg[x86::Cpu::ESP] + 8 + 4 * uint32_t(n)); };
+        shots_.push_back({f(0), f(1), f(2), f(3), pictures_.size()});
+        return 0;
+    }
+    case 54: { // R_DrawRotatePic(x, y, w, h, s1, t1, s2, t2, angle, shader)
+        auto f = [&](int n) { return readFloat(c.reg[x86::Cpu::ESP] + 8 + 4 * uint32_t(n)); };
+        pictures_.push_back({f(0), f(1), f(2), f(3), f(4), f(5), f(6), f(7), int32_t(a(9)), color_, f(8)});
+        return 0;
+    }
     case 52: { // R_ModelBounds(model, mins, maxs)
         Vec3f mins{}, maxs{};
         const std::string& name = models_.name(int32_t(a(0)));
@@ -825,14 +956,10 @@ uint32_t SpGameHost::cgameCall(x86::Cpu& c) {
         return 0;
     }
     case 60: { // GetServerCommand(sequence) -> whether it's there; its words for Argv
-        std::vector<std::string> mine;
-        for (const auto& [to, text] : serverCommands_)
-            if (to == 0 || to == -1)
-                mine.push_back(text);
         const int32_t n = int32_t(a(0));
-        if (n < 1 || size_t(n) > mine.size())
+        if (n < 1 || size_t(n) > toClient_.size())
             return 0;
-        tokenize(mine[size_t(n - 1)]);
+        tokenize(serverCommands_[toClient_[size_t(n - 1)]].second);
         return 1;
     }
     case 61: return uint32_t(commandNumber_); // GetCurrentCmdNumber()
@@ -845,14 +972,37 @@ uint32_t SpGameHost::cgameCall(x86::Cpu& c) {
     }
     case 63: clientWeapon_ = uint8_t(a(0)); return 0; // SetUserCmdValue(weapon, sensitivity)
     case 64: return 16u << 20;                        // MemoryRemaining()
-    case 65: case 66: case 67: case 68: case 69: return 0; // ambient sound sets: not yet
-    case 70: { // S_GetSampleLength(sfx): milliseconds, a float in ST(0), as the original's
-        double ms = 0;
+    // Ambient sound sets (AmbientSets).
+    case 65: // S_UpdateAmbientSet(name, origin): the level's general set, each frame
+        playAmbient(ambient_.updateGeneral(str(0, 256), readVec(a(1)), levelTime_));
+        return 0;
+    case 66: { // S_AddLocalSet(name, listener origin, origin, entity, last time) -> the new time
+        int64_t last = int32_t(a(4));
+        playAmbient(ambient_.addLocal(str(0, 256), readVec(a(1)), readVec(a(2)), int(a(3)), last, levelTime_));
+        return uint32_t(int32_t(last));
+    }
+    case 67: { // AS_ParseSets(): sound/sound.txt, for the sets precached
+        std::vector<uint8_t> data;
+        std::vector<std::string> warnings;
+        if (Error e = files_.read("sound/sound.txt", data))
+            warnings.push_back("couldn't load ambient sound sets from sound/sound.txt: " + e.message);
+        else
+            ambient_.parse(std::string_view(reinterpret_cast<const char*>(data.data()), data.size()), warnings);
+        if (print)
+            for (const std::string& w : warnings)
+                print("ambient sets: " + w + "\n");
+        return 0;
+    }
+    case 68: ambient_.addPrecacheEntry(str(0, 256)); return 0; // AS_AddPrecacheEntry(name)
+    case 69: { // AS_GetBModelSound(name, stage) -> sfx, or -1
+        const std::string name = ambient_.bmodelSound(str(0, 256), int32_t(a(1)));
+        return name.empty() ? 0xffffffffu : uint32_t(sounds_.add(name));
+    }
+    case 70: { // S_GetSampleLength(sfx): whole milliseconds in EAX (the cgame's wrapper loads it with fild)
         const std::string& name = sounds_.name(int32_t(a(0)));
         if (!name.empty())
-            if (auto sound = soundLibrary_.get(name); sound && sound->rate > 0)
-                ms = double(sound->frames()) / double(sound->rate) * 1000.0;
-        c.fpuPush(ms);
+            if (auto sound = soundLibrary_.find(name); sound && sound->rate > 0)
+                return uint32_t(int64_t(sound->frames()) * 1000 / sound->rate);
         return 0;
     }
     default: ++cgameUnhandled_[number]; return 0;
@@ -887,23 +1037,22 @@ void SpGameHost::clientTrace(x86::Cpu& c, bool transformed) {
     const Vec3f mins = a(3) ? readVec(a(3)) : Vec3f{}, maxs = a(4) ? readVec(a(4)) : Vec3f{};
     const uint32_t model = a(5);
     const int32_t mask = int32_t(a(6));
-    Vec3f origin{};
-    if (transformed) {
-        origin = readVec(a(7));
-        for (int i = 0; i < 3; ++i) {
-            start[size_t(i)] -= origin[size_t(i)];
-            end[size_t(i)] -= origin[size_t(i)];
-        }
-    }
+    const Vec3f origin = transformed ? readVec(a(7)) : Vec3f{}, angles = transformed ? readVec(a(8)) : Vec3f{};
     TraceResult t;
     if (model == kTempBoxModel) {
+        // A box isn't turned, as the original's.
+        Vec3f s = start, e = end;
+        for (int i = 0; i < 3; ++i) {
+            s[size_t(i)] -= origin[size_t(i)];
+            e[size_t(i)] -= origin[size_t(i)];
+        }
         if (!tempBoxes_.empty())
-            t = CollisionWorld::traceBox(start, end, mins, maxs, tempBoxes_[0].first, tempBoxes_[0].second, 1);
+            t = CollisionWorld::traceBox(s, e, mins, maxs, tempBoxes_[0].first, tempBoxes_[0].second, 1);
     } else if (world_) {
-        t = world_->trace(start, end, mins, maxs, int(model), mask);
+        t = world_->transformedTrace(start, end, mins, maxs, int(model), mask, origin, angles);
     }
     for (int i = 0; i < 3; ++i)
-        t.endPos[size_t(i)] = start[size_t(i)] + t.fraction * (end[size_t(i)] - start[size_t(i)]) + origin[size_t(i)];
+        t.endPos[size_t(i)] = start[size_t(i)] + t.fraction * (end[size_t(i)] - start[size_t(i)]);
     writeTrace(a(0), t, t.fraction < 1 ? kEntityWorld : kEntityNone);
 }
 
@@ -929,30 +1078,32 @@ void SpGameHost::tokenize(const std::string& text) {
         args_.push_back(word);
 }
 
-void SpGameHost::writeGlconfig(uint32_t address) {
+void SpGameHost::writeGlconfig(uint32_t address) { writeGlconfigTo(*cpu_, address); }
+
+void SpGameHost::writeGlconfigTo(x86::Cpu& cpu, uint32_t address) {
     // glconfig_t as the original engine fills it (5196 bytes): the
     // renderer's, vendor's and version text (1024 each) and the extensions
     // (2048), then Quake III's numbers from 5120 with two more of Elite
     // Force's before the screen size (at 5168 and 5172).
     constexpr uint32_t kSize = 5196, kNumbers = 5120;
-    if (!cpu_->valid(address, kSize))
+    if (!cpu.valid(address, kSize))
         return;
-    std::memset(cpu_->memory().data() + address, 0, kSize);
-    cpu_->writeString(address, "Reluva", 1024);
-    cpu_->writeString(address + 1024, "Reluva", 1024);
-    cpu_->writeString(address + 2048, "1.0", 1024);
+    std::memset(cpu.memory().data() + address, 0, kSize);
+    cpu.writeString(address, "Reluva", 1024);
+    cpu.writeString(address + 1024, "Reluva", 1024);
+    cpu.writeString(address + 2048, "1.0", 1024);
     const uint32_t w = address + kNumbers;
-    cpu_->write32(w + 0, 2048); // maxTextureSize
-    cpu_->write32(w + 4, 2);    // texture units
-    cpu_->write32(w + 8, 32);   // colour bits
-    cpu_->write32(w + 12, 24);  // depth bits
-    cpu_->write32(w + 16, 8);   // stencil bits
-    cpu_->write32(w + 28, 1);   // deviceSupportsGamma
-    cpu_->write32(w + 36, 1);   // textureEnvAddAvailable
-    cpu_->write32(w + 48, 640); // vidWidth
-    cpu_->write32(w + 52, 480); // vidHeight
-    cpu_->write32(w + 56, floatBits(640.0f / 480.0f));
-    cpu_->write32(w + 60, 60); // displayFrequency
+    cpu.write32(w + 0, 2048); // maxTextureSize
+    cpu.write32(w + 4, 2);    // texture units
+    cpu.write32(w + 8, 32);   // colour bits
+    cpu.write32(w + 12, 24);  // depth bits
+    cpu.write32(w + 16, 8);   // stencil bits
+    cpu.write32(w + 28, 1);   // deviceSupportsGamma
+    cpu.write32(w + 36, 1);   // textureEnvAddAvailable
+    cpu.write32(w + 48, 640); // vidWidth
+    cpu.write32(w + 52, 480); // vidHeight
+    cpu.write32(w + 56, floatBits(640.0f / 480.0f));
+    cpu.write32(w + 60, 60); // displayFrequency
 }
 
 void SpGameHost::writeGameState(uint32_t address) {
@@ -1029,17 +1180,14 @@ std::vector<int32_t> SpGameHost::visibleEntities(const Vec3f& eye) {
             if (flags & 1)
                 continue;
             if (!(flags & 0x20) && world_) {
-                const auto areas = entityAreas(n);
-                if (!noAreas && area >= 0 && areas.first >= 0 && !areasConnected(area, areas.first) &&
-                    (areas.second < 0 || !areasConnected(area, areas.second)))
+                const ServerWorld::Placement place = entityPlacement(n);
+                const auto& areas = place.areas;
+                if (!noAreas && area >= 0 && areas.first >= 0 && !serverWorld_.areasConnected(area, areas.first) &&
+                    (areas.second < 0 || !serverWorld_.areasConnected(area, areas.second)))
                     continue;
-                std::vector<int> leafs;
-                world_->boxLeafs(entityVec(n, kEntity.absMin), entityVec(n, kEntity.absMax), leafs);
-                bool seen = leafs.empty() || cluster < 0;
-                for (const int l : leafs) {
-                    const int c = map_->leafs[size_t(l)].cluster;
-                    seen = seen || (c >= 0 && map_->clusterVisible(cluster, c));
-                }
+                bool seen = place.leafCount == 0 || cluster < 0;
+                for (const int c : place.clusters)
+                    seen = seen || map_->clusterVisible(cluster, c);
                 if (!seen)
                     continue;
             }
@@ -1084,10 +1232,13 @@ void SpGameHost::makeSnapshot() {
         if (snap.entities.size() >= 256)
             break;
         const uint32_t a = entityAddress(n);
+        // An entity whose number isn't its own put right, as the original's
+        // server does (see GameHost::snapshot).
+        if (cpu_->read32(a + uint32_t(kEntity.number)) != uint32_t(n))
+            cpu_->write32(a + uint32_t(kEntity.number), uint32_t(n));
         snap.entities.emplace_back(cpu_->memory().data() + a, cpu_->memory().data() + a + kEntityStateSize);
     }
-    for (const auto& [to, text] : serverCommands_)
-        snap.serverCommandSequence += to == 0 || to == -1;
+    snap.serverCommandSequence = int32_t(toClient_.size());
     if (world_ && areaPortals_ && !(cvars_.find("cm_noAreas") && cvars_.integer("cm_noAreas"))) {
         const int area = world_->leafArea(world_->leafAt(eye));
         if (area >= 0)
@@ -1108,7 +1259,16 @@ Error SpGameHost::startClientGame() {
     makeSnapshot();
     syncCvars();
     uint32_t ignored = 0;
-    return cpu_->call(cgameVmMain_, {CgInit, uint32_t(snapshotNumber_)}, ignored);
+    // CG_INIT's argument is the server commands received so far (the
+    // original engine passes its client's command sequence), which the
+    // client game counts on from.
+    return cpu_->call(cgameVmMain_, {CgInit, uint32_t(toClient_.size())}, ignored);
+}
+
+void SpGameHost::addServerCommand(int32_t to, std::string text) {
+    if (to == 0 || to == -1)
+        toClient_.push_back(serverCommands_.size());
+    serverCommands_.emplace_back(to, std::move(text));
 }
 
 Error SpGameHost::clientThink(const UserCommand& input) {
@@ -1125,13 +1285,40 @@ Error SpGameHost::clientThink(const UserCommand& input) {
 Error SpGameHost::drawClientFrame(int32_t time) {
     scene_ = {};
     pictures_.clear();
+    shots_.clear();
     syncCvars();
     uint32_t ignored = 0;
     const Error e = cpu_->call(cgameVmMain_, {CgDrawActiveFrame, uint32_t(time), 0}, ignored);
     lastScene_ = std::move(scene_);
     lastPictures_ = std::move(pictures_);
+    lastShots_ = std::move(shots_);
     scene_ = {};
     pictures_.clear();
+    shots_.clear();
+    return e;
+}
+
+Error SpGameHost::drawLoadingFrame() {
+    // CG_DRAW_ACTIVE_FRAME from inside the client game's start (as the
+    // original's screen update does): not ready yet, it draws its loading
+    // screen. What it was drawing meanwhile is kept aside.
+    Scene sceneBefore = std::move(scene_);
+    std::vector<Picture> picturesBefore = std::move(pictures_);
+    std::vector<ScreenShotDraw> shotsBefore = std::move(shots_);
+    const std::array<float, 4> colorBefore = color_;
+    scene_ = {};
+    pictures_.clear();
+    shots_.clear();
+    color_ = {1, 1, 1, 1};
+    uint32_t ignored = 0;
+    const Error e = cpu_->call(cgameVmMain_, {CgDrawActiveFrame, uint32_t(levelTime_), 0}, ignored);
+    lastScene_ = std::move(scene_);
+    lastPictures_ = std::move(pictures_);
+    lastShots_ = std::move(shots_);
+    scene_ = std::move(sceneBefore);
+    pictures_ = std::move(picturesBefore);
+    shots_ = std::move(shotsBefore);
+    color_ = colorBefore;
     return e;
 }
 
@@ -1188,8 +1375,10 @@ void SpGameHost::addImports() {
         return cvarStructure(name);
     });
     import(CvarSet, [this, str](x86::Cpu& c) {
+        // As the original engine's, forced: the game sets its read-only
+        // ones (skippingCinematic) this way.
         const std::string name = str(c, 0, 256);
-        cvars_.set(name, str(c, 1, 1024));
+        cvars_.set(name, str(c, 1, 1024), true);
         if (cvarMirrors_.count(lower(name)))
             cvarStructure(name);
         return 0u;
@@ -1213,7 +1402,7 @@ void SpGameHost::addImports() {
     import(FsRead, [this](x86::Cpu& c) { return fsRead(c, c.arg(0), c.arg(1), c.arg(2)); });
     import(FsWrite, [this](x86::Cpu& c) { return fsWrite(c, c.arg(0), c.arg(1), c.arg(2)); });
     import(FsFCloseFile, [this](x86::Cpu& c) {
-        openFiles_.erase(c.arg(0));
+        openFiles_.close(c.arg(0));
         return 0u;
     });
     import(FsReadFile, [this, str](x86::Cpu& c) -> uint32_t {
@@ -1241,23 +1430,72 @@ void SpGameHost::addImports() {
 
     // Saved games: kept in memory for now.
     import(AppendToSaveGame, [this](x86::Cpu& c) -> uint32_t {
+        // (id, data, length): into the saved game being written.
         const uint32_t data = c.arg(1), length = c.arg(2);
-        if (!c.valid(data, length))
+        if (!saveWriter_ || !c.valid(data, length))
             return 0;
-        const uint8_t* p = c.memory().data() + data;
-        saveChunks_[chunkName(c.arg(0))].assign(p, p + length);
+        saveWriter_->add(c.arg(0), c.memory().data() + data, length);
         return 1;
     });
-    import(ReadFromSaveGame, [this](x86::Cpu& c) -> uint32_t {
-        auto it = saveChunks_.find(chunkName(c.arg(0)));
-        const uint32_t buffer = c.arg(1), length = c.arg(2);
-        if (it == saveChunks_.end() || !c.valid(buffer, length)) {
-            c.abort("ReadFromSaveGame: no chunk " + chunkName(c.arg(0)));
+    // (id, buffer, length; and in the Expansion Pack's, a pointer for a
+    // buffer the engine makes when none is given): the saved game's next
+    // chunk, which must be this one and (unless the length is 0) this
+    // long. Optional (the Expansion Pack's other): a different chunk next
+    // is left for later, and 0 returned.
+    auto readChunk = [this](x86::Cpu& c, bool optional) -> uint32_t {
+        const uint32_t id = c.arg(0), length = c.arg(2);
+        uint32_t buffer = c.arg(1);
+        if (optional && (!saveReader_ || !saveReader_->peek(id)))
+            return 0;
+        std::vector<uint8_t> data;
+        Error e = saveReader_ ? saveReader_->next(id, data, length)
+                              : Error::fail("no saved game is being read");
+        if (!e && expansion_ && !buffer) {
+            buffer = process_->memory().alloc(std::max<uint32_t>(uint32_t(data.size()), 1));
+            if (!buffer)
+                e = Error::fail("no memory for it");
+            else if (const uint32_t out = c.arg(3); out && c.valid(out, 4))
+                c.write32(out, buffer);
+        }
+        if (!e && !c.valid(buffer, uint32_t(data.size())))
+            e = Error::fail("its buffer isn't in memory");
+        if (e) {
+            c.abort("ReadFromSaveGame(" + chunkName(id) + "): " + e.message);
             return 0;
         }
-        std::memcpy(c.memory().data() + buffer, it->second.data(), std::min<size_t>(length, it->second.size()));
-        return 1;
-    });
+        std::memcpy(c.memory().data() + buffer, data.data(), data.size());
+        return expansion_ ? uint32_t(data.size()) : 1u;
+    };
+    import(ReadFromSaveGame, [readChunk](x86::Cpu& c) { return readChunk(c, false); });
+    if (expansion_) {
+        // Its slots of their own (not through import(), which places the
+        // 1.x slots).
+        auto own = [this](int position, const char* name, std::function<uint32_t(x86::Cpu&)> fn) {
+            const uint32_t address = cpu_->addNative(name, [fn](x86::Cpu& c) {
+                c.reg[x86::Cpu::EAX] = fn(c);
+                return 0u;
+            });
+            cpu_->write32(imports_ + 4 * uint32_t(position), address);
+        };
+        own(XpReadFromSaveGameOptional, "engine[ReadFromSaveGameOptional]",
+            [readChunk](x86::Cpu& c) { return readChunk(c, true); });
+        own(XpFsGetFileList, "engine[FS_GetFileList]", [this, str](x86::Cpu& c) -> uint32_t {
+            // (path, extension, buffer, size) -> how many, as that
+            // engine's (expansionFileList, packFileList); "$modlist": the
+            // mods' folders and descriptions (listMods).
+            const uint32_t path = c.arg(0), buffer = c.arg(2), size = c.arg(3);
+            if (!path || int32_t(size) <= 0 || !c.valid(buffer, size))
+                return 0;
+            const std::string folder = str(c, 0, 256);
+            std::vector<uint8_t> list;
+            const uint32_t count =
+                folder != "$modlist" ? packFileList(expansionFileList(files_, folder, c.arg(1) ? str(c, 1, 64) : ""), size, list)
+                : modInstall.empty() ? packModList({}, size, list)
+                                     : packModList(listMods(modInstall, modBaseDir), size, list);
+            std::memcpy(c.memory().data() + buffer, list.data(), list.size());
+            return count;
+        });
+    }
 
     import(SendConsoleCommand, [this, str](x86::Cpu& c) {
         consoleCommands_.push_back(str(c, 0, 4096));
@@ -1268,7 +1506,7 @@ void SpGameHost::addImports() {
         return 0u;
     });
     import(SendServerCommand, [this](x86::Cpu& c) {
-        serverCommands_.emplace_back(int32_t(c.arg(0)), x86::formatPrintf(c, c.arg(1), c.reg[x86::Cpu::ESP] + 12));
+        addServerCommand(int32_t(c.arg(0)), x86::formatPrintf(c, c.arg(1), c.reg[x86::Cpu::ESP] + 12));
         return 0u;
     });
     import(SetConfigstring, [this, str](x86::Cpu& c) {
@@ -1278,7 +1516,7 @@ void SpGameHost::addImports() {
         // Once the client game runs, it hears of changes as the original
         // engine tells it.
         if (cgameRunning_)
-            serverCommands_.emplace_back(0, "cs " + std::to_string(index) + " \"" + value + "\"");
+            addServerCommand(0, "cs " + std::to_string(index) + " \"" + value + "\"");
         return 0u;
     });
     import(GetConfigstring, [this](x86::Cpu& c) {
@@ -1325,13 +1563,15 @@ void SpGameHost::addImports() {
     import(Trace, [this](x86::Cpu& c) {
         const Vec3f zero{};
         int32_t hit = kEntityNone;
-        const TraceResult t = traceMove(readVec(c.arg(1)), c.arg(2) ? readVec(c.arg(2)) : zero,
-                                        c.arg(3) ? readVec(c.arg(3)) : zero, readVec(c.arg(4)), int32_t(c.arg(5)),
-                                        int32_t(c.arg(6)), hit);
+        const TraceResult t = serverWorld_.trace(readVec(c.arg(1)), c.arg(2) ? readVec(c.arg(2)) : zero,
+                                                 c.arg(3) ? readVec(c.arg(3)) : zero, readVec(c.arg(4)),
+                                                 int32_t(c.arg(5)), int32_t(c.arg(6)), hit);
         writeTrace(c.arg(0), t, hit);
         return 0u;
     });
-    import(PointContents, [this](x86::Cpu& c) { return uint32_t(pointContents(readVec(c.arg(0)), int32_t(c.arg(1)))); });
+    import(PointContents, [this](x86::Cpu& c) {
+        return uint32_t(serverWorld_.pointContents(readVec(c.arg(0)), int32_t(c.arg(1))));
+    });
     auto inPvs = [this](x86::Cpu& c, bool ignorePortals) -> uint32_t {
         if (!world_)
             return 1;
@@ -1340,19 +1580,21 @@ void SpGameHost::addImports() {
             return 0;
         if (!map_->clusterVisible(map_->leafs[size_t(l1)].cluster, map_->leafs[size_t(l2)].cluster))
             return 0;
-        return ignorePortals || areasConnected(world_->leafArea(l1), world_->leafArea(l2)) ? 1 : 0;
+        return ignorePortals || serverWorld_.areasConnected(world_->leafArea(l1), world_->leafArea(l2)) ? 1 : 0;
     };
     import(InPvs, [inPvs](x86::Cpu& c) { return inPvs(c, false); });
     import(InPvsIgnorePortals, [inPvs](x86::Cpu& c) { return inPvs(c, true); });
     import(AdjustAreaPortalState, [this](x86::Cpu& c) {
         if (const int32_t n = entityNumber(c.arg(0)); n >= 0 && areaPortals_) {
-            const auto [area1, area2] = entityAreas(n);
+            const auto [area1, area2] = entityPlacement(n).areas;
             if (area2 != -1)
                 areaPortals_->adjust(area1, area2, c.arg(1) != 0);
         }
         return 0u;
     });
-    import(AreasConnected, [this](x86::Cpu& c) { return areasConnected(int(c.arg(0)), int(c.arg(1))) ? 1u : 0u; });
+    import(AreasConnected, [this](x86::Cpu& c) {
+        return serverWorld_.areasConnected(int(c.arg(0)), int(c.arg(1))) ? 1u : 0u;
+    });
     import(LinkEntity, [this](x86::Cpu& c) {
         linkEntity(c.arg(0));
         return 0u;
@@ -1364,16 +1606,13 @@ void SpGameHost::addImports() {
     import(EntitiesInBox, [this](x86::Cpu& c) {
         // (mins, maxs, list of entity pointers, max) -> how many
         const Vec3f mins = readVec(c.arg(0)), maxs = readVec(c.arg(1));
+        std::vector<int32_t> found;
+        serverWorld_.entitiesInBox(mins, maxs, found);
         uint32_t count = 0;
-        for (int32_t n : linked_) {
+        for (const int32_t n : found) {
             if (count >= c.arg(3))
                 break;
-            const Vec3f absMin = entityVec(n, kEntity.absMin), absMax = entityVec(n, kEntity.absMax);
-            bool apart = false;
-            for (int i = 0; i < 3; ++i)
-                apart |= absMin[size_t(i)] > maxs[size_t(i)] || absMax[size_t(i)] < mins[size_t(i)];
-            if (!apart)
-                c.write32(c.arg(2) + 4 * count++, entityAddress(n));
+            c.write32(c.arg(2) + 4 * count++, entityAddress(n));
         }
         return count;
     });
@@ -1384,16 +1623,14 @@ void SpGameHost::addImports() {
             return 0;
         const Vec3f origin = entityVec(n, kEntity.currentOrigin);
         if (entityInt(n, kEntity.bmodel) && world_) {
-            // The box moved into the model's own space.
-            Vec3f lo = mins, hi = maxs;
-            for (int i = 0; i < 3; ++i) {
-                lo[size_t(i)] -= origin[size_t(i)];
-                hi[size_t(i)] -= origin[size_t(i)];
-            }
-            const Vec3f centre{(lo[0] + hi[0]) / 2, (lo[1] + hi[1]) / 2, (lo[2] + hi[2]) / 2};
-            const Vec3f half{(hi[0] - lo[0]) / 2, (hi[1] - lo[1]) / 2, (hi[2] - lo[2]) / 2};
-            const Vec3f negHalf{-half[0], -half[1], -half[2]};
-            return world_->trace(centre, centre, negHalf, half, entityInt(n, kEntity.modelIndex), -1).startSolid ? 1 : 0;
+            // The box against the model where it stands, turned as it is.
+            const Vec3f zero{};
+            return world_
+                           ->transformedTrace(zero, zero, mins, maxs, entityInt(n, kEntity.modelIndex), -1, origin,
+                                              entityVec(n, kEntity.currentAngles))
+                           .startSolid
+                       ? 1
+                       : 0;
         }
         const Vec3f absMin = entityVec(n, kEntity.absMin), absMax = entityVec(n, kEntity.absMax);
         for (int i = 0; i < 3; ++i)
@@ -1402,7 +1639,7 @@ void SpGameHost::addImports() {
         return 1;
     });
     // Not a function: the voices' volumes, one int an entity.
-    cpu_->write32(imports_ + 4 * VoiceVolume, voiceVolume_);
+    cpu_->write32(imports_ + 4 * uint32_t(importPosition(VoiceVolume)), voiceVolume_);
     import(Malloc, [this](x86::Cpu& c) -> uint32_t {
         const uint32_t p = process_->memory().alloc(std::max(c.arg(0), 1u));
         if (!p)
@@ -1413,6 +1650,214 @@ void SpGameHost::addImports() {
         process_->memory().free(c.arg(0));
         return 0u;
     });
+}
+
+void writeSaveHeader(SaveWriter& w, const CvarStore& cvars, const SaveHeader& header) {
+    w.addText(chunkId("COMM"), header.comment, 128);
+    w.add(chunkId("SHOT"), header.shot);
+    w.addText(chunkId("MPCM"), header.map, 1024);
+    std::vector<const CvarStore::Cvar*> kept;
+    for (const CvarStore::Cvar& cv : cvars.all())
+        if (cv.flags & 2)
+            kept.push_back(&cv);
+    w.addInt(chunkId("CVCN"), int32_t(kept.size()));
+    for (const CvarStore::Cvar* cv : kept) {
+        w.addText(chunkId("CVAR"), cv->name);
+        w.addText(chunkId("VALU"), cv->value);
+    }
+    w.addInt(chunkId("GAME"), header.autosave ? 1 : 0);
+    if (header.autosave) {
+        w.addText(chunkId("CVSV"), cvars.string("playersave"), 1024);
+        for (int i = 0; i < 4; ++i)
+            w.addText(chunkId("AMMO"), cvars.string("playerammo" + std::to_string(i)), 1024);
+        for (int i = 0; i < 32; ++i)
+            w.addText(chunkId("APTD"), cvars.string("borgadapt" + std::to_string(i)), 1024);
+    }
+}
+
+Error writeSaveLevel(SaveWriter& w, SpGameHost& game, bool autosave) {
+    if (!autosave) {
+        w.addInt(chunkId("TIME"), game.levelTime());
+        w.addInt(chunkId("TIMR"), 0);
+        w.add(chunkId("STRP"), nullptr, 0);
+        std::vector<std::pair<int32_t, const std::string*>> strings;
+        for (const auto& [index, text] : game.configstrings())
+            if (index != 1 && !text.empty())
+                strings.emplace_back(index, &text);
+        w.addInt(chunkId("CSCN"), int32_t(strings.size()));
+        for (const auto& [index, text] : strings) {
+            w.addInt(chunkId("CSIN"), index);
+            w.addText(chunkId("CSDA"), *text);
+        }
+    }
+    game.setSaveStream(&w, nullptr);
+    const Error err = game.writeLevel(autosave);
+    game.setSaveStream(nullptr, nullptr);
+    return err;
+}
+
+Error readSaveHeader(SaveReader& r, CvarStore& cvars, SaveHeader& out) {
+    int32_t count = 0, autosave = 0;
+    if (Error e = r.nextText(chunkId("COMM"), out.comment))
+        return e;
+    if (Error e = r.next(chunkId("SHOT"), out.shot))
+        return e;
+    if (Error e = r.nextText(chunkId("MPCM"), out.map))
+        return e;
+    if (Error e = r.nextInt(chunkId("CVCN"), count))
+        return e;
+    for (int32_t i = 0; i < count; ++i) {
+        std::string cvar, value;
+        if (Error e = r.nextText(chunkId("CVAR"), cvar))
+            return e;
+        if (Error e = r.nextText(chunkId("VALU"), value))
+            return e;
+        cvars.set(cvar, value, true);
+    }
+    if (Error e = r.nextInt(chunkId("GAME"), autosave))
+        return e;
+    out.autosave = autosave != 0;
+    if (out.autosave) {
+        std::string text;
+        if (Error e = r.nextText(chunkId("CVSV"), text))
+            return e;
+        cvars.set("playersave", text);
+        for (int i = 0; i < 4; ++i) {
+            if (Error e = r.nextText(chunkId("AMMO"), text))
+                return e;
+            cvars.set("playerammo" + std::to_string(i), text);
+        }
+        for (int i = 0; i < 32; ++i) {
+            if (Error e = r.nextText(chunkId("APTD"), text))
+                return e;
+            cvars.set("borgadapt" + std::to_string(i), text);
+        }
+    }
+    return Error::success();
+}
+
+Error readSaveLevel(SaveReader& r, SpGameHost& game, bool autosave) {
+    if (!autosave) {
+        int32_t time = 0, residual = 0, count = 0;
+        std::vector<uint8_t> ignored;
+        if (Error e = r.nextInt(chunkId("TIME"), time))
+            return e;
+        if (Error e = r.nextInt(chunkId("TIMR"), residual))
+            return e;
+        if (Error e = r.next(chunkId("STRP"), ignored))
+            return e;
+        if (Error e = r.nextInt(chunkId("CSCN"), count))
+            return e;
+        std::map<int32_t, std::string> strings;
+        for (int32_t i = 0; i < count; ++i) {
+            int32_t at = 0;
+            std::string text;
+            if (Error e = r.nextInt(chunkId("CSIN"), at))
+                return e;
+            if (Error e = r.nextText(chunkId("CSDA"), text))
+                return e;
+            strings[at] = text;
+        }
+        game.setLevelTime(time);
+        game.replaceConfigstrings(strings);
+    }
+    return game.readLevel(autosave);
+}
+
+std::vector<std::string> expansionFileList(const SearchSet& files, std::string_view path, std::string_view extension) {
+    // A name's folder depth: its slashes (either kind).
+    auto depth = [](std::string_view name) {
+        return std::count_if(name.begin(), name.end(), [](char c) { return c == '/' || c == '\\'; });
+    };
+    auto lower = [](std::string_view text) {
+        std::string out(text);
+        for (char& c : out)
+            c = char(std::tolower(static_cast<unsigned char>(c)));
+        return out;
+    };
+    const std::string base = lower(path), ext = lower(extension);
+    const auto baseDepth = depth(path);
+    std::vector<std::string> out;
+    std::set<std::string> seen;
+    auto add = [&](std::string_view name) {
+        if (!name.empty() && (name[0] == '/' || name[0] == '\\'))
+            name.remove_prefix(1);
+        if (seen.insert(lower(name)).second)
+            out.emplace_back(name);
+    };
+    for (const Archive* archive : files.archives()) {
+        if (dynamic_cast<const DirectoryArchive*>(archive)) {
+            // Loose files: the folder's own, in Windows' order.
+            std::vector<std::string> names;
+            for (const std::string& n : archive->list()) {
+                const std::string key = lower(n);
+                if (key.size() > base.size() + 1 && key.compare(0, base.size(), base) == 0 &&
+                    key[base.size()] == '/' && key.find('/', base.size() + 1) == std::string::npos &&
+                    key.size() - base.size() - 1 >= ext.size() &&
+                    key.compare(key.size() - ext.size(), ext.size(), ext) == 0)
+                    names.push_back(n.substr(base.size() + 1));
+            }
+            std::sort(names.begin(), names.end(), [](const std::string& a, const std::string& b) { return reluva::fs::windowsNameLess(a, b); });
+            for (const std::string& n : names)
+                add(n);
+            continue;
+        }
+        for (const std::string& n : archive->list()) {
+            const std::string key = lower(n);
+            const size_t slash = key.find_last_of("/\\");
+            // Its folder at least as long as the path and starting with it,
+            // at most two folders deeper; ending in the extension and more
+            // than the path and it.
+            if (depth(n) - baseDepth > 2 || slash == std::string::npos || slash < base.size() ||
+                key.compare(0, base.size(), base) != 0 || key.size() < ext.size() ||
+                key.size() == base.size() + ext.size() || key.compare(key.size() - ext.size(), ext.size(), ext) != 0)
+                continue;
+            add(std::string_view(n).substr(base.size()));
+        }
+    }
+    return out;
+}
+
+uint32_t packFileList(const std::vector<std::string>& names, uint32_t size, std::vector<uint8_t>& out) {
+    out.assign(size ? 1 : 0, 0);
+    uint32_t count = 0;
+    for (const std::string& n : names) {
+        if (count == 0xfff)
+            break;
+        const size_t used = out.size() - 1;
+        if (!size || n.size() + used + 2 > size)
+            continue;
+        out.insert(out.end() - 1, n.begin(), n.end());
+        out.insert(out.end() - 1, 0);
+        ++count;
+    }
+    return count;
+}
+
+std::optional<SaveKind> saveKind(std::istream& in) {
+    // The chunks' headers only (id, length, checksum; then the data and
+    // the magic word), stepped over to the first GCLI.
+    const uint32_t clientId = chunkId("GCLI");
+    for (int n = 0; n < 100000; ++n) {
+        uint32_t header[3];
+        if (!in.read(reinterpret_cast<char*>(header), sizeof header))
+            return std::nullopt;
+        if (header[0] == clientId) {
+            if (header[1] == 2720)
+                return SaveKind::Original;
+            if (header[1] == 3364)
+                return SaveKind::Expansion;
+            return std::nullopt;
+        }
+        if (!in.seekg(std::streamoff(header[1]) + 4, std::ios::cur))
+            return std::nullopt;
+    }
+    return std::nullopt;
+}
+
+std::optional<SaveKind> saveKind(const std::vector<uint8_t>& file) {
+    std::istringstream in(std::string(file.begin(), file.end()), std::ios::binary);
+    return saveKind(in);
 }
 
 } // namespace reluva::idtech3::eliteforce

@@ -34,7 +34,7 @@ struct Accusation {
 };
 
 // Saved games are Reluva's own: whitespace-separated numbers, strings by
-// their length (see docs/engines/clue.md).
+// their length (see docs/engines/clue/README.md).
 namespace saveio {
 void putString(std::ostream& out, const std::string& s);
 bool getString(std::istream& in, std::string& s);

@@ -3,6 +3,8 @@
 
 #include "engines/idtech3/eliteforce/ui_host.h"
 
+#include "engines/idtech3/eliteforce/game_info.h"
+
 #include "engines/idtech3/md3.h"
 
 #include "common/fs.h"
@@ -17,7 +19,7 @@ namespace reluva::idtech3::eliteforce {
 namespace {
 
 // Elite Force ui.qvm system calls. The evidence for each number is in
-// docs/formats/idtech3/eliteforce-syscalls.md.
+// docs/engines/idtech3/formats/eliteforce-syscalls.md.
 enum UiCall : int {
     Error_ = 0,
     Print = 1,
@@ -100,10 +102,24 @@ Error UiHost::load() {
         return Error::fail("vm/ui.qvm: " + err.message);
     if (Error err = vm_.load(data))
         return Error::fail("vm/ui.qvm: " + err.message);
+    // The Expansion Pack's menus: patch 1.2's show the Holomatch modes'
+    // buttons and the settings that go with them when ui_cdkeychecked2 is
+    // 1, which the original's engine sets when baseEF/expefq3.key (the
+    // Expansion Pack's CD key) is there and isn't the game's own
+    // (efq3.key). Reluva shows them anyway unless reluva_modeButtons is 0:
+    // the modes are in the 1.2 game code, which is all they need.
+    {
+        std::vector<uint8_t> expansion, base;
+        const bool hasExpansionKey = !files_.read("expefq3.key", expansion) && !expansion.empty() &&
+                                     (files_.read("efq3.key", base) || base != expansion);
+        cvars_.create("reluva_modeButtons", "1", CvarStore::Archive);
+        cvars_.create("ui_cdkeychecked2", "0", CvarStore::ReadOnly);
+        cvars_.set("ui_cdkeychecked2", hasExpansionKey || cvars_.integer("reluva_modeButtons") ? "1" : "0", true);
+    }
     // The engine's settings the server list reads: its protocol, and the
     // master servers.
     cvars_.create("protocol", "24", CvarStore::ServerInfo | CvarStore::ReadOnly);
-    masterServerNames(cvars_);
+    masterServerNames(cvars_, masterServers());
     int32_t version = 0;
     if (Error err = call(GetApiVersion, {}, version))
         return err;
@@ -128,7 +144,10 @@ Error UiHost::refresh(int32_t time) {
     int32_t fullscreen = 0;
     if (Error err = call(IsFullscreen, {}, fullscreen))
         return err;
-    if (!fullscreen && !mainMenuNotFullscreen_) {
+    // Disconnected, the menus always show something covering the screen:
+    // the main menu, if nothing else, as the original's engine reopens it
+    // (only then: over a match, the in-game menu doesn't cover it).
+    if (!fullscreen && clientState.connState <= 1 && !mainMenuNotFullscreen_) {
         if (Error err = call(SetActiveMenu, {1})) // the main menu
             return err;
         // It should cover the screen now; if it doesn't, opening it every
@@ -225,7 +244,7 @@ bool UiHost::browserCommand(const std::string& line) {
         std::string keywords;
         for (size_t i = 3; i < words.size(); ++i)
             keywords += (keywords.empty() ? "" : " ") + words[i];
-        const std::vector<std::string> names = masterServerNames(cvars_);
+        const std::vector<std::string> names = masterServerNames(cvars_, masterServers());
         std::vector<net::Address> masters;
         for (size_t i = 0; i < names.size(); ++i) {
             if (master > 0 && cvars_.string("sv_master" + std::to_string(master + 1)) != names[i])
@@ -302,14 +321,16 @@ int32_t UiHost::systemCall(Qvm& vm, int number, const int32_t* a) {
         return 0;
     }
     case Milliseconds: return time_;
-    case CvarSet: cvars_.set(str(0, 256), str(1, 256)); return 0;
+    // Set at once, as the original engine's Cvar_Set (forced: a latched
+    // variable too; only what's typed at the console waits for a level).
+    case CvarSet: cvars_.set(str(0, 256), str(1, 256), true); return 0;
     case CvarVariableValue: return Qvm::fromFloat(cvars_.value(str(0, 256)));
     case CvarVariableStringBuffer: vm.writeString(a[1], cvars_.string(str(0, 256)), a[2]); return 0;
     case CvarSetValue: {
         // Quake III writes whole numbers without a decimal point.
         const float v = f(1);
         const std::string text = v == float(int32_t(v)) ? std::to_string(int32_t(v)) : std::to_string(v);
-        cvars_.set(str(0, 256), text);
+        cvars_.set(str(0, 256), text, true);
         return 0;
     }
     case CvarReset:
@@ -419,7 +440,11 @@ int32_t UiHost::systemCall(Qvm& vm, int number, const int32_t* a) {
         return 0;
     }
     case LanGetPingInfo: vm.writeString(a[1], browser ? browser->pingInfo(a[0]) : std::string(), a[2]); return 0;
-    case GetConfigString: vm.writeString(a[1], "", a[2]); return 0;
+    case GetConfigString: { // (index, buffer, size) -> whether there's one
+        const std::string text = configstring ? configstring(a[0]) : std::string();
+        vm.writeString(a[1], text, a[2]);
+        return configstring ? 1 : 0;
+    }
     case CvarRegister: {
         const CvarStore::Cvar& cv = cvars_.create(str(1, 256), str(2, 256), a[3]);
         if (a[0])

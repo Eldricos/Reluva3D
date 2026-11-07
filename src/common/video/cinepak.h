@@ -3,43 +3,48 @@
 
 #pragma once
 
-// Cinepak ("cvid") video, as Windows' and QuickTime's codec writes it.
-// See docs/formats/video.md.
-
-#include "common/image.h"
 #include "common/types.h"
 
-#include <array>
-#include <cstddef>
 #include <cstdint>
 #include <vector>
 
-namespace reluva::video {
+namespace reluva::cinepak {
 
-class CinepakDecoder {
+// Cinepak ('cvid'), the video codec of many 1990s games' AVI and QuickTime
+// files (docs/common/cinepak.md). A frame is made of horizontal strips;
+// each 4x4 block is drawn from codebooks of 2x2 YUV cells, one cell
+// stretched over the whole block (V1) or four of them (V4). Codebooks carry
+// over from frame to frame, and down from one strip to the next unless the
+// frame says otherwise; blocks an inter frame skips keep the last picture.
+class Decoder {
 public:
-    // Decodes a frame onto the last one (inter frames change only parts of
-    // it); the picture is RGBA, opaque. An empty frame leaves it as it was.
-    Error decode(const uint8_t* data, size_t size);
-    const image::Image& picture() const { return picture_; }
-    void reset();
+    Decoder(int width, int height);
+
+    // Decodes a frame onto the picture. An empty frame (a dropped one)
+    // leaves it as it was; false if the frame is too short to be one.
+    // Damage inside a frame stops that part of it, keeping what was drawn.
+    bool decode(const uint8_t* data, uint32_t size);
+
+    int width() const { return width_; }
+    int height() const { return height_; }
+    // The picture: RGBA32, opaque.
+    const Surface& surface() const { return picture_; }
 
 private:
-    // A codebook entry: a 2x2 block of colours.
-    struct Entry {
-        uint8_t rgb[4][3];
+    struct Cell {
+        uint8_t y[4];
+        int8_t u, v;
     };
     struct Strip {
-        std::array<Entry, 256> v4{}, v1{};
+        Cell v1[256], v4[256];
     };
-    Error decodeStrip(const uint8_t* p, size_t size, int top, int bottom, int width, Strip& strip);
-    void decodeVectors(int kind, const uint8_t* q, const uint8_t* end, int top, int bottom, int width,
-                       const Strip& strip);
-    void drawV1(const Entry& e, int x, int y);
-    void drawV4(const Entry& a, const Entry& b, const Entry& c, const Entry& d, int x, int y);
 
-    image::Image picture_;
+    static void decodeCodebook(Cell* codebook, int chunk, const uint8_t* data, const uint8_t* end);
+    bool decodeVectors(const Strip& strip, int chunk, int top, int bottom, const uint8_t* data, const uint8_t* end);
+
+    int width_, height_;
+    Surface picture_;
     std::vector<Strip> strips_;
 };
 
-} // namespace reluva::video
+} // namespace reluva::cinepak

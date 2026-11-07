@@ -2,7 +2,7 @@
 // Copyright (C) 2026 The Reluva contributors
 
 // Which button leads where is the game's, as recordings of the original
-// show it and the dialogs' own words say (docs/engines/clue.md); the
+// show it and the dialogs' own words say (docs/engines/clue/README.md); the
 // dialogs, their controls and their numbers are dialogInfo.res's.
 
 #include "engines/clue/frontend.h"
@@ -25,10 +25,7 @@ namespace {
 constexpr int kW = 640, kH = 480;
 // The game's bar: the view of the mansion is above it.
 constexpr int kBarTop = 413;
-// The windows over the game (231 x 395): Clue.exe 0x435C7F places its exit
-// window (dialog 44) at 320 less half its width across and in the middle
-// between the top frame (5) and the bar (413) down: (205, 11).
-constexpr int kOverGameX = kW / 2 - 231 / 2, kOverGameY = 5 + (kBarTop - 5 - 395) / 2;
+static_assert(kOverGameX == kW / 2 - 231 / 2 && kOverGameY == 5 + (kBarTop - 5 - 395) / 2);
 // The Host Game window's row of boxes for the number of players, in its
 // picture (menu:Ihostgmbg): covered when the window joins by address, by
 // the Exit window's picture (menu:Iexitbgnd), the same circle there
@@ -456,7 +453,7 @@ PlayLook FrontEnd::playLook() const {
     look.butlerVoice = prefs_.on[Preferences::ButlerVoice];
     look.walkAnimations = prefs_.on[Preferences::WalkAnimations];
     look.mansion.lighting = prefs_.on[Preferences::Lighting];
-    // As a recording of the original shows them (docs/engines/clue.md):
+    // As a recording of the original shows them (docs/engines/clue/README.md):
     // "Mansion Walls" off, no walls; "Translucency": what stands in front of
     // the suspect whose turn it is see-through, or (off) left out.
     look.mansion.walls = prefs_.on[Preferences::MansionWalls];
@@ -839,14 +836,14 @@ void FrontEnd::startMovie(const std::string& file, Screen after) {
     stopMusic();
     afterMovie_ = after;
     const std::filesystem::path* p = data_.find(file);
-    auto player = std::make_unique<video::VideoPlayer>();
+    auto player = std::make_unique<Movie>();
     if (!p || player->open(readFile(*p))) {
         go(after); // without the video, on to what follows it
         return;
     }
-    if (mixer_ && player->file().hasAudio()) {
+    if (mixer_ && player->hasAudio()) {
         auto sound = std::make_shared<audio::Sound>();
-        if (!player->file().audio(*sound))
+        if (!player->audio(*sound))
             movieSound_ = mixer_->play(sound, audio::SoundType::Speech);
     }
     movie_ = std::move(player);
@@ -864,7 +861,7 @@ void FrontEnd::playMusic(bool inGame) {
     // The CD's track 5 loops alone (the picker, the player setup,
     // Preferences); tracks 2, 3 and 4 follow one another (the game). Either
     // only if the CD isn't playing already (Clue.exe 0x42F120). See
-    // docs/engines/clue.md.
+    // docs/engines/clue/README.md.
     if (!mixer_ || (music_ != audio::kNoSound && mixer_->isPlaying(music_)))
         return;
     musicInGame_ = inGame;

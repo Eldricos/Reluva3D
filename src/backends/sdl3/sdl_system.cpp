@@ -5,6 +5,7 @@
 #include "backends/sdl3/sdl_gpu.h"
 #include "backends/sockets/socket_net.h"
 
+#include <cmath>
 #include <cstring>
 
 namespace reluva {
@@ -53,6 +54,14 @@ uint32_t translateKey(SDL_Keycode k) {
         return key::KpPeriod;
     if (k == SDLK_KP_ENTER)
         return key::KpEnter;
+    if (k == SDLK_KP_PLUS)
+        return key::KpPlus;
+    if (k == SDLK_KP_MINUS)
+        return key::KpMinus;
+    if (k == SDLK_KP_MULTIPLY)
+        return key::KpMultiply;
+    if (k == SDLK_KP_DIVIDE)
+        return key::KpDivide;
     return key::Unknown;
 }
 
@@ -80,8 +89,11 @@ SdlSystem::SdlSystem() = default;
 SdlSystem::~SdlSystem() {
     stopAudio();
     release3D();
+    releaseCursor();
     if (gameTexture_)
         SDL_DestroyTexture(gameTexture_);
+    if (joystick_)
+        SDL_CloseJoystick(joystick_);
     if (renderer_)
         SDL_DestroyRenderer(renderer_);
     if (gpu_)
@@ -147,7 +159,8 @@ Error SdlSystem::init3D(int width, int height, gfx::Renderer3D*& out) {
     if (Error err = r->init(width, height))
         return err;
     renderer3d_ = std::move(r);
-    SDL_SetRenderLogicalPresentation(renderer_, width, height, SDL_LOGICAL_PRESENTATION_LETTERBOX);
+    renderer3d_->setBeforePresent([this] { drawSoftwareCursor(); });
+    applyPresentation(width, height);
     out = renderer3d_.get();
     return Error::success();
 }
@@ -155,10 +168,22 @@ Error SdlSystem::init3D(int width, int height, gfx::Renderer3D*& out) {
 void SdlSystem::resetForLauncher() {
     stopAudio();
     SDL_StopTextInput(window_);
+    cursor_.reset();
+    releaseCursor();
+    cursorVisible_ = true;
     SDL_ShowCursor();
     relativeMouse_ = false;
     SDL_SetWindowRelativeMouseMode(window_, false);
     SDL_SetWindowFullscreen(window_, false);
+    // The display settings were the game's: the launcher has Reluva's own,
+    // and its window back as it was.
+    if (!(display_ == DisplayOptions{}))
+        SDL_SetRenderVSync(renderer_, 1);
+    display_ = DisplayOptions{};
+    if (launcherW_ > 0) {
+        SDL_SetWindowSize(window_, launcherW_, launcherH_);
+        launcherW_ = launcherH_ = 0;
+    }
     release3D();
     if (gameTexture_) {
         SDL_DestroyTexture(gameTexture_);
@@ -177,7 +202,7 @@ Error SdlSystem::initGraphics(int width, int height, PixelFormat format) {
                                      SDL_TEXTUREACCESS_STREAMING, width, height);
     if (!gameTexture_)
         return Error::fail(std::string("SDL_CreateTexture failed: ") + SDL_GetError());
-    SDL_SetTextureScaleMode(gameTexture_, SDL_SCALEMODE_NEAREST);
+    SDL_SetTextureScaleMode(gameTexture_, display_.smooth ? SDL_SCALEMODE_LINEAR : SDL_SCALEMODE_NEAREST);
 
     gameW_ = width;
     gameH_ = height;
@@ -186,10 +211,50 @@ Error SdlSystem::initGraphics(int width, int height, PixelFormat format) {
     for (int i = 0; i < 256; ++i)
         palette_[i] = packRgba(0, 0, 0, 255);
 
-    // Letterbox the game framebuffer into the window at any size, and map
-    // mouse coordinates back into framebuffer pixels.
-    SDL_SetRenderLogicalPresentation(renderer_, width, height, SDL_LOGICAL_PRESENTATION_LETTERBOX);
+    applyPresentation(width, height);
     return Error::success();
+}
+
+void SdlSystem::applyPresentation(int width, int height) {
+    // The window as a multiple of the game's size, when asked and it fits
+    // on the screen (not in full screen, nor when the player maximised it).
+    const Uint64 flags = SDL_GetWindowFlags(window_);
+    if (display_.windowScale != 0 && !(flags & (SDL_WINDOW_FULLSCREEN | SDL_WINDOW_MAXIMIZED))) {
+        SDL_Rect usable{};
+        if (SDL_GetDisplayUsableBounds(SDL_GetDisplayForWindow(window_), &usable)) {
+            int scale = display_.windowScale;
+            if (scale == DisplayOptions::kAutoScale)
+                scale = 2 * width <= usable.w && 2 * height <= usable.h ? 2 : 1;
+            while (scale > 1 && (scale * width > usable.w || scale * height > usable.h))
+                --scale;
+            int w = 0, h = 0;
+            SDL_GetWindowSize(window_, &w, &h);
+            if (w != scale * width || h != scale * height) {
+                if (launcherW_ == 0) {
+                    launcherW_ = w;
+                    launcherH_ = h;
+                }
+                SDL_SetWindowSize(window_, scale * width, scale * height);
+                SDL_SyncWindow(window_);
+            }
+        }
+    }
+    // Scale the frame into the window at any size (letterboxed), or by whole
+    // multiples only, and map mouse coordinates back into its pixels.
+    SDL_SetRenderLogicalPresentation(renderer_, width, height,
+                                     display_.integerScaling ? SDL_LOGICAL_PRESENTATION_INTEGER_SCALE
+                                                             : SDL_LOGICAL_PRESENTATION_LETTERBOX);
+    refreshCursor();
+}
+
+void SdlSystem::setDisplayOptions(const DisplayOptions& options) {
+    display_ = options;
+    SDL_SetRenderVSync(renderer_, options.vsync ? 1 : 0);
+    if (options.fullscreen && !(SDL_GetWindowFlags(window_) & SDL_WINDOW_FULLSCREEN)) {
+        SDL_SetWindowFullscreenMode(window_, nullptr);
+        SDL_SetWindowFullscreen(window_, true);
+        SDL_SyncWindow(window_);
+    }
 }
 
 void SdlSystem::setPalette(const Color* colors, int start, int count) {
@@ -216,12 +281,24 @@ void SdlSystem::updateScreen(const Surface& surface) {
     SDL_SetRenderDrawColor(renderer_, 0, 0, 0, 255);
     SDL_RenderClear(renderer_);
     SDL_RenderTexture(renderer_, gameTexture_, nullptr, nullptr);
+    drawSoftwareCursor();
     SDL_RenderPresent(renderer_);
+    lastPresent_ = SDL_GetTicks();
 }
 
 void SdlSystem::setWindowTitle(const std::string& title) { SDL_SetWindowTitle(window_, title.c_str()); }
 
 bool SdlSystem::pollEvent(Event& out) {
+    // The first joystick connected, opened when there's none: the launcher
+    // takes SDL's events itself, connection notices included.
+    if (!joystick_ && SDL_HasJoystick()) {
+        int count = 0;
+        if (SDL_JoystickID* ids = SDL_GetJoysticks(&count)) {
+            if (count > 0 && (joystick_ = SDL_OpenJoystick(ids[0])))
+                joystickId_ = ids[0];
+            SDL_free(ids);
+        }
+    }
     SDL_Event ev;
     while (SDL_PollEvent(&ev)) {
         SDL_ConvertEventToRenderCoordinates(renderer_, &ev);
@@ -250,6 +327,20 @@ bool SdlSystem::pollEvent(Event& out) {
             out.repeat = ev.key.repeat;
             return true;
         case SDL_EVENT_MOUSE_MOTION:
+            mouseX_ = ev.motion.x;
+            mouseY_ = ev.motion.y;
+            mouseInside_ = true;
+            // A cursor we draw moves only when the picture is shown again:
+            // show the last one again, not more often than the display can.
+            if (softwareCursor_ && cursorVisible_ && !relativeMouse_ && gameTexture_ && !renderer3d_ &&
+                SDL_GetTicks() - lastPresent_ >= 8) {
+                SDL_SetRenderDrawColor(renderer_, 0, 0, 0, 255);
+                SDL_RenderClear(renderer_);
+                SDL_RenderTexture(renderer_, gameTexture_, nullptr, nullptr);
+                drawSoftwareCursor();
+                SDL_RenderPresent(renderer_);
+                lastPresent_ = SDL_GetTicks();
+            }
             out.type = EventType::MouseMove;
             out.mouseX = static_cast<int>(ev.motion.x);
             out.mouseY = static_cast<int>(ev.motion.y);
@@ -270,13 +361,60 @@ bool SdlSystem::pollEvent(Event& out) {
             out.type = EventType::MouseWheel;
             out.wheelY = ev.wheel.integer_y;
             return true;
+        case SDL_EVENT_JOYSTICK_ADDED:
+            // The first joystick connected is the one used, as the
+            // original's engine read joystick 1.
+            if (!joystick_)
+                if ((joystick_ = SDL_OpenJoystick(ev.jdevice.which)))
+                    joystickId_ = ev.jdevice.which;
+            break;
+        case SDL_EVENT_JOYSTICK_REMOVED:
+            if (joystick_ && ev.jdevice.which == joystickId_) {
+                SDL_CloseJoystick(joystick_);
+                joystick_ = nullptr;
+                out.type = EventType::JoyRemoved;
+                return true;
+            }
+            break;
+        case SDL_EVENT_JOYSTICK_BUTTON_DOWN:
+        case SDL_EVENT_JOYSTICK_BUTTON_UP:
+            if (!joystick_ || ev.jbutton.which != joystickId_)
+                break;
+            out.type = ev.type == SDL_EVENT_JOYSTICK_BUTTON_DOWN ? EventType::JoyButtonDown : EventType::JoyButtonUp;
+            out.joyButton = ev.jbutton.button;
+            return true;
+        case SDL_EVENT_JOYSTICK_AXIS_MOTION:
+            if (!joystick_ || ev.jaxis.which != joystickId_)
+                break;
+            out.type = EventType::JoyAxis;
+            out.joyAxis = ev.jaxis.axis;
+            out.joyValue = ev.jaxis.value;
+            return true;
+        case SDL_EVENT_JOYSTICK_HAT_MOTION:
+            if (!joystick_ || ev.jhat.which != joystickId_ || ev.jhat.hat != 0)
+                break;
+            out.type = EventType::JoyHat;
+            out.joyHat = uint8_t((ev.jhat.value & SDL_HAT_UP ? joyhat::Up : 0) |
+                                 (ev.jhat.value & SDL_HAT_RIGHT ? joyhat::Right : 0) |
+                                 (ev.jhat.value & SDL_HAT_DOWN ? joyhat::Down : 0) |
+                                 (ev.jhat.value & SDL_HAT_LEFT ? joyhat::Left : 0));
+            return true;
         case SDL_EVENT_TEXT_INPUT:
             if (!ev.text.text)
                 break;
             out.type = EventType::TextInput;
             SDL_strlcpy(out.text, ev.text.text, sizeof out.text);
             return true;
+        case SDL_EVENT_WINDOW_FOCUS_LOST:
+            out.type = EventType::FocusLost;
+            return true;
         case SDL_EVENT_WINDOW_FOCUS_GAINED:
+            if (relativeMouse_) {
+                SDL_SetWindowRelativeMouseMode(window_, false);
+                SDL_SetWindowRelativeMouseMode(window_, true);
+            }
+            out.type = EventType::FocusGained;
+            return true;
         case SDL_EVENT_WINDOW_RESIZED:
         case SDL_EVENT_WINDOW_ENTER_FULLSCREEN:
         case SDL_EVENT_WINDOW_LEAVE_FULLSCREEN:
@@ -286,6 +424,17 @@ bool SdlSystem::pollEvent(Event& out) {
                 SDL_SetWindowRelativeMouseMode(window_, false);
                 SDL_SetWindowRelativeMouseMode(window_, true);
             }
+            refreshCursor(); // the picture's scale may have changed
+            break;
+        case SDL_EVENT_WINDOW_PIXEL_SIZE_CHANGED:
+        case SDL_EVENT_WINDOW_DISPLAY_SCALE_CHANGED:
+            refreshCursor();
+            break;
+        case SDL_EVENT_WINDOW_MOUSE_ENTER:
+            mouseInside_ = true;
+            break;
+        case SDL_EVENT_WINDOW_MOUSE_LEAVE:
+            mouseInside_ = false;
             break;
         default:
             break; // ignore everything else
@@ -302,10 +451,134 @@ void SdlSystem::setTextInput(bool on) {
 }
 
 void SdlSystem::setMouseCursorVisible(bool visible) {
-    if (visible)
+    cursorVisible_ = visible;
+    // A cursor we draw keeps the system's pointer hidden.
+    if (visible && !softwareCursor_)
         SDL_ShowCursor();
     else
         SDL_HideCursor();
+}
+
+void SdlSystem::setMouseCursor(const Cursor* cursor) {
+    if (!cursor || cursor->empty()) {
+        if (!cursor_)
+            return;
+        cursor_.reset();
+        releaseCursor();
+        setMouseCursorVisible(cursorVisible_);
+        return;
+    }
+    if (cursor_ && *cursor_ == *cursor)
+        return; // games often set the same one again
+    cursor_ = *cursor;
+    // A new picture: made again, whatever the scale.
+    sdlCursorScale_ = 0;
+    if (cursorTexture_) {
+        SDL_DestroyTexture(cursorTexture_);
+        cursorTexture_ = nullptr;
+    }
+    refreshCursor();
+}
+
+void SdlSystem::releaseCursor() {
+    if (sdlCursor_) {
+        SDL_SetCursor(SDL_GetDefaultCursor());
+        SDL_DestroyCursor(sdlCursor_);
+        sdlCursor_ = nullptr;
+    }
+    sdlCursorScale_ = 0;
+    if (cursorTexture_) {
+        SDL_DestroyTexture(cursorTexture_);
+        cursorTexture_ = nullptr;
+    }
+    softwareCursor_ = false;
+}
+
+void SdlSystem::refreshCursor() {
+    if (!cursor_ || !window_ || !renderer_)
+        return;
+    // How many of the window's pixels a game pixel takes now, and how many
+    // of its points (the system's pointer is sized in points; a second
+    // picture gives it the pixels on high-density screens).
+    int lw = 0, lh = 0;
+    SDL_RendererLogicalPresentation mode = SDL_LOGICAL_PRESENTATION_DISABLED;
+    SDL_GetRenderLogicalPresentation(renderer_, &lw, &lh, &mode);
+    float pixelScale = 1;
+    SDL_FRect rect{};
+    if (lw > 0 && SDL_GetRenderLogicalPresentationRect(renderer_, &rect) && rect.w > 0)
+        pixelScale = rect.w / float(lw);
+    float density = SDL_GetWindowPixelDensity(window_);
+    if (!(density > 0))
+        density = 1;
+    const float pointScale = pixelScale / density;
+
+    // RELUVA_SOFTWARE_CURSOR=1 draws it ourselves, to try that path.
+    const char* forced = SDL_getenv("RELUVA_SOFTWARE_CURSOR");
+    const bool software = forced && *forced && std::strcmp(forced, "0") != 0;
+    if (!software) {
+        if (sdlCursor_ && sdlCursorScale_ == pixelScale)
+            return;
+        const Cursor points = cursor::scaled(*cursor_, pointScale, display_.smooth);
+        SDL_Surface* surface = SDL_CreateSurfaceFrom(points.w, points.h, SDL_PIXELFORMAT_RGBA32,
+                                                     const_cast<uint8_t*>(points.rgba.data()), points.w * 4);
+        Cursor pixels;
+        SDL_Surface* dense = nullptr;
+        if (surface && density != 1) {
+            pixels = cursor::scaled(*cursor_, pixelScale, display_.smooth);
+            dense = SDL_CreateSurfaceFrom(pixels.w, pixels.h, SDL_PIXELFORMAT_RGBA32, pixels.rgba.data(), pixels.w * 4);
+            if (dense)
+                SDL_AddSurfaceAlternateImage(surface, dense);
+        }
+        SDL_Cursor* made = surface ? SDL_CreateColorCursor(surface, points.hotX, points.hotY) : nullptr;
+        if (dense)
+            SDL_DestroySurface(dense);
+        if (surface)
+            SDL_DestroySurface(surface);
+        if (made) {
+            SDL_SetCursor(made);
+            if (sdlCursor_)
+                SDL_DestroyCursor(sdlCursor_);
+            sdlCursor_ = made;
+            sdlCursorScale_ = pixelScale;
+            if (cursorTexture_) {
+                SDL_DestroyTexture(cursorTexture_);
+                cursorTexture_ = nullptr;
+            }
+            softwareCursor_ = false;
+            setMouseCursorVisible(cursorVisible_);
+            return;
+        }
+        SDL_Log("The game's cursor can't be the system's pointer (%s): drawing it", SDL_GetError());
+    }
+    // Drawn by us, over the picture, scaled with it.
+    if (sdlCursor_) {
+        SDL_SetCursor(SDL_GetDefaultCursor());
+        SDL_DestroyCursor(sdlCursor_);
+        sdlCursor_ = nullptr;
+        sdlCursorScale_ = 0;
+    }
+    if (!cursorTexture_) {
+        cursorTexture_ = SDL_CreateTexture(renderer_, SDL_PIXELFORMAT_RGBA32, SDL_TEXTUREACCESS_STATIC, cursor_->w,
+                                           cursor_->h);
+        if (cursorTexture_) {
+            SDL_UpdateTexture(cursorTexture_, nullptr, cursor_->rgba.data(), cursor_->w * 4);
+            SDL_SetTextureBlendMode(cursorTexture_, SDL_BLENDMODE_BLEND);
+        }
+    }
+    if (cursorTexture_)
+        SDL_SetTextureScaleMode(cursorTexture_, display_.smooth ? SDL_SCALEMODE_LINEAR : SDL_SCALEMODE_NEAREST);
+    softwareCursor_ = true;
+    if (!mouseInside_)
+        mouseInside_ = SDL_GetMouseFocus() == window_;
+    setMouseCursorVisible(cursorVisible_);
+}
+
+void SdlSystem::drawSoftwareCursor() {
+    if (!softwareCursor_ || !cursorTexture_ || !cursor_ || !cursorVisible_ || !mouseInside_ || relativeMouse_)
+        return;
+    const SDL_FRect dst{std::floor(mouseX_) - float(cursor_->hotX), std::floor(mouseY_) - float(cursor_->hotY),
+                        float(cursor_->w), float(cursor_->h)};
+    SDL_RenderTexture(renderer_, cursorTexture_, nullptr, &dst);
 }
 
 void SdlSystem::setVideoMode(int width, int height, bool fullscreen) {

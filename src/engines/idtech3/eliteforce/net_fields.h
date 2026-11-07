@@ -13,7 +13,7 @@ namespace reluva::idtech3::eliteforce {
 
 // How Elite Force's protocol 24 sends entity states, player states and
 // user commands: as changes from earlier ones, field by field, in the
-// layouts of patch 1.2's game code (docs/formats/idtech3/eliteforce-network.md).
+// layouts of patch 1.2's game code (docs/engines/idtech3/formats/eliteforce-network.md).
 // States are the game's bytes (an entity state's 204, a player state's
 // 468); an empty "from" counts as all zeros.
 

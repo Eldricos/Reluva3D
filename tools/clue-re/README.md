@@ -3,7 +3,7 @@
 The working tools used to find out how Clue: Murder at Boddy Mansion works,
 kept so the findings in [docs/engines/clue/](../../docs/engines/clue/) can
 be checked and extended. How they were used:
-[reverse-engineering.md](../../docs/engines/clue/reverse-engineering.md).
+[REVERSE_ENGINEERING.md](../../docs/engines/clue/REVERSE_ENGINEERING.md).
 
 They are research scripts, not part of Reluva: not built by CMake, not
 tested, written for one question at a time. They read a copy of the game
@@ -25,8 +25,8 @@ the repository.
 The C++ programs in `harness/` are built against Reluva's libraries, from
 the repository's root after a build:
 
-    g++ -std=c++20 -O1 -Isrc tools/clue-re/harness/NAME.cpp \
-        build/libreluva_engines.a build/libreluva_common.a -lpthread -o NAME
+    g++ -std=c++20 -O1 -Isrc -I. tools/clue-re/harness/NAME.cpp \
+        build/engines/clue/libreluva_engine_clue.a build/libreluva_common.a -lpthread -o NAME
 
 `harness.cpp` and `netgame.cpp` also need `src/backends/sockets/socket_net.cpp`.
 

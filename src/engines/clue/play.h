@@ -8,16 +8,16 @@
 // suggestions and accusations (dialogInfo.res's in-game dialogs), the
 // suggestions' videos, and the computer players' turns. The rules are
 // rules.h's; where the pictures go, recordings of the original's
-// (docs/engines/clue.md).
+// (docs/engines/clue/README.md).
 
 #include "common/audio/mixer.h"
 #include "common/events.h"
 #include "common/system.h"
-#include "common/video/avi.h"
 #include "engines/clue/ai.h"
 #include "engines/clue/board.h"
 #include "engines/clue/game_data.h"
 #include "engines/clue/mansion.h"
+#include "engines/clue/movie.h"
 #include "engines/clue/netplay.h"
 #include "engines/clue/resi.h"
 #include "engines/clue/rules.h"
@@ -265,7 +265,7 @@ private:
     int pressedAction_ = -1;
 
     // A suggestion's video, in the right column.
-    std::unique_ptr<video::VideoPlayer> video_;
+    std::unique_ptr<Movie> video_;
     audio::SoundHandle videoSound_ = audio::kNoSound;
     uint64_t videoStart_ = 0;
 

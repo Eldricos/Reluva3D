@@ -38,6 +38,10 @@ public:
     const std::vector<Entry>& entries() const { return entries_; }
     const Entry* entry(std::string_view name) const;
     Error read(const Entry& entry, std::vector<uint8_t>& out) const;
+    // The same, but a stored (uncompressed) entry whose CRC-32 doesn't
+    // match is read as it is, `crcOk` false: for games whose own readers
+    // never checked, and whose copies have entries damaged that way.
+    Error readUnchecked(const Entry& entry, std::vector<uint8_t>& out, bool& crcOk) const;
 
 private:
     std::filesystem::path path_;

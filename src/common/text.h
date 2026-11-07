@@ -7,6 +7,7 @@
 #include <cstdint>
 #include <string>
 #include <string_view>
+#include <vector>
 
 namespace reluva::text {
 
@@ -26,5 +27,24 @@ uint32_t nextUtf8(std::string_view s, size_t& i);
 // it: typographic quotes and dashes become their ASCII forms, a bullet a
 // middle dot, a tab a space, anything else outside Latin-1 '?'.
 uint32_t toLatin1(uint32_t cp);
+
+// ASCII case: the rest of the bytes are kept as they are.
+std::string toUpper(std::string_view s);
+std::string toLower(std::string_view s);
+bool equalsIgnoreCase(std::string_view a, std::string_view b);
+bool hasSuffixIgnoreCase(std::string_view s, std::string_view suffix);
+// Whether `s` matches a pattern where '*' is any run of characters and '?'
+// any one, ignoring ASCII case ("MUSIC.?", "*.ovr").
+bool matchGlob(std::string_view s, std::string_view pattern);
+// The parts between each `sep` (one more than there are separators).
+std::vector<std::string> split(std::string_view s, char sep);
+// Without the white space at either end.
+std::string trim(std::string_view s);
+// printf's formatting into a string.
+std::string format(const char* fmt, ...)
+#if defined(__GNUC__) || defined(__clang__)
+    __attribute__((format(printf, 1, 2)))
+#endif
+    ;
 
 } // namespace reluva::text

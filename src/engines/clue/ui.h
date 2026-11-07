@@ -95,6 +95,9 @@ public:
     int visibleLines(int id) const;
     // The Edit that takes typing, or -1.
     void focus(int id);
+    // Where a control is on the screen (empty if the dialog has none of that
+    // id): for tools that click the game's own buttons.
+    UiRect rect(int id) const;
 
     void draw(Surface& s) const { drawBackground(s), drawControls(s); }
     void drawBackground(Surface& s) const;

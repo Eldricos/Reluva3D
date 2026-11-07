@@ -5,15 +5,15 @@
 
 // The game as it starts: the intro, the menus and their screens (all from
 // dialogInfo.res), setting up the players, then the game itself (play.h)
-// with its Esc menu (see docs/engines/clue.md).
+// with its Esc menu (see docs/engines/clue/README.md).
 
 #include "common/audio/mixer.h"
 #include "common/events.h"
 #include "common/system.h"
-#include "common/video/avi.h"
 #include "engines/clue/game_data.h"
 #include "engines/clue/level.h"
 #include "engines/clue/mansion.h"
+#include "engines/clue/movie.h"
 #include "engines/clue/netplay.h"
 #include "engines/clue/play.h"
 #include "engines/clue/resi.h"
@@ -30,6 +30,12 @@ namespace reluva::clue {
 
 // The six suspects, in the game's order (Miss Scarlet plays first).
 constexpr int kSuspects = 6;
+
+// Where the windows over the game go (the Esc menu and what it opens,
+// dialogs 35-39 and 44; 231 x 395): Clue.exe 0x435C7F places its exit
+// window at 320 less half its width across and in the middle between the
+// top frame (5) and the bar (413) down.
+constexpr int kOverGameX = 205, kOverGameY = 11;
 
 // The preferences screen's settings, saved between runs.
 struct Preferences {
@@ -132,7 +138,7 @@ private:
     Preferences prefs_;
 
     // A video playing full screen.
-    std::unique_ptr<video::VideoPlayer> movie_;
+    std::unique_ptr<Movie> movie_;
     audio::SoundHandle movieSound_ = audio::kNoSound;
     uint64_t movieStart_ = 0;
     Screen afterMovie_ = Screen::MainMenu;
