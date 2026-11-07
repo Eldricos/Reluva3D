@@ -18,14 +18,14 @@ namespace reluva::netimmerse {
 // a header, a directory of names with their place in the file, then the
 // files one after another. See docs/engines/netimmerse/formats/pac.md.
 //
-// Every entry seen has 0 in its flags word; what other values would mean
-// (compression?) isn't known, so such entries are listed but not read.
+// Each entry is the game's DDFileAttr (DDPackedDirFileLib): its data's
+// 64-bit offset (high half first), size and date. A directory can hold
+// subdirectories after its files; no archive does.
 class PacArchive : public Archive {
 public:
     struct Entry {
         std::string name;       // as stored, e.g. "ABADI MT CONDENSED.DDF"
-        uint32_t flags = 0;     // 0 in every archive seen
-        uint32_t offset = 0;    // of the data, from the start of the archive
+        uint64_t offset = 0;    // of the data, from the start of the archive (high half 0 in all)
         uint32_t size = 0;
         uint64_t modified = 0;  // Windows FILETIME: 100 ns units since 1601
     };

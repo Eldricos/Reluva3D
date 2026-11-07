@@ -11,7 +11,8 @@ namespace reluva::netimmerse {
 namespace {
 
 constexpr size_t kHeaderSize = 20;
-// After an entry's name and its terminating zero: flags, offset, size and
+// After an entry's name and its terminating zero, the game's DDFileAttr:
+// the data's offset's high and low halves (MapViewOfFile's), its size and
 // the FILETIME.
 constexpr size_t kEntryFields = 20;
 // FILETIME of 1970-01-01, in 100 ns units since 1601.
@@ -76,8 +77,7 @@ Error PacArchive::open(const std::filesystem::path& path) {
         Entry e;
         e.name.assign(reinterpret_cast<const char*>(dir.data() + pos), nameEnd - pos);
         const uint8_t* f = dir.data() + nameEnd + 1;
-        e.flags = le32(f);
-        e.offset = le32(f + 4);
+        e.offset = uint64_t(le32(f)) << 32 | le32(f + 4);
         e.size = le32(f + 8);
         e.modified = le64(f + 12);
         pos = nameEnd + 1 + kEntryFields;
@@ -85,13 +85,19 @@ Error PacArchive::open(const std::filesystem::path& path) {
         // seen its own output file) with offset, size and date all 0: an
         // empty file, then.
         const bool placeholder = e.offset == 0 && e.size == 0;
-        if (!placeholder && (e.offset < dataStart || uint64_t(e.offset) + e.size > fileSize))
+        if (!placeholder && (e.offset < dataStart || e.offset + e.size > fileSize))
             return Error::fail(which + " (" + e.name + ") lies outside the archive's data");
         // Names are unique in the archives seen; should one repeat, the
         // first is the one found by name.
         byName_.emplace(normalizeArchiveName(e.name), entries_.size());
         entries_.push_back(std::move(e));
     }
+    // Then the subdirectories' count (each a name and a directory of its
+    // own, DDDirectory::Restore reads): 0 in every archive.
+    if (pos + 4 > dir.size())
+        return Error::fail(where + ": the directory ends before its subdirectories' count");
+    if (const uint32_t subdirectories = le32(dir.data() + pos))
+        return Error::fail(where + ": " + std::to_string(subdirectories) + " subdirectories, which no archive seen has");
     dataStart_ = dataStart;
     return Error::success();
 }
@@ -120,8 +126,6 @@ Error PacArchive::read(std::string_view name, std::vector<uint8_t>& out) const {
 
 Error PacArchive::read(const Entry& e, std::vector<uint8_t>& out) const {
     const std::string where = path_.string() + ": " + e.name;
-    if (e.flags != 0)
-        return Error::fail(where + ": unknown flags " + std::to_string(e.flags) + " (compressed?)");
     // Opened per read so a const archive can be read from several threads.
     std::ifstream in(path_, std::ios::binary);
     out.resize(e.size);

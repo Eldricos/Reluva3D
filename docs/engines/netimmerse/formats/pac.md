@@ -8,31 +8,46 @@ entries follow one another with no gaps, apart from the placeholders below.
 
 All numbers are little-endian.
 
-## Header (20 bytes)
+**From the code** (November 2026): `DDPackedDirFileLib.dll`, which the
+game reads its archives with, settled the fields that had been guessed.
+`DDPackedDirFile::DDPackedDirFile(const char*)` reads the first 16 bytes,
+checks `PACK`, maps the file and reads the directory from offset 16 with
+`DDDirectory::Restore`. Each entry is the game's `DDFileAttr`, which
+`DDMappedFileBuf::open` hands to `MapViewOfFile`.
+
+## Header (16 bytes)
 
 | Offset | Size | Field |
 |---|---|---|
-| 0 | 4 | `PACK` |
-| 4 | 4 | the archive's size in bytes (equal to the file's size in both) |
-| 8 | 4 | 0 in both |
-| 12 | 4 | where the first file's data starts (the directory's end) |
-| 16 | 4 | number of files |
+| 0 | 4 | `PACK`, the only field the game checks |
+| 4 | 4 | the archive's size in bytes (equal to the file's size in all); not read by the game |
+| 8 | 4 | 0 in all; not read by the game |
+| 12 | 4 | where the first file's data starts. The game gives the directory's stream that many bytes from offset 16, more than it needs |
 
-## Directory
+## Directory (from offset 16)
 
-It comes right after the header: one entry per file, in the order their
-data comes in.
+`DDDirectory::Restore`:
 
 | Size | Field |
 |---|---|
-| variable | the name, zero-terminated, upper case, with no folders (`B0001.DLL`, `ABADI MT CONDENSED.DDF`) |
-| 4 | 0 in every entry seen; *guess*: flags (no data is compressed in these two archives) |
-| 4 | where the data starts, from the start of the archive |
+| 4 | number of files |
+| per file | the entry below |
+| 4 | number of subdirectories: 0 in every archive |
+| per subdirectory | its name (zero-terminated, read as at most 64 bytes) and a directory of its own, read the same way |
+
+Each file's entry, in the order their data comes in:
+
+| Size | Field |
+|---|---|
+| variable | the name, zero-terminated (read as at most 64 bytes), upper case, with no folders (`B0001.DLL`, `ABADI MT CONDENSED.DDF`) |
+| 4 | the data's offset, its high 32 bits: 0 in all, the archives being under 4 GB. *(From the code: `MapViewOfFile`'s `dwFileOffsetHigh`; formerly guessed to be flags.)* |
+| 4 | the data's offset, its low 32 bits, from the start of the archive |
 | 4 | the data's size |
 | 8 | a Windows FILETIME, the file's date (17 to 22 August 2000 in `Bhvr.pac`; `Etc.pac`'s go back to March 1999) |
 
-The directory ends 4 bytes before the header's data start in every
-archive. Those 4 bytes are zero.
+So the 4 zero bytes that end every directory, just before the data, are
+the subdirectory count. The game maps each file's view from its offset
+rounded down to the allocation granularity, and reads it from the rest.
 
 **Placeholders.** `Ambient.pac` and `LMap.pac` each list one entry named after
 the archive itself (`AMBIENT.PAC`, first; `LMAP.PAC`, last) with offset,
@@ -45,8 +60,7 @@ while writing it. They're read as empty files.
 Names are looked up ignoring case. It checks the header's size against the
 file's, and checks that every entry's name and fields lie inside the
 directory and its data inside the archive.
-Entries whose flags aren't 0 are listed but not read, until an archive
-shows what the flags mean. `reluva-tool pac-list <file.pac>` lists an
+An archive with subdirectories is refused, as none has any. `reluva-tool pac-list <file.pac>` lists an
 archive (offset, size, date, name), and `reluva-tool pac-extract <file.pac>
 <dir> [filter]` writes its files out.
 

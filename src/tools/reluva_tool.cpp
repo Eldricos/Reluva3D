@@ -5117,8 +5117,8 @@ int cmdPacList(int argc, char** argv) {
     uint64_t total = 0;
     for (const auto& e : pac.entries()) {
         const auto t = reluva::netimmerse::PacArchive::unixTime(e.modified);
-        std::printf("%10u %9u  %-16s %s%s\n", e.offset, e.size, formatTime(uint32_t(t)).c_str(), e.name.c_str(),
-                    e.flags ? ("  flags " + std::to_string(e.flags)).c_str() : "");
+        std::printf("%10llu %9u  %-16s %s\n", static_cast<unsigned long long>(e.offset), e.size,
+                    formatTime(uint32_t(t)).c_str(), e.name.c_str());
         total += e.size;
     }
     std::printf("%zu files, %llu bytes, data from %u\n", pac.entries().size(),

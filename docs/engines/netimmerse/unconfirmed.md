@@ -51,10 +51,10 @@ would confirm it. Known differences are in
 
 Fields the format documents still mark as guesses:
 
-- **`.pac` archives** ([formats/pac.md](formats/pac.md)): the 4-byte field
-  at +4 of each entry is 0 in every entry seen; guessed to be flags (no
-  data in these archives is compressed). The directory's empty first
-  entry is probably the packing tool's own output file.
+- **`.pac` archives** ([formats/pac.md](formats/pac.md)): the entry that
+  `Ambient.pac` and `LMap.pac` list for themselves, empty, is probably the
+  packing tool's own output file. (The field once guessed to be flags is
+  the data offset's high half, from the game's code.)
 - **`.DDF` fonts** ([formats/ddf.md](formats/ddf.md)): the 2-byte field at
   82 is probably the em height (the line height less the internal
   leading).

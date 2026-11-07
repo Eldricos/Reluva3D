@@ -38,7 +38,7 @@ struct PacFile {
     std::string name;
     std::string data;
     uint64_t modified = 0;
-    uint32_t flags = 0;
+    uint32_t offsetHigh = 0; // the data offset's high half
 };
 
 void put32(std::vector<uint8_t>& b, uint32_t v) {
@@ -58,14 +58,14 @@ std::vector<uint8_t> buildPac(const std::vector<PacFile>& files) {
     for (const PacFile& f : files) {
         dir.insert(dir.end(), f.name.begin(), f.name.end());
         dir.push_back(0);
-        put32(dir, f.flags);
+        put32(dir, f.offsetHigh);
         offsetAt.push_back(dir.size());
         put32(dir, 0); // offset, set below
         put32(dir, uint32_t(f.data.size()));
         put32(dir, uint32_t(f.modified));
         put32(dir, uint32_t(f.modified >> 32));
     }
-    put32(dir, 0);
+    put32(dir, 0); // no subdirectories
     const uint32_t dataStart = uint32_t(20 + dir.size());
     uint32_t at = dataStart;
     for (size_t i = 0; i < files.size(); ++i) {
@@ -149,13 +149,16 @@ void testPlaceholder(const std::filesystem::path& tmp) {
     CHECK(pac.open(writeFile(tmp / "bad0.pac", bad)));
 }
 
-void testFlags(const std::filesystem::path& tmp) {
-    // Listed, but not read, since what the flags mean isn't known.
+void testOffsetHighAndSubdirectories(const std::filesystem::path& tmp) {
+    // The word before the offset is its high half (DDFileAttr, as
+    // MapViewOfFile takes it): 1 puts the data 4 GB on, past this archive.
     PacArchive pac;
-    CHECK(!pac.open(writeFile(tmp / "flags.pac", buildPac({{"PACKED.DAT", "xyz", 0, 1}}))));
-    CHECK(pac.entries().size() == 1 && pac.entries()[0].flags == 1);
-    std::vector<uint8_t> data;
-    CHECK(pac.read("packed.dat", data));
+    CHECK(pac.open(writeFile(tmp / "high.pac", buildPac({{"PACKED.DAT", "xyz", 0, 1}}))));
+    // After the files, the subdirectories' count: none in any archive, so
+    // one is refused rather than taken for data.
+    std::vector<uint8_t> sub = buildPac({{"A.TXT", "abc"}});
+    set32(sub, 20 + 6 + 20, 1);
+    CHECK(pac.open(writeFile(tmp / "sub.pac", sub)));
 }
 
 void testRejectsDamage(const std::filesystem::path& tmp) {
@@ -202,7 +205,8 @@ void testRejectsDamage(const std::filesystem::path& tmp) {
     put32(noZero, 0);
     put32(noZero, 20 + 30);
     put32(noZero, 0);
-    noZero.resize(noZero.size() + 30, 'A');
+    put32(noZero, 0); // no files, and no subdirectories
+    noZero.resize(noZero.size() + 26, 'A');
     CHECK(!fails(noZero)); // no files: the name isn't looked at
     set32(noZero, 16, 1);
     CHECK(fails(noZero));
@@ -664,7 +668,7 @@ int main() {
     testRead(tmp);
     testSearchSet(tmp);
     testPlaceholder(tmp);
-    testFlags(tmp);
+    testOffsetHighAndSubdirectories(tmp);
     testRejectsDamage(tmp);
     testDds();
     testLocaleText();
