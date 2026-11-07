@@ -457,7 +457,12 @@ fog (475, both) and the blend (source alpha over, both) agree; the
 difference was the host's 16-bit buffer, which truncated each blended
 layer where `voodoo2a.dll` has Glide dither 4x4 ([thrash.md](thrash.md),
 Dithering). With the dither the smoke is 2.8-4.1 under the page's and
-the scenery 0.8-2.4 (`e5-t8d0`).
+the scenery 0.8-2.4 (`e5-t8d0`). Of the 3-4 left (3.1-4.4 in `e6-runs/t8d`), about 1 was
+the picture: the game uploads `SP06` at 4:4:4:4 (`0x4d27e0`), which the
+page now does too (2.3-3.6 left); the rest is the host's truncating
+blend into 5:6:5, rounded to the nearest within 0-1 of the page's
+([thrash.md](thrash.md), Dithering). How the Voodoo rounds isn't known,
+so that part stays.
 
 **Over the cars** (November 2026). In that frame the smoke's batch comes
 after all the car's polygons and covers its back, by day greying it and

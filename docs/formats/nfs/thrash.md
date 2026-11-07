@@ -242,6 +242,44 @@ green and blue. Since the hashed end state of `-deterministic` runs
 holds the frame buffer, a `-native` run's hash differs from an older
 build's from the first frame drawn; the game's own state doesn't.
 
+**What was left of the smoke's difference** (November 2026, `e6-runs`:
+Empire City by day, Hot Pursuit poked at `0x474ca0` (`0x6fd3b8` 3, track
+8), racer 1 held 18 m ahead with `d8-runs/t8-car1.txt`'s pokes, the
+camera, cars and particles dumped at the 400th sky draw, frame 2816 and
+list 2818; `t8d`). The smoke's batch is the frame's last but the
+cockpit's (8 quads, `SP06` at 32 × 32, alpha blend, fog 475 like the
+scenery, corners `48e3e3e3`-`6ef6f6f6`); the page draws the same quads
+after the cars, fogged as the scenery, `SrcAlpha`/`OneMinusSrcAlpha`,
+with the same colours. Over the smoke the page was 3.1-4.4 above the
+host's frame, the road beside it 0.2-1.3. Two causes:
+- **The picture.** `SP06` is a 32-bit shape; the game hands it to the
+  card at 4:4:4:4, each channel's top four bits (`0x4d37a0` →
+  `0x4d27e0`, below, Textures as loaded), so its texels are multiples of
+  17 in the list. The page had taken it at full precision. Now that it
+  takes it as the game does (`decodeForGlide`) its texels equal the
+  list's (all 1,024), and the smoke is 2.3-3.6 over the host's.
+- **The blend into 5:6:5.** `nfs-host`'s drawing truncates three times a
+  layer: the shaded, fogged colour and its alpha to whole levels, the
+  blend's `/ 255`, and the read back of the pixel (`c × 255 / 31`). A
+  build with each rounded to the nearest instead (a scratch copy of
+  `thrash_native.cpp`, not kept: `t8r`) puts the smoke within 0.0-1.0 of
+  the page's and the road beside it within -0.5-1.1, as close as the
+  rest of the frame. How a Voodoo 2 rounds its blend and reads back a
+  dithered pixel isn't in the game's code or the DLL's, so the host keeps
+  its truncation; that is what is left (2-3.5 over the smoke).
+
+**Textures as loaded** (`0x4d4080` → `0x4d3f50` → `0x4d37a0`, `gdecomp`
+and `asm`, November 2026). A shape is converted by its type and the
+format asked for: a 32-bit shape (0x7D) asked for 4:4:4:4 (format 7: sfx's
+`glw0`-`glw4`, `0x4d5370`), or asked for none with an alpha other than 0
+and 255 (`0x4d1950` returns 2: `shad`, the particles' `SPnn`, `SNnn`),
+goes through `0x4d27e0`: a = A >> 4, r = R >> 4, g = G >> 4, b = B >> 4
+(the key colours `0xff00f800` and `0xff00fb00` become 0; with `0x7a3a6c`
+set, only for renderer 5, a black texel with alpha gets blue 1). The
+card widens each nibble back by 17. In `e6-runs/t8d`'s list `shad`,
+`SP06` and `glw3` as the page now decodes them equal the list's textures
+texel for texel.
+
 ## Windows and frames
 
 - `window(n)` picks where drawing goes: 1 the front buffer, 2 the back.

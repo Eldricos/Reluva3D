@@ -1833,6 +1833,9 @@ void TrackPage::placeCars() {
         c.ai.slice = at;
         c.ai.way = heading;
         c.ai.halfWidth = cm.halfSize[0];
+        c.ai.halfHeight = cm.halfSize[1];
+        c.ai.halfLength = cm.halfSize[2];
+        c.ai.mass = aiCarMass(cm.ai.mass, !siren); // a racer's over 1.2 (0x42bcb0)
         c.ai.driver = driver;
         c.ai.cop = siren;
         c.ai.siren = siren;
@@ -2187,10 +2190,17 @@ void TrackPage::moveCars(float dt) {
             ai[i].slice = static_cast<int>(std::floor(c.slice)) % n;
             ai[i].along = c.slice - std::floor(c.slice);
         }
+        // The cars against each other (car_collisions_task 0x4311d0, 32 a
+        // second after their models): what the hits did to their places,
+        // speeds and yaw.
+        aiCollide(ai, collision_, aiStep_);
         // What a cop's step did to the cars stepped before it (a racer
         // pulled over by its strip, its chase record) is kept too.
-        for (size_t i = 0; i < cars_.size(); ++i)
+        for (size_t i = 0; i < cars_.size(); ++i) {
             cars_[i].ai = ai[i];
+            cars_[i].slice = static_cast<float>(ai[i].slice) + ai[i].along;
+            cars_[i].speed = ai[i].speed;
+        }
     }
     for (ComputerCar& c : cars_)
         carRows(c);
@@ -2871,33 +2881,33 @@ void TrackPage::loadMarks() {
     for (const Shape& shape : banks_[kLaneSheet].shapes)
         if (shape.name == "glw0") {
             image::Image img;
-            if (!decodeShape(shape, img) && !renderer_->createTexture(img.w, img.h, img.rgba.data(), glideTextureParams(), glowPicture_))
+            if (!decodeForGlide(shape, img, true) && !renderer_->createTexture(img.w, img.h, img.rgba.data(), glideTextureParams(), glowPicture_))
                 textures_.push_back(glowPicture_);
         } else if (shape.name == "glw3") {
             // The cars' glows (0x492370 draws with 0x8b4840, which 0x4d5370
             // loads with glw3).
             image::Image img;
-            if (!decodeShape(shape, img) && !renderer_->createTexture(img.w, img.h, img.rgba.data(), glideTextureParams(), glow3Picture_))
+            if (!decodeForGlide(shape, img, true) && !renderer_->createTexture(img.w, img.h, img.rgba.data(), glideTextureParams(), glow3Picture_))
                 textures_.push_back(glow3Picture_);
         } else if (shape.name == "shad") {
             // The cars' shadows (0x4b81a0 draws with 0x8b4898, which 0x4d5370
             // loads with shad: 32 x 32, a dark blue with soft-edged alpha).
             image::Image img;
-            if (!decodeShape(shape, img) && !renderer_->createTexture(img.w, img.h, img.rgba.data(), glideTextureParams(), shadowPicture_))
+            if (!decodeForGlide(shape, img) && !renderer_->createTexture(img.w, img.h, img.rgba.data(), glideTextureParams(), shadowPicture_))
                 textures_.push_back(shadowPicture_);
         } else if (shape.name == "glw1" || shape.name == "glw4") {
             // The fog's beams (0x492980 draws with 0x8b47e8, glw1) and the
             // rain's flares (0x491bc0 with 0x8b486c, glw4).
             image::Image img;
             gfx::TextureId& id = shape.name == "glw1" ? glow1Picture_ : glow4Picture_;
-            if (!decodeShape(shape, img) && !renderer_->createTexture(img.w, img.h, img.rgba.data(), glideTextureParams(), id))
+            if (!decodeForGlide(shape, img, true) && !renderer_->createTexture(img.w, img.h, img.rgba.data(), glideTextureParams(), id))
                 textures_.push_back(id);
         } else if (shape.name == "glw2") {
             // The headlights' picture (0x4d5538 loads it into 0x8b4814,
             // which 0x41a120 draws with); clamped, its edges black.
             image::Image img;
             const gfx::TextureParams params = glideTextureParams(true);
-            if (!decodeShape(shape, img) &&
+            if (!decodeForGlide(shape, img, true) &&
                 !renderer_->createTexture(img.w, img.h, img.rgba.data(), params, headlightPicture_))
                 textures_.push_back(headlightPicture_);
         }
@@ -3209,7 +3219,7 @@ gfx::TextureId TrackPage::particlePicture(int kind) {
     for (const Shape& shape : banks_[kLaneSheet].shapes)
         if (shape.name == name) {
             image::Image img;
-            if (!decodeShape(shape, img) && !renderer_->createTexture(img.w, img.h, img.rgba.data(), glideTextureParams(), id))
+            if (!decodeForGlide(shape, img) && !renderer_->createTexture(img.w, img.h, img.rgba.data(), glideTextureParams(), id))
                 textures_.push_back(id);
             else
                 id = 0;

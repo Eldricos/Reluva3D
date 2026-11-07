@@ -2155,6 +2155,68 @@ and `asm` of `0x4310c0`, `0x430c80`, `0x42fee0`, `0x42f550`,
   and each step's contact adds more. Nothing in the code stops a car
   resting on another.
 
+**The hit's arithmetic, re-read for the Track page** (November 2026,
+`asm` with capstone of `0x4310c0`, `0x430c80`, `0x42fee0`, `0x42f550`,
+`0x42dd60`, `0x42e010`, `0x42e2c0`, `0x42e4f0`, `0x42fe10`, `0x42f280`,
+`0x42e820`, `0x42e720`, `0x4e0000`, `0x4e0050`, `0x4e0160`, `0x4dffb0`;
+`gdecomp` of the four point tests). What the page's `carBoxTouch`,
+`carBoxHit`, `carBoxCollide` and `carBoxCollisions` do:
+- `0x42fee0(a, b)` works out the nine dots of a's rows with b's once
+  (`0x5efebc`-`0x5efedc`), then b's half axes in a's frame
+  (`0x5efee0`-`0x5eff00`, row i: a's axis i · b's axis j × b's half
+  size j) and a's in b's (`0x5efe90`-`0x5efeb0`). Each round takes d =
+  b's centre − a's (`0x4e0000`), d in a's frame (`0x5efe60`) and in
+  b's (`0x5efe6c`), and asks `0x42f550` for a point: b's face centres
+  (s = ±1 on one axis, in the order +x, +y, +z, −x, −y, −z: `ebx`,
+  `ecx`, the pushed argument) at d_a + Σ s_j h_bj (a_i · b_j), inside
+  when |each| ≤ a's half size (`<=` both ways); then a's face centres at
+  Σ s_i h_ai (a_i · b_j) − d_b inside b's box; then b's corners and a's,
+  (+,+,+), (+,+,−), (+,−,+), ... (−,−,−). The point (`0x5efe84`) is that
+  centre or corner in the world. `0x42f8c0` (codes 3 and 4) only writes
+  `0x5efe78`-`0x5efe83`. `0x42fe10` normalises d (`0x4972f0`) and moves a
+  by −0.25 × m_b / (m_a + m_b) along it and b by +0.25 × m_a / (m_a +
+  m_b). Four rounds at most; it returns 1 if any found a point.
+- `0x430c80` calls it while it returns 1, with `ebx` from 32 down to 0
+  (33 calls), and then `0x42f280(a, b, 0x5efe84)` once: the point is the
+  last one found, from before that round's push.
+- `0x42f280`: r_a, r_b from each centre (after the pushes) to the point;
+  each point's velocity v + (spin × 6.2831845, `0x40c90fd9`) × r
+  (`0x4e0160`, the usual cross product); J_a = (v_b − v_a) m_b, J_b =
+  (v_a − v_b) m_a; a takes its share when (b − a) · J_a < 0, b when
+  (b − a) · J_b > 0, each with f = its own mass / both. `0x42e820` cuts J
+  to 0.75 when |J| > 5 × its mass, adds s = −(J · r̂) f / m (when over 0)
+  along J / |J|, and (r̂ × J) f / (m × |half sizes| × 2π) to the spin
+  (`0x5373c4`, 1/2π as a double), holds each spin within ±1.8
+  (`0x42e720`) and returns s + f |r̂ × J| / m, which `0x42f280` stores in
+  +0x168 (with +0x16C the other car, +0x170 0x50005, +0x178 the point);
+  over 5 it adds 1 to +0x164.
+- `0x4310c0` is called by `car_collisions_task` (`0x4311d0`, Sc32, so 32
+  times a second, after the cars' models) for each car in play without
+  +0x88 and with +0x174 (a ghost count after a reset, 64) at 0; the
+  list `0x5efe10` is emptied each tick (`0x430cd0`).
+- Masses (`0x42bcb0` → `0x4a0d20`): a human's P mass (× 3, `0x5efdbc`, a
+  cop's or in a pursuit); a computer car's P mass, over 1.2 (`0x5efdb8`,
+  `0x3f99999a`) when +0x200 has bit 1, a racer: in `t6-log` the
+  Corvettes 1226.7 (P's 1472), cops in `d8-t8g0` (+0x200 0x22) their P
+  mass. Half sizes from the model (+0x8A4 +0x28), +0x120 their length.
+- After a hit `car_impacts_task` (`0x42b900`) calls `0x406120` (under
+  10 m/s, `0x5361ec`, the car reverses for 128 steps) and `0x404a00`:
+  for a car with +0x200 bit 2 (driven by the computer) +0x65C = the step
+  (`0x7d3684`) + round(+0x168) × 7 (× 2 when the other is a human's, × 16
+  a human cop's), and while the step is under it `car_ai_model`
+  (`0x408600`) takes `ai_ctl_slide` (`0x4087c3`). With +0x164 set
+  `car_ai_physics` (`0x4088f0`, `0x4089d1`) skips the model, until the
+  dynamics' landing clears it (every spin under 0.6, each × 0.6 a tick
+  meanwhile with a computer car's e = 0.1).
+
+The Track page's computer cars now do this (`aiCollide`, after every
+car's step on the even steps): each car's box from its place on the
+road (its centre the half height over it), its velocity (the speed
+along its way and across the slice) and its yaw rate as the spin; the
+pushes, speeds and yaw are taken back, the slice moved where a push
+takes the car past a slice's end. Roll and pitch aren't kept (the page's
+cars are flat; on the road `0x4a1610` takes them out each tick).
+
 **Rolls from car hits, run** (`d3-` runs, November 2026: the racer's
 pursuit, only the race type and track poked at `0x474ca0`; the
 player's car by `-drive` at car 1 or 2 with full gas or a gap, and

@@ -436,6 +436,7 @@ struct AiCarData {
     float topSpeedCap = 70;         // P +0x1CC
     float maxVelocity = 70;         // P +0x1C8, the cops' top speed (0x401370)
     float latGrip = 0;              // lateral acceleration grip multiplier (P +0x248, field 30)
+    float mass = 1472;              // mass [kg] (P +0x4, field 2)
 };
 // The fields of a car's carp.txt the computer's driving reads; false when
 // one is missing.
@@ -487,6 +488,12 @@ struct AiCar {
     float wanted = 0;   // the speed wanted (+0x7B0), as a size
     float scale = 1;    // the speed scale (+0x7BC): aiDriverFactor x aiTrackFactor, at most 1
     float halfWidth = 1.183f;
+    // For the hits between cars (aiCollide): the box's half height and
+    // length (+0x118, +0x11C; its half width is halfWidth), the mass
+    // (+0xB0, aiCarMass), the air ticks (+0x164: its model skipped while
+    // set), and the step ai_ctl_slide is used to after a hit (+0x65C).
+    float halfHeight = 0.669f, halfLength = 2.406f, mass = 1226.67f;
+    int airTicks = 0, slideUntil = 0;
     AiDriver driver;
     bool cop = false;   // +0x200 bit 0x20: weighs more in the votes of the cars behind
     int lane = 7, laneLeft = 7, laneRight = 7; // +0x638, +0x63C, +0x640
@@ -654,7 +661,9 @@ void aiStep(std::vector<AiCar>& cars, size_t self, const TrackCollision& col, co
 // the game's model has it (car_ai_model 0x408600 on the even steps, then
 // ai_integrate 0x4071a0): its heading error to the point it steers at
 // (0x406e50, 0x406d40, 0x406980: from 4 slices on to about 1.7 s ahead,
-// short of a 45-degree turn, moved across by the aim +0x7C8), then one of
+// the first slice turned 45 degrees or more, moved across by the aim
+// +0x7C8, seen from the car's own place; `track` for Hometown's
+// exceptions there), then one of
 // three controllers. ai_ctl_rails (0x4076b0; on the slice's lanes, lined
 // up within 0.04 of a turn, at 13.41 m/s or more) pushes the car across
 // in the road's frame: the side speed wanted is -5 x (+0x7B8 - aim), in
@@ -669,7 +678,7 @@ void aiStep(std::vector<AiCar>& cars, size_t self, const TrackCollision& col, co
 // car stays within the slice's walls (0x4304b0). `offset` is the aim,
 // `speed` its speed, `along` how far it is along its slice (set by whoever
 // moves it); `side` comes out as the game measures +0x7B8.
-void aiSteerStep(AiCar& car, const TrackCollision& col, int step);
+void aiSteerStep(AiCar& car, const TrackCollision& col, int step, int track = -1);
 // Whether a computer car's driver acts on a step (0x40df10 -> 0x401240,
 // for racers and cops alike): the drivers are a 32 Hz task, on the even
 // steps, let through when (step / 2 + its phase, car +0) mod 4 is 0.
@@ -716,6 +725,64 @@ float aiCatchUpFactor(const AiRace& race, int distance, int place);
 // tested each step (0x4297d0, 0x4ca160: the racers' wheels on its quad).
 void aiCopStep(std::vector<AiCar>& cars, size_t self, const TrackCollision& col, const AiCarData& data, int step,
                int track, bool weather);
+
+// Car against car (physics.md, Rolls from car hits): car_collisions_task
+// (0x4311d0, 32 a second, after the cars' models) hands each car in play
+// to 0x4310c0, which tries it against each car handed in before it that
+// tick whose centre is within the sum of their half diagonals on each of
+// x, y and z. A car as the contact sees it:
+struct CarBox {
+    std::array<float, 3> at{};                                       // its centre (+0x98)
+    std::array<float, 3> right{1, 0, 0}, up{0, 1, 0}, forward{0, 0, 1}; // rows +0xC0, +0xCC, +0xD8
+    std::array<float, 3> half{1.183f, 0.669f, 2.406f};                // half sizes +0x114, +0x118, +0x11C
+    float mass = 1472;                                               // +0xB0
+    std::array<float, 3> velocity{};                                 // +0xA4
+    std::array<float, 3> spin{};                                     // +0xE4, in turns a second
+    float strength = 0; // +0x168: the last hit's (0x42e820's return), for the impacts task
+    int airTicks = 0;   // +0x164: one more for each hit over 5
+};
+// The box test (0x42fee0): up to four rounds of 0x42f550, which tries, in
+// order, b's 6 face centres inside a's box (0x42dd60), a's 6 inside b's
+// (0x42e010), b's 8 corners (0x42e2c0), then a's 8 (0x42e4f0), each
+// face +x, +y, +z, -x, -y, -z and the corners from (+,+,+) to (-,-,-)
+// with z the fastest; after each point found both centres are moved
+// apart along the line between them, 0.25 in all, each by the other's
+// share of the two masses (0x42fe10). True when a point was found;
+// `point` (0x5efe84) is the last.
+bool carBoxTouch(CarBox& a, CarBox& b, std::array<float, 3>& point);
+// The hit (0x42f280 with 0x42e820 and 0x42e720) at the contact point:
+// each car's J is the other's point velocity less its own (v + 2 pi spin
+// x r) times the other's mass, taken only while closing (the centre line
+// . J < 0 for a); over 5 x its own mass it is x 0.75; its velocity gains
+// -(J . r^) / (both masses) along J's own direction (when that is over 0)
+// and its spin (r^ x J) / (both masses x its half diagonal x 2 pi), each
+// spin then held within +-1.8. The strength (+0x168) is the velocity's
+// part plus |r^ x J| / both masses; over 5 it adds 1 to +0x164.
+void carBoxHit(CarBox& a, CarBox& b, const std::array<float, 3>& point);
+// 0x430c80: the box test while it finds a point, at most 33 times, then
+// the hit once at the last point found. True when they touched.
+bool carBoxCollide(CarBox& a, CarBox& b);
+// 0x4310c0 for each car in turn (`in` false: not in play), against those
+// before it: the pairs that touched.
+int carBoxCollisions(std::vector<CarBox>& cars, const std::vector<bool>& in = {});
+// A computer car's mass (0x42bcb0): P's mass (+4), over 1.2 (0x5efdb8) for
+// a racer (+0x200 bit 1), as it is for a cop.
+float aiCarMass(float carpMass, bool racer);
+// The computer's cars against each other, once a tick of 32 (the even
+// steps, after every car's aiStep and move): each car's box from its
+// place on the road (`lateral` from the line between its slice's point and
+// the next's, `along` it, its heading off the way, its centre the half
+// height over the road), velocity (`speed` along the way, `sideSpeed`
+// along the slice's right) and yaw (`yawRate`) put through
+// carBoxCollisions, and what the hits did taken back: the place (its
+// slice and `along` moved on or back where the push takes it past a
+// slice's end), the speeds along the way and across, the yaw. A car hit
+// (the impacts task 0x42b900 -> 0x404a00) uses ai_ctl_slide until
+// round(strength) x 7 steps on (+0x65C, for a car driven by the computer
+// hit by another), and with +0x164 set its model is skipped
+// (car_ai_physics 0x4088f0) until it is back on the road. `step` is the
+// step's number (0x7d3684).
+void aiCollide(std::vector<AiCar>& cars, const TrackCollision& col, int step);
 
 // A car record of a dump of nfs3.exe's cars (0x5e1120, 0x9AC bytes a
 // car; physics.md): in play +0x89, flags +0x200 (4 a human, 0x20 a cop,
