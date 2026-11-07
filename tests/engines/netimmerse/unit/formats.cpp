@@ -324,11 +324,11 @@ void testFinAnimation() {
 }
 
 static const test::Suite suite("netimmerse.unit.formats", {
-    {"pac: read", [](const std::filesystem::path& tmp) { testRead(tmp); }},
-    {"pac: search set", [](const std::filesystem::path& tmp) { testSearchSet(tmp); }},
-    {"pac: placeholder", [](const std::filesystem::path& tmp) { testPlaceholder(tmp); }},
-    {"pac: offset high half, subdirectories", [](const std::filesystem::path& tmp) { testOffsetHighAndSubdirectories(tmp); }},
-    {"pac: damage refused", [](const std::filesystem::path& tmp) { testRejectsDamage(tmp); }},
+    {"pac read", [](const std::filesystem::path& tmp) { testRead(tmp); }},
+    {"pac search set", [](const std::filesystem::path& tmp) { testSearchSet(tmp); }},
+    {"pac placeholder", [](const std::filesystem::path& tmp) { testPlaceholder(tmp); }},
+    {"pac offset high half and subdirectories", [](const std::filesystem::path& tmp) { testOffsetHighAndSubdirectories(tmp); }},
+    {"pac damage refused", [](const std::filesystem::path& tmp) { testRejectsDamage(tmp); }},
     {"dds sounds", [](const std::filesystem::path&) { testDds(); }},
     {"locale text", [](const std::filesystem::path&) { testLocaleText(); }},
     {"fin models", [](const std::filesystem::path&) { testFin(); }},
