@@ -433,20 +433,25 @@ void testFin() {
 
 // A font with "A" and "B" on one 4x4 page: "A" 2x2 at the top-left, sitting
 // on the baseline, drawn one pixel right of the pen (its edges 1 and 3).
-std::vector<uint8_t> ddfFile(int bPage) {
-    std::vector<uint8_t> d(86 + 2 * 18);
+// A font of "A" and "B" (B on page `bPage`): page 0 drawn 4 above and 1
+// below the baseline, page 1 (if `pages` is 2) at twice that.
+std::vector<uint8_t> ddfFile(int bPage, int pages = 1) {
+    const size_t records = 78 + 4 * size_t(pages);
+    std::vector<uint8_t> d(records + 2 * 18);
     std::memcpy(d.data(), "FNT2Arial", 9);
     auto s16 = [&](size_t at, int v) {
         d[at] = uint8_t(v);
         d[at + 1] = uint8_t(v >> 8);
     };
-    const int metrics[9] = {4, 4, 'A', 'B', 1, 5, 1, 4, 2};
-    for (int i = 0; i < 9; ++i)
-        s16(68 + size_t(i) * 2, metrics[i]);
+    const int sizes[5] = {4, 4, 'A', 'B', pages};
+    for (int i = 0; i < 5; ++i)
+        s16(68 + size_t(i) * 2, sizes[i]);
+    for (int p = 0; p < pages; ++p)
+        s16(78 + 4 * size_t(p), 4 * (p + 1)), s16(80 + 4 * size_t(p), p + 1);
     const int glyphs[2][9] = {{0, 0, 2, 0, -1, 3, 3, 0, 0}, {2, 0, 3, -1, 0, 2, 2, 0, bPage}};
     for (int g = 0; g < 2; ++g)
         for (int i = 0; i < 9; ++i)
-            s16(86 + size_t(g) * 18 + size_t(i) * 2, glyphs[g][i]);
+            s16(records + size_t(g) * 18 + size_t(i) * 2, glyphs[g][i]);
     return d;
 }
 
@@ -455,10 +460,14 @@ void testDdf() {
     CHECK(!font.parse(ddfFile(0)));
     CHECK(font.name == "Arial");
     CHECK(font.first == 'A' && font.last == 'B' && font.pages == 1);
-    CHECK(font.lineHeight == 5 && font.descent == 1 && font.ascent() == 4 && font.spaceAdvance == 2);
+    CHECK(font.lineHeight == 5 && font.descent == 1 && font.ascent() == 4 && font.spaceAdvance == 1);
     CHECK(font.glyph(' ') == nullptr && font.glyph('A') && font.glyph('B')->height() == 2);
     CHECK(font.glyph('A')->left == 1 && font.glyph('A')->right == 3 && font.glyph('A')->width() == 2);
-    CHECK(font.measure("A B") == 3 + 2 + 2);
+    CHECK(font.measure("A B") == 3 + 1 + 2);
+    // A second page at twice the size: its glyphs scaled by half to the line.
+    CHECK(!font.parse(ddfFile(1, 2)));
+    CHECK(font.pages == 2 && font.pageAscent[1] == 8 && font.pageDescent[1] == 2 && font.pageScale(1) == 0.5);
+    CHECK(font.lineHeight == 5 && font.measure("AB") == 3 + 1);
     CHECK(DdfFont::pageName("ARIAL.DDF", 1) == "ARIAL_1.TGA");
     CHECK(font.parse(ddfFile(1))); // "B" on a page it doesn't have
     std::vector<uint8_t> cut = ddfFile(0);

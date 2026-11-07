@@ -55,9 +55,11 @@ Fields the format documents still mark as guesses:
   `Ambient.pac` and `LMap.pac` list for themselves, empty, is probably the
   packing tool's own output file. (The field once guessed to be flags is
   the data offset's high half, from the game's code.)
-- **`.DDF` fonts** ([formats/ddf.md](formats/ddf.md)): the 2-byte field at
-  82 is probably the em height (the line height less the internal
-  leading).
+- **`.DDF` fonts** ([formats/ddf.md](formats/ddf.md)): settled from the
+  game's code: the fields once read as a line height, descent, em height
+  and space advance are each page's ascent and descent. Only why one font
+  (Times New Roman Italic) has a page-1 descent one more than its glyphs'
+  is open.
 - **The install** ([formats/install.md](formats/install.md)):
   `Launcher.exe` is guessed to be the CD's `AutoPlay.exe` menu (same
   size); `BaseClassComp.dll` and `BehaviorComp.dll`'s roles are guessed

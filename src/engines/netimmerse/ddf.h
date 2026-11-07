@@ -32,13 +32,22 @@ struct DdfFont {
     std::string name; // the Windows font's ("Arial")
     int pageWidth = 0, pageHeight = 0, pages = 0;
     int first = 0, last = -1; // the characters drawn (Windows-1252)
-    int lineHeight = 0, descent = 0;
-    int emHeight = 0;     // probably the height less the internal leading
-    int spaceAdvance = 0; // the space isn't drawn, but moves the pen this far
+    // Each page's characters are drawn at a size of their own (the second
+    // page, 128 to 255, smaller): its rows above and below the baseline.
+    // The game scales each page to the same height on screen.
+    std::vector<int> pageAscent, pageDescent;
+    int lineHeight = 0, descent = 0; // the first page's: the font's line
+    // The space isn't in the font: the game's text window moves the pen by
+    // a width of its own (UITextWin, 18/35 of the size it was made with).
+    // The viewer's choice: a quarter of the line.
+    int spaceAdvance = 0;
     std::vector<Glyph> glyphs; // first..last
 
     Error parse(const std::vector<uint8_t>& data);
     int ascent() const { return lineHeight - descent; }
+    // How much a page's glyphs are scaled to come out at the font's line
+    // height, as the game scales them.
+    double pageScale(int page) const;
     // The character's glyph, or nullptr if it isn't drawn (the space).
     const Glyph* glyph(uint8_t c) const;
     // The page images' file names, beside `file` ("ARIAL.DDF").

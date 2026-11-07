@@ -19,6 +19,13 @@ This is how the layout was worked out:
   each quad's texture rectangle and screen position were compared with that
   character's record.
 
+- **From the code** (November 2026): LoadComp reads them (the function
+  that checks `FNT2`, at 0x1005e3d0), and a font class's methods (its
+  vftable at 0x10081518) give each field its use. That settled the four
+  fields after the page count, which had been read as a line height, a
+  descent, an em height (a guess) and the space's advance: they are two
+  sizes per page. See "Pages and sizes" below.
+
 `src/engines/netimmerse/ddf.{h,cpp}` reads them, and the viewer's Fonts page
 draws them.
 
@@ -35,11 +42,8 @@ Little-endian.
 | 72 | 2 | first character (33) |
 | 74 | 2 | last character (255) |
 | 76 | 2 | pages (2) |
-| 78 | 2 | line height (38 for Arial) |
-| 80 | 2 | descent: rows below the baseline (9) |
-| 82 | 2 | probably the em height: the line height less the internal leading (32) |
-| 84 | 2 | the space's advance (7); the space isn't one of the glyphs |
-| 86 | 18 × n | a record per character, first to last |
+| 78 | 4 × pages | per page: its ascent and its descent, the rows above and below the baseline at the size its characters were drawn (Arial: 38 and 9, then 32 and 7). Both checked to be 0 to the page height |
+| 78 + 4 × pages | 18 × n | a record per character, first to last (86 with two pages, as in all) |
 
 Each character's record, all signed 16-bit apart from the last two:
 
@@ -52,7 +56,7 @@ Each character's record, all signed 16-bit apart from the last two:
 | 8 | its left edge from the pen, negated: −1 means one column right of it |
 | 10 | its right edge from the pen |
 | 12 | how far the pen moves after it |
-| 14 | 0 in every file (unsigned) |
+| 14 | 0 in every file; the game scales it vertically, like the heights, but no font uses it |
 | 16 | its page (unsigned) |
 
 So a glyph is `right + left-field` columns wide and `above + below` rows
@@ -65,15 +69,37 @@ On the options screen the game scales a whole string. There it drew
 Eurostile Bold at 0.386 across and 0.29 down, with the texture rectangles
 running from texel centre to texel centre, half a texel beyond the glyph.
 
-## The pages
+## Pages and sizes
 
 The pages are `<name>_<n>.TGA`, 256 × 256 32-bit TGA. They are white, with
 the glyphs' coverage in alpha.
+
+In every font, page 0 holds characters 33 to 127 and page 1 holds 128 to
+255, **drawn at a smaller size** so that 128 glyphs fit. Each page's pair
+says that size: in 11 of the 12 fonts page 1's pair is exactly its glyphs'
+greatest extents above and below the baseline. Page 0's ascent is higher
+than any glyph, being the Windows font's ascent with its internal leading.
+
+The game draws text at a size its text window asks for
+(`UITextWin::SetFontSize`). The font then works out, for each page, a
+vertical scale of that size over the page's ascent plus descent, and a
+horizontal one of that times a width factor (0.6 unless set). So both
+pages come out the same height on screen. The font's ascent and descent are
+page 0's, scaled.
+
+**The space isn't in the font**: the characters start at 33. When the game
+finds no glyph for a character (`UITextWin::PutChar`), a space moves the
+pen by the text window's own space width, 18/35 of the size the window was
+made with (`SetFontSize` doesn't change it). A tab moves it to the next tab
+stop.
+
+The viewer draws page 1's glyphs scaled to page 0's line, as the game does,
+and uses a quarter of the line for the space.
 
 ## The fonts
 
 ABADI MT CONDENSED, ARIAL, BOOKMAN OLD STYLE BOLD ITALIC, DOM CASUAL BOLD
 ITALIC, EUROSTILE BOLD, EUROSTILE, HAETTENSCHWEILER, IMPACT, LUCIDA SANS
 UNICODE BOLD, OCR A EXTENDED, OCRB and TIMES NEW ROMAN ITALIC. They are all
-drawn at a line height of 33 to 47 pixels, covering characters 33 to 255 of
+drawn with lines of 41 to 54 pixels (page 0's ascent and descent), covering characters 33 to 255 of
 Windows-1252.
