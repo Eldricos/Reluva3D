@@ -7,6 +7,15 @@
 #include <string>
 #include <vector>
 
+// Inlined whatever the compiler would choose: for the few small functions
+// run for nearly every interpreted instruction or drawn pixel, where a
+// call costs more than the work (Visual Studio declines many such).
+#if defined(_MSC_VER)
+#define RELUVA_FORCE_INLINE __forceinline
+#else
+#define RELUVA_FORCE_INLINE [[gnu::always_inline]] inline
+#endif
+
 namespace reluva {
 
 // Result of an operation that can fail with a human-readable reason.

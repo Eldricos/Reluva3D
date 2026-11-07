@@ -60,6 +60,13 @@ void hexdump(const Bytes& d, size_t off, size_t len) {
     }
 }
 
+namespace {
+const char* programPath_ = "reluva-tool";
+} // namespace
+
+const char* programPath() { return programPath_; }
+void setProgramPath(const char* path) { programPath_ = path; }
+
 long long parseNumber(const char* s) { return std::strtoll(s, nullptr, 0); }
 
 std::string extensionOf(const std::string& name) {

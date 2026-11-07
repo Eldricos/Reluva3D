@@ -94,7 +94,7 @@ Selection panel (65 samples). Owner ROMULAN unless said:
 | Name in panel | Seen | Model | How sure |
 |---|---|---|---|
 | Material storage | 0:45 (efficiency 40%) | the low box with ribbed sides at the front of the pad: `rsf` (portrait `rsf` too) | sure |
-| Photon artillery | 1:06, 6:03, 9:34 | a pale grey wedge-shaped vehicle (`rpa`, [colony.md](colony.md#romulan-matches)) | likely |
+| Photon artillery | 1:06, 6:03, 9:34 | a pale grey wedge-shaped vehicle (`rpa`, [colony.md](../formats/colony.md#romulan-matches)) | likely |
 | Colony hub / Colony hub upgrade | 1:27-2:36, 5:52, 15:21, 27:11 (90%, 100% at 27:11) | the tan arrow-shaped hub | sure |
 | Construction yard | 2:51, 17:22 (80%) | tan building with folded wings | likely |
 | Ground scout | 3:00-4:05, 7:08, 11:08, 12:12, 15:45, 16:08, 23:03, 24:52, 26:36 | small pale grey craft | sure |
@@ -115,7 +115,7 @@ the panel.
 ## Positions
 
 Map positions are eighths of a block, row first; kinds read from `f1`'s
-grid (bits 12-15 of the cell's second value, [gmf.md](gmf.md)).
+grid (bits 12-15 of the cell's second value, [gmf.md](../formats/gmf.md)).
 
 | Reading | Time | Block (row, col) | f1 kind | Neighbours (3x3) |
 |---|---|---|---|---|

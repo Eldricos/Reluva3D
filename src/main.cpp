@@ -5,6 +5,7 @@
 #include "common/config.h"
 #include "common/detection.h"
 #include "common/fs.h"
+#include "common/log.h"
 #include "common/settings.h"
 #include "engines/registry.h"
 #include "launcher/launcher.h"
@@ -66,6 +67,12 @@ int main(int argc, char** argv) {
         return printHashes(argc, argv);
     if (argc >= 2 && std::strcmp(argv[1], "--detect") == 0)
         return printDetected(argc, argv);
+
+    // A copy of every message in a file, for when there's no console to see
+    // them in (or it closed with the program); SDL's log goes there too.
+    StderrLog log(dataDir() / "reluva.log");
+    SDL_SetLogOutputFunction(
+        [](void*, int, SDL_LogPriority, const char* message) { std::fprintf(stderr, "%s\n", message); }, nullptr);
 
     SdlSystem system;
     if (Error err = system.init()) {

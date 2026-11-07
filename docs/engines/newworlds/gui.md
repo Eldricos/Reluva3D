@@ -49,7 +49,7 @@ tiles, `ufp001`-`006` (the Federation), `kliemp01`-`06` (the Klingon Empire)
 and `romemp01`-`06` (the Romulan Star Empire): three across and two down,
 256 + 256 + 128 by 256 + 224 pixels, so together the 640 × 480 screen. They
 are the emblem screen that ends a briefing (seen in recordings of play,
-[play.md](play.md)). The `f_win`, `k_win`, `r_win` and `f_lose`... sets
+[play.md](../play/play.md)). The `f_win`, `k_win`, `r_win` and `f_lose`... sets
 beside them are likewise six tiles each, presumably the mission won and
 lost screens.
 
@@ -75,7 +75,7 @@ the Klingons' cut across. Federation pieces are purple, Klingon ones
 copper. Each side has its own fonts: `fepnttle`, `fe8pt` and `fe5pt`
 (`kl...`, `rm...` for the others).
 
-Where the panels sit, from recordings of play ([play.md](play.md)), on the
+Where the panels sit, from recordings of play ([play.md](../play/play.md)), on the
 640 × 480 screen:
 
 - **NEW WORLDS**, top right, about 100 pixels wide: the colony size (20/50
@@ -97,7 +97,7 @@ known: Reluva hands the side's first portraits to Command, Operations,
 Engineering, Science, Medical, Security, Intelligence and Communications in
 that order, except the Romulans' (below).
 
-The Romulan recordings ([play.md](play.md)) show the same panels in grey
+The Romulan recordings ([play.md](../play/play.md)) show the same panels in grey
 with green and teal: teal text, a green Tricorder relief map, the
 Romulan emblem behind the briefings. Matching each message's face to
 `ptrt/crew/lg/r_c*` (a sliding comparison of the recordings' 64 × 64

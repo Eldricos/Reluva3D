@@ -79,7 +79,7 @@ Selection panel (61 samples). Romulan (owner ROMULAN):
 | Name in panel | Model | How sure |
 |---|---|---|
 | colony hub (2:38, 9:28; 120 %; generator LOW, consumption 66 %, demand met 100 %) | `rch` (the arch) | sure |
-| construction yard (3:07, 17:38; 80 %) | splayed tan portrait: `rcy_a` | sure (portrait; [colony.md](colony.md#romulan-matches)) |
+| construction yard (3:07, 17:38; 80 %) | splayed tan portrait: `rcy_a` | sure (portrait; [colony.md](../formats/colony.md#romulan-matches)) |
 | science station (5:02, 14:24, 15:44; 80 %) | crab-like tan portrait (`rsb_a`); builder help at 2:41 "science research station" | sure |
 | resource processor (7:23, 9:33, 9:39; damaged, 66-68 %) | ribbed block (`rrpp_a`) | sure |
 | vehicle yard (12:36 on, several; 80-110 %) | tan shell-like portrait, octagonal on the pad (`rvy`) | fairly |
@@ -200,7 +200,7 @@ MET) under the status lines. Portraits:
 - The "colony core" is the black spire with violet-blue prongs (`mch`, R12
   and J9R); are all the black violet-glowing buildings here colony cores?
 - (Answered since: the slashed pods are `th`, Taubat houses; the shield
-  generator is `rcss`, [colony.md](colony.md#romulan-matches).) The cloaked
+  generator is `rcss`, [colony.md](../formats/colony.md#romulan-matches).) The cloaked
   assault vehicle's full name, and whether it is `rapc` drawn cloaked.
 - Who flies the white-and-red craft attacking the colony from 7:00?
 - Match the Science grin face (new for R12/R14) and the others to

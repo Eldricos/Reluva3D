@@ -49,6 +49,40 @@ SoundHandle Mixer::play(std::shared_ptr<Stream> stream, SoundType type, int volu
     return handle;
 }
 
+void SoundStream::push(const int16_t* samples, size_t count) {
+    std::lock_guard<std::mutex> lock(mutex_);
+    if (read_ > 0 && read_ * 2 >= samples_.size()) { // drop what's been taken
+        samples_.erase(samples_.begin(), samples_.begin() + long(read_));
+        read_ = 0;
+    }
+    samples_.insert(samples_.end(), samples, samples + count);
+}
+
+void SoundStream::end() {
+    std::lock_guard<std::mutex> lock(mutex_);
+    ended_ = true;
+}
+
+size_t SoundStream::queued() const {
+    std::lock_guard<std::mutex> lock(mutex_);
+    return (samples_.size() - read_) / size_t(channels_);
+}
+
+SoundHandle Mixer::playStream(std::shared_ptr<SoundStream> stream, SoundType type, int volume, int pan, int prebufferMs) {
+    if (!stream || stream->rate() <= 0 || stream->channels() < 1 || stream->channels() > 2)
+        return kNoSound;
+    std::lock_guard<std::mutex> lock(mutex_);
+    const SoundHandle handle = nextHandle_++;
+    if (nextHandle_ == kNoSound)
+        nextHandle_ = 1;
+    Channel c{handle, nullptr, nullptr, type, std::clamp(volume, 0, kMaxVolume), std::clamp(pan, -kMaxPan, kMaxPan),
+              false};
+    c.prebuffer = size_t(std::max(prebufferMs, 0)) * size_t(stream->rate()) / 1000;
+    c.queue = std::move(stream);
+    channels_.push_back(std::move(c));
+    return handle;
+}
+
 void Mixer::stop(SoundHandle handle) {
     std::lock_guard<std::mutex> lock(mutex_);
     if (Channel* c = find(handle))
@@ -208,6 +242,46 @@ void Mixer::mixStream(Channel& c, int frames, int64_t gain) {
     c.position = whole + double(frac) / 65536.0;
 }
 
+// A SoundStream's next frames, resampled as a sound's are; nothing while it
+// waits for enough to be queued.
+void Mixer::mixQueue(Channel& c, int frames, int64_t gain) {
+    SoundStream& s = *c.queue;
+    const int64_t gainL = c.pan > 0 ? gain * (kMaxPan - c.pan) / kMaxPan : gain;
+    const int64_t gainR = c.pan < 0 ? gain * (kMaxPan + c.pan) / kMaxPan : gain;
+    std::lock_guard<std::mutex> lock(s.mutex_);
+    const size_t ch = size_t(s.channels_);
+    const size_t available = (s.samples_.size() - s.read_) / ch;
+    if (c.waiting) {
+        if (available < std::max<size_t>(c.prebuffer, 2) && !s.ended_)
+            return;
+        c.waiting = false;
+    }
+    const double step = double(s.rate_) / double(outputRate_);
+    const int16_t* base = s.samples_.data() + s.read_;
+    auto sample = [&](size_t frame, size_t channel) { // the last frame held, once the stream has ended
+        return double(base[std::min(frame, available - 1) * ch + channel]);
+    };
+    for (int i = 0; i < frames; ++i) {
+        const size_t f = size_t(c.position);
+        if (f >= available || (f + 1 == available && !s.ended_)) { // run dry: wait for more, or end
+            if (s.ended_)
+                c.done = true;
+            else
+                c.waiting = true;
+            break;
+        }
+        const double t = c.position - double(f);
+        const double l = sample(f, 0) * (1 - t) + sample(f + 1, 0) * t;
+        const double r = ch > 1 ? sample(f, 1) * (1 - t) + sample(f + 1, 1) * t : l;
+        accumulator_[size_t(i) * 2] += int32_t(std::lround(l * double(gainL) / 65536.0));
+        accumulator_[size_t(i) * 2 + 1] += int32_t(std::lround(r * double(gainR) / 65536.0));
+        c.position += step;
+    }
+    const size_t used = std::min(size_t(c.position), available);
+    s.read_ += used * ch;
+    c.position -= double(used);
+}
+
 void Mixer::mix(int16_t* out, int frames) {
     if (frames <= 0)
         return;
@@ -221,7 +295,9 @@ void Mixer::mix(int16_t* out, int frames) {
         int64_t gain = int64_t(c.volume) * typeVolume_[int(c.type)];
         if (masterVolume_ != kMaxVolume)
             gain = gain * masterVolume_ / kMaxVolume;
-        if (c.stream)
+        if (c.queue)
+            mixQueue(c, frames, gain);
+        else if (c.stream)
             mixStream(c, frames, gain);
         else
             mixSound(c, frames, gain);

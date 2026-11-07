@@ -12,7 +12,7 @@ briefing are recorded; don't press NEXT during briefings.
 
 **Conventions:** map positions `<a:b>` are eighths of a block, row first
 (0-511 on a 64-block map; a block's middle is 8n + 4), as the Tricorder
-shows them ([gmf.md](gmf.md#map-positions-in-the-game)). Note the recording
+shows them ([gmf.md](../formats/gmf.md#map-positions-in-the-game)). Note the recording
 time with every reading. Open COMMUNICATIONS whenever its counter changes and
 never delete a message unread. **[shot]** = a screenshot is enough;
 **[rec]** = needs a recording (timing, motion or sound).
@@ -21,16 +21,16 @@ never delete a message unread. **[shot]** = a screenshot is enough;
 
 - **Compass and row 0** [shot]: at any start, point the camera along the
   compass's north and read the Tricorder at two points along that line;
-  note which way row numbers grow. ([gmf.md](gmf.md#map-positions-in-the-game))
+  note which way row numbers grow. ([gmf.md](../formats/gmf.md#map-positions-in-the-game))
 - **Starting colony from above** [shot]: in several missions per side (F1,
   K1, R1 at least), raise the camera straight over the start; screenshot the
   layout and read the Tricorder at each corner of the concrete pad and over
-  each building. ([colony.md](colony.md#reluvas-layout))
+  each building. ([colony.md](../formats/colony.md#reluvas-layout))
 - **Colony site positions** [shot]: at the start of each mission, hover the
   ground beside the hub and note the readout. Not known at all for F2, F3,
   F8, F14, J1F, J3F, J4F, J6F, J7F, J8F, K8, J6K, J7K, J8K, R1, R8, J8R, J9R,
   C11; the rest are estimated from mines and need a check (J6R thought row
-  11-13, col 24-25). ([colony.md](colony.md#where-the-colonies-are))
+  11-13, col 24-25). ([colony.md](../formats/colony.md#where-the-colonies-are))
 - **Other sites** [shot]: read the Tricorder over the places messages name:
   K1 Taubat temple and the four groups of ruins (R1 too), R9 Federation and
   Klingon bases, J4R Klingon arsenal, C11 Hubrin fortress, J2 transporter
@@ -42,10 +42,10 @@ never delete a message unread. **[shot]** = a screenshot is enough;
   inset; note when the ore name appears instead of plain terrain. Repeat on
   a kind-2 block (talgonite, J3R) and a kind-5 block with the whole readout
   in frame (magnesite: C11, J6R <200:253>, <212:254>, R9).
-  ([play-j9r.md](play-j9r.md), [play-c11.md](play-c11.md), [gmf.md](gmf.md#resource-deposits))
+  ([play-j9r.md](play-j9r.md), [play-c11.md](play-c11.md), [gmf.md](../formats/gmf.md#resource-deposits))
 - **Ores to materials** [rec]: watch a resource processor's stock and the
   six materials as each ore comes in; which ore makes which material, and
-  what mined talgonite adds. ([gmf.md](gmf.md#open-questions), [play-j3r.md](play-j3r.md))
+  what mined talgonite adds. ([gmf.md](../formats/gmf.md#open-questions), [play-j3r.md](play-j3r.md))
 - **Mining rates** [rec]: one mining station on a fresh deposit; note its
   raw stock every minute and when it reports exhausted. ([play-tutorials.md](play-tutorials.md#open-questions))
 - **Build times** [rec]: note order and finish times for each building,
@@ -54,7 +54,7 @@ never delete a message unread. **[shot]** = a screenshot is enough;
 - **Building on deposits** [shot]: pick a power generator and hold its
   hologram over a deposit block (one the Tricorder names an ore on), then
   over bare ground beside it; is it red on the deposit? Reluva keeps
-  deposits for mines only. ([game.md](game.md#the-colony))
+  deposits for mines only. ([game.md](../formats/game.md#the-colony))
 - **Build costs** [shot]: hover every build icon on each side and screenshot
   its cost; missing even for the Federation: phaser tank, photon artillery,
   science block, phaser coil lab. ([play-tutorials.md](play-tutorials.md#build-costs-shown-structures-from-a-construction-yard))
@@ -83,13 +83,13 @@ never delete a message unread. **[shot]** = a screenshot is enough;
 ## 2. Buildings and units (model matching)
 
 Select each item and screenshot it close up, from two sides, with the
-selection panel naming it ([colony.md](colony.md#buildings-and-models)).
+selection panel naming it ([colony.md](../formats/colony.md#buildings-and-models)).
 
 - **Federation** [shot]: power generator, advanced generator, mining
   station (close), photon turret, defence artillery, shield generator,
   landing pad, food storage. ([play-f1.md](play-f1.md#buildings-and-their-models))
 - **Romulan buildings** [shot]: most are matched now by their panel
-  portraits ([colony.md](colony.md#romulan-matches)); still to confirm close
+  portraits ([colony.md](../formats/colony.md#romulan-matches)); still to confirm close
   up: the order of the two hub upgrades (`rch_b` tower first, `rch_c`
   spiked plate second?), the utility hospital upgrade (`ruh_b`?), the
   transporter pad (`rbcs`), shield generator (`rcss`), static disruptor
@@ -113,7 +113,7 @@ selection panel naming it ([colony.md](colony.md#buildings-and-models)).
 
 - **Options and resolution** [shot]: open Options from the main menu;
   screenshot every page; note the in-game resolution and whether it matches
-  the game.ini 640x480. ([play-tutorials.md](play-tutorials.md#open-questions), [level.md](level.md#gameini))
+  the game.ini 640x480. ([play-tutorials.md](play-tutorials.md#open-questions), [level.md](../formats/level.md#gameini))
 - **Difficulty and Cadet mode** [rec]: start the same mission at each
   difficulty and with Cadet mode; note starting stock, size and enemy
   strength. ([play-tutorials.md](play-tutorials.md#main-menu-and-setup-screens))
@@ -124,7 +124,7 @@ selection panel naming it ([colony.md](colony.md#buildings-and-models)).
   screenshot every officer card (face, name, section, post); then note each
   message's face and section. Settles which face goes with which section,
   and the Romulans' doubles (J1R, J2R, J3R, J7R, J8R, J9R, R9, R12, R14).
-  ([gui.md](gui.md), [play-j2r.md](play-j2r.md))
+  ([gui.md](../formats/gui.md), [play-j2r.md](play-j2r.md))
 - **Bonus loading box** [shot]: does C9's and C10's loading box name a bonus
   mission like C11's? ([play-c11.md](play-c11.md))
 - **The star in star-system views** [shot]: in each briefing's star-system
@@ -135,7 +135,7 @@ selection panel naming it ([colony.md](colony.md#buildings-and-models)).
 
 Record every briefing in full. A "clip" is the briefing's voice clip; note
 which page and view are on screen when it starts.
-([media.md](media.md#open-questions), `src/engines/newworlds/briefing.cpp`)
+([media.md](../formats/media.md#open-questions), `src/engines/newworlds/briefing.cpp`)
 
 **Federation**
 
@@ -193,14 +193,14 @@ which page and view are on screen when it starts.
 - **Tutorial maps** [shot]: `c1.gmf`-`c8.gmf` are in none of the 24
   archives; ask which archive or CD folder holds the tutorial maps (search
   the CD and game folder for `*.gmf` and any extra `.cat`).
-  ([level.md](level.md#in-reluva), [play-tutorials.md](play-tutorials.md#map))
+  ([level.md](../formats/level.md#in-reluva), [play-tutorials.md](play-tutorials.md#map))
 - **Last joint clips** [rec]: `Media/RomVO` holds 113 files (confirmed), so
   J1R, J2R, J8R and J9R simply have fewer clips than the other sides; just
   check their briefings end where the recordings do.
-  ([media.md](media.md#voice-overs-fedvo-klingvo-romvo))
+  ([media.md](../formats/media.md#voice-overs-fedvo-klingvo-romvo))
 - **Other archives** [shot]: a full listing of the game folder and the CD
   (including `MOVIES`), for anything beyond install.md's list (head-to-head
-  `d1`-`d6` maps). ([install.md](install.md), [level.md](level.md))
+  `d1`-`d6` maps). ([install.md](../formats/install.md), [level.md](../formats/level.md))
 
 ## 6. R8 (no recording)
 
@@ -210,4 +210,4 @@ which page and view are on screen when it starts.
   with its Tricorder position, starting stock and size, every message
   (open each), selections of new buildings and units, the COMMAND panel,
   and the end through the mission report. ([play-r9.md](play-r9.md),
-  [media.md](media.md))
+  [media.md](../formats/media.md))

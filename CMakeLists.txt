@@ -1,9 +1,37 @@
 cmake_minimum_required(VERSION 3.24)
 project(reluva VERSION 0.1.0 LANGUAGES C CXX)
 
+# Optimized unless asked otherwise: the x86 interpreter and the software
+# rasterizer are many times slower in a debug build.
+if(NOT CMAKE_CONFIGURATION_TYPES AND NOT CMAKE_BUILD_TYPE)
+    set(CMAKE_BUILD_TYPE Release CACHE STRING "Build type" FORCE)
+endif()
+
 set(CMAKE_CXX_STANDARD 20)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 set(CMAKE_CXX_EXTENSIONS OFF)
+
+# Visual Studio: the interpreter's stand-ins and handlers are thousands of
+# lambdas and template instances, more sections than an object file holds
+# by default in a debug build (error C1128); and the sources are UTF-8,
+# whatever the system's code page.
+if(MSVC)
+    add_compile_options(/bigobj /utf-8)
+    # Visual Studio's "x64-Release" configuration is CMake's RelWithDebInfo,
+    # whose defaults are made for debugging: /Ob1 inlines only what's
+    # marked inline, and /INCREMENTAL links every call through a jump stub.
+    # The interpreter calls a handler for every instruction it runs, so a
+    # profile of LEGO Alpha Team found these costing much of the game's
+    # thread. Inline fully and link plainly, keeping the debug information.
+    foreach(lang C CXX)
+        string(REPLACE "/Ob1" "/Ob2" CMAKE_${lang}_FLAGS_RELWITHDEBINFO "${CMAKE_${lang}_FLAGS_RELWITHDEBINFO}")
+    endforeach()
+    foreach(kind EXE SHARED MODULE)
+        string(REGEX REPLACE "/INCREMENTAL(:[A-Z]+)?" "/INCREMENTAL:NO" CMAKE_${kind}_LINKER_FLAGS_RELWITHDEBINFO
+               "${CMAKE_${kind}_LINKER_FLAGS_RELWITHDEBINFO}")
+        string(APPEND CMAKE_${kind}_LINKER_FLAGS_RELWITHDEBINFO " /OPT:REF /OPT:ICF")
+    endforeach()
+endif()
 
 # Floating point as written, with no multiply and add fused into one step:
 # Clang does that by default on ARM (and GCC wherever FMA is available),
@@ -78,13 +106,32 @@ add_library(reluva_common STATIC
     src/common/video/smacker.cpp
     src/common/video/cinepak.cpp
     src/common/video/avi.cpp
+    src/common/video/indeo5.cpp
+    src/common/video/indeo5_tables.cpp
+    src/common/video/movie.cpp
     src/common/image.cpp
     src/common/gfx3d.cpp
     src/common/net.cpp
     src/common/pe.cpp
     src/common/x86/cpu.cpp
+    src/common/x86/cpu_cache.cpp
+    src/common/x86/jit.cpp
     src/common/x86/fpu.cpp
     src/common/x86/win32.cpp
+    src/common/x86/win32_files.cpp
+    src/common/x86/win32_system.cpp
+    src/common/x86/win32_user.cpp
+    src/common/x86/win32_registry.cpp
+    src/common/x86/msvcrt.cpp
+    src/common/x86/msvcp60.cpp
+    src/common/x86/com.cpp
+    src/common/x86/directx/ddraw.cpp
+    src/common/x86/directx/surface.cpp
+    src/common/x86/directx/interfaces.cpp
+    src/common/x86/directx/d3d7.cpp
+    src/common/x86/directx/raster.cpp
+    src/common/x86/directx/dinput.cpp
+    src/common/x86/a3d.cpp
     src/common/x86/format.cpp
     src/common/x86/disasm.cpp
     src/common/detection.cpp
@@ -160,5 +207,9 @@ reluva_finish_tool(
 # docs/DEVELOPMENT.md (Tests).
 reluva_add_tests(common
     SOURCES ${PROJECT_SOURCE_DIR}/tests/common/unit.cpp
-    TOPICS unit.hashes unit.files unit.archives unit.text unit.audio unit.image unit.video unit.net unit.x86)
+        ${PROJECT_SOURCE_DIR}/tests/common/jit.cpp
+        ${PROJECT_SOURCE_DIR}/tests/common/windows.cpp
+        ${PROJECT_SOURCE_DIR}/tests/common/indeo.cpp
+    TOPICS unit.hashes unit.files unit.archives unit.text unit.audio unit.image unit.video unit.net unit.x86
+        unit.jit unit.windows unit.indeo)
 reluva_finish_tests()

@@ -9,7 +9,7 @@ Klingon mission, in a 37-minute recording with commentary (YouTube
 No `k14.gmf` exists; level.md supposed mission 14 reuses mission 12's map,
 since the briefings name the same world. Confirmed: the mine reported
 exhausted at 100, 292 lies on a deposit (kind 1) of `k12.gmf` (row 12,
-column 36, read as in [gmf.md](gmf.md#map-positions-in-the-game)), the
+column 36, read as in [gmf.md](../formats/gmf.md#map-positions-in-the-game)), the
 terrain is K12's dark lava plain, and the containment field device built
 in K12 is here to be protected (objective 14).
 

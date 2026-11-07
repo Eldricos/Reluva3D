@@ -30,6 +30,33 @@ constexpr int kMaxVolume = 256; // volumes run 0 (silent) .. 256 (as recorded)
 constexpr int kMaxBoostVolume = 2 * kMaxVolume;
 constexpr int kMaxPan = 127;    // pan runs -127 (left) .. 127 (right)
 
+// Sound made as it plays (a program filling a buffer as it's heard): its
+// producer adds samples, the mixer takes them. Unlike a QueuingStream
+// (stream.h), which plays silence when it runs dry, the mixer waits for a
+// little of it to be queued first, and again whenever it runs dry, so a
+// producer a little late isn't heard as gaps (Mixer::playStream).
+// Thread-safe.
+class SoundStream {
+public:
+    SoundStream(int rate, int channels) : rate_(rate), channels_(channels) {}
+    int rate() const { return rate_; }
+    int channels() const { return channels_; }
+    // Adds interleaved samples (whole frames).
+    void push(const int16_t* samples, size_t count);
+    // No more will come: the stream ends once what's queued has played.
+    void end();
+    // Frames queued.
+    size_t queued() const;
+
+private:
+    friend class Mixer;
+    const int rate_, channels_;
+    mutable std::mutex mutex_;
+    std::vector<int16_t> samples_; // queued, oldest first
+    size_t read_ = 0;              // samples_ before this have been taken
+    bool ended_ = false;
+};
+
 // Mixes any number of decoded sounds and streams into the System's stereo output:
 // each resampled (linearly) to the output rate, scaled by its own volume and
 // pan, its type's volume and the master volume, summed and clamped to 16
@@ -48,6 +75,10 @@ public:
     // stream does, or is stopped. The mixer keeps a reference: the engine
     // may keep one too, to feed it.
     SoundHandle play(std::shared_ptr<Stream> stream, SoundType type, int volume = kMaxVolume, int pan = 0);
+    // Starts a SoundStream. It waits until `prebufferMs` of it are queued,
+    // and again whenever it runs dry.
+    SoundHandle playStream(std::shared_ptr<SoundStream> stream, SoundType type, int volume = kMaxVolume, int pan = 0,
+                           int prebufferMs = 100);
     void stop(SoundHandle handle);
     void stopType(SoundType type);
     void stopAll();
@@ -97,9 +128,14 @@ private:
         // A stream's: the frames either side of `position`, and the next.
         int16_t cur[2] = {0, 0}, next[2] = {0, 0};
         bool primed = false;
+        // A SoundStream's (playStream), instead of a sound or a stream.
+        std::shared_ptr<SoundStream> queue = nullptr;
+        size_t prebuffer = 0; // frames it waits for
+        bool waiting = true;  // it has run dry
     };
     void mixSound(Channel& c, int frames, int64_t gain);
     void mixStream(Channel& c, int frames, int64_t gain);
+    void mixQueue(Channel& c, int frames, int64_t gain);
     static bool readFrame(Stream& s, int16_t frame[2]);
     Channel* find(SoundHandle handle);
     const Channel* find(SoundHandle handle) const;

@@ -58,27 +58,6 @@ void toExtended(double v, uint8_t* p) {
 
 } // namespace
 
-void Cpu::fpuPush(double v) {
-    fpu.top = uint8_t((fpu.top - 1) & 7);
-    fpu.regs[fpu.top] = v;
-    fpu.tags &= uint8_t(~(1u << fpu.top));
-}
-
-double Cpu::fpuPop() {
-    const double v = fpu.regs[fpu.top];
-    fpu.tags |= uint8_t(1u << fpu.top);
-    fpu.top = uint8_t((fpu.top + 1) & 7);
-    return v;
-}
-
-double Cpu::fpuRound(double v) const {
-    // Precision control 0: 24 bits (a game may set it for speed, or
-    // Direct3D for it). It rounds only FADD, FSUB, FMUL, FDIV (and their
-    // forms) and FSQRT; the transcendental instructions' results don't
-    // follow it (Intel SDM vol. 1, 8.1.5.2).
-    return (fpu.control & 0x300) == 0 ? double(float(v)) : v;
-}
-
 void Cpu::fpuCompare(double a, double b, bool setEflags, bool) {
     uint16_t c = 0;
     if (std::isnan(a) || std::isnan(b))
@@ -88,13 +67,13 @@ void Cpu::fpuCompare(double a, double b, bool setEflags, bool) {
     else if (a == b)
         c = C3;
     if (setEflags) {
-        flagsRef() &= ~(ZF | PF | CF | OF | SF | AF);
+        eflags &= ~(ZF | PF | CF | OF | SF | AF);
         if (c & C3)
-            flagsRef() |= ZF;
+            eflags |= ZF;
         if (c & C2)
-            flagsRef() |= PF;
+            eflags |= PF;
         if (c & C0)
-            flagsRef() |= CF;
+            eflags |= CF;
     } else {
         fpu.status = uint16_t((fpu.status & ~(C3 | C2 | C1 | C0)) | c);
     }
@@ -240,7 +219,7 @@ void Cpu::x87(uint8_t op) {
             case 2: store(a, uint32_t(toInteger(roundByMode(st(0), fpu.control), 32)), 4); return;
             case 3: store(a, uint32_t(toInteger(roundByMode(st(0), fpu.control), 32)), 4); fpuPop(); return;
             case 5: fpuPush(fromExtended(at(a, 10))); return;
-            case 7: toExtended(fpuPop(), at(a, 10)); return;
+            case 7: toExtended(fpuPop(), atWrite(a, 10)); return;
             }
             break;
         case 0xdd:
@@ -258,7 +237,7 @@ void Cpu::x87(uint8_t op) {
             case 6: { // FNSAVE
                 storeEnvironment();
                 for (int i = 0; i < 8; ++i)
-                    toExtended(st(i), at(a + 28 + 10 * uint32_t(i), 10));
+                    toExtended(st(i), atWrite(a + 28 + 10 * uint32_t(i), 10));
                 init();
                 return;
             }
@@ -397,17 +376,17 @@ void Cpu::x87(uint8_t op) {
             return;
         }
         case 0xfc: st(0) = roundByMode(st(0), fpu.control); return;
-        case 0xfd: st(0) = std::ldexp(st(0), int(std::trunc(st(1)))); return;
+        case 0xfd: st(0) = fpuRound(std::ldexp(st(0), int(std::trunc(st(1))))); return;
         case 0xfe: st(0) = std::sin(st(0)); setC(0); return;
         case 0xff: st(0) = std::cos(st(0)); setC(0); return;
         }
         break;
     case 0xda:
         switch (r) {
-        case 0: fcmov(flagsRef() & CF); return;
-        case 1: fcmov(flagsRef() & ZF); return;
-        case 2: fcmov(flagsRef() & (CF | ZF)); return;
-        case 3: fcmov(flagsRef() & PF); return;
+        case 0: fcmov(eflags & CF); return;
+        case 1: fcmov(eflags & ZF); return;
+        case 2: fcmov(eflags & (CF | ZF)); return;
+        case 3: fcmov(eflags & PF); return;
         case 5:
             if (i == 1) { // FUCOMPP
                 fpuCompare(st(0), st(1), false, true);
@@ -420,10 +399,10 @@ void Cpu::x87(uint8_t op) {
         break;
     case 0xdb:
         switch (r) {
-        case 0: fcmov(!(flagsRef() & CF)); return;
-        case 1: fcmov(!(flagsRef() & ZF)); return;
-        case 2: fcmov(!(flagsRef() & (CF | ZF))); return;
-        case 3: fcmov(!(flagsRef() & PF)); return;
+        case 0: fcmov(!(eflags & CF)); return;
+        case 1: fcmov(!(eflags & ZF)); return;
+        case 2: fcmov(!(eflags & (CF | ZF))); return;
+        case 3: fcmov(!(eflags & PF)); return;
         case 4:
             if (modrm == 0xe2) { // FNCLEX
                 fpu.status &= 0x7f00;

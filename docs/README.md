@@ -12,12 +12,17 @@ requirements, building, running and contributing. The rest is here.
 
 ## Shared: `common/`
 
-- [x86.md](common/x86.md): the x86 interpreter that runs 32-bit Windows game
-  code (Elite Force's single-player DLLs), and its Windows stand-ins.
+- [x86.md](common/x86.md): the x86 emulator (an interpreter, and native
+  code on x86-64) that runs 32-bit Windows game code (Elite Force's
+  single-player DLLs, LEGO Alpha Team's whole program), and its stand-ins
+  for Windows, DirectX and Aureal A3D.
 - [bink.md](common/bink.md): Bink videos (Elite Force's cinematics, Murder
   on the Orient Express's movies and video loops).
 - [smacker.md](common/smacker.md): Smacker videos.
 - [cinepak.md](common/cinepak.md): Cinepak videos, in AVI files.
+- [video/avi.md](common/video/avi.md) and
+  [video/indeo5.md](common/video/indeo5.md): AVI files, and Intel Indeo
+  Video 5 (LEGO Alpha Team's intro movie).
 - [dcl.md](common/dcl.md): PKWARE DCL ("implode") compression.
 - [wise.md](common/wise.md): Wise installers, taken apart without running
   them (Elite Force's patch).
@@ -36,6 +41,7 @@ interfaces, and any notes on testing and differences from the original.
 | `stgenerations` | Star Trek: Generations | [engines/stgenerations/](engines/stgenerations/README.md) |
 | `awe` | Agatha Christie: Murder on the Orient Express (and, later, AWE's other Agatha Christie games) | [engines/awe/](engines/awe/README.md) |
 | `clue` | Clue: Murder at Boddy Mansion (Cluedo: Murder at Blackwell Grange in the UK) | [engines/clue/](engines/clue/README.md) |
+| `netimmerse` | LEGO Alpha Team (and, later, other NetImmerse games) | [engines/netimmerse/](engines/netimmerse/README.md) |
 | `testbed` | A built-in test pattern, no game | — |
 
 ## Adding docs

@@ -40,6 +40,11 @@ struct Registered {
 // Every command registered, in no particular order.
 std::vector<Registered>& registered();
 
+// reluva-tool's own path (its argv[0]), for commands that run it again
+// (several runs at once, say).
+const char* programPath();
+void setProgramPath(const char* path);
+
 // Registers a file's commands, for an engine or ("") for every one.
 struct Commands {
     Commands(const std::string& engine, std::vector<Command> list);

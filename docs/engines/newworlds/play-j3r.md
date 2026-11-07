@@ -107,7 +107,7 @@ Selection panel (103 samples). Romulan (owner ROMULAN), matched to
 | colony hub | `rch` (the arch; from above an arrow shape) | sure |
 | construction yard | `rcy_a` | fairly |
 | vehicle yard | `rvy` | fairly |
-| science station | `rsb_a` | fairly (by the other recordings' portraits, [colony.md](colony.md#romulan-matches)) |
+| science station | `rsb_a` | fairly (by the other recordings' portraits, [colony.md](../formats/colony.md#romulan-matches)) |
 | adv. power generator | `rps2` (tower on splayed legs) | fairly |
 | resource processor | `rrpp_a` (ribbed block portrait) | fairly |
 | mining station | `rms` (X portrait `rms1`) | fairly |
@@ -246,7 +246,7 @@ blue message text, green-titled briefing pages. Portraits:
   briefing skip it, or did the player click past?
 - The dark flat building at the start; the box beside the hub (the
   material storage `rsf`, as in every Romulan start?). (The rest answered
-  since, [colony.md](colony.md#romulan-matches).)
+  since, [colony.md](../formats/colony.md#romulan-matches).)
 - Two Engineering faces (25:45 vs 37:23); Senate face = the 66:46 incoming
   face; the bald alien's identity. Match against `ptrt/crew/lg/r_c1..`.
 - The active portal (Metar): which `forbuild`/`bad` model.

@@ -46,7 +46,7 @@ scan's target).
 ## Positions
 
 Both mines lie on deposits of `j9.gmf` (kind 1), read as in
-[gmf.md](gmf.md#map-positions-in-the-game): 19 of 19 mines across the
+[gmf.md](../formats/gmf.md#map-positions-in-the-game): 19 of 19 mines across the
 recordings.
 
 ## Colony

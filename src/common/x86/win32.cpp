@@ -42,23 +42,43 @@ constexpr uint32_t kInvalidHandle = 0xffffffffu;
 
 Arena::Arena(Cpu& cpu, uint32_t start, uint32_t end) : cpu_(cpu) {
     if (end > start)
-        free_[start] = end - start;
+        addFree(start, end - start);
+}
+
+int Arena::bucket(uint32_t size) {
+    int b = 0;
+    while (b < 32 && (uint64_t(1) << (b + 1)) <= size)
+        ++b;
+    return b;
+}
+
+void Arena::addFree(uint32_t start, uint32_t size) {
+    free_[start] = size;
+    bySize_[bucket(size)].insert(start);
+}
+
+void Arena::removeFree(std::map<uint32_t, uint32_t>::iterator it) {
+    bySize_[bucket(it->second)].erase(it->first);
+    free_.erase(it);
 }
 
 void Arena::release(uint32_t start, uint32_t size) {
     auto next = free_.lower_bound(start);
     if (next != free_.end() && start + size == next->first) {
         size += next->second;
-        next = free_.erase(next);
+        auto gone = next++;
+        removeFree(gone);
     }
     if (next != free_.begin()) {
         auto prev = std::prev(next);
         if (prev->first + prev->second == start) {
-            prev->second += size;
+            const uint32_t at = prev->first, joined = prev->second + size;
+            removeFree(prev);
+            addFree(at, joined);
             return;
         }
     }
-    free_[start] = size;
+    addFree(start, size);
 }
 
 uint32_t Arena::alloc(uint32_t size, uint32_t align) {
@@ -67,18 +87,40 @@ uint32_t Arena::alloc(uint32_t size, uint32_t align) {
     size = (size + 15) & ~15u;
     if (align < 16)
         align = 16;
-    for (auto it = free_.begin(); it != free_.end(); ++it) {
+    auto fits = [&](uint32_t start, uint32_t length) {
+        const uint32_t aligned = (start + align - 1) & ~(align - 1);
+        return !(aligned < start || uint64_t(aligned - start) + size > length);
+    };
+    // The first fit (the lowest start that holds it), as walking free_ in
+    // order finds it: the first of each bucket whose sizes all hold it, and
+    // the blocks of the buckets that may, in order up to that.
+    const uint64_t surely = uint64_t(size) + align - 1;
+    uint32_t best = 0;
+    bool found = false;
+    for (int b = 32; b >= 0 && (uint64_t(1) << b) >= surely; --b)
+        if (!bySize_[b].empty() && (!found || *bySize_[b].begin() < best))
+            best = *bySize_[b].begin(), found = true;
+    for (int b = bucket(size); b <= 32 && (uint64_t(1) << b) < surely; ++b)
+        for (uint32_t start : bySize_[b]) {
+            if (found && start >= best)
+                break;
+            if (fits(start, free_.at(start))) {
+                best = start, found = true;
+                break;
+            }
+        }
+    if (found) {
+        auto it = free_.find(best);
         const uint32_t start = it->first, length = it->second;
         const uint32_t aligned = (start + align - 1) & ~(align - 1);
-        if (aligned < start || uint64_t(aligned - start) + size > length)
-            continue;
-        free_.erase(it);
+        removeFree(it);
         if (aligned > start)
-            free_[start] = aligned - start;
+            addFree(start, aligned - start);
         if (aligned - start + size < length)
-            free_[aligned + size] = length - (aligned - start) - size;
+            addFree(aligned + size, length - (aligned - start) - size);
         used_[aligned] = size;
         std::memset(cpu_.memory().data() + aligned, 0, size);
+        cpu_.noteWrite(aligned, size);
         return aligned;
     }
     return 0;
@@ -93,13 +135,14 @@ bool Arena::claim(uint32_t address, uint32_t size) {
     const uint32_t start = it->first, length = it->second;
     if (uint64_t(address) + size > uint64_t(start) + length)
         return false;
-    free_.erase(it);
+    removeFree(it);
     if (address > start)
-        free_[start] = address - start;
+        addFree(start, address - start);
     if (address + size < start + length)
-        free_[address + size] = start + length - address - size;
+        addFree(address + size, start + length - address - size);
     used_[address] = size;
     std::memset(cpu_.memory().data() + address, 0, size);
+    cpu_.noteWrite(address, size);
     return true;
 }
 
@@ -133,7 +176,7 @@ uint32_t Win32Process::Module::exportAddress(const std::string& function) const 
     return 0;
 }
 
-Win32Process::Win32Process(Cpu& cpu, std::string exeName, bool loadsExe)
+Win32Process::Win32Process(Cpu& cpu, std::string exeName, bool loadsExe, bool stackAtTop)
     : cpu_(cpu), exeName_(std::move(exeName)) {
     arena_ = std::make_unique<Arena>(cpu, 0x10000, cpu.nativeBase() & ~0xfffu);
     startMs_ = steadyMs();
@@ -142,15 +185,27 @@ Win32Process::Win32Process(Cpu& cpu, std::string exeName, bool loadsExe)
     // The thread: its stack, and its information block (which FS points
     // at): the exception handler chain's head, the stack's bounds, its own
     // address and the process's block's.
-    // With an EXE to load, not where programs (which can't be relocated)
-    // ask to be loaded: 0x400000 and the few megabytes after it.
-    const bool reserved = loadsExe && arena_->claim(0x400000, 0xc00000);
-    const uint32_t stack = arena_->alloc(kStackSize, 0x10000);
-    if (reserved)
-        arena_->free(0x400000);
+    uint32_t stack = 0;
+    if (stackAtTop) {
+        // At the top of memory, below the native functions, so the bottom
+        // is free for images: an EXE without relocations must be at
+        // 0x400000.
+        const uint32_t top = (cpu.nativeBase() & ~0xffffu) - 0x10000;
+        stack = top - kStackSize;
+        tib_ = stack - 2 * Cpu::kPageSize;
+        peb_ = stack - Cpu::kPageSize;
+        arena_->claim(tib_, 2 * Cpu::kPageSize + kStackSize);
+    } else {
+        // With an EXE to load, not where programs (which can't be relocated)
+        // ask to be loaded: 0x400000 and the few megabytes after it.
+        const bool reserved = loadsExe && arena_->claim(0x400000, 0xc00000);
+        stack = arena_->alloc(kStackSize, 0x10000);
+        if (reserved)
+            arena_->free(0x400000);
+        tib_ = arena_->alloc(Cpu::kPageSize, Cpu::kPageSize);
+        peb_ = arena_->alloc(Cpu::kPageSize, Cpu::kPageSize);
+    }
     stackTop_ = stack + kStackSize;
-    tib_ = arena_->alloc(Cpu::kPageSize, Cpu::kPageSize);
-    peb_ = arena_->alloc(Cpu::kPageSize, Cpu::kPageSize);
     cpu.write32(tib_ + 0x00, 0xffffffffu);
     cpu.write32(tib_ + 0x04, stackTop_);
     cpu.write32(tib_ + 0x08, stack);
@@ -162,11 +217,84 @@ Win32Process::Win32Process(Cpu& cpu, std::string exeName, bool loadsExe)
     cpu.fsBase = tib_;
     cpu.setStack(stackTop_ - 16);
 
-    commandLine_ = arena_->alloc(uint32_t(exeName_.size()) + 1);
-    cpu.writeString(commandLine_, exeName_, uint32_t(exeName_.size()) + 1);
+    // Room for setProgram's quoted path where that's how the program is
+    // started; otherwise just the name (the layout the records have).
+    const uint32_t commandSize = stackAtTop ? 1024 : uint32_t(exeName_.size()) + 1;
+    commandLine_ = arena_->alloc(commandSize);
+    cpu.writeString(commandLine_, exeName_, commandSize);
     environment_ = arena_->alloc(16); // empty: two NULs
     environmentW_ = arena_->alloc(16);
+    threadReturn_ = cpu.addNative("thread returned", [this](Cpu&) {
+        threadEnd();
+        return 0u;
+    });
     addStandIns();
+}
+
+// --- Threads
+
+namespace {
+constexpr uint32_t kThreadStackSize = 1u << 20;
+} // namespace
+
+uint32_t Win32Process::startThread(uint32_t start, uint32_t arg) {
+    // Its stack, and a thread information block like the main one's.
+    const uint32_t tib = arena_->alloc(Cpu::kPageSize + kThreadStackSize, Cpu::kPageSize);
+    const uint32_t stack = tib + Cpu::kPageSize, top = stack + kThreadStackSize;
+    const uint32_t id = 0x104 + 4 * uint32_t(threads_.size() + 1);
+    cpu_.write32(tib + 0x00, 0xffffffffu); // no exception handlers yet
+    cpu_.write32(tib + 0x04, top);
+    cpu_.write32(tib + 0x08, stack);
+    cpu_.write32(tib + 0x18, tib);
+    cpu_.write32(tib + 0x20, 0x100);
+    cpu_.write32(tib + 0x24, id);
+    cpu_.write32(tib + 0x30, peb_);
+    Thread t;
+    t.handle = 0x7fc00000u + id;
+    t.context.eip = start;
+    t.context.fsBase = tib;
+    t.context.reg[Cpu::ESP] = top - 16 - 8;
+    cpu_.write32(top - 16 - 8, threadReturn_); // its function returns to the end of the thread
+    cpu_.write32(top - 16 - 4, arg);
+    t.context.fpu.control = 0x027f;
+    t.wakeAt = milliseconds();
+    threads_.push_back(t);
+    return t.handle;
+}
+
+void Win32Process::runThreads() {
+    if (current_ >= 0)
+        return;
+    for (size_t i = 0; i < threads_.size(); ++i) {
+        if (threads_[i].finished || int32_t(milliseconds() - threads_[i].wakeAt) < 0)
+            continue;
+        const Cpu::Context main = cpu_.context();
+        current_ = int(i);
+        cpu_.setContext(threads_[i].context);
+        const Error e = cpu_.resume();
+        threads_[i].context = cpu_.context();
+        current_ = -1;
+        cpu_.setContext(main);
+        if (e) {
+            threads_[i].finished = true;
+            if (output)
+                output("A thread failed: " + e.message + "\n");
+        }
+    }
+}
+
+void Win32Process::threadSleep(uint32_t ms) {
+    threads_[size_t(current_)].wakeAt = milliseconds() + ms;
+    cpu_.yield();
+}
+
+void Win32Process::threadEnd() {
+    threads_[size_t(current_)].finished = true;
+    cpu_.yield();
+}
+
+size_t Win32Process::threadsRunning() const {
+    return size_t(std::count_if(threads_.begin(), threads_.end(), [](const Thread& t) { return !t.finished; }));
 }
 
 const Win32Process::Module* Win32Process::module(const std::string& name) const {
@@ -176,16 +304,117 @@ const Win32Process::Module* Win32Process::module(const std::string& name) const 
     return nullptr;
 }
 
+const Win32Process::Module* Win32Process::loadFromDisk(const std::string& name) {
+    if (!mapPath)
+        return nullptr;
+    std::string path = name;
+    if (path.find('\\') == std::string::npos && path.find(':') == std::string::npos)
+        path = programFolder_ + path;
+    else
+        path = fullPath(path);
+    if (path.find('.', path.rfind('\\') + 1) == std::string::npos) // no extension: .DLL is meant
+        path += ".dll";
+    const auto file = mapPath(path, false);
+    if (!file)
+        return nullptr;
+    std::FILE* f = std::fopen(file->string().c_str(), "rb");
+    if (!f)
+        return nullptr;
+    std::vector<uint8_t> bytes;
+    uint8_t buffer[65536];
+    for (size_t n; (n = std::fread(buffer, 1, sizeof buffer, f)) > 0;)
+        bytes.insert(bytes.end(), buffer, buffer + n);
+    std::fclose(f);
+    const Module* m = nullptr;
+    const std::string fileName = path.substr(path.rfind('\\') + 1);
+    if (load(fileName, bytes, m) || !m)
+        return nullptr;
+    if (Error e = attach(*m)) {
+        if (output)
+            output("LoadLibraryA: " + e.message + "\n");
+        return nullptr;
+    }
+    return m;
+}
+
 uint32_t Win32Process::moduleHandle(const std::string& name) const {
-    if (dllKey(name) == "kernel32.dll")
+    if (const Module* m = module(name))
+        return m->base;
+    // A DLL stood in for: one with something provided. Each gets a handle
+    // of its own, in the order first asked for; KERNEL32's is the first.
+    const std::string key = dllKey(name);
+    if (key == "kernel32.dll")
         return kKernel32Handle;
-    const Module* m = module(name);
-    return m ? m->base : 0;
+    auto known = std::find(standInDlls_.begin(), standInDlls_.end(), key);
+    if (known != standInDlls_.end())
+        return kKernel32Handle + 0x1000 * uint32_t(1 + (known - standInDlls_.begin()));
+    auto it = provided_.lower_bound(key + "!");
+    if (it == provided_.end() || it->first.compare(0, key.size() + 1, key + "!") != 0)
+        return 0;
+    standInDlls_.push_back(key);
+    return kKernel32Handle + 0x1000 * uint32_t(standInDlls_.size());
+}
+
+void Win32Process::setProgram(const std::string& exeName, const std::string& folder) {
+    exeName_ = exeName;
+    programFolder_ = folder;
+    setCurrentFolder(folder);
+    // Quoted, as Windows' shell starts programs.
+    const std::string line = "\"" + folder + exeName + "\"";
+    uint32_t size = arena_->size(commandLine_);
+    if (line.size() + 1 > size) {
+        arena_->free(commandLine_);
+        size = uint32_t(line.size()) + 1;
+        commandLine_ = arena_->alloc(size);
+    }
+    cpu_.writeString(commandLine_, line, size);
+}
+
+void Win32Process::timeStampFromClock() {
+    // The time stamp counter of a 1 GHz processor, going by the process's
+    // clock: programs measure the processor's speed with it across a Sleep
+    // (LEGO Alpha Team's DDCaps::CalcProcSpeed), which counting
+    // instructions would make nearly nothing. Within a millisecond it moves
+    // on by the instructions run, up to the next millisecond's reading.
+    cpu_.timeStamp = [this] {
+        const uint64_t at = uint64_t(milliseconds()) * 1000000;
+        if (at > timeStampAt_)
+            timeStampAt_ = at;
+        else
+            timeStampAt_ = std::min(timeStampAt_ + 1 + (cpu_.executed() - timeStampExecuted_), at + 999999);
+        timeStampExecuted_ = cpu_.executed();
+        return timeStampAt_;
+    };
 }
 
 void Win32Process::provide(const std::string& dll, const std::string& function, Cpu::Native fn) {
     const std::string key = dllKey(dll) + "!" + function;
     provided_[key] = cpu_.addNative(dll + "!" + function, std::move(fn));
+}
+
+void Win32Process::provideStdcall(const std::string& dll, const std::string& function, int args,
+                                  std::function<uint32_t(Cpu&)> fn) {
+    stdcall(dll.c_str(), function.c_str(), args, std::move(fn));
+}
+
+void Win32Process::provideCdecl(const std::string& dll, const std::string& function, std::function<uint32_t(Cpu&)> fn) {
+    provide(dll, function, [fn = std::move(fn)](Cpu& c) {
+        c.reg[Cpu::EAX] = fn(c);
+        return 0u;
+    });
+}
+
+void Win32Process::provideData(const std::string& dll, const std::string& name, uint32_t address) {
+    provided_[dllKey(dll) + "!" + name] = address;
+}
+
+bool Win32Process::provides(const std::string& dll, const std::string& name) const {
+    return provided_.count(dllKey(dll) + "!" + name) != 0;
+}
+
+uint32_t Win32Process::provided(const std::string& dll, const std::string& name) const {
+    auto it = provided_.find(dllKey(dll) + "!" + name);
+    return it == provided_.end() ? 0 : it->second;
 }
 
 void Win32Process::stdcall(const char* dll, const char* name, int args, std::function<uint32_t(Cpu&)> fn) {
@@ -264,6 +493,15 @@ Error Win32Process::load(const std::string& name, const std::vector<uint8_t>& fi
     return Error::success();
 }
 
+Error Win32Process::start(const Module& exe, uint32_t& exitCode) {
+    exitCode = 0;
+    if (!exe.entry)
+        return Error::fail(exe.name + " has no entry point");
+    if (Error e = cpu_.call(exe.entry, {}, exitCode); e)
+        return Error::fail(exe.name + ": " + e.message);
+    return Error::success();
+}
+
 Error Win32Process::attach(const Module& m) {
     if (!m.entry)
         return Error::success();
@@ -329,16 +567,42 @@ void Win32Process::addStandIns() {
         arena_->free(old);
         return p;
     });
+    // VirtualAlloc(address, size, type, protection): anywhere, or at an
+    // address asked for if nothing's there (else ERROR_INVALID_ADDRESS, and
+    // the program tries elsewhere). Committing pages of a block reserved
+    // before gives them back as they are.
     stdcall(k, "VirtualAlloc", 4, [this](Cpu& c) {
-        const uint32_t address = c.arg(0), size = (c.arg(1) + 0xfff) & ~0xfffu;
-        if (!address)
-            return arena_->alloc(size, 0x10000);
-        // Committing pages reserved before: they're there already.
-        return c.valid(address, size) ? address : 0u;
+        const uint32_t size = (c.arg(1) + 0xfff) & ~0xfffu;
+        if (!c.arg(0)) {
+            const uint32_t a = arena_->alloc(size, 0x10000);
+            if (a)
+                virtualBlocks_[a] = size;
+            else
+                lastError_ = 8; // ERROR_NOT_ENOUGH_MEMORY
+            return a;
+        }
+        const uint32_t address = c.arg(0) & ~0xfffu;
+        auto it = virtualBlocks_.upper_bound(address);
+        if (it != virtualBlocks_.begin()) {
+            --it;
+            if (address >= it->first && address + size <= it->first + it->second)
+                return address;
+        }
+        const uint32_t base = address & ~0xffffu;
+        const uint32_t whole = (address + size - base + 0xfff) & ~0xfffu;
+        if (!arena_->claim(base, whole)) {
+            lastError_ = 487; // ERROR_INVALID_ADDRESS
+            return 0u;
+        }
+        virtualBlocks_[base] = whole;
+        return base; // a reservation starts on the 64 KB boundary below
+
     });
     stdcall(k, "VirtualFree", 3, [this](Cpu& c) {
-        if (c.arg(2) & 0x8000) // MEM_RELEASE
+        if (c.arg(2) & 0x8000) { // MEM_RELEASE
             arena_->free(c.arg(0));
+            virtualBlocks_.erase(c.arg(0));
+        }
         return 1u;
     });
     stdcall(k, "IsBadReadPtr", 2, [](Cpu& c) { return c.arg(1) && !c.valid(c.arg(0), c.arg(1)) ? 1u : 0u; });
@@ -372,7 +636,7 @@ void Win32Process::addStandIns() {
         for (const auto& m : modules_)
             if (m->base == c.arg(0))
                 name = m->name;
-        const std::string path = "C:\\STVEF\\" + name;
+        const std::string path = programFolder_ + name;
         const uint32_t size = c.arg(2);
         if (!c.writeString(c.arg(1), path, size))
             return 0u;
@@ -382,8 +646,13 @@ void Win32Process::addStandIns() {
         const uint32_t handle = c.arg(0), name = c.arg(1);
         const bool byOrdinal = name < 0x10000;
         const std::string function = byOrdinal ? std::string() : c.string(name);
-        if (handle == kKernel32Handle) {
-            auto it = provided_.find("kernel32.dll!" + function);
+        if (handle >= kKernel32Handle && handle <= kKernel32Handle + 0x1000 * uint32_t(standInDlls_.size()) &&
+            (handle - kKernel32Handle) % 0x1000 == 0 && !byOrdinal) {
+            const uint32_t i = (handle - kKernel32Handle) / 0x1000;
+            const std::string dll = i == 0 ? "kernel32.dll" : standInDlls_[i - 1];
+            auto it = provided_.find(dll + "!" + function);
+            if (it == provided_.end())
+                lastError_ = 127; // ERROR_PROC_NOT_FOUND
             return it == provided_.end() ? 0u : it->second;
         }
         for (const auto& m : modules_)
@@ -392,13 +661,20 @@ void Win32Process::addStandIns() {
                     if ((byOrdinal ? e.ordinal == name : e.name == function) && e.forwarder.empty())
                         return m->base + e.rva;
         lastError_ = 127; // ERROR_PROC_NOT_FOUND
+        if (output)
+            output("GetProcAddress found no " + (byOrdinal ? "#" + std::to_string(name) : function) + "\n");
         return 0u;
     });
+    // LoadLibraryA: a module loaded or stood in for already, or else one
+    // in the program's folder (or where the name says), loaded and started.
     stdcall(k, "LoadLibraryA", 1, [this](Cpu& c) {
-        const uint32_t h = moduleHandle(c.string(c.arg(0)));
-        if (!h)
-            lastError_ = 126; // ERROR_MOD_NOT_FOUND
-        return h;
+        const std::string name = c.string(c.arg(0));
+        if (const uint32_t h = moduleHandle(name))
+            return h;
+        if (const Module* m = loadFromDisk(name))
+            return m->base;
+        lastError_ = 126; // ERROR_MOD_NOT_FOUND
+        return 0u;
     });
     stdcall(k, "FreeLibrary", 1, [](Cpu&) { return 1u; });
     stdcall(k, "DisableThreadLibraryCalls", 1, [](Cpu&) { return 1u; });
@@ -418,11 +694,13 @@ void Win32Process::addStandIns() {
     });
     stdcall(k, "UnhandledExceptionFilter", 1, [](Cpu&) { return 1u; }); // EXCEPTION_EXECUTE_HANDLER
     stdcall(k, "SetConsoleCtrlHandler", 2, [](Cpu&) { return 1u; });
-    stdcall(k, "ExitProcess", 1, [](Cpu& c) {
+    stdcall(k, "ExitProcess", 1, [this](Cpu& c) {
+        exited = c.arg(0);
         c.abort("the program ended the process (exit code " + std::to_string(c.arg(0)) + ")");
         return 0u;
     });
-    stdcall(k, "TerminateProcess", 2, [](Cpu& c) {
+    stdcall(k, "TerminateProcess", 2, [this](Cpu& c) {
+        exited = c.arg(1);
         c.abort("the program ended the process (exit code " + std::to_string(c.arg(1)) + ")");
         return 0u;
     });
@@ -452,29 +730,23 @@ void Win32Process::addStandIns() {
     stdcall(k, "GetFileType", 1, [](Cpu& c) {
         return c.arg(0) >= kStdHandles && c.arg(0) <= kStdHandles + 2 ? 2u : 0u; // FILE_TYPE_CHAR
     });
-    stdcall(k, "WriteFile", 5, [say](Cpu& c) {
+    stdcall(k, "WriteFile", 5, [this, say](Cpu& c) {
         const uint32_t handle = c.arg(0), buffer = c.arg(1), size = c.arg(2), written = c.arg(3);
         if (!c.valid(buffer, size))
             return 0u;
         if (handle == kStdHandles + 1 || handle == kStdHandles + 2)
             say(std::string(reinterpret_cast<const char*>(c.memory().data() + buffer), size));
+        else if (OpenFile* f = file(handle))
+            if (std::fwrite(c.memory().data() + buffer, 1, size, f->file) != size)
+                return 0u;
         if (written)
             c.write32(written, size);
         return 1u;
     });
-    stdcall(k, "CreateFileA", 7, [this](Cpu&) {
-        lastError_ = 2; // ERROR_FILE_NOT_FOUND
-        return kInvalidHandle;
-    });
-    stdcall(k, "ReadFile", 5, [](Cpu& c) {
-        if (c.arg(3))
-            c.write32(c.arg(3), 0);
-        return 0u;
-    });
-    stdcall(k, "SetFilePointer", 4, [](Cpu&) { return 0xffffffffu; });
-    stdcall(k, "SetEndOfFile", 1, [](Cpu&) { return 1u; });
-    stdcall(k, "FlushFileBuffers", 1, [](Cpu&) { return 1u; });
-    stdcall(k, "CloseHandle", 1, [](Cpu&) { return 1u; });
+    addFileStandIns();
+    addSystemStandIns();
+    addUserStandIns();
+    addRegistryStandIns();
 
     // Text: code page 1252, mapped to Unicode's first 256 characters (the
     // C runtime's locale tables are built from these; the "C" locale only

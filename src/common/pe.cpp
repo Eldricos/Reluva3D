@@ -20,7 +20,7 @@ struct Reader {
                          : 0;
     }
     uint64_t u64(size_t at) const { return uint64_t(u32(at)) | uint64_t(u32(at + 4)) << 32; }
-    std::string str(size_t at, size_t max = 512) const {
+    std::string str(size_t at, size_t max = 4096) const { // Visual C++ names run to 4 KB
         std::string s;
         while (at < d.size() && d[at] && s.size() < max)
             s.push_back(char(d[at++]));

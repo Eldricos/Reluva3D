@@ -110,7 +110,9 @@ engine as a whole, so a change anywhere (in `src/common/`, say) that alters
 what an engine does is caught, even where no unit test looks. Elite Force
 (`idtech3`) has both, as do Harbinger (`stharbinger`, see
 [its TESTING.md](engines/stharbinger/TESTING.md)) and Murder on the Orient
-Express (`awe`, `RELUVA_MOTOE`, see [its TESTING.md](engines/awe/TESTING.md)).
+Express (`awe`, `RELUVA_MOTOE`, see [its TESTING.md](engines/awe/TESTING.md)),
+and LEGO Alpha Team (`netimmerse`, `RELUVA_ALPHATEAM`, see
+[its TESTING.md](engines/netimmerse/TESTING.md)).
 
 ### The basic engine test: no game files
 
@@ -333,3 +335,21 @@ on. Keep it off.
 - **Strange errors after changing dependencies or compilers.** Delete the
   build folder (in Visual Studio: **Project > Delete Cache and
   Reconfigure**) and configure again.
+- **Visual Studio: many LNK2019 "unresolved external symbol" errors for
+  `reluva::x86::...` or `reluva::video::...`.** The files defining them
+  didn't compile, and the linker only reports what's missing. Look for the
+  first `error C....` above the link errors in the **Output** window
+  (**Show output from: Build**). Error C1128 ("number of sections exceeded
+  object file format limit") needs `/bigobj`, which the CMake files pass
+  to Visual Studio; after updating, use **Project > Delete Cache and
+  Reconfigure**.
+- **Visual Studio: games running Windows code (LEGO Alpha Team, Elite
+  Force's single player) are slow.** Use the **x64-Release**
+  configuration, not x64-Debug. It's CMake's RelWithDebInfo, whose
+  defaults (`/Ob1`, `/INCREMENTAL`) suit debugging; the CMake files change
+  those for Visual Studio to full inlining (`/Ob2`) and plain linking
+  (`/INCREMENTAL:NO /OPT:REF /OPT:ICF`), keeping the debug information.
+  After updating, use **Project > Delete Cache and Reconfigure** so the
+  new flags are picked up. `RELUVA_NO_JIT=1` (an environment variable,
+  set as above under IDEs) turns the x86 emulator's native code off, to
+  tell a JIT problem from another.

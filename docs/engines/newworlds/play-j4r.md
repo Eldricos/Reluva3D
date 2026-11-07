@@ -95,7 +95,7 @@ the panel portrait and ground views:
 | colony hub (5:24, 7:55; shield HIGH, 100 %) | `rch` (the arch) | sure |
 | construction yard (6:17, 14:27) | `rcy_a` (cross-shaped) | fairly |
 | vehicle yard (8:05 ... 22:42; 120 %) | `rvy` | fairly |
-| science station (7:48, 12:17, 16:03, 18:26) | `rsb_a` | sure (portrait; [colony.md](colony.md#romulan-matches)) |
+| science station (7:48, 12:17, 16:03, 18:26) | `rsb_a` | sure (portrait; [colony.md](../formats/colony.md#romulan-matches)) |
 | utility hospital / "utility hospital upgrade" (9:14, 11:00) | `ruh_a` / `ruh_b` (portrait a box with a tall block: the base with its upgrade) | fairly |
 | resource processor / "resource processor upg" (11:30, 11:39) | `rrpp_a` / `rrpp_b` (ribbed block portrait) | fairly |
 | adv. power generator (13:56, 25:57) | `rps2` (tower on splayed legs) | fairly |

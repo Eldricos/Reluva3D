@@ -5,8 +5,10 @@
 Reluva runs classic games natively on modern systems by reimplementing
 their engines, in the spirit of ScummVM. Games aren't included: you point
 Reluva at your own copy, and it plays it on Windows, Linux or macOS. There's
-no emulator and no original engine, and nothing to install from the game's
-CD.
+no emulator of the old computer and no original engine, and nothing to
+install from the game's CD. Where a game's logic is its own compiled code
+(LEGO Alpha Team's, Elite Force's game DLLs), Reluva runs that code and
+supplies the parts of Windows it calls.
 
 ## Games
 
@@ -20,6 +22,7 @@ Each engine is a module that can run a family of games.
 | `stgenerations` | Star Trek: Generations (Windows, two CDs) | Every part of the game runs; a full playthrough to come | [docs/engines/stgenerations](docs/engines/stgenerations/README.md) |
 | `awe` | Agatha Christie: Murder on the Orient Express (English 1.0) | Playable from a new game to the credits; being checked against the original | [docs/engines/awe](docs/engines/awe/README.md) |
 | `clue` | Clue: Murder at Boddy Mansion, and in the UK Cluedo: Murder at Blackwell Grange (Windows, 2.0 and 2.2) | Playable: against computer players at three levels, hot seat, network play; being checked against the original | [docs/engines/clue](docs/engines/clue/README.md) |
+| `netimmerse` | LEGO Alpha Team (English, Windows) | Playable: menus, saving, options, sound in 3D, every mission; slower than the original in busy scenes; a data viewer of its files | [docs/engines/netimmerse](docs/engines/netimmerse/README.md) |
 | `testbed` | A test pattern, no game | For checking a system's graphics, sound and input | — |
 
 ## Requirements
@@ -265,6 +268,9 @@ In it:
 - **`games/<name>/`:** each game's own files: its settings, saved games,
   screenshots and downloads.
 - **`library/`:** games copied by *Import Game...*.
+- **`reluva.log`:** Reluva's messages (errors, warnings, what an engine
+  reports), also written to the console; the run before's is kept as
+  `reluva-previous.log`. Send it with a problem report.
 
 ## Repository layout
 
@@ -275,8 +281,9 @@ src/common/          platform-independent core: the System interface, events, su
                      text and fonts (built-in and TrueType), logging, the 3D rendering interface (gfx3d.h), installers
                      (Wise), and shared interpreters and decoders
   audio/             sound decoders, streams and the mixer: WAV (PCM, IMA ADPCM), MP3, raw PCM
-  video/             video decoders: Bink, Smacker, Cinepak in AVI
-  x86/               an x86 interpreter and Windows stand-ins, for games' native code
+  video/             video decoders: Bink, Smacker, Cinepak and Indeo 5 in AVI
+  x86/               an x86 emulator (with a JIT on x86-64) and stand-ins for Windows, DirectX
+                     and A3D, for games' native code
 src/backends/sdl3/   the only code that touches SDL: window, rendering (2D and 3D, on SDL's GPU
                      API), input, audio
 src/backends/sockets/ networking
@@ -323,6 +330,10 @@ accepted.
 
 Reluva is free software, licensed under the GNU General Public License,
 version 3 or (at your option) any later version. See [LICENSE](LICENSE).
+
+The Indeo 5 decoder (`src/common/video/indeo5*`) is derived from FFmpeg's
+LGPL 2.1+ decoder by Maxim Poliakovski, used under the GPL 3 as the LGPL
+allows.
 
 Reluva doesn't include any game data. Games and their assets remain the
 property of their respective owners.

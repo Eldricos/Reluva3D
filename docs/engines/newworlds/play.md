@@ -57,10 +57,10 @@ One page per mission:
 | [play-c11.md](play-c11.md) | C11 False Sanctuary (bonus) | Romulan |
 | [play-tutorials.md](play-tutorials.md) | C1, C4-C8, the training missions | Federation |
 
-Playing on the map, with the game's controls: [game.md](game.md).
+Playing on the map, with the game's controls: [game.md](../formats/game.md).
 Reluva's mission scripts are written from these pages:
-[mission-scripts.md](mission-scripts.md). What they show of the starting
-colonies, and how the missions page lays one out: [colony.md](colony.md).
+[mission-scripts.md](../formats/mission-scripts.md). What they show of the starting
+colonies, and how the missions page lays one out: [colony.md](../formats/colony.md).
 
 ## What they established
 
@@ -84,16 +84,16 @@ colonies, and how the missions page lays one out: [colony.md](colony.md).
   usually STELLAR CARTOGRAPHY and PLANETARY DATA first. Which page and view
   go with each step is per mission: pages in the table's order, some left
   out, often several clips over the emblem screen with no page. See
-  [media.md](media.md).
+  [media.md](../formats/media.md).
 - **Map positions** in the game (Tricorder readouts, message positions)
   are eighths of a block, row first: the 19 exhausted mines of the recorded
   missions with known maps lie on (one beside) deposits read so, and so do
-  the Romulan recordings' 25 more. See [gmf.md](gmf.md#map-positions-in-the-game).
+  the Romulan recordings' 25 more. See [gmf.md](../formats/gmf.md#map-positions-in-the-game).
   One reading in the notes doesn't: J2F's mine at 196, 436, probably
   misread ([play-j2r.md](play-j2r.md)).
 - **Deposit kinds** are the six raw ores: 1 dilithium, 2 talgonite, 3
   silicon, 4 kelbonite, 5 magnesite, 6 dolamide. The Tricorder names the
-  ore under the cursor over its relief inset ([gmf.md](gmf.md#resource-deposits)).
+  ore under the cursor over its relief inset ([gmf.md](../formats/gmf.md#resource-deposits)).
 - **Mission 14 is played on mission 12's map** (K14's mine on `k12.gmf`).
 - **Messages** come in two kinds: generic ones shared by every mission and
   side (a building finished, short of power, short of resources or crew, a

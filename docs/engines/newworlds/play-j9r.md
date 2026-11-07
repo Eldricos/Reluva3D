@@ -251,5 +251,5 @@ cancelling a construction (4:10). Portraits:
 - Is there a campaign-end screen after the MISSION REPORT / CONTINUE?
 - (Answered since: ramp building `rsf`, spider-like towers `rps2`, science
   station `rsb_a`, resource processor upgrade `rrpp_b`;
-  [colony.md](colony.md#romulan-matches).)
+  [colony.md](../formats/colony.md#romulan-matches).)
 - Match the Engineering and Science faces to `ptrt/crew/lg/r_c1..`.

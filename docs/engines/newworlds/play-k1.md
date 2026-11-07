@@ -128,7 +128,7 @@ section, skill and post ("Operations, skilled, colony hub").
 ## Positions
 
 The mine positions reported here lie on deposits of the map once read as
-eighths of a block, row first; see [gmf.md](gmf.md#map-positions-in-the-game),
+eighths of a block, row first; see [gmf.md](../formats/gmf.md#map-positions-in-the-game),
 where all the recordings' mines are put together. (An earlier reading, 16
 per block, didn't fit.)
 

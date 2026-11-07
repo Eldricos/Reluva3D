@@ -82,6 +82,14 @@ public:
     // width x height (when it fits on the screen; the frame is letterboxed
     // in whatever size the window is).
     virtual void setVideoMode(int width, int height, bool fullscreen) { (void)width, (void)height, (void)fullscreen; }
+    // After a Quit event (or, with `toLauncher`, a ReturnToLauncher one):
+    // asks the player whether to leave after all, showing `text`. True to
+    // leave; false keeps the game going and the event is forgotten. Without
+    // a way to ask, leaves.
+    virtual bool confirmQuit(const std::string& text, bool toLauncher = false) {
+        (void)text, (void)toLauncher;
+        return true;
+    }
     // How the picture is shown (the player's display settings): taken up by
     // the next initGraphics() or init3D(); vsync at once. Backends without a
     // window ignore it.

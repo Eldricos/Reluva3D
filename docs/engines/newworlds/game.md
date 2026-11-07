@@ -4,10 +4,10 @@ Reluva's first playable layer: the missions page's play mode (**F3**), with
 the game's camera and controls, the colony's starting units to select and
 move, buildings to place and build, the colony's economy, and the
 mission's script running on what happens. It is built from what recordings of play show
-([play-tutorials.md](play-tutorials.md) for the controls,
-[play.md](play.md) for the rest). Figures the recordings can't give are
+([play-tutorials.md](../play/play-tutorials.md) for the controls,
+[play.md](../play/play.md) for the rest). Figures the recordings can't give are
 named placeholders, listed below, to be replaced with readings from the
-running game ([vm-checklist.md](vm-checklist.md)).
+running game ([vm-checklist.md](../play/vm-checklist.md)).
 
 ## Controls
 
@@ -69,7 +69,7 @@ goes up by itself once placed).
 
 - **The start:** the hub alone where the recordings put it
   ([colony.md](colony.md)), the stock every recording starts with
-  (Romulans a little less; [play.md](play.md)), a crew of 20 and a
+  (Romulans a little less; [play.md](../play/play.md)), a crew of 20 and a
   capacity of 50.
 - **The build menu** offers the side's buildings that have a model
   ([colony.md](colony.md)); one is dim until what it needs stands (a
