@@ -835,12 +835,27 @@ was the lower.
   the CD: not even in `Patch/npspatchnfs3.exe`, whose updater DLL
   exports only `NPSDoUpdate` and `NPSAbortUpdate` (Positional updates).
 - A network chase from behind ending in a pin (`c7-q1`'s kind, one
-  player) was not run over TCP in November 2026 either. The method is
+  player) is still not done over TCP. The method is
   ready (`d1-n4`: `-deterministic 50000` in both copies, the race
   repeating step for step, keys planned on one run and used on the
   next), but such a chase is many seconds of steering by keys at
   speed, each try a pair of runs of some 260 s of game time to the
-  first lap's end. What it needs from the code is the same as in one
+  first lap's end. **Tried with `-drive`** (`e4-n1`, November 2026:
+  `d1-n4`'s lobby clicks, `-deterministic 50000` and the same
+  `-drive` of the host's cop, car 0, at car 5 from 96 s in both
+  copies, before the race was loaded, with no end; the host held H
+  115-116 s; no poke). `-drive` writes the car's controls after they
+  are unpacked (`0x4314c9`), in each copy, so it must run in both to
+  keep them alike; it then does: the siren and the target (car 2,
+  the nearest racer, record `0x56e410`) came in the same step (`esi`
+  0x5BE at `0x4019a1`) in both, at 115.099 s and 114.925 s of their
+  own clocks, and at 170-200 s the two cops stood within 1 cm of the
+  same place in both. Only the H press went in the host's 06 frames.
+  But the chase failed: steered straight at car 5, the cop kept under
+  28 m/s against the racers' 34-45, ran onto walls, and was 1.0-1.8
+  km behind and at 0 m/s from 164 s (as `-drive` did in one player,
+  physics.md, No roll without a poke). A pin needs steering along the
+  road, by keys planned run by run. What it needs from the code is the same as in one
   player (physics.md, state 4): the human cop within 7 m (the
   `0x4965b0` measure) of a target under the limit `0x404c50` picks
   (20.12 or 11.18 m/s, physics.md, Which limit) for 24 steps, then
