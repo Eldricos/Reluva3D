@@ -40,9 +40,10 @@ void planning() {
             }
             CHECK(!current.empty());for(const auto& word:previous)CHECK(std::find(current.begin(),current.end(),word)!=current.end());
             previous=current;
-            const uint64_t ms[]={6000,4000,2000,1000};const auto interval=ms[level];
+            const auto interval=p.due();CHECK(interval>0);
             CHECK(!p.take(0) && !p.take(interval-1));size_t count=0;
-            for(uint64_t now=interval;!p.exhausted();now+=interval) {
+            while(!p.exhausted()) {
+                const auto now=p.due();CHECK(now==repeat.due());
                 const auto* word=p.take(now);const auto* other=repeat.take(now);CHECK(word && other && word->word==other->word);++count;
                 CHECK(!p.take(now) && !p.take(now-1)); // no burst or backwards-clock refund
             }
@@ -56,6 +57,64 @@ void planning() {
         CHECK(!bad.build(b,vocab,dictionary({"ZZZZ"}),ComputerLevel::MrBoggle,0,0) && bad.exhausted());
         CHECK(!bad.build(b,vocab,english,ComputerLevel::MrBoggle,0,0));
         CHECK(bad.take(100000) && !bad.take(100000) && !bad.take(100999) && bad.take(101000));
+    }
+}
+void thinkingTimes() {
+    // Numeric bounds observed by executing the original base-word timing phase.
+    const uint64_t firstLow[]={1500,1200,1000},firstHigh[]={3499,2899,1999};
+    const uint64_t secondLow[]={1650,1250,1050},secondHigh[]={4349,3449,2349};
+    const uint64_t lastLow[]={25500,13200,5000},lastHigh[]={27499,14899,5999};
+    for(bool master:{false,true}) {
+        Board small;CHECK(!small.set(master?5:4,std::vector<std::string>(master?25:16,"A")));
+        const auto one=dictionary({master?"AAAA":"AAA"});
+        Board rich;std::vector<std::string> faces(master?25:16);
+        for(size_t i=0;i<faces.size();++i)faces[i]=i%2?"B":"A";
+        CHECK(!rich.set(master?5:4,faces));
+        std::vector<std::string> words;
+        for(size_t length=master?4:3;length<=6;++length)for(unsigned bits=0;bits<(1u<<length);++bits) {
+            std::string word(length,'A');for(size_t i=0;i<length;++i)if(bits&(1u<<i))word[i]='B';words.push_back(word);
+        }
+        const auto many=dictionary(words);
+        for(unsigned level=0;level<3;++level) {
+            std::vector<uint64_t> seen;
+            for(uint32_t seed=0;seed<16;++seed) {
+                ComputerPlan isolated;CHECK(!isolated.build(small,one,one,ComputerLevel(level),seed,0));
+                if(isolated.exhausted()){CHECK(isolated.due()==0);continue;}
+                CHECK(isolated.due()>=lastLow[level] && isolated.due()<=lastHigh[level]);seen.push_back(isolated.due());
+                CHECK(!isolated.take(isolated.due()-1));CHECK(isolated.take(isolated.due()) && isolated.exhausted());
+                CHECK(isolated.due()==0);
+            }
+            CHECK(seen.size()>1 && std::any_of(seen.begin(),seen.end(),[&](auto value){return value!=seen.front();}));
+            ComputerPlan plan;CHECK(!plan.build(rich,many,many,ComputerLevel(level),6551,0));
+            CHECK(plan.words().size()>10);CHECK(plan.due()>=firstLow[level] && plan.due()<=firstHigh[level]);
+            const auto first=plan.due();CHECK(plan.take(first));
+            CHECK(plan.due()-first>=secondLow[level] && plan.due()-first<=secondHigh[level]);
+            // A stalled visible window emits once and retains the next full delay.
+            const auto secondDelay=plan.due()-first;
+            ComputerPlan delayed;CHECK(!delayed.build(rich,many,many,ComputerLevel(level),6551,0));
+            CHECK(delayed.take(1000000) && delayed.due()==1000000+secondDelay);
+            CHECK(!delayed.take(1000000) && !delayed.take(999999));
+            CHECK(!delayed.build(rich,many,many,ComputerLevel(level),6551,0) && delayed.due()==first);
+            // Saturation must not wrap a long-running active clock to zero.
+            const auto near=std::numeric_limits<uint64_t>::max()-1;
+            CHECK(delayed.take(near) && delayed.due()==std::numeric_limits<uint64_t>::max());
+            CHECK(!delayed.take(near));CHECK(delayed.take(std::numeric_limits<uint64_t>::max()));
+            CHECK(!delayed.take(std::numeric_limits<uint64_t>::max()));uint64_t untouched=123;
+            CHECK(!delayed.takeScheduled(std::numeric_limits<uint64_t>::max(),untouched) && untouched==123);
+            CHECK(bool(delayed.build(rich,many,many,ComputerLevel(level),6551,0,0)));
+            CHECK(delayed.exhausted() && delayed.due()==0 && !delayed.nextWord());
+            // Hidden scheduling must produce identical words/times with sparse servicing.
+            std::vector<std::pair<std::string,uint64_t>> baseline;
+            for(uint64_t step:{997u,100000u}) {
+                ComputerPlan hidden;CHECK(!hidden.build(rich,many,many,ComputerLevel(level),6551,0));
+                std::vector<std::pair<std::string,uint64_t>> moves;
+                for(uint64_t now=0;!hidden.exhausted();now+=step) {
+                    uint64_t at=0;while(const auto* word=hidden.takeScheduled(now,at))moves.push_back({word->word,at});
+                }
+                CHECK(moves.size()==plan.words().size());
+                if(baseline.empty())baseline=moves;else CHECK(moves==baseline);
+            }
+        }
     }
 }
 GameTarget target(const std::filesystem::path& root,bool chess=false,bool art=false) {
@@ -258,6 +317,7 @@ void frontend(const std::filesystem::path& tmp) {
 }
 static const test::Suite suite("boggle.unit.computer",{
     {"bounded legal plans, Qu, all levels, reproducible ordering, independent pacing and failure clearing",[](const auto&){planning();}},
+    {"measured common base-word timing bounds, scarcity, progression and frame-independent replay",[](const auto&){thinkingTimes();}},
     {"Traditional and Chess opponents cancel shared words, reject human input and save humans only",[](const auto& tmp){live(tmp);}},
     {"four computers finish both variants and turn modes without human handoff confirmation",[](const auto& tmp){computerOnly(tmp);}},
     {"exact CPU deadlines, opening and handoff exclusions, replay/new-board plan reset",[](const auto& tmp){timingAndReplay(tmp);}},

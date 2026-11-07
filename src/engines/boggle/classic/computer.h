@@ -9,7 +9,8 @@ bool validComputerLevel(ComputerLevel level);
 std::string computerName(ComputerLevel level);
 // The first three Classic opponents use the separate AI vocabulary.
 bool usesCommonVocabulary(ComputerLevel level);
-// Independent native policy, not a reproduction of the original AI algorithm.
+// Native selection with measured common base-word delay bounds.
+// Related-word timing, jitter and Mr. Boggle pacing remain native policies.
 // Times are cumulative active milliseconds, excluding handoff/other turns.
 class ComputerPlan {
 public:
@@ -24,7 +25,8 @@ public:
     const std::vector<AcceptedWord>& words() const { return words_; }
 private:
     std::vector<AcceptedWord> words_;
+    std::vector<uint64_t> delays_;
     size_t at_=0;
-    uint64_t interval_=0,due_=0;
+    uint64_t due_=0,lastSubmitted_=0;
 };
 } // namespace reluva::boggle

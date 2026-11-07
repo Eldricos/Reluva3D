@@ -5,6 +5,19 @@
 #include <algorithm>
 #include <limits>
 namespace reluva::boggle {
+namespace {
+// Measured base-word delay bounds; see docs/engines/boggle/thinking.md.
+// Selection, jitter and applying these bounds to every native word are ours.
+struct ThinkingBounds {
+    uint64_t minimum,span,minimumStep,spanStep,scarcity,penalty;
+};
+constexpr ThinkingBounds thinking[]={{1500,2000,150,700,9,3000},
+    {1200,1700,50,500,7,2000},{1000,1000,50,300,5,1000}};
+uint64_t addTime(uint64_t start,uint64_t delay) {
+    return start>std::numeric_limits<uint64_t>::max()-delay?
+        std::numeric_limits<uint64_t>::max():start+delay;
+}
+}
 bool validComputerLevel(ComputerLevel level) { return int(level)>=-1 && int(level)<=3; }
 bool usesCommonVocabulary(ComputerLevel level) { return int(level)>=0 && int(level)<=2; }
 std::string computerName(ComputerLevel level) {
@@ -18,7 +31,7 @@ std::string computerName(ComputerLevel level) {
 }
 Error ComputerPlan::build(const Board& board,const Dictionary& commonVocabulary,const Dictionary& english,
                           ComputerLevel level,uint32_t seed,size_t slot,size_t visits) {
-    words_.clear();at_=0;interval_=due_=0;
+    words_.clear();delays_.clear();at_=0;due_=lastSubmitted_=0;
     if(!validComputerLevel(level) || level==ComputerLevel::Human || slot>=4)
         return Error::fail("Invalid computer participant");
     std::vector<AcceptedWord> found;
@@ -38,19 +51,34 @@ Error ComputerPlan::build(const Board& board,const Dictionary& commonVocabulary,
         if(level==ComputerLevel::MrBoggle && a.word.size()!=b.word.size())return a.word.size()>b.word.size();
         const auto x=rank(a.word),y=rank(b.word);return x!=y?x<y:a.word<b.word;
     });
-    const uint64_t intervals[]={6000,4000,2000,1000};
-    interval_=intervals[strength];due_=interval_;
+    delays_.reserve(words_.size());
+    // The solver bounds the pool to 50,000 words, keeping these products small.
+    for(size_t i=0;i<words_.size();++i) {
+        uint64_t delay=1000; // Mr. Boggle remains a separate native policy.
+        if(common) {
+            const auto& bounds=thinking[strength];const uint64_t remaining=words_.size()-i;
+            const uint64_t span=bounds.span+i*bounds.spanStep;
+            uint32_t jitter=rank(words_[i].word)^0xa511e9b3u;
+            jitter^=jitter>>16;jitter*=0x85ebca6bu;jitter^=jitter>>13;
+            delay=bounds.minimum+i*bounds.minimumStep+uint64_t(jitter)%span;
+            if(remaining<bounds.scarcity)delay+=(bounds.scarcity-remaining)*bounds.penalty;
+        }
+        delays_.push_back(delay);
+    }
+    if(!delays_.empty())due_=delays_.front();
     return Error::success();
 }
 const AcceptedWord* ComputerPlan::take(uint64_t elapsed) {
-    if(exhausted() || elapsed<due_)return nullptr;
+    if(exhausted() || elapsed<due_ || (at_ && elapsed<=lastSubmitted_))return nullptr;
     // A stalled window may produce one word, never a catch-up burst.
-    due_=elapsed>std::numeric_limits<uint64_t>::max()-interval_?
-        std::numeric_limits<uint64_t>::max():elapsed+interval_;
-    return &words_[at_++];
+    const auto* word=&words_[at_++];lastSubmitted_=elapsed;
+    due_=exhausted()?0:addTime(elapsed,delays_[at_]);
+    return word;
 }
 const AcceptedWord* ComputerPlan::takeScheduled(uint64_t elapsed,uint64_t& submittedAt) {
     if(exhausted() || elapsed<due_)return nullptr;
-    submittedAt=due_;return take(due_);
+    const auto scheduled=due_;const auto* word=take(scheduled);
+    if(word)submittedAt=scheduled;
+    return word;
 }
 } // namespace reluva::boggle

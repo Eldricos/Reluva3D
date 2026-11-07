@@ -46,14 +46,16 @@ int check(int argc,char** argv) {
             number(uint32_t(board.side()));number(seed);number(uint32_t(slot));number(level);number(uint32_t(plan.words().size()));
             std::vector<ClassicPoint> centers;
             for(size_t i=0;i<board.faces().size();++i)centers.push_back({int(i%board.side())*100,int(i/board.side())*100});
-            for(uint64_t now=6000;!plan.exhausted();now+=6000) {
+            while(!plan.exhausted()) {
                 const auto* pending=plan.nextWord();const auto due=plan.due();
                 const auto traced=computerCursorFrame(*pending,centers,{0,0},due,due,{900,500});
                 if(!traced.active || traced.cubes!=pending->path.size() || plan.nextWord()!=pending || plan.due()!=due)
                     return fail(Error::fail("Computer cursor preview changed a plan or failed to finish its path"));
-                const auto* word=plan.take(now);
-                if(!word || plan.take(now) || round.submit(word->word,now,word->path)!=Submission::Accepted)
+                if(!due || plan.take(due-1))return fail(Error::fail("Computer plan submitted before its thinking delay"));
+                const auto* word=plan.take(due);
+                if(!word || plan.take(due) || round.submit(word->word,due,word->path)!=Submission::Accepted)
                     return fail(Error::fail("Computer plan failed paced dictionary/path validation"));
+                number(uint32_t(due));number(uint32_t(due>>32));
                 digest.update(word->word.data(),word->word.size()+1);number(uint32_t(word->points));
                 for(size_t cell:word->path)number(uint32_t(cell));
                 ++words;

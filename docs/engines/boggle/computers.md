@@ -29,7 +29,7 @@ and supported Classic dice. Mr. Boggle retains every discovered main-dictionary
 word, including words missing from `AI.dic` and words longer than nine letters.
 The owner also confirmed longest-word-first play and ending the visible turn
 when this list is exhausted in both timed and untimed games. These rules are
-now implemented. Equal-length tie order and thinking time remain native.
+now implemented. Equal-length tie order and Mr. Boggle thinking time remain native.
 
 Every candidate retains one legal path, including Qu, with no cube reuse. Every
 submission still passes the normal round validator, scoring and shared-word
@@ -44,18 +44,25 @@ containing a common opponent still require a valid auxiliary dictionary.
 
 ## Remaining native selection and pacing policy
 
-**Common-opponent sampling/order, equal-length Mr. Boggle ties and cadence
-remain native policies.**
+**Common-opponent sampling/order, equal-length Mr. Boggle ties and parts of
+cadence remain native policies.**
 The verified dictionary and search-boundary corrections do not reproduce the
 complete original AI selection/timing algorithm. The implementation is independently
 written using the existing bounded solver and public round interface.
 
-| Level | Candidate source and search | Native vocabulary sample | Native active time between words |
+| Level | Candidate source and search | Native vocabulary sample | Thinking-time model |
 | --- | --- | --- | --- |
-| Beginner | AI dictionary / nine-letter prefix boundary | One quarter | 6 seconds |
-| Intermediate | AI dictionary / nine-letter prefix boundary | One half | 4 seconds |
-| Advanced | AI dictionary / nine-letter prefix boundary | Three quarters | 2 seconds |
-| Mr. Boggle | Full English board vocabulary | All | 1 second |
+| Beginner | AI dictionary / nine-letter prefix boundary | One quarter | Measured base-word bounds, native integration |
+| Intermediate | AI dictionary / nine-letter prefix boundary | One half | Measured base-word bounds, native integration |
+| Advanced | AI dictionary / nine-letter prefix boundary | Three quarters | Measured base-word bounds, native integration |
+| Mr. Boggle | Full English board vocabulary | All | Native 1 second |
+
+The common levels now vary their delays, grow slower as base-word attempts
+accumulate, and add a penalty when their remaining native candidate list is
+small. See [measured delay bounds and approximation limits](thinking.md).
+The original also distinguishes related-word attempts, which the native planner
+does not reproduce. These bounds apply to every retained native word, so this
+is a partial pacing model rather than matching original full-turn cadence.
 
 Common sampling/order and Mr. Boggle's equal-length ties depend on the native
 board seed, slot and word, using an independent integer hash. Mr. Boggle first
@@ -105,9 +112,11 @@ and English language resources establish:
   the base/Mr. Boggle search at `0x402fb0` requests the minimum through 100.
   Original recursive search at `0x443790` checks a completed word before deciding
   whether its prefix may be extended, accounting for a final Qu crossing.
-- The common configuration at `0x42cda0` and delay routine at `0x42f070` still
-  contain additional level-dependent behavior. The native sampling/rates above
-  have not been equated with those routines.
+- The common configuration at `0x42cda0` and delay routine at `0x42f070` establish
+  measured base-word timing ranges, progression and candidate-count scarcity.
+  An external harness executes these with original selection at `0x42e0e0`:
+  2,304 isolated timing contracts match. Related-word behavior and full original
+  submission/movement timing remain outside the native model; see [thinking-time evidence](thinking.md).
 - The end-game score loop around `0x41b335` checks the player's computer predicate
   (vtable offset `0x68`) and skips the high-score writer for computer players.
 - The English DLL's string 9002 describes all-computer play disabling background
@@ -135,12 +144,14 @@ shared-word scoring, human-only high scores, timers, transitions and replay.
 
 `reluva-tool boggle computer-check <folder>` checks 64 plans over two seeds,
 both boards, four slots and four levels, submitting every planned word through
-the round validator. Common plans must remain in their dictionary/search bound;
-Mr. Boggle's pool must equal the complete main-dictionary board vocabulary. It prints metadata only. For the supplied files:
+the round validator, checking submission deadlines and hashing their times.
+Common plans must remain in their dictionary/search bound; Mr. Boggle's pool
+must equal the complete main-dictionary board vocabulary. It prints metadata
+only. For the supplied files:
 
 ```
 Classic computer plans 64, legal submissions 4147
-decoded computers: 5c197d13090dc98c6fffe46a3fd58af7
+decoded computers: c4559ff3bbf64c6f90085dd315474028
 ```
 
 The optional game-data suite repeats this check on the source and on an imported
@@ -153,7 +164,8 @@ services, it captures eight original search-entry contracts: two minimum lengths
 across four opponents, with zero mismatches. Six further synthetic probes execute
 the original recursive length guards, including the final-Qu crossing, with zero
 mismatches. These are isolated binding/range/boundary observations, not a full
-original AI round, word-order comparison or thinking-time comparison. Harnesses,
+original AI round or word-order comparison. Separate isolated base-word timing
+comparisons are documented in [thinking times](thinking.md). Harnesses,
 original bytes and raw research remain outside every Git worktree.
 
 Synthetic tests additionally cover nine-letter words at every common level,

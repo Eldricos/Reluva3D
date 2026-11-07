@@ -77,6 +77,9 @@ native switch. The separate [visible computer cursor](cursor.md) option is now
 available and stays inactive during background play.
 No original algorithm, disassembly or retail data was copied into this stage.
 
+The common opponents now use variable [base-word thinking delays](thinking.md).
+Their vocabulary sampling and related-word behavior remain native.
+
 ## Validation
 
 `boggle.unit.background` exercises both boards, both turn modes and both renderers.
@@ -95,8 +98,8 @@ untimed budgets. It compares coarse and fine service intervals and submits every
 word through the canonical round model. For both supplied install/CD copies:
 
 ```
-Background schedules 256, legal submissions 13036
-decoded background: fc7b7fbb16e9a48dc099af0e27b906b6
+Background schedules 256, legal submissions 11592
+decoded background: 218461c733feef491e0393096a69f700
 ```
 
 The optional game-data suite runs this check on the source and a fresh imported

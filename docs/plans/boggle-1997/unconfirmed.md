@@ -221,3 +221,12 @@ those rules, avoiding an extra empty Chess turn after its final word.
 Common-opponent sampling/order, Mr. Boggle equal-length tie order and all thinking
 cadences remain native policies; common-opponent exhaustion needs a separate
 reference check.
+
+The next pacing pass measures the common opponents' base-word thinking delays.
+An isolated harness runs original selection/configuration/timing with invented
+candidate lists: 2,304 timing contracts match, covering level, candidate-count
+scarcity, successive base-word attempts, Classic minimum lengths and background
+flags. The native planner now applies these measured bounds to its retained
+words with repeatable native jitter. Its sampled lists and related-word behavior
+still differ, so this is not full original AI cadence. Mr. Boggle retains its
+native one-second interval. See [thinking-time specification and limits](../../engines/boggle/thinking.md).
