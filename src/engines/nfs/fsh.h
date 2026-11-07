@@ -54,6 +54,14 @@ Error parseShapeBank(std::vector<uint8_t> data, ShapeBank& out);
 
 // A shape as RGBA. 8-bit shapes without a palette fail.
 Error decodeShape(const Shape& shape, image::Image& out);
+// A picture of sfx.fsh as nfs3.exe hands it to a Glide card (0x4d4080 ->
+// 0x4d3f50 -> 0x4d37a0), decoded: a 32-bit shape goes up at 4:4:4:4, each
+// channel's top four bits (0x4d27e0), which the card widens back by 17,
+// when the loader asks for that format (`fourFour`: glw0-glw4, 0x4d5370)
+// or, asked for none (shad, the particles' SPnn and SNnn), when its alpha
+// is neither all 255 nor only 0 and 255 (0x4d1950 gives 2). Other shapes
+// are as decodeShape gives them.
+Error decodeForGlide(const Shape& shape, image::Image& out, bool fourFour = false);
 
 // A cockpit picture's gauges, from its 0x7C block (fsh.md, Gauges): in
 // the 640x480 frame of dash.qfs's picture 0000.

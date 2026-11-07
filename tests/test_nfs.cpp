@@ -419,6 +419,15 @@ void testShapes() {
     CHECK(!decodeShape(bank.shapes[2], img));
     const uint8_t fromArgb[] = {0x30, 0x20, 0x10, 0x40};
     CHECK(std::memcmp(img.rgba.data(), fromArgb, 4) == 0);
+    // As nfs3.exe gives it to the card (0x4d37a0): an alpha of 0x40 makes it
+    // 4:4:4:4, each channel's top nibble x 17 (0x4d27e0); the 24-bit one
+    // (no alpha) stays; asked for 4:4:4:4, a 32-bit one goes so anyway.
+    CHECK(!decodeForGlide(bank.shapes[2], img));
+    const uint8_t argb4444[] = {0x33, 0x22, 0x11, 0x44};
+    CHECK(std::memcmp(img.rgba.data(), argb4444, 4) == 0);
+    CHECK(!decodeForGlide(bank.shapes[3], img, true));
+    const uint8_t rgbKept[] = {0x30, 0x20, 0x10, 0xff};
+    CHECK(std::memcmp(img.rgba.data(), rgbKept, 4) == 0);
     CHECK(!decodeShape(bank.shapes[3], img));
     const uint8_t fromRgb[] = {0x30, 0x20, 0x10, 0xff};
     CHECK(std::memcmp(img.rgba.data(), fromRgb, 4) == 0);
@@ -2955,6 +2964,79 @@ void testSound3d() {
     CHECK(near(spatialize(listener, s).doppler, 1));
 }
 
+// Car against car (0x4310c0 -> 0x430c80: the box test 0x42fee0, the hit
+// 0x42f280 with 0x42e820).
+void testCarHits() {
+    using namespace reluva::nfs;
+    // Side by side, 0.166 m into each other: b's left face centre is the
+    // first point inside a's box; one round of 0.25 parts them, half each.
+    CarBox a, b;
+    a.mass = b.mass = 1000;
+    b.at = {2.2f, 0, 0};
+    a.velocity = {1, 0, 0};
+    b.velocity = {-1, 0, 0};
+    std::array<float, 3> point{};
+    CarBox ta = a, tb = b;
+    CHECK(carBoxTouch(ta, tb, point));
+    CHECK(std::fabs(point[0] - (2.2f - 1.183f)) < 1e-5f && std::fabs(ta.at[0] + 0.125f) < 1e-6f &&
+          std::fabs(tb.at[0] - 2.325f) < 1e-6f);
+    CHECK(!carBoxTouch(ta, tb, point));
+    // The hit: each closing at 2 m/s, J = 2 x 1000 along x, a's share
+    // J / both = 1 m/s back along J; no spin from a face centre at the
+    // centre's height; the strength 1, not air.
+    CHECK(carBoxCollide(a, b));
+    CHECK(std::fabs(a.velocity[0]) < 1e-5f && std::fabs(b.velocity[0]) < 1e-5f && std::fabs(a.strength - 1) < 1e-5f &&
+          std::fabs(b.strength - 1) < 1e-5f && a.airTicks == 0 && a.spin == (std::array<float, 3>{0, 0, 0}));
+    // Moving apart: no hit (J along the centre line is not closing).
+    CarBox c = a, d = b;
+    c.at = {0, 0, 0};
+    d.at = {2.2f, 0, 0};
+    c.velocity = {-1, 0, 0};
+    d.velocity = {1, 0, 0};
+    c.strength = d.strength = 0;
+    CHECK(carBoxCollide(c, d) && c.velocity[0] == -1 && d.velocity[0] == 1 && c.strength == 0);
+    // Hard, from behind and off the middle: J over 5 x the mass is cut to
+    // 0.75; the strength over 5 puts both in the air (+0x164).
+    CarBox e, f;
+    e.mass = f.mass = 1000;
+    f.at = {1.0f, 0, 4.6f};
+    e.velocity = {0, 0, 30};
+    CHECK(carBoxCollide(e, f) && e.airTicks == 1 && f.airTicks == 1);
+    CHECK(e.velocity[2] < 30 && f.velocity[2] > 0 && std::fabs(e.spin[1]) > 0 && std::fabs(e.spin[1]) <= 1.8f);
+    // Far apart, or not in play: nothing.
+    std::vector<CarBox> list{a, b};
+    list[1].at = {0, 0, 20};
+    CHECK(carBoxCollisions(list) == 0);
+    list[1].at = {1, 0, 0};
+    CHECK(carBoxCollisions(list, {true, false}) == 0 && carBoxCollisions(list) == 1);
+    // A racer's mass (0x42bcb0): P's over 1.2.
+    CHECK(std::fabs(aiCarMass(1472, true) - 1226.67f) < 0.01f && aiCarMass(1930, false) == 1930);
+
+    // The computer's cars (aiCollide, the even steps): side by side on a
+    // straight road, the right one moving across into the left one.
+    const TrackCollision road = straightRoad(60);
+    AiCar left, right;
+    for (AiCar* c : {&left, &right}) {
+        c->slice = 20;
+        c->along = 0.5f;
+        c->speed = 30;
+        c->sideKept = true;
+        c->velSlice = 20;
+    }
+    left.lateral = left.side = 0;
+    right.lateral = right.side = 2.2f;
+    right.sideSpeed = -2;
+    std::vector<AiCar> pair{left, right};
+    aiCollide(pair, road, 101); // odd: not a collision tick
+    CHECK(pair[1].sideSpeed == -2 && pair[1].lateral == 2.2f);
+    aiCollide(pair, road, 100);
+    CHECK(std::fabs(pair[0].lateral + 0.125f) < 1e-4f && std::fabs(pair[1].lateral - 2.325f) < 1e-4f);
+    CHECK(std::fabs(pair[0].sideSpeed + 1) < 1e-4f && std::fabs(pair[1].sideSpeed + 1) < 1e-4f &&
+          std::fabs(pair[0].speed - 30) < 1e-4f && pair[0].slice == 20 && std::fabs(pair[0].along - 0.5f) < 1e-5f);
+    // The impacts task: ai_ctl_slide for round(strength) x 7 steps.
+    CHECK(pair[0].slideUntil == 107 && pair[1].slideUntil == 107 && pair[0].airTicks == 0);
+}
+
 void testComputerPursuits() {
     // Lanes 4 wide (bytes 8), two each side, walls 10 away.
     TrackCollision col = straightRoad(200);
@@ -3315,6 +3397,7 @@ int main() {
     testComputerDriving();
     testComputerCatchUpAndCops();
     testComputerPursuits();
+    testCarHits();
     testCopCalls();
     testSkinPaint();
     testHorizon();

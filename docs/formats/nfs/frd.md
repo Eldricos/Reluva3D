@@ -1043,6 +1043,30 @@ pixel and their y are 1.4 pixels off, as that run's cars are
 (above). The page's cars never leave the ground, and the page has no
 mirror view.
 
+**Its brightness** (November 2026, `e6-runs`: Empire City by day, Hot
+Pursuit, racer 1 held 18 m ahead and an officer poked beside it as
+`d8-t8g0`'s, frame 2816, the page from the 400th sky draw's dumps;
+`t8o`, and `t8d` without the officer, whose list 2818 was written). The
+road round the officer's red light was 1-2.6 brighter on the page, but
+the strip under the held car's shadow (440-500, 258-263) 8.0, 9.1, 10.4
+in red, green and blue. The road itself is drawn alike: of the 346
+corners of the road texture's polygons taken back to the track with the
+dumped camera (`e6-runs/vc`), 341 have the `.frd`'s colour exactly (the
+other 5 are clipped corners); the road pictures are `tr080.qfs`'s within
+the 5:5:5 widening (0.3-0.5 a channel); fog 475 in `1c0a05` both. The
+shadow's picture is not: `shad` is a 32-bit shape with a soft alpha, and
+the game hands it to the card at 4:4:4:4 (`0x4d37a0` → `0x4d27e0`, each
+channel's top four bits, thrash.md, Textures as loaded), so its colour
+(5, 8, 23) arrives as (0, 0, 17) and its alpha a step lower; the list's
+texture is that, texel for texel. Taken so by the page (`decodeForGlide`,
+also for `glw0`-`glw4` and the particles' pictures), the strip is 6.4,
+6.9, 8.5 over the host's frame, 4.5-5.5 over a host that rounds its
+blend (thrash.md, Dithering), and 2-2.5 in `t8d`'s. The strip is five
+rows tall between the car and the road, and there the difference
+changes sign from row to row (the page's window, 800 rows, scaled to
+480), so part of what is left is the comparison's.
+The road beyond it is 0.4-2.6 over (0.1-1.6 over the rounding host).
+
 **The police car's driving** (`aiCopStep`, November 2026). The page's
 police car drives as a computer cop (`car_driver_cop`, `0x4032e0`;
 [physics.md](physics.md), The computer cops' driver), not by the racers'
@@ -1675,7 +1699,90 @@ from 61.5 s it aimed at 4 m where the game's aimed past the edge (17.18,
 then 12), so the two pass side by side; and the page's cars don't hit
 each other. The replay of
 `d7-watch2` is unchanged (0.62 m rms; rails 1,109, slow 59, slide 140)
-and `park` stops 120 times, none past a wall. **The roadside cop** (`d7-runs/sim/park`,
+and `park` stops 120 times, none past a wall.
+
+**Car 3's lane at 61.5 s, the votes** (November 2026, `e6-runs`:
+`d8-votes`'s decisions at `0x40daf0` against the page's, printed from a
+scratch copy of `frd.cpp`). At 61.42 s the game's car 3 is at slice 72,
++0x7B8 12.06, so lane 9 (`0x40e2b0`: 12 / 8 = 1.5 rounds to 2), with car
+4 beside it (0 slices ahead) in lane 8. Its rows: 0 (1, 1, 1), 1 (−4, 0,
+0: a car beside it ahead, `0x40d9f0`), 3 (0, −8, −978: lane 9 is the one
+past the road's lanes, lane 10 none), 7 (−6, 0, 0: car 4 slower ahead in
+the lane to its left, `0x40d800`); the sums −9, −7, −977 keep lane 9, so
+the aim is a half width past the edge (17.18). The page's car 3 at
+61.44 s was at slice 70, +0x7B8 11.92, so lane 8, and its car 4 already
+in lane 8, 3 slices ahead: rows 0 (1, 1, 1), 3 (0, 0, −8), 7 (0, −6, 0)
+pick lane 7, 4 m. So rows 1, 3 and 7 differ, and each from the state,
+not a rule: car 3 sits on the boundary 12 m that lane 8's aim (`0x40daf0`,
+its middle 12) and the lane test (`0x40e2b0`, 12 rounds to 9) share, so
+0.14 m decides its lane, and the page's car 4 had moved across a second
+early. Traced back with each car's first decision whose lane agrees but
+whose pick doesn't (`firstdiff.py`), the cars part at 51.7-53.4 s, each
+time on row 7's halving for a car not centred in the lane
+(`0x40d17d`: the word flags at `0x56ef68`, ahead, and `0x56ef6e`,
+behind; read with `capstone`), that is on where another car sits across
+the road at 4-17 m/s. The page's rule is the game's. Three things in
+the model were not, from the code:
+- **The point steered at** (`0x406d40`): the vector is from the car's
+  own place (+0x98) to the road point moved by the aim along +0x124; the
+  page had put the car at its measured offset plus the line's move across
+  the slice (`along` × the chord), twice the latter. And on Hometown
+  (`0x6fd4ac` 0) with the steered slice in 0x205-0x20F and the aim under
+  0 the aim is 10 more to the left (`0x406d5c`-`0x406d85`).
+- **The slice steered at** (`0x406980`): the look-ahead count is
+  rounded to the nearest (`fistp` at `0x40e1d1` in round-to-nearest:
+  `-watch 0x40e1d4` with the speed and the factor read, 239 counts
+  agreeing with nearest, none with truncation, `e6-runs/round`), held to
+  4-20, behind the car while it reverses; the walk from 4 slices on
+  stops at the first slice whose x-z forward is within |0.7| of the
+  car's slice's (`0x40ef70`) and returns that slice, not the one before;
+  on Hometown slices 0x225-0x235 it is the look-ahead slice as it is.
+- **The slow and sliding controllers** (`0x407c30`, `0x407fa0`) compare
+  the speed wanted with +0x4F4, the speed along the car's own forward,
+  and push along +0x4E8; the page had used and pushed the speed along
+  the road. A car turned off its way (after a hit, sliding) so runs
+  slower along the road.
+Re-measured (`e6-runs`, `aisim` as `e5-runs/sim`'s, also seeding each
+car's aim +0x7C8, target +0x7B4, lanes +0x638-+0x640, heading, side
+speed and yaw from the 50 s dump, where it had taken the aim and target
+as +0x7B8; with the car-to-car hits, `aiCollide`): +0x638 changes in 121
+samples (the game's 143; 139 with `e5`'s seeding), the aim past 8 m in 155
+(162; 149), speeds 3.13 m/s rms (3.08 before); the page's car 3 still
+doesn't go past car 4 on the left (its +0x7B8 at least 2.67 from 64 to
+70.6 s; the game's −11.7). The replay of `d7-watch2` is 0.66 m rms (was
+0.62; rails 1,113, slow 59, slide 136): the steered slice from the code
+moves the error on slices 129-151 from 0.64 to 1.12 m; with the old slice
+it is 0.61. `park`: 120 stops, none past a wall.
+
+**The hits between cars** (November 2026; physics.md, The hit's
+arithmetic). The page's computer cars now run `car_collisions_task`'s
+box test and impulse each even step (`aiCollide`). Checked against the
+game: `t6-log`'s run again with `-watch 0x42f280` (A, B, both cars'
+velocities and yaw spins, the point) and the car records dumped every 16
+ms from 63.5 to 64.7 s (`e6-runs/hit`). In the whole run the only
+car-to-car impulses are 9 between cars 4 (A) and 3 (B), 63.58-64.18 s,
+strengths about 1.5-5. Fed the two records of the 63.568 s dump (rows,
+centres, half sizes, masses 1226.7, velocities, spins), `carBoxCollide`
+finds the point (739.97, 25.50, −303.06), where the game's watch has
+(740.0, 25.5, −303.1): car 3's left rear bottom corner inside car 4's
+box; it gives car 4 (5.46, 3.30, −42.89) and yaw spin −0.038, car 3
+(10.56, 3.27, −43.58) and −0.165, strengths 5.21 and 4.70; the 63.600 s
+dump has (5.28, 3.41, −42.89), −0.038 and (10.40, 2.91, −43.67), −0.163,
+car 4's +0x164 1 and both +0x65C 1487 (the step 1452 + 7 × 5). After
+the hits the game's car 3 slides (+0x65C kept ahead of the step), its
+yaw −0.16 to −0.26 turn/s turns it off its way, and its speed along the
+road falls 42.4 → 31.4 while |v| stays about 42: it heads across
+the road to the left (+0x7B8 −0.9 m every 32 ms), the swing out to −11.7. Car 4 slows as
+its speed wanted falls (42.3 → 31.4, keeping behind car 3). Started from
+the 63.5 s dump, the page's two cars hit at 63.56 s (strengths 4.5 and
+4.9) and lose 4-6 m/s along the road in half a second, but the page's
+car 3 then keeps behind car 4 (its slice a slice behind, from where
+`aisim` put it along its slice on the outer lane of the bend) and moves
+out to the right (+0x7B8 to 16.9). Over `t6-log`'s window the page's
+cars hit twice, at 70 and 78 s (cars 3 and 4): they don't meet side by
+side at 64 s as the game's do (above).
+
+**The roadside cop** (`d7-runs/sim/park`,
 the police car ordered to lay a strip from every 8th slice of Hometown,
 120 stops): with the spring and the cut it parked past a wall 81 times,
 by up to 5 m (it was pulled on to lane 5 − L's aim at the wall less its

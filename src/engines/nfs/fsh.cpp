@@ -188,6 +188,20 @@ Error parseShapeBank(std::vector<uint8_t> data, ShapeBank& out) {
     return Error::success();
 }
 
+Error decodeForGlide(const Shape& shape, image::Image& out, bool fourFour) {
+    if (Error err = decodeShape(shape, out))
+        return err;
+    if (shape.type != kShape32Bit)
+        return {};
+    bool partial = false; // 0x4d1950: an alpha other than 0 and 255
+    for (size_t i = 3; i < out.rgba.size() && !partial; i += 4)
+        partial = out.rgba[i] != 0 && out.rgba[i] != 255;
+    if (fourFour || partial)
+        for (uint8_t& c : out.rgba)
+            c = static_cast<uint8_t>((c >> 4) * 17);
+    return {};
+}
+
 Error decodeShape(const Shape& shape, image::Image& out) {
     out.w = shape.width;
     out.h = shape.height;

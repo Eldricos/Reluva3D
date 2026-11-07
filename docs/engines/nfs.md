@@ -1549,13 +1549,18 @@ README.md.
 
 - How the computer racers meet each other: the page's cars now have
   the game's forward force and gravity on the hills (`0x4076b0`,
-  `0x4a2a0c`), so from `t6-log`'s 50 s dump their speeds follow the
-  game's within 0.86 m/s rms until the cars meet (1.50 before), with
-  149 lane changes against the game's 143 and 167 samples past 8 m
-  against 162 ([frd.md](../formats/nfs/frd.md), The force model). The
-  game's overtake at Hometown's slices 91-107 comes from a hit between
-  cars 3 and 4, which the page's cars, never touching, don't have, and
-  from a lane car 3 chose at 61.5 s that the page's doesn't. The road
+  `0x4a2a0c`), the car-to-car box test and impulse (`0x4310c0`; on the
+  game's own records it gives the game's contact point, velocities,
+  spins and slide steps, physics.md, The hit's arithmetic) and the
+  steered point and slice and the sliding controllers' push as the code
+  has them ([frd.md](../formats/nfs/frd.md), Car 3's lane at 61.5 s,
+  The hits between cars). From `t6-log`'s 50 s dump the cars still part
+  at 51.7-53.4 s on where each sits across the road (row 7's centre
+  flags), so the page's cars 3 and 4 don't meet side by side at 64 s and
+  car 3 doesn't overtake: 121 lane changes against the game's 143, 155
+  samples past 8 m against 162. Started at the meeting, the page's cars
+  hit and slow, but car 3 goes right where the game's, sliding with its
+  yaw from the hits, goes left. The road
   search's marks of the other side near bends' walls are what the
   code does (frd.md, The search beyond its first slice); a car against
   such a wall isn't pushed the wrong way by it: the wall test steps
