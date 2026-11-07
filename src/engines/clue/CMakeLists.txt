@@ -42,6 +42,7 @@ reluva_add_engine_tools(clue
 set(tests ${PROJECT_SOURCE_DIR}/tests/engines/clue)
 reluva_add_engine_tests(clue
     SOURCES
+        ${tests}/unit/detection.cpp
         ${tests}/unit/formats.cpp
         ${tests}/unit/rules.cpp
         ${tests}/unit/board.cpp
@@ -51,7 +52,7 @@ reluva_add_engine_tests(clue
         ${tests}/unit/network.cpp
         ${tests}/engine.cpp
     TOPICS
-        unit.formats unit.rules unit.board unit.mansion unit.frontend unit.saves unit.network engine)
+        unit.detection unit.formats unit.rules unit.board unit.mansion unit.frontend unit.saves unit.network engine)
 
 # Its engine test with the game's own files (tests/engines/clue/gamedata.cmake):
 # RELUVA_CLUE=<the game's folder> ctest -L gamedata. See docs/DEVELOPMENT.md

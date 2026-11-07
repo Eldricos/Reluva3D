@@ -18,7 +18,6 @@
 
 #include "common/fs.h"
 #include "common/settings.h"
-#include "common/stream.h"
 #include "engines/clue/frontend.h"
 #include "engines/clue/viewers.h"
 #include "engines/engine.h"
@@ -34,38 +33,19 @@ using clue::VideoViewer;
 using clue::SoundViewer;
 using clue::TextViewer;
 
-// Detection table. Built with `reluva --hash`: each entry needs the size and
-// the MD5 of the first kDetectionHashBytes bytes.
-//
-// Clue.exe tells the version (the 2.2 patch replaces it) and the ticker's
-// sentences the language ("Miss Scarlet" or "Miss Scarlett"). An install
-// copies the chosen language's files into Data/Classic; the CD has both.
-// The UK installs are inferred from the CD's UK files: no UK install has
-// been seen yet.
-constexpr const char* kExe20 = "7ddb4f359cfd8827b4f7b054e95b1cba";
-constexpr int64_t kExe20Size = 386048;
-constexpr const char* kExe22 = "cb43d1d845b786193353ac221e5f0ac1";
-constexpr int64_t kExe22Size = 391168;
-constexpr const char* kTickerUs = "3c205884038261fa092d50b65d5f51da";
-constexpr int64_t kTickerUsSize = 272574;
-constexpr const char* kTickerUk = "b5048de76701fe2041ffa7f0a6a6b7e9";
-constexpr int64_t kTickerUkSize = 281028;
-
-const std::vector<GameVariant> kVariants = {
-    {"clue", "Clue: Murder at Boddy Mansion (2.2)", "en", "windows",
-     {{"Clue.exe", kExe22, kExe22Size}, {"Data/Classic/Text/TickerStrings.txt", kTickerUs, kTickerUsSize}}},
-    {"clue", "Clue: Murder at Boddy Mansion (2.0)", "en", "windows",
-     {{"Clue.exe", kExe20, kExe20Size}, {"Data/Classic/Text/TickerStrings.txt", kTickerUs, kTickerUsSize}}},
-    {"clue-uk", "Clue: Murder at Boddy Mansion (UK English, 2.2)", "en-gb", "windows",
-     {{"Clue.exe", kExe22, kExe22Size}, {"Data/Classic/Text/TickerStrings.txt", kTickerUk, kTickerUkSize}}},
-    {"clue-uk", "Clue: Murder at Boddy Mansion (UK English, 2.0)", "en-gb", "windows",
-     {{"Clue.exe", kExe20, kExe20Size}, {"Data/Classic/Text/TickerStrings.txt", kTickerUk, kTickerUkSize}}},
-    // The CD, run from the disc or a copy of it.
-    {"clue", "Clue: Murder at Boddy Mansion (2.0, CD)", "en", "windows",
-     {{"Clue.exe", kExe20, kExe20Size}, {"Data/US/Text/TickerStrings.txt", kTickerUs, kTickerUsSize}}},
-    {"clue-uk", "Clue: Murder at Boddy Mansion (UK English, 2.0, CD)", "en-gb", "windows",
-     {{"Clue.exe", kExe20, kExe20Size}, {"Data/UK/Text/TickerStrings.txt", kTickerUk, kTickerUkSize}}},
+// Detection. Clue.exe tells the version (the 2.2 patch replaces it): its
+// signature (the size and the MD5 of the first kDetectionHashBytes bytes,
+// as `reluva --hash` prints them). The language's own files tell US from
+// UK: the UK's have one file the US's don't, Sounds/end turn.wav (a spoken
+// "end turn", which Clue.exe 2.0 and 2.2 both name in their table of
+// voices, 0x45ECE0). An install copies the chosen language's files into
+// Data/Classic; the CD has both, in Data/US and Data/UK. The UK installs
+// are inferred from the CD's UK files: no UK install has been seen yet.
+const std::vector<GameVariant> kExecutables = {
+    {"clue", "2.2", "", "windows", {{"Clue.exe", "cb43d1d845b786193353ac221e5f0ac1", 391168}}},
+    {"clue", "2.0", "", "windows", {{"Clue.exe", "7ddb4f359cfd8827b4f7b054e95b1cba", 386048}}},
 };
+constexpr const char* kUkOnlyFile = "Sounds/end turn.wav";
 
 class ClueEngine : public Engine {
 public:
@@ -219,28 +199,29 @@ public:
     const char* name() const override { return "Clue"; }
 
     std::vector<DetectedGame> detect(const std::filesystem::path& dir) const override {
-        std::vector<DetectedGame> found = detectFromTable(id(), kVariants, dir);
-        if (!found.empty())
-            return found;
-        // A release not in the table (another patch, another language's
-        // files): Clue.exe beside the ticker's sentences, an install's or the
-        // CD's. The sentences' "Miss Scarlett" tells the UK's.
+        std::vector<DetectedGame> found;
         if (!fs::findFile(dir, "Clue.exe"))
             return found;
-        for (const char* ticker : {"Data/Classic/Text/TickerStrings.txt", "Data/US/Text/TickerStrings.txt",
-                                   "Data/UK/Text/TickerStrings.txt"}) {
-            const auto path = fs::findFile(dir, ticker);
-            if (!path)
-                continue;
-            std::vector<uint8_t> text;
-            readFile(*path, text);
-            const bool uk = std::string(text.begin(), text.end()).find("Scarlett") != std::string::npos;
-            found.push_back({id(), uk ? "clue-uk" : "clue",
-                             uk ? "Clue: Murder at Boddy Mansion (UK English, unknown release)"
-                                : "Clue: Murder at Boddy Mansion (unknown release)",
+        // The version, by Clue.exe; one not in the table is still Clue.
+        const std::vector<DetectedGame> exe = detectFromTable(id(), kExecutables, dir);
+        const std::string version = exe.empty() ? "unknown release" : exe[0].description;
+        const auto add = [&](bool uk, bool cd) {
+            std::string what = uk ? "UK English, " + version : version;
+            if (cd && !exe.empty())
+                what += ", CD";
+            found.push_back({id(), uk ? "clue-uk" : "clue", "Clue: Murder at Boddy Mansion (" + what + ")",
                              uk ? "en-gb" : "en", "windows"});
-            break;
+        };
+        if (fs::findDirectory(dir, "Data/Classic")) {
+            // An install: the language its files are.
+            add(bool(fs::findFile(dir, std::string("Data/Classic/") + kUkOnlyFile)), false);
+            return found;
         }
+        // The CD, run from the disc or a copy of it: each language it has.
+        if (fs::findDirectory(dir, "Data/US"))
+            add(false, true);
+        if (fs::findFile(dir, std::string("Data/UK/") + kUkOnlyFile))
+            add(true, true);
         return found;
     }
 

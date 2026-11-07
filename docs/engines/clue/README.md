@@ -60,6 +60,15 @@ played with credits.
 | `!EagleM.dll` | 2.0 | 248,832 | `b512233497bbc18ed4dd875b0b6ec556` |
 | `!EagleM.dll` | 2.2 | 242,688 | `a36d7d82e6ad515aca6307cc5968fc4c` |
 
+`Clue.exe` gives the version; the language's files give the language. The
+UK's have one file the US's don't: `Sounds/end turn.wav` (175,220 bytes,
+MD5 of its first 5000 bytes `95881a34ccc9579a3d7bafa45ccaa8b6`), a spoken
+"end turn" that both versions of `Clue.exe` name in their table of voices
+(the string at 0x45ECE0). So an install (`Data/Classic`) with it is the
+UK's, without it the US's; the CD (`Data/US`, `Data/UK`) is found as both,
+to play either. A `Clue.exe` not in the table is still found, as an
+unknown release, in the language its files are.
+
 ## Approach
 
 Reimplement the game, as for New Worlds, rather than run `Clue.exe` in

@@ -13,6 +13,7 @@ and needing no game files, so they run in CI:
 
 | Suite | What it checks |
 |---|---|
+| `clue.unit.detection` | Finding the game: an install's language by `Sounds/end turn.wav` (the UK's alone have it), the CD as both, a `Clue.exe` not in the table as an unknown release |
 | `clue.unit.formats` | Packed archives, images, animations (their rate and play flags), the game's folders (an install's, the CD's), objects, levels, `dialogInfo.res` |
 | `clue.unit.mansion` | What's drawn in front of what, the hot spots' boxes, lighting, a mansion built from a level |
 | `clue.unit.frontend` | A dialog drawn and clicked, typing in its boxes; the original's `Prefs.ini` |
@@ -60,28 +61,30 @@ the steps show as skipped.
 
 | Step | What it runs |
 |---|---|
-| `clue.gamedata.release` | What the game is (`detect`) |
+| `clue.gamedata.release` | What the game is (`detect`): an install's one language, the CD's two |
 | `clue.gamedata.files` | Every image, animation, object and dialog read, the mansion built from `clue.lvl`, every picture the dialogs name found (`clue check`) |
 | `clue.gamedata.levels` | `clue.lvl`'s placements, each one (`clue level -v`) |
 | `clue.gamedata.boards` | The board it lays out, and 200 games of computer players on it, the same games every time (`clue board`) |
-| `clue.gamedata.play` | The game itself, headless, as below (`clue game-run`) |
+| `clue.gamedata.play` | The game itself, headless, as below (`clue game-run`; on the CD, the US's and the UK's) |
 
-`reluva-tool clue game-run <game folder> [-shots <folder>]` plays the game
+`reluva-tool clue game-run <game folder> [-uk] [-shots <folder>]` plays the game
 on a System with no window whose clock moves only as the game waits, so
 every run is the same: the intro skipped, a new game of Miss Scarlet (a
 person) and two computer players set up in the menus by clicking the game's
 own buttons where `dialogInfo.res` puts them, the deal, ten seconds of the
 game, saved as "Reluva" from the Esc menu, left, and loaded again from the
 main menu. It prints a checksum of every screen shown and of the saved
-game; `-shots` writes a screen a second as PNG files, to look at.
+game; `-uk` plays the UK's game (Cluedo) where the folder has it; `-shots`
+writes a screen a second as PNG files, to look at. On the CD the files step
+also checks the UK's files (`clue check -uk`).
 
 Each step's output is kept in the build (`gamedata/clue/<step>/`), the
 previous run's beside it, and its checksum and summary line go in the
 record, `tests/engines/clue/data/gamedata/<release>/<step>.txt`. Records so
 far, made on Linux: `english-2.2` (the US install patched to 2.2),
-`english-2.0` (the US install as the CD installs it) and `english-2.0-cd`
-(the CD itself; it holds the UK's files too, but the test plays the US
-game, the first one found). Another release's go in a folder of their own,
+`english-2.0` (the US install as the CD installs it) and `2.0-cd` (the CD
+itself, both languages). A UK install's would go in `uk-english-2.0` or
+`uk-english-2.2`; none has been seen yet. Another release's go in a folder of their own,
 with `RELUVA_GAMEDATA_UPDATE=1`. See
 [DEVELOPMENT.md](../../DEVELOPMENT.md#engine-tests) for the shared helpers.
 

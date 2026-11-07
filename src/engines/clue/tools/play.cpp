@@ -138,19 +138,28 @@ std::string savesIn(const std::filesystem::path& dir) {
 
 int cmdGameRun(int argc, char** argv) {
     if (argc < 3) {
-        std::fprintf(stderr, "usage: reluva-tool clue game-run <game folder> [-shots <folder>]\n");
+        std::fprintf(stderr, "usage: reluva-tool clue game-run <game folder> [-uk] [-shots <folder>]\n");
         return 2;
     }
     const std::filesystem::path gameDir = argv[2];
     std::filesystem::path shots;
-    for (int i = 3; i + 1 < argc; ++i)
-        if (std::strcmp(argv[i], "-shots") == 0)
+    bool uk = false;
+    for (int i = 3; i < argc; ++i) {
+        if (std::strcmp(argv[i], "-shots") == 0 && i + 1 < argc)
             shots = argv[++i];
+        else if (std::strcmp(argv[i], "-uk") == 0)
+            uk = true;
+    }
 
+    // The game in the folder: the US's, or with -uk the UK's (the CD has both).
     const MetaEngine* engine = findEngine("clue");
-    const std::vector<DetectedGame> found = engine ? engine->detect(gameDir) : std::vector<DetectedGame>{};
+    const std::vector<DetectedGame> games = engine ? engine->detect(gameDir) : std::vector<DetectedGame>{};
+    std::vector<DetectedGame> found;
+    for (const DetectedGame& g : games)
+        if ((g.gameId == "clue-uk") == uk)
+            found.push_back(g);
     if (found.empty()) {
-        std::fprintf(stderr, "No Clue in %s\n", gameDir.string().c_str());
+        std::fprintf(stderr, "No %sClue in %s\n", uk ? "UK English " : "", gameDir.string().c_str());
         return 1;
     }
     std::printf("game: %s %s\n", found[0].gameId.c_str(), found[0].description.c_str());
@@ -252,8 +261,8 @@ int cmdGameRun(int argc, char** argv) {
 }
 
 const Commands commands("clue", {
-    {"game-run", "<game folder> [-shots <folder>]",
-     "play the game headless: a new game of a person and two computer players, saved, left and loaded again; "
+    {"game-run", "<game folder> [-uk] [-shots <folder>]",
+     "play the game headless (the UK's with -uk): a new game of a person and two computer players, saved, left and loaded again; "
      "a checksum of every screen shown and of the saved game (-shots writes a screen a second)",
      cmdGameRun},
 });
