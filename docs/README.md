@@ -35,6 +35,7 @@ interfaces, and any notes on testing and differences from the original.
 | `newworlds` | Star Trek: New Worlds | [engines/newworlds/](engines/newworlds/README.md) |
 | `stgenerations` | Star Trek: Generations | [engines/stgenerations/](engines/stgenerations/README.md) |
 | `awe` | Agatha Christie: Murder on the Orient Express (and, later, AWE's other Agatha Christie games) | [engines/awe/](engines/awe/README.md) |
+| `clue` | Clue: Murder at Boddy Mansion (Cluedo: Murder at Blackwell Grange in the UK) | [engines/clue/](engines/clue/README.md) |
 | `testbed` | A built-in test pattern, no game | — |
 
 ## Adding docs

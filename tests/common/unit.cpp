@@ -15,6 +15,7 @@
 #include "common/bmp.h"
 #include "common/bytes.h"
 #include "common/config.h"
+#include "common/cue.h"
 #include "common/cursor.h"
 #include "common/dcl.h"
 #include "common/detection.h"
@@ -143,6 +144,14 @@ static void testUtf16() {
     const uint16_t lone[] = {0xd800, 'x'};
     CHECK(text::utf16leToUtf8(lone, 2) == "\xef\xbf\xbdx");
     CHECK(text::utf16leToUtf8(nullptr, 0).empty());
+}
+
+static void testWindows1252() {
+    CHECK(text::windows1252ToUtf8("plain") == "plain");
+    // A bullet, as Clue's text files use, an e acute and the euro sign.
+    CHECK(text::windows1252ToUtf8("\x95 caf\xe9 \x80") == "\xe2\x80\xa2 caf\xc3\xa9 \xe2\x82\xac");
+    CHECK(text::windows1252ToUtf8("\x81") == "\xef\xbf\xbd");
+    CHECK(text::toLatin1(0x2022) == 0xb7);
 }
 
 static void testFont() {
@@ -404,6 +413,65 @@ static void testSearchSet(const std::filesystem::path& tmp) {
     std::filesystem::remove_all(tmp);
 }
 
+static void testCue(const std::filesystem::path& tmp) {
+    std::filesystem::remove_all(tmp);
+    std::filesystem::create_directories(tmp);
+    // A data track of 3 sectors of 2048 bytes, then audio tracks of 2352:
+    // track 2 with a 2-sector pregap (INDEX 00) before its 4 sectors, and
+    // track 3 of 2 sectors. Track 4 is in a big-endian file of its own.
+    std::vector<uint8_t> image(3 * 2048, 0xd1);
+    image.insert(image.end(), 2 * 2352, 0);
+    for (int i = 0; i < 4 * 2352; ++i)
+        image.push_back(uint8_t(i));
+    image.insert(image.end(), 2 * 2352, 0x33);
+    test::writeFile(tmp / "Image.BIN", image);
+    std::vector<uint8_t> motorola;
+    for (int i = 0; i < 2352 / 2; ++i)
+        motorola.insert(motorola.end(), {0x12, 0x34});
+    test::writeFile(tmp / "b.bin", motorola);
+    const std::string sheet = "REM a comment\r\n"
+                              "FILE \"IMAGE.bin\" BINARY\r\n"
+                              "  TRACK 01 MODE1/2048\r\n"
+                              "    INDEX 01 00:00:00\r\n"
+                              "  TRACK 02 AUDIO\r\n"
+                              "    INDEX 00 00:00:03\r\n"
+                              "    INDEX 01 00:00:05\r\n"
+                              "  TRACK 03 AUDIO\r\n"
+                              "    PREGAP 00:02:00\r\n"
+                              "    INDEX 01 00:00:09\r\n"
+                              "FILE b.bin MOTOROLA\r\n"
+                              "  TRACK 04 AUDIO\r\n"
+                              "    INDEX 01 00:00:00\r\n";
+    std::vector<CueTrack> tracks;
+    CHECK(!parseCueSheet(sheet, tmp, tracks));
+    CHECK(tracks.size() == 4);
+    if (tracks.size() == 4) {
+        CHECK(tracks[0].number == 1 && !tracks[0].audio && tracks[0].offset == 0 && tracks[0].size == 3 * 2048);
+        CHECK(tracks[1].audio && tracks[1].offset == 3 * 2048 + 2 * 2352 && tracks[1].size == 4 * 2352);
+        CHECK(tracks[2].offset == 3 * 2048 + 6 * 2352 && tracks[2].size == 2 * 2352);
+        CHECK(tracks[3].bigEndian && tracks[3].offset == 0 && tracks[3].size == 2352);
+        CHECK(tracks[1].file.filename() == "Image.BIN");
+
+        std::vector<uint8_t> wav;
+        CHECK(!writeCueTrackWav(tracks[1], tmp / "track02.wav"));
+        std::ifstream f(tmp / "track02.wav", std::ios::binary);
+        wav.assign(std::istreambuf_iterator<char>(f), {});
+        audio::Sound sound;
+        CHECK(!audio::decodeWav(wav, sound) && sound.rate == 44100 && sound.channels == 2 &&
+              sound.frames() == 4 * 2352 / 4);
+        CHECK(wav.size() == 44 + 4 * 2352 && wav[44] == 0 && wav[45] == 1 && wav[44 + 300] == uint8_t(300));
+        CHECK(!writeCueTrackWav(tracks[3], tmp / "track04.wav"));
+        std::ifstream g(tmp / "track04.wav", std::ios::binary);
+        wav.assign(std::istreambuf_iterator<char>(g), {});
+        CHECK(wav.size() == 44 + 2352 && wav[44] == 0x34 && wav[45] == 0x12);
+        CHECK(writeCueTrackWav(tracks[0], tmp / "track01.wav")); // data, not audio
+    }
+    CHECK(parseCueSheet("FILE missing.bin BINARY\nTRACK 01 AUDIO\nINDEX 01 00:00:00\n", tmp, tracks));
+    CHECK(parseCueSheet("FILE b.bin WAVE\nTRACK 01 AUDIO\nINDEX 01 00:00:00\n", tmp, tracks));
+    CHECK(parseCueSheet("FILE b.bin BINARY\nTRACK 01 AUDIO\nINDEX 01 00:00:75\n", tmp, tracks));
+    std::filesystem::remove_all(tmp);
+}
+
 static void testMd4() {
     // RFC 1320's test values.
     auto hex = [](const std::string& text) {
@@ -478,6 +546,9 @@ static void testImage() {
     CHECK(!image::decode(image::encodeTga(two), back));
     CHECK(back.w == 2 && back.h == 2 && back.rgba == std::vector<uint8_t>({1, 2, 3, 255, 5, 6, 7, 255, 9, 10, 11,
                                                                            255, 13, 14, 15, 255}));
+    // And with alpha kept.
+    CHECK(!image::decode(image::encodeTga(two, true), back));
+    CHECK(back.w == 2 && back.h == 2 && back.rgba == two.rgba);
 
     // Blending half-transparent red over black.
     Surface s;
@@ -488,6 +559,11 @@ static void testImage() {
     image::blit(s, img, 1, 0);
     image::blit(s, img, 5, 5); // clipped away
     CHECK(s.row(0)[0] == 0 && s.row(0)[4] == 128 && s.row(0)[7] == 255);
+    // And opaque red, half see-through, over black.
+    s.create(1, 1, PixelFormat::RGBA32);
+    img.rgba = {255, 0, 0, 255};
+    image::blit(s, img, 0, 0, 128);
+    CHECK(s.row(0)[0] == 128 && s.row(0)[1] == 0);
 
     // PNG written (stored, uncompressed) and read back the same, alpha kept;
     // more than one deflate block.
@@ -1081,10 +1157,12 @@ static const reluva::test::Suite archivesSuite("common.unit.archives", {
     {"zip", [](const std::filesystem::path& tmp) { testZip(tmp / "zip"); }},
     {"inflate and wise", [](const std::filesystem::path& tmp) { testInflateAndWise(tmp / "wise"); }},
     {"dcl", [](const std::filesystem::path&) { testDcl(); }},
+    {"cd images", [](const std::filesystem::path& tmp) { testCue(tmp / "cue"); }},
 });
 
 static const reluva::test::Suite textSuite("common.unit.text", {
     {"utf16", [](const std::filesystem::path&) { testUtf16(); }},
+    {"windows-1252", [](const std::filesystem::path&) { testWindows1252(); }},
     {"font", [](const std::filesystem::path&) { testFont(); }},
     {"strings", [](const std::filesystem::path&) { testTextHelpers(); }},
 });

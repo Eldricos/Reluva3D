@@ -37,7 +37,8 @@ Notes for developers. Building and running are covered in the
     does;
   - `reluva-tool help [engine] <command>` shows one.
 - **Where the commands are.** The ones for any game (bytes, Windows DLLs,
-  detecting and importing games) are in `src/tools/`. Each engine's are in
+  detecting and importing games, AVI movies and CD images' audio tracks)
+  are in `src/tools/`. Each engine's are in
   its `tools/` folder, by topic (`src/engines/idtech3/tools/qvm.cpp`), and
   are built only with the engine.
 - **Adding one.** Write it as `int cmdName(int argc, char** argv)` (its
