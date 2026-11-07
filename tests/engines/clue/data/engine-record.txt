@@ -5,4 +5,4 @@ run.result: ok
 run.size: 640x480
 run.screens: 3902 06b260bebc08cd45
 run.titles: Clue: Murder at Boddy Mansion
-run.files: saves/slot1.sav (reluva-clue-save 1, "Test", c6b92c1fa1ed4697)
+run.files: saves/slot1.sav (reluva-clue-save 1, "Test", abb6368d65cca631)

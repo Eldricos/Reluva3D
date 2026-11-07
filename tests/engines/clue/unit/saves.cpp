@@ -22,6 +22,7 @@
 #include <cstdio>
 #include <cstring>
 #include <filesystem>
+#include <random>
 #include <sstream>
 #include <string>
 #include <vector>
@@ -96,6 +97,34 @@ static void testSaveLoad() {
     CHECK(saveio::getString(strings, text) && text == "a name with spaces");
 }
 
+// The random numbers a saved game goes on with: saved as their seed and how
+// many were drawn, the same text whatever the standard library, and read
+// back to the same next numbers.
+static void testRandomNumbers() {
+    Rng a;
+    a.seed(2421113660u);
+    for (int i = 0; i < 20; ++i)
+        a();
+    std::stringstream saved;
+    a.save(saved);
+    CHECK(saved.str() == "2421113660 20");
+    std::mt19937 reference(2421113660u);
+    reference.discard(20);
+    Rng b;
+    CHECK(b.load(saved));
+    bool same = true;
+    for (int i = 0; i < 100; ++i) {
+        const uint32_t x = a(), y = b();
+        same = same && x == y && x == uint32_t(reference());
+    }
+    CHECK(same);
+    std::stringstream damaged("12 ");
+    CHECK(!b.load(damaged));
+    std::stringstream tooMany("12 999999999999");
+    CHECK(!b.load(tooMany));
+}
+
 static const reluva::test::Suite suite("clue.unit.saves", {
     {"save and load", [](const std::filesystem::path&) { testSaveLoad(); }},
+    {"random numbers", [](const std::filesystem::path&) { testRandomNumbers(); }},
 });

@@ -112,7 +112,7 @@ private:
 
     int me_ = 0;
     int level_ = Expert;
-    std::mt19937 rng_;
+    Rng rng_;
     Mind mind_;
     int target_ = kNoRoom; // the room it heads for this turn
     // The steps from each corridor square to each room.

@@ -16,7 +16,7 @@ namespace {
 // Shuffles with the rng's own numbers, so that a seed deals the same cards
 // whatever the standard library (std::shuffle's draws are its own).
 template <typename T>
-void shuffle(std::vector<T>& v, std::mt19937& rng) {
+void shuffle(std::vector<T>& v, Rng& rng) {
     for (size_t i = v.size(); i > 1; --i)
         std::swap(v[i - 1], v[rng() % i]);
 }
@@ -392,8 +392,22 @@ bool getString(std::istream& in, std::string& s) {
 
 } // namespace saveio
 
+void Rng::save(std::ostream& out) const { out << seed_ << ' ' << draws_; }
+
+bool Rng::load(std::istream& in) {
+    uint32_t s = 0;
+    uint64_t n = 0;
+    // A game draws a few hundred numbers; far more is a damaged file.
+    if (!(in >> s >> n) || n > 100000000)
+        return false;
+    seed(s);
+    gen_.discard(n);
+    draws_ = n;
+    return true;
+}
+
 void Game::save(std::ostream& out) const {
-    out << "game 1\n";
+    out << "game 2\n";
     for (const Seat& seat : seats_) {
         out << seat.playing << ' ' << seat.out << ' ' << seat.hand.size();
         for (int c : seat.hand)
@@ -409,13 +423,15 @@ void Game::save(std::ostream& out) const {
         << ' ' << disprover_ << ' ' << shown_ << ' ' << winner_ << ' ' << passed_.size();
     for (int p : passed_)
         out << ' ' << p;
-    out << '\n' << rng_ << '\n';
+    out << '\n';
+    rng_.save(out);
+    out << '\n';
 }
 
 Error Game::load(std::istream& in, const Board& board) {
     std::string tag;
     int version = 0;
-    if (!(in >> tag >> version) || tag != "game" || version != 1)
+    if (!(in >> tag >> version) || tag != "game" || version != 2)
         return Error::fail("not a saved game of this kind");
     const auto valid = [](int v, int lo, int hi) { return v >= lo && v < hi; };
     for (Seat& seat : seats_) {
@@ -449,7 +465,7 @@ Error Game::load(std::istream& in, const Board& board) {
     for (int& p : passed_)
         if (!(in >> p))
             return Error::fail("a saved game's turn is damaged");
-    if (!(in >> rng_))
+    if (!rng_.load(in))
         return Error::fail("a saved game's die is damaged");
     board_ = &board;
     return Error::success();

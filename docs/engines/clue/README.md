@@ -427,9 +427,12 @@ without the deal.
 They are kept in Reluva's folder for the game, `saves/slot1.sav` ...
 `slot8.sav`: text, a header line `reluva-clue-save 1`, the name, then
 the game: the players, the rules' state (cards, places, the turn, the
-die's random state), each computer player's notebook and random state,
-each human's notepad, and where the suspects stand. A save is written
-beside the old one and then put in its place.
+die's random numbers), each computer player's notebook and random
+numbers, each human's notepad, and where the suspects stand. A save is
+written beside the old one and then put in its place. The random numbers
+are kept as their seed and how many have been drawn, read back by drawing
+as many again: `std::mt19937`'s own text isn't the same in every standard
+library, and a save has to load on any system Reluva runs on.
 
 ## Network play
 

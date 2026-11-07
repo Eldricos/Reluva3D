@@ -40,6 +40,34 @@ void putString(std::ostream& out, const std::string& s);
 bool getString(std::istream& in, std::string& s);
 } // namespace saveio
 
+// The Mersenne Twister the rules and the computer players draw from, kept
+// with its seed and how many numbers it has given: that is how it's saved.
+// std::mt19937's own text differs between standard libraries (libstdc++
+// writes its state as stored, with an index; Visual Studio's in order,
+// without), so a game saved on one system wouldn't load on another.
+class Rng {
+public:
+    using result_type = uint32_t;
+    static constexpr result_type min() { return 0; }
+    static constexpr result_type max() { return 0xffffffffu; }
+    void seed(uint32_t s) {
+        seed_ = s;
+        draws_ = 0;
+        gen_.seed(s);
+    }
+    result_type operator()() {
+        ++draws_;
+        return result_type(gen_());
+    }
+    void save(std::ostream& out) const;
+    bool load(std::istream& in); // false if damaged
+
+private:
+    std::mt19937 gen_; // seeded with 5489 until seed(), as std::mt19937 is
+    uint32_t seed_ = 5489;
+    uint64_t draws_ = 0;
+};
+
 class Game {
 public:
     // Where the turn is.
@@ -141,7 +169,7 @@ private:
     std::array<int, kSuspectCount> suggestedIn_{};
     Accusation solution_;
     bool noDieRoll_ = false;
-    std::mt19937 rng_;
+    Rng rng_;
     int turn_ = 0;
     Phase phase_ = Phase::Over;
     int roll_ = 0, moves_ = 0;

@@ -589,7 +589,9 @@ Error Notebook::load(std::istream& in) {
 }
 
 void ComputerPlayer::save(std::ostream& out) const {
-    out << "player 2 " << me_ << ' ' << level_ << ' ' << target_ << '\n' << rng_ << '\n';
+    out << "player 3 " << me_ << ' ' << level_ << ' ' << target_ << '\n';
+    rng_.save(out);
+    out << '\n';
     const Mind& m = mind_;
     out << m.current << ' ' << m.known << ' ' << m.solution << ' ' << m.shownAny << ' ' << m.moves << '\n';
     for (int p = 0; p < kSuspectCount; ++p) {
@@ -604,8 +606,9 @@ void ComputerPlayer::save(std::ostream& out) const {
 Error ComputerPlayer::load(std::istream& in, const Game& game) {
     std::string tag;
     int version = 0;
-    if (!(in >> tag >> version >> me_ >> level_ >> target_ >> rng_) || tag != "player" || version != 2 || me_ < 0 ||
-        me_ >= kSuspectCount || level_ < Novice || level_ > Expert || target_ < kNoRoom || target_ >= kRoomCount)
+    if (!(in >> tag >> version >> me_ >> level_ >> target_) || !rng_.load(in) || tag != "player" || version != 3 ||
+        me_ < 0 || me_ >= kSuspectCount || level_ < Novice || level_ > Expert || target_ < kNoRoom ||
+        target_ >= kRoomCount)
         return Error::fail("a saved computer player is damaged");
     Mind& m = mind_;
     m = {};
