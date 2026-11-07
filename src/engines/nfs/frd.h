@@ -534,6 +534,26 @@ struct AiCar {
     bool stripOn = false, stripNear = false;
     int stripSlice = 0, stripLane = 7;
     bool reversing = false;   // +0x7D4 (ai_reverse_set)
+    // ai_reverse_set's timer: reversing until `reverseUntil` (+0x7D0) when
+    // `reverseTimed` (+0x620 bit 0x40); `reverseCount` (+0x658) the times
+    // it has started, cleared over 10 m/s (ai_target_point 0x406e50).
+    int reverseUntil = 0, reverseCount = 0;
+    bool reverseTimed = false;
+    // The roll and pitch a hit gives it (turns, and turns a second as the
+    // game's spins +0xEC and +0xE4 are kept), about its forward and its
+    // right; aiSteerStep brings them back (aiTilt).
+    float roll = 0, pitch = 0, rollRate = 0, pitchRate = 0;
+    // The road's right at the car (+0x124, car_road_frame 0x49ffa0): the
+    // right of the road polygon under it (up x forward of its virtual
+    // road vector), set by aiRoadFrame each step; the side offset +0x7B8
+    // is measured along it (aiMeasuredSide). Unset, the slice's right.
+    std::array<float, 3> roadRight{};
+    bool roadRightSet = false;
+    RoadSearch road; // its track position's search (+0xC)
+    // The slice as the game has it (+0x1C, aiRoadFrame): the slice whose
+    // road polygons it is on, which the track position's search gives;
+    // `slice` and `along` place it between road points. -1: as `slice`.
+    int roadSlice = -1;
     bool holding = false;     // +0x710 bit 0x40: the stop test held since
     int holdUntil = 0;        // +0x720
     int waitFrom = 0, waitNear = 0; // +0x72C, +0x728: waiting for the watched racer
@@ -782,7 +802,59 @@ float aiCarMass(float carpMass, bool racer);
 // hit by another), and with +0x164 set its model is skipped
 // (car_ai_physics 0x4088f0) until it is back on the road. `step` is the
 // step's number (0x7d3684).
+// The side offset as the game measures it (0x4a2bc0, from the race task
+// 0x42ce70 each tick): the car's place less its slice's road point along
+// the road's right at the car (+0x124), which is the right of the road
+// polygon under it (aiRoadFrame), not the slice's: on a bend it differs
+// by up to 3 degrees, and 0.1 m or more across a slice. Measured against
+// t6-log's dumps with the place a tick of 32 back (the side is measured
+// then), the polygon's right gives +0x7B8 to 1 cm in 336 of 427 samples,
+// the slice's in 58. Without aiRoadFrame, the slice's right.
+float aiMeasuredSide(const TrackCollision& col, const AiCar& c);
+// How far a car `lateral` across the road goes from a slice's line to the
+// next's: |(next point - point) + lateral x (next right - right)|. The
+// page keeps a car's `lateral` as it passes from slice to slice (its place
+// the point plus the right at that slice), so between them it runs from
+// one to the other: on a bend the outer lanes are longer and the inner
+// shorter, as the game's cars, which move in the world, find them (its
+// slice is the track position's, by the road polygons' edges at the
+// slices). The centre line's length was taken for every lane until
+// November 2026, so a car on the outside of a bend ran ahead of the
+// game's and one on the inside fell behind.
+float aiSegmentLength(const TrackCollision& col, int slice, float lateral);
+// The slice the driving reads (+0x1C): `roadSlice` once aiRoadFrame has
+// set it, else `slice`. The game's car is on the slice whose run of road
+// polygons it is in, from the track position's search; the road point
+// lies within the run, so this slice is often the one ahead of the point
+// behind the car (t6-log: up to 2.5 m before the point).
+int aiSlice(const AiCar& c);
+// The `lateral` (across the line from the slice's point to the next) that
+// measures as `side`.
+float aiLateralFor(const TrackCollision& col, const AiCar& c, float side);
+// The road's right at the car (car_road_frame 0x49ffa0 through
+// trackpos_road_frame 0x420230): the track position's search (roadSearch,
+// from the car's slice) and, inside a polygon of the slice's run, that
+// polygon's frame (polygonRoadFrame); off the run's side the slice's
+// point's right; not found, the last one stays.
+void aiRoadFrame(const Track& track, const TrackCollision& col, AiCar& c);
+// A car hit under 10 m/s (0x406120, from the impacts task 0x42b900 after
+// 0x42f280's hit, +0x168 not 0) also starts or ends its reversing:
+// ai_reverse_set(2, 128). Its roll and pitch are taken from the hit's spin
+// (along its forward and right) as its yaw is.
 void aiCollide(std::vector<AiCar>& cars, const TrackCollision& col, int step);
+// ai_reverse_set (0x405fd0) at step `step`: mode 0 starts reversing (+1 to
+// the count; timed for `steps` when not 0), 1 ends it, 2 toggles it (a
+// timed reversing whose time isn't up stays on). ai_reverse_end
+// (0x4060d0, each tick of the model) ends a timed one once its time is
+// past.
+void aiReverseSet(AiCar& car, int mode, int steps, int step);
+// The roll and pitch over one step of 64 (0x4a1610 on the road, 0x4a1ce0
+// landing): in the air (`airTicks`) the landing takes every spin x 0.6
+// (0.5 + e, e 0.1 for a computer car) on the even steps; on the road each
+// rate is set to the difference of the body's up from the road's
+// (sin of the angle), held to +-0.5 turn/s, towards the road, or 0 once
+// both are within 0.02. The angles turn by the rates.
+void aiTilt(AiCar& car, int step);
 
 // A car record of a dump of nfs3.exe's cars (0x5e1120, 0x9AC bytes a
 // car; physics.md): in play +0x89, flags +0x200 (4 a human, 0x20 a cop,

@@ -1066,6 +1066,9 @@ rows tall between the car and the road, and there the difference
 changes sign from row to row (the page's window, 800 rows, scaled to
 480), so part of what is left is the comparison's.
 The road beyond it is 0.4-2.6 over (0.1-1.6 over the rounding host).
+Part of the strip's excess in `t8o` was the smoke drawn over it with its
+picture mirrored (col.md, Its spread over the car): with the picture's
+corners as the game sets them the strip is +3.9, +4.3, +5.9 (`e7-runs`).
 
 **The police car's driving** (`aiCopStep`, November 2026). The page's
 police car drives as a computer cop (`car_driver_cop`, `0x4032e0`;
@@ -1754,6 +1757,92 @@ doesn't go past car 4 on the left (its +0x7B8 at least 2.67 from 64 to
 moves the error on slices 129-151 from 0.64 to 1.12 m; with the old slice
 it is 0.61. `park`: 120 stops, none past a wall.
 
+**Where the cars part: the slice, the side offset and the lanes'
+length** (November 2026, `e7-runs`). The parting at 51.7-53.4 s (row
+7's halving, `0x40d17d`) is on cars that sit within centimetres of a
+lane's edge: the cars leave the grid aiming at 4 m, which `0x40e2b0`
+puts in lane 7 at 4.0 and in lane 8 just past it, so whether a car
+ahead counts as centred in a lane turns on its +0x7B8 to the millimetre
+(car 7 at 50 s: 4.0024; car 5 4.0076). To see where the page's places
+part from the game's, `t6-log`'s run was made again with the car
+records dumped every 16 ms from 50 to 53.2 s (`e7-runs/early.sh`; the
+50 s dump is byte for byte `t6-log`'s; the set-up pokes were left out,
+since they write the 0s already there and an `at=` poke makes `nfs-host`
+test every instruction against every poke). Three differences in how
+the page placed and measured its cars, all from the code:
+- **The slice is the track position's.** +0x1C is the slice whose run
+  of road polygons the car is in (the track position's search,
+  `0x41e990`, from `0x49fe70` each tick), not the road point behind it:
+  the point lies inside the run, so a car is often already on the next
+  slice up to 2.5 m before its point (`t6-log`: the place less the
+  point, along the forward, −2.5 to +3.2 m). The page had the point
+  behind; in the 16 ms dumps its slices agreed with the game's in 684 of
+  1,400 samples. Its cars now keep that slice (`AiCar::roadSlice`, from
+  `aiRoadFrame`'s search, read through `aiSlice`) for everything the
+  driving reads by slice: the lanes and the lane test, the cars ahead
+  and behind (`0x40cfc0`), the speed table, the look-ahead, the slice
+  steered at, the road 2 slices on and the side offset's point; the
+  road points before and after the car still place it. Now 1,312 of
+  1,400 agree.
+- **The side offset is measured along the road polygon's right.**
+  +0x7B8 is written by the race task `0x42ce70` (each tick, for each car
+  in play, before the lane `0x40e2b0`, +0x7C0 and the wrong-way test) as
+  `0x4a2bc0`: the car's place (+0x98) less its slice's road point, along
+  +0x124. +0x124 is `car_road_frame`'s (`0x49ffa0` → `trackpos_road_frame`
+  `0x420230`): inside a road polygon of the slice's run (+0x14 set,
+  +0x6C 0) up and forward are that polygon's virtual road vector and
+  right their cross product; only off the run's side the road point's
+  own bytes. The page measured along the slice's right. On Hometown's
+  first bends the two differ by up to 2.7° and the offsets by up to
+  0.9 m. Against `t6-log`'s dumps (each car's place taken a tick of 32
+  back, when the side was measured; `e7-runs/rchk`), the polygon's right
+  gives +0x7B8 to 1 cm in 336 of 427 samples, the slice's in 58 (the
+  rest are dumps taken at another point of the tick). The page now finds
+  each car's road polygon each step (`aiRoadFrame`: `roadSearch` from
+  the slice it was on, `polygonRoadFrame`) and measures along its right
+  (`aiMeasuredSide`, `aiLateralFor`).
+- **A lane's length between slices.** The page moves its cars along the
+  slices by their speed, a slice's line at a time, and keeps a car's
+  `lateral` from one slice to the next (its place the slice's point plus
+  that much along the slice's right), so between two slices a car runs
+  from one such place to the other. It had taken the centre line's
+  length for that whatever the lane, so on a bend a car on the outside
+  covered its lane in the time the centre takes and ran ahead of the
+  game's (whose cars move in the world), and one on the inside fell
+  behind. Now the length is |next point − point + lateral × (next right
+  − right)| (`aiSegmentLength`), also in the rate the line moves across
+  (`aiSteerStep`).
+- Two smaller ones: `ai_ctl_slow`'s side speed wanted is sin(2π e) ×
+  +0x4F4 for a heading error e of 0 or more and −sin((1 + e) 2π) × it
+  under 0 (`0x407d09`-`0x407d35`, 2π a double at `0x536374`), the same
+  size and sign, so it never asks for the left; and the controllers'
+  clamps by the ground speed take +0xB8, max(|vx|, |vz|) + min / 4 of the
+  world velocity, where the page had the speed.
+
+Against the 16 ms dumps (`aisim` seeded from the 50 s dump, each car
+placed from its dumped position): over 50-51.7 s, before any decision
+differs, +0x7B8 is within 0.068 m rms of the game's (0.161 with
+`e6-runs`' model); over the whole 3.2 s 0.82 (0.68), as two cars then
+pick other lanes. Car 4's move to lane 7 and back at 51-53 s now
+follows the game's within 0.2-0.5 m (it had lagged by a slice and 0.6
+m). The first decisions that differ (`firstdiff.py`) are still at
+51.2-52.7 s, row 7's centring of a car near 4.0. Over `t6-log`'s window
+(`aisim` as `e6-runs`'s, with `tr00.frd`): +0x638 changes in 92 samples
+(cars 1-7: 14, 17, 15, 15, 11, 11, 9; the game's 143; 121 before; the
+page's cars on the lanes' edges at 4 and 12 m sit on one side of them
+where the game's flip across), the aim past 8 m in 189 (the game's
+162; 155 before), speeds 3.18 m/s rms (3.13) and 0.91 from 50 to 64 s
+(0.85). Cars 3 and 4 come to Hometown's slice 76 at 62 s within a slice
+of the game's, both on the right, but in one lane (+0x7B8 11.8 and
+12.3) where the game's run side by side (14.7 and 7.3) to slice 91 at
+64 s: the page's car 3 is already 1-3 slices ahead of car 4 there (slices
+76-92), and from 64.5 s it moves left to 2-5 m and stays ahead (3-4
+slices at slices 96-120). The game's car 3, turned by the hits, swings
+out to −11.7 and is ahead of car 4 from slice 97. So car 3 now passes
+car 4 at slices 90-107 on the page, but not as the game's does. The
+replay of `d7-watch2` is 0.60 m rms (0.66; rails 1,117, slow 59, slide
+132); `park` stops 120 times, none past a wall.
+
 **The hits between cars** (November 2026; physics.md, The hit's
 arithmetic). The page's computer cars now run `car_collisions_task`'s
 box test and impulse each even step (`aiCollide`). Checked against the
@@ -1781,6 +1870,36 @@ car 3 then keeps behind car 4 (its slice a slice behind, from where
 out to the right (+0x7B8 to 16.9). Over `t6-log`'s window the page's
 cars hit twice, at 70 and 78 s (cars 3 and 4): they don't meet side by
 side at 64 s as the game's do (above).
+
+**Reversing after a slow hit, and the roll a hit gives** (November
+2026, `gdecomp` and `asm`). `car_impacts_task` (`0x42b900`) calls
+`0x406120` for a car whose hit strength (+0x168) isn't 0 and that has
+the other car (+0x16C): under 10 m/s (+0x7C4 against `0x5361ec`, a
+double) it calls `ai_reverse_set(car, 2, 0x80)` (`0x405fd0`). Mode 2
+ends a reversing car's reversing unless it is timed (+0x620 bit 0x40)
+and its time (+0x7D0) isn't up; a car not reversing starts, +1 to
++0x658, timed for 128 steps. Mode 0 starts it (timed when the steps
+aren't 0), mode 1 ends it. `ai_reverse_end` (`0x4060d0`, each tick of
+`car_ai_model`) ends a timed reversing past its time, else puts the aim
+(+0x7C8) at 0. `ai_target_point` (`0x406e50`, the point steered at, with
+no target and on the road's lanes): over 10 m/s (`0x5362cc`) +0x658 is
+cleared; at most that, more than 8 starts put the car back on the road
+(`0x429100`: a slice on by `0x5efdcc`, velocity 0, raised, ghost 64) and
+more than 4, in a lane off the road's (+0x638 under 6 − left lanes or
+over right lanes + 7), it steers at its own slice's point
+(`ai_point_own_slice` `0x406c00`). The page does all but the put back
+(`aiReverseSet`, `aiCollide`, `aiMove`, `aiSteerStep`). A hit's spin is
+a vector: the page took only its part about the car's up; it now keeps
+the parts about its forward and right as roll and pitch rates (turns a
+second), turns the body by them, and brings them back as the dynamics
+does (`aiTilt`): while a hard hit has it in the air (+0x164) every spin
+× 0.6 a tick (the landing `0x4a1ce0`, e 0.1) until all three are under
+0.6; on the road each rate is set (`0x4a1b18`-`0x4a1cc6`) to the
+body's up less the road's up along that axis, held to ±0.5 turn/s
+(`0x53c84c`, `0x53c854`), and to 0 once both are within 0.02
+(`0x53c844`); the computer's model (`car_ai_model`) doesn't touch them.
+The page draws its cars with the roll and pitch. In `t6-log`'s window
+no hit comes under 10 m/s, so the sims are unchanged by this.
 
 **The roadside cop** (`d7-runs/sim/park`,
 the police car ordered to lay a strip from every 8th slice of Hometown,

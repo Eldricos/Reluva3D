@@ -132,8 +132,13 @@ std::array<ParticleVec, 4> streakCorners(Particle& p, const ParticleVec& right, 
                                          float half);
 // A picture's corners (0x4cc235): a square turned by the particle's angle
 // (turns), its corners `half` from the centre along the camera's right
-// and up.
+// and up, in the order the picture's corners (0, 0), (1, 0), (1, 1),
+// (0, 1) take them: at angle a, (sin a x aspect, cos a / aspect) right
+// and down, (cos a, -sin a), and the opposites. `aspect` is the view's
+// |sy| / sx (330.33 / 320 for the game's): the game works on the screen
+// with the sine by the y scale, which is negative (THRASH list of
+// e6-runs/t8d, the smoke's quads against the dumped angles).
 std::array<ParticleVec, 4> pictureCorners(const Particle& p, const ParticleVec& right, const ParticleVec& up,
-                                          float half);
+                                          float half, float aspect = 1);
 
 } // namespace reluva::nfs

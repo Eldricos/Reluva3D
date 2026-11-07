@@ -393,7 +393,11 @@ What was built, with each format written up in `docs/formats/nfs/`:
     frames: the host truncated each blended layer to 5:6:5, where
     `voodoo2a.dll` has Glide dither 4x4; the host's native drawing now
     dithers, and the smoke is within 3-4 of the page's (November 2026;
-    [thrash.md](../formats/nfs/thrash.md), Dithering).
+    [thrash.md](../formats/nfs/thrash.md), Dithering; 3dfx's own
+    documents don't give the dither's arithmetic, so its rounding stays
+    open). The smoke's pictures are turned as the game turns them: the
+    page had them mirrored, which spread the puffs over the car's front
+    (col.md, Its spread over the car).
     The page starts with the z-buffer and the headlights' projection off,
     as nfs-host runs the game (Shift+E turns both on): its pool on the
     road then matches the hosted game's, and particles nearer than a
@@ -1554,13 +1558,20 @@ README.md.
   spins and slide steps, physics.md, The hit's arithmetic) and the
   steered point and slice and the sliding controllers' push as the code
   has them ([frd.md](../formats/nfs/frd.md), Car 3's lane at 61.5 s,
-  The hits between cars). From `t6-log`'s 50 s dump the cars still part
-  at 51.7-53.4 s on where each sits across the road (row 7's centre
-  flags), so the page's cars 3 and 4 don't meet side by side at 64 s and
-  car 3 doesn't overtake: 121 lane changes against the game's 143, 155
-  samples past 8 m against 162. Started at the meeting, the page's cars
-  hit and slow, but car 3 goes right where the game's, sliding with its
-  yaw from the hits, goes left. The road
+  The hits between cars). The side offset is now measured along the
+  road polygon's right, the slice is the track position's and a lane's
+  length between slices follows the bend (frd.md, Where the cars part):
+  over the first 1.7 s from `t6-log`'s 50 s dump the side offsets are
+  within 0.07 m of the game's 16 ms dumps (0.16 before) and the slices
+  agree in 96 % of samples (52 %). Car 3 now gets ahead of car 4 by
+  slices 90-107, but in the same lane from 62 s and then at 2-5 m,
+  where the game's run side by side to slice 91 and car 3, turned by the
+  hits, swings out to −11.7. The first differing decisions are still at
+  51-53 s, on cars within centimetres of a lane's edge (92 lane changes
+  against the game's 143, 189 samples past 8 m against 162). A slow hit's
+  reversing (`0x406120`) and the roll and pitch a hit gives are ported
+  (frd.md, Reversing after a slow hit), all but the put-back on the
+  road after 8 reversings (`0x429100`). The road
   search's marks of the other side near bends' walls are what the
   code does (frd.md, The search beyond its first slice); a car against
   such a wall isn't pushed the wrong way by it: the wall test steps

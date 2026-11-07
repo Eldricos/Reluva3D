@@ -278,10 +278,15 @@ std::array<ParticleVec, 4> streakCorners(Particle& p, const ParticleVec& right, 
 }
 
 std::array<ParticleVec, 4> pictureCorners(const Particle& p, const ParticleVec& right, const ParticleVec& up,
-                                          float half) {
-    const float a = std::sin(p.angle * kTurn) * half, b = std::cos(p.angle * kTurn) * half;
-    return {offset(p.position, right, up, -a, b), offset(p.position, right, up, b, a),
-            offset(p.position, right, up, a, -b), offset(p.position, right, up, -b, -a)};
+                                          float half, float aspect) {
+    // On the screen (0x4cc235): (-S, C), (C, S), (S, -C), (-C, -S) with
+    // S = sin x the half size by the view's y scale (sy, negative: -330.33)
+    // and C = cos x it by the x scale (sx, 320). Taken back to the world
+    // the sine's part is the other way round to the screen's y, and
+    // `aspect` (|sy| / sx) longer across and shorter up and down.
+    const float s = std::sin(p.angle * kTurn) * half, c = std::cos(p.angle * kTurn) * half;
+    return {offset(p.position, right, up, s * aspect, c / aspect), offset(p.position, right, up, c, -s),
+            offset(p.position, right, up, -s * aspect, -c / aspect), offset(p.position, right, up, -c, s)};
 }
 
 } // namespace reluva::nfs

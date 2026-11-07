@@ -1000,6 +1000,19 @@ void testParticles() {
     auto corners = pictureCorners(d, right, up, 2);
     CHECK(corners[0] == (ParticleVec{5, 3, 5}) && corners[1] == (ParticleVec{7, 5, 5}) &&
           corners[2] == (ParticleVec{5, 7, 5}) && corners[3] == (ParticleVec{3, 5, 5}));
+    // A quarter turn: the picture's first corner to the right (the sine's
+    // part against the screen's y, as the game's list has it), the second
+    // above; with the game's aspect the sine's part is longer.
+    d.angle = 0.25f;
+    corners = pictureCorners(d, right, up, 2);
+    auto close3 = [](const ParticleVec& a, const ParticleVec& b) {
+        return std::fabs(a[0] - b[0]) < 1e-5f && std::fabs(a[1] - b[1]) < 1e-5f && std::fabs(a[2] - b[2]) < 1e-5f;
+    };
+    CHECK(close3(corners[0], ParticleVec{7, 5, 5}) && close3(corners[1], ParticleVec{5, 7, 5}) &&
+          close3(corners[2], ParticleVec{3, 5, 5}) && close3(corners[3], ParticleVec{5, 3, 5}));
+    corners = pictureCorners(d, right, up, 2, 330.332f / 320);
+    CHECK(close3(corners[0], ParticleVec{5 + 2 * 330.332f / 320, 5, 5}) && close3(corners[1], ParticleVec{5, 7, 5}));
+    d.angle = 0;
     corners = streakCorners(d, right, up, 0.5f, 0.1f); // held to half a pixel
     CHECK(d.tailSet && d.tail == d.position && corners[0] == d.position && corners[2] == (ParticleVec{5.25f, 4.75f, 5}));
     d.position = {9, 5, 5};
@@ -3033,8 +3046,69 @@ void testCarHits() {
     CHECK(std::fabs(pair[0].lateral + 0.125f) < 1e-4f && std::fabs(pair[1].lateral - 2.325f) < 1e-4f);
     CHECK(std::fabs(pair[0].sideSpeed + 1) < 1e-4f && std::fabs(pair[1].sideSpeed + 1) < 1e-4f &&
           std::fabs(pair[0].speed - 30) < 1e-4f && pair[0].slice == 20 && std::fabs(pair[0].along - 0.5f) < 1e-5f);
+    // The side offset along the road polygon's right (+0x124, aiRoadFrame):
+    // a right turned 2 degrees measures the place across and along the
+    // slice; aiLateralFor goes back.
+    {
+        AiCar m;
+        m.slice = 20;
+        m.lateral = 3;
+        m.along = 0.5f;
+        CHECK(aiMeasuredSide(road, m) == 3); // the slice's right
+        const float a = 2 * 3.14159265f / 180;
+        m.roadRight = {std::cos(a), 0, -std::sin(a)};
+        m.roadRightSet = true;
+        const float want = 3 * std::cos(a) - 0.5f * 4 * std::sin(a);
+        CHECK(std::fabs(aiMeasuredSide(road, m) - want) < 1e-5f);
+        CHECK(std::fabs(aiLateralFor(road, m, want) - 3) < 1e-5f);
+        // On the next slice's polygons (+0x1C 21, aiSlice) it is measured
+        // from that slice's point.
+        CHECK(aiSlice(m) == 20);
+        m.roadSlice = 21;
+        CHECK(aiSlice(m) == 21 && std::fabs(aiMeasuredSide(road, m) - (want + 4 * std::sin(a))) < 1e-5f);
+        CHECK(std::fabs(aiLateralFor(road, m, want + 4 * std::sin(a)) - 3) < 1e-5f);
+    }
     // The impacts task: ai_ctl_slide for round(strength) x 7 steps.
     CHECK(pair[0].slideUntil == 107 && pair[1].slideUntil == 107 && pair[0].airTicks == 0);
+    // At 30 m/s they don't reverse; the same hit at 8 m/s (0x406120, under
+    // 10) starts it for 128 steps, and a second hit before that leaves it on.
+    CHECK(!pair[0].reversing && !pair[1].reversing);
+    pair = {left, right};
+    for (AiCar& c : pair)
+        c.speed = 8;
+    aiCollide(pair, road, 200);
+    CHECK(pair[0].reversing && pair[0].reverseTimed && pair[0].reverseUntil == 328 && pair[0].reverseCount == 1);
+    aiReverseSet(pair[0], 2, 128, 300);
+    CHECK(pair[0].reversing && pair[0].reverseCount == 1);
+    // ai_reverse_set: 2 on a car not reversing starts it; on an untimed one
+    // ends it; 1 ends it; ai_reverse_end ends a timed one past its time.
+    AiCar back;
+    aiReverseSet(back, 0, 0, 10);
+    CHECK(back.reversing && !back.reverseTimed && back.reverseCount == 1);
+    aiReverseSet(back, 2, 128, 11);
+    CHECK(!back.reversing);
+    aiReverseSet(back, 2, 128, 12);
+    CHECK(back.reversing && back.reverseUntil == 140 && back.reverseCount == 2);
+    aiReverseSet(back, 1, 0, 13);
+    CHECK(!back.reversing && !back.reverseTimed);
+    // The roll a hit gives: in the air every spin x 0.6 a tick until all
+    // are under 0.6; on the road back towards flat at most 0.5 turn/s,
+    // and nothing once within 0.02.
+    AiCar tilted;
+    tilted.airTicks = 1;
+    tilted.rollRate = 1.0f;
+    aiTilt(tilted, 1); // odd: nothing
+    CHECK(tilted.rollRate == 1.0f && tilted.roll == 0);
+    aiTilt(tilted, 2);
+    CHECK(std::fabs(tilted.rollRate - 0.6f) < 1e-6f && tilted.airTicks == 1);
+    aiTilt(tilted, 4);
+    CHECK(tilted.airTicks == 0 && std::fabs(tilted.roll - (0.6f + 0.36f) / 32) < 1e-6f);
+    tilted.roll = 0.125f; // 45 degrees: sin 0.707, held to 0.5
+    aiTilt(tilted, 6);
+    CHECK(tilted.rollRate == -0.5f && std::fabs(tilted.roll - (0.125f - 0.5f / 32)) < 1e-6f);
+    tilted.roll = 0.002f; // within 0.02
+    aiTilt(tilted, 8);
+    CHECK(tilted.rollRate == 0 && tilted.roll == 0.002f);
 }
 
 void testComputerPursuits() {

@@ -417,8 +417,17 @@ flags; quads are sorted by depth (`0x4c7610`) with the scene's.
   dot of w × h from the spark's point, which is kept. So the streak's
   length is the screen movement over about two frames.
 - **The rest:** a square turned by the angle: corners at (−A, B),
-  (B, A), (A, −B), (−B, −A) from the centre, A = sin(angle) × half,
-  B = cos(angle) × half (`0x4cc235`).
+  (B, A), (A, −B), (−B, −A) from the centre on the screen (x right, y
+  down), A = sin(angle) × the half size by the view's y scale (sy,
+  −330.33: negative), B = cos(angle) × it by the x scale (sx, 320)
+  (`0x4cc235`; the particle's +0x38 and +0x3C hold the cosine and
+  sine). The picture's corners (0, 0), (1, 0), (1, 1), (0, 1) go to them
+  in that order. Since sy is negative, A has the opposite sign to the
+  sine: in `e6-runs/t8d`'s list the smoke's first corners are (+sin,
+  +cos) × the half size, to 0.2 pixel for all 8 quads against the dumped
+  angles, and the sine's part is 330.33 / 320 longer (36.0 against
+  35.1 for a half size of 36.1). Until November 2026 the Track page
+  took A as sin × half, which mirrors the picture across its diagonal.
 - With renderer flag bit 6 (`0x7a3a58`, Direct3D) set and the effects intensity
   under 1, kinds with `+0x58` bit 0 are dimmed as the lights are
   (`0x4cbf2f`; [frd.md](frd.md), Lights).
@@ -463,6 +472,24 @@ page now does too (2.3-3.6 left); the rest is the host's truncating
 blend into 5:6:5, rounded to the nearest within 0-1 of the page's
 ([thrash.md](thrash.md), Dithering). How the Voodoo rounds isn't known,
 so that part stays.
+
+**Its spread over the car** (November 2026, `e7-runs`: `e6-runs/t8o`,
+frame 2816, against the page from the same dumps, the held car seen
+from its right rear). The page's smoke spread further over the car's
+front than the game's. The puffs' places and sizes were not the cause:
+the dump's 8 particles project onto the list's quads (`t8d`) to 0.1
+pixel and their half sizes to 0.2; no puff moves (velocities under 0.1
+m/s, held by the dump) and their depths (18.0-18.2 against the car's
+19.05) put them over the car in both. The cause was the picture's
+corners (above): `SP06`'s dense part sat on the other side of each puff.
+With the corners as the game sets them, over the car's front (434-456,
+238-256 of the 640 × 480 frame) the page went from +5.9, +6.1, +5.8 over
+the game's to +4.9, +5.0, +4.7, and the strip under the car (440-500,
+258-263) from +6.4, +6.9, +8.5 to +3.9, +4.3, +5.9; over the puffs
+behind the car (472-498, 236-258) it is +2.8, +3.4, +3.8 (+1.7, +2.5,
++2.9 before). What is left over the front is mostly the car: without
+the particles the page's car there is 85, 74, 61 where the game's frame
+(with its smoke) has 79, 75, 70, so the car's own shading differs.
 
 **Over the cars** (November 2026). In that frame the smoke's batch comes
 after all the car's polygons and covers its back, by day greying it and
@@ -542,7 +569,8 @@ unchecked.
 **Inferred, not followed:** that flags bit 0 means the quad is added
 rather than blended (the lights' glows set it too, `0x49155f`, and the
 Track page adds those); that the picture is multiplied by the corners'
-colour; which corner of the picture goes where. That particles are
+colour. (Which corner of the picture goes where is now from the list,
+above.) That particles are
 fogged and their pictures' corners sit on texel centres is from the
 smoke's quads in `e1-t8s0`'s list (above); a spark's streak hasn't been
 in a list. The Track page also works the streak in the world rather than

@@ -613,6 +613,11 @@ road's forward at +0x13C (`0x42cdd0`); +0x7C4 is its size. Both are worked out
 for every car in the Sc32 task `0x42ce70` (stores `0x42cef8`,
 `0x42cf25`), which also sets +0x210, the heading (atan2 of the road
 frame's forward row +0x1A8 × 1024, so 1024 a turn, `0x42cee9`).
++0x7B8 (`0x42ce70` → `0x4a2bc0`) is the car's place less its slice's
+point along +0x124, the road polygon's right, not the slice's. +0x1C is
+the track position's slice, whose run of road polygons the car is in,
+and is often already the next slice before the car reaches that
+slice's point (t6-log: −2.5 to +3.2 m).
 
 **`0x408600`**, each tick:
 
@@ -830,6 +835,9 @@ about 0.5 m/s (43.6-43.7 for 44.0; 36.9 for 36.5), from 0 to 12 m/s in
 - **`0x407c30`** (slow or reversing): the speed wanted is kept under
   16.41 m/s; yaw from the heading error (× 2.5, in ±1.6, and ±0.02 ×
   +0xB8); the side speed damped (× 3, in ±38).
+  The side speed wanted is sin(2π e) × +0x4F4 for e ≥ 0 and
+  −sin((1 + e) 2π) × it for e < 0 (`0x407d09`-`0x407d35`): the same
+  size and sign, so the slow controller never asks for the left.
 - **`0x4071a0`**: the road-frame force (`0x56ec6c`-`0x56ec74`) and the
   car-frame force (+0x4E0) go into the world (+0x2E8), velocity +=
   force × the tick; spin += +0x2F4 × the tick; `0x56ec68`, when set,
@@ -2214,8 +2222,13 @@ car's step on the even steps): each car's box from its place on the
 road (its centre the half height over it), its velocity (the speed
 along its way and across the slice) and its yaw rate as the spin; the
 pushes, speeds and yaw are taken back, the slice moved where a push
-takes the car past a slice's end. Roll and pitch aren't kept (the page's
-cars are flat; on the road `0x4a1610` takes them out each tick).
+takes the car past a slice's end. The page keeps the hit's spin about
+the car's forward and right as roll and pitch rates and brings them
+back as the dynamics does: in the air each spin × 0.6 a tick until all
+three are under 0.6 (`0x4a1ce0`); on the road each rate is the
+up-vector difference held to ±0.5 turn/s, 0 within 0.02 (`0x4a1610`).
+A car hit under 10 m/s also starts or ends its reversing (`0x406120`,
+from `car_impacts_task` `0x42b9a8`: `0x405fd0` with 2 and 0x80).
 
 **Rolls from car hits, run** (`d3-` runs, November 2026: the racer's
 pursuit, only the race type and track poked at `0x474ca0`; the

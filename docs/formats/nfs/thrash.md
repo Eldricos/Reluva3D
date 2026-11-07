@@ -268,6 +268,30 @@ host's frame, the road beside it 0.2-1.3. Two causes:
   dithered pixel isn't in the game's code or the DLL's, so the host keeps
   its truncation; that is what is left (2-3.5 over the smoke).
 
+**What 3dfx's documents say** (November 2026). The Voodoo2 Graphics
+specification (revision 1.16, December 1999, section 5.20 `fbzMode`)
+and Glide 2.4's Programming Guide (Dithering) and Reference Manual
+(`grDitherMode`) were read for the dither's arithmetic. They give:
+`fbzMode` bit 8 turns dithering on, bit 11 picks the 4x4 (0) or 2x2
+(1) ordered matrix, and with it off the 24-bit colour is truncated to
+5:6:5; bit 19 subtracts the dither matrix from the destination colour
+before an alpha blend ("dither subtraction"), and `fbiInit2` bit 0 can
+turn off a "video dither subtraction"; Glide's default is
+`GR_DITHER_4x4`. The fog unit's figure gives its own 4-bit dither index
+from the pixel (bit 3 y0 xor x0, bit 2 y0, bit 1 y1 xor x1, bit 0 y1),
+and textures are widened to 8 bits by repeating their top bits
+({r[4:0], r[4:2]} for 5:6:5). They don't give the colour dither's
+matrix values, how a matrix value is added to a channel and rounded,
+whether Glide's `grDitherMode` sets bit 19, or how a 5:6:5 destination
+pixel is widened for a blend. So the host's dither stays as it was
+(the matrix's thresholds, truncated) and the rounding stays open. The
+smoke and shadow-strip numbers above changed for another reason: on
+Empire City's officer frame (`t8o`) the strip under the held car is now
++3.9, +4.3, +5.9 over the host's frame (was +6.4, +6.9, +8.5), because
+the page's smoke over it had its picture mirrored ([col.md](col.md),
+Its spread over the car); over the puffs themselves the page is +2.8,
++3.4, +3.8.
+
 **Textures as loaded** (`0x4d4080` → `0x4d3f50` → `0x4d37a0`, `gdecomp`
 and `asm`, November 2026). A shape is converted by its type and the
 format asked for: a 32-bit shape (0x7D) asked for 4:4:4:4 (format 7: sfx's

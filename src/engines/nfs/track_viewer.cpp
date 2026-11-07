@@ -2038,6 +2038,25 @@ void TrackPage::carRows(ComputerCar& car) const {
     car.up = normal;
     car.right = unit(cross(normal, forward)); // left-handed: up x forward
     car.forward = cross(car.right, normal);
+    // The roll and pitch a hit left it (aiCollide, brought back by aiTilt):
+    // the pitch about its right, then the roll about its forward.
+    if (car.ai.roll != 0 || car.ai.pitch != 0) {
+        const float p = car.ai.pitch * 2 * kPi, r = car.ai.roll * 2 * kPi;
+        const float cp = std::cos(p), sp = std::sin(p), cr = std::cos(r), sr = std::sin(r);
+        std::array<float, 3> f{}, u{};
+        for (size_t k = 0; k < 3; ++k) {
+            f[k] = car.forward[k] * cp + car.up[k] * sp;
+            u[k] = car.up[k] * cp - car.forward[k] * sp;
+        }
+        std::array<float, 3> rr{}, uu{};
+        for (size_t k = 0; k < 3; ++k) {
+            uu[k] = u[k] * cr + car.right[k] * sr;
+            rr[k] = car.right[k] * cr - u[k] * sr;
+        }
+        car.forward = f;
+        car.up = uu;
+        car.right = rr;
+    }
     for (int k = 0; k < 3; ++k)
         car.at[size_t(k)] = position[size_t(k)] + roadRight[size_t(k)] * side + normal[size_t(k)] * cm.halfSize[1];
 }
@@ -2143,6 +2162,10 @@ void TrackPage::moveCars(float dt) {
                 racerDistances.push_back(distance[i]);
             }
         race.ahead = aiRacersAhead(0, racerDistances);
+        // Each car's road right (+0x124: the road polygon's under it), which
+        // its side offset is measured along.
+        for (AiCar& a : ai)
+            aiRoadFrame(track_, collision_, a);
         for (size_t i = 0; i < cars_.size(); ++i) {
             ComputerCar& c = cars_[i];
             const CarModel& cm = carModels_[size_t(c.model)];
@@ -2174,9 +2197,7 @@ void TrackPage::moveCars(float dt) {
             const int dir = c.speed < 0 ? -c.way : c.way;
             for (int guard = 0; left > 0 && guard < 64; ++guard) {
                 const int at = static_cast<int>(std::floor(c.slice)) % n;
-                const auto& a = road[size_t(at)].position;
-                const auto& b = road[size_t((at + 1) % n)].position;
-                const float length = std::max(std::hypot(b[0] - a[0], b[1] - a[1], b[2] - a[2]), 0.01f);
+                const float length = aiSegmentLength(collision_, at, ai[i].sideKept ? ai[i].lateral : ai[i].offset);
                 const float t = c.slice - std::floor(c.slice);
                 const float room = dir > 0 ? (1 - t) * length : (t > 0 ? t : 1) * length;
                 const float step = std::min(left, room);
@@ -3283,7 +3304,7 @@ void TrackPage::prepareParticles(const gfx::Vec3& eye, const gfx::Vec3& forward,
         const ParticleTemplate& t = *particleTemplate(p.kind);
         const float pixel = shown[q].depth / focal;
         std::array<ParticleVec, 4> corners =
-            t.streak ? streakCorners(p, r, u, pixel, p.size / pixel) : pictureCorners(p, r, u, p.size);
+            t.streak ? streakCorners(p, r, u, pixel, p.size / pixel) : pictureCorners(p, r, u, p.size, -kScreen.sy / kScreen.sx);
         // Without the z-buffer (projected_ off, as nfs-host runs the game)
         // the particles' quads and the cars go into the same depth buckets
         // (0x4c7480 and 0x4c7400: round(4 x depth), the quad's the mean of
