@@ -78,7 +78,8 @@ available and stays inactive during background play.
 No original algorithm, disassembly or retail data was copied into this stage.
 
 The common opponents now use variable [base-word thinking delays](thinking.md).
-Their vocabulary sampling and related-word behavior remain native.
+Selected `S`/`ES` [plural pairs](plurals.md) share one thinking phase, with
+a native presentation interval. Sampling, pairing and other related words remain native.
 
 ## Validation
 
@@ -98,8 +99,8 @@ untimed budgets. It compares coarse and fine service intervals and submits every
 word through the canonical round model. For both supplied install/CD copies:
 
 ```
-Background schedules 256, legal submissions 11592
-decoded background: 218461c733feef491e0393096a69f700
+Background schedules 256, legal submissions 11964
+decoded background: 5cfe6cabad84a344328b3d1e4ad3bc92
 ```
 
 The optional game-data suite runs this check on the source and a fresh imported

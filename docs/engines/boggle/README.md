@@ -29,6 +29,8 @@ V / Computer Cursor on Players enables an animated cube trace; see
 [cursor controls and native presentation limits](cursor.md).
 Common opponents now use variable [base-word thinking delays](thinking.md), with
 measured ranges and explicit limits on original-AI equivalence.
+Selected `S`/`ES` [plural follow-ups](plurals.md) can follow their bases without a
+second thinking phase; pairing and presentation intervals remain native.
 Escape returns to selection from version/setup or Players; it does nothing
 on selection or in-game. Use Menu / F3 in-game or Launcher / L on selection. See
 [frontend scope and controls](frontend.md). Disable **Game selection menu** in

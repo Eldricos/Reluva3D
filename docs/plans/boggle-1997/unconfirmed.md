@@ -230,3 +230,12 @@ flags. The native planner now applies these measured bounds to its retained
 words with repeatable native jitter. Its sampled lists and related-word behavior
 still differ, so this is not full original AI cadence. Mr. Boggle retains its
 native one-second interval. See [thinking-time specification and limits](../../engines/boggle/thinking.md).
+
+The owner confirmed the base-word pacing stage works. The next bounded pass
+adds selected `S`/`ES` [plural follow-ups](../../engines/boggle/plurals.md) for the
+common opponents. Ninety-six isolated original contracts verify selection,
+non-consuming preview, consuming advancement and zero extra thinking; two more
+verify first-eligible-plural classification. Native disjoint pairing preserves
+the selected legal-word pool and uses a one-second presentation interval.
+Original probability gates, full candidate order, other suffixes/shared-prefix
+groups and exact cursor/submission timing remain open. Mr. Boggle is unchanged.

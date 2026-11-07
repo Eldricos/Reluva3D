@@ -10,7 +10,8 @@ std::string computerName(ComputerLevel level);
 // The first three Classic opponents use the separate AI vocabulary.
 bool usesCommonVocabulary(ComputerLevel level);
 // Native selection with measured common base-word delay bounds.
-// Related-word timing, jitter and Mr. Boggle pacing remain native policies.
+// Plural pairing/presentation, other related words, jitter and Mr. Boggle pacing
+// retain native policies; see docs/engines/boggle/plurals.md.
 // Times are cumulative active milliseconds, excluding handoff/other turns.
 class ComputerPlan {
 public:
