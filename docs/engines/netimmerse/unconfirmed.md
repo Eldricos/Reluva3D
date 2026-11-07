@@ -75,7 +75,9 @@ game's own `LoadBinary` code ([formats/fin.md](formats/fin.md)).
 - **Windows other than the developer's:** built and played on Windows with
   Visual Studio 2022 (x64) and on Linux with GCC. Other compilers,
   32-bit builds, macOS and ARM (where the JIT isn't available and the
-  interpreter runs) haven't been played on.
+  interpreter runs) haven't been played on. The unit tests pass on both,
+  including faults thrown through the JIT's code (Windows' unwinding
+  checked so).
 - **Displays faster than 60 Hz:** the original's speed follows the
   display (its flips wait for it); Reluva always paces to 60 Hz. Whether
   the original plays differently at 75 or 85 Hz is unknown.
