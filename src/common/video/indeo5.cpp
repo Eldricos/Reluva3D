@@ -400,7 +400,6 @@ Error Indeo5Decoder::decodeGop(Bits& b) {
             return Error::fail("Indeo 5: empty tiles");
         for (Band& band : planes_[size_t(p)].bands) {
             band.tiles.clear();
-            size_t t = 0;
             for (int y = 0; y < band.height; y += th)
                 for (int x = 0; x < band.width; x += tw) {
                     Tile tile;
@@ -411,7 +410,6 @@ Error Indeo5Decoder::decodeGop(Bits& b) {
                     tile.mbs.resize(size_t(((tile.width + band.mbSize - 1) / band.mbSize) *
                                            ((tile.height + band.mbSize - 1) / band.mbSize)));
                     band.tiles.push_back(std::move(tile));
-                    ++t;
                 }
         }
     }

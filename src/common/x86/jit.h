@@ -178,7 +178,7 @@ private:
     std::vector<uint8_t> data_;
     size_t dataUsed_ = 0;
     void (*entry_)(void*, const uint8_t*) = nullptr;
-    void* unwind_ = nullptr; // what was registered, to take back
+    [[maybe_unused]] void* unwind_ = nullptr; // what was registered, to take back (where there's a JIT)
 };
 
 } // namespace reluva::x86
