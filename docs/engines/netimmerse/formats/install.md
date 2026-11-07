@@ -30,8 +30,8 @@ release".
 |---|---|---|
 | `LEGOATeam.exe` | 61,440 | the game; small, so the work is done in the DLLs below |
 | `Launcher.exe` | 507,904 | same size as the CD's `AutoPlay.exe`; *guess*: the same menu program (play, uninstall, website) |
-| `BaseClassComp.dll` | 28,672 | the game's own code, as "components" (*guess* from the names) |
-| `BehaviorComp.dll` | 40,960 | 〃 behaviours, *guess*: runs what `Bhvr.pac` holds |
+| `BaseClassComp.dll` | 28,672 | the game's own code, as "components": its base classes, `DDNamedObject` (a named object) and `DDEvent` (events, with their own memory pages) *(from its exports)* |
+| `BehaviorComp.dll` | 40,960 | 〃 the behaviours' framework: hierarchical state machines (`DDHFSM`, `DDState`, `DDTransition`, `DDTrigger`, entry and exit ports, choice points) and `DDBehavior`, which runs one for an actor. The parts' DLLs in `Bhvr.pac` import it, with LoadComp, LegoLogicComp and BaseClassComp *(from the exports and imports)* |
 | `LegoLogicComp.dll` | 163,840 | 〃 the game's rules |
 | `LoadComp.dll` | 749,568 | 〃 loading; the largest of the four |
 | `DDPackedDirFileLib.dll` | 69,632 | reads the `.pac` archives ("packed directory") |

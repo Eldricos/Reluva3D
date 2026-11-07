@@ -62,9 +62,10 @@ Fields the format documents still mark as guesses:
   is open.
 - **The install** ([formats/install.md](formats/install.md)):
   `Launcher.exe` is guessed to be the CD's `AutoPlay.exe` menu (same
-  size); `BaseClassComp.dll` and `BehaviorComp.dll`'s roles are guessed
-  from their names; other languages presumably ship `Locale_<xx>.pac`.
-  Only the English version has been seen.
+  size; neither is in the copy studied, so they haven't been compared);
+  other languages presumably ship `Locale_<xx>.pac`. Only the English
+  version has been seen. (`BaseClassComp.dll` and `BehaviorComp.dll`'s
+  roles are now known from their exports.)
 
 The `.FIN` model format's former guesses have all been settled from the
 game's own `LoadBinary` code ([formats/fin.md](formats/fin.md)).

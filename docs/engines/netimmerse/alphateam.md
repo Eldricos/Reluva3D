@@ -595,8 +595,9 @@ Progress:
   - Mouse sensitivity and the advanced options (textures, lightmaps,
     backdrop, environment animation, shadows) are the game's own
     business: nothing of ours is involved.
-- Speed, measured headless (frames given to the engine, a click past the
-  demo): the menu at headquarters runs at about 17 frames a second on 4
+- Speed, as it went (the latest at the end of this list), measured
+  headless (frames given to the engine, a click past the demo). At first
+  the menu at headquarters ran at about 17 frames a second on 4
   cores, after about 20 seconds of loading (scaled from 14 and 22 by the
   latest measurements below).
   - Inlining instruction execution (memory access, fetching, operands)
@@ -767,12 +768,18 @@ Progress:
     Then 42 (27 to 55), with shifts and the x87 compares made; the
     blocks' table made two-way after that. `RELUVA_NO_JIT=1` in the environment runs
     without it, to compare.
-- Not there yet:
-  - **more speed**: the program's own code (NetImmerse's scene graph,
-    picking and its Direct3D renderer) in the interpreter is now most of
-    the time; the drawing is mostly overlapped with it. What's left in the
-    interpreter's loop is finding and checking each block (about a tenth)
-    and computing every flag of every ALU operation.
+- Not there yet (speed, parked for now):
+  - **Wide camera shots with much on screen** are the slowest: the
+    program's own work (NetImmerse's scene graph, culling and picking)
+    and the drawing are both at their busiest there.
+  - Ways on, each measured against the frames staying the same: in the
+    JIT, keeping the emulated registers in the host's within a block, and
+    predicting where a RET goes (finding the next block is still about a
+    tenth of the program's thread, mostly after returns); for the
+    drawing, the graphics card instead of the processor, which would end
+    the frames being checked byte for byte.
+  - What differs from the original because of how it runs is in
+    [known-differences.md](known-differences.md).
 
 #### DirectDraw and Direct3D 7
 
