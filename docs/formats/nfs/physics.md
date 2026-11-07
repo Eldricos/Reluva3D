@@ -1080,6 +1080,37 @@ then gives the car +0x200 bit 0x20.
     along it, its side within 0.85 m of it (centre 14.3-15.1 m left),
     has its spot on it. The human's pull-over in state 6 also moved
     the car back 0.6 m (`h15`: 16.0 → 16.6 m). Not reached.
+  - **Failed at the covered bridge** (`e4-q1`, `e4-q1v`, November
+    2026: the same set-up, the set-up pokes only, no car-state poke;
+    `-drive` at car 1 from 38 to 81.5 s, then keys; cars 0-7 dumped
+    every 0.125 s, `-count` and `-watch` as above). Probe runs with
+    dumps (`e4-p0`, `p15`, `s1`-`s3`, `t1`-`t3`) showed why the earlier
+    tries ended nose-in: at 33 m/s a left pulse slides the car 20 m
+    across in a second, and a car at under 15.3 m left at slice 172
+    runs head-on into the strip's leading end (`s1`-`s3`: 29 to 3 m/s
+    at 83.2 s). The keys that worked: keypad 4 81.5-82.2 s, keypad 6
+    82.2-82.5 s, keypad 2 82.5-83.4 s (past slice 172 at 22 m left,
+    standing at slice 174, 21.6 m left, by 85 s: `t2`), then keypad 8
+    with keypad 6 84.0-84.5 s, keypad 4 85.6-86.0 s, the gas let go
+    and keypad 2 86.0-86.8 s. The car came within 14.6 m left at
+    slice 176 (86.0 s), ran on to slice 178 (17.4 m left, 88 s), then
+    ran backwards at up to 4 m/s, drifting right, and came to rest at
+    slice 176, 14.7 m left, at 92.5 s, its nose 6° left of the road:
+    its right side 0.4 m from the
+    surface-0 strip (−13.2 to −10 m there), the bridge's wall face.
+    Cop 3 (state 5 on it since about 78 s) began its stop at 92.342 s
+    (`0x401e40`); `0x401c20` and **`0x401dc4`** ran in the next step
+    (92.343 s): the side test failed, the only time `0x401dc4` has run
+    in any run. In `q1v` (to 100 s, the player dumped every 0.5 s,
+    frames kept outside the repo) the officer's spot (+0x910) was
+    1.82 m along the car's left (its +0x190 row), on the strip the car
+    stood on, away from the wall, and stayed there until the ticket
+    (`0x401ff0`, 98.516 s), when +0x8E4/+0x8E8 went back to 0; the
+    frames show him there. Two other endings (`q2`, `q3`: the second
+    pulses 0.1-0.3 s apart) stopped farther from the strip and passed.
+    So the fallback is real road behaviour: a car stopped along a
+    surface-0 polygon, side within 0.85 m, gets its officer on its
+    other side.
   - **The 7 m** and the 300 m are not true distances: `0x4965b0` takes
     the largest of |dx|, |dy|, |dz| plus a quarter of each of the
     others (`0x53bedc` 0.25), so straight ahead it is 7 m and on a
@@ -2212,6 +2243,59 @@ A cop led across the steep part (slices 13-16 and 21-24, where the
 player rolled in `d2-b8` and `d2-c4`) is the next thing to try; the
 player can't stand there itself without rolling.
 
+**A cop led up the bank's steep part** (`e4-` runs, November 2026:
+Hometown, the racer's pursuit, only the race type and track poked at
+`0x474ca0`, no car-state poke, keys only; `e2-a1`'s keys to 139.6 s,
+which leave the player at rest at the bank's foot, slice 18, 20.5 m
+left, facing 60° up the bank, cop 3 in state 5 on it 14 slices back;
+then more keys; cars 0-7 dumped every 0.125 s; `-count` and `-watch`
+on `0x403950`, `0x40bba0`, `0x403910`, `0x40bc30`, `0x429452`,
+`0x428f90` and the stop's routines). The bank's cross-section, from
+the `.frd` against the `.col` points (a script outside the repo): the
+road's edge strip (surface 11) to 18.7 m left, then surface 2 rising
+0.6-1.0 m to 22-23 m and 2.3-3.3 m at 24-27.5 m (23-35°, 42-60° at
+slices 25-27), then surface 14 beyond. No car got past 26.5 m left.
+- **Gas and left from rest** (`c143000`, `c143600`, `c144200`: keypad
+  8 and 4 at 143.0, 143.6 or 144.2 s, 4 for 0.8 s, 8 for 1.5 s):
+  the player crept up the bank, in `c143000` to stand upright on the
+  steep part (slice 19, 23.7 m left, 1.8 m up; +0x10C 1.00, as the
+  road's up there is the bank's). Cop 3 came along the road 13-17 m
+  left at 24-27 m/s, slowed to 10 m/s within the last slice or two
+  and stopped 3 m below the player (stops 146.5-147.1 s).
+- **Up the bank before the cop comes** (`u1`-`u3`, `w1`-`w3`,
+  `x1`-`x3`, `y1`-`y3`, `x2l`, `z144700`-`z145400`: keypad 8 from 140 or 141 s, with left
+  pulses and the gas let go at various times between 142.5 and 146.2
+  s). The player climbed diagonally to 24-26 m left, 2.5-3.5 m up, at
+  slices 20-24 by 143-145 s, at 6-15 m/s. Where it stayed under
+  15.65 m/s cop 3 (bit 2 set) turned off the road at it when 2-4
+  slices back: in `u3`, `w3`, `x2` and `y1` at 30-81° to the road at
+  20-30 m/s, but braking at once (the speed wanted near a target is
+  its speed + 5.81 m/s), so it met the bank's foot at 11-18 m/s. The
+  farthest: `w3`, cop 3 up the steep part at slice 31-32 to 24.8 m
+  left, 3.3 m up, at 12.5-17.8 m/s, turned to 74-127° from the road
+  and in air mode for 7-17 ticks (149.75-150.25 s), +0x10C 0.99, then
+  back to rest upright; `x2`, to 25.5 m left at 17.7 m/s at slice 32.
+  Where the player came down at over 15.65 m/s (`u1`, `u2`, `w1`,
+  `w2`, `x3`), bit 2 cleared and the cop stayed on the road.
+- **The player rolled instead** (`x2l`, `y2`, `z145200`, `z145400`): driving along the
+  steep part at 13-19 m/s and turning up it, the player went past
+  41° (`0x429452`, 147.1 s in `y2`, 149.6 s in `x2`), over, and onto
+  its roof on the ground at slice 30-32 (+0x10C −1.00), with cop 3
+  standing upright on the bank 1-2 m away. `0x403910` ran from
+  149.878 s (`y2`, 50 times), 152.128 s (`x2l`, 42 times), 150.475 s
+  (`z145200`) and 148.718 s (`z145400`; these two counted only
+  `0x403950` and `0x429452`), and `0x40bc30` once in each counted run:
+  the crash line queued, as in `d2-c4`. The
+  reset (`0x428f90`) put the player 5 slices on.
+- In all nineteen runs cop 3's +0x10C stayed at 0.98 or more and
+  `0x403950`/`0x40bba0` never ran. The cop's chase brakes it to the
+  target's speed + 5.81 m/s within a slice or two of a slow target,
+  and a target over 15.65 m/s isn't steered at (`0x402750`), so the cop
+  reaches the bank at under about 21 m/s; the player rolled there only
+  when it turned up the slope at 13-25 m/s itself. A cop rolling needs
+  it to cross the steep part fast, which this steering doesn't give;
+  still open.
+
 **Picking a target** (`0x402e10`, in every state but 3, 5 and 6):
 racers still in, free (+0x634 passed) and within 16 slices, scored by
 `0x403f80`. A racer scores only when it is already chased (record
@@ -2941,15 +3025,21 @@ of every access to those offsets):
   one record (Why a hold beyond 20 m needs a cop past the target):
   still open. What adds cops to one record, and a plan through a
   roadblock whose cops stand ahead of a stopped human racer, are read
-  (same section, What raises the count); not run. The network game was run to its results with
+  (same section, What raises the count); not run in November 2026
+  either: it needs a second chase with heat over 3, a roadblock set
+  51 or more slices ahead and the player stopped 3-4 slices short of
+  it with two cops behind, minutes of keys whose every step depends
+  on the one before. The network game was run to its results with
   nothing forced (`c7-net10`): the lobby's menus by clicks, a stop by
   a strip laid with S, the race ended by the racers' laps. A block
   by keys failed there (the racers steer round a standing cop) while
   the race differed run to run; with `-deterministic` in both copies
   it repeats, and a block planned on one run (`d1-n3`) stopped and
   ticketed car 5 in both copies on the next (`d1-n4`). Left open: a
-  network chase from behind ending in a pin (`c7-q1`'s kind; not run
-  in November 2026 either, net.md, What isn't known).
+  network chase from behind ending in a pin (`c7-q1`'s kind). Tried
+  once (`e4-n1`, net.md, What isn't known): `-drive` in both copies
+  keeps them in step, but straight-at-the-target steering left the
+  cop on Hometown's walls, a kilometre behind; still open.
 - The computer cops' driver (`0x4032e0`) was run in a racer's pursuit
   (`r2-cop1`, `r2-cop4`, `r2-cop5`, `c3-spk6`): chases, calls for help,
   two roadblocks, strips and a racer running over one, and the
@@ -2963,13 +3053,19 @@ of every access to those offsets):
   it had crashed and stopped first. `0x401370` is read (the top
   speed). What each radio line
   says is in bnk.md (What the radio lines say); the disabled cop, the
-  crash and the places were run (above, Radio runs). Whether the
-  officer's side test is ever failed on a real road is still open:
-  the places where it can fail are found from the files (state 4,
-  Where it can fail), and fifteen stops at Hometown's first covered
-  bridge, the player brought up to 3.3 m from its surface-0 strip,
-  all passed (`e2-h1`-`h15`); the strip is a wall, so only a car
-  standing along it within 0.85 m reaches it.
+  crash and the places were run (above, Radio runs). Settled
+  (November 2026, state 4, Failed at the covered bridge): the
+  officer's side test fails on a real road. Fifteen stops at
+  Hometown's first covered bridge with the player up to 3.3 m from
+  its surface-0 strip passed (`e2-h1`-`h15`); with keys planned from
+  dumped probe runs the player stood along the strip, its side 0.4 m
+  from it, and cop 3's stop ran `0x401dc4` (`e4-q1`, `q1v`): the
+  officer stood on the car's other side until the ticket. No car-state
+  poke was used. The other places (Hometown 510-519, Empire City
+  207-213, Redrock 3-21) weren't tried; Redrock's grid is at slice 1,
+  4 m left, with no surface-0 polygon near it, and the cop that
+  passes it there (cop 6, at 29 m/s at about 166 s, `e4-r0`, the
+  player left on the grid) took no one.
   The other tracks' places and the quarter and half mile were heard
   (above, Radio runs on other tracks). Why the "from" place after
   Hometown's half mile wasn't started in `s7-x1` is settled (`c8-q1`-`q3`,
@@ -2996,7 +3092,14 @@ of every access to those offsets):
   run). A slow target does draw its chasing cop off the road to it
   (+0x711 bit 2, `0x406b60`): in `e2-a2` cop 3 followed the player
   onto Hometown's bank and stopped on it level (A cop drawn onto the
-  bank); a cop led across the bank's steep part wasn't tried. Whether a side hit in the air or a car landing on another can
+  bank). Led up the bank's steep part in nineteen keys-only runs
+  (`e4-c*`, `u*`, `w*`, `x*`, `y*`, `z*`; A cop led up the bank's steep
+  part) it turned off the road at it at up to 81° and climbed to 3.3
+  m up, in air mode for half a second in `w3`, but always braked to
+  under about 21 m/s first (the target's speed + 5.81 m/s near a slow
+  target) and stayed within 11° of flat; the player itself rolled
+  four more times beside it (`x2l`, `y2`, `z145200`, `z145400`, the crash line queued). Still
+  open. Whether a side hit in the air or a car landing on another can
   roll a car is settled from the code but not seen (above, Rolls from
   car hits): cars are 3D boxes (`0x42fee0`, top and bottom faces
   included), and only a contact off the car's centre height rolls it,
@@ -3010,7 +3113,9 @@ of every access to those offsets):
   run had a side-on hit in the air or a car landing across another
   (`e2-h1`, a hand-brake turn after the covered bridges' drop meant to
   leave the player across cop 3's way, ended facing backwards and
-  reversing away: cop 3 passed 8.8 m from it).
+  reversing away: cop 3 passed 8.8 m from it). Nor did the `e4-`
+  bank runs: the player's rolls there were its own, on the slope, with
+  the cop standing beside; not tried on purpose in November 2026.
   The player rolled by itself off Hometown's road at slice 320 at 40
   m/s (`d3-g5`), and the crash line was queued again. With the player
   as the only cop no computer cop exists to say either.
