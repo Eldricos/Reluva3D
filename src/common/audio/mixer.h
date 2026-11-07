@@ -129,7 +129,7 @@ private:
         int16_t cur[2] = {0, 0}, next[2] = {0, 0};
         bool primed = false;
         // A SoundStream's (playStream), instead of a sound or a stream.
-        std::shared_ptr<SoundStream> queue;
+        std::shared_ptr<SoundStream> queue = nullptr;
         size_t prebuffer = 0; // frames it waits for
         bool waiting = true;  // it has run dry
     };
