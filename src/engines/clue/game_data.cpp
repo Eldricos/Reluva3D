@@ -27,6 +27,7 @@ const char* kindExtension(char kind) {
 } // namespace
 
 Error GameData::open(const std::filesystem::path& gameDir, Language language) {
+    language_ = language;
     folders_.clear();
     files_.clear();
     drives_.clear();

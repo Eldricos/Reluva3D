@@ -40,9 +40,9 @@ void testDetection(const std::filesystem::path& tmp) {
     test::writeFile(cd / "Data" / "UK" / "Sounds" / "end turn.wav", wav);
     test::writeFile(none / "Data" / "Classic" / "Sounds" / "end turn.wav", wav); // no Clue.exe
     CHECK(found(us) == "clue en Clue: Murder at Boddy Mansion (unknown release)");
-    CHECK(found(uk) == "clue-uk en-gb Clue: Murder at Boddy Mansion (UK English, unknown release)");
+    CHECK(found(uk) == "clue-uk en-gb Cluedo: Murder at Blackwell Grange (unknown release)");
     CHECK(found(cd) == "clue en Clue: Murder at Boddy Mansion (unknown release) | "
-                       "clue-uk en-gb Clue: Murder at Boddy Mansion (UK English, unknown release)");
+                       "clue-uk en-gb Cluedo: Murder at Blackwell Grange (unknown release)");
     CHECK(found(none).empty());
 }
 

@@ -19,6 +19,15 @@ namespace reluva::clue {
 // installed with, in Data/Classic.
 enum class Language { US, UK };
 
+// What each release calls the game: the UK's is Cluedo (its own files say
+// "exit Cluedo?"; Clue.exe names itself "Clue / Cluedo"), sold as Cluedo:
+// Murder at Blackwell Grange.
+inline const char* gameName(Language l) { return l == Language::UK ? "Cluedo" : "Clue"; }
+inline const char* gameTitle(Language l) {
+    return l == Language::UK ? "Cluedo: Murder at Blackwell Grange" : "Clue: Murder at Boddy Mansion";
+}
+inline const char* mansionName(Language l) { return l == Language::UK ? "Blackwell Grange" : "Boddy Mansion"; }
+
 // The game's files, wherever they are: an install (Data/Classic/...) or the
 // CD (Data/LangIndepend, Data/ClueSpecific and Data/US or Data/UK). Files in
 // the game folder itself come first, as the original's dialogInfo.res does
@@ -26,6 +35,7 @@ enum class Language { US, UK };
 class GameData {
 public:
     Error open(const std::filesystem::path& gameDir, Language language);
+    Language language() const { return language_; }
 
     // Every file, by lower-case name, and the folders searched in order.
     const std::map<std::string, std::filesystem::path>& files() const { return files_; }
@@ -46,6 +56,7 @@ public:
     const std::string& lastError() const { return lastError_; }
 
 private:
+    Language language_ = Language::US;
     std::vector<std::filesystem::path> folders_;
     std::map<std::string, std::filesystem::path> files_;
     mutable std::map<std::string, std::unique_ptr<DataDrive>> drives_; // by file name; null if it failed

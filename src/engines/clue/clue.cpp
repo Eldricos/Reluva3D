@@ -37,10 +37,11 @@ using clue::TextViewer;
 // signature (the size and the MD5 of the first kDetectionHashBytes bytes,
 // as `reluva --hash` prints them). The language's own files tell US from
 // UK: the UK's have one file the US's don't, Sounds/end turn.wav (a spoken
-// "end turn", which Clue.exe 2.0 and 2.2 both name in their table of
-// voices, 0x45ECE0). An install copies the chosen language's files into
-// Data/Classic; the CD has both, in Data/US and Data/UK. The UK installs
-// are inferred from the CD's UK files: no UK install has been seen yet.
+// "end turn": Clue.exe 2.0 and 2.2 name it in their table of voices,
+// 0x45ECE0, but nothing plays it). An install copies the chosen language's
+// files into Data/Classic; the CD has both, in Data/US and Data/UK. The UK
+// installs are inferred from the CD's UK files: no UK install has been seen
+// yet. The UK's is named as it was sold: Cluedo: Murder at Blackwell Grange.
 const std::vector<GameVariant> kExecutables = {
     {"clue", "2.2", "", "windows", {{"Clue.exe", "cb43d1d845b786193353ac221e5f0ac1", 391168}}},
     {"clue", "2.0", "", "windows", {{"Clue.exe", "7ddb4f359cfd8827b4f7b054e95b1cba", 386048}}},
@@ -206,10 +207,11 @@ public:
         const std::vector<DetectedGame> exe = detectFromTable(id(), kExecutables, dir);
         const std::string version = exe.empty() ? "unknown release" : exe[0].description;
         const auto add = [&](bool uk, bool cd) {
-            std::string what = uk ? "UK English, " + version : version;
+            std::string what = version;
             if (cd && !exe.empty())
                 what += ", CD";
-            found.push_back({id(), uk ? "clue-uk" : "clue", "Clue: Murder at Boddy Mansion (" + what + ")",
+            const clue::Language language = uk ? clue::Language::UK : clue::Language::US;
+            found.push_back({id(), uk ? "clue-uk" : "clue", std::string(clue::gameTitle(language)) + " (" + what + ")",
                              uk ? "en-gb" : "en", "windows"});
         };
         if (fs::findDirectory(dir, "Data/Classic")) {

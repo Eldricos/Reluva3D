@@ -140,7 +140,7 @@ void ImageViewer::draw() {
                  files_[size_t(file_)].filename().string() + " (file " + std::to_string(file_ + 1) + "/" +
                  std::to_string(files_.size()) + ")",
              detail);
-    sys_.setWindowTitle("Clue images: " + full);
+    sys_.setWindowTitle(std::string(gameName(data_.language())) + " images: " + full);
 }
 
 } // namespace reluva::clue

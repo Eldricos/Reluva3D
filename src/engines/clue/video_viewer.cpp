@@ -53,7 +53,7 @@ void VideoViewer::load() {
         else
             sound_ = s;
     }
-    sys_.setWindowTitle("Clue videos: " + path.filename().string());
+    sys_.setWindowTitle(std::string(gameName(data_.language())) + " videos: " + path.filename().string());
 }
 
 void VideoViewer::start() {

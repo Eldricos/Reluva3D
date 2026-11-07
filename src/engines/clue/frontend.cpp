@@ -135,7 +135,7 @@ Error FrontEnd::open() {
         if (const std::filesystem::path* original = data_.find("Prefs.ini"))
             prefs_.loadOriginal(readFile(*original));
     applyVolumes();
-    sys_.setWindowTitle("Clue: Murder at Boddy Mansion");
+    sys_.setWindowTitle(gameTitle(data_.language()));
     sys_.setMouseCursorVisible(false);
     go(Screen::Intro);
     return Error::success();
@@ -153,7 +153,7 @@ void FrontEnd::leave() {
 }
 
 void FrontEnd::resume() {
-    sys_.setWindowTitle("Clue: Murder at Boddy Mansion");
+    sys_.setWindowTitle(gameTitle(data_.language()));
     sys_.setMouseCursorVisible(false);
     if (at_ == Screen::Game || overGame())
         playMusic(true);

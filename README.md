@@ -19,7 +19,7 @@ Each engine is a module that can run a family of games.
 | `newworlds` | Star Trek: New Worlds | Data viewer, first missions playable on their maps; off by default | [docs/engines/newworlds](docs/engines/newworlds/README.md) |
 | `stgenerations` | Star Trek: Generations (Windows, two CDs) | Every part of the game runs; a full playthrough to come | [docs/engines/stgenerations](docs/engines/stgenerations/README.md) |
 | `awe` | Agatha Christie: Murder on the Orient Express (English 1.0) | Playable from a new game to the credits; being checked against the original | [docs/engines/awe](docs/engines/awe/README.md) |
-| `clue` | Clue: Murder at Boddy Mansion (Windows, 2.0 and 2.2; US and UK English) | Playable: against computer players at three levels, hot seat, network play; being checked against the original | [docs/engines/clue](docs/engines/clue/README.md) |
+| `clue` | Clue: Murder at Boddy Mansion, and in the UK Cluedo: Murder at Blackwell Grange (Windows, 2.0 and 2.2) | Playable: against computer players at three levels, hot seat, network play; being checked against the original | [docs/engines/clue](docs/engines/clue/README.md) |
 | `testbed` | A test pattern, no game | For checking a system's graphics, sound and input | — |
 
 ## Requirements

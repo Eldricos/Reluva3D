@@ -1,2 +1,2 @@
 release: Clue: Murder at Boddy Mansion (2.0, CD) (en, windows)
-release: Clue: Murder at Boddy Mansion (UK English, 2.0, CD) (en-gb, windows)
+release: Cluedo: Murder at Blackwell Grange (2.0, CD) (en-gb, windows)

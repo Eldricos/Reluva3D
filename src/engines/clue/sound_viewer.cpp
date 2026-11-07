@@ -137,7 +137,7 @@ void SoundViewer::draw() {
              files_[size_t(current_)].filename().string() + "   " + std::to_string(current_ + 1) + "/" +
                  std::to_string(files_.size()),
              state);
-    sys_.setWindowTitle("Clue sounds: " + files_[size_t(current_)].filename().string());
+    sys_.setWindowTitle(std::string(gameName(data_.language())) + " sounds: " + files_[size_t(current_)].filename().string());
 }
 
 } // namespace reluva::clue

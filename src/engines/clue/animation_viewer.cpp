@@ -41,7 +41,7 @@ void AnimationViewer::select() {
     name_ = drive + ":" + d->entries()[size_t(anim_)].name;
     current_ = data_.animation(name_);
     error_ = current_ ? std::string() : data_.lastError();
-    sys_.setWindowTitle("Clue animations: " + name_);
+    sys_.setWindowTitle(std::string(gameName(data_.language())) + " animations: " + name_);
 }
 
 void AnimationViewer::handleKey(uint32_t key) {

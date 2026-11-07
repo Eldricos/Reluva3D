@@ -74,8 +74,9 @@ person) and two computer players set up in the menus by clicking the game's
 own buttons where `dialogInfo.res` puts them, the deal, ten seconds of the
 game, saved as "Reluva" from the Esc menu, left, and loaded again from the
 main menu. It prints a checksum of every screen shown and of the saved
-game; `-uk` plays the UK's game (Cluedo) where the folder has it; `-shots`
-writes a screen a second as PNG files, to look at. On the CD the files step
+game; `-uk` plays the UK's game (Cluedo: Murder at Blackwell Grange)
+where the folder has it; `-shots` writes a screen a second as PNG files,
+to look at. On the CD the files step
 also checks the UK's files (`clue check -uk`).
 
 Each step's output is kept in the build (`gamedata/clue/<step>/`), the

@@ -159,7 +159,7 @@ int cmdGameRun(int argc, char** argv) {
         if ((g.gameId == "clue-uk") == uk)
             found.push_back(g);
     if (found.empty()) {
-        std::fprintf(stderr, "No %sClue in %s\n", uk ? "UK English " : "", gameDir.string().c_str());
+        std::fprintf(stderr, "No %s in %s\n", uk ? "Cluedo (the UK's)" : "Clue", gameDir.string().c_str());
         return 1;
     }
     std::printf("game: %s %s\n", found[0].gameId.c_str(), found[0].description.c_str());

@@ -64,10 +64,15 @@ played with credits.
 UK's have one file the US's don't: `Sounds/end turn.wav` (175,220 bytes,
 MD5 of its first 5000 bytes `95881a34ccc9579a3d7bafa45ccaa8b6`), a spoken
 "end turn" that both versions of `Clue.exe` name in their table of voices
-(the string at 0x45ECE0). So an install (`Data/Classic`) with it is the
+(the string at 0x45ECE0) but never play (see the voices, below). So an install (`Data/Classic`) with it is the
 UK's, without it the US's; the CD (`Data/US`, `Data/UK`) is found as both,
 to play either. A `Clue.exe` not in the table is still found, as an
 unknown release, in the language its files are.
+
+The UK release is Cluedo: its own files say so ("Are you sure you want to
+exit Cluedo?" in its `dialogInfo.res`, "Cluedo" on its menus) and
+`Clue.exe` names itself "Clue / Cluedo". Reluva names it as it was sold,
+Cluedo: Murder at Blackwell Grange, in the launcher and the window's title.
 
 ## Approach
 
@@ -603,7 +608,17 @@ As the original, from its recordings and its How to Play texts:
 
 The computer players take their turns on their own, the camera following
 them. The ticker keeps "..., it is your turn." through a human's turn;
-the prompts ("please roll the die") are spoken. A sentence stays centred
+the prompts ("please roll the die") are spoken. Which ones, as `Clue.exe`
+has it: everything the butler says goes through one queue (0x438F80),
+which takes a turn's "..., it is your turn" (voice 34 + the suspect, in
+the table of names at 0x45E698), a prompt chosen from what the turn
+offers (0x439140: the die alone, or with a suggestion, a passage or both,
+voices 29-32; nothing when the die isn't offered), and the lines for
+disproving and accusing (40-63). "Please move" (28), "end turn" (33, in
+the UK's files alone) and "choose object" (64) are in the table but
+nothing plays them, in 2.0 or 2.2. The recordings agree: in the three
+with the butler's voice on, the die's prompts are heard 1 to 12 times
+each, about 3 s after "..., it is your turn", and those three never. A sentence stays centred
 8 s, then scrolls left, coming round from the right. The suggestions'
 videos play in the right column when "Suggest Movies" is on; the spoken
 lines play when "Butler Voice" is on; "Walk Animations" off moves the

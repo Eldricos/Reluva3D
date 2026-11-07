@@ -110,7 +110,7 @@ void TextViewer::draw() {
              "lines " + std::to_string(top_ + 1) + "-" +
                  std::to_string(std::min(int(lines_.size()), top_ + kRows)) + " of " +
                  std::to_string(lines_.size()));
-    sys_.setWindowTitle("Clue text: " + name);
+    sys_.setWindowTitle(std::string(gameName(data_.language())) + " text: " + name);
 }
 
 } // namespace reluva::clue

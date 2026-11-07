@@ -75,15 +75,21 @@ const char* const kCardKey[kCardCount] = {"sca", "mus", "whi", "gre", "pea", "pl
                                           "din", "kit", "bal", "con", "bil", "lib", "stu"};
 // The weapons in the videos' names (CM_rope.avi).
 const char* const kVideoWeapon[kWeaponCount] = {"dagger", "candle", "gun", "rope", "pipe", "wrench"};
-// The prompts' spoken lines.
+// The prompts' spoken lines. Clue.exe speaks only the four that offer the
+// die: its one voice queue (0x438F80) takes a turn's "..., it is your turn"
+// (voice 34 + the suspect), a prompt chosen from the turn's options
+// (0x439140: the die, with a suggestion, a passage or both, voices 29-32;
+// anything without the die, none) and the disproving and accusing lines
+// (40-63). Voices 28 ("please move"), 33 ("end turn", in the UK's files
+// alone) and 64 ("choose object") are in its table of names (0x45E698) but
+// nothing plays them, in 2.0 or 2.2; recordings of the original with the
+// butler's voice on have the four prompts and never those three.
 const char* promptVoice(int line) {
     switch (line) {
     case kRoll: return "roll die.WAV";
     case kRollPassage: return "roll die or use passage.WAV";
     case kRollSuggest: return "roll die or suggest.WAV";
     case kRollPassageSuggest: return "roll die passage or suggest.WAV";
-    case kMakeMove: return "please move.WAV";
-    case kChooseObject: return "choose object.WAV";
     default: return nullptr;
     }
 }

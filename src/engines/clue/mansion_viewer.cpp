@@ -70,7 +70,7 @@ MansionViewer::MansionViewer(System& sys, Surface& screen, const GameData& data)
 
 void MansionViewer::activate() {
     dirty_ = true;
-    sys_.setWindowTitle("Clue: Boddy Mansion");
+    sys_.setWindowTitle(std::string(gameName(data_.language())) + ": " + mansionName(data_.language()));
 }
 
 void MansionViewer::centre() {
