@@ -95,6 +95,11 @@ folder:
 | Windows | `%APPDATA%\reluva\reluva\` |
 | macOS | `~/Library/Application Support/reluva/reluva/` |
 
+Reluva's messages (errors, warnings, what an engine reports) are also
+written to `reluva.log` in that folder, as well as to the console; the
+run before's is kept as `reluva-previous.log`. Send it with a problem
+report.
+
 **`reluva-tool`** has developer tools for studying game data. Some are
 general (`hexdump`, `chunks`, `words`, `table`); the rest belong to the
 engines and are listed in their docs. Run it without arguments for every

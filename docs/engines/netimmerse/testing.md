@@ -15,7 +15,10 @@ For each one, give:
 - `Game.txt` from the install folder if it depends on how far the
   Adventure has got, so it can be run again from the same save;
 - the resolution and colour depth (Options), and whether the JIT was off
-  (`RELUVA_NO_JIT=1`).
+  (`RELUVA_NO_JIT=1`);
+- `reluva.log` (on Windows in `%APPDATA%\reluva\reluva\`; the run
+  before's is `reluva-previous.log`), which has every message Reluva and
+  the engine printed.
 
 ## Starting
 
