@@ -34,11 +34,13 @@ public:
 // use to look names up.
 std::string normalizeArchiveName(std::string_view name);
 
-// The loose files under a folder on disk, subfolders included. The folder is
-// listed once when opened; files added afterwards aren't seen.
+// The loose files under a folder on disk, subfolders included (to
+// `maxDepth` levels down, if it's 0 or more: 0 is the folder's own files).
+// The folder is listed once when opened; files added afterwards aren't
+// seen. Names from a CD with a ";1" version are found without it.
 class DirectoryArchive : public Archive {
 public:
-    Error open(const std::filesystem::path& dir);
+    Error open(const std::filesystem::path& dir, int maxDepth = -1);
 
     std::vector<std::string> list() const override;
     bool has(std::string_view name) const override;

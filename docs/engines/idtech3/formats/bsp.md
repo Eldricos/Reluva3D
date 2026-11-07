@@ -2,7 +2,7 @@
 
 Status: **all lumps read and cross-checked** (`src/engines/idtech3/bsp.cpp`);
 the light grid is kept raw. **Verified on all 67 retail Elite Force maps**
-(`reluva-tool bsp-check`, October 2026): every one is version 46 with the
+(`reluva-tool idtech3 bsp-check`, October 2026): every one is version 46 with the
 record sizes below, and 27 of them need the corrections described at the
 end.
 
@@ -60,7 +60,44 @@ single precision.
 
 Patches are grids of quadratic Bézier patches: width × height control
 points (both odd), each 3×3 block one patch, sharing edges. The engine
-tessellates them; the file holds only the control points.
+tessellates them; the file holds only the control points. For a patch,
+the bounds in the lightmap vectors are those of its *group*: the patches
+q3map wants cut alike so they meet. Patches with the same group bounds
+are stitched together (below).
+
+### Cutting patches for drawing
+
+As the original's renderer, and Reluva's (`patch.cpp`, `subdividePatch`):
+
+1. **Across.** For each run of three control points across the grid
+   (columns 0-2, 2-4...), the curve's midpoint, (a + 2b + c) / 4, is
+   measured against the line from a to c, on every row; the worst
+   decides. Under 0.1 units, the run is straight. Over `r_subdivisions`
+   (4 by default), every row's run is halved at the middle (a, b, c
+   become a, (a+b)/2, middle, (b+c)/2, c) and both halves are looked at
+   again. Never more than 65 points across.
+2. **Down.** The same for the columns, on the grid step 1 made.
+3. **Onto the curve.** Each point between two others (odd positions)
+   becomes half itself plus a quarter of each neighbour, down the
+   columns first, then along the rows.
+4. **Straight runs** found in steps 1 and 2 lose their middle column or
+   row.
+5. **Normals** come from the grid's shape: at each point, the directions
+   to its eight neighbours (the next one that isn't on top of it, up to
+   three away; across the seam of a grid whose first and last columns or
+   rows meet), the cross products of each two neighbouring directions
+   averaged.
+6. **Stitching.** Where a patch's edge has a point that the matching
+   edge of another patch in its group lacks (both ends of that edge's
+   piece the same within 0.1 units), the other gets a column or row
+   through it: halfway between its neighbours on every row, at the point
+   on the edge. Without this, the two edges wouldn't meet: a hairline
+   crack.
+
+The original also drops columns and rows by distance as it draws (the
+farther the patch, the more; `r_lodCurveError`), keeping the groups'
+shared points alike. Reluva always draws every point, which is the
+original at close range.
 
 ## The light grid
 
@@ -103,6 +140,26 @@ inside too. Brush models (`*1`, `*2`... for doors and lifts) have no tree
 of their own: their brushes are tested directly, in the model's own
 coordinates.
 
+A brush model that stands somewhere else and is turned (an entity's
+origin and angles: pitch, yaw, roll) is traced as the original's
+`CM_TransformedBoxTrace` does (`CollisionWorld::transformedTrace`):
+
+1. The moving box is made even about its middle, and the move shifted by
+   that middle, then by the model's origin.
+2. If the model is turned, the move's two ends are turned into the
+   model's own axes: each the dot products with its forward, left and up
+   (Quake III's angle vectors, right negated). The box itself isn't
+   turned, as the original's (turning it would spoil the brushes'
+   bevels), so a turned model's collision with a box is approximate,
+   exactly as in the original.
+3. A hit plane's normal is turned back by the same axes, and the end is
+   worked out again along the move in the world.
+
+Points are tested the same way (`CM_TransformedPointContents`): moved by
+the origin, then turned into the model's axes. The temporary box model
+is never turned. Both games' servers, their client games and the game's
+entity-contact test all go through these.
+
 Curved surfaces (patches) collide too, when their shader's contents
 share a bit with the mask. They are found through the leaves' surface
 lists, or a brush model's surfaces. Each patch is cut into triangles
@@ -132,7 +189,7 @@ record, the field and its value, e.g. `BSP surface 0: index 2 is vertex 3
 
 Some Elite Force maps hold values out of range that the original engine
 accepts. Reluva corrects them the same way and counts them (`Bsp::fixes`,
-shown in the map viewer and by `reluva-tool bsp-check`):
+shown in the map viewer and by `reluva-tool idtech3 bsp-check`):
 
 | Value | Original behaviour | Reluva sets |
 |---|---|---|

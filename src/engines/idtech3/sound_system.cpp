@@ -3,8 +3,8 @@
 
 // How far sounds carry and how they're panned follows the GPL Quake III
 // Arena sound system's behaviour (full volume within 80 units, 0.0008 of
-// it lost a unit beyond, panned by the listener's right); this is new code
-// written from that description.
+// it lost a unit beyond, each ear given half plus or minus half of how far
+// to that side it is); this is new code written from that description.
 
 #include "engines/idtech3/sound_system.h"
 
@@ -17,22 +17,14 @@ namespace reluva::idtech3 {
 namespace {
 constexpr float kFullVolumeDistance = 80;
 constexpr float kAttenuation = 0.0008f;
+constexpr float kSeparation = 0.5f;
 } // namespace
 
 std::shared_ptr<const audio::Sound> SoundSystem::find(const std::string& name) {
     if (name.empty())
         return nullptr;
-    if (auto sound = sounds_.get(name))
+    if (auto sound = sounds_.find(name))
         return sound;
-    // Without an extension, or with the other one: the formats the games
-    // use.
-    const size_t slash = name.rfind('/');
-    const size_t dot = name.find('.', slash == std::string::npos ? 0 : slash);
-    const std::string stem = dot == std::string::npos ? name : name.substr(0, dot);
-    for (const char* ext : {".wav", ".mp3"})
-        if (stem + ext != name)
-            if (auto sound = sounds_.get(stem + ext))
-                return sound;
     missing_.insert(name);
     return nullptr;
 }
@@ -50,7 +42,8 @@ std::pair<float, float> SoundSystem::spatialize(const Vec3f& origin) const {
     return {volume, dist > 1e-4f ? pan : 0.0f};
 }
 
-float SoundSystem::place(audio::SoundHandle handle, const std::optional<Vec3f>& origin, int entity) {
+float SoundSystem::place(audio::SoundHandle handle, const std::optional<Vec3f>& origin, int entity,
+                         std::optional<float> ownVolume) {
     // The listener's own sounds are heard as they are.
     if (!origin && entity == listener_) {
         mixer_.setVolume(handle, audio::kMaxVolume);
@@ -65,9 +58,19 @@ float SoundSystem::place(audio::SoundHandle handle, const std::optional<Vec3f>& 
         at = *origin;
     else if (const auto it = entities_.find(entity); it != entities_.end())
         at = it->second;
-    const auto [volume, pan] = spatialize(at);
-    mixer_.setVolume(handle, int(volume * float(audio::kMaxVolume)));
-    mixer_.setPan(handle, int(pan * float(audio::kMaxPan)));
+    auto [volume, pan] = spatialize(at);
+    if (ownVolume)
+        volume = std::clamp(*ownVolume, 0.0f, 1.0f);
+    // Each ear as the original's mixer has it (s_separation 0.5): half in
+    // each for a sound straight ahead or right here, all in one ear for one
+    // straight to that side. As the mixer's volume (the louder ear) and
+    // pan (how much the other is turned down).
+    const float right = volume * std::max(0.0f, kSeparation + (1 - kSeparation) * pan);
+    const float left = volume * std::max(0.0f, kSeparation - (1 - kSeparation) * pan);
+    const float loudest = std::max(left, right);
+    const float balance = loudest <= 0 ? 0 : right >= left ? 1 - left / right : -(1 - right / left);
+    mixer_.setVolume(handle, int(loudest * float(audio::kMaxVolume)));
+    mixer_.setPan(handle, int(balance * float(audio::kMaxPan)));
     return volume;
 }
 
@@ -115,7 +118,7 @@ void SoundSystem::startSound(const std::optional<Vec3f>& origin, int entity, int
     std::snprintf(volume, sizeof volume, "played at volume %.2f (listener %d)", place(handle, origin, entity),
                   listener_);
     note(name, entity, what + volume);
-    playing_.push_back({handle, entity, channel, origin, false, name, nowMs_});
+    playing_.push_back({handle, entity, channel, origin, false, name, nowMs_, std::nullopt});
 }
 
 void SoundSystem::startLocalSound(const std::string& name, int channel) {
@@ -127,7 +130,7 @@ void SoundSystem::startLocalSound(const std::string& name, int channel) {
         return;
     const audio::SoundHandle handle = mixer_.play(sound, audio::SoundType::Effects);
     if (handle != audio::kNoSound)
-        playing_.push_back({handle, -1, channel, std::nullopt, true, name, nowMs_});
+        playing_.push_back({handle, -1, channel, std::nullopt, true, name, nowMs_, std::nullopt});
 }
 
 void SoundSystem::note(const std::string& name, int entity, std::string line) {
@@ -179,6 +182,22 @@ void SoundSystem::addLoopingSound(int entity, const Vec3f& origin, const std::st
 
 void SoundSystem::updateEntityPosition(int entity, const Vec3f& origin) { entities_[entity] = origin; }
 
+void SoundSystem::addAmbientLoop(int entity, const Vec3f& origin, float volume, const std::string& name) {
+    ambientAdded_[{entity, name}] = {origin, volume};
+}
+
+void SoundSystem::startAmbientSound(int entity, const Vec3f& origin, float volume, const std::string& name) {
+    const auto sound = find(name);
+    note(name, entity, name + " (ambient, entity " + std::to_string(entity) + "): " + (sound ? "played" : "not found"));
+    if (!sound)
+        return;
+    const audio::SoundHandle handle = mixer_.play(sound, audio::SoundType::Effects, 0);
+    if (handle == audio::kNoSound)
+        return;
+    place(handle, origin, entity, volume);
+    playing_.push_back({handle, entity, 0, origin, false, name, nowMs_, volume});
+}
+
 void SoundSystem::respatialize(int entity, const Vec3f& origin, const std::array<Vec3f, 3>& axes) {
     listener_ = entity;
     listenerOrigin_ = origin;
@@ -213,7 +232,7 @@ void SoundSystem::endFrame() {
                    playing_.end());
     for (const Playing& p : playing_)
         if (!p.local)
-            place(p.handle, p.origin, p.entity);
+            place(p.handle, p.origin, p.entity, p.volume);
 
     // Looping sounds: new ones start, those not added this frame stop.
     for (auto it = loops_.begin(); it != loops_.end();) {
@@ -237,6 +256,28 @@ void SoundSystem::endFrame() {
         }
         place(it->second, origin, key.first);
     }
+    for (auto it = ambientLoops_.begin(); it != ambientLoops_.end();) {
+        if (!ambientAdded_.count(it->first)) {
+            mixer_.stop(it->second);
+            it = ambientLoops_.erase(it);
+        } else {
+            ++it;
+        }
+    }
+    for (const auto& [key, at] : ambientAdded_) {
+        auto it = ambientLoops_.find(key);
+        if (it == ambientLoops_.end()) {
+            const auto sound = find(key.second);
+            if (!sound)
+                continue;
+            const audio::SoundHandle handle = mixer_.play(sound, audio::SoundType::Effects, 0, 0, true);
+            if (handle == audio::kNoSound)
+                continue;
+            it = ambientLoops_.emplace(key, handle).first;
+        }
+        place(it->second, at.first, key.first, at.second);
+    }
+    ambientAdded_.clear();
 
     // The music: the loop once the intro is over.
     if (musicIntro_ && music_ != audio::kNoSound && !mixer_.isPlaying(music_)) {
@@ -252,6 +293,11 @@ void SoundSystem::setVolumes(float effects, float music) {
 }
 
 void SoundSystem::stopAll() {
+    stopSounds();
+    stopBackgroundTrack();
+}
+
+void SoundSystem::stopSounds() {
     for (const Playing& p : playing_)
         if (p.handle != audio::kNoSound)
             mixer_.stop(p.handle);
@@ -260,7 +306,10 @@ void SoundSystem::stopAll() {
         mixer_.stop(handle);
     loops_.clear();
     loopsAdded_.clear();
-    stopBackgroundTrack();
+    for (const auto& [key, handle] : ambientLoops_)
+        mixer_.stop(handle);
+    ambientLoops_.clear();
+    ambientAdded_.clear();
 }
 
 } // namespace reluva::idtech3

@@ -237,6 +237,12 @@ Error Qvm::load(const std::vector<uint8_t>& file) {
 }
 
 Error Qvm::call(int32_t command, const std::vector<int32_t>& args, int32_t& result) {
+    std::vector<int32_t> all{command};
+    all.insert(all.end(), args.begin(), args.end());
+    return callAt(0, all, result);
+}
+
+Error Qvm::callAt(int32_t instruction, const std::vector<int32_t>& args, int32_t& result) {
     result = 0;
     if (code_.empty())
         return Error::fail("No QVM loaded");
@@ -254,23 +260,25 @@ Error Qvm::call(int32_t command, const std::vector<int32_t>& args, int32_t& resu
     if (sp < stackBottom_)
         return Error::fail("QVM stack overflow on entry");
     for (int i = 0; i < kMainArgs; ++i)
-        writeInt(sp + 8 + 4 * i, i == 0 ? command : i - 1 < int(args.size()) ? args[size_t(i - 1)] : 0);
+        writeInt(sp + 8 + 4 * i, i < int(args.size()) ? args[size_t(i)] : 0);
     writeInt(sp + 4, 0);
     writeInt(sp, -1);
     programStack_ = sp;
+    if (instruction < 0 || instruction >= int32_t(code_.size()))
+        return Error::fail("No instruction " + std::to_string(instruction));
     ++depth_;
-    Error err = run(result);
+    Error err = run(result, instruction);
     --depth_;
     programStack_ = saved;
     return err;
 }
 
-Error Qvm::run(int32_t& result) {
+Error Qvm::run(int32_t& result, int32_t entry) {
     using namespace qvmop;
     std::array<int32_t, kOpStackSize> stack{};
     int top = 0; // stack[top - 1] is the top; stack[0] is never used
     int32_t sp = programStack_;
-    int32_t pc = 0;
+    int32_t pc = entry;
     const int32_t count = int32_t(code_.size());
     auto fail = [&](int32_t at, const std::string& what) {
         return Error::fail("QVM instruction " + std::to_string(at) + " (" + name(code_[size_t(at)].op) + "): " + what);

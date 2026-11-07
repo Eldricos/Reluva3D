@@ -68,14 +68,41 @@ void Config::set(const std::string& section, const std::string& key, const std::
     sections_[section][key] = value;
 }
 
+void Config::unset(const std::string& section, const std::string& key) {
+    const auto it = sections_.find(section);
+    if (it != sections_.end())
+        it->second.erase(key);
+}
+
+bool Config::has(const std::string& section, const std::string& key) const {
+    const auto it = sections_.find(section);
+    return it != sections_.end() && it->second.count(key) != 0;
+}
+
 bool Config::hasSection(const std::string& section) const { return sections_.count(section) != 0; }
 
 void Config::removeSection(const std::string& section) { sections_.erase(section); }
 
+std::map<std::string, std::string> Config::values(const std::string& section) const {
+    const auto it = sections_.find(section);
+    return it == sections_.end() ? std::map<std::string, std::string>{} : it->second;
+}
+
+std::map<std::string, std::string> Config::settingsFor(const std::string& target) const {
+    std::map<std::string, std::string> out = values(kGlobalSection);
+    const std::string engine = get(target, "engine");
+    if (!engine.empty())
+        for (const auto& [k, v] : values(engineSection(engine)))
+            out[k] = v;
+    for (const auto& [k, v] : values(target))
+        out[k] = v;
+    return out;
+}
+
 std::vector<std::string> Config::targets() const {
     std::vector<std::string> out;
     for (const auto& [name, values] : sections_)
-        if (name != kGlobalSection)
+        if (name != kGlobalSection && !isEngineSection(name))
             out.push_back(name);
     return out;
 }

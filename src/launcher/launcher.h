@@ -8,9 +8,12 @@
 #include "engines/engine.h"
 
 #include <atomic>
+#include <filesystem>
+#include <map>
 #include <mutex>
 #include <optional>
 #include <string>
+#include <thread>
 #include <vector>
 
 namespace reluva {
@@ -30,12 +33,21 @@ public:
 
     // Shown in the status bar next time the launcher appears.
     void setStatus(std::string message) { status_ = std::move(message); }
+    // Where imported games go by default (a folder each).
+    void setLibraryDir(std::filesystem::path dir) { libraryDir_ = std::move(dir); }
 
 private:
     void drawUi(std::optional<GameTarget>& launch, bool& quit);
     void handlePickedFolder();
     void addGame(const DetectedGame& game, const std::string& path);
     GameTarget targetFromConfig(const std::string& name) const;
+    // The target as stored, its description first brought up to date with
+    // what's in its folder now (a patch added since, say).
+    GameTarget launchTarget(const std::string& name);
+    void offerImport(std::vector<ImportPlan> plans, const std::string& source);
+    void drawImport();
+    void startImport();
+    void finishImport();
 
     static void pickFolderCallback(void* userdata, const char* const* files, int filter);
 
@@ -53,6 +65,48 @@ private:
     // Folder with several matches, waiting for the user to choose one.
     std::string pendingPath_;
     std::vector<DetectedGame> pendingChoices_;
+
+    // What the next folder picked is for.
+    enum class Pick { AddGame, ImportSource, ImportDestination, PatchForImport, PatchForGame } pickFor_ = Pick::AddGame;
+    void pickPatch(Pick purpose);
+    void pickExpansion(Pick purpose); // a folder: an expansion's CD or install
+
+    // Importing: what was found and where it goes; then the copying, on a
+    // thread of its own, and how it ended.
+    std::filesystem::path libraryDir_;
+    std::optional<ImportPlan> importPlan_;
+    std::string importSource_;
+    std::filesystem::path importDest_;
+    std::thread importThread_;
+    std::atomic<bool> importRunning_{false}, importCancel_{false}, importDone_{false};
+    std::atomic<uint64_t> importBytes_{0}, importTotal_{0};
+    std::mutex importMutex_;
+    std::string importError_;
+    // Applying a patch to a game already added (into its own folder),
+    // rather than importing a new one.
+    std::string patchTarget_;
+
+    // The selected game's options (MetaEngine::options), found again when
+    // the selection or its folder's contents may have changed.
+    std::string optionsFor_;
+    std::vector<GameOption> options_;
+    void drawOptions();
+    // Every game's options, for the list (found once per game).
+    std::map<std::string, std::vector<GameOption>> listOptions_;
+    std::string listLabel(const std::string& name);
+
+    // Settings at three levels (common/settings.h): for every game, for an
+    // engine's games, and with each game. The Settings window edits the
+    // first two; the selected game's own are shown with its options.
+    bool settingsOpen_ = false;
+    std::string settingsEngine_; // the engine whose games' settings the window shows; "" for every game
+    void drawSettingsWindow();
+    // One setting kept in `section`: its value there, or the one above it
+    // (`engineId`'s, then every game's, then the default) when unset.
+    void drawSetting(const std::string& section, const std::string& engineId, const GameOption& option);
+    // `from`: where it comes from ("default", "every game's", "engine's").
+    std::string inheritedValue(const std::string& section, const std::string& engineId, const GameOption& option,
+                               std::string* from = nullptr) const;
 };
 
 } // namespace reluva

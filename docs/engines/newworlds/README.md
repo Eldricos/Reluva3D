@@ -1,127 +1,134 @@
 # The Star Trek: New Worlds engine
 
-Engine id `newworlds`, in `src/engines/newworlds/`. Game: Star Trek: New
-Worlds (Interplay, 2000), the English Windows release.
+Engine id `newworlds`, in `src/engines/newworlds/`. It runs Star Trek: New
+Worlds (Interplay, 2000) from the player's own install.
+
+It isn't part of the default build yet: two of its source files hold
+string literals longer than Visual Studio accepts. To build it with GCC or
+Clang, set `newworlds=enabled` in `engines.cfg` (or in your
+`engines.local.cfg`). See the main
+[README](../../../README.md#choosing-engines).
 
 ## Where it stands
 
-New Worlds opens as a data viewer: its missions, models, textures, maps,
-sounds, strings and fonts, all read from the game's own files. The missions
-page also has a first playable layer (**F3**): the mission's map with the
-game's camera and controls, the colony's starting units, building, and the
-mission's script running ([formats/game.md](formats/game.md)).
-
-The engine is **off by default** in the build: two of its files hold string
-literals longer than Visual Studio accepts. To build it with GCC or Clang:
-
-```sh
-cmake -S . -B build -DRELUVA_ENGINE_NEWWORLDS=ON
-```
+It opens as a data viewer of the game's archives and their files: models,
+maps, textures, sounds, strings, fonts and missions. Its first playable
+layer plays a mission on its map with the game's own camera and controls,
+the mission's script running. Figures the recordings of play can't give
+are named placeholders for now. See
+[game.md](game.md).
 
 ## Using it
 
-Add the game's install folder in the launcher (*Add Game...*); the files
-that identify it are listed in [formats/install.md](formats/install.md).
+Add the game's install folder with *Add Game...* in the launcher. **Tab**
+switches between the pages:
 
-**Tab** switches between missions, models, textures, maps, sounds, strings
-and fonts. **Left/Right** step through them and **F** cycles filters.
+- **Missions** (`level.dat`'s list) show their map with the briefing over
+  it:
+  - **Up/Down** turn the briefing's pages, **B** hides it, and **J** picks
+    the side of a joint mission;
+  - **Space** plays the mission's voice clip, **N/P** the next or previous
+    one, and **M** the planet's music;
+  - **Enter** plays the briefing step by step (**Enter** again skips a step,
+    **Backspace** stops);
+  - **X** steps through the mission's script: its events, messages and
+    objectives (**Z** stops);
+  - **I** shows the game's interface over the map, in the side's style,
+    with the script's messages and objectives;
+  - **C** shows or hides the colony, its hub where the recordings put it,
+    growing as the script builds; **V** looks at it;
+  - **F3** plays on the map, with the game's camera and controls. Select
+    and move the colony's starting units, and **B** builds. The mission's
+    script runs. See [game.md](game.md).
 
-**Missions** (`level.dat`'s list) show their map with the briefing over it:
+  The map page's keys work too.
+- **Models:**
+  - drag (or **W/A/S/D**) rotates, the wheel (or **+/-**) zooms, **Space**
+    spins, and **R** resets the view;
+  - **P** shows one part at a time, **N** selects the next, and **K** plays
+    its animations (or sweeps its turret);
+  - **L** shows outlines, **U** texture-coordinate checks, **T** turns
+    textures off, **C** colours faces by texture number, and **B** shows
+    back faces;
+  - **G** changes how alpha layers are used: by default glow in `_g`
+    textures and transparency in the others;
+  - **H** switches smooth or flat shading, and **M** shows the model's
+    points (from its `.mdl`).
+- **Maps**, built from their ground tiles:
+  - drag rotates, the wheel zooms, **W/A/S/D** move, **Q/E** turn, and
+    **Left/Right** picks the next map;
+  - **T** shows textures, **G** colours the ground by its terrain codes or
+    shows resource deposits, and **O** shows the placed trees and rocks;
+  - **H** switches smooth or flat shading, **K** shows the walls between
+    levels, and **L** shows outlines.
+- **Sounds:**
+  - **Space** (or **Enter**) plays or stops the selected one;
+  - **A** plays each as it's selected;
+  - **F** lists every copy of the sounds the archives store more than
+    once.
+- **Strings:**
+  - **Left/Right** picks a table;
+  - **Up/Down**, **PageUp/PageDown** and **Home/End** scroll, and **+/-**
+    change the text size;
+  - **F** switches to the game's fonts.
+- **Fonts:** **Left/Right** picks one, **+/-** change the size, and **B**
+  outlines the glyphs' boxes.
 
-- **Up/Down** turn its pages; **B** hides it; **J** picks the side of a
-  joint mission;
-- **Space** plays the mission's voice clip, **N/P** the next or previous
-  one, **M** the planet's music;
-- **Enter** plays the briefing step by step (**Enter** again skips a step,
-  **Backspace** stops);
-- **X** steps through the mission's script: its events, messages and
-  objectives (**Z** stops);
-- **I** shows the game's interface over the map in the side's style, with
-  the script's messages and objectives in it;
-- **C** shows or hides the colony (its hub where the recordings put it,
-  growing as the script builds) and **V** looks at it;
-- **F3** plays on the map with the game's own camera and controls: select
-  and move the colony's starting units, **B** to build, the mission's
-  script running ([formats/game.md](formats/game.md)). The map's keys work
-  too.
+Everywhere, **Left/Right** step through the page's items and **F** cycles
+its filters.
 
-**Models**:
+`reluva-tool` has commands for the game's files: `cat-list`, `cat-probe`
+and `cat-extract` for its archives, and `geo-*`, `gmf-*`, `tex-*`,
+`stb-dump`, `fif-info`, `mdl-info`, `lbp-info`, `ibi-dump` and `level-info`
+for what's in them.
 
-- drag with the mouse (or **W/A/S/D**) to rotate; the wheel (or **+/-**)
-  zooms; **Space** spins; **R** resets the view;
-- **P** shows one part at a time; **N** selects the next one;
-- **K** plays its animations (or sweeps its turret);
-- **L** outlines; **U** checks texture coordinates; **T** turns textures
-  off;
-- **G** changes how alpha layers are used: by default glow in `_g`
-  textures and transparency in the others; or ignored, or transparency;
-- **H** smooth or flat shading;
-- **M** the model's points (from its `.mdl`);
-- **C** colours faces by texture number; **B** shows back faces.
+## The docs
 
-**Maps** are built from their ground tiles:
+**The install and its archives:**
 
-- drag to rotate, the wheel to zoom, **W/A/S/D** to move, **Q/E** to turn,
-  **Left/Right** for the next map;
-- **T** textures; **G** colours the ground by its terrain codes or shows
-  resource deposits;
-- **O** the placed trees and rocks;
-- **H** smooth or flat shading;
-- **K** the walls between levels;
-- **L** outlines.
+- [install.md](install.md): the install's layout.
+- [cat.md](cat.md): `.cat` archives.
+- [gui.md](gui.md): the GUI archives.
+- [media.md](media.md): `Media/`.
 
-**Sounds**: **Space** (or **Enter**) plays or stops the selected one, **A**
-plays each as it's selected, and **F** lists every copy of the sounds the
-archives store more than once.
+**Files:**
 
-**Strings**: **Left/Right** picks a table; **Up/Down**, **PageUp/PageDown**
-and **Home/End** scroll; **+/-** change the text size; **F** switches to the
-game's fonts.
+- [geo.md](geo.md): `.geo` models.
+- [mdl.md](mdl.md): `.mdl` metamodels.
+- [arf.md](arf.md): `.arf` animation frames.
+- [gmf.md](gmf.md): `.gmf` maps.
+- [lbp.md](lbp.md): textures (`.lbp`, `.mp0`-`.mp4`, `.eb0`, `.eb1`,
+  `.fbp`).
+- [fif.md](fif.md): `.fif` fonts.
+- [stb.md](stb.md): `.stb` string tables.
+- [wav.md](wav.md): `.wav` sounds.
+- [level.md](level.md): `level.dat`, the missions.
 
-**Fonts**: **Left/Right** picks one, **+/-** change the size and **B**
-outlines the glyphs' boxes.
+**The game:**
 
-## Developer tools
+- [game.md](game.md): playing on the map.
+- [colony.md](colony.md): starting colonies.
+- [mission-scripts.md](mission-scripts.md): Reluva's mission scripts.
 
-`reluva-tool` has commands for this game's files, built with the engine:
+**Watched in play** (recordings of the original, for how the game behaves):
 
-- archives: `cat-probe`, `cat-list`, `cat-extract`;
-- strings, textures and models: `stb-dump`, `lbp-info`, `tex-survey`,
-  `tex-keys`, `geo-info`, `geo-survey`, `geo-textures`, `geo-slots`,
-  `geo-sheet`, `geo-faces`, `mdl-info`;
-- maps and missions: `gmf-info`, `gmf-fit`, `gmf-dump`, `ground-textures`,
-  `level-info`;
-- sounds and fonts: `wav-info`, `wav-decode`, `fif-info`.
-
-Run `reluva-tool` without arguments for each one's options.
-
-## Documents
-
-**File formats** ([formats/](formats/)): how each was worked out is
-recorded in its page.
-
-| Page | Covers |
-|---|---|
-| [install.md](formats/install.md) | the install: its files and how releases are told apart |
-| [cat.md](formats/cat.md) | `.cat` archives |
-| [stb.md](formats/stb.md) | `.stb` string tables |
-| [lbp.md](formats/lbp.md) | textures (`.lbp`, `.mp0`–`.mp4`, `.eb0`, `.eb1`, `.fbp`) |
-| [geo.md](formats/geo.md) | `.geo` models |
-| [mdl.md](formats/mdl.md) | `.mdl` metamodels |
-| [arf.md](formats/arf.md) | `.arf` animation frames |
-| [gmf.md](formats/gmf.md) | `.gmf` maps |
-| [level.md](formats/level.md) | `level.dat` |
-| [gui.md](formats/gui.md) | the GUI archives |
-| [fif.md](formats/fif.md) | `.fif` fonts |
-| [wav.md](formats/wav.md) | `.wav` sounds |
-| [media.md](formats/media.md) | the `Media/` folder |
-| [colony.md](formats/colony.md) | starting colonies |
-| [game.md](formats/game.md) | Reluva's play layer on the map |
-| [mission-scripts.md](formats/mission-scripts.md) | Reluva's mission scripts (the original's are in its program) |
-
-**Watched in play** ([play/](play/)): what recordings of the original show,
-the base for the play layer and the mission scripts.
-[play.md](play/play.md) is the overview, [play-tutorials.md](play/play-tutorials.md)
-the training missions, and `play-<mission>.md` one page per mission.
-[vm-checklist.md](play/vm-checklist.md) lists what's still to collect from
-the game.
+- [play.md](play.md): what the recordings show, and
+  [vm-checklist.md](vm-checklist.md), what to collect.
+- [play-tutorials.md](play-tutorials.md): the training missions.
+- **Federation:** [F1](play-f1.md), [F2](play-f2.md), [F3](play-f3.md),
+  [F8](play-f8.md), [F12](play-f12.md), [F14](play-f14.md).
+- **Klingon:** [K1](play-k1.md), [K2](play-k2.md), [K7](play-k7.md),
+  [K8](play-k8.md), [K12](play-k12.md), [K14](play-k14.md).
+- **Romulan:** [R1](play-r1.md), [R2](play-r2.md), [R9](play-r9.md),
+  [R12](play-r12.md), [R14](play-r14.md).
+- **Joint missions** (Federation, Klingon and Romulan sides):
+  - J1: [F](play-j1f.md), [K](play-j1k.md), [R](play-j1r.md);
+  - J2: [F](play-j2f.md), [K](play-j2k.md), [R](play-j2r.md);
+  - J3: [F](play-j3f.md), [K](play-j3k.md), [R](play-j3r.md);
+  - J4: [F](play-j4f.md), [K](play-j4k.md), [R](play-j4r.md);
+  - J6: [F](play-j6f.md), [K](play-j6k.md), [R](play-j6r.md);
+  - J7: [F](play-j7f.md), [K](play-j7k.md), [R](play-j7r.md);
+  - J8: [F](play-j8f.md), [K](play-j8k.md), [R](play-j8r.md);
+  - J9: [F](play-j9f.md), [K](play-j9k.md), [R](play-j9r.md).
+- **Bonus missions:** [C9](play-c9.md), [C10](play-c10.md),
+  [C11](play-c11.md).

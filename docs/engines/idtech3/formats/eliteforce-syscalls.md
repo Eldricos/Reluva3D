@@ -6,8 +6,8 @@ server's game logic). Each reaches the engine through numbered system calls
 (see [qvm.md](qvm.md)). The numbers and arguments are Elite Force's own, so
 they're worked out here from the game's code, for interoperability:
 
-- `reluva-tool qvm-info` lists the numbers each program's code uses.
-- `reluva-tool qvm-run` runs a program, answering every call with 0, and
+- `reluva-tool idtech3 qvm-info` lists the numbers each program's code uses.
+- `reluva-tool idtech3 qvm-run` runs a program, answering every call with 0, and
   logs each call with its arguments and the text they point at.
 - Where the evidence fits, the meaning is taken from Quake III Arena's
   calls, documented in the GPL Quake III source (the order of its
@@ -70,7 +70,7 @@ screen stays black.
 | 42 | `GetClipboardData(buffer, size)` | order | |
 | 43 | `GetGlconfig(&glconfig)` | seen | one pointer, during init, just before the fonts' shaders are registered |
 | 44 | `GetClientState(&state)` | order | |
-| 45 | `GetConfigString(index, buffer, size)` | order | |
+| 45 | `GetConfigString(index, buffer, size)` → whether there is one | order | answered with the match's configstrings while the in-game menu shows over one (its game type, in the server info at 0, decides what it offers); nothing otherwise |
 | 46–53 | server list and pings | implemented | from the GPL engine that runs Elite Force (eliteforce-network.md): 46 the local server count, 47 `(n, buffer, size)` its address, 48 and 49 the same for the Internet (master servers) list, 50 the ping queue's count, 51 `ClearPing(n)`, 52 `GetPing(n, buffer, size, &time)`, 53 `GetPingInfo(n, buffer, size)`; the menus run `localservers` and `ping <address>` to fill them |
 | 54 | `Cvar_Register(&vmCvar, name, default, flags)` | seen | 65 calls in init: `(…, "ui_ffa_fraglimit", "20", 1)`; the structures are 272 bytes apart, a `vmCvar_t` |
 | 55 | `Cvar_Update(&vmCvar)` | order | |
@@ -84,7 +84,7 @@ Structures the engine fills in:
 - `glconfig_t` (call 43): renderer, vendor and version strings of 1024
   bytes and a 2048-byte extensions string (Quake III's is 8192), then a
   word of Elite Force's own, then Quake III's 17 words: 5192 bytes. Found
-  with `reluva-tool qvm-refs` on the address the menus pass: the strings
+  with `reluva-tool idtech3 qvm-refs` on the address the menus pass: the strings
   at 0, 1024, 2048 and 3072 are each passed on to be printed; the menus'
   next variable starts at 5192 (5196, read 310 times, fits the white
   shader that filled rectangles use). Right after the call the menus
@@ -129,7 +129,7 @@ Answering 57 as if it were `GetCDKey` had overwritten the typed key with
 an empty one and declined every key. The menus never read the key back.
 
 Reluva's side: `src/engines/idtech3/eliteforce/ui_host.cpp`, run by
-`reluva-tool ui-run` and shown by the Menu page (`menu_viewer.cpp`).
+`reluva-tool idtech3 ui-run` and shown by the Menu page (`pages/menu_viewer.cpp`).
 
 ## Game logic (`vm/qagame.qvm`)
 
@@ -270,13 +270,13 @@ is given the bot's own client, `(chatstate, bs->client, sendto)`, and
 the bot then says it with `say` (sendto 0) or `say_team` (1). Structures:
 a console message is 276 bytes (handle, time, type, 256 of text, two
 pointers); a match is 328 (256 of text, type, subtype, then 8 variables
-of an offset byte and a length). `reluva-tool game-run ... -addbot "name skill"` adds bots and lists
-the calls they make. `reluva-tool qvm-dis ... -syscalls 200 599`
+of an offset byte and a length). `reluva-tool idtech3 game-run ... -addbot "name skill"` adds bots and lists
+the calls they make. `reluva-tool idtech3 qvm-dis ... -syscalls 200 599`
 summarises each of the game's calls in a range, and `-func N` lists the
 function holding instruction N with the functions it calls.
 
 Reluva's side: `src/engines/idtech3/eliteforce/game_host.cpp`, run by
-`reluva-tool game-run <game folder> <map>`. Starting a level follows the
+`reluva-tool idtech3 game-run <game folder> <map>`. Starting a level follows the
 original server: it sets `mapname` and the server cvars, calls
 `vmMain(0, 0, seed, 0)`, during which the game reads the BSP's entity
 text with call 37 (each call gives one token, as Quake III's `COM_Parse`
@@ -288,7 +288,8 @@ configstrings, the entity text, the server info string; linking (filling
 in `absmin`/`absmax`, a unit larger than the entity's box, as the original
 does), `SetBrushModel`, traces against the world and linked entities,
 point contents, entities in a box, entity contact and the PVS tests.
-Areas and area portals aren't separated yet. A player joins as on the original server: the
+Areas and area portals are separated as the original's: see
+[idtech3.md](../README.md) (Game code). A player joins as on the original server: the
 userinfo string is stored for `GetUserinfo` (call 20), `vmMain(2,
 clientNum, 1, 0)` (connect: first time, not a bot) returns 0 or the
 address of the game's reason for refusing, and `vmMain(3, clientNum)`
@@ -315,7 +316,7 @@ after the buttons (5): with the buttons a byte, the button probe below
 found nothing from bit 7 (128) up, bits 8 and above being weapon
 numbers instead.
 
-The button bits, from `reluva-tool game-run <game> hm_dn1 -buttons`,
+The button bits, from `reluva-tool idtech3 game-run <game> hm_dn1 -buttons`,
 which holds each bit for a second with the phaser and lists the player
 state words that change (leaving out those that change with nothing
 held): 1 and 32 change the same words (44, the weapon time in Quake
@@ -328,6 +329,59 @@ alt attack on ALT. `game-run` also drops a
 player's box from every spawn point (raised 9 units, as Quake III's game
 spawns players) as a check of the collision model on its own.
 | 111 | `ceil` | order | Quake III's game numbers `floor` 110 and `ceil` 111 |
+
+### Holomatch modes (patch 1.2)
+
+Patch 1.2's game code (pak2.pk3) carries the Expansion Pack's five
+modes, each a cvar the server game registers like `g_gametype`: default
+"0", flags 36 (server info and latch), read from its cvar table:
+`g_pModAssimilation` (killed players join the enemy team; the configs
+set `g_gametype 3`, team deathmatch; "Kill the Borg Queen!"),
+`g_pModElimination` (last one standing), `g_pModSpecialties` (players
+choose a class), `g_pModActionHero` (one player gets every weapon and
+armour) and `g_pModDisintegration` (one direct hit kills; the game
+registers 2 items instead of the usual 13 to 18). pak2.pk3 has a config
+for each (`assimilation.cfg`... setting the mode and turning off those
+it can't go with), run with `exec`.
+
+The 1.2 menus have them too, as the Expansion Pack's: five buttons on
+the right of the Start Server screen (ui.qvm's menu at instruction
+77497; `mp_buttontext.dat` names them ASSIMILATION, SPECIALTIES,
+DISINTEGRATION, ACTION HERO, ELIMINATION), shown by game type
+(Assimilation only for team deathmatch), and more settings in the
+advanced server menu (NO JOIN TIME OUT, `g_classChangeDebounceTime`...).
+The menus add them only when `ui_cdkeychecked2` is 1 (its `vmCvar_t`'s
+integer at 51576). The engine sets that (`stvoyHM.exe` 0x41be5d): it
+creates it "0", read-only, then reads `baseEF/efq3.key` and
+`baseEF/expefq3.key` and sets it to "1" when the Expansion Pack's key is
+there and differs from the game's. So without the Expansion Pack the
+original's menus don't offer the modes; its console (`exec
+assimilation`...) does. Reluva sets it as the engine does, and to 1
+regardless unless `reluva_modeButtons` is 0. Checked with `reluva-tool
+idtech3 ui-run <game> -vmcall 77497 -click 516 129 -cvar g_pModSpecialties`:
+the four rows for free-for-all (y 129, 159, 189, 219) turn on
+Specialties, Disintegration, Elimination and Action Hero.
+
+Latched variables (flag 32) keep their value until a level starts, as
+Quake III's, but only when set from the console: the engine's Cvar_Set,
+which the game code's calls reach (call 5 in the client game's
+numbering, 0x41cf30), is `Cvar_Set2(name, value, force = 1)`, setting at
+once. Setting one at the console says "<name> will be changed upon
+restarting.", and the server takes the waiting values before the level
+loads. Reluva's cvar store does the same (`CvarStore::applyLatched`,
+called as the Holomatch and single player servers start a level);
+map_restart with a new game type or player count waiting changes level
+instead of restarting in place.
+
+A match ends with the server game running `vstr nextmap` (ExitLevel,
+1.2's qagame instruction 3400) once every human player has pressed fire
+or use in the intermission. The engine sets `nextmap` to `map_restart 0`
+as it spawns a level (`stvoyHM.exe` 0x433935), before the commands after
+the map command run (a map cycle's `set nextmap vstr d2`); empty, the
+match never moved on. `reluva-tool idtech3 game-run <game> hm_borg1 -set
+timelimit 1 -addbot 'munro 2' -tap 20` reaches the end and restarts the
+level 7 s later; without -tap it waits. `reluva-tool idtech3 game-run <game> <map> -set
+g_gametype 3 -set g_pModAssimilation 1 -addbot ...` runs one headless.
 
 ## Client game (`vm/cgame.qvm`)
 
@@ -344,7 +398,9 @@ numbering wherever it can be checked:
 | 3 | `Cvar_Register(&vmCvar, name, default, flags)` | seen | `cg_fov` "80", `cg_drawGun`...; 272 bytes apart |
 | 6 | `Cvar_VariableStringBuffer(name, buffer, size)` | seen | `g_language`, `sv_running` |
 | 10 | `FS_FOpenFile(path, &handle, mode)` | seen | `ext_data/mp_ingametext.dat`, `ext_data/fonts.dat` |
+| 14 | `SendConsoleCommand(text)` | order | run at the console after the frame |
 | 15 | `AddCommand(name)` | seen | `+zoom`, `weapnext`, `say`, `kill`... |
+| 16 | `SendClientCommand(text)` | seen | `"score"` while the scoreboard is held open (`+scores`), which the server game answers with a `scores` command; unanswered, the scoreboard stayed empty. Sent to the server as the player's after the frame |
 | 17 | `UpdateScreen()` | seen | after each loading caption copied to a buffer: "collision map", "sounds", "game media"... |
 | 18 | `CM_LoadMap(name)` | seen | `"maps/<mapname>.bsp"` |
 | 19 | `CM_NumInlineModels()` | seen | where the brush models would be registered |
@@ -383,7 +439,8 @@ numbering wherever it can be checked:
 | 56 | `SetUserCmdValue(weapon, sensitivityScale)` | seen | `(1, ...)` once a frame |
 | 57 | `R_RegisterShaderNoMip(name)` | seen | crosshairs, HUD pieces, fonts |
 | 58 | `MemoryRemaining()` | seen | answered 0, the client game prints "Memory is low.  Using deferred model." and skips loading player models |
-| 60 | unknown: `("model", value)` | seen | one call site (`qvm-dis -syscall 60`, instruction 42881), after checking the client is the local player; maybe setting the player's `model` setting. Not answered (0) until its second argument is known |
+| 59 | `R_RegisterShader3D(name)` → handle, 0 if missing | seen | the CTF flags (`qvm-dis -syscall 59`, instruction 2889 in 1.2's cgame.qvm): `"models/flags/%s_red"` (and `_blue`) with the team's name, the images `models/flags/<team>_red.jpg` in pak0; when it answers 0, `models/flags/default_red` instead. Reluva answers a handle when the picture exists, else 0. Seen in the 1.2 CTF demo (`demo-run ... demo0000`) |
+| 60 | `Cvar_SetLocal(name, value)`: sets a cvar forced, without marking user info changed | confirmed | one call site (`qvm-dis -syscall 60`, instruction 42881), for the local player, with `"model"` and a model name it built. Holomatch's engine (`stvoyHM.exe`) settles it: its client game dispatcher (0x402ed0) sends 60 to 0x402faf, which calls 0x41cf50(name, value). That finds the cvar, clears its user-info flag (2), calls the engine's Cvar_Set2(name, value, force = 1) (0x41cca0) and puts the flag back: any cvar, set even if read-only, without the change being sent to the server. Call 5 (Cvar_Set) goes to 0x41cf30 instead. Reluva does the same; it sends user info only on connecting anyway |
 | 100, 102 | `memset`, `strncpy` | seen | |
 | 107 | `floor(x)` | seen | one call site, the result converted to a whole number |
 
@@ -397,7 +454,7 @@ from 288, players from 544, the game version at 12). The screen settings
 are the menus' `glconfig_t`.
 
 Reluva's side: `src/engines/idtech3/eliteforce/cgame_host.cpp`, started
-by `reluva-tool game-run <game folder> <map> -cgame` with the server
+by `reluva-tool idtech3 game-run <game folder> <map> -cgame` with the server
 game's configstrings. As in Quake III, configstrings 0 and 1 are the
 server's own: the info strings of every server-info cvar (`mapname`,
 `g_gametype`...) and every system-info one, set after the game starts and
@@ -437,7 +494,7 @@ model 8, lighting origin 12, shadow plane 24, axes 28 (forward, left,
 up), non-normalized axes 64, origin 68, frame 80, old origin 84, old
 frame 96, back-lerp 100, skin number 104, custom skin 108, custom shader
 112, RGBA 116, texture coordinates 120, shader time 128, radius 132,
-rotation 136. The evidence, from `reluva-tool game-run ... -cgame
+rotation 136. The evidence, from `reluva-tool idtech3 game-run ... -cgame
 -entities 8` on hm_dn1: the player's legs, torso and head have their
 model handles at 8 (`lower.mdr`, `upper.mdr`, `head.md3`) and their skin
 handles at 108 (`lower_default.skin`...), the player's origin at 12 and
@@ -447,8 +504,8 @@ render flags 12 (Quake III's first person 4 and depth hack 8), a
 turned, slightly bobbing axis, an origin just in front of and below the
 eye, and white (-1) at 116; the player's own body has flag 2 (Quake
 III's third person: drawn only in mirrors), as Quake III's client game
-does. Elite Force's player models are named `.mdr`; Reluva draws `.md3`
-models only so far.
+does. Elite Force's player models are named `.mdr`; Reluva draws them
+([mdr.md](mdr.md)), as well as `.md3` models.
 
 The player state differs from Quake III's from 48: gravity (800) and
 speed (250) are at 56 and 60, after two words of Elite Force's own. The
@@ -461,10 +518,13 @@ else) returns without drawing for the local player unless the snapshot's
 word 48 is 0, so the original can't be sending it: its network protocol
 sends only the fields in its table, the rest reaching the client game as
 0. Reluva's snapshots zero it (`GameHost::kPlayerStateServerOnly`).
-Which other fields the protocol leaves out isn't known yet.
+The protocol's full list of fields, and those it leaves out (48, 52,
+externalEventTime and everything after the arrays), is in
+[eliteforce-network.md](eliteforce-network.md) (Player state); network
+play sends only those fields, as the original.
 
 Effects are scene entities of other types, seen with `reluva-tool
-game-run <game> hm_dn1 -cgame -cgameframes 30 -fire` (and `-altfire`)
+idtech3 game-run <game> hm_dn1 -cgame -cgameframes 30 -fire` (and `-altfire`)
 holding the phaser's fire against a wall (each field read off the
 entities the client game added):
 
@@ -478,6 +538,22 @@ entities the client game added):
 | 13 | rings and blasts (`gfx/effects/prifle_altblast`, `gfx/misc/red_ring2`) | taken to be a ring or cone round the first axis (28): radii 132 and 136 (both growing as the colour fades: 20 and 14, then 160 and 107), height 140 (1, 6), 144 taken as the texture's repeats round it; 148 (15, 1.5) and 152 (1) not known |
 | 8 | a mirror's or portal's camera (Quake III's portal surface entity, its type one on) | origin 68 and old origin 84 (the same for a mirror: seen as 2392 -936 52 twice), axes 28 (as the game set them), frame 80, old frame 96, skin number 104 (how a portal's camera turns) |
 | 14 | the Dreadnought's electricity (`gfx/misc/dnBolt`) | taken to be a jagged line from the origin to the old origin: width 132 (0.5 to 15), jitter 136 (0.1 to 0.5), texture scale 140 (0.2) |
+| 10 | not seen; one of the 1.2 client game's effect drawers (instruction 39480 in its cgame.qvm) adds it | from Holomatch's renderer: a line from the origin to the old origin as type 9 (the same drawing function), but lying across the second axis (40, normalised) rather than facing the eye; width 132 |
+| 4 | not seen; the 1.2 client game adds one for each entity of type 6 (the server game's `target_laser`; no retail map has one) | Quake III's beam, drawn by Holomatch's renderer as Quake III's: no shader, the white image added (one, one) in red, a tube of six sides, radius 4, from the origin to the old origin; render flags 64 |
+
+Holomatch's renderer (`stvoyHM.exe`) settles the rest of the numbering:
+RE_AddRefEntityToScene refuses types past 14; when the scene is built,
+0 is a model, 8 a portal's camera (not drawn itself) and every other
+type an effect surface, whose drawing function (0x476c30) switches on
+types 1 to 14, each to its own drawer: 1 and 2 sprites, 3 a polygon of
+the entity's own (not used by the client game), 4 to 7 Quake III's
+beam, rail core, rail rings and lightning (only 4 used), 9 to 14 as
+above.
+
+The type 1 to 14 numbers were checked against the 1.2 client game: of
+the values it stores into the type of an entity it then adds (`qvm-dis`
+of pak2.pk3's cgame.qvm), 0, 1, 2, 4, 8, 9, 10, 11, 12, 13 and 14
+appear; 3, 5, 6 and 7 never do.
 
 These came from `game-run ... -cgame -give -fire -weapon all` (and
 `-altfire`), which gives the player every weapon (the game's `give all`,

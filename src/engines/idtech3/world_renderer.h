@@ -41,6 +41,11 @@ public:
     // Drawing opaque surfaces, then models, then translucent surfaces keeps
     // what's behind glass right.
     void drawSky(float time) const;
+    // The level's sky surfaces seen (setView), drawn with `state`: where the
+    // sky shows, as the original draws it only there (cracks in the level
+    // elsewhere show nothing behind them, not the sky).
+    void drawSkyShape(const gfx::DrawState& state) const;
+    bool hasSky() const { return skyMesh_ != 0; }
     // `worldOnly`: the level's own surfaces, not its brush entities' (doors,
     // lifts), which the game places (drawModel).
     void drawSurfaces(float time, float sortMin = 0, float sortMax = 1e9f, bool worldOnly = false) const;
@@ -110,9 +115,11 @@ private:
     struct Fog {
         std::array<float, 3> color{};
         float distance = 0;
+        std::array<float, 4> plane{0, 0, 0, 1}; // its surface (see gfx::DrawCall::fogPlane)
     };
 
     void buildSky(const ShaderDef& sky);
+    void drawFog(int material, const gfx::DrawCall& base, int fog, float time) const;
 
     gfx::Renderer3D& r_;
     ShaderCache& shaders_;

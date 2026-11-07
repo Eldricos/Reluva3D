@@ -1,46 +1,55 @@
 # Reluva's documentation
 
-- [BUILDING.md](BUILDING.md): building Reluva on Linux, Windows and macOS.
-- [../CONTRIBUTING.md](../CONTRIBUTING.md): the clean-room rules every
-  contribution follows.
+The [main README](../README.md) covers Reluva in general: what it is,
+requirements, building, running and contributing. The rest is here.
 
-## Engines
+| Folder | What's in it |
+|---|---|
+| [DEVELOPMENT.md](DEVELOPMENT.md) | Notes for working on Reluva: build options, tests, the render check, shaders, IDEs, troubleshooting |
+| [ADDING_AN_ENGINE.md](ADDING_AN_ENGINE.md) | Starting a new engine from the template, and taking it to a game that runs |
+| [common/](common/) | Formats and components shared by engines, matching `src/common/` |
+| [engines/](engines/) | One folder per engine, matching `src/engines/<engine>/` |
 
-Each engine keeps everything about itself in its own folder,
-`docs/engines/<engine id>/`. Its `README.md` says what the engine runs, how
-far it has got, and how to use it: the folder to add, the keys, and its
-`reluva-tool` commands. It also lists the engine's other pages: the file
-formats it reads (in `formats/`) and its notes.
+## Shared: `common/`
+
+- [x86.md](common/x86.md): the x86 emulator (an interpreter, and native
+  code on x86-64) that runs 32-bit Windows game code (Elite Force's
+  single-player DLLs, LEGO Alpha Team's whole program), and its stand-ins
+  for Windows, DirectX and Aureal A3D.
+- [bink.md](common/bink.md): Bink videos (Elite Force's cinematics, Murder
+  on the Orient Express's movies and video loops).
+- [smacker.md](common/smacker.md): Smacker videos.
+- [cinepak.md](common/cinepak.md): Cinepak videos, in AVI files.
+- [video/avi.md](common/video/avi.md) and
+  [video/indeo5.md](common/video/indeo5.md): AVI files, and Intel Indeo
+  Video 5 (LEGO Alpha Team's intro movie).
+- [dcl.md](common/dcl.md): PKWARE DCL ("implode") compression.
+- [wise.md](common/wise.md): Wise installers, taken apart without running
+  them (Elite Force's patch).
+
+## Engines: `engines/<engine>/`
+
+Everything about one engine lives in its own folder: its README (what it
+runs, where it stands, how to use it), the formats of its games' files and
+interfaces, and any notes on testing and differences from the original.
 
 | Engine | Games | Docs |
 |---|---|---|
-| `idtech3` | Star Trek: Voyager - Elite Force | [engines/idtech3/](engines/idtech3/README.md) |
-| `netimmerse` | LEGO Alpha Team | [engines/netimmerse/](engines/netimmerse/README.md) |
+| `idtech3` | Star Trek: Voyager - Elite Force (and, later, other Quake III engine games) | [engines/idtech3/](engines/idtech3/README.md) |
+| `stharbinger` | Star Trek: Deep Space Nine - Harbinger | [engines/stharbinger/](engines/stharbinger/README.md) |
 | `newworlds` | Star Trek: New Worlds | [engines/newworlds/](engines/newworlds/README.md) |
+| `stgenerations` | Star Trek: Generations | [engines/stgenerations/](engines/stgenerations/README.md) |
+| `awe` | Agatha Christie: Murder on the Orient Express (and, later, AWE's other Agatha Christie games) | [engines/awe/](engines/awe/README.md) |
+| `clue` | Clue: Murder at Boddy Mansion (Cluedo: Murder at Blackwell Grange in the UK) | [engines/clue/](engines/clue/README.md) |
+| `netimmerse` | LEGO Alpha Team (and, later, other NetImmerse games) | [engines/netimmerse/](engines/netimmerse/README.md) |
+| `testbed` | A built-in test pattern, no game | — |
 
-## Shared code
+## Adding docs
 
-What's in `src/common/` and any engine can use is documented in
-`docs/common/`:
-
-- [common/x86.md](common/x86.md): the x86 interpreter and the parts of
-  Windows, DirectX and Aureal A3D it stands in for. Elite Force's single
-  player and LEGO Alpha Team run their original programs on it.
-- [common/video/avi.md](common/video/avi.md): AVI movies.
-- [common/video/indeo5.md](common/video/indeo5.md): Intel Indeo Video 5.
-
-## Adding an engine's docs
-
-Give the engine a folder `docs/engines/<engine id>/` with a `README.md` laid
-out like the others:
-
-- what it runs;
-- where it stands;
-- using it;
-- its developer tools;
-- its documents.
-
-File formats go in `formats/`, one page each. Each page records how the
-format was worked out, as [CONTRIBUTING.md](../CONTRIBUTING.md) asks. Add
-the engine to the table above. Anything that more than one engine uses
-belongs in `docs/common/`.
+- **One engine's** docs go in `engines/<engine>/`, its file formats in
+  `engines/<engine>/formats/` if there are many.
+- **Code in `src/common/`** that more than one engine can use is documented
+  in `common/`.
+- Each fact gets its source: an address in a named binary, a file and its
+  hash, or the published source it was read in. See
+  [CONTRIBUTING.md](../CONTRIBUTING.md) for what may be used.

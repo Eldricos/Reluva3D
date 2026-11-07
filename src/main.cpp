@@ -6,6 +6,7 @@
 #include "common/detection.h"
 #include "common/fs.h"
 #include "common/log.h"
+#include "common/settings.h"
 #include "engines/registry.h"
 #include "launcher/launcher.h"
 
@@ -46,9 +47,26 @@ static int printHashes(int argc, char** argv) {
     return 0;
 }
 
+// `reluva --detect <folder>...` lists the games found in each folder, as
+// the launcher's Add Game does.
+static int printDetected(int argc, char** argv) {
+    int found = 0;
+    for (int i = 2; i < argc; ++i)
+        for (const DetectedGame& g : detectGames(argv[i])) {
+            std::printf("%s: %s/%s  %s  [%s, %s]\n", argv[i], g.engineId.c_str(), g.gameId.c_str(),
+                        g.description.c_str(), g.language.c_str(), g.platform.c_str());
+            ++found;
+        }
+    if (!found)
+        std::printf("no games found\n");
+    return found ? 0 : 1;
+}
+
 int main(int argc, char** argv) {
     if (argc >= 2 && std::strcmp(argv[1], "--hash") == 0)
         return printHashes(argc, argv);
+    if (argc >= 2 && std::strcmp(argv[1], "--detect") == 0)
+        return printDetected(argc, argv);
 
     // A copy of every message in a file, for when there's no console to see
     // them in (or it closed with the program); SDL's log goes there too.
@@ -72,10 +90,11 @@ int main(int argc, char** argv) {
     if (argc >= 2) {
         std::string name = argv[1];
         if (name == "testbed")
-            direct = GameTarget{"testbed", "testbed", "testbed", "Testbed", {}, {}};
-        else if (config.hasSection(name) && name != Config::kGlobalSection)
+            direct = GameTarget{"testbed", "testbed", "testbed", "Testbed", {}, {}, config.settingsFor("testbed")};
+        else if (config.hasSection(name) && name != Config::kGlobalSection && !Config::isEngineSection(name))
             direct = GameTarget{name, config.get(name, "engine"), config.get(name, "gameid"),
-                                config.get(name, "description", name), config.get(name, "path"), {}};
+                                config.get(name, "description", name), config.get(name, "path"), {},
+                                config.settingsFor(name)};
         else {
             std::fprintf(stderr, "Unknown target '%s'\n", name.c_str());
             return 1;
@@ -83,6 +102,7 @@ int main(int argc, char** argv) {
     }
 
     Launcher launcher(system, config);
+    launcher.setLibraryDir(dataDir() / "library");
     while (auto target = direct ? direct : launcher.run()) {
         const MetaEngine* meta = findEngine(target->engineId);
         if (!meta) {
@@ -92,6 +112,9 @@ int main(int argc, char** argv) {
 
         // Each game's own files (settings, saves) go in a folder named after its target.
         target->savePath = dataDir() / "games" / target->target;
+        // How the picture is shown: the player's display settings for it
+        // (Reluva's own where none are set); the launcher puts its own back.
+        system.setDisplayOptions(settings::display(target->settings));
         SDL_Log("Starting %s (%s)", target->description.c_str(), meta->name());
         auto engine = meta->create(system, *target);
         Error err = engine->run();

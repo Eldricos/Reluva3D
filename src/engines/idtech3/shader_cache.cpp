@@ -288,7 +288,10 @@ ShaderCache::Material ShaderCache::makeMaterial(const ShaderDef& def, Lighting l
             g.wave = d.wave;
             g.vector = d.vector;
         } else if (d.type == T::Normal) {
-            continue; // only changes lighting by normals, which isn't modelled
+            g.type = gfx::Deform::Type::Normal;
+            g.wave = d.wave; // amplitude and frequency
+            if (d.wave.amplitude == 0)
+                continue;
         } else if (d.type == T::Autosprite || d.type == T::Autosprite2) {
             // Quads turned to face the camera, each frame (WorldRenderer).
             m.autosprite = d.type == T::Autosprite ? 1 : 2;
@@ -484,7 +487,7 @@ void ShaderCache::draw(int material, const gfx::DrawCall& base, gfx::TextureId l
 }
 
 void ShaderCache::drawFog(int material, const gfx::DrawCall& base, const std::array<float, 3>& color,
-                          float distance, float time) const {
+                          float distance, const std::array<float, 4>& plane, float time) const {
     const Material& m = materials_[size_t(material)];
     if (m.stages.empty() || distance <= 0)
         return;
@@ -493,7 +496,8 @@ void ShaderCache::drawFog(int material, const gfx::DrawCall& base, const std::ar
     call.texGen = gfx::TexGen::Uv;
     call.rgbSource = call.alphaSource = gfx::ColorSource::Constant;
     call.color = {color[0], color[1], color[2], 1};
-    call.fogDistance = distance;
+    call.fogDepth = std::max(distance, 1.0f);
+    call.fogPlane = plane;
     call.time = time;
     call.deforms = m.deforms;
     call.state = {};

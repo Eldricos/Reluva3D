@@ -1,10 +1,13 @@
 # AVI files
 
-`src/common/video/avi.{h,cpp}` reads Microsoft's AVI container far enough
-to play a movie: the first video stream's frames and the first audio
-stream's PCM. The layout is Microsoft's published RIFF/AVI format; the
-reader was checked on LEGO Alpha Team's `lmiintro.avi` against what FFmpeg's
-`ffprobe` reports for it.
+`src/common/video/avi.{h,cpp}` (`reluva::avi::Decoder`, described with
+Cinepak in [../cinepak.md](../cinepak.md)) reads Microsoft's AVI container
+far enough to play a movie: the first video stream's frames and the first
+audio stream's PCM. For another codec than Cinepak it hands out each
+frame's bytes (`readFrame`), which is how the Indeo 5 movie player
+(`common/video/movie.h`) uses it. The layout is Microsoft's published
+RIFF/AVI format; what it reads of `lmiintro.avi` was checked against what
+FFmpeg's `ffprobe` reports for it.
 
 - The file is `RIFF` chunks: a four-character id, a 32-bit little-endian
   size, the data, and a pad byte if the size is odd. A `LIST` chunk's data
@@ -12,10 +15,12 @@ reader was checked on LEGO Alpha Team's `lmiintro.avi` against what FFmpeg's
 - `RIFF` of type `AVI ` holds a `LIST hdrl`, with a `LIST strl` per stream,
   and a `LIST movi` with the data. `JUNK` chunks are padding; an `idx1`
   index may follow `movi`, and isn't needed.
+- `avih`, first in `hdrl`, starts with the microseconds a frame
+  (`lmiintro.avi`: 66,667, 15 a second), which the decoder times frames by.
 - In each `strl`:
   - `strh` gives the stream's type (`vids`, `auds`) and handler (the video
     codec's fourcc, `IV50`) at 0 and 4, then scale and rate at 20 and 24:
-    rate ÷ scale is the frames a second;
+    rate ÷ scale is the frames a second (agreeing with `avih`'s);
   - `strf`: for video a `BITMAPINFOHEADER` (width at 4, height at 8); for
     audio a `WAVEFORMATEX` (format tag, channels, samples a second, bytes a
     second, block align, bits a sample).

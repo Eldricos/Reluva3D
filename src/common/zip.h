@@ -38,6 +38,10 @@ public:
     const std::vector<Entry>& entries() const { return entries_; }
     const Entry* entry(std::string_view name) const;
     Error read(const Entry& entry, std::vector<uint8_t>& out) const;
+    // The same, but a stored (uncompressed) entry whose CRC-32 doesn't
+    // match is read as it is, `crcOk` false: for games whose own readers
+    // never checked, and whose copies have entries damaged that way.
+    Error readUnchecked(const Entry& entry, std::vector<uint8_t>& out, bool& crcOk) const;
 
 private:
     std::filesystem::path path_;
@@ -51,5 +55,9 @@ uint32_t crc32(const uint8_t* data, size_t size, uint32_t crc = 0);
 // Inflate raw deflate data (no zlib header) whose size is known. Fails if
 // the data is damaged or doesn't come to exactly `size` bytes.
 Error inflateRaw(const uint8_t* data, size_t dataSize, size_t size, std::vector<uint8_t>& out);
+
+// The same for a zlib stream (RFC 1950: a 2-byte header, deflate data and
+// an Adler-32 of the result, which is checked).
+Error inflateZlib(const uint8_t* data, size_t dataSize, size_t size, std::vector<uint8_t>& out);
 
 } // namespace reluva

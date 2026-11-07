@@ -107,6 +107,9 @@ public:
     std::array<uint32_t, 8> reg{};
     uint32_t eip = 0;
     uint32_t eflags = 0x202;
+    // EFLAGS, as a whole (the interface main's engines use; eflags is it).
+    uint32_t flags() const { return eflags; }
+    void setFlags(uint32_t v) { eflags = v; }
     uint32_t fsBase = 0; // the FS segment's base (Windows' thread information block)
     // The x87 unit: its eight registers as a stack (st(i) is regs[(top + i) & 7]),
     // kept as doubles: Windows programs run it at 53-bit precision.
@@ -429,7 +432,10 @@ RELUVA_FORCE_INLINE double Cpu::fpuPop() {
 }
 
 RELUVA_FORCE_INLINE double Cpu::fpuRound(double v) const {
-    // Precision control 0: 24 bits (a game may set it for speed).
+    // Precision control 0: 24 bits (a game may set it for speed, or
+    // Direct3D for it). It rounds only FADD, FSUB, FMUL, FDIV (and their
+    // forms) and FSQRT; the transcendental instructions' results don't
+    // follow it (Intel SDM vol. 1, 8.1.5.2).
     return (fpu.control & 0x300) == 0 ? double(float(v)) : v;
 }
 

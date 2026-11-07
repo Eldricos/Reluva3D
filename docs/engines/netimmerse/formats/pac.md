@@ -60,8 +60,8 @@ while writing it. They're read as empty files.
 Names are looked up ignoring case. It checks the header's size against the
 file's, and checks that every entry's name and fields lie inside the
 directory and its data inside the archive.
-An archive with subdirectories is refused, as none has any. `reluva-tool pac-list <file.pac>` lists an
-archive (offset, size, date, name), and `reluva-tool pac-extract <file.pac>
+An archive with subdirectories is refused, as none has any. `reluva-tool netimmerse pac-list <file.pac>` lists an
+archive (offset, size, date, name), and `reluva-tool netimmerse pac-extract <file.pac>
 <dir> [filter]` writes its files out.
 
 ## Contents seen

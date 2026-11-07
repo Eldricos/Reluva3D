@@ -14,7 +14,7 @@ This is how the layout was worked out:
   where 1 to 5 fields failed to fit.
 - **Testing each hypothesis.** Each one was tested by whether every object
   of the class then ended exactly where the next began. All 21 classes that
-  are read now do so for every object in every file. `reluva-tool fin-check`
+  are read now do so for every object in every file. `reluva-tool netimmerse fin-check`
   repeats the check, and also checks that every link points at an object of
   the right kind and that every image named is in the archives.
 
@@ -125,7 +125,7 @@ What each subclass adds after NiNode's fields:
 | `NiBillboardNode` | 909 | a number (1): the billboard mode. The viewer turns the node's +Z axis to the camera, which is how its quads lie: they're flat in X and Y |
 | `NiLODNode` | 64 | 5 bytes, the number of levels (one per child), 20 bytes for each level (its distances), a byte |
 | `Ni3dsAnimationNode`, `Ni3dsBone` | 860, 213 | 48 bytes of animation settings: 1, 1, 2, then floats 0, 1, 0 and the scene's range in ticks (16,000 to 356,800 in Evil Ogel), then 16 bytes of 0. The keys are in `DDActorSharedData` (below) |
-| `DDUnit` | 93 | a link to the model's `DDActorSharedData` *(from the code: `LinkObject` sets the member `DDActor`'s accessors read it through; formerly a guess)*. All 147 `DDUnit` and `DDEnv` links point at one (`reluva-tool fin-check`) |
+| `DDUnit` | 93 | a link to the model's `DDActorSharedData` *(from the code: `LinkObject` sets the member `DDActor`'s accessors read it through; formerly a guess)*. All 147 `DDUnit` and `DDEnv` links point at one (`reluva-tool netimmerse fin-check`) |
 | `DDEnv` | 54 | a link, as `DDUnit`'s; the root of every level |
 
 A level's sky is under a node named `Exterior` (holding `Backdrop`).
@@ -215,7 +215,7 @@ are stored in the models. All 1,260 names are in `Map.pac`, `LMap.pac` or
 
 ## Animation
 
-Every object of every class now reads to exactly its end. `reluva-tool fin-check` also checks the actors' tracks against
+Every object of every class now reads to exactly its end. `reluva-tool netimmerse fin-check` also checks the actors' tracks against
 the 3ds nodes (below). The viewer plays all of it.
 
 **How it was worked out.** Each class's objects were split out and dumped
@@ -286,7 +286,7 @@ fields. In order:
     They're worked out when the model is made (`DDActorManager::
     ProcessSkills`): what has keys within the clip's time. Everything
     else keeps where it was. All 905 lists in the files name only things
-    the model has (`reluva-tool fin-check`);
+    the model has (`reluva-tool netimmerse fin-check`);
 - the tracks: a count, then four for each:
   - **rotation**: a key count; if it's not 0, a key type, then the keys;
   - **position**, the same;
@@ -487,7 +487,7 @@ and accessors)*:
   lights;
 - the nodes it lights: a count (0 in every file) and links.
 
-As `reluva-tool fin-check` tallies them: the 24 directional lights have
+As `reluva-tool netimmerse fin-check` tallies them: the 24 directional lights have
 distance 1, curve 0.5, not attenuated (19), or attenuated with distances
 96,000 and 179,200, which directional lights don't use (5). The 86 point
 lights are all attenuated, 85 with curve 0 and distances from 12,800 to

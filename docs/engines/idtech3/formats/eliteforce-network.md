@@ -1,16 +1,15 @@
 # Elite Force: the Holomatch network protocol
 
-Status: **implemented, not yet tried against the retail game**. This
+Status: **implemented, and played against the retail game both ways**. This
 page is a specification for a server and a client that talk to the
 retail Elite Force Holomatch (patch 1.2) over the network. Reluva's
 (`src/engines/idtech3/wire/`, `eliteforce/net_fields.cpp`,
 `net_server.cpp`, `net_client.cpp`) is tested with Reluva at both ends,
 in memory with datagrams lost and over the system's sockets, and was
-played Reluva to Reluva on the retail data patched to 1.2 (October
-2026); not yet against the retail executable. Not done: a pure Reluva server (its
-client answers a pure server's check). Reluva's server lists as the
-level's paks (`sv_referencedPaks`) those holding its game code, map and
-bot map, where the original lists every pak it has read a file from.
+played Reluva to Reluva on the retail data patched to 1.2, and against
+the retail executable both ways (October 2026). Reluva's server can be
+pure (`sv_pure 1`), and lists the level's paks as the original does
+(below), plus those holding the client game and menus.
 With Raven's master gone, Reluva's client asks every master set when the
 menus ask for master 0. Where the sources disagree with what Reluva has measured in
 the game's own code, both are given.
@@ -454,8 +453,9 @@ Fields sent, in wire order:
 | 46 | damageShieldCount | 200 | 8 |
 | 47 | introTime | 56 | 32 |
 
-48 fields. The offsets are Lilium's layout of the player state (see
-[Layout cross-check](#layout-cross-check-with-reluva) for a conflict).
+48 fields. The offsets are Lilium's layout of the player state, which is
+patch 1.2's (the CD's 1.0 game code has a shorter one: see
+[Layout cross-check](#layout-cross-check-with-reluva)).
 Not sent: the words at 48 (a phaser recharge timer) and 52 (a 16-bit
 "use" debounce and 2 padding bytes), externalEventTime (152), and
 everything after the arrays. The arrays: stats[16] at 204, persistant[16]
@@ -716,8 +716,28 @@ Reluva's client (`src/engines/idtech3/pure.cpp`) sends `cp` with the
 game state's feed as soon as it has loaded the level, before its first
 move; for the paks it has read from it lists every pak of its own whose
 plain checksum is in the server's `sv_paks` (all of them if that's
-empty), which passes the server's checks whatever it read. Reluva's
-server isn't pure (`sv_pure 0`).
+empty), which passes the server's checks whatever it read.
+
+Reluva's server (`net_server.cpp`) is pure when `sv_pure` is 1 as a
+level starts (0 unless set: the menus' Pure Server line sets it). It
+then puts every pak it has in `sv_paks` and `sv_pakNames`, checks each
+player's `cp` against this level's feed as above (taking a level id
+first too, as Quake III's later clients send), drops a player whose
+answer is wrong, and holds a player's moves until it has answered: one
+already in the level is sent the game state again. Each level's answers
+are new (the feed changes). It isn't pure, with a note, when its own
+client game or menus aren't in a pak.
+
+**The level's paks** (`sv_referencedPaks`, `sv_referencedPakNames`,
+pure or not), as the original lists them for players to check and
+download: every pak the server's side has read a file from since the
+level started (the map; the game code's and bots' files: the bots' map
+and characters...) except for files read from every pak (`.shader`,
+`.txt`, `.cfg`, `.config`, `.bot`, `.arena`, `.menu`, anything under
+`levelshots`) and the server's own `vm/qagame.qvm`; and every pak
+outside the game's own folder (a mod's). Reluva's also lists those
+holding `vm/cgame.qvm` and `vm/ui.qvm`, which the original does only
+when pure. All in search order.
 
 ## Configstrings and info keys the engine uses
 
@@ -738,6 +758,31 @@ server isn't pure (`sv_pure 0`).
 
 The **checksum feed** is a random 32-bit number the server picks at each
 map load; it seeds the pure checksums of both sides.
+
+## Demos (.efdemo)
+
+A recorded match is the server's messages to the recording player, as
+they came: for each, the message's sequence number (32 bits, little
+endian), its length in bytes (32 bits), then the message itself as
+"Server to client messages" describes it, after the netchan's header and
+unscrambled. Two -1 words end the file. Checked on the three demos in
+patch 1.2's pak2.pk3 (`demos/demo0000.efdemo`, CTF_VOY2, 22086 messages;
+`demo0001.efdemo`, hm_borg3; `extreme.efdemo`, hm_noon): the first
+message is the game state (opcode 2), the rest snapshots and server
+commands, and every one parses to its end. The sequence numbers are what
+the snapshots' delta numbers count back from.
+
+The menus' Demos screen lists `FS_GetFileList("demos", ".efdemo")` and
+runs `demo <name>.efdemo`. Reluva plays one as Quake III's client does:
+the messages up to the game state at once, then (the level loaded) one a
+frame until the first snapshot; the clock is set from that snapshot and
+never adjusted after, and the next message is read whenever the time
+shown reaches the newest snapshot. The client game gets 1 as
+`DrawActiveFrame`'s third argument (a demo: nothing predicted from the
+player's commands). Esc ends it, as does the end of the file, and the
+menus return to their main menu. `reluva-tool idtech3 demo-run <game> <demo>`
+plays one headless through the client game: all three play in real time
+(590.1 s of match in 590.2 s of frames for demo0000).
 
 ## Master server
 
@@ -809,24 +854,20 @@ Against [eliteforce-syscalls.md](eliteforce-syscalls.md) and
 - **User command: agrees** in every offset (serverTime 0, buttons 4,
   weapon 5, angles 8, moves 20–22, 24 bytes) and in the buttons being a
   byte.
-- **Player state: conflicts.** Lilium's layout is 468 bytes with the
-  timer at 48, a 16-bit field at 52, `introTime` at 56, gravity at 60,
-  speed at 64, eventSequence at 108. Reluva measured the retail game
-  code it runs at 460 bytes (copies of 460, the user command at client +
-  464, snapshot entities at 504), with the timer at 48, 52 zero, and
-  **gravity (800) at 56 and speed (250) at 60**. Reluva's player viewer
-  reads the event sequence at 108, which agrees with Lilium but not with
-  gravity at 56 unless something else moved. A likely explanation, not
-  established: Reluva's QVMs are the CD's (`pak0.pk3`), and patch 1.2's
-  game code (in `pak1`–`pak3`) added the holodeck-door intro timer at 56
-  and one more word, giving Lilium's layout. The wire format above
-  depends only on field order and widths, but a server must read the
-  fields from the game's memory at the right offsets, and a retail 1.2
-  client runs its own 1.2 client game; so a Reluva server for retail
-  clients should run the 1.2 QVMs and take its offsets from them. Reluva's
-  other observations fit Lilium's names with gravity at 60 except
-  those: firing changes 44 (weaponTime), 160 (weapon in Lilium), 396
-  (ammo[0] in Lilium); the use-item button changes 104 and 120.
+- **Player state: two layouts, by version.** Lilium's layout is 1.2's:
+  468 bytes, with the phaser timer at 48, a 16-bit field at 52,
+  `introTime` (the holodeck-door intro timer) at 56, gravity at 60, speed
+  at 64 and eventSequence at 108. The CD's game code (1.0, `pak0.pk3`)
+  has 460 bytes: gravity (800) at 56 and speed (250) at 60, as Reluva
+  first measured. 1.2 adds `introTime` at 56 and one more word, whose
+  place isn't pinned down; the fields Reluva reads are at known offsets
+  in both. Patch 1.2's game code is in `pak1.pk3`
+  and `pak2.pk3`. Reluva tells the two apart by the size of the player
+  states the game code copies whole (`BlockCopy` of 468 or 460;
+  `src/engines/idtech3/eliteforce/game_layout.h`), and reads the fields at
+  that version's offsets. Network play uses 1.2's, which play against the
+  retail game patched to 1.2 confirmed: a Reluva server runs the 1.2 game
+  code, as retail 1.2 clients do.
 - Configstrings and the game state: agree (1024 configstrings, 16,000
   characters, Quake III's numbering).
 
@@ -872,9 +913,6 @@ Against [eliteforce-syscalls.md](eliteforce-syscalls.md) and
 - Which `infoResponse` keys the retail server browser needs, how many
   ports it scans, and whether it filters on `gamename`.
 - How Raven's `getserversResponse` list ended.
-- The player state's true layout in the 1.2 game code (see the
-  cross-check): which pk3 holds the 1.2 QVMs, and the 8 bytes between
-  Lilium's 468 and Reluva's measured 460.
 - Whether any retail client or server sends opcode 1 (nop) or relies on
   the 0 that ends the game state for anything else.
 - Retail defaults for `rate` and `snaps` (Lilium's are 25000 and 20).

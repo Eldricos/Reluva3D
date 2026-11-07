@@ -45,7 +45,7 @@ central directory's order, as 32-bit little-endian words; the MD4 of
 those bytes; and the digest's four little-endian words XORed together.
 A pure server's checksum of a pak (for the `cp` check,
 [eliteforce-network.md](eliteforce-network.md)) is the same with the
-server's checksum feed as a first word. `reluva-tool pk3-sums <game
+server's checksum feed as a first word. `reluva-tool idtech3 pk3-sums <game
 folder> [feed]` prints them (`src/engines/idtech3/pure.cpp`). The GPL
 engine that runs Elite Force knows the retail paks by theirs: `pak0.pk3`
 3376297517, `pak1.pk3` 596947475, `pak2.pk3` 3960871590, `pak3.pk3`
@@ -62,11 +62,15 @@ and Holomatch settings) and no other paks. Its detection entry is in
 The install folder also holds both executables (`stvoy.exe` for single
 player, `stvoyHM.exe` for Holomatch), the native game and menu code
 (`efgamex86.dll`, `efuix86.dll`) and the Bink video player
-(`binkw32.dll`), so the cinematics are probably Bink videos inside the pak.
+(`binkw32.dll`): the cinematics are Bink videos in the paks
+(`video/<name>.bik`, see [bink.md](../../../common/bink.md)).
 
 `pak0.pk3` holds 67 maps and a `vm/` folder with `qagame.qvm`,
 `cgame.qvm` and `ui.qvm` (see `docs/engines/idtech3/README.md`).
 
-**Still to check with owned copies:** whether patches or the Expansion
-Pack add paks, and the hashes of other releases (`reluva --hash
-baseEF/pak0.pk3`).
+The patches and the Expansion Pack add paks: `pak1.pk3` (1.1),
+`pak2.pk3` (1.2, both with new game code in `vm/`) and `pak3.pk3` (the
+Expansion Pack: its maps, Virtual Voyager and the holodeck missions; no
+`vm/`). Each is recognised by its hash (`src/engines/idtech3/games.cpp`).
+**Still to check with owned copies:** the hashes of other releases
+(`reluva --hash baseEF/pak0.pk3`).

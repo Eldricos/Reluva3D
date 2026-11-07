@@ -33,8 +33,9 @@ Error readFile(const std::filesystem::path& path, std::vector<uint8_t>& out) {
 
 GameProcess::GameProcess(std::filesystem::path gameDir, uint32_t memoryMb) : dir_(std::move(gameDir)) {
     cpu_ = std::make_unique<x86::Cpu>(memoryMb << 20);
-    process_ = std::make_unique<x86::Win32Process>(*cpu_);
+    process_ = std::make_unique<x86::Win32Process>(*cpu_, kProgram, true, true);
     process_->setProgram(kProgram, kInstallFolder);
+    process_->timeStampFromClock();
     // Its files: the install folder is the game folder; the CD's label is
     // the retail CD's, so its check passes. What the program writes there
     // (Game.txt: its settings and progress) goes to the save folder, and

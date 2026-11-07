@@ -65,8 +65,18 @@ class Win32Process {
 public:
     static constexpr uint32_t kStackSize = 4u << 20;
 
-    // `cpu`'s memory, all of it the process's.
-    explicit Win32Process(Cpu& cpu);
+    // `cpu`'s memory, all of it the process's; `exeName` is the program
+    // the DLLs are told loaded them (its command line and module name).
+    // `loadsExe`: an EXE will be loaded (which can't be relocated), so the
+    // stack is kept out of where EXEs ask to go, 0x400000 and the few
+    // megabytes after it; otherwise the memory is laid out as before that
+    // was asked for, which the engine tests' records depend on (the
+    // addresses things are loaded at show in their output).
+    // `stackAtTop`: the stack and the thread's block at the top of memory,
+    // below the native functions, so the whole bottom is free for images
+    // (LEGO Alpha Team's layout, which its references were recorded with).
+    explicit Win32Process(Cpu& cpu, std::string exeName = "host.exe", bool loadsExe = false,
+                          bool stackAtTop = false);
     Cpu& cpu() { return cpu_; }
     Arena& memory() { return *arena_; }
 
@@ -145,8 +155,11 @@ public:
     // GetModuleFileNameA. Default: Elite Force's.
     // Also makes the folder current.
     void setProgram(const std::string& exeName, const std::string& folder);
+    // RDTSC reads a 1 GHz processor's count by the process's clock
+    // (milliseconds), not the instructions run (Cpu::timeStamp's default).
+    void timeStampFromClock();
     const std::string& programFolder() const { return programFolder_; }
-    const std::string& programName() const { return programName_; }
+    const std::string& programName() const { return exeName_; }
     // Where the command line is, as GetCommandLineA returns it.
     uint32_t commandLineAddress() const { return commandLine_; }
 
@@ -287,7 +300,7 @@ private:
     std::vector<Thread> threads_;
     int current_ = -1;       // the thread running (-1: the main one)
     uint32_t threadReturn_ = 0; // where a thread's function returns to: a native that ends it
-    std::string programName_ = "stvoy.exe", programFolder_ = "C:\\STVEF\\";
+    std::string exeName_, programFolder_ = "C:\\STVEF\\";
     uint32_t commandLine_ = 0, environment_ = 0, environmentW_ = 0;
     uint32_t lastError_ = 0;
     uint32_t heapHandle_ = 0x7ffe0000; // HeapCreate's handles: never dereferenced

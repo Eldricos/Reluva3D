@@ -7,7 +7,7 @@
 #include "common/types.h"
 #include "engines/idtech3/bindings.h"
 #include "engines/idtech3/cvars.h"
-#include "engines/idtech3/eliteforce/scene.h"
+#include "engines/idtech3/client/scene.h"
 #include "engines/idtech3/qvm.h"
 #include "engines/idtech3/server_browser.h"
 #include "engines/idtech3/vm_services.h"
@@ -47,7 +47,7 @@ public:
 
     // One picture: a part (s1,t1)-(s2,t2) of a shader stretched over a
     // screen rectangle, tinted by the colour set before it.
-    using Picture = eliteforce::Picture;
+    using Picture = idtech3::Picture;
 
     UiHost(const SearchSet& files, CvarStore& cvars);
 
@@ -113,6 +113,11 @@ public:
     std::function<void(const std::string& sound, int channel)> startLocalSound;
     // What keys do, which the Controls menu shows and changes; none if not set.
     KeyBindings* bindings = nullptr;
+    // The install whose mods the Mods menu lists ("$modlist"), and its base
+    // game's folder.
+    void setModRoot(const std::filesystem::path& install, const std::string& baseDir) {
+        vmFiles_.setModRoot(install, baseDir);
+    }
     // Called by every system call before it's handled, for logging.
     std::function<void(int number, const int32_t* args)> trace;
     // Finding servers for the server list (calls 46 to 53, and the
@@ -132,6 +137,11 @@ public:
         std::string serverName, updateInfo, message;
     };
     ClientState clientState;
+    // The configstrings GetConfigString reads (a match's, for the in-game
+    // menu); none if unset.
+    std::function<std::string(int32_t index)> configstring;
+    // Their key catcher (KEYCATCH_UI, 2, while they take the keys).
+    int32_t catcher() const { return catcher_; }
 
 private:
     int32_t systemCall(Qvm& vm, int number, const int32_t* args);

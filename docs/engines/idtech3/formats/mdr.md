@@ -38,8 +38,10 @@ unit), the other nine the rotation's rows (minus 32768, in 32766ths).
 ## Levels of detail
 
 Each (12 bytes): how many surfaces, where the first starts and where the
-next level of detail starts, both from the level's start. Reluva uses the
-first, the most detailed.
+next level of detail starts, both from the level's start. Reluva loads
+every level, and chooses one for each model as it's drawn, as the
+original does: lower levels with distance, and further down with the
+model detail setting (`r_lodBias`).
 
 ## Surfaces (168 bytes, then their data)
 

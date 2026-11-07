@@ -20,7 +20,7 @@ namespace reluva::netimmerse {
 // The objects are found by their headers, then each class that's
 // understood is read; a class that isn't is skipped without losing the
 // rest. Every object records whether its fields
-// were read to exactly its end, which `reluva-tool fin-check` counts.
+// were read to exactly its end, which `reluva-tool netimmerse fin-check` counts.
 
 // NiAVObject: anything placed in the scene.
 struct FinAvObject {

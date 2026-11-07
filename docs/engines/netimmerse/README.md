@@ -25,13 +25,13 @@ their animation), textures, fonts, sounds and text.
 How it was built, measured and checked is in
 [alphateam.md](alphateam.md). Also:
 
-- [known-differences.md](known-differences.md): where it behaves
+- [KNOWN_DIFFERENCES.md](KNOWN_DIFFERENCES.md): where it behaves
   differently from the original, and why;
-- [unconfirmed.md](unconfirmed.md): what hasn't been checked against the
+- [UNCONFIRMED.md](UNCONFIRMED.md): what hasn't been checked against the
   original yet, and the format fields still guessed;
-- [testing.md](testing.md): the playthrough checklist, how to report a
+- [TESTING.md](TESTING.md): the playthrough checklist, how to report a
   problem, and the automated checks;
-- [reverse-engineering.md](reverse-engineering.md): how it was all worked
+- [REVERSE_ENGINEERING.md](REVERSE_ENGINEERING.md): how it was all worked
   out, the rules followed and the tools.
 
 ## Using it
@@ -80,7 +80,8 @@ alone.
 
 ## Developer tools
 
-`reluva-tool` has commands for this game, built with the engine:
+`reluva-tool netimmerse <command>` has commands for this game, built with
+the engine (`src/engines/netimmerse/tools/`):
 
 - `pac-list`, `pac-extract`: the `.pac` archives;
 - `fin-check`: reads every model, and checks the links and the animation
@@ -91,8 +92,29 @@ alone.
 - `at-sweep`: runs every mission so, several at a time (`-solved` to solve
   them).
 
-Run `reluva-tool` without arguments for each one's options; `at-run`'s are
-described in [alphateam.md](alphateam.md).
+`reluva-tool help netimmerse` lists them; run one without arguments for
+its options. `at-run`'s are described in [alphateam.md](alphateam.md).
+
+## Tests
+
+As every engine's ([../../DEVELOPMENT.md](../../DEVELOPMENT.md#engine-tests)),
+in `tests/engines/netimmerse/`:
+
+- **Unit tests** (`reluva-tests netimmerse.unit.formats`): the `.pac`,
+  `.DDS`, text, `.FIN` and `.DDF` readers, on files built in the test.
+- **The basic engine test** (`reluva-tests netimmerse.engine`), without the
+  game's files: a small install of its own, recognised, and shown page by
+  page in the data viewer; its record is `data/engine-record.txt`.
+- **The game-files test** (`gamedata.cmake`), with your own install: set
+  `RELUVA_ALPHATEAM` to the game's folder and run
+  `ctest -L gamedata -R netimmerse`. It lists the archives, reads every
+  model, and runs the game's own code: its start, and Mission One played
+  through at 640x480 and 1024x768. Records are in
+  `data/gamedata/english/`. [TESTING.md](TESTING.md) has the details.
+
+The emulator, the Windows stand-ins, DirectX, A3D and the Indeo video it
+uses are tested with the shared code (`reluva-tests common.unit.jit`,
+`common.unit.windows`, `common.unit.indeo`).
 
 ## Documents
 

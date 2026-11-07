@@ -25,12 +25,21 @@ struct Image {
 // apart by their contents. Uses stb_image (third_party/stb).
 Error decode(const std::vector<uint8_t>& data, Image& out);
 
-// Encode the image as an uncompressed 24-bit TGA (bottom row first, as
-// most programs write them); alpha is dropped.
-std::vector<uint8_t> encodeTga(const Image& img);
+// Encode the image as an uncompressed TGA (bottom row first, as most
+// programs write them): 24-bit, alpha dropped, or 32-bit keeping it.
+std::vector<uint8_t> encodeTga(const Image& img, bool alpha = false);
+
+// Encode the image as a PNG (8-bit RGBA, its rows stored without
+// compression: larger than a compressing encoder's, read by every program).
+std::vector<uint8_t> encodePng(const Image& img);
 
 // Copy the image into an RGBA32 surface with its top-left corner at (x, y),
-// clipped to it, blending by alpha over what's there.
-void blit(Surface& dst, const Image& img, int x, int y);
+// clipped to it, blending by alpha over what's there; opacity (0-255) makes
+// the whole image that much see-through on top.
+void blit(Surface& dst, const Image& img, int x, int y, int opacity = 255);
+// The same over a surface that may be transparent (an overlay): blended
+// by both alphas, the result's kept, so it can go over something else.
+// Over an opaque surface it comes to blit's.
+void blitOver(Surface& dst, const Image& img, int x, int y);
 
 } // namespace reluva::image

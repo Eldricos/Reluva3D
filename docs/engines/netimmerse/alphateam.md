@@ -34,7 +34,7 @@ for the game.
 
 - Engine id `netimmerse`, in `src/engines/netimmerse/`: `.pac` archives,
   NIF reading, the scene graph, rendering through `gfx::Renderer3D`, sound
-  through `common/audio`. Built behind `RELUVA_ENGINE_NETIMMERSE`, on by
+  through `common/audio`. Built when `engines.cfg` has `netimmerse=enabled`, as it does by
   default (it was off at first, which left the launcher not recognising
   the game in a default build).
 - Game id `legoalphateam`, with what is specific to it in
@@ -42,7 +42,7 @@ for the game.
 - Formats documented under `docs/engines/netimmerse/formats/` (`.pac`, the
   game's own files) and `docs/engines/netimmerse/formats/` (NIF, as this game
   uses it), with how each was worked out, as CONTRIBUTING.md asks.
-- Tests in `tests/test_netimmerse.cpp`, on small files built by the tests
+- Tests in `tests/engines/netimmerse/unit/formats.cpp` (`netimmerse.unit.formats`), on small files built by the tests
   themselves (no game data in the repository).
 
 If later LEGO games turn out to use NetImmerse too, they join this
@@ -62,8 +62,8 @@ Each phase ends with something that runs and is committed.
   against all eight retail archives.
 - Done: `PacArchive : Archive` (`src/engines/netimmerse/pac_archive.cpp`), so
   `.pac` files join a `SearchSet` like any other archive. It's tested in
-  `tests/test_netimmerse.cpp`, on archives the tests build.
-- Done: `reluva-tool pac-list` and `pac-extract`, as for New Worlds' `.cat`.
+  `tests/engines/netimmerse/unit/formats.cpp` (`netimmerse.unit.formats`), on archives the tests build.
+- Done: `reluva-tool netimmerse pac-list` and `pac-extract`, as for New Worlds' `.cat`.
   On all eight archives they give the same 2,462 files, byte for byte, as
   a separate script written from the format notes.
 - Done: what the archives hold ([pac.md](formats/pac.md)):
@@ -84,7 +84,7 @@ from the launcher, the engine now shows these pages (keys in
   colours, materials and alpha blending, and the nearest level of
   level-of-detail nodes. The format is in
   [formats/fin.md](formats/fin.md);
-  `reluva-tool fin-check` reads all 147 models. Every object of the 21
+  `reluva-tool netimmerse fin-check` reads all 147 models. Every object of the 21
   classes read ends exactly where the next begins, and every link and image
   name resolves.
   - **Characters.** Their limbs are skins that follow bones; all 15 are
@@ -315,7 +315,7 @@ Progress:
   files from the save folder first; it may write nowhere else (Playing,
   below).
 - The CD-ROM drive (D:) has the retail CD's label, `LEGOATEN`.
-- `reluva-tool at-run <game folder> [-log]` runs all of it and reports how far it
+- `reluva-tool netimmerse at-run <game folder> [-log]` runs all of it and reports how far it
   gets: the imports nothing stands in for, by DLL, and on a failure the
   last instructions (as module+offset), the last stand-ins called, the
   registers and the stack's first words, and the return addresses found on
@@ -779,7 +779,7 @@ Progress:
     drawing, the graphics card instead of the processor, which would end
     the frames being checked byte for byte.
   - What differs from the original because of how it runs is in
-    [known-differences.md](known-differences.md).
+    [KNOWN_DIFFERENCES.md](KNOWN_DIFFERENCES.md).
 
 #### DirectDraw and Direct3D 7
 
@@ -849,7 +849,7 @@ headers' (`directx/interfaces.cpp`).
   Software first, rather than `gfx::Renderer3D`: the game locks and blits
   surfaces as well as drawing into them, and doing both in one place keeps
   them consistent. It also lets the frames be checked without a GPU.
-- `testDirectX` in `tests/test_common.cpp` checks these, called through
+- `testDirectX` in `tests/common/windows.cpp` (`common.unit.windows`) checks these, called through
   the vtables: a clear, a Gouraud triangle, the depth test, a textured
   quad with point sampling, and a flip.
 
@@ -950,7 +950,7 @@ reads, the vftables it builds for its own subclasses):
   and nothing placed, to frame 3700: all ran without a failure, the crew
   moving as the room has them, most ending in "Team Member Down! Try
   Again / Return to HQ", as an unsolved room does.
-  - `reluva-tool at-sweep <game folder> <out folder>` does this second
+  - `reluva-tool netimmerse at-sweep <game folder> <out folder>` does this second
     run for every mission (or those named), as many at once as there
     are processors (`-jobs`), and reports which didn't run to the frame
     (`-quit`, 3700). It shows frames late, as the player does. Each mission's log and save (and with `-shots`, a

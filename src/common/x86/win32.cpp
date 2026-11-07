@@ -176,35 +176,35 @@ uint32_t Win32Process::Module::exportAddress(const std::string& function) const 
     return 0;
 }
 
-Win32Process::Win32Process(Cpu& cpu) : cpu_(cpu) {
+Win32Process::Win32Process(Cpu& cpu, std::string exeName, bool loadsExe, bool stackAtTop)
+    : cpu_(cpu), exeName_(std::move(exeName)) {
     arena_ = std::make_unique<Arena>(cpu, 0x10000, cpu.nativeBase() & ~0xfffu);
     startMs_ = steadyMs();
     milliseconds = [this] { return uint32_t(steadyMs() - startMs_); };
-    // The time stamp counter of a 1 GHz processor, going by the process's
-    // clock: programs measure the processor's speed with it across a Sleep
-    // (LEGO Alpha Team's DDCaps::CalcProcSpeed), which counting
-    // instructions would make nearly nothing. Within a millisecond it moves
-    // on by the instructions run, up to the next millisecond's reading.
-    cpu.timeStamp = [this] {
-        const uint64_t at = uint64_t(milliseconds()) * 1000000;
-        if (at > timeStampAt_)
-            timeStampAt_ = at;
-        else
-            timeStampAt_ = std::min(timeStampAt_ + 1 + (cpu_.executed() - timeStampExecuted_), at + 999999);
-        timeStampExecuted_ = cpu_.executed();
-        return timeStampAt_;
-    };
 
     // The thread: its stack, and its information block (which FS points
     // at): the exception handler chain's head, the stack's bounds, its own
     // address and the process's block's.
-    // At the top of memory, below the native functions, so the bottom is
-    // free for images: an EXE without relocations must be at 0x400000.
-    const uint32_t top = (cpu.nativeBase() & ~0xffffu) - 0x10000;
-    const uint32_t stack = top - kStackSize;
-    tib_ = stack - 2 * Cpu::kPageSize;
-    peb_ = stack - Cpu::kPageSize;
-    arena_->claim(tib_, 2 * Cpu::kPageSize + kStackSize);
+    uint32_t stack = 0;
+    if (stackAtTop) {
+        // At the top of memory, below the native functions, so the bottom
+        // is free for images: an EXE without relocations must be at
+        // 0x400000.
+        const uint32_t top = (cpu.nativeBase() & ~0xffffu) - 0x10000;
+        stack = top - kStackSize;
+        tib_ = stack - 2 * Cpu::kPageSize;
+        peb_ = stack - Cpu::kPageSize;
+        arena_->claim(tib_, 2 * Cpu::kPageSize + kStackSize);
+    } else {
+        // With an EXE to load, not where programs (which can't be relocated)
+        // ask to be loaded: 0x400000 and the few megabytes after it.
+        const bool reserved = loadsExe && arena_->claim(0x400000, 0xc00000);
+        stack = arena_->alloc(kStackSize, 0x10000);
+        if (reserved)
+            arena_->free(0x400000);
+        tib_ = arena_->alloc(Cpu::kPageSize, Cpu::kPageSize);
+        peb_ = arena_->alloc(Cpu::kPageSize, Cpu::kPageSize);
+    }
     stackTop_ = stack + kStackSize;
     cpu.write32(tib_ + 0x00, 0xffffffffu);
     cpu.write32(tib_ + 0x04, stackTop_);
@@ -217,8 +217,11 @@ Win32Process::Win32Process(Cpu& cpu) : cpu_(cpu) {
     cpu.fsBase = tib_;
     cpu.setStack(stackTop_ - 16);
 
-    commandLine_ = arena_->alloc(1024);
-    cpu.writeString(commandLine_, programName_, 1024);
+    // Room for setProgram's quoted path where that's how the program is
+    // started; otherwise just the name (the layout the records have).
+    const uint32_t commandSize = stackAtTop ? 1024 : uint32_t(exeName_.size()) + 1;
+    commandLine_ = arena_->alloc(commandSize);
+    cpu.writeString(commandLine_, exeName_, commandSize);
     environment_ = arena_->alloc(16); // empty: two NULs
     environmentW_ = arena_->alloc(16);
     threadReturn_ = cpu.addNative("thread returned", [this](Cpu&) {
@@ -353,11 +356,35 @@ uint32_t Win32Process::moduleHandle(const std::string& name) const {
 }
 
 void Win32Process::setProgram(const std::string& exeName, const std::string& folder) {
-    programName_ = exeName;
+    exeName_ = exeName;
     programFolder_ = folder;
     setCurrentFolder(folder);
     // Quoted, as Windows' shell starts programs.
-    cpu_.writeString(commandLine_, "\"" + folder + exeName + "\"", 1024);
+    const std::string line = "\"" + folder + exeName + "\"";
+    uint32_t size = arena_->size(commandLine_);
+    if (line.size() + 1 > size) {
+        arena_->free(commandLine_);
+        size = uint32_t(line.size()) + 1;
+        commandLine_ = arena_->alloc(size);
+    }
+    cpu_.writeString(commandLine_, line, size);
+}
+
+void Win32Process::timeStampFromClock() {
+    // The time stamp counter of a 1 GHz processor, going by the process's
+    // clock: programs measure the processor's speed with it across a Sleep
+    // (LEGO Alpha Team's DDCaps::CalcProcSpeed), which counting
+    // instructions would make nearly nothing. Within a millisecond it moves
+    // on by the instructions run, up to the next millisecond's reading.
+    cpu_.timeStamp = [this] {
+        const uint64_t at = uint64_t(milliseconds()) * 1000000;
+        if (at > timeStampAt_)
+            timeStampAt_ = at;
+        else
+            timeStampAt_ = std::min(timeStampAt_ + 1 + (cpu_.executed() - timeStampExecuted_), at + 999999);
+        timeStampExecuted_ = cpu_.executed();
+        return timeStampAt_;
+    };
 }
 
 void Win32Process::provide(const std::string& dll, const std::string& function, Cpu::Native fn) {
@@ -605,7 +632,7 @@ void Win32Process::addStandIns() {
         return c.arg(0) ? moduleHandle(c.string(c.arg(0))) : kExeHandle;
     });
     stdcall(k, "GetModuleFileNameA", 3, [this](Cpu& c) {
-        std::string name = programName_;
+        std::string name = exeName_;
         for (const auto& m : modules_)
             if (m->base == c.arg(0))
                 name = m->name;

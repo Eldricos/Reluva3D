@@ -20,6 +20,7 @@
 #include "engines/netimmerse/viewers.h"
 #include "common/audio/mixer.h"
 #include "common/fs.h"
+#include "common/settings.h"
 #include "common/video/movie.h"
 
 #include <algorithm>
@@ -63,6 +64,7 @@ public:
         // One mixer for the game and the viewer's pages, for as long as the
         // engine runs; without an audio device nothing plays.
         mixer_ = std::make_unique<audio::Mixer>(sys_.audioRate());
+        mixer_->setMasterVolume(settings::volume(target_.settings, settings::kMasterVolume));
         audioOut_ = !audio::startMixerOutput(sys_, *mixer_);
         struct AudioStop {
             System& sys;

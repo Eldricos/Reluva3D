@@ -11,7 +11,7 @@
 
 namespace reluva::newworlds {
 
-// A .stb string table (tag 0x32). See docs/engines/newworlds/formats/stb.md.
+// A .stb string table (tag 0x32). See docs/engines/newworlds/stb.md.
 class StringTable {
 public:
     struct String {
