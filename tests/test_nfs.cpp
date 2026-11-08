@@ -2218,6 +2218,10 @@ void testHorizon() {
     CHECK(clouds == cloudBrightness(hometown, 1));
     CHECK(*std::max_element(clouds.begin(), clouds.end()) <= 235);
     CHECK(*std::max_element(clouds.begin(), clouds.end()) > *std::min_element(clouds.begin(), clouds.end()));
+    // The alpha (0x47b2e5): each point's brightness on a 3dfx card; with
+    // Direct3D the brightness less half the variance at every point.
+    CHECK(cloudAlpha(hometown, 150, false) == 150);
+    CHECK(cloudAlpha(hometown, 150, true) == 235 - 104 && cloudAlpha(hometown, 20, true) == 131);
     // Without variance every point is the brightness pushed up from the
     // middle, (1 + sqrt(107 / 128)) x 127.5, and stays so: the passes only
     // hold a point to the brightness when it moves.

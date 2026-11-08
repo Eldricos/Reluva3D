@@ -152,6 +152,7 @@ void TrackPage::release() {
     pendingHits_.clear();
     hitText_.clear();
     particlePictures_.clear(); // owned by textures_
+    particlePictureSizes_.clear();
     particleRuns_.clear();
     if (renderer_ && particleMesh_)
         renderer_->destroyMesh(particleMesh_);
@@ -434,7 +435,8 @@ void TrackPage::loadSky() {
                 v.pos[2] = -z;
                 v.uv[0] = static_cast<float>(col);
                 v.uv[1] = static_cast<float>(row);
-                v.color[0] = v.color[1] = v.color[2] = v.color[3] = b;
+                v.color[0] = v.color[1] = v.color[2] = b;
+                v.color[3] = cloudAlpha(h, b, direct3d_);
                 vertices.push_back(v);
             }
         for (int row = 0; row + 1 < kCloudPoints; ++row)
@@ -527,7 +529,8 @@ void TrackPage::updateSky(const gfx::Vec3& forward, const gfx::Vec3& right) {
     if (cloudIndices_) {
         for (size_t i = 0; i < cloudBase_.size(); ++i) {
             uint8_t* c = skyVertices_[cloudVertex_ + i].color;
-            c[0] = c[1] = c[2] = c[3] = cloudBase_[i];
+            c[0] = c[1] = c[2] = cloudBase_[i];
+            c[3] = cloudAlpha(horizon_, cloudBase_[i], direct3d_);
         }
         if (!bolts_.empty()) {
             const LightningBolt& bolt = bolts_.back();
@@ -557,12 +560,20 @@ void TrackPage::updateSky(const gfx::Vec3& forward, const gfx::Vec3& right) {
     if (boltMesh_) {
         std::vector<gfx::Vertex> quads(240 * 4);
         uint32_t q = 0;
-        for (const LightningBolt& bolt : bolts_)
+        for (const LightningBolt& bolt : bolts_) {
+            // 0x4946e0: each point's lines to the points after it in the
+            // colour 0xE2E2FF with alpha life x 510 / 24 (at most 255: full
+            // for 12 ticks, then fading), added (flags word 5, bit 0: blend
+            // 1, source alpha and one); the first point's (its +4 word set)
+            // in colour 0, so the lines out of it add nothing.
+            const uint8_t alpha = static_cast<uint8_t>(boltFlash(bolt));
             for (const LightningBolt::Point& p : bolt.points) {
-                if (p.parent < 0 || q >= 240)
+                if (p.parent <= 0 || q >= 240)
                     continue;
-                // Track coordinates to the page's (z negated); about a pixel
-                // and a half wide, across the line as seen.
+                // Track coordinates to the page's (z negated); a pixel of the
+                // game's 640 x 480 wide (the game's quad is the line and the
+                // line moved by a pixel right and down), across the line as
+                // seen.
                 const auto& a = bolt.points[size_t(p.parent)].at;
                 const gfx::Vec3 from{a[0], a[1], -a[2]}, to{p.at[0], p.at[1], -p.at[2]};
                 const gfx::Vec3 along{to[0] - from[0], to[1] - from[1], to[2] - from[2]};
@@ -573,19 +584,21 @@ void TrackPage::updateSky(const gfx::Vec3& forward, const gfx::Vec3& right) {
                 const float distance = std::sqrt(mid[0] * mid[0] + mid[1] * mid[1] + mid[2] * mid[2]);
                 if (length <= 0)
                     continue;
-                const float width = distance * 0.0035f / length;
+                const float width = distance * (0.5f / 320) / length;
                 const gfx::Vec3* ends[4] = {&from, &to, &to, &from};
                 for (int k = 0; k < 4; ++k) {
                     gfx::Vertex& v = quads[q * 4 + uint32_t(k)];
                     const float s = k == 0 || k == 1 ? -width : width;
                     for (int i = 0; i < 3; ++i)
                         v.pos[i] = (*ends[k])[size_t(i)] + side[size_t(i)] * s;
-                    // 0xffe2e2ff, pale blue-white (0x4946fd).
+                    // 0xe2e2ff, pale blue-white (0x4946fd).
                     v.color[0] = v.color[1] = 0xe2;
-                    v.color[2] = v.color[3] = 0xff;
+                    v.color[2] = 0xff;
+                    v.color[3] = alpha;
                 }
                 ++q;
             }
+        }
         boltIndices_ = q * 6;
         if (q)
             renderer_->setMeshVertices(boltMesh_, quads);
@@ -814,8 +827,10 @@ void TrackPage::load(int index) {
 
     // The virtual road's walls: a barrier along each side, red on the left
     // and green on the right, from each road point to the next (a guide
-    // for checking the .col data against the scenery). Lower and yellow,
-    // the road's edges from its lane counts and widths.
+    // for checking the .col data against the scenery); blue where the
+    // side's code (col.md, the side codes: the point's byte 14, high
+    // nibble left) is 3 and white where it is 5, the two dust codes.
+    // Lower and yellow, the road's edges from its lane counts and widths.
     const auto& road = collision_.road;
     for (size_t i = 0; i + 1 < road.size(); ++i) {
         const auto& a = road[i];
@@ -834,9 +849,16 @@ void TrackPage::load(int index) {
                 out.pos[1] = p.position[1] + p.right[1] * s + (k == 1 || k == 2 ? height : 0);
                 out.pos[2] = -(p.position[2] + p.right[2] * s);
                 out.normal[1] = 1;
+                const int code = (a.unknown >> 16 & 0xff) >> (right ? 0 : 4) & 15;
                 out.color[0] = edge || !right ? 255 : 40;
                 out.color[1] = edge || right ? 255 : 40;
                 out.color[2] = 40;
+                if (!edge && code == 3) {
+                    out.color[0] = out.color[1] = 40;
+                    out.color[2] = 255;
+                } else if (!edge && code == 5) {
+                    out.color[0] = out.color[1] = out.color[2] = 235;
+                }
                 out.color[3] = 255;
                 vertices.push_back(out);
             }
@@ -3278,10 +3300,12 @@ gfx::TextureId TrackPage::particlePicture(int kind) {
     for (const Shape& shape : banks_[kLaneSheet].shapes)
         if (shape.name == name) {
             image::Image img;
-            if (!decodeForGlide(shape, img) && !renderer_->createTexture(img.w, img.h, img.rgba.data(), glideTextureParams(), id))
+            if (!decodeForGlide(shape, img) && !renderer_->createTexture(img.w, img.h, img.rgba.data(), glideTextureParams(), id)) {
                 textures_.push_back(id);
-            else
+                particlePictureSizes_[id] = {img.w, img.h};
+            } else {
                 id = 0;
+            }
         }
     particlePictures_[name] = id;
     return id;
@@ -3331,12 +3355,14 @@ void TrackPage::prepareParticles(const gfx::Vec3& eye, const gfx::Vec3& forward,
     }
     std::sort(shown.begin(), shown.end(), [](const Shown& a, const Shown& b) { return a.depth > b.depth; });
     std::vector<gfx::Vertex> vertices(kQuads * 4);
-    // The pictures' corners at the texels' centres, 1/64 to 63/64 of the 32 x
-    // 32 pictures (e1-t8s0's THRASH list, the smoke's quads); the streaks'
-    // as before (no streak in a list yet).
+    // The pictures' corners at the texels' centres, half a texel in from
+    // each edge of the picture: 0x4d3f50 keeps 1 / (2 x its width) and
+    // 1 / (2 x its height) and their complements in the picture's record
+    // (+0x08-+0x24), and the polygon drawers (0x433840, 0x433bb0) give
+    // every quad those unless its flags have bit 1, so streaks too (1/16
+    // to 15/16 of the 8 x 8 sparks; 1/64 to 63/64 of the 32 x 32 smoke,
+    // as e1-t8s0's THRASH list has it).
     static constexpr float kUv[4][2] = {{0, 0}, {1, 0}, {1, 1}, {0, 1}};
-    static constexpr float kCentred[4][2] = {
-        {0.015625f, 0.015625f}, {0.984375f, 0.015625f}, {0.984375f, 0.984375f}, {0.015625f, 0.984375f}};
     for (size_t q = 0; q < shown.size(); ++q) {
         Particle& p = *shown[q].p;
         const ParticleTemplate& t = *particleTemplate(p.kind);
@@ -3379,20 +3405,24 @@ void TrackPage::prepareParticles(const gfx::Vec3& eye, const gfx::Vec3& forward,
                 }
             }
         }
+        const gfx::TextureId texture = particlePicture(p.kind);
+        std::array<float, 2> inset{0.015625f, 0.015625f};
+        if (auto it = particlePictureSizes_.find(texture); it != particlePictureSizes_.end())
+            for (int i = 0; i < 2; ++i)
+                inset[size_t(i)] = it->second[size_t(i)] > 0 ? 0.5f / static_cast<float>(it->second[size_t(i)]) : 0;
         for (int k = 0; k < 4; ++k) {
             gfx::Vertex& v = vertices[q * 4 + size_t(k)];
             v.pos[0] = corners[size_t(k)][0];
             v.pos[1] = corners[size_t(k)][1];
             v.pos[2] = -corners[size_t(k)][2];
-            v.uv[0] = t.streak ? kUv[k][0] : kCentred[k][0];
-            v.uv[1] = t.streak ? kUv[k][1] : kCentred[k][1];
+            v.uv[0] = kUv[k][0] == 0 ? inset[0] : 1 - inset[0];
+            v.uv[1] = kUv[k][1] == 0 ? inset[1] : 1 - inset[1];
             v.normal[1] = 1;
             v.color[0] = static_cast<uint8_t>(p.colour >> 16);
             v.color[1] = static_cast<uint8_t>(p.colour >> 8);
             v.color[2] = static_cast<uint8_t>(p.colour);
             v.color[3] = static_cast<uint8_t>(p.colour >> 24);
         }
-        const gfx::TextureId texture = particlePicture(p.kind);
         const bool added = (t.flags & 1) != 0;
         if (particleRuns_.empty() || particleRuns_.back().texture != texture || particleRuns_.back().added != added)
             particleRuns_.push_back({texture, added, static_cast<uint32_t>(q), 0});
@@ -3651,7 +3681,14 @@ void TrackPage::handleEvent(const Event& ev) {
         case 'o': objects_ = !objects_; break;
         case 'g': walls_ = !walls_; break;
         case 'f': cullBack_ = !cullBack_; break;
-        case 'y': fog_ = !fog_; break;
+        case 'y':
+            if (ev.mods & keymod::Shift) {
+                direct3d_ = !direct3d_;
+                skyChanged_ = true;
+            } else {
+                fog_ = !fog_;
+            }
+            break;
         case 'p': hitWall((ev.mods & keymod::Shift) != 0); break;
         case 'i': lightIntensity_ = lightIntensity_ <= 0.25f ? 1.0f : lightIntensity_ - 0.25f; break;
         case 'm':
@@ -3901,7 +3938,7 @@ void TrackPage::update(uint64_t nowMs) {
                           {static_cast<uint8_t>(clear[0]), static_cast<uint8_t>(clear[1]), static_cast<uint8_t>(clear[2])});
     // Fog as the game has the card draw it (thrash.md, Fog): its curve over
     // the depth, with the values it sends for the scenery and for the sky.
-    const bool fogged = fog_ && skyError_.empty();
+    const bool fogged = fog_ && !direct3d_ && skyError_.empty();
     const float sceneryFog = fogged ? static_cast<float>(sceneryFogValue(static_cast<int>(fogDensity + 0.5f))) : 0;
     const float skyFog = fogged ? static_cast<float>(skyFogValue(horizon_, static_cast<int>(fogDensity + 0.5f))) : 0;
     auto fogDraw = [&](gfx::DrawCall& call, float value) {
@@ -3968,6 +4005,9 @@ void TrackPage::update(uint64_t nowMs) {
             bolts.mesh = boltMesh_;
             bolts.firstIndex = 0;
             bolts.indexCount = boltIndices_;
+            bolts.alphaSource = gfx::ColorSource::Vertex;
+            bolts.state.src = gfx::Blend::SrcAlpha;
+            bolts.state.dst = gfx::Blend::One;
             fogDraw(bolts, skyFog);
             renderer_->draw(bolts);
         }
@@ -4166,7 +4206,7 @@ void TrackPage::update(uint64_t nowMs) {
     std::fill(overlay_.pixels.begin(), overlay_.pixels.end(), uint8_t(0));
     std::vector<std::string> lines = {"Tracks  " + std::to_string(index_ + 1) + "/" + std::to_string(tracks_.size()) +
                                       "  " + tracks_[index_] + "  " + trackName(tracks_[index_]) + "  " +
-                                      kVariantNames[variant_]};
+                                      kVariantNames[variant_] + (direct3d_ ? "  (Direct3D look)" : "")};
     if (!error_.empty()) {
         lines.push_back(error_);
     } else {
@@ -4271,7 +4311,7 @@ void TrackPage::update(uint64_t nowMs) {
         if (!collisionError_.empty())
             lines.push_back(collisionError_);
     }
-    lines.push_back("PgUp/PgDn: track  WASD/arrows/drag: move  N/B: block  1-3: detail  H: sky  I: lights  P: wall hit  E: headlights  J: cars  C: police orders (Shift: follow)  Z: reflections  Q: effects  U: mirror  T V L O G X F Y M: toggles");
+    lines.push_back("PgUp/PgDn: track  WASD/arrows/drag: move  N/B: block  1-3: detail  H: sky  I: lights  P: wall hit  E: headlights  J: cars  C: police orders (Shift: follow)  Z: reflections  Q: effects  U: mirror  T V L O G X F Y M: toggles (Shift+Y: Direct3D look)");
     for (size_t i = 0; i < lines.size(); ++i) {
         const int y = i + 1 == lines.size() ? kFrameH - font::kLineHeight - 4 : 4 + static_cast<int>(i) * font::kLineHeight;
         for (int yy = y - 2; yy < y + font::kLineHeight - 1; ++yy)

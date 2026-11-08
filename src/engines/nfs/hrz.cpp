@@ -246,6 +246,12 @@ float cloudHeight(const Horizon& h, float r, int brightness) {
 // passes that move each towards its neighbours within two points, by half
 // the mean of (neighbour - it) x |neighbour - 128| / 128, kept within
 // 0..bright.
+uint8_t cloudAlpha(const Horizon& h, uint8_t brightness, bool direct3d) {
+    if (!direct3d)
+        return brightness;
+    return static_cast<uint8_t>((h.cloudBright - (h.cloudVariance >> 1)) & 0xff);
+}
+
 std::array<uint8_t, kCloudPoints * kCloudPoints> cloudBrightness(const Horizon& h, uint32_t seed) {
     constexpr int n = kCloudPoints;
     std::array<float, n * n> b{};

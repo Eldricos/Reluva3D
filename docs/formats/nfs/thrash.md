@@ -135,6 +135,23 @@ Direct3D:
 | 0x190-0x195 | assorted; 0x193 returns capabilities, 0x194 and 0x195 set source and destination blend from tables |
 | 0x2bd, 0x2bf, 0x2c2 | softtria's own; d3da ignores them and returns 0 |
 
+## d3da's device defaults
+
+`d3da.dll` sets up its Direct3D device once (`0x60004137`-`0x600042af`,
+IDirect3DDevice2::SetRenderState through vtable `+0x5c`, constant
+arguments; November 2026): colour keying off, alpha blending on with
+source alpha over, alpha test on (greater than 0), z test and write on
+(less or equal), perspective-correct texturing, TEXTUREMAG and
+TEXTUREMIN LINEAR (bilinear), texture blend MODULATEALPHA, clamped
+addressing, Gouraud shading, solid fill, dithering off, specular off,
+antialiasing off, fog off (colour 0x010101, table mode linear, 0 to 1).
+Its `setstate` (`0x60002b58`, the wrapper `0x60004f64` takes the state
+in eax and the value in edx) changes the filter only for state 7 and
+never the texture blend. So under Direct3D the game's textures are
+bilinear-filtered and undithered, where the Voodoo's are point-sampled
+and dithered (below). What else the game does differently for Direct3D
+is in [hrz.md](hrz.md), The Direct3D renderer.
+
 ## Texture filtering
 
 What the game asks for (November 2026): state 0x7 is the texture

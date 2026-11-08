@@ -104,6 +104,11 @@ float cloudHeight(const Horizon& h, float r, int brightness = 0);
 constexpr int kCloudPoints = 13;
 constexpr float kCloudStep = 450, kCloudFirst = -3000;
 std::array<uint8_t, kCloudPoints * kCloudPoints> cloudBrightness(const Horizon& h, uint32_t seed);
+// A cloud point's alpha for its brightness (0x47ae10, 0x47b2e5): the
+// brightness itself with the 3dfx and software renderers; with the
+// Direct3D, Rage and PowerVR ones (renderer bits 0x1e0) the same for every
+// point, the cloud brightness less half the variance (its low byte).
+uint8_t cloudAlpha(const Horizon& h, uint8_t brightness, bool direct3d);
 // The clouds' drift each game tick, in tiles along x and z.
 std::array<float, 2> cloudDrift(const Horizon& h);
 // The clouds' texture offset for the camera at x, z (track coordinates),

@@ -201,7 +201,13 @@ pixels. In the first frames after the poke the sky is still drawn
   - **Its life.** 24 ticks. Each tick every point moves −1, 0 or 1 times
     its jitter on x and on z: (1 − n / 40) × 3, n the points left when
     it was made.
-  - **Drawn** as lines in 0xFFE2E2FF, pale blue-white.
+  - **Drawn** (`0x4946e0`) as a quad from each point to each point after
+    it, the line and the line moved a pixel right and down (so about a
+    pixel wide), in 0xE2E2FF, pale blue-white, with alpha life × 510 /
+    24 (at most 255: full for 12 ticks, then fading to nothing at 24),
+    the colour 0 for the lines out of the first point (its `+4` word is
+    1). The quad's flags word is 5: bit 0, added (blend 1, source alpha
+    and one), as the sparks.
   - **The flash.** For the latest bolt, life × 510 / 24, at most 255:
     full for 12 ticks, then fading. It lights the cloud grid's points
     around where the bolt starts (`0x47b3a0`): the nearest point and
@@ -309,8 +315,11 @@ The Tracks page draws as the game does, above, with the functions in
   lighting.
 - **Lightning.** The game's bolts, chances, jitter, life and flash,
   ticked at 64 a second (`lightningStarts`, `makeBolt`, `tickBolt`,
-  `boltFlash`), with Reluva's own random numbers. The bolts are thin
-  quads, about a pixel and a half wide.
+  `boltFlash`), with Reluva's own random numbers. The bolts are quads a
+  pixel of the game's 640 × 480 wide, added with the bolt's alpha
+  (`boltFlash`), the lines out of the first point left out. Until
+  November 2026 they were drawn opaque at full alpha to the end of their
+  life, a pixel and a half wide, those lines included.
 
 Until November 2026 the page looked the pictures up by name, so Country
 Woods and Aquatica, whose sheets name them `HOR1` to `HOR8`, had no
@@ -417,9 +426,8 @@ times as m:ss), against the Tracks page and frames from `nfs-host`:
   turns the sky on ([nfs.md](../../engines/nfs.md), the detail levels;
   a saved `config.dat` can have it off), and `nfs-host`'s own drawing
   (point-sampled), not the card's.
-- **Lightning** is in none of the clips (no weather), so it stays
-  unchecked. (Nor in `Rain`, below, though Hometown's weather file
-  turns it on: none was seen in its 143 s.)
+- **Lightning** is in none of these clips (no weather); `Rain` has it
+  (The weather against footage, below).
 
 - **The flat rows** (November 2026). `nfs-host` day and night races on
   Hometown with the camera record (`0x7a3d14`, the sky code's argument)
@@ -523,6 +531,98 @@ dark hills, white flakes; the page with fog off agrees in kind (its
 spot isn't the clip's). The Summit's weather file has its own fog, not
 compared.
 
+**Lightning in `Rain`** (November 2026). Found by counting, at every
+frame, the pixels brighter than 190 in the sky above the road (the
+clouds stay under about 150): bolts begin at 0:09.00, 0:13.00, 0:15.00,
+0:29.00, 0:45.00, 0:57.00, 1:21.00, 1:35.00, 1:51.00, 2:09.03 and
+2:19.03 (and perhaps 1:17 in a stretch of bright scenery), always on an
+odd whole second of the clip, never between. The race clock reads
+0:04.03 at 0:09.00, so they start 0.03 s past an even second of the race
+clock, two seconds apart or a multiple of it. That is the code: Hometown's
+weather file has lightning 50, 128, so a chance of one in two on every
+128th tick, 2 s at 64 ticks a second (`0x47b5f9`); 12 seen of about 70
+chances, the rest starting within 750 of the camera but out of view.
+Each bolt is a forked, jagged pale line from the top of the screen
+towards the horizon, at full brightness for 6 frames (0.2 s, the 12
+ticks at full alpha), then 2-3 frames fading (about 0.5 then 0.15 of
+the way to the clouds), gone by 0.3 s: the 24-tick life with the alpha
+falling over its second half. No brightening of the clouds round it
+could be measured (within 1-2 of 255 over the 60 pixels round the bolt):
+the flash lights the grid points round where the bolt starts, which is
+on the dome, mostly above the top of the screen, and blended clouds
+(type 2) keep their alpha, so only their grey rises. A thunder sound is
+queued with each (`0x414e10`); not listened for.
+
+The page drew the bolts opaque, a pixel and a half wide, at full
+strength for their whole life; now as above (How Reluva draws it).
+
+## The Direct3D renderer (November 2026)
+
+The clips were most likely made with `d3da.dll` (the user's game ran in
+a virtual machine with emulated Direct3D). What the game and the DLL do
+differently for it, from `nfs3.exe` (every reader of the renderer byte
+`0x7a3a58`: bit 0x40 is `d3da`, the mask 0x1e0 `ragea`, `d3da` and the
+two `powervra`; [frd.md](frd.md), the detail levels) and `d3da.dll`:
+
+- **No fog** (`0x4b59c0`; [thrash.md](thrash.md), Fog).
+- **The clouds' alpha.** The sky's set-up (`0x47ae10`, at `0x47b2e5`)
+  colours each cloud point (A, R, G, B) = (b, b, b, b) for its brightness
+  b, unless any of bits 0x1e0 is set: then A is the cloud brightness
+  less half the variance, the same at every point (only its low byte
+  kept). Hometown's weather (250, 235): 133 everywhere, where on a Voodoo
+  the dark points are also the clear ones. The lightning's flash keeps a
+  blended cloud's alpha either way (`0x47b3a0`).
+- **Dimming by the effects intensity** (`0x6fbc38`, under 1, with bit
+  0x40 only): the glows and see-through polygons ([frd.md](frd.md)),
+  the lights (`0x492370`, `0x49d800`), particles with flag bit 0
+  (`0x4cbf2f`, `0x4cb750`), the added clouds (type 1; `0x47b850` calls
+  `0x47b7d0`) and `0x4de700`'s polygons.
+- **Particle kind 7** (not a wall kind): `0x4cb670` sets its colour to
+  `7F7F7F7F` fading by `7F7F3F00` (bytes `0x560f30`-`0x560f37`).
+- **The polygon drawers** are its own (`poly_drawers_pick` `0x434870`:
+  quads `0x433840`, triangles `0x4336e0`, against `0x433bb0` and
+  `0x433a50` for the 3dfx cards), but they decompile the same: the
+  flags word's bit 0 sends blend 1, bit 1 keeps the vertices' own u, v
+  (else the picture record's), bit 2 turns the fog off for the polygon.
+- **`d3da.dll`'s device** (its set-up at `0x60004137`-`0x600042af`
+  calls IDirect3DDevice2::SetRenderState, vtable `+0x5c`, with
+  constants): texture blend MODULATEALPHA (colour and alpha each the
+  texel's times the vertex's), bilinear filtering (TEXTUREMAG and
+  TEXTUREMIN LINEAR), dithering off, specular off, Gouraud shading,
+  clamped texture addressing, alpha test greater than 0, blending
+  source alpha over, fog off with fog colour 0x010101; its `setstate`
+  (`0x60002b58`) never changes the texture blend, and changes the
+  filter only for state 7, which the game sends only for text. So under
+  Direct3D the scenery is filtered where Glide's defaults point-sample
+  it (thrash.md, Texture filtering). The clips' textures are
+  point-sampled (square texels on near walls in `Walls` and `Rain`), so
+  the virtual machine's Direct3D didn't filter, and the clips can't show
+  this.
+
+The renderer byte's other readers are the software renderers' (bits 1
+and 2: the 8-bit texture set, the detail halving, text), PowerVR's
+(0x180), or `0x488a80`, which loads the in-car dashboard when there is
+texture memory enough (under Direct3D, more than 4 MB). None of them
+changes the scenery's vertex colours (the baked lighting, the ambient
+light, the headlights), which are worked out the same for every
+renderer.
+
+**On the Track page:** Shift+Y draws the Direct3D look the code gives:
+no fog, and the clouds' constant alpha (`cloudAlpha`). It keeps point
+sampling, as the clips show. Against `Rain` 0:10 (the sky above the
+road, mean and spread of each channel; the cloud layouts are random, so
+this is a guide only): the clip (94, 88, 81) ± 23; the page with fog
+(119, 114, 101) ± 35; without fog (`Y`) (94, 90, 79) ± 30; the Direct3D
+look (113, 108, 93) ± 36. The clip's clouds are neutral grey, dark and
+cover the sky to the horizon; the page's are browner, with more
+contrast. `Snow` 0:40 against the Summit in the weather: the Direct3D
+look takes the haze off, as the clip has none, but the clip's sky is grey
+cloud down to the trees and its snow and trees greyer than the page's.
+The code gives no further reason for either.
+
 **Still open:** which renderer the clips' game used (the menus in
-`Night` show no renderer or version), and the rain's lightning.
+`Night` show no renderer or version; the missing fog and point-sampled
+textures fit a Direct3D device that doesn't filter); why the clips'
+clouds are greyer and more opaque than either look; and the Summit's
+greyer scenery.
 

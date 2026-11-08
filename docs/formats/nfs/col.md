@@ -246,7 +246,7 @@ to the points, used in place):
   | Code | Particles | Sound | Where (counts of sides) | Inferred material |
   |---|---|---|---|---|
   | 1 | sparks | material 8 | 1,746: Rocky Pass 801 (mostly left), Summit 629, Empire City 136, Redrock 123 | metal guard rail |
-  | 3 | dust | material 16 (slot 30, the dullest thump) | 35: Summit 26, Aquatica 6, Country Woods 3 | not named |
+  | 3 | dust | material 16 (slot 30, the dullest thump) | 35: Summit 26, Aquatica 6, Country Woods 3 | wooden fences (Summit's town; `Walls`, below) |
   | 4 | sparks | material 8 | 13,644: every track, most of the city and canyon ones | rock, concrete, buildings |
   | 5 | dust | material 17 (slot 29) | 6,013: Country Woods (nearly all), Summit, Rocky Pass, Hometown | grass, dirt or snow verges |
 
@@ -271,11 +271,16 @@ to the points, used in place):
   first seen at Summit's were the Tracks page's wrong pictures (it took
   the sheet's pictures by name, not by place; [frd.md](frd.md),
   Textures). With the right ones, Summit's code-3 slices are in a
-  small brick town with snow on the roofs and kerbs (a "Village
-  Trading Post" sign at block 194), just before the start: left
+  small brick town with snow on the roofs and kerbs (a trading-post
+  sign at block 194), just before the start: left
   1555-1557, right 1562-1564 and 1568-1571 and left 1571-1573 by the
-  buildings, then a raised snow bank on the left at 1600-1601 and
-  1610-1616 and right 1621-1629 as the town ends. The rest of the
+  buildings, then left 1600-1601 and 1610-1616 and right 1621, 1625-1626
+  and 1629 as the town ends. (These last were first taken for a raised
+  snow bank; looked at again with the walls guide showing the codes,
+  below, every code-3 run follows a wooden plank or log fence: low log
+  rows and crates in front of the stone buildings at 1562-1570, plank
+  fences at 1556, 1572, 1600 and 1610-1616, the snow lying in front of
+  them.) The rest of the
   town's walls are code 4. `Summit_Day` (4:01-4:05) and `Summit_Night`
   (about 5:00) drive through this town without touching a wall,
   so the footage doesn't show a code-3 hit. Hometown's and Empire
@@ -314,9 +319,42 @@ to the points, used in place):
   it (no string names a surface); what code 3 is meant to be isn't in
   the exe.
 
+  **Code 3 against footage: wooden fences** (November 2026). `Walls`
+  (the Summit by day, chase view, 1280 × 720; times are clip times,
+  race clock 6:04-8:43) runs into the town's walls on purpose. The hits
+  were placed by the town's landmarks against the Track page with the
+  walls guide (key G) showing the codes, and their sounds found by
+  correlating the clip's audio (22.05 kHz, mono) with each decoded
+  `Gen.bnk` slot's waveform: a played slot gives a sharp peak of the
+  normalized correlation, 0.25-0.63 against a median of 0.02-0.05 (the
+  slots overlap each other by at most 0.27, but 37 with 30 by 0.40 and
+  with 32 by 0.57, so a 37 beside a 30 or 32 isn't counted).
+  - **Code 3** (0:43.66: the car runs straight off a left bend at 48 mph
+    into the log row in front of the grey stone building with the arched
+    door, right 1562-1570; 1:31.70 and 1:32.85, a plank fence on the
+    right; 1:43.77, the plank fence by the white stone building on the
+    left, 1572): tan puffs at the fence's foot, the day dust `SP02`, and
+    slot 30, a dull sub-bass thump (68 % of its energy under 60 Hz).
+  - **Code 5** (0:37.43, a snow bank on the right; 1:18.23 and 1:20.33,
+    the bank on the left beyond the town, driving the wrong way; 2:34.41
+    and 2:39.59, ploughing into the banks after the line): the same tan
+    puffs (with the wheels' white spray, kind 10, when ploughing) and
+    slot 29, a pitched thump (70 % of it at 100-170 Hz, peaks 113-159 Hz).
+  - **Code 4** (0:11.54 and 1:30.00 at 48 mph, brick fronts): slot 30
+    with slot 32 at the same moment (material 8's 30 or 32, then the
+    second sound, material 18); slow brick hits (0:12.90, 0:21.76,
+    0:25.73) slot 30 and grey wheel and hit smoke, no dust.
+
+  So the code is confirmed: 3 and 5 make the same dust and differ only in
+  the sound, 30 against 29, and code 3 is the wooden fences (a dull
+  knock where the snow banks give a higher thump). Comparison frames and
+  the page's views of each run were kept out of the repo.
+
 This is what the game drives on and keeps cars within. It will matter
 for driving, AI and the camera. Reluva reads it, and uses it for the
-walls guide and the wall hits' particles (below) so far.
+walls guide and the wall hits' particles (below) so far. The walls guide
+(Track page, key G) draws each side red on the left and green on the
+right, blue where the side's code is 3 and white where it is 5.
 
 ### Particles
 
@@ -580,20 +618,73 @@ are clip times, m:ss, with the race clock where it helps):
   weather; the banks' polygons are road surfaces to it); at 4:27 a
   tan puff by the left bank as well, like `SP02`, the wall hits' dust
   (codes 3 and 5).
-- No clip shows a wall hit with sparks near the camera, so the wall
-  hits' sparks are still seen only in a scrape.
+- No clip of this set shows a wall hit with sparks near the camera;
+  `Sparks` (below) does.
 - **Code 3.** `Snow` drives the Summit's town and the banks after it
   (5:45-7:00, race 5:40-6:56) and hits a parked car (race 6:44) and a
   left bank (race 6:50). Whether that bank is one of the code-3 runs
   (slices 1600-1629) can't be told from the clip, and what a hit there
   shows (`SP02` dust, as code 5's) is what the code already says: the
-  two codes differ only in the sound. So code 3's material stays
-  unnamed.
+  two codes differ only in the sound. `Walls` settles it: code 3 is the
+  town's wooden fences (Code 3 against footage, above).
 - `Night` 1:58 (the Summit by night in the weather, race 0:13): white
   puffs on the bank by the wheels but no snow falling. That's the
   surface table, which goes by the car's weather, not by the road:
   Summit's night weather file sets snow only on slices 400-1290 (Rain
   and snow, below), and the race starts outside them.
+
+**Sparks against footage** (November 2026). `Sparks` (Hometown by
+day, chase and in-car views, 1280 × 720, clip times) scrapes the rock
+cuttings (code 4 on both sides, slices 184-410) and walls. Its hit sounds
+were found as in `Walls` (Code 3 against footage, above): slot 30 or 32
+with a second sound at 0:35.08, 0:47-0:52, 1:00.15, 1:09-1:11, 1:20.2,
+1:29-1:32 and 1:40-1:44.
+- At speed (47-66 mph on the HUD: 0:47.32, 0:49.73, 1:09.40 in-car,
+  1:28.95, 1:30.67, 1:32.23, 1:40.53) each scrape throws a fan of thin
+  yellow streaks, 20-40 pixels long at 1280 × 720 (13-27 of the game's
+  640 × 480), low along the wall behind and beside the car, renewed as
+  long as the scrape lasts and gone within about half a second of its
+  end; their pixels average about (196, 176, 66), yellow. This is the
+  burst (`0x4cac20`, 16-30 kind-3 sparks a hit, with `0x4cab60`'s
+  children), the `SP03` picture added. The chase camera moves with the
+  car, and the sparks keep half the car's velocity (`+0x34`), so they
+  stream back past it.
+- The burst needs `+0xB8` at 22 or more (`0x5537b8`, m/s). The HUD
+  reads `+0x4F4`, the speed along the road ([fsh.md](fsh.md)), so 47
+  mph is 21.0 m/s along the road; `+0xB8` is max(|vx|, |vz|) + ¼ min,
+  which counts the sideways slip of a car scraping a wall too, so 47
+  mph on the HUD passing 22 isn't a contradiction.
+- Slow hits (1:43.99, 6 mph) give grey puffs and no sparks: under 22 the
+  code makes a kind-6 particle when the speed or the impact is over 15.
+  `Walls`' slow brick hits are the same.
+- The other bursts in `0x42ac40` aren't walls': hit type 1 (`+0x170` =
+  0x10000 | the surface, set by `car_landing` `0x4a1ce0`) bursts the
+  surface table's `+0x14` kind at the car's speed with no threshold, at
+  a point under the car; that is `Summit_Day` 4:45's landing scrape
+  above. Type 5 (car against car, `0x42f280`) bursts at the impact × 2
+  (`0x5372d8`) with a dust particle. Type 3 (`car_contact_impulse`)
+  bursts when the speed and the impact together pass a value.
+
+The Track page's sparks (Shift+P, Hometown slice 303, the camera 4 in
+from the wall) match: thin yellow streaks, about (221, 204, 74) at first,
+orange by the end, gone after about 0.6 s. The page's camera stands
+still, so its streaks fan forward with the made-up car's velocity where
+the clip's stream back. The page's wall-hit code was checked against the
+exe again: the tables `0x553740` (0, 3, 3, 2, 3, 2, 0, 2) and `0x553760`
+(8, 8, 8, 16, 8, 17, 16, 16), the branch at `0x42b11a`, and the
+constants (`0x5403c0` 20, `0x5403c8` 6, `0x5403d0` −3, `0x5403d8` 0.25
+and `0x5403e0` 0.75 for the scale, `0x5403b0` 0.75 and `0x5403b8` 0.25
+for the children's, `0x540450` and `0x540458` 0.5, `0x5537b8` 22,
+`0x5372e4` 0.5, `0x5372e8` 15, the count `0x560ce4` 30) are the page's.
+The streak's corners on the screen (y down: the kept point twice, then
+(x + w, y + h) and (x − w, y − h); a dot (x, y), (x + w, y − h),
+(x + w, y + h), (x, y + h)) are what `streakCorners` makes. One fix:
+a particle quad's texture corners come from its picture's record
+(`+0x08`-`+0x24`), which `0x4d3f50` sets half a texel in from each edge
+(1 / (2 × width), `0x549438` = 2.0), and the polygon drawers use them
+for every quad without flag bit 1, streaks included; the page gave
+streaks the whole picture and every other quad 1/64, right only for 32 ×
+32 pictures. It now takes each picture's own half texel.
 
 **The surface table** (`0x553080`, rows of 0x24 bytes by surface,
 0x240 by the car's weather `+0x160`; read November 2026 with the wheel
@@ -628,10 +719,9 @@ the Track page draws them; no longer inferred.
 
 **Inferred, not followed:** that the picture is multiplied by the corners'
 colour. (Which corner of the picture goes where is now from the list,
-above.) That particles are
-fogged and their pictures' corners sit on texel centres is from the
-smoke's quads in `e1-t8s0`'s list (above); a spark's streak hasn't been
-in a list. The Track page also works the streak in the world rather than
+above; where the picture's corners sit is from the code, Sparks against
+footage above.) That particles are fogged is from the smoke's quads in
+`e1-t8s0`'s list (above); a spark's streak hasn't been in a list. The Track page also works the streak in the world rather than
 on the screen, doesn't round sizes to pixels, and makes up the car (its
 speed 40 or 18, impact 10, `+0x15c` 0, the contact half a unit in from
 the wall's line and up from the road, the centre a unit further in).

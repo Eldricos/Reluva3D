@@ -418,6 +418,10 @@ private:
     void tickSky(uint64_t nowMs);
     void updateSky(const gfx::Vec3& forward, const gfx::Vec3& right);
     bool fog_ = true;
+    // Shift+Y: the Direct3D renderer's look (d3da), as the game draws for
+    // it: no fog (0x4b59c0 sends none) and the clouds' alpha the same at
+    // every point (cloudAlpha).
+    bool direct3d_ = false;
     float lightIntensity_ = 1; // the game's SFX_INTENSITY, which dims lights
     // The fog where the camera is: the base fog, or a dynamic region's
     // (hrz.md), its colour and density (percent).
@@ -466,6 +470,7 @@ private:
     std::vector<WallHit> pendingHits_; // made at the next tick
     std::string hitText_;
     std::map<std::string, gfx::TextureId> particlePictures_; // by picture name, owned by textures_
+    std::map<gfx::TextureId, std::array<int, 2>> particlePictureSizes_; // their widths and heights
     gfx::MeshId particleMesh_ = 0;
     // This frame's particles: runs of the mesh's quads drawn alike.
     struct ParticleRun {
