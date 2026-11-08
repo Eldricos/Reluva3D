@@ -2671,11 +2671,13 @@ void carBoxHit(CarBox& a, CarBox& b, const Vec3& point) {
     const Vec3 line = vSub(b.at, a.at);
     if (vDot(line, ja) < 0) {
         a.strength = carBoxImpulse(a, ja, ra, a.mass / both);
+        a.hitPoint = point;
         if (a.strength > 5.0f) // 0x5373f4
             ++a.airTicks;
     }
     if (vDot(line, jb) > 0) {
         b.strength = carBoxImpulse(b, jb, rb, b.mass / both);
+        b.hitPoint = point;
         if (b.strength > 5.0f)
             ++b.airTicks;
     }
@@ -2843,7 +2845,7 @@ float aiCarMass(float carpMass, bool racer) {
     return racer ? carpMass * (1.0f / 1.2f) : carpMass; // 1 / 0x5efdb8 (1.2, 0x3f99999a), kept as a float
 }
 
-void aiCollide(std::vector<AiCar>& cars, const TrackCollision& col, int step) {
+void aiCollide(std::vector<AiCar>& cars, const TrackCollision& col, int step, std::vector<AiHit>* hits) {
     const int n = static_cast<int>(col.road.size());
     if (n < 2 || (step & 1) != 0)
         return;
@@ -2908,6 +2910,8 @@ void aiCollide(std::vector<AiCar>& cars, const TrackCollision& col, int step) {
         // Before that (0x406120): hit under 10 m/s (+0x7C4, 0x5361ec), it
         // starts reversing for 128 steps, or stops (ai_reverse_set(2, 0x80)).
         if (now.strength != 0) {
+            if (hits)
+                hits->push_back({in[j], now.strength, now.hitPoint});
             if (std::fabs(c.speed) < 10.0f)
                 aiReverseSet(c, 2, 128, step);
             c.slideUntil = step + static_cast<int>(std::nearbyint(now.strength)) * 7;

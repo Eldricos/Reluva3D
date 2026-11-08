@@ -37,11 +37,16 @@ struct ParticleTemplate {
     uint16_t flags = 0;   // +0x58 to the polygon (bit 0: added, inferred)
     bool streak = false;  // +0x5c drawn as a streak, not a picture
     float reach = 0;      // +0x60 not drawn farther than this from the camera
+    float speedScale = 0; // +0x0c a wheel's particles at scale |car speed| / this, at most 1 (0x4cb010)
+    bool spinHeld = false; // +0x3c the spin turned back past +-0.25 of a turn (0x4cb2c0)
+    uint32_t colourRandom = 0; // +0x54 each byte, times a random part, taken off the colour at birth
 };
 
-// The templates of the kinds wall hits make: 2 (dust), 3 (sparks) and 6
-// (smoke); nullptr for the others.
-const ParticleTemplate* particleTemplate(int kind);
+// The templates of kinds 1-13 (0x560b64 + kind x 128, static data);
+// nullptr for 0 and the rest. `direct3d`: kind 7 as 0x4cb670 sets it up
+// for the Direct3D renderer (bit 0x40 of 0x7a3a58), colour 7F7F7F7F
+// fading by 7F003F7F.
+const ParticleTemplate* particleTemplate(int kind, bool direct3d = false);
 
 // The particle kind of a wall's side code (0x553740): 3 sparks, 2 dust,
 // 0 none.
@@ -99,10 +104,107 @@ public:
     const std::array<Particle, kSlots>& particles() const { return slots_; }
     int live() const;
     void clear() { slots_ = {}; }
+    // The renderer is Direct3D: kind 7's template as 0x4cb670 sets it.
+    bool direct3d = false;
 
 private:
     std::array<Particle, kSlots> slots_{};
 };
+
+// The effects intensity (SFX_INTENSITY, 0x6fbc38) as the Direct3D
+// renderer applies it below 1: k = min(round(f x 65536), 0xFFFF) >> 8 and
+// each byte of the ARGB colour x k >> 8 (the lights 0x492370, 0x49d800,
+// the added clouds 0x47b7d0, the raindrops 0x4de700, the splashes
+// 0x4ddb40, the snow 0x4de070). 1 or more: as it is.
+uint32_t dimByIntensity(uint32_t colour, float intensity);
+// The particles' own (0x4cbf2f for kinds with flag bit 0, the screen
+// quads 0x4cb750): each byte x round(f x 65536) >> 16.
+uint32_t dimParticle(uint32_t colour, float intensity);
+
+// A row of the surface table at 0x553080 (0x24 bytes; 0x240 a weather,
+// the car's +0x160: 0 dry, 1 rain, 2 snow), as 0x42a280 reads it for a
+// wheel and 0x42ac40 for a landing.
+struct SurfaceEffect {
+    float level = 0;  // +0x00 thrown when the wheel's skid level is over this
+    float speed = 0;  // +0x04 or, at or under it, when the car is faster than this (0: never)
+    float range = 0;  // +0x08 the speed over `speed` that makes skid level 5
+    int kind = 0;     // +0x0c the particle kind thrown (0 none)
+    bool smoke = false; // +0x10 tyre smoke and skid marks (wheelSmokes, fce.h)
+    int landing = 0;  // +0x14 the kind a landing throws
+};
+const SurfaceEffect& surfaceEffect(int surface, int weather);
+
+// A car's particles at a wheel (0x4cb010): the kind's count (+0x00), each
+// at scale min(|speed| / the kind's +0x0c, 1) (+0.5 for a rear wheel of a
+// car with +0x594 set, but kind 12; 1 when +0x0c is 0), along the car's
+// velocity made a unit vector, across its right row (against it for the
+// left wheels 0 and 3, whose particles spin the other way), inheriting
+// half its velocity. Kind 10 isn't made with a software renderer (bits 6
+// of 0x7a3a58).
+void wheelParticles(ParticleSystem& system, int kind, int wheel, const ParticleVec& at, const ParticleVec& velocity,
+                    const ParticleVec& right, float speed, bool overspeed, uint32_t tick, ParticleRandom& random,
+                    int horizon = 0, bool software = false);
+// A wheel's spray (0x42a280, from car_spiked_effects 0x42a560 after the
+// tyre smoke, each 64 Hz step, each wheel on the ground): the surface
+// table's kind for the surface under the wheel and the car's weather;
+// thrown when the wheel's skid level is over the row's level, or else
+// when the row has a speed and the car (+0xB8) is faster: then the skid
+// level becomes (speed - row speed) / range x 5, held to 0-5 (returned;
+// otherwise `level` as it was). Nothing for kind 0.
+float wheelSpray(ParticleSystem& system, int wheel, float level, int surface, int weather, const ParticleVec& at,
+                 const ParticleVec& velocity, const ParticleVec& right, float speed, uint32_t tick,
+                 ParticleRandom& random, int horizon = 0, bool software = false);
+// The game's distance for sounds (0x410cb0): in whole units, the larger of
+// |x| and |z| plus a quarter of the smaller, then that and |y| the same way.
+int soundDistance(const ParticleVec& d);
+
+// A hit between cars as the impacts task sees it (car_impacts_task
+// 0x42b900 -> 0x42b780 -> 0x42ac40, hit type 5, +0x170 0x50005, set by
+// 0x42f280): over strength 5 a burst of sparks (0x4cac20) at the point
+// at the strength x 2 (0x5372d8), and one dust particle (kind 2,
+// 0x4cae00) there. The hit's smoke timer (+0x8D4): a car hit harder than
+// 30 (traffic, +0x200 bit 0x10, harder than 5) with no smoke running
+// starts it at |round(strength x 0.15)| (0x5372d0), at the point taken
+// into the car's frame x 0.6 (+0x8D8, `0x4e0050`).
+struct CarSmoke {
+    int timer = 0;           // +0x8D4
+    ParticleVec point{};     // +0x8D8, in the car's frame (right, up, forward)
+};
+void carHitParticles(ParticleSystem& system, const ParticleVec& point, const ParticleVec& carPosition,
+                     const ParticleVec& carVelocity, float strength, uint32_t tick, ParticleRandom& random,
+                     int horizon = 0);
+// The smoke's start (0x42ad15-0x42ad9b): true when it starts; `right`,
+// `up` and `forward` are the car's rows (+0xC0, +0xCC, +0xD8).
+bool startCarSmoke(CarSmoke& smoke, float strength, bool traffic, const ParticleVec& point,
+                   const ParticleVec& carPosition, const ParticleVec& right, const ParticleVec& up,
+                   const ParticleVec& forward);
+// car_smoke_tick (0x42b480, each 64 Hz step): the timer counts up; while
+// it runs a particle at the point (back in the world): kind 6 to 16, kind
+// 9 to 64, then 0x4caea0's fire. It stops once the car is on the ground
+// (+0x164 0) upright (+0x10C 0.5 or more) with its spins +0xE4 and +0xEC
+// both under 0.2 (0x537310).
+void carSmokeTick(ParticleSystem& system, CarSmoke& smoke, const ParticleVec& carPosition, const ParticleVec& right,
+                  const ParticleVec& up, const ParticleVec& forward, const ParticleVec& carVelocity, bool airborne,
+                  float upright, float spinE4, float spinEC, uint32_t tick, ParticleRandom& random, int horizon = 0);
+// 0x4caea0, a car on fire: kinds 9 and 7 rising from the point, in the
+// first 8 steps of each 48 a burst of sparks at speed 20 one time in two,
+// and seven times in eight a kind 8 at scale (step % 48) / 48 inheriting
+// half the car's velocity, its push's angle (+0x40) 0.
+void carFire(ParticleSystem& system, const ParticleVec& at, const ParticleVec& carPosition,
+             const ParticleVec& carVelocity, uint32_t tick, ParticleRandom& random, int horizon = 0);
+// The Gen.bnk slot of a hit's sound (sound_impact_slot 0x4149e0), for
+// category 5 and the material of a car hit (5, +0x170's low byte):
+// by the loudness 0-127 (the queued loudness x 127 / 10, 0x416d90), 33
+// over 90, 32 over 70, 37 over 50, 34 over 25, else 30; the same slot as
+// the last one (`last`, 0x552d80) turns into another: 32 to 37 or 34 at
+// random, 30 to 34, 34 to 30 or 37, 37 to 30 or 34; `last` is updated.
+int carHitSoundSlot(int loudness, int& last, ParticleRandom& random);
+// A one-shot hit's volume (0x416d90): 127 x (5625 - 2 d^2) / 5625 for the
+// sound distance d (soundDistance), 0 from 53 units.
+int hitSoundVolume(int distance);
+// A sound's pan byte for a 16-bit azimuth (0x4182b0, stereo): 64 ahead,
+// 127 at a quarter turn, 0 at three quarters.
+int soundPan(uint32_t azimuth);
 
 // The burst's count (0x4cac20): the template's 30, scaled down below 20.
 int burstCount(float speed);
@@ -250,9 +352,30 @@ public:
     // is 0x420d60 for the camera.
     void update(int step, int active, const ParticleVec& eye, bool covered, ParticleRandom& random);
     // 0x4de700 (rain) or 0x4de070 (snow), then 0x4ddb40 for the splashes
-    // when `splashes` (the option not Off, 0x4dedf0).
+    // when `splashes` (the option not Off, 0x4dedf0). `intensity`: the
+    // Direct3D renderer's effects intensity, which dims the drops' and the
+    // splashes' colours below 1 (dimByIntensity); 1 for the 3dfx cards.
     void draw(const WeatherView& view, int active, bool splashes, ParticleRandom& random,
-              std::vector<WeatherPoly>& out);
+              std::vector<WeatherPoly>& out, float intensity = 1);
+    // 0x4dd230, from the pass (0x4dece0) when the view's camera has just
+    // changed (0x552ff4 set by the camera code, cleared once the view is
+    // drawn, 0x4213b0): unless the camera is under cover, every drop back
+    // at random in the box round it with its streak's tail forgotten; the
+    // splashes cleared either way.
+    void cut(const ParticleVec& eye, bool covered, ParticleRandom& random);
+    // 0x4dd510, from the pass before the rain is drawn (not the snow): the
+    // streaks' tails (+9) forgotten when the camera has gone into or out
+    // of the car (modes 2-4 with 0x79c4a0 set, kept per view at
+    // 0x8ca2b4) or has just changed. The hidden marks (+8) stay.
+    void tails(bool inCar, bool cut);
+    // The rain's splash sounds owed (0x4de700 calls 0x414f90 for each
+    // splash it makes: rain.bnk, bank entry 4, sound 0-3 at random,
+    // volume 90-119, a random azimuth): taken by the caller.
+    int takeSplashSounds() {
+        const int n = splashSounds_;
+        splashSounds_ = 0;
+        return n;
+    }
     const WeatherSetup& setup() const { return setup_; }
     std::array<Drop, kDrops>& drops() { return drops_; }
     std::array<Splash, kSplashes>& splashes() { return splashes_; }
@@ -264,6 +387,17 @@ private:
     std::array<Drop, kDrops> drops_{};
     std::array<Splash, kSplashes> splashes_{};
     int last_ = -2, cycleStart_ = 0;
+    int splashSounds_ = 0;
+    bool inCar_ = false; // 0x8ca2b4
 };
+
+// One of the rain's splash sounds (0x414f90 with -1): the sound (random &
+// 3), the volume (90 + random % 30) and the azimuth (random % 0xFFFF), in
+// the order the game draws them.
+struct SplashSound {
+    int sound = 0, volume = 0;
+    uint32_t azimuth = 0;
+};
+SplashSound splashSound(ParticleRandom& random);
 
 } // namespace reluva::nfs
