@@ -307,16 +307,69 @@ saved steps (+0x704, read as the call's edx − 0x180) were 1152 and
 then 1544: up to step 0x480 (58.9 s here) the check only records the
 distance and the step (`0x409bc4`), and from then on this car's race
 distance never passed what it was at step 1152, so the check moved it
-at 1544 (65.0 s) and again 384 steps later at 1928 (71.1 s). Why its
-race distance stood still while it drove down from slice 260 wasn't
-followed; the car had been moved 70 slices by the placing pokes
-(51.9-52.8 s), the wrong-way flag set (above), as the other
-tracks' runs had too. On these two tracks the second move happened to
-cross zone 5's first slice; on the other tracks the change came at
-the slice just below it, so no move crossed their boundary (whether
-those cars were moved too wasn't watched). So it is a side effect
-of the test's placing, not of the music code: a car driving through
-gets the change at 190, as on the other tracks.
+at 1544 (65.0 s) and again 384 steps later at 1928 (71.1 s); the
+driver task runs every 8 steps, so 1544 is the first check past
+1152 + 0x180.
+
+**Why that race distance stood still** (November 2026, settled): it
+was 0 throughout, because the placing pokes left the car owing a
+lap. +0x8 is worked out each step by `0x42ce10` (from `0x42ce70`):
+0 while the laps owed (+0x208) are over 0, else lap (+0x204) × the
+track's slices (`0x5dd940`) + the slice, or slices − slice backward.
+A backward race starts every car owing one lap (`0x42be2f`), paid
+off by `0x42cc20` when the car crosses the line from the grid: with
+`0x6fd4c0` set, +0x4 (the slice the step before) 50 or under and
++0x1C over 500 takes 1 off (`0x42cca7`-`0x42ccd8`); with +0x4 50 or
+under and +0x1C 500 or under it only copies +0x1C to +0x4
+(`0x42ccb6`). The pokes (`lapNr.place`, 51.9-52.8 s) wrote the
+same far slice (260 and so on) to both +0x1C and +0x4 while the
+player's car was still on the grid side of the line, so `0x42cc20`
+saw no crossing (+0x4 equal to +0x1C returns at once, `0x42cc2f`),
+the lap stayed owed, and +0x8 stayed 0. The progress check
+`0x409b70` (called by the computer driver `0x409c00` at `0x409c58`,
+`0x409d51` and `0x409e0a`) keeps the best +0x8 at +0x708 and its step
+at +0x704 while +0x8 is over the best, the car's chase record
+(+0x628) has cops on it (+0x2C), the step `0x7d3684` is 0x480 or
+under, or positional updates (`0x6fd50c`) are on; otherwise, 0x180
+steps after the saved step, it saves the step and calls `0x429100`.
+With +0x8 and +0x708 both 0, nothing ever passed the best. Forward,
+no lap is owed at the start (+0x208 0) and the grid is on the first
+slices past the line (the computer cars' first crossing backward was
+from slice 0), so the same pokes leave +0x8 = the new slice,
+which grows as the car drives on.
+
+Run on every track with a lap set-up (November 2026, `e10-rs`:
+`e10-runs/rs.sh`, `lap.sh`'s and `lapr.sh`'s set-ups with the same
+`.place` files, 74 s; `-watch` at `0x429100` with `[esp]`, and at
+each change of the laps owed or lap in `0x42cc20`, `0x42cc4a`,
+`0x42cc80`, `0x42cc8e`, `0x42cccc`, `0x42cce1`, reading +0x1C, +0x4,
++0x8, +0x204, +0x208, +0x704, +0x708 and the step):
+
+| Run | `0x429100` calls (from `0x409bbf`, car `0x5e1120`) | Laps owed |
+|---|---|---|
+| 0 Hometown backward (`e10-rs0r`) | 65.006 s (+0x1C 208), 71.145 s (191) | 1 throughout; the seven computer cars paid theirs at 50.7-55.0 s (`0x42cccc`, +0x4 0 and +0x1C the track's last slice, 958) |
+| 1 Redrock Ridge backward (`e10-rs1r`) | 65.014 s (207), 71.139 s (189) | 1 throughout |
+| 3 Rocky Pass backward (`e10-rs3r`) | 65.026 s (186), 71.148 s (160) | 1 throughout |
+| 4 Country Woods backward (`e10-rs4r`) | 65.011 s (209), 71.128 s (191) | 1 throughout |
+| 5 Lost Canyons backward (`e10-rs5r`) | 65.020 s (214), 71.156 s (195) | 1 throughout |
+| 7 Summit backward (`e10-rs7r`) | 64.991 s (185), 71.110 s (159) | 1 throughout |
+| 0-8 forward (`e10-rs0f`-`e10-rs8f`) | none | 0; the player's lap counted at the line (`0x42cc8e`) on Redrock Ridge (73.7 s), Atlantica (71.0 s), Aquatica (65.5 s) and Empire City (69.8 s), +0x8 then the last slice before it (1462, 1324, 1433, 1229) |
+
+At each call +0x8, +0x204 and +0x708 read 0, +0x208 1, and the saved
+step 1544 then 1928 (`0x608`, `0x790`). So every backward run's car
+was moved 5 slices at the same two steps, not only Hometown's and
+Country Woods'. On the other tracks the first move came well before
+zone 5 and the second after the car had driven through the change
+by itself (Redrock Ridge's at slice 189, Rocky Pass's at 171 at
+69.3 s, Lost Canyons' at 197 at 70.7 s, Summit's at 170 at 69.2 s;
+the second moves were at 189, 160, 195 and 159), so neither crossed a boundary; on Hometown and Country
+Woods the second came at slice 191, one before the change. It is a
+side effect of the test's placing: a car that crossed the line from
+the grid (as every car does in a real race) pays the owed lap, and a
+car driving through gets the change at 190, as on the other tracks.
+A placing that wants a moving race distance backward has to poke
++0x208 to 0 as well (a slice of 500 or under, such as these 260s,
+never pays the lap even when +0x4 is left on the grid's side).
 
 ## What isn't known
 

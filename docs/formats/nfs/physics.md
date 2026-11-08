@@ -617,7 +617,14 @@ frame's forward row +0x1A8 × 1024, so 1024 a turn, `0x42cee9`).
 point along +0x124, the road polygon's right, not the slice's. +0x1C is
 the track position's slice, whose run of road polygons the car is in,
 and is often already the next slice before the car reaches that
-slice's point (t6-log: −2.5 to +3.2 m).
+slice's point (t6-log: −2.5 to +3.2 m). The same task writes +0x21C through
+`0x42cd00`: the car's span across the road, its half width, height and
+length (+0x114, +0x118, +0x11C) each times |road right · body right,
+up, forward|; `0x40e350` sets the lane edges at +0x7B8 ∓ +0x21C, each
+taken in by 0.5. On each even step the race task runs for all cars
+first, then every driver, then each car's dynamics, then the hits
+(run `e9 order`); see frd.md "The tick's order and the lanes a car
+spans".
 
 **`0x408600`**, each tick:
 
@@ -1950,7 +1957,11 @@ November 2026: `callers`, `gxref`, `gdecomp`, the disassembly).
   gas over 200). At 0, `0x428f90` puts the car 5 slices on
   (`0x5efdcc`), 1.5 m up and still. A car at rest on its roof is
   moved within about 78 ticks (2.4 s), long enough for a cop's turn;
-  one on its side, in air mode, within about 7 s.
+  one on its side, in air mode, within about 7 s. While the timer
+  runs, a car on the ground (+0x164 0, clearance under 5, +0x184 0)
+  tipped past 60° (+0x10C under 0.5) also loses 1/64 of each spin a
+  tick (`0x4292fb`-`0x429341`, `0x5371d8`; seen in `e10-h6`, Checked
+  in runs).
 
 **Rolls by keys** (`c8-f1`, `c8-f2`, `c8-r1`, `c8-r2`, November 2026:
 the racer's pursuit, only the race type and the track poked at
@@ -2839,7 +2850,7 @@ runs, below).
 | `0x4a21a0` | a roof over the road (slices where `0x420bf0` says covered): when the car's centre is above the road height plus the roof's height (`0x552e54`[slice]), a contact with the roof (`0x42efe0`, the road's down as the normal) and the air spin clamp `0x4a20c0` |
 | `0x4a1610` | on the road: out of the road, the speed into it taken out, the body turned towards the road plane at most 0.5 turn/s |
 | `0x4a1ce0`, `0x4a1210` | landing: twelve body points against the road, the speed along the normal and the spin × (0.5 + e) |
-| `0x4296c0` | at the landing's end (`0x4a2068`), only for a car that comes down flat on its roof (+0x10C ≤ −0.9, `0x537200`) and on the ground: a body wobble for the drawing, rate +0x8C4 = 1/240 and +0x8C8 = 24-35 ticks with a random sign, twice (+0x8CC, +0x8D0), read by the body drawing `0x42a7d0` |
+| `0x4296c0` | at the landing's end (`0x4a2068`), only for a car that comes down flat on its roof (+0x10C ≤ −0.9, `0x537200`) and on the ground: a body wobble for the drawing, rate +0x8C4 = 1/240 and +0x8C8 = 24-35 ticks with a random sign, twice (+0x8CC, +0x8D0), read by the body drawing `0x42a7d0`, which adds rate × n/12 × sin(n/12 turns) to the tilts +0x920/+0x924 each tick and counts n down (run in `e10-h7`, Checked in runs) |
 | `0x4a20c0` | in the air: each spin kept within ±2.4 turns/s |
 | `0x4a2690` | +0x10C, the car's up · the road's up |
 | `0x4a2630` | puts a car on the road's height (+0x9C = road + half height), clears +0x164, +0x8B and the vertical speed |
@@ -2947,10 +2958,56 @@ the set-up record at `0x6fd52c` (`-dumpmem` of the record at 55 s,
   about 1.5 s and stays on its roof. In `e8-h4` the yaw spin (+0xE8)
   was also poked to 1 turn/s: × **0.9800** in each call, as read, but
   between calls it lost a further 1.5-1.6% (0.9330 out, 0.9184 in at
-  the next), from code not looked at here. At 56 s `e8-h4` set +0x164
+  the next). That loss is the reset timer's (`e10-h6`, below). At 56 s `e8-h4` set +0x164
   (air ticks) to 1 on the roof: for the next half second the calls
   took the air case, velocity × **0.9800** and spin × **0.9980**,
   then +0x164 cleared and 0.94 / 0.98 came back.
+- **The rest of the spin's loss on the roof: the reset timer
+  `0x429260`**, `e10-h6` (November 2026; `e8-h4`'s run to 57 s, the
+  spin poked at 55 s only, `-watchmem 0x5e1208 4`, every store to
+  +0xE8 with its instruction, and `0x4aa8e7` in and out). Each tick
+  the spin was stored by `0x4aa8e7` (the × 0.98, at `0x4e002a` and
+  `0x4dffda` inside `0x4e0110`) and then once more at `0x429333`, in
+  `0x429260` (from the impacts task `0x42b900`, 32 a second), and
+  nowhere else. All 64 of those stores (55.06-57.02 s) were the value
+  before × 0.984375 to float rounding (0.98437495-0.98437505). In the
+  code (`0x4292cc`-`0x429341`): while the timer +0x8A0 is running
+  (over 0), the clearance +0x15C is under 5, +0x184 is 0, the car is
+  on the ground (+0x164 0) and tipped past 60° (+0x10C under 0.5,
+  `0x3f000000` compared as an int), all three spins (+0xE4, +0xE8,
+  +0xEC) lose 1/64 (`0x5371d8`, 0.015625) a tick. So a car on its side
+  or roof loses 2% and then 1/64 of its spin a tick, × 0.9647 in all,
+  and its spin halves in about 19 ticks (0.6 s). With +0x164 set (the
+  air case, `e8-h4` from 56 s) the test fails, which is why only the
+  × 0.998 was seen then.
+- **The roof wobble (`0x4296c0`)**, `e10-h7` (November 2026; `e8-h4`'s
+  run to 58 s, on its roof at 55 s, +0x164 poked to 1 at 56 s, no spin
+  poke; `0x4296c0` watched in and at its `ret` `0x429783`, and the body
+  drawing `0x42a7d0` at `0x42aa90`, after its clamp, with +0x920 and
+  +0x924). From the code: only with +0x10C at most −0.9 (`0x537200`, a
+  double) and +0x164 0 it sets +0x8C4 = 1/240 (`0x3b888889`) and
+  +0x8C8 = rand % 12 + 24, then flips +0x8C4's sign when the next
+  rand % 256 is over 128; the same again for +0x8CC/+0x8D0
+  (`0x4eb1fc` is the rand). `0x42a7d0` (each tick, through `0x42b781`;
+  not while +0x164 is set, `0x42a9a0`) adds `0x429790`(rate, n) =
+  rate × n/12 × sin(n/12 turns) to +0x924 (from +0x8CC, +0x8D0) and
+  +0x920 (from +0x8C4, +0x8C8), clamps both to ± a limit, and then takes
+  n down by 1, or 2 while n > 1 when the car's pitch-roll factor
+  (P +0x294) is under 0.5 (`0x42abb0`-`0x42ac26`). The hit's jolt
+  `0x4295a0` writes the same four fields (Collisions, col.md). In the
+  run the landing ran and ended in the tick after the poke (56.007 s,
+  `[esp]` `0x4a2076`): +0x10C −1.000, +0x8C4 +1/240 with +0x8C8 31,
+  +0x8CC −1/240 with +0x8D0 35. From the next tick +0x920 and +0x924
+  followed the formula to float rounding about their resting values
+  (−0.00082 and 0; for example n = 31: (1/240)(31/12)sin(210°) =
+  −0.00538, and +0x920 read −0.00620, 0.00538 below its rest), each
+  held at ±0.00644 by the clamp for the three ticks at the top of each
+  of the first swings, the counters went down by 1 a tick (P +0x294 at
+  least 0.5 for this car), and both were back at rest at 56.98 s and
+  57.12 s. So the wobble is a decaying swing of the drawn body, a
+  period of 12 ticks (0.375 s) and 0.75-1.1 s long, at most 0.012 of a
+  turn (4.4°) before the clamp. It touches no physics field: it only
+  feeds the body's two drawn tilts.
 - **Landing** was checked before (`sw1-f`, Car dynamics above): the
   speed into the road × (0.5 + e) and the spin × (0.5 + e), with no
   bounce; not run again.
@@ -3098,7 +3155,11 @@ the set-up record at `0x6fd52c` (`-dumpmem` of the record at 55 s,
   a lap (+0x204). Mirrored when `0x6fd4c0` is set (the track run
   backward). The race's set-up (`0x42be2f`) starts it at 1 when
   `0x6fd4c0` is set, else 0, so that the first crossing from the grid
-  doesn't count. Copied between cars at `0x4085b2`.
+  doesn't count. Copied between cars at `0x4085b2`. A car moved past
+  the line by writing both +0x1C and +0x4 (as the lap tests' placing
+  pokes did) never pays that lap, so its race distance stays 0 and the
+  computer driver's progress check (`0x409b70`) puts it 5 slices on
+  every 0x180 steps from step 0x480 (tracks.md, Music laps, `e10-rs`).
 - **+0x8D4, the hit's smoke timer.** An impact harder than 30 (5 for
   traffic; strength +0x168) starts it at strength × 0.15 (`0x42ad35`).
   Each tick (`0x42b480`, from the +0x61C task) it counts up and puts
@@ -3313,7 +3374,12 @@ of every access to those offsets):
   the yaw 5% a tick), the body's friction on the road when tipped and
   in the air (`0x4aa8e7`), the Tire Factor on the forward acceleration
   (`0x4ae68e`, 1.15 in first and second only with t 1.5), the gear
-  changes up and the computer cars' integration. Still not run: the
-  roof wobble (`0x4296c0`); the rest of the yaw spin's loss on a car on
-  its roof (1.5% a tick beyond `0x4aa8e7`'s 2%) wasn't traced to its
-  code.
+  changes up and the computer cars' integration. Since then (`e10-h6`,
+  `e10-h7`): the rest of a car's spin loss on its roof is the reset
+  timer `0x429260` (all three spins × (1 − 1/64) a tick while the
+  timer runs, on the ground, +0x10C under 0.5), and the roof wobble
+  (`0x4296c0`) is a decaying swing of the drawn body's two tilts
+  (+0x920, +0x924), 12 ticks a period, as read. Still open: which of
+  +0x920 and +0x924 is the pitch and which the roll, and where the
+  clamp's limit (`[ebp−0x18]` in `0x42a7d0`, 0.00644 for this car)
+  comes from.

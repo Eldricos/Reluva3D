@@ -125,8 +125,10 @@ game's calls to it (`0x4131xx`-`0x4136c6`, `0x418990`):
     just below it: the lookup and the slice numbers are the same both
     ways; the 186 seen for 191 on Hometown and Country Woods backward
     was the car put 5 slices on by the computer driver's progress
-    check, `0x409b70` → `0x429100`, at that moment: tracks.md, Music
-    laps, November 2026). Hometown's laps run zones 4, 5, 6, 7;
+    check, `0x409b70` → `0x429100`, at that moment, because the test's
+    placing left the car owing a lap so its race distance stayed 0;
+    every backward run's car was moved at the same two steps: tracks.md,
+    Music laps, November 2026). Hometown's laps run zones 4, 5, 6, 7;
     the other tracks use 4-9 in four to six runs a lap.
   - **1, a pursuit starting** ("Start Cop Music"), sent as urgent.
     When the pursuit ends ("Back to Normal") the game sends the zone
