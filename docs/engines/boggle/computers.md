@@ -61,7 +61,7 @@ The common levels now vary their delays, grow slower as base-word attempts
 accumulate, and add a penalty when their remaining native candidate list is
 small. See [measured delay bounds and approximation limits](thinking.md).
 The original also distinguishes related-word attempts. The native planner now
-handles the documented `S`/`ES` pairs separately; other related words still use
+handles the documented plural/past groups separately; other related words still use
 base-word bounds. This is a partial pacing model rather than matching original
 full-turn cadence.
 
@@ -69,10 +69,10 @@ Common sampling/order and Mr. Boggle's equal-length ties depend on the native
 board seed, slot and word, using an independent integer hash. Mr. Boggle first
 sorts by descending word length (Qu counts as two letters). For a fixed board and slot, stronger levels include the
 weaker levels' vocabulary. Different slots can choose different words/order.
-Common plans now group selected `S`/`ES` plurals immediately after their bases,
-with no additional thinking phase and a native one-second presentation interval.
-Pair choice and group order remain native; the eligible word sample is preserved.
-See [plural follow-ups and evidence](plurals.md).
+Common plans group selected `S`/`ES` plurals and supported past forms after their
+bases, without additional thinking phases and with native one-second presentation
+intervals. Group choice and order remain native; the eligible word sample is
+preserved. See [plural follow-ups](plurals.md) and [bounded past forms](past-tense.md).
 Replay rebuilds the same plans and clears their clocks; New Board rebuilds them
 for its new seed. A stalled event loop submits at most one word per frame and
 schedules the next interval from that submission, without catch-up bursts.
@@ -156,7 +156,7 @@ only. For the supplied files:
 
 ```
 Classic computer plans 64, legal submissions 4147
-decoded computers: c9e4e6a8c975f0ba22f3daf13839e12f
+decoded computers: 33ec4cdba5351bcb97184fd33fbd4225
 ```
 
 The optional game-data suite repeats this check on the source and on an imported

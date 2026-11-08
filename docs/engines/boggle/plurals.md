@@ -19,9 +19,9 @@ Isolated execution of the supplied original Classic routines establishes:
   base-word thinking bounds. This is not a claim of instantaneous visible word
   submission: cursor movement and other presentation steps remain separate.
 
-The original contains additional suffix and shared-prefix cases. Those are
-outside this implementation. No general English inflection rules are inferred
-from the two verified append forms.
+The native model also supports bounded [past-tense follow-ups](past-tense.md).
+Other suffix and shared-prefix cases remain outside this implementation. No
+general English inflection rules are inferred from the two plural append forms.
 
 ## Independent native pairing policy
 
@@ -31,6 +31,10 @@ using the existing native hash order for equal lengths. If both append forms
 are present, it prefers `S`. A word can belong to only one pair; pairs do not
 chain recursively. The pair is placed at its base's former native rank, followed
 immediately by its plural. Unpaired words retain their relative native order.
+
+The subsequent past-form pass can extend a root to a three-word group: base,
+plural, past form. It preserves every plural pair already chosen by this pass.
+An existing plural pair's root or child cannot be claimed as another follow-up.
 
 These pairing choices are **native policies**, not a reconstruction of the
 original classifier's candidate order, probability gates or complete AI strength.

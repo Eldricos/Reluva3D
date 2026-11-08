@@ -239,3 +239,13 @@ verify first-eligible-plural classification. Native disjoint pairing preserves
 the selected legal-word pool and uses a one-second presentation interval.
 Original probability gates, full candidate order, other suffixes/shared-prefix
 groups and exact cursor/submission timing remain open. Mr. Boggle is unchanged.
+
+The next stage extends common groups with [bounded past forms](../../engines/boggle/past-tense.md):
+append `D` after final `E`, append `ED` after measured consonant endings, or
+double a final consonant before `ED` when the preceding letter is a vowel.
+16,224 isolated classifier contracts, 48 selection/timing contracts and 96
+base/plural/past ordering contracts match the original. The native grouping
+pass preserves prior plural pairs and the selected legal-word pool, with one
+thinking phase per root and native follow-up presentation intervals. Other
+suffixes, shared-prefix groups, probability gates, full candidate ordering,
+original cursor/submission cadence and Mr. Boggle timing remain open.

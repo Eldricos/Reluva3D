@@ -34,6 +34,7 @@ visible submissions.
 The native planner independently constructs its existing sampled word list.
 Each base/unpaired word receives the bounds above, using the native list's
 remaining group count and base-group ordinal. [Plural follow-ups](plurals.md)
+and the supported [past-tense forms](past-tense.md)
 now avoid a second thinking phase and use a native presentation interval.
 A separate integer hash supplies a
 repeatable offset from the native seed, player slot and word. Replay restores
@@ -42,8 +43,8 @@ the same delays. Timing does not consume or alter the vocabulary-selection hash.
 This is a **partial pacing model**, not original AI equivalence. The original
 common opponents also distinguish related-word attempts and unavailable words;
 their selection, candidate lists and random stream differ from ours. The native
-model recognizes only the documented `S`/`ES` pairs; other related words still
-receive base-word timing. Original
+model recognizes only the documented plural/past groups; other related words
+still receive base-word timing. Original
 cursor travel and submission delays are not included; the existing native cursor
 preview occupies the final second of a scheduled word. Mr. Boggle's cadence and
 the common opponents' exhaustion policy still need separate reference checks.

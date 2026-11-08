@@ -3,12 +3,13 @@
 #include "engines/boggle/classic/computer.h"
 #include "engines/boggle/classic/solver.h"
 #include <algorithm>
+#include <array>
 #include <limits>
 #include <map>
 namespace reluva::boggle {
 namespace {
 // Measured base-word delay bounds; see docs/engines/boggle/thinking.md.
-// Selection, jitter and applying these bounds to every native word are ours.
+// Native grouping, jitter and scheduling use these bounds independently.
 struct ThinkingBounds {
     uint64_t minimum,span,minimumStep,spanStep,scarcity,penalty;
 };
@@ -18,28 +19,39 @@ uint64_t addTime(uint64_t start,uint64_t delay) {
     return start>std::numeric_limits<uint64_t>::max()-delay?
         std::numeric_limits<uint64_t>::max():start+delay;
 }
-// Our disjoint pairing policy; the verified append forms are documented in
-// docs/engines/boggle/plurals.md. Never synthesize an entry or its cube path.
-std::vector<uint8_t> groupPlurals(std::vector<AcceptedWord>& words) {
+// Only the measured cases in docs/engines/boggle/past-tense.md; not a stemmer.
+std::string pastForm(const std::string& base) {
+    if(base.size()<2)return {};
+    const char last=base.back();if(last=='E')return base+"D";
+    if(std::string_view("AEIOUY").find(last)!=std::string_view::npos)return {};
+    const bool doubleLast=std::string_view("AEIOU").find(base[base.size()-2])!=std::string_view::npos;
+    return base+(doubleLast?std::string(1,last):std::string())+"ED";
+}
+// Our disjoint grouping policy. Never synthesize an entry or its cube path.
+std::vector<uint8_t> groupFollowups(std::vector<AcceptedWord>& words) {
     const size_t count=words.size();std::map<std::string,size_t> index;
-    std::vector<size_t> order,partner(count,count);std::vector<uint8_t> paired(count),plural(count);
+    std::vector<size_t> order;std::vector<std::array<size_t,2>> partner(count,{count,count});
+    std::vector<uint8_t> paired(count),related(count);
     for(size_t i=0;i<count;++i){index.emplace(words[i].word,i);order.push_back(i);}
     std::sort(order.begin(),order.end(),[&](size_t a,size_t b) {
         return words[a].word.size()!=words[b].word.size()?words[a].word.size()<words[b].word.size():a<b;
     });
+    auto attach=[&](size_t base,const std::string& candidate,size_t kind) {
+        const auto found=index.find(candidate);
+        if(found==index.end() || paired[found->second])return false;
+        const size_t child=found->second;partner[base][kind]=child;paired[base]=paired[child]=1;related[child]=1;return true;
+    };
+    // Preserve all existing plural choices before attaching past forms.
     for(size_t base:order) {
         if(paired[base])continue;
-        for(const char* suffix:{"S","ES"}) {
-            const auto found=index.find(words[base].word+suffix);
-            if(found==index.end() || paired[found->second])continue;
-            const size_t child=found->second;partner[base]=child;paired[base]=paired[child]=1;plural[child]=1;break;
-        }
+        for(const char* suffix:{"S","ES"})if(attach(base,words[base].word+suffix,0))break;
     }
+    for(size_t base:order)if(!related[base])attach(base,pastForm(words[base].word),1);
     std::vector<AcceptedWord> grouped;std::vector<uint8_t> followups;
     grouped.reserve(count);followups.reserve(count);
-    for(size_t i=0;i<count;++i)if(!plural[i]) {
+    for(size_t i=0;i<count;++i)if(!related[i]) {
         grouped.push_back(std::move(words[i]));followups.push_back(0);
-        if(partner[i]!=count){grouped.push_back(std::move(words[partner[i]]));followups.push_back(1);}
+        for(size_t child:partner[i])if(child!=count){grouped.push_back(std::move(words[child]));followups.push_back(1);}
     }
     words=std::move(grouped);return followups;
 }
@@ -77,13 +89,13 @@ Error ComputerPlan::build(const Board& board,const Dictionary& commonVocabulary,
         if(level==ComputerLevel::MrBoggle && a.word.size()!=b.word.size())return a.word.size()>b.word.size();
         const auto x=rank(a.word),y=rank(b.word);return x!=y?x<y:a.word<b.word;
     });
-    const auto followups=common?groupPlurals(words_):std::vector<uint8_t>(words_.size());
+    const auto followups=common?groupFollowups(words_):std::vector<uint8_t>(words_.size());
     const size_t groups=size_t(std::count(followups.begin(),followups.end(),uint8_t(0)));
     size_t baseOrdinal=0;
     delays_.reserve(words_.size());
     // The solver bounds the pool to 50,000 words, keeping these products small.
     for(size_t i=0;i<words_.size();++i) {
-        uint64_t delay=1000; // Native plural presentation / Mr. Boggle cadence.
+        uint64_t delay=1000; // Native follow-up presentation / Mr. Boggle cadence.
         if(common && !followups[i]) {
             const auto& bounds=thinking[strength];const uint64_t remaining=groups-baseOrdinal;
             const uint64_t span=bounds.span+baseOrdinal*bounds.spanStep;
