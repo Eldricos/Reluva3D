@@ -1697,13 +1697,15 @@ void testComputerDriving() {
         one[0].speed = 45;
         aiStep(one, 0, col, fast, grip, 88, 1, false);
         CHECK(one[0].wanted == 60 && std::fabs(one[0].speed - (45 + (3.6f - 2) / 32)) < 1e-4f);
-        // Gravity along the road (0x4a2a0c): -0.30656 m/s a tick x the
-        // forward's rise, the way the car runs: up a 10 % slope it loses
-        // 0.0306 m/s more a tick, running the other way it gains it.
+        // Gravity (0x4a2a0c): -0.30656 m/s a tick x the body's forward's
+        // rise (+0x1A8, the body's own row for a car upright on the road),
+        // the way the car runs: lined up with a 10 % slope it loses 0.0306
+        // m/s more a tick, running the other way it gains it.
         TrackCollision hill = col;
         for (auto& point : hill.road) {
             const float k = 1 / std::sqrt(1.01f);
             point.forward = {0, 0.1f * k, k};
+            point.normal = {0, k, -0.1f * k};
         }
         std::vector<AiCar> up{cars[0]};
         up[0].speed = 30;
@@ -1713,6 +1715,38 @@ void testComputerDriving() {
         up[0].speed = 30;
         aiStep(up, 0, hill, speeds, data, 86, 1, false);
         CHECK(std::fabs(up[0].speed - (30 + 3.6f / 32 + 0.3065625f * 0.1f / std::sqrt(1.01f))) < 1e-4f);
+        // The body's up is the world's: a car left level where the road
+        // climbs (within 0.02 of it, car_on_road 0x4a1610 doesn't turn it)
+        // is pulled by its own forward's rise, not the road's.
+        TrackCollision gentle = col;
+        for (auto& point : gentle.road) {
+            const float k = 1 / std::sqrt(1 + 0.015f * 0.015f);
+            point.forward = {0, 0.015f * k, k};
+            point.normal = {0, k, -0.015f * k};
+        }
+        std::vector<AiCar> level{cars[0]};
+        level[0].speed = 30;
+        aiStep(level, 0, gentle, speeds, data, 84, 1, false);
+        const float onRoad = level[0].speed;
+        level[0] = cars[0];
+        level[0].speed = 30;
+        aiSetTilt(level[0], gentle, {0, 1, 0});
+        aiStep(level, 0, gentle, speeds, data, 84, 1, false);
+        CHECK(std::fabs(onRoad - (30 + 3.6f / 32 - 0.3065625f * 0.015f / std::sqrt(1 + 0.015f * 0.015f))) < 1e-4f);
+        CHECK(std::fabs(level[0].speed - (30 + 3.6f / 32)) < 2e-4f && level[0].pitchRate == 0);
+        // Past 0.02 the body turns towards the road (car_on_road 0x4a1b18):
+        // level on a 5 % slope, its pitch against the road shrinks.
+        TrackCollision steep = col;
+        for (auto& point : steep.road) {
+            const float k = 1 / std::sqrt(1 + 0.05f * 0.05f);
+            point.forward = {0, 0.05f * k, k};
+            point.normal = {0, k, -0.05f * k};
+        }
+        AiCar flat = cars[0];
+        aiSetTilt(flat, steep, {0, 1, 0});
+        const float before = flat.pitch;
+        aiTilt(flat, 2, steep);
+        CHECK(before != 0 && flat.pitchRate != 0 && std::fabs(flat.pitch) < std::fabs(before));
     }
 
     // Held up behind a car in its lane within 2 slices, wanting more than
@@ -1875,6 +1909,27 @@ void testComputerDriving() {
     // (4), not on 1 (surface 14) or off the run.
     CHECK(officerSpotOnRoad(runTrack, 0, {-5, 0, 2}) && officerSpotOnRoad(runTrack, 0, {5, 0, 2}));
     CHECK(!officerSpotOnRoad(runTrack, 0, {0, 0, 2}) && !officerSpotOnRoad(runTrack, 0, {-8, 0, 2}));
+    // The put back's road test (0x428ad0 after 0x4205a0, 0x4207e0): a
+    // polygon found from the slice, its byte 1 without 0x40 and 0x80 and a
+    // surface not 0 or 14, its road vector's up y above 0.
+    {
+        Track spot = runTrack;
+        Track::Block& sb = spot.blocks[0];
+        sb.virtualRoad.assign(24, 0);
+        sb.virtualRoad[2] = 0xff; // record 0: up (0, 0x7FFF, 0), forward (0, 0, 0x7FFF)
+        sb.virtualRoad[3] = 0x7f;
+        sb.virtualRoad[10] = 0xff;
+        sb.virtualRoad[11] = 0x7f;
+        sb.virtualRoad[14] = 0x01; // record 1: up (0, -0x7FFF, 0)
+        sb.virtualRoad[15] = 0x80;
+        CHECK(aiSpotOnRoad(spot, 0, {-5, 0, 2}) && aiSpotOnRoad(spot, 0, {5, 0, 2}));
+        CHECK(!aiSpotOnRoad(spot, 0, {0, 0, 2}) && !aiSpotOnRoad(spot, 0, {-8, 0, 2}));
+        sb.polygonRoad[17] = 0x44; // polygon 2 flagged 0x40
+        CHECK(!aiSpotOnRoad(spot, 0, {5, 0, 2}));
+        sb.polygonRoad[17] = 4;
+        sb.polygonRoad[16] = 1; // polygon 2 on record 1, upside down
+        CHECK(!aiSpotOnRoad(spot, 0, {5, 0, 2}));
+    }
 
     // carp.txt's fields for the computer.
     std::string carp = "maximum velocity of car [m/s](14)\n77.5\ntop speed cap [m/s](15)\n78.23\nmaximum braking deceleration(18)\n10.06\n";
@@ -3346,6 +3401,16 @@ void testCarHits() {
               aiSpotFree(v, 0, road, 25, 10.5f) == false);
         aiPutBack(v, 0, road);
         CHECK(v[0].slice == 28 && v[0].lateral == 2);
+        // The race's way (0x429100), not the car's: a car running against
+        // the slices still goes 5 on; on a backward race 5 back.
+        v = {m, other};
+        v[0].way = -1;
+        aiPutBack(v, 0, road);
+        CHECK(v[0].slice == 25);
+        v = {m, other};
+        v[0].raceBackward = true;
+        aiPutBack(v, 0, road);
+        CHECK(v[0].slice == 15);
         // A ghost isn't hit: the two side by side as above, one put back.
         std::vector<AiCar> two{left, right};
         two[1].ghostTicks = 2;

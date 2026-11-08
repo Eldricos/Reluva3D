@@ -1597,7 +1597,13 @@ README.md.
   such a wall isn't pushed the wrong way by it: the wall test steps
   from the car's own polygon and makes its normals from that polygon's
   edges, and a mark of the other side finds road there (read, and driven
-  on Rocky Pass, `e5-wall1`).
+  on Rocky Pass, `e5-wall1`). Since `g1` gravity pulls along the body's
+  own forward, and the body's tilt is the world's, brought back to the
+  road's only past 0.02 (frd.md, Gravity along the body's own forward):
+  over `t6-log`'s window the speeds are 3.09 m/s rms from the game's
+  (4.41), 1.06 from 50 to 64 s (1.57), and the page's cars no longer run
+  side by side into each other (no hits; the game's cars hit 9 times,
+  cars 3 and 4 at 64 s, which the page's still don't reproduce).
 - How the wall hits' particles look in play (read from the code only;
   their sounds are measured, not listened to), and wall code 3's
   material: the code tells it from code 5 only by its sound (material

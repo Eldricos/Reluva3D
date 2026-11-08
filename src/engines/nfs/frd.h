@@ -588,6 +588,12 @@ struct AiCar {
     bool putBackDue = false;
     int ghostTicks = 0;
     RoadSearch road; // its track position's search (+0xC)
+    // The track aiRoadFrame searched (kept for the put back's road test,
+    // aiSpotOnRoad); null until then.
+    const Track* roadTrack = nullptr;
+    // The race runs backward (g_backward): the put back goes on against
+    // the slices (0x429100), whichever way the car runs.
+    bool raceBackward = false;
     // The slice as the game has it (+0x1C, aiRoadFrame): the slice whose
     // road polygons it is on, which the track position's search gives;
     // `slice` and `along` place it between road points. -1: as `slice`.
@@ -713,14 +719,20 @@ float aiCarExtent(const TrackCollision& col, const AiCar& c);
 void aiRaceTick(std::vector<AiCar>& cars, const TrackCollision& col, int step);
 // Whether a car may be put at `offset` on `slice` (0x428ad0): the lane
 // there open (0x40e220) and no other car within a lane of it (+0x638) and
-// a slice (+0x1C). The game also wants a road polygon under the point
-// with a drivable surface and an up over 0.8 (0x4205a0, 0x4207e0), which
-// the lanes' strips stand for here.
+// a slice (+0x1C), and, once the car has searched the track's polygons
+// (aiRoadFrame), the road under the point (aiSpotOnRoad).
 bool aiSpotFree(const std::vector<AiCar>& cars, size_t self, const TrackCollision& col, int slice, float offset);
+// 0x428ad0's road test at a spot: a track position built at the point from
+// the slice (0x4205a0) is in a road polygon whose record's byte 1 has no
+// 0x40 or 0x80 and a surface not 0 or 14 (0x4207e0), with its up's y above
+// 0. aiSpotFree applies it once the car has searched the track
+// (aiRoadFrame).
+bool aiSpotOnRoad(const Track& track, int slice, const std::array<float, 3>& point);
 // A car put back on the road (0x429100, from ai_target_point 0x406e50
 // when it has started reversing more than 8 times at 10 m/s or less, or
-// has been off the lanes and slow for over 1000 ticks): 5 slices on along
-// its way (0x5efdcc), at the first free spot (0x428d60: the slice's point,
+// has been off the lanes and slow for over 1000 ticks): 5 slices on the
+// race's way (0x5efdcc; against the slices with `raceBackward`, whichever
+// way the car runs), at the first free spot (0x428d60: the slice's point,
 // then the lanes' middles out from it, right first, then the next slices,
 // up to 10), still, lined up with the road, a ghost to the hits for 64
 // ticks. aiStep and aiCopStep call it when aiMove asked (putBackDue).
@@ -786,6 +798,15 @@ void aiLocate(AiCar& car, const TrackCollision& col, const std::array<float, 3>&
 // +0xD8) and the views from them.
 void aiSetWorld(AiCar& car, const TrackCollision& col, const std::array<float, 3>& velocity,
                 const std::array<float, 3>& forward);
+// The same with the body's up (+0xCC), giving its roll and pitch.
+void aiSetWorld(AiCar& car, const TrackCollision& col, const std::array<float, 3>& velocity,
+                const std::array<float, 3>& forward, const std::array<float, 3>& up);
+// The body's axes as the model has them (aiBodyAxes), rolled and pitched
+// by `roll` and `pitch`: the game's +0xD8, +0xC0, +0xCC.
+void aiTiltedAxes(const TrackCollision& col, const AiCar& car, std::array<float, 3>& forward,
+                  std::array<float, 3>& right, std::array<float, 3>& up);
+// The roll and pitch that give the body this up in the world.
+void aiSetTilt(AiCar& car, const TrackCollision& col, const std::array<float, 3>& up);
 // A car's world velocity, and its body's forward, right and up (its yaw on
 // the road's up), as the model has them.
 std::array<float, 3> aiVelocity(const TrackCollision& col, const AiCar& car);
@@ -947,6 +968,12 @@ void aiReverseSet(AiCar& car, int mode, int steps, int step);
 // (sin of the angle), held to +-0.5 turn/s, towards the road, or 0 once
 // both are within 0.02. The angles turn by the rates.
 void aiTilt(AiCar& car, int step);
+// On the road (aiModelSteer), as the game does it on the world's axes:
+// the spins about x and z are the road normal's z less the body up's and
+// the body up's x less the normal's (car_on_road 0x4a1610), held to
+// +-0.5, 0 once both are within 0.02 with the body upright; the body's up
+// is the world's, kept across slices (aiAdvance).
+void aiTilt(AiCar& car, int step, const TrackCollision& col);
 
 // A car record of a dump of nfs3.exe's cars (0x5e1120, 0x9AC bytes a
 // car; physics.md): in play +0x89, flags +0x200 (4 a human, 0x20 a cop,

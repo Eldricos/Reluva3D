@@ -1233,6 +1233,13 @@ void aiSetWorld(AiCar& c, const TrackCollision& col, const std::array<float, 3>&
     aiViews(col, c);
 }
 
+void aiSetWorld(AiCar& c, const TrackCollision& col, const std::array<float, 3>& velocity,
+                const std::array<float, 3>& forward, const std::array<float, 3>& up) {
+    aiSetWorld(c, col, velocity, forward);
+    if (col.road.size() >= 2)
+        aiSetTilt(c, col, up);
+}
+
 void aiLocate(AiCar& c, const TrackCollision& col, const std::array<float, 3>& p) {
     const int n = static_cast<int>(col.road.size());
     if (n < 2)
@@ -1342,20 +1349,16 @@ float aiLateralFor(const TrackCollision& col, const AiCar& c, float side) {
     return std::fabs(k1) > 0.1f ? (side - k0 - c.along * k2) / k1 : side - c.along * aiChord(col, c.slice);
 }
 
-float aiCarExtent(const TrackCollision& col, const AiCar& c) {
-    const int n = static_cast<int>(col.road.size());
-    if (n < 2)
-        return c.halfWidth;
-    const auto& a = col.road[size_t(((c.slice % n) + n) % n)];
+// The body's axes as the model has them (its yaw on the slice's up,
+// aiBodyAxes), then rolled about its forward and pitched about its right
+// by what a hit left (+0xC0, +0xCC, +0xD8).
+void aiTiltedAxes(const TrackCollision& col, const AiCar& c, std::array<float, 3>& f1, std::array<float, 3>& r1,
+                  std::array<float, 3>& u1) {
     constexpr float kTurn = 2 * 3.14159265358979f;
-    // The body's axes as the model has them (its yaw on the slice's up,
-    // aiBodyAxes), then rolled about its forward and pitched about its
-    // right by what a hit left.
     std::array<float, 3> forward{}, up{}, right{};
     aiBodyAxes(col, c, forward, right, up);
     const float cr = std::cos(c.roll * kTurn), sr = std::sin(c.roll * kTurn);
     const float cp = std::cos(c.pitch * kTurn), sp = std::sin(c.pitch * kTurn);
-    std::array<float, 3> r1{}, u1{}, f1{};
     for (size_t k = 0; k < 3; ++k) {
         r1[k] = right[k] * cr + up[k] * sr;
         u1[k] = up[k] * cr - right[k] * sr;
@@ -1364,6 +1367,27 @@ float aiCarExtent(const TrackCollision& col, const AiCar& c) {
         f1[k] = forward[k] * cp + u1[k] * sp;
         u1[k] = u1[k] * cp - forward[k] * sp;
     }
+    // The forward keeps the yaw's direction across the world (+0x210 is
+    // taken from it): the yaw's line laid on the tilted up.
+    const std::array<float, 3> h{std::sin(c.yaw), 0, std::cos(c.yaw)};
+    const bool heading = !c.worldKept || c.heading != c.keptHeading || c.way != c.keptWay;
+    if (!heading && (c.roll != 0 || c.pitch != 0)) {
+        const float k = dot3(h, u1);
+        const std::array<float, 3> g = unit3({h[0] - k * u1[0], h[1] - k * u1[1], h[2] - k * u1[2]});
+        if (dot3(g, g) > 0) {
+            f1 = g;
+            r1 = unit3(cross3(u1, f1));
+        }
+    }
+}
+
+float aiCarExtent(const TrackCollision& col, const AiCar& c) {
+    const int n = static_cast<int>(col.road.size());
+    if (n < 2)
+        return c.halfWidth;
+    const auto& a = col.road[size_t(((c.slice % n) + n) % n)];
+    std::array<float, 3> r1{}, u1{}, f1{};
+    aiTiltedAxes(col, c, f1, r1, u1);
     const std::array<float, 3>& road = c.roadRightSet ? c.roadRight : a.right;
     auto dot = [](const std::array<float, 3>& x, const std::array<float, 3>& y) {
         return x[0] * y[0] + x[1] * y[1] + x[2] * y[2];
@@ -1396,6 +1420,7 @@ void aiRoadFrame(const Track& track, const TrackCollision& col, AiCar& c) {
         return;
     const auto& a = col.road[size_t(((c.slice % n) + n) % n)];
     const auto& b = col.road[size_t((((c.slice + 1) % n) + n) % n)];
+    c.roadTrack = &track;
     const float lateral = c.sideKept ? c.lateral : aiLateralFor(col, c, c.offset);
     std::array<float, 3> at{};
     for (size_t k = 0; k < 3; ++k)
@@ -1416,13 +1441,17 @@ void aiRoadFrame(const Track& track, const TrackCollision& col, AiCar& c) {
             return;
         }
     }
-    // Off the slice's run (+0x6C set): the road point's own vectors; not
-    // found inside, the polygon of the last search stays.
-    if (c.road.side != 0 || !c.roadRightSet) {
-        c.roadRight = a.right;
-        c.roadForward = a.forward;
-        c.roadRightSet = true;
-    }
+    // Not found inside a polygon of the runs searched (off the road's side,
+    // +0x6C set, or past them): the search walks +0x10 back to the slice it
+    // started from and clears +0x14 (0x41f018-0x41f078), so
+    // trackpos_road_frame (0x420230) takes that slice's road point's own
+    // vectors and point (its bytes +0x0D-+0x17), as car_road_frame
+    // (0x49ffa0) does for +0x124 and +0x148; the polygon found before
+    // doesn't stay.
+    const auto& from = col.road[size_t(((c.road.slice % n) + n) % n)];
+    c.roadRight = from.right;
+    c.roadForward = from.forward;
+    c.roadRightSet = true;
     c.roadSlice = c.road.slice;
 }
 
@@ -1466,7 +1495,7 @@ AiDynamics aiModelSteer(AiCar& me, const TrackCollision& col, int step, int trac
     // ends the air ticks once every spin is under 0.6 (0x4a2068); until
     // then car_ai_physics (0x4088f0) skips the model. On the road the
     // roll and pitch go back (aiTilt).
-    aiTilt(me, step);
+    aiTilt(me, step, col);
     if ((step & 1) != 0 || me.airTicks != 0)
         return out;
     out.ran = true;
@@ -1474,14 +1503,32 @@ AiDynamics aiModelSteer(AiCar& me, const TrackCollision& col, int step, int trac
     // controllers clamp by, max(|vx|, |vz|) + min / 4 of the world
     // velocity (0.88 of the speed along a diagonal, up to 1.03); then
     // gravity (k_gravity_tick 0x53c8dc, -0.30656 m/s a tick) through the
-    // road's rows (+0x124, +0x130, +0x13C), each x its own y: along the
-    // road's forward its rise, the part into the road the contact takes.
+    // rows at +0x190 (0x4a2a0c-0x4a2b19), each x its own y. For a computer
+    // car standing up on the road (+0x10C, the body's up . the road's
+    // normal, over 0.9: 0x4a0f30 from car_road_dots 0x4a2690) those rows
+    // are the body's own (+0xC0, +0xD8) with the road's normal for the up:
+    // the up part goes into the road, which the contact takes back
+    // (car_on_road 0x4a1610), and the forward part along the body's own
+    // forward, not the road's: a car turned or tipped on a slope is pulled
+    // along it by its own rise. With the road's normal y under 0.87
+    // (0x5efdd8) the right part as well; not upright, neither.
     {
         const float ax = std::fabs(me.vel[0]), az = std::fabs(me.vel[2]);
         out.ground = std::max(ax, az) + std::min(ax, az) * 0.25f;
+        std::array<float, 3> gf{}, gr{}, gu{};
+        aiTiltedAxes(col, me, gf, gr, gu);
         const std::array<float, 3> rf = unit3(me.roadRightSet ? me.roadForward : here->forward);
-        for (size_t k = 0; k < 3; ++k)
-            me.vel[k] += -0.30656251f * rf[1] * rf[k];
+        const std::array<float, 3> rr = me.roadRightSet ? me.roadRight : here->right;
+        std::array<float, 3> nu = unit3(cross3(rf, rr));
+        if (nu[1] < 0)
+            nu = {-nu[0], -nu[1], -nu[2]};
+        if (nu[1] < 0.87f) {
+            for (size_t k = 0; k < 3; ++k)
+                me.vel[k] += -0.30656251f * (gf[1] * gf[k] + gr[1] * gr[k]);
+        } else if (dot3(gu, nu) > 0.9f) {
+            for (size_t k = 0; k < 3; ++k)
+                me.vel[k] += -0.30656251f * gf[1] * gf[k];
+        }
     }
     // car_ai_physics: the velocity into the body's frame (+0x4EC its right,
     // +0x4F4 its forward).
@@ -1651,9 +1698,20 @@ void aiAdvance(AiCar& me, const TrackCollision& col) {
     std::array<float, 3> at = aiPlace(col, me);
     for (size_t k = 0; k < 3; ++k)
         at[k] += me.vel[k] / 64.0f;
-    me.yaw += me.yawRate * 2 * kPi / 64.0f;
+    // The body's up is the world's (car_integrate_turn 0x4a2e20 turns the
+    // body's rows by its spins about the world's axes, nothing lays it on
+    // a slice): turned with the yaw about the world's y, it is kept while
+    // the slice under it changes, so the roll and pitch (against the yaw
+    // on the slice's up) are taken again for the new slice.
+    std::array<float, 3> bf{}, br{}, bu{};
+    aiTiltedAxes(col, me, bf, br, bu);
+    const float turn = me.yawRate * 2 * kPi / 64.0f;
+    me.yaw += turn;
     me.yaw = std::remainder(me.yaw, 2 * kPi);
+    const float ct = std::cos(turn), st = std::sin(turn);
+    bu = {bu[0] * ct + bu[2] * st, bu[1], -bu[0] * st + bu[2] * ct};
     aiLocate(me, col, at);
+    aiSetTilt(me, col, bu);
     // Not through the walls (the car against the track, 0x4304b0 with
     // 0x430210): its sides kept within the slice's walls, the velocity
     // across the slice taken out.
@@ -2734,6 +2792,31 @@ void aiReverseSet(AiCar& car, int mode, int steps, int step) {
     }
 }
 
+bool aiSpotOnRoad(const Track& track, int slice, const std::array<float, 3>& point) {
+    // 0x428ad0 after the lane and the cars: trackpos_at_point (0x4205a0)
+    // builds a track position at the point from the slice; it must be in
+    // a polygon (+0x14), whose record byte 1 (trackpos_surface 0x4207e0)
+    // has neither 0x40 nor 0x80 and a surface (& 0x3F) neither 0 nor 14,
+    // and whose road vector's up y (s16 x 2, an int) is at least 0.8
+    // (0x5371b0, a double): any up y above 0.
+    RoadSearch search;
+    search.slice = slice;
+    if (!roadSearch(track, search, point[0], point[2]))
+        return false;
+    const size_t block = static_cast<size_t>(search.foundSlice >> 3);
+    if (block >= track.blocks.size())
+        return false;
+    const Track::Block& b = track.blocks[block];
+    const size_t index = static_cast<size_t>(search.polygon);
+    if (8 * index + 1 >= b.polygonRoad.size())
+        return false;
+    const int byte1 = b.polygonRoad[8 * index + 1];
+    if ((byte1 & 0xc0) != 0 || (byte1 & 0x3f) == 0 || (byte1 & 0x3f) == 14)
+        return false;
+    RoadFrame f;
+    return polygonRoadFrame(b, index, f) && f.up[1] * 32768.0f * 2 >= 0.8f;
+}
+
 bool aiSpotFree(const std::vector<AiCar>& cars, size_t self, const TrackCollision& col, int slice, float offset) {
     const int n = static_cast<int>(col.road.size());
     if (n < 2)
@@ -2753,6 +2836,14 @@ bool aiSpotFree(const std::vector<AiCar>& cars, size_t self, const TrackCollisio
         if (wrap(slice) == at || wrap(slice) == wrap(at - 1) || wrap(slice) == wrap(at + 1))
             return false;
     }
+    // The road under the spot (the slice's point + the offset along its
+    // right), when the car has searched the track's polygons.
+    if (self < cars.size() && cars[self].roadTrack) {
+        std::array<float, 3> at{};
+        for (size_t k = 0; k < 3; ++k)
+            at[k] = p.position[k] + p.right[k] * offset;
+        return aiSpotOnRoad(*cars[self].roadTrack, wrap(slice), at);
+    }
     return true;
 }
 
@@ -2766,14 +2857,17 @@ void aiPutBack(std::vector<AiCar>& cars, size_t self, const TrackCollision& col)
     if (me.pulledOver || (me.chasing >= 0 && static_cast<size_t>(me.chasing) < cars.size() && cars[size_t(me.chasing)].pulledOver))
         return;
     auto wrap = [&](int s) { return ((s % n) + n) % n; };
-    const int from = wrap(aiSlice(me) + me.way * 5); // 0x5efdcc
+    // The race's way (0x429100: +1, -1 on a backward track g_backward), not
+    // the car's: 5 slices on (0x5efdcc), and on from there (0x428d60).
+    const int way = me.raceBackward ? -1 : 1;
+    const int from = wrap(aiSlice(me) + way * 5); // 0x5efdcc
     // 0x428d60: the slice's point if free, else the lanes' middles out
     // from the point, right before left (0x428e1a, 0x428e88), on along the
     // way for up to 10 slices; none free, the first slice's point.
     int slice = from;
     float offset = 0;
     bool found = aiSpotFree(cars, self, col, from, 0);
-    for (int tries = 0, s = from; !found && tries < 10; ++tries, s = wrap(s + me.way)) {
+    for (int tries = 0, s = from; !found && tries < 10; ++tries, s = wrap(s + way)) {
         const auto& p = col.road[size_t(s)];
         const int left = p.leftLanes(), right = p.rightLanes();
         const float leftWidth = static_cast<float>(p.extra[1]) * 0.5f, rightWidth = static_cast<float>(p.extra[2]) * 0.5f;
@@ -2839,6 +2933,55 @@ void aiTilt(AiCar& car, int step) {
     car.pitch -= std::nearbyint(car.pitch);
 }
 
+void aiTilt(AiCar& car, int step, const TrackCollision& col) {
+    if ((step & 1) != 0)
+        return;
+    if (car.airTicks > 0 || col.road.size() < 2) {
+        aiTilt(car, step);
+        return;
+    }
+    // car_on_road (0x4a1610, 0x4a1b18-0x4a1cc6), on the world's axes: the
+    // spin about x (+0xE4) is the road's normal's z less the body's up's,
+    // about z (+0xEC) the body's up's x less the normal's, each held to
+    // +-0.5 turn/s (0x53c84c, 0x53c854); both 0 once both are within 0.02
+    // (0x53c844) with the body upright on the road (+0x10C over 0.9,
+    // 0x53c83c). car_integrate_turn (0x4a2e20) turns the body by them
+    // about the world's axes; here as rates about its forward and right.
+    const int n = static_cast<int>(col.road.size());
+    const auto& a = col.road[size_t(((car.slice % n) + n) % n)];
+    const std::array<float, 3> rf = unit3(car.roadRightSet ? car.roadForward : a.forward);
+    std::array<float, 3> nu = unit3(cross3(rf, car.roadRightSet ? car.roadRight : a.right));
+    if (nu[1] < 0)
+        nu = {-nu[0], -nu[1], -nu[2]};
+    std::array<float, 3> f{}, r{}, u{};
+    aiTiltedAxes(col, car, f, r, u);
+    const float dz = u[0] - nu[0], dx = nu[2] - u[2];
+    if (dot3(u, nu) > 0.9f && std::fabs(dz) <= 0.02f && std::fabs(dx) <= 0.02f) {
+        car.rollRate = car.pitchRate = 0;
+        return;
+    }
+    const std::array<float, 3> w{std::clamp(dx, -0.5f, 0.5f), 0, std::clamp(dz, -0.5f, 0.5f)};
+    car.rollRate = dot3(w, f);
+    car.pitchRate = -dot3(w, r);
+    car.roll += car.rollRate / 32.0f;
+    car.pitch += car.pitchRate / 32.0f;
+    car.roll -= std::nearbyint(car.roll);
+    car.pitch -= std::nearbyint(car.pitch);
+}
+
+void aiSetTilt(AiCar& c, const TrackCollision& col, const std::array<float, 3>& up) {
+    // The roll and pitch that give the body this up in the world, against
+    // its yaw on the slice's up (aiTiltedAxes): up = u cr cp - r sr cp - f sp.
+    constexpr float kTurn = 2 * 3.14159265358979f;
+    std::array<float, 3> f{}, r{}, u{};
+    aiBodyAxes(col, c, f, r, u);
+    const std::array<float, 3> b = unit3(up);
+    const float sp = std::clamp(-dot3(b, f), -1.0f, 1.0f);
+    const float cp = std::sqrt(std::max(0.0f, 1 - sp * sp));
+    c.pitch = std::asin(sp) / kTurn;
+    c.roll = cp > 1e-6f ? std::atan2(-dot3(b, r) / cp, dot3(b, u) / cp) / kTurn : 0;
+}
+
 float aiCarMass(float carpMass, bool racer) {
     return racer ? carpMass * (1.0f / 1.2f) : carpMass; // 1 / 0x5efdb8 (1.2, 0x3f99999a), kept as a float
 }
@@ -2877,7 +3020,9 @@ void aiCollide(std::vector<AiCar>& cars, const TrackCollision& col, int step) {
         aiBodyAxes(col, c, box.forward, box.right, box.up);
         box.half = {c.halfWidth, c.halfHeight, c.halfLength};
         box.mass = c.mass;
-        box.spin = vAdd(vAdd(vScale(box.up, c.yawRate), vScale(box.forward, c.rollRate)), vScale(box.right, c.pitchRate));
+        // aiTiltedAxes pitches the up towards -forward: a turn of -pitch
+        // about the right.
+        box.spin = vAdd(vAdd(vScale(box.up, c.yawRate), vScale(box.forward, c.rollRate)), vScale(box.right, -c.pitchRate));
     }
     before = boxes;
     if (carBoxCollisions(boxes) == 0)
@@ -2892,7 +3037,7 @@ void aiCollide(std::vector<AiCar>& cars, const TrackCollision& col, int step) {
         c.vel = vAdd(c.vel, vSub(now.velocity, was.velocity));
         c.yawRate += vDot(vSub(now.spin, was.spin), was.up);
         c.rollRate += vDot(vSub(now.spin, was.spin), was.forward);
-        c.pitchRate += vDot(vSub(now.spin, was.spin), was.right);
+        c.pitchRate -= vDot(vSub(now.spin, was.spin), was.right);
         // Its place: the point back across the line from its slice's point
         // to the next's, on to the slice it is now on.
         const Vec3 up = unit3(col.road[size_t(wrap(c.slice))].normal);
