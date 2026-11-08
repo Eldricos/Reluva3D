@@ -865,6 +865,133 @@ void testLightLook() {
     CHECK(lightLook(10, 0).color >> 24 == 0xba && lightLook(10, 0).size == 2.5f);
 }
 
+// The weather's rain and snow (col.md, Rain and snow), from 0x4dcdf0 and
+// the functions it sets up for.
+void testWeather() {
+    CHECK(weatherKind(0) == nullptr && weatherKind(3) == nullptr);
+    CHECK(weatherKind(1) && weatherKind(4) == weatherKind(1) && weatherKind(2) && weatherKind(5) == weatherKind(2));
+    // Hometown's rain: 400 drops in a box 25 either side, 15 up, 5 down;
+    // a fall of 1.2 an update and a wind of 0.3 towards -z (180 degrees).
+    const WeatherSetup rain = weatherSetup(1, 0, 0, 0, 3840, 4800, 5120, 6080);
+    CHECK(rain.kind == 1 && rain.count == 400 && rain.splashes == 20);
+    CHECK(rain.half == 25 && rain.top == 15 && rain.bottom == -5);
+    CHECK(std::fabs(rain.velocity[1] + 1.2f) < 1e-4f && std::fabs(rain.velocity[2] + 0.3f) < 1e-4f &&
+          std::fabs(rain.velocity[0]) < 1e-4f);
+    CHECK(rain.colour == 0x7e7e7e7eu && rain.splashLife == 16 && rain.splashGrey == 128);
+    CHECK(rain.times[0] == 3840 && rain.times[1] == 8640 && rain.times[2] == 13760 && rain.times[3] == 19840);
+    // The Summit's snow: 800 flakes, 20 either side, 20 up, falling 0.2.
+    const WeatherSetup snow = weatherSetup(2, 0, 0, 0, 0, 0, 0, 0);
+    CHECK(snow.kind == 2 && snow.count == 800 && snow.half == 20 && snow.top == 20 && snow.bottom == -5);
+    CHECK(std::fabs(snow.velocity[1] + 0.2f) < 1e-4f && snow.velocity[0] == 0 && snow.colour == 0xc8c8c8c8u);
+    CHECK(weatherSetup(0, 0, 0, 0, 1, 1, 1, 1).kind == 0);
+
+    // By the road: everywhere without a stretch; trk002's 340 to 240,
+    // past the line, fading over 15 slices.
+    CHECK(weatherAtSlice(rain, 123, 600) == 400);
+    const WeatherSetup wrap = weatherSetup(1, 340, 240, 15, 0, 0, 0, 0);
+    CHECK(weatherAtSlice(wrap, 300, 600) == 0 && weatherAtSlice(wrap, 400, 600) == 400);
+    CHECK(weatherAtSlice(wrap, 100, 600) == 400 && weatherAtSlice(wrap, 250, 600) == 0);
+    CHECK(weatherAtSlice(wrap, 345, 600) == 400 - 400 * 10 / 15);
+    CHECK(weatherAtSlice(wrap, 235, 600) == 400 - 400 * 10 / 15);
+    // By the time: on, fading off, off, fading on, round again.
+    CHECK(weatherAtTime(rain, 400, 0) == 400 && weatherAtTime(rain, 400, 3839) == 400);
+    CHECK(weatherAtTime(rain, 400, 3840 + 2400) == 200 && weatherAtTime(rain, 400, 10000) == 0);
+    CHECK(weatherAtTime(rain, 400, 13760 + 3040) == 200);
+    bool restart = false;
+    CHECK(weatherAtTime(rain, 400, 19840, &restart) == 400 && restart);
+    CHECK(weatherAtTime(snow, 800, 100000) == 800); // no times: always
+    CHECK(weatherForEffects(400, 0) == 400 && weatherForEffects(400, 1) == 200 && weatherForEffects(400, 2) == 100);
+    CHECK(weatherForEffects(7, 2) == 1);
+
+    // A flake's side: 12 pixels at the camera, 1 at 20 and beyond.
+    CHECK(std::fabs(snowflakeSide(snow, 0) - 12) < 1e-5f && std::fabs(snowflakeSide(snow, 10) - 6) < 1e-5f);
+    CHECK(snowflakeSide(snow, 20) == 1 && snowflakeSide(snow, 30) == 1);
+    // The game's table sine: 1024 steps a turn of 16.16.
+    CHECK(fixedSin(0) == 0 && fixedSin(0x4000) == 65536 && fixedCos(0) == 65536 && fixedSin(0x8000) == 0);
+    CHECK(fixedSin(64) == 402 && fixedSin(0xC000) == -65536);
+    CHECK(std::abs(fixedSin(32) - 201) <= 1 && std::abs(fixedCos(0x4000)) <= 1);
+
+    // The 120-degree screen the pass draws through.
+    const ViewScreen wide = viewScreen(0, 0, 640, 480, 120);
+    CHECK(std::fabs(wide.sx - 184.75f) < 0.01f && std::fabs(wide.sy + 216.10f) < 0.01f);
+
+    // A drop moves every other tick, and one out of the box comes back at
+    // its other side.
+    Weather w;
+    ParticleRandom random;
+    w.start(rain, {0, 0, 0}, 100, random);
+    for (int i = 0; i < rain.count; ++i) {
+        const ParticleVec& p = w.drops()[size_t(i)].position;
+        CHECK(std::fabs(p[0]) <= 25 && std::fabs(p[2]) <= 25 && p[1] >= -5 && p[1] <= 15);
+    }
+    CHECK(w.drops()[400].position == (ParticleVec{0, 0, 0}));
+    w.drops()[0].position = {0, 10, 0};
+    w.update(101, 400, {0, 0, 0}, false, random); // too soon after the start
+    CHECK(w.drops()[0].position[1] == 10);
+    w.update(102, 400, {0, 0, 0}, false, random);
+    CHECK(std::fabs(w.drops()[0].position[1] - 8.8f) < 1e-4f && std::fabs(w.drops()[0].position[2] + 0.3f) < 1e-4f);
+    w.update(103, 400, {0, 0, 0}, false, random); // the tick after: nothing
+    CHECK(std::fabs(w.drops()[0].position[1] - 8.8f) < 1e-4f);
+    w.drops()[0].position = {0, -4.5f, 0};
+    w.update(104, 400, {0, 0, 0}, true, random); // falls below: back at the top, hidden under cover
+    CHECK(w.drops()[0].position[1] == 15 && w.drops()[0].hidden);
+    w.drops()[1].position = {25.5f, 0, 0};
+    w.drops()[1].hidden = false;
+    random.script = {0x8000, 0x8000}; // y and z at the middle
+    w.update(106, 2, {0, 0, 0}, false, random);
+    CHECK(w.drops()[1].position[0] == -25 && w.drops()[1].position[1] == 5 && w.drops()[1].position[2] == 0);
+
+    // Drawing: looking along +z from the origin, a drop 10 ahead is a
+    // streak; drawn once it is a point, then it has length.
+    WeatherView view;
+    view.right = {1, 0, 0};
+    view.up = {0, 1, 0};
+    view.forward = {0, 0, 1};
+    Weather d;
+    d.start(rain, {0, 0, 0}, 0, random);
+    for (auto& drop : d.drops())
+        drop.position = {0, 100, -100}; // out of sight
+    d.drops()[0].position = {1, 2, 10};
+    std::vector<WeatherPoly> polys;
+    d.draw(view, 400, true, random, polys);
+    CHECK(polys.size() == 1 && polys[0].corners == 3 && polys[0].depth == 10 && polys[0].colour == 0x7e7e7e7eu);
+    CHECK(std::fabs(polys[0].at[1][0] - (320 + view.sx * 0.1f)) < 1e-3f &&
+          std::fabs(polys[0].at[1][1] - (240 + view.sy * 0.2f)) < 1e-3f);
+    CHECK(polys[0].at[0] == polys[0].at[1] && polys[0].at[2][0] == polys[0].at[1][0] + 2);
+    d.drops()[0].position = {1, 0, 10};
+    polys.clear();
+    d.draw(view, 400, true, random, polys);
+    CHECK(polys.size() == 1 && std::fabs(polys[0].at[0][1] - (240 + view.sy * 0.1f)) < 1e-3f); // halfway
+    // Behind the camera, a little: back at the top. Farther than the box's
+    // half width: not drawn.
+    d.drops()[0].position = {0, 0, -1};
+    polys.clear();
+    d.draw(view, 400, true, random, polys);
+    CHECK(polys.empty() && d.drops()[0].position[1] == 15);
+    d.drops()[0].position = {0, 0, 26};
+    d.draw(view, 400, true, random, polys);
+    CHECK(polys.empty());
+    // Within 3: a splash on the screen instead, where the drop was.
+    d.drops()[0].position = {0.5f, 0, 2};
+    random.script = {5, 0xffff, 0x4000}; // life 16 - 5 % 4, size all, angle a quarter
+    d.draw(view, 400, true, random, polys);
+    CHECK(polys.size() == 1 && polys[0].splash && polys[0].corners == 4);
+    const Weather::Splash& sp = d.splashes()[0];
+    CHECK(sp.life == 15 && std::fabs(sp.x - 0.25f) < 1e-6f && sp.y == 0 && std::fabs(sp.size - 0.2f * 0xffff / 65536) < 1e-5f);
+    CHECK(polys[0].colour == 0x78787878u); // 128 x 15 / 16
+    CHECK(d.drops()[0].position[1] == 15); // the drop back at the top
+    // Snow: a square from the point, its side by the depth.
+    Weather s;
+    s.start(snow, {0, 0, 0}, 0, random);
+    for (auto& flake : s.drops())
+        flake.position = {0, 100, -100};
+    s.drops()[0].position = {0, 0, 10};
+    polys.clear();
+    s.draw(view, 800, false, random, polys);
+    CHECK(polys.size() == 1 && polys[0].corners == 4 && polys[0].colour == 0xc8c8c8c8u);
+    CHECK(polys[0].at[0][0] == 320 && polys[0].at[1][0] == 326 && polys[0].at[2][1] == 246);
+}
+
 void testParticles() {
     // The side codes' kinds (0x553740) and the burst's count (0x4cac20).
     CHECK(wallParticleKind(1) == 3 && wallParticleKind(2) == 3 && wallParticleKind(4) == 3);
@@ -3663,6 +3790,7 @@ int main() {
     testTrack();
     testLightLook();
     testParticles();
+    testWeather();
     testPolygonAnimation();
     testReflectionUv();
     testPlacedSounds();

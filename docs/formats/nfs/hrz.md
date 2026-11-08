@@ -418,7 +418,8 @@ times as m:ss), against the Tracks page and frames from `nfs-host`:
   a saved `config.dat` can have it off), and `nfs-host`'s own drawing
   (point-sampled), not the card's.
 - **Lightning** is in none of the clips (no weather), so it stays
-  unchecked.
+  unchecked. (Nor in `Rain`, below, though Hometown's weather file
+  turns it on: none was seen in its 143 s.)
 
 - **The flat rows** (November 2026). `nfs-host` day and night races on
   Hometown with the camera record (`0x7a3d14`, the sky code's argument)
@@ -474,3 +475,54 @@ times as m:ss), against the Tracks page and frames from `nfs-host`:
   0.000667-0.000680: w 1470-1499, the radius (less where the camera's
   pitch tips the row's top towards it). A world unit is thus a unit of
   w for the scenery, the sky and the fog alike.
+
+## The weather against footage (November 2026)
+
+Three more clips of the retail game (`Rain`: Hometown in the rain, chase
+view; `Snow`: the Summit in snow; `Night`: Hometown then the Summit by
+night, chase and in-car views, and the menus; 1280 × 720, times m:ss).
+
+**The weather fields** (the last eight before the ambient light) are
+read by the loader `0x478340` into `0x8ca1e8`-`0x8ca1fc` and used by
+the rain and snow ([col.md](col.md), Rain and snow): the type (0 none,
+1 rain, 2 snow; type % 3), the stretch of road it falls on (start and
+end slices, which may wrap past the line, and the slices it fades in
+over; start = end and no fade for everywhere), and the time it stays
+on, fades off, stays off and fades back on, in ticks, as a cycle. The
+day and night files all have type 0.
+
+**The sky and fog in the rain.** `Rain` 0:10 (race 0:05) has the whole
+sky in dark grey mottled clouds and the road and fields in their own
+colours, hardly tinted with distance. Hometown's weather file has fog
+density 50 towards (174, 167, 154), blended clouds (type 2) that are
+fogged, lightning on. The Tracks page drew a smooth pale beige haze
+with the clouds nearly gone and the scene tinted beige. So did the
+game: an `nfs-host` race on Hometown with the weather flag poked
+(`0x6fd4cc` = 1, `f2-runs/hw`, frame 2800's THRASH list drawn out) has
+the same haze; its list sends fog value 250 (5 × (100 − 50)) for the
+scenery and 1500 for the sky, in that colour, as above. With the page's
+fog off (`Y`) the clouds come out dark and mottled and the scene
+untinted, as in the clip.
+
+The reason is in the code: the game sends fog only to the 3dfx
+renderers (`0x4b59c0` sets the fog mode 4 for `voodooa` and `voodoo2a`
+and 0 for the rest, and with 0 `0x470aa0` and `0x470ad0` send no fog
+state; [thrash.md](thrash.md), Fog). So the clip's game drew no fog:
+the clips were most likely recorded with the Direct3D renderer
+(`d3da`), or with a Glide renderer that leaves out table fog. Either
+way the page and `nfs-host` are right for the 3dfx path the page
+draws, and with fog off match the clip. By day without weather (density
+5, value 475) the difference is slight, which is why the earlier clips
+didn't show it. Comparison: the clip frame, the host's list, the page
+fogged and the page without fog (`Y`), side by side (not in the repo).
+The clouds' layout and brightness differ as by day (their random
+numbers), and the clip's clouds are greyer than the page's.
+
+**The Summit's snow** (`Snow` 0:40, race 0:35): grey-white clouds over
+dark hills, white flakes; the page with fog off agrees in kind (its
+spot isn't the clip's). The Summit's weather file has its own fog, not
+compared.
+
+**Still open:** which renderer the clips' game used (the menus in
+`Night` show no renderer or version), and the rain's lightning.
+

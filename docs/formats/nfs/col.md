@@ -560,6 +560,56 @@ particles aren't seen. Two nearby events:
 - `Rocky_Pass_Day` 3:39 (219 s): wheels on the grass verge throw dark
   speckled clumps, like `SN05`, not the brown `SN02` puff.
 
+**The second set of clips** (November 2026: `Rain`, Hometown in the
+rain; `Snow`, the Summit in snow; `Night`, Hometown then the Summit by
+night; 1280 × 720, the game's 640 × 480 at 1.5 × in the middle; times
+are clip times, m:ss, with the race clock where it helps):
+- `Rain` 1:51-1:53 (race 1:46.8-1:48): the car meets an oncoming
+  truck. A large bright pixelated puff at the contact, black smoke
+  round the truck for about a second, and fans of thin yellow streaks
+  under it for under half a second, as `Summit_Day` 4:45's. A car hit,
+  not a wall's: which code makes these (the hits between cars) isn't
+  followed here.
+- `Rain` 1:43-1:51 (race 1:38-1:46), 1:25 (race 1:20): dark speckled
+  clumps beside the car where its wheels run on the verge. In the
+  weather the surface table (below) gives the verges kind 11, whose
+  day picture `SP11` is a dark brown speckled puff: agrees.
+- `Snow` 4:27 (race 4:23) and 6:55 (race 6:50): ploughing into snow
+  banks, the wheels throw a white speckled spray, the day picture
+  `SP10` (kind 10, which the table gives the road surfaces in the
+  weather; the banks' polygons are road surfaces to it); at 4:27 a
+  tan puff by the left bank as well, like `SP02`, the wall hits' dust
+  (codes 3 and 5).
+- No clip shows a wall hit with sparks near the camera, so the wall
+  hits' sparks are still seen only in a scrape.
+- **Code 3.** `Snow` drives the Summit's town and the banks after it
+  (5:45-7:00, race 5:40-6:56) and hits a parked car (race 6:44) and a
+  left bank (race 6:50). Whether that bank is one of the code-3 runs
+  (slices 1600-1629) can't be told from the clip, and what a hit there
+  shows (`SP02` dust, as code 5's) is what the code already says: the
+  two codes differ only in the sound. So code 3's material stays
+  unnamed.
+- `Night` 1:58 (the Summit by night in the weather, race 0:13): white
+  puffs on the bank by the wheels but no snow falling. That's the
+  surface table, which goes by the car's weather, not by the road:
+  Summit's night weather file sets snow only on slices 400-1290 (Rain
+  and snow, below), and the race starts outside them.
+
+**The surface table** (`0x553080`, rows of 0x24 bytes by surface,
+0x240 by the car's weather `+0x160`; read November 2026 with the wheel
+code `0x42a280`, called for each wheel from `car_spiked_effects`):
+`+0x00` the skid level at or under which the wheel throws, `+0x04`
+and `+0x08` a speed and a range that scale the level, `+0x0C` the kind
+thrown (by `0x4cb010` at the wheel's road point), `+0x10` whether tyre
+smoke is made (Tyre smoke, above). Dry: kind 2 (dust) on surfaces 5 and
+13, 4 on 2, 5 on 3, 10 on 6, 12 on 4 and 11 (only when skidding), 1 on
+9 and 15, none on the rest. In weathers 1 and 2: 10 on the road
+surfaces 1, 4, 6, 7, 10, 11, 12, 11 on 2, 3, 5 and 13, 1 still on 9
+and 15. Kinds 10 and 11 (templates at `0x560b64`): 10 lives 32 ticks,
+size 0.75 growing by 4, colour `7FFFFFFF` fading out; 11 lives 64,
+size 0.7 shrinking by 0.5, `FFFFFFFF` fading out. The Track page
+doesn't make these yet (it has no cars on verges).
+
 On the Tracks page a fast hit at 28 units (Summit block 196) gives a
 small orange cluster, then orange dots and short streaks spreading
 sideways for about 0.4 s: more orange and shorter than the clip's, but
@@ -567,9 +617,16 @@ the camera was ten times as far and it wasn't the same event, so this
 doesn't show a fault. Life, the wedge's width and fogging stay
 unchecked.
 
-**Inferred, not followed:** that flags bit 0 means the quad is added
-rather than blended (the lights' glows set it too, `0x49155f`, and the
-Track page adds those); that the picture is multiplied by the corners'
+**The flags word, read (November 2026).** The quad's `+0x6` bit 0 is
+read by the polygon drawers the game picks for the 3dfx renderers
+(`0x434870`: `polys_draw` `0x4332b0` for quads, `0x433530` for
+triangles): set, THRASH state 0x68 (blend) goes to 1, source alpha and
+one, so the quad is added scaled by its alpha; clear, 0, source alpha
+over ([thrash.md](thrash.md)). The record's `+0x4` word picks the drawer
+(the table at `0x5f0780`, through `0x434950`). So sparks are added, as
+the Track page draws them; no longer inferred.
+
+**Inferred, not followed:** that the picture is multiplied by the corners'
 colour. (Which corner of the picture goes where is now from the list,
 above.) That particles are
 fogged and their pictures' corners sit on texel centres is from the
@@ -578,4 +635,164 @@ in a list. The Track page also works the streak in the world rather than
 on the screen, doesn't round sizes to pixels, and makes up the car (its
 speed 40 or 18, impact 10, `+0x15c` 0, the contact half a unit in from
 the wall's line and up from the road, the centre a unit further in).
+
+### Rain and snow
+
+The weather's falling rain or snow and its splashes on the screen,
+read from nfs3.exe in November 2026 (`gdecomp`, `asm`, the static data
+read from the exe). Reluva has it in `src/engines/nfs/particles.cpp`
+(`Weather`) and draws it on the Track page. It isn't a particle kind:
+it has its own pools, its own pass and its own pictures.
+
+**Set-up** (`0x4dcdf0`, from the race set-up `0x4bc870`). The `.hrz`
+loader (`0x478340`) reads the file's weather type into the byte
+`0x8ca1e8`, the start and end slices and the fade into words at
+`0x8ca1ea`-`0x8ca1ee`, and the four times into `0x8ca1f0`-`0x8ca1fc`,
+which it makes running sums (`0x478992`-`0x4789c0`: stay on, then
+fade off ends, off ends, fade on ends). The kind is type % 3 (0 none, 1
+rain, 2 snow; `0x8ca22c`). Each kind's 0x34 bytes at `0x564290` + kind
+× 0x34 (kind 0 is all zero):
+
+| Offset | Meaning | Rain | Snow |
+|---|---|---|---|
+| +0x00 | the fall each update: (this / 10) × 2^-16 | 1.2 | 0.2 |
+| +0x04 | a flake's half size at the camera, pixels | 3 | 6 |
+| +0x08 | percent of 800 drops | 50 (400) | 100 (800) |
+| +0x0c | the box's half width round the camera, and the farthest drawn | 25 | 20 |
+| +0x10, +0x14 | the box above and below the camera | 15, 5 | 20, 5 |
+| +0x18, +0x1c | the wind: heading in degrees, speed in tenths an update | 180, 3 | 0, 0 |
+| +0x20 | the drops' colour, in each byte of ARGB | 126 | 200 |
+| +0x24 | a splash's life, updates | 16 | 96 |
+| +0x28 | a splash's half diagonal, of the view's scales | 0.2 | 0.3 |
+| +0x2c | a splash's colour at birth, each byte | 128 | 128 |
+| +0x30 | percent of 20 splashes | 100 | 100 |
+
+The wind is (sin, 0, cos) of its heading in turns times its speed, so
+the rain drifts 0.3 an update towards −z in the track's coordinates,
+whatever the camera's heading. The drops start at random in the box
+(`0x4eb230`'s numbers).
+
+The weather type is 0 in every day and night file; the weather files
+give rain (type 1) on every track but Country Woods and the Summit,
+which snow (type 2). The stretch of road: everywhere in most;
+Atlantica's day weather 340 to 240 (past the line) fading over 15
+slices, Rocky Pass's night weather 200-1220, the Summit's night
+weather 400-1290, Empire City's day weather 579-357 (fades 100, 100,
+50). The times (durations in the file, 64 ticks a second): Hometown's
+day weather, Atlantica's night weather and Country Woods' and
+Aquatica's both 60 s on, 75 s fading off, 80 s off, 95 s fading back,
+round again; Atlantica's day weather 60, 20, 20, 95 s; Rocky Pass,
+Lost Canyons and Empire City by night shorter cycles (Rocky Pass by
+day 40, 10, 6, 5 s); none, so always on, for Hometown by night,
+Redrock Ridge, the Summit and Empire City by day.
+
+**How many fall** (`0x4dece0`, per view, after the scene): all of
+them, or by the stretch (`0x4dd3d0`, at the view's car's slice: none
+outside it, fewer within the fade of its ends), then by the time since
+the set-up (`0x4dd330`: all, fading linearly to none, none, fading
+back; at the cycle's end the step becomes its new start), then halved
+at Special Effects Low and quartered at Off (signed division).
+
+**Moving** (`0x4dd5e0`, from the pass, so once a frame, but only when
+the step, `0x7d3684`, is more than 1 past the last move: every other
+64 Hz tick). The splashes' lives go down by one. Every drop of the 800
+(those not falling too) moves by the velocity. Then for each falling
+one: a snowflake not hidden drifts by (sin, cos) of the 16-bit angle
+(i + step) × 256 (`0x4f2380`, `0x4f23f0`: 16.16 sine and cosine from a
+1024-step table, interpolated) >> 4, × 2^-16, so in a circle of radius
+about 2.5 over 4 s, each flake its own way. A drop out of the box
+round the camera comes back in: past the side across x, on the other
+side with y and z at random; past the side across z, y and z at random;
+below, at the top with x and z at random; above, at the bottom. It is
+then marked hidden if the camera is under cover (`0x420d60`: the
+covered code 2 at the camera's slice or two on, by which side of the
+slice's plane it is), and stays hidden until it wraps again out of
+cover. (`0x4dd510`, which clears the hidden marks when the camera's
+kind changes, isn't followed.)
+
+**Drawing.** The pass sets the view up again with angle 0x78, 120°
+(`0x4dbda0` → `0x4bed20` → `0x4dbce0`: half angles 60 and 48 whole
+degrees, so x scaled by 184.75 and y by −216.1 at 640 × 480), draws,
+and puts the normal view back (`0x4dbde0`, 90° or 75°). So the drops
+are drawn nearer the middle of the screen than the scene's projection
+would put them. Each falling drop not hidden is projected
+(`0x4bf4c0`); then:
+- 0 > w > −3 (just behind the camera): back at the top of the box,
+  x and z at random;
+- w ≤ 0 or w > the half width (25, 20): not drawn;
+- off the screen (the projected vertex's clip flags): not drawn;
+- w < 3: a splash is made if one of the 20 is free (`0x4dd930`, below)
+  and the drop goes back to the top; the rain also plays a sound
+  (`0x414f90`, bank 48 at random). With none free it is drawn;
+- **rain** (`0x4de700`): a triangle from the streak's tail to the drop
+  and two pixels to its right. The tail is kept on the screen: the
+  drop's point when it was last not drawn, else halfway from the old
+  tail to the drop each frame, so the streak is the screen movement of
+  about the last two frames: longer at a lower frame rate;
+- **snow** (`0x4de070`): a square from the drop's point, right and
+  down, of side (6 − w × 6 / 20) × 2 pixels, at least 1: 12 at the
+  camera, 1 at 20. Not in perspective: linear in the depth.
+
+Both in the drops' colour (126 or 200 in every byte) on `DRP1` (rain,
+8 × 32, a grey ramp 57-165) or `DRP2` (snow, 8 × 8, a soft dot up to
+206) of `GameData/Render/pc/weather.fsh` (`0x4dcd20` loads `DRP%d`
+and `SPL%d` with the type), with the polygon flag 1: added, scaled by
+the alpha (above). The pictures are opaque 5:6:5, so a rain streak adds
+about (126/255)² of the ramp, 14-40: faint; a flake up to 127.
+The lists go to the card after the sorted scene (`0x4bc030` from
+`0x4bc375`), unsorted and over everything, splashes after drops.
+
+**Splashes** (`0x4dd930`, made only with `0x7d36a0` clear). The drop's
+x and y over its depth by the view's rows (before the screen's
+scales) are kept, so a splash stays on the screen where it was, like a
+drop on the lens. Its life is the kind's less (random % (life / 4)):
+13-16 updates for rain (0.4-0.5 s), 73-96 for snow (2.3-3 s); its size
+random × the kind's, held to a half to all of it; its angle random.
+Drawn (`0x4ddb40`, per view, skipped at Off, `0x4dedf0`) as a square
+turned by its angle, corners (x + c, y + s), (x − s, y + c), (x − c,
+y − s), (x + s, y − c) with c, s the cosine and sine × the size, then
+scaled by the (120°) view's scales, at z 0.1 and rhw 0.9; colour 128 ×
+life / life at birth in every byte; for rain the size shrinks the same
+way. `SPL1` (rain) is a grey ring, `SPL2` (snow) a grey puff, both
+added.
+
+With the Direct3D renderer (flag 0x40) and the effects intensity
+(`0x6fbc38`) under 1 the colours are dimmed as the lights' are; not on
+the Track page, which draws as the 3dfx path.
+
+**Against footage** (November 2026, `Rain`, `Snow`, `Night`):
+- `Rain` 0:10-0:22 (race 0:05-0:17): faint thin grey streaks, short
+  and steep, over the sky and road, and now and then a pale grey ring
+  about 23 game pixels in radius held on the screen for under half a
+  second, lighter than what's behind it. Both as the code has them:
+  the streaks added at a quarter of `DRP1`, the rings `SPL1` added. The
+  ring's size fits the splash's (half diagonal 0.1-0.2 × 185-216).
+- `Snow` 0:40 (race 0:35), 2:04 (race 1:59): small white dots of a few
+  game pixels, more on the lower half of the screen, and faint grey
+  puffs held on the screen for seconds, up to about 35 game pixels
+  across: the flakes' squares (12 pixels at most) on `DRP2` and the
+  `SPL2` splashes, as the code has them.
+- `Snow` 2:09 (race 2:04), in a tunnel: no flakes fall under its
+  roof, but a dozen grey splats made just before stay on the screen.
+  Both as the code has them: drops coming back into the box under
+  cover are hidden, and a snow splash lives 2.3-3 s whatever happens.
+- `Rain`: the clip's 143 s are within Hometown's first cycle (60 s on
+  from the set-up, then 75 s fading off), so from about race 1:00 fewer
+  streaks should fall; the clip's streaks are too faint at its
+  compression to count, so this isn't checked.
+- `Night` 1:43-2:10 (the Summit by night in the weather, race 0:00-
+  0:28): no snow falls; Summit's night weather file sets snow only on
+  slices 400-1290, and the start is outside them.
+
+**On the Track page** (`prepareWeather`, `drawWeather`): the variant's
+weather set up when the sky is loaded, ticked with the particles at 64
+a second round the camera (the camera's slice and cover standing for
+the view's car's), drawn through the 120° screen after the particles
+with no depth test, added, fogged by depth as the scene; each corner
+is put back into the world on the line through its pixel at the
+polygon's depth, so the page's own 90° projection lands it on that
+pixel. Its frame rate under software Vulkan is a few frames a second,
+so its streaks are longer than the clip's (the tail lags by frames).
+The rain's sound, the D3D dimming and `0x4dd510` aren't done; the
+random numbers are Reluva's.
 

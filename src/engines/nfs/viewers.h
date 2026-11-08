@@ -474,6 +474,19 @@ private:
         uint32_t first = 0, count = 0; // quads
     };
     std::vector<ParticleRun> particleRuns_;
+    // The weather's rain or snow and its splashes on the screen (particles.h,
+    // Weather) as the .hrz's weather type sets them up, ticked with the
+    // particles and drawn after them over everything, through the pass's
+    // own 120-degree view, with weather.fsh's DRPn and SPLn.
+    Weather weather_;
+    ParticleRandom weatherRandom_;
+    bool weatherStarted_ = false;
+    int weatherActive_ = 0;
+    gfx::MeshId weatherMesh_ = 0;
+    uint32_t weatherDrops_ = 0, weatherSplashes_ = 0; // quads this frame: the drops', then the splashes'
+    gfx::TextureId weatherPicture(const char* name);
+    void prepareWeather(const gfx::Vec3& eye, const gfx::Vec3& forward, const gfx::Vec3& right, const gfx::Vec3& up);
+    void drawWeather(float fog, const std::array<float, 3>& fogColour);
     gfx::TextureId particlePicture(int kind);
     void hitWall(bool fast);
     void tickParticles(uint64_t nowMs);

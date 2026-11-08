@@ -402,6 +402,17 @@ What was built, with each format written up in `docs/formats/nfs/`:
     as nfs-host runs the game (Shift+E turns both on): its pool on the
     road then matches the hosted game's, and particles nearer than a
     car's middle are drawn over it as the game's depth order draws them;
+  - in the weather variants, the rain or snow as the game makes and
+    draws it (November 2026; [col.md](../formats/nfs/col.md), Rain and
+    snow): the `.hrz`'s weather type, stretch of road and on-off cycle,
+    up to 400 raindrops or 800 flakes in a box round the camera moved
+    every other tick, hidden as they come back into it under cover,
+    drawn through the pass's own 120° view, added, as `weather.fsh`'s
+    streaks (`DRP1`) or squares (`DRP2`), and the splashes held on the
+    screen when a drop comes within 3 of the camera (`SPL1`, `SPL2`);
+    fewer at Special Effects Low and Off (key Q). Checked against the
+    `Rain` and `Snow` clips (faint streaks and rings, white dots and
+    grey splats, none falling in a tunnel);
   - the mirrored track (key U): texture set 1 and the view flipped left
     to right, its culling turned with it, as the game's mirror flag
     does; checked against a mirrored `nfs-host` race on Hometown.
@@ -1591,7 +1602,17 @@ README.md.
   their sounds are measured, not listened to), and wall code 3's
   material: the code tells it from code 5 only by its sound (material
   16, not 17), and no name for it is in the exe, so only the tracks'
-  look could name it ([col.md](../formats/nfs/col.md)).
+  look could name it ([col.md](../formats/nfs/col.md)). The second set
+  of clips (`Rain`, `Snow`, `Night`, November 2026) shows a car hit's
+  sparks and smoke, the wheels' spray in the wet and the snow, and a
+  snow-bank hit near the Summit's town, but no wall hit's sparks near
+  the camera and no hit that can be placed on a code-3 slice.
+- Which renderer the footage's game used. The `Rain` clip shows no fog
+  where Hometown's weather sky asks for density 50 and the 3dfx path
+  (nfs-host, the Tracks page) draws a heavy haze; the game sends fog
+  only to the 3dfx renderers, so the clips are probably from `d3da` or
+  a Glide renderer without table fog ([hrz.md](../formats/nfs/hrz.md),
+  The weather against footage).
 - How a real Pro Logic decoder of the time (with its surround delay
   and 7 kHz low-pass) would place the voices behind; only the matrix's
   sums are measured. The moving objects' sounds and their fades are
@@ -1615,4 +1636,8 @@ README.md.
   [physics.md](../formats/nfs/physics.md).
 - Whether the Classics release differs from the original 1998 retail in
   data or code. Other releases (UK, German, patched) need their own
-  hashes.
+  hashes. Which release the footage comes from is open too: the
+  `Night` clip's pause, main and location screens carry no version or
+  build mark, and the clips with the spike icon and racer list that
+  differ from this exe (physics.md) are the Hot Pursuit ones; the new
+  clips have no police.

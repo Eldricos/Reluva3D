@@ -290,3 +290,351 @@ std::array<ParticleVec, 4> pictureCorners(const Particle& p, const ParticleVec& 
 }
 
 } // namespace reluva::nfs
+
+// ---------------------------------------------------------------------------
+// Rain and snow (col.md, "Rain and snow").
+
+namespace reluva::nfs {
+
+namespace {
+
+// 0x564290 + kind x 0x34, read from nfs3.exe (kind 0 is all zero).
+const WeatherKind kRain = {0xC0000, 3.0f, 50, 25, 15, 5, 180, 3, 126, 16, 0.2f, 128, 100};
+const WeatherKind kSnow = {0x20000, 6.0f, 100, 20, 20, 5, 0, 0, 200, 96, 0.3f, 128, 100};
+
+constexpr double kFixed = 1.0 / 65536.0; // 0x5497b4, 0x5497c4
+
+// The share of 800 or 20 0x4dcdf0 works out: ((percent << 16) / 100 x n)
+// >> 16, rounded towards zero.
+int percentOf(int percent, int n) {
+    const int scaled = ((percent << 16) / 100) * n;
+    return scaled / 65536;
+}
+
+uint32_t grey4(int g) {
+    const uint32_t b = static_cast<uint32_t>(g) & 0xff;
+    return b | b << 8 | b << 16 | b << 24;
+}
+
+// The quarter table of 0x5672ac: 65536 sin(k turns / 1024), k 0-256.
+int sineTable(int k) {
+    static const std::array<int, 257> table = [] {
+        std::array<int, 257> t{};
+        for (int i = 0; i <= 256; ++i)
+            t[size_t(i)] = static_cast<int>(std::lround(65536.0 * std::sin(i * 6.283185307179586 / 1024.0)));
+        return t;
+    }();
+    return table[size_t(k)];
+}
+
+// The table's sine of a 1024-step index, by quadrant.
+int sineStep(int k) {
+    k &= 1023;
+    const int q = k >> 8, i = k & 255;
+    switch (q) {
+    case 0: return sineTable(i);
+    case 1: return sineTable(256 - i);
+    case 2: return -sineTable(i);
+    default: return -sineTable(256 - i);
+    }
+}
+
+} // namespace
+
+int fixedSin(uint32_t angle) {
+    // sin of the step, plus its cosine x the 64ths between steps x 2 pi.
+    const int k = static_cast<int>((angle >> 6) & 1023);
+    const int64_t frac = static_cast<int64_t>(angle & 0x3f) * 0x6487e >> 9;
+    return sineStep(k) + static_cast<int>((static_cast<int64_t>(sineStep(k + 256) >> 2) * frac) >> 21);
+}
+
+int fixedCos(uint32_t angle) {
+    const int k = static_cast<int>((angle >> 6) & 1023);
+    const int64_t frac = static_cast<int64_t>(angle & 0x3f) * 0x6487e >> 9;
+    return sineStep(k + 256) + static_cast<int>((static_cast<int64_t>(-(sineStep(k) >> 2)) * frac) >> 21);
+}
+
+const WeatherKind* weatherKind(int type) {
+    switch (type % 3) {
+    case 1: return &kRain;
+    case 2: return &kSnow;
+    default: return nullptr;
+    }
+}
+
+WeatherSetup weatherSetup(int type, int startSlice, int endSlice, int fade, int stayOn, int fadeOff, int stayOff,
+                          int fadeOn) {
+    WeatherSetup s;
+    const WeatherKind* k = weatherKind(type & 0xff); // a byte (0x47890d)
+    if (!k)
+        return s;
+    s.kind = (type & 0xff) % 3;
+    s.count = percentOf(k->countPercent, Weather::kDrops);
+    s.splashes = percentOf(k->splashPercent, Weather::kSplashes);
+    const int half = std::max(k->half, 1);
+    s.half = static_cast<float>(half);
+    s.top = static_cast<float>(k->top);
+    s.bottom = static_cast<float>(-k->below);
+    // The wind: (sin, 0, cos) of its heading in turns, x its speed; then
+    // the fall on y.
+    const float heading = static_cast<float>(static_cast<double>((k->windDegrees << 16) / 360) * kFixed);
+    const float wind = static_cast<float>(static_cast<double>((k->windTenths << 16) / 10) * kFixed);
+    s.velocity = {static_cast<float>(std::sin(heading * kTurn)) * wind, 0,
+                  static_cast<float>(std::cos(heading * kTurn)) * wind};
+    s.velocity[1] = -static_cast<float>(static_cast<double>(k->fall / 10) * kFixed);
+    s.flake = k->flake;
+    s.colour = grey4(k->grey);
+    s.splashLife = k->splashLife;
+    s.splashSize = k->splashSize;
+    s.splashGrey = k->splashGrey;
+    s.startSlice = static_cast<int16_t>(startSlice);
+    s.endSlice = static_cast<int16_t>(endSlice);
+    s.fade = static_cast<int16_t>(fade);
+    s.times = {stayOn, stayOn + fadeOff, stayOn + fadeOff + stayOff, stayOn + fadeOff + stayOff + fadeOn};
+    return s;
+}
+
+int weatherAtSlice(const WeatherSetup& s, int slice, int trackSlices) {
+    int start = s.startSlice, end = s.endSlice;
+    const int fade = s.fade;
+    if (start == end && fade == 0)
+        return s.count;
+    const int fadeIn = start + fade;
+    int fadeOut = end - fade;
+    if (end < start) { // past the line
+        if (slice < end)
+            slice += trackSlices;
+        fadeOut += trackSlices;
+        end += trackSlices;
+    }
+    if (slice < start || slice > end)
+        return 0;
+    if (fade != 0 && (slice <= fadeIn || slice >= fadeOut)) {
+        if (slice < fadeIn)
+            return s.count - s.count * (fadeIn - slice) / fade;
+        if (slice > fadeOut)
+            return s.count - s.count * (slice - fadeOut) / fade;
+    }
+    return s.count;
+}
+
+int weatherAtTime(const WeatherSetup& s, int count, int elapsed, bool* restart) {
+    if (restart)
+        *restart = false;
+    const auto& t = s.times;
+    if (t[0] == 0 || t[1] == 0 || t[2] == 0 || t[3] == 0 || elapsed < t[0])
+        return count;
+    if (elapsed < t[1])
+        return (t[1] - elapsed) * count / (t[1] - t[0]);
+    if (elapsed < t[2])
+        return 0;
+    if (elapsed < t[3])
+        return count - (t[3] - elapsed) * count / (t[3] - t[2]);
+    if (restart)
+        *restart = true;
+    return count;
+}
+
+int weatherForEffects(int count, int sfxLevel) {
+    if (sfxLevel == 1)
+        return count / 2;
+    if (sfxLevel == 2)
+        return count / 4;
+    return count;
+}
+
+float snowflakeSide(const WeatherSetup& s, float w) {
+    // (size - w x size x (1 / half)) x 2 (0x549804), at least 1.
+    const float side = (s.flake - w * s.flake * (1.0f / s.half)) * 2.0f;
+    return std::max(side, 1.0f);
+}
+
+void Weather::start(const WeatherSetup& setup, const ParticleVec& eye, int step, ParticleRandom& random) {
+    setup_ = setup;
+    drops_ = {};
+    splashes_ = {};
+    last_ = step; // 0x8c0be0, so the first move is two ticks on
+    cycleStart_ = step;
+    const float h = setup.half, range = setup.top - setup.bottom;
+    for (int i = 0; i < setup.count; ++i) {
+        Drop& d = drops_[size_t(i)];
+        d.position[0] = random.unit() * h * 2 - h + eye[0];
+        d.position[1] = random.unit() * range + setup.bottom + eye[1];
+        d.position[2] = random.unit() * h * 2 - h + eye[2];
+    }
+}
+
+int Weather::active(int slice, int trackSlices, int step, int sfxLevel) {
+    if (setup_.kind == 0)
+        return 0;
+    int n = weatherAtSlice(setup_, slice, trackSlices);
+    bool restart = false;
+    n = weatherAtTime(setup_, n, step - cycleStart_, &restart);
+    if (restart)
+        cycleStart_ = step;
+    return weatherForEffects(n, sfxLevel);
+}
+
+void Weather::update(int step, int active, const ParticleVec& eye, bool covered, ParticleRandom& random) {
+    if (setup_.kind == 0 || step - last_ <= 1)
+        return;
+    last_ = step;
+    for (int i = 0; i < setup_.splashes; ++i)
+        if (splashes_[size_t(i)].life != 0)
+            --splashes_[size_t(i)].life;
+    for (int i = 0; i < setup_.count; ++i)
+        for (size_t a = 0; a < 3; ++a)
+            drops_[size_t(i)].position[a] += setup_.velocity[a];
+    const float h = setup_.half, range = setup_.top - setup_.bottom;
+    for (int i = 0; i < std::min(active, setup_.count); ++i) {
+        Drop& d = drops_[size_t(i)];
+        ParticleVec& p = d.position;
+        // Snow drifts round a little circle, each flake its own way.
+        if (setup_.kind == 2 && !d.hidden) {
+            const uint32_t angle = static_cast<uint32_t>(i) * 0x100 + static_cast<uint32_t>(step) * 0x100;
+            p[0] = static_cast<float>((fixedSin(angle) >> 4) * kFixed) + p[0];
+            p[2] = static_cast<float>((fixedCos(angle) >> 4) * kFixed) + p[2];
+        }
+        float x = p[0] - eye[0], y = p[1] - eye[1], z = p[2] - eye[2];
+        if (!(y < setup_.bottom || y > setup_.top || std::fabs(x) > h || std::fabs(z) > h))
+            continue;
+        // Out of the box: back in on the other side (0x4dd7c7).
+        d.hidden = covered;
+        auto otherTwo = [&](float& a, float& b) {
+            a = random.unit() * range + setup_.bottom;
+            b = random.unit() * h * 2 - h;
+        };
+        if (x > h) {
+            d.tailSet = false;
+            x = -h;
+            otherTwo(y, z);
+        } else if (x < -h) {
+            d.tailSet = false;
+            x = h;
+            otherTwo(y, z);
+        }
+        if (z > h || z < -h) {
+            d.tailSet = false;
+            otherTwo(y, z);
+        }
+        if (y > setup_.top || y < setup_.bottom) {
+            d.tailSet = false;
+            y = y > setup_.top ? setup_.bottom : setup_.top;
+            x = random.unit() * h * 2 - h;
+            z = random.unit() * h * 2 - h;
+        }
+        p = {eye[0] + x, eye[1] + y, eye[2] + z};
+    }
+}
+
+void Weather::respawnTop(Drop& d, const ParticleVec& eye, ParticleRandom& random) const {
+    const float h = setup_.half;
+    d.position[1] = eye[1] + setup_.top;
+    d.position[0] = random.unit() * h * 2 - h + eye[0];
+    d.position[2] = random.unit() * h * 2 - h + eye[2];
+    d.tailSet = false;
+}
+
+// 0x4dd930: a free splash slot takes the drop's place on the screen (its
+// x and y over its depth, before the view's scales); its life the kind's
+// less up to a quarter, its size a half to all of the kind's, its angle at
+// random. False when every slot is in use.
+bool Weather::splash(const WeatherView& view, const ParticleVec& at, ParticleRandom& random) {
+    for (int i = 0; i < setup_.splashes; ++i) {
+        Splash& s = splashes_[size_t(i)];
+        if (s.life != 0)
+            continue;
+        const float d[3] = {at[0] - view.eye[0], at[1] - view.eye[1], at[2] - view.eye[2]};
+        const float w = d[0] * view.forward[0] + d[1] * view.forward[1] + d[2] * view.forward[2];
+        const float inv = std::fabs(w) == 0 ? 65535.0f : 1.0f / w;
+        int quarter = setup_.splashLife >> 2;
+        if (quarter < 2)
+            quarter = 1;
+        const uint32_t r = random.next();
+        s.x = (d[0] * view.right[0] + d[1] * view.right[1] + d[2] * view.right[2]) * inv;
+        s.y = (d[0] * view.up[0] + d[1] * view.up[1] + d[2] * view.up[2]) * inv;
+        s.life = setup_.splashLife - static_cast<int>(r % static_cast<uint32_t>(quarter));
+        const float size = random.unit() * setup_.splashSize;
+        s.size = size < setup_.splashSize * 0.5f ? setup_.splashSize * 0.5f : std::min(size, setup_.splashSize);
+        s.angle = random.unit();
+        return true;
+    }
+    return false;
+}
+
+void Weather::draw(const WeatherView& view, int active, bool splashes, ParticleRandom& random,
+                   std::vector<WeatherPoly>& out) {
+    if (setup_.kind == 0)
+        return;
+    const bool rain = setup_.kind == 1;
+    for (int i = 0; i < std::min(active, setup_.count); ++i) {
+        Drop& d = drops_[size_t(i)];
+        if (d.hidden)
+            continue;
+        const float r[3] = {d.position[0] - view.eye[0], d.position[1] - view.eye[1], d.position[2] - view.eye[2]};
+        const float w = r[0] * view.forward[0] + r[1] * view.forward[1] + r[2] * view.forward[2];
+        // Just behind the camera: back at the top of the box.
+        if (w > -3 && w < 0) {
+            respawnTop(d, view.eye, random);
+            continue;
+        }
+        if (w <= 0 || w > setup_.half) {
+            d.tailSet = false;
+            continue;
+        }
+        const float x = view.cx + view.sx * (r[0] * view.right[0] + r[1] * view.right[1] + r[2] * view.right[2]) / w;
+        const float y = view.cy + view.sy * (r[0] * view.up[0] + r[1] * view.up[1] + r[2] * view.up[2]) / w;
+        if (x < view.left || x > view.rightEdge || y < view.top || y > view.bottom) {
+            d.tailSet = false;
+            continue;
+        }
+        // Near the camera: a splash on the screen, if a slot is free (the
+        // rain also plays one of its sounds, 0x414f90).
+        if (w < 3 && splash(view, d.position, random)) {
+            respawnTop(d, view.eye, random);
+            continue;
+        }
+        WeatherPoly poly;
+        poly.depth = w;
+        poly.colour = setup_.colour;
+        if (rain) {
+            // From where it was, halfway on each frame, to where it is, and
+            // two pixels across at its head.
+            if (!d.tailSet)
+                d.tail = {x, y};
+            else
+                d.tail = {(x + d.tail[0]) * 0.5f, (y + d.tail[1]) * 0.5f};
+            d.tailSet = true;
+            poly.corners = 3;
+            poly.at = {{{d.tail[0], d.tail[1]}, {x, y}, {x + 2.0f, y}, {0, 0}}};
+        } else {
+            const float side = snowflakeSide(setup_, w);
+            poly.corners = 4;
+            poly.at = {{{x, y}, {x + side, y}, {x + side, y + side}, {x, y + side}}};
+        }
+        out.push_back(poly);
+    }
+    if (!splashes)
+        return;
+    for (int i = 0; i < setup_.splashes; ++i) {
+        const Splash& s = splashes_[size_t(i)];
+        if (s.life == 0)
+            continue;
+        const int grey = setup_.splashGrey * s.life / setup_.splashLife;
+        float size = s.size;
+        if (rain)
+            size = static_cast<float>(s.life) * size / static_cast<float>(setup_.splashLife);
+        const float c = static_cast<float>(std::cos(s.angle * kTurn)) * size;
+        const float n = static_cast<float>(std::sin(s.angle * kTurn)) * size;
+        WeatherPoly poly;
+        poly.corners = 4;
+        poly.splash = true;
+        poly.depth = 1.0f / 0.9f; // rhw 0x3f666666
+        poly.colour = grey4(grey);
+        auto at = [&](float a, float b) { return std::array<float, 2>{a * view.sx + view.cx, b * view.sy + view.cy}; };
+        poly.at = {at(s.x + c, s.y + n), at(s.x - n, s.y + c), at(s.x - c, s.y - n), at(s.x + n, s.y - c)};
+        out.push_back(poly);
+    }
+}
+
+} // namespace reluva::nfs

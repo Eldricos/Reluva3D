@@ -141,4 +141,129 @@ std::array<ParticleVec, 4> streakCorners(Particle& p, const ParticleVec& right, 
 std::array<ParticleVec, 4> pictureCorners(const Particle& p, const ParticleVec& right, const ParticleVec& up,
                                           float half, float aspect = 1);
 
+// The weather's rain or snow (docs/formats/nfs/col.md, "Rain and snow"):
+// up to 800 drops in a box round the camera, moved every other game tick
+// (0x4dd5e0), drawn on the screen through a 120-degree view as streaks
+// (rain, weather.fsh DRP1) or squares (snow, DRP2) (0x4de700, 0x4de070),
+// and a drop that comes within 3 of the camera on the screen turned into
+// a splash held on the screen (0x4dd930; SPL1, SPL2, drawn by 0x4ddb40).
+// A kind's 0x34 bytes at 0x564290 + kind x 0x34 (static data; the
+// conversions are 0x4dcdf0's).
+struct WeatherKind {
+    int fall = 0;         // +0x00 16.16; / 10 is the fall each update
+    float flake = 0;      // +0x04 a snowflake's half size at the camera, pixels
+    int countPercent = 0; // +0x08 of 800 drops
+    int half = 0;         // +0x0c the box's half width, and the farthest drawn
+    int top = 0;          // +0x10 the box above the camera
+    int below = 0;        // +0x14 and below it
+    int windDegrees = 0;  // +0x18 the wind's heading
+    int windTenths = 0;   // +0x1c and its speed, tenths of a unit each update
+    int grey = 0;         // +0x20 the drops' colour, in all four bytes
+    int splashLife = 0;   // +0x24 updates
+    float splashSize = 0; // +0x28 the splash's half diagonal, of the view's scales
+    int splashGrey = 0;   // +0x2c the splash's colour at birth, all four bytes
+    int splashPercent = 0; // +0x30 of 20 splashes
+};
+// The kind of an .hrz weather type (type % 3: 1 rain, 2 snow); nullptr
+// for 0, no weather.
+const WeatherKind* weatherKind(int type);
+
+// What 0x4dcdf0 makes of the .hrz's weather (0x478340 reads it into
+// 0x8ca1e8-0x8ca1fc and makes the four times running sums).
+struct WeatherSetup {
+    int kind = 0;           // 0 none, 1 rain, 2 snow (0x8ca22c)
+    int count = 0;          // drops (0x8ca234)
+    int splashes = 0;       // splash slots (0x8ca278)
+    float half = 0, top = 0, bottom = 0; // the box round the camera (0x8ca25c, 0x8ca264, 0x8ca260)
+    ParticleVec velocity{}; // each update (0x8ca26c)
+    float flake = 0;        // 0x8ca230
+    uint32_t colour = 0;    // ARGB (0x8ca238 in each byte)
+    int splashLife = 0;     // 0x8ca27c
+    float splashSize = 0;   // 0x8ca280
+    int splashGrey = 0;     // 0x8ca284
+    int startSlice = 0, endSlice = 0, fade = 0; // the stretch of road (0x8ca23c, 0x8ca240)
+    std::array<int, 4> times{}; // ticks: fading off from, off from, fading on from, back on at (0x8ca1f0-0x8ca1fc)
+};
+WeatherSetup weatherSetup(int type, int startSlice, int endSlice, int fade, int stayOn, int fadeOff, int stayOff,
+                          int fadeOn);
+// The drops falling where the view's car is (0x4dd3d0): all of them with
+// no stretch of road given, none outside it (it may wrap past the line),
+// fewer within `fade` slices of its ends.
+int weatherAtSlice(const WeatherSetup& s, int slice, int trackSlices);
+// The drops falling `elapsed` ticks after the cycle began (0x4dd330):
+// all, fading to none, none, fading back. With all four times set; at
+// the cycle's end `restart` is set and all fall (the game takes the step
+// as the cycle's new start).
+int weatherAtTime(const WeatherSetup& s, int count, int elapsed, bool* restart = nullptr);
+// The Special Effects option (0x6fbc30): half at Low, a quarter at Off
+// (0x4dece0, signed division).
+int weatherForEffects(int count, int sfxLevel);
+// A snowflake's side on the screen, pixels, at depth w (0x4de070).
+float snowflakeSide(const WeatherSetup& s, float w);
+// The game's 16.16 sine and cosine of a 16-bit angle (0x4f2380, 0x4f23f0:
+// a table of 1024 steps a turn, interpolated).
+int fixedSin(uint32_t angle);
+int fixedCos(uint32_t angle);
+
+// The camera as the weather's pass has it: in the track's coordinates,
+// the screen the game sets for it (0x4dbda0: 0x4bed20 with angle 0x78,
+// 120 degrees, so sx 184.75 and sy -216.1 at 640 x 480).
+struct WeatherView {
+    ParticleVec eye{}, right{}, up{}, forward{};
+    float sx = 184.752f, sy = -216.108f, cx = 320, cy = 240;
+    float left = 0, rightEdge = 640, top = 0, bottom = 480;
+};
+
+// A polygon of the pass, on the screen (pixels, y down): a drop's
+// triangle (3 corners), a flake's or a splash's square (4), at the depth
+// its rhw gives (a splash's is 0.9, so 1 / 0.9), in its ARGB colour.
+struct WeatherPoly {
+    int corners = 0;
+    std::array<std::array<float, 2>, 4> at{};
+    float depth = 0;
+    uint32_t colour = 0;
+    bool splash = false;
+};
+
+class Weather {
+public:
+    static constexpr int kDrops = 800, kSplashes = 20;
+    struct Drop {
+        ParticleVec position{};             // 0x8c56e8 + 12 x i
+        std::array<float, 2> tail{};        // 0x8c0be8: the streak's end on the screen
+        bool hidden = false;                // +8: made while the camera was under cover
+        bool tailSet = false;               // +9
+    };
+    struct Splash {
+        float x = 0, y = 0;  // on the screen, before the view's scales (0x8c08c0)
+        int life = 0;        // updates (0x8c08c8)
+        float size = 0;      // 0x8c08cc
+        float angle = 0;     // turns (0x8c08d0)
+    };
+    // 0x4dcdf0, then 0x4dd230: every drop at random in the box round the
+    // camera, the splashes cleared; `step` begins the cycle.
+    void start(const WeatherSetup& setup, const ParticleVec& eye, int step, ParticleRandom& random);
+    // How many fall this step: by the view's car's slice, the time and the
+    // option (0x4dece0).
+    int active(int slice, int trackSlices, int step, int sfxLevel);
+    // 0x4dd5e0, called each game tick; works on every other one. `covered`
+    // is 0x420d60 for the camera.
+    void update(int step, int active, const ParticleVec& eye, bool covered, ParticleRandom& random);
+    // 0x4de700 (rain) or 0x4de070 (snow), then 0x4ddb40 for the splashes
+    // when `splashes` (the option not Off, 0x4dedf0).
+    void draw(const WeatherView& view, int active, bool splashes, ParticleRandom& random,
+              std::vector<WeatherPoly>& out);
+    const WeatherSetup& setup() const { return setup_; }
+    std::array<Drop, kDrops>& drops() { return drops_; }
+    std::array<Splash, kSplashes>& splashes() { return splashes_; }
+
+private:
+    void respawnTop(Drop& d, const ParticleVec& eye, ParticleRandom& random) const;
+    bool splash(const WeatherView& view, const ParticleVec& at, ParticleRandom& random);
+    WeatherSetup setup_;
+    std::array<Drop, kDrops> drops_{};
+    std::array<Splash, kSplashes> splashes_{};
+    int last_ = -2, cycleStart_ = 0;
+};
+
 } // namespace reluva::nfs

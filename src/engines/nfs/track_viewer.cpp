@@ -156,6 +156,11 @@ void TrackPage::release() {
     if (renderer_ && particleMesh_)
         renderer_->destroyMesh(particleMesh_);
     particleMesh_ = 0;
+    if (renderer_ && weatherMesh_)
+        renderer_->destroyMesh(weatherMesh_);
+    weatherMesh_ = 0;
+    weatherDrops_ = weatherSplashes_ = 0;
+    weatherStarted_ = false;
     if (renderer_ && lightMesh_)
         renderer_->destroyMesh(lightMesh_);
     lightMesh_ = 0;
@@ -309,6 +314,7 @@ gfx::TextureId TrackPage::horizonStrip() {
 void TrackPage::loadSky() {
     releaseSky();
     horizon_ = {};
+    weatherStarted_ = false; // set up again from this sky's weather (0x4dcdf0)
     skyError_.clear();
     const std::string number = tracks_[index_].substr(4);
     const std::string file = "GameData/Tracks/" + tracks_[index_] + "/3tr" + number + kHorizonSuffix[variant_] + ".hrz";
@@ -3224,6 +3230,12 @@ void TrackPage::tickParticles(uint64_t nowMs) {
     const uint64_t target = (nowMs - particleStartMs_) * kGameTicksPerSecond / 1000;
     if (target > particleTick_ + kGameTicksPerSecond)
         particleTick_ = target - kGameTicksPerSecond;
+    if (!weatherStarted_ && skyError_.empty()) {
+        const Horizon::Weather& w = horizon_.weather;
+        weather_.start(weatherSetup(w.type, w.startSlice, w.endSlice, w.fade, w.stayOn, w.fadeOff, w.stayOff, w.fadeOn),
+                       {eye_[0], eye_[1], -eye_[2]}, static_cast<int>(particleTick_), weatherRandom_);
+        weatherStarted_ = true;
+    }
     for (; particleTick_ < target; ++particleTick_) {
         const uint32_t tick = static_cast<uint32_t>(particleTick_);
         for (const WallHit& hit : pendingHits_)
@@ -3237,6 +3249,17 @@ void TrackPage::tickParticles(uint64_t nowMs) {
                     if (wheelSmokes(w, c.skid[size_t(w)], c.wheelSurface[size_t(w)], c.weather))
                         tyreSmoke(particles_, w, c.wheelAt[size_t(w)], c.velocity, c.right, tick, particleRandom_);
         particles_.step(tick, particleRandom_);
+        // The weather's drops (0x4dd5e0 works every other tick), round the
+        // camera, hidden as they come back into the box under cover.
+        if (weatherStarted_) {
+            const ParticleVec eye{eye_[0], eye_[1], -eye_[2]};
+            const int slice = roadSliceAt();
+            const int n = static_cast<int>(collision_.road.size());
+            const bool covered =
+                slice >= 0 && n > 0 && pointCovered(collision_.road[size_t(slice)], {eye_[0], eye_[1], -eye_[2]});
+            weatherActive_ = weather_.active(slice, n, static_cast<int>(tick), sfxLevel_);
+            weather_.update(static_cast<int>(tick), weatherActive_, eye, covered, weatherRandom_);
+        }
     }
 }
 
@@ -3402,6 +3425,141 @@ void TrackPage::drawParticles(float fog, const std::array<float, 3>& fogColour) 
         call.state.dst = run.added ? gfx::Blend::One : gfx::Blend::OneMinusSrcAlpha;
         call.firstIndex = 6 * run.first;
         call.indexCount = 6 * run.count;
+        renderer_->draw(call);
+    }
+}
+
+// A picture of weather.fsh by name (0x4dcd20 loads DRPn and SPLn, n the
+// weather type), point-sampled as the game's Glide pictures.
+gfx::TextureId TrackPage::weatherPicture(const char* name) {
+    static constexpr const char* kSheet = "GameData/Render/pc/weather.fsh";
+    const std::string key = std::string("weather/") + name;
+    if (auto it = particlePictures_.find(key); it != particlePictures_.end())
+        return it->second;
+    gfx::TextureId id = 0;
+    bool additive = false;
+    picture(kSheet, -1, false, &additive); // loads the sheet
+    for (const Shape& shape : banks_[kSheet].shapes)
+        if (shape.name == name) {
+            image::Image img;
+            if (!decodeForGlide(shape, img) && !renderer_->createTexture(img.w, img.h, img.rgba.data(), glideTextureParams(), id))
+                textures_.push_back(id);
+            else
+                id = 0;
+        }
+    particlePictures_[key] = id;
+    return id;
+}
+
+// The weather's polygons (Weather::draw) this frame, from the game's
+// screen back into the page's world: each corner on the line through its
+// pixel, at the polygon's depth, so the page's projection puts it on the
+// same pixel and its fog is the depth's. The pass's own view is 120
+// degrees across (0x4dbda0), so the drops are drawn nearer the screen's
+// middle than the scene's 90-degree view would put them.
+void TrackPage::prepareWeather(const gfx::Vec3& eye, const gfx::Vec3& forward, const gfx::Vec3& right,
+                               const gfx::Vec3& up) {
+    weatherDrops_ = weatherSplashes_ = 0;
+    if (!renderer_ || !weatherStarted_ || weather_.setup().kind == 0)
+        return;
+    constexpr uint32_t kQuads = Weather::kDrops + Weather::kSplashes;
+    if (!weatherMesh_) {
+        std::vector<gfx::Vertex> vertices(kQuads * 4);
+        std::vector<uint32_t> indices;
+        for (uint32_t i = 0; i < kQuads; ++i)
+            for (uint32_t k : {0u, 1u, 2u, 0u, 2u, 3u})
+                indices.push_back(4 * i + k);
+        if (renderer_->createMesh(vertices, indices, weatherMesh_))
+            weatherMesh_ = 0;
+        if (!weatherMesh_)
+            return;
+    }
+    static const ViewScreen kWeatherScreen = viewScreen(0, 0, kFrameW, kFrameH, 120);
+    WeatherView view;
+    view.eye = {eye[0], eye[1], -eye[2]};
+    view.right = {right[0], right[1], -right[2]};
+    view.up = {up[0], up[1], -up[2]};
+    view.forward = {forward[0], forward[1], -forward[2]};
+    view.sx = kWeatherScreen.sx;
+    view.sy = kWeatherScreen.sy;
+    view.cx = kWeatherScreen.cx;
+    view.cy = kWeatherScreen.cy;
+    view.left = kWeatherScreen.left;
+    view.rightEdge = kWeatherScreen.right;
+    view.top = kWeatherScreen.top;
+    view.bottom = kWeatherScreen.bottom;
+    std::vector<WeatherPoly> polys;
+    weather_.draw(view, weatherActive_, sfxLevel_ != 2, weatherRandom_, polys);
+    // Drops first, then splashes (the game's two lists, 0x4bc375 and
+    // 0x4bc39b).
+    std::stable_partition(polys.begin(), polys.end(), [](const WeatherPoly& p) { return !p.splash; });
+    std::vector<gfx::Vertex> vertices(kQuads * 4);
+    // The pictures' corners (0, 0), (1, 0), (1, 1), (0, 1), at the texels'
+    // centres as the particles' are (inferred: no weather in a list yet).
+    const bool rain = weather_.setup().kind == 1;
+    const float dropW = 8, dropH = rain ? 32.0f : 8.0f; // DRP1 8 x 32, DRP2 8 x 8; SPLn 32 x 32
+    size_t q = 0;
+    for (const WeatherPoly& p : polys) {
+        if (q >= kQuads)
+            break;
+        const float tw = p.splash ? 32.0f : dropW, th = p.splash ? 32.0f : dropH;
+        const float u0 = 0.5f / tw, u1 = 1 - 0.5f / tw, v0 = 0.5f / th, v1 = 1 - 0.5f / th;
+        const float uv[4][2] = {{u0, v0}, {u1, v0}, {u1, v1}, {u0, v1}};
+        for (int k = 0; k < 4; ++k) {
+            const int c = k < p.corners ? k : p.corners - 1; // a triangle's last corner twice
+            const float a = (p.at[size_t(c)][0] - kScreen.cx) / kScreen.sx * p.depth,
+                        b = (p.at[size_t(c)][1] - kScreen.cy) / kScreen.sy * p.depth;
+            gfx::Vertex& v = vertices[q * 4 + size_t(k)];
+            for (int i = 0; i < 3; ++i)
+                v.pos[i] = eye[i] + forward[i] * p.depth + right[i] * a + up[i] * b;
+            v.uv[0] = uv[c][0];
+            v.uv[1] = uv[c][1];
+            v.normal[1] = 1;
+            v.color[0] = static_cast<uint8_t>(p.colour >> 16);
+            v.color[1] = static_cast<uint8_t>(p.colour >> 8);
+            v.color[2] = static_cast<uint8_t>(p.colour);
+            v.color[3] = static_cast<uint8_t>(p.colour >> 24);
+        }
+        ++q;
+        if (p.splash)
+            ++weatherSplashes_;
+        else
+            ++weatherDrops_;
+    }
+    if (renderer_->setMeshVertices(weatherMesh_, vertices))
+        weatherDrops_ = weatherSplashes_ = 0;
+}
+
+// Over everything, without a depth test (the game draws the two lists
+// after its sorted scene, 0x4bc030), added by their alpha (the polygons'
+// flags 1: THRASH blend 1, source alpha and one, 0x433530), fogged by
+// their depth as the scene.
+void TrackPage::drawWeather(float fog, const std::array<float, 3>& fogColour) {
+    if (!weatherDrops_ && !weatherSplashes_)
+        return;
+    const bool rain = weather_.setup().kind == 1;
+    gfx::DrawCall call;
+    if (fog > 0) {
+        call.tableFog = fog;
+        call.tableFogFromDepth = true;
+        call.tableFogColor = fogColour;
+    }
+    call.mesh = weatherMesh_;
+    call.rgbSource = call.alphaSource = gfx::ColorSource::Vertex;
+    call.state.cull = gfx::Cull::None;
+    call.state.depthTest = call.state.depthWrite = false;
+    call.state.src = gfx::Blend::SrcAlpha;
+    call.state.dst = gfx::Blend::One;
+    if (weatherDrops_) {
+        call.texture = weatherPicture(rain ? "DRP1" : "DRP2");
+        call.firstIndex = 0;
+        call.indexCount = 6 * weatherDrops_;
+        renderer_->draw(call);
+    }
+    if (weatherSplashes_) {
+        call.texture = weatherPicture(rain ? "SPL1" : "SPL2");
+        call.firstIndex = 6 * weatherDrops_;
+        call.indexCount = 6 * weatherSplashes_;
         renderer_->draw(call);
     }
 }
@@ -3733,6 +3891,7 @@ void TrackPage::update(uint64_t nowMs) {
     }
     // After the cars: their sort depths (carSort_) place the particles.
     prepareParticles(eye, forward, right, up);
+    prepareWeather(eye, forward, right, up);
     // The clear colour: the sky's top (THRASH state 3, 0x47a4c0), black
     // where the game draws no sky, and without a sky the fog's.
     Horizon::Rgb clear = fog;
@@ -4002,6 +4161,7 @@ void TrackPage::update(uint64_t nowMs) {
     if (marksShown_)
         updateSounds(eye, right);
     drawParticles(sceneryFog, {fog[0] / 255.0f, fog[1] / 255.0f, fog[2] / 255.0f});
+    drawWeather(sceneryFog, {fog[0] / 255.0f, fog[1] / 255.0f, fog[2] / 255.0f});
 
     std::fill(overlay_.pixels.begin(), overlay_.pixels.end(), uint8_t(0));
     std::vector<std::string> lines = {"Tracks  " + std::to_string(index_ + 1) + "/" + std::to_string(tracks_.size()) +

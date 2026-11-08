@@ -182,7 +182,8 @@ also decoded (October 2026, from a survey of all nine tracks):
     and skipped for camera modes 8 and 14 (not followed further);
   - `0x4dece0` (per view, `0x4bc375`): the number of raindrops
     (`weather.fsh`, `DRP%d`) is halved at Low and quartered at Off;
-    `0x4dedf0` (`0x4bc39b`) does without the splashes (`SPL%d`) at Off;
+    `0x4dedf0` (`0x4bc39b`) does without the splashes (`SPL%d`) at Off
+    (the whole pass: [col.md](col.md), Rain and snow);
   - `0x47268e`, `0x472e3b`: the defaults (below).
 
   Its default is set by `0x472d10` from the processor's speed in MHz
