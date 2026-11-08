@@ -1592,7 +1592,7 @@ void testComputerDriving() {
     // 8.94 m/s over its speed: its lights a step up for 64 steps (0x40de50),
     // its speed wanted the other's (0x4094d0).
     AiCar ahead = cars[0];
-    ahead.slice = 11;
+    ahead.slice = cars[0].slice + 1; // aiStep moves the car along (aiAdvance)
     ahead.speed = 20;
     cars[0].speed = 20;
     cars[0].beams = 1;
@@ -1608,7 +1608,7 @@ void testComputerDriving() {
     // By day the lights come on for the flash.
     cars[0].beams = 0;
     cars[0].speed = 20;
-    cars[1].slice = 11;
+    cars[1].slice = cars[0].slice + 1;
     aiStep(cars, 0, col, speeds, data, 200, 1, false);
     CHECK(cars[0].beams == 1);
     // Not at the race's start (0x404840 asks 0x40f050).
@@ -3281,7 +3281,7 @@ void testComputerPursuits() {
     measured.speed = measured.wanted = 30;
     std::vector<AiCar> one{measured};
     aiStep(one, 0, bent, flat, data, 0, 1, false);
-    CHECK(std::fabs(one[0].side - one[0].lateral - 0.25f) < 1e-4f); // half the slice's 0.5
+    CHECK(one[0].along > 0.5f && std::fabs(one[0].side - one[0].lateral - one[0].along * 0.5f) < 1e-4f); // the line's 0.5 x along
 
     // A strip (spike_lay 0x4c9dd0): across lane 7's middle, 1.5 lanes long.
     float from = 0, to = 0;
@@ -3311,10 +3311,7 @@ void testComputerPursuits() {
     CHECK(cars[1].orderKind == 0 && cars[1].orderFrom == 94 && cars[1].orderLength == 3 && cars[1].stripWanted);
     int laid = -1;
     for (int step = 0; step < 64 * 20 && laid < 0; ++step) {
-        cars[1].along = 0;
-        aiCopStep(cars, 1, col, data, step, 1, false);
-        if (step % 16 == 0) // on along its way, a slice each 16 steps at most
-            cars[1].slice = std::clamp(cars[1].slice + (cars[1].speed > 1 ? cars[1].way : cars[1].speed < -1 ? -cars[1].way : 0), 0, 199);
+        aiCopStep(cars, 1, col, data, step, 1, false); // moved on by its velocity (aiAdvance)
         if (cars[1].stripOn)
             laid = step;
     }
@@ -3386,7 +3383,8 @@ void testComputerPursuits() {
     aiCopStep(chase, 1, col, data, 0, 1, false);
     CHECK(chase[1].reversing && std::fabs(chase[1].wanted + 9.834f) < 1e-4f && chase[1].offset == 0);
     aiCopStep(chase, 1, col, data, 8, 1, false);
-    CHECK(chase[1].reversing && chase[1].wanted == -50 && chase[1].speed < 0);
+    // (backing off slice 120's point it is on slice 119: 9 slices back)
+    CHECK(chase[1].reversing && chase[1].slice == 119 && chase[1].wanted == -45 && chase[1].speed < 0);
 
     // A roadblock (0x403b20's order, kind 4) at its own slice with no racer
     // within 240 m: in place (10), radioing (0x40bac0), then across the road
@@ -3577,14 +3575,75 @@ void testCopCalls() {
         bent.road[i].forward = {std::sin(a), 0, std::cos(a)};
         bent.road[i].right = {std::cos(a), 0, -std::sin(a)};
     }
-    AiCar turn = steer;
+    // The game keeps the velocity in the world (+0xA4, car_move 0x4a2c60):
+    // on to slice 30 it is the same vector, seen along the new right.
+    AiCar turn;
     turn.slice = 29;
-    turn.velSlice = 29;
-    turn.side = turn.lateral = turn.offset = 0;
-    turn.sideSpeed = 0;
-    turn.slice = 30;
-    aiSteerStep(turn, bent, 1);
-    CHECK(std::fabs(turn.sideSpeed - 30 * std::sin(-0.05f)) < 1e-3f);
+    turn.along = 0.99f;
+    turn.halfWidth = 1;
+    turn.sideKept = true;
+    aiSetWorld(turn, bent, {0, 0, 30}, {0, 0, 1});
+    for (int k = 1; k < 64 && turn.slice == 29; k += 2)
+        aiSteerStep(turn, bent, k); // odd steps: moved only
+    CHECK(turn.slice == 30 && std::fabs(turn.sideSpeed - 30 * std::sin(-0.05f)) < 1e-3f &&
+          std::fabs(turn.heading + 0.05f) < 1e-3f && aiVelocity(bent, turn)[2] == 30);
+    // car_move (0x4a2c60): the place moves by the world velocity / 64 each
+    // step, whatever the slices; the speed (+0x7C0, 0x42cdd0) is the
+    // velocity along the road's forward.
+    {
+        AiCar m;
+        m.slice = 10;
+        m.along = 0.5f;
+        m.lateral = 1;
+        m.halfWidth = 1;
+        m.sideKept = true;
+        aiSetWorld(m, col, {2, 0, 32}, {0, 0, 1});
+        CHECK(m.speed == 32 && m.sideSpeed == 2);
+        aiAdvance(m, col);
+        CHECK(m.slice == 10 && std::fabs(m.along - (0.5f + 0.5f / 4)) < 1e-5f &&
+              std::fabs(m.lateral - (1 + 2.0f / 64)) < 1e-5f && std::fabs(m.side - m.lateral) < 1e-5f);
+        // A view written (a stop) sets the world velocity from it.
+        m.speed = 0;
+        m.sideSpeed = 0;
+        CHECK(aiVelocity(col, m) == (std::array<float, 3>{0, 0, 0}));
+    }
+    // The gap between two slices' runs on the outside of a bend: each run
+    // is its point + lateral x its right + along x the chord, so with the
+    // right turned 0.1 a place 10 out past slice 30's run is before slice
+    // 31's start; it stays on 30 with along over 1, at the same place.
+    {
+        TrackCollision kink = straightRoad(60);
+        for (size_t i = 31; i < kink.road.size(); ++i) {
+            kink.road[i].right = {std::cos(0.1f), 0, std::sin(0.1f)}; // turned left
+            kink.road[i].forward = {-std::sin(0.1f), 0, std::cos(0.1f)};
+        }
+        AiCar m;
+        m.slice = 30;
+        m.along = 0.9f;
+        m.lateral = 9;
+        m.halfWidth = 0.5f;
+        m.sideKept = true;
+        const std::array<float, 3> at{9, 0, 4 * 31.0f + 0.2f};
+        aiLocate(m, kink, at);
+        const auto& a = kink.road[30];
+        const auto& b = kink.road[31];
+        CHECK(m.slice == 30 && m.along > 1 && std::fabs(m.lateral - 9) < 1e-4f &&
+              std::fabs(a.position[2] + (b.position[2] - a.position[2]) * m.along - at[2]) < 1e-4f);
+        aiLocate(m, kink, {9, 0, 4 * 31.0f + 2});
+        CHECK(m.slice == 31 && m.along >= 0 && m.along < 1 && m.lateral > 9);
+    }
+    // The heading error (0x4070c0) takes the heading as +0x210, the body's
+    // yaw x 1024 chopped (0x42ce70): turned a third of a 1024th to the
+    // right the car still counts as straight.
+    {
+        AiCar m = steer;
+        m.slice = 20;
+        m.along = 0;
+        m.lateral = m.side = m.offset = 0;
+        aiSetWorld(m, col, {0, 0, 30}, {std::sin(0.002f), 0, std::cos(0.002f)});
+        aiSteerStep(m, col, 0);
+        CHECK(m.headingError == 0);
+    }
 }
 
 int main() {

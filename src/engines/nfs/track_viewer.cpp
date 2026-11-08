@@ -2116,9 +2116,20 @@ void TrackPage::dispatchCop() {
 }
 
 // The cars driven as the computer drives (aiStep), 64 steps a second, in
-// the list's order: the speed and lane each step, then on along its
-// slices at that speed (speedsF.bin's speeds going the slices' way,
-// speedsR.bin's the other), its aim across the road as the step left it.
+// the list's order: the speed and lane each step (speedsF.bin's speeds
+// going the slices' way, speedsR.bin's the other), the model, the hits,
+// then each car moved by its world velocity (aiAdvance).
+namespace {
+// A computer car's place along the slices as the page keeps it (its slice
+// and how far on to the next, held under 1 for drawing).
+float aiSliceAt(const AiCar& c, int n) {
+    float at = static_cast<float>(c.slice) + std::clamp(c.along, 0.0f, 0.999f);
+    if (at >= static_cast<float>(n))
+        at -= static_cast<float>(n);
+    return at;
+}
+} // namespace
+
 void TrackPage::moveCars(float dt) {
     const auto& road = collision_.road;
     const int n = static_cast<int>(road.size());
@@ -2146,8 +2157,13 @@ void TrackPage::moveCars(float dt) {
         ++aiStep_;
         ai.clear();
         for (ComputerCar& c : cars_) {
-            c.ai.slice = static_cast<int>(std::floor(c.slice)) % n;
-            c.ai.along = c.slice - std::floor(c.slice);
+            // Its place as aiAdvance left it (`along` may be a little over 1
+            // in the gap between two slices' runs on a bend), unless it was
+            // put somewhere else.
+            if (std::fabs(c.slice - aiSliceAt(c.ai, n)) > 1e-3f) {
+                c.ai.slice = static_cast<int>(std::floor(c.slice)) % n;
+                c.ai.along = c.slice - std::floor(c.slice);
+            }
             ai.push_back(c.ai);
         }
         // The catch-up (0x404c80, 0x4090a0): how many racers are ahead of
@@ -2197,7 +2213,7 @@ void TrackPage::moveCars(float dt) {
                        aiStep_, track, weather, AiPhase::Move);
             c.ai = ai[i];
             // Put back on the road (aiPutBack) it is somewhere else.
-            c.slice = static_cast<float>(ai[i].slice) + ai[i].along;
+            c.slice = aiSliceAt(ai[i], n);
             c.way = c.ai.way;
             c.speed = c.ai.speed;
             c.lane = c.ai.lane;
@@ -2206,35 +2222,19 @@ void TrackPage::moveCars(float dt) {
                 c.siren = c.ai.siren;
             // 0x4b8740: the fog beams' picture moves by int(speed + 1) a step.
             c.beamScroll = (c.beamScroll + static_cast<int>(c.speed + 1)) & 0x7ff;
-            // Metres to go this step, backwards along its way while
-            // reversing (a speed under 0).
-            float left = std::fabs(c.speed) / kGameTicksPerSecond;
-            const int dir = c.speed < 0 ? -c.way : c.way;
-            for (int guard = 0; left > 0 && guard < 64; ++guard) {
-                const int at = static_cast<int>(std::floor(c.slice)) % n;
-                const float length = aiSegmentLength(collision_, at, ai[i].sideKept ? ai[i].lateral : ai[i].offset);
-                const float t = c.slice - std::floor(c.slice);
-                const float room = dir > 0 ? (1 - t) * length : (t > 0 ? t : 1) * length;
-                const float step = std::min(left, room);
-                c.slice += static_cast<float>(dir) * step / length;
-                left -= step;
-                if (c.slice < 0)
-                    c.slice += static_cast<float>(n);
-                if (c.slice >= static_cast<float>(n))
-                    c.slice -= static_cast<float>(n);
-            }
-            ai[i].slice = static_cast<int>(std::floor(c.slice)) % n;
-            ai[i].along = c.slice - std::floor(c.slice);
         }
         // The cars against each other (car_collisions_task 0x4311d0, 32 a
         // second after their models): what the hits did to their places,
         // speeds and yaw.
         aiCollide(ai, collision_, aiStep_);
-        // What a cop's step did to the cars stepped before it (a racer
-        // pulled over by its strip, its chase record) is kept too.
+        // Then every car's place by its velocity (car_move 0x4a2c60, the
+        // Sc64 task, last). What a cop's step did to the cars stepped
+        // before it (a racer pulled over by its strip, its chase record)
+        // is kept too.
         for (size_t i = 0; i < cars_.size(); ++i) {
+            aiAdvance(ai[i], collision_);
             cars_[i].ai = ai[i];
-            cars_[i].slice = static_cast<float>(ai[i].slice) + ai[i].along;
+            cars_[i].slice = aiSliceAt(ai[i], n);
             cars_[i].speed = ai[i].speed;
         }
     }

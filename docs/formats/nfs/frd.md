@@ -1560,14 +1560,13 @@ in turns a second: in radians the road's bends (Hometown's slices
 car slides off; in turns `d7-watch2` uses the three controllers 1,109,
 59 and 140 times in 1,308 calls, as `gh1-ai` counted 1,166, 63 and 65.
 
-The page keeps this in each slice's frame: the velocity along the
-slice's right, the heading off its way, the yaw rate and the car's side
-slip; at a slice's end the world velocity is kept and measured in the
-new slice's frame (the frame turns, so a car running straight on is
-carried wide of a bend, which the rails' velocity two slices on pushes
-back against); the car moves by its velocity along the slice's right,
-and stays within the slice's walls (the car against the track,
-`0x4304b0`: a stopped or blocked car no longer slides past them).
+The page kept this in each slice's frame until `e11`; it now keeps the
+world velocity and the body's yaw as the game does (below, **The world
+velocity**): the car runs straight on in the world, so it is carried
+wide of a bend, which the rails' velocity two slices on pushes back
+against, and it stays within the slice's walls (the car against the
+track, `0x4304b0`: a stopped or blocked car no longer slides past
+them).
 
 **Checked against the game** (`d7-watch2`, November 2026: Hometown by
 day as `t6-watch`, `-watchmem` of car 1's +0x1C-+0x7CC, its slice and
@@ -1989,8 +1988,8 @@ controller's force 0x56ec6c-0x56ec74 goes through the transposed rows
 at +0x124, so its side part is along the road polygon's right and its
 forward part along the polygon's forward (+0x13C); the car-frame part
 +0x4E0 through the body's rows. The page now pushes along
-`AiCar::roadRight` and `roadForward` (`aiRoadFrame`), taken into the
-slice's frame its velocity is kept in. The `d7-watch2` replay doesn't
+`AiCar::roadRight` and `roadForward` (`aiRoadFrame`), into the world
+velocity since `e11` (**The world velocity**, below). The `d7-watch2` replay doesn't
 move (0.60 m rms with the slices' frames; given the polygons' frames
 as well, 0.72 m both before and after: the replay's places are rough).
 
@@ -2038,6 +2037,97 @@ game's run at 12 m side by side, so the hit at 64 s and car 3's swing
 to −11.7 don't come. The `d7-watch2` replay is 0.60 m rms (rails 1,117,
 slow 59, slide 132) and the roadside cop (`park`, now in the tick's
 order) stops 120 times, none past a wall.
+
+**The world velocity** (November 2026, `e11-runs`, read with
+`gdecomp` and `capstone`). The page had kept a racer's velocity as a
+speed along the road and a velocity along the slice's right, carried
+from slice to slice by rebuilding the vector in one slice's frame and
+measuring it in the next. On Hometown's slices 14-16 a slice's right is
+up to 2° off square to its forward (forward · right 0.028-0.042), so
+that rebuild was not the vector the projections came from, and the
+velocity along the car's right jumped at a slice change (car 4 at
+51.04 s: −0.68 to −0.04 m/s where the game's runs −0.75, −0.78). The
+game keeps no such frame:
+- **The velocity is the world's** (+0xA4). `ai_integrate` (`0x4071a0`)
+  takes the controller's road-frame force (0x56ec6c-0x56ec74) through
+  the transposed rows at +0x124 (the road polygon's right, up, forward)
+  and the body-frame force (+0x4E0) through the body's rows (+0xC0),
+  and adds both × 1/32 s to +0xA4. `car_move` (`0x4a2c60`, the Sc64
+  task, every step, last) adds +0xA4 / 64 (`0x53c8ec`) to the place
+  +0x98. `car_dynamics` (`0x4a2830`, before the model) takes +0xB8 from
+  +0xA4's x and z and adds gravity (`0x53c8dc`, −0.30656 m/s a tick)
+  through the same road rows, each × its own y. `car_ai_physics`
+  (`0x4088f0`) takes +0x4EC and +0x4F4 as +0xA4 · the body's right and
+  forward, and the race task (`0x42ce70` → `0x42cdd0`) +0x7C0 as +0xA4
+  · the road polygon's forward (+0x13C), +0x7C4 its size. Nothing turns
+  or rebuilds the velocity at a slice's end; the rows at +0x124 are
+  only ever read as they are.
+- **The heading is the world's.** `0x42ce70` stores +0x210 as
+  `atan2_turns` (`0x4ea9c0`: `fpatan`, × 1/2π) of +0x1A8 and +0x1B0,
+  the forward row of the body frame laid on the road's up
+  (`0x4a0f30`), × 1024 (`0x537398`), chopped (`0x4dfd56` sets the
+  rounding to chop for the `fistp` at `0x42cee9`). `ai_heading_error`
+  (`0x4070c0`) takes it as h × 0.00097656 for h over 0, else
+  (h + 512) / 1024 + 0.5 (`0x5362d4`, `0x5362dc`, `0x5362e4`), less
+  the direction to the point steered at (`0x406e50`'s vector, its x and
+  z through `fpatan` × 1/2π, `0x5362ec`, plus 1 under 0), kept within
+  ±0.5. The point (`0x406d40`) is the steered slice's point moved by
+  the aim along +0x124, the car's road right, not the slice's.
+- **The model's order** (`car_ai_model` `0x408600`): `ai_lane_ramp`
+  (the aim 0.2 on), `ai_gear_rpm`, `ai_reverse_end`, then the heading
+  error and the controller, so the controller steers at the aim as
+  just moved. The controller is the slow one for a car reversing or
+  with +0x4F4 under 0, the sliding one when +0xB8 is over 2.5
+  (`0x5363bc`) and |+0x4EC| over +0x4F4 × 0.5 (`0x5363c4`).
+
+The page now does the same: `AiCar::vel` is the world velocity and
+`AiCar::yaw` the body's heading in the world; `speed` (+0x7C0 along
+the way), `sideSpeed` and `heading` are views of them (`aiViews`),
+taken again when the race task runs (`aiRaceTick`) and after each
+model; writing a view (a stop, a cop turned round, a test's set-up)
+sets the world state from it. The controllers add their forces to
+`vel` along the road polygon's right and forward or the body's right
+and forward; gravity goes along the polygon's forward; the heading
+error is taken in the world with the heading chopped to 1/1024 of a
+turn; and `aiAdvance` moves the place by `vel` / 64 every step after the
+hits (the page and the sims call it last in the tick), finding the
+slice, `along` and `lateral` again for the new place (`aiLocate`). A
+slice's run is its point + lateral × its right + along × the chord, so
+on the outside of a bend there is a gap between two runs (the place is
+past the one's end and before the next's start): the place stays on
+the first run with `along` a little over 1 until it is in the next. The
+page had clamped `along` to 1 there, which held a car still on the
+outside of Hometown's first bend until the gap closed (car 4 on slice
+13 at 50.5 s, 2-4 m behind its own velocity in half a second).
+
+Measured (`e11-runs`, `aisim` and `aisim_fine` as `e9`'s, each car
+seeded with its dumped +0xA4 and body forward, `aiAdvance` after
+`aiCollide`): over the 16 ms dumps +0x7B8 is within 0.020 m rms of the
+game's over 50-51.7 s (0.064 before) and 0.128 m over 50-53.2 s (0.35),
+and the slice +0x1C agrees in 726 of 742 samples to 51.7 s (716) and
+1,350 of 1,400 to 53.2 s (1,312). Over `t6-log`'s window +0x638 changes
+in 116 samples (cars 1-7: 16, 14, 17, 11, 20, 21, 17; the game's 143;
+86 before), 44 of them across a 4 or 12 m edge between samples within
+0.3 m of it (the game's 47; 21 before); the aim is past 8 m in 182
+samples (162; 168). The decisions to 56 s agree in lane and pick with
+`d8-votes` in 295 of 338 (281), and the first differing pick per car is
+at 53.25, 53.21, 52.29, 52.90, 53.10, 73.96 and 66.67 s (52.37, 51.73,
+52.42, 51.90, 52.73, 51.34, 67.8): each is still row 7's halving for a
+car ahead whose +0x7B8 sits within 1-2 cm of 4.0 (car 5 at 52.30 s:
+the game's 3.991, lane 7; the page's 4.003, lane 8). Speeds: 1.57 m/s
+rms over 50-64 s (0.75) and 4.41 over the window (3.92); the cars now
+part at 57.5 s (car 5 moves left where the page's goes right, and car 3
+then stays at 4 m where the game's goes out to 11-12), so cars 3 and 4
+are not side by side at 64 s and their hits don't come; instead the
+page's cars 1 and 4 (65.5-67.6 s) and 6 and 7 (68.0-68.8 s) run within
+a lane of each other on the same slice and hit 45 times (the game's
+cars hit 9 times in the whole window, all cars 3 and 4 at 63.6-64.2
+s); on the same slice each takes the other's speed as its speed wanted
+(keeping behind it, `0x4094d0`) while the hits and the sliding they
+start slow both, so the two fall to 24-25 m/s; at the end cars 6 and
+7 are 5 and 6 slices behind the game's (13 and 16 before), car 2 9.
+The `d7-watch2` replay is 0.40 m rms (0.60; rails 1,229, slow 59, slide
+20) and `park` stops 120 times, none past a wall.
 
 **The roadside cop** (`d7-runs/sim/park`,
 the police car ordered to lay a strip from every 8th slice of Hometown,

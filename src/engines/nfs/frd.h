@@ -468,19 +468,38 @@ struct AiCar {
     // `side` is +0x7B8 as the game measures it (0x4a2bc0: the car's place
     // less its slice's road point, along the right), `lateral` the car's
     // own place across the road from the line between the slice's point
-    // and the next, `along` how far it is from the one to the other (0-1,
-    // set by whoever moves it): on a bend the measured offset changes
-    // across a slice while the car goes straight on, and the controller
-    // steers by it.
+    // and the next, `along` how far it is from the one to the other (0-1;
+    // a little over 1 in the gap between two slices' runs on the outside
+    // of a bend, aiLocate; moved by aiAdvance): on a bend the measured
+    // offset changes across a slice while the car goes straight on, and
+    // the controller steers by it.
     float side = 0, sideSpeed = 0, lateral = 0, along = 0;
     bool sideKept = false;
     // The game's model across the road (aiMove; car_ai_model 0x408600):
     // `sideSpeed` the velocity along the slice's right, `carSide` along the
     // car's own right (+0x4EC), `heading` its yaw off its way along the
     // road (radians, towards its right), `yawRate` (+0x4FC), the slice
-    // the velocity was last measured at, and the controller last used.
+    // the model last ran on, and the controller last used. `speed`,
+    // `sideSpeed` and `heading` are views of `vel` and `yaw` (below).
     float carSide = 0, heading = 0, yawRate = 0, headingError = 0; // headingError: 0x56ec60, turns
     int velSlice = -1;
+    // The game keeps a car's velocity (+0xA4) and body in the world: the
+    // controllers add their forces to it through the road's or the body's
+    // rows (ai_integrate 0x4071a0), the place moves by it (car_move
+    // 0x4a2c60: +0x98 += +0xA4 / 64 every step), and the speeds the model
+    // reads are dot products with it (+0x7C0 with the road polygon's
+    // forward +0x13C, 0x42cdd0; +0x4EC, +0x4F4 with the body's right and
+    // forward, car_ai_physics 0x4088f0). So does the page since e11: `vel`
+    // is the world velocity and `yaw` the body's heading in the world
+    // (radians, atan2 of its forward's x and z, the angle +0x210 is taken
+    // as, 0x42ce70); `speed`, `sideSpeed` and `heading` are views of them
+    // in the slice's frame (aiViews), and writing a view (a stop, a turn
+    // round, a test's set-up) sets the world state from it.
+    std::array<float, 3> vel{};
+    float yaw = 0;
+    bool worldKept = false;
+    float keptSpeed = 0, keptSide = 0, keptHeading = 0;
+    int keptWay = 0, keptSlice = -1;
     enum Steer : uint8_t { Rails, Slow, Slide } steer = Rails;
     float sideForce = 0; // ai_ctl_rails' force across the road (0x56ec6c), for its drive's loss
     float target = 0;   // the offset wanted (+0x7B4)
@@ -743,12 +762,35 @@ void aiStep(std::vector<AiCar>& cars, size_t self, const TrackCollision& col, co
 // turns the car. ai_ctl_slow (0x407c30; reversing or under 13.41 m/s) and
 // ai_ctl_slide (0x407fa0; off the lanes, off the line, under 0.5 m/s or
 // slipping) turn it towards the point and damp its sideways slip, so it
-// goes where it points. The velocity is kept across a slice's end (the
-// frame turns, so a car running straight on drifts wide on a bend); the
-// car stays within the slice's walls (0x4304b0). `offset` is the aim,
-// `speed` its speed, `along` how far it is along its slice (set by whoever
-// moves it); `side` comes out as the game measures +0x7B8.
+// goes where it points. The forces go into the world velocity (AiCar::vel),
+// which is kept from slice to slice (the road's frame turns, so a car
+// running straight on drifts wide on a bend). `offset` is the aim,
+// `speed` its speed. Here the model is followed by aiAdvance (the place
+// moved by the velocity, kept within the walls; `side` comes out as the
+// game measures +0x7B8); aiStep's AiPhase::Move doesn't move the car.
 void aiSteerStep(AiCar& car, const TrackCollision& col, int step, int track = -1);
+// The car's place moved by its world velocity, 1/64 s (car_move 0x4a2c60,
+// every step, after the models and the hits): `slice`, `along` and
+// `lateral` found again for the new place (the line from a slice's point
+// to the next and the slice's right), its race distance counted on, its
+// heading turned by its yaw rate, kept within the slice's walls (the car
+// against the track, 0x4304b0: the velocity across the slice taken out),
+// and `side` measured there. aiStep and aiCopStep do it with
+// AiPhase::Both; with Drive and Move whoever runs the tick calls it for
+// every car after aiCollide.
+void aiAdvance(AiCar& car, const TrackCollision& col);
+// Places a car at a world point: its slice (from `slice`, stepped either
+// way up to 6), `along` and `lateral`.
+void aiLocate(AiCar& car, const TrackCollision& col, const std::array<float, 3>& at);
+// Sets a car's world velocity and its body's forward (as dumped: +0xA4,
+// +0xD8) and the views from them.
+void aiSetWorld(AiCar& car, const TrackCollision& col, const std::array<float, 3>& velocity,
+                const std::array<float, 3>& forward);
+// A car's world velocity, and its body's forward, right and up (its yaw on
+// the road's up), as the model has them.
+std::array<float, 3> aiVelocity(const TrackCollision& col, const AiCar& car);
+void aiBodyAxes(const TrackCollision& col, const AiCar& car, std::array<float, 3>& forward,
+                std::array<float, 3>& right, std::array<float, 3>& up);
 // Whether a computer car's driver acts on a step (0x40df10 -> 0x401240,
 // for racers and cops alike): the drivers are a 32 Hz task, on the even
 // steps, let through when (step / 2 + its phase, car +0) mod 4 is 0.
