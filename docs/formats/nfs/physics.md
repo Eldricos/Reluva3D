@@ -605,6 +605,15 @@ The computer cars use no tyres and no engine torque. They are steered
 and pushed by a few clamped controllers, read from the code
 (`0x408600` and its callees) and checked at run time (`gh1-ai`, below).
 
+**The world velocity.** The computer cars' velocity +0xA4 is in the
+world: `ai_integrate` `0x4071a0` adds the road-frame force through the
+rows at +0x124 and the body-frame force +0x4E0 through +0xC0, and
+`car_move` `0x4a2c60` adds +0xA4 × 1/64 (`0x53c8ec`) to the place +0x98
+every step. +0x7C0, +0x4EC and +0x4F4 are dot products of it (`0x42cdd0`,
+`0x4088f0`). +0x210 is `atan2_turns` of the levelled body forward
++0x1A8 × 1024, chopped (`0x42cee9`). `car_ai_model` `0x408600` ramps the
+aim before the heading error. See frd.md "The world velocity".
+
 **The fields.** +0x7B0 the speed wanted (m/s, below). +0x7B8 the car's
 side offset on the road, +0x7B4 the side offset it wants, +0x7C8 its
 present aim, moved towards +0x7B4 by 0.2 a tick (`0x408870`). +0x7C0
@@ -2850,7 +2859,7 @@ runs, below).
 | `0x4a21a0` | a roof over the road (slices where `0x420bf0` says covered): when the car's centre is above the road height plus the roof's height (`0x552e54`[slice]), a contact with the roof (`0x42efe0`, the road's down as the normal) and the air spin clamp `0x4a20c0` |
 | `0x4a1610` | on the road: out of the road, the speed into it taken out, the body turned towards the road plane at most 0.5 turn/s |
 | `0x4a1ce0`, `0x4a1210` | landing: twelve body points against the road, the speed along the normal and the spin × (0.5 + e) |
-| `0x4296c0` | at the landing's end (`0x4a2068`), only for a car that comes down flat on its roof (+0x10C ≤ −0.9, `0x537200`) and on the ground: a body wobble for the drawing, rate +0x8C4 = 1/240 and +0x8C8 = 24-35 ticks with a random sign, twice (+0x8CC, +0x8D0), read by the body drawing `0x42a7d0`, which adds rate × n/12 × sin(n/12 turns) to the tilts +0x920/+0x924 each tick and counts n down (run in `e10-h7`, Checked in runs) |
+| `0x4296c0` | at the landing's end (`0x4a2068`), only for a car that comes down flat on its roof (+0x10C ≤ −0.9, `0x537200`) and on the ground: a body wobble for the drawing, rate +0x8C4 = 1/240 and +0x8C8 = 24-35 ticks with a random sign, twice (+0x8CC, +0x8D0), read by the body drawing `0x42a7d0`, which adds rate × n/12 × sin(n/12 turns) to the tilts +0x920 (pitch) / +0x924 (roll) each tick, held to ±0.00625 × P +0x294, and counts n down (run in `e10-h7`, `e12-tp*`, `e12-cl*`, Checked in runs) |
 | `0x4a20c0` | in the air: each spin kept within ±2.4 turns/s |
 | `0x4a2690` | +0x10C, the car's up · the road's up |
 | `0x4a2630` | puts a car on the road's height (+0x9C = road + half height), clears +0x164, +0x8B and the vertical speed |
@@ -3008,6 +3017,82 @@ the set-up record at `0x6fd52c` (`-dumpmem` of the record at 55 s,
   period of 12 ticks (0.375 s) and 0.75-1.1 s long, at most 0.012 of a
   turn (4.4°) before the clamp. It touches no physics field: it only
   feeds the body's two drawn tilts.
+- **The drawn body's tilts: +0x920 is the pitch, +0x924 the roll**
+  (November 2026, `e12-tp0`-`tp2`, `e12-tq0`-`tq2`). From the code:
+  `0x42a7d0` does not build a matrix; the car drawing does, in
+  `0x4b93c0` (from `car_draw_wheels` `0x4bab70`, and `0x4bae00`,
+  `0x4bb200`). It clamps +0x920 to ±0.25 turns (`0x5400c8`,
+  `0x5400d0`) and +0x924 to ±0.3 (`0x5400d8`, `0x5400e0`), stores them
+  back, and makes Rz = `0x4dfe40`(+0x924), rows (c, s, 0), (−s, c, 0),
+  (0, 0, 1), and Rx = `0x4dfd80`(+0x920), rows (1, 0, 0), (0, c, s),
+  (0, −s, c) (c and s of the angle in turns, `0x4ea970`), and their
+  product Rz · Rx (`0x4e0280`, row-major A · B) at `0x4b9516`. When the
+  car is tipped (+0x10C under 0.9, `0x5400e8`) that product is
+  multiplied into the rows the caller passes for the drawing (its
+  third argument, T · rows, `0x4b953c`) and the tilt matrix is left as
+  the identity. The car's rows are its
+  right, up and forward (+0xC0, +0xCC, +0xD8; points are rows times
+  the matrix), and the model's axes are x right, y up, z forward
+  ([fce.md](fce.md)), so +0x920 turns the body about its right axis
+  (pitch: the up row goes to (0, c, s), so a positive +0x920 leans the
+  roof forward and dips the nose) and +0x924 about its forward axis
+  (roll: the right row goes to (c, s, 0), a positive +0x924 lifts the
+  right side). The sources agree: what 0x42a7d0 copies into +0x920
+  before the wobble is +0x928, which each tick is × 0.75 and, when
+  |a| is over 1.5 (`0x5372a0`), less a × (1/240 × P +0x294) / 64,
+  with a = the forward acceleration +0x4E8 − (−9.81) × the forward
+  row's y (+0xDC), held to ±1/240 × P +0x294 (`0x42a83a`-`0x42a900`):
+  speeding up tilts the nose up. +0x924 gets +0x92C, the same from the
+  lateral acceleration +0x4E0 and the right row's y (+0xC4), but
+  added rather than taken off, its threshold 4.5 (`0x5372b0`), its
+  gain and hold 0.00625 × P +0x294
+  (`0x42a8ed`-`0x42a997`). Then the random shake from the road's
+  bumpiness (+0x930, set in `0x4294e0` from P +0x298) adds (r − 0.5) ×
+  +0x930 × 0.1 to +0x920 and × 0.07 to +0x924 (× the set-up's
+  Suspension Stiffness, set-up +0x50, in a single race or Hot Pursuit
+  off the network; `0x42aab4`-`0x42ab62`). A camera routine reads the
+  same two (`0x421730`, from `0x422520`; not followed further): +0x924 to a turn about z (`0x4ea820`), +0x920
+  plus the camera's own +0x50 to a turn about x (`0x4ea680`), in view
+  mode 1 with +0x920 doubled, otherwise with +0x924 halved, and halved
+  again over 60 m/s of road speed.
+  Run: `e12-tp*` (`e12-runs/tb.sh`: `e10-h7`'s start, Hometown, gas
+  from 52 s, on the road, to 55 s; `0x4b951b`, just after the product,
+  watched with the nine floats at edi, +0x920, +0x924 and +0x10C).
+  With nothing poked the player's car's (`0x5e1120`) matrix was the
+  identity (+0x920, +0x924 0; the watch's lines ran out at 45.5 s, the
+  car still on the grid, and the poked runs' matrices below are from
+  the same moments). `e12-tp1` set the
+  player's +0x920 to 0.05 turns at every `0x4b9405` (`-pokeevery`, just
+  before the drawing reads it): the matrix read (1, 0, 0), (0, 0.951,
+  0.309), (0, −0.309, 0.951), a turn of 18° about x; `e12-tp2` set
+  +0x924 instead: (0.951, 0.309, 0), (−0.309, 0.951, 0), (0, 0, 1), about
+  z. `e12-tq0`-`tq2`, the same with the chase view (key `c` at 53 s)
+  and frames from 54 s, show it: with +0x920 at 0.05 the body is drawn
+  tail up and nose down, its wheels left on the road (`tq1`); with
+  +0x924 at 0.05 it is rolled with its right side up (`tq2`); `tq0`
+  level.
+- **The tilts' clamp is 0.00625 × the car's pitch roll factor**
+  (P +0x294). In `0x42a7d0` `[ebp−0x18]` is `[0x5efde4]` × P +0x294
+  (`0x42a80c`-`0x42a81b`, stored at `0x42a851`) and `[ebp−0x1c]` is
+  `[0x5efde0]` × P +0x294 (`0x42a800`-`0x42a806`, stored at
+  `0x42a84c`). `0x5efde4` and `0x5efde0` are written only at the race
+  constants' set-up `0x42c590` (from `0x428402`), as 0.00625
+  (`0x3bcccccd`, `0x42c62b`/`0x42c648`) and 1/240 (`0x3b888889`,
+  `0x42c626`/`0x42c642`); their other readers are the hit's jolt
+  `0x4295a0` and the camera's `0x471650`/`0x4716e0`. So both final
+  clamps of +0x920 and +0x924 are ±0.00625 × P +0x294, and +0x928's own
+  hold is ±P +0x294 / 240. Run: `e12-cl3` and `e12-cl12` (`cl.sh`,
+  Hometown, the player's car set to list entries 3 and 12 at
+  `0x474ca0`, to 43 s; `0x42aa90` watched with `[ebp−0x18]`,
+  `[ebp−0x1c]`, the car's P pointer and P +0x294 of the player's
+  P `0x5eabe0`). Entry 12 (P +0x294 1.03, as for the car of `e10-h7`
+  and `e12-tb0`, where nothing was poked) gave 0.0064375 and 0.0042917
+  for the player's car, entry 3 (P +0x294 0.92) 0.00575 and
+  0.0038333, exactly 0.00625 and 1/240 times the field; the computer
+  cars in the same runs had 0.00575 (P `0x5eb08c`), 0.00625 (P
+  `0x5eb538`) and 0.0064375 (P `0x5eb9e4`), each pair in the same
+  ratio 1.5 : 1, so factors 0.92, 1.00 and 1.03 (not read directly). So
+  `e10-h7`'s 0.00644 was 0.00625 × 1.03.
 - **Landing** was checked before (`sw1-f`, Car dynamics above): the
   speed into the road × (0.5 + e) and the spin × (0.5 + e), with no
   bounce; not run again.
@@ -3379,7 +3464,9 @@ of every access to those offsets):
   timer `0x429260` (all three spins × (1 − 1/64) a tick while the
   timer runs, on the ground, +0x10C under 0.5), and the roof wobble
   (`0x4296c0`) is a decaying swing of the drawn body's two tilts
-  (+0x920, +0x924), 12 ticks a period, as read. Still open: which of
-  +0x920 and +0x924 is the pitch and which the roll, and where the
-  clamp's limit (`[ebp−0x18]` in `0x42a7d0`, 0.00644 for this car)
-  comes from.
+  (+0x920, +0x924), 12 ticks a period, as read. Since (`e12-tp*`,
+  `e12-tq*`, `e12-cl*`): +0x920 is the drawn body's pitch (a turn
+  about its right axis, in `0x4b93c0`) and +0x924 its roll (about its
+  forward axis), and the clamp's limit is 0.00625 (`0x5efde4`, a
+  constant set at `0x42c648`) × the car's pitch roll factor P +0x294,
+  0.92-1.03 for the cars run.

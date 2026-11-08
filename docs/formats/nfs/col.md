@@ -169,8 +169,9 @@ to the points, used in place):
     - **A jolt** (`0x4295a0`): two wobbles of the car's body, periods
       16-23 (random) and 35, sizes from the impact (× 1/45, at most
       1.5) and a value from the car's data (`+0x528` → `+0x294`). They
-      are added to car `+0x920` and `+0x924` (`0x42a9bd`), its tilts
-      by the look of it. Not side-specific: other hit types do it too.
+      are added to car `+0x920` and `+0x924` (`0x42a9bd`), the drawn
+      body's pitch and roll (`0x4b93c0`; see physics.md "Checked in
+      runs"). Not side-specific: other hit types do it too.
     - **One particle** of the code's kind at the contact point
       (`+0x178`, `0x42aee7` → `0x4cae00`).
     - **The camera director** gets interest 5 for the car (`0x4bd9d0`,

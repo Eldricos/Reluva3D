@@ -359,10 +359,11 @@ At each call +0x8, +0x204 and +0x708 read 0, +0x208 1, and the saved
 step 1544 then 1928 (`0x608`, `0x790`). So every backward run's car
 was moved 5 slices at the same two steps, not only Hometown's and
 Country Woods'. On the other tracks the first move came well before
-zone 5 and the second after the car had driven through the change
+zone 5's end and the second after the car had driven through the change
 by itself (Redrock Ridge's at slice 189, Rocky Pass's at 171 at
 69.3 s, Lost Canyons' at 197 at 70.7 s, Summit's at 170 at 69.2 s;
-the second moves were at 189, 160, 195 and 159), so neither crossed a boundary; on Hometown and Country
+the second moves were at 189, 160, 195 and 159), so neither crossed a
+boundary (seen in the same runs since, `e12-zs`, below); on Hometown and Country
 Woods the second came at slice 191, one before the change. It is a
 side effect of the test's placing: a car that crossed the line from
 the grid (as every car does in a real race) pays the owed lap, and a
@@ -370,6 +371,33 @@ car driving through gets the change at 190, as on the other tracks.
 A placing that wants a moving race distance backward has to poke
 +0x208 to 0 as well (a slice of 500 or under, such as these 260s,
 never pays the lap even when +0x4 is left on the grid's side).
+
+**The order seen in one run** (November 2026, `e12-zs1r`, `zs3r`,
+`zs5r`, `zs7r`: `e12-runs/zs.sh`, `e10-rs`'s backward set-up and
+`.place` files unchanged, so +0x208 stays owed and the moves happen;
+`-watch` at `0x4135b6`, every result of the zone lookup in the lap
+handler, at `0x4135c6`, a zone change, dl the new zone and dh the old,
+and at `0x429100`, with the player's +0x1C, +0x4, +0x208, x, z, the
+current zone `0x552834` and the step). The runs are deterministic and
+gave `e10-rs`'s moves at the same moments and slices:
+
+| Run | Zone 5 to 4 (`0x4135c6`, +0x1C) | First move (`0x409bbf`) | Second move |
+|---|---|---|---|
+| 1 Redrock Ridge (`e12-zs1r`) | 71.087 s, slice 189, step 1934 | 65.014 s, 207 to 202, zone 5 | 71.139 s, 189 to 184, zone already 4 |
+| 3 Rocky Pass (`e12-zs3r`) | 69.264 s, 171 | 65.026 s, 186 to 181, zone 5 | 71.148 s, 160 to 155, zone 4 |
+| 5 Lost Canyons (`e12-zs5r`) | 70.668 s, 197 | 65.020 s, 214 to 209, zone 5 | 71.156 s, 195 to 190, zone 4 |
+| 7 Summit (`e12-zs7r`) | 69.235 s, 170 | 64.991 s, 185 to 180, zone 5 | 71.110 s, 159 to 154, zone 4 |
+
+In each the lookup returned 5 down to zone 5's first slice (190, 172,
+198, 171) and 4 from the slice below it on, with no other change
+after the placing's own 4 to 5 at 51.9 s (the jump onto slice 260 and
+the like, wrong way, as before). So the change came first, driven, and
+both moves stayed inside one zone: the first inside zone 5, the second
+inside zone 4 (5 slices back, still under the change). On Redrock
+Ridge the margin was small: the change at step 1934 (`0x78e`), the move
+at the progress check of step 1936 (`0x790`), 52 ms later, with +0x1C
+still 189. These four zone changes are therefore the car's own, as the
+table under Checked at run time has them (189, 171, 197, 170).
 
 ## What isn't known
 
@@ -385,6 +413,14 @@ never pays the lap even when +0x4 is left on the grid's side).
   line. In runs the pairs count on tracks 0, 1, 3, 7 and 8 forward
   and backward on all six tracks with the pair (4, 5) (0, 1, 3, 4, 5,
   7), each with zone 5 second from the line, so driven backward its
-  last change is 5 to 4, as run (November 2026, Music laps).
+  last change is 5 to 4, as run (November 2026, Music laps). That
+  those backward changes were driven and not caused by the test's
+  progress-check moves (`0x429100` from `0x409bbf`) is now seen in the
+  same runs on Redrock Ridge, Rocky Pass, Lost Canyons and Summit
+  (`e12-zs`, Music laps): the second move came after the change each
+  time (by 52 ms on Redrock Ridge) and neither move crossed a zone.
+  Hometown's and Country Woods' 186 were the move's (`e8-zq0`,
+  `e8-zr4`). Not run: the same with +0x208 poked to 0, a placing whose
+  race distance moves, so that no move happens at all.
   Atlantica would count too, but its row is −1, and Empire City's
   second zone is its one-slice 7.
