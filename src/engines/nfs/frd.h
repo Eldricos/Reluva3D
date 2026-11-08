@@ -488,6 +488,12 @@ struct AiCar {
     float wanted = 0;   // the speed wanted (+0x7B0), as a size
     float scale = 1;    // the speed scale (+0x7BC): aiDriverFactor x aiTrackFactor, at most 1
     float halfWidth = 1.183f;
+    // Its half extent across the road (+0x21C, 0x42cd00): the half sizes
+    // (+0x114, +0x118, +0x11C) each x |the road's right . the body's axis|,
+    // so a car turned off its way spans more of the road; written with
+    // `side` and `lane` each tick by aiRaceTick, read only by the lanes it
+    // spans (car_lanes_update 0x40e350). 0: halfWidth.
+    float extent = 0;
     // For the hits between cars (aiCollide): the box's half height and
     // length (+0x118, +0x11C; its half width is halfWidth), the mass
     // (+0xB0, aiCarMass), the air ticks (+0x164: its model skipped while
@@ -549,6 +555,19 @@ struct AiCar {
     // is measured along it (aiMeasuredSide). Unset, the slice's right.
     std::array<float, 3> roadRight{};
     bool roadRightSet = false;
+    // The road polygon's forward with it (+0x13C): ai_ctl_rails' forward
+    // force goes along it, its side force along roadRight (ai_integrate
+    // 0x4071a0 puts 0x56ec6c-0x56ec74 through the rows at +0x124).
+    std::array<float, 3> roadForward{};
+    // Off the road's lanes (0x40f110: +0x638 not within one lane of them)
+    // the ticks it has been under 3 m/s along its forward (+0x7D8,
+    // ai_target_point 0x406e50): bit 0x40 steers it at its own slice's
+    // point (0x406c00), over 1000 puts it back (0x429100). Put back
+    // (`putBackDue`, done by aiPutBack), it is a ghost to the hits for 64
+    // ticks (+0x174, car_collisions_task 0x4311d0).
+    int offRoadTicks = 0;
+    bool putBackDue = false;
+    int ghostTicks = 0;
     RoadSearch road; // its track position's search (+0xC)
     // The slice as the game has it (+0x1C, aiRoadFrame): the slice whose
     // road polygons it is on, which the track position's search gives;
@@ -656,6 +675,37 @@ int aiLineLane(const std::vector<uint8_t>& speeds, int slice, int sliceCount);
 // that is the first 302-400 slices of the race (on Hometown's first
 // lap about 65 s), most of t6-log's window.
 bool aiAtRaceStart(int distance, int place, int racers, bool backward = false, int extra = 0);
+// A step of a computer car in two halves, as the game's tick has them
+// (the Sc32 list, `order` in e9-runs: the race task 0x42ce70 for every
+// car, then every car's driver 0x409c00, then each car's dynamics and
+// model 0x4088f0, the hits 0x4311d0, and the Sc64 positions 0x4a2c60):
+// Drive the driver alone, Move the model and the motion, Both one after
+// the other.
+enum class AiPhase { Both, Drive, Move };
+// A car's half extent across the road (+0x21C, 0x42cd00): its half
+// width, height and length each x |the road's right (+0x124) . its right,
+// up, forward|.
+float aiCarExtent(const TrackCollision& col, const AiCar& c);
+// The race task's part for the computer's cars (0x42ce70, Sc32: the even
+// steps, every car in play): +0x21C (aiCarExtent), +0x7B8 the side offset
+// as measured (0x4a2bc0, aiMeasuredSide) and +0x638 the lane at it on its
+// slice (0x40e2b0). Run before the cars' drivers and models, which read
+// these.
+void aiRaceTick(std::vector<AiCar>& cars, const TrackCollision& col, int step);
+// Whether a car may be put at `offset` on `slice` (0x428ad0): the lane
+// there open (0x40e220) and no other car within a lane of it (+0x638) and
+// a slice (+0x1C). The game also wants a road polygon under the point
+// with a drivable surface and an up over 0.8 (0x4205a0, 0x4207e0), which
+// the lanes' strips stand for here.
+bool aiSpotFree(const std::vector<AiCar>& cars, size_t self, const TrackCollision& col, int slice, float offset);
+// A car put back on the road (0x429100, from ai_target_point 0x406e50
+// when it has started reversing more than 8 times at 10 m/s or less, or
+// has been off the lanes and slow for over 1000 ticks): 5 slices on along
+// its way (0x5efdcc), at the first free spot (0x428d60: the slice's point,
+// then the lanes' middles out from it, right first, then the next slices,
+// up to 10), still, lined up with the road, a ghost to the hits for 64
+// ticks. aiStep and aiCopStep call it when aiMove asked (putBackDue).
+void aiPutBack(std::vector<AiCar>& cars, size_t self, const TrackCollision& col);
 // One step (of 64 a second) of the computer's driving for cars[self], as
 // an AI racer (+0x200 bit 8). Its driver
 // (car_driver_ai 0x409c00) acts only when aiDriverActs lets it, every 8
@@ -676,7 +726,7 @@ bool aiAtRaceStart(int distance, int place, int racers, bool backward = false, i
 // the brake held only when more than 5 m/s too fast; its side offset
 // follows the aim every step. speeds: the table for its way.
 void aiStep(std::vector<AiCar>& cars, size_t self, const TrackCollision& col, const std::vector<uint8_t>& speeds,
-            const AiCarData& data, int step, int track, bool weather);
+            const AiCarData& data, int step, int track, bool weather, AiPhase phase = AiPhase::Both);
 // One step (64 a second) of a computer car's motion across the road, as
 // the game's model has it (car_ai_model 0x408600 on the even steps, then
 // ai_integrate 0x4071a0): its heading error to the point it steers at
@@ -744,7 +794,7 @@ float aiCatchUpFactor(const AiRace& race, int distance, int place);
 // backup, 0x4043a0) to the free cops in `cars`. Its strip's hits are
 // tested each step (0x4297d0, 0x4ca160: the racers' wheels on its quad).
 void aiCopStep(std::vector<AiCar>& cars, size_t self, const TrackCollision& col, const AiCarData& data, int step,
-               int track, bool weather);
+               int track, bool weather, AiPhase phase = AiPhase::Both);
 
 // Car against car (physics.md, Rolls from car hits): car_collisions_task
 // (0x4311d0, 32 a second, after the cars' models) hands each car in play

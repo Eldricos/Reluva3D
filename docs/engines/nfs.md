@@ -1566,12 +1566,21 @@ README.md.
   agree in 96 % of samples (52 %). Car 3 now gets ahead of car 4 by
   slices 90-107, but in the same lane from 62 s and then at 2-5 m,
   where the game's run side by side to slice 91 and car 3, turned by the
-  hits, swings out to −11.7. The first differing decisions are still at
-  51-53 s, on cars within centimetres of a lane's edge (92 lane changes
-  against the game's 143, 189 samples past 8 m against 162). A slow hit's
-  reversing (`0x406120`) and the roll and pitch a hit gives are ported
-  (frd.md, Reversing after a slow hit), all but the put-back on the
-  road after 8 reversings (`0x429100`). The road
+  hits, swings out to −11.7. The tick now runs in the game's order (the
+  race task's +0x7B8, +0x638 and the car's span across the road +0x21C
+  for every car, then every driver, then the models, then the hits) and
+  a car's lane edges take that span, not its half width (frd.md, The
+  tick's order and the lanes a car spans): to 56 s the decisions agree
+  with the game's in 281 of 338 (242), +0x7B8 is within 0.35 m rms over
+  the first 3.2 s (0.82). The first differing decisions (51.3-52.7 s)
+  now come from the page's model across the road at a slice change on a
+  bend, and from 60 s cars 3 and 4 run in other lanes than the game's
+  (86 lane changes against the game's 143, 168 samples past 8 m against
+  162). The rails controller pushes along the road polygon's right and
+  forward, and a car that has reversed more than 8 times, or has been
+  off the lanes and slow for 1000 ticks, is put back on the road
+  (`0x429100`). A slow hit's reversing (`0x406120`) and the roll and
+  pitch a hit gives are ported (frd.md, Reversing after a slow hit). The road
   search's marks of the other side near bends' walls are what the
   code does (frd.md, The search beyond its first slice); a car against
   such a wall isn't pushed the wrong way by it: the wall test steps

@@ -2166,12 +2166,16 @@ void TrackPage::moveCars(float dt) {
         // its side offset is measured along.
         for (AiCar& a : ai)
             aiRoadFrame(track_, collision_, a);
+        // The game's tick (Sc32, the even steps): the race task measures
+        // every car (aiRaceTick: +0x7B8, +0x21C, +0x638), then every car's
+        // driver acts, then each car's model; the hits after them all.
+        aiRaceTick(ai, collision_, aiStep_);
         for (size_t i = 0; i < cars_.size(); ++i) {
-            ComputerCar& c = cars_[i];
+            const ComputerCar& c = cars_[i];
             const CarModel& cm = carModels_[size_t(c.model)];
             ai[i].raceDistance = distance[i]; // from the camera's car, the race's human
             if (ai[i].cop) {
-                aiCopStep(ai, i, collision_, cm.ai, aiStep_, track, weather);
+                aiCopStep(ai, i, collision_, cm.ai, aiStep_, track, weather, AiPhase::Drive);
             } else {
                 int place = 1 + (race.human && 0 > distance[i] ? 1 : 0);
                 for (int d : racerDistances)
@@ -2180,9 +2184,20 @@ void TrackPage::moveCars(float dt) {
                                            aiTrackFactor(track),
                                        1.0f);
                 aiStep(ai, i, collision_, c.way > 0 || speedsBackward_.empty() ? speedsForward_ : speedsBackward_, cm.ai,
-                       aiStep_, track, weather);
+                       aiStep_, track, weather, AiPhase::Drive);
             }
+        }
+        for (size_t i = 0; i < cars_.size(); ++i) {
+            ComputerCar& c = cars_[i];
+            const CarModel& cm = carModels_[size_t(c.model)];
+            if (ai[i].cop)
+                aiCopStep(ai, i, collision_, cm.ai, aiStep_, track, weather, AiPhase::Move);
+            else
+                aiStep(ai, i, collision_, c.way > 0 || speedsBackward_.empty() ? speedsForward_ : speedsBackward_, cm.ai,
+                       aiStep_, track, weather, AiPhase::Move);
             c.ai = ai[i];
+            // Put back on the road (aiPutBack) it is somewhere else.
+            c.slice = static_cast<float>(ai[i].slice) + ai[i].along;
             c.way = c.ai.way;
             c.speed = c.ai.speed;
             c.lane = c.ai.lane;

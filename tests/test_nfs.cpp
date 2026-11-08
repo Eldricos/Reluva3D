@@ -3109,6 +3109,150 @@ void testCarHits() {
     tilted.roll = 0.002f; // within 0.02
     aiTilt(tilted, 8);
     CHECK(tilted.rollRate == 0 && tilted.roll == 0.002f);
+
+    // +0x21C (0x42cd00): the half sizes across the road's right; lined up
+    // the half width, turned square the half length, turned 30 degrees
+    // both in part.
+    {
+        AiCar m;
+        m.slice = 20;
+        m.halfWidth = 1.2f;
+        m.halfHeight = 0.6f;
+        m.halfLength = 2.4f;
+        CHECK(std::fabs(aiCarExtent(road, m) - 1.2f) < 1e-5f);
+        m.heading = 3.14159265f / 2;
+        CHECK(std::fabs(aiCarExtent(road, m) - 2.4f) < 1e-5f);
+        m.heading = 3.14159265f / 6;
+        CHECK(std::fabs(aiCarExtent(road, m) - (1.2f * std::cos(m.heading) + 2.4f * 0.5f)) < 1e-5f);
+        // The race task (0x42ce70) writes it, +0x7B8 and +0x638 for every
+        // car on the even steps only.
+        m.sideKept = true;
+        m.lateral = 3.0f;
+        std::vector<AiCar> one{m};
+        aiRaceTick(one, road, 1);
+        CHECK(one[0].extent == 0);
+        aiRaceTick(one, road, 2);
+        CHECK(std::fabs(one[0].extent - aiCarExtent(road, m)) < 1e-6f && std::fabs(one[0].side - 3.0f) < 1e-5f &&
+              one[0].lane == 8);
+        // The lanes it spans (0x40e350) take +0x21C, not the half width
+        // (lanes 4 wide here): at 3.0 with 1.2 its left side is in lane 8
+        // (2.3), turned 30 degrees (+0x21C 2.24) in lane 7 (1.26).
+        AiCarData d;
+        d.accel.fill(4);
+        std::vector<uint8_t> flat(16, 0);
+        flat.insert(flat.end(), 100, 30);
+        one[0].heading = 0;
+        aiRaceTick(one, road, 4);
+        aiStep(one, 0, road, flat, d, 8, 1, false, AiPhase::Drive);
+        CHECK(one[0].laneLeft == 8 && one[0].lane == 8 && one[0].laneRight == 8);
+        one[0].heading = 3.14159265f / 6;
+        aiRaceTick(one, road, 10);
+        aiStep(one, 0, road, flat, d, 16, 1, false, AiPhase::Drive);
+        CHECK(one[0].laneLeft == 7 && one[0].lane == 8 && one[0].laneRight == 8);
+        // The driver's half alone moves nothing; the model's half alone
+        // votes nothing.
+        CHECK(one[0].lateral == 3.0f && one[0].speed == 0 && one[0].wanted > 0);
+        one[0].pick = -1;
+        aiStep(one, 0, road, flat, d, 24, 1, false, AiPhase::Move);
+        CHECK(one[0].pick == -1 && one[0].speed > 0);
+    }
+    // ai_ctl_rails' side force along the road polygon's right (+0x124):
+    // with that right turned 10 degrees the push across the slice is
+    // cos 10 of it and the rest goes along the road.
+    {
+        AiCar a, b;
+        for (AiCar* c : {&a, &b}) {
+            c->slice = 20;
+            c->speed = 30;
+            c->sideKept = true;
+            c->velSlice = 20;
+            c->offset = c->target = 3;
+            c->lateral = c->side = 0;
+            c->roadRight = {1, 0, 0};
+            c->roadForward = {0, 0, 1};
+            c->roadRightSet = true;
+        }
+        const float t = 10 * 3.14159265f / 180;
+        b.roadRight = {std::cos(t), 0, -std::sin(t)};
+        AiCarData d;
+        d.accel.fill(0);
+        std::vector<uint8_t> flat(16, 0);
+        flat.insert(flat.end(), 100, 30);
+        std::vector<AiCar> va{a}, vb{b};
+        aiStep(va, 0, road, flat, d, 1, 1, false, AiPhase::Move); // odd: the side offset measured along each right
+        aiStep(vb, 0, road, flat, d, 1, 1, false, AiPhase::Move);
+        vb[0].side = va[0].side;
+        aiStep(va, 0, road, flat, d, 2, 1, false, AiPhase::Move);
+        aiStep(vb, 0, road, flat, d, 2, 1, false, AiPhase::Move);
+        CHECK(va[0].steer == AiCar::Rails && vb[0].steer == AiCar::Rails && va[0].sideSpeed > 0);
+        CHECK(std::fabs(vb[0].sideSpeed - va[0].sideSpeed * std::cos(t)) < 1e-4f);
+    }
+    // Put back on the road (0x429100): 5 slices on, at the slice's point,
+    // still, a ghost to the hits for 64 ticks; with a car there the next
+    // free lane middle out from the point, the right first (0x428d60).
+    {
+        AiCar m, other;
+        m.slice = m.roadSlice = 20;
+        m.along = 0.4f;
+        m.lateral = m.side = -9;
+        m.speed = 3;
+        m.sideSpeed = 1;
+        m.heading = 0.5f;
+        m.sideKept = true;
+        other.slice = other.roadSlice = 40;
+        other.lane = 7;
+        std::vector<AiCar> v{m, other};
+        aiPutBack(v, 0, road);
+        CHECK(v[0].slice == 25 && v[0].along == 0 && v[0].lateral == 0 && v[0].speed == 0 && v[0].sideSpeed == 0 &&
+              v[0].heading == 0 && v[0].ghostTicks == 64 && v[0].airTicks == 1 && v[0].lane == 7);
+        v = {m, other};
+        v[1].slice = v[1].roadSlice = 26;
+        // Lanes 4 wide: the middles 2 and -2 are lanes 7 and 6, next to the
+        // car's 7 a slice on; 6 and -6 are lanes 9 and 4 (0x40e2b0 rounds
+        // 1.5 to 2), shut here. Free from slice 28, at lane 7's middle.
+        CHECK(!aiSpotFree(v, 0, road, 25, 0) && !aiSpotFree(v, 0, road, 25, 2) && !aiSpotFree(v, 0, road, 25, -2) &&
+              !aiSpotFree(v, 0, road, 25, 6) && !aiSpotFree(v, 0, road, 27, 2) && aiSpotFree(v, 0, road, 28, 2) &&
+              aiSpotFree(v, 0, road, 25, 10.5f) == false);
+        aiPutBack(v, 0, road);
+        CHECK(v[0].slice == 28 && v[0].lateral == 2);
+        // A ghost isn't hit: the two side by side as above, one put back.
+        std::vector<AiCar> two{left, right};
+        two[1].ghostTicks = 2;
+        aiCollide(two, road, 100);
+        CHECK(two[1].sideSpeed == -2 && two[1].ghostTicks == 1);
+        // From ai_target_point: more than 8 reversings at 10 m/s or less,
+        // on the road's lanes.
+        AiCar r;
+        r.slice = r.roadSlice = 30;
+        r.speed = 5;
+        r.sideKept = true;
+        r.velSlice = 30;
+        r.lane = 7;
+        r.reverseCount = 9;
+        AiCarData d;
+        d.accel.fill(4);
+        std::vector<uint8_t> flat(16, 0);
+        flat.insert(flat.end(), 100, 30);
+        std::vector<AiCar> rv{r};
+        aiStep(rv, 0, road, flat, d, 2, 1, false, AiPhase::Move);
+        CHECK(rv[0].slice == 35 && rv[0].reverseCount == 0 && rv[0].ghostTicks == 64 && !rv[0].putBackDue);
+        // Off the lanes (lane 11, two past the edge's 9) and slow: +0x7D8
+        // counts; its bit 0x40 steers at its own slice, over 1000 it is
+        // put back.
+        AiCar o = r;
+        o.reverseCount = 0;
+        o.lane = 11;
+        o.speed = 1;
+        o.offRoadTicks = 1000;
+        std::vector<AiCar> ov{o};
+        aiStep(ov, 0, road, flat, d, 2, 1, false, AiPhase::Move);
+        CHECK(ov[0].slice == 35 && ov[0].offRoadTicks == 0);
+        o.offRoadTicks = 5;
+        o.lane = 8;
+        ov = {o};
+        aiStep(ov, 0, road, flat, d, 2, 1, false, AiPhase::Move);
+        CHECK(ov[0].offRoadTicks == 0 && ov[0].slice == 30);
+    }
 }
 
 void testComputerPursuits() {

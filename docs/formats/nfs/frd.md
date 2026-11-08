@@ -1887,8 +1887,9 @@ cleared; at most that, more than 8 starts put the car back on the road
 (`0x429100`: a slice on by `0x5efdcc`, velocity 0, raised, ghost 64) and
 more than 4, in a lane off the road's (+0x638 under 6 − left lanes or
 over right lanes + 7), it steers at its own slice's point
-(`ai_point_own_slice` `0x406c00`). The page does all but the put back
-(`aiReverseSet`, `aiCollide`, `aiMove`, `aiSteerStep`). A hit's spin is
+(`ai_point_own_slice` `0x406c00`). The page does all of it, the put
+back too since `e9` (below; `aiReverseSet`, `aiCollide`, `aiMove`,
+`aiSteerStep`, `aiPutBack`). A hit's spin is
 a vector: the page took only its part about the car's up; it now keeps
 the parts about its forward and right as roll and pitch rates (turns a
 second), turns the body by them, and brings them back as the dynamics
@@ -1900,6 +1901,143 @@ body's up less the road's up along that axis, held to ±0.5 turn/s
 (`0x53c844`); the computer's model (`car_ai_model`) doesn't touch them.
 The page draws its cars with the roll and pitch. In `t6-log`'s window
 no hit comes under 10 m/s, so the sims are unchanged by this.
+
+**The tick's order and the lanes a car spans** (November 2026,
+`e9-runs`). Where the cars part at 51-53 s (row 7's halving of a car
+not centred in a lane, `0x40d17d`) the decision turns on another car's
++0x638, +0x63C and +0x640 and on when each was written. Read from the
+code (`capstone` on the exe) and one run:
+- **+0x21C is not the half width.** `car_lanes_update` (`0x40e350`)
+  takes the car's left and right lanes at +0x7B8 − +0x21C + 0.5 and
+  +0x7B8 + +0x21C − 0.5 (the doubles `0x5367cc`, `0x5367d4`), and +0x21C
+  is written only by the race task `0x42ce70` from `0x42cd00`: the half
+  width, height and length (+0x114, +0x118, +0x11C) each × |the road's
+  right (+0x124) · the body's right, up, forward (+0xC0, +0xCC, +0xD8)|
+  (`0x4e01f0` a dot product). So a car turned off its way spans more of
+  the road: in the 50 s dump the eight cars' +0x21C are 1.18-1.44 (the
+  formula on the same dump gives each to 0.02; the dump's +0x21C is the
+  tick before), where the page had taken the half width 1.14-1.18. The
+  lane votes (`0x40daf0`, `0x40d3d0`) do use +0x114. The page now keeps
+  it (`AiCar::extent`, `aiCarExtent`: the body's axes as the hits have
+  them, turned by the roll and pitch); against the 16 ms dumps it
+  follows the game's within about 0.05 (car 7 at 51.0-51.4 s 1.56-1.70
+  against 1.58-1.73).
+- **+0x638 is fresh, +0x63C/+0x640 are the car's own last decision.**
+  `0x42ce70` runs for every car in play each tick and writes +0x21C,
+  +0x7B8 (`0x4a2bc0`) and +0x638 (`0x40e2b0` at the new +0x7B8,
+  `0x42ced1`); +0x63C and +0x640 are written only when the car's own
+  driver calls `0x40e350`. The cars ahead and behind (`0x40cfc0`) read
+  the other car's three as they stand, so its centre lane is this
+  tick's and its edges are from its last decision (up to 8 steps old).
+- **The order of a tick.** `order` (`t6-log`'s keys, `-watch` on
+  `0x42ce70`, `0x40e350`, `0x40dd60`, `0x409c00`, `0x4a2830`,
+  `0x4088f0`, `0x4311d0` and `0x4a2c60`, with `g_step` `0x7d3684`
+  read at each): on each even step the race task first (once, all
+  cars), then every car's driver in the list's order (those the gate
+  lets act vote and update their lanes), then each car's dynamics and
+  model (`0x4a2830` then `0x4088f0`, car by car), then the hits
+  (`0x4311d0`, every car), and on every step the positions (`0x4a2c60`,
+  Sc64) last. So a driver reads every other car's +0x7B8, +0x638 and
+  +0x7C0 as they were at the tick's start, before any model of that
+  tick; and the model's controllers read +0x7B8 as the race task
+  measured it, not the car's place after it moved. The page had run
+  each car's driver and then its model before the next car's driver,
+  and measured +0x7B8 in the driver. Now the page and the sims run
+  `aiRaceTick` (the race task's part), then every car's `aiStep` /
+  `aiCopStep` with `AiPhase::Drive`, then each with `AiPhase::Move`
+  and its motion, then `aiCollide`.
+- The reach of the cars ahead and behind (`0x40cfd0`) is +0x7C4 × 2 ×
+  0.1667 rounded towards 0 (`0x4dfd56` sets the chop mode for its
+  `frndint`), at least 10, as the page had it; `0x40e2b0` rounds to the
+  nearest, even on a tie (`fistp`), so a car at exactly 4.000 with lanes
+  8 wide is in lane 7 (car 1 at 51.3 s: 4.000 and +0x638 7 in the dump).
+
+A car aimed at a lane's middle on 8 m lanes sits on `0x40e2b0`'s
+boundary either side; over `t6-log`'s window the samples whose aim is on
+4 or 12 m have +0x7B8 − aim of the same spread on the page as in the
+game (163 samples, mean −0.008, sd 0.181, 81 out and 82 in; the page's
+164, −0.011, 0.195, 73 and 87), so no rule tips them one way. But the
+game's cars cross the edge between half-second samples more often: of
+its 143 lane changes 47 are between two samples within 0.3 m of an edge
+(99 samples within 0.1 m), the page's 21 of 86 (84 samples).
+
+Measured (`e9-runs`, `aisim` and `aisim_fine` as `e7-runs`', with the
+order above): over the decisions to 56 s (`agree.py` against
+`d8-votes`) the lane and the pick agree with the game's in 281 of 338
+(242 before), and the first differing pick per car moves from 52.37,
+51.60, 52.07, 51.77, 52.73, 51.21 s to 52.37, 51.73, 52.42, 51.90,
+52.73, 51.34 (cars 1-6; car 7 at 67.8, was 67.3). Those that still
+differ are the model's, not a rule's: car 6 at 51.34 s doesn't see car 7
+in the lane to its right because the game's car 7 voted at 51.31 s with
++0x7B8 5.24 and +0x21C 1.69, so its left edge in lane 8 (4.05), where
+the page's car 7 is at 5.10 (3.95, lane 7); car 2 at 51.73 and car 4 at
+51.90 s turn on car 4's left edge at −4.0 (game −2.75 − 1.65 + 0.5 =
+−3.90, lane 6; page −3.01 − 1.59 + 0.5 = −4.10, lane 5). Both lags come
+from the page's model across the road where a car crosses a slice on a
+bend: the page keeps its velocity in the slice's frame (the road point's
+forward and right bytes), and on Hometown's slices 14-16 the right is
+up to 2° off square to the forward (forward · right 0.028-0.042), so the
+velocity along the car's own right (+0x4EC) jumps at the slice change
+(car 4 at 51.04 s: −0.68 to −0.04 m/s; the game's −0.75, −0.78). Turning
+the velocity as a true rotation there instead makes +0x7B8 worse
+(0.144 m rms over 50-51.7 s against 0.064), so it was left. Over the
+first 3.2 s +0x7B8 is now within 0.35 m rms of the game's (0.82 before;
+0.064 over the first 1.7 s, 0.068 before).
+
+**The rails controller's force** (`ai_integrate` `0x4071a0`): the
+controller's force 0x56ec6c-0x56ec74 goes through the transposed rows
+at +0x124, so its side part is along the road polygon's right and its
+forward part along the polygon's forward (+0x13C); the car-frame part
++0x4E0 through the body's rows. The page now pushes along
+`AiCar::roadRight` and `roadForward` (`aiRoadFrame`), taken into the
+slice's frame its velocity is kept in. The `d7-watch2` replay doesn't
+move (0.60 m rms with the slices' frames; given the polygons' frames
+as well, 0.72 m both before and after: the replay's places are rough).
+
+**The put back** (`0x429100`, read with `capstone`). `ai_target_point`
+(`0x406e50`), for a car with no target (+0x624 0) and +0x621 bit 8
+clear (set, it takes `0x406c90`'s point instead; the page has no such
+state): when `0x40f110` says it is off the road's
+lanes (+0x638 outside 0-13, or neither it nor the lane either side of
+it within 6 − left lanes to right lanes + 7), +0x7D8 counts the ticks
+its +0x4F4 is under 3 m/s (`0x5362c4`); while +0x7D8's bit 0x40 is set
+it steers at its own slice's point (`0x406c00`), and over 1000
+(`0x406fc1`) it is put back (`0x406fd3`) and +0x7D8 cleared. On the
+lanes +0x7D8 is cleared, and over 10 m/s +0x658; else more than 8
+reversings put it back (`0x407023`, +0x658 cleared), more than 4 in the
+lane past the road's lanes steer it at its own slice. `0x429100` (not
+while a reset is under way, +0x524; not for a racer out of the race; in
+a pursuit not while it or its target is pulled over, `0x401500`) takes
+the slice +0x1C + 5 (`0x5efdcc`) the race's way and `0x428d60`: the
+slice's point if free, else for i = 0 to the larger lane count − 1 the
+right lane middle (i + ½) × the right width (if i ≤ right lanes), then
+the left one, then the next slice, up to 10; none free, the first
+slice's point. A spot is free (`0x428ad0`) when its lane (`0x40e2b0`) is
+open (`0x40e220`), no other car in play is within a lane (+0x638) and
+a slice (+0x1C) of it, and a road polygon under it has a drivable
+surface (`0x4205a0`, `0x4207e0`; not 0x40, 0x80, 0 or 0xE) and an up
+over 0.8 (`0x5371b0`). There `0x4a0aa0` lines the car up with the road;
+`0x429100` zeroes the velocity and lifts it 1.5 m (`0x5efdd0`, ×
+`0x5371d4` 0.5 under a roof), `0x428970` zeroes the spins and forces,
+sets +0x164 1 and clears the strip's catch (+0x621 bit 0x40); then
++0x174 = 64 (`car_collisions_task` `0x4311d0` takes it down by one a
+tick and enters no car with it set) and +0x524 = 0x20. The page does
+this (`aiPutBack`, `aiSpotFree`, `AiCar::offRoadTicks`, `ghostTicks`):
+the surface test is left to the lanes' strips, and the way is the car's
+(a racer's is the race's). In `t6-log`'s window no car is put back.
+
+Re-measured with all of the above (`e9-runs/measure.sh m4`): +0x638
+changes in 86 samples (cars 1-7: 10, 13, 14, 13, 11, 15, 10; the
+game's 143; 92 before), the aim past 8 m in 168 (the game's 162; 189
+before), speeds 3.92 m/s rms over the window (3.18) but 0.75 from 50 to
+64 s (0.91): past 65 s the page's cars 6 and 7 are held up behind the
+others where the game's aren't (13 and 16 slices behind at the end).
+Cars 3 and 4 part from the game's earlier than before: from 60 s the
+page's car 3 runs at 4 m and car 4 at −4 m to slice 90, where the
+game's run at 12 m side by side, so the hit at 64 s and car 3's swing
+to −11.7 don't come. The `d7-watch2` replay is 0.60 m rms (rails 1,117,
+slow 59, slide 132) and the roadside cop (`park`, now in the tick's
+order) stops 120 times, none past a wall.
 
 **The roadside cop** (`d7-runs/sim/park`,
 the police car ordered to lay a strip from every 8th slice of Hometown,
