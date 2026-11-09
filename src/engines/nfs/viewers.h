@@ -40,14 +40,13 @@
 
 namespace reluva::nfs {
 
-// How the game's textures are sampled with voodoo2a.dll: the game never
-// sends THRASH's filter, LOD bias or mipmap states (7, 8, 0xb: no
-// setstate call in nfs3.exe passes them but the Direct3D-only text
-// drawing at 0x4d7252/0x4d7547), and voodoo2a calls grTexFilterMode and
-// grTexMipMapMode only from those states, so Glide's starting
-// state holds, taken as point-sampled, no mipmaps (thrash.md, Texture
-// filtering; November 2026). The Track and Cars pages draw the track's
-// pictures and the cars' skins so.
+// How the Track and Cars pages sample the game's textures: point-sampled,
+// no mipmaps. The game never sends THRASH's filter, LOD bias or mipmap
+// states (7, 8, 0xb), but voodoo2a.dll sends itself 7 1 and 0xb 1 after
+// setvideomode, so on a Voodoo2 the game's textures are bilinear-filtered
+// (thrash.md, Texture filtering, corrected November 2026 from running the
+// DLL on the Glide stand-in). These pages, like the native THRASH, still
+// point-sample.
 inline gfx::TextureParams glideTextureParams(bool clamp = false) {
     gfx::TextureParams params;
     params.clamp = clamp;

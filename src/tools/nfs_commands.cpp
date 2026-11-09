@@ -95,6 +95,9 @@ const char* const kUsageLines =
     "                       [-gpudump list dir] (that list in full: list.csv and its textures)\n"
     "                       [-present voodoo2a.dll] (the renderer the game is told of, -renderer's loaded in\n"
     "                       its place; the default; none: as -renderer)\n"
+    "                       [-glide] (the game's own voodoo2a.dll, unchanged, on Reluva's Glide stand-in)\n"
+    "                       [-glidecompare out.csv] (-glide, with each flip also drawn natively and compared)\n"
+    "                       [-glidefilter point | bilinear] (with -glide: the texture filter held, to compare)\n"
     "  reluva-tool nfs-native-check <game folder> [trials]\n"
     "  reluva-tool nfs-mmx-check <game folder> [trials]\n"
     "  reluva-tool nfs-huff-check <game folder> [out dir]\n"
@@ -1027,6 +1030,7 @@ int cmdNfsHost(int argc, char** argv) {
     uint64_t gpuDumpList = 0; // a list (1 the first) written out in full
     std::string gpuDumpDir;
     std::string framesDir;
+    std::string glideCompareFile; // each flip's Glide frame against the native one, as CSV
     uint64_t framesFrom = 0; // the first frame shown that -frames writes
     std::string forceLogFile; // the forces the game asks for, each time they change, as CSV
     reluva::x86::Pokes pokes; // memory written, or saved, at moments of the run
@@ -1105,6 +1109,14 @@ int cmdNfsHost(int argc, char** argv) {
             options.presentedRenderer.clear();
         } else if (arg == "-native") {
             options.nativeThrash = true;
+        } else if (arg == "-glide") { // the retail voodoo2a.dll on Reluva's glide2x.dll
+            options.glide = true;
+        } else if (arg == "-glidefilter" && a + 1 < argc) { // ... its texture filter held: point or bilinear
+            options.glideFilter = std::string(argv[++a]) == "point" ? 0 : 1;
+        } else if (arg == "-glidecompare" && a + 1 < argc) { // ... and the native drawing beside it
+            options.glide = true;
+            options.glideCompare = true;
+            glideCompareFile = argv[++a];
         } else if (arg == "-deterministic" && a + 1 < argc) {
             options.instructionsPerMs = uint32_t(std::strtoul(argv[++a], nullptr, 0));
         } else if (arg == "-mmx") {
@@ -1202,6 +1214,7 @@ int cmdNfsHost(int argc, char** argv) {
     reluva::GamepadForce lastForce;
     int forceChanges = 0;
     float strongestPush = 0, strongestVibration = 0;
+    reluva::Surface lastShown; // -glidecompare: the Glide frame of the flip under way
     host.onFrame = [&](const reluva::Surface& frame) {
         if (options.forceFeedback) {
             const reluva::GamepadForce f = host.gamepadForce();
@@ -1218,6 +1231,8 @@ int cmdNfsHost(int argc, char** argv) {
                 strongestVibration = std::max(strongestVibration, f.vibration);
             }
         }
+        if (!glideCompareFile.empty())
+            lastShown = frame;
         if (framesDir.empty() || shown++ % every || uint64_t(shown - 1) < framesFrom)
             return;
         reluva::image::Image img;
@@ -1228,6 +1243,45 @@ int cmdNfsHost(int argc, char** argv) {
         std::snprintf(name, sizeof name, "frame%05d.tga", shown - 1);
         writeFile(stdfs::path(framesDir) / name, reluva::image::encodeTga(img));
     };
+    // -glidecompare: per flip, the mean difference of each channel and the
+    // pixels off by more than 24 in any; the native frame written beside
+    // the Glide one when that one is.
+    std::string compareCsv = "frame,dr,dg,db,over24\n";
+    int compared = 0;
+    if (!glideCompareFile.empty())
+        host.onCompareFrame = [&](const reluva::Surface& native) {
+            if (lastShown.w != native.w || lastShown.h != native.h)
+                return;
+            double d[3] = {0, 0, 0};
+            int over = 0;
+            for (int y = 0; y < native.h; ++y) {
+                const uint8_t* a = lastShown.row(y);
+                const uint8_t* b = native.row(y);
+                for (int x = 0; x < native.w; ++x) {
+                    int worst = 0;
+                    for (int ch = 0; ch < 3; ++ch) {
+                        const int e = std::abs(int(a[4 * x + ch]) - int(b[4 * x + ch]));
+                        d[ch] += e;
+                        worst = std::max(worst, e);
+                    }
+                    over += worst > 24;
+                }
+            }
+            const double n = double(native.w) * native.h;
+            char line[128];
+            std::snprintf(line, sizeof line, "%d,%.3f,%.3f,%.3f,%d\n", compared, d[0] / n, d[1] / n, d[2] / n, over);
+            compareCsv += line;
+            ++compared;
+            if (!framesDir.empty() && (shown - 1) % every == 0 && uint64_t(shown - 1) >= framesFrom) {
+                reluva::image::Image img;
+                img.w = native.w;
+                img.h = native.h;
+                img.rgba = native.pixels;
+                char name[32];
+                std::snprintf(name, sizeof name, "native%05d.tga", shown - 1);
+                writeFile(stdfs::path(framesDir) / name, reluva::image::encodeTga(img));
+            }
+        };
     std::vector<uint32_t> recent(size_t(std::max(traceCount, 1)));
     size_t recentAt = 0;
     int watched = 0;
@@ -1419,6 +1473,14 @@ int cmdNfsHost(int argc, char** argv) {
         host.logVoices(&voices, 100);
     const auto start = std::chrono::steady_clock::now();
     const Error err = host.run(exitCode);
+    if (!glideCompareFile.empty())
+        writeFile(glideCompareFile, std::vector<uint8_t>(compareCsv.begin(), compareCsv.end()));
+    if (auto* g = host.glide()) {
+        std::string list;
+        for (const auto& [name, count] : g->calls())
+            list += (list.empty() ? "" : ", ") + name + " " + std::to_string(count);
+        std::printf("glide2x.dll: %s\n", list.c_str());
+    }
     if (!wavFile.empty()) {
         host.recordSound(nullptr, 0);
         writeFile(wavFile, reluva::audio::encodePcmWav(sound));

@@ -49,6 +49,13 @@ std::string describe(const Cpu& c, uint32_t v) {
 } // namespace
 
 GameHost::GameHost(GameFolders folders, Options options) : folders_(std::move(folders)), options_(std::move(options)) {
+    if (options_.glide) {
+        // The game's own Voodoo 2 renderer, drawing through Reluva's Glide.
+        options_.renderer = "voodoo2a.dll";
+        options_.presentedRenderer.clear();
+        options_.nativeThrash = options_.glideCompare;
+        options_.gpuThrash = false;
+    }
     cpu_ = std::make_unique<Cpu>(options_.memoryMb << 20);
     cpu_->setInstructionLimit(options_.instructionLimit);
     cpu_->reportMmx = options_.mmx;
@@ -126,6 +133,8 @@ GameHost::GameHost(GameFolders folders, Options options) : folders_(std::move(fo
     addSerial();
     addDirectX();
     addDirectSound();
+    if (options_.glide)
+        addGlide();
     if (options_.nativeThrash) {
         native_ = std::make_unique<NativeThrash>(*cpu_);
         native_->setRecording(options_.gpuThrash);

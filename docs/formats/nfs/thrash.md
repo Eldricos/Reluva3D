@@ -13,7 +13,9 @@ THRASH is the interface between `nfs3.exe` and its renderer DLLs:
 - `voodooa.dll` and `voodoo2a.dll` run on Glide (`glide2x.dll`, loaded
   by name), for 3dfx's Voodoo cards. The Classic CD's Voodoo3 patch
   replaces `voodoo2a.dll` with one built for Glide 3 (see The Voodoo3
-  patch's voodoo2a.dll).
+  patch's voodoo2a.dll). `voodoo2a.dll` runs unchanged under
+  `nfs-host -glide` on Reluva's Glide stand-in (The Glide stand-in,
+  below; docs/engines/glide.md).
 
 The game loads the one the registry names ("Thrash Driver") and finds
 its functions by name with GetProcAddress. Each export is
@@ -170,12 +172,27 @@ renderer (`0x7a3a58` bit 0x40); the renderer set-up `0x4b59c0` sends
 voodoo2a states 10, 4 and 2, and the wrapper `0x431900`'s callers pass
 other states. A race's list confirms it (`d6-tlog`, Hometown by night,
 `-thrashlog` of frame 2345: states 1, 2, 3, 4, 0xd, 0xe, 0xf, 0x15 and
-0x68 only). So Glide's starting state holds, taken here (not yet checked against
-the DLL or a capture) as point-sampled
-for minification and magnification, no mipmaps, the same for cars,
-scenery, the sky and the effects. The Track and Cars pages draw the
-track's pictures, the sky's, the cars' skins and reflection maps and the
-officer's pages so (`glideTextureParams`), and since November 2026 the
+0x68 only).
+
+**But the DLL sends them to itself** (November 2026, found running it on
+the Glide stand-in, docs/engines/glide.md). After `setvideomode` it runs
+its own list of `setstate` calls (`0x6000207d`-`0x6000211f`, the same run
+that turns on dithering, Dithering below): 1 0 (no texture), 2 1, **7 1**
+(`0x6000208f`: `grTexFilterMode(0, GR_TEXTUREFILTER_BILINEAR,
+GR_TEXTUREFILTER_BILINEAR)`), 6 1, 0xa 2, **0xb 1** (`grTexMipMapMode(0,
+GR_MIPMAP_NEAREST, FXFALSE)`), 3 0, 0xc 0, 5 1, 0xe 0, 0xf −1, 0x68 0, 0xd
+0, 0x65 1.0 (`grGammaCorrectionValue(1.0)`), 0x18 0, 8 0 (LOD bias 0) and,
+with a depth buffer, 4 2. So with `voodoo2a.dll` the game's textures are
+**bilinear-filtered**, for minification and magnification; its textures
+have one level each (`talloc` asks for none smaller), so the mipmap mode
+changes nothing. An earlier reading here had them point-sampled, from
+the default filter Glide's own sources set; that source is not used any
+more, and the DLL's own set-up overrides any default anyway. The native
+THRASH (`thrash_native.cpp`) still point-samples, and so do the Track and
+Cars pages: that is the largest difference between `-native` and
+`-glide` in a race (The Glide stand-in, below). The pages point-sample
+the track's pictures, the sky's, the cars' skins and reflection maps and
+the officer's pages (`glideTextureParams`), and since November 2026 the
 glows, beams, flares, particles and the headlights' picture too: in the
 lists they are textured batches like the others (`d7-night1`'s frame
 2700: the cars' glows on `glw3`'s 32 × 32, mode 1, `e5ffffff` and
@@ -478,10 +495,10 @@ Device Setup. The install's `voodoo2a.dll` is the retail one (93,382
 bytes, 1998-07-31). This section was read from both files (November
 2026, `pefile` and `capstone`; scripts kept outside the repo). The
 CD's `nfs3.exe` is byte-identical to the install's (1998-09-03). The
-patch DLL can't be run under nfs-host. It loads Glide 3
-(`glide3x.dll`) by name, and the host has no Glide, only softtria
-loaded under the name `voodoo2a.dll`. So no frame was compared, and
-everything below is from the code.
+patch DLL can't be run under nfs-host yet. It loads Glide 3
+(`glide3x.dll`) by name, and Reluva's Glide stand-in has only Glide 2 so
+far (docs/engines/glide.md, Extension points). So no frame was compared,
+and everything below is from the code.
 
 **The build.** The retail DLL was built with Watcom (sections `AUTO`,
 `DGROUP`) and the patch with Microsoft's compiler (`.text`, `.rdata`,
@@ -621,6 +638,84 @@ so on, under "3D Data", "Cards", "Sort Order", "Card", "Type") and
 `MessageBoxA`. Their file tails are debug
 data (`NB09`/`NB10`). The patch's has "3Dfx Voodoo3" in its card list
 and the install's doesn't. Neither was run.
+
+## The Glide stand-in
+
+Since November 2026 the retail `voodoo2a.dll` runs unchanged on Reluva's
+stand-in for `glide2x.dll` (`src/common/glide/`, docs/engines/glide.md):
+`nfs-host -glide`, or the Play page with `renderer=glide`. The game is
+told of `voodoo2a.dll` as with the native drawing, so it sends the same
+THRASH calls; here the DLL turns them into Glide calls and the stand-in
+draws them by the Voodoo's rules. It goes through the front end, the
+movies, loading screens and races. The DLL calls 59 Glide functions
+(glide.md, NFS III's voodoo2a.dll); in the menus and a race it draws
+with `grDrawTriangle` (4.9 million in a run of 3,909 frames), `grDrawLine`
+and `grBufferClear`, sets state with the combine, blend, depth, fog, cull
+and clip functions, and locks the frame buffer for the movies.
+
+**Movies.** The game writes each movie frame through `lockwindow` into
+the window it picked with `window`, the front buffer for most, and flips
+twice only: on a Voodoo what's in the front buffer is on the screen. The
+host shows the front buffer again after any THRASH call that drew or
+wrote into it (`Glide2::takeFrontChanged`), not only at `grBufferSwap`.
+
+**Compared with the native drawing.** `nfs-host -glidecompare out.csv`
+runs `-glide` and also hands every THRASH call to the native rasterizer
+(`thrash_native.cpp`) drawing into a buffer of its own; each page flip
+gives both frames of the same game state, compared per channel (the
+native frame widened from 5:6:5 as the Glide one is, its top bits
+repeated). Runs: `-deterministic 50000`, `-nomovie`, the clicks
+`16000:click,24000:click,32000:move0/240,36000:click,70000:+up` (menus,
+Hometown's loading screen, the race's start), 5 and 4.2 billion
+instructions, the mean absolute difference over the frame, of 255:
+
+| | as the DLL asks (bilinear) | the filter held point-sampled (`-glidefilter point`) |
+|---|---|---|
+| Menus (frames 0-1,900) | 0.93 | 0.46 |
+| Loading screen (1,950-2,250) | 0.86 | 0.37 |
+| Race (2,400 on) | 4.53 | 0.84 |
+
+(The bilinear run's native frames were widened as ×255/31, which adds
+up to 1 a channel; its numbers are about 0.3-0.5 high for that.)
+
+The causes, from the code:
+- **Bilinear filtering.** `voodoo2a.dll` asks for it (Texture filtering);
+  the native drawing point-samples. It is most of the race's difference:
+  the road, scenery and sky are magnified textures. Held point-sampled,
+  the cockpit is within 0.01 and the road within 0.5 (race frame 2800,
+  `j1-runs/fr6`).
+- **Rounding.** The stand-in multiplies as the Voodoo2 specification's
+  combine figures do, `(a × (b + 1)) >> 8`, and blends so; the native
+  drawing computes in floats and truncates once. Translucent text in the
+  menus differs by a dither step at some pixels. So does the sky's upper
+  band, red 1.9-2.3 lower on average: there the clear colour
+  (`0xff78b6ef`) is under additive clouds (blend 1, vertex alpha 0xb9,
+  fogged) and a 256 × 256 glow quad (race frame 2440's `-thrashlog`). The
+  stand-in clears through the dither (`grBufferClear`, as the
+  specification lets a fill do), the comparison's native clear truncates,
+  and the blends round differently; which of those makes the band isn't
+  settled.
+- **Fog between table entries.** The stand-in reads the fog table as the
+  `fogMode` figure has the hardware read it, linearly in the w float's
+  mantissa (inverted 1/w); the native drawing interpolates linearly in w.
+  The factor differs by under 1 of 255.
+- **Edges.** The stand-in snaps vertices to 1/16 pixel and fills by
+  Glide's rule; the native drawing takes pixel centres in floats. Single
+  pixels along edges differ.
+
+**Compared with softtria.** softtria can't be run beside it (one
+renderer DLL at a time), and its frames come at other moments of the
+game's clock; earlier the native drawing was measured within 1.7 of 255
+of softtria's on a menu screen (How it was worked out), and it is within
+0.46-0.93 of the stand-in's.
+
+Speed (Release build): the stand-in's rasterizer takes about 33 ns a
+pixel for a full-screen textured, fogged triangle. The run above without
+comparing (`-glide`, 5 billion instructions, 4,017 frames through the
+menus into the race) takes 258 s, about 15.6 frames a second; the DLL's
+own code is 0.15 million instructions of a race frame's 1.4 million. The
+Play page shows the menus at about 15 frames a second. The native
+drawing is faster; the stand-in is a reference, not the default.
 
 ## Cost
 

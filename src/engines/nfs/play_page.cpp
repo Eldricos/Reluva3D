@@ -88,11 +88,11 @@ bool fillMovieLines(Surface& frame) {
 
 PlayPage::PlayPage(GameFolders folders, std::filesystem::path saveFolder, audio::Mixer* mixer, int renderScale,
                    bool smoothTextures, bool offerJoystick, bool forceFeedback, std::string wheelPedals,
-                   bool network, bool fillMovies, std::string serial, std::string modem)
+                   bool network, bool fillMovies, std::string serial, std::string modem, bool glide)
     : folders_(std::move(folders)), saveFolder_(std::move(saveFolder)), mixer_(mixer), offerJoystick_(offerJoystick),
       forceFeedback_(forceFeedback), network_(network), serial_(std::move(serial)), modem_(std::move(modem)),
       fillMovies_(fillMovies), wheelPedals_(std::move(wheelPedals)),
-      renderScale_(std::clamp(renderScale, 1, 4)) {
+      renderScale_(std::clamp(renderScale, 1, 4)), glide_(glide) {
     gpuDraw_.scale = renderScale_;
     gpuDraw_.nearest = !smoothTextures;
     // A debugging aid: the GPU's frames written beside the software
@@ -128,7 +128,7 @@ void PlayPage::activate(System& sys) {
     // engine puts the framebuffer back when it's left). Whether the game
     // draws for it is decided once, when it starts.
     const bool starting = !host_ && result_.empty(); // started once; a failed start stays reported
-    if (starting || gpu_) {
+    if ((starting || gpu_) && !glide_) {
         gfx::Renderer3D* renderer = nullptr;
         if (!sys.init3D(640 * renderScale_, 480 * renderScale_, renderer) && renderer) {
             gpu_ = gpu_ || starting;
@@ -187,6 +187,8 @@ void PlayPage::start() {
     // for 3dfx cards); the drawing is still Reluva's.
     options.presentedRenderer = "voodoo2a.dll";
     options.gpuThrash = gpu_;
+    // Or the game's own Glide renderer on Reluva's Glide, in software.
+    options.glide = glide_;
     options.gpuAndSoftware = gpu_ && !compareFolder_.empty();
     if (network_ && sys_) {
         options.sockets = sys_->sockets();

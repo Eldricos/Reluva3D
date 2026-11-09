@@ -55,7 +55,10 @@ uint32_t GameHost::wrapThrash(const std::string& name, uint32_t address) {
         }
         // Drawing done natively, if asked: the DLL isn't called.
         uint32_t result = 1;
-        if (!(native_ && nativeDraw(shortName, args, result))) {
+        // With Glide and a native copy (Options::glideCompare) the DLL draws
+        // and the native rasterizer draws the same calls beside it.
+        const bool mirror = glide_ && native_;
+        if (!(native_ && !mirror && nativeDraw(shortName, args, result))) {
             // The instructions run inside count as the renderer's (the
             // other threads may take turns meanwhile; those are few).
             const uint64_t before = c.executed();
@@ -78,9 +81,18 @@ uint32_t GameHost::wrapThrash(const std::string& name, uint32_t address) {
                 thrashWindow_ = args[0];
             // lockwindow's structure: the buffer, its pitch, then (after a
             // word) its width and height.
-            if (shortName == "lockwindow" && result && c.valid(result, 20))
+            if (shortName == "lockwindow" && result && c.valid(result, 20) && !mirror)
                 windowBuffers_[thrashWindow_] = {c.read32(result), c.read32(result + 4), c.read32(result + 12),
                                                  c.read32(result + 16)};
+        }
+        if (mirror)
+            mirrorNative(shortName, args);
+        // What was drawn or written straight to the front buffer shows at
+        // once, as on the card (the movies, written through lockwindow).
+        if (glide_ && glide_->glide().takeFrontChanged()) {
+            glide_->glide().pipeline().present(frame_);
+            if (onFrame)
+                onFrame(frame_);
         }
         c.reg[Cpu::EAX] = result;
         if (options_.thrashLogTo && thrash_.frames >= options_.thrashLogFrom && thrash_.frames <= options_.thrashLogTo) {
@@ -106,6 +118,73 @@ uint32_t GameHost::wrapThrash(const std::string& name, uint32_t address) {
         }
         return uint32_t(argBytes);
     });
+}
+
+void GameHost::addGlide() {
+    // A Voodoo 2 with 4 MB of frame buffer and two TMUs of 4 MB (the 12 MB
+    // board), which voodoo2a.dll reads as a Voodoo 2 (thrash.md, The Glide
+    // stand-in).
+    glide_ = std::make_unique<glide::Glide2Dll>(*cpu_, process_->memory());
+    glide_->glide().log = [this](const std::string& line) { say("  " + line); };
+    glide_->glide().onSwap = [this] {
+        glide_->glide().pipeline().present(frame_);
+        if (onFrame)
+            onFrame(frame_);
+    };
+    const uint32_t handle = 0x6c000000u;
+    addNativeModule("glide2x.dll", handle);
+    for (const auto& [name, address] : glide_->exports())
+        nativeExports_[handle][name] = address;
+    // For comparisons: the texture filter held to one mode whatever the
+    // DLL asks (it asks for bilinear, thrash.md, Texture filtering).
+    if (options_.glideFilter >= 0)
+        nativeExports_[handle]["_grTexFilterMode@12"] =
+            cpu_->addNative("glide2x grTexFilterMode (held)", [this](Cpu& c) {
+                glide_->glide().texFilterMode(int(c.arg(0)), options_.glideFilter, options_.glideFilter);
+                c.reg[Cpu::EAX] = 0;
+                return 12u;
+            });
+}
+
+void GameHost::mirrorNative(const std::string& name, const std::vector<uint32_t>& args) {
+    // The native rasterizer's own 640x480 5:6:5 buffer, for both windows.
+    if (!compareBuffer_) {
+        compareBuffer_ = process_->memory().alloc(640 * 480 * 2);
+        windowBuffers_[1] = windowBuffers_[2] = {compareBuffer_, 1280, 640, 480};
+    }
+    if (name == "tupdate" && args.size() >= 2)
+        native_->tupdate(args[0], args[1], args.size() > 2 ? args[2] : 0);
+    else if (name == "setstate" && args.size() >= 2 && args[0] == 3)
+        compareClear_ = args[1];
+    else if (name == "clip" && args.size() >= 4)
+        compareClip_ = {int(args[0]), int(args[1]), int(args[2]), int(args[3])};
+    else if (name == "clearwindow") {
+        // The clear colour (0xAARRGGBB) as 5:6:5, over the clip rectangle.
+        const uint32_t v = (compareClear_ >> 8 & 0xf800) | (compareClear_ >> 5 & 0x7e0) | (compareClear_ >> 3 & 0x1f);
+        for (int y = std::max(compareClip_[1], 0); y < std::min(compareClip_[3], 480); ++y)
+            for (int x = std::max(compareClip_[0], 0); x < std::min(compareClip_[2], 640); ++x)
+                cpu_->write16(compareBuffer_ + uint32_t(y * 1280 + x * 2), uint16_t(v));
+    } else if (name == "pageflip") {
+        Surface native;
+        native.create(640, 480, PixelFormat::RGBA32);
+        for (int y = 0; y < 480; ++y)
+            for (int x = 0; x < 640; ++x) {
+                const uint16_t v = cpu_->read16(compareBuffer_ + uint32_t(y * 1280 + x * 2));
+                uint8_t* d = native.row(y) + x * 4;
+                // Widened as the Glide frame is (the top bits repeated), so
+                // that only the drawing differs.
+                const glide::Rgba w = glide::from565(v);
+                d[0] = uint8_t(w.r);
+                d[1] = uint8_t(w.g);
+                d[2] = uint8_t(w.b);
+                d[3] = 255;
+            }
+        if (onCompareFrame)
+            onCompareFrame(native);
+    } else if (name.rfind("draw", 0) == 0) {
+        uint32_t ignored = 0;
+        nativeDraw(name, args, ignored);
+    }
 }
 
 uint32_t GameHost::softtria(uint32_t address) const { return cpu_->read32(address - 0x60000000 + thrashBase_); }

@@ -40,11 +40,13 @@ public:
     // joystick unless `offerJoystick` is false: a wheel as a wheel, with
     // the forces the game asks for (force feedback, or a pad's rumble)
     // unless `forceFeedback` is false. `wheelPedals` ("accelerator,brake",
-    // axis numbers) is for a wheel SDL has no layout for.
+    // axis numbers) is for a wheel SDL has no layout for. `glide`: the
+    // game's own voodoo2a.dll draws, on Reluva's Glide stand-in
+    // (GameHost::Options::glide), in software, rather than THRASH natively.
     PlayPage(GameFolders folders, std::filesystem::path saveFolder, audio::Mixer* mixer, int renderScale = 2,
              bool smoothTextures = false, bool offerJoystick = true, bool forceFeedback = true,
              std::string wheelPedals = {}, bool network = true, bool fillMovies = true, std::string serial = {},
-             std::string modem = {});
+             std::string modem = {}, bool glide = false);
     ~PlayPage() override;
     const char* name() const override { return "Play"; }
     bool capturesEscape() const override { return true; }
@@ -98,6 +100,7 @@ private:
     std::atomic<bool> exited_{false}; // the game ended itself (not failed)
     int renderScale_ = 2;
     bool gpu_ = false; // drawing with the GPU: decided when the game starts
+    bool glide_ = false; // voodoo2a.dll on the Glide stand-in (never the GPU)
     ThrashGpu gpuDraw_; // on the engine's thread
     // THRASH's frames not drawn yet, in order: each is drawn (some add to
     // what the one before left), with the textures it brought, then kept.

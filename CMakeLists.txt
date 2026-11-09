@@ -88,6 +88,12 @@ add_library(reluva_common STATIC
     src/common/x86/win32_threads.cpp
     src/common/x86/format.cpp
     src/common/x86/pokes.cpp
+    src/common/glide/textures.cpp
+    src/common/glide/pixel.cpp
+    src/common/glide/pipeline.cpp
+    src/common/glide/software_renderer.cpp
+    src/common/glide/glide2.cpp
+    src/common/glide/glide2_x86.cpp
     src/common/detection.cpp
     src/common/audio/decode.cpp
     src/common/audio/ea_audio.cpp
@@ -271,6 +277,11 @@ if(RELUVA_BUILD_TESTS)
     add_executable(reluva_x86_mmx_tests tests/test_x86_mmx.cpp)
     target_link_libraries(reluva_x86_mmx_tests PRIVATE reluva_common reluva_warnings)
     add_test(NAME x86_mmx COMMAND reluva_x86_mmx_tests)
+
+    # The Glide stand-in (common/glide): the pipeline core, Glide 2, the x86 binding.
+    add_executable(reluva_glide_tests tests/test_glide.cpp)
+    target_link_libraries(reluva_glide_tests PRIVATE reluva_common reluva_warnings)
+    add_test(NAME glide COMMAND reluva_glide_tests)
 
     add_executable(reluva_prologic_tests tests/test_prologic.cpp)
     target_link_libraries(reluva_prologic_tests PRIVATE reluva_common reluva_warnings)

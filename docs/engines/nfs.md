@@ -265,7 +265,8 @@ What was built, with each format written up in `docs/formats/nfs/`:
   track's sky ([fce.md](../formats/nfs/fce.md)).
   The levels go by a part's place, as the names can't be trusted.
   Its pictures are point-sampled without mipmaps, as voodoo2a.dll's
-  Glide draws all of the game's ([thrash.md](../formats/nfs/thrash.md),
+  Glide is taken to draw all of the game's (no mipmaps is the DLL's; the
+  filter is an open question, [thrash.md](../formats/nfs/thrash.md),
   Texture filtering). `RELUVA_NFS_CARS_VIEW="model yaw pitch distance"`
   opens it on a model, seen from there, for screenshots that repeat
   (checked so in November 2026: tail lights at the back and plates below
@@ -274,7 +275,8 @@ What was built, with each format written up in `docs/formats/nfs/`:
 - **The Tracks page** draws each track. It shows:
   - the road at three details, roadside and placed objects, and lane
     markings, their pictures point-sampled without mipmaps as the
-    game's Glide renderer draws them (thrash.md, Texture filtering);
+    game's Glide renderer is taken to draw them (thrash.md, Texture
+    filtering);
   - the baked vertex lighting, scaled by the sky's ambient light;
   - cut-outs and additive glows;
   - the sky in four variants, drawn as the game draws it: the sky's and
@@ -1529,9 +1531,11 @@ Still to do:
     on one machine have played.
   - How a race holds up over a slower link, or when a copy stalls for
     loading longer than the original did.
-- **Not planned:** d3da (see above) and the Glide renderers, which the
-  native and GPU drawing make unneeded. The game is told it has a Voodoo
-  2 only to draw as for one (see Sky and fog).
+- **Not planned:** d3da (see above). The Glide renderer isn't needed to
+  play (the native and GPU drawing do that, the game told it has a Voodoo
+  2 to draw as for one, see Sky and fog), but since November 2026 it runs:
+  the retail `voodoo2a.dll` on Reluva's Glide stand-in (`-glide`, below,
+  Glide stand-in), as a reference for the native drawing.
 
 ### Phase 5A: native game (if not)
 
@@ -1544,23 +1548,35 @@ Still to do:
 
 Each part is checked against recordings of the original.
 
-### Later: a Glide stand-in (planned, not started)
+### Glide stand-in (started, November 2026)
 
-A shared, clean-room stand-in for 3dfx's Glide library (`glide2x.dll`,
-then `glide3x.dll`), written only from 3dfx's public documents (the
-Voodoo2 specification and the Glide 2.4 and 3 references), never from
-other Glide wrappers or emulators. It would carry each Glide call out
-on Reluva's renderer by the Voodoo's rules: the 16-bit buffer and its
-dither, the texture formats and filtering, the fog table, the colour
-combine, chroma key, alpha test, w-buffer, linear frame-buffer access
-and the output filter. For NFS3 it would run the game's own
-`voodoo2a.dll` unchanged as a reference for the native THRASH, run the
-CD's Voodoo3 patch DLL (thrash.md), and offer a 3dfx look; built as a
-shared backend, other engines with Glide renderers could use it.
-First step when started: the subset of Glide 2 that NFS3's
-`voodoo2a.dll` calls, compared with the native THRASH. It won't settle
-the undocumented dither rounding, which still needs a real card's
-frames.
+A shared, clean-room stand-in for 3dfx's Glide library, written from
+3dfx's public documents (the Glide 2.4 Reference Manual and Programming
+Guide, the Voodoo2 specification) and the interface values in its public
+SDK headers, never from Glide's own sources or other wrappers and
+emulators ([glide.md](glide.md)). It is in `src/common/glide/` for any
+engine: a version-neutral Voodoo pipeline (the 16-bit buffers and their
+dither, texture memory and formats, the combine units, fog table,
+chroma-key, alpha test, z and w buffers, the linear frame buffer, gamma)
+drawn by a software reference rasterizer; a Glide 2 front end over it;
+and a binding that serves it as `glide2x.dll` to the x86 interpreter.
+
+Done for NFS III: the retail `voodoo2a.dll` (1998-07-31) runs on it
+unchanged, through the front end and races. All 59 Glide functions it
+looks up are carried out (glide.md, NFS III's voodoo2a.dll).
+- `reluva-tool nfs-host -glide` runs the game so: the registry names
+  `voodoo2a.dll`, which is loaded as it is and finds `glide2x.dll` served
+  by the host; each `grBufferSwap` is a frame.
+- `-glidecompare out.csv` also draws each THRASH call natively beside it
+  and compares the two frames of every page flip
+  ([thrash.md](../formats/nfs/thrash.md), The Glide stand-in).
+- The Play page draws so with `renderer=glide` in the game's section of
+  `reluva.ini` (in software; the native THRASH and the GPU stay the
+  default).
+
+Next: Glide 3 for the CD's Voodoo3 patch DLL, a GPU backend, the open
+rounding questions (glide.md, Open questions). The undocumented dither
+rounding still needs a real card's frames.
 
 ## Sources
 

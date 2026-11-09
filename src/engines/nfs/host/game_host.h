@@ -4,6 +4,7 @@
 #pragma once
 
 #include "common/audio/mixer.h"
+#include "common/glide/glide2_x86.h"
 #include "common/net.h"
 #include "common/types.h"
 #include "common/x86/cpu.h"
@@ -74,6 +75,19 @@ public:
         // library's strcmp and __CHP, its sound mixer's loops), where their
         // code is as expected; false runs them all in the interpreter.
         bool nativeRoutines = true;
+        // The retail voodoo2a.dll run as the renderer, unchanged, on Reluva's
+        // stand-in for 3dfx's glide2x.dll (common/glide, docs/engines/glide.md)
+        // rather than any drawing of Reluva's own: its frames are the Glide
+        // pipeline's front buffer at each grBufferSwap. Overrides renderer,
+        // presentedRenderer and nativeThrash.
+        bool glide = false;
+        // With glide: THRASH's calls also drawn natively (thrash_native.h)
+        // into a buffer of the host's, each page flip giving that frame
+        // (onCompareFrame) after the Glide one (onFrame), of the same state.
+        bool glideCompare = false;
+        // With glide, for comparisons: the texture filter held to this
+        // (0 point-sampled, 1 bilinear) whatever the DLL asks; -1 as asked.
+        int glideFilter = -1;
         // With nativeThrash: THRASH's frames as lists for the GPU
         // (onThrashFrame) rather than drawn into memory.
         bool gpuThrash = false;
@@ -167,11 +181,15 @@ public:
         std::map<int, uint64_t> textureFormats;           // talloc's format -> how many
     };
     const ThrashStats& thrash() const { return thrash_; }
+    // The Glide stand-in (Options::glide), if there is one.
+    glide::Glide2Dll* glide() { return glide_.get(); }
     // Called after each page flip with the frame drawn so far, as RGBA.
     std::function<void(const Surface& frame)> onFrame;
     // With gpuThrash, called after each page flip with what THRASH drew
     // (DirectDraw's frames, the movies', still go to onFrame).
     std::function<void(ThrashFrame&& frame)> onThrashFrame;
+    // With Options::glideCompare: the native drawing of each page flip.
+    std::function<void(const Surface& frame)> onCompareFrame;
 
     // Input, from any thread: a key ("enter", "up", "a"...) pressed or let
     // go, applied once the game's clock reaches `atMs` (0: at once). False
@@ -252,6 +270,13 @@ private:
     class ModemPort;
     friend class SerialLink;
     void addDirectX();  // DDRAW and DINPUT
+    void addGlide();    // glide2x.dll, on Options::glide (thrash.cpp)
+    std::unique_ptr<glide::Glide2Dll> glide_;
+    // Options::glideCompare: THRASH's calls drawn natively too, into a buffer
+    // of 640x480 5:6:5 pixels in guest memory (thrash.cpp).
+    void mirrorNative(const std::string& name, const std::vector<uint32_t>& args);
+    uint32_t compareBuffer_ = 0, compareClear_ = 0;
+    std::array<int, 4> compareClip_{0, 0, 640, 480};
     void addDirectSound();
     void addNativeRoutines(); // the C library's hottest routines in nfs3.exe, natively
     void addNativeSound();    // its sound mixer's loops (native_sound.cpp)
