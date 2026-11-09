@@ -524,6 +524,9 @@ struct AiCar {
     // rear), read by car_spiked_effects (0x42a560) for the wheels' smoke
     // and spray: set by aiMove (aiSkid), only for the page's effects.
     float skidFront = 0, skidRear = 0;
+    // Its slot in the race (+0x1F0), which the start's wheelspin picks
+    // (aiStartSpin); -1 none (never picked).
+    int slot = -1;
     AiDriver driver;
     bool cop = false;   // +0x200 bit 0x20: weighs more in the votes of the cars behind
     int lane = 7, laneLeft = 7, laneRight = 7; // +0x638, +0x63C, +0x640
@@ -991,6 +994,41 @@ void aiReverseSet(AiCar& car, int mode, int steps, int step);
 // velocity across the road 2 slices on, the rear only while braking;
 // slide by the velocity along its own right; slow leaves them.
 void aiSkid(AiCar& car, float side, bool braking);
+// The race's random numbers the computer's code draws (0x554f10, by
+// 0x554f18; seeded by 0x4371d0 from 0x6fd3b4, GetTickCount at start-up,
+// as the race tasks are set up, 0x4c46be and 0x4c47b3): `seed` as
+// 0x4371d0, `pick` as ai_ctl_slide (0x40829a-0x4082cd) draws one, 0-13.
+struct AiStartRandom {
+    uint32_t low = 0, mult = 1; // 0x554f10, 0x554f18
+    void seed(uint32_t value);
+    int pick();
+};
+// The one the page's computer cars draw from (the game's is shared with
+// the cops' code, which the page doesn't draw from it).
+AiStartRandom& aiStartRandom();
+// The start's wheelspin (ai_ctl_slide 0x408244-0x4082e0, 0x4084b6): an
+// AI racer (+0x200 bit 8) within race distance 20 (+8 under 0x14) whose
+// acceleration (`accel`, ai_accel 0x4064f0 as taken this tick) is its
+// table's first (+0x2EC[0]: under about 1 m/s, dry, not past distance
+// 100) draws a pick (AiStartRandom); when it is the car's slot (+0x1F0,
+// `AiCar::slot`) its rear skid level is set to 10 after the controller's
+// (the controller also pushes it sideways then, not done here).
+bool aiStartSpin(const AiCar& car, const AiCarData& data, float accel, AiStartRandom& random);
+// A car out of the race (ai_finished_coast 0x407380, from car_ai_model
+// 0x408600 for a racer, +0x200 bit 1, with +0x2C4 3 finished or 4
+// busted), on the ground and upright (+0x164 0, +0x10C at least 0.9f):
+// the speed along its forward (+0x4F4) x 0.98 (0x536314; x 0.95,
+// 0x53630c, with +0xB8 under 22.3515, 0x536304), along its right
+// (+0x4EC) x 0.85 (0x53631c), the yaw rate (+0x4FC) x 0.5 (0x536324);
+// the skid levels from 0: the rear |forward| x 0.1 (0x53633c) unless
+// the forward is between -10 and 5 (0x536334, 0x53632c), when it is
+// halved instead; plus |yaw| when that is over 0.2 (0x536344); and when
+// |right| is over |forward| both levels |right| and the right x 0.2.
+struct AiCoast {
+    float forward = 0, right = 0, yawRate = 0, ground = 0; // +0x4F4, +0x4EC, +0x4FC, +0xB8
+    float skidFront = 0, skidRear = 0;                      // +0x5C0, +0x5C4
+};
+void aiFinishedCoast(AiCoast& c);
 // The roll and pitch over one step of 64 (0x4a1610 on the road, 0x4a1ce0
 // landing): in the air (`airTicks`) the landing takes every spin x 0.6
 // (0.5 + e, e 0.1 for a computer car) on the even steps; on the road each

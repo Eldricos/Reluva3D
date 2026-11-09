@@ -3742,6 +3742,85 @@ void testCarHits() {
         // car_spiked_effects' wheel levels from them: the front x 7.5.
         CHECK(wheelSkidLevel(0, 2, 2, false, 1) == 10 && wheelSkidLevel(3, 2, 2, false, 1) == 2);
     }
+    // The race's random numbers (0x4371d0 seeding, 0x40829a drawing):
+    // seed 2 makes 3 and 7 (both odd), 3 x 7 x 3^7 kept to 16 bits a step.
+    {
+        AiStartRandom r;
+        r.seed(2);
+        uint32_t s = 21;
+        for (int i = 0; i < 6; ++i)
+            s = (s * 3) & 0xffff;
+        s *= 3;
+        CHECK(r.mult == 3 && r.low == (s & 0xffff));
+        const uint32_t next = r.low * 3;
+        CHECK(r.pick() == static_cast<int>(((next & 0xffff00) >> 8) * 14 >> 16) && r.low == (next & 0xffff));
+        int seen = 0;
+        r.seed(0x1234567);
+        for (int i = 0; i < 2000; ++i) {
+            const int k = r.pick();
+            CHECK(k >= 0 && k < 14);
+            seen |= 1 << k;
+        }
+        CHECK(seen == 0x3fff);
+    }
+    // The start's wheelspin (ai_ctl_slide 0x408244): a racer within race
+    // distance 20 taking its table's first acceleration, when the pick is
+    // its slot; a cop, a racer past 20 or another acceleration draws none.
+    {
+        AiCarData data;
+        data.accel.fill(5.0f);
+        data.accel[0] = 7.0f;
+        AiCar car;
+        car.racer = true;
+        car.distance = 3;
+        AiStartRandom r, copy;
+        r.seed(99);
+        copy = r;
+        int spins = 0;
+        for (car.slot = 0; car.slot < 14; ++car.slot) {
+            const int k = copy.pick();
+            const bool spun = aiStartSpin(car, data, 7.0f, r);
+            CHECK(spun == (k == car.slot));
+            spins += spun ? 1 : 0;
+        }
+        CHECK(spins <= 14);
+        copy = r;
+        CHECK(!aiStartSpin(car, data, 5.0f, r) && r.low == copy.low); // not drawn
+        car.distance = 20;
+        CHECK(!aiStartSpin(car, data, 7.0f, r) && r.low == copy.low);
+        car.distance = 0;
+        car.cop = true;
+        CHECK(!aiStartSpin(car, data, 7.0f, r) && r.low == copy.low);
+        car.cop = false;
+        car.slot = -1;
+        CHECK(!aiStartSpin(car, data, 7.0f, r) && r.low != copy.low); // drawn, never picked
+    }
+    // A car out of the race (ai_finished_coast 0x407380).
+    {
+        AiCoast c;
+        c.forward = 30;
+        c.ground = 30;
+        c.right = 2;
+        c.yawRate = 0.3f;
+        aiFinishedCoast(c);
+        CHECK(c.forward == static_cast<float>(30.0 * 0.98));
+        CHECK(c.yawRate == 0.15f && c.right == static_cast<float>(2 * 0.85));
+        CHECK(c.skidFront == 0 && c.skidRear == static_cast<float>(static_cast<double>(c.forward) * 0.1));
+        // Slow: halved, no rear level from the speed; the yaw over 0.2 adds.
+        c = {};
+        c.forward = 4;
+        c.ground = 4;
+        c.yawRate = 1;
+        aiFinishedCoast(c);
+        CHECK(c.forward == static_cast<float>(4 * 0.95) * 0.5f && c.skidRear == 0.5f && c.skidFront == 0);
+        // Sliding more sideways than along: both levels the side speed.
+        c = {};
+        c.forward = -12;
+        c.ground = 15;
+        c.right = 20;
+        aiFinishedCoast(c);
+        CHECK(c.skidFront == 17.0f && c.skidRear == 17.0f && c.right == static_cast<float>(17.0 * 0.2));
+    }
 }
 
 void testComputerPursuits() {
