@@ -1642,8 +1642,18 @@ README.md.
   [physics.md](../formats/nfs/physics.md).
 - Whether the Classics release differs from the original 1998 retail in
   data or code. Other releases (UK, German, patched) need their own
-  hashes. Which release the footage comes from is open too: the
-  `Night` clip's pause, main and location screens carry no version or
-  build mark, and the clips with the spike icon and racer list that
-  differ from this exe (physics.md) are the Hot Pursuit ones; the new
-  clips have no police.
+  hashes. The `Rain`, `Snow`, `Night`, `Walls` and `Sparks` clips were
+  recorded from the user's own copy of this CD (November 2026: the
+  CD's `nfs3.exe`, `d3da.dll`, `voodoo2a.dll`, `voodooa.dll`,
+  `softtria.dll`, `eacsnd.dll` and `readme.txt` hash the same as the
+  install studied; `nfs3.exe`'s version resource reads file version
+  `27, 2.0`, the string the network lobby sends, net.md), in a virtual
+  machine through Direct3D (`d3da.dll`, 1998-08-10). Unless the CD's
+  online update was run, which could have replaced files, those clips
+  are this exe. The CD's `Patch/Voodoo3` folder holds a later
+  `voodoo2a.dll` (1999-04-21, file version 1999.04.21.1112, 110,592
+  bytes against the install's 1998-07-31 93,382) and a new
+  `3dSetup/3ddata.dat`, for Voodoo3 cards only; it isn't studied. The
+  clips with the spike icon and racer list that differ from this exe
+  (physics.md) are the Hot Pursuit ones, of another source; which
+  release those come from is still open.
