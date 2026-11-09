@@ -1028,7 +1028,24 @@ sound is a patter of a few a second.
 - `Rain`: the clip's 143 s are within Hometown's first cycle (60 s on
   from the set-up, then 75 s fading off), so from about race 1:00 fewer
   streaks should fall; the clip's streaks are too faint at its
-  compression to count, so this isn't checked.
+  compression to count. Checked in the game instead (November 2026,
+  `g2-runs/cyc`: `nfs-host`, Hometown in the weather, `0x6fd4cc` poked
+  to 1 at `0x474ca0`, the player's car left at the line; `-watch
+  0x4ded3d`, the count `0x4dd330` returns in eax, with `-watchread` of
+  the step `0x7d3684`, the share drawn `0x564288`, the total `0x8ca234`
+  and the times `0x8ca1f0`-`0x8ca1fc`; 529 samples to step 22295,
+  348 s). The times are 3840, 8640, 13760 and 19840 steps (60, 135, 215
+  and 310 s), the total 400, and the cycle starts at step 0 (the
+  set-up): 400 to step 3795; 399 at 3844, 195 at 6294, 8 at 8542, 0 from
+  8649 to 13738; 2 at 13777, 186 at 16575, 397 at 19794; 400 again from
+  19829 on, the next cycle begun. Each is the code's (8640 − step) × 400
+  / 4800 or 400 − (19840 − step) × 400 / 6080, to the drop. The share
+  drawn (`0x4dd4c0`: the drops looked at and not hidden, × 100 / 400)
+  follows it: 100%, 48%, 0%, back to 100%. So `Rain`'s race clock
+  1:00-2:15 runs within the fade from 400 drops to none.
+- `rain.bnk` (`bnk-info`): sounds 0-3, the splashes', are 0.01-0.13 s
+  at 22050 Hz; 4 is a 1.3 s loop and 6 and 7 four seconds at 11025 Hz
+  (`sound_start`'s specials, played at the full effects volume).
 - `Night` 1:43-2:10 (the Summit by night in the weather, race 0:00-
   0:28): no snow falls; Summit's night weather file sets snow only on
   slices 400-1290, and the start is outside them.
