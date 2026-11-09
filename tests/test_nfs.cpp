@@ -980,6 +980,38 @@ void testWeather() {
     CHECK(sp.life == 15 && std::fabs(sp.x - 0.25f) < 1e-6f && sp.y == 0 && std::fabs(sp.size - 0.2f * 0xffff / 65536) < 1e-5f);
     CHECK(polys[0].colour == 0x78787878u); // 128 x 15 / 16
     CHECK(d.drops()[0].position[1] == 15); // the drop back at the top
+    // The rain's splash plays a sound (0x414f90), once.
+    CHECK(d.takeSplashSounds() == 1 && d.takeSplashSounds() == 0);
+    // rain.bnk's sound random & 3, volume 90 + random % 30, azimuth random % 0xFFFF.
+    random.script = {5, 31, 70000};
+    const SplashSound ss = splashSound(random);
+    CHECK(ss.sound == 1 && ss.volume == 91 && ss.azimuth == 4465);
+    // Under Direct3D at half intensity (0x4de700, 0x4ddb40): the colours
+    // dimmed, byte x 128 >> 8.
+    polys.clear();
+    d.drops()[0].position = {1, 2, 10};
+    d.draw(view, 400, true, random, polys, 0.5f);
+    CHECK(polys.size() == 2 && polys[0].colour == 0x3f3f3f3fu);
+    // 0x4dd510: the tails forgotten when the camera goes into or out of
+    // the car or is cut, not otherwise; the hidden marks kept.
+    d.drops()[1].tailSet = d.drops()[1].hidden = true;
+    d.tails(false, false);
+    CHECK(d.drops()[1].tailSet);
+    d.tails(true, false);
+    CHECK(!d.drops()[1].tailSet && d.drops()[1].hidden);
+    d.drops()[1].tailSet = true;
+    d.tails(true, false);
+    CHECK(d.drops()[1].tailSet);
+    d.tails(true, true);
+    CHECK(!d.drops()[1].tailSet);
+    // 0x4dd230: a cut puts every drop back round the camera, unless it is
+    // under cover; the splashes go either way.
+    d.drops()[1].position = {500, 500, 500};
+    d.cut({100, 0, 100}, true, random);
+    CHECK(d.drops()[1].position[0] == 500 && d.splashes()[0].life == 0);
+    d.cut({100, 0, 100}, false, random);
+    CHECK(std::fabs(d.drops()[1].position[0] - 100) <= 25 && std::fabs(d.drops()[1].position[2] - 100) <= 25 &&
+          d.drops()[1].position[1] >= -5 && d.drops()[1].position[1] <= 15);
     // Snow: a square from the point, its side by the depth.
     Weather s;
     s.start(snow, {0, 0, 0}, 0, random);
@@ -990,6 +1022,119 @@ void testWeather() {
     s.draw(view, 800, false, random, polys);
     CHECK(polys.size() == 1 && polys[0].corners == 4 && polys[0].colour == 0xc8c8c8c8u);
     CHECK(polys[0].at[0][0] == 320 && polys[0].at[1][0] == 326 && polys[0].at[2][1] == 246);
+}
+
+// The cars' particles beyond the tyre smoke: the wheels' spray (0x42a280,
+// 0x4cb010, the surface table 0x553080), car hits (0x42ac40 type 5,
+// car_smoke_tick 0x42b480, 0x4caea0) and their sounds, and the Direct3D
+// dimming.
+void testCarEffects() {
+    // The surface table: in rain or snow the road throws kind 10, the
+    // verges 11; dry, grass and dirt their own, the tarmac nothing.
+    CHECK(surfaceEffect(1, 1).kind == 10 && surfaceEffect(1, 2).kind == 10 && surfaceEffect(2, 1).kind == 11 &&
+          surfaceEffect(13, 2).kind == 11 && surfaceEffect(9, 1).kind == 1);
+    CHECK(surfaceEffect(1, 0).kind == 0 && surfaceEffect(5, 0).kind == 2 && surfaceEffect(6, 0).kind == 10 &&
+          surfaceEffect(0x14, 0).kind == 12 && surfaceEffect(4, 0).level == 10);
+    CHECK(surfaceEffect(1, 0).smoke && !surfaceEffect(1, 1).smoke && surfaceEffect(1, 1).speed == 5 &&
+          surfaceEffect(1, 1).range == 20);
+
+    ParticleSystem sys;
+    ParticleRandom random;
+    // A right rear wheel on the wet road at 10: not skidding, so thrown
+    // for the speed: kind 10 at scale 10 / 50, and the skid level becomes
+    // (10 - 5) / 20 x 5.
+    random.script.assign(6, 0x8000);
+    float level = wheelSpray(sys, 2, 0, 1, 1, {0, 0, 0}, {10, 0, 0}, {0, 0, 1}, 10, 0, random);
+    CHECK(level == 1.25f && sys.live() == 1);
+    {
+        const Particle& q = sys.particles()[0];
+        CHECK(q.kind == 10 && q.life == 32 && q.colour == 0x7fffffff);
+        CHECK(std::fabs(q.velocity[0] - (0.4f + 0.9f * 5)) < 1e-5f && std::fabs(q.velocity[1] - 0.62f) < 1e-5f &&
+              std::fabs(q.velocity[2] - 0.7f) < 1e-5f);
+    }
+    // At 5 or under: nothing; skidding: thrown whatever the speed, the
+    // level kept; the dry tarmac (kind 0): nothing.
+    sys.clear();
+    CHECK(wheelSpray(sys, 2, 0, 1, 1, {}, {5, 0, 0}, {0, 0, 1}, 5, 0, random) == 0 && sys.live() == 0);
+    random.script.assign(6, 0x8000);
+    CHECK(wheelSpray(sys, 0, 3, 2, 2, {}, {1, 0, 0}, {0, 0, 1}, 1, 0, random) == 3 && sys.live() == 1 &&
+          sys.particles()[0].kind == 11);
+    sys.clear();
+    CHECK(wheelSpray(sys, 2, 9, 1, 0, {}, {30, 0, 0}, {0, 0, 1}, 30, 0, random) == 9 && sys.live() == 0);
+    // Kind 10 isn't made with a software renderer.
+    wheelParticles(sys, 10, 2, {}, {10, 0, 0}, {0, 0, 1}, 10, false, 0, random, 0, true);
+    CHECK(sys.live() == 0);
+
+    // A car hit over 5: a burst at twice the strength and a dust puff.
+    sys.clear();
+    carHitParticles(sys, {0, 1, 0}, {1, 1, 0}, {0, 0, 10}, 5, 0, random);
+    CHECK(sys.live() == 0);
+    carHitParticles(sys, {0, 1, 0}, {1, 1, 0}, {0, 0, 10}, 10, 0, random);
+    int sparks = 0, dust = 0;
+    for (const Particle& q : sys.particles())
+        if (q.life != 0)
+            (q.kind == 3 ? sparks : dust) += q.kind == 3 || q.kind == 2 ? 1 : 0;
+    CHECK(sparks == 30 && dust == 1);
+    // Its smoke: over 30, or over 5 for traffic, at |round(strength x 0.15)|,
+    // the point in the car's frame x 0.6; not while one runs.
+    CarSmoke smoke;
+    const ParticleVec right{1, 0, 0}, up{0, 1, 0}, forward{0, 0, 1};
+    CHECK(!startCarSmoke(smoke, 20, false, {1, 2, 3}, {}, right, up, forward));
+    CHECK(startCarSmoke(smoke, 20, true, {1, 2, 3}, {}, right, up, forward) && smoke.timer == 3);
+    CHECK(std::fabs(smoke.point[0] - 0.6f) < 1e-6f && std::fabs(smoke.point[2] - 1.8f) < 1e-6f);
+    CHECK(!startCarSmoke(smoke, 40, false, {1, 2, 3}, {}, right, up, forward));
+    // Counting up: white smoke (6) to 16, black (9) to 64, then the fire.
+    sys.clear();
+    carSmokeTick(sys, smoke, {}, right, up, forward, {}, true, 1, 0, 0, 0, random);
+    CHECK(smoke.timer == 4 && sys.live() == 1 && sys.particles()[0].kind == 6 &&
+          std::fabs(sys.particles()[0].position[1] - 1.2f) < 1e-6f);
+    smoke.timer = 16;
+    carSmokeTick(sys, smoke, {}, right, up, forward, {}, true, 1, 0, 0, 6, random);
+    CHECK(smoke.timer == 17 && sys.particles()[1].kind == 9);
+    // It stops once the car is down, upright and hardly spinning.
+    carSmokeTick(sys, smoke, {}, right, up, forward, {}, false, 1, 0.3f, 0, 8, random);
+    CHECK(smoke.timer == 18);
+    carSmokeTick(sys, smoke, {}, right, up, forward, {}, false, 1, 0.1f, -0.1f, 12, random);
+    CHECK(smoke.timer == 0);
+    // The fire: kinds 9 and 7 rising, and seven times in eight a kind 8.
+    sys.clear();
+    carFire(sys, {}, {}, {0, 0, 4}, 0, random);
+    CHECK(sys.particles()[0].kind == 9 && sys.particles()[1].kind == 7 && sys.live() >= 2);
+
+    // The hit's sound: Gen.bnk's slot by the loudness, never the same twice
+    // but for 33.
+    int last = 0;
+    CHECK(carHitSoundSlot(100, last, random) == 33 && carHitSoundSlot(100, last, random) == 33);
+    CHECK(carHitSoundSlot(80, last, random) == 32);
+    random.script = {1};
+    CHECK(carHitSoundSlot(80, last, random) == 37 && last == 37);
+    CHECK(carHitSoundSlot(10, last, random) == 30 && carHitSoundSlot(10, last, random) == 34);
+    CHECK(carHitSoundSlot(30, last, random) != 34);
+    last = 0;
+    CHECK(carHitSoundSlot(60, last, random) == 37);
+    CHECK(hitSoundVolume(0) == 127 && hitSoundVolume(50) == 14 && hitSoundVolume(53) == 0 && hitSoundVolume(54) == 0);
+    CHECK(soundPan(0) == 64 && soundPan(0x4000) == 127 && soundPan(0x8000) == 63 && soundPan(0xc000) == 0 &&
+          soundPan(0xffff) == 63);
+    CHECK(soundDistance({10, 1, 4}) == 11 && soundDistance({3, 8, 0}) == 8 && soundDistance({-4, 0, -10}) == 11);
+
+    // Kind 12: a random part of 0x7FFF off its colour at birth (alpha
+    // first: 0, 0, then green 64 and blue 128 at 0.5), and its spin turned
+    // back past a quarter turn.
+    sys.clear();
+    random.script.assign(10, 0x8000);
+    Particle* p = sys.spawn(12, {}, 1, {1, 0, 0}, {0, 0, 1}, {}, 0, random);
+    CHECK(p && p->colour == 0xffffbf7f);
+    p->angle = 0.3f;
+    p->spin = 0.1f;
+    sys.step(1, random);
+    CHECK(p->spin < 0 && std::fabs(p->angle - 0.2f) < 1e-6f);
+
+    // The Direct3D dimming: the lights' way (k = round(f x 65536) >> 8)
+    // and the particles' (byte x round(f x 65536) >> 16).
+    CHECK(dimByIntensity(0xffffffff, 0.5f) == 0x7f7f7f7f && dimByIntensity(0x12345678, 1) == 0x12345678);
+    CHECK(dimByIntensity(0x80808080, 0.25f) == 0x20202020);
+    CHECK(dimParticle(0xffffffff, 0.5f) == 0x7f7f7f7f && dimParticle(0x80402010, 0.25f) == 0x20100804 &&
+          dimParticle(0xabcdef01, 1.5f) == 0xabcdef01);
 }
 
 void testParticles() {
@@ -1003,7 +1148,11 @@ void testParticles() {
     CHECK(particleColour(sparks, 0) == 0xffffffff && particleColour(sparks, 1) == 0x00ff3900);
     CHECK(particleColour(sparks, 0.5f) == 0x7fff9c7f);
     CHECK(particleColour(*particleTemplate(2), 1) == 0x00dfdfdf);
-    CHECK(!particleTemplate(1) && particleTemplate(6)->life == 256);
+    CHECK(!particleTemplate(0) && !particleTemplate(14) && particleTemplate(1)->life == 64 &&
+          particleTemplate(6)->life == 256);
+    // Kind 7 as 0x4cb670 sets it for Direct3D.
+    CHECK(particleTemplate(7)->colour == 0xffffffff && particleTemplate(7, true)->colour == 0x7f7f7f7f &&
+          particleTemplate(7, true)->fade == 0x7f003f7f && particleTemplate(9, true)->fade == 0xff000000);
 
     // One dust puff (0x4cae00): random 0.5 throughout, so the template's own
     // speeds; it rises, spins (the sign from the first number's bit 0).
@@ -3859,6 +4008,7 @@ int main() {
     testTrack();
     testLightLook();
     testParticles();
+    testCarEffects();
     testWeather();
     testPolygonAnimation();
     testReflectionUv();

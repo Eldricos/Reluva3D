@@ -277,7 +277,9 @@ private:
 //   only those the game draws from here   H: day, night, weather   T: textures
 //   V: vertex light   L: lanes   O: objects   G: the virtual road's walls and edges
 //   X: next texture set (two, then their 8-bit versions)   F: back faces   R: start
-//   I: dim the lights as the game's effects intensity does (100, 75, 50, 25%)
+//   I: the game's effects intensity (100, 75, 50, 25%), which only the
+//   Direct3D look (Shift+Y) applies: lights, glows, added particles and
+//   clouds, rain and snow dimmed
 //   P: a wall hit at the nearest virtual-road wall ahead, its particles as
 //   the game makes them for that side's code (Shift+P: a fast hit, 40;
 //   else 18); held, it repeats
@@ -423,6 +425,10 @@ private:
     // every point (cloudAlpha).
     bool direct3d_ = false;
     float lightIntensity_ = 1; // the game's SFX_INTENSITY, which dims lights
+    // The effects intensity as applied: only the Direct3D renderer (bit
+    // 0x40 of 0x7a3a58) dims by it (the lights, glows, particles with flag
+    // bit 0, the added clouds, the rain and snow).
+    float effectsIntensity() const { return direct3d_ ? lightIntensity_ : 1.0f; }
     // The fog where the camera is: the base fog, or a dynamic region's
     // (hrz.md), its colour and density (percent).
     void fogAt(int slice, Horizon::Rgb& colour, float& density) const;
@@ -489,12 +495,36 @@ private:
     int weatherActive_ = 0;
     gfx::MeshId weatherMesh_ = 0;
     uint32_t weatherDrops_ = 0, weatherSplashes_ = 0; // quads this frame: the drops', then the splashes'
+    // The camera has just been moved (0x552ff4: the weather's drops put
+    // back round it, 0x4dd230, and the streaks' tails forgotten, 0x4dd510).
+    bool cameraCut_ = false;
+    // The rain's splash sounds (rain.bnk, the race's bank entry 4) and the
+    // cars' hit sounds (Gen3d.bnk, entry 2; Gen.bnk without it), loaded
+    // with the placed sounds.
+    struct EffectBank {
+        std::vector<uint8_t> data;
+        SoundBank bank;
+        std::map<int, std::shared_ptr<audio::Sound>> decoded;
+    };
+    EffectBank rainSounds_, hitSounds_;
+    ParticleRandom effectSoundRandom_;
+    int hitSoundLast_ = 0; // 0x552d80
+    void loadEffectBank(EffectBank& b, const std::vector<std::string>& names);
+    void playEffect(EffectBank& b, int slot, int volume, int pan);
+    // The hits aiCollide reported this step, for the impacts task's
+    // particles and sound (carHitParticles, startCarSmoke).
+    std::vector<AiHit> carHits_;
     gfx::TextureId weatherPicture(const char* name);
     void prepareWeather(const gfx::Vec3& eye, const gfx::Vec3& forward, const gfx::Vec3& right, const gfx::Vec3& up);
     void drawWeather(float fog, const std::array<float, 3>& fogColour);
     gfx::TextureId particlePicture(int kind);
     void hitWall(bool fast);
     void tickParticles(uint64_t nowMs);
+    // The cars' particles of one 64 Hz step, before the particles' own
+    // (the impacts task 0x42b900 -> 0x42b780): the hits aiCollide reported
+    // (0x42ac40), each car's hit smoke (car_smoke_tick 0x42b480), and each
+    // wheel's tyre smoke (0x42a480) and spray (0x42a280).
+    void tickCarEffects(uint32_t tick);
     // Before the frame: the particles' quads; after the scene: drawn.
     void prepareParticles(const gfx::Vec3& eye, const gfx::Vec3& forward, const gfx::Vec3& right, const gfx::Vec3& up);
     void drawParticles(float fog, const std::array<float, 3>& fogColour);
@@ -616,6 +646,7 @@ private:
         std::array<std::array<float, 3>, 4> wheelAt{};
         std::array<int, 4> wheelSurface{};
         int weather = 0;
+        CarSmoke smoke; // a hit's smoke (+0x8D4, +0x8D8: car_smoke_tick)
         gfx::MeshId mesh = 0, envMesh = 0;
     };
     bool computerCars_ = false, carsMoving_ = true, reflections_ = true;

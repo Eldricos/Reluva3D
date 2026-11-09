@@ -12,34 +12,49 @@ namespace {
 
 constexpr float kTurn = 6.283184714f; // 0x54b6b0: sin and cos take turns
 
-// The templates' values, read from nfs3.exe at 0x560b64 + kind × 128.
-const ParticleTemplate kDust = {
-    1, 128, 1,            // count, life, throttle
-    3.1f, 2.0f, 3.5f,     // up, along, across
-    0.5f,                 // spread
-    0.05f, 0.05f, 0.046875f, // wobble
-    0.0f,                 // gravity
-    0.5f, 0.5f, 0.8f,     // spin, inherit, drag
-    0.75f, 3.0f, 0.5f,    // size, growth, size spread
-    0x7fdfdfdf, 0x7f000000, 0, false, 150.0f};
-const ParticleTemplate kSparks = {
-    30, 16, 0,
-    2.0f, 5.0f, 2.0f,
-    0.5f,
-    0.02f, 0.05f, 0.03125f,
-    -0.25f,
-    0.0f, 0.5f, 1.0f,
-    0.01f, 0.0f, 0.0f,
-    0xffffffff, 0xff00c6ff, 1, true, 50.0f};
-const ParticleTemplate kSmoke = {
-    1, 256, 3,
-    1.5f, 0.5f, 0.5f,
-    0.5f,
-    0.0f, 0.0f, 0.0f,
-    0.0f,
-    0.1f, 0.5f, 0.95f,
-    0.75f, 2.5f, 0.5f,
-    0x7fffffff, 0x7f404040, 0, false, 150.0f};
+// The templates' values, read from nfs3.exe at 0x560b64 + kind × 128
+// (static data; kinds 1-13, 0 is all zero): count, life, throttle, up,
+// along, across, spread, the push's turning, size and growth, gravity,
+// spin, inherit, drag, size, growth, size spread, colour, fade, flags,
+// streak, reach, speed scale, spin held, random colour.
+const ParticleTemplate kTemplates[14] = {
+    {},
+    {1, 64, 0, 3.0f, 2.5f, 3.5f, 0.2f, 0.05f, 0.025f, 0.0234375f, -0.3125f, 0.1f, 0.5f, 0.9f, 0.7f, -0.5f, 0.5f,
+     0x80ffffff, 0x20000000, 0, false, 90.0f, 30.0f, false, 0},
+    {1, 128, 1, 3.1f, 2.0f, 3.5f, 0.5f, 0.05f, 0.05f, 0.046875f, 0.0f, 0.5f, 0.5f, 0.8f, 0.75f, 3.0f, 0.5f,
+     0x7fdfdfdf, 0x7f000000, 0, false, 150.0f, 30.0f, false, 0},
+    {30, 16, 0, 2.0f, 5.0f, 2.0f, 0.5f, 0.02f, 0.05f, 0.03125f, -0.25f, 0.0f, 0.5f, 1.0f, 0.01f, 0.0f, 0.0f,
+     0xffffffff, 0xff00c6ff, 1, true, 50.0f, 30.0f, false, 0},
+    {5, 64, 0, 3.5f, 2.5f, 3.5f, 1.0f, 0.05f, 0.025f, 0.0234375f, -0.1875f, 0.4f, 0.1f, 0.95f, 0.3f, 0.1f, 0.5f,
+     0xffffffff, 0x00000000, 0, false, 100.0f, 30.0f, false, 0},
+    {1, 64, 0, 3.5f, 2.5f, 3.5f, 0.2f, 0.05f, 0.025f, 0.0234375f, -0.15625f, 0.25f, 0.3f, 0.9f, 0.5f, 0.25f, 0.1f,
+     0xe4ffffff, 0x00000000, 0, false, 90.0f, 30.0f, false, 0},
+    {1, 256, 3, 1.5f, 0.5f, 0.5f, 0.5f, 0.0f, 0.0f, 0.0f, 0.0f, 0.1f, 0.5f, 0.95f, 0.75f, 2.5f, 0.5f,
+     0x7fffffff, 0x7f404040, 0, false, 150.0f, 0.0f, false, 0},
+    {1, 8, 0, 5.0f, 2.0f, 3.5f, 0.5f, 0.1f, 0.05f, 0.046875f, 0.0f, 0.3f, 0.5f, 1.0f, 0.5f, 2.0f, 0.5f,
+     0xffffffff, 0xff007fff, 1, false, 150.0f, 0.0f, false, 0},
+    {1, 56, 2, 5.0f, 2.0f, 3.5f, 0.5f, 0.1f, 0.05f, 0.046875f, 0.0f, 0.2f, 0.5f, 0.95f, 0.5f, 3.0f, 0.5f,
+     0xffffffff, 0xff007f7f, 1, false, 120.0f, 0.0f, false, 0},
+    {1, 64, 2, 5.0f, 2.0f, 3.5f, 0.5f, 0.0f, 0.0f, 0.0f, 0.0f, 0.2f, 0.5f, 0.95f, 0.5f, 3.0f, 0.5f,
+     0xffffffff, 0xff000000, 0, false, 200.0f, 0.0f, false, 0},
+    {1, 32, 1, 3.1f, 2.0f, 3.5f, 0.5f, 0.06f, 0.05f, 0.053125f, -0.15625f, 0.5f, 0.9f, 0.9f, 0.75f, 4.0f, 0.5f,
+     0x7fffffff, 0x7f000000, 0, false, 120.0f, 50.0f, false, 0},
+    {1, 64, 0, 3.0f, 2.5f, 3.5f, 0.2f, 0.05f, 0.025f, 0.0234375f, -0.15625f, 0.2f, 0.5f, 0.8f, 0.7f, -0.5f, 0.5f,
+     0xffffffff, 0xff000000, 0, false, 100.0f, 30.0f, false, 0},
+    {2, 128, 2, 2.1f, 0.0f, 2.5f, 2.0f, 0.2f, 0.05f, 0.015625f, -0.05625f, 0.1f, 1.0f, 0.95f, 0.25f, 0.0f, 0.25f,
+     0xffffffff, 0x00000000, 0, false, 90.0f, 15.0f, true, 0x00007fff},
+    {3, 128, 0, 4.1f, 0.0f, 5.5f, 2.0f, 0.2f, 0.05f, 0.015625f, -0.30625f, 0.1f, 1.0f, 0.95f, 0.6f, 0.0f, 0.25f,
+     0xffffffff, 0x00000000, 0, false, 90.0f, 0.0f, false, 0},
+};
+// Kind 7 under Direct3D: 0x4cb670 writes the bytes 0x560f30-0x560f37
+// (its +0x4c and +0x50).
+const ParticleTemplate kFireDirect3d = [] {
+    ParticleTemplate t = kTemplates[7];
+    t.colour = 0x7f7f7f7f;
+    t.fade = 0x7f003f7f;
+    return t;
+}();
+const ParticleTemplate& kSparks = kTemplates[3];
 
 // The x87's rounding (fistp), to nearest, halves to even.
 int fistp(float v) { return static_cast<int>(std::nearbyint(v)); }
@@ -58,13 +73,10 @@ ParticleVec offset(const ParticleVec& at, const ParticleVec& right, const Partic
 
 } // namespace
 
-const ParticleTemplate* particleTemplate(int kind) {
-    switch (kind) {
-    case 2: return &kDust;
-    case 3: return &kSparks;
-    case 6: return &kSmoke;
-    default: return nullptr;
-    }
+const ParticleTemplate* particleTemplate(int kind, bool direct3d) {
+    if (kind == 7 && direct3d)
+        return &kFireDirect3d;
+    return kind >= 1 && kind < 14 ? &kTemplates[kind] : nullptr;
 }
 
 int wallParticleKind(int code) {
@@ -100,7 +112,7 @@ int ParticleSystem::live() const {
 Particle* ParticleSystem::spawn(int kind, const ParticleVec& at, float scale, const ParticleVec& a,
                                 const ParticleVec& b, const ParticleVec& c, uint32_t tick, ParticleRandom& random,
                                 int horizon) {
-    const ParticleTemplate* t = particleTemplate(kind);
+    const ParticleTemplate* t = particleTemplate(kind, direct3d);
     if (!t)
         return nullptr;
     Particle& p = slot();
@@ -132,7 +144,15 @@ Particle* ParticleSystem::spawn(int kind, const ParticleVec& at, float scale, co
     p.wobbleTurn = t->wobbleTurn;
     p.wobble = t->wobble;
     p.wobbleGrowth = t->wobbleGrowth;
-    p.colour = t->colour; // less a random part of +0x54's bytes, 0 in these kinds
+    p.colour = t->colour;
+    // Less a random part of +0x54's bytes (kind 12's 0x7FFF), alpha
+    // first (0x4caa8a-0x4cab04).
+    if (t->colourRandom)
+        for (int shift = 24; shift >= 0; shift -= 8) {
+            const int part = fistp(random.unit() * static_cast<float>((t->colourRandom >> shift) & 0xff));
+            const uint32_t byte = ((p.colour >> shift) - static_cast<uint32_t>(part)) & 0xff;
+            p.colour = (p.colour & ~(0xffu << shift)) | byte << shift;
+        }
     // Not moving at all: not made.
     if (p.velocity[0] == 0 && p.velocity[1] == 0 && p.velocity[2] == 0)
         p.life = 0;
@@ -190,7 +210,7 @@ void ParticleSystem::step(uint32_t tick, ParticleRandom& random, int horizon) {
     for (Particle& p : slots_) {
         if (p.life == 0)
             continue;
-        const ParticleTemplate* t = particleTemplate(p.kind);
+        const ParticleTemplate* t = particleTemplate(p.kind, direct3d);
         if (odd && t) {
             const float drag = t->drag;
             const float part = static_cast<float>(p.lifeMax - p.life) / static_cast<float>(p.lifeMax);
@@ -202,9 +222,16 @@ void ParticleSystem::step(uint32_t tick, ParticleRandom& random, int horizon) {
                 p.wobble += p.wobbleGrowth;
                 p.wobbleAngle += p.wobbleTurn;
             }
-            // (A template with +0x3c set holds the spin within ±0.25; none
-            // of these do.)
             if (p.spin != 0) {
+                // +0x3c set (kind 12): the spin turned back towards 0 once
+                // the angle is past ±0.25 of a turn (0x4cb556).
+                if (t->spinHeld) {
+                    const float s = std::fabs(p.spin);
+                    if (p.angle > 0.25f)
+                        p.spin = -s;
+                    else if (p.angle < -0.25f)
+                        p.spin = s;
+                }
                 p.angle += p.spin;
                 p.spin *= drag;
             }
@@ -253,6 +280,171 @@ void wallHitParticles(ParticleSystem& system, const WallHit& hit, uint32_t tick,
     } else if (hit.speed > 15 || hit.impact > 15) {
         system.spawnOne(6, hit.contact, tick, random, horizon);
     }
+}
+
+uint32_t dimByIntensity(uint32_t colour, float intensity) {
+    if (!(intensity < 1))
+        return colour;
+    const uint32_t k = static_cast<uint32_t>(std::min(fistp(intensity * 65536.0f), 0xffff)) >> 8 & 0xff;
+    return (((colour & 0xff00ff00u) >> 8) * k & 0xff00ff00u) | ((colour & 0x00ff00ffu) * k >> 8 & 0x00ff00ffu);
+}
+
+uint32_t dimParticle(uint32_t colour, float intensity) {
+    if (!(intensity < 1))
+        return colour;
+    const uint32_t k = static_cast<uint32_t>(fistp(intensity * 65536.0f));
+    uint32_t out = 0;
+    for (int shift = 0; shift < 32; shift += 8)
+        out |= ((((colour >> shift) & 0xff) * k >> 16) & 0xff) << shift;
+    return out;
+}
+
+const SurfaceEffect& surfaceEffect(int surface, int weather) {
+    // 0x553080, read from nfs3.exe: level, speed, range, kind, smoke,
+    // landing kind for surfaces 0-15, dry; rain and snow (weathers 1 and
+    // 2) have the same kinds and speeds.
+    static const SurfaceEffect kDry[16] = {
+        {0, 0, 0, 0, false, 0},  {0, 0, 0, 0, true, 3},   {0, 5, 20, 4, false, 2},  {0, 0, 0, 5, false, 2},
+        {10, 5, 20, 12, true, 3}, {0, 3, 20, 2, false, 2}, {0, 5, 20, 10, false, 0}, {0, 0, 0, 0, true, 3},
+        {0, 0, 0, 0, false, 1},  {0, 8, 20, 1, false, 1},  {0, 0, 0, 0, true, 3},   {10, 5, 20, 12, true, 3},
+        {0, 0, 0, 0, true, 3},   {0, 3, 20, 2, false, 2},  {0, 0, 0, 0, false, 0},  {0, 8, 20, 1, false, 1},
+    };
+    static const SurfaceEffect kWet[16] = {
+        {0, 0, 0, 0, false, 0},   {0, 5, 20, 10, false, 3}, {0, 5, 20, 11, false, 11}, {0, 0, 0, 11, false, 11},
+        {0, 5, 20, 10, false, 3}, {0, 0, 0, 11, false, 11}, {0, 5, 20, 10, false, 0},  {0, 5, 20, 10, false, 3},
+        {0, 0, 0, 0, false, 1},   {0, 8, 20, 1, false, 1},  {0, 5, 20, 10, false, 3},  {0, 5, 20, 10, false, 3},
+        {0, 5, 20, 10, false, 3}, {0, 0, 0, 11, false, 11}, {0, 0, 0, 0, false, 0},    {0, 8, 20, 1, false, 1},
+    };
+    return (weather == 1 || weather == 2 ? kWet : kDry)[surface & 15];
+}
+
+void wheelParticles(ParticleSystem& system, int kind, int wheel, const ParticleVec& at, const ParticleVec& velocity,
+                    const ParticleVec& right, float speed, bool overspeed, uint32_t tick, ParticleRandom& random,
+                    int horizon, bool software) {
+    const ParticleTemplate* t = particleTemplate(kind, system.direct3d);
+    if (!t || (kind == 10 && software))
+        return;
+    float scale = 1;
+    if (t->speedScale != 0) {
+        float s = std::fabs(speed) / t->speedScale;
+        if (kind != 12 && overspeed && wheel > 1)
+            s += 0.5f; // 0x5403f8
+        scale = std::min(s, 1.0f);
+    }
+    // 0x4972f0: the velocity made a unit vector, left at 0 when it is 0.
+    ParticleVec along = velocity;
+    const float length = std::sqrt(along[2] * along[2] + along[0] * along[0] + along[1] * along[1]);
+    if (length != 0)
+        for (float& v : along)
+            v *= 1.0f / length;
+    const float side = wheel == 0 || wheel == 3 ? -1.0f : 1.0f;
+    const ParticleVec across{right[0] * side, right[1] * side, right[2] * side};
+    const ParticleVec half{velocity[0] * 0.5f, velocity[1] * 0.5f, velocity[2] * 0.5f}; // 0x540408
+    for (int i = 0; i < t->count; ++i)
+        if (Particle* p = system.spawn(kind, at, scale, along, across, half, tick, random, horizon))
+            p->spin *= side;
+}
+
+float wheelSpray(ParticleSystem& system, int wheel, float level, int surface, int weather, const ParticleVec& at,
+                 const ParticleVec& velocity, const ParticleVec& right, float speed, uint32_t tick,
+                 ParticleRandom& random, int horizon, bool software) {
+    const SurfaceEffect& row = surfaceEffect(surface, weather);
+    if (row.kind == 0)
+        return level;
+    if (level > row.level) {
+        wheelParticles(system, row.kind, wheel, at, velocity, right, speed, false, tick, random, horizon, software);
+        return level;
+    }
+    if (row.speed == 0 || row.range == 0 || speed <= row.speed)
+        return level;
+    wheelParticles(system, row.kind, wheel, at, velocity, right, speed, false, tick, random, horizon, software);
+    return std::clamp((speed - row.speed) / row.range * 5.0f, 0.0f, 5.0f); // 0x537268
+}
+
+int soundDistance(const ParticleVec& d) {
+    int x = std::abs(fistp(d[0])), y = std::abs(fistp(d[1])), z = std::abs(fistp(d[2]));
+    int flat = z < x ? x + (z >> 2) : z + (x >> 2);
+    return y < flat ? flat + (y >> 2) : y + (flat >> 2);
+}
+
+void carHitParticles(ParticleSystem& system, const ParticleVec& point, const ParticleVec& carPosition,
+                     const ParticleVec& carVelocity, float strength, uint32_t tick, ParticleRandom& random,
+                     int horizon) {
+    if (!(strength > 5)) // 0x42ac9d: the strength's bits over 5.0's
+        return;
+    system.burst(point, carPosition, carVelocity, strength * 2.0f, tick, random, horizon);
+    system.spawnOne(2, point, tick, random, horizon);
+}
+
+bool startCarSmoke(CarSmoke& smoke, float strength, bool traffic, const ParticleVec& point,
+                   const ParticleVec& carPosition, const ParticleVec& right, const ParticleVec& up,
+                   const ParticleVec& forward) {
+    if (!(strength > 5) || !(traffic || strength > 30) || smoke.timer != 0)
+        return false;
+    smoke.timer += std::abs(fistp(strength * 0.15f));
+    const ParticleVec d{point[0] - carPosition[0], point[1] - carPosition[1], point[2] - carPosition[2]};
+    auto dot = [&](const ParticleVec& a) { return (a[0] * d[0] + a[1] * d[1] + a[2] * d[2]) * 0.6f; };
+    smoke.point = {dot(right), dot(up), dot(forward)};
+    return true;
+}
+
+void carFire(ParticleSystem& system, const ParticleVec& at, const ParticleVec& carPosition,
+             const ParticleVec& carVelocity, uint32_t tick, ParticleRandom& random, int horizon) {
+    system.spawn(9, at, 1, {}, {}, {}, tick, random, horizon);
+    system.spawn(7, at, 1, {}, {}, {}, tick, random, horizon);
+    if (tick % 48 < 8 && (random.next() & 1))
+        system.burst(at, carPosition, carVelocity, 20.0f, tick, random, horizon);
+    if (random.next() & 7) {
+        const ParticleVec half{carVelocity[0] * 0.5f, carVelocity[1] * 0.5f, carVelocity[2] * 0.5f}; // 0x5403f0
+        if (Particle* p = system.spawn(8, at, static_cast<float>(tick % 48) * (1.0f / 48.0f), {}, {}, half, tick,
+                                       random, horizon))
+            p->wobbleAngle = 0;
+    }
+}
+
+void carSmokeTick(ParticleSystem& system, CarSmoke& smoke, const ParticleVec& carPosition, const ParticleVec& right,
+                  const ParticleVec& up, const ParticleVec& forward, const ParticleVec& carVelocity, bool airborne,
+                  float upright, float spinE4, float spinEC, uint32_t tick, ParticleRandom& random, int horizon) {
+    if (smoke.timer > 0)
+        ++smoke.timer;
+    if (smoke.timer != 0) {
+        ParticleVec at;
+        for (size_t i = 0; i < 3; ++i)
+            at[i] = smoke.point[0] * right[i] + smoke.point[1] * up[i] + smoke.point[2] * forward[i] + carPosition[i];
+        if (smoke.timer <= 64)
+            system.spawnOne(smoke.timer <= 16 ? 6 : 9, at, tick, random, horizon);
+        else
+            carFire(system, at, carPosition, carVelocity, tick, random, horizon);
+    }
+    if (smoke.timer != 0 && !airborne && upright >= 0.5f && std::fabs(spinE4) < 0.2f && std::fabs(spinEC) < 0.2f)
+        smoke.timer = 0;
+}
+
+int carHitSoundSlot(int loudness, int& last, ParticleRandom& random) {
+    int slot = loudness > 90 ? 33 : loudness > 70 ? 32 : loudness > 50 ? 37 : loudness > 25 ? 34 : 30;
+    if (slot == last) {
+        switch (last) {
+        case 32: slot = random.next() & 1 ? 37 : 34; break;
+        case 30: slot = 34; break;
+        case 34: slot = random.next() & 1 ? 30 : 37; break;
+        case 37: slot = random.next() & 1 ? 30 : 34; break;
+        default: break;
+        }
+    }
+    last = slot;
+    return slot;
+}
+
+int hitSoundVolume(int distance) {
+    const int64_t twice = 2 * static_cast<int64_t>(distance) * distance;
+    return twice < 0x15f9 ? static_cast<int>((0x15f9 - twice) * 0x7f / 0x15f9) : 0;
+}
+
+int soundPan(uint32_t azimuth) {
+    azimuth &= 0xffff;
+    if (azimuth > 0x3fff && azimuth < 0xc000)
+        return static_cast<int>((0xbfff - azimuth) >> 8);
+    return static_cast<int>(((azimuth + 0x4000) & 0xffff) >> 8);
 }
 
 std::array<ParticleVec, 4> streakCorners(Particle& p, const ParticleVec& right, const ParticleVec& up, float pixel,
@@ -527,6 +719,38 @@ void Weather::update(int step, int active, const ParticleVec& eye, bool covered,
     }
 }
 
+void Weather::cut(const ParticleVec& eye, bool covered, ParticleRandom& random) {
+    if (setup_.kind == 0)
+        return;
+    if (!covered) {
+        const float h = setup_.half, range = setup_.top - setup_.bottom;
+        for (int i = 0; i < setup_.count; ++i) {
+            Drop& d = drops_[size_t(i)];
+            d.tailSet = false;
+            d.position[0] = random.unit() * h * 2 - h + eye[0];
+            d.position[1] = random.unit() * range + setup_.bottom + eye[1];
+            d.position[2] = random.unit() * h * 2 - h + eye[2];
+        }
+    }
+    for (int i = 0; i < setup_.splashes; ++i)
+        splashes_[size_t(i)].life = 0;
+}
+
+void Weather::tails(bool inCar, bool cut) {
+    if (inCar != inCar_ || cut)
+        for (int i = 0; i < setup_.count; ++i)
+            drops_[size_t(i)].tailSet = false;
+    inCar_ = inCar;
+}
+
+SplashSound splashSound(ParticleRandom& random) {
+    SplashSound s;
+    s.sound = static_cast<int>(random.next() & 3);
+    s.volume = 90 + static_cast<int>(random.next() % 30);
+    s.azimuth = random.next() % 0xffff;
+    return s;
+}
+
 void Weather::respawnTop(Drop& d, const ParticleVec& eye, ParticleRandom& random) const {
     const float h = setup_.half;
     d.position[1] = eye[1] + setup_.top;
@@ -563,7 +787,7 @@ bool Weather::splash(const WeatherView& view, const ParticleVec& at, ParticleRan
 }
 
 void Weather::draw(const WeatherView& view, int active, bool splashes, ParticleRandom& random,
-                   std::vector<WeatherPoly>& out) {
+                   std::vector<WeatherPoly>& out, float intensity) {
     if (setup_.kind == 0)
         return;
     const bool rain = setup_.kind == 1;
@@ -589,14 +813,16 @@ void Weather::draw(const WeatherView& view, int active, bool splashes, ParticleR
             continue;
         }
         // Near the camera: a splash on the screen, if a slot is free (the
-        // rain also plays one of its sounds, 0x414f90).
+        // rain also plays one of its sounds, 0x414f90, 0x4de989).
         if (w < 3 && splash(view, d.position, random)) {
+            if (rain)
+                ++splashSounds_;
             respawnTop(d, view.eye, random);
             continue;
         }
         WeatherPoly poly;
         poly.depth = w;
-        poly.colour = setup_.colour;
+        poly.colour = dimByIntensity(setup_.colour, intensity);
         if (rain) {
             // From where it was, halfway on each frame, to where it is, and
             // two pixels across at its head.
@@ -630,7 +856,7 @@ void Weather::draw(const WeatherView& view, int active, bool splashes, ParticleR
         poly.corners = 4;
         poly.splash = true;
         poly.depth = 1.0f / 0.9f; // rhw 0x3f666666
-        poly.colour = grey4(grey);
+        poly.colour = dimByIntensity(grey4(grey), intensity);
         auto at = [&](float a, float b) { return std::array<float, 2>{a * view.sx + view.cx, b * view.sy + view.cy}; };
         poly.at = {at(s.x + c, s.y + n), at(s.x - n, s.y + c), at(s.x - c, s.y - n), at(s.x + n, s.y - c)};
         out.push_back(poly);

@@ -873,6 +873,14 @@ struct CarBox {
     std::array<float, 3> spin{};                                     // +0xE4, in turns a second
     float strength = 0; // +0x168: the last hit's (0x42e820's return), for the impacts task
     int airTicks = 0;   // +0x164: one more for each hit over 5
+    std::array<float, 3> hitPoint{}; // +0x178: the last hit's point (0x42f280), for its particles
+};
+// A hit aiCollide took: the car (its index), the strength and the point,
+// for the impacts task's particles and sound (0x42ac40, hit type 5).
+struct AiHit {
+    size_t car = 0;
+    float strength = 0;
+    std::array<float, 3> point{};
 };
 // The box test (0x42fee0): up to four rounds of 0x42f550, which tries, in
 // order, b's 6 face centres inside a's box (0x42dd60), a's 6 inside b's
@@ -954,7 +962,8 @@ void aiRoadFrame(const Track& track, const TrackCollision& col, AiCar& c);
 // 0x42f280's hit, +0x168 not 0) also starts or ends its reversing:
 // ai_reverse_set(2, 128). Its roll and pitch are taken from the hit's spin
 // (along its forward and right) as its yaw is.
-void aiCollide(std::vector<AiCar>& cars, const TrackCollision& col, int step);
+// `hits`, if given, gets each car a hit gave a strength.
+void aiCollide(std::vector<AiCar>& cars, const TrackCollision& col, int step, std::vector<AiHit>* hits = nullptr);
 // ai_reverse_set (0x405fd0) at step `step`: mode 0 starts reversing (+1 to
 // the count; timed for `steps` when not 0), 1 ends it, 2 toggles it (a
 // timed reversing whose time isn't up stays on). ai_reverse_end

@@ -454,6 +454,7 @@ void TrackPage::loadSky() {
     skyEyeY_ = 0; // the heights as made: updateSky moves them by the camera's
     if (Error err = renderer_->createMesh(vertices, indices, skyMesh_))
         skyError_ = err.message;
+    skyChanged_ = true; // the clouds' colours as the look and the intensity have them
 
     // Lightning's bolts: a quad for each point but the first, up to the
     // game's 240 points.
@@ -554,6 +555,19 @@ void TrackPage::updateSky(const gfx::Vec3& forward, const gfx::Vec3& right) {
                         c[3] = static_cast<uint8_t>(value);
                 }
         }
+        // The added clouds (type 1) under Direct3D with the effects
+        // intensity under 1: every point's colour dimmed, after the flash
+        // (0x47b850 calls 0x47b7d0 on the 169 points).
+        if (horizon_.cloudType == 1 && effectsIntensity() < 1)
+            for (size_t i = 0; i < cloudBase_.size(); ++i) {
+                uint8_t* c = skyVertices_[cloudVertex_ + i].color;
+                const uint32_t argb = dimByIntensity(uint32_t(c[3]) << 24 | uint32_t(c[0]) << 16 | uint32_t(c[1]) << 8 | c[2],
+                                                     effectsIntensity());
+                c[0] = static_cast<uint8_t>(argb >> 16);
+                c[1] = static_cast<uint8_t>(argb >> 8);
+                c[2] = static_cast<uint8_t>(argb);
+                c[3] = static_cast<uint8_t>(argb >> 24);
+            }
     }
     renderer_->setMeshVertices(skyMesh_, skyVertices_);
 
@@ -1742,7 +1756,7 @@ void TrackPage::drawOfficers(const gfx::DrawCall& base) {
     if (officerEnvMesh_ && envPicture_ && textured_) {
         const std::array<float, 3> camera{eye_[0], eye_[1], -eye_[2]};
         const auto frame = reflectionFrame({camera[0] - o.at[0], camera[1] - o.at[1], camera[2] - o.at[2]});
-        const uint32_t normal = dimLight(0x4f4f4f4fu, lightIntensity_), strong = dimLight(0x7f7f7f7fu, lightIntensity_);
+        const uint32_t normal = dimLight(0x4f4f4f4fu, effectsIntensity()), strong = dimLight(0x7f7f7f7fu, effectsIntensity());
         std::vector<gfx::Vertex> env(officerEnvFrom_.size());
         for (size_t i = 0; i < env.size(); ++i) {
             env[i] = officerVertices_[officerEnvFrom_[i]];
@@ -2254,7 +2268,7 @@ void TrackPage::moveCars(float dt) {
         // The cars against each other (car_collisions_task 0x4311d0, 32 a
         // second after their models): what the hits did to their places,
         // speeds and yaw.
-        aiCollide(ai, collision_, aiStep_);
+        aiCollide(ai, collision_, aiStep_, &carHits_);
         // Then every car's place by its velocity (car_move 0x4a2c60, the
         // Sc64 task, last). What a cop's step did to the cars stepped
         // before it (a racer pulled over by its strip, its chase record)
@@ -2605,7 +2619,7 @@ void TrackPage::prepareCars(const gfx::Vec3& eye, const gfx::Vec3& forward, cons
             const CarReflection refl =
                 carReflection(c.colour, sky, c.paintValue >= 0 ? c.paintValue : cm.paintValue,
                               n > 0 ? coverDepth(collision_, slice, c.at) : 0);
-            const uint32_t normal = dimLight(refl.normal, lightIntensity_), strong = dimLight(refl.strong, lightIntensity_);
+            const uint32_t normal = dimLight(refl.normal, effectsIntensity()), strong = dimLight(refl.strong, effectsIntensity());
             const auto frame = reflectionFrame({camera[0] - c.at[0], camera[1] - c.at[1], camera[2] - c.at[2]});
             std::vector<gfx::Vertex> env(cm.envFrom.size());
             for (size_t i = 0; i < env.size(); ++i) {
@@ -2647,7 +2661,7 @@ void TrackPage::prepareCars(const gfx::Vec3& eye, const gfx::Vec3& forward, cons
         const float brightness = carGlowBrightness(c.colour);
         const float phase = static_cast<float>(skyTick_ % 32) * 0.03125f;
         const char flash = c.siren ? (phase <= 0.5f ? 'O' : 'E') : '\0';
-        const uint32_t beamColour = effects ? dimLight(fogBeamColour(fogDensity, c.beams), lightIntensity_) : 0;
+        const uint32_t beamColour = effects ? dimLight(fogBeamColour(fogDensity, c.beams), effectsIntensity()) : 0;
         const bool covered = n > 0 && pointCovered(collision_.road[size_t(static_cast<int>(std::floor(c.slice)) % n)], c.at);
         for (const Model::Dummy& dm : cm.dummies) {
             std::array<float, 3> at{};
@@ -2681,7 +2695,7 @@ void TrackPage::prepareCars(const gfx::Vec3& eye, const gfx::Vec3& forward, cons
                 carLightGlow(dm.name, facing, c.beams, c.ai.braking, c.siren, static_cast<int>(skyTick_), brightness);
             if (!g.shown || g.size <= 0)
                 continue;
-            const uint32_t colour = dimLight(g.colour, lightIntensity_);
+            const uint32_t colour = dimLight(g.colour, effectsIntensity());
             // The rain's flare under a tail light or headlight (not a roof
             // light) whose dummy's fifth letter isn't N, on a wet road out
             // of cover.
@@ -2692,7 +2706,7 @@ void TrackPage::prepareCars(const gfx::Vec3& eye, const gfx::Vec3& forward, cons
                 if (roadPolygonAt(at, block, index) && wetSurface(roadSurface(track_.blocks[size_t(block)], index))) {
                     const float way = dm.name[0] == 'T' ? -1.0f : 1.0f;
                     const RainFlare f = rainFlare(at, camera, {c.forward[0] * way, c.forward[1] * way, c.forward[2] * way},
-                                                  g.size, dimLight(g.colour, lightIntensity_));
+                                                  g.size, dimLight(g.colour, effectsIntensity()));
                     // The heights (0x491bc0): the light put on the road by
                     // trackpos_build (0x4969c0), each corner at that height
                     // taken onto the road the same way (0x4968a0), 0.125 above
@@ -2803,7 +2817,7 @@ void TrackPage::prepareCars(const gfx::Vec3& eye, const gfx::Vec3& forward, cons
                                                     (w[2] - camera[2]) * view[2]);
                 }
                 if (nearest > 0)
-                    glowQuad(lamp, -d * 0.1f, dimLight(0xffff0000u, lightIntensity_), false, nearest);
+                    glowQuad(lamp, -d * 0.1f, dimLight(0xffff0000u, effectsIntensity()), false, nearest);
             }
         }
         break; // one mesh: the first stop's officer
@@ -3027,7 +3041,7 @@ void TrackPage::drawMarks(const gfx::Vec3& eye, const gfx::Vec3& forward, const 
             continue;
         const float angle = (x / z + 1) * 0.25f * 2 * kPi;
         auto quad = [&](size_t first, float half, uint32_t colour) {
-            colour = dimLight(colour, lightIntensity_);
+            colour = dimLight(colour, effectsIntensity());
             for (int corner = 0; corner < 4; ++corner) {
                 const float a = angle + static_cast<float>(corner) * kPi / 2;
                 const float cx = std::cos(a) * half, cy = std::sin(a) * half;
@@ -3103,8 +3117,46 @@ void TrackPage::loadSounds() {
                 soundData_.clear();
                 soundBank_ = {};
             }
-            return;
+            break;
         }
+    // The race's own banks for the weather and the hits (0x413bc0): rain
+    // (entry 4, 0x41447d) and Gen3d, the 3D one as the track's (entry 2,
+    // 0x414246; Gen without 3D sound).
+    loadEffectBank(rainSounds_, {"GameData/Audio/SFX/rain.bnk"});
+    loadEffectBank(hitSounds_, {"GameData/Audio/SFX/Gen3d.bnk", "GameData/Audio/SFX/Gen.bnk"});
+}
+
+void TrackPage::loadEffectBank(EffectBank& b, const std::vector<std::string>& names) {
+    if (!b.data.empty())
+        return; // the same for every track and sky
+    for (const std::string& name : names)
+        for (const FileRef& f : files_.files())
+            if (lower(f.name) == lower(name)) {
+                if (files_.read(f, b.data) || parseSoundBank(b.data, b.bank)) {
+                    b.data.clear();
+                    b.bank = {};
+                    break;
+                }
+                return;
+            }
+}
+
+// A sound of one of the race's banks, once (0x4182b0): the volume 0-127
+// and the pan byte (0 left, 64 ahead, 127 right; soundPan).
+void TrackPage::playEffect(EffectBank& b, int slot, int volume, int pan) {
+    if (!mixer_ || b.data.empty() || slot < 0 || slot >= static_cast<int>(b.bank.slots.size()) ||
+        !b.bank.slots[size_t(slot)])
+        return;
+    auto& sound = b.decoded[slot];
+    if (!sound) {
+        sound = std::make_shared<audio::Sound>();
+        if (decodeBankSound(b.data, *b.bank.slots[size_t(slot)], *sound))
+            sound = std::make_shared<audio::Sound>();
+    }
+    if (sound->samples.empty() || volume <= 0)
+        return;
+    const int p = std::clamp((pan - 64) * audio::kMaxPan / 63, -audio::kMaxPan, audio::kMaxPan);
+    mixer_->play(sound, audio::SoundType::Effects, std::min(volume, 127) * audio::kMaxVolume / 127, p, false);
 }
 
 void TrackPage::stopSounds() {
@@ -3241,6 +3293,91 @@ void TrackPage::hitWall(bool fast) {
     hitText_ = text;
 }
 
+void TrackPage::tickCarEffects(uint32_t tick) {
+    const int n = static_cast<int>(collision_.road.size());
+    const bool dumped = !carDump_.empty();
+    auto velocityOf = [&](const ComputerCar& c) -> ParticleVec {
+        return dumped ? c.velocity : aiVelocity(collision_, c.ai);
+    };
+    // The hits between cars (0x42ac40, type 5): sparks and dust at the
+    // point, the smoke started, and the hit's sound (category 5, material
+    // 5) from Gen3d.bnk at the camera's distance.
+    for (const AiHit& h : carHits_) {
+        if (h.car >= cars_.size())
+            continue;
+        ComputerCar& c = cars_[h.car];
+        const ParticleVec v = velocityOf(c);
+        carHitParticles(particles_, h.point, c.at, v, h.strength, tick, particleRandom_);
+        startCarSmoke(c.smoke, h.strength, !c.ai.racer && !c.ai.cop, h.point, c.at, c.right, c.up, c.forward);
+        if (h.strength > 5) {
+            char text[120];
+            std::snprintf(text, sizeof text, "car hit: car %zu, strength %.1f%s", h.car, h.strength,
+                          c.smoke.timer > 0 ? ", smoking" : "");
+            hitText_ = text;
+            // Queued at strength x 0.25 (0x5372e0), sound_play's slot by
+            // that x 127 / 10; the volume only by the distance.
+            const int loudness = std::min(static_cast<int>(h.strength * 0.25f * 127.0f / 10.0f), 127);
+            const int slot = carHitSoundSlot(loudness, hitSoundLast_, effectSoundRandom_);
+            const ParticleVec d{h.point[0] - eye_[0], h.point[1] - eye_[1], h.point[2] + eye_[2]};
+            // Its azimuth from the camera (0x410d30: across its right, along
+            // its forward; the track's z is the page's -z).
+            const float across = d[0] * std::cos(yaw_) - d[2] * std::sin(yaw_),
+                        ahead = d[0] * std::sin(yaw_) + d[2] * std::cos(yaw_);
+            const uint32_t azimuth = static_cast<uint32_t>(std::lround(std::atan2(across, ahead) / (2 * kPi) * 65536.0)) & 0xffff;
+            playEffect(hitSounds_, slot, hitSoundVolume(soundDistance(d)), soundPan(azimuth));
+        }
+    }
+    carHits_.clear();
+    const bool weather = variant_ >= 2;
+    for (ComputerCar& c : cars_) {
+        const ParticleVec v = velocityOf(c);
+        // The hit's smoke. The game's spin (+0xE4) is a vector in the world,
+        // turns a second; the page's car spins by its yaw, roll and pitch
+        // rates about its up, forward and right.
+        ParticleVec spin{};
+        for (size_t k = 0; k < 3; ++k)
+            spin[k] = c.up[k] * c.ai.yawRate + c.forward[k] * c.ai.rollRate + c.right[k] * c.ai.pitchRate;
+        carSmokeTick(particles_, c.smoke, c.at, c.right, c.up, c.forward, v, c.ai.airTicks > 0, c.up[1], spin[0],
+                     spin[2], tick, particleRandom_);
+        // The wheels (car_spiked_effects 0x42a560): nothing in the air or
+        // tipped. A dump's cars as it has them; the computer's from their
+        // box: each wheel's point (0x4299a0) the car's place a 32nd of a
+        // second on (0x537228) plus x 0.75 of the half width (0x537218),
+        // the half height down and x 0.5 of the half length (0x537220)
+        // along its rows; the surface under it; the weather (+0x160,
+        // car_road_contact_task 0x4a08c0) the race's kind, none under
+        // cover; and no skid (the computer's cars here have no tyres).
+        if (!dumped && (c.ai.airTicks > 0 || c.up[1] < 0.9f))
+            continue;
+        const float speed = std::max(std::fabs(v[0]), std::fabs(v[2])) + 0.25f * std::min(std::fabs(v[0]), std::fabs(v[2]));
+        int carWeather = c.weather;
+        if (!dumped) {
+            const int slice = n > 0 ? static_cast<int>(std::floor(c.slice)) % n : -1;
+            carWeather = weather && weatherStarted_ && !(slice >= 0 && pointCovered(collision_.road[size_t(slice)], c.at))
+                             ? weather_.setup().kind
+                             : 0;
+        }
+        const std::array<float, 3>& half = carModels_[size_t(c.model)].halfSize;
+        for (int w = 0; w < 4; ++w) {
+            ParticleVec at = c.wheelAt[size_t(w)];
+            int surface = c.wheelSurface[size_t(w)];
+            float level = c.skid[size_t(w)];
+            if (!dumped) {
+                const float x = (w == 0 || w == 3 ? -0.75f : 0.75f) * half[0], z = (w < 2 ? 0.5f : -0.5f) * half[2];
+                for (size_t k = 0; k < 3; ++k)
+                    at[k] = c.at[k] + v[k] * 0.03125f + c.right[k] * x - c.up[k] * half[1] + c.forward[k] * z;
+                int block = -1;
+                size_t index = 0;
+                surface = roadPolygonAt(at, block, index) ? roadSurface(track_.blocks[size_t(block)], index) : 0;
+                level = 0;
+            }
+            if (wheelSmokes(w, level, surface, carWeather))
+                tyreSmoke(particles_, w, at, v, c.right, tick, particleRandom_);
+            wheelSpray(particles_, w, level, surface, carWeather, at, v, c.right, speed, tick, particleRandom_);
+        }
+    }
+}
+
 // The particles at the game's rate: each 64 Hz tick the hits waiting,
 // then the particles' step (0x4cb2c0 runs after the cars in the "Sc64"
 // list). Not more than a second's worth at once.
@@ -3258,18 +3395,16 @@ void TrackPage::tickParticles(uint64_t nowMs) {
                        {eye_[0], eye_[1], -eye_[2]}, static_cast<int>(particleTick_), weatherRandom_);
         weatherStarted_ = true;
     }
+    particles_.direct3d = direct3d_;
     for (; particleTick_ < target; ++particleTick_) {
         const uint32_t tick = static_cast<uint32_t>(particleTick_);
         for (const WallHit& hit : pendingHits_)
             wallHitParticles(particles_, hit, tick, particleRandom_);
         pendingHits_.clear();
-        // The tyres' smoke (0x42a480, from the cars' task before the
-        // particles' step), for the cars a dump holds as it has them.
         if (computerCars_)
-            for (const ComputerCar& c : cars_)
-                for (int w = 0; w < 4; ++w)
-                    if (wheelSmokes(w, c.skid[size_t(w)], c.wheelSurface[size_t(w)], c.weather))
-                        tyreSmoke(particles_, w, c.wheelAt[size_t(w)], c.velocity, c.right, tick, particleRandom_);
+            tickCarEffects(tick);
+        else
+            carHits_.clear();
         particles_.step(tick, particleRandom_);
         // The weather's drops (0x4dd5e0 works every other tick), round the
         // camera, hidden as they come back into the box under cover.
@@ -3406,6 +3541,9 @@ void TrackPage::prepareParticles(const gfx::Vec3& eye, const gfx::Vec3& forward,
             }
         }
         const gfx::TextureId texture = particlePicture(p.kind);
+        // Under Direct3D with the effects intensity under 1, the kinds with
+        // flag bit 0 (added) dimmed (0x4cbf2f).
+        const uint32_t colour = t.flags & 1 ? dimParticle(p.colour, effectsIntensity()) : p.colour;
         std::array<float, 2> inset{0.015625f, 0.015625f};
         if (auto it = particlePictureSizes_.find(texture); it != particlePictureSizes_.end())
             for (int i = 0; i < 2; ++i)
@@ -3418,10 +3556,10 @@ void TrackPage::prepareParticles(const gfx::Vec3& eye, const gfx::Vec3& forward,
             v.uv[0] = kUv[k][0] == 0 ? inset[0] : 1 - inset[0];
             v.uv[1] = kUv[k][1] == 0 ? inset[1] : 1 - inset[1];
             v.normal[1] = 1;
-            v.color[0] = static_cast<uint8_t>(p.colour >> 16);
-            v.color[1] = static_cast<uint8_t>(p.colour >> 8);
-            v.color[2] = static_cast<uint8_t>(p.colour);
-            v.color[3] = static_cast<uint8_t>(p.colour >> 24);
+            v.color[0] = static_cast<uint8_t>(colour >> 16);
+            v.color[1] = static_cast<uint8_t>(colour >> 8);
+            v.color[2] = static_cast<uint8_t>(colour);
+            v.color[3] = static_cast<uint8_t>(colour >> 24);
         }
         const bool added = (t.flags & 1) != 0;
         if (particleRuns_.empty() || particleRuns_.back().texture != texture || particleRuns_.back().added != added)
@@ -3518,8 +3656,26 @@ void TrackPage::prepareWeather(const gfx::Vec3& eye, const gfx::Vec3& forward, c
     view.rightEdge = kWeatherScreen.right;
     view.top = kWeatherScreen.top;
     view.bottom = kWeatherScreen.bottom;
+    // A camera cut (0x4dece0: 0x4dd230 before the move, done here before
+    // the drawing), then the rain's tails (0x4dd510; the page's camera is
+    // never in a car).
+    if (cameraCut_) {
+        const int slice = roadSliceAt();
+        const bool covered =
+            slice >= 0 && pointCovered(collision_.road[size_t(slice)], {eye[0], eye[1], -eye[2]});
+        weather_.cut(view.eye, covered, weatherRandom_);
+    }
+    if (weather_.setup().kind == 1)
+        weather_.tails(false, cameraCut_);
+    cameraCut_ = false;
     std::vector<WeatherPoly> polys;
-    weather_.draw(view, weatherActive_, sfxLevel_ != 2, weatherRandom_, polys);
+    weather_.draw(view, weatherActive_, sfxLevel_ != 2, weatherRandom_, polys, effectsIntensity());
+    // The rain's splash sounds (0x414f90): rain.bnk's sound 0-3, volume
+    // 90-119, at a random azimuth.
+    for (int i = weather_.takeSplashSounds(); i > 0; --i) {
+        const SplashSound s = splashSound(effectSoundRandom_);
+        playEffect(rainSounds_, s.sound, s.volume, soundPan(s.azimuth));
+    }
     // Drops first, then splashes (the game's two lists, 0x4bc375 and
     // 0x4bc39b).
     std::stable_partition(polys.begin(), polys.end(), [](const WeatherPoly& p) { return !p.splash; });
@@ -3605,6 +3761,7 @@ void TrackPage::toBlock(int block) {
     eye_ = {c[0], c[1] + 3.0f, -c[2]};
     yaw_ = std::atan2(next[0] - c[0], next[2] - c[2]);
     pitch_ = -0.08f;
+    cameraCut_ = true;
 }
 
 void TrackPage::handleEvent(const Event& ev) {
@@ -3641,6 +3798,7 @@ void TrackPage::handleEvent(const Event& ev) {
                         if (cars_[i].ai.cop)
                             followCop_ = static_cast<int>(i);
                 }
+                cameraCut_ = true;
             } else {
                 dispatchCop();
             }
@@ -3690,7 +3848,10 @@ void TrackPage::handleEvent(const Event& ev) {
             }
             break;
         case 'p': hitWall((ev.mods & keymod::Shift) != 0); break;
-        case 'i': lightIntensity_ = lightIntensity_ <= 0.25f ? 1.0f : lightIntensity_ - 0.25f; break;
+        case 'i':
+            lightIntensity_ = lightIntensity_ <= 0.25f ? 1.0f : lightIntensity_ - 0.25f;
+            skyChanged_ = true; // the added clouds' colours
+            break;
         case 'm':
             marksShown_ = !marksShown_;
             if (!marksShown_)
@@ -4237,7 +4398,8 @@ void TrackPage::update(uint64_t nowMs) {
             line += std::string("  near: ") + what;
         }
         if (lightIntensity_ < 1)
-            line += "  lights " + std::to_string(static_cast<int>(lightIntensity_ * 100)) + "%";
+            line += "  effects intensity " + std::to_string(static_cast<int>(lightIntensity_ * 100)) + "%" +
+                    (direct3d_ ? "" : " (Direct3D only)");
         if (sfxLevel_ != 0)
             line += sfxLevel_ == 1 ? "  effects low" : "  effects off";
         if (!reflections_)
@@ -4311,7 +4473,7 @@ void TrackPage::update(uint64_t nowMs) {
         if (!collisionError_.empty())
             lines.push_back(collisionError_);
     }
-    lines.push_back("PgUp/PgDn: track  WASD/arrows/drag: move  N/B: block  1-3: detail  H: sky  I: lights  P: wall hit  E: headlights  J: cars  C: police orders (Shift: follow)  Z: reflections  Q: effects  U: mirror  T V L O G X F Y M: toggles (Shift+Y: Direct3D look)");
+    lines.push_back("PgUp/PgDn: track  WASD/arrows/drag: move  N/B: block  1-3: detail  H: sky  I: effects intensity  P: wall hit  E: headlights  J: cars  C: police orders (Shift: follow)  Z: reflections  Q: effects  U: mirror  T V L O G X F Y M: toggles (Shift+Y: Direct3D look)");
     for (size_t i = 0; i < lines.size(); ++i) {
         const int y = i + 1 == lines.size() ? kFrameH - font::kLineHeight - 4 : 4 + static_cast<int>(i) * font::kLineHeight;
         for (int yy = y - 2; yy < y + font::kLineHeight - 1; ++yy)

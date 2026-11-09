@@ -366,7 +366,9 @@ below are the game's, 64 a second (`0x7d3684`); a particle's life is
 counted every other one.
 
 **Templates.** A kind's 128 bytes at `0x560b64` + kind × 128 (static
-data; 14 kinds, those of the wall hits here). What the code reads:
+data; 14 kinds, the wall hits' here; the other kinds the cars make are
+under Wheel spray, below, and all 13 that aren't empty are in
+`particles.cpp`). What the code reads:
 
 | Offset | Read by | Meaning | 2 dust | 3 sparks | 6 smoke |
 |---|---|---|---|---|---|
@@ -468,8 +470,12 @@ flags; quads are sorted by depth (`0x4c7610`) with the scene's.
   35.1 for a half size of 36.1). Until November 2026 the Track page
   took A as sin × half, which mirrors the picture across its diagonal.
 - With renderer flag bit 6 (`0x7a3a58`, Direct3D) set and the effects intensity
-  under 1, kinds with `+0x58` bit 0 are dimmed as the lights are
-  (`0x4cbf2f`; [frd.md](frd.md), Lights).
+  under 1, kinds with `+0x58` bit 0 are dimmed (`0x4cbf2f`): each byte
+  of the colour × round(f × 65536) >> 16 (`0x540448`, 65536.0), not
+  quite the lights' k = min(round(f × 65536), 0xFFFF) >> 8, byte × k >>
+  8 ([frd.md](frd.md), Lights). The screen-space quads of `0x4cb750`
+  (below) are dimmed the same way. The Track page does this in its
+  Direct3D look (Shift+Y; `dimParticle`).
 
 **Pictures** (`0x4cb590`): `SPnn` of `GameData/Render/pc/sfx.fsh` for
 kind nn by day, `SNnn` by night. The first account here had them the
@@ -570,9 +576,8 @@ car's velocity (`+0xA4`) made a unit vector (`0x4972f0`, left at 0 when
 it is 0), b the car's right row (`+0xC0`) for wheels 1 and 2 and its
 negative for 0 and 3, whose particles also spin the other way, c the
 velocity × 0.5 (`0x540408`). The same table's `+0x0C` kind is what
-`0x42a280` throws from each wheel on dirt and grass (not followed).
-`car_smoke_tick` (`0x42b480`) is the hit's smoke (physics.md, +0x8D4),
-another emitter.
+`0x42a280` throws from each wheel (Wheel spray, below).
+`car_smoke_tick` (`0x42b480`) is the hit's smoke (Car hits, below).
 
 In `e1-t8s0` the kind-6 call (`0x42a543`, `-count` and `-watch`) ran 42
 times: twice for the player's car at 49.0 s, at the start, and 40 times
@@ -606,8 +611,10 @@ are clip times, m:ss, with the race clock where it helps):
   truck. A large bright pixelated puff at the contact, black smoke
   round the truck for about a second, and fans of thin yellow streaks
   under it for under half a second, as `Summit_Day` 4:45's. A car hit,
-  not a wall's: which code makes these (the hits between cars) isn't
-  followed here.
+  not a wall's: the impacts task's hit type 5 (Car hits, below). At
+  1:51.6 the puffs are big, speckled and grey-brown, as `SP02` grows
+  for kind 2 (0.75 to 3.75), with the yellow streaks of a burst under
+  them.
 - `Rain` 1:43-1:51 (race 1:38-1:46), 1:25 (race 1:20): dark speckled
   clumps beside the car where its wheels run on the verge. In the
   weather the surface table (below) gives the verges kind 11, whose
@@ -698,8 +705,140 @@ smoke is made (Tyre smoke, above). Dry: kind 2 (dust) on surfaces 5 and
 surfaces 1, 4, 6, 7, 10, 11, 12, 11 on 2, 3, 5 and 13, 1 still on 9
 and 15. Kinds 10 and 11 (templates at `0x560b64`): 10 lives 32 ticks,
 size 0.75 growing by 4, colour `7FFFFFFF` fading out; 11 lives 64,
-size 0.7 shrinking by 0.5, `FFFFFFFF` fading out. The Track page
-doesn't make these yet (it has no cars on verges).
+size 0.7 shrinking by 0.5, `FFFFFFFF` fading out. The whole table, by
+row (level, speed, range, kind, tyre smoke, landing kind `+0x14`), read
+November 2026:
+
+| Surface | Dry | Rain or snow |
+|---|---|---|
+| 0, 14 | 0, 0, 0, none | the same |
+| 1, 7, 10, 12 | 0, 0, 0, none, smoke, 3 | 0, 5, 20, kind 10, 3 |
+| 2 | 0, 5, 20, kind 4, 2 | 0, 5, 20, kind 11, 11 |
+| 3 | 0, 0, 0, kind 5, 2 | 0, 0, 0, kind 11, 11 |
+| 4, 11 | 10, 5, 20, kind 12, smoke, 3 | 0, 5, 20, kind 10, 3 |
+| 5, 13 | 0, 3, 20, kind 2, 2 | 0, 0, 0, kind 11, 11 |
+| 6 | 0, 5, 20, kind 10, 0 | the same |
+| 8 | 0, 0, 0, none, 1 | the same |
+| 9, 15 | 0, 8, 20, kind 1, 1 | the same |
+
+`+0x18` is a float (0.01-0.12) and `+0x1C`, `+0x20` the skid sounds'
+materials (`+0x990` + wheel, `0x42a3ef`, `0x42a35b`), not followed.
+
+**Wheel spray** (`0x42a280`, November 2026). Each 64 Hz step, for each
+wheel of a car on the ground and upright, after the tyre smoke
+(`car_spiked_effects` calls `0x42a480`, then `0x42a280`): the row for
+the surface under the wheel (`0x429b40`) and the car's weather
+`+0x160`; nothing for kind 0. With the wheel's skid level (`+0x94C`)
+over the row's `+0x00` the kind is thrown; else, when the row has a
+speed and a range and the car's `+0xB8` is over the speed, it is thrown
+and the skid level set to (speed − row speed) / range × 5, held to 0-5
+(`0x537268`), for the skid sounds. So in the wet every road surface
+sprays kind 10 above 5 m/s whether the car skids or not, and the
+verges 2 and 13's kind 11 only while skidding (2 also for speed).
+`0x4cb010` (kind, wheel, the wheel's road point): the kind's count
+(`+0x00`) of `0x4ca850`, at scale |`+0xB8`| / the kind's `+0x0C` (30
+for 1, 2, 4, 5, 11; 50 for 10; 15 for 12), plus 0.5 for a rear wheel of
+a car with `+0x594` set (not kind 12), held to 1, or 1 when `+0x0C` is
+0; along the velocity made a unit vector, across ± the right row,
+inheriting half the velocity; a left wheel's particles spin the other
+way. Kind 10 isn't made at all with a software renderer (`0x7a3a58` &
+6). The wheel's road point is `0x4299a0`'s (from the impacts task): the
+car's place a 32nd of a second on (velocity × 0.03125, `0x537228`) plus
+(± 0.75 × the half width, − the half height, ± 0.5 × the half length)
+(`0x537218`, `0x537220`) along the car's rows, wheel 0 front left, 1
+front right, 2 rear right, 3 rear left. The car's weather
+(`car_road_contact_task` `0x4a08c0`, Sc32) is the race's kind
+(`0x4dcdd0`: `0x8ca22c` when `g_weather`) and 0 when the car is under
+cover (`0x420bf0`).
+
+Kinds 10 and 11 (and 1 and 4) also have `+0x64` and `+0x68`: drawn
+within 3 of the camera in the main view (`0x4cbec3`), at High Special
+Effects and not in the car (`0x79c4a0`), such a particle is turned into
+that many screen-space splats (`0x4ca500`, 200 slots a view at
+`0x7f0bd0`, life `+0x68` less a random part, drawn by `0x4cb750`) and
+freed: mud or water on the lens. The Track page doesn't make these.
+
+The templates of the other kinds the cars make (read November 2026;
+count, life, throttle; colour fading by; reach): 1 (1, 64, 0;
+`80FFFFFF` by `20000000`; 90), 4 (5, 64, 0; `FFFFFFFF`, no fade; 100),
+5 (1, 64, 0; `E4FFFFFF`; 90), 7 (1, 8, 0; `FFFFFFFF` by `FF007FFF`,
+added; 150), 8 (1, 56, 2; `FFFFFFFF` by `FF007F7F`, added; 120), 9 (1,
+64, 2; `FFFFFFFF` by `FF000000`; 200), 10 (1, 32, 1; `7FFFFFFF` by
+`7F000000`; 120), 11 (1, 64, 0; `FFFFFFFF` by `FF000000`; 100), 12 (2,
+128, 2; `FFFFFFFF` less a random part of `00007FFF` at birth; 90), 13
+(3, 128, 0; 90). Kind 12's `+0x3C` (`0x4cb556`): with the angle over
+0.25 the spin becomes −|spin|, under −0.25 +|spin|. The random part
+(`+0x54`, `0x4caa8a`) is taken off byte by byte, alpha first, each
+round(random × the byte).
+
+**On the Track page** (`wheelSpray`, `wheelParticles`): every car,
+every surface; a dump's cars as the dump has them, the computer's cars
+with the wheel points above, the surface of the road polygon under
+each point, the weather as `0x4a08c0` sets it and a skid level of 0
+(they have no tyres), so they spray only for their speed: in the wet
+every car faster than 5 m/s trails kind 10 from all four wheels; the
+verges' kind 11 (`Rain` 1:25) would need a skid. In the page's weather
+on Hometown behind a police car (Shift+C): white speckled trails from
+its wheels (`g2/spray-2.png`).
+
+**Car hits** (`car_impacts_task` `0x42b900`, November 2026). The cars'
+task (Sc64) after the hits (`car_collisions_task` `0x4311d0`, Sc32):
+for a car in play, its wheels' points (`0x4299a0`), the computer's
+reaction (`0x406120`, `0x404a00`), then `0x42b780`: `car_smoke_tick`,
+`0x42ac40` (the impact's effects), `car_spiked_effects` (tyres) and
+`0x42a7d0`. `0x42f280` leaves a hit as `+0x168` the strength, `+0x16C`
+the other car, `+0x170` 0x50005 and `+0x178` the point (physics.md).
+`0x42ac40` for it, when the strength is over 5 (`0x42ac9d`, compared as
+the float's bits):
+- the drawn body's jolt (`0x4295a0`, sizes 0x23 and 24-31),
+- a burst of sparks (`0x4cac20`) at the point, at the strength × 2
+  (`0x5372d8`): 30 sparks from strength 10, fewer below,
+- one dust puff (`0x4cae00`, kind 2) there,
+- the camera director's interest 4 (`0x4bd9d0`),
+- a sound queued (category 5 from `0x553780`, material 5, the low byte
+  of `+0x170`, loudness strength × ¼, `0x5372e0`), played by
+  `sound_play` (`0x416d90`) on voice 0x1F from `Gen3d.bnk` (`Gen.bnk`
+  without 3D sound) at the slot `sound_impact_slot` (`0x4149e0`) picks
+  from the loudness × 127 / 10: 33 over 90, 32 over 70, 37 over 50, 34
+  over 25, else 30; the same slot twice in a row becomes another (32 →
+  37 or 34, 30 → 34, 34 → 30 or 37, 37 → 30 or 34, at random; the last
+  kept at `0x552d80`). Its volume is the distance's only: 127 × (5625 −
+  2d²) / 5625, none from 53 units, d the listener's distance by
+  `0x410cb0` (the larger of |x| and |z| plus a quarter of the smaller,
+  then the same with |y|); its azimuth by `0x410d30`;
+- the hit's smoke: when the car is traffic (`+0x200` bit 0x10) or the
+  strength is over 30, and none is running, `+0x8D4` = |round(strength
+  × 0.15)| (`0x5372d0`) and `+0x8D8` the point in the car's frame × 0.6
+  (`0x4e0050`). `car_smoke_tick` (each step): `+0x8D4` counts up; a
+  particle at the point back in the world, kind 6 (white) up to 16,
+  kind 9 (`SP09`: black smoke) up to 64, then `0x4caea0`'s fire (kinds
+  9 and 7 rising, a burst at speed 20 one time in two in the first 8
+  steps of each 48, and seven times in eight a kind 8 at scale (step %
+  48) / 48 inheriting half the velocity, `0x5403e8`, `0x5403f0`). A car
+  whose data has `+0x380` bit 0x20 (`0x4396e0`) makes none. It stops
+  when the car is on the ground (`+0x164` 0), upright (`+0x10C` ≥ 0.5)
+  and its spin's x and z (`+0xE4`, `+0xEC`) are both under 0.2
+  (`0x537310`).
+
+So `Rain` 1:51's truck (traffic) smokes from its first hit over 5:
+white for a few steps, then black, over the big kind-2 puffs and the
+burst's streaks. Under Direct3D kind 7 starts at `7F7F7F7F` fading by
+`7F003F7F` (`0x4cb670`, from the race's set-up: the bytes
+`0x560f30`-`0x560f37`).
+
+**On the Track page** (`carHitParticles`, `startCarSmoke`,
+`carSmokeTick`, `carFire`, `carHitSoundSlot`): `aiCollide` hands back
+each car a hit gave a strength, with the point (`AiHit`), without
+changing what the hit does to the cars; the next particle step makes
+the sparks, dust and smoke, and plays the sound at the camera's
+distance and azimuth. The page's police and racers aren't traffic. Its
+cars' spin is their yaw, roll and pitch rates about their own axes, put
+into the world for the stop test; the status line names the last hit.
+In `g2/crash-3.png` (Hometown in the weather, a racer and a police car
+at a roadblock, strength 8) the burst's yellow streaks sit at the
+contact and a fire burns on the racer from an earlier, longer hit; the
+page's cars hit softer than `Rain`'s truck (up to strength 8 against
+the truck's head-on 35 mph), so their dust puffs are smaller.
 
 On the Tracks page a fast hit at 28 units (Summit block 196) gives a
 small orange cluster, then orange dots and short streaks spreading
@@ -797,8 +936,15 @@ below, at the top with x and z at random; above, at the bottom. It is
 then marked hidden if the camera is under cover (`0x420d60`: the
 covered code 2 at the camera's slice or two on, by which side of the
 slice's plane it is), and stays hidden until it wraps again out of
-cover. (`0x4dd510`, which clears the hidden marks when the camera's
-kind changes, isn't followed.)
+cover. `0x4dd510` (from the pass before the rain is drawn, not the
+snow) doesn't touch the hidden marks: it clears byte +9 of each drop's
+record (`0x8c0bf1`), the streak's tail mark, when the camera has gone
+into or out of the car (camera mode 2-4 with `0x79c4a0` set, kept per
+view at `0x8ca2b4`) or has just changed (`0x552ff4`, set by the camera
+code and cleared once the view is drawn, `0x4213b0`). On a camera
+change the pass also calls `0x4dd230` before moving the drops: unless
+the camera is under cover, every drop back at random in the box with
+its tail mark cleared; the splashes cleared either way.
 
 **Drawing.** The pass sets the view up again with angle 0x78, 120°
 (`0x4dbda0` → `0x4bed20` → `0x4dbce0`: half angles 60 and 48 whole
@@ -847,8 +993,21 @@ way. `SPL1` (rain) is a grey ring, `SPL2` (snow) a grey puff, both
 added.
 
 With the Direct3D renderer (flag 0x40) and the effects intensity
-(`0x6fbc38`) under 1 the colours are dimmed as the lights' are; not on
-the Track page, which draws as the 3dfx path.
+(`0x6fbc38`) under 1 the colours are dimmed as the lights' are (k =
+min(round(f × 65536), 0xFFFF) >> 8, each byte × k >> 8): the drops'
+(`0x4de700`, `0x4de070`) and the splashes' (`0x4ddb40`). The Track
+page does this in its Direct3D look (Shift+Y, key I).
+
+**The splash's sound** (`0x4de989`): each splash `0x4de700` makes
+(rain only) calls `0x414f90`(view, −1): sound random & 3 of the race's
+bank entry 4 (`rain.bnk`, `0x571154`), volume 90 + random % 30, and an
+azimuth random % 0xFFFF (in split screen 0x3FFF or 0xC000 by the view),
+in that order of random numbers, through `sound_start` (`0x4182b0`),
+which scales the volume by the effects volume (`0x6fbbf4` × 55 >> 14,
+as for every bank but its specials) and turns the azimuth into a pan
+byte (stereo: 64 ahead, 127 a quarter turn right, 0 three quarters).
+Splashes come only within 3 of the camera with a slot free, so the
+sound is a patter of a few a second.
 
 **Against footage** (November 2026, `Rain`, `Snow`, `Night`):
 - `Rain` 0:10-0:22 (race 0:05-0:17): faint thin grey streaks, short
@@ -869,7 +1028,24 @@ the Track page, which draws as the 3dfx path.
 - `Rain`: the clip's 143 s are within Hometown's first cycle (60 s on
   from the set-up, then 75 s fading off), so from about race 1:00 fewer
   streaks should fall; the clip's streaks are too faint at its
-  compression to count, so this isn't checked.
+  compression to count. Checked in the game instead (November 2026,
+  `g2-runs/cyc`: `nfs-host`, Hometown in the weather, `0x6fd4cc` poked
+  to 1 at `0x474ca0`, the player's car left at the line; `-watch
+  0x4ded3d`, the count `0x4dd330` returns in eax, with `-watchread` of
+  the step `0x7d3684`, the share drawn `0x564288`, the total `0x8ca234`
+  and the times `0x8ca1f0`-`0x8ca1fc`; 529 samples to step 22295,
+  348 s). The times are 3840, 8640, 13760 and 19840 steps (60, 135, 215
+  and 310 s), the total 400, and the cycle starts at step 0 (the
+  set-up): 400 to step 3795; 399 at 3844, 195 at 6294, 8 at 8542, 0 from
+  8649 to 13738; 2 at 13777, 186 at 16575, 397 at 19794; 400 again from
+  19829 on, the next cycle begun. Each is the code's (8640 − step) × 400
+  / 4800 or 400 − (19840 − step) × 400 / 6080, to the drop. The share
+  drawn (`0x4dd4c0`: the drops looked at and not hidden, × 100 / 400)
+  follows it: 100%, 48%, 0%, back to 100%. So `Rain`'s race clock
+  1:00-2:15 runs within the fade from 400 drops to none.
+- `rain.bnk` (`bnk-info`): sounds 0-3, the splashes', are 0.01-0.13 s
+  at 22050 Hz; 4 is a 1.3 s loop and 6 and 7 four seconds at 11025 Hz
+  (`sound_start`'s specials, played at the full effects volume).
 - `Night` 1:43-2:10 (the Summit by night in the weather, race 0:00-
   0:28): no snow falls; Summit's night weather file sets snow only on
   slices 400-1290, and the start is outside them.
@@ -883,6 +1059,9 @@ is put back into the world on the line through its pixel at the
 polygon's depth, so the page's own 90° projection lands it on that
 pixel. Its frame rate under software Vulkan is a few frames a second,
 so its streaks are longer than the clip's (the tail lags by frames).
-The rain's sound, the D3D dimming and `0x4dd510` aren't done; the
-random numbers are Reluva's.
+The splashes play their sounds (`rain.bnk`, with the page's own random
+numbers, so a random pan); a camera jump (N, B, R, Shift+C) is a camera
+change (`Weather::cut`, `Weather::tails`; the page's camera is never in
+a car); the Direct3D look dims the drops and splashes. The random
+numbers are Reluva's.
 

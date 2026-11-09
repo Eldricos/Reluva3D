@@ -136,7 +136,8 @@ also decoded (October 2026, from a survey of all nine tracks):
   (`0x491223`); size and blinking stay. The same factor dims the
   headlight pass and other effects. And no lights are drawn when the
   Special Effects option at `0x6fbc30` is 2, Off (`0x4911b7`). The
-  Tracks page dims them so with key I (`dimLight`).
+  Tracks page dims them so with key I (`dimLight`), only in its Direct3D
+  look (Shift+Y), as the game does.
 
   The slider is on the Advanced Graphics screen (`advgrph.mnu`) and the
   race's pause menu graphics (`psgraph.mnu`), `codelink=SFX_INTENSITY`;
@@ -1845,7 +1846,11 @@ replay of `d7-watch2` is 0.60 m rms (0.66; rails 1,117, slow 59, slide
 
 **The hits between cars** (November 2026; physics.md, The hit's
 arithmetic). The page's computer cars now run `car_collisions_task`'s
-box test and impulse each even step (`aiCollide`). Checked against the
+box test and impulse each even step (`aiCollide`). With an optional `hits`
+list, `aiCollide` reports each car a hit gave a strength, with the
+strength and the point (`AiHit`; `CarBox::hitPoint` is the point
+`0x42f280` keeps at +0x178), for the impacts task's particles and
+sound; what the hit does to the cars is unchanged. Checked against the
 game: `t6-log`'s run again with `-watch 0x42f280` (A, B, both cars'
 velocities and yaw spins, the point) and the car records dumped every 16
 ms from 63.5 to 64.7 s (`e6-runs/hit`). In the whole run the only

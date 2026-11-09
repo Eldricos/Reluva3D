@@ -3316,12 +3316,20 @@ Found November 2026 from the code and run in `g3-cv0`, `g3-cv1`.
   pokes did) never pays that lap, so its race distance stays 0 and the
   computer driver's progress check (`0x409b70`) puts it 5 slices on
   every 0x180 steps from step 0x480 (tracks.md, Music laps, `e10-rs`).
+- **+0x160, the car's weather.** Set each Sc32 tick by
+  `car_road_contact_task` `0x4a08c0`: the race's weather kind (`0x4dcdd0`:
+  0x8ca22c when `g_weather`), and 0 when the car is under cover
+  (`0x420bf0`).
 - **+0x8D4, the hit's smoke timer.** An impact harder than 30 (5 for
   traffic; strength +0x168) starts it at strength × 0.15 (`0x42ad35`).
   Each tick (`0x42b480`, from the +0x61C task) it counts up and puts
   particles at the hit point (+0x8D8, car frame): kind 6 to 16, kind 9
   to 64, then `0x4caea0`. It stops when the car is back on its wheels
-  and its spin is under 0.2 (`0x42b64d`). While it runs, the count at +0x998
+  and its spin is under 0.2 (`0x42b64d`): on the ground (+0x164 0),
+  upright (+0x10C ≥ 0.5) and the spin's x and z (+0xE4, +0xEC) both
+  under 0.2 (`0x537310`). A car whose data has +0x380 bit 0x20
+  (`0x4396e0`) makes no smoke. Over 64 it is `0x4caea0`'s fire (col.md,
+  Car hits). While it runs, the count at +0x998
   that the sound code keeps (`0x41188f`) doesn't move. Not damage.
 - **`0x471270`**: the force-feedback jolt of an impact, for the car on
   the force-feedback device (`0x471dc0`): the hit point (+0x178) in the
