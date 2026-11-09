@@ -614,6 +614,8 @@ every step. +0x7C0, +0x4EC and +0x4F4 are dot products of it (`0x42cdd0`,
 +0x1A8 × 1024, chopped (`0x42cee9`). `car_ai_model` `0x408600` ramps the
 aim before the heading error. See frd.md "The world velocity".
 
+**Gravity and the body's tilt.** Gravity (`0x4a2a0c`) goes through the rows at +0x190, each × its own y. `0x4a0f30` (from `car_road_dots` `0x4a2690`) makes them the body's own rows (+0xC0, +0xCC, +0xD8) with the road's normal (+0x130) as the up, for a non-human car with +0x10C over 0.9 (`0x53c7f4`). The up part always applies. The forward part applies with the normal's y at least 0.87 (`0x5efdd8`) and the car upright (+0x10C over 0.9); with the normal's y under 0.87 the right and forward parts both apply. On the road, `car_on_road` sets the spins about the world's x (+0xE4 = normal.z − up.z) and z (+0xEC = up.x − normal.x), each held to ±0.5 turn/s, both 0 within 0.02 while upright (`0x53c83c`). `car_integrate_turn` (`0x4a2e20`) turns the rows by (+0xE4, +0xE8, +0xEC)/32 turns about the world's axes. `ai_integrate`'s damping loop: `0x56ec68` is 0 or 1.0, so it does nothing. See frd.md for the page's port.
+
 **The fields.** +0x7B0 the speed wanted (m/s, below). +0x7B8 the car's
 side offset on the road, +0x7B4 the side offset it wants, +0x7C8 its
 present aim, moved towards +0x7B4 by 0.2 a tick (`0x408870`). +0x7C0
@@ -3050,11 +3052,18 @@ the set-up record at `0x6fd52c` (`-dumpmem` of the record at 55 s,
   bumpiness (+0x930, set in `0x4294e0` from P +0x298) adds (r − 0.5) ×
   +0x930 × 0.1 to +0x920 and × 0.07 to +0x924 (× the set-up's
   Suspension Stiffness, set-up +0x50, in a single race or Hot Pursuit
-  off the network; `0x42aab4`-`0x42ab62`). A camera routine reads the
-  same two (`0x421730`, from `0x422520`; not followed further): +0x924 to a turn about z (`0x4ea820`), +0x920
-  plus the camera's own +0x50 to a turn about x (`0x4ea680`), in view
-  mode 1 with +0x920 doubled, otherwise with +0x924 halved, and halved
-  again over 60 m/s of road speed.
+  off the network; `0x42aab4`-`0x42ab62`). The camera reads the same
+  two in the **in-car and bumper views only** (Camera views, below):
+  `0x421730`, called from `0x422520` (`0x422537`) when the camera's
+  +0x104 is not 0, turns +0x924 into a turn about z (`0x4ea820`) and
+  +0x920 plus the camera's own +0x50 into a turn about x (`0x4ea680`),
+  multiplies them (`0x4e0280`, z then x) and multiplies the product
+  into the camera's rows +0x2C in place (`0x4217cc`-`0x4217d4`). With
+  +0x104 1 the pitch is doubled (2.0 at `0x536e0c`) and the roll kept;
+  otherwise (+0x104 2) the pitch is kept and the roll halved (0.5 at
+  `0x536e10`); either way the roll is halved again when the car's
+  +0x5A4 (road speed) is over 60 (`0x42177b`). So the view leans with
+  the body as it is drawn, the in-car view nodding twice as far.
   Run: `e12-tp*` (`e12-runs/tb.sh`: `e10-h7`'s start, Hometown, gas
   from 52 s, on the road, to 55 s; `0x4b951b`, just after the product,
   watched with the nine floats at edi, +0x920, +0x924 and +0x10C).
@@ -3109,6 +3118,68 @@ the set-up record at `0x6fd52c` (`-dumpmem` of the record at 55 s,
   out). The damping loop changed nothing: `0x56ec68` was 0 (the loop
   skipped) or, on 3-5 calls a car, 1.0 with `0x56ec78` = 1 (one pass
   × 1).
+
+### Camera views (the drawn tilts)
+
+Found November 2026 from the code and run in `g3-cv0`, `g3-cv1`.
+
+- **The camera objects.** Each view has one object per screen (two for
+  split screen) in the table `0x552ec8` (mode × 8 + screen × 4; modes
+  1-24, `0x5dda10`-`0x5e0ef4`); `0x5e10b0[screen]` points at the one in
+  use and its +0 is the mode. The camera's set-up `0x422cf0` clears
+  each object and fills it by mode through the jump table `0x422c88`
+  (+0x110-+0x118 the eye's offset along the car's right, up and
+  forward, +0x50 a pitch offset, +0x104 the tilt flag). Only three
+  modes set +0x104: mode 1 to 1 (`0x422ee0`, offset 0, 0.6, −1), mode
+  2 to 2 (`0x422f36`, offset 0, 0.6, +1, +0x50 0.03) and mode 10 to 1
+  (`0x4235f0`); all others 0, so they never call `0x421730`.
+- **Each camera tick** (`0x426450`, table `0x4263f0`) mode 1 runs
+  `0x4240c0` and mode 2 `0x424260`: both put the eye at the car's
+  position + its rows × the offset (the up offset × car +0x10C; the
+  bumper's forward offset is half the car's half length +0x11C,
+  `0x4242c2`) and copy the car's rows +0xC0 into the camera's +0x2C
+  (or `0x421570`'s turned copy while `0x79c4a0[screen]` is set, the
+  forward offset then negated; a look back, from the code alone), so `0x421730` tilts a
+  copy of the car's own rows.
+  In mode 1 `0x4240c0` sets +0x50 0 and the eye ±0.4 to the side by
+  the car's +0x9A8 (0 left, 1 right, 2 the middle) when `0x7922fc` is
+  set (written by `0x488a80`, which unpacks the cockpit art), else
+  +0x50 0.02, the side 0 and the forward offset half of +0x11C
+  (`0x424124`), as the bumper's.
+- **The view key.** `0x423b80` (from the input routine `0x4c4e40`,
+  `0x4c50fd`/`0x4c5128`, not in a replay) moves to `0x5e103c[mode]`,
+  a cycle built by `0x423a60` from the four view slots `0x6fbbc0`-
+  `0x6fbbcc` (mode numbers, 0 for an empty slot), which `0x472300`
+  takes from the options `0x6fbba8`-`0x6fbbb4` through the u16 list
+  at `0x55629e` (option 0-6 to mode 0, 1, 4, 3, 2, 5, 6). The defaults
+  (`0x4723f0`) are options 1, 2, 3, 0: modes 1, 4, 3 and no fourth.
+  Mode 10 is not in the list (an automatic view, like 8, 9 and 14 in
+  [col.md](col.md)); not checked further.
+- **Run** `g3-cv0` (`g3-runs/cv.sh`: `e12-tb`'s start, Hometown, gas
+  from 52 s, the view key `c` at 54, 57, 60, 63 and 66 s; `-watch`
+  `0x423b80` and `0x421730` with the camera's mode, +0x104, +0x50, the
+  current object `0x5e10b0`, the player's +0x920, +0x924, +0x5A4;
+  dumps of `0x6fbbb0` and `0x5e1038` at 53 s; frames every 40 from
+  frame 2150, kept outside the repo). The slots read 1, 4, 3, 0 and the
+  cycle 1 → 4 → 3 → 1. The race began in mode 1 and the key went 1 →
+  4 → 3 → 1 → 4. `0x421730` ran once a frame (about every 45 ms,
+  `[esp]` `0x42253c`, object `0x5e0dd8`, +0x104 1, +0x50 0) from
+  45.6 s to 54.0 s and from 60.05 s to 63.0 s, exactly while mode 1
+  was on, and never in modes 4 and 3. The frames show mode 1 as the
+  in-car view (the dashboard and wheel), 4 the near chase view and 3
+  the far one. The tilts it read stayed inside the clamp
+  (+0x920 −0.0064 to +0.0052, +0x924 −0.0003 to +0.0056; P +0x294
+  1.03 gives ±0.0064), the speed +0x5A4 up to 30.2. `g3-cv1`, the same
+  with `0x6fbbcc` poked to 2 at `0x474ca0`: the cycle became 1 → 4 →
+  3 → 2 → 1, and in mode 2 (60.05-63.05 s) `0x421730` ran with the
+  object `0x5de100`, +0x104 2, +0x50 0.03; its frames show the view
+  from the front of the car with no body or dashboard (the bumper
+  view).
+- **Open:** mode 10's use of the tilts (when the game picks it, as
+  in replays or the attract mode, wasn't run); which views options 5
+  and 6 (modes 5 and 6) are; `0x79c4a0` as the look-back is from the
+  code alone; the run didn't compare the drawn camera rows before and
+  after `0x421730`.
 
 ## Other car fields
 

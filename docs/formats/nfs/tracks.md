@@ -399,6 +399,35 @@ at the progress check of step 1936 (`0x790`), 52 ms later, with +0x1C
 still 189. These four zone changes are therefore the car's own, as the
 table under Checked at run time has them (189, 171, 197, 170).
 
+**The same placing with the lap paid** (November 2026, `g3-zp0r`,
+`g3-zp4r`: `g3-runs/zp.sh`, `e12-zs`'s backward set-up and
+`lap0r.place`/`lap4r.place` unchanged, plus the player's laps owed
++0x208 (`0x5e1328`) poked to 0 at each of the placing's ten moments,
+51.9-52.8 s; `-watch` at `0x429100`, at the progress check's entry
+`0x409b70`, at the zone change `0x4135c6` and at `0x42cc20`'s lap
+changes `0x42cc80`, `0x42cc8e`, `0x42cccc`, `0x42cce1`, reading the
+player's +0x1C, +0x4, +0x8, +0x208, +0x704, +0x708, the zone
+`0x552834` and the step; 74 s). With nothing owed, `0x42ce10` gave
+the race distance: +0x8 read 0 while the car stood on the poked slice
+(260 on Hometown, 261 on Country Woods) and from 54.76 s, the first
+check after it moved, grew with every slice driven: Hometown 700 at
+slice 259 (959 slices) up to 806 at slice 153 at 74.0 s, Country Woods
+1139 at 260 (1399 slices) up to 1245 at 154. The best +0x708 followed
+it within a slice and the saved step +0x704 stayed within 8-16 steps of
+the step (`0x409bc4` records whenever +0x8 passes the best), through
+step 0x480 and on to 0x848, so `0x429100` was **never called** in
+either run (no stop at it at all; it had been called at 65.0 and 71.1
+s in `e10-rs0r`/`rs4r`), and +0x208 stayed 0 with no lap change.
+The music zone changed 5 to 4 once, driven, at **slice 190**, the one
+below zone 5's first slice 191: Hometown at 67.804 s (step 1724, +0x8
+769), Country Woods at 67.984 s (step 1736, +0x8 1209), dl 4 and dh 5
+at `0x4135c6`; the only other change was the placing's own 4 to 5 at
+51.9 s. So on these two tracks too the lookup returns 5 down to 191
+and 4 from 190, the same rule as Redrock Ridge, Rocky Pass, Lost
+Canyons and Summit (`e12-zs`), and the 186 of `e8-zr4`/`e10-rs` was
+the put-back alone. Not followed: why +0x8 read 0 (and not 699, 1138)
+while the car stood on the poked slice before 54.76 s.
+
 ## What isn't known
 
 - Answered in [physics.md](physics.md): the race types `0x6fd3b8` are
@@ -420,7 +449,8 @@ table under Checked at run time has them (189, 171, 197, 170).
   (`e12-zs`, Music laps): the second move came after the change each
   time (by 52 ms on Redrock Ridge) and neither move crossed a zone.
   Hometown's and Country Woods' 186 were the move's (`e8-zq0`,
-  `e8-zr4`). Not run: the same with +0x208 poked to 0, a placing whose
-  race distance moves, so that no move happens at all.
+  `e8-zr4`). Run since with +0x208 poked to 0 (`g3-zp0r`, `g3-zp4r`,
+  Music laps): the race distance moved, no move happened at all, and
+  both changed 5 to 4 at slice 190.
   Atlantica would count too, but its row is −1, and Empire City's
   second zone is its one-slice 7.
