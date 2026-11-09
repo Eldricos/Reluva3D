@@ -1135,6 +1135,41 @@ void testCarEffects() {
     CHECK(dimByIntensity(0x80808080, 0.25f) == 0x20202020);
     CHECK(dimParticle(0xffffffff, 0.5f) == 0x7f7f7f7f && dimParticle(0x80402010, 0.25f) == 0x20100804 &&
           dimParticle(0xabcdef01, 1.5f) == 0xabcdef01);
+
+    // Splats on the lens (0x4ca500): only kinds 1, 4, 10 and 11, not in
+    // the car. Mud (11, two of them, jitter 0.5): the first at (x, y) / z
+    // (the jitter's randoms 0.5 move it by 0), life 1024 less 10, half
+    // side 0.2 turned by 0; the second at the same place is covered.
+    SplatScreen lens;
+    CHECK(!lens.hit(3, 0.2f, 0.1f, 2, false, random) && !lens.hit(11, 0.2f, 0.1f, 2, true, random));
+    random.script = {0x8000, 0x8000, 10, 0, 0, 0x8000, 0x8000};
+    CHECK(lens.hit(11, 0.2f, 0.1f, 2, false, random) && lens.live() == 1);
+    const Splat& mud = lens.splats()[0];
+    CHECK(mud.kind == 11 && mud.life == 1014 && std::fabs(mud.x - 0.1f) < 1e-6f && std::fabs(mud.y - 0.05f) < 1e-6f &&
+          std::fabs(mud.size - 0.2f) < 1e-6f && std::fabs(mud.corners[0][1] - 0.25f) < 1e-6f &&
+          std::fabs(mud.corners[1][0] - 0.3f) < 1e-6f && mud.colour == 0x7fffffff && mud.flags == 0);
+    // Rain (10, five) on it: each halves the mud's life; the first is made
+    // (half side 0.2 less 0.2 x 0.5 x 0.5), the other four covered by it.
+    random.script = {0x8000, 0x8000, 0, 0x8000, 0};
+    for (int i = 0; i < 4; ++i)
+        random.script.insert(random.script.end(), {0x8000, 0x8000});
+    CHECK(lens.hit(10, 0.2f, 0.1f, 2, false, random) && lens.live() == 2);
+    CHECK(mud.life == 1014 >> 5 && lens.splats()[1].life == 128 && std::fabs(lens.splats()[1].size - 0.15f) < 1e-6f &&
+          lens.splats()[1].flags == 1);
+    // Aging (0x4cb220): alpha the template's x life / its life, then - 1.
+    lens.step();
+    CHECK(mud.colour == 0x03ffffff && mud.life == 30 && lens.splats()[1].colour == 0xffececff &&
+          lens.splats()[1].life == 127);
+    for (int i = 0; i < 40; ++i)
+        lens.step();
+    CHECK(mud.life == 0 && lens.live() == 1);
+    // Kind 4: made one time in a thousand, but the particle is taken anyway.
+    random.script = {0xffff};
+    CHECK(lens.hit(4, 0, 0, 1, false, random) && lens.live() == 1);
+    // No free slot: not taken.
+    for (Splat& s : lens.splats())
+        s.life = 5;
+    CHECK(!lens.hit(1, 0, 0, 1, false, random));
 }
 
 void testParticles() {
@@ -3598,41 +3633,6 @@ void testCarHits() {
         aiStep(ov, 0, road, flat, d, 2, 1, false, AiPhase::Move);
         CHECK(ov[0].offRoadTicks == 0 && ov[0].slice == 30);
     }
-}
-
-void testComputerPursuits() {
-    // Lanes 4 wide (bytes 8), two each side, walls 10 away.
-    TrackCollision col = straightRoad(200);
-    AiCarData data;
-    data.accel.fill(4);
-    data.maxBrake = 10;
-    data.maxVelocity = 70;
-    data.topSpeedCap = 80;
-    std::vector<uint8_t> flat(16, 0);
-    flat.insert(flat.end(), 100, 30);
-
-    // The side offset as the game measures it (0x4a2bc0): from the slice's
-    // point along its right, so on a bend it moves across the slice while
-    // the car goes straight on.
-    TrackCollision bent = straightRoad(20);
-    for (size_t i = 6; i < bent.road.size(); ++i)
-        bent.road[i].position[0] = 0.5f * static_cast<float>(i - 5);
-    AiCar measured;
-    measured.slice = 6;
-    measured.halfWidth = 1;
-    measured.offset = measured.target = measured.side = measured.lateral = 2;
-    measured.sideKept = true;
-    measured.along = 0.5f;
-    measured.speed = measured.wanted = 30;
-    std::vector<AiCar> one{measured};
-    aiStep(one, 0, bent, flat, data, 0, 1, false);
-    CHECK(one[0].along > 0.5f && std::fabs(one[0].side - one[0].lateral - one[0].along * 0.5f) < 1e-4f); // the line's 0.5 x along
-
-    // A strip (spike_lay 0x4c9dd0): across lane 7's middle, 1.5 lanes long.
-    float from = 0, to = 0;
-    aiStripSpan(col.road[0], 7, from, to);
-    CHECK(from == -1 && to == 5);
-    aiStripSpan(col.road[0], 6, from, to);
     // A roadblock's hit (0x42ac40 -> 0x42ad35): a racer swerving into a
     // police car beside it. Hits over 5 but not over 30 between a racer
     // and a police car (neither traffic, +0x200 bit 0x10: car_kind_from_role
@@ -3708,6 +3708,41 @@ void testComputerPursuits() {
         // car_spiked_effects' wheel levels from them: the front x 7.5.
         CHECK(wheelSkidLevel(0, 2, 2, false, 1) == 10 && wheelSkidLevel(3, 2, 2, false, 1) == 2);
     }
+}
+
+void testComputerPursuits() {
+    // Lanes 4 wide (bytes 8), two each side, walls 10 away.
+    TrackCollision col = straightRoad(200);
+    AiCarData data;
+    data.accel.fill(4);
+    data.maxBrake = 10;
+    data.maxVelocity = 70;
+    data.topSpeedCap = 80;
+    std::vector<uint8_t> flat(16, 0);
+    flat.insert(flat.end(), 100, 30);
+
+    // The side offset as the game measures it (0x4a2bc0): from the slice's
+    // point along its right, so on a bend it moves across the slice while
+    // the car goes straight on.
+    TrackCollision bent = straightRoad(20);
+    for (size_t i = 6; i < bent.road.size(); ++i)
+        bent.road[i].position[0] = 0.5f * static_cast<float>(i - 5);
+    AiCar measured;
+    measured.slice = 6;
+    measured.halfWidth = 1;
+    measured.offset = measured.target = measured.side = measured.lateral = 2;
+    measured.sideKept = true;
+    measured.along = 0.5f;
+    measured.speed = measured.wanted = 30;
+    std::vector<AiCar> one{measured};
+    aiStep(one, 0, bent, flat, data, 0, 1, false);
+    CHECK(one[0].along > 0.5f && std::fabs(one[0].side - one[0].lateral - one[0].along * 0.5f) < 1e-4f); // the line's 0.5 x along
+
+    // A strip (spike_lay 0x4c9dd0): across lane 7's middle, 1.5 lanes long.
+    float from = 0, to = 0;
+    aiStripSpan(col.road[0], 7, from, to);
+    CHECK(from == -1 && to == 5);
+    aiStripSpan(col.road[0], 6, from, to);
     CHECK(from == -5 && to == 1);
 
     // The police car ordered to lay one (0x4039c0's order: kind 0 from its

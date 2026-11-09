@@ -485,6 +485,13 @@ private:
         uint32_t first = 0, count = 0; // quads
     };
     std::vector<ParticleRun> particleRuns_;
+    // Mud and water on the lens (particles.h, SplatScreen): particles of
+    // kinds 1, 4, 10 and 11 drawn within 3 of the camera turned into
+    // splats on the screen (0x4ca500), aged on the odd ticks (0x4cb220),
+    // drawn over everything with SLnn (0x4cb750).
+    SplatScreen splats_;
+    gfx::MeshId splatMesh_ = 0;
+    std::vector<ParticleRun> splatRuns_;
     // The weather's rain or snow and its splashes on the screen (particles.h,
     // Weather) as the .hrz's weather type sets them up, ticked with the
     // particles and drawn after them over everything, through the pass's
@@ -517,7 +524,8 @@ private:
     gfx::TextureId weatherPicture(const char* name);
     void prepareWeather(const gfx::Vec3& eye, const gfx::Vec3& forward, const gfx::Vec3& right, const gfx::Vec3& up);
     void drawWeather(float fog, const std::array<float, 3>& fogColour);
-    gfx::TextureId particlePicture(int kind);
+    // `prefix` "SL" for a splat's picture; else SPnn, or SNnn at night.
+    gfx::TextureId particlePicture(int kind, const char* prefix = nullptr);
     void hitWall(bool fast);
     void tickParticles(uint64_t nowMs);
     // The cars' particles of one 64 Hz step, before the particles' own
@@ -528,6 +536,8 @@ private:
     // Before the frame: the particles' quads; after the scene: drawn.
     void prepareParticles(const gfx::Vec3& eye, const gfx::Vec3& forward, const gfx::Vec3& right, const gfx::Vec3& up);
     void drawParticles(float fog, const std::array<float, 3>& fogColour);
+    void prepareSplats(const gfx::Vec3& eye, const gfx::Vec3& forward, const gfx::Vec3& right, const gfx::Vec3& up);
+    void drawSplats();
     // The headlights of a car at the camera, by night (frd.md, the
     // headlights): the game's pass over the blocks within 150, glw2 of
     // sfx.fsh projected on polygons whose texture lacks flag 0x04, the

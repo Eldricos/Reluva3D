@@ -157,6 +157,11 @@ void TrackPage::release() {
     if (renderer_ && particleMesh_)
         renderer_->destroyMesh(particleMesh_);
     particleMesh_ = 0;
+    splats_.clear();
+    splatRuns_.clear();
+    if (renderer_ && splatMesh_)
+        renderer_->destroyMesh(splatMesh_);
+    splatMesh_ = 0;
     if (renderer_ && weatherMesh_)
         renderer_->destroyMesh(weatherMesh_);
     weatherMesh_ = 0;
@@ -2279,13 +2284,13 @@ void TrackPage::moveCars(float dt) {
             cars_[i].slice = aiSliceAt(ai[i], n);
             cars_[i].speed = ai[i].speed;
         }
+        // The cars' effects of this step (car_impacts_task 0x42b900, Sc64).
+        tickCarEffects(static_cast<uint32_t>(aiStep_));
     }
     for (ComputerCar& c : cars_)
         carRows(c);
 }
 
-        // The cars' effects of this step (car_impacts_task 0x42b900, Sc64).
-        tickCarEffects(static_cast<uint32_t>(aiStep_));
 Headlight TrackPage::cameraLight() const {
     if (humanPose_.set && computerCars_) {
         const HumanPose& h = humanPose_;
@@ -3295,11 +3300,6 @@ void TrackPage::hitWall(bool fast) {
     hitText_ = text;
 }
 
-void TrackPage::tickCarEffects(uint32_t tick) {
-    const int n = static_cast<int>(collision_.road.size());
-    const bool dumped = !carDump_.empty();
-    auto velocityOf = [&](const ComputerCar& c) -> ParticleVec {
-        return dumped ? c.velocity : aiVelocity(collision_, c.ai);
 // Each of the cars' 64 Hz steps (car_impacts_task 0x42b900 -> 0x42b780):
 // the computer's cars are ticked from moveCars, after each step's hits
 // and moves, so the smoke's timer counts their steps and its stop test
@@ -3309,12 +3309,17 @@ void TrackPage::tickCarEffects(uint32_t tick) {
 // state (a hit's air tick still set) while the cars took at most 16
 // steps (0.25 s): a frame of a second or more took a started smoke past
 // 64, to fire, before its car could settle.
-    };
-    // The hits between cars (0x42ac40, type 5): sparks and dust at the
-    // point, the smoke started, and the hit's sound (category 5, material
+void TrackPage::tickCarEffects(uint32_t tick) {
+    const int n = static_cast<int>(collision_.road.size());
+    const bool dumped = !carDump_.empty();
     if (!dumped)
         for (ComputerCar& c : cars_)
             carRows(c);
+    auto velocityOf = [&](const ComputerCar& c) -> ParticleVec {
+        return dumped ? c.velocity : aiVelocity(collision_, c.ai);
+    };
+    // The hits between cars (0x42ac40, type 5): sparks and dust at the
+    // point, the smoke started, and the hit's sound (category 5, material
     // 5) from Gen3d.bnk at the camera's distance.
     for (const AiHit& h : carHits_) {
         if (h.car >= cars_.size())
@@ -3424,6 +3429,9 @@ void TrackPage::tickParticles(uint64_t nowMs) {
             tickCarEffects(tick);
         else if (!computerCars_)
             carHits_.clear();
+        // The splats age on the odd ticks, before the particles (0x4cb2c0).
+        if (tick & 1)
+            splats_.step();
         particles_.step(tick, particleRandom_);
         // The weather's drops (0x4dd5e0 works every other tick), round the
         // camera, hidden as they come back into the box under cover.
@@ -3441,9 +3449,9 @@ void TrackPage::tickParticles(uint64_t nowMs) {
 
 // A kind's picture (0x4cb590): SPnn of sfx.fsh by day, SNnn at night (the
 // night flag 0x6fd4c8 set: 0x4cb64a jumps to the SP name when it is 0).
-gfx::TextureId TrackPage::particlePicture(int kind) {
+gfx::TextureId TrackPage::particlePicture(int kind, const char* prefix) {
     char name[8];
-    std::snprintf(name, sizeof name, "%s%02d", variant_ % 2 ? "SN" : "SP", kind % 100);
+    std::snprintf(name, sizeof name, "%s%02d", prefix ? prefix : variant_ % 2 ? "SN" : "SP", kind % 100);
     if (auto it = particlePictures_.find(name); it != particlePictures_.end())
         return it->second;
     gfx::TextureId id = 0;
@@ -3504,6 +3512,19 @@ void TrackPage::prepareParticles(const gfx::Vec3& eye, const gfx::Vec3& forward,
         if (!t || depth <= 0 || depth > t->reach) {
             p.tailSet = false;
             continue;
+        }
+        // Under 3 ahead (0x4cbec3, the depth's bits against 3.0's) in the
+        // main view: a kind with splats goes onto the lens and is freed
+        // (0x4ca500; the page's camera is never in a car). Not a dump's
+        // held particles.
+        if (depth < 3.0f && !particlesHeld_) {
+            const float d[3] = {p.position[0] - eye[0], p.position[1] - eye[1], -p.position[2] - eye[2]};
+            const float x = d[0] * right[0] + d[1] * right[1] + d[2] * right[2],
+                        y = d[0] * up[0] + d[1] * up[1] + d[2] * up[2];
+            if (splats_.hit(p.kind, x, y, depth, false, particleRandom_)) {
+                p.life = 0;
+                continue;
+            }
         }
         shown.push_back({&p, depth});
     }
@@ -3608,6 +3629,86 @@ void TrackPage::drawParticles(float fog, const std::array<float, 3>& fogColour) 
     call.state.depthWrite = false;
     call.state.src = gfx::Blend::SrcAlpha;
     for (const ParticleRun& run : particleRuns_) {
+        call.texture = run.texture;
+        call.state.dst = run.added ? gfx::Blend::One : gfx::Blend::OneMinusSrcAlpha;
+        call.firstIndex = 6 * run.first;
+        call.indexCount = 6 * run.count;
+        renderer_->draw(call);
+    }
+}
+
+// The splats on the lens (0x4cb750): each a quad at its corners on the
+// screen (x 0x56009c + 0x5600a4, y x 0x5600a0 + 0x5600a8, the view's
+// focal lengths and centre, as the particles'), its 1/z 0x3F7FFF00,
+// SLnn of its kind, the quad's flags the template's (bit 0: added), the
+// colour dimmed as an added particle's under Direct3D. None in the
+// camera modes 8, 0xE and 0x12 (cars' own views; the page's camera is
+// never one). Here each corner on the line through its pixel, a unit
+// ahead.
+void TrackPage::prepareSplats(const gfx::Vec3& eye, const gfx::Vec3& forward, const gfx::Vec3& right,
+                              const gfx::Vec3& up) {
+    splatRuns_.clear();
+    if (!renderer_ || splats_.live() == 0)
+        return;
+    constexpr uint32_t kQuads = SplatScreen::kSlots;
+    if (!splatMesh_) {
+        std::vector<gfx::Vertex> vertices(kQuads * 4);
+        std::vector<uint32_t> indices;
+        for (uint32_t i = 0; i < kQuads; ++i)
+            for (uint32_t k : {0u, 1u, 2u, 0u, 2u, 3u})
+                indices.push_back(4 * i + k);
+        if (renderer_->createMesh(vertices, indices, splatMesh_))
+            splatMesh_ = 0;
+        if (!splatMesh_)
+            return;
+    }
+    static constexpr float kUv[4][2] = {{0, 0}, {1, 0}, {1, 1}, {0, 1}};
+    std::vector<gfx::Vertex> vertices(kQuads * 4);
+    uint32_t q = 0;
+    for (const Splat& s : splats_.splats()) {
+        if (s.life == 0)
+            continue;
+        const gfx::TextureId texture = particlePicture(s.kind, "SL");
+        const uint32_t colour = s.flags & 1 ? dimParticle(s.colour, effectsIntensity()) : s.colour;
+        std::array<float, 2> inset{0.015625f, 0.015625f};
+        if (auto it = particlePictureSizes_.find(texture); it != particlePictureSizes_.end())
+            for (int i = 0; i < 2; ++i)
+                inset[size_t(i)] = it->second[size_t(i)] > 0 ? 0.5f / static_cast<float>(it->second[size_t(i)]) : 0;
+        for (int k = 0; k < 4; ++k) {
+            gfx::Vertex& v = vertices[q * 4 + uint32_t(k)];
+            for (int i = 0; i < 3; ++i)
+                v.pos[i] = eye[i] + forward[i] + right[i] * s.corners[size_t(k)][0] + up[i] * s.corners[size_t(k)][1];
+            v.uv[0] = kUv[k][0] == 0 ? inset[0] : 1 - inset[0];
+            v.uv[1] = kUv[k][1] == 0 ? inset[1] : 1 - inset[1];
+            v.normal[1] = 1;
+            v.color[0] = static_cast<uint8_t>(colour >> 16);
+            v.color[1] = static_cast<uint8_t>(colour >> 8);
+            v.color[2] = static_cast<uint8_t>(colour);
+            v.color[3] = static_cast<uint8_t>(colour >> 24);
+        }
+        const bool added = (s.flags & 1) != 0;
+        if (splatRuns_.empty() || splatRuns_.back().texture != texture || splatRuns_.back().added != added)
+            splatRuns_.push_back({texture, added, q, 0});
+        ++splatRuns_.back().count;
+        ++q;
+    }
+    if (renderer_->setMeshVertices(splatMesh_, vertices))
+        splatRuns_.clear();
+}
+
+// Over everything, without a depth test or fog (the game's own pass,
+// 0x4cc600 between 0x4bbf20 and 0x4bbfc0; inferred), blended by their
+// alpha or added.
+void TrackPage::drawSplats() {
+    if (splatRuns_.empty())
+        return;
+    gfx::DrawCall call;
+    call.mesh = splatMesh_;
+    call.rgbSource = call.alphaSource = gfx::ColorSource::Vertex;
+    call.state.cull = gfx::Cull::None;
+    call.state.depthTest = call.state.depthWrite = false;
+    call.state.src = gfx::Blend::SrcAlpha;
+    for (const ParticleRun& run : splatRuns_) {
         call.texture = run.texture;
         call.state.dst = run.added ? gfx::Blend::One : gfx::Blend::OneMinusSrcAlpha;
         call.firstIndex = 6 * run.first;
@@ -4108,6 +4209,7 @@ void TrackPage::update(uint64_t nowMs) {
     }
     // After the cars: their sort depths (carSort_) place the particles.
     prepareParticles(eye, forward, right, up);
+    prepareSplats(eye, forward, right, up);
     prepareWeather(eye, forward, right, up);
     // The clear colour: the sky's top (THRASH state 3, 0x47a4c0), black
     // where the game draws no sky, and without a sky the fog's.
@@ -4382,6 +4484,7 @@ void TrackPage::update(uint64_t nowMs) {
         updateSounds(eye, right);
     drawParticles(sceneryFog, {fog[0] / 255.0f, fog[1] / 255.0f, fog[2] / 255.0f});
     drawWeather(sceneryFog, {fog[0] / 255.0f, fog[1] / 255.0f, fog[2] / 255.0f});
+    drawSplats();
 
     std::fill(overlay_.pixels.begin(), overlay_.pixels.end(), uint8_t(0));
     std::vector<std::string> lines = {"Tracks  " + std::to_string(index_ + 1) + "/" + std::to_string(tracks_.size()) +
@@ -4486,7 +4589,11 @@ void TrackPage::update(uint64_t nowMs) {
                 lines.push_back(cop);
             }
         if (!hitText_.empty())
-            lines.push_back(hitText_ + "  (" + std::to_string(particles_.live()) + " particles)");
+            lines.push_back(hitText_ + "  (" + std::to_string(particles_.live()) + " particles" +
+                            (splats_.live() ? ", " + std::to_string(splats_.live()) + " on the lens" : std::string()) +
+                            ")");
+        else if (splats_.live())
+            lines.push_back(std::to_string(splats_.live()) + " splats on the lens");
         if (!skyError_.empty())
             lines.push_back(skyError_);
         if (!collisionError_.empty())

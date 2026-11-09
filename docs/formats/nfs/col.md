@@ -756,7 +756,61 @@ within 3 of the camera in the main view (`0x4cbec3`), at High Special
 Effects and not in the car (`0x79c4a0`), such a particle is turned into
 that many screen-space splats (`0x4ca500`, 200 slots a view at
 `0x7f0bd0`, life `+0x68` less a random part, drawn by `0x4cb750`) and
-freed: mud or water on the lens. The Track page doesn't make these.
+freed: mud or water on the lens.
+
+**Splats on the lens** (`0x4ca500`, `0x4cb220`, `0x4cb750`; read
+November 2026 with `gdecomp` and the templates read from the exe). The
+draw pass (`0x4cbc90`) calls `0x4ca500` for a particle whose depth's
+bits are under 3.0's (`0x4cbec3`) in a view whose first word is 0, with
+the particle's place along the camera's rows (x, y, z). The kind's
+fields, `+0x64`-`+0x7C` of its template (`0x560bc8` + kind × 0x80):
+count, life, the quad's flags, half side, jitter, colour, chance. Only
+four kinds have them:
+
+| Kind | Count | Life | Flags | Half side | Jitter | Colour | Chance |
+|---|---|---|---|---|---|---|---|
+| 1 | 10 | 96 | 1 (added) | 0.08 | 0.5 | `7FFFFFFF` | always |
+| 4 | 1 | 76800 | 1 | 0.1 | 0 | `8FFFFFFF` | 0.001 |
+| 10 | 5 | 128 | 1 | 0.2 | 0.75 | `FFECECFF` | always |
+| 11 | 2 | 1024 | 0 | 0.2 | 0.5 | `7FFFFFFF` | always |
+
+With a count and a life, not in the car (`0x79c4a0`[view]) and the
+byte `0x6fbc30` under 1, the particle is taken (freed by the caller)
+whether or not any splat is made, except when the 200 slots of the view
+(`0x7f0bd0` + view × 0x3200, 0x40 bytes) are full. When the chance is 0,
+or a random (`0x4eb230`) is at most it, each of the count: the place
+(x / z, y / z) (z 2⁻¹⁶ if 0) moved by random × 2 × jitter − jitter
+(`0x540398`) each way; no splat where a live one is within half its
+half side (`0x5403a0`) both ways, except rain (10) on mud (11), whose
+life is halved instead (every rain splat made over it halves it again);
+life the template's less `rand_next` % (life / 2); half side the
+template's less random × half of it; corners (x − s, y + c), (x + c,
+y + s), (x + s, y − c), (x − c, y − s) for s, c the sine and cosine of a
+random turn × the half side; colour and flags the template's; for kind
+4 also sound 0xF of bank 24 (`0x415010`). On the odd steps the
+particles' task (`0x4cb2c0`) ages them (`0x4cb220`): alpha = the
+template's alpha × life / the template's life (whole numbers), then
+life − 1, freed at alpha 0. `0x4cc600` draws them (`0x4cb750`), unless
+the view's camera mode is 8, 0xE or 0x12: quads at x × `0x56009c` +
+`0x5600a4`, y × `0x5600a0` + `0x5600a8` (the particles' projection),
+1/z `0x3F7FFF00`, sfx.fsh's `SLnn` (loaded by `0x4cb590` for each kind
+with a count), the colour dimmed under Direct3D below intensity 1 for
+flag bit 0.
+
+So (64 steps a second, aged every other one) rain spray (10) close to
+the camera leaves five fading splats for 2-4 s, mud (11) two that stay
+for 16-32 s unless the rain washes them, kind 1 ten small ones for
+1.5-3 s, and kind 4 (the dry verge 2's spray) one time in a thousand a
+splat that lasts 20-40 minutes.
+
+**On the Track page** (`SplatScreen`, `prepareSplats`): the particles
+within 3 ahead go onto the lens as above (the page's camera is never
+in a car; a dump's held particles don't), aged on the odd ticks and
+drawn after the weather without depth test or fog (the pass's place
+and states are inferred), each corner on the line through its pixel. The
+sound of kind 4 is not played. Following a police car in Hometown's
+weather (Shift+C), its kind-10 spray fills the 200 slots and faint
+rings sit over the view (`h2/splat1-1.png`, before: `g2/spray-2.png`).
 
 The templates of the other kinds the cars make (read November 2026;
 count, life, throttle; colour fading by; reach): 1 (1, 64, 0;
