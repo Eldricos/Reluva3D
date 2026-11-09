@@ -576,7 +576,19 @@ two `powervra`; [frd.md](frd.md), the detail levels) and `d3da.dll`:
   0x40 only): the glows and see-through polygons ([frd.md](frd.md)),
   the lights (`0x492370`, `0x49d800`), particles with flag bit 0
   (`0x4cbf2f`, `0x4cb750`), the added clouds (type 1; `0x47b850` calls
-  `0x47b7d0`) and `0x4de700`'s polygons.
+  `0x47b7d0`) and `0x4de700`'s polygons. Read again in November 2026,
+  each of them tests bit 0x40 of `0x7a3a58` and f < 1 itself; all
+  scale every byte of the ARGB colour, alpha too. `0x47b7d0`,
+  `0x492370` (a glow's colour), `0x49d800` (both reflection colours,
+  `0x55e6dc` and `0x55e6e0`), `0x4de700` (the raindrops), `0x4de070`
+  (the snow) and `0x4ddb40` (the splashes) take k = min(round(f ×
+  65536), 0xFFFF) >> 8 (65536.0 at `0x53b418`, `0x53bcf8`, `0x53c698`,
+  `0x54980c`, `0x5497e4`, `0x5497dc`) and each byte × k >> 8;
+  `0x4cbf2f` (particles) and `0x4cb750` (the screen-space quads, for
+  those with flag bit 0) each byte × round(f × 65536) >> 16 (`0x540448`,
+  `0x540440`). `0x47b7d0` runs over the 169 cloud points after the
+  lightning's flash (`0x47b3a0`), only for cloud type 1 (`0x55d1f4`),
+  so the flash is dimmed too; blended clouds (type 2) never are.
 - **Particle kind 7** (not a wall kind): `0x4cb670` sets its colour to
   `7F7F7F7F` fading by `7F7F3F00` (bytes `0x560f30`-`0x560f37`).
 - **The polygon drawers** are its own (`poly_drawers_pick` `0x434870`:
@@ -608,8 +620,17 @@ light, the headlights), which are worked out the same for every
 renderer.
 
 **On the Track page:** Shift+Y draws the Direct3D look the code gives:
-no fog, and the clouds' constant alpha (`cloudAlpha`). It keeps point
-sampling, as the clips show. Against `Rain` 0:10 (the sky above the
+no fog, the clouds' constant alpha (`cloudAlpha`), and (November 2026)
+the dimming by the effects intensity, key I (100, 75, 50, 25%), which
+the page applied to its lights whatever the look until then: now only
+in the Direct3D look, as the game. It dims the lights and glows
+(`dimLight`), the added particles (sparks, kinds 7 and 8; `dimParticle`),
+the added clouds and the rain, snow and splashes (`dimByIntensity`).
+It keeps point sampling, as the clips show. Hometown by night in the
+weather with the computer cars (`g2/d3d-100-1.png`, `g2/d3d-050-1.png`):
+at 50% the rain's streaks are half as bright, so barely seen, and the
+cars' glows and the fog beams dimmer; `g2/glide-050-1.png`, the same at
+50% without the look, is as at 100%. Against `Rain` 0:10 (the sky above the
 road, mean and spread of each channel; the cloud layouts are random, so
 this is a guide only): the clip (94, 88, 81) ± 23; the page with fog
 (119, 114, 101) ± 35; without fog (`Y`) (94, 90, 79) ± 30; the Direct3D
