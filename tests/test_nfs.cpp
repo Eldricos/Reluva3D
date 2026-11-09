@@ -3467,6 +3467,33 @@ void testCarHits() {
         m.roadUpSet = false; // without it, the place's own: 10 cm short
         CHECK(std::fabs(aiMeasuredSide(road, m) - m.lateral * std::cos(b)) < 1e-4f && aiMeasuredSide(road, m) < 2.91f);
     }
+    // car_on_road's velocity step (aiContactVelocity): through the rows and
+    // back. Unit rows only drop the part into the road (under 0.5 m/s);
+    // rows of a 16.16 frame, the forward 1 - 8e-5 long, also take
+    // 20 x 1.6e-4 = 0.0032 m/s off the speed along it.
+    {
+        const std::array<float, 9> unit{1, 0, 0, 0, 1, 0, 0, 0, 1};
+        const std::array<float, 3> v{0.5f, -0.4f, 20};
+        auto out = aiContactVelocity(v, unit);
+        CHECK(out[0] == 0.5f && out[1] == 0 && out[2] == 20);
+        out = aiContactVelocity({0.5f, 0.6f, 20}, unit); // 0.5 or more: kept
+        CHECK(out[1] == 0.6f);
+        std::array<float, 9> fixed = unit;
+        fixed[8] = 1 - 8e-5f;
+        out = aiContactVelocity(v, fixed);
+        CHECK(std::fabs(out[2] - (20 - 0.0032f)) < 2e-5f);
+        // The half turn (0x4b7680): rows tipped 2 degrees about the right
+        // turned half way to level are tipped 1; rows turned to themselves
+        // come back as unit rows, so the rebuild through them keeps the
+        // speed.
+        const float a = 2 * 3.14159265f / 180;
+        const std::array<float, 9> tipped{1, 0, 0, 0, std::cos(a), std::sin(a), 0, -std::sin(a), std::cos(a)};
+        const auto h = aiHalfTurn(unit, tipped);
+        CHECK(std::fabs(h[5] - std::sin(a / 2)) < 1e-5f && std::fabs(h[4] - std::cos(a / 2)) < 1e-5f &&
+              std::fabs(h[7] + std::sin(a / 2)) < 1e-5f);
+        const auto same = aiHalfTurn(fixed, fixed);
+        CHECK(std::fabs(aiContactVelocity(v, same)[2] - 20) < 2e-4f);
+    }
     // The impacts task: ai_ctl_slide for round(strength) x 7 steps.
     CHECK(pair[0].slideUntil == 107 && pair[1].slideUntil == 107 && pair[0].airTicks == 0);
     // At 30 m/s they don't reverse; the same hit at 8 m/s (0x406120, under

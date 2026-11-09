@@ -1400,15 +1400,19 @@ namespace {
 // (place + H normal - point) . up = the box's reach: the side as measured
 // gains H x (normal . the road's right). Along the polygon's up itself
 // the road's right (up x forward, 0x420230) measures nothing.
-float aiCentreLift(const TrackCollision& col, const AiCar& c) {
+// The body's centre over the page's place, along the normal `m` of the
+// slice's plane: the place + H x m puts the box's lowest corner on the
+// road polygon's plane (car_clearance 0x4a0440 at 0). 0 unset.
+float aiCentreHeight(const TrackCollision& col, const AiCar& c, std::array<float, 3>& m) {
     const int n = static_cast<int>(col.road.size());
+    m = {0, 1, 0};
     if (n < 2 || !c.roadUpSet || !c.roadRightSet)
         return 0;
     const auto& a = col.road[size_t(((c.slice % n) + n) % n)];
     const auto& b = col.road[size_t((((c.slice + 1) % n) + n) % n)];
     const std::array<float, 3> chord{b.position[0] - a.position[0], b.position[1] - a.position[1],
                                      b.position[2] - a.position[2]};
-    std::array<float, 3> m = unit3(cross3(chord, a.right));
+    m = unit3(cross3(chord, a.right));
     if (dot3(m, a.normal) < 0)
         m = {-m[0], -m[1], -m[2]};
     const float mn = dot3(m, c.roadUp);
@@ -1422,7 +1426,12 @@ float aiCentreLift(const TrackCollision& col, const AiCar& c) {
     for (size_t k = 0; k < 3; ++k)
         q[k] = a.position[k] + c.lateral * a.right[k] + c.along * chord[k];
     const std::array<float, 3> d{q[0] - c.roadPoint[0], q[1] - c.roadPoint[1], q[2] - c.roadPoint[2]};
-    const float h = (reach - dot3(d, c.roadUp)) / mn;
+    return (reach - dot3(d, c.roadUp)) / mn;
+}
+
+float aiCentreLift(const TrackCollision& col, const AiCar& c) {
+    std::array<float, 3> m{};
+    const float h = aiCentreHeight(col, c, m);
     return h * dot3(m, c.roadRight);
 }
 } // namespace
@@ -1523,6 +1532,171 @@ struct AiDynamics {
     float railsSide = 0, carSide = 0;
 };
 
+// car_on_road's frame (0x4a1610). Rows as the game keeps them: right, up,
+// forward (+0x124, +0x130, +0x13C).
+using AiRows = std::array<float, 9>;
+
+// 0x4b73c0: a quaternion (x, y, z, w) from the rows, the trace's way, else
+// from the largest diagonal (next axis 1, 2, 0: 0x4b6a1c).
+std::array<float, 4> aiQuatOfRows(const AiRows& m) {
+    std::array<float, 4> q{};
+    const float trace = m[0] + m[4] + m[8];
+    if (trace > 0) {
+        const float r = std::sqrt(trace + 1.0f);
+        const float f = 0.5f / r;
+        q[3] = r * 0.5f;
+        q[0] = (m[5] - m[7]) * f;
+        q[1] = (m[6] - m[2]) * f;
+        q[2] = (m[1] - m[3]) * f;
+        return q;
+    }
+    static constexpr int kNext[3] = {1, 2, 0};
+    int i = m[4] > m[0] ? 1 : 0;
+    if (m[8] > m[size_t(4 * i)])
+        i = 2;
+    const int j = kNext[i], k = kNext[j];
+    auto at = [&](int r, int c) { return m[size_t(3 * r + c)]; };
+    float r = std::sqrt(at(i, i) - (at(j, j) + at(k, k)) + 1.0f);
+    q[size_t(i)] = r * 0.5f;
+    if (r != 0)
+        r = 0.5f / r;
+    q[3] = (at(j, k) - at(k, j)) * r;
+    q[size_t(j)] = (at(i, j) + at(j, i)) * r;
+    q[size_t(k)] = (at(i, k) + at(k, i)) * r;
+    return q;
+}
+
+// 0x4b71e0: the turn t of the way from a to b, the shorter way round; when
+// the two are within 1e-4 (0x53ff60) of each other, straight between them
+// (not brought back to a unit quaternion).
+std::array<float, 4> aiQuatBetween(const std::array<float, 4>& a, std::array<float, 4> b, float t) {
+    double c = double(a[3] * b[3] + a[2] * b[2] + a[0] * b[0] + a[1] * b[1]);
+    if (c < 0) {
+        c = -c;
+        for (float& x : b)
+            x = -x;
+    }
+    double wa = 1.0 - t, wb = t;
+    if (1.0 - c > 1e-4) {
+        const double angle = std::acos(c), sine = std::sin(angle);
+        wa = std::sin((1.0 - t) * angle) / sine;
+        wb = std::sin(t * angle) / sine;
+    }
+    const float fa = static_cast<float>(wa), fb = static_cast<float>(wb);
+    return {b[0] * fb + a[0] * fa, b[1] * fb + a[1] * fa, b[2] * fb + a[2] * fa, fb * b[3] + a[3] * fa};
+}
+
+// 0x4b7590: the rows of a quaternion.
+AiRows aiRowsOfQuat(const std::array<float, 4>& q) {
+    const float y2 = q[1] * 2, z2 = q[2] * 2, wx2 = q[3] * q[0] * 2, xx = 1.0f - q[0] * q[0] * 2;
+    AiRows m{};
+    m[1] = q[0] * y2 + q[3] * z2;
+    m[2] = q[0] * z2 - q[3] * y2;
+    m[3] = q[0] * y2 - q[3] * z2;
+    m[5] = q[1] * z2 + wx2;
+    m[6] = q[0] * z2 + q[3] * y2;
+    m[7] = q[1] * z2 - wx2;
+    m[0] = (1.0f - q[1] * y2) - q[2] * z2;
+    m[4] = xx - q[2] * z2;
+    m[8] = xx - q[1] * y2;
+    return m;
+}
+
+} // namespace
+
+std::array<float, 9> aiHalfTurn(const std::array<float, 9>& from, const std::array<float, 9>& to) {
+    return aiRowsOfQuat(aiQuatBetween(aiQuatOfRows(from), aiQuatOfRows(to), 0.5f));
+}
+
+std::array<float, 3> aiContactVelocity(const std::array<float, 3>& v, const std::array<float, 9>& rows) {
+    const float a = v[0] * rows[0] + v[1] * rows[1] + v[2] * rows[2];
+    float into = v[0] * rows[3] + v[1] * rows[4] + v[2] * rows[5];
+    const float b = v[0] * rows[6] + v[1] * rows[7] + v[2] * rows[8];
+    if (into < 0.5f)
+        into = 0;
+    std::array<float, 3> out{};
+    for (size_t k = 0; k < 3; ++k)
+        out[k] = b * rows[6 + k] + into * rows[3 + k] + a * rows[k];
+    return out;
+}
+
+namespace {
+
+// The frame car_on_road (0x4a1610-0x4a1a2a) takes the velocity's part
+// into the road out of: the car's road rows (+0x124) turned half way
+// (0x4b7680) to the road polygon's at the box's bottom one tick ahead,
+// on the side it moves to: the centre + the velocity / 32 (0x53c824) +
+// the half width x (v^ . right) along the body's right - the half height
+// along its up + the half length x (v^ . forward) along its forward (v^
+// the velocity made unit, 0x4972f0). That point's track position
+// (trackpos_update from the car's own) must be inside a polygon of the
+// run (+0x6C 0) whose surface is neither 0 nor 14, and another polygon
+// than the car's (+0x6A, set when the slice or polygon changed); and the
+// turn is taken
+// unless the road there falls away: the ups' y more than 0.13 apart
+// (1 - |n.y - n'.y| under 0x5efdd8, 0.87), the velocity into the road
+// ahead and its up lower (then 0x42efe0 pushes the car over the crest,
+// not ported, and the car's rows stay). Not found, the car's rows.
+bool aiContactFrame(const TrackCollision& col, const AiCar& c, AiRows& out) {
+    if (!c.roadUpSet || !c.roadRightSet)
+        return false;
+    for (size_t k = 0; k < 3; ++k) {
+        out[k] = c.roadRight[k];
+        out[3 + k] = c.roadUp[k];
+        out[6 + k] = c.roadForward[k];
+    }
+    if (!c.roadTrack || c.roadTrack->blocks.empty())
+        return true;
+    std::array<float, 3> m{};
+    const float h = aiCentreHeight(col, c, m);
+    std::array<float, 3> centre = aiPlace(col, c);
+    for (size_t k = 0; k < 3; ++k)
+        centre[k] += h * m[k];
+    std::array<float, 3> v = c.vel;
+    const float speed = std::sqrt(dot3(v, v));
+    if (speed != 0)
+        for (float& x : v)
+            x /= speed;
+    std::array<float, 3> f1{}, r1{}, u1{};
+    aiTiltedAxes(col, c, f1, r1, u1);
+    const float across = c.halfWidth * dot3(v, r1), ahead = c.halfLength * dot3(v, f1);
+    std::array<float, 3> p{};
+    for (size_t k = 0; k < 3; ++k)
+        p[k] = c.vel[k] * 0.03125f + centre[k] + (ahead * f1[k] - c.halfHeight * u1[k] + across * r1[k]);
+    RoadSearch search = c.road;
+    if (c.road.found)
+        search.slice = c.road.foundSlice;
+    if (!roadSearch(*c.roadTrack, search, p[0], p[2]) || search.side != 0)
+        return true;
+    // trackpos_update (0x41f6e0) keeps the car's polygon while the point is
+    // inside it and clears +0x6A, which car_on_road asks to be set: the
+    // point in the car's own polygon, the car's rows as they are.
+    if (c.road.found && search.foundSlice == c.road.foundSlice && search.polygon == c.road.polygon)
+        return true;
+    const size_t block = static_cast<size_t>(search.foundSlice >> 3);
+    if (block >= c.roadTrack->blocks.size())
+        return true;
+    const Track::Block& b = c.roadTrack->blocks[block];
+    const size_t index = static_cast<size_t>(search.polygon);
+    if (8 * index + 1 >= b.polygonRoad.size())
+        return true;
+    const int surface = b.polygonRoad[8 * index + 1] & 0x3f;
+    RoadFrame f;
+    if (surface == 0 || surface == 14 || !polygonRoadFrame(b, index, f))
+        return true;
+    const float nearness = 1.0f - std::fabs(c.roadUp[1] - f.up[1]);
+    if (nearness < 0.87f && dot3(c.vel, f.up) < 0 && c.roadUp[1] > f.up[1])
+        return true;
+    AiRows there{};
+    for (size_t k = 0; k < 3; ++k) {
+        there[k] = f.right[k];
+        there[3 + k] = f.up[k];
+        there[6 + k] = f.forward[k];
+    }
+    out = aiHalfTurn(out, there);
+    return true;
+}
+
 // The model's half across the road on an even step (car_dynamics 0x4a2830,
 // car_ai_physics 0x4088f0, car_ai_model 0x408600 to the controller and
 // ai_integrate 0x4071a0's side and yaw parts), on the world velocity.
@@ -1604,11 +1778,19 @@ AiDynamics aiModelSteer(AiCar& me, const TrackCollision& col, int step, int trac
             for (size_t k = 0; k < 3; ++k)
                 me.vel[k] += -0.30656251f * gf[1] * gf[k];
         }
-        // car_on_road (0x4a1610) on the road: the velocity's part along the
-        // road's up, under 0.5 m/s (0x5efddc), taken out (0x4a1aaf). The
-        // game's up there is the road frame turned half way (0x4b7680) to
-        // the frame ahead; the page takes the polygon's own.
-        {
+        // car_on_road (0x4a1610) on the road: the velocity into the frame
+        // of aiContactFrame (the transposed rows, 0x4a1a46), its part along
+        // the up dropped when under 0.5 m/s (0x5efddc), and back. Mostly the
+        // frame is the car's own polygon's 16.16 rows, a little short of
+        // unit length, so the rebuild takes about 0.002 m/s a call off the
+        // speed at 20 m/s; for the ticks the box's front is on the next
+        // polygon, the rows turned half way to that polygon's.
+        AiRows frame{};
+        if (aiContactFrame(col, me, frame)) {
+            me.vel = aiContactVelocity(me.vel, frame);
+            me.contactUp = {frame[3], frame[4], frame[5]};
+            me.contactUpSet = true;
+        } else {
             const float into = dot3(me.vel, nu);
             if (into < 0.5f)
                 for (size_t k = 0; k < 3; ++k)
@@ -3015,6 +3197,7 @@ void aiPutBack(std::vector<AiCar>& cars, size_t self, const TrackCollision& col)
     me.airTicks = 1;
     me.spiked = false;
     me.roadRightSet = false;
+    me.contactUpSet = false;
     me.lane = aiLaneAt(col.road[size_t(slice)], offset);
     me.ghostTicks = 64;
 }
@@ -3065,6 +3248,11 @@ void aiTilt(AiCar& car, int step, const TrackCollision& col) {
     std::array<float, 3> nu = unit3(cross3(rf, car.roadRightSet ? car.roadRight : a.right));
     if (nu[1] < 0)
         nu = {-nu[0], -nu[1], -nu[2]};
+    // car_on_road turns the body towards the up of the rows it took the
+    // velocity through (0x4a1a3d's frame, aiContactFrame), when the box
+    // touches (the clearance 0 or less); the page always.
+    if (car.contactUpSet)
+        nu = car.contactUp;
     std::array<float, 3> f{}, r{}, u{};
     aiTiltedAxes(col, car, f, r, u);
     const float dz = u[0] - nu[0], dx = nu[2] - u[2];

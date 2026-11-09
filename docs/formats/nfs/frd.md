@@ -2318,6 +2318,126 @@ cars 1, 2 and 4 are 0.15, 0.11 and 0.10 m/s fast at 52.6 s (0.21, 0.17,
 0.16), car 6 0.26 (0.19). The `d7-watch2` replay (0.40 m) and `park`
 (120 stops, none past a wall) are unchanged.
 
+**The contact's frame, recorded a step at a time** (November 2026,
+`i1-runs`, read with `gdecomp`, `asm` and `capstone`). `t6-log`'s run
+again (`rec.sh`: `nfs-host -native -deterministic 50000` with its keys,
+`-watch` at `car_dynamics`' sub-steps `0x4a2830`, `0x4a2876` after the
+downforce, `0x4a287d`, `0x4a288a`, `0x4a2894`, `0x4a2a0c` and `0x4a2b28`
+around gravity, `0x4a2b7d` after `car_on_road`, at `0x4088f0`,
+`0x408600`, `ai_integrate` `0x4071a0`, the hits `0x4311d0`, `car_move`
+`0x4a2c60` and the race task `0x42ce70`, with `-watchread` of 53 fields
+of four cars and 0x56ec58-0x56ec78): run `w2` cars 1-4 and `w3` cars
+5-7 (and 1 again) from 51.4 to 52.7 s, 42 rails calls each, 13 minutes
+a run. `-native` doesn't hide anything from `-watch`; the earlier count
+of 296 is `car_dynamics`' own gate: it does nothing before `g_step`
+(`0x7d3684`) 0x200, and runs once per car each even step. From 50.0 to
+50.5 s the cars are still under 13.4 m/s, so on the slow controller
+(`0x408848`). Per call, along +0x13C:
+- `ai_integrate` is exact: the velocity gains the force through the
+  rows / 32 to the last bit; `0x56ec68` is 0.
+- The downforce is the page's to the bit for cars 2-7; car 1's differs
+  until 51.77 s because its body rows are not unit (|right|² 1 − 2.3e-4,
+  from the grid) until the first turn makes them again; the page's are.
+- Gravity is the +0x190 rows' (the body's forward part, −0.0019 to
+  −0.0198 a call by car), as the page has it.
+- `car_on_road` took −0.0018 to −0.0025 m/s a call (cars 1-4) along the
+  road, where removing the velocity's part along +0x130 takes −0.0001
+  to −0.0005. The code (`0x4a1610`): it copies the car's track position
+  (+0xC) and moves it (`trackpos_update` `0x41f6e0`) to the box's
+  bottom one tick ahead on the side it moves to: +0x98 + +0xA4 / 32
+  (`0x53c824`) + the half width × (v̂ · right) along the body's right −
+  the half height along its up + the half length × (v̂ · forward) along
+  its forward (v̂ the velocity made unit, `0x4972f0`). When that is
+  inside a road polygon of the run (+0x14, +0x18, +0x6C 0) with a
+  surface not 0 or 14, and +0x6A is set, it takes that polygon's frame
+  (`trackpos_road_frame`, 16.16 ints × 1/65536) and, unless the road
+  falls away there (1 − |n.y − n'.y| under 0.87 with the velocity into
+  the new up and the new up lower: then `0x42efe0` pushes the car over,
+  not ported), turns the car's rows (+0x124) half way to it
+  (`0x4b7680`: `0x4b73c0` rows to quaternion, the trace's way or from
+  the largest diagonal with next axes 1, 2, 0 at `0x4b6a1c`; `0x4b71e0`
+  slerp, the shorter way, straight between when within 1e-4 at
+  `0x53ff60`, `0x4f9482` being acos; `0x4b7590` back to rows). Then,
+  when the clearance is 0 or less, it pushes +0x98 out along that
+  frame's up, and takes the velocity through the frame's transpose
+  (`0x4e0110`), drops the up part when under 0.5 (`0x5efddc`) and
+  builds it again from the rows. `trackpos_update` keeps the polygon
+  while the point is still inside it and then clears +0x6A (+0x68,
+  +0x6A as physics.md has them), so for most ticks the frame is the
+  car's own rows unturned. Those are 16.16 fixed point and not of unit
+  length (|forward|² 1 − 1.0e-4, |right|² 1 − 1.9e-4 in the trace), so the
+  rebuild scales the velocity: about −0.002 m/s a call at 20 m/s. That
+  is the drift the page lacked; the turned frame (2-3 ticks a slice)
+  adds the road ahead's tilt.
+- Checked (`cchk`, the page's search and quaternions on the game's own
+  state at `0x4a2b28`, the car's polygon found from +0x98): of 119
+  calls (cars 1-4, clearance 0 or less) the page's result is the game's
+  to a median 0 and at most 8e-5 m/s; of 121 more (cars 5-7, 1) to a
+  p90 of 3e-5, four of car 5's (52.16-52.24 s) off by 3.8e-3 where the
+  checker turns the frame and the game doesn't (the car's own polygon
+  as the game had it isn't known there). On a tick with the clearance
+  over 0 (49 of `w2`'s 168) nothing is taken; the next takes both ticks'.
+- The spins `car_on_road` sets (`0x4a1b18`) are against the up of that
+  frame: the +0x130 copy it was passed is replaced by the frame's up row
+  when the clearance is 0 or less.
+
+The page now does this (`aiContactFrame`, `aiContactVelocity`,
+`aiHalfTurn`; `AiCar::contactUp` for `aiTilt`), from the body's centre
+(`aiCentreHeight`) and the car's search (`AiCar::road`); the clearance
+is not modelled, so the step runs every tick. Per accelerating rails
+call over 51.4-52.7 s, the sum of the downforce, gravity and the
+contact along +0x13C (`mkss.sh`, `ss.py`; the game's from `sub.py`):
+
+| car | game | page before | page now |
+|---|---|---|---|
+| 1 | −0.0054 | −0.0028 | −0.0051 |
+| 2 | −0.0094 | −0.0070 | −0.0096 |
+| 3 | −0.0154 | −0.0129 | −0.0157 |
+| 4 | −0.0168 | −0.0139 | −0.0175 |
+| 5 | −0.0204 | −0.0194 | −0.0214 |
+| 6 | −0.0130 | −0.0125 | −0.0142 |
+| 7 | +0.0030 | +0.0008 | −0.0003 |
+
+Cars 6 and 7 differ in the contact itself (the game's −0.0006 and
++0.0005, the page's −0.0019 and −0.0018), from their own states (the
+port gives the game's on the game's state). Along +0x124 the sub-steps
+agree to 0.0001 a call except car 3's (−0.0010 against the page's
+−0.0005). Over the 16 ms dumps each car's +0x7C4 is now within 0.05 m/s
+of the game's to 53.2 s (cars 1, 2, 4 were 0.15, 0.11, 0.10 fast).
+
+Measured (`h1-runs/all.sh`): with the contact's frame only (`i1a`)
++0x638 changes in 136 samples (the game's 143; 132 before), 51 at an
+edge (47; 55), the aim past 8 m in 166 (162; 168); speeds 3.03 m/s rms
+over the window (3.54) and 0.67 over 50-64 s (1.60); +0x7B8 within
+0.0168 m rms over 50-51.7 s (0.0177) and 0.0484 over 50-53.2 s (0.106);
+the decisions to 56 s 328 of 338 (296), to 78 s 820 of 1,568 (750). With
+the spins against the frame's up as well (`i1c`, kept): the body's
+forward's y within 0.0020 rms of the dumps' +0xDC over 50-53.2 s (0.0035
+without), +0x7B8 0.0168 and 0.0404, the decisions 328 and 799; +0x638
+changes 125, 41 at an edge, the aim past 8 m 174; speeds 4.24 over the
+window and 0.68 over 50-64 s (past 64 s the cars are in other places
+either way). The first differing picks are now 55.58 (car 2), 53.40
+(car 4) and 55.73 s (car 5), none to 56 s for cars 1, 3, 6 and 7 (to 78
+s 56.35, 56.05, 65.45, 66.92). Hits: 7, cars 2 and 3 at 76.7 s and car
+4 at 75.8 s (the game's 9, cars 3 and 4 at 63.6-64.2 s). The `d7-watch2`
+replay (0.40 m) and `park` (120 stops, none past a wall) are unchanged.
+
+Where the cars still part: on the 4 m lane edge to a few centimetres,
+as before. Car 4 at 53.40 s: the game's sees no car ahead in the lane
+to its right, the page's sees car 6 there: car 6's left edge at its
+53.33 s decision is +0x7B8 4.921 less its span, on 4.0, where the
+page's is at 4.900. Car 5 at 55.73 s (+0x7B8 4.097 against 4.120)
+halves row 7 for a car ahead in the other lane; at 56.0 s the game's
+car 5 has moved right (4.25) and the page's stays (4.02, lane 7), so car
+3 at 56.05 s halves the other lane (row 7 [−3, −7, 0] against [−7, −3,
+0]), keeps right (pick 8) and from 56.4 s runs at 5-8 m where the
+game's goes to 3.5 and then out to 12-17 m, which brings it beside car
+4 at 63-64 s for the game's hits. The centimetres come from +0x7B8's
+drift across the road over 3-6 s (0.04 m rms at 53.2 s); the
+sub-steps along the road's right agree per call, so what is left is in
+the controllers' side push and the yaw, not recorded here (+0x7C8 and
++0xE8 were not in the reads).
+
 **Skid levels** (+0x5C0 front, +0x5C4 rear) for computer cars:
 `ai_ctl_rails` `0x4076b0` sets the front to (|v · right of slice + 2| −
 7) × 0.15 (`0x53636c`) and the rear × 0.5 (`0x53634c`) only while

@@ -400,6 +400,19 @@ struct RoadSearch {
 };
 bool roadSearch(const Track& track, RoadSearch& s, float x, float z);
 
+// car_on_road's velocity step (0x4a1610, 0x4a1a3d-0x4a1b0e) for a car on
+// the road: the velocity into the rows (right, up, forward, as the car's
+// +0x124 are kept: through their transpose, 0x4e0110), the part along the
+// up dropped when under 0.5 m/s (0x5efddc) and the velocity built again
+// from the rows. Rows that aren't of unit length (a road polygon's frame
+// in 16.16 fixed point) scale what they rebuild: |forward|^2 1 - 1e-4
+// takes 0.002 m/s a call from 20 m/s.
+std::array<float, 3> aiContactVelocity(const std::array<float, 3>& v, const std::array<float, 9>& rows);
+// The rows turned half way to others (0x4b7680): each made a quaternion
+// (0x4b73c0), the two blended (0x4b71e0: slerp the shorter way, straight
+// between them when within 1e-4) and made rows again (0x4b7590).
+std::array<float, 9> aiHalfTurn(const std::array<float, 9>& from, const std::array<float, 9>& to);
+
 // Whether the officer's spot is kept (0x401d78, after 0x4205a0 builds a
 // track position for it at the racer's slice): only inside a polygon of
 // the slice's run (+0x6C 0) with a record whose surface is neither 0 nor
@@ -594,6 +607,10 @@ struct AiCar {
     // aiMove from AiCarData) and +0xB8 as the last dynamics left it
     // (negative: not yet worked out).
     float downforce = 0, groundSpeed = -1;
+    // The up car_on_road last turned the body towards (its spins, 0x4a1b18:
+    // the up row of aiContactFrame's rows); unset, the road polygon's.
+    std::array<float, 3> contactUp{};
+    bool contactUpSet = false;
     // Off the road's lanes (0x40f110: +0x638 not within one lane of them)
     // the ticks it has been under 3 m/s along its forward (+0x7D8,
     // ai_target_point 0x406e50): bit 0x40 steers it at its own slice's

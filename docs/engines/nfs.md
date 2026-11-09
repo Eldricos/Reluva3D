@@ -1631,9 +1631,17 @@ README.md.
   dumped +0x98 the page's measure now matches the game's +0x7B8 to
   0.05 mm rms, 2.7 mm before), and the downforce (`0x4a2260`) and the
   contact's removal of the velocity into the road are ported (frd.md,
-  The body's centre and the downforce). The first differing decisions
-  are unchanged; the page's cars 1-4 still gain about 0.003 m/s a call
-  on the game's from a term not yet found.
+  The body's centre and the downforce). Since `i1` the contact's
+  velocity step is the code's (frd.md, The contact's frame, recorded a
+  step at a time): the velocity goes through the car's 16.16 road rows
+  and back, which takes about 0.002 m/s a call off the speed, and
+  through rows turned half way to the next polygon's for the ticks the
+  box's front is on it; the body turns towards that frame's up. Per
+  call the page now agrees with the game's sub-steps to within 0.0003
+  m/s for cars 1-3 (0.0024-0.0029 before), the decisions to 56 s in 328
+  of 338 (296), the speeds 0.68 m/s rms from 50 to 64 s (1.60). Cars 3
+  and 5 still part at 55.7-56.4 s on the 4 m lane edge to a few
+  centimetres, so the game's hits (cars 3 and 4 at 64 s) don't come.
 - How the wall hits' particles look in play (read from the code only;
   their sounds are measured, not listened to), and wall code 3's
   material: the code tells it from code 5 only by its sound (material
