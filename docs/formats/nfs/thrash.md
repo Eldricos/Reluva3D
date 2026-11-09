@@ -521,10 +521,10 @@ Device Setup. The install's `voodoo2a.dll` is the retail one (93,382
 bytes, 1998-07-31). This section was read from both files (November
 2026, `pefile` and `capstone`; scripts kept outside the repo). The
 CD's `nfs3.exe` is byte-identical to the install's (1998-09-03). The
-patch DLL can't be run under nfs-host yet. It loads Glide 3
-(`glide3x.dll`) by name, and Reluva's Glide stand-in has only Glide 2 so
-far (docs/engines/glide.md, Extension points). So no frame was compared,
-and everything below is from the code.
+patch DLL loads Glide 3 (`glide3x.dll`) by name. Since November 2026 it
+runs under nfs-host on Reluva's Glide 3 stand-in (`-glidedll`, below,
+Running the patch DLL); the rest of this section was read from the code
+and, where marked, checked by running it.
 
 **The build.** The retail DLL was built with Watcom (sections `AUTO`,
 `DGROUP`) and the patch with Microsoft's compiler (`.text`, `.rdata`,
@@ -562,7 +562,16 @@ The game's loader `0x4f8390` sets `0x564410` to 1 when the signature is
 VERSION MISMATCH" (`0x4f876a`, through `0x4df6c0`) and returns 0. Its
 caller `0x4f87e0` drops that result, and by then every function
 pointer has been looked up. So this exe would go on with the patch DLL
-after the message. That was read from the code and has not been run.
+after the message, from the code. **Run, the message never comes**: the
+loader first sends `setstate(0x1f, 0x68)` (`0x4f8741`), the version it
+wants, then calls `about()` (`0x4f874d`). The patch's `setstate` passes
+ids it doesn't handle itself to `0x60005280`, whose case 0x1f
+(`0x600053a2`) keeps the value as its version (`0x60014648`) when it is
+0x68 to 0x6a and takes 0x6a otherwise. So `about()` reports 0x68 to this
+game: watched at `0x4f8759` (nfs-host `-watch`), its structure holds
+"2FD3" at +0 and 0x68 at +8, and `0x4f8769` (the message) is never
+reached. The DLL negotiates the version; the earlier reading missed the
+`setstate` before `about()`.
 
 **Video modes.** Both take `setvideomode(mode, buffers, depth)` (the
 game sends 1, 2, 1: 640x480, double-buffered, with a depth buffer).
@@ -601,9 +610,15 @@ twice, with fog off for the second pass.
 `ARGB_1555` (11), 4 to `RGB_565` (10), 7 to `ARGB_4444` (12), 8 to 4
 and 9 to 14. The patch adds 12 to 1, which the game never sends. Both
 place a texture in TMU 0 so that it doesn't cross a 2 MB boundary.
-Both hand the texels to `grTexDownloadMipMap` as they are. When the
-board has a second TMU (`0x60014044` ≥ 2), the patch also loads every
-texture into it, sets both as the source, and sets both filters. The
+Both hand the texels to `grTexDownloadMipMap` as they are. When
+`0x60014044` is 2 or more, the patch also loads every
+texture into a second TMU, sets both as the source, and sets both
+filters. That count isn't the board's: `0x60001a7b`-`0x60001ae2` asks
+`grGet(GR_NUM_TMU)` but stores 1 in `0x60014044` before and after the
+call, and only the environment variable `VOODOO2_NUMTMU` changes it. So
+on any board the patch uses one TMU unless told otherwise (run: two TMUs
+reported, and `grTexCombine` called once, for TMU 0 only, where
+`setvideomode` would set TMU 1's too). The
 palette changed. The retail `tupdate` (`0x60002430`) downloads a
 palette to the board's one table (`grTexDownloadTable(0, 2, ...)`)
 when it is given, so the last palette sent is used for every 8-bit
@@ -647,7 +662,11 @@ alone still goes straight to the board.
   on; it only builds the table. The game sends 0x15 = 4 for this renderer
   (`0x4b59c0`, `0x7a3a64`). So, from the code, the patch DLL would
   draw this game with no fog unless `FOGMODE`/0x15 is 1. The retail
-  DLL turns table fog on for 1, 2, 4 and 8.
+  DLL turns table fog on for 1, 2, 4 and 8. **Confirmed by running it**
+  (below): in 3,829 frames through the menus into Hometown's race the
+  DLL called `grFogMode` 4,950 times, every time with 0
+  (`GR_FOG_DISABLE`), and `grFogTable` 4,943 times. The race is drawn
+  without fog.
 
 **`3ddata.dat`.** Both are short text lists that 3D Device Setup reads:
 the product, a line per card (a name, and `/M:d3d` for a card that
@@ -664,6 +683,56 @@ so on, under "3D Data", "Cards", "Sort Order", "Card", "Type") and
 `MessageBoxA`. Their file tails are debug
 data (`NB09`/`NB10`). The patch's has "3Dfx Voodoo3" in its card list
 and the install's doesn't. Neither was run.
+
+**Running the patch DLL** (November 2026). `reluva-tool nfs-host
+<game> -glidedll <file>` loads a THRASH DLL file from outside the install
+in `voodoo2a.dll`'s place (the CD's file, never copied into the repo);
+one that names `glide3x.dll` gets Reluva's Glide 3 stand-in on a
+Voodoo3 (docs/engines/glide.md, The Glide 3 front end). The Play page
+takes `glidedll=<file>` with `renderer=glide`. Its C library (Microsoft's)
+also needed `CompareStringA`/`W`, `GetWindowThreadProcessId` (to post to
+the window's thread) and `IsProcessorFeaturePresent` (looked up, absent,
+as on Windows 95). What it does on Glide 3, from the run of the clicks
+below (menus, Hometown's loading screen, the race; 5 billion
+instructions, 3,829 frames) and the code:
+
+- **Detection** (`0x600016a4`): `grGet(GR_NUM_BOARDS)`, `grGlideInit`,
+  `grDisable(GR_SHAMELESS_PLUG)`, then `grGetString(GR_HARDWARE)`
+  compared with "Voodoo Graphics", "Voodoo Rush", "Voodoo2", "Voodoo
+  Banshee" and "Voodoo3 (tm)" (+0x6c of `about()`: 0 to 4), and
+  `grGetString(GR_VERSION)` from its first digit against "3.10" (older:
+  `grGlideShutdown` at every close). Reluva answers "Voodoo3 (tm)" and
+  "3.10". `grGetString(GR_EXTENSION)` is searched for "PALETTE6666" and
+  "TEXMIRROR"; Reluva offers neither.
+- **Memory** (`0x6000198a`): `grGet(GR_NUM_FB)`, then if
+  `grGet(GR_MEMORY_UMA)` succeeds at all (its value isn't read) +0x74 is
+  3, else 1 and `GR_MEMORY_FB` (doubled for two) sizes each mode's buffer
+  count. Each mode then asks `grQueryResolutions` with and without an
+  auxiliary buffer for the most colour buffers (70 queries at start-up).
+  The texture budget is `grTexMaxAddress - 2 × grTexMinAddress`, rounded
+  to 16.
+- **Opening** (`setvideomode`, `0x60001f40`): `grSstWinOpen(hwnd, 7
+  (640x480), 0, ARGB, upper left, 2, 1)`, keeping the context;
+  `grGet(GR_VIEWPORT)`; `grTexCombine(0, LOCAL, ZERO, LOCAL, ZERO)`;
+  `grEnable(GR_ALLOW_MIPMAP_DITHER)`; `grCoordinateSpace(GR_WINDOW_COORDS)`;
+  the vertex layout (every parameter disabled, then XY at 0, Z at 8, Q at
+  12, PARGB at 16, ST0 at 24); `grCullMode(0)`;
+  `grGet(GR_FOG_TABLE_ENTRIES)` (64 here, so the resampling at
+  `0x600028a0` isn't used); then its state defaults.
+- **Drawing**: 4.87 million `grDrawTriangle`s with the game's vertices
+  as they are; 515,015 `grTexSource`s; `grClipWindow` per
+  `clip`; `grBufferClear`, `grBufferSwap` after polling
+  `grGet(GR_PENDING_BUFFERSWAPS)`; `grFinish` for `sync`; two
+  `grLfbLock`s. The modes it asked for: `grDepthBufferMode` z (6,692) and
+  w (once), `grTexFilterMode` bilinear once (state 7 never changes it),
+  `grTexMipMapMode` nearest, `grDitherMode` 4x4, `grTexClampMode` wrap
+  and clamp, `grFogMode` only 0.
+- **`about()`** is called 1,839 times (143 million instructions: each
+  call reads the `VOODOO2_*`/`THRASH_*` environment again).
+- **Frames**: the menus, the loading screen and the race draw as with the
+  retail DLL, without fog (screenshots in the session's scratch folder,
+  not in the repo). The run takes 256 s in software (Release build; the
+  retail DLL's same run 215 s, both with other work on the machine).
 
 ## The Glide stand-in
 
@@ -742,6 +811,36 @@ menus into the race) takes 258 s, about 15.6 frames a second; the DLL's
 own code is 0.15 million instructions of a race frame's 1.4 million. The
 Play page shows the menus at about 15 frames a second. The native
 drawing is faster; the stand-in is a reference, not the default.
+
+**On the GPU** (November 2026). The stand-in's GPU backend
+(docs/engines/glide.md, The GPU backend) draws the same pixels by the
+same rules. `nfs-host -glidegpucompare out.csv` draws every call on the
+GPU and in software and compares each frame at its buffer swap; the same
+run as above (5 billion instructions, Release build), under this
+container's software Vulkan (llvmpipe):
+
+| | frames | mean difference (of 255) | pixels differing, mean (most) | off by more than 24, most |
+|---|---|---|---|---|
+| Retail DLL, menus (swaps 0-1,900) | 1,899 | 0.0018 | 233 (1,305) | 1 |
+| Retail DLL, loading screen (1,950-2,250) | 300 | 0.0001 | 15 (118) | 3 |
+| Retail DLL, race (2,400 on) | 1,510 | 0.0010 | 133 (228) | 3 |
+| Voodoo3 patch DLL, all 3,829 | 3,829 | 0.0014 | 181 (1,305) | 3 |
+
+The differences are single pixels: a texel or a dither step at a texel
+boundary or depth, where the GPU evaluates each value's plane at the
+pixel and the software rasterizer steps it along the row
+(glide.md, Deviations).
+
+Speed, the same runs without comparing (Release build; the times are
+wall-clock with other work on the machine, and the GPU is llvmpipe on the
+same CPU, so they say little about a real GPU): `-glide` 215 s in
+software, `-glidegpu` 223 s; the patch DLL 256 s in software and 197 s on
+the GPU (with less other work running then). On the
+Play page (`renderer=glide`, Xvfb) the menus run at about 18 frames a
+second either way and the game's attract-mode race at 9.8 on the GPU
+against 9.3 in software (the patch DLL 9.3 on the GPU): the interpreter,
+at about 135 million instructions a second, is the limit here, not the
+drawing.
 
 ## Cost
 
