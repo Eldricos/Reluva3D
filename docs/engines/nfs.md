@@ -1541,6 +1541,24 @@ Still to do:
 
 Each part is checked against recordings of the original.
 
+### Later: a Glide stand-in (planned, not started)
+
+A shared, clean-room stand-in for 3dfx's Glide library (`glide2x.dll`,
+then `glide3x.dll`), written only from 3dfx's public documents (the
+Voodoo2 specification and the Glide 2.4 and 3 references), never from
+other Glide wrappers or emulators. It would carry each Glide call out
+on Reluva's renderer by the Voodoo's rules: the 16-bit buffer and its
+dither, the texture formats and filtering, the fog table, the colour
+combine, chroma key, alpha test, w-buffer, linear frame-buffer access
+and the output filter. For NFS3 it would run the game's own
+`voodoo2a.dll` unchanged as a reference for the native THRASH, run the
+CD's Voodoo3 patch DLL (thrash.md), and offer a 3dfx look; built as a
+shared backend, other engines with Glide renderers could use it.
+First step when started: the subset of Glide 2 that NFS3's
+`voodoo2a.dll` calls, compared with the native THRASH. It won't settle
+the undocumented dither rounding, which still needs a real card's
+frames.
+
 ## Sources
 
 Allowed under CONTRIBUTING.md:
