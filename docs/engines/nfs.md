@@ -1208,8 +1208,9 @@ Started. Done so far:
   forces at each frame, on a race into a fence: the figures above are
   from it. The backend was checked on SDL's virtual joysticks
   (`tests/test_sdl_controller.cpp`): a wheel's axes, pedals and buttons,
-  and a pad's rumble. No real wheel or pad was tried (the container has
-  none), so how the forces feel is untested.
+  and a pad's rumble. A real gamepad was tried by the user (November
+  2026): driving and force feedback worked. A real wheel hasn't been
+  tried yet, so how the forces feel on one is untested.
 - **The game's Controllers screen.** Accelerate was rebound to W
   there, and in the race that followed, holding W drove the car to 50
   mph.
