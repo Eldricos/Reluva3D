@@ -3633,6 +3633,81 @@ void testComputerPursuits() {
     aiStripSpan(col.road[0], 7, from, to);
     CHECK(from == -1 && to == 5);
     aiStripSpan(col.road[0], 6, from, to);
+    // A roadblock's hit (0x42ac40 -> 0x42ad35): a racer swerving into a
+    // police car beside it. Hits over 5 but not over 30 between a racer
+    // and a police car (neither traffic, +0x200 bit 0x10: car_kind_from_role
+    // 0x428700 gives police 0x20 and 2) start no smoke and so no fire, the
+    // smoke's ticks run with each step's car (as the Track page now runs
+    // them, from the cars' steps) for 200 steps; the same hit on a traffic
+    // car smokes and stops once the car is down and still.
+    {
+        AiCar racer, cop;
+        for (AiCar* c : {&racer, &cop}) {
+            c->slice = 20;
+            c->along = 0.5f;
+            c->speed = 20;
+            c->sideKept = true;
+            c->velSlice = 20;
+        }
+        racer.racer = true;
+        cop.racer = false;
+        cop.cop = true;
+        racer.lateral = racer.side = 0;
+        cop.lateral = cop.side = 2.2f;
+        racer.sideSpeed = 25;
+        std::vector<AiCar> block{racer, cop};
+        std::vector<AiHit> hits;
+        ParticleRandom random;
+        aiCollide(block, road, 100, &hits);
+        CHECK(!hits.empty());
+        bool over5 = false;
+        for (const AiHit& h : hits) {
+            over5 = over5 || h.strength > 5;
+            CHECK(h.strength <= 30);
+            CarSmoke smoke;
+            const AiCar& c = block[h.car];
+            CHECK(!startCarSmoke(smoke, h.strength, !c.racer && !c.cop, {h.point[0], h.point[1], h.point[2]}, {},
+                                 {1, 0, 0}, {0, 1, 0}, {0, 0, 1}));
+            ParticleSystem none;
+            for (int step = 0; step < 200; ++step)
+                carSmokeTick(none, smoke, {}, {1, 0, 0}, {0, 1, 0}, {0, 0, 1}, {}, step < 100, 1, 0.5f, 0.5f,
+                             uint32_t(step), random);
+            CHECK(smoke.timer == 0 && none.live() == 0);
+            // As traffic: smoke at once, black from 17, fire past 64 only
+            // while the car is still in the air or spinning.
+            if (h.strength > 5) {
+                CHECK(startCarSmoke(smoke, h.strength, true, {h.point[0], h.point[1], h.point[2]}, {}, {1, 0, 0},
+                                    {0, 1, 0}, {0, 0, 1}));
+                carSmokeTick(none, smoke, {}, {1, 0, 0}, {0, 1, 0}, {0, 0, 1}, {}, true, 1, 0, 0, 0, random);
+                CHECK(smoke.timer > 1 && none.live() == 1);
+                carSmokeTick(none, smoke, {}, {1, 0, 0}, {0, 1, 0}, {0, 0, 1}, {}, false, 1, 0.1f, 0.1f, 1, random);
+                CHECK(smoke.timer == 0);
+            }
+        }
+        CHECK(over5);
+    }
+    // The skid levels the controllers leave (+0x5C0, +0x5C4): rails over
+    // 7 m/s across the road 2 slices on, the front x 0.15 and the rear x
+    // 0.5 only while braking; slide both the side speed over 7; slow keeps
+    // them.
+    {
+        AiCar s;
+        s.steer = AiCar::Rails;
+        aiSkid(s, -10, false);
+        CHECK(std::fabs(s.skidFront - 0.45f) < 1e-6f && s.skidRear == 0);
+        aiSkid(s, 10, true);
+        CHECK(std::fabs(s.skidFront - 0.45f) < 1e-6f && std::fabs(s.skidRear - 1.5f) < 1e-6f);
+        aiSkid(s, 6, true);
+        CHECK(s.skidFront == 0 && s.skidRear == 0);
+        s.steer = AiCar::Slide;
+        aiSkid(s, -9, false);
+        CHECK(s.skidFront == 2 && s.skidRear == 2);
+        s.steer = AiCar::Slow;
+        aiSkid(s, 20, true);
+        CHECK(s.skidFront == 2 && s.skidRear == 2);
+        // car_spiked_effects' wheel levels from them: the front x 7.5.
+        CHECK(wheelSkidLevel(0, 2, 2, false, 1) == 10 && wheelSkidLevel(3, 2, 2, false, 1) == 2);
+    }
     CHECK(from == -5 && to == 1);
 
     // The police car ordered to lay one (0x4039c0's order: kind 0 from its

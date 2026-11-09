@@ -2284,6 +2284,8 @@ void TrackPage::moveCars(float dt) {
         carRows(c);
 }
 
+        // The cars' effects of this step (car_impacts_task 0x42b900, Sc64).
+        tickCarEffects(static_cast<uint32_t>(aiStep_));
 Headlight TrackPage::cameraLight() const {
     if (humanPose_.set && computerCars_) {
         const HumanPose& h = humanPose_;
@@ -3298,9 +3300,21 @@ void TrackPage::tickCarEffects(uint32_t tick) {
     const bool dumped = !carDump_.empty();
     auto velocityOf = [&](const ComputerCar& c) -> ParticleVec {
         return dumped ? c.velocity : aiVelocity(collision_, c.ai);
+// Each of the cars' 64 Hz steps (car_impacts_task 0x42b900 -> 0x42b780):
+// the computer's cars are ticked from moveCars, after each step's hits
+// and moves, so the smoke's timer counts their steps and its stop test
+// sees each step's car; a dump's held cars from the particles' ticks.
+// Ticked from the particles' frame-paced loop instead (until November
+// 2026), the timer ran up to 64 ticks a frame on the frame's last car
+// state (a hit's air tick still set) while the cars took at most 16
+// steps (0.25 s): a frame of a second or more took a started smoke past
+// 64, to fire, before its car could settle.
     };
     // The hits between cars (0x42ac40, type 5): sparks and dust at the
     // point, the smoke started, and the hit's sound (category 5, material
+    if (!dumped)
+        for (ComputerCar& c : cars_)
+            carRows(c);
     // 5) from Gen3d.bnk at the camera's distance.
     for (const AiHit& h : carHits_) {
         if (h.car >= cars_.size())
@@ -3346,7 +3360,7 @@ void TrackPage::tickCarEffects(uint32_t tick) {
         // the half height down and x 0.5 of the half length (0x537220)
         // along its rows; the surface under it; the weather (+0x160,
         // car_road_contact_task 0x4a08c0) the race's kind, none under
-        // cover; and no skid (the computer's cars here have no tyres).
+        // cover; and the skid level their controller left (aiSkid).
         if (!dumped && (c.ai.airTicks > 0 || c.up[1] < 0.9f))
             continue;
         const float speed = std::max(std::fabs(v[0]), std::fabs(v[2])) + 0.25f * std::min(std::fabs(v[0]), std::fabs(v[2]));
@@ -3369,7 +3383,10 @@ void TrackPage::tickCarEffects(uint32_t tick) {
                 int block = -1;
                 size_t index = 0;
                 surface = roadPolygonAt(at, block, index) ? roadSurface(track_.blocks[size_t(block)], index) : 0;
-                level = 0;
+                // The skid level the computer's controller left (+0x5C0
+                // front, +0x5C4 rear; aiSkid), as car_spiked_effects
+                // takes it (x 7.5 for a front wheel, held to 0-10).
+                level = wheelSkidLevel(w, c.ai.skidFront, c.ai.skidRear, false, 1.0f);
             }
             if (wheelSmokes(w, level, surface, carWeather))
                 tyreSmoke(particles_, w, at, v, c.right, tick, particleRandom_);
@@ -3401,9 +3418,11 @@ void TrackPage::tickParticles(uint64_t nowMs) {
         for (const WallHit& hit : pendingHits_)
             wallHitParticles(particles_, hit, tick, particleRandom_);
         pendingHits_.clear();
-        if (computerCars_)
+        // A dump's cars, held, here; the computer's cars from their own
+        // steps (moveCars), as the game runs the impacts task with them.
+        if (computerCars_ && !carDump_.empty())
             tickCarEffects(tick);
-        else
+        else if (!computerCars_)
             carHits_.clear();
         particles_.step(tick, particleRandom_);
         // The weather's drops (0x4dd5e0 works every other tick), round the

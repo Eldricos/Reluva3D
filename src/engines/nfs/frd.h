@@ -519,6 +519,10 @@ struct AiCar {
     // set), and the step ai_ctl_slide is used to after a hit (+0x65C).
     float halfHeight = 0.669f, halfLength = 2.406f, mass = 1226.67f;
     int airTicks = 0, slideUntil = 0;
+    // The tyres' skid levels the controllers leave (+0x5C0 front, +0x5C4
+    // rear), read by car_spiked_effects (0x42a560) for the wheels' smoke
+    // and spray: set by aiMove (aiSkid), only for the page's effects.
+    float skidFront = 0, skidRear = 0;
     AiDriver driver;
     bool cop = false;   // +0x200 bit 0x20: weighs more in the votes of the cars behind
     int lane = 7, laneLeft = 7, laneRight = 7; // +0x638, +0x63C, +0x640
@@ -970,6 +974,11 @@ void aiCollide(std::vector<AiCar>& cars, const TrackCollision& col, int step, st
 // (0x4060d0, each tick of the model) ends a timed one once its time is
 // past.
 void aiReverseSet(AiCar& car, int mode, int steps, int step);
+// The skid levels (+0x5C0, +0x5C4) the car's controller (`steer`) leaves,
+// for the wheels' effects (aiMove calls it each model step): rails by the
+// velocity across the road 2 slices on, the rear only while braking;
+// slide by the velocity along its own right; slow leaves them.
+void aiSkid(AiCar& car, float side, bool braking);
 // The roll and pitch over one step of 64 (0x4a1610 on the road, 0x4a1ce0
 // landing): in the air (`airTicks`) the landing takes every spin x 0.6
 // (0.5 + e, e 0.1 for a computer car) on the even steps; on the road each

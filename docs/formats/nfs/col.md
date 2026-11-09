@@ -774,12 +774,37 @@ round(random × the byte).
 **On the Track page** (`wheelSpray`, `wheelParticles`): every car,
 every surface; a dump's cars as the dump has them, the computer's cars
 with the wheel points above, the surface of the road polygon under
-each point, the weather as `0x4a08c0` sets it and a skid level of 0
-(they have no tyres), so they spray only for their speed: in the wet
-every car faster than 5 m/s trails kind 10 from all four wheels; the
-verges' kind 11 (`Rain` 1:25) would need a skid. In the page's weather
-on Hometown behind a police car (Shift+C): white speckled trails from
-its wheels (`g2/spray-2.png`).
+each point, the weather as `0x4a08c0` sets it, and the skid levels
+their controller leaves (below): in the wet every car faster than 5 m/s
+trails kind 10 from all four wheels, and a skidding wheel on the verges
+throws kind 11 (`Rain` 1:25). In the page's weather on Hometown behind a
+police car (Shift+C): white speckled trails from its wheels
+(`g2/spray-2.png`).
+
+**The computer's cars' skid levels** (November 2026, `field car 0x5c0`
+and `0x5c4`). `car_spiked_effects` reads +0x5C0 (front) and +0x5C4
+(rear); for a computer car the controllers write them (`aiSkid` in
+frd.cpp, called by `aiMove`):
+- `ai_ctl_rails` (`0x4076b0`, `0x407b5c`-`0x407bbc`): with a the
+  velocity across the road 2 slices on (`0x406a80`, the same the
+  controller steers by), over 7 m/s (`0x56ebd0`, set to 7.0 by
+  `ai_gains_init` `0x405e60`): front (|a| − 7) × 0.15 (`0x53636c`), rear
+  (|a| − 7) × 0.5 (`0x53634c`) while the forward force is a brake, else
+  0; both 0 at 7 or under.
+- `ai_ctl_slide` (`0x407fa0`, `0x408467`-`0x4084ba`): both |+0x4EC| (the
+  velocity along the car's right) − 7, or 0. At the race's start
+  (`+0x200` bit 0x8, a computer racer, and race distance under 20, on a random pick by the
+  car's slot) the rear is set to 10: a wheelspin, not on the page.
+- `ai_ctl_slow` (`0x407c30`) leaves them; `car_ai_physics` (`0x4088f0`)
+  sets both to 0 in the air or tipped (`+0x10C` under 0.9, `0x5363d4`);
+  `ai_finished_coast` (`0x407380`, after the finish) and the resets
+  (`0x40cd80`, `0x42bcb0`) also write them; not followed.
+
+So the game's computer cars do skid: the front level (× 7.5 in
+`car_spiked_effects`) reaches 10 on a bend taken at speed, and the rear
+only while braking. In a page run on Hometown's weather with a roadblock
+(1 minute), 3440 wheel steps had a level over 0, nearly all on rails on
+surface 1 (the front wheels).
 
 **Car hits** (`car_impacts_task` `0x42b900`, November 2026). The cars'
 task (Sc64) after the hits (`car_collisions_task` `0x4311d0`, Sc32):
@@ -836,9 +861,31 @@ cars' spin is their yaw, roll and pitch rates about their own axes, put
 into the world for the stop test; the status line names the last hit.
 In `g2/crash-3.png` (Hometown in the weather, a racer and a police car
 at a roadblock, strength 8) the burst's yellow streaks sit at the
-contact and a fire burns on the racer from an earlier, longer hit; the
-page's cars hit softer than `Rain`'s truck (up to strength 8 against
-the truck's head-on 35 mph), so their dust puffs are smaller.
+contact and a fire burns on the racer; the page's cars hit softer than
+`Rain`'s truck (up to strength 8 against the truck's head-on 35 mph),
+so their dust puffs are smaller.
+
+**That fire** (November 2026). The status line names only the last
+hit, and a hit of 8 on a racer can't start the smoke: the code (`0x42ad15`
+compares the strength's bits with 30.0's, `0x41f00000`, unless `+0x200`
+has bit 0x10) needs traffic, and `car_kind_from_role` (`0x428700`) gives
+police cars 0x20 and 2, racers 1 (and 8 for the computer's), traffic
+alone 0x10; `car_pursuit_states` (`0x405740`) only toggles bit 2. The
+page's racers and police aren't traffic, and in three runs of the same
+roadblock (h2 `r1`-`r3`, dozens of hits each, strengths up to 21) no smoke
+started. So the fire must have come from an earlier hit over 30 (not
+seen again), but it should then have stopped once the car was down and still. It didn't
+because the page ran the cars' effects from the particles' loop, paced
+by the frame (up to 64 ticks a frame), while the cars moved at most 16
+steps a frame: every tick of a frame saw the frame's last car, so a hit's
+air tick (`+0x164`, one more for each hit over 5, `0x5373f4`) held the
+stop test off for the whole frame. With every hit made smoke (a debug
+build), one frame ran a smoke 20 ticks on one car state (`r4`); a frame
+of a second turns it to fire. The page now runs `tickCarEffects` from
+`moveCars` after each 64 Hz step's hits and moves, as `car_impacts_task`
+runs in the cars' Sc64 list: the same debug build's smokes then end in
+3-7 steps with the car's state changing each step (`r5`), and the
+roadblock shows sparks and dust, no smoke (`h2/after6-2.png`).
 
 On the Tracks page a fast hit at 28 units (Summit block 196) gives a
 small orange cluster, then orange dots and short streaks spreading
