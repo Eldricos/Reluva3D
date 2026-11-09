@@ -440,7 +440,11 @@ void GameHost::addSystem() {
             const std::string dllFile = !options_.presentedRenderer.empty() && name == options_.presentedRenderer
                                             ? options_.renderer
                                             : name;
-            std::ifstream in(process_->hostPath("C:\\" + dllFile, false), std::ios::binary);
+            // Options::glideDll: the renderer from outside the install.
+            const bool outside = options_.glide && !options_.glideDll.empty() && dllFile == options_.renderer;
+            std::ifstream in(outside ? std::filesystem::path(options_.glideDll)
+                                     : process_->hostPath("C:\\" + dllFile, false),
+                             std::ios::binary);
             if (in) {
                 const std::vector<uint8_t> file((std::istreambuf_iterator<char>(in)), {});
                 const x86::Win32Process::Module* m = nullptr;
@@ -473,6 +477,26 @@ void GameHost::addSystem() {
         return 0u;
     });
     provide(k, "FreeLibrary", 1, [](Cpu&) { return 1u; });
+    // CompareString(locale, flags, a, aLength, b, bLength): 1, 2 or 3 for
+    // less, equal, greater, by code unit (case folded for
+    // NORM_IGNORECASE). The C library of the CD's Voodoo3 patch DLL asks.
+    auto compareStrings = [](Cpu& c, int unit) -> uint32_t {
+        auto read = [&](uint32_t at, int32_t n) {
+            std::vector<uint32_t> s;
+            for (int32_t i = 0; n < 0 || i < n; ++i) {
+                const uint32_t ch = unit == 1 ? c.read8(at + uint32_t(i)) : c.read16(at + 2 * uint32_t(i));
+                if (n < 0 && !ch)
+                    break;
+                s.push_back((c.arg(1) & 1) && ch < 0x80 ? uint32_t(std::tolower(int(ch))) : ch);
+            }
+            return s;
+        };
+        const std::vector<uint32_t> a = read(c.arg(2), int32_t(c.arg(3))), b = read(c.arg(4), int32_t(c.arg(5)));
+        return a < b ? 1u : a == b ? 2u : 3u;
+    };
+    provide(k, "CompareStringA", 6, [compareStrings](Cpu& c) { return compareStrings(c, 1); });
+    provide(k, "CompareStringW", 6, [compareStrings](Cpu& c) { return compareStrings(c, 2); });
+    provide(k, "IsProcessorFeaturePresent", 1, [](Cpu&) { return 0u; });
     provide(k, "GetProcAddress", 2, [this](Cpu& c) -> uint32_t {
         const uint32_t handle = c.arg(0), name = c.arg(1);
         const std::string function = name < 0x10000 ? "#" + std::to_string(name) : c.string(name);
@@ -861,6 +885,16 @@ void GameHost::addUser() {
     provide(u, "SetWindowPos", 7, [](Cpu&) { return 1u; });
     provide(u, "SetActiveWindow", 1, [](Cpu& c) { return c.arg(0); });
     provide(u, "SetForegroundWindow", 1, [](Cpu&) { return 1u; });
+    // GetWindowThreadProcessId(window, processId): the thread that made it
+    // (the CD's Voodoo3 patch DLL asks, to post to the window's thread).
+    provide(u, "GetWindowThreadProcessId", 2, [this](Cpu& c) {
+        if (c.arg(1))
+            c.write32(c.arg(1), 0x100u); // GetCurrentProcessId's
+        for (const Window& w : windows_)
+            if (w.handle == c.arg(0))
+                return w.threadId;
+        return 0u;
+    });
     provide(u, "IsIconic", 1, [](Cpu&) { return 0u; });
     provide(u, "FindWindowA", 2, [](Cpu&) { return 0u; }); // no other copy running
     provide(u, "GetDesktopWindow", 0, [](Cpu&) { return 0x10010u; });
