@@ -655,13 +655,15 @@ public:
         if (reference(p))
             ref_->clear(argb, alpha, depth);
     }
-    void sync(Pipeline& p) override {
-        tested_->sync(p);
-        snapshot(p);
-    }
-    void syncBuffer(Pipeline& p, int buffer) override {
-        tested_->syncBuffer(p, buffer);
-        snapshot(p);
+    void sync(Pipeline& p) override { tested_->sync(p); }
+    void syncBuffer(Pipeline& p, int buffer) override { tested_->syncBuffer(p, buffer); }
+    void hostWrote(Pipeline& p, int slot, int x, int y) override {
+        tested_->hostWrote(p, slot, x, y);
+        if (ref_ && opened_ == p.opened())
+            if (const uint16_t* h = p.slotPixels(slot)) {
+                const size_t at = size_t(y) * size_t(p.width()) + size_t(x);
+                ref_->slotPixels(slot)[at] = h[at];
+            }
     }
     void textureMemoryChanged(Pipeline& p, int tmu, uint32_t start, uint32_t bytes) override {
         tested_->textureMemoryChanged(p, tmu, start, bytes);
@@ -680,7 +682,6 @@ public:
         // The frame just finished: the tested renderer's, read back, against
         // the reference's (its buffers not swapped yet).
         tested_->syncBuffer(p, kBufferFront);
-        snapshot(p);
         const uint16_t* a = p.buffer(kBufferFront);
         const uint16_t* b = ref_->buffer(kBufferBack);
         FrameComparison f;
@@ -726,38 +727,12 @@ private:
             for (int i = 0; i < 3 && ref_->slotOf(kBufferFront) != p.slotOf(kBufferFront); ++i)
                 ref_->swap();
             tested_->sync(p);
-            snapshot(p);
             for (int s = 0; s < Pipeline::kSlots; ++s)
                 if (const uint16_t* h = p.slotPixels(s))
                     std::memcpy(ref_->slotPixels(s), h, size_t(p.width()) * size_t(p.height()) * 2);
-            checkHost_ = false;
-        }
-        if (checkHost_) {
-            // What the host wrote since the last read-back goes into the
-            // reference's buffers too.
-            checkHost_ = false;
-            const size_t n = size_t(p.width()) * size_t(p.height());
-            for (int s = 0; s < Pipeline::kSlots; ++s) {
-                const uint16_t* h = p.slotPixels(s);
-                if (!h || snapshot_[size_t(s)].size() != n)
-                    continue;
-                uint16_t* r = ref_->slotPixels(s);
-                for (size_t i = 0; i < n; ++i)
-                    if (h[i] != snapshot_[size_t(s)][i])
-                        r[i] = h[i];
-            }
         }
         ref_->state() = p.state();
         return true;
-    }
-    void snapshot(Pipeline& p) {
-        if (!p.isOpen())
-            return;
-        const size_t n = size_t(p.width()) * size_t(p.height());
-        for (int s = 0; s < Pipeline::kSlots; ++s)
-            if (const uint16_t* h = p.slotPixels(s))
-                snapshot_[size_t(s)].assign(h, h + n);
-        checkHost_ = true;
     }
     void copyTables(Pipeline& p, int tmu) {
         ref_->setPalette(tmu, 0, 255, p.palette(tmu));
@@ -769,8 +744,6 @@ private:
     std::function<void(const FrameComparison&)> onSwap_;
     std::unique_ptr<Pipeline> ref_;
     uint64_t opened_ = 0;
-    std::array<std::vector<uint16_t>, Pipeline::kSlots> snapshot_;
-    bool checkHost_ = false;
 };
 
 } // namespace

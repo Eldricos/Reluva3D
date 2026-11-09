@@ -238,8 +238,10 @@ void Pipeline::lfbWrite(int bufferId, int x, int y, int mode, uint32_t value, bo
     if (!pipeline)
         renderer_->sync(*this); // what's drawn is in the buffers before they're written
     if (!hasColor) { // the auxiliary buffer's 16 bits
-        if (bufferId == kBufferAux || bufferId == kBufferDepth || bufferId == kBufferAlpha)
+        if (bufferId == kBufferAux || bufferId == kBufferDepth || bufferId == kBufferAlpha) {
             aux_[at] = uint16_t(depth);
+            renderer_->hostWrote(*this, 3, x, y);
+        }
         return;
     }
     uint16_t* target = buffer(bufferId);
@@ -252,8 +254,11 @@ void Pipeline::lfbWrite(int bufferId, int x, int y, int mode, uint32_t value, bo
             target[at] = uint16_t(mode == kLfb565 ? value : value >> 16);
         else
             target[at] = to565(c.r, c.g, c.b, x, y, mode == kLfb888 || mode == kLfb8888 ? state_.dither : kDitherDisable);
-        if (mode == kLfb565Depth || mode == kLfb555Depth || mode == kLfb1555Depth)
+        renderer_->hostWrote(*this, slotOf(bufferId), x, y);
+        if (mode == kLfb565Depth || mode == kLfb555Depth || mode == kLfb1555Depth) {
             aux_[at] = uint16_t(depth);
+            renderer_->hostWrote(*this, 3, x, y);
+        }
         return;
     }
     // Through the pipeline: drawn as a point of this colour and depth, the

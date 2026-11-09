@@ -152,6 +152,9 @@ public:
     virtual void tablesChanged(Pipeline&, int /*tmu*/) {}
     // The front and back buffers were swapped (after the swap).
     virtual void swapped(Pipeline&) {}
+    // A pixel was written straight into a buffer (slot, x, y), by the
+    // linear frame buffer (Pipeline::lfbWrite), after a sync.
+    virtual void hostWrote(Pipeline&, int /*slot*/, int /*x*/, int /*y*/) {}
 };
 
 // The software reference rasterizer, drawing into the pipeline's buffers.

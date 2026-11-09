@@ -257,6 +257,19 @@ int main() {
     CHECK(back < 640 * 480 / 200);
     CHECK(front < 640 * 480 / 1000);
     CHECK(aux < 640 * 480 / 200);
+    // The comparing renderer finds the same differences at each swap.
+    std::vector<FrameComparison> seen;
+    auto gpu2 = reluva::makeSdlCompute(error);
+    draw(makeComparingRenderer(makeGpuRenderer(std::move(gpu2), error),
+                               [&](const FrameComparison& f) { seen.push_back(f); }));
+    CHECK(seen.size() == 2);
+    if (seen.size() == 2) {
+        std::printf("glide_gpu: compared at each swap: %llu and %llu pixels differing, mean %.4f and %.4f of 255\n",
+                    (unsigned long long)seen[0].pixelsDiffering, (unsigned long long)seen[1].pixelsDiffering,
+                    seen[0].meanDifference, seen[1].meanDifference);
+        CHECK(int(seen[0].pixelsDiffering) == back && int(seen[1].pixelsDiffering) == front);
+        CHECK(seen[0].meanDifference < 0.05 && seen[1].meanDifference < 0.01);
+    }
     // Something was drawn: most of the frame isn't the clear colour.
     int drawn = 0;
     for (uint16_t v : hw.back)
