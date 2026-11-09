@@ -923,6 +923,8 @@ bool SplatScreen::hit(int kind, float x, float y, float z, bool inCar, ParticleR
         free->corners = {{{sx - s, sy + c}, {sx + c, sy + s}, {sx + s, sy - c}, {sx - c, sy - s}}};
         free->colour = t->colour;
         free->flags = t->flags;
+        if (kind == 4)
+            ++sounds_; // 0x4ca833: 0x415010(view)
     }
     return true;
 }

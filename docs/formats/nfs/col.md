@@ -787,7 +787,12 @@ life the template's less `rand_next` % (life / 2); half side the
 template's less random × half of it; corners (x − s, y + c), (x + c,
 y + s), (x + s, y − c), (x − c, y − s) for s, c the sine and cosine of a
 random turn × the half side; colour and flags the template's; for kind
-4 also sound 0xF of bank 24 (`0x415010`). On the odd steps the
+4 also a sound (`0x415010`, called at `0x4ca833` for each kind-4 splat
+made): `sound_start` (`0x4182b0`) with the race's bank entry 2
+(`0x57113c`, byte 24 of the table at `0x571124`: `Gen3d.bnk`, or
+`Gen.bnk` without 3D sound), slot 0xF, volume 0x7F and azimuth 0 (in
+split screen, `0x6fd3b0` = 1, 0x3FFF for view 0 and 0xC000 for view 1).
+Slot 15 of both banks is a click of 728 samples at 44100 Hz (`bnk-info`). On the odd steps the
 particles' task (`0x4cb2c0`) ages them (`0x4cb220`): alpha = the
 template's alpha × life / the template's life (whole numbers), then
 life − 1, freed at alpha 0. `0x4cc600` draws them (`0x4cb750`), unless
@@ -807,8 +812,9 @@ splat that lasts 20-40 minutes.
 within 3 ahead go onto the lens as above (the page's camera is never
 in a car; a dump's held particles don't), aged on the odd ticks and
 drawn after the weather without depth test or fog (the pass's place
-and states are inferred), each corner on the line through its pixel. The
-sound of kind 4 is not played. Following a police car in Hometown's
+and states are inferred), each corner on the line through its pixel.
+Each kind-4 splat made plays `Gen3d.bnk`'s (`Gen.bnk`'s) slot 15 at
+full volume, ahead (`SplatScreen::takeSounds`). Following a police car in Hometown's
 weather (Shift+C), its kind-10 spray fills the 200 slots and faint
 rings sit over the view (`h2/splat1-1.png`, before: `g2/spray-2.png`).
 

@@ -1166,6 +1166,11 @@ void testCarEffects() {
     // Kind 4: made one time in a thousand, but the particle is taken anyway.
     random.script = {0xffff};
     CHECK(lens.hit(4, 0, 0, 1, false, random) && lens.live() == 1);
+    CHECK(lens.takeSounds() == 0);
+    // When it is made, its sound (0x415010: Gen's slot 0xF) once.
+    random.script = {0, 0, 0, 0};
+    CHECK(lens.hit(4, 0.5f, 0.5f, 1, false, random) && lens.live() == 2);
+    CHECK(lens.takeSounds() == 1 && lens.takeSounds() == 0 && SplatScreen::kSoundSlot == 15);
     // No free slot: not taken.
     for (Splat& s : lens.splats())
         s.life = 5;
