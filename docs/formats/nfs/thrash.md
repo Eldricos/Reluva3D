@@ -11,7 +11,9 @@ THRASH is the interface between `nfs3.exe` and its renderer DLLs:
 - `softtria.dll` is the software renderer;
 - `d3da.dll` runs on Direct3D;
 - `voodooa.dll` and `voodoo2a.dll` run on Glide (`glide2x.dll`, loaded
-  by name), for 3dfx's Voodoo cards.
+  by name), for 3dfx's Voodoo cards. The Classic CD's Voodoo3 patch
+  replaces `voodoo2a.dll` with one built for Glide 3 (see The Voodoo3
+  patch's voodoo2a.dll).
 
 The game loads the one the registry names ("Thrash Driver") and finds
 its functions by name with GetProcAddress. Each export is
@@ -464,6 +466,161 @@ picture, with sharper edges. Textures are point-sampled as in softtria,
 or bilinear with `texturefilter=linear`. Both settings are in the game's
 section of `reluva.ini`. Without a GPU, the software rasterizer draws
 as before.
+
+## The Voodoo3 patch's voodoo2a.dll
+
+The Classic CD has a `Patch/Voodoo3` folder with a newer
+`voodoo2a.dll` (110,592 bytes, PE time stamp 1999-04-21), a
+`3ddata.dat` and `3DDATA.EXE`, and a readme. The readme says to run
+`3DDATA.EXE`, copy `3ddata.dat` into the install's `3dSetup` folder,
+copy the DLL over the install's, and then pick "3dfx Voodoo3" in 3D
+Device Setup. The install's `voodoo2a.dll` is the retail one (93,382
+bytes, 1998-07-31). This section was read from both files (November
+2026, `pefile` and `capstone`; scripts kept outside the repo). The
+CD's `nfs3.exe` is byte-identical to the install's (1998-09-03). The
+patch DLL can't be run under nfs-host. It loads Glide 3
+(`glide3x.dll`) by name, and the host has no Glide, only softtria
+loaded under the name `voodoo2a.dll`. So no frame was compared, and
+everything below is from the code.
+
+**The build.** The retail DLL was built with Watcom (sections `AUTO`,
+`DGROUP`) and the patch with Microsoft's compiler (`.text`, `.rdata`,
+`.data`). The retail one runs on Glide 2 (`glide2x.dll`: it uses
+`grSstQueryHardware`, `grSstWinClose@0`, `grTexDownloadTable@12`,
+`grLfbWriteRegion@32`, `grHints`, `grSstControl` and so on). The patch
+runs on Glide 3 (`grVertexLayout`, `grCoordinateSpace`, `grGet`,
+`grGetString`, `grEnable`/`grDisable`, `grErrorSetCallback`,
+`grQueryResolutions`, `grSstWinClose@4`, `grTexDownloadTable@8`,
+`grLfbWriteRegion@36`, `guGammaCorrectionRGB`). It looks all of them
+up by name at `0x60001000`-`0x6000143e`, into `0x60018720`-
+`0x600187f8`. `grTexDownloadMipMapLevelPartial` and
+`grQueryResolutions` are looked up there but the drawing code doesn't
+use them. The patch also tells the card apart by `grGetString`'s
+hardware name (Voodoo Graphics, Voodoo Rush, Voodoo2, Voodoo Banshee,
+Voodoo3, `0x60001730`), and has CPU checks named `ISMMX`, `ISK3D` and
+`ISKNI`.
+
+**Exports.** The retail DLL exports the 34 functions the game looks up.
+The patch exports the same 34, with different ordinals, plus
+`drawlinestrip@12`, `drawtrifan@12` and `drawtristrip@12`. `nfs3.exe`
+never asks for those three: its loader `0x4f8390` looks up only the 34
+`@8`/`@4`/... names, as with every renderer.
+
+**`about()` and the game's check.** The retail `about()` (`0x60001a60`)
+fills its structure with the signature 0x33444658 ("XFD3" in memory)
+at +0 and the version 0x68 at +8. The patch's (`0x60001560`) puts
+0x33444632 ("2FD3") at +0 and 0x6a at +8 (from `0x60014648`). It also
+lets environment variables override each field, `VOODOO2_<name>` and
+then `THRASH_<name>` (`0x60004ff0`, `0x60004f80`: `signature`,
+`version`, `linewidth`, `texturesquare`, `software`, `windowed`,
+`globalclut`, `trilinear2pass`, the texture size limits and more).
+The game's loader `0x4f8390` sets `0x564410` to 1 when the signature is
+"XFD3" (nothing reads `0x564410`). When +8 is not 0x68 it logs "DRIVER
+VERSION MISMATCH" (`0x4f876a`, through `0x4df6c0`) and returns 0. Its
+caller `0x4f87e0` drops that result, and by then every function
+pointer has been looked up. So this exe would go on with the patch DLL
+after the message. That was read from the code and has not been run.
+
+**Video modes.** Both take `setvideomode(mode, buffers, depth)` (the
+game sends 1, 2, 1: 640x480, double-buffered, with a depth buffer).
+Both pass the call to the window's thread (message 0x465 by
+`PostMessageA`, then wait). The retail one (`0x60001f80`) first asks
+`grSstWinOpen` for resolution 0xff (none, the board's own) and falls
+back to its table at `0x600100e8`. The patch's (`0x60001f40`) maps the
+mode straight to a Glide resolution through `0x60014400` (1 to 7,
+640x480; 2 to 8, 800x600; and so on). Its mode records (40 bytes from
+`0x600140b8`: width, height, 16, 4, a usable flag, two buffer counts)
+number 19 against the retail's 16 (`0x6000fe18`). Modes 3-5 change
+from 320x200, 320x240 and 400x256 (not usable) to 1024x768,
+1280x1024 and 1600x1200 (usable). The retail's 1280x1200 (mode 14)
+becomes 1280x1024, and 320x200 and 320x240 move to 17 and 18. Mode 1
+(640x480) is the same in both.
+
+**Vertices.** The retail `drawtri` (`0x60003570`) builds Glide 2
+`GrVertex`es: x, y; 1/w × 256 (`0x60010158`); z × 65536
+(`0x6001015c`); s and t × that 1/w; and the four colour bytes turned
+into floats through a 256-entry table (`0x60011010`). The patch's
+(`0x60003e30`) first culls by the sign of the screen area itself (the
+cull state at `0x60017f14`). It then copies each 32-byte game vertex
+with the same scaling, done on the float's exponent bits (z + 16 in
+the exponent, 1/w + 8). The colour stays packed. Glide 3 is told that
+layout once, at `setvideomode` (`0x60002075`-`0x6000211f`): window
+coordinates, xy at 0, z at 8, q at 12, packed ARGB at 16, st0 at 24.
+That is the game's own vertex layout ([Vertices](#vertices)).
+`setvideomode` also turns on Glide's mipmap dithering (`grEnable(2)`)
+and sets culling off (`grCullMode(0)`). Whether to draw with
+`grDrawTriangle` or `grAADrawTriangle` is set at `0x60003840`. A
+two-pass path there (`0x600038b0`, `0x60003940`) draws a triangle
+twice, with fog off for the second pass.
+
+**Textures.** The format numbers map to Glide's the same way in both
+(`0x60010148` retail, `0x60014464` patch): 2 to `P_8` (5), 3 to
+`ARGB_1555` (11), 4 to `RGB_565` (10), 7 to `ARGB_4444` (12), 8 to 4
+and 9 to 14. The patch adds 12 to 1, which the game never sends. Both
+place a texture in TMU 0 so that it doesn't cross a 2 MB boundary.
+Both hand the texels to `grTexDownloadMipMap` as they are. When the
+board has a second TMU (`0x60014044` ≥ 2), the patch also loads every
+texture into it, sets both as the source, and sets both filters. The
+palette changed. The retail `tupdate` (`0x60002430`) downloads a
+palette to the board's one table (`grTexDownloadTable(0, 2, ...)`)
+when it is given, so the last palette sent is used for every 8-bit
+texture. The patch's (`0x600024c0`) keeps a 1 KB copy with the texture
+when texels and palette come together. `settexture` (`0x600025a0`)
+downloads that copy each time the texture is picked. A palette sent
+alone still goes straight to the board.
+
+**States.** The patch's `setstate` (`0x60002940`, a jump table for ids
+1-0x6f at `0x600031b4`/`0x60003138`) changes these:
+
+- **Defaults.** After `setvideomode` it sends itself a list of states
+  (`0x60005440`), as the retail one does (`0x60002081`-`0x6000211f`).
+  Each value can be overridden by an environment variable
+  `VOODOO2_<name>` or `THRASH_<name>`: `CULL`, `FILTER`, `SHADE`,
+  `TRANSPARENCY`, `ALPHATEST` (0x24, 0x10), `MIPMAP`,
+  `BACKGROUNDCOLOUR`, `CHROMACOLOUR`, `DITHER` (5, 1), `FOGMODE`
+  (0x15, 0), `FOGDENSITY` (0xe, 0), `FOGCOLOUR` (0xf, −1), `ALPHA`,
+  `TEXTURECLAMP`, `DEPTHBIAS`, `DEPTHBUFFER` (4, 2 with a depth
+  buffer), `MAXPENDING` (0x6d, the buffer count − 2), `BACKBUFFERTYPE`
+  (0x2b), `FLATFANS` (0x11), `LINEWIDTH` (0x10), `DEFAULTPALETTE`
+  (0x2c) and `STENCILBUFFER` (0x2f). It also sends 0x2e (1.0), 0x29,
+  0x2a and 0x10029. Ids 0x24, 0x29-0x2f, 0x6d and above are new.
+- **Dithering (5).** A value v other than 0 becomes
+  `grDitherMode(v xor 3)`: 1 gives 2 (4x4), as in the retail DLL, and 2
+  gives 1 (2x2). 0 turns dithering off. Its own default is 1, and the
+  game doesn't send id 5.
+- **Gamma (0x2e, 0x65).** The value is written as text into the
+  `SST_*GAMMA` and `SSTV2_*GAMMA` environment variables. With a window
+  open, it then goes to `guGammaCorrectionRGB` (`0x60002e35`).
+- **Fog (0x15, 0xe).** The table is the retail one's
+  ([Fog](#fog)). `0x60003280` works out (1 − e^(−w·d)) / (1 − e^(−w(63)·d))
+  with d = 1/v, clamped and × 255, for Glide's 64 w values
+  (`0x60001500`). It is now resampled to the board's own table size
+  (`grGet(4)`, `0x60017de0`) when that is over 64, up to 1024
+  (`0x600028a0`). 0x15 also changed. It now runs a jump table by value
+  (`0x60003244`): 0 turns fog off (`grFogMode(0)`), 1 turns table fog
+  on (`grFogMode(2)`), and 2, 4 and 8 only choose the table's shape
+  (`0x60017dbc`). 2 is a curve made with 65536 (`0x60001470`), 8 is
+  `0x60003340` and the rest are the curve above. 0xe no longer turns fog
+  on; it only builds the table. The game sends 0x15 = 4 for this renderer
+  (`0x4b59c0`, `0x7a3a64`). So, from the code, the patch DLL would
+  draw this game with no fog unless `FOGMODE`/0x15 is 1. The retail
+  DLL turns table fog on for 1, 2, 4 and 8.
+
+**`3ddata.dat`.** Both are short text lists that 3D Device Setup reads:
+the product, a line per card (a name, and `/M:d3d` for a card that
+should use `d3da.dll`), and a few switches. The patch's copy (465
+bytes, against the install's 435) adds a first card line, "3Dfx
+Voodoo3" with `/M:voodoo2`, so that card gets `voodoo2a.dll`. It turns
+the `D3D` switch from 1 to 0 and writes the first key `Product` with a
+capital. Everything else is the same. `3DDATA.EXE` is not an archive
+or a self-extractor. Both copies (the install's 61,761 bytes, Watcom,
+1998-08-12; the patch's 86,062 bytes, Microsoft's compiler,
+1999-01-30) are small programs whose only Windows calls besides the C
+runtime's are the registry's (`RegCreateKeyExA`, `RegSetValueExA` and
+so on, under "3D Data", "Cards", "Sort Order", "Card", "Type") and
+`MessageBoxA`. Their file tails are debug
+data (`NB09`/`NB10`). The patch's has "3Dfx Voodoo3" in its card list
+and the install's doesn't. Neither was run.
 
 ## Cost
 

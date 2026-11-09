@@ -495,6 +495,8 @@ rain, 1.5 s in snow).
 
 Skipped before step 512 (the start) and for a car not in play (+0x89).
 
+**The downforce in detail.** `0x4a2260` downforce, the first step of `car_dynamics` (`0x4a2871`): only upright (+0x10C over 0.75, `0x53c8a4`) with +0xB8 over 10; the velocity's part along the body's up (+0xCC) loses P +0x24C × the velocity along the body's forward (when that is over 0), × 2 for a car without +0x200 bit 4 (`0x53c8ac`). For a computer car on the road `car_on_road` then removes the part along the (blended) road up, leaving the downforce's part along the road where the body is pitched or rolled on it (about 0.001 m/s a call at 18 m/s with the body 1° nose-down). See frd.md, "The body's centre and the downforce".
+
 1. `0x4a2260`: **downforce**, over 10 m/s on the road: velocity's up part
    (car frame) −= downforce (doubled for computer cars) × forward speed;
    **in the air**, a drag by axis (0.006, 0.002, 0.004; traffic 0.006,
@@ -3121,7 +3123,7 @@ the set-up record at `0x6fd52c` (`-dumpmem` of the record at 55 s,
 
 ### Camera views (the drawn tilts)
 
-Found November 2026 from the code and run in `g3-cv0`, `g3-cv1`.
+Found November 2026 from the code and run in `g3-cv0`, `g3-cv1`, `h3-cm5`, `h3-lb1`, `h3-tr1`.
 
 - **The camera objects.** Each view has one object per screen (two for
   split screen) in the table `0x552ec8` (mode × 8 + screen × 4; modes
@@ -3139,7 +3141,7 @@ Found November 2026 from the code and run in `g3-cv0`, `g3-cv1`.
   bumper's forward offset is half the car's half length +0x11C,
   `0x4242c2`) and copy the car's rows +0xC0 into the camera's +0x2C
   (or `0x421570`'s turned copy while `0x79c4a0[screen]` is set, the
-  forward offset then negated; a look back, from the code alone), so `0x421730` tilts a
+  forward offset then negated: the look-back, seen in `h3-lb1` below), so `0x421730` tilts a
   copy of the car's own rows.
   In mode 1 `0x4240c0` sets +0x50 0 and the eye ±0.4 to the side by
   the car's +0x9A8 (0 left, 1 right, 2 the middle) when `0x7922fc` is
@@ -3153,8 +3155,8 @@ Found November 2026 from the code and run in `g3-cv0`, `g3-cv1`.
   takes from the options `0x6fbba8`-`0x6fbbb4` through the u16 list
   at `0x55629e` (option 0-6 to mode 0, 1, 4, 3, 2, 5, 6). The defaults
   (`0x4723f0`) are options 1, 2, 3, 0: modes 1, 4, 3 and no fourth.
-  Mode 10 is not in the list (an automatic view, like 8, 9 and 14 in
-  [col.md](col.md)); not checked further.
+  Mode 10 is not in the list. How it can be reached is under Modes 5,
+  6 and 10, below.
 - **Run** `g3-cv0` (`g3-runs/cv.sh`: `e12-tb`'s start, Hometown, gas
   from 52 s, the view key `c` at 54, 57, 60, 63 and 66 s; `-watch`
   `0x423b80` and `0x421730` with the camera's mode, +0x104, +0x50, the
@@ -3175,11 +3177,125 @@ Found November 2026 from the code and run in `g3-cv0`, `g3-cv1`.
   object `0x5de100`, +0x104 2, +0x50 0.03; its frames show the view
   from the front of the car with no body or dashboard (the bumper
   view).
-- **Open:** mode 10's use of the tilts (when the game picks it, as
-  in replays or the attract mode, wasn't run); which views options 5
-  and 6 (modes 5 and 6) are; `0x79c4a0` as the look-back is from the
-  code alone; the run didn't compare the drawn camera rows before and
-  after `0x421730`.
+- **Modes 5, 6 and 10** (November 2026, from `0x422cf0`'s cases and
+  the tick routines, run in `h3-cm5`, `h3-lb1`). The set-up (+0x110,
+  +0x114, +0x118 the eye's right, up and forward offsets; +0x11C,
+  +0x120; +0x50) for the chase views and mode 10:
+
+  | Mode | Offset | +0x11C | +0x120 | +0x50 |
+  |---|---|---|---|---|
+  | 3 (far chase) | 0, 1.65, −5.5 | 0.25 | 0.2 | 0.04 |
+  | 5 | 0, 1.65, −4.75 | 2.0 | 0 | 0.04 |
+  | 4 (near chase) | 0, 1.0, −4.0 | 0.25 | 0.2 | 0.03 |
+  | 6 | 0, 1.0, −3.25 | 2.0 | 0 | 0.03 |
+  | 10 | 2.0, 0.417, −2.4 | 0.136 | (none) | 0.01 |
+
+  The dispatcher `0x426450` (table `0x4263f0`) runs `0x424740` for
+  modes 3 and 5 and `0x4243a0` for 4 and 6, so 5 and 6 are the far
+  and near chase views with other numbers. In both routines the eye's
+  offset from the car moves towards its target each tick by
+  +0x11C × 0.27027 (`0x423fb0`, the constant at `0x536e94`) of the gap,
+  added through `0x4e0000`/`0x4e0050`/`0x4dffb0`. That is 0.068 for 3
+  and 4 (a lagging camera) and 0.54 for 5 and 6 (an almost rigid one).
+  +0x120 scales the offset down with the car's +0x4E8 (`0x424030`:
+  the forward and right offsets by 1 − (1 − (s + 3)/6) × +0x120, s
+  being +0x4E8 capped at 3, or −3 when +0x4E8 is 0 or less, and the
+  height by its square). That is 0 for 5
+  and 6, so their distance stays fixed. `0x424740` (3 and 5) also falls
+  back to (0, 1.0, −3.25), mode 6's offset, when `0x5e1014[screen]` is
+  over 32 (`0x426370` counts it up while both the car's slice and the
+  camera's +0x84 pass `0x420bf0`). The set-up's bytes at
+  +0x58 + m mark the modes it may blend into through mode 19
+  (`0x422610`). 3 has 4, 5, 6, 7, 11, 12, 13, 17, 21 and 24; 4, 5 and
+  6 each have the other three chase modes and 17, 21, 24.
+  Run `h3-cm5` (`h3-runs/cm.sh`: `g3-cv`'s start, Hometown, gas from 52
+  s, the view slots `0x6fbbc0`-`0x6fbbcc` poked to 5, 6, 10, 0 at
+  `0x474ca0`, the view key at 54, 57 and 62 s, the look-back key B
+  held 59-60.5 s and 63.5-65 s, 67 s; `-watch` at `0x423b80`,
+  `0x421730`, `0x42253c` and `0x4225ca` with the mode, +0x104, the
+  current object `0x5e10b0`, `0x79c4a0`, +0x920, +0x924 and the mode-10
+  object's rows `0x5df0dc`-`0x5df0fc`; frames every 20, kept outside
+  the repo). The race began in **mode 10** (`0x5df0b0`, 45.6-54.0 s),
+  then 5 (54.0-57.0 s), 6 (57.0-62.0 s) and 10 again (62.0 s on). The
+  frames show 5 as a far chase view and 6 as a near chase view, both
+  following the car closely. Mode 10 has the eye low and to the
+  car's right, a little behind it, with the car's right flank along
+  the left edge and the road ahead.
+- **How mode 10 is reached.** Nothing in the exe passes 10 to the camera
+  setters (`0x4238b0`, `0x422610`, `0x423960`, `0x423b50`, `0x426450`,
+  `0x422520`, `0x4228e0`). A capstone scan of the call sites found no
+  10 within eight instructions of them, and no store of 10 in the
+  camera code (`0x421000`-`0x427000`) or to `0x5e10xx`, `0x6fbbxx` or
+  `0x7cd9xx`. The replay director `0x4bd640` takes its modes from
+  `0x55fe44` (15, 8, 9, 13, 3, 12, 7, 11, 1) and `0x55fe68` (1, 1, 8, 8,
+  8, 9, 8, 8, 13, 12, 8, 8, 8, 3, 12, 8). The options give only modes
+  0-6 (`0x55629e`). The view key (`0x423b80`) moves to
+  `0x5e103c[mode]`, and when that mode is over 6 it switches straight to
+  `0x5e1054`, which is `0x5e103c[6]` (`0x423cd8`-`0x423cf0`). The
+  race's start camera, mode 16 (`0x4253d0`), also hands over to
+  `0x5e1054` (`0x42542a`, `0x4254d4`). The cycle builder `0x423a60`
+  fills every entry with the first slot's mode and then links the
+  slots, so `0x5e103c[6]` is the mode after 6 when a slot holds 6,
+  else the first slot's. A race therefore starts in the first slot's
+  view unless mode 6 is in the list, in which case it starts in the
+  view after 6. With 5, 6, 10 that was 10 (`h3-cm5`), and the key
+  cycles 10 → 5 → 6 → 10. With 1, 10, 0, 0 (`h3-lb1`, below) the key at
+  55.06 s went to 10 and was sent straight back to 1: `0x421730` kept
+  running on the mode-1 object, and no mode-10 tick happened. So mode
+  10 is never used by the retail game. It only shows when a view slot
+  holds it and 6 comes before it.
+- **Mode 10's tick and the tilt.** `0x425990` puts the eye at the car's
+  position + its rows × the offset each tick, rigidly. Its set-up has
+  +0x104 1, so `0x422520` calls `0x421730` (the tilt, pitch × 2). But
+  it also has +0x108 1, and `0x422290` then rebuilds all three rows
+  from scratch. Forward points from the eye to the car's position
+  +0x98, and up is the world's (0, 1, 0), or the old up when forward is
+  near vertical (`0x536e7c`). The rows are then turned about x by
+  +0x50 (`0x4ea680`) and, for mode 10 only, about y by +0x11C =
+  0.136 turn (`0x4eaab0`, `0x422398`), away from the car. So the tilt
+  is thrown away. In `h3-cm5` at 66.032 s the rows were (−0.342, 0.067,
+  −0.937 / 0.078, 0.996, 0.043) at `0x421730`'s entry, (…, 0.002,
+  0.998, 0.069) after it (`0x42253c`), and (−0.342, 0.067, −0.937 /
+  0.078, 0.996, 0.043) again after `0x422290` (`0x4225ca`). It was the
+  same at every frame from 45.6 s: the drawn mode-10 rows don't depend
+  on +0x920/+0x924. (Modes 3-7 and 9 have +0x108 set too, so they look
+  at the car the same way, but their +0x104 is 0.)
+- **The in-car rows before and after the tilt.** Run `h3-tr1`
+  (`h3-runs/tr.sh`: `g3-cv`'s start with the default views, so mode 1,
+  gas from 52 s, 56 s; `-watch` at `0x421730` and at its return
+  `0x42253c`, reading the mode-1 object's rows `0x5e0e04`-`0x5e0e24`,
+  the player's rows +0xC0 (`0x5e11e0`) and +0x920, +0x924). At each
+  entry the camera's rows equal the car's +0xC0 exactly. With mode 1
+  nothing changes them after `0x42253c` (+0xF4, +0xF8 and +0x108 are
+  0), so the rows after it are the ones drawn. At 54.609 s (+0x920
+  −0.00215, +0x924 0, the largest tilt after 53 s) the right row stayed
+  (−0.7329, 0.0021, −0.6804). Up went from (0.0074, 1.0000, −0.0048) to
+  (0.0258, 0.9994, −0.0246), and forward from (0.6803, −0.0086,
+  −0.7329) to (0.6799, −0.0356, −0.7325). After × before⁻¹ is a turn
+  about the camera's x by 0.02701 radians (cos 0.99964). That is 2π ×
+  0.0043 turn, twice +0x920 (+0x104 1, mode 1's +0x50 0), with no roll
+  as +0x924 was 0. At 50.013 s, with +0x920 −7.7e−8, before and after
+  were equal. So the drawn in-car view is the car's own frame pitched
+  by twice +0x920, as worked out from the code above.
+- **The look-back.** `0x79c4a0[screen]` is the held state of input 0x15
+  (`0x4c5134`: `0x48f7b0(0x15, 0)` each frame; 0x17 for the second
+  screen). That is the look-behind key B (net.md). Run `h3-lb1`
+  (`cm.sh` with the slots 1, 10, 0, 0, B held 53.0-54.0 s and
+  57.0-57.6 s, the view key at 55 s, 58 s, frames every 3 from 2430).
+  `0x79c4a0` read 1 at `0x421730` exactly over 53.079-54.0 s and
+  57.049-57.621 s (59 stops), in mode 1. The frames then show the road
+  behind the car: the start grid's chequered line at 53.2 s, the cars
+  following at 57.3 s, with no dashboard. Before and after, they show
+  the dashboard looking ahead. In the chase views (`0x4243a0`,
+  `0x424740`) the forward offset is negated while it is set. The speed
+  pull-in (`0x424030`) and the lag are skipped, so the eye goes straight
+  to the mirrored offset. In mode 10 `0x425990` flips the sign bit of
+  +0x118 (the forward offset) on **every tick** while it is set
+  (`0x425a13`), not once. In `h3-cm5` (B held 63.541-65.007 s) the
+  mode-10 rows switched between two headings, (−0.860, 0.013, 0.509)
+  and (−0.345, 0.084, −0.935), every 2-3 frames. After release they
+  stayed on the second, the side the last tick had left. So the eye
+  jumps between behind-right and ahead-right of the car while B is held.
 
 ## Other car fields
 

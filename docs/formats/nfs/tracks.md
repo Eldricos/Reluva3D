@@ -425,8 +425,35 @@ at `0x4135c6`; the only other change was the placing's own 4 to 5 at
 51.9 s. So on these two tracks too the lookup returns 5 down to 191
 and 4 from 190, the same rule as Redrock Ridge, Rocky Pass, Lost
 Canyons and Summit (`e12-zs`), and the 186 of `e8-zr4`/`e10-rs` was
-the put-back alone. Not followed: why +0x8 read 0 (and not 699, 1138)
-while the car stood on the poked slice before 54.76 s.
+the put-back alone.
+
+**Why +0x8 read 0 on the poked slice** (November 2026, settled). The
+race distance is only worked out on a step when the car's slice has
+just changed. `0x42ce70` (the Sc32 task) calls `0x42cc20` (laps owed)
+and then `0x42ce10` (race distance) for a car only when the word at car
++0x74 is not 0 (`0x42cfbe`-`0x42cfcb`). Car +0x74 is the car's track
+position's +0x68 (the position is at car +0xC; physics.md, Other car
+fields). The car's own position update sets it to 1 when the slice
+changed (stores at `0x41e461` and `0x41f6aa`, in `0x41e420` and
+`0x41f650`) and writes 0 when it didn't (`0x41f80f`). In `h3-zf0r`
+those were the only stores to the player's +0x74: 8 of 1 and 473 of
+0 at `0x41f80f`, apart from the set-up's clears. There is no start-line or race-started gate. +0x208
+plays no part here; the race only has to have begun for the task to run.
+The placing writes +0x1C (and +0x4) and the position straight into
+memory, so the update that follows finds the car already on its slice.
+It sees no change, and +0x8 keeps what it held: 0, from the
+backward start's owed lap. It changes at the first step the car drives
+onto another slice. Run `h3-zf0r` (`h3-runs/zf.sh`, `g3-zp0r`'s set-up
+unchanged, 56 s; `-watchmem 0x5e1194 2` and `-watch 0x42ce10` with
+the player's +0x1C, +0x4, +0x8, +0x208 and +0x74 and the step):
+`0x42ce10` ran for the player at 50.658, 51.105, 51.496 and 51.815 s
+(slices 20, 19, 18, 17 on the grid, +0x208 still 1, so +0x8 0). It
+did not run at all from the placing (51.875 s, slice 260, +0x208
+poked 0) until 54.694 s (step 884), when the car reached slice 259.
+That call gave 700 (seen at the next one, 55.355 s, slice 258). Every
+call had +0x74 = 1. So the 0 before 54.76 s was the last value written
+on the grid, not a newly worked-out one. 699 (or 1138) would be
+written only if the car had moved onto slice 260 by itself.
 
 ## What isn't known
 
@@ -451,6 +478,10 @@ while the car stood on the poked slice before 54.76 s.
   Hometown's and Country Woods' 186 were the move's (`e8-zq0`,
   `e8-zr4`). Run since with +0x208 poked to 0 (`g3-zp0r`, `g3-zp4r`,
   Music laps): the race distance moved, no move happened at all, and
-  both changed 5 to 4 at slice 190.
+  both changed 5 to 4 at slice 190. Why +0x8 stayed 0 on the poked
+  slice until the car drove off it is settled too (`h3-zf0r`, Music
+  laps). `0x42ce70` works the race distance out only on a step whose
+  slice changed (car +0x74), and the placing's pokes are not such a
+  step.
   Atlantica would count too, but its row is −1, and Empire City's
   second zone is its one-slice 7.
