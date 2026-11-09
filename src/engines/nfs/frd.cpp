@@ -1517,6 +1517,10 @@ std::array<float, 3> aiPlace(const TrackCollision& col, const AiCar& c);
 struct AiDynamics {
     bool ran = false;
     float forward = 0, ground = 0;
+    // For the skid levels (aiSkid): the rails' side speed 2 slices on
+    // (0x406a80) and the velocity along the car's right (+0x4EC) as the
+    // controller found them.
+    float railsSide = 0, carSide = 0;
 };
 
 // The model's half across the road on an even step (car_dynamics 0x4a2830,
@@ -1617,6 +1621,7 @@ AiDynamics aiModelSteer(AiCar& me, const TrackCollision& col, int step, int trac
     aiBodyAxesOf(col, me, me.yaw, bf, br, bu);
     me.carSide = dot3(me.vel, br);
     out.forward = dot3(me.vel, bf);
+    out.carSide = me.carSide;
     if (ramp) {
         // ai_lane_ramp (0x408870): the aim 0.2 a call towards the offset
         // wanted; ai_reverse_end (0x4060d0): reversing, the aim is the
@@ -1726,6 +1731,7 @@ AiDynamics aiModelSteer(AiCar& me, const TrackCollision& col, int step, int trac
         // slices on (0x406a80); the force through the road's rows.
         const auto& two = col.road[size_t((((aiSlice(me) + 2 * me.way) % n) + n) % n)];
         const float a4 = dot3(me.vel, two.right);
+        out.railsSide = a4;
         float wantedSide = clampTo(clampTo(-(me.side - me.offset) * 5.0f, 32.0f), ground * 0.5f);
         float wantedYaw = clampTo(-error * 2.5f, 0.8f);
         if (me.speed < 22.35f) {
@@ -1818,6 +1824,23 @@ void aiSteerStep(AiCar& me, const TrackCollision& col, int step, int track) {
         aiAdvance(me, col);
 }
 
+// The skid levels a controller leaves (+0x5C0, +0x5C4). ai_ctl_rails
+// (0x407b5c-0x407bbc): `side` the velocity across the road 2 slices on;
+// over 7 m/s (0x56ebd0, ai_gains_init 0x405e60) the front is the excess
+// x 0.15 (0x53636c), the rear x 0.5 (0x53634c) while braking, else 0.
+// ai_ctl_slide (0x408467-0x4084ba): `side` the velocity along the car's
+// right (+0x4EC); both the excess over 7. ai_ctl_slow (0x407c30) leaves
+// them as they were.
+void aiSkid(AiCar& me, float side, bool braking) {
+    const float over = std::fabs(side) - 7.0f;
+    if (me.steer == AiCar::Rails) {
+        me.skidFront = over > 0 ? over * 0.15f : 0.0f;
+        me.skidRear = over > 0 && braking ? over * 0.5f : 0.0f;
+    } else if (me.steer == AiCar::Slide) {
+        me.skidFront = me.skidRear = over > 0 ? over : 0.0f;
+    }
+}
+
 namespace {
 
 void aiMove(AiCar& me, const AiCarData& data, bool weather, int step, const TrackCollision& col, int track) {
@@ -1826,6 +1849,8 @@ void aiMove(AiCar& me, const AiCarData& data, bool weather, int step, const Trac
     const float raceSpeed = me.speed;
     me.downforce = data.downforce;
     const AiDynamics dyn = aiModelSteer(me, col, step, track, true);
+    if (me.airTicks != 0 && (step & 1) == 0)
+        me.skidFront = me.skidRear = 0; // car_ai_physics 0x408959: in the air, no skid
     if (!dyn.ran)
         return;
     // The speed: the game's computer cars (car_ai_physics 0x4088f0 without
@@ -1887,6 +1912,7 @@ void aiMove(AiCar& me, const AiCarData& data, bool weather, int step, const Trac
         } else {
             force = -brake(error);
         }
+        aiSkid(me, dyn.railsSide, force < 0);
         if (speed < 0)
             force = -force;
     } else {
@@ -1911,6 +1937,8 @@ void aiMove(AiCar& me, const AiCarData& data, bool weather, int step, const Trac
             force = -brake(w - forwardSpeed);
         }
         alongCar = true;
+        if (me.steer == AiCar::Slide)
+            aiSkid(me, dyn.carSide, false);
     }
     const int n = static_cast<int>(col.road.size());
     if (alongCar) {

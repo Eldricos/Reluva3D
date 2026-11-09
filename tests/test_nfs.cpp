@@ -1135,6 +1135,41 @@ void testCarEffects() {
     CHECK(dimByIntensity(0x80808080, 0.25f) == 0x20202020);
     CHECK(dimParticle(0xffffffff, 0.5f) == 0x7f7f7f7f && dimParticle(0x80402010, 0.25f) == 0x20100804 &&
           dimParticle(0xabcdef01, 1.5f) == 0xabcdef01);
+
+    // Splats on the lens (0x4ca500): only kinds 1, 4, 10 and 11, not in
+    // the car. Mud (11, two of them, jitter 0.5): the first at (x, y) / z
+    // (the jitter's randoms 0.5 move it by 0), life 1024 less 10, half
+    // side 0.2 turned by 0; the second at the same place is covered.
+    SplatScreen lens;
+    CHECK(!lens.hit(3, 0.2f, 0.1f, 2, false, random) && !lens.hit(11, 0.2f, 0.1f, 2, true, random));
+    random.script = {0x8000, 0x8000, 10, 0, 0, 0x8000, 0x8000};
+    CHECK(lens.hit(11, 0.2f, 0.1f, 2, false, random) && lens.live() == 1);
+    const Splat& mud = lens.splats()[0];
+    CHECK(mud.kind == 11 && mud.life == 1014 && std::fabs(mud.x - 0.1f) < 1e-6f && std::fabs(mud.y - 0.05f) < 1e-6f &&
+          std::fabs(mud.size - 0.2f) < 1e-6f && std::fabs(mud.corners[0][1] - 0.25f) < 1e-6f &&
+          std::fabs(mud.corners[1][0] - 0.3f) < 1e-6f && mud.colour == 0x7fffffff && mud.flags == 0);
+    // Rain (10, five) on it: each halves the mud's life; the first is made
+    // (half side 0.2 less 0.2 x 0.5 x 0.5), the other four covered by it.
+    random.script = {0x8000, 0x8000, 0, 0x8000, 0};
+    for (int i = 0; i < 4; ++i)
+        random.script.insert(random.script.end(), {0x8000, 0x8000});
+    CHECK(lens.hit(10, 0.2f, 0.1f, 2, false, random) && lens.live() == 2);
+    CHECK(mud.life == 1014 >> 5 && lens.splats()[1].life == 128 && std::fabs(lens.splats()[1].size - 0.15f) < 1e-6f &&
+          lens.splats()[1].flags == 1);
+    // Aging (0x4cb220): alpha the template's x life / its life, then - 1.
+    lens.step();
+    CHECK(mud.colour == 0x03ffffff && mud.life == 30 && lens.splats()[1].colour == 0xffececff &&
+          lens.splats()[1].life == 127);
+    for (int i = 0; i < 40; ++i)
+        lens.step();
+    CHECK(mud.life == 0 && lens.live() == 1);
+    // Kind 4: made one time in a thousand, but the particle is taken anyway.
+    random.script = {0xffff};
+    CHECK(lens.hit(4, 0, 0, 1, false, random) && lens.live() == 1);
+    // No free slot: not taken.
+    for (Splat& s : lens.splats())
+        s.life = 5;
+    CHECK(!lens.hit(1, 0, 0, 1, false, random));
 }
 
 void testParticles() {
@@ -3626,6 +3661,81 @@ void testCarHits() {
         ov = {o};
         aiStep(ov, 0, road, flat, d, 2, 1, false, AiPhase::Move);
         CHECK(ov[0].offRoadTicks == 0 && ov[0].slice == 30);
+    }
+    // A roadblock's hit (0x42ac40 -> 0x42ad35): a racer swerving into a
+    // police car beside it. Hits over 5 but not over 30 between a racer
+    // and a police car (neither traffic, +0x200 bit 0x10: car_kind_from_role
+    // 0x428700 gives police 0x20 and 2) start no smoke and so no fire, the
+    // smoke's ticks run with each step's car (as the Track page now runs
+    // them, from the cars' steps) for 200 steps; the same hit on a traffic
+    // car smokes and stops once the car is down and still.
+    {
+        AiCar racer, cop;
+        for (AiCar* c : {&racer, &cop}) {
+            c->slice = 20;
+            c->along = 0.5f;
+            c->speed = 20;
+            c->sideKept = true;
+            c->velSlice = 20;
+        }
+        racer.racer = true;
+        cop.racer = false;
+        cop.cop = true;
+        racer.lateral = racer.side = 0;
+        cop.lateral = cop.side = 2.2f;
+        racer.sideSpeed = 25;
+        std::vector<AiCar> block{racer, cop};
+        std::vector<AiHit> hits;
+        ParticleRandom random;
+        aiCollide(block, road, 100, &hits);
+        CHECK(!hits.empty());
+        bool over5 = false;
+        for (const AiHit& h : hits) {
+            over5 = over5 || h.strength > 5;
+            CHECK(h.strength <= 30);
+            CarSmoke smoke;
+            const AiCar& c = block[h.car];
+            CHECK(!startCarSmoke(smoke, h.strength, !c.racer && !c.cop, {h.point[0], h.point[1], h.point[2]}, {},
+                                 {1, 0, 0}, {0, 1, 0}, {0, 0, 1}));
+            ParticleSystem none;
+            for (int step = 0; step < 200; ++step)
+                carSmokeTick(none, smoke, {}, {1, 0, 0}, {0, 1, 0}, {0, 0, 1}, {}, step < 100, 1, 0.5f, 0.5f,
+                             uint32_t(step), random);
+            CHECK(smoke.timer == 0 && none.live() == 0);
+            // As traffic: smoke at once, black from 17, fire past 64 only
+            // while the car is still in the air or spinning.
+            if (h.strength > 5) {
+                CHECK(startCarSmoke(smoke, h.strength, true, {h.point[0], h.point[1], h.point[2]}, {}, {1, 0, 0},
+                                    {0, 1, 0}, {0, 0, 1}));
+                carSmokeTick(none, smoke, {}, {1, 0, 0}, {0, 1, 0}, {0, 0, 1}, {}, true, 1, 0, 0, 0, random);
+                CHECK(smoke.timer > 1 && none.live() == 1);
+                carSmokeTick(none, smoke, {}, {1, 0, 0}, {0, 1, 0}, {0, 0, 1}, {}, false, 1, 0.1f, 0.1f, 1, random);
+                CHECK(smoke.timer == 0);
+            }
+        }
+        CHECK(over5);
+    }
+    // The skid levels the controllers leave (+0x5C0, +0x5C4): rails over
+    // 7 m/s across the road 2 slices on, the front x 0.15 and the rear x
+    // 0.5 only while braking; slide both the side speed over 7; slow keeps
+    // them.
+    {
+        AiCar s;
+        s.steer = AiCar::Rails;
+        aiSkid(s, -10, false);
+        CHECK(std::fabs(s.skidFront - 0.45f) < 1e-6f && s.skidRear == 0);
+        aiSkid(s, 10, true);
+        CHECK(std::fabs(s.skidFront - 0.45f) < 1e-6f && std::fabs(s.skidRear - 1.5f) < 1e-6f);
+        aiSkid(s, 6, true);
+        CHECK(s.skidFront == 0 && s.skidRear == 0);
+        s.steer = AiCar::Slide;
+        aiSkid(s, -9, false);
+        CHECK(s.skidFront == 2 && s.skidRear == 2);
+        s.steer = AiCar::Slow;
+        aiSkid(s, 20, true);
+        CHECK(s.skidFront == 2 && s.skidRear == 2);
+        // car_spiked_effects' wheel levels from them: the front x 7.5.
+        CHECK(wheelSkidLevel(0, 2, 2, false, 1) == 10 && wheelSkidLevel(3, 2, 2, false, 1) == 2);
     }
 }
 

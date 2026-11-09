@@ -400,4 +400,53 @@ struct SplashSound {
 };
 SplashSound splashSound(ParticleRandom& random);
 
+// Mud and water on the lens (0x4ca500, 0x4cb220, 0x4cb750). The kinds
+// with splat fields in their templates (+0x64-+0x7C of 0x560b64 + kind x
+// 0x80): 1, 4, 10 and 11. Its pictures are sfx.fsh's SLnn (0x4cb590).
+struct SplatTemplate {
+    int count = 0;         // +0x64 splats made
+    int life = 0;          // +0x68 64 Hz steps (aged on the odd ones)
+    uint32_t flags = 0;    // +0x6C the quad's flags: bit 0 added
+    float size = 0;        // +0x70 half side, in screen units (x / z)
+    float jitter = 0;      // +0x74 the place moved by up to this, each way
+    uint32_t colour = 0;   // +0x78 ARGB
+    float chance = 0;      // +0x7C 0: always; else made when random <= it
+};
+const SplatTemplate* splatTemplate(int kind);
+// One of a view's 200 slots (0x7f0bd0 + view x 0x3200, 0x40 bytes each).
+struct Splat {
+    int life = 0;                                 // +0x00 0: free
+    int kind = 0;                                 // +0x04
+    std::array<std::array<float, 2>, 4> corners{}; // +0x08-+0x24, x / z and y / z
+    uint32_t colour = 0;                          // +0x28
+    uint32_t flags = 0;                           // +0x2C
+    float x = 0, y = 0, size = 0;                 // +0x34, +0x38, +0x3C
+};
+class SplatScreen {
+public:
+    static constexpr int kSlots = 200;
+    // 0x4ca500, for a particle of `kind` drawn in the main view at `x`,
+    // `y` along the camera's right and up and `z` (under 3) ahead: true
+    // when the particle is taken (freed) — for any kind with a count and
+    // a life, unless `inCar` (0x79c4a0) or no slot is free. Each of the
+    // count (made when the chance allows): at (x, y) / z moved by
+    // random x 2 x jitter - jitter each way; not made where a live splat
+    // is within half its size both ways, unless this is rain (10) on mud
+    // (11), whose life is then halved; life the template's less random %
+    // half of it; half side the size less random x half of it; a square
+    // turned by a random angle. Kind 4's also plays a sound (0x415010).
+    bool hit(int kind, float x, float y, float z, bool inCar, ParticleRandom& random);
+    // 0x4cb220, on the odd steps (0x4cb2c0): each live splat's alpha the
+    // template's x its life / the template's life, then its life - 1;
+    // freed once its alpha is 0.
+    void step();
+    std::array<Splat, kSlots>& splats() { return slots_; }
+    const std::array<Splat, kSlots>& splats() const { return slots_; }
+    int live() const;
+    void clear() { slots_ = {}; }
+
+private:
+    std::array<Splat, kSlots> slots_{};
+};
+
 } // namespace reluva::nfs

@@ -863,4 +863,85 @@ void Weather::draw(const WeatherView& view, int active, bool splashes, ParticleR
     }
 }
 
+const SplatTemplate* splatTemplate(int kind) {
+    // +0x64-+0x7C of the templates at 0x560b64, read from nfs3.exe
+    // (November 2026); every other kind's count and life are 0.
+    static const SplatTemplate k1{10, 96, 1, 0.08f, 0.5f, 0x7FFFFFFF, 0};
+    static const SplatTemplate k4{1, 76800, 1, 0.1f, 0, 0x8FFFFFFF, 0.001f};
+    static const SplatTemplate k10{5, 128, 1, 0.2f, 0.75f, 0xFFECECFF, 0};
+    static const SplatTemplate k11{2, 1024, 0, 0.2f, 0.5f, 0x7FFFFFFF, 0};
+    switch (kind) {
+    case 1: return &k1;
+    case 4: return &k4;
+    case 10: return &k10;
+    case 11: return &k11;
+    default: return nullptr;
+    }
+}
+
+bool SplatScreen::hit(int kind, float x, float y, float z, bool inCar, ParticleRandom& random) {
+    const SplatTemplate* t = splatTemplate(kind);
+    if (!t || t->count == 0 || t->life == 0 || inCar)
+        return false;
+    if (t->chance != 0 && !(random.unit() <= t->chance))
+        return true;
+    for (int i = 0; i < t->count; ++i) {
+        Splat* free = nullptr;
+        for (Splat& s : slots_)
+            if (s.life == 0) {
+                free = &s;
+                break;
+            }
+        if (!free)
+            return false;
+        const float depth = z != 0 ? z : 1.5259022e-05f;
+        float sx = x * (1.0f / depth), sy = y * (1.0f / depth);
+        if (t->jitter != 0) {
+            sx += random.unit() * t->jitter * 2.0f - t->jitter; // 0x540398
+            sy += random.unit() * t->jitter * 2.0f - t->jitter;
+        }
+        bool covered = false;
+        for (Splat& s : slots_) {
+            if (s.life == 0 || !(std::fabs(sx - s.x) < s.size * 0.5f) || !(std::fabs(sy - s.y) < s.size * 0.5f))
+                continue; // 0x5403a0
+            if (kind != 10 || s.kind != 11) {
+                covered = true;
+                break;
+            }
+            s.life >>= 1; // rain washing mud off
+        }
+        if (covered)
+            continue;
+        free->kind = kind;
+        free->life = t->life - static_cast<int>(random.next() % static_cast<uint32_t>(t->life >> 1));
+        const float size = t->size - t->size * 0.5f * random.unit();
+        const float turn = random.unit() * 2.0f * 3.14159265358979f;
+        const float s = std::sin(turn) * size, c = std::cos(turn) * size;
+        free->x = sx;
+        free->y = sy;
+        free->size = size;
+        free->corners = {{{sx - s, sy + c}, {sx + c, sy + s}, {sx + s, sy - c}, {sx - c, sy - s}}};
+        free->colour = t->colour;
+        free->flags = t->flags;
+    }
+    return true;
+}
+
+void SplatScreen::step() {
+    for (Splat& s : slots_) {
+        if (s.life == 0)
+            continue;
+        const SplatTemplate* t = splatTemplate(s.kind);
+        const uint32_t alpha = t && t->life ? static_cast<uint32_t>((static_cast<int64_t>(t->colour >> 24) * s.life) / t->life) & 0xff : 0;
+        s.colour = (s.colour & 0x00FFFFFF) | (alpha << 24);
+        --s.life;
+        if (alpha == 0)
+            s.life = 0;
+    }
+}
+
+int SplatScreen::live() const {
+    return static_cast<int>(std::count_if(slots_.begin(), slots_.end(), [](const Splat& s) { return s.life != 0; }));
+}
+
 } // namespace reluva::nfs

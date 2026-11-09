@@ -2318,6 +2318,15 @@ cars 1, 2 and 4 are 0.15, 0.11 and 0.10 m/s fast at 52.6 s (0.21, 0.17,
 0.16), car 6 0.26 (0.19). The `d7-watch2` replay (0.40 m) and `park`
 (120 stops, none past a wall) are unchanged.
 
+**Skid levels** (+0x5C0 front, +0x5C4 rear) for computer cars:
+`ai_ctl_rails` `0x4076b0` sets the front to (|v · right of slice + 2| −
+7) × 0.15 (`0x53636c`) and the rear × 0.5 (`0x53634c`) only while
+braking, 0 at 7 m/s or under (7 from `0x56ebd0`, set by `0x405e60`);
+`ai_ctl_slide` `0x407fa0` sets both to |+0x4EC| − 7; `ai_ctl_slow`
+leaves them; `car_ai_physics` `0x4088f0` zeroes them in the air or below
+upright 0.9 (`0x5363d4`). The page: `aiSkid`, called from `aiMove`; the
+tipped case, the start's wheelspin and the finished coast aren't ported.
+
 **The roadside cop** (`d7-runs/sim/park`,
 the police car ordered to lay a strip from every 8th slice of Hometown,
 120 stops): with the spring and the cut it parked past a wall 81 times,

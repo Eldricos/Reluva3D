@@ -289,6 +289,10 @@ What was built, with each format written up in `docs/formats/nfs/`:
     wheel turns at its mill);
   - the virtual road's walls as a guide, with the road's edges from its
     lane counts and widths (key G);
+  - the cars' effects (hits, hit smoke, wheel spray and smoke) run once
+    per 64 Hz car step, as `car_impacts_task` does; particles of kinds
+    1, 4, 10 and 11 within 3 units of the camera become splats on the
+    lens (`0x4ca500`; [col.md](../formats/nfs/col.md));
   - the lights in their types' colours, sizes and blinking, from the
     game's table, each as its two quads: `glw0` at a fixed size on the
     screen fading out to 256 away, and `glw3` in perspective, only while
