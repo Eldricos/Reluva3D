@@ -11,6 +11,7 @@
 // documents and what is Reluva's own choice.
 
 #include "common/glide/pipeline.h"
+#include "common/glide/raster_setup.h"
 
 #include <algorithm>
 #include <cmath>
@@ -20,21 +21,7 @@ namespace reluva::glide {
 
 namespace {
 
-// Values iterated across a primitive: linear in screen space.
-enum Param {
-    kR,
-    kG,
-    kB,
-    kA,
-    kZ,
-    kW,
-    kS0, // then T0, Q0 (the TMU's 1/w), S1, T1, Q1...
-    kParams = kS0 + 3 * kMaxTmus,
-};
-
-struct Values {
-    float v[kParams];
-};
+using namespace raster;
 
 // floor() to an int without the library call (in range; NaN gives 0).
 inline int floorInt(float f) {
@@ -103,8 +90,6 @@ private:
         } tmu[kMaxTmus];
     };
     bool prepare(Pipeline& p, Setup& su);
-    // Values for TMU i from a vertex, as the stw hints say where to read.
-    static void load(const State& s, const Vertex& v, Values& out);
     void shade(Setup& su, int x, int row, const Values& v);
     Rgba sampleTmu(Setup& su, int tmu, const Values& v, int x, int row, int& lodFraction, float& rawLod);
 };
@@ -192,32 +177,6 @@ bool SoftwareRenderer::prepare(Pipeline& p, Setup& su) {
     su.blend = !(s.blendRgbSrc == kBlendOne && s.blendRgbDst == kBlendZero && s.blendAlphaSrc == kBlendOne &&
                  s.blendAlphaDst == kBlendZero);
     return true;
-}
-
-void SoftwareRenderer::load(const State& s, const Vertex& v, Values& out) {
-    out.v[kR] = v.r;
-    out.v[kG] = v.g;
-    out.v[kB] = v.b;
-    out.v[kA] = v.a;
-    out.v[kZ] = v.ooz;
-    out.v[kW] = v.oow;
-    // s and t: TMU0's from tmuvtx[0], each later TMU the same unless the
-    // hints say its own differ; 1/w: the vertex's oow unless a hint names
-    // the TMU's own (Glide 2.4 Reference Manual, grHints).
-    float sow = v.tmu[0].sow, tow = v.tmu[0].tow, q = v.oow;
-    if (s.stwHints & kStwWDiffTmu0)
-        q = v.tmu[0].oow;
-    for (int i = 0; i < kMaxTmus; ++i) {
-        if (i > 0 && (s.stwHints & (i == 1 ? kStwStDiffTmu1 : kStwStDiffTmu2))) {
-            sow = v.tmu[size_t(i)].sow;
-            tow = v.tmu[size_t(i)].tow;
-        }
-        if (i > 0 && (s.stwHints & (i == 1 ? kStwWDiffTmu1 : kStwWDiffTmu2)))
-            q = v.tmu[size_t(i)].oow;
-        out.v[kS0 + 3 * i] = sow;
-        out.v[kS0 + 3 * i + 1] = tow;
-        out.v[kS0 + 3 * i + 2] = q;
-    }
 }
 
 Rgba SoftwareRenderer::sampleTmu(Setup& su, int tmu, const Values& v, int x, int row, int& lodFraction,
@@ -390,101 +349,28 @@ void SoftwareRenderer::shade(Setup& su, int x, int row, const Values& v) {
 }
 
 void SoftwareRenderer::triangle(Pipeline& p, const Vertex& va, const Vertex& vb, const Vertex& vc) {
-    ++p.stats.trianglesIn;
     Setup su;
-    if (!prepare(p, su))
+    if (!prepare(p, su)) {
+        ++p.stats.trianglesIn;
         return;
-    const State& s = *su.s;
-    // The vertices snapped to 1/16 pixel (the hardware takes x and y as
-    // 12.4 fixed point).
-    auto snap = [](float f) { return std::isfinite(f) ? int64_t(std::llround(double(f) * 16.0)) : int64_t(0); };
-    const Vertex* v[3] = {&va, &vb, &vc};
-    int64_t X[3], Y[3];
-    for (int i = 0; i < 3; ++i) {
-        X[i] = snap(v[i]->x);
-        Y[i] = snap(v[i]->y);
     }
-    int64_t area = (X[1] - X[0]) * (Y[2] - Y[0]) - (X[2] - X[0]) * (Y[1] - Y[0]);
-    if (area == 0)
+    Triangle t;
+    if (!setupTriangle(*su.s, su.width, su.height, va, vb, vc, t, p.stats))
         return;
-    // The sign of the area, as grCullMode reads it: positive for a triangle
-    // turning clockwise on the screen with the origin at the top left.
-    if ((s.cull == kCullNegative && area < 0) || (s.cull == kCullPositive && area > 0))
-        return;
-    if (area < 0) {
-        std::swap(v[1], v[2]);
-        std::swap(X[1], X[2]);
-        std::swap(Y[1], Y[2]);
-        area = -area;
-    }
-    ++p.stats.trianglesOut;
-    // The pixels: those whose centre is inside all three edges, or on a
-    // left edge or an edge along the lower y (Glide 2.4 Reference Manual,
-    // grDrawTriangle), within the clip window and the screen.
-    const int64_t minX = std::min({X[0], X[1], X[2]}), maxX = std::max({X[0], X[1], X[2]});
-    const int64_t minY = std::min({Y[0], Y[1], Y[2]}), maxY = std::max({Y[0], Y[1], Y[2]});
-    const int x0 = std::max<int64_t>({(minX - 8 + 15) >> 4, s.clip[0], 0});
-    const int x1 = int(std::min<int64_t>({((maxX - 8) >> 4) + 1, s.clip[2], su.width}));
-    const int y0 = std::max<int64_t>({(minY - 8 + 15) >> 4, s.clip[1], 0});
-    const int y1 = int(std::min<int64_t>({((maxY - 8) >> 4) + 1, s.clip[3], su.height}));
-    if (x0 >= x1 || y0 >= y1)
-        return;
-    // Edge i runs from vertex i to vertex i+1; with the area positive the
-    // inside is where each edge function is positive.
-    struct Edge {
-        int64_t a, b, c; // E(X, Y) = a * X + b * Y + c, X and Y in 1/16 pixel
-        bool inclusive;
-    } e[3];
-    for (int i = 0; i < 3; ++i) {
-        const int j = (i + 1) % 3;
-        const int64_t dx = X[j] - X[i], dy = Y[j] - Y[i];
-        e[i].a = -dy;
-        e[i].b = dx;
-        e[i].c = dy * X[i] - dx * Y[i];
-        e[i].inclusive = dy < 0 || (dy == 0 && dx > 0); // a left edge, or the edge along the lower y
-    }
-    // The plane of each value over the snapped positions.
-    Values at[3];
-    for (int i = 0; i < 3; ++i)
-        load(s, *v[i], at[i]);
-    const double fx0 = double(X[0]) / 16, fy0 = double(Y[0]) / 16;
-    const double ex1 = double(X[1] - X[0]) / 16, ey1 = double(Y[1] - Y[0]) / 16;
-    const double ex2 = double(X[2] - X[0]) / 16, ey2 = double(Y[2] - Y[0]) / 16;
-    const double det = ex1 * ey2 - ex2 * ey1;
-    for (int k = 0; k < kParams; ++k) {
-        const double d1 = double(at[1].v[k]) - at[0].v[k], d2 = double(at[2].v[k]) - at[0].v[k];
-        su.dx[k] = float((d1 * ey2 - d2 * ey1) / det);
-        su.dy[k] = float((d2 * ex1 - d1 * ex2) / det);
-    }
+    std::copy(t.dx, t.dx + kParams, su.dx);
+    std::copy(t.dy, t.dy + kParams, su.dy);
     su.derivatives = true;
-    const bool flip = s.originLowerLeft;
-    // Integer division rounding down and up, for any signs.
-    auto floorDiv = [](int64_t a, int64_t b) { return a / b - ((a % b != 0) && ((a < 0) != (b < 0))); };
-    auto ceilDiv = [&](int64_t a, int64_t b) { return -floorDiv(-a, b); };
+    const bool flip = su.s->originLowerLeft;
     const int params = su.params;
-    for (int y = y0; y < y1; ++y) {
-        const int64_t Yc = int64_t(y) * 16 + 8;
-        // The row's span: for each edge, the pixels k from x0 where
-        // E0 + 16 a k >= t (t 0 on an inclusive edge, else 1).
-        int64_t kmin = 0, kmax = int64_t(x1 - x0) - 1;
-        for (int i = 0; i < 3 && kmin <= kmax; ++i) {
-            const int64_t E0 = e[i].a * (int64_t(x0) * 16 + 8) + e[i].b * Yc + e[i].c;
-            const int64_t t = e[i].inclusive ? 0 : 1, step = e[i].a * 16;
-            if (step > 0)
-                kmin = std::max(kmin, ceilDiv(t - E0, step));
-            else if (step < 0)
-                kmax = std::min(kmax, floorDiv(E0 - t, -step));
-            else if (E0 < t)
-                kmax = -1;
-        }
-        if (kmin > kmax)
+    for (int y = t.y0; y < t.y1; ++y) {
+        int xs = 0, xe = 0;
+        if (!t.span(y, xs, xe))
             continue;
-        const int xs = x0 + int(kmin), xe = x0 + int(kmax);
         // The values at the first pixel's centre.
         Values rowv;
-        const float px = float(double(xs) + 0.5 - fx0), py = float(double(y) + 0.5 - fy0);
+        const float px = float(double(xs) + 0.5 - t.fx0), py = float(double(y) + 0.5 - t.fy0);
         for (int k = 0; k < params; ++k)
-            rowv.v[k] = at[0].v[k] + su.dx[k] * px + su.dy[k] * py;
+            rowv.v[k] = t.at0.v[k] + su.dx[k] * px + su.dy[k] * py;
         const int row = flip ? su.height - 1 - y : y;
         for (int x = xs; x <= xe; ++x) {
             shade(su, x, row, rowv);
@@ -498,51 +384,21 @@ void SoftwareRenderer::line(Pipeline& p, const Vertex& a, const Vertex& b) {
     Setup su;
     if (!prepare(p, su))
         return;
-    const State& s = *su.s;
-    Values va, vb;
-    load(s, a, va);
-    load(s, b, vb);
-    // One pixel a step along the longer axis, at each pixel centre the
-    // line crosses; the values linear between the ends.
-    const float dx = b.x - a.x, dy = b.y - a.y;
-    if (!std::isfinite(dx) || !std::isfinite(dy))
-        return;
-    const bool xMajor = std::fabs(dx) >= std::fabs(dy);
-    const float from = xMajor ? std::min(a.x, b.x) : std::min(a.y, b.y);
-    const float to = xMajor ? std::max(a.x, b.x) : std::max(a.y, b.y);
-    const int first = int(std::ceil(from - 0.5f)), last = int(std::ceil(to - 0.5f)) - 1;
-    if (last - first > 4096)
-        return;
-    const float span = xMajor ? dx : dy;
-    for (int i = first; i <= last; ++i) {
-        const float c = float(i) + 0.5f;
-        const float t = span != 0 ? (c - (xMajor ? a.x : a.y)) / span : 0.0f;
-        const float other = xMajor ? a.y + dy * t : a.x + dx * t;
-        const int x = xMajor ? i : int(std::floor(other)), y = xMajor ? int(std::floor(other)) : i;
-        if (x < std::max(s.clip[0], 0) || x >= std::min(s.clip[2], su.width) || y < std::max(s.clip[1], 0) ||
-            y >= std::min(s.clip[3], su.height))
-            continue;
-        Values v;
-        for (int k = 0; k < kParams; ++k)
-            v.v[k] = va.v[k] + (vb.v[k] - va.v[k]) * t;
-        shade(su, x, s.originLowerLeft ? su.height - 1 - y : y, v);
-    }
+    forLinePixels(*su.s, su.width, su.height, a, b, [&](int x, int y, const Values& v) {
+        shade(su, x, su.s->originLowerLeft ? su.height - 1 - y : y, v);
+    });
 }
 
 void SoftwareRenderer::point(Pipeline& p, const Vertex& a) {
     Setup su;
     if (!prepare(p, su))
         return;
-    const State& s = *su.s;
-    if (!std::isfinite(a.x) || !std::isfinite(a.y))
-        return;
-    const int x = int(std::floor(a.x)), y = int(std::floor(a.y));
-    if (x < std::max(s.clip[0], 0) || x >= std::min(s.clip[2], su.width) || y < std::max(s.clip[1], 0) ||
-        y >= std::min(s.clip[3], su.height))
+    int x = 0, y = 0;
+    if (!pointPixel(*su.s, su.width, su.height, a, x, y))
         return;
     Values v;
-    load(s, a, v);
-    shade(su, x, s.originLowerLeft ? su.height - 1 - y : y, v);
+    load(*su.s, a, v);
+    shade(su, x, su.s->originLowerLeft ? su.height - 1 - y : y, v);
 }
 
 void SoftwareRenderer::clear(Pipeline& p, uint32_t argb, int alpha, int depth) {

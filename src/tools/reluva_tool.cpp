@@ -94,6 +94,7 @@
 //   reluva-tool portal-check <game folder>         each map's portal and mirror surfaces and portal entities
 //                                                  or draw yet, with example shaders
 
+#include "backends/sdl3/sdl_compute.h"
 #include "common/audio/decode.h"
 #include "common/audio/prologic.h"
 #include "common/audio/wav.h"
@@ -5241,6 +5242,7 @@ int cmdPk3List(int argc, char** argv) {
 } // namespace
 
 int main(int argc, char** argv) {
+    reluva::gfx::setComputeFactory(reluva::makeSdlCompute); // GPU work, if a command asks (nfs-host -glidegpu)
     if (argc >= 2 && std::strcmp(argv[1], "prologic") == 0)
         return cmdProLogic(argc, argv);
 #ifdef RELUVA_ENGINE_NFS

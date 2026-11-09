@@ -40,7 +40,21 @@ struct Board {
     int tmuRevision = 1; // a palette needs revision 1 or later (Glide 2.4 Programming Guide, The Color Palette)
     bool sli = false;
     int maxWidth = 1024, maxHeight = 768;
+    // The fog table's entries as Glide 3's grGet(GR_FOG_TABLE_ENTRIES)
+    // reports them: 64 on the Voodoo Graphics, Voodoo2 and Voodoo3 (each
+    // specification's fogTable register). The core keeps 64; a front end
+    // resamples a larger table to them.
+    int fogTableEntries = 64;
+    // grGet(GR_GAMMA_TABLE_ENTRIES): Reluva's choice, 32 (the documents
+    // give no number for these boards).
+    int gammaTableEntries = 32;
 };
+
+// The boards a host can stand in for: NFS III's Voodoo2 (12 MB: 4 MB of
+// frame buffer, two TMUs of 4 MB) and a Voodoo3 for Glide 3 programs
+// (16 MB; how Reluva splits it is its own choice, docs/engines/glide.md).
+Board voodoo2Board();
+Board voodoo3Board();
 
 // A vertex as the pipeline takes it, whatever the API's layout.
 struct Vertex {
@@ -102,7 +116,10 @@ struct State {
     uint32_t stwHints = 0;
     int lfbConstantAlpha = 0xff;
     int lfbConstantDepth = 0;
-    float gamma = 1.0f;
+    // The video's gamma per channel (red, green, blue): Glide 2's
+    // grGammaCorrectionValue sets all three, Glide 3's guGammaCorrectionRGB
+    // each.
+    std::array<float, 3> gamma{1.0f, 1.0f, 1.0f};
     std::array<TmuState, kMaxTmus> tmus{};
 };
 
@@ -126,10 +143,18 @@ public:
     virtual void point(Pipeline& p, const Vertex& a) = 0;
     virtual void clear(Pipeline& p, uint32_t argb, int alpha, int depth) = 0;
     virtual void sync(Pipeline&) {}
-    // Texture memory, a palette or an NCC table changed.
-    virtual void texturesChanged(Pipeline&, int /*tmu*/) {}
+    // The same for one buffer (kBufferFront...), when only it is read (a
+    // presented frame).
+    virtual void syncBuffer(Pipeline& p, int /*buffer*/) { sync(p); }
+    // A TMU's texture memory changed, `bytes` from `start`.
+    virtual void textureMemoryChanged(Pipeline&, int /*tmu*/, uint32_t /*start*/, uint32_t /*bytes*/) {}
+    // A TMU's palette or NCC tables changed.
+    virtual void tablesChanged(Pipeline&, int /*tmu*/) {}
+    // The front and back buffers were swapped (after the swap).
+    virtual void swapped(Pipeline&) {}
 };
 
+// The software reference rasterizer, drawing into the pipeline's buffers.
 std::unique_ptr<Renderer> makeSoftwareRenderer();
 
 class Pipeline {
@@ -140,7 +165,10 @@ public:
     Pipeline& operator=(Pipeline&&) noexcept = default;
 
     const Board& board() const { return board_; }
+    // The renderer from now on. Call it before drawing (with the buffers
+    // and texture memory as they are, a GPU backend copies them over).
     void setRenderer(std::unique_ptr<Renderer> renderer) { renderer_ = std::move(renderer); }
+    Renderer& renderer() { return *renderer_; }
 
     // --- The display ------------------------------------------------------
     // Sets up the buffers for a resolution and resets the state to Glide's
@@ -148,6 +176,8 @@ public:
     bool open(int width, int height, int colorBuffers, int auxBuffers);
     void close();
     bool isOpen() const { return open_; }
+    // How many times open() succeeded: new buffers each time.
+    uint64_t opened() const { return opened_; }
     int width() const { return width_; }
     int height() const { return height_; }
     int colorBuffers() const { return colorBuffers_; }
@@ -192,6 +222,16 @@ public:
     // null if there's no such buffer.
     uint16_t* buffer(int id);
     const uint16_t* buffer(int id) const;
+    // Where a buffer's pixels are kept: colour buffers in slots 0-2 (a swap
+    // changes which slot is the front, not the pixels), the auxiliary
+    // buffer in slot 3; -1 if there's no such buffer. A renderer that keeps
+    // its own copies (the GPU's) keeps them by slot.
+    static constexpr int kSlots = 4;
+    int slotOf(int id) const;
+    uint16_t* slotPixels(int slot);
+    // TMU memory written from outside a download (a renderer's copy, a
+    // comparison's), the renderer told.
+    void writeTmuMemory(int tmu, uint32_t at, const uint8_t* data, size_t bytes);
     // Writes one pixel the linear frame buffer way (grLfbLock's pointer,
     // grLfbWriteRegion): `value` in write mode `mode` (32-bit modes in
     // ARGB order), at (x, y) from the top left. Through the pixel pipeline
@@ -207,8 +247,8 @@ public:
     // channel, through the gamma table. outputFilter, if set, takes over
     // the conversion (a later Voodoo2/3 video filter belongs there).
     void present(Surface& out);
-    std::function<void(const uint16_t* pixels, int width, int height, const std::array<uint8_t, 256>& gamma,
-                       Surface& out)>
+    using GammaTables = std::array<std::array<uint8_t, 256>, 3>; // red, green, blue
+    std::function<void(const uint16_t* pixels, int width, int height, const GammaTables& gamma, Surface& out)>
         outputFilter;
 
     PixelStats stats;
@@ -218,6 +258,7 @@ private:
     std::unique_ptr<Renderer> renderer_;
     State state_;
     bool open_ = false;
+    uint64_t opened_ = 0;
     int width_ = 0, height_ = 0, colorBuffers_ = 2;
     bool hasAux_ = false;
     // Colour buffers by slot; front_ and back_ index them.

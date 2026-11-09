@@ -8,6 +8,8 @@
 
 #include "common/glide/glide2.h"
 #include "common/glide/glide2_x86.h"
+#include "common/glide/glide3.h"
+#include "common/glide/glide3_x86.h"
 #include "common/glide/pipeline.h"
 
 #include <cmath>
@@ -518,6 +520,158 @@ void testBinding() {
     CHECK(dll.calls().at("guTexMemReset") == 1);
 }
 
+void testGlide3() {
+    Glide3 g; // a Voodoo3
+    // grGet and grGetString: what NFS III's Voodoo3 patch DLL asks.
+    int32_t v[4] = {};
+    CHECK(g.get(g3::kNumBoards, 4, v) == 4 && v[0] == 1);
+    CHECK(g.get(g3::kFogTableEntries, 4, v) == 4 && v[0] == 64);
+    CHECK(g.get(g3::kMemoryUma, 4, v) == 4 && v[0] == 0);
+    CHECK(g.get(g3::kNumTmu, 4, v) == 4 && v[0] == 2);
+    CHECK(g.get(g3::kBitsRgba, 4, v) == 0); // too small a buffer
+    CHECK(g.get(g3::kBitsRgba, 16, v) == 16 && v[1] == 6);
+    CHECK(g.getString(g3::kHardware) == "Voodoo3 (tm)");
+    CHECK(g.getString(g3::kVersion) >= "3.10");
+    // grQueryResolutions: 640x480 with two buffers and a depth buffer fits.
+    Glide3Resolution q{7, int(g3::kQueryAny), int(g3::kQueryAny), 1};
+    const auto list = g.queryResolutions(q);
+    CHECK(!list.empty() && list.front().resolution == 7 && list.front().numAuxBuffers == 1);
+    CHECK(g.queryResolutions({int(g3::kQueryAny), int(g3::kQueryAny), int(g3::kQueryAny), int(g3::kQueryAny)}).size() >
+          list.size());
+    // Opened, a context comes back.
+    const uint32_t context = g.sstWinOpen(0, 7, 0, kColorArgb, 0, 2, 1);
+    CHECK(context != 0 && g.selectContext(context));
+    CHECK(g.get(g3::kViewport, 16, v) == 16 && v[2] == 640 && v[3] == 480);
+    // The patch DLL's layout: window coordinates, xy at 0, z at 8, q at 12,
+    // packed ARGB at 16, st0 at 24 (thrash.md).
+    g.coordinateSpace(g3::kWindowCoords);
+    g.vertexLayout(g3::kParamXy, 0, g3::kParamEnable);
+    g.vertexLayout(g3::kParamZ, 8, g3::kParamEnable);
+    g.vertexLayout(g3::kParamQ, 12, g3::kParamEnable);
+    g.vertexLayout(g3::kParamPargb, 16, g3::kParamEnable);
+    g.vertexLayout(g3::kParamSt0, 24, g3::kParamEnable);
+    CHECK(g.layoutMin() == 0 && g.layoutMax() == 32);
+    struct GameVertex {
+        float x, y, z, q;
+        uint32_t argb, pad;
+        float s, t;
+    };
+    static_assert(sizeof(GameVertex) == 32);
+    auto gv = [](float x, float y, uint32_t argb) { return GameVertex{x, y, 0, 1, argb, 0, 0, 0}; };
+    g.core().colorCombine(kFuncLocal, kFactorZero, kLocalIterated, kOtherIterated, false);
+    g.core().ditherMode(kDitherDisable);
+    g.core().bufferClear(0, 0, 0);
+    const GameVertex a = gv(10, 10, 0xffff0000), b = gv(50, 10, 0xffff0000), c = gv(10, 50, 0xffff0000);
+    g.drawTriangle(reinterpret_cast<const uint8_t*>(&a), reinterpret_cast<const uint8_t*>(&b),
+                   reinterpret_cast<const uint8_t*>(&c));
+    const uint16_t* back = g.pipeline().buffer(kBufferBack);
+    CHECK(back[20 * 640 + 20] == 0xf800);
+    CHECK(back[45 * 640 + 45] == 0);
+    // A strip of four vertices: two triangles, both drawn whatever the
+    // culling, as their winding is kept.
+    g.core().cullMode(kCullNegative);
+    const GameVertex s0 = gv(100, 100, 0xff00ff00), s1 = gv(100, 140, 0xff00ff00), s2 = gv(140, 100, 0xff00ff00),
+                     s3 = gv(140, 140, 0xff00ff00);
+    g.drawVertexArray(g3::kTriangleStrip, {reinterpret_cast<const uint8_t*>(&s0), reinterpret_cast<const uint8_t*>(&s1),
+                                           reinterpret_cast<const uint8_t*>(&s2), reinterpret_cast<const uint8_t*>(&s3)});
+    const bool firstDrawn = back[110 * 640 + 105] == 0x07e0, secondDrawn = back[135 * 640 + 135] == 0x07e0;
+    CHECK(firstDrawn == secondDrawn);
+    g.core().cullMode(kCullDisable);
+    // Log2 LODs: a 256x256 565 texture takes 128 KB and a 1x1 level 8 bytes.
+    CHECK(g.texCalcMemRequired(8, 8, 0, kTexRgb565) == 131072);
+    CHECK(g.texCalcMemRequired(0, 0, 0, kTexRgb565) == 8);
+    // One palette for every TMU.
+    uint32_t palette[256] = {};
+    palette[1] = 0x123456;
+    g.texDownloadTablePartial(kTablePalette, reinterpret_cast<const uint8_t*>(palette), 0, 255);
+    CHECK(g.pipeline().palette(0)[1] == 0x123456 && g.pipeline().palette(1)[1] == 0x123456);
+    // Fog modes renumbered: Glide 3's table on q is the core's table fog.
+    g.fogMode(g3::kFogWithTableOnQ);
+    CHECK(g.pipeline().state().fogMode == kFogWithTable);
+    g.fogMode(g3::kFogWithIteratedAlphaExt);
+    CHECK(g.pipeline().state().fogMode == kFogWithIteratedAlpha);
+    // Mipmap dithering only once allowed.
+    g.texMipMapMode(0, kMipmapNearestDither, false);
+    CHECK(g.pipeline().state().tmus[0].mipmapMode == kMipmapNearest);
+    g.enable(g3::kAllowMipmapDither);
+    CHECK(g.pipeline().state().tmus[0].mipmapMode == kMipmapNearestDither);
+    // Gamma per channel.
+    g.gammaCorrectionRgb(1.0f, 1.3f, 2.0f);
+    CHECK(g.pipeline().state().gamma[2] == 2.0f);
+    // Clip coordinates through the viewport.
+    g.coordinateSpace(g3::kClipCoords);
+    g.vertexLayout(g3::kParamW, 12, g3::kParamEnable);
+    g.vertexLayout(g3::kParamQ, 0, g3::kParamDisable);
+    const GameVertex cv{0.5f, -0.5f, 0, 2, 0xffffffff, 0, 0, 0}; // w 2: (0.25, -0.25)
+    const Vertex out = g.readVertex(reinterpret_cast<const uint8_t*>(&cv));
+    CHECK(std::fabs(out.x - 400) < 0.01f && std::fabs(out.y - 180) < 0.01f && std::fabs(out.oow - 0.5f) < 1e-6f);
+}
+
+void testGlide3Binding() {
+    reluva::x86::Cpu cpu(16u << 20);
+    cpu.setStack(0x100000);
+    reluva::x86::Arena arena(cpu, 0x200000, 0x800000);
+    Glide3Dll dll(cpu, arena);
+    CHECK(dll.dllName() == "glide3x.dll");
+    // Every Glide 3 function the CD's Voodoo3 patch DLL looks up (its names,
+    // read from the DLL).
+    const char* wanted[] = {
+        "_grAADrawTriangle@24", "_grAlphaBlendFunction@16", "_grAlphaCombine@20", "_grAlphaTestFunction@4",
+        "_grAlphaTestReferenceValue@4", "_grBufferClear@12", "_grBufferSwap@4", "_grChromakeyMode@4",
+        "_grChromakeyValue@4", "_grClipWindow@16", "_grColorCombine@20", "_grCoordinateSpace@4", "_grCullMode@4",
+        "_grDepthBiasLevel@4", "_grDepthBufferFunction@4", "_grDepthBufferMode@4", "_grDepthMask@4", "_grDisable@4",
+        "_grDitherMode@4", "_grDrawLine@8", "_grDrawPoint@4", "_grDrawTriangle@12", "_grEnable@4",
+        "_grErrorSetCallback@4", "_grFinish@0", "_grFogColorValue@4", "_grFogMode@4", "_grFogTable@4", "_grGet@12",
+        "_grGetString@4", "_grGlideInit@0", "_grGlideShutdown@0", "_grLfbLock@24", "_grLfbReadRegion@28",
+        "_grLfbUnlock@8", "_grLfbWriteRegion@36", "_grQueryResolutions@8", "_grRenderBuffer@4", "_grSstSelect@4",
+        "_grSstWinClose@4", "_grSstWinOpen@28", "_grTexCalcMemRequired@16", "_grTexClampMode@12",
+        "_grTexCombine@28", "_grTexDownloadMipMap@16", "_grTexDownloadMipMapLevelPartial@40",
+        "_grTexDownloadTable@8", "_grTexFilterMode@12", "_grTexLodBiasValue@8", "_grTexMaxAddress@4",
+        "_grTexMinAddress@4", "_grTexMipMapMode@12", "_grTexSource@16", "_grVertexLayout@12",
+        "_guGammaCorrectionRGB@12",
+    };
+    for (const char* name : wanted)
+        CHECK(dll.exports().count(name) == 1);
+    CHECK(dll.exports().count("_grDrawVertexArray@12") == 1 && dll.exports().count("_grDrawVertexArrayContiguous@16") == 1);
+    uint32_t result = 0;
+    // grGet through the interpreter.
+    const uint32_t buf = arena.alloc(16);
+    CHECK(!cpu.call(dll.exports().at("_grGet@12"), {g3::kFogTableEntries, 4, buf}, result) && result == 4);
+    CHECK(cpu.read32(buf) == 64);
+    // grGetString gives a string in guest memory.
+    CHECK(!cpu.call(dll.exports().at("_grGetString@4"), {g3::kHardware}, result) && result != 0);
+    CHECK(cpu.string(result) == "Voodoo3 (tm)");
+    // Open, a layout, a triangle from guest vertices.
+    CHECK(!cpu.call(dll.exports().at("_grSstWinOpen@28"), {0, 7, 0, 0, 0, 2, 1}, result) && result != 0);
+    CHECK(!cpu.call(dll.exports().at("_grVertexLayout@12"), {g3::kParamXy, 0, 1}, result));
+    CHECK(!cpu.call(dll.exports().at("_grVertexLayout@12"), {g3::kParamPargb, 8, 1}, result));
+    CHECK(!cpu.call(dll.exports().at("_grColorCombine@20"), {kFuncLocal, kFactorZero, kLocalIterated, kOtherIterated, 0},
+                    result));
+    CHECK(!cpu.call(dll.exports().at("_grDitherMode@4"), {kDitherDisable}, result));
+    const uint32_t verts = arena.alloc(36);
+    const float xy[6] = {10, 10, 50, 10, 10, 50};
+    for (uint32_t i = 0; i < 3; ++i) {
+        uint32_t fx, fy;
+        std::memcpy(&fx, &xy[2 * i], 4);
+        std::memcpy(&fy, &xy[2 * i + 1], 4);
+        cpu.write32(verts + 12 * i, fx);
+        cpu.write32(verts + 12 * i + 4, fy);
+        cpu.write32(verts + 12 * i + 8, 0xff0000ff);
+    }
+    CHECK(!cpu.call(dll.exports().at("_grDrawTriangle@12"), {verts, verts + 12, verts + 24}, result));
+    CHECK(dll.glide().pipeline().buffer(kBufferBack)[20 * 640 + 20] == 0x001f);
+    // grLfbWriteRegion's Glide 3 form: the pixel pipeline flag before the
+    // stride.
+    const uint32_t px = arena.alloc(8);
+    cpu.write16(px, 0x07e0);
+    cpu.write16(px + 2, 0x07e0);
+    CHECK(!cpu.call(dll.exports().at("_grLfbWriteRegion@36"), {kBufferBack, 5, 6, kLfb565, 2, 1, 0, 4, px}, result) &&
+          result == 1);
+    CHECK(dll.glide().pipeline().buffer(kBufferBack)[6 * 640 + 6] == 0x07e0);
+    CHECK(dll.calls().at("grDrawTriangle") == 1);
+    CHECK(dll.modes().at("grDitherMode").at(kDitherDisable) == 1);
+}
+
 } // namespace
 
 int main() {
@@ -532,6 +686,8 @@ int main() {
     testTextures();
     testLfb();
     testBinding();
+    testGlide3();
+    testGlide3Binding();
     if (failures) {
         std::fprintf(stderr, "%d check(s) failed\n", failures);
         return 1;

@@ -9,6 +9,24 @@
 
 namespace reluva::glide {
 
+Board voodoo2Board() { return Board{}; }
+
+Board voodoo3Board() {
+    // A Voodoo3 3000 with 16 MB: Reluva gives 8 MB to the frame buffer and
+    // 8 MB to the textures, each of the two TMUs reading all of it (here,
+    // each TMU its own 8 MB). The documents don't give Glide's split.
+    Board b;
+    b.generation = Generation::Voodoo3;
+    b.tmus = 2;
+    b.tmuMemory = 8u << 20;
+    b.frameBufferMemory = 8u << 20;
+    b.fbiRevision = 1;
+    b.tmuRevision = 1;
+    b.maxWidth = 2048;
+    b.maxHeight = 1536;
+    return b;
+}
+
 Pipeline::Pipeline(Board board) : board_(board), renderer_(makeSoftwareRenderer()) {
     board_.tmus = std::clamp(board_.tmus, 1, kMaxTmus);
     tmuMemory_.assign(size_t(board_.tmus), std::vector<uint8_t>(board_.tmuMemory));
@@ -37,6 +55,7 @@ bool Pipeline::open(int width, int height, int colorBuffers, int auxBuffers) {
     back_ = 1;
     triple_ = 2;
     open_ = true;
+    ++opened_;
     resetState();
     return true;
 }
@@ -48,7 +67,7 @@ void Pipeline::close() {
 }
 
 void Pipeline::resetState() {
-    const float gamma = state_.gamma; // the video's gamma stays
+    const std::array<float, 3> gamma = state_.gamma; // the video's gamma stays
     state_ = State{};
     state_.gamma = gamma;
     state_.clip[2] = width_;
@@ -58,7 +77,6 @@ void Pipeline::resetState() {
 }
 
 void Pipeline::swap() {
-    sync();
     if (colorBuffers_ >= 3) {
         const int oldFront = front_;
         front_ = back_;
@@ -68,6 +86,7 @@ void Pipeline::swap() {
         std::swap(front_, back_);
     }
     ++swaps_;
+    renderer_->swapped(*this);
 }
 
 void Pipeline::triangle(const Vertex& a, const Vertex& b, const Vertex& c) {
@@ -106,6 +125,26 @@ uint16_t* Pipeline::buffer(int id) {
     }
 }
 
+int Pipeline::slotOf(int id) const {
+    if (!open_)
+        return -1;
+    switch (id) {
+    case kBufferFront: return front_;
+    case kBufferBack: return back_;
+    case kBufferTriple: return colorBuffers_ >= 3 ? triple_ : -1;
+    case kBufferAux:
+    case kBufferDepth:
+    case kBufferAlpha: return hasAux_ ? 3 : -1;
+    default: return -1;
+    }
+}
+
+uint16_t* Pipeline::slotPixels(int slot) {
+    if (!open_ || slot < 0 || slot >= kSlots)
+        return nullptr;
+    return slot == 3 ? (hasAux_ ? aux_.data() : nullptr) : color_[size_t(slot)].data();
+}
+
 const uint16_t* Pipeline::buffer(int id) const { return const_cast<Pipeline*>(this)->buffer(id); }
 
 void Pipeline::downloadLevel(int tmu, uint32_t start, const TextureInfo& info, int evenOdd, int lod,
@@ -124,8 +163,17 @@ void Pipeline::downloadLevel(int tmu, uint32_t start, const TextureInfo& info, i
     std::vector<uint8_t>& mem = tmuMemory_[size_t(tmu)];
     if (at >= mem.size())
         return;
-    std::memcpy(mem.data() + at, data, std::min(bytes, mem.size() - at));
-    renderer_->texturesChanged(*this, tmu);
+    const size_t n = std::min(bytes, mem.size() - at);
+    std::memcpy(mem.data() + at, data, n);
+    renderer_->textureMemoryChanged(*this, tmu, at, uint32_t(n));
+}
+
+void Pipeline::writeTmuMemory(int tmu, uint32_t at, const uint8_t* data, size_t bytes) {
+    if (tmu < 0 || tmu >= board_.tmus || at >= board_.tmuMemory)
+        return;
+    const size_t n = std::min(bytes, size_t(board_.tmuMemory - at));
+    std::memcpy(tmuMemory_[size_t(tmu)].data() + at, data, n);
+    renderer_->textureMemoryChanged(*this, tmu, at, uint32_t(n));
 }
 
 void Pipeline::setPalette(int tmu, int first, int last, const uint32_t* entries) {
@@ -135,14 +183,14 @@ void Pipeline::setPalette(int tmu, int first, int last, const uint32_t* entries)
     last = std::clamp(last, 0, 255);
     for (int i = first; i <= last; ++i)
         palettes_[size_t(tmu)][size_t(i)] = entries[i - first] & 0xffffff;
-    renderer_->texturesChanged(*this, tmu);
+    renderer_->tablesChanged(*this, tmu);
 }
 
 void Pipeline::setNcc(int tmu, int which, const NccTable& table) {
     if (tmu < 0 || tmu >= board_.tmus)
         return;
     ncc_[size_t(tmu)][size_t(which & 1)] = table;
-    renderer_->texturesChanged(*this, tmu);
+    renderer_->tablesChanged(*this, tmu);
 }
 
 uint32_t Pipeline::levelAddress(int tmu, int lod) const {
@@ -187,6 +235,8 @@ void Pipeline::lfbWrite(int bufferId, int x, int y, int mode, uint32_t value, bo
     default: return;
     }
     const size_t at = size_t(y) * size_t(width_) + size_t(x);
+    if (!pipeline)
+        renderer_->sync(*this); // what's drawn is in the buffers before they're written
     if (!hasColor) { // the auxiliary buffer's 16 bits
         if (bufferId == kBufferAux || bufferId == kBufferDepth || bufferId == kBufferAlpha)
             aux_[at] = uint16_t(depth);
@@ -223,15 +273,18 @@ void Pipeline::lfbWrite(int bufferId, int x, int y, int mode, uint32_t value, bo
 }
 
 void Pipeline::present(Surface& out) {
-    sync();
+    if (open_)
+        renderer_->syncBuffer(*this, kBufferFront);
     if (!open_)
         return;
     if (out.w != width_ || out.h != height_ || out.format != PixelFormat::RGBA32)
         out.create(width_, height_, PixelFormat::RGBA32);
-    std::array<uint8_t, 256> gamma{};
-    const double g = state_.gamma > 0 ? state_.gamma : 1.0;
-    for (int i = 0; i < 256; ++i)
-        gamma[size_t(i)] = uint8_t(std::clamp(std::lround(std::pow(i / 255.0, 1.0 / g) * 255.0), 0L, 255L));
+    GammaTables gamma{};
+    for (size_t ch = 0; ch < 3; ++ch) {
+        const double g = state_.gamma[ch] > 0 ? state_.gamma[ch] : 1.0;
+        for (int i = 0; i < 256; ++i)
+            gamma[ch][size_t(i)] = uint8_t(std::clamp(std::lround(std::pow(i / 255.0, 1.0 / g) * 255.0), 0L, 255L));
+    }
     const uint16_t* src = color_[size_t(front_)].data();
     if (outputFilter) {
         outputFilter(src, width_, height_, gamma, out);
@@ -242,9 +295,9 @@ void Pipeline::present(Surface& out) {
         const uint16_t* row = src + size_t(y) * size_t(width_);
         for (int x = 0; x < width_; ++x, dst += 4) {
             const Rgba c = from565(row[x]);
-            dst[0] = gamma[size_t(c.r)];
-            dst[1] = gamma[size_t(c.g)];
-            dst[2] = gamma[size_t(c.b)];
+            dst[0] = gamma[0][size_t(c.r)];
+            dst[1] = gamma[1][size_t(c.g)];
+            dst[2] = gamma[2][size_t(c.b)];
             dst[3] = 255;
         }
     }

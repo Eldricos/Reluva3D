@@ -11,54 +11,11 @@ namespace reluva::glide {
 
 using x86::Cpu;
 
-namespace {
-
-float argFloat(const Cpu& c, int i) {
-    const uint32_t u = c.arg(i);
-    float f;
-    std::memcpy(&f, &u, 4);
-    return f;
-}
-
-// GR_FOG_TABLE_SIZE entries' eye-space w (Reference Manual,
-// guFogTableIndexToW).
-double fogIndexToW(int i) { return std::pow(2.0, 3.0 + double(i >> 2)) / double(8 - (i & 3)); }
-
-} // namespace
-
-Glide2Dll::Glide2Dll(Cpu& cpu, x86::Arena& memory, Board board) : cpu_(cpu), memory_(memory), glide_(board) {
+Glide2Dll::Glide2Dll(Cpu& cpu, x86::Arena& memory, Board board)
+    : GlideDll(cpu, memory, "glide2x.dll"), glide_(board) {
+    setCore(glide_);
+    glide_.logName = "glide2x";
     addAll();
-}
-
-void Glide2Dll::provideTo(x86::Win32Process& process) const {
-    for (const auto& [name, fn] : natives_)
-        process.provide("glide2x.dll", name, fn);
-}
-
-std::vector<std::string> Glide2Dll::stubs() const { return stubs_; }
-
-void Glide2Dll::add(const std::string& name, int argBytes, Fn fn) {
-    const std::string decorated = "_" + name + "@" + std::to_string(argBytes);
-    const uint32_t pop = uint32_t(argBytes);
-    Cpu::Native native = [this, name, fn = std::move(fn), pop](Cpu& c) {
-        ++calls_[name];
-        c.reg[Cpu::EAX] = fn(c);
-        return pop;
-    };
-    natives_[decorated] = native;
-    exports_[decorated] = cpu_.addNative("glide2x " + name, std::move(native));
-}
-
-void Glide2Dll::stub(const std::string& name, int argBytes, uint32_t result) {
-    stubs_.push_back(name);
-    add(name, argBytes, [this, name, result](Cpu&) {
-        glide_.notImplemented(name);
-        return result;
-    });
-}
-
-const uint8_t* Glide2Dll::guest(uint32_t address, uint32_t size) const {
-    return address && cpu_.valid(address, std::max<uint32_t>(size, 1)) ? cpu_.memory().data() + address : nullptr;
 }
 
 Glide2Vertex Glide2Dll::vertex(uint32_t address) const {
@@ -78,107 +35,6 @@ Glide2TexInfo Glide2Dll::texInfo(uint32_t address) const {
         t.format = int(cpu_.read32(address + 12));
     }
     return t;
-}
-
-void Glide2Dll::fillMirror(Mirror& m) {
-    const Pipeline& p = glide_.pipeline();
-    const int w = p.width(), h = p.height();
-    uint8_t* g = cpu_.memory().data() + m.address;
-    for (int y = 0; y < h; ++y)
-        for (int x = 0; x < w; ++x) {
-            const uint16_t v = glide_.lfbRead(m.lock.buffer, x, y, m.lock.originLowerLeft);
-            uint8_t* at = g + size_t(y) * size_t(m.lock.strideBytes) + size_t(x) * size_t(m.lock.bytesPerPixel);
-            if (m.lock.bytesPerPixel == 2) {
-                std::memcpy(at, &v, 2);
-                continue;
-            }
-            // 32-bit modes: the pixel as that mode would write it.
-            uint32_t out = 0;
-            const Rgba c = from565(v);
-            const int row = m.lock.originLowerLeft ? h - 1 - y : y;
-            const uint16_t* aux = p.buffer(kBufferAux);
-            const uint32_t depth = aux ? aux[size_t(row) * size_t(w) + size_t(x)] : 0;
-            switch (m.lock.writeMode) {
-            case kLfb888:
-            case kLfb8888: out = 0xff000000u | uint32_t(c.r) << 16 | uint32_t(c.g) << 8 | uint32_t(c.b); break;
-            case kLfb565Depth: out = uint32_t(v) << 16 | depth; break;
-            default: { // 555 or 1555 with depth
-                const uint32_t c555 = uint32_t(v >> 11) << 10 | uint32_t(v >> 6 & 31) << 5 | uint32_t(v & 31);
-                out = (c555 | 0x8000u) << 16 | depth;
-                break;
-            }
-            }
-            std::memcpy(at, &out, 4);
-        }
-    m.snapshot.assign(g, g + m.size);
-}
-
-void Glide2Dll::flushMirror(Mirror& m) {
-    const Pipeline& p = glide_.pipeline();
-    const int w = p.width(), h = p.height();
-    const uint8_t* g = cpu_.memory().data() + m.address;
-    const int bpp = m.lock.bytesPerPixel;
-    for (int y = 0; y < h; ++y) {
-        const size_t row = size_t(y) * size_t(m.lock.strideBytes);
-        if (std::memcmp(g + row, m.snapshot.data() + row, size_t(w) * size_t(bpp)) == 0)
-            continue;
-        for (int x = 0; x < w; ++x) {
-            const size_t at = row + size_t(x) * size_t(bpp);
-            if (std::memcmp(g + at, m.snapshot.data() + at, size_t(bpp)) == 0)
-                continue;
-            uint32_t v = 0;
-            std::memcpy(&v, g + at, size_t(bpp));
-            glide_.lfbWrite(m.lock, x, y, v);
-        }
-    }
-}
-
-uint32_t Glide2Dll::lfbLock(uint32_t type, uint32_t buffer, uint32_t writeMode, uint32_t origin, bool pipeline,
-                            uint32_t info) {
-    // GrLfbInfo_t: size (20, set by the caller), lfbPtr, strideInBytes,
-    // writeMode, origin.
-    if (!guest(info, 20) || cpu_.read32(info) < 20)
-        return 0;
-    Glide2LfbLock lock;
-    if (!glide_.lfbLock(int(type), int(buffer), int(writeMode), int(origin), pipeline, lock))
-        return 0;
-    const uint32_t key = uint32_t(lock.buffer) << 16 | uint32_t(lock.writeMode) << 1 | uint32_t(lock.originLowerLeft);
-    Mirror& m = mirrors_[key];
-    if (!m.address) {
-        m.size = uint32_t(lock.strideBytes) * uint32_t(glide_.pipeline().height());
-        m.address = memory_.alloc(m.size, 4096);
-        if (!m.address) {
-            glide_.lfbUnlock(int(type), int(buffer));
-            glide_.notImplemented("grLfbLock", "no guest memory for the buffer's copy");
-            return 0;
-        }
-    }
-    m.lock = lock;
-    if (m.locks++ == 0) {
-        m.written = false;
-        fillMirror(m);
-    }
-    m.written |= (type & 1) != 0;
-    if (lock.pixelPipeline)
-        glide_.notImplemented("grLfbLock pixelPipeline", "pixels written through the pipeline when unlocked");
-    cpu_.write32(info + 4, m.address);
-    cpu_.write32(info + 8, uint32_t(lock.strideBytes));
-    cpu_.write32(info + 12, uint32_t(lock.writeMode));
-    cpu_.write32(info + 16, lock.originLowerLeft ? 1u : 0u);
-    return 1;
-}
-
-uint32_t Glide2Dll::lfbUnlock(uint32_t type, uint32_t buffer) {
-    glide_.lfbUnlock(int(type), int(buffer));
-    // The mirrors of this buffer whose last lock this is.
-    for (auto& [key, m] : mirrors_) {
-        if (m.lock.buffer != int(buffer) || m.locks == 0)
-            continue;
-        if (--m.locks == 0 && m.written)
-            flushMirror(m);
-        break;
-    }
-    return 1;
 }
 
 void Glide2Dll::addAll() {
@@ -360,31 +216,7 @@ void Glide2Dll::addAll() {
     add("guColorCombineFunction", 4, [&g, n](Cpu& c) { g.guColorCombineFunction(n(c, 0)); return 0u; });
     add("guAlphaSource", 4, [&g, n](Cpu& c) { g.guAlphaSource(n(c, 0)); return 0u; });
 
-    // --- Fog tables (the Glide utilities) -------------------------------------------
-    add("guFogTableIndexToW", 4, [](Cpu& c) {
-        c.fpuPush(fogIndexToW(int(c.arg(0))));
-        return 0u;
-    });
-    auto fogTable = [this](Cpu& c, const std::function<double(double w)>& f) {
-        if (!guest(c.arg(0), 64))
-            return 0u;
-        for (int i = 0; i < 64; ++i)
-            c.write8(c.arg(0) + uint32_t(i), uint8_t(std::clamp(std::lround(f(fogIndexToW(i)) * 255.0), 0L, 255L)));
-        return 0u;
-    };
-    // Normalized so the last entry is the most fog (Reference Manual).
-    add("guFogGenerateExp", 8, [fogTable](Cpu& c) {
-        const double d = argFloat(c, 1), last = 1 - std::exp(-d * fogIndexToW(63));
-        return fogTable(c, [d, last](double w) { return last > 0 ? (1 - std::exp(-d * w)) / last : 0.0; });
-    });
-    add("guFogGenerateExp2", 8, [fogTable](Cpu& c) {
-        const double d = argFloat(c, 1), l = d * fogIndexToW(63), last = 1 - std::exp(-l * l);
-        return fogTable(c, [d, last](double w) { return last > 0 ? (1 - std::exp(-(d * w) * (d * w))) / last : 0.0; });
-    });
-    add("guFogGenerateLinear", 12, [fogTable](Cpu& c) {
-        const double nearW = argFloat(c, 1), farW = argFloat(c, 2);
-        return fogTable(c, [nearW, farW](double w) { return farW != nearW ? (w - nearW) / (farW - nearW) : 1.0; });
-    });
+    addFogUtilities();
 
     // --- Textures ------------------------------------------------------------------
     add("grTexMinAddress", 4, [&g, n](Cpu& c) { return g.texMinAddress(n(c, 0)); });

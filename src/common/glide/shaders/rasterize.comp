@@ -1,0 +1,473 @@
+// SPDX-License-Identifier: GPL-3.0-or-later
+// Copyright (C) 2026 The Reluva contributors
+//
+// The Glide stand-in's GPU backend (gpu_renderer.cpp, docs/engines/glide.md,
+// The GPU backend): the Voodoo's pixel pipeline as the software reference
+// rasterizer runs it (software_renderer.cpp, pixel.h, textures.cpp), for
+// the pixels of a batch of primitives set up on the CPU. One workgroup a
+// 16x16 tile of the frame buffer, one thread a pixel; each thread takes the
+// tile's primitives in the order they were drawn, so blending, depth and
+// the rest see what the earlier ones wrote, as on the board. The frame
+// buffer is 16-bit as on the board (one 32-bit word a pixel here), so
+// blending reads 5:6:5 and every write is dithered as the software one is.
+//
+// Rebuild glide_kernels.h with build.sh after changing this file.
+
+#version 450
+
+layout(local_size_x = 16, local_size_y = 16, local_size_z = 1) in;
+
+// The batch: state records, texture tables, primitives, their row spans,
+// the tiles' lists (gpu_renderer.cpp lays it out).
+layout(std430, set = 0, binding = 0) readonly buffer Batch { uint batch[]; };
+// Every TMU's texture memory, one after the other, as bytes in words.
+layout(std430, set = 0, binding = 1) readonly buffer TexMem { uint texmem[]; };
+// The frame buffer: three colour buffers then the auxiliary one, each
+// width x height pixels, one word a pixel (its low 16 bits).
+layout(std430, set = 1, binding = 0) buffer Frame { uint frame[]; };
+
+layout(std140, set = 2, binding = 0) uniform Params {
+    uint width, height, tilesX, activeCount;
+    uint statesBase, tablesBase, primsBase, spansBase;
+    uint tileOffsets, tileList, activeTiles, pad0;
+};
+
+// Values iterated across a primitive (software_renderer.cpp's Param).
+const int kR = 0, kG = 1, kB = 2, kA = 3, kZ = 4, kW = 5, kS0 = 6, kParams = 15;
+const uint kPrimWords = 52u;
+
+// A state record's words (gpu_renderer.cpp, StateWord).
+const int sColorFunc = 0, sColorFactor = 1, sColorInvert = 2, sColorLocal = 3, sColorOther = 4;
+const int sAlphaFunc = 5, sAlphaFactor = 6, sAlphaInvert = 7, sAlphaLocal = 8, sAlphaOther = 9;
+const int sAlphaLighting = 10, sConstant = 11, sChromakey = 12, sChromaColor = 13, sAlphaTest = 14, sAlphaRef = 15;
+const int sDepthMode = 16, sDepthFunc = 17, sDepthMask = 18, sDepthBias = 19, sColorMask = 20, sAlphaMask = 21;
+const int sDither = 22, sFogMode = 23, sFogColor = 24, sBlendRgbSrc = 25, sBlendRgbDst = 26, sBlendAlphaSrc = 27;
+const int sBlendAlphaDst = 28, sTexture = 29, sTmusUsed = 30, sAlphaBuffer = 31, sBlend = 32, sColorSlot = 33;
+const int sFogTable = 36; // 16 words, four entries each
+const int sTmu = 64, sTmuWords = 48;
+// Within a TMU's words.
+const int tValid = 0, tPerPixelLod = 1, tLodMin = 2, tLodMax = 3, tFormat = 4, tBytes = 5, tMemBase = 6;
+const int tMemMask = 7, tPalette = 8, tNcc = 9, tClampS = 10, tClampT = 11, tMinFilter = 12, tMagFilter = 13;
+const int tMipmapMode = 14, tLodBias = 15, tRgbFunc = 16, tRgbFactor = 17, tRgbInvert = 18, tAlphaFunc = 19;
+const int tAlphaFactor = 20, tAlphaInvert = 21, tDetailBias = 22, tDetailScale = 23, tDetailMax = 24;
+const int tSmallLod = 25, tLargeLod = 26, tBase = 27, tSize = 36, tNeedsDetail = 45;
+
+uint stateAt;
+uint S(int i) { return batch[stateAt + uint(i)]; }
+int SI(int i) { return int(S(i)); }
+uint T(int tmu, int i) { return S(sTmu + tmu * sTmuWords + i); }
+int TI(int tmu, int i) { return int(T(tmu, i)); }
+
+int scaleBy(int v, int f) { return (v * (f + 1)) >> 8; }
+
+// --- The combine units (pixel.cpp) ------------------------------------------------
+
+int combineChannel(int func, bool invert, int local, int other, int localAlpha, int factor) {
+    int v = 0;
+    switch (func) {
+    case 0x1: v = local; break;
+    case 0x2: v = localAlpha; break;
+    case 0x3: v = scaleBy(other, factor); break;
+    case 0x4: v = scaleBy(other, factor) + local; break;
+    case 0x5: v = scaleBy(other, factor) + localAlpha; break;
+    case 0x6: v = scaleBy(other - local, factor); break;
+    case 0x7: v = scaleBy(other - local, factor) + local; break;
+    case 0x8: v = scaleBy(other - local, factor) + localAlpha; break;
+    case 0x9: v = scaleBy(-local, factor) + local; break;
+    case 0x10: v = scaleBy(-local, factor) + localAlpha; break;
+    default: v = 0; break;
+    }
+    v = clamp(v, 0, 255);
+    return invert ? 255 - v : v;
+}
+
+int combineFactor(int factor, int local, int otherAlpha, int localAlpha, int textureAlpha, int textureChannel) {
+    switch (factor) {
+    case 0x0: return 0;
+    case 0x1: return local;
+    case 0x2: return otherAlpha;
+    case 0x3: return localAlpha;
+    case 0x4: return textureAlpha;
+    case 0x5: return textureChannel;
+    case 0x8: return 255;
+    case 0x9: return 255 - local;
+    case 0xa: return 255 - otherAlpha;
+    case 0xb: return 255 - localAlpha;
+    case 0xc: return 255 - textureAlpha;
+    case 0xd: return 255 - textureChannel;
+    default: return 0;
+    }
+}
+
+int textureCombineFactor(int factor, int local, int otherAlpha, int localAlpha, int detail, int lodFraction) {
+    switch (factor) {
+    case 0x4: return detail;
+    case 0x5: return lodFraction;
+    case 0xc: return 255 - detail;
+    case 0xd: return 255 - lodFraction;
+    default: return combineFactor(factor, local, otherAlpha, localAlpha, 0, 0);
+    }
+}
+
+// --- Textures (textures.cpp) -------------------------------------------------------
+
+uint texByte(uint at) { return (texmem[at >> 2] >> ((at & 3u) * 8u)) & 0xffu; }
+
+uint widen3(uint v) { return (v << 5 | v << 2 | v >> 1) & 0xffu; }
+uint widen4(uint v) { return v * 0x11u; }
+uint widen5(uint v) { return v << 3 | v >> 2; }
+uint widen6(uint v) { return v << 2 | v >> 4; }
+uint argb(uint a, uint r, uint g, uint b) { return a << 24 | r << 16 | g << 8 | b; }
+uint rgb332(uint v) { return widen3(v >> 5 & 7u) << 16 | widen3(v >> 2 & 7u) << 8 | (v & 3u) * 0x55u; }
+
+uint ncc(uint v, uint table) {
+    // y[16] as words, then i[4][3] and q[4][3] as signed words.
+    const int y = int(batch[table + (v >> 4 & 15u)]);
+    const uint i = table + 16u + (v >> 2 & 3u) * 3u, q = table + 28u + (v & 3u) * 3u;
+    const int r = clamp(y + int(batch[i]) + int(batch[q]), 0, 255);
+    const int g = clamp(y + int(batch[i + 1u]) + int(batch[q + 1u]), 0, 255);
+    const int b = clamp(y + int(batch[i + 2u]) + int(batch[q + 2u]), 0, 255);
+    return uint(r) << 16 | uint(g) << 8 | uint(b);
+}
+
+uint decodeTexel(int format, uint raw, uint palette, uint table) {
+    switch (format) {
+    case 0x0: return 0xff000000u | rgb332(raw & 0xffu);
+    case 0x1: return 0xff000000u | ncc(raw & 0xffu, table);
+    case 0x2: return (raw & 0xffu) * 0x01010101u;
+    case 0x3: return 0xff000000u | (raw & 0xffu) * 0x010101u;
+    case 0x4: return widen4(raw >> 4 & 15u) << 24 | widen4(raw & 15u) * 0x010101u;
+    case 0x5: return 0xff000000u | (batch[palette + (raw & 0xffu)] & 0xffffffu);
+    case 0x6: {
+        const uint p = batch[palette + (raw & 0xffu)] & 0xffffffu;
+        return argb(widen6(p >> 18 & 63u), widen6(p >> 12 & 63u), widen6(p >> 6 & 63u), widen6(p & 63u));
+    }
+    case 0x8: return (raw >> 8 & 0xffu) << 24 | rgb332(raw & 0xffu);
+    case 0x9: return (raw >> 8 & 0xffu) << 24 | ncc(raw & 0xffu, table);
+    case 0xa: return argb(0xffu, widen5(raw >> 11 & 31u), widen6(raw >> 5 & 63u), widen5(raw & 31u));
+    case 0xb: return argb((raw & 0x8000u) != 0u ? 0xffu : 0u, widen5(raw >> 10 & 31u), widen5(raw >> 5 & 31u), widen5(raw & 31u));
+    case 0xc: return argb(widen4(raw >> 12 & 15u), widen4(raw >> 8 & 15u), widen4(raw >> 4 & 15u), widen4(raw & 15u));
+    case 0xd: return (raw >> 8 & 0xffu) << 24 | (raw & 0xffu) * 0x010101u;
+    case 0xe: return (raw >> 8 & 0xffu) << 24 | (batch[palette + (raw & 0xffu)] & 0xffffffu);
+    default: return 0xffffffffu;
+    }
+}
+
+ivec4 unpackArgb(uint v) { return ivec4(int(v >> 16 & 255u), int(v >> 8 & 255u), int(v & 255u), int(v >> 24)); }
+
+int floorInt(float f) {
+    if (!(f > -2.0e9 && f < 2.0e9))
+        return 0;
+    return int(floor(f));
+}
+
+// The primitive being shaded.
+uint primAt;
+float values[kParams];
+float gradX[kParams], gradY[kParams];
+bool derivatives;
+
+ivec4 fetch(int tmu, int ix, int iy, int w, int h, uint base) {
+    ix = T(tmu, tClampS) != 0u ? clamp(ix, 0, w - 1) : ix & (w - 1);
+    iy = T(tmu, tClampT) != 0u ? clamp(iy, 0, h - 1) : iy & (h - 1);
+    const uint bytes = T(tmu, tBytes), mask = T(tmu, tMemMask), memBase = T(tmu, tMemBase);
+    const uint at = base + uint(iy * w + ix) * bytes;
+    uint raw = texByte(memBase + (at & mask));
+    if (bytes == 2u)
+        raw |= texByte(memBase + ((at + 1u) & mask)) << 8;
+    return unpackArgb(decodeTexel(TI(tmu, tFormat), raw, tablesBase + T(tmu, tPalette), tablesBase + T(tmu, tNcc)));
+}
+
+const int kBayer4[16] = int[16](0, 8, 2, 10, 12, 4, 14, 6, 3, 11, 1, 9, 15, 7, 13, 5);
+
+ivec4 sampleTmu(int tmu, int x, int row, out int lodFraction, out float rawLod) {
+    lodFraction = 0;
+    rawLod = 0.0;
+    if (T(tmu, tValid) == 0u)
+        return ivec4(255);
+    const int b = kS0 + 3 * tmu;
+    const float S = values[b], Tt = values[b + 1], Q = values[b + 2];
+    const float inv = Q != 0.0 ? 1.0 / Q : 0.0;
+    const float ss = S * inv, tt = Tt * inv;
+    int level = TI(tmu, tLargeLod);
+    bool magnify = false;
+    const float lodBias = uintBitsToFloat(T(tmu, tLodBias));
+    const float lodMin = float(TI(tmu, tLodMin)), lodMax = float(TI(tmu, tLodMax));
+    if (T(tmu, tPerPixelLod) != 0u) {
+        float lod = -1e9;
+        if (derivatives) {
+            const float dsdx = (gradX[b] - ss * gradX[b + 2]) * inv;
+            const float dtdx = (gradX[b + 1] - tt * gradX[b + 2]) * inv;
+            const float dsdy = (gradY[b] - ss * gradY[b + 2]) * inv;
+            const float dtdy = (gradY[b + 1] - tt * gradY[b + 2]) * inv;
+            const float rho2 = max(dsdx * dsdx + dtdx * dtdx, dsdy * dsdy + dtdy * dtdy);
+            if (rho2 > 0.0)
+                lod = 0.5 * log2(rho2);
+        }
+        rawLod = lod;
+        lod += lodBias;
+        magnify = lod < lodMin;
+        const float clamped = clamp(lod, lodMin, lodMax);
+        float chosen = clamped;
+        if (TI(tmu, tMipmapMode) == 2)
+            chosen = min(clamped + float(kBayer4[(row & 3) * 4 + (x & 3)]) / 16.0 * 0.75, lodMax);
+        level = clamp(8 - int(floor(chosen)), TI(tmu, tSmallLod), TI(tmu, tLargeLod));
+        lodFraction = int((clamped - floor(clamped)) * 255.0);
+    } else {
+        magnify = lodBias < lodMin;
+    }
+    const bool bilinear = (magnify ? T(tmu, tMagFilter) : T(tmu, tMinFilter)) == 1u;
+    const uint size = T(tmu, tSize + level);
+    const int w = int(size & 0xffffu), h = int(size >> 16);
+    const float scale = exp2(float(level - 8));
+    float u = ss * scale, vv = tt * scale;
+    const uint base = T(tmu, tBase + level);
+    if (!bilinear)
+        return fetch(tmu, floorInt(u), floorInt(vv), w, h, base);
+    u -= 0.5;
+    vv -= 0.5;
+    const int ix = floorInt(u), iy = floorInt(vv);
+    const int wx = int((u - float(ix)) * 256.0), wy = int((vv - float(iy)) * 256.0);
+    const ivec4 c00 = fetch(tmu, ix, iy, w, h, base), c10 = fetch(tmu, ix + 1, iy, w, h, base);
+    const ivec4 c01 = fetch(tmu, ix, iy + 1, w, h, base), c11 = fetch(tmu, ix + 1, iy + 1, w, h, base);
+    return ((c00 * (256 - wx) + c10 * wx) * (256 - wy) + (c01 * (256 - wx) + c11 * wx) * wy) >> 16;
+}
+
+// --- Depth, fog, dither (pixel.h) ------------------------------------------------
+
+int floatDepth(float oow) {
+    if (!(oow < 1.0))
+        return 0;
+    const float scaled = oow * 4294967296.0;
+    if (!(scaled >= 65536.0))
+        return 0xffff;
+    const uint f = uint(scaled);
+    const int exponent = 31 - findMSB(f);
+    const uint mantissa = (f << uint(exponent + 1)) >> 20;
+    return exponent << 12 | int(0xfffu - mantissa);
+}
+
+int fogEntry(int i) { return int(S(sFogTable + (i >> 2)) >> ((i & 3) * 8) & 0xffu); }
+
+int fogTableFactor(int wfloat) {
+    const int i = wfloat >> 10, frac = wfloat >> 2 & 0xff;
+    const int here = fogEntry(i), next = i < 63 ? fogEntry(i + 1) : here;
+    return here + (((next - here) * frac) >> 8);
+}
+
+int blendFactor(int f, int channelSrc, int channelDst, int srcAlpha, int dstAlpha, bool dstSide, int prefog) {
+    switch (f) {
+    case 0x0: return 0;
+    case 0x1: return srcAlpha;
+    case 0x2: return dstSide ? channelSrc : channelDst;
+    case 0x3: return dstAlpha;
+    case 0x4: return 255;
+    case 0x5: return 255 - srcAlpha;
+    case 0x6: return 255 - (dstSide ? channelSrc : channelDst);
+    case 0x7: return 255 - dstAlpha;
+    case 0xf: return dstSide ? prefog : min(srcAlpha, 255 - dstAlpha);
+    default: return 0;
+    }
+}
+
+int blendChannel(int s, int d, int sf, int df) { return min(255, scaleBy(s, sf) + scaleBy(d, df)); }
+
+const int kBayer2[4] = int[4](0, 2, 3, 1);
+
+int ditherChannel(int v, int bits, int mode, int x, int y) {
+    const int maxv = (1 << bits) - 1;
+    if (mode != 1 && mode != 2)
+        return v >> (8 - bits);
+    const int pos = (y & 3) * 4 + (x & 3);
+    const int n = mode == 2 ? 16 : 4;
+    const int k = mode == 2 ? kBayer4[pos] : kBayer2[((pos >> 2) & 1) * 2 + (pos & 1)];
+    return min(maxv, (v * maxv * 2 * n + (2 * k + 1) * 255) / (255 * 2 * n));
+}
+
+uint to565(ivec3 c, int x, int y, int mode) {
+    return uint(ditherChannel(c.r, 5, mode, x, y) << 11 | ditherChannel(c.g, 6, mode, x, y) << 5 |
+                ditherChannel(c.b, 5, mode, x, y));
+}
+
+ivec4 from565(uint v) {
+    const int r = int(v >> 11 & 31u), g = int(v >> 5 & 63u), b = int(v & 31u);
+    return ivec4(r << 3 | r >> 2, g << 2 | g >> 4, b << 3 | b >> 2, 255);
+}
+
+bool compareFn(int func, int a, int b) {
+    switch (func) {
+    case 0: return false;
+    case 1: return a < b;
+    case 2: return a == b;
+    case 3: return a <= b;
+    case 4: return a > b;
+    case 5: return a != b;
+    case 6: return a >= b;
+    default: return true;
+    }
+}
+
+// --- One pixel (software_renderer.cpp, shade) ------------------------------------
+
+void shade(int x, int row) {
+    const uint pixels = width * height;
+    const uint at = uint(row) * width + uint(x);
+    const uint colorAt = S(sColorSlot) * pixels + at, auxAt = 3u * pixels + at;
+    const ivec4 iterated = clamp(ivec4(clamp(vec4(values[kR], values[kG], values[kB], values[kA]), -1.0, 256.0)), 0, 255);
+    const int z = clamp(int(clamp(values[kZ], -1.0, 65536.0)), 0, 0xffff);
+    ivec4 texture = ivec4(255);
+    if (S(sTexture) != 0u) {
+        ivec4 other = ivec4(0);
+        for (int i = SI(sTmusUsed) - 1; i >= 0; --i) {
+            int lodFraction = 0;
+            float lod = 0.0;
+            const ivec4 local = sampleTmu(i, x, row, lodFraction, lod);
+            int detail = 0;
+            if (T(i, tNeedsDetail) != 0u) {
+                const float beta = min(uintBitsToFloat(T(i, tDetailMax)),
+                                       max(0.0, (float(TI(i, tDetailBias)) - lod) * float(1 << TI(i, tDetailScale))) / 255.0);
+                detail = int(beta * 255.0);
+            }
+            const int rf = TI(i, tRgbFunc), rfac = TI(i, tRgbFactor), af = TI(i, tAlphaFunc), afac = TI(i, tAlphaFactor);
+            const bool ri = T(i, tRgbInvert) != 0u, ai = T(i, tAlphaInvert) != 0u;
+            const int la = local.a, oa = other.a;
+            ivec4 o;
+            o.r = combineChannel(rf, ri, local.r, other.r, la, textureCombineFactor(rfac, local.r, oa, la, detail, lodFraction));
+            o.g = combineChannel(rf, ri, local.g, other.g, la, textureCombineFactor(rfac, local.g, oa, la, detail, lodFraction));
+            o.b = combineChannel(rf, ri, local.b, other.b, la, textureCombineFactor(rfac, local.b, oa, la, detail, lodFraction));
+            o.a = combineChannel(af, ai, la, oa, la, textureCombineFactor(afac, la, oa, la, detail, lodFraction));
+            other = o;
+        }
+        texture = other;
+    }
+    // The colour and alpha combine (pixel.cpp, combinePixel).
+    const ivec4 constant = unpackArgb(S(sConstant));
+    ivec4 cl = SI(sColorLocal) == 1 ? constant : iterated;
+    if (S(sAlphaLighting) != 0u)
+        cl = (texture.a & 0x80) != 0 ? constant : iterated;
+    const int other = SI(sColorOther);
+    const ivec4 co = other == 1 ? texture : other == 2 ? constant : iterated;
+    const int alocal = SI(sAlphaLocal), aother = SI(sAlphaOther);
+    const int al = alocal == 1 ? constant.a : alocal == 2 ? (z >> 8) : iterated.a;
+    const int ao = aother == 1 ? texture.a : aother == 2 ? constant.a : iterated.a;
+    const int cf = SI(sColorFunc), cfac = SI(sColorFactor), af = SI(sAlphaFunc), afac = SI(sAlphaFactor);
+    const bool ci = S(sColorInvert) != 0u, ai = S(sAlphaInvert) != 0u;
+    ivec4 c;
+    c.r = combineChannel(cf, ci, cl.r, co.r, al, combineFactor(cfac, cl.r, ao, al, texture.a, texture.r));
+    c.g = combineChannel(cf, ci, cl.g, co.g, al, combineFactor(cfac, cl.g, ao, al, texture.a, texture.g));
+    c.b = combineChannel(cf, ci, cl.b, co.b, al, combineFactor(cfac, cl.b, ao, al, texture.a, texture.b));
+    c.a = combineChannel(af, ai, al, ao, al, combineFactor(afac, al, ao, al, texture.a, texture.a));
+    if (S(sChromakey) != 0u && (uint(co.r) << 16 | uint(co.g) << 8 | uint(co.b)) == (S(sChromaColor) & 0xffffffu))
+        return;
+    if (!compareFn(SI(sAlphaTest), c.a, SI(sAlphaRef)))
+        return;
+    const int depthMode = SI(sDepthMode);
+    int depthWrite = -1;
+    if (depthMode != 0) {
+        const bool wMode = depthMode == 2 || depthMode == 4;
+        const bool toBias = depthMode == 3 || depthMode == 4;
+        const int source = wMode ? floatDepth(values[kW]) : z;
+        const int bias = SI(sDepthBias);
+        const int biased = clamp(source + bias, 0, 0xffff);
+        const int compared = toBias ? clamp(bias, 0, 0xffff) : biased;
+        if (!compareFn(SI(sDepthFunc), compared, int(frame[auxAt] & 0xffffu)))
+            return;
+        depthWrite = toBias ? source : biased;
+    }
+    const ivec4 prefog = c;
+    const int fogMode = SI(sFogMode);
+    if ((fogMode & 3) != 0) {
+        int f = 0;
+        switch (fogMode & 3) {
+        case 1: f = iterated.a; break;
+        case 2: f = fogTableFactor(floatDepth(values[kW])); break;
+        default: f = z >> 8; break;
+        }
+        const ivec4 fog = unpackArgb(S(sFogColor));
+        ivec3 m;
+        for (int k = 0; k < 3; ++k) {
+            const int in_ = c[k], fc = fog[k];
+            const int v = (fogMode & 0x100) != 0 ? scaleBy(fc, f) : (fogMode & 0x200) != 0 ? in_ - scaleBy(in_, f)
+                                                                                           : in_ + scaleBy(fc - in_, f);
+            m[k] = clamp(v, 0, 255);
+        }
+        c.rgb = m;
+    }
+    const bool alphaBuffer = S(sAlphaBuffer) != 0u;
+    if (S(sBlend) != 0u) {
+        ivec4 dst = from565(frame[colorAt]);
+        dst.a = alphaBuffer ? int(frame[auxAt] & 0xffu) : 255;
+        const int sa = c.a, da = dst.a;
+        const int rs = SI(sBlendRgbSrc), rd = SI(sBlendRgbDst), as_ = SI(sBlendAlphaSrc), ad = SI(sBlendAlphaDst);
+        ivec4 o;
+        for (int k = 0; k < 3; ++k)
+            o[k] = blendChannel(c[k], dst[k], blendFactor(rs, c[k], dst[k], sa, da, false, prefog[k]),
+                                blendFactor(rd, c[k], dst[k], sa, da, true, prefog[k]));
+        o.a = blendChannel(sa, da, blendFactor(as_, sa, da, sa, da, false, prefog.a),
+                           blendFactor(ad, sa, da, sa, da, true, prefog.a));
+        c = o;
+    }
+    if (S(sColorMask) != 0u)
+        frame[colorAt] = to565(c.rgb, x, row, SI(sDither));
+    if (alphaBuffer && S(sAlphaMask) != 0u)
+        frame[auxAt] = uint(c.a);
+    if (depthWrite >= 0 && S(sDepthMask) != 0u)
+        frame[auxAt] = uint(depthWrite);
+}
+
+// A clear (software_renderer.cpp, clear): the colour dithered, the depth
+// or alpha, as the record's flags say.
+void clearPixel(int x, int row) {
+    const uint pixels = width * height;
+    const uint at = uint(row) * width + uint(x);
+    const uint flags = batch[primAt + 4u];
+    const uint color = batch[primAt + 7u], depthOrAlpha = batch[primAt + 8u];
+    if ((flags & 8u) != 0u) {
+        const ivec4 c = unpackArgb(color);
+        frame[S(sColorSlot) * pixels + at] = to565(c.rgb, x, row, SI(sDither));
+    }
+    if ((flags & 16u) != 0u)
+        frame[3u * pixels + at] = depthOrAlpha;
+}
+
+void main() {
+    const uint slot = gl_WorkGroupID.x;
+    if (slot >= activeCount)
+        return;
+    const uint tile = batch[activeTiles + slot];
+    const int x = int((tile % tilesX) * 16u + gl_LocalInvocationID.x);
+    const int row = int((tile / tilesX) * 16u + gl_LocalInvocationID.y);
+    if (x >= int(width) || row >= int(height))
+        return;
+    const uint first = batch[tileOffsets + tile], last = batch[tileOffsets + tile + 1u];
+    for (uint k = first; k < last; ++k) {
+        primAt = primsBase + batch[tileList + k] * kPrimWords;
+        const int rowFirst = int(batch[primAt]), rows = int(batch[primAt + 1u]);
+        if (row < rowFirst || row >= rowFirst + rows)
+            continue;
+        const uint span = batch[spansBase + batch[primAt + 2u] + uint(row - rowFirst)];
+        const int xs = int(span & 0xffffu), xe = int(span >> 16);
+        if (x < xs || x > xe)
+            continue;
+        stateAt = statesBase + batch[primAt + 3u];
+        const uint flags = batch[primAt + 4u];
+        if ((flags & 4u) != 0u) {
+            clearPixel(x, row);
+            continue;
+        }
+        // The values at the pixel's centre, from the plane over the
+        // snapped vertices (in drawing coordinates: the row flipped back
+        // for a lower-left origin).
+        const int y = (flags & 1u) != 0u ? int(height) - 1 - row : row;
+        const float px = float(x) + 0.5 - uintBitsToFloat(batch[primAt + 5u]);
+        const float py = float(y) + 0.5 - uintBitsToFloat(batch[primAt + 6u]);
+        derivatives = (flags & 2u) != 0u;
+        for (int i = 0; i < kParams; ++i) {
+            const float b = uintBitsToFloat(batch[primAt + 7u + uint(i)]);
+            gradX[i] = uintBitsToFloat(batch[primAt + 22u + uint(i)]);
+            gradY[i] = uintBitsToFloat(batch[primAt + 37u + uint(i)]);
+            values[i] = b + gradX[i] * px + gradY[i] * py;
+        }
+        shade(x, row);
+    }
+}
