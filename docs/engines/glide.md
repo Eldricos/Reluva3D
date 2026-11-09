@@ -1,13 +1,15 @@
 # The Glide stand-in
 
-Status: **Glide 2 working for NFS III's renderer.** `src/common/glide/`
-is a clean-room stand-in for 3dfx's Glide library: a version-neutral
-model of a Voodoo board, a Glide 2 front end over it, and a binding that
-serves it to Reluva's x86 interpreter as `glide2x.dll`. Need for Speed
-III's own `voodoo2a.dll` (1998-07-31) runs on it unchanged, front end and
-races (`reluva-tool nfs-host -glide`, the Play page's `renderer=glide`).
-Glide 3 (`glide3x.dll`) is not there yet; the core is built for it
-(Extension points).
+Status: **Glide 2 and Glide 3 working for NFS III's renderers, in software
+and on the GPU.** `src/common/glide/` is a clean-room stand-in for 3dfx's
+Glide library: a version-neutral model of a Voodoo board, Glide 2 and
+Glide 3 front ends over it, bindings that serve them to Reluva's x86
+interpreter as `glide2x.dll` and `glide3x.dll`, a software reference
+rasterizer and a GPU backend that follows it. Need for Speed III's own
+`voodoo2a.dll` (1998-07-31, Glide 2) runs on it unchanged, front end and
+races (`reluva-tool nfs-host -glide`, the Play page's `renderer=glide`),
+and so does the Classic CD's Voodoo3 patch DLL (1999-04-21, Glide 3;
+`nfs-host -glidedll`, the Play page's `glidedll=`).
 
 ## Sources, and how each fact was found
 
@@ -23,14 +25,22 @@ other wrapper or emulator.
   specification (revision 1.16, December 1999), as kept on bitsavers
   (`components/3dfx/`). Where a function's effect is given there, the code
   follows it and says where.
+- **Glide 3's behaviour**: the *Glide 3.0 Reference Manual* and *Glide 3.0
+  Programming Guide* (3dfx, June 1998, bitsavers `components/3dfx/`), and
+  the *Voodoo3* specification (revision 1.0, November 1999) for the
+  board's fog table (64 entries, its `fogTable` register).
 - **Interface values**: function names and signatures, structure layouts
   and constant values from the headers of 3dfx's Glide 2.x SDK for Linux
   (`glide.h`, `sst1vid.h`, `glidesys.h`, `3dfx.h`, `glideutl.h`, as packaged
   in Slackware 7.1's `contrib/3dfx/sdk2x.tgz`; only the headers were
-  extracted). `glide_defs.h` restates the values in Reluva's own names. No
-  header is copied into the repository.
-- **What NFS III needs**: `voodoo2a.dll` read with `pefile` and `capstone`
-  (scripts kept outside the repository). It loads `glide2x.dll` by name
+  extracted), and for Glide 3 the same files of its Glide 3.x SDK
+  (`contrib/3dfx/sdk3x.tgz`, headers only: `GrTexInfo` with log2 LODs,
+  `GrResolution`, `GrLfbInfo_t`, the `GR_PARAM_*`, `grGet` and
+  `grGetString` numbers, the renumbered fog modes and texture bases).
+  `glide_defs.h` restates the values in Reluva's own names (Glide 3's in
+  namespace `g3`). No header is copied into the repository.
+- **What NFS III needs**: both `voodoo2a.dll` versions read with `pefile`
+  and `capstone` (scripts kept outside the repository). It loads `glide2x.dll` by name
   and looks up 59 functions with GetProcAddress (`0x60001020`, the
   pointers at `0x60011414`-`0x600114fc`); the call sites give the
   arguments it passes. Facts found this way are marked (RE) below.
@@ -46,10 +56,23 @@ choice and says so; those are listed under Open questions.
 | Textures | `textures.h/.cpp`: formats, widening to ARGB, level sizes and placement | `glide_defs.h` |
 | Pixel units | `pixel.h/.cpp`: combine units, fog, w float, blending, dither | `glide_defs.h` |
 | Pipeline core | `pipeline.h/.cpp`: `Board`, `State`, `Vertex`, `Pipeline` (buffers, TMU memory, LFB, output), `Renderer` interface | the above, `common/types.h` |
-| Software rasterizer | `software_renderer.cpp`: the reference `Renderer` | the core |
+| Set-up | `raster_setup.h/.cpp`: snapping, culling, the fill rule's spans, the planes, lines' and points' pixels | the core |
+| Software rasterizer | `software_renderer.cpp`: the reference `Renderer` | the set-up |
+| GPU backend | `gpu_renderer.h/.cpp`, `shaders/rasterize.comp` (built into `shaders/glide_kernels.h` by `shaders/build.sh`): a `Renderer` on `gfx::Compute`, and the comparing renderer | the set-up, `common/gpu_compute.h` |
 | Glide 2 front end | `glide2.h/.cpp`: `Glide2`, each Glide 2.x function on host values | the core |
-| x86 binding | `glide2_x86.h/.cpp`: `Glide2Dll`, the stdcall exports for `common/x86` | the front end, `common/x86` |
+| Glide 3 front end | `glide3.h/.cpp`: `Glide3`, what Glide 3 changed; the rest through a `Glide2` | the Glide 2 front end |
+| x86 bindings | `glide_x86.h/.cpp` (`GlideDll`: exports, stubs, linear frame buffer copies), `glide2_x86.h/.cpp` (`Glide2Dll`), `glide3_x86.h/.cpp` (`Glide3Dll`) | the front ends, `common/x86` |
 | NFS III glue | `src/engines/nfs/host/thrash.cpp` (`GameHost::addGlide`), `play_page.cpp`, `nfs_commands.cpp` | all of it |
+
+`gfx::Compute` (`src/common/gpu_compute.h`) is general GPU work: storage
+buffers, compute kernels, uploads and read-backs, in order. The SDL
+backend gives it on a GPU device of its own (`backends/sdl3/sdl_compute.cpp`,
+SDL's GPU API, Vulkan or Metal), which needs no window, so `reluva-tool`
+links it too; each program registers it at start-up
+(`gfx::setComputeFactory`). `gfx::Renderer3D` was not used: it draws
+fixed-function, into a window's frame, and can't run the Voodoo's pixel
+units, read 5:6:5 back for blending or compare 16-bit depths as the board
+does.
 
 Nothing under `src/common/glide/` knows about NFS.
 
@@ -74,13 +97,18 @@ same in both APIs and are used as they are.
   texture overwritten in memory changes as on the card.
 - `State`: everything the Glide state functions set, per TMU where Glide
   has it per TMU.
-- `Renderer`: what draws. `makeSoftwareRenderer()` is the reference; a GPU
-  backend would implement the same interface (`triangle`, `line`, `point`,
-  `clear`, `sync` before the buffers are read or written from outside,
-  `texturesChanged`).
+- `Renderer`: what draws. `makeSoftwareRenderer()` is the reference,
+  `makeGpuRenderer()` the GPU backend. The interface: `triangle`, `line`,
+  `point`, `clear`; `sync` before the buffers are read or written from
+  outside, `syncBuffer` when only one is (a presented frame);
+  `textureMemoryChanged` with the bytes, `tablesChanged`, `swapped`. A
+  pipeline's colour buffers sit in fixed slots (`slotOf`, `slotPixels`):
+  a swap changes which slot is the front, so a renderer keeping copies
+  keeps them by slot.
 - Output: `present()` widens the front buffer to 8 bits a channel (top
-  bits repeated) through the gamma table (Reference Manual,
-  `grGammaCorrectionValue`). `outputFilter` can replace that step: the
+  bits repeated) through the gamma table, one a channel (Glide 2's
+  `grGammaCorrectionValue` sets all three, Glide 3's `guGammaCorrectionRGB`
+  each). `outputFilter` can replace that step: the
   place for the Voodoo2/3 video filter later.
 
 ### The software rasterizer
@@ -148,6 +176,93 @@ the `fbzMode`, `fogMode`, `alphaMode` figures):
 Lines step a pixel along the longer axis at each pixel centre crossed;
 points are the pixel under them. Both go through the same pixel pipeline.
 
+### The GPU backend
+
+`makeGpuRenderer(gfx::Compute)`: the same pixels by the same rules, the
+per-pixel work on the GPU (`gpu_renderer.cpp`, `shaders/rasterize.comp`).
+
+- **Set-up on the CPU, shared.** Each triangle goes through the software
+  rasterizer's own set-up (`raster_setup.h`): snapped vertices, culling,
+  the fill rule's span of pixels on each row (exact, in 1/16 pixel), the
+  plane of each value. Lines and points become their pixels, each with
+  its values. So coverage is identical by construction.
+- **Batches and tiles.** Primitives collect into a batch, each with its
+  rows' spans and an index into a list of state records (everything the
+  pixel units read: combine settings, constant colour, chroma-key, alpha
+  test, depth, fog table and colour, blending, dither, masks, the target
+  slot; per TMU its format, filters, clamps, LOD range and bias, mipmap
+  mode, combine, detail, each level's address and size), a new record
+  only when the state changes. A batch is binned into 16x16 tiles in
+  drawing order and sent as one buffer; the kernel runs one workgroup a
+  tile that has primitives, one thread a pixel, going through the tile's
+  primitives in order. So each pixel sees the writes of those drawn before
+  it, as on the board, whatever the GPU's own blending or depth units
+  would do.
+- **The pixel pipeline in the kernel**, ported from `pixel.h`,
+  `textures.cpp` and `software_renderer.cpp` with integer arithmetic:
+  texel fetch from raw TMU memory (every format, palette and NCC lookups),
+  point and bilinear filtering in 1/256ths, clamp and wrap, the LOD from
+  the planes' gradients with bias, nearest and dithered mipmapping, the
+  TMUs chained through their combine units (detail and LOD fraction
+  factors), chroma-key on the colour combine's other input, the colour and
+  alpha combine units ((other - local) × (factor + 1) >> 8), alpha test,
+  z and w buffering (the 4.12 float of 1/w, the bias and compare-to-bias
+  modes), fog (iterated alpha, iterated z, the table read at the w
+  float's index and fraction, MULT2/ADD2), blending against the 5:6:5
+  destination widened by repeating its top bits (and the auxiliary buffer's
+  alpha), the 4x4 and 2x2 ordered dither to 5:6:5, the colour, alpha and
+  depth masks. Clears are primitives too, so they keep their place.
+- **Memory on the GPU.** The frame buffer is 16 bits a pixel as on the
+  board (one 32-bit word each in a storage buffer: three colour slots and
+  the auxiliary buffer), texture memory a byte-addressed copy of every
+  TMU's. Palettes and NCC tables travel with the batch, a copy each time
+  they change, so a batch can hold draws with different tables. A texture
+  download sends the batch first, then the changed bytes.
+- **The linear frame buffer.** `sync()` sends the batch and reads back
+  every buffer the GPU drew into since; `syncBuffer()` (a presented frame)
+  only that one. What the host then writes into the pipeline's buffers
+  (lock write-backs, `grLfbWriteRegion`) is found by comparing them with
+  what was read back, row by row, and sent to the GPU before the next
+  primitive; a direct write first syncs, so it lands on what was drawn.
+  Writes through the pixel pipeline are points, drawn on the GPU.
+
+Deviations from the software reference:
+- **The planes per pixel.** The kernel evaluates each value's plane at
+  each pixel centre in 32-bit floats; the software rasterizer evaluates it
+  at the start of each row's span and then adds the x gradient pixel by
+  pixel. The two round differently. A value right at a texel boundary, a
+  depth's last bit or a w float's mantissa can come out one step apart,
+  so a few texels, depths and fog factors differ (Comparisons, below).
+- **log2** of the texel footprint is the GPU's `log2`, not the C
+  library's: an LOD right at a level boundary can pick the other level.
+- **Statistics.** The GPU doesn't count pixels: `grSstPerfStats`' and
+  `grGet(GR_STATS_PIXELS_*)`'s pixel counters count only clears there;
+  triangle counts are kept (on the CPU).
+- **Order within a pixel** is kept; between pixels the GPU is free, as
+  the board's own pixel order doesn't show in the result.
+
+**Comparing.** `makeComparingRenderer(tested, onSwap)` draws every call
+with the tested renderer into the pipeline and with the software
+reference into a pipeline of its own (the same state, texture memory,
+tables and what the host wrote copied over), and at each buffer swap
+reads the tested frame back and compares: the mean difference per
+channel, of 255, the pixels differing and those off by more than 24.
+`nfs-host -glidegpucompare out.csv` writes it per frame.
+
+On NFS III, through the menus, a loading screen and a race (3,909 frames),
+the GPU's frames differ from the software reference's by 0.0013 of 255 on
+average, about 170 pixels a frame, at most 3 by more than 24
+([thrash.md](../formats/nfs/thrash.md), The Glide stand-in, On the GPU).
+Speed on this machine says little: its Vulkan is llvmpipe on the same
+CPU, and the interpreter is the limit (the same numbers there).
+
+`tests/test_glide_gpu.cpp` (the `glide_gpu` suite) draws a scene of every
+feature both ways: of 307,200 pixels 128 differ in the first frame (single
+texels at boundaries in the high-frequency checker textures, up to a whole
+texel's colour), 7 in the second (a smooth gradient, a dither step), and
+1,298 auxiliary buffer values (w-buffer depths one step apart). Without
+a GPU device the suite says so and passes.
+
 ### The Glide 2 front end
 
 `Glide2` holds a `Pipeline` and the application's colour format, and
@@ -207,9 +322,86 @@ logged once: the anti-aliased primitives (drawn without coverage alpha),
 `grLfbWriteColorFormat` and `grLfbWriteColorSwizzle` (the window's own
 format only).
 
-### The x86 binding
+### The Glide 3 front end
 
-`Glide2Dll` makes one native function per export, named as stdcall
+`Glide3` (`glide3.h`) holds a `Glide2` over the same pipeline (`core()`)
+for every function whose meaning and values Glide 3 kept (the combine,
+blend, test, depth, chroma-key, clip, mask, dither, cull and constant
+colour functions, buffer clears and swaps, texture filters, clamps, LOD
+bias, combine, detail, the linear frame buffer locks), and carries out
+what changed, from the Glide 3.0 Reference Manual:
+
+- **Vertices.** `grVertexLayout(param, offset, mode)` says where each
+  parameter is from the vertex's pointer: `GR_PARAM_XY`, `Z`, `W`, `Q`,
+  `A`, `RGB` (three floats) or `PARGB` (packed ARGB bytes), `STn`, `Qn`.
+  `grCoordinateSpace(GR_WINDOW_COORDS)`: x and y in pixels, z as Glide 2's
+  `ooz`, q as `oow`, s and t already s/w and t/w (0-256 a repeat), each
+  TMU's own q if given else the vertex's. `GR_CLIP_COORDS`: divided by w
+  and put through `grViewport` and `grDepthRange` as their pages give it
+  (x = (x/w + 1) × width / 2 + x0), colours 0-1, s and t 0-1 a repeat.
+  Parameters a layout leaves out keep their last values (the manual: a
+  disabled parameter "may inherit the last known value"); a TMU without
+  its own s and t takes TMU0's (Glide 2's default; Reluva's reading).
+- **Drawing.** `grDrawTriangle`, `grDrawLine`, `grDrawPoint` take vertex
+  pointers; `grDrawVertexArray` and `grDrawVertexArrayContiguous` take
+  points, line strips, lines, polygons (fans), strips, fans, triangles,
+  and the `_CONTINUE` forms (a strip continued keeps its last two
+  vertices and its parity, a fan its first and last).
+- **Queries.** `grGet` answers the board's numbers (bits, fog and gamma
+  table sizes, the state and layout buffer sizes, memory, boards, TMUs,
+  revisions, statistics, the viewport, depth ranges), writing only if the
+  caller's buffer is large enough and returning the bytes written;
+  `grGetString` the extension list (empty), hardware ("Voodoo3 (tm)",
+  "Voodoo2"..., the names NFS III's patch DLL compares, RE `0x600115f0`),
+  renderer, vendor and version ("3.10", the version the patch DLL takes
+  as current, `0x600115e8`); `grQueryResolutions` every resolution,
+  buffer count and auxiliary buffer that fits the board's memory, for
+  the template's fields (`GR_QUERY_ANY` for any).
+- **Modes.** `grEnable`/`grDisable`: `GR_ALLOW_MIPMAP_DITHER` (until it,
+  `GR_MIPMAP_NEAREST_DITHER` is plain nearest, as `grTexMipMapMode`'s page
+  says), the rest kept and logged once where they'd change the picture
+  (`GR_AA_ORDERED`, `GR_VIDEO_SMOOTHING`).
+- **Contexts.** `grSstWinOpen` returns a context (nonzero),
+  `grSstWinClose` and `grSelectContext` take it.
+- **Textures.** `GrTexInfo` and every LOD and aspect argument in log2
+  form, converted for the core; `grTexDownloadTable(type, data)` and its
+  partial form load the one palette or NCC table into every TMU ("Glide
+  3.0 implements one global palette and two global NCC tables");
+  `grTexNCCTable(table)` likewise; `grTexMultibaseAddress`'s ranges
+  renumbered (`GR_TEXBASE_256` is 3).
+- **Fog.** `grFogMode`'s numbers changed: `GR_FOG_WITH_TABLE_ON_Q` (2) is
+  the core's table fog, `GR_FOG_WITH_ITERATED_Z` (3) as before,
+  `GR_FOG_WITH_ITERATED_ALPHA_EXT` (4) the iterated alpha;
+  `GR_FOG_WITH_TABLE_ON_FOGCOORD_EXT` isn't offered (logged, the table on
+  q). `grFogTable` reads `grGet(GR_FOG_TABLE_ENTRIES)` entries, the
+  board's; the core keeps 64 and a larger table would be resampled (entry
+  i from entry i × n / 64). The Voodoo2's and Voodoo3's have 64.
+- **Gamma.** `guGammaCorrectionRGB` sets each channel's
+  (c = 255 (c / 255)^(1/γ)).
+- **The linear frame buffer.** `grLfbWriteRegion` takes Glide 3's pixel
+  pipeline flag before the stride and writes through the pipeline if set.
+- **State.** `grGlideGetState`/`SetState` save the core's state and the
+  layout and enables under a number kept in the caller's buffer;
+  `grGlideGetVertexLayout`/`SetVertexLayout` the layout. `grGet` reports
+  64 bytes for each.
+
+`voodoo3Board()`: a Voodoo3 with 16 MB, which Reluva splits 8 MB of frame
+buffer and 8 MB for each of two TMUs (non-UMA, so `grGet(GR_MEMORY_UMA)`
+is 0); revisions 1; up to 2048x1536. The split, the revisions and the
+gamma table's 32 entries are Reluva's choices: the documents don't give
+them.
+
+Stubs (log once, return 0): `grLoadGammaTable`, `grSplash`,
+`gu3dfGetInfo`, `gu3dfLoad`; `grGetProcAddress` returns 0 (no
+extensions); the palette 6666 and mirror-clamp extensions aren't offered
+(logged if asked).
+
+### The x86 bindings
+
+`GlideDll` (`glide_x86.h`) is what both share: the export table, stubs,
+the guest copies for locks, the fog utilities, and counts of the modes
+the mode-setting functions were asked for (`modes()`, which nfs-host
+prints). `Glide2Dll` makes one native function per export, named as stdcall
 decorates it (`_grDrawTriangle@12`), popping its arguments. It reads the
 structures the arguments point at from guest memory:
 
@@ -237,6 +429,14 @@ lock, then a read lock of the same buffer, keeping the write pointer).
 A host uses `exports()` to answer `LoadLibraryA("glide2x.dll")` and
 `GetProcAddress`, or `provideTo()` a `Win32Process` for programs that
 import it directly.
+
+`Glide3Dll` serves `glide3x.dll`: every function of the Glide 3.x SDK's
+`glide.h` and `glideutl.h` under its stdcall name (`_grLfbWriteRegion@36`,
+`_grTexDownloadTable@8`, `_grSstWinClose@4`...). It reads a vertex's
+bytes from guest memory over the layout's extent (`layoutMin()` to
+`layoutMax()` from its pointer), `GrTexInfo` with log2 fields,
+`GrResolution` (resolution, refresh, colour and auxiliary buffers), and
+puts `grGetString`'s strings in guest memory once each.
 
 ## NFS III's voodoo2a.dll
 
@@ -285,6 +485,30 @@ call natively beside the DLL and compares the two frames of each flip,
 and `-glidefilter point|bilinear` holds the texture filter whatever the
 DLL asks (thrash.md, The Glide stand-in).
 
+`Options::glideGpu` picks what draws: the GPU backend when there is a
+device (the Play page's default with `renderer=glide`; nfs-host
+`-glidegpu`), else the software reference (`glide=software`), or both
+compared (`-glidegpucompare out.csv`, a row per frame: the swap, the mean
+difference, the pixels differing, those off by more than 24, the largest
+difference). A device of its own each time (`gfx::createCompute`), on the
+game's thread.
+
+## NFS III's Voodoo3 patch DLL (Glide 3)
+
+The Classic CD's `Patch/Voodoo3/voodoo2a.dll` (1999-04-21) loads
+`glide3x.dll`. `Options::glideDll` (nfs-host `-glidedll <file>`, the Play
+page's `glidedll=`) loads such a file from outside the install in
+`voodoo2a.dll`'s place; a file naming `glide3x.dll` gets `Glide3Dll` on
+`voodoo3Board()`. It looks up 55 Glide 3 functions, all carried out
+(`grAADrawTriangle` without its edge anti-aliasing). It identifies the
+board by `grGetString(GR_HARDWARE)`, takes its memory and buffer counts
+from `grGet` and `grQueryResolutions`, opens 640x480 with two buffers and
+a depth buffer, sets the layout of the game's own 32-byte vertex (window
+coordinates, packed ARGB) and draws every triangle with `grDrawTriangle`.
+It runs the menus, loading screens and races; what it asks for, and that
+it draws the game without fog, is in
+[thrash.md](../formats/nfs/thrash.md), The Voodoo3 patch's voodoo2a.dll.
+
 ## Tests
 
 `tests/test_glide.cpp` (the `glide` suite): the dither (truncation, both
@@ -299,7 +523,18 @@ table fog through the rasterizer, textures through the Glide 2 front end
 frame buffer (write modes, origins, the auxiliary buffer, regions, the
 pixel pipeline, front-buffer changes, swapping, presenting), and the x86
 binding (every name `voodoo2a.dll` looks up exported, calls through the
-interpreter, a lock's guest copy written back, a stub counted).
+interpreter, a lock's guest copy written back, a stub counted). Glide 3:
+`grGet` (and a buffer too small), `grGetString`, `grQueryResolutions`,
+contexts, the patch DLL's vertex layout drawing a triangle from packed
+ARGB, a strip's two triangles keeping their winding, log2 texture sizes,
+the one palette in every TMU, the renumbered fog modes, mipmap dither
+only once allowed, gamma per channel, clip coordinates through the
+viewport; its binding (every name the patch DLL looks up exported,
+`grGet` and `grGetString` through the interpreter, a triangle from guest
+vertices by the layout, `grLfbWriteRegion@36`, the counted modes).
+
+`tests/test_glide_gpu.cpp` (the `glide_gpu` suite): the GPU backend
+against the software reference (The GPU backend, above).
 
 ## Compared with the native THRASH and softtria
 
@@ -308,26 +543,24 @@ numbers and the causes of the differences.
 
 ## Extension points
 
-- **Glide 3** (`glide3x.dll`, the Classic CD's Voodoo3 patch DLL): a
-  `Glide3` front end over the same `Pipeline`: `grVertexLayout` and
-  `grDrawVertexArray*` read vertices by the layout given (the patch DLL
-  uses window coordinates and packed ARGB, thrash.md), `grGet`/
-  `grGetString`, `grEnable`/`grDisable`, `grCoordinateSpace`, Glide 3's
-  log2 LOD and aspect constants, `grTexDownloadTable` without a TMU,
-  `grLfbWriteRegion` with its pixel-pipeline flag, `guGammaCorrectionRGB`
-  (three gamma values: `State::gamma` becomes per channel). A
-  `Glide3Dll` binding next to `Glide2Dll`.
+- **Glide 3's extensions** (`GR_FOG_WITH_TABLE_ON_FOGCOORD_EXT`, the
+  6666 palette, mirrored clamping, `GR_TEXFMT_ARGB_CMP_FXT1`...) and
+  anti-aliasing (`GR_AA_ORDERED`, `grAADrawTriangle`'s edge coverage):
+  not offered or drawn without; each logged once.
 - **Boards**: `Board::generation` and the sizes. Voodoo Graphics and Rush
   differ in memory, TMU revision (no palette on revision 0), the Rush's
-  windowed `GR_RESOLUTION_NONE`; Voodoo3/Banshee in resolutions, 32 MB
-  textures, a larger fog table (the patch DLL resamples its table to
-  `grGet(GR_FOG_TABLE_ENTRIES)`).
+  windowed `GR_RESOLUTION_NONE`; Banshee and Voodoo3 in their memory
+  split (UMA or not) and video. `Board::fogTableEntries` is where a board
+  with a larger fog table would go (Glide 3's front end resamples to the
+  core's 64).
 - **TMUs**: up to three; the rasterizer already chains them
-  (`grTexCombine` with other), and NFS III's patch DLL would load every
-  texture into TMU1 too.
-- **A GPU backend**: another `Renderer`. The pixel units in `pixel.h` are
-  the reference its shaders would be checked against; `sync()` is where
-  it copies its target back before an LFB lock or a presented frame.
+  (`grTexCombine` with other). NFS III's patch DLL would load every
+  texture into TMU1 too, but only when `VOODOO2_NUMTMU` says 2 or more
+  (thrash.md).
+- **The GPU backend** could take the planes' arithmetic closer to the
+  software one (each row's start, then stepped), at the cost of a serial
+  loop per row; and count pixels for the statistics with atomics.
+- **Clip coordinates**: no clipping against the view volume yet.
 - **Register level**: the state maps to `fbzMode`, `fbzColorPath`,
   `alphaMode`, `fogMode`, `textureMode` and `tLOD` bit for bit; a register
   front end could feed the same `State`.
@@ -360,3 +593,8 @@ These are choices in the code that the documents leave open:
 - When the auxiliary buffer holds alpha: here when depth buffering is off
   and blending reads the destination alpha.
 - `grTexMaxAddress`'s exact value (here the memory size less 8).
+- Glide 3: a disabled parameter keeps its last value; a TMU without its
+  own s and t takes TMU0's; `GR_TEXTURE_ALIGN` 8; 64 bytes for the state
+  and layout buffers; "3.10" as the version string; the Voodoo3's memory
+  split (8 MB frame buffer, 8 MB textures, non-UMA) and gamma table size;
+  one refresh rate per resolution in `grQueryResolutions`.

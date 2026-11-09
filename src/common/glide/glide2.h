@@ -69,6 +69,7 @@ public:
     Pipeline& pipeline() { return pipeline_; }
     // Lines for a log: each function not stood in for, the first time.
     std::function<void(const std::string& line)> log;
+    std::string logName = "glide2x"; // the library its lines are from
     // Called after each grBufferSwap, the new front buffer ready for
     // pipeline().present().
     std::function<void()> onSwap;
@@ -111,6 +112,11 @@ public:
     void drawPoint(const Glide2Vertex& a);
     // A convex polygon, a fan from its first vertex.
     void drawPolygon(int count, const Glide2Vertex* vertices);
+    // The same with vertices already in the pipeline's form (Glide 3's
+    // layouts), counted as drawn.
+    void triangle(const Vertex& a, const Vertex& b, const Vertex& c);
+    void line(const Vertex& a, const Vertex& b);
+    void point(const Vertex& a);
     void bufferClear(uint32_t color, int alpha, int depth);
     void bufferSwap(int interval);
     int bufferNumPending() const { return 0; }
@@ -192,7 +198,7 @@ public:
     uint16_t lfbRead(int buffer, int x, int y, bool originLowerLeft) const;
     // `dataBytes`: how much `data` may be read (it bounds RLE16's runs).
     bool lfbWriteRegion(int buffer, uint32_t x, uint32_t y, int format, uint32_t width, uint32_t height, int stride,
-                        const uint8_t* data, size_t dataBytes = SIZE_MAX);
+                        const uint8_t* data, size_t dataBytes = SIZE_MAX, bool pixelPipeline = false);
     bool lfbReadRegion(int buffer, uint32_t x, uint32_t y, uint32_t width, uint32_t height, uint32_t stride,
                        uint8_t* data);
 

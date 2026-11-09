@@ -27,7 +27,7 @@ Glide2::Glide2(Board board) : board_(board), pipeline_(board) {}
 
 void Glide2::notImplemented(const std::string& function, const std::string& what) {
     if (noted_.insert(function).second && log)
-        log("glide2x: " + function + ": " + what);
+        log(logName + ": " + function + ": " + what);
 }
 
 void Glide2::glideInit() {}
@@ -173,6 +173,21 @@ void Glide2::drawPolygon(int count, const Glide2Vertex* v) {
         drawTriangle(v[0], v[i], v[i + 1]);
 }
 
+void Glide2::triangle(const Vertex& a, const Vertex& b, const Vertex& c) {
+    pipeline_.triangle(a, b, c);
+    drawn();
+}
+
+void Glide2::line(const Vertex& a, const Vertex& b) {
+    pipeline_.line(a, b);
+    drawn();
+}
+
+void Glide2::point(const Vertex& a) {
+    pipeline_.point(a);
+    drawn();
+}
+
 void Glide2::bufferClear(uint32_t color, int alpha, int depth) {
     pipeline_.clear(toArgb(color), alpha, depth);
     drawn();
@@ -266,7 +281,7 @@ void Glide2::fogTable(const uint8_t table[64]) {
 
 void Glide2::gammaCorrectionValue(float gamma) {
     if (gamma > 0 && gamma <= 20)
-        pipeline_.state().gamma = gamma;
+        pipeline_.state().gamma = {gamma, gamma, gamma};
 }
 
 void Glide2::hints(int type, uint32_t mask) {
@@ -583,7 +598,7 @@ uint16_t Glide2::lfbRead(int buffer, int x, int y, bool originLowerLeft) const {
 }
 
 bool Glide2::lfbWriteRegion(int buffer, uint32_t x, uint32_t y, int format, uint32_t width, uint32_t height,
-                            int stride, const uint8_t* data, size_t dataBytes) {
+                            int stride, const uint8_t* data, size_t dataBytes, bool pixelPipeline) {
     if (!pipeline_.isOpen() || !pipeline_.buffer(buffer))
         return false;
     pipeline_.sync();
@@ -623,7 +638,9 @@ bool Glide2::lfbWriteRegion(int buffer, uint32_t x, uint32_t y, int format, uint
             std::memcpy(&v, p + size_t(col) * size_t(bpp), size_t(bpp));
             if (format == kLfb888 || format == kLfb8888)
                 v = toArgb(v);
-            pipeline_.lfbWrite(buffer, int(x + col), int(y + row), format, v, false);
+            // Glide 3's pixelPipeline: through the pipeline as a lock with
+            // it writes (Glide 3.0 Reference Manual, grLfbWriteRegion).
+            pipeline_.lfbWrite(buffer, int(x + col), int(y + row), format, v, pixelPipeline);
         }
     }
     frontChanged_ |= buffer == kBufferFront;

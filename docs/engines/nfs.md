@@ -1618,18 +1618,20 @@ Still to do:
 
 Each part is checked against recordings of the original.
 
-### Glide stand-in (started, November 2026)
+### Glide stand-in (Glide 2 and 3, software and GPU, November 2026)
 
 A shared, clean-room stand-in for 3dfx's Glide library, written from
-3dfx's public documents (the Glide 2.4 Reference Manual and Programming
-Guide, the Voodoo2 specification) and the interface values in its public
-SDK headers, never from Glide's own sources or other wrappers and
-emulators ([glide.md](glide.md)). It is in `src/common/glide/` for any
-engine: a version-neutral Voodoo pipeline (the 16-bit buffers and their
-dither, texture memory and formats, the combine units, fog table,
-chroma-key, alpha test, z and w buffers, the linear frame buffer, gamma)
-drawn by a software reference rasterizer; a Glide 2 front end over it;
-and a binding that serves it as `glide2x.dll` to the x86 interpreter.
+3dfx's public documents (the Glide 2.4 and 3.0 Reference Manuals and
+Programming Guides, the Voodoo2 and Voodoo3 specifications) and the
+interface values in its public SDK headers, never from Glide's own
+sources or other wrappers and emulators ([glide.md](glide.md)). It is in
+`src/common/glide/` for any engine: a version-neutral Voodoo pipeline (the
+16-bit buffers and their dither, texture memory and formats, the combine
+units, fog table, chroma-key, alpha test, z and w buffers, the linear
+frame buffer, gamma) drawn by a software reference rasterizer or by a GPU
+backend that follows it pixel for pixel; Glide 2 and Glide 3 front ends
+over it; and bindings that serve them as `glide2x.dll` and `glide3x.dll`
+to the x86 interpreter.
 
 Done for NFS III: the retail `voodoo2a.dll` (1998-07-31) runs on it
 unchanged, through the front end and races. All 59 Glide functions it
@@ -1641,12 +1643,22 @@ looks up are carried out (glide.md, NFS III's voodoo2a.dll).
   and compares the two frames of every page flip
   ([thrash.md](../formats/nfs/thrash.md), The Glide stand-in).
 - The Play page draws so with `renderer=glide` in the game's section of
-  `reluva.ini` (in software; the native THRASH and the GPU stay the
-  default).
+  `reluva.ini` (the native THRASH and its GPU drawing stay the default).
+  Glide's pixels are drawn on the GPU when there is one (`glide=software`
+  for the software reference).
+- `-glidegpu` draws on the GPU in nfs-host too, and `-glidegpucompare
+  out.csv` draws every call both ways and writes each frame's difference
+  ([thrash.md](../formats/nfs/thrash.md), The Glide stand-in).
+- The CD's Voodoo3 patch DLL (1999-04-21, Glide 3) runs on the Glide 3
+  stand-in, on a Voodoo3: `-glidedll <file>`, or `glidedll=<file>` with
+  `renderer=glide` on the Play page; the file stays outside the repo and
+  the install. It goes through the menus into races, and draws the game
+  without fog, as its code says (thrash.md, The Voodoo3 patch's
+  voodoo2a.dll). The version check the game makes passes: the DLL takes
+  the version the game sends it before `about()`.
 
-Next: Glide 3 for the CD's Voodoo3 patch DLL, a GPU backend, the open
-rounding questions (glide.md, Open questions). The undocumented dither
-rounding still needs a real card's frames.
+Next: the open rounding questions (glide.md, Open questions); the
+undocumented dither rounding still needs a real card's frames.
 
 ### Later: a Direct3D stand-in (planned, not started; when more engines need it)
 

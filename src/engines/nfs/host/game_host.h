@@ -5,6 +5,8 @@
 
 #include "common/audio/mixer.h"
 #include "common/glide/glide2_x86.h"
+#include "common/glide/glide3_x86.h"
+#include "common/glide/gpu_renderer.h"
 #include "common/net.h"
 #include "common/types.h"
 #include "common/x86/cpu.h"
@@ -93,6 +95,17 @@ public:
         // With glide, for comparisons: the texture filter held to this
         // (0 point-sampled, 1 bilinear) whatever the DLL asks; -1 as asked.
         int glideFilter = -1;
+        // With glide: a THRASH DLL file outside the install (a host path)
+        // run in voodoo2a.dll's place, as the CD's Voodoo3 patch DLL
+        // (Patch/Voodoo3/voodoo2a.dll). One that loads glide3x.dll gets the
+        // Glide 3 stand-in on a Voodoo3 board (thrash.md, The Voodoo3
+        // patch's voodoo2a.dll); empty: the install's own.
+        std::string glideDll;
+        // With glide: what draws Glide's pixels. 0 the software reference
+        // rasterizer; 1 the GPU backend (common/glide/gpu_renderer.h) when
+        // there's a GPU, else the software one; 2 the GPU, with every call
+        // drawn in software too and each frame compared (onGlideComparison).
+        int glideGpu = 0;
         // With nativeThrash: THRASH's frames as lists for the GPU
         // (onThrashFrame) rather than drawn into memory.
         bool gpuThrash = false;
@@ -186,8 +199,14 @@ public:
         std::map<int, uint64_t> textureFormats;           // talloc's format -> how many
     };
     const ThrashStats& thrash() const { return thrash_; }
-    // The Glide stand-in (Options::glide), if there is one.
-    glide::Glide2Dll* glide() { return glide_.get(); }
+    // The Glide stand-in (Options::glide), if there is one: glide2x.dll's,
+    // or glide3x.dll's for a DLL that loads it (Options::glideDll).
+    glide::GlideDll* glide() { return glide_.get(); }
+    // With Options::glideGpu 2: each Glide frame's difference from the
+    // software reference, at its buffer swap.
+    std::function<void(const glide::FrameComparison&)> onGlideComparison;
+    // What draws Glide's pixels ("software", or the GPU device's name).
+    const std::string& glideRenderer() const { return glideRenderer_; }
     // Called after each page flip with the frame drawn so far, as RGBA.
     std::function<void(const Surface& frame)> onFrame;
     // With gpuThrash, called after each page flip with what THRASH drew
@@ -275,8 +294,9 @@ private:
     class ModemPort;
     friend class SerialLink;
     void addDirectX();  // DDRAW and DINPUT
-    void addGlide();    // glide2x.dll, on Options::glide (thrash.cpp)
-    std::unique_ptr<glide::Glide2Dll> glide_;
+    void addGlide();    // glide2x.dll or glide3x.dll, on Options::glide (thrash.cpp)
+    std::unique_ptr<glide::GlideDll> glide_;
+    std::string glideRenderer_ = "software";
     // Options::glideCompare: THRASH's calls drawn natively too, into a buffer
     // of 640x480 5:6:5 pixels in guest memory (thrash.cpp).
     void mirrorNative(const std::string& name, const std::vector<uint32_t>& args);

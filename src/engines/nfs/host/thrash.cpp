@@ -11,7 +11,10 @@
 
 #include <algorithm>
 #include <cstdlib>
+#include <cctype>
 #include <cstring>
+#include <fstream>
+#include <iterator>
 
 namespace reluva::nfs {
 
@@ -89,8 +92,8 @@ uint32_t GameHost::wrapThrash(const std::string& name, uint32_t address) {
             mirrorNative(shortName, args);
         // What was drawn or written straight to the front buffer shows at
         // once, as on the card (the movies, written through lockwindow).
-        if (glide_ && glide_->glide().takeFrontChanged()) {
-            glide_->glide().pipeline().present(frame_);
+        if (glide_ && glide_->core().takeFrontChanged()) {
+            glide_->core().pipeline().present(frame_);
             if (onFrame)
                 onFrame(frame_);
         }
@@ -121,26 +124,61 @@ uint32_t GameHost::wrapThrash(const std::string& name, uint32_t address) {
 }
 
 void GameHost::addGlide() {
-    // A Voodoo 2 with 4 MB of frame buffer and two TMUs of 4 MB (the 12 MB
-    // board), which voodoo2a.dll reads as a Voodoo 2 (thrash.md, The Glide
+    // A DLL from outside the install (the CD's Voodoo3 patch) that loads
+    // glide3x.dll gets Glide 3 on a Voodoo3; the retail voodoo2a.dll Glide
+    // 2 on a Voodoo 2 with 4 MB of frame buffer and two TMUs of 4 MB (the
+    // 12 MB board), which it reads as a Voodoo 2 (thrash.md, The Glide
     // stand-in).
-    glide_ = std::make_unique<glide::Glide2Dll>(*cpu_, process_->memory());
-    glide_->glide().log = [this](const std::string& line) { say("  " + line); };
-    glide_->glide().onSwap = [this] {
-        glide_->glide().pipeline().present(frame_);
+    bool glide3 = false;
+    if (!options_.glideDll.empty()) {
+        std::ifstream in(options_.glideDll, std::ios::binary);
+        std::string file((std::istreambuf_iterator<char>(in)), {});
+        for (char& ch : file)
+            ch = char(std::tolower(uint8_t(ch)));
+        glide3 = file.find("glide3x.dll") != std::string::npos;
+    }
+    if (glide3)
+        glide_ = std::make_unique<glide::Glide3Dll>(*cpu_, process_->memory());
+    else
+        glide_ = std::make_unique<glide::Glide2Dll>(*cpu_, process_->memory());
+    glide::Glide2& g = glide_->core();
+    g.log = [this](const std::string& line) { say("  " + line); };
+    // The GPU backend, if asked for and there's a GPU (Options::glideGpu).
+    if (options_.glideGpu) {
+        std::string error;
+        std::unique_ptr<gfx::Compute> gpu = gfx::createCompute(error);
+        const std::string device = gpu ? gpu->deviceName() : std::string();
+        std::unique_ptr<glide::Renderer> renderer = gpu ? glide::makeGpuRenderer(std::move(gpu), error) : nullptr;
+        if (renderer) {
+            glideRenderer_ = "GPU (" + device + ")";
+            if (options_.glideGpu == 2) {
+                renderer = glide::makeComparingRenderer(std::move(renderer), [this](const glide::FrameComparison& f) {
+                    if (onGlideComparison)
+                        onGlideComparison(f);
+                });
+                glideRenderer_ += ", compared with the software reference";
+            }
+            g.pipeline().setRenderer(std::move(renderer));
+        } else {
+            say("  Glide on the GPU: " + error + "; drawn in software");
+        }
+    }
+    say("  " + glide_->dllName() + " stood in for, drawn by " + glideRenderer_);
+    g.onSwap = [this] {
+        glide_->core().pipeline().present(frame_);
         if (onFrame)
             onFrame(frame_);
     };
     const uint32_t handle = 0x6c000000u;
-    addNativeModule("glide2x.dll", handle);
+    addNativeModule(glide_->dllName(), handle);
     for (const auto& [name, address] : glide_->exports())
         nativeExports_[handle][name] = address;
     // For comparisons: the texture filter held to one mode whatever the
     // DLL asks (it asks for bilinear, thrash.md, Texture filtering).
     if (options_.glideFilter >= 0)
         nativeExports_[handle]["_grTexFilterMode@12"] =
-            cpu_->addNative("glide2x grTexFilterMode (held)", [this](Cpu& c) {
-                glide_->glide().texFilterMode(int(c.arg(0)), options_.glideFilter, options_.glideFilter);
+            cpu_->addNative(glide_->dllName() + " grTexFilterMode (held)", [this](Cpu& c) {
+                glide_->core().texFilterMode(int(c.arg(0)), options_.glideFilter, options_.glideFilter);
                 c.reg[Cpu::EAX] = 0;
                 return 12u;
             });

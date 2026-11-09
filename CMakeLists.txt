@@ -92,8 +92,14 @@ add_library(reluva_common STATIC
     src/common/glide/pixel.cpp
     src/common/glide/pipeline.cpp
     src/common/glide/software_renderer.cpp
+    src/common/glide/raster_setup.cpp
+    src/common/glide/gpu_renderer.cpp
+    src/common/gpu_compute.cpp
     src/common/glide/glide2.cpp
     src/common/glide/glide2_x86.cpp
+    src/common/glide/glide_x86.cpp
+    src/common/glide/glide3.cpp
+    src/common/glide/glide3_x86.cpp
     src/common/detection.cpp
     src/common/audio/decode.cpp
     src/common/audio/ea_audio.cpp
@@ -248,6 +254,7 @@ add_executable(reluva
     src/backends/sdl3/sdl_system.cpp
     src/backends/sdl3/sdl_controller.cpp
     src/backends/sdl3/sdl_gpu.cpp
+    src/backends/sdl3/sdl_compute.cpp
     src/backends/sockets/socket_net.cpp
     src/launcher/launcher.cpp)
 target_link_libraries(reluva PRIVATE reluva_engines imgui SDL3::SDL3 reluva_warnings)
@@ -256,11 +263,14 @@ if(WIN32)
 endif()
 
 # --- developer tools -----------------------------------------------------------
-add_executable(reluva-tool src/tools/reluva_tool.cpp src/backends/sockets/socket_net.cpp)
+# It links SDL only for GPU compute (gfx::Compute, the Glide stand-in's GPU
+# backend for nfs-host), on a device of its own without a window.
+add_executable(reluva-tool src/tools/reluva_tool.cpp src/backends/sockets/socket_net.cpp
+    src/backends/sdl3/sdl_compute.cpp)
 if(RELUVA_ENGINE_NFS)
     target_sources(reluva-tool PRIVATE src/tools/nfs_commands.cpp)
 endif()
-target_link_libraries(reluva-tool PRIVATE reluva_engines reluva_warnings)
+target_link_libraries(reluva-tool PRIVATE reluva_engines SDL3::SDL3 reluva_warnings)
 if(WIN32)
     target_link_libraries(reluva-tool PRIVATE ws2_32 iphlpapi)
 endif()
@@ -282,6 +292,12 @@ if(RELUVA_BUILD_TESTS)
     add_executable(reluva_glide_tests tests/test_glide.cpp)
     target_link_libraries(reluva_glide_tests PRIVATE reluva_common reluva_warnings)
     add_test(NAME glide COMMAND reluva_glide_tests)
+
+    # Its GPU backend against the software reference (passes, saying so,
+    # without a GPU).
+    add_executable(reluva_glide_gpu_tests tests/test_glide_gpu.cpp src/backends/sdl3/sdl_compute.cpp)
+    target_link_libraries(reluva_glide_gpu_tests PRIVATE reluva_common SDL3::SDL3 reluva_warnings)
+    add_test(NAME glide_gpu COMMAND reluva_glide_gpu_tests)
 
     add_executable(reluva_prologic_tests tests/test_prologic.cpp)
     target_link_libraries(reluva_prologic_tests PRIVATE reluva_common reluva_warnings)

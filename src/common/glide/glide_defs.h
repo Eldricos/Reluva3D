@@ -159,4 +159,115 @@ enum StwHint : uint32_t {
     kStwStDiffTmu2 = 1u << 6,
 };
 
+// --- Glide 3 (glide3x.dll) ------------------------------------------------------
+// Values Glide 3 adds or changes, from the headers of 3dfx's Glide 3.x SDK
+// for Linux (glide.h, as packaged in Slackware 7.1's
+// contrib/3dfx/sdk3x.tgz; only the headers were read), named as the Glide
+// 3.0 Reference Manual names them. LODs and aspect ratios are already log2
+// (GR_LOD_LOG2_256 is 8, GR_ASPECT_LOG2_8x1 3), the core's own form.
+namespace g3 {
+
+// grVertexLayout's parameters.
+enum Param : uint32_t {
+    kParamXy = 0x01,
+    kParamZ = 0x02,
+    kParamW = 0x03,
+    kParamQ = 0x04,
+    kParamFogExt = 0x05,
+    kParamA = 0x10,
+    kParamRgb = 0x20,
+    kParamPargb = 0x30,
+    kParamSt0 = 0x40, // ST1, ST2 follow
+    kParamQ0 = 0x50,  // Q1, Q2 follow
+};
+enum ParamMode : uint32_t { kParamDisable = 0, kParamEnable = 1 };
+// grDrawVertexArray's modes.
+enum Primitive : uint32_t {
+    kPoints = 0,
+    kLineStrip = 1,
+    kLines = 2,
+    kPolygon = 3,
+    kTriangleStrip = 4,
+    kTriangleFan = 5,
+    kTriangles = 6,
+    kTriangleStripContinue = 7,
+    kTriangleFanContinue = 8,
+};
+// grEnable/grDisable.
+enum EnableMode : uint32_t {
+    kAaOrdered = 0x01,
+    kAllowMipmapDither = 0x02,
+    kPassthru = 0x03,
+    kShamelessPlug = 0x04,
+    kVideoSmoothing = 0x05,
+};
+enum CoordinateSpace : uint32_t { kWindowCoords = 0x00, kClipCoords = 0x01 };
+// grFogMode: the table indexed by q (Glide 2's GR_FOG_WITH_TABLE), the
+// iterated z as before, the iterated alpha moved to an extension number,
+// and the fog coordinate extension.
+enum FogMode : int {
+    kFogWithTableOnFogCoordExt = 0x1,
+    kFogWithTableOnQ = 0x2,
+    kFogWithIteratedZ = 0x3,
+    kFogWithIteratedAlphaExt = 0x4,
+};
+// grTexMultibaseAddress's ranges, renumbered from Glide 2's.
+enum TexBase : int { kTexBase32To1 = 0x0, kTexBase64 = 0x1, kTexBase128 = 0x2, kTexBase256 = 0x3 };
+// grGet's queries.
+enum Query : uint32_t {
+    kBitsDepth = 0x01,
+    kBitsRgba = 0x02,
+    kFifoFullness = 0x03,
+    kFogTableEntries = 0x04,
+    kGammaTableEntries = 0x05,
+    kGlideStateSize = 0x06,
+    kGlideVertexLayoutSize = 0x07,
+    kIsBusy = 0x08,
+    kLfbPixelPipe = 0x09,
+    kMaxTextureSize = 0x0a,
+    kMaxTextureAspectRatio = 0x0b,
+    kMemoryFb = 0x0c,
+    kMemoryTmu = 0x0d,
+    kMemoryUma = 0x0e,
+    kNumBoards = 0x0f,
+    kNonPowerOfTwoTextures = 0x10,
+    kNumFb = 0x11,
+    kNumSwapHistoryBuffer = 0x12,
+    kNumTmu = 0x13,
+    kPendingBufferSwaps = 0x14,
+    kRevisionFb = 0x15,
+    kRevisionTmu = 0x16,
+    kStatsLines = 0x17,
+    kStatsPixelsAfuncFail = 0x18,
+    kStatsPixelsChromaFail = 0x19,
+    kStatsPixelsDepthfuncFail = 0x1a,
+    kStatsPixelsIn = 0x1b,
+    kStatsPixelsOut = 0x1c,
+    kStatsPixels = 0x1d,
+    kStatsPoints = 0x1e,
+    kStatsTrianglesIn = 0x1f,
+    kStatsTrianglesOut = 0x20,
+    kStatsTriangles = 0x21,
+    kSwapHistory = 0x22,
+    kSupportsPassthru = 0x23,
+    kTextureAlign = 0x24,
+    kVideoPosition = 0x25,
+    kViewport = 0x26,
+    kWdepthMinMax = 0x27,
+    kZdepthMinMax = 0x28,
+    kVertexParameter = 0x29,
+    kBitsGamma = 0x2a,
+};
+// grGetString's.
+enum StringQuery : uint32_t {
+    kExtension = 0xa0,
+    kHardware = 0xa1,
+    kRenderer = 0xa2,
+    kVendor = 0xa3,
+    kVersion = 0xa4,
+};
+constexpr uint32_t kQueryAny = 0xffffffffu; // GR_QUERY_ANY
+
+} // namespace g3
+
 } // namespace reluva::glide
