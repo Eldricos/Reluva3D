@@ -95,6 +95,8 @@ const char* const kUsageLines =
     "                       [-gpudump list dir] (that list in full: list.csv and its textures)\n"
     "                       [-present voodoo2a.dll] (the renderer the game is told of, -renderer's loaded in\n"
     "                       its place; the default; none: as -renderer)\n"
+    "                       [-direct3d] (the game told of d3da.dll, the Direct3D renderer: its Direct3D look,\n"
+    "                       drawn natively as d3da's device draws; -present d3da.dll -native)\n"
     "                       [-glide] (the game's own voodoo2a.dll, unchanged, on Reluva's Glide stand-in)\n"
     "                       [-glidecompare out.csv] (-glide, with each flip also drawn natively and compared)\n"
     "                       [-glidefilter point | bilinear] (with -glide: the texture filter held, to compare)\n"
@@ -1108,6 +1110,10 @@ int cmdNfsHost(int argc, char** argv) {
             options.renderer = argv[++a];
             options.presentedRenderer.clear();
         } else if (arg == "-native") {
+            options.nativeThrash = true;
+        } else if (arg == "-direct3d") { // the game told of d3da.dll, drawn natively as d3da's device draws
+            options.presentedRenderer = "d3da.dll";
+            options.renderer = "softtria.dll";
             options.nativeThrash = true;
         } else if (arg == "-glide") { // the retail voodoo2a.dll on Reluva's glide2x.dll
             options.glide = true;

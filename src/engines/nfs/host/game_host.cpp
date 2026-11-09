@@ -139,6 +139,7 @@ GameHost::GameHost(GameFolders folders, Options options) : folders_(std::move(fo
         native_ = std::make_unique<NativeThrash>(*cpu_);
         native_->setRecording(options_.gpuThrash);
         native_->setAlsoRasterize(options_.gpuThrash && options_.gpuAndSoftware);
+        native_->setDirect3D(lower(options_.presentedRenderer) == "d3da.dll");
     }
 }
 
@@ -626,6 +627,13 @@ void GameHost::addSystem() {
         {"thrash driver", {1, options_.presentedRenderer.empty() ? options_.renderer : options_.presentedRenderer}},
         {"d3d device", {4, "", 0}},
     };
+    // For d3da, the Direct3D device 3dSetup would have found: the game reads
+    // its description only to look for two cards' names (0x472d10: "STB
+    // Velocity 128" halves the effects intensity's default; 0x4a4410, the
+    // menus' "texteffects", is left out for "RAGE PRO"), so a plain one
+    // gives the general path.
+    if (lower(options_.presentedRenderer.empty() ? options_.renderer : options_.presentedRenderer) == "d3da.dll")
+        (*registry)["software\\electronic arts\\need for speed iii"]["3d device description"] = {1, "Direct3D HAL"};
     auto keys = std::make_shared<std::map<uint32_t, std::string>>();
     const char* a = "ADVAPI32.dll";
     provide(a, "RegOpenKeyExA", 5, [this, registry, keys](Cpu& c) {

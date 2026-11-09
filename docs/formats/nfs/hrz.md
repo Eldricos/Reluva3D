@@ -641,9 +641,43 @@ look takes the haze off, as the clip has none, but the clip's sky is grey
 cloud down to the trees and its snow and trees greyer than the page's.
 The code gives no further reason for either.
 
+**In the game: the Direct3D look** (November 2026; `renderer=direct3d`
+on the Play page, `nfs-host -direct3d`; docs/engines/nfs.md, The
+Direct3D look). The game is told its renderer is `d3da.dll`, so all of
+the above is its own code's doing, not Reluva's imitation; Reluva's
+native drawing only follows d3da's device (bilinear, undithered).
+Hometown in the weather by day, frame 2800 (in the car, waiting at the
+start), through the windscreen's sky (x 450-630, y 60-140): told of a
+Voodoo 2 (`k1-runs/hw-v2`) (129, 124, 107) ± 30, the beige haze; told of
+d3da (`k1-runs/hw-d3dn`) (92, 88, 72) ± 22; `Rain` 0:10's sky (95, 88,
+83) ± 21 (the clip's 640x480 picture is scaled by 1.5; its sky at x
+850-1120, y 105-225). So the game's Direct3D path gives the clip's darker,
+less contrasted sky by itself. The far trees and fields show plainly with no
+haze, as in the clip. Without dithering, neighbouring sky pixels differ
+by 0.3 on average against 3.8 dithered (`k1-runs/hw-d3d`, the same run
+before the native drawing followed d3da's device), and the road's
+textures are smooth where the clip's are point-sampled squares (its
+device didn't filter, above). The list of frame 2800 (`k1-runs/hw-d3dg`,
+`-gpudump`) has the clouds' 276 vertices at alpha 133 everywhere, the
+value worked out above, their colours 56 to 137; told of a Voodoo 2
+(`f2-runs/hw`'s list, the same frame) they are (b, b, b, b), alpha 125
+to 195. (Their colours are darker in the Direct3D run too, by more than
+the code above explains; the clouds' random layout differs between runs,
+which may be all of it.) The Summit in
+the weather, frame 2800 (`k1-runs/su-v2`, `su-d3d`): told of d3da the
+white haze is gone, the far hills are dark and the clouds grey and
+distinct, as in `Snow` 0:40; but the clip's sky between the trees is
+brighter, (234, 233, 234) ± 28 against (166, 167, 162) ± 47 (x 250-400,
+y 60-110; told of a Voodoo 2 (205, 206, 200) ± 52, by the haze). The
+effects intensity stays 1 unless lowered in the options (its slider is offered
+only under Direct3D, `0x448610`, `0x44d2a0`), so nothing is dimmed by
+default.
+
 **Still open:** which renderer the clips' game used (the menus in
 `Night` show no renderer or version; the missing fog and point-sampled
 textures fit a Direct3D device that doesn't filter); why the clips'
-clouds are greyer and more opaque than either look; and the Summit's
-greyer scenery.
+clouds are greyer and more opaque than the Track page's looks (the game's
+own Direct3D path, above, comes much closer to `Rain` than the page's
+Direct3D look, (113, 108, 93) ± 36, by a different region and run, so the
+page's sky may be what differs); and the Summit's greyer scenery.
 

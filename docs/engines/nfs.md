@@ -1048,14 +1048,16 @@ Started. Done so far:
     recorded.
 
   Esc skips the intro, as on Windows.
-- **d3da (the Direct3D renderer)** isn't run, and needn't be. The game
-  picks it only with a "3D Device Description" in the registry, which it
-  gets from enumerating Direct3D devices. Otherwise it falls back to
-  softtria, as it does in Reluva (`nfs-host -renderer d3da.dll`).
-  Running d3da would mean standing in for Direct3D: devices, textures as
-  surfaces, a Z-buffer and DrawPrimitive. Drawing THRASH's calls on the
-  GPU directly, from the same calls the native rasterizer takes, gets the
-  same pictures with no Direct3D at all.
+- **d3da (the Direct3D renderer)** isn't run, and needn't be. Running
+  it would mean standing in for Direct3D: devices, textures as surfaces,
+  a Z-buffer and DrawPrimitive. Drawing THRASH's calls on the GPU
+  directly, from the same calls the native rasterizer takes, gets the
+  same pictures with no Direct3D at all. The game can still be told it
+  has d3da, and then takes its Direct3D path (The Direct3D look, below).
+  (An earlier note here had the game pick d3da only with a "3D Device
+  Description" in the registry. Read again in November 2026, it picks
+  its renderer by the "Thrash Driver" name alone, below; the description
+  is only searched for two cards' names.)
 
 - **THRASH on the GPU** ([thrash.md](../formats/nfs/thrash.md), On the
   GPU). With a GPU, the Play page draws the game's frames with it, by
@@ -1106,6 +1108,72 @@ Started. Done so far:
   red while the dashboard and HUD don't, natively and on the GPU (Play
   page under Xvfb on software Vulkan). With the real files, Hometown
   has its sky and clouds and a light haze in the distance.
+
+- **The Direct3D look** (November 2026). `renderer=direct3d` in the
+  game's section of `reluva.ini` (the Play page) or `nfs-host
+  -direct3d` tells the game its renderer is `d3da.dll`, and the game's
+  own code takes its Direct3D path; softtria is loaded in its place, the
+  drawing is Reluva's, and it follows d3da's device set-up: bilinear
+  filtering, no dithering ([thrash.md](../formats/nfs/thrash.md), d3da's
+  device defaults). The default (`voodoo2a.dll`, fog) and
+  `renderer=glide` are unchanged. Why this way: the look is then the
+  game's, not Reluva's imitation of it, and no Direct3D is needed.
+
+  How the game picks its renderer (read from `nfs3.exe`): `0x4b6020`
+  sets the renderer number `0x7a3a54` from `0x4b5720`, which reads the
+  registry's "Thrash Driver" (`0x4b6400`) and finds it in the table at
+  `0x55fd68` (0 `nulla`, 1 `softtria`, 2 `softlina`, 3 `voodooa`, 4
+  `voodoo2a`, 5 `ragea`, 6 `d3da`, 7 and 8 `powervra`; command-line
+  flags can override it), then the renderer byte `0x7a3a58` = 1 << that
+  number: `d3da` is bit 0x40. "D3D Device" (a number) goes to
+  `selectdisplay`; "3D Device Description" (`0x4b64c0`, into `0x7a3a74`)
+  is not needed, and is only searched for two cards' names. The host
+  gives "Direct3D HAL", neither of them.
+
+  What the game does differently with bit 0x40, from every reader of
+  `0x7a3a58`:
+  - **Set-up** (`0x4b59c0`, case 6): it checks the desktop has at least
+    8 bits a pixel; `selectdisplay`, `setvideomode(1, 2, 1)`; five
+    `setstate` probes (`0x4b5940`: 0xd 1, 0xd 0, 4 2, 0xce 1, 0x68 1)
+    into `0x7a3a5c`, which nothing reads; states 0xa 2, 0x68 0, 4 1, 6
+    1, 2 0; the z-buffer flags (`0x7a3a68`, `0x7a3a60`) as for the
+    Voodoos; fog mode 0, so no fog states are sent (thrash.md, Fog); a
+    texture budget (`0x55fed0`) of 2 MB against the Voodoos' 8, which
+    only limits the resolutions offered (`0x4bed90`); and `0x7a3a70` 0,
+    so `0x4bc680` sets the FPU's control word again (Direct3D lowers its
+    precision). The texture memory warning (`0x4b5ea0`) adds `about()`'s
+    +0x74 to +0x70.
+  - **Drawing**: the clouds' constant alpha (`0x47ae10`, by mask
+    0x1e0), the dimming by the effects intensity (`0x41a120`,
+    `0x41b9b0`, `0x47b850`, `0x491190`, `0x491bc0`, `0x492370`,
+    `0x492980`, `0x49d800`, `0x4cb750`, `0x4cbc90`, `0x4ddb40`,
+    `0x4de070`, `0x4de700`), particle kind 7's colours (`0x4cb670`), its
+    own polygon drawers (`0x434870`), text drawn point-sampled when
+    scaled and bilinear after (`0x4d7160`, state 7)
+    ([hrz.md](../formats/nfs/hrz.md), The Direct3D renderer).
+  - **Menus**: the options' SFX Intensity slider is offered only under
+    Direct3D (`0x448610`, `0x44d2a0`; hidden otherwise); the "license"
+    widget's two gradient bands are left out (`0x442450`, also for
+    softtria); "texteffects" (`0x4a4410`) is left out under Direct3D only
+    for a device described as a RAGE PRO (and always for softtria).
+  - **Defaults**: on a first run the effects intensity is 1, or 0.5 for
+    an "STB Velocity 128" (`0x472d10`). The config keeps the renderer
+    byte (`0x6fbc10`); when it differs from the one now in use the game
+    sets its detail defaults again (`0x472980`, `0x4730d0`), so changing
+    between `renderer=direct3d` and the default resets the graphics
+    options, as changing the card in 3D Setup would.
+  - **The dashboard**: loaded when `about()` reports texture memory
+    enough (`0x488a80`); softtria's flag (+0x75 bit 0x80) loads it
+    either way.
+
+  Checked on Hometown in the weather, `nfs-host` frame 2800 (in the
+  car at the start): no haze, the far trees and fields plain, the sky's
+  colour and spread as `Rain` 0:10's, textures smooth and undithered;
+  the Summit in the weather without its white haze, dark hills and grey
+  clouds as in `Snow` 0:40, though the clip's sky is brighter
+  ([hrz.md](../formats/nfs/hrz.md), The Direct3D renderer, In the game);
+  and the Play page in the app (Xvfb, software Vulkan) through the
+  intro to the main menu.
 
 - **Joysticks.** A game controller connected when the game starts is
   offered to it as a DirectInput joystick, under the controller's own name
@@ -1531,7 +1599,9 @@ Still to do:
     on one machine have played.
   - How a race holds up over a slower link, or when a copy stalls for
     loading longer than the original did.
-- **Not planned:** d3da (see above). The Glide renderer isn't needed to
+- **Not planned:** running d3da itself (see above; its look is the
+  game's own, The Direct3D look; a shared Direct3D stand-in is planned
+  for later, when other engines need one, below). The Glide renderer isn't needed to
   play (the native and GPU drawing do that, the game told it has a Voodoo
   2 to draw as for one, see Sky and fog), but since November 2026 it runs:
   the retail `voodoo2a.dll` on Reluva's Glide stand-in (`-glide`, below,
@@ -1577,6 +1647,36 @@ looks up are carried out (glide.md, NFS III's voodoo2a.dll).
 Next: Glide 3 for the CD's Voodoo3 patch DLL, a GPU backend, the open
 rounding questions (glide.md, Open questions). The undocumented dither
 rounding still needs a real card's frames.
+
+### Later: a Direct3D stand-in (planned, not started; when more engines need it)
+
+NFS III doesn't need one: its Direct3D look comes from the game's own
+code, told it has `d3da.dll` (The Direct3D look, above). Other engines
+Reluva hosts may draw only through Direct3D, and then a stand-in is
+wanted, shared like the Glide one:
+
+- **Clean room.** Written from Microsoft's public DirectX documentation
+  (the SDK reference for each version's interfaces, render states and
+  capability bits) and reverse engineering of each game's own calls,
+  never from other wrappers' or emulators' sources.
+- **Scope.** DrawPrimitive-era Direct3D 5 to 7, fixed-function, first
+  (devices, viewports, textures as surfaces, render states, texture
+  stages, the Z-buffer), with room for Direct3D 3's execute buffers and
+  for Direct3D 8 and 9 later.
+- **Shape.** COM objects served to the x86 interpreter as the Glide
+  stand-in's functions are (`IDirect3D`*n*, devices, textures), over a
+  version-neutral pipeline with a software reference rasterizer, and a
+  GPU backend later.
+- **Card profiles, optional.** Profiles imitating typical cards of the
+  time (16-bit dithering, fog missing or vertex-only, simpler or no
+  filtering, the capability bits they reported), each labelled an
+  approximation.
+
+Direct3D had no single original look: each card and driver drew
+differently, and games adapted to the capabilities reported. So the
+stand-in's default shows what the game asked for, drawn on an idealised
+device, and the profiles are guesses at particular cards, not
+references.
 
 ## Sources
 

@@ -27,6 +27,10 @@ struct ThrashFrame {
         bool blend = false; // alpha blending on (state 0xa), as `blendMode` (state 0x68) says
         int blendMode = 0;
         int cull = 0;               // state 2
+        // The texture filter: -1 as the page draws (ThrashGpu::nearest),
+        // 0 point-sampled, 1 bilinear. Set only for d3da's device
+        // (NativeThrash::setDirect3D), from state 7.
+        int filter = -1;
         // Fog (states 0xe, 0xf, 0x15): what 0xe gave, 0 for none, and the
         // colour (0x00RRGGBB). See glideFog().
         float fog = 0;
@@ -87,6 +91,15 @@ public:
     ThrashFrame takeFrame();
 
     void setState(uint32_t id, uint32_t value);
+    // Draws as d3da.dll sets up its Direct3D device and keeps it
+    // (docs/formats/nfs/thrash.md, d3da's device defaults), for a game told
+    // its renderer is d3da: textures bilinear-filtered (state 7 picks: 0
+    // point-sampled, 1 bilinear; nothing else changes it), no dithering
+    // (d3da's setstate ignores state 5). Fog, the blend modes and the
+    // texture blend (modulated, colour and alpha) are as without it: the
+    // game sends d3da no fog, and the rest is the same.
+    void setDirect3D(bool on);
+    bool direct3D() const { return direct3D_; }
     void clip(int x0, int y0, int x1, int y1);
 
     // Vertices are THRASH's 32-byte ones in emulated memory.
@@ -113,6 +126,10 @@ private:
         std::array<uint32_t, 256> palette{};
     };
     Vertex vertex(uint32_t address) const;
+    // A texel at (fu, fv) in texels, wrapped or clamped: the nearest, or
+    // bilinear-filtered.
+    static uint32_t samplePoint(const Texture& t, float fu, float fv, bool wrap);
+    static uint32_t sampleBilinear(const Texture& t, float fu, float fv, bool wrap);
     void rasterize(const Vertex& a, const Vertex& b, const Vertex& c);
     void record(const Vertex& a, const Vertex& b, const Vertex& c);
     // The batch to add to, a new one if the state changed.
@@ -134,6 +151,8 @@ private:
     // (4x4) for a value not 0, else grDitherMode(0); Glide starts at 4x4.
     bool dither_ = true;
     bool gouraud_ = true; // state 6
+    bool direct3D_ = false; // d3da's device (setDirect3D)
+    bool bilinear_ = false; // textures filtered: d3da's default, and its state 7
     bool wrap_ = true;    // state 0xd: 1 wrap, 0 clamp
     int blend_ = 0;       // state 0x68: 0 alpha, 1 additive, 2 darken, 3 multiply
     bool alphaBlend_ = false; // state 0xa

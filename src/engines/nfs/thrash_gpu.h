@@ -7,6 +7,7 @@
 #include "engines/nfs/host/thrash_native.h"
 
 #include <map>
+#include <tuple>
 #include <utility>
 
 namespace reluva::nfs {
@@ -33,14 +34,14 @@ public:
     }
     bool capture(std::vector<uint8_t>& rgba) { return renderer_ && renderer_->takeCapture(rgba); }
     // Point-sampled textures, as the software renderer draws (else
-    // bilinear).
+    // bilinear), unless a batch says (ThrashFrame::Batch::filter, d3da's).
     bool nearest = true;
     // The renderer's frame against the game's (640x480): 2 draws at
     // 1280x960, the same picture with sharper edges.
     int scale = 1;
 
 private:
-    gfx::TextureId texture(uint32_t handle, bool wrap);
+    gfx::TextureId texture(uint32_t handle, bool wrap, bool point);
 
     gfx::Renderer3D* renderer_ = nullptr;
     gfx::MeshId mesh_ = 0;
@@ -48,7 +49,7 @@ private:
     std::vector<gfx::Vertex> vertices_;
     Surface scaledOverlay_; // an overlay of the game's size, enlarged to the renderer's
     std::map<uint32_t, ThrashFrame::Texture> textures_;                 // by handle: what they hold
-    std::map<std::pair<uint32_t, bool>, gfx::TextureId> gpuTextures_; // by handle and wrapping
+    std::map<std::tuple<uint32_t, bool, bool>, gfx::TextureId> gpuTextures_; // by handle, wrapping, nearest
     // Textures replaced while a frame was being drawn (a draw already made
     // may use them): destroyed once it's shown.
     std::vector<gfx::TextureId> retired_;

@@ -43,10 +43,14 @@ public:
     // axis numbers) is for a wheel SDL has no layout for. `glide`: the
     // game's own voodoo2a.dll draws, on Reluva's Glide stand-in
     // (GameHost::Options::glide), in software, rather than THRASH natively.
+    // `direct3d`: the game is told its renderer is d3da.dll and takes its
+    // Direct3D path (no fog, the clouds' constant alpha, the dimming by the
+    // effects intensity), drawn natively as d3da's device draws (bilinear,
+    // undithered; docs/formats/nfs/hrz.md, The Direct3D renderer).
     PlayPage(GameFolders folders, std::filesystem::path saveFolder, audio::Mixer* mixer, int renderScale = 2,
              bool smoothTextures = false, bool offerJoystick = true, bool forceFeedback = true,
              std::string wheelPedals = {}, bool network = true, bool fillMovies = true, std::string serial = {},
-             std::string modem = {}, bool glide = false);
+             std::string modem = {}, bool glide = false, bool direct3d = false);
     ~PlayPage() override;
     const char* name() const override { return "Play"; }
     bool capturesEscape() const override { return true; }
@@ -101,6 +105,7 @@ private:
     int renderScale_ = 2;
     bool gpu_ = false; // drawing with the GPU: decided when the game starts
     bool glide_ = false; // voodoo2a.dll on the Glide stand-in (never the GPU)
+    bool direct3d_ = false; // the game told of d3da.dll (its Direct3D look)
     ThrashGpu gpuDraw_; // on the engine's thread
     // THRASH's frames not drawn yet, in order: each is drawn (some add to
     // what the one before left), with the textures it brought, then kept.

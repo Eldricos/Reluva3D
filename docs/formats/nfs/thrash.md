@@ -156,6 +156,31 @@ bilinear-filtered and undithered, where the Voodoo's are point-sampled
 and dithered (below). What else the game does differently for Direct3D
 is in [hrz.md](hrz.md), The Direct3D renderer.
 
+Its `setstate` (read in November 2026 from the jump at `0x60002b6b`):
+state 5 does nothing and returns 1, so the device never dithers; state 7
+sets TEXTUREMAG and TEXTUREMIN to NEAREST for 0 (`0x600030de`) and
+LINEAR for 1 (`0x60003101`) and refuses other values; state 6, 0 sets
+flat shading. Its `about()` (`0x60001020`) gives the signature
+0x44334435 ("5D3D"), version 0x68, texture sizes 8 to 256 (softtria 16
+to 256), a texture format table (`0x60010e44`) and the texture memory
+(+0x70, +0x74) that it fills from the Direct3D device it finds.
+
+**The Direct3D look** (`nfs-host -direct3d`, the Play page's
+`renderer=direct3d`, docs/engines/nfs.md): the game is told its
+renderer is `d3da.dll` and softtria is loaded in its place, as for
+`voodoo2a.dll`. The native drawing then follows the device above
+(`NativeThrash::setDirect3D`): bilinear filtering (Direct3D's, texel
+centres at half-integers, alpha filtered too, then the alpha test), state
+7 switching between point and bilinear, no dithering whatever state 5
+says; on the GPU each batch carries its filter
+(`ThrashFrame::Batch::filter`). The texture blend (texel times vertex
+colour, alpha too) and the blend modes are the same for both. The game
+sends no fog to d3da, so none is drawn. The game still reads softtria's
+`about()`: of its texture formats (2, 3, 4 and 7) the game uses 3, 4
+and 7 in a race (1555, 565 and 4444, which Direct3D cards commonly
+offered; what d3da would list depends on the card), and its flag at +0x75 has the game load the in-car dashboard, as
+d3da's does with more than 4 MB of texture memory (`0x488a80`).
+
 ## Texture filtering
 
 What the game asks for (November 2026): state 0x7 is the texture
@@ -188,9 +213,9 @@ have one level each (`talloc` asks for none smaller), so the mipmap mode
 changes nothing. An earlier reading here had them point-sampled, from
 the default filter Glide's own sources set; that source is not used any
 more, and the DLL's own set-up overrides any default anyway. The native
-THRASH (`thrash_native.cpp`) still point-samples, and so do the Track and
-Cars pages: that is the largest difference between `-native` and
-`-glide` in a race (The Glide stand-in, below). The pages point-sample
+THRASH (`thrash_native.cpp`) still point-samples (except in the Direct3D
+look, d3da's device defaults above), and so do the Track and Cars pages:
+that is the largest difference between `-native` and `-glide` in a race (The Glide stand-in, below). The pages point-sample
 the track's pictures, the sky's, the cars' skins and reflection maps and
 the officer's pages (`glideTextureParams`), and since November 2026 the
 glows, beams, flares, particles and the headlights' picture too: in the
@@ -480,7 +505,8 @@ game's sky was measured ([hrz.md](hrz.md)).
 DirectDraw's frames (the movies) are shown over an empty frame. Frames
 are drawn at `renderscale` times 640x480 (2 unless set): the same
 picture, with sharper edges. Textures are point-sampled as in softtria,
-or bilinear with `texturefilter=linear`. Both settings are in the game's
+or bilinear with `texturefilter=linear`; in the Direct3D look
+(`renderer=direct3d`) as d3da's device filters them, whatever that says. Both settings are in the game's
 section of `reluva.ini`. Without a GPU, the software rasterizer draws
 as before.
 

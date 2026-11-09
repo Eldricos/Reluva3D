@@ -50,10 +50,11 @@ void ThrashGpu::setRenderer(gfx::Renderer3D* renderer) {
 void ThrashGpu::updateTextures(const ThrashFrame& frame) {
     auto drop = [this](uint32_t handle) {
         for (bool wrap : {false, true})
-            if (auto it = gpuTextures_.find({handle, wrap}); it != gpuTextures_.end()) {
-                retired_.push_back(it->second);
-                gpuTextures_.erase(it);
-            }
+            for (bool point : {false, true})
+                if (auto it = gpuTextures_.find({handle, wrap, point}); it != gpuTextures_.end()) {
+                    retired_.push_back(it->second);
+                    gpuTextures_.erase(it);
+                }
     };
     if (frame.resetTextures) {
         for (const auto& [handle, t] : textures_)
@@ -66,8 +67,8 @@ void ThrashGpu::updateTextures(const ThrashFrame& frame) {
     }
 }
 
-gfx::TextureId ThrashGpu::texture(uint32_t handle, bool wrap) {
-    if (auto it = gpuTextures_.find({handle, wrap}); it != gpuTextures_.end())
+gfx::TextureId ThrashGpu::texture(uint32_t handle, bool wrap, bool point) {
+    if (auto it = gpuTextures_.find({handle, wrap, point}); it != gpuTextures_.end())
         return it->second;
     auto t = textures_.find(handle);
     if (t == textures_.end() || t->second.rgba.empty())
@@ -83,11 +84,11 @@ gfx::TextureId ThrashGpu::texture(uint32_t handle, bool wrap) {
     gfx::TextureParams params;
     params.clamp = !wrap;
     params.mipmaps = false;
-    params.nearest = nearest;
+    params.nearest = point;
     gfx::TextureId id = 0;
     if (renderer_->createTexture(t->second.width, t->second.height, rgba.data(), params, id))
         return 0;
-    gpuTextures_[{handle, wrap}] = id;
+    gpuTextures_[{handle, wrap, point}] = id;
     return id;
 }
 
@@ -157,7 +158,7 @@ void ThrashGpu::draw(const std::vector<const ThrashFrame*>& frames, const Surfac
             call.mesh = mesh_;
             call.firstIndex = base[f] + b.first;
             call.indexCount = b.count;
-            call.texture = b.texture ? texture(b.texture, b.wrap) : 0;
+            call.texture = b.texture ? texture(b.texture, b.wrap, b.filter < 0 ? nearest : b.filter == 0) : 0;
             call.rgbSource = gfx::ColorSource::Vertex;
             call.alphaSource = gfx::ColorSource::Vertex;
             if (b.fog > 0) {

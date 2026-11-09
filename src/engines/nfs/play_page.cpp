@@ -88,11 +88,12 @@ bool fillMovieLines(Surface& frame) {
 
 PlayPage::PlayPage(GameFolders folders, std::filesystem::path saveFolder, audio::Mixer* mixer, int renderScale,
                    bool smoothTextures, bool offerJoystick, bool forceFeedback, std::string wheelPedals,
-                   bool network, bool fillMovies, std::string serial, std::string modem, bool glide)
+                   bool network, bool fillMovies, std::string serial, std::string modem, bool glide,
+                   bool direct3d)
     : folders_(std::move(folders)), saveFolder_(std::move(saveFolder)), mixer_(mixer), offerJoystick_(offerJoystick),
       forceFeedback_(forceFeedback), network_(network), serial_(std::move(serial)), modem_(std::move(modem)),
       fillMovies_(fillMovies), wheelPedals_(std::move(wheelPedals)),
-      renderScale_(std::clamp(renderScale, 1, 4)), glide_(glide) {
+      renderScale_(std::clamp(renderScale, 1, 4)), glide_(glide), direct3d_(direct3d && !glide) {
     gpuDraw_.scale = renderScale_;
     gpuDraw_.nearest = !smoothTextures;
     // A debugging aid: the GPU's frames written beside the software
@@ -184,8 +185,9 @@ void PlayPage::start() {
     options.saveFolder = saveFolder_.empty() ? folders_.install / "reluva-save" : saveFolder_ / "game";
     options.nativeThrash = true;
     // Told it has a Voodoo 2, the game draws its sky and fog (it fogs only
-    // for 3dfx cards); the drawing is still Reluva's.
-    options.presentedRenderer = "voodoo2a.dll";
+    // for 3dfx cards); the drawing is still Reluva's. Or, told of d3da.dll,
+    // it takes its Direct3D path, drawn as d3da's device draws.
+    options.presentedRenderer = direct3d_ ? "d3da.dll" : "voodoo2a.dll";
     options.gpuThrash = gpu_;
     // Or the game's own Glide renderer on Reluva's Glide, in software.
     options.glide = glide_;

@@ -3154,6 +3154,102 @@ void testThrashFog() {
     CHECK(frame.batches.size() == 1 && frame.batches[0].fog == 250 && frame.batches[0].fogColour == 0xff0000);
 }
 
+// THRASH drawn as d3da.dll's Direct3D device draws (thrash.md, d3da's
+// device defaults): bilinear filtering, state 7 picking point sampling or
+// bilinear, no dithering whatever state 5 says.
+void testThrashDirect3D() {
+    x86::Cpu cpu(1u << 21);
+    const uint32_t target = 0x10000, verts = 0x1000, texels = 0x2000;
+    // A 2x2 5:6:5 checker: black, white / white, black.
+    const uint16_t checker[4] = {0x0000, 0xffff, 0xffff, 0x0000};
+    std::memcpy(cpu.memory().data() + texels, checker, sizeof checker);
+    // A 40x40 quad from (0, 0), white, the texture once across it.
+    auto corner = [&](int i, float x, float y) {
+        const float f[4] = {x, y, 0.5f, 1};
+        std::memcpy(cpu.memory().data() + verts + 32 * i, f, 16);
+        const uint32_t white = 0xffffffffu;
+        std::memcpy(cpu.memory().data() + verts + 32 * i + 16, &white, 4);
+        const float uv[2] = {x / 40, y / 40};
+        std::memcpy(cpu.memory().data() + verts + 32 * i + 24, uv, 8);
+    };
+    corner(0, 0, 0);
+    corner(1, 40, 0);
+    corner(2, 40, 40);
+    corner(3, 0, 40);
+    auto red = [&](NativeThrash& t, int x, int y) {
+        t.quad(verts, verts + 32, verts + 64, verts + 96);
+        uint16_t p;
+        std::memcpy(&p, cpu.memory().data() + target + y * 1280 + x * 2, 2);
+        return int(p >> 11);
+    };
+    auto setUp = [&](NativeThrash& t) {
+        t.setTarget(target, 640 * 2, 640, 480);
+        t.talloc(7, 2, 2, 4);
+        t.tupdate(7, texels, 0);
+        t.setState(0x1, 7);
+        t.setState(0xd, 0); // clamped
+    };
+    {
+        // As before (the 3dfx look): point-sampled; state 7 changes nothing.
+        NativeThrash t(cpu);
+        setUp(t);
+        CHECK(!t.direct3D());
+        CHECK(red(t, 20, 20) == 0 && red(t, 10, 20) == 31);
+        t.setState(0x7, 1);
+        CHECK(red(t, 20, 20) == 0);
+    }
+    {
+        NativeThrash t(cpu);
+        t.setDirect3D(true);
+        setUp(t);
+        // At the texture's centre the four texels mix to grey, about half
+        // (127 of 255: 15 of 31 truncated, no dither); by the clamped edges
+        // only one texel is reached, (0, 0) at pixel (9, 9), (1, 0) at (30, 9).
+        CHECK(red(t, 20, 20) == 15);
+        CHECK(red(t, 9, 9) == 0 && red(t, 30, 9) == 31);
+        // State 7: 0 point-sampled (d3da's TEXTUREMAG/MIN NEAREST), 1 bilinear.
+        t.setState(0x7, 0);
+        CHECK(red(t, 20, 20) == 0);
+        t.setState(0x7, 2); // not one d3da knows: unchanged
+        CHECK(red(t, 20, 20) == 0);
+        t.setState(0x7, 1);
+        CHECK(red(t, 20, 20) == 15);
+        // No dithering, state 5 or not: a flat grey stays one value.
+        t.setState(0x1, 0);
+        t.setState(0x5, 1);
+        for (int i = 0; i < 4; ++i) {
+            const uint32_t grey = 0xff646464u;
+            std::memcpy(cpu.memory().data() + verts + 32 * i + 16, &grey, 4);
+        }
+        int first = -1;
+        bool flat = true;
+        for (int y = 4; y < 8; ++y)
+            for (int x = 4; x < 8; ++x) {
+                const int r = red(t, x, y);
+                flat = flat && (first < 0 || r == first);
+                first = r;
+            }
+        CHECK(flat && first == 12);
+        // Recorded for the GPU, a batch carries its filter.
+        t.setState(0x1, 7);
+        t.setRecording(true);
+        t.quad(verts, verts + 32, verts + 64, verts + 96);
+        t.setState(0x7, 0);
+        t.quad(verts, verts + 32, verts + 64, verts + 96);
+        const ThrashFrame frame = t.takeFrame();
+        CHECK(frame.batches.size() == 2 && frame.batches[0].filter == 1 && frame.batches[1].filter == 0);
+    }
+    {
+        // Without it, batches leave the filter to the page.
+        NativeThrash t(cpu);
+        setUp(t);
+        t.setRecording(true);
+        t.quad(verts, verts + 32, verts + 64, verts + 96);
+        const ThrashFrame frame = t.takeFrame();
+        CHECK(frame.batches.size() == 1 && frame.batches[0].filter == -1);
+    }
+}
+
 } // namespace
 
 // DirectInput effects as the game would set them, in a little memory of
@@ -4282,6 +4378,7 @@ int main() {
     testForceEffects();
     testSound3d();
     testThrashFog();
+    testThrashDirect3D();
     stdfs::remove_all(tmp);
     if (failures)
         std::fprintf(stderr, "%d check(s) failed\n", failures);

@@ -42,7 +42,48 @@ uint16_t to565Dithered(uint32_t r, uint32_t g, uint32_t b, int x, int y) {
     return uint16_t(r5 << 11 | g6 << 5 | b5);
 }
 
+// A texel's coordinate wrapped (repeat) or clamped to the edge.
+int texelAt(int i, int size, bool wrap) {
+    if (!wrap)
+        return std::clamp(i, 0, size - 1);
+    if ((size & (size - 1)) == 0)
+        return i & (size - 1);
+    return ((i % size) + size) % size;
+}
+
 } // namespace
+
+uint32_t NativeThrash::samplePoint(const Texture& t, float fu, float fv, bool wrap) {
+    int tx = int(fu), ty = int(fv);
+    tx -= fu < float(tx); // floor
+    ty -= fv < float(ty);
+    return t.rgba[size_t(texelAt(ty, t.height, wrap)) * size_t(t.width) + size_t(texelAt(tx, t.width, wrap))];
+}
+
+// Direct3D's bilinear filter: the four texels around the point, texel
+// centres at half-integers, each channel weighted by distance (alpha too,
+// so a colour-keyed edge fades rather than stepping).
+uint32_t NativeThrash::sampleBilinear(const Texture& t, float fu, float fv, bool wrap) {
+    const float su = fu - 0.5f, sv = fv - 0.5f;
+    const float flu = std::floor(su), flv = std::floor(sv);
+    const float ax = su - flu, ay = sv - flv;
+    const int x0 = int(flu), y0 = int(flv);
+    const int xa = texelAt(x0, t.width, wrap), xb = texelAt(x0 + 1, t.width, wrap);
+    const size_t ra = size_t(texelAt(y0, t.height, wrap)) * size_t(t.width);
+    const size_t rb = size_t(texelAt(y0 + 1, t.height, wrap)) * size_t(t.width);
+    const uint32_t c00 = t.rgba[ra + size_t(xa)], c10 = t.rgba[ra + size_t(xb)];
+    const uint32_t c01 = t.rgba[rb + size_t(xa)], c11 = t.rgba[rb + size_t(xb)];
+    if (c00 == c10 && c00 == c01 && c00 == c11)
+        return c00;
+    const float w00 = (1 - ax) * (1 - ay), w10 = ax * (1 - ay), w01 = (1 - ax) * ay, w11 = ax * ay;
+    uint32_t out = 0;
+    for (int shift = 0; shift < 32; shift += 8) {
+        const float c = float((c00 >> shift) & 255) * w00 + float((c10 >> shift) & 255) * w10 +
+                        float((c01 >> shift) & 255) * w01 + float((c11 >> shift) & 255) * w11;
+        out |= uint32_t(std::clamp(int(c + 0.5f), 0, 255)) << shift;
+    }
+    return out;
+}
 
 void NativeThrash::setTarget(uint32_t address, int pitch, int width, int height) {
     target_ = address;
@@ -129,8 +170,15 @@ void NativeThrash::setState(uint32_t id, uint32_t value) {
         break;
     }
     case 0x2: cull_ = int(value); break;
-    case 0x5: dither_ = value != 0; break;
+    case 0x5: // d3da's setstate does nothing for it: its device never dithers
+        if (!direct3D_)
+            dither_ = value != 0;
+        break;
     case 0x6: gouraud_ = value != 0; break;
+    case 0x7: // only d3da's: 0 point-sampled, 1 bilinear (TEXTUREMAG and MIN), other values ignored
+        if (direct3D_ && value <= 1)
+            bilinear_ = value == 1;
+        break;
     case 0xd: wrap_ = value != 0; break;
     case 0x68: blend_ = int(value & 3); break;
     case 0xa: alphaBlend_ = value != 0; break;
@@ -156,6 +204,14 @@ void NativeThrash::setState(uint32_t id, uint32_t value) {
         break;
     default: break;
     }
+}
+
+void NativeThrash::setDirect3D(bool on) {
+    direct3D_ = on;
+    // d3da's device set-up (0x60004137-0x600042af): TEXTUREMAG and
+    // TEXTUREMIN LINEAR, DITHERENABLE off.
+    bilinear_ = on;
+    dither_ = !on;
 }
 
 float glideFog(float w, float value) {
@@ -293,8 +349,8 @@ void NativeThrash::rasterize(const Vertex& a, const Vertex& b, const Vertex& c) 
     }
     const Texture* tex = texture_;
     const int tw = tex ? tex->width : 1, th = tex ? tex->height : 1;
-    const bool pow2 = (tw & (tw - 1)) == 0 && (th & (th - 1)) == 0;
     const float ftw = float(tw), fth = float(th);
+    const bool bilinear = bilinear_;
     const float l2dx = -l0dx - l1dx;
     uint8_t* const memory = cpu_.memory().data();
     for (int y = y0; y < y1; ++y) {
@@ -329,22 +385,7 @@ void NativeThrash::rasterize(const Vertex& a, const Vertex& b, const Vertex& c) 
             if (tex) {
                 const float w = 1.0f / v[W];
                 const float fu = v[U] * w * ftw, fv = v[V] * w * fth;
-                int tx = int(fu), ty = int(fv);
-                tx -= fu < float(tx); // floor
-                ty -= fv < float(ty);
-                if (wrap_) {
-                    if (pow2) {
-                        tx &= tw - 1;
-                        ty &= th - 1;
-                    } else {
-                        tx = ((tx % tw) + tw) % tw;
-                        ty = ((ty % th) + th) % th;
-                    }
-                } else {
-                    tx = std::clamp(tx, 0, tw - 1);
-                    ty = std::clamp(ty, 0, th - 1);
-                }
-                const uint32_t t = tex->rgba[size_t(ty) * size_t(tw) + size_t(tx)];
+                const uint32_t t = bilinear ? sampleBilinear(*tex, fu, fv, wrap_) : samplePoint(*tex, fu, fv, wrap_);
                 const uint32_t ta = t >> 24;
                 if (ta == 0)
                     draw = false; // left out, as the colour key / alpha test does
@@ -379,6 +420,7 @@ ThrashFrame::Batch& NativeThrash::batch() {
     b.blend = alphaBlend_;
     b.blendMode = blend_;
     b.cull = cull_;
+    b.filter = direct3D_ ? int(bilinear_) : -1;
     b.fog = fogOn_ ? fogValue_ : 0;
     b.fogColour = fogOn_ ? fogColour_ : 0;
     b.clip[0] = std::max(clipX0_, 0);
@@ -389,7 +431,7 @@ ThrashFrame::Batch& NativeThrash::batch() {
     if (!frame_.batches.empty()) {
         const ThrashFrame::Batch& last = frame_.batches.back();
         if (last.texture == b.texture && last.wrap == b.wrap && last.blend == b.blend &&
-            last.blendMode == b.blendMode && last.cull == b.cull && last.fog == b.fog &&
+            last.blendMode == b.blendMode && last.cull == b.cull && last.filter == b.filter && last.fog == b.fog &&
             last.fogColour == b.fogColour && std::equal(b.clip, b.clip + 4, last.clip))
             return frame_.batches.back();
     }

@@ -125,7 +125,10 @@ Linux (with each distro's packages) and Windows with Visual Studio 2022.
   own movies (Esc skips the intro), and races run at about real time. With a GPU
   the game is drawn with it, at twice its 640x480 unless `renderscale=` (1 to 4) in
   the game's section of `reluva.ini` says otherwise; `texturefilter=linear` smooths
-  its textures. A game controller connected when the game starts is offered to it as a
+  its textures. The game is told it has a Voodoo 2 and draws as for one (with fog);
+  `renderer=direct3d` tells it it has its Direct3D renderer instead, and it draws its
+  Direct3D look (no fog, flatter clouds, filtered textures), and `renderer=glide` runs
+  its own Voodoo 2 renderer on Reluva's Glide stand-in. A game controller connected when the game starts is offered to it as a
   joystick (a racing wheel as a wheel), and the game's own Controllers screen binds it
   (`joystick=off` leaves it out). The window holds the mouse while the game is shown,
   the game drawing its own pointer. The black lines the game leaves between a movie's
