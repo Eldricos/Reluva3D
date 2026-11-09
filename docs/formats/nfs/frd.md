@@ -2445,7 +2445,13 @@ braking, 0 at 7 m/s or under (7 from `0x56ebd0`, set by `0x405e60`);
 `ai_ctl_slide` `0x407fa0` sets both to |+0x4EC| − 7; `ai_ctl_slow`
 leaves them; `car_ai_physics` `0x4088f0` zeroes them in the air or below
 upright 0.9 (`0x5363d4`). The page: `aiSkid`, called from `aiMove`; the
-tipped case, the start's wheelspin and the finished coast aren't ported.
+start's wheelspin is `aiStartSpin` (physics.md). `car_ai_physics`
+zeroes both levels and skips `car_ai_model` when the car is in the air or
++0x10C is under 0.9; Reluva's `aiMove` zeroes the levels then and leaves
+`aiSkid` out, but still runs the model for a tipped car.
+`ai_finished_coast`'s arithmetic is `aiFinishedCoast` (`AiCoast`);
+wiring it in needs a finished or busted state for the racers (+0x2C4 3
+or 4).
 
 **The roadside cop** (`d7-runs/sim/park`,
 the police car ordered to lay a strip from every 8th slice of Hometown,

@@ -434,8 +434,19 @@ public:
     // is within half its size both ways, unless this is rain (10) on mud
     // (11), whose life is then halved; life the template's less random %
     // half of it; half side the size less random x half of it; a square
-    // turned by a random angle. Kind 4's also plays a sound (0x415010).
+    // turned by a random angle. Each of kind 4's made also plays a sound
+    // (0x415010), counted for takeSounds.
     bool hit(int kind, float x, float y, float z, bool inCar, ParticleRandom& random);
+    // The sounds hit has asked for since the last call, then none: each
+    // the race's bank entry 2 (0x57113c: Gen3d, or Gen without 3D sound),
+    // slot 0xF, volume 0x7F, azimuth 0 (0x3FFF or 0xC000 by the view in
+    // split screen), through sound_start (0x4182b0).
+    int takeSounds() {
+        const int n = sounds_;
+        sounds_ = 0;
+        return n;
+    }
+    static constexpr int kSoundSlot = 0xf, kSoundVolume = 0x7f;
     // 0x4cb220, on the odd steps (0x4cb2c0): each live splat's alpha the
     // template's x its life / the template's life, then its life - 1;
     // freed once its alpha is 0.
@@ -443,10 +454,14 @@ public:
     std::array<Splat, kSlots>& splats() { return slots_; }
     const std::array<Splat, kSlots>& splats() const { return slots_; }
     int live() const;
-    void clear() { slots_ = {}; }
+    void clear() {
+        slots_ = {};
+        sounds_ = 0;
+    }
 
 private:
     std::array<Splat, kSlots> slots_{};
+    int sounds_ = 0;
 };
 
 } // namespace reluva::nfs

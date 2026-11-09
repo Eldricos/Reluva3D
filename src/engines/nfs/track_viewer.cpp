@@ -3528,6 +3528,10 @@ void TrackPage::prepareParticles(const gfx::Vec3& eye, const gfx::Vec3& forward,
         }
         shown.push_back({&p, depth});
     }
+    // A mud splat's (kind 4) sound, one each (0x415010): Gen3d's (Gen's)
+    // slot 0xF at full volume, ahead (azimuth 0; one view).
+    for (int i = splats_.takeSounds(); i > 0; --i)
+        playEffect(hitSounds_, SplatScreen::kSoundSlot, SplatScreen::kSoundVolume, soundPan(0));
     std::sort(shown.begin(), shown.end(), [](const Shown& a, const Shown& b) { return a.depth > b.depth; });
     std::vector<gfx::Vertex> vertices(kQuads * 4);
     // The pictures' corners at the texels' centres, half a texel in from

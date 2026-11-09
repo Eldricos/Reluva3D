@@ -850,8 +850,14 @@ about 0.5 m/s (43.6-43.7 for 44.0; 36.9 for 36.5), from 0 to 12 m/s in
   On a surface with grip under 1, an AI racer (+0x200 & 8) every few
   steps gets its forces × 1.1 (Aggressive) or the yaw × 50 and side ×
   10 (Normal), by `0x404610` and the step's bits (`0x408459`): it
-  slides. In the first 20 of race distance, one AI racer picked by a
-  random number (`0x554f10`) gets a push sideways at the start.
+  slides. In the first 20 of race distance, an AI racer accelerating at
+  its table's first value draws the race's random number (`0x554f10` ×
+  `0x554f18`, low 16 bits kept; pick ((s & 0xFFFF00) >> 8) × 14 >> 16).
+  When the pick is its slot (+0x1F0), it gets 0.5 (`0x53638c`) more
+  side force, with yaw from it, and rear skid level 10 (`0x4084bc`).
+  The random is seeded by `0x4371d0` from `0x6fd3b4`. In Reluva:
+  `aiStartSpin` and `AiStartRandom` (skid level only; the push is not
+  done).
 - **`0x407c30`** (slow or reversing): the speed wanted is kept under
   16.41 m/s; yaw from the heading error (× 2.5, in ±1.6, and ±0.02 ×
   +0xB8); the side speed damped (× 3, in ±38).

@@ -2023,6 +2023,77 @@ void aiSkid(AiCar& me, float side, bool braking) {
     }
 }
 
+void AiStartRandom::seed(uint32_t value) {
+    // 0x4371d0: the value and 3 x it made odd; the value times 3 x it,
+    // then times the value 7 more times, each kept to 16 bits but the last.
+    uint32_t p = value, u = value * 3;
+    if ((p & 1) == 0)
+        ++p;
+    if ((u & 1) == 0)
+        ++u;
+    uint32_t s = (p * u) & 0xffff;
+    for (int i = 0; i < 6; ++i)
+        s = (s * p) & 0xffff;
+    s *= p;
+    low = s & 0xffff;
+    mult = p;
+}
+
+int AiStartRandom::pick() {
+    const uint32_t s = low * mult; // 0x554f14
+    low = s & 0xffff;
+    return static_cast<int>(((s & 0xffff00) >> 8) * 14 >> 16);
+}
+
+AiStartRandom& aiStartRandom() {
+    static AiStartRandom random = [] {
+        AiStartRandom r;
+        r.seed(0x2b5d1e0u); // any start-up tick count
+        return r;
+    }();
+    return random;
+}
+
+bool aiStartSpin(const AiCar& car, const AiCarData& data, float accel, AiStartRandom& random) {
+    if (!car.racer || car.cop || car.distance >= 20 || accel != data.accel[0])
+        return false;
+    return random.pick() == car.slot;
+}
+
+void aiFinishedCoast(AiCoast& c) {
+    c.skidFront = c.skidRear = 0;
+    c.forward = static_cast<float>(static_cast<double>(c.forward) * (c.ground >= 22.3515 ? 0.98 : 0.95));
+    c.right = static_cast<float>(static_cast<double>(c.right) * 0.85);
+    c.yawRate = static_cast<float>(static_cast<double>(c.yawRate) * 0.5);
+    if (c.forward >= 5.0f || c.forward <= -10.0f)
+        c.skidRear = static_cast<float>(static_cast<double>(std::fabs(c.forward)) * 0.1);
+    else
+        c.forward = static_cast<float>(static_cast<double>(c.forward) * 0.5);
+    if (std::fabs(c.yawRate) > 0.2)
+        c.skidRear += std::fabs(c.yawRate);
+    if (std::fabs(c.right) > std::fabs(c.forward)) {
+        c.skidFront = c.skidRear = std::fabs(c.right);
+        c.right = static_cast<float>(static_cast<double>(c.right) * 0.2);
+    }
+}
+
+// How upright the body stands on the road (+0x10C, car_road_dots
+// 0x4a2690 by 0x4a0f30): its up (aiTiltedAxes) . the road's normal at its
+// slice, as aiTilt takes them.
+static float aiUpright(const TrackCollision& col, const AiCar& car) {
+    const int n = static_cast<int>(col.road.size());
+    if (n < 2)
+        return 1;
+    const auto& a = col.road[size_t(((car.slice % n) + n) % n)];
+    const std::array<float, 3> rf = unit3(car.roadRightSet ? car.roadForward : a.forward);
+    std::array<float, 3> nu = unit3(cross3(rf, car.roadRightSet ? car.roadRight : a.right));
+    if (nu[1] < 0)
+        nu = {-nu[0], -nu[1], -nu[2]};
+    std::array<float, 3> f{}, r{}, u{};
+    aiTiltedAxes(col, car, f, r, u);
+    return dot3(u, nu);
+}
+
 namespace {
 
 void aiMove(AiCar& me, const AiCarData& data, bool weather, int step, const TrackCollision& col, int track) {
@@ -2031,8 +2102,13 @@ void aiMove(AiCar& me, const AiCarData& data, bool weather, int step, const Trac
     const float raceSpeed = me.speed;
     me.downforce = data.downforce;
     const AiDynamics dyn = aiModelSteer(me, col, step, track, true);
-    if (me.airTicks != 0 && (step & 1) == 0)
-        me.skidFront = me.skidRear = 0; // car_ai_physics 0x408959: in the air, no skid
+    // car_ai_physics (0x4088f0, 0x408959): in the air or tipped (+0x10C
+    // under 0.9, 0x5363d4) both levels 0 and the model not run, so no
+    // controller sets them.
+    const bool tipped = aiUpright(col, me) < 0.9f;
+    if ((me.airTicks != 0 || tipped) && (step & 1) == 0)
+        me.skidFront = me.skidRear = 0;
+    bool spin = false; // the start's wheelspin (aiStartSpin)
     if (!dyn.ran)
         return;
     // The speed: the game's computer cars (car_ai_physics 0x4088f0 without
@@ -2094,7 +2170,8 @@ void aiMove(AiCar& me, const AiCarData& data, bool weather, int step, const Trac
         } else {
             force = -brake(error);
         }
-        aiSkid(me, dyn.railsSide, force < 0);
+        if (!tipped)
+            aiSkid(me, dyn.railsSide, force < 0);
         if (speed < 0)
             force = -force;
     } else {
@@ -2115,12 +2192,16 @@ void aiMove(AiCar& me, const AiCarData& data, bool weather, int step, const Trac
         } else if (w - forwardSpeed > 1.0f) {
             force = accel();
             me.braking = false;
+            spin = me.steer == AiCar::Slide && aiStartSpin(me, data, force, aiStartRandom());
         } else {
             force = -brake(w - forwardSpeed);
         }
         alongCar = true;
-        if (me.steer == AiCar::Slide)
+        if (me.steer == AiCar::Slide && !tipped) {
             aiSkid(me, dyn.carSide, false);
+            if (spin)
+                me.skidRear = 10; // 0x4084bc
+        }
     }
     const int n = static_cast<int>(col.road.size());
     if (alongCar) {

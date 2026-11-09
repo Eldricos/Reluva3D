@@ -787,7 +787,12 @@ life the template's less `rand_next` % (life / 2); half side the
 template's less random × half of it; corners (x − s, y + c), (x + c,
 y + s), (x + s, y − c), (x − c, y − s) for s, c the sine and cosine of a
 random turn × the half side; colour and flags the template's; for kind
-4 also sound 0xF of bank 24 (`0x415010`). On the odd steps the
+4 also a sound (`0x415010`, called at `0x4ca833` for each kind-4 splat
+made): `sound_start` (`0x4182b0`) with the race's bank entry 2
+(`0x57113c`, byte 24 of the table at `0x571124`: `Gen3d.bnk`, or
+`Gen.bnk` without 3D sound), slot 0xF, volume 0x7F and azimuth 0 (in
+split screen, `0x6fd3b0` = 1, 0x3FFF for view 0 and 0xC000 for view 1).
+Slot 15 of both banks is a click of 728 samples at 44100 Hz (`bnk-info`). On the odd steps the
 particles' task (`0x4cb2c0`) ages them (`0x4cb220`): alpha = the
 template's alpha × life / the template's life (whole numbers), then
 life − 1, freed at alpha 0. `0x4cc600` draws them (`0x4cb750`), unless
@@ -807,8 +812,9 @@ splat that lasts 20-40 minutes.
 within 3 ahead go onto the lens as above (the page's camera is never
 in a car; a dump's held particles don't), aged on the odd ticks and
 drawn after the weather without depth test or fog (the pass's place
-and states are inferred), each corner on the line through its pixel. The
-sound of kind 4 is not played. Following a police car in Hometown's
+and states are inferred), each corner on the line through its pixel.
+Each kind-4 splat made plays `Gen3d.bnk`'s (`Gen.bnk`'s) slot 15 at
+full volume, ahead (`SplatScreen::takeSounds`). Following a police car in Hometown's
 weather (Shift+C), its kind-10 spray fills the 200 slots and faint
 rings sit over the view (`h2/splat1-1.png`, before: `g2/spray-2.png`).
 
@@ -848,17 +854,83 @@ frd.cpp, called by `aiMove`):
 - `ai_ctl_slide` (`0x407fa0`, `0x408467`-`0x4084ba`): both |+0x4EC| (the
   velocity along the car's right) − 7, or 0. At the race's start
   (`+0x200` bit 0x8, a computer racer, and race distance under 20, on a random pick by the
-  car's slot) the rear is set to 10: a wheelspin, not on the page.
+  car's slot) the rear is set to 10: a wheelspin (below).
 - `ai_ctl_slow` (`0x407c30`) leaves them; `car_ai_physics` (`0x4088f0`)
-  sets both to 0 in the air or tipped (`+0x10C` under 0.9, `0x5363d4`);
-  `ai_finished_coast` (`0x407380`, after the finish) and the resets
-  (`0x40cd80`, `0x42bcb0`) also write them; not followed.
+  sets both to 0 in the air or tipped (`+0x10C` under 0.9, `0x5363d4`,
+  `0x40893d`-`0x408959`), and then runs no model, so no controller sets
+  them again that tick;
+- `ai_finished_coast` (`0x407380`, below) after the finish; the resets
+  (`0x40cd80`, `0x42bcb0`) also write them, not followed.
+
+**The start's wheelspin** (`ai_ctl_slide` `0x408244`-`0x4082e0`,
+`0x4084b6`; read November 2026 with `gdecomp` and `asm`). Only in the
+sliding controller, which a car under 0.5 m/s along its way gets
+(`car_ai_model` `0x408600`, `0x5363b4`), and only when it accelerates
+(more than 1 m/s under the speed wanted): for an AI racer (`+0x200` &
+8) with race distance (`+8`) under 0x14 whose acceleration from
+`ai_accel` (`0x4064f0`) equals its table's first value (`+0x2EC`[0]:
+the index int(|v| − 0.5) is 0, and none of `ai_accel`'s factors
+applied, so dry, not past distance 100 with `ai` Normal), the race's
+random number is drawn: `0x554f14` = `0x554f10` × `0x554f18`,
+`0x554f10` = its low 16 bits, and the pick ((`0x554f14` & 0xFFFF00) >>
+8) × 14 >> 16, 0-13; when it is the car's slot (`+0x1F0`) the car gets
+0.5 more side force (and yaw from it, `0x53638c`) and, after the skid
+levels are worked out, the rear level 10 (`0x4084bc`). `0x4371d0`
+seeds it (from `race_tasks_setup` `0x4c46be` and `0x4c47b3`) with
+`0x6fd3b4` (GetTickCount at start-up, net.md): p the seed and u 3 × it,
+each made odd; `0x554f14` = p × u × p⁷ with every product but the last
+kept to 16 bits, `0x554f10` its low 16 bits, `0x554f18` = p. The same
+numbers are drawn by the cops' code (`0x402a00`, `0x403870`,
+`0x404840`, `0x405d40`, `0x40c2f0`). So for the few ticks a racer
+stands at the start, each tick one racer in fourteen at most (the one
+whose slot comes up) smokes its rear tyres (level 10 is over 5:
+`wheelSmokes`), dry only.
+
+**A car out of the race** (`ai_finished_coast` `0x407380`, `asm`
+November 2026): from `car_ai_model` for a racer (`+0x200` & 1) with
+`+0x2C4` 3 (finished) or 4 (busted), on the ground and upright
+(`+0x164` 0, `+0x10C` at least 0.9f, `0x40739a`): both levels 0, no
+controls, the brake 255; the speed along its forward (`+0x4F4`) × 0.98
+(`0x536314`), × 0.95 (`0x53630c`) with `+0xB8` under 22.3515
+(`0x536304`); along its right (`+0x4EC`) × 0.85 (`0x53631c`); the yaw
+rate (`+0x4FC`) × 0.5 (`0x536324`). Then the rear level |forward| × 0.1
+(`0x53633c`) unless the forward is between −10 and 5 (`0x536334`,
+`0x53632c`, `0x407473`-`0x407481`), when the forward is halved instead;
+plus |yaw| when that is over 0.2 (`0x536344`); and when |right| is
+over |forward| both levels |right| and the right × 0.2 (`0x4075a4`).
+The velocity and spin go back into the world through the body's rows.
+
+**In Reluva** (`frd.cpp`): `aiMove` zeroes both levels in the air or
+tipped (the body's up . the road's normal under 0.9, as `aiTilt` takes
+them) and calls `aiSkid` only when not tipped; the sliding controller's
+acceleration goes through `aiStartSpin` (`AiStartRandom`, the page's
+own stream, seeded once; the car's `AiCar::slot`, −1 unset: never
+picked) and sets the rear to 10; `aiFinishedCoast` is the coast's
+arithmetic on its own (`AiCoast`). The page's computer cars start
+moving, past race distance 20 (`AiCar::distance`), and none finishes
+or is out of the race, so neither shows there.
 
 So the game's computer cars do skid: the front level (× 7.5 in
 `car_spiked_effects`) reaches 10 on a bend taken at speed, and the rear
 only while braking. In a page run on Hometown's weather with a roadblock
 (1 minute), 3440 wheel steps had a level over 0, nearly all on rails on
 surface 1 (the front wheels).
+
+**Verge clumps on the Track page** (checked November 2026, `i2-runs`):
+in Hometown's weather a computer car skidding with a wheel on a verge
+throws kind 11 as `0x42a280` says, and nothing was wrong to fix. In a
+150 s run with two cops sent (C twice), 76 wheel steps had a skid level
+over 0 on surfaces 2 or 3 (cars sliding after hits, the sliding
+controller's level at 10). They are rare on their own: the cars keep to
+their lanes, and three more runs of 4-7 minutes had none, so for the
+picture a car whose wheel was on surface 3 at over 10 m/s was pushed
+12 m/s sideways (a temporary hook, not kept): the sliding controller
+took over (level 10 from the side speed), and kind 11 particles went
+live from the next tick (2, 4, 6... a tick; white speckled trails over
+the grass behind it, `i2/push2-e1-2.png`, `i2/verge-clumps-zoom.png`).
+On surface 2 the wet row throws kind 11 for speed as well (over 5 m/s),
+which is where most of the page's clumps come from (up to about 400
+live).
 
 **Car hits** (`car_impacts_task` `0x42b900`, November 2026). The cars'
 task (Sc64) after the hits (`car_collisions_task` `0x4311d0`, Sc32):
