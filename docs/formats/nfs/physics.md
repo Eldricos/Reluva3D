@@ -671,7 +671,9 @@ spans".
    - reversing, or +0x4F4 < 0: **`0x407c30`**;
    - else, unless +0x200 has 0x200: if the car is outside the road
      (+0x7B8 beyond the slice's lanes: byte 0x13's nibbles × bytes
-     0x17 and 0x1B × 0x8000), or |heading error| > 0.04 × the surface
+     0x17 and 0x1B × 0x8000, a 16.16 edge loaded with `fild` as an
+     integer against the metres, so only a side with no lanes counts;
+     frd.md, The controllers recorded per call), or |heading error| > 0.04 × the surface
      grip (`0x5523d8`[surface × 3 + weather]: 16 surfaces × dry, rain,
      snow, 0.6-1.0), or +0x7C4 < 0.5, or before +0x65C's step, or
      sliding (+0xB8 > 2.5 and |+0x4EC| > 0.5 × +0x4F4): **`0x407fa0`**;

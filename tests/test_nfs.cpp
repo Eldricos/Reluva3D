@@ -4258,6 +4258,42 @@ void testCopCalls() {
     for (int k = 0; k < 256; ++k)
         aiSteerStep(wall, col, k);
     CHECK(std::fabs(wall.lateral - 9) < 1e-4f);
+    // car_ai_model's test for +0x7B8 off the slice's lanes (0x408703-
+    // 0x40876f) compares the lanes x width bytes x 0x8000 (16.16) as an
+    // integer with the side in metres: past the lanes' edge (8 m) a lined
+    // up car stays on the rails; only a side with no lanes counts.
+    {
+        AiCar edge = steer;
+        edge.offset = 9.5f;
+        for (int k = 0; k < 128; ++k)
+            aiSteerStep(edge, col, k);
+        CHECK(edge.side > 8.5f && edge.steer == AiCar::Rails);
+        TrackCollision oneSided = straightRoad(200);
+        for (auto& q : oneSided.road)
+            q.extra[0] = 0x20; // two lanes left, none right
+        AiCar right = steer;
+        aiSteerStep(right, oneSided, 0);
+        CHECK(right.side > 0 && right.steer == AiCar::Slide);
+    }
+    // The controllers steer by the spin about the body's up (+0x4FC: the
+    // spins +0xE4, +0xE8, +0xEC along the up row, car_ai_physics
+    // 0x4088f0), and their yaw force goes into the yaw x the up's y
+    // (ai_integrate 0x4071a0, through the body's rows).
+    {
+        AiCar tilt = steer;
+        tilt.yawRate = 0.1f;
+        tilt.roll = 0.03f; // a twelfth of a radian or so, rolled on the flat road
+        AiCar after = tilt;
+        aiTilt(after, 0, col);
+        std::array<float, 3> f{}, r{}, u{};
+        aiTiltedAxes(col, after, f, r, u);
+        CHECK(after.spinX != 0 || after.spinZ != 0);
+        const float spinUp = after.spinX * u[0] + 0.1f * u[1] + after.spinZ * u[2];
+        aiSteerStep(tilt, col, 0);
+        const float wanted = std::clamp(-tilt.headingError * 2.5f, -0.8f, 0.8f);
+        const float yaw = 0.1f + std::clamp(-(spinUp - wanted) * 5.0f, -0.8f, 0.8f) * u[1] / 32;
+        CHECK(tilt.steer == AiCar::Rails && std::fabs(tilt.yawRate - yaw) < 1e-6f && u[1] < 0.99f);
+    }
     // On a bend the velocity is kept as the slice is left: running straight
     // on, the car is carried wide of the turned road and pushed back.
     TrackCollision bent = straightRoad(60);

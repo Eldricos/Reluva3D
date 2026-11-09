@@ -1035,7 +1035,8 @@ namespace {
 // (+0x4EC). As the world velocity is kept from slice to slice, on a bend
 // the car runs wide unless pushed back. The controller (car_ai_model):
 // ai_ctl_slow (0x407c30) reversing or with +0x4F4 under 0; ai_ctl_slide
-// (0x407fa0) off the slice's lanes, more than 0.04 x the surface's grip
+// (0x407fa0) on a side of the slice with no lanes (aiModelSteer), more
+// than 0.04 x the surface's grip
 // off the point it steers at (dry: 1), under 0.5 m/s or slipping sideways
 // (+0xB8 over 2.5 and |+0x4EC| over half of +0x4F4);
 // 2.5 m/s); ai_ctl_slow under 13.41 m/s; else ai_ctl_rails (0x4076b0).
@@ -1771,6 +1772,10 @@ AiDynamics aiModelSteer(AiCar& me, const TrackCollision& col, int step, int trac
         const float ax = std::fabs(me.vel[0]), az = std::fabs(me.vel[2]);
         out.ground = std::max(ax, az) + std::min(ax, az) * 0.25f;
         me.groundSpeed = out.ground;
+        // The up row's part always (0x4a2a4c-0x4a2aa5): into the road,
+        // which the contact takes back out when the car is on it.
+        for (size_t k = 0; k < 3; ++k)
+            me.vel[k] += -0.30656251f * nu[1] * nu[k];
         if (nu[1] < 0.87f) {
             for (size_t k = 0; k < 3; ++k)
                 me.vel[k] += -0.30656251f * (gf[1] * gf[k] + gr[1] * gr[k]);
@@ -1785,12 +1790,28 @@ AiDynamics aiModelSteer(AiCar& me, const TrackCollision& col, int step, int trac
         // unit length, so the rebuild takes about 0.002 m/s a call off the
         // speed at 20 m/s; for the ticks the box's front is on the next
         // polygon, the rows turned half way to that polygon's.
+        // car_dynamics (0x4a2b28-0x4a2b78) calls car_on_road with the
+        // clearance under 0.6 (else the car is in the air, +0x8B), and that
+        // pushes the car out and takes the velocity only with the clearance
+        // 0 or less (0x4a1a2a): over a crest the car runs on along the slope
+        // it left, a little over the road, until gravity's part along the
+        // up brings it down (in t6-log 20 % of the calls at 15 m/s, half of
+        // them over 28 m/s).
+        // The clearance: the moves since the last tick along the road
+        // polygon's up as it is now.
+        if (me.roadUpSet)
+            me.lift += dot3(me.liftMove, me.roadUp);
+        me.liftMove = {};
         AiRows frame{};
-        if (aiContactFrame(col, me, frame)) {
+        if (me.lift > 0) {
+            me.contactUpSet = false;
+        } else if (aiContactFrame(col, me, frame)) {
+            me.lift = 0;
             me.vel = aiContactVelocity(me.vel, frame);
             me.contactUp = {frame[3], frame[4], frame[5]};
             me.contactUpSet = true;
         } else {
+            me.lift = 0;
             const float into = dot3(me.vel, nu);
             if (into < 0.5f)
                 for (size_t k = 0; k < 3; ++k)
@@ -1804,6 +1825,15 @@ AiDynamics aiModelSteer(AiCar& me, const TrackCollision& col, int step, int trac
     me.carSide = dot3(me.vel, br);
     out.forward = dot3(me.vel, bf);
     out.carSide = me.carSide;
+    // +0x4FC: the spins (+0xE4, +0xE8, +0xEC) along the body's up row
+    // (+0xCC, the tilted body's), which the controllers steer by; their yaw
+    // force (+0x2F8, about that up) goes back into the world's spins
+    // through the body's rows (ai_integrate 0x4071a0): the yaw gains it x
+    // the up's y. (Its x and z parts, a few 1e-4 a call, are left out:
+    // car_on_road sets those spins again the next tick.)
+    std::array<float, 3> tf{}, tr{}, tu{};
+    aiTiltedAxes(col, me, tf, tr, tu);
+    const float spinUp = me.spinX * tu[0] + me.yawRate * tu[1] + me.spinZ * tu[2];
     if (ramp) {
         // ai_lane_ramp (0x408870): the aim 0.2 a call towards the offset
         // wanted; ai_reverse_end (0x4060d0): reversing, the aim is the
@@ -1890,8 +1920,12 @@ AiDynamics aiModelSteer(AiCar& me, const TrackCollision& col, int step, int trac
         error -= 1;
     me.headingError = error;
     const auto& lanesAt = col.road[size_t(((aiSlice(me) % n) + n) % n)]; // +0x1C's
-    const bool offLanes = me.side < -static_cast<float>(lanesAt.leftLanes()) * lanesAt.extra[1] * 0.5f ||
-                          me.side > static_cast<float>(lanesAt.rightLanes()) * lanesAt.extra[2] * 0.5f;
+    // car_ai_model's "off the lanes" (0x408703-0x40876f): the lanes x the
+    // width byte x 0x8000, the edge in 16.16, loaded as an integer (fild)
+    // and compared with +0x7B8 in metres: never true but on a side with
+    // no lanes (or a width of 0), where any side offset that way is.
+    const bool offLanes = me.side < static_cast<float>(-(lanesAt.leftLanes() * (lanesAt.extra[1] << 15))) ||
+                          me.side > static_cast<float>(lanesAt.rightLanes() * (lanesAt.extra[2] << 15));
     const bool slipping = out.ground > 2.5f && std::fabs(me.carSide) > out.forward * 0.5f;
     auto clampTo = [](float x, float limit) { return std::clamp(x, -limit, limit); };
     const float ground = out.ground;
@@ -1920,14 +1954,16 @@ AiDynamics aiModelSteer(AiCar& me, const TrackCollision& col, int step, int trac
             wantedSide = clampTo(wantedSide, me.speed * 0.129f);
             wantedYaw = clampTo(wantedYaw, me.speed * 0.012f);
         }
-        const float k15 = 1 + 0.0015f * me.speed;
+        // x (1 + 0.0015 x the speed along the body's forward, +0x4F4, not
+        // +0x7C4: 0x4078ea).
+        const float k15 = 1 + 0.0015f * out.forward;
         const float force = clampTo(-(a4 - wantedSide) * 4.0f * k15, 38.0f * k15);
         me.sideForce = force;
         // Along the road polygon's right (+0x124, ai_integrate 0x4071a0).
         const std::array<float, 3>& rr = me.roadRightSet ? me.roadRight : here->right;
         for (size_t c = 0; c < 3; ++c)
             me.vel[c] += force / 32.0f * rr[c];
-        me.yawRate += clampTo(-(me.yawRate - wantedYaw) * 5.0f, 0.8f) / 32.0f;
+        me.yawRate += clampTo(-(spinUp - wantedYaw) * 5.0f, 0.8f) * tu[1] / 32.0f;
     } else if (me.steer == AiCar::Slow) {
         // ai_ctl_slow: the yaw from the heading error, the side speed
         // damped, in the car's frame. The side speed wanted is sin(error)
@@ -1937,14 +1973,14 @@ AiDynamics aiModelSteer(AiCar& me, const TrackCollision& col, int step, int trac
         const float wantedYaw = clampTo(clampTo(-error * 2.5f, 1.6f), ground * 0.02f);
         const float wantedSide =
             clampTo(clampTo(std::sin(std::fabs(error) * 2 * kPi) * out.forward, 16.0f), ground * 0.01f);
-        me.yawRate += clampTo(-(me.yawRate - wantedYaw) * 10.0f, 0.8f) / 32.0f;
+        me.yawRate += clampTo(-(spinUp - wantedYaw) * 10.0f, 0.8f) * tu[1] / 32.0f;
         sideForce = clampTo(-(me.carSide - wantedSide) * 3.0f, 38.0f);
     } else {
         // ai_ctl_slide: the same on the side speed, towards the point.
         const float turn = clampTo(-error * 3.0f, 3.0f);
         const float wantedYaw = clampTo(turn, ground * 0.04f);
         const float wantedSide = clampTo(clampTo(clampTo(turn * 10.0f, 32.0f), ground), ground * 0.2f);
-        me.yawRate += clampTo(-(me.yawRate - wantedYaw) * 10.0f * 0.5f, 1.0f) / 32.0f;
+        me.yawRate += clampTo(-(spinUp - wantedYaw) * 10.0f * 0.5f, 1.0f) * tu[1] / 32.0f;
         sideForce = clampTo(-(me.carSide - wantedSide) * 6.0f, 40.0f);
     }
     if (sideForce != 0) {
@@ -1965,8 +2001,10 @@ void aiAdvance(AiCar& me, const TrackCollision& col) {
     // car_move (0x4a2c60): the place += the velocity / 64; the body turned
     // by its yaw rate (turns a second).
     std::array<float, 3> at = aiPlace(col, me);
-    for (size_t k = 0; k < 3; ++k)
+    for (size_t k = 0; k < 3; ++k) {
         at[k] += me.vel[k] / 64.0f;
+        me.liftMove[k] += me.vel[k] / 64.0f;
+    }
     // The body's up is the world's (car_integrate_turn 0x4a2e20 turns the
     // body's rows by its spins about the world's axes, nothing lays it on
     // a slice): turned with the yaw about the world's y, it is kept while
@@ -3313,6 +3351,7 @@ void aiTilt(AiCar& car, int step, const TrackCollision& col) {
     if ((step & 1) != 0)
         return;
     if (car.airTicks > 0 || col.road.size() < 2) {
+        car.spinX = car.spinZ = 0;
         aiTilt(car, step);
         return;
     }
@@ -3339,9 +3378,12 @@ void aiTilt(AiCar& car, int step, const TrackCollision& col) {
     const float dz = u[0] - nu[0], dx = nu[2] - u[2];
     if (dot3(u, nu) > 0.9f && std::fabs(dz) <= 0.02f && std::fabs(dx) <= 0.02f) {
         car.rollRate = car.pitchRate = 0;
+        car.spinX = car.spinZ = 0;
         return;
     }
     const std::array<float, 3> w{std::clamp(dx, -0.5f, 0.5f), 0, std::clamp(dz, -0.5f, 0.5f)};
+    car.spinX = w[0];
+    car.spinZ = w[2];
     car.rollRate = dot3(w, f);
     car.pitchRate = -dot3(w, r);
     car.roll += car.rollRate / 32.0f;

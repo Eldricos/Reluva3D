@@ -589,6 +589,18 @@ struct AiCar {
     // game's spins +0xEC and +0xE4 are kept), about its forward and its
     // right; aiSteerStep brings them back (aiTilt).
     float roll = 0, pitch = 0, rollRate = 0, pitchRate = 0;
+    // Those spins as car_on_road (0x4a1b18) sets them on the world's axes:
+    // +0xE4 about x, +0xEC about z (turns a second); with the yaw (+0xE8)
+    // they make the spin about the body's up the controllers steer by
+    // (+0x4FC, car_ai_physics 0x4088f0).
+    float spinX = 0, spinZ = 0;
+    // The clearance (+0x15C, car_clearance 0x4a0440): how far the body's
+    // lowest corner is over the road polygon's plane. car_move (0x4a2c60)
+    // carries the centre off the plane by the velocity along the road's up;
+    // car_on_road (0x4a1610) puts it back, and takes the velocity through
+    // the contact's frame, only when it is 0 or less (aiModelSteer).
+    float lift = 0;
+    std::array<float, 3> liftMove{}; // car_move's moves since the last tick
     // The road's right at the car (+0x124, car_road_frame 0x49ffa0): the
     // right of the road polygon under it (up x forward of its virtual
     // road vector), set by aiRoadFrame each step; the side offset +0x7B8
