@@ -961,6 +961,8 @@ bool parseCarpAi(const std::string& text, AiCarData& out) {
         out.latGrip = v[0];
     if (values(2, v))
         out.mass = v[0];
+    if (values(31, v))
+        out.downforce = v[0];
     for (int row = 0; row < 8; ++row) {
         if (!values(67 + row, v) || v.size() < 14)
             return false;
@@ -1313,6 +1315,10 @@ float aiSegmentLength(const TrackCollision& col, int slice, float lateral) {
     return std::max(std::sqrt(d[0] * d[0] + d[1] * d[1] + d[2] * d[2]), 0.01f);
 }
 
+namespace {
+float aiCentreLift(const TrackCollision& col, const AiCar& c);
+}
+
 float aiMeasuredSide(const TrackCollision& col, const AiCar& c) {
     const int n = static_cast<int>(col.road.size());
     if (n < 2)
@@ -1328,7 +1334,7 @@ float aiMeasuredSide(const TrackCollision& col, const AiCar& c) {
         k1 += a.right[k] * c.roadRight[k];
         k2 += (b.position[k] - a.position[k]) * c.roadRight[k];
     }
-    return k0 + c.lateral * k1 + c.along * k2;
+    return k0 + c.lateral * k1 + c.along * k2 + aiCentreLift(col, c);
 }
 
 float aiLateralFor(const TrackCollision& col, const AiCar& c, float side) {
@@ -1346,6 +1352,7 @@ float aiLateralFor(const TrackCollision& col, const AiCar& c, float side) {
         k1 += a.right[k] * c.roadRight[k];
         k2 += (b.position[k] - a.position[k]) * c.roadRight[k];
     }
+    side -= aiCentreLift(col, c);
     return std::fabs(k1) > 0.1f ? (side - k0 - c.along * k2) / k1 : side - c.along * aiChord(col, c.slice);
 }
 
@@ -1380,6 +1387,45 @@ void aiTiltedAxes(const TrackCollision& col, const AiCar& c, std::array<float, 3
         }
     }
 }
+
+namespace {
+// +0x7B8 is measured from +0x98 (0x4a2bc0), the body's centre, which
+// car_on_road (0x4a1610) keeps with its box's lowest corner on the road
+// polygon's plane (clearance +0x15C = (+0x98 - the point +0x148) . the up
+// +0x130 less |up . right| half width + |up . up| half height + |up .
+// forward| half length, car_clearance 0x4a0440; under 0 the centre is
+// pushed out along +0x130). The page's place is that centre brought
+// square onto the slice's plane (its right and the chord to the next
+// point), so the centre is above it along the plane's normal by H, with
+// (place + H normal - point) . up = the box's reach: the side as measured
+// gains H x (normal . the road's right). Along the polygon's up itself
+// the road's right (up x forward, 0x420230) measures nothing.
+float aiCentreLift(const TrackCollision& col, const AiCar& c) {
+    const int n = static_cast<int>(col.road.size());
+    if (n < 2 || !c.roadUpSet || !c.roadRightSet)
+        return 0;
+    const auto& a = col.road[size_t(((c.slice % n) + n) % n)];
+    const auto& b = col.road[size_t((((c.slice + 1) % n) + n) % n)];
+    const std::array<float, 3> chord{b.position[0] - a.position[0], b.position[1] - a.position[1],
+                                     b.position[2] - a.position[2]};
+    std::array<float, 3> m = unit3(cross3(chord, a.right));
+    if (dot3(m, a.normal) < 0)
+        m = {-m[0], -m[1], -m[2]};
+    const float mn = dot3(m, c.roadUp);
+    if (mn < 0.5f)
+        return 0;
+    std::array<float, 3> f1{}, r1{}, u1{};
+    aiTiltedAxes(col, c, f1, r1, u1);
+    const float reach = std::fabs(dot3(c.roadUp, r1)) * c.halfWidth + std::fabs(dot3(c.roadUp, u1)) * c.halfHeight +
+                        std::fabs(dot3(c.roadUp, f1)) * c.halfLength;
+    std::array<float, 3> q{};
+    for (size_t k = 0; k < 3; ++k)
+        q[k] = a.position[k] + c.lateral * a.right[k] + c.along * chord[k];
+    const std::array<float, 3> d{q[0] - c.roadPoint[0], q[1] - c.roadPoint[1], q[2] - c.roadPoint[2]};
+    const float h = (reach - dot3(d, c.roadUp)) / mn;
+    return h * dot3(m, c.roadRight);
+}
+} // namespace
 
 float aiCarExtent(const TrackCollision& col, const AiCar& c) {
     const int n = static_cast<int>(col.road.size());
@@ -1437,6 +1483,9 @@ void aiRoadFrame(const Track& track, const TrackCollision& col, AiCar& c) {
             polygonRoadFrame(track.blocks[size_t(c.road.foundSlice >> 3)], size_t(c.road.polygon), f)) {
             c.roadRight = f.right;
             c.roadForward = f.forward;
+            c.roadUp = f.up;
+            c.roadPoint = f.point;
+            c.roadUpSet = true;
             c.roadRightSet = true;
             return;
         }
@@ -1451,6 +1500,9 @@ void aiRoadFrame(const Track& track, const TrackCollision& col, AiCar& c) {
     const auto& from = col.road[size_t(((c.road.slice % n) + n) % n)];
     c.roadRight = from.right;
     c.roadForward = from.forward;
+    c.roadUp = from.normal;
+    c.roadPoint = from.position;
+    c.roadUpSet = true;
     c.roadRightSet = true;
     c.roadSlice = c.road.slice;
 }
@@ -1513,8 +1565,6 @@ AiDynamics aiModelSteer(AiCar& me, const TrackCollision& col, int step, int trac
     // along it by its own rise. With the road's normal y under 0.87
     // (0x5efdd8) the right part as well; not upright, neither.
     {
-        const float ax = std::fabs(me.vel[0]), az = std::fabs(me.vel[2]);
-        out.ground = std::max(ax, az) + std::min(ax, az) * 0.25f;
         std::array<float, 3> gf{}, gr{}, gu{};
         aiTiltedAxes(col, me, gf, gr, gu);
         const std::array<float, 3> rf = unit3(me.roadRightSet ? me.roadForward : here->forward);
@@ -1522,12 +1572,43 @@ AiDynamics aiModelSteer(AiCar& me, const TrackCollision& col, int step, int trac
         std::array<float, 3> nu = unit3(cross3(rf, rr));
         if (nu[1] < 0)
             nu = {-nu[0], -nu[1], -nu[2]};
+        // car_downforce (0x4a2260), first: upright (+0x10C over 0.75,
+        // 0x53c8a4) and +0xB8 (as the last tick left it) over 10 m/s, the
+        // velocity along the body's up loses the carp's downforce (+0x24C)
+        // x 2 for a car not the player's (0x53c8ac) x the velocity along
+        // the body's forward, when that is over 0. The contact (car_on_road,
+        // below) takes the part into the road back out; what is left is
+        // along the road where the body is pitched or rolled on it.
+        {
+            const float ax = std::fabs(me.vel[0]), az = std::fabs(me.vel[2]);
+            if (me.groundSpeed < 0)
+                me.groundSpeed = std::max(ax, az) + std::min(ax, az) * 0.25f;
+        }
+        if (me.downforce > 0 && dot3(gu, nu) > 0.75f && me.groundSpeed > 10.0f) {
+            const float along = dot3(me.vel, gf);
+            if (along > 0)
+                for (size_t k = 0; k < 3; ++k)
+                    me.vel[k] -= me.downforce * 2.0f * along * gu[k];
+        }
+        const float ax = std::fabs(me.vel[0]), az = std::fabs(me.vel[2]);
+        out.ground = std::max(ax, az) + std::min(ax, az) * 0.25f;
+        me.groundSpeed = out.ground;
         if (nu[1] < 0.87f) {
             for (size_t k = 0; k < 3; ++k)
                 me.vel[k] += -0.30656251f * (gf[1] * gf[k] + gr[1] * gr[k]);
         } else if (dot3(gu, nu) > 0.9f) {
             for (size_t k = 0; k < 3; ++k)
                 me.vel[k] += -0.30656251f * gf[1] * gf[k];
+        }
+        // car_on_road (0x4a1610) on the road: the velocity's part along the
+        // road's up, under 0.5 m/s (0x5efddc), taken out (0x4a1aaf). The
+        // game's up there is the road frame turned half way (0x4b7680) to
+        // the frame ahead; the page takes the polygon's own.
+        {
+            const float into = dot3(me.vel, nu);
+            if (into < 0.5f)
+                for (size_t k = 0; k < 3; ++k)
+                    me.vel[k] -= into * nu[k];
         }
     }
     // car_ai_physics: the velocity into the body's frame (+0x4EC its right,
@@ -1743,6 +1824,7 @@ void aiMove(AiCar& me, const AiCarData& data, bool weather, int step, const Trac
     // +0x7C4 as the race task took it (0x42ce70), before this tick's
     // gravity and forces.
     const float raceSpeed = me.speed;
+    me.downforce = data.downforce;
     const AiDynamics dyn = aiModelSteer(me, col, step, track, true);
     if (!dyn.ran)
         return;

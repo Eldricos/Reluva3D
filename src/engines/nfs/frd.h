@@ -437,6 +437,7 @@ struct AiCarData {
     float maxVelocity = 70;         // P +0x1C8, the cops' top speed (0x401370)
     float latGrip = 0;              // lateral acceleration grip multiplier (P +0x248, field 30)
     float mass = 1472;              // mass [kg] (P +0x4, field 2)
+    float downforce = 0;            // aerodynamic downforce multiplier (P +0x24C, field 31)
 };
 // The fields of a car's carp.txt the computer's driving reads; false when
 // one is missing.
@@ -578,6 +579,17 @@ struct AiCar {
     // force goes along it, its side force along roadRight (ai_integrate
     // 0x4071a0 puts 0x56ec6c-0x56ec74 through the rows at +0x124).
     std::array<float, 3> roadForward{};
+    // The road polygon's up (+0x130) and its point (+0x148, the plane
+    // car_clearance 0x4a0440 measures against), with them. The game's
+    // place +0x98 is the body's centre, kept by car_on_road (0x4a1610) at
+    // clearance 0: its box's lowest corner on that plane. Set,
+    // aiMeasuredSide measures from that centre (aiCentreHeight).
+    std::array<float, 3> roadUp{}, roadPoint{};
+    bool roadUpSet = false;
+    // car_downforce (0x4a2260): its carp's downforce multiplier (set by
+    // aiMove from AiCarData) and +0xB8 as the last dynamics left it
+    // (negative: not yet worked out).
+    float downforce = 0, groundSpeed = -1;
     // Off the road's lanes (0x40f110: +0x638 not within one lane of them)
     // the ticks it has been under 3 m/s along its forward (+0x7D8,
     // ai_target_point 0x406e50): bit 0x40 steers it at its own slice's

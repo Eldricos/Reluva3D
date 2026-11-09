@@ -2247,6 +2247,77 @@ across the road is never taken out, where the page re-places the car on
 the slice line each step): 0.0180 m rms to 51.7 s (0.0172), 0.105 to 53.2
 s, the decisions 309 of 338.
 
+**The body's centre and the downforce** (November 2026, `h1-runs`,
+read with `gdecomp` and `asm`).
+- **Where +0x7B8 is measured from.** `0x42ce70` stores +0x7B8 from
+  `0x4a2bc0`, which is (+0x98 − the slice +0x1C's point) · the road
+  polygon's right (+0x124). +0x98 is the body's centre: `car_clearance`
+  (`0x4a0440`, from `car_dynamics` `0x4a288f`) makes +0x15C = (+0x98 −
+  the road point +0x148) · the up +0x130 less |up · body right| × +0x114
+  + |up · body up| × +0x118 + |up · body forward| × +0x11C, and
+  `car_on_road` (`0x4a1a2a` and before) pushes +0x98 out along +0x130 by
+  −clearance when it is 0 or less. In the 16 ms dumps +0x15C is 0 (a few
+  at 0.002) and the formula on +0x98 gives it to a millimetre: the
+  centre sits with the box's lowest corner on the polygon's plane. The
+  right (+0x124) is up × forward (`0x420230`, fixed point), so a move
+  along the polygon's up measures nothing; a move along the slice's up
+  does, by the slice's up · the polygon's right. The page's place lies on
+  the slice's plane (its right and the chord to the next point; the sims
+  seed it as the dumped +0x98 brought square onto that plane), so the
+  centre is above it along that plane's normal by H, with (place + H ×
+  normal − +0x148) · +0x130 = the box's reach, and `aiMeasuredSide` now
+  adds H × (normal · the polygon's right) (`aiCentreLift`; `aiRoadFrame`
+  keeps the polygon's up and point, `AiCar::roadUp`, `roadPoint`).
+  Checked (`h1-runs/sidechk`): from each dumped +0x98 (moved back by the
+  velocity / 64 for each step the race task's +0x7B8 lags, the step found
+  from the game's own formula on the dumped rows), the page's measure is
+  within 0.05 mm rms of the dumped +0x7B8 over 1,391 samples (2.7 mm
+  without). This is the code's point, not the lift trial's (the body's up
+  × the half height), and it doesn't give the trial's 325 of 338.
+- **The downforce** (`car_downforce` `0x4a2260`, first in
+  `car_dynamics`): upright (+0x10C over 0.75, `0x53c8a4`) and +0xB8 over
+  10 m/s, the velocity along the body's up loses P +0x24C (carp field 31)
+  × 2 for a car not the player's (`0x53c8ac`) × the velocity along the
+  body's forward, when that is over 0. Then `car_on_road` takes the
+  velocity's part along the road's up out (when under 0.5,
+  `0x4a1aaf`), so what is left is along the road where the body is
+  pitched on it: about −0.0009 m/s a call for cars 1 and 2 (bodies
+  nose-down 1-2 degrees on the road), +0.0006 for cars 5-7. The page
+  now does both (`AiCar::downforce`, `groundSpeed`, `AiCarData::downforce`);
+  the removal is along the road polygon's own up where the game's is the
+  road frame turned half way (`0x4b7680`) to the frame at the box's
+  front-bottom one tick ahead (in the dumps the velocity is left with
+  −0.002 to −0.007 m/s along +0x130).
+- **What is left of the speed's drift.** Per accelerating rails call
+  (the velocity +0xA4 between dumps, along +0x13C, less the table's a /
+  32 at round(+0x7C4 − 0.5) with +0x7C4 the dump after the call, which is
+  the value the call read; the dump before lags one race task), to 52.65
+  s the game's cars 1-7 have −0.0062, −0.0096, −0.0151, −0.0172,
+  −0.0203, −0.0156 and +0.0002 m/s; the page's (`frd_pc`) −0.0021,
+  −0.0065, −0.0121, −0.0139, −0.0198, −0.0137 and −0.0015. So cars 1-4
+  still gain about 0.003 a call, about 0.2 m/s by 53 s. Neither gravity
+  along the road's forward nor along the body's own explains all seven
+  (the residual less body gravity and downforce is −0.0010 to −0.0031 a
+  call for every car); the table's lookup, its rounding (`fistp` in the
+  default mode; `0x4dfd56` restores the control word) and the 0.9 are
+  as the page has them, and `ai_integrate`'s damping loop does nothing
+  for the rails. An `nfs-host -count` of `0x4a2871` with `-native` gave
+  296 runs to 50 s, so per-instruction dumps at a call's sub-steps need a
+  run without `-native`; not done.
+
+Measured (`h1-runs/all.sh f1`): +0x638 changes in 132 samples (the
+game's 143; 128 before), 55 at an edge (47; 56), the aim past 8 m in
+168 (162; 172); speeds 3.54 m/s rms over the window (3.09) and 1.60 over
+50-64 s (1.06): past 56 s the cars run in other places, car 3 at 40.5
+m/s and 3-4 slices behind the game's at 61.5-64.5 s (45.2 before);
++0x7B8 within 0.0177 m rms over 50-51.7 s (0.0172) and 0.106 over
+50-53.2 s (0.105); the decisions to 56 s 296 of 338 (295), to 78 s 750
+of 1,568 (767), the first differing picks 53.25, 53.21, 52.29, 52.90,
+53.10, 65.08 and 66.92 s; no hits (the game's 9). Over the 16 ms dumps
+cars 1, 2 and 4 are 0.15, 0.11 and 0.10 m/s fast at 52.6 s (0.21, 0.17,
+0.16), car 6 0.26 (0.19). The `d7-watch2` replay (0.40 m) and `park`
+(120 stops, none past a wall) are unchanged.
+
 **The roadside cop** (`d7-runs/sim/park`,
 the police car ordered to lay a strip from every 8th slice of Hometown,
 120 stops): with the spring and the cut it parked past a wall 81 times,

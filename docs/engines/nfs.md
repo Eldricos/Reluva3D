@@ -1603,7 +1603,15 @@ README.md.
   over `t6-log`'s window the speeds are 3.09 m/s rms from the game's
   (4.41), 1.06 from 50 to 64 s (1.57), and the page's cars no longer run
   side by side into each other (no hits; the game's cars hit 9 times,
-  cars 3 and 4 at 64 s, which the page's still don't reproduce).
+  cars 3 and 4 at 64 s, which the page's still don't reproduce). Since
+  `h1` +0x7B8 is measured from the body's centre, which the contact keeps
+  with the box's lowest corner on the road polygon's plane (from the
+  dumped +0x98 the page's measure now matches the game's +0x7B8 to
+  0.05 mm rms, 2.7 mm before), and the downforce (`0x4a2260`) and the
+  contact's removal of the velocity into the road are ported (frd.md,
+  The body's centre and the downforce). The first differing decisions
+  are unchanged; the page's cars 1-4 still gain about 0.003 m/s a call
+  on the game's from a term not yet found.
 - How the wall hits' particles look in play (read from the code only;
   their sounds are measured, not listened to), and wall code 3's
   material: the code tells it from code 5 only by its sound (material

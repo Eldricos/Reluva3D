@@ -3403,6 +3403,35 @@ void testCarHits() {
         CHECK(aiSlice(m) == 21 && std::fabs(aiMeasuredSide(road, m) - (want + 4 * std::sin(a))) < 1e-5f);
         CHECK(std::fabs(aiLateralFor(road, m, want + 4 * std::sin(a)) - 3) < 1e-5f);
     }
+    // Measured from the body's centre (0x4a2bc0 takes +0x98), which sits
+    // with the box's lowest corner on the road polygon's plane (0x4a0440,
+    // car_on_road 0x4a1610): on a polygon banked 6 degrees under a level
+    // slice the centre is above the page's place (on the slice's plane), and
+    // the side offset is its own along the polygon's right.
+    {
+        const float b = 6 * 3.14159265f / 180;
+        AiCar m;
+        m.slice = m.roadSlice = 20;
+        m.halfWidth = 1;
+        m.halfHeight = 0.5f;
+        m.halfLength = 2;
+        m.roadRight = {std::cos(b), std::sin(b), 0};
+        m.roadUp = {-std::sin(b), std::cos(b), 0};
+        m.roadPoint = road.road[20].position;
+        m.roadRightSet = m.roadUpSet = true;
+        // The body level, along the slice: its reach along the polygon's up.
+        const float reach = std::sin(b) * m.halfWidth + std::cos(b) * m.halfHeight;
+        std::array<float, 3> centre{};
+        for (size_t k = 0; k < 3; ++k)
+            centre[k] = m.roadPoint[k] + 3 * m.roadRight[k] + reach * m.roadUp[k];
+        centre[2] += 2;
+        m.lateral = centre[0] - road.road[20].position[0];
+        m.along = (centre[2] - road.road[20].position[2]) / 4;
+        CHECK(std::fabs(aiMeasuredSide(road, m) - 3) < 1e-4f);
+        CHECK(std::fabs(aiLateralFor(road, m, 3) - m.lateral) < 1e-4f);
+        m.roadUpSet = false; // without it, the place's own: 10 cm short
+        CHECK(std::fabs(aiMeasuredSide(road, m) - m.lateral * std::cos(b)) < 1e-4f && aiMeasuredSide(road, m) < 2.91f);
+    }
     // The impacts task: ai_ctl_slide for round(strength) x 7 steps.
     CHECK(pair[0].slideUntil == 107 && pair[1].slideUntil == 107 && pair[0].airTicks == 0);
     // At 30 m/s they don't reverse; the same hit at 8 m/s (0x406120, under
