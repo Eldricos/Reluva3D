@@ -2462,6 +2462,32 @@ void testHorizon() {
     CHECK(clouds == cloudBrightness(hometown, 1));
     CHECK(*std::max_element(clouds.begin(), clouds.end()) <= 235);
     CHECK(*std::max_element(clouds.begin(), clouds.end()) > *std::min_element(clouds.begin(), clouds.end()));
+    // The game's generator (0x4e0dee, 0x4e0d88): seeded with 5992 its state
+    // is the one dumped at the sky's set-up in run n3-runs/cl-v2.
+    {
+        GameRandom r(5992);
+        CHECK(r.state[0] == 0xf22d25beu && r.state[1] == 0x88313e51u && r.state[5] == 0x6fdf52ccu);
+        const uint32_t first = r.next();
+        CHECK(r.state[0] == first && r.state[5] == 0x6fdf52cdu);
+    }
+    // The game's layouts, from its own seeds: Hometown's weather (250, 235)
+    // seeded 5992 (told of a Voodoo 2) and 5991 (told of d3da) in the same
+    // deterministic run, as the game left the points (n3-runs/cl-v2-pts1,
+    // cl-d3d-pts1): 88 to 200, mean 161.3, and 56 to 201, mean 120.0. The
+    // second is darker by its random amounts alone.
+    {
+        Horizon weather = hometown;
+        weather.cloudBright = 250;
+        weather.cloudVariance = 235;
+        for (const auto& [seed, low, high, sum] : {std::tuple{5992u, 88, 200, 27258}, std::tuple{5991u, 56, 201, 20281}}) {
+            const auto b = cloudBrightness(weather, seed);
+            int total = 0;
+            for (uint8_t v : b)
+                total += v;
+            CHECK(*std::min_element(b.begin(), b.end()) == low && *std::max_element(b.begin(), b.end()) == high);
+            CHECK(std::abs(total - sum) <= 3);
+        }
+    }
     // The alpha (0x47b2e5): each point's brightness on a 3dfx card; with
     // Direct3D the brightness less half the variance at every point.
     CHECK(cloudAlpha(hometown, 150, false) == 150);

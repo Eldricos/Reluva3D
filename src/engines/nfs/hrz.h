@@ -103,7 +103,21 @@ bool skyBlack(const Horizon& h, int track, int roadSlice);
 float cloudHeight(const Horizon& h, float r, int brightness = 0);
 constexpr int kCloudPoints = 13;
 constexpr float kCloudStep = 450, kCloudFirst = -3000;
+// `seed` is the game's: its tick count at start-up (`0x6fd3b4`, from
+// `0x47242c`), which seeds its generator (GameRandom) at each race's
+// set-up; the sky's set-up draws the points' random amounts from it before
+// anything else does, so a seed gives the game's layout exactly.
 std::array<uint8_t, kCloudPoints * kCloudPoints> cloudBrightness(const Horizon& h, uint32_t seed);
+
+// The game's random numbers (`0x4e0d88`, its state six words at
+// `0x5644e0`-`0x5644f4`): an add-with-carry sum down the words, the last
+// word counting the calls. Seeded (`0x4e0dee`) with the seed plus a
+// constant in the first word, and each word the one before plus another.
+struct GameRandom {
+    explicit GameRandom(uint32_t seed);
+    uint32_t next();
+    uint32_t state[6];
+};
 // A cloud point's alpha for its brightness (0x47ae10, 0x47b2e5): the
 // brightness itself with the 3dfx and software renderers; with the
 // Direct3D, Rage and PowerVR ones (renderer bits 0x1e0) the same for every
