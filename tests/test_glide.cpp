@@ -516,8 +516,8 @@ void testBinding() {
     CHECK(!cpu.call(dll.exports().at("_grLfbUnlock@8"), {1, kBufferBack}, result));
     CHECK(dll.glide().lfbRead(kBufferBack, 9, 3, false) == 0xabcd);
     // A stub returns 0 and is counted.
-    CHECK(!cpu.call(dll.exports().at("_guTexMemReset@0"), {}, result));
-    CHECK(dll.calls().at("guTexMemReset") == 1);
+    CHECK(!cpu.call(dll.exports().at("_grSplash@20"), {0, 0, 0, 0, 0}, result) && result == 0);
+    CHECK(dll.calls().at("grSplash") == 1);
 }
 
 void testGlide3() {
@@ -526,7 +526,8 @@ void testGlide3() {
     int32_t v[4] = {};
     CHECK(g.get(g3::kNumBoards, 4, v) == 4 && v[0] == 1);
     CHECK(g.get(g3::kFogTableEntries, 4, v) == 4 && v[0] == 64);
-    CHECK(g.get(g3::kMemoryUma, 4, v) == 4 && v[0] == 0);
+    CHECK(g.get(g3::kMemoryUma, 4, v) == 4 && v[0] == 16 << 20); // unified memory
+    CHECK(g.get(g3::kMemoryFb, 4, v) == 4 && v[0] == 0);
     CHECK(g.get(g3::kNumTmu, 4, v) == 4 && v[0] == 2);
     CHECK(g.get(g3::kBitsRgba, 4, v) == 0); // too small a buffer
     CHECK(g.get(g3::kBitsRgba, 16, v) == 16 && v[1] == 6);

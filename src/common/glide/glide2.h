@@ -12,12 +12,14 @@
 
 #include "common/glide/pipeline.h"
 
+#include <array>
 #include <cstddef>
 #include <cstdint>
 #include <functional>
 #include <map>
 #include <set>
 #include <string>
+#include <vector>
 
 namespace reluva::glide {
 
@@ -70,6 +72,9 @@ public:
     // Lines for a log: each function not stood in for, the first time.
     std::function<void(const std::string& line)> log;
     std::string logName = "glide2x"; // the library its lines are from
+    // A window's client size, for grSstWinOpen(GR_RESOLUTION_NONE) on a
+    // board that allows it (the Voodoo Rush); unset, 640x480.
+    std::function<bool(uint32_t hwnd, int& width, int& height)> windowSize;
     // Called after each grBufferSwap, the new front buffer ready for
     // pipeline().present().
     std::function<void()> onSwap;
@@ -105,6 +110,7 @@ public:
     void sstOrigin(int origin);
     // The width and height a GR_RESOLUTION_* constant names (false if none).
     static bool resolutionSize(int resolution, int& width, int& height);
+    static constexpr int kResolutionNone = 0xff; // GR_RESOLUTION_NONE
 
     // --- Drawing ------------------------------------------------------------
     void drawTriangle(const Glide2Vertex& a, const Glide2Vertex& b, const Glide2Vertex& c);
@@ -112,11 +118,24 @@ public:
     void drawPoint(const Glide2Vertex& a);
     // A convex polygon, a fan from its first vertex.
     void drawPolygon(int count, const Glide2Vertex* vertices);
+    // Anti-aliased (grAADrawTriangle with the edges to anti-alias,
+    // grAADrawLine, grAADrawPoint; Pipeline::aaTriangle says how).
+    void aaDrawTriangle(const Glide2Vertex& a, const Glide2Vertex& b, const Glide2Vertex& c, bool ab, bool bc, bool ca);
+    void aaDrawLine(const Glide2Vertex& a, const Glide2Vertex& b);
+    void aaDrawPoint(const Glide2Vertex& a);
+    // grAADrawPolygon(VertexList): a fan with its outside edges
+    // anti-aliased ("All exterior polygon edges are anti-aliased").
+    void aaDrawPolygon(int count, const Glide2Vertex* vertices);
     // The same with vertices already in the pipeline's form (Glide 3's
     // layouts), counted as drawn.
     void triangle(const Vertex& a, const Vertex& b, const Vertex& c);
     void line(const Vertex& a, const Vertex& b);
     void point(const Vertex& a);
+    void aaTriangle(const Vertex& a, const Vertex& b, const Vertex& c, bool ab, bool bc, bool ca);
+    void aaLine(const Vertex& a, const Vertex& b);
+    void aaPoint(const Vertex& a);
+    // A fan of `count` vertices, its outside edges anti-aliased.
+    void aaPolygon(int count, const Vertex* vertices);
     void bufferClear(uint32_t color, int alpha, int depth);
     void bufferSwap(int interval);
     int bufferNumPending() const { return 0; }
@@ -139,6 +158,7 @@ public:
     void depthBiasLevel(int level);
     void depthBufferFunction(int function);
     void depthBufferMode(int mode);
+    const Board& board() const { return board_; }
     void depthMask(bool enable);
     void disableAllEffects();
     void ditherMode(int mode);
@@ -186,11 +206,70 @@ public:
     void guColorCombineFunction(int function);
     void guAlphaSource(int mode);
 
+    // --- The utility library's texture manager ------------------------------
+    // guTexAllocateMemory and the rest (Glide 2.4 Reference Manual): Glide
+    // places each mipmap in a TMU's memory, from grTexMinAddress up, and
+    // keeps its attributes under a handle (GrMipMapId_t, 0 up;
+    // kNullMipMap if it doesn't fit).
+    static constexpr uint32_t kNullMipMap = 0xffffffffu; // GR_NULL_MIPMAP_HANDLE
+    struct MipMap {
+        bool valid = false;
+        int tmu = 0;
+        int evenOdd = kLevelsBoth;
+        int width = 0, height = 0;
+        Glide2TexInfo info;
+        int mipmapMode = kMipmapDisable;
+        int clampS = kClampWrap, clampT = kClampWrap;
+        int minFilter = kFilterPoint, magFilter = kFilterPoint;
+        float lodBias = 0;
+        bool lodBlend = false;
+        uint32_t start = 0, size = 0;
+        bool hasNcc = false;
+        NccTable ncc;
+    };
+    uint32_t guTexAllocateMemory(int tmu, int evenOdd, int width, int height, int format, int mipmapMode, int smallLod,
+                                 int largeLod, int aspect, int clampS, int clampT, int minFilter, int magFilter,
+                                 float lodBias, bool lodBlend);
+    // -1 for each attribute not changed; false if the handle isn't one or
+    // the mipmap would no longer fit its memory.
+    bool guTexChangeAttributes(uint32_t id, int width, int height, int format, int mipmapMode, int smallLod,
+                               int largeLod, int aspect, int clampS, int clampT, int minFilter, int magFilter);
+    // Every level from `data` (largest first, as grTexDownloadMipMap
+    // reads); `ncc` (a GuNccTable's first 64 bytes) kept for an NCC format.
+    void guTexDownloadMipMap(uint32_t id, const uint8_t* data, const uint8_t* ncc);
+    // One level; the bytes it took from `data` (0 if none).
+    uint32_t guTexDownloadMipMapLevel(uint32_t id, int lod, const uint8_t* data);
+    uint32_t guTexGetCurrentMipMap(int tmu) const;
+    const MipMap* guTexGetMipMapInfo(uint32_t id) const;
+    uint32_t guTexMemQueryAvail(int tmu) const;
+    void guTexMemReset();
+    void guTexSource(uint32_t id);
+
     // --- The linear frame buffer ----------------------------------------
     bool lfbLock(int type, int buffer, int writeMode, int origin, bool pixelPipeline, Glide2LfbLock& out);
     bool lfbUnlock(int type, int buffer);
     void lfbConstantAlpha(int alpha);
     void lfbConstantDepth(int depth);
+    // grLfbWriteColorFormat: the order of the colour channels in linear
+    // frame buffer writes from now on (GR_COLORFORMAT_*), until the next
+    // grSstWinOpen, which goes back to the window's own.
+    void lfbWriteColorFormat(int format);
+    // grLfbWriteColorSwizzle: each 32-bit word written through a lock has
+    // its four bytes reversed (swizzleBytes), then its two 16-bit halves
+    // swapped (swapWords; not for the 888 and 8888 modes), as the Voodoo2
+    // specification's lfbMode bits 12 and 11 do.
+    void lfbWriteColorSwizzle(bool swizzleBytes, bool swapWords);
+    bool lfbSwizzleBytes() const { return lfbSwizzleBytes_; }
+    bool lfbSwapWords() const { return lfbSwapWords_; }
+    // A 32-bit word written through a lock in `mode`, swizzled and swapped
+    // as grLfbWriteColorSwizzle asks (for the 16-bit modes the word holds
+    // two pixels, the left one in the low half).
+    uint32_t lfbSwizzle(int mode, uint32_t word) const;
+    // A pixel as written in `mode` (its channels in the LFB colour format's
+    // order) put in the canonical order Pipeline::lfbWrite takes (ARGB;
+    // 5:6:5 red high; 1:5:5:5 alpha high; colour in the high half of the
+    // depth modes).
+    uint32_t lfbCanonical(int mode, uint32_t value) const;
     // One pixel written through a lock (`value` as the lock's write mode
     // has it), at (x, y) from the lock's origin.
     void lfbWrite(const Glide2LfbLock& lock, int x, int y, uint32_t value);
@@ -210,7 +289,8 @@ public:
 
 private:
     Vertex convert(const Glide2Vertex& v) const;
-    uint32_t toArgb(uint32_t color) const; // the application's colour format to 0xAARRGGBB
+    uint32_t toArgb(uint32_t color) const { return toArgb(color, colorFormat_); } // the window's colour format
+    static uint32_t toArgb(uint32_t color, int format); // a GR_COLORFORMAT_* colour to 0xAARRGGBB
     static TextureInfo textureInfo(int smallLod, int largeLod, int aspect, int format);
     static int lodToLog2(int lod) { return 8 - lod; }
     static int aspectToLog2(int aspect) { return 3 - aspect; }
@@ -218,6 +298,8 @@ private:
     Board board_;
     Pipeline pipeline_;
     int colorFormat_ = kColorArgb;
+    int lfbColorFormat_ = -1; // grLfbWriteColorFormat's, -1 the window's
+    bool lfbSwizzleBytes_ = false, lfbSwapWords_ = false;
     bool active_ = true;
     uint32_t retraceCalls_ = 0;
     int locks_ = 0;
@@ -225,6 +307,9 @@ private:
     void drawn() { frontChanged_ |= pipeline_.state().renderBuffer == kBufferFront; }
     std::set<std::string> noted_;
     std::map<uint32_t, State> savedStates_;
+    std::vector<MipMap> mipmaps_;
+    std::array<uint32_t, kMaxTmus> texNext_{};  // the texture manager's next free address
+    std::array<uint32_t, kMaxTmus> texCurrent_{kNullMipMap, kNullMipMap, kNullMipMap};
     uint32_t nextStateToken_ = 1;
     uint64_t statsBase_[5] = {};
     uint64_t triBase_[2] = {};

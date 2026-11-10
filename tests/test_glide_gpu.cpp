@@ -196,6 +196,11 @@ void scene(Glide2& g) {
         g.pipeline().lfbWrite(kBufferBack, 250 + x, 250, kLfb565, 0xffff, false);
     g.alphaBlendFunction(kBlendSrcAlpha, kBlendOneMinusSrcAlpha, kBlendOne, kBlendZero);
     g.drawTriangle(vtx(240, 245, 0, 0, 0, 128), vtx(360, 245, 0, 0, 0, 128), vtx(300, 265, 0, 0, 0, 128));
+    // Anti-aliased primitives: the coverage pixels, blended by alpha.
+    g.aaDrawTriangle(vtx(30, 380, 255, 255, 255), vtx(90, 395.3f, 255, 128, 0), vtx(45.6f, 440, 0, 128, 255), true,
+                     true, true);
+    g.aaDrawLine(vtx(100.2f, 460, 255, 255, 0), vtx(200.7f, 430.4f, 0, 255, 255));
+    g.aaDrawPoint(vtx(220.3f, 440.8f, 255, 255, 255));
     g.alphaBlendFunction(kBlendOne, kBlendZero, kBlendOne, kBlendZero);
     g.bufferSwap(0);
     // And a second frame into the other buffer.

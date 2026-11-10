@@ -116,6 +116,7 @@ public:
     void triangle(Pipeline& p, const Vertex& a, const Vertex& b, const Vertex& c) override;
     void line(Pipeline& p, const Vertex& a, const Vertex& b) override;
     void point(Pipeline& p, const Vertex& a) override;
+    void fragments(Pipeline& p, const Fragments& f) override;
     void clear(Pipeline& p, uint32_t argb, int alpha, int depth) override;
     void sync(Pipeline& p) override;
     void syncBuffer(Pipeline& p, int buffer) override;
@@ -513,6 +514,27 @@ void GpuRenderer::point(Pipeline& p, const Vertex& a) {
     addPixel(p, x, y, v);
 }
 
+void GpuRenderer::fragments(Pipeline& p, const Fragments& f) {
+    if (!ready(p))
+        return;
+    const State& s = p.state();
+    const bool aux = s.depthMode != kDepthDisable || blendUsesDstAlpha(s);
+    for (const Fragment& frag : f.list) {
+        if (!f.derivatives) {
+            addPixel(p, frag.x, frag.y, frag.v);
+            continue;
+        }
+        // A one-pixel primitive whose plane is based at the pixel's centre,
+        // with the primitive's gradients for the LOD.
+        const int row = s.originLowerLeft ? height_ - 1 - frag.y : frag.y;
+        const uint32_t spanAt = uint32_t(spans_.size());
+        spans_.push_back(uint32_t(frag.x) | uint32_t(frag.x) << 16);
+        addPrim(p, kDerivatives, row, 1, spanAt, frag.x, frag.x, float(frag.x) + 0.5f, float(frag.y) + 0.5f, frag.v,
+                f.dx, f.dy, aux);
+        flushIfFull();
+    }
+}
+
 void GpuRenderer::clear(Pipeline& p, uint32_t argb, int alpha, int depth) {
     if (!ready(p))
         return;
@@ -649,6 +671,11 @@ public:
         tested_->point(p, a);
         if (reference(p))
             ref_->point(a);
+    }
+    void fragments(Pipeline& p, const Fragments& f) override {
+        tested_->fragments(p, f);
+        if (reference(p))
+            ref_->fragments(f);
     }
     void clear(Pipeline& p, uint32_t argb, int alpha, int depth) override {
         tested_->clear(p, argb, alpha, depth);

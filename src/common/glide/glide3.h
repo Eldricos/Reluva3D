@@ -94,6 +94,9 @@ public:
     void drawTriangle(const uint8_t* a, const uint8_t* b, const uint8_t* c);
     void drawLine(const uint8_t* a, const uint8_t* b);
     void drawPoint(const uint8_t* a);
+    // grAADrawTriangle: the edges asked for anti-aliased, whether or not
+    // GR_AA_ORDERED is on ("independent of the GR_AA_ORDERED mode").
+    void aaDrawTriangle(const uint8_t* a, const uint8_t* b, const uint8_t* c, bool ab, bool bc, bool ca);
     // grDrawVertexArray(Contiguous): `vertices` the pointers in order.
     void drawVertexArray(uint32_t mode, const std::vector<const uint8_t*>& vertices);
 
@@ -125,7 +128,24 @@ public:
     uint32_t glideGetState();
     void glideSetState(uint32_t token);
 
+    // A vertex as the layout gives it before the division by w: clip
+    // coordinates (or, `window`, a window-coordinate vertex as drawn).
+    struct ClipVertex {
+        bool window = false;
+        Vertex v;           // colours and the parameters the layout leaves out
+        float x = 0, y = 0, z = 0, w = 1, q = 1;
+        bool hasZ = false;
+        float s[kMaxTmus] = {}, t[kMaxTmus] = {}, qi[kMaxTmus] = {1, 1, 1};
+    };
+
 private:
+    ClipVertex readClip(const uint8_t* at);
+    Vertex project(const ClipVertex& c) const;
+    // Drawn after clipping against the view volume (clip coordinates),
+    // anti-aliased if `aa`.
+    void clipTriangle(const ClipVertex& a, const ClipVertex& b, const ClipVertex& c, bool aa);
+    void clipLine(const ClipVertex& a, const ClipVertex& b, bool aa);
+    void clipPoint(const ClipVertex& a, bool aa);
     static Glide2TexInfo toGlide2(const Glide3TexInfo& info);
 
     Board board_;
@@ -144,7 +164,8 @@ private:
     };
     std::map<uint32_t, Saved> saved_;
     // For strips and fans continued by the next call.
-    std::vector<Vertex> strip_;
+    std::vector<ClipVertex> strip_;
+    ClipVertex clip_; // the last vertex read in clip coordinates
     uint32_t lastMode_ = 0xffffffffu;
     size_t stripParity_ = 0;
 };

@@ -5,6 +5,7 @@
 
 #include <algorithm>
 #include <cstring>
+#include <vector>
 
 namespace reluva::glide {
 
@@ -168,10 +169,9 @@ void Glide3Dll::addAll() {
         return 0u;
     });
     add("grAADrawTriangle", 24, [this, &g](Cpu& c) {
-        g.notImplemented("grAADrawTriangle", "drawn without edge anti-aliasing");
         const uint8_t *a = vertex(c.arg(0)), *bb = vertex(c.arg(1)), *cc = vertex(c.arg(2));
         if (a && bb && cc)
-            g.drawTriangle(a, bb, cc);
+            g.aaDrawTriangle(a, bb, cc, c.arg(3) != 0, c.arg(4) != 0, c.arg(5) != 0);
         return 0u;
     });
     add("grDrawVertexArray", 12, [this, &g](Cpu& c) {
@@ -330,22 +330,29 @@ void Glide3Dll::addAll() {
                    ? 1u
                    : 0u;
     });
-    add("grLfbWriteColorFormat", 4, [&c2](Cpu& c) {
-        if (c.arg(0) != kColorArgb)
-            c2.notImplemented("grLfbWriteColorFormat", "only the window's own colour format is used");
-        return 0u;
-    });
+    add("grLfbWriteColorFormat", 4, [&c2](Cpu& c) { c2.lfbWriteColorFormat(int(c.arg(0))); return 0u; });
     add("grLfbWriteColorSwizzle", 8, [&c2](Cpu& c) {
-        if (c.arg(0) || c.arg(1))
-            c2.notImplemented("grLfbWriteColorSwizzle", "byte and word swaps not carried out");
+        c2.lfbWriteColorSwizzle(c.arg(0) != 0, c.arg(1) != 0);
         return 0u;
     });
 
     // --- Not stood in for yet: they log once and fail ----------------------------
-    stub("grLoadGammaTable", 16);
+    add("grLoadGammaTable", 16, [this, &g](Cpu& c) {
+        const int n = int(std::min<uint32_t>(c.arg(0), 4096));
+        const uint8_t *r = guest(c.arg(1), uint32_t(n) * 4), *gg = guest(c.arg(2), uint32_t(n) * 4),
+                      *b = guest(c.arg(3), uint32_t(n) * 4);
+        if (n > 0 && r && gg && b) {
+            const size_t count = size_t(n);
+            std::vector<uint32_t> rv(count), gv(count), bv(count);
+            std::memcpy(rv.data(), r, size_t(n) * 4);
+            std::memcpy(gv.data(), gg, size_t(n) * 4);
+            std::memcpy(bv.data(), b, size_t(n) * 4);
+            g.pipeline().loadGammaTable(n, rv.data(), gv.data(), bv.data());
+        }
+        return 0u;
+    });
     stub("grSplash", 20);
-    stub("gu3dfGetInfo", 8);
-    stub("gu3dfLoad", 8);
+    add3dfLoaders(true);
 }
 
 } // namespace reluva::glide

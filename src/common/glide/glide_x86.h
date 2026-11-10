@@ -44,6 +44,10 @@ public:
     std::vector<std::string> stubs() const { return stubs_; }
     // The Glide 2 front end the calls end in (Glide 3's core()).
     Glide2& core() { return *core_; }
+    // How gu3dfGetInfo and gu3dfLoad read a file the program names (its
+    // own path): the whole file into `bytes`, false if there's none. Unset,
+    // they fail as for a missing file.
+    std::function<bool(const std::string& path, std::vector<uint8_t>& bytes)> readFile;
 
 protected:
     // `memory` is where guest-visible buffers (linear frame buffer locks)
@@ -61,6 +65,9 @@ protected:
     static float argFloat(const x86::Cpu& c, int i);
     // guFogTableIndexToW and the guFogGenerate functions.
     void addFogUtilities();
+    // gu3dfGetInfo and gu3dfLoad; Gu3dfHeader's LODs and aspect in Glide
+    // 3's log2 form if `glide3`, else Glide 2's constants.
+    void add3dfLoaders(bool glide3);
 
     // grLfbLock and grLfbUnlock, with the guest copies below. `info` is
     // the guest's GrLfbInfo_t (the same in Glide 2 and 3).

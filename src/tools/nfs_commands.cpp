@@ -105,6 +105,8 @@ const char* const kUsageLines =
     "                       each frame compared: its mean difference, of 255, per flip)\n"
     "                       [-glidedll file] (-glide with this THRASH DLL in voodoo2a.dll's place, from outside\n"
     "                       the install, e.g. the CD's Patch/Voodoo3/voodoo2a.dll: Glide 3 on a Voodoo3)\n"
+    "                       [-glideboard voodoo1 | rush | voodoo2 | banshee | voodoo3] (-glide on this board,\n"
+    "                       e.g. -glidedll <install>/voodooa.dll -glideboard voodoo1)\n"
     "  reluva-tool nfs-native-check <game folder> [trials]\n"
     "  reluva-tool nfs-mmx-check <game folder> [trials]\n"
     "  reluva-tool nfs-huff-check <game folder> [out dir]\n"
@@ -1133,6 +1135,9 @@ int cmdNfsHost(int argc, char** argv) {
         } else if (arg == "-glidedll" && a + 1 < argc) { // ... with this THRASH DLL file in voodoo2a.dll's place
             options.glide = true;
             options.glideDll = argv[++a];
+        } else if (arg == "-glideboard" && a + 1 < argc) { // ... on this board (voodoo1, rush, voodoo2...)
+            options.glide = true;
+            options.glideBoard = argv[++a];
         } else if (arg == "-glidefilter" && a + 1 < argc) { // ... its texture filter held: point or bilinear
             options.glideFilter = std::string(argv[++a]) == "point" ? 0 : 1;
         } else if (arg == "-glidecompare" && a + 1 < argc) { // ... and the native drawing beside it

@@ -3,9 +3,12 @@
 
 #include "common/glide/glide2_x86.h"
 
+#include "common/glide/glide_utils.h"
+
 #include <algorithm>
 #include <cmath>
 #include <cstring>
+#include <vector>
 
 namespace reluva::glide {
 
@@ -35,6 +38,37 @@ Glide2TexInfo Glide2Dll::texInfo(uint32_t address) const {
         t.format = int(cpu_.read32(address + 12));
     }
     return t;
+}
+
+uint32_t Glide2Dll::mipMapInfo(const Glide2& g, uint32_t id) {
+    // GrMipMapInfo (glide.h): sst, valid, width, height, aspect_ratio,
+    // data, format, mipmap_mode, magfilter_mode, minfilter_mode,
+    // s_clamp_mode, t_clamp_mode, tLOD, tTextureMode, lod_bias (4.2 fixed
+    // point), lod_min, lod_max, tmu, odd_even_mask, tmu_base_address,
+    // trilinear, ncc_table (GuNccTable, 112 bytes): 196 bytes, a block of
+    // guest memory per handle. The register images (tLOD, tTextureMode)
+    // are left 0: no document gives Glide's.
+    const Glide2::MipMap* m = g.guTexGetMipMapInfo(id);
+    if (!m)
+        return 0;
+    uint32_t& at = mipMapInfos_[id];
+    if (!at && !(at = memory_.alloc(196, 4)))
+        return 0;
+    const uint32_t f[21] = {0u, 1u, uint32_t(m->width), uint32_t(m->height), uint32_t(m->info.aspectRatio), 0u,
+                            uint32_t(m->info.format), uint32_t(m->mipmapMode), uint32_t(m->magFilter),
+                            uint32_t(m->minFilter), uint32_t(m->clampS), uint32_t(m->clampT), 0u, 0u,
+                            uint32_t(int(std::lround(m->lodBias * 4))), uint32_t(m->info.largeLod),
+                            uint32_t(m->info.smallLod), uint32_t(m->tmu), uint32_t(m->evenOdd), m->start,
+                            m->lodBlend ? 1u : 0u};
+    for (uint32_t i = 0; i < 21; ++i)
+        cpu_.write32(at + 4 * i, f[i]);
+    uint8_t ncc[112] = {};
+    std::memcpy(ncc, m->ncc.y, 16);
+    std::memcpy(ncc + 16, m->ncc.i, 24);
+    std::memcpy(ncc + 40, m->ncc.q, 24);
+    for (uint32_t i = 0; i < 112; ++i)
+        cpu_.write8(at + 84 + i, ncc[i]);
+    return at;
 }
 
 void Glide2Dll::addAll() {
@@ -133,22 +167,14 @@ void Glide2Dll::addAll() {
     add("grDrawTriangle", 12, [&g, v](Cpu& c) { g.drawTriangle(v(c, 0), v(c, 1), v(c, 2)); return 0u; });
     add("grDrawLine", 8, [&g, v](Cpu& c) { g.drawLine(v(c, 0), v(c, 1)); return 0u; });
     add("grDrawPoint", 4, [&g, v](Cpu& c) { g.drawPoint(v(c, 0)); return 0u; });
-    // Anti-aliased primitives drawn without the coverage alpha.
-    add("grAADrawTriangle", 24, [&g, v](Cpu& c) {
-        g.notImplemented("grAADrawTriangle", "drawn without edge anti-aliasing");
-        g.drawTriangle(v(c, 0), v(c, 1), v(c, 2));
+    // Anti-aliased primitives: the alpha iterator as the pixels' coverage
+    // (Pipeline::aaTriangle).
+    add("grAADrawTriangle", 24, [&g, v, b](Cpu& c) {
+        g.aaDrawTriangle(v(c, 0), v(c, 1), v(c, 2), b(c, 3), b(c, 4), b(c, 5));
         return 0u;
     });
-    add("grAADrawLine", 8, [&g, v](Cpu& c) {
-        g.notImplemented("grAADrawLine", "drawn without anti-aliasing");
-        g.drawLine(v(c, 0), v(c, 1));
-        return 0u;
-    });
-    add("grAADrawPoint", 4, [&g, v](Cpu& c) {
-        g.notImplemented("grAADrawPoint", "drawn without anti-aliasing");
-        g.drawPoint(v(c, 0));
-        return 0u;
-    });
+    add("grAADrawLine", 8, [&g, v](Cpu& c) { g.aaDrawLine(v(c, 0), v(c, 1)); return 0u; });
+    add("grAADrawPoint", 4, [&g, v](Cpu& c) { g.aaDrawPoint(v(c, 0)); return 0u; });
     // Polygons: an index list into a vertex array, or the array itself.
     auto polygon = [this, &g](Cpu& c, bool indexed, bool aa) {
         const int count = std::clamp(int(c.arg(0)), 0, 4096);
@@ -158,8 +184,9 @@ void Glide2Dll::addAll() {
             list.push_back(vertex(c.arg(indexed ? 2 : 1) + index * uint32_t(sizeof(Glide2Vertex))));
         }
         if (aa)
-            g.notImplemented("grAADrawPolygon", "drawn without edge anti-aliasing");
-        g.drawPolygon(count, list.data());
+            g.aaDrawPolygon(count, list.data());
+        else
+            g.drawPolygon(count, list.data());
         return 0u;
     };
     add("grDrawPolygon", 12, [polygon](Cpu& c) { return polygon(c, true, false); });
@@ -170,7 +197,10 @@ void Glide2Dll::addAll() {
     add("grAADrawPolygonVertexList", 8, [polygon](Cpu& c) { return polygon(c, false, true); });
     // Clipping is the clip window's, per pixel, so these draw as is.
     add("guDrawTriangleWithClip", 12, [&g, v](Cpu& c) { g.drawTriangle(v(c, 0), v(c, 1), v(c, 2)); return 0u; });
-    add("guAADrawTriangleWithClip", 12, [&g, v](Cpu& c) { g.drawTriangle(v(c, 0), v(c, 1), v(c, 2)); return 0u; });
+    add("guAADrawTriangleWithClip", 12, [&g, v](Cpu& c) {
+        g.aaDrawTriangle(v(c, 0), v(c, 1), v(c, 2), true, true, true); // "All edges ... are anti-aliased"
+        return 0u;
+    });
     add("guDrawPolygonVertexListWithClip", 8, [polygon](Cpu& c) { return polygon(c, false, false); });
     add("grBufferClear", 12, [&g](Cpu& c) {
         g.bufferClear(c.arg(0), int(c.arg(1) & 0xff), int(c.arg(2) & 0xffff));
@@ -313,35 +343,73 @@ void Glide2Dll::addAll() {
                    ? 1u
                    : 0u;
     });
-    add("grLfbWriteColorFormat", 4, [&g](Cpu& c) {
-        if (c.arg(0) != kColorArgb)
-            g.notImplemented("grLfbWriteColorFormat", "only the window's own colour format is used");
-        return 0u;
-    });
+    add("grLfbWriteColorFormat", 4, [&g](Cpu& c) { g.lfbWriteColorFormat(int(c.arg(0))); return 0u; });
     add("grLfbWriteColorSwizzle", 8, [&g](Cpu& c) {
-        if (c.arg(0) || c.arg(1))
-            g.notImplemented("grLfbWriteColorSwizzle", "byte and word swaps not carried out");
+        g.lfbWriteColorSwizzle(c.arg(0) != 0, c.arg(1) != 0);
         return 0u;
     });
 
-    // --- Not stood in for yet ------------------------------------------------------
-    // The utility library's texture manager and file loaders, the splash
-    // screen and run-length texture downloads: they log once and fail.
-    stub("guTexAllocateMemory", 60, 0xffffffffu); // GR_NULL_MIPMAP_HANDLE
-    stub("guTexChangeAttributes", 48);
-    stub("guTexDownloadMipMap", 12);
-    stub("guTexDownloadMipMapLevel", 12);
-    stub("guTexGetCurrentMipMap", 4, 0xffffffffu);
-    stub("guTexGetMipMapInfo", 4);
-    stub("guTexMemQueryAvail", 4);
-    stub("guTexMemReset", 0);
-    stub("guTexSource", 4);
+    // --- The utility library's texture manager (Glide 2.4 Reference Manual) ----------
+    add("guTexAllocateMemory", 60, [&g, n](Cpu& c) {
+        return g.guTexAllocateMemory(n(c, 0), int(c.arg(1) & 0xff), n(c, 2), n(c, 3), n(c, 4), n(c, 5), n(c, 6),
+                                     n(c, 7), n(c, 8), n(c, 9), n(c, 10), n(c, 11), n(c, 12), argFloat(c, 13),
+                                     c.arg(14) != 0);
+    });
+    add("guTexChangeAttributes", 48, [&g, n](Cpu& c) {
+        return g.guTexChangeAttributes(c.arg(0), n(c, 1), n(c, 2), n(c, 3), n(c, 4), n(c, 5), n(c, 6), n(c, 7),
+                                       n(c, 8), n(c, 9), n(c, 10), n(c, 11))
+                   ? 1u
+                   : 0u;
+    });
+    add("guTexDownloadMipMap", 12, [this, &g](Cpu& c) {
+        const Glide2::MipMap* m = g.guTexGetMipMapInfo(c.arg(0));
+        if (!m)
+            return 0u;
+        if (const uint8_t* data = guest(c.arg(1), Glide2::mipmapDataBytes(m->info)))
+            g.guTexDownloadMipMap(c.arg(0), data, guest(c.arg(2), 64));
+        return 0u;
+    });
+    add("guTexDownloadMipMapLevel", 12, [this, &g, n](Cpu& c) {
+        // src is a pointer to the level's pointer, moved on to the next
+        // level ("updates *src to point to the next mipmap level").
+        const Glide2::MipMap* m = g.guTexGetMipMapInfo(c.arg(0));
+        if (!m || !guest(c.arg(2), 4))
+            return 0u;
+        const uint32_t src = c.read32(c.arg(2));
+        if (const uint8_t* data = guest(src, Glide2::levelDataBytes(n(c, 1), m->info.aspectRatio, m->info.format)))
+            c.write32(c.arg(2), src + g.guTexDownloadMipMapLevel(c.arg(0), n(c, 1), data));
+        return 0u;
+    });
+    add("guTexGetCurrentMipMap", 4, [&g, n](Cpu& c) { return g.guTexGetCurrentMipMap(n(c, 0)); });
+    add("guTexGetMipMapInfo", 4, [this, &g](Cpu& c) { return mipMapInfo(g, c.arg(0)); });
+    add("guTexMemQueryAvail", 4, [&g, n](Cpu& c) { return g.guTexMemQueryAvail(n(c, 0)); });
+    add("guTexMemReset", 0, [&g](Cpu&) { g.guTexMemReset(); return 0u; });
+    add("guTexSource", 4, [&g](Cpu& c) { g.guTexSource(c.arg(0)); return 0u; });
+    add("guEncodeRLE16", 16, [this](Cpu& c) {
+        // guEncodeRLE16(dst, src, width, height): the bytes written (a null
+        // dst only counts them).
+        const uint32_t w = std::min<uint32_t>(c.arg(2), 4096), h = std::min<uint32_t>(c.arg(3), 4096);
+        const uint8_t* src = guest(c.arg(1), w * h * 2);
+        if (!src || !w || !h)
+            return 0u;
+        std::vector<uint16_t> pixels(size_t(w) * h);
+        std::memcpy(pixels.data(), src, pixels.size() * 2);
+        const uint32_t bytes = encodeRle16(nullptr, pixels.data(), w, h);
+        if (c.arg(0)) {
+            if (!guest(c.arg(0), bytes))
+                return 0u;
+            encodeRle16(cpu_.memory().data() + c.arg(0), pixels.data(), w, h);
+        }
+        return bytes;
+    });
+    add("guEndianSwapWords", 4, [](Cpu& c) { return endianSwapWords(c.arg(0)); });
+    add("guEndianSwapBytes", 4, [](Cpu& c) { return uint32_t(endianSwapBytes(uint16_t(c.arg(0)))); });
+    add3dfLoaders(false);
+
+    // --- Not stood in for: no document says what they do --------------------------
+    // guTexCreateColorMipMap and ConvertAndDownloadRle are only names and
+    // signatures in glideutl.h/glide.h; the splash screen is 3dfx's art.
     stub("guTexCreateColorMipMap", 0);
-    stub("guEncodeRLE16", 16);
-    stub("guEndianSwapWords", 4);
-    stub("guEndianSwapBytes", 4);
-    stub("gu3dfGetInfo", 8);
-    stub("gu3dfLoad", 8);
     stub("grSplash", 20);
     stub("ConvertAndDownloadRle", 64);
 }

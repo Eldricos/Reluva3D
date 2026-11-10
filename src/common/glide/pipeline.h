@@ -20,41 +20,74 @@
 #include <cstdint>
 #include <functional>
 #include <memory>
+#include <string>
 #include <vector>
 
 namespace reluva::glide {
 
 constexpr int kMaxTmus = 3;
 
-// Which Voodoo. The core draws the same for each so far; the field is
-// where differences between them belong (docs/engines/glide.md, Extension
-// points).
+// Which Voodoo (docs/engines/glide.md, Boards).
 enum class Generation { Voodoo1, VoodooRush, Voodoo2, Banshee, Voodoo3 };
 
 struct Board {
     Generation generation = Generation::Voodoo2;
     int tmus = 2;
-    uint32_t tmuMemory = 4u << 20;  // bytes, each TMU
+    // Bytes each TMU addresses. On a UMA board (Banshee, Voodoo3) every TMU
+    // reads the one memory the frame buffer is in too, and this is all of
+    // it.
+    uint32_t tmuMemory = 4u << 20;
     uint32_t frameBufferMemory = 4u << 20;
+    bool uma = false;
     int fbiRevision = 2; // the Voodoo2 reports 2, as the Voodoo Graphics did (its specification, Revision_ID)
     int tmuRevision = 1; // a palette needs revision 1 or later (Glide 2.4 Programming Guide, The Color Palette)
+    // Whether the TMUs have the 8-bit palette (GR_TEXFMT_P_8, AP_88): not
+    // on TMU revision 0 (Glide 2.4 Programming Guide, "The Color Palette
+    // (not implemented in TMU Revision 0)"), nor on the Voodoo Rush (the
+    // SST-96 specification's texture formats leave both out).
+    bool palette = true;
     bool sli = false;
     int maxWidth = 1024, maxHeight = 768;
+    // GR_RESOLUTION_NONE (the application's window) allowed: the Voodoo
+    // Rush (SST-96) only (Glide 2.4 Reference Manual, grSstWinOpen).
+    bool windowed = false;
+    // grGet(GR_TEXTURE_ALIGN): texture base addresses in 8-byte units on
+    // the Voodoo2 (its texBaseAddr), 16-byte on the Voodoo3 (its
+    // texbaseaddr, "in 16-byte units").
+    int textureAlign = 8;
     // The fog table's entries as Glide 3's grGet(GR_FOG_TABLE_ENTRIES)
     // reports them: 64 on the Voodoo Graphics, Voodoo2 and Voodoo3 (each
     // specification's fogTable register). The core keeps 64; a front end
     // resamples a larger table to them.
     int fogTableEntries = 64;
-    // grGet(GR_GAMMA_TABLE_ENTRIES): Reluva's choice, 32 (the documents
-    // give no number for these boards).
+    // grGet(GR_GAMMA_TABLE_ENTRIES): 32 on the Voodoo Graphics and Voodoo2
+    // (their clutData register: a 33-entry table, "the 5 MSBs ... used to
+    // index", the 33rd closing the last interval), 256 on the Voodoo3 (its
+    // "Triple 256x8 lookup tables").
     int gammaTableEntries = 32;
 };
 
-// The boards a host can stand in for: NFS III's Voodoo2 (12 MB: 4 MB of
-// frame buffer, two TMUs of 4 MB) and a Voodoo3 for Glide 3 programs
-// (16 MB; how Reluva splits it is its own choice, docs/engines/glide.md).
+// The boards a host can stand in for, each as its specification gives it
+// (docs/engines/glide.md, Boards; sizes that vary between cards are
+// Reluva's choice of a common one):
+// - Voodoo Graphics (SST-1): one TMU of 2 MB, 2 MB of frame buffer (the
+//   4 MB card), up to 800x600 (Programming Guide table 3.3).
+// - Voodoo Rush (SST-96): one TMU of 2 MB without a palette, 4 MB of frame
+//   buffer shared with the 2D desktop, windowed Glide.
+// - Voodoo2: NFS III's 12 MB card, two TMUs of 4 MB and 4 MB of frame
+//   buffer, up to 1024x768.
+// - Voodoo Banshee and Voodoo3: 16 MB of unified memory (the Voodoo3
+//   specification: "The amount of texture memory is only limited by the
+//   maximum amount of ... frame buffer memory"), one TMU and two.
+Board voodoo1Board();
+Board voodooRushBoard();
 Board voodoo2Board();
+Board bansheeBoard();
 Board voodoo3Board();
+// By name: "voodoo1" (or "voodoo", "sst1"), "rush", "voodoo2", "banshee",
+// "voodoo3", then optionally ",tmu=MB", ",fb=MB", ",tmus=N", ",tmurev=N"
+// ("voodoo1,tmu=4"); false for another.
+bool boardByName(const std::string& spec, Board& out);
 
 // A vertex as the pipeline takes it, whatever the API's layout.
 struct Vertex {
@@ -130,6 +163,9 @@ struct PixelStats {
 };
 
 class Pipeline;
+namespace raster {
+struct Fragments; // raster_setup.h
+}
 
 // What draws: the software reference rasterizer, or later another (a GPU
 // backend). It reads the pipeline's state, buffers and texture memory, and
@@ -141,6 +177,10 @@ public:
     virtual void triangle(Pipeline& p, const Vertex& a, const Vertex& b, const Vertex& c) = 0;
     virtual void line(Pipeline& p, const Vertex& a, const Vertex& b) = 0;
     virtual void point(Pipeline& p, const Vertex& a) = 0;
+    // Single pixels each with its own values (drawing coordinates), and the
+    // gradients for the texture LOD if `derivatives`: the coverage pixels
+    // of the anti-aliased primitives (Pipeline::aaTriangle...).
+    virtual void fragments(Pipeline& p, const raster::Fragments& f) = 0;
     virtual void clear(Pipeline& p, uint32_t argb, int alpha, int depth) = 0;
     virtual void sync(Pipeline&) {}
     // The same for one buffer (kBufferFront...), when only it is read (a
@@ -199,12 +239,28 @@ public:
     void triangle(const Vertex& a, const Vertex& b, const Vertex& c);
     void line(const Vertex& a, const Vertex& b);
     void point(const Vertex& a);
+    // Anti-aliased primitives (Glide 2's grAADraw*, Glide 3's
+    // GR_AA_ORDERED): drawn with the alpha iterator standing for the
+    // pixel's coverage (docs/engines/glide.md, Anti-aliasing). A triangle:
+    // its pixels as grDrawTriangle draws them, and outside each edge asked
+    // for (ab, bc, ca) a fringe whose alpha falls from the vertex alpha to
+    // 0 a pixel out. A line: the pixels within a pixel of it, alpha falling
+    // with the distance. A point: the four pixels round it, by their share
+    // of a pixel-sized square.
+    void aaTriangle(const Vertex& a, const Vertex& b, const Vertex& c, bool ab, bool bc, bool ca);
+    void aaLine(const Vertex& a, const Vertex& b);
+    void aaPoint(const Vertex& a);
+    void fragments(const raster::Fragments& f);
     // grBufferClear: the clip window of the render buffer, and of the
     // auxiliary buffer when depth (or alpha) buffering is on and writable.
     void clear(uint32_t argb, int alpha, int depth);
 
     // --- Textures ---------------------------------------------------------
     uint32_t tmuMemorySize() const { return board_.tmuMemory; }
+    // Where texture memory starts: 0, or on a UMA board the first address
+    // after the open window's buffers (aligned to the board's texture
+    // alignment).
+    uint32_t textureBase() const { return textureBase_; }
     // One level (rows firstRow-lastRow of it) of a texture whose largest
     // level `evenOdd` includes starts at `start`, from `data` (the level's
     // rows, tightly packed).
@@ -251,6 +307,14 @@ public:
     // the conversion (a later Voodoo2/3 video filter belongs there).
     void present(Surface& out);
     using GammaTables = std::array<std::array<uint8_t, 256>, 3>; // red, green, blue
+    // grLoadGammaTable: the hardware table's first `n` entries per channel
+    // (0-255), the rest kept; the table has the board's
+    // gammaTableEntries, read by interpolating between them (Glide 3.0
+    // Reference Manual: values "interpolated to generate an output gamma
+    // value"; the Voodoo2's clutData). A gamma value (state().gamma) set
+    // afterwards replaces it (setGammaValue).
+    void loadGammaTable(int n, const uint32_t* r, const uint32_t* g, const uint32_t* b);
+    void setGammaValue() { gammaLoaded_ = false; }
     std::function<void(const uint16_t* pixels, int width, int height, const GammaTables& gamma, Surface& out)>
         outputFilter;
 
@@ -264,6 +328,9 @@ private:
     uint64_t opened_ = 0;
     int width_ = 0, height_ = 0, colorBuffers_ = 2;
     bool hasAux_ = false;
+    uint32_t textureBase_ = 0;
+    bool gammaLoaded_ = false;
+    std::array<std::vector<uint8_t>, 3> gammaTable_;
     // Colour buffers by slot; front_ and back_ index them.
     std::vector<std::vector<uint16_t>> color_;
     int front_ = 0, back_ = 1, triple_ = 2;
