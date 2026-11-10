@@ -453,6 +453,12 @@ records each frame's drawing as a list, and the page draws the lists.
 - **Blending.** Translucent texels and vertices blend over what's drawn,
   with source alpha. State 0x68's other modes apply while blending is on
   (state 0xa). Texels of alpha 0 are left out.
+- **One pipeline for the blends.** Nothing reads the frame's alpha, so
+  the page says so (`Renderer3D::setFrameAlphaUnused`) and the renderer
+  draws blended and added batches with one pipeline state, the factors
+  applied in the fragment shader. A race alternates the two about 1,500
+  times a frame (of some 2,000 batches); each pipeline switch took SDL
+  four new descriptor sets.
 - **Culling.** Cull 1 (Direct3D's counter-clockwise culling, in d3da)
   drops triangles turning counter-clockwise as shown on the screen. Cull
   2 drops clockwise ones.
@@ -501,6 +507,31 @@ each frame's list: batches, vertices, textures, the flip's rectangle. `nfs-host 
 vertex with its batch's texture, blending, culling and fog
 (`list.csv`), and the textures it uses as TGA files. That is how the
 game's sky was measured ([hrz.md](hrz.md)).
+
+**Memory mappings** (November 2026). A second race in one session
+crashed under Mesa's software Vulkan driver: the process had reached the
+kernel's limit of 65,530 memory mappings, one per Vulkan descriptor set
+there. SDL's Vulkan backend keeps a cache of descriptor sets for every
+command buffer in flight and never frees one (sdl_gpu.h, copyPass), and
+every texture the page made had brought a command buffer of its own, as
+did SDL's making of it. With the uploads already sharing one, the front
+end alone still made 117 caches, more of them growing to a race frame's
+draws with each race. Now uploads share a
+command buffer, at most two frames are in flight, the renderer waits for
+the GPU after every eighth texture (11 caches) and the blends share a
+pipeline. Mappings (`/proc/<pid>/maps`, the most in each stretch), Play
+page, Hometown, quitting to the menu between races:
+
+| | menus | 1st race | 2nd race | 3rd race | 4th race |
+|---|---|---|---|---|---|
+| Before (Direct3D look) | 10,400 | 44,300 | crashed loading | | |
+| After (Direct3D look) | 6,600 | 19,000 | 23,800 | 28,300 | |
+| After (default) | 5,600 | 17,700 | 24,800 | 28,700 | 32,400 |
+
+Each race adds less, as the caches reach the largest frame's size. The
+frame rate is unchanged: about 8 frames a second in a race under this
+software driver, as before. The Track page with computer cars and rain
+stays at 7,000-7,700 over seven minutes.
 
 DirectDraw's frames (the movies) are shown over an empty frame. Frames
 are drawn at `renderscale` times 640x480 (2 unless set): the same

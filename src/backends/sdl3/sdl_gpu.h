@@ -41,6 +41,7 @@ public:
     int height() const override { return height_; }
     std::string deviceName() const override;
     void setKeepFrame(bool keep) override { keepFrame_ = keep; }
+    void setFrameAlphaUnused(bool unused) override { frameAlphaUnused_ = unused; }
     void beginFrame(const gfx::Mat4& viewProj, const gfx::Vec3& eye, Color clear) override;
     void draw(const gfx::DrawCall& call) override;
     void setDynamicLights(const std::vector<gfx::DynamicLight>& lights) override {
@@ -82,10 +83,35 @@ private:
         bool sharedVertices = false; // another mesh's (createIndexedMesh)
     };
 
-    // Copies `size` bytes into a GPU buffer or texture region through a
-    // transfer buffer, in a command buffer of its own. `cycle`: into a
-    // fresh copy of the buffer if frames still on the GPU use it.
+    // Copies `size` bytes into a GPU buffer through a transfer buffer, in
+    // the uploads' command buffer (copyPass). `cycle`: into a fresh copy of
+    // the buffer if frames still on the GPU use it.
     bool upload(const void* data, uint32_t size, SDL_GPUBuffer* buffer, bool cycle = false);
+    // Command buffers in flight are kept few. SDL's Vulkan backend gives
+    // every command buffer a descriptor-set cache from a pool, and returns
+    // it only once the buffer is known to be done (when a frame is shown
+    // or a fence waited for); a cache is never freed or shrunk, and the
+    // pool hands them out in turn, so in time each grows to a whole
+    // frame's draws. With Mesa's software driver every descriptor set is
+    // a memory mapping of its own: hundreds of command buffers in flight
+    // at a load (one per upload, and one SDL submits for every texture it
+    // creates) meant hundreds of caches, and after a few races more
+    // mappings than a process may have.
+    //
+    // So uploads go into one command buffer, sent just before the frame's
+    // (so the frame sees them), or on its own once kUploadBatchBytes or
+    // kUploadBatchCount have gathered; and after kTexturesPerWait textures
+    // made, the renderer waits for the GPU, which lets SDL take back the
+    // command buffers done.
+    SDL_GPUCopyPass* copyPass();
+    void uploaded(uint32_t bytes); // after each: sends the batch on if it's big enough
+    void submitUploads(bool alone);
+    static constexpr uint64_t kUploadBatchBytes = 64ull << 20;
+    static constexpr int kUploadBatchCount = 256;
+    static constexpr int kTexturesPerWait = 8;
+    // At most this many frames on the GPU: beginFrame waits for the one
+    // this many before it.
+    static constexpr int kFramesInFlight = 2;
     SDL_GPUGraphicsPipeline* pipeline(const gfx::DrawState& state);
 
     SDL_GPUDevice* device_;
@@ -96,6 +122,7 @@ private:
     StencilMode stencilMode_ = StencilMode::None;
     bool mirrored_ = false;
     bool keepFrame_ = false; // frames begin with the last one's contents
+    bool frameAlphaUnused_ = false; // source-alpha blends share a pipeline (draw)
     SDL_GPUTexture* color_ = nullptr; // the frame, wrapped by colorView_ for the renderer
     SDL_GPUTexture* depth_ = nullptr;
     SDL_Texture* colorView_ = nullptr;
@@ -130,6 +157,16 @@ private:
     gfx::MeshId boundMesh_ = 0;
     int32_t boundOffset_ = 0, boundOldOffset_ = 0; // the vertex buffers' bindings, in vertices
     std::vector<gfx::DynamicLight> lights_;
+
+    // Uploads waiting to be sent (copyPass).
+    SDL_GPUCommandBuffer* uploadCmd_ = nullptr;
+    SDL_GPUCopyPass* copyPass_ = nullptr;
+    uint64_t uploadBytes_ = 0;
+    int uploadCount_ = 0;
+    SDL_GPUFence* uploadFence_ = nullptr; // the last batch sent on its own
+    int texturesUnwaited_ = 0; // made since the last wait for everything
+    SDL_GPUFence* frameFences_[kFramesInFlight] = {}; // the last frames sent, by frameIndex_
+    unsigned frameIndex_ = 0;
 };
 
 } // namespace reluva

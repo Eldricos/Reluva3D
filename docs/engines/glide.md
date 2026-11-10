@@ -218,6 +218,12 @@ per-pixel work on the GPU (`gpu_renderer.cpp`, `shaders/rasterize.comp`).
   TMU's. Palettes and NCC tables travel with the batch, a copy each time
   they change, so a batch can hold draws with different tables. A texture
   download sends the batch first, then the changed bytes.
+- **Command buffers in flight.** Each batch is sent in a command buffer
+  of its own (`flush()`); at most three are on the GPU, the next waiting
+  for the oldest. SDL keeps a descriptor-set cache for every command
+  buffer in flight at once, for good (see idtech3.md, 3D rendering in
+  `System`), and without a wait until the frame's read-back a frame of
+  many batches could put as many in flight.
 - **The linear frame buffer.** `sync()` sends the batch and reads back
   every buffer the GPU drew into since; `syncBuffer()` (a presented frame)
   only that one. What the host then writes into the pipeline's buffers

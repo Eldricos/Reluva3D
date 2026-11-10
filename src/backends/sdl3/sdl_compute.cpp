@@ -6,6 +6,7 @@
 #include <SDL3/SDL.h>
 
 #include <cstring>
+#include <deque>
 #include <unordered_map>
 
 namespace reluva {
@@ -19,6 +20,7 @@ public:
         if (cmd_)
             SDL_SubmitGPUCommandBuffer(cmd_);
         SDL_WaitForGPUIdle(device_);
+        releaseFences();
         for (auto& [id, b] : buffers_)
             SDL_ReleaseGPUBuffer(device_, b);
         for (auto& [id, k] : kernels_)
@@ -160,17 +162,37 @@ public:
         if (fence)
             SDL_ReleaseGPUFence(device_, fence);
         SDL_ReleaseGPUTransferBuffer(device_, t);
+        releaseFences(); // sent before, so done too
         return err;
     }
 
     void flush() override {
-        if (cmd_) {
-            SDL_SubmitGPUCommandBuffer(cmd_);
-            cmd_ = nullptr;
+        if (!cmd_)
+            return;
+        // At most kInFlight sent and not done: SDL's Vulkan backend keeps a
+        // descriptor-set cache for every command buffer in flight at once,
+        // for good (see SdlGpuRenderer::copyPass), and a batch each, with
+        // no wait until the frame's read-back, made hundreds.
+        if (inFlight_.size() >= kInFlight) {
+            SDL_GPUFence* oldest = inFlight_.front();
+            inFlight_.pop_front();
+            SDL_WaitForGPUFences(device_, true, &oldest, 1);
+            SDL_ReleaseGPUFence(device_, oldest);
         }
+        if (SDL_GPUFence* fence = SDL_SubmitGPUCommandBufferAndAcquireFence(cmd_))
+            inFlight_.push_back(fence);
+        cmd_ = nullptr;
     }
 
 private:
+    static constexpr size_t kInFlight = 3;
+
+    void releaseFences() {
+        for (SDL_GPUFence* f : inFlight_)
+            SDL_ReleaseGPUFence(device_, f);
+        inFlight_.clear();
+    }
+
     SDL_GPUCommandBuffer* cmd() {
         if (!cmd_)
             cmd_ = SDL_AcquireGPUCommandBuffer(device_);
@@ -179,6 +201,7 @@ private:
 
     SDL_GPUDevice* device_;
     SDL_GPUCommandBuffer* cmd_ = nullptr;
+    std::deque<SDL_GPUFence*> inFlight_; // flushed, oldest first
     uint32_t next_ = 1;
     std::unordered_map<uint32_t, SDL_GPUBuffer*> buffers_;
     std::unordered_map<uint32_t, SDL_GPUComputePipeline*> kernels_;

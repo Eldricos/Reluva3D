@@ -194,6 +194,12 @@ public:
     // Whether frames begin with what the last one left (true), as a
     // software renderer's buffer does, rather than cleared (the default).
     virtual void setKeepFrame(bool keep) = 0;
+    // That nothing reads the frame's alpha (no DstAlpha blend factors): the
+    // renderer may then leave it other than the blend factors say, and
+    // draw the blends of the source alpha (source factor zero, one or
+    // SrcAlpha; destination zero, one or OneMinusSrcAlpha) with one
+    // pipeline state, which costs less to switch between. Off by default.
+    virtual void setFrameAlphaUnused(bool unused) = 0;
     // A frame: begin, any number of draws (in order), end. `viewProj` maps
     // world positions to clip space; `eye` is the camera's position.
     virtual void beginFrame(const Mat4& viewProj, const Vec3& eye, Color clear) = 0;

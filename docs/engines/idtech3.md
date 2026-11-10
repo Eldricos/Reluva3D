@@ -52,6 +52,23 @@ every engine.
    run at the monitor's 144 Hz with about 1.2 ms of CPU time per frame.
    The Metal path
    (macOS) is generated but untested.
+   The backend keeps few command buffers in flight: uploads (textures,
+   mesh data) go into one command buffer sent just before the frame's,
+   or on their own once 256 or 64 MB have gathered; at most two frames
+   are on the GPU (`beginFrame` waits for the one two before); and after
+   every eighth texture made it waits for the GPU. SDL's Vulkan backend
+   gives each command buffer in flight a descriptor-set cache that it
+   never frees and hands out in turn, so in time each grows to a whole
+   frame's draws, and SDL submits a command buffer of its own for every
+   texture made. With a command buffer per upload, a load made hundreds
+   of caches; under Mesa's software driver, where each descriptor set is
+   a memory mapping of its own, Need for Speed III then ran out of
+   mappings (`vm.max_map_count`, 65,530) at its second race. Now there
+   are about 11 caches (thrash.md, On the GPU, for the numbers). A
+   renderer told the frame's alpha is unused (`setFrameAlphaUnused`)
+   draws the blends of the source alpha with one pipeline, the factors
+   applied in `draw.frag` (`blendOut`): each pipeline switch takes SDL
+   four new descriptor sets.
 3. **World renderer**, continued: autosprites, mirrors, culling (by the
    vis data, areas and the view) and drawing order are done; still to
    do: fog by depth inside the volume. Translucent surfaces are drawn as

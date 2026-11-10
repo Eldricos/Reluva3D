@@ -56,6 +56,14 @@ SDL_GPUBlendFactor blendFactor(gfx::Blend b) {
     return SDL_GPU_BLENDFACTOR_ONE;
 }
 
+void waitAndRelease(SDL_GPUDevice* device, SDL_GPUFence*& fence) {
+    if (!fence)
+        return;
+    SDL_WaitForGPUFences(device, true, &fence, 1);
+    SDL_ReleaseGPUFence(device, fence);
+    fence = nullptr;
+}
+
 uint32_t packState(const gfx::DrawState& s) {
     return uint32_t(s.src) | uint32_t(s.dst) << 4 | uint32_t(s.depthTest) << 8 | uint32_t(s.depthWrite) << 9 |
            uint32_t(s.cull) << 10 | uint32_t(s.depthEqual) << 12 | uint32_t(s.depthBias) << 13;
@@ -64,13 +72,16 @@ uint32_t packState(const gfx::DrawState& s) {
 } // namespace
 
 SdlGpuRenderer::~SdlGpuRenderer() {
-    if (cmd_) {
-        if (pass_)
-            SDL_EndGPURenderPass(pass_);
+    if (cmd_ && pass_)
+        SDL_EndGPURenderPass(pass_);
+    submitUploads(false);
+    if (cmd_)
         SDL_SubmitGPUCommandBuffer(cmd_);
-    }
     // Nothing may still be using the resources.
     SDL_WaitForGPUIdle(device_);
+    waitAndRelease(device_, uploadFence_);
+    for (SDL_GPUFence*& f : frameFences_)
+        waitAndRelease(device_, f);
     textures_.erase(frameTexture_); // the frame itself, released below
     for (auto& [id, t] : textures_)
         SDL_ReleaseGPUTexture(device_, t.texture);
@@ -297,6 +308,40 @@ void SdlGpuRenderer::setStencilMode(StencilMode mode) {
         stencilMode_ = mode;
 }
 
+SDL_GPUCopyPass* SdlGpuRenderer::copyPass() {
+    if (!uploadCmd_)
+        uploadCmd_ = SDL_AcquireGPUCommandBuffer(device_);
+    if (uploadCmd_ && !copyPass_)
+        copyPass_ = SDL_BeginGPUCopyPass(uploadCmd_);
+    return copyPass_;
+}
+
+void SdlGpuRenderer::uploaded(uint32_t bytes) {
+    uploadBytes_ += bytes;
+    if (++uploadCount_ >= kUploadBatchCount || uploadBytes_ >= kUploadBatchBytes)
+        submitUploads(true);
+}
+
+// Sends the uploads recorded. `alone`: not with a frame (a load making many
+// textures); one such batch at a time on the GPU, so they don't pile up.
+void SdlGpuRenderer::submitUploads(bool alone) {
+    if (copyPass_) {
+        SDL_EndGPUCopyPass(copyPass_);
+        copyPass_ = nullptr;
+    }
+    if (!uploadCmd_)
+        return;
+    if (alone) {
+        waitAndRelease(device_, uploadFence_);
+        uploadFence_ = SDL_SubmitGPUCommandBufferAndAcquireFence(uploadCmd_);
+    } else {
+        SDL_SubmitGPUCommandBuffer(uploadCmd_);
+    }
+    uploadCmd_ = nullptr;
+    uploadBytes_ = 0;
+    uploadCount_ = 0;
+}
+
 bool SdlGpuRenderer::upload(const void* data, uint32_t size, SDL_GPUBuffer* buffer, bool cycle) {
     SDL_GPUTransferBufferCreateInfo ti{};
     ti.usage = SDL_GPU_TRANSFERBUFFERUSAGE_UPLOAD;
@@ -311,18 +356,19 @@ bool SdlGpuRenderer::upload(const void* data, uint32_t size, SDL_GPUBuffer* buff
     }
     std::memcpy(mapped, data, size);
     SDL_UnmapGPUTransferBuffer(device_, tb);
-    SDL_GPUCommandBuffer* cmd = SDL_AcquireGPUCommandBuffer(device_);
-    SDL_GPUCopyPass* copy = SDL_BeginGPUCopyPass(cmd);
-    SDL_GPUTransferBufferLocation src{};
-    src.transfer_buffer = tb;
-    SDL_GPUBufferRegion dst{};
-    dst.buffer = buffer;
-    dst.size = size;
-    SDL_UploadToGPUBuffer(copy, &src, &dst, cycle);
-    SDL_EndGPUCopyPass(copy);
-    const bool ok = SDL_SubmitGPUCommandBuffer(cmd);
-    SDL_ReleaseGPUTransferBuffer(device_, tb);
-    return ok;
+    SDL_GPUCopyPass* copy = copyPass();
+    if (copy) {
+        SDL_GPUTransferBufferLocation src{};
+        src.transfer_buffer = tb;
+        SDL_GPUBufferRegion dst{};
+        dst.buffer = buffer;
+        dst.size = size;
+        SDL_UploadToGPUBuffer(copy, &src, &dst, cycle);
+    }
+    SDL_ReleaseGPUTransferBuffer(device_, tb); // SDL keeps it until the copy is done
+    if (copy)
+        uploaded(size);
+    return copy != nullptr;
 }
 
 Error SdlGpuRenderer::createTexture(int width, int height, const uint8_t* rgba, const gfx::TextureParams& params,
@@ -362,8 +408,12 @@ Error SdlGpuRenderer::createTexture(int width, int height, const uint8_t* rgba, 
     std::memcpy(mapped, rgba, size);
     SDL_UnmapGPUTransferBuffer(device_, tb);
 
-    SDL_GPUCommandBuffer* cmd = SDL_AcquireGPUCommandBuffer(device_);
-    SDL_GPUCopyPass* copy = SDL_BeginGPUCopyPass(cmd);
+    SDL_GPUCopyPass* copy = copyPass();
+    if (!copy) {
+        SDL_ReleaseGPUTransferBuffer(device_, tb);
+        SDL_ReleaseGPUTexture(device_, tex);
+        return sdlError("Cannot upload a texture");
+    }
     SDL_GPUTextureTransferInfo src{};
     src.transfer_buffer = tb;
     SDL_GPUTextureRegion dst{};
@@ -372,11 +422,20 @@ Error SdlGpuRenderer::createTexture(int width, int height, const uint8_t* rgba, 
     dst.h = uint32_t(height);
     dst.d = 1;
     SDL_UploadToGPUTexture(copy, &src, &dst, false);
-    SDL_EndGPUCopyPass(copy);
-    if (levels > 1)
-        SDL_GenerateMipmapsForGPUTexture(cmd, tex);
-    SDL_SubmitGPUCommandBuffer(cmd);
+    if (levels > 1) {
+        // Outside the copy pass; the next upload begins another.
+        SDL_EndGPUCopyPass(copyPass_);
+        copyPass_ = nullptr;
+        SDL_GenerateMipmapsForGPUTexture(uploadCmd_, tex);
+    }
     SDL_ReleaseGPUTransferBuffer(device_, tb);
+    uploaded(size);
+    // SDL submitted a command buffer of its own to make the texture.
+    if (++texturesUnwaited_ >= kTexturesPerWait) {
+        submitUploads(true);
+        waitAndRelease(device_, uploadFence_); // all before it done too
+        texturesUnwaited_ = 0;
+    }
 
     out = nextId_++;
     textures_[out] = {tex, int(params.clamp) | int(levels > 1) << 1 | int(params.nearest) << 2 |
@@ -608,6 +667,9 @@ void SdlGpuRenderer::beginFrame(const gfx::Mat4& viewProj, const gfx::Vec3& eye,
     maxDepth_ = 1;
     viewport_ = {0, 0, float(width_), float(height_), 0, 1};
     boundMesh_ = 0;
+    // No more than kFramesInFlight frames on the GPU: each holds command
+    // buffers, whose descriptor-set caches SDL keeps.
+    waitAndRelease(device_, frameFences_[frameIndex_ % kFramesInFlight]);
     cmd_ = SDL_AcquireGPUCommandBuffer(device_);
     if (!cmd_)
         return;
@@ -638,7 +700,27 @@ void SdlGpuRenderer::draw(const gfx::DrawCall& call) {
     auto mesh = meshes_.find(call.mesh);
     if (mesh == meshes_.end())
         return;
-    SDL_GPUGraphicsPipeline* p = pipeline(call.state);
+    // With the frame's alpha unused, blends of the source alpha go through
+    // one pipeline, (one, one minus source alpha), the factors applied in
+    // the fragment shader (blendOut). Games that alternate, say, blended
+    // and added polygons (a race of Need for Speed III: about 1,500
+    // switches a frame) then don't switch pipelines, each switch taking
+    // SDL four new descriptor sets.
+    gfx::DrawState state = call.state;
+    float blendSrc = 0, blendDst = 0; // FragmentUniforms::params z, w
+    if (frameAlphaUnused_ && !(state.src == gfx::Blend::One && state.dst == gfx::Blend::Zero)) {
+        const int s = state.src == gfx::Blend::Zero ? 0 : state.src == gfx::Blend::One ? 1
+                      : state.src == gfx::Blend::SrcAlpha ? 2 : -1;
+        const int d = state.dst == gfx::Blend::Zero ? 1 : state.dst == gfx::Blend::One ? 2
+                      : state.dst == gfx::Blend::OneMinusSrcAlpha ? 3 : -1;
+        if (s >= 0 && d >= 0) {
+            state.src = gfx::Blend::One;
+            state.dst = gfx::Blend::OneMinusSrcAlpha;
+            blendSrc = float(s);
+            blendDst = float(d);
+        }
+    }
+    SDL_GPUGraphicsPipeline* p = pipeline(state);
     if (!p)
         return;
     if (p != boundPipeline_) {
@@ -713,6 +795,8 @@ void SdlGpuRenderer::draw(const gfx::DrawCall& call) {
     SDL_PushGPUVertexUniformData(cmd_, 0, &vu, sizeof(vu));
     FragmentUniforms fu{};
     fu.params[0] = float(call.state.alphaTest);
+    fu.params[2] = blendSrc;
+    fu.params[3] = blendDst;
     std::copy(call.tableFogColor.begin(), call.tableFogColor.end(), fu.fog);
     fu.fog[3] = call.tableFog;
     if (call.texture == frameTexture_) {
@@ -801,11 +885,17 @@ void SdlGpuRenderer::endFrame(const Surface* overlay) {
         SDL_EndGPURenderPass(pass_);
         pass_ = nullptr;
     }
-    // Submitted before the renderer's own commands, which then sample it.
+    // The uploads first, then the frame; submitted before the renderer's
+    // own commands, which then sample it.
+    submitUploads(false);
     if (cmd_ && captureWanted_)
-        capture(brighten ? gammaFrame_ : color_);
-    else if (cmd_)
-        SDL_SubmitGPUCommandBuffer(cmd_);
+        capture(brighten ? gammaFrame_ : color_); // waits for it
+    else if (cmd_) {
+        SDL_GPUFence*& fence = frameFences_[frameIndex_ % kFramesInFlight];
+        waitAndRelease(device_, fence); // (none: beginFrame took it)
+        fence = SDL_SubmitGPUCommandBufferAndAcquireFence(cmd_);
+    }
+    ++frameIndex_;
     cmd_ = nullptr;
     captureWanted_ = false;
     SDL_SetRenderDrawColor(renderer_, 0, 0, 0, 255);

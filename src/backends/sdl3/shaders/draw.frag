@@ -18,12 +18,26 @@ layout(set = 2, binding = 0) uniform sampler2D tex;
 
 layout(set = 3, binding = 0) uniform Fragment {
     vec4 params; // x: alpha test (0 none, 1 > 0, 2 < 0.5, 3 >= 0.5), y: dynamic lights instead (1)
-                 // or the brightness pass (2, z: 1 / gamma)
+                 // or the brightness pass (2, z: 1 / gamma); otherwise z, w: blendOut's factors
     vec4 fog;    // rgb: table fog's colour, w: its value (0 none; DrawCall::tableFog)
     vec4 lightCount; // x
     vec4 lightPos[16]; // xyz, w: radius
     vec4 lightColor[16];
 };
+
+// A blend the pipeline does as (one, one minus source alpha), for fewer
+// pipelines (params.w > 0): the source's factor applied here (params.z: 0
+// zero, 1 one, 2 its alpha), and the destination's as one minus the alpha
+// put out (params.w: 1 zero, 2 one, 3 one minus the source's alpha).
+vec4 blendOut(vec4 c) {
+    int d = int(params.w + 0.5);
+    if (d == 0)
+        return c;
+    int s = int(params.z + 0.5);
+    float fs = s == 0 ? 0.0 : (s == 1 ? 1.0 : c.a);
+    float fd = d == 1 ? 0.0 : (d == 2 ? 1.0 : 1.0 - c.a);
+    return vec4(c.rgb * fs, 1.0 - fd);
+}
 
 void main() {
     if (params.y > 1.5) {
@@ -38,7 +52,7 @@ void main() {
             float d = distance(inWorld, lightPos[i].xyz);
             sum += lightColor[i].rgb * clamp(1.0 - d / lightPos[i].w, 0.0, 1.0);
         }
-        outColor = vec4(sum, 1.0);
+        outColor = blendOut(vec4(sum, 1.0));
         return;
     }
     vec4 c = texture(tex, inUv) * inColor;
@@ -50,5 +64,5 @@ void main() {
         float f = clamp((1.0 - exp(-d * inFogW)) / (1.0 - exp(-d * 52428.8)), 0.0, 1.0);
         c.rgb = mix(c.rgb, fog.rgb, f);
     }
-    outColor = c;
+    outColor = blendOut(c);
 }

@@ -29,6 +29,7 @@ gfx::Mat4 screenToClip(int x0, int y0, int w, int h) {
 void ThrashGpu::setRenderer(gfx::Renderer3D* renderer) {
     if (renderer_ && renderer_ != renderer) {
         renderer_->setKeepFrame(false); // as the next user expects it
+        renderer_->setFrameAlphaUnused(false);
         for (const auto& [key, id] : gpuTextures_)
             renderer_->destroyTexture(id);
         for (gfx::TextureId id : retired_)
@@ -43,8 +44,12 @@ void ThrashGpu::setRenderer(gfx::Renderer3D* renderer) {
     renderer_ = renderer;
     // The game draws into a buffer kept from frame to frame, sometimes
     // adding to what's there (a loading screen's progress bar).
-    if (renderer_)
+    // Nothing reads its alpha: blended and added polygons, which races
+    // alternate, can share a pipeline.
+    if (renderer_) {
         renderer_->setKeepFrame(true);
+        renderer_->setFrameAlphaUnused(true);
+    }
 }
 
 void ThrashGpu::updateTextures(const ThrashFrame& frame) {
