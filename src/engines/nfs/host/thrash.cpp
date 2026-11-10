@@ -137,12 +137,25 @@ void GameHost::addGlide() {
             ch = char(std::tolower(uint8_t(ch)));
         glide3 = file.find("glide3x.dll") != std::string::npos;
     }
+    // The board: Options::glideBoard if given (a Voodoo Graphics for the
+    // install's voodooa.dll...), else the Voodoo2 or the Voodoo3.
+    glide::Board board = glide3 ? glide::voodoo3Board() : glide::voodoo2Board();
+    if (!options_.glideBoard.empty() && !glide::boardByName(options_.glideBoard, board))
+        say("  unknown Glide board " + options_.glideBoard + ": the default");
     if (glide3)
-        glide_ = std::make_unique<glide::Glide3Dll>(*cpu_, process_->memory());
+        glide_ = std::make_unique<glide::Glide3Dll>(*cpu_, process_->memory(), board);
     else
-        glide_ = std::make_unique<glide::Glide2Dll>(*cpu_, process_->memory());
+        glide_ = std::make_unique<glide::Glide2Dll>(*cpu_, process_->memory(), board);
     glide::Glide2& g = glide_->core();
     g.log = [this](const std::string& line) { say("  " + line); };
+    // gu3dfLoad's files, by the program's own paths.
+    glide_->readFile = [this](const std::string& path, std::vector<uint8_t>& bytes) {
+        std::ifstream in(process_->hostPath(path, false), std::ios::binary);
+        if (!in)
+            return false;
+        bytes.assign(std::istreambuf_iterator<char>(in), {});
+        return true;
+    };
     // The GPU backend, if asked for and there's a GPU (Options::glideGpu).
     if (options_.glideGpu) {
         std::string error;
@@ -163,7 +176,10 @@ void GameHost::addGlide() {
             say("  Glide on the GPU: " + error + "; drawn in software");
         }
     }
-    say("  " + glide_->dllName() + " stood in for, drawn by " + glideRenderer_);
+    static const char* const kGenerations[] = {"Voodoo Graphics", "Voodoo Rush", "Voodoo2", "Voodoo Banshee",
+                                               "Voodoo3"};
+    say("  " + glide_->dllName() + " stood in for on a " + kGenerations[int(board.generation)] + ", drawn by " +
+        glideRenderer_);
     g.onSwap = [this] {
         glide_->core().pipeline().present(frame_);
         if (onFrame)

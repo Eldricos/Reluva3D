@@ -45,7 +45,8 @@ public:
     // (GameHost::Options::glide), rather than THRASH natively: on the GPU
     // when there is one, in software with `glideSoftware`; `glideDll` a
     // THRASH DLL file outside the install to run instead (the CD's Voodoo3
-    // patch DLL, on Glide 3).
+    // patch DLL, on Glide 3); `glideBoard` the board Glide stands in for
+    // ("voodoo1" for the install's voodooa.dll; GameHost::Options::glideBoard).
     // `direct3d`: the game is told its renderer is d3da.dll and takes its
     // Direct3D path (no fog, the clouds' constant alpha, the dimming by the
     // effects intensity), drawn natively as d3da's device draws (bilinear,
@@ -54,7 +55,7 @@ public:
              bool smoothTextures = false, bool offerJoystick = true, bool forceFeedback = true,
              std::string wheelPedals = {}, bool network = true, bool fillMovies = true, std::string serial = {},
              std::string modem = {}, bool glide = false, bool direct3d = false, bool glideSoftware = false,
-             std::string glideDll = {});
+             std::string glideDll = {}, std::string glideBoard = {});
     ~PlayPage() override;
     const char* name() const override { return "Play"; }
     bool capturesEscape() const override { return true; }
@@ -111,6 +112,7 @@ private:
     bool glide_ = false; // voodoo2a.dll on the Glide stand-in (not THRASH's GPU drawing)
     bool glideSoftware_ = false; // ... in its software rasterizer rather than its GPU backend
     std::string glideDll_;       // ... with this THRASH DLL file instead of the install's
+    std::string glideBoard_;     // ... on this board
     bool direct3d_ = false; // the game told of d3da.dll (its Direct3D look)
     ThrashGpu gpuDraw_; // on the engine's thread
     // THRASH's frames not drawn yet, in order: each is drawn (some add to

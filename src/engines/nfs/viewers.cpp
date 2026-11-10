@@ -587,7 +587,7 @@ std::vector<std::unique_ptr<Page>> makePages(const char* gameName, const GameFol
                                                setting("network") != "off", setting("movielines") != "keep",
                                                setting("serial"), setting("modem"), setting("renderer") == "glide",
                                                setting("renderer") == "direct3d", setting("glide") == "software",
-                                               setting("glidedll")));
+                                               setting("glidedll"), setting("glideboard")));
     pages.push_back(std::make_unique<TrackPage>(files, folders, mixer));
     pages.push_back(std::make_unique<CarPage>(files));
     pages.push_back(std::make_unique<TexturePage>(files));

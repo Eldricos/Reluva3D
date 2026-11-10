@@ -89,12 +89,12 @@ bool fillMovieLines(Surface& frame) {
 PlayPage::PlayPage(GameFolders folders, std::filesystem::path saveFolder, audio::Mixer* mixer, int renderScale,
                    bool smoothTextures, bool offerJoystick, bool forceFeedback, std::string wheelPedals,
                    bool network, bool fillMovies, std::string serial, std::string modem, bool glide,
-                   bool direct3d, bool glideSoftware, std::string glideDll)
+                   bool direct3d, bool glideSoftware, std::string glideDll, std::string glideBoard)
     : folders_(std::move(folders)), saveFolder_(std::move(saveFolder)), mixer_(mixer), offerJoystick_(offerJoystick),
       forceFeedback_(forceFeedback), network_(network), serial_(std::move(serial)), modem_(std::move(modem)),
       fillMovies_(fillMovies), wheelPedals_(std::move(wheelPedals)),
       renderScale_(std::clamp(renderScale, 1, 4)), glide_(glide), glideSoftware_(glideSoftware),
-      glideDll_(std::move(glideDll)), direct3d_(direct3d && !glide) {
+      glideDll_(std::move(glideDll)), glideBoard_(std::move(glideBoard)), direct3d_(direct3d && !glide) {
     gpuDraw_.scale = renderScale_;
     gpuDraw_.nearest = !smoothTextures;
     // A debugging aid: the GPU's frames written beside the software
@@ -195,6 +195,7 @@ void PlayPage::start() {
     options.glide = glide_;
     options.glideGpu = glideSoftware_ ? 0 : 1;
     options.glideDll = glideDll_;
+    options.glideBoard = glideBoard_;
     options.gpuAndSoftware = gpu_ && !compareFolder_.empty();
     if (network_ && sys_) {
         options.sockets = sys_->sockets();

@@ -101,6 +101,10 @@ public:
         // Glide 3 stand-in on a Voodoo3 board (thrash.md, The Voodoo3
         // patch's voodoo2a.dll); empty: the install's own.
         std::string glideDll;
+        // With glide: the board Glide stands in for (glide::boardByName:
+        // "voodoo1", "rush", "voodoo2", "banshee", "voodoo3"); empty for the
+        // DLL's own (a Voodoo2 for Glide 2, a Voodoo3 for Glide 3).
+        std::string glideBoard;
         // With glide: what draws Glide's pixels. 0 the software reference
         // rasterizer; 1 the GPU backend (common/glide/gpu_renderer.h) when
         // there's a GPU, else the software one; 2 the GPU, with every call
