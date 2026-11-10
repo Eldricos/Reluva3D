@@ -61,9 +61,11 @@ uint32_t Glide3::get(uint32_t pname, uint32_t bytes, int32_t* out) {
     case g3::kMaxTextureAspectRatio: v = {3}; break;
     // Not a UMA configuration: frame buffer and textures apart (Reference
     // Manual, grGet: GR_MEMORY_UMA is then 0).
-    case g3::kMemoryFb: v = {int32_t(board_.frameBufferMemory)}; break;
-    case g3::kMemoryTmu: v = {int32_t(board_.tmuMemory)}; break;
-    case g3::kMemoryUma: v = {0}; break;
+    // The Voodoo3 and Banshee: "The total number of bytes if a UMA
+    // configuration", FB and TMU then 0.
+    case g3::kMemoryFb: v = {board_.uma ? 0 : int32_t(board_.frameBufferMemory)}; break;
+    case g3::kMemoryTmu: v = {board_.uma ? 0 : int32_t(board_.tmuMemory)}; break;
+    case g3::kMemoryUma: v = {board_.uma ? int32_t(board_.tmuMemory) : 0}; break;
     case g3::kNumBoards: v = {1}; break;
     case g3::kNonPowerOfTwoTextures: v = {0}; break;
     case g3::kNumFb: v = {board_.sli ? 2 : 1}; break;
@@ -82,7 +84,7 @@ uint32_t Glide3::get(uint32_t pname, uint32_t bytes, int32_t* out) {
     case g3::kStatsTrianglesIn: v = {int32_t(s.trianglesIn)}; break;
     case g3::kStatsTrianglesOut: v = {int32_t(s.trianglesOut)}; break;
     case g3::kSupportsPassthru: v = {0}; break;
-    case g3::kTextureAlign: v = {8}; break; // the specification's 8-byte units
+    case g3::kTextureAlign: v = {board_.textureAlign}; break;
     case g3::kVideoPosition: v = {int32_t(core_.sstVideoLine()), 0}; break;
     case g3::kViewport: v = {viewport_[0], viewport_[1], viewport_[2], viewport_[3]}; break;
     case g3::kWdepthMinMax:
@@ -280,29 +282,184 @@ Vertex Glide3::readVertex(const uint8_t* at) {
         }
         return v;
     }
-    // Clip coordinates: divided by w and put through the viewport here
-    // (grCoordinateSpace, grViewport, grDepthRange). No clipping against
-    // the view volume (the documents don't say Glide clips); a vertex
-    // with w of 0 is left at the origin.
-    const float w = has(g3::kParamW) ? f(g3::kParamW) : 1.0f;
-    const float oow = w != 0 ? 1.0f / w : 0.0f;
-    const float xs = v.x * oow, ys = v.y * oow;
-    Vertex out = v;
+    // Clip coordinates: kept as given here (clipVertex_), then clipped
+    // and divided by w (project).
+    ClipVertex& c = clip_;
+    c.window = false;
+    c.v = v;
+    c.x = v.x;
+    c.y = v.y;
+    c.w = has(g3::kParamW) ? f(g3::kParamW) : 1.0f;
+    c.hasZ = has(g3::kParamZ);
+    c.z = c.hasZ ? f(g3::kParamZ) : 0.0f;
+    c.q = has(g3::kParamQ) ? f(g3::kParamQ) : 1.0f;
+    for (int i = 0; i < kMaxTmus; ++i) {
+        c.s[i] = s[i];
+        c.t[i] = t[i];
+        c.qi[i] = hasQ[i] ? q[i] : 1.0f;
+    }
+    return project(c);
+}
+
+Vertex Glide3::project(const ClipVertex& c) const {
+    if (c.window)
+        return c.v;
+    // Divided by w and put through the viewport (grCoordinateSpace,
+    // grViewport, grDepthRange): x = (x/w + 1) width/2 + x0, z from
+    // [-1, 1] to the depth range. A vertex with w of 0 (only reached when
+    // the view volume's test can't apply) is left at the origin.
+    const float oow = c.w != 0 ? 1.0f / c.w : 0.0f;
+    const float xs = c.x * oow, ys = c.y * oow;
+    Vertex out = c.v;
     out.x = (xs + 1) * float(viewport_[2]) / 2 + float(viewport_[0]);
     out.y = (ys + 1) * float(viewport_[3]) / 2 + float(viewport_[1]);
-    if (has(g3::kParamZ)) {
-        const float zs = f(g3::kParamZ) * oow;
+    if (c.hasZ) {
+        const float zs = c.z * oow;
         out.ooz = ((zs + 1) / 2 * (depthFar_ - depthNear_) + depthNear_) * 65535.0f;
     }
-    out.oow = oow * (has(g3::kParamQ) ? f(g3::kParamQ) : 1.0f);
+    out.oow = oow * c.q;
     for (int i = 0; i < kMaxTmus; ++i) {
         // s and t 0-1 a repeat, whatever the size (Reference Manual).
-        const float qq = (hasQ[i] ? q[i] : 1.0f) * oow;
-        out.tmu[size_t(i)].sow = s[i] * 256.0f * qq;
-        out.tmu[size_t(i)].tow = t[i] * 256.0f * qq;
+        const float qq = c.qi[i] * oow;
+        out.tmu[size_t(i)].sow = c.s[i] * 256.0f * qq;
+        out.tmu[size_t(i)].tow = c.t[i] * 256.0f * qq;
         out.tmu[size_t(i)].oow = qq;
     }
     return out;
+}
+
+// --- Clipping against the view volume ----------------------------------------------
+// The view volume of clip coordinates: -w <= x, y <= w, and -w <= z <= w
+// when z is given ("If z buffering is enabled, z should be in the range
+// [-w..+w]"; x/w and y/w are "normalized device coordinates", Glide 3.0
+// Programming Guide, Coordinate Spaces). The manuals leave geometric
+// clipping to the application ("proper geometric clipping should be done by
+// the application", grClipWindow); Reluva clips what's outside so that
+// nothing behind the eye (w <= 0) is divided through. Every parameter is
+// interpolated linearly in clip space, where the hardware's perspective-
+// correct iteration has them linear too.
+
+namespace {
+
+// Plane k's signed distance (inside >= 0): w + x, w - x, w + y, w - y, and
+// for z, w + z, w - z.
+float planeDistance(const Glide3::ClipVertex& c, int k) {
+    switch (k) {
+    case 0: return c.w + c.x;
+    case 1: return c.w - c.x;
+    case 2: return c.w + c.y;
+    case 3: return c.w - c.y;
+    case 4: return c.w + c.z;
+    default: return c.w - c.z;
+    }
+}
+
+Glide3::ClipVertex lerp(const Glide3::ClipVertex& a, const Glide3::ClipVertex& b, float t) {
+    auto m = [t](float x, float y) { return x + (y - x) * t; };
+    Glide3::ClipVertex o = a;
+    o.x = m(a.x, b.x);
+    o.y = m(a.y, b.y);
+    o.z = m(a.z, b.z);
+    o.w = m(a.w, b.w);
+    o.q = m(a.q, b.q);
+    o.v.r = m(a.v.r, b.v.r);
+    o.v.g = m(a.v.g, b.v.g);
+    o.v.b = m(a.v.b, b.v.b);
+    o.v.a = m(a.v.a, b.v.a);
+    for (int i = 0; i < kMaxTmus; ++i) {
+        o.s[i] = m(a.s[i], b.s[i]);
+        o.t[i] = m(a.t[i], b.t[i]);
+        o.qi[i] = m(a.qi[i], b.qi[i]);
+    }
+    return o;
+}
+
+int planes(const Glide3::ClipVertex& c) { return c.hasZ ? 6 : 4; }
+
+bool insideVolume(const Glide3::ClipVertex& c) {
+    if (c.window)
+        return true;
+    if (!(c.w > 0))
+        return false;
+    for (int k = 0; k < planes(c); ++k)
+        if (planeDistance(c, k) < 0)
+            return false;
+    return true;
+}
+
+} // namespace
+
+void Glide3::clipTriangle(const ClipVertex& a, const ClipVertex& b, const ClipVertex& c, bool aa) {
+    if (insideVolume(a) && insideVolume(b) && insideVolume(c)) {
+        const Vertex pa = project(a), pb = project(b), pc = project(c);
+        if (aa)
+            core_.aaTriangle(pa, pb, pc, true, true, true);
+        else
+            core_.triangle(pa, pb, pc);
+        return;
+    }
+    // Sutherland-Hodgman against each plane, w > 0 first.
+    std::vector<ClipVertex> poly = {a, b, c}, next;
+    const int n = planes(a);
+    for (int k = -1; k < n && !poly.empty(); ++k) {
+        next.clear();
+        for (size_t i = 0; i < poly.size(); ++i) {
+            const ClipVertex& p = poly[i];
+            const ClipVertex& q = poly[(i + 1) % poly.size()];
+            constexpr float kNearW = 1e-6f;
+            const float dp = k < 0 ? p.w - kNearW : planeDistance(p, k);
+            const float dq = k < 0 ? q.w - kNearW : planeDistance(q, k);
+            if (dp >= 0)
+                next.push_back(p);
+            if ((dp >= 0) != (dq >= 0))
+                next.push_back(lerp(p, q, dp / (dp - dq)));
+        }
+        poly.swap(next);
+    }
+    if (poly.size() < 3)
+        return;
+    std::vector<Vertex> out;
+    for (const ClipVertex& v : poly)
+        out.push_back(project(v));
+    if (aa) {
+        core_.aaPolygon(int(out.size()), out.data());
+        return;
+    }
+    for (size_t i = 1; i + 1 < out.size(); ++i)
+        core_.triangle(out[0], out[i], out[i + 1]);
+}
+
+void Glide3::clipLine(const ClipVertex& a, const ClipVertex& b, bool aa) {
+    ClipVertex p = a, q = b;
+    float t0 = 0, t1 = 1;
+    const int n = planes(a);
+    for (int k = -1; k < n; ++k) {
+        const float dp = k < 0 ? a.w - 1e-6f : planeDistance(a, k);
+        const float dq = k < 0 ? b.w - 1e-6f : planeDistance(b, k);
+        if (dp < 0 && dq < 0)
+            return;
+        if (dp < 0)
+            t0 = std::max(t0, dp / (dp - dq));
+        else if (dq < 0)
+            t1 = std::min(t1, dp / (dp - dq));
+    }
+    if (t0 > t1)
+        return;
+    p = lerp(a, b, t0);
+    q = lerp(a, b, t1);
+    if (aa)
+        core_.aaLine(project(p), project(q));
+    else
+        core_.line(project(p), project(q));
+}
+
+void Glide3::clipPoint(const ClipVertex& a, bool aa) {
+    if (!insideVolume(a))
+        return;
+    if (aa)
+        core_.aaPoint(project(a));
+    else
+        core_.point(project(a));
 }
 
 // --- Drawing ---------------------------------------------------------------------------
@@ -313,103 +470,105 @@ namespace {
 constexpr uint32_t kOwnStw = kStwWDiffTmu0 | kStwStDiffTmu1 | kStwWDiffTmu1 | kStwStDiffTmu2 | kStwWDiffTmu2;
 } // namespace
 
+Glide3::ClipVertex Glide3::readClip(const uint8_t* at) {
+    const Vertex v = readVertex(at);
+    if (layout_.space == g3::kClipCoords)
+        return clip_;
+    ClipVertex c; // window coordinates: drawn as they are
+    c.window = true;
+    c.v = v;
+    return c;
+}
+
 void Glide3::drawTriangle(const uint8_t* a, const uint8_t* b, const uint8_t* c) {
     pipeline().state().stwHints = kOwnStw;
-    const Vertex va = readVertex(a), vb = readVertex(b), vc = readVertex(c);
-    triangle(va, vb, vc);
+    const ClipVertex va = readClip(a), vb = readClip(b), vc = readClip(c);
+    clipTriangle(va, vb, vc, enabled(g3::kAaOrdered));
     lastMode_ = 0xffffffffu;
 }
 
 void Glide3::aaDrawTriangle(const uint8_t* a, const uint8_t* b, const uint8_t* c, bool ab, bool bc, bool ca) {
     pipeline().state().stwHints = kOwnStw;
-    const Vertex va = readVertex(a), vb = readVertex(b), vc = readVertex(c);
-    core_.aaTriangle(va, vb, vc, ab, bc, ca);
+    const ClipVertex va = readClip(a), vb = readClip(b), vc = readClip(c);
+    if (insideVolume(va) && insideVolume(vb) && insideVolume(vc))
+        core_.aaTriangle(project(va), project(vb), project(vc), ab, bc, ca);
+    else // clipped: its new edges are the volume's, drawn plain
+        clipTriangle(va, vb, vc, false);
     lastMode_ = 0xffffffffu;
 }
 
 void Glide3::drawLine(const uint8_t* a, const uint8_t* b) {
     pipeline().state().stwHints = kOwnStw;
-    const Vertex va = readVertex(a), vb = readVertex(b);
-    line(va, vb);
+    const ClipVertex va = readClip(a), vb = readClip(b);
+    clipLine(va, vb, enabled(g3::kAaOrdered));
     lastMode_ = 0xffffffffu;
 }
 
 void Glide3::drawPoint(const uint8_t* a) {
     pipeline().state().stwHints = kOwnStw;
-    point(readVertex(a));
+    clipPoint(readClip(a), enabled(g3::kAaOrdered));
     lastMode_ = 0xffffffffu;
 }
 
-// With GR_AA_ORDERED on, triangles, lines and points are anti-aliased
-// ("grDrawTriangle will anti-aliased all three edges of the triangle";
-// grDrawLine, grDrawPoint likewise), strips and fans not ("This mode
-// applies to all primitives except strips and fans"; Glide 3.0 Reference
-// Manual, grEnable, grDrawTriangle).
-void Glide3::triangle(const Vertex& a, const Vertex& b, const Vertex& c) {
-    if (enabled(g3::kAaOrdered))
-        core_.aaTriangle(a, b, c, true, true, true);
-    else
-        core_.triangle(a, b, c);
-}
-
-void Glide3::line(const Vertex& a, const Vertex& b) {
-    if (enabled(g3::kAaOrdered))
-        core_.aaLine(a, b);
-    else
-        core_.line(a, b);
-}
-
-void Glide3::point(const Vertex& a) {
-    if (enabled(g3::kAaOrdered))
-        core_.aaPoint(a);
-    else
-        core_.point(a);
-}
-
+// With GR_AA_ORDERED on, triangles, lines, points and polygons are
+// anti-aliased ("grDrawTriangle will anti-aliased all three edges of the
+// triangle"; grDrawLine, grDrawPoint likewise; grDrawVertexArray's
+// GR_POLYGON for grAADrawPolygon), strips and fans not ("This mode applies
+// to all primitives except strips and fans"; Glide 3.0 Reference Manual,
+// grEnable, grDrawTriangle, grDrawVertexArray).
 void Glide3::drawVertexArray(uint32_t mode, const std::vector<const uint8_t*>& pointers) {
     pipeline().state().stwHints = kOwnStw;
-    std::vector<Vertex> v;
+    std::vector<ClipVertex> v;
     v.reserve(pointers.size());
     for (const uint8_t* p : pointers)
-        v.push_back(readVertex(p));
+        v.push_back(readClip(p));
     const size_t n = v.size();
+    const bool aa = enabled(g3::kAaOrdered);
     switch (mode) {
     case g3::kPoints:
-        for (const Vertex& p : v)
-            point(p);
+        for (const ClipVertex& p : v)
+            clipPoint(p, aa);
         break;
     case g3::kLineStrip:
         for (size_t i = 0; i + 1 < n; ++i)
-            line(v[i], v[i + 1]);
+            clipLine(v[i], v[i + 1], aa);
         break;
     case g3::kLines:
         for (size_t i = 0; i + 1 < n; i += 2)
-            line(v[i], v[i + 1]);
+            clipLine(v[i], v[i + 1], aa);
         break;
     case g3::kTriangles:
         for (size_t i = 0; i + 2 < n; i += 3)
-            triangle(v[i], v[i + 1], v[i + 2]);
+            clipTriangle(v[i], v[i + 1], v[i + 2], aa);
         break;
-    case g3::kPolygon:
-        // A fan; with GR_AA_ORDERED its outside edges anti-aliased (the
-        // manual's replacement for grAADrawPolygon).
-        if (enabled(g3::kAaOrdered)) {
-            core_.aaPolygon(int(n), v.data());
-            break;
+    case g3::kPolygon: {
+        // A fan; with GR_AA_ORDERED its outside edges anti-aliased.
+        bool inside = true;
+        for (const ClipVertex& p : v)
+            inside = inside && insideVolume(p);
+        if (aa && inside) {
+            std::vector<Vertex> out;
+            for (const ClipVertex& p : v)
+                out.push_back(project(p));
+            core_.aaPolygon(int(n), out.data());
+        } else {
+            for (size_t i = 1; i + 1 < n; ++i)
+                clipTriangle(v[0], v[i], v[i + 1], false);
         }
-        [[fallthrough]];
+        break;
+    }
     case g3::kTriangleFan:
     case g3::kTriangleFanContinue: {
         // A continued fan keeps its first vertex and the last one drawn.
-        std::vector<Vertex> all;
+        std::vector<ClipVertex> all;
         if (mode == g3::kTriangleFanContinue && lastMode_ == g3::kTriangleFan)
             all = strip_;
         all.insert(all.end(), v.begin(), v.end());
         for (size_t i = 1; i + 1 < all.size(); ++i)
-            core_.triangle(all[0], all[i], all[i + 1]);
+            clipTriangle(all[0], all[i], all[i + 1], false);
         if (all.size() >= 2)
             strip_ = {all.front(), all.back()};
-        lastMode_ = mode == g3::kPolygon ? 0xffffffffu : uint32_t(g3::kTriangleFan);
+        lastMode_ = g3::kTriangleFan;
         return;
     }
     case g3::kTriangleStrip:
@@ -417,7 +576,7 @@ void Glide3::drawVertexArray(uint32_t mode, const std::vector<const uint8_t*>& p
         // Every other triangle turned round, so that all keep the strip's
         // winding; a continued strip goes on from the last two vertices
         // with the parity it had.
-        std::vector<Vertex> all;
+        std::vector<ClipVertex> all;
         size_t parity = 0;
         if (mode == g3::kTriangleStripContinue && lastMode_ == g3::kTriangleStrip && strip_.size() == 2) {
             all = strip_;
@@ -426,9 +585,9 @@ void Glide3::drawVertexArray(uint32_t mode, const std::vector<const uint8_t*>& p
         all.insert(all.end(), v.begin(), v.end());
         for (size_t i = 0; i + 2 < all.size(); ++i) {
             if ((i + parity) & 1)
-                core_.triangle(all[i + 1], all[i], all[i + 2]);
+                clipTriangle(all[i + 1], all[i], all[i + 2], false);
             else
-                core_.triangle(all[i], all[i + 1], all[i + 2]);
+                clipTriangle(all[i], all[i + 1], all[i + 2], false);
         }
         if (all.size() >= 2) {
             stripParity_ = (parity + all.size() - 2) & 1;

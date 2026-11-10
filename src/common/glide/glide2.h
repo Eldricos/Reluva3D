@@ -72,6 +72,9 @@ public:
     // Lines for a log: each function not stood in for, the first time.
     std::function<void(const std::string& line)> log;
     std::string logName = "glide2x"; // the library its lines are from
+    // A window's client size, for grSstWinOpen(GR_RESOLUTION_NONE) on a
+    // board that allows it (the Voodoo Rush); unset, 640x480.
+    std::function<bool(uint32_t hwnd, int& width, int& height)> windowSize;
     // Called after each grBufferSwap, the new front buffer ready for
     // pipeline().present().
     std::function<void()> onSwap;
@@ -107,6 +110,7 @@ public:
     void sstOrigin(int origin);
     // The width and height a GR_RESOLUTION_* constant names (false if none).
     static bool resolutionSize(int resolution, int& width, int& height);
+    static constexpr int kResolutionNone = 0xff; // GR_RESOLUTION_NONE
 
     // --- Drawing ------------------------------------------------------------
     void drawTriangle(const Glide2Vertex& a, const Glide2Vertex& b, const Glide2Vertex& c);
@@ -154,6 +158,7 @@ public:
     void depthBiasLevel(int level);
     void depthBufferFunction(int function);
     void depthBufferMode(int mode);
+    const Board& board() const { return board_; }
     void depthMask(bool enable);
     void disableAllEffects();
     void ditherMode(int mode);

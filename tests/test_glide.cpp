@@ -526,7 +526,8 @@ void testGlide3() {
     int32_t v[4] = {};
     CHECK(g.get(g3::kNumBoards, 4, v) == 4 && v[0] == 1);
     CHECK(g.get(g3::kFogTableEntries, 4, v) == 4 && v[0] == 64);
-    CHECK(g.get(g3::kMemoryUma, 4, v) == 4 && v[0] == 0);
+    CHECK(g.get(g3::kMemoryUma, 4, v) == 4 && v[0] == 16 << 20); // unified memory
+    CHECK(g.get(g3::kMemoryFb, 4, v) == 4 && v[0] == 0);
     CHECK(g.get(g3::kNumTmu, 4, v) == 4 && v[0] == 2);
     CHECK(g.get(g3::kBitsRgba, 4, v) == 0); // too small a buffer
     CHECK(g.get(g3::kBitsRgba, 16, v) == 16 && v[1] == 6);

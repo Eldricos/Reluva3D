@@ -414,6 +414,138 @@ void testUtilities() {
     CHECK(call("_guEncodeRLE16@16", {dst, src, 5, 2}) == 16 && cpu.read16(dst + 4) == 1 && cpu.read16(dst + 6) == 2);
 }
 
+// --- 21d: the board generations ------------------------------------------------------
+
+void testBoards() {
+    Board b;
+    CHECK(boardByName("voodoo1", b) && b.generation == Generation::Voodoo1 && b.tmus == 1);
+    CHECK(boardByName("rush", b) && b.windowed && !b.palette);
+    CHECK(boardByName("voodoo3", b) && b.uma && b.tmus == 2);
+    CHECK(!boardByName("voodoo5", b) && !boardByName("voodoo1,x=1", b));
+    CHECK(boardByName("voodoo1,tmu=4,tmurev=0", b) && b.tmuMemory == 4u << 20 && !b.palette);
+
+    // Voodoo Graphics: 800x600 at most (Programming Guide table 3.3), not
+    // GR_RESOLUTION_NONE; grSstQueryHardware says SST-1 with one TMU.
+    Glide2 v1(voodoo1Board());
+    CHECK(!v1.sstWinOpen(0, 12, 0, kColorArgb, 0, 2, 1)); // 1024x768
+    CHECK(!v1.sstWinOpen(0, Glide2::kResolutionNone, 0, kColorArgb, 0, 2, 1));
+    CHECK(v1.sstWinOpen(0, 8, 0, kColorArgb, 0, 2, 0)); // 800x600
+    Glide2HwConfig hw;
+    CHECK(v1.sstQueryHardware(hw) && hw.type == 0 && hw.nTexelfx == 1 && hw.tmuRamMb[0] == 2 && hw.tmuRamMb[1] == 0);
+    CHECK(v1.texMaxAddress(0) == (2u << 20) - 8);
+    // 2 MB of frame buffer (table 3.3): 800x600 double-buffered, but not
+    // with a depth buffer; 640x480 with one.
+    v1.sstWinClose();
+    CHECK(v1.sstWinOpen(0, 8, 0, kColorArgb, 0, 2, 0));
+    v1.sstWinClose();
+    CHECK(!v1.sstWinOpen(0, 8, 0, kColorArgb, 0, 2, 1));
+    CHECK(v1.sstWinOpen(0, 7, 0, kColorArgb, 0, 2, 1));
+    v1.sstWinClose();
+    // A TMU of revision 0: no palette.
+    Board rev0 = voodoo1Board();
+    rev0.tmuRevision = 0;
+    rev0.palette = false;
+    Glide2 r0(rev0);
+    r0.sstWinOpen(0, 7, 0, kColorArgb, 0, 2, 1);
+    std::vector<uint32_t> pal(256, 0x00ff0000u);
+    r0.texDownloadTable(0, kTablePalette, reinterpret_cast<const uint8_t*>(pal.data()));
+    CHECK(r0.pipeline().palette(0)[5] == 0);
+
+    // Voodoo Rush: windowed Glide, the window's size.
+    Glide2 rush(voodooRushBoard());
+    rush.windowSize = [](uint32_t hwnd, int& w, int& h) {
+        w = 320;
+        h = 200;
+        return hwnd == 7;
+    };
+    CHECK(rush.sstWinOpen(7, Glide2::kResolutionNone, 0, kColorArgb, 0, 2, 1));
+    CHECK(rush.sstScreenWidth() == 320 && rush.sstScreenHeight() == 200);
+    rush.texDownloadTable(0, kTablePalette, reinterpret_cast<const uint8_t*>(pal.data()));
+    CHECK(rush.pipeline().palette(0)[5] == 0);
+
+    // Voodoo3: unified memory. Textures start after the open window's
+    // buffers, aligned to 16; what TMU0 is given TMU1 reads too.
+    Glide3 v3;
+    CHECK(v3.sstWinOpen(0, 7, 0, kColorArgb, 0, 2, 1));
+    const uint32_t buffers = 640 * 480 * 2 * 3;
+    CHECK(v3.core().texMinAddress(0) == (buffers + 15) / 16 * 16);
+    CHECK(v3.core().texMaxAddress(0) == (16u << 20) - 8);
+    int32_t v[4] = {};
+    CHECK(v3.get(g3::kTextureAlign, 4, v) == 4 && v[0] == 16);
+    CHECK(v3.get(g3::kGammaTableEntries, 4, v) == 4 && v[0] == 256);
+    CHECK(v3.get(g3::kMemoryTmu, 4, v) == 4 && v[0] == 0);
+    const uint8_t texel[2] = {0x34, 0x12};
+    const uint32_t at = v3.core().texMinAddress(0);
+    v3.texDownloadMipMap(0, at, kLevelsBoth, {0, 0, 0, kTexRgb565}, texel);
+    CHECK(v3.pipeline().tmuMemory(1)[at] == 0x34 && v3.pipeline().tmuMemory(1)[at + 1] == 0x12);
+    // Glide 3's hardware names by generation.
+    CHECK(Glide3(voodoo1Board()).getString(g3::kHardware) == "Voodoo Graphics");
+    CHECK(Glide3(voodoo2Board()).get(g3::kMemoryUma, 4, v) == 4 && v[0] == 0);
+}
+
+// --- 22a: clip coordinates clipped against the view volume ---------------------------
+
+void testClipCoordinates() {
+    Glide3 g(voodoo2Board());
+    g.sstWinOpen(0, 7, 0, kColorArgb, 0, 2, 1);
+    g.core().ditherMode(kDitherDisable);
+    g.core().colorCombine(kFuncLocal, kFactorZero, kLocalIterated, kOtherIterated, false);
+    g.core().bufferClear(0, 0, 0);
+    g.coordinateSpace(g3::kClipCoords);
+    struct V {
+        float x, y, z, w, r, g, b;
+    };
+    g.vertexLayout(g3::kParamXy, 0, g3::kParamEnable);
+    g.vertexLayout(g3::kParamZ, 8, g3::kParamEnable);
+    g.vertexLayout(g3::kParamW, 12, g3::kParamEnable);
+    g.vertexLayout(g3::kParamRgb, 16, g3::kParamEnable);
+    auto at = [](const V& v) { return reinterpret_cast<const uint8_t*>(&v); };
+    auto lit = [&](int x, int y) { return g.core().lfbRead(kBufferBack, x, y, false) != 0; };
+    int count = 0;
+    auto litPixels = [&] {
+        count = 0;
+        for (int y = 0; y < 480; ++y)
+            for (int x = 0; x < 640; ++x)
+                count += lit(x, y);
+        return count;
+    };
+    // Inside the volume: drawn as before (the viewport: x = (x/w + 1) 320).
+    const V a{-0.5f, -0.5f, 0, 1, 1, 1, 1}, b{0.5f, -0.5f, 0, 1, 1, 1, 1}, c{0, 0.5f, 0, 1, 1, 1, 1};
+    g.drawTriangle(at(a), at(b), at(c));
+    CHECK(lit(320, 240) && !lit(100, 100));
+    const int inside = litPixels();
+    CHECK(inside > 30000 && inside < 40000);
+    // One vertex behind the eye (w < 0): only the part in front is drawn,
+    // nothing wraps round through the division.
+    g.core().bufferClear(0, 0, 0);
+    const V behind{0, 3, 0, -1, 1, 1, 1};
+    g.drawTriangle(at(a), at(b), at(behind));
+    const int front = litPixels();
+    CHECK(front > 0 && front < 640 * 480);
+    CHECK(!lit(320, 100)); // above a-b (y/w -0.5): nothing
+    // Entirely beyond the far plane (z > w): nothing.
+    g.core().bufferClear(0, 0, 0);
+    const V fa{-0.5f, -0.5f, 2, 1, 1, 1, 1}, fb{0.5f, -0.5f, 2, 1, 1, 1, 1}, fc{0, 0.5f, 2, 1, 1, 1, 1};
+    g.drawTriangle(at(fa), at(fb), at(fc));
+    CHECK(litPixels() == 0);
+    // Half through the far plane: the near half only.
+    const V ha{-0.5f, -0.5f, 0, 1, 1, 1, 1}, hb{0.5f, -0.5f, 0, 1, 1, 1, 1}, hc{0, 0.5f, 2, 1, 1, 1, 1};
+    g.drawTriangle(at(ha), at(hb), at(hc));
+    const int half = litPixels();
+    CHECK(half > inside / 2 && half < inside);
+    CHECK(lit(320, 125) && !lit(320, 355));
+    // A line from in front of the eye to behind it: clipped at w = 0.
+    g.core().bufferClear(0, 0, 0);
+    const V l0{0, 0, 0, 1, 1, 1, 1}, l1{0, 2, 0, -1, 1, 1, 1};
+    g.drawLine(at(l0), at(l1));
+    CHECK(litPixels() > 0 && litPixels() < 640);
+    // A point outside: not drawn.
+    const V out{2, 0, 0, 1, 1, 1, 1};
+    g.core().bufferClear(0, 0, 0);
+    g.drawPoint(at(out));
+    CHECK(litPixels() == 0);
+}
+
 } // namespace
 
 int main() {
@@ -422,6 +554,8 @@ int main() {
     testAntialiasing();
     testTextureManager();
     testUtilities();
+    testBoards();
+    testClipCoordinates();
     if (failures) {
         std::fprintf(stderr, "%d check(s) failed\n", failures);
         return 1;

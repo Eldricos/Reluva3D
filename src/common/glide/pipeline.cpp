@@ -7,26 +7,98 @@
 
 #include <algorithm>
 #include <cmath>
+#include <cstdlib>
 #include <cstring>
 
 namespace reluva::glide {
 
+Board voodoo1Board() {
+    Board b;
+    b.generation = Generation::Voodoo1;
+    b.tmus = 1;
+    b.tmuMemory = 2u << 20;
+    b.frameBufferMemory = 2u << 20;
+    b.maxWidth = 800;
+    b.maxHeight = 600;
+    return b;
+}
+
+Board voodooRushBoard() {
+    Board b = voodoo1Board();
+    b.generation = Generation::VoodooRush;
+    b.frameBufferMemory = 4u << 20;
+    b.palette = false;
+    b.windowed = true;
+    // "any resolution which fits in the frame buffer memory, is less than
+    // 2K by 2K" (SST-96 specification, System Resolutions).
+    b.maxWidth = 1600;
+    b.maxHeight = 1200;
+    return b;
+}
+
 Board voodoo2Board() { return Board{}; }
 
 Board voodoo3Board() {
-    // A Voodoo3 3000 with 16 MB: Reluva gives 8 MB to the frame buffer and
-    // 8 MB to the textures, each of the two TMUs reading all of it (here,
-    // each TMU its own 8 MB). The documents don't give Glide's split.
+    // A Voodoo3 with 16 MB, unified: the frame buffer at the bottom, the
+    // textures above it, both TMUs reading all of it.
     Board b;
     b.generation = Generation::Voodoo3;
     b.tmus = 2;
-    b.tmuMemory = 8u << 20;
-    b.frameBufferMemory = 8u << 20;
+    b.uma = true;
+    b.tmuMemory = 16u << 20;
+    b.frameBufferMemory = 16u << 20;
     b.fbiRevision = 1;
     b.tmuRevision = 1;
     b.maxWidth = 2048;
     b.maxHeight = 1536;
+    b.textureAlign = 16;
+    b.gammaTableEntries = 256;
     return b;
+}
+
+Board bansheeBoard() {
+    Board b = voodoo3Board();
+    b.generation = Generation::Banshee;
+    b.tmus = 1;
+    return b;
+}
+
+bool boardByName(const std::string& spec, Board& out) {
+    // The name, then ",tmu=MB", ",fb=MB", ",tmus=N", ",tmurev=N" to change
+    // the sizes ("voodoo1,tmu=4": the 6 MB card).
+    const std::string name = spec.substr(0, spec.find(','));
+    if (name == "voodoo1" || name == "voodoo" || name == "sst1")
+        out = voodoo1Board();
+    else if (name == "rush" || name == "sst96")
+        out = voodooRushBoard();
+    else if (name == "voodoo2")
+        out = voodoo2Board();
+    else if (name == "banshee")
+        out = bansheeBoard();
+    else if (name == "voodoo3")
+        out = voodoo3Board();
+    else
+        return false;
+    for (size_t at = spec.find(','); at != std::string::npos; at = spec.find(',', at + 1)) {
+        const std::string option = spec.substr(at + 1, spec.find(',', at + 1) - at - 1);
+        const size_t eq = option.find('=');
+        if (eq == std::string::npos)
+            return false;
+        const std::string key = option.substr(0, eq);
+        const int value = std::atoi(option.c_str() + eq + 1);
+        if (key == "tmu" && value > 0 && value <= 16)
+            out.tmuMemory = uint32_t(value) << 20;
+        else if (key == "fb" && value > 0 && value <= 16)
+            out.frameBufferMemory = uint32_t(value) << 20;
+        else if (key == "tmus" && value >= 1 && value <= kMaxTmus)
+            out.tmus = value;
+        else if (key == "tmurev" && value >= 0) {
+            out.tmuRevision = value;
+            out.palette = value >= 1 && out.generation != Generation::VoodooRush;
+        } else
+            return false;
+    }
+    return true;
 }
 
 Pipeline::Pipeline(Board board) : board_(board), renderer_(makeSoftwareRenderer()) {
@@ -51,6 +123,12 @@ bool Pipeline::open(int width, int height, int colorBuffers, int auxBuffers) {
     // The auxiliary buffer is always kept: a board with room for it has it
     // (the application only chooses whether Glide checks for it).
     hasAux_ = true;
+    // On a UMA board the textures go above the buffers.
+    textureBase_ = 0;
+    if (board_.uma) {
+        const uint32_t align = uint32_t(std::max(board_.textureAlign, 1));
+        textureBase_ = uint32_t((need + align - 1) / align * align);
+    }
     color_.assign(3, std::vector<uint16_t>(size_t(width) * size_t(height), 0));
     aux_.assign(size_t(width) * size_t(height), 0);
     front_ = 0;
@@ -200,16 +278,25 @@ void Pipeline::downloadLevel(int tmu, uint32_t start, const TextureInfo& info, i
     if (at >= mem.size())
         return;
     const size_t n = std::min(bytes, mem.size() - at);
-    std::memcpy(mem.data() + at, data, n);
-    renderer_->textureMemoryChanged(*this, tmu, at, uint32_t(n));
+    // On a UMA board every TMU reads the one memory: written to each copy.
+    for (int t = 0; t < board_.tmus; ++t) {
+        if (t != tmu && !board_.uma)
+            continue;
+        std::memcpy(tmuMemory_[size_t(t)].data() + at, data, n);
+        renderer_->textureMemoryChanged(*this, t, at, uint32_t(n));
+    }
 }
 
 void Pipeline::writeTmuMemory(int tmu, uint32_t at, const uint8_t* data, size_t bytes) {
     if (tmu < 0 || tmu >= board_.tmus || at >= board_.tmuMemory)
         return;
     const size_t n = std::min(bytes, size_t(board_.tmuMemory - at));
-    std::memcpy(tmuMemory_[size_t(tmu)].data() + at, data, n);
-    renderer_->textureMemoryChanged(*this, tmu, at, uint32_t(n));
+    for (int t = 0; t < board_.tmus; ++t) {
+        if (t != tmu && !board_.uma)
+            continue;
+        std::memcpy(tmuMemory_[size_t(t)].data() + at, data, n);
+        renderer_->textureMemoryChanged(*this, t, at, uint32_t(n));
+    }
 }
 
 void Pipeline::setPalette(int tmu, int first, int last, const uint32_t* entries) {

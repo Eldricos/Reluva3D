@@ -78,14 +78,21 @@ bool Glide2::resolutionSize(int resolution, int& width, int& height) {
     return true;
 }
 
-bool Glide2::sstWinOpen(uint32_t, int resolution, int, int colorFormat, int origin, int colorBuffers, int auxBuffers) {
+bool Glide2::sstWinOpen(uint32_t hwnd, int resolution, int, int colorFormat, int origin, int colorBuffers, int auxBuffers) {
     if (pipeline_.isOpen())
         return false; // "If grSstWinOpen is called on an already open window, FXFALSE will be returned."
     int w = 0, h = 0;
     // GR_RESOLUTION_NONE (a window's own size) is for the Voodoo Rush only;
-    // elsewhere it fails (Glide 2.4 Reference Manual, grSstWinOpen).
-    if (!resolutionSize(resolution, w, h))
+    // elsewhere it fails (Glide 2.4 Reference Manual, grSstWinOpen: "This
+    // signals Glide to use the user specified window").
+    if (resolution == kResolutionNone && board_.windowed) {
+        w = 640;
+        h = 480;
+        if (windowSize && !windowSize(hwnd, w, h))
+            return false;
+    } else if (!resolutionSize(resolution, w, h)) {
         return false;
+    }
     if (!pipeline_.open(w, h, colorBuffers, auxBuffers))
         return false;
     colorFormat_ = colorFormat & 3;
@@ -139,6 +146,24 @@ Vertex Glide2::convert(const Glide2Vertex& v) const {
     Vertex o;
     o.x = v.x;
     o.y = v.y;
+    if (board_.generation == Generation::Voodoo1 || board_.generation == Generation::VoodooRush) {
+        // A snapped coordinate (Programming Guide, Floating Point Vertex
+        // Snapping: x + 3 << 18, a float whose last bit is 1/16) passed
+        // without taking the snapper off again, as NFS III's voodooa.dll
+        // does (RE, THRASH_drawtri 0x60003610: fadd 786.432e3, no fsub):
+        // read as its low 16 bits, the 12.4 two's complement the SST-1's
+        // vertexAx registers take (its specification, vertex registers).
+        // Reluva's reading of how that board's Glide took them.
+        auto unsnap = [](float f) {
+            uint32_t bits;
+            std::memcpy(&bits, &f, 4);
+            if ((bits >> 23 & 0xff) != 127 + 19 || (bits >> 31))
+                return f;
+            return float(int16_t(bits & 0xffff)) / 16.0f;
+        };
+        o.x = unsnap(v.x);
+        o.y = unsnap(v.y);
+    }
     o.ooz = v.ooz;
     o.oow = v.oow;
     o.r = v.r;
@@ -296,7 +321,17 @@ void Glide2::constantColorValue4(float a, float r, float g, float b) {
 void Glide2::cullMode(int mode) { pipeline_.state().cull = mode; }
 void Glide2::depthBiasLevel(int level) { pipeline_.state().depthBias = int(int16_t(level)); }
 void Glide2::depthBufferFunction(int function) { pipeline_.state().depthFunc = function & 7; }
-void Glide2::depthBufferMode(int mode) { pipeline_.state().depthMode = mode; }
+void Glide2::depthBufferMode(int mode) {
+    // The compare-to-bias modes "are not available in revision 1 of the
+    // Pixelfx chip" (Glide 2.4 Programming Guide, Depth Buffering): there,
+    // plain z or w buffering.
+    if (board_.generation == Generation::Voodoo1 && board_.fbiRevision < 2 &&
+        (mode == kDepthZCompareToBias || mode == kDepthWCompareToBias)) {
+        notImplemented("grDepthBufferMode compare to bias", "not on Pixelfx revision 1: plain depth buffering");
+        mode = mode == kDepthZCompareToBias ? kDepthZBuffer : kDepthWBuffer;
+    }
+    pipeline_.state().depthMode = mode;
+}
 void Glide2::depthMask(bool enable) { pipeline_.state().depthMask = enable; }
 
 void Glide2::disableAllEffects() {
@@ -359,7 +394,9 @@ TextureInfo Glide2::textureInfo(int smallLod, int largeLod, int aspect, int form
     return t;
 }
 
-uint32_t Glide2::texMinAddress(int) const { return 0; }
+// The lowest start address: 0, or on a UMA board the first after the
+// window's buffers.
+uint32_t Glide2::texMinAddress(int) const { return pipeline_.textureBase(); }
 
 uint32_t Glide2::texMaxAddress(int) const {
     // The highest start address, valid for a 1x1 level (Reference Manual):
@@ -441,6 +478,10 @@ void Glide2::texDownloadTable(int tmu, int type, const uint8_t* data) {
 }
 
 void Glide2::texDownloadTablePartial(int tmu, int type, const uint8_t* data, int first, int last) {
+    if (type == kTablePalette && !board_.palette) {
+        notImplemented("grTexDownloadTable(GR_TEXTABLE_PALETTE)", "this board's TMUs have no palette: ignored");
+        return;
+    }
     if (type == kTablePalette) {
         uint32_t entries[256];
         first = std::clamp(first, 0, 255);

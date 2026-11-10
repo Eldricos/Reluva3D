@@ -128,11 +128,24 @@ public:
     uint32_t glideGetState();
     void glideSetState(uint32_t token);
 
+    // A vertex as the layout gives it before the division by w: clip
+    // coordinates (or, `window`, a window-coordinate vertex as drawn).
+    struct ClipVertex {
+        bool window = false;
+        Vertex v;           // colours and the parameters the layout leaves out
+        float x = 0, y = 0, z = 0, w = 1, q = 1;
+        bool hasZ = false;
+        float s[kMaxTmus] = {}, t[kMaxTmus] = {}, qi[kMaxTmus] = {1, 1, 1};
+    };
+
 private:
-    // A primitive drawn, anti-aliased if GR_AA_ORDERED is on.
-    void triangle(const Vertex& a, const Vertex& b, const Vertex& c);
-    void line(const Vertex& a, const Vertex& b);
-    void point(const Vertex& a);
+    ClipVertex readClip(const uint8_t* at);
+    Vertex project(const ClipVertex& c) const;
+    // Drawn after clipping against the view volume (clip coordinates),
+    // anti-aliased if `aa`.
+    void clipTriangle(const ClipVertex& a, const ClipVertex& b, const ClipVertex& c, bool aa);
+    void clipLine(const ClipVertex& a, const ClipVertex& b, bool aa);
+    void clipPoint(const ClipVertex& a, bool aa);
     static Glide2TexInfo toGlide2(const Glide3TexInfo& info);
 
     Board board_;
@@ -151,7 +164,8 @@ private:
     };
     std::map<uint32_t, Saved> saved_;
     // For strips and fans continued by the next call.
-    std::vector<Vertex> strip_;
+    std::vector<ClipVertex> strip_;
+    ClipVertex clip_; // the last vertex read in clip coordinates
     uint32_t lastMode_ = 0xffffffffu;
     size_t stripParity_ = 0;
 };
