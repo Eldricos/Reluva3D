@@ -152,7 +152,25 @@ to the points, used in place):
     - the rain: with weather on (`0x6fd4cc`, the `w` sky variant,
       `0x41439e`), it isn't drawn under cover (`0x491c1b`);
     - a camera distance: a table value (`0x552e54`) instead of 25
-      (`0x421bbf`).
+      (`0x421bbf`);
+    - the camera's time under cover (November 2026): every camera tick,
+      whatever the view (`0x426450` calls `0x426370` first), counts
+      `0x5e1014[screen × 2]` up by one (`0x4263bf`) while both the
+      camera's car (its position +0x98, slice +0x1C) and the eye (+0x14,
+      slice +0x84) are covered, and sets it to 0 otherwise (`0x4263ca`;
+      the camera set-up `0x422cf0` clears it too, `0x422d86`). Its one
+      reader, the far chase views' tick (`0x424740`, modes 3 and 5,
+      `0x4247af`), takes the near chase view's offset (0, 1.0, −3.25)
+      instead of its own once it is over 32, half a second at 64 ticks
+      a second: in a tunnel the far camera closes in behind the car,
+      and goes back out (by its lag) as soon as either leaves cover.
+      Run `n3-runs/uc2` (Hometown, the player driven by the computer, the
+      view slots poked to 3, 0, 0, 0 at `0x474ca0`, `-watch` `0x4263bf`
+      and `0x4247c1` reading `0x5e1014`): it counted up from 0 at
+      75.132 s to 51 at 75.907 s, about 64 a second, and was 0 again at
+      the next covered stretch, the covered bridge from 79.760 s (frame
+      2872); the near offset was taken (`0x4247c1`) exactly while it was
+      over 32, 75.614-75.907 s.
 
     Every track has some; on Hometown, 36 points with 2 on both sides.
   - **Wall hits.** After a wall collision, the car's impact field
