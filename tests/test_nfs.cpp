@@ -3250,6 +3250,58 @@ void testThrashDirect3D() {
     }
 }
 
+// THRASH's blend modes in the software rasterizer, as the GPU's drawing
+// (thrash_gpu.cpp) and softtria do them (thrash.md, Blend modes): while
+// blending is on (state 0xa) state 0x68's mode applies to opaque pixels
+// too, so an added pixel of alpha 255 is added in full; with blending off,
+// or in mode 0, an opaque pixel replaces what's there.
+void testThrashBlend() {
+    x86::Cpu cpu(1u << 21);
+    const uint32_t target = 0x10000, verts = 0x1000;
+    NativeThrash t(cpu);
+    t.setTarget(target, 640 * 2, 640, 480);
+    t.setState(0x5, 0); // no dither: exact 5:6:5 steps
+    // A triangle over pixel (10, 10) in one colour; the pixel's red, of 31.
+    auto draw = [&](uint32_t argb) {
+        const float at[3][2] = {{0, 0}, {40, 0}, {0, 40}};
+        for (int i = 0; i < 3; ++i) {
+            const float f[4] = {at[i][0], at[i][1], 0.5f, 1};
+            std::memcpy(cpu.memory().data() + verts + 32 * i, f, 16);
+            std::memcpy(cpu.memory().data() + verts + 32 * i + 16, &argb, 4);
+        }
+        t.triangle(verts, verts + 32, verts + 64);
+        uint16_t p;
+        std::memcpy(&p, cpu.memory().data() + target + 10 * 1280 + 10 * 2, 2);
+        return int(p >> 11);
+    };
+    auto base = [&] {
+        t.setState(0xa, 0);
+        return draw(0xff404040u); // red 64: 8 of 31 (64 >> 3), read back as 65
+    };
+    CHECK(base() == 8);
+    // Added, opaque: 65 + 64 = 129, 16 of 31 (the old drawing replaced it: 8).
+    t.setState(0xa, 2);
+    t.setState(0x68, 1);
+    CHECK(draw(0xff404040u) == 16);
+    // Added, alpha 128: 65 + 32 = 97, 12 of 31.
+    CHECK(base() == 8);
+    t.setState(0xa, 2);
+    CHECK(draw(0x80404040u) == 12);
+    // Mode 2 (zero, inverse source alpha) at alpha 255: black.
+    CHECK(base() == 8);
+    t.setState(0xa, 2);
+    t.setState(0x68, 2);
+    CHECK(draw(0xff404040u) == 0);
+    // Blending off: an opaque pixel replaces, whatever 0x68 says.
+    CHECK(base() == 8);
+    t.setState(0x68, 1);
+    CHECK(draw(0xffc0c0c0u) == 24);
+    // Mode 0, on: opaque replaces, translucent mixes.
+    t.setState(0xa, 2);
+    t.setState(0x68, 0);
+    CHECK(draw(0xff404040u) == 8);
+}
+
 } // namespace
 
 // DirectInput effects as the game would set them, in a little memory of
@@ -4415,6 +4467,7 @@ int main() {
     testSound3d();
     testThrashFog();
     testThrashDirect3D();
+    testThrashBlend();
     stdfs::remove_all(tmp);
     if (failures)
         std::fprintf(stderr, "%d check(s) failed\n", failures);

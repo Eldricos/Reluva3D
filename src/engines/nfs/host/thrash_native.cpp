@@ -263,10 +263,16 @@ void NativeThrash::plot(int x, int y, uint32_t argb) {
 void NativeThrash::put(uint8_t* p, uint32_t argb, int x, int y) {
     uint32_t r = (argb >> 16) & 255, g = (argb >> 8) & 255, b = argb & 255;
     const uint32_t a = argb >> 24;
-    if (a < 255) {
+    // State 0x68's other modes apply while blending is on (state 0xa), to
+    // opaque pixels too: an added pixel of alpha 255 is added in full, as
+    // the GPU's (source alpha, one) adds it and softtria's additive spans
+    // do (thrash.md, Blend modes). Otherwise what's translucent is blended
+    // over what's drawn, and what's opaque replaces it.
+    const int mode = alphaBlend_ ? blend_ : 0;
+    if (a < 255 || mode != 0) {
         const uint16_t d = uint16_t(p[0] | p[1] << 8);
         const uint32_t dr = ((d >> 11) & 31) * 255 / 31, dg = ((d >> 5) & 63) * 255 / 63, db = (d & 31) * 255 / 31;
-        switch (blend_) {
+        switch (mode) {
         case 1: // additive
             r = std::min(255u, dr + r * a / 255);
             g = std::min(255u, dg + g * a / 255);
