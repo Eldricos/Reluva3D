@@ -1656,6 +1656,15 @@ looks up are carried out (glide.md, NFS III's voodoo2a.dll).
   without fog, as its code says (thrash.md, The Voodoo3 patch's
   voodoo2a.dll). The version check the game makes passes: the DLL takes
   the version the game sends it before `about()`.
+- The install's Voodoo Graphics module `voodooa.dll` (Glide 2) runs on a
+  Voodoo Graphics stand-in: `-glidedll <install>/voodooa.dll -glideboard
+  voodoo1` (or `glideboard=voodoo1` beside `glidedll=` on the Play page).
+  With the board's 2 MB of texture memory the game leaves the cockpit out;
+  `-glideboard voodoo1,tmu=4` (the 6 MB card) has it, and the frames are
+  then within a fraction of a level of the Voodoo2's
+  ([thrash.md](../formats/nfs/thrash.md), The Voodoo Graphics module).
+  `-glideboard` takes `voodoo1`, `rush`, `voodoo2`, `banshee`, `voodoo3`,
+  with `,tmu=MB`, `,fb=MB`, `,tmus=N`, `,tmurev=N` (glide.md, Boards).
 
 Next: the open rounding questions (glide.md, Open questions); the
 undocumented dither rounding still needs a real card's frames.

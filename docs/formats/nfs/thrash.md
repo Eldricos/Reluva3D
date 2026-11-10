@@ -580,6 +580,38 @@ The patch exports the same 34, with different ordinals, plus
 never asks for those three: its loader `0x4f8390` looks up only the 34
 `@8`/`@4`/... names, as with every renderer.
 
+**`about()`'s fields** (November 2026, the patch's `0x60001560`; the
+game's readers found with `tools/nfsre`'s `xref 0x9ef980`, the pointer
+`0x4f8390` stores `about` in). The structure is 208 bytes at
+`0x60017df8`, filled once:
+
+| Offset | Patch DLL | What `nfs3.exe` does with it |
+|---|---|---|
+| +0 | "2FD3" (retail "XFD3") | `0x4f8390`: "XFD3" sets `0x564410`, which nothing reads |
+| +4 | 0xd0, the structure's size | — |
+| +8 | the version (0x68-0x6a, negotiated) | the version check above |
+| +0xc | flags: 1, 2, 4, 8, 0x40; 0x80 when one TMU | — (not read by the callers found) |
+| +0x10-+0x20 | 1, 0x100, 1, 1, 0x100 | the cockpit loader (`0x488afc`-`0x488b2a`): +0x10 ≤ 0x100, +0x14 ≥ 0x100, +0x1c ≤ 0x100, +0x20 ≥ 0x100, else no cockpit: the smallest and largest texture sides |
+| +0x24, +0x28 | 1, 1 | — |
+| +0x2c, +0x30 | 11 and a table of 11 texture formats (`0x60014068`) | `0x49c5c0`: picks texture type 3 if the table's first entry has flag 1 at +0xc, else 7 if the second has it at +0x1c, else "Cannot support texture type" |
+| +0x34, +0x38 | 4 and a table (`0x6001409c`) | — |
+| +0x3c, +0x40 | 19 modes and their 40-byte records (`0x600140b8`) | `0x4be570`, `0x4bed90`, `0x4bee80`, `0x4bef50`: the mode number checked against +0x3c and its record copied (10 words to `0x7cdae0`) |
+| +0x44-+0x50 | three words and a half-word from `0x600115b0` | — |
+| +0x6c | the board, 0-4 by `grGetString(GR_HARDWARE)` | — (not read by the callers found) |
+| +0x70 | the texture budget (Memory, below) | `0x488a80` (the cockpit) and `0x4b5ea0`: compared with 2 MB and 4 MB |
+| +0x74 | 3 (Glide 3), the retail DLL and `voodooa.dll` 1 | `0x488ad3`, `0x4b5ebe`: added to +0x70 before a comparison with 4 MB (one caller) or 2 MB (mode 6 only); bit 0 tested (`0x488ae0`); bit 15 tested (`0x488ac5`), set by none of the three DLLs |
+| +0x78 | `0x60014644` | — |
+| +0x7c | 5 | — |
+| +0x80 | the hardware name (version 0x6a only) | — |
+
+The cockpit loader (`0x488a80`), when the game's flags at `0x7a3a58` ask
+for the check: with bit 0 of +0x74 set (every DLL here) and +0x70 at or
+below 2 MB the cockpit is left out; above 2 MB (and below 4 MB plus +0x74)
+the texture sides decide. That is why `voodooa.dll` on a 2 MB-texture
+Voodoo Graphics races without the cockpit (The Glide stand-in, The Voodoo
+Graphics module, below). Each field can be overridden by a
+`VOODOO2_<name>`/`THRASH_<name>` variable (`0x60004ff0`).
+
 **`about()` and the game's check.** The retail `about()` (`0x60001a60`)
 fills its structure with the signature 0x33444658 ("XFD3" in memory)
 at +0 and the version 0x68 at +8. The patch's (`0x60001560`) puts
@@ -735,13 +767,22 @@ instructions, 3,829 frames) and the code:
   `grGlideShutdown` at every close). Reluva answers "Voodoo3 (tm)" and
   "3.10". `grGetString(GR_EXTENSION)` is searched for "PALETTE6666" and
   "TEXMIRROR"; Reluva offers neither.
-- **Memory** (`0x6000198a`): `grGet(GR_NUM_FB)`, then if
-  `grGet(GR_MEMORY_UMA)` succeeds at all (its value isn't read) +0x74 is
-  3, else 1 and `GR_MEMORY_FB` (doubled for two) sizes each mode's buffer
-  count. Each mode then asks `grQueryResolutions` with and without an
-  auxiliary buffer for the most colour buffers (70 queries at start-up).
-  The texture budget is `grTexMaxAddress - 2 × grTexMinAddress`, rounded
-  to 16.
+- **Memory** (`0x6000198a`): `grGet(GR_NUM_FB)` (two or more: SLI),
+  then `grGet(GR_MEMORY_UMA)`. If that succeeds and `0x60014030` is set
+  (detection sets it to 1 every time, `0x600018c1`), +0x74 is 3 and the
+  value read is the memory each mode's buffer count is worked out from
+  (bytes ÷ width × height × bytes a pixel, `0x60001a0c`); else +0x74 is 1
+  and `GR_MEMORY_FB` (doubled for SLI) is. Glide 3's grGet answers
+  `GR_MEMORY_UMA` on every board (the total, or 0 when not UMA), so on
+  Glide 3 this is always the first path, and a non-UMA board's 0 gives
+  every mode 0 buffers there. For each usable mode the count is then
+  replaced by `grQueryResolutions`' most colour buffers, asked with and
+  without an auxiliary buffer (`0x60001b60`: resolution set, refresh and
+  buffers `GR_QUERY_ANY`; 70 queries at start-up), and held to 3. So only
+  the modes the DLL marks unusable keep the memory's count. The texture
+  budget is `grTexMaxAddress − grTexMinAddress − grTexMinAddress`
+  (`0x60001a7b`-`0x60001a96`), rounded up to 16: the same formula as the
+  retail DLL's and `voodooa.dll`'s (`0x600019a7`).
 - **Opening** (`setvideomode`, `0x60001f40`): `grSstWinOpen(hwnd, 7
   (640x480), 0, ARGB, upper left, 2, 1)`, keeping the context;
   `grGet(GR_VIEWPORT)`; `grTexCombine(0, LOCAL, ZERO, LOCAL, ZERO)`;
@@ -764,6 +805,12 @@ instructions, 3,829 frames) and the code:
   retail DLL, without fog (screenshots in the session's scratch folder,
   not in the repo). The run takes 256 s in software (Release build; the
   retail DLL's same run 215 s, both with other work on the machine).
+- **On the unified-memory Voodoo3** (November 2026, after the stand-in's
+  Voodoo3 became the specification's one 16 MB memory): the same run,
+  3,829 frames, menus to the race with the cockpit, 248 s.
+  `grTexMinAddress` is now 1,843,200 (above the three 640x480 buffers),
+  so the budget (`about()` +0x70) is 16 MB − 8 − 2 × 1,843,200, 13,090,816
+  bytes after rounding.
 
 ## The Glide stand-in
 
@@ -842,6 +889,35 @@ menus into the race) takes 258 s, about 15.6 frames a second; the DLL's
 own code is 0.15 million instructions of a race frame's 1.4 million. The
 Play page shows the menus at about 15 frames a second. The native
 drawing is faster; the stand-in is a reference, not the default.
+
+**The Voodoo Graphics module** (November 2026). The install's
+`voodooa.dll` (93 KB, Watcom, the module for a Voodoo Graphics card) runs
+on the Glide 2 stand-in on a Voodoo Graphics board: `nfs-host <game>
+-glidedll <install>/voodooa.dll -glideboard voodoo1` (glide.md, NFS III's
+voodooa.dll, and Boards). It passes x and y snapped and not unsnapped
+(`+786,432.0`, `0x60003610`), which the stand-in reads as the SST-1's
+12.4 registers would; it uses `GR_CMP_GEQUAL` for the alpha test where
+`voodoo2a.dll` uses `GR_CMP_GREATER`; its board code treats a Voodoo Rush
+and the SST-1's Pixelfx revisions apart (`0x600018c0`). The same run as
+above (5 billion instructions, 3,942 frames, software, 221 s): menus,
+loading screen and race. With the board's 2 MB of texture memory the
+texture budget is under 2 MB and the game races without the cockpit
+(`about()`'s +0x70, `0x488a80`); with `voodoo1,tmu=4` (the 6 MB card,
+264 s) the cockpit is there and its frames against `voodoo2a.dll`'s on the
+Voodoo2:
+
+| | mean difference (of 255) | pixels differing | off by more than 24 |
+|---|---|---|---|
+| Menus (frames 200-1,600, every 200th) | 0.014-0.028 | 830-1,620 | 0-3 |
+| Loading screen (1,800-2,200) | 0-0.001 | 0-46 | 0 |
+| Race (2,400-3,000) | 0.13-0.37 | 5,100-22,800 | 400-820 |
+| Race (3,200-3,800) | 6.4-12.2 | 73,000-122,000 | 30,000-43,500 |
+
+The menus' pixels lie along the alpha-tested title letters (the alpha
+test). The race's grow because the two runs' game clocks part (0:09.03
+against 0:08.98 at frame 2,600): the DLLs' own instructions count towards
+`-deterministic`'s clock, so the cars are elsewhere by the later frames.
+Screenshots in the session's scratch folder, not in the repo.
 
 **On the GPU** (November 2026). The stand-in's GPU backend
 (docs/engines/glide.md, The GPU backend) draws the same pixels by the
