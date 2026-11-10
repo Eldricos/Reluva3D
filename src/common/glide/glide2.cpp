@@ -355,8 +355,10 @@ void Glide2::fogTable(const uint8_t table[64]) {
 }
 
 void Glide2::gammaCorrectionValue(float gamma) {
-    if (gamma > 0 && gamma <= 20)
+    if (gamma > 0 && gamma <= 20) {
         pipeline_.state().gamma = {gamma, gamma, gamma};
+        pipeline_.setGammaValue();
+    }
 }
 
 void Glide2::hints(int type, uint32_t mask) {

@@ -307,6 +307,14 @@ public:
     // the conversion (a later Voodoo2/3 video filter belongs there).
     void present(Surface& out);
     using GammaTables = std::array<std::array<uint8_t, 256>, 3>; // red, green, blue
+    // grLoadGammaTable: the hardware table's first `n` entries per channel
+    // (0-255), the rest kept; the table has the board's
+    // gammaTableEntries, read by interpolating between them (Glide 3.0
+    // Reference Manual: values "interpolated to generate an output gamma
+    // value"; the Voodoo2's clutData). A gamma value (state().gamma) set
+    // afterwards replaces it (setGammaValue).
+    void loadGammaTable(int n, const uint32_t* r, const uint32_t* g, const uint32_t* b);
+    void setGammaValue() { gammaLoaded_ = false; }
     std::function<void(const uint16_t* pixels, int width, int height, const GammaTables& gamma, Surface& out)>
         outputFilter;
 
@@ -321,6 +329,8 @@ private:
     int width_ = 0, height_ = 0, colorBuffers_ = 2;
     bool hasAux_ = false;
     uint32_t textureBase_ = 0;
+    bool gammaLoaded_ = false;
+    std::array<std::vector<uint8_t>, 3> gammaTable_;
     // Colour buffers by slot; front_ and back_ index them.
     std::vector<std::vector<uint16_t>> color_;
     int front_ = 0, back_ = 1, triple_ = 2;

@@ -5,6 +5,7 @@
 
 #include <algorithm>
 #include <cstring>
+#include <vector>
 
 namespace reluva::glide {
 
@@ -336,7 +337,20 @@ void Glide3Dll::addAll() {
     });
 
     // --- Not stood in for yet: they log once and fail ----------------------------
-    stub("grLoadGammaTable", 16);
+    add("grLoadGammaTable", 16, [this, &g](Cpu& c) {
+        const int n = int(std::min<uint32_t>(c.arg(0), 4096));
+        const uint8_t *r = guest(c.arg(1), uint32_t(n) * 4), *gg = guest(c.arg(2), uint32_t(n) * 4),
+                      *b = guest(c.arg(3), uint32_t(n) * 4);
+        if (n > 0 && r && gg && b) {
+            const size_t count = size_t(n);
+            std::vector<uint32_t> rv(count), gv(count), bv(count);
+            std::memcpy(rv.data(), r, size_t(n) * 4);
+            std::memcpy(gv.data(), gg, size_t(n) * 4);
+            std::memcpy(bv.data(), b, size_t(n) * 4);
+            g.pipeline().loadGammaTable(n, rv.data(), gv.data(), bv.data());
+        }
+        return 0u;
+    });
     stub("grSplash", 20);
     add3dfLoaders(true);
 }

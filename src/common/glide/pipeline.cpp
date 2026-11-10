@@ -411,6 +411,28 @@ void Pipeline::lfbWrite(int bufferId, int x, int y, int mode, uint32_t value, bo
     state_.renderBuffer = savedBuffer;
 }
 
+void Pipeline::loadGammaTable(int n, const uint32_t* r, const uint32_t* g, const uint32_t* b) {
+    const int size = std::max(board_.gammaTableEntries, 2);
+    const uint32_t* channel[3] = {r, g, b};
+    for (size_t ch = 0; ch < 3; ++ch) {
+        std::vector<uint8_t>& t = gammaTable_[ch];
+        if (!gammaLoaded_ || int(t.size()) != size) {
+            // Starting from the table the current gamma gives.
+            t.resize(size_t(size));
+            const double gv = state_.gamma[ch] > 0 ? state_.gamma[ch] : 1.0;
+            for (int i = 0; i < size; ++i)
+                t[size_t(i)] = uint8_t(std::lround(std::pow(double(i) / (size - 1), 1.0 / gv) * 255.0));
+        }
+        // "If nEntries is less than the size of the hardware-dependent gamma
+        // table, the first part of the table will be overwritten ... If
+        // nEntries is greater than the gamma table size, the extra values are
+        // discarded."
+        for (int i = 0; i < std::min(n, size); ++i)
+            t[size_t(i)] = uint8_t(std::min<uint32_t>(channel[ch][i], 255));
+    }
+    gammaLoaded_ = true;
+}
+
 void Pipeline::present(Surface& out) {
     if (open_)
         renderer_->syncBuffer(*this, kBufferFront);
@@ -423,6 +445,15 @@ void Pipeline::present(Surface& out) {
         const double g = state_.gamma[ch] > 0 ? state_.gamma[ch] : 1.0;
         for (int i = 0; i < 256; ++i)
             gamma[ch][size_t(i)] = uint8_t(std::clamp(std::lround(std::pow(i / 255.0, 1.0 / g) * 255.0), 0L, 255L));
+        if (gammaLoaded_) {
+            const std::vector<uint8_t>& t = gammaTable_[ch];
+            const int n = int(t.size());
+            for (int i = 0; i < 256; ++i) {
+                const int pos = i * (n - 1); // in 255ths of an entry
+                const int k = std::min(pos / 255, n - 2), f = pos - k * 255;
+                gamma[ch][size_t(i)] = uint8_t((t[size_t(k)] * (255 - f) + t[size_t(k + 1)] * f + 127) / 255);
+            }
+        }
     }
     const uint16_t* src = color_[size_t(front_)].data();
     if (outputFilter) {

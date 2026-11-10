@@ -635,8 +635,10 @@ void Glide3::fogTable(const uint8_t* table) {
 
 void Glide3::gammaCorrectionRgb(float red, float green, float blue) {
     auto ok = [](float g) { return g > 0 && g <= 20; };
-    if (ok(red) && ok(green) && ok(blue))
+    if (ok(red) && ok(green) && ok(blue)) {
         pipeline().state().gamma = {red, green, blue};
+        pipeline().setGammaValue();
+    }
 }
 
 void Glide3::texMipMapMode(int tmu, int mode, bool lodBlend) {

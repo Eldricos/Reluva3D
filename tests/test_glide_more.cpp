@@ -478,6 +478,31 @@ void testBoards() {
     const uint32_t at = v3.core().texMinAddress(0);
     v3.texDownloadMipMap(0, at, kLevelsBoth, {0, 0, 0, kTexRgb565}, texel);
     CHECK(v3.pipeline().tmuMemory(1)[at] == 0x34 && v3.pipeline().tmuMemory(1)[at + 1] == 0x12);
+    // grLoadGammaTable: 256 entries on the Voodoo3, read through.
+    std::vector<uint32_t> inv(256);
+    for (uint32_t i = 0; i < 256; ++i)
+        inv[i] = 255 - i;
+    v3.pipeline().loadGammaTable(256, inv.data(), inv.data(), inv.data());
+    v3.core().ditherMode(kDitherDisable);
+    v3.core().bufferClear(0xffffffffu, 0, 0);
+    v3.core().bufferSwap(0);
+    reluva::Surface shown;
+    v3.pipeline().present(shown);
+    CHECK(shown.row(0)[0] == 0 && shown.row(0)[1] == 0);
+    // Only the first entries given: the rest as the gamma value made them
+    // (1.0: the identity), interpolated over the board's 32 on a Voodoo2.
+    Glide2 v2g;
+    v2g.sstWinOpen(0, 7, 0, kColorArgb, 0, 2, 1);
+    v2g.ditherMode(kDitherDisable);
+    const uint32_t zero[4] = {0, 0, 0, 0};
+    v2g.pipeline().loadGammaTable(4, zero, zero, zero);
+    v2g.bufferClear(0xff808080u, 0, 0);
+    v2g.bufferSwap(0);
+    v2g.pipeline().present(shown);
+    CHECK(std::abs(int(shown.row(0)[0]) - 132) <= 4);
+    v2g.gammaCorrectionValue(1.0f); // a gamma value replaces the table
+    v2g.pipeline().present(shown);
+    CHECK(std::abs(int(shown.row(0)[0]) - 132) <= 4);
     // Glide 3's hardware names by generation.
     CHECK(Glide3(voodoo1Board()).getString(g3::kHardware) == "Voodoo Graphics");
     CHECK(Glide3(voodoo2Board()).get(g3::kMemoryUma, 4, v) == 4 && v[0] == 0);
