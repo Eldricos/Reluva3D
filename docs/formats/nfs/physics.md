@@ -913,10 +913,16 @@ vector at +0x124 × 8 × (+0x7B4 − +0x7B8) (`0x406880`), the spin zeroed,
   `fcomp` with +0x700, `jae` past it when 1 ≥ +0x700). It is kept under P's top speed cap
   × `0x40ee80`'s factor.
 - **speedsF.bin / speedsR.bin** (`0x40e000`; R when `0x6fd4c0`, the
-  track run backward): after a 16-byte header, one byte per two road
-  slices, the speed (`0x40e080`; 64 without the file); then one byte
-  per slice whose high 4 bits `0x40e0c0` returns (7 without the file,
-  `0x56f22c` set).
+  track run backward): from the file's first byte, one byte per two
+  road slices, the speed (`0x40e080`; 64 without the file); then, from
+  (slices + 1) / 2 on, one byte per slice whose high 4 bits `0x40e0c0`
+  returns (7 without the file, `0x56f22c` set). There is no header:
+  `0x40e000` keeps the loaded file's own address at `0x552558` and that
+  plus (slices + 1) / 2 at `0x55255c` (`0x40e040`-`0x40e057`), and each
+  track's file is exactly (slices + 1) / 2 + slices bytes (Hometown 959
+  slices, 1,439 bytes; tracks 1-8 likewise). Until November 2026 the
+  page skipped 16 bytes, so its speeds and lines were 32 slices late
+  (frd.md, The decisions recorded per call).
 - **The slice nibble is the best line's lane.** Lanes are numbered as
   +0x638 (the car's lane, from `0x40e2b0`), 7 the middle.
   `0x4096b0` (from the cop states `0x4057db`, the AI driver `0x409ca6`

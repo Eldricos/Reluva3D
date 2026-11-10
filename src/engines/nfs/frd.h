@@ -323,8 +323,10 @@ uint32_t carLitByTrackLights(uint32_t colour, const std::array<float, 3>& carAt,
 int carDetailLevel(float meanDepth, int option, bool night, bool mirror = false);
 
 // The computer's speed table (speedsF.bin, or speedsR.bin for the track
-// run backward; physics.md): after a 16-byte header, one byte per two
-// road slices, the speed wanted in m/s (0x40e080). 64 without the file.
+// run backward; physics.md): from the file's first byte (no header), one
+// byte per two road slices, the speed wanted in m/s (0x40e080); then a
+// byte per slice, the best line's lane in its high nibble. 64 without the
+// file.
 float aiSlicesSpeed(const std::vector<uint8_t>& speeds, int slice);
 
 // A placed sound's volume (0-127) at a distance in track units, as

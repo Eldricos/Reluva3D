@@ -2709,6 +2709,84 @@ which is the speed difference over 50-60 s. Both are the knife-edge
 lane choices of the earlier sections, not found in the per-call
 dynamics; not settled.
 
+**The decisions recorded per call** (November 2026, `o1-runs`, read
+with `capstone` and `gdecomp`). `t6-log`'s run again (`rec.sh`, run
+`d1`, 49.9-78.2 s): `-watch` in `car_driver_ai`'s state 1 after the gate
+(`0x409c15`) and after each routine it calls (`0x409c5d` past
+`0x409b70`, `0x409c6c` past `0x404b90`, `0x409c73` past
+`lane_votes_start`, `0x409c81` past the speed wanted, then `0x409c88`
+to `0x409cc7` past the flashing, the keeping behind, `0x409920`,
+`0x409840`, `0x4097c0`, `0x4096b0`, `0x4095d0`, `lane_votes_ahead`,
+`lane_votes_bonus` and `lane_choose`), with `-watchread` of the deciding
+car's own fields (edx: +0x638-+0x640, +0x7B0, +0x7B4, +0x7B8, +0x7C4,
++0x620, +0x660, +0x644), the vote table and the nearest cars
+(`0x56ee90`-`0x56ef7c`), `g_step`, and at the first stop 24 fields of
+each of the eight records (+8, +0x1C, +0x114, +0x1FC, +0x200, +0x21C,
++0x620, +0x638-+0x644, +0x660, +0x6E0, +0x7B0-+0x7C8, +0x168, +0x16C,
++0x7D4). 1,585 decisions, 226-227 per car; none returned early from
+`0x404b90` (below), every one in state 1. The page's side (`dsim`)
+builds the eight cars from each decision's reads (the deciding car's
++0x7BC the value its own `0x409330` leaves, read at the next stop) and
+runs `aiStep`'s driver on them, with the page's votes, nearest cars,
+speeds and pick printed from a scratch copy of `frd.cpp`; `cmp.py`
+compares them stage by stage.
+- **The speed table has no header.** The lanes, the cars ahead and
+  behind (with their centring flags) and rows 0-4 agreed on every
+  decision; the speed wanted after `0x409330` on 911 of 1,569 (50-78 s),
+  and so rows 7 and 8 (242 and 116 decisions) and the pick (1,502). The
+  game's values, divided by its +0x7BC, are the cap × the track's factor
+  (64.15, 67.08) to slice 136 and then 67, 67, 66, 65, 63, 61, 58, 56 at
+  slices 138-152: `speedsF.bin`'s bytes for slices 106-120 as the page
+  read them. `speedtable_speed` (`0x40e080`) reads byte slice / 2 of
+  the pointer at `0x552558`, which `0x40e000` sets to the loaded file
+  itself (`0x40e047`; `0x4e0ec0`'s second argument, 0x10, is not an
+  offset), and the lane nibbles start (slices + 1) / 2 on
+  (`0x40e040`-`0x40e057`); every track's file is exactly (slices + 1) /
+  2 + slices bytes. The page had skipped a 16-byte header, so on
+  Hometown it read the speeds 32 slices on. Fixed (`aiSlicesSpeed`,
+  `aiLineLane`).
+- With that, **the page's decision on the game's inputs is the game's on
+  all 1,584 decisions** (49.9-78.2 s): lanes, the speed wanted before
+  and after the keeping behind (applied in 295), the nearest cars, all
+  14 rows, the pick and +0x7B4. Rows 0, 1, 2, 3, 4, 7 and 8 are not 0 in
+  1,585, 223, 74, 1,224, 137, 940 and 428 decisions; rows 5, 6 and 9-12
+  never are (no strips, no car coming the other way, and the whole run
+  is within the race's start, `0x40f050`), so those rules are checked
+  against the code only.
+- **Where the sim still parts** (`aisim` logging the same inputs at each
+  decision, `why.py`): each car's first differing pick is an input a
+  few millimetres to centimetres off at the 4 m lane edge, not a rule.
+  Car 3 at 52.29 s: car 5's +0x7B8 is 3.991 in the game (lane 7, so not
+  centred in car 3's lane: row 7 −7, −3) and 4.001 on the page (lane
+  8: −3, −7), so the page's car 3 picks lane 7. Car 1 at 53.25 s: car 3
+  at 4.084 against 3.974 (car 3 has already parted). Car 5 at 53.10 s:
+  car 6 at 3.936 against 4.077. Car 2 at 53.21 s and car 4 at 52.90 s:
+  car 3's and car 6's lanes the same way. Car 1 at 54.5 s: in the game
+  it is in lane 8 (+0x7B8 11.10) two slices behind car 2 (10.39, lane 8),
+  so the keeping behind takes its speed wanted from 44.0 to 38.15; on
+  the page its pick at 53.25 s put it in lane 9 (14.73) with car 2 in
+  lane 8 (6.87), so no car is ahead in its lane and 44.0 stands. The
+  reach (`0x40cfd0`, 10 slices at these speeds) and the slice and lane
+  tests give the same cars ahead on both sides fed the same state.
+- `0x404b90` (not in the page; checked from the code): before the votes,
+  a car with a hit car at +0x16C, and with the AI level not 1 or a hit
+  strength (+0x168) of at least 15, takes its strength chopped when over
+  5 (`0x53619c`), or, for a driver of skill 0 (`0x404610`), 1 when
+  (step >> 5) & 7 is 0; if that is not 0 its speed wanted × 0.9
+  (`0x5361a4`) and the driver returns without voting. In `d1` no
+  decision took that way. State 2 (`0x409a90`, the cops' list
+  `0x5efc08`) needs a cop, so is never used on `t6-log`.
+
+Measured (`h1-runs/all.sh o1fix`, the columns as before; `n1final` in
+brackets): +0x638 changes in 124 samples (the game's 143; 122), 46 at an
+edge (47; 45), the aim past 8 m 163 (162; 160); speeds **2.82** m/s rms
+over the window (3.32) and 1.15 over 50-64 s (1.15); +0x7B8 0.0167 and
+0.1036 m rms (the same: the first 3.2 s are on slices under 136); the
+decisions to 56 s 297 of 338 (297), to 78 s **920** of 1,568 (843); the
+first differing picks 53.25, 53.21, 52.29, 52.90, 53.10, 74.32 and
+66.67 s (car 6 69.83, car 7 67.17); hits 24 (29). The `d7-watch2`
+replay (0.37 m) and `park` (120 stops, none past a wall) are unchanged.
+
 **The roadside cop** (`d7-runs/sim/park`,
 the police car ordered to lay a strip from every 8th slice of Hometown,
 120 stops): with the spring and the cut it parked past a wall 81 times,

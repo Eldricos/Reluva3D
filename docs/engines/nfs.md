@@ -1784,6 +1784,16 @@ README.md.
   of 338 (296), the speeds 0.68 m/s rms from 50 to 64 s (1.60). Cars 3
   and 5 still part at 55.7-56.4 s on the 4 m lane edge to a few
   centimetres, so the game's hits (cars 3 and 4 at 64 s) don't come.
+  Since `o1` the decisions have been recorded per driver call (every
+  routine's votes, the cars ahead and behind, the speed wanted and the
+  pick) and fed to the page's driver as the game had them: after one
+  fix (the speed table has no 16-byte header, so the page had read its
+  speeds and best lines 32 slices late; physics.md, speedsF.bin) the
+  page decides as the game does on all 1,584 decisions from 49.9 to
+  78.2 s. The sim's own run still parts at 52.3-53.3 s, each time
+  because another car's +0x7B8 is a few millimetres to centimetres
+  across the 4 m lane edge from the game's (frd.md, The decisions
+  recorded per call); speeds are 2.82 m/s rms over the window (3.32).
 - How the wall hits' particles look in play (read from the code only;
   their sounds are measured, not listened to), and wall code 3's
   material: the code tells it from code 5 only by its sound (material

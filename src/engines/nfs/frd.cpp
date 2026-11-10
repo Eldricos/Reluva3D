@@ -623,7 +623,9 @@ int carDetailLevel(float meanDepth, int option, bool night, bool mirror) {
 }
 
 float aiSlicesSpeed(const std::vector<uint8_t>& speeds, int slice) {
-    const size_t at = 16 + static_cast<size_t>(std::max(slice, 0) / 2);
+    // 0x40e080: the loaded file's byte at slice / 2; the file has no header
+    // (0x40e000 keeps the loaded file's own address at 0x552558).
+    const size_t at = static_cast<size_t>(std::max(slice, 0) / 2);
     return at < speeds.size() ? static_cast<float>(speeds[at]) : 64.0f;
 }
 
@@ -1020,8 +1022,10 @@ float aiLaneOffset(const TrackCollision::RoadPoint& p, int lane, float halfWidth
 }
 
 int aiLineLane(const std::vector<uint8_t>& speeds, int slice, int sliceCount) {
-    const size_t at = 16 + static_cast<size_t>((sliceCount + 1) / 2) + static_cast<size_t>(std::max(slice, 0));
-    return speeds.size() > 16 && at < speeds.size() ? speeds[at] >> 4 : 7;
+    // 0x40e0c0: the byte at the file's start + (slices + 1) / 2 + slice
+    // (0x55255c, set at 0x40e040-0x40e057).
+    const size_t at = static_cast<size_t>((sliceCount + 1) / 2) + static_cast<size_t>(std::max(slice, 0));
+    return at < speeds.size() ? speeds[at] >> 4 : 7;
 }
 
 namespace {

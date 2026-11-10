@@ -1623,10 +1623,10 @@ void testHeadlights() {
     CHECK(carDetailLevel(25, 0, false) == 0 && carDetailLevel(25, 0, true) == 1 && carDetailLevel(25, 1, false) == 1 &&
           carDetailLevel(10, 2, false) == 1 && carDetailLevel(250, 0, true) == 3 && carDetailLevel(301, 0, false) == -1);
 
-    // The speed tables: a byte per two slices after 16, 64 without one.
-    std::vector<uint8_t> speeds(16, 0);
-    speeds.push_back(20);
-    speeds.push_back(35);
+    // The speed tables: a byte per two slices from the file's first byte
+    // (0x40e080; Hometown's speedsF.bin is 1,439 bytes, 480 speeds and 959
+    // lanes), 64 without one.
+    std::vector<uint8_t> speeds{20, 35};
     CHECK(aiSlicesSpeed(speeds, 1) == 20 && aiSlicesSpeed(speeds, 2) == 35 && aiSlicesSpeed(speeds, 9) == 64);
     CHECK(aiSlicesSpeed({}, 0) == 64);
 }
@@ -1785,10 +1785,11 @@ void testComputerDriving() {
     CHECK(aiLaneOffset(p, 7, 1, 1) == 3);
     CHECK(aiLaneOpen(p, 5) && aiLaneOpen(p, 8) && !aiLaneOpen(p, 9) && !aiLaneOpen(p, 4));
     // The speed table: speeds for slice pairs, then a byte a slice.
-    std::vector<uint8_t> speeds(16, 0);
-    speeds.insert(speeds.end(), 100, 40);
+    std::vector<uint8_t> speeds(100, 40);
     speeds.insert(speeds.end(), 200, 0x80); // the best line in lane 8
-    CHECK(aiLineLane(speeds, 3, 200) == 8 && aiLineLane({}, 3, 200) == 7);
+    speeds[100 + 4] = 0x50;                 // slice 4's in lane 5
+    CHECK(aiLineLane(speeds, 3, 200) == 8 && aiLineLane(speeds, 4, 200) == 5 && aiLineLane({}, 3, 200) == 7);
+    CHECK(aiLineLane(speeds, 4, 199) == 5); // (199 + 1) / 2 speeds
     // The drivers' factors (0x408dc0) and the tracks' (0x40e410).
     CHECK(aiDriverFactor({2, false, 2}, 0) == 1 && std::fabs(aiDriverFactor({0, true, 4}, 128) - 0.94f * 1.05f) < 1e-6f);
     CHECK(std::fabs(aiDriverFactor({1, true, 0}, 384) - 0.97f * 0.95f * 0.95f) < 1e-6f);
@@ -1878,8 +1879,7 @@ void testComputerDriving() {
         CHECK(!one[0].braking && std::fabs(one[0].speed - (39.99f + 3.6f / 32 - 12.5f / 32)) < 1e-4f);
         // Accelerating over 44.703 m/s a racer's drive loses 3.45 / its
         // lateral grip multiplier (0x536364).
-        std::vector<uint8_t> fast(16, 0);
-        fast.insert(fast.end(), 100, 60);
+        std::vector<uint8_t> fast(100, 60);
         fast.insert(fast.end(), 200, 0x80);
         AiCarData grip = data;
         grip.latGrip = 3.45f / 2;
@@ -2239,8 +2239,7 @@ void testComputerCatchUpAndCops() {
     weaver.speed = 30;
     weaver.wanted = 30;
     std::vector<AiCar> lone{weaver};
-    std::vector<uint8_t> flat(16, 0);
-    flat.insert(flat.end(), 100, 30);
+    std::vector<uint8_t> flat(100, 30);
     aiStep(lone, 0, col, flat, data, 1, 1, false); // the first step takes the aim as it
     CHECK(lone[0].sideKept && lone[0].side == 2);
     lone[0].offset = 5.9f;
@@ -3744,8 +3743,7 @@ void testCarHits() {
         // (2.3), turned 30 degrees (+0x21C 2.24) in lane 7 (1.26).
         AiCarData d;
         d.accel.fill(4);
-        std::vector<uint8_t> flat(16, 0);
-        flat.insert(flat.end(), 100, 30);
+        std::vector<uint8_t> flat(100, 30);
         one[0].heading = 0;
         aiRaceTick(one, road, 4);
         aiStep(one, 0, road, flat, d, 8, 1, false, AiPhase::Drive);
@@ -3781,8 +3779,7 @@ void testCarHits() {
         b.roadRight = {std::cos(t), 0, -std::sin(t)};
         AiCarData d;
         d.accel.fill(0);
-        std::vector<uint8_t> flat(16, 0);
-        flat.insert(flat.end(), 100, 30);
+        std::vector<uint8_t> flat(100, 30);
         std::vector<AiCar> va{a}, vb{b};
         aiStep(va, 0, road, flat, d, 1, 1, false, AiPhase::Move); // odd: the side offset measured along each right
         aiStep(vb, 0, road, flat, d, 1, 1, false, AiPhase::Move);
@@ -3846,8 +3843,7 @@ void testCarHits() {
         r.reverseCount = 9;
         AiCarData d;
         d.accel.fill(4);
-        std::vector<uint8_t> flat(16, 0);
-        flat.insert(flat.end(), 100, 30);
+        std::vector<uint8_t> flat(100, 30);
         std::vector<AiCar> rv{r};
         aiStep(rv, 0, road, flat, d, 2, 1, false, AiPhase::Move);
         CHECK(rv[0].slice == 35 && rv[0].reverseCount == 0 && rv[0].ghostTicks == 64 && !rv[0].putBackDue);
@@ -4115,8 +4111,7 @@ void testCarHits() {
     // Out of the race the model only coasts (car_ai_model 0x408639): no
     // forces, the speed x 0.98 a call (+0xB8 over 22.35), the brake held;
     // the driver goes to state 4 (0x409d0c).
-    std::vector<uint8_t> flat(16, 0);
-    flat.insert(flat.end(), 100, 30);
+    std::vector<uint8_t> flat(100, 30);
     AiCarData go;
     go.accel.fill(4);
     go.maxBrake = 10;
@@ -4206,8 +4201,7 @@ void testComputerPursuits() {
     data.maxBrake = 10;
     data.maxVelocity = 70;
     data.topSpeedCap = 80;
-    std::vector<uint8_t> flat(16, 0);
-    flat.insert(flat.end(), 100, 30);
+    std::vector<uint8_t> flat(100, 30);
 
     // The side offset as the game measures it (0x4a2bc0): from the slice's
     // point along its right, so on a bend it moves across the slice while
