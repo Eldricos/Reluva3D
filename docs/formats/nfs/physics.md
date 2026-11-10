@@ -729,7 +729,11 @@ more, else the rear skid level is 0.1 × |speed|; the side speed ×
 when the side speed is bigger than the forward, both skid levels are
 |side| and the side speed × 0.2. Then back to the world. The car coasts
 to a stop in a few seconds and its tyres sound. Not hit in `gh1-ai` (no
-car finished).
+car finished). Wired in November 2026 (frd.md, "Out of the race, tipped,
+the grid and the rows"): the velocity and spins go into the body's rows
+(+0x4EC-+0x4F4, +0x4F8-+0x500) and back through them, and ai_integrate
+isn't called, so nothing else pushes the car; the driver's state 4 sets
+only the speed wanted (`0x408c50`, 11 or 0, for the gears' sound).
 
 **The drivers** (`0x55226c`, 15 rows of 0x18 bytes, indexed by the
 set-up record's +0x30): the name (Ace, Lead Foot, Gotcha, Ram Rod,
@@ -857,9 +861,13 @@ about 0.5 m/s (43.6-43.7 for 44.0; 36.9 for 36.5), from 0 to 12 m/s in
   `0x554f18`, low 16 bits kept; pick ((s & 0xFFFF00) >> 8) × 14 >> 16).
   When the pick is its slot (+0x1F0), it gets 0.5 (`0x53638c`) more
   side force, with yaw from it, and rear skid level 10 (`0x4084bc`).
+  The push is the side force (+0x4E0) + 0.5 and the yaw force (+0x2F8)
+  + 0.5 × that pushed side force (`0x4082dc`-`0x4082f8`; the × 1.0 after
+  it is `0x53638c` not over 1), before the slippery surface's factors.
   The random is seeded by `0x4371d0` from `0x6fd3b4`. In Reluva:
-  `aiStartSpin` and `AiStartRandom` (skid level only; the push is not
-  done).
+  `aiStartSpin` and `AiStartRandom`, the push in `aiMove`; the Track
+  page's racers start from the grid with Ctrl+J (frd.md, "Out of the
+  race, tipped, the grid and the rows").
 - **`0x407c30`** (slow or reversing): the speed wanted is kept under
   16.41 m/s; yaw from the heading error (× 2.5, in ±1.6, and ±0.02 ×
   +0xB8); the side speed damped (× 3, in ±38).

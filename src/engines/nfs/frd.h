@@ -540,6 +540,35 @@ struct AiCar {
     // Its slot in the race (+0x1F0), which the start's wheelspin picks
     // (aiStartSpin); -1 none (never picked).
     int slot = -1;
+    // The laps (aiLaps): the race's laps (0x6fd4b4; 0 none, the race runs
+    // on), the lap it is on (+0x204), the laps owed (+0x208), the slice it
+    // was on (+0x4), the lap last counted (+0x234), its state in the race
+    // (+0x2C4: 0 or 1 racing, 3 finished, 4 busted; out of the race at 3 or
+    // 4, ai_finished_coast 0x407380 drives it) and the step it finished or
+    // last moved on (+0x228). `ticketsOut`: the tickets that put it out of
+    // the race (0x6fd4bc; 0 none).
+    int laps = 0, lap = 0, lapsOwed = 0, slicePrev = -1, lapCounted = 0;
+    int raceState = 1, finishStep = 0, ticketsOut = 0;
+    // The step the race starts at (g_race_started 0x7d3680, set at step
+    // 0x200 by world_step 0x4c4911): before it car_ai_physics (0x4088f0)
+    // holds the car still and car_dynamics does nothing, while the driver
+    // acts. Unset (the least int): started.
+    int raceStartStep = -0x7fffffff;
+    // The body's rows as the game keeps them (+0xC0, +0xCC, +0xD8): turned
+    // as the page's unit axes (aiTiltedAxes), times `rowShape` (P, the rows
+    // as combinations of the unit ones, row-major: right, up, forward), set
+    // from the road polygon's 16.16 rows when the car is put on a slice
+    // (0x4a0aa0 -> 0x4a0980) or from a dump (aiSetRows). A turn keeps P
+    // (each row x a rotation); car_integrate_turn (0x4a2e20) makes the rows
+    // orthonormal (0x4b7840) once the turns since (+0x94, |x| + |y| + |z| /
+    // 32 a call) pass 1/32 turn (0x53c8f4) or +0x8C, taken down each call
+    // that turns, reaches 0 (it starts at 0, 0x4a0f20, so 256 calls; then
+    // 32), when P is the identity again.
+    std::array<float, 9> rowShape{1, 0, 0, 0, 1, 0, 0, 0, 1};
+    bool rowsShaped = false;
+    float turnSum = 0;   // +0x94
+    int turnCount = 0;   // +0x8C (a byte)
+    bool turnDue = false; // a model tick ran: car_integrate_turn after the move
     AiDriver driver;
     bool cop = false;   // +0x200 bit 0x20: weighs more in the votes of the cars behind
     int lane = 7, laneLeft = 7, laneRight = 7; // +0x638, +0x63C, +0x640
@@ -601,6 +630,16 @@ struct AiCar {
     // the contact's frame, only when it is 0 or less (aiModelSteer).
     float lift = 0;
     std::array<float, 3> liftMove{}; // car_move's moves since the last tick
+    // The body's rows the clearance was last taken with (right, up,
+    // forward): its box's reach (car_clearance 0x4a0440: |up . right| x the
+    // half width + |up . up| x the half height + |up . forward| x the half
+    // length) changes as the body turns.
+    std::array<float, 9> liftRows{};
+    bool liftRowsSet = false;
+    // And the road polygon's plane (+0x130, +0x148) it was taken against: a
+    // new polygon's plane under the same centre gives another clearance.
+    std::array<float, 3> liftUp{}, liftPoint{};
+    bool liftPlaneSet = false;
     // The road's right at the car (+0x124, car_road_frame 0x49ffa0): the
     // right of the road polygon under it (up x forward of its virtual
     // road vector), set by aiRoadFrame each step; the side offset +0x7B8
@@ -850,7 +889,8 @@ void aiSetWorld(AiCar& car, const TrackCollision& col, const std::array<float, 3
 void aiSetWorld(AiCar& car, const TrackCollision& col, const std::array<float, 3>& velocity,
                 const std::array<float, 3>& forward, const std::array<float, 3>& up);
 // The body's axes as the model has them (aiBodyAxes), rolled and pitched
-// by `roll` and `pitch`: the game's +0xD8, +0xC0, +0xCC.
+// by `roll` and `pitch`, times the rows' shape (AiCar::rowShape): the
+// game's +0xD8, +0xC0, +0xCC.
 void aiTiltedAxes(const TrackCollision& col, const AiCar& car, std::array<float, 3>& forward,
                   std::array<float, 3>& right, std::array<float, 3>& up);
 // The roll and pitch that give the body this up in the world.
@@ -1040,8 +1080,9 @@ AiStartRandom& aiStartRandom();
 // acceleration (`accel`, ai_accel 0x4064f0 as taken this tick) is its
 // table's first (+0x2EC[0]: under about 1 m/s, dry, not past distance
 // 100) draws a pick (AiStartRandom); when it is the car's slot (+0x1F0,
-// `AiCar::slot`) its rear skid level is set to 10 after the controller's
-// (the controller also pushes it sideways then, not done here).
+// `AiCar::slot`) its rear skid level is set to 10 after the controller's,
+// and aiMove gives it the push (0.5 more side force, and half the side
+// force more yaw force, 0x4082dc).
 bool aiStartSpin(const AiCar& car, const AiCarData& data, float accel, AiStartRandom& random);
 // A car out of the race (ai_finished_coast 0x407380, from car_ai_model
 // 0x408600 for a racer, +0x200 bit 1, with +0x2C4 3 finished or 4
@@ -1058,6 +1099,38 @@ struct AiCoast {
     float skidFront = 0, skidRear = 0;                      // +0x5C0, +0x5C4
 };
 void aiFinishedCoast(AiCoast& c);
+// The laps, each tick of 32 (the race task 0x42ce70 when the car's slice
+// changed: car_laps_owed 0x42cc20 and car_race_distance 0x42ce10; then
+// car_laps_task 0x4ce280): from a slice over 500 (0x1F5) to one of 0-50
+// (0x32) a lap is counted, or one owed paid; from slice 0 to one over 500
+// a lap is owed (the other way round on a backward track); the race
+// distance (`distance`, +8) is lap x slices + the slice (slices - slice
+// backward), 0 while a lap is owed. A racer whose lap reaches the race's
+// laps (`laps` over 0) has finished: +0x2C4 3, +0x228 the step. Only for a
+// car with `laps` set.
+void aiLaps(AiCar& car, int slices, int step, bool backward = false);
+// The default grid (0x42ba00, with no TRKnnn/start.dat, which the CD has
+// none of): grid place `index` of `cars` is on slice 3 x index + 1
+// (backward, the places counted from the back), half a lane width from the
+// slice's point, the even places to the left (byte 0x17's width x 0x8000,
+// halved as an int) and the odd to the right (byte 0x1B's), backward the
+// other way round; 0.5 up (0x8000). (The other way, with the track row's
+// +8 set, puts them about the road's middle lanes; no track has it.)
+int aiGridSlice(int index, int cars, int slices, bool backward = false);
+float aiGridOffset(const TrackCollision::RoadPoint& p, int index, bool backward = false);
+// A car put on the grid (0x42bcb0: car_place_on_slice 0x4a0aa0, lap 0, the
+// laps owed 1 on a backward track, the slice before = the slice, the race
+// distance, everything still): on `slice` at `offset` along its right,
+// facing the race's way, its rows the road polygon's (aiRoadFrame's 16.16
+// rows, 0x4a0980; `track` searched first), +0x8C and +0x94 0 (0x4a0d20).
+void aiPutOnGrid(AiCar& car, const Track& track, const TrackCollision& col, int slice, float offset,
+                 bool backward = false);
+// The body's rows as dumped (+0xC0 right, +0xCC up, +0xD8 forward, not
+// quite unit or square to each other from the grid's 16.16 rows): the
+// car's yaw, roll and pitch from their orthonormal part and `rowShape`
+// from the rest (P = (M M^T)^(1/2), M = P Q), with its velocity.
+void aiSetRows(AiCar& car, const TrackCollision& col, const std::array<float, 3>& velocity,
+               const std::array<float, 3>& right, const std::array<float, 3>& up, const std::array<float, 3>& forward);
 // The roll and pitch over one step of 64 (0x4a1610 on the road, 0x4a1ce0
 // landing): in the air (`airTicks`) the landing takes every spin x 0.6
 // (0.5 + e, e 0.1 for a computer car) on the even steps; on the road each

@@ -3944,6 +3944,180 @@ void testCarHits() {
         aiFinishedCoast(c);
         CHECK(c.skidFront == 17.0f && c.skidRear == 17.0f && c.right == static_cast<float>(17.0 * 0.2));
     }
+    // The laps (car_laps_owed 0x42cc20, car_race_distance 0x42ce10,
+    // car_laps_task 0x4ce280): over slice 500 to 0-50 a lap, from 0 to over
+    // 500 a lap owed; at the race's laps the racer has finished.
+    {
+        AiCar car;
+        car.racer = true;
+        car.laps = 2;
+        car.slice = 590;
+        aiLaps(car, 600, 0);
+        CHECK(car.slicePrev == 590 && car.lap == 0 && car.raceState == 1);
+        car.slice = 599;
+        aiLaps(car, 600, 2);
+        CHECK(car.distance == 599 && car.finishStep == 2);
+        car.slice = 3;
+        aiLaps(car, 600, 4);
+        CHECK(car.lap == 1 && car.distance == 603 && car.raceState == 1 && car.lapCounted == 1);
+        car.slice = 0;
+        aiLaps(car, 600, 6);
+        car.slice = 550; // back over the line: a lap owed, no race distance
+        aiLaps(car, 600, 8);
+        CHECK(car.lap == 1 && car.lapsOwed == 1 && car.distance == 0);
+        car.slice = 10; // paid
+        aiLaps(car, 600, 10);
+        CHECK(car.lap == 1 && car.lapsOwed == 0 && car.distance == 610);
+        car.slice = 520;
+        aiLaps(car, 600, 12);
+        car.slice = 2;
+        aiLaps(car, 600, 14);
+        CHECK(car.lap == 2 && car.raceState == 3 && car.finishStep == 14 && car.distance == 1202);
+        aiLaps(car, 600, 16);
+        CHECK(car.finishStep == 14); // kept once out of the race
+        AiCar busted = car;
+        busted.raceState = 4;
+        busted.lap = busted.lapCounted = 1;
+        busted.slice = 520;
+        aiLaps(busted, 600, 18);
+        busted.slice = 2;
+        aiLaps(busted, 600, 20);
+        CHECK(busted.lap == 2 && busted.raceState == 4);
+        AiCar none; // no laps: nothing counted
+        none.slice = 520;
+        aiLaps(none, 600, 0);
+        none.slice = 2;
+        aiLaps(none, 600, 2);
+        CHECK(none.lap == 0 && none.distance == 1 << 20);
+    }
+    // The default grid (0x42ba00): slice 3 x place + 1, half a lane width
+    // left for the even places, right for the odd; backward the other way.
+    {
+        TrackCollision g = straightRoad(40);
+        CHECK(aiGridSlice(0, 8, 40) == 1 && aiGridSlice(1, 8, 40) == 4 && aiGridSlice(7, 8, 40) == 22);
+        CHECK(aiGridSlice(0, 8, 40, true) == 22 && aiGridSlice(7, 8, 40, true) == 1);
+        CHECK(aiGridOffset(g.road[1], 0) == -2.0f && aiGridOffset(g.road[4], 1) == 2.0f);
+        CHECK(aiGridOffset(g.road[1], 0, true) == 2.0f);
+    }
+    // The body's rows as the game keeps them: 16.16 rows a little short of
+    // unit length come back from the page's axes (aiTiltedAxes), and the
+    // turns since (+0x94) past 1/32 turn make them orthonormal again
+    // (car_integrate_turn 0x4a2e20, 0x4b7840).
+    {
+        TrackCollision g = straightRoad(40);
+        AiCar car;
+        car.slice = 5;
+        car.halfWidth = 1;
+        car.offset = car.target = car.side = car.lateral = 2;
+        car.sideKept = true;
+        const float k = 0.99990f;
+        const std::array<float, 3> right{k, 0, 0.001f}, up{0, 0.9999f, 0}, forward{-0.001f, 0.003f, k};
+        aiSetRows(car, g, {0, 0, 20}, right, up, forward);
+        CHECK(car.rowsShaped);
+        std::array<float, 3> f{}, r{}, u{};
+        aiTiltedAxes(g, car, f, r, u);
+        for (size_t i = 0; i < 3; ++i)
+            CHECK(std::fabs(f[i] - forward[i]) < 2e-6f && std::fabs(r[i] - right[i]) < 2e-6f &&
+                  std::fabs(u[i] - up[i]) < 2e-6f);
+        // 255 calls with no turn keep them; a turn of 1/32 turn renormalises.
+        car.turnCount = 0;
+        car.turnSum = 0.03f;
+        car.yawRate = 0.01f;
+        car.turnDue = true;
+        aiAdvance(car, g);
+        CHECK(car.rowsShaped && car.turnCount == 255 && std::fabs(car.turnSum - (0.03f + 0.01f / 32)) < 1e-6f);
+        car.yawRate = 0.04f;
+        car.turnDue = true;
+        aiAdvance(car, g);
+        CHECK(!car.rowsShaped && car.turnCount == 32 && car.turnSum == 0);
+        aiTiltedAxes(g, car, f, r, u);
+        CHECK(std::fabs(f[0] * f[0] + f[1] * f[1] + f[2] * f[2] - 1) < 1e-5f &&
+              std::fabs(f[0] * u[0] + f[1] * u[1] + f[2] * u[2]) < 1e-5f);
+    }
+    // Out of the race the model only coasts (car_ai_model 0x408639): no
+    // forces, the speed x 0.98 a call (+0xB8 over 22.35), the brake held;
+    // the driver goes to state 4 (0x409d0c).
+    std::vector<uint8_t> flat(16, 0);
+    flat.insert(flat.end(), 100, 30);
+    AiCarData go;
+    go.accel.fill(4);
+    go.maxBrake = 10;
+    go.topSpeedCap = 80;
+    {
+        TrackCollision g = straightRoad(200);
+        AiCar car;
+        car.slice = 10;
+        car.halfWidth = 1;
+        car.racer = true;
+        car.offset = car.target = car.side = car.lateral = 2;
+        car.sideKept = true;
+        car.speed = car.wanted = 30;
+        car.raceState = 3;
+        std::vector<AiCar> one{car};
+        aiStep(one, 0, g, flat, go, 0, -1, false, AiPhase::Move);
+        CHECK(std::fabs(one[0].speed - 30 * 0.98f) < 0.01f && one[0].braking && one[0].skidRear > 2.9f);
+        aiStep(one, 0, g, flat, go, 0, -1, false, AiPhase::Drive);
+        CHECK(one[0].pursuit == 4);
+        for (int step = 2; step < 64 * 6; step += 2)
+            aiStep(one, 0, g, flat, go, step, -1, false);
+        CHECK(std::fabs(one[0].speed) < 0.05f);
+        // Still racing, the same car is pushed on.
+        car.raceState = 1;
+        car.wanted = 40;
+        one = {car};
+        aiStep(one, 0, g, flat, go, 0, -1, false, AiPhase::Move);
+        CHECK(one[0].speed > 30 && !one[0].braking);
+    }
+    // Tipped (+0x10C under 0.9): no model, the body's friction (0x4aa8e7):
+    // the velocity along the road x 0.94, the skid levels 0.
+    {
+        TrackCollision g = straightRoad(200);
+        AiCar car;
+        car.slice = 10;
+        car.halfWidth = 1;
+        car.racer = true;
+        car.offset = car.target = car.side = car.lateral = 2;
+        car.sideKept = true;
+        car.speed = car.wanted = 20;
+        car.roll = 0.12f; // 43 degrees (the road turns it back 1/64 turn first)
+        car.skidFront = car.skidRear = 5;
+        std::vector<AiCar> one{car};
+        aiStep(one, 0, g, flat, go, 0, -1, false, AiPhase::Move);
+        CHECK(std::fabs(one[0].speed - 20 * 0.94f) < 0.02f && one[0].skidFront == 0 && one[0].skidRear == 0);
+    }
+    // Before the race's start (g_race_started) the car is held still; the
+    // start's push (ai_ctl_slide 0x4082dc): 0.5 more side force and half of
+    // the side force more yaw force for the racer the pick names.
+    {
+        TrackCollision g = straightRoad(200);
+        AiCar car;
+        car.slice = 4;
+        car.halfWidth = 1;
+        car.racer = true;
+        car.offset = car.target = car.side = car.lateral = 2;
+        car.sideKept = true;
+        car.wanted = 30;
+        car.distance = 4;
+        car.raceStartStep = 4;
+        std::vector<AiCar> one{car};
+        aiStep(one, 0, g, flat, go, 2, -1, false, AiPhase::Move);
+        CHECK(one[0].speed == 0 && one[0].braking);
+        AiCarData start = go;
+        start.accel[0] = 6;
+        AiStartRandom saved = aiStartRandom(), probe = saved;
+        car.raceStartStep = 0;
+        car.slot = probe.pick();
+        one = {car};
+        aiStep(one, 0, g, flat, start, 4, -1, false, AiPhase::Move);
+        aiStartRandom() = saved;
+        car.slot = car.slot == 0 ? 1 : 0; // not picked
+        std::vector<AiCar> other{car};
+        aiStep(other, 0, g, flat, start, 4, -1, false, AiPhase::Move);
+        aiStartRandom() = saved;
+        CHECK(one[0].skidRear == 10 && other[0].skidRear != 10);
+        CHECK(std::fabs((one[0].vel[0] - other[0].vel[0]) - 0.5f / 32) < 1e-5f);
+        CHECK(std::fabs((one[0].yawRate - other[0].yawRate) - 0.25f / 32) < 1e-5f);
+    }
 }
 
 void testComputerPursuits() {

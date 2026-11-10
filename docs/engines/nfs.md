@@ -340,7 +340,9 @@ What was built, with each format written up in `docs/formats/nfs/`:
     camera's car the race's human), the acceleration table
     and brakes from each car's `carp.txt`, the lane votes and lane
     changes, keeping behind a slower car in the lane and flashing their
-    lights when held up (Shift+J stops them; the page's cars are taken
+    lights when held up (Shift+J stops them; Ctrl+J puts them on the
+    grid with the countdown, Ctrl+Shift+J cycles the laps, none, 1, 2, 3,
+    after which they finish and coast to a stop; otherwise the page's cars are taken
     as past the race's start, where the flashing, the best line's and the
     empty lanes' votes begin), their drivers acting every
     8 steps and their model at 32 Hz as the game's, their lanes taken at

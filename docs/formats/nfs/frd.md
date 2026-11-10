@@ -2338,6 +2338,7 @@ of 296 is `car_dynamics`' own gate: it does nothing before `g_step`
 - The downforce is the page's to the bit for cars 2-7; car 1's differs
   until 51.77 s because its body rows are not unit (|right|² 1 − 2.3e-4,
   from the grid) until the first turn makes them again; the page's are.
+  (Since ported: "Out of the race, tipped, the grid and the rows".)
 - Gravity is the +0x190 rows' (the body's forward part, −0.0019 to
   −0.0198 a call by car), as the page has it.
 - `car_on_road` took −0.0018 to −0.0025 m/s a call (cars 1-4) along the
@@ -2463,7 +2464,8 @@ is `aisim_l1` (`aisim_fine` with each car's state logged every step).
   mean). The force (+0x2F8, about the body's up) goes back through the
   body's rows (`ai_integrate`): +0xE8 gains it × the up's y, to 2e-9
   (4.8e-6 without), and +0xE4 and +0xEC its x and z (up to 2e-4 a call,
-  set again by `car_on_road` the next tick; left out). The page now keeps
+  set again by `car_on_road` the next tick; since ported, "Out of the
+  race, tipped, the grid and the rows"). The page now keeps
   those two spins (`AiCar::spinX`, `spinZ`, from `aiTilt`) and steers
   all three controllers by them along the tilted body's up.
 - **Off the lanes.** `car_ai_model`'s test for the slide (`0x408703`-
@@ -2495,8 +2497,9 @@ is `aisim_l1` (`aisim_fine` with each car's state logged every step).
   calls the game's contact takes nothing, on the others more (−0.0052 a
   call at 28-36 m/s). The page now keeps the clearance (`AiCar::lift`:
   the moves of `car_move` since the last tick along the road polygon's
-  up, 0 when the contact runs; the box's reach turning with the body is
-  not followed) and runs the contact only at 0 or less; gravity's up
+  up, 0 when the contact runs; the box's reach turning with the body and
+  the polygon's plane changing were added later, "Out of the race,
+  tipped, the grid and the rows") and runs the contact only at 0 or less; gravity's up
   part is always added. By speed band the contact is now the game's to
   0.0002 a call (12-36 m/s by 4: −0.0022, −0.0018, −0.0021, −0.0011, −0.0022,
   −0.0029 against −0.0024, −0.0017, −0.0019, −0.0012, −0.0022, −0.0028).
@@ -2545,11 +2548,166 @@ leaves them; `car_ai_physics` `0x4088f0` zeroes them in the air or below
 upright 0.9 (`0x5363d4`). The page: `aiSkid`, called from `aiMove`; the
 start's wheelspin is `aiStartSpin` (physics.md). `car_ai_physics`
 zeroes both levels and skips `car_ai_model` when the car is in the air or
-+0x10C is under 0.9; Reluva's `aiMove` zeroes the levels then and leaves
-`aiSkid` out, but still runs the model for a tipped car.
-`ai_finished_coast`'s arithmetic is `aiFinishedCoast` (`AiCoast`);
-wiring it in needs a finished or busted state for the racers (+0x2C4 3
-or 4).
++0x10C is under 0.9; so does the page now (below).
+
+**Out of the race, tipped, the grid and the rows** (November 2026,
+`n1-runs`, read with `gdecomp`, `asm`, `field` and `xref`; the table
+from `h1-runs/all.sh`).
+- **Tipped.** `car_ai_physics` (`0x4088f0`): in the air (+0x8A) or with
+  +0x10C under 0.9 (`0x5363d4`) it clears the slip and both skid levels,
+  drops the rpm 500 and calls `0x4aa8e7` instead of `car_ai_model`; that
+  routine, on the ground (+0x164 0) with the clearance under 0.2 (+0x15C
+  as an int under `0x3e4cccce`) and the road's normal y at least 0.5
+  (`0x53dcc4`), takes the velocity's part along the road's plane × 0.94
+  and the spin about its normal × 0.98. `car_ai_model` itself does the
+  same for a body up row's y (+0xD0) under 0.3 (`0x408613`). The page
+  (`aiModelSteer`, `aiBodyFriction`) now runs no controller for a tipped
+  car, only the friction. No car tips in `t6-log`'s window: the table is
+  unchanged by it (`n1c`).
+- **Finished and busted.** +0x2C4 is set to 3 by `car_laps_task`
+  (`0x4ce280`, per car): when a racer's lap (+0x204) differs from the one
+  last counted (+0x234) and equals the race's laps (`0x6fd4b4`), not for
+  a Knockout's car (+0x200 bit 0x80) nor one already 4; also by the
+  race's end (`0x4ce750`) and the network's 0d message. It is set to 4
+  by the ticket (`cop_ticket` `0x401ff0`, `0x4020a1`) when the racer's
+  tickets (+0x2C8) reach `0x6fd4bc` (laps + 1 for one human racer). The
+  lap is counted by `car_laps_owed` (`0x42cc20`, from the race task when
+  the slice changed): from a slice over 500 to one of 0-50 a lap, or an
+  owed lap paid; from slice 0 to over 500 a lap owed (mirrored backward);
+  `car_race_distance` (`0x42ce10`) then gives +8. Out of the race, the
+  driver (`0x409c00`, states 1-3 at `0x409d0c`-`0x409e6b`) goes to state
+  4, which only sets the speed wanted (`ai_out_speed_wanted` `0x408c50`:
+  11 m/s while both sides are within the slice's lanes, as 16.16 ints,
+  and it is within slice 20 of the line, else 0; read by the gears'
+  sound), and `car_ai_model` (`0x408639`) calls `ai_finished_coast`
+  (`0x407380`) and `ai_gear_rpm` and returns: no lane ramp, no heading
+  error, no controller and **no `ai_integrate`**. The coast takes the
+  velocity and spins into the body's rows (+0x4EC, +0x4F0, +0x4F4,
+  +0x4F8-+0x500, from `car_ai_physics`), damps the forward, side and yaw
+  parts (`aiFinishedCoast`), sets the brake to 255 and the controls to 0
+  and builds both back through the same rows. The page: `AiCar::laps`,
+  `lap`, `lapsOwed`, `slicePrev`, `lapCounted`, `raceState`,
+  `finishStep`, `ticketsOut`; `aiLaps` (the three routines, for a car
+  with `laps` set); the coast in `aiModelSteer`; state 4 in `aiStep`;
+  the ticket's 4 in `aiCopStep`. From the grid with one lap (`gridsim`,
+  seven racers on Hometown, the Corvette's carp), the racers finished at
+  132.8-136.1 s at 47-51 m/s and each stopped 1.7-2.3 s and 6-8 slices
+  after the line with the brake held: × 0.98 a call to 22.35 m/s, × 0.95
+  below, halved again under 5. No run of the game with a racer
+  finishing was recorded, so the coast is checked against the code only.
+- **The grid.** `0x42bcb0` puts a car on its grid place (`0x42bc70`,
+  the table at `0x5ef9b8` filled by `0x42bb80` from `TRKnnn/start.dat`,
+  which the CD has none of, else by `0x42ba00`): place i on slice
+  3i + 1 (backward from the other end), half a lane width to the left for
+  even places and the right for odd (bytes 0x17 and 0x1B × 0x8000,
+  halved as an int; with the track row's +8, 0 on every track
+  (`0x40e410`), it would be the middle lanes), 0.5 up; then
+  `car_place_on_slice` (`0x4a0aa0`), lap 0, the laps owed 1 only
+  backward, the slice before = the slice, still. The early dumps
+  (`h1-runs/early`, 40 and 45 s) have exactly that: places 0-7 on
+  slices 1-22, +0x7B8 ±3.995, the slot +0x1F0 = the place, +0x2C4 0,
+  the aim +0x7C8 0. The race starts at step 0x200 (`world_step`
+  `0x4c4911` sets `0x7d3680`); before it `car_ai_physics` zeroes the
+  velocity and spins, `car_dynamics` waits for that step and
+  `car_integrate_turn` for 0x1FF, while the drivers act. The page:
+  `aiGridSlice`, `aiGridOffset`, `aiPutOnGrid`, `AiCar::raceStartStep`;
+  the Track page's Ctrl+J puts its racers in places 1, 2... (the camera
+  at place 0) with the countdown, Ctrl+Shift+J sets the laps (none, 1-3)
+  and the status line shows each racer's lap, finished or busted. Run
+  from the 45 s dump (step 262, start at 512) instead of the 50 s one,
+  the fine sim's cars reach 50 s within 0.01 m/s and 0.01 m of the run
+  that starts from the game's state there (car 1 6.72 m/s against 6.71),
+  so the standing start agrees as far as the dumps show it.
+- **The start's push** (`ai_ctl_slide` `0x4082dc`-`0x4082f8`): when the
+  pick is the car's slot, the side force (+0x4E0) gains 0.5
+  (`0x53638c`) and the yaw force (+0x2F8) half of the side force so
+  pushed; the yaw is then × 1.0 (`0x53638c` is not over 1) and the
+  slippery surface's factors come after. The page adds both in `aiMove`
+  (through the body's rows, the yaw by `aiYawForce`). In `gridsim` three
+  of seven racers got it at 8.06-8.13 s with this seed; which cars the
+  game's start picks depends on its seed (`0x4371d0` from
+  GetTickCount), so it can't be compared car for car.
+- **The body's rows** (+0xC0, +0xCC, +0xD8). The grid's
+  (`0x4a0980` from `car_place_on_slice`, and the put back `0x429100`)
+  are the road polygon's 16.16 rows (+0x124), short of unit length and
+  not quite square to each other: at 50 s every car's |right|² is 1 −
+  1.8e-4 to 1 − 2.5e-4 and up · forward up to −3.0e-3 (car 5). A turn
+  (`car_integrate_turn` `0x4a2e20`: the rows × a rotation of (+0xE4,
+  +0xE8, +0xEC) / 32 turn about the world's axes, `0x4a2cc0`) keeps
+  their lengths and angles. It makes them orthonormal (`0x4b7840`: M (Mᵀ
+  M)^−½ by its series to 10 terms, coefficients at `0x55fdcc`) only on a
+  call that turns once +0x94, the sum of |x| + |y| + |z| / 32 since,
+  is over 1/32 (`0x53c8f4`), or +0x8C, taken down by one, reaches 0
+  (`0x4a2ec2`); then +0x94 0 and +0x8C 32. +0x8C starts at 0
+  (`0x4a0f20`), so the first time by the counter takes 256 calls; at 50
+  s every car's +0x8C read 222 and +0x94 0.008-0.022. `0x4a0f30` copies
+  all nine rows to +0x190 for gravity (the up then the road's normal),
+  so gravity's forward part, the downforce, +0x4EC-+0x4F4, ai_integrate
+  and the box all use them. The page keeps them as its unit axes times
+  P (`AiCar::rowShape`, M = P Q with P = (M Mᵀ)^½, `aiSetRows` from the
+  grid, a put back or a dump), applied in `aiTiltedAxes` and to the
+  model's body frame, with +0x94 and +0x8C, made the identity as the
+  game's turn does (`aiAdvance`). Loaded from the 50 s dump, each car's
+  first renormalisation falls within a tick of the game's (16 ms dumps:
+  car 4 50.594 against 50.608 s, 5 50.625/50.624, 2 50.656/50.656, 7
+  50.750/50.752, 3 50.812/50.800, 1 51.750/51.744, 6 52.031/52.032). The
+  body's forward's y is then within 0.00146 rms of the dumps' +0xDC over
+  50-53.2 s (0.00168 before), its mean +0.00006 over the game's (it was
+  +0.00049: the pitch named above as gravity's forward part's 0.0003-
+  0.0005 a call).
+- **The clearance follows the body and the plane.** `car_clearance`
+  (`0x4a0440`) is taken each call from the centre against the current
+  polygon's plane: (+0x98 − +0x148) · +0x130 less |up · right| × the
+  half width + |up · up| × the half height + |up · forward| × the half
+  length, with the body's rows. So besides `car_move`'s moves along the
+  up it changes as the body turns (the reach) and when the polygon
+  under the car changes (another plane under the same centre). The page
+  now does both (`AiCar::liftRows`, `liftUp`, `liftPoint` in
+  `aiModelSteer`): the reach's change with the rows since the last call,
+  along the plane's up as it is now, and on a new polygon the same
+  centre's height over the new plane (the page's centre has the box's
+  corner on the plane, `aiCentreHeight`, so the two centres' difference
+  along the slice's normal), the lift kept along the old up. Against
+  `l1-runs` r2's +0x15C at `0x4a2b28`, call by call (616 calls, cars
+  3-6, 51.4-56.2 s): whether the clearance is over 0 agreed on 66.4 %
+  with the moves only, 73.7 % with the reach, **83.3 %** with the plane
+  too (both over 0 on 93, 158, 179 calls); the mean clearance over 0
+  0.0059, 0.0100, 0.0124 m against the game's 0.0127. The contact's
+  per-call sum along +0x13C (`dyn2.py`) is within 0.0001 of the game's
+  in 5 of 7 bands of 4 m/s (12-40), 0.0004 off at 28-32 m/s.
+- **The yaw force's x and z.** `ai_integrate` puts the yaw force
+  (+0x2F8, about the body's up row) through the body's rows, so +0xE4
+  and +0xEC gain it × the up's x and z (up to 2e-4 a call), and
+  `car_integrate_turn` turns the body by them before `car_on_road` sets
+  those spins again. The page adds them (`aiYawForce`) and turns the
+  roll and pitch by them; about 6e-6 turn a call.
+
+Measured (`h1-runs/all.sh`, each change on its own in order; the
+columns as before): tipped only (`n1c`): the table as before (no car
+tips). With the rows (`n1rows`): +0x638 changes 121 (the game's 143;
+132 before), 47 at an edge (47; 41), the aim past 8 m 151 (162; 155);
+speeds 3.28 m/s rms over the window (3.23) and **0.42** over 50-64 s
+(0.80); +0x7B8 0.0167 and 0.0521 m rms (0.0166, 0.0404: car 6 alone,
+0.057 to 0.104, its speed 0.01-0.04 m/s higher crossing 22.35 m/s a
+call earlier in its lane change); decisions 324 of 338 and 933 of
+1,568 (329, 1,000); hits 7. With the reach (`n1reach`): 126, 48, 165;
+3.46 and 0.95; 0.0167 and 0.1036; decisions 297 and 780; hits 21. With
+the yaw force's x and z (`n1leak`): 131, 52, 174; 3.29 and 0.90; the
+same side rms; 297 and 787; hits 14. With the plane (`n1plane`, kept,
+all of them; `n1final` the same): +0x638 changes 122, 45 at an edge,
+the aim past 8 m 160; speeds 3.32 and 1.15 m/s rms (0.43 over 50-56 s:
+cars 1 and 2 0.82 and 0.58, the others 0.20-0.30 as before); +0x7B8
+0.0167 and 0.1036 m rms; the decisions to 56 s 297 of 338, to 78 s 843
+of 1,568; the first differing picks 53.25, 53.21, 52.29, 52.90, 53.10,
+69.83 and 67.17 s; hits 29. The `d7-watch2` replay (0.37 m) and `park`
+(120 stops, none past a wall) are unchanged. So the clearance and the
+rows each follow the game's better call by call, while the table's
+decisions part earlier: car 3 at 52.29 s goes back to lane 4 (+0x7B4
+4) one decision before the game's, and car 1 from 54.5 s is not held
+behind a slower car (its speed wanted 44.0 where the game's is 38.1),
+which is the speed difference over 50-60 s. Both are the knife-edge
+lane choices of the earlier sections, not found in the per-call
+dynamics; not settled.
 
 **The roadside cop** (`d7-runs/sim/park`,
 the police car ordered to lay a strip from every 8th slice of Hometown,

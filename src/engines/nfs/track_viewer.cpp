@@ -1894,6 +1894,20 @@ void TrackPage::placeCars() {
         for (const ComputerCar& o : cars_)
             c.ai.index += siren && o.ai.cop ? 1 : 0;
         c.ai.scale = std::min(aiDriverFactor(driver, aiStep_) * aiTrackFactor(track), 1.0f);
+        // In a race with laps (laps_), on lap 0 from here, its race distance
+        // its slice; else well past the start, as before.
+        if (!siren) {
+            int racersBefore = 0;
+            for (const ComputerCar& o : cars_)
+                racersBefore += o.ai.racer ? 1 : 0;
+            c.ai.slot = racersBefore + 1; // the human's is 0
+            c.ai.laps = laps_;
+            c.ai.ticketsOut = laps_ > 0 ? laps_ + 1 : 0;
+            if (laps_ > 0) {
+                c.ai.slicePrev = at;
+                c.ai.distance = heading > 0 ? at : n - at;
+            }
+        }
         c.ai.lane = c.ai.laneLeft = c.ai.laneRight = c.ai.pick = c.lane;
         c.ai.offset = c.ai.target = aiLaneOffset(p, c.lane, cm.halfSize[0]);
         c.ai.beams = c.beams;
@@ -1934,6 +1948,54 @@ void TrackPage::placeCars() {
     put(800, way, 0, 1, true, {2, false, 2});
     cars_.back().siren = cars_.back().ai.siren = false;
     cars_.back().ai.copState = 1;
+}
+
+// The racers on the race's grid (0x42bcb0 with the default grid 0x42ba00):
+// the camera's car, the human, in place 0 on slice 1, the computer racers
+// behind it in places 1, 2... (their slots, +0x1F0, the start's wheelspin
+// picks), standing, lap 0, the race distance their slice, held still for
+// the countdown's 0x200 steps (8 s) while their drivers act. The police cars
+// stay where they are. The camera goes to place 0, looking down the road.
+void TrackPage::gridCars() {
+    const int n = static_cast<int>(collision_.road.size());
+    if (n < 30)
+        return;
+    int racers = 1;
+    for (const ComputerCar& c : cars_)
+        racers += c.ai.racer ? 1 : 0;
+    int place = 1;
+    for (ComputerCar& c : cars_) {
+        if (!c.ai.racer)
+            continue;
+        const int slice = aiGridSlice(place, racers, n);
+        aiPutOnGrid(c.ai, track_, collision_, slice, aiGridOffset(collision_.road[size_t(slice)], place));
+        c.ai.slot = place;
+        c.ai.raceStartStep = aiStep_ + 0x200; // the countdown: the race starts at step 0x200
+        c.ai.laps = laps_;
+        c.ai.ticketsOut = laps_ > 0 ? laps_ + 1 : 0;
+        c.ai.pursuit = 1;
+        c.ai.racers = racers;
+        c.ai.place = place;
+        c.ai.wanted = 0;
+        c.ai.groundSpeed = -1;
+        c.way = c.ai.way;
+        c.slice = static_cast<float>(c.ai.slice);
+        c.speed = 0;
+        c.lane = c.ai.lane;
+        ++place;
+    }
+    // The camera on place 0, a little behind and above, along the road.
+    const int at = aiGridSlice(0, racers, n);
+    const auto& p = collision_.road[size_t(at)];
+    const float x = aiGridOffset(p, 0);
+    const auto& back = collision_.road[size_t((at - 3 + n) % n)];
+    eye_ = {back.position[0] + back.right[0] * x, back.position[1] + 3.0f, -(back.position[2] + back.right[2] * x)};
+    yaw_ = std::atan2(p.forward[0], p.forward[2]);
+    pitch_ = -0.08f;
+    cameraCut_ = true;
+    carsMoving_ = true;
+    for (ComputerCar& c : cars_)
+        carRows(c);
 }
 
 // The cars of a dump of the game's car records (RELUVA_NFS_TRACK_CARS),
@@ -2233,6 +2295,11 @@ void TrackPage::moveCars(float dt) {
         // every car (aiRaceTick: +0x7B8, +0x21C, +0x638), then every car's
         // driver acts, then each car's model; the hits after them all.
         aiRaceTick(ai, collision_, aiStep_);
+        // The laps (the race task 0x42ce70 and car_laps_task 0x4ce280), for
+        // a race with laps.
+        if ((aiStep_ & 1) == 0)
+            for (AiCar& a : ai)
+                aiLaps(a, n, aiStep_, a.way < 0);
         for (size_t i = 0; i < cars_.size(); ++i) {
             const ComputerCar& c = cars_[i];
             const CarModel& cm = carModels_[size_t(c.model)];
@@ -3930,8 +3997,25 @@ void TrackPage::handleEvent(const Event& ev) {
         case 'z': reflections_ = !reflections_; break;
         case 'q': sfxLevel_ = (sfxLevel_ + 1) % 3; break;
         case 'j':
-            // Computer cars on the road ahead; Shift+J stops or starts them.
-            if (ev.mods & keymod::Shift) {
+            // Computer cars on the road ahead; Shift+J stops or starts them;
+            // Ctrl+J puts the racers on the grid, standing; Ctrl+Shift+J sets
+            // the race's laps (none, 1, 2, 3), from where they are.
+            if ((ev.mods & keymod::Ctrl) && (ev.mods & keymod::Shift)) {
+                laps_ = (laps_ + 1) % 4;
+                for (ComputerCar& c : cars_)
+                    if (c.ai.racer) {
+                        c.ai.laps = laps_;
+                        c.ai.ticketsOut = laps_ > 0 ? laps_ + 1 : 0; // one player as a racer (0x474640)
+                        c.ai.lap = c.ai.lapCounted = c.ai.lapsOwed = 0;
+                        c.ai.slicePrev = -1;
+                        c.ai.raceState = 1;
+                        c.ai.pursuit = c.ai.pursuit == 4 ? 1 : c.ai.pursuit;
+                        c.ai.distance = laps_ > 0 ? aiSlice(c.ai) : 1 << 20;
+                    }
+            } else if (ev.mods & keymod::Ctrl) {
+                if (computerCars_ && carDump_.empty())
+                    gridCars();
+            } else if (ev.mods & keymod::Shift) {
                 carsMoving_ = !carsMoving_;
             } else {
                 computerCars_ = !computerCars_;
@@ -4537,6 +4621,15 @@ void TrackPage::update(uint64_t nowMs) {
             for (const ComputerCar& c : cars_) {
                 braking += c.ai.braking ? 1 : 0;
                 flashing += c.ai.flashing ? 1 : 0;
+            }
+            if (laps_ > 0) {
+                // Each racer's lap, or out of the race (+0x2C4 3, 4).
+                line += "  " + std::to_string(laps_) + (laps_ == 1 ? " lap:" : " laps:");
+                for (const ComputerCar& c : cars_)
+                    if (c.ai.racer)
+                        line += c.ai.raceState == 3   ? " finished"
+                                : c.ai.raceState == 4 ? " busted"
+                                                      : " lap " + std::to_string(c.ai.lap + 1);
             }
             line += carError_.empty() ? "  " + std::to_string(cars_.size()) + " computer cars" + (carsMoving_ ? "" : " (stopped)") +
                                             (braking ? ", " + std::to_string(braking) + " braking" : "") +

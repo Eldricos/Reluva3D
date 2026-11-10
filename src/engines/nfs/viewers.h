@@ -661,6 +661,10 @@ private:
     bool computerCars_ = false, carsMoving_ = true, reflections_ = true;
     float aiTime_ = 0; // seconds not yet stepped
     int aiStep_ = 0;   // the cars' steps, the game's step count for them
+    // The race's laps for the computer racers (0x6fd4b4; 0: none, they race
+    // on): Ctrl+Shift+J; Ctrl+J puts them on the grid (gridCars).
+    int laps_ = 0;
+    void gridCars();
     gfx::TextureId envPicture_ = 0; // sky.fsh's sphere map of the variant (CHRD, CHRN, CHRW, CHNW)
     std::vector<ComputerCar> cars_;
     std::vector<uint8_t> speedsForward_, speedsBackward_; // speedsF.bin, speedsR.bin
