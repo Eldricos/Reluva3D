@@ -1331,8 +1331,11 @@ int cmdNfsHost(int argc, char** argv) {
             for (auto& t : f.textures)
                 dumpTextures[t.handle] = t;
             if (++lists == gpuDumpList) {
-                // batch,texture,width,height,blend,mode,cull,fog,fogcolour then x,y,z,rhw,diffuse,u,v per vertex
-                std::string csv = "batch,texture,width,height,blend,mode,cull,fog,fogcolour,x,y,z,rhw,diffuse,u,v\n";
+                // batch,texture,width,height,blend,mode,cull,fog,fogcolour,filter then x,y,z,rhw,diffuse,u,v
+                // per vertex; filter is the batch's texture filter (-1 as the drawing's default, 0 point
+                // sampled, 1 bilinear: ThrashFrame::Batch::filter)
+                std::string csv =
+                    "batch,texture,width,height,blend,mode,cull,fog,fogcolour,filter,x,y,z,rhw,diffuse,u,v\n";
                 char line[256];
                 std::set<uint32_t> used;
                 for (size_t i = 0; i < f.batches.size(); ++i) {
@@ -1343,9 +1346,9 @@ int cmdNfsHost(int argc, char** argv) {
                     used.insert(b.texture);
                     for (uint32_t v = b.first; v < b.first + b.count; ++v) {
                         const auto& x = f.vertices[v];
-                        std::snprintf(line, sizeof line, "%zu,%u,%d,%d,%d,%d,%d,%g,%06x,%g,%g,%g,%g,%08x,%g,%g\n", i,
-                                      b.texture, w, h, int(b.blend), b.blendMode, b.cull, double(b.fog), b.fogColour,
-                                      double(x.x), double(x.y), double(x.z), double(x.rhw), x.diffuse, double(x.u),
+                        std::snprintf(line, sizeof line, "%zu,%u,%d,%d,%d,%d,%d,%g,%06x,%d,%g,%g,%g,%g,%08x,%g,%g\n",
+                                      i, b.texture, w, h, int(b.blend), b.blendMode, b.cull, double(b.fog),
+                                      b.fogColour, b.filter, double(x.x), double(x.y), double(x.z), double(x.rhw), x.diffuse, double(x.u),
                                       double(x.v));
                         csv += line;
                     }
