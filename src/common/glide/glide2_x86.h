@@ -38,8 +38,11 @@ private:
     void addAll();
     Glide2Vertex vertex(uint32_t address) const;
     Glide2TexInfo texInfo(uint32_t address) const;
+    // guTexGetMipMapInfo's GrMipMapInfo in guest memory, filled in now.
+    uint32_t mipMapInfo(const Glide2& g, uint32_t id);
 
     Glide2 glide_;
+    std::map<uint32_t, uint32_t> mipMapInfos_; // by handle
 };
 
 } // namespace reluva::glide

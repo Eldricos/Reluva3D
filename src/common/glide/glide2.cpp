@@ -6,6 +6,7 @@
 #include <algorithm>
 #include <cmath>
 #include <cstring>
+#include <vector>
 
 namespace reluva::glide {
 
@@ -88,6 +89,8 @@ bool Glide2::sstWinOpen(uint32_t, int resolution, int, int colorFormat, int orig
     if (!pipeline_.open(w, h, colorBuffers, auxBuffers))
         return false;
     colorFormat_ = colorFormat & 3;
+    lfbColorFormat_ = -1;
+    lfbSwizzleBytes_ = lfbSwapWords_ = false;
     pipeline_.state().originLowerLeft = origin == 1;
     active_ = true;
     return true;
@@ -123,8 +126,8 @@ uint32_t Glide2::sstVideoLine() { return (retraceCalls_++ * 37) % uint32_t(std::
 
 void Glide2::sstOrigin(int origin) { pipeline_.state().originLowerLeft = origin == 1; }
 
-uint32_t Glide2::toArgb(uint32_t c) const {
-    switch (colorFormat_) {
+uint32_t Glide2::toArgb(uint32_t c, int format) {
+    switch (format & 3) {
     case kColorAbgr: return (c & 0xff00ff00u) | (c >> 16 & 0xff) | (c & 0xff) << 16;
     case kColorRgba: return c >> 8 | c << 24;
     case kColorBgra: return (c & 0xff) << 24 | (c >> 8 & 0xff) << 16 | (c >> 16 & 0xff) << 8 | c >> 24;
@@ -171,6 +174,43 @@ void Glide2::drawPoint(const Glide2Vertex& a) {
 void Glide2::drawPolygon(int count, const Glide2Vertex* v) {
     for (int i = 1; i + 1 < count; ++i)
         drawTriangle(v[0], v[i], v[i + 1]);
+}
+
+void Glide2::aaDrawTriangle(const Glide2Vertex& a, const Glide2Vertex& b, const Glide2Vertex& c, bool ab, bool bc,
+                            bool ca) {
+    aaTriangle(convert(a), convert(b), convert(c), ab, bc, ca);
+}
+
+void Glide2::aaDrawLine(const Glide2Vertex& a, const Glide2Vertex& b) { aaLine(convert(a), convert(b)); }
+void Glide2::aaDrawPoint(const Glide2Vertex& a) { aaPoint(convert(a)); }
+
+void Glide2::aaDrawPolygon(int count, const Glide2Vertex* v) {
+    std::vector<Vertex> list;
+    for (int i = 0; i < count; ++i)
+        list.push_back(convert(v[i]));
+    aaPolygon(count, list.data());
+}
+
+void Glide2::aaTriangle(const Vertex& a, const Vertex& b, const Vertex& c, bool ab, bool bc, bool ca) {
+    pipeline_.aaTriangle(a, b, c, ab, bc, ca);
+    drawn();
+}
+
+void Glide2::aaLine(const Vertex& a, const Vertex& b) {
+    pipeline_.aaLine(a, b);
+    drawn();
+}
+
+void Glide2::aaPoint(const Vertex& a) {
+    pipeline_.aaPoint(a);
+    drawn();
+}
+
+void Glide2::aaPolygon(int count, const Vertex* v) {
+    // Fan triangle (0, i, i + 1): its edge i to i + 1 is always outside;
+    // 0 to i only for the first, i + 1 to 0 only for the last.
+    for (int i = 1; i + 1 < count; ++i)
+        aaTriangle(v[0], v[i], v[i + 1], i == 1, true, i + 2 == count);
 }
 
 void Glide2::triangle(const Vertex& a, const Vertex& b, const Vertex& c) {
@@ -538,6 +578,145 @@ void Glide2::guAlphaSource(int mode) {
     }
 }
 
+// --- The texture manager -----------------------------------------------------------
+
+uint32_t Glide2::guTexAllocateMemory(int tmu, int evenOdd, int width, int height, int format, int mipmapMode,
+                                     int smallLod, int largeLod, int aspect, int clampS, int clampT, int minFilter,
+                                     int magFilter, float lodBias, bool lodBlend) {
+    if (tmu < 0 || tmu >= board_.tmus)
+        return kNullMipMap;
+    MipMap m;
+    m.valid = true;
+    m.tmu = tmu;
+    m.evenOdd = evenOdd & 3 ? evenOdd & 3 : kLevelsBoth;
+    m.width = width;
+    m.height = height;
+    m.info = {smallLod, largeLod, aspect, format};
+    m.mipmapMode = mipmapMode;
+    m.clampS = clampS;
+    m.clampT = clampT;
+    m.minFilter = minFilter;
+    m.magFilter = magFilter;
+    m.lodBias = lodBias;
+    m.lodBlend = lodBlend;
+    m.size = texTextureMemRequired(m.evenOdd, m.info);
+    // From the TMU's next free address; a mipmap level can't straddle the
+    // 2 MB line (Glide 2.4 Programming Guide, Texture Memory: "a mipmap
+    // level cannot straddle the 2Mbyte boundary"), so one that would
+    // starts on it.
+    uint32_t start = std::max(texNext_[size_t(tmu)], texMinAddress(tmu));
+    constexpr uint32_t k2Mb = 2u << 20;
+    if (m.size && start / k2Mb != (start + m.size - 1) / k2Mb)
+        start = (start / k2Mb + 1) * k2Mb;
+    if (uint64_t(start) + m.size > uint64_t(texMaxAddress(tmu)) + 8)
+        return kNullMipMap; // "If the texture memory can not be allocated"
+    m.start = start;
+    texNext_[size_t(tmu)] = start + m.size;
+    mipmaps_.push_back(m);
+    return uint32_t(mipmaps_.size() - 1);
+}
+
+bool Glide2::guTexChangeAttributes(uint32_t id, int width, int height, int format, int mipmapMode, int smallLod,
+                                   int largeLod, int aspect, int clampS, int clampT, int minFilter, int magFilter) {
+    if (id >= mipmaps_.size() || !mipmaps_[id].valid)
+        return false;
+    MipMap m = mipmaps_[id];
+    auto set = [](int& field, int value) {
+        if (value != -1)
+            field = value;
+    };
+    set(m.width, width);
+    set(m.height, height);
+    set(m.info.format, format);
+    set(m.mipmapMode, mipmapMode);
+    set(m.info.smallLod, smallLod);
+    set(m.info.largeLod, largeLod);
+    set(m.info.aspectRatio, aspect);
+    set(m.clampS, clampS);
+    set(m.clampT, clampT);
+    set(m.minFilter, minFilter);
+    set(m.magFilter, magFilter);
+    // The memory stays where it is ("a section of texture memory to be
+    // reused"): a mipmap that no longer fits it is refused (Reluva's
+    // reading).
+    if (texTextureMemRequired(m.evenOdd, m.info) > m.size)
+        return false;
+    mipmaps_[id] = m;
+    return true;
+}
+
+void Glide2::guTexDownloadMipMap(uint32_t id, const uint8_t* data, const uint8_t* ncc) {
+    if (id >= mipmaps_.size() || !mipmaps_[id].valid || !data)
+        return;
+    MipMap& m = mipmaps_[id];
+    if (ncc && (m.info.format == kTexYiq422 || m.info.format == kTexAyiq8422)) {
+        std::memcpy(m.ncc.y, ncc, 16);
+        std::memcpy(m.ncc.i, ncc + 16, 24);
+        std::memcpy(m.ncc.q, ncc + 40, 24);
+        m.hasNcc = true;
+    }
+    texDownloadMipMap(m.tmu, m.start, m.evenOdd, m.info, data);
+}
+
+uint32_t Glide2::guTexDownloadMipMapLevel(uint32_t id, int lod, const uint8_t* data) {
+    if (id >= mipmaps_.size() || !mipmaps_[id].valid || !data)
+        return 0;
+    const MipMap& m = mipmaps_[id];
+    // "lod must lie between mmid's smallLod and largeLod" (Glide 2's
+    // numbers count down: GR_LOD_256 is 0).
+    if (lod < m.info.largeLod || lod > m.info.smallLod)
+        return 0;
+    texDownloadMipMapLevel(m.tmu, m.start, lod, m.info.largeLod, m.info.aspectRatio, m.info.format, m.evenOdd, data);
+    return levelDataBytes(lod, m.info.aspectRatio, m.info.format);
+}
+
+uint32_t Glide2::guTexGetCurrentMipMap(int tmu) const {
+    return tmu >= 0 && tmu < kMaxTmus ? texCurrent_[size_t(tmu)] : kNullMipMap;
+}
+
+const Glide2::MipMap* Glide2::guTexGetMipMapInfo(uint32_t id) const {
+    return id < mipmaps_.size() && mipmaps_[id].valid ? &mipmaps_[id] : nullptr;
+}
+
+uint32_t Glide2::guTexMemQueryAvail(int tmu) const {
+    if (tmu < 0 || tmu >= board_.tmus)
+        return 0;
+    const uint64_t end = uint64_t(texMaxAddress(tmu)) + 8;
+    const uint64_t next = std::max(texNext_[size_t(tmu)], texMinAddress(tmu));
+    return next < end ? uint32_t(end - next) : 0;
+}
+
+void Glide2::guTexMemReset() {
+    // "frees up all allocated texture memory": every handle goes.
+    mipmaps_.clear();
+    texNext_.fill(0);
+    texCurrent_.fill(kNullMipMap);
+}
+
+void Glide2::guTexSource(uint32_t id) {
+    if (id >= mipmaps_.size() || !mipmaps_[id].valid)
+        return;
+    const MipMap& m = mipmaps_[id];
+    // "When a mipmap is made current, all of its attributes take effect."
+    texSource(m.tmu, m.start, m.evenOdd, m.info);
+    texClampMode(m.tmu, m.clampS, m.clampT);
+    texFilterMode(m.tmu, m.minFilter, m.magFilter);
+    texMipMapMode(m.tmu, m.mipmapMode, m.lodBlend);
+    texLodBiasValue(m.tmu, m.lodBias);
+    if (m.hasNcc) {
+        // Its NCC table into the TMU's table 0, selected (Reluva's reading
+        // of guTexDownloadMipMap's nccTable).
+        uint8_t raw[64];
+        std::memcpy(raw, m.ncc.y, 16);
+        std::memcpy(raw + 16, m.ncc.i, 24);
+        std::memcpy(raw + 40, m.ncc.q, 24);
+        texDownloadTable(m.tmu, kTableNcc0, raw);
+        texNCCTable(m.tmu, 0);
+    }
+    texCurrent_[size_t(m.tmu)] = id;
+}
+
+
 // --- The linear frame buffer -----------------------------------------------------
 
 bool Glide2::lfbLock(int type, int buffer, int writeMode, int origin, bool pixelPipeline, Glide2LfbLock& out) {
@@ -580,11 +759,61 @@ bool Glide2::lfbUnlock(int, int) {
 void Glide2::lfbConstantAlpha(int alpha) { pipeline_.state().lfbConstantAlpha = alpha & 0xff; }
 void Glide2::lfbConstantDepth(int depth) { pipeline_.state().lfbConstantDepth = depth & 0xffff; }
 
+void Glide2::lfbWriteColorFormat(int format) {
+    if (format >= kColorArgb && format <= kColorBgra)
+        lfbColorFormat_ = format;
+}
+
+void Glide2::lfbWriteColorSwizzle(bool swizzleBytes, bool swapWords) {
+    lfbSwizzleBytes_ = swizzleBytes;
+    lfbSwapWords_ = swapWords;
+}
+
+uint32_t Glide2::lfbSwizzle(int mode, uint32_t w) const {
+    // Bytes first, then words (Voodoo2 specification, lfbMode: "byte
+    // swizzling is performed first", word swapping "never performed ...
+    // when data formats 4 and 5 are used").
+    if (lfbSwizzleBytes_)
+        w = (w >> 24) | (w >> 8 & 0xff00u) | (w << 8 & 0xff0000u) | (w << 24);
+    if (lfbSwapWords_ && mode != kLfb888 && mode != kLfb8888)
+        w = w >> 16 | w << 16;
+    return w;
+}
+
+uint32_t Glide2::lfbCanonical(int mode, uint32_t v) const {
+    const int format = lfbColorFormat_ >= 0 ? lfbColorFormat_ : colorFormat_;
+    const bool bgr = format == kColorAbgr || format == kColorBgra;
+    const bool alphaLast = format == kColorRgba || format == kColorBgra;
+    // The 16-bit colour of a mode, as Glide 2.4 Programming Guide tables
+    // 11.2 and 11.3 and the Voodoo2 specification's lfbMode tables lay it
+    // out for each colour format.
+    auto color16 = [&](uint32_t c, int base) -> uint32_t {
+        if (base == kLfb565) // ARGB and RGBA alike: red high; ABGR and BGRA blue high
+            return bgr ? (c & 0x07e0u) | (c >> 11 & 31) | (c & 31) << 11 : c;
+        // 5:5:5 and 1:5:5:5: alpha (or nothing) at bit 15, or at bit 0 for
+        // RGBA and BGRA, the colour above it.
+        if (alphaLast)
+            c = (c & 1u) << 15 | c >> 1;
+        if (bgr)
+            c = (c & 0x83e0u) | (c >> 10 & 31) | (c & 31) << 10;
+        return c;
+    };
+    switch (mode) {
+    case kLfb565:
+    case kLfb555:
+    case kLfb1555: return color16(v & 0xffff, mode == kLfb565 ? kLfb565 : kLfb555);
+    case kLfb565Depth:
+    case kLfb555Depth:
+    case kLfb1555Depth: return color16(v >> 16, mode == kLfb565Depth ? kLfb565 : kLfb555) << 16 | (v & 0xffff);
+    case kLfb888: return toArgb(v, format) & 0xffffffu;
+    case kLfb8888: return toArgb(v, format);
+    default: return v;
+    }
+}
+
 void Glide2::lfbWrite(const Glide2LfbLock& lock, int x, int y, uint32_t value) {
     const int row = lock.originLowerLeft ? pipeline_.height() - 1 - y : y;
-    uint32_t v = value;
-    if (lock.bytesPerPixel == 4 && (lock.writeMode == kLfb888 || lock.writeMode == kLfb8888))
-        v = toArgb(value);
+    const uint32_t v = lfbCanonical(lock.writeMode, value);
     pipeline_.lfbWrite(lock.buffer, x, row, lock.writeMode, v, lock.pixelPipeline);
     frontChanged_ |= lock.buffer == kBufferFront;
 }
@@ -636,8 +865,7 @@ bool Glide2::lfbWriteRegion(int buffer, uint32_t x, uint32_t y, int format, uint
         for (uint32_t col = 0; col < width; ++col) {
             uint32_t v = 0;
             std::memcpy(&v, p + size_t(col) * size_t(bpp), size_t(bpp));
-            if (format == kLfb888 || format == kLfb8888)
-                v = toArgb(v);
+            v = lfbCanonical(format, v); // the channels as grLfbWriteColorFormat says
             // Glide 3's pixelPipeline: through the pipeline as a lock with
             // it writes (Glide 3.0 Reference Manual, grLfbWriteRegion).
             pipeline_.lfbWrite(buffer, int(x + col), int(y + row), format, v, pixelPipeline);

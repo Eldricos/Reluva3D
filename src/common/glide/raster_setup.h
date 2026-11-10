@@ -16,6 +16,7 @@
 #include <algorithm>
 #include <cmath>
 #include <cstdint>
+#include <vector>
 
 namespace reluva::glide::raster {
 
@@ -106,5 +107,29 @@ inline bool pointPixel(const State& s, int width, int height, const Vertex& a, i
     return x >= std::max(s.clip[0], 0) && x < std::min(s.clip[2], width) && y >= std::max(s.clip[1], 0) &&
            y < std::min(s.clip[3], height);
 }
+
+// Pixels drawn each with its own values (Renderer::fragments): the
+// coverage pixels of anti-aliased primitives. x and y are drawing
+// coordinates, inside the clip window and the screen.
+struct Fragment {
+    int x = 0, y = 0;
+    Values v{};
+};
+struct Fragments {
+    std::vector<Fragment> list;
+    bool derivatives = false; // dx and dy hold the primitive's gradients (for the texture LOD)
+    float dx[kParams] = {}, dy[kParams] = {};
+};
+
+// The anti-aliased primitives' coverage pixels (docs/engines/glide.md,
+// Anti-aliasing): for a triangle the fringe outside the edges asked for
+// (edge 0 a-b, 1 b-c, 2 c-a), nothing if it's culled; for a line every
+// pixel within a pixel of it; for a point the four round it. Each value
+// from the primitive's plane at the pixel's centre, alpha times the
+// coverage.
+void aaTriangleFringe(const State& s, int width, int height, const Vertex& a, const Vertex& b, const Vertex& c,
+                      const bool aa[3], Fragments& out);
+void aaLinePixels(const State& s, int width, int height, const Vertex& a, const Vertex& b, Fragments& out);
+void aaPointPixels(const State& s, int width, int height, const Vertex& a, Fragments& out);
 
 } // namespace reluva::glide::raster

@@ -93,6 +93,8 @@ add_library(reluva_common STATIC
     src/common/glide/pipeline.cpp
     src/common/glide/software_renderer.cpp
     src/common/glide/raster_setup.cpp
+    src/common/glide/antialias.cpp
+    src/common/glide/glide_utils.cpp
     src/common/glide/gpu_renderer.cpp
     src/common/gpu_compute.cpp
     src/common/glide/glide2.cpp
@@ -292,6 +294,9 @@ if(RELUVA_BUILD_TESTS)
     add_executable(reluva_glide_tests tests/test_glide.cpp)
     target_link_libraries(reluva_glide_tests PRIVATE reluva_common reluva_warnings)
     add_test(NAME glide COMMAND reluva_glide_tests)
+    add_executable(reluva_glide_more_tests tests/test_glide_more.cpp)
+    target_link_libraries(reluva_glide_more_tests PRIVATE reluva_common reluva_warnings)
+    add_test(NAME glide_more COMMAND reluva_glide_more_tests)
 
     # Its GPU backend against the software reference (passes, saying so,
     # without a GPU).

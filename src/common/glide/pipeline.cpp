@@ -3,6 +3,8 @@
 
 #include "common/glide/pipeline.h"
 
+#include "common/glide/raster_setup.h"
+
 #include <algorithm>
 #include <cmath>
 #include <cstring>
@@ -102,6 +104,40 @@ void Pipeline::line(const Vertex& a, const Vertex& b) {
 void Pipeline::point(const Vertex& a) {
     if (open_)
         renderer_->point(*this, a);
+}
+
+void Pipeline::aaTriangle(const Vertex& a, const Vertex& b, const Vertex& c, bool ab, bool bc, bool ca) {
+    if (!open_)
+        return;
+    renderer_->triangle(*this, a, b, c);
+    const bool aa[3] = {ab, bc, ca};
+    raster::Fragments f;
+    raster::aaTriangleFringe(state_, width_, height_, a, b, c, aa, f);
+    if (!f.list.empty())
+        renderer_->fragments(*this, f);
+}
+
+void Pipeline::aaLine(const Vertex& a, const Vertex& b) {
+    if (!open_)
+        return;
+    raster::Fragments f;
+    raster::aaLinePixels(state_, width_, height_, a, b, f);
+    if (!f.list.empty())
+        renderer_->fragments(*this, f);
+}
+
+void Pipeline::aaPoint(const Vertex& a) {
+    if (!open_)
+        return;
+    raster::Fragments f;
+    raster::aaPointPixels(state_, width_, height_, a, f);
+    if (!f.list.empty())
+        renderer_->fragments(*this, f);
+}
+
+void Pipeline::fragments(const raster::Fragments& f) {
+    if (open_ && !f.list.empty())
+        renderer_->fragments(*this, f);
 }
 
 void Pipeline::clear(uint32_t argb, int alpha, int depth) {
@@ -255,6 +291,17 @@ void Pipeline::lfbWrite(int bufferId, int x, int y, int mode, uint32_t value, bo
         else
             target[at] = to565(c.r, c.g, c.b, x, y, mode == kLfb888 || mode == kLfb8888 ? state_.dither : kDitherDisable);
         renderer_->hostWrote(*this, slotOf(bufferId), x, y);
+        // A mode with alpha (1555, 8888, 1555 with depth) writes it into the
+        // alpha buffer when alpha buffering is on, and then 1555 with depth
+        // leaves the depth (Voodoo2 specification, lfbMode: "the alpha
+        // component is written into the alpha buffer"; "the depth component
+        // is ignored").
+        const bool hasAlpha = mode == kLfb1555 || mode == kLfb8888 || mode == kLfb1555Depth;
+        if (hasAlpha && state_.alphaMask && state_.depthMode == kDepthDisable) {
+            aux_[at] = uint16_t(c.a);
+            renderer_->hostWrote(*this, 3, x, y);
+            return;
+        }
         if (mode == kLfb565Depth || mode == kLfb555Depth || mode == kLfb1555Depth) {
             aux_[at] = uint16_t(depth);
             renderer_->hostWrote(*this, 3, x, y);

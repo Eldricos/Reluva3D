@@ -3,6 +3,8 @@
 
 #include "common/glide/glide_x86.h"
 
+#include "common/glide/glide_utils.h"
+
 #include <algorithm>
 #include <cmath>
 #include <cstring>
@@ -47,6 +49,53 @@ void GlideDll::addFogUtilities() {
         return fogTable(c, [nearW, farW](double w) { return farW != nearW ? (w - nearW) / (farW - nearW) : 1.0; });
     });
 
+}
+
+void GlideDll::add3dfLoaders(bool glide3) {
+    // Gu3dfInfo (glideutl.h): Gu3dfHeader (width, height, small_lod,
+    // large_lod, aspect_ratio, format: 24 bytes), the GuTexTable union
+    // (1024 bytes), data, mem_required. Neither function is told the
+    // file's size, so each reads it whole.
+    auto read = [this](Cpu& c, std::vector<uint8_t>& bytes, File3df& f) {
+        std::string why = "no file reader";
+        if (!readFile || !readFile(cpu_.string(c.arg(0)), bytes))
+            return false;
+        if (!parse3dfHeader(bytes.data(), bytes.size(), f, &why)) {
+            core_->notImplemented("gu3df " + cpu_.string(c.arg(0)), why);
+            return false;
+        }
+        return true;
+    };
+    add("gu3dfGetInfo", 8, [this, read, glide3](Cpu& c) {
+        std::vector<uint8_t> bytes;
+        File3df f;
+        const uint32_t info = c.arg(1);
+        if (!guest(info, 1056) || !read(c, bytes, f))
+            return 0u;
+        c.write32(info, uint32_t(f.width));
+        c.write32(info + 4, uint32_t(f.height));
+        c.write32(info + 8, uint32_t(glide3 ? f.smallLodLog2 : 8 - f.smallLodLog2));
+        c.write32(info + 12, uint32_t(glide3 ? f.largeLodLog2 : 8 - f.largeLodLog2));
+        c.write32(info + 16, uint32_t(glide3 ? f.aspectLog2 : 3 - f.aspectLog2));
+        c.write32(info + 20, uint32_t(f.format));
+        c.write32(info + 1052, f.dataBytes); // mem_required
+        return 1u;
+    });
+    add("gu3dfLoad", 8, [this, read](Cpu& c) {
+        std::vector<uint8_t> bytes;
+        File3df f;
+        const uint32_t info = c.arg(1);
+        if (!guest(info, 1056) || !read(c, bytes, f))
+            return 0u;
+        const uint32_t data = cpu_.read32(info + 1048);
+        if (!guest(data, f.dataBytes))
+            return 0u;
+        std::vector<uint8_t> texels(f.dataBytes);
+        if (!load3dfData(bytes.data(), bytes.size(), f, texels.data()))
+            return 0u;
+        std::memcpy(cpu_.memory().data() + data, texels.data(), texels.size());
+        return 1u;
+    });
 }
 
 GlideDll::GlideDll(Cpu& cpu, x86::Arena& memory, std::string dllName)
@@ -134,10 +183,32 @@ void GlideDll::flushMirror(Mirror& m) {
     const int w = p.width(), h = p.height();
     const uint8_t* g = cpu_.memory().data() + m.address;
     const int bpp = m.lock.bytesPerPixel;
+    // grLfbWriteColorSwizzle works on the 32-bit words written: for the
+    // 16-bit modes, two pixels at a time.
+    const bool swizzle = core_->lfbSwizzleBytes() || core_->lfbSwapWords();
     for (int y = 0; y < h; ++y) {
         const size_t row = size_t(y) * size_t(m.lock.strideBytes);
         if (std::memcmp(g + row, m.snapshot.data() + row, size_t(w) * size_t(bpp)) == 0)
             continue;
+        if (swizzle) {
+            const int step = bpp == 2 ? 2 : 1;
+            for (int x = 0; x < w; x += step) {
+                const size_t at = row + size_t(x) * size_t(bpp);
+                if (std::memcmp(g + at, m.snapshot.data() + at, 4) == 0)
+                    continue;
+                uint32_t word = 0;
+                std::memcpy(&word, g + at, 4);
+                word = core_->lfbSwizzle(m.lock.writeMode, word);
+                if (bpp == 4) {
+                    core_->lfbWrite(m.lock, x, y, word);
+                } else {
+                    core_->lfbWrite(m.lock, x, y, word & 0xffff);
+                    if (x + 1 < w)
+                        core_->lfbWrite(m.lock, x + 1, y, word >> 16);
+                }
+            }
+            continue;
+        }
         for (int x = 0; x < w; ++x) {
             const size_t at = row + size_t(x) * size_t(bpp);
             if (std::memcmp(g + at, m.snapshot.data() + at, size_t(bpp)) == 0)

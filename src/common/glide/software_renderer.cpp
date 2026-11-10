@@ -48,6 +48,7 @@ public:
     void triangle(Pipeline& p, const Vertex& a, const Vertex& b, const Vertex& c) override;
     void line(Pipeline& p, const Vertex& a, const Vertex& b) override;
     void point(Pipeline& p, const Vertex& a) override;
+    void fragments(Pipeline& p, const Fragments& f) override;
     void clear(Pipeline& p, uint32_t argb, int alpha, int depth) override;
 
 private:
@@ -399,6 +400,19 @@ void SoftwareRenderer::point(Pipeline& p, const Vertex& a) {
     Values v;
     load(*su.s, a, v);
     shade(su, x, su.s->originLowerLeft ? su.height - 1 - y : y, v);
+}
+
+void SoftwareRenderer::fragments(Pipeline& p, const Fragments& f) {
+    Setup su;
+    if (!prepare(p, su))
+        return;
+    if (f.derivatives) {
+        std::copy(f.dx, f.dx + kParams, su.dx);
+        std::copy(f.dy, f.dy + kParams, su.dy);
+        su.derivatives = true;
+    }
+    for (const Fragment& frag : f.list)
+        shade(su, frag.x, su.s->originLowerLeft ? su.height - 1 - frag.y : frag.y, frag.v);
 }
 
 void SoftwareRenderer::clear(Pipeline& p, uint32_t argb, int alpha, int depth) {

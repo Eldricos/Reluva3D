@@ -94,6 +94,9 @@ public:
     void drawTriangle(const uint8_t* a, const uint8_t* b, const uint8_t* c);
     void drawLine(const uint8_t* a, const uint8_t* b);
     void drawPoint(const uint8_t* a);
+    // grAADrawTriangle: the edges asked for anti-aliased, whether or not
+    // GR_AA_ORDERED is on ("independent of the GR_AA_ORDERED mode").
+    void aaDrawTriangle(const uint8_t* a, const uint8_t* b, const uint8_t* c, bool ab, bool bc, bool ca);
     // grDrawVertexArray(Contiguous): `vertices` the pointers in order.
     void drawVertexArray(uint32_t mode, const std::vector<const uint8_t*>& vertices);
 
@@ -126,6 +129,10 @@ public:
     void glideSetState(uint32_t token);
 
 private:
+    // A primitive drawn, anti-aliased if GR_AA_ORDERED is on.
+    void triangle(const Vertex& a, const Vertex& b, const Vertex& c);
+    void line(const Vertex& a, const Vertex& b);
+    void point(const Vertex& a);
     static Glide2TexInfo toGlide2(const Glide3TexInfo& info);
 
     Board board_;

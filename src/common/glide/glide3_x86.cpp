@@ -168,10 +168,9 @@ void Glide3Dll::addAll() {
         return 0u;
     });
     add("grAADrawTriangle", 24, [this, &g](Cpu& c) {
-        g.notImplemented("grAADrawTriangle", "drawn without edge anti-aliasing");
         const uint8_t *a = vertex(c.arg(0)), *bb = vertex(c.arg(1)), *cc = vertex(c.arg(2));
         if (a && bb && cc)
-            g.drawTriangle(a, bb, cc);
+            g.aaDrawTriangle(a, bb, cc, c.arg(3) != 0, c.arg(4) != 0, c.arg(5) != 0);
         return 0u;
     });
     add("grDrawVertexArray", 12, [this, &g](Cpu& c) {
@@ -330,22 +329,16 @@ void Glide3Dll::addAll() {
                    ? 1u
                    : 0u;
     });
-    add("grLfbWriteColorFormat", 4, [&c2](Cpu& c) {
-        if (c.arg(0) != kColorArgb)
-            c2.notImplemented("grLfbWriteColorFormat", "only the window's own colour format is used");
-        return 0u;
-    });
+    add("grLfbWriteColorFormat", 4, [&c2](Cpu& c) { c2.lfbWriteColorFormat(int(c.arg(0))); return 0u; });
     add("grLfbWriteColorSwizzle", 8, [&c2](Cpu& c) {
-        if (c.arg(0) || c.arg(1))
-            c2.notImplemented("grLfbWriteColorSwizzle", "byte and word swaps not carried out");
+        c2.lfbWriteColorSwizzle(c.arg(0) != 0, c.arg(1) != 0);
         return 0u;
     });
 
     // --- Not stood in for yet: they log once and fail ----------------------------
     stub("grLoadGammaTable", 16);
     stub("grSplash", 20);
-    stub("gu3dfGetInfo", 8);
-    stub("gu3dfLoad", 8);
+    add3dfLoaders(true);
 }
 
 } // namespace reluva::glide

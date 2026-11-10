@@ -165,8 +165,6 @@ void Glide3::enable(uint32_t mode) {
     if (mode == g3::kAllowMipmapDither)
         for (int i = 0; i < kMaxTmus; ++i)
             texMipMapMode(i, mipmapAsked_[size_t(i)], lodBlend_[size_t(i)]);
-    else if (mode == g3::kAaOrdered)
-        notImplemented("grEnable(GR_AA_ORDERED)", "drawn without anti-aliasing");
     else if (mode == g3::kVideoSmoothing)
         notImplemented("grEnable(GR_VIDEO_SMOOTHING)", "the video filter isn't modelled");
 }
@@ -318,21 +316,54 @@ constexpr uint32_t kOwnStw = kStwWDiffTmu0 | kStwStDiffTmu1 | kStwWDiffTmu1 | kS
 void Glide3::drawTriangle(const uint8_t* a, const uint8_t* b, const uint8_t* c) {
     pipeline().state().stwHints = kOwnStw;
     const Vertex va = readVertex(a), vb = readVertex(b), vc = readVertex(c);
-    core_.triangle(va, vb, vc);
+    triangle(va, vb, vc);
+    lastMode_ = 0xffffffffu;
+}
+
+void Glide3::aaDrawTriangle(const uint8_t* a, const uint8_t* b, const uint8_t* c, bool ab, bool bc, bool ca) {
+    pipeline().state().stwHints = kOwnStw;
+    const Vertex va = readVertex(a), vb = readVertex(b), vc = readVertex(c);
+    core_.aaTriangle(va, vb, vc, ab, bc, ca);
     lastMode_ = 0xffffffffu;
 }
 
 void Glide3::drawLine(const uint8_t* a, const uint8_t* b) {
     pipeline().state().stwHints = kOwnStw;
     const Vertex va = readVertex(a), vb = readVertex(b);
-    core_.line(va, vb);
+    line(va, vb);
     lastMode_ = 0xffffffffu;
 }
 
 void Glide3::drawPoint(const uint8_t* a) {
     pipeline().state().stwHints = kOwnStw;
-    core_.point(readVertex(a));
+    point(readVertex(a));
     lastMode_ = 0xffffffffu;
+}
+
+// With GR_AA_ORDERED on, triangles, lines and points are anti-aliased
+// ("grDrawTriangle will anti-aliased all three edges of the triangle";
+// grDrawLine, grDrawPoint likewise), strips and fans not ("This mode
+// applies to all primitives except strips and fans"; Glide 3.0 Reference
+// Manual, grEnable, grDrawTriangle).
+void Glide3::triangle(const Vertex& a, const Vertex& b, const Vertex& c) {
+    if (enabled(g3::kAaOrdered))
+        core_.aaTriangle(a, b, c, true, true, true);
+    else
+        core_.triangle(a, b, c);
+}
+
+void Glide3::line(const Vertex& a, const Vertex& b) {
+    if (enabled(g3::kAaOrdered))
+        core_.aaLine(a, b);
+    else
+        core_.line(a, b);
+}
+
+void Glide3::point(const Vertex& a) {
+    if (enabled(g3::kAaOrdered))
+        core_.aaPoint(a);
+    else
+        core_.point(a);
 }
 
 void Glide3::drawVertexArray(uint32_t mode, const std::vector<const uint8_t*>& pointers) {
@@ -345,21 +376,28 @@ void Glide3::drawVertexArray(uint32_t mode, const std::vector<const uint8_t*>& p
     switch (mode) {
     case g3::kPoints:
         for (const Vertex& p : v)
-            core_.point(p);
+            point(p);
         break;
     case g3::kLineStrip:
         for (size_t i = 0; i + 1 < n; ++i)
-            core_.line(v[i], v[i + 1]);
+            line(v[i], v[i + 1]);
         break;
     case g3::kLines:
         for (size_t i = 0; i + 1 < n; i += 2)
-            core_.line(v[i], v[i + 1]);
+            line(v[i], v[i + 1]);
         break;
     case g3::kTriangles:
         for (size_t i = 0; i + 2 < n; i += 3)
-            core_.triangle(v[i], v[i + 1], v[i + 2]);
+            triangle(v[i], v[i + 1], v[i + 2]);
         break;
-    case g3::kPolygon: // drawn as a fan (Reference Manual, grDrawVertexArray)
+    case g3::kPolygon:
+        // A fan; with GR_AA_ORDERED its outside edges anti-aliased (the
+        // manual's replacement for grAADrawPolygon).
+        if (enabled(g3::kAaOrdered)) {
+            core_.aaPolygon(int(n), v.data());
+            break;
+        }
+        [[fallthrough]];
     case g3::kTriangleFan:
     case g3::kTriangleFanContinue: {
         // A continued fan keeps its first vertex and the last one drawn.

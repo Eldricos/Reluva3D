@@ -516,8 +516,8 @@ void testBinding() {
     CHECK(!cpu.call(dll.exports().at("_grLfbUnlock@8"), {1, kBufferBack}, result));
     CHECK(dll.glide().lfbRead(kBufferBack, 9, 3, false) == 0xabcd);
     // A stub returns 0 and is counted.
-    CHECK(!cpu.call(dll.exports().at("_guTexMemReset@0"), {}, result));
-    CHECK(dll.calls().at("guTexMemReset") == 1);
+    CHECK(!cpu.call(dll.exports().at("_grSplash@20"), {0, 0, 0, 0, 0}, result) && result == 0);
+    CHECK(dll.calls().at("grSplash") == 1);
 }
 
 void testGlide3() {

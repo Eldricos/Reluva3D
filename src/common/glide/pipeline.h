@@ -130,6 +130,9 @@ struct PixelStats {
 };
 
 class Pipeline;
+namespace raster {
+struct Fragments; // raster_setup.h
+}
 
 // What draws: the software reference rasterizer, or later another (a GPU
 // backend). It reads the pipeline's state, buffers and texture memory, and
@@ -141,6 +144,10 @@ public:
     virtual void triangle(Pipeline& p, const Vertex& a, const Vertex& b, const Vertex& c) = 0;
     virtual void line(Pipeline& p, const Vertex& a, const Vertex& b) = 0;
     virtual void point(Pipeline& p, const Vertex& a) = 0;
+    // Single pixels each with its own values (drawing coordinates), and the
+    // gradients for the texture LOD if `derivatives`: the coverage pixels
+    // of the anti-aliased primitives (Pipeline::aaTriangle...).
+    virtual void fragments(Pipeline& p, const raster::Fragments& f) = 0;
     virtual void clear(Pipeline& p, uint32_t argb, int alpha, int depth) = 0;
     virtual void sync(Pipeline&) {}
     // The same for one buffer (kBufferFront...), when only it is read (a
@@ -199,6 +206,18 @@ public:
     void triangle(const Vertex& a, const Vertex& b, const Vertex& c);
     void line(const Vertex& a, const Vertex& b);
     void point(const Vertex& a);
+    // Anti-aliased primitives (Glide 2's grAADraw*, Glide 3's
+    // GR_AA_ORDERED): drawn with the alpha iterator standing for the
+    // pixel's coverage (docs/engines/glide.md, Anti-aliasing). A triangle:
+    // its pixels as grDrawTriangle draws them, and outside each edge asked
+    // for (ab, bc, ca) a fringe whose alpha falls from the vertex alpha to
+    // 0 a pixel out. A line: the pixels within a pixel of it, alpha falling
+    // with the distance. A point: the four pixels round it, by their share
+    // of a pixel-sized square.
+    void aaTriangle(const Vertex& a, const Vertex& b, const Vertex& c, bool ab, bool bc, bool ca);
+    void aaLine(const Vertex& a, const Vertex& b);
+    void aaPoint(const Vertex& a);
+    void fragments(const raster::Fragments& f);
     // grBufferClear: the clip window of the render buffer, and of the
     // auxiliary buffer when depth (or alpha) buffering is on and writable.
     void clear(uint32_t argb, int alpha, int depth);
