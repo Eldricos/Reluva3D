@@ -156,7 +156,7 @@ pixels. In the first frames after the poke the sky is still drawn
     3 off2 / 2 × (nimbus / 100, rounded down): only a nimbus of 100
     counts. Hometown's is 80.
   - **The brightness** of each point, set once as the track loads:
-    the brightness less a random amount below the variance; then pushed
+    the brightness less a random amount below the variance (the generator `0x4e0d88`, seeded from a tick count: The Direct3D renderer, below); then pushed
     from the middle, by a signed square root of (b − 128) / 128; then 20
     passes that move each towards its neighbours within two points, by
     half the mean of (neighbour − it) × ((neighbour − 128) / 128)², kept
@@ -296,7 +296,7 @@ The Tracks page draws as the game does, above, with the functions in
   `ROTATE`, turned as the game turns it. Drawn before the clouds, or
   after them with `INFRONT`.
 - **The clouds.** The game's grid, dome, nimbus and brightness (with
-  Reluva's own random numbers), drifting by the game's amount at 64
+  the game's random numbers, for a start-up time of 12345 ms), drifting by the game's amount at 64
   ticks a second and moving by the camera's place over the visual
   height (`cloudOffset`). The sky's heights, clouds, shaded area and
   horizon picture, are the world's less the camera's height. The `sky.fsh` pictures have no mipmaps, as THRASH's
@@ -407,7 +407,7 @@ times as m:ss), against the Tracks page and frames from `nfs-host`:
   With every cloud point alike the clouds add as much in both. Only
   their random layout differs: the game takes the points from its own
   generator (`0x4e0d88`, a lagged sum shared with the rest of the game),
-  so which part of the sky is thick changes from race to race; at that
+  seeded from a tick count (`0x6fd3b4`; The Direct3D renderer, below), so which part of the sky is thick changes from run to run; at that
   spot the host had more cloud, which, added and fogged towards the
   yellow-grey fog colour, lifted its sky by about 35 against the page's
   20.
@@ -661,9 +661,9 @@ device didn't filter, above). The list of frame 2800 (`k1-runs/hw-d3dg`,
 `-gpudump`) has the clouds' 276 vertices at alpha 133 everywhere, the
 value worked out above, their colours 56 to 137; told of a Voodoo 2
 (`f2-runs/hw`'s list, the same frame) they are (b, b, b, b), alpha 125
-to 195. (Their colours are darker in the Direct3D run too, by more than
-the code above explains; the clouds' random layout differs between runs,
-which may be all of it.) The Summit in
+to 195. Their colours are darker in the Direct3D run, and that is the
+random layout alone, from the game's seed (November 2026, below). The
+Summit in
 the weather, frame 2800 (`k1-runs/su-v2`, `su-d3d`): told of d3da the
 white haze is gone, the far hills are dark and the clouds grey and
 distinct, as in `Snow` 0:40; but the clip's sky between the trees is
@@ -672,6 +672,44 @@ y 60-110; told of a Voodoo 2 (205, 206, 200) ± 52, by the haze). The
 effects intensity stays 1 unless lowered in the options (its slider is offered
 only under Direct3D, `0x448610`, `0x44d2a0`), so nothing is dimmed by
 default.
+
+**Why the Direct3D run's clouds are darker** (November 2026). The sky's
+set-up (`0x47ae10`) has one renderer test, the alpha at `0x47b2e5`
+above; the colour is the brightness b under every renderer, and nothing
+between it and the card changes it for blended clouds (type 2, as
+Hometown's weather, `0x55d1f4`): `0x47b4f0` copies each point's colour
+into the drawn vertices every frame, `0x47b3a0` only raises points for
+a lightning flash, `0x47b7d0` dims type 1 only, and the polygon drawer
+(`0x433840`) sends the vertices as they are. The random amounts come
+from the game's generator (`0x4e0d88`), which each race's set-up
+(`0x474ca0`, `0x4a36c1`) seeds (`0x4e0dee`) with `0x6fd3b4`, the tick
+count `GetTickCount` gave at start-up (`0x47242c`); nothing draws from
+it between the seeding and the sky's set-up. Runs `n3-runs/cl-v2` and
+`cl-d3d` (Hometown in the weather by day, `-deterministic 50000`, told
+of a Voodoo 2 and of d3da; `-dumpmem` of the generator `0x5644e0` at
+`0x47ae10`, of the points `0x6ff170` and the cloud settings `0x55d1f0`
+at the first `0x47b850`, `-gpudump 2800`): the same brightness 250 and
+variance 235, but the generator seeded with 5992 and 5991 (each word
+one apart: d3da's start-up reaches `0x47242c` a millisecond sooner in
+the run). The points were 88 to 200 (mean 161.3) and 56 to 201 (mean
+120.0); the drawn lists of frame 2800 125 to 195 and 56 to 137, as the
+earlier runs (`k1-runs`, which had the same seeds). The set-up worked
+out from the code, run on each seed, gives every point exactly as the
+game left it (`n3-runs/emu.py`). Run `cl-d3ds`, told of d3da with the
+Voodoo 2 run's generator poked in at `0x47ae10`, left every point's
+colour equal to `cl-v2`'s, the alpha 133. Over 60 random seeds the mean
+brightness ranged from 110 to 186 (median 147): the 20 passes push
+whole regions to the ends, so one seed's sky can be much darker than
+another's. So it is the game's own behaviour, the same with every
+renderer: the layout, and with it how dark the clouds are overall,
+follows the time the game was started, and in Reluva's deterministic
+runs it differs by renderer only because the start-up takes a
+different time.
+
+**On the Track page:** `cloudBrightness()` now draws the amounts from
+the game's generator (`GameRandom`) with the game's seed, so a seed
+gives the game's layout exactly (tested on both runs' seeds); the page
+uses 12345, one start-up time.
 
 **Still open:** which renderer the clips' game used (the menus in
 `Night` show no renderer or version; the missing fog and point-sampled

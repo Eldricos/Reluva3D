@@ -139,6 +139,47 @@ Direct3D:
 | 0x190-0x195 | assorted; 0x193 returns capabilities, 0x194 and 0x195 set source and destination blend from tables |
 | 0x2bd, 0x2bf, 0x2c2 | softtria's own; d3da ignores them and returns 0 |
 
+## Blend modes
+
+State 0x68 picks the blend; the game sends only 0 and 1 (the polygon
+drawers `0x4332b0`, `0x433530`, `0x433660`, `0x4339d0`, by bit 0 of a
+polygon's flags) and state 0xa once, from the renderer set-up
+(`0x4b59c0`). On a Voodoo, 1 is Glide's (source alpha, one), so an
+opaque added pixel is added in full.
+
+**softtria** (read in November 2026 from `softtria.dll`, at its own
+base 0x60000000; its `setstate` is `0x600030c0`):
+
+- It ignores state 0xa (`0x6000324f`-`0x6000325d`: 0xa and 0xb return
+  1 and store nothing), and takes only 0 and 1 for 0x68
+  (`0x600033bf` calls `0x60004190`, `0x60004280` and `0x600043c0`, each
+  of which does nothing for other values).
+- Translucency is per triangle, not per pixel: `drawtri`
+  (`0x60004da0`) takes the mean of the three vertices' alpha, m, and
+  calls entry m >> 5 of a row of eight span drawers (`0x6003e12c`:
+  `0x60041040` + 0x180 × state 0x2c2 + 0x20 × the texture's kind, the
+  kind being its format, 0 with no texture, and 3 or 4 for a 16-bit one
+  by whether it has see-through texels, `0x60003dc0`), with 16 levels,
+  m >> 4, for the drawer (`0x6003e124`, `0x6003e128`). Entry 0 is a
+  bare `ret` (`0x6002fcb0`) in every row: a triangle whose vertices
+  average under 32 alpha isn't drawn at all.
+- State 0x68 changes the rows of the textured kinds 3, 4 and 7. Under 1,
+  entry 7 (m from 224) of kind 4 is `0x60026700`, whose span
+  (`0x60026610`) adds the texel to the pixel, each 5:6:5 field clamped
+  (the masks at `0x6003e33c`-`0x6003e344`), with no alpha and no vertex
+  colour. So softtria adds an opaque pixel in full too.
+
+**Reluva** (November 2026): the GPU drawing (`thrash_gpu.cpp`) blends
+with (source alpha, one) for mode 1 while state 0xa is on, so it added
+opaque pixels; the software rasterizer (`NativeThrash::put`) applied a
+blend only to pixels under alpha 255, so it replaced an opaque added
+pixel instead of adding it, and mode 2 and 3 likewise. Now it applies
+0x68's mode whenever 0xa is on, opaque or not, and mixes by alpha
+otherwise, as the GPU does (test `testThrashBlend`). Neither follows
+softtria's per-triangle alpha levels, its untextured rows or its
+additive spans' ignoring the vertex colour: Reluva draws as the 3D
+cards do.
+
 ## d3da's device defaults
 
 `d3da.dll` sets up its Direct3D device once (`0x60004137`-`0x600042af`,
@@ -504,8 +545,10 @@ pixels along edges. The comparison found two bugs, both fixed:
 
 `nfs-host -gpulog` records as for the GPU, without one, and sums up
 each frame's list: batches, vertices, textures, the flip's rectangle. `nfs-host -gpudump n dir` writes the nth list out in full: every
-vertex with its batch's texture, blending, culling and fog
-(`list.csv`), and the textures it uses as TGA files. That is how the
+vertex with its batch's texture, blending, culling, fog and texture
+filter (`list.csv`; the `filter` column is −1 where the batch leaves it
+to the drawing's default, 0 point-sampled, 1 bilinear: set only under
+d3da's device, from state 7), and the textures it uses as TGA files. That is how the
 game's sky was measured ([hrz.md](hrz.md)).
 
 **Memory mappings** (November 2026). A second race in one session

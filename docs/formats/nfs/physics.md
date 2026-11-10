@@ -3220,7 +3220,10 @@ Found November 2026 from the code and run in `g3-cv0`, `g3-cv1`, `h3-cm5`, `h3-l
   and 6, so their distance stays fixed. `0x424740` (3 and 5) also falls
   back to (0, 1.0, −3.25), mode 6's offset, when `0x5e1014[screen]` is
   over 32 (`0x426370` counts it up while both the car's slice and the
-  camera's +0x84 pass `0x420bf0`). The set-up's bytes at
+  camera's +0x84 pass `0x420bf0`). `0x5e1014[screen]` is the camera's time under
+  cover in ticks (col.md, side code 2): run `n3-runs/uc2` saw it go
+  0 to 51 at about 64 a second through a covered stretch, with the near
+  offset taken (`0x4247af`, over 0x20) exactly while it was over 32. The set-up's bytes at
   +0x58 + m mark the modes it may blend into through mode 19
   (`0x422610`). 3 has 4, 5, 6, 7, 11, 12, 13, 17, 21 and 24; 4, 5 and
   6 each have the other three chase modes and 17, 21, 24.
@@ -3312,6 +3315,18 @@ Found November 2026 from the code and run in `g3-cv0`, `g3-cv1`, `h3-cm5`, `h3-l
   and (−0.345, 0.084, −0.935), every 2-3 frames. After release they
   stayed on the second, the side the last tick had left. So the eye
   jumps between behind-right and ahead-right of the car while B is held.
+  Run `n3-runs/lb10` (`lb10.sh`: Hometown, no computer driver, view
+  slots `0x6fbbc0`-`0x6fbbcc` poked to 5, 6, 10, 0 at `0x474ca0` so the
+  race starts in mode 10, gas from 52 s, B held 54.0-55.0 s; `-watch
+  0x425990` reading the mode-10 object's +0x118 and `0x79c4a0`; every
+  frame from 2350, with `-framelog`) confirmed it in the frames. Mode
+  10's tick ran 2 or 3 times a frame; while `0x79c4a0` was 1
+  (54.046-55.021 s) +0x118 changed sign at every tick, between −2.4 and
+  +2.4, so a frame of 3 ticks ended on the other side and a frame of 2
+  on the same side: of the hold's 25 frames, 11 ended with the eye
+  ahead. The frames show the view from behind-right alternating with
+  one from ahead-right looking back at the car's nose, in the pattern of
+  the watched sign; after release the view stayed behind.
 
 ## Other car fields
 

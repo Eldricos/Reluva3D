@@ -252,15 +252,48 @@ uint8_t cloudAlpha(const Horizon& h, uint8_t brightness, bool direct3d) {
     return static_cast<uint8_t>((h.cloudBright - (h.cloudVariance >> 1)) & 0xff);
 }
 
+// 0x4e0dee: the first word the seed plus 0xf22d0e56, each next the one
+// before plus its constant.
+GameRandom::GameRandom(uint32_t seed) {
+    static constexpr uint32_t kAdd[6] = {0xf22d0e56u, 0x96041893u, 0x3df3b646u, 0x40dde76du, 0x97327ae1u, 0xd1a9fbe7u};
+    uint32_t v = seed;
+    for (int i = 0; i < 6; ++i)
+        state[i] = v += kAdd[i];
+}
+
+// 0x4e0d88: the last word plus the one before, then on up the words with
+// the carry, each kept; the first gets the sum. The last word then counts
+// up, carrying into those before it (and into the sum when all are 0).
+uint32_t GameRandom::next() {
+    uint64_t sum = uint64_t(state[5]) + state[4];
+    state[4] = uint32_t(sum);
+    for (int i = 3; i >= 1; --i) {
+        sum = (sum >> 32) + uint64_t(uint32_t(sum)) + state[i];
+        state[i] = uint32_t(sum);
+    }
+    uint32_t out = uint32_t((sum >> 32) + uint64_t(uint32_t(sum)) + state[0]);
+    for (int i = 5; i >= 0; --i) {
+        if (i == 0) {
+            ++out;
+            break;
+        }
+        if (++state[i] != 0)
+            break;
+    }
+    state[0] = out;
+    return out;
+}
+
 std::array<uint8_t, kCloudPoints * kCloudPoints> cloudBrightness(const Horizon& h, uint32_t seed) {
     constexpr int n = kCloudPoints;
     std::array<float, n * n> b{};
+    // Along x, then the next row along z (0x47ae10's loops); the amount is
+    // the generator's number modulo the variance, unsigned (0x47af0b).
+    GameRandom random(seed);
     for (float& v : b) {
         int value = h.cloudBright;
-        if (h.cloudVariance > 0) {
-            seed = seed * 1103515245u + 12345u;
-            value -= static_cast<int>((seed >> 16) & 0x7fff) % h.cloudVariance;
-        }
+        if (h.cloudVariance > 0)
+            value -= static_cast<int>(random.next() % static_cast<uint32_t>(h.cloudVariance));
         v = static_cast<float>(value);
     }
     for (float& v : b) {

@@ -420,7 +420,9 @@ void TrackPage::loadSky() {
     // (cloudHeight(); 0x47ae10): 13 x 13 points 450 apart, each its grid
     // position as texture coordinates, u along x and v along the track's
     // z, and a brightness from cloudBrightness() as colour and alpha.
-    // Cloud type 1 is added, 2 blended.
+    // Cloud type 1 is added, 2 blended. The layout is the game's for a
+    // start-up tick count of 12345 ms (its seed, hrz.h): each start of the
+    // game gives another, darker or brighter overall.
     if (h.cloudType != 0)
         cloudPicture_ = skyPicture(kCloudPicture[variant_], nullptr);
     if (cloudPicture_) {
