@@ -9,5 +9,5 @@ artwork: 14a69fde1cd4aad0 | decoded artwork: 4435bc30e97af289b175190047dfaf90
 font: d95aa010cbe9a291 | decoded font: c17da155d78f17e71d32137d3f5b1521
 allwords: 58f65b9a3d851c1a | decoded all words: 8422ca959f8ecd50164ea97972c4c274
 competition: b317e177a336ac35 | decoded competitions: be5fae83b0735277bba82da2d5d62d3f
-computer: c39e068866ef08db | decoded computers: 33ec4cdba5351bcb97184fd33fbd4225
-background: 00a697c30dfcd6cc | decoded background: c996760e42d988caca13fe570199a069
+computer: a6b0906eb22cfdd1 | decoded computers: e612fb5fc755e4bfc7665e01d913b71a
+background: 4de58038d9487df9 | decoded background: 22fb0627d72325f34498be863c45f2ac

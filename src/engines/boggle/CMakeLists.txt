@@ -24,6 +24,8 @@ reluva_add_engine(boggle
         classic/highscores.cpp
         classic/cursor.cpp
         classic/computer.cpp
+        classic/ai_policy.cpp
+        classic/ai_motion.cpp
         classic/competition.cpp
         classic/results.cpp
         classic/turn_clock.cpp

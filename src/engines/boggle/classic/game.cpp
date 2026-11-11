@@ -268,12 +268,23 @@ Error ClassicGame::run() {
     std::vector<std::unique_ptr<ClassicRound>> rounds;size_t turn=0,reviewPlayer=0,nextTurn=0;ClassicCompetition competition;PlayerClocks clocks,backgroundClock;
     bool backgroundStarted=false,backgroundFinished=false;
     std::vector<ComputerPlan> computers(names.size());std::vector<uint64_t> started(names.size());
+    ComputerGeometry computerGeometry;computerGeometry.scale=1250;
+    auto& centers=computerGeometry.centers;
+    for(size_t i=0;i<options.side()*options.side();++i) {
+        const int cell=boardSize/int(options.side());
+        centers.push_back(artwork.active()?artwork.cellCenter(i,options.side()):
+            ClassicPoint{boardX+int(i%options.side())*cell+cell/2,boardY+int(i/options.side())*cell+cell/2});
+    }
+    const HistoryButton submitArea=artwork.active()?HistoryButton{621,52,179,396}:HistoryButton{430,204,346,260};
+    const ClassicPoint submitPoint{submitArea.x+submitArea.w/2,submitArea.y+submitArea.h/2};
+    const ClassicPoint cursorRest{(centers.front().x+centers.back().x)/2,(centers.front().y+centers.back().y)/2};
+    computerGeometry.origin=cursorRest;computerGeometry.submit=submitPoint;
     auto resetRounds=[&](const Board& cubes)->Error {
         std::vector<std::unique_ptr<ClassicRound>> next;
         std::vector<ComputerPlan> plans(names.size());
         for(size_t i=0;i<names.size();++i) {
             if(kinds[i]!=ComputerLevel::Human)
-                if(auto error=plans[i].build(cubes,computerDictionary,dictionary,kinds[i],seed,i))return error;
+                if(auto error=plans[i].build(cubes,computerDictionary,dictionary,kinds[i],seed,i,500000,&computerGeometry))return error;
             auto current=std::make_unique<ClassicRound>(dictionary,&user);
             if(auto error=current->board(cubes,options.duration))return error;
             if(!foreground(i))if(auto error=current->start(0,options.duration))return error;
@@ -310,15 +321,6 @@ Error ClassicGame::run() {
     bool softwareCursor=false;
     std::optional<ClassicPoint> computerPointer;ClassicPoint traceOrigin;
     const AcceptedWord* tracing=nullptr;
-    std::vector<ClassicPoint> centers;
-    for(size_t i=0;i<options.side()*options.side();++i) {
-        const int cell=boardSize/int(options.side());
-        centers.push_back(artwork.active()?artwork.cellCenter(i,options.side()):
-            ClassicPoint{boardX+int(i%options.side())*cell+cell/2,boardY+int(i/options.side())*cell+cell/2});
-    }
-    const HistoryButton submitArea=artwork.active()?HistoryButton{621,52,179,396}:HistoryButton{430,204,346,260};
-    const ClassicPoint submitPoint{submitArea.x+submitArea.w/2,submitArea.y+submitArea.h/2};
-    const ClassicPoint cursorRest{(centers.front().x+centers.back().x)/2,(centers.front().y+centers.back().y)/2};
     std::optional<size_t> reviewSelection;
     auto browse=[&](int64_t rows) {
         const size_t count=results.ready()?results.words().size():size_t(std::count_if(round().words().begin(),round().words().end(),[](const auto& word){return word.state!=WordState::Declined;}));
@@ -660,8 +662,8 @@ Error ClassicGame::run() {
             if(computerCursor) {
                 input.clear();selected.clear();
                 if(const auto* word=plan.nextWord()) {
-                    if(tracing!=word){tracing=word;traceOrigin=computerPointer.value_or(cursorRest);}
-                    const auto frame=computerCursorFrame(*word,centers,traceOrigin,elapsed,plan.due(),submitPoint);
+                    if(tracing!=word){tracing=word;traceOrigin=computerPointer.value_or(word==plan.words().data()?cursorRest:submitPoint);}
+                    const auto frame=computerCursorFrame(*word,centers,traceOrigin,elapsed,plan.due(),submitPoint,plan.nextMotion());
                     computerPointer=frame.active?frame.point:traceOrigin;
                     if(frame.active) {
                         selected.assign(word->path.begin(),word->path.begin()+frame.cubes);
@@ -670,17 +672,15 @@ Error ClassicGame::run() {
                 }
             }
             if(plan.exhausted()) {
-                // Mr. Boggle ends on exhaustion in timed and untimed play.
-                // Other exhaustion policies remain the existing native choices.
-                if(chess || !round().timed() || kinds[turn]==ComputerLevel::MrBoggle){if(auto error=startOrFinish())return error;}
-                else message="Computer has no more words. Waiting for the timer / F1: end.";
+                if(plan.finished(elapsed)){if(auto error=startOrFinish())return error;}
+                else message="Computer looking for more words / F1: end player";
             } else if(const auto* word=plan.take(elapsed)) {
                 const auto outcome=round().submit(word->word,now,word->path);
                 if(outcome==Submission::Accepted) {
                     input=word->word;selected.clear();message="Computer playing / F1: end player";
                     if(computerCursor)computerPointer=submitPoint;
                     sound.recorded(word->word.size());
-                    if(kinds[turn]==ComputerLevel::MrBoggle && plan.exhausted()) {
+                    if(plan.finished(elapsed)) {
                         if(auto error=startOrFinish())return error;
                     } else if(auto error=passWord())return error;
                 } else if(outcome==Submission::NotPlaying)timeout(sys_.getMillis());

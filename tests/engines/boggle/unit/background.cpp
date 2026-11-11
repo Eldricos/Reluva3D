@@ -37,18 +37,19 @@ void scheduled() {
     for(uint64_t step:{100u,777u,10000u}) {
         ComputerPlan plan;CHECK(!plan.build(board,dictionary,dictionary,ComputerLevel::MrBoggle,6551,0));
         std::vector<std::pair<std::string,uint64_t>> moves;uint64_t at=123;
-        CHECK(!plan.takeScheduled(999,at) && at==123);
-        for(uint64_t now=step;now<=10000+step;now+=step)
+        CHECK(!plan.takeScheduled(plan.due()-1,at) && at==123);
+        for(uint64_t now=step;!plan.exhausted();now+=step)
             while(const auto* word=plan.takeScheduled(now,at))moves.push_back({word->word,at});
-        CHECK(plan.exhausted() && moves.size()==4);
-        for(size_t i=0;i<moves.size();++i)CHECK(moves[i].second==(i+1)*1000);
+        CHECK(moves.size()==4);
+        for(size_t i=1;i<moves.size();++i)CHECK(moves[i].second>moves[i-1].second);
         if(baseline.empty())baseline=moves;else CHECK(baseline==moves);
     }
     ComputerPlan plan;CHECK(!plan.build(board,dictionary,dictionary,ComputerLevel::MrBoggle,6551,0));
-    ClassicRound round(dictionary);CHECK(!round.board(board,3000) && !round.start(0,3000));uint64_t at=0;
-    while(const auto* word=plan.takeScheduled(2999,at))CHECK(round.submit(word->word,at,word->path)==Submission::Accepted);
+    const auto deadline=baseline[2].second;
+    ClassicRound round(dictionary);CHECK(!round.board(board,deadline) && !round.start(0,deadline));uint64_t at=0;
+    while(const auto* word=plan.takeScheduled(deadline-1,at))CHECK(round.submit(word->word,at,word->path)==Submission::Accepted);
     CHECK(round.words().size()==2);
-    const auto* word=plan.takeScheduled(3000,at);CHECK(word && at==3000);
+    const auto* word=plan.takeScheduled(deadline,at);CHECK(word && at==deadline);
     if(word)CHECK(round.submit(word->word,at,word->path)==Submission::NotPlaying);
 }
 void hidden(const std::filesystem::path& tmp) {
@@ -63,7 +64,7 @@ void hidden(const std::filesystem::path& tmp) {
             for(int y=590;y<600;++y)score.bytes(screen.row(y)+204*4,196*4);
             cpuScores.push_back(score.hex());
         };
-        sys.clock=[](size_t f){return uint64_t(f*1000);};
+        sys.clock=[](size_t f){return uint64_t(f*5000);};
         sys.events=[](size_t f)->std::vector<Event>{using namespace fixtures;
             if(f==0)return {keyEvent(key::Return)};
             if(f==1)return {textEvent("AAAA"),keyEvent(key::Return),textEvent("AAAAA"),keyEvent(key::Return)};
@@ -97,7 +98,7 @@ void deadline(const std::filesystem::path& tmp) {
     for(bool chess:{false,true})for(bool animations:{false,true}) {
         auto t=target(tmp/(std::to_string(chess)+std::to_string(animations)),chess);
         t.settings["classic_seconds"]="60";t.settings["classic_animations"]=animations?"1":"0";
-        // Invented A/B vocabulary; enough legal words to put one exactly at the deadline.
+        // Invented A/B vocabulary; a word after the deadline must not cancel human credit.
         std::vector<std::string> words;
         for(size_t length=3;length<=6;++length)for(unsigned bits=0;bits<(1u<<length);++bits) {
             std::string word(length,'A');for(size_t i=0;i<length;++i)if(bits&(1u<<i))word[i]='B';words.push_back(word);
@@ -108,9 +109,13 @@ void deadline(const std::filesystem::path& tmp) {
         fixtures::write(t.path/"Dicts/EngOrg.dst",dice);
         Resources resources;CHECK(!resources.open(t.path));Dictionary dictionary;DiceSet cubes;Board board;
         CHECK(!resources.dictionary("Dicts/English.dic",dictionary));CHECK(!resources.diceSet("Dicts/EngOrg.dst",cubes));CHECK(!Board::generate(cubes,6551,board));
-        ComputerPlan plan;CHECK(!plan.build(board,dictionary,dictionary,ComputerLevel::MrBoggle,6551,1));
+        ComputerGeometry geometry;geometry.scale=1250;
+        for(size_t i=0;i<16;++i)geometry.centers.push_back({24+int(i%4)*92+46,100+int(i/4)*92+46});
+        geometry.origin={208,284};geometry.submit={603,334};
+        ComputerPlan plan;CHECK(!plan.build(board,dictionary,dictionary,ComputerLevel::MrBoggle,6551,1,500000,&geometry));
         CHECK(plan.words().size()>60);if(plan.words().size()<=60)continue;
-        const auto last=plan.words()[59];
+        uint64_t at=0;while(plan.takeScheduled(59999,at)){}
+        CHECK(plan.nextWord());if(!plan.nextWord())continue;const auto last=*plan.nextWord();
         fixtures::ScriptedSystem sys;
         sys.clock=[&](size_t f)->uint64_t {
             if(animations){const uint64_t times[]={0,4400,5400,64400,65500,65500};return times[std::min(f,size_t(5))];}
@@ -192,7 +197,7 @@ void earlyEnd(const std::filesystem::path& tmp) {
 void replay(const std::filesystem::path& tmp) {
     for(bool chess:{false,true}) {
         auto t=target(tmp/std::to_string(chess),chess);fixtures::ScriptedSystem sys;
-        sys.clock=[](size_t f){return uint64_t(f*1000);};
+        sys.clock=[](size_t f){return uint64_t(f*5000);};
         sys.events=[](size_t f)->std::vector<Event>{using namespace fixtures;
             if(f==0 || f==5 || f==6 || f==12)return {keyEvent(key::Return)};
             if(f==1 || f==7 || f==13)return {textEvent("AAAA"),keyEvent(key::Return),textEvent("AAAAA"),keyEvent(key::Return)};
@@ -211,7 +216,7 @@ void replay(const std::filesystem::path& tmp) {
 void frontend(const std::filesystem::path& tmp) {
     for(bool click:{false,true}) {
         auto t=target(tmp/std::to_string(click));t.settings["classic_background"]="0";
-        fixtures::ScriptedSystem sys;sys.clock=[](size_t f){return uint64_t(f*1000);};
+        fixtures::ScriptedSystem sys;sys.clock=[](size_t f){return uint64_t(f*5000);};
         sys.events=[&](size_t f)->std::vector<Event>{using namespace fixtures;
             if(f==0 || f==1 || f==7 || f==13)return {keyEvent(key::Return)};
             if(f==2)return {keyEvent('m')};
@@ -232,7 +237,7 @@ void frontend(const std::filesystem::path& tmp) {
     }
     // A background request cannot strand a roster with no human timer to drive it.
     auto t=target(tmp/"all-computer");fixtures::ScriptedSystem sys;
-    sys.clock=[](size_t f){return uint64_t(f*1000);};
+    sys.clock=[](size_t f){return uint64_t(f*5000);};
     sys.events=[](size_t f)->std::vector<Event>{using namespace fixtures;
         if(f==0)return {keyEvent(key::Return)};
         if(f==5)return {quit()};

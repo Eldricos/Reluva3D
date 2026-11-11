@@ -1,5 +1,9 @@
 # Visible computer cursor movement
 
+The [completed AI milestone](ai-milestone.md) replaces the former final-second
+preview with each plan's measured travel/press/release timeline. Timing still
+applies with the cursor hidden. The arrow and interpolation remain native.
+
 On Players, assign a computer through **Local Players / M**, then click
 **Computer Cursor** or press **V**. This is independent of Traditional / Chess
 Timer. It defaults to off and lasts for the frontend session. The private target
@@ -50,18 +54,17 @@ word order, then moves to the word list to submit. This is the same in Tradition
 and Chess Timer. Clicking the word list also submits human selections in the
 original. The implementation now follows these broad interaction rules.
 
-Exact highlighting, input progression, pointer shape and pacing still require
-comparison. The present animation is explicitly native: it uses the final second
-before the already scheduled word, moves linearly through cube centers during
-the first three quarters, then travels to the word list during the final quarter.
-Submission occurs on arrival at the existing scheduled time. Longer think intervals retain their existing pause. The animation
-never consumes a word, advances a plan or extends a turn. Late frames can skip
-intermediate positions without causing a catch-up burst of submitted words.
+The live animation follows each plan's measured cube travel, press, hold, release
+and word-list submission timeline. Press boundaries advance the displayed input
+by one cube, including a complete Qu face. Travel uses the native scene's cube
+centers; the arrow moves between the scheduled boundaries without consuming or
+rescheduling a word. Late frames can skip intermediate positions without causing
+a catch-up burst of visible submissions.
 
-This is a playable presentation option, not a claim of original cursor-motion or
-AI-algorithm equivalence. Original computer strength/cadence remains documented
-in [computer opponents](computers.md); [background timing](background.md) remains
-separate.
+The arrow, between-event interpolation and reconstructed geometry remain native.
+Exact camera/idle pointer motion and frame-for-frame VM matching remain part of
+presentation comparison. Selection, nominal timing and retirement evidence are
+in the [completed AI milestone](ai-milestone.md).
 
 ## Validation
 
@@ -77,6 +80,6 @@ All fixtures are invented and contain no retail cursor, board or word data.
 The existing metadata-only `computer-check` now also previews every planned
 path and verifies that previewing cannot consume/reschedule it. After the
 [AI vocabulary correction](computers.md), its supplied-file survey covers
-64 plans and 4,147 canonical submissions.
+64 plans and 3,817 canonical submissions, including timing/motion metadata.
 The optional game-data suite repeats that validation on the install and a fresh
 external imported copy. No retail images or decoded word lists are exported.

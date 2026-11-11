@@ -51,6 +51,12 @@ void geometry() {
     ClassicOptions options;CHECK(!readClassicOptions({},options) && !options.cursor);
     for(const auto* value:{"0","1"}){CHECK(!readClassicOptions({{"classic_cursor",value}},options));CHECK(options.cursor==(std::string(value)=="1"));}
     for(const auto* value:{"","2","true","01"," 1"})CHECK(bool(readClassicOptions({{"classic_cursor",value}},options)) && !options.cursor);
+    word.path={0};centers.assign(16,{0,0});ComputerMotion timeline{{50},{150},1200};
+    auto timed=[&](uint64_t time){return computerCursorFrame(word,centers,{0,0},time,1700,{550,220},&timeline);};
+    CHECK(!timed(499).active && timed(500).active && !timed(549).cubes);
+    CHECK(timed(550).cubes==1 && timed(649).point.x==0);
+    CHECK(timed(1700).point.x==550 && timed(1700).point.y==220);
+    timeline.releases={1200};CHECK(!timed(1700).active);
 }
 void visible(const std::filesystem::path& tmp) {
     for(bool chess:{false,true})for(bool master:{false,true})for(bool art:{false,true}) {
@@ -58,7 +64,7 @@ void visible(const std::filesystem::path& tmp) {
         for(bool cursor:{false,true}) {
             auto t=target(tmp/(std::to_string(chess)+std::to_string(master)+std::to_string(art)+std::to_string(cursor)),chess,master,art);
             t.settings["classic_cursor"]=cursor?"1":"0";
-            CursorSystem sys;sys.clock=[](size_t f){return uint64_t(f*250);};
+            CursorSystem sys;sys.clock=[](size_t f){return uint64_t(f*1000);};
             sys.events=[](size_t f)->std::vector<Event>{using namespace fixtures;
                 if(f==0)return {keyEvent(key::Return)};
                 if(f==2)return {textEvent("AAAAAA"),keyEvent(key::Return)}; // cannot inject a computer word
@@ -69,7 +75,7 @@ void visible(const std::filesystem::path& tmp) {
             CHECK(sys.hides==(cursor?1u:0u));
             if(!cursor)control=sys.hashes;
             else if(sys.hashes.size()==11 && control.size()==11) {
-                CHECK(sys.hashes[1]!=control[1] && sys.hashes[2]!=control[2] && sys.hashes[3]!=control[3]);
+                CHECK(sys.hashes[1]!=control[1] && sys.hashes[2]!=control[2]);
                 CHECK(sys.hashes[9]==control[9] && sys.hashes[10]==control[10]); // same words/score, completed at the same time
                 CHECK(!sys.shown[1] && sys.shown[9]);
             }
@@ -78,7 +84,7 @@ void visible(const std::filesystem::path& tmp) {
     }
 }
 void handoffs(const std::filesystem::path& tmp) {
-    auto t=target(tmp,true);CursorSystem sys;sys.clock=[](size_t f){return uint64_t(f*250);};
+    auto t=target(tmp,true);CursorSystem sys;sys.clock=[](size_t f){return uint64_t(f*1000);};
     sys.events=[](size_t f)->std::vector<Event>{using namespace fixtures;
         if(f==0 || f==7)return {keyEvent(key::Return)};
         if(f==1)return {textEvent("AAAA"),mouseEvent(EventType::MouseDown,600,300)};
@@ -88,7 +94,7 @@ void handoffs(const std::filesystem::path& tmp) {
         return {};
     };
     ClassicGame game(sys,t,false,{"Alex","CPU Mr. Boggle"},{ComputerLevel::Human,ComputerLevel::MrBoggle});CHECK(!game.run());CHECK(sys.hashes.size()==16 && sys.cursorVisible);
-    if(sys.shown.size()==16)CHECK(sys.shown[0] && sys.shown[1] && !sys.shown[2] && !sys.shown[5] && sys.shown[6] && sys.shown[7] && sys.shown[14]);
+    if(sys.shown.size()==16)CHECK(sys.shown[0] && sys.shown[1] && !sys.shown[2] && sys.shown[5] && sys.shown[6] && sys.shown[7] && sys.shown[14]);
     HighScores scores;CHECK(!scores.load(t.savePath,t.path));CHECK(scores.table().empty()); // shared AAAA still cancels
 }
 void exits(const std::filesystem::path& tmp) {
@@ -97,7 +103,7 @@ void exits(const std::filesystem::path& tmp) {
         for(bool cursor:{false,true}) {
             auto t=target(tmp/(std::to_string(mode)+std::to_string(cursor)));t.settings["classic_cursor"]=cursor?"1":"0";
             if(mode==3)t.settings["classic_seconds"]="60";
-            CursorSystem sys;sys.clock=[&](size_t f){return uint64_t(mode==3 && f>=2?60000:f*250);};
+            CursorSystem sys;sys.clock=[&](size_t f){return uint64_t(mode==3 && f>=2?60000:f*1000);};
             sys.events=[&](size_t f)->std::vector<Event>{using namespace fixtures;
                 if(f==0 && mode!=2)return {keyEvent(key::Return)};
                 if(f==2){if(mode==0)return {quit()};if(mode==1)return {keyEvent(key::F1)};if(mode==2)return {keyEvent(key::F1+2)};}
@@ -112,7 +118,7 @@ void exits(const std::filesystem::path& tmp) {
     }
 }
 void replay(const std::filesystem::path& tmp) {
-    auto t=target(tmp);CursorSystem sys;sys.clock=[](size_t f){return uint64_t(f*250);};
+    auto t=target(tmp);CursorSystem sys;sys.clock=[](size_t f){return uint64_t(f*1000);};
     sys.events=[](size_t f)->std::vector<Event>{using namespace fixtures;
         if(f==0 || f==10 || f==21)return {keyEvent(key::Return)};
         if(f==20)return {keyEvent(key::F1+1)};
@@ -131,7 +137,7 @@ void background(const std::filesystem::path& tmp) {
     std::vector<std::string> baseline;
     for(bool cursor:{false,true}) {
         auto t=target(tmp/std::to_string(cursor));t.settings["classic_background"]="1";t.settings["classic_cursor"]=cursor?"1":"0";
-        CursorSystem sys;sys.clock=[](size_t f){return uint64_t(f*250);};
+        CursorSystem sys;sys.clock=[](size_t f){return uint64_t(f*1000);};
         sys.events=[](size_t f)->std::vector<Event>{using namespace fixtures;
             if(f==0)return {keyEvent(key::Return)};
             if(f==1)return {textEvent("AAAA"),keyEvent(key::Return)};

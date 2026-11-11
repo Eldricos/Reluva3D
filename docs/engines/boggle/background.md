@@ -62,9 +62,9 @@ In timed play, an early final human end processes the unused part of the selecte
 budget immediately, without a visible extra turn or a real-time wait.
 
 If a computer exhausts its vocabulary early, its running score stays at the total
-already found. Final scoring still cancels shared words. Native difficulty,
-word ordering, score-strip layout and precise original AI cadence remain separate
-comparison work; these observations do not establish original AI equivalence.
+already found. Final scoring still cancels shared words. Difficulty, word ordering and nominal cadence now follow the [AI milestone](ai-milestone.md).
+Score-strip appearance and exact whole-round VM timing remain presentation
+comparisons; background observations alone do not establish full AI equivalence.
 
 Replay resets all rounds, clocks and plan cursors, retaining the board/seed and
 word schedules. New Board rebuilds them for the new native seed. Leaving for the
@@ -78,9 +78,9 @@ available and stays inactive during background play.
 No original algorithm, disassembly or retail data was copied into this stage.
 
 The common opponents now use variable [base-word thinking delays](thinking.md).
-Selected [plural](plurals.md) and bounded [past-tense](past-tense.md) follow-ups
-share one thinking phase per root, with native presentation intervals. Sampling,
-group construction and other related words remain native.
+Computer selection and cadence now follow the [AI behavior milestone](ai-milestone.md),
+including difficulty gates, related-word groups, movement and hold schedules.
+The random source and reconstructed geometry remain native.
 
 ## Validation
 
@@ -100,8 +100,8 @@ untimed budgets. It compares coarse and fine service intervals and submits every
 word through the canonical round model. For both supplied install/CD copies:
 
 ```
-Background schedules 256, legal submissions 11976
-decoded background: c996760e42d988caca13fe570199a069
+Background schedules 256, legal submissions 6218
+decoded background: 22fb0627d72325f34498be863c45f2ac
 ```
 
 The optional game-data suite runs this check on the source and a fresh imported

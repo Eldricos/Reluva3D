@@ -29,7 +29,8 @@ and supported Classic dice. Mr. Boggle retains every discovered main-dictionary
 word, including words missing from `AI.dic` and words longer than nine letters.
 The owner also confirmed longest-word-first play and ending the visible turn
 when this list is exhausted in both timed and untimed games. These rules are
-now implemented. Equal-length tie order and Mr. Boggle thinking time remain native.
+now implemented. Equal-length ties retain board discovery order; measured movement
+and hold parameters determine cadence.
 
 Every candidate retains one legal path, including Qu, with no cube reuse. Every
 submission still passes the normal round validator, scoring and shared-word
@@ -42,48 +43,25 @@ levels requires it and gives a re-import message if it is missing. A corrupt
 auxiliary dictionary is not opened for a Mr. Boggle-only roster. Mixed rosters
 containing a common opponent still require a valid auxiliary dictionary.
 
-## Remaining native selection and pacing policy
+## Completed Classic AI behavior milestone
 
-**Common-opponent sampling/order, equal-length Mr. Boggle ties and parts of
-cadence remain native policies.**
-The verified dictionary and search-boundary corrections do not reproduce the
-complete original AI selection/timing algorithm. The implementation is independently
-written using the existing bounded solver and public round interface.
+The common levels now use the measured difficulty gates, small-pool fallback,
+suffix recognition and shared-ending/shared-prefix groups instead of fixed
+quarter/half/three-quarter vocabulary samples and native hash order. Mr. Boggle
+retains discovery order for equal-length words. Movement, cube holds, between-word
+gaps and common-opponent retirement have measured schedules rather than fixed
+one-second presentation intervals or waiting for the timer.
 
-| Level | Candidate source and search | Native vocabulary sample | Thinking-time model |
-| --- | --- | --- | --- |
-| Beginner | AI dictionary / nine-letter prefix boundary | One quarter | Measured base-word bounds, native integration |
-| Intermediate | AI dictionary / nine-letter prefix boundary | One half | Measured base-word bounds, native integration |
-| Advanced | AI dictionary / nine-letter prefix boundary | Three quarters | Measured base-word bounds, native integration |
-| Mr. Boggle | Full English board vocabulary | All | Native 1 second |
+See [the full specification, evidence and presentation limits](ai-milestone.md).
+The native random source, seed mapping and reconstructed geometry remain
+independent; exact original seeded rounds and idle pointer wandering are not
+claimed. Replay rebuilds the same native plans, and New Board uses a fresh seed.
 
-The common levels now vary their delays, grow slower as base-word attempts
-accumulate, and add a penalty when their remaining native candidate list is
-small. See [measured delay bounds and approximation limits](thinking.md).
-The original also distinguishes related-word attempts. The native planner now
-handles the documented plural/past groups separately; other related words still use
-base-word bounds. This is a partial pacing model rather than matching original
-full-turn cadence.
-
-Common sampling/order and Mr. Boggle's equal-length ties depend on the native
-board seed, slot and word, using an independent integer hash. Mr. Boggle first
-sorts by descending word length (Qu counts as two letters). For a fixed board and slot, stronger levels include the
-weaker levels' vocabulary. Different slots can choose different words/order.
-Common plans group selected `S`/`ES` plurals and supported past forms after their
-bases, without additional thinking phases and with native one-second presentation
-intervals. Group choice and order remain native; the eligible word sample is
-preserved. See [plural follow-ups](plurals.md) and [bounded past forms](past-tense.md).
-Replay rebuilds the same plans and clears their clocks; New Board rebuilds them
-for its new seed. A stalled event loop submits at most one word per frame and
-schedules the next interval from that submission, without catch-up bursts.
-
-Mr. Boggle finishes its visible turn as soon as it has submitted its complete
-list, in timed or untimed play, including Chess Timer. Its last word does not
-create an extra empty turn. A timer can still expire before every word is found.
-For the first three difficulties, the existing native exhaustion policies remain:
-a timed Traditional opponent waits for its timer (or F1), an untimed opponent
-ends on exhaustion, and a Chess opponent retires rather than cycling empty turns.
-Those common-opponent exhaustion policies still await VM corroboration.
+Mr. Boggle ends on exhaustion. Common opponents complete their measured final
+empty-search wait before retiring, unless their timer expires first. Initially
+empty plans retire directly. Both Traditional and Chess use these rules, including
+untimed turns. Background play uses the same word schedule on its continuous
+clock. The previous native exhaustion policies have been removed.
 
 A handoff to a computer is displayed once, then starts automatically. A handoff
 to a human waits for Start Turn / Enter. Computer words enter the visible list
@@ -120,15 +98,15 @@ and English language resources establish:
 - The common configuration at `0x42cda0` and delay routine at `0x42f070` establish
   measured base-word timing ranges, progression and candidate-count scarcity.
   An external harness executes these with original selection at `0x42e0e0`:
-  2,304 isolated timing contracts match. Related-word behavior and full original
-  submission/movement timing remain outside the native model; see [thinking-time evidence](thinking.md).
+  2,304 isolated timing contracts match. The completed milestone also compares
+  whole plans, nominal movement and retirement; see [AI evidence](ai-milestone.md).
 - The end-game score loop around `0x41b335` checks the player's computer predicate
   (vtable offset `0x68`) and skips the high-score writer for computer players.
 - The English DLL's string 9002 describes all-computer play disabling background
   play. The native all-computer setup likewise uses visible turns.
 - The owner confirmed Traditional whole-round turns, Chess word turns and
-  cancellation of shared words for human/computer matches. Visible computer
-  cadence and common-opponent exhaustion behavior still need reference checks.
+  cancellation of shared words for human/computer matches. Nominal cadence and common-opponent retirement now have isolated reference
+  comparisons; full VM visual/timing matching remains a presentation check.
   A further owner check confirms Mr. Boggle's longest-first and early-finish rules. A later owner check corroborates hidden background
   moves in both modes, final score/word-list reveal and computer high-score
   exclusion; see [background timing limits](background.md).
@@ -141,7 +119,7 @@ algorithm was translated into the planner.
 ## Validation
 
 `boggle.unit.computer` covers both boards and all four levels, legal Qu paths,
-English intersection, nested vocabulary, deterministic reset, no catch-up burst,
+English intersection, difficulty thresholds and grouping, deterministic reset, no catch-up burst,
 search-budget failure clearing, invalid typed rosters, human-only older imports,
 profile isolation, human/CPU name collisions and all-computer play. Scripted
 Traditional and Chess matches exercise automatic handoffs, human-input blocking,
@@ -155,8 +133,8 @@ must equal the complete main-dictionary board vocabulary. It prints metadata
 only. For the supplied files:
 
 ```
-Classic computer plans 64, legal submissions 4147
-decoded computers: 33ec4cdba5351bcb97184fd33fbd4225
+Classic computer plans 64, legal submissions 3817
+decoded computers: e612fb5fc755e4bfc7665e01d913b71a
 ```
 
 The optional game-data suite repeats this check on the source and on an imported
@@ -173,7 +151,7 @@ original AI round or word-order comparison. Separate isolated base-word timing
 comparisons are documented in [thinking times](thinking.md). Harnesses,
 original bytes and raw research remain outside every Git worktree.
 
-Synthetic tests additionally cover nine-letter words at every common level,
+Synthetic tests additionally cover common search boundaries and difficulty gates,
 main-only long words for Mr. Boggle, auxiliary-free/corrupt-auxiliary Mr. Boggle
 sessions, prefix-budget filtering, Mr. Boggle's longest-first ordering and timed/
 untimed completion, plus existing visible/background/cursor flows.

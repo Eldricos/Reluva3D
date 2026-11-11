@@ -1,5 +1,9 @@
 # Common opponents' bounded past-tense follow-ups
 
+**Milestone update:** The bounded native policy described below is retained as
+historical evidence. The [completed AI milestone](ai-milestone.md) supersedes
+its grouping, fixed presentation intervals and exhaustion-policy limitations.
+
 Beginner, Intermediate and Advanced can now attach one selected past-tense form
 to a base group, after its selected plural if there is one. Each word must already
 be in the native opponent's sampled dictionary/path pool. No word or cube path

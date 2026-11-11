@@ -7,7 +7,9 @@ four-letter minimum. Both have dictionary validation, scoring and results.
 [Traditional Play](traditional.md) and [Chess Timer](chess.md) support one to four
 local humans and computers on the same board, with shared-word cancellation and per-player results.
 Classic installed scenes, word panels, animated hourglasses, lid/roll animation, sound effects and WAV background music are available. Other modes,
-the full original frontend, original AI strength/cadence and networking are unfinished.
+the full original frontend and networking are unfinished. Classic AI selection,
+nominal cadence and retirement now follow the [completed AI behavior milestone](ai-milestone.md),
+with native randomness/geometry and documented presentation differences.
 See [scope and rule evidence](classic.md) and the
 [original/native comparison procedure](comparison.md).
 
@@ -27,12 +29,10 @@ the auxiliary AI dictionary with the verified Classic search boundary. See
 [player naming and persistence](players.md). For visible computer turns,
 V / Computer Cursor on Players enables an animated cube trace; see
 [cursor controls and native presentation limits](cursor.md).
-Common opponents now use variable [base-word thinking delays](thinking.md), with
-measured ranges and explicit limits on original-AI equivalence.
-Selected `S`/`ES` [plural follow-ups](plurals.md) can follow their bases without a
-second thinking phase; pairing and presentation intervals remain native.
-Supported [past-tense follow-ups](past-tense.md) can extend these groups to
-base, plural, past form, using only already-selected legal words.
+The [completed Classic AI behavior milestone](ai-milestone.md) covers difficulty
+gates, suffix/ending/prefix recognition, stable Mr. Boggle ties, measured movement
+and hold schedules, and retirement. Exact seeded-round/idle-pointer presentation
+matching remains outside that claim.
 Escape returns to selection from version/setup or Players; it does nothing
 on selection or in-game. Use Menu / F3 in-game or Launcher / L on selection. See
 [frontend scope and controls](frontend.md). Disable **Game selection menu** in

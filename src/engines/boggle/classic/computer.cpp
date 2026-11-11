@@ -1,59 +1,14 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 // Copyright (C) 2026 The Reluva contributors
 #include "engines/boggle/classic/computer.h"
+#include "engines/boggle/classic/ai_policy.h"
 #include "engines/boggle/classic/solver.h"
 #include <algorithm>
-#include <array>
 #include <limits>
-#include <map>
 namespace reluva::boggle {
 namespace {
-// Measured base-word delay bounds; see docs/engines/boggle/thinking.md.
-// Native grouping, jitter and scheduling use these bounds independently.
-struct ThinkingBounds {
-    uint64_t minimum,span,minimumStep,spanStep,scarcity,penalty;
-};
-constexpr ThinkingBounds thinking[]={{1500,2000,150,700,9,3000},
-    {1200,1700,50,500,7,2000},{1000,1000,50,300,5,1000}};
 uint64_t addTime(uint64_t start,uint64_t delay) {
-    return start>std::numeric_limits<uint64_t>::max()-delay?
-        std::numeric_limits<uint64_t>::max():start+delay;
-}
-// Only the measured cases in docs/engines/boggle/past-tense.md; not a stemmer.
-std::string pastForm(const std::string& base) {
-    if(base.size()<2)return {};
-    const char last=base.back();if(last=='E')return base+"D";
-    if(std::string_view("AEIOUY").find(last)!=std::string_view::npos)return {};
-    const bool doubleLast=std::string_view("AEIOU").find(base[base.size()-2])!=std::string_view::npos;
-    return base+(doubleLast?std::string(1,last):std::string())+"ED";
-}
-// Our disjoint grouping policy. Never synthesize an entry or its cube path.
-std::vector<uint8_t> groupFollowups(std::vector<AcceptedWord>& words) {
-    const size_t count=words.size();std::map<std::string,size_t> index;
-    std::vector<size_t> order;std::vector<std::array<size_t,2>> partner(count,{count,count});
-    std::vector<uint8_t> paired(count),related(count);
-    for(size_t i=0;i<count;++i){index.emplace(words[i].word,i);order.push_back(i);}
-    std::sort(order.begin(),order.end(),[&](size_t a,size_t b) {
-        return words[a].word.size()!=words[b].word.size()?words[a].word.size()<words[b].word.size():a<b;
-    });
-    auto attach=[&](size_t base,const std::string& candidate,size_t kind) {
-        const auto found=index.find(candidate);
-        if(found==index.end() || paired[found->second])return false;
-        const size_t child=found->second;partner[base][kind]=child;paired[base]=paired[child]=1;related[child]=1;return true;
-    };
-    // Preserve all existing plural choices before attaching past forms.
-    for(size_t base:order) {
-        if(paired[base])continue;
-        for(const char* suffix:{"S","ES"})if(attach(base,words[base].word+suffix,0))break;
-    }
-    for(size_t base:order)if(!related[base])attach(base,pastForm(words[base].word),1);
-    std::vector<AcceptedWord> grouped;std::vector<uint8_t> followups;
-    grouped.reserve(count);followups.reserve(count);
-    for(size_t i=0;i<count;++i)if(!related[i]) {
-        grouped.push_back(std::move(words[i]));followups.push_back(0);
-        for(size_t child:partner[i])if(child!=count){grouped.push_back(std::move(words[child]));followups.push_back(1);}
-    }
-    words=std::move(grouped);return followups;
+    return start>std::numeric_limits<uint64_t>::max()-delay?std::numeric_limits<uint64_t>::max():start+delay;
 }
 }
 bool validComputerLevel(ComputerLevel level) { return int(level)>=-1 && int(level)<=3; }
@@ -68,53 +23,60 @@ std::string computerName(ComputerLevel level) {
     }
 }
 Error ComputerPlan::build(const Board& board,const Dictionary& commonVocabulary,const Dictionary& english,
-                          ComputerLevel level,uint32_t seed,size_t slot,size_t visits) {
-    words_.clear();delays_.clear();at_=0;due_=lastSubmitted_=0;
+                          ComputerLevel level,uint32_t seed,size_t slot,size_t visits,const ComputerGeometry* suppliedGeometry) {
+    words_.clear();delays_.clear();motions_.clear();at_=0;due_=lastSubmitted_=finishAt_=finishDelay_=0;
     if(!validComputerLevel(level) || level==ComputerLevel::Human || slot>=4)
         return Error::fail("Invalid computer participant");
-    std::vector<AcceptedWord> found;
-    const bool common=usesCommonVocabulary(level);
-    if(auto error=findBoardWords(board,common?commonVocabulary:english,nullptr,found,visits,common?9:64))return error;
-    const unsigned strength=unsigned(level);
-    auto rank=[&](const std::string& word) {
-        uint32_t hash=2166136261u^seed^(uint32_t(slot+1)*0x9e3779b9u);
-        for(unsigned char c:word)hash=(hash^c)*16777619u;
-        // Spread the small differences between similar words before sampling.
-        hash^=hash>>16;hash*=0x7feb352du;hash^=hash>>15;return hash;
-    };
-    for(auto& word:found)
-        if(english.contains(word.word) && rank(word.word)%4<=strength)
-            words_.push_back(std::move(word));
-    std::sort(words_.begin(),words_.end(),[&](const auto& a,const auto& b) {
-        if(level==ComputerLevel::MrBoggle && a.word.size()!=b.word.size())return a.word.size()>b.word.size();
-        const auto x=rank(a.word),y=rank(b.word);return x!=y?x<y:a.word<b.word;
-    });
-    const auto followups=common?groupFollowups(words_):std::vector<uint8_t>(words_.size());
-    const size_t groups=size_t(std::count(followups.begin(),followups.end(),uint8_t(0)));
-    size_t baseOrdinal=0;
-    delays_.reserve(words_.size());
-    // The solver bounds the pool to 50,000 words, keeping these products small.
-    for(size_t i=0;i<words_.size();++i) {
-        uint64_t delay=1000; // Native follow-up presentation / Mr. Boggle cadence.
-        if(common && !followups[i]) {
-            const auto& bounds=thinking[strength];const uint64_t remaining=groups-baseOrdinal;
-            const uint64_t span=bounds.span+baseOrdinal*bounds.spanStep;
-            uint32_t jitter=rank(words_[i].word)^0xa511e9b3u;
-            jitter^=jitter>>16;jitter*=0x85ebca6bu;jitter^=jitter>>13;
-            delay=bounds.minimum+baseOrdinal*bounds.minimumStep+uint64_t(jitter)%span;
-            if(remaining<bounds.scarcity)delay+=(bounds.scarcity-remaining)*bounds.penalty;
-            ++baseOrdinal;
+    const bool common=usesCommonVocabulary(level);std::vector<AcceptedWord> pool;
+    if(auto error=findBoardWords(board,common?commonVocabulary:english,nullptr,pool,visits,common?9:64))return error;
+    pool.erase(std::remove_if(pool.begin(),pool.end(),[&](const auto& word){return !english.contains(word.word);}),pool.end());
+    // Board DFS discovers paths in cube-index order; prefix words precede extensions.
+    std::sort(pool.begin(),pool.end(),[](const auto& a,const auto& b){return a.path!=b.path?a.path<b.path:a.word<b.word;});
+    uint32_t state=seed^(uint32_t(slot+1)*0x9e3779b9u);
+    auto draw=[&](){state=state*1664525u+1013904223u;return (state>>16)&32767u;};
+    std::vector<AiChoice> choices;if(auto error=chooseComputerWords(pool,level,draw,choices))return error;
+    const auto& profile=aiDifficulty(level);uint64_t minimum=profile.minimum,span=profile.span;
+    const auto geometry=suppliedGeometry?*suppliedGeometry:defaultComputerGeometry(board.side());
+    std::vector<AcceptedWord> words;std::vector<uint64_t> delays;std::vector<ComputerMotion> motions;
+    ClassicPoint origin=geometry.origin;
+    for(size_t i=0;i<choices.size();++i) {
+        const auto& choice=choices[i];uint64_t thinking=0,gap=0;
+        if(i) {
+            gap=common?uint64_t(int64_t(profile.gap)*1000+(int(draw()%2000)-1000)*100)/1000:profile.gap;
+            if(common && !choice.followup) {
+                if(choice.credit) {
+                    const uint64_t available=minimum+draw()%1500,rebate=profile.rebate*choice.credit;
+                    thinking=available>rebate?available-rebate:0;
+                } else {
+                    thinking=minimum+draw()%span;
+                    if(choice.remaining<profile.scarcity)thinking+=(profile.scarcity-choice.remaining)*profile.penalty;
+                    span+=profile.spanStep;
+                }
+                minimum+=profile.minimumStep;
+            }
         }
-        delays_.push_back(delay);
+        std::vector<uint64_t> holds;
+        for(size_t cell:pool[choice.word].path){(void)cell;holds.push_back(common?uint64_t(int64_t(profile.hold)*1000+(int(draw()%2000)-1000)*40)/1000:profile.hold);}
+        ComputerMotion motion;
+        if(auto error=makeComputerMotion(pool[choice.word],geometry,origin,profile.cubeSpeed,profile.submitSpeed,holds,motion))return error;
+        delays.push_back(((gap+thinking+49)/50)*50+motion.duration);motions.push_back(std::move(motion));words.push_back(pool[choice.word]);origin=geometry.submit;
     }
+    if(!words.empty() && common) {
+        // Sequence random draws explicitly for consistent Windows/Linux replay.
+        const auto gapSample=draw()%2000;
+        const auto searchSample=draw()%7000;
+        const auto wait=uint64_t(int64_t(profile.gap)*1000+(int(gapSample)-1000)*100)/1000+10000+searchSample;
+        finishDelay_=((wait+49)/50)*50+50;
+    }
+    words_=std::move(words);delays_=std::move(delays);motions_=std::move(motions);
     if(!delays_.empty())due_=delays_.front();
     return Error::success();
 }
 const AcceptedWord* ComputerPlan::take(uint64_t elapsed) {
     if(exhausted() || elapsed<due_ || (at_ && elapsed<=lastSubmitted_))return nullptr;
-    // A stalled window may produce one word, never a catch-up burst.
     const auto* word=&words_[at_++];lastSubmitted_=elapsed;
-    due_=exhausted()?0:addTime(elapsed,delays_[at_]);
+    if(exhausted()){due_=0;finishAt_=addTime(elapsed,finishDelay_);}
+    else due_=addTime(elapsed,delays_[at_]);
     return word;
 }
 const AcceptedWord* ComputerPlan::takeScheduled(uint64_t elapsed,uint64_t& submittedAt) {

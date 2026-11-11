@@ -249,3 +249,13 @@ pass preserves prior plural pairs and the selected legal-word pool, with one
 thinking phase per root and native follow-up presentation intervals. Other
 suffixes, shared-prefix groups, probability gates, full candidate ordering,
 original cursor/submission cadence and Mr. Boggle timing remain open.
+
+
+The Classic AI behavior milestone now replaces native vocabulary samples/hash
+ordering, suffix-pair construction and fixed cadence with measured difficulty
+gates, small-pool fallback, suffix/ending/prefix recognition, stable Mr. Boggle
+ties, nominal travel/hold schedules and empty-search retirement. Whole-plan
+comparisons include supplied-board candidates. See [the milestone specification](../../engines/boggle/ai-milestone.md)
+for evidence and closure scope. Native randomness, geometry, idle-pointer
+presentation and exact whole-round VM timing remain documented differences;
+other languages and network play remain separate milestones.

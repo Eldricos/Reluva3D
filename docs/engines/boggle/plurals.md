@@ -1,5 +1,9 @@
 # Common opponents' plural follow-ups
 
+**Milestone update:** The bounded native policy described below is retained as
+historical evidence. The [completed AI milestone](ai-milestone.md) supersedes
+its grouping, fixed presentation intervals and exhaustion-policy limitations.
+
 Beginner, Intermediate and Advanced can now play a selected base word followed
 by one selected plural formed by appending `S` or `ES`. Both entries must already
 belong to that opponent's native plan, with their own legal paths. This does not

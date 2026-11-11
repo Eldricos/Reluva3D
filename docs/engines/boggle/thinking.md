@@ -1,5 +1,9 @@
 # Classic computer thinking times
 
+**Milestone update:** The bounded native policy described below is retained as
+historical evidence. The [completed AI milestone](ai-milestone.md) supersedes
+its grouping, fixed presentation intervals and exhaustion-policy limitations.
+
 The common opponents now use variable base-word thinking delays. This replaces
 the native fixed six/four/two-second intervals. Mr. Boggle keeps its native
 one-second interval while its separate movement/submission sequence is studied.

@@ -47,7 +47,9 @@ PE dialog layouts or TrueType typography. Classic lid AVI animation and WAV
 effects are now integrated: [presentation evidence](presentation.md). The
 clock advances while the round is active, including when focus is lost;
 matching original pause/focus behavior remains future work. Saved games,
-definitions, AI, network play and general game-state persistence are absent.
+definitions, network play and general game-state persistence are absent.
+[Classic AI behavior](ai-milestone.md) is implemented with documented native
+randomness and presentation differences.
 Local Traditional and [Chess Timer](chess.md) human turns are implemented separately.
 [English user dictionaries and rejected-word review](user-dictionary.md) are
 implemented separately in the per-target save folder.

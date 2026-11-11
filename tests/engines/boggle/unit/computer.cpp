@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 // Copyright (C) 2026 The Reluva contributors
 #include "engines/boggle/classic/computer.h"
+#include "engines/boggle/classic/ai_policy.h"
 #include "engines/boggle/classic/game.h"
 #include "engines/boggle/classic/highscores.h"
 #include "engines/boggle/classic/player.h"
@@ -25,260 +26,85 @@ Dictionary dictionary(const std::vector<std::string>& words) {
 void planning() {
     CHECK(computerName(ComputerLevel::Human).empty());CHECK(computerName(ComputerLevel::MrBoggle)=="CPU Mr. Boggle");
     for(bool master:{false,true}) {
-        Board b;std::vector<std::string> faces(master?25:16,"A");faces[0]="QU";CHECK(!b.set(master?5:4,faces));
-        std::vector<std::string> words={"AA","AAA","AAAA","AAAAA","AAAAAA","AAAAAAA","AAAAAAAA","QUAA","QUAAA","QUAAAA","QUAAAAA","QUAAAAAA","QUAAAAAAA","ZZZZ"};
-        auto vocab=dictionary(words);words.erase(std::find(words.begin(),words.end(),"QUAAAAAAA"));auto english=dictionary(words);
-        std::vector<std::string> previous;
-        for(unsigned level=0;level<4;++level) {
-            ComputerPlan p,repeat;CHECK(!p.build(b,vocab,english,ComputerLevel(level),6551,0));
-            CHECK(!repeat.build(b,vocab,english,ComputerLevel(level),6551,0));
-            std::vector<std::string> current;
-            for(const auto& w:p.words()) {
-                CHECK(english.contains(w.word) && b.matches(w.word,w.path));CHECK(w.word.size()>=(master?4:3));
-                CHECK(w.word!="QUAAAAAAA" && w.word!="ZZZZ");current.push_back(w.word);
-                ClassicRound round(english);CHECK(!round.board(b));CHECK(!round.start(0));CHECK(round.submit(w.word,0,w.path)==Submission::Accepted);
+        Board board;std::vector<std::string> faces(master?25:16,"A");faces[0]="QU";CHECK(!board.set(master?5:4,faces));
+        std::vector<std::string> entries={"AAA","AAAA","AAAAA","AAAAAA","AAAAAAA","AAAAAAAA","AAAAAAAAA","QUAA","QUAAA","QUAAAA"};
+        const auto words=dictionary(entries);
+        for(unsigned level=0;level<4;++level)for(uint32_t seed=0;seed<16;++seed) {
+            ComputerPlan plan,repeat;CHECK(!plan.build(board,words,words,ComputerLevel(level),seed,0));
+            CHECK(!repeat.build(board,words,words,ComputerLevel(level),seed,0));
+            size_t count=0;uint64_t last=0;
+            while(!plan.exhausted()) {
+                const auto due=plan.due();CHECK(due>last && due==repeat.due());
+                CHECK(!plan.take(due-1));const auto* word=plan.take(due);const auto* other=repeat.take(due);
+                CHECK(word && other && word->word==other->word && board.matches(word->word,word->path));
+                CHECK(!plan.take(due));last=due;++count;
             }
-            CHECK(!current.empty());for(const auto& word:previous)CHECK(std::find(current.begin(),current.end(),word)!=current.end());
-            previous=current;
-            const auto interval=p.due();CHECK(interval>0);
-            CHECK(!p.take(0) && !p.take(interval-1));size_t count=0;
-            while(!p.exhausted()) {
-                const auto now=p.due();CHECK(now==repeat.due());
-                const auto* word=p.take(now);const auto* other=repeat.take(now);CHECK(word && other && word->word==other->word);++count;
-                CHECK(!p.take(now) && !p.take(now-1)); // no burst or backwards-clock refund
-            }
-            CHECK(count==current.size() && !p.take(std::numeric_limits<uint64_t>::max()));
-            CHECK(!p.build(b,vocab,english,ComputerLevel(level),6551,0));CHECK(!p.take(interval-1) && p.take(interval));
+            CHECK(count==plan.words().size() && plan.finished(std::numeric_limits<uint64_t>::max()));
+            if(!count)CHECK(plan.finished(0));
+            CHECK(!plan.build(board,words,words,ComputerLevel(level),seed,0));CHECK(plan.exhausted()?plan.due()==0:plan.due()>0);
         }
-        CHECK(previous.size()==(master?10:11));
-        ComputerPlan bad;CHECK(bool(bad.build(b,vocab,english,ComputerLevel::Human,0,0)) && bad.exhausted());
-        CHECK(bool(bad.build(b,vocab,english,ComputerLevel(4),0,0)));CHECK(bool(bad.build(b,vocab,english,ComputerLevel::Beginner,0,4)));
-        CHECK(bool(bad.build(b,vocab,english,ComputerLevel::MrBoggle,0,0,0)) && bad.words().empty());
-        CHECK(!bad.build(b,vocab,dictionary({"ZZZZ"}),ComputerLevel::MrBoggle,0,0) && bad.exhausted());
-        CHECK(!bad.build(b,vocab,english,ComputerLevel::MrBoggle,0,0));
-        CHECK(bad.take(100000) && !bad.take(100000) && !bad.take(100999) && bad.take(101000));
+        ComputerPlan bad;CHECK(bool(bad.build(board,words,words,ComputerLevel::Human,0,0)) && bad.exhausted());
+        CHECK(bool(bad.build(board,words,words,ComputerLevel(4),0,0)));CHECK(bool(bad.build(board,words,words,ComputerLevel::Beginner,0,4)));
+        CHECK(bool(bad.build(board,words,words,ComputerLevel::MrBoggle,0,0,0)) && bad.words().empty());
+        CHECK(!bad.build(board,words,words,ComputerLevel::MrBoggle,0,0));
+        CHECK(bad.take(100000) && !bad.take(100000));const auto due=bad.due();CHECK(!bad.take(due-1) && bad.take(due));
     }
 }
 void thinkingTimes() {
-    // Numeric bounds observed by executing the original base-word timing phase.
-    const uint64_t firstLow[]={1500,1200,1000},firstHigh[]={3499,2899,1999};
-    const uint64_t secondLow[]={1650,1250,1050},secondHigh[]={4349,3449,2349};
-    const uint64_t lastLow[]={25500,13200,5000},lastHigh[]={27499,14899,5999};
-    for(bool master:{false,true}) {
-        Board small;CHECK(!small.set(master?5:4,std::vector<std::string>(master?25:16,"A")));
-        const auto one=dictionary({master?"AAAA":"AAA"});
-        Board rich;std::vector<std::string> faces(master?25:16);
-        for(size_t i=0;i<faces.size();++i)faces[i]=i%2?"B":"A";
-        CHECK(!rich.set(master?5:4,faces));
-        std::vector<std::string> words;
-        for(size_t length=master?4:3;length<=6;++length)for(unsigned bits=0;bits<(1u<<length);++bits) {
-            std::string word(length,'A');for(size_t i=0;i<length;++i)if(bits&(1u<<i))word[i]='B';words.push_back(word);
+    // Full-policy boundaries are observable contracts, not the old nested samples.
+    std::vector<AcceptedWord> pool;
+    for(const std::string word:{"ZAA","ZAAB","ZAABC","ZAABCD","ZAABCDE","ZAABCDEF","ZAABCDEFG","ZAB","ZABS","ZABES","ZABBED","ZAC","ZACE","ZACED","ZACES","ZAD","ZADS","ZADD","ZADDED","ZADE"})pool.push_back({word,0,{}});
+    for(unsigned level=0;level<3;++level) {
+        std::vector<AiChoice> choices;
+        CHECK(!chooseComputerWords(pool,ComputerLevel(level),[]{return 999u;},choices) && choices.empty());
+        CHECK(!chooseComputerWords(pool,ComputerLevel(level),[]{return 0u;},choices));CHECK(!choices.empty());
+        bool plural=false,past=false,ending=false,prefix=false;
+        for(const auto& choice:choices) {
+            CHECK(choice.word<pool.size() && choice.remaining>0);
+            plural|=choice.followup && pool[choice.word].word=="ZABS";
+            past|=choice.followup && pool[choice.word].word=="ZABBED";
+            ending|=!choice.followup && choice.credit==2;
+            prefix|=!choice.followup && choice.credit>=3;
         }
-        const auto many=dictionary(words);
-        for(unsigned level=0;level<3;++level) {
-            std::vector<uint64_t> seen;
-            for(uint32_t seed=0;seed<16;++seed) {
-                ComputerPlan isolated;CHECK(!isolated.build(small,one,one,ComputerLevel(level),seed,0));
-                if(isolated.exhausted()){CHECK(isolated.due()==0);continue;}
-                CHECK(isolated.due()>=lastLow[level] && isolated.due()<=lastHigh[level]);seen.push_back(isolated.due());
-                CHECK(!isolated.take(isolated.due()-1));CHECK(isolated.take(isolated.due()) && isolated.exhausted());
-                CHECK(isolated.due()==0);
-            }
-            CHECK(seen.size()>1 && std::any_of(seen.begin(),seen.end(),[&](auto value){return value!=seen.front();}));
-            ComputerPlan plan;CHECK(!plan.build(rich,many,many,ComputerLevel(level),6551,0));
-            CHECK(plan.words().size()>10);CHECK(plan.due()>=firstLow[level] && plan.due()<=firstHigh[level]);
-            const auto first=plan.due();CHECK(plan.take(first));
-            CHECK(plan.due()-first>=secondLow[level] && plan.due()-first<=secondHigh[level]);
-            // A stalled visible window emits once and retains the next full delay.
-            const auto secondDelay=plan.due()-first;
-            ComputerPlan delayed;CHECK(!delayed.build(rich,many,many,ComputerLevel(level),6551,0));
-            CHECK(delayed.take(1000000) && delayed.due()==1000000+secondDelay);
-            CHECK(!delayed.take(1000000) && !delayed.take(999999));
-            CHECK(!delayed.build(rich,many,many,ComputerLevel(level),6551,0) && delayed.due()==first);
-            // Saturation must not wrap a long-running active clock to zero.
-            const auto near=std::numeric_limits<uint64_t>::max()-1;
-            CHECK(delayed.take(near) && delayed.due()==std::numeric_limits<uint64_t>::max());
-            CHECK(!delayed.take(near));CHECK(delayed.take(std::numeric_limits<uint64_t>::max()));
-            CHECK(!delayed.take(std::numeric_limits<uint64_t>::max()));uint64_t untouched=123;
-            CHECK(!delayed.takeScheduled(std::numeric_limits<uint64_t>::max(),untouched) && untouched==123);
-            CHECK(bool(delayed.build(rich,many,many,ComputerLevel(level),6551,0,0)));
-            CHECK(delayed.exhausted() && delayed.due()==0 && !delayed.nextWord());
-            // Hidden scheduling must produce identical words/times with sparse servicing.
-            std::vector<std::pair<std::string,uint64_t>> baseline;
-            for(uint64_t step:{997u,100000u}) {
-                ComputerPlan hidden;CHECK(!hidden.build(rich,many,many,ComputerLevel(level),6551,0));
-                std::vector<std::pair<std::string,uint64_t>> moves;
-                for(uint64_t now=0;!hidden.exhausted();now+=step) {
-                    uint64_t at=0;while(const auto* word=hidden.takeScheduled(now,at))moves.push_back({word->word,at});
-                }
-                CHECK(moves.size()==plan.words().size());
-                if(baseline.empty())baseline=moves;else CHECK(moves==baseline);
-            }
-        }
+        CHECK(plural && past && ending && prefix);
+        const std::vector<AcceptedWord> small(pool.begin(),pool.begin()+7);
+        CHECK(!chooseComputerWords(small,ComputerLevel(level),[]{return 0u;},choices));
+        const size_t expected[]={2,3,7};CHECK(choices.size()==expected[level]);
+        CHECK(!chooseComputerWords(small,ComputerLevel(level),[]{return 999u;},choices) && choices.empty());
     }
+    std::vector<AiChoice> mr;std::vector<AcceptedWord> ties={{"AAAA",0,{}},{"BBBB",0,{}},{"CCC",0,{}}};
+    CHECK(!chooseComputerWords(ties,ComputerLevel::MrBoggle,[]{return 0u;},mr));
+    CHECK(mr.size()==3 && mr[0].word==0 && mr[1].word==1 && mr[2].word==2);
+    CHECK(bool(chooseComputerWords(pool,ComputerLevel::Human,[]{return 0u;},mr)) && mr.empty());
+    // A mixed-suffix reference case distinguishes prefix gate order from
+    // initial-group gate order. Both the full result and draw count are observed.
+    const std::vector<std::string> mixed={"ZABY","ZABYS","ZABYES","ZABIES","ZABIED","ZABE","ZABED","ZABEES","ZAE","ZAED","ZAB","ZABS","ZABES","ZABBED","ZAC","ZACS","ZACCED","ZAX","ZAXS","ZAXXED","QUAB","QUABS","QUABBED","QUABES","ZAABCDEFQU"};
+    pool.clear();for(size_t i=0;i<mixed.size();++i)pool.push_back({mixed[(i+1)%mixed.size()],0,{}});
+    uint32_t state=1;size_t draws=0;std::vector<AiChoice> choices;
+    CHECK(!chooseComputerWords(pool,ComputerLevel::Beginner,[&](){++draws;state=state*214013u+2531011u;return (state>>16)&32767u;},choices));
+    std::vector<std::string> actual;for(const auto& choice:choices)actual.push_back(pool[choice.word].word);
+    CHECK(actual==std::vector<std::string>({"ZAB","ZABES","ZABY","ZABYS","ZABS","ZABE","ZABEES","ZABED"}));CHECK(draws==472);
 }
-void pluralFollowups() {
-    const uint64_t low[]={25500,13200,5000},high[]={27499,14899,5999};
-    for(bool master:{false,true})for(bool qu:{false,true})for(const std::string suffix:{"S","ES"}) {
-        Board board;std::vector<std::string> faces(master?25:16,"A");
-        faces[0]="QU";faces[2]="S";faces[3]="E";faces[6]="S";faces[7]="E";faces[12]="E";faces[13]="S";
-        CHECK(!board.set(master?5:4,faces));
-        const std::string base=qu?"QUAA":master?"AAAA":"AAA",plural=base+suffix;
-        auto words=dictionary({base,plural});std::vector<size_t> path;
-        CHECK(board.find(base,path)==PathResult::Found && board.find(plural,path)==PathResult::Found);
-        for(unsigned level=0;level<3;++level) {
-            bool sawPair=false,sawSingularOnly=false,sawPluralOnly=false;
-            for(uint32_t seed=0;seed<256;++seed) {
-                ComputerPlan plan;CHECK(!plan.build(board,words,words,ComputerLevel(level),seed,0));
-                CHECK(plan.words().size()<=2);
-                if(plan.words().size()==1) {
-                    sawSingularOnly|=plan.words()[0].word==base;sawPluralOnly|=plan.words()[0].word==plural;
-                    CHECK(plan.due()>=low[level] && plan.due()<=high[level]);
-                }
-                if(plan.words().size()!=2)continue;
-                sawPair=true;CHECK(plan.words()[0].word==base && plan.words()[1].word==plural);
-                // One group incurs one scarcity penalty, with no second thinking phase.
-                const auto first=plan.due();CHECK(first>=low[level] && first<=high[level]);
-                ClassicRound round(words);CHECK(!round.board(board) && !round.start(0,0));
-                const auto* word=plan.take(first);CHECK(word && round.submit(word->word,first,word->path)==Submission::Accepted);
-                CHECK(plan.due()==first+1000 && !plan.take(first+999));
-                word=plan.take(first+1000);CHECK(word && round.submit(word->word,first+1000,word->path)==Submission::Accepted);
-                CHECK(plan.exhausted() && round.words().size()==2);
-                CHECK(!plan.build(board,words,words,ComputerLevel(level),seed,0) && plan.due()==first);
-                CHECK(plan.take(1000000) && plan.due()==1001000 && !plan.take(1000000));
-                // No missing auxiliary entry may be generated from English or the base.
-                ComputerPlan absent;auto onlyBase=dictionary({base}),onlyPlural=dictionary({plural});
-                CHECK(!absent.build(board,onlyBase,words,ComputerLevel(level),seed,0));
-                CHECK(absent.words().size()==1 && absent.words()[0].word==base);
-                CHECK(!absent.build(board,onlyPlural,words,ComputerLevel(level),seed,0));
-                CHECK(absent.words().size()==1 && absent.words()[0].word==plural);
-                CHECK(!absent.build(board,words,onlyBase,ComputerLevel(level),seed,0));
-                CHECK(absent.words().size()==1 && absent.words()[0].word==base);
-                std::vector<std::pair<std::string,uint64_t>> baseline;
-                for(uint64_t step:{997u,100000u}) {
-                    ComputerPlan hidden;CHECK(!hidden.build(board,words,words,ComputerLevel(level),seed,0));
-                    std::vector<std::pair<std::string,uint64_t>> moves;
-                    for(uint64_t now=0;!hidden.exhausted();now+=step) {
-                        uint64_t at=0;while(const auto* entry=hidden.takeScheduled(now,at))moves.push_back({entry->word,at});
-                    }
-                    CHECK(moves.size()==2 && moves[1].second==moves[0].second+1000);
-                    if(baseline.empty())baseline=moves;else CHECK(moves==baseline);
-                }
-            }
-            CHECK(sawPair && sawSingularOnly && sawPluralOnly);
-        }
-        ComputerPlan mr;CHECK(!mr.build(board,words,words,ComputerLevel::MrBoggle,6551,0));
-        CHECK(mr.words().size()==2 && mr.words()[0].word==plural && mr.words()[1].word==base && mr.due()==1000);
+void motionAndRetirement() {
+    auto geometry=defaultComputerGeometry(4);AcceptedWord word{"QUAA",1,{0,1,2}};ComputerMotion motion;
+    CHECK(!makeComputerMotion(word,geometry,geometry.origin,400,500,{300,300,300},motion));
+    CHECK(motion.presses.size()==3 && motion.duration>motion.releases.back());
+    for(size_t i=0;i<3;++i)CHECK(motion.releases[i]-motion.presses[i]==350);
+    CHECK(bool(makeComputerMotion(word,geometry,geometry.origin,0,500,{300,300,300},motion)) && !motion.duration);
+    geometry.centers[0].x=10001;CHECK(bool(makeComputerMotion(word,geometry,geometry.origin,400,500,{300,300,300},motion)));
+    geometry=defaultComputerGeometry(4);geometry.origin={0,0};geometry.centers[0]={0,0};geometry.submit={550,220};
+    word.path={0};CHECK(!makeComputerMotion(word,geometry,geometry.origin,400,600,{50},motion));
+    CHECK(motion.presses==std::vector<uint64_t>({50}) && motion.releases==std::vector<uint64_t>({150}) && motion.duration==1200);
+    CHECK(bool(makeComputerMotion(word,geometry,geometry.origin,1,1,{50},motion)) && !motion.duration);
+    Board board;CHECK(!board.set(4,std::vector<std::string>(16,"A")));const auto vocabulary=dictionary({"AAA","AAAA","AAAAA"});
+    bool sawCommon=false;
+    for(uint32_t seed=0;seed<32 && !sawCommon;++seed) {
+        ComputerPlan plan;CHECK(!plan.build(board,vocabulary,vocabulary,ComputerLevel::Advanced,seed,0));
+        if(plan.exhausted())continue;
+        sawCommon=true;uint64_t last=0;while(!plan.exhausted()){last=plan.due();CHECK(plan.take(last));}
+        CHECK(!plan.finished(last) && !plan.finished(last+10000) && plan.finished(last+18000));
     }
-    Board board;std::vector<std::string> faces(16,"A");faces[1]=faces[5]="S";faces[2]="E";CHECK(!board.set(4,faces));
-    const auto overlapping=dictionary({"AAA","AAAS","AAAES","AAASS"});bool sawAll=false;
-    for(uint32_t seed=0;seed<64;++seed) {
-        ComputerPlan plan;CHECK(!plan.build(board,overlapping,overlapping,ComputerLevel::Advanced,seed,0));
-        if(plan.words().size()!=4)continue;
-        sawAll=true;const auto& list=plan.words();
-        const auto base=std::find_if(list.begin(),list.end(),[](const auto& word){return word.word=="AAA";});
-        CHECK(base!=list.end() && base+1!=list.end() && (base+1)->word=="AAAS"); // S wins ambiguity; its child cannot form another pair
-        uint64_t previous=0;size_t bases=0;
-        const uint64_t groupLow[]={3000,4050,5100},groupHigh[]={3999,5349,6699};
-        while(!plan.exhausted()) {
-            const auto due=plan.due();const auto* word=plan.take(due);CHECK(word);
-            if(word && word->word=="AAAS")CHECK(due-previous==1000);
-            else {CHECK(bases<3);if(bases<3)CHECK(due-previous>=groupLow[bases] && due-previous<=groupHigh[bases]);++bases;}
-            previous=due;
-        }
-        CHECK(bases==3);
-    }
-    CHECK(sawAll);
-    Board noPath;CHECK(!noPath.set(4,std::vector<std::string>(16,"A")));
-    for(uint32_t seed=0;seed<8;++seed) {
-        ComputerPlan plan;CHECK(!plan.build(noPath,overlapping,overlapping,ComputerLevel::Advanced,seed,0));
-        for(const auto& word:plan.words())CHECK(word.word=="AAA");
-    }
-}
-void pastFollowups() {
-    const uint64_t low[]={25500,13200,5000},high[]={27499,14899,5999};
-    struct Sample {std::string base,past,unsupported;};
-    const Sample samples[]={{"AAAE","AAAED","AAAEED"},{"AABB","AABBED","AABBBED"},
-        {"AAAB","AAABBED","AAABED"},{"QUAB","QUABBED","QUABED"}};
-    for(bool master:{false,true}) {
-        Board board;const size_t side=master?5:4;std::vector<std::string> faces(side*side,"A");
-        const std::vector<std::string> area={"QU","A","A","S","A","B","B","S","A","B","E","D","A","A","E","D"};
-        for(size_t y=0;y<4;++y)for(size_t x=0;x<4;++x)faces[y*side+x]=area[y*4+x];
-        CHECK(!board.set(side,faces));
-        for(const auto& sample:samples) {
-            const std::string plural=sample.base+"S";auto vocabulary=dictionary({sample.base,plural,sample.past});
-            for(const auto& word:{sample.base,plural,sample.past,sample.unsupported}) {
-                std::vector<size_t> path;CHECK(board.find(word,path)==PathResult::Found);
-            }
-            for(unsigned level=0;level<3;++level) {
-                bool sawGroup=false;
-                for(uint32_t seed=0;seed<4096 && !sawGroup;++seed) {
-                    ComputerPlan plan;CHECK(!plan.build(board,vocabulary,vocabulary,ComputerLevel(level),seed,0));
-                    if(plan.words().size()!=3)continue;
-                    sawGroup=true;CHECK(plan.words()[0].word==sample.base && plan.words()[1].word==plural && plan.words()[2].word==sample.past);
-                    const auto first=plan.due();CHECK(first>=low[level] && first<=high[level]);
-                    ClassicRound round(vocabulary);CHECK(!round.board(board) && !round.start(0,0));
-                    for(uint64_t now=first;!plan.exhausted();now+=1000) {
-                        CHECK(plan.due()==now && !plan.take(now-1));
-                        const auto* word=plan.take(now);CHECK(word && round.submit(word->word,now,word->path)==Submission::Accepted);
-                        CHECK(!plan.take(now));
-                    }
-                    CHECK(round.words().size()==3);
-                    CHECK(!plan.build(board,vocabulary,vocabulary,ComputerLevel(level),seed,0) && plan.due()==first);
-                    CHECK(plan.take(1000000) && plan.due()==1001000 && !plan.take(1000000));
-                    // A generated spelling must never create a missing auxiliary/main entry.
-                    const auto withoutPast=dictionary({sample.base,plural}),onlyPast=dictionary({sample.past});
-                    ComputerPlan missing;
-                    CHECK(!missing.build(board,withoutPast,vocabulary,ComputerLevel(level),seed,0) && missing.words().size()==2);
-                    CHECK(!missing.build(board,vocabulary,withoutPast,ComputerLevel(level),seed,0) && missing.words().size()==2);
-                    CHECK(!missing.build(board,onlyPast,vocabulary,ComputerLevel(level),seed,0));
-                    CHECK(missing.words().size()==1 && missing.words()[0].word==sample.past && missing.due()>=low[level]);
-                    std::vector<std::pair<std::string,uint64_t>> baseline;
-                    for(uint64_t step:{997u,100000u}) {
-                        ComputerPlan hidden;CHECK(!hidden.build(board,vocabulary,vocabulary,ComputerLevel(level),seed,0));
-                        std::vector<std::pair<std::string,uint64_t>> moves;
-                        for(uint64_t now=0;!hidden.exhausted();now+=step) {
-                            uint64_t at=0;while(const auto* word=hidden.takeScheduled(now,at))moves.push_back({word->word,at});
-                        }
-                        CHECK(moves.size()==3 && moves[1].second==first+1000 && moves[2].second==first+2000);
-                        if(baseline.empty())baseline=moves;else CHECK(moves==baseline);
-                    }
-                }
-                CHECK(sawGroup);
-            }
-            const auto rejected=dictionary({sample.base,sample.unsupported});bool sawBoth=false;
-            for(uint32_t seed=0;seed<64;++seed) {
-                ComputerPlan plan;CHECK(!plan.build(board,rejected,rejected,ComputerLevel::Advanced,seed,0));
-                if(plan.words().size()!=2)continue;
-                sawBoth=true;
-                const auto first=plan.due();CHECK(plan.take(first) && plan.due()-first>1000);
-            }
-            CHECK(sawBoth);
-            ComputerPlan mr;CHECK(!mr.build(board,vocabulary,vocabulary,ComputerLevel::MrBoggle,6551,0));
-            CHECK(mr.words().size()==3 && mr.words()[0].word.size()==sample.past.size() && mr.words().back().word==sample.base && mr.due()==1000);
-        }
-        // A past target that already heads a plural pair keeps that pair's priority.
-        const auto protectedPair=dictionary({"AAAB","AAABS","AAABBED","AAABBEDS"});bool sawAll=false;
-        for(uint32_t seed=0;seed<128;++seed) {
-            ComputerPlan plan;CHECK(!plan.build(board,protectedPair,protectedPair,ComputerLevel::Advanced,seed,0));
-            if(plan.words().size()!=4)continue;
-            sawAll=true;const auto& list=plan.words();
-            for(const std::string base:{"AAAB","AAABBED"}) {
-                const auto at=std::find_if(list.begin(),list.end(),[&](const auto& word){return word.word==base;});
-                CHECK(at!=list.end() && at+1!=list.end() && (at+1)->word==base+"S");
-            }
-            uint64_t previous=0;
-            while(!plan.exhausted()) {
-                const auto due=plan.due();const auto* word=plan.take(due);CHECK(word);
-                if(word && (word->word=="AAAB" || word->word=="AAABBED"))CHECK(due-previous>1000);
-                else CHECK(due-previous==1000);
-                previous=due;
-            }
-        }
-        CHECK(sawAll);
-        Board noPath;CHECK(!noPath.set(master?5:4,std::vector<std::string>(master?25:16,"A")));
-        ComputerPlan empty;CHECK(!empty.build(noPath,protectedPair,protectedPair,ComputerLevel::Advanced,6551,0) && empty.exhausted());
-    }
+    CHECK(sawCommon);
 }
 GameTarget target(const std::filesystem::path& root,bool chess=false,bool art=false) {
     fixtures::artworkInstall(root/"game");GameTarget t;t.path=root/"game";t.savePath=root/"save";
@@ -293,7 +119,7 @@ void live(const std::filesystem::path& tmp) {
         std::vector<std::string> baseline;
         for(bool inject:{false,true}) {
             auto t=target(tmp/(std::to_string(chess)+std::to_string(art)+std::to_string(inject)),chess,art);
-            fixtures::ScriptedSystem sys;sys.clock=[](size_t f){return uint64_t(f*1000);};
+            fixtures::ScriptedSystem sys;sys.clock=[](size_t f){return uint64_t(f*5000);};
             sys.events=[&](size_t f)->std::vector<Event>{using namespace fixtures;
                 if(f==0)return {keyEvent(key::Return)};
                 if(!chess) {
@@ -342,8 +168,8 @@ void timingAndReplay(const std::filesystem::path& tmp) {
         auto t=target(tmp/std::to_string(animations));t.settings["classic_seconds"]="60";t.settings["classic_animations"]=animations?"1":"0";
         fixtures::ScriptedSystem sys;
         sys.clock=[&](size_t f)->uint64_t {
-            if(animations){const uint64_t times[]={0,4400,5400,64400,65500,600000,604400,604401,605501,605501};return times[std::min(f,size_t(9))];}
-            const uint64_t times[]={0,1000,60000,600000,600001,600001};return times[std::min(f,size_t(5))];
+            if(animations){const uint64_t times[]={0,4400,14400,64400,65500,600000,604400,604401,605501,605501};return times[std::min(f,size_t(9))];}
+            const uint64_t times[]={0,10000,60000,600000,600001,600001};return times[std::min(f,size_t(5))];
         };
         sys.events=[&](size_t f)->std::vector<Event>{using namespace fixtures;
             if(f==0 || f==(animations?5:3))return {keyEvent(key::Return)};
@@ -356,7 +182,7 @@ void timingAndReplay(const std::filesystem::path& tmp) {
         // One CPU word before its exact deadline, one cancels, human gets a fresh full budget after idle handoff/opening.
         CHECK(rows.size()==1 && rows[0].name=="Alex" && rows[0].score==3);
     }
-    auto t=target(tmp/"replay");fixtures::ScriptedSystem sys;sys.clock=[](size_t f){return uint64_t(f*1000);};
+    auto t=target(tmp/"replay");fixtures::ScriptedSystem sys;sys.clock=[](size_t f){return uint64_t(f*5000);};
     sys.events=[](size_t f)->std::vector<Event>{using namespace fixtures;
         if(f==0 || f==5 || f==11)return {keyEvent(key::Return)};
         if(f==10)return {keyEvent(key::F1+1)};
@@ -365,7 +191,7 @@ void timingAndReplay(const std::filesystem::path& tmp) {
     };
     ClassicGame game(sys,t,false,{"CPU Mr. Boggle"},{ComputerLevel::MrBoggle});CHECK(!game.run());CHECK(sys.hashes.size()==16);
     if(sys.hashes.size()==16){CHECK(sys.hashes[4]==sys.hashes[9]);CHECK(sys.hashes[0]==sys.hashes[5]);}
-    fixtures::ScriptedSystem fresh;fresh.clock=[](size_t f){return uint64_t(f*1000);};
+    fixtures::ScriptedSystem fresh;fresh.clock=[](size_t f){return uint64_t(f*5000);};
     fresh.events=[](size_t f)->std::vector<Event>{using namespace fixtures;
         if(f==0)return {keyEvent(key::Return)};
         if(f==5)return {keyEvent(key::Escape)};
@@ -378,7 +204,7 @@ void timingAndReplay(const std::filesystem::path& tmp) {
     CHECK(!std::filesystem::exists(t.savePath/"HighScores.txt"));
     auto solo=target(tmp/"solo-chess",true);solo.settings["classic_seconds"]="60";
     fixtures::ScriptedSystem human;human.clock=[](size_t f)->uint64_t {
-        const uint64_t times[]={0,1000,60000,600000,600001,600001};return times[std::min(f,size_t(5))];
+        const uint64_t times[]={0,10000,60000,600000,600001,600001};return times[std::min(f,size_t(5))];
     };
     human.events=[](size_t f)->std::vector<Event>{using namespace fixtures;
         if(f==0 || f==3)return {keyEvent(key::Return)};
@@ -391,30 +217,17 @@ void timingAndReplay(const std::filesystem::path& tmp) {
     const auto rows=scores.table();CHECK(rows.size()==2 && rows[0].score==2 && rows[1].score==1);
 }
 void vocabulary() {
-    CHECK(!usesCommonVocabulary(ComputerLevel::Human) && !usesCommonVocabulary(ComputerLevel::MrBoggle));
-    CHECK(!usesCommonVocabulary(ComputerLevel(4)));
+    CHECK(usesCommonVocabulary(ComputerLevel::Beginner) && !usesCommonVocabulary(ComputerLevel::MrBoggle));
     for(bool master:{false,true}) {
-        Board board;std::vector<std::string> faces(master?25:16,"A");faces.back()="QU";CHECK(!board.set(master?5:4,faces));
-        const std::string commonLong(9,'A'),tooLong(10,'A'),exclusive(12,'A'),qu=std::string(8,'A')+"QU";
-        const auto english=dictionary({"AAA","AAAA",commonLong,tooLong,exclusive,qu});
-        const auto common=dictionary({"AAA","AAAA",commonLong,tooLong,qu,"ZZZZ"});
-        for(auto level:{ComputerLevel::Beginner,ComputerLevel::Intermediate,ComputerLevel::Advanced}) {
-            CHECK(usesCommonVocabulary(level));bool sawLong=false,sawQu=false;
-            for(uint32_t seed=0;seed<32;++seed) {
-                ComputerPlan plan;CHECK(!plan.build(board,common,english,level,seed,0));
-                for(const auto& word:plan.words()) {
-                    CHECK(common.contains(word.word) && english.contains(word.word) && board.matches(word.word,word.path));
-                    CHECK(word.word!=tooLong && word.word!=exclusive);
-                    sawLong|=word.word==commonLong;sawQu|=word.word==qu;
-                }
-            }
-            CHECK(sawLong && sawQu); // a common opponent is not restricted to the former minimum+N caps
+        Board board;CHECK(!board.set(master?5:4,std::vector<std::string>(master?25:16,"A")));
+        auto main=dictionary({"AAA","AAAA","AAAAAAAAA","AAAAAAAAAA","AAAAAAAAAAAA"});
+        auto common=dictionary({"AAA","AAAA","AAAAAAAAA","ZZZZ"});
+        for(unsigned level=0;level<3;++level)for(uint32_t seed=0;seed<32;++seed) {
+            ComputerPlan plan;CHECK(!plan.build(board,common,main,ComputerLevel(level),seed,0));
+            for(const auto& word:plan.words())CHECK(common.contains(word.word) && main.contains(word.word) && word.word.size()<=9);
         }
-        ComputerPlan mr;Dictionary absentAuxiliary;
-        CHECK(!mr.build(board,absentAuxiliary,english,ComputerLevel::MrBoggle,6551,0));
-        CHECK(std::any_of(mr.words().begin(),mr.words().end(),[&](const auto& w){return w.word==exclusive;}));
-        CHECK(std::any_of(mr.words().begin(),mr.words().end(),[&](const auto& w){return w.word==tooLong;}));
-        CHECK(mr.words().size()==(master?5:6));
+        ComputerPlan mr;Dictionary absent;CHECK(!mr.build(board,absent,main,ComputerLevel::MrBoggle,6551,0));
+        CHECK(mr.words().size()==(master?4:5) && mr.words().front().word.size()==12);
     }
 }
 void mrBehavior(const std::filesystem::path& tmp) {
@@ -429,7 +242,7 @@ void mrBehavior(const std::filesystem::path& tmp) {
     for(bool chess:{false,true})for(bool timed:{false,true})for(bool master:{false,true}) {
         auto t=target(tmp/(std::to_string(chess)+std::to_string(timed)+std::to_string(master)));t.settings["classic_turns"]=chess?"chess":"traditional";
         t.settings["classic_seconds"]=timed?"60":"0";t.settings["classic_variant"]=master?"master":"original";t.settings["classic_cursor"]="1";
-        System sys;sys.clock=[](size_t f){return uint64_t(f*1000);};
+        System sys;sys.clock=[](size_t f){return uint64_t(f*5000);};
         sys.events=[](size_t f)->std::vector<Event>{using namespace fixtures;
             if(f==0)return {keyEvent(key::Return)};
             if(f==4){Event stop;stop.type=EventType::Quit;return {stop};}
@@ -448,7 +261,7 @@ void guards(const std::filesystem::path& tmp) {
         if(f==0)return {keyEvent(key::Return)};
         if(f==5){Event stop;stop.type=EventType::Quit;return {stop};}
         return {};
-    };mr.clock=[](size_t f){return uint64_t(f*1000);};
+    };mr.clock=[](size_t f){return uint64_t(f*5000);};
     ClassicGame mainOnly(mr,t,false,{"CPU Mr. Boggle"},{ComputerLevel::MrBoggle});CHECK(!mainOnly.run() && mr.hashes.size()==5);
     fixtures::write(t.path/"Dicts/AI.dic","invalid auxiliary dictionary");
     fixtures::ScriptedSystem ignored;ignored.events=mr.events;ignored.clock=mr.clock;
@@ -480,9 +293,8 @@ void frontend(const std::filesystem::path& tmp) {
 }
 static const test::Suite suite("boggle.unit.computer",{
     {"bounded legal plans, Qu, all levels, reproducible ordering, independent pacing and failure clearing",[](const auto&){planning();}},
-    {"measured common base-word timing bounds, scarcity, progression and frame-independent replay",[](const auto&){thinkingTimes();}},
-    {"legal S/ES plural follow-ups preserve samples, group timing and deterministic background plans",[](const auto&){pluralFollowups();}},
-    {"bounded D/ED past forms follow plurals without expanding samples or repeating thinking",[](const auto&){pastFollowups();}},
+    {"whole-plan difficulty, suffix/prefix recognition, threshold behavior and stable Mr. Boggle ties",[](const auto&){thinkingTimes();}},
+    {"measured cube holds, rounded path travel, common retirement and invalid geometry",[](const auto&){motionAndRetirement();}},
     {"Traditional and Chess opponents cancel shared words, reject human input and save humans only",[](const auto& tmp){live(tmp);}},
     {"four computers finish both variants and turn modes without human handoff confirmation",[](const auto& tmp){computerOnly(tmp);}},
     {"exact CPU deadlines, opening and handoff exclusions, replay/new-board plan reset",[](const auto& tmp){timingAndReplay(tmp);}},

@@ -4,10 +4,35 @@
 #include <algorithm>
 namespace reluva::boggle {
 ComputerCursorFrame computerCursorFrame(const AcceptedWord& word,const std::vector<ClassicPoint>& centers,
-                                        ClassicPoint origin,uint64_t elapsed,uint64_t due,ClassicPoint submitPoint) {
+                                        ClassicPoint origin,uint64_t elapsed,uint64_t due,ClassicPoint submitPoint,const ComputerMotion* timeline) {
     ComputerCursorFrame frame;
     if(!due || word.path.empty() || word.path.size()>25 || (centers.size()!=16 && centers.size()!=25))return frame;
     for(size_t cube:word.path)if(cube>=centers.size())return frame;
+    if(timeline) {
+        if(timeline->presses.size()!=word.path.size() || timeline->releases.size()!=word.path.size() ||
+           !timeline->duration || timeline->duration>due)return frame;
+        uint64_t previous=0;
+        for(size_t i=0;i<word.path.size();++i) {
+            if(timeline->presses[i]<=previous || timeline->releases[i]<timeline->presses[i])return frame;
+            previous=timeline->releases[i];
+        }
+        if(previous>=timeline->duration || elapsed<due-timeline->duration)return frame;
+        const uint64_t time=std::min(elapsed-(due-timeline->duration),timeline->duration);
+        frame.active=true;ClassicPoint from=origin;uint64_t start=0;
+        auto interpolate=[&](ClassicPoint to,uint64_t end) {
+            const uint64_t progress=std::min(time-start,end-start),span=end-start;
+            return ClassicPoint{int(from.x+(int64_t(to.x)-from.x)*int64_t(progress)/int64_t(span)),
+                int(from.y+(int64_t(to.y)-from.y)*int64_t(progress)/int64_t(span))};
+        };
+        for(size_t i=0;i<word.path.size();++i) {
+            const auto to=centers[word.path[i]];
+            if(time<timeline->presses[i]){frame.point=interpolate(to,timeline->presses[i]);return frame;}
+            frame.cubes=i+1;
+            if(time<timeline->releases[i]){frame.point=to;return frame;}
+            from=to;start=timeline->releases[i];
+        }
+        frame.point=interpolate(submitPoint,timeline->duration);return frame;
+    }
     const uint64_t span=std::min<uint64_t>(due,1000),start=due-span;
     if(elapsed<start)return frame;
     const uint64_t motion=std::max<uint64_t>(1,span*3/4);

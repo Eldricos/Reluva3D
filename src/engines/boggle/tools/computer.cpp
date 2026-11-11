@@ -44,11 +44,11 @@ int check(int argc,char** argv) {
             ClassicRound round(english);if(auto e=round.board(board,0))return fail(e);
             if(auto e=round.start(0,0))return fail(e);
             number(uint32_t(board.side()));number(seed);number(uint32_t(slot));number(level);number(uint32_t(plan.words().size()));
-            std::vector<ClassicPoint> centers;
-            for(size_t i=0;i<board.faces().size();++i)centers.push_back({int(i%board.side())*100,int(i/board.side())*100});
+            const auto geometry=defaultComputerGeometry(board.side());bool first=true;
             while(!plan.exhausted()) {
                 const auto* pending=plan.nextWord();const auto due=plan.due();
-                const auto traced=computerCursorFrame(*pending,centers,{0,0},due,due,{900,500});
+                const auto* motion=plan.nextMotion();
+                const auto traced=computerCursorFrame(*pending,geometry.centers,first?geometry.origin:geometry.submit,due,due,geometry.submit,motion);
                 if(!traced.active || traced.cubes!=pending->path.size() || plan.nextWord()!=pending || plan.due()!=due)
                     return fail(Error::fail("Computer cursor preview changed a plan or failed to finish its path"));
                 if(!due || plan.take(due-1))return fail(Error::fail("Computer plan submitted before its thinking delay"));
@@ -56,9 +56,11 @@ int check(int argc,char** argv) {
                 if(!word || plan.take(due) || round.submit(word->word,due,word->path)!=Submission::Accepted)
                     return fail(Error::fail("Computer plan failed paced dictionary/path validation"));
                 number(uint32_t(due));number(uint32_t(due>>32));
+                number(uint32_t(motion->duration));
+                for(size_t i=0;i<motion->presses.size();++i){number(uint32_t(motion->presses[i]));number(uint32_t(motion->releases[i]));}
                 digest.update(word->word.data(),word->word.size()+1);number(uint32_t(word->points));
                 for(size_t cell:word->path)number(uint32_t(cell));
-                ++words;
+                ++words;first=false;
             }
             ++plans;
         }
