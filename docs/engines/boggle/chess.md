@@ -27,7 +27,7 @@ player. A repeated word also passes the turn, adding no second entry or points.
 Short/invalid/no-path attempts stay with the current player and use the existing
 feedback. In particular, a path-search budget requiring explicit cube selection
 cannot pass an unrecorded word. Unknown words stay red with provisional points
-and are resolved when that player finishes, using the existing review controls.
+and are resolved after all players finish, using the existing review controls.
 
 After a word passes, a hidden-board panel identifies the next player and their
 paused remaining time. Pass the controls and press Enter / Start Turn. Queued
@@ -86,11 +86,9 @@ stranded in a finished player.
 The mode button/keys, hidden handoff/confirmation, consolidated notices for
 several finished slots, initial-only opening/final-only closing and F1 retirement
 are native controls/presentation choices. Original exact notice timing, animation
-sequence, short/no-path turn boundaries and multiplayer dictionary-review timing
-still need detailed comparison. In particular, this pass retains per-player-end
-review rather than claiming the original's exact multi-player prompt schedule.
-Active time continues through lost focus as in the existing native game; original
-focus/pause behavior remains unverified. The separate original computer options
+sequence and short/no-path turn boundaries still need detailed comparison.
+Review now waits until all players finish; focus loss pauses foreground and
+background clocks. See [edge evidence](edges.md). The separate original computer options
 must not be confused with this human turn mode.
 
 ## Validation

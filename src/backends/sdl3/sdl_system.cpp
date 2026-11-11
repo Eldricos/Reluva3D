@@ -326,7 +326,16 @@ bool SdlSystem::pollEvent(Event& out) {
             out.type = EventType::TextInput;
             SDL_strlcpy(out.text, ev.text.text, sizeof out.text);
             return true;
+        case SDL_EVENT_WINDOW_FOCUS_LOST:
+            out.type = EventType::FocusLost;
+            return true;
         case SDL_EVENT_WINDOW_FOCUS_GAINED:
+            if (relativeMouse_) {
+                SDL_SetWindowRelativeMouseMode(window_, false);
+                SDL_SetWindowRelativeMouseMode(window_, true);
+            }
+            out.type = EventType::FocusGained;
+            return true;
         case SDL_EVENT_WINDOW_RESIZED:
         case SDL_EVENT_WINDOW_ENTER_FULLSCREEN:
         case SDL_EVENT_WINDOW_LEAVE_FULLSCREEN:

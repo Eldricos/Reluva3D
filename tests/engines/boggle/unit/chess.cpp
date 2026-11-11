@@ -16,6 +16,11 @@ using namespace reluva;
 using namespace reluva::boggle;
 namespace {
 void clocks() {
+    ClassicClock game;CHECK(game.now(100)==100);game.focus(false,150);
+    CHECK(game.paused() && game.now(100000)==150);game.focus(false,100001);
+    game.focus(true,200000);CHECK(!game.paused() && game.now(200017)==167);
+    CHECK(game.now(0)==167 && game.now(200020)==170);
+    CHECK(game.now(UINT64_MAX)==UINT64_MAX-199850);
     PlayerClocks c;CHECK(c.elapsed(0,1000)==0 && !c.active());CHECK(bool(c.reset(0)));CHECK(bool(c.reset(5)));
     CHECK(!c.reset(3));CHECK(!c.activate(0,1000));CHECK(c.elapsed(0,1250)==250 && c.elapsed(1,1250)==0);
     CHECK(!c.activate(1,1500));CHECK(c.elapsed(0,4000)==500 && c.elapsed(1,4000)==2500);
@@ -37,6 +42,40 @@ GameTarget target(const std::filesystem::path& root,bool master=false,bool art=t
     t.settings={{"classic_seed","6551"},{"classic_turns","chess"},{"classic_seconds","0"},{"classic_sound","0"},{"classic_animations","0"},
                 {"classic_variant",master?"master":"original"},{"classic_artwork",art?"1":"0"},{"frontend_movies","0"}};return t;
 }
+void focusLoss(const std::filesystem::path& tmp) {
+    for(bool chess:{false,true})for(bool background:{false,true})for(bool animated:{false,true}) {
+        const auto root=tmp / (std::to_string(chess)+std::to_string(background)+std::to_string(animated));
+        std::vector<std::string> reference;
+        for(bool paused:{false,true}) {
+            auto t=target(root / std::to_string(paused));t.settings["classic_seconds"]="60";
+            t.settings["classic_turns"]=chess?"chess":"traditional";
+            t.settings["classic_animations"]=animated?"1":"0";
+            t.settings["classic_background"]=background?"1":"0";
+            fixtures::ScriptedSystem sys;
+            sys.clock=[&](size_t f)->uint64_t {
+                const uint64_t times[]={0,100,100,100,4500,4501,4502};
+                return times[std::min(f,size_t(6))]+(paused && f>=2?1000000:0);
+            };
+            sys.events=[&](size_t f)->std::vector<Event>{using namespace fixtures;
+                if(f==0)return {keyEvent(key::Return)};
+                if(f==1 && paused){Event e;e.type=EventType::FocusLost;return {e,textEvent("AAAA"),keyEvent(key::F1)};}
+                if(f==2 && paused){Event e;e.type=EventType::FocusLost;return {e};}
+                if(f==3 && paused){Event e;e.type=EventType::FocusGained;return {e,textEvent("AAAA")};}
+                if(f==4)return {textEvent("AAAA"),keyEvent(key::Return)};
+                if(f==6){Event e;e.type=EventType::Quit;return {e};}return {};
+            };
+            ClassicGame game(sys,t,false,background?std::vector<std::string>{"Alex","CPU Mr. Boggle"}:std::vector<std::string>{"Alex"},
+                background?std::vector<ComputerLevel>{ComputerLevel::Human,ComputerLevel::MrBoggle}:std::vector<ComputerLevel>{ComputerLevel::Human});
+            CHECK(!game.run());CHECK(sys.hashes.size()==6);
+            if(!paused)reference=sys.hashes;
+            else if(sys.hashes.size()==6 && reference.size()==6) {
+                CHECK(sys.hashes[1]==sys.hashes[2]); // duplicate loss stays paused
+                CHECK(sys.hashes[3]==reference[3]); // queued text is ignored on regain
+                CHECK(sys.hashes[4]==reference[4] && sys.hashes[5]==reference[5]);
+            }
+        }
+    }
+}
 void rotation(const std::filesystem::path& tmp) {
     test::Record record;
     for(bool master:{false,true})for(bool art:{false,true}) {
@@ -54,7 +93,7 @@ void rotation(const std::filesystem::path& tmp) {
             if(f==10)return {textEvent("AAAAAA"),keyEvent(key::Return)}; // handoff discards text before confirming Alex
             if(f==11)return {textEvent("AAAAAA"),keyEvent(key::Return)};
             if(f==13 || f==16)return {keyEvent(key::F1)};
-            if(f==14)return {keyEvent('1')};
+            if(f==14)return {keyEvent(key::Return)}; // review is deferred until every player finishes
             if(f==17)return {keyEvent('1')};
             if(f==18)return {keyEvent('2')};
             if(f==19)return {keyEvent('a')};
@@ -73,7 +112,7 @@ void rotation(const std::filesystem::path& tmp) {
         CHECK(sys.hashes[3]!=sys.hashes[23]); // finished-player notice on retirement
         CHECK(sys.hashes[0]==sys.hashes[22]);
         HighScores scores;CHECK(!scores.load(t.savePath,t.path));const auto rows=scores.table();
-        CHECK(rows.size()==2 && rows[0].name=="Alex" && rows[0].score==3 && rows[1].name=="Sam" && rows[1].score==2);
+        CHECK(rows.size()==4 && rows[0].name=="Alex" && rows[0].score==3 && rows[1].name=="Sam" && rows[1].score==2);
         const auto prefix=std::string(master?"master.":"original.")+(art?"art.":"plain.");
         for(size_t i=0;i<sys.hashes.size();++i)record.add(prefix+std::to_string(i),sys.hashes[i]);
     }
@@ -97,7 +136,7 @@ void budget(const std::filesystem::path& tmp) {
         CHECK(sys.hashes[1]==sys.hashes[2]);CHECK(sys.hashes[4]==sys.hashes[5]); // handoff never drains inactive timers
         CHECK(sys.hashes[7]!=sys.hashes[8]);CHECK(sys.hashes[11]!=sys.hashes[12]); // separate exact deadlines, not full-time reset
     }
-    HighScores scores;CHECK(!scores.load(t.savePath,t.path));CHECK(scores.table().empty()); // shared word cancels
+    HighScores scores;CHECK(!scores.load(t.savePath,t.path));CHECK(scores.table().size()==2 && scores.table()[0].score==0 && scores.table()[1].score==0); // shared word cancels
 }
 void animationAndSolo(const std::filesystem::path& tmp) {
     auto t=target(tmp / "animated");t.settings["classic_animations"]="1";t.settings["classic_seconds"]="60";
@@ -114,7 +153,7 @@ void animationAndSolo(const std::filesystem::path& tmp) {
     };
     ClassicGame game(sys,t,false,{"Alex","Sam"});CHECK(!game.run());CHECK(sys.hashes.size()==12);
     HighScores scores;CHECK(!scores.load(t.savePath,t.path));auto rows=scores.table();
-    CHECK(rows.size()==1 && rows[0].name=="Alex" && rows[0].score==1);
+    CHECK(rows.size()==2 && rows[0].name=="Alex" && rows[0].score==1);
     auto solo=target(tmp / "solo");fixtures::ScriptedSystem one;
     one.events=[](size_t f)->std::vector<Event>{using namespace fixtures;
         if(f==0)return {keyEvent(key::Return)};
@@ -141,7 +180,7 @@ void submissionBoundary(const std::filesystem::path& tmp) {
             return {keyEvent('2'),keyEvent(key::F1),keyEvent(key::Return)};
         };
         ClassicGame game(sys,t,false,{"Alex","Sam"});CHECK(!game.run());CHECK(!sys.textEnabled);
-        HighScores scores;CHECK(!scores.load(t.savePath,t.path));CHECK(scores.table().empty());
+        HighScores scores;CHECK(!scores.load(t.savePath,t.path));for(const auto& row:scores.table())CHECK(row.score==0);
     }
 }
 
@@ -168,7 +207,7 @@ void rosterAndSkip(const std::filesystem::path& tmp) {
     };
     auto engine=findEngine("boggle")->create(sys,t);CHECK(!engine->run());CHECK(sys.hashes.size()==19 && !sys.textEnabled);
     HighScores scores;CHECK(!scores.load(t.savePath,t.path));auto rows=scores.table();
-    CHECK(rows.size()==1 && rows[0].name=="Sam" && rows[0].score==3);
+    CHECK(rows.size()==2 && rows[0].name=="Sam" && rows[0].score==3);
     // Three/four players rotate in roster order and skip participants who end.
     for(size_t count:{size_t(3),size_t(4)}) {
         auto many=target(tmp / std::to_string(count));fixtures::ScriptedSystem gameSys;
@@ -184,6 +223,7 @@ void rosterAndSkip(const std::filesystem::path& tmp) {
 }
 }
 static const test::Suite suite("boggle.unit.chess",{
+    {"focus freezes foreground, background and opening; queued input and repeated notifications",[](const auto& tmp){focusLoss(tmp);}},
     {"deadline crossed during submission cannot bypass deferred review or corrupt handoff",[](const auto& tmp){submissionBoundary(tmp);}},
     {"initial opening excluded from budgets, final closing, one-ms resume and solo Chess",[](const auto& tmp){animationAndSolo(tmp);}},
     {"per-player active clocks, pause, rollback, limits and mode parsing",[](const auto&){clocks();}},

@@ -6,7 +6,7 @@ by the static inspection and must not become undocumented assumptions in code.
 - Exact retail edition, patch level and original CD pressing. A 1997 PE
   timestamp and December 2000 copied-file timestamps are not release proof.
 - The owner can run the original in a Windows VM and has confirmed Classic
-  Original's timer, minimum length and scoring. Broader input, focus/pause,
+  Original's timer, minimum length and scoring. Broader input, pause presentation,
   graphics, timing and network observations remain needed. See
   [Classic evidence](../../engines/boggle/classic.md).
 - `cd/data.z` contents and SHA-256. It exceeds the executor's 32 MiB transfer
@@ -122,8 +122,8 @@ now records finalized positive round scores in isolated storage. VM checks
 confirm one shared Classic board across versions/durations and qualification
 for manually ended rounds. A subsequent VM check confirms repeated names are
 allowed and the board holds ten scores; native storage now preserves each
-qualifying round, including repeated names and identical scores. Original tie, zero-score, replay
-policies and original score-file persistence remain unverified. See
+qualifying round, including repeated names and identical scores. Tie and zero-score qualification now match isolated original insertion checks;
+original replay UI eligibility and score-file persistence remain unverified. See
 [high-score scope and evidence](../../engines/boggle/highscores.md).
 
 The owner confirmed the corrected ten-score table works, including repeated
@@ -259,3 +259,10 @@ comparisons include supplied-board candidates. See [the milestone specification]
 for evidence and closure scope. Native randomness, geometry, idle-pointer
 presentation and exact whole-round VM timing remain documented differences;
 other languages and network play remain separate milestones.
+
+
+The [Classic gameplay edge pass](../../engines/boggle/edges.md) now freezes
+foreground/background clocks on focus loss, defers multiplayer dictionary
+review until all players finish, shares approvals across subsequent reviews,
+expands keyboard Q to Qu, and corrects tie/zero-score qualification. Short/no-path
+Chess turn behavior and manual pause commands still need VM corroboration.

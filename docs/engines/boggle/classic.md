@@ -45,8 +45,8 @@ The screen is a simple native interface using the user's letter texture
 atlases and an independently drawn layout/debug font. It does not recreate
 PE dialog layouts or TrueType typography. Classic lid AVI animation and WAV
 effects are now integrated: [presentation evidence](presentation.md). The
-clock advances while the round is active, including when focus is lost;
-matching original pause/focus behavior remains future work. Saved games,
+clock advances while the window is active; focus loss freezes all gameplay
+clocks and transitions. See [gameplay edge evidence](edges.md). Saved games,
 definitions, network play and general game-state persistence are absent.
 [Classic AI behavior](ai-milestone.md) is implemented with documented native
 randomness and presentation differences.

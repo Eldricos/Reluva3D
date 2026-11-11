@@ -56,14 +56,15 @@ Error HighScores::load(const std::filesystem::path& savePath,const std::filesyst
         if(!in || in.tellg()<0 || in.tellg()>4096)return Error::fail("Cannot read bounded high-score file");
         in.seekg(0);std::string line;
         auto nextLine=[&]{if(!std::getline(in,line))return false;if(!line.empty() && line.back()=='\r')line.pop_back();return true;};
-        if(!nextLine() || line!="RELUVA BOGGLE HIGHSCORES 1")return Error::fail("Invalid native high-score header");
+        if(!nextLine() || (line!="RELUVA BOGGLE HIGHSCORES 1" && line!="RELUVA BOGGLE HIGHSCORES 2"))return Error::fail("Invalid native high-score header");
+        const bool legacy=line=="RELUVA BOGGLE HIGHSCORES 1";
         while(nextLine()) {
             const auto a=line.find('\t'),b=a==std::string::npos?a:line.find('\t',a+1),c=b==std::string::npos?b:line.find('\t',b+1);
             if(c==std::string::npos || rows.size()==10)return Error::fail("Invalid native high-score row");
             const auto variant=line.substr(0,a);uint64_t seconds=0,score=0;std::string name;
             const auto mode=variant=="original"?ClassicVariant::Original:ClassicVariant::Master;
             if((variant!="original" && variant!="master") || !number(std::string_view(line).substr(a+1,b-a-1),seconds) || seconds>300 ||
-               !category(mode,seconds*1000) || !number(std::string_view(line).substr(b+1,c-b-1),score) || !score || score>INT32_MAX ||
+               !category(mode,seconds*1000) || !number(std::string_view(line).substr(b+1,c-b-1),score) || (legacy && !score) || score>INT32_MAX ||
                !playerName(std::string_view(line).substr(c+1),name) || name!=line.substr(c+1))
                 return Error::fail("Invalid native high-score row");
             rows.push_back({mode,seconds*1000,int(score),name});
@@ -85,7 +86,8 @@ Error HighScores::recordBatch(const std::vector<HighScore>& scores) {
     for(const auto& score:scores) {
         std::string name;
         if(!category(score.variant,score.duration) || score.score<0 || !playerName(score.name,name))return Error::fail("Invalid native high-score entry");
-        if(score.score)rows.push_back({score.variant,score.duration,score.score,name});
+        const auto at=std::lower_bound(rows.begin(),rows.end(),score.score,[](const auto& row,int value){return row.score>value;});
+        rows.insert(at,{score.variant,score.duration,score.score,name});
     }
     order(rows);if(rows.size()>10)rows.resize(10);
     if(rows==rows_)return Error::success();
@@ -94,7 +96,7 @@ Error HighScores::recordBatch(const std::vector<HighScore>& scores) {
         for(const auto& path:{file_,temp,backup})if(auto error=regular(path))return error;
         std::error_code ec;std::filesystem::create_directories(file_.parent_path(),ec);if(ec)return failure();
         {
-            std::ofstream out(temp,std::ios::binary|std::ios::trunc);out<<"RELUVA BOGGLE HIGHSCORES 1\n";
+            std::ofstream out(temp,std::ios::binary|std::ios::trunc);out<<"RELUVA BOGGLE HIGHSCORES 2\n";
             for(const auto& row:rows)out<<(row.variant==ClassicVariant::Original?"original":"master")<<'\t'<<row.duration/1000<<'\t'<<row.score<<'\t'<<row.name<<'\n';
             out.flush();if(!out)return failure();out.close();if(!out)return failure();
         }

@@ -95,7 +95,7 @@ void handoffs(const std::filesystem::path& tmp) {
     };
     ClassicGame game(sys,t,false,{"Alex","CPU Mr. Boggle"},{ComputerLevel::Human,ComputerLevel::MrBoggle});CHECK(!game.run());CHECK(sys.hashes.size()==16 && sys.cursorVisible);
     if(sys.shown.size()==16)CHECK(sys.shown[0] && sys.shown[1] && !sys.shown[2] && sys.shown[5] && sys.shown[6] && sys.shown[7] && sys.shown[14]);
-    HighScores scores;CHECK(!scores.load(t.savePath,t.path));CHECK(scores.table().empty()); // shared AAAA still cancels
+    HighScores scores;CHECK(!scores.load(t.savePath,t.path));CHECK(scores.table().size()==1);for(const auto& row:scores.table())CHECK(row.score==0); // shared AAAA still cancels
 }
 void exits(const std::filesystem::path& tmp) {
     for(int mode=0;mode<4;++mode) {

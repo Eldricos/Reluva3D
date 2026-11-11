@@ -62,8 +62,9 @@ the approval queue. A repeated submitted word creates no second entry or score.
 The history shows fourteen entries at once; Page Up / Page Down reaches older
 entries. New submissions return to the most recent entries.
 
-At timeout or manual finish, pending words must be reviewed before replaying
-or changing the board. Use the four buttons or keys **1 = Yes**, **2 = No**,
+After all players finish (timeout or manual end), pending words are reviewed
+in roster order before replaying or changing the board. Shared approvals resolve
+matching words for later players; see [gameplay edge evidence](edges.md). Use the four buttons or keys **1 = Yes**, **2 = No**,
 **3 = Yes to all**, **4 = No to all**. Enter does not approve a word, and input
 arriving before the dialog is drawn cannot select a choice. Yes persists the
 word and keeps its points. No removes it from the visible list and score. All

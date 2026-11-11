@@ -8,6 +8,9 @@
 namespace reluva::boggle {
 // U.S. English normalization only; never silently reinterpret UTF-8/high bytes.
 bool englishWord(std::string_view input, std::string& out);
+// Qu is one keyboard cube. An explicitly typed following U is consumed once.
+bool appendEnglishCubes(std::string_view text,std::string& input,bool& followingU);
+void eraseEnglishCube(std::string& input);
 int classicPoints(size_t length, size_t minimum = 3);
 enum class PathResult { Found, Missing, Limit };
 class Board {
@@ -45,6 +48,7 @@ public:
     const std::vector<RoundWord>& words() const { return words_; }
     const RoundWord* candidate() const;
     Error decide(DictionaryChoice choice);
+    void acceptKnownPending();
     size_t minimum() const { return board_.side() == 5 ? 4 : 3; }
     bool timed() const { return duration_ != 0; }
     int score() const { return score_; }

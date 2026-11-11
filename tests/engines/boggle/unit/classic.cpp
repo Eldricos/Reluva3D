@@ -22,6 +22,32 @@ Dictionary dictionary() {
 Board board() {
     Board b; CHECK(!b.set(4, {"C","A","T","S", "X","Qu","I","T", "B","D","E","F", "G","H","J","K"})); return b;
 }
+void keyboard() {
+    std::string input;bool following=false;
+    CHECK(appendEnglishCubes("q",input,following) && input=="QU" && following);
+    CHECK(appendEnglishCubes("u",input,following) && input=="QU" && !following);
+    CHECK(appendEnglishCubes("it",input,following) && input=="QUIT");
+    input.clear();following=false;
+    CHECK(appendEnglishCubes("qit",input,following) && input=="QUIT");
+    input.clear();following=false;
+    CHECK(appendEnglishCubes("quu",input,following) && input=="QUU");
+    eraseEnglishCube(input);CHECK(input=="QU");eraseEnglishCube(input);CHECK(input.empty());
+    input=std::string(63,'A');following=false;
+    CHECK(!appendEnglishCubes("q",input,following) && input.size()==63 && !following);
+    CHECK(!appendEnglishCubes("a!",input,following) && input.size()==63);
+}
+void sharedReview(const std::filesystem::path& tmp) {
+    auto d=dictionary();UserDictionary user;CHECK(!user.load(tmp / "save"));
+    ClassicRound first(d,&user),second(d,&user),declined(d,&user);
+    for(auto* round:{&first,&second,&declined}) {
+        CHECK(!round->board(board()));CHECK(!round->start(0));
+        CHECK(round->submit("CAI",1)==Submission::UnknownWord);round->finish();
+    }
+    CHECK(!declined.decide(DictionaryChoice::No));
+    CHECK(!first.decide(DictionaryChoice::Yes));second.acceptKnownPending();declined.acceptKnownPending();
+    CHECK(!second.candidate() && second.score()==1 && second.accepted().size()==1);
+    CHECK(!declined.candidate() && declined.score()==0 && declined.accepted().empty());
+}
 void paths() {
     auto b = board(); std::vector<size_t> path;
     CHECK(b.adjacent(0,5)); CHECK(!b.adjacent(3,4)); CHECK(!b.adjacent(0,0)); CHECK(!b.adjacent(0,99));
@@ -150,6 +176,8 @@ void scoringAndGeneration() {
 }
 }
 static const test::Suite suite("boggle.unit.classic", {
+    {"keyboard Qu, explicit U, whole-cube erasure and atomic bounds", [](const auto&) { keyboard(); }},
+    {"shared approvals resolve later reviews without restoring declined words", [](const auto& tmp) { sharedReview(tmp); }},
     {"adjacency, multi-letter tiles, paths and visit limits", [](const auto&) { paths(); }},
     {"submission, duplicates, timeout boundary and replay", [](const auto&) { rounds(); }},
     {"pending words, all four decisions and persistence across rounds", [](const auto& tmp) { review(tmp); }},

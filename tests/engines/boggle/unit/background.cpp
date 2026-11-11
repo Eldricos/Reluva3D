@@ -152,23 +152,25 @@ void paused(const std::filesystem::path& tmp) {
                 if(f==5)return {textEvent("AAAAAA"),keyEvent(key::Return)};
                 if(f==7 || f==9)return {keyEvent(key::F1)};
                 if(f==10)return {keyEvent('1')};
-                if(f==11)return {quit()};
+                if(f==11)return {keyEvent('3')};
+                if(f==12)return {quit()};
             } else {
                 if(f==1)return {textEvent("AAAA"),keyEvent(key::Return),textEvent("AAAAA"),keyEvent(key::Return),textEvent("AAAAAA"),keyEvent(key::Return),keyEvent(key::F1)};
                 if(f==2)return {keyEvent('1')};
                 if(f==3)return {keyEvent(key::Return)};
                 if(f==4)return {textEvent("AAAAAAA"),keyEvent(key::Return),keyEvent(key::F1)};
-                if(f==5)return {quit()};
+                if(f==5 || f==6)return {keyEvent('3')};
+                if(f==7)return {quit()};
             }
             return {};
         };
         // CPU slots before/between humans must never receive a visible turn or a handoff notice.
         ClassicGame game(sys,t,false,{"CPU Mr. Boggle","First","CPU Mr. Boggle","Second"},
             {ComputerLevel::MrBoggle,ComputerLevel::Human,ComputerLevel::MrBoggle,ComputerLevel::Human});
-        CHECK(!game.run() && sys.hashes.size()==(chess?11:5));
+        CHECK(!game.run() && sys.hashes.size()==(chess?12:7));
         HighScores scores;CHECK(!scores.load(t.savePath,t.path));const auto rows=scores.table();
         CHECK(rows.size()==2);
-        CHECK(cpuScores.size()>=3 && cpuScores[1]!=cpuScores[2]); // continues through the paused human switch/review
+        CHECK(cpuScores.size()>=3 && cpuScores[1]!=cpuScores[2]); // continues through the human handoff; review waits until all humans finish
         CHECK(std::any_of(rows.begin(),rows.end(),[&](const auto& row){return row.name=="First" && row.score==(chess?3:5);}));
         CHECK(std::any_of(rows.begin(),rows.end(),[](const auto& row){return row.name=="Second" && row.score==5;}));
     }
@@ -254,7 +256,7 @@ static const test::Suite suite("boggle.unit.background",{
     {"hidden schedules are frame-rate independent and obey exact round deadlines",[](const auto&){scheduled();}},
     {"hidden words stay silent while live scores rise; final cancellation and review work",[](const auto& tmp){hidden(tmp);}},
     {"computer words at the exact deadline are excluded, including after lid opening",[](const auto& tmp){deadline(tmp);}},
-    {"computers continue through human switches/review without entering the turn rotation",[](const auto& tmp){paused(tmp);}},
+    {"computers continue through human switches before final review without entering the turn rotation",[](const auto& tmp){paused(tmp);}},
     {"early timed endings complete CPU budgets; untimed endings stop before dictionary review",[](const auto& tmp){earlyEnd(tmp);}},
     {"replay and New Board reset background words and clocks",[](const auto& tmp){replay(tmp);}},
     {"Players keyboard/mouse switch, setting validation and all-computer fallback",[](const auto& tmp){frontend(tmp);}},

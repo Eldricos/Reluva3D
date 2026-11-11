@@ -66,6 +66,8 @@ enum class EventType {
     JoyAxis,
     JoyHat,
     JoyRemoved,
+    FocusLost,
+    FocusGained,
 };
 
 namespace joyhat {

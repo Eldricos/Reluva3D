@@ -18,6 +18,21 @@ bool englishWord(std::string_view input, std::string& out) {
     }
     return true;
 }
+bool appendEnglishCubes(std::string_view text,std::string& input,bool& followingU) {
+    std::string normalized;if(!englishWord(text,normalized))return false;
+    auto next=input;bool skip=followingU;
+    for(char c:normalized) {
+        const bool consume=skip && c=='U';skip=false;
+        if(consume)continue;
+        if(c=='Q'){next+="QU";skip=true;}else next+=c;
+        if(next.size()>64)return false;
+    }
+    input=std::move(next);followingU=skip;return true;
+}
+void eraseEnglishCube(std::string& input) {
+    if(input.ends_with("QU"))input.resize(input.size()-2);
+    else if(!input.empty())input.pop_back();
+}
 int classicPoints(size_t length, size_t minimum) {
     if (length < minimum || length < 3) return 0;
     if (length <= 4) return 1;
@@ -152,6 +167,13 @@ const RoundWord* ClassicRound::candidate() const {
     if (phase_ != RoundPhase::Results) return nullptr;
     for (const auto& word : words_) if (word.state == WordState::Pending) return &word;
     return nullptr;
+}
+void ClassicRound::acceptKnownPending() {
+    if(phase_!=RoundPhase::Results)return;
+    for(auto& word:words_)if(word.state==WordState::Pending &&
+        (dictionary_.contains(word.entry.word) || (user_ && user_->contains(word.entry.word)))) {
+        word.state=WordState::Added;accepted_.push_back(word.entry);
+    }
 }
 Error ClassicRound::decide(DictionaryChoice choice) {
     if (!candidate()) return Error::fail("No word is awaiting a dictionary decision");

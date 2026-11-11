@@ -28,8 +28,8 @@ automatically after one visible handoff frame; human handoffs require confirmati
 ## Turns and results
 
 The first player starts through the existing opening sequence. On timeout or
-End Round / F1, the current player's round closes. Unknown words are resolved
-using the existing dictionary review. A hidden-board handoff then identifies
+End Round / F1, the current player's round closes. Unknown-word review waits
+until every player's turn has ended. A hidden-board handoff identifies
 the next player. Pass the controls and confirm **Start Turn / Enter**; the next
 player's timer starts after their opening sequence, with the full configured
 duration. Waiting at handoff consumes none of their round. Untimed turns end
@@ -56,7 +56,7 @@ all players and returns the first player to Ready. These actions are available
 after the match finishes, not between unfinished player turns. Leaving through
 the menu/launcher during a match does not publish incomplete match scores.
 
-High scores record all eligible positive human totals in one atomic native
+High scores record all eligible nonnegative human totals in one atomic native
 snapshot after the full match finishes. Failed validation/writes commit none
 of the batch; an explicit retry saves the complete batch once. Browsing players,
 reopening summaries or retrying after success does not submit scores again.
@@ -73,10 +73,9 @@ not execute or translate original routines at runtime.
 
 The native handoff/summary layout and keys, session-only roster, empty-slot
 compaction and same-name slots are explicit implementation choices. Dictionary
-review currently occurs after each player's turn, using the existing shared
-native user dictionary; an approved word can therefore be recognized during a
-later turn. Original multi-player review timing and user-dictionary scope still
-need corroboration. Exact turn-transition animation timing and original dialog
+review occurs after all players finish, in roster order, using the shared
+native user dictionary. An approval resolves that word for subsequent players
+without a repeated prompt. See [edge evidence](edges.md). Exact turn-transition animation timing and original dialog
 navigation also remain unverified. [Chess Timer](chess.md) shares its controller with
 humans and computers. [Background play](background.md) now provides hidden
 computer submissions during human turns. Matching the original AI

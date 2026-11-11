@@ -15,18 +15,18 @@ std::string read(const std::filesystem::path& file){std::ifstream in(file,std::i
 void ranking(const std::filesystem::path& tmp) {
     const auto save=tmp / "save",game=tmp / "game",file=save / "HighScores.txt";
     fixtures::write(game / "HighScores.txt","ORIGINAL UNTOUCHED");HighScores scores;
-    CHECK(!scores.load(save,game));CHECK(scores.persistent());CHECK(!scores.record(original,180000,0,"Alex"));CHECK(!std::filesystem::exists(save));
+    CHECK(!scores.load(save,game));CHECK(scores.persistent());CHECK(!scores.record(original,180000,0,"Alex"));CHECK(std::filesystem::exists(file));
     CHECK(!scores.record(original,180000,12,"Alex"));CHECK(!scores.record(original,180000,12,"Sam"));
     CHECK(!scores.record(original,180000,9,"Alex"));
     CHECK(!scores.record(original,180000,12,"Alex"));
     HighScores restart;CHECK(!restart.load(save,game));auto rows=restart.table();
-    CHECK(rows.size()==4 && rows[0].name=="Alex" && rows[1].name=="Sam" && rows[2].name=="Alex" && rows[3].score==9);
+    CHECK(rows.size()==5 && rows[0].name=="Alex" && rows[1].name=="Sam" && rows[2].name=="Alex" && rows[3].score==9 && rows[4].score==0);
     CHECK(!restart.record(master,180000,13,"Sam"));CHECK(restart.table()[0].name=="Sam");
-    CHECK(!restart.record(original,0,14,"Alex"));CHECK(restart.table().size()==6 && restart.table()[0].duration==0);
+    CHECK(!restart.record(original,0,14,"Alex"));CHECK(restart.table().size()==7 && restart.table()[0].duration==0);
     CHECK(!restart.record(master,90000,15,"Sam"));CHECK(restart.table()[0].duration==90000);
     for(int i=0;i<12;++i)CHECK(!restart.record(original,180000,20+i,"Player "+std::to_string(i)));
     rows=restart.table();CHECK(rows.size()==10 && rows.front().score==31 && rows.back().score==22);
-    const auto top=read(file);CHECK(!restart.record(original,180000,22,"Too late"));CHECK(read(file)==top);
+    const auto top=read(file);CHECK(!restart.record(original,180000,22,"Too late"));CHECK(read(file)!=top && restart.table().back().name=="Too late");
     CHECK(!restart.record(original,180000,100,"Player 2"));CHECK(restart.table().size()==10);
     CHECK(read(game / "HighScores.txt")=="ORIGINAL UNTOUCHED");
     CHECK(!restart.load(tmp / "same-name",game));
@@ -50,7 +50,7 @@ void batch(const std::filesystem::path& tmp) {
     CHECK(bool(scores.recordBatch(match)));CHECK(scores.table()==before);
     HighScores restart;CHECK(!restart.load(tmp / "save",tmp / "game"));CHECK(restart.table()==before);
     std::filesystem::remove(tmp / "save/HighScores.txt.tmp");CHECK(!scores.recordBatch(match));
-    CHECK(!restart.load(tmp / "save",tmp / "game"));CHECK(restart.table()==scores.table() && restart.table().size()==4);
+    CHECK(!restart.load(tmp / "save",tmp / "game"));CHECK(restart.table()==scores.table() && restart.table().size()==5);
     CHECK(restart.table()[0].name=="Alex" && restart.table()[0].score==5 && restart.table()[2].name=="Alex");
 }
 
@@ -71,6 +71,9 @@ void storage(const std::filesystem::path& tmp) {
         fixtures::write(file,bad);CHECK(bool(scores.load(save,game)));CHECK(bool(scores.record(original,180000,5,"No write")));CHECK(read(file)==bad);
     }
     fixtures::write(file,"RELUVA BOGGLE HIGHSCORES 1\r\nmaster\t0\t4\tCase Kept\r\n");CHECK(!scores.load(save,game));CHECK(scores.table()[0].name=="Case Kept");
+    CHECK(!scores.record(original,180000,0,"Zero"));
+    CHECK(read(file).starts_with("RELUVA BOGGLE HIGHSCORES 2\n"));
+    CHECK(!scores.load(save,game));CHECK(scores.table().size()==2 && scores.table()[1].score==0);
     CHECK(bool(scores.load(game / "saves",game)));CHECK(bool(scores.record(original,180000,2,"No write")));
     std::filesystem::remove(file);fixtures::write(tmp / "other","UNTOUCHED");std::error_code ec;
     std::filesystem::create_symlink(tmp / "other",file,ec);if(!ec){CHECK(bool(scores.load(save,game)));CHECK(read(tmp / "other")=="UNTOUCHED");}
@@ -123,7 +126,7 @@ void retry(const std::filesystem::path& tmp) {
 }
 static const test::Suite suite("boggle.unit.highscores",{
     {"atomic multi-human score batches validate and commit together",[](const auto& tmp){batch(tmp);}},
-    {"repeated names and identical scores, stable ties, top ten and restart",[](const auto& tmp){ranking(tmp);}},
+    {"repeated names and identical scores, newest-first ties, top ten and restart",[](const auto& tmp){ranking(tmp);}},
     {"bounded parsing, backup recovery, failed writes and source isolation",[](const auto& tmp){storage(tmp);}},
     {"post-adjudication recording, both variants/renderers, modal guards and discovery",[](const auto& tmp){gameFlow(tmp);}},
     {"corrupt scores do not block play, explicit retry and global exit",[](const auto& tmp){retry(tmp);}},

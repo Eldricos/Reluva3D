@@ -25,11 +25,12 @@ void workflow(const std::filesystem::path& tmp) {
         sys.events=[&](size_t f)->std::vector<Event>{using namespace fixtures;
             if(f==0 || f==13 || f==19)return {keyEvent(key::Return)};
             if(f==1)return {textEvent("AAAA"),keyEvent(key::Return),textEvent("AAAAA"),keyEvent(key::Return),keyEvent(key::F1)};
-            if(f==2){CHECK(!std::filesystem::exists(t.savePath / "HighScores.txt"));return {keyEvent('1'),keyEvent(key::Return)};}
-            if(f==3)return {textEvent("AAAA"),keyEvent(key::Return),keyEvent(key::F1+1)}; // handoff ignores text and consumes after Enter
+            if(f==2){CHECK(!std::filesystem::exists(t.savePath / "HighScores.txt"));return {keyEvent(key::Return),textEvent("AAAA"),keyEvent(key::Return),keyEvent(key::F1+1)};}
+            if(f==3)return {}; // handoff confirmation discarded the rest of its input batch
             if(f==4)return {textEvent("AAAA"),keyEvent(key::Return),textEvent("AAAAAA"),keyEvent(key::Return),keyEvent(key::F1)};
-            if(f==5){CHECK(!std::filesystem::exists(t.savePath / "HighScores.txt"));return {keyEvent('2'),keyEvent(key::Return)};}
-            if(f==6 || f==12)return {keyEvent(key::Return),keyEvent(key::Return)};
+            if(f==5){CHECK(!std::filesystem::exists(t.savePath / "HighScores.txt"));return {keyEvent('1')};}
+            if(f==6)return {keyEvent('2')};
+            if(f==12)return {keyEvent(key::Return),keyEvent(key::Return)};
             if(f==7)return {keyEvent('2')};
             if(f==8)return {keyEvent('a')};
             if(f==9)return {keyEvent('v')};
@@ -43,8 +44,8 @@ void workflow(const std::filesystem::path& tmp) {
         };
         ClassicGame game(sys,t,false,{"Alex","Sam"});CHECK(!game.run());CHECK(sys.hashes.size()==21 && !sys.textEnabled);
         if(sys.hashes.size()!=21)continue;
-        CHECK(sys.hashes[2]==sys.hashes[14] && sys.hashes[14]==sys.hashes[20]);
-        CHECK(sys.hashes[6]==sys.hashes[10] && sys.hashes[10]==sys.hashes[12]);
+        CHECK(sys.hashes[2]==sys.hashes[3] && sys.hashes[14]==sys.hashes[20]);
+        CHECK(sys.hashes[10]==sys.hashes[12]);
         CHECK(sys.hashes[7]!=sys.hashes[6] && sys.hashes[8]!=sys.hashes[7]);
         fixtures::ScriptedSystem control;control.clock=sys.clock;control.events=[](size_t f)->std::vector<Event>{
             if(f==0)return {fixtures::keyEvent(key::Return)};
@@ -54,7 +55,7 @@ void workflow(const std::filesystem::path& tmp) {
         ClassicGame fresh(control,t,false,{"Sam"});CHECK(!fresh.run());CHECK(control.hashes.size()==1);
         if(control.hashes.size()==1)CHECK(sys.hashes[3]==control.hashes[0]);
         HighScores scores;CHECK(!scores.load(t.savePath,t.path));const auto rows=scores.table();
-        CHECK(rows.size()==1 && rows[0].name=="Alex" && rows[0].score==2); // shared AAAA contributes nothing; replay/partial match add nothing
+        CHECK(rows.size()==4 && rows[0].name=="Alex" && rows[0].score==2); // shared AAAA cancels; a completed zero-score replay qualifies; partial match does not
         const auto prefix=std::string(master?"master.":"original.")+(art?"art.":"plain.");
         for(size_t i=0;i<sys.hashes.size();++i)record.add(prefix+std::to_string(i),sys.hashes[i]);
     }
@@ -95,7 +96,7 @@ void timing(const std::filesystem::path& tmp) {
         };
         ClassicGame game(sys,t,false,{"Alex","Sam"});CHECK(!game.run());CHECK(sys.hashes.size()==7);
         HighScores scores;CHECK(!scores.load(t.savePath,t.path));auto rows=scores.table();
-        CHECK(rows.size()==1 && rows[0].name=="Alex" && rows[0].score==1); // each timer starts after handoff/opening; partial input lost
+        CHECK(rows.size()==2 && rows[0].name=="Alex" && rows[0].score==1); // each timer starts after handoff/opening; partial input lost
     }
 }
 void saveRetry(const std::filesystem::path& tmp) {
@@ -134,7 +135,8 @@ void roster(const std::filesystem::path& tmp) {
     };
     auto engine=findEngine("boggle")->create(sys,t);CHECK(!engine->run());CHECK(sys.hashes.size()==22 && !sys.textEnabled);
     CHECK(!profile.load(t.savePath,t.path));CHECK(profile.name()=="Sam");
-    CHECK(!std::filesystem::exists(t.savePath / "HighScores.txt"));
+    HighScores zeroScores;CHECK(!zeroScores.load(t.savePath,t.path));
+    CHECK(zeroScores.table().size()==3 && zeroScores.table()[0].score==0);
     test::Record record;for(size_t i=0;i<sys.hashes.size();++i)record.add("roster."+std::to_string(i),sys.hashes[i]);
     record.check(RELUVA_SOURCE_DIR "/tests/engines/boggle/data/roster-record.txt","boggle.unit.traditional","tests/engines/boggle/unit/traditional.cpp");
     for(const auto& names:{std::vector<std::string>{""},std::vector<std::string>(5,"Alex")}) {

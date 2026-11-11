@@ -54,10 +54,10 @@ at its scheduled time. A word scheduled exactly at a timed deadline is excluded.
 Each background computer gets one selected round duration for the whole match;
 human turns do not reset or pause that budget. The native clock begins when the
 first human's board opens. Subsequent switches and lid sequences keep it running.
-It also continues through intermediate human dictionary review; this particular
-review-timing detail and the exact original initial-start boundary remain
-unverified. In untimed play, the clock freezes at the last human's end before
-that player's dictionary review, so review waits cannot add more computer words.
+Dictionary review waits until all humans finish. In untimed play, the clock
+freezes at the last human's end before review, so review waits cannot add more
+computer words. Window focus loss freezes the shared budget together with the
+foreground clock. The exact original initial-start boundary remains unverified.
 In timed play, an early final human end processes the unused part of the selected
 budget immediately, without a visible extra turn or a real-time wait.
 

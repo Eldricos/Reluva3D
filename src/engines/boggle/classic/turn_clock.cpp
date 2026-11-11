@@ -4,6 +4,14 @@
 #include <algorithm>
 #include <limits>
 namespace reluva::boggle {
+uint64_t ClassicClock::now(uint64_t wall) {
+    if(!initialized_){initialized_=true;wall_=time_=wall;return time_;}
+    if(wall<=wall_)return time_;
+    const auto delta=wall-wall_;wall_=wall;
+    if(!paused_)time_+=std::min(delta,UINT64_MAX-time_);
+    return time_;
+}
+
 namespace {
 uint64_t add(uint64_t a,uint64_t b) {
     const auto limit=std::numeric_limits<uint64_t>::max();return b>limit-a?limit:a+b;
