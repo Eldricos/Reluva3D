@@ -265,4 +265,9 @@ The [Classic gameplay edge pass](../../engines/boggle/edges.md) now freezes
 foreground/background clocks on focus loss, defers multiplayer dictionary
 review until all players finish, shares approvals across subsequent reviews,
 expands keyboard Q to Qu, and corrects tie/zero-score qualification. Short/no-path
-Chess turn behavior and manual pause commands still need VM corroboration.
+Chess turn behavior and manual pause commands were subsequently corroborated
+by the owner: too-short attempts keep the turn and show a notice; impossible
+words cannot enter through either input method; Pause has no shortcut, and
+minimizing/switching away pauses. Native incremental entry and mouse-only
+Pause/Resume now implement those contracts. Exact keyboard path choice, pause
+UI placement and audio pause behavior remain unverified.

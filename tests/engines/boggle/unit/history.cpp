@@ -82,7 +82,10 @@ void browsing(const std::filesystem::path& tmp) {
         std::vector<std::string> summaries;
         sys.present=[&](const Surface& screen,size_t) {
             test::Hash hash;const int x=art?621:430;
-            for(int y=art?530:130;y<(art?600:195);++y)hash.bytes(screen.row(y)+x*4,size_t(screen.w-x)*4);
+            for(int y=art?530:130;y<(art?600:195);++y) {
+                if(art && y>=557 && y<586)continue; // Pause is available only during play.
+                hash.bytes(screen.row(y)+x*4,size_t(screen.w-x)*4);
+            }
             summaries.push_back(hash.hex());
         };
         ClassicGame game(sys,target);CHECK(!game.run());CHECK(sys.hashes.size()==14);

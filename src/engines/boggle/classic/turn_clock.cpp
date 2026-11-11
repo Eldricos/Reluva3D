@@ -8,7 +8,7 @@ uint64_t ClassicClock::now(uint64_t wall) {
     if(!initialized_){initialized_=true;wall_=time_=wall;return time_;}
     if(wall<=wall_)return time_;
     const auto delta=wall-wall_;wall_=wall;
-    if(!paused_)time_+=std::min(delta,UINT64_MAX-time_);
+    if(!paused())time_+=std::min(delta,UINT64_MAX-time_);
     return time_;
 }
 

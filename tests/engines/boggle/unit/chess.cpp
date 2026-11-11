@@ -21,6 +21,11 @@ void clocks() {
     game.focus(true,200000);CHECK(!game.paused() && game.now(200017)==167);
     CHECK(game.now(0)==167 && game.now(200020)==170);
     CHECK(game.now(UINT64_MAX)==UINT64_MAX-199850);
+    ClassicClock nested;CHECK(nested.now(0)==0);nested.manual(true,10);
+    nested.focus(false,20);nested.notice(true,30);nested.focus(true,40);
+    CHECK(nested.manual() && nested.focused() && nested.now(10000)==10);
+    nested.manual(false,10001);CHECK(nested.paused() && !nested.manual());
+    nested.notice(false,10002);CHECK(!nested.paused() && nested.now(10012)==20);
     PlayerClocks c;CHECK(c.elapsed(0,1000)==0 && !c.active());CHECK(bool(c.reset(0)));CHECK(bool(c.reset(5)));
     CHECK(!c.reset(3));CHECK(!c.activate(0,1000));CHECK(c.elapsed(0,1250)==250 && c.elapsed(1,1250)==0);
     CHECK(!c.activate(1,1500));CHECK(c.elapsed(0,4000)==500 && c.elapsed(1,4000)==2500);
@@ -74,6 +79,58 @@ void focusLoss(const std::filesystem::path& tmp) {
                 CHECK(sys.hashes[4]==reference[4] && sys.hashes[5]==reference[5]);
             }
         }
+    }
+}
+void manualPause(const std::filesystem::path& tmp) {
+    for(bool chess:{false,true})for(bool art:{false,true})for(int cpu=0;cpu<3;++cpu) {
+        const auto root=tmp / (std::to_string(chess)+std::to_string(art)+std::to_string(cpu));
+        std::vector<std::string> reference;
+        for(bool paused:{false,true}) {
+            auto t=target(root / std::to_string(paused),false,art);t.settings["classic_seconds"]="60";
+            t.settings["classic_turns"]=chess?"chess":"traditional";t.settings["classic_background"]=cpu==2?"1":"0";
+            fixtures::ScriptedSystem sys;
+            sys.clock=[&](size_t f)->uint64_t {return (f==0?0:f==1?1000:f<7?2000:3000)+(paused && f>=3?1000000:0);};
+            sys.events=[&](size_t f)->std::vector<Event>{using namespace fixtures;
+                if(f==0)return {keyEvent(key::Return)};
+                if(f==1)return {textEvent("AAAA")};
+                if(f==2 && paused)return {mouseEvent(EventType::MouseDown,art?700:440,570),keyEvent(key::Return),keyEvent(key::F1)};
+                if(f==3 && paused){Event e;e.type=EventType::FocusLost;return {e};}
+                if(f==4 && paused)return {keyEvent('p'),keyEvent(key::Return)}; // no keyboard pause/resume shortcut
+                if(f==5 && paused){Event e;e.type=EventType::FocusGained;return {e,mouseEvent(EventType::MouseDown,400,360)};}
+                if(f==6 && paused)return {mouseEvent(EventType::MouseDown,400,360),keyEvent(key::F1),textEvent("AAAA")};
+                if(f==7)return {keyEvent(key::Return)};
+                if(f==8){Event e;e.type=EventType::Quit;return {e};}return {};
+            };
+            const std::vector<std::string> names=cpu==1?std::vector<std::string>{"CPU Mr. Boggle","Alex"}:cpu==2?std::vector<std::string>{"Alex","CPU Mr. Boggle"}:std::vector<std::string>{"Alex"};
+            const std::vector<ComputerLevel> levels=cpu==1?std::vector<ComputerLevel>{ComputerLevel::MrBoggle,ComputerLevel::Human}:cpu==2?std::vector<ComputerLevel>{ComputerLevel::Human,ComputerLevel::MrBoggle}:std::vector<ComputerLevel>{ComputerLevel::Human};
+            ClassicGame game(sys,t,false,names,levels);CHECK(!game.run() && sys.hashes.size()==8);
+            if(!paused)reference=sys.hashes;
+            else if(reference.size()==8 && sys.hashes.size()==8) {
+                CHECK(sys.hashes[2]!=reference[2] && sys.hashes[3]==sys.hashes[4]);
+                CHECK(sys.hashes[2]==sys.hashes[5]); // returning to the window preserves manual pause
+                CHECK(sys.hashes[6]==reference[6] && sys.hashes[7]==reference[7]);
+            }
+        }
+    }
+}
+void shortNotice(const std::filesystem::path& tmp) {
+    for(bool master:{false,true})for(bool art:{false,true}) {
+        auto t=target(tmp / (std::to_string(master)+std::to_string(art)),master,art);t.settings["classic_seconds"]="60";
+        fixtures::ScriptedSystem sys;
+        sys.clock=[](size_t f)->uint64_t {return f==0?0:f==1?1000:f<6?1000000:1000000+(f-5)*1000;};
+        sys.events=[&](size_t f)->std::vector<Event>{using namespace fixtures;
+            if(f==0 || f==7 || f==9)return {keyEvent(key::Return)};
+            if(f==1)return {textEvent("AA"),keyEvent(key::Return),keyEvent(key::Return),keyEvent(key::F1)};
+            if(f==2)return {textEvent("AAAA"),keyEvent(key::F1)};
+            if(f==5)return {art?mouseEvent(EventType::MouseDown,400,370):keyEvent(key::Escape),textEvent("AAAA"),keyEvent(key::F1)};
+            if(f==6)return {textEvent("ZZZZ"),textEvent("AAAA"),keyEvent(key::Return)};
+            if(f==8 || f==10)return {keyEvent(key::F1)};
+            if(f==11){Event e;e.type=EventType::Quit;return {e};}return {};
+        };
+        ClassicGame game(sys,t,false,{"Alex","Sam"});CHECK(!game.run() && sys.hashes.size()==11);
+        if(sys.hashes.size()==11)CHECK(sys.hashes[1]==sys.hashes[2] && sys.hashes[2]==sys.hashes[4]);
+        HighScores scores;CHECK(!scores.load(t.savePath,t.path));const auto rows=scores.table();
+        CHECK(rows.size()==2 && rows[0].name=="Alex" && rows[0].score==1 && rows[1].name=="Sam" && rows[1].score==0);
     }
 }
 void rotation(const std::filesystem::path& tmp) {
@@ -223,6 +280,8 @@ void rosterAndSkip(const std::filesystem::path& tmp) {
 }
 }
 static const test::Suite suite("boggle.unit.chess",{
+    {"mouse-only manual pause survives focus changes; humans and visible/background computers freeze",[](const auto& tmp){manualPause(tmp);}},
+    {"minimum-length notice freezes time, consumes acknowledgment and preserves the Chess player",[](const auto& tmp){shortNotice(tmp);}},
     {"focus freezes foreground, background and opening; queued input and repeated notifications",[](const auto& tmp){focusLoss(tmp);}},
     {"deadline crossed during submission cannot bypass deferred review or corrupt handoff",[](const auto& tmp){submissionBoundary(tmp);}},
     {"initial opening excluded from budgets, final closing, one-ms resume and solo Chess",[](const auto& tmp){animationAndSolo(tmp);}},

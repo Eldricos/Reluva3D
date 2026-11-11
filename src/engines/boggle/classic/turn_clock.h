@@ -9,10 +9,18 @@ namespace reluva::boggle {
 class ClassicClock {
 public:
     uint64_t now(uint64_t wall);
-    void focus(bool active,uint64_t wall) { now(wall);paused_=!active; }
-    bool paused() const { return paused_; }
+    void focus(bool active,uint64_t wall) { change(1,!active,wall); }
+    void manual(bool paused,uint64_t wall) { change(2,paused,wall); }
+    void notice(bool paused,uint64_t wall) { change(4,paused,wall); }
+    bool paused() const { return pauses_!=0; }
+    bool focused() const { return !(pauses_&1); }
+    bool manual() const { return pauses_&2; }
 private:
-    bool initialized_=false,paused_=false;
+    void change(unsigned reason,bool paused,uint64_t wall) {
+        now(wall);if(paused)pauses_|=reason;else pauses_&=~reason;
+    }
+    bool initialized_=false;
+    unsigned pauses_=0;
     uint64_t wall_=0,time_=0;
 };
 // Active time only, independent of animation, handoff and other players' time.

@@ -163,14 +163,14 @@ void dictionaryWorkflow(const std::filesystem::path& tmp) {
     CHECK(failure.hashes.size() == 8 && !failure.textEnabled && failure.textStopped);
     CHECK(!std::filesystem::exists(target.savePath / "EnglishUser.dic"));
     if (failure.hashes.size() == 8) CHECK(failure.hashes[4] == failure.hashes[5]);
-    std::string multiDice; for (int i = 0; i < 16; ++i) multiDice += "AB,AB,AB,AB,AB,AB\n";
+    std::string multiDice; for (int i = 0; i < 16; ++i) multiDice += "QU,QU,QU,QU,QU,QU\n";
     write(dir / "Dicts/EngOrg.dst", multiDice);
     ScriptedSystem history;
     history.events = [](size_t frame) -> std::vector<Event> {
         if (frame == 1) {
             std::vector<Event> events{keyEvent(key::Return)};
             for (size_t n = 2; n <= 16; ++n) {
-                std::string word; for (size_t i = 0; i < n; ++i) word += "AB";
+                std::string word; for (size_t i = 0; i < n; ++i) word += "QU";
                 events.push_back(textEvent(word.substr(0,16)));
                 if (word.size() > 16) events.push_back(textEvent(word.substr(16)));
                 events.push_back(keyEvent(key::Return));
@@ -212,21 +212,22 @@ void masterWorkflow(const std::filesystem::path& tmp) {
     target.settings = {{"classic_seed","6551"},{"classic_variant","master"},{"classic_seconds","60"},{"classic_sound","0"},{"classic_animations","0"}};
     ScriptedSystem timed;
     timed.events = [](size_t frame) -> std::vector<Event> {
-        if (frame == 1 || frame == 3 || frame == 10) return {keyEvent(key::Return)};
+        if (frame == 1 || frame == 3 || frame == 11) return {keyEvent(key::Return)};
         if (frame == 2) return {textEvent("aaa")};
-        if (frame == 4) return {mouseEvent(EventType::MouseDown,113,410)};
-        if (frame == 5) return {mouseEvent(EventType::MouseMove,186,410)};
-        if (frame == 6) return {mouseEvent(EventType::MouseMove,259,410)};
-        if (frame == 7) return {mouseEvent(EventType::MouseMove,332,410)};
-        if (frame == 8) return {mouseEvent(EventType::MouseUp,332,410),keyEvent(key::Return)};
-        if (frame == 11) return {keyEvent(key::Escape)};
+        if (frame == 4) return {keyEvent(key::Return)}; // acknowledge the minimum-length notice
+        if (frame == 5) return {mouseEvent(EventType::MouseDown,113,410)};
+        if (frame == 6) return {mouseEvent(EventType::MouseMove,186,410)};
+        if (frame == 7) return {mouseEvent(EventType::MouseMove,259,410)};
+        if (frame == 8) return {mouseEvent(EventType::MouseMove,332,410)};
+        if (frame == 9) return {mouseEvent(EventType::MouseUp,332,410),keyEvent(key::Return)};
+        if (frame == 12) return {keyEvent(key::Escape)};
         return {};
     };
-    timed.clock = [](size_t frame) -> uint64_t { return frame >= 9 ? 60010 : frame*10; };
+    timed.clock = [](size_t frame) -> uint64_t { return frame >= 10 ? 60020 : frame*10; };
     target.settings["classic_menu"]="0";
     auto game = meta->create(timed,target); if (auto err = game->run()) return test::fail(err.message);
-    CHECK(timed.hashes.size() == 11 && !timed.textEnabled && timed.textStopped);
-    if (timed.hashes.size() == 11) CHECK(timed.hashes[1] == timed.hashes[10]);
+    CHECK(timed.hashes.size() == 12 && !timed.textEnabled && timed.textStopped);
+    if (timed.hashes.size() == 12) CHECK(timed.hashes[1] == timed.hashes[11]);
     target.settings["classic_seconds"] = "0";
     ScriptedSystem untimed;
     untimed.events = [](size_t frame) -> std::vector<Event> {
@@ -248,10 +249,10 @@ void masterWorkflow(const std::filesystem::path& tmp) {
     ScriptedSystem invalid;
     game = meta->create(invalid,target); CHECK(bool(game->run())); CHECK(invalid.frame == 0 && invalid.w == 0);
     test::Record rec;
-    if (timed.hashes.size() == 11) {
+    if (timed.hashes.size() == 12) {
         rec.add("master.ready",timed.hashes[0]); rec.add("master.minimum",timed.hashes[3]);
-        rec.add("master.last_cube",timed.hashes[8]); rec.add("master.expired",timed.hashes[9]);
-        rec.add("master.replay",timed.hashes[10]);
+        rec.add("master.last_cube",timed.hashes[9]); rec.add("master.expired",timed.hashes[10]);
+        rec.add("master.replay",timed.hashes[11]);
     }
     if (untimed.hashes.size() == 8) {
         rec.add("untimed.ready",untimed.hashes[0]); rec.add("untimed.running",untimed.hashes[4]);

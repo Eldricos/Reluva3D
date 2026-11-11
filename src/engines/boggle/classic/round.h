@@ -26,6 +26,11 @@ private:
     size_t side_ = 0;
     std::vector<std::string> faces_;
 };
+// Each keyboard cube must leave a traceable prefix. Rejected letters are
+// skipped; valid letters in the same text event still enter in order.
+enum class KeyboardResult { Entered, InvalidLetters, NotOnBoard, Limit };
+KeyboardResult enterBoardText(const Board& board,std::string_view text,std::string& input,
+    std::vector<size_t>& path,bool& followingU,size_t limit=500000);
 enum class RoundPhase { Ready, Playing, Results };
 enum class Submission { Accepted, NotPlaying, InvalidLetters, TooShort, UnknownWord, NotOnBoard, Duplicate, SelectPath };
 class UserDictionary;

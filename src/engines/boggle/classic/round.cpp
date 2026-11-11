@@ -114,6 +114,21 @@ PathResult Board::find(std::string_view word, std::vector<size_t>& path, size_t 
     path.clear();
     return exhausted ? PathResult::Limit : PathResult::Missing;
 }
+KeyboardResult enterBoardText(const Board& board,std::string_view text,std::string& input,
+    std::vector<size_t>& path,bool& followingU,size_t limit) {
+    std::string normalized;if(!englishWord(text,normalized))return KeyboardResult::InvalidLetters;
+    auto result=KeyboardResult::Entered;
+    for(char c:normalized) {
+        auto next=input;bool guard=followingU;followingU=false;
+        if(!appendEnglishCubes(std::string_view(&c,1),next,guard)){result=KeyboardResult::Limit;continue;}
+        if(next==input){followingU=guard;continue;}
+        std::vector<size_t> candidate;
+        const auto found=board.find(next,candidate,limit);
+        if(found==PathResult::Found) {input=std::move(next);path=std::move(candidate);followingU=guard;}
+        else result=found==PathResult::Limit?KeyboardResult::Limit:KeyboardResult::NotOnBoard;
+    }
+    return result;
+}
 Error ClassicRound::board(Board board, uint64_t duration) {
     if (phase_ == RoundPhase::Playing) return Error::fail("Finish the current round before replacing its board");
     if (candidate()) return Error::fail("Resolve pending words before replacing the board");

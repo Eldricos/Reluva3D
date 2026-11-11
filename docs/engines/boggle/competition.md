@@ -104,8 +104,11 @@ A later owner VM check confirms separate paused Chess clocks, deferred checking
 of unknown words, a short-word notice, repeat-to-pass behavior, and continued
 play with a finished-player notice after someone runs out of time. The native
 [Chess controller and clock checks](chess.md) now implement those broad rules.
-Exact animation/dialog timing, multiplayer review scheduling, short/no-path turn
-boundaries and computer strength/cadence remain unverified.
+The owner subsequently confirmed too-short attempts keep the Chess turn and
+impossible board words cannot be entered. Review scheduling, pause and live
+input now follow the [gameplay edge specification](edges.md). Exact animation/
+dialog timing remains unverified; computer behavior has its separate
+[AI milestone scope](ai-milestone.md).
 
 ## Tools and validation
 

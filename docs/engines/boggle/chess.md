@@ -24,9 +24,10 @@ without a handoff.
 
 A new dictionary word or a traceable unknown word passes play to the next active
 player. A repeated word also passes the turn, adding no second entry or points.
-Short/invalid/no-path attempts stay with the current player and use the existing
-feedback. In particular, a path-search budget requiring explicit cube selection
-cannot pass an unrecorded word. Unknown words stay red with provisional points
+Too-short attempts show a modal minimum-length notice and keep the current
+player. Invalid letters are rejected; impossible board extensions cannot enter
+through either input method. A path-search limit requests explicit cube selection
+and cannot pass an unrecorded word. Unknown words stay red with provisional points
 and are resolved after all players finish, using the existing review controls.
 
 After a word passes, a hidden-board panel identifies the next player and their
@@ -77,7 +78,9 @@ research output stay outside Git. Engine code executes none of those routines.
 Native clocks aggregate each player's active elapsed time, rather than copying
 the original absolute-deadline representation. They clamp backward wall-clock
 readings, validate player indices and avoid unsigned elapsed-time wrap. Each
-round receives its own cumulative active time while animations use wall time.
+round receives its own cumulative active time while animations use the shared
+logical gameplay clock. Manual pause, window inactivity and minimum-length
+notices freeze both clocks.
 This preserves dictionary/duplicate state across turns without restarting a
 round on each word. The controller also settles expiry reached while servicing
 a submission before handing off, so pending dictionary entries cannot be
@@ -86,7 +89,8 @@ stranded in a finished player.
 The mode button/keys, hidden handoff/confirmation, consolidated notices for
 several finished slots, initial-only opening/final-only closing and F1 retirement
 are native controls/presentation choices. Original exact notice timing, animation
-sequence and short/no-path turn boundaries still need detailed comparison.
+sequence still need detailed comparison. The owner verified that too-short
+attempts retain the turn and impossible board words cannot be entered.
 Review now waits until all players finish; focus loss pauses foreground and
 background clocks. See [edge evidence](edges.md). The separate original computer options
 must not be confused with this human turn mode.

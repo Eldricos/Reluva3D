@@ -1,6 +1,6 @@
 # The record of boggle.engine (tests/engines/boggle/engine.cpp).
 # Written by `reluva-tests boggle.engine --update`; review its diff before committing.
-dictionary.red: 79707c2ff423f1b9
+dictionary.red: 9fa93496bebb09e7
 dictionary.prompt: 677636c8d5c498b2
 dictionary.no: e0e713f5a819b976
 dictionary.yes_all: f18ef702a9551e15

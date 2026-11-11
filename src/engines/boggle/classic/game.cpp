@@ -28,6 +28,7 @@ constexpr int width = 800, height = 600, boardX = 24, boardY = 100, boardSize = 
 struct Ink { uint8_t r, g, b; };
 constexpr HistoryButton scoresArtwork{216,448,158,29}, scoresPrototype{618,76,158,24};
 constexpr HistoryButton scoresClose{448,450,184,30}, scoresRetry{160,450,184,30};
+constexpr HistoryButton resumeButton{300,340,200,44}, noticeOkay{320,350,160,40};
 constexpr Ink white{246, 249, 255}, muted{164, 184, 205}, dark{18, 32, 48};
 void rect(Surface& screen, int x, int y, int w, int h, Ink color) {
     for (int row = std::max(0, y); row < std::min(screen.h, y + h); ++row)
@@ -318,7 +319,8 @@ Error ClassicGame::run() {
     struct TextInputCleanup { System& system; ~TextInputCleanup() { system.setTextInput(false);system.setMouseCursorVisible(true); } } cleanup{sys_};
     Surface screen; screen.create(width, height, PixelFormat::RGBA32);
     std::string input, message; std::vector<size_t> selected; size_t scroll = 0;
-    bool followingU=false;
+    bool followingU=false,minimumNotice=false,noticeVisible=false,pauseVisible=false;
+    const HistoryButton pauseButton{artwork.active()?610:384,557,artwork.active()?166:110,29};
     bool running = true, dragging = false, resultsVisible = false, promptVisible = false;
     int pointerX=-1,pointerY=-1;
     bool softwareCursor=false;
@@ -470,6 +472,9 @@ Error ClassicGame::run() {
         message=feedback(result,round().minimum());
         if(result==Submission::Accepted || result==Submission::UnknownWord)sound.recorded(round().words().back().entry.word.size());
         if(result!=Submission::SelectPath)clear();
+        if(result==Submission::TooShort) {
+            minimumNotice=true;noticeVisible=false;gameplayClock.notice(true,sys_.getMillis());
+        }
         if(result==Submission::NotPlaying)timeout(nowMillis());
         if(result==Submission::Accepted || result==Submission::UnknownWord || (chess && result==Submission::Duplicate))return passWord();
         return Error::success();
@@ -529,7 +534,7 @@ Error ClassicGame::run() {
         while (sys_.pollEvent(event)) {
             if (auto err = advance()) return err;
             if (event.type == EventType::Quit || event.type == EventType::ReturnToLauncher ||
-                (event.type == EventType::KeyDown && event.key == key::Escape && !event.repeat && !fromMenu_ && !scoreOpen && !matchOpen && !scoreDismissed)) {
+                (event.type == EventType::KeyDown && event.key == key::Escape && !event.repeat && !fromMenu_ && !minimumNotice && !scoreOpen && !matchOpen && !scoreDismissed)) {
                 running = false; break;
             }
             // Escape is inactive in the original game. Provide an explicit
@@ -546,7 +551,30 @@ Error ClassicGame::run() {
                 gameplayClock.focus(event.type==EventType::FocusGained,sys_.getMillis());
                 dragging=false;scoreDismissed=true;continue;
             }
-            if(gameplayClock.paused() || scoreDismissed)continue;
+            if(scoreDismissed)continue;
+            if(minimumNotice) {
+                const bool okay=(event.type==EventType::KeyDown && !event.repeat &&
+                    (event.key==key::Return || event.key==key::KpEnter || event.key==key::Escape || event.key==key::Space)) ||
+                    (event.type==EventType::MouseDown && event.button==MouseButton::Left && noticeOkay.contains(event.mouseX,event.mouseY));
+                if(gameplayClock.focused() && noticeVisible && okay) {
+                    minimumNotice=false;gameplayClock.notice(false,sys_.getMillis());
+                    message.clear();scoreDismissed=true;
+                }
+                continue;
+            }
+            if(gameplayClock.manual()) {
+                if(gameplayClock.focused() && pauseVisible && event.type==EventType::MouseDown &&
+                   event.button==MouseButton::Left && resumeButton.contains(event.mouseX,event.mouseY)) {
+                    gameplayClock.manual(false,sys_.getMillis());scoreDismissed=true;
+                }
+                continue;
+            }
+            if(gameplayClock.paused())continue;
+            if(!handoff && !matchOpen && !scoreOpen && transition.type()==Transition::None &&
+               round().phase()==RoundPhase::Playing && event.type==EventType::MouseDown &&
+               event.button==MouseButton::Left && pauseButton.contains(event.mouseX,event.mouseY)) {
+                gameplayClock.manual(true,sys_.getMillis());pauseVisible=false;dragging=false;continue;
+            }
             if(handoff) {
                 if(handoffVisible && ((event.type==EventType::KeyDown && !event.repeat && (event.key==key::Return || event.key==key::KpEnter)) ||
                    (event.type==EventType::MouseDown && event.button==MouseButton::Left && hit(event.mouseX,event.mouseY,80,380,640,60)))) {
@@ -642,10 +670,10 @@ Error ClassicGame::run() {
                 } else if (event.key == key::F1 + 1 && !event.repeat) { if (auto err = newBoard()) return err; }
             } else if (event.type == EventType::TextInput && round().phase() == RoundPhase::Playing) {
                 const auto end = std::find(std::begin(event.text), std::end(event.text), '\0');
-                std::string normalized;
-                if (!englishWord(std::string_view(event.text, size_t(end - event.text)), normalized)) { message = "Use A-Z for this English round."; continue; }
-                if (!appendEnglishCubes(normalized,input,followingU)) { message = "Word is too long."; continue; }
-                selected.clear(); message.clear();
+                const auto result=enterBoardText(round().board(),std::string_view(event.text,size_t(end-event.text)),input,selected,followingU);
+                message=result==KeyboardResult::InvalidLetters?"Use A-Z for this English round.":
+                    result==KeyboardResult::NotOnBoard?"Choose a touching, unused cube.":
+                    result==KeyboardResult::Limit?"Please select this word on the board.":"";
             } else if(event.type==EventType::MouseWheel) {
                 const bool over=artwork.active()?hit(pointerX,pointerY,621,52,179,448):hit(pointerX,pointerY,430,204,346,260);
                 if(over){browse(int64_t(event.wheelY)*3);dragging=false;}
@@ -719,12 +747,27 @@ Error ClassicGame::run() {
         if(background)liveScores(screen,names,rounds,competition);
         if(matchOpen)matchTable(screen,names,competition,chess,background);
         if(scoreOpen)scoreTable(screen,highScores,scoreError.message);
-        if(gameplayClock.paused()) {
+        if(!handoff && !matchOpen && !scoreOpen && transition.type()==Transition::None && round().phase()==RoundPhase::Playing) {
+            rect(screen,pauseButton.x,pauseButton.y,pauseButton.w,pauseButton.h,{48,88,120});
+            label(screen,pauseButton.x+12,pauseButton.y+9,"PAUSE");
+        }
+        if(gameplayClock.manual() || !gameplayClock.focused()) {
             rect(screen,0,0,width,height,dark);
-            label(screen,260,280,"Paused while window is inactive");
+            label(screen,260,280,gameplayClock.focused()?"Game paused":"Paused while window is inactive");
+            if(gameplayClock.manual() && gameplayClock.focused()) {
+                rect(screen,resumeButton.x,resumeButton.y,resumeButton.w,resumeButton.h,{48,88,120});
+                label(screen,350,357,"RESUME");
+            }
+        } else if(minimumNotice) {
+            rect(screen,100,210,600,210,{22,40,60});
+            label(screen,160,260,"Words must be at least "+std::to_string(round().minimum())+" characters long.");
+            rect(screen,noticeOkay.x,noticeOkay.y,noticeOkay.w,noticeOkay.h,{48,88,120});
+            label(screen,390,365,"OK");
         }
         sys_.updateScreen(screen);
         if(handoff)handoffVisible=true;
+        noticeVisible=minimumNotice && gameplayClock.focused();
+        pauseVisible=gameplayClock.manual() && gameplayClock.focused();
         if (transition.type() == Transition::None && round().phase() == RoundPhase::Results) resultsVisible = true;
         promptVisible = !handoff && !gameplayClock.paused() && transition.type() == Transition::None && round().candidate() != nullptr;
         sys_.delayMillis(16);

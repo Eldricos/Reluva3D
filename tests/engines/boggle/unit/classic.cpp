@@ -36,6 +36,32 @@ void keyboard() {
     CHECK(!appendEnglishCubes("q",input,following) && input.size()==63 && !following);
     CHECK(!appendEnglishCubes("a!",input,following) && input.size()==63);
 }
+void boardKeyboard() {
+    Board b;CHECK(!b.set(4,{"C","X","X","C","A","X","X","A","X","X","T","X","X","X","X","X"}));
+    std::string input;std::vector<size_t> path;bool following=false;
+    CHECK(enterBoardText(b,"CA",input,path,following)==KeyboardResult::Entered);
+    CHECK(input=="CA" && path==std::vector<size_t>({0,4}));
+    CHECK(enterBoardText(b,"T",input,path,following)==KeyboardResult::Entered);
+    CHECK(input=="CAT" && path==std::vector<size_t>({3,7,10})); // earlier ambiguity must not prevent a valid word
+    const auto prior=path;
+    CHECK(enterBoardText(b,"CZ",input,path,following)==KeyboardResult::NotOnBoard);
+    CHECK(input=="CAT" && path==prior); // no reuse or disconnected extension
+    input.clear();path.clear();
+    CHECK(enterBoardText(b,"ZZCATZ",input,path,following)==KeyboardResult::NotOnBoard);
+    CHECK(input=="CAT" && b.matches(input,path));
+    CHECK(enterBoardText(b,"!",input,path,following)==KeyboardResult::InvalidLetters && input=="CAT");
+    input.clear();path.clear();
+    CHECK(enterBoardText(b,"C",input,path,following,0)==KeyboardResult::Limit && input.empty() && path.empty());
+    b=board();
+    CHECK(enterBoardText(b,"Q",input,path,following)==KeyboardResult::Entered && input=="QU" && following);
+    CHECK(enterBoardText(b,"U",input,path,following)==KeyboardResult::Entered && input=="QU" && !following);
+    CHECK(enterBoardText(b,"IT",input,path,following)==KeyboardResult::Entered && input=="QUIT" && path.size()==3);
+    path.pop_back();eraseEnglishCube(input);CHECK(input=="QUI" && b.matches(input,path));
+    path.pop_back();eraseEnglishCube(input);CHECK(input=="QU" && b.matches(input,path));
+    path.pop_back();eraseEnglishCube(input);CHECK(input.empty() && path.empty());
+    CHECK(enterBoardText(b,"U",input,path,following)==KeyboardResult::NotOnBoard && input.empty());
+    CHECK(enterBoardText(b,"QIT",input,path,following)==KeyboardResult::Entered && input=="QUIT");
+}
 void sharedReview(const std::filesystem::path& tmp) {
     auto d=dictionary();UserDictionary user;CHECK(!user.load(tmp / "save"));
     ClassicRound first(d,&user),second(d,&user),declined(d,&user);
@@ -176,6 +202,7 @@ void scoringAndGeneration() {
 }
 }
 static const test::Suite suite("boggle.unit.classic", {
+    {"incremental keyboard paths, ambiguity, rejected cubes, bounds and Qu", [](const auto&) { boardKeyboard(); }},
     {"keyboard Qu, explicit U, whole-cube erasure and atomic bounds", [](const auto&) { keyboard(); }},
     {"shared approvals resolve later reviews without restoring declined words", [](const auto& tmp) { sharedReview(tmp); }},
     {"adjacency, multi-letter tiles, paths and visit limits", [](const auto&) { paths(); }},

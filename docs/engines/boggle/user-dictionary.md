@@ -75,8 +75,8 @@ already approved additions remain saved.
 
 A save failure leaves the word and score pending and displays an error. Retry
 after fixing the save location, or choose No / No to all. A failed Yes to all
-does not partially consume decisions. The prototype retains inline minimum-
-length feedback instead of the original notice dialog.
+does not partially consume decisions. Too-short words show a modal minimum-
+length notice; acknowledgment keeps the same player's turn.
 
 ## Persistence
 

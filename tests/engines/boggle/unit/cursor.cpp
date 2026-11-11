@@ -171,7 +171,7 @@ void listSubmission(const std::filesystem::path& tmp) {
                 }
                 if(f==2)return {textEvent("AAAA"),submit()};
                 if(f==3)return {textEvent("AA"),submit()};
-                if(f==4)return {textEvent("ZZZZ"),submit()};
+                if(f==4)return {click?mouseEvent(EventType::MouseDown,400,370):keyEvent(key::Return)};
                 if(f==5)return {textEvent("AAAAA"),submit()};
                 if(f==6)return {keyEvent(key::F1)};
                 if(f==7)return {keyEvent('2')};
