@@ -1,8 +1,10 @@
-# Docs checklist: status lines and empty sections
+# Docs: work to look into later
 
-What the docs can't fill in without someone who knows how each part was checked.
-Tick a box once its page is updated; `python3 tools/check-docs.py` checks that
-what you write uses the standard's words.
+Improvements found while cleaning up the docs that aren't urgent: none of
+them blocks anything, and most need someone who knows how each part was
+checked. Look into them when there's time; tick a box once its page is
+updated. `python3 tools/check-docs.py` checks that what's written uses the
+standard's words.
 
 Paths are under `docs/engines/`.
 
@@ -16,7 +18,7 @@ Paths are under `docs/engines/`.
 - If a check changes the default Confidence, change that too (the words are in
   `docs/DOCUMENTATION_STANDARD.md`, "Sources and confidence").
 
-## 1. Status lines missing a field (item 7)
+## 1. Status lines missing a field
 
 ### awe (Murder on the Orient Express)
 
@@ -96,7 +98,7 @@ Paths are under `docs/engines/`.
 - [ ] `stharbinger/formats/videos.md`: **Checked on**.
   Suggested from the docs: TESTING.md: the intro videos checked on the real discs with STDS9H, before the port.
 
-## 2. Sections that say "None yet" (item 8)
+## 2. Sections that say "None yet"
 
 Each needs either content or confirmation that "None yet" is right.
 
@@ -142,7 +144,71 @@ Each needs either content or confirmation that "None yet" is right.
 - [ ] `stharbinger/UNCONFIRMED.md`, "Seen running, not traced in the code": behaviour seen in the original but not found in its code
 - [ ] `stharbinger/UNCONFIRMED.md`, "Settled": items confirmed or corrected since, with the date and how
 
-## Candidates noted during the clean-up
+## 3. Terms used without explanation
+
+Terms specific to a game or its engine that may be used without being
+explained where a reader first meets them. For each, check the place
+given (its first use, README first); if it isn't explained there, either
+explain it in a few words at that point or add it to a short "Terms" list
+in the game's README. If "Terms" lists are adopted, add the section to
+`docs/templates/engine/README.md` and `docs/templates/game/README.md` too.
+
+### idtech3 (Elite Force)
+
+- [ ] Holomatch: first in `idtech3/games/stvef/README.md:18`
+- [ ] QVM: first in `idtech3/README.md:25`
+- [ ] cgame: first in `idtech3/games/stvef/README.md:25`
+- [ ] qagame: first in `idtech3/games/stvef/README.md:25`
+- [ ] cvar: first in `idtech3/README.md:64`
+- [ ] configstring: first in `idtech3/games/stvef/README.md:26`
+- [ ] ICARUS: first in `idtech3/games/stvef/formats/entities.md:93`
+- [ ] refEntity: first in `idtech3/README.md:56`
+- [ ] netchan: first in `idtech3/games/stvef/systems/network.md:28`
+- [ ] pure server: first in `idtech3/games/stvef/TESTING.md:106`
+- [ ] botlib: first in `idtech3/games/stvef/systems/syscalls.md:265`
+- [ ] AAS: first in `idtech3/games/stvef/UNCONFIRMED.md:148`
+
+### awe (Murder on the Orient Express)
+
+- [ ] Granny: first in `awe/README.md:31`
+- [ ] Oodle1: first in `awe/games/motoe/README.md:28`
+- [ ] Povent: first in `awe/games/motoe/UNCONFIRMED.md:68`
+- [ ] `SPRT`, `HOTS`, `BNKX` and the other scene records: first in `awe/games/motoe/UNCONFIRMED.md:55`
+- [ ] track mask: first in `awe/games/motoe/README.md:105`
+- [ ] walk grid: first in `awe/games/motoe/REVERSE_ENGINEERING.md:80`
+
+### netimmerse (LEGO Alpha Team)
+
+- [ ] NIF: first in `netimmerse/README.md:30`
+- [ ] B1 (the option chosen): first in `netimmerse/games/legoalphateam/PLAN.md:3`
+- [ ] behaviour DLL: first in `netimmerse/games/legoalphateam/PLAN.md:21`
+- [ ] `at-run`: first in `netimmerse/games/legoalphateam/README.md:117`
+- [ ] DDIcam: first in `netimmerse/games/legoalphateam/REVERSE_ENGINEERING.md:104`
+- [ ] PE0300: first in `netimmerse/games/legoalphateam/systems/camera.md:56`
+- [ ] fixed clock: first in `netimmerse/games/legoalphateam/systems/training.md:80`
+- [ ] Dash and Ogel (the game's characters): first in `netimmerse/games/legoalphateam/formats/fin.md:312`
+
+### clue
+
+- [ ] EagleM: first in `clue/README.md:24`
+- [ ] RESI: first in `clue/README.md:42`
+- [ ] `PACK`, `DDRV` and `EIMG`: first in `clue/PLAN.md:14`
+- [ ] No Die Roll: first in `clue/formats/resi.md:93`
+
+### stharbinger
+
+- [ ] STDS9H: first in `stharbinger/README.md:5`
+- [ ] DOS/4GW: first in `stharbinger/REVERSE_ENGINEERING.md:15`
+- [ ] LE (the executable's format): first in `stharbinger/REVERSE_ENGINEERING.md:53`
+- [ ] directive: first in `stharbinger/formats/executable.md:17`
+- [ ] ACTIONSEQ: first in `stharbinger/UNCONFIRMED.md:43`
+
+### stgenerations
+
+- [ ] SGEN: first in `stgenerations/formats/menu.md:19`
+- [ ] LV2: first in `stgenerations/formats/README.md:14`
+
+## 4. Candidates noted during the clean-up
 
 - [ ] `idtech3/games/stvef/KNOWN_DIFFERENCES.md`, "Bugs fixed": two items under
   "By choice" may belong here: keeping 1.x and Expansion Pack saves apart, and
