@@ -1,6 +1,6 @@
 # Characters
 
-> **Code:** `src/engines/awe/animator.cpp`, `actor.cpp`, `scene_outdoors.cpp` · **Checked against:** the code (`motoe.exe`, English 1.0), the install's models, their track masks, and the scripts · **Confidence:** from the code unless marked
+> **Status:** done · **Code:** `src/engines/awe/animator.cpp`, `actor.cpp`, `scene_outdoors.cpp` · **Checked against:** the code (`motoe.exe`, English 1.0), the install's models, their track masks, and the scripts · **Confidence:** from the code unless marked
 
 ## Overview
 

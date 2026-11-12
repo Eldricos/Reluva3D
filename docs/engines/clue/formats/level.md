@@ -157,7 +157,7 @@ names the two types.)
 
 `Workspace.dat` (32 bytes): four 4-byte numbers (1210, 540, 16068, 720),
 two 8s and a double 1.0. Probably the level editor's view: a position, a
-size, an 8 × 8 grid and a zoom.
+size, an 8 × 8 grid and a zoom *(guessed)*. Nothing reads it.
 
 ## Behaviour
 

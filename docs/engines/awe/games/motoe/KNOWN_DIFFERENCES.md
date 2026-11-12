@@ -91,7 +91,15 @@ The format pages give the detail; this page gathers them.
 
 ## Bugs fixed
 
-None yet.
+None: where the original misbehaves, Reluva does the same. A saved game
+made in the puzzle box's close-up after opening it loads as a box from
+the start, whose solving gives the locket again, in both
+([systems/puzzles.md](systems/puzzles.md)); the interface leaves out a
+wrapped text's last row of one letter, in both
+([systems/interface.md](systems/interface.md)). The one place Reluva
+avoids a fault of the game's, an `anim` naming a missing file (which would
+hang the script), is listed under By choice above, as nothing in the
+install meets it.
 
 ## Not yet as the original
 
@@ -113,4 +121,20 @@ languages and patched releases haven't been tried.
 
 ## Additions outside the game
 
-None yet.
+None of these changes what the game does.
+
+- **Data viewers.** Besides the Scenes page, where the game is played (N
+  starts one), the engine has pages for looking at the install: Models
+  (textured and animated, the mouse to turn and zoom), Movies, Pictures,
+  Text and Sounds. Tab moves between them; the window's title names the
+  page, what it shows and the frames shown in the last second. See
+  [README.md](README.md#using-it).
+- **Screenshots.** F12 saves the screen as a TGA, under `screenshots/` in
+  the game's save folder.
+- **Frame time.** `RELUVA_PERF=1` writes where a frame's time goes, every
+  three seconds ([README.md](README.md#frame-time)).
+- **Tools.** `reluva-tool`'s `awe` commands read, check and dump the
+  install's files, compare Reluva's code with the original's in the x86
+  interpreter, and play the game headless (`reluva-tool help awe`;
+  [REVERSE_ENGINEERING.md](REVERSE_ENGINEERING.md#the-tools),
+  [TESTING.md](TESTING.md)).

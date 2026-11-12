@@ -63,7 +63,11 @@ hardware.
 
 ## Bugs fixed
 
-None yet.
+None, by design: Reluva runs the game's own program and DLLs unchanged
+([systems/running.md](systems/running.md)), so the original's own bugs
+are kept as they are. One shows in Reluva as it would on Windows:
+`AutoLoadPuzzle` in `Config.txt` gives a black screen
+([Not supported, and not needed](#not-supported-and-not-needed)).
 
 ## Not yet as the original
 

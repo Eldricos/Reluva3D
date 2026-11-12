@@ -202,4 +202,10 @@ wrong, and if possible compare with the same moment of a recording.
 
 ## Last checked
 
-None recorded yet.
+| Date | Release | Platform | What was checked |
+|---|---|---|---|
+| 6 November 2026 | English 1.0 | Linux | The game-files test, every step passed and its records made ([above](#the-game-files-test-with-your-own-copy-of-the-game)): the files read, the scripts' 9,797 commands, the route searched twice (the same route both times) and played the four ways |
+| 6 November 2026 | English 1.0 | Linux | The movies by Reluva's one Bink decoder against the game's `binkw32.dll`, all 87 files (`awe bink-check`, [systems/movies.md](systems/movies.md)); the path-finder against the game's code, every scene with a walk grid (`awe path-check -all`) |
+| 28 October 2026 | English 1.0 | Linux, a virtual display | The route played by the mouse with the real renderer, a frame before every action, compared with the walkthrough recordings ([REVERSE_ENGINEERING.md](REVERSE_ENGINEERING.md#checking-against-the-recordings)) |
+
+The playthrough by hand above hasn't been recorded here yet.

@@ -1,6 +1,6 @@
 # The interface: the bar, the inventory, the scrapbook, the cards
 
-> **Code:** `src/engines/awe/scene_interface.cpp` · **Checked against:** the code (`motoe.exe`, English 1.0); Reluva's screens compared by eye with the pictures the game's code places · **Confidence:** from the code unless marked
+> **Status:** done · **Code:** `src/engines/awe/scene_interface.cpp` · **Checked against:** the code (`motoe.exe`, English 1.0); Reluva's screens compared by eye with the pictures the game's code places · **Confidence:** from the code unless marked
 
 ## Overview
 

@@ -25,7 +25,8 @@ scenes, two Granny files, the text tables, two backgrounds):
   points), particles, lights, videos, the camera, music and events. Many
   fields are named only by their offset in the original's objects so far.
 - **Granny models and animations (`.gr2`): read and drawn.** Sections are
-  Oodle1-compressed, textures Bink-compressed, and some animation curves
+  compressed with Oodle1 (RAD's own compression, built into Granny),
+  textures with Bink's, and some animation curves
   in Granny's compressed formats. All three are decoded natively, worked
   out from the game's `granny2.dll` and checked against it byte for byte
   (bit for bit for the curves) on every file of the install. The engine
@@ -102,7 +103,8 @@ scenes, two Granny files, the text tables, two backgrounds):
   the Scenes page toggles night.
 - **Characters: animated as the game animates them.** Up to ten
   animations each on body, head and eye layers, blended by the files'
-  track masks; blinking, idle gestures and their routines; `anim`,
+  track masks (a weight per bone, saying how much an animation moves
+  it); blinking, idle gestures and their routines; `anim`,
   `turn`, `look`, `rotate`, `pause`/`resume`, `attach`; talking in
   conversations, heads turned to their Target and mouths moving with the
   voice (see [systems/characters.md](systems/characters.md)).

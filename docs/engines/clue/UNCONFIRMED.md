@@ -10,6 +10,9 @@ knowingly does differently is in [KNOWN_DIFFERENCES.md](KNOWN_DIFFERENCES.md).
 
 ### Code and recordings disagree
 
+Reluva follows the code here; recordings of the original suggest otherwise,
+without settling it.
+
 #### Computer players naming themselves
 
 - **Reluva:** as the code: a suspect and a weapon not known to be held,
@@ -60,7 +63,10 @@ checks are in [TESTING.md](TESTING.md).
 - The in-game Preferences and How to Play windows (dialogs 37-39): their
   sliders and the rules' scroll knob.
 
-### Not traced, no visible effect known
+### Read but not used
+
+Fields the original reads from its files and then never uses, as far as
+its code has been followed; nothing on screen is known to depend on them.
 
 - **Dialog controls' fields 12, 13 and 20** ([resi.md](formats/resi.md)):
   the same in every control of a dialog; EagleM's reader copies the block
@@ -81,6 +87,17 @@ Placed by EagleM.dll, not by Clue.exe.
 
 ## Inferred
 
+### A UK install
+
+- **Reluva:** an install whose `Data/Classic` has `Sounds/end turn.wav` is
+  the UK's (`clue-uk`), and plays as Cluedo
+  ([README.md](README.md#identification)).
+- **Known:** the CD's `Data/UK` has that file and `Data/US` doesn't; an
+  install copies the chosen language's files into `Data/Classic`. Only US
+  installs (2.0, and 2.2 patched) have been seen.
+- **To settle it:** a UK install's file list, or the game-files test run
+  on one (it would make the `uk-english-2.0` or `uk-english-2.2` records).
+
 ### The loser's window (dialog 40)
 
 Placed by EagleM.dll, not by Clue.exe.
@@ -93,8 +110,23 @@ Placed by EagleM.dll, not by Clue.exe.
 
 ## Guessed
 
-None yet.
+### The UK release's full title
+
+- **Reluva:** names the UK's game "Cluedo: Murder at Blackwell Grange" in
+  the launcher and the window's title.
+- **Known:** the UK's files say "Cluedo" (its `dialogInfo.res`: "Are you
+  sure you want to exit Cluedo?", and the menus' pictures); `Clue.exe`
+  names itself "Clue / Cluedo". "Murder at Blackwell Grange" is in none of
+  the game's files: it's the title the UK release is remembered as having
+  been sold under.
+- **To settle it:** the UK box, manual or CD label.
 
 ## Settled
 
-None yet.
+| Date | What | How |
+|---|---|---|
+| 2026-11-01 | The game's sounds play 1.6% fast (65/64 of each file's rate) | `Clue.exe` sets each sound's rate to the file's × (x + 1) / 64 with x = 0x40; a recording of the original then matched: its wind loops and thunders were found only at that rate, on the weather's 5-minute cycle ([sounds.md](systems/sounds.md)) |
+| 2026-11-01 | The weather is one 300-second cycle, not thunder and wind at random | `Clue.exe` 0x41C690; the recording above has its gusts on that cycle. A playthrough had found the rain starting and stopping at random in Reluva's first version ([sounds.md](systems/sounds.md)) |
+| 2026-11-01 | On your turn you can walk about the room you're in | Seen in the original in a playthrough, then found in `Clue.exe` (0x423B5B, 0x424900); its way-finder (0x41A0C0) followed 2026-11-06 ([playing.md](systems/playing.md)) |
+| 2026-11-02 | The windows over the game (the Esc menu, Save, Preferences, the exit window) are at (205, 11) | `Clue.exe` places the exit window there (0x435C7F), and recordings show the Esc menu, its Save window and its Preferences there to the pixel ([screen.md](systems/screen.md)) |
+| 2026-11-07 | The butler speaks only "..., it is your turn", the die's four prompts, and the disproving and accusing lines | `Clue.exe`'s one voice queue (0x438F80, the prompt chosen at 0x439140) can't give "please move", "choose object" or "end turn"; in three recordings with the voice on, the die's prompts are heard 31 times in all and those three never ([playing.md](systems/playing.md#in-the-game)) |

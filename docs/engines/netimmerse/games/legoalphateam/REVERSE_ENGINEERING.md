@@ -101,8 +101,9 @@ internals, only of what the program calls.
     `-dump` show calls, instructions, messages, files opened and memory;
   - `-from` and `-quit` limit a run to the frames of interest;
   - the game's DLLs were disassembled around what those showed, to follow
-    the logic (for example the camera's choice of view, `DDIcam` and
-    `FindNewBase`, or why `AutoLoadPuzzle` shows a black screen).
+    the logic (for example the camera's choice of view: `DDIcam`, the
+    camera director in `LoadComp.dll`, and its `FindNewBase`
+    ([systems/camera.md](systems/camera.md)), or why `AutoLoadPuzzle` shows a black screen).
 - **Where ours was wrong**, the trace pointed at the stand-in that
   answered differently from Windows or DirectX. Examples: A3D's
   `GetWaveFormat` answering success for an empty source (sounds loaded
@@ -153,4 +154,32 @@ in `src/engines/netimmerse/tools/` (`reluva-tool netimmerse <command>`;
 
 ## Working files not included
 
-None yet.
+The notes mention working files that are left out of the repository,
+because they reproduce the game's code or content, or were only a step
+on the way:
+
+- **Disassembly of the game's DLLs and executable** (`LoadComp.dll`,
+  `DDPackedDirFileLib.dll`, `NiMain.dll`, the behaviour DLLs such as
+  `PE0300.DLL` and so on), read to follow `LoadBinary`, the camera and the
+  rest. Make it again from your own install with LLVM's disassembler:
+  `llvm-objdump -d --x86-asm-syntax=intel LoadComp.dll`. The behaviour
+  DLLs are inside `Bhvr.pac`: take them out first with
+  `reluva-tool netimmerse pac-extract Bhvr.pac <folder>`.
+- **The game's files taken out of its archives:** made with
+  `reluva-tool netimmerse pac-extract <file.pac> <folder>`.
+- **The separate script** that checked `.pac` directories against every
+  file's data ([formats/pac.md](formats/pac.md)): a one-off check, since
+  replaced by `pac-list`, `pac-extract` and the unit tests.
+- **FFmpeg's decoding of `lmiintro.avi`**, the pictures the Indeo 5
+  decoder was compared with byte for byte. Make them again with
+  `ffmpeg -i lmiintro.avi -f image2 frame%04d.png` on your own copy of the
+  CD's file.
+- **`at-run` and `at-sweep` output:** logs, traces and frames, kept per
+  run in the folder given (`-shots`, `-save`, the sweep's out folder).
+  The game-files test keeps its own in the build folder
+  ([TESTING.md](TESTING.md#the-game-files-test)).
+- **Visual Studio profiles** (`.diagsession`) of the game running, and the
+  parser that read them: specific to one machine and build, and not
+  needed again; `at-run -profile` samples the same way locally.
+- **Recordings and screenshots of the original** made by the game's
+  owner: theirs, of the game's own pictures, and not to be published.
