@@ -1,4 +1,4 @@
-# Options
+# Murder on the Orient Express: options
 
 > **Status:** done · **Code:** `src/engines/awe/scene_options.cpp` · **Checked against:** the code (`motoe.exe`, English 1.0) and the options screen's scene · **Confidence:** from the code unless marked
 

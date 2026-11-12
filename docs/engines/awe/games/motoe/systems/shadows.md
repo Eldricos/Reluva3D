@@ -1,4 +1,4 @@
-# Character shadows
+# Murder on the Orient Express: character shadows
 
 > **Status:** done · **Code:** `src/engines/awe/shadows.cpp` · **Checked against:** the code (`motoe.exe`, English 1.0) and a recording of the game with 3D Shadows on · **Confidence:** from the code unless marked
 

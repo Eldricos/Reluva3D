@@ -1,4 +1,4 @@
-# Unconfirmed items (Murder on the Orient Express)
+# Murder on the Orient Express: unconfirmed items
 
 What Reluva does from reading `motoe.exe`, or from inference, without it
 having been seen to be so in the running game or a recording. Each is

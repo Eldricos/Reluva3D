@@ -1,4 +1,4 @@
-# Known differences from the original (Murder on the Orient Express)
+# Murder on the Orient Express: known differences from the original
 
 Where Reluva knowingly does something other than `motoe.exe` (English
 1.0) does. Each was chosen on purpose, or follows from how Reluva is

@@ -83,7 +83,7 @@ Each file's entry, in the order their data comes in:
 | Size | Field |
 |---|---|
 | variable | the name, zero-terminated (read as at most 64 bytes), upper case, with no folders (`B0001.DLL`, `ABADI MT CONDENSED.DDF`) |
-| 4 | the data's offset, its high 32 bits: 0 in all, the archives being under 4 GB. *(From the code: `MapViewOfFile`'s `dwFileOffsetHigh`; formerly guessed to be flags.)* |
+| 4 | the data's offset, its high 32 bits: 0 in all, the archives being under 4 GB (`MapViewOfFile`'s `dwFileOffsetHigh`; formerly guessed to be flags) *(from the code)*. |
 | 4 | the data's offset, its low 32 bits, from the start of the archive |
 | 4 | the data's size |
 | 8 | a Windows FILETIME, the file's date (17 to 22 August 2000 in `Bhvr.pac`; `Etc.pac`'s go back to March 1999) |

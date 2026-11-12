@@ -111,7 +111,7 @@ alone.
 - **Text**: the language's text files and the puzzles. **Left/Right** pick
   a file; **Up/Down**, **PageUp/PageDown** and **Home/End** scroll.
 
-## Developer tools
+### Developer tools
 
 `reluva-tool netimmerse <command>` has commands for this game, built with
 the engine (`src/engines/netimmerse/tools/`):

@@ -46,6 +46,17 @@ CAPITAL_NAMES = set(STANDARD_PAGES) | {
 LOWER_NAME = re.compile(r"^[a-z0-9]+(-[a-z0-9]+)*\.(md|txt)$")
 LOWER_DIR = re.compile(r"^[a-z0-9]+([-_][a-z0-9]+)*$")
 COMMON_HEADINGS = ["## What it is", "## What Reluva supports", "## Sources and checks", "## Used by"]
+# The ## headings each standard page has, in order (docs/templates/engine/).
+STANDARD_HEADINGS = {
+    "KNOWN_DIFFERENCES.md": ["By choice", "Bugs fixed", "Not yet as the original", "Additions outside the game"],
+    "UNCONFIRMED.md": ["Read from the code, not seen running", "Seen running, not traced in the code",
+                       "Inferred", "Guessed", "Settled"],
+    "TESTING.md": ["Automated checks", "A playthrough by hand", "Last checked"],
+    "REVERSE_ENGINEERING.md": ["Ground rules", "Sources", "Methods", "The tools", "Working files not included"],
+    "PLAN.md": ["Goal", "Phases", "Decisions"],
+}
+# The words an italic tag may use: *(inferred)*.
+TAG_WORDS = {"confirmed", "from the code", "seen, not traced", "inferred", "guessed", "published"}
 STATUS_WORDS = {"formats": {"decoded", "partial", "unknown"}, "systems": {"done", "partial", "not started"}}
 # How sure a fact is (docs/DOCUMENTATION_STANDARD.md, "Sources and confidence"),
 # and what a page about Reluva's own design says instead.
@@ -98,6 +109,19 @@ def anchors(path):
 LINK = re.compile(r"\]\(([^)\s]+)\)")
 
 
+def check_tags(path):
+    """Italic tags (*(inferred)*) use the standard's words."""
+    rel = os.path.relpath(path, ROOT).replace(os.sep, "/")
+    if not rel.startswith(("docs/engines/", "docs/common/")) or "/research/" in rel:
+        return
+    if any(rel.startswith(f"docs/engines/{e}/") for e in EXEMPT_ENGINES):
+        return
+    for number, line in enumerate(text(path).split("\n"), 1):
+        for word in re.findall(r"\*\(([^)*]+)\)\*", line):
+            if word not in TAG_WORDS:
+                problem(path, f"line {number}: the tag *({word})* isn't one of the standard's words")
+
+
 def check_links(path):
     if os.path.relpath(path, ROOT).replace(os.sep, "/").startswith(TEMPLATES + "/"):
         return
@@ -124,11 +148,42 @@ def text(path):
         return f.read()
 
 
+def first_line(path):
+    with open(path, encoding="utf-8") as f:
+        return f.readline().rstrip("\n")
+
+
+def check_titles(folder, name):
+    """Every page but the folder's README is titled "# <name>: <topic>"."""
+    pages = [os.path.join(folder, n) for n in os.listdir(folder) if n.endswith(".md") and n != "README.md"]
+    for kind in ("formats", "systems"):
+        sub = os.path.join(folder, kind)
+        if os.path.isdir(sub):
+            pages += [os.path.join(sub, n) for n in os.listdir(sub) if n.endswith(".md")]
+    if os.path.isfile(os.path.join(folder, "research", "README.md")):
+        pages.append(os.path.join(folder, "research", "README.md"))
+    for page in sorted(pages):
+        if not first_line(page).startswith(f"# {name}: "):
+            problem(page, f'its title is "# {name}: <topic>"')
+
+
 def check_page_folder(folder, label):
     """A folder that holds an engine's or a game's own pages."""
     for name in STANDARD_PAGES:
         if not os.path.isfile(os.path.join(folder, name)):
             problem(folder, f"{label} has no {name}")
+    for name, headings in STANDARD_HEADINGS.items():
+        page = os.path.join(folder, name)
+        if os.path.isfile(page):
+            found = [l[3:].strip() for l in text(page).split("\n") if l.startswith("## ")]
+            if found != headings:
+                problem(page, f"its ## headings are the template's: {', '.join(headings)}")
+    known = os.path.join(folder, "KNOWN_DIFFERENCES.md")
+    m = re.match(r"# (.+): known differences from the original$", first_line(known)) if os.path.isfile(known) else None
+    if m:
+        check_titles(folder, m.group(1))
+    else:
+        problem(known, 'its title is "# <game>: known differences from the original"')
     for kind in ("formats", "systems"):
         if os.path.isdir(os.path.join(folder, kind)):
             check_pages(os.path.join(folder, kind))
@@ -153,6 +208,16 @@ def check_engines():
             for kind in ("formats", "systems"):
                 if os.path.isdir(os.path.join(folder, kind)):
                     check_pages(os.path.join(folder, kind))
+            m = re.match(r"# The (.+?) engine\b", first_line(os.path.join(folder, "README.md")))
+            if m:
+                for kind in ("formats", "systems"):
+                    sub = os.path.join(folder, kind)
+                    if os.path.isdir(sub):
+                        for n in sorted(os.listdir(sub)):
+                            if n.endswith(".md") and not first_line(os.path.join(sub, n)).startswith(f"# {m.group(1)}: "):
+                                problem(os.path.join(sub, n), f'its title is "# {m.group(1)}: <topic>"')
+            else:
+                problem(folder, 'its README\'s title is "# The <name> engine"')
         else:
             check_page_folder(folder, f"engine {engine}")
 
@@ -240,6 +305,7 @@ def check_names():
 def main():
     for path in markdown_files():
         check_links(path)
+        check_tags(path)
     check_engines()
     check_common()
     check_names()

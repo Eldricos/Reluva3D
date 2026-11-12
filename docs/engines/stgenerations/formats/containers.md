@@ -1,4 +1,4 @@
-# Archives and standard files
+# Star Trek: Generations: archives and standard files
 
 > **Status:** decoded · **Code:** `src/common/zip.h`, `src/common/video/avi.h`, `src/common/video/cinepak.h` · **Checked on:** the 2 CD Windows release: all 18 archives (8175 files) and all 14 movies · **Confidence:** confirmed unless marked
 

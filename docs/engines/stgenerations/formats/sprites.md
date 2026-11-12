@@ -1,4 +1,4 @@
-# Sprite sets (.GS2, .GSF)
+# Star Trek: Generations: sprite sets (`.GS2`, `.GSF`)
 
 > **Status:** decoded · **Code:** `src/engines/stgenerations/formats/sprite.h` · **Checked on:** the 2 CD Windows release, two GS2 samples · **Confidence:** confirmed unless marked
 

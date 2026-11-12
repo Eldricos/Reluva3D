@@ -1,4 +1,4 @@
-# Backgrounds (.CMP) and palettes (.PAL)
+# Star Trek: Deep Space Nine - Harbinger: backgrounds (`.CMP`) and palettes (`.PAL`)
 
 > **Status:** decoded · **Code:** `src/engines/stharbinger/formats/graphics.cpp` · **Checked on:** both CDs' `.CMP` backgrounds, converted and looked at (STDS9H's extractor, October 2026; the number of files was not recorded) · **Confidence:** confirmed unless marked
 

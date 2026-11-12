@@ -1,4 +1,4 @@
-# Mouse cursors (art\mouse.ani)
+# Star Trek: Deep Space Nine - Harbinger: mouse cursors (`art\mouse.ani`)
 
 > **Status:** decoded · **Code:** `src/engines/stharbinger/game/game_video.cpp` · **Checked on:** `ART/MOUSE.ANI`, the game's only cursor file, seen in play in STDS9H (October 2026) · **Confidence:** layout confirmed; behaviour from the code unless marked
 

@@ -1,4 +1,4 @@
-# The port from STG-Engine
+# Star Trek: Generations: the port from STG-Engine
 
 The engine came from [STG-Engine](https://github.com/Eldricos/STG-Engine)
 (its `main` as of November 2026), a ScummVM-style reimplementation of the

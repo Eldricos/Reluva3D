@@ -56,7 +56,7 @@ it follows.
 | scale | float |
 | velocity | 3 floats |
 | number of properties, then their links | 4 + 4 each |
-| the collision propagate mode, 1 to 5 *(from the code: NiAVObject's `CollisionPropagate`)* | 4 |
+| the collision propagate mode, 1 to 5 (NiAVObject's `CollisionPropagate`) *(from the code)* | 4 |
 | a pointer to the collision volume; 0: none | 4 |
 | the collision volume, if there is one | below |
 
@@ -92,7 +92,7 @@ What each subclass adds after NiNode's fields:
 | `NiBillboardNode` | 909 | a number (1): the billboard mode. The viewer turns the node's +Z axis to the camera, which is how its quads lie: they're flat in X and Y |
 | `NiLODNode` | 64 | 5 bytes, the number of levels (one per child), 20 bytes for each level (its distances), a byte |
 | `Ni3dsAnimationNode`, `Ni3dsBone` | 860, 213 | 48 bytes of animation settings: 1, 1, 2, then floats 0, 1, 0 and the scene's range in ticks (16,000 to 356,800 in Evil Ogel), then 16 bytes of 0. The keys are in `DDActorSharedData` (below) |
-| `DDUnit` | 93 | a link to the model's `DDActorSharedData` *(from the code: `LinkObject` sets the member `DDActor`'s accessors read it through; formerly a guess)*. All 147 `DDUnit` and `DDEnv` links point at one (`reluva-tool netimmerse fin-check`) |
+| `DDUnit` | 93 | a link to the model's `DDActorSharedData` (`LinkObject` sets the member `DDActor`'s accessors read it through; formerly a guess) *(from the code)*. All 147 `DDUnit` and `DDEnv` links point at one (`reluva-tool netimmerse fin-check`) |
 | `DDEnv` | 54 | a link, as `DDUnit`'s; the root of every level |
 
 A level's sky is under a node named `Exterior` (holding `Backdrop`).
@@ -100,7 +100,7 @@ A level's sky is under a node named `Exterior` (holding `Backdrop`).
 The characters have, on each arm and leg bone, a node named `LOD_RArm1`,
 `LOD_LLeg2` and so on, over a billboard of one flat quad. Their textures
 are `LodBlack.tga`, `LodRed.tga` and the like: plain colours. They're
-stand-ins for a character far away *(from the code; formerly a guess)*:
+stand-ins for a character far away (formerly a guess) *(from the code)*:
 `DDActor::OnPreDisplay` compares the camera's squared distance with the
 actor's switch distance (in `DDActorSharedData`, below: 202,500, 450
 units, for the characters). Within it the skinned meshes (`Ni3dsSkin`)
@@ -164,7 +164,7 @@ Each is NiObjectNET's fields, then:
 | `NiMultiTextureProperty` | 582 | four lists, each a count and its values *(from the code)*: the images (one link, a lightmap from `LMap.pac`), and one each of the combine modes (0), clamp modes (0) and filter modes (1) |
 | `NiTextureModeProperty` | 8,967 | the apply, filter and clamp modes (3, 0 to 2, 0 to 3) *(from the code)* |
 | `NiVertexColorProperty` | 285 | the colour mode (1) *(from the code)* |
-| `NiZBufferProperty` | 215 | two bytes: depth test and depth write, both 0 *(from the code; formerly a guess)* |
+| `NiZBufferProperty` | 215 | two bytes: depth test and depth write, both 0 (formerly a guess) *(from the code)* |
 | `NiSpecularProperty` | 61 | a byte: specular on (1) *(from the code)* |
 | `NiShadeProperty` | 5 | nothing more: its loader reads NiObject's fields and one byte, smooth shading, which is the byte read with them |
 
@@ -408,7 +408,7 @@ A shape's fields, then:
   type, 5 in every file: `NiBaryMorphKey` *(from the code)*;
 - the keys, each:
   - its time;
-  - an `NiTCBFloatKey`'s fields *(from the code; formerly guessed)*: its
+  - an `NiTCBFloatKey`'s fields (formerly guessed) *(from the code)*: its
     value, tension, continuity and bias (0 in every key), and two values
     worked out from them (the value's tangents);
   - the number of targets again;

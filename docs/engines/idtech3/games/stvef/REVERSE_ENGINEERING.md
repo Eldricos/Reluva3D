@@ -1,4 +1,4 @@
-# Star Trek: Voyager - Elite Force: how it was worked out
+# Elite Force: how it was worked out
 
 Reluva runs Star Trek: Voyager - Elite Force from the player's own copy, with
 none of Raven's or id's code in it. This page describes how the facts
