@@ -607,6 +607,37 @@ The computer cars use no tyres and no engine torque. They are steered
 and pushed by a few clamped controllers, read from the code
 (`0x408600` and its callees) and checked at run time (`gh1-ai`, below).
 
+**Their gears and rpm** (`ai_gear_rpm` `0x4061b0`, November 2026,
+`s4-runs`, read with `asm`). Called by `car_ai_model` each call, after
+the lane ramp and before `ai_reverse_end`, and after the coast for a car
+out of the race; read only by the sound. The rpm aimed at: half the
+redline (P +0x1C4 × 0.5, `0x53622c`) when |+0x7B0| is at most the track
+section's speed (`0x40ed40`) + 10 (`0x536204`); else 0.8 of it
+(`0x53621c`) when |+0x7B0| is at most +0x7C4 + 20 (`0x536214`), else the
+redline less 200. While the shift timer +0x64C is over 0 it goes down
+by `0x56ec78` (1, set by `car_ai_physics`) and the rpm heads for 0.2
+(`0x536224`; 0.4, `0x53620c`, past the section's band) × the redline;
+else, reversing (+0x7D4 1), gear 0 at −P +0x94[0] × +0x7C4; else the
+gear from 2 to P +0x8 − 1 whose P +0x94[g] × +0x7C4 is nearest the aim
+(the products and differences floats, the first nearest kept), at least
+P +0x1C0. A new gear (+0x50B) sets the timer to P +0x10. The rpm
+(+0x590) then moves an eighth of the way (`sar 3`). The values are
+chopped (`0x4dfd56`). P's gear fields are the automatic ones (carp
+fields 75 and 76) for the racers: the race's set-up copies them when
+the slot's flag at `0x6fd548` + slot × 0x6C (`0x4a7967`) is 1, which it
+is for every slot of `t6-log`'s set-up, and the dumped rpm in each gear
+is the automatic ratio × +0x7C4. Checked: on each 16 ms dump's inputs
+(`gearchk`, 50-53.2 s, the racers) the routine gives the next dump's
+gear, rpm and timer on all 448 calls one call apart and 115 two calls
+apart (the middle +0x7C4 halfway), 15 more within 3 rpm, the other 10
+on three dumps where every car is off alike (dumps three calls apart);
+chained over `l1-runs` r1's 160 calls a car (`gearchain.py`, cars 3-6,
+51-56 s) it gives the dumped gear, rpm and timer at all 36 of the 0.5 s
+dumps, six shifts among them. The page does it (`aiGearRpm`,
+`AiCar::gearbox`, `AiCarData::Gears`); tipped, the rpm falls 500 a call
+to the minimum as above. Nothing on the page reads them yet: it plays
+no engine sound for the computer cars, and their motion is unchanged.
+
 **The world velocity.** The computer cars' velocity +0xA4 is in the
 world: `ai_integrate` `0x4071a0` adds the road-frame force through the
 rows at +0x124 and the body-frame force +0x4E0 through +0xC0, and

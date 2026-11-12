@@ -99,9 +99,21 @@ blocks).
 | 12 | u16 | a mask of strips across the road (below): bits 0-7 on the right, 8-15 on the left |
 | 14 | u8 | two 4-bit codes, one for each side's edge: the low one right, the high one left (below) |
 | 15 | u8 | 0; 3 throughout `trk004`. Not read anywhere found |
-| 16 | 3 × s8, u8 | normal (÷ 127), then the lanes: the high 4 bits on the left, the low 4 on the right |
+| 16 | 3 × s8, u8 | normal (÷ 128, below), then the lanes: the high 4 bits on the left, the low 4 on the right |
 | 20 | 3 × s8, u8 | forward, then the left lanes' width |
 | 24 | 3 × s8, u8 | right, then the right lanes' width |
+
+The three vectors' bytes are read by the game as 16.16 fixed point,
+byte << 9 (a dword loaded from one byte back, `sar 0x18`, `shl 9`), so
+each is byte / 128: in every one of the points' readers found from
+`0x5dd948` (among them `0x406a80`, `trackpos_road_frame` `0x420230`,
+`car_place_on_slice` `0x4a0aa0`, `0x41ffd0`, `car_track_walls`
+`0x4304b0`, `0x428ad0`, the race task `0x42ce70`); no 1/127 constant is
+read by any of them (the exe's two are the sound code's, `0x437e00`).
+Their lengths are then a little under 1 (Hometown's forwards and rights
+0.981-0.992, mean 0.987). Reluva had divided by 127; checked against the
+computer cars' side force per call (frd.md, The road's vectors are byte
+/ 128).
 | 28 | s32 | the left wall's distance from the point along −right, 16.16 |
 | 32 | s32 | the right wall's distance along right, 16.16 |
 

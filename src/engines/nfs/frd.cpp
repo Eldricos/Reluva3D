@@ -895,15 +895,27 @@ bool polygonRoadFrame(const Track::Block& b, size_t index, RoadFrame& out) {
     const Track::Polygon& p = b.polygons[4][index];
     if (p.vertices[1] >= b.vertices.size())
         return false;
-    auto s16 = [&](size_t k) {
+    // trackpos_road_frame (0x420230): the up and forward are the record's
+    // words x 2, 16.16 fixed point; the right is their cross product in
+    // 16.16 (0x4203eb-0x42045b: each product imul, shr 16 with the carry
+    // of bit 15 added, so rounded half up), turned to floats x 1/65536 by
+    // car_road_frame (0x49ffa0).
+    std::array<int32_t, 6> w{};
+    for (size_t k = 0; k < 6; ++k) {
         const size_t at = 12 * record + 2 * k;
-        return static_cast<float>(static_cast<int16_t>(b.virtualRoad[at] | (b.virtualRoad[at + 1] << 8))) / 32768.0f;
+        w[k] = 2 * static_cast<int16_t>(b.virtualRoad[at] | (b.virtualRoad[at + 1] << 8));
+    }
+    auto mul = [](int32_t x, int32_t y) {
+        const int64_t p = static_cast<int64_t>(x) * y;
+        return static_cast<int32_t>((p >> 16) + ((p >> 15) & 1));
     };
-    out.up = {s16(0), s16(1), s16(2)};
-    out.forward = {s16(3), s16(4), s16(5)};
-    const auto& u = out.up;
-    const auto& f = out.forward;
-    out.right = {u[1] * f[2] - u[2] * f[1], u[2] * f[0] - u[0] * f[2], u[0] * f[1] - u[1] * f[0]};
+    const std::array<int32_t, 3> r{mul(w[1], w[5]) - mul(w[2], w[4]), mul(w[2], w[3]) - mul(w[0], w[5]),
+                                   mul(w[0], w[4]) - mul(w[1], w[3])};
+    for (size_t k = 0; k < 3; ++k) {
+        out.up[k] = static_cast<float>(w[k]) / 65536.0f;
+        out.forward[k] = static_cast<float>(w[3 + k]) / 65536.0f;
+        out.right[k] = static_cast<float>(r[k]) / 65536.0f;
+    }
     out.point = b.vertices[p.vertices[1]];
     return true;
 }
@@ -971,7 +983,72 @@ bool parseCarpAi(const std::string& text, AiCarData& out) {
         for (int i = 0; i < 14; ++i)
             out.accel[size_t(row * 14 + i)] = v[size_t(i)];
     }
+    // The gearbox (aiGearRpm): the automatic fields (75, 76) as the race's
+    // set-up gives a computer racer, the manual ones (3, 7) where a carp
+    // has none.
+    if (values(75, v) || values(3, v))
+        out.gearbox.gears = static_cast<int>(v[0]);
+    if (values(4, v))
+        out.gearbox.shiftDelay = static_cast<int>(v[0]);
+    if (values(76, v) || values(7, v))
+        for (size_t g = 0; g < 8 && g < v.size(); ++g)
+            out.gearbox.velocityToRpm[g] = v[g];
+    if (values(12, v))
+        out.gearbox.rpmMin = static_cast<int>(v[0]);
+    if (values(13, v))
+        out.gearbox.redline = static_cast<int>(v[0]);
     return true;
+}
+
+void aiGearRpm(AiGearbox& box, const AiCarData::Gears& data, float speedWanted, float speed, float sectionSpeed,
+               bool reversing) {
+    // 0x4061bd-0x4062a1: the rpm aimed at (`aim`) and the one held while
+    // shifting (`held`), from the redline (an int) x the doubles 0.5, 0.2
+    // (0x53622c, 0x536224), 0.8, 0.4 (0x53621c, 0x53620c), each to a
+    // float; the bands 10 and 20 m/s (0x536204, 0x536214) in doubles.
+    const double wanted = std::fabs(speedWanted);
+    const double redline = data.redline;
+    float aim = 0, held = 0;
+    if (static_cast<double>(sectionSpeed) + 10.0 >= wanted) {
+        held = static_cast<float>(redline * 0.2);
+        aim = static_cast<float>(redline * 0.5);
+    } else {
+        held = static_cast<float>(redline * 0.4);
+        aim = static_cast<double>(speed) + 20.0 >= wanted ? static_cast<float>(redline * 0.8)
+                                                          : static_cast<float>(data.redline - 200);
+    }
+    int target = 0;
+    if (box.timer > 0) {
+        // 0x4062ae: chopped (0x4dfd56), the timer less 0x56ec78 (1).
+        target = static_cast<int>(std::trunc(held));
+        box.timer -= 1;
+    } else {
+        int gear = box.gear;
+        if (reversing) {
+            target = static_cast<int>(std::trunc(-data.velocityToRpm[0] * speed));
+            gear = 0;
+        } else {
+            float best = 100000.0f;
+            for (int g = 2; g < data.gears && g < 8; ++g) {
+                const float r = data.velocityToRpm[size_t(g)] * speed;
+                const float d = std::fabs(r - aim);
+                if (d < best) {
+                    best = d;
+                    target = static_cast<int>(std::trunc(r));
+                    gear = g;
+                }
+            }
+        }
+        target = std::max(target, data.rpmMin);
+        if (gear != box.gear) {
+            box.timer = data.shiftDelay;
+            box.gear = gear;
+        }
+    }
+    if (target > box.rpm)
+        box.rpm += (target - box.rpm) >> 3;
+    else if (target < box.rpm)
+        box.rpm -= (box.rpm - target) >> 3;
 }
 
 float aiDriverFactor(const AiDriver& d, int step) {
@@ -998,7 +1075,9 @@ int aiLaneAt(const TrackCollision::RoadPoint& p, float offset) {
     // 1 / (k / 4), k the lane width in quarters (0x56f0e0, 0 for none).
     const int k = static_cast<int>(std::nearbyint(static_cast<float>(width << 15) / 65536.0f * 4.0f));
     const float inverse = k > 0 ? 1.0f / (static_cast<float>(k) * 0.25f) : 0.0f;
-    const int lane = (right ? 7 : 6) + static_cast<int>(std::nearbyint(inverse * offset));
+    // fld (the float inverse), fmul (the float offset), fistp: the product
+    // is exact on the x87 (0x40e313-0x40e320), not rounded to a float first.
+    const int lane = (right ? 7 : 6) + static_cast<int>(std::nearbyint(static_cast<double>(inverse) * offset));
     return std::clamp(lane, 0, 13);
 }
 
@@ -1963,6 +2042,9 @@ AiDynamics aiModelSteer(AiCar& me, const TrackCollision& col, int step, int trac
     // 0x3e99999a, 0x408613).
     if (dot3(tu, nu) < 0.9f || tu[1] < 0.3f) {
         me.skidFront = me.skidRear = 0;
+        // car_ai_physics (0x4088f0) tipped: the rpm 500 down, to the minimum.
+        if (dot3(tu, nu) < 0.9f)
+            me.gearbox.rpm = me.gearbox.rpm > me.gears.rpmMin + 500 ? me.gearbox.rpm - 500 : me.gears.rpmMin;
         aiBodyFriction(me, nu);
         out.tipped = true;
         return out;
@@ -1994,9 +2076,14 @@ AiDynamics aiModelSteer(AiCar& me, const TrackCollision& col, int step, int trac
         me.skidRear = coast.skidRear;
         me.braking = true;
         me.carSide = coast.right;
+        // car_ai_model (0x408639): ai_gear_rpm after the coast.
+        aiGearRpm(me.gearbox, me.gears, me.wanted, std::fabs(me.speed), trackSectionSpeed(track, aiSlice(me)), me.reversing);
         out.coast = true;
         return out;
     }
+    // ai_gear_rpm (0x4061b0), after ai_lane_ramp and before
+    // ai_reverse_end: neither reads what the other writes.
+    aiGearRpm(me.gearbox, me.gears, me.wanted, std::fabs(me.speed), trackSectionSpeed(track, aiSlice(me)), me.reversing);
     if (ramp) {
         // ai_lane_ramp (0x408870): the aim 0.2 a call towards the offset
         // wanted; ai_reverse_end (0x4060d0): reversing, the aim is the
@@ -2470,6 +2557,7 @@ void aiMove(AiCar& me, const AiCarData& data, bool weather, int step, const Trac
     // gravity and forces.
     const float raceSpeed = me.speed;
     me.downforce = data.downforce;
+    me.gears = data.gearbox;
     const AiDynamics dyn = aiModelSteer(me, col, step, track, true);
     // car_ai_physics (0x4088f0, 0x408959): in the air or tipped (+0x10C
     // under 0.9, 0x5363d4) both levels 0 and the model not run, so no

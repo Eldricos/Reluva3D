@@ -1377,6 +1377,12 @@ void testViewAndRoadFrame() {
     const float above = roadFrameHeight(f, {15, 7.5f, 0});
     CHECK(above > 5.5f && above < 5.7f);
     CHECK(std::fabs(roadFrameHeight(f, {10, 5, 30}) - 5) < 1e-3f); // along the forward
+    // The right is up x forward in 16.16 (0x4203eb-0x42045b), each product
+    // rounded half up: words x 2 are (-6520, 65208, 0) and (0, 0, 65534),
+    // so right x = 65208 x 65534 / 65536 = 65206.01 -> 65206, right y =
+    // 0 - (-6520 x 65534 / 65536 = -6519.8 -> -6520), each / 65536.
+    CHECK(f.right[0] == 65206 / 65536.0f && f.right[1] == 6520 / 65536.0f && f.right[2] == 0);
+    CHECK(f.up[1] == 65208 / 65536.0f && f.forward[2] == 65534 / 65536.0f);
     b.virtualRoad.resize(12);
     CHECK(!polygonRoadFrame(b, 0, f));
 }
@@ -1772,12 +1778,58 @@ TrackCollision straightRoad(int points, uint8_t codes = 0x44) {
 }
 } // namespace
 
+void testComputerGears() {
+    // ai_gear_rpm (0x4061b0), made-up gearbox: reverse, neutral and three
+    // gears, shift delay 3, minimum 1000 rpm, redline 6000.
+    AiCarData::Gears g;
+    g.gears = 5;
+    g.shiftDelay = 3;
+    g.rpmMin = 1000;
+    g.redline = 6000;
+    g.velocityToRpm = {-200, 0, 250, 150, 100, 0, 0, 0};
+    AiGearbox box; // neutral, 0 rpm
+    // Wanting 40 m/s, past the section's 22.35 + 10 and +0x7C4's 10 + 20:
+    // the aim is the redline less 200; first's 2500 is nearest, so first,
+    // the timer at the delay and the rpm an eighth of the way.
+    aiGearRpm(box, g, 40, 10, 22.35f, false);
+    CHECK(box.gear == 2 && box.timer == 3 && box.rpm == 312);
+    // While the timer runs: 0.4 x the redline (past the section's band),
+    // the timer down by one.
+    aiGearRpm(box, g, 40, 10, 22.35f, false);
+    CHECK(box.gear == 2 && box.timer == 2 && box.rpm == 312 + (2400 - 312) / 8);
+    box = {2, 3000, 0};
+    // Within 10 m/s of the section's speed the aim is half the redline:
+    // at 22 m/s second (3300) is nearer 3000 than third (2200).
+    aiGearRpm(box, g, 30, 22, 22.35f, false);
+    CHECK(box.gear == 3 && box.timer == 3 && box.rpm == 3000 + (3300 - 3000) / 8);
+    // Falling: an eighth of the way down, as an arithmetic shift.
+    box = {4, 3000, 0};
+    aiGearRpm(box, g, 30, 5, 22.35f, false);
+    CHECK(box.gear == 2 && box.rpm == 3000 - (3000 - 1250) / 8);
+    // Under the minimum the aim is the minimum; reversing is gear 0 at
+    // -ratio x speed.
+    box = {2, 900, 0};
+    aiGearRpm(box, g, 30, 1, 22.35f, false);
+    CHECK(box.rpm == 900 + (1000 - 900) / 8);
+    box = {2, 1000, 0};
+    aiGearRpm(box, g, 30, 10, 22.35f, true);
+    CHECK(box.gear == 0 && box.timer == 3 && box.rpm == 1000 + (2000 - 1000) / 8);
+}
+
 void testComputerDriving() {
     TrackCollision col = straightRoad(200);
     const auto& p = col.road[0];
     // 0x40e2b0: 7 + offset / width, rounded to the nearest (even on a tie).
     CHECK(aiLaneAt(p, 1) == 7 && aiLaneAt(p, 2) == 7 && aiLaneAt(p, 2.1f) == 8 && aiLaneAt(p, 6) == 9);
     CHECK(aiLaneAt(p, -1) == 6 && aiLaneAt(p, -3) == 5 && aiLaneAt(p, 100) == 13);
+    // The product offset x 1 / width goes to fistp unrounded: with 3.5 m
+    // lanes (byte 7) 12.249999 m is 3.49999988 lanes (lane 10), which a
+    // float product would round to 3.5 and so to 4 (lane 11).
+    {
+        TrackCollision::RoadPoint q = p;
+        q.extra[2] = 7;
+        CHECK(aiLaneAt(q, 12.249999046325684f) == 10 && aiLaneAt(q, 12.25f) == 11);
+    }
     // 0x40daf0: lane middles, the lanes past the road a half width out,
     // kept within the walls.
     CHECK(aiLaneOffset(p, 7, 1) == 2 && aiLaneOffset(p, 8, 1) == 6 && aiLaneOffset(p, 6, 1) == -2);
@@ -2594,8 +2646,10 @@ void testCollision() {
     CHECK(c.road.size() == 1);
     if (!c.road.empty()) {
         const auto& r = c.road[0];
-        CHECK(r.position[0] == 829.5f && r.position[2] == 136.25f && r.normal[1] == 1.0f);
-        CHECK(r.forward[0] == 85 / 127.0f && r.forward[2] == -93 / 127.0f && r.right[0] == -94 / 127.0f);
+        // The vectors' bytes as every reader of them in the game takes them:
+        // byte << 9 as 16.16 (e.g. 0x406a80, 0x420230, 0x4a0aa0), byte / 128.
+        CHECK(r.position[0] == 829.5f && r.position[2] == 136.25f && r.normal[1] == 127 / 128.0f);
+        CHECK(r.forward[0] == 85 / 128.0f && r.forward[2] == -93 / 128.0f && r.right[0] == -94 / 128.0f);
         CHECK(r.leftWall == 23.5f && r.rightWall == 28.0f && r.extra[0] == 34 && r.unknown == 0x550ff8);
         CHECK(r.leftLanes() == 2 && r.rightLanes() == 2 && r.leftEdge() == 16.0f && r.rightEdge() == 16.0f);
     }
@@ -4659,6 +4713,7 @@ int main() {
     testCarLighting();
     testCarReflection();
     testLightEffects();
+    testComputerGears();
     testComputerDriving();
     testComputerCatchUpAndCops();
     testComputerPursuits();
