@@ -23,7 +23,7 @@ float f32(const uint8_t* p) {
 }
 float fixed(const uint8_t* p) { return static_cast<float>(static_cast<int32_t>(le32(p))) / 65536.0f; }
 TrackCollision::Vec3 unit(const uint8_t* p) {
-    return {static_cast<int8_t>(p[0]) / 127.0f, static_cast<int8_t>(p[1]) / 127.0f, static_cast<int8_t>(p[2]) / 127.0f};
+    return {static_cast<int8_t>(p[0]) / 128.0f, static_cast<int8_t>(p[1]) / 128.0f, static_cast<int8_t>(p[2]) / 128.0f};
 }
 
 constexpr uint16_t kTextures = 2, kObjects = 7, kStructures = 8, kRoad = 15, kObjects2 = 18;

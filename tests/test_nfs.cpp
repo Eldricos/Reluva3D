@@ -1377,6 +1377,12 @@ void testViewAndRoadFrame() {
     const float above = roadFrameHeight(f, {15, 7.5f, 0});
     CHECK(above > 5.5f && above < 5.7f);
     CHECK(std::fabs(roadFrameHeight(f, {10, 5, 30}) - 5) < 1e-3f); // along the forward
+    // The right is up x forward in 16.16 (0x4203eb-0x42045b), each product
+    // rounded half up: words x 2 are (-6520, 65208, 0) and (0, 0, 65534),
+    // so right x = 65208 x 65534 / 65536 = 65206.01 -> 65206, right y =
+    // 0 - (-6520 x 65534 / 65536 = -6519.8 -> -6520), each / 65536.
+    CHECK(f.right[0] == 65206 / 65536.0f && f.right[1] == 6520 / 65536.0f && f.right[2] == 0);
+    CHECK(f.up[1] == 65208 / 65536.0f && f.forward[2] == 65534 / 65536.0f);
     b.virtualRoad.resize(12);
     CHECK(!polygonRoadFrame(b, 0, f));
 }
@@ -1778,6 +1784,14 @@ void testComputerDriving() {
     // 0x40e2b0: 7 + offset / width, rounded to the nearest (even on a tie).
     CHECK(aiLaneAt(p, 1) == 7 && aiLaneAt(p, 2) == 7 && aiLaneAt(p, 2.1f) == 8 && aiLaneAt(p, 6) == 9);
     CHECK(aiLaneAt(p, -1) == 6 && aiLaneAt(p, -3) == 5 && aiLaneAt(p, 100) == 13);
+    // The product offset x 1 / width goes to fistp unrounded: with 3.5 m
+    // lanes (byte 7) 12.249999 m is 3.49999988 lanes (lane 10), which a
+    // float product would round to 3.5 and so to 4 (lane 11).
+    {
+        TrackCollision::RoadPoint q = p;
+        q.extra[2] = 7;
+        CHECK(aiLaneAt(q, 12.249999046325684f) == 10 && aiLaneAt(q, 12.25f) == 11);
+    }
     // 0x40daf0: lane middles, the lanes past the road a half width out,
     // kept within the walls.
     CHECK(aiLaneOffset(p, 7, 1) == 2 && aiLaneOffset(p, 8, 1) == 6 && aiLaneOffset(p, 6, 1) == -2);
@@ -2594,8 +2608,10 @@ void testCollision() {
     CHECK(c.road.size() == 1);
     if (!c.road.empty()) {
         const auto& r = c.road[0];
-        CHECK(r.position[0] == 829.5f && r.position[2] == 136.25f && r.normal[1] == 1.0f);
-        CHECK(r.forward[0] == 85 / 127.0f && r.forward[2] == -93 / 127.0f && r.right[0] == -94 / 127.0f);
+        // The vectors' bytes as every reader of them in the game takes them:
+        // byte << 9 as 16.16 (e.g. 0x406a80, 0x420230, 0x4a0aa0), byte / 128.
+        CHECK(r.position[0] == 829.5f && r.position[2] == 136.25f && r.normal[1] == 127 / 128.0f);
+        CHECK(r.forward[0] == 85 / 128.0f && r.forward[2] == -93 / 128.0f && r.right[0] == -94 / 128.0f);
         CHECK(r.leftWall == 23.5f && r.rightWall == 28.0f && r.extra[0] == 34 && r.unknown == 0x550ff8);
         CHECK(r.leftLanes() == 2 && r.rightLanes() == 2 && r.leftEdge() == 16.0f && r.rightEdge() == 16.0f);
     }

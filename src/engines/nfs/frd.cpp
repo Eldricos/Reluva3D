@@ -895,15 +895,27 @@ bool polygonRoadFrame(const Track::Block& b, size_t index, RoadFrame& out) {
     const Track::Polygon& p = b.polygons[4][index];
     if (p.vertices[1] >= b.vertices.size())
         return false;
-    auto s16 = [&](size_t k) {
+    // trackpos_road_frame (0x420230): the up and forward are the record's
+    // words x 2, 16.16 fixed point; the right is their cross product in
+    // 16.16 (0x4203eb-0x42045b: each product imul, shr 16 with the carry
+    // of bit 15 added, so rounded half up), turned to floats x 1/65536 by
+    // car_road_frame (0x49ffa0).
+    std::array<int32_t, 6> w{};
+    for (size_t k = 0; k < 6; ++k) {
         const size_t at = 12 * record + 2 * k;
-        return static_cast<float>(static_cast<int16_t>(b.virtualRoad[at] | (b.virtualRoad[at + 1] << 8))) / 32768.0f;
+        w[k] = 2 * static_cast<int16_t>(b.virtualRoad[at] | (b.virtualRoad[at + 1] << 8));
+    }
+    auto mul = [](int32_t x, int32_t y) {
+        const int64_t p = static_cast<int64_t>(x) * y;
+        return static_cast<int32_t>((p >> 16) + ((p >> 15) & 1));
     };
-    out.up = {s16(0), s16(1), s16(2)};
-    out.forward = {s16(3), s16(4), s16(5)};
-    const auto& u = out.up;
-    const auto& f = out.forward;
-    out.right = {u[1] * f[2] - u[2] * f[1], u[2] * f[0] - u[0] * f[2], u[0] * f[1] - u[1] * f[0]};
+    const std::array<int32_t, 3> r{mul(w[1], w[5]) - mul(w[2], w[4]), mul(w[2], w[3]) - mul(w[0], w[5]),
+                                   mul(w[0], w[4]) - mul(w[1], w[3])};
+    for (size_t k = 0; k < 3; ++k) {
+        out.up[k] = static_cast<float>(w[k]) / 65536.0f;
+        out.forward[k] = static_cast<float>(w[3 + k]) / 65536.0f;
+        out.right[k] = static_cast<float>(r[k]) / 65536.0f;
+    }
     out.point = b.vertices[p.vertices[1]];
     return true;
 }
@@ -998,7 +1010,9 @@ int aiLaneAt(const TrackCollision::RoadPoint& p, float offset) {
     // 1 / (k / 4), k the lane width in quarters (0x56f0e0, 0 for none).
     const int k = static_cast<int>(std::nearbyint(static_cast<float>(width << 15) / 65536.0f * 4.0f));
     const float inverse = k > 0 ? 1.0f / (static_cast<float>(k) * 0.25f) : 0.0f;
-    const int lane = (right ? 7 : 6) + static_cast<int>(std::nearbyint(inverse * offset));
+    // fld (the float inverse), fmul (the float offset), fistp: the product
+    // is exact on the x87 (0x40e313-0x40e320), not rounded to a float first.
+    const int lane = (right ? 7 : 6) + static_cast<int>(std::nearbyint(static_cast<double>(inverse) * offset));
     return std::clamp(lane, 0, 13);
 }
 

@@ -2787,6 +2787,74 @@ first differing picks 53.25, 53.21, 52.29, 52.90, 53.10, 74.32 and
 66.67 s (car 6 69.83, car 7 67.17); hits 24 (29). The `d7-watch2`
 replay (0.37 m) and `park` (120 stops, none past a wall) are unchanged.
 
+**The road's vectors are byte / 128** (November 2026, `s4-runs`, read
+with `asm` and `capstone`). The partings above are a car's +0x7B8 a few
+millimetres to centimetres from the game's at the 4 m lane edge, so each
+value on the way into +0x7B8 and the lane test was read for its units
+and rounding:
+- +0x7B8 (`0x4a2bc0`): the slice's point, 16.16 ints, `fild` × 1/65536
+  (`0x53c8e4`) and stored as floats; +0x98 (floats) less it, as floats
+  (`0x4e0000`); the dot with +0x124 (floats) on the x87 (`0x4e01f0`),
+  stored as a float by `0x42ce70`. The page's point is the same float
+  (an int to float, / 65536, rounds once as `fild`, `fmul`, `fstp` do).
+- The lane (`0x40e2b0`): the width byte << 15, × 1/65536 (`0x5367bc`)
+  to a float, × 4 (`0x5367c4`) and `fistp` gives the index of a float
+  table of 1 / (k / 4) (`0x56f0e0`, `0x40e483`-`0x40e494`, 0.25 at
+  `0x5367e0`); that × +0x7B8 goes to `fistp` unrounded. The page had
+  rounded the product to a float first; it now takes it in double
+  (`aiLaneAt`). No sample in `t6-log`'s window falls between the two.
+- **The point's vectors.** Every reader of the points (`0x5dd948`) loads
+  a vector's byte as the top byte of a dword and does `sar 0x18`, `shl
+  9`: 16.16 fixed point, byte / 128 (`0x406a80`, `0x420230`, `0x4a0aa0`,
+  `0x41ffd0`, `0x4304b0`, `0x428ad0`, `0x42ce70`, `0x40ef70`, `0x4a2690`
+  among them; `bytescale.sh`). Reluva's `.col` reader divided by 127
+  (col.md). Where it shows: `ai_ctl_rails`' velocity across the road 2
+  slices on (`0x406a80`, +0xA4 · that slice's right) was 0.8 % large.
+  Checked on `l1-runs` r1 (618 rails calls, cars 3-6, 51-56 s;
+  `railsck.py`: the formula on the state read at `0x40868b` against
+  `0x56ec6c` read at `ai_integrate`): with byte / 128 the side force is
+  the game's on all 618 (median 7e-7, at most 5e-6); with / 127 it was
+  off by a median 0.062 and up to 0.40. The reader now divides by 128.
+- **The polygon's right is 16.16.** `trackpos_road_frame` keeps the up
+  and forward as the record's words × 2 and makes the right their cross
+  product in 16.16 (`0x4203eb`-`0x42045b`: each product `imul`, `shr
+  0x10` with bit 15's carry added by `adc`, so rounded half up), which
+  `car_road_frame` (`0x49ffa0`) turns to floats. The page had crossed
+  the floats; it now does the integer arithmetic (`polygonRoadFrame`).
+  Up to 1.5e-5 a component.
+- What is left is not a conversion: `sidechk` (each dumped +0x98
+  measured by the page) is still within 0.04 mm rms of the dumped +0x7B8
+  over 1,391 samples. The page keeps its place as the slice, `along`
+  and `lateral` and solves for them again each step where the game adds
+  +0xA4 / 64 to a float +0x98; at Hometown's 700-800 m that is a float's
+  6e-5 m either way, well under the centimetres.
+
+Measured (`s4-runs/all.sh`, the columns as before; `o1fix` before, with
+byte / 128 alone `b128`, with the 16.16 right as well `fx`, with the
+lane product `a3`, the same as `fx`): +0x638 changes in 121 samples (the
+game's 143; 124 before; 130 with byte / 128 alone), 44 at an edge (47;
+46), the aim past 8 m 162 (162; 163); speeds 2.65 m/s rms over the
+window (2.82) and **0.44** over 50-64 s (1.15); +0x7B8 0.0169 m rms over
+50-51.7 s (0.0167) and **0.0548** over 50-53.2 s (0.1036: car 3 0.020,
+was 0.237); the decisions to 56 s **324 of 338** (297), to 78 s 896 of
+1,568 (920; 904 with byte / 128 alone: the later partings come at other
+places, kept as the code's); the first differing picks: cars 1, 6 and 7
+none to 56 s (56.73, 69.45 and 66.67 s to 78 s), car 2 54.47, car 3
+54.05, car 4 52.90 and car 5 53.10 s (53.25, 53.21, 52.29, 52.90, 53.10).
+Hit lines 38 (both cars each), all but two cars 3 and 4 at 64.9-68.9 s (the game's
+nine at 63.6-64.2 s). The `d7-watch2` replay (0.37 m) and `park` (120
+stops, none past a wall) are unchanged.
+
+Where they part now, per call against `l1-runs` r1 (`pc.py`, the fine
+sim run to 56 s): car 6's +0x7B8 is within 0.013 m of the game's to
+52.53 s, when its +0x7C4 crosses 22.35 m/s (`0x56ebf4`) one call before
+the game's (22.364 against 22.347) and the side speed wanted is no
+longer held to 0.129 × it; through the rest of its lane change it leads
+by up to 0.25 m. The speeds drift by up to 0.03-0.04 m/s in 1.5 s (car
+4 0.03 slow, car 6 0.03-0.04 fast), the 0.0003-0.0005 m/s a call of
+gravity's forward part (The contact's frame, above). Car 5 parts at
+its 53.10 s pick on the edge as before.
+
 **The roadside cop** (`d7-runs/sim/park`,
 the police car ordered to lay a strip from every 8th slice of Hometown,
 120 stops): with the spring and the cut it parked past a wall 81 times,

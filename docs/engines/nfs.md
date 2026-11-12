@@ -1792,6 +1792,21 @@ README.md.
   because another car's +0x7B8 is a few millimetres to centimetres
   across the 4 m lane edge from the game's (frd.md, The decisions
   recorded per call); speeds are 2.82 m/s rms over the window (3.32).
+  Since `s4` the values on the way into +0x7B8 and the lane test have
+  the game's units and rounding: the road points' vectors are byte / 128
+  as every reader in the game takes them (Reluva had / 127, which made
+  `ai_ctl_rails`' velocity across the road 0.8 % large; with / 128 its
+  side force is the game's on all 618 recorded calls), the road
+  polygon's right is the game's 16.16 cross product, and the lane test's
+  product isn't rounded to a float (frd.md, The road's vectors are byte
+  / 128). The decisions to 56 s agree in 324 of 338 (297), +0x7B8 is
+  within 0.055 m rms of the game's over the first 3.2 s (0.104), the
+  speeds 0.44 m/s rms over 50-64 s (1.15); to 78 s 896 of 1,568 (920),
+  lane changes 121 (the game's 143). What is left is the model's, not a
+  conversion: a car's speed drifts 0.03 m/s in 1.5 s (gravity's forward
+  part), and car 6 crosses 22.35 m/s a call early at 52.53 s and leads
+  through its lane change; cars 3 and 4 meet at 64.9-68.9 s, not at the
+  game's 63.6-64.2 s.
 - How the wall hits' particles look in play (read from the code only;
   their sounds are measured, not listened to), and wall code 3's
   material: the code tells it from code 5 only by its sound (material
