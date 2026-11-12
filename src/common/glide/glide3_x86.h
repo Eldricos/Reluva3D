@@ -36,6 +36,7 @@ private:
     Glide3 glide_;
     std::map<std::string, uint32_t> strings_; // grGetString's, in guest memory
     std::vector<Glide3::Layout> layouts_;     // grGlideGetVertexLayout's, by number
+    std::map<std::string, uint32_t> procs_;   // grGetProcAddress's procedures
 };
 
 } // namespace reluva::glide

@@ -135,7 +135,9 @@ enum TextureFormat : int {
     kTexAp88 = 0xe,
 };
 
-enum TextureClamp : int { kClampWrap = 0x0, kClampClamp = 0x1 };
+// GR_TEXTURECLAMP_MIRROR_EXT (Glide 3's TEXMIRROR extension, the 3.x
+// header's 0x2).
+enum TextureClamp : int { kClampWrap = 0x0, kClampClamp = 0x1, kClampMirror = 0x2 };
 enum TextureFilter : int { kFilterPoint = 0x0, kFilterBilinear = 0x1 };
 enum MipmapMode : int { kMipmapDisable = 0x0, kMipmapNearest = 0x1, kMipmapNearestDither = 0x2 };
 
@@ -145,7 +147,17 @@ enum MipmapMode : int { kMipmapDisable = 0x0, kMipmapNearest = 0x1, kMipmapNeare
 enum EvenOdd : int { kLevelsEven = 0x1, kLevelsOdd = 0x2, kLevelsBoth = 0x3 };
 
 // grTexDownloadTable's table type.
-enum TableType : int { kTableNcc0 = 0x0, kTableNcc1 = 0x1, kTablePalette = 0x2 };
+// GR_TEXTABLE_PALETTE_6666_EXT is Glide 3's PALETTE6666 extension (the 3.x
+// header's 0x3).
+enum TableType : int { kTableNcc0 = 0x0, kTableNcc1 = 0x1, kTablePalette = 0x2, kTablePalette6666 = 0x3 };
+
+// grSstControlMode's modes (GR_CONTROL_*, Glide 2.x's glide.h).
+enum ControlMode : uint32_t {
+    kControlActivate = 0x1,
+    kControlDeactivate = 0x2,
+    kControlResize = 0x3,
+    kControlMove = 0x4,
+};
 
 // grHints' types and GR_HINT_STWHINT's bits.
 enum HintType : int { kHintStw = 0, kHintFifoCheck = 1, kHintFpuPrecision = 2, kHintAllowMipmapDither = 3 };

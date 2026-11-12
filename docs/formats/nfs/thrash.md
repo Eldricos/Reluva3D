@@ -815,7 +815,13 @@ instructions, 3,829 frames) and the code:
   `grGetString(GR_VERSION)` from its first digit against "3.10" (older:
   `grGlideShutdown` at every close). Reluva answers "Voodoo3 (tm)" and
   "3.10". `grGetString(GR_EXTENSION)` is searched for "PALETTE6666" and
-  "TEXMIRROR"; Reluva offers neither.
+  "TEXMIRROR" (`0x60001ae7`-`0x60001b46`). With PALETTE6666 the DLL loads
+  its palettes as `GR_TEXTABLE_PALETTE_6666_EXT` (3, where 2 before:
+  `0x60014058`, read at each `grTexDownloadTable`) and changes a word of
+  its texture format table (`0x600140ac`, 5 to 1); with TEXMIRROR its
+  `setstate` for the clamp mode may ask `grTexClampMode` for
+  `GR_TEXTURECLAMP_MIRROR_EXT` (`0x60002dee`). Since November 2026 the
+  stand-in's Voodoo3 offers both, as its specification has them (Boards).
 - **Memory** (`0x6000198a`): `grGet(GR_NUM_FB)` (two or more: SLI),
   then `grGet(GR_MEMORY_UMA)`. If that succeeds and `0x60014030` is set
   (detection sets it to 1 every time, `0x600018c1`), +0x74 is 3 and the
@@ -860,6 +866,14 @@ instructions, 3,829 frames) and the code:
   `grTexMinAddress` is now 1,843,200 (above the three 640x480 buffers),
   so the budget (`about()` +0x70) is 16 MB − 8 − 2 × 1,843,200, 13,090,816
   bytes after rounding.
+- **With the extensions and the 16-byte `grTexMaxAddress`** (November
+  2026: the stand-in's Voodoo3 offers PALETTE6666 and TEXMIRROR, and
+  `grTexMaxAddress` is 16 MB − 16, docs/engines/glide.md): the same run,
+  3,829 frames, menus to the race with the cockpit, 297 s; the budget
+  13,090,800. The DLL's one `grTexDownloadTable` goes as the 6666 kind;
+  `grTexClampMode` was asked for wrap 4,942 times and clamp 1,655, never
+  mirror. The frames look as before (screenshots in the session's
+  scratch folder).
 
 ## The Glide stand-in
 

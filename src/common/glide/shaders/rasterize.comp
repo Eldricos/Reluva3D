@@ -43,6 +43,7 @@ const int sAlphaLighting = 10, sConstant = 11, sChromakey = 12, sChromaColor = 1
 const int sDepthMode = 16, sDepthFunc = 17, sDepthMask = 18, sDepthBias = 19, sColorMask = 20, sAlphaMask = 21;
 const int sDither = 22, sFogMode = 23, sFogColor = 24, sBlendRgbSrc = 25, sBlendRgbDst = 26, sBlendAlphaSrc = 27;
 const int sBlendAlphaDst = 28, sTexture = 29, sTmusUsed = 30, sAlphaBuffer = 31, sBlend = 32, sColorSlot = 33;
+const int sChromaRange = 34, sChromaRangeMax = 35, sChromaRangeMin = 52;
 const int sFogTable = 36; // 16 words, four entries each
 const int sTmu = 64, sTmuWords = 48;
 // Within a TMU's words.
@@ -167,9 +168,21 @@ float values[kParams];
 float gradX[kParams], gradY[kParams];
 bool derivatives;
 
+// A texel index wrapped (0), clamped (1) or mirrored (2: the texture, then
+// turned round; software_renderer.cpp's mirrorIndex).
+int texelIndex(uint mode, int i, int size) {
+    if (mode == 1u)
+        return clamp(i, 0, size - 1);
+    if (mode == 2u) {
+        const int m = i & (2 * size - 1);
+        return m < size ? m : 2 * size - 1 - m;
+    }
+    return i & (size - 1);
+}
+
 ivec4 fetch(int tmu, int ix, int iy, int w, int h, uint base) {
-    ix = T(tmu, tClampS) != 0u ? clamp(ix, 0, w - 1) : ix & (w - 1);
-    iy = T(tmu, tClampT) != 0u ? clamp(iy, 0, h - 1) : iy & (h - 1);
+    ix = texelIndex(T(tmu, tClampS), ix, w);
+    iy = texelIndex(T(tmu, tClampT), iy, h);
     const uint bytes = T(tmu, tBytes), mask = T(tmu, tMemMask), memBase = T(tmu, tMemBase);
     const uint at = base + uint(iy * w + ix) * bytes;
     uint raw = texByte(memBase + (at & mask));
@@ -357,8 +370,20 @@ void shade(int x, int row) {
     c.g = combineChannel(cf, ci, cl.g, co.g, al, combineFactor(cfac, cl.g, ao, al, texture.a, texture.g));
     c.b = combineChannel(cf, ci, cl.b, co.b, al, combineFactor(cfac, cl.b, ao, al, texture.a, texture.b));
     c.a = combineChannel(af, ai, al, ao, al, combineFactor(afac, al, ao, al, texture.a, texture.a));
-    if (S(sChromakey) != 0u && (uint(co.r) << 16 | uint(co.g) << 8 | uint(co.b)) == (S(sChromaColor) & 0xffffffu))
-        return;
+    if (S(sChromakey) != 0u) {
+        // The key, or with chroma ranging every component in its range
+        // (software_renderer.cpp's chromaKeyed).
+        if (S(sChromaRange) == 0u) {
+            if ((uint(co.r) << 16 | uint(co.g) << 8 | uint(co.b)) == (S(sChromaColor) & 0xffffffu))
+                return;
+        } else {
+            const uint lo = S(sChromaRangeMin), hi = S(sChromaRangeMax);
+            const ivec3 l = ivec3(int(lo >> 16 & 255u), int(lo >> 8 & 255u), int(lo & 255u));
+            const ivec3 u = ivec3(int(hi >> 16 & 255u), int(hi >> 8 & 255u), int(hi & 255u));
+            if (all(greaterThanEqual(co.rgb, l)) && all(lessThanEqual(co.rgb, u)))
+                return;
+        }
+    }
     if (!compareFn(SI(sAlphaTest), c.a, SI(sAlphaRef)))
         return;
     const int depthMode = SI(sDepthMode);

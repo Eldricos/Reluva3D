@@ -46,7 +46,7 @@ enum StateWord : int {
     sDepthMode = 16, sDepthFunc = 17, sDepthMask = 18, sDepthBias = 19, sColorMask = 20, sAlphaMask = 21,
     sDither = 22, sFogMode = 23, sFogColor = 24, sBlendRgbSrc = 25, sBlendRgbDst = 26, sBlendAlphaSrc = 27,
     sBlendAlphaDst = 28, sTexture = 29, sTmusUsed = 30, sAlphaBuffer = 31, sBlend = 32, sColorSlot = 33,
-    sFogTable = 36, sTmu = 64, sTmuWords = 48,
+    sChromaRange = 34, sChromaRangeMax = 35, sFogTable = 36, sChromaRangeMin = 52, sTmu = 64, sTmuWords = 48,
 };
 enum TmuWord : int {
     tValid = 0, tPerPixelLod = 1, tLodMin = 2, tLodMax = 3, tFormat = 4, tBytes = 5, tMemBase = 6,
@@ -300,6 +300,9 @@ uint32_t GpuRenderer::stateFor(Pipeline& p) {
     r[sConstant] = s.constantColor;
     r[sChromakey] = s.chromakey;
     r[sChromaColor] = s.chromakeyColor;
+    r[sChromaRange] = s.chromaRange;
+    r[sChromaRangeMin] = s.chromaRangeMin;
+    r[sChromaRangeMax] = s.chromaRangeMax;
     r[sAlphaTest] = uint32_t(s.alphaTest);
     r[sAlphaRef] = uint32_t(s.alphaRef);
     r[sDepthMode] = uint32_t(s.depthMode);
@@ -357,11 +360,12 @@ uint32_t GpuRenderer::stateFor(Pipeline& p) {
                           isTextureFactor(t.rgb.factor) || isTextureFactor(t.alpha.factor);
         m[tLodMin] = uint32_t(lodMin);
         m[tLodMax] = uint32_t(lodMax);
-        m[tFormat] = uint32_t(t.info.format);
+        const int format = p.textureFormat(i); // P_8 through the 6666 palette reads as format 6
+        m[tFormat] = uint32_t(format);
         m[tBytes] = uint32_t(texelBytes(t.info.format));
         m[tMemBase] = uint32_t(i) * tmuBytes_;
         m[tMemMask] = tmuBytes_ - 1;
-        if (usesTables(t.info.format)) {
+        if (usesTables(format)) {
             if (tableAt_[size_t(i)] < 0) {
                 tableAt_[size_t(i)] = int(tables_.size());
                 const uint32_t* pal = p.palette(i);
@@ -379,8 +383,9 @@ uint32_t GpuRenderer::stateFor(Pipeline& p) {
             m[tPalette] = uint32_t(tableAt_[size_t(i)]);
             m[tNcc] = uint32_t(tableAt_[size_t(i)]) + 256 + 40 * uint32_t(t.nccTable & 1);
         }
-        m[tClampS] = t.clampS;
-        m[tClampT] = t.clampT;
+        // 0 wrap, 1 clamp, 2 mirror (rasterize.comp's fetch).
+        m[tClampS] = t.clampS ? 1u : t.mirrorS ? 2u : 0u;
+        m[tClampT] = t.clampT ? 1u : t.mirrorT ? 2u : 0u;
         m[tMinFilter] = uint32_t(t.minFilter);
         m[tMagFilter] = uint32_t(t.magFilter);
         m[tMipmapMode] = uint32_t(t.mipmapMode);

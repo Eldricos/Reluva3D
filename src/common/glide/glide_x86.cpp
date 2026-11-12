@@ -133,6 +133,16 @@ void GlideDll::add(const std::string& name, int argBytes, Fn fn) {
     exports_[decorated] = cpu_.addNative(dllName_.substr(0, dllName_.find('.')) + " " + name, std::move(native));
 }
 
+uint32_t GlideDll::addProc(const std::string& name, int argBytes, Fn fn) {
+    const uint32_t pop = uint32_t(argBytes);
+    return cpu_.addNative(dllName_.substr(0, dllName_.find('.')) + " " + name,
+                          [this, name, fn = std::move(fn), pop](Cpu& c) {
+                              ++calls_[name];
+                              c.reg[Cpu::EAX] = fn(c);
+                              return pop;
+                          });
+}
+
 void GlideDll::stub(const std::string& name, int argBytes, uint32_t result) {
     stubs_.push_back(name);
     add(name, argBytes, [this, name, result](Cpu&) {

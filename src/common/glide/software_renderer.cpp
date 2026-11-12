@@ -31,6 +31,29 @@ inline int floorInt(float f) {
     return i - (f < float(i));
 }
 
+// A texel index mirrored (GR_TEXTURECLAMP_MIRROR_EXT): the texture, then
+// the texture turned round, and so on (Glide 3.0 Programming Guide, Figure
+// 13.2). `size` is a power of two. Reluva's reading: the index mirrored, so
+// that a bilinear sample at the seam takes the edge texel twice.
+inline int mirrorIndex(int i, int size) {
+    const int m = i & (2 * size - 1);
+    return m < size ? m : 2 * size - 1 - m;
+}
+
+// The chroma-key test on the colour combine's "other" colour: equal to the
+// key, or with chroma ranging on, every component within the range
+// (GR_CHROMARANGE_RGB_ALL_EXT: "If all components of the incoming pixel
+// color fall within their respective ranges, the chroma test succeeds and
+// the pixel is invalidated", Glide 3.0 Programming Guide, chapter 13).
+inline bool chromaKeyed(const State& s, const Rgba& c) {
+    if (!s.chromaRange)
+        return (uint32_t(c.r) << 16 | uint32_t(c.g) << 8 | uint32_t(c.b)) == (s.chromakeyColor & 0xffffff);
+    auto in = [&](int v, int shift) {
+        return v >= int(s.chromaRangeMin >> shift & 0xff) && v <= int(s.chromaRangeMax >> shift & 0xff);
+    };
+    return in(c.r, 16) && in(c.g, 8) && in(c.b, 0);
+}
+
 // Whether a combine function reads its "other" input, and its "local".
 bool usesOther(const CombineSettings& c) {
     return (c.function >= kFuncScaleOther && c.function <= kFuncScaleOtherMinusLocalAddLocalAlpha) ||
@@ -162,7 +185,7 @@ bool SoftwareRenderer::prepare(Pipeline& p, Setup& su) {
                         t.rgb.factor == kFactorOneMinusLodFraction || t.alpha.factor == kFactorOneMinusLodFraction ||
                         t.rgb.factor == kFactorTextureAlpha || t.alpha.factor == kFactorTextureAlpha ||
                         t.rgb.factor == kFactorOneMinusTextureAlpha || t.alpha.factor == kFactorOneMinusTextureAlpha;
-        m.format = t.info.format;
+        m.format = p.textureFormat(i); // P_8 through the 6666 palette reads as format 6
         m.bytes = texelBytes(t.info.format);
         m.mem = p.tmuMemory(i);
         m.memMask = p.tmuMemorySize() - 1; // a power of two
@@ -230,8 +253,8 @@ Rgba SoftwareRenderer::sampleTmu(Setup& su, int tmu, const Values& v, int x, int
     float u = ss * m.scale[level], vv = tt * m.scale[level];
     const uint32_t base = m.base[level];
     auto fetch = [&](int ix, int iy) {
-        ix = t.clampS ? std::clamp(ix, 0, w - 1) : ix & (w - 1);
-        iy = t.clampT ? std::clamp(iy, 0, h - 1) : iy & (h - 1);
+        ix = t.clampS ? std::clamp(ix, 0, w - 1) : t.mirrorS ? mirrorIndex(ix, w) : ix & (w - 1);
+        iy = t.clampT ? std::clamp(iy, 0, h - 1) : t.mirrorT ? mirrorIndex(iy, h) : iy & (h - 1);
         const uint32_t at = base + uint32_t(iy * w + ix) * uint32_t(m.bytes);
         const uint32_t raw =
             m.bytes == 2 ? uint32_t(m.mem[at & m.memMask] | m.mem[(at + 1) & m.memMask] << 8) : m.mem[at & m.memMask];
@@ -302,8 +325,7 @@ void SoftwareRenderer::shade(Setup& su, int x, int row, const Values& v) {
     } else {
         c = combinePixel(su.combine, iterated, texture, su.constant, z >> 8, &chromaOther);
     }
-    if (s.chromakey && (uint32_t(chromaOther.r) << 16 | uint32_t(chromaOther.g) << 8 | uint32_t(chromaOther.b)) ==
-                           (s.chromakeyColor & 0xffffff)) {
+    if (s.chromakey && chromaKeyed(s, chromaOther)) {
         ++stats.chromaFail;
         return;
     }

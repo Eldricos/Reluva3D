@@ -53,8 +53,12 @@ public:
     // written, 0 for a query not answered (Reference Manual, grGet).
     uint32_t get(uint32_t pname, uint32_t bytes, int32_t* out);
     // grGetString. The hardware name is what NFS III's Voodoo3 patch DLL
-    // compares against for each board (RE, docs/engines/glide.md).
+    // compares against for each board (RE, docs/engines/glide.md); the
+    // extensions the board's (Board::extensions).
     std::string getString(uint32_t pname) const;
+    // Whether grGetProcAddress gives `procName`: an extension's procedure
+    // (Reference Manual, grGetProcAddress's table) on a board with it.
+    bool offersProc(const std::string& procName) const;
     // grQueryResolutions: every configuration matching the template
     // (g3::kQueryAny for any value in a field).
     std::vector<Glide3Resolution> queryResolutions(const Glide3Resolution& query) const;
@@ -144,6 +148,11 @@ private:
     // Drawn after clipping against the view volume (clip coordinates),
     // anti-aliased if `aa`.
     void clipTriangle(const ClipVertex& a, const ClipVertex& b, const ClipVertex& c, bool aa);
+    // An anti-aliased convex polygon (a triangle, GR_POLYGON) clipped
+    // against the view volume and drawn as a fan with a fringe outside edge
+    // i (vertex i to i + 1) where edges[i] is set; the edges clipping makes
+    // have one too (docs/engines/glide.md, Clip coordinates).
+    void clipAaPolygon(std::vector<ClipVertex> polygon, std::vector<bool> edges);
     void clipLine(const ClipVertex& a, const ClipVertex& b, bool aa);
     void clipPoint(const ClipVertex& a, bool aa);
     static Glide2TexInfo toGlide2(const Glide3TexInfo& info);
