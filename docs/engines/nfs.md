@@ -1842,7 +1842,10 @@ README.md.
   those clips are this exe. The CD's `Patch/Voodoo3` folder holds a later
   `voodoo2a.dll` (1999-04-21, file version 1999.04.21.1112, 110,592
   bytes against the install's 1998-07-31 93,382) and a new
-  `3dSetup/3ddata.dat`, for Voodoo3 cards only; it isn't studied. The
+  `3dSetup/3ddata.dat`, for Voodoo3 cards only. The DLL runs on the
+  Glide 3 stand-in and draws without fog (Glide stand-in, above;
+  [thrash.md](../formats/nfs/thrash.md), The Voodoo3 patch's
+  voodoo2a.dll); `3ddata.dat` isn't studied. The
   Hot Pursuit clips found on YouTube (no release named) were taken
   for another release on two counts, the spike icon and the racer
   list. The user's own Hot Pursuit clips (`HP_Spikes`,
