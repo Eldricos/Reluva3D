@@ -14,6 +14,7 @@ delete each once its section is written.
 | [system.md](system.md) | A page in `systems/`: how part of the game behaves | Copied by hand |
 | [common.md](common.md) | A page in `docs/common/`: a shared component or format | Copied by hand |
 | [plan.md](plan.md) | `PLAN.md`, optional, while an engine or game is being built | Copied by hand |
+| [research-README.md](research-README.md) | `research/README.md`: the index of a folder of working notes | Copied by hand |
 
 **Placeholders.** In the engine templates, `@ENGINE@` and `@TITLE@` are
 the engine's id and name, filled in by `cmake/NewEngine.cmake`, so those

@@ -1,5 +1,8 @@
 # DEEP.EXE scene interpreter: run-time semantics
 
+> **Working notes**, kept as they were written; not a reference page. See
+> [README.md](README.md).
+
 All addresses are linear addresses (code object at 0x10000, data at 0x50000).
 In the disassembly, data operands show as `[0x2xxxx]`; add 0x50000 to get the real address
 (for example `[0x21098]` is 0x71098).

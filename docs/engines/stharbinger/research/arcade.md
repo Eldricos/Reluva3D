@@ -1,5 +1,8 @@
 # DEEP.EXE arcade ("action sequence") engine
 
+> **Working notes**, kept as they were written; not a reference page. See
+> [README.md](README.md).
+
 Confidence: H = read directly from code, M = strong inference, L = guess.
 Addresses are linear (code object at 0x10000, data at 0x50000). In hd.py output a data operand prints as
 `0x21xxx`; the fixup note (`->0007xxxx`) gives the real address, which is the one used here.

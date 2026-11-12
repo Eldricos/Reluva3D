@@ -1,5 +1,8 @@
 # ACTIONSEQ special functions (dispatcher 0x25027..0x25E46)
 
+> **Working notes**, kept as they were written; not a reference page. See
+> [README.md](README.md).
+
 Sources: full.asm / cv_aseq.asm, listings2/scenes (BRIDGE, BRIDGE2, HABITAT, HABRM1, MAZEA1..3, MAZEB1,
 MAZEC1, PROMBAR). Confidence H/M/L per item; guesses are marked (guess).
 

@@ -61,7 +61,7 @@ that engine and its games. Every engine's folder has the same layout:
 | `REVERSE_ENGINEERING.md` | How the facts were found: the sources, the methods, the tools. An engine ported from another project may also have a `PORTING.md` |
 | `formats/` | A page per file format: a file's layout, and how the game reads it |
 | `systems/` | A page per part of how the game behaves at run time: scripts, dialogue, the interface, saves, AI, network play |
-| `research/` | Working notes that the pages above are built from: address maps, notes read straight off the executable, notes from recordings |
+| `research/` | Working notes that the pages above are built from: address maps, notes read straight off the executable, notes from recordings. They keep the form they were written in, not a template; a `README.md` lists them and explains any marks they use, and each note says it's a working note at its top. Plain-text data files (an address list a tool reads) stay `.txt` |
 | `PLAN.md` | Optional, while it's being built: the plan, its phases and the decisions taken. Facts go on their pages as they're found |
 
 - **Every page starts from a template** in [templates/](templates/README.md),
@@ -94,7 +94,7 @@ that engine and its games. Every engine's folder has the same layout:
     `UNCONFIRMED.md`, under the heading of the same name.
   - A common page's default is in its "Sources and checks"; it marks
     exceptions the same way. `research/` notes keep their own marks, which
-    their engine's `REVERSE_ENGINEERING.md` explains.
+    their folder's `README.md` explains.
 - **The five pages** are made with the engine (`cmake/NewEngine.cmake`,
   from `templates/engine/`) and kept even while short.
 - **The three folders** are made when they get their first page.

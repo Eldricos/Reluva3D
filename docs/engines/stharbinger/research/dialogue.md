@@ -1,5 +1,8 @@
 # DEEP.EXE conversation (dialogue) system: run-time semantics
 
+> **Working notes**, kept as they were written; not a reference page. See
+> [README.md](README.md).
+
 Addresses are linear (code 0x10000.., data 0x50000..). In the disassembly, `[0x2xxxx]` = 0x7xxxx.
 Confidence: **H** read directly from code, **M** small inference gap, **L** guess.
 Working files (this folder): `dlg1.asm` (0x14424..0x14A8F), `dlg2.asm` (all dialogue command handlers 0x14A8F..0x16666),

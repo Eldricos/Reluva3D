@@ -1,5 +1,8 @@
 # DEEP.EXE game menu (Game_Setup) and save/load
 
+> **Working notes**, kept as they were written; not a reference page. See
+> [README.md](README.md).
+
 All addresses are linear addresses (code at 0x10000, data at 0x50000; a disassembly operand `0x2xxxx` is data `0x7xxxx`).
 Confidence: **H** = read directly from code, **M** = inferred with a small gap, **L** = guess.
 Dumps written for this note (same directory): `ms_save.asm` (0x1EA5D..0x20D54: Save_Game, Load_Saved_Game, Restore_*),

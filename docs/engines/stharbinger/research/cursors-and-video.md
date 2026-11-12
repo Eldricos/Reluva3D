@@ -1,5 +1,8 @@
 # DEEP.EXE: mouse cursors and Smacker video use
 
+> **Working notes**, kept as they were written; not a reference page. See
+> [README.md](README.md).
+
 Confidence: H = read directly from code, M = strong inference, L = guess.
 Addresses are linear addresses (code object at 0x10000, data at 0x50000).
 Helpers used: hd.py, fn.py (enclosing function), cvtab.py (dumps dwords with fixups).

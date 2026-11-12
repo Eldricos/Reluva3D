@@ -1,5 +1,8 @@
 # LEGO Alpha Team: speed, as it went
 
+> **Working notes**, kept as they were written; not a reference page. See
+> [README.md](README.md).
+
 - Speed, as it went (the latest at the end of this list), measured
   headless (frames given to the engine, a click past the demo). At first
   the menu at headquarters ran at about 17 frames a second on 4
