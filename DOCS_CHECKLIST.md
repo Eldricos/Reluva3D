@@ -227,14 +227,18 @@ in the game's README. If "Terms" lists are adopted, add the section to
 - [ ] awe's `systems/dialogue.md` has 10 *(inferred)* items. If any matters to
   how Reluva behaves, list it in `awe/games/motoe/UNCONFIRMED.md` under
   "Inferred".
-- [ ] `idtech3/formats/md3.md` says "all 1156 retail Elite Force models".
+- [x] `idtech3/formats/md3.md` says "all 1156 retail Elite Force models".
   `model-check` counts 790 models in 1.2 and 917 with the Expansion Pack
   (919 `.md3`/`.mdr` files in the paks); 1156 matches neither. Recount, and
   give the release.
-- [ ] The Expansion Pack's `models/mapobjects/scavenger/k_chair1.md3`
+  Done: `md3.md` gives 790 for 1.2 and 917 with the Expansion Pack.
+- [x] The Expansion Pack's `models/mapobjects/scavenger/k_chair1.md3`
   doesn't read in Reluva: its surface 1 has 0 frames, the model 1. Check
   whether the original draws it (and how) or never loads it, then make
   Reluva match and note it in `md3.md`.
+  Done: the original's loader doesn't check a surface's frame count, so it
+  loads the model; Reluva now reads it the same way (`md3.md`). Seeing the
+  chairs drawn is in `idtech3/games/stvef/TESTING.md`.
 - [ ] `idtech3/games/stvef/REVERSE_ENGINEERING.md` says Elite Force has
   1872 shaders; `shader-check` counts 1891 in 1.2 (as the game's README
   says) and 2059 with the Expansion Pack. Give the release with the count.

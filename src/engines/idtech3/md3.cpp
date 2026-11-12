@@ -120,13 +120,18 @@ Error parseMd3(const std::vector<uint8_t>& data, Md3Model& out) {
         Md3Surface surf;
         surf.name = sr.name(64);
         sr.i32(); // flags
-        const int32_t sFrames = sr.i32(), numShaders = sr.i32(), numVerts = sr.i32(), numTris = sr.i32();
+        // The surface's own frame count isn't used: as the original's loader
+        // (R_LoadMD3: 0x455d70 in 1.2's stvoy.exe, 0x451dc0 in the
+        // Expansion Pack's; the same in stvoyHM.exe), each surface has the
+        // model's frames. Nor is an end offset of 0 refused: the original
+        // steps on by it. The Expansion Pack's k_chair1.md3 has an empty
+        // surface with both (0 frames, every offset 0), and the original
+        // draws the chair.
+        sr.i32(); // frames
+        const int32_t numShaders = sr.i32(), numVerts = sr.i32(), numTris = sr.i32();
         const int32_t ofsTris = sr.i32(), ofsShaders = sr.i32(), ofsSt = sr.i32(), ofsXyz = sr.i32(),
                       ofsEnd = sr.i32();
-        if (sFrames != numFrames)
-            return Error::fail(where + " has " + std::to_string(sFrames) + " frames, the model " +
-                               std::to_string(numFrames));
-        if (numVerts < 0 || numTris < 0 || numShaders < 0 || ofsEnd <= 0 ||
+        if (numVerts < 0 || numTris < 0 || numShaders < 0 || ofsEnd < 0 ||
             !fits(data.size(), at + ofsShaders, numShaders, kShaderSize) ||
             !fits(data.size(), at + ofsTris, numTris, 12) || !fits(data.size(), at + ofsSt, numVerts, 8) ||
             !fits(data.size(), at + ofsXyz, int64_t(numVerts) * numFrames, 8) ||

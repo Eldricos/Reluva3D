@@ -82,6 +82,9 @@ save folder help.
      NPC file.
 3. **The holodeck missions** (the `_holodeck_*` maps).
    - Boothby should appear in the garden.
+   - The Warlord mission (`_holodeck_warlord`): its seven chairs should be
+     there. Their model, `k_chair1.md3`, has an empty second
+     surface that Reluva once refused ([md3.md](../../formats/md3.md)).
 4. **Saving and loading with the Expansion,** in the tour and in a
    mission, including autosaves.
 5. **The two kinds of save kept apart.** The Expansion's single player
