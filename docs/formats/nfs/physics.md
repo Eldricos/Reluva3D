@@ -499,8 +499,10 @@ Skipped before step 512 (the start) and for a car not in play (+0x89).
 
 1. `0x4a2260`: **downforce**, over 10 m/s on the road: velocity's up part
    (car frame) −= downforce (doubled for computer cars) × forward speed;
-   **in the air**, a drag by axis (0.006, 0.002, 0.004; traffic 0.006,
-   0.004, 0.004).
+   **in the air** (+0x164 set), a drag on x and z only: each less its
+   square × (0.006 |up's| + 0.004 |right's| + 0.002 |forward's| part
+   along it) / 32 (forward 0.004 for traffic), checked tick by tick in
+   `u1-a2`.
 2. `0x4a00d0` the road's height under the car (+0x158; the plane through
    the road point +0x148 with up +0x130, below), `0x4a21a0` a roof over the road, `0x4a0440` the lowest
    corner's height over the road (+0x15C, from the half sizes +0x114,
@@ -516,6 +518,12 @@ Skipped before step 512 (the start) and for a car not in play (+0x89).
    the body towards the road at most 0.5 turn/s) or landing (`0x4a1ce0`, below). Else in
    the air: +0x164 counts, spin kept within ±2.4 turns/s (`0x4a20c0`; the spin's unit, below
    at Rolls in the air).
+6. Before all that (`0x4a28a5`-`0x4a28cb`), +0x164 is set to 1 when
+   `0x49fde0` finds the body tipped (|+0x10C| at most 0.9) or the road
+   polygon's up y is under 0.6; then for a computer car `car_ai_physics`
+   runs nothing while it is upright (the model only with +0x164 0,
+   `0x4089d1`) and only the body's friction (`0x4aa8e7`, × 0.98 and ×
+   0.998 in the air) while tipped.
 
 **Landing** (`0x4a1ce0`): when the velocity (+0xA4) goes into the road
 (its dot with the road's normal is negative), `0x4a1210` finds a part
@@ -556,9 +564,14 @@ way (`0x4b7680`, weight 0.5) towards the frame at the point the car
 will reach next tick, so the zeroed up is not quite the world's: the
 −0.0009 left is that difference.
 
-`0x4a1210` tests twelve points of the body box (its corners and points
-at 0.75, 0.5 and 0.8 of the half sizes) against the road slices
-(`0x5dd948`). There is no suspension model: the car is a box on the
+`0x4a1210` tests eight points of the body box (the four bottom
+corners, two points at (∓0.75, 0.5, 0.8) of the half sizes and the two
+top corners at −0.8 of the half length; the loop stops at 8,
+`0x4a151a`, where twelve were read before), each against the road
+polygon under it, and pushes the car out with an impulse at each point
+under its polygon (`0x42ee10`); frd.md, The air ticks and the landing,
+has the details, the air's drag and gravity, and the checks against
+`r1-runs/u1`. There is no suspension model: the car is a box on the
 road's plane. The pitch and roll seen are the body's drawing (pitch
 roll factor, `0x4295b7`).
 

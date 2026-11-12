@@ -1778,6 +1778,114 @@ TrackCollision straightRoad(int points, uint8_t codes = 0x44) {
 }
 } // namespace
 
+// The computer's cars in the air and landing (car_dynamics 0x4a2830 with
+// +0x164 set, car_landing 0x4a1ce0, car_body_under_road 0x4a1210): on a
+// straight level road along z, the road's frame set as aiRoadFrame would.
+void testComputerAir() {
+    const TrackCollision col = straightRoad(60);
+    auto make = [&](float lift, const std::array<float, 3>& vel) {
+        AiCar c;
+        c.slice = c.velSlice = 20;
+        c.along = 0.5f;
+        c.halfWidth = 1.18f;
+        c.halfHeight = 0.74f;
+        c.halfLength = 2.41f;
+        c.mass = 1672;
+        c.sideKept = true;
+        c.roadRight = {1, 0, 0};
+        c.roadUp = {0, 1, 0};
+        c.roadForward = {0, 0, 1};
+        c.roadPoint = col.road[20].position;
+        c.roadRightSet = c.roadUpSet = true;
+        c.liftUp = c.roadUp;
+        c.liftPoint = c.roadPoint;
+        c.liftPlaneSet = true;
+        c.lift = lift;
+        c.airTicks = 1;
+        aiSetWorld(c, col, vel, {0, 0, 1});
+        return c;
+    };
+    // High in the air: gravity straight down (-0.3065625 a tick), the drag
+    // (x and z only: 20^2 x 0.002 x |forward z| / 32 off the speed along
+    // z), the air ticks count up and the spins are held to +-2.4.
+    {
+        AiCar c = make(3, {0, 0, 20});
+        aiSteerStep(c, col, 2);
+        CHECK(std::fabs(c.vel[1] + 0.3065625f) < 1e-6f && std::fabs(c.vel[2] - (20 - 400 * 0.002f / 32)) < 1e-4f &&
+              c.vel[0] == 0 && c.airTicks == 2);
+        AiCar spun = make(3, {0, 0, 20});
+        spun.yawRate = 3;
+        spun.spinX = -2.5f;
+        spun.spinZ = 1;
+        aiSteerStep(spun, col, 2);
+        CHECK(spun.yawRate == 2.4f && spun.spinX == -2.4f && spun.spinZ == 1);
+        // Moved down by the velocity / 64 each step: the clearance falls by
+        // the moves along the road's up.
+        aiSteerStep(c, col, 3);
+        aiSteerStep(c, col, 4);
+        CHECK(std::fabs(c.lift - (3 - 0.3065625f / 32)) < 0.01f && c.airTicks == 3);
+        // Within 0.6 of the road, falling, nothing under it yet: the air
+        // ticks stay and nothing but gravity and the drag acts.
+        AiCar low = make(0.5f, {0, -1, 20});
+        aiSteerStep(low, col, 2);
+        CHECK(low.airTicks == 1 && std::fabs(low.vel[1] + 1.3065625f) < 1e-5f);
+    }
+    // Landing flat, falling at 4 m/s, the box 2 cm into the road: the
+    // corners' impulses and the landing's x 0.6 take the speed into the
+    // road down, never round (no bounce), and with every spin under 0.6
+    // the air ticks end in the same tick; the on-road code takes the rest
+    // the next.
+    {
+        AiCar c = make(-0.02f, {0, -4, 20});
+        aiSteerStep(c, col, 2);
+        CHECK(c.airTicks == 0 && c.vel[1] < 0 && c.vel[1] > -4 && std::fabs(c.spinX) < 0.6f &&
+              std::fabs(c.yawRate) < 0.6f && std::fabs(c.spinZ) < 0.6f);
+        CHECK(std::fabs(c.vel[2] - 20) < 0.5f && std::fabs(c.lift) < 0.01f);
+        aiSteerStep(c, col, 3);
+        aiSteerStep(c, col, 4);
+        CHECK(c.airTicks == 0 && std::fabs(c.vel[1]) < 0.01f);
+        // Moving away from the road (the speed along its up 0.5 or more)
+        // it isn't over: no landing, the air ticks stay.
+        AiCar up = make(-0.02f, {0, 1.5f, 20});
+        aiSteerStep(up, col, 2);
+        CHECK(up.airTicks == 1 && std::fabs(up.vel[1] - (1.5f - 0.3065625f)) < 1e-5f);
+    }
+    // The Suspension Stiffness (carp field 64, P +0x2E0) sets the landing's
+    // scale 0.5 + 0.1 x it, kept within 0.5 and 0.7: a stiffer car keeps
+    // more of its speed into the road.
+    {
+        AiCar soft = make(-0.02f, {0, -4, 20}), stiff = soft;
+        soft.suspStiffness = 0;
+        stiff.suspStiffness = 5;
+        aiSteerStep(soft, col, 2);
+        aiSteerStep(stiff, col, 2);
+        CHECK(stiff.vel[1] < soft.vel[1] && soft.vel[1] < 0);
+        CHECK(std::fabs(stiff.vel[1] / soft.vel[1] - 0.7f / 0.5f) < 1e-3f);
+    }
+    // Tipped past 25 degrees on the road (+0x10C at most 0.9): put in the
+    // air (car_flat_or_roof 0x49fde0), and the landing doesn't end it.
+    {
+        AiCar c = make(0, {0, 0, 10});
+        c.airTicks = 0;
+        c.roll = 0.1f; // 36 degrees
+        aiSteerStep(c, col, 2);
+        CHECK(c.airTicks == 1);
+        for (int k = 3; k < 9; ++k)
+            aiSteerStep(c, col, k);
+        CHECK(c.airTicks >= 1);
+    }
+    // carp field 64 is read into the computer's data.
+    {
+        AiCarData d;
+        std::string carp;
+        for (int f = 0; f <= 76; ++f) {
+            carp += "field(" + std::to_string(f) + ")\n";
+            carp += f == 64 ? "1.5\n" : (f >= 67 && f <= 74 ? "1 1 1 1 1 1 1 1 1 1 1 1 1 1\n" : "1\n");
+        }
+        CHECK(parseCarpAi(carp, d) && d.suspStiffness == 1.5f);
+    }
+}
+
 void testComputerGears() {
     // ai_gear_rpm (0x4061b0), made-up gearbox: reverse, neutral and three
     // gears, shift delay 3, minimum 1000 rpm, redline 6000.
@@ -3762,18 +3870,18 @@ void testCarHits() {
     CHECK(back.reversing && back.reverseUntil == 140 && back.reverseCount == 2);
     aiReverseSet(back, 1, 0, 13);
     CHECK(!back.reversing && !back.reverseTimed);
-    // The roll a hit gives: in the air every spin x 0.6 a tick until all
-    // are under 0.6; on the road back towards flat at most 0.5 turn/s,
-    // and nothing once within 0.02.
+    // The roll a hit gives: in the air the body turns by it as it is (the
+    // landing, not aiTilt, ends the air ticks); on the road back towards
+    // flat at most 0.5 turn/s, and nothing once within 0.02.
     AiCar tilted;
     tilted.airTicks = 1;
     tilted.rollRate = 1.0f;
     aiTilt(tilted, 1); // odd: nothing
     CHECK(tilted.rollRate == 1.0f && tilted.roll == 0);
     aiTilt(tilted, 2);
-    CHECK(std::fabs(tilted.rollRate - 0.6f) < 1e-6f && tilted.airTicks == 1);
     aiTilt(tilted, 4);
-    CHECK(tilted.airTicks == 0 && std::fabs(tilted.roll - (0.6f + 0.36f) / 32) < 1e-6f);
+    CHECK(tilted.rollRate == 1.0f && tilted.airTicks == 1 && std::fabs(tilted.roll - 2.0f / 32) < 1e-6f);
+    tilted.airTicks = 0;
     tilted.roll = 0.125f; // 45 degrees: sin 0.707, held to 0.5
     aiTilt(tilted, 6);
     CHECK(tilted.rollRate == -0.5f && std::fabs(tilted.roll - (0.125f - 0.5f / 32)) < 1e-6f);
@@ -4208,8 +4316,10 @@ void testCarHits() {
         aiStep(one, 0, g, flat, go, 0, -1, false, AiPhase::Move);
         CHECK(one[0].speed > 30 && !one[0].braking);
     }
-    // Tipped (+0x10C under 0.9): no model, the body's friction (0x4aa8e7):
-    // the velocity along the road x 0.94, the skid levels 0.
+    // Tipped (+0x10C under 0.9): the dynamics put it in the air (+0x164 1,
+    // car_flat_or_roof 0x49fde0), and instead of the model the body's
+    // friction (0x4aa8e7) in the air: the velocity along the road x 0.98,
+    // the skid levels 0.
     {
         TrackCollision g = straightRoad(200);
         AiCar car;
@@ -4223,7 +4333,8 @@ void testCarHits() {
         car.skidFront = car.skidRear = 5;
         std::vector<AiCar> one{car};
         aiStep(one, 0, g, flat, go, 0, -1, false, AiPhase::Move);
-        CHECK(std::fabs(one[0].speed - 20 * 0.94f) < 0.02f && one[0].skidFront == 0 && one[0].skidRear == 0);
+        CHECK(std::fabs(one[0].speed - 20 * 0.98f) < 0.02f && one[0].skidFront == 0 && one[0].skidRear == 0 &&
+              one[0].airTicks == 1);
     }
     // Before the race's start (g_race_started) the car is held still; the
     // start's push (ai_ctl_slide 0x4082dc): 0.5 more side force and half of
@@ -4714,6 +4825,7 @@ int main() {
     testCarReflection();
     testLightEffects();
     testComputerGears();
+    testComputerAir();
     testComputerDriving();
     testComputerCatchUpAndCops();
     testComputerPursuits();

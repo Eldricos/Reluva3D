@@ -2168,8 +2168,11 @@ void TrackPage::carRows(ComputerCar& car) const {
         car.up = uu;
         car.right = rr;
     }
+    // Over the road by its clearance (+0x15C, aiModelSteer): over a crest,
+    // and in the air (aiLanding) up to metres.
+    const float height = cm.halfSize[1] + std::max(car.ai.lift, 0.0f);
     for (int k = 0; k < 3; ++k)
-        car.at[size_t(k)] = position[size_t(k)] + roadRight[size_t(k)] * side + normal[size_t(k)] * cm.halfSize[1];
+        car.at[size_t(k)] = position[size_t(k)] + roadRight[size_t(k)] * side + normal[size_t(k)] * height;
 }
 
 void TrackPage::dispatchCop() {
