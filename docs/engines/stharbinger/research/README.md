@@ -24,6 +24,7 @@ the engine.
 | [functions.txt](functions.txt) | Functions named from their own debug messages |
 | [handler-addresses.txt](handler-addresses.txt) | Names given to handler addresses (directive handlers and helpers); `exe-disasm` names them |
 | [file-references.txt](file-references.txt) | File names in the executable and the code that uses them |
+| [function-starts.txt](function-starts.txt) | The start address of each function found in the code; `fn.py` ([tools/stharbinger-re/](../../../../tools/stharbinger-re/README.md)) reads it |
 
 The `.txt` files are plain lists, one entry a line, not pages:
 `reluva-tool stharbinger exe-disasm` reads `handler-addresses.txt` as it is

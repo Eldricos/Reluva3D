@@ -31,6 +31,12 @@ some pictures may look banded.
   and applies the `dl=2` erase rule (stopped `clear` animations are erased too)
   for as long as the line plays. Mouths look the same; other animations may
   differ slightly in timing during speech.
+* **New saves' names.** A new save takes the first unused name
+  `00000000.ds9`, `00000001.ds9` and so on. The original's counter (0x213F4)
+  rolls its digits over oddly, going from `00000099.ds9` to `00001000.ds9`;
+  both read any eight-digit name, so saves move between them unchanged.
+* **The saves' order in the menu.** By name; the original lists them in the
+  order the folder gives them (DOS directory order, 0x218C6).
 
 ## Bugs fixed
 
@@ -38,6 +44,17 @@ some pictures may look banded.
   return point and then overwrites the value with fread's result, so a game
   saved inside a subroutine call is restored wrongly. This engine reads the
   u32 values the original writes (`game/game_save.cpp`, `loadGame`).
+* **DONEX and EMPTYX in saved games and across scenes.** The original's loader
+  (`Load_DoneXblock`, 0x20249) writes these dialogue redirections into an
+  empty slot and never stores their excluded reply, so they're lost on every
+  load, and on every scene change (when the dialogues are written out and read
+  back), until the dialogue sets them again *(inferred: the loss on a scene
+  change)*. This engine keeps them
+  (`game/game_save.cpp`, and the dialogues stay in memory).
+* **Out-of-range talking heads.** QUARK020 gives its talker the animation
+  4095, meaning none; the original would use it as an index past the end of
+  the scene's animations while Quark speaks *(inferred)*. Here a value outside the scene's
+  list means no animation (`game/game_dialogue.cpp`, `registerTalker`).
 * **Animation priorities in saved games.** A priority above 4 read from a save
   is lowered to 4. The original's renderer only draws levels 0..4, so such an
   animation would never be drawn or advanced there, and a script waiting for it

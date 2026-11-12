@@ -56,7 +56,14 @@ confidence marks.
 | `files`, `info`, `conversations` | The game's parts and files; what its data holds; every conversation played through | (`--info`, and a test) |
 
 `<game>` is anything the launcher takes: a CD, both CDs side by side, an
-install. `DEEP.EXE` is inside disc 1's `SSE/SSE.ALL`: `extract` unpacks it
+install.
+
+STDS9H's Python tools themselves are kept, as they were used, in
+[tools/stharbinger-re/](../../../tools/stharbinger-re/README.md), with three
+small helpers (`fn.py`, `cvtab.py`, `raw.py`). They also do what
+`reluva-tool` doesn't: the row statistics of every animation frame that the
+RLE layout was worked out from, extracting on several processes, and scripts
+listed from a bare `CC.ALL`. `DEEP.EXE` is inside disc 1's `SSE/SSE.ALL`: `extract` unpacks it
 (to `disc1/SSE/SSE/DEEP.EXE`).
 
 ## Working files not included
@@ -72,5 +79,6 @@ they reproduce the game's code or text:
   `reluva-tool stharbinger script` from the game's `CC.ALL` and `CCB.ALL`.
 - The string dumps and string tables of the executable (they include the
   credits): made with `reluva-tool stharbinger exe-strings`.
-- `fn.py`, `cvtab.py`, `raw.py`: small one-off helpers (find the enclosing
-  function, dump a table of dwords with fixups, decode raw `CC.ALL` data).
+- The notes' `fn.py`, `cvtab.py` and `raw.py` are in
+  [tools/stharbinger-re/](../../../tools/stharbinger-re/README.md), and `hd.py`
+  is `harbinger_disasm.py` there.

@@ -3,7 +3,8 @@
 Engine id `stharbinger`, in `src/engines/stharbinger/`. It runs *Star Trek:
 Deep Space Nine – Harbinger* (Viacom New Media, 1996, DOS, two CDs) from the
 player's own copy. It came to Reluva from STDS9H (the stand-alone engine for
-this game it was first written as), ported with its game logic as it was.
+this game it was first written as), ported with its game logic as it was
+([PORTING.md](PORTING.md)).
 
 ## Games
 
@@ -160,6 +161,7 @@ Reluva's now.
 | [KNOWN_DIFFERENCES.md](KNOWN_DIFFERENCES.md) | Where it knowingly differs from the original |
 | [UNCONFIRMED.md](UNCONFIRMED.md) | Details inferred or guessed from the executable |
 | [TESTING.md](TESTING.md) | The tests, and what has been checked on the real discs |
+| [PORTING.md](PORTING.md) | The port from STDS9H: where each part went, what changed, STDS9H's options as Reluva's settings, and STDS9H's history |
 
 ## Code
 
