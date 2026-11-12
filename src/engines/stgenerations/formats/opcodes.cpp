@@ -218,7 +218,7 @@ static const OpcodeInfo kOpcodes[kOpcodeCount] = {
     { "MAP_SET_LEVELS", 12, 0, 1, "three height bands; game.vt[0x3ec], fn 0x4443d6" },
     { "NATIVE_CB", 3, 0, 1, "obj.vt[0xd0], game.vt[0x294]" },
     { "NATIVE_CC", 1, 1, 1, "obj.vt[0xd4], game.vt[0x298]" },
-    { "NATIVE_CD", 3, 0, 1, "game.vt[0x424]" },
+    { "SET_FLAT_GROUPS", 3, 0, 1, "pop surface from below, surface from above, bottom: water; game.vt[0x424]" },
     { "NATIVE_CE", 3, 0, 1, "game.vt[0x428]" },
     { "STOP_ONE_SOUND", 2, 0, 1, "pop dword reference: stop the copy a handle names; fn 0x41f3e5" },
     { "SET_SOUND_VOLUME", 3, 0, 1, "pop sound (dword), volume; fn 0x41ed07" },

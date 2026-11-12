@@ -5,6 +5,7 @@
 
 #include <algorithm>
 #include <cmath>
+#include <cstring>
 
 #include "engines/stgenerations/audio.h"
 #include "engines/stgenerations/debug.h"
@@ -14,7 +15,7 @@ namespace reluva::stgenerations {
 
 namespace {
 
-// Not kPi: MSVC only has it with _USE_MATH_DEFINES.
+// Not M_PI: MSVC only has it with _USE_MATH_DEFINES.
 constexpr double kPi = 3.14159265358979323846;
 
 const char* const kArchive = "COMBAT.DAT";
@@ -35,6 +36,7 @@ const uint32_t kAvoidMillis = ticks(0x5AF);
 const uint32_t kEndingMillis = 15000;
 const uint32_t kLifeSupportMillis = 30000;
 const int kStars = 1500;
+const int kStreaks = 7;
 
 // PROCEED's place on each COMBATn.BMP (table 0x548618).
 const int kProceed[25][2] = {
@@ -128,6 +130,15 @@ struct SpaceCombat::Ship {
     // When the next point to run to may be picked (+0xE9C), and when a swerve ends (+0xEB0).
     uint32_t fleeAt = 0, avoidUntil = 0;
     int destroyedReported = 0;
+    // The model's largest extent (+0x30) and the mean of its three, which sizes the shields.
+    double size = 0, meanSize = 0;
+    // The shield hit's dome (+0xE60, SHIELD_c.3DV) and the shield facing sphere (+0x524, SHLD8k_c.3DV).
+    const Model3D* shieldModel = nullptr, *sphereModel = nullptr;
+    const std::vector<CombatMaterial>* shieldMaterials = nullptr, *sphereMaterials = nullptr;
+    // A shield hit showing (+0xE64): how long since, and towards what.
+    bool flashing = false;
+    uint32_t flashTime = 0;
+    Vec3 flashFrom;
 };
 
 SpaceCombat::SpaceCombat(const ResourceManager& resources, Mixer* mixer, RandomSource& random)
@@ -298,8 +309,24 @@ bool SpaceCombat::load(int mission) {
         Vec3 star((int)_random.getRandomNumber(2000) - 1000, (int)_random.getRandomNumber(2000) - 1000,
                   (int)_random.getRandomNumber(2000) - 1000);
         _stars.push_back(star.normalized());
+        _starTypes.push_back((int)_random.getRandomNumber(12));
     }
-    nextTarget(false);
+    for (int i = 0; i < kStreaks; i++)
+        _streaks.push_back(newStreak());
+    // 0x49461C: the nearest ship is the first target, and the Enterprise
+    // starts facing it, level; the mission file's heading for it is unused.
+    Ship& e = _ships[0];
+    _target = -1;
+    double nearest = 0;
+    for (size_t i = 1; i < _ships.size(); i++) {
+        double distance = (_ships[i].position - e.position).length();
+        if (isEnemyAlive(_ships[i]) && (_target < 0 || distance < nearest)) {
+            _target = (int)i;
+            nearest = distance;
+        }
+    }
+    if (_target > 0 && nearest > 0)
+        e.orientation = Mat3::lookAlong(_ships[_target].position - e.position);
     return true;
 }
 
@@ -337,11 +364,27 @@ void SpaceCombat::addShip(const MissionShip& line) {
     ship.materials = materials(std::string(type->model) + ".MTL");
     ship.lowModel = model(std::string(type->model) + ".3DR");
     ship.lowMaterials = materials(std::string(type->model) + ".MTR");
-    if (ship.model)
+    if (ship.model) {
         ship.radius = std::max(50.0f, ship.model->radius);
+        const float* e = ship.model->extent;
+        ship.size = std::max(e[0], std::max(e[1], e[2]));
+        ship.meanSize = (e[0] + e[1] + e[2]) / 3;
+    }
+    // Its shields (0x4A48DD): a copy of each model for every ship, named by
+    // its place in the mission, 1-9 then a-f.
+    int slot = (int)_ships.size() + 1;
+    char c = slot <= 9 ? (char)('0' + slot) : (char)('a' + slot - 10);
+    ship.shieldModel = model(text::format("SHIELD_%c.3DV", c));
+    ship.shieldMaterials = materials(text::format("SHIELD_%c.MTL", c));
+    if (ship.cls && ship.cls->shields > 0) {
+        ship.sphereModel = model(text::format("SHLD8%d_%c.3DV", ship.cls->shields == 4 ? 4 : 0, c));
+        ship.sphereMaterials = materials(text::format("SHLD8%d_0.MTL", ship.cls->shields));
+    }
     // The mission's (x, y, z) is east, north and altitude (0x4A36A4).
     ship.position = Vec3(line.x, line.z, line.y);
-    ship.orientation = Mat3::fromYawPitch(line.yaw * kPi / 180, line.pitch * kPi / 180);
+    // Headings turn from +y towards -x (90 faces -x): that way 66 of the 68
+    // enemies the missions start with face the Enterprise.
+    ship.orientation = Mat3::fromYawPitch(-line.yaw * kPi / 180, line.pitch * kPi / 180);
     ship.wave = line.wave;
     ship.hidden = line.wave > 1;
     ship.soran = line.ai == "soran" || line.ai == "soran9" ? 1 : line.ai == "quarash" ? 2 : 0;
@@ -415,6 +458,25 @@ void SpaceCombat::update(uint32_t ms) {
     updateWeapons(ms);
     for (Explosion& e : _explosions)
         e.time += ms;
+    // Shield hits run their animation, then end (0x497D2E); the
+    // Enterprise's at once, as it isn't seen.
+    for (size_t i = 0; i < _ships.size(); i++) {
+        Ship& ship = _ships[i];
+        if (!ship.flashing)
+            continue;
+        ship.flashTime += ms;
+        const SprAnimation* spr = sprite(text::format("%c_SHIELD.SPR", ship.effects == 'P' ? '_' : ship.effects));
+        if (i == 0 || !spr || ship.flashTime >= spr->frames.size() * spr->frameMillis)
+            ship.flashing = false;
+    }
+    // The streaming stars grow out from the middle with the speed, at the
+    // original's rate a frame taken as twenty frames a second.
+    const Ship& enterprise = _ships[0];
+    if (enterprise.cls && enterprise.cls->maxSpeed) {
+        double growth = std::pow(1 + enterprise.speed / enterprise.cls->maxSpeed * 0.075, dt * 20);
+        for (Streak& streak : _streaks)
+            streak.scale *= growth;
+    }
     _explosions.erase(std::remove_if(_explosions.begin(), _explosions.end(),
                                      [](const Explosion& e) {
                                          return !e.sprite || e.time >= e.sprite->frames.size() * e.sprite->frameMillis;
@@ -583,7 +645,7 @@ void SpaceCombat::updateHelm(double dt) {
         // By hand: the inputs follow the keys, and fall back when let go.
         double* inputs[3] = { &e.yawIn, &e.pitchIn, &e.rollIn };
         for (int i = 0; i < 3; i++) {
-            double want = _turnKeys[i];
+            double want = _steering && i < 2 ? _mouseTurn[i] : _turnKeys[i];
             double step = dt * (want != 0 ? 2.0 : 3.0);
             *inputs[i] += clamp1((want - *inputs[i]) / std::max(step, 1e-6)) * step;
             *inputs[i] = clamp1(*inputs[i]);
@@ -743,7 +805,7 @@ void SpaceCombat::updateWeapons(uint32_t ms) {
             if (beam.hit && beam.to < (int)_ships.size() && _ships[beam.to].alive && !_ships[beam.to].gone) {
                 const Ship& from = _ships[beam.from];
                 int aimed = beam.from == 0 ? _aimedSystem : from.aimed;
-                hit(beam.to, facing(_ships[beam.to], from.position), beam.damage, aimed);
+                hit(beam.to, facing(_ships[beam.to], from.position), beam.damage, aimed, from.position);
             }
         }
     }
@@ -762,14 +824,9 @@ void SpaceCombat::updateWeapons(uint32_t ms) {
             t.velocity = (t.velocity + (want - t.velocity) * std::min(1.0, dt * 2.5)).normalized() * speed;
             if (to.length() < target.radius + speed * dt) {
                 int owner = t.owner;
-                hit(t.target, facing(target, t.position), t.damage, owner == 0 ? _aimedSystem : _ships[owner].aimed);
-                Explosion e;
-                e.position = t.position;
-                e.size = 400;
-                e.time = 0;
-                e.sprite = sprite(text::format("%c_SHIELD.SPR", target.effects == 'P' ? '_' : target.effects));
-                if (e.sprite)
-                    _explosions.push_back(e);
+                // The torpedo is gone; the shield's flash is all that shows (0x49A3D1).
+                hit(t.target, facing(target, t.position), t.damage, owner == 0 ? _aimedSystem : _ships[owner].aimed,
+                    t.position);
                 t.life = 0;
                 continue;
             }
@@ -780,11 +837,98 @@ void SpaceCombat::updateWeapons(uint32_t ms) {
                      _torpedoes.end());
 }
 
-void SpaceCombat::hit(int index, int shield, double amount, int aimed) {
+void SpaceCombat::shieldHit(int index, const Vec3& from, int shield) {
+    // 0x497B99: the shield's dome takes the ship's ?_SHIELD.SPR as its
+    // texture and shows towards what hit it until the animation ends.
+    Ship& ship = _ships[index];
+    if (!ship.shieldModel)
+        return;
+    ship.flashing = true;
+    ship.flashTime = 0;
+    ship.flashFrom = from;
+    if (index == 0) {
+        jolt(index, shield);
+        playEffect(text::format("SHIELDS%d.WAV", 1 + (int)_random.getRandomNumber(2)));
+    } else {
+        playEffect("KSHIELD1.WAV");
+    }
+}
+
+void SpaceCombat::jolt(int index, int shield) {
+    // 0x497B00, for the Enterprise only: the screen shakes for 0x91 ticks;
+    // a shield more than four tenths gone also dims it, for longer the
+    // worse it is (0x47BC14).
+    if (index != 0 || shield < 1 || shield > 4)
+        return;
+    const Ship& ship = _ships[0];
+    _shakeUntil = _time + kShakeTicks * 1000 / kTicksPerSecond;
+    int max = ship.cls ? ship.cls->systems[shield].max : 0;
+    if (max <= 0)
+        return;
+    int tenths = (int)(ship.damage[shield] * 10) / max;
+    if (tenths > 4) {
+        _dimLength = (uint32_t)((tenths * 4 - 16) * 9 * 1000 / kTicksPerSecond);
+        _dimStart = _time;
+        if (!_dimLevel)
+            _dimLevel = -127;
+    }
+}
+
+void SpaceCombat::drawJolt(Canvas& screen) {
+    // Dimming: a level running from -127 to 127 over its time; the screen
+    // is a quarter as bright in the middle half of it, half at the ends.
+    if (_dimLevel) {
+        int half = std::max<int>(1, _dimLength / 2);
+        int level = (int)(((int)(_time - _dimStart) - half) * 127 / half);
+        if (level == 0)
+            level = 1;
+        _dimLevel = std::max(_dimLevel, level);
+        if (_dimLevel > 127) {
+            _dimLevel = 0;
+        } else {
+            int shift = 2 - std::abs(_dimLevel) * 2 / 127;
+            if (shift > 0) {
+                uint32_t mask = (0xFFu >> shift) * 0x010101u;
+                for (int y = 0; y < screen.h; y++) {
+                    uint32_t* row = (uint32_t*)screen.getBasePtr(0, y);
+                    for (int x = 0; x < screen.w; x++)
+                        row[x] = 0xFF000000u | ((row[x] >> shift) & mask);
+                }
+            }
+        }
+    }
+    // Shaking: every other frame the picture moves right by up to five and
+    // down by up to three pixels (0x4995D8's random 0..n).
+    if (_time < _shakeUntil) {
+        _shakeFrame = !_shakeFrame;
+        int dx = _shakeFrame ? 0 : (int)_random.getRandomNumber(5), dy = _shakeFrame ? 0 : (int)_random.getRandomNumber(3);
+        if (dx || dy) {
+            for (int y = screen.h - 1; y >= 0; y--) {
+                uint32_t* row = (uint32_t*)screen.getBasePtr(0, y);
+                if (y < dy) {
+                    std::fill(row, row + screen.w, 0xFF000000u);
+                    continue;
+                }
+                const uint32_t* src = (const uint32_t*)screen.getBasePtr(0, y - dy);
+                memmove(row + dx, src, (screen.w - dx) * sizeof(uint32_t));
+                std::fill(row, row + dx, 0xFF000000u);
+            }
+        }
+    }
+}
+
+void SpaceCombat::hit(int index, int shield, double amount, int aimed, const Vec3& from) {
     Ship& ship = _ships[index];
     if (!ship.alive || !ship.cls || _phase != kFight)
         return;
     const ShipClass& cls = *ship.cls;
+    // Before the damage (0x49A3D1, 0x49B6C5): a shield still up flashes,
+    // unless it is already; otherwise the Enterprise only shakes.
+    bool up = shield >= 1 && shield <= 4 && ship.damage[shield] != cls.systems[shield].max;
+    if (up && !ship.flashing)
+        shieldHit(index, from, shield);
+    else
+        jolt(index, shield);
     // The difficulty weighs on the Enterprise (0x4B08C3).
     if (index == 0)
         amount *= _difficulty == 0 ? 1.2 : _difficulty == 2 ? 0.85 : 1.0;
@@ -821,7 +965,6 @@ void SpaceCombat::hit(int index, int shield, double amount, int aimed) {
                 speak(kGone[shield]);
             else if (wasUp && ship.damage[shield] >= cls.systems[shield].max * 0.5)
                 speak(kHalf[shield]);
-            playEffect(text::format("SHIELDS%d.WAV", 1 + (int)_random.getRandomNumber(2)));
         } else if (down) {
             static const int kTheirs[5] = { 0, 0xFD, 0x100, 0xFF, 0xFE };
             speak(kTheirs[shield]);
@@ -900,6 +1043,7 @@ void SpaceCombat::destroy(int index) {
     e.size = std::max(400.0, ship.radius * 4);
     e.time = 0;
     e.sprite = sprite(text::format("%d_BOOM.SPR", 1 + (int)_random.getRandomNumber(4)));
+    e.ship = true;
     if (e.sprite)
         _explosions.push_back(e);
     playEffect(text::format("EXPLO%d.WAV", 1 + (int)_random.getRandomNumber(3)));
@@ -1039,137 +1183,143 @@ void SpaceCombat::keyDown(const KeyState& key) {
         return;
     }
     Helm before = _helm;
-    auto manual = [this]() {
-        // Flying by hand puts the helm on stand by (0x49557B).
-        if (_helm != kStandBy) {
-            _helm = kStandBy;
-            speak(0xB3);
-        }
-    };
-    switch (key.keycode) {
-    case reluva::key::Escape:
+    // Esc is the menu whatever the map says (0x47AF5B).
+    if (key.keycode == reluva::key::Escape) {
         _optionsRequest = true;
-        break;
-    case reluva::key::LShift:
-    case reluva::key::RShift:
-    case 'f':
-        if (_phasersOnline && !_phaserLockout) {
-            _phaserLockout = 1000;
-            speak(0xAD);
-            firePhasers(0);
-        }
-        break;
-    case reluva::key::Return:
-    case reluva::key::KpEnter:
-    case 'g':
-        if (_photonsOnline && !_photonLockout) {
-            _photonLockout = 1000;
-            speak(0xAE);
-            firePhotons(0);
-        }
-        break;
-    case reluva::key::Left:
-    case (reluva::key::Kp0 + 4):
-        manual();
-        _turnKeys[0] = -1;
-        break;
-    case reluva::key::Right:
-    case (reluva::key::Kp0 + 6):
-        manual();
-        _turnKeys[0] = 1;
-        break;
-    case reluva::key::Up:
-    case (reluva::key::Kp0 + 8):
-        manual();
-        _turnKeys[1] = -1; // dive, as a flight stick
-        break;
-    case reluva::key::Down:
-    case (reluva::key::Kp0 + 2):
-        manual();
-        _turnKeys[1] = 1;
-        break;
-    case reluva::key::LCtrl:
-    case reluva::key::RCtrl:
-    case 'q':
-        manual();
-        _turnKeys[2] = -1;
-        break;
-    case reluva::key::Kp0:
-    case 'e':
-        manual();
-        _turnKeys[2] = 1;
-        break;
-    case reluva::key::KpPlus:
-    case '=':
-        manual();
-        _speedKey = 1;
-        break;
-    case reluva::key::KpMinus:
-    case '-':
-        manual();
-        _speedKey = -1;
-        break;
-    case (reluva::key::Kp0 + 5):
-        _helm = kFullStop;
-        break;
-    case reluva::key::Tab:
-    case 't':
-        nextTarget(true);
-        break;
-    case 'v':
-        _enemyView = !_enemyView;
-        speak(_enemyView ? 0x12A : 0x129);
-        break;
-    default:
-        if (key.keycode >= '1' && key.keycode <= '7')
-            _helm = (Helm)(key.keycode - '1');
-        break;
+        return;
     }
-    if (_helm != before) {
-        speak(0xAF + _helm, true);
-        if (_helm == kMaintain && _target >= 0)
-            _keepRange = (_ships[_target].position - _ships[0].position).length();
-        if (_helm == kWarpOut) {
-            // Warp needs a fifth of the engines (0x4A53A1).
-            if (systemFraction(_ships[0], ShipClass::kEngines) >= 0.21) {
-                finish(kLost);
-            } else {
-                speak(0x9E, true);
-                _helm = kStandBy;
-            }
+    uint8_t action = _keys.get(KeyMap::virtualKey(key.keycode));
+    if (action != KeyMap::kNone) {
+        shipAction(action, true);
+    } else {
+        switch (key.keycode) {
+        case reluva::key::Tab:
+        case 't':
+            nextTarget(true);
+            break;
+        case 'v':
+            toggleEnemyView();
+            break;
+        default:
+            if (extraAction(key.keycode) >= 0)
+                shipAction(extraAction(key.keycode), true);
+            break;
+        }
+    }
+    helmChanged(before);
+}
+
+void SpaceCombat::helmChanged(Helm before) {
+    if (_helm == before)
+        return;
+    speak(0xAF + _helm, true);
+    if (_helm == kMaintain && _target >= 0)
+        _keepRange = (_ships[_target].position - _ships[0].position).length();
+    if (_helm == kWarpOut) {
+        // Warp needs a fifth of the engines (0x4A53A1).
+        if (systemFraction(_ships[0], ShipClass::kEngines) >= 0.21) {
+            finish(kLost);
+        } else {
+            speak(0x9E, true);
+            _helm = kStandBy;
         }
     }
 }
 
 void SpaceCombat::keyUp(const KeyState& key) {
-    switch (key.keycode) {
-    case reluva::key::Left:
-    case reluva::key::Right:
-    case (reluva::key::Kp0 + 4):
-    case (reluva::key::Kp0 + 6):
-        _turnKeys[0] = 0;
-        break;
-    case reluva::key::Up:
-    case reluva::key::Down:
-    case (reluva::key::Kp0 + 8):
-    case (reluva::key::Kp0 + 2):
-        _turnKeys[1] = 0;
-        break;
-    case reluva::key::LCtrl:
-    case reluva::key::RCtrl:
-    case reluva::key::Kp0:
+    uint8_t action = _keys.get(KeyMap::virtualKey(key.keycode));
+    if (action != KeyMap::kNone)
+        shipAction(action, false);
+    else if (extraAction(key.keycode) >= 0)
+        shipAction(extraAction(key.keycode), false);
+}
+
+void SpaceCombat::toggleEnemyView() {
+    _enemyView = !_enemyView;
+    speak(_enemyView ? 0x12A : 0x129);
+}
+
+void SpaceCombat::releaseKeys() {
+    _turnKeys[0] = _turnKeys[1] = _turnKeys[2] = 0;
+    _speedKey = 0;
+}
+
+int SpaceCombat::extraAction(uint32_t key) {
+    switch (key) {
+    case 'f':
+        return KeyMap::kShipPhasers;
+    case 'g':
+        return KeyMap::kShipPhotons;
     case 'q':
+        return KeyMap::kShipRollLeft;
     case 'e':
-        _turnKeys[2] = 0;
-        break;
-    case reluva::key::KpPlus:
-    case reluva::key::KpMinus:
+        return KeyMap::kShipRollRight;
     case '=':
+        return KeyMap::kShipFaster;
     case '-':
-        _speedKey = 0;
-        break;
+        return KeyMap::kShipSlower;
     default:
+        return -1;
+    }
+}
+
+void SpaceCombat::shipAction(int action, bool down) {
+    if (action >= KeyMap::kShipHelm && action <= KeyMap::kShipHelm + (int)kMaintainStatus) {
+        if (down)
+            _helm = (Helm)(action - KeyMap::kShipHelm);
+        return;
+    }
+    // The flight keys hold a rate while down; any of them takes the helm
+    // to Stand By (0x49557B).
+    int axis = -1, direction = 0;
+    switch (action) {
+    case KeyMap::kShipPhasers:
+        if (down && _phasersOnline && !_phaserLockout) {
+            _phaserLockout = 1000;
+            speak(0xAD);
+            firePhasers(0);
+        }
+        return;
+    case KeyMap::kShipPhotons:
+        if (down && _photonsOnline && !_photonLockout) {
+            _photonLockout = 1000;
+            speak(0xAE);
+            firePhotons(0);
+        }
+        return;
+    case KeyMap::kShipLeft:
+    case KeyMap::kShipRight:
+        axis = 0;
+        direction = action == KeyMap::kShipLeft ? -1 : 1;
         break;
+    case KeyMap::kShipDive:
+    case KeyMap::kShipClimb:
+        // Dive, as a flight stick, is up.
+        axis = 1;
+        direction = action == KeyMap::kShipDive ? -1 : 1;
+        break;
+    case KeyMap::kShipRollLeft:
+    case KeyMap::kShipRollRight:
+        axis = 2;
+        direction = action == KeyMap::kShipRollLeft ? -1 : 1;
+        break;
+    case KeyMap::kShipFaster:
+    case KeyMap::kShipSlower:
+        if (down) {
+            flyByHand();
+            _speedKey = action == KeyMap::kShipFaster ? 1 : -1;
+        } else {
+            _speedKey = 0;
+        }
+        return;
+    default:
+        return;
+    }
+    if (down) {
+        flyByHand();
+        _turnKeys[axis] = direction;
+    } else {
+        _turnKeys[axis] = 0;
     }
 }
 
@@ -1179,8 +1329,65 @@ bool SpaceCombat::takeOptionsRequest() {
     return request;
 }
 
+void SpaceCombat::moveSlider(Slider& slider, int y) {
+    slider.row = std::max(0, std::min(y - slider.slot.top, slider.slot.height() - 1));
+}
+
+void SpaceCombat::drawSlider(Canvas& screen, const Slider& slider) {
+    const Rect& slot = slider.slot;
+    int split = slot.top + slider.row;
+    Rect above(slot.left, slot.top, slot.right, split), below(slot.left, split, slot.right, slot.bottom);
+    drawImage(screen, image(slider.unlit), slot.left, slot.top, &above);
+    drawImage(screen, image(slider.lit), slot.left, slot.top, &below);
+}
+
+void SpaceCombat::mouseMove(int x, int y) {
+    if (_dragging)
+        moveSlider(*_dragging, y);
+    if (_steering)
+        steerByMouse(x, y);
+}
+
+void SpaceCombat::flyByHand() {
+    if (_helm != kStandBy) {
+        _helm = kStandBy;
+        speak(0xB3);
+    }
+}
+
+void SpaceCombat::steerByMouse(int x, int y) {
+    // 0x4AEFD4: (middle - mouse) * 100 / half the viewscreen hotspot,
+    // (0,0)-(639,249), for each axis. 0x4A6F7D takes the yaw rate down by
+    // x, turning left, and the pitch rate up by y, as Climb does: left of
+    // the middle turns left, above it climbs.
+    _mouseTurn[0] = clamp1((x - 319) / 319.0);
+    _mouseTurn[1] = clamp1((124 - y) / 124.0);
+}
+
 void SpaceCombat::mouseDown(int x, int y) {
     _pressed = -1;
+    for (Slider* slider : { &_viewSlider, &_radarSlider }) {
+        if (_phase == kFight && slider->slot.contains(x, y)) {
+            _dragging = slider;
+            moveSlider(*slider, y);
+            return;
+        }
+    }
+    // The display buttons at the panels' feet (hotspots 15, 16, 0x4AEC22).
+    for (int panel = 0; panel < 2; panel++) {
+        if (_phase == kFight && kViewButton[panel].contains(x, y)) {
+            _shieldView[panel] = !_shieldView[panel];
+            speak(_shieldView[panel] ? 0x12C : 0x12B, true);
+            return;
+        }
+    }
+    // Held on the viewscreen, the ship turns towards the mouse.
+    if (_phase == kFight && Rect(0, 0, 640, 250).contains(x, y)) {
+        flyByHand();
+        _steering = true;
+        steerByMouse(x, y);
+        return;
+    }
     if (_phase == kFight && Rect(202, 380, 307, 400).contains(x, y))
         _pressed = 0;
     else if (_phase == kFight && Rect(320, 380, 425, 400).contains(x, y))
@@ -1192,6 +1399,15 @@ void SpaceCombat::mouseDown(int x, int y) {
 void SpaceCombat::mouseUp(int x, int y) {
     int pressed = _pressed;
     _pressed = -1;
+    if (_dragging) {
+        _dragging = nullptr;
+        return;
+    }
+    if (_steering) {
+        _steering = false;
+        _mouseTurn[0] = _mouseTurn[1] = 0;
+        return;
+    }
     if (_phase == kBriefing) {
         if (Rect(_proceedX, _proceedY, _proceedX + 83, _proceedY + 19).contains(x, y)) {
             playEffect("PROCEED.WAV");
@@ -1204,13 +1420,10 @@ void SpaceCombat::mouseUp(int x, int y) {
     }
     if (_phase != kFight)
         return;
-    KeyState key;
     if (pressed == 0 && Rect(202, 380, 307, 400).contains(x, y)) {
-        key.keycode = 'f';
-        keyDown(key);
+        shipAction(KeyMap::kShipPhasers, true);
     } else if (pressed == 1 && Rect(320, 380, 425, 400).contains(x, y)) {
-        key.keycode = 'g';
-        keyDown(key);
+        shipAction(KeyMap::kShipPhotons, true);
     } else if (Rect(307, 380, 320, 400).contains(x, y)) {
         _phasersOnline = !_phasersOnline;
         speak(_phasersOnline ? 0x12D : 0x12E, true);
@@ -1220,16 +1433,16 @@ void SpaceCombat::mouseUp(int x, int y) {
     } else if (Rect(177, 317, 190, 343).contains(x, y)) {
         nextTarget(true);
     } else if (Rect(177, 344, 190, 372).contains(x, y)) {
-        key.keycode = 'v';
-        keyDown(key);
+        toggleEnemyView();
     } else if (_helmMenu && !kConnLine.contains(x, y)) {
         // The helm menu (CONNMNU0), a row each 20 pixels: let go over one to
         // give the order, anywhere else to put it away.
         _helmMenu = false;
         int row = (y - 319) / 20;
         if (Rect(472, 319, 639, 459).contains(x, y) && row >= 0 && row <= 6) {
-            key.keycode = (uint32_t)('1' + row);
-            keyDown(key);
+            Helm before = _helm;
+            shipAction(KeyMap::kShipHelm + row, true);
+            helmChanged(before);
         }
     } else if (Rect(1, 252, 175, 462).contains(x, y) && _target >= 0) {
         // The enemy's systems: aim at the next one (weapons .. cloak).
@@ -1314,26 +1527,172 @@ void SpaceCombat::drawBars(Canvas& screen, const Ship& ship, int x, int y) {
     }
 }
 
+int SpaceCombat::systemLook(const Ship& ship, int system) const {
+    // 0x49E232: the bright picture for a system that works, the dim one
+    // for one that is down or damaged, the red one for one destroyed.
+    if (!ship.cls || ship.cls->systems[system].max <= 0)
+        return 1;
+    double max = ship.cls->systems[system].max;
+    if (ship.damage[system] >= max)
+        return 2;
+    if (system <= 4)
+        return ship.energy[system] > 0 && ship.damage[system] <= 0 ? 0 : 1;
+    return ship.damage[system] > 0 ? 1 : 0;
+}
+
+void SpaceCombat::drawSchematic(Canvas& screen, const Ship& ship, int x, int y) {
+    // 0x49EAF6: S???_STR numbers each pixel with its system, 1-12; those
+    // take S???_0, _1 or _2 by that system's look, the rest S???_1.
+    std::string token = text::toUpper(ship.token);
+    const CombatImage* map = image(text::format("S%s_STR.RAS", token.c_str()));
+    const CombatImage* looks[3];
+    for (int k = 0; k < 3; k++)
+        looks[k] = image(text::format("S%s_%d.RAS", token.c_str(), k));
+    if (!map || !looks[0] || !looks[1] || !looks[2] || map->indices.size() != (size_t)map->w * map->h) {
+        drawImage(screen, looks[0], x, y);
+        return;
+    }
+    int look[13] = {};
+    for (int s = 1; s <= 12; s++)
+        look[s] = systemLook(ship, s);
+    for (int sy = 0; sy < map->h; sy++) {
+        int dy = y + sy;
+        if (dy < 0 || dy >= screen.h)
+            continue;
+        uint32_t* row = (uint32_t*)screen.getBasePtr(0, dy);
+        for (int sx = 0; sx < map->w; sx++) {
+            int dx = x + sx;
+            if (dx < 0 || dx >= screen.w)
+                continue;
+            uint8_t system = map->indices[(size_t)sy * map->w + sx];
+            const CombatImage* from = looks[system >= 1 && system <= 12 ? look[system] : 1];
+            if (sx >= from->w || sy >= from->h)
+                continue;
+            uint32_t c = from->get(sx, sy);
+            if (c >> 24)
+                row[dx] = c;
+        }
+    }
+}
+
+void SpaceCombat::drawShieldView(Canvas& screen, const Ship& ship, const Ship& other,
+                                 const Rect& panel) {
+    // 0x49F302 / 0x49F88F: below the bars (57 rows down) to row 461, a
+    // width a multiple of four; black, with the ship seen from three times
+    // its largest extent out towards the other, 60 degrees across.
+    int left = panel.left, top = panel.top + 57, w = panel.width() & ~3, h = 461 - top;
+    Rect area(left, top, left + w, top + h);
+    for (int y = area.top; y < area.bottom; y++) {
+        uint32_t* row = (uint32_t*)screen.getBasePtr(0, y);
+        std::fill(row + area.left, row + area.right, 0xFF000000u);
+    }
+    const Model3D* m = ship.model;
+    if (!m || !ship.materials)
+        return;
+    Vec3 towards = other.position - ship.position;
+    if (towards.length() < 1e-6)
+        towards = ship.orientation.forward;
+    Vec3 dir = towards.normalized();
+    Vec3 camPos = ship.position + dir * (ship.size * 3);
+    _panelRenderer.setViewport(w, h, 60);
+    _panelRenderer.setCamera(camPos, Mat3::lookAlong(dir * -1.0, ship.orientation.up));
+    _panelRenderer.begin(screen, left, top);
+    _panelRenderer.drawModel(*m, *ship.materials, [this](const std::string& name) { return texture(name); },
+                             ship.position, ship.orientation);
+    // Round it the shield sphere (0x49FC1E), a colour to each facing,
+    // sized 0.8 of the ship's largest extent per 100 units (0x4A3BB4).
+    if (ship.sphereModel && ship.sphereMaterials)
+        _panelRenderer.drawModel(*ship.sphereModel, *ship.sphereMaterials,
+                                 [](const std::string&) { return (const CombatImage*)nullptr; }, ship.position,
+                                 ship.orientation, ship.size * 0.8 / 100);
+}
+
+void SpaceCombat::drawStar(int x, int y, int type) {
+    // 0x4AE2BF: by type, a cross, a single dim pixel, an X, a plus, two
+    // bars; the rest one pixel that flickers between two colours.
+    struct Dot {
+        int dx, dy;
+        uint8_t colour;
+    };
+    static const std::vector<Dot> kShapes[8] = {
+        {},
+        { { 0, 0, 0x87 }, { -1, 0, 0x84 }, { 1, 0, 0x84 }, { -2, 0, 0x82 }, { 2, 0, 0x82 }, { 0, 1, 0x82 }, { 0, -1, 0x82 } },
+        {},
+        { { 0, 0, 0xA9 } },
+        { { 0, 0, 0x84 }, { -1, -1, 0x82 }, { 1, -1, 0x82 }, { -1, 1, 0x82 }, { 1, 1, 0x82 } },
+        { { 0, 0, 0x84 }, { -1, 0, 0x82 }, { 1, 0, 0x82 }, { 0, 1, 0x82 }, { 0, -1, 0x82 } },
+        { { 0, 0, 0x84 }, { -1, 0, 0x82 }, { 1, 0, 0x82 } },
+        { { 0, 0, 0x84 }, { -1, 0, 0x87 }, { 1, 0, 0x87 } }
+    };
+    if (type >= 1 && type <= 7 && type != 2) {
+        for (const Dot& dot : kShapes[type])
+            _renderer.plot(x + dot.dx, y + dot.dy, _palette[dot.colour]);
+        return;
+    }
+    // One time in eight the brighter one, as the original's roll; a hash
+    // rather than the game's dice, which the fight's rolls use.
+    uint32_t roll = (uint32_t)x * 73856093u ^ (uint32_t)y * 19349663u ^ _frames * 83492791u;
+    _renderer.plot(x, y, _palette[(roll >> 7) % 8 ? 0x84 : 0x87]);
+}
+
+SpaceCombat::Streak SpaceCombat::newStreak() {
+    Streak streak;
+    streak.x = (int)_random.getRandomNumber(1903) - 952;
+    streak.y = (int)_random.getRandomNumber(1903) - 952;
+    streak.scale = 1;
+    streak.type = (int)_random.getRandomNumber(12);
+    return streak;
+}
+
 void SpaceCombat::drawRadar(Canvas& screen) {
-    // Top down round the Enterprise, which faces up the screen.
-    const int cx = 321, cy = 323;
-    drawImage(screen, image("RADARM.RAS"), cx - 102, cy - 48);
+    // 0x4AB102 / 0x4AB5C1: round the Enterprise, which faces up the
+    // screen. Each ship sits on the plane (sideways 102 pixels and ahead
+    // 24 pixels to the range) on a stalk as tall as its height (24 pixels
+    // to the range): white with the marker on top if level or above, red
+    // with it at the foot if below.
+    const int cx = 321, cy = 320;
+    // Half the plane's width, a row at a time out from the middle (0x54F750).
+    static const int kHalfWidth[19] = { 102, 102, 102, 102, 101, 101, 100, 99, 98, 97,
+                                        96, 94, 92, 90, 87, 85, 81, 78, 75 };
+    drawImage(screen, image("RADARM.RAS"), cx - 102, 323 - 48);
     const Ship& e = _ships[0];
-    double range = 40000;
+    double range = getRadarRange();
     for (size_t i = 0; i < _ships.size(); i++) {
         const Ship& s = _ships[i];
         if (!isEnemyAlive(s) && i != 0)
             continue;
         Vec3 local = e.orientation.inverse(s.position - e.position);
-        int x = cx + (int)(local.x / range * 100), y = cy - (int)(local.z / range * 46);
-        if (x < 196 || x > 444 || y < 255 || y > 372)
+        if (std::fabs(local.x) > range || std::fabs(local.y) > range || std::fabs(local.z) > range)
             continue;
+        int across = (int)(local.x * 102 / range), ahead = (int)(local.z * 24 / range);
+        int height = (int)(local.y * 24 / range);
+        int x = cx + across, foot = cy - ahead, tip = foot - height;
+        int top = std::min(foot, tip), bottom = std::max(foot, tip);
+        if (std::abs(across) > 96 || std::abs(ahead) > 18 || top < 280 || bottom > 360 ||
+            across < -kHalfWidth[std::abs(ahead)] || across > kHalfWidth[std::abs(ahead)] - 5)
+            continue;
+        uint32_t stalk = height < 0 ? 0xFFFF0000u : 0xFFFFFFFFu;
+        for (int y = top; y <= bottom; y++)
+            *(uint32_t*)screen.getBasePtr(x, y) = stalk;
         std::string token = text::toUpper(s.token);
         const CombatImage* blip = image(text::format("S%sMAP%s.RAS", token.c_str(), (int)i == _target ? "H" : ""));
         if (!blip)
             blip = image(text::format("S%sMAP.RAS", token.c_str()));
         if (blip)
-            drawImage(screen, blip, x - blip->w / 2, y - blip->h / 2);
+            drawImage(screen, blip, x - 5, (height < 0 ? bottom : top) - 5);
+    }
+    // A ship blowing up shows as an explosion, flashing (0x4AB6DA: SEXP1
+    // and SEXP2 by turns, a pixel further right as they are 9 wide).
+    for (const Explosion& boom : _explosions) {
+        if (!boom.ship)
+            continue;
+        Vec3 local = e.orientation.inverse(boom.position - e.position);
+        if (std::fabs(local.x) > range || std::fabs(local.y) > range || std::fabs(local.z) > range)
+            continue;
+        int x = cx + (int)(local.x * 102 / range), y = cy - (int)(local.z * 24 / range) - (int)(local.y * 24 / range);
+        if (x < 219 || x > 423 || y < 280 || y > 360)
+            continue;
+        drawImage(screen, image(_frames & 1 ? "SEXP2.RAS" : "SEXP1.RAS"), x - 4, y - 5);
     }
     if (_target >= 0 && _target < (int)_ships.size())
         drawText(screen, text::format("RANGE: %6.0f", (_ships[_target].position - e.position).length()), 209, 365, true);
@@ -1341,18 +1700,21 @@ void SpaceCombat::drawRadar(Canvas& screen) {
 
 void SpaceCombat::drawView(Canvas& screen) {
     const Ship& e = _ships[0];
-    // The camera: behind the Enterprise, or on the line to the target.
+    // The camera sits out along its own line of sight from the Enterprise,
+    // so the Enterprise itself is never in view.
     Vec3 camPos;
     Mat3 camRot;
     if (_enemyView && _target >= 0 && isEnemyAlive(_ships[_target])) {
+        // 0x4A1E85: one radius out towards the target, looking at it, the
+        // Enterprise's up kept.
         Vec3 dir = (_ships[_target].position - e.position).normalized();
-        camPos = e.position - dir * (e.radius * 3) + e.orientation.up * (e.radius * 0.6);
-        camRot = Mat3::lookAlong(_ships[_target].position - camPos, e.orientation.up);
+        camPos = e.position + dir * (e.radius + getViewZoom() * 600.0);
+        camRot = Mat3::lookAlong(dir, e.orientation.up);
     } else {
         // 0x4A0D13: two of its radii out along its axis, ahead of it, so the
         // Enterprise itself is out of sight.
         camRot = e.orientation;
-        camPos = e.position + e.orientation.forward * (e.radius * 2);
+        camPos = e.position + e.orientation.forward * (e.radius * 2 + getViewZoom() * 600.0);
     }
     _renderer.setCamera(camPos, camRot);
     Rect view(kViewX, kViewY, kViewX + kViewW, kViewY + kViewH);
@@ -1362,20 +1724,35 @@ void SpaceCombat::drawView(Canvas& screen) {
     }
     _renderer.begin(screen, kViewX, kViewY);
 
-    // The stars, far away: only the camera's turn moves them.
+    // The stars, far away: only the camera's turn moves them, and the
+    // zoom spreads them from the centre (0x4ADC6A).
+    double spread = _renderer.getFocal() * (1 + getViewZoom() / 30.0);
     for (const Vec3& star : _stars) {
         Vec3 local = camRot.inverse(star);
         if (local.z <= 0.05)
             continue;
-        int x = (int)(kViewW / 2.0 + _renderer.getFocal() * local.x / local.z);
-        int y = (int)(kViewH / 2.0 - _renderer.getFocal() * local.y / local.z);
-        _renderer.plot(x, y, (int)(std::fabs(star.x) * 1000) % 3 ? 0xFF9090A0u : 0xFFE0E0FFu);
+        int x = (int)(kViewW / 2.0 + spread * local.x / local.z);
+        int y = (int)(kViewH / 2.0 - spread * local.y / local.z);
+        drawStar(x, y, _starTypes[&star - &_stars[0]]);
     }
+    // The streaming stars, started again once out of the view, or back in
+    // the middle when going astern.
+    for (Streak& streak : _streaks) {
+        int x = (int)(kViewW / 2.0 + streak.x * streak.scale * (1 + getViewZoom() / 30.0));
+        int y = (int)(kViewH / 2.0 + streak.y * streak.scale * (1 + getViewZoom() / 30.0));
+        bool middle = streak.scale < 1 && std::abs(x - kViewW / 2) < 30 && std::abs(y - kViewH / 2) < 30;
+        if (x < 4 || x >= kViewW - 4 || y < 4 || y >= kViewH - 4 || middle) {
+            streak = newStreak();
+            continue;
+        }
+        drawStar(x, y, streak.type);
+    }
+    _frames++;
 
     auto lookup = [this](const std::string& name) { return texture(name); };
     for (size_t i = 0; i < _ships.size(); i++) {
         const Ship& s = _ships[i];
-        if (!s.alive || s.hidden || s.gone || (i == 0 && !_enemyView))
+        if (!s.alive || s.hidden || s.gone || i == 0)
             continue;
         double distance = (s.position - camPos).length();
         // The detailed model near, the rough one further off (0x54E5D8).
@@ -1421,6 +1798,28 @@ void SpaceCombat::drawView(Canvas& screen) {
                                 },
                                 true);
     }
+    // Shield hits (0x497D2E): the dome twice the ship's size out from its
+    // middle towards what hit it, facing that way, sized by the ship (the
+    // model fits the Enterprise, whose sizes average 412.667) and textured
+    // with the ship's shield animation.
+    for (size_t i = 1; i < _ships.size(); i++) {
+        const Ship& s = _ships[i];
+        if (!s.flashing || !s.alive || s.hidden || s.gone || !s.shieldModel || !s.shieldMaterials)
+            continue;
+        const SprAnimation* spr = sprite(text::format("%c_SHIELD.SPR", s.effects == 'P' ? '_' : s.effects));
+        if (!spr || spr->frames.empty())
+            continue;
+        const std::vector<uint8_t>& frame = spr->frames[std::min(spr->frames.size() - 1, (size_t)(s.flashTime / spr->frameMillis))];
+        _flashImage.w = spr->w;
+        _flashImage.h = spr->h;
+        _flashImage.pixels.resize(frame.size());
+        for (size_t p = 0; p < frame.size(); p++)
+            _flashImage.pixels[p] = frame[p] ? _palette[frame[p]] : 0xFF000000u;
+        Vec3 towards = (s.flashFrom - s.position).normalized();
+        _renderer.drawModel(*s.shieldModel, *s.shieldMaterials,
+                            [this](const std::string&) { return &_flashImage; }, s.position + towards * (s.size * 2),
+                            Mat3::lookAlong(towards), s.meanSize / 412.667);
+    }
     for (const Explosion& e2 : _explosions) {
         const SprAnimation* spr = e2.sprite;
         if (!spr || spr->frames.empty())
@@ -1440,26 +1839,27 @@ void SpaceCombat::drawConsole(Canvas& screen) {
     drawImage(screen, image("COMBAT.RAS"), 0, 0);
     const Ship& e = _ships[0];
 
-    // Left, the target; right, the Enterprise and the helm menu.
-    auto state = [](const Ship& s) {
-        int destroyed = 0;
-        if (s.cls)
-            for (int k = ShipClass::kWeapons; k <= ShipClass::kCloak; k++)
-                destroyed += s.cls->systems[k].max > 0 && s.damage[k] >= s.cls->systems[k].max;
-        return destroyed == 0 ? 0 : destroyed < 3 ? 1 : 2;
-    };
+    // Left, the target; right, the Enterprise and the helm menu. Each
+    // shows its system display, or its shield facing display below the
+    // bars (hotspots 1 and 0).
+    const Rect kPanel[2] = { Rect(472, 252, 629, 462), Rect(1, 252, 175, 462) };
     if (_target >= 0 && _target < (int)_ships.size() && isEnemyAlive(_ships[_target])) {
         const Ship& t = _ships[_target];
-        std::string token = text::toUpper(t.token);
         if (systemFraction(e, ShipClass::kSensors) <= 0) {
             drawImage(screen, image(text::format("STATIC%d.RAS", 1 + (int)(_time / 100) % 3)), 0, 252);
         } else {
-            drawImage(screen, image(text::format("S%s_%d.RAS", token.c_str(), state(t))), 0, 252);
+            drawSchematic(screen, t, 0, 252);
             drawBars(screen, t, 0, 252);
+            if (_shieldView[1])
+                drawShieldView(screen, t, e, kPanel[1]);
         }
     }
-    drawImage(screen, image(text::format("SENT_%d.RAS", state(e))), 466, 255);
+    drawSchematic(screen, e, 466, 255);
     drawBars(screen, e, 466, 255);
+    if (_shieldView[0] && _target >= 0 && isEnemyAlive(_ships[_target]))
+        drawShieldView(screen, e, _ships[_target], kPanel[0]);
+    drawImage(screen, image(_shieldView[1] ? "BSCANLF.RAS" : "BSCANLN.RAS"), 174, 435);
+    drawImage(screen, image(_shieldView[0] ? "BSCANRF.RAS" : "BSCANRN.RAS"), 449, 435);
     // The helm menu, while it is called up from the CONN line (0x4AECC6).
     const CombatImage* menu = image("CONNMNU0.RAS"), *lit = image("CONNMNU1.RAS");
     if (_helmMenu) {
@@ -1491,6 +1891,8 @@ void SpaceCombat::drawConsole(Canvas& screen) {
     drawImage(screen, image(_phasersOnline ? "BPHASERN.RAS" : "BPHASERF.RAS"), 307, 380);
     drawImage(screen, image(_photonsOnline ? "BPHOTONN.RAS" : "BPHOTONF.RAS"), 425, 380);
     drawImage(screen, image(_enemyView ? "BENEMYN.RAS" : "BENEMYF.RAS"), 174, 344);
+    drawSlider(screen, _viewSlider);
+    drawSlider(screen, _radarSlider);
 
     // The tubes, and the torpedoes left.
     if (e.cls) {
@@ -1498,7 +1900,16 @@ void SpaceCombat::drawConsole(Canvas& screen) {
             bool loaded = e.loaded[t] > 0;
             drawImage(screen, image(loaded ? "TUBEBLUE.RAS" : "TUBERED.RAS"), t == 0 ? 321 : 399, 402);
         }
-        drawText(screen, text::format("%3d", e.stock + e.loaded[0] + e.loaded[1]), 362, 410);
+        // In 0-9BIG's digits, 6 x 20 a cell, 8 apart (font 1, 0x49E01B).
+        const CombatImage* digits = image("0-9BIG.RAS");
+        std::string count = text::format("%3d", e.stock + e.loaded[0] + e.loaded[1]);
+        for (size_t c = 0; digits && c < count.size(); c++) {
+            if (count[c] < '0' || count[c] > '9')
+                continue;
+            int digit = count[c] - '0', x = 369 + 8 * (int)c;
+            Rect cell(x, 408, x + 6, 428);
+            drawImage(screen, digits, x, 408 - 20 * digit, &cell);
+        }
         // The phasers' charge.
         const CombatImage* meter = image("PHASERPW.RAS");
         if (meter) {
@@ -1541,6 +1952,7 @@ void SpaceCombat::draw(Canvas& screen) {
     }
     drawView(screen);
     drawConsole(screen);
+    drawJolt(screen);
 }
 
 } // namespace reluva::stgenerations

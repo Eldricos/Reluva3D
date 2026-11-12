@@ -38,6 +38,7 @@ reluva_add_engine(stgenerations
         game/helditem.cpp
         game/hud.cpp
         game/hudscreen.cpp
+        game/keymap.cpp
         game/mission.cpp
         game/movers.cpp
         game/optionsmenu.cpp

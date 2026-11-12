@@ -55,6 +55,19 @@ of your own there.
   ending.
 - **The unconfirmed details** ([UNCONFIRMED.md](UNCONFIRMED.md)), against
   the original.
+- **The Controls screen:** the defaults match the original's; a key
+  clicked into a box moves there from any other action, and the old key
+  stops working; Accept keeps it after a restart, Cancel drops it; Mouse
+  Look takes only the left or right button. In a mission Shift runs, and
+  holding the right button turns and tilts the view towards the mouse
+  (with Lookspring on, letting go levels it). Changed keys work in space
+  combat too.
+- **Space combat:** a save made in a fight (the Save panel reads "Save game
+  at start of current encounter") starts that fight again; a hit on an
+  enemy's shields flashes on its side towards the shot; hits on the
+  Enterprise shake the screen, and dim it once a shield is badly hurt; the
+  shield facing display shows each ship inside its coloured sphere; the
+  viewscreen and radar sliders zoom and set the range.
 - **Other systems:** Windows and macOS, a real sound card, a high-density screen (the
   pointer's second picture).
 - **Other releases:** no other language or build has been seen.

@@ -275,7 +275,7 @@ public:
     // SHOW_VIEW_OVERLAY (0xB8): an .OVR over the view, and its frame; no image for none.
     struct ViewOverlay {
         std::string image;
-        // How it is drawn (0x409DDC): 1 centred, 2 row by row; 0 not at all.
+        // How it is drawn (0x409DDC): 1 or 2, centred (they differ only for a picture wider than the view); else not at all.
         int mode = 0;
     };
     const ViewOverlay& getViewOverlay() const { return _viewOverlay; }

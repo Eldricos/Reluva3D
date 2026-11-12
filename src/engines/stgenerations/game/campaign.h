@@ -102,8 +102,13 @@ public:
     bool isRunning() const { return _running; }
     // The section running, for saved games.
     const std::string& getSection() const { return _section; }
-    // Start the section again from its first line, as loading a game does (0x419703).
+    // Start the section again from its first line, as loading a game does
+    // (0x419703); or, if it was saved in a space combat, that combat again
+    // from its start, the original's "save game at start of current
+    // encounter".
     void restartSection();
+    // The space combat being fought, or 0.
+    int getCombat() const { return _combat; }
 
     bool getFlag(int flag) const { return _flags.count(flag) != 0; }
     void setFlag(int flag, bool value);
@@ -140,6 +145,8 @@ private:
     std::string _wonSection, _lostSection;
     int _mission = 0;
     int _combat = 0;
+    // Set by restartSection() in a combat: next() starts it again.
+    bool _replayCombat = false;
     bool _clue = false;
     // The states the bridge's context button leads to.
     std::string _onTransport, _onTactical;

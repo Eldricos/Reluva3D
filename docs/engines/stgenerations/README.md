@@ -69,8 +69,12 @@ branching on whether its objectives were met, through to one of the endings
 and the credits. **Esc** in a mission, or **OPTIONS** on the bridge, opens
 the menu: Load, Save (nine slots plus the automatic save the story makes),
 New, Quit (the credits, then back to the launcher), Settings (effects and
-music volume, difficulty, subtitles) and Controls (the keys, which can't be
-changed yet).
+music volume, difficulty, subtitles; the window size is shown dimmed, as the
+view is always the large one) and Controls (the keys: click a box and press
+the key or mouse button for it, or Esc to give up; each action can have two,
+on the away and starship pages, and Lookspring levels the view when Mouse
+Look is let go). A save made in space combat, as in the original, starts
+that fight again from its briefing.
 
 - **The bridge:** click a star, planet, station or fleet to select it; SET
   COURSE warps the Enterprise there, FULL SECTOR VIEW / SYSTEM VIEW zoom,
@@ -80,22 +84,33 @@ changed yet).
   hint). Time passes only as you act: a warp takes a stardate, a scan a
   tenth, and the story's deadlines run on stardates. Space skips the speech
   playing.
-- **Away missions:** the arrows or WASD move, PgUp/PgDn look up and down,
-  End levels the view, X (or keypad .) jumps, C (or Enter) crouches while
-  held. Ctrl or the left mouse button attacks: with the weapon in use, held
-  up in the view, it fires at the pointer; with none, bare-handed. `[` and
+- **Away missions:** the keys are the Controls screen's, by default the
+  original's: the arrows walk and turn, Num / and Num * slide, PgUp/PgDn
+  look up and down, Home levels the view, Enter jumps, Ctrl crouches while
+  held, Shift runs, and holding the right mouse button looks with the mouse
+  (the further from the middle of the view, the faster it turns). While the
+  keys are free, WASD also walk and slide, End levels the view, X jumps and
+  C crouches. Insert or the left mouse button attacks: with the weapon in
+  use, held up in the view, it fires at the pointer; with none,
+  bare-handed. `[` and
   `]` set the weapon's power. 1-9 use the items carried; click inventory
   items to use them (right click to have them described), drag them to
   another slot or out to drop them; B, H and O switch the left panel (life,
   map, object).
-- **Space combat:** after the briefing (PROCEED), fly by hand with the
-  arrows (Up dives, Down climbs), Ctrl / Q and Num 0 / E to roll, Num + and
-  Num - (or = and -) for speed, or give the helm an order with 1-7 (Close on
-  target, Evade, Maintain distance, Full stop, Stand by, Warp out, Maintain
-  status) or the menu the CONN line calls up. Shift (or F) fires phasers,
-  Enter (or G) photon torpedoes; T or the button by the radar picks the next
-  target, V switches between the forward and enemy views, and clicking the
-  target's schematic picks a system to aim at.
+- **Space combat:** after the briefing (PROCEED), with the original's
+  default keys, fly by hand with the arrows or Num 8/2/4/6 (Up dives, Down
+  climbs), Ctrl and Num 0 to roll, Num + and Num - for speed, or give the
+  helm an order with 1-7 (Close on target, Evade, Maintain distance, Full
+  stop (also Num 5), Stand by, Warp out, Maintain status) or the menu the
+  CONN line calls up. Shift fires phasers, Enter photon torpedoes. The
+  Controls screen changes any of these; while the keys are free, Q / E also
+  roll, = and - set the speed, and F and G fire. T or the button by the
+  radar picks the next target, V switches between the forward and enemy
+  views, the slider at the right of the viewscreen zooms it, the one by the
+  radar sets its range, holding the mouse on the viewscreen steers towards
+  it (above the middle climbs), the buttons at the foot of each systems
+  panel switch it between the system and shield facing displays, and
+  clicking the target's schematic picks a system to aim at.
 - **Anywhere:** Alt+Enter switches between a window and full screen;
   Ctrl+F5 goes back to the launcher. The game pauses, its sound too, while
   its window isn't the one in front.

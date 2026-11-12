@@ -144,9 +144,20 @@ public:
     void setBodyHeight(uint16_t id, double height);
     void setReach(uint16_t id, double reach);
     void setAnimationRate(uint16_t id, int mode, uint8_t rate);
-    // Wander settings (SET_ACTOR_COMBAT_PARAMS).
-    void setWander(uint16_t id, bool followPlayer, uint16_t minTurn, uint16_t maxTurn, double innerRadius,
-                   double homeRadius, double outerRadius, double minWalk, double maxWalk);
+    // Wander settings (SET_ACTOR_COMBAT_PARAMS, 0x457703): what to wander
+    // about (guard mode 0 home, 1 the actor guardTarget, 2 the billboard
+    // guardTarget; target 0 is the player), the random turns and the
+    // distances. kKeep / kKeep32 (0x8000 / 0x80000000) leave a value as it is.
+    static const uint32_t kKeep32 = 0x80000000;
+    struct Wander {
+        int guardMode = kKeep, guardTarget = kKeep, minTurn = kKeep, maxTurn = kKeep;
+        uint32_t inner = kKeep32, home = kKeep32, outer = kKeep32, minWalk = kKeep32, maxWalk = kKeep32;
+    };
+    void setWander(uint16_t id, const Wander& wander);
+    // Saves from before guard targets (they wandered about the player).
+    static const uint32_t kGuardSaveVersion = 7;
+    // Where a guard target is (0x4B5DF0: mode 1 an actor, else a billboard); false if it's gone.
+    bool getGuardPosition(int mode, uint16_t target, double& x, double& y) const;
     // Distances for the proximity events between actors of class
     // actorClass and the player (targetClass 0): radii[1] near, [2] lost,
     // [3] in range, [4] out of range. radii[0] is unused, as in the original.

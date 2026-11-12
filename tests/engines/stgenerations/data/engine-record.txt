@@ -19,14 +19,14 @@ screen.7000: bridge: a06da2fdfd3614a5
 screen.8000: menu over the bridge: e349723a4d814ecd
 screen.10000: save, named: 5460719d29446ee5
 screen.11000: saved: a06da2fdfd3614a5
-screen.12500: settings: f58759170858b7c6
-screen.15000: load: a5cb1c8a722db79e
+screen.12500: settings: 99b4da542a50fcfe
+screen.15000: load: de231e524f6ed9d6
 screen.17000: loaded: a06da2fdfd3614a5
 cursor.menu: 15x15 8a7befd674c19a35
 cursor.after: the system's
 run.until: 18586
-save.stg.s00: 0bec2033b551960c (1032 bytes)
-save.stg.s09: 054d5afb035296be (1042 bytes)
-settings: 6900894e93e9e6a2 (166 bytes)
+save.stg.s00: c1ac3041ac244ef1 (1032 bytes)
+save.stg.s09: 623607d007c2e9ff (1042 bytes)
+settings: e02bf16a64002ed9 (383 bytes)
 viewer: ok
 viewer.volumes: 128 music, 64 speech, 192 effects

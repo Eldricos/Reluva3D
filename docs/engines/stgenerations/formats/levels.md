@@ -278,8 +278,15 @@ A sequence holds each view direction's frames in turn.
   centre. Beyond the home radius it walks home until it is inside the outer
   radius again. Crossing inwards past the inner radius turns it a quarter.
 - A wall turns it a quarter.
-- SET_ACTOR_COMBAT_PARAMS stores its angles as given. verid1 gives degrees,
-  so its wanderers turn by under a degree at a time, as in the original.
+- Its centre (`0x4C4015`) is its home point, or with a guard mode (record
+  +0x10D) what it guards: SET_ACTOR_COMBAT_PARAMS id, mode, target, ... sets
+  mode 1 for an actor or 2 for a billboard, found by number (`0x4B5DF0`), and
+  target 0 means the player. arvada1 and bersus have actors guard others
+  (10, 12, 18, 38-47); the rest wander about home or the player.
+- SET_ACTOR_COMBAT_PARAMS (`0x457703`) keeps any value given as 0x8000 (or
+  0x80000000 for the distances). It stores its angles as given. verid1 gives
+  degrees, so its wanderers turn by under a degree at a time, as in the
+  original.
 
 **Movement:** actors move with the player's sweep and slide, using their own
 radius, height and step height. They snap onto floors and never fall.
