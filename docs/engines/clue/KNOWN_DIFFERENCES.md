@@ -46,9 +46,10 @@ None. No bug of the original's is known that Reluva leaves out: where
 
 ## Not yet as the original
 
-| What | The original | Reluva | Why |
-|---|---|---|---|
-| Walking into a room | From the door to the suspect's place in the room, by its walk grid's way-finder (0x41A0C0), round what stands there | Straight from the door to the place | Not done yet: the way-finder is in Reluva (walks about your own room take it, [playing.md](systems/playing.md)), but walks in from a door don't use it yet. |
+No gap is known. The one that was, walks into a room going straight
+from the door to the suspect's place, is closed: they take the
+way-finder's way, as the original's do
+([playing.md](systems/playing.md)).
 
 ### Not yet checked against the original
 

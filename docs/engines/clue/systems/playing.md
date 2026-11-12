@@ -52,14 +52,27 @@ As the original, from its recordings and its How to Play texts:
   walks the suspect there, round the furniture, and moves it nowhere in
   the game; a move being planned is dropped (`Clue.exe` 0x423B5B,
   0x424900). The way is `Clue.exe`'s way-finder's (0x41A0C0), over the
-  house's 32-unit cells (their middles the points; blocked under things'
-  boxes, 0x427FC0, not under the suspects): breadth first from the
-  suspect's cell to the one clicked, stepping up, down, right, left, then
-  up-right, down-right, down-left, up-left, to cells free and in the room,
-  a slanting step only where neither cell it passes between is blocked;
-  then back from the cell clicked to the first such cell a step nearer
-  each time. The walk goes through those cells' middles. Reluva does the
-  same.
+  house's 32-unit cells (their middles the points). Each cell has flags:
+  1 under a thing's box (0x427FC0), and each suspect's own bit, 2 <<
+  the suspect, where it stands (0x424F10, 0x425DC0; cleared as it leaves,
+  0x425710). The caller gives a mask, and a cell whose flags meet it is
+  blocked: 0xFF, round things and the other suspects; 1, round things
+  only. Breadth first from the start's cell to the end's, stepping up,
+  down, right, left, then up-right, down-right, down-left, up-left, to
+  cells free and in the room, a slanting step only where neither cell it
+  passes between is blocked; then back from the end to the first such
+  cell a step nearer each time, the start's cell left out of the way (it
+  needn't be free: the loop at 0x41A7F4 stops by its count). The walk
+  goes through those cells' middles. A click on the floor uses the mask
+  0xFF and no second try (0x424A38). Reluva does the same.
+- **Into a room**: from a door, the suspect's place is looked for from
+  the door's square (0x4242A2, [board.md](../formats/board.md)), and the
+  way there is the way-finder's from that square's corner, round things
+  and suspects (0x424309), else round things only (0x42434F). Out of a
+  secret passage, the suspect is put 32 in front of the passage in the
+  room it comes out in, its place looked for from there, and it walks
+  there by 0x424900, round things and suspects (0x425CC0). Reluva does the
+  same; if no way is found at all, it walks straight to the place.
 - **No Die Roll**: the first icon shows the moves left; plan the move
   the same way and click its last square again (or the icon) to walk.
   Suggesting, accusing and the secret passages cost three moves.
@@ -154,11 +167,10 @@ timing is the recordings'.
 
 ## In Reluva
 
-### Not yet as the original
-
-- Suspects walk straight from a door to their place in a room, where
-  `Clue.exe` finds a path over its walk grid (0x41A0C0); the place is
-  its (see [board.md](../formats/board.md)).
+Reluva plays the turn as above. The walks into a room, from a door or
+out of a passage, follow the way-finder since November 2026; before, they
+went straight to the place. `tools/clue-re/harness/doorwalk` checks them
+on the game's own house: every door's way and every passage's.
 
 ## Sources and checks
 

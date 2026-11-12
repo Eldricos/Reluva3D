@@ -131,6 +131,14 @@ private:
     // The way the suspect whose turn it is walks about its room to a point;
     // empty if it can't.
     std::deque<std::pair<int, int>> roomRoute(int worldX, int worldY) const;
+    // Clue.exe's way-finder (0x41A0C0): a suspect's way in a room from one
+    // point to another, round what stands there and, with aroundOthers,
+    // round the other suspects too; the cells' middles, the first left out.
+    // Empty if there's none.
+    std::deque<std::pair<int, int>> wayFind(int suspect, int room, int fromX, int fromY, int toX, int toY,
+                                            bool aroundOthers) const;
+    // The cells the other suspects stand on, or are walking to.
+    std::set<std::pair<int, int>> othersCells(int suspect) const;
     void suggestionMade();
     void accusationMade(const Accusation& a);
     void endTurn();
