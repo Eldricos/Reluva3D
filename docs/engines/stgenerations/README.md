@@ -17,6 +17,7 @@ changed on the way and what was left behind.
 | [KNOWN_DIFFERENCES.md](KNOWN_DIFFERENCES.md) | Where the engine knowingly differs from the original game |
 | [UNCONFIRMED.md](UNCONFIRMED.md) | What hasn't been compared with the original yet |
 | [TESTING.md](TESTING.md) | The tests, and what has been checked on the game's own files |
+| [REVERSE_ENGINEERING.md](REVERSE_ENGINEERING.md) | How the formats and behaviour were worked out, and the tools for it |
 | [formats/](formats/README.md) | The game's file formats, a page each |
 
 ## Where it stands

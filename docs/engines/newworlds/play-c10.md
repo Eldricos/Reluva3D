@@ -16,7 +16,7 @@ paraphrased. October 2026.
   missions use the shared `cvr03` table, as level.md says, with a single
   page and no speech.
 - **The map**: the two mines reported exhausted (292, 364 and 276, 444) lie
-  on deposits in five maps read as in [gmf.md](../formats/gmf.md#map-positions-in-the-game);
+  on deposits in five maps read as in [gmf.md](gmf.md#map-positions-in-the-game);
   the only desert one is **`f2`** (`deswrld`), and the terrain is tan sand
   with concrete. So C10 is played on F2's map, most likely.
 - The colony starts already built (2:02, 52/50).

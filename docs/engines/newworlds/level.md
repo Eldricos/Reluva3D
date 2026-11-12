@@ -65,7 +65,7 @@ world, and the kinds go with the archives:
 No map exists for F14, K14 or R14 ("The Finest Hour"): each side's briefing
 names the same world as its mission 12 ("Death Rattle"), and K14 is played
 on `k12.gmf` (a mine position reported in a recording of it lies on that
-map's deposits, [play-k14.md](../play/play-k14.md)), so 14 reuses 12's map. The joint missions (J) have one table per side
+map's deposits, [play-k14.md](play-k14.md)), so 14 reuses 12's map. The joint missions (J) have one table per side
 (`jnt01fed`, `jnt01klg`, `jnt01rom`, …) with the same briefing world.
 `kurt64`, `demo1`, `demo3`, `volc1` and `coverd1`-`3` aren't in level.dat.
 
@@ -117,7 +117,7 @@ known; they may be the sides' player numbers in the missions.
 level.dat names missions but says nothing about how they're set up: the
 planet, starting colonies, units and objectives' triggers are elsewhere
 (presumably `STNW.exe`). How the briefing plays its pages and voice clips
-was seen in a recording of F1: [play-f1.md](../play/play-f1.md).
+was seen in a recording of F1: [play-f1.md](play-f1.md).
 
 ## In Reluva
 
@@ -134,7 +134,7 @@ and puts together what the short name ties to (`levels.h`:
   side's mission 12 map. Test, E1-E3 and the C missions have no map in the
   planet archives. (The C missions' table is `cvr03`, and `alpwrld` holds
   `coverd1`-`3`, so those may be theirs; not assumed. A recording of the
-  bonus mission C10 is most likely on `f2`'s map, [play-c10.md](../play/play-c10.md).)
+  bonus mission C10 is most likely on `f2`'s map, [play-c10.md](play-c10.md).)
 - the briefing, a page at a time in the game's `fe8pt` font: the table's
   `~HEADING~` strings, each a page, and the plain strings between them run
   together (the title and stardate first; the in-game objectives and fail
@@ -147,7 +147,7 @@ and puts together what the short name ties to (`levels.h`:
 showing its page over its view and lasting as long as its voice clip (5 s
 without one). The steps are in `src/engines/newworlds/briefing.cpp`: the 16
 missions seen in recordings of play are scripted as they were shown
-([play.md](../play/play.md)); the rest follow the rule those recordings showed
+([play.md](play.md)); the rest follow the rule those recordings showed
 (clips in number order over the table's heading pages, the first over the
 galaxy, the second over the star system, the rest over the map, leftover
 clips over the emblem), and the title says so. The map views use the

@@ -55,7 +55,7 @@ power generator show INCOMPLETE at 0 % while being built.
 ## Positions
 
 The mine at 084, 252 lies on a deposit (kind 1) at row 10, column 31,
-read as in [gmf.md](../formats/gmf.md#map-positions-in-the-game): 16 of 16 mines now.
+read as in [gmf.md](gmf.md#map-positions-in-the-game): 16 of 16 mines now.
 
 ## Colony
 

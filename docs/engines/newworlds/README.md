@@ -84,6 +84,15 @@ for what's in them.
 
 ## The docs
 
+**About the engine:**
+
+- [KNOWN_DIFFERENCES.md](KNOWN_DIFFERENCES.md): where it differs from the
+  original.
+- [UNCONFIRMED.md](UNCONFIRMED.md): what hasn't been checked against the
+  original.
+- [TESTING.md](TESTING.md): the tests.
+- [REVERSE_ENGINEERING.md](REVERSE_ENGINEERING.md): how it was worked out.
+
 **The install and its archives:**
 
 - [install.md](install.md): the install's layout.

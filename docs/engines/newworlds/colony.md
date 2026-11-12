@@ -2,7 +2,7 @@
 
 The maps don't hold the colonies a mission starts with ([gmf.md](gmf.md)):
 the game places them from its mission scripts inside `STNW.exe`. The
-recordings of play ([play.md](../play/play.md)) show them only in passing. This
+recordings of play ([play.md](play.md)) show them only in passing. This
 page collects what they show, and how Reluva's missions page lays out an
 approximate colony from it (`src/engines/newworlds/colony.h`).
 
@@ -94,7 +94,7 @@ a block, on its deposit.
 ## Buildings and models
 
 The scripts' building names, and the models the recordings matched to
-them ([play-f1.md](../play/play-f1.md), [play-k1.md](../play/play-k1.md); the Romulan
+them ([play-f1.md](play-f1.md), [play-k1.md](play-k1.md); the Romulan
 column from the Romulan recordings, see [Romulan matches](#romulan-matches)
 below). Those marked *name* aren't matched in a recording yet but are named
 so by the game's own metamodels (below); the turrets marked *guess* by their

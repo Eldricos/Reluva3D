@@ -236,7 +236,7 @@ artillery). Portraits:
 - Who destroyed the Federation hub at 23:54; whose are the grey-blue crystal
   units and the red-and-white fliers.
 - (Answered since: science station `rsb_a`, vehicle yard upgrade `rvy_b`,
-  static disruptor `rdds`; [colony.md](../formats/colony.md#romulan-matches).) The tall
+  static disruptor `rdds`; [colony.md](colony.md#romulan-matches).) The tall
   finned tower by the hub: select it (security centre `risb`?).
 - No mineral readings (kind-1/4 blocks again read TERRAIN, as expected off
   the relief inset); the kinds are named elsewhere, 6 as dolamide in

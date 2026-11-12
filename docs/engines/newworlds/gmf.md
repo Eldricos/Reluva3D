@@ -76,16 +76,16 @@ Romulan recordings lies on a block of one kind:
 
 | Kind | Ore | Readings |
 |---|---|---|
-| 1 | dilithium | R1, R12, J9R ([play-r12.md](../play/play-r12.md), [play-j9r.md](../play/play-j9r.md)) |
-| 2 | talgonite | ten in J3R ([play-j3r.md](../play/play-j3r.md)) |
-| 3 | silicon | six in J4R ([play-j4r.md](../play/play-j4r.md)) |
+| 1 | dilithium | R1, R12, J9R ([play-r12.md](play-r12.md), [play-j9r.md](play-j9r.md)) |
+| 2 | talgonite | ten in J3R ([play-j3r.md](play-j3r.md)) |
+| 3 | silicon | six in J4R ([play-j4r.md](play-j4r.md)) |
 | 4 | kelbonite | R1, J4R, R9 |
-| 5 | magnesite | two in C11, the column cut off by the box but only kind 5 fits ([play-c11.md](../play/play-c11.md)) |
-| 6 | dolamide | R9 ([play-r9.md](../play/play-r9.md)) |
+| 5 | magnesite | two in C11, the column cut off by the box but only kind 5 fits ([play-c11.md](play-c11.md)) |
+| 6 | dolamide | R9 ([play-r9.md](play-r9.md)) |
 
-The tutorials name the six raw ores ([play-tutorials.md](../play/play-tutorials.md)).
+The tutorials name the six raw ores ([play-tutorials.md](play-tutorials.md)).
 The colony's six materials (Dilithium, Polycomp, Thermoconc, Transalumin,
-Nitrium, Duranium; [play-f1.md](../play/play-f1.md)) are what a resource processor
+Nitrium, Duranium; [play-f1.md](play-f1.md)) are what a resource processor
 makes of them; which ore makes which isn't known. The deposits are hand-painted patches: `j1` (a
 multiplayer arena) is covered in large ones of every kind, `f1` (the first
 Federation mission) has one cluster of all six plus two small patches, `r12`

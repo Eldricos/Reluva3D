@@ -1,7 +1,7 @@
 # Elite Force single player: how the DLLs and the engine talk
 
 Single player's game logic lives in two native DLLs that the x86 interpreter
-runs (see [../../engines/x86.md](../../../common/x86.md)):
+runs (see [../../../common/x86.md](../../../common/x86.md)):
 
 - `efgamex86.dll` holds the server game and, in the same DLL, the client
   game (cgame).

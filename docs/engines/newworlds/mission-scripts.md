@@ -2,7 +2,7 @@
 
 The original keeps its missions' logic in `STNW.exe`; none of it is in the
 data files. Reluva writes its own, from what recordings of play showed
-([play.md](../play/play.md)): which events each mission reacts to, in what order,
+([play.md](play.md)): which events each mission reacts to, in what order,
 and what follows. The scripts are in `src/engines/newworlds/mission_scripts.cpp`,
 read by `mission_script.h/.cpp`.
 

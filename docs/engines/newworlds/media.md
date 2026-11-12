@@ -33,24 +33,24 @@ is desperate to involve the Federation…"; `F1015` (10 s) "The situation
 couldn't be much worse, you'll be caught between the greed…".
 
 **They're the briefing's narration, in number order.** In a recording of
-F1 being played ([play-f1.md](../play/play-f1.md)) the briefing steps through the
+F1 being played ([play-f1.md](play-f1.md)) the briefing steps through the
 mission table's pages, each lasting as long as its clip: `F1005` starts
 with the first page (STELLAR CARTOGRAPHY, string 2), `F1012` with the
 mining advisory (9), `F1013` with the next (10) and `F1015` on the closing
 emblem screen; the other clips' lengths fit the steps between. In a
-recording of K1 ([play-k1.md](../play/play-k1.md)) all nine of its clips were found,
+recording of K1 ([play-k1.md](play-k1.md)) all nine of its clips were found,
 each starting with its page, and likewise in K2, J1 and J2
-([play-k2.md](../play/play-k2.md), [play-j1k.md](../play/play-j1k.md),
-[play-j2k.md](../play/play-j2k.md)). **One clip per briefing step, in number
+([play-k2.md](play-k2.md), [play-j1k.md](play-j1k.md),
+[play-j2k.md](play-j2k.md)). **One clip per briefing step, in number
 order**, usually opening with STELLAR CARTOGRAPHY and PLANETARY DATA (J3
-opens with its INCOMING TRANSMISSION page, [play-j3k.md](../play/play-j3k.md)). Which page each
+opens with its INCOMING TRANSMISSION page, [play-j3k.md](play-j3k.md)). Which page each
 step shows is the mission's own: usually the table's heading pages in
 order without the transmission ones, but J2 shows its pages out of the
 table's order, leaves some out and plays four clips over views with no
 page, so the briefing is scripted per mission like the rest of it. In K7
-([play-k7.md](../play/play-k7.md)) six of the nine clips play over the emblem
+([play-k7.md](play-k7.md)) six of the nine clips play over the emblem
 screen with no page at all. A lettered clip (`K12009A`) is an extra step
-between its number and the next ([play-k12.md](../play/play-k12.md)).
+between its number and the next ([play-k12.md](play-k12.md)).
 
 **Format:** MPEG-2 Layer III, 64 kbit/s, 22,050 Hz, mono, with an ID3v2
 tag naming the original file (`F1005.WAV`) and the encoder (SoundJam MP).
