@@ -1,12 +1,13 @@
 # Scripts (CC.ALL, CCB.ALL and their lists)
 
-*Star Trek: Deep Space Nine – Harbinger* (Viacom New Media, 1996), DOS, two CDs.
-Worked out from the data and from `DEEP.EXE`. All values are little-endian.
-Addresses like `0x1DD32` are virtual addresses in `DEEP.EXE`'s LE image (code
-object at `0x10000`, data at `0x50000`); see
-[REVERSE_ENGINEERING.md](../REVERSE_ENGINEERING.md).
+> **Status:** decoded · **Code:** `src/engines/stharbinger/formats/script.cpp`, `src/engines/stharbinger/formats/resources.cpp`, `src/engines/stharbinger/formats/dialogue.cpp`
 
-## Scripts
+## Overview
+
+The scene scripts and their name lists, the linker files, and the dialogue
+scripts and text, installed from disc 1's `SSE/SSE.ALL`.
+
+## Layout
 
 ### Directive lists
 
@@ -84,3 +85,13 @@ lines in `CCQ`/`CCF`.
 | `CCR` | the menu labels again |
 
 Each has 72 entries, in the same order as `CCB`.
+
+## Sources and checks
+
+*Star Trek: Deep Space Nine – Harbinger* (Viacom New Media, 1996), DOS, two CDs.
+Worked out from the data and from `DEEP.EXE`. All values are little-endian.
+Addresses like `0x1DD32` are virtual addresses in `DEEP.EXE`'s LE image (code
+object at `0x10000`, data at `0x50000`); see
+[REVERSE_ENGINEERING.md](../REVERSE_ENGINEERING.md).
+
+- **How it was checked:** the unit tests (`stharbinger.unit.formats`, [TESTING.md](../TESTING.md)) cover scripts and name lists, and dialogue records.

@@ -1,12 +1,13 @@
 # Action sequence data
 
-*Star Trek: Deep Space Nine – Harbinger* (Viacom New Media, 1996), DOS, two CDs.
-Worked out from the data and from `DEEP.EXE`. All values are little-endian.
-Addresses like `0x1DD32` are virtual addresses in `DEEP.EXE`'s LE image (code
-object at `0x10000`, data at `0x50000`); see
-[REVERSE_ENGINEERING.md](../REVERSE_ENGINEERING.md).
+> **Status:** decoded · **Code:** `src/engines/stharbinger/game/arcade.cpp`
 
-## Action sequence data
+## Overview
+
+The files the action sequences use besides their videos: the targets'
+sprites, the panel, explosions and torpedoes, and the music and voice cues.
+
+## Layout
 
 * **Sprites** (`SPRITES\<NAME>\*.RLE`, every file of the folder in name order):
   RLE animations whose first 8 bytes hold the target's data instead of the scene
@@ -38,3 +39,11 @@ object at `0x10000`, data at `0x50000`); see
   plays once near the end.
 * **`VOICE\<NAME>.VCE`** (text): pairs of lines, a sound name and either a
   video frame number or `d<n>` (when damage first reaches `95 - 5 * (n / 5)`).
+
+## Sources and checks
+
+*Star Trek: Deep Space Nine – Harbinger* (Viacom New Media, 1996), DOS, two CDs.
+Worked out from the data and from `DEEP.EXE`. All values are little-endian.
+Addresses like `0x1DD32` are virtual addresses in `DEEP.EXE`'s LE image (code
+object at `0x10000`, data at `0x50000`); see
+[REVERSE_ENGINEERING.md](../REVERSE_ENGINEERING.md).

@@ -1,12 +1,13 @@
 # Animations and sprites (.RLE)
 
-*Star Trek: Deep Space Nine – Harbinger* (Viacom New Media, 1996), DOS, two CDs.
-Worked out from the data and from `DEEP.EXE`. All values are little-endian.
-Addresses like `0x1DD32` are virtual addresses in `DEEP.EXE`'s LE image (code
-object at `0x10000`, data at `0x50000`); see
-[REVERSE_ENGINEERING.md](../REVERSE_ENGINEERING.md).
+> **Status:** decoded · **Code:** `src/engines/stharbinger/formats/graphics.cpp`
 
-## Animations and sprites (`.RLE`)
+## Overview
+
+Animations (`DS9/ANIMS/XXXX/NAME.RLE`) and the action sequences' sprites:
+frames of run-length coded 8-bit pixels.
+
+## Layout
 
 ```
 file:   8 bytes  00 00 01 01 0A FF 00 00
@@ -29,3 +30,13 @@ and the low six bits are a count *n*:
 | `11` | skip *n* transparent pixels |
 
 The last row may be followed by one more "new row" byte.
+
+## Sources and checks
+
+*Star Trek: Deep Space Nine – Harbinger* (Viacom New Media, 1996), DOS, two CDs.
+Worked out from the data and from `DEEP.EXE`. All values are little-endian.
+Addresses like `0x1DD32` are virtual addresses in `DEEP.EXE`'s LE image (code
+object at `0x10000`, data at `0x50000`); see
+[REVERSE_ENGINEERING.md](../REVERSE_ENGINEERING.md).
+
+- **How it was checked:** the unit tests (`stharbinger.unit.formats`, [TESTING.md](../TESTING.md)) cover RLE frames.

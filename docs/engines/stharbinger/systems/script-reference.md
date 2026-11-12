@@ -1,5 +1,15 @@
 # Harbinger script reference
 
+> **Status:** done · **Code:** `src/engines/stharbinger/game/`, `src/engines/stharbinger/formats/script.cpp` · **Checked against:** the code only
+
+## Overview
+
+The scene and dialogue scripts that run the game, and what DEEP.EXE does as it
+runs them: scenes, conversations, videos and action sequences, the game menu,
+the credits and deck map, and the volume.
+
+## How it works
+
 Derived from DEEP.EXE (interpreter, loaders) and the linker cross-references
 (`CCS.ALL`). The listings from `reluva-tool stharbinger script` use this notation:
 
@@ -12,7 +22,7 @@ Derived from DEEP.EXE (interpreter, loaders) and the linker cross-references
 | `@n` | type-02 value that could not be named |
 | `bN` `cN` `x/y/z lo.hi` `dN` | byte, byte, byte pairs (dialogue choices etc.), dword |
 
-## Files
+### Files
 
 | File | Per scene slot (32, slot 23 empty) | Format |
 |---|---|---|
@@ -29,7 +39,7 @@ backgrounds `ART\X\Y\NAME.CMP` (first two letters), animations
 `ANIMS\XXXX\NAME.RLE` (first four letters), sounds `SOUND\NAME.RAW`. The
 source files were `NAME.CCG` (scenes) and `NAME.CCD` (dialogues).
 
-## Main commands
+### Main commands
 
 | Command | Arguments |
 |---|---|
@@ -72,12 +82,12 @@ the dialogue (`CD` list).
 Full per-slot statistics, with the most common constants and keywords, are in
 `summary.txt` under "argument reference".
 
-## Run-time behaviour
+### Run-time behaviour
 
 From DEEP.EXE's scene interpreter (addresses are linear addresses in the LE
 image). This is what `src/engines/stharbinger/game/` implements.
 
-### Execution
+#### Execution
 
 * Entering a scene loads its script afresh and runs it from the top. Only the
   variables carry over; hotspots, timers, animations and labels start empty.
@@ -91,7 +101,7 @@ image). This is what `src/engines/stharbinger/game/` implements.
 * `LABEL n` marks the directive after it; label numbers are not 0-based per scene.
 * Errors are never fatal: the game logs them to `<scene>.gme` and goes on.
 
-### Values
+#### Values
 
 * One global array of unsigned 16-bit variables, shared by all scenes by name
   (the linker matched each scene's `CV` names, ignoring case, against `DS9.LVM`).
@@ -106,7 +116,7 @@ image). This is what `src/engines/stharbinger/game/` implements.
 * `SWITCH v, L0..L6` jumps to label v if v < 7 and that slot has a label, and
   otherwise falls through.
 
-### Hotspots
+#### Hotspots
 
 * `HOTSPOT` defines a hotspot **disabled**; `HOTON` enables it. Redefinitions are
   ignored. `SETRECT` may use variables, `HOTSPOT` only constants.
@@ -115,7 +125,7 @@ image). This is what `src/engines/stharbinger/game/` implements.
   cursor image (art\mouse.ani, 26 cursors indexed by the cursor id).
 * Only left-button presses count, and only while the script idles.
 
-### Timers
+#### Timers
 
 * Script timers tick every 100 ms, only while the script idles or waits in
   `ANIMSUSPEND` (and, for `global` timers, during conversations). They are
@@ -125,7 +135,7 @@ image). This is what `src/engines/stharbinger/game/` implements.
   (82) re-arm it. Per tick, counting stops at the first timer that fires.
 * `TIMERON`/`TIMEROFF` only start or stop counting; `TIMERGET` reads the count.
 
-### Animations
+#### Animations
 
 The renderer runs every 20 ms on a work buffer that is kept from step to step;
 `BACKGRND` refills it from the background. Each step it first erases, putting
@@ -176,7 +186,7 @@ Flags, one bit per keyword pair (keyword k touches bit k / 2; odd k sets it):
 * `ANIMPOS` sets an offset added to each frame's own position. `ANIMSPD`,
   `ANIMDEST`, `ANIMARRV` and `ANIMFRAM` are stored but never used.
 
-### Other
+#### Other
 
 * `BACKGRND b, palette` shows the background at once; `palette` (0) also sets its
   `.PAL`. Without it the palette is unchanged.
@@ -189,12 +199,12 @@ Flags, one bit per keyword pair (keyword k touches bit k / 2; odd k sets it):
 * `MAPON`/`MAPOFF` allow or block the deck map (M key) and the game menu (right
   click).
 
-## Conversations
+### Conversations
 
 From DEEP.EXE's dialogue code (CONVERSE 0x1189F, loop 0x14518, turn 0x169DD);
 implemented in `src/engines/stharbinger/game/game_dialogue.cpp`.
 
-### State
+#### State
 
 Each dialogue keeps, for the whole game (and in saved games): the current group
 and mode (NPC line or menu next), the BACK and RUDE start groups, the "rude" and
@@ -207,7 +217,7 @@ Argument notation: `x g.i` is item i of choice group g, `y g.i` / `z g.i` item i
 of NPC group g (positions within the group); `b` a group number; `d` a line number.
 Group numbers count empty groups too.
 
-### Flow
+#### Flow
 
 ```
 start: cur = 0, NPC turn next; after an earlier conversation cur = BACK group
@@ -229,7 +239,7 @@ and not said; DONEX/EMPTYX ignore one given item. `GOTO`/`REPLY` set the next
 group and stop the rest of the turn's lists. `EXIT` ends the conversation after
 the current turn.
 
-### Commands
+#### Commands
 
 | Cmd | Name | Effect |
 |---|---|---|
@@ -258,7 +268,7 @@ Scene commands that change state also work in dialogue lists (backgrounds,
 animations, sounds, variables, `HOTON`/`HOTOFF`, timers, `MAPON`/`MAPOFF`,
 fades); conditionals, jumps and the other scene commands do nothing there.
 
-### Speech and lip-sync
+#### Speech and lip-sync
 
 * Line n of dialogue NAME is entry n of `DIALOGUE/NAME/NAME.ALL`, 8-bit unsigned
   mono at 22050 Hz. Its lip-sync is entry n of `PHONEMES/NAME/NAME.ALL`. The
@@ -271,7 +281,7 @@ fades); conditionals, jumps and the other scene commands do nothing there.
 * Every line is followed by a 250 ms pause. Speech cannot be skipped and there
   are no subtitles.
 
-### The menu
+#### The menu
 
 * Each choice shows its CCR label (24 characters at most, 20 entries at most) in
   `art\short.fnt` with a drop shadow, in the palette colours nearest to grey 40
@@ -287,7 +297,7 @@ fades); conditionals, jumps and the other scene commands do nothing there.
   `RETURNVAL`: `#0` keeps waiting, `x g.i` / `y g.i` continue with menu / NPC
   group g, `#1` ends the conversation, `#2` ends it rudely.
 
-## Videos and action sequences
+### Videos and action sequences
 
 `ACTIONSEQ` types 0x00..0x1F are videos (DEEP.EXE table 0x24E8F). Plain videos
 clear the screen to black (*keep*: play over the current picture), play the
@@ -346,7 +356,7 @@ PROMBAR and HABITAT drive the countdown through variables: on each room change
 `ACTIONSEQ $Mdist, $Mdist` and `TIMERSET reddead, $Mdist`; the timer running out
 is the death. The tick's period and phase are saved with the game.
 
-## Action sequences
+### Action sequences
 
 From DEEP.EXE's arcade engine (Run_Arcade 0x261C1); implemented in
 `src/engines/stharbinger/game/arcade.cpp`. Formats in [../formats/action-sequences.md](../formats/action-sequences.md).
@@ -373,7 +383,7 @@ From DEEP.EXE's arcade engine (Run_Arcade 0x261C1); implemented in
   explodes and enemy fire stops. Door intact at the end: 0xFFFD.
 * Difficulty (0..2, default 1) only changes the fire period and the recovery.
 
-## The game menu
+### The game menu
 
 DEEP.EXE's Game_Setup (0x20D54): `art\s\e\setup.cmp` with lit buttons from
 `art\buttons.rle`. It opens at start-up (the original skips it on its very first run), on a right click
@@ -385,7 +395,7 @@ Resume do nothing after death or at start-up. Confirmations: right button yes,
 left button no. With autosave on, the game saves before HOLO, ADR2, PLAN, CANN
 and DEFI; loading such a save starts the sequence again.
 
-## Credits and deck map
+### Credits and deck map
 
 * **Credits** (0x22424, scroller 0x2275D): after the epilogue (ACTIONSEQ 0x17,
   first `art\b\l\blankcrd.cmp` fading out) or from the menu. `credits.cmp` fades
@@ -403,10 +413,18 @@ and DEFI; loading such a save starts the sequence again.
   3 (which cycle). Esc closes it. The marker positions are DEEP.EXE tables
   0x54BF4 and 0x54D20 (in `src/engines/stharbinger/game/game_extras.cpp`).
 
-## Volume
+### Volume
 
 DEEP.EXE sets a sample's volume (AIL, 0..127) in only two places: arcade music
 plays at 64 (0x26784) and conversation speech at 75 (0x2B24A). Everything else
 (scene sounds and ambients, effects, voice cues, video soundtracks, the
 countdown's tick) plays at the library default of 127. There is no master or
 user volume setting.
+
+## Sources and checks
+
+- **Where the facts come from:** DEEP.EXE's code, at the addresses given
+  above, and the linker cross-references (`CCS.ALL`).
+- **How it was checked:** the unit tests (`stharbinger.unit.game`,
+  [TESTING.md](../TESTING.md)); not yet against the original running
+  ([UNCONFIRMED.md](../UNCONFIRMED.md)).

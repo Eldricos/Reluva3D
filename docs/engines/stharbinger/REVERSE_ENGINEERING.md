@@ -1,4 +1,4 @@
-# How Reluva's Harbinger support was worked out
+# Star Trek: Deep Space Nine - Harbinger: how it was worked out
 
 Reluva runs Star Trek: Deep Space Nine - Harbinger from the player's own
 copy, with none of the original's code in it. This page says how the facts
@@ -24,7 +24,15 @@ from. The engine came to Reluva from STDS9H, where this work was done.
 - See [CONTRIBUTING.md](../../../CONTRIBUTING.md) for what may and may not be
   used.
 
-## The notes
+## Sources
+
+The retail game's own files: `DEEP.EXE` (the DOS/4GW executable, inside disc
+1's `SSE/SSE.ALL`), disassembled, and its data files. Smacker and PKWARE DCL
+follow the published write-ups named under *Ground rules*.
+
+## Methods
+
+### The notes
 
 [research/](research/) holds the notes from reading
 DEEP.EXE that the engine is built from. Addresses are linear: the code object
@@ -65,7 +73,7 @@ the engine.
 install. `DEEP.EXE` is inside disc 1's `SSE/SSE.ALL`: `extract` unpacks it
 (to `disc1/SSE/SSE/DEEP.EXE`).
 
-## Working files that are not included
+## Working files not included
 
 The notes mention working files that are left out of the repository because
 they reproduce the game's code or text:
