@@ -231,7 +231,10 @@ in the game's README. If "Terms" lists are adopted, add the section to
   `model-check` counts 790 models in 1.2 and 917 with the Expansion Pack
   (919 `.md3`/`.mdr` files in the paks); 1156 matches neither. Recount, and
   give the release.
-  Done: `md3.md` gives 790 for 1.2 and 917 with the Expansion Pack.
+  Done: the 790 and 917 counted `.md3` and `.mdr` files together.
+  `md3.md` and `mdr.md` now give each kind's count for every release (1.0
+  and 1.1: 578 and 170; 1.2: 594 and 196; with the Expansion Pack: 716 and
+  201), and `md3.md` has the totals.
 - [x] The Expansion Pack's `models/mapobjects/scavenger/k_chair1.md3`
   doesn't read in Reluva: its surface 1 has 0 frames, the model 1. Check
   whether the original draws it (and how) or never loads it, then make

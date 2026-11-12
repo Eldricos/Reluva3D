@@ -1,6 +1,6 @@
 # id Tech 3: models (`.md3`) and skins (`.skin`)
 
-> **Status:** decoded · **Code:** `src/engines/idtech3/md3.cpp`, `model_cache.cpp` · **Checked on:** all 790 models of Elite Force 1.2, and all 917 with the Expansion Pack (`reluva-tool idtech3 model-check`, November 2026) · **Confidence:** confirmed unless marked
+> **Status:** decoded · **Code:** `src/engines/idtech3/md3.cpp`, `model_cache.cpp` · **Checked on:** every `.md3` of Elite Force: 578 in 1.0 and 1.1, 594 in 1.2, 716 with the Expansion Pack (`reluva-tool idtech3 model-check`, November 2026) · **Confidence:** confirmed unless marked
 
 ## Overview
 
@@ -130,9 +130,18 @@ usually built into the map itself as triangle soups.
 
 ## Sources and checks
 
-`model-check` reads all 790 models of 1.2 (2924 surfaces) and all 917 with
-the Expansion Pack (3833 surfaces). Every surface finds its shader or
-image except `k_chair1.md3`'s empty one (above) and 12 that name none: models whose shader the game code picks
+`model-check` reads every model, `.md3` and `.mdr` alike
+([mdr.md](mdr.md)):
+
+| Release | `.md3` | `.mdr` | Models | Surfaces |
+|---|---|---|---|---|
+| 1.0, 1.1 | 578 | 170 | 748 | 2790 |
+| 1.2 | 594 | 196 | 790 | 2924 |
+| 1.2 with the Expansion Pack | 716 | 201 | 917 | 3833 |
+
+Every surface finds its shader or image except `k_chair1.md3`'s empty one
+(above, the Expansion Pack's) and 12 that name none, in every release:
+models whose shader the game code picks
 (`models/misc/telep.md3`) and player heads whose skin the game chooses
 (`models/players/munrocrew/head.md3`). Placed models sit where the
 original puts them.

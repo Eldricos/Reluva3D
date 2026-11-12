@@ -99,8 +99,9 @@ every file, not just a sample:
   III's: 1872 in 1.0, 1891 in 1.2, 2059 with the Expansion Pack.
 - `entity-survey`: every entity class and key the maps use
   ([entities.md](formats/entities.md)).
-- `model-check`, `image-check`, `tex-survey` and `pk3-list`: models,
-  textures and archives.
+- `model-check`: every model reads, `.md3` and `.mdr`: 748 in 1.0, 790 in
+  1.2, 917 with the Expansion Pack ([md3.md](../../formats/md3.md)).
+- `image-check`, `tex-survey` and `pk3-list`: textures and archives.
 
 #### 4. Installers and releases
 
