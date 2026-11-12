@@ -127,7 +127,12 @@ ripped (`reluva-tool cue-rip CLUE.cue <game folder>`) for the music checks.
   takes the later numbers away with an `unting`; a square you can't go to
   gives `nogo`.
 - **Secret passages** [rec]: take one from a corner room; the suspect
-  should come out of the other end's passage, facing out of it.
+  should come out of the other end's passage, facing out of it, and walk
+  a few steps to its place.
+- **Walking into a room** [rec]: move into rooms through several doors,
+  the hall's and the lounge's among them. The suspect should walk from
+  the door to its place round the furniture and the others, never
+  through them. [orig] Compare the ways taken.
 
 ### 2. Hot spots
 
@@ -214,6 +219,7 @@ worked through yet.
 
 | Date | Release | Platform | What was checked |
 |---|---|---|---|
+| 2026-11-12 | US 2.2 (install, patched); US 2.0 (install); the 2.0 CD, US and UK | Linux (x86-64, GCC) | After walks into rooms took the way-finder: the unit tests, `clue.engine` and the game-files test, all as recorded; `harness/doorwalk` on the 2.2 install, all 17 doors' ways and the 4 passages' good |
 | 2026-11-12 | US 2.2 (install, patched); US 2.0 (install); the 2.0 CD, US and UK | Linux (x86-64, GCC) | The unit tests, `clue.engine`, and every step of the game-files test: all as recorded |
 | 2026-11-07 | None (`clue.engine`'s own install) | Windows (Visual Studio 2022, CI) and Linux (CI) | The unit tests and `clue.engine`, after saved games were made the same on every system (the Windows run had found them different) |
 | 2026-11-07 | US 2.2 (install, patched); US 2.0 (install); the 2.0 CD, US and UK | Linux (x86-64, GCC) | The game-files test's records made: every file read, `clue.lvl`'s placements, 200 games of computer players, and the game played headless (`game-run`, with `-uk` for the CD's UK game) |
