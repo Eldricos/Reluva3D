@@ -38,3 +38,12 @@ code is in `src/engines/<engine>/<folder>/`.
 
 <!-- What every game on the engine shares is in the engine's own folder
 (../../formats/, ../../systems/): link the pages this game uses. -->
+
+## Terms
+
+<!-- The game's own words (its modes, its systems, its studio's names) that
+these pages use without explaining: a line each, with a link to the page
+that says more. The engine's words are in its README's Terms; link them
+rather than repeat them. Delete this section if there are none. -->
+
+- **<term>:** <what it is, in a few words>.

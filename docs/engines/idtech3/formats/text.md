@@ -1,6 +1,6 @@
 # id Tech 3: text files
 
-> **Status:** decoded · **Code:** `src/engines/idtech3/lexer.cpp` · **Confidence:** published unless marked
+> **Status:** decoded · **Code:** `src/engines/idtech3/lexer.cpp` · **Checked on:** Elite Force 1.2 with the Expansion Pack: all 35 shader scripts (2059 shaders, `reluva-tool idtech3 shader-check`) and the entities of all 99 maps (`entity-survey`), November 2026 · **Confidence:** published unless marked
 
 ## Overview
 

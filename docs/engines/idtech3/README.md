@@ -78,3 +78,37 @@ Code that isn't specific to id Tech 3 goes in `src/common/` so any engine
 can use it: zip archives, the `Archive`/`SearchSet` file system, image
 decoding, audio. The engine never touches SDL; it uses `System`, like
 every engine.
+
+## Terms
+
+Quake III engine words these pages use, as they apply to every game on
+the engine:
+
+- **QVM:** a program compiled for Quake III's virtual machine
+  (`vm/*.qvm`), which the engine interprets: a game's code, shipped in its
+  paks ([qvm.md](formats/qvm.md)).
+- **qagame, cgame and ui:** the three parts of a game's code. qagame is
+  the server's game (rules, entities, players), cgame the client game (the
+  view, HUD and effects, built from what the server sends), ui the menus.
+  Each is a QVM, or a DLL where a game ships native code.
+- **System call:** a numbered call from a game's code into the engine
+  (to read a file, play a sound, trace a line); each game numbers its own.
+- **cvar:** a console variable, a named setting (`r_mode`, `sv_pure`) set
+  from the console, a config file or the menus.
+- **configstring:** one of the numbered strings the server keeps and sends
+  to every client: the map, the models and sounds in use, each player's
+  info.
+- **refEntity:** one thing the client game hands the renderer to draw in a
+  frame: a model, a sprite, a beam (Quake III's `refEntity_t`). Its layout
+  differs between games.
+- **netchan:** the network channel, which numbers each connection's
+  datagrams, splits large messages and puts them together again.
+- **pure server:** a server (`sv_pure 1`) that tells clients its paks'
+  checksums, so they use only those paks ([pk3.md](formats/pk3.md),
+  "Checksums").
+- **botlib:** the bot library, the engine's code for bots: their movement,
+  routes and goals, and their chat. Game code calls it through system
+  calls.
+- **AAS:** the Area Awareness System, the bots' map of a level
+  (`maps/<name>.aas`), made from the BSP: the areas a player can be in and
+  the ways between them ([aas.md](formats/aas.md)).

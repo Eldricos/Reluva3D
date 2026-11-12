@@ -1,6 +1,6 @@
 # Elite Force: joystick input
 
-> **Code:** `src/engines/idtech3/client/joystick_input.cpp` · **Checked against:** the code only · **Confidence:** from the code unless marked
+> **Status:** done · **Code:** `src/engines/idtech3/client/joystick_input.cpp` · **Checked against:** the code only · **Confidence:** from the code unless marked
 
 ## Overview
 

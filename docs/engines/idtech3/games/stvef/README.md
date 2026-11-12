@@ -91,3 +91,17 @@ developer tools:
 | [UNCONFIRMED.md](UNCONFIRMED.md) | What's assumed rather than confirmed |
 | [TESTING.md](TESTING.md) | What still needs playing |
 | [REVERSE_ENGINEERING.md](REVERSE_ENGINEERING.md) | How it was all worked out, and the rules followed |
+
+## Terms
+
+Elite Force's own words these pages use. The engine's (QVM, cgame,
+qagame, configstring, cvar and the rest) are in the
+[engine's Terms](../../README.md#terms).
+
+- **Holomatch:** Elite Force's multiplayer: matches against players over a
+  network or bots, in its own program (`stvoyHM.exe`), its code in QVMs.
+  Single player is the story, in `stvoy.exe`, its code in DLLs.
+- **ICARUS:** the script system Raven's single-player games share. The
+  story's scripts are compiled to `.IBI` files, which the game runs as
+  maps' entities ask ([entities.md](formats/entities.md);
+  `reluva-tool idtech3 ibi-dump` prints one).

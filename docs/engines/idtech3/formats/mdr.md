@@ -1,6 +1,6 @@
 # MDR models (Elite Force's player bodies)
 
-> **Code:** `src/engines/idtech3/mdr.cpp` · **Confidence:** published unless marked
+> **Status:** decoded · **Code:** `src/engines/idtech3/mdr.cpp` · **Checked on:** all 201 `.mdr` files of Elite Force 1.2 with the Expansion Pack, read (`reluva-tool idtech3 model-check`, November 2026) · **Confidence:** the layout confirmed; the rest published unless marked
 
 ## Overview
 

@@ -103,7 +103,7 @@ save folder help.
    server from the server list (Local and Internet).
 4. Joining a server that uses paks the player doesn't have, with
    `cl_allowDownload 1`: they download, and the level loads.
-5. A pure server (`sv_pure 1`): the retail game joins Reluva's, and Reluva
+5. A pure server (`sv_pure 1`, which allows only its own paks): the retail game joins Reluva's, and Reluva
    joins a retail one.
 6. Chat, team chat, votes, and the in-game menu.
 

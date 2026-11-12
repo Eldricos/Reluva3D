@@ -30,15 +30,6 @@ confirmed are in [UNCONFIRMED.md](UNCONFIRMED.md).
     With it off, `pak3.pk3` isn't loaded and 1.2's DLLs are used.
   - The same folder added twice gives both versions.
   - See [idtech3.md](../../README.md) (Detection).
-- **Saves kept apart by version.** The original keeps 1.x and Expansion
-  saves in one `saves/` folder, although neither version's game can load
-  the other's: the Expansion's player chunk is longer.
-  - Reluva keeps the Expansion's in `expansion/saves/` and moves any save
-    found in the wrong folder.
-  - Its Load menu leaves out the other version's saves, and loading one is
-    refused with a message.
-  - See [sp-interface.md](systems/sp-interface.md)
-    ("The Expansion Pack's saves").
 - **Where the player's files go.** The original writes into its install
   folder. Reluva writes into its own save folder for each game:
   - settings and key bindings in `reluva.cfg`, not
@@ -192,7 +183,17 @@ confirmed are in [UNCONFIRMED.md](UNCONFIRMED.md).
 
 ## Bugs fixed
 
-None yet.
+- **Saves of the other version.** The original keeps 1.x and Expansion
+  saves in one `saves/` folder and lists them all in its Load menu,
+  although neither version's game can load the other's: the Expansion's
+  player chunk is longer, and the load stops at it ("Loaded chunk (GCLI)
+  has different length than requested").
+  - Reluva keeps the Expansion's in `expansion/saves/` and moves any save
+    found in the wrong folder.
+  - Its Load menu leaves out the other version's saves, and loading one is
+    refused with a message.
+  - See [sp-interface.md](systems/sp-interface.md)
+    ("The Expansion Pack's saves").
 
 ## Not yet as the original
 

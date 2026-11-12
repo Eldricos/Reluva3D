@@ -39,14 +39,14 @@ Paths are under `docs/engines/`.
 
 ### idtech3 (Elite Force)
 
-- [ ] `idtech3/formats/aas.md`: **Status** and **Checked on**
-- [ ] `idtech3/formats/mdr.md`: **Status** and **Checked on**
-- [ ] `idtech3/formats/text.md`: **Checked on**
-- [ ] `idtech3/games/stvef/systems/cinematics.md`: **Status** and **Checked against**
-- [ ] `idtech3/games/stvef/systems/input.md`: **Status**
-- [ ] `idtech3/games/stvef/systems/single-player.md`: **Status** and **Checked against**
-- [ ] `idtech3/games/stvef/systems/sp-interface.md`: **Status** and **Checked against**
-- [ ] `idtech3/games/stvef/systems/syscalls.md`: **Status**
+- [x] `idtech3/formats/aas.md`: **Status** and **Checked on**
+- [x] `idtech3/formats/mdr.md`: **Status** and **Checked on**
+- [x] `idtech3/formats/text.md`: **Checked on**
+- [x] `idtech3/games/stvef/systems/cinematics.md`: **Status** and **Checked against**
+- [x] `idtech3/games/stvef/systems/input.md`: **Status**
+- [x] `idtech3/games/stvef/systems/single-player.md`: **Status** and **Checked against**
+- [x] `idtech3/games/stvef/systems/sp-interface.md`: **Status** and **Checked against**
+- [x] `idtech3/games/stvef/systems/syscalls.md`: **Status**
 
 ### netimmerse (LEGO Alpha Team)
 
@@ -120,9 +120,9 @@ Each needs either content or confirmation that "None yet" is right.
 
 ### idtech3 (Elite Force)
 
-- [ ] `idtech3/games/stvef/KNOWN_DIFFERENCES.md`, "Bugs fixed": the original's own bugs Reluva doesn't reproduce, if any
-- [ ] `idtech3/games/stvef/REVERSE_ENGINEERING.md`, "Working files not included": working files the notes mention but the repository leaves out, and how to make them again
-- [ ] `idtech3/games/stvef/UNCONFIRMED.md`, "Settled": items confirmed or corrected since, with the date and how
+- [x] `idtech3/games/stvef/KNOWN_DIFFERENCES.md`, "Bugs fixed": the original's own bugs Reluva doesn't reproduce, if any
+- [x] `idtech3/games/stvef/REVERSE_ENGINEERING.md`, "Working files not included": working files the notes mention but the repository leaves out, and how to make them again
+- [x] `idtech3/games/stvef/UNCONFIRMED.md`, "Settled": items confirmed or corrected since, with the date and how
 
 ### netimmerse (LEGO Alpha Team)
 
@@ -155,18 +155,23 @@ in the game's README. If "Terms" lists are adopted, add the section to
 
 ### idtech3 (Elite Force)
 
-- [ ] Holomatch: first in `idtech3/games/stvef/README.md:18`
-- [ ] QVM: first in `idtech3/README.md:25`
-- [ ] cgame: first in `idtech3/games/stvef/README.md:25`
-- [ ] qagame: first in `idtech3/games/stvef/README.md:25`
-- [ ] cvar: first in `idtech3/README.md:64`
-- [ ] configstring: first in `idtech3/games/stvef/README.md:26`
-- [ ] ICARUS: first in `idtech3/games/stvef/formats/entities.md:93`
-- [ ] refEntity: first in `idtech3/README.md:56`
-- [ ] netchan: first in `idtech3/games/stvef/systems/network.md:28`
-- [ ] pure server: first in `idtech3/games/stvef/TESTING.md:106`
-- [ ] botlib: first in `idtech3/games/stvef/systems/syscalls.md:265`
-- [ ] AAS: first in `idtech3/games/stvef/UNCONFIRMED.md:148`
+- [x] Holomatch: first in `idtech3/games/stvef/README.md:18`
+- [x] QVM: first in `idtech3/README.md:25`
+- [x] cgame: first in `idtech3/games/stvef/README.md:25`
+- [x] qagame: first in `idtech3/games/stvef/README.md:25`
+- [x] cvar: first in `idtech3/README.md:64`
+- [x] configstring: first in `idtech3/games/stvef/README.md:26`
+- [x] ICARUS: first in `idtech3/games/stvef/formats/entities.md:93`
+- [x] refEntity: first in `idtech3/README.md:56`
+- [x] netchan: first in `idtech3/games/stvef/systems/network.md:28`
+- [x] pure server: first in `idtech3/games/stvef/TESTING.md:106`
+- [x] botlib: first in `idtech3/games/stvef/systems/syscalls.md:265`
+- [x] AAS: first in `idtech3/games/stvef/UNCONFIRMED.md:148`
+
+  Done with a "Terms" list in `idtech3/README.md` (the engine's words) and
+  `idtech3/games/stvef/README.md` (Holomatch, ICARUS), a few words at the
+  first use on the other pages, and the section added to both README
+  templates.
 
 ### awe (Murder on the Orient Express)
 
@@ -210,12 +215,26 @@ in the game's README. If "Terms" lists are adopted, add the section to
 
 ## 4. Candidates noted during the clean-up
 
-- [ ] `idtech3/games/stvef/KNOWN_DIFFERENCES.md`, "Bugs fixed": two items under
+- [x] `idtech3/games/stvef/KNOWN_DIFFERENCES.md`, "Bugs fixed": two items under
   "By choice" may belong here: keeping 1.x and Expansion Pack saves apart, and
   leaving out the original's cap of 5 copies of one sound per entity.
+  The saves moved: the original lists saves its game can't load. The sound
+  cap stays under "By choice": it's ioquake3's, and it was Reluva's own
+  first version that went silent with it, not the original.
 - [ ] `clue/UNCONFIRMED.md`: "Read from the code, not seen running" holds the
   sections "Code and recordings disagree" and "Not traced, no visible effect
   known"; check each is under the heading that fits.
 - [ ] awe's `systems/dialogue.md` has 10 *(inferred)* items. If any matters to
   how Reluva behaves, list it in `awe/games/motoe/UNCONFIRMED.md` under
   "Inferred".
+- [ ] `idtech3/formats/md3.md` says "all 1156 retail Elite Force models".
+  `model-check` counts 790 models in 1.2 and 917 with the Expansion Pack
+  (919 `.md3`/`.mdr` files in the paks); 1156 matches neither. Recount, and
+  give the release.
+- [ ] The Expansion Pack's `models/mapobjects/scavenger/k_chair1.md3`
+  doesn't read in Reluva: its surface 1 has 0 frames, the model 1. Check
+  whether the original draws it (and how) or never loads it, then make
+  Reluva match and note it in `md3.md`.
+- [ ] `idtech3/games/stvef/REVERSE_ENGINEERING.md` says Elite Force has
+  1872 shaders; `shader-check` counts 1891 in 1.2 (as the game's README
+  says) and 2059 with the Expansion Pack. Give the release with the count.
