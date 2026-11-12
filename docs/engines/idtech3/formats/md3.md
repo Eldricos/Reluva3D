@@ -1,24 +1,16 @@
 # id Tech 3: models (`.md3`) and skins (`.skin`)
 
-Status: **implemented** (`src/engines/idtech3/md3.cpp`, drawn by
-`model_cache.cpp`). **Checked on all 1156 retail Elite Force models**
-(`reluva-tool idtech3 model-check`, October 2026): all read, and every one of
-their 3862 surfaces finds its shader or image (782 through skins) except
-12 that name none: models whose shader the game code picks
-(`models/misc/telep.md3`) and player heads whose skin the game chooses
-(`models/players/munrocrew/head.md3`). Placed models sit where the
-original puts them.
+> **Status:** decoded · **Code:** `src/engines/idtech3/md3.cpp`, `model_cache.cpp` · **Checked on:** all 1156 retail Elite Force models (`reluva-tool idtech3 model-check`, October 2026)
 
-Shader names are looked up without their extension: many models name
-`models/x/y.tga` where a script defines `models/x/y` (the Borg map objects
-do), see [shader.md](shader.md).
+## Overview
 
-Sources: the GPL Quake III Arena source (`code/qcommon/qfiles.h`, the
-renderer's `tr_model.c`, `tr_surface.c`), read for the layout, not copied.
+Models (`.md3`), the `.skin` files that choose their shaders, and the players' `animation.cfg`.
+
+## Layout
 
 All values little-endian; integers 32-bit, floats IEEE single.
 
-## Header (108 bytes)
+### Header (108 bytes)
 
 | Offset | Type | Meaning |
 |---|---|---|
@@ -38,7 +30,7 @@ sits on its legs' `tag_torso`, the head on the torso's `tag_head`, a weapon
 on `tag_weapon`. What's attached is placed by the tag's axes (as columns)
 and origin, in the tagged model's space.
 
-## Surfaces
+### Surfaces
 
 Each surface starts with a 108-byte header, offsets relative to it:
 
@@ -61,19 +53,13 @@ Each surface starts with a 108-byte header, offsets relative to it:
 
 Files ending `_1.md3` and `_2.md3` are lower-detail copies.
 
-## Drawing
+### Skins
 
-Models have no lightmaps or vertex colours. A surface's shader (or, with
-no script, the image of that name) is lit by a light: an ambient and a
-directed colour from a direction. In a map that's the light grid where the
-model stands (see [bsp.md](bsp.md)); `rgbGen lightingDiffuse`, `vertex` and
-`exactVertex` all mean that light. Without a map, a fixed light.
+Text, one surface per line: `surfacename,shader`. Lines for tags
+(`tag_head,`) and empty shaders are ignored; surface names are matched
+ignoring case.
 
-Players are three models in one folder: `lower.md3`, `upper.md3`,
-`head.md3`, assembled by their tags, with `<part>_<skin>.skin` choosing
-their shaders.
-
-## Player animations (`animation.cfg`)
+### Player animations (`animation.cfg`)
 
 A player's folder holds an `animation.cfg` naming the runs of frames its
 parts play. How the file is read was taken from the GPL ioquake3 game code
@@ -99,16 +85,44 @@ is four numbers and a comment naming the animation:
   on the torso's `tag_head`. Drawing the halves on unrelated frames is
   what tears them apart at the waist.
 
-## Skins
+## Behaviour
 
-Text, one surface per line: `surfacename,shader`. Lines for tags
-(`tag_head,`) and empty shaders are ignored; surface names are matched
-ignoring case.
+Shader names are looked up without their extension: many models name
+`models/x/y.tga` where a script defines `models/x/y` (the Borg map objects
+do), see [shader.md](shader.md).
 
-## In maps
+### Drawing
+
+Models have no lightmaps or vertex colours. A surface's shader (or, with
+no script, the image of that name) is lit by a light: an ambient and a
+directed colour from a direction. In a map that's the light grid where the
+model stands (see [bsp.md](bsp.md)); `rgbGen lightingDiffuse`, `vertex` and
+`exactVertex` all mean that light. Without a map, a fixed light.
+
+Players are three models in one folder: `lower.md3`, `upper.md3`,
+`head.md3`, assembled by their tags, with `<part>_<skin>.skin` choosing
+their shaders.
+
+## In Reluva
+
+### In maps
 
 Items, weapons and characters get their models from the game code, not
 the map, so the viewer shows only what entities name themselves in
 `model` (not brush models, `*n`) or `model2`, placed by `origin` and
 `angles` ("pitch yaw roll", or `angle` for the yaw). Static props are
 usually built into the map itself as triangle soups.
+
+## Sources and checks
+
+Status: **implemented** (`src/engines/idtech3/md3.cpp`, drawn by
+`model_cache.cpp`). **Checked on all 1156 retail Elite Force models**
+(`reluva-tool idtech3 model-check`, October 2026): all read, and every one of
+their 3862 surfaces finds its shader or image (782 through skins) except
+12 that name none: models whose shader the game code picks
+(`models/misc/telep.md3`) and player heads whose skin the game chooses
+(`models/players/munrocrew/head.md3`). Placed models sit where the
+original puts them.
+
+Sources: the GPL Quake III Arena source (`code/qcommon/qfiles.h`, the
+renderer's `tr_model.c`, `tr_surface.c`), read for the layout, not copied.

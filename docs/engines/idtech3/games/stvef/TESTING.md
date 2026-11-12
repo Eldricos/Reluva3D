@@ -1,7 +1,9 @@
-# Testing Elite Force: the playthrough list
+# Star Trek: Voyager - Elite Force: testing
 
 What still needs trying in the real game, by a person, with the retail
 files.
+
+## Automated checks
 
 What can be checked by a program is checked automatically:
 
@@ -21,6 +23,8 @@ See [DEVELOPMENT.md](../../../../DEVELOPMENT.md#engine-tests) for both, and
 [REVERSE_ENGINEERING.md](REVERSE_ENGINEERING.md) for the rest of the
 checking.
 
+## A playthrough by hand
+
 Each item names what to do and what should happen. When something differs
 from the original game, note:
 
@@ -31,19 +35,7 @@ from the original game, note:
 Reluva's console messages and the `menus-stopped.txt` file in the game's
 save folder help.
 
-## Already confirmed (October 2026, Windows)
-
-- Turbolift and moving machinery collision.
-- Autosave pictures.
-- Leaving a match returns to the main menu.
-- Setup changes made in-game: resolution, textures.
-- Demos: recording and playback.
-- Holomatch game modes, from the menus' mode buttons.
-- The scoreboard (TAB) during a match and at its end, and moving on to the
-  next map after a match.
-- Network play against the retail game, Reluva as server and as client.
-
-## Getting the game in
+### Getting the game in
 
 1. **Import Game...** from the English Windows CD alone: gives 1.0.
 2. **Import Game...** from the CD with **Add patch...** (the 1.2 patch
@@ -58,7 +50,7 @@ save folder help.
 7. **The same folder added twice,** with *Use the Expansion Pack* off on one
    entry. The list tells them apart (`[Use the Expansion Pack: off]`).
 
-## Single player: the story (1.0 or 1.2)
+### Single player: the story (1.0 or 1.2)
 
 1. Start a new game from the main menu. The intro cinematic plays, then
    the first level loads, with its loading screen.
@@ -79,7 +71,7 @@ save folder help.
 8. The settings menus: video, sound, controls (rebinding keys) and
    brightness. They should still apply after quitting and starting again.
 
-## Single player: the Expansion Pack
+### Single player: the Expansion Pack
 
 1. With *Use the Expansion Pack* on: the main menu shows the Expansion's
    additions.
@@ -102,7 +94,7 @@ save folder help.
 6. With the setting off: the game is plain 1.2, with no Expansion maps or
    menus.
 
-## Holomatch (multiplayer)
+### Holomatch (multiplayer)
 
 1. A solo match against bots, in each game mode.
 2. The Expansion Pack's new maps (with its `xpack.arena` list), alone and
@@ -115,7 +107,7 @@ save folder help.
    joins a retail one.
 6. Chat, team chat, votes, and the in-game menu.
 
-## Mods
+### Mods
 
 1. A mod folder beside `baseEF`, with a `.pk3` and a `description.txt`:
    - the launcher's **Mod** setting lists it;
@@ -133,16 +125,34 @@ save folder help.
    again. If the player doesn't have the mod, it should download its paks
    (with `cl_allowDownload 1`).
 
-## Input
+### Input
 
 1. A joystick or gamepad, with `in_joystick 1`: movement, looking, the
    buttons, and binding them in Controls.
 2. Mouse settings: sensitivity, invert, smoothing, free look.
 
-## Other systems
+### Other systems
 
 1. **Linux:** import from the CD (or a disc image), then play single player
    and Holomatch.
 2. **macOS (on a real Mac):** the same. The Metal renderer passes the
    render check on GitHub's Mac runners, but hasn't been played on.
 3. **High refresh rates and fullscreen,** at the desktop's resolution.
+
+## Last checked
+
+| Date | Release | Platform | What was checked |
+|---|---|---|---|
+| October 2026 | | Windows | The list below |
+
+### Already confirmed (October 2026, Windows)
+
+- Turbolift and moving machinery collision.
+- Autosave pictures.
+- Leaving a match returns to the main menu.
+- Setup changes made in-game: resolution, textures.
+- Demos: recording and playback.
+- Holomatch game modes, from the menus' mode buttons.
+- The scoreboard (TAB) during a match and at its end, and moving on to the
+  next map after a match.
+- Network play against the retail game, Reluva as server and as client.

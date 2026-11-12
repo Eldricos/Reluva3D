@@ -1,9 +1,12 @@
 # id Tech 3: text files
 
-Status: **implemented** (`src/engines/idtech3/lexer.cpp`).
+> **Code:** `src/engines/idtech3/lexer.cpp`
 
-Source: the behaviour of `COM_ParseExt` in the GPL Quake III Arena source
-(`code/qcommon/q_shared.c`), read for behaviour, not copied.
+## Overview
+
+How id Tech 3 splits its text files into tokens.
+
+## Layout
 
 Shader scripts, a map's entity lump, `.arena`, `.skin` and `.cfg` files all
 split into tokens the same way:
@@ -15,5 +18,14 @@ split into tokens the same way:
 - anything else is a token up to the next whitespace. Braces are tokens
   only because files put spaces around them: `{` must not touch a word.
 
+## In Reluva
+
+Status: **implemented** (`src/engines/idtech3/lexer.cpp`).
+
 Many directives take "the rest of the line", so the lexer can refuse to
 cross a newline (`next(false)`).
+
+## Sources and checks
+
+Source: the behaviour of `COM_ParseExt` in the GPL Quake III Arena source
+(`code/qcommon/q_shared.c`), read for behaviour, not copied.

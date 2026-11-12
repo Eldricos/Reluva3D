@@ -1,4 +1,5 @@
-# How Reluva's Elite Force support was worked out
+# Star Trek: Voyager - Elite Force: how it was worked out
+
 
 Reluva runs Star Trek: Voyager - Elite Force from the player's own copy, with
 none of Raven's or id's code in it. This page describes how the facts
@@ -21,7 +22,7 @@ address or file it came from.
 - **Raven's Elite Force game source is off-limits.** The single-player
   source Raven released in 2002 comes under a licence that forbids
   derivative works and reverse engineering. It isn't read, and nothing is
-  taken from it ([idtech3.md](../../README.md#game-code-open-questions),
+  taken from it ([idtech3.md](../../PLAN.md#game-code-open-questions),
   [CONTRIBUTING.md](../../../../../CONTRIBUTING.md)). The same goes for leaked source
   of any kind.
 - **The retail game is studied as a legally owned copy, for
@@ -32,26 +33,12 @@ address or file it came from.
     translated;
   - no retail file is ever committed to the repository.
 
-## The approach: run the game's own code
+## Sources
 
-The engine (`stvoy.exe` for single player, `stvoyHM.exe` for Holomatch) is
-what Reluva replaces. The game logic is what Reluva runs as it is:
+### Sources of evidence
 
-- **Holomatch:** three QVM programs in the paks (`vm/ui.qvm`,
-  `vm/cgame.qvm`, `vm/qagame.qvm`), run by a QVM interpreter
-  ([qvm.md](../../formats/qvm.md)).
-- **Single player:** two 32-bit Windows DLLs (`efgamex86.dll`,
-  `efuix86.dll`, built with Visual C++ 6), run by an x86 interpreter with a
-  small Windows stand-in ([x86.md](../../../../common/x86/README.md)). This runs on any
-  machine, not just x86 Windows.
 
-So most of the reverse engineering is about the boundary: the calls each
-program makes to the engine, with their numbers, arguments, structures and
-meanings, and what the engine does in answer.
-
-## Sources of evidence
-
-### 1. Disassembly of the retail binaries
+#### 1. Disassembly of the retail binaries
 
 Each binary is disassembled into a text listing, which is then annotated:
 every address that points at a string gets the string beside it. That
@@ -85,7 +72,7 @@ From there:
   it came from (for example "0x415700 in the Expansion's `stvoy.exe`"), so
   anyone with the same files can look again.
 
-### 2. Running the game's code and watching what it asks for
+#### 2. Running the game's code and watching what it asks for
 
 `reluva-tool` runs the game's programs outside the game window and logs
 what they do:
@@ -103,7 +90,7 @@ yet"). That list of gaps drove much of the work. A call is understood when
 the code around it in the disassembly and its arguments at run time both
 fit.
 
-### 3. The data files
+#### 3. The data files
 
 Surveys run over the whole retail data, so a reader is checked against
 every file, not just a sample:
@@ -116,7 +103,7 @@ every file, not just a sample:
 - `model-check`, `image-check`, `tex-survey` and `pk3-list`: models,
   textures and archives.
 
-### 4. Installers and releases
+#### 4. Installers and releases
 
 - **Releases.** Each release is told apart by the MD5 of the first 5000
   bytes of key files, plus their sizes (`reluva --hash`), taken from the
@@ -127,7 +114,7 @@ every file, not just a sample:
   followed by a CRC-32. That lets Reluva take the patched files out
   without running it, on any system ([wise.md](../../../../common/wise.md)).
 
-### 5. The original game as the reference
+#### 5. The original game as the reference
 
 - **Network play** was checked against the retail game patched to 1.2,
   with Reluva as server and as client
@@ -137,7 +124,26 @@ every file, not just a sample:
   a fix with its cause written down: the scoreboard's missing calls, the
   mode buttons' key check, latched cvars, autosave pictures and so on.
 
-## Checking the work
+## Methods
+
+### The approach: run the game's own code
+
+The engine (`stvoy.exe` for single player, `stvoyHM.exe` for Holomatch) is
+what Reluva replaces. The game logic is what Reluva runs as it is:
+
+- **Holomatch:** three QVM programs in the paks (`vm/ui.qvm`,
+  `vm/cgame.qvm`, `vm/qagame.qvm`), run by a QVM interpreter
+  ([qvm.md](../../formats/qvm.md)).
+- **Single player:** two 32-bit Windows DLLs (`efgamex86.dll`,
+  `efuix86.dll`, built with Visual C++ 6), run by an x86 interpreter with a
+  small Windows stand-in ([x86.md](../../../../common/x86/README.md)). This runs on any
+  machine, not just x86 Windows.
+
+So most of the reverse engineering is about the boundary: the calls each
+program makes to the engine, with their numbers, arguments, structures and
+meanings, and what the engine does in answer.
+
+### Checking the work
 
 - **Unit tests** (`ctest`) cover the readers, the interpreters and the
   hosts. Where the retail game can't be used, they use test programs of
@@ -157,7 +163,7 @@ every file, not just a sample:
   machine: CI on ARM found that fused multiply-add changed collision
   results, so it's turned off in the build.
 
-## Writing it down
+### Writing it down
 
 - Facts go in this folder's `formats/` (file formats, interfaces,
   protocols), and shared code's in [docs/common/](../../../../common/), each
@@ -168,3 +174,13 @@ every file, not just a sample:
 - What's assumed rather than confirmed is listed in
   [UNCONFIRMED.md](UNCONFIRMED.md).
 - What still needs playing is listed in [TESTING.md](TESTING.md).
+
+## The tools
+
+`reluva-tool help idtech3` lists the engine's commands
+(`src/engines/idtech3/tools/`); those used in the research are in the table under
+[2. Running the game's code and watching what it asks for](#2-running-the-games-code-and-watching-what-it-asks-for).
+
+## Working files not included
+
+None yet.

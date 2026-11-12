@@ -1,5 +1,9 @@
 # Elite Force single player: how the DLLs and the engine talk
 
+> **Code:** `src/engines/idtech3/eliteforce/sp_game_host.cpp`, `sp_ui_host.cpp`
+
+## Overview
+
 Single player's game logic lives in two native DLLs that the x86 interpreter
 runs (see [../../../../../common/x86/README.md](../../../../../common/x86/README.md)):
 
@@ -8,16 +12,6 @@ runs (see [../../../../../common/x86/README.md](../../../../../common/x86/README
 - `efuix86.dll` holds the menus.
 
 This page lists what each passes the other, as found in the 1.2 release.
-The sources:
-
-- The retail executable (`stvoy.exe`), which builds the tables the DLLs
-  get. It was read for interoperability, as CONTRIBUTING.md allows where
-  local law permits.
-- Each engine function was identified by its own error messages and by
-  what it does.
-- Jedi Outcast's GPL source (OpenJK's `codeJK2`) confirmed the names. It
-  comes from the same studio and engine generation, and its interfaces
-  turned out to be close relatives of these.
 
 Raven's Elite Force source was not used. "JK2" below means Jedi Outcast's
 single player.
@@ -25,13 +19,15 @@ single player.
 Calls are cdecl throughout. Pointers are addresses in the emulated
 process's memory.
 
-## The server game (`efgamex86.dll`)
+## How it works
+
+### The server game (`efgamex86.dll`)
 
 The engine calls `GetGameAPI(import)` with a table of 40 engine functions.
 It returns a pointer to the game's table. While running, `GetGameAPI`
 reads `ext_data/weapons.dat` through slots 14 and 15.
 
-### The engine's functions (import table)
+#### The engine's functions (import table)
 
 | Slot | Function | Notes |
 |---|---|---|
@@ -69,7 +65,7 @@ reads `ext_data/weapons.dat` through slots 14 and 15.
 
 This is JK2's list without `FlushCamFile`, `FS_GetFileList`, `totalMapContents`, `bIsFromZone` and the Ghoul2 functions.
 
-### The Expansion Pack's engine
+#### The Expansion Pack's engine
 
 The Expansion Pack (its CD's `Setup/stvoy.exe`, 675,840 bytes, without
 copy protection; its `efgamex86.dll`, 999,500 bytes) changed this
@@ -101,7 +97,7 @@ comparing each slot's code, and the DLLs' own `Init` and `ReadLevel`.
 - **`maptransition <map> <spawntarget>`:** the game names where the
   player arrives (1.x's: `maptransition <map>`), which `Init` is handed.
 
-### Listing files
+#### Listing files
 
 The game's one use is for NPCs: after `ext_data/NPCs.cfg` it lists
 `ext_data` for `.npc` into a 2048-byte buffer and adds each file
@@ -162,7 +158,7 @@ its signature and lays its table out so, passing the extra arguments;
 borg1, a Virtual Voyager deck (`tour/deck01`) and `_holodeck_proton` run
 (`reluva-tool idtech3 sp-run`).
 
-### The game's functions (export table)
+#### The game's functions (export table)
 
 | Offset | Field |
 |---|---|
@@ -203,14 +199,14 @@ That's JK2's `Init` without `spawntarget` and `qbLoadTransition`.
 The player state the server copies out of each client is 544 bytes (136
 words).
 
-## The client game (cgame, also `efgamex86.dll`)
+### The client game (cgame, also `efgamex86.dll`)
 
 This is Quake III's native-DLL convention:
 
 - the engine calls `dllEntry(syscall)` with its system call function;
 - it calls `vmMain(command, args...)` to run the client game.
 
-### Commands (the engine to the cgame)
+#### Commands (the engine to the cgame)
 
 | Command | Meaning |
 |---|---|
@@ -221,7 +217,7 @@ This is Quake III's native-DLL convention:
 | 4 | `CrosshairPlayer()` |
 | 5 | `CameraPos(vec3 out)` → whether a cinematic camera is running. The server calls it while building a snapshot, to see from the camera rather than the player. |
 
-### System calls (the cgame to the engine)
+#### System calls (the cgame to the engine)
 
 `syscall(number, args...)`, 71 of them. Calls 0 to 25 are numbered as in JK2:
 
@@ -250,7 +246,7 @@ This is Quake III's native-DLL convention:
 | 65–69 | ambient sound sets, as JK2: `S_UpdateAmbientSet(name, origin)`, `S_AddLocalSet` (5), `AS_ParseSets()` (reads `sound/sound.txt`), `AS_AddPrecacheEntry(name)`, `AS_GetBModelSound(name, stage)` |
 | 70 | `S_GetSampleLength(sfx)` → int ms |
 
-## The renderer's functions
+### The renderer's functions
 
 Several of the tables above pass on the renderer's own entries. In the
 engine's renderer table (API version 9):
@@ -303,7 +299,7 @@ without a levelshot get that. Reluva's (`sp_play_viewer.cpp`,
 `levelShot`) does the same; reading only the `.tga` made its autosaves'
 pictures black.
 
-## Scene entities
+### Scene entities
 
 Single player's `refEntity_t` isn't Holomatch's (whose renderer, in the
 patched Holomatch executable, numbers its effects its own way up to 14;
@@ -331,7 +327,7 @@ Reluva draws sprites and portals with this layout
 (`eliteforce/ref_entity.h`, `kSpRefEntityLayout`); the beam isn't drawn
 (the info line counts it among the entities not drawn).
 
-## The menus (`efuix86.dll`)
+### The menus (`efuix86.dll`)
 
 The UI works differently from the game:
 
@@ -339,7 +335,7 @@ The UI works differently from the game:
 - it keeps the 12 functions that come back;
 - it then calls the first, `Init(2, imports)`, with a table of 59 engine functions.
 
-### The menus' functions
+#### The menus' functions
 
 | Entry | Function |
 |---|---|
@@ -356,7 +352,7 @@ The UI works differently from the game:
 | 10 | `UpdateConnectionString(text)`: `"(n)"` with each connection attempt |
 | 11 | `UpdateConnectionMessageString(text)`: a server's `print` message |
 
-### How the engine drives them
+#### How the engine drives them
 
 From `stvoy.exe` (its copy of the 12 functions is at 0x57f320):
 
@@ -384,7 +380,7 @@ From `stvoy.exe` (its copy of the 12 functions is at 0x57f320):
 - **Return values.** `Printf(format, ...)` and `Error(level, format, ...)`
   take printf arguments. `Cvar_VariableValue` returns its float in ST(0).
 
-### The player and the turbolift
+#### The player and the turbolift
 
 - **The player.** The userinfo the game is given is every cvar flagged 2
   (USERINFO):
@@ -404,7 +400,7 @@ From `stvoy.exe` (its copy of the 12 functions is at 0x57f320):
   256 × 256 RGBA, stored bottom row first. The menus draw them with a
   negative height.
 
-### The engine's functions for the menus
+#### The engine's functions for the menus
 
 | Slot | Function |
 |---|---|
@@ -430,7 +426,7 @@ From `stvoy.exe` (its copy of the 12 functions is at 0x57f320):
 | 57 | `GetConfigString(index, buffer, size)` → whether there is one |
 | 58 | `Milliseconds()` |
 
-## Structures
+### Structures
 
 As the original engine reads and fills them.
 
@@ -508,7 +504,7 @@ As the original engine reads and fills them.
   | 28 | value |
   | 32 | integer |
 
-## How the halves meet
+### How the halves meet
 
 - The server game calls into its client half through the function
   `dllEntry` hands over, so the engine calls `dllEntry` before the level
@@ -521,7 +517,7 @@ As the original engine reads and fills them.
   is ignored and unbalances the x87 stack. Captions divide it over their
   characters, so 0 ends each caption as soon as it starts.
 
-## Voices
+### Voices
 
 The engine fills the import table's `VoiceVolume` array (slot 37), one int
 per entity, the way its sound mixer does (0x424a10):
@@ -544,7 +540,7 @@ The game uses it two ways:
   again. Without it, the scripts run every line at once: the voices
   overlap and each subtitle replaces the last immediately.
 
-## Subtitles
+### Subtitles
 
 - During a cutscene (`g_subtitles` 2, the default), the game sends each
   scripted voice line to the client game as a server command:
@@ -554,7 +550,7 @@ The game uses it two ways:
 - `CG_INIT` is passed the number of server commands the client has
   received so far, which the client game counts on from.
 
-## Ambient sound sets
+### Ambient sound sets
 
 The engine keeps the ambient sets the way Jedi Knight's engine does: the
 same keywords, defaults and messages appear in `stvoy.exe` (0x41f6a0
@@ -591,14 +587,14 @@ onwards). `src/engines/idtech3/raven/ambient_sets.cpp` implements them.
 - **Brush model set** (`AS_GetBModelSound(name, stage)`, 69). Returns the
   stage's `subWaves` sound handle, or -1.
 
-## Saved games
+### Saved games
 
 The engine's save, load and wipe commands are in `stvoy.exe` (0x429990
 onwards). Reluva writes and reads the same files
 (`src/engines/idtech3/raven/savegame.cpp`, and the Single player
 page for the order).
 
-### The file
+#### The file
 
 `saves/<name>.sav` is a run of chunks. Each chunk is:
 
@@ -617,7 +613,7 @@ page for the order).
 - The game's own chunks, from `AppendToSaveGame` and `ReadFromSaveGame`
   (imports 16 and 17), are part of the same run.
 
-### What a save holds, in order
+#### What a save holds, in order
 
 `save <name>` checks the game first. It refuses with no game running, on
 `_` maps (the holodeck and the brig), with the player dead (stats[0] at
@@ -644,7 +640,7 @@ as `current.sav` and then renamed.
        except 1, `CSIN` (its index) and `CSDA` (its text with the NUL).
 6. The game's `WriteLevel(autosave)`.
 
-### The Expansion Pack's saves
+#### The Expansion Pack's saves
 
 The Expansion Pack's engine writes and reads the same chunks in the same
 order (its save at 0x427350, chunk writer 0x427a40, reader 0x427b60), and
@@ -661,7 +657,7 @@ Its game's direct calls to `ReadFromSaveGame` give a buffer (a length of
 0 for `OBJT`, taking it whatever its length); none was found calling the
 optional read (slot 19). Reluva's host serves both as described above.
 
-### Loading
+#### Loading
 
 `load <name>` reads the save back in the same order.
 
@@ -678,7 +674,7 @@ optional read (slot 19). Reluva's host serves both as described above.
 `load *respawn`, sent after dying, picks what to load: the save last
 loaded if it is of the same map, else `auto`.
 
-### Autosaves and level changes
+#### Autosaves and level changes
 
 - **Autosave.** When the player joins a new level (load mode 0, a map
   not starting with `_`), the engine saves it as `auto`.
@@ -694,7 +690,7 @@ loaded if it is of the same map, else `auto`.
 
   The game reads these back as the next level starts.
 
-### The menus' functions for saved games
+#### The menus' functions for saved games
 
 | Slot | Function |
 |---|---|
@@ -707,7 +703,7 @@ loaded if it is of the same map, else `auto`.
 Engine function 33 captures the screen only in a game with no menu open,
 so calls to it from the menus do nothing.
 
-## Faces and loading screens
+### Faces and loading screens
 
 - **Faces.** The renderer's `RegisterSkin("…/head_x.skin")` also loads
   `head_x-1.skin` to `head_x-8.skin`, if they exist, into the following
@@ -732,3 +728,16 @@ so calls to it from the menus do nothing.
 - **Skipping scenes.** The use button (bit 4) in a camera scene sets
   `skippingCinematic` 1 and `timescale` 100, so the scene runs a hundred
   times faster; the game resets both when the camera ends.
+
+## Sources and checks
+
+The sources:
+
+- The retail executable (`stvoy.exe`), which builds the tables the DLLs
+  get. It was read for interoperability, as CONTRIBUTING.md allows where
+  local law permits.
+- Each engine function was identified by its own error messages and by
+  what it does.
+- Jedi Outcast's GPL source (OpenJK's `codeJK2`) confirmed the names. It
+  comes from the same studio and engine generation, and its interfaces
+  turned out to be close relatives of these.

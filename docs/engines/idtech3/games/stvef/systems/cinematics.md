@@ -1,7 +1,13 @@
 # Elite Force: cinematics
 
+> **Code:** `src/engines/idtech3/pages/sp_play_viewer.cpp`
+
+## Overview
+
 Elite Force's cinematics are Bink movies (`video/<name>.bik`), decoded by
 Reluva's shared decoder ([bink.md](../../../../../common/video/bink.md)).
+
+## How it works
 
 - **`cinematic <name>`** (`stvoy.exe` 0x404840) ends the game and plays
   `video/<name>.bik` full screen. When it ends, the engine runs the
@@ -13,3 +19,7 @@ Reluva's shared decoder ([bink.md](../../../../../common/video/bink.md)).
   button skips a cinematic.
 - **Variants the engine also looks for:** `_lo` versions on slow machines,
   and a German check. Reluva plays the plain name.
+
+## Sources and checks
+
+- **Where the facts come from:** `stvoy.exe` (the `cinematic` command at 0x404840).

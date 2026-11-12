@@ -1,8 +1,14 @@
 # Elite Force: the 1.2 patch
 
+> **Status:** decoded · **Code:** `src/engines/idtech3/games.cpp` (`patchFiles`) · **Checked on:** `eliteforcepatch1_2.exe` (20,636,701 bytes)
+
+## Overview
+
 The 1.2 patch, `eliteforcepatch1_2.exe` (20,636,701 bytes), is a Wise
 installer ([wise.md](../../../../../common/wise.md)). Reluva takes the files it
 needs out of it without running it.
+
+## Layout
 
 Elite Force's 1.2 patch holds 33 files, the last ending at the end of the
 installer. Among them, whole (not as differences from the old files):
@@ -20,5 +26,14 @@ installer. Among them, whole (not as differences from the old files):
 Each is byte for byte the file a patched install has. The rest are the
 installer's screens, readme (RTF), text and settings (`[ActiveNet]`...).
 
+## In Reluva
+
 Reluva takes `pak1.pk3`, `pak2.pk3` and the two 1.1 DLLs (`games.cpp`,
 `patchFiles`).
+
+## Sources and checks
+
+- **Where the facts come from:** the installer itself
+  ([REVERSE_ENGINEERING.md](../REVERSE_ENGINEERING.md), "Installers and releases").
+- **How it was checked:** each file taken out is byte for byte the file a
+  patched install has (above).

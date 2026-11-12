@@ -1,11 +1,17 @@
 # Elite Force: running single player's DLLs
 
+> **Code:** `src/engines/idtech3/eliteforce/sp_game_host.{h,cpp}`, `src/engines/idtech3/pages/sp_play_viewer.cpp`
+
+## Overview
+
 Single player's game logic is two Windows DLLs, run as they shipped in
 Reluva's [x86 emulator](../../../../../common/x86/README.md). How they and the
 engine talk is [sp-interface.md](sp-interface.md); this page is how they were
 brought to run.
 
-## First results with the retail DLLs (1.2)
+## How it works
+
+### First results with the retail DLLs (1.2)
 
 - Both DLLs' start-up runs to completion: `efuix86.dll` in about 9,800
   instructions, `efgamex86.dll` in about 172,000. Every KERNEL32 function
@@ -26,7 +32,9 @@ The full interface between the DLLs and the engine, as later read from the
 retail executable, is in
 [sp-interface.md](sp-interface.md).
 
-## Running the single-player game
+## In Reluva
+
+### Running the single-player game
 
 `src/engines/idtech3/eliteforce/sp_game_host.{h,cpp}` runs `efgamex86.dll`'s
 server game:
@@ -62,7 +70,7 @@ Speed: about 50 million instructions a second in a Release build before
 the decoded-instruction cache, about 1.5 times that with it. A Debug build
 is much slower.
 
-## Playing single player
+### Playing single player
 
 The **Single player** page (`src/engines/idtech3/pages/sp_play_viewer.cpp`)
 appears when `efgamex86.dll` is in the install folder. It lists the maps
@@ -88,3 +96,8 @@ Also done: sound, with the ambient sound sets; wall marks
 (`R_LightForPoint`); rotated pictures; saving and loading games, with
 the saved-game picture; cinematics; and the menus' single-player screens
 (`efuix86.dll`).
+
+## Sources and checks
+
+- **Where the facts come from:** the retail DLLs (1.2), run in the emulator;
+  the retail executable, for the interface ([sp-interface.md](sp-interface.md)).

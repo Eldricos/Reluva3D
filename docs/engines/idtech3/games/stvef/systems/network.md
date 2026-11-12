@@ -1,5 +1,9 @@
 # Elite Force: the Holomatch network protocol
 
+> **Status:** done · **Code:** `src/engines/idtech3/wire/`, `src/engines/idtech3/eliteforce/net_fields.cpp`, `net_server.cpp`, `net_client.cpp` · **Checked against:** the retail executable, both ways (October 2026)
+
+## Overview
+
 Status: **implemented, and played against the retail game both ways**. This
 page is a specification for a server and a client that talk to the
 retail Elite Force Holomatch (patch 1.2) over the network. Reluva's
@@ -14,16 +18,9 @@ With Raven's master gone, Reluva's client asks every master set when the
 menus ask for master 0. Where the sources disagree with what Reluva has measured in
 the game's own code, both are given.
 
-Sources: Lilium Voyager (a GPL ioquake3 fork that plays Elite Force
-Holomatch and talks to the retail game; its `ELITEFORCE` and
-`LEGACY_PROTOCOL` branches in `qcommon/msg.c`, `net_chan.c`,
-`qcommon.h`, `q_shared.h`, `server/sv_*.c`, `client/cl_*.c`) and plain
-ioquake3 for comparison, read for the protocol's behaviour, not copied.
-Names of fields and commands are given only so a reader can find their
-counterparts there; the words that go on the wire (`getchallenge`, `cp`)
-are part of the protocol.
+## How it works
 
-## Protocol numbers
+### Protocol numbers
 
 | Number | What it is |
 |---|---|
@@ -41,7 +38,7 @@ Force. Lilium knows the four by their checksum (the pk3 "checksum" of
 [../../../formats/pk3.md](../../../formats/pk3.md)'s pure scheme, without the feed): 3376297517, 596947475,
 3960871590, 1592359207, in that order.
 
-## Constants
+### Constants
 
 | Name | Value | Notes |
 |---|---|---|
@@ -69,7 +66,7 @@ The game state the client game reads (1024 offsets, 16,000 characters)
 is Quake III's, which Reluva has confirmed independently
 ([syscalls.md](syscalls.md)).
 
-## Transport
+### Transport
 
 UDP over IPv4. A datagram whose first four bytes are `FF FF FF FF` is
 **connectionless** (out of band): the rest is plain text, a command line
@@ -82,7 +79,7 @@ Out-of-band text is never compressed in Elite Force. In particular the
 compress everything after the first 12 bytes of `connect`, Elite Force
 doesn't.
 
-### Server discovery on a LAN
+#### Server discovery on a LAN
 
 - The client broadcasts `getinfo xxx` (the `xxx` is an arbitrary
   challenge to be echoed) to 255.255.255.255 on ports 27960, 27961,
@@ -115,7 +112,7 @@ spaces. Same as Quake III. Raven's master queried servers with
 `getstatus`, not `getinfo`, and listed only those whose status had
 `protocol` 24, so a server should put `protocol` in its server info.
 
-### Connecting
+#### Connecting
 
 The client keeps a random 16-bit **qport**, chosen once at start-up, that
 identifies its connection even if a NAT changes its source port.
@@ -162,7 +159,7 @@ the player), `disconnect` (ignored), `rcon <password> <command>`
 (answered with `print` packets), `echo` (the client echoes its argument
 back to its server).
 
-### CD keys and authorization
+#### CD keys and authorization
 
 A LAN game needs no CD key. Both sides skip authorization when the
 other end's address is on the LAN (private ranges, loopback, the local
@@ -190,7 +187,7 @@ challenge came after about 20 seconds (seven `getchallenge` requests, 3
 seconds apart). The retail game would wait the same; nothing a client
 can change.
 
-## Netchan
+### Netchan
 
 A sequenced packet is a header then a message. All header numbers are
 little-endian.
@@ -253,7 +250,7 @@ message after its first 12 (client) or 4 (server) bytes with a key built
 from the challenge, the sequence and the text of the last reliable
 command. Elite Force has none of that, in either protocol.
 
-## Bit stream
+### Bit stream
 
 Protocol 24 messages are **not Huffman-compressed**. They are a plain
 bit stream:
@@ -290,20 +287,20 @@ bit stream:
 Where Quake III writes an angle as a short, it's the angle × 65536 / 360,
 masked to 16 bits.
 
-### Deltas of plain values
+#### Deltas of plain values
 
 A **delta field** is 1 bit: 0 means unchanged from the previous value; 1
 is followed by the new value in the field's width. Elite Force uses no
 keys (XOR masks) in any delta, in either protocol; Quake III 1.32 XORs
 user command fields with a key.
 
-### Small-integer floats
+#### Small-integer floats
 
 Float fields of entity and player states that hold a whole number from
 −4096 to 4095 are sent short: 1 bit 0, then the number + 4096 in 13
 bits. Any other value: 1 bit 1, then the 32 float bits.
 
-## Entity state
+### Entity state
 
 The entity state is 204 bytes (51 words; Quake III's is 208, with
 `generic1`). The number (offset 0) is never in the delta: it's written
@@ -351,7 +348,7 @@ how often each field changes), except that loopSound comes before
 constantLight and frame before clientNum. Compared with Quake III:
 eFlags is 24 bits (19), loopSound 16 (8), and there is no generic1.
 
-### Entity delta (protocol 24)
+#### Entity delta (protocol 24)
 
 Written from an old state (the previous snapshot's, a baseline, or all
 zeros) to a new one:
@@ -412,7 +409,7 @@ Predefined change vectors (bytes 0–7, and the fields they mark):
 yaw (15), pitch (14), event (44), legs/torso animation (48, 49).) A
 writer may always use index 31; a reader must know the table.
 
-## Player state
+### Player state
 
 Fields sent, in wire order:
 
@@ -467,7 +464,7 @@ Quake III), damageShieldCount and introTime added; grapplePoint,
 jumppad_ent, loopSound and generic1 gone; gravity, speed and the rest
 are moved by the three Elite Force words at 48–56.
 
-### Player state delta (protocol 24)
+#### Player state delta (protocol 24)
 
 From the previous snapshot's player state, or all zeros when not
 delta-compressing:
@@ -486,7 +483,7 @@ delta-compressing:
    has no bit before the four groups saying whether any changed (Quake
    III and protocol 26 do).
 
-## User commands
+### User commands
 
 Elite Force's command is 24 bytes and laid out differently from Quake
 III's: serverTime (int) at 0, buttons (a byte) at 4, weapon (a byte) at
@@ -511,7 +508,7 @@ the last server command, XOR the command's time). Elite Force does
 neither, in both of its protocols. Readers turn a move of −128 into
 −127 (a safeguard, not part of the format).
 
-## Server to client messages
+### Server to client messages
 
 Opcodes (bytes): 0 bad, 1 nop, 2 gamestate, 3 configstring, 4 baseline,
 5 serverCommand, 6 download, 7 snapshot, 8 EOF. These are Quake III's.
@@ -605,7 +602,7 @@ client joins and treats as one `cs`; `disconnect <reason>` (in protocol
 24 the reason is unquoted, the rest of the line; protocol 26 quotes it);
 `map_restart`; `print "<text>"`. Everything else is for the client game.
 
-## Client to server messages
+### Client to server messages
 
 Opcodes: 0 bad, 1 nop, 2 move, 3 moveNoDelta, 4 clientCommand, 5 EOF.
 Quake III's; 5 is never sent in protocol 24 (the message just ends).
@@ -643,7 +640,7 @@ Commands the engine handles (others go to the server game):
 `disconnect`, `cp ...` (below), `vdr` (forget the client's pure check),
 `download`, `nextdl`, `stopdl`, `donedl`.
 
-## Connection sequence
+### Connection sequence
 
 | Client | Server |
 |---|---|
@@ -675,7 +672,7 @@ Commands the engine handles (others go to the server game):
   (2 s), so its final reliable message can be repeated. The client gives
   up after `cl_timeout` (200 s).
 
-### Timing and rate
+#### Timing and rate
 
 - The server runs at `sv_fps` (20) frames a second. Elite Force puts
   `sv_fps` in the **system info** (Quake III doesn't), so clients see it.
@@ -691,7 +688,7 @@ Commands the engine handles (others go to the server game):
 - The client sends at most `cl_maxpackets` packets a second (Elite
   Force's default 43; Quake III's 30), clamped to 15..125.
 
-### Pure servers
+#### Pure servers
 
 The system info carries `sv_paks` (the checksums of the server's pk3s,
 plain ones without the feed, as numbers separated by spaces),
@@ -739,7 +736,7 @@ outside the game's own folder (a mod's). Reluva's also lists those
 holding `vm/cgame.qvm` and `vm/ui.qvm`, which the original does only
 when pure. All in search order.
 
-## Configstrings and info keys the engine uses
+### Configstrings and info keys the engine uses
 
 - **0, server info**: every server-info setting; the engine itself adds
   `mapname`, `sv_hostname`, `sv_maxclients`, `sv_privateClients`,
@@ -759,7 +756,7 @@ when pure. All in search order.
 The **checksum feed** is a random 32-bit number the server picks at each
 map load; it seeds the pure checksums of both sides.
 
-## Demos (.efdemo)
+### Demos (.efdemo)
 
 A recorded match is the server's messages to the recording player, as
 they came: for each, the message's sequence number (32 bits, little
@@ -784,7 +781,7 @@ menus return to their main menu. `reluva-tool idtech3 demo-run <game> <demo>`
 plays one headless through the client game: all three play in real time
 (590.1 s of match in 590.2 s of frames for demo0000).
 
-## Master server
+### Master server
 
 Done in Reluva (`server_browser.cpp`, `net_server.cpp`), and seen working
 in October 2026: Raven's master doesn't answer; the community's
@@ -818,7 +815,7 @@ master protocol with Raven's twists:
   list ends (Quake III: `\EOT`) isn't shown by these sources.
 - MOTD: `getmotd "<info>"` to `motd.stef1.ravensoft.com`, port 27951.
 
-## Protocol 26
+### Protocol 26
 
 Lilium's own protocol, for reference: it is ioquake3's protocol 71 with
 Elite Force's structures. Differences from protocol 24:
@@ -843,35 +840,7 @@ Elite Force's structures. Differences from protocol 24:
   refused download carries a reason string.
 - User commands are the same as in 24 (no key).
 
-## Layout cross-check with Reluva
-
-Against [syscalls.md](syscalls.md) and
-`src/engines/idtech3/eliteforce/game_layout.h`:
-
-- **Entity state: agrees.** 204 bytes, no generic1 at the end (Reluva
-  assumed this), modelindex at 160 and solid at 176 as Reluva has them;
-  origin at 92.
-- **User command: agrees** in every offset (serverTime 0, buttons 4,
-  weapon 5, angles 8, moves 20–22, 24 bytes) and in the buttons being a
-  byte.
-- **Player state: two layouts, by version.** Lilium's layout is 1.2's:
-  468 bytes, with the phaser timer at 48, a 16-bit field at 52,
-  `introTime` (the holodeck-door intro timer) at 56, gravity at 60, speed
-  at 64 and eventSequence at 108. The CD's game code (1.0, `pak0.pk3`)
-  has 460 bytes: gravity (800) at 56 and speed (250) at 60, as Reluva
-  first measured. 1.2 adds `introTime` at 56 and one more word, whose
-  place isn't pinned down; the fields Reluva reads are at known offsets
-  in both. Patch 1.2's game code is in `pak1.pk3`
-  and `pak2.pk3`. Reluva tells the two apart by the size of the player
-  states the game code copies whole (`BlockCopy` of 468 or 460;
-  `src/engines/idtech3/eliteforce/game_layout.h`), and reads the fields at
-  that version's offsets. Network play uses 1.2's, which play against the
-  retail game patched to 1.2 confirmed: a Reluva server runs the 1.2 game
-  code, as retail 1.2 clients do.
-- Configstrings and the game state: agree (1024 configstrings, 16,000
-  characters, Quake III's numbering).
-
-## Differences from Quake III (1.32, protocol 68)
+### Differences from Quake III (1.32, protocol 68)
 
 - Protocol number 24; master and authorize port 27953; masters, MOTD and
   authorize hosts at `stef1.ravensoft.com`; heartbeat
@@ -900,6 +869,47 @@ Against [syscalls.md](syscalls.md) and
 - `sv_fps` is a system-info setting; `cl_maxpackets` defaults to 43; CD
   key in `efq3.key`; `getIpAuthorize` without the game and flags.
 - Strings may carry bytes above 127.
+
+## In Reluva
+
+### Layout cross-check with Reluva
+
+Against [syscalls.md](syscalls.md) and
+`src/engines/idtech3/eliteforce/game_layout.h`:
+
+- **Entity state: agrees.** 204 bytes, no generic1 at the end (Reluva
+  assumed this), modelindex at 160 and solid at 176 as Reluva has them;
+  origin at 92.
+- **User command: agrees** in every offset (serverTime 0, buttons 4,
+  weapon 5, angles 8, moves 20–22, 24 bytes) and in the buttons being a
+  byte.
+- **Player state: two layouts, by version.** Lilium's layout is 1.2's:
+  468 bytes, with the phaser timer at 48, a 16-bit field at 52,
+  `introTime` (the holodeck-door intro timer) at 56, gravity at 60, speed
+  at 64 and eventSequence at 108. The CD's game code (1.0, `pak0.pk3`)
+  has 460 bytes: gravity (800) at 56 and speed (250) at 60, as Reluva
+  first measured. 1.2 adds `introTime` at 56 and one more word, whose
+  place isn't pinned down; the fields Reluva reads are at known offsets
+  in both. Patch 1.2's game code is in `pak1.pk3`
+  and `pak2.pk3`. Reluva tells the two apart by the size of the player
+  states the game code copies whole (`BlockCopy` of 468 or 460;
+  `src/engines/idtech3/eliteforce/game_layout.h`), and reads the fields at
+  that version's offsets. Network play uses 1.2's, which play against the
+  retail game patched to 1.2 confirmed: a Reluva server runs the 1.2 game
+  code, as retail 1.2 clients do.
+- Configstrings and the game state: agree (1024 configstrings, 16,000
+  characters, Quake III's numbering).
+
+## Sources and checks
+
+Sources: Lilium Voyager (a GPL ioquake3 fork that plays Elite Force
+Holomatch and talks to the retail game; its `ELITEFORCE` and
+`LEGACY_PROTOCOL` branches in `qcommon/msg.c`, `net_chan.c`,
+`qcommon.h`, `q_shared.h`, `server/sv_*.c`, `client/cl_*.c`) and plain
+ioquake3 for comparison, read for the protocol's behaviour, not copied.
+Names of fields and commands are given only so a reader can find their
+counterparts there; the words that go on the wire (`getchallenge`, `cp`)
+are part of the protocol.
 
 ## Open questions
 

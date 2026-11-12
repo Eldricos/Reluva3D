@@ -1,12 +1,18 @@
 # Elite Force: joystick input
 
+> **Code:** `src/engines/idtech3/client/joystick_input.cpp` · **Checked against:** the code only
+
+## Overview
+
 How both of Elite Force's engines (`stvoy.exe`, single player, and
 `stvoyHM.exe`, Holomatch) read a joystick, from `stvoyHM.exe`'s code
 (addresses below are its). Both carry the same strings and settings;
 single player adds force feedback (`ff_usejoy`), which Reluva doesn't do.
 The engines read joystick 1 through Windows' `joyGetPosEx` once a frame.
 
-## Settings
+## How it works
+
+### Settings
 
 Registered at input start-up (0x43ec7e):
 
@@ -24,7 +30,7 @@ with the "X AXIS" and "Y AXIS" buttons ("ANALOG JOYSTICK X AXIS"); the
 readme: "As a default, the X-Axis and Y-Axis operate in the analog mode.
 ... By turning X-Axis and/or Y-Axis Off, they will act like buttons".
 
-## Each frame (0x43f580 on)
+### Each frame (0x43f580 on)
 
 - **Buttons:** button *i* (from 0) pressed or released since the last
   frame is a key event for key 185 + *i*, `JOY1` to `JOY32` (the key
@@ -49,7 +55,7 @@ So by default (`joy_xbutton 1`) the stick's x presses the arrow keys,
 which `default.cfg` binds to turning (`LEFTARROW +left`), and its y moves
 the player by how far it's pushed. No joystick key is bound by default.
 
-## The client's use of the analog axes (CL_JoystickMove, 0x409f10)
+### The client's use of the analog axes (CL_JoystickMove, 0x409f10)
 
 `CL_JoystickEvent(axis, value)` (0x409ed0) keeps the value for axes 0–5.
 With *s* the frame's seconds (times `cl_anglespeedkey` while `+speed` is
@@ -63,7 +69,7 @@ held):
   y are analog).
 - the walking button bit set unless running, as for the keys.
 
-## Reluva
+## In Reluva
 
 `client/joystick_input.cpp` reads the joystick SDL reports first (its
 raw buttons, axes and first hat, in the device's order as Windows' API
@@ -71,3 +77,8 @@ gave them) and follows the above each frame; its keys run their bindings
 (or go to the menus, so the Controls menu can bind `JOY1`...), its
 analog axes go to `PlayerInput`. `in_joystick` takes effect at once
 rather than on `in_restart`.
+
+## Sources and checks
+
+- **Where the facts come from:** `stvoyHM.exe`'s code, at the addresses given;
+  patch 1.2's menus and readme.

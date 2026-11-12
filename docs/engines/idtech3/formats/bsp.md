@@ -1,18 +1,17 @@
 # id Tech 3: compiled maps (`maps/*.bsp`)
 
-Status: **all lumps read and cross-checked** (`src/engines/idtech3/bsp.cpp`);
-the light grid is kept raw. **Verified on all 67 retail Elite Force maps**
-(`reluva-tool idtech3 bsp-check`, October 2026): every one is version 46 with the
-record sizes below, and 27 of them need the corrections described at the
-end.
+> **Status:** decoded · **Code:** `src/engines/idtech3/bsp.cpp` · **Checked on:** all 67 retail Elite Force maps (`reluva-tool idtech3 bsp-check`, October 2026)
 
-Sources: the GPL Quake III Arena source (`code/qcommon/qfiles.h`, the map
-compiler and renderer) and the community's "Unofficial Quake 3 Map Specs".
+## Overview
+
+A compiled map: its 17 lumps hold the level's entities, geometry, lightmaps, light grid and visibility.
+
+## Layout
 
 All values are little-endian. Integers are 32-bit signed, floats IEEE
 single precision.
 
-## Header
+### Header
 
 | Offset | Type | Meaning |
 |---|---|---|
@@ -20,7 +19,7 @@ single precision.
 | 4 | i32 | version, 46 |
 | 8 | 17 × (i32 offset, i32 length) | the lumps, in the order below |
 
-## Lumps
+### Lumps
 
 | # | Lump | Record size | Record |
 |---|---|---|---|
@@ -42,7 +41,7 @@ single precision.
 | 15 | light grid | 8 | u8[3] ambient, u8[3] directed colour, u8 longitude, u8 latitude of the direction towards the light; see below |
 | 16 | visibility | — | i32 cluster count, i32 bytes per cluster, then one bit per cluster pair: bit `to` of row `from` set when `to` can be seen from `from` |
 
-### Surfaces
+#### Surfaces
 
 | Offset | Type | Meaning |
 |---|---|---|
@@ -64,6 +63,28 @@ tessellates them; the file holds only the control points. For a patch,
 the bounds in the lightmap vectors are those of its *group*: the patches
 q3map wants cut alike so they meet. Patches with the same group bounds
 are stitched together (below).
+
+### The light grid
+
+Light sampled on a regular grid, for lighting models. Cells are 64 × 64 ×
+128 units unless the worldspawn entity's `gridsize` key says otherwise.
+Grid points lie on multiples of the cell size inside the world model's
+bounds: from ceil(mins / size) × size to floor(maxs / size) × size on each
+axis, X fastest, then Y, then Z. If the lump's size doesn't match, the
+original ignores the grid.
+
+Colours are stored at half brightness like lightmaps (doubled, keeping the
+hue). The direction is two angles × 2π/256: longitude (byte 6) from +Z,
+latitude (byte 7) around it, giving (cos lat · sin lng, sin lat · sin lng,
+cos lng).
+
+To light a point the original blends the eight surrounding grid points by
+distance, skipping any that are all black (inside walls) and rescaling
+the rest, normalizes the blended direction, then adds 32 to the ambient
+light (capped at 255). `src/engines/idtech3/light_grid.cpp`; read from the
+GPL renderer's `tr_bsp.c` and `tr_light.c`.
+
+## Behaviour
 
 ### Cutting patches for drawing
 
@@ -99,27 +120,9 @@ farther the patch, the more; `r_lodCurveError`), keeping the groups'
 shared points alike. Reluva always draws every point, which is the
 original at close range.
 
-## The light grid
+## In Reluva
 
-Light sampled on a regular grid, for lighting models. Cells are 64 × 64 ×
-128 units unless the worldspawn entity's `gridsize` key says otherwise.
-Grid points lie on multiples of the cell size inside the world model's
-bounds: from ceil(mins / size) × size to floor(maxs / size) × size on each
-axis, X fastest, then Y, then Z. If the lump's size doesn't match, the
-original ignores the grid.
-
-Colours are stored at half brightness like lightmaps (doubled, keeping the
-hue). The direction is two angles × 2π/256: longitude (byte 6) from +Z,
-latitude (byte 7) around it, giving (cos lat · sin lng, sin lat · sin lng,
-cos lng).
-
-To light a point the original blends the eight surrounding grid points by
-distance, skipping any that are all black (inside walls) and rescaling
-the rest, normalizes the blended direction, then adds 32 to the ambient
-light (capped at 255). `src/engines/idtech3/light_grid.cpp`; read from the
-GPL renderer's `tr_bsp.c` and `tr_light.c`.
-
-## Collision
+### Collision
 
 How Reluva moves things through a map (`collision.cpp`; the behaviour is
 Quake III's, the code Reluva's own). Brushes are convex volumes, each the
@@ -176,7 +179,7 @@ are kept in runs of 16 (neighbours, as cut) under one box, and runs of
 16 runs under another, so a trace skips most of them at once. Reluva's
 own solution, not the original's code.
 
-## What the reader checks
+### What the reader checks
 
 Every lump lies inside the file and holds whole records; every index into
 another lump is in range (node planes and children, leaf ranges, model and
@@ -185,7 +188,7 @@ matches its vertex count; vis data covers every cluster. Errors name the
 record, the field and its value, e.g. `BSP surface 0: index 2 is vertex 3
 (of 3)`. The rest of the engine relies on this and doesn't check again.
 
-### Tolerated, as the original engine does
+#### Tolerated, as the original engine does
 
 Some Elite Force maps hold values out of range that the original engine
 accepts. Reluva corrects them the same way and counts them (`Bsp::fixes`,
@@ -202,3 +205,14 @@ The original's behaviour was read from the GPL Quake III Arena renderer
 (`tr_bsp.c`, `tr_shader.c`). The last row is more lenient than Quake III,
 since Elite Force's engine may differ; maps that need it show up in
 `bsp-check`'s counts.
+
+## Sources and checks
+
+Status: **all lumps read and cross-checked** (`src/engines/idtech3/bsp.cpp`);
+the light grid is kept raw. **Verified on all 67 retail Elite Force maps**
+(`reluva-tool idtech3 bsp-check`, October 2026): every one is version 46 with the
+record sizes below, and 27 of them need the corrections described at the
+end.
+
+Sources: the GPL Quake III Arena source (`code/qcommon/qfiles.h`, the map
+compiler and renderer) and the community's "Unofficial Quake 3 Map Specs".

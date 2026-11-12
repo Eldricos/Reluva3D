@@ -1,5 +1,9 @@
 # Elite Force: map entities
 
+> **Status:** partial · **Code:** `src/engines/idtech3/entities.cpp` · **Checked on:** the retail `baseEF` patched to 1.2: 67 maps, 44,849 entities (`reluva-tool idtech3 entity-survey`, October 2026)
+
+## Overview
+
 What the retail maps' entity lumps hold ([../../../formats/bsp.md](../../../formats/bsp.md) for the
 format), from `reluva-tool idtech3 entity-survey` run on the retail `baseEF`
 (patched to 1.2) in October 2026: **67 maps, 44,849 entities, 210
@@ -18,26 +22,9 @@ Where a meaning is given, its source is marked:
 Raven's own Elite Force game source isn't used (see
 [../../engines/idtech3.md](../../../README.md)).
 
-## Who reads them
+## Layout
 
-Nearly every key is read by the game code: `vm/qagame.qvm` in Holomatch,
-`efgamex86.dll` in single player. Reluva runs that code unchanged, so
-these keys work without Reluva knowing them. Reluva's engine reads only:
-
-- worldspawn's `gridsize`, for the light grid. **No retail map sets it**,
-  so every map uses the default 64 × 64 × 128;
-- `model` (`*N`) and `origin`, `angle`/`angles` where its own pages place
-  things (the World page);
-- nothing else. None of Quake III's compile-time remapping keys
-  (`_remap`, `_celshader`, `_lightmapscale`) occur.
-
-The single-player DLL names every non-item class the single-player maps
-use (its strings). Item and weapon classes aren't among its strings:
-single player reads its items from data, apparently, so which item
-names it knows can't be checked that way. The Holomatch game code wasn't
-checked (it isn't in the folder surveyed).
-
-## Compiler-only entities
+### Compiler-only entities
 
 Used by the map compiler and dropped by the game, as in Quake III:
 
@@ -50,7 +37,7 @@ Used by the map compiler and dropped by the game, as in Quake III:
   (once, **?**).
 - **`func_group`**: none survive compilation (it's merged into the world).
 
-## Quake III's, used as in Quake III
+### Quake III's, used as in Quake III
 
 Classes: `worldspawn`, `info_player_start`, `info_player_deathmatch`,
 `info_player_intermission`, `info_null`, `info_notnull`, `func_door`,
@@ -98,9 +85,9 @@ Differences seen in how Elite Force's maps use them:
   (3), `target2`, `targetname`, `wait`, `_color` (1 each; editor
   leftovers, **?**).
 
-## Elite Force's additions
+### Elite Force's additions
 
-### Scripts (single player)
+#### Scripts (single player)
 
 Elite Force's single player drives its story with scripts, as Jedi
 Outcast's ICARUS does (**JK2** for the naming throughout):
@@ -126,7 +113,7 @@ Outcast's ICARUS does (**JK2** for the naming throughout):
 - **Cameras**: `misc_camera_focus`, `misc_camera_track` (1 each),
   `cameragroup` (8, on `info_notnull` and NPCs; **?**).
 
-### Characters (NPCs, single player)
+#### Characters (NPCs, single player)
 
 43 `npc_*` classes, one per character or species: the crew
 (`npc_munro`, `npc_janeway`, `npc_tuvok`...), `npc_starfleet` /
@@ -154,7 +141,7 @@ Their keys, besides the scripts above:
 Spawnflags use bits 1 to 1024 (`npc_borg` all eleven); their meanings
 per class aren't worked out (**?**).
 
-### Navigation (single player)
+#### Navigation (single player)
 
 How NPCs find their way: `waypoint` (3,200), `waypoint_squadpath`
 (2,958, with `leaddist` on almost all: how far ahead the squad leader
@@ -163,7 +150,7 @@ walks, **seen**), `waypoint_navgoal`, `waypoint_navgoal_1`, `_2`, `_4`,
 (433: places to fight from, **JK2**), linked by `target` to `target4`.
 `hiddenwaypoint` (157) **?**; `ownername` (57) **?**.
 
-### Effects
+#### Effects
 
 `fx_*` classes (single player): `fx_spark`, `fx_steam`, `fx_smoke`,
 `fx_drip`, `fx_bolt`, `fx_plasma`, `fx_elecfire`, `fx_teleporter`,
@@ -174,7 +161,7 @@ walks, **seen**), `waypoint_navgoal`, `waypoint_navgoal_1`, `_2`, `_4`,
 `duration`, `startrgba` / `finalrgba` (colour at the start / end, **seen**),
 `type` (`fx_crew_beam_in`, **?**), `target` (where it points, **seen**).
 
-### Things to use and break
+#### Things to use and break
 
 - **`func_usable`** (648): a brush that toggles or runs a script when
   used (**JK2**); `model2`, `health`, `infostring`, `parm1`/`parm2`.
@@ -195,7 +182,7 @@ walks, **seen**), `waypoint_navgoal`, `waypoint_navgoal_1`, `_2`, `_4`,
 - **`infostring`** (214, `II_...`, e.g. `II_CONTROL_PANEL`): the text
   shown for the thing pointed at (**seen**; text in the string files).
 
-### Targets and triggers
+#### Targets and triggers
 
 `target_activate` / `target_deactivate`, `target_counter` (`count`,
 `bouncecount`), `target_random`, `target_interest` (`interest`),
@@ -206,12 +193,12 @@ walks, **seen**), `waypoint_navgoal`, `waypoint_navgoal_1`, `_2`, `_4`,
 (`distance`, `ownername`). Meanings follow their names (**seen**);
 spawnflags **?**.
 
-### Ambient creatures (single player)
+#### Ambient creatures (single player)
 
 `ambient_etherian_fixits`, `ambient_etherian_fliers`,
 `ambient_etherian_mine` (**seen**).
 
-### Items and weapons
+#### Items and weapons
 
 **Holomatch** maps (`hm_*`, `ctf_*`) use joined names:
 `weapon_compressionrifle`, `weapon_imod`, `weapon_scavenger`,
@@ -233,7 +220,7 @@ their `ammo_*`; `item_hypo`, `item_hypo_small`, `item_armor_shard`,
 use Holomatch's names too (`weapon_imod` on borg1, `weapon_dreadnought`
 on dn5).
 
-## Editor leftovers
+### Editor leftovers
 
 Keys the game ignores, by every sign: `groupname` (2,646: the editor's
 grouping), `*rem1`–`*rem3`, `rem1`, `rem2` (notes), `targetname_old`,
@@ -242,7 +229,36 @@ grouping), `*rem1`–`*rem3`, `rem1`, `rem2` (notes), `targetname_old`,
 (7, on `light` and `func_door`), `light` on a `func_static` and a
 `target_scriptrunner`, `scale` on a `target_scriptrunner`.
 
-## Still unknown
+## In Reluva
+
+### Who reads them
+
+Nearly every key is read by the game code: `vm/qagame.qvm` in Holomatch,
+`efgamex86.dll` in single player. Reluva runs that code unchanged, so
+these keys work without Reluva knowing them. Reluva's engine reads only:
+
+- worldspawn's `gridsize`, for the light grid. **No retail map sets it**,
+  so every map uses the default 64 × 64 × 128;
+- `model` (`*N`) and `origin`, `angle`/`angles` where its own pages place
+  things (the World page);
+- nothing else. None of Quake III's compile-time remapping keys
+  (`_remap`, `_celshader`, `_lightmapscale`) occur.
+
+The single-player DLL names every non-item class the single-player maps
+use (its strings). Item and weapon classes aren't among its strings:
+single player reads its items from data, apparently, so which item
+names it knows can't be checked that way. The Holomatch game code wasn't
+checked (it isn't in the folder surveyed).
+
+## Sources and checks
+
+- **Where the facts come from:** `reluva-tool idtech3 entity-survey` on the
+  retail maps, and the sources each meaning is marked with (above).
+- **How it was checked:** all 67 maps read without error.
+
+## Open questions
+
+### Still unknown
 
 The meanings marked **?** above, and each class's spawnflags in single
 player. Each would need the code that reads it in `efgamex86.dll` (or

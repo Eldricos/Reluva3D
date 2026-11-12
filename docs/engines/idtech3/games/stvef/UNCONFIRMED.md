@@ -1,4 +1,5 @@
-# Unconfirmed
+# Star Trek: Voyager - Elite Force: unconfirmed items
+
 
 Points in Reluva's Elite Force support that are assumed, inferred or
 unknown rather than confirmed against the original game. Each says what's
@@ -11,50 +12,9 @@ disassembly, or comparing with the original game in play (see
 [REVERSE_ENGINEERING.md](REVERSE_ENGINEERING.md)). When a point is settled,
 update the doc it comes from and remove it here.
 
-## Releases and installing
+## Read from the code, not seen running
 
-- **Other releases.** Only the English Windows CD, its patches and the
-  Expansion Pack have been seen. Still unseen:
-  - the Mac release;
-  - the German and French releases;
-  - 1.0 and 1.1 servers' network protocol.
-
-  Their files' signatures (`reluva --hash`) and any differences in data are
-  needed.
-- **Wise installers.** The format is described only as far as Reluva reads
-  it, and checked on one installer (the 1.2 patch). The header and the
-  install script aren't read. See [wise.md](../../../../common/wise.md).
-
-## Rendering
-
-- **macOS.** The Metal path passes the render check on GitHub's Mac
-  runners, but hasn't been played on a Mac.
-- **Map rules taken from Quake III.** These were read from Quake III's
-  renderer, not Elite Force's:
-  - how bad lightmap and fog indices are corrected;
-  - how a light grid of the wrong size is ignored.
-
-  Elite Force's engine may differ. See [bsp.md](../../formats/bsp.md).
-- **Lightmap brightness.** The original doubles or quadruples lightmaps
-  depending on its gamma mode. Doubling is assumed, which matches its look
-  in a window.
-- **Holomatch's effect entities.** Some drawn types are inferred from what
-  they look like and how they're used:
-  - type 13 is taken to be a ring or cone. Its field at 144 is taken as
-    texture repeats, and 148 and 152 aren't known;
-  - type 14 is taken to be a jagged line;
-  - types 4 and 10 weren't seen in play, and are described from the
-    renderer only;
-  - 20 bytes past Quake III's 140 were always 0;
-  - the shader time is taken to be at Quake III's 128;
-  - mark polygons' vertices are taken to be Quake III's 24-byte layout.
-
-  See [syscalls.md](systems/syscalls.md).
-- **Single player's scene entities** have 12 bytes of Elite Force's own
-  (128-144) whose meaning isn't described. See
-  [sp-interface.md](systems/sp-interface.md).
-
-## Single player
+### Single player
 
 - **Names.** The functions are named after Jedi Outcast's GPL source, by
   their places and arguments. Elite Force's own names aren't known.
@@ -70,10 +30,8 @@ update the doc it comes from and remove it here.
   n×n ints".
 - **The Expansion's optional save read** (its import 19): no caller was
   found in its game code. Reluva serves it as the engine does anyway.
-- **Bink videos** were checked against FFmpeg on public samples. Elite
-  Force's own videos play, but weren't compared frame by frame.
 
-## Holomatch and network play
+### Holomatch and network play
 
 The protocol was written from Lilium Voyager (a GPL engine for Elite Force)
 and ioquake3, then played against the retail game patched to 1.2. What
@@ -104,7 +62,62 @@ questions").
     messages, `gamename`, `nettype` as text, and querying Raven's master
     with `getstatus`.
 
-## Holomatch's game code
+## Seen running, not traced in the code
+
+### Rendering
+
+- **Lightmap brightness.** The original doubles or quadruples lightmaps
+  depending on its gamma mode. Doubling is assumed, which matches its look
+  in a window.
+
+### Single player
+
+- **Bink videos** were checked against FFmpeg on public samples. Elite
+  Force's own videos play, but weren't compared frame by frame.
+
+## Inferred
+
+### Releases and installing
+
+- **Other releases.** Only the English Windows CD, its patches and the
+  Expansion Pack have been seen. Still unseen:
+  - the Mac release;
+  - the German and French releases;
+  - 1.0 and 1.1 servers' network protocol.
+
+  Their files' signatures (`reluva --hash`) and any differences in data are
+  needed.
+- **Wise installers.** The format is described only as far as Reluva reads
+  it, and checked on one installer (the 1.2 patch). The header and the
+  install script aren't read. See [wise.md](../../../../common/wise.md).
+
+### Rendering
+
+- **macOS.** The Metal path passes the render check on GitHub's Mac
+  runners, but hasn't been played on a Mac.
+- **Map rules taken from Quake III.** These were read from Quake III's
+  renderer, not Elite Force's:
+  - how bad lightmap and fog indices are corrected;
+  - how a light grid of the wrong size is ignored.
+
+  Elite Force's engine may differ. See [bsp.md](../../formats/bsp.md).
+- **Holomatch's effect entities.** Some drawn types are inferred from what
+  they look like and how they're used:
+  - type 13 is taken to be a ring or cone. Its field at 144 is taken as
+    texture repeats, and 148 and 152 aren't known;
+  - type 14 is taken to be a jagged line;
+  - types 4 and 10 weren't seen in play, and are described from the
+    renderer only;
+  - 20 bytes past Quake III's 140 were always 0;
+  - the shader time is taken to be at Quake III's 128;
+  - mark polygons' vertices are taken to be Quake III's 24-byte layout.
+
+  See [syscalls.md](systems/syscalls.md).
+- **Single player's scene entities** have 12 bytes of Elite Force's own
+  (128-144) whose meaning isn't described. See
+  [sp-interface.md](systems/sp-interface.md).
+
+### Holomatch's game code
 
 - **Calls numbered by Quake III's order.** Many system calls weren't seen
   with telling arguments. They're taken to be Quake III's call at the same
@@ -130,7 +143,7 @@ questions").
 - **The shared calls 100 and up** (memset, sin and so on) are the same in
   every module as far as the logs show.
 
-## Bots
+### Bots
 
 - **The bot library** is taken to be Quake III's, with its file formats and
   rules read from ioquake3. That covers the AAS format, the characters,
@@ -140,7 +153,9 @@ questions").
 - **Routing** gives the same kind of routes as the original's, not proven
   identical.
 
-## Input
+## Guessed
+
+### Input
 
 - **Joystick:**
   - the meaning of `in_joyBallScale` isn't known;
@@ -150,7 +165,7 @@ questions").
 
   See [input.md](systems/input.md).
 
-## Map entities
+### Map entities
 
 Keys and spawn flags whose meaning comes only from their names, from Jedi
 Outcast by analogy, or isn't known. None matters to the engine; the game's
@@ -191,3 +206,7 @@ unknown").
   - navigation goals' sizes;
   - `point_combat`;
   - `func_usable`.
+
+## Settled
+
+None yet.

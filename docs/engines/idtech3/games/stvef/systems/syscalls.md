@@ -1,5 +1,9 @@
 # Elite Force: the game modules' system calls
 
+> **Code:** `src/engines/idtech3/eliteforce/ui_host.cpp`, `game_host.cpp`, `cgame_host.cpp` · **Checked against:** the code only (logs of the game's own QVMs)
+
+## Overview
+
 Elite Force's Holomatch code is three QVMs in `pak0.pk3`: `vm/ui.qvm`
 (menus), `vm/cgame.qvm` (the client: HUD, effects) and `vm/qagame.qvm` (the
 server's game logic). Each reaches the engine through numbered system calls
@@ -22,7 +26,9 @@ order); anything else is listed as unknown.
 All logs below are from the English Windows release (`pak0.pk3` MD5
 `f31871f2891b1e9d6e8d1654ea93352d`).
 
-## Menus (`vm/ui.qvm`)
+## How it works
+
+### Menus (`vm/ui.qvm`)
 
 113,286 instructions in 754 functions; it uses calls 0–58 and 100–106.
 `vmMain(0)` returns 4, the API version; `vmMain(1)` initialises. The other commands are taken from
@@ -131,7 +137,7 @@ an empty one and declined every key. The menus never read the key back.
 Reluva's side: `src/engines/idtech3/eliteforce/ui_host.cpp`, run by
 `reluva-tool idtech3 ui-run` and shown by the Menu page (`pages/menu_viewer.cpp`).
 
-## Game logic (`vm/qagame.qvm`)
+### Game logic (`vm/qagame.qvm`)
 
 149,568 instructions in 856 functions; it uses 0–38, 100–106, 111, and the
 bot library's ranges 200–211, 303–318, 401–427 and 500–572. `vmMain(0,
@@ -183,7 +189,7 @@ brush model, else a solid box's size, a byte each: half width, depth
 below, height above + 32), and the client game draws doors and lifts
 as brush models only when it says so. Entities are 588 bytes, clients 740.
 
-### Bots
+#### Bots
 
 Bots use Quake III's bot library, in the engine. The game asks for a bot's
 client with 34 (`BotAllocateClient`, a free client number or -1), connects
@@ -330,7 +336,7 @@ player's box from every spawn point (raised 9 units, as Quake III's game
 spawns players) as a check of the collision model on its own.
 | 111 | `ceil` | order | Quake III's game numbers `floor` 110 and `ceil` 111 |
 
-### Holomatch modes (patch 1.2)
+#### Holomatch modes (patch 1.2)
 
 Patch 1.2's game code (pak2.pk3) carries the Expansion Pack's five
 modes, each a cvar the server game registers like `g_gametype`: default
@@ -383,7 +389,7 @@ timelimit 1 -addbot 'munro 2' -tap 20` reaches the end and restarts the
 level 7 s later; without -tap it waits. `reluva-tool idtech3 game-run <game> <map> -set
 g_gametype 3 -set g_pModAssimilation 1 -addbot ...` runs one headless.
 
-## Client game (`vm/cgame.qvm`)
+### Client game (`vm/cgame.qvm`)
 
 124,371 instructions in 583 functions; it uses 0–60 and 100–107.
 `vmMain(0, serverMessageNum, serverCommandSequence, clientNum)` starts it
@@ -622,3 +628,9 @@ zero vector, its sound), 32 `S_UpdateEntityPosition(entityNum, origin)`
 (about 80 a frame), 33 `S_Respatialize(entityNum, origin, axes,
 inWater)` (the player, the view's origin and axes), 34
 `S_RegisterSound(name)`, 35 `S_StartBackgroundTrack(intro, loop)`.
+
+## Sources and checks
+
+- **Where the facts come from:** the game's own QVMs (English Windows release),
+  through `qvm-info` and `qvm-run`, and Quake III's calls where the evidence
+  fits (see the overview).

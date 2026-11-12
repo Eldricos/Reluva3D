@@ -1,4 +1,5 @@
-# Known differences from the original
+# Star Trek: Voyager - Elite Force: known differences from the original
+
 
 Where Reluva deliberately behaves differently from Star Trek: Voyager -
 Elite Force (`stvoy.exe`, `stvoyHM.exe` and the game's own code), leaves
@@ -9,7 +10,9 @@ Each entry says what the original does, what Reluva does and why, and
 where it's described in more detail. Points that are assumed rather than
 confirmed are in [UNCONFIRMED.md](UNCONFIRMED.md).
 
-## Installing, files and saved games
+## By choice
+
+### Installing, files and saved games
 
 - **No installer.** The original is installed by its setup program, which
   also writes registry entries and Start menu items.
@@ -72,7 +75,7 @@ confirmed are in [UNCONFIRMED.md](UNCONFIRMED.md).
   by the registry. Only the English Windows release and its patches are
   known. Others are shown as "unknown release".
 
-## Rendering
+### Rendering
 
 - **Frame size.** The frame is drawn at the chosen resolution and
   letterboxed in the window. Fullscreen uses the desktop's display mode
@@ -97,21 +100,10 @@ confirmed are in [UNCONFIRMED.md](UNCONFIRMED.md).
   [mdr.md](../../formats/mdr.md).
 - **Unreadable map surfaces.** A surface of an unknown type is skipped,
   where Quake III refuses the map.
-- **Not drawn yet:**
-  - the engine's shadow modes 2 and 3 (`cg_shadows`, which Elite Force's
-    renderer reads as Quake III's `r_shadows`): stencil and projected
-    shadows, and the `projectionShadow` deform. Elite Force's menus don't
-    offer them; mode 1, the blob under each player, is drawn;
-  - single player's type 3 beam entity;
-  - `deformVertexes text*` and `GL_SRC_ALPHA_SATURATE` blending;
-  - autosprites on models (no model uses them).
-- **Drawn approximately:** `rgbGen lightingDiffuse` uses vertex colours, and
-  `alphaGen portal`, `lightingSpecular` and `entity` are opaque. See
-  [shader.md](../../formats/shader.md).
 - **Ignored:** single player's `R_Scissor` call, which nothing in the game
   calls.
 
-## Sound
+### Sound
 
 - **No limit of copies per sound.** Quake III caps one sound at 5 copies per
   entity. Reluva leaves that out, because it silenced rapid fire. It keeps
@@ -122,13 +114,8 @@ confirmed are in [UNCONFIRMED.md](UNCONFIRMED.md).
 - **Force feedback** (`ff_usejoy`, the client game's calls 34-37, through
   `FFC10.dll`) is ignored.
 
-## Single player
+### Single player
 
-- **The Single Player page's own keys:**
-  - Ctrl+R restarts the level;
-  - Ctrl+PgUp and Ctrl+PgDn change map;
-  - Ctrl+I hides the info line;
-  - Esc returns to the menus.
 - **Cinematics** play under their plain names. The original also looks for
   `_lo` versions on slow machines, and has a check for the German release.
 - **The `STRP` save chunk**, an engine table of the client's, is written
@@ -141,7 +128,7 @@ confirmed are in [UNCONFIRMED.md](UNCONFIRMED.md).
 
   See [x86.md](../../../../common/x86/README.md).
 
-## Holomatch and network play
+### Holomatch and network play
 
 - **Master servers.** Raven's master server is gone. When the menus ask for
   it, Reluva asks every master set (`sv_master1`-`5`), which includes the
@@ -157,8 +144,6 @@ confirmed are in [UNCONFIRMED.md](UNCONFIRMED.md).
     pak.
   - Reluva's client lists every pak of its own the server names, so it
     passes the server's check.
-- **User info** is sent on connecting. The original also sends it whenever a
-  player setting changes.
 - **Smaller details:**
   - packets carrying an earlier level's id after a restart are ignored
     quietly;
@@ -167,7 +152,7 @@ confirmed are in [UNCONFIRMED.md](UNCONFIRMED.md).
 
   See [syscalls.md](systems/syscalls.md).
 
-## Menus and input
+### Menus and input
 
 - **The CD key.** The original checked keys with an online service that no
   longer runs. Reluva applies only the menus' own rule, and treats a valid
@@ -180,7 +165,7 @@ confirmed are in [UNCONFIRMED.md](UNCONFIRMED.md).
   `in_joystick` takes effect at once; the original waits for `in_restart`.
   See [input.md](systems/input.md).
 
-## Bots
+### Bots
 
 - **Routing** finds the quickest route out from the goal over the whole map,
   and keeps it until an area opens or closes. The original speeds this up
@@ -189,7 +174,7 @@ confirmed are in [UNCONFIRMED.md](UNCONFIRMED.md).
 - **Bots don't answer chat.** The game has no reply-chat file
   (`rchat.c`). The code to answer is there, but the data isn't.
 
-## Game code (QVMs)
+### Game code (QVMs)
 
 - **Safety checks.** The original wraps addresses within the program's
   memory. Reluva checks every access, jump and call, and stops the program
@@ -200,8 +185,43 @@ confirmed are in [UNCONFIRMED.md](UNCONFIRMED.md).
 
   See [qvm.md](../../formats/qvm.md).
 
-## Videos
+### Videos
 
 - **Bink sound** is clipped before overlapping blocks are blended, which
   differs from FFmpeg's decoder on a few peaks. Colours are converted as
   BT.601 studio range. See [bink.md](../../../../common/video/bink.md).
+
+## Bugs fixed
+
+None yet.
+
+## Not yet as the original
+
+### Rendering
+
+- **Not drawn yet:**
+  - the engine's shadow modes 2 and 3 (`cg_shadows`, which Elite Force's
+    renderer reads as Quake III's `r_shadows`): stencil and projected
+    shadows, and the `projectionShadow` deform. Elite Force's menus don't
+    offer them; mode 1, the blob under each player, is drawn;
+  - single player's type 3 beam entity;
+  - `deformVertexes text*` and `GL_SRC_ALPHA_SATURATE` blending;
+  - autosprites on models (no model uses them).
+- **Drawn approximately:** `rgbGen lightingDiffuse` uses vertex colours, and
+  `alphaGen portal`, `lightingSpecular` and `entity` are opaque. See
+  [shader.md](../../formats/shader.md).
+
+### Holomatch and network play
+
+- **User info** is sent on connecting. The original also sends it whenever a
+  player setting changes.
+
+## Additions outside the game
+
+### Single player
+
+- **The Single Player page's own keys:**
+  - Ctrl+R restarts the level;
+  - Ctrl+PgUp and Ctrl+PgDn change map;
+  - Ctrl+I hides the info line;
+  - Esc returns to the menus.

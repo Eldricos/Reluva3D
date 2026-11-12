@@ -1,58 +1,12 @@
 # id Tech 3: `.pk3` archives and the search path
 
-Status: **implemented**; checked on archives built by Python's `zipfile`
-and by the tests, and on the retail Elite Force paks, from which the
-levels, models, sounds and game code all load.
-Readers: `src/common/zip.cpp` (the archive), `src/engines/idtech3/filesystem.cpp`
-(the search order).
+> **Status:** decoded · **Code:** `src/common/zip.cpp`, `src/engines/idtech3/filesystem.cpp` · **Checked on:** archives built by Python's `zipfile` and by the tests, and the retail Elite Force paks
 
-Sources: PKWARE's published `APPNOTE.TXT` for the zip format; the search
-order from the Quake III Arena source id Software released under the GPL
-(`code/qcommon/files.c`, `FS_AddGameDirectory`), read for behaviour, not
-copied.
+## Overview
 
-## Format
+The games keep their files in `.pk3` archives, searched in a set order.
 
-A `.pk3` is an ordinary zip file. Entries are stored (method 0) or
-deflated (method 8). Reluva reads the central directory at the end of the
-file, then each entry's local header for where its data starts (the local
-name and extra field lengths can differ from the central directory's).
-Every read is checked against the entry's CRC-32.
-
-Not supported, and not expected in game data: encryption, Zip64, archives
-split over several files.
-
-## Search order
-
-A game folder (`baseEF` for Elite Force) is searched in this order, first
-match wins:
-
-1. loose files in the folder and its subfolders;
-2. the folder's `.pk3` files, the last name first, comparing names in
-   upper case (so `_` sorts after the letters): `pak2.pk3` before
-   `pak1.pk3` before `pak0.pk3`, and `pak_x.pk3` before `paka.pk3`. That's
-   how patches replace files: they add a later pak.
-
-A mod's folder goes on top of the base game's, in the same order inside it
-(`mountGameDir`'s `layer`). File names are matched ignoring case, with `\`
-and `/` treated alike.
-
-## Checksums
-
-Each pk3 is known by a checksum (Quake III's, read for behaviour from
-the GPL source): the CRC-32 of every file in it that isn't empty, in the
-central directory's order, as 32-bit little-endian words; the MD4 of
-those bytes; and the digest's four little-endian words XORed together.
-A pure server's checksum of a pak (for the `cp` check,
-[../games/stvef/systems/network.md](../games/stvef/systems/network.md)) is the same with the
-server's checksum feed as a first word. `reluva-tool idtech3 pk3-sums <game
-folder> [feed]` prints them (`src/engines/idtech3/pure.cpp`). The GPL
-engine that runs Elite Force knows the retail paks by theirs: `pak0.pk3`
-3376297517, `pak1.pk3` 596947475, `pak2.pk3` 3960871590, `pak3.pk3`
-1592359207; `pk3-sums` gives the same for the retail paks (October 2026),
-and joining a pure retail server with them works.
-
-## Elite Force
+### Elite Force
 
 A Windows install seen in October 2026 holds a single 566,234,769-byte
 `baseEF/pak0.pk3`, next to `efconfig.cfg` and `hmconfig.cfg` (single-player
@@ -72,5 +26,69 @@ The patches and the Expansion Pack add paks: `pak1.pk3` (1.1),
 `pak2.pk3` (1.2, both with new game code in `vm/`) and `pak3.pk3` (the
 Expansion Pack: its maps, Virtual Voyager and the holodeck missions; no
 `vm/`). Each is recognised by its hash (`src/engines/idtech3/games.cpp`).
+
+## Layout
+
+### Format
+
+A `.pk3` is an ordinary zip file. Entries are stored (method 0) or
+deflated (method 8). Reluva reads the central directory at the end of the
+file, then each entry's local header for where its data starts (the local
+name and extra field lengths can differ from the central directory's).
+Every read is checked against the entry's CRC-32.
+
+Not supported, and not expected in game data: encryption, Zip64, archives
+split over several files.
+
+## Behaviour
+
+### Search order
+
+A game folder (`baseEF` for Elite Force) is searched in this order, first
+match wins:
+
+1. loose files in the folder and its subfolders;
+2. the folder's `.pk3` files, the last name first, comparing names in
+   upper case (so `_` sorts after the letters): `pak2.pk3` before
+   `pak1.pk3` before `pak0.pk3`, and `pak_x.pk3` before `paka.pk3`. That's
+   how patches replace files: they add a later pak.
+
+A mod's folder goes on top of the base game's, in the same order inside it
+(`mountGameDir`'s `layer`). File names are matched ignoring case, with `\`
+and `/` treated alike.
+
+### Checksums
+
+Each pk3 is known by a checksum (Quake III's, read for behaviour from
+the GPL source): the CRC-32 of every file in it that isn't empty, in the
+central directory's order, as 32-bit little-endian words; the MD4 of
+those bytes; and the digest's four little-endian words XORed together.
+A pure server's checksum of a pak (for the `cp` check,
+[../games/stvef/systems/network.md](../games/stvef/systems/network.md)) is the same with the
+server's checksum feed as a first word. `reluva-tool idtech3 pk3-sums <game
+folder> [feed]` prints them (`src/engines/idtech3/pure.cpp`). The GPL
+engine that runs Elite Force knows the retail paks by theirs: `pak0.pk3`
+3376297517, `pak1.pk3` 596947475, `pak2.pk3` 3960871590, `pak3.pk3`
+1592359207; `pk3-sums` gives the same for the retail paks (October 2026),
+and joining a pure retail server with them works.
+
+## In Reluva
+
+Readers: `src/common/zip.cpp` (the archive), `src/engines/idtech3/filesystem.cpp`
+(the search order).
+
+## Sources and checks
+
+Status: **implemented**; checked on archives built by Python's `zipfile`
+and by the tests, and on the retail Elite Force paks, from which the
+levels, models, sounds and game code all load.
+
+Sources: PKWARE's published `APPNOTE.TXT` for the zip format; the search
+order from the Quake III Arena source id Software released under the GPL
+(`code/qcommon/files.c`, `FS_AddGameDirectory`), read for behaviour, not
+copied.
+
+## Open questions
+
 **Still to check with owned copies:** the hashes of other releases
 (`reluva --hash baseEF/pak0.pk3`).
