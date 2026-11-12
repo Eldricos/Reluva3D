@@ -11,7 +11,7 @@
 namespace reluva::cinepak {
 
 // Cinepak ('cvid'), the video codec of many 1990s games' AVI and QuickTime
-// files (docs/common/cinepak.md). A frame is made of horizontal strips;
+// files (docs/common/video/cinepak.md). A frame is made of horizontal strips;
 // each 4x4 block is drawn from codebooks of 2x2 YUV cells, one cell
 // stretched over the whole block (V1) or four of them (V4). Codebooks carry
 // over from frame to frame, and down from one strip to the next unless the

@@ -18,7 +18,7 @@ Only sources CONTRIBUTING.md allows:
   characters' shadows).
 - **Public write-ups:** the MultimediaWiki's Bink pages, and the
   decoders that document what they leave out (see
-  [bink.md](../../../../common/bink.md)).
+  [bink.md](../../../../common/video/bink.md)).
 
 No leaked or unlicensed code, nor anything derived from it, was used.
 
@@ -49,7 +49,7 @@ No leaked or unlicensed code, nor anything derived from it, was used.
 ## Running the original's code to compare
 
 `src/common/x86` is an interpreter for 32-bit x86 code (written for the
-id Tech 3 games; see [../../../../common/x86.md](../../../../common/x86.md)). It runs pieces of the
+id Tech 3 games; see [../../../../common/x86/README.md](../../../../common/x86/README.md)). It runs pieces of the
 original to check Reluva's own code against them:
 
 - **Granny:** Oodle1 decompression, the Bink-compressed textures and the

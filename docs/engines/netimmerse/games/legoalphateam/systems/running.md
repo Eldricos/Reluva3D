@@ -88,7 +88,7 @@ Cons:
 - Speed. The interpreter runs about 50 million instructions a second.
   The game asked for a Pentium II 233, roughly 4 to 6 times that, and
   here NetImmerse's per-frame scene-graph work runs interpreted too. It
-  needs a decoded-instruction cache (already noted in x86.md as the next
+  needs a decoded-instruction cache (already noted in [cpu.md](../../../../../common/x86/cpu.md) as the next
   speed-up) or a simple JIT, plus native replacements for hot NiMain
   exports.
 - MSVCP60 and MSVCRT aren't in the install. MSVCRT can be stood in for

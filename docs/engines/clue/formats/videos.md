@@ -9,6 +9,6 @@ looked at), then black frames while the sound goes on, as the original
 shows them.
 
 They're played by the shared AVI and Cinepak decoder
-([docs/common/cinepak.md](../../../common/cinepak.md)), shown by the clock
+([docs/common/video/cinepak.md](../../../common/video/cinepak.md)), shown by the clock
 (src/engines/clue/movie.h), with their sound at full volume, as Clue.exe's
 DirectShow graph plays it.

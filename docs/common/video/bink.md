@@ -1,48 +1,22 @@
-# Bink movies (.bik)
+# Bink movies (`.bik`)
 
-RAD Game Tools' video format. Elite Force uses it for its cinematics
-(`video/<name>.bik`); Murder on the Orient Express for its 46 movies
-(`Movies/`) and its video loops (`Elements/` and the scenes' cutouts, 39
-of them with an alpha plane). Reluva decodes revisions `f` to `i` in
-`src/common/video/bink.cpp` (`bink::Movie`), for both.
+## What it is
 
-## Sources and checks
+RAD Game Tools' video format, from after Smacker. Reluva decodes it in
+`src/common/video/bink.cpp` (`bink::Movie`).
 
-- **Where the facts come from:** the published descriptions of the format
-  and the GPL decoders that document it (FFmpeg's, as carried by ScummVM).
-  These were read for facts only; the code is new.
-- **Fixed tables:** the format's 16 code trees, the coefficient scan order,
-  the 16 run patterns, the quantisers and the audio band edges are
-  constants every decoder must use. They are in
-  `src/common/video/bink_tables.cpp`.
-- **How it was checked:** `reluva-tool idtech3 bink-decode <file> -yuv out.yuv -pcm
-  out.pcm` writes what Reluva decodes, for comparing with
-  `ffmpeg -i <file> -f rawvideo -pix_fmt yuv420p` and `-f s16le`.
-  - On five public BIKi samples, every frame's Y, U and V planes match
-    exactly.
-  - Audio, both DCT and RDFT, matches to within 1 except a handful of
-    clipped peaks: FFmpeg clips after blending overlapping blocks, Reluva
-    before.
-- **Checked against Murder on the Orient Express's own `binkw32.dll`**,
-  run in Reluva's x86 interpreter: `reluva-tool awe bink-check <game
-  folder> <movie.bik>... [-frames n] [-yuv]`. The DLL opens the movie from
-  memory and its frames are copied out as the game copies them
-  (`BinkCopyToBufferRect`, 32-bit; with an alpha plane, 32-bit with
-  alpha), or with `-yuv` as YUY2, before the colour conversion. Over all
-  87 of the install's files (all revision `i`; the 47 with sound, stereo
-  DCT), every Y, U, V and alpha value and every RGB pixel of every frame
-  tried is the same as the DLL's, converted as below; pixels over Y 235
-  are counted apart (the DLL's path without MMX, which the interpreter
-  takes, clamps there and players' machines' MMX path doesn't).
-- **One decoder for both.** The AWE engine had a decoder of its own
-  (written apart, with FFmpeg's tables) until the merge with main. On the
-  87 files the two gave the same planes on every frame, and sound within
-  1 of each other; this one was kept, with what the AWE engine needed
-  added: the frames' sizes and keyframes, every audio track's form,
-  `rewind()` for loops, binkw32's colour conversion and the audio cut at
-  each packet's declared size.
+## What Reluva supports
 
-## The container
+- Revisions `f` to `i`.
+- Video with its alpha plane, if it has one.
+- Every audio track, DCT or RDFT, mono or stereo.
+- Two colour conversions: rounded, and `binkw32.dll`'s own (below).
+- Each frame's size and whether it's a key frame, and `rewind()` for
+  movies that loop.
+
+## The format
+
+### The container
 
 All numbers are little-endian.
 
@@ -89,7 +63,7 @@ The rest of the frame is the video.
 Bit streams are read least significant bit first. Each plane and each audio
 block starts on a 32-bit boundary.
 
-## Video
+### Video
 
 - **Planes.** In order: alpha (if the flag is set), Y, then the two
   chroma planes at half size. From revision `h` on, the chroma planes come
@@ -153,7 +127,7 @@ block starts on a 32-bit boundary.
     to 7.
   - The alpha plane, if any, is the pixels' alpha; else 255.
 
-## Audio
+### Audio
 
 - **Blocks.** Each block holds 2^9 samples below 22050 Hz, 2^10 below
   44100 Hz, otherwise 2^11. A stereo RDFT track interleaves both channels
@@ -173,28 +147,45 @@ block starts on a 32-bit boundary.
     is X0, X(N/2), then the real and imaginary parts of each Xk; the
     imaginary parts are stored negated.
 
-## In Elite Force
+## Sources and checks
 
-- **`cinematic <name>`** (`stvoy.exe` 0x404840) ends the game and plays
-  `video/<name>.bik` full screen. When it ends, the engine runs the
-  `nextmap` cvar's command and clears it.
-- **`ingamecinematic <name>`** plays one over a running game. The game's
-  scripts send it as `inGameCinematic <name>`.
-- **At start-up** the engine plays `cinematic eflogo`.
-- **Skipping.** A typed key (ASCII, Esc included) or the first mouse
-  button skips a cinematic.
-- **Variants the engine also looks for:** `_lo` versions on slow machines,
-  and a German check. Reluva plays the plain name.
+- **Where the facts come from:** the published descriptions of the format
+  and the GPL decoders that document it (FFmpeg's, as carried by ScummVM).
+  These were read for facts only; the code is new.
+- **Fixed tables:** the format's 16 code trees, the coefficient scan order,
+  the 16 run patterns, the quantisers and the audio band edges are
+  constants every decoder must use. They are in
+  `src/common/video/bink_tables.cpp`.
+- **How it was checked:** `reluva-tool idtech3 bink-decode <file> -yuv out.yuv -pcm
+  out.pcm` writes what Reluva decodes, for comparing with
+  `ffmpeg -i <file> -f rawvideo -pix_fmt yuv420p` and `-f s16le`.
+  - On five public BIKi samples, every frame's Y, U and V planes match
+    exactly.
+  - Audio, both DCT and RDFT, matches to within 1 except a handful of
+    clipped peaks: FFmpeg clips after blending overlapping blocks, Reluva
+    before.
+- **Checked against Murder on the Orient Express's own `binkw32.dll`**,
+  run in Reluva's x86 interpreter: `reluva-tool awe bink-check <game
+  folder> <movie.bik>... [-frames n] [-yuv]`. The DLL opens the movie from
+  memory and its frames are copied out as the game copies them
+  (`BinkCopyToBufferRect`, 32-bit; with an alpha plane, 32-bit with
+  alpha), or with `-yuv` as YUY2, before the colour conversion. Over all
+  87 of the install's files (all revision `i`; the 47 with sound, stereo
+  DCT), every Y, U, V and alpha value and every RGB pixel of every frame
+  tried is the same as the DLL's, converted as below; pixels over Y 235
+  are counted apart (the DLL's path without MMX, which the interpreter
+  takes, clamps there and players' machines' MMX path doesn't).
+- **One decoder for both.** The AWE engine had a decoder of its own
+  (written apart, with FFmpeg's tables) until the merge with main. On the
+  87 files the two gave the same planes on every frame, and sound within
+  1 of each other; this one was kept, with what the AWE engine needed
+  added: the frames' sizes and keyframes, every audio track's form,
+  `rewind()` for loops, binkw32's colour conversion and the audio cut at
+  each packet's declared size.
 
-## In Murder on the Orient Express
+## Used by
 
-- **Movies** (`movie <name>`) play full screen with their sound decoded
-  whole ahead, their subtitles under them
-  ([script.md](../engines/awe/games/motoe/systems/script.md)).
-- **Video loops**, objects whose file is a `.bik`, play in their scene as
-  pictures do, from the start again when they've gone round
-  (`Movie::rewind`), or once and held on the last frame with `BNKX loop
-  0` ([ac2.md](../engines/awe/games/motoe/formats/ac2.md)).
-- `reluva-tool awe files-check <game folder> -bik` decodes every movie and
-  loop of an install, and `awe bink-info` shows a file's header and frames
-  (`-yuv`, `-wav`, `-tga` to decode it).
+- **`idtech3`**: Elite Force's cinematics
+  ([cinematics.md](../../engines/idtech3/games/stvef/systems/cinematics.md)).
+- **`awe`**: Murder on the Orient Express's movies and video loops
+  ([movies.md](../../engines/awe/games/motoe/systems/movies.md)).

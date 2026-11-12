@@ -1,7 +1,7 @@
 # LEGO Alpha Team: sound
 
 - Done: sound, through the A3D stand-in (`src/common/x86/a3d.cpp`,
-  docs/common/x86.md). `NiA3dSoundSystem::Startup` now succeeds, and
+  docs/common/x86/README.md). `NiA3dSoundSystem::Startup` now succeeds, and
   `DDStreamingAudioManager::AddSource` returns sources. The streaming
   thread fills them as their play positions move, and the engine hears
   them through its mixer.
@@ -16,7 +16,7 @@
     follows the camera (`NiA3dListener::A3dUpdate`, each frame from
     `NiA3dSoundSystem::Click`), right-handed with z up.
   - Two faults kept all but the streamed sounds from being heard (both in
-    x86.md): `GetWaveFormat` answering success for an empty source, so
+    [a3d.md](../../../../../common/x86/a3d.md)): `GetWaveFormat` answering success for an empty source, so
     `NiA3dSource::Load` never loaded the file, and the listener offered
     under the wrong IID, so it stayed at the origin. With both fixed,
     Mission One's skills and interface sounds load and play, placed

@@ -42,7 +42,7 @@ what Reluva replaces. The game logic is what Reluva runs as it is:
   ([qvm.md](../../formats/qvm.md)).
 - **Single player:** two 32-bit Windows DLLs (`efgamex86.dll`,
   `efuix86.dll`, built with Visual C++ 6), run by an x86 interpreter with a
-  small Windows stand-in ([x86.md](../../../../common/x86.md)). This runs on any
+  small Windows stand-in ([x86.md](../../../../common/x86/README.md)). This runs on any
   machine, not just x86 Windows.
 
 So most of the reverse engineering is about the boundary: the calls each

@@ -73,7 +73,7 @@ internals, only of what the program calls.
   executable and every DLL: 792 into NetImmerse's DLLs, and the Windows,
   DirectX, A3D and C runtime functions listed in
   [running.md](systems/running.md).
-- **The x86 emulator** ([../../../../common/x86.md](../../../../common/x86.md)) loads
+- **The x86 emulator** ([../../../../common/x86/README.md](../../../../common/x86/README.md)) loads
   the PE images, relocates them, binds their imports, and runs them. Its
   instructions follow Intel's manuals; it was checked with unit tests and
   by running the game.

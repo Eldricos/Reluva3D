@@ -19,7 +19,7 @@ from. The engine came to Reluva from STDS9H, where this work was done.
   reproduce them are left out (below).
 - **Published format write-ups are read for facts only.** Smacker and PKWARE
   DCL, shared with other games, follow the open descriptions named in
-  [docs/common/smacker.md](../../common/smacker.md) and
+  [docs/common/video/smacker.md](../../common/video/smacker.md) and
   [docs/common/dcl.md](../../common/dcl.md).
 - See [CONTRIBUTING.md](../../../CONTRIBUTING.md) for what may and may not be
   used.

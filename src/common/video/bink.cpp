@@ -4,7 +4,7 @@
 // How Bink movies are laid out and decoded follows the published
 // descriptions of the format and the GPL decoders that document it
 // (FFmpeg's, as carried by ScummVM); this is new code written from that
-// description, checked against FFmpeg's output (docs/common/bink.md).
+// description, checked against FFmpeg's output (docs/common/video/bink.md).
 
 #include "common/video/bink.h"
 
@@ -371,7 +371,7 @@ void Movie::toRgba(std::vector<uint8_t>& out, Rgb how) const {
         // added and clamped. Y' = ((Y - 16, not below 0) * 4 * 0x4a85) >> 16;
         // the chroma terms from tables of (c - 128) times 2.01723, 0.39177,
         // 0.81300 and 1.59603, in 1/32768ths, truncated toward zero (built
-        // at 0x3000a990). See docs/common/bink.md.
+        // at 0x3000a990). See docs/common/video/bink.md.
         struct Tables {
             int b[256], gu[256], gv[256], r[256];
             Tables() {

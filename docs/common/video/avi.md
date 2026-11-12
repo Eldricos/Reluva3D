@@ -1,13 +1,27 @@
 # AVI files
 
-`src/common/video/avi.{h,cpp}` (`reluva::avi::Decoder`, described with
-Cinepak in [../cinepak.md](../cinepak.md)) reads Microsoft's AVI container
+## What it is
+
+`src/common/video/avi.{h,cpp}` (`reluva::avi::Decoder`) reads Microsoft's AVI container
 far enough to play a movie: the first video stream's frames and the first
 audio stream's PCM. For another codec than Cinepak it hands out each
 frame's bytes (`readFrame`), which is how the Indeo 5 movie player
 (`common/video/movie.h`) uses it. The layout is Microsoft's published
-RIFF/AVI format; what it reads of `lmiintro.avi` was checked against what
-FFmpeg's `ffprobe` reports for it.
+RIFF/AVI format.
+
+## What Reluva supports
+
+- **AVI files:** the first video stream (its codec named by `videoCodec()`;
+  frames decode when it's Cinepak, `readFrame()` hands over any codec's
+  frames as stored) and the first audio stream when it's PCM, read whole
+  (`audio()`). Frames inside `rec ` lists are found; `nndc`, `nndb` and
+  `nnid` chunks are video (Generations names its inter frames `00id`),
+  `nnwb` sound. The frame time is the main header's.
+- **Not handled:** the index (`idx1`; frames are found by walking the
+  file), OpenDML (files over 1 GB), compressed sound, and palette changes
+  for 8-bit codecs.
+
+## The format
 
 - The file is `RIFF` chunks: a four-character id, a 32-bit little-endian
   size, the data, and a pad byte if the size is odd. A `LIST` chunk's data
@@ -29,14 +43,19 @@ FFmpeg's `ffprobe` reports for it.
   in `LIST rec ` lists. A video chunk of size 0 is a dropped frame: the
   picture stays.
 
-## LEGO Alpha Team's intro
+## Sources and checks
 
-`lmiintro.avi` (39,840,492 bytes, CD only) is 640 × 480 Indeo 5 (`IV50`,
-[indeo5.md](indeo5.md)) at 15 frames a second, 1,632 frames (108.8 s), with
-16-bit stereo PCM at 22,050 Hz, interleaved a chunk of each per frame. Its
-frames are 115 key frames, 758 inter frames, 721 droppable inter frames and
-38 null frames.
+- **Where the facts come from:** Microsoft's published RIFF/AVI format.
+- **How it was checked:** what it reads of LEGO Alpha Team's
+  `lmiintro.avi` was checked against what FFmpeg's `ffprobe` reports for
+  it, and Star Trek: Generations' and Clue's AVIs decode as
+  [cinepak.md](cinepak.md) says.
+- **Tools:** `reluva-tool avi-frames <file.avi> [folder] [frames... | all]`
+  lists an AVI's streams, decodes every frame, timed, and writes those
+  asked for as TGA files.
 
-The game's own program doesn't name the file: it was the CD's intro, not
-the game's. Reluva plays it before the game if it has been copied beside
-the install (`common/video/movie.h`); a key or click skips it.
+## Used by
+
+- **`stgenerations`** and **`clue`**: their movies, in Cinepak.
+- **`netimmerse`**: LEGO Alpha Team's intro movie, in Indeo 5
+  ([intro-movie.md](../../engines/netimmerse/games/legoalphateam/formats/intro-movie.md)).

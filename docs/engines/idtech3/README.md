@@ -199,7 +199,7 @@ one has to be checked before anything is written:
   (`efgamex86.dll`, with the menus in `efuix86.dll`), 32-bit Windows DLLs
   built with Visual C++ 6. Reluva runs them the way it runs the QVMs: in
   an interpreter, here of the x86 processor (`src/common/x86`, see
-  [x86.md](../../common/x86.md)), with the engine's functions and the few Windows ones
+  [x86.md](../../common/x86/README.md)), with the engine's functions and the few Windows ones
   they call (KERNEL32's, for their C runtime) provided natively. The DLLs
   stay in the user's copy. Their interface to the engine (the tables
   `GetGameAPI` and `GetUIAPI` exchange) was worked out from the retail

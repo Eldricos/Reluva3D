@@ -17,7 +17,7 @@ done; [PORTING.md](PORTING.md) says how the code came across.
   copy: nothing of them is in this repository.
 - **Published format write-ups are read for facts only.** Cinepak and AVI,
   shared with other games, follow the descriptions named in
-  [docs/common/cinepak.md](../../common/cinepak.md).
+  [docs/common/video/cinepak.md](../../common/video/cinepak.md).
 - See [CONTRIBUTING.md](../../../CONTRIBUTING.md) for what may and may not be
   used.
 

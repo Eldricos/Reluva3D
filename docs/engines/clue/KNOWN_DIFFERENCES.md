@@ -20,7 +20,7 @@ may differ but haven't been settled are in
 
 | What | The original | Reluva | Why |
 |---|---|---|---|
-| The videos' colours | Decoded by Windows' own Cinepak codec (`iccvid.dll`) through DirectShow, in a 16-bit display mode | Decoded by Reluva's shared Cinepak decoder ([cinepak.md](../../common/cinepak.md)) to 24-bit colour, green as Y − U/2 − V with U/2 rounded towards 0 | The decoder Clue had before it moved to the shared one rounded U/2 down instead, so green differed by 1 in 255 wherever U is odd and negative; every other colour, and the sound, were the same in all 132 of Clue's AVIs. Which rounding `iccvid.dll` uses hasn't been looked at, and the original's 16-bit screen drops the lowest bits of green anyway. Against a recording of the original the difference is far below the recording's own (a mean 4 in 255). |
+| The videos' colours | Decoded by Windows' own Cinepak codec (`iccvid.dll`) through DirectShow, in a 16-bit display mode | Decoded by Reluva's shared Cinepak decoder ([cinepak.md](../../common/video/cinepak.md)) to 24-bit colour, green as Y − U/2 − V with U/2 rounded towards 0 | The decoder Clue had before it moved to the shared one rounded U/2 down instead, so green differed by 1 in 255 wherever U is odd and negative; every other colour, and the sound, were the same in all 132 of Clue's AVIs. Which rounding `iccvid.dll` uses hasn't been looked at, and the original's 16-bit screen drops the lowest bits of green anyway. Against a recording of the original the difference is far below the recording's own (a mean 4 in 255). |
 
 ## The evidence over the code
 

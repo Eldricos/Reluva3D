@@ -12,23 +12,23 @@ requirements, building, running and contributing. The rest is here.
 
 ## Shared: `common/`
 
-- [x86.md](common/x86.md): the x86 emulator (an interpreter, and native
-  code on x86-64) that runs 32-bit Windows game code (Elite Force's
-  single-player DLLs, LEGO Alpha Team's whole program), and its stand-ins
-  for Windows, DirectX and Aureal A3D. Two of them have pages of their
-  own: [x86/directx.md](common/x86/directx.md), DirectDraw and Direct3D 7
-  in software, and [x86/msvcp60.md](common/x86/msvcp60.md), the C++
-  library rebuilt with Visual C++ 6's layouts.
-- [bink.md](common/bink.md): Bink videos (Elite Force's cinematics, Murder
-  on the Orient Express's movies and video loops).
-- [smacker.md](common/smacker.md): Smacker videos.
-- [cinepak.md](common/cinepak.md): Cinepak videos, in AVI files.
-- [video/avi.md](common/video/avi.md) and
-  [video/indeo5.md](common/video/indeo5.md): AVI files, and Intel Indeo
-  Video 5 (LEGO Alpha Team's intro movie).
-- [dcl.md](common/dcl.md): PKWARE DCL ("implode") compression.
-- [wise.md](common/wise.md): Wise installers, taken apart without running
-  them (Elite Force's patch).
+Laid out as `src/common/` is, a page per component:
+
+- **[x86/](common/x86/README.md):** the x86 emulator that runs 32-bit
+  Windows game code: [the processor](common/x86/cpu.md),
+  [native code for it](common/x86/jit.md), the stand-ins for
+  [Windows](common/x86/windows.md),
+  [DirectX](common/x86/directx.md) and [Aureal A3D](common/x86/a3d.md),
+  [MSVCP60](common/x86/msvcp60.md), and
+  [a disassembler](common/x86/disasm.md).
+- **[video/](common/video/):** [Bink](common/video/bink.md),
+  [Smacker](common/video/smacker.md),
+  [Cinepak](common/video/cinepak.md),
+  [AVI files](common/video/avi.md) and
+  [Intel Indeo 5](common/video/indeo5.md).
+- **[dcl.md](common/dcl.md):** PKWARE DCL ("implode") compression.
+- **[wise.md](common/wise.md):** Wise installers, taken apart without
+  running them.
 
 ## Engines: `engines/<engine>/`
 
@@ -80,7 +80,21 @@ that engine and its games. Every engine's folder has the same layout:
   keeps everything in its own folder, with no `games/`. If a second game
   comes to it, it moves to the layout above.
 - **Code in `src/common/`** that more than one engine can use is documented
-  in `common/`.
+  in `common/`, in the same folders as its code (`common/video/` for
+  `src/common/video/`), a page per component. A common page holds only
+  what's true of the component for any engine, under these headings:
+
+  1. `## What it is`: what it is, and where its code is.
+  2. `## What Reluva supports`: what it handles, and what it doesn't.
+  3. `## The format` (a file format) or `## How it works` (a component),
+     when there's a layout or a design to describe.
+  4. `## Sources and checks`: where the facts came from, and how the code
+     was checked. A game's files or program used as a check is named here.
+  5. `## Used by`: each engine that uses it, with a link to the page in
+     that engine's docs that says how its games use it.
+
+  How one game uses a component (which of its files, its quirks) goes in
+  that engine's docs, not here.
 - Each fact gets its source: an address in a named binary, a file and its
   hash, or the published source it was read in. See
   [CONTRIBUTING.md](../CONTRIBUTING.md) for what may be used.

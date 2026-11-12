@@ -1,11 +1,12 @@
-# Smacker videos (.smk)
+# Smacker videos (`.smk`)
+
+## What it is
 
 RAD Game Tools' video format from before Bink, used by many 1990s games.
-Harbinger (`stharbinger`) plays its intro, cut scenes and action sequences
-from Smacker files. Reluva decodes SMK2 and SMK4 in
-`src/common/video/smacker.cpp` (`reluva::smacker::Decoder`).
+Reluva decodes SMK2 and SMK4 in `src/common/video/smacker.cpp`
+(`reluva::smacker::Decoder`).
 
-## What it decodes
+## What Reluva supports
 
 - **Pictures:** 8-bit, with a palette that can change from frame to frame
   (set, keep and copy commands). The picture is coded in 4x4 blocks (mono,
@@ -30,5 +31,10 @@ from Smacker files. Reluva decodes SMK2 and SMK4 in
   palette command and both audio paths. FFmpeg, an independent decoder,
   made the expected frames and sound; `common.unit.video` compares every
   pixel and sample with them (`tests/common/data/smacker_videos.h`).
-- **On the real game:** what has been checked against Harbinger's own
-  videos is in `docs/engines/stharbinger/TESTING.md`.
+- **On a game's own files:** what has been checked against Harbinger's
+  videos is in its [TESTING.md](../../engines/stharbinger/TESTING.md).
+
+## Used by
+
+- **`stharbinger`**: Harbinger's intro, cut scenes and action sequences
+  ([videos.md](../../engines/stharbinger/formats/videos.md)).

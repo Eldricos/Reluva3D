@@ -159,7 +159,7 @@ difficulty again in the menu.
 | `tools/` | `reluva-tool stgenerations` commands (`reluva-tool help stgenerations` lists them) |
 
 Shared code it brought to `src/common/`: Cinepak and AVI
-([docs/common/cinepak.md](../../common/cinepak.md)), BMPs with their
+([docs/common/video/cinepak.md](../../common/video/cinepak.md)), BMPs with their
 palettes, the serializer for saved games, the game's own mouse pointer
 (`System::setMouseCursor`), the keypad's operator keys, focus events,
 pausing sounds. [PORTING.md](PORTING.md#shared-code) lists it all.

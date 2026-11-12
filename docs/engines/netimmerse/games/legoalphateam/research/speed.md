@@ -8,7 +8,7 @@
   - Inlining instruction execution (memory access, fetching, operands)
     and the rasterizer's per-draw set-up got it there from about half
     that.
-  - The decoded-instruction cache (x86.md) cut the time to reach the menu
+  - The decoded-instruction cache ([cpu.md](../../../../../common/x86/cpu.md)) cut the time to reach the menu
     from about 41 seconds to 28.
   - The rasterizer then took a third or so of the time at the menu. The
     rasterizer's notes ([directx.md](../../../../../common/x86/directx.md)) have what was done; drawing 120 frames went
@@ -20,7 +20,7 @@
     it shows depends on timing.
   - Then, measured in the training mission (600 frames from the start, a
     run that's two thirds loading and the menus): 42.0 seconds.
-    - Blocks in the instruction cache (x86.md): 29.6 seconds.
+    - Blocks in the instruction cache ([cpu.md](../../../../../common/x86/cpu.md)): 29.6 seconds.
     - Drawing on threads of their own, in order, while the program goes on
       (the rasterizer's notes, [directx.md](../../../../../common/x86/directx.md)): 25.5 seconds.
   - Then, where the interpreter's time went while playing, sampled by
@@ -95,7 +95,7 @@
     - The interpreter's loop spent about 12 host instructions of each
       guest instruction on bookkeeping. It now counts a block's
       instructions at once, and takes the parity flag from a table
-      (x86.md).
+      ([cpu.md](../../../../../common/x86/cpu.md)).
     - Measured on the M1010 solved route (`at-run ... -solved M1010`):
       frames 600 to 1200, at the headquarters menu, went from 13.1 s to
       10.6 s; the route to frame 3300 from 76.7 s to 68.0 s, with about
@@ -107,7 +107,7 @@
     memory and half the processor.
     - The program's 1 GB of memory was a zero-filled `std::vector`,
       written through at start-up. It now comes zeroed from the system
-      (`mmap`, `VirtualAlloc`) through `PageAllocator` (x86.md), so only
+      (`mmap`, `VirtualAlloc`) through `PageAllocator` ([cpu.md](../../../../../common/x86/cpu.md)), so only
       the pages the program uses are there: the M1010 route's peak went
       from 1,106 MB to 130 MB, with the same frames.
     - The game draws as fast as it can (its main thread asked to sleep
@@ -143,7 +143,7 @@
     took the drawing threads' time on the route from 276 s to 184 s and
     the route's wall time from 98 s to 75 s, with the same frames at
     both resolutions.
-  - The blocks as native code (`common/x86/jit.cpp`, docs/common/x86.md):
+  - The blocks as native code (`common/x86/jit.cpp`, docs/common/x86/README.md):
     moves, LEA, PUSH and POP made host instructions, the rest called
     directly; then the ALU and jumps made too, with flags only where
     read, and blocks going on to the next in the native code. The
@@ -167,7 +167,7 @@
     hands out the same addresses, so the instructions and frames are
     the same. That gave 35 frames a second there (25 to 42); the next
     profile had finding each next block a seventh of the thread, now
-    mostly gone (blocks linked to the next, docs/common/x86.md). Then
+    mostly gone (blocks linked to the next, docs/common/x86/README.md). Then
     38 (25 to 50): the slowest stretches, two or three times the
     others' time, are each cut to the next example level, as it loads.
     Then 42 (27 to 55), with shifts and the x87 compares made; the

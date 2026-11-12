@@ -163,7 +163,7 @@ Reluva's now.
 | `tools/` | Its `reluva-tool` commands ([REVERSE_ENGINEERING.md](REVERSE_ENGINEERING.md#the-tools)) |
 
 Shared code it uses from `src/common/`: the Smacker decoder
-([smacker.md](../../common/smacker.md)), PKWARE DCL
+([smacker.md](../../common/video/smacker.md)), PKWARE DCL
 ([dcl.md](../../common/dcl.md)), byte streams, 8-bit drawing and palettes,
 and the mixer's streams.
 

@@ -14,7 +14,7 @@
   - **DirectInput not at all:** `DDMouse::InitSystem` would make a
     DirectInput mouse, but only if a flag is set, and nothing sets it.
     DirectInput is stood in for all the same
-    ([x86.md](../../../../../common/x86.md)), for other games.
+    ([x86.md](../../../../../common/x86/README.md)), for other games.
 - In exclusive fullscreen, changing the display mode now makes it the
   desktop's size and puts the program's window over the whole screen, as
   DirectDraw does. The pointer and the window then agree.

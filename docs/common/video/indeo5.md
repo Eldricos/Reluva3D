@@ -1,36 +1,21 @@
 # Intel Indeo Video Interactive 5 (IV50)
 
-`src/common/video/indeo5.{h,cpp}` decodes it, for LEGO Alpha Team's intro
-movie.
+## What it is
 
-## Where this comes from
+Intel's video codec of the late 1990s, in AVI files.
+`src/common/video/indeo5.{h,cpp}` decodes it; `common/video/movie.h`
+plays an AVI with it ([avi.md](avi.md)).
 
-Intel never published the format. Its one full public description is
-FFmpeg's decoder (`libavcodec/indeo5.c`, `ivi.c`, `ivi.h`, `ivi_dsp.c`,
-`indeo5data.h`; LGPL 2.1 or later, release 6.1 used), worked out by its
-authors from the bitstream. MultimediaWiki's Indeo 5 page outlines it.
-Reluva's decoder was written from that code as a reference, in Reluva's
-own structure and words; the project chose this for Indeo 5 (the LGPL is
-compatible with Reluva's GPL 3). Two things were taken as they are:
+## What Reluva supports
 
-- **The format's fixed tables**: the macroblock and block Huffman code
-  descriptors, the nine run/value maps, the quantisation base and scale
-  tables, and the standard picture sizes. A decoder must use these exact
-  numbers. `src/common/video/indeo5_tables.cpp` was generated from FFmpeg's
-  source by a script and says so.
-- **The arithmetic**: the slant transforms' integer steps, motion
-  compensation's rounding and the 5/3 wavelet recomposition. Anything else
-  would decode different pixels.
+- One luma band, one tile, half-pel motion, 16 × 16 luma macroblocks of
+  8 × 8 blocks and 4 × 4 chroma blocks: what the one file it has met uses.
+- The four-band (scalable) wavelet mode and tiling are written but
+  haven't met a file.
 
-**Checked:** all 1,631 pictures FFmpeg outputs for LEGO Alpha Team's
-`lmiintro.avi` (its last frame isn't output) decode byte for byte the same
-(YUV 4:1:0 planes compared). That's 4 ms a frame on this container's
-processor. The intro uses one luma band, one tile, half-pel motion,
-16 × 16 luma macroblocks of 8 × 8 blocks and 4 × 4 chroma blocks. The
-four-band (scalable) wavelet mode and tiling are written but haven't met
-a file. A test builds a small frame by this description.
+## The format
 
-## The bitstream
+### The bitstream
 
 Bits are read from each byte's lowest bit up; a field's first bit read is
 its lowest. Huffman codes go the other way: their first bit is their
@@ -141,3 +126,35 @@ one and refer to the other, and frames nothing refers to don't switch.
 back together with the 5/3 wavelet filters. Chroma is a quarter the size
 each way (YUV 4:1:0). The movie player converts to RGB by BT.601 (video
 range).
+
+## Sources and checks
+
+Intel never published the format. Its one full public description is
+FFmpeg's decoder (`libavcodec/indeo5.c`, `ivi.c`, `ivi.h`, `ivi_dsp.c`,
+`indeo5data.h`; LGPL 2.1 or later, release 6.1 used), worked out by its
+authors from the bitstream. MultimediaWiki's Indeo 5 page outlines it.
+Reluva's decoder was written from that code as a reference, in Reluva's
+own structure and words; the project chose this for Indeo 5 (the LGPL is
+compatible with Reluva's GPL 3). Two things were taken as they are:
+
+- **The format's fixed tables**: the macroblock and block Huffman code
+  descriptors, the nine run/value maps, the quantisation base and scale
+  tables, and the standard picture sizes. A decoder must use these exact
+  numbers. `src/common/video/indeo5_tables.cpp` was generated from FFmpeg's
+  source by a script and says so.
+- **The arithmetic**: the slant transforms' integer steps, motion
+  compensation's rounding and the 5/3 wavelet recomposition. Anything else
+  would decode different pixels.
+
+**Checked:** all 1,631 pictures FFmpeg outputs for LEGO Alpha Team's
+`lmiintro.avi` (its last frame isn't output) decode byte for byte the same
+(YUV 4:1:0 planes compared). That's 4 ms a frame on this container's
+processor. The intro uses one luma band, one tile, half-pel motion,
+16 × 16 luma macroblocks of 8 × 8 blocks and 4 × 4 chroma blocks. The
+four-band (scalable) wavelet mode and tiling are written but haven't met
+a file. A test builds a small frame by this description.
+
+## Used by
+
+- **`netimmerse`**: LEGO Alpha Team's intro movie
+  ([intro-movie.md](../../engines/netimmerse/games/legoalphateam/formats/intro-movie.md)).

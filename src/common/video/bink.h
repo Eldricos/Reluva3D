@@ -11,7 +11,7 @@
 
 namespace reluva::bink {
 
-// A Bink movie (RAD Game Tools' video format, .bik; docs/common/bink.md),
+// A Bink movie (RAD Game Tools' video format, .bik; docs/common/video/bink.md),
 // revisions f to i: its frames decoded one after another to YUV 4:2:0
 // planes (RGBA on request), with its first audio track's samples. Elite
 // Force's cinematics and Murder on the Orient Express's movies and video

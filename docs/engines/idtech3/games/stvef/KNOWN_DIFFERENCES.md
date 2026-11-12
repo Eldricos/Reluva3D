@@ -139,7 +139,7 @@ confirmed are in [UNCONFIRMED.md](UNCONFIRMED.md).
   - Windows' structured exceptions end the run;
   - there's no MMX or SSE, which the game doesn't use.
 
-  See [x86.md](../../../../common/x86.md).
+  See [x86.md](../../../../common/x86/README.md).
 
 ## Holomatch and network play
 
@@ -204,4 +204,4 @@ confirmed are in [UNCONFIRMED.md](UNCONFIRMED.md).
 
 - **Bink sound** is clipped before overlapping blocks are blended, which
   differs from FFmpeg's decoder on a few peaks. Colours are converted as
-  BT.601 studio range. See [bink.md](../../../../common/bink.md).
+  BT.601 studio range. See [bink.md](../../../../common/video/bink.md).
