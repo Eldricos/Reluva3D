@@ -2,7 +2,7 @@
 // Copyright (C) 2026 The Reluva contributors
 
 // NetImmerse engine, for games built on Numerical Design's NetImmerse,
-// starting with LEGO Alpha Team (docs/engines/netimmerse/systems/alphateam.md). Clean-room:
+// starting with LEGO Alpha Team (docs/engines/netimmerse/README.md). Clean-room:
 // everything comes from the games' data, observing them run, or study of
 // owned executables; never from NetImmerse SDK source. See CONTRIBUTING.md.
 //

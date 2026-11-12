@@ -4,6 +4,48 @@ Engine id `netimmerse`, in `src/engines/netimmerse/`, for games built on
 NetImmerse (Numerical Design, later Gamebryo). First game: LEGO Alpha Team
 (LEGO Media, 2000), game id `legoalphateam`, in `alphateam/`.
 
+## What the install shows
+
+- **It's a NetImmerse game.** `NiMain`, `NiAnimation`, `NiCollision`,
+  `NiDirect3d` and `NiA3dSound` are NetImmerse's DLLs (Numerical Design
+  Ltd.; the engine later became Gamebryo). The DLLs call themselves
+  "NetImmerse Version 7.0". The models (`Fin.pac`'s `.FIN` files) are its
+  streams under a header of the game's own (`Dweezil 23`).
+  NIF is well documented in public by the NifTools project (`nif.xml`),
+  which can be read as a format reference, as we used published specs for
+  PE/COFF and x86.
+- **The game's own code is in four DLLs.** `LEGOATeam.exe` is 60 KB;
+  `BaseClassComp`, `BehaviorComp`, `LegoLogicComp` and `LoadComp` (about
+  1 MB together) hold the game. They call NetImmerse through its C++
+  classes (mangled exports, virtual functions), not a C table like Elite
+  Force's.
+- **Data is in `.pac` archives** read by `DDPackedDirFileLib.dll`, a
+  format of the developer's own. One archive per kind of data, and one
+  per language (`Locale_en.pac`).
+- **Sound** went through Aureal A3D (`NiA3dSound`), which no current
+  machine has; Reluva's mixer replaces it.
+
+## Where the engine goes
+
+Following idtech3/eliteforce: an engine for the technology, a subfolder
+for the game.
+
+- Engine id `netimmerse`, in `src/engines/netimmerse/`: `.pac` archives,
+  NIF reading, the scene graph, rendering through `gfx::Renderer3D`, sound
+  through `common/audio`. Built when `engines.cfg` has `netimmerse=enabled`, as it does by
+  default (it was off at first, which left the launcher not recognising
+  the game in a default build).
+- Game id `legoalphateam`, with what is specific to it in
+  `src/engines/netimmerse/alphateam/`.
+- Formats documented under [formats/](formats/) (`.pac`, the game's own
+  files, and NIF as this game uses it), with how each was worked out, as CONTRIBUTING.md asks.
+- Tests in `tests/engines/netimmerse/unit/formats.cpp` (`netimmerse.unit.formats`), on small files built by the tests
+  themselves (no game data in the repository).
+
+If later LEGO games turn out to use NetImmerse too, they join this
+engine; others get their own. Check each one's install for `Ni*.dll`
+before deciding.
+
 ## Where it stands
 
 LEGO Alpha Team is played by running the game's own program in Reluva's
@@ -22,8 +64,8 @@ with much on screen.
 A data viewer of the game's files comes with it: archives, models (with
 their animation), textures, fonts, sounds and text.
 
-How it was built, measured and checked is in
-[systems/alphateam.md](systems/alphateam.md). Also:
+How it was built, measured and checked is in [systems/](systems/) and
+[research/](research/), a page per part (see [This folder](#this-folder)). Also:
 
 - [KNOWN_DIFFERENCES.md](KNOWN_DIFFERENCES.md): where it behaves
   differently from the original, and why;
@@ -93,7 +135,9 @@ the engine (`src/engines/netimmerse/tools/`):
   them).
 
 `reluva-tool help netimmerse` lists them; run one without arguments for
-its options. `at-run`'s are described in [systems/alphateam.md](systems/alphateam.md).
+its options. `at-run`'s are described in
+[systems/running.md](systems/running.md#loading-and-starting-the-program)
+and [systems/training.md](systems/training.md).
 
 ## Tests
 
@@ -116,15 +160,18 @@ The emulator, the Windows stand-ins, DirectX, A3D and the Indeo video it
 uses are tested with the shared code (`reluva-tests common.unit.jit`,
 `common.unit.windows`, `common.unit.indeo`).
 
-## Documents
+## This folder
 
 | Page | Covers |
 |---|---|
-| [systems/alphateam.md](systems/alphateam.md) | the plan and record: how the game runs, each part, and how it was checked |
-| [formats/install.md](formats/install.md) | the install and the CD: its files and how releases are told apart |
-| [formats/pac.md](formats/pac.md) | `.pac` archives |
-| [formats/fin.md](formats/fin.md) | `.FIN` models, with their animation, morphs, lights and glows |
-| [formats/ddf.md](formats/ddf.md) | `.DDF` fonts |
+| This page | The engine and its first game, where it stands, how to use it |
+| [formats/](formats/) | The game's files: [the install and the CD](formats/install.md), [`.pac` archives](formats/pac.md), [`.FIN` models](formats/fin.md) (with their animation, morphs, lights and glows), [`.DDF` fonts](formats/ddf.md) |
+| [systems/](systems/) | How the game runs, and each part of it: [running the game's own code](systems/running.md), [detection, the archives and the data viewer](systems/data-viewer.md), [input](systems/input.md), [sound](systems/sound.md), [options](systems/options.md), [saving](systems/saves.md), [into a mission and the training tour](systems/training.md), [every mission](systems/missions.md), [Mission One and the camera](systems/camera.md) |
+| [research/](research/) | Working notes: [speed, as it went](research/speed.md) |
+| [KNOWN_DIFFERENCES.md](KNOWN_DIFFERENCES.md) | Where it behaves differently from the original, and why |
+| [UNCONFIRMED.md](UNCONFIRMED.md) | What hasn't been checked against the original yet |
+| [TESTING.md](TESTING.md) | The playthrough checklist, how to report a problem, and the automated checks |
+| [REVERSE_ENGINEERING.md](REVERSE_ENGINEERING.md) | How it was all worked out, the rules followed and the tools |
 
 The intro movie's formats are shared with any engine:
 [AVI](../../common/video/avi.md) and

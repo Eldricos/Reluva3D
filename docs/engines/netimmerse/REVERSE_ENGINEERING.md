@@ -2,7 +2,7 @@
 
 How Reluva's support for LEGO Alpha Team was built: where each piece of
 knowledge came from, the tools used, and how the results were checked.
-The details of each step are in [systems/alphateam.md](systems/alphateam.md) and the
+The details of each step are in [systems/](systems/), [research/](research/) and the
 format documents under [formats/](formats/).
 
 ## The rules
@@ -64,8 +64,7 @@ Reluva is a clean-room project ([../../../CONTRIBUTING.md](../../../CONTRIBUTING
 
 ## 3. Running the game
 
-Three ways were measured before choosing ([systems/alphateam.md](systems/alphateam.md),
-phase 3): reimplementing the game natively, running all its code with
+Three ways were measured before choosing ([systems/running.md](systems/running.md)): reimplementing the game natively, running all its code with
 NetImmerse in an emulator, or the game's code with a native NetImmerse.
 The second (B1) was chosen: it needs no knowledge of NetImmerse's
 internals, only of what the program calls.
@@ -73,7 +72,7 @@ internals, only of what the program calls.
 - **The calls it makes** were counted from the import tables of the
   executable and every DLL: 792 into NetImmerse's DLLs, and the Windows,
   DirectX, A3D and C runtime functions listed in
-  [alphateam.md](systems/alphateam.md).
+  [running.md](systems/running.md).
 - **The x86 emulator** ([../../common/x86.md](../../common/x86.md)) loads
   the PE images, relocates them, binds their imports, and runs them. Its
   instructions follow Intel's manuals; it was checked with unit tests and
@@ -124,6 +123,15 @@ internals, only of what the program calls.
   `.diagsession` traces were read by our own ETL parser and symbolized
   with the build's PDB, down to the hot instructions, and locally with the
   emulator's own sampling (`at-run -profile`, `-profile-addresses`).
+
+## What came from the game's owner
+
+Game files can't go in the repository. The whole install has been provided
+for study: the executables, the DLLs and all eight archives.
+
+Also useful: the CD's `readme.txt` and `Strings_en.txt` (the game's own
+description of its keys and options), and screenshots or a recording of
+the original running.
 
 ## The tools
 

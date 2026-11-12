@@ -7,7 +7,7 @@ played. Things that may differ but haven't been checked are in
 [UNCONFIRMED.md](UNCONFIRMED.md).
 
 Reluva runs the game's own program and DLLs unchanged
-([systems/alphateam.md](systems/alphateam.md), phase 3). So the game's logic, physics,
+([systems/running.md](systems/running.md)). So the game's logic, physics,
 camera, menus and saving are the original's own code. The differences are
 in what Reluva supplies in place of Windows, DirectX, Aureal A3D and the
 hardware.
@@ -49,7 +49,7 @@ hardware.
   and the drawing is done on the processor: about 45 frames a second in
   missions at 1024x768x32 on a 2020s desktop, lower in wide camera shots
   with much on screen, and dips while the attract sequence loads its next
-  level ([systems/alphateam.md](systems/alphateam.md), "Speed").
+  level ([research/speed.md](research/speed.md)).
 - **The processor's speed** as the game measures it
   (`DDCaps::CalcProcSpeed`, RDTSC across a `Sleep`) reads as 1 GHz, so it
   recommends full detail (shadows, environment animation) where a period
@@ -87,5 +87,5 @@ SDK documentation, through Reluva's mixer:
 - `AutoLoadPuzzle` in `Config.txt` (skip the menus straight to a
   mission) gives a black screen. That's the game's own code: the key is a
   leftover the shipped game doesn't support (traced in
-  [systems/alphateam.md](systems/alphateam.md)).
+  [systems/missions.md](systems/missions.md)).
 - MMX and SSE instructions aren't emulated: the game's DLLs don't use them.

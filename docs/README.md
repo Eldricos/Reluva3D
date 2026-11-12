@@ -15,7 +15,10 @@ requirements, building, running and contributing. The rest is here.
 - [x86.md](common/x86.md): the x86 emulator (an interpreter, and native
   code on x86-64) that runs 32-bit Windows game code (Elite Force's
   single-player DLLs, LEGO Alpha Team's whole program), and its stand-ins
-  for Windows, DirectX and Aureal A3D.
+  for Windows, DirectX and Aureal A3D. Two of them have pages of their
+  own: [x86/directx.md](common/x86/directx.md), DirectDraw and Direct3D 7
+  in software, and [x86/msvcp60.md](common/x86/msvcp60.md), the C++
+  library rebuilt with Visual C++ 6's layouts.
 - [bink.md](common/bink.md): Bink videos (Elite Force's cinematics, Murder
   on the Orient Express's movies and video loops).
 - [smacker.md](common/smacker.md): Smacker videos.
