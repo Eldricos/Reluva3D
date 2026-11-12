@@ -1,4 +1,4 @@
-# Star Trek: Generations
+# The Star Trek: Generations engine
 
 `stgenerations` runs MicroProse's **Star Trek: Generations** (1997, Windows,
 two CDs) from the player's own copy, from the title to the credits: the

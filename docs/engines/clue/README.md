@@ -1,4 +1,4 @@
-# Clue: Murder at Boddy Mansion (1998)
+# The Clue: Murder at Boddy Mansion engine
 
 Hasbro Interactive's Clue, developed by EAI. Engine id `clue`, in
 `src/engines/clue/`. This page is the overview: what the game is made of,

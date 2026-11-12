@@ -1,4 +1,4 @@
-# @TITLE@
+# The @TITLE@ engine
 
 <!-- One or two sentences: what the engine runs, and whether it's meant for
 one game or a family of games (then see docs/README.md, "Adding docs",
