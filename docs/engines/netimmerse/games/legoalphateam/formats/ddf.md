@@ -1,6 +1,6 @@
 # LEGO Alpha Team: `.DDF` fonts
 
-> **Status:** decoded · **Code:** `src/engines/netimmerse/ddf.{h,cpp}` · **Checked on:** the 12 `.DDF` files in the English retail `Etc.pac`
+> **Status:** decoded · **Code:** `src/engines/netimmerse/ddf.{h,cpp}` · **Checked on:** the 12 `.DDF` files in the English retail `Etc.pac` · **Confidence:** confirmed unless marked
 
 ## Overview
 

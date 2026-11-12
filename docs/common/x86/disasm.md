@@ -24,6 +24,7 @@ both operands.
   reference.
 - **How it's checked:** `common.unit.x86` checks it against hand-checked
   byte sequences.
+- **Confidence:** published unless marked.
 
 ## Used by
 

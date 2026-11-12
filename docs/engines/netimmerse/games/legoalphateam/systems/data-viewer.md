@@ -1,6 +1,6 @@
 # LEGO Alpha Team: detection, the archives and the data viewer
 
-> **Status:** done · **Code:** `src/engines/netimmerse/viewers.h`, `src/engines/netimmerse/pac_archive.cpp` · **Checked against:** the retail files
+> **Status:** done · **Code:** `src/engines/netimmerse/viewers.h`, `src/engines/netimmerse/pac_archive.cpp` · **Checked against:** the retail files · **Confidence:** confirmed unless marked
 
 ## Overview
 

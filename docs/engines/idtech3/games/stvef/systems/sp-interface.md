@@ -1,6 +1,6 @@
 # Elite Force single player: how the DLLs and the engine talk
 
-> **Code:** `src/engines/idtech3/eliteforce/sp_game_host.cpp`, `sp_ui_host.cpp`
+> **Code:** `src/engines/idtech3/eliteforce/sp_game_host.cpp`, `sp_ui_host.cpp` · **Confidence:** from the code unless marked
 
 ## Overview
 

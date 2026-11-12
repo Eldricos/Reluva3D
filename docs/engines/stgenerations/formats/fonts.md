@@ -1,6 +1,6 @@
 # Fonts (.FNT)
 
-> **Status:** decoded · **Code:** `src/engines/stgenerations/formats/font.h`
+> **Status:** decoded · **Code:** `src/engines/stgenerations/formats/font.h` · **Confidence:** confirmed unless marked
 
 ## Overview
 

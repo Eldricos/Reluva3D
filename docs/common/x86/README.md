@@ -39,6 +39,7 @@ are in `tests/common/` (`common.unit.x86`, `common.unit.jit`,
   table of functions that print each call made to them. It's for seeing
   how far a game's DLL gets and what it asks of the engine. A failure
   prints the addresses of the last instructions run.
+- **Confidence:** published unless marked.
 
 ## Used by
 

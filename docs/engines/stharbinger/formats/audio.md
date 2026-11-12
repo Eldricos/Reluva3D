@@ -1,6 +1,6 @@
 # Sound (.RAW and dialogue clips)
 
-> **Status:** decoded · **Code:** `src/engines/stharbinger/formats/audio.cpp`
+> **Status:** decoded · **Code:** `src/engines/stharbinger/formats/audio.cpp` · **Confidence:** confirmed unless marked
 
 ## Overview
 

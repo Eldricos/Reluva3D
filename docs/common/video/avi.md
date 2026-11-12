@@ -53,6 +53,7 @@ RIFF/AVI format.
 - **Tools:** `reluva-tool avi-frames <file.avi> [folder] [frames... | all]`
   lists an AVI's streams, decodes every frame, timed, and writes those
   asked for as TGA files.
+- **Confidence:** published unless marked.
 
 ## Used by
 

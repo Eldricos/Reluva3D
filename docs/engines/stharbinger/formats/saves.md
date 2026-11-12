@@ -1,6 +1,6 @@
 # Saved games (SAVEGAME\*.DS9)
 
-> **Status:** decoded · **Code:** `src/engines/stharbinger/game/game_save.cpp`
+> **Status:** decoded · **Code:** `src/engines/stharbinger/game/game_save.cpp` · **Confidence:** layout confirmed; behaviour from the code unless marked
 
 ## Overview
 

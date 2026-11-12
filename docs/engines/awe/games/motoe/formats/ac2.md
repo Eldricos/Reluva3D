@@ -1,6 +1,6 @@
 # Scene files (.ac2)
 
-> **Status:** decoded · **Code:** `src/engines/awe/ac2.cpp` · **Checked on:** English 1.0: three files record by record, then all 394 scenes (`awe ac2-dump`)
+> **Status:** decoded · **Code:** `src/engines/awe/ac2.cpp` · **Checked on:** English 1.0: three files record by record, then all 394 scenes (`awe ac2-dump`) · **Confidence:** confirmed unless marked
 
 ## Overview
 
@@ -71,7 +71,9 @@ The factory knows these tags (class sizes from its allocations):
 | `PCXX` | the player's character | common, `MODL`, `ANIM`, `WALK` |
 | `FOOT` | footprints, a model (not reachable from a scene: the scene's `FOOT` comes first) | common, `MODL` |
 
-#### Common fields (`0x40fa20`)
+#### Common fields
+
+In `motoe.exe`: `0x40fa20`.
 
 One u16 count covers all of them. Groups marked with a flag are only
 there for classes that have it: pictures (`2DOB` and those built on it,
@@ -350,7 +352,9 @@ functions they call, found from the classes' vtables (`2DOB` `0x48300c`,
 the 16 pictures; the mouse's position is kept in two floats,
 `0x48b08c` and `0x48b090` (400, 300 at the start).
 
-#### The pick (`0x435eb0`)
+#### The pick
+
+In `motoe.exe`: `0x435eb0`.
 
 The objects the pick sees are those shown (+0xb00 and +0xb04 set: in
 Reluva's terms, not hidden and their condition holding, or shown by a

@@ -1,6 +1,6 @@
 # Clue: Murder at Boddy Mansion: preferences
 
-> **Status:** done · **Code:** `src/engines/clue/frontend.h` · **Checked against:** `Clue.exe` 2.2's code
+> **Status:** done · **Code:** `src/engines/clue/frontend.h` · **Checked against:** `Clue.exe` 2.2's code · **Confidence:** from the code unless marked
 
 ## Overview
 

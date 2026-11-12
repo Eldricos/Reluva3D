@@ -1,6 +1,6 @@
 # Elite Force: running single player's DLLs
 
-> **Code:** `src/engines/idtech3/eliteforce/sp_game_host.{h,cpp}`, `src/engines/idtech3/pages/sp_play_viewer.cpp`
+> **Code:** `src/engines/idtech3/eliteforce/sp_game_host.{h,cpp}`, `src/engines/idtech3/pages/sp_play_viewer.cpp` · **Confidence:** confirmed unless marked
 
 ## Overview
 

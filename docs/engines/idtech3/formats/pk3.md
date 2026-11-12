@@ -1,6 +1,6 @@
 # id Tech 3: `.pk3` archives and the search path
 
-> **Status:** decoded · **Code:** `src/common/zip.cpp`, `src/engines/idtech3/filesystem.cpp` · **Checked on:** archives built by Python's `zipfile` and by the tests, and the retail Elite Force paks
+> **Status:** decoded · **Code:** `src/common/zip.cpp`, `src/engines/idtech3/filesystem.cpp` · **Checked on:** archives built by Python's `zipfile` and by the tests, and the retail Elite Force paks · **Confidence:** confirmed unless marked
 
 ## Overview
 

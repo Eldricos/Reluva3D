@@ -1,6 +1,6 @@
 # Deck maps (MAPS/*.DAT)
 
-> **Status:** decoded · **Code:** `src/engines/stharbinger/game/game_extras.cpp`
+> **Status:** decoded · **Code:** `src/engines/stharbinger/game/game_extras.cpp` · **Confidence:** layout confirmed; behaviour from the code unless marked
 
 ## Overview
 

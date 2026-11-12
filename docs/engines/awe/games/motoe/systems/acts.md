@@ -1,6 +1,6 @@
 # Acts, scenes and the game's start
 
-> **Status:** done · **Code:** `src/engines/awe/story.cpp`, `script.cpp` · **Checked against:** the code (`motoe.exe`, English 1.0), `acts.txt` and the 394 scenes; fades against a recording
+> **Status:** done · **Code:** `src/engines/awe/story.cpp`, `script.cpp` · **Checked against:** the code (`motoe.exe`, English 1.0), `acts.txt` and the 394 scenes; fades against a recording · **Confidence:** from the code unless marked
 
 ## Overview
 

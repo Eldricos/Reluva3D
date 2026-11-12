@@ -1,6 +1,6 @@
 # Mouse cursors (art\mouse.ani)
 
-> **Status:** decoded · **Code:** `src/engines/stharbinger/game/game_video.cpp`
+> **Status:** decoded · **Code:** `src/engines/stharbinger/game/game_video.cpp` · **Confidence:** layout confirmed; behaviour from the code unless marked
 
 ## Overview
 

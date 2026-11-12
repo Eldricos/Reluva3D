@@ -1,6 +1,6 @@
 # Elite Force: joystick input
 
-> **Code:** `src/engines/idtech3/client/joystick_input.cpp` · **Checked against:** the code only
+> **Code:** `src/engines/idtech3/client/joystick_input.cpp` · **Checked against:** the code only · **Confidence:** from the code unless marked
 
 ## Overview
 
@@ -30,7 +30,9 @@ with the "X AXIS" and "Y AXIS" buttons ("ANALOG JOYSTICK X AXIS"); the
 readme: "As a default, the X-Axis and Y-Axis operate in the analog mode.
 ... By turning X-Axis and/or Y-Axis Off, they will act like buttons".
 
-### Each frame (0x43f580 on)
+### Each frame
+
+In `stvoyHM.exe`: from `0x43f580` on.
 
 - **Buttons:** button *i* (from 0) pressed or released since the last
   frame is a key event for key 185 + *i*, `JOY1` to `JOY32` (the key
@@ -55,7 +57,9 @@ So by default (`joy_xbutton 1`) the stick's x presses the arrow keys,
 which `default.cfg` binds to turning (`LEFTARROW +left`), and its y moves
 the player by how far it's pushed. No joystick key is bound by default.
 
-### The client's use of the analog axes (CL_JoystickMove, 0x409f10)
+### The client's use of the analog axes
+
+In `stvoyHM.exe`: `CL_JoystickMove`, `0x409f10`.
 
 `CL_JoystickEvent(axis, value)` (0x409ed0) keeps the value for axes 0–5.
 With *s* the frame's seconds (times `cl_anglespeedkey` while `+speed` is

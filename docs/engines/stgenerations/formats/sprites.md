@@ -1,6 +1,6 @@
 # Sprite sets (.GS2, .GSF)
 
-> **Status:** GS2 decoded; GSF not used · **Code:** `src/engines/stgenerations/formats/sprite.h` · **Checked on:** the 2 CD Windows release, two GS2 samples
+> **Status:** GS2 decoded; GSF not used · **Code:** `src/engines/stgenerations/formats/sprite.h` · **Checked on:** the 2 CD Windows release, two GS2 samples · **Confidence:** confirmed unless marked
 
 ## Overview
 

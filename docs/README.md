@@ -66,6 +66,35 @@ that engine and its games. Every engine's folder has the same layout:
 
 - **Every page starts from a template** in [templates/](templates/README.md),
   with its headings in the same order.
+- **Every fact has its source and a confidence.** A page's sources are in
+  its "Sources and checks". Its confidence uses these words (the middle four
+  are also `UNCONFIRMED.md`'s headings):
+
+  | Word | Means |
+  |---|---|
+  | confirmed | Checked against the original: seen running (or in a recording), against its own code's output, or a reader checked on every one of its files |
+  | from the code | Read from the original's executable, not seen running |
+  | seen, not traced | Seen running, not found in the code |
+  | inferred | Follows from other facts |
+  | guessed | A working assumption |
+  | published | From published documentation or source code |
+
+  - A format or system page states its default once, in its status line
+    (`**Confidence:** from the code unless marked`; a page whose layout and
+    behaviour differ can say both: `layout confirmed; behaviour from the
+    code`).
+  - Only what differs from the default is marked, with a short italic tag
+    at the end of its sentence, bullet or table row: `*(inferred)*`. A
+    table whose rows differ gets a Confidence column instead. Prose that
+    already says how a fact was found ("as a recording shows") needs no
+    tag.
+  - Headings carry neither tags nor addresses: an address goes on the
+    section's first line (``In `motoe.exe`: `0x438f00`.``).
+  - Marked items that matter to how Reluva behaves are also listed in
+    `UNCONFIRMED.md`, under the heading of the same name.
+  - A common page's default is in its "Sources and checks"; it marks
+    exceptions the same way. `research/` notes keep their own marks, which
+    their engine's `REVERSE_ENGINEERING.md` explains.
 - **The five pages** are made with the engine (`cmake/NewEngine.cmake`,
   from `templates/engine/`) and kept even while short.
 - **The three folders** are made when they get their first page.

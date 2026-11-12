@@ -1,6 +1,6 @@
 # id Tech 3: shader scripts (`scripts/*.shader`)
 
-> **Status:** decoded · **Code:** `src/engines/idtech3/shader.cpp`, `world_renderer.cpp` · **Checked on:** generated test maps and the retail Elite Force maps; `reluva-tool idtech3 shader-check` on Elite Force's 1891 shaders (October 2026)
+> **Status:** decoded · **Code:** `src/engines/idtech3/shader.cpp`, `world_renderer.cpp` · **Checked on:** generated test maps and the retail Elite Force maps; `reluva-tool idtech3 shader-check` on Elite Force's 1891 shaders (October 2026) · **Confidence:** confirmed unless marked
 
 ## Overview
 

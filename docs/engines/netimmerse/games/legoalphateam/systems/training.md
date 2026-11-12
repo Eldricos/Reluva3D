@@ -1,6 +1,6 @@
 # LEGO Alpha Team: into a mission, and the training tour
 
-> **Status:** done
+> **Status:** done · **Confidence:** confirmed unless marked
 
 ## Overview
 

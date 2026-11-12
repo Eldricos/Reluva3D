@@ -74,6 +74,7 @@ reads, the vftables it builds for its own subclasses):
   C++ 6's layout, an `ifstream` reading lines and bytes, a string stream
   buffer growing as it's written (with a vftable built as the programs
   build theirs), and `cerr` with numbers and `endl`.
+- **Confidence:** published (the C++ standard); the layouts from the code unless marked.
 
 ## Used by
 

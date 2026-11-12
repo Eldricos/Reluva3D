@@ -1,6 +1,6 @@
 # LEGO Alpha Team: options
 
-> **Status:** done
+> **Status:** done · **Confidence:** confirmed unless marked
 
 ## Overview
 

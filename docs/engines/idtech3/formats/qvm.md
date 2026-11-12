@@ -1,6 +1,6 @@
 # id Tech 3: virtual machine programs (`vm/*.qvm`)
 
-> **Status:** decoded · **Code:** `src/engines/idtech3/qvm.cpp` · **Checked on:** hand-built programs, a C program compiled by the Quake III compiler, and Elite Force's own three QVMs
+> **Status:** decoded · **Code:** `src/engines/idtech3/qvm.cpp` · **Checked on:** hand-built programs, a C program compiled by the Quake III compiler, and Elite Force's own three QVMs · **Confidence:** confirmed unless marked
 
 ## Overview
 

@@ -182,6 +182,7 @@ block starts on a 32-bit boundary.
   added: the frames' sizes and keyframes, every audio track's form,
   `rewind()` for loops, binkw32's colour conversion and the audio cut at
   each packet's declared size.
+- **Confidence:** published unless marked.
 
 ## Used by
 

@@ -1,6 +1,6 @@
 # Murder on the Orient Express: movies and video loops
 
-> **Code:** `src/engines/awe/movie_player.cpp`
+> **Code:** `src/engines/awe/movie_player.cpp` · **Confidence:** from the code unless marked
 
 ## Overview
 

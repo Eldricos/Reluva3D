@@ -1,6 +1,6 @@
 # id Tech 3: compiled maps (`maps/*.bsp`)
 
-> **Status:** decoded · **Code:** `src/engines/idtech3/bsp.cpp` · **Checked on:** all 67 retail Elite Force maps (`reluva-tool idtech3 bsp-check`, October 2026)
+> **Status:** decoded · **Code:** `src/engines/idtech3/bsp.cpp` · **Checked on:** all 67 retail Elite Force maps (`reluva-tool idtech3 bsp-check`, October 2026) · **Confidence:** confirmed unless marked
 
 ## Overview
 

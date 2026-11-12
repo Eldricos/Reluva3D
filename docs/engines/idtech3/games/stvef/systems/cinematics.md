@@ -1,6 +1,6 @@
 # Elite Force: cinematics
 
-> **Code:** `src/engines/idtech3/pages/sp_play_viewer.cpp`
+> **Code:** `src/engines/idtech3/pages/sp_play_viewer.cpp` · **Confidence:** from the code unless marked
 
 ## Overview
 

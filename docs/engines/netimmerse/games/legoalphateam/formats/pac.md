@@ -1,6 +1,6 @@
 # LEGO Alpha Team: `.pac` archives
 
-> **Status:** decoded · **Code:** `src/engines/netimmerse/pac_archive.{h,cpp}` · **Checked on:** the eight archives of the English retail install (2,462 files)
+> **Status:** decoded · **Code:** `src/engines/netimmerse/pac_archive.{h,cpp}` · **Checked on:** the eight archives of the English retail install (2,462 files) · **Confidence:** confirmed unless marked
 
 ## Overview
 

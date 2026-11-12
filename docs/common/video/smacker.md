@@ -33,6 +33,7 @@ Reluva decodes SMK2 and SMK4 in `src/common/video/smacker.cpp`
   pixel and sample with them (`tests/common/data/smacker_videos.h`).
 - **On a game's own files:** what has been checked against Harbinger's
   videos is in its [TESTING.md](../../engines/stharbinger/TESTING.md).
+- **Confidence:** published unless marked.
 
 ## Used by
 

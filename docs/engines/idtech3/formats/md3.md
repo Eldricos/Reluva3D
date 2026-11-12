@@ -1,6 +1,6 @@
 # id Tech 3: models (`.md3`) and skins (`.skin`)
 
-> **Status:** decoded · **Code:** `src/engines/idtech3/md3.cpp`, `model_cache.cpp` · **Checked on:** all 1156 retail Elite Force models (`reluva-tool idtech3 model-check`, October 2026)
+> **Status:** decoded · **Code:** `src/engines/idtech3/md3.cpp`, `model_cache.cpp` · **Checked on:** all 1156 retail Elite Force models (`reluva-tool idtech3 model-check`, October 2026) · **Confidence:** confirmed unless marked
 
 ## Overview
 

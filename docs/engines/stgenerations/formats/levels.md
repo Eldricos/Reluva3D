@@ -1,6 +1,6 @@
 # Levels (GAME.LV2)
 
-> **Status:** decoded enough to render · **Code:** `src/engines/stgenerations/formats/level.h`, `src/engines/stgenerations/game/render3d.h`
+> **Status:** decoded enough to render · **Code:** `src/engines/stgenerations/formats/level.h`, `src/engines/stgenerations/game/render3d.h` · **Confidence:** confirmed unless marked
 
 ## Overview
 

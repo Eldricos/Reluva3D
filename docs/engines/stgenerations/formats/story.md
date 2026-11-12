@@ -1,6 +1,6 @@
 # The story (STATES.INI)
 
-> **Status:** decoded · **Code:** `src/engines/stgenerations/game/campaign.h`
+> **Status:** decoded · **Code:** `src/engines/stgenerations/game/campaign.h` · **Confidence:** layout confirmed; behaviour from the code unless marked
 
 ## Overview
 

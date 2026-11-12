@@ -1,6 +1,6 @@
 # Mission scripts (GAME.BIN)
 
-> **Status:** decoded · **Code:** `src/engines/stgenerations/formats/script.h`, `src/engines/stgenerations/game/vm.h`
+> **Status:** decoded · **Code:** `src/engines/stgenerations/formats/script.h`, `src/engines/stgenerations/game/vm.h` · **Confidence:** layout confirmed; behaviour from the code unless marked
 
 ## Overview
 

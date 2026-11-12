@@ -120,6 +120,7 @@ unit and memory afterwards.
   - The script writes the DLL and the native results to
     `tests/common/data/x86_testdll.h`.
   - The DLL is also loaded a second time, so that it is relocated.
+- **Confidence:** published unless marked.
 
 ## Used by
 

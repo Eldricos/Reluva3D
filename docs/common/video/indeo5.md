@@ -154,6 +154,8 @@ processor. The intro uses one luma band, one tile, half-pel motion,
 four-band (scalable) wavelet mode and tiling are written but haven't met
 a file. A test builds a small frame by this description.
 
+- **Confidence:** published unless marked.
+
 ## Used by
 
 - **`netimmerse`**: LEGO Alpha Team's intro movie

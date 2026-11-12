@@ -1,6 +1,6 @@
 # The bridge (STELLAR.DAT)
 
-> **Code:** `src/engines/stgenerations/game/bridge.h`
+> **Code:** `src/engines/stgenerations/game/bridge.h` · **Confidence:** layout confirmed; behaviour from the code unless marked
 
 ## Overview
 

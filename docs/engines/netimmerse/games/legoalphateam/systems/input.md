@@ -1,6 +1,6 @@
 # LEGO Alpha Team: input
 
-> **Status:** done
+> **Status:** done · **Confidence:** from the code unless marked
 
 ## Overview
 

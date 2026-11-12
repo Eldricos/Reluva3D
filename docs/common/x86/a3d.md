@@ -60,6 +60,7 @@ machine has an A3D card.
   fills the source through a `Lock` that wraps round, plays it once and
   then looped as the clock moves, and checks its position, its status,
   the samples the mixer hears, and a wave event set as play passes it.
+- **Confidence:** published unless marked.
 
 ## Used by
 

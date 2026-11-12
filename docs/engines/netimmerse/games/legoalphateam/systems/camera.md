@@ -1,6 +1,6 @@
 # LEGO Alpha Team: Mission One, and the camera
 
-> **Status:** done · **Checked against:** a recording of the original
+> **Status:** done · **Checked against:** a recording of the original · **Confidence:** confirmed unless marked
 
 ## Overview
 

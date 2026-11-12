@@ -1,6 +1,6 @@
 # LEGO Alpha Team: the intro movie (`lmiintro.avi`)
 
-> **Status:** decoded · **Code:** `src/common/video/movie.h` · **Checked on:** `lmiintro.avi`, the one file
+> **Status:** decoded · **Code:** `src/common/video/movie.h` · **Checked on:** `lmiintro.avi`, the one file · **Confidence:** confirmed unless marked
 
 ## Overview
 

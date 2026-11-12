@@ -1,6 +1,6 @@
 # Archives (.CAT, .LST, .ALL)
 
-> **Status:** decoded · **Code:** `src/engines/stharbinger/formats/archive.cpp`
+> **Status:** decoded · **Code:** `src/engines/stharbinger/formats/archive.cpp` · **Confidence:** confirmed unless marked
 
 ## Overview
 

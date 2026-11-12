@@ -1,6 +1,6 @@
 # Scripts (CC.ALL, CCB.ALL and their lists)
 
-> **Status:** decoded · **Code:** `src/engines/stharbinger/formats/script.cpp`, `src/engines/stharbinger/formats/resources.cpp`, `src/engines/stharbinger/formats/dialogue.cpp`
+> **Status:** decoded · **Code:** `src/engines/stharbinger/formats/script.cpp`, `src/engines/stharbinger/formats/resources.cpp`, `src/engines/stharbinger/formats/dialogue.cpp` · **Confidence:** layout confirmed; behaviour from the code unless marked
 
 ## Overview
 

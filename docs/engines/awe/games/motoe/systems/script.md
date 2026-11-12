@@ -1,6 +1,6 @@
 # The script runner
 
-> **Code:** `src/engines/awe/script.cpp` · **Checked against:** the code (`motoe.exe`); `awe script-check` over the English 1.0 install's 9,785 commands
+> **Code:** `src/engines/awe/script.cpp` · **Checked against:** the code (`motoe.exe`); `awe script-check` over the English 1.0 install's 9,785 commands · **Confidence:** from the code unless marked
 
 ## Overview
 

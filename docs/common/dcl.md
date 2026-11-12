@@ -28,6 +28,7 @@ Unpacking only: coded and stored literals, and each dictionary size
   Reluva's own.
 - **How it was checked:** `common.unit.archives` (`dcl`) decodes the
   example given with `blast.c` and rejects broken input.
+- **Confidence:** published unless marked.
 
 ## Used by
 

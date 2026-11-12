@@ -1,6 +1,6 @@
 # LEGO Alpha Team: `.FIN` models
 
-> **Status:** decoded · **Code:** `src/engines/netimmerse/fin.{h,cpp}` · **Checked on:** the 147 `.FIN` files in the English retail `Fin.pac`
+> **Status:** decoded · **Code:** `src/engines/netimmerse/fin.{h,cpp}` · **Checked on:** the 147 `.FIN` files in the English retail `Fin.pac` · **Confidence:** confirmed unless marked
 
 ## Overview
 

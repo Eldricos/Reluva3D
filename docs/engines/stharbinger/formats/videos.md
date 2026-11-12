@@ -1,6 +1,6 @@
 # Videos (.SMK)
 
-> **Status:** decoded · **Code:** `src/engines/stharbinger/game/game_video.cpp`, `src/common/video/smacker.cpp`
+> **Status:** decoded · **Code:** `src/engines/stharbinger/game/game_video.cpp`, `src/common/video/smacker.cpp` · **Confidence:** confirmed unless marked
 
 ## Overview
 

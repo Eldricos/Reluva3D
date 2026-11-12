@@ -1,6 +1,6 @@
 # The discs
 
-> **Status:** decoded · **Code:** `src/engines/stharbinger/detection.cpp`, `src/engines/stharbinger/formats/resources.cpp`
+> **Status:** decoded · **Code:** `src/engines/stharbinger/detection.cpp`, `src/engines/stharbinger/formats/resources.cpp` · **Confidence:** confirmed unless marked
 
 ## Overview
 

@@ -1,6 +1,6 @@
 # Elite Force: the 1.2 patch
 
-> **Status:** decoded · **Code:** `src/engines/idtech3/games.cpp` (`patchFiles`) · **Checked on:** `eliteforcepatch1_2.exe` (20,636,701 bytes)
+> **Status:** decoded · **Code:** `src/engines/idtech3/games.cpp` (`patchFiles`) · **Checked on:** `eliteforcepatch1_2.exe` (20,636,701 bytes) · **Confidence:** confirmed unless marked
 
 ## Overview
 

@@ -1,6 +1,6 @@
 # Elite Force: the Holomatch network protocol
 
-> **Status:** done · **Code:** `src/engines/idtech3/wire/`, `src/engines/idtech3/eliteforce/net_fields.cpp`, `net_server.cpp`, `net_client.cpp` · **Checked against:** the retail executable, both ways (October 2026)
+> **Status:** done · **Code:** `src/engines/idtech3/wire/`, `src/engines/idtech3/eliteforce/net_fields.cpp`, `net_server.cpp`, `net_client.cpp` · **Checked against:** the retail executable, both ways (October 2026) · **Confidence:** confirmed unless marked
 
 ## Overview
 

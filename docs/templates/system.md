@@ -1,9 +1,13 @@
 # <Game or engine>: <the part of the game>
 
-> **Status:** done / partial / not started · **Code:** `src/engines/<engine>/...` · **Checked against:** <the original running, a recording, the code only>
+> **Status:** done / partial / not started · **Code:** `src/engines/<engine>/...` · **Checked against:** <the original running, a recording, the code only> · **Confidence:** <from the code / confirmed / ...> unless marked
 
 <!-- Copy to systems/<name>.md: a part of how the game behaves at run time
-(its scripts, dialogue, the interface, saves, AI, network play). -->
+(its scripts, dialogue, the interface, saves, AI, network play).
+Confidence: the words and how to mark exceptions are in docs/README.md,
+"Adding docs"; mark only what differs from the default, with
+*(inferred)* and the like at the end of its sentence. Addresses go in
+the text, never in headings. -->
 
 ## Overview
 

@@ -1,6 +1,6 @@
 # LEGO Alpha Team: sound
 
-> **Status:** done · **Code:** `src/common/x86/a3d.cpp`
+> **Status:** done · **Code:** `src/common/x86/a3d.cpp` · **Confidence:** confirmed unless marked
 
 ## Overview
 

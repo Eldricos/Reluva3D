@@ -1,6 +1,6 @@
 # The captain's menu (OPTIONS.DAT)
 
-> **Code:** `src/engines/stgenerations/game/optionsmenu.h`
+> **Code:** `src/engines/stgenerations/game/optionsmenu.h` · **Confidence:** layout confirmed; behaviour from the code unless marked
 
 ## Overview
 

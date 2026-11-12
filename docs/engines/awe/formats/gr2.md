@@ -1,6 +1,6 @@
 # Granny 2 files (.gr2)
 
-> **Status:** decoded · **Code:** `src/engines/awe/gr2.cpp`, `oodle1.cpp`, `curves.cpp`, `bink_texture.cpp` · **Checked on:** Murder on the Orient Express's 1,803 files, against its `granny2.dll`
+> **Status:** decoded · **Code:** `src/engines/awe/gr2.cpp`, `oodle1.cpp`, `curves.cpp`, `bink_texture.cpp` · **Checked on:** Murder on the Orient Express's 1,803 files, against its `granny2.dll` · **Confidence:** confirmed unless marked
 
 ## Overview
 

@@ -1,6 +1,6 @@
 # Elite Force: map entities
 
-> **Status:** partial · **Code:** `src/engines/idtech3/entities.cpp` · **Checked on:** the retail `baseEF` patched to 1.2: 67 maps, 44,849 entities (`reluva-tool idtech3 entity-survey`, October 2026)
+> **Status:** partial · **Code:** `src/engines/idtech3/entities.cpp` · **Checked on:** the retail `baseEF` patched to 1.2: 67 maps, 44,849 entities (`reluva-tool idtech3 entity-survey`, October 2026) · **Confidence:** confirmed unless marked
 
 ## Overview
 

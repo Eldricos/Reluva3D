@@ -1,6 +1,6 @@
 # Animations and sprites (.RLE)
 
-> **Status:** decoded · **Code:** `src/engines/stharbinger/formats/graphics.cpp`
+> **Status:** decoded · **Code:** `src/engines/stharbinger/formats/graphics.cpp` · **Confidence:** confirmed unless marked
 
 ## Overview
 

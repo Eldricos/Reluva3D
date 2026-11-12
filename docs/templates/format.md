@@ -1,10 +1,12 @@
 # <Game or engine>: <what the files are> (`.ext`)
 
-> **Status:** decoded / partial / unknown · **Code:** `src/engines/<engine>/...` · **Checked on:** <release, and how many files>
+> **Status:** decoded / partial / unknown · **Code:** `src/engines/<engine>/...` · **Checked on:** <release, and how many files> · **Confidence:** <confirmed / from the code / ...> unless marked
 
 <!-- Copy to formats/<name>.md. "Decoded" means a reader exists and has been
 checked against the game's own files. All numbers little-endian unless
-said. -->
+said. Confidence: the words and how to mark exceptions are in
+docs/README.md, "Adding docs"; mark only what differs from the default,
+with *(inferred)* and the like at the end of its sentence. -->
 
 ## Overview
 

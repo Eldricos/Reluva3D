@@ -38,6 +38,7 @@ around it are read by [avi.md](avi.md)'s reader.
   against a 640x480 recording of the original game: a mean difference of 4
   in 255 per colour, the recording's compression's blur. The files
   themselves are described in [the Clue engine's docs](../../engines/clue/formats/videos.md).
+- **Confidence:** published unless marked.
 
 ## Used by
 

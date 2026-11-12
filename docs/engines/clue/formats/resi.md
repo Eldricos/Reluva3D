@@ -1,6 +1,6 @@
 # Clue: Murder at Boddy Mansion: dialogInfo.res
 
-> **Status:** decoded · **Code:** `src/engines/clue/resi.h`
+> **Status:** decoded · **Code:** `src/engines/clue/resi.h` · **Confidence:** layout from the code; meanings inferred unless marked
 
 ## Overview
 

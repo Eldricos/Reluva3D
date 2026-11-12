@@ -1,6 +1,6 @@
 # LEGO Alpha Team: every mission
 
-> **Status:** done · **Checked against:** recordings of the original
+> **Status:** done · **Checked against:** recordings of the original · **Confidence:** confirmed unless marked
 
 ## Overview
 

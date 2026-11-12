@@ -1,6 +1,6 @@
 # Puzzle screens
 
-> **Code:** `src/engines/awe/scene_puzzles.cpp` · **Checked against:** the code (`motoe.exe`, English 1.0); the torn letter's solution by compositing its pieces, its arrows against a recording
+> **Code:** `src/engines/awe/scene_puzzles.cpp` · **Checked against:** the code (`motoe.exe`, English 1.0); the torn letter's solution by compositing its pieces, its arrows against a recording · **Confidence:** from the code unless marked
 
 ## Overview
 

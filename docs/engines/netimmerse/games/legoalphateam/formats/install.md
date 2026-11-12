@@ -1,6 +1,6 @@
 # LEGO Alpha Team: install layout
 
-> **Status:** partial · **Code:** `src/engines/netimmerse/netimmerse.cpp` (detection) · **Checked on:** the English Windows retail CD (`LEGOATEN`) and a full install from it
+> **Status:** partial · **Code:** `src/engines/netimmerse/netimmerse.cpp` (detection) · **Checked on:** the English Windows retail CD (`LEGOATEN`) and a full install from it · **Confidence:** confirmed unless marked
 
 ## Overview
 
@@ -15,7 +15,7 @@ what stays on the CD.
 | File | Size | What it is |
 |---|---|---|
 | `LEGOATeam.exe` | 61,440 | the game; small, so the work is done in the DLLs below |
-| `Launcher.exe` | 507,904 | same size as the CD's `AutoPlay.exe`; *guess*: the same menu program (play, uninstall, website) |
+| `Launcher.exe` | 507,904 | same size as the CD's `AutoPlay.exe`; *(guessed)*: the same menu program (play, uninstall, website) |
 | `BaseClassComp.dll` | 28,672 | the game's own code, as "components": its base classes, `DDNamedObject` (a named object) and `DDEvent` (events, with their own memory pages) *(from its exports)* |
 | `BehaviorComp.dll` | 40,960 | 〃 the behaviours' framework: hierarchical state machines (`DDHFSM`, `DDState`, `DDTransition`, `DDTrigger`, entry and exit ports, choice points) and `DDBehavior`, which runs one for an actor. The parts' DLLs in `Bhvr.pac` import it, with LoadComp, LegoLogicComp and BaseClassComp *(from the exports and imports)* |
 | `LegoLogicComp.dll` | 163,840 | 〃 the game's rules |
@@ -88,5 +88,5 @@ to replace the executable, not the large archives.
 
 Source: directory listings of the English Windows retail CD (volume label
 `LEGOATEN`) and of a full install from it (October 2026). The archives' contents come from
-reading them ([pac.md](pac.md)); meanings still marked *guess* come from
+reading them ([pac.md](pac.md)); meanings still marked *(guessed)* come from
 the names alone and are to be confirmed.

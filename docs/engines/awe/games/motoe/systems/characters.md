@@ -1,6 +1,6 @@
 # Characters
 
-> **Code:** `src/engines/awe/animator.cpp`, `actor.cpp`, `scene_outdoors.cpp` · **Checked against:** the code (`motoe.exe`, English 1.0), the install's models, their track masks, and the scripts
+> **Code:** `src/engines/awe/animator.cpp`, `actor.cpp`, `scene_outdoors.cpp` · **Checked against:** the code (`motoe.exe`, English 1.0), the install's models, their track masks, and the scripts · **Confidence:** from the code unless marked
 
 ## Overview
 
@@ -28,7 +28,7 @@ and `show` change it between. 49 characters in the install have a
 condition: Greta Ohlsson, for one, stands in the Sirkeci market's scenes
 only with `tag gretafollow`, and Michel in the corridors only until
 `tag micheladmonish`. The pick's list uses the same test
-([../formats/ac2.md](../formats/ac2.md#the-pick-0x435eb0)).
+([../formats/ac2.md](../formats/ac2.md#the-pick)).
 
 #### Leaving a scene and coming back
 

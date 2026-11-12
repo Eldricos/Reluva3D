@@ -1,6 +1,6 @@
 # AAS files (the bots' maps) and bot scripts
 
-> **Code:** `src/engines/idtech3/botlib/`
+> **Code:** `src/engines/idtech3/botlib/` · **Confidence:** published unless marked
 
 ## Overview
 

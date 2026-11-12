@@ -1,6 +1,6 @@
 # Action sequence data
 
-> **Status:** decoded · **Code:** `src/engines/stharbinger/game/arcade.cpp`
+> **Status:** decoded · **Code:** `src/engines/stharbinger/game/arcade.cpp` · **Confidence:** layout confirmed; behaviour from the code unless marked
 
 ## Overview
 

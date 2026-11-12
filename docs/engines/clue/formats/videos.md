@@ -1,6 +1,6 @@
 # Clue: Murder at Boddy Mansion: videos (`.avi`)
 
-> **Code:** `src/engines/clue/movie.h`, `src/common/video/avi.h`, `src/common/video/cinepak.h`
+> **Code:** `src/engines/clue/movie.h`, `src/common/video/avi.h`, `src/common/video/cinepak.h` · **Confidence:** confirmed unless marked
 
 ## Overview
 

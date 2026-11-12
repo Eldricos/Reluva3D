@@ -1,6 +1,6 @@
 # MDR models (Elite Force's player bodies)
 
-> **Code:** `src/engines/idtech3/mdr.cpp`
+> **Code:** `src/engines/idtech3/mdr.cpp` · **Confidence:** published unless marked
 
 ## Overview
 

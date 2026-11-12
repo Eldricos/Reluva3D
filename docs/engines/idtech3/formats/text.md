@@ -1,6 +1,6 @@
 # id Tech 3: text files
 
-> **Code:** `src/engines/idtech3/lexer.cpp`
+> **Code:** `src/engines/idtech3/lexer.cpp` · **Confidence:** published unless marked
 
 ## Overview
 

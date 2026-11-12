@@ -1,6 +1,6 @@
 # Saved games
 
-> **Code:** `src/engines/awe/savegame.cpp` · **Checked against:** the code (`motoe.exe`, English 1.0); `awe save-check` over the 15 developer saves
+> **Code:** `src/engines/awe/savegame.cpp` · **Checked against:** the code (`motoe.exe`, English 1.0); `awe save-check` over the 15 developer saves · **Confidence:** from the code unless marked
 
 ## Overview
 

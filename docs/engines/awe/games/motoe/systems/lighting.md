@@ -1,6 +1,6 @@
 # Character lighting
 
-> **Status:** partial · **Code:** `src/engines/awe/lighting.cpp` · **Checked against:** the code (`motoe.exe`, English 1.0) and the install's 426 `LITE` records; the specular against a recording
+> **Status:** partial · **Code:** `src/engines/awe/lighting.cpp` · **Checked against:** the code (`motoe.exe`, English 1.0) and the install's 426 `LITE` records; the specular against a recording · **Confidence:** from the code unless marked
 
 ## Overview
 

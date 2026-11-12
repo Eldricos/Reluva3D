@@ -1,6 +1,6 @@
 # Space combat (COMBAT.DAT)
 
-> **Code:** `src/engines/stgenerations/formats/combatdata.h`, `src/engines/stgenerations/game/combat.h`
+> **Code:** `src/engines/stgenerations/formats/combatdata.h`, `src/engines/stgenerations/game/combat.h` · **Confidence:** layout confirmed; behaviour from the code unless marked
 
 ## Overview
 

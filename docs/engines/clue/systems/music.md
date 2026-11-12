@@ -1,6 +1,6 @@
 # Clue: Murder at Boddy Mansion: music
 
-> **Status:** done · **Code:** `src/engines/clue/frontend.cpp` · **Checked against:** `Clue.exe` 2.2's code
+> **Status:** done · **Code:** `src/engines/clue/frontend.cpp` · **Checked against:** `Clue.exe` 2.2's code · **Confidence:** from the code unless marked
 
 ## Overview
 

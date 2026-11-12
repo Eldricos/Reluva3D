@@ -1,6 +1,6 @@
 # Clue: Murder at Boddy Mansion: resource files
 
-> **Status:** decoded · **Code:** `src/engines/clue/resources.h` · **Checked on:** the retail CD (2.0, US and UK data), a clean install of it and the 2.2 patch: every file
+> **Status:** decoded · **Code:** `src/engines/clue/resources.h` · **Checked on:** the retail CD (2.0, US and UK data), a clean install of it and the 2.2 patch: every file · **Confidence:** confirmed unless marked
 
 ## Overview
 

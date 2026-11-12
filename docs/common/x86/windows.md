@@ -133,6 +133,7 @@ C++ library have pages of their own ([directx.md](directx.md),
 - `testInput` checks the messages input becomes, double clicks, key
   states and `ClipCursor`. It also checks DirectInput's mouse (its state,
   its movement since the last read, its buffer) and keyboard.
+- **Confidence:** published unless marked.
 
 ## Used by
 

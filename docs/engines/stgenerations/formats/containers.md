@@ -1,6 +1,6 @@
 # Archives and standard files
 
-> **Code:** `src/common/zip.h`, `src/common/video/avi.h`, `src/common/video/cinepak.h`
+> **Code:** `src/common/zip.h`, `src/common/video/avi.h`, `src/common/video/cinepak.h` · **Confidence:** confirmed unless marked
 
 ## Overview
 

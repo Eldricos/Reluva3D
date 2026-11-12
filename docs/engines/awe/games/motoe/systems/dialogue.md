@@ -1,6 +1,6 @@
 # Dialogue
 
-> **Code:** `src/engines/awe/dialogue.cpp`, `dialogue_box.cpp` · **Checked against:** the code (`motoe.exe`) and the dialogue tables
+> **Code:** `src/engines/awe/dialogue.cpp`, `dialogue_box.cpp` · **Checked against:** the code (`motoe.exe`) and the dialogue tables · **Confidence:** from the code unless marked
 
 ## Overview
 
@@ -12,8 +12,8 @@ it's over.
 ## How it works
 
 In what follows, "DM" is the dialogue manager object
-(`[[0x498818]+0x14c]`, `this` in its functions), and **sure**, **likely**
-and **guess** say how much of each point was read rather than inferred.
+(`[[0x498818]+0x14c]`, `this` in its functions). Everything is read from
+the code unless marked *(inferred)* or *(guessed)*.
 `0x43e750` is a case-insensitive "contains" test (an empty needle always
 matches), `0x407ae0` evaluates a condition.
 
@@ -56,7 +56,9 @@ starts (`0x4224fb`).
 
 ### 1. Data structures
 
-#### 1.1 Loader 0x438f00(path) (sure)
+#### 1.1 Loader
+
+In `motoe.exe`: `0x438f00(path)`.
 
 * Skips the file if it is already in DM+0x610 (a list of loaded paths,
   count DM+0x614), else adds the path.
@@ -82,7 +84,7 @@ starts (`0x4224fb`).
   appended to DM+0x8 (count DM+0xc) in file order. Threads and lines keep file
   order.
 
-#### 1.2 Part node, 0x90 bytes (sure)
+#### 1.2 Part node, 0x90 bytes
 
 | off | content |
 |---|---|
@@ -94,7 +96,9 @@ starts (`0x4224fb`).
 Lookup `0x439c20(name, code)`: the first part with `wcsicmp(Name)==0` and the
 same code.
 
-#### 1.3 Thread node, 0x1c bytes (sure for the fields, likely for the names)
+#### 1.3 Thread node, 0x1c bytes
+
+The fields are from the code; their names *(inferred)*.
 
 | off | content |
 |---|---|
@@ -106,7 +110,7 @@ same code.
 
 Lookup `0x439c70(part, code)`: the first thread with that code.
 
-#### 1.4 Line record, 0x1324 bytes (sure)
+#### 1.4 Line record, 0x1324 bytes
 
 | off | column / meaning |
 |---|---|
@@ -120,7 +124,7 @@ Lookup `0x439c70(part, code)`: the first thread with that code.
 | +0xd08 | Event |
 | +0xf08 | Povent |
 | +0x1108 | text width in pixels (`0x414c10(1,text,&w)`, the dialogue font) |
-| +0x110c | row height (written by the same call, likely) |
+| +0x110c | row height (written by the same call *(inferred)*) |
 | +0x1110 | number of rows: 1 if width ≤ 0x3b0 (944), else word-wrapped by 0x43d9b0 at 944 px (two spaces after `.`, `!`, `?`): the words, split at spaces (runs of spaces count as one), go on a row with a space between, two after a word ending in `.`, `!` or `?`; a word starts the next row when the row's width, the word's and a space's (two after such a word), measured apart, come to more than 944. 0x43db80 draws the rows the same way, the double spaces in them. Checked against the walkthrough: six lines where this rule and single spacing break differently, found by their voices (Parts 2 to 7), break at the same words in the recording as in Reluva, down to Dragomiroff's "...most of the / time." |
 | +0x1112 | alternative index: 0, or previous line's index + 1 if the previous line of the same thread has the same Nest code |
 | +0x1114 | Duration, second number (`"a,b"` → b) |
@@ -129,7 +133,7 @@ Lookup `0x439c70(part, code)`: the first thread with that code.
 | +0x111e | voice base name: `Name + Act + Conver + Thread + Nest`, the column texts as written (e.g. `dia_observation02aa1a`) |
 | +0x1320 | picture: if Notes contains `.jpg`/`.png`/`.tga`, the picture loaded by 0x439ad0 (cached in DM+0x604), else 0 |
 
-#### 1.5 Dialogue manager fields used here (sure unless marked)
+#### 1.5 Dialogue manager fields used here
 
 | off | meaning |
 |---|---|
@@ -176,9 +180,11 @@ Lookup `0x439c70(part, code)`: the first thread with that code.
 
 ---
 
-### 2. Starting: `talk` and 0x43a630
+### 2. Starting: `talk` and DM::Start
 
-#### 2.1 The `talk` verb, 0x40ba25 (sure)
+#### 2.1 The `talk` verb
+
+In `motoe.exe`: `0x40ba25`.
 
 `talk <name> <code> <opt3> <opt4>`:
 
@@ -209,12 +215,14 @@ and an empty needle always matches, this is in practice always
 `gen_canttalkf` (a quirk). Note that +0x624 is only recomputed when the
 requested part exists, so it may be left over from the previous conversation.
 
-#### 2.2 DM::Start(name, part, thread, nest, gen, number, plus, greet), 0x43a630 (sure)
+#### 2.2 DM::Start(name, part, thread, nest, gen, number, plus, greet)
+
+In `motoe.exe`: `0x43a630`.
 
 1. `c = find(name, part)`; none → return 0. DM+0x10 = c.
 2. Not in a dry run: closes or resets the inventory UI (`0x4194d0`, and for
-   names not containing `gen_` or `com_`, `0x419e80` and `0x419970`; *likely*:
-   this closes the inventory and drops the held item).
+   names not containing `gen_` or `com_`, `0x419e80` and `0x419970`:
+   this closes the inventory and drops the held item *(inferred)*).
 3. Box: height 160, window 0. If the condition `act >07a` holds and this is not
    movie mode: height 180, window 1 (the solution scenes use the taller box).
 4. DM+0x544 = 1 if name is `dia_barnabyham` or `hamradio` (wcsicmp), else 0.
@@ -277,7 +285,7 @@ you?", "Hello, I am afraid I am back again", "Something has occurred to
 me since I left you", "I'd like to talk to you again, if you don't mind"
 (an earlier one).
 
-#### 2.3 Special cases (sure)
+#### 2.3 Special cases
 
 * `gen_` / `com_` in the name: the inventory is not fully reset (step 2).
   Otherwise these conversations are ordinary numbered parts (a single thread
@@ -293,7 +301,9 @@ me since I left you", "I'd like to talk to you again, if you don't mind"
   lines, no click skip and no progress saved. When the `movie` event ends, the
   runner calls 0x43b970 (dialogue reset).
 
-#### 2.4 The exit thread, 0x43af20 (sure)
+#### 2.4 The exit thread
+
+In `motoe.exe`: `0x43af20`.
 
 name = `+0x624 + "exit"` (e.g. `gen_arbuthnot_exit`), r = `rand()%4`; if
 `word[0x4986f8] > 0` and r == 3, r = 4 (`word[0x4986f8]` is the time of day,
@@ -303,7 +313,9 @@ with that name, in load order, and copy all its lines into the new thread
 (DM+0x6e8 = r). If none is found, fall back to `gen_exit` with the same r.
 Thread `3` is always "available" and always listed last.
 
-#### 2.5 The regreet thread, 0x43b180 (sure)
+#### 2.5 The regreet thread
+
+In `motoe.exe`: `0x43b180`.
 
 name = `"gen_regreet%d"` (visit tag value), r = `rand()%4`; copy the r-th
 thread `2` of the parts named so. Data: `gen_regreet1` and `gen_regreet2`
@@ -313,7 +325,9 @@ each have parts 0..3 with thread `2`.
 
 ### 3. How a conversation plays
 
-#### 3.1 Line choice: pickLine(thread, nest, fwd), 0x439ca0 (sure)
+#### 3.1 Line choice: pickLine(thread, nest, fwd)
+
+In `motoe.exe`: `0x439ca0`.
 
 * Collect the lines of the thread with this Nest code whose Condition holds
   (`0x407ae0`, an empty Condition holds).
@@ -329,7 +343,7 @@ each have parts 0..3 with thread `2`.
 * Debug only: in a dry run with the debug flag `[0x498818]+0x88`, a line whose
   condition fails logs `REQUIRED LINE NOT DELIVERED: <text>`.
 
-#### 3.2 Which threads play automatically (sure)
+#### 3.2 Which threads play automatically
 
 * Thread `1` (0x60): the opening, played before the menu when the part is
   started without a thread and with greet. Once finished (status 1, no current
@@ -344,7 +358,9 @@ each have parts 0..3 with thread `2`.
 * A part with one thread (and no extras), or a talk naming a thread, plays that
   thread directly with no menu.
 
-#### 3.3 Availability of a thread, 0x43b870 (sure)
+#### 3.3 Availability of a thread
+
+In `motoe.exe`: `0x43b870`.
 
 * Code `3` → always available.
 * status == 1: available only if t.current ≠ 0 **and** DM+0x52c ≠ 0 **and**
@@ -355,7 +371,9 @@ each have parts 0..3 with thread `2`.
 So a finished thread comes back only if its last line had a Repeat letter (4.5)
 and only while +0x52c is set.
 
-#### 3.4 The menu, 0x43b560(first, keepBox) (sure)
+#### 3.4 The menu
+
+In `motoe.exe`: `0x43b560(first, keepBox)`.
 
 * DM+0x52c = first. Count the threads other than `1`/`2` that are available;
   give each a current line (`pickLine(t, a, fwd=0)` if it has none; none →
@@ -427,7 +445,9 @@ Choosing (0x43ba50): +0x24=0, DM+0x14 = the thread, DM+0x18 = its current
 line, play it. The choice text is therefore also the first spoken line
 (Antoinette's question).
 
-#### 3.5 After a thread ends (sure; see 4.5 for the line-end code)
+#### 3.5 After a thread ends
+
+See 4.5 for the line-end code.
 
 * Thread `3` → the conversation ends.
 * Povent contained `terminate` → the conversation ends.
@@ -437,7 +457,7 @@ line, play it. The choice text is therefore also the first spoken line
 * If the Povent runner is still busy → +0x320=3 (menu once it is idle).
 * Else the menu: `first = 1` if the thread was `1` or `2`, else 0.
 
-#### 3.6 The trailing `+` (sure)
+#### 3.6 The trailing `+`
 
 `plus` (+0x530) makes the conversation continue with part+1 instead of ending:
 
@@ -452,7 +472,7 @@ Poirot's opening `1`, then the menu a/b/c. When two are done, the third plays
 by itself. Then parts b, c, d, e, f follow, each with its own `1` opening.
 After f, Start(g) fails and the conversation ends.
 
-#### 3.7 Numbered parts vs lettered parts (sure)
+#### 3.7 Numbered parts vs lettered parts
 
 * Lettered parts (code < 99) save thread progress (4.6). Numbered parts
   (`0`=99, `1`=100...) do not: in-memory status is reset by every Start, so
@@ -464,7 +484,9 @@ After f, Start(g) fails and the conversation ends.
 
 ### 4. Playing a line
 
-#### 4.1 Line start, 0x43c070 (sure)
+#### 4.1 Line start
+
+In `motoe.exe`: `0x43c070`.
 
 1. Colour (0x43ba80): Antoinette (Speaker contains `antoinette`) → colour 8.
    Another speaker → 9, toggling to 10 whenever the speaker differs from the
@@ -475,23 +497,25 @@ After f, Start(g) fails and the conversation ends.
    running and none queued). Otherwise speak now.
 3. Speak = 0x43bd30 (4.2), then 0x43c100 (4.3). +0x554 is incremented.
 
-#### 4.2 Speaking, 0x43bd30 (sure, the character calls are likely)
+#### 4.2 Speaking
+
+In `motoe.exe`: `0x43bd30`. The character calls *(inferred)*.
 
 Skipped in a dry run. Speaker character = `0x43bb60`: the scene object named
 like Speaker (`0x4367b0(name,1)`); for `poirot` also `poirotbed`; then the same
 search in the other scenes of `[0x498824]+0xa50` whose name contains
-`[0x498824]+0xa64` (*likely*: the scenes of the same location). Not found →
+`[0x498824]+0xa64` (the scenes of the same location *(inferred)*). Not found →
 no animation; the line still plays.
 
-* Character found: `0x404720` (*likely*: start the talking state).
+* Character found: `0x404720` (start the talking state *(inferred)*).
 * **Target** (if not empty and not `0`), split on spaces into w1 w2 w3:
   * w1 = `up` or `down`: the head animation `"head"+w1` (`headup`,
     `headdown`) for w2 seconds (default 0.5): `0x441270`.
   * w3 present: `0x441560(char, wtoi(w1), wtoi(w2), w3=="up"?1 : w3=="down"?2 : 0)`
-    (*likely*: head angles).
+    (head angles *(inferred)*).
   * w2 = `up` or `down`: `0x4415b0(char, w1, 1|2)`: look at character w1
-    tilted up or down (`antoinette up` is the common case; *likely* she is
-    shorter or seated).
+    tilted up or down (`antoinette up` is the common case; she is
+    shorter or seated *(inferred)*).
   * w2 numeric: `0x441560(char, wtoi(w1), wtoi(w2), 0)`.
   * only w1: `0x4415b0(char, w1, 0)`: turn the head toward w1.
 
@@ -509,7 +533,9 @@ no animation; the line still plays.
   (`0x425140`) ≠ -1 and changed → `0x4046c0` (mouth on) if > 0, else
   `0x4046f0` (mouth off). See [characters.md](characters.md#talking).
 
-#### 4.3 Event and the event file, 0x43c100 (sure)
+#### 4.3 Event and the event file
+
+In `motoe.exe`: `0x43c100`.
 
 Reset the Event runner. If the **Event** column is not empty, queue it there.
 Otherwise the file
@@ -533,7 +559,7 @@ Generated threads (exit, regreet, extras) keep their own voice names (from
 their source rows) but look up event files under the current part's name.
 This is a quirk; such files do not exist.
 
-#### 4.4 When a line ends (sure)
+#### 4.4 When a line ends
 
 The update (0x43d430, called from 0x416d8f) ends the line (0x43c310) when:
 
@@ -546,7 +572,9 @@ The update (0x43d430, called from 0x416d8f) ends the line (0x43c310) when:
 Nothing ends the line while the box is sliding, while the Prevent runner is
 busy, or while a Povent or pause is pending.
 
-#### 4.5 Line end, 0x43c310 → 0x43c375 (sure)
+#### 4.5 Line end
+
+In `motoe.exe`: `0x43c310` → `0x43c375`.
 
 1. Stop the voice, fast-forward the Event runner, stop the talking anim
    (`0x404760`).
@@ -585,7 +613,9 @@ busy, or while a Povent or pause is pending.
      (0x43b8f0(keepBox)). Else advance → mark the part finished (0x43b810).
      Then, if the Povent runner is busy, +0x320=3; else the menu (3.5).
 
-#### 4.6 Meaning of the Povent markers (sure for the code; the runner treats all of them as no-ops)
+#### 4.6 Meaning of the Povent markers
+
+The runner treats all of them as no-ops.
 
 The runner's handlers for `juncture`, `terminate`, `advance`, `leavebox`,
 `nobox` and `mainloop` just end the event (0x40a39b, 0x40b28b, 0x409fa4,
@@ -646,8 +676,8 @@ ends. Exits exist only with gen (NPC clicks or `forcegen`).
   box), 02 = 1024x180 (after act 07a), 04 and 05 = 10x11 (the choice bullet,
   normal and highlighted). 03 is missing.
 * The box's y = 768 - height, sliding at 500 px/s. Drawn (vtable +0xc) when in
-  choice mode, or when subtitles are on (`[0x490068]`, 1 by default; *likely*
-  the subtitles option), or when +0x544 is set. While the Povent runner works,
+  choice mode, or when subtitles are on (`[0x490068]`, 1 by default; the subtitles
+  option *(inferred)*), or when +0x544 is set. While the Povent runner works,
   it is drawn only if +0x324.
 * The spoken line is drawn **only if subtitles are on (or ham radio)**,
   horizontally centred, vertically centred in the box: y = box top +

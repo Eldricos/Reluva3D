@@ -125,6 +125,8 @@ less than the instruction cache's misses. Next: shifts, the x87
 compares, and jumping straight to a block known in advance (a relative
 jump's or call's) without the dispatch's lookup.
 
+- **Confidence:** Reluva's own design.
+
 ## Used by
 
 - **`idtech3`**: Star Trek: Voyager - Elite Force's single-player DLLs

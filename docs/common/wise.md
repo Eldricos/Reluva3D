@@ -39,6 +39,7 @@ signatures (size and MD5 of the first 5000 bytes, as detection's).
   (20,636,701 bytes): every file taken out of it is byte for byte the file
   a patched install has. The figures in the layout above are that
   installer's.
+- **Confidence:** confirmed (worked out on the installer itself) unless marked.
 
 ## Used by
 

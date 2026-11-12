@@ -1,6 +1,6 @@
 # The executable (DEEP.EXE)
 
-> **Code:** `src/engines/stharbinger/tools/exe.cpp`
+> **Code:** `src/engines/stharbinger/tools/exe.cpp` · **Confidence:** from the code unless marked
 
 ## Overview
 
