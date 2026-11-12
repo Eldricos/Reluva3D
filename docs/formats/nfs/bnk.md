@@ -1129,7 +1129,13 @@ pursuit of a" and the colour and car; 0x10-0x12 voice A (cop index mod
 `0x40a580`): +0 "in pursuit of" the car (kind 8, a new chase), +1
 "joining pursuit of" it (kind 9, and kind 0xB, taken again), +2 "I
 have it in sight" (kind 10, also kind 9's other form). `IPncspch` names
-the car with no colour.
+the car with no colour. Only 0x00 and the +0 lines name the colour: in
+`Amd7`'s banks +1 and +2 are the same samples in every colour. Kinds
+9, 10 and 0xB are said only for a human target (`0x40b330` and
+`0x40b530` return for a computer racer), and a join only with room
+for 4 lines, so a cop joining the computer racer's chase is never
+heard; its new chases are, with its car named (`HP_Disabled`'s silver
+DB7, physics.md, How many cops were on one chase).
 
 **`copspch`** (entry 8, the officer at the car, not over the radio):
 

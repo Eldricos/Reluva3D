@@ -1757,7 +1757,7 @@ the next as each ends (`0x4c86d0`). Nothing plays in a replay
 checks there is room (`0x40a910(n)`: n + queued ≤ 11). A call is an
 exchange:
 - the officer's call number (`0x40aa20`: slot 0x10 + the cop's index,
-  unless he spoke last, `0x5524ec`, and his own counter, `0x5524cc` +
+  unless it spoke last, `0x5524ec`, and his own counter, `0x5524cc` +
   4 × cop, +1 a sound step at `0x40a330` and cleared as the call sign
   is queued, is under 120), from his bank: the cop index mod
   8 picks `off..A` (0, 3, 6), `off..B` (2, 5, 7) or `off..C` (1, 4),
@@ -2343,6 +2343,78 @@ keypad 2; cars 0-7 or 0-15 dumped every 0.125 s; `-count` and
   drops above, a few tenths of a second) were within 6 m of another
   car only in `h85`.
 
+**Rolls from car hits in the air: settled by forced set-up, original
+code** (`u1-a1`-`a5`, November 2026; nfs-host `-deterministic 50000`,
+Hometown, the racer's pursuit, only the race type and track poked at
+`0x474ca0`; then at 61.000 s, from `u1-b0`'s dump of that moment, the
+two cars placed and nothing else: no game test poked; cars 0-2 dumped
+every 31 ms to 64 s, then every 0.25 s to 72 s; `-watch` on the hard
+hits `0x42f4a2`/`0x42f53b`, `0x429452`, `0x428f90`, `0x403950`,
+`0x40bba0`). Car A is the player's car 0, standing on the grid (slice
+1; P mass 1472, half sizes 1.18, 0.67, 2.41, +0x120 2.76). Car B is cop
+car 2 (on patrol at slice 176; mass 1672, half sizes 1.18, 0.74, 2.41,
++0x120 2.78), moved to A: A's track position (+0xC-+0x83), +0x4 and road
+frame (+0x124-+0x15F) copied to it, its rows (+0xC0, +0x190) A's (or A's
+turned a quarter about up), spin 0, +0x7C0/+0x7C4 0, +0x164 0. The
+spin dumped (+0xE4-+0xEC) is in the world's axes; the roll below is its
+part along the car's forward row.
+- **Side-on, B lower** (`u1-a1`): A lifted 4 m (clearance 4.0), B
+  beside it, its side 0.1 m from A's, its centre 0.5 m lower, moving
+  across into A at 30 m/s; both rising at 2 m/s. The hit came at 61.054
+  s (hard for both). The contact was A's side face centre inside B's
+  box, 0.5 m above B's centre (the order of `0x42f550`: B, handed in
+  after A, is the "a" car): **B got a roll of 0.33 turn/s, 0.39 after a
+  second contact a step later**, about its forward axis (spin −0.267,
+  0.004, 0.279 against its forward 0.68, −0.01, −0.73), and A, whose
+  contact was its own face centre at its own height, only 0.02 turn/s
+  of yaw and pitch; the two flew on together at 16-17 m/s. In the air
+  the spin stayed exactly the same (nothing damps). B went past 41° at
+  61.357 s (`0x429452`), touched the road 0.78 s after the hit at 107°
+  (+0x10C −0.29), rolled on through contacts, and at 62.24 s was out of
+  air mode **flat on its roof** (+0x10C −0.975, then −1.000), 1.19 s
+  after the hit. At 62.267 s, the next turn of cop 2's driver,
+  **`0x403950` and `0x40bba0` ran**: the disabled cop's call, the first
+  time in our runs without +0x10C poked; `0x403950` ran at every turn
+  (24 times) until **`0x428f90` put it back** at 65.132 s (2.87 s on its
+  roof), 5 slices on, and it drove off. A came down onto B's upturned
+  belly at 62.16 s (two more hard hits) and lay on it tipped up to 39°,
+  in air mode with 0.8-1.0 m of clearance, until B was taken away; then
+  it dropped to the road.
+- **The same at one height** (`u1-a2`, B's centre at A's): no spin at
+  all from the hit (all three 0.000); both flew on at 15.8 m/s, landed
+  flat at 62.15 s and only yawed. **Only the off-centre contact rolls.**
+- **Slower** (`u1-a5`, 15 m/s): roll 0.15 turn/s; B landed after 0.9 s
+  at 49° (past 41° at 61.807 s), rocked between 33° and 49° in air mode
+  and fell back onto its wheels by 62.95 s.
+- **Landing soon after** (`u1-a4`, 30 m/s, A lifted only 1.2 m, no
+  rise): the same hit and the same 0.39 turn/s, but B touched the road
+  0.13 s later at 14° (+0x10C 0.968): out of air mode at once, the
+  on-road code (`0x4a1610`) turned the spin round and B was flat again
+  by 61.5 s. So it does need the time in the air.
+- **Against the reading** (Rolls from car hits, from the code): the
+  rate is 0.75 × the other's mass / both × u × r̂'s up part / (+0x120 ×
+  2π). With B's centre 0.94 m or 0.47 m on into the gap when the point is
+  found (one step at 30 or 15 m/s), r̂'s up part is 0.83 or 0.53 and the
+  rate 0.50 or 0.16 turn/s; seen 0.39 (after two contacts; the 0.25 m
+  push apart, made before the impulse, shortens the lever) and 0.15. The
+  turn in the air is rate × time: 0.39 × 0.78 s = 0.30 turn (109°)
+  against 107° seen at the touch, 0.15 × 0.9 s = 49° against 49°. The
+  lower car rolls here because its box holds the other's face centre;
+  had A been the "a" car it would have been A, as read.
+- **Landing across** (`u1-a3`): A standing on the road, B turned a
+  quarter (its forward along A's right) 1.66 m over it, falling at 1 m/s
+  and sliding along A's right at 10 m/s. At 61.176 s B's bottom met A's
+  top (a hard hit for A): A got 0.23 turn/s of roll and B 0.21 turn/s
+  of pitch, both about A's forward axis, against the reading's 0.75 ×
+  the other's mass / both × u / (+0x120 × 2π) = 0.230 and 0.201. A, on
+  the road, was in air mode one tick, tipped 4° at most and was flat in
+  0.2 s (the on-road code); B flew on with its pitch unchanged, landed
+  at 61.46 s at 18° (+0x10C 0.953, over 0.9: out of air mode at once)
+  and was pulled flat. Nothing turned over at 10 m/s, as the code's
+  numbers say (0.0216 × u turn/s).
+- Frames: the camera rides in car 0, so `u1-a1`'s show the grid
+  tipping as A lies on B; none show B's roll.
+
 **A cop drawn onto the bank** (`e2-a1`, `e2-a2`, November 2026:
 Hometown, the racer's pursuit, only the race type and track poked at
 `0x474ca0`; `d2-c4`'s keys, A at 133.0 s and keypad 8 from 133.5 s,
@@ -2593,6 +2665,60 @@ record's +0x1C is 2 and the target has stopped.
   `0x4965b0` measure, which weighs the lateral distance by a
   quarter. That is minutes of driving by keys on a road the
   roadblock's place decides; it wasn't run.
+
+**A fourth cop ahead holds to its end: settled by forced set-up,
+original code** (`u1-b0`, `u1-h1`, November 2026; nfs-host
+`-deterministic 50000`, Hometown, the racer's pursuit with only the
+race type and track poked at `0x474ca0`, no `-drive`, no game test
+poked out). The set-up places the situation and nothing else; from
+there the game's own code runs.
+- **The natural part** (`u1-b0`, nothing poked but the set-up):
+  cop 3 (car 3, `0x5e2e24`) took car 1 at 72.23 s (`0x4019a1`, record
+  `0x56e470`), met it head on, held from 75.97 s (`0x40237a`, 160
+  steps, 20 m), the hold ended at 78.85 s (`0x4022bd`), car 1 pulled
+  over and stopped at slice 157, 9 m right of the road's points, and
+  cop 3, 5.4 m past it at slice 158, began the stop at 79.112 s within
+  16 m (`0x40240a`, `0x401e40`; record +0x28 = 2834). The ticket came
+  at 85.220 s (`0x401ff0`, step 2842).
+- **The pokes** (`u1-h1`, all at 80.000 s, computed from `u1-b0`'s
+  dump at that moment, the run being the same to the instruction up
+  to there): three free cops on patrol were moved to car 1 and put on
+  its record. Each got a place on a `.col` slice (`tr00.col` point
+  plus its right vector × the lateral offset, its half height above
+  the road), the slice's right, up and forward as its rows (+0xC0 and
+  +0x190), velocity, spin, +0x7C0, +0x7C4, +0x4F4 0, car 1's track
+  position (+0xC-+0x83), +0x4 and road frame (+0x124-+0x15F) for the
+  road code to walk from; and the chase fields `0x4018b0` writes:
+  +0x70C 5, +0x624 car 1 (`0x5e1acc`), +0x628 `0x56e470`, +0x734 1,
+  +0x710 0x10, +0x728/+0x72C 0; the record's list +0x34, +0x38, +0x3C
+  and +0x2C = 4. Car 2 at slice 155, 9 m right (8.9 m from car 1 by
+  `0x4965b0`), car 6 at slice 154, 5 m right (13.8 m), both behind;
+  car 4 (cop index 2, running forward, +0x621 bit 0x10 clear) at slice
+  163, 9 m right: **31.3 m past car 1**, standing. Car 1, cop 3, the
+  record's +0x1C (2), +0x28 and +0x50 (1) were left as the game had
+  them.
+- **What the code did.** Cars 2 and 6 began their stops at their first
+  turn, 80.003 s (`0x40240a`, `0x401e40`): +0x50 = 3. Car 4's first
+  turn, 80.075 s, took the doubled limit (`0x4021ef`) and began its
+  hold (`0x40237a`: 160 steps, car 1 being over 60 slices ahead of the
+  leading human, limit 40.0). It passed the distance test at all 22 of
+  its turns to the end (`0x40225e` 22 times, never `0x4023ae`), crept
+  3.9 m towards car 1 at up to 1.8 m/s (27.9 m at the end: still over
+  20), and **the hold ran to its end at 82.713 s** (`0x4022bd`, 169
+  steps after it began, the turns being 8 steps apart): the record's
+  +0x28 = step + 320 = 3000, and its stop began the same step
+  (`0x401e40`, +0x50 4). The other three stood in their stops. The
+  ticket came at **87.738 s** (step 3002, cop 3, `0x401ff0`), the
+  first check past 3000: **2.5 s later than without the fourth cop**
+  (step 2842 in `u1-b0`), as "a hold that ends late puts off the
+  ticket" says. All four then went back to patrol and car 1 drove off.
+- So the reading holds with nothing switched off: a cop past a
+  stopped target is asked for its speed × 0.5, 0, and stands (here it
+  crept a few metres); with three stops begun the 40 m applies and a
+  hold kept wholly beyond 20 m runs its 160 steps, which no cop from
+  behind does (`c6-four8`). Unlike `c6-four10`, the 16 m test was left
+  in: the fourth cop never came within 16 m. The camera was on the
+  player at the grid, so there are no frames of it.
 
 **Run** (November 2026, nfs-host, a racer's Hot Pursuit on Hometown:
 the single race's clicks with `-poke at=0x474ca0:0x6fd3b8:3`, a normal
@@ -3179,6 +3305,56 @@ steps lie between about 2.2 s and 14 s.
 So both agree with the code: a computer cop flat on its roof, the
 line said once, from the cop's own voice (cop 1 voice C, cop 5 voice
 B), 0x1E or 0x1F.
+
+**How many cops were on one chase** (November 2026; the whole clip's
+radio). The user thought four cops joined one chase. Read first
+(`gdecomp` of `0x404070`, `0x40b220`, `0x40b330`, `0x40b480`,
+`0x40b530`, `0x40b720`, `0x40a970`, `0x40a910`): `0x4018b0` adds the
+cop to the record and then `0x404070` radios **a new chase**
+(`0x40b220`, kind 8, any target, the car named with its colour) when
+it is the only cop on it and the record has no lost chases, **"has
+him again"** (`0x40b530`, kind 0xB) when it is the only one and the
+record's +0x14 is set, else **a join** (`0x40b330`, kind 9 or 10:
+the car bank's +1 or +2, which are the same in every colour's bank).
+A join is said only for a human target (it returns when the target's
++0x200 bit 4 is clear) and only with at most 7 lines queued
+(`0x40a910(4)`), so joins can go unheard; a lost chase (0xC) is said
+only for a human target and only when that cop's counter is 500 or
+more. The dispatcher's "go ahead (unit n)" (form 0, `0x40a970`)
+comes before the message in a lost, again, strip, roadblock or
+disabled call, never in a new chase or a join; a join gets his "all
+units" (0x11), "unit n" and the car, or "unit n, ten-four". Each cop
+has its own call sign (`off00a` 0x10 cop 0 and 0x13 cop 3 at the
+semitone, `off00b` 0x12 and 0x15, `off00c` 0x11 and 0x14). The
+computer racer is a silver DB7: `Amd7`'s `ipsvspch` 0x00 and +0
+lines match its new chases (0.32-0.64), no other car's or colour's
+bank does. Matched as before (0.4 s pieces, 99.9th percentile of
+background 0.06-0.08; the scripts, outside the repo, also took the
+spectrogram score, which was not decisive in this clip). Times are
+`HP_Disabled` seconds.
+
+| Chase (record) | Calls heard |
+|---|---|
+| Player 1 | 35.97 cop 1 new ("in pursuit of" the red DB7 37.16; "all units be advised" 40.56, unit 1 41.96); 50.13-51.34 cop 1 disabled; 55.90 cop 3 **again** (go ahead unit 3 57.11, car +1 59.53; unit 3, ten-four 63.32-64.44): cop 1 was off the record; 65.44 **cop 0 joins** (car +1 66.35, 0.58; unit 0, ten-four 70.78-71.59); 89.78 **cop 5 joins** ("I have it in sight" 91.15; "all units", unit 5, the car 93.93-96.09); 98.53 cop 5 asks for a roadblock (0x34, no call sign, it spoke last; unit 5 100.85, go-ahead 0x3A 102.02) |
+| Player 2 | 153.26 cop 1 asks for backup (0x2B, the dispatcher's 0x12 and 0x32; record not named); 170.51 cop 1 new (car +0 171.67; 0x10 175.27); 218.53 cop 3 **again** (go ahead 219.55; 0x11, unit 3, the car 224.34-226.45): cop 1 off; 233.59 cop 5 asks for a roadblock (go ahead 235.01, 0x33 235.88, unit 5, go-ahead 0x3A 237.76-238.91): roadblocks are for a human target only, so cop 5 was on the player's record, its join unheard |
+| Player 3 | 321.20 cop 3 new (car +0 322.33; 0x10 325.14); 336.32 cop 3 asks for backup (0x2A 337.41; 0x12, unit 3, 0x32 340.45-343.10); 350.07 **cop 5 joins** (in sight 351.46; unit 5 354.62) |
+| Player 4 | 445.71 cop 5 new (car +0 447.20; 0x10 452.76); 458.74 cop 5 disabled; 461.02 **cop 1 joins** (in sight 462.15); by 510.49 cop 1 had left it (it took the computer racer) |
+| Player 5 | 567.71 cop 5 new (car +0 569.13; 0x10 572.85); 579.32 cop 3 asks for a strip (go ahead unit 3 580.54, 0x37 582.36, unit 3 584.26, go-ahead 0x34 585.39; record not named); 586.75 **cop 0 joins** (in sight 587.63, 0.65); 630.36 cop 4 lays a strip (0x39-0x3B 633.23); 639.56 cop 2's roadblock in place (go ahead unit 2 641.02, 0x36 642.63) |
+| Computer racer | new chases by cop 2 (270.08, silver 271.39), cop 4 (424.39, 425.42) and cop 1 (510.49, 511.71); "in custody" by cop 4 (257.77, 0x2C, 0.45; 412.10, 0x2E, 0.42), cop 2 (490.67, 0x2D) and perhaps cop 3 (624.78, 0.21); cop 2 asks for a strip at 403.81 (0x38) |
+
+The player's chases end in its tickets (the HUD's ticket count reads 4 of 9
+at 585 s, an 8-lap race), which clear the record, so each later one
+starts with a new chase, not "again". **No chase in the clip is
+heard with four cops on its record.** The most is three: cops 3, 0
+and 5 on the player's from 89.78 s (cop 5's roadblock call at
+98.53 s needs heat over 3, which three cops, a lost chase and the
+time give). In the last chase five cops speak within 75 s (5, 3, 0,
+4, 2), which may be what sounded like four joining, but only cop 5
+(new) and cop 0 (join) are heard on the record; cop 3's strip call
+names no record, and cops 4 and 2 were sent ahead with the strip and
+the roadblock, which put a cop on the record only when it takes the
+racer. A silent join (a full queue) can't be ruled out, so four on one
+record isn't excluded, only not heard.
 
 ## The handling, routine by routine
 
@@ -3871,17 +4047,20 @@ of every access to those offsets):
   16 m test poked out (`c6-four10`). The code says why: from behind,
   a cop drives in too fast for a hold wholly beyond 20 m; past a
   stopped target it is asked for 0 m/s and stands, so a fourth cop
-  20-40 m ahead would hold to the end. No run had a fourth cop
-  ahead (`c7-f1`), and with no pokes no record had more than 2 cops
-  (`d1-r1`, `d1-r3`; 3 in `r2-cop1`), while the 40 m needs four on
-  one record (Why a hold beyond 20 m needs a cop past the target):
-  still open. What adds cops to one record, and a plan through a
+  20-40 m ahead would hold to the end. **Settled by forced set-up,
+  original code** (`u1-h1`, November 2026; A fourth cop ahead holds to
+  its end): with car 1 stopped by cop 3 in a natural run, three more
+  cops were placed on its record by pokes, one 31.3 m past it; with
+  no game test poked out that cop held from 80.075 s to its end at
+  82.713 s, never within 20 m, began the fourth stop and put the
+  ticket off by 2.5 s. Seeing it in natural play could be looked into
+  later but isn't needed for this version to be considered done: with
+  no pokes no record had more than 2 cops (`d1-r1`, `d1-r3`; 3 in
+  `r2-cop1`), and the user's `HP_Disabled` has at most three heard
+  on one chase (The disabled cop seen, How many cops were on one
+  chase). What adds cops to one record, and a plan through a
   roadblock whose cops stand ahead of a stopped human racer, are read
-  (same section, What raises the count); not run in November 2026
-  either: it needs a second chase with heat over 3, a roadblock set
-  51 or more slices ahead and the player stopped 3-4 slices short of
-  it with two cops behind, minutes of keys whose every step depends
-  on the one before. The network game was run to its results with
+  (same section, What raises the count). The network game was run to its results with
   nothing forced (`c7-net10`): the lobby's menus by clicks, a stop by
   a strip laid with S, the race ended by the racers' laps. A block
   by keys failed there (the racers steer round a standing cop) while
@@ -3958,24 +4137,29 @@ of every access to those offsets):
   under about 21 m/s first (the target's speed + 5.81 m/s near a slow
   target) and stayed within 11° of flat; the player itself rolled
   four more times beside it (`x2l`, `y2`, `z145200`, `z145400`, the crash line queued). A
-  run that turns a computer cop over is still open; `HP_Disabled`
-  shows the way, a ram at speed into a slow cop beside a bank. Whether a side hit in the air or a car landing on another can
-  roll a car is settled from the code but not seen (above, Rolls from
-  car hits): cars are 3D boxes (`0x42fee0`, top and bottom faces
-  included), and only a contact off the car's centre height rolls it,
-  about 0.011 u turn/s side-on 0.6 m above or below the centre (0.44
-  at 40 m/s), 0.0216 u for a slide across a car under or on top; the
-  clamps allow it, but on the road the landing's damping takes it out
-  (a hit tips 25° only from about 82 m/s), so it needs the car to stay
-  in the air some 0.8 s after the hit. Run (`d3-`): hard hits on the
-  road at up to 42 m/s and a cop flying 1 m high into the standing
-  player from behind (`d3-h85`) left every car within 11° of flat; no
-  run had a side-on hit in the air or a car landing across another
-  (`e2-h1`, a hand-brake turn after the covered bridges' drop meant to
-  leave the player across cop 3's way, ended facing backwards and
-  reversing away: cop 3 passed 8.8 m from it). Nor did the `e4-`
-  bank runs: the player's rolls there were its own, on the slope, with
-  the cop standing beside; not tried on purpose in November 2026.
+  run that turns a computer cop over in natural play is still open; `HP_Disabled`
+  shows the way, a ram at speed into a slow cop beside a bank. A
+  computer cop on its roof and its disabled call (`0x403950`,
+  `0x40bba0`) are now reached without poking +0x10C, by forced set-up
+  (`u1-a1`, above). **Whether a side hit in the air or a car landing
+  on another can roll a car is settled by forced set-up, original
+  code** (`u1-a1`-`a5`, November 2026; above, Rolls from car hits in
+  the air): two cars poked into the air beside each other, one moving
+  across into the other at 30 m/s with its centre 0.5 m lower, and the
+  physics left to run: the car whose box held the other's face centre
+  rolled at 0.39 turn/s, kept it unchanged in the air, touched down at
+  107° 0.78 s later and came to rest flat on its roof (a cop: its
+  disabled call ran, and the reset 2.87 s later). At one height no
+  spin came; at 15 m/s 0.15 turn/s and 49°, falling back; landing 0.13
+  s after the hit at 14° the on-road code took it out; a car landing
+  across another at 10 m/s gave 0.23 and 0.21 turn/s, as the code's
+  arithmetic gives, and nothing turned over. Seeing these in natural
+  play could be looked into later but isn't needed for this version
+  to be considered done: in the `d3-` runs hard hits on the road at
+  up to 42 m/s and a cop flying 1 m high into the standing player
+  from behind (`d3-h85`) left every car within 11° of flat, and no
+  natural run had a side-on hit in the air or a car landing across
+  another (`e2-h1`, `e4-` runs).
   The player rolled by itself off Hometown's road at slice 320 at 40
   m/s (`d3-g5`), and the crash line was queued again. With the player
   as the only cop no computer cop exists to say either.
