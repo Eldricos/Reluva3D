@@ -88,7 +88,7 @@ Differences seen in how Elite Force's maps use them:
 - **`trigger_multiple`**: `soundset` (560): entering it switches the
   ambient sound set, as Jedi Outcast's `trigger_multiple`/ambient sets
   (**JK2**); see the ambient sound calls in
-  [eliteforce-sp-interface.md](eliteforce-sp-interface.md).
+  [../systems/eliteforce-sp-interface.md](../systems/eliteforce-sp-interface.md).
 - **`worldspawn`**: `music` (47, Quake III's), `soundset` (41: the map's
   starting ambient set, **JK2**), `spawnscript` (26: a script run as the
   level starts, below), `infostring` (46: `II_<MAP>`, **?** — probably the

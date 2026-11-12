@@ -19,7 +19,7 @@
 // the first scene); its time of day, weather and the train's moving,
 // taking effect when a scene is left; its Completion Conditions, checked
 // whenever the main runner's queue runs dry, and its Event then. Timers
-// tick here too. See docs/engines/awe/acts.md.
+// tick here too. See docs/engines/awe/systems/acts.md.
 
 namespace reluva::awe {
 

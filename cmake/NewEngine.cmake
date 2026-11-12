@@ -10,7 +10,9 @@
 #                                    detection table, Engine), tools/files.cpp
 #   tests/engines/<name>/            unit/detection.cpp, engine.cpp, and the
 #                                    engine test's record in data/
-#   docs/engines/<name>/README.md
+#   docs/engines/<name>/             README.md, KNOWN_DIFFERENCES.md,
+#                                    UNCONFIRMED.md, TESTING.md,
+#                                    REVERSE_ENGINEERING.md
 # and adds `<name>=enabled` to engines.cfg. It builds and its tests pass
 # as it is; docs/ADDING_AN_ENGINE.md says what to fill in.
 
@@ -69,7 +71,9 @@ make(tools.cpp.in src/engines/${ENGINE}/tools/files.cpp)
 make(unit_detection.cpp.in tests/engines/${ENGINE}/unit/detection.cpp)
 make(engine_test.cpp.in tests/engines/${ENGINE}/engine.cpp)
 make(engine-record.txt.in tests/engines/${ENGINE}/data/engine-record.txt)
-make(README.md.in docs/engines/${ENGINE}/README.md)
+foreach(doc README KNOWN_DIFFERENCES UNCONFIRMED TESTING REVERSE_ENGINEERING)
+    make(${doc}.md.in docs/engines/${ENGINE}/${doc}.md)
+endforeach()
 file(APPEND "${root}/engines.cfg" "\n${ENGINE}=enabled\n")
 
 message("Made the ${ENGINE} engine (${TITLE}):\n${made}  and ${ENGINE}=enabled in engines.cfg.\n"

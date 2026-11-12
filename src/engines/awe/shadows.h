@@ -13,7 +13,7 @@
 // planar. Each textured mesh is flattened onto the floor (y = 0) away from
 // one point light, the scene's lights' mean position raised by 1500; the
 // pixels it covers are darkened to 192/255 (where shadows overlap, no
-// more). See docs/engines/awe/shadows.md.
+// more). See docs/engines/awe/systems/shadows.md.
 
 namespace reluva::awe {
 

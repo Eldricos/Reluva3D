@@ -10,7 +10,7 @@
 
 // Oodle1, the compression of Granny 2 file sections: an LZ77 coder whose
 // lengths, offsets and literals go through adaptive models and a range
-// decoder. Worked out from granny2.dll; see docs/engines/awe/gr2.md.
+// decoder. Worked out from granny2.dll; see docs/engines/awe/formats/gr2.md.
 
 namespace reluva::awe {
 

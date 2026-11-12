@@ -23,7 +23,7 @@ A data viewer of the game's files comes with it: archives, models (with
 their animation), textures, fonts, sounds and text.
 
 How it was built, measured and checked is in
-[alphateam.md](alphateam.md). Also:
+[systems/alphateam.md](systems/alphateam.md). Also:
 
 - [KNOWN_DIFFERENCES.md](KNOWN_DIFFERENCES.md): where it behaves
   differently from the original, and why;
@@ -93,7 +93,7 @@ the engine (`src/engines/netimmerse/tools/`):
   them).
 
 `reluva-tool help netimmerse` lists them; run one without arguments for
-its options. `at-run`'s are described in [alphateam.md](alphateam.md).
+its options. `at-run`'s are described in [systems/alphateam.md](systems/alphateam.md).
 
 ## Tests
 
@@ -120,7 +120,7 @@ uses are tested with the shared code (`reluva-tests common.unit.jit`,
 
 | Page | Covers |
 |---|---|
-| [alphateam.md](alphateam.md) | the plan and record: how the game runs, each part, and how it was checked |
+| [systems/alphateam.md](systems/alphateam.md) | the plan and record: how the game runs, each part, and how it was checked |
 | [formats/install.md](formats/install.md) | the install and the CD: its files and how releases are told apart |
 | [formats/pac.md](formats/pac.md) | `.pac` archives |
 | [formats/fin.md](formats/fin.md) | `.FIN` models, with their animation, morphs, lights and glows |

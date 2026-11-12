@@ -44,7 +44,7 @@ and `show` change it between. 49 characters in the install have a
 condition: Greta Ohlsson, for one, stands in the Sirkeci market's scenes
 only with `tag gretafollow`, and Michel in the corridors only until
 `tag micheladmonish`. The pick's list uses the same test
-([ac2.md](ac2.md#the-pick-0x435eb0)).
+([../formats/ac2.md](../formats/ac2.md#the-pick-0x435eb0)).
 
 ### Leaving a scene and coming back
 
@@ -276,7 +276,7 @@ The main script resumes the routine of a character it was started from
 
 ### Walking a path
 
-The path-finder ([ac2.md](ac2.md)) gives the points; the character walks
+The path-finder ([../formats/ac2.md](../formats/ac2.md)) gives the points; the character walks
 them as legs (`0x442780` starts one, `0x4422c0` walks it each frame,
 `0x442160` steers, `0x442690` goes on to the next):
 
@@ -308,7 +308,7 @@ them as legs (`0x442780` starts one, `0x4422c0` walks it each frame,
 
 Reluva follows this (`ScenePage::beginWalk`, `stepWalk`). It moves the
 character at the walk's average pace, not by its root motion frame by
-frame ([KNOWN_DIFFERENCES.md](KNOWN_DIFFERENCES.md)).
+frame ([../KNOWN_DIFFERENCES.md](../KNOWN_DIFFERENCES.md)).
 
 ### Followers
 
@@ -370,7 +370,7 @@ which nothing reads.
 
 ## Outdoors: footprints and breath
 
-Two `MODL` fields ([ac2.md](ac2.md)) are for the snow. The player has
+Two `MODL` fields ([../formats/ac2.md](../formats/ac2.md)) are for the snow. The player has
 them in the snowy exteriors.
 
 ### Footprints
@@ -412,7 +412,7 @@ frame (`0x425f50`) its emitter goes to the bone `Upper Lip_R`, and its
 velocity becomes (0, 0, 50) turned by the character's rotation
 (`D3DXMatrixRotationYawPitchRoll`, `D3DXVec3TransformCoord`): 50 units
 a second the way it faces. It's then updated as the scenes' particles
-are ([ac2.md](ac2.md), `SYST`), and drawn just after the character
+are ([../formats/ac2.md](../formats/ac2.md), `SYST`), and drawn just after the character
 (`0x425e48`).
 
 `BRTH`'s constructor (`0x406840`) sets, over the particles' defaults:

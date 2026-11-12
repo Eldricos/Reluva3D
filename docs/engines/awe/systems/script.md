@@ -3,7 +3,7 @@
 Everything the game does when something happens is a script: a hotspot's
 script, its conditional replacements (`listB`), a scene's events, an act's
 cells in `acts.txt`, the item tables' events, dialogue event files.
-[text.md](text.md) gives the commands' form (verbs and words, separated
+[../formats/text.md](../formats/text.md) gives the commands' form (verbs and words, separated
 by commas or lines). This page covers how they run.
 
 ## How this was worked out
@@ -257,7 +257,7 @@ does the state verbs itself (`tag`, `removetag`, `add`, `remove`,
 `restore`, `use`, `clear`, `timer`, `time`, `reset`, `savescene`,
 `weather`, `setchar`, `lock`, `unlock`, and the dialogue's) on a
 `GameState`, the one
-[conditions](ac2.md#conditions) test. The rest go to a `ScriptHost`.
+[conditions](../formats/ac2.md#conditions) test. The rest go to a `ScriptHost`.
 
 For now the Scenes page is that host. A click on a hotspot runs its
 script, or the first of its conditional scripts whose condition holds.

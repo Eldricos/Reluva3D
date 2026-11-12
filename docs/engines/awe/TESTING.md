@@ -94,7 +94,7 @@ route file comes from `awe game-run -solve`. It isn't in the repository, as
 it names the game's files; `awe game-check` searches for one if the file
 isn't there and keeps it. On the English install the quick run takes
 about ten minutes. The options are described in
-[acts.md](acts.md).
+[systems/acts.md](systems/acts.md).
 
 ### Frames to look at
 

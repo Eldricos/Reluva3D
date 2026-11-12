@@ -8,7 +8,7 @@ changes in act 6A.
 
 The `.ac2` extension is also used for saves (`Text/Scripts/slot*.ac2`
 start with `DESC`). Those are a different set of records, read by
-another loader: see [saves.md](saves.md).
+another loader: see [../systems/saves.md](../systems/saves.md).
 
 ## How this was worked out
 
@@ -81,7 +81,7 @@ The scene loader reads a tag at a time until `DONE` (or the end):
 | Tag | Content |
 |-----|---------|
 | `SCEN` | text: the scene's own path (`Locations\Salon\Salon_01_06a.ac2`) |
-| `LOAD`, `FAKE`, `OUTD`, `NVNT`, `SHOW` | u16 each. `FAKE` (+0x14f4) does nothing: the scene's constructor sets it to 0 (`0x4354a9`) and its loader reads it (`0x435b5b`; an act's variant, loaded on top with mode 2 by `0x423ab2`, leaves the base's), and no code reads it after; it's 0 in all 394 scenes. `LOAD` (+0x1502, 1 by default). `OUTD` (scene +0x14f2): outdoors: lit for the night at time of day 1 ([lighting.md](lighting.md)), and characters with `MODL` footprints leave them only there (`0x43ffcd`). `NVNT` (+0x14f6): never lit for the night. `SHOW` (+0x14f0, 1 by default, `0x43548f`): the interface shows in the scene (`0x4143c0`), and with it the cursor ([The mouse](#the-mouse-picking-and-cursors)); 0 in the five menus and 15 close-ups and cutaways (`Sirkeci.Market_02.Closeup.01`, `Calais.Night_7-8.Hubbard`...) |
+| `LOAD`, `FAKE`, `OUTD`, `NVNT`, `SHOW` | u16 each. `FAKE` (+0x14f4) does nothing: the scene's constructor sets it to 0 (`0x4354a9`) and its loader reads it (`0x435b5b`; an act's variant, loaded on top with mode 2 by `0x423ab2`, leaves the base's), and no code reads it after; it's 0 in all 394 scenes. `LOAD` (+0x1502, 1 by default). `OUTD` (scene +0x14f2): outdoors: lit for the night at time of day 1 ([../systems/lighting.md](../systems/lighting.md)), and characters with `MODL` footprints leave them only there (`0x43ffcd`). `NVNT` (+0x14f6): never lit for the night. `SHOW` (+0x14f0, 1 by default, `0x43548f`): the interface shows in the scene (`0x4143c0`), and with it the cursor ([The mouse](#the-mouse-picking-and-cursors)); 0 in the five menus and 15 close-ups and cutaways (`Sirkeci.Market_02.Closeup.01`, `Calais.Night_7-8.Hubbard`...) |
 | `FOOT` | text (32): the scene's footstep sounds |
 | `PUZZ` | text (32): the scene's puzzle, if any |
 | `MUSC` | pair list: music (the second of each pair is a file, `sound\music\motoetheme.mp3`) |
@@ -123,7 +123,7 @@ characters all four.
 | lighting | u32 | +0xb0c. Models: Direct3D lighting on while drawn (`D3DRS_LIGHTING`, `0x427332`). 1 in every object |
 | x, y, z | f32 | flag 1. Pictures: screen pixels (the top-left corner) and depth: backgrounds at z = −10000, hotspots at 5000. Characters: the floor, y up |
 | rotX, rotY, rotZ | f32 | flag 2. Radians |
-| diffuseR..B, ambientR..B, specularR..B, emissiveR..B, power | f32 | flag 4, at +0x8c: a `D3DMATERIAL8` without its alphas, which models hand to `SetMaterial` (`0x4271ac`, in `0x427160`). Characters: diffuse 1, ambient 0.498, specular 1, emissive 0 (a few up to 0.2), power 5; see [lighting.md](lighting.md). Pictures are tinted by the diffuse colour (`0x437ce8`) |
+| diffuseR..B, ambientR..B, specularR..B, emissiveR..B, power | f32 | flag 4, at +0x8c: a `D3DMATERIAL8` without its alphas, which models hand to `SetMaterial` (`0x4271ac`, in `0x427160`). Characters: diffuse 1, ambient 0.498, specular 1, emissive 0 (a few up to 0.2), power 5; see [../systems/lighting.md](../systems/lighting.md). Pictures are tinted by the diffuse colour (`0x437ce8`) |
 | player | u32 | +0xb10. 1 for the player's character (`PCXX`'s constructor sets it, `0x4331e8`); the game's "player" is the first character with it (`0x4365d0`) |
 | left, top, right, bottom | u32 | a hotspot's rectangle in screen pixels; characters have one too |
 | script | text | flag 8: the commands run when it's used (`yesno quit2 0`, `talk dia_debenham+`) |
@@ -164,7 +164,7 @@ Counted:
 
 The loader also marks pictures from `elements\fog` and `skies\clouds`
 (+0xdc0, `0x4372e0`): those that scroll aren't drawn while the "Fog,
-Haze, and Clouds" option is off ([options.md](options.md)).
+Haze, and Clouds" option is off ([../systems/options.md](../systems/options.md)).
 
 ### How 2D objects are drawn
 
@@ -257,12 +257,12 @@ No scene uses `2DAN`, `NING` or `ITEM`; what's below is from the code.
 No common fields: a u16 count, then the fields below (`0x421ab0`). The
 first 22 fill a Direct3D 8 `D3DLIGHT8` at +0xd9c, which `0x420ee0`
 hands to `SetLight`; how they light the characters is in
-[lighting.md](lighting.md). Defaults are the constructor's (`0x420cb0`).
+[../systems/lighting.md](../systems/lighting.md). Defaults are the constructor's (`0x420cb0`).
 
 | Field | Type | At | What | Default |
 |-------|------|----|------|---------|
 | type | u16 | 0xd9c | 1 point, 2 spot, 3 directional (218, 27 and 181 in the install) | 1 |
-| x, y, z | f32 | 0xdd0 | position, in the world (y up); also the shadows' light ([shadows.md](shadows.md)) | 0 |
+| x, y, z | f32 | 0xdd0 | position, in the world (y up); also the shadows' light ([../systems/shadows.md](../systems/shadows.md)) | 0 |
 | dirX, dirY, dirZ | f32 | 0xddc | the way the light goes (any length) | −1, −1, −100 |
 | diffuseR..B | f32 | 0xda0 | diffuse colour | 0.3125 |
 | ambientR..B | f32 | 0xdc0 | ambient colour (0 in every file) | 0 |
@@ -352,7 +352,7 @@ the moving countryside), shown while `weather >0`.
   models as it walks, `snowprint_model.gr2` with the tag `snowshoeson`,
   else `footprint_model.gr2`, which fade, `0x43fda0`, `0x43fd00`; set
   on the player in 50 scenes). Both are in
-  [characters.md](characters.md#outdoors-footprints-and-breath). Then two
+  [characters.md](../systems/characters.md#outdoors-footprints-and-breath). Then two
   animation names (text, 32: `anim`, the
   skeleton's track mask `TrackMask<anim>` its animations are limited to,
   and `anim2`, a prefix tried on every animation's name: `sit` makes
@@ -424,7 +424,7 @@ front, in three passes. A pass's first hit is the answer:
 
 The mouse and clicks use it with the same arguments; the torn letter
 asks for a picture's opaque pixels instead (`0x43ed2a`, see
-[puzzles.md](puzzles.md)).
+[../systems/puzzles.md](../systems/puzzles.md)).
 
 An object **can be clicked** (`0x40e570`) when it has a script, or a
 conditional script (`listB`) whose condition holds. A click (`0x416000`)
@@ -487,7 +487,7 @@ The record's fields are the Granny camera's, as
 
 | Field | Type | Granny camera | Salon_01 |
 |-------|------|---------------|----------|
-| ambientR, ambientG, ambientB | f32 | (the object's own, +0x180) the scene's ambient light, `D3DRS_AMBIENT` by day ([lighting.md](lighting.md)) | 0.39 0.35 0.31 |
+| ambientR, ambientG, ambientB | f32 | (the object's own, +0x180) the scene's ambient light, `D3DRS_AMBIENT` by day ([../systems/lighting.md](../systems/lighting.md)) | 0.39 0.35 0.31 |
 | x, y, z | f32 | `Position`: the point it turns about | −8.1, 121.8, 515.5 |
 | pitch, yaw, roll | f32 | `ElevAzimRoll`, radians | −0.232, −0.017, 0 |
 | offsetX, offsetY, offsetZ | f32 | `Offset` (+0x74): from that point, along the camera's own axes | −10, 276, 990 |
@@ -495,7 +495,7 @@ The record's fields are the Granny camera's, as
 | near, far | f32 | clip planes | 10, 10000 |
 | `238`, `23a`, cellSize | u16 | (the object's own: 1024 and 0, loaded and never read; then the walk grid's cell size, at +0x23c) | 1024, 0, 20 |
 | grid | u16 size, then size × size bytes (at +0x23e) | the walk grid | 64 × 64 |
-| `1240`, whiteoutStart, whiteoutEnd | u32, f32, f32 | (the object's own: a u32 never read; then where the player starts to turn white and is all white, in z: [shadows.md](shadows.md), `0x402e20`) | |
+| `1240`, whiteoutStart, whiteoutEnd | u32, f32, f32 | (the object's own: a u32 never read; then where the player starts to turn white and is all white, in z: [../systems/shadows.md](../systems/shadows.md), `0x402e20`) | |
 
 The view matrix is the inverse of
 `T(Position) · Ry(azimuth) · Rx(elevation) · Rz(roll) · T(Offset)`,
@@ -678,8 +678,8 @@ The words, in the order the evaluator compares them:
 | `0` / `1` | never / always |
 | `act [<\|>]06a` | the act equals, is before, or is after that one (by number, then letter) |
 | `action <word>` | the save, load or options screen allows it (`up`, `open`...) |
-| `beenthere`, `beenhere <scene\|this> [<act>\|ever]` | [acts.md](acts.md#timers-and-conditions) |
-| `cantalk <name> <code> [options]` | that `talk` would start: the dialogue's dry run ([dialogue.md](dialogue.md)); `gen` is on unless `nogen` |
+| `beenthere`, `beenhere <scene\|this> [<act>\|ever]` | [../systems/acts.md](../systems/acts.md#timers-and-conditions) |
+| `cantalk <name> <code> [options]` | that `talk` would start: the dialogue's dry run ([../systems/dialogue.md](../systems/dialogue.md)); `gen` is on unless `nogen` |
 | `chapter [<\|>]n` | the act's number compares |
 | `debug`, `demo` | never |
 | `has <item> [available]` | the item is in the inventory, in any state; with `available`, in the bag (states 1, 2) |
@@ -692,7 +692,7 @@ The words, in the order the evaluator compares them:
 | `scene <name>` | the scene shown has the name in it |
 | `tag <name> [[<\|>]n]` | the tag compares (-99 if it isn't set); no number: it's set |
 | `tag <name> nouse` | it's set and no item is in hand |
-| `talk <name> <act> <code>` | [dialogue.md](dialogue.md) |
+| `talk <name> <act> <code>` | [../systems/dialogue.md](../systems/dialogue.md) |
 | `test <x>` | a leftover from the earlier games (an apple press, radios); never in this install |
 | `timer <name> [[<\|>]n]` | as `tag`, for timers |
 | `use [<item>]` | that item is in hand; with no item, always |

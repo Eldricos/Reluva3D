@@ -2,6 +2,22 @@
 
 The `@ENGINE@` engine. Started from the template; fill this in as it grows.
 
+## This folder
+
+Every engine's docs are laid out the same way (see
+[docs/README.md](../../README.md#adding-docs)):
+
+| Page | What's in it |
+|---|---|
+| This page | The games, where the engine stands, how to use it |
+| `formats/` | A page per file format, as it's worked out |
+| `systems/` | A page per part of how the game behaves (scripts, dialogue, saves, AI...) |
+| `research/` | Working notes: address maps, raw findings, notes on recordings |
+| [KNOWN_DIFFERENCES.md](KNOWN_DIFFERENCES.md) | Where Reluva knowingly differs from the original |
+| [UNCONFIRMED.md](UNCONFIRMED.md) | What hasn't been confirmed against the original |
+| [TESTING.md](TESTING.md) | The tests, and what to check by hand |
+| [REVERSE_ENGINEERING.md](REVERSE_ENGINEERING.md) | How it was worked out, and the tools |
+
 ## Games
 
 | Game | Releases recognised | State |
@@ -26,7 +42,3 @@ What a player needs: which folder to add, any settings, keys.
   (`tests/engines/@ENGINE@/`).
 - A game-files test, when it has one: see
   [docs/DEVELOPMENT.md](../../DEVELOPMENT.md#engine-tests).
-
-## Formats
-
-A page per file format, as it's worked out, beside this one.

@@ -10,7 +10,7 @@
 // Direct3D 8's ID3DXSprite::DrawTransform, the matrix from
 // D3DXMatrixTransformation (motoe.exe 0x437ac0). The picture's pixels are
 // scaled, turned about its top-left corner (its rotation centre is left
-// at 0), then moved to the object's position. See docs/engines/awe/ac2.md.
+// at 0), then moved to the object's position. See docs/engines/awe/formats/ac2.md.
 
 namespace reluva::awe {
 

@@ -10,4 +10,4 @@ object at `0x10000`, data at `0x50000`); see
 
 Smacker (SMK2/SMK4) files in `DS9\INTRO`, `DS9\MOVIES` and `DS9\TRANS`, shown
 1:1 at fixed positions on the 640x480 screen and played by `ACTIONSEQ`; see
-[script-reference.md](script-reference.md).
+[../systems/script-reference.md](../systems/script-reference.md).

@@ -22,7 +22,7 @@ namespace reluva::awe {
 Error openGr2(const Archive& files, const std::string& name, Gr2File& out);
 
 // The game's stencil shadow, drawn with a model when the renderer has a
-// stencil (docs/engines/awe/shadows.md, 0x428500): each textured mesh's
+// stencil (docs/engines/awe/systems/shadows.md, 0x428500): each textured mesh's
 // shadow first, flattened away from the scene's shadow light, setting the
 // stencil to 1 where it passes the depth test and writing nothing else;
 // then its body, setting it to `ref` (2 for the player, 0 for others).

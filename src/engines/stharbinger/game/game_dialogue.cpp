@@ -2,7 +2,7 @@
 // Copyright (C) 2026 The Reluva contributors
 
 // Conversations, after DEEP.EXE's dialogue system (CONVERSE 0x1189F, dlg_run
-// 0x14518, dlg_turn 0x169DD). See docs/engines/stharbinger/formats/script-reference.md, "Conversations".
+// 0x14518, dlg_turn 0x169DD). See docs/engines/stharbinger/systems/script-reference.md, "Conversations".
 //
 // A conversation alternates NPC turns (a line, its sub-lines and their lists)
 // and menu turns (the player picks a choice, says its line and runs its list).

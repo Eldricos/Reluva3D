@@ -38,7 +38,7 @@ Everything below is protocol 24 unless it says otherwise. Section
 Retail data: `baseEF/pak0.pk3` (the CD) and `pak1.pk3` to `pak3.pk3`
 (patches 1.1 and 1.2) must all be present for Lilium to run as Elite
 Force. Lilium knows the four by their checksum (the pk3 "checksum" of
-[pk3.md](pk3.md)'s pure scheme, without the feed): 3376297517, 596947475,
+[../formats/pk3.md](../formats/pk3.md)'s pure scheme, without the feed): 3376297517, 596947475,
 3960871590, 1592359207, in that order.
 
 ## Constants
@@ -700,7 +700,7 @@ Quake III. The client restricts itself to the listed pk3s and answers
 with `cp`. In protocol 24 the command is
 `cp <cgame pk3> <ui pk3> @ <referenced pk3>... <count code>` — **without**
 the server id Quake III 1.32 puts first. The numbers are pure checksums
-(see [pk3.md](pk3.md): the MD4-based checksum of the checksum feed then
+(see [../formats/pk3.md](../formats/pk3.md): the MD4-based checksum of the checksum feed then
 each non-empty file's CRC); the first is the pk3 holding `vm/cgame.qvm`,
 the second the one holding `vm/ui.qvm`, then every other pk3 the client
 has read from, then the checksum feed XOR all the referenced ones XOR

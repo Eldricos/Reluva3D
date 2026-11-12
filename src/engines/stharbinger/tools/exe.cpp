@@ -3,7 +3,7 @@
 
 // reluva-tool stharbinger's commands for DEEP.EXE, the game's program: a
 // map of its strings and who uses them, and listings of its code (as made
-// for docs/engines/stharbinger/reverse-engineering/). Ported from STDS9H's
+// for docs/engines/stharbinger/research/). Ported from STDS9H's
 // harbinger_strings.py and harbinger_disasm.py, with the same output.
 //
 // DEEP.EXE is the DOS/4GW extender followed by the game itself: a small MZ
@@ -534,7 +534,7 @@ int cmdExeDisasm(int argc, char** argv) {
     std::map<uint32_t, std::string> names;
     const std::filesystem::path namesFile =
         argc > 5 ? std::filesystem::path(argv[5])
-                 : std::filesystem::path("docs/engines/stharbinger/reverse-engineering/handler-addresses.txt");
+                 : std::filesystem::path("docs/engines/stharbinger/research/handler-addresses.txt");
     if (std::ifstream in(namesFile); in) {
         std::string line;
         while (std::getline(in, line)) {
@@ -602,7 +602,7 @@ const reluva::tool::Commands commands(
         {"exe-disasm", "<DEEP.EXE> <start> <end> [names file]",
          "disassemble DEEP.EXE's code from start to end (hex addresses: code at 0x10000, data at 0x50000), with "
          "the strings and names its pointers and calls go to; names (\"<address> <name>\" a line) default to "
-         "docs/engines/stharbinger/reverse-engineering/handler-addresses.txt",
+         "docs/engines/stharbinger/research/handler-addresses.txt",
          cmdExeDisasm},
     });
 

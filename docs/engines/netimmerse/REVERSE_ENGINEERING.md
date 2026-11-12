@@ -2,7 +2,7 @@
 
 How Reluva's support for LEGO Alpha Team was built: where each piece of
 knowledge came from, the tools used, and how the results were checked.
-The details of each step are in [alphateam.md](alphateam.md) and the
+The details of each step are in [systems/alphateam.md](systems/alphateam.md) and the
 format documents under [formats/](formats/).
 
 ## The rules
@@ -64,7 +64,7 @@ Reluva is a clean-room project ([../../../CONTRIBUTING.md](../../../CONTRIBUTING
 
 ## 3. Running the game
 
-Three ways were measured before choosing ([alphateam.md](alphateam.md),
+Three ways were measured before choosing ([systems/alphateam.md](systems/alphateam.md),
 phase 3): reimplementing the game natively, running all its code with
 NetImmerse in an emulator, or the game's code with a native NetImmerse.
 The second (B1) was chosen: it needs no knowledge of NetImmerse's
@@ -72,7 +72,8 @@ internals, only of what the program calls.
 
 - **The calls it makes** were counted from the import tables of the
   executable and every DLL: 792 into NetImmerse's DLLs, and the Windows,
-  DirectX, A3D and C runtime functions listed in alphateam.md.
+  DirectX, A3D and C runtime functions listed in
+  [alphateam.md](systems/alphateam.md).
 - **The x86 emulator** ([../../common/x86.md](../../common/x86.md)) loads
   the PE images, relocates them, binds their imports, and runs them. Its
   instructions follow Intel's manuals; it was checked with unit tests and

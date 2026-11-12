@@ -15,7 +15,7 @@
 
 // The game's text as it shows it: its fonts and their uses
 // (Text/fonts.txt, the fonts in Interface/Fonts), and the subtitles of
-// its movies (Text/Movies/<movie>.txt). See docs/engines/awe/text.md.
+// its movies (Text/Movies/<movie>.txt). See docs/engines/awe/formats/text.md.
 
 namespace reluva::awe {
 

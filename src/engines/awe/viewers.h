@@ -420,7 +420,7 @@ private:
     void playMusic();
     void newGame();
 
-    // Saved games (scene_saves.cpp; docs/engines/awe/saves.md). The
+    // Saved games (scene_saves.cpp; docs/engines/awe/systems/saves.md). The
     // game's own format: Saved.Games/slot<N>.ac2 and .bmp, quick.ac2,
     // kept in Reluva's save folder for the game.
     std::filesystem::path savesFolder() const;
@@ -470,7 +470,7 @@ private:
         int dragging = 0; // 1..3
     };
     std::unique_ptr<OptionsMenu> optionsMenu_;
-    // The puzzles (scene_puzzles.cpp; docs/engines/awe/puzzles.md): the
+    // The puzzles (scene_puzzles.cpp; docs/engines/awe/systems/puzzles.md): the
     // torn letter, the baggage car's safe, the puzzle box. Pictures they
     // move and turn are drawn by overrides.
     struct PictureOverride {
@@ -591,7 +591,7 @@ private:
         ScriptRunner* runner = nullptr;
     } letterbox_;
     bool drawing_ = true;
-    // The interface (scene_interface.cpp; docs/engines/awe/interface.md):
+    // The interface (scene_interface.cpp; docs/engines/awe/systems/interface.md):
     // the bar along the top, the inventory window and its pages, the item
     // in hand, the passport or fingerprint card held up.
     struct Interface {
@@ -706,7 +706,7 @@ private:
     void stepWalk(Character& c, float dt);
     void arrive(Character& c);
     void placeCharacter(Character& c) const;
-    // Shadows (docs/engines/awe/shadows.md): a model's meshes into the
+    // Shadows (docs/engines/awe/systems/shadows.md): a model's meshes into the
     // stencil, each its shadow (if it casts one) then its body (`ref`); a
     // mask drawn as a coloured quad; the player's white-out in the snow.
     void stencilModel(const gfx::Mat4& viewProjection, const GpuModel& model, const Pose& pose,

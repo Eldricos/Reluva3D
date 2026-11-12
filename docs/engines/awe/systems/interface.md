@@ -347,7 +347,7 @@ writes them, and a list with two of a name loads as two.
 (Reluva first kept one item to a name, and lost the second glass and
 spout: the olive oil of 06B could then never be poured.) The item in hand is what the cursor
 shows and what a click uses, on what the game's pick finds there
-([ac2.md](ac2.md#the-mouse-picking-and-cursors)). F9 shows Reluva's info
+([../formats/ac2.md](../formats/ac2.md#the-mouse-picking-and-cursors)). F9 shows Reluva's info
 panel in a game (I is the inventory's).
 
 `reluva-tool awe page-shot` shows the screens without a window:

@@ -22,7 +22,7 @@ slot:       u8 type, then data:
 
 `ARGC` is the table at `0x55140`. Type `02` is a symbol: an index into one of the
 scene's name lists, a label number, or a keyword, depending on the command and slot
-(see [script-reference.md](script-reference.md)). For commands that read values, a type `02` variable
+(see [../systems/script-reference.md](../systems/script-reference.md)). For commands that read values, a type `02` variable
 goes through a per-scene map of 300 slots into the global variable array. Type `40`
 is a constant.
 

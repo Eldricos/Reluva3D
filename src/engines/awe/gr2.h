@@ -14,7 +14,7 @@
 
 // Granny 2 files (.gr2), RAD Game Tools' format for models and animations,
 // as Murder on the Orient Express ships them (file format 6, 32-bit,
-// little-endian). See docs/engines/awe/gr2.md.
+// little-endian). See docs/engines/awe/formats/gr2.md.
 //
 // A file is a header, a table of sections (each possibly compressed), and
 // for each section a list of pointer fixups. Its data describes itself:

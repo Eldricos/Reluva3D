@@ -5,7 +5,7 @@ on hand-built programs and on a C program compiled by the Quake III compiler
 (`tests/engines/idtech3/data/qvm/`), whose every result matches the same program compiled
 natively, and running Elite Force's own three QVMs (the menus, the client
 game and the server game, Holomatch played with them); their system calls
-are in [eliteforce-syscalls.md](eliteforce-syscalls.md). `reluva-tool
+are in [../systems/eliteforce-syscalls.md](../systems/eliteforce-syscalls.md). `reluva-tool
 idtech3 qvm-info` and `qvm-run` look inside them.
 
 Sources: the GPL Quake III Arena source (`qcommon/qfiles.h`, `vm.c`,
@@ -107,7 +107,7 @@ calls with their arguments, and what the menus printed to
   `vmMain` answering every system call with 0, logging each call's number
   and arguments, with the text of arguments that point at strings. This is
   how Elite Force's system calls are worked out from its own code
-  ([eliteforce-syscalls.md](eliteforce-syscalls.md)).
+  ([../systems/eliteforce-syscalls.md](../systems/eliteforce-syscalls.md)).
 - `reluva-tool idtech3 qvm-refs <game folder> vm/ui.qvm <address> <size>`: the
   constants in the code that point into a structure at `address` (as seen
   in a `qvm-run` log), by offset, with the instruction that uses each:

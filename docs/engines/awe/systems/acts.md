@@ -32,7 +32,7 @@ The table is tab separated, with a header row. Its columns are:
 | Time of Day | Night (1) if the cell contains `night`, otherwise day (0). |
 | Weather | 2 if it contains `blizzard`, 1 if it contains `snow`, otherwise 0. |
 | Train Moving | 1 if it contains `yes`. |
-| Completion Conditions | A [condition](ac2.md#conditions). |
+| Completion Conditions | A [condition](../formats/ac2.md#conditions). |
 | Event | A script, run when the condition holds. |
 | Music | `sound\music\<cell>`. Every cell is `0`, so the column is unused. |
 | What to do | Notes; the game doesn't read them. |

@@ -3,7 +3,7 @@
 Elite Force's Holomatch code is three QVMs in `pak0.pk3`: `vm/ui.qvm`
 (menus), `vm/cgame.qvm` (the client: HUD, effects) and `vm/qagame.qvm` (the
 server's game logic). Each reaches the engine through numbered system calls
-(see [qvm.md](qvm.md)). The numbers and arguments are Elite Force's own, so
+(see [../formats/qvm.md](../formats/qvm.md)). The numbers and arguments are Elite Force's own, so
 they're worked out here from the game's code, for interoperability:
 
 - `reluva-tool idtech3 qvm-info` lists the numbers each program's code uses.
@@ -505,7 +505,7 @@ turned, slightly bobbing axis, an origin just in front of and below the
 eye, and white (-1) at 116; the player's own body has flag 2 (Quake
 III's third person: drawn only in mirrors), as Quake III's client game
 does. Elite Force's player models are named `.mdr`; Reluva draws them
-([mdr.md](mdr.md)), as well as `.md3` models.
+([../formats/mdr.md](../formats/mdr.md)), as well as `.md3` models.
 
 The player state differs from Quake III's from 48: gravity (800) and
 speed (250) are at 56 and 60, after two words of Elite Force's own. The

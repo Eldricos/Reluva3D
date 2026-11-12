@@ -19,7 +19,7 @@ namespace reluva::idtech3::eliteforce {
 namespace {
 
 // Elite Force ui.qvm system calls. The evidence for each number is in
-// docs/engines/idtech3/formats/eliteforce-syscalls.md.
+// docs/engines/idtech3/systems/eliteforce-syscalls.md.
 enum UiCall : int {
     Error_ = 0,
     Print = 1,

@@ -14,11 +14,24 @@ should serve the family, with per-game differences in a table, rather than
 one engine per game. Orient Express is built first. The other two get
 added once their file lists have been compared against it.
 
+## This folder
+
+| Page | What's in it |
+|---|---|
+| This page | The games, where the engine stands, how to use it, and the original plan |
+| [formats/](formats/) | The game's files: [scenes (`.ac2`)](formats/ac2.md), [Granny 2 (`.gr2`)](formats/gr2.md), [text files and script commands](formats/text.md) |
+| [systems/](systems/) | How the game behaves: [acts and scenes](systems/acts.md), [the script runner](systems/script.md), [dialogue](systems/dialogue.md), [characters](systems/characters.md), [lighting](systems/lighting.md), [shadows](systems/shadows.md), [the interface](systems/interface.md), [puzzles](systems/puzzles.md), [options](systems/options.md), [saved games](systems/saves.md) |
+| [KNOWN_DIFFERENCES.md](KNOWN_DIFFERENCES.md) | Where Reluva knowingly differs from the original |
+| [UNCONFIRMED.md](UNCONFIRMED.md) | What's read from the code or inferred but not seen running |
+| [TESTING.md](TESTING.md) | The automated checks, and a playthrough by hand |
+| [REVERSE_ENGINEERING.md](REVERSE_ENGINEERING.md) | How it was worked out |
+
 This page began as a plan written from a directory listing alone. The
 sections from "What the install holds" onwards keep that plan. Where
 sample files have since confirmed or corrected it, "Where it stands"
-below says so, and the formats are written up in `docs/engines/awe/`
-with how each was worked out (CONTRIBUTING.md).
+below says so, and the formats and the game's behaviour are written up
+in [formats/](formats/) and [systems/](systems/), with how each was
+worked out (CONTRIBUTING.md).
 
 For Murder on the Orient Express, four pages gather what's spread over
 the format pages:
@@ -42,7 +55,7 @@ scenes, two Granny files, the text tables, two backgrounds):
 - **Scenes (`.ac2`): read.** The layout was read from `motoe.exe`'s
   scene loader and each object class's load function, and checked byte
   for byte against the samples. See
-  [ac2.md](ac2.md). Scenes list their
+  [formats/ac2.md](formats/ac2.md). Scenes list their
   pictures (with screen positions and depth), hotspots (rectangles,
   scripts, sounds), characters (model, position, animations, walk
   points), particles, lights, videos, the camera, music and events. Many
@@ -55,10 +68,10 @@ scenes, two Granny files, the text tables, two backgrounds):
   no longer needs the DLL; the tools still run it in the x86 interpreter
   to compare. Skeletons, skinned meshes, textures and the animation
   curves all work. Poirot renders textured and walking. See
-  [gr2.md](gr2.md).
+  [formats/gr2.md](formats/gr2.md).
 - **Text tables and script commands: read.** UTF-16 tab-separated
   tables; commands split into verbs and arguments. See
-  [text.md](text.md).
+  [formats/text.md](formats/text.md).
 - **Cameras: worked out.** Scenes' cameras are Granny cameras, and
   Reluva's matrices match granny2.dll's. Characters are drawn into the
   Scenes page through them, posed by their idle (or sitting) animation,
@@ -79,7 +92,7 @@ scenes, two Granny files, the text tables, two backgrounds):
 - **Scripts: the runner works.** Commands run as the game's runner runs
   them: queued as events, each finishing at once or when what it started
   is over, the `a` forms not waiting, the door macros and script files
-  expanded (see [script.md](script.md)).
+  expanded (see [systems/script.md](systems/script.md)).
   Clicking a hotspot in the Scenes page runs its script: walks, scene
   changes, sounds, items, tags, dialogue and the characters' verbs work.
   `reluva-tool awe script-check` lists every command an install's scripts
@@ -93,27 +106,27 @@ scenes, two Granny files, the text tables, two backgrounds):
   under it asks for (its `cursor`, or the first of its
   `conditionalCursors` that holds), or the item in hand. Hotspots light
   up and sound under it, and Escape and Enter press the hotspots whose
-  key they are (see [ac2.md](ac2.md#the-mouse-picking-and-cursors)).
+  key they are (see [formats/ac2.md](formats/ac2.md#the-mouse-picking-and-cursors)).
 - **Dialogue: plays.** Conversations run as the game's dialogue manager
-  runs them (see [dialogue.md](dialogue.md)):
+  runs them (see [systems/dialogue.md](systems/dialogue.md)):
   the opening, the choices, each line's commands, recording and text in
   the game's dialogue box, progress kept for the conditions, the
   characters' generic lines and goodbyes.
 - **Acts: a new game plays.** N in the Scenes page starts one: the main
   menu, Play, act 01A's scripts and location, and on through the scenes'
   own events, as `acts.txt` and the game's act code say (see
-  [acts.md](acts.md)). Scene music, timers,
+  [systems/acts.md](systems/acts.md)). Scene music, timers,
   completion conditions, `savescene`/`gotoscene`, fades and movies (with
   their subtitles; Escape skips them), loading screens, and saved games
   in the game's own format (the save and load screens, F2/F3, the
-  developers' saves: see [saves.md](saves.md)),
+  developers' saves: see [systems/saves.md](systems/saves.md)),
   the options screen and all its settings, anti-aliasing included
-  ([options.md](options.md)),
+  ([systems/options.md](systems/options.md)),
   walking into scenes, with followers, and the characters' shadows
-  ([shadows.md](shadows.md)), the
+  ([systems/shadows.md](systems/shadows.md)), the
   puzzle screens: the torn letter, the safe and the puzzle box
-  ([puzzles.md](puzzles.md)), and the
-  interface ([interface.md](interface.md)):
+  ([systems/puzzles.md](systems/puzzles.md)), and the
+  interface ([systems/interface.md](systems/interface.md)):
   the bar along the top (travelling between the cars), the inventory
   window with its items, examining, combining, the scrapbook, the
   passports and the fingerprint cards, and the cards held up work.
@@ -121,20 +134,20 @@ scenes, two Granny files, the text tables, two backgrounds):
   fixed-function lighting, per vertex: the scene's `LITE`s (directional,
   point and spot lights), the camera's ambient colour (a blue one at
   night outdoors, with the lights off), and each character's material
-  (see [lighting.md](lighting.md)). T in
+  (see [systems/lighting.md](systems/lighting.md)). T in
   the Scenes page toggles night.
 - **Characters: animated as the game animates them.** Up to ten
   animations each on body, head and eye layers, blended by the files'
   track masks; blinking, idle gestures and their routines; `anim`,
   `turn`, `look`, `rotate`, `pause`/`resume`, `attach`; talking in
   conversations, heads turned to their Target and mouths moving with the
-  voice (see [characters.md](characters.md)).
+  voice (see [systems/characters.md](systems/characters.md)).
 - **Particles** (`SNOW`, `RAIN`, `PART`) are simulated by the rules of
   the game's own update method and drawn as its point sprites are, among
   the scene's 2D layers by depth (snow outside the Salon's windows when
   the weather is on and the train stopped). In the snowy exteriors the
   player breathes, and leaves footprints that fade (see
-  [characters.md](characters.md#outdoors-footprints-and-breath)).
+  [systems/characters.md](systems/characters.md#outdoors-footprints-and-breath)).
 - **The game's fonts** (`Text/fonts.txt`, `Interface/Fonts`) are drawn
   with stb_truetype, and the movies' subtitles show under them.
 - **Bink movies: decoded** by the decoder Elite Force uses too, the same
@@ -203,7 +216,7 @@ Next:
 1. The game plays from a new game to the end credits without a window:
    `reluva-tool awe game-run <install> -solve` finds a way of 1,075 actions
    in about a quarter of an hour, and `-play` plays it back (see
-   [acts.md](acts.md#a-playthrough-from-a-new-game--solve-and--play)).
+   [systems/acts.md](systems/acts.md#a-playthrough-from-a-new-game--solve-and--play)).
    With `-mouse -characters` the player clicks points the game's pick
    finds, and the characters' routines run; `-3d` draws in a window.
    Played that way, the first playthrough went wrong where Reluva
@@ -211,7 +224,7 @@ Next:
    can't do: a door hidden by another, a routine that hadn't run. Run
    again as a mouse player with the characters, the search finds a way of
    1,105 actions whose every click the game's pick makes (see
-   [acts.md](acts.md#as-a-player-plays-it--mouse--characters--3d)).
+   [systems/acts.md](systems/acts.md#as-a-player-plays-it--mouse--characters--3d)).
 
 ## What the install holds
 
@@ -356,8 +369,9 @@ as debugging tools after the game itself runs.
 - `reluva-tool` commands: `awe gr2-info` (header, sections, compression,
   type tree), `awe ac2-dump` (as far as it's understood) and `awe bink-info`
   (header, frame count, size, audio tracks).
-- `docs/engines/awe/`: `ac2.md`, `gr2.md`, `bink.md`, `text-files.md`, each
-  saying how its contents were worked out.
+- Format notes, each saying how its contents were worked out:
+  [ac2.md](formats/ac2.md), [gr2.md](formats/gr2.md),
+  [bink.md](../../common/bink.md), [text.md](formats/text.md).
 
 **Phase 2: 2D viewers.**
 - A scene viewer: backgrounds with their cutouts layered. Test the

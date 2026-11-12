@@ -35,7 +35,7 @@ confirmed are in [UNCONFIRMED.md](UNCONFIRMED.md).
     found in the wrong folder.
   - Its Load menu leaves out the other version's saves, and loading one is
     refused with a message.
-  - See [eliteforce-sp-interface.md](formats/eliteforce-sp-interface.md)
+  - See [eliteforce-sp-interface.md](systems/eliteforce-sp-interface.md)
     ("The Expansion Pack's saves").
 - **Where the player's files go.** The original writes into its install
   folder. Reluva writes into its own save folder for each game:
@@ -63,7 +63,7 @@ confirmed are in [UNCONFIRMED.md](UNCONFIRMED.md).
   sorts names as Windows lists an NTFS folder: `a`-`z` compared as capitals,
   so `_` comes after the letters. Linux and macOS then give the game the
   same order as Windows. See
-  [eliteforce-sp-interface.md](formats/eliteforce-sp-interface.md)
+  [eliteforce-sp-interface.md](systems/eliteforce-sp-interface.md)
   ("Listing files").
 - **Pak archives** are checked against each file's CRC. Encrypted, Zip64
   and split archives aren't read (none are expected in game data). See
@@ -146,7 +146,7 @@ confirmed are in [UNCONFIRMED.md](UNCONFIRMED.md).
 - **Master servers.** Raven's master server is gone. When the menus ask for
   it, Reluva asks every master set (`sv_master1`-`5`), which includes the
   community's `efmaster.tjps.eu`. It always asks for empty and full servers
-  too. See [eliteforce-network.md](formats/eliteforce-network.md).
+  too. See [eliteforce-network.md](systems/eliteforce-network.md).
 - **Every level is open to others.** The Play page hosts each level it
   starts on port 27960 (or the next free of 27961-27963), when the game
   code is 1.2's. `reluva-tool idtech3 net-run` hosts without a local player.
@@ -165,7 +165,7 @@ confirmed are in [UNCONFIRMED.md](UNCONFIRMED.md).
   - the server's frame runs before the local player's command is stamped;
   - a player-state word the protocol doesn't send is zeroed.
 
-  See [eliteforce-syscalls.md](formats/eliteforce-syscalls.md).
+  See [eliteforce-syscalls.md](systems/eliteforce-syscalls.md).
 
 ## Menus and input
 
@@ -178,7 +178,7 @@ confirmed are in [UNCONFIRMED.md](UNCONFIRMED.md).
 - **The menus' pointer** follows the system mouse.
 - **The joystick** is read through SDL rather than Windows' joystick API.
   `in_joystick` takes effect at once; the original waits for `in_restart`.
-  See [eliteforce-input.md](formats/eliteforce-input.md).
+  See [eliteforce-input.md](systems/eliteforce-input.md).
 
 ## Bots
 

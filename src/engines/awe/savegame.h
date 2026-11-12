@@ -14,7 +14,7 @@
 // Saved.Games\slot<N>.ac2, quick.ac2, and the developers' starting points
 // Text\Scripts\slot<N>.ac2. Tagged records like the scenes' (DESC, TIME,
 // DATE, GLBT...), but back to back with no lengths, to the end of the
-// file; text in fixed UTF-16 buffers. See docs/engines/awe/saves.md.
+// file; text in fixed UTF-16 buffers. See docs/engines/awe/systems/saves.md.
 
 namespace reluva::awe {
 

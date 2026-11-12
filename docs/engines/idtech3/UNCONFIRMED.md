@@ -49,10 +49,10 @@ update the doc it comes from and remove it here.
   - the shader time is taken to be at Quake III's 128;
   - mark polygons' vertices are taken to be Quake III's 24-byte layout.
 
-  See [eliteforce-syscalls.md](formats/eliteforce-syscalls.md).
+  See [eliteforce-syscalls.md](systems/eliteforce-syscalls.md).
 - **Single player's scene entities** have 12 bytes of Elite Force's own
   (128-144) whose meaning isn't described. See
-  [eliteforce-sp-interface.md](formats/eliteforce-sp-interface.md).
+  [eliteforce-sp-interface.md](systems/eliteforce-sp-interface.md).
 
 ## Single player
 
@@ -78,7 +78,7 @@ update the doc it comes from and remove it here.
 The protocol was written from Lilium Voyager (a GPL engine for Elite Force)
 and ioquake3, then played against the retail game patched to 1.2. What
 that play didn't exercise is still open. See
-[eliteforce-network.md](formats/eliteforce-network.md) ("Open
+[eliteforce-network.md](systems/eliteforce-network.md) ("Open
 questions").
 
 - **Older versions:** 1.0's and 1.1's protocol, and whether a 1.2 client can
@@ -115,7 +115,7 @@ questions").
   - the client game's calls 14, 20, 22, 24, 26, 38, 42-43 and 53;
   - the menus' `vmMain` commands 2-9.
 
-  See [eliteforce-syscalls.md](formats/eliteforce-syscalls.md).
+  See [eliteforce-syscalls.md](systems/eliteforce-syscalls.md).
 - **Structures taken to be Quake III's:**
   - `uiClientState_t`;
   - the key numbers;
@@ -148,7 +148,7 @@ questions").
   - SDL is assumed to report a device's buttons and axes in the same order
     Windows' joystick API did.
 
-  See [eliteforce-input.md](formats/eliteforce-input.md).
+  See [eliteforce-input.md](systems/eliteforce-input.md).
 
 ## Map entities
 

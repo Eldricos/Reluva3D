@@ -80,7 +80,7 @@ From there:
     Expansion's engine saves exactly as 1.2's does;
   - the Expansion's import table turned out to have two new slots, with
     the old ones moved up (see
-    [eliteforce-sp-interface.md](formats/eliteforce-sp-interface.md)).
+    [eliteforce-sp-interface.md](systems/eliteforce-sp-interface.md)).
 - **Recording the result.** Each fact goes into the docs with the address
   it came from (for example "0x415700 in the Expansion's `stvoy.exe`"), so
   anyone with the same files can look again.
@@ -131,7 +131,7 @@ every file, not just a sample:
 
 - **Network play** was checked against the retail game patched to 1.2,
   with Reluva as server and as client
-  ([eliteforce-network.md](formats/eliteforce-network.md)).
+  ([eliteforce-network.md](systems/eliteforce-network.md)).
 - **In-game behaviour** was checked by playing the retail game and Reluva
   side by side on Windows, and reporting what differed. Each report became
   a fix with its cause written down: the scoreboard's missing calls, the

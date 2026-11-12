@@ -13,21 +13,21 @@ The format pages give the detail; this page gathers them.
   CPU: their edges may differ from a graphics card's by a pixel, and a
   shadow triangle with a corner behind the camera is left out. With a
   stencil buffer (any current graphics card), they're drawn as the
-  game's are. See [shadows.md](shadows.md).
+  game's are. See [systems/shadows.md](systems/shadows.md).
 - **The specular light is a second pass.** Direct3D adds the specular
   colour after the texture in one draw. Reluva draws the textured model,
   then adds the specular in a pass over it (depth equal, no depth
   write). The result is the same sum. See
-  [lighting.md](lighting.md).
+  [systems/lighting.md](systems/lighting.md).
 - **Anti-aliasing changes at once.** The game resets the device; Reluva
   makes the frame's targets again. Shadow edges stay hard (their mask is
-  made on the CPU). See [options.md](options.md).
+  made on the CPU). See [systems/options.md](systems/options.md).
 
 - **Characters are skinned and lit on the CPU**, each frame, spread over
   the machine's cores, as Direct3D's fixed-function pipeline would light
   them: the same colours, by the same per-vertex formula. Their meshes
   stay on the GPU and only the vertices are sent each frame. See
-  [lighting.md](lighting.md) and
+  [systems/lighting.md](systems/lighting.md) and
   [README.md](README.md#frame-time).
 - **Text is drawn by Reluva's own TrueType renderer**, not Windows'.
   The game's fonts are used, sized as Windows sizes them, but letters can
@@ -36,8 +36,8 @@ The format pages give the detail; this page gathers them.
   same everywhere text is wrapped: the spoken line, the choices and a
   movie's subtitles (`0x43db80`) and the interface's text (`0x414720`)
   all use the game's rule, two spaces kept after a sentence's end
-  ([dialogue.md](dialogue.md),
-  [interface.md](interface.md)).
+  ([systems/dialogue.md](systems/dialogue.md),
+  [systems/interface.md](systems/interface.md)).
 - **A choice low in the box is always drawn.** The game leaves out a
   choice whose rows would reach y 745 (`0x43d1cb`: its top plus its
   height); the choices never get that far down, so Reluva doesn't test
@@ -49,17 +49,17 @@ The format pages give the detail; this page gathers them.
   motion out of the pose through Granny's track groups and moves the
   model. Reluva takes out the distance the root moves in one loop
   instead (`Actor::motion`). The character goes the same way at the same
-  pace. See [gr2.md](gr2.md).
+  pace. See [formats/gr2.md](formats/gr2.md).
 - **An `anim` whose file is missing ends at once.** In the game it waits
   for ever, which would hang the script. No `anim` in the install names a
-  missing file. See [characters.md](characters.md).
+  missing file. See [systems/characters.md](systems/characters.md).
 - **An `anim` finishes whether it played under the asked name or a
-  renamed one.** See [characters.md](characters.md).
+  renamed one.** See [systems/characters.md](systems/characters.md).
 - **A speaker in another scene of the place isn't animated.** For a
   line's Event and Prevent the game finds the speaker in the location's
   other scenes too (`0x43bb60`) and animates them there, off screen.
   Reluva holds only the scene shown and skips those gestures. Nothing is
-  seen either way. See [script.md](script.md).
+  seen either way. See [systems/script.md](systems/script.md).
 
 ## Time
 
@@ -68,7 +68,7 @@ The format pages give the detail; this page gathers them.
   slow. Reluva steps by the time that has passed: 32 steps, 0.32 s. The
   recordings' fades measured 0.27 to 0.47 s: the longer ones are the
   game's frame-bound steps; the shortest is under the 0.32 s the game
-  can't go below, within what a 30 fps video can tell of a ramp's ends. See [acts.md](acts.md).
+  can't go below, within what a 30 fps video can tell of a ramp's ends. See [systems/acts.md](systems/acts.md).
 
 ## Saves and scenes
 
@@ -84,8 +84,8 @@ The format pages give the detail; this page gathers them.
   game too. A character's routine starts again from its beginning in
   both (`0x440690`).
   Saves are in the game's own format either way. See
-  [characters.md](characters.md#leaving-a-scene-and-coming-back)
-  and [saves.md](saves.md).
+  [systems/characters.md](systems/characters.md#leaving-a-scene-and-coming-back)
+  and [systems/saves.md](systems/saves.md).
 
 ## Not done, as nothing in the install uses them
 
@@ -96,7 +96,7 @@ Kept for the other AWE games, where they may be needed:
   0 in every scene);
 - animated pictures (`2DAN`, `NING`: in no scene);
 - about 25 script verbs no script calls (most are only logged; see
-  [script.md](script.md)).
+  [systems/script.md](systems/script.md)).
 
 ## Only one release checked
 

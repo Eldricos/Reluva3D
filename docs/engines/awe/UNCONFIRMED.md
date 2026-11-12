@@ -14,26 +14,26 @@ settled, move it to the format page it belongs to and take it off here.
   left on the route is Hardman's in Sirkeci.Market_05 (`walka 10 17` in
   the fountain talk): he has no walk file, so the game, by the same
   code, moves him at 150 units a second with no walk (`0x4422d9`).
-  [characters.md](characters.md#walking-a-path).
+  [systems/characters.md](systems/characters.md#walking-a-path).
 - **A new game from the menu starts afresh.** `reset` (`0x411aa0`)
   empties the conversations heard (`[0x498810]+0x2b4`), and going to the
   main menu changes the place (`0x422640`), so Play drops the scenes
   kept (`0x4229a5` -> `0x423430`). Read from the code; in Reluva, a game
   left for the menu and started again was checked by hand.
-  [characters.md](characters.md#leaving-a-scene-and-coming-back),
-  [dialogue.md](dialogue.md), section 7.
+  [systems/characters.md](systems/characters.md#leaving-a-scene-and-coming-back),
+  [systems/dialogue.md](systems/dialogue.md), section 7.
 - **The interface's last row of one letter.** `0x414720` draws a wrapped
   text's last row only if it's longer than one character (`0x414b34`),
   though `0x414c30` counts it in the height. Reluva does the same; no
   text in the install is known to end that way.
-  [interface.md](interface.md).
+  [systems/interface.md](systems/interface.md).
 
 ## Meanings inferred
 
 - **Fields loaded but never read.** The common `b54`, `b58`, `b68`,
   `SPRT`'s `dc8`, the item's `1610` and `1612`, the camera's `238`,
   `23a` and `1240`: nothing in the executable reads them, so what they
-  were for can't be told. [ac2.md](ac2.md).
+  were for can't be told. [formats/ac2.md](formats/ac2.md).
 
 ## Checked only against recordings
 
@@ -62,13 +62,13 @@ Moved to their format pages; kept here so the reasoning can be found:
   from 0x43d430 (the Povent runner, then what waited on it in the same
   frame, the pause, the Prevent, the line's events, the box's slide, the
   line's end). Reluva's differed in four small ways and now follows it.
-  [dialogue.md](dialogue.md), section 9, item 10.
+  [systems/dialogue.md](systems/dialogue.md), section 9, item 10.
 
 - **A character's routine when its scene is shown again:** started
   afresh, as Reluva does. The game's switch-on at scene entry
   (`0x440690`) empties the character's runner (`0x409760`) and runs the
   first `IDLE` script whose condition holds from its beginning.
-  [characters.md](characters.md#leaving-a-scene-and-coming-back).
+  [systems/characters.md](systems/characters.md#leaving-a-scene-and-coming-back).
 
 - **The characters' colours:** in Salon_02 (6B, Part 7 at 6:22, the
   frame's own fit at a correlation of 0.997), Reluva's frame put through
@@ -78,23 +78,23 @@ Moved to their format pages; kept here so the reasoning can be found:
   recording, sitting upright where Reluva had him slumped: a bug in
   reading Granny curves with no knots, found by posing his `sitidle1`
   with granny2.dll (`awe pose-check`) and fixed.
-  [gr2.md](gr2.md).
+  [formats/gr2.md](formats/gr2.md).
 - **The x87's precision:** 24 bits, not 53. Direct3D 8's `CreateDevice`
   sets it, the game doesn't ask it not to, and the path-finder is made
   after. At 53 bits 4 of 22,480 test paths differed from the game's; the
   port now rounds as the game's FPU does and all agree.
-  [ac2.md](ac2.md).
+  [formats/ac2.md](formats/ac2.md).
 - **The wheel and the generic extras:** the game's steps walk only the
   part's own threads and the goodbye, passing over the extras; with
   nothing highlighted and no goodbye, a step back highlights nothing.
-  Reluva now does both. [dialogue.md](dialogue.md),
+  Reluva now does both. [systems/dialogue.md](systems/dialogue.md),
   section 3.
 - **The "met them here" tags:** the greetings' own words confirm it:
   `gen_regreet1`'s "I don't think I'm quite done yet", `gen_regreet2`'s
   "Something has occurred to me since I left you".
-  [dialogue.md](dialogue.md), section 2.2.
+  [systems/dialogue.md](systems/dialogue.md), section 2.2.
 - **The dialogue font:** the code measures and draws the lines with font
-  1, the second row of `fonts.txt`. [dialogue.md](dialogue.md),
+  1, the second row of `fonts.txt`. [systems/dialogue.md](systems/dialogue.md),
   section 6.
 - **Fade lengths:** the recordings' 0.27 to 0.47 s are the game's fade
   of at most one step a frame (0.32 s at the least; the 0.27 s within
@@ -102,4 +102,4 @@ Moved to their format pages; kept here so the reasoning can be found:
   [KNOWN_DIFFERENCES.md](KNOWN_DIFFERENCES.md).
 - **The save's thumbnail:** a 24-bit BMP. D3DX's BMP writer in the game
   writes only 24- and 8-bit files; Reluva wrote 32-bit and now writes
-  24. [saves.md](saves.md).
+  24. [systems/saves.md](systems/saves.md).

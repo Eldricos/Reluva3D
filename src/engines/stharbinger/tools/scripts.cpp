@@ -16,7 +16,7 @@
 //   - a dialogue that can't be read is reported with the engine's message.
 //
 // Format, as read by DEEP.EXE (Load_Directive_List at 0x1DD32,
-// Load_Dialogues 0x1CC1E): docs/engines/stharbinger/formats/script-reference.md.
+// Load_Dialogues 0x1CC1E): docs/engines/stharbinger/systems/script-reference.md.
 //
 // Argument notation in the listings:
 //   @n  type 02 (variable n, or a plain number for commands that don't read

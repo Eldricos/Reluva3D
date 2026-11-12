@@ -9,7 +9,7 @@ would confirm it. Known differences are in
 
 - **Every mission played through by hand.** All 51 Adventure missions are
   solved in automated runs, but by loading the game's own solved layouts
-  (`<space>_SOLVED.PUZ`, [alphateam.md](alphateam.md), phase 4), not by
+  (`<space>_SOLVED.PUZ`, [systems/alphateam.md](systems/alphateam.md), phase 4), not by
   placing the parts with the mouse. Only Mission One (M1010) has been
   placed and solved by hand. To confirm: play each mission
   ([TESTING.md](TESTING.md)).

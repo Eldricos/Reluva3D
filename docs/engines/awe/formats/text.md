@@ -55,4 +55,4 @@ Conditions use the same form (`has`, `!has`, `tag <name> >N`), and
 exterior.forest_14`).
 
 How the commands run, and every verb the game uses, is in
-[script.md](script.md).
+[../systems/script.md](../systems/script.md).

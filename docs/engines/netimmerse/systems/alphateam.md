@@ -3,8 +3,8 @@
 How LEGO Alpha Team (LEGO Media, 2000), the first of the LEGO games Reluva
 is meant to run, came to be played: the plan, the measurements behind its
 choices, and what each part does and how it was checked. What works now,
-and how to use it, is summed up in [README.md](README.md). The install is
-described in [formats/install.md](formats/install.md).
+and how to use it, is summed up in [../README.md](../README.md). The install is
+described in [../formats/install.md](../formats/install.md).
 
 ## What the install shows
 
@@ -58,7 +58,7 @@ Each phase ends with something that runs and is committed.
 - Done: detection by `Locale_en.pac`'s hash, with a fallback by file names
   for other releases. The launcher finds the game. Starting it opens every
   archive and shows what each holds.
-- Done: the `.pac` format ([pac.md](formats/pac.md)), checked
+- Done: the `.pac` format ([pac.md](../formats/pac.md)), checked
   against all eight retail archives.
 - Done: `PacArchive : Archive` (`src/engines/netimmerse/pac_archive.cpp`), so
   `.pac` files join a `SearchSet` like any other archive. It's tested in
@@ -66,7 +66,7 @@ Each phase ends with something that runs and is committed.
 - Done: `reluva-tool netimmerse pac-list` and `pac-extract`, as for New Worlds' `.cat`.
   On all eight archives they give the same 2,462 files, byte for byte, as
   a separate script written from the format notes.
-- Done: what the archives hold ([pac.md](formats/pac.md)):
+- Done: what the archives hold ([pac.md](../formats/pac.md)):
   sounds as headerless PCM (`.DDS`), models (`.FIN`), TGA textures and
   lightmaps, puzzles, fonts and text.
 
@@ -83,7 +83,7 @@ from the launcher, the engine now shows these pages (keys in
   textures, lightmaps (a second pass multiplied over the first), vertex
   colours, materials and alpha blending, and the nearest level of
   level-of-detail nodes. The format is in
-  [formats/fin.md](formats/fin.md);
+  [../formats/fin.md](../formats/fin.md);
   `reluva-tool netimmerse fin-check` reads all 147 models. Every object of the 21
   classes read ends exactly where the next begins, and every link and image
   name resolves.
@@ -132,7 +132,7 @@ from the launcher, the engine now shows these pages (keys in
   - **Footprints**: F shows the square a part fills on the board, from
     its actor data.
   - The formats are in
-    [formats/fin.md](formats/fin.md#animation).
+    [../formats/fin.md](../formats/fin.md#animation).
     `fin-check` confirms that all 102 animated models have one track per
     3ds node, and that 1,027 of 1,035 first keys match the saved pose.
 - Done: **Textures**: all 1,609 TGA images in `Map.pac`, `LMap.pac` and
@@ -143,13 +143,13 @@ from the launcher, the engine now shows these pages (keys in
   `parseLocaleText` reads the `==key==` format for later use.
 - Done: **Fonts**: all 12 of the game's own (`.DDF` with their TGA
   pages), each with a sample, every character it has, and its pages (P).
-  The format is in [formats/ddf.md](formats/ddf.md).
+  The format is in [../formats/ddf.md](../formats/ddf.md).
 - Done: **Intro movie** (`lmiintro.avi`, CD only): Indeo 5 video with PCM
   sound. Reluva has its own AVI reader and Indeo 5 decoder; all 1,631
   pictures match FFmpeg's decode byte for byte. If the file is copied
   beside the install, the engine plays it before the game, and a key or
-  click skips it. See [../../common/video/avi.md](../../common/video/avi.md)
-  and [../../common/video/indeo5.md](../../common/video/indeo5.md), which
+  click skips it. See [../../../common/video/avi.md](../../../common/video/avi.md)
+  and [../../../common/video/indeo5.md](../../../common/video/indeo5.md), which
   record what came from FFmpeg's LGPL decoder.
 
 The viewer was checked in this container with a software stand-in for the
@@ -779,7 +779,7 @@ Progress:
     drawing, the graphics card instead of the processor, which would end
     the frames being checked byte for byte.
   - What differs from the original because of how it runs is in
-    [KNOWN_DIFFERENCES.md](KNOWN_DIFFERENCES.md).
+    [../KNOWN_DIFFERENCES.md](../KNOWN_DIFFERENCES.md).
 
 #### DirectDraw and Direct3D 7
 

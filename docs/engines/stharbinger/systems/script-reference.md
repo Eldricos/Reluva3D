@@ -20,7 +20,7 @@ Derived from DEEP.EXE (interpreter, loaders) and the linker cross-references
 | `CA` `CB` `CS` `CD` `CT` `CH` `CV` `.ALL`/`.LST` | name lists: animations, backgrounds, sounds, dialogues, timers, hotspots, variables | `name\0 source\0 flag` |
 | `CCS.ALL`/`.LST` | linker cross-reference | `symbol\0 command slot` |
 | `CCZ.ALL`/`.LST` | number of cross-reference entries | u16 |
-| `CCB.ALL`/`.LST` | 72 dialogue scripts | see [scripts.md](scripts.md) |
+| `CCB.ALL`/`.LST` | 72 dialogue scripts | see [../formats/scripts.md](../formats/scripts.md) |
 | `CCQ` `CCF` `CCR` | dialogue text, clip names, menu labels | text |
 
 Name lists index in order: `BACKGRND tlback` is entry 0 of the scene's `CB` list.
@@ -349,7 +349,7 @@ is the death. The tick's period and phase are saved with the game.
 ## Action sequences
 
 From DEEP.EXE's arcade engine (Run_Arcade 0x261C1); implemented in
-`src/engines/stharbinger/game/arcade.cpp`. Formats in [action-sequences.md](action-sequences.md).
+`src/engines/stharbinger/game/arcade.cpp`. Formats in [../formats/action-sequences.md](../formats/action-sequences.md).
 
 * The video plays in a rectangle of the cockpit picture (400x300 at (120, 12)
   for LAND, SPAC, HOLO, CITA; 480x250 at (80, 62) for ADR2, PLAN, CANN, CAN2 and

@@ -9,8 +9,10 @@ as it was.
 
 | Page | What's in it |
 |---|---|
-| [formats/](formats/) | The game's files: [discs](formats/discs.md), [archives](formats/archives.md), [backgrounds and palettes](formats/backgrounds.md), [animations](formats/animations.md), [sound](formats/audio.md), [deck maps](formats/deck-maps.md), [cursors](formats/cursors.md), [action sequences](formats/action-sequences.md), [videos](formats/videos.md), [saved games](formats/saves.md), [scripts](formats/scripts.md), [the executable](formats/executable.md), and the [script reference](formats/script-reference.md) |
-| [REVERSE_ENGINEERING.md](REVERSE_ENGINEERING.md) | How it was worked out, the notes from reading DEEP.EXE ([reverse-engineering/](reverse-engineering/)), and the tools |
+| [formats/](formats/) | The game's files: [discs](formats/discs.md), [archives](formats/archives.md), [backgrounds and palettes](formats/backgrounds.md), [animations](formats/animations.md), [sound](formats/audio.md), [deck maps](formats/deck-maps.md), [cursors](formats/cursors.md), [action sequences](formats/action-sequences.md), [videos](formats/videos.md), [saved games](formats/saves.md), [scripts](formats/scripts.md), [the executable](formats/executable.md) |
+| [systems/](systems/) | How the game runs its data: the [script reference](systems/script-reference.md) |
+| [research/](research/) | The working notes from reading DEEP.EXE: the scene interpreter, dialogue, the menu and saves, the arcade sequences, cursors and video, special functions, and address lists |
+| [REVERSE_ENGINEERING.md](REVERSE_ENGINEERING.md) | How it was worked out, the notes from reading DEEP.EXE ([research/](research/)), and the tools |
 | [KNOWN_DIFFERENCES.md](KNOWN_DIFFERENCES.md) | Where it knowingly differs from the original |
 | [UNCONFIRMED.md](UNCONFIRMED.md) | Details inferred or guessed from the executable |
 | [TESTING.md](TESTING.md) | The tests, and what has been checked on the real discs |

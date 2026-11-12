@@ -39,7 +39,7 @@ struct Directive {
 
 typedef std::vector<Directive> DirectiveList;
 
-// Scene commands, after DEEP.EXE's own names (a ? in docs/engines/stharbinger/formats/script-reference.md
+// Scene commands, after DEEP.EXE's own names (a ? in docs/engines/stharbinger/systems/script-reference.md
 // marks names inferred from behaviour).
 enum Command {
     kCmdAnim = 0x64,
