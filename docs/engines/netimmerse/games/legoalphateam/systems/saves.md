@@ -1,6 +1,6 @@
 # LEGO Alpha Team: saving
 
-> **Status:** done · **Confidence:** confirmed unless marked
+> **Status:** done · **Checked against:** the original running in Reluva · **Confidence:** confirmed unless marked
 
 ## Overview
 

@@ -1,6 +1,6 @@
 # LEGO Alpha Team: into a mission, and the training tour
 
-> **Status:** done · **Confidence:** confirmed unless marked
+> **Status:** done · **Checked against:** the original running in Reluva · **Confidence:** confirmed unless marked
 
 ## Overview
 
@@ -77,7 +77,8 @@ the guided tour at the Adventure's start.
     first line ended after about 3 seconds.
   - From there the training is a guided tour, and it now plays to the
     end. Each step plays a line, then waits for the player to do one
-    thing. Played with the fixed clock and the route below, Dash runs on
+    thing. Played with the fixed clock (`-fixed-clock`, above: time
+    follows the instructions run, so each run repeats) and the route below, Dash runs on
     frame 3050, reaches the top of the tower, and the game returns to
     headquarters on frame 3200.
   - The tour is the interface behaviour's training machine (PE0300,

@@ -1,6 +1,6 @@
 # LEGO Alpha Team: options
 
-> **Status:** done · **Confidence:** confirmed unless marked
+> **Status:** done · **Checked against:** the original running in Reluva, each option set by hand · **Confidence:** confirmed unless marked
 
 ## Overview
 
