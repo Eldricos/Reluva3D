@@ -13,7 +13,7 @@
 // fixed-function lighting, per vertex, with the scene's LITEs as the
 // lights (0x420ee0), the camera's ambient colour (or a night one) as the
 // ambient light, and each character's own material (0x427160). See
-// docs/engines/awe/lighting.md.
+// docs/engines/awe/games/motoe/systems/lighting.md.
 
 namespace reluva::awe {
 

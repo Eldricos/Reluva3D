@@ -15,7 +15,7 @@
 // Characters and objects as the game's .gr2 files hold them: a skeleton,
 // skinned meshes and their textures (models/<who>/<who>_model.gr2), and
 // animations of the same skeleton (one per file, <who>_walk.gr2...).
-// See docs/engines/awe/gr2.md.
+// See docs/engines/awe/formats/gr2.md.
 
 namespace reluva::awe {
 

@@ -79,7 +79,7 @@ namespace q3 = reluva::idtech3;
 using namespace reluva::idtech3::fixtures;
 
 static void testJoystick() {
-    // As the original engines read the joystick (eliteforce-input.md).
+    // As the original engines read the joystick (docs/engines/idtech3/games/stvef/systems/input.md).
     CvarStore cvars;
     JoystickInput::registerCvars(cvars);
     JoystickInput joy;

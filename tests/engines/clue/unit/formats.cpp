@@ -3,7 +3,7 @@
 
 // The Clue engine's unit tests: Clue's files: packed archives, images,
 // animations, the game's folders, objects, levels and dialogs
-// (docs/engines/clue/res.md, level.md, resi.md).
+// (docs/engines/clue/formats/: res.md, level.md, resi.md).
 
 #include "engines/clue/ai.h"
 #include "engines/clue/board.h"

@@ -5,7 +5,7 @@
 
 // Clue over a network: Reluva's own protocol over UDP (the original's was
 // DirectPlay's, and its Internet Game Zone is gone; see
-// docs/engines/clue/README.md). A host and up to five others: the host keeps the
+// docs/engines/clue/systems/network.md). A host and up to five others: the host keeps the
 // lobby, relays chat, and puts the players' actions in one order, which
 // every machine then plays out the same, from the same deal.
 

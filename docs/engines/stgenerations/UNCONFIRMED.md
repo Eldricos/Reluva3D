@@ -1,11 +1,13 @@
-# Unconfirmed details
+# Star Trek: Generations: unconfirmed items
 
 What the engine does that hasn't been compared with the original yet:
 worked out from `sgens.exe` and the game's data, but not seen running in
 the original. Each could be checked by watching the original where it
 happens; [TESTING.md](TESTING.md#still-to-check) has what to look at.
 
-## Seen in the scripts, not yet in the original
+## Read from the code, not seen running
+
+### Seen in the scripts, not yet in the original
 
 - **Some map marker styles** (the automap's markers the scripts set with
   SET_ACTOR_MAP_MARKER, beside those seen): drawn as the code reads them.
@@ -15,7 +17,13 @@ happens; [TESTING.md](TESTING.md#still-to-check) has what to look at.
   the value goes to the blends with their colour, as in the original; what
   each style looks like there hasn't been seen.
 
-## Inferred from the code (small gaps)
+## Seen running, not traced in the code
+
+None yet.
+
+## Inferred
+
+### Inferred from the code (small gaps)
 
 - **SET_PLAYER_CONTROLS** keeps its value (0x5F by default), but what each
   bit allows isn't known (`game/mission.cpp`).
@@ -29,8 +37,14 @@ happens; [TESTING.md](TESTING.md#still-to-check) has what to look at.
 - **Three actor animations** (ACTOR_STATE_1, 4 and 5) are taken to be pain
   and deaths, from where the scripts use them (`formats/opcodes.cpp`).
 
-## Assumed
+## Guessed
+
+### Assumed
 
 - **The screen:** 640x480 in 256 colours (`game/screen.h`), with the
   bridge, space combat and the movies in true colour.
 - **The fonts' colours** refer to the shared palette (`game/generations.cpp`).
+
+## Settled
+
+None yet.

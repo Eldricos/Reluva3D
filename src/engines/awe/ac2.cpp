@@ -4,7 +4,7 @@
 // The record layouts come from reading how motoe.exe (1.0, 684,032 bytes)
 // loads a scene: its scene loader, its object factory and each object
 // class's load function, checked field by field against the game's
-// files. docs/engines/awe/ac2.md has the addresses.
+// files. docs/engines/awe/games/motoe/formats/ac2.md has the addresses.
 
 #include "engines/awe/ac2.h"
 

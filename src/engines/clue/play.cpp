@@ -2,7 +2,7 @@
 // Copyright (C) 2026 The Reluva contributors
 
 // Where things go and what they say is the original's, as recordings show
-// it (docs/engines/clue/README.md); what follows what is the game's own texts'
+// it (docs/engines/clue/systems/screen.md); what follows what is the game's own texts'
 // (Data/<lang>/Text); the pictures, sounds and dialogs are its files'.
 
 #include "engines/clue/play.h"
@@ -125,7 +125,7 @@ const char* const kObjectSound[] = {"bear_g.wav",      "bear_b.wav",    "rhino_b
 // A hot spot's reactions: states 20 (good), 21 (bad) and 22 (neutral); the
 // sound of each is the object's timing 1500, 1600 or 1700.
 constexpr uint16_t kReactionFirst = 20, kReactionLast = 22;
-// The weather, as Clue.exe has it (0x41C690, docs/engines/clue/README.md): a
+// The weather, as Clue.exe has it (0x41C690, docs/engines/clue/systems/sounds.md): a
 // cycle of 300 s, run each 66 ms tick. At set times the drapes blow
 // (state 23, light; 24, heavy; 0, still) and the wind's gusts loop; between
 // them, now and then (one tick in 100 or 80), a thunder. Each step: from

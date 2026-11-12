@@ -10,7 +10,10 @@
 #                                    detection table, Engine), tools/files.cpp
 #   tests/engines/<name>/            unit/detection.cpp, engine.cpp, and the
 #                                    engine test's record in data/
-#   docs/engines/<name>/README.md
+#   docs/engines/<name>/             README.md, KNOWN_DIFFERENCES.md,
+#                                    UNCONFIRMED.md, TESTING.md,
+#                                    REVERSE_ENGINEERING.md (from
+#                                    docs/templates/engine/)
 # and adds `<name>=enabled` to engines.cfg. It builds and its tests pass
 # as it is; docs/ADDING_AN_ENGINE.md says what to fill in.
 
@@ -18,6 +21,8 @@ cmake_minimum_required(VERSION 3.24)
 
 get_filename_component(root "${CMAKE_CURRENT_LIST_DIR}/.." ABSOLUTE)
 set(template "${CMAKE_CURRENT_LIST_DIR}/engine-template")
+# The docs' templates, shared with pages written by hand (docs/templates/).
+set(doc_templates "${root}/docs/templates/engine")
 
 if(NOT DEFINED ENGINE OR ENGINE STREQUAL "")
     message(FATAL_ERROR "usage: cmake -DENGINE=<name> [-DTITLE=\"<Name shown>\"] -P cmake/NewEngine.cmake")
@@ -60,7 +65,10 @@ string(TIMESTAMP YEAR "%Y")
 
 set(made "")
 function(make from to)
-    configure_file("${template}/${from}" "${root}/${to}" @ONLY NEWLINE_STYLE UNIX)
+    if(NOT IS_ABSOLUTE "${from}")
+        set(from "${template}/${from}")
+    endif()
+    configure_file("${from}" "${root}/${to}" @ONLY NEWLINE_STYLE UNIX)
     set(made "${made}  ${to}\n" PARENT_SCOPE)
 endfunction()
 make(CMakeLists.txt.in src/engines/${ENGINE}/CMakeLists.txt)
@@ -69,7 +77,9 @@ make(tools.cpp.in src/engines/${ENGINE}/tools/files.cpp)
 make(unit_detection.cpp.in tests/engines/${ENGINE}/unit/detection.cpp)
 make(engine_test.cpp.in tests/engines/${ENGINE}/engine.cpp)
 make(engine-record.txt.in tests/engines/${ENGINE}/data/engine-record.txt)
-make(README.md.in docs/engines/${ENGINE}/README.md)
+foreach(doc README KNOWN_DIFFERENCES UNCONFIRMED TESTING REVERSE_ENGINEERING)
+    make("${doc_templates}/${doc}.md" docs/engines/${ENGINE}/${doc}.md)
+endforeach()
 file(APPEND "${root}/engines.cfg" "\n${ENGINE}=enabled\n")
 
 message("Made the ${ENGINE} engine (${TITLE}):\n${made}  and ${ENGINE}=enabled in engines.cfg.\n"

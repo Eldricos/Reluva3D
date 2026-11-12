@@ -1,19 +1,10 @@
 # id Tech 3: shader scripts (`scripts/*.shader`)
 
-Status: **every Quake III directive parsed and drawn** except those listed
-at the end (`src/engines/idtech3/shader.cpp`, `world_renderer.cpp`).
-Checked on generated test maps and on the retail Elite Force maps, which
-look as in the original. `reluva-tool idtech3 shader-check` on Elite Force
-(October 2026): 1891 shaders, **no directive outside Quake III's set**.
-All are drawn but `deformVertexes projectionShadow` (1, the original's
-shader for r_shadows 3's projected shadows); autosprites (2,
-`textures/scavenger/fire1` and `fire2`) on the level's surfaces, not on
-models (none uses them there); `deformVertexes normal` (2, the CTF
-flags) as below.
+> **Status:** decoded · **Code:** `src/engines/idtech3/shader.cpp`, `world_renderer.cpp` · **Checked on:** generated test maps and the retail Elite Force maps; `reluva-tool idtech3 shader-check` on Elite Force's 1891 shaders (October 2026) · **Confidence:** confirmed unless marked
 
-Sources: the Quake III Arena shader manual id Software published for map
-makers, and the GPL Quake III Arena source (`code/renderer/tr_shader.c`)
-for how the engine reads it.
+## Overview
+
+Shader scripts say how each surface is drawn: a file is a list of shaders, each with its stages, drawn as passes.
 
 ## Layout
 
@@ -41,7 +32,34 @@ the original does: a model surface naming `models/x/y.tga` uses the script
 A surface whose shader name has no definition is drawn with the image of
 that name (`.tga`, else `.jpg`) multiplied by its lightmap.
 
-## How the renderer draws a shader
+### Interpreted
+
+| Where | Directive | Meaning |
+|---|---|---|
+| shader | `surfaceparm <name>` | a flag for the compiler and game; `nodraw` surfaces aren't drawn |
+| shader | `skyParms <farbox> <cloudheight> <nearbox>` | the shader is a sky; `-` for none |
+| shader | `fogParms ( r g b ) <distance>` | a fog volume |
+| shader | `cull front\|back\|none` | which side is hidden (`disable`, `twosided` = none) |
+| shader | `deformVertexes wave <div> <func> <base> <amp> <phase> <freq>` | along the normals, phase offset by (x + y + z) / div |
+| shader | `deformVertexes bulge <width> <height> <speed>` | along the normals by height * sin(s * width + time * speed) |
+| shader | `deformVertexes move <x> <y> <z> <func> ...` | the whole surface by the vector times the wave |
+| shader | `deformVertexes normal <amplitude> <frequency>` | the positions stay; each normal gets amplitude × noise added on each axis, the noise a 4D value noise (random values from −1 to 1 at whole-numbered points, blended in straight lines) of the position × 0.98 (x offset by 0, 100, 200 for the three axes) and the shader's time × frequency; then made unit length. It changes only lighting and environment mapping: a shimmer |
+| shader | `sort`, `polygonOffset`, `nomipmaps`, `nopicmip`, `portal` | see above |
+| stage | `map <image>` / `clampMap <image>` | the stage's texture; `$lightmap` is special, and `$whiteimage` and `*white` both name a plain white image |
+| stage | `animMap <fps> <image>...` | frames played at `fps` |
+| stage | `blendFunc add\|filter\|blend` or `<src> <dst>` | `GL_ONE GL_ONE`, `GL_DST_COLOR GL_ZERO`, `GL_SRC_ALPHA GL_ONE_MINUS_SRC_ALPHA`, or explicit factors |
+| stage | `rgbGen identity\|identityLighting\|vertex\|exactVertex\|oneMinusVertex\|wave ...\|const ( r g b )\|entity\|oneMinusEntity` | the colour (lightingDiffuse uses the vertex colours for now) |
+| stage | `alphaGen vertex\|oneMinusVertex\|wave ...\|const <a>` | the alpha (`portal`, `lightingSpecular`, `entity`: opaque for now) |
+| stage | `tcGen base\|lightmap\|environment\|vector ( ) ( )` | where texture coordinates come from |
+| stage | `tcMod scroll\|scale\|rotate\|stretch\|transform\|turb\|entityTranslate` | texture coordinate animation, in order |
+| stage | `alphaFunc GT0\|LT128\|GE128`, `depthFunc`, `depthWrite`, `detail` | see above |
+
+Waves are `<func> <base> <amplitude> <phase> <frequency>`, func one of
+`sin`, `triangle`, `square`, `sawtooth`, `inversesawtooth`, `noise`.
+
+## Behaviour
+
+### How the renderer draws a shader
 
 Read from the GPL Quake III Arena renderer (`tr_shader.c`,
 `tr_shade_calc.c`, `tr_sky.c`, `tr_bsp.c`) for behaviour; Reluva's code
@@ -90,32 +108,25 @@ Read from the GPL Quake III Arena renderer (`tr_shader.c`,
   the surface and the main view. See
   [idtech3.md](../README.md) (Renderer).
 
-## Interpreted
-
-| Where | Directive | Meaning |
-|---|---|---|
-| shader | `surfaceparm <name>` | a flag for the compiler and game; `nodraw` surfaces aren't drawn |
-| shader | `skyParms <farbox> <cloudheight> <nearbox>` | the shader is a sky; `-` for none |
-| shader | `fogParms ( r g b ) <distance>` | a fog volume |
-| shader | `cull front\|back\|none` | which side is hidden (`disable`, `twosided` = none) |
-| shader | `deformVertexes wave <div> <func> <base> <amp> <phase> <freq>` | along the normals, phase offset by (x + y + z) / div |
-| shader | `deformVertexes bulge <width> <height> <speed>` | along the normals by height * sin(s * width + time * speed) |
-| shader | `deformVertexes move <x> <y> <z> <func> ...` | the whole surface by the vector times the wave |
-| shader | `deformVertexes normal <amplitude> <frequency>` | the positions stay; each normal gets amplitude × noise added on each axis, the noise a 4D value noise (random values from −1 to 1 at whole-numbered points, blended in straight lines) of the position × 0.98 (x offset by 0, 100, 200 for the three axes) and the shader's time × frequency; then made unit length. It changes only lighting and environment mapping: a shimmer |
-| shader | `sort`, `polygonOffset`, `nomipmaps`, `nopicmip`, `portal` | see above |
-| stage | `map <image>` / `clampMap <image>` | the stage's texture; `$lightmap` is special, and `$whiteimage` and `*white` both name a plain white image |
-| stage | `animMap <fps> <image>...` | frames played at `fps` |
-| stage | `blendFunc add\|filter\|blend` or `<src> <dst>` | `GL_ONE GL_ONE`, `GL_DST_COLOR GL_ZERO`, `GL_SRC_ALPHA GL_ONE_MINUS_SRC_ALPHA`, or explicit factors |
-| stage | `rgbGen identity\|identityLighting\|vertex\|exactVertex\|oneMinusVertex\|wave ...\|const ( r g b )\|entity\|oneMinusEntity` | the colour (lightingDiffuse uses the vertex colours for now) |
-| stage | `alphaGen vertex\|oneMinusVertex\|wave ...\|const <a>` | the alpha (`portal`, `lightingSpecular`, `entity`: opaque for now) |
-| stage | `tcGen base\|lightmap\|environment\|vector ( ) ( )` | where texture coordinates come from |
-| stage | `tcMod scroll\|scale\|rotate\|stretch\|transform\|turb\|entityTranslate` | texture coordinate animation, in order |
-| stage | `alphaFunc GT0\|LT128\|GE128`, `depthFunc`, `depthWrite`, `detail` | see above |
-
-Waves are `<func> <base> <amplitude> <phase> <frequency>`, func one of
-`sin`, `triangle`, `square`, `sawtooth`, `inversesawtooth`, `noise`.
+## In Reluva
 
 Not drawn yet: `deformVertexes text*` and `projectionShadow` (the
 original's shader for its shadow mode 3); `GL_SRC_ALPHA_SATURATE`. `reluva-tool idtech3 shader-check <game folder>` lists
 what a game's scripts use that isn't handled, including directives the
 parser doesn't know (game additions).
+
+## Sources and checks
+
+Every Quake III directive is parsed and drawn, except those listed at the
+end. The retail Elite Force maps look as in the original, and
+`shader-check` finds **no directive outside Quake III's set** in Elite
+Force's 1891 shaders.
+All are drawn but `deformVertexes projectionShadow` (1, the original's
+shader for r_shadows 3's projected shadows); autosprites (2,
+`textures/scavenger/fire1` and `fire2`) on the level's surfaces, not on
+models (none uses them there); `deformVertexes normal` (2, the CTF
+flags) as below.
+
+Sources: the Quake III Arena shader manual id Software published for map
+makers, and the GPL Quake III Arena source (`code/renderer/tr_shader.c`)
+for how the engine reads it.

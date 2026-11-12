@@ -1,8 +1,14 @@
 # PKWARE DCL ("implode") compression
 
+## What it is
+
 The PKWARE Data Compression Library's format, used by many DOS games for
-their archives. Harbinger (`stharbinger`) packs the members of its `.ALL`
-archives with it. `src/common/dcl.cpp` (`reluva::decompressDCL`) unpacks it.
+their archives. `src/common/dcl.cpp` (`reluva::decompressDCL`) unpacks it.
+
+## What Reluva supports
+
+Unpacking only: coded and stored literals, and each dictionary size
+(1, 2 or 4 KB).
 
 ## The format
 
@@ -22,3 +28,9 @@ archives with it. `src/common/dcl.cpp` (`reluva::decompressDCL`) unpacks it.
   Reluva's own.
 - **How it was checked:** `common.unit.archives` (`dcl`) decodes the
   example given with `blast.c` and rejects broken input.
+- **Confidence:** published unless marked.
+
+## Used by
+
+- **`stharbinger`**: the members of Harbinger's `.ALL` archives
+  ([archives.md](../engines/stharbinger/formats/archives.md)).

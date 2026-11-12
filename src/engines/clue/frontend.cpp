@@ -453,7 +453,7 @@ PlayLook FrontEnd::playLook() const {
     look.butlerVoice = prefs_.on[Preferences::ButlerVoice];
     look.walkAnimations = prefs_.on[Preferences::WalkAnimations];
     look.mansion.lighting = prefs_.on[Preferences::Lighting];
-    // As a recording of the original shows them (docs/engines/clue/README.md):
+    // As a recording of the original shows them (docs/engines/clue/systems/playing.md):
     // "Mansion Walls" off, no walls; "Translucency": what stands in front of
     // the suspect whose turn it is see-through, or (off) left out.
     look.mansion.walls = prefs_.on[Preferences::MansionWalls];
@@ -861,7 +861,7 @@ void FrontEnd::playMusic(bool inGame) {
     // The CD's track 5 loops alone (the picker, the player setup,
     // Preferences); tracks 2, 3 and 4 follow one another (the game). Either
     // only if the CD isn't playing already (Clue.exe 0x42F120). See
-    // docs/engines/clue/README.md.
+    // docs/engines/clue/systems/music.md.
     if (!mixer_ || (music_ != audio::kNoSound && mixer_->isPlaying(music_)))
         return;
     musicInGame_ = inGame;

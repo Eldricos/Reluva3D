@@ -2,7 +2,7 @@
 // Copyright (C) 2026 The Reluva contributors
 
 // The Clue engine's unit tests: The board a level lays out: squares, doors,
-// passages and moves (docs/engines/clue/board.md).
+// passages and moves (docs/engines/clue/formats/board.md).
 
 #include "engines/clue/ai.h"
 #include "engines/clue/board.h"

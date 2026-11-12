@@ -1,9 +1,9 @@
-# How Reluva's Harbinger support was worked out
+# Star Trek: Deep Space Nine - Harbinger: how it was worked out
 
 Reluva runs Star Trek: Deep Space Nine - Harbinger from the player's own
 copy, with none of the original's code in it. This page says how the facts
 behind that were found, so they can be checked again or extended. The facts
-themselves are in [formats/](formats/), [reverse-engineering/](reverse-engineering/)
+themselves are in [formats/](formats/), [research/](research/)
 and this engine's [README](README.md), each with the address or file it came
 from. The engine came to Reluva from STDS9H, where this work was done.
 
@@ -19,31 +19,24 @@ from. The engine came to Reluva from STDS9H, where this work was done.
   reproduce them are left out (below).
 - **Published format write-ups are read for facts only.** Smacker and PKWARE
   DCL, shared with other games, follow the open descriptions named in
-  [docs/common/smacker.md](../../common/smacker.md) and
+  [docs/common/video/smacker.md](../../common/video/smacker.md) and
   [docs/common/dcl.md](../../common/dcl.md).
 - See [CONTRIBUTING.md](../../../CONTRIBUTING.md) for what may and may not be
   used.
 
-## The notes
+## Sources
 
-[reverse-engineering/](reverse-engineering/) holds the notes from reading
-DEEP.EXE that the engine is built from. Addresses are linear: the code object
-starts at 0x10000 and the data object at 0x50000. Confidence marks: **H** read
-directly from the code, **M** inferred with a small gap, **L** a guess.
-[UNCONFIRMED.md](UNCONFIRMED.md) collects the M and L points that matter to
-the engine.
+The retail game's own files: `DEEP.EXE` (the DOS/4GW executable, inside disc
+1's `SSE/SSE.ALL`), disassembled, and its data files. Smacker and PKWARE DCL
+follow the published write-ups named under *Ground rules*.
 
-| File | Contents |
-|---|---|
-| [interpreter.md](reverse-engineering/interpreter.md) | Scene script interpreter: directives, variables, labels, GOSUB, timers, hotspots, animations and the renderer, backgrounds, palettes and fades |
-| [dialogue.md](reverse-engineering/dialogue.md) | Conversations: dialogue records, turn logic, dialogue directives, speech archives, lip-sync and the reply menu |
-| [menu-and-saves.md](reverse-engineering/menu-and-saves.md) | The game menu, saved games (field by field), dlas.ds9, death, the deck map |
-| [arcade.md](reverse-engineering/arcade.md) | The action-sequence (arcade) engine: sprites, paths, shots, damage, music |
-| [cursors-and-video.md](reverse-engineering/cursors-and-video.md) | Mouse cursors, palette cycling, Smacker video playback, the credits |
-| [special.md](reverse-engineering/special.md) | The `ACTIONSEQ` special functions (phaser, enemy shots, countdown, map location, tricorder icon) |
-| [functions.txt](reverse-engineering/functions.txt) | Functions named from their own debug messages |
-| [handler-addresses.txt](reverse-engineering/handler-addresses.txt) | Names given to handler addresses (directive handlers and helpers); `exe-disasm` names them |
-| [file-references.txt](reverse-engineering/file-references.txt) | File names in the executable and the code that uses them |
+## Methods
+
+### The notes
+
+The notes from reading DEEP.EXE that the engine is built from are in
+[research/](research/README.md), which lists them and explains their
+confidence marks.
 
 ## The tools
 
@@ -65,7 +58,7 @@ the engine.
 install. `DEEP.EXE` is inside disc 1's `SSE/SSE.ALL`: `extract` unpacks it
 (to `disc1/SSE/SSE/DEEP.EXE`).
 
-## Working files that are not included
+## Working files not included
 
 The notes mention working files that are left out of the repository because
 they reproduce the game's code or text:

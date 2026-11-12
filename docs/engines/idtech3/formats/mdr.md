@@ -1,5 +1,9 @@
 # MDR models (Elite Force's player bodies)
 
+> **Code:** `src/engines/idtech3/mdr.cpp` · **Confidence:** published unless marked
+
+## Overview
+
 Raven's skeletal model format, used by Star Trek: Voyager – Elite Force
 for its players' bodies (`models/players2/<name>/lower.mdr` and
 `upper.mdr`; heads stay `.md3`). The layout, the packed bones and how a
@@ -7,10 +11,12 @@ vertex is placed were read from the GPL ioquake3 renderer, which loads
 these files (`qfiles.h`, `tr_model.c`, `tr_animation.c`); Reluva's reader,
 `src/engines/idtech3/mdr.cpp`, is new code from this description.
 
+## Layout
+
 Everything is little-endian. Offsets are from the start of the file
 unless said otherwise.
 
-## Header (104 bytes)
+### Header (104 bytes)
 
 | Offset | Size | Field |
 |---|---|---|
@@ -26,7 +32,7 @@ unless said otherwise.
 | 96 | 4 | where they start |
 | 100 | 4 | the end of the file |
 
-## Frames
+### Frames
 
 Each frame: bounds (two vectors), a local origin, a radius (40 bytes);
 then, when the bones aren't packed, a 16-byte name and each bone as a 3 x 4
@@ -35,7 +41,7 @@ bone's position. Packed bones are 24 bytes each: twelve 16-bit numbers,
 the first three the position's x, y and z (minus 32768, in 64ths of a
 unit), the other nine the rotation's rows (minus 32768, in 32766ths).
 
-## Levels of detail
+### Levels of detail
 
 Each (12 bytes): how many surfaces, where the first starts and where the
 next level of detail starts, both from the level's start. Reluva loads
@@ -43,7 +49,7 @@ every level, and chooses one for each model as it's drawn, as the
 original does: lower levels with distance, and further down with the
 model detail setting (`r_lodBias`).
 
-## Surfaces (168 bytes, then their data)
+### Surfaces (168 bytes, then their data)
 
 | Offset | Size | Field |
 |---|---|---|
@@ -64,7 +70,14 @@ texture coordinates, how many weights it has (24 bytes), then its weights,
 20 bytes each: a bone, a weight, an offset (a vector). A triangle is three
 vertex numbers.
 
-## Posing
+### Tags (36 bytes each)
+
+A bone and a 32-byte name. In a frame, the tag's axes are the bone
+matrix's first three columns (x, y, z) and its position the fourth.
+
+## Behaviour
+
+### Posing
 
 A vertex's position in a frame is the sum, over its weights, of the
 weight times the bone's matrix applied to the offset (rotation, then the
@@ -74,7 +87,7 @@ the bones' matrices; Reluva poses every frame when loading (as an `.md3`
 holds them) and blends the posed vertices on the GPU, which differs only
 in how a blend between two quite different frames bends.
 
-## Tags (36 bytes each)
+## Sources and checks
 
-A bone and a 32-byte name. In a frame, the tag's axes are the bone
-matrix's first three columns (x, y, z) and its position the fourth.
+- **Where the facts come from:** the GPL ioquake3 renderer (`qfiles.h`,
+  `tr_model.c`, `tr_animation.c`), as said above.

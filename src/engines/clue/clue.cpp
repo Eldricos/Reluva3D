@@ -7,7 +7,7 @@
 // Everything in this engine must come from the game's data files, observed
 // behaviour of the original, or documented reverse engineering of a legally
 // owned copy. Never from leaked source code. See CONTRIBUTING.md and
-// docs/engines/clue/README.md.
+// docs/engines/clue/REVERSE_ENGINEERING.md.
 //
 // The game starts as the original does: its intro, then its menus, the
 // players' set-up and the game in the mansion, alone or over a network

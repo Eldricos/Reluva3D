@@ -1,10 +1,12 @@
-# Known differences from the original
+# Star Trek: Deep Space Nine - Harbinger: known differences from the original
 
 Where this engine knowingly behaves differently from DEEP.EXE, and why.
 Everything else is meant to match the original; a difference not listed here
 is a bug.
 
-## Added conveniences (turned off by *Play exactly as the original*)
+## By choice
+
+### Added conveniences (turned off by *Play exactly as the original*)
 
 | Difference | Original | Where |
 |---|---|---|
@@ -16,6 +18,30 @@ is a bug.
 
 The recoloured save picture has to make do with the menu palette's colours, so
 some pictures may look banded.
+
+### Deliberate simplifications (always on)
+
+* **No disc prompts.** `CD` (require disc) only records the disc number; files
+  are looked up on every part of the game's folder (both CDs side by side,
+  or Reluva's import of both). Without disc 2, its content is simply missing
+  instead of being asked for.
+* **Lip-sync redraws.** While a talker speaks, the original renders only when the
+  mouth changes shape (`render(dl=2)`), and other animations advance with speed
+  step 3 meanwhile. This engine keeps rendering every 20 ms with speed step 3
+  and applies the `dl=2` erase rule (stopped `clear` animations are erased too)
+  for as long as the line plays. Mouths look the same; other animations may
+  differ slightly in timing during speech.
+
+## Bugs fixed
+
+* **GOSUB stack in saved games.** The original's loader reads 2 bytes per
+  return point and then overwrites the value with fread's result, so a game
+  saved inside a subroutine call is restored wrongly. This engine reads the
+  u32 values the original writes (`game/game_save.cpp`, `loadGame`).
+
+## Not yet as the original
+
+None yet.
 
 ## Additions outside the game
 
@@ -32,20 +58,3 @@ some pictures may look banded.
 * Saved games and the original's settings file live in the game's own
   folder of Reluva's (`games/<entry>/savegame/` and `games/<entry>/dlas.ds9`)
   instead of the game's install folder. The file format is the original's.
-
-## Deliberate fixes and simplifications (always on)
-
-* **GOSUB stack in saved games.** The original's loader reads 2 bytes per
-  return point and then overwrites the value with fread's result, so a game
-  saved inside a subroutine call is restored wrongly. This engine reads the
-  u32 values the original writes (`game/game_save.cpp`, `loadGame`).
-* **No disc prompts.** `CD` (require disc) only records the disc number; files
-  are looked up on every part of the game's folder (both CDs side by side,
-  or Reluva's import of both). Without disc 2, its content is simply missing
-  instead of being asked for.
-* **Lip-sync redraws.** While a talker speaks, the original renders only when the
-  mouth changes shape (`render(dl=2)`), and other animations advance with speed
-  step 3 meanwhile. This engine keeps rendering every 20 ms with speed step 3
-  and applies the `dl=2` erase rule (stopped `clear` animations are erased too)
-  for as long as the line plays. Mouths look the same; other animations may
-  differ slightly in timing during speech.

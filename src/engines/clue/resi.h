@@ -4,7 +4,7 @@
 #pragma once
 
 // dialogInfo.res: the fonts, and the layout of every menu and dialog. See
-// docs/engines/clue/resi.md.
+// docs/engines/clue/formats/resi.md.
 
 #include "common/types.h"
 

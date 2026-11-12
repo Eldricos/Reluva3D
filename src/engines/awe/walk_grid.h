@@ -11,7 +11,7 @@
 
 // Where characters can walk in a camera's view: the grid in the scene's
 // CAMR record, 64 x 64 cells over the floor (y = 0), centred on the
-// world's origin. See docs/engines/awe/ac2.md.
+// world's origin. See docs/engines/awe/games/motoe/formats/ac2.md.
 //
 // Cell (a, b) runs along x with a and back along z with b; its centre is
 //   x = (a - 32) * size + size / 2,  z = (32 - b) * size - size / 2
@@ -60,7 +60,7 @@ public:
 
     // One search as the game's path-finder makes it (0x42ef40): A* over
     // the cells, then the points dropped that a turn and a straight line
-    // can go past (see docs/engines/awe/ac2.md). `out` gets the points
+    // can go past (see docs/engines/awe/games/motoe/formats/ac2.md). `out` gets the points
     // left, the goal first and the start left out: cell centres, and the
     // heading of the turn into each. Returns how many, or 0 or less if
     // there's no path.

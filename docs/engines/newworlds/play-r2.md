@@ -111,7 +111,7 @@ The selection panel (51 samples) names, all owner "ROMULAN":
 | Panel name | Model (by the icon's shape) | Sure? |
 |---|---|---|
 | Colony hub | `rch` (the arch) | sure |
-| Colony hub upgrade | `rch_b` (the upgrade shows its base's portrait) | fairly ([colony.md](../formats/colony.md#romulan-matches)) |
+| Colony hub upgrade | `rch_b` (the upgrade shows its base's portrait) | fairly ([colony.md](colony.md#romulan-matches)) |
 | Construction yard upgr (the game's abbreviation) | `rcy_b`, the ramp-shaped block joined to the yard | likely |
 | Vehicle yard | `rvy` | fairly |
 | Science station | `rsb_a` | fairly |
@@ -226,7 +226,7 @@ of recording). String 11 (MISSION PASS) wasn't seen.
   briefing: which models?
 - (Answered since: Colony hub upgrade `rch_b`, Science station upgrade
   `rsb_b`, Utility hospital `ruh_a`, Transporter pad `rbcs`;
-  [colony.md](../formats/colony.md#romulan-matches).)
+  [colony.md](colony.md#romulan-matches).)
 - Why objective 17 (rescue prisoners) never appears in COMMAND or the
   report; is it tracked at all?
 - Where the colony site is in eighths (hover the hub with the Tricorder).

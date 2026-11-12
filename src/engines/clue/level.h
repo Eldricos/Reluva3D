@@ -3,7 +3,7 @@
 
 #pragma once
 
-// Clue's objects (.o) and its mansion (clue.lvl). See docs/engines/clue/level.md.
+// Clue's objects (.o) and its mansion (clue.lvl). See docs/engines/clue/formats/level.md.
 
 #include "common/types.h"
 #include "engines/clue/resources.h"

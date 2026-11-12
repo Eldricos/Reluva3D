@@ -13,7 +13,7 @@ paraphrased. October 2026.
   same shape as the Klingon bonus mission C10 ([play-c10.md](play-c10.md)).
 - **The map**: a forest world (`alpwrld`); its mine reported exhausted at
   260, 300 lies on deposits of `f3` and `j3` (read as in
-  [gmf.md](../formats/gmf.md#map-positions-in-the-game)), both forest maps, so one of
+  [gmf.md](gmf.md#map-positions-in-the-game)), both forest maps, so one of
   those.
 - **Messages**: none at first (1:40); lost contact with a transmission
   (2:21); Security reading an Orion force big enough to mean invasion, to

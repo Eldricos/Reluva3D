@@ -60,7 +60,7 @@ spires and ships (`forbuild.cat`'s `mch`, `hcp`-like towers).
 
 Its six exhausted mines are the largest set from one map; with the others
 they fixed the game's coordinates as eighths of a block, row first
-([gmf.md](../formats/gmf.md#map-positions-in-the-game)).
+([gmf.md](gmf.md#map-positions-in-the-game)).
 
 ## Colony
 

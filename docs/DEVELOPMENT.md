@@ -110,9 +110,9 @@ engine as a whole, so a change anywhere (in `src/common/`, say) that alters
 what an engine does is caught, even where no unit test looks. Elite Force
 (`idtech3`) has both, as do Harbinger (`stharbinger`, see
 [its TESTING.md](engines/stharbinger/TESTING.md)) and Murder on the Orient
-Express (`awe`, `RELUVA_MOTOE`, see [its TESTING.md](engines/awe/TESTING.md)),
+Express (`awe`, `RELUVA_MOTOE`, see [its TESTING.md](engines/awe/games/motoe/TESTING.md)),
 and LEGO Alpha Team (`netimmerse`, `RELUVA_ALPHATEAM`, see
-[its TESTING.md](engines/netimmerse/TESTING.md)).
+[its TESTING.md](engines/netimmerse/games/legoalphateam/TESTING.md)).
 
 ### The basic engine test: no game files
 

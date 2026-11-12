@@ -3,7 +3,7 @@
 
 // reluva-tool awe game-run -solve and -play: a player that looks for a way
 // through the game, and plays a way found back. See
-// docs/engines/awe/acts.md ("Finding a playthrough").
+// docs/engines/awe/games/motoe/systems/acts.md ("Finding a playthrough").
 //
 // A playthrough is a list of what a player does, one a line:
 //

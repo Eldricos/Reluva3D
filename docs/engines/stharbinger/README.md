@@ -5,31 +5,13 @@ Deep Space Nine – Harbinger* (Viacom New Media, 1996, DOS, two CDs) from the
 player's own copy. It came to Reluva from STDS9H, ported with its game logic
 as it was.
 
-## This folder
+## Games
 
-| Page | What's in it |
-|---|---|
-| [formats/](formats/) | The game's files: [discs](formats/discs.md), [archives](formats/archives.md), [backgrounds and palettes](formats/backgrounds.md), [animations](formats/animations.md), [sound](formats/audio.md), [deck maps](formats/deck-maps.md), [cursors](formats/cursors.md), [action sequences](formats/action-sequences.md), [videos](formats/videos.md), [saved games](formats/saves.md), [scripts](formats/scripts.md), [the executable](formats/executable.md), and the [script reference](formats/script-reference.md) |
-| [REVERSE_ENGINEERING.md](REVERSE_ENGINEERING.md) | How it was worked out, the notes from reading DEEP.EXE ([reverse-engineering/](reverse-engineering/)), and the tools |
-| [KNOWN_DIFFERENCES.md](KNOWN_DIFFERENCES.md) | Where it knowingly differs from the original |
-| [UNCONFIRMED.md](UNCONFIRMED.md) | Details inferred or guessed from the executable |
-| [TESTING.md](TESTING.md) | The tests, and what has been checked on the real discs |
+| Game | Game id | Publisher, year | Platform | Releases recognised | State |
+|---|---|---|---|---|---|
+| Star Trek: Deep Space Nine – Harbinger | `ds9harbinger` | Viacom New Media, 1996 | DOS, two CDs | English (DOS) | Runs everything the game does; not yet played on the discs in Reluva |
 
-## Where it stands
-
-Every data format is decoded. The engine runs the scene scripts
-(backgrounds, hotspots, variables, timers, animations, sounds, scene
-changes), the conversations (speech with lip-sync and the reply menu), the
-videos (Smacker), the game's mouse cursors and the action sequences (left
-button: phaser, right button: torpedoes), the game menu with saving and
-loading, the credits and the deck map. Everything the game does is there;
-what remains is checking it against the original
-([TESTING.md](TESTING.md)).
-
-In STDS9H it was checked on the real discs; the port to Reluva passes all of
-STDS9H's tests and Reluva's own, but hasn't been played on the discs yet.
-
-## Releases
+### Releases
 
 Recognised by the game's files (`findGameParts`,
 `src/engines/stharbinger/detection.cpp`): disc 1's scripts (`SSE/SSE.ALL`, or
@@ -61,6 +43,20 @@ from the CD's root (so the names include `SSE/`) and add its entry:
 so it's no use there. A disc-2 file (a video in `DS9/INTRO`, say) can be
 added for a release that differs on disc 2. For any release not in the
 table, the file check names the game.
+
+## Where it stands
+
+Every data format is decoded. The engine runs the scene scripts
+(backgrounds, hotspots, variables, timers, animations, sounds, scene
+changes), the conversations (speech with lip-sync and the reply menu), the
+videos (Smacker), the game's mouse cursors and the action sequences (left
+button: phaser, right button: torpedoes), the game menu with saving and
+loading, the credits and the deck map. Everything the game does is there;
+what remains is checking it against the original
+([TESTING.md](TESTING.md)).
+
+In STDS9H it was checked on the real discs; the port to Reluva passes all of
+STDS9H's tests and Reluva's own, but hasn't been played on the discs yet.
 
 ## Using it
 
@@ -147,6 +143,18 @@ folder (`~/.local/share/STDS9H/stds9h/harbinger/` on Linux,
 and `dlas.ds9` across. STDS9H's `stds9h.ini` isn't read; its settings are
 Reluva's now.
 
+## This folder
+
+| Page | What's in it |
+|---|---|
+| [formats/](formats/) | The game's files: [discs](formats/discs.md), [archives](formats/archives.md), [backgrounds and palettes](formats/backgrounds.md), [animations](formats/animations.md), [sound](formats/audio.md), [deck maps](formats/deck-maps.md), [cursors](formats/cursors.md), [action sequences](formats/action-sequences.md), [videos](formats/videos.md), [saved games](formats/saves.md), [scripts](formats/scripts.md), [the executable](formats/executable.md) |
+| [systems/](systems/) | How the game runs its data: the [script reference](systems/script-reference.md) |
+| [research/](research/) | The working notes from reading DEEP.EXE: the scene interpreter, dialogue, the menu and saves, the arcade sequences, cursors and video, special functions, and address lists |
+| [REVERSE_ENGINEERING.md](REVERSE_ENGINEERING.md) | How it was worked out, the notes from reading DEEP.EXE ([research/](research/)), and the tools |
+| [KNOWN_DIFFERENCES.md](KNOWN_DIFFERENCES.md) | Where it knowingly differs from the original |
+| [UNCONFIRMED.md](UNCONFIRMED.md) | Details inferred or guessed from the executable |
+| [TESTING.md](TESTING.md) | The tests, and what has been checked on the real discs |
+
 ## Code
 
 | Folder | What's in it |
@@ -161,7 +169,7 @@ Reluva's now.
 | `tools/` | Its `reluva-tool` commands ([REVERSE_ENGINEERING.md](REVERSE_ENGINEERING.md#the-tools)) |
 
 Shared code it uses from `src/common/`: the Smacker decoder
-([smacker.md](../../common/smacker.md)), PKWARE DCL
+([smacker.md](../../common/video/smacker.md)), PKWARE DCL
 ([dcl.md](../../common/dcl.md)), byte streams, 8-bit drawing and palettes,
 and the mixer's streams.
 

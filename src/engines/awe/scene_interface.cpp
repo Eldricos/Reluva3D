@@ -2,7 +2,7 @@
 // Copyright (C) 2026 The Reluva contributors
 
 // The Scenes page's interface, as motoe.exe draws it over a game's scenes
-// (docs/engines/awe/interface.md): the bar along the top (0x417290), the
+// (docs/engines/awe/games/motoe/systems/interface.md): the bar along the top (0x417290), the
 // inventory window and its six pages (0x4190d0...), the item in hand
 // (0x415650), and the passport or fingerprint card a script holds up
 // (0x417ba0).

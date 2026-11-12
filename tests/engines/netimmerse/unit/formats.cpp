@@ -2,7 +2,7 @@
 // Copyright (C) 2026 The Reluva contributors
 
 // The NetImmerse engine's readers, against files built here following
-// docs/engines/netimmerse/formats/, so no game data is needed: .pac
+// docs/engines/netimmerse/games/legoalphateam/formats/, so no game data is needed: .pac
 // archives, .DDS sounds, the locale's text, .FIN models and their
 // animation, .DDF fonts.
 //

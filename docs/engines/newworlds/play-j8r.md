@@ -83,7 +83,7 @@ Selection panel (16 samples), all owner ROMULAN:
 |---|---|---|
 | colony hub (4:14, 4:19; OPERATIONAL, efficiency 120 %) | `rch` (the arch) | sure |
 | construction yard (4:55; 80 %) | `rcy_a` (low base with four raised corners, green-lit) | fairly (ground view at 3:35 and the JUMP TO icon match) |
-| science station (5:21; INCOMPLETE, 0 %) | portrait splayed, crab-like (as in J7): `rsb_a` | sure ([colony.md](../formats/colony.md#romulan-matches)); it is being built, so not a starting building |
+| science station (5:21; INCOMPLETE, 0 %) | portrait splayed, crab-like (as in J7): `rsb_a` | sure ([colony.md](colony.md#romulan-matches)); it is being built, so not a starting building |
 | vehicle yard (5:42, 6:34; OPERATIONAL, 100 %) | `rvy` (octagonal ring) | sure (also the page-6 model) |
 | APC (2:32; READY, shield BASIC) | pale crystal-like vehicle portrait | - |
 | ground scout (3:02; EN ROUTE, BASIC) | same pale crystal portrait | - |

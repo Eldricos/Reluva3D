@@ -4,7 +4,7 @@
 # The AWE engine's test with the game's own files: one step each time ctest
 # runs this script (cmake -P), as registered by reluva_add_gamedata_test in
 # src/engines/awe/CMakeLists.txt. See docs/DEVELOPMENT.md (Engine tests) and
-# docs/engines/awe/TESTING.md.
+# docs/engines/awe/games/motoe/TESTING.md.
 #
 # The game's folder (Murder on the Orient Express installed: the one
 # holding motoe.exe) comes from the environment variable named by GAME_ENV
@@ -30,7 +30,7 @@
 # tests/engines/awe/data/gamedata/<release>/<step>.txt. The step passes when
 # its record is the same as the committed one. Records so far: english-1.0
 # (made on Linux); make others with RELUVA_GAMEDATA_UPDATE=1, and check
-# them (docs/engines/awe/TESTING.md).
+# them (docs/engines/awe/games/motoe/TESTING.md).
 #
 # Environment: RELUVA_MOTOE, the game's folder; and those of the shared
 # helpers (cmake/ReluvaGamedata.cmake): RELUVA_GAMEDATA_UPDATE=1,

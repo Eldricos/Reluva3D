@@ -16,7 +16,7 @@
 // its tables (Text/Dialogue/act<NN><x>.txt for an act, and the gen_ tables
 // for all), and how a conversation plays: the opening, the choices, each
 // line's commands, voice and text, its progress kept for the conditions.
-// See docs/engines/awe/dialogue.md.
+// See docs/engines/awe/games/motoe/systems/dialogue.md.
 
 namespace reluva::awe {
 

@@ -1,16 +1,8 @@
 # id Tech 3: virtual machine programs (`vm/*.qvm`)
 
-Status: **interpreter implemented** (`src/engines/idtech3/qvm.cpp`), tested
-on hand-built programs and on a C program compiled by the Quake III compiler
-(`tests/engines/idtech3/data/qvm/`), whose every result matches the same program compiled
-natively, and running Elite Force's own three QVMs (the menus, the client
-game and the server game, Holomatch played with them); their system calls
-are in [eliteforce-syscalls.md](eliteforce-syscalls.md). `reluva-tool
-idtech3 qvm-info` and `qvm-run` look inside them.
+> **Status:** decoded · **Code:** `src/engines/idtech3/qvm.cpp` · **Checked on:** hand-built programs, a C program compiled by the Quake III compiler, and Elite Force's own three QVMs · **Confidence:** confirmed unless marked
 
-Sources: the GPL Quake III Arena source (`qcommon/qfiles.h`, `vm.c`,
-`vm_interpreted.c`, `vm_local.h`), read for the format and behaviour, not
-copied.
+## Overview
 
 Game code that the engine runs in a sandbox: Elite Force's multiplayer
 holds three, `vm/qagame.qvm` (the server game), `vm/cgame.qvm` (the
@@ -18,7 +10,9 @@ client: HUD, effects, prediction) and `vm/ui.qvm` (the menus). A QVM
 reaches the engine only through numbered system calls, whose numbers and
 meanings are each game's own.
 
-## File
+## Layout
+
+### File
 
 All values little-endian.
 
@@ -41,7 +35,7 @@ instruction numbers, not byte offsets.
 to a power of two; addresses are offsets into it. The program stack is at
 the top and grows down (64 KiB); the compiler includes it in the bss.
 
-## Opcodes
+### Opcodes
 
 0 `UNDEF`, 1 `IGNORE`, 2 `BREAK`, 3 `ENTER`, 4 `LEAVE`, 5 `CALL`, 6 `PUSH`,
 7 `POP`, 8 `CONST`, 9 `LOCAL`, 10 `JUMP`, 11-20 `EQ NE LTI LEI GTI GEI LTU
@@ -58,7 +52,9 @@ both and jump to the operand if a op b holds. Loads replace an address
 with what's there (zero-extended); stores pop a value then an address.
 Floats are their bits in the same 32-bit slots.
 
-## Calls
+## Behaviour
+
+### Calls
 
 - `ENTER n` starts a function: the stack pointer drops by n, the frame's
   size. `LEAVE n` raises it again and returns to the address stored at the
@@ -73,7 +69,23 @@ Floats are their bits in the same 32-bit slots.
   instruction 0, with -1 as the return address that ends the run. System
   calls may call back into the program (nested `vmMain` calls).
 
-## Reluva's interpreter
+### System calls shared by every program
+
+Whatever a game numbers the rest, the calls from 100 up have so far been
+the same in each module (Quake III's, and Elite Force's going by its logs):
+100 `memset(dest, value, count)`, 101 `memcpy`, 102 `strncpy(dest, src,
+count)`, 103 `sin`, 104 `cos`, 105 `atan2(y, x)`, 106 `sqrt`; floats are
+passed and returned as their bits. `floor`, `ceil` and the vector helpers
+come after these, at numbers that differ between modules.
+
+A `vmCvar_t`, through which the programs see console variables, is four
+words (handle, modification count, value as a float, value as an integer)
+and the value as a 256-byte string: 272 bytes, which is also the spacing of
+the structures Elite Force's menus register in turn.
+
+## In Reluva
+
+### Reluva's interpreter
 
 Every memory access, jump, call target and stack change is checked; a
 fault stops the call with an error naming the instruction (the original
@@ -97,7 +109,7 @@ When the Menu page's menus stop, it writes the error, the last 64 system
 calls with their arguments, and what the menus printed to
 `menus-stopped.txt` in the game's folder in Reluva's data directory.
 
-## Tools
+### Tools
 
 - `reluva-tool idtech3 qvm-info <game folder> vm/ui.qvm [-s]`: sizes, function
   count, and every system call number the code uses (a constant negative
@@ -107,7 +119,7 @@ calls with their arguments, and what the menus printed to
   `vmMain` answering every system call with 0, logging each call's number
   and arguments, with the text of arguments that point at strings. This is
   how Elite Force's system calls are worked out from its own code
-  ([eliteforce-syscalls.md](eliteforce-syscalls.md)).
+  ([../games/stvef/systems/syscalls.md](../games/stvef/systems/syscalls.md)).
 - `reluva-tool idtech3 qvm-refs <game folder> vm/ui.qvm <address> <size>`: the
   constants in the code that point into a structure at `address` (as seen
   in a `qvm-run` log), by offset, with the instruction that uses each:
@@ -122,19 +134,17 @@ calls with their arguments, and what the menus printed to
   page) and reports what they print, register and draw, and the calls not
   implemented yet.
 
-## System calls shared by every program
+## Sources and checks
 
-Whatever a game numbers the rest, the calls from 100 up have so far been
-the same in each module (Quake III's, and Elite Force's going by its logs):
-100 `memset(dest, value, count)`, 101 `memcpy`, 102 `strncpy(dest, src,
-count)`, 103 `sin`, 104 `cos`, 105 `atan2(y, x)`, 106 `sqrt`; floats are
-passed and returned as their bits. `floor`, `ceil` and the vector helpers
-come after these, at numbers that differ between modules.
+The C program (`tests/engines/idtech3/data/qvm/`) gives every result the
+same program gives compiled natively, and Elite Force's own three QVMs run (the menus, the client
+game and the server game, Holomatch played with them); their system calls
+are in [../games/stvef/systems/syscalls.md](../games/stvef/systems/syscalls.md). `reluva-tool
+idtech3 qvm-info` and `qvm-run` look inside them.
 
-A `vmCvar_t`, through which the programs see console variables, is four
-words (handle, modification count, value as a float, value as an integer)
-and the value as a 256-byte string: 272 bytes, which is also the spacing of
-the structures Elite Force's menus register in turn.
+Sources: the GPL Quake III Arena source (`qcommon/qfiles.h`, `vm.c`,
+`vm_interpreted.c`, `vm_local.h`), read for the format and behaviour, not
+copied.
 
 The test programs in `tests/engines/idtech3/data/qvm/` are compiled with the Quake III
 compiler tools (`q3lcc`, `q3asm`), built from the ioquake3 source; only

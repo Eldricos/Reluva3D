@@ -3,74 +3,50 @@
 Engine id `idtech3`, in `src/engines/idtech3/`. First game: Star Trek:
 Voyager - Elite Force (`stvef`).
 
+## Games
+
+| Game | Id | Docs |
+|---|---|---|
+| Star Trek: Voyager - Elite Force | `stvef` | [games/stvef/](games/stvef/README.md): using it, its map entities, its game code's interfaces, its network protocol, and its known differences, unconfirmed items, testing and how it was worked out |
+
+## Where it stands
+
+| Part | State |
+|---|---|
+| Detection | Elite Force's CD, its 1.1 and 1.2 patch levels and the Expansion Pack, by their files' hashes; other releases as "unknown release" |
+| Import | From the CD, an install or a copy; the 1.2 patch from its installer, and the Expansion Pack from its CD or an install |
+| Mods | A folder beside `baseEF`, picked in the launcher or in the game's own Mods screens |
+| File system | done: `baseEF` loose files over its paks, later paks first (`filesystem.cpp`, [pk3.md](formats/pk3.md)) |
+| Text files | done: tokenizer ([text.md](formats/text.md)) and entity lump |
+| Shader scripts | every Quake III directive parsed into typed fields, unknown ones listed (`reluva-tool idtech3 shader-check`) ([shader.md](formats/shader.md)) |
+| Maps | every BSP lump read and validated; all 67 retail maps load ([bsp.md](formats/bsp.md)) |
+| Images | TGA, JPEG, PNG (`common/image.cpp`) |
+| Models | MD3 and Elite Force's MDR, players put together from their parts, lit by the light grid ([md3.md](formats/md3.md), [mdr.md](formats/mdr.md)) |
+| Game code | QVM interpreter done ([qvm.md](formats/qvm.md)); Elite Force's menus, game and client game run on it |
+| Viewer | Menu, Play, World, Models, Maps, Textures and Files pages |
+| Renderer | Every shader stage, sky boxes and cloud layers, curved surfaces, fog, dynamic lights, models' levels of detail, and visibility as the original's renderer has it |
+| Sound | sounds by name, decoded once (`sounds.cpp`), mixed by `common/audio`'s mixer; the menus' sounds; in the Play page sounds placed in the world, looping sounds and music (`sound_system.cpp`) |
+
+How each part works with Elite Force, in full: [games/stvef/](games/stvef/README.md#where-it-stands).
+
 ## This folder
 
 | Doc | What's in it |
 |---|---|
-| This page | The engine's layout, where it stands, what's next |
-| [formats/](formats/) | File formats, the game code's interfaces and the network protocol, each fact with its source |
-| [KNOWN_DIFFERENCES.md](KNOWN_DIFFERENCES.md) | Where Reluva deliberately differs from the original game |
-| [UNCONFIRMED.md](UNCONFIRMED.md) | What's assumed rather than confirmed |
-| [TESTING.md](TESTING.md) | What still needs playing |
-| [REVERSE_ENGINEERING.md](REVERSE_ENGINEERING.md) | How it was all worked out, and the rules followed |
+| This page | The engine: why one engine for a family of games, its code, where it stands; what's next is in [PLAN.md](PLAN.md) |
+| [formats/](formats/) | id Tech 3's file formats, the same for every game on it, each fact with its source |
+| [games/](games/) | A folder per game, for what's its own (above) |
+| [PLAN.md](PLAN.md) | The plan: next steps, and the open questions about the game code |
+
+A page goes in a game's folder when it was worked out from that game, and
+moves up to this folder once another game is found to share it.
+
+## Code
 
 Shared code it uses (the x86 interpreter, Bink videos, Wise installers) is
 described in [docs/common/](../../common/).
 
-## Using it with Elite Force
-
-You need the game: the English Windows CD (or a disc image), or an install
-made by its own setup. The 1.2 patch installer (`eliteforcepatch1_2.exe`)
-and the Expansion Pack's CD are optional.
-
-- **Adding the game.**
-  - *Add Game...* in the launcher plays it from an existing install.
-  - *Import Game...* copies it from the CD (or an install) into Reluva's
-    library folder. It takes only the files Reluva needs, so nothing has to
-    be installed, on any system.
-- **The patch.** *Add patch...* during an import, or *Apply Patch...* for a
-  game already added, takes 1.2's files out of the patch installer without
-  running it.
-- **The Expansion Pack.** *Add expansion...* during an import, or *Add
-  Expansion...* for a game already added, copies it from its CD. Each game
-  has a *Use the Expansion Pack* setting, so the same folder can be added
-  twice to play with and without it.
-- **Mods** (folders beside `baseEF` with their own paks) are chosen with a
-  game's *Mod* setting, or from the game's own Mods screens.
-- **From a terminal:** `reluva-tool detect <folder>` and `reluva-tool import
-  <source> [destination] [-patch <installer or Expansion CD>]...` do the
-  same as the launcher.
-
-A game starts on a page to choose single player, Holomatch or the
-developer tools:
-
-- **Single player and Holomatch** are the game's own menus and play, with
-  its own keys.
-- **The developer tools** are pages for the game's data. **Ctrl+Tab** steps
-  through them; plain **Tab** is the game's.
-  - **3D world:**
-    - **Left/Right** picks a map; drag to look;
-    - **W/A/S/D** move, **Space/C** (or **E/Q**) go up and down, **Shift**
-      goes faster;
-    - **R** returns to the start, and **I** shows or hides the info.
-
-    Models placed by the map's entities show too.
-  - **Models**, players put together:
-    - **Left/Right** step through them; drag to turn, and the wheel zooms;
-    - **A** animates, and **,/.** step frames.
-  - **Wireframe maps:**
-    - **Left/Right** picks one;
-    - drag (or **Shift+arrows**) rotates, the wheel (or **+/-**) zooms, and
-      **W/A/S/D/Q/E** move;
-    - **P** shows or hides patches, **I** the info, and **R** resets the
-      view.
-  - **Textures:** **Left/Right** step through them (**PageUp/PageDown** by
-    10).
-  - **Files:** the search path, and which archive each file comes from.
-
-3D needs a GPU with Vulkan (Linux, Windows) or Metal (macOS).
-
-## Why one engine for a family of games
+### Why one engine for a family of games
 
 Like ScummVM's SCUMM engine, which runs many games, this engine is meant
 for every game built on the Quake III Arena engine (Elite Force, Quake III
@@ -102,154 +78,3 @@ Code that isn't specific to id Tech 3 goes in `src/common/` so any engine
 can use it: zip archives, the `Archive`/`SearchSet` file system, image
 decoding, audio. The engine never touches SDL; it uses `System`, like
 every engine.
-
-## Where it stands
-
-| Part | State |
-|---|---|
-| Detection | Elite Force: the Windows CD's pak0.pk3 by its hash (no Windows program needed); other releases by file names, shown as "unknown release". The description gives the patch level (pak1.pk3: 1.1, pak2.pk3: 1.2, by their hashes) and the Expansion Pack (its pak3.pk3, by its hash), says when single player's DLLs are missing, and is brought up to date when the game is started. The Expansion Pack's DLLs (told from 1.0's and 1.1's by their hashes) are its own single player's: an import keeps them in `expansion/`, beside the root's 1.1 DLLs, so a game can be played either way; an install made with the Expansion has only its DLLs, in the root, and then single player is the Expansion's alone. Each game in the launcher has a *Use the Expansion Pack* setting (on by default; `expansion=0` in its section of `reluva.ini`): off, pak3.pk3 isn't loaded and single player uses the 1.1 DLLs. Adding the same folder twice gives two entries, one with it on and one off |
-| Import | From the English Windows CD (`SETUP/BaseEF/pak0.pk3` and the DLLs beside it are plain files on it), an install, or a copy of either: the game folder's `.pk3` files, CD key files (`efq3.key`, `expefq3.key`), saved games and demos, and `efgamex86.dll`/`efuix86.dll`, into a folder of Reluva's (`<data>/library/stvef`). From the CD alone that's 1.0; with the 1.2 patch's installer (`eliteforcepatch1_2.exe`, picked with *Add patch...* or found beside the folder picked) its `pak1.pk3`, `pak2.pk3` and 1.1 DLLs are taken out of it as the rest is copied, giving 1.2 (`docs/common/wise.md`). *Apply Patch...* does the same for a game already added, into its folder. The Expansion Pack comes from its CD (its `Setup/baseef/pak3.pk3`, with pak1/pak2, which are 1.2's, and the DLLs in `Setup/`) or an install of it: *Add expansion...* in the import, or *Add Expansion...* for a game already added, copies pak3.pk3, `expefq3.key` if there is one, and its DLLs into `expansion/`. The expansion's single player was changed (its own `GetGameAPI` table, Init and ReadLevel; see [eliteforce-sp-interface.md](formats/eliteforce-sp-interface.md)), which Reluva tells by the DLL's hash. Its saved games can't be loaded by 1.x's game code, nor 1.x's by it (below), so Reluva keeps them apart: 1.x's in the game's save folder's `saves/`, the Expansion's in `expansion/saves/`; saves found in the other's folder are moved to their own as single player starts, and the load menu leaves out those of the other version (the game folder's own included), a load of one refused with a message |
-| Mods | As Elite Force's engines: a mod is a folder beside `baseEF` with paks of its own; `fs_game` (flags system info and init) names the one played. Its folder (in the install, then in the save folder) is searched above `baseEF`'s, so its paks, loose files and (in Holomatch) game code (`vm/*.qvm`) win; single player's DLLs stay the install's, as the original loads them from the game's folder whatever the mod. The launcher's *Mod* setting for each game picks one, as the original's `+set fs_game`; the menus' Mods screens set `fs_game` and run `vid_restart`, and Reluva then mounts the game's files again and starts the pages over (Holomatch's engine does this, FS_ConditionalRestart at 0x421bf0 in `stvoyHM.exe`; single player's only reads `fs_game` as it starts, Reluva switches at once there too). Joining a server whose system info names another mod switches to it and joins again, as the original's client. A mod's saved games, settings and screenshots go in the game's save folder's `mods/<mod>/` (its settings start as the game's until it has its own); the CD key is shared; paks downloaded for it go in the save folder's `<mod>/` |
-| File system | done: `baseEF` loose files over its paks, later paks first (`filesystem.cpp`, [pk3.md](formats/pk3.md)) |
-| Text files | done: tokenizer ([text.md](formats/text.md)) and entity lump |
-| Shader scripts | every Quake III directive parsed into typed fields, unknown ones listed (`reluva-tool idtech3 shader-check`) ([shader.md](formats/shader.md)) |
-| Maps | every BSP lump read and validated; all 67 retail maps load ([bsp.md](formats/bsp.md)) |
-| Images | TGA, JPEG, PNG (`common/image.cpp`) |
-| Models | MD3 with every frame, tags, `.skin` files, players put together from their parts, lit by the light grid in maps ([md3.md](formats/md3.md)); placed where entities name a model; Elite Force's MDR models with their levels of detail; items and characters as the game code places them |
-| Game code | QVM interpreter done and tested against compiler output ([qvm.md](formats/qvm.md)). Elite Force's system calls worked out from its own code ([eliteforce-syscalls.md](formats/eliteforce-syscalls.md)); the menus' calls implemented (`eliteforce/ui_host.cpp`, `reluva-tool idtech3 ui-run`): console variables, files, registering, drawing. The Menu page runs them and draws them with the GPU renderer, with the keyboard and mouse; on the retail game the setup, CD key and main menus work, with their 3D models (the player in Player settings): the scenes both programs hand over are recorded by `client/scene.cpp` and drawn by `client/scene_drawer.cpp`, each RenderScene over the pictures drawn before it with depths cleared, those without the level lit evenly from above as the original lights them. While the client game loads, its UpdateScreen calls draw its loading screen (its frame drawn in the middle of its start-up, as the original does). qagame starts a level (`eliteforce/game_host.cpp`, `reluva-tool idtech3 game-run`): its entities spawn and link, with collision against the map (`collision.cpp`, curved patches included; areas as the original's: an entity's one or two areas found when it's linked, the game opening and closing the portal a door stands in (AdjustAreaPortalState), InPvs not seeing through a closed one, AreasConnected, the original's cm_noAreas to join them all; the Play page's info line counts the sight checks a closed door blocked; snapshots leave out what's behind closed doors and out of sight, see Network play below), and a player joins and moves. The client game (`eliteforce/cgame_host.cpp`) takes snapshots and the player's commands, draws the HUD and builds the 3D scene. The Play page runs both each frame with the keyboard and mouse (through key bindings: the game's `default.cfg`, changed in the menus' Controls and kept in `reluva.cfg` in the save folder; `bindings.cpp`), and draws the level from the player's eye with the HUD over it. The engine's settings from the menus apply: brightness (r_gamma, a final pass on the GPU raising each colour to 1/gamma, as the original's hardware gamma), mouse speed and inversion (sensitivity, m_pitch, m_yaw), smooth mouse (m_filter), free look (cl_freelook), key turn speeds (cl_yawspeed, cl_pitchspeed, cl_anglespeedkey), always run (cl_run), dynamic lights (r_dynamiclight) and screen size (the client game's view rectangle). The screenshot command (and screenshotjpeg, also as a TGA) saves the next frame, without Reluva's info lines, as `screenshots/shot0000.tga` (the first number free) or the name given, in the save folder; `screenshot silent` says nothing, as the original. Sounds play through `sound_system.cpp` as the client game asks (calls 28 to 35, Quake III's): placed in the world or following entities, full volume within 80 units then fading by 0.0008 a unit, panned by the listener's right; no sound cutting another (as ioq3's S_StartSound: the same sound on the same entity within 50 ms is skipped as a repeat; ioq3's cap of 5 copies of one sound per entity is left out, as it silenced rapid fire); looping sounds re-added each frame; the music's intro then its loop; at s_volume and s_musicvolume. The video settings apply too (`videoSettings()` in `pages/page.cpp`, read when a page is shown, and again when the menus run vid_restart, which starts the menus over as the original does; the engine's settings are registered as kept, so they're saved in `reluva.cfg`): resolution (r_mode, Quake III's list of sizes, or r_customwidth/height for -1; the frame is drawn at that size and letterboxed in the window, which takes that size when it fits on the screen), fullscreen (r_fullscreen, at the desktop's mode), texture detail (r_picmip: textures halved that many times with a 2x2 box filter, but for shaders marked nopicmip), texture filter (r_texturemode, GL_ names; r_ext_texture_filter_anisotropic, 16x), neither applying to pictures (menus, HUD), which the original loads without mipmaps, lighting (r_vertexLight: the level lit by its vertex colours instead of lightmaps), geometric detail (r_subdivisions: curves drawn straying at most that many units from round, as the original's, and bullet marks on them following; r_lodBias: models' `_1`/`_2` lower details, and MDR models' own levels of detail; and lower levels with distance, as the original chooses them) and simple sky (r_fastsky: the sky left black). |
-| Viewer | Menu (the game's own menus), Play (a Holomatch level run by the game's own code; Esc shows the game's own in-game menu over the match, as the original: the menus started on their menu 2, told they're connected (CA_ACTIVE, the player's number) and given the match's configstrings, their commands run at the Play page's console (`cmd ...` sent as the player's), closing when they let go of the keys; their Setup's `vid_restart` restarts the renderer, the level's graphics and the client game while the server and connection go on, as the original's; leaving a match brings the menus back to their main menu), World (3D, with entities' models), Models, Maps (wireframe), Textures and Files pages |
-| Renderer | every shader stage with its blend, depth, alpha test, rgbGen/alphaGen, tcGen/tcMod and animMap; deformVertexes wave/bulge/move/normal (`normal` as the original's: each normal pushed by its amplitude times a 4D value noise of the position and time, for the CTF flags' shimmer; of the rest, Elite Force's 1,891 shaders use only `projectionShadow`, the original's shader for r_shadows 3, not drawn); sort order (as the original's: everything in a view, the level's surfaces, models and effects alike, drawn by its shader's sort, the solid ones first with the dynamic lights over them); sky boxes and cloud layers; curved surfaces cut and stitched as the original's ([bsp.md](formats/bsp.md)), always at full detail; fog volumes (as the original's: by depth along the view, thinned towards the volume's surface when the eye is outside it); the original's implicit shaders and light scaling ([shader.md](formats/shader.md)). Dynamic lights. Models' levels of detail as the original chooses them (each model's radius as seen, then r_lodbias). Visibility as the original's renderer: in the Play page only the level's surfaces in leaves whose cluster the eye's can see (the vis data) and whose area a closed door doesn't hide (the snapshot's area mask, which the server works out from the player's area and the open doors, handed back in the view at refdef_t's byte 80) are drawn, worked out again when the cluster or the mask changes; then, each frame the view moves, only those whose bounds are inside the view's four sides (from its matrix) go in the frame's index list, uploaded into a reused, cycled GPU buffer. Mirrors and portals as the original's renderer: the nearest mirror or portal surface in view with a portal entity (type 8 in Holomatch, Quake III's portal surface one on; 7, Quake III's own, in single player) within 64 units of its plane, a portal within its shader's alphaGen portal range; its camera the mirror's reflection or the portal's (old origin, axes, turning by frame, old frame and skin number); that view drawn first inside the surface's shape (marked in the stencil), clipped at its plane (an oblique near plane), turned inside out for a mirror, with its own culling; then the surface's depth and the main view over it, the portal's shader blending over. The player's body is seen in mirrors, their weapon isn't. Autosprites as the original's: the level's autosprite surfaces kept aside and rebuilt as drawn, each quad facing the camera round its middle (autosprite) or turned about its long axis (autosprite2, the fire shaders), in mirrors too; not yet on models |
-| Sound | sounds by name, decoded once (`sounds.cpp`), mixed by `common/audio`'s mixer; the menus' sounds; in the Play page sounds placed in the world, looping sounds and music (`sound_system.cpp`) |
-
-## Next steps
-
-1. **Check against the retail data.** Done for maps (all 67 load) and
-   detection (one release); the retail paks are read; Elite Force's
-   shaders use no directive outside Quake III's; its map entities are
-   surveyed ([eliteforce-entities.md](formats/eliteforce-entities.md)).
-   The Expansion Pack is detected too. Still to do: detect its other
-   releases (the Mac and other-language versions).
-2. **3D rendering in `System`.** Done: `gfx::Renderer3D` in
-   `src/common/gfx3d.h` (textures, static meshes, draw calls with blend,
-   depth, cull and alpha-test state, a 2D overlay), reached through
-   `System::init3D`. The SDL3 backend implements it with SDL's GPU API
-   (`src/backends/sdl3/sdl_gpu.cpp`) on the same GPU device as SDL's
-   renderer, which the launcher keeps using. Shaders: see
-   `src/backends/sdl3/shaders/build.sh`. Vulkan is tested: Mesa's software driver on Linux, and an
-   NVIDIA RTX 2080 on Windows (Visual Studio 2022 build), where retail maps
-   run at the monitor's 144 Hz with about 1.2 ms of CPU time per frame.
-   The Metal path
-   (macOS) is checked by continuous integration: `reluva-render-check`
-   draws test frames through the renderer on a GitHub macOS runner and
-   compares them with references made on Vulkan (`tests/render`,
-   `.github/workflows/ci.yml`); it hasn't been played on a Mac yet.
-3. **World renderer**, continued: autosprites, mirrors, culling (by the
-   vis data, areas and the view) and drawing order are done, and fog volumes
-   follow the original's depth model. Translucent surfaces are drawn as
-   the original sorts them, by their shaders' sorts across the level,
-   models and effects; like the original, not by distance.
-   Checked against the original: retail maps look right at 144 fps on an
-   RTX 2080, and Elite Force's 1872 shaders use no directive outside
-   Quake III's; their autosprite2 fire and portal/mirror shaders are
-   drawn too.
-4. **Models**: done for MD3 and Elite Force's MDR, with interpolation
-   between frames and the players' `animation.cfg` (the Models page plays
-   them in pairs), and every level of detail. Players show in the Play
-   page and the menus. Shadows are the client game's own marks
-   (cg_shadows 1); still to do: the renderer's stencil and projected
-   shadows (r_shadows 2 and 3, which Elite Force's menus don't offer).
-5. **Bots**: done: they join, their library reads the `.aas` map with
-   areas and routes, characters and the bots' input, and they choose
-   goals and weapons, follow routes (lifts included), predict moves and
-   chat ([aas.md](formats/aas.md)). They don't answer chat:
-   the retail data has no reply file for them.
-6. **Network play**: Elite Force's protocol 24, as the retail game patched to
-   1.2 speaks it ([eliteforce-network.md](formats/eliteforce-network.md)).
-   The Play page opens each level it starts to other players on port
-   27960 (or the next free of 27961-27963), when the game code is
-   patch 1.2's: the protocol carries 1.2's layouts, and Reluva picks the
-   game code's layout (1.0's or 1.2's) by the size of the player states
-   it copies. `connect <address>` (the console, or the menus' server
-   list, whose local search and pings work) joins another's server;
-   `reconnect` and `disconnect` as the original. `reluva-tool idtech3 net-run`
-   hosts a level with no player of its own, or joins one and reports
-   what it's sent. Level changes on a Reluva host keep everyone, as the
-   original's: the game's `map` (the end of a match, a vote) loads the
-   level, starts the game code afresh and connects every player and bot
-   again, those on other machines sent the new game state; `map_restart`
-   (with a delay unless `g_doWarmup`, counted down in the warmup
-   configstring) restarts the game code in place, a game type or player
-   count change making it a full change; `vstr`, `kick`, `clientkick` and
-   `set` are the engine's as well. Played Reluva to Reluva, and solo, on the retail data
-   patched to 1.2 (which also confirms 1.2's layouts), and against the
-   retail game both ways (October 2026). Reluva answers a pure server's
-   check (`cp`, with pk3 checksums as the original's), tried against a
-   pure retail server, and hosts pure levels itself (`sv_pure 1`, set by
-   the menus' Pure Server line or `net-run -pure`), checking players'
-   paks; the level's paks are listed as the original lists them. Snapshots hold only what
-   the player could see, as the original's server picks it: not behind a
-   closed door, in a cluster their eye's can see, unless sent to all;
-   one-client and client-mask flags with 1.2's layout; through portal
-   cameras too. The menus' Internet list asks the master servers
-   (`sv_master1` to 5: Raven's, gone, then the community's
-   `efmaster.tjps.eu`; Elite Force's master 0 asks every one), and a
-   public server (`dedicated 2`, `reluva-tool idtech3 net-run -public`) sends them
-   heartbeats. Rates as the original's: each player's `rate`, players on
-   the local network unlimited, snapshots skipped (and the next flagged)
-   when the last datagram hasn't had its time, messages in pieces sent a
-   piece at a time. Downloads: a server with `sv_allowDownload 1` sends
-   the paks its level uses (game code, map; never Raven's `pak0`-`pak3`)
-   to players missing them, and a player with `cl_allowDownload 1`
-   downloads them into the save folder's `baseEF` (mounted above the
-   install's at start), checked against the server's checksum.
-7. **Sound**: done in the Play page: sounds placed in the world, looping
-   sounds and music, as the client game asks.
-8. **Game code**: see below.
-
-## Game code: open questions
-
-The renderer and file formats are the shared, well-documented part. The
-game logic is the hard part, and there are several possible routes. Each
-one has to be checked before anything is written:
-
-- **Licences.** Reluva's own code is all new. The GPL Quake III Arena
-  source (id's 2005 release, ioquake3) may be read as documentation of the
-  formats the games share, never copied.
-- **Raven's Elite Force game source is off-limits.** The single-player
-  game source Raven published in 2002 (the "STEF Game Source", expansion
-  version) comes under Raven's *Limited Use Software License Agreement*,
-  not the GPL. It allows only modifications that run with the retail game,
-  and forbids derivative works, reverse engineering and translation. Don't
-  copy it, and don't read it to write Reluva code; treat it like the leaked
-  source CONTRIBUTING.md warns about. The same goes for the multiplayer SDK
-  unless it turns out to carry a GPL-compatible licence. It also wouldn't
-  help with the shared formats: by its own ReadMe it holds only the game
-  DLLs' code, not the executable's renderer or map loading.
-- **Holomatch (multiplayer)**: `pak0.pk3` holds `vm/qagame.qvm` (server
-  game logic), `vm/cgame.qvm` (client: HUD, effects, prediction) and
-  `vm/ui.qvm` (menus): game logic as Quake III VM bytecode. So the original
-  logic can run in a QVM interpreter, with the engine providing the
-  system calls it makes, the way ScummVM runs games' own scripts. The
-  bytecode stays in the user's copy; Reluva only runs it.
-  - The QVM file format and instruction set are the same as Quake III's,
-    documented in the GPL source and community write-ups, so the
-    interpreter is new code written from that documentation.
-  - The system calls (numbers, arguments and meanings) are Elite Force's
-    own. They have to be worked out from the bytecode in an owned copy
-    (reverse engineering for interoperability, allowed by CONTRIBUTING.md
-    where local law permits) and from Quake III's documented ones where
-    they match, never from Raven's SDK.
-  - Only Holomatch uses the QVMs. Single player's engine (`stvoy.exe`)
-    loads its game and menus from the DLLs (`LoadLibrary` of
-    `efgamex86.dll` and `efuix86`), whatever the paks hold.
-- **Single player**: its logic ships as native x86 code
-  (`efgamex86.dll`, with the menus in `efuix86.dll`), 32-bit Windows DLLs
-  built with Visual C++ 6. Reluva runs them the way it runs the QVMs: in
-  an interpreter, here of the x86 processor (`src/common/x86`, see
-  [x86.md](../../common/x86.md)), with the engine's functions and the few Windows ones
-  they call (KERNEL32's, for their C runtime) provided natively. The DLLs
-  stay in the user's copy. Their interface to the engine (the tables
-  `GetGameAPI` and `GetUIAPI` exchange) was worked out from the retail
-  executable, with Jedi Outcast's GPL source, from the same studio and
-  engine generation, as a guide to its shape: see
-  [eliteforce-sp-interface.md](formats/eliteforce-sp-interface.md).

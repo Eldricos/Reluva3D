@@ -568,7 +568,7 @@ void SpPlayViewer::sortSaves() const {
 
 std::vector<uint8_t> SpPlayViewer::levelShot(const std::string& map) const {
     // levelshots/<map>.tga at 256 x 256, as the original's engine makes an
-    // autosave's picture (renderer entry 23, eliteforce-sp-interface.md):
+    // autosave's picture (renderer entry 23, docs/engines/idtech3/games/stvef/systems/sp-interface.md):
     // as it is if it's that size, otherwise each pixel the average of the
     // ones it covers, opaque; rows bottom first. Empty if there's none.
     // Its image loader takes the .jpg when there's no .tga, as the

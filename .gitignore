@@ -30,6 +30,8 @@ Thumbs.db
 # Local config and game data (never commit game files)
 *.ini
 games/
+# ...but an engine's docs keep a folder per game (docs/README.md)
+!/docs/engines/*/games/
 
 # A machine's own engine choices (see engines.cfg)
 engines.local.cfg

@@ -124,7 +124,7 @@ facing and texture-coordinate range per number):
   `_g` textures, alpha is transparency.
 - Faces about 250 units across showing a whole texture (`fsc`, `fss_a`) are
   something smaller: lights or signs.
-- In play ([play-f1.md](../play/play-f1.md#buildings-and-their-models)), `fss_a`'s
+- In play ([play-f1.md](play-f1.md#buildings-and-their-models)), `fss_a`'s
   side panels, which no texture here is known for, are grey with two blue
   bands, like panels of the `fss` texture; and buildings grow by added
   pieces (`fvpy_b`/`_c` sections, `frps_b`/`_c` arms, `fch_b` and `fch_c`,

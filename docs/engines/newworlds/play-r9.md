@@ -97,7 +97,7 @@ Selection panel (65 samples). Romulan (owner ROMULAN), matched to
 | Name in panel | Model | How sure |
 |---|---|---|
 | colony hub | `rch` (the arch) | sure |
-| colony hub upgrade (5:03, efficiency 100 %) | `rch_b` (tall column; its panel offers the "improved hub", `rch_c`) | fairly ([colony.md](../formats/colony.md#romulan-matches)) |
+| colony hub upgrade (5:03, efficiency 100 %) | `rch_b` (tall column; its panel offers the "improved hub", `rch_c`) | fairly ([colony.md](colony.md#romulan-matches)) |
 | construction yard | `rcy_a` (X-shaped) | fairly |
 | science station | `rsb_a` (low octagonal dome; INCOMPLETE 0 % at 7:39) | fairly |
 | vehicle yard | `rvy` (octagonal ring) | sure |
@@ -245,7 +245,7 @@ costs. Portraits:
   in string 18, kind 5 by [play-c11.md](play-c11.md)) not seen here.
 - Positions of the colony, the Federation base and the Klingon base (the
   readings put all three within about 10 blocks; check).
-- (Answered since, [colony.md](../formats/colony.md#romulan-matches): hub upgrade
+- (Answered since, [colony.md](colony.md#romulan-matches): hub upgrade
   `rch_b`, vehicle yard upgrade `rvy_b`, shield generator `rcss`, photon
   defense `rpds`, cloaked tank `rct`. The cloaked assault vehicle shows a
   see-through `rapc` shape; whether it has a model of its own is open.)

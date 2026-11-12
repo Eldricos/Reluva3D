@@ -1,12 +1,12 @@
 # Saved games (SAVEGAME\*.DS9)
 
-*Star Trek: Deep Space Nine – Harbinger* (Viacom New Media, 1996), DOS, two CDs.
-Worked out from the data and from `DEEP.EXE`. All values are little-endian.
-Addresses like `0x1DD32` are virtual addresses in `DEEP.EXE`'s LE image (code
-object at `0x10000`, data at `0x50000`); see
-[REVERSE_ENGINEERING.md](../REVERSE_ENGINEERING.md).
+> **Status:** decoded · **Code:** `src/engines/stharbinger/game/game_save.cpp` · **Confidence:** layout confirmed; behaviour from the code unless marked
 
-## Saved games (`SAVEGAME\*.DS9`)
+## Overview
+
+The saved games, and the settings file `DLAS.DS9`.
+
+## Layout
 
 DEEP.EXE's format (Save_Game 0x1EABB), little-endian, no header. Manual saves are
 `NNNNNNNN.DS9`, autosaves `<NAME>SAVE.DS9`. Slots follow the linker files
@@ -34,3 +34,11 @@ directive indexes in the scene's script.
 
 `DLAS.DS9` holds the settings: u32 difficulty (0..2), u32 autosave, u32 the save
 the menu showed last.
+
+## Sources and checks
+
+*Star Trek: Deep Space Nine – Harbinger* (Viacom New Media, 1996), DOS, two CDs.
+Worked out from the data and from `DEEP.EXE`. All values are little-endian.
+Addresses like `0x1DD32` are virtual addresses in `DEEP.EXE`'s LE image (code
+object at `0x10000`, data at `0x50000`); see
+[REVERSE_ENGINEERING.md](../REVERSE_ENGINEERING.md).

@@ -16,13 +16,13 @@ Each engine is a module that can run a family of games.
 
 | Engine | Games | State | Docs |
 |---|---|---|---|
-| `idtech3` | Star Trek: Voyager - Elite Force (1.0, 1.2, Expansion Pack) | Playable: single player, Holomatch (multiplayer, LAN and Internet), mods | [docs/engines/idtech3](docs/engines/idtech3/README.md) |
+| `idtech3` | Star Trek: Voyager - Elite Force (1.0, 1.2, Expansion Pack); later, other Quake III engine games | Playable: single player, Holomatch (multiplayer, LAN and Internet), mods | [docs/engines/idtech3](docs/engines/idtech3/README.md) |
 | `stharbinger` | Star Trek: Deep Space Nine - Harbinger (DOS, two CDs) | Every part of the game runs; being checked against the original | [docs/engines/stharbinger](docs/engines/stharbinger/README.md) |
 | `newworlds` | Star Trek: New Worlds | Data viewer, first missions playable on their maps; off by default | [docs/engines/newworlds](docs/engines/newworlds/README.md) |
 | `stgenerations` | Star Trek: Generations (Windows, two CDs) | Every part of the game runs; a full playthrough to come | [docs/engines/stgenerations](docs/engines/stgenerations/README.md) |
-| `awe` | Agatha Christie: Murder on the Orient Express (English 1.0) | Playable from a new game to the credits; being checked against the original | [docs/engines/awe](docs/engines/awe/README.md) |
+| `awe` | Agatha Christie: Murder on the Orient Express (English 1.0); later, AWE's other Agatha Christie games | Playable from a new game to the credits; being checked against the original | [docs/engines/awe](docs/engines/awe/README.md) |
 | `clue` | Clue: Murder at Boddy Mansion, and in the UK Cluedo: Murder at Blackwell Grange (Windows, 2.0 and 2.2) | Playable: against computer players at three levels, hot seat, network play; being checked against the original | [docs/engines/clue](docs/engines/clue/README.md) |
-| `netimmerse` | LEGO Alpha Team (English, Windows) | Playable: menus, saving, options, sound in 3D, every mission; slower than the original in busy scenes; a data viewer of its files | [docs/engines/netimmerse](docs/engines/netimmerse/README.md) |
+| `netimmerse` | LEGO Alpha Team (English, Windows); later, other NetImmerse games | Playable: menus, saving, options, sound in 3D, every mission; slower than the original in busy scenes; a data viewer of its files | [docs/engines/netimmerse](docs/engines/netimmerse/README.md) |
 | `testbed` | A test pattern, no game | For checking a system's graphics, sound and input | — |
 
 ## Requirements
@@ -306,6 +306,9 @@ include SDL.
 [docs/README.md](docs/README.md) is the map. In short:
 
 - [docs/DEVELOPMENT.md](docs/DEVELOPMENT.md): working on Reluva.
+- [docs/CODING_GUIDE.md](docs/CODING_GUIDE.md): how its code is written.
+- [docs/DOCUMENTATION_STANDARD.md](docs/DOCUMENTATION_STANDARD.md): how its
+  docs are laid out, named and written.
 - [docs/common/](docs/common/): formats and components shared by engines.
 - `docs/engines/<engine>/`: everything about one engine and its games.
 
@@ -324,7 +327,8 @@ engine that runs a game.
 ## Contributing
 
 Read [CONTRIBUTING.md](CONTRIBUTING.md) first: only clean-room work is
-accepted.
+accepted. Code follows [docs/CODING_GUIDE.md](docs/CODING_GUIDE.md), and
+docs follow [docs/DOCUMENTATION_STANDARD.md](docs/DOCUMENTATION_STANDARD.md).
 
 ## License
 

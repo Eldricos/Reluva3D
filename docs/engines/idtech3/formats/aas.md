@@ -1,6 +1,10 @@
 # AAS files (the bots' maps) and bot scripts
 
-## `.aas`
+> **Code:** `src/engines/idtech3/botlib/` · **Confidence:** published unless marked
+
+## Overview
+
+Two kinds of file the bot library reads: a level's `.aas`, and the bot scripts in `botfiles/`.
 
 `maps/<name>.aas` is what Quake III's bot library (and Elite Force's,
 the same library) knows of a level: the space a player can stand, crouch
@@ -10,9 +14,13 @@ library (`aasfile.h`, `be_aas_file.c`, `be_aas_sample.c`,
 `be_aas_route.c`); Reluva's reader, `src/engines/idtech3/botlib/aas.cpp`,
 is new code from this description.
 
+## Layout
+
+### `.aas`
+
 Everything is little-endian.
 
-### Header (124 bytes)
+#### Header (124 bytes)
 
 | Offset | Size | Field |
 |---|---|---|
@@ -24,7 +32,7 @@ Everything is little-endian.
 In version 5 the header from offset 8 on is scrambled: each byte XORed
 with its position counted from offset 8, times 119, kept to a byte.
 
-### Lumps
+#### Lumps
 
 | # | Lump | Record |
 |---|---|---|
@@ -66,22 +74,7 @@ Record 0 of edges, faces, areas, nodes and reachabilities is unused.
   bridge. A route may only use reachabilities whose flags are all in the
   flags the game gives.
 
-### Routing
-
-A route's time is in hundredths of a second. It counts the
-reachabilities' times plus the time to cross each area between them, from
-where one arrives to where the next leaves. Crossing is the straight
-distance times 0.33 (walking at 300 units a second), times 1.3 in an area
-only crouched through, times 1 in liquid, and at least 1. From a point,
-the time from there to the first reachability's start is added. Within
-the goal area the time is 1.
-
-The original speeds this up with clusters and portals and caches. Reluva
-finds the quickest route out from the goal area over the whole map, which
-gives the same kind of answer. It keeps the result per goal area and set
-of travel flags, and forgets it when an area is turned on or off.
-
-## Bot scripts (`botfiles/`)
+### Bot scripts (`botfiles/`)
 
 Characters (`bots/<name>_c.c`), item and weapon weights, item and weapon
 descriptions and chats are text in a C-like form. They go through the bot
@@ -106,7 +99,7 @@ falls back to the default character, `bots/default_c.c`, then to the
 file's first skill. Characteristics the file leaves out come from the
 default character. Reluva's side: `bot_script.cpp`, `character.cpp`.
 
-### Weights, items and weapons
+#### Weights, items and weapons
 
 These files are also read through the preprocessor.
 
@@ -130,27 +123,7 @@ These files are also read through the preprocessor.
   The game reads them back as Quake III's `weaponinfo_t` (552 bytes,
   strings of 80).
 
-### Movement
-
-Each frame the bot takes the reachability out of its area that is
-quickest on to the goal. It doesn't step straight back into the area it
-came from. It gives up on a reachability it has tried more than four
-times in six seconds. It keeps the reachability while still in the same
-area, for 5 seconds (10 for elevators and jump pads). Then it acts by the
-kind of travel:
-
-- walking: to the start, then to the end, slowing before drops;
-- barrier jumps: jump within 9 units of the start;
-- jumps: a run-up from up to 80 units behind the start, then a jump
-  towards the end;
-- ledges: walk off, then steer in the air towards where it lands;
-- teleporters and jump pads: walk into them;
-- elevators: ride, then step off when level with the end.
-
-In the goal's own area it walks straight to the goal, at 4 times the
-distance (up to 400).
-
-### Chat
+#### Chat
 
 The bots' chat files go through the preprocessor too. A chat message is
 strings, numbers and names separated by commas and ended by `;`. A
@@ -181,6 +154,43 @@ from `rnd.c`.
   the one used longest ago is said.
 - **Escapes.** In a chosen line, `~` is removed when it is said.
 
+## Behaviour
+
+### Routing
+
+A route's time is in hundredths of a second. It counts the
+reachabilities' times plus the time to cross each area between them, from
+where one arrives to where the next leaves. Crossing is the straight
+distance times 0.33 (walking at 300 units a second), times 1.3 in an area
+only crouched through, times 1 in liquid, and at least 1. From a point,
+the time from there to the first reachability's start is added. Within
+the goal area the time is 1.
+
+The original speeds this up with clusters and portals and caches. Reluva
+finds the quickest route out from the goal area over the whole map, which
+gives the same kind of answer. It keeps the result per goal area and set
+of travel flags, and forgets it when an area is turned on or off.
+
+### Movement
+
+Each frame the bot takes the reachability out of its area that is
+quickest on to the goal. It doesn't step straight back into the area it
+came from. It gives up on a reachability it has tried more than four
+times in six seconds. It keeps the reachability while still in the same
+area, for 5 seconds (10 for elevators and jump pads). Then it acts by the
+kind of travel:
+
+- walking: to the start, then to the end, slowing before drops;
+- barrier jumps: jump within 9 units of the start;
+- jumps: a run-up from up to 80 units behind the start, then a jump
+  towards the end;
+- ledges: walk off, then steer in the air towards where it lands;
+- teleporters and jump pads: walk into them;
+- elevators: ride, then step off when level with the end.
+
+In the goal's own area it walks straight to the goal, at 4 times the
+distance (up to 400).
+
 ### Predicting movement
 
 The game asks where a player will be, for a bot leading its shots,
@@ -206,3 +216,9 @@ It stops at the first of the events asked for:
 These values are the library's settings (`phys_*`), with Quake III's
 defaults. A player is on the ground when there is floor at most 10 units
 below, no steeper than 0.7.
+
+## Sources and checks
+
+- **Where the facts come from:** the GPL ioquake3 bot library (`aasfile.h`,
+  `be_aas_file.c`, `be_aas_sample.c`, `be_aas_route.c`; `l_precomp.c` and
+  `l_script.c` for the scripts' preprocessor), as said above.

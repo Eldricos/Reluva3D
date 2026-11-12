@@ -20,7 +20,7 @@
 namespace reluva::idtech3::eliteforce {
 
 // The player's side of Elite Force's network play (protocol 24,
-// eliteforce-network.md): it joins a server (getchallenge, connect),
+// docs/engines/idtech3/games/stvef/systems/network.md): it joins a server (getchallenge, connect),
 // takes its game state and snapshots, and sends the player's commands
 // and what they type. The page runs the client game with what it
 // gathers, as with its own server.

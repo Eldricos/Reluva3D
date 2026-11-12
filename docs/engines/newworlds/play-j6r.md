@@ -113,7 +113,7 @@ Romulan selections:
 
 | Name in panel | Model | How sure |
 |---|---|---|
-| colony hub upgrade (4:00) / colony hub (4:06-4:19; shield HIGH, 110 %) | `rch` arch (portrait a tan arrow-like arch; the upgrade shows its base's portrait and is `rch_b`, [colony.md](../formats/colony.md#romulan-matches)) | sure |
+| colony hub upgrade (4:00) / colony hub (4:06-4:19; shield HIGH, 110 %) | `rch` arch (portrait a tan arrow-like arch; the upgrade shows its base's portrait and is `rch_b`, [colony.md](colony.md#romulan-matches)) | sure |
 | construction yard (4:38, 80 %) | `rcy_a` cross shape | fairly |
 | resource processor (10:05), "resource processor upg" (9:56, 10:13) | `rrpp_a` / `rrpp_b` (portrait `rrpp`) | fairly |
 | science station (10:22 80 %, 16:52 110 %) | `rsb_a` (splayed portrait `rsb`) | sure |
@@ -315,7 +315,7 @@ Portraits:
   panel closed. 9 arrived 37:33-37:41, or the 37:32 counter reads 9/9.
 - Is the same Engineering face A really J4's Operations face, so one of
   the two labels is wrong or the portrait is shared?
-- (Answered since, [colony.md](../formats/colony.md#romulan-matches): photon defense
+- (Answered since, [colony.md](colony.md#romulan-matches): photon defense
   `rpds`, photon artillery `rpa`, science station `rsb_a`, resource
   processor `rrpp_a` (+ `rrpp_b`).) The surveillance squad shows the ground
   scout's portrait: is it a ground scout carrying a squad, or a craft of

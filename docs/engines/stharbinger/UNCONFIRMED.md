@@ -1,10 +1,12 @@
-# Unconfirmed details
+# Star Trek: Deep Space Nine - Harbinger: unconfirmed items
 
 What the engine does is based on reading DEEP.EXE. Most of it was read
 directly from the code; the points below were inferred or guessed and have
 not been confirmed against the original running, or in the real game data.
 
-## Behaviour seen in the scripts
+## Read from the code, not seen running
+
+### Behaviour seen in the scripts
 
 * **Quark's talker code.** The TALKHEAD lines of QUARK010 and XOQ010 (and
   QUARK011) give a speaker code that the script listings show as `ras`, while
@@ -21,7 +23,13 @@ not been confirmed against the original running, or in the real game data.
   mouth the rest frame is drawn over the last shape until something erases it.
   This follows the code; whether it is visible in any scene is unknown.
 
-## Inferred from the code (small gaps)
+## Seen running, not traced in the code
+
+None yet.
+
+## Inferred
+
+### Inferred from the code (small gaps)
 
 * The ANIMDEF mode names: values 0 / 1 / 2 are taken to be `onthefly`,
   `flyclear` and `clear`. The bits (load on the fly, clear) are certain; the
@@ -35,7 +43,9 @@ not been confirmed against the original running, or in the real game data.
 * Parts of `ACTIONSEQ`: the meaning of some types and of the arcade parameter
   tables (frame counts, start frames).
 
-## Guesses
+## Guessed
+
+### Guesses
 
 * Speech plays at volume 75/127 and the action sequences' music at 64/127
   (from the arguments of an audio library call, 0x30155).
@@ -47,3 +57,7 @@ not been confirmed against the original running, or in the real game data.
 * The action sequences' gunsight is drawn everywhere on screen, not only over
   the video (the mouse handler probably draws it outside the video too).
 * The behaviour when `art\buttons.rle` is missing (treated as "next scene").
+
+## Settled
+
+None yet.

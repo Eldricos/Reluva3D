@@ -1,8 +1,12 @@
 # Space combat (COMBAT.DAT)
 
-From STG-Engine's notes on the 2 CD Windows release ([README](README.md) says how they were made). All values are little-endian.
+> **Code:** `src/engines/stgenerations/formats/combatdata.h`, `src/engines/stgenerations/game/combat.h` · **Confidence:** layout confirmed; behaviour from the code unless marked
 
-## Space combat (`COMBAT.DAT`): `src/engines/stgenerations/formats/combatdata.h`, `combat.h`
+## Overview
+
+Space combat's files, in `COMBAT.DAT`.
+
+## Layout
 
 | File | Format |
 |------|--------|
@@ -16,6 +20,28 @@ From STG-Engine's notes on the 2 CD Windows release ([README](README.md) says ho
 | `SYSTEMS.DAT` | ship classes: speed, agility, 27 systems (shields 1-4, weapons, life support, engines, power, computer, sensors, damage control, cloak, 10 phaser banks with firing octants, 4 photon tubes), the shields' leak tables, phaser and photon range and damage |
 | `SCn.MIS` | `SpaceCombat n`: `:wave` and ship lines `id type x y z yaw pitch velocity AI ...` (x, y the plane, z altitude; AI `soran`, `quarash` or `standard-N` to aim at system N) |
 | `COMBATn.BMP`, `PROCEED.BMP` | the briefing; PROCEED's position is a table in the exe (0x548618) |
+
+### TACTICS (`*.BIN`): not used
+
+COMBAT.DAT's eleven `.BIN` files (KLINGON.BIN, WARBIRD.BIN, CHODAK.BIN, ...)
+are compiled AI scripts, and sgens.exe still has their interpreter
+(`0x4B0000`-`0x4B4630`). But only `0x4A40F2` attaches one, and the mission
+loader always passes it no name, so none is ever loaded. The format, for the
+record:
+
+- "TACTICS", then a header to 0x6B (a version, sizes, "MAIN").
+- Tokens: u32 kind, u32 code, u32 size, then size bytes.
+  - Kind 3 is a page: the code that follows, named at +8 ("KERNEL",
+    "ATTACK_SET", "SMALL_LOOP", ...). Branches name pages by file offset.
+  - Kind 0 is "when": a condition (table at `0x550BC8`; 14, 23, 28, 29 and
+    35 are used), followed by the action to take. Reaching it queues it; once
+    a page ends, the queue is tested every frame.
+  - Kind 1 is a command (table at `0x550C80`).
+  - Kind 2 is a branch to a page: codes 1, 4, 5, 0x16, 0x21, 0x22, 0x2B and
+    0x2D are used (5 and 0x22 also drop the condition that led there). What
+    each does wasn't traced, since nothing runs them.
+
+## Behaviour
 
 The console is COMBAT.RAS with the 3D view in its hole at (52,10), 532 x 231,
 60 degrees across. The game reads the module's result as 0 the Enterprise
@@ -61,22 +87,6 @@ AI's clock (`0x47B83E`) counts 291.3 ticks a second.
   flag 0x40000) does it all the time while any other ship is left in the
   fight, including waves still to come.
 
-### TACTICS (`*.BIN`): not used
+## Sources and checks
 
-COMBAT.DAT's eleven `.BIN` files (KLINGON.BIN, WARBIRD.BIN, CHODAK.BIN, ...)
-are compiled AI scripts, and sgens.exe still has their interpreter
-(`0x4B0000`-`0x4B4630`). But only `0x4A40F2` attaches one, and the mission
-loader always passes it no name, so none is ever loaded. The format, for the
-record:
-
-- "TACTICS", then a header to 0x6B (a version, sizes, "MAIN").
-- Tokens: u32 kind, u32 code, u32 size, then size bytes.
-  - Kind 3 is a page: the code that follows, named at +8 ("KERNEL",
-    "ATTACK_SET", "SMALL_LOOP", ...). Branches name pages by file offset.
-  - Kind 0 is "when": a condition (table at `0x550BC8`; 14, 23, 28, 29 and
-    35 are used), followed by the action to take. Reaching it queues it; once
-    a page ends, the queue is tested every frame.
-  - Kind 1 is a command (table at `0x550C80`).
-  - Kind 2 is a branch to a page: codes 1, 4, 5, 0x16, 0x21, 0x22, 0x2B and
-    0x2D are used (5 and 0x22 also drop the condition that led there). What
-    each does wasn't traced, since nothing runs them.
+From STG-Engine's notes on the 2 CD Windows release ([README](README.md) says how they were made). All values are little-endian.

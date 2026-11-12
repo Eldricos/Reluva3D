@@ -4,7 +4,7 @@
 #pragma once
 
 // The Clue board as clue.lvl lays it out: its squares are the mansion's
-// 64 x 64 floor blocks. See docs/engines/clue/board.md.
+// 64 x 64 floor blocks. See docs/engines/clue/formats/board.md.
 
 #include "common/types.h"
 #include "engines/clue/level.h"

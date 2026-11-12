@@ -17,7 +17,7 @@ namespace {
 
 // Elite Force qagame.qvm system calls (Quake III's game order, the seen
 // ones checked against the game's own calls; see
-// docs/engines/idtech3/formats/eliteforce-syscalls.md).
+// docs/engines/idtech3/games/stvef/systems/syscalls.md).
 enum GameCall : int {
     Print = 0,
     Error_ = 1,
@@ -133,7 +133,7 @@ Error GameHost::startLevel(const std::string& mapName, std::shared_ptr<const Bsp
     cvars_.create("dedicated", "0", CvarStore::Latch);
     cvars_.create("sv_cheats", "0", CvarStore::ServerInfo | CvarStore::ReadOnly);
     // What the original's server adds for clients over the network
-    // (eliteforce-network.md): its protocol and name in the server info,
+    // (docs/engines/idtech3/games/stvef/systems/network.md): its protocol and name in the server info,
     // and in the system info the level's id (changing with every level,
     // so commands from before it can be told apart), whether it's pure
     // (checked by the network server, which also lists the paks) and its
@@ -569,7 +569,7 @@ GameHost::Snapshot GameHost::snapshot(int32_t clientNum) {
     // on a listen server. The word at 48, a timer of the server's (set to
     // 200 on firing, counting down without stopping at 0), is one: the
     // client game draws the phaser's beam only while it's 0 (see
-    // eliteforce-syscalls.md).
+    // docs/engines/idtech3/games/stvef/systems/syscalls.md).
     for (const int32_t at : {kPlayerStateServerOnly})
         std::memset(&snap.playerState[size_t(at)], 0, 4);
     // The entities the player can see, as the original's server picks them

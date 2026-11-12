@@ -1,12 +1,12 @@
 # The discs
 
-*Star Trek: Deep Space Nine – Harbinger* (Viacom New Media, 1996), DOS, two CDs.
-Worked out from the data and from `DEEP.EXE`. All values are little-endian.
-Addresses like `0x1DD32` are virtual addresses in `DEEP.EXE`'s LE image (code
-object at `0x10000`, data at `0x50000`); see
-[REVERSE_ENGINEERING.md](../REVERSE_ENGINEERING.md).
+> **Status:** decoded · **Code:** `src/engines/stharbinger/detection.cpp`, `src/engines/stharbinger/formats/resources.cpp` · **Confidence:** confirmed unless marked
 
-## Disc layout
+## Overview
+
+Where the game's files are on its two CDs.
+
+## Layout
 
 | Path | Contents |
 |---|---|
@@ -21,3 +21,13 @@ object at `0x10000`, data at `0x50000`); see
 | `DS9/MOVIES`, `DS9/TRANS`, `DS9/INTRO` | Smacker videos (`.SMK`) |
 | `DS9/MAPS/*.DAT` | deck maps for the map screen |
 | `DS9/TORPEDOS/CD` | disc number as text (`0`, `1`) |
+
+## Sources and checks
+
+*Star Trek: Deep Space Nine – Harbinger* (Viacom New Media, 1996), DOS, two CDs.
+Worked out from the data and from `DEEP.EXE`. All values are little-endian.
+Addresses like `0x1DD32` are virtual addresses in `DEEP.EXE`'s LE image (code
+object at `0x10000`, data at `0x50000`); see
+[REVERSE_ENGINEERING.md](../REVERSE_ENGINEERING.md).
+
+- **How it was checked:** the unit tests (`stharbinger.unit.formats`, [TESTING.md](../TESTING.md)) cover a disc's folders.

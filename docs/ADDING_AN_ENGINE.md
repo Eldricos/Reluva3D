@@ -95,11 +95,25 @@ full.
 
 ## 5. Document it
 
-- **`docs/engines/<name>/README.md`:** what it runs, which releases, where
-  it stands, how to use it.
-- **A page per file format** beside it, as each is worked out, with where
-  each fact came from. Read [CONTRIBUTING.md](../CONTRIBUTING.md) first:
-  only clean-room work is accepted.
+The template made `docs/engines/<name>/` with its five pages: `README.md`,
+`KNOWN_DIFFERENCES.md`, `UNCONFIRMED.md`, `TESTING.md` and
+`REVERSE_ENGINEERING.md`, from [docs/templates/engine/](templates/README.md).
+Every engine's docs follow the same layout, described in
+[DOCUMENTATION_STANDARD.md](DOCUMENTATION_STANDARD.md), and every other page starts from a
+template there too: [format.md](templates/format.md) for a file format,
+[system.md](templates/system.md) for part of how the game behaves, and
+[plan.md](templates/plan.md) for an optional plan.
+
+- **`README.md`:** what it runs, which releases, where it stands, how to
+  use it.
+- **A page per file format** in `formats/`, and **a page per part of how
+  the game behaves** in `systems/`, as each is worked out, with where each
+  fact came from. Working notes go in `research/`.
+- **An engine meant for several games** keeps each game's pages in
+  `games/<game id>/` from the start, and only what every game shares in
+  its own folder ([DOCUMENTATION_STANDARD.md](DOCUMENTATION_STANDARD.md)).
+- **Read [CONTRIBUTING.md](../CONTRIBUTING.md) first:** only clean-room
+  work is accepted.
 - **Add a row** for it to the engines tables in the main
   [README](../README.md#games) and [docs/README.md](README.md).
 

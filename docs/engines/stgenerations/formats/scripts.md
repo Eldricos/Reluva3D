@@ -1,12 +1,14 @@
 # Mission scripts (GAME.BIN)
 
-From STG-Engine's notes on the 2 CD Windows release ([README](README.md) says how they were made). All values are little-endian.
+> **Status:** decoded · **Code:** `src/engines/stgenerations/formats/script.h`, `src/engines/stgenerations/game/vm.h` · **Confidence:** layout confirmed; behaviour from the code unless marked
 
-## SGEN script (`GAME.BIN`): decoded, `src/engines/stgenerations/formats/script.h`, `vm.h`
+## Overview
 
 This is the compiled script for each location. Everything below comes from `sgens.exe`: the loader at
 `0x45F160`, the object factory and code scanner at `0x43519F`, `SendEvent` at
 `0x44F4E1`, and the interpreter at `0x44F9D4` (a 245-case switch at `0x455A28`).
+
+## Layout
 
 ### Container
 
@@ -122,21 +124,6 @@ Object types 1, 2, 3, 4, 5, 6, 7 and 8 each create a different C++ class;
 verid1 uses types 1, 2, 4, 7 and 8 (178 objects, 658 states, 1010 blocks).
 The grammar consumes exactly all 21,969 words of verid1's code.
 
-### Execution
-
-Each object is a state machine. It starts in state −1. When an object
-receives an event, the block registered for
-`((event & 0xFF) << 8) | (state & 0xFF)` runs. If the object has no such
-block, the parent object is searched next, then built-in default behaviour.
-When the block finishes, the object switches to the state set by
-`GOTO_STATE` or `CASE`, or else to the block's next state (−1 means stay
-put). Each state change sends **event 3 (leave)** to the old state, then
-**event 2 (enter)** to the new one.
-
-A block runs on its own 16-bit stack. Event arguments are pushed last to
-first, so the first argument is on top. The block's result starts at 0 and
-is set with `SET_RESULT`.
-
 ### Instruction set
 
 Every instruction is one word, except `PUSH n` (2 words), `PUSH32` (3) and
@@ -177,6 +164,23 @@ interpreter, where a 32-bit argument takes two slots: the low word is
 pushed first, so the high word is on top. Run through every block of
 verid1, they never underflow the stack, except in a few blocks that take
 more event arguments than the test supplied.
+
+## Behaviour
+
+### Execution
+
+Each object is a state machine. It starts in state −1. When an object
+receives an event, the block registered for
+`((event & 0xFF) << 8) | (state & 0xFF)` runs. If the object has no such
+block, the parent object is searched next, then built-in default behaviour.
+When the block finishes, the object switches to the state set by
+`GOTO_STATE` or `CASE`, or else to the block's next state (−1 means stay
+put). Each state change sends **event 3 (leave)** to the old state, then
+**event 2 (enter)** to the new one.
+
+A block runs on its own 16-bit stack. Event arguments are pushed last to
+first, so the first argument is on top. The block's result starts at 0 and
+is set with `SET_RESULT`.
 
 ### Objects and the world
 
@@ -400,20 +404,6 @@ heading in degrees.
   - the inventory and items (INVENTORY_*, ATTACH_ITEM_BEHAVIOUR, ...)
   - screen flashes and tints, view shake
 
-`src/engines/stgenerations/game/mission.h` runs a level's scripts. Every native the eleven
-away missions use has a handler. Anything else balances the stack and is logged once with the
-developer settings' console output about the missions' scripts
-(`debug_channels=scripts` in reluva.ini, or `reluva-tool stgenerations play
-... --debug 1 --channels scripts`); at level 2 it also logs every event sent,
-with its signal value and the target's state.
-
-To get a full listing of a script:
-
-```sh
-reluva-tool stgenerations extract DATA/VERID1.DAT out 'verid1/game.bin'
-reluva-tool stgenerations script out/verid1/game.bin
-```
-
 ### Projectiles
 
 Section 4's records become projectile types (`0x43FE9C`), numbered from 0;
@@ -585,3 +575,23 @@ movers with a wait count it down and close; changes send the script object 0x800
 (opening), 23 (open), 24 (closing) or 25 (closed); doors' scripts play their own sounds. A step that
 brings a part nearer the player once within 1 unit, or a ceiling down onto their head, is undone, and
 a closing door that reverses opens again. The player rides floors that move. Actors aren't checked.
+
+## In Reluva
+
+`src/engines/stgenerations/game/mission.h` runs a level's scripts. Every native the eleven
+away missions use has a handler. Anything else balances the stack and is logged once with the
+developer settings' console output about the missions' scripts
+(`debug_channels=scripts` in reluva.ini, or `reluva-tool stgenerations play
+... --debug 1 --channels scripts`); at level 2 it also logs every event sent,
+with its signal value and the target's state.
+
+To get a full listing of a script:
+
+```sh
+reluva-tool stgenerations extract DATA/VERID1.DAT out 'verid1/game.bin'
+reluva-tool stgenerations script out/verid1/game.bin
+```
+
+## Sources and checks
+
+From STG-Engine's notes on the 2 CD Windows release ([README](README.md) says how they were made). All values are little-endian.

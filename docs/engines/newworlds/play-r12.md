@@ -94,7 +94,7 @@ Selection panel (90 samples). Romulan (owner ROMULAN):
 | Name in panel | Model | How sure |
 |---|---|---|
 | colony hub (120 %) | `rch` (the arch) | sure |
-| colony hub upgrade (3:30, builder help "improved hub") | `rch_b` (the next stage, "improved hub", is `rch_c`) | fairly ([colony.md](../formats/colony.md#romulan-matches)) |
+| colony hub upgrade (3:30, builder help "improved hub") | `rch_b` (the next stage, "improved hub", is `rch_c`) | fairly ([colony.md](colony.md#romulan-matches)) |
 | construction yard (4:47, 80 %) | splayed tan shape with dark centre; `rcy_a` | sure (portrait) |
 | science station (6:32, 80 %); science station upgrade (18:06) | crab-like tan shape (as in J7): `rsb_a`; upgrade `rsb_b` | sure; fairly |
 | vehicle yard (14:34 on, several; 80 %) | tan shell-like portrait; `rvy` | fairly |
@@ -246,7 +246,7 @@ and Taubat buildings). Portraits:
 - The Taubat phaser defense turret's model (`tsg`, the Taubat static gun?).
   (Hangar `tw`, portal `mport`, colony core `mch`: see above.)
 - (Answered since: construction yard `rcy_a`, mining station `rms`, cloaked
-  tank `rct`, hub upgrade `rch_b`; [colony.md](../formats/colony.md#romulan-matches).)
+  tank `rct`, hub upgrade `rch_b`; [colony.md](colony.md#romulan-matches).)
 - Science vs Intelligence portraits (same face?); Operations vs Engineering
   faces: match to `ptrt/crew/lg/r_c1..`.
 - Starting stock (nitrium 23880, duranium 24000) and colony 50/90: the R12

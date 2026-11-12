@@ -5,7 +5,7 @@
 // engine test, run by ctest and CI. It makes a small LEGO Alpha Team
 // install of its own (.pac archives holding two .FIN models, a texture, a
 // .DDF font with its page, a .DDS sound, a puzzle and the locale's text,
-// built as docs/engines/netimmerse/formats/ describes them), checks that
+// built as docs/engines/netimmerse/games/legoalphateam/formats/ describes them), checks that
 // the engine recognises an install, and then, as there's no LEGOATeam.exe
 // in it, runs the engine's data viewer on it as the launcher would: every
 // page in turn, stepping through what each shows and playing the sound,
@@ -226,7 +226,7 @@ PacFile file(const std::string& name, const std::vector<uint8_t>& data) { return
 PacFile file(const std::string& name, const std::string& text) { return {name, text, kFileTime, 0}; }
 
 // The install: the archives the game has, each with a little of what it
-// holds (docs/engines/netimmerse/formats/install.md), and no program.
+// holds (docs/engines/netimmerse/games/legoalphateam/formats/install.md), and no program.
 void makeInstall(const std::filesystem::path& dir) {
     std::filesystem::create_directories(dir);
     writeFile(dir / "Fin.pac", buildPac({file("THING.FIN", buildFin()), file("U0001.FIN", buildAnimatedFin())}));

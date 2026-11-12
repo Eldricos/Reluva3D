@@ -1,11 +1,15 @@
 # Sprite sets (.GS2, .GSF)
 
-From STG-Engine's notes on the 2 CD Windows release ([README](README.md) says how they were made). All values are little-endian.
+> **Status:** decoded · **Code:** `src/engines/stgenerations/formats/sprite.h` · **Checked on:** the 2 CD Windows release, two GS2 samples · **Confidence:** confirmed unless marked
 
-## GS2 sprite sets: decoded, `src/engines/stgenerations/formats/sprite.h`
+## Overview
 
 These are billboard sprites for the 3D away missions: `verid1/001.gs2` is a crew member
 (standing, walking, beaming in), and `008.gs2` is a flame.
+
+## Layout
+
+### GS2 (`.GS2`)
 
 ```
 uint32  2                           version (GSF files have 1, see below)
@@ -30,7 +34,7 @@ The half width is always columns / 128 for 256-high frames and columns / 64
 for 128-high ones. Actors scale it (see Actors below). As with overlays,
 there's no palette.
 
-## GSF (`.GSF`): not used
+### GSF (`.GSF`): not used
 
 These start like GS2 but with version 1:
 `01 00 00 00 33 00 00 00 f8 06 00 00 10 00 00 00 18 00 00 00 80 00 00 01 ...`
@@ -38,3 +42,7 @@ These start like GS2 but with version 1:
 decoder rather than misread. Only ANTILIOS.DAT has two, older than the
 `011.gs2` and `012.gs2` beside them, and the game only loads `NNN.gs2`
 (`0x4C01B0`), so they're leftovers.
+
+## Sources and checks
+
+From STG-Engine's notes on the 2 CD Windows release ([README](README.md) says how they were made). All values are little-endian.

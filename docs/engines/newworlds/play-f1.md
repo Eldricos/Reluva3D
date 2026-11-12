@@ -73,9 +73,9 @@ the Federation emblem, silent, before `F1005`.
 - **First message:** from Intelligence, warning of a Klingon colony to the
   south. A Klingon ground scout attacks within the first minute (4:50).
 - **Tricorder coordinates** are eighths of a block, row first (see
-  [gmf.md](../formats/gmf.md#map-positions-in-the-game)).
+  [gmf.md](gmf.md#map-positions-in-the-game)).
 - **Buildings** stand on concrete, each with a yellow-striped apron (the
-  `pad` texture's stripes, see [geo.md](../formats/geo.md)) in front of its door.
+  `pad` texture's stripes, see [geo.md](geo.md)) in front of its door.
 - **Objectives:** a COMMAND panel lists them; at the end a **MISSION
   REPORT** over the emblem: "MISSION LOG." then each in-game objective
   string (`fed01.stb` 16-19) as "MISSION OBJECTIVE: <string> - COMPLETE".
@@ -189,7 +189,7 @@ Command messages. None of this text is in the archives (see above).
 Messages give map positions in the Tricorder's units: the energy source
 at <332:152>, the mine at 404, 220, and the cursor's terrain readout near
 the colony at the start <407:209>. They are eighths of a block, row first
-([gmf.md](../formats/gmf.md#map-positions-in-the-game), worked out from the mines of
+([gmf.md](gmf.md#map-positions-in-the-game), worked out from the mines of
 nine recordings): the mine is at row 50, column 27 of `f1.gmf`, on a kind-5
 deposit in the map's large deposit cluster, as the briefing's "Place a
 Mining Station here" says, and the colony's readout beside it.
@@ -212,7 +212,7 @@ Mining Station here" says, and the colony's readout beside it.
   ice beyond the pad at 19:08, is finished on bare ice at 20:54. The game
   doesn't pave under new buildings. The sickbay (selected 26:40) stands on
   a block-sized square of concrete jutting from the pad. The natives'
-  structures stand on bare ice. See [colony.md](../formats/colony.md#concrete). The map
+  structures stand on bare ice. See [colony.md](colony.md#concrete). The map
   round the colony (blocks 23-27, rows 48-52, four tiles each, model
   numbers mod 10):
 
@@ -267,7 +267,7 @@ glowing top.
 Not identified: the power generator (`fpgs`, complete 5:49), the mining
 stations (`fms`, only seen from afar on the hills), the defences (`fpdt`,
 `fpds`, `fsg`), `landpad` and `foodstor`. Their metamodels name them all
-([colony.md](../formats/colony.md#the-games-names-for-the-buildings)).
+([colony.md](colony.md#the-games-names-for-the-buildings)).
 
 The placement outline is a see-through box over the tiles, green where the
 building can go (17:09) and red where it can't (22:37).

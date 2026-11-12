@@ -13,7 +13,7 @@
 // windows, rain, breath in the cold. All three are one class in the game
 // (motoe.exe: update 0x42cc20, draw 0x42d470); they differ only in their
 // defaults. Each emits bursts of particles that move by one of three rules
-// and are drawn as Direct3D point sprites. See docs/engines/awe/ac2.md.
+// and are drawn as Direct3D point sprites. See docs/engines/awe/games/motoe/formats/ac2.md.
 
 namespace reluva::awe {
 
