@@ -1,0 +1,18 @@
+# Files clang-format leaves alone (clang-format 18 or later reads this).
+# Generated files: regenerate them instead of editing; byte tables and
+# blobs aren't laid out by the coding guide's rules.
+
+# Code from other projects, kept as its authors wrote it
+third_party/**
+
+# Generated (each names the script that writes it)
+src/backends/sdl3/shaders/compiled.h
+src/common/x86/runtime/msvcp60_dll.h
+src/common/video/indeo5_tables.cpp
+src/engines/stgenerations/formats/opcodes.cpp
+tests/common/data/*.h
+tests/engines/idtech3/data/qvm/*_qvm.h
+
+# Large constant tables transcribed from the original programs
+src/common/video/bink_tables.cpp
+
