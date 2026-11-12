@@ -43,7 +43,9 @@ All of it was worked out on the 2 CD Windows release:
 
 ### The notes
 
-STG-Engine kept its notes in one file, `doc/formats.md`. In Reluva it is
+The notes read off `sgens.exe`, a note per part of the game, are in
+[research/](research/README.md), as they were written. STG-Engine kept
+what they found in one file, `doc/formats.md`. In Reluva it is
 [formats/](formats/README.md), a page per format. "Decoded" there means a
 decoder exists in `src/engines/stgenerations` and has been checked against
 the game's own files; "partial" and "unknown" are working notes.
@@ -76,12 +78,9 @@ them):
 
 ## Working files not included
 
-- **The notes on the executable.** STG-Engine's work kept a note per part
-  of the game (the front end, the HUD, actors, space combat, the bridge,
-  the script instructions and others), read straight off `sgens.exe`, with
-  each fact's address and how sure it was. They were never committed to
-  STG-Engine or here; what they found is on the [formats/](formats/README.md)
-  pages and in the code's comments, with the same addresses.
+- **The disassembly dumps** the notes were read from (listings of
+  `sgens.exe`'s functions), which are the original's code. The notes
+  themselves are in [research/](research/README.md).
 - **The search scripts** (Python, on Capstone) and Ghidra's project. To make
   them again, load `sgens.exe` (1571328 bytes, MD5
   `5044cd4e8cd2ef067dc79d86b38cc44d`) into Ghidra, or disassemble its code

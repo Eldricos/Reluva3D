@@ -164,6 +164,7 @@ difficulty again in the menu.
 | [TESTING.md](TESTING.md) | The tests, and what has been checked on the game's own files |
 | [REVERSE_ENGINEERING.md](REVERSE_ENGINEERING.md) | How the formats and behaviour were worked out, and the tools for it |
 | [formats/](formats/README.md) | The game's file formats, a page each |
+| [research/](research/README.md) | The working notes from reading `sgens.exe` that the engine was built from |
 
 ## Code
 
