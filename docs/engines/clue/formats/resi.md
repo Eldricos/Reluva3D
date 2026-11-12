@@ -1,21 +1,19 @@
 # Clue: Murder at Boddy Mansion: dialogInfo.res
 
+> **Status:** decoded · **Code:** `src/engines/clue/resi.h`
+
+## Overview
+
 The game's fonts and the layout of every menu and dialog: 7 fonts and 42
 dialogs, 626 controls in all. It's in the install's folder (patched by 2.2)
 and in the CD's `Data/US` and `Data/UK`.
 
-Source: the order of the reads is from `EGuiResourceInfo::Load(CFile*)` in
-Eagle's library (`!EagleM.dll` 2.2, at `0x1001BDF0`; its exported names give
-it), read as an instruction listing (October 2026). What the fields mean
-comes from the values across the file (which controls have which), and
-from comparing the dialogs drawn by Reluva with recordings of the original
-(the menus, the preferences). `reluva-tool clue check` reads it and checks
-every picture it names.
+## Layout
 
 Numbers are little-endian. A string is a byte's length, that many
 characters (Windows-1252) and a NUL; a length of 0 has neither.
 
-## The file
+### The file
 
 | Size | |
 |---|---|
@@ -45,7 +43,7 @@ byte's count of controls, and the controls.
 A control: a 112-byte block, two strings (its text, its animation), a
 2-byte count of items and that many strings.
 
-## A control's block
+### A control's block
 
 As 28 numbers of 4 bytes:
 
@@ -80,7 +78,7 @@ The types, by what the controls of each are:
 `|` breaks a text into lines. Buttons' animations have 3 frames (as they
 are, under the pointer, pressed), or 4 with a disabled one.
 
-## The dialogs
+### The dialogs
 
 | # | Background | |
 |---|---|---|
@@ -107,7 +105,9 @@ The preferences have two radio buttons a setting, each drawn by two
 images in the same place: setting k's "on" column holds controls 4k (lit)
 and 4k + 1 (not), its "off" column 4k + 2 (lit) and 4k + 3 (not).
 
-## The rest of the screen
+## Behaviour
+
+### The rest of the screen
 
 The menus' lower corners, the mansion on its hill and the cliff under the
 storm, are `main_anim`'s animations, placed by the game: `Alt1anim`
@@ -115,3 +115,13 @@ storm, are `main_anim`'s animations, placed by the game: `Alt1anim`
 (396, 317), measured on a recording. The game's bar (its frames, buttons,
 the suspects' portraits, the ticker) is `ui.a`'s, placed by the game too:
 see [screen.md](../systems/screen.md#layout).
+
+## Sources and checks
+
+Source: the order of the reads is from `EGuiResourceInfo::Load(CFile*)` in
+Eagle's library (`!EagleM.dll` 2.2, at `0x1001BDF0`; its exported names give
+it), read as an instruction listing (October 2026). What the fields mean
+comes from the values across the file (which controls have which), and
+from comparing the dialogs drawn by Reluva with recordings of the original
+(the menus, the preferences). `reluva-tool clue check` reads it and checks
+every picture it names.

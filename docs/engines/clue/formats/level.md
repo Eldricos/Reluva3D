@@ -1,16 +1,17 @@
 # Clue: Murder at Boddy Mansion: objects and the mansion
 
-Source: the CD's, the install's and the 2.2 patch's `.o` files and
-`clue.lvl`, studied byte by byte (October 2026). Each layout was guessed
-from a few records, then checked by a program against all of them; the
-field meanings come from which objects have which values, and from
-drawing the mansion with them (it comes out whole, every room furnished).
-`reluva-tool clue check` repeats the checks; `clue level -v` lists the
-placements.
+> **Status:** decoded · **Code:** `src/engines/clue/level.h` · **Checked on:** the CD's, the install's and the 2.2 patch's `.o` files and `clue.lvl`: every record
+
+## Overview
+
+The game's objects (`.o`: 1,148 in all the copies) and its mansion
+(`clue.lvl`), put together from them.
 
 Both are `DDRV` archives ([res.md](res.md)). Numbers are little-endian.
 
-## The world
+## Layout
+
+### The world
 
 Places are in world units on the floor: x and y, and z up. The camera
 looks from beyond +x and +y, from above:
@@ -33,7 +34,7 @@ reading had them in half units; that drew the house at half its size, its
 floors overlapping fourfold (hiding the hall's inlaid "Clue"), which
 looked believable until compared.
 
-## `.o`: objects
+### `.o`: objects
 
 One record an object (1,148 in all the copies). The archive's size for
 each is 2 more than the record's own length.
@@ -90,7 +91,7 @@ the object (0x4280B0, 0x428100). The keys the game has:
 `Oblcouch_ad`'s single key, read once as "after 1.6 s, go to state 19",
 is key 1600, value 19: the sound of its bad reaction.
 
-## `clue.lvl`: the mansion
+### `clue.lvl`: the mansion
 
 Its entries: `/World.dat`, `/Info.dat` (2 bytes, 0), `/Objects.dat` and
 `/Workspace.dat`.
@@ -158,7 +159,9 @@ names the two types.)
 two 8s and a double 1.0. Probably the level editor's view: a position, a
 size, an 8 × 8 grid and a zoom.
 
-## Drawing order and the original's look
+## Behaviour
+
+### Drawing order and the original's look
 
 What stands in front of the suspect whose turn it is is drawn
 see-through, and the house dark but near it ("Lighting Effects"): see
@@ -176,3 +179,16 @@ below everything, as in its order), then the rest in that order, its
 pass run until nothing moves; suspects walking go in by the same test.
 Views of the ballroom and the billiard room drawn this way match the
 recordings' frames, as the order Reluva used before this was read did.
+
+## In Reluva
+
+`reluva-tool clue check` repeats the checks; `clue level -v` lists the
+placements.
+
+## Sources and checks
+
+Source: the CD's, the install's and the 2.2 patch's `.o` files and
+`clue.lvl`, studied byte by byte (October 2026). Each layout was guessed
+from a few records, then checked by a program against all of them; the
+field meanings come from which objects have which values, and from
+drawing the mansion with them (it comes out whole, every room furnished).

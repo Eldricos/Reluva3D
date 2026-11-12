@@ -1,5 +1,9 @@
 # Clue: Murder at Boddy Mansion: network play
 
+> **Status:** done, not yet tried between two real machines · **Code:** `src/engines/clue/netplay.h`, `src/engines/clue/frontend_net.cpp` · **Checked against:** Reluva's own tests, not the original
+
+## Overview
+
 Start Game, **Networked**, then:
 
 - **LAN TCP/IP**: **Host New Game** (a game name, your name, how many
@@ -30,6 +34,16 @@ machine stops answering for 15 s) is played on by a Normal computer
 player; if the host leaves, the others see "The Host Has Disconnected"
 and the game ends. Saving isn't offered in network games.
 
+## How it works
+
+**Against the original.** The original speaks DirectPlay 5/6 (the
+`DPLAYX` session, its own messages inside), which nothing but Windows
+still has; to play against it, Reluva would have to speak DirectPlay's
+protocol and the original's messages, which would need recording
+network play of the original. Not planned unless it's wanted.
+
+## In Reluva
+
 **Unlike the original:** its readme says the host's "Suggest Movies" and
 "Walk Animations" settings apply to every player in a network game. In
 Reluva each player's own preferences apply on their own machine: whether
@@ -54,6 +68,8 @@ same deal and seed, so the die and the computer players come out the
 same everywhere. The host checks each action is from the machine whose
 player it is. `src/engines/clue/netplay.h`.
 
+## Sources and checks
+
 Tested: unit tests over Reluva's in-memory network (finding, joining,
 the lobby, chat, starting, the order of actions, a lossy network, a
 player gone, the host gone); whole games of three machines in one
@@ -62,9 +78,3 @@ lossy (one datagram in four lost) network, with the die and without, a
 machine dropping half way: every machine ends in the same state; and two
 copies of Reluva on one machine over its real network, through the
 screens, into the same game. Not yet tried between two real machines.
-
-**Against the original.** The original speaks DirectPlay 5/6 (the
-`DPLAYX` session, its own messages inside), which nothing but Windows
-still has; to play against it, Reluva would have to speak DirectPlay's
-protocol and the original's messages, which would need recording
-network play of the original. Not planned unless it's wanted.

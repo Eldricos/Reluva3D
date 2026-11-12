@@ -1,4 +1,4 @@
-# Testing (Clue: Murder at Boddy Mansion)
+# Clue: testing
 
 How Reluva's Clue engine is checked: the automated checks, what they
 cover and don't, and a list of things to try in a playthrough by hand.
@@ -22,7 +22,7 @@ and needing no game files, so they run in CI:
 | `clue.unit.saves` | A game saved and read back |
 | `clue.unit.network` | Two machines over the in-memory network: finding a game, joining, the lobby, chat, the start, every action in one order (walks about a room among them), a network losing about a third of its packets, a player gone |
 
-### The basic engine test: no game files
+### The basic engine test
 
 `clue.engine` (`tests/engines/clue/engine.cpp`) makes a small install of
 its own and plays it through the engine as the launcher starts it, so a
@@ -47,7 +47,7 @@ caught. CI runs it on Linux and Windows with the rest.
   that changed. If the change is meant, `reluva-tests clue.engine --update`,
   review the record's diff, and commit it with the change.
 
-### The game-files test: with your own copy of the game
+### The game-files test
 
 Point `RELUVA_CLUE` at the game's folder (an install, the one holding
 `Clue.exe` and `Data/Classic`, or the CD or a copy of it) and run the steps
@@ -206,3 +206,7 @@ ripped (`reluva-tool cue-rip CLUE.cue <game folder>`) for the music checks.
   better (see [UNCONFIRMED.md](UNCONFIRMED.md#computer-players-naming-themselves)).
 - **Pace** [rec]: a computer player's turn without a suggestion takes 5-9 s
   from one "..., it is your turn." to the next; with one, about 20 s.
+
+## Last checked
+
+None recorded yet.

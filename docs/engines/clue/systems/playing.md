@@ -1,5 +1,9 @@
 # Clue: Murder at Boddy Mansion: playing
 
+> **Status:** partial · **Code:** `src/engines/clue/play.h`, `src/engines/clue/rules.h`, `src/engines/clue/frontend.h` · **Checked against:** `Clue.exe`'s code, and recordings of the original
+
+## Overview
+
 The game opens with its intro (a key or a click skips it), then its
 menus, as the original. In the game, the arrow keys move the view
 (**Shift**: faster) and **Esc** opens the game's menu: Save, Preferences,
@@ -20,7 +24,9 @@ and the lamps on them (its Wall class draws nothing then, at 0x42B5E6;
 its furniture of the secondary type 1, the lamps' tag, neither, at
 0x42A9AF), floors, furniture and pictures left (2:53 and 3:02).
 
-## In the game
+## How it works
+
+### In the game
 
 As the original, from its recordings and its How to Play texts:
 
@@ -127,7 +133,11 @@ picker, the network's player setup and Preferences on, the loading's
 own loop, then tracks 2, 3 and 4 in turn in the game, as `Clue.exe` has
 it.
 
-## Timings
+The cards window fills as the original's: in card order from the bottom
+right, right then left, row by row upwards (Playthroughs 01 and 02,
+both hands whole).
+
+### Timings
 
 As `Clue.exe` has them: a suspect walks 8 units a step,
 a step each 66 ms, a square in 0.53 s (0x4253C3; the VM recording, about
@@ -141,12 +151,15 @@ arriving. (After 45 s stuck in a step, it is moved on, 0x4218D0.) The
 ticker scrolls in a control of the Eagle library (`EagleM.dll`); its
 timing is the recordings'.
 
-## Not yet as the original
+## In Reluva
+
+### Not yet as the original
 
 - Suspects walk straight from a door to their place in a room, where
   `Clue.exe` finds a path over its walk grid (0x41A0C0); the place is
   its (see [board.md](../formats/board.md)).
 
-The cards window fills as the original's: in card order from the bottom
-right, right then left, row by row upwards (Playthroughs 01 and 02,
-both hands whole).
+## Sources and checks
+
+- **Where the facts come from:** recordings of the original and its How to
+  Play texts, and `Clue.exe`'s code at the addresses given.

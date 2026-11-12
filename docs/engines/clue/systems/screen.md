@@ -1,5 +1,9 @@
 # Clue: Murder at Boddy Mansion: the game's screen
 
+> **Status:** done · **Code:** `src/engines/clue/mansion.h`, `src/engines/clue/play.h` · **Checked against:** `Clue.exe` 2.2's code, and recordings of the original
+
+## Overview
+
 The game's screen, as `Clue.exe` lays it out. Its windows are Hasbro's
 EagleM.dll's (`EGuiWindow`): 0x435050 makes them, the bar's at 0x43BD10
 and its layout at 0x43C2D0, and 0x435630 places them, each from the
@@ -10,7 +14,9 @@ picture, moving it, giving its rectangle). They match what a 640×480
 recording of the original shows, to the pixel, but for three it had
 one pixel off.
 
-## Layout
+## How it works
+
+### Layout
 
 - The frames: the top one (0, 0); the left and right ones (0, 5) and
   (635, 5), 408 high, down to the bar.
@@ -59,7 +65,7 @@ one pixel off.
   squares 13 pixels, column 9 and row 9 at (8, 15) in it.
 - The solution (dialog 34) fills the screen.
 
-## What stands in front
+### What stands in front
 
 As `Clue.exe` 2.2 does it (read from its code;
 the recordings, OriginalClue 0:02-0:36 and L 3:00-3:30, show it). The
@@ -85,14 +91,14 @@ fireplace (`Olgosch_cd`) looks solid, though by the code it is in front
 of Miss Scarlet. Drawn as the code does see-through (half its colours,
 half the lit rug's, below), Reluva's looks the same: both are faded.
 
-## The notepad
+### The notepad
 
 The notepad's picture (`UI:A<sca>notepad`) is ruled: each kind's rows 15
 pixels apart below its line (22, 131 and 240), the columns of the colour,
 the two marks and the triangle 15 wide from 131. The names, colours,
 marks and triangles go in its cells.
 
-## Lighting Effects
+### Lighting Effects
 
 As `Clue.exe` 2.2 does it (read from its code and
 `ImageRLE16.dll`'s). The lights are the actors that show what stands in
@@ -123,7 +129,7 @@ clicked. The code accounts for both: 21% is the far shades' 1/4 and
 OriginalClue at 0:02, Reluva's frame now matches it to within a few
 levels of 255 across the view.
 
-## Fonts
+### Fonts
 
 The fonts' glyphs are drawn by their cells (an EIMG 0x100 glyph's cell
 width, a 0x200 glyph's image width), as the menus and dialogs show them:
@@ -133,3 +139,12 @@ ticker's sentence is drawn packed, each glyph's ink a pixel after the
 last's and a space its cell and a pixel: "Miss Scarlet, it is your turn."
 is 169 pixels in the longplay (L 3:00) and the VM recording, 189 by
 cells, 172 packed.
+
+## Sources and checks
+
+- **Where the facts come from:** `Clue.exe` 2.2's code (the layout's run in
+  an emulator, as above) and `ImageRLE16.dll`'s, and recordings of the
+  original.
+- **How it was checked:** against recordings of the original: the
+  positions to the pixel but for three, the lighting to within a few levels
+  of 255, the fonts' widths.

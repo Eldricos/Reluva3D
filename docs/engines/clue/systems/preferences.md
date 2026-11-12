@@ -1,5 +1,14 @@
 # Clue: Murder at Boddy Mansion: preferences
 
+> **Status:** done · **Code:** `src/engines/clue/frontend.h` · **Checked against:** `Clue.exe` 2.2's code
+
+## Overview
+
+The game's preferences: seven switches, and the music's and the master
+volume, set in the Preferences screen.
+
+## How it works
+
 Reluva keeps its own (`preferences.ini` in its folder for the game).
 The first time, with none yet, it takes the original's `Prefs.ini` from
 the game's folder: 16 bytes, the seven switches in the Preferences
@@ -18,3 +27,8 @@ its error message names the call) and never sets its volume (the
 executable has no `IBasicAudio`), so it plays at the system's volume.
 Reluva does the same: the videos (the intro, the deal, the suggestions,
 the prison) at full whatever the sliders.
+
+## Sources and checks
+
+- **Where the facts come from:** `Clue.exe` 2.2's code, at the addresses
+  given, and the original's `Prefs.ini`.

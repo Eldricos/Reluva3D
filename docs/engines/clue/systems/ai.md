@@ -1,5 +1,15 @@
 # Clue: Murder at Boddy Mansion: the computer players
 
+> **Status:** done · **Code:** `src/engines/clue/ai.h` · **Checked against:** `Clue.exe` 2.2's code, and recordings of the original
+
+## Overview
+
+The computer players, at three levels (novice, normal, expert): each
+keeps what it knows of who holds which card, as the original's notebook
+does, and suggests, shows cards and accuses from it.
+
+## How it works
+
 As `Clue.exe` 2.2 plays them, read from its code (November 2026); before
 that, Reluva's were its own, fitted to the recordings below. A computer
 player (class `AI`) keeps what it knows as the original's notebook does
@@ -49,6 +59,43 @@ one of its own (0x42D800).
 **What it shows** (0x42D680): by chance, but above a novice a card the
 suggester has been shown before if it has one, else one shown to anyone.
 
+**The original's play.** The VM recording's game (8:20-23:48, Miss
+Scarlet human, the others computer players; the answer Miss Scarlet,
+the revolver, the billiard room), read off its ticker:
+
+- A computer player suggests on about half its turns; the rest are
+  spent walking. No computer player named itself.
+- Once a kind is settled, it names that kind's answer and varies the
+  rest: from 17:52 on, Mr. Green, Mrs. Peacock, Professor Plum, Colonel
+  Mustard and Mrs. White all suggest "Miss Scarlet with the revolver in
+  ..." (the hall, the dining room, the library, the study, the
+  ballroom, the billiard room), as Reluva's experts do.
+- Some repeat a suggestion another made earlier ("Mrs. White suggests
+  Mr. Green with the pipe in the hall" at 14:05 and 17:38), so they
+  don't take in everything others learn.
+- Professor Plum, suggesting in the billiard room with nobody able to
+  disprove it (23:24-23:38), accused at once, in the same turn, and was
+  right: the game took 15 minutes, about ten rounds.
+
+## Sources and checks
+
+**The recordings.** Read off each game's ticker, every turn and
+suggestion:
+
+- *Expert*: the VM recording (8:20-23:48), five expert players and a
+  human.
+- *Normal*: "Clue: Murder at Boddy Mansion | Cluedo ... | Steam Deck
+  OLED" (YouTube `OesVaOfek9M`, 4:00-24:10): five normal players and a
+  human, who won at 24:00. Every computer player suggested on nearly
+  every turn, a different room each time; none had accused. They named
+  themselves three times in about thirty suggestions.
+- *Novice*: "Playthrough 01" and "02" (`kXb0pdCPDuo`, 4:37-21:30, two
+  novices and a human; `UCJ_YqBDIOQ`, 1:23-15:40, the same). The humans
+  won both; neither novice had accused. Novices named themselves often
+  (Colonel Mustard three times, Mrs. Peacock three, Professor Plum three
+  of six) and kept naming cards they could know (Colonel Mustard the
+  candlestick five times running).
+
 **Against the recordings** (Reluva's figures from `reluva-tool
 clue board <clue.lvl> 300 <level> <players>`, games of that level alone):
 
@@ -75,38 +122,3 @@ novice, 3 normal, 4 expert). Nothing in the code keeps a player off its
 own suspect, so Reluva doesn't either; the two recordings are short of
 what it would take to say the original does otherwise. In mixed games of two of each level (`reluva-tool clue board ... 600`),
 experts won 402, normal players 159, novices 39.
-
-**The recordings.** Read off each game's ticker, every turn and
-suggestion:
-
-- *Expert*: the VM recording (8:20-23:48), five expert players and a
-  human.
-- *Normal*: "Clue: Murder at Boddy Mansion | Cluedo ... | Steam Deck
-  OLED" (YouTube `OesVaOfek9M`, 4:00-24:10): five normal players and a
-  human, who won at 24:00. Every computer player suggested on nearly
-  every turn, a different room each time; none had accused. They named
-  themselves three times in about thirty suggestions.
-- *Novice*: "Playthrough 01" and "02" (`kXb0pdCPDuo`, 4:37-21:30, two
-  novices and a human; `UCJ_YqBDIOQ`, 1:23-15:40, the same). The humans
-  won both; neither novice had accused. Novices named themselves often
-  (Colonel Mustard three times, Mrs. Peacock three, Professor Plum three
-  of six) and kept naming cards they could know (Colonel Mustard the
-  candlestick five times running).
-
-**The original's play.** The VM recording's game (8:20-23:48, Miss
-Scarlet human, the others computer players; the answer Miss Scarlet,
-the revolver, the billiard room), read off its ticker:
-
-- A computer player suggests on about half its turns; the rest are
-  spent walking. No computer player named itself.
-- Once a kind is settled, it names that kind's answer and varies the
-  rest: from 17:52 on, Mr. Green, Mrs. Peacock, Professor Plum, Colonel
-  Mustard and Mrs. White all suggest "Miss Scarlet with the revolver in
-  ..." (the hall, the dining room, the library, the study, the
-  ballroom, the billiard room), as Reluva's experts do.
-- Some repeat a suggestion another made earlier ("Mrs. White suggests
-  Mr. Green with the pipe in the hall" at 14:05 and 17:38), so they
-  don't take in everything others learn.
-- Professor Plum, suggesting in the billiard room with nobody able to
-  disprove it (23:24-23:38), accused at once, in the same turn, and was
-  right: the game took 15 minutes, about ten rounds.

@@ -1,7 +1,13 @@
 # Clue: Murder at Boddy Mansion: music
 
-Source: the CD's cue sheet and its tracks, and `Clue.exe` 2.2 read where
-it plays them.
+> **Status:** done · **Code:** `src/engines/clue/frontend.cpp` · **Checked against:** `Clue.exe` 2.2's code
+
+## Overview
+
+The game's music: the CD's four audio tracks, played in the menus and in
+the game.
+
+## How it works
 
 The CD (volume label `Clue V2.0.01.27`) has a data track and four audio
 tracks, 44.1 kHz stereo, which aren't copied to the hard disk:
@@ -42,8 +48,15 @@ by their runtime-class records):
 With no CD audio the original plays no music and carries on. Reluva
 does all of the above.
 
+## In Reluva
+
 Reluva can't read the tracks from the files on the CD, so the player
 rips them once, as ScummVM asks for some games, to `track02.wav` ...
 `track05.wav` (or `.mp3`) in the game's folder. Tracks that aren't there
 are left silent, as the original does without its CD. `reluva-tool
 cue-rip` makes them from a BIN/CUE image of the CD.
+
+## Sources and checks
+
+Source: the CD's cue sheet and its tracks, and `Clue.exe` 2.2 read where
+it plays them.

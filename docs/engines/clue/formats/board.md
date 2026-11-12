@@ -1,12 +1,16 @@
 # Clue: Murder at Boddy Mansion: the board
 
-Source: `clue.lvl` ([level.md](level.md)), read for the board the game is
-played on (October 2026), checked against the classic board and the game's
-own overhead map (`UI:Aoverhead`). No file holds the board as such: it is
-the mansion's floor. `reluva-tool clue board <clue.lvl>` draws what Reluva
-reads from it.
+> **Status:** decoded · **Code:** `src/engines/clue/board.h` · **Checked on:** `clue.lvl`, against the classic board, the game's own overhead map and `Clue.exe` 2.2's code
 
-## Squares
+## Overview
+
+The board the game is played on, its squares, doors, starting squares and
+passages, as read from `clue.lvl` ([level.md](level.md)), the mansion's
+floor; and how suspects stand in rooms and move on it.
+
+## Layout
+
+### Squares
 
 The floors are 64 × 64 world units, their corners at 16 + 64 n in x and
 y: a square's column and row are ⌊(x − 16) / 64⌋ and ⌊(y − 16) / 64⌋. The
@@ -38,7 +42,7 @@ them.
 
 The doors are those of the classic board.
 
-## Doors
+### Doors
 
 Each door has a lintel, a wall object with `drtop` in its name
 (`wall:Ohwdrtop_na`, `wall:Obldrtopw`, 17 of them). It lies on the line
@@ -48,7 +52,7 @@ neither (`wall:Oktdrtop`, `wall:Obrdrtop`) either way. The door is the
 pair of squares on either side of the line, at the lintel's column (or
 row), with a room on one side and a corridor on the other.
 
-## Starting squares and passages
+### Starting squares and passages
 
 The suspects start where `clue.lvl` stands them (`character:Oscarlet`
 and the others, layer 7): Miss Scarlet (29, 11), Colonel Mustard (36, 18),
@@ -59,7 +63,7 @@ The rooms with a `secretpass:` object (the kitchen, lounge, study and
 conservatory) have the passages; each leads to the one of them furthest
 away, in the opposite corner.
 
-## What `Clue.exe` keeps of it
+### What `Clue.exe` keeps of it
 
 Read from `Clue.exe` 2.2's code (November 2026), which confirms all of the
 above. Its board is the floors' timings (each placement's, else its
@@ -74,7 +78,9 @@ passages (`secretpass:` objects) have 1000 their room's zone, 1400 the
 zone they lead to (lounge and conservatory, kitchen and study, as
 above) and 1300 the way they face.
 
-## In a room
+## Behaviour
+
+### In a room
 
 Where a suspect stands in a room isn't kept anywhere: `Clue.exe` looks
 for a place (0x41C480) on its walk grid, cells 32 units square, those
@@ -112,10 +118,18 @@ ballroom their neighbours. (Reluva placed suspects on those recorded
 squares before this was read; `Board::standing()` keeps a list of the
 kind for the rules' own use.)
 
-## Moving
+### Moving
 
 As the game's texts say (`Character Movement.txt` and the others): steps
 go side to side, never diagonally; a room is one step from the square
 before its door, and its doors' squares one step from it; no square
 twice in a move, none another suspect stands on; a room ends the move,
 and the one left can't be entered again in the same turn.
+
+## Sources and checks
+
+Source: `clue.lvl` ([level.md](level.md)), read for the board the game is
+played on (October 2026), checked against the classic board and the game's
+own overhead map (`UI:Aoverhead`). No file holds the board as such: it is
+the mansion's floor. `reluva-tool clue board <clue.lvl>` draws what Reluva
+reads from it.

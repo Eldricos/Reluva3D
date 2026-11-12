@@ -1,8 +1,14 @@
 # Clue: Murder at Boddy Mansion: hot spots, weather and sounds
 
-Source: `clue.lvl` and the objects (`.o`), the readme ("Clickable Items
-- ... Click on the bear in the Billiard Room, and you may see him dance,
-or you could get mauled!"), and `Clue.exe` 2.2's table of sounds.
+> **Status:** done · **Code:** `src/engines/clue/play.cpp` · **Checked against:** `Clue.exe` 2.2's code, and a recording of the original
+
+## Overview
+
+The rooms' hot spots, which react when clicked; the weather (the drapes,
+the wind and the thunder); and the game's sounds: how fast they play, over
+the menus, footsteps, and the fire and the fountain.
+
+## How it works
 
 **Hot spots.** Furniture whose object has states 20, 21 or 22 (`..._ag`,
 `..._ab`, `..._an` animations: good, bad, neutral) reacts when clicked,
@@ -108,3 +114,9 @@ floor under the view's middle is heard: silent 500 or more away (in
 the floor's units), else at volume 100 × (1 − distance / 500) of 127,
 panned 64 + 52 × dx / distance (0-127, 64 the middle) by how far it is
 to the right. Reluva does the same.
+
+## Sources and checks
+
+Source: `clue.lvl` and the objects (`.o`), the readme ("Clickable Items
+- ... Click on the bear in the Billiard Room, and you may see him dance,
+or you could get mauled!"), and `Clue.exe` 2.2's table of sounds.

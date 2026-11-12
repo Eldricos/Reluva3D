@@ -1,19 +1,18 @@
 # Clue: Murder at Boddy Mansion: resource files
 
-Source: the files of the retail CD (version 2.0, US and UK data), a clean
-install of it and the 2.2 patch, studied byte by byte (October 2026). Each
-layout below was first guessed from a few files, then checked by a program
-against every file of the CD, the install and the patch; the counts given
-are from those checks. Images were also compared with the game's look:
-Miss Scarlet's walk, the ballroom's couch, the credits' team photo, the
-title screen. Nothing here comes from the executables, except where said.
+> **Status:** decoded · **Code:** `src/engines/clue/resources.h` · **Checked on:** the retail CD (2.0, US and UK data), a clean install of it and the 2.2 patch: every file
 
-`reluva-tool clue check <game folder>` repeats the checks with Reluva's
-readers; `clue list` and `clue extract` show and extract a file's contents.
+## Overview
+
+The game's resource files: `.res` images, `.a` animations, `.o` objects
+and `clue.lvl`, all `DDRV` archives, the images and animations packed;
+resources are named by drive and kind ([Names](#names)).
+
+## Layout
 
 All numbers are little-endian.
 
-## `PACK`: a compressed file
+### `PACK`: a compressed file
 
 `.res` (images) and `.a` (animations) are stored compressed:
 
@@ -29,7 +28,7 @@ to the size given (all 153). `.o` (objects) and `.lvl` (the mansion) aren't
 packed. `dialogInfo.res` isn't either, and isn't a `DDRV`: it starts with
 `RESI` (the menus' and dialogs' layout, still to be worked out).
 
-## `DDRV`: an archive ("data drive")
+### `DDRV`: an archive ("data drive")
 
 Eagle's library calls these `EGDataDrive`, with entries `dd_FileEntry` (its
 exported names). All 336 `.res`, `.a`, `.o` and `.lvl` files are one.
@@ -59,7 +58,7 @@ tag, or the directory's first 4 bytes), so animations are read by their
 own structure. `clue.lvl`'s entries are `/Info.dat`, `/Objects.dat`,
 `/Workspace.dat` and `/World.dat`.
 
-## Names
+### Names
 
 Resources are named `drive:Xname`: the drive is a file's name without its
 extension, `X` the kind and also the first letter of the entry's name in
@@ -69,7 +68,7 @@ object in `drive.o`. For example `c_scarlet:Imsidlee_01` is the entry
 animation facing east. Animations name images in other drives too: the
 conservatory's fountain uses `wall:Iwindow_fntn`.
 
-## `EIMG`: an image
+### `EIMG`: an image
 
 Two versions, both run-length coded 16-bit images. Version `0x200` holds
 the mansion, its objects, the characters and most of the interface;
@@ -130,7 +129,7 @@ its data, without a row running past its width. The executable's
 `ImageRLE16.dll` draws these images (its exports: `DecodeByteBlit16` and
 clipped, flipped, scaled and sheared variants).
 
-## `ANIM`: an animation
+### `ANIM`: an animation
 
 | Size | |
 |---|---|
@@ -235,3 +234,18 @@ for the women, by chance.
 All 1,034 animations of every copy read this way, and all 7,262 images
 they name are found and decode. In the short form the first 4 bytes are
 the anchor offsets too; the rest are zeros.
+
+## In Reluva
+
+`reluva-tool clue check <game folder>` repeats the checks with Reluva's
+readers; `clue list` and `clue extract` show and extract a file's contents.
+
+## Sources and checks
+
+Source: the files of the retail CD (version 2.0, US and UK data), a clean
+install of it and the 2.2 patch, studied byte by byte (October 2026). Each
+layout above was first guessed from a few files, then checked by a program
+against every file of the CD, the install and the patch; the counts given
+are from those checks. Images were also compared with the game's look:
+Miss Scarlet's walk, the ballroom's couch, the credits' team photo, the
+title screen. Nothing here comes from the executables, except where said.
