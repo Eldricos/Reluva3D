@@ -114,7 +114,12 @@ Everything under *Still to check* below.
 
 ## Last checked
 
-None recorded yet.
+| Date | Release | Platform | What was checked |
+|---|---|---|---|
+| 20 October 2026 | A retail copy (English, DOS), both CDs | Linux, STDS9H's extractor | Every archive unpacked and every animation, sound, background and deck map converted (each format page's **Checked on**) |
+| 20–21 October 2026 | The same copy, both CDs | Linux, STDS9H | Played: the list [below](#checked-on-the-real-discs-with-stds9h-before-the-port) |
+| 28 October 2026 | The same copy | Linux, STDS9H | The display options (now Reluva's own settings) |
+| 12 November 2026 | The same copy's scripts (disc 1's `SSE` folder) and `DEEP.EXE` | Linux, `reluva-tool stharbinger` | Every scene and dialogue script read and its arguments named; the executable's objects, fixups and strings read |
 
 ### Checked on the real discs (with STDS9H, before the port)
 

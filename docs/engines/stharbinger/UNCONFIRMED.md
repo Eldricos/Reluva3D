@@ -49,7 +49,8 @@ None yet.
 * Which of the menu's save-browsing buttons 11 / 12 is "previous" on screen.
 * A save slot that is empty when saved but preloaded by the scene stays loaded
   after a load.
-* Parts of `ACTIONSEQ`: the meaning of some types and of the arcade parameter
+* Parts of `ACTIONSEQ` (the script command that starts videos, action
+  sequences and other special functions): the meaning of some types and of the arcade parameter
   tables (frame counts, start frames).
 
 ## Guessed

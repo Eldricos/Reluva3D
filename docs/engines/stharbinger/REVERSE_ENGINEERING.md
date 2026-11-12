@@ -12,7 +12,8 @@ from. The engine came to Reluva from STDS9H, where this work was done.
 - **All of Reluva's code is new.** The game's file formats and behaviour were
   worked out from the game itself; nothing is taken from its code.
 - **The retail game is studied as a legally owned copy, for
-  interoperability.** `DEEP.EXE` (the DOS/4GW executable) was disassembled
+  interoperability.** `DEEP.EXE` (a 32-bit DOS program, run by the DOS/4GW extender that
+  ships on disc 1) was disassembled
   and its data files read, to learn what an engine must do to run the game's
   own data. The game's code, text and assets stay in the player's copy:
   nothing of them is in this repository, and the working files that would
@@ -50,7 +51,7 @@ confidence marks.
 | `map-palettes <out> <game>` | Each deck map with every palette, as contact sheets | `harbinger_extract.py map-palettes` |
 | `script <game> <out>` | The scene and dialogue scripts disassembled, their arguments named from the name lists and the linker's cross-references | `harbinger_script.py` |
 | `dialogue <game> <out>` | The dialogue text as a readable script and a CSV: speaker, clip, menu label, recording notes | `harbinger_dialogue.py` |
-| `exe-strings <DEEP.EXE> <out>` | The executable's map: its LE objects and fixups, every string with the code that uses it, functions named from their debug messages, string tables | `harbinger_strings.py` |
+| `exe-strings <DEEP.EXE> <out>` | The executable's map: its LE (Linear Executable, the 32-bit format DOS/4GW loads) objects and fixups, every string with the code that uses it, functions named from their debug messages, string tables | `harbinger_strings.py` |
 | `exe-disasm <DEEP.EXE> <start> <end> [names]` | A range of the code disassembled, with fixup targets, strings and handler names | `harbinger_disasm.py` (no longer needs capstone) |
 | `files`, `info`, `conversations` | The game's parts and files; what its data holds; every conversation played through | (`--info`, and a test) |
 

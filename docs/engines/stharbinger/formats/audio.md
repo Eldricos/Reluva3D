@@ -1,6 +1,6 @@
 # Sound (.RAW and dialogue clips)
 
-> **Status:** decoded · **Code:** `src/engines/stharbinger/formats/audio.cpp` · **Confidence:** confirmed unless marked
+> **Status:** decoded · **Code:** `src/engines/stharbinger/formats/audio.cpp` · **Checked on:** both CDs' 315 `.RAW` sounds and the first clip of each of the 33 dialogue archives: format detected for every one, a sample checked by ear (STDS9H's extractor, October 2026) · **Confidence:** confirmed unless marked
 
 ## Overview
 

@@ -1,6 +1,6 @@
 # The executable (DEEP.EXE)
 
-> **Code:** `src/engines/stharbinger/tools/exe.cpp` · **Confidence:** from the code unless marked
+> **Status:** decoded · **Code:** `src/engines/stharbinger/tools/exe.cpp` · **Checked on:** a retail copy's `DEEP.EXE` (English, DOS) (564,497 bytes, SHA-256 `a3735701…a9683c1`): both LE objects, all 8,431 fixups and 956 strings read (`reluva-tool stharbinger exe-strings`, November 2026) · **Confidence:** from the code unless marked
 
 ## Overview
 
@@ -14,7 +14,7 @@ starts at file offset `0x352A4` (LE header at `0x37CF4`). Useful addresses:
 | Address | What |
 |---|---|
 | `0x11000` | jump table of the scene interpreter (commands `0x64`..`0xAA`) |
-| `0x149B0` | jump table of the directive-list (dialogue) interpreter (commands `0x32`..`0xAA`) |
+| `0x149B0` | jump table of the directive-list (dialogue) interpreter (commands `0x32`..`0xAA`); a directive is one script command with its arguments |
 | `0x1DD32` | `Load_Directive_List` |
 | `0x1DC25` | dialogue record loader |
 | `0x1B0DD` | name-list loader |

@@ -78,24 +78,24 @@ Paths are under `docs/engines/`.
 
 ### stharbinger
 
-- [ ] `stharbinger/formats/action-sequences.md`: **Checked on**.
+- [x] `stharbinger/formats/action-sequences.md`: **Checked on**.
   Suggested from the docs: TESTING.md: action sequences checked on the real discs with STDS9H, before the port.
-- [ ] `stharbinger/formats/animations.md`: **Checked on**
-- [ ] `stharbinger/formats/archives.md`: **Checked on**
-- [ ] `stharbinger/formats/audio.md`: **Checked on**
-- [ ] `stharbinger/formats/backgrounds.md`: **Checked on**
-- [ ] `stharbinger/formats/cursors.md`: **Checked on**.
+- [x] `stharbinger/formats/animations.md`: **Checked on**
+- [x] `stharbinger/formats/archives.md`: **Checked on**
+- [x] `stharbinger/formats/audio.md`: **Checked on**
+- [x] `stharbinger/formats/backgrounds.md`: **Checked on**
+- [x] `stharbinger/formats/cursors.md`: **Checked on**.
   Suggested from the docs: TESTING.md: cursors checked on the real discs with STDS9H, before the port.
-- [ ] `stharbinger/formats/deck-maps.md`: **Checked on**.
+- [x] `stharbinger/formats/deck-maps.md`: **Checked on**.
   Suggested from the docs: TESTING.md: the deck map checked on the real discs with STDS9H, before the port.
-- [ ] `stharbinger/formats/discs.md`: **Checked on**.
+- [x] `stharbinger/formats/discs.md`: **Checked on**.
   Suggested from the docs: TESTING.md: disc detection checked on the real discs with STDS9H, before the port.
-- [ ] `stharbinger/formats/executable.md`: **Status** and **Checked on**
-- [ ] `stharbinger/formats/saves.md`: **Checked on**.
+- [x] `stharbinger/formats/executable.md`: **Status** and **Checked on**
+- [x] `stharbinger/formats/saves.md`: **Checked on**.
   Suggested from the docs: TESTING.md: save, load and delete checked on the real discs with STDS9H, before the port.
-- [ ] `stharbinger/formats/scripts.md`: **Checked on**.
+- [x] `stharbinger/formats/scripts.md`: **Checked on**.
   Suggested from the docs: TESTING.md: scene scripts and conversations checked on the real discs with STDS9H, before the port.
-- [ ] `stharbinger/formats/videos.md`: **Checked on**.
+- [x] `stharbinger/formats/videos.md`: **Checked on**.
   Suggested from the docs: TESTING.md: the intro videos checked on the real discs with STDS9H, before the port.
 
 ## 2. Sections that say "None yet"
@@ -139,10 +139,13 @@ Each needs either content or confirmation that "None yet" is right.
 
 ### stharbinger
 
-- [ ] `stharbinger/KNOWN_DIFFERENCES.md`, "Not yet as the original": known gaps
-- [ ] `stharbinger/TESTING.md`, "Last checked": a row per check: date, release, platform, what was checked
-- [ ] `stharbinger/UNCONFIRMED.md`, "Seen running, not traced in the code": behaviour seen in the original but not found in its code
-- [ ] `stharbinger/UNCONFIRMED.md`, "Settled": items confirmed or corrected since, with the date and how
+- [x] `stharbinger/KNOWN_DIFFERENCES.md`, "Not yet as the original": known gaps.
+  "None yet" is right: the engine is level with STDS9H's last fixes, and every known difference is under "By choice" or "Bugs fixed".
+- [x] `stharbinger/TESTING.md`, "Last checked": a row per check: date, release, platform, what was checked
+- [x] `stharbinger/UNCONFIRMED.md`, "Seen running, not traced in the code": behaviour seen in the original but not found in its code.
+  "None yet" is right: the original hasn't been watched running; everything was read from its code first.
+- [x] `stharbinger/UNCONFIRMED.md`, "Settled": items confirmed or corrected since, with the date and how.
+  "None yet" is right: no item on the page has been checked against the original since it was written.
 
 ## 3. Terms used without explanation
 
@@ -197,11 +200,11 @@ in the game's README. If "Terms" lists are adopted, add the section to
 
 ### stharbinger
 
-- [ ] STDS9H: first in `stharbinger/README.md:5`
-- [ ] DOS/4GW: first in `stharbinger/REVERSE_ENGINEERING.md:15`
-- [ ] LE (the executable's format): first in `stharbinger/REVERSE_ENGINEERING.md:53`
-- [ ] directive: first in `stharbinger/formats/executable.md:17`
-- [ ] ACTIONSEQ: first in `stharbinger/UNCONFIRMED.md:43`
+- [x] STDS9H: first in `stharbinger/README.md:5`
+- [x] DOS/4GW: first in `stharbinger/REVERSE_ENGINEERING.md:15`
+- [x] LE (the executable's format): first in `stharbinger/REVERSE_ENGINEERING.md:53`
+- [x] directive: first in `stharbinger/formats/executable.md:17`
+- [x] ACTIONSEQ: first in `stharbinger/UNCONFIRMED.md:43`
 
 ### stgenerations
 

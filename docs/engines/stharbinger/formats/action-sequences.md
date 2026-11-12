@@ -1,6 +1,6 @@
 # Action sequence data
 
-> **Status:** decoded · **Code:** `src/engines/stharbinger/game/arcade.cpp` · **Confidence:** layout confirmed; behaviour from the code unless marked
+> **Status:** decoded · **Code:** `src/engines/stharbinger/game/arcade.cpp` · **Checked on:** a retail copy (English, DOS), both CDs: the action sequences played in STDS9H, including the drone fights (October 2026); not yet every sequence, nor losing each one · **Confidence:** layout confirmed; behaviour from the code unless marked
 
 ## Overview
 
