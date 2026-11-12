@@ -139,6 +139,7 @@ GameHost::GameHost(GameFolders folders, Options options) : folders_(std::move(fo
         native_ = std::make_unique<NativeThrash>(*cpu_);
         native_->setRecording(options_.gpuThrash);
         native_->setAlsoRasterize(options_.gpuThrash && options_.gpuAndSoftware);
+        native_->setPointSampled(options_.pointSampled);
         native_->setDirect3D(lower(options_.presentedRenderer) == "d3da.dll");
     }
 }

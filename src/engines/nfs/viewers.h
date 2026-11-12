@@ -40,18 +40,19 @@
 
 namespace reluva::nfs {
 
-// How the Track and Cars pages sample the game's textures: point-sampled,
-// no mipmaps. The game never sends THRASH's filter, LOD bias or mipmap
+// How the Track and Cars pages sample the game's textures: bilinear, no
+// mipmaps. The game never sends THRASH's filter, LOD bias or mipmap
 // states (7, 8, 0xb), but voodoo2a.dll sends itself 7 1 and 0xb 1 after
 // setvideomode, so on a Voodoo2 the game's textures are bilinear-filtered
-// (thrash.md, Texture filtering, corrected November 2026 from running the
-// DLL on the Glide stand-in). These pages, like the native THRASH, still
-// point-sample.
+// (thrash.md, Texture filtering, from running the DLL on the Glide
+// stand-in); its textures have one level each, so no mipmaps.
+// reluva.ini's texturefilter=point holds them point-sampled (makePages).
+inline bool pagesPointSampled = false;
 inline gfx::TextureParams glideTextureParams(bool clamp = false) {
     gfx::TextureParams params;
     params.clamp = clamp;
     params.mipmaps = false;
-    params.nearest = true;
+    params.nearest = pagesPointSampled;
     return params;
 }
 
@@ -914,7 +915,7 @@ private:
 // mixer plays the pages' sounds; null without audio output. The game
 // writes under `saveFolder`. `settings` are the game's section of
 // reluva.ini: renderscale (1-4, the Play page's frame against the game's
-// 640x480; 2 if not set), texturefilter (linear: bilinear textures) and
+// 640x480; 2 if not set), texturefilter (point: point-sampled textures; bilinear otherwise) and
 // joystick (off: a game controller isn't offered to the game).
 std::vector<std::unique_ptr<Page>> makePages(const char* gameName, const GameFolders& folders,
                                              const GameFiles& files, audio::Mixer* mixer = nullptr,

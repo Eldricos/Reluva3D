@@ -33,9 +33,9 @@ public:
             renderer_->captureNextFrame();
     }
     bool capture(std::vector<uint8_t>& rgba) { return renderer_ && renderer_->takeCapture(rgba); }
-    // Point-sampled textures, as the software renderer draws (else
-    // bilinear), unless a batch says (ThrashFrame::Batch::filter, d3da's).
-    bool nearest = true;
+    // Point-sampled textures (else bilinear, as both DLLs ask for), unless a
+    // batch says (ThrashFrame::Batch::filter, d3da's).
+    bool nearest = false;
     // The renderer's frame against the game's (640x480): 2 draws at
     // 1280x960, the same picture with sharper edges.
     int scale = 1;

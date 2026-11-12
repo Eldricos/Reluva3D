@@ -100,6 +100,12 @@ public:
     // game sends d3da no fog, and the rest is the same.
     void setDirect3D(bool on);
     bool direct3D() const { return direct3D_; }
+    // Textures are bilinear-filtered, as both DLLs ask for (voodoo2a.dll
+    // sends itself state 7 1 after setvideomode, 0x6000208f; d3da's device
+    // starts LINEAR): thrash.md, Texture filtering. With this on they are
+    // point-sampled instead (reluva.ini's texturefilter=point); in the
+    // Direct3D look state 7 still picks.
+    void setPointSampled(bool on);
     void clip(int x0, int y0, int x1, int y1);
 
     // Vertices are THRASH's 32-byte ones in emulated memory.
@@ -152,7 +158,8 @@ private:
     bool dither_ = true;
     bool gouraud_ = true; // state 6
     bool direct3D_ = false; // d3da's device (setDirect3D)
-    bool bilinear_ = false; // textures filtered: d3da's default, and its state 7
+    bool bilinear_ = true; // textures filtered: both DLLs' default, and d3da's state 7
+    bool pointSampled_ = false; // held point-sampled (setPointSampled)
     bool wrap_ = true;    // state 0xd: 1 wrap, 0 clamp
     int blend_ = 0;       // state 0x68: 0 alpha, 1 additive, 2 darken, 3 multiply
     bool alphaBlend_ = false; // state 0xa

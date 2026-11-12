@@ -605,8 +605,8 @@ two `powervra`; [frd.md](frd.md), the detail levels) and `d3da.dll`:
   source alpha over, fog off with fog colour 0x010101; its `setstate`
   (`0x60002b58`) never changes the texture blend, and changes the
   filter only for state 7, which the game sends only for text. So under
-  Direct3D the scenery is filtered where Glide's defaults point-sample
-  it (thrash.md, Texture filtering). The clips' textures are
+  Direct3D the scenery is filtered, as under voodoo2a.dll, whose own
+  set-up asks for bilinear (thrash.md, Texture filtering). The clips' textures are
   point-sampled (square texels on near walls in `Walls` and `Rain`), so
   the virtual machine's Direct3D didn't filter, and the clips can't show
   this.

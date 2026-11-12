@@ -51,6 +51,9 @@ public:
         // nativeThrash the drawing follows d3da's device set-up (bilinear
         // filtering, no dithering; NativeThrash::setDirect3D).
         std::string presentedRenderer;
+        // With nativeThrash: textures point-sampled instead of the
+        // bilinear filtering both DLLs ask for (NativeThrash::setPointSampled).
+        bool pointSampled = false;
         std::filesystem::path saveFolder; // what the game writes; the install folder stays as it is
         uint32_t memoryMb = 256;
         uint64_t instructionLimit = 0; // 0: none

@@ -253,11 +253,15 @@ with a depth buffer, 4 2. So with `voodoo2a.dll` the game's textures are
 have one level each (`talloc` asks for none smaller), so the mipmap mode
 changes nothing. An earlier reading here had them point-sampled, from
 the default filter Glide's own sources set; that source is not used any
-more, and the DLL's own set-up overrides any default anyway. The native
-THRASH (`thrash_native.cpp`) still point-samples (except in the Direct3D
-look, d3da's device defaults above), and so do the Track and Cars pages:
-that is the largest difference between `-native` and `-glide` in a race (The Glide stand-in, below). The pages point-sample
-the track's pictures, the sky's, the cars' skins and reflection maps and
+more, and the DLL's own set-up overrides any default anyway. Since
+November 2026 the native THRASH (`thrash_native.cpp`, the GPU's drawing
+and the software rasterizer) and the Track and Cars pages filter
+bilinearly too by default; `texturefilter=point` in reluva.ini (or
+`nfs-host -pointfilter`) holds them point-sampled. In the Direct3D look
+d3da's state 7 still picks. Their bilinear filter is Direct3D's (texel
+centres at half-integers, float weights); the Voodoo's own, with its
+fixed-point weights, is the Glide stand-in's (`renderer=glide`). The
+pages filter the track's pictures, the sky's, the cars' skins and reflection maps and
 the officer's pages (`glideTextureParams`), and since November 2026 the
 glows, beams, flares, particles and the headlights' picture too: in the
 lists they are textured batches like the others (`d7-night1`'s frame
@@ -524,8 +528,9 @@ from the menus, through the track's loading screen and into a race was
 magenta throughout. So the game draws only through THRASH.
 
 **Compared with the software rasterizer.** With `RELUVA_NFS_COMPARE` set
-to a folder, the Play page has the game drawn both ways, at 640x480 and
-point-sampled. Every 60th frame it writes the GPU's frame and the
+to a folder, the Play page has the game drawn both ways, at 640x480
+(point-sampled when the runs below were made; both now filter as
+`texturefilter` says). Every 60th frame it writes the GPU's frame and the
 software one of the same page flip. In a run through the menus, a
 loading screen and a race in three camera views, under software Vulkan:
 
@@ -578,8 +583,9 @@ stays at 7,000-7,700 over seven minutes.
 
 DirectDraw's frames (the movies) are shown over an empty frame. Frames
 are drawn at `renderscale` times 640x480 (2 unless set): the same
-picture, with sharper edges. Textures are point-sampled as in softtria,
-or bilinear with `texturefilter=linear`; in the Direct3D look
+picture, with sharper edges. Textures are bilinear-filtered, as both of
+the game's renderer DLLs ask for, or point-sampled with
+`texturefilter=point`; in the Direct3D look
 (`renderer=direct3d`) as d3da's device filters them, whatever that says. Both settings are in the game's
 section of `reluva.ini`. Without a GPU, the software rasterizer draws
 as before.
@@ -896,7 +902,8 @@ up to 1 a channel; its numbers are about 0.3-0.5 high for that.)
 
 The causes, from the code:
 - **Bilinear filtering.** `voodoo2a.dll` asks for it (Texture filtering);
-  the native drawing point-samples. It is most of the race's difference:
+  the native drawing point-sampled when these runs were made (it filters
+  by default since, with Direct3D's filter rather than the Voodoo's). It is most of the race's difference:
   the road, scenery and sky are magnified textures. Held point-sampled,
   the cockpit is within 0.01 and the road within 0.5 (race frame 2800,
   `j1-runs/fr6`).

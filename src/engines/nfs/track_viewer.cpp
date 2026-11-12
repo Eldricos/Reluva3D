@@ -3025,11 +3025,11 @@ void TrackPage::loadMarks() {
             marks_.push_back({{snd.position[0], snd.position[1], -snd.position[2]}, false, snd.slot, snd.kind,
                               &snd == &b.soundList.front()});
     }
-    // The glows, beams, flares and the headlights' picture are point-sampled
+    // The glows, beams, flares and the headlights' picture are filtered
     // without mipmaps as everything the game's Glide draws: their batches
     // in a race's THRASH list (d7-night1, d5-fog) are textured with them
-    // like any other, and no state 7, 8 or 0xb is ever sent (thrash.md,
-    // Texture filtering).
+    // like any other, and the game sends no state 7, 8 or 0xb of its own
+    // (thrash.md, Texture filtering; glideTextureParams).
     bool additive = false;
     picture(kLaneSheet, -1, false, &additive); // loads the sheet
     for (const Shape& shape : banks_[kLaneSheet].shapes)
@@ -3524,8 +3524,8 @@ gfx::TextureId TrackPage::particlePicture(int kind, const char* prefix) {
     if (auto it = particlePictures_.find(name); it != particlePictures_.end())
         return it->second;
     gfx::TextureId id = 0;
-    // Point-sampled without mipmaps, as all the game's Glide pictures
-    // (thrash.md, Texture filtering).
+    // Filtered without mipmaps, as all the game's Glide pictures
+    // (thrash.md, Texture filtering; glideTextureParams).
     bool additive = false;
     picture(kLaneSheet, -1, false, &additive); // loads the sheet
     for (const Shape& shape : banks_[kLaneSheet].shapes)
@@ -3791,7 +3791,7 @@ void TrackPage::drawSplats() {
 }
 
 // A picture of weather.fsh by name (0x4dcd20 loads DRPn and SPLn, n the
-// weather type), point-sampled as the game's Glide pictures.
+// weather type), filtered as the game's Glide pictures.
 gfx::TextureId TrackPage::weatherPicture(const char* name) {
     static constexpr const char* kSheet = "GameData/Render/pc/weather.fsh";
     const std::string key = std::string("weather/") + name;

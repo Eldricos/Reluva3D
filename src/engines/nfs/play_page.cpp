@@ -91,7 +91,7 @@ PlayPage::PlayPage(GameFolders folders, std::filesystem::path saveFolder, audio:
                    bool network, bool fillMovies, std::string serial, std::string modem, bool glide,
                    bool direct3d, bool glideSoftware, std::string glideDll, std::string glideBoard)
     : folders_(std::move(folders)), saveFolder_(std::move(saveFolder)), mixer_(mixer), offerJoystick_(offerJoystick),
-      forceFeedback_(forceFeedback), network_(network), serial_(std::move(serial)), modem_(std::move(modem)),
+      forceFeedback_(forceFeedback), smoothTextures_(smoothTextures), network_(network), serial_(std::move(serial)), modem_(std::move(modem)),
       fillMovies_(fillMovies), wheelPedals_(std::move(wheelPedals)),
       renderScale_(std::clamp(renderScale, 1, 4)), glide_(glide), glideSoftware_(glideSoftware),
       glideDll_(std::move(glideDll)), glideBoard_(std::move(glideBoard)), direct3d_(direct3d && !glide) {
@@ -103,7 +103,6 @@ PlayPage::PlayPage(GameFolders folders, std::filesystem::path saveFolder, audio:
         compareFolder_ = folder;
         renderScale_ = 1;
         gpuDraw_.scale = 1;
-        gpuDraw_.nearest = true;
     }
 }
 
@@ -185,6 +184,7 @@ void PlayPage::start() {
     options.commandLine = "nfs3.exe";
     options.saveFolder = saveFolder_.empty() ? folders_.install / "reluva-save" : saveFolder_ / "game";
     options.nativeThrash = true;
+    options.pointSampled = !smoothTextures_;
     // Told it has a Voodoo 2, the game draws its sky and fog (it fogs only
     // for 3dfx cards); the drawing is still Reluva's. Or, told of d3da.dll,
     // it takes its Direct3D path, drawn as d3da's device draws.

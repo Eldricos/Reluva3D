@@ -3215,10 +3215,23 @@ void testThrashDirect3D() {
         t.setState(0xd, 0); // clamped
     };
     {
-        // As before (the 3dfx look): point-sampled; state 7 changes nothing.
+        // The 3dfx look: bilinear, as voodoo2a.dll asks for itself after
+        // setvideomode (thrash.md, Texture filtering); the game's state 7
+        // changes nothing (voodoo2a's own dithering mixes the grey).
         NativeThrash t(cpu);
         setUp(t);
         CHECK(!t.direct3D());
+        const int grey = red(t, 20, 20);
+        CHECK(grey >= 14 && grey <= 16);
+        t.setState(0x7, 0);
+        CHECK(red(t, 20, 20) == grey);
+    }
+    {
+        // Held point-sampled (texturefilter=point): state 7 still changes nothing.
+        NativeThrash t(cpu);
+        t.setPointSampled(true);
+        t.setDirect3D(false);
+        setUp(t);
         CHECK(red(t, 20, 20) == 0 && red(t, 10, 20) == 31);
         t.setState(0x7, 1);
         CHECK(red(t, 20, 20) == 0);

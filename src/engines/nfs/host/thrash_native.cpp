@@ -209,9 +209,16 @@ void NativeThrash::setState(uint32_t id, uint32_t value) {
 void NativeThrash::setDirect3D(bool on) {
     direct3D_ = on;
     // d3da's device set-up (0x60004137-0x600042af): TEXTUREMAG and
-    // TEXTUREMIN LINEAR, DITHERENABLE off.
-    bilinear_ = on;
+    // TEXTUREMIN LINEAR, DITHERENABLE off. voodoo2a.dll's own set-up after
+    // setvideomode asks for bilinear too (0x6000208f), so either way the
+    // filter starts bilinear unless held point-sampled.
+    bilinear_ = !pointSampled_;
     dither_ = !on;
+}
+
+void NativeThrash::setPointSampled(bool on) {
+    pointSampled_ = on;
+    bilinear_ = !on;
 }
 
 float glideFog(float w, float value) {

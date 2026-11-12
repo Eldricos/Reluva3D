@@ -28,9 +28,9 @@ class GameHost;
 // software into the frames shown.
 class PlayPage : public Page {
 public:
-    // With a GPU, frames are drawn `renderScale` times the game's 640x480,
-    // with bilinear filtering if `smoothTextures` (else point-sampled, as
-    // the software renderer).
+    // With a GPU, frames are drawn `renderScale` times the game's 640x480.
+    // Textures are bilinear-filtered, as the game's renderer DLLs ask for,
+    // unless `smoothTextures` is false (point-sampled, GPU and software).
     // With `network`, the game's sockets are the machine's, for its
     // network play over TCP and IPX; `serial` and `modem` (as reluva.ini's
     // "listen:port" or "host:port") make its COM ports and its modem links
@@ -52,7 +52,7 @@ public:
     // effects intensity), drawn natively as d3da's device draws (bilinear,
     // undithered; docs/formats/nfs/hrz.md, The Direct3D renderer).
     PlayPage(GameFolders folders, std::filesystem::path saveFolder, audio::Mixer* mixer, int renderScale = 2,
-             bool smoothTextures = false, bool offerJoystick = true, bool forceFeedback = true,
+             bool smoothTextures = true, bool offerJoystick = true, bool forceFeedback = true,
              std::string wheelPedals = {}, bool network = true, bool fillMovies = true, std::string serial = {},
              std::string modem = {}, bool glide = false, bool direct3d = false, bool glideSoftware = false,
              std::string glideDll = {}, std::string glideBoard = {});
@@ -91,6 +91,7 @@ private:
     GamepadState pad_;       // as last passed on
     bool offerJoystick_ = true;
     bool forceFeedback_ = true;
+    bool smoothTextures_ = true;
     bool network_ = true; // the game's sockets on the machine's (System::sockets)
     std::string serial_, modem_; // its COM ports' and modem's links (GameHost::Options)
     bool fillMovies_ = true; // the black lines between a movie's filled in

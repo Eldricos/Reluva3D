@@ -264,19 +264,17 @@ What was built, with each format written up in `docs/formats/nfs/`:
   its triangles' flags (two-sided, unlit) and the game's reflection of a
   track's sky ([fce.md](../formats/nfs/fce.md)).
   The levels go by a part's place, as the names can't be trusted.
-  Its pictures are point-sampled without mipmaps, as voodoo2a.dll's
-  Glide is taken to draw all of the game's (no mipmaps is the DLL's; the
-  filter is an open question, [thrash.md](../formats/nfs/thrash.md),
-  Texture filtering). `RELUVA_NFS_CARS_VIEW="model yaw pitch distance"`
+  Its pictures are bilinear-filtered without mipmaps, as voodoo2a.dll
+  has Glide draw all of the game's ([thrash.md](../formats/nfs/thrash.md),
+  Texture filtering; `texturefilter=point` point-samples them). `RELUVA_NFS_CARS_VIEW="model yaw pitch distance"`
   opens it on a model, seen from there, for screenshots that repeat
   (checked so in November 2026: tail lights at the back and plates below
   them on the Corvette, F355, Diablo, police Diablo, CLK-GTR and XK8,
   the XK8's right-hand badge mirrored by the model's own mapping).
 - **The Tracks page** draws each track. It shows:
   - the road at three details, roadside and placed objects, and lane
-    markings, their pictures point-sampled without mipmaps as the
-    game's Glide renderer is taken to draw them (thrash.md, Texture
-    filtering);
+    markings, their pictures bilinear-filtered without mipmaps as the
+    game's Glide renderer draws them (thrash.md, Texture filtering);
   - the baked vertex lighting, scaled by the sky's ambient light;
   - cut-outs and additive glows;
   - the sky in four variants, drawn as the game draws it: the sky's and
@@ -380,7 +378,7 @@ What was built, with each format written up in `docs/formats/nfs/`:
     lights a car (a near one by night also by the track's lights within
     16, `0x4b9550`), with its reflection of the sky's sphere map in the
     colours the game works out (key Z: off), their tail-light, headlight
-    and roof-light glows (fogged as the scenery, point-sampled) at the game's depths (the body's nearest point,
+    and roof-light glows (fogged and filtered as the scenery) at the game's depths (the body's nearest point,
     a roof light's own less 0.75; the tail lights brighter while braking, more
     than 5 m/s too fast, at bends), in the weather each glow's flare on a
     wet road, on the road's plane as the game puts it, and in fog over 30 % each headlight's beam, each car's

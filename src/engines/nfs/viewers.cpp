@@ -581,8 +581,9 @@ std::vector<std::unique_ptr<Page>> makePages(const char* gameName, const GameFol
         return it == settings.end() ? std::string() : it->second;
     };
     const std::string scale = setting("renderscale");
+    pagesPointSampled = setting("texturefilter") == "point";
     pages.push_back(std::make_unique<PlayPage>(folders, saveFolder, mixer, scale.empty() ? 2 : std::atoi(scale.c_str()),
-                                               setting("texturefilter") == "linear", setting("joystick") != "off",
+                                               setting("texturefilter") != "point", setting("joystick") != "off",
                                                setting("forcefeedback") != "off", setting("wheelpedals"),
                                                setting("network") != "off", setting("movielines") != "keep",
                                                setting("serial"), setting("modem"), setting("renderer") == "glide",
