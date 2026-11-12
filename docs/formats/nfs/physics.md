@@ -2756,9 +2756,11 @@ second. The HUD there has the racer list on (other layouts hide it).
 - **The cop's HUD.** A racer list: name, "n tickets" and speed in KPH
   (`0x48a660`, rows set by `0x404ff0` through `0x485180`). A row is
   dark grey past 50 slices (no speed), grey within 50, light grey for
-  the nearest, **yellow for the target**, and "arrested" (text 330)
-  once out. During a chase a green radar panel shows at the top left
-  (`0x47d480`, only while the cop has a target) and a box marks the
+  the nearest (only while the cop has no target), **yellow for the
+  target** (at any distance), and "arrested" (text 330) once out
+  (the same in the user's copy, `HP_RacerList` below). During a chase
+  a green radar panel shows at the top left (`0x47d480`, only while
+  the cop has a target) and a box marks the
   target car. A row of eight spikes at the top right is the spike
   strip (below). There is no radar detector: `0x482b00` draws it
   only for a racer. The top centre is the mirror, the top right dial
@@ -2832,40 +2834,230 @@ second. The HUD there has the racer list on (other layouts hide it).
   fits the track-mod-4 rule (bnk.md).
 - **No computer cops** are seen on the player's side in any clip:
   the stops, scenes and racer list show only the player's car.
-- **Spike strips.** The spike row at the top right dims (it is still
-  drawn, greyer) once before each of the 18 stops, 1.4 to 10 s before
-  the scene, and at no other time. The 14 dims not cut by a scene or
-  the race's end last 2.90-2.97 s, close to the strip's 0xC0 steps
-  (3 s, [net.md](net.md)). So the player probably laid a strip in
-  every chase. No strip is seen on the dark roads, and no racer is
-  seen hitting one. **Our exe can't draw that.** The icon is one quad
-  of the HUD's quad list `0x749a38` (vertices at `0x791acc` + player
-  × 4, set up at `0x47bc40`: white, the spike picture of `hud98.fsh`'s
-  atlas, u 0.709-0.9375, v 0.719-0.762, at `CopSpikeBeltIndicator` of
-  the `.pos` layout). Each frame `0x482b00` adds it (`0x49bd30`) while
-  the cop has no strip out and takes it out (`0x49bdc0`) while one is
-  out, and `0x49be40` draws the list. There is no dim picture and no
-  colour change, and nothing about the arming step: the row is gone
-  from the press until the strip is cleared. Runs agree (`cop-spike2`;
-  `cp-spike1`: gone from the press at 43.1 s until a racer hit the
-  strip at 190.1 s, then back). It isn't a renderer's alpha either:
-  the quad isn't sent at all. So the recorded game is probably
-  another build, whose icon dims for the arming time; this one is
-  not known.
+- **Spike strips: none laid.** The spike row at the top right is
+  drawn, at one brightness, whenever the HUD is, in all three clips;
+  it is away only with the whole HUD, in the 18 ticket scenes and
+  the menus (rechecked November 2026). Neither the strip's
+  sound (`siren.bnk` slot 0x10, `0x404e40`) nor its clearing (0x11)
+  or refusal (0x12) is in the clips' sound (a normalised
+  cross-correlation of each slot over the whole clip found nothing
+  over 0.15, where the user's clip below gives 0.37-0.38). So the
+  player never laid a strip, and the clips say nothing about the
+  icon. An earlier reading here had the row "dim" for 2.90-2.97 s
+  before each stop and took it for another build: that was a fault
+  of the measuring script, not of the clips. It cut a strip 25 pixels
+  high from the 4:2:0 video, which ffmpeg made 24, and read the raw
+  frames 25 rows at a time, so its frame count ran 4% slow (6,278
+  frames for `Empire_City_Night`'s 6,540): each 3.03 s ticket scene,
+  where the HUD goes, came out as 2.91 s of "no spikes" 4% early,
+  while the HUD test it was set against was timed right. Read with
+  the right size, every gap in the row is a ticket scene
+  (`Empire_City_Night` clip 35.13, 66.47, 91.43, 101.13, 114.53,
+  202.00, each 3.03-3.07 s).
 - **The racer list's "over".** `0x485180` writes "%d %s - %d %s %s"
   ("81 KPH - 8 KPH over", text 350) for a racer with +0x6F0 over 2
   m/s, at each step of a cop's states (`0x404ff0`), and
-  `0x48a660` draws that text as the third column of every row in
-  state 4 or more (within 50 slices). The clips never show it, not
-  even for the target, which must be over that to be chased. Our exe
-  shows it (`cp-stop8`, frame 2418 at 54.4 s: "Ace 0 tickets 0 MPH -
-  11 MPH over" in yellow, the other rows "69 MPH - 19 MPH over";
-  `cp-spike1`: "Gotcha 0 tickets 84 MPH - 45 MPH over"). In those runs
-  the list itself was off in the saved options (`0x6fbc58` and
-  `0x6fbdfc` 0; `0x485880` sets them to 1 unless the renderer is
-  softtria) and was poked on. The clips' rows end at the speed, at
-  every length ("196 KPH"), so the text isn't cut by the box: another
-  build again, as for the spike icon.
+  `0x48a660` draws that text as the third column of every row whose
+  state is 4 or more (near, nearest or target). These clips never
+  show it, not even for the target, which must be over that to be
+  chased: the rows end at the speed, at every length ("196 KPH"),
+  inside a dark box the list is drawn in, the speed well clear of
+  the box's edge (`Empire_City_Night` clip 33.0, Gotcha yellow at 38
+  KPH; frames taken by time, November 2026). Our exe shows it, in
+  runs (`cp-stop8`, frame 2418 at 54.4 s: "Ace 0 tickets 0 MPH - 11
+  MPH over" in yellow, the other rows "69 MPH - 19 MPH over";
+  `cp-spike1`: "Gotcha 0 tickets 84 MPH - 45 MPH over"; there the
+  list was off in the saved options and poked on, `0x6fbc58` and
+  `0x6fbdfc` 0, set to 1 by `0x485880` unless the renderer is
+  softtria) and in the user's own copy (`HP_RacerList`, below), which
+  also draws no box. The clips' HUD layout differs from this
+  install's English one (`DashHud/edef.pos`, the game's text being
+  English), which the user's clips follow: the spike row sits higher
+  (y 0.033-0.059 of the screen against `CopSpikeBeltIndicator`'s
+  0.068-0.092; `gdef` and `idef` put it lower still), the lap counter
+  is at the top left under the clock (y 0.056-0.089, where `edef`,
+  `fdef` and `wdef` give the cop's (0.85-0.995, 0.008-0.05), the top
+  right, and `gdef`, `idef`, `sdef` the left at 0.10-0.15), and the
+  cop's map is a small boxed map at the bottom right where every
+  `.pos` file gives `CopCopMap` the whole screen (as the user's clips
+  show it). Those may come from options rather than another game: the
+  clips use the dial HUD in KPH, where the user's clips and our runs
+  use the digital bar in MPH (one option, it seems: the word `0x6fbc68` + cop × 0x1A4, which
+  `0x485180` reads for the unit, its button `mphkphButton` and its
+  pictures `akphImage`, `dkphImage`, `amphImage`, `dmphImage`; not
+  followed further), and the map has its own size option
+  (`mapscaleButtonCOP`); how those move the elements isn't read. The
+  "over" text doesn't depend on them: `0x485180` writes it in either
+  unit and `0x48a660` draws it for every row of state 4 or more, with
+  no test of an option or the layout.
+  So the clips' game is not this exe as installed here: another
+  release, or a modified one (not known which).
+
+### Seen in the user's own clips (`HP_Spikes`, `HP_RacerList`)
+
+Two clips the user recorded in November 2026 from their own copy,
+which is this exe (docs/engines/nfs.md, "The copy studied"), through
+Direct3D in a virtual machine: a one-player Hot Pursuit on Hometown,
+2 laps, the player in the Pursuit Corvette as the cop, six computer
+racers, "tickets: 0/6", the digital HUD (the bar along the top), MPH.
+`HP_Spikes` (357 s) has the racer list off, `HP_RacerList` (82 s) on.
+Times are clip times (30 frames a second); the race clock ran 5.61 s
+behind in `HP_Spikes` and 13.96 s behind in `HP_RacerList`, at the
+same rate. How they were read: the icon's 136 × 20 pixels and the
+list's rows measured on every frame (the spike pixels' mean against
+the bar's; each row's brightest text pixels and whether the speed
+column has text), single frames looked at, and the sound
+cross-correlated with the game's own samples (`siren.bnk`,
+`siren3d.bnk` slots 0x10-0x12, the officer banks `off00a`-`c` slots
+0x39-0x3B). The whole screen also carries the cop's track map, a
+white outline over the picture with the cop's dot flashing red and
+blue while the siren is on and black when it is off: `CopCopMap` is
+(0,0)-(1,1) in the `.pos` layouts.
+
+**The spike icon (`HP_Spikes`).**
+
+- Two strips are laid in the race, no more. The lay sound (slot 0x10)
+  is heard at 27.17 and 81.13 (correlation 0.38 and 0.37; nothing
+  else over 0.12, and no clearing 0x11 or refusal 0x12 sound at all),
+  and the officer's "strip laid" line (`off00a` 0x3B, right side, at
+  28.06; 0x39 at 82.01) follows each. The icon goes at 26.23 and
+  80.20, 0.93-0.94 s before each sound: the code plays the sound in
+  the step of the press that takes the icon away (`0x404e40`), so the
+  recording's sound lags its picture by that much.
+- **The icon is gone, not dimmed.** From 26.23 to 29.50 (98 frames,
+  3.27 s) and from 80.20 to 83.40 (96 frames, 3.20 s) the spike
+  pixels are the bar's own brightness (66.7 against 66.8; 40.8
+  against 41.8): nothing is drawn there. In the rest of the race the
+  icon is at one brightness throughout (the spike pixels' mean 125.6
+  to 127.4 in 99.8% of the frames with the HUD up): no dim state, at
+  any time, in 357 s. It is also away, with the whole HUD, in the five
+  ticket scenes (31.87, 86.90, 238.60, 276.03, 306.97, each 3.03 s)
+  and after the race (347.70, the results: 5 of 6, quota time N/A).
+- Each time the icon comes back a racer has run over the strip: the
+  ticket scene follows 2.37 s (29.50 to 31.87) and 3.50 s (83.40 to
+  86.90) later, with the racer's car stopped at the roadside in a
+  cloud of puffs, as after the strip hit in `cp-spike1` (hit at
+  190.09 s, scene 3.74 s later, the racer pulled over so the cop
+  needed no 7 m). The racer was behind the cop each time (the strip
+  is laid at the cop's own slice and nothing is seen ahead) and
+  reached the strip 0.27 and 0.20 s after it armed (192 steps from
+  the press): a hit can't come sooner, since the strip catches
+  nothing before its arming step (`0x4ca160`; `cq-spike0`).
+- The other three tickets (238.60, 276.03, 306.97) were stops without
+  a strip; the icon stayed up through them.
+
+What the code does with the icon (read November 2026; the reading
+in [net.md](net.md), Bit 0x80, holds):
+
+- The icon is one quad (four vertices from `0x791acc` + the view's
+  player × 4) of the HUD's quad list `0x749a38`. Each frame
+  `0x482b00` adds it (`0x49bd30`) when the car is a cop and its strip
+  record (`0x7dd850` + the cop's +0x714 × 0x50, +0) is 0, and takes
+  it out (`0x49bdc0`) otherwise (`0x483edf`-`0x483f15`); `0x49be40`
+  draws the list at `0x483fb4`. Elsewhere it is only taken out (at
+  `0x482dab`, on another path of `0x482b00`, and in `0x4844c0`, which
+  takes a number of HUD quads out and is called from the menus and
+  the HUD) or added (`0x45ab30` at `0x45b76f`, which draws the list
+  at once: a menu's picture of the HUD, not followed); the next race
+  frame sets it again by the strip. Its
+  four vertices are made once, white (0xFFFFFFFF), with the spike
+  picture of `hud98.fsh`'s atlas (u 0.709-0.9375, v 0.719-0.762), at
+  `0x47ca56` (`0x47bc40`, the pointer `0x791ae0`); the only other
+  writer, `0x481510`, puts them at `CopSpikeBeltIndicator` of the
+  `.pos` layout. The strip record's +0
+  has two writers only: `0x4c9dd0` (laid) and `0x4c9f50` (cleared).
+  So the icon is up exactly while the cop has no strip out, under
+  every renderer: there is no dim picture, no alpha, and no timer
+  that brings it back.
+- The one 3 s time is the arming step, step + 0xC0 (`0x404f30`,
+  record +0x4C): until then the strip blinks on the road (`0x4c9f70`)
+  and catches nothing, a press gives the refusal sound 0x12 only, and
+  after it a press lifts the strip (`0x4c9f50`, sound 0x11).
+- A strip is cleared only by a racer on it once armed (`0x4297d0`),
+  by the cop's own press after arming (`0x404e40`), or by a ticket of
+  a racer whose chase record lists this cop, which for the one human
+  cop is any ticket it gives (`0x4040e0`, `0x40425b`);
+  for computer cops also when their strip order ends (`0x4018b0`,
+  `0x403df0`, `0x4040e0` at `0x40417f`). It is never cleared by time.
+- **Why the icon sometimes "disappears for good".** A strip that no
+  racer runs over once armed stays out: a racer close behind crosses
+  it before its arming step (`cq-spike0`), one that is ahead never
+  comes, and losing the chase (`0x401a80`, siren off or over 300 m)
+  doesn't clear it. The icon then stays away until the player presses
+  S again (after the 3 s; the strip is lifted and the icon is back the
+  next frame) or the cop gives a ticket (`0x4040e0` clears the strip
+  of every cop on the ticketed racer's chase record, the human one
+  among them). That is the
+  code's rule, not a fault in it: no state is left unreset. In
+  `cp-spike1` the icon was away 147 s (43.1 to 190.1 s) for this
+  reason, and in `cop-spike2` 14 s, until the clearing press.
+- **"A strip can be laid while the icon is gone."** Not with one
+  out: while the record is set a press refuses (0x12) or lifts the
+  strip (0x11), and only the next press lays one (0x10, with the
+  officer's line). Two presses after the arming step, a lift then a
+  lay, put a new strip down 'from' a missing icon, the icon showing
+  for the frames between them. `HP_Spikes` has neither sound.
+- The icon's time away when a racer hits the strip is from the press
+  to the hit, so at least 3 s and usually a little more; in
+  `HP_Spikes` both were 3.2-3.3 s. That is what reads as "dims for
+  about 3 seconds"; no clip, ours or the YouTube ones, shows it
+  dimmed.
+
+**The racer list (`HP_RacerList`).**
+
+- Six rows, one per racer in the order of the car list (Mulligan,
+  Ace, Lead Foot, Dead Beat, Gotcha, Ram Rod), each "name, n tickets,
+  speed MPH", and "- n MPH over" after the speed once the racer's
+  +0x6F0 is over 2 m/s. No box is drawn behind it. The colours,
+  measured on the text: about 199 for the nearest racer (0xC0C0C0),
+  165 for the others within 50 slices (0xA0A0A0), 82 for those past
+  50 slices (0x505050) and yellow (235, 230, 80: 0xFAFA00 drawn at
+  alpha 0x9F over the picture) for the target, as `0x48a660` sets
+  them by row state (3 far, 4 near, 5 nearest, 6-7 target).
+- On the grid (11-13 s, after the user restarted the race from the
+  pause menu) every row reads "0 MPH", without "over"; at 19 s Ace's
+  row reads "60 MPH - 10 MPH over" and at 21 s Lead Foot's "63 MPH -
+  13 MPH over", before any chase. So "over" doesn't wait for a
+  chase: the row needs state 4 or more and +0x6F0 over 2
+  (`0x485180`), and `0x4052e0` raises +0x6F0 for every racer within
+  50 slices in the cop's state 3 too.
+- The over figures climb (Ace 10, 21, 29, 35 at 19-25 s, then 36)
+  and then stay put while the speed column moves (Mulligan "41 MPH
+  over" from 27 s to the end, at 71 to 91 MPH): +0x6F0 is the most
+  the racer has ever been over, not its excess now (`0x4052e0`).
+- Before the chase Mulligan's row is the light grey of the nearest
+  (11-21 s). At 21.4 the chase starts: the radar panel comes up and
+  his row turns yellow; no other row is light grey while the cop has
+  a target, because `0x404ff0` gives state 5 only when the cop has
+  none (`ai_target_car` 0).
+- **Too far from the racers.** The cop drives on at 118-121 MPH from
+  the racers' 75-90 MPH, and the rows go dark grey one by one, the
+  speed and "over" columns blank, the row reading only the name and
+  "0 tickets": Lead Foot at 58.4, Gotcha 59.3, Dead Beat 59.9. The
+  yellow row keeps its speed and "over" (state 7 doesn't depend on
+  the distance). At 61.7 the chase ends: the radar panel goes, the map's
+  dot stops flashing (siren off), Mulligan's row turns grey for one
+  frame and dark grey the next (past 50 slices) and Ram Rod's becomes
+  the light grey of the nearest. That is `0x405630`: the target over
+  300 m (`0x5361c4`) loses the chase (`0x401a80`, siren off). Ace's
+  row goes dark at 63.0 too. The cop then slows (45 MPH at 70 s, 20
+  at 76 s) and the rows come back, grey with their speeds and
+  the same "over" figures, as the racers come within 50 slices: Ace
+  64.9, Mulligan 68.4, Dead Beat 70.5, Gotcha 71.0, Lead Foot 72.2
+  ("80 MPH - 31 MPH over" at 75 s). Ram Rod's row never went dark.
+- The list is an option of the pause menu's Heads Up Display page:
+  its buttons in the exe are `opponentListButtonCop` (the cop's) and
+  `opponentListButton` (the racer's), and its preview image
+  `oppcImage` / `opplImage`; `0x45e3d0` shows or hides the image by
+  `0x6fbc58` + cop × 0x1A4 + player × 0x348, the same word
+  `0x482b00` tests at `0x482dd3` before calling `0x48a660`. It changes
+  only whether the list is drawn: the rows, their states and the
+  "over" text are made each step by `0x404ff0` and `0x485180` either
+  way, and with the option off (`HP_Spikes`) the chases, stops and
+  strips go the same.
+
+So the user's copy agrees with the code on every point checked, and
+with the earlier runs (`cp-stop8`, `cp-spike1`, `cop-spike2`).
 
 ## The handling, routine by routine
 
@@ -3658,9 +3850,13 @@ of every access to those offsets):
   The player rolled by itself off Hometown's road at slice 320 at 40
   m/s (`d3-g5`), and the crash line was queued again. With the player
   as the only cop no computer cop exists to say either.
-- Why the recorded game's spike icon dims for 3 s and its racer list
-  has no "over" text, when this exe hides the icon until the strip is
-  cleared and shows the text: probably another build, not found.
+- Which game the YouTube cop clips come from. Settled (November 2026,
+  Seen in footage, the player as the cop, and the user's own clips):
+  their spike icon never dims (the "dim" was a measuring fault and no
+  strip is laid in them), but their racer list has no "over" text and
+  their HUD layout isn't this install's, where the user's own copy
+  (this exe) shows the text and this layout. So they are another
+  release or a modified game; which one isn't known.
 - Settled (November 2026, Other car fields, +0xC): the track
   position's +0x64 is where the frame comes from (1 the slice, 2 a
   polygon was found) and +0x6C the side of the slice's road polygons

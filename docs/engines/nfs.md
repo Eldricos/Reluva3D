@@ -1832,10 +1832,11 @@ README.md.
   [physics.md](../formats/nfs/physics.md).
 - Whether the Classics release differs from the original 1998 retail in
   data or code. Other releases (UK, German, patched) need their own
-  hashes. The `Rain`, `Snow`, `Night`, `Walls` and `Sparks` clips were
-  recorded from the user's own copy of this CD (November 2026: the
-  CD's `nfs3.exe`, `d3da.dll`, `voodoo2a.dll`, `voodooa.dll`,
-  `softtria.dll`, `eacsnd.dll` and `readme.txt` hash the same as the
+  hashes. The `Rain`, `Snow`, `Night`, `Walls`, `Sparks`, `HP_Spikes`
+  and `HP_RacerList` clips were recorded from the user's own copy of
+  this CD (November 2026: the CD's `nfs3.exe`, `d3da.dll`,
+  `voodoo2a.dll`, `voodooa.dll`, `softtria.dll`, `eacsnd.dll` and
+  `readme.txt` hash the same as the
   install studied; `nfs3.exe`'s version resource reads file version
   `27, 2.0`, the string the network lobby sends, net.md), in a virtual
   machine through Direct3D (`d3da.dll`, 1998-08-10). The CD's online
@@ -1844,7 +1845,18 @@ README.md.
   `voodoo2a.dll` (1999-04-21, file version 1999.04.21.1112, 110,592
   bytes against the install's 1998-07-31 93,382) and a new
   `3dSetup/3ddata.dat`, for Voodoo3 cards only; it isn't studied. The
-  clips with the spike icon and racer list that differ from this exe
-  (physics.md) are the Hot Pursuit ones, found on YouTube with no
-  release named; which release those come from can't be settled from
-  them, so their differences stay marked as another release's.
+  Hot Pursuit clips found on YouTube (no release named) were taken
+  for another release on two counts, the spike icon and the racer
+  list. The user's own Hot Pursuit clips (`HP_Spikes`,
+  `HP_RacerList`, November 2026; physics.md, "Seen in the user's own
+  clips") settle the first: the YouTube spike icon never dims, the
+  "dim" being a fault of the measuring script, and no strip is laid
+  in those clips, so they show nothing about it. The second stands:
+  the user's copy writes the racer list's "over" text, as the code
+  and our runs do, and the YouTube clips never show it, though
+  nothing in the code that writes or draws it tests an option. (Their
+  HUD layout also differs from this install's English `edef.pos`,
+  which the user's copy follows, but they use the dial HUD in KPH and
+  a small map, both options, so that alone proves nothing.) So those
+  clips are from another release or a modified game, not known which;
+  nothing else seen in them is put down to that.

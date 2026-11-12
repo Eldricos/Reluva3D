@@ -499,12 +499,17 @@ sounds differ: 0x10/0x11/0x12 play only in the copy whose player owns
 the cop (`g_local_slot` = the car's slot, or a link kind under 2); the
 radio line (`0x40b9c0`) is queued in both.
 
-The recorded game (one-player cop footage, physics.md) dims the row
-for about 3 s instead. In this exe the row is a single quad added to
-or taken out of the HUD's quad list `0x749a38` (`0x49bd30`,
-`0x49bdc0`) by whether a strip is out, with no dim state, so it is
-gone, not dimmed, under any renderer; the footage is probably another
-build.
+The row is a single quad added to or taken out of the HUD's quad
+list `0x749a38` (`0x49bd30`, `0x49bdc0`) by whether a strip is out,
+with no dim state and no timer, so it is gone, not dimmed, under any
+renderer, from the press until the strip is cleared. The user's own
+copy shows exactly that through Direct3D (`HP_Spikes`, physics.md,
+"Seen in the user's own clips"): two strips, the row gone 3.27 and
+3.20 s each, from the press until a racer ran over the armed strip.
+A strip nobody runs over keeps the row away until the next press
+after arming lifts it, or a ticket clears it. The YouTube cop
+footage once read as dimming the row for about 3 s lays no strip at
+all; the "dim" was a fault of the measuring script (physics.md).
 
 Seen in a run (October 2026, `nfs-host -poke`, docs/engines/nfs.md): a
 single-player Hot Pursuit with the player in the Pursuit Corvette
