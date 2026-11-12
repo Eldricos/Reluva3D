@@ -1,6 +1,6 @@
 # Scripts (CC.ALL, CCB.ALL and their lists)
 
-> **Status:** decoded · **Code:** `src/engines/stharbinger/formats/script.cpp`, `src/engines/stharbinger/formats/resources.cpp`, `src/engines/stharbinger/formats/dialogue.cpp` · **Confidence:** layout confirmed; behaviour from the code unless marked
+> **Status:** decoded · **Code:** `src/engines/stharbinger/formats/script.cpp`, `src/engines/stharbinger/formats/resources.cpp`, `src/engines/stharbinger/formats/dialogue.cpp` · **Checked on:** disc 1's 31 scene scripts and 72 dialogue scripts: all 32,974 scene directives and every dialogue read; every scene argument named, and 18,657 of the dialogues' 18,697 (the tool names a dialogue's arguments from one scene's lists, and finds no name for the other 40) (`reluva-tool stharbinger script`, November 2026) · **Confidence:** layout confirmed; behaviour from the code unless marked
 
 ## Overview
 

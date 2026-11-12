@@ -2,8 +2,8 @@
 
 Engine id `stharbinger`, in `src/engines/stharbinger/`. It runs *Star Trek:
 Deep Space Nine – Harbinger* (Viacom New Media, 1996, DOS, two CDs) from the
-player's own copy. It came to Reluva from STDS9H, ported with its game logic
-as it was.
+player's own copy. It came to Reluva from STDS9H (the stand-alone engine for
+this game it was first written as), ported with its game logic as it was.
 
 ## Games
 
@@ -27,6 +27,12 @@ recognised alone, beside the other, or in Reluva's import (`disc1/`,
 | Release | Disc 1's files |
 |---|---|
 | English (DOS) | `SSE/SSE.ALL` (2,865,766 bytes), `SSE/SSE.LST` (308), `SSE/SSE.CAT` (779) |
+
+The entry was checked in November 2026 on disc 1's `SSE.ALL`: its size and
+hash match. `SSE.LST` and `SSE.CAT` were rebuilt from `SSE.ALL`'s 76
+entries (their offsets, and their names from the installed files) and match
+too, byte for byte. With the three files, Reluva's matcher (`detectFromTable`)
+finds this release; with one byte of `SSE.LST` changed, it finds none.
 
 For another release or language, run `reluva --hash` on disc 1's files
 from the CD's root (so the names include `SSE/`) and add its entry:

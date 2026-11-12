@@ -1,6 +1,6 @@
 # Backgrounds (.CMP) and palettes (.PAL)
 
-> **Status:** decoded · **Code:** `src/engines/stharbinger/formats/graphics.cpp` · **Confidence:** confirmed unless marked
+> **Status:** decoded · **Code:** `src/engines/stharbinger/formats/graphics.cpp` · **Checked on:** both CDs' `.CMP` backgrounds, converted and looked at (STDS9H's extractor, October 2026; the number of files was not recorded) · **Confidence:** confirmed unless marked
 
 ## Overview
 

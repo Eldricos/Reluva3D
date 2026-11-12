@@ -485,7 +485,7 @@ bool Game::loadGame(const std::string& fileName) {
         a.rate = rec[4] | (rec[5] << 8);
         a.countdown = rec[6] | (rec[7] << 8);
         a.flags = rec[8];
-        a.priority = rec[9];
+        a.priority = std::min<int>(rec[9], 4); // the renderer draws levels 0..4 only
         a.defined = rec[0x26] == 0;
         a.suspended = false;
         a.frame = frame == kNone32 ? -1 : int(frame);
@@ -532,6 +532,8 @@ bool Game::loadGame(const std::string& fileName) {
     tricorderIcon_ = tricorder;
     tickPeriod_ = tickPeriod;
     tickPhase_ = tickPhase;
+    beams_.clear();
+    beamLife_ = 0;
     if (tickPeriod_ != 0xFFFF && tickSound_.empty())
         if (auto s = resources_.openFile("SOUND/TICK.RAW"))
             tickSound_ = s->readAll();
@@ -584,6 +586,8 @@ void Game::startNewGame() {
     tricorderIcon_ = false;
     tickPeriod_ = 0xFFFF;
     tickPhase_ = 0;
+    beams_.clear();
+    beamLife_ = 0;
     mapLocation_ = 0xFF;
     dead_ = false;
     paletteBackground_ = 299;

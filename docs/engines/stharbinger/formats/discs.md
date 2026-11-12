@@ -1,6 +1,6 @@
 # The discs
 
-> **Status:** decoded · **Code:** `src/engines/stharbinger/detection.cpp`, `src/engines/stharbinger/formats/resources.cpp` · **Confidence:** confirmed unless marked
+> **Status:** decoded · **Code:** `src/engines/stharbinger/detection.cpp`, `src/engines/stharbinger/formats/resources.cpp` · **Checked on:** the English (DOS) release, both CDs, found and run by STDS9H (October 2026); its entry in the release table checked against disc 1's `SSE.ALL` (November 2026); in Reluva only with the unit tests' made-up folders · **Confidence:** confirmed unless marked
 
 ## Overview
 

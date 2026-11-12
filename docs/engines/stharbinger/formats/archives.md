@@ -1,6 +1,6 @@
 # Archives (.CAT, .LST, .ALL)
 
-> **Status:** decoded · **Code:** `src/engines/stharbinger/formats/archive.cpp` · **Confidence:** confirmed unless marked
+> **Status:** decoded · **Code:** `src/engines/stharbinger/formats/archive.cpp` · **Checked on:** disc 1's script archives (`CC`, `CCB`, `CCF`, `CCQ`, `CCR` and the name lists): every entry read (`reluva-tool stharbinger script`, November 2026); both CDs' other archives unpacked by STDS9H's extractor (October 2026) · **Confidence:** confirmed unless marked
 
 ## Overview
 
