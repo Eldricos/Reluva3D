@@ -1,11 +1,13 @@
 # Overlays (.OVR)
 
-From STG-Engine's notes on the 2 CD Windows release ([README](README.md) says how they were made). All values are little-endian.
+> **Status:** decoded · **Code:** `src/engines/stgenerations/formats/overlay.h` · **Checked on:** the 2 CD Windows release, two samples
 
-## OVERLAY (`.OVR`): decoded, `src/engines/stgenerations/formats/overlay.h`
+## Overview
 
 These are first-person animations, such as the player's fist (`KIRKHIT.OVR`) or a hand holding an
 item (`NUPLANT.OVR`).
+
+## Layout
 
 ```
 char[8]  "OVERLAY\0"
@@ -28,3 +30,7 @@ palette either; the overlay uses the palette of the current scene. The frames
 are stacked top down, but each frame's rows are stored bottom up: only that
 way up do NUPLANT's nozzle tips sit on the hotspots sgens.exe gives its poses,
 and Kirk's fists in KIRKHIT swing up from the bottom of the view.
+
+## Sources and checks
+
+From STG-Engine's notes on the 2 CD Windows release ([README](README.md) says how they were made). All values are little-endian.

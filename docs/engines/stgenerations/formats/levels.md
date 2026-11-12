@@ -1,10 +1,14 @@
 # Levels (GAME.LV2)
 
-From STG-Engine's notes on the 2 CD Windows release ([README](README.md) says how they were made). All values are little-endian.
+> **Status:** decoded enough to render · **Code:** `src/engines/stgenerations/formats/level.h`, `src/engines/stgenerations/game/render3d.h`
 
-## Level data (`GAME.LV2`): decoded enough to render, `src/engines/stgenerations/formats/level.h`, `render3d.h`
+## Overview
+
+A location's level, `GAME.LV2`: its palette, vertices, flats, walls, billboards, actors, sky and textures, as chunks.
 
 Loaded by the routine at `0x4BD130` in `sgens.exe`. All values are little endian.
+
+## Layout
 
 | Offset | Type | Meaning |
 |--------|------|---------|
@@ -34,16 +38,6 @@ records.
 World coordinates are 16.16 fixed point. x and y are the floor plan, and
 z is height, growing upwards. In verid1, walls are mostly 12 units high and
 a texture usually covers 10 or 15 units.
-
-The renderer was traced through `sgens.exe`:
-- **Camera.** `0x4C3600` transforms the vertices with the camera at
-  `0x57D9B8` (x, z, y). Yaw cos/sin are at `0x57D9CC`/`0x57D9D0`, and a pitch
-  shear is at `0x57D9D8`. Looking up and down shears the view instead of
-  rotating it.
-- **Projection.** screen x = centre + x/depth · W/2 and screen y = centre −
-  y/depth · W/2, set up at `0x4B58B0`. That is a 90° horizontal field of view.
-- **Drawing.** `0x4C13F0` draws flats and `0x4C1A50` texture-maps them;
-  `0x4C7D00` draws walls.
 
 Several records share a layout for animated textures: a frame count and a
 speed, with the current frame being the base texture id plus an offset
@@ -110,6 +104,35 @@ cliff over a misty mountain range.
 2 × (+0x34) wide and +0x38 high, with the texture id at u16 +0x8A and the
 frame count at +0x86. Lighting is at +0x64..+0x68, as for flats (record kind 4 or 5).
 
+**Sky** (type 12, id 0) is a 64-byte header followed by an image stored
+row by row. The header holds the data size at +16 and the height at +24;
+the width is size / height. verid1's sky is 640 × 252 and wraps seamlessly
+from left to right. halee1's header has the same fields apart from the size,
+65536, which 252 doesn't divide: its sky is 512 × 128. Where the height
+doesn't fit, the reimplementation takes the width at which neighbouring rows
+match best. The header also holds 504 at +20, which the drawing
+routine at `0x4C2F50` uses as its row stride. That doesn't fit verid1's
+image, so this field isn't understood yet. Nor is how the sky maps to the
+view angle; the reimplementation tiles it at one sky pixel per screen pixel.
+
+**Textures** have a 20-byte header: 12 zero bytes (pointers filled in at
+run time), then u16 id, width, height and flags. Then come width × height
+pixels stored column by column, each column bottom first (billboard pictures that stand on the ground fill the first stored row; in verid1, halee1, amargos1 and arvada1, 85 do and 11 fill the last instead), and 3 × width bytes
+of per-column hints like GS2's. Flag 1 means the texture has no hints. Palette index 255
+(magenta) is transparent.
+
+## Behaviour
+
+The renderer was traced through `sgens.exe`:
+- **Camera.** `0x4C3600` transforms the vertices with the camera at
+  `0x57D9B8` (x, z, y). Yaw cos/sin are at `0x57D9CC`/`0x57D9D0`, and a pitch
+  shear is at `0x57D9D8`. Looking up and down shears the view instead of
+  rotating it.
+- **Projection.** screen x = centre + x/depth · W/2 and screen y = centre −
+  y/depth · W/2, set up at `0x4B58B0`. That is a 90° horizontal field of view.
+- **Drawing.** `0x4C13F0` draws flats and `0x4C1A50` texture-maps them;
+  `0x4C7D00` draws walls.
+
 How walls, billboards and actors are drawn depends on their flags
 (`0x4C5820`, `0x4C0AD0`, `0x4C80B4`):
 
@@ -130,23 +153,6 @@ own. At the start (`0x4BDD70`) and whenever a script puts one somewhere,
 `0x4B7AA0` drops it onto the highest floor no more than 2 units above its
 base, passing over floors with flag 0x1000. It takes that floor's zones and
 light, so it is drawn wherever it lands. Flag 0x1000000 keeps its height.
-
-**Sky** (type 12, id 0) is a 64-byte header followed by an image stored
-row by row. The header holds the data size at +16 and the height at +24;
-the width is size / height. verid1's sky is 640 × 252 and wraps seamlessly
-from left to right. halee1's header has the same fields apart from the size,
-65536, which 252 doesn't divide: its sky is 512 × 128. Where the height
-doesn't fit, the reimplementation takes the width at which neighbouring rows
-match best. The header also holds 504 at +20, which the drawing
-routine at `0x4C2F50` uses as its row stride. That doesn't fit verid1's
-image, so this field isn't understood yet. Nor is how the sky maps to the
-view angle; the reimplementation tiles it at one sky pixel per screen pixel.
-
-**Textures** have a 20-byte header: 12 zero bytes (pointers filled in at
-run time), then u16 id, width, height and flags. Then come width × height
-pixels stored column by column, each column bottom first (billboard pictures that stand on the ground fill the first stored row; in verid1, halee1, amargos1 and arvada1, 85 do and 11 fill the last instead), and 3 × width bytes
-of per-column hints like GS2's. Flag 1 means the texture has no hints. Palette index 255
-(magenta) is transparent.
 
 At load time the game builds a 64 × 64 grid of 32-byte cells over the map
 (around `0x4BEE07`), presumably for collision and visibility.
@@ -364,8 +370,14 @@ the screen, show a view overlay, slow the player (SET_PLAYER_MOTION) and take
 control 0x40 away, so the player sinks slowly and walks along the bottom; 58
 undoes it.
 
+## In Reluva
+
 Opening a `GAME.LV2` in the viewer draws its floor plan. `]` switches to a
 3D view of the level that you can walk through (arrows or WASD, PgUp/PgDn
 to look up and down, End to level the view, L to switch lighting off and on,
 Shift+C to walk through walls, X to jump, C to crouch). Pressing `]` again steps
 through the textures.
+
+## Sources and checks
+
+From STG-Engine's notes on the 2 CD Windows release ([README](README.md) says how they were made). All values are little-endian.

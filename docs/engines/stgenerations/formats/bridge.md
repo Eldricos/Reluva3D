@@ -1,8 +1,12 @@
 # The bridge (STELLAR.DAT)
 
-From STG-Engine's notes on the 2 CD Windows release ([README](README.md) says how they were made). All values are little-endian.
+> **Code:** `src/engines/stgenerations/game/bridge.h`
 
-## The bridge (`STELLAR.DAT`): `src/engines/stgenerations/game/bridge.h`
+## Overview
+
+The bridge's data, in `STELLAR.DAT`.
+
+## Layout
 
 `DESIGN/UNIVERSE.INI` describes the map: `[Universe]` (the ten suns, 25
 fleets), `[Display]` (MinZ = zoom distance, MaxZ = world scale and the sector
@@ -23,6 +27,8 @@ each frame's rows bottom up), in `FLEET\ENTSIN.BMP`'s and `NEXUS\NEXUS.BMP`'s
 palettes. Every other picture has its own palette, so the bridge is drawn in
 true colour; index 254 is see-through.
 
+## Behaviour
+
 The stardate (48623.4 on a new game) only moves as the player acts: a warp
 1.0, a simulated destruction 0.3, a scan or a zoom 0.1; the display climbs a
 tenth every 500 ms. `SDTimer d` sets a deadline d past the stardate shown, and
@@ -36,3 +42,7 @@ doesn't change it, the button is only off while the controls are. Nothing
 in the original sets it back to nothing, even a new game; this engine does
 on a new game, which makes no difference as each section arms it again.
 `IfClue` is true when the last away mission set any outcome code.
+
+## Sources and checks
+
+From STG-Engine's notes on the 2 CD Windows release ([README](README.md) says how they were made). All values are little-endian.

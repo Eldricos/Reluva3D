@@ -1,8 +1,12 @@
 # Archives and standard files
 
-From STG-Engine's notes on the 2 CD Windows release ([README](README.md) says how they were made). All values are little-endian.
+> **Code:** `src/common/zip.h`, `src/common/video/avi.h`, `src/common/video/cinepak.h`
 
-## Containers
+## Overview
+
+The game's archives and movies, and the standard files inside the archives.
+
+### Containers
 
 | File | Format | Notes |
 |------|--------|-------|
@@ -13,7 +17,9 @@ From STG-Engine's notes on the 2 CD Windows release ([README](README.md) says ho
 Each location archive (e.g. `VERID1.DAT`) holds a `verid1/` folder with
 `GAME.BIN`, `GAME.LV2`, `*.GS2`, `*.BMP`, `*.OVR` and `sounds/*.WAV`.
 
-## Standard formats inside the archives
+## Layout
+
+### Standard formats inside the archives
 
 - **BMP:** 8-bit Windows bitmaps, each with its own palette.
 - **WAV:** 16-bit PCM. Speech is 22 kHz mono; music is 22 kHz stereo.
@@ -21,3 +27,7 @@ Each location archive (e.g. `VERID1.DAT`) holds a `verid1/` folder with
   `sounds/XXXX0000.TXT` subtitle, e.g. `RIKER: "..."`. Some `.TXT` files are
   other things: `sounds/worlds.txt` is a list of WAV names, and `BRIEFING.TXT`
   is a mission briefing.
+
+## Sources and checks
+
+From STG-Engine's notes on the 2 CD Windows release ([README](README.md) says how they were made). All values are little-endian.

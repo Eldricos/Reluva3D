@@ -1,6 +1,8 @@
-# Testing status
+# Star Trek: Generations: testing
 
-## Tests without the game's files
+## Automated checks
+
+### Tests without the game's files
 
 Run by `reluva-tests stgenerations` (and ctest, and CI on every system):
 
@@ -20,7 +22,7 @@ Run by `reluva-tests stgenerations` (and ctest, and CI on every system):
 
 STG-Engine's tests are all here, as these suites ([PORTING.md](PORTING.md#tests)).
 
-## With the game's files
+### With the game's files
 
 `RELUVA_STGENERATIONS=<the game's folder> ctest -L gamedata` (Reluva's
 import of the game, or the install and both CDs side by side), steps
@@ -45,7 +47,26 @@ checksums, counts and summary lines. The play steps run the game's code,
 (see [DEVELOPMENT.md](../../DEVELOPMENT.md#engine-tests)); keep a baseline
 of your own there.
 
-## Checked on the game's own files
+## A playthrough by hand
+
+### Still to check
+
+- **A full playthrough** in Reluva, every mission and combat, through each
+  ending.
+- **The unconfirmed details** ([UNCONFIRMED.md](UNCONFIRMED.md)), against
+  the original.
+- **Other systems:** Windows and macOS, a real sound card, a high-density screen (the
+  pointer's second picture).
+- **Other releases:** no other language or build has been seen.
+
+## Last checked
+
+| Date | Release | Platform | What was checked |
+|---|---|---|---|
+| Not recorded | The 2 CD English release, an import | Linux | The game-files test's records made ([With the game's files](#with-the-games-files)) |
+| Not recorded | The 2 CD English release, installed, and both CDs | Not recorded | Its files read, imported and played ([below](#checked-on-the-games-own-files)) |
+
+### Checked on the game's own files
 
 With a copy of the 2 CD English release (installed, and both CDs):
 
@@ -86,13 +107,3 @@ The install also holds folders of files someone took out of the archives
 (`DATA/amargos1/`, `COMMON/` and others, 194 pictures); the game doesn't
 read loose files below `DATA/` (nor did the original), so they make no
 difference.
-
-## Still to check
-
-- **A full playthrough** in Reluva, every mission and combat, through each
-  ending.
-- **The unconfirmed details** ([UNCONFIRMED.md](UNCONFIRMED.md)), against
-  the original.
-- **Other systems:** Windows and macOS, a real sound card, a high-density screen (the
-  pointer's second picture).
-- **Other releases:** no other language or build has been seen.

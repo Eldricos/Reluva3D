@@ -1,4 +1,4 @@
-# The Star Trek: Generations engine
+# Star Trek: Generations
 
 `stgenerations` runs MicroProse's **Star Trek: Generations** (1997, Windows,
 two CDs) from the player's own copy, from the title to the credits: the
@@ -9,27 +9,13 @@ It came to Reluva from [STG-Engine](https://github.com/Eldricos/STG-Engine),
 ported with its game logic unchanged; [PORTING.md](PORTING.md) says what
 changed on the way and what was left behind.
 
-## This folder
+Engine id `stgenerations`, in `src/engines/stgenerations/`.
 
-| Page | What it has |
-|---|---|
-| [PORTING.md](PORTING.md) | The port from STG-Engine: what each part became, what changed, what didn't come across |
-| [KNOWN_DIFFERENCES.md](KNOWN_DIFFERENCES.md) | Where the engine knowingly differs from the original game |
-| [UNCONFIRMED.md](UNCONFIRMED.md) | What hasn't been compared with the original yet |
-| [TESTING.md](TESTING.md) | The tests, and what has been checked on the game's own files |
-| [REVERSE_ENGINEERING.md](REVERSE_ENGINEERING.md) | How the formats and behaviour were worked out, and the tools for it |
-| [formats/](formats/README.md) | The game's file formats, a page each |
+## Games
 
-## Where it stands
+One game: MicroProse's Star Trek: Generations (1997, Windows, two CDs).
 
-Every part of the game runs on the game's own files: the title, the menu,
-a new game's movies, the bridge, an away mission, space combat, saving and
-loading ([TESTING.md](TESTING.md)). STG-Engine's tests all pass on the
-port. It hasn't been played through from start to finish in Reluva yet;
-that, and the few effects not yet compared with the original
-([UNCONFIRMED.md](UNCONFIRMED.md)), are what's left.
-
-## Releases
+### Releases
 
 | Release | Recognised by |
 |---|---|
@@ -39,6 +25,15 @@ Any other release is still found by its executable naming the game, and is
 shown as *a release Reluva doesn't know*; it runs the same way. To add one
 to the table, `reluva-tool stgenerations files <game folder>` prints every
 file's size and signature.
+
+## Where it stands
+
+Every part of the game runs on the game's own files: the title, the menu,
+a new game's movies, the bridge, an away mission, space combat, saving and
+loading ([TESTING.md](TESTING.md)). STG-Engine's tests all pass on the
+port. It hasn't been played through from start to finish in Reluva yet;
+that, and the few effects not yet compared with the original
+([UNCONFIRMED.md](UNCONFIRMED.md)), are what's left.
 
 ## Using it
 
@@ -143,6 +138,17 @@ save). The format is STG-Engine's: its saves (`<target>.s00` and so on, in
 `%APPDATA%\STG-Engine\stg\` on Windows) load once copied in and renamed to
 `stg.s<nn>`. STG-Engine's `stg.ini` isn't read; set its volumes and
 difficulty again in the menu.
+
+## This folder
+
+| Page | What it has |
+|---|---|
+| [PORTING.md](PORTING.md) | The port from STG-Engine: what each part became, what changed, what didn't come across |
+| [KNOWN_DIFFERENCES.md](KNOWN_DIFFERENCES.md) | Where the engine knowingly differs from the original game |
+| [UNCONFIRMED.md](UNCONFIRMED.md) | What hasn't been compared with the original yet |
+| [TESTING.md](TESTING.md) | The tests, and what has been checked on the game's own files |
+| [REVERSE_ENGINEERING.md](REVERSE_ENGINEERING.md) | How the formats and behaviour were worked out, and the tools for it |
+| [formats/](formats/README.md) | The game's file formats, a page each |
 
 ## Code
 

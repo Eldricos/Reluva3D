@@ -1,14 +1,26 @@
 # The story (STATES.INI)
 
-From STG-Engine's notes on the 2 CD Windows release ([README](README.md) says how they were made). All values are little-endian.
+> **Status:** decoded · **Code:** `src/engines/stgenerations/game/campaign.h`
 
-## The story (`STELLAR.DAT:DESIGN/STATES.INI`): decoded, `src/engines/stgenerations/game/campaign.h`
+## Overview
+
+The story's script, `DESIGN/STATES.INI` in `STELLAR.DAT`.
+
+## Layout
 
 sgens.exe's game manager (`0x419250`) runs this script. Each `[Section]` is a
 list of commands, one a line, with `;` starting a comment; a line can start
 with conditions (`IfFlag n`, `IfNotFlag n`, `IfActionGamePlayed n`,
 `IfSunsDestroyed n`, `IfEnterpriseAt place`, `IfClue`, `IfObjectFlag`) that
 must all hold. `[Start]` shows the title and jumps to `[NewGame]`.
+
+`TEXTn.TXT` is the background picture, the music (in MUSIC.1/2), the font,
+then the text, centred by hand with spaces. The credits are a table in the
+exe at `0x5401CC`: records of a heading, a name and a style (0 a blank line, 1
+more names follow, 2 the last, 3 a section title), with music from
+`Credits.WAV` on (`0x540198`).
+
+## Behaviour
 
 | Command | Effect |
 |---------|--------|
@@ -28,8 +40,6 @@ Everything else (`ShowStellar`, `Move`, `WarpFleetIn`, `QueAudio`, `QueMusic`,
 `Wait`, `SDTimer`, `Scanner`, ...) drives the bridge. Without it, this engine
 takes `OnTransport` at once and never `OnTactical`.
 
-`TEXTn.TXT` is the background picture, the music (in MUSIC.1/2), the font,
-then the text, centred by hand with spaces. The credits are a table in the
-exe at `0x5401CC`: records of a heading, a name and a style (0 a blank line, 1
-more names follow, 2 the last, 3 a section title), with music from
-`Credits.WAV` on (`0x540198`).
+## Sources and checks
+
+From STG-Engine's notes on the 2 CD Windows release ([README](README.md) says how they were made). All values are little-endian.

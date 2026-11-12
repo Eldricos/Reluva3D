@@ -1,8 +1,12 @@
 # Fonts (.FNT)
 
-From STG-Engine's notes on the 2 CD Windows release ([README](README.md) says how they were made). All values are little-endian.
+> **Status:** decoded · **Code:** `src/engines/stgenerations/formats/font.h`
 
-## FONT (`.FNT`): decoded, `src/engines/stgenerations/formats/font.h`
+## Overview
+
+The game's fonts, `.FNT` files.
+
+## Layout
 
 ```
 char[4]  "FONT"
@@ -18,3 +22,7 @@ glyph[]:
   uint8  height              (top aligned, may be < line height)
   uint8  pixels[height][width]
 ```
+
+## Sources and checks
+
+From STG-Engine's notes on the 2 CD Windows release ([README](README.md) says how they were made). All values are little-endian.

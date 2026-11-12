@@ -1,4 +1,4 @@
-# How Reluva's Star Trek: Generations support was worked out
+# Star Trek: Generations: how it was worked out
 
 Reluva runs Star Trek: Generations from the player's own copy, with none of
 the original's code in it. This page says how the facts behind that were
@@ -36,12 +36,25 @@ All of it was worked out on the 2 CD Windows release:
   (the sky's height, `formats/level.cpp`, `guessSkyHeight`) or from the
   scripts alone. [UNCONFIRMED.md](UNCONFIRMED.md) lists them.
 
-## The notes
+## Methods
+
+### The notes
 
 STG-Engine kept its notes in one file, `doc/formats.md`. In Reluva it is
 [formats/](formats/README.md), a page per format. "Decoded" there means a
 decoder exists in `src/engines/stgenerations` and has been checked against
 the game's own files; "partial" and "unknown" are working notes.
+
+### Checking the work
+
+- **The game's own files:** all 18 archives, every picture, level, sound
+  and movie of the 2 CD English release read; one movie checked against
+  FFmpeg to the pixel ([TESTING.md](TESTING.md#checked-on-the-games-own-files)).
+- **Against STG-Engine:** a save made in STG-Engine loads in Reluva and
+  shows the same 3D view, pixel for pixel
+  ([TESTING.md](TESTING.md#checked-on-the-games-own-files)).
+- **Against the original:** what hasn't been compared with the running game
+  yet is in [UNCONFIRMED.md](UNCONFIRMED.md).
 
 ## The tools
 
@@ -58,13 +71,6 @@ them):
 | `archives`, `pictures`, `levels`, `sounds`, `movies` | Every one of the game's archives, pictures, levels, sounds or movies read or decoded, with checksums |
 | `play <game folder> [options]` | The game run without a window: keys and clicks at given times, pictures of the screen, each frame's checksum |
 
-## Checking the work
+## Working files not included
 
-- **The game's own files:** all 18 archives, every picture, level, sound
-  and movie of the 2 CD English release read; one movie checked against
-  FFmpeg to the pixel ([TESTING.md](TESTING.md#checked-on-the-games-own-files)).
-- **Against STG-Engine:** a save made in STG-Engine loads in Reluva and
-  shows the same 3D view, pixel for pixel
-  ([TESTING.md](TESTING.md#checked-on-the-games-own-files)).
-- **Against the original:** what hasn't been compared with the running game
-  yet is in [UNCONFIRMED.md](UNCONFIRMED.md).
+None yet.
