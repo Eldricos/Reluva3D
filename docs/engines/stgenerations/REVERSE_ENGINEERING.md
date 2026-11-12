@@ -61,6 +61,29 @@ the game's own files; "partial" and "unknown" are working notes.
 - **Against the original:** what hasn't been compared with the running game
   yet is in [UNCONFIRMED.md](UNCONFIRMED.md).
 
+### What went wrong, and what it taught
+
+- **Notes can be wrong.** An early note said clicking the combat
+  viewscreen enlarged it; reading the handler properly showed it steers.
+  The notes are marked by confidence, and anything marked M or L is
+  checked again before it's built on ([research/](research/README.md#corrected-since)
+  lists what was corrected).
+- **A guess shows up as a difference.** The overlays' frame heights were
+  guessed at first. Tracing them showed the view overlays are one frame,
+  and that a value read as a frame number was a drawing mode; that value
+  had been hiding the helmet and other overlays.
+- **Dead code exists.** The routine that starts a ship cloaking is never
+  called, and the TACTICS scripts in COMBAT.DAT are never loaded. Finding
+  where something is called, or that it isn't, matters as much as reading
+  the function.
+- **Checked across all the data.** A reading is tested against every
+  mission, not one: reading the combat headings as "90 faces -x" makes 66
+  of the 68 first-wave enemies face the Enterprise, against 26 the other
+  way, which settled it.
+- **Some things can't be settled from the code alone.** When the code
+  leaves a choice open, the engine takes the reading that fits the
+  evidence, and [UNCONFIRMED.md](UNCONFIRMED.md) lists it.
+
 ## The tools
 
 `reluva-tool stgenerations <command>` (`reluva-tool help stgenerations` lists

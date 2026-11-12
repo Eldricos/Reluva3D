@@ -16,6 +16,7 @@ from, see [PORTING.md](PORTING.md).)
 | A save in an away mission keeps the moment: loading carries on from where it was saved. Space combat saves as the original does, and loading starts the fight again from its briefing | Saves only where the story is ("Save game at start of current mission"): loading starts the mission again | `game/generations.cpp` (`saveGameState`), `game/campaign.cpp` (`restartSection`) |
 | Escape gives up choosing a key on the Controls screen, so it can't be bound | Takes the next key whatever it is, Escape included (shown as `?!?`) | `game/optionsmenu.cpp` (`keyDown`) |
 | Keys the key map leaves free keep this engine's own uses: WASD, End, X, C, Space, B, H, O, `[`, `]` and 1-9 in missions; Q, E, F, G, = and -, Tab, T and V in space combat. A key bound on the Controls screen always does its bound action instead | Loading the key map replaces the game's whole built-in key table, so only the keys on the Controls screen do anything | `game/generations.cpp` (`handleWalkKey`), `game/combat.cpp` (`keyDown`) |
+| A mission can't be saved while its briefing waits for PROCEED | Not known | `game/generations.cpp` (`saveGameState`) |
 | Mouse Look's speed is scaled by the same ratio as the turn and look keys', so the two stay in step | Turns the view a fifth of the way to the mouse's heading each frame | `game/generations.cpp` (`mouseLookRates`) |
 
 ## Bugs fixed
@@ -30,6 +31,9 @@ from, see [PORTING.md](PORTING.md).)
 |---|---|---|
 | No small window: the view is always 640 wide, so Settings shows the window size dimmed at LARGE, and a click on it gets the menu's refusal sound | The small window's view is 504 wide, within the same 640 x 480 screen | `game/optionsmenu.cpp` |
 | Arriving waves (SC9 only) appear at once ([UNCONFIRMED.md](UNCONFIRMED.md)) | They may fade in as they uncloak | `game/combat.cpp` |
+| Away missions are drawn in 256 colours, one palette at a time: in the briefing's crossfade into the game, the briefing picture is remapped into the level's palette, so its colours shift slightly for that second | Drawn to a 16-bit screen, both pictures in their own colours | `game/generations.cpp` (`drawTransition`) |
+| The teleport transition moves the player at the start of its crossfade. It looks the same | Moves the player at once, but keeps showing the old view until then | `game/mission.cpp` |
+| The held weapon isn't raised as the player looks down: the amount isn't known, and a playthrough video shows no visible change | Raises it | `game/helditem.cpp` |
 | Saved games are STG-Engine's, not the original's: a game saved by `sgens.exe` can't be loaded | The original's own format | `game/generations.cpp` (`saveGameState`, `loadGameState`) |
 
 ## Additions outside the game
