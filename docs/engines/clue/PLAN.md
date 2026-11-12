@@ -11,8 +11,11 @@ the original. How, and why, is under [Decisions](#decisions).
 Each step can be seen working before the next.
 
 1. **Detection and a data viewer** (done). Finds the game in an install
-   folder or on the CD (US or UK data; 2.0 or 2.2). Readers for `PACK`,
-   `DDRV`, both image versions and `ANIM`. Viewers for the animations
+   folder or on the CD (US or UK data; 2.0 or 2.2). Readers for the
+   game's files ([formats/res.md](formats/res.md)), each named by its first
+   four bytes: `PACK` (a zlib-compressed file), `DDRV` (EAI's archive, a
+   "data drive" of named entries), `EIMG` (a run-length coded 16-bit
+   image, in both its versions) and `ANIM` (an animation). Viewers for the animations
    (playing), images, sounds and text, described in the README. `reluva-tool`
    commands to list, extract and check the files. Unit tests on made-up
    files.

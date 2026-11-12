@@ -28,8 +28,9 @@ around it are read by [avi.md](avi.md)'s reader.
   (V1 and V4 blocks, an inter frame skipping a block, a dropped frame) and an
   AVI holding them with sound. On Generations' own `MOV_07.AVI` (640x320,
   665 frames), every pixel of every frame matched FFmpeg's decoding.
-- **Clue's videos:** all 132 AVIs of Clue's installs and CD (the 44 of an
-  install, and the US and UK sets of the CD) decode to the same pictures
+- **Clue's videos:** all 44 of Clue's AVIs (the same files on the CD, in
+  its install and in the 2.2 patch's; the US and UK games share them)
+  decode to the same pictures
   as the decoder the Clue engine had before it moved to this one (written
   from the MultimediaWiki description alone), but for green, which differs
   by 1 in 255 where U is odd and negative (U/2 rounds towards 0 here, down

@@ -209,4 +209,11 @@ ripped (`reluva-tool cue-rip CLUE.cue <game folder>`) for the music checks.
 
 ## Last checked
 
-None recorded yet.
+Runs of the automated checks above. The playthrough list hasn't been
+worked through yet.
+
+| Date | Release | Platform | What was checked |
+|---|---|---|---|
+| 2026-11-12 | US 2.2 (install, patched); US 2.0 (install); the 2.0 CD, US and UK | Linux (x86-64, GCC) | The unit tests, `clue.engine`, and every step of the game-files test: all as recorded |
+| 2026-11-07 | None (`clue.engine`'s own install) | Windows (Visual Studio 2022, CI) and Linux (CI) | The unit tests and `clue.engine`, after saved games were made the same on every system (the Windows run had found them different) |
+| 2026-11-07 | US 2.2 (install, patched); US 2.0 (install); the 2.0 CD, US and UK | Linux (x86-64, GCC) | The game-files test's records made: every file read, `clue.lvl`'s placements, 200 games of computer players, and the game played headless (`game-run`, with `-uk` for the CD's UK game) |

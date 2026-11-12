@@ -1,11 +1,15 @@
 # Clue: Murder at Boddy Mansion: videos (`.avi`)
 
-> **Code:** `src/engines/clue/movie.h`, `src/common/video/avi.h`, `src/common/video/cinepak.h` · **Confidence:** confirmed unless marked
+> **Status:** decoded · **Code:** `src/engines/clue/movie.h`, `src/common/video/avi.h`, `src/common/video/cinepak.h` · **Checked on:** the retail CD (2.0), a clean install of it and the 2.2 patch's install: all 44 files, the same in each · **Confidence:** confirmed unless marked
 
 ## Overview
 
 The game's videos: the intro, the deal, the six suspects' prison clips and
-the 36 suggestion clips, 44 AVI files.
+the 36 suggestion clips, 44 AVI files. The US and UK games share them: the
+CD keeps 43 in `Data/LangIndepend/Video` and the intro in
+`Data/ClueSpecific/Video`, and an install copies all 44 into
+`Data/Classic/Video`, byte for byte (the 2.2 patch leaves them as they
+are).
 
 ## Layout
 
@@ -28,3 +32,10 @@ DirectShow graph plays it.
 
 - **Where the facts come from:** the 44 files themselves; the suggestion
   clips' lengths of picture from the five looked at.
+- **How it was checked:** every frame and the sound of all 44 decoded by
+  the shared decoder and set against the decoder Clue had before it
+  (November 2026): the same pictures but for green, by 1 in 255 at most
+  ([KNOWN_DIFFERENCES.md](../KNOWN_DIFFERENCES.md#not-yet-as-the-original)),
+  and the same sound; the CD's, the 2.0 install's and the 2.2 install's
+  copies are the same files. `MP_candle.avi` decoded against a recording
+  of the original: a mean difference of 4 in 255 per colour.

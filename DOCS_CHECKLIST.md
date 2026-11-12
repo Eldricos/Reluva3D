@@ -34,8 +34,8 @@ Paths are under `docs/engines/`.
 
 ### clue
 
-- [ ] `clue/formats/resi.md`: **Checked on**
-- [ ] `clue/formats/videos.md`: **Status** and **Checked on**
+- [x] `clue/formats/resi.md`: **Checked on**
+- [x] `clue/formats/videos.md`: **Status** and **Checked on**
 
 ### idtech3 (Elite Force)
 
@@ -112,11 +112,11 @@ Each needs either content or confirmation that "None yet" is right.
 
 ### clue
 
-- [ ] `clue/KNOWN_DIFFERENCES.md`, "Bugs fixed": the original's own bugs Reluva doesn't reproduce, if any
-- [ ] `clue/KNOWN_DIFFERENCES.md`, "Additions outside the game": what Reluva adds around the game: viewers, tools, settings
-- [ ] `clue/TESTING.md`, "Last checked": a row per check: date, release, platform, what was checked
-- [ ] `clue/UNCONFIRMED.md`, "Guessed": working assumptions
-- [ ] `clue/UNCONFIRMED.md`, "Settled": items confirmed or corrected since, with the date and how
+- [x] `clue/KNOWN_DIFFERENCES.md`, "Bugs fixed": the original's own bugs Reluva doesn't reproduce, if any
+- [x] `clue/KNOWN_DIFFERENCES.md`, "Additions outside the game": what Reluva adds around the game: viewers, tools, settings
+- [x] `clue/TESTING.md`, "Last checked": a row per check: date, release, platform, what was checked
+- [x] `clue/UNCONFIRMED.md`, "Guessed": working assumptions
+- [x] `clue/UNCONFIRMED.md`, "Settled": items confirmed or corrected since, with the date and how
 
 ### idtech3 (Elite Force)
 
@@ -190,10 +190,10 @@ in the game's README. If "Terms" lists are adopted, add the section to
 
 ### clue
 
-- [ ] EagleM: first in `clue/README.md:24`
-- [ ] RESI: first in `clue/README.md:42`
-- [ ] `PACK`, `DDRV` and `EIMG`: first in `clue/PLAN.md:14`
-- [ ] No Die Roll: first in `clue/formats/resi.md:93`
+- [x] EagleM: first in `clue/README.md:24` (already explained there)
+- [x] RESI: first in `clue/README.md:42`
+- [x] `PACK`, `DDRV` and `EIMG`: first in `clue/PLAN.md:14`
+- [x] No Die Roll: first in `clue/formats/resi.md:93` (and the README's "no die roll")
 
 ### stharbinger
 
@@ -213,9 +213,11 @@ in the game's README. If "Terms" lists are adopted, add the section to
 - [ ] `idtech3/games/stvef/KNOWN_DIFFERENCES.md`, "Bugs fixed": two items under
   "By choice" may belong here: keeping 1.x and Expansion Pack saves apart, and
   leaving out the original's cap of 5 copies of one sound per entity.
-- [ ] `clue/UNCONFIRMED.md`: "Read from the code, not seen running" holds the
+- [x] `clue/UNCONFIRMED.md`: "Read from the code, not seen running" holds the
   sections "Code and recordings disagree" and "Not traced, no visible effect
-  known"; check each is under the heading that fits.
+  known"; check each is under the heading that fits. Both fit: Reluva
+  follows the code in each, and nothing confirms it; the second is now "Read
+  but not used", and each says why it's there.
 - [x] awe's `systems/dialogue.md` has 10 *(inferred)* items. If any matters to
   how Reluva behaves, list it in `awe/games/motoe/UNCONFIRMED.md` under
   "Inferred".
