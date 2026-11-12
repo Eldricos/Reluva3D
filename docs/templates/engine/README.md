@@ -1,7 +1,7 @@
 # The @TITLE@ engine
 
 <!-- One or two sentences: what the engine runs, and whether it's meant for
-one game or a family of games (then see docs/README.md, "Adding docs",
+one game or a family of games (then see docs/DOCUMENTATION_STANDARD.md,
 for its games/ folders). -->
 Engine id `@ENGINE@`, in `src/engines/@ENGINE@/`.
 
@@ -40,7 +40,7 @@ settings, the keys. -->
 | [REVERSE_ENGINEERING.md](REVERSE_ENGINEERING.md) | How it was worked out, and the tools |
 
 <!-- Link each folder once it has pages, and list its pages. The layout is
-described in docs/README.md, "Adding docs"; page templates are in
+described in docs/DOCUMENTATION_STANDARD.md; page templates are in
 docs/templates/. -->
 
 ## Code

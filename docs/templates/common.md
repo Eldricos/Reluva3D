@@ -25,8 +25,7 @@ beyond what's above. -->
   decoders read for facts only, the code written from them>.
 - **How it was checked:** <unit tests, comparison with another decoder; a
   game's files used as a check are named here>.
-- **Confidence:** <published / confirmed> unless marked (docs/README.md,
-  "Adding docs").
+- **Confidence:** <published / confirmed> unless marked (docs/DOCUMENTATION_STANDARD.md).
 
 ## Used by
 

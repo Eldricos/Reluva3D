@@ -4,8 +4,8 @@
 
 <!-- Copy to systems/<name>.md: a part of how the game behaves at run time
 (its scripts, dialogue, the interface, saves, AI, network play).
-Confidence: the words and how to mark exceptions are in docs/README.md,
-"Adding docs"; mark only what differs from the default, with
+Confidence: the words and how to mark exceptions are in
+docs/DOCUMENTATION_STANDARD.md; mark only what differs from the default, with
 *(inferred)* and the like at the end of its sentence. Addresses go in
 the text, never in headings. -->
 

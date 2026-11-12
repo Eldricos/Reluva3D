@@ -5,7 +5,7 @@
 <!-- Copy to formats/<name>.md. "Decoded" means a reader exists and has been
 checked against the game's own files. All numbers little-endian unless
 said. Confidence: the words and how to mark exceptions are in
-docs/README.md, "Adding docs"; mark only what differs from the default,
+docs/DOCUMENTATION_STANDARD.md; mark only what differs from the default,
 with *(inferred)* and the like at the end of its sentence. -->
 
 ## Overview
