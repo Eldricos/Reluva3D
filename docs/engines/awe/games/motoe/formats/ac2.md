@@ -473,8 +473,10 @@ DLL's own functions (`GrannyInitializeDefaultCamera`,
 `GrannyWorldSpaceToWindowSpace`) in the x86 interpreter
 (`reluva-tool awe camera-check`). Reluva's matrices match them to within 1e-7
 for every camera tried, and `awe files-check` compares them for a whole
-install. Roll's place in the order is a guess, since no camera seen so far
-uses it.
+install. No camera seen in the install has a roll, so roll's place in the
+order was checked on made-up cameras: rolls of 0.3, -1.1 and 2.5 radians,
+each at three pairs of elevation and azimuth. The DLL's view matrices and
+Reluva's agree to within 3e-7.
 
 **Characters** are placed with the same axes: +Y up, the floor at y = 0.
 The game converts every model when it loads it

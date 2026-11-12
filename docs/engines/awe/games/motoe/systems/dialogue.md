@@ -1,6 +1,6 @@
 # Dialogue
 
-> **Code:** `src/engines/awe/dialogue.cpp`, `dialogue_box.cpp` · **Checked against:** the code (`motoe.exe`) and the dialogue tables · **Confidence:** from the code unless marked
+> **Status:** done · **Code:** `src/engines/awe/dialogue.cpp`, `dialogue_box.cpp` · **Checked against:** the code (`motoe.exe`) and the dialogue tables · **Confidence:** from the code unless marked
 
 ## Overview
 
@@ -124,7 +124,7 @@ Lookup `0x439c70(part, code)`: the first thread with that code.
 | +0xd08 | Event |
 | +0xf08 | Povent |
 | +0x1108 | text width in pixels (`0x414c10(1,text,&w)`, the dialogue font) |
-| +0x110c | row height (written by the same call *(inferred)*) |
+| +0x110c | row height: the same call's second value (`0x40d6d0` writes the widest row's width, then the height of the text's rows; a line has no line breaks, so one row's) |
 | +0x1110 | number of rows: 1 if width ≤ 0x3b0 (944), else word-wrapped by 0x43d9b0 at 944 px (two spaces after `.`, `!`, `?`): the words, split at spaces (runs of spaces count as one), go on a row with a space between, two after a word ending in `.`, `!` or `?`; a word starts the next row when the row's width, the word's and a space's (two after such a word), measured apart, come to more than 944. 0x43db80 draws the rows the same way, the double spaces in them. Checked against the walkthrough: six lines where this rule and single spacing break differently, found by their voices (Parts 2 to 7), break at the same words in the recording as in Reluva, down to Dragomiroff's "...most of the / time." |
 | +0x1112 | alternative index: 0, or previous line's index + 1 if the previous line of the same thread has the same Nest code |
 | +0x1114 | Duration, second number (`"a,b"` → b) |
@@ -222,7 +222,8 @@ In `motoe.exe`: `0x43a630`.
 1. `c = find(name, part)`; none → return 0. DM+0x10 = c.
 2. Not in a dry run: closes or resets the inventory UI (`0x4194d0`, and for
    names not containing `gen_` or `com_`, `0x419e80` and `0x419970`:
-   this closes the inventory and drops the held item *(inferred)*).
+   the first closes the inventory window, the second puts the item in hand
+   back and the third stops the item just taken blinking; section 9, 1).
 3. Box: height 160, window 0. If the condition `act >07a` holds and this is not
    movie mode: height 180, window 1 (the solution scenes use the taller box).
 4. DM+0x544 = 1 if name is `dia_barnabyham` or `hamradio` (wcsicmp), else 0.
@@ -499,23 +500,23 @@ In `motoe.exe`: `0x43c070`.
 
 #### 4.2 Speaking
 
-In `motoe.exe`: `0x43bd30`. The character calls *(inferred)*.
+In `motoe.exe`: `0x43bd30`. The character calls are read in section 9, 2.
 
 Skipped in a dry run. Speaker character = `0x43bb60`: the scene object named
 like Speaker (`0x4367b0(name,1)`); for `poirot` also `poirotbed`; then the same
 search in the other scenes of `[0x498824]+0xa50` whose name contains
-`[0x498824]+0xa64` (the scenes of the same location *(inferred)*). Not found →
+`[0x498824]+0xa64`, the place's name (set by the place change, `0x422640`):
+the place's other scenes. Not found →
 no animation; the line still plays.
 
-* Character found: `0x404720` (start the talking state *(inferred)*).
+* Character found: `0x404720` (plays `talkidle1` unless `eavesidle` is playing).
 * **Target** (if not empty and not `0`), split on spaces into w1 w2 w3:
   * w1 = `up` or `down`: the head animation `"head"+w1` (`headup`,
     `headdown`) for w2 seconds (default 0.5): `0x441270`.
   * w3 present: `0x441560(char, wtoi(w1), wtoi(w2), w3=="up"?1 : w3=="down"?2 : 0)`
-    (head angles *(inferred)*).
+    (looks at the scene's grid cell (w1, w2), with the tilt).
   * w2 = `up` or `down`: `0x4415b0(char, w1, 1|2)`: look at character w1
-    tilted up or down (`antoinette up` is the common case; she is
-    shorter or seated *(inferred)*).
+    tilted up or down (`antoinette up` is the common case).
   * w2 numeric: `0x441560(char, wtoi(w1), wtoi(w2), 0)`.
   * only w1: `0x4415b0(char, w1, 0)`: turn the head toward w1.
 
@@ -676,8 +677,8 @@ ends. Exits exist only with gen (NPC clicks or `forcegen`).
   box), 02 = 1024x180 (after act 07a), 04 and 05 = 10x11 (the choice bullet,
   normal and highlighted). 03 is missing.
 * The box's y = 768 - height, sliding at 500 px/s. Drawn (vtable +0xc) when in
-  choice mode, or when subtitles are on (`[0x490068]`, 1 by default; the subtitles
-  option *(inferred)*), or when +0x544 is set. While the Povent runner works,
+  choice mode, or when subtitles are on (`[0x490068]`, 1 by default; the `Captions`
+  option), or when +0x544 is set. While the Povent runner works,
   it is drawn only if +0x324.
 * The spoken line is drawn **only if subtitles are on (or ham radio)**,
   horizontally centred, vertically centred in the box: y = box top +

@@ -1,7 +1,9 @@
 # LEGO Alpha Team: plan
 
 How the game came to be run: the ways weighed, the choice, and B1's order
-of work. How the program is run now is in
+of work. B1, the way chosen, runs all the game's own code, NetImmerse
+included, in the x86 interpreter, with Windows and DirectX stood in for
+([below](#b1-run-all-the-original-code-in-the-x86-interpreter-netimmerse-included-stand-in-for-windows-and-directx)). How the program is run now is in
 [systems/running.md](systems/running.md), with what the game's code is and
 calls, which the options below were weighed against.
 
@@ -18,7 +20,9 @@ B1's order of work:
 2. Load `LEGOATeam.exe` and every DLL in the interpreter, with stand-ins
    for the libraries listed in
    [running.md](systems/running.md#what-the-games-code-is-and-calls). Then let `DDPackedDirFileLib`'s loader pull a
-   behaviour DLL out of `Bhvr.pac`. `reluva-tool x86-run` shows how far it
+   behaviour DLL out of `Bhvr.pac` (each puzzle part's own code is a DLL
+   there, named after the part: `T0001.DLL`; the interface's is
+   `PE0300.DLL`). `reluva-tool x86-run` shows how far it
    gets.
 3. MSVCRT, MSVCP60, C++ exceptions and the extra thread, until the game
    reaches its first `DirectDrawCreateEx`.

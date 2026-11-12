@@ -1,6 +1,6 @@
 # LEGO Alpha Team: running the game's own code
 
-> **Status:** done · **Code:** `src/engines/netimmerse/alphateam/game_process.cpp`, `src/engines/netimmerse/alphateam/player.{h,cpp}` · **Confidence:** confirmed unless marked
+> **Status:** done · **Code:** `src/engines/netimmerse/alphateam/game_process.cpp`, `src/engines/netimmerse/alphateam/player.{h,cpp}` · **Checked against:** the original running in Reluva; recordings of the original · **Confidence:** confirmed unless marked
 
 ## Overview
 

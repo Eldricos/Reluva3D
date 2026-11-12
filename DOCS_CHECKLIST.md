@@ -22,15 +22,15 @@ Paths are under `docs/engines/`.
 
 ### awe (Murder on the Orient Express)
 
-- [ ] `awe/games/motoe/systems/characters.md`: **Status**
-- [ ] `awe/games/motoe/systems/dialogue.md`: **Status**
-- [ ] `awe/games/motoe/systems/interface.md`: **Status**
-- [ ] `awe/games/motoe/systems/movies.md`: **Status** and **Checked against**
-- [ ] `awe/games/motoe/systems/options.md`: **Status**
-- [ ] `awe/games/motoe/systems/puzzles.md`: **Status**
-- [ ] `awe/games/motoe/systems/saves.md`: **Status**
-- [ ] `awe/games/motoe/systems/script.md`: **Status**
-- [ ] `awe/games/motoe/systems/shadows.md`: **Status**
+- [x] `awe/games/motoe/systems/characters.md`: **Status**
+- [x] `awe/games/motoe/systems/dialogue.md`: **Status**
+- [x] `awe/games/motoe/systems/interface.md`: **Status**
+- [x] `awe/games/motoe/systems/movies.md`: **Status** and **Checked against**
+- [x] `awe/games/motoe/systems/options.md`: **Status**
+- [x] `awe/games/motoe/systems/puzzles.md`: **Status**
+- [x] `awe/games/motoe/systems/saves.md`: **Status**
+- [x] `awe/games/motoe/systems/script.md`: **Status**
+- [x] `awe/games/motoe/systems/shadows.md`: **Status**
 
 ### clue
 
@@ -50,12 +50,12 @@ Paths are under `docs/engines/`.
 
 ### netimmerse (LEGO Alpha Team)
 
-- [ ] `netimmerse/games/legoalphateam/systems/input.md`: **Checked against**
-- [ ] `netimmerse/games/legoalphateam/systems/options.md`: **Checked against**
-- [ ] `netimmerse/games/legoalphateam/systems/running.md`: **Checked against**
-- [ ] `netimmerse/games/legoalphateam/systems/saves.md`: **Checked against**
-- [ ] `netimmerse/games/legoalphateam/systems/sound.md`: **Checked against**
-- [ ] `netimmerse/games/legoalphateam/systems/training.md`: **Checked against**
+- [x] `netimmerse/games/legoalphateam/systems/input.md`: **Checked against**
+- [x] `netimmerse/games/legoalphateam/systems/options.md`: **Checked against**
+- [x] `netimmerse/games/legoalphateam/systems/running.md`: **Checked against**
+- [x] `netimmerse/games/legoalphateam/systems/saves.md`: **Checked against**
+- [x] `netimmerse/games/legoalphateam/systems/sound.md`: **Checked against**
+- [x] `netimmerse/games/legoalphateam/systems/training.md`: **Checked against**
 
 ### stgenerations
 
@@ -104,11 +104,11 @@ Each needs either content or confirmation that "None yet" is right.
 
 ### awe (Murder on the Orient Express)
 
-- [ ] `awe/games/motoe/KNOWN_DIFFERENCES.md`, "Bugs fixed": the original's own bugs Reluva doesn't reproduce, if any
-- [ ] `awe/games/motoe/KNOWN_DIFFERENCES.md`, "Additions outside the game": what Reluva adds around the game: viewers, tools, settings
-- [ ] `awe/games/motoe/REVERSE_ENGINEERING.md`, "Working files not included": working files the notes mention but the repository leaves out, and how to make them again
-- [ ] `awe/games/motoe/TESTING.md`, "Last checked": a row per check: date, release, platform, what was checked
-- [ ] `awe/games/motoe/UNCONFIRMED.md`, "Guessed": working assumptions
+- [x] `awe/games/motoe/KNOWN_DIFFERENCES.md`, "Bugs fixed": the original's own bugs Reluva doesn't reproduce, if any
+- [x] `awe/games/motoe/KNOWN_DIFFERENCES.md`, "Additions outside the game": what Reluva adds around the game: viewers, tools, settings
+- [x] `awe/games/motoe/REVERSE_ENGINEERING.md`, "Working files not included": working files the notes mention but the repository leaves out, and how to make them again
+- [x] `awe/games/motoe/TESTING.md`, "Last checked": a row per check: date, release, platform, what was checked
+- [x] `awe/games/motoe/UNCONFIRMED.md`, "Guessed": working assumptions
 
 ### clue
 
@@ -126,9 +126,9 @@ Each needs either content or confirmation that "None yet" is right.
 
 ### netimmerse (LEGO Alpha Team)
 
-- [ ] `netimmerse/games/legoalphateam/KNOWN_DIFFERENCES.md`, "Bugs fixed": the original's own bugs Reluva doesn't reproduce, if any
-- [ ] `netimmerse/games/legoalphateam/REVERSE_ENGINEERING.md`, "Working files not included": working files the notes mention but the repository leaves out, and how to make them again
-- [ ] `netimmerse/games/legoalphateam/TESTING.md`, "Last checked": a row per check: date, release, platform, what was checked
+- [x] `netimmerse/games/legoalphateam/KNOWN_DIFFERENCES.md`, "Bugs fixed": the original's own bugs Reluva doesn't reproduce, if any
+- [x] `netimmerse/games/legoalphateam/REVERSE_ENGINEERING.md`, "Working files not included": working files the notes mention but the repository leaves out, and how to make them again
+- [x] `netimmerse/games/legoalphateam/TESTING.md`, "Last checked": a row per check: date, release, platform, what was checked
 
 ### stgenerations
 
@@ -170,23 +170,23 @@ in the game's README. If "Terms" lists are adopted, add the section to
 
 ### awe (Murder on the Orient Express)
 
-- [ ] Granny: first in `awe/README.md:31`
-- [ ] Oodle1: first in `awe/games/motoe/README.md:28`
-- [ ] Povent: first in `awe/games/motoe/UNCONFIRMED.md:68`
-- [ ] `SPRT`, `HOTS`, `BNKX` and the other scene records: first in `awe/games/motoe/UNCONFIRMED.md:55`
-- [ ] track mask: first in `awe/games/motoe/README.md:105`
-- [ ] walk grid: first in `awe/games/motoe/REVERSE_ENGINEERING.md:80`
+- [x] Granny: first in `awe/README.md:31`
+- [x] Oodle1: first in `awe/games/motoe/README.md:28`
+- [x] Povent: first in `awe/games/motoe/UNCONFIRMED.md:68`
+- [x] `SPRT`, `HOTS`, `BNKX` and the other scene records: first in `awe/games/motoe/UNCONFIRMED.md:55`
+- [x] track mask: first in `awe/games/motoe/README.md:105`
+- [x] walk grid: first in `awe/games/motoe/REVERSE_ENGINEERING.md:80`
 
 ### netimmerse (LEGO Alpha Team)
 
-- [ ] NIF: first in `netimmerse/README.md:30`
-- [ ] B1 (the option chosen): first in `netimmerse/games/legoalphateam/PLAN.md:3`
-- [ ] behaviour DLL: first in `netimmerse/games/legoalphateam/PLAN.md:21`
-- [ ] `at-run`: first in `netimmerse/games/legoalphateam/README.md:117`
-- [ ] DDIcam: first in `netimmerse/games/legoalphateam/REVERSE_ENGINEERING.md:104`
-- [ ] PE0300: first in `netimmerse/games/legoalphateam/systems/camera.md:56`
-- [ ] fixed clock: first in `netimmerse/games/legoalphateam/systems/training.md:80`
-- [ ] Dash and Ogel (the game's characters): first in `netimmerse/games/legoalphateam/formats/fin.md:312`
+- [x] NIF: first in `netimmerse/README.md:30`
+- [x] B1 (the option chosen): first in `netimmerse/games/legoalphateam/PLAN.md:3`
+- [x] behaviour DLL: first in `netimmerse/games/legoalphateam/PLAN.md:21`
+- [x] `at-run`: first in `netimmerse/games/legoalphateam/README.md:117`
+- [x] DDIcam: first in `netimmerse/games/legoalphateam/REVERSE_ENGINEERING.md:104`
+- [x] PE0300: first in `netimmerse/games/legoalphateam/systems/camera.md:56`
+- [x] fixed clock: first in `netimmerse/games/legoalphateam/systems/training.md:80`
+- [x] Dash and Ogel (the game's characters): first in `netimmerse/games/legoalphateam/formats/fin.md:312`
 
 ### clue
 
@@ -218,6 +218,6 @@ in the game's README. If "Terms" lists are adopted, add the section to
   known"; check each is under the heading that fits. Both fit: Reluva
   follows the code in each, and nothing confirms it; the second is now "Read
   but not used", and each says why it's there.
-- [ ] awe's `systems/dialogue.md` has 10 *(inferred)* items. If any matters to
+- [x] awe's `systems/dialogue.md` has 10 *(inferred)* items. If any matters to
   how Reluva behaves, list it in `awe/games/motoe/UNCONFIRMED.md` under
   "Inferred".

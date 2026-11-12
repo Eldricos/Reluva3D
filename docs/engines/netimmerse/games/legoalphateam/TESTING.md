@@ -211,4 +211,9 @@ before M3010, M0040 before M3060.
 
 ## Last checked
 
-None recorded yet.
+| Date | Release | Platform | What was checked |
+|---|---|---|---|
+| November 2026 | English retail CD, installed | Windows (Visual Studio 2022) | `reluva-tests` all pass; the game-files test passes against a baseline of its own (`RELUVA_GAMEDATA_RECORDS`) |
+| 2026-11-07 | English retail CD, installed | Linux (GCC) | All tests pass; the game-files test's records made, and its six steps repeat exactly; M1010, M1020, M2010 and M3010 solved by `at-sweep -solved` |
+| Not recorded | English retail CD, installed | Windows | Mission One played through by hand ([The missions](#the-missions)) |
+| Not recorded | English retail CD, installed | Linux | Every mission run past Go, and every Adventure mission solved by its solved layout, by `at-sweep` |
