@@ -1808,11 +1808,21 @@ README.md.
   through its lane change; cars 3 and 4 meet at 64.9-68.9 s, not at the
   game's 63.6-64.2 s.
   The computer cars' gears and rpm (`ai_gear_rpm` `0x4061b0`) are
-  ported and match the dumps (physics.md, Their gears and rpm). Left of
-  their handling: the air ticks and the landing (`car_landing`
-  `0x4a1ce0`, `car_body_under_road` `0x4a1210`, the air's spin clamp
-  `0x4a20c0` and drag in `0x4a2260`; frd.md, The air ticks after a hit),
-  where the page has a stub. The tyres (`0x4aca4f`), the wheels' angle
+  ported and match the dumps (physics.md, Their gears and rpm). Since
+  `s5` the air ticks and the landing are the game's too (`car_landing`
+  `0x4a1ce0`, `car_body_under_road` `0x4a1210` with the road's impulses
+  `0x42ee10`, the spin clamp `0x4a20c0`, the drag in `0x4a2260`, gravity
+  straight down, a tipped car put in the air; frd.md, The air ticks and
+  the landing): a flat landing in `u1-a2` comes out at the game's speed
+  into the road and spins to 0.01, and t6-log's jump off the crest at
+  slices 199-200 (cars 6 and 7 at 77.5-78 s) is flown, 0.19 s late. A
+  landing on a corner can still go another way: the page's box points
+  are the game's to 2.5 cm, and in `u1-a5` that put a second corner
+  under the road where the game's was 1.1 cm over it. The comparison
+  to 78 s went from 896 to 872 decisions, lane changes 121 to 125 and
+  the whole window's speed rms 2.65 to 3.99 m/s, all of it after the
+  page's first hit (still at 64.9 s); the tipped car's reset
+  (`0x429260`, `0x428f90`) isn't ported. The tyres (`0x4aca4f`), the wheels' angle
   (`0x4ad2e1`) and the automatic box (`0x4a90a0`) are the human car's
   (`0x4ae4c1`) and not on the computer cars' path.
 - How the wall hits' particles look in play (read from the code only;

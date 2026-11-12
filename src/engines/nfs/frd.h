@@ -453,6 +453,7 @@ struct AiCarData {
     float latGrip = 0;              // lateral acceleration grip multiplier (P +0x248, field 30)
     float mass = 1472;              // mass [kg] (P +0x4, field 2)
     float downforce = 0;            // aerodynamic downforce multiplier (P +0x24C, field 31)
+    float suspStiffness = 1;        // Suspension Stiffness (P +0x2E0, field 64): the landing's (car_landing 0x4a1ce0)
     // The gearbox as ai_gear_rpm (0x4061b0) reads it: the gears (P +0x8,
     // reverse and neutral counted), the shift delay in ticks (P +0x10,
     // field 4), velocity to rpm by gear (P +0x94), the engine's minimum rpm
@@ -696,6 +697,10 @@ struct AiCar {
     // aiMove from AiCarData) and +0xB8 as the last dynamics left it
     // (negative: not yet worked out).
     float downforce = 0, groundSpeed = -1;
+    // Its carp's Suspension Stiffness (P +0x2E0, set by aiMove), which the
+    // landing (car_landing 0x4a1ce0) scales the speed into the road and the
+    // spins by: x (0.5 + 0.1 x it), the set-up's slider 1 for a computer car.
+    float suspStiffness = 1;
     // The up car_on_road last turned the body towards (its spins, 0x4a1b18:
     // the up row of aiContactFrame's rows); unset, the road polygon's.
     std::array<float, 3> contactUp{};
@@ -1166,18 +1171,20 @@ void aiPutOnGrid(AiCar& car, const Track& track, const TrackCollision& col, int 
 // from the rest (P = (M M^T)^(1/2), M = P Q), with its velocity.
 void aiSetRows(AiCar& car, const TrackCollision& col, const std::array<float, 3>& velocity,
                const std::array<float, 3>& right, const std::array<float, 3>& up, const std::array<float, 3>& forward);
-// The roll and pitch over one step of 64 (0x4a1610 on the road, 0x4a1ce0
-// landing): in the air (`airTicks`) the landing takes every spin x 0.6
-// (0.5 + e, e 0.1 for a computer car) on the even steps; on the road each
-// rate is set to the difference of the body's up from the road's
-// (sin of the angle), held to +-0.5 turn/s, towards the road, or 0 once
-// both are within 0.02. The angles turn by the rates.
+// The roll and pitch over one step of 64 (0x4a1610 on the road): in the
+// air (`airTicks`) nothing sets the rates and the angles turn by them as
+// they are; on the road each rate is set to the difference of the body's
+// up from the road's (sin of the angle), held to +-0.5 turn/s, towards
+// the road, or 0 once both are within 0.02. The angles turn by the rates.
 void aiTilt(AiCar& car, int step);
 // On the road (aiModelSteer), as the game does it on the world's axes:
 // the spins about x and z are the road normal's z less the body up's and
 // the body up's x less the normal's (car_on_road 0x4a1610), held to
 // +-0.5, 0 once both are within 0.02 with the body upright; the body's up
-// is the world's, kept across slices (aiAdvance).
+// is the world's, kept across slices (aiAdvance). In the air (or landing,
+// `airTicks` set) nothing: aiModelSteer turns the body by its spins after
+// the dynamics (car_integrate_turn 0x4a2e20), and the landing
+// (car_landing 0x4a1ce0) ends the air ticks.
 void aiTilt(AiCar& car, int step, const TrackCollision& col);
 
 // A car record of a dump of nfs3.exe's cars (0x5e1120, 0x9AC bytes a

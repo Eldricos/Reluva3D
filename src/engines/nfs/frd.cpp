@@ -977,6 +977,8 @@ bool parseCarpAi(const std::string& text, AiCarData& out) {
         out.mass = v[0];
     if (values(31, v))
         out.downforce = v[0];
+    if (values(64, v))
+        out.suspStiffness = v[0];
     for (int row = 0; row < 8; ++row) {
         if (!values(67 + row, v) || v.size() < 14)
             return false;
@@ -1638,6 +1640,8 @@ struct AiDynamics {
     // friction instead), or car_ai_model (0x408600) coasted it out of the
     // race (ai_finished_coast): no controller, no forces.
     bool tipped = false, coast = false;
+    // Upright with the air ticks (+0x164) set: car_ai_physics ran nothing.
+    bool air = false;
     float forward = 0, ground = 0;
     // ai_ctl_slide's side force (+0x4E0, before the start's push) and the
     // body's up's y, for the start's push (aiMove).
@@ -1829,25 +1833,267 @@ void aiYawForce(AiCar& me, const std::array<float, 3>& f, const std::array<float
     me.pitch -= (wx * r[0] + wz * r[2]) / 32.0f;
 }
 
-// The body's friction on the road (0x4aa8e7, for a tipped car, on the
-// ground): with the clearance under 0.2 (+0x15C as an int under
-// 0x3e4cccce) and the road's normal y (+0x130) at least 0.5 (0x53dcc4), the
-// velocity's part along the road's plane x 0.94 and the spin about its
-// normal x 0.98. (In the air, +0x164 set, x 0.98 and x 0.998 when an axis
-// of the body is near the normal; the page doesn't run this then.)
-void aiBodyFriction(AiCar& me, const std::array<float, 3>& n) {
+// The body's friction on the road (car_air_rpm 0x4aa8e7, from
+// car_ai_physics 0x4088f0 for a tipped car): with the clearance under 0.2
+// (+0x15C as an int under 0x3e4cccce) and the road's normal y (+0x130) at
+// least 0.5 (0x53dcc4), the velocity's part along the road's plane x 0.94
+// and the spin about its normal x 0.98; in the air (+0x164 set) x 0.98 and
+// x 0.998, unless each two of |up . n|, |right . n| and |forward . n| sum
+// to at most 0.9 (0x53dccc), which rows of unit length never do.
+void aiBodyFriction(AiCar& me, const std::array<float, 3>& n, const std::array<float, 3>& r,
+                    const std::array<float, 3>& u, const std::array<float, 3>& f) {
     if (!(me.lift < 0.2f) || n[1] < 0.5f)
         return;
+    float slide = 0.94f, turn = 0.98f;
+    if (me.airTicks != 0) {
+        const float a = std::fabs(dot3(u, n)), b = std::fabs(dot3(r, n)), c = std::fabs(dot3(f, n));
+        if (a + b <= 0.9f && a + c <= 0.9f && b + c <= 0.9f)
+            return;
+        slide = 0.98f;
+        turn = 0.998f;
+    }
     const float into = dot3(n, me.vel);
     for (size_t k = 0; k < 3; ++k)
-        me.vel[k] = (me.vel[k] - into * n[k]) * 0.94f + into * n[k];
+        me.vel[k] = (me.vel[k] - into * n[k]) * slide + into * n[k];
     std::array<float, 3> spin{me.spinX, me.yawRate, me.spinZ};
     const float about = dot3(n, spin);
     for (size_t k = 0; k < 3; ++k)
-        spin[k] = spin[k] - about * n[k] + about * n[k] * 0.98f;
+        spin[k] = spin[k] - about * n[k] + about * n[k] * turn;
     me.spinX = spin[0];
     me.yawRate = spin[1];
     me.spinZ = spin[2];
+}
+
+float carBoxImpulse(CarBox& c, std::array<float, 3> j, const std::array<float, 3>& r, float f);
+
+// car_contact_impulse (0x42ee10) for a point of the body against the road
+// (from car_body_under_road 0x4a1210): a point under the plane (n through
+// q) pushes the centre out along n by its depth; the point's velocity, v +
+// (spin x 6.2831845) x (the point - the centre as pushed), times the mass
+// (+0xB0), going into the plane gives the impulse -(that . n) n, taken by
+// 0x42e820 with f 1 (carBoxImpulse: x 0.75 over 5 x the mass, the push and
+// the turn, every spin held to +-1.8 by 0x42e720). A hit (its strength
+// not 0) then takes 0x42e9c0's friction: in the body's frame (+0xC0 rows)
+// each axis of the velocity's part along the plane over 22 m/s (0x5537b8)
+// x 0.958 (0x5537b4), the forward x 0.975 (0x5373d4) instead with the
+// body's up . n over 0.9 (0x5373cc); the spin's part along n x 0.958.
+// True when the point's momentum went into the plane (the routine's 1).
+bool aiRoadContact(AiCar& me, std::array<float, 3>& centre, const std::array<float, 3>& point,
+                   const std::array<float, 3>& n, const std::array<float, 3>& q, const std::array<float, 3>& r,
+                   const std::array<float, 3>& u, const std::array<float, 3>& f) {
+    const float depth = dot3({point[0] - q[0], point[1] - q[1], point[2] - q[2]}, n);
+    if (depth < 0)
+        for (size_t k = 0; k < 3; ++k)
+            centre[k] += -depth * n[k];
+    const std::array<float, 3> lever{point[0] - centre[0], point[1] - centre[1], point[2] - centre[2]};
+    const std::array<float, 3> w{me.spinX * 6.2831845f, me.yawRate * 6.2831845f, me.spinZ * 6.2831845f};
+    const std::array<float, 3> spun = cross3(w, lever);
+    std::array<float, 3> j{};
+    for (size_t k = 0; k < 3; ++k)
+        j[k] = (spun[k] + me.vel[k]) * me.mass;
+    const float into = dot3(j, n);
+    if (!(into < 0))
+        return false;
+    for (size_t k = 0; k < 3; ++k)
+        j[k] = n[k] * -into;
+    CarBox box;
+    box.velocity = me.vel;
+    box.spin = {me.spinX, me.yawRate, me.spinZ};
+    box.mass = me.mass;
+    box.half = {me.halfWidth, me.halfHeight, me.halfLength};
+    const float strength = carBoxImpulse(box, j, lever, 1.0f);
+    me.vel = box.velocity;
+    me.spinX = box.spin[0];
+    me.yawRate = box.spin[1];
+    me.spinZ = box.spin[2];
+    if (strength == 0)
+        return true;
+    auto into3 = [&](const std::array<float, 3>& v) {
+        return std::array<float, 3>{dot3(v, r), dot3(v, u), dot3(v, f)};
+    };
+    const std::array<float, 3> nb = into3(n);
+    std::array<float, 3> vb = into3(me.vel), wb = into3({me.spinX, me.yawRate, me.spinZ});
+    const float vn = dot3(vb, nb), wn = dot3(wb, nb);
+    const bool level = dot3(u, n) > 0.9f;
+    for (size_t k = 0; k < 3; ++k) {
+        float t = vb[k] - vn * nb[k];
+        if (std::fabs(t) > 22.0f)
+            t *= (k == 2 && level) ? 0.975f : 0.958f;
+        vb[k] = t + vn * nb[k];
+        wb[k] = wb[k] - wn * nb[k] + wn * nb[k] * 0.958f;
+    }
+    for (size_t k = 0; k < 3; ++k)
+        me.vel[k] = vb[2] * f[k] + vb[1] * u[k] + vb[0] * r[k];
+    me.spinX = wb[2] * f[0] + wb[1] * u[0] + wb[0] * r[0];
+    me.yawRate = wb[2] * f[1] + wb[1] * u[1] + wb[0] * r[1];
+    me.spinZ = wb[2] * f[2] + wb[1] * u[2] + wb[0] * r[2];
+    return true;
+}
+
+// car_body_under_road (0x4a1210): eight points of the body's box (the
+// game builds twelve, the loop stops at 8, 0x4a151a): the four bottom
+// corners, (-+0.75 w, 0.5 h, 0.8 l) (0x53c7fc, 0x53c804, 0x53c80c) and the
+// top corners at -0.8 l, each through the rows from the centre as it is
+// pushed so far (0x4e0430). Each gets its own track position from the
+// car's (trackpos_update 0x41f6e0) and counts only inside a polygon of a
+// slice's run (+0x14, +0x18 set, +0x6C 0) whose surface is neither 0 nor
+// 14; under that polygon's plane (its road vector's up, s16 x 2 / 65536,
+// through its point) it takes aiRoadContact. Without the track's
+// polygons the page tests every point against the car's own plane. The
+// pushes' total along `planeUp` comes back in `raised`.
+bool aiBodyUnderRoad(AiCar& me, std::array<float, 3>& centre, const std::array<float, 3>& planeUp,
+                     const std::array<float, 3>& planePoint, const std::array<float, 3>& r,
+                     const std::array<float, 3>& u, const std::array<float, 3>& f, float& raised) {
+    const float w = me.halfWidth, h = me.halfHeight, l = me.halfLength;
+    const std::array<std::array<float, 3>, 8> points{{{-w, -h, l},
+                                                      {w, -h, l},
+                                                      {w, -h, -l},
+                                                      {-w, -h, -l},
+                                                      {-w * 0.75f, h * 0.5f, l * 0.8f},
+                                                      {w * 0.75f, h * 0.5f, l * 0.8f},
+                                                      {w, h, -l * 0.8f},
+                                                      {-w, h, -l * 0.8f}}};
+    bool under = false;
+    raised = 0;
+    for (const auto& o : points) {
+        std::array<float, 3> p{};
+        for (size_t k = 0; k < 3; ++k)
+            p[k] = centre[k] + o[0] * r[k] + o[1] * u[k] + o[2] * f[k];
+        std::array<float, 3> n = planeUp, q = planePoint;
+        if (me.roadTrack && !me.roadTrack->blocks.empty()) {
+            RoadSearch search = me.road;
+            if (me.road.found)
+                search.slice = me.road.foundSlice;
+            if (!roadSearch(*me.roadTrack, search, p[0], p[2]) || search.side != 0)
+                continue;
+            const size_t block = static_cast<size_t>(search.foundSlice >> 3);
+            if (block >= me.roadTrack->blocks.size())
+                continue;
+            const Track::Block& b = me.roadTrack->blocks[block];
+            const size_t index = static_cast<size_t>(search.polygon);
+            if (8 * index + 1 >= b.polygonRoad.size())
+                continue;
+            const int surface = b.polygonRoad[8 * index + 1] & 0x3f;
+            RoadFrame frame;
+            if (surface == 0 || surface == 14 || !polygonRoadFrame(b, index, frame))
+                continue;
+            n = frame.up;
+            q = frame.point;
+        }
+        if (!(dot3({p[0] - q[0], p[1] - q[1], p[2] - q[2]}, n) < 0))
+            continue;
+        const std::array<float, 3> was = centre;
+        if (aiRoadContact(me, centre, p, n, q, r, u, f))
+            under = true;
+        raised += dot3({centre[0] - was[0], centre[1] - was[1], centre[2] - was[2]}, planeUp);
+    }
+    return under;
+}
+
+// car_downforce's drag in the air (0x4a2260, 0x4a23dc-0x4a2600, +0x164
+// set): x and z only, each less its own square x (0.006 x |the up row's
+// part along it| + 0.004 x |the right's| + k x |the forward's|) / 32
+// (0x53c8b4), towards 0; k 0.002, 0.004 for traffic (+0x200 bit 0x10).
+void aiAirDrag(std::array<float, 3>& v, const std::array<float, 3>& r, const std::array<float, 3>& u,
+               const std::array<float, 3>& f, bool traffic) {
+    const float k = traffic ? 0.004f : 0.002f;
+    float dx = v[0] * v[0] * (k * std::fabs(f[0]) + std::fabs(r[0]) * 0.004f + std::fabs(u[0]) * 0.006f) * 0.03125f;
+    float dz = v[2] * v[2] * (k * std::fabs(f[2]) + std::fabs(r[2]) * 0.004f + std::fabs(u[2]) * 0.006f) * 0.03125f;
+    if (v[0] > 0)
+        dx = -dx;
+    if (v[2] > 0)
+        dz = -dz;
+    v[0] += dx;
+    v[2] += dz;
+}
+
+// The turn of a tick in the air (or landing): car_on_road (0x4a1610)
+// doesn't set the spins, and car_integrate_turn (0x4a2e20, after
+// car_dynamics and car_ai_physics, before the hits) turns the body by them
+// as the hits, the landing and the road's impulses left them; here those
+// about x and z as rates about its forward and right (the yaw's in
+// aiAdvance).
+void aiAirTurn(AiCar& car, const TrackCollision& col) {
+    std::array<float, 3> f{}, r{}, u{};
+    aiTiltedAxes(col, car, f, r, u);
+    const std::array<float, 3> w{car.spinX, 0, car.spinZ};
+    car.rollRate = dot3(w, f);
+    car.pitchRate = -dot3(w, r);
+    car.roll += car.rollRate / 32.0f;
+    car.pitch += car.pitchRate / 32.0f;
+    car.roll -= std::nearbyint(car.roll);
+    car.pitch -= std::nearbyint(car.pitch);
+}
+
+// car_landing (0x4a1ce0), each tick in the air with the clearance at
+// most 0.6. While the velocity goes into the road (its dot with the road
+// polygon's up +0x130 under 0) and car_body_under_road finds the body
+// under it (aiBodyUnderRoad, which pushes the car out and takes the
+// impulses), the clearance is 0 and, upright (+0x10C over 0.9,
+// 0x53c85c), the velocity's part along the up of the rows at +0x124 and
+// the three spins are x (0.5 + e) (0x53c874): e = the set-up's Suspension
+// Stiffness x 0.1 (0x53c864) x P's (+0x2E0), kept within 0 and 0.2
+// (0x53c86c); the set-up's is 1 for a computer car (`suspStiffness` is
+// P's). Nothing turns the speed into the road round: no bounce. Then,
+// with the speed along the up under 0.5 (0x5efddc), every spin under 0.6
+// (0x53c88c), the body flat (car_flat_or_roof 0x49fde0: |+0x10C| over
+// 0.9) and the clearance 0 or less, +0x164 is cleared (0x4a2068; the
+// on-road code takes the rest of the speed into the road the next tick);
+// else, upright, the skid levels are the yaw spin x 5 (0x53c894; only the
+// page's effects read them). The landing's own impact (+0x168 4 x the
+// speed into the road, +0x170 the surface | 0x10000) goes to no computer
+// car's controller: the impacts task reacts to hits by other cars only
+// (+0x16C set, 0x42b99d).
+void aiLanding(AiCar& me, const TrackCollision& col, const std::array<float, 3>& nu, float upright,
+               const std::array<float, 3>& r, const std::array<float, 3>& u, const std::array<float, 3>& f) {
+    const int n = static_cast<int>(col.road.size());
+    const auto& here = col.road[size_t(((me.slice % n) + n) % n)];
+    const std::array<float, 3> up = me.roadUpSet ? me.roadUp : nu;
+    // The body's centre: the page's place with the box's lowest corner on
+    // the road polygon's plane (aiCentreHeight), and the clearance over it.
+    std::array<float, 3> m{};
+    const float h = aiCentreHeight(col, me, m);
+    std::array<float, 3> centre = aiPlace(col, me), point = me.roadUpSet ? me.roadPoint : centre;
+    if (h != 0) {
+        for (size_t k = 0; k < 3; ++k)
+            centre[k] += h * m[k] + me.lift * up[k];
+    } else {
+        point = centre;
+        const float reach = std::fabs(dot3(up, r)) * me.halfWidth + std::fabs(dot3(up, u)) * me.halfHeight +
+                            std::fabs(dot3(up, f)) * me.halfLength;
+        for (size_t k = 0; k < 3; ++k)
+            centre[k] += (reach + me.lift) * up[k];
+    }
+    float clearance = me.lift;
+    if (dot3(me.vel, up) < 0) {
+        float raised = 0;
+        if (aiBodyUnderRoad(me, centre, up, point, r, u, f, raised)) {
+            clearance = 0;
+            me.lift += raised;
+            if (upright > 0.9f) {
+                double e = static_cast<double>(me.suspStiffness * 0.1f * 1.0f);
+                e = e < 0 ? 0 : (e > 0.2 ? 0.2 : e);
+                const float k = static_cast<float>(e + 0.5);
+                const std::array<float, 3> rr = me.roadRightSet ? me.roadRight : here.right;
+                const std::array<float, 3> rf = me.roadRightSet ? me.roadForward : here.forward;
+                const float a = dot3(me.vel, rr), b = dot3(me.vel, up) * k, c = dot3(me.vel, rf);
+                for (size_t i = 0; i < 3; ++i)
+                    me.vel[i] = c * rf[i] + b * up[i] + a * rr[i];
+                me.spinX *= k;
+                me.yawRate *= k;
+                me.spinZ *= k;
+            }
+        }
+    }
+    if (dot3(me.vel, up) < 0.5f) {
+        if (std::fabs(me.spinX) < 0.6f && std::fabs(me.yawRate) < 0.6f && std::fabs(me.spinZ) < 0.6f &&
+            std::fabs(upright) > 0.9f && clearance <= 0) {
+            me.airTicks = 0;
+            return;
+        }
+        if (upright > 0.9f)
+            me.skidFront = me.skidRear = me.yawRate * 5.0f;
+    }
 }
 
 // The model's half across the road on an even step (car_dynamics 0x4a2830,
@@ -1882,16 +2128,14 @@ AiDynamics aiModelSteer(AiCar& me, const TrackCollision& col, int step, int trac
         aiViews(col, me);
         return out;
     }
-    // Put in the air by a hard hit (aiCollide): the dynamics' landing
-    // (0x4a1ce0) takes each spin x (0.5 + e), e 0.1 x the Suspension
-    // Stiffness (P +0x2E0, 1) x its slider (1 for a computer car), and
-    // ends the air ticks once every spin is under 0.6 (0x4a2068); until
-    // then car_ai_physics (0x4088f0) skips the model. On the road the
-    // roll and pitch go back (aiTilt).
+    // On the road the roll and pitch go back (aiTilt, car_on_road's spins);
+    // in the air (+0x164 set) the body turns by its spins as they are,
+    // after the dynamics (aiAirTurn).
+    const bool airborne = me.airTicks != 0;
     aiTilt(me, step, col);
     if ((step & 1) == 0)
         me.turnDue = true; // car_integrate_turn after the move (aiAdvance)
-    if ((step & 1) != 0 || me.airTicks != 0)
+    if ((step & 1) != 0)
         return out;
     out.ran = true;
     // car_dynamics (0x4a2830): +0xB8, the cheap ground speed the
@@ -1936,19 +2180,37 @@ AiDynamics aiModelSteer(AiCar& me, const TrackCollision& col, int step, int trac
                 for (size_t k = 0; k < 3; ++k)
                     me.vel[k] -= me.downforce * 2.0f * along * gu[k];
         }
+        // Then, in the air (+0x164 set), its drag (aiAirDrag; the page has
+        // no traffic).
+        if (me.airTicks != 0)
+            aiAirDrag(me.vel, gr, gu, gf, false);
+        // car_dynamics (0x4a28a5-0x4a28cb): the car is put in the air (+0x164
+        // 1) when car_flat_or_roof (0x49fde0) finds it tipped (|+0x10C| at
+        // most 0.9, 0x53c79c) or the road polygon's up y (+0x130) is under
+        // 0.6 (0x53c8c4).
+        const float upright = dot3(gu, nu);
+        const float roadUpY = me.roadUpSet ? me.roadUp[1] : nu[1];
+        if ((!(std::fabs(upright) > 0.9f) || roadUpY < 0.6f) && me.airTicks == 0)
+            me.airTicks = 1;
         const float ax = std::fabs(me.vel[0]), az = std::fabs(me.vel[2]);
         out.ground = std::max(ax, az) + std::min(ax, az) * 0.25f;
         me.groundSpeed = out.ground;
-        // The up row's part always (0x4a2a4c-0x4a2aa5): into the road,
-        // which the contact takes back out when the car is on it.
-        for (size_t k = 0; k < 3; ++k)
-            me.vel[k] += -0.30656251f * nu[1] * nu[k];
-        if (nu[1] < 0.87f) {
+        if (me.airTicks != 0) {
+            // In the air gravity is straight down (0x4a29f9: +0xA8 +
+            // -0.3065625, the double at 0x53c8d4).
+            me.vel[1] = static_cast<float>(static_cast<double>(me.vel[1]) + -0.3065625);
+        } else {
+            // The up row's part always (0x4a2a4c-0x4a2aa5): into the road,
+            // which the contact takes back out when the car is on it.
             for (size_t k = 0; k < 3; ++k)
-                me.vel[k] += -0.30656251f * (gf[1] * gf[k] + gr[1] * gr[k]);
-        } else if (dot3(gu, nu) > 0.9f) {
-            for (size_t k = 0; k < 3; ++k)
-                me.vel[k] += -0.30656251f * gf[1] * gf[k];
+                me.vel[k] += -0.30656251f * nu[1] * nu[k];
+            if (nu[1] < 0.87f) {
+                for (size_t k = 0; k < 3; ++k)
+                    me.vel[k] += -0.30656251f * (gf[1] * gf[k] + gr[1] * gr[k]);
+            } else if (upright > 0.9f) {
+                for (size_t k = 0; k < 3; ++k)
+                    me.vel[k] += -0.30656251f * gf[1] * gf[k];
+            }
         }
         // car_on_road (0x4a1610) on the road: the velocity into the frame
         // of aiContactFrame (the transposed rows, 0x4a1a46), its part along
@@ -2002,7 +2264,18 @@ AiDynamics aiModelSteer(AiCar& me, const TrackCollision& col, int step, int trac
         me.liftRows = {gr[0], gr[1], gr[2], gu[0], gu[1], gu[2], gf[0], gf[1], gf[2]};
         me.liftRowsSet = true;
         AiRows frame{};
-        if (me.lift > 0) {
+        if (me.lift > 0.59999996f) {
+            // At 0.6 or over (+0x15C as an int at least 0x3f19999a, 0x4a2b35)
+            // the car is in the air: +0x164 counts up (from 0 too) and every
+            // spin is held within +-2.4 (car_air_spin_clamp 0x4a20c0).
+            me.contactUpSet = false;
+            ++me.airTicks;
+            for (float* s : {&me.spinX, &me.yawRate, &me.spinZ})
+                *s = std::clamp(*s, -2.4f, 2.4f);
+        } else if (me.airTicks != 0) {
+            me.contactUpSet = false;
+            aiLanding(me, col, nu, upright, gr, gu, gf);
+        } else if (me.lift > 0) {
             me.contactUpSet = false;
         } else if (aiContactFrame(col, me, frame)) {
             me.lift = 0;
@@ -2017,6 +2290,8 @@ AiDynamics aiModelSteer(AiCar& me, const TrackCollision& col, int step, int trac
                     me.vel[k] -= into * nu[k];
         }
     }
+    if (airborne)
+        aiAirTurn(me, col);
     // car_ai_physics: the velocity into the body's frame (+0x4EC its right,
     // +0x4F4 its forward).
     std::array<float, 3> bf{}, br{}, bu{};
@@ -2040,12 +2315,18 @@ AiDynamics aiModelSteer(AiCar& me, const TrackCollision& col, int step, int trac
     // car_ai_model, the body's friction on the road (0x4aa8e7); so too in
     // car_ai_model for a body up row's y under 0.3 (+0xD0 as an int under
     // 0x3e99999a, 0x408613).
+    // Upright with +0x164 set (in the air, or landing) nothing runs: the
+    // model only with +0x164 0 (0x4089d1).
+    if (!(dot3(tu, nu) < 0.9f) && me.airTicks != 0) {
+        out.air = true;
+        return out;
+    }
     if (dot3(tu, nu) < 0.9f || tu[1] < 0.3f) {
         me.skidFront = me.skidRear = 0;
         // car_ai_physics (0x4088f0) tipped: the rpm 500 down, to the minimum.
         if (dot3(tu, nu) < 0.9f)
             me.gearbox.rpm = me.gearbox.rpm > me.gears.rpmMin + 500 ? me.gearbox.rpm - 500 : me.gears.rpmMin;
-        aiBodyFriction(me, nu);
+        aiBodyFriction(me, nu, tr, tu, tf);
         out.tipped = true;
         return out;
     }
@@ -2557,17 +2838,17 @@ void aiMove(AiCar& me, const AiCarData& data, bool weather, int step, const Trac
     // gravity and forces.
     const float raceSpeed = me.speed;
     me.downforce = data.downforce;
+    me.suspStiffness = data.suspStiffness;
     me.gears = data.gearbox;
     const AiDynamics dyn = aiModelSteer(me, col, step, track, true);
-    // car_ai_physics (0x4088f0, 0x408959): in the air or tipped (+0x10C
-    // under 0.9, 0x5363d4) both levels 0 and the model not run, so no
-    // controller sets them (aiModelSteer: the body's friction instead); out
-    // of the race the coast sets them.
-    if (me.airTicks != 0 && (step & 1) == 0)
-        me.skidFront = me.skidRear = 0;
+    // car_ai_physics (0x4088f0, 0x408959): tipped (+0x10C under 0.9,
+    // 0x5363d4; or +0x8A, which nothing sets) both levels 0 and the model
+    // not run (aiModelSteer: the body's friction instead); upright with the
+    // air ticks set nothing runs, and the landing (aiLanding) leaves them;
+    // out of the race the coast sets them.
     const bool tipped = dyn.tipped;
     bool spin = false; // the start's wheelspin (aiStartSpin)
-    if (!dyn.ran || dyn.tipped || dyn.coast) {
+    if (!dyn.ran || dyn.tipped || dyn.coast || dyn.air) {
         if (dyn.ran)
             aiViews(col, me);
         return;
@@ -3773,7 +4054,13 @@ void aiPutBack(std::vector<AiCar>& cars, size_t self, const TrackCollision& col)
     me.vel = {0, 0, 0};
     me.worldKept = false;
     me.roll = me.pitch = me.rollRate = me.pitchRate = 0;
+    me.spinX = me.spinZ = 0;
     me.airTicks = 1;
+    // On the road (0x4a0aa0 puts it 0.5 up and then down onto it): the
+    // clearance 0, so the landing ends the air ticks at once.
+    me.lift = 0;
+    me.liftMove = {};
+    me.liftPlaneSet = me.liftRowsSet = false;
     me.spiked = false;
     me.roadRightSet = false;
     me.contactUpSet = false;
@@ -3795,13 +4082,10 @@ void aiTilt(AiCar& car, int step) {
     if ((step & 1) != 0)
         return;
     constexpr float kTurn = 2 * 3.14159265358979f;
-    if (car.airTicks > 0) {
-        car.yawRate *= 0.6f;
-        car.rollRate *= 0.6f;
-        car.pitchRate *= 0.6f;
-        if (std::fabs(car.yawRate) < 0.6f && std::fabs(car.rollRate) < 0.6f && std::fabs(car.pitchRate) < 0.6f)
-            car.airTicks = 0;
-    } else {
+    // In the air (+0x164 set) nothing sets the spins: car_on_road
+    // (0x4a1610) isn't called, and the body turns by them as they are
+    // (car_integrate_turn 0x4a2e20).
+    if (car.airTicks == 0) {
         // 0x4a1b18-0x4a1cc6: the body's up against the road's, by axis.
         const float r = std::sin(car.roll * kTurn), p = std::sin(car.pitch * kTurn);
         if (std::fabs(r) <= 0.02f && std::fabs(p) <= 0.02f) {
@@ -3820,11 +4104,14 @@ void aiTilt(AiCar& car, int step) {
 void aiTilt(AiCar& car, int step, const TrackCollision& col) {
     if ((step & 1) != 0)
         return;
-    if (car.airTicks > 0 || col.road.size() < 2) {
-        car.spinX = car.spinZ = 0;
+    if (col.road.size() < 2) {
         aiTilt(car, step);
         return;
     }
+    // In the air (or landing) car_on_road doesn't run: the body turns by
+    // its spins after the dynamics (aiAirTurn).
+    if (car.airTicks != 0)
+        return;
     // car_on_road (0x4a1610, 0x4a1b18-0x4a1cc6), on the world's axes: the
     // spin about x (+0xE4) is the road's normal's z less the body's up's,
     // about z (+0xEC) the body's up's x less the normal's, each held to
@@ -3901,21 +4188,22 @@ void aiCollide(std::vector<AiCar>& cars, const TrackCollision& col, int step, st
         if (!c.sideKept)
             c.lateral = aiLateralFor(col, c, c.offset);
         CarBox& box = boxes[j];
-        // Its world velocity and body (aiBodyAxes: its yaw on the road's
-        // up; left-handed, right = up x forward).
+        // Its world velocity and body (+0xC0 rows: aiTiltedAxes, its yaw on
+        // the road's up turned by its roll and pitch; left-handed, right =
+        // up x forward), its centre (+0x98) over the road by its clearance
+        // too (in the air, up to metres).
         if (c.sideKept)
             aiWorldIn(col, c);
         const Vec3 up = unit3(a.normal);
         for (size_t k = 0; k < 3; ++k)
             box.at[k] = a.position[k] + a.right[k] * c.lateral + (b.position[k] - a.position[k]) * c.along +
-                        up[k] * c.halfHeight;
+                        up[k] * (c.halfHeight + c.lift);
         box.velocity = aiVelocity(col, c);
-        aiBodyAxes(col, c, box.forward, box.right, box.up);
+        aiTiltedAxes(col, c, box.forward, box.right, box.up);
         box.half = {c.halfWidth, c.halfHeight, c.halfLength};
         box.mass = c.mass;
-        // aiTiltedAxes pitches the up towards -forward: a turn of -pitch
-        // about the right.
-        box.spin = vAdd(vAdd(vScale(box.up, c.yawRate), vScale(box.forward, c.rollRate)), vScale(box.right, -c.pitchRate));
+        // The spins on the world's axes (+0xE4, +0xE8, +0xEC).
+        box.spin = {c.spinX, c.yawRate, c.spinZ};
     }
     before = boxes;
     if (carBoxCollisions(boxes) == 0)
@@ -3928,14 +4216,19 @@ void aiCollide(std::vector<AiCar>& cars, const TrackCollision& col, int step, st
             continue;
         aiWorldIn(col, c);
         c.vel = vAdd(c.vel, vSub(now.velocity, was.velocity));
-        c.yawRate += vDot(vSub(now.spin, was.spin), was.up);
-        c.rollRate += vDot(vSub(now.spin, was.spin), was.forward);
-        c.pitchRate -= vDot(vSub(now.spin, was.spin), was.right);
+        // The hit's spins, on the world's axes: on the road car_on_road sets
+        // those about x and z again the next tick (aiTilt); in the air the
+        // body turns by them.
+        c.spinX += now.spin[0] - was.spin[0];
+        c.yawRate += now.spin[1] - was.spin[1];
+        c.spinZ += now.spin[2] - was.spin[2];
         // Its place: the point back across the line from its slice's point
         // to the next's, on to the slice it is now on.
         const Vec3 up = unit3(col.road[size_t(wrap(c.slice))].normal);
-        if (now.at != was.at)
-            aiLocate(c, col, vSub(now.at, vScale(up, c.halfHeight)));
+        if (now.at != was.at) {
+            aiLocate(c, col, vSub(now.at, vScale(up, c.halfHeight + c.lift)));
+            c.lift += vDot(vSub(now.at, was.at), up); // the push apart's part along the road's up
+        }
         c.side = aiMeasuredSide(col, c);
         c.sideKept = true;
         aiViews(col, c);
