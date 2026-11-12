@@ -1,6 +1,6 @@
 # LEGO Alpha Team: input
 
-> **Status:** done · **Checked against:** the original running in Reluva · **Confidence:** from the code unless marked
+> **Status:** done · **Checked against:** the original running in Reluva · **Confidence:** confirmed unless marked
 
 ## Overview
 
@@ -14,13 +14,15 @@ The mouse and the keyboard, as the game reads them.
     `GetCursorPos` against where it last put the pointer, then puts it
     back in the window's middle with `SetCursorPos`. Its own pointer, drawn
     by the game, is that movement added up: from 0 to 1 across the screen
-    from the bottom left, 1/640 a pixel times the sensitivity;
+    from the bottom left, 1/640 a pixel times the sensitivity
+    *(from the code)*;
   - **clicks and keys as window messages:** `WM_LBUTTONDOWN` and the like
     go to `DDMouse::ProcessMouseClick`, which clicks where the game's
     pointer is, not where the message says. `WM_KEYDOWN` and the like go
     to `DDKeyboard::processKey`;
   - **DirectInput not at all:** `DDMouse::InitSystem` would make a
-    DirectInput mouse, but only if a flag is set, and nothing sets it.
+    DirectInput mouse, but only if a flag is set, and nothing sets it
+    *(from the code)*.
     DirectInput is stood in for all the same
     ([x86.md](../../../../../common/x86/README.md)), for other games.
 
