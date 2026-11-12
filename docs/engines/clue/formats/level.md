@@ -187,8 +187,8 @@ placements.
 
 ## Sources and checks
 
-Source: the CD's, the install's and the 2.2 patch's `.o` files and
-`clue.lvl`, studied byte by byte (October 2026). Each layout was guessed
-from a few records, then checked by a program against all of them; the
-field meanings come from which objects have which values, and from
-drawing the mansion with them (it comes out whole, every room furnished).
+- **Where the facts come from:** the CD's, the install's and the 2.2 patch's `.o` files and
+  `clue.lvl`, studied byte by byte (October 2026). Each layout was guessed
+  from a few records, then checked by a program against all of them; the
+  field meanings come from which objects have which values, and from
+  drawing the mansion with them (it comes out whole, every room furnished).

@@ -1,6 +1,6 @@
 # Clue: Murder at Boddy Mansion: network play
 
-> **Status:** done, not yet tried between two real machines · **Code:** `src/engines/clue/netplay.h`, `src/engines/clue/frontend_net.cpp` · **Checked against:** Reluva's own tests, not the original · **Confidence:** Reluva's own protocol; the original's screens from its files
+> **Status:** done · **Code:** `src/engines/clue/netplay.h`, `src/engines/clue/frontend_net.cpp` · **Checked against:** Reluva's own tests, not the original · **Confidence:** Reluva's own protocol; the original's screens confirmed (from its files)
 
 ## Overview
 

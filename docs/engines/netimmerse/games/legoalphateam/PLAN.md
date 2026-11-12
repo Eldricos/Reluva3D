@@ -16,7 +16,8 @@ B1's order of work:
 1. `.pac` reader and the viewer's images, fonts and puzzles
    ([data-viewer.md](systems/data-viewer.md)).
 2. Load `LEGOATeam.exe` and every DLL in the interpreter, with stand-ins
-   for the libraries above. Then let `DDPackedDirFileLib`'s loader pull a
+   for the libraries listed in
+   [running.md](systems/running.md#what-the-games-code-is-and-calls). Then let `DDPackedDirFileLib`'s loader pull a
    behaviour DLL out of `Bhvr.pac`. `reluva-tool x86-run` shows how far it
    gets.
 3. MSVCRT, MSVCP60, C++ exceptions and the extra thread, until the game

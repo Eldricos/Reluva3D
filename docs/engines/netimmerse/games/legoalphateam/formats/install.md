@@ -86,7 +86,7 @@ to replace the executable, not the large archives.
 
 ## Sources and checks
 
-Source: directory listings of the English Windows retail CD (volume label
-`LEGOATEN`) and of a full install from it (October 2026). The archives' contents come from
+Worked out from directory listings of the CD and the install (October
+2026). The archives' contents come from
 reading them ([pac.md](pac.md)); meanings still marked *(guessed)* come from
 the names alone and are to be confirmed.

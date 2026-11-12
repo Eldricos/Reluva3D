@@ -93,9 +93,8 @@ and uses a quarter of the line for the space.
 
 ## Sources and checks
 
-Source: the 12 `.DDF` files in the English retail `Etc.pac` (October 2026),
-each beside two TGA pages (`ARIAL.DDF`, `ARIAL_0.TGA`, `ARIAL_1.TGA`).
-This is how the layout was worked out:
+Each `.DDF` file sits beside two TGA pages (`ARIAL.DDF`, `ARIAL_0.TGA`,
+`ARIAL_1.TGA`). This is how the layout was worked out (October 2026):
 
 - **The header.** The magic and the font's name can be read as text. Every
   file is 4,100 bytes, which leaves 18 bytes for each of the 223 characters

@@ -70,9 +70,9 @@ checks are in [TESTING.md](TESTING.md).
 
 ## Seen running, not traced in the code
 
-### Placed by EagleM.dll, not by Clue.exe
+### The board from above (`UI:Aoverhead`)
 
-#### The board from above (`UI:Aoverhead`)
+Placed by EagleM.dll, not by Clue.exe.
 
 - **Reluva:** at (208, 5), where a recording shows it; its squares 13
   pixels, column 9 and row 9 at (8, 15) in it.
@@ -81,9 +81,9 @@ checks are in [TESTING.md](TESTING.md).
 
 ## Inferred
 
-### Placed by EagleM.dll, not by Clue.exe
+### The loser's window (dialog 40)
 
-#### The loser's window (dialog 40)
+Placed by EagleM.dll, not by Clue.exe.
 
 - **Reluva:** at (205, 11), where `Clue.exe` puts the exit window (0x435C7F)
   and where recordings show the Esc menu, its Save window and its

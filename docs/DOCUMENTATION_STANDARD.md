@@ -100,6 +100,10 @@ Each fact gets its source: an address in a named binary, a file and its
 hash, or the published source it was read in. See
 [CONTRIBUTING.md](../CONTRIBUTING.md) for what may be used.
 
+The source is in the docs, on the fact's page. A commit message may give
+more detail for a small change, but the docs say the same: nobody should
+need the commit history to find where a fact came from.
+
 **Every fact has its source and a confidence.** A page's sources are in
 its "Sources and checks". Its confidence uses these words (the middle four
 are also `UNCONFIRMED.md`'s headings):
@@ -142,7 +146,7 @@ python3 tools/check-docs.py
 checks that every relative link and `#anchor` goes somewhere, that each
 engine (or each game, in a family's engine) has its five pages, that each
 format and system page has a status line with a Confidence and a "Sources
-and checks", that each common page has its headings in order, that each
+and checks", that Status and Confidence use the standard's words, that each common page has its headings in order, that each
 `research/` has a `README.md`, and that names follow "Naming" above.
 
 ```sh

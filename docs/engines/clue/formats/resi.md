@@ -118,10 +118,10 @@ see [screen.md](../systems/screen.md#layout).
 
 ## Sources and checks
 
-Source: the order of the reads is from `EGuiResourceInfo::Load(CFile*)` in
-Eagle's library (`!EagleM.dll` 2.2, at `0x1001BDF0`; its exported names give
-it), read as an instruction listing (October 2026). What the fields mean
-comes from the values across the file (which controls have which), and
-from comparing the dialogs drawn by Reluva with recordings of the original
-(the menus, the preferences). `reluva-tool clue check` reads it and checks
-every picture it names.
+- **Where the facts come from:** the order of the reads is from `EGuiResourceInfo::Load(CFile*)` in
+  Eagle's library (`!EagleM.dll` 2.2, at `0x1001BDF0`; its exported names give
+  it), read as an instruction listing (October 2026). What the fields mean
+  comes from the values across the file (which controls have which), and
+  from comparing the dialogs drawn by Reluva with recordings of the original
+  (the menus, the preferences). `reluva-tool clue check` reads it and checks
+  every picture it names.

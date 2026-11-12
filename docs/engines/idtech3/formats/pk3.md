@@ -79,9 +79,8 @@ Readers: `src/common/zip.cpp` (the archive), `src/engines/idtech3/filesystem.cpp
 
 ## Sources and checks
 
-Status: **implemented**; checked on archives built by Python's `zipfile`
-and by the tests, and on the retail Elite Force paks, from which the
-levels, models, sounds and game code all load.
+The retail Elite Force paks' levels, models, sounds and game code all
+load from them.
 
 Sources: PKWARE's published `APPNOTE.TXT` for the zip format; the search
 order from the Quake III Arena source id Software released under the GPL

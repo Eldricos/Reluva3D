@@ -128,8 +128,8 @@ and the one left can't be entered again in the same turn.
 
 ## Sources and checks
 
-Source: `clue.lvl` ([level.md](level.md)), read for the board the game is
-played on (October 2026), checked against the classic board and the game's
-own overhead map (`UI:Aoverhead`). No file holds the board as such: it is
-the mansion's floor. `reluva-tool clue board <clue.lvl>` draws what Reluva
-reads from it.
+- **Where the facts come from:** `clue.lvl` ([level.md](level.md)), read for the board the game is
+  played on (October 2026), checked against the classic board and the game's
+  own overhead map (`UI:Aoverhead`). No file holds the board as such: it is
+  the mansion's floor. `reluva-tool clue board <clue.lvl>` draws what Reluva
+  reads from it.

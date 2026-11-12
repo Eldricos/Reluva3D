@@ -117,11 +117,10 @@ parser doesn't know (game additions).
 
 ## Sources and checks
 
-Status: **every Quake III directive parsed and drawn** except those listed
-at the end (`src/engines/idtech3/shader.cpp`, `world_renderer.cpp`).
-Checked on generated test maps and on the retail Elite Force maps, which
-look as in the original. `reluva-tool idtech3 shader-check` on Elite Force
-(October 2026): 1891 shaders, **no directive outside Quake III's set**.
+Every Quake III directive is parsed and drawn, except those listed at the
+end. The retail Elite Force maps look as in the original, and
+`shader-check` finds **no directive outside Quake III's set** in Elite
+Force's 1891 shaders.
 All are drawn but `deformVertexes projectionShadow` (1, the original's
 shader for r_shadows 3's projected shadows); autosprites (2,
 `textures/scavenger/fire1` and `fire2`) on the level's surfaces, not on

@@ -77,7 +77,7 @@ the original running.
 
 ### 3. Running the game
 
-Three ways were measured before choosing ([systems/running.md](systems/running.md)): reimplementing the game natively, running all its code with
+Three ways were measured before choosing ([PLAN.md](PLAN.md#decisions)): reimplementing the game natively, running all its code with
 NetImmerse in an emulator, or the game's code with a native NetImmerse.
 The second (B1) was chosen: it needs no knowledge of NetImmerse's
 internals, only of what the program calls.

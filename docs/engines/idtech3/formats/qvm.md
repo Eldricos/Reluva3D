@@ -136,10 +136,8 @@ calls with their arguments, and what the menus printed to
 
 ## Sources and checks
 
-Status: **interpreter implemented** (`src/engines/idtech3/qvm.cpp`), tested
-on hand-built programs and on a C program compiled by the Quake III compiler
-(`tests/engines/idtech3/data/qvm/`), whose every result matches the same program compiled
-natively, and running Elite Force's own three QVMs (the menus, the client
+The C program (`tests/engines/idtech3/data/qvm/`) gives every result the
+same program gives compiled natively, and Elite Force's own three QVMs run (the menus, the client
 game and the server game, Holomatch played with them); their system calls
 are in [../games/stvef/systems/syscalls.md](../games/stvef/systems/syscalls.md). `reluva-tool
 idtech3 qvm-info` and `qvm-run` look inside them.

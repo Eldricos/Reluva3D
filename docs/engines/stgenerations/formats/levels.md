@@ -1,10 +1,11 @@
 # Levels (GAME.LV2)
 
-> **Status:** decoded enough to render · **Code:** `src/engines/stgenerations/formats/level.h`, `src/engines/stgenerations/game/render3d.h` · **Confidence:** confirmed unless marked
+> **Status:** partial · **Code:** `src/engines/stgenerations/formats/level.h`, `src/engines/stgenerations/game/render3d.h` · **Confidence:** confirmed unless marked
 
 ## Overview
 
-A location's level, `GAME.LV2`: its palette, vertices, flats, walls, billboards, actors, sky and textures, as chunks.
+A location's level, `GAME.LV2`: its palette, vertices, flats, walls, billboards, actors, sky and textures, as chunks. It's decoded enough to
+render a level.
 
 Loaded by the routine at `0x4BD130` in `sgens.exe`. All values are little endian.
 

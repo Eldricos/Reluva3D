@@ -46,6 +46,10 @@ CAPITAL_NAMES = set(STANDARD_PAGES) | {
 LOWER_NAME = re.compile(r"^[a-z0-9]+(-[a-z0-9]+)*\.(md|txt)$")
 LOWER_DIR = re.compile(r"^[a-z0-9]+([-_][a-z0-9]+)*$")
 COMMON_HEADINGS = ["## What it is", "## What Reluva supports", "## Sources and checks", "## Used by"]
+STATUS_WORDS = {"formats": {"decoded", "partial", "unknown"}, "systems": {"done", "partial", "not started"}}
+# How sure a fact is (docs/DOCUMENTATION_STANDARD.md, "Sources and confidence"),
+# and what a page about Reluva's own design says instead.
+CONFIDENCE_WORDS = ["confirmed", "from the code", "seen, not traced", "inferred", "guessed", "published", "Reluva's own"]
 
 problems = []
 
@@ -153,6 +157,25 @@ def check_engines():
             check_page_folder(folder, f"engine {engine}")
 
 
+def fields(status_line):
+    """A status line's fields: {"Status": "decoded", "Code": ..., ...}."""
+    found = {}
+    for part in status_line.lstrip("> ").split(" · "):
+        m = re.match(r"\*\*([^*]+):\*\* (.*)", part.strip())
+        if m:
+            found[m.group(1)] = m.group(2).strip()
+    return found
+
+
+def check_confidence(path, value):
+    """Each part of a Confidence ("layout confirmed; behaviour from the code") uses the standard's words."""
+    value = re.sub(r"\s+unless marked\.?$", "", value.strip()).rstrip(".")
+    for part in value.split(";"):
+        if not any(word in part for word in CONFIDENCE_WORDS):
+            words = ", ".join(CONFIDENCE_WORDS)
+            problem(path, f"Confidence \"{part.strip()}\" uses none of the standard's words ({words})")
+
+
 def check_pages(sub):
     """The pages of a formats/ or systems/ folder."""
     for name in sorted(os.listdir(sub)):
@@ -165,6 +188,13 @@ def check_pages(sub):
             problem(page, "no status line (> **Status:** ... · **Confidence:** ...)")
         elif "**Confidence:**" not in status:
             problem(page, "the status line has no Confidence")
+        else:
+            f = fields(status)
+            check_confidence(page, f["Confidence"])
+            words = STATUS_WORDS[os.path.basename(sub)]
+            if "Status" in f and f["Status"] not in words:
+                allowed = ", ".join(sorted(words))
+                problem(page, f"Status \"{f['Status']}\" isn't one of: {allowed}")
         if not re.search(r"^## Sources and checks$", body, re.M):
             problem(page, 'no "## Sources and checks" section')
 
@@ -184,8 +214,11 @@ def check_common():
             found = [p for p in places if p >= 0]
             if found != sorted(found):
                 problem(page, "its headings aren't in the standard's order")
-            if not any("**Confidence:**" in l for l in lines):
+            confidence = [l for l in lines if "**Confidence:**" in l]
+            if not confidence:
                 problem(page, "no Confidence in its Sources and checks")
+            for line in confidence:
+                check_confidence(page, line.split("**Confidence:**", 1)[1])
 
 
 def check_names():

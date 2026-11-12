@@ -58,5 +58,5 @@ cue-rip` makes them from a BIN/CUE image of the CD.
 
 ## Sources and checks
 
-Source: the CD's cue sheet and its tracks, and `Clue.exe` 2.2 read where
-it plays them.
+- **Where the facts come from:** the CD's cue sheet and its tracks, and `Clue.exe` 2.2 read where
+  it plays them.

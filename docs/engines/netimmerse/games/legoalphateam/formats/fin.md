@@ -502,8 +502,7 @@ draws it facing the camera, added to what's behind it.
 
 ## Sources and checks
 
-Source: the 147 `.FIN` files in the English retail `Fin.pac` (October 2026).
-This is how the layout was worked out:
+This is how the layout was worked out (October 2026):
 
 - **Splitting the files into objects.** The objects were found by their
   headers: a class name, then a value used once as an id and linked to

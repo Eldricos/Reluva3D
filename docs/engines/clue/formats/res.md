@@ -242,10 +242,10 @@ readers; `clue list` and `clue extract` show and extract a file's contents.
 
 ## Sources and checks
 
-Source: the files of the retail CD (version 2.0, US and UK data), a clean
-install of it and the 2.2 patch, studied byte by byte (October 2026). Each
-layout above was first guessed from a few files, then checked by a program
-against every file of the CD, the install and the patch; the counts given
-are from those checks. Images were also compared with the game's look:
-Miss Scarlet's walk, the ballroom's couch, the credits' team photo, the
-title screen. Nothing here comes from the executables, except where said.
+- **Where the facts come from:** the files of the retail CD (version 2.0, US and UK data), a clean
+  install of it and the 2.2 patch, studied byte by byte (October 2026). Each
+  layout above was first guessed from a few files, then checked by a program
+  against every file of the CD, the install and the patch; the counts given
+  are from those checks. Images were also compared with the game's look:
+  Miss Scarlet's walk, the ballroom's couch, the credits' team photo, the
+  title screen. Nothing here comes from the executables, except where said.

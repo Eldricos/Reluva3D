@@ -4,8 +4,7 @@
 
 ## Overview
 
-Status: **implemented, and played against the retail game both ways**. This
-page is a specification for a server and a client that talk to the
+This page is a specification for a server and a client that talk to the
 retail Elite Force Holomatch (patch 1.2) over the network. Reluva's
 (`src/engines/idtech3/wire/`, `eliteforce/net_fields.cpp`,
 `net_server.cpp`, `net_client.cpp`) is tested with Reluva at both ends,

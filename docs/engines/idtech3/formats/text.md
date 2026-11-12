@@ -1,6 +1,6 @@
 # id Tech 3: text files
 
-> **Code:** `src/engines/idtech3/lexer.cpp` · **Confidence:** published unless marked
+> **Status:** decoded · **Code:** `src/engines/idtech3/lexer.cpp` · **Confidence:** published unless marked
 
 ## Overview
 
@@ -19,8 +19,6 @@ split into tokens the same way:
   only because files put spaces around them: `{` must not touch a word.
 
 ## In Reluva
-
-Status: **implemented** (`src/engines/idtech3/lexer.cpp`).
 
 Many directives take "the rest of the line", so the lexer can refuse to
 cross a newline (`next(false)`).

@@ -117,6 +117,7 @@ to the right. Reluva does the same.
 
 ## Sources and checks
 
-Source: `clue.lvl` and the objects (`.o`), the readme ("Clickable Items
-- ... Click on the bear in the Billiard Room, and you may see him dance,
-or you could get mauled!"), and `Clue.exe` 2.2's table of sounds.
+- **Where the facts come from:** `clue.lvl` and the objects (`.o`), the
+  readme ("Clickable Items - ... Click on the bear in the Billiard Room,
+  and you may see him dance, or you could get mauled!"), and `Clue.exe`
+  2.2's table of sounds.

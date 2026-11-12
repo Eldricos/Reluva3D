@@ -109,9 +109,8 @@ archive (offset, size, date, name), and `reluva-tool netimmerse pac-extract <fil
 
 ## Sources and checks
 
-Source: the eight archives of the English retail install (2,462 files in
-all), October 2026. The layout was worked out by hand on `Bhvr.pac` and
-`Etc.pac`. A short script then walked every archive's directory and checked
+The layout was worked out by hand on `Bhvr.pac` and `Etc.pac` (October
+2026). A short script then walked every archive's directory and checked
 it against the file. In all eight, every entry lies inside the file and the
 entries follow one another with no gaps, apart from the placeholders below.
 

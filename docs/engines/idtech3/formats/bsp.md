@@ -208,9 +208,8 @@ since Elite Force's engine may differ; maps that need it show up in
 
 ## Sources and checks
 
-Status: **all lumps read and cross-checked** (`src/engines/idtech3/bsp.cpp`);
-the light grid is kept raw. **Verified on all 67 retail Elite Force maps**
-(`reluva-tool idtech3 bsp-check`, October 2026): every one is version 46 with the
+All lumps are read and cross-checked; the light grid is kept raw. Every
+one of the 67 retail maps is version 46 with the
 record sizes below, and 27 of them need the corrections described at the
 end.
 
