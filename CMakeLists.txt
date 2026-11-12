@@ -297,6 +297,11 @@ if(RELUVA_BUILD_TESTS)
     add_executable(reluva_glide_more_tests tests/test_glide_more.cpp)
     target_link_libraries(reluva_glide_more_tests PRIVATE reluva_common reluva_warnings)
     add_test(NAME glide_more COMMAND reluva_glide_more_tests)
+    # The boards as their specifications give them (Rush, Banshee), Glide
+    # 3's extensions, the anti-aliased fringe of clipped primitives.
+    add_executable(reluva_glide_boards_tests tests/test_glide_boards.cpp)
+    target_link_libraries(reluva_glide_boards_tests PRIVATE reluva_common reluva_warnings)
+    add_test(NAME glide_boards COMMAND reluva_glide_boards_tests)
 
     # Its GPU backend against the software reference (passes, saying so,
     # without a GPU).

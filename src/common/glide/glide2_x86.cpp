@@ -103,6 +103,16 @@ void Glide2Dll::addAll() {
         c.write32(p, uint32_t(hw.numSst));
         c.write32(p + 4, uint32_t(hw.type));
         c.write32(p + 8, uint32_t(hw.fbRamMb));
+        if (hw.type == 1) {
+            // GR_SSTTYPE_SST96: the union is a GrSst96Config_t (glide.h:
+            // fbRam, nTexelfx, then one GrTMUConfig_t of tmuRev, tmuRam):
+            // no Pixelfx revision or SLI flag, the frame buffer the one the
+            // 2D desktop shares.
+            c.write32(p + 12, uint32_t(hw.nTexelfx));
+            c.write32(p + 16, uint32_t(hw.tmuRev[0]));
+            c.write32(p + 20, uint32_t(hw.tmuRamMb[0]));
+            return 1u;
+        }
         c.write32(p + 12, uint32_t(hw.fbiRev));
         c.write32(p + 16, uint32_t(hw.nTexelfx));
         c.write32(p + 20, hw.sliDetect ? 1u : 0u);

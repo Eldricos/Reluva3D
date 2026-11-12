@@ -84,8 +84,12 @@ bool Glide2::sstWinOpen(uint32_t hwnd, int resolution, int, int colorFormat, int
     int w = 0, h = 0;
     // GR_RESOLUTION_NONE (a window's own size) is for the Voodoo Rush only;
     // elsewhere it fails (Glide 2.4 Reference Manual, grSstWinOpen: "This
-    // signals Glide to use the user specified window").
-    if (resolution == kResolutionNone && board_.windowed) {
+    // signals Glide to use the user specified window"). In a window its
+    // buffers share the memory with the 2D desktop (Pipeline::fits; SST-96
+    // specification, System Resolutions); a named resolution is full
+    // screen, the whole memory the 3D buffers'.
+    const bool windowed = resolution == kResolutionNone && board_.windowed;
+    if (windowed) {
         w = 640;
         h = 480;
         if (windowSize && !windowSize(hwnd, w, h))
@@ -93,8 +97,9 @@ bool Glide2::sstWinOpen(uint32_t hwnd, int resolution, int, int colorFormat, int
     } else if (!resolutionSize(resolution, w, h)) {
         return false;
     }
-    if (!pipeline_.open(w, h, colorBuffers, auxBuffers))
+    if (!pipeline_.open(w, h, colorBuffers, auxBuffers, windowed))
         return false;
+    window_ = hwnd;
     colorFormat_ = colorFormat & 3;
     lfbColorFormat_ = -1;
     lfbSwizzleBytes_ = lfbSwapWords_ = false;
@@ -106,11 +111,29 @@ bool Glide2::sstWinOpen(uint32_t hwnd, int resolution, int, int colorFormat, int
 void Glide2::sstWinClose() { pipeline_.close(); }
 
 bool Glide2::sstControl(uint32_t code) {
-    if (code == 1)
-        active_ = true; // GR_CONTROL_ACTIVATE
-    else if (code == 2)
-        active_ = false; // GR_CONTROL_DEACTIVATE
-    return true;
+    switch (code) {
+    case kControlActivate: active_ = true; return true;
+    case kControlDeactivate: active_ = false; return true;
+    case kControlResize: {
+        // "GR_CONTROL_RESIZE is ignored under DOS, SST-1, and SST-96 in
+        // full screen mode. For windowed Glide applications, this call
+        // resizes the back buffers and auxiliary buffers ... may fail if
+        // there is not enough offscreen video memory to accommodate the
+        // resized buffers" (Glide 2.4 Reference Manual, grSstControlMode).
+        if (!pipeline_.windowed())
+            return true;
+        int w = pipeline_.width(), h = pipeline_.height();
+        if (windowSize && !windowSize(window_, w, h))
+            return false;
+        if (w == pipeline_.width() && h == pipeline_.height())
+            return true;
+        return pipeline_.resize(w, h);
+    }
+    // "used to validate the location and clip region associated with the
+    // front buffer when the user moves a window": nothing to move here.
+    case kControlMove: return true;
+    default: return true;
+    }
 }
 
 uint32_t Glide2::sstScreenWidth() const { return uint32_t(pipeline_.width()); }
@@ -231,11 +254,12 @@ void Glide2::aaPoint(const Vertex& a) {
     drawn();
 }
 
-void Glide2::aaPolygon(int count, const Vertex* v) {
+void Glide2::aaPolygon(int count, const Vertex* v, const bool* edges) {
     // Fan triangle (0, i, i + 1): its edge i to i + 1 is always outside;
     // 0 to i only for the first, i + 1 to 0 only for the last.
+    auto edge = [edges](int i) { return !edges || edges[i]; };
     for (int i = 1; i + 1 < count; ++i)
-        aaTriangle(v[0], v[i], v[i + 1], i == 1, true, i + 2 == count);
+        aaTriangle(v[0], v[i], v[i + 1], i == 1 && edge(0), edge(i), i + 2 == count && edge(count - 1));
 }
 
 void Glide2::triangle(const Vertex& a, const Vertex& b, const Vertex& c) {
@@ -294,6 +318,30 @@ void Glide2::alphaTestFunction(int function) { pipeline_.state().alphaTest = fun
 void Glide2::alphaTestReferenceValue(int value) { pipeline_.state().alphaRef = value & 0xff; }
 void Glide2::chromakeyMode(int mode) { pipeline_.state().chromakey = mode != 0; }
 void Glide2::chromakeyValue(uint32_t color) { pipeline_.state().chromakeyColor = toArgb(color) & 0xffffff; }
+
+void Glide2::chromaRangeMode(bool enable) {
+    // "Chroma-keying must be enabled (using grChromakeyMode()) before
+    // grChromaRangeModeExt() is executed, and it will remain enabled after
+    // chroma-ranging is disabled" (Glide 3.0 Programming Guide, chapter 13).
+    pipeline_.state().chromaRange = enable && (board_.extensions & kExtChromaRange);
+}
+
+void Glide2::chromaRange(uint32_t color0, uint32_t color1, int mode) {
+    if (!(board_.extensions & kExtChromaRange))
+        return;
+    if (mode != 0)
+        notImplemented("grChromaRangeExt mode " + std::to_string(mode), "only GR_CHROMARANGE_RGB_ALL_EXT: taken as it");
+    // "order-insensitive packed RGB values" in the window's colour format.
+    const uint32_t a = toArgb(color0), b = toArgb(color1);
+    uint32_t lo = 0, hi = 0;
+    for (int shift = 0; shift < 24; shift += 8) {
+        const uint32_t x = a >> shift & 0xff, y = b >> shift & 0xff;
+        lo |= std::min(x, y) << shift;
+        hi |= std::max(x, y) << shift;
+    }
+    pipeline_.state().chromaRangeMin = lo;
+    pipeline_.state().chromaRangeMax = hi;
+}
 
 void Glide2::clipWindow(uint32_t minX, uint32_t minY, uint32_t maxX, uint32_t maxY) {
     // Values past the screen are ignored (Programming Guide, Clipping):
@@ -355,6 +403,12 @@ void Glide2::fogTable(const uint8_t table[64]) {
 }
 
 void Glide2::gammaCorrectionValue(float gamma) {
+    if (board_.gammaTableEntries == 0) {
+        // "It is a no-op on SST-96 systems, which may lack gamma correction
+        // hardware" (Glide 2.4 Reference Manual, grGammaCorrectionValue).
+        notImplemented("grGammaCorrectionValue", "this board has no gamma table: a no-op");
+        return;
+    }
     if (gamma > 0 && gamma <= 20) {
         pipeline_.state().gamma = {gamma, gamma, gamma};
         pipeline_.setGammaValue();
@@ -401,9 +455,13 @@ TextureInfo Glide2::textureInfo(int smallLod, int largeLod, int aspect, int form
 uint32_t Glide2::texMinAddress(int) const { return pipeline_.textureBase(); }
 
 uint32_t Glide2::texMaxAddress(int) const {
-    // The highest start address, valid for a 1x1 level (Reference Manual):
-    // the last 8-byte unit.
-    return pipeline_.tmuMemorySize() - 8;
+    // "the highest valid texture start address and is valid only for the
+    // smallest mipmap level GR_LOD_1" (Reference Manual): the start of a
+    // 1x1 level (one 8-byte unit, the specification's level table) that
+    // ends at the memory's end, on the board's texture alignment (16 bytes
+    // on the Banshee and Voodoo3: the last 16-byte boundary but one).
+    const uint32_t align = uint32_t(std::max(board_.textureAlign, 8));
+    return (pipeline_.tmuMemorySize() - 8) / align * align;
 }
 
 uint32_t Glide2::texCalcMemRequired(int smallLod, int largeLod, int aspect, int format) const {
@@ -480,6 +538,21 @@ void Glide2::texDownloadTable(int tmu, int type, const uint8_t* data) {
 }
 
 void Glide2::texDownloadTablePartial(int tmu, int type, const uint8_t* data, int first, int last) {
+    if (type == kTablePalette6666) {
+        // Glide 3's GR_TEXTABLE_PALETTE_6666_EXT, where the board has the
+        // format (Pipeline::setPalette6666).
+        if (!(board_.extensions & kExtPalette6666)) {
+            notImplemented("grTexDownloadTable(GR_TEXTABLE_PALETTE_6666_EXT)", "not on this board: ignored");
+            return;
+        }
+        uint32_t entries[256];
+        first = std::clamp(first, 0, 255);
+        last = std::clamp(last, first, 255);
+        for (int i = first; i <= last; ++i)
+            std::memcpy(&entries[i - first], data + 4 * i, 4);
+        pipeline_.setPalette6666(tmu, first, last, entries);
+        return;
+    }
     if (type == kTablePalette && !board_.palette) {
         notImplemented("grTexDownloadTable(GR_TEXTABLE_PALETTE)", "this board's TMUs have no palette: ignored");
         return;
@@ -510,8 +583,16 @@ void Glide2::texNCCTable(int tmu, int table) {
 void Glide2::texClampMode(int tmu, int s, int t) {
     if (tmu < 0 || tmu >= kMaxTmus)
         return;
-    pipeline_.state().tmus[size_t(tmu)].clampS = s == kClampClamp;
-    pipeline_.state().tmus[size_t(tmu)].clampT = t == kClampClamp;
+    // GR_TEXTURECLAMP_MIRROR_EXT where the board mirrors (the TEXMIRROR
+    // extension); else wrapped.
+    const bool mirror = board_.extensions & kExtTexMirror;
+    if ((s == kClampMirror || t == kClampMirror) && !mirror)
+        notImplemented("grTexClampMode mirror", "not on this board: wrapped");
+    TmuState& ts = pipeline_.state().tmus[size_t(tmu)];
+    ts.clampS = s == kClampClamp;
+    ts.clampT = t == kClampClamp;
+    ts.mirrorS = s == kClampMirror && mirror;
+    ts.mirrorT = t == kClampMirror && mirror;
 }
 
 void Glide2::texCombine(int tmu, int rgbFunction, int rgbFactor, int alphaFunction, int alphaFactor, bool rgbInvert,
@@ -651,7 +732,7 @@ uint32_t Glide2::guTexAllocateMemory(int tmu, int evenOdd, int width, int height
     constexpr uint32_t k2Mb = 2u << 20;
     if (m.size && start / k2Mb != (start + m.size - 1) / k2Mb)
         start = (start / k2Mb + 1) * k2Mb;
-    if (uint64_t(start) + m.size > uint64_t(texMaxAddress(tmu)) + 8)
+    if (uint64_t(start) + m.size > uint64_t(pipeline_.tmuMemorySize()))
         return kNullMipMap; // "If the texture memory can not be allocated"
     m.start = start;
     texNext_[size_t(tmu)] = start + m.size;
@@ -724,7 +805,7 @@ const Glide2::MipMap* Glide2::guTexGetMipMapInfo(uint32_t id) const {
 uint32_t Glide2::guTexMemQueryAvail(int tmu) const {
     if (tmu < 0 || tmu >= board_.tmus)
         return 0;
-    const uint64_t end = uint64_t(texMaxAddress(tmu)) + 8;
+    const uint64_t end = pipeline_.tmuMemorySize();
     const uint64_t next = std::max(texNext_[size_t(tmu)], texMinAddress(tmu));
     return next < end ? uint32_t(end - next) : 0;
 }
@@ -772,6 +853,17 @@ bool Glide2::lfbLock(int type, int buffer, int writeMode, int origin, bool pixel
         writeMode = aux ? kLfbZA16 : kLfb565;
     else if (writeMode == kLfbAny)
         writeMode = aux ? kLfbZA16 : kLfb565;
+    // A board whose linear frame buffer goes through the 2D chip (the
+    // Voodoo Rush) takes only the buffers' own formats and no pixel
+    // pipeline: "If the destination pixel format specified is not
+    // supported on the target hardware, then the lock will fail"; "If the
+    // underlying hardware is incapable of processing pixels through the
+    // pixel pipeline, then the lock will fail" (Glide 2.4 Reference
+    // Manual, grLfbLock).
+    if ((type & 1) && !board_.lfbFormats && writeMode != kLfb565 && writeMode != kLfbZA16)
+        return false;
+    if ((type & 1) && pixelPipeline && !board_.lfbPixelPipeline)
+        return false;
     switch (writeMode) {
     case kLfb565:
     case kLfb555:
@@ -789,7 +881,7 @@ bool Glide2::lfbLock(int type, int buffer, int writeMode, int origin, bool pixel
     out.writeMode = writeMode;
     out.originLowerLeft = origin == 1;
     out.pixelPipeline = pixelPipeline && (type & 1);
-    out.strideBytes = 1024 * out.bytesPerPixel;
+    out.strideBytes = pipeline_.lfbStride() * out.bytesPerPixel; // Board::lfbStride
     ++locks_;
     return true;
 }
@@ -872,6 +964,16 @@ uint16_t Glide2::lfbRead(int buffer, int x, int y, bool originLowerLeft) const {
 bool Glide2::lfbWriteRegion(int buffer, uint32_t x, uint32_t y, int format, uint32_t width, uint32_t height,
                             int stride, const uint8_t* data, size_t dataBytes, bool pixelPipeline) {
     if (!pipeline_.isOpen() || !pipeline_.buffer(buffer))
+        return false;
+    // "The grLfbWriteRegion function will fail, returning FXFALSE, if pixel
+    // pipeline processing is enabled on a system that doesn't support it";
+    // "Not all 3Dfx graphics subsystems will support all source image
+    // formats" (Glide 3.0 Reference Manual, grLfbWriteRegion; the Voodoo
+    // Rush named for both): there, the buffers' own 16-bit formats (and
+    // RLE16, which is 5:6:5 once expanded: Reluva's reading).
+    if (pixelPipeline && !board_.lfbPixelPipeline)
+        return false;
+    if (!board_.lfbFormats && format != kLfb565 && format != kLfbZA16 && format != kLfbRle16)
         return false;
     pipeline_.sync();
     const int bpp = format == kLfb565 || format == kLfb555 || format == kLfb1555 || format == kLfbZA16 ? 2

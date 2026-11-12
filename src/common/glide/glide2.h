@@ -99,6 +99,9 @@ public:
     bool sstWinOpen(uint32_t hwnd, int resolution, int refresh, int colorFormat, int origin, int colorBuffers,
                     int auxBuffers);
     void sstWinClose();
+    // grSstControl/grSstControlMode: GR_CONTROL_ACTIVATE, DEACTIVATE,
+    // RESIZE (a windowed Rush's buffers to its window's size, by
+    // windowSize), MOVE.
     bool sstControl(uint32_t code);
     bool sstIsOpen() const { return pipeline_.isOpen(); }
     bool active() const { return active_; } // GR_CONTROL_ACTIVATE (the default) or DEACTIVATE
@@ -134,8 +137,10 @@ public:
     void aaTriangle(const Vertex& a, const Vertex& b, const Vertex& c, bool ab, bool bc, bool ca);
     void aaLine(const Vertex& a, const Vertex& b);
     void aaPoint(const Vertex& a);
-    // A fan of `count` vertices, its outside edges anti-aliased.
-    void aaPolygon(int count, const Vertex* vertices);
+    // A fan of `count` vertices, its outside edges anti-aliased: all of
+    // them, or with `edges`, edge i (vertex i to i + 1, the last back to 0)
+    // where edges[i] is set.
+    void aaPolygon(int count, const Vertex* vertices, const bool* edges = nullptr);
     void bufferClear(uint32_t color, int alpha, int depth);
     void bufferSwap(int interval);
     int bufferNumPending() const { return 0; }
@@ -150,6 +155,10 @@ public:
     void alphaTestReferenceValue(int value);
     void chromakeyMode(int mode);
     void chromakeyValue(uint32_t color);
+    // Glide 3's CHROMARANGE extension (grChromaRangeModeExt,
+    // grChromaRangeExt), on a board that has it.
+    void chromaRangeMode(bool enable);
+    void chromaRange(uint32_t color0, uint32_t color1, int mode);
     void clipWindow(uint32_t minX, uint32_t minY, uint32_t maxX, uint32_t maxY);
     void colorMask(bool rgb, bool alpha);
     void constantColorValue(uint32_t color);
@@ -188,8 +197,9 @@ public:
                                 const uint8_t* data);
     void texDownloadMipMapLevelPartial(int tmu, uint32_t start, int thisLod, int largeLod, int aspect, int format,
                                        int evenOdd, const uint8_t* data, int firstRow, int lastRow);
-    // `data`: 256 0x00RRGGBB entries for the palette, a GuNccTable's first
-    // 64 bytes (yRGB, iRGB, qRGB) for an NCC table.
+    // `data`: 256 0x00RRGGBB entries for the palette (0xAARRGGBB for
+    // Glide 3's GR_TEXTABLE_PALETTE_6666_EXT), a GuNccTable's first 64
+    // bytes (yRGB, iRGB, qRGB) for an NCC table.
     void texDownloadTable(int tmu, int type, const uint8_t* data);
     void texDownloadTablePartial(int tmu, int type, const uint8_t* data, int first, int last);
     void texNCCTable(int tmu, int table);
@@ -301,6 +311,7 @@ private:
     int lfbColorFormat_ = -1; // grLfbWriteColorFormat's, -1 the window's
     bool lfbSwizzleBytes_ = false, lfbSwapWords_ = false;
     bool active_ = true;
+    uint32_t window_ = 0; // grSstWinOpen's window
     uint32_t retraceCalls_ = 0;
     int locks_ = 0;
     bool frontChanged_ = false;

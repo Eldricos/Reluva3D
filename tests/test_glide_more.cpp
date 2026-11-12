@@ -469,7 +469,7 @@ void testBoards() {
     CHECK(v3.sstWinOpen(0, 7, 0, kColorArgb, 0, 2, 1));
     const uint32_t buffers = 640 * 480 * 2 * 3;
     CHECK(v3.core().texMinAddress(0) == (buffers + 15) / 16 * 16);
-    CHECK(v3.core().texMaxAddress(0) == (16u << 20) - 8);
+    CHECK(v3.core().texMaxAddress(0) == (16u << 20) - 16); // a 1x1 level's start, 16-byte aligned
     int32_t v[4] = {};
     CHECK(v3.get(g3::kTextureAlign, 4, v) == 4 && v[0] == 16);
     CHECK(v3.get(g3::kGammaTableEntries, 4, v) == 4 && v[0] == 256);

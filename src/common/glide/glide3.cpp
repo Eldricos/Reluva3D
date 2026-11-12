@@ -6,6 +6,7 @@
 #include <algorithm>
 #include <cmath>
 #include <cstring>
+#include <memory>
 
 namespace reluva::glide {
 
@@ -49,14 +50,28 @@ uint32_t Glide3::get(uint32_t pname, uint32_t bytes, int32_t* out) {
     switch (pname) {
     case g3::kBitsDepth: v = {16}; break;
     case g3::kBitsRgba: v = {5, 6, 5, 0}; break;
-    case g3::kBitsGamma: v = {8}; break;
+    case g3::kBitsGamma:
+        // "If gamma correction is not available, grGet will fail, and the
+        // params array will be unmodified" (Reference Manual, grGet): the
+        // Voodoo Rush's (Board::gammaTableEntries 0).
+        if (board_.gammaTableEntries == 0)
+            return 0;
+        v = {8};
+        break;
     case g3::kFifoFullness: v = {0, 0}; break; // the FIFO empty: nothing waits
     case g3::kFogTableEntries: v = {board_.fogTableEntries}; break;
-    case g3::kGammaTableEntries: v = {board_.gammaTableEntries}; break;
+    case g3::kGammaTableEntries:
+        // "Returns FXFALSE if it is not possible to manipulate gamma".
+        if (board_.gammaTableEntries == 0)
+            return 0;
+        v = {board_.gammaTableEntries};
+        break;
     case g3::kGlideStateSize: // the state buffer holds a number (glideGetState)
     case g3::kGlideVertexLayoutSize: v = {64}; break;
     case g3::kIsBusy: v = {0}; break;
-    case g3::kLfbPixelPipe: v = {1}; break;
+    // "FXTRUE if LFB writes can go through the 3D pixel pipe": not on the
+    // Voodoo Rush (Board::lfbPixelPipeline).
+    case g3::kLfbPixelPipe: v = {board_.lfbPixelPipeline ? 1 : 0}; break;
     case g3::kMaxTextureSize: v = {256}; break;
     case g3::kMaxTextureAspectRatio: v = {3}; break;
     // Not a UMA configuration: frame buffer and textures apart (Reference
@@ -102,7 +117,20 @@ uint32_t Glide3::get(uint32_t pname, uint32_t bytes, int32_t* out) {
 
 std::string Glide3::getString(uint32_t pname) const {
     switch (pname) {
-    case g3::kExtension: return ""; // none
+    case g3::kExtension: {
+        // A space-separated list of the board's extensions, or "a single
+        // space" if none (Reference Manual, grGetString). TEXCHROMA and
+        // FOGCOORD aren't offered: no board here has texture chroma-range
+        // or fog coordinate registers in its specification.
+        std::string list;
+        if (board_.extensions & kExtChromaRange)
+            list += " CHROMARANGE";
+        if (board_.extensions & kExtTexMirror)
+            list += " TEXMIRROR";
+        if (board_.extensions & kExtPalette6666)
+            list += " PALETTE6666";
+        return list.empty() ? " " : list.substr(1);
+    }
     case g3::kHardware:
         // The names NFS III's Voodoo3 patch DLL tells boards apart by (its
         // strings at 0x600115f0-0x60011624, compared at 0x60001730).
@@ -120,6 +148,14 @@ std::string Glide3::getString(uint32_t pname) const {
     case g3::kVersion: return "3.10";
     default: return "";
     }
+}
+
+bool Glide3::offersProc(const std::string& name) const {
+    // CHROMARANGE's two procedures (Reference Manual, grGetProcAddress);
+    // TEXMIRROR and PALETTE6666 add modes, not procedures.
+    if (name == "grChromaRangeModeExt" || name == "grChromaRangeExt")
+        return (board_.extensions & kExtChromaRange) != 0;
+    return false;
 }
 
 std::vector<Glide3Resolution> Glide3::queryResolutions(const Glide3Resolution& q) const {
@@ -390,12 +426,12 @@ bool insideVolume(const Glide3::ClipVertex& c) {
 } // namespace
 
 void Glide3::clipTriangle(const ClipVertex& a, const ClipVertex& b, const ClipVertex& c, bool aa) {
+    if (aa) {
+        clipAaPolygon({a, b, c}, {true, true, true});
+        return;
+    }
     if (insideVolume(a) && insideVolume(b) && insideVolume(c)) {
-        const Vertex pa = project(a), pb = project(b), pc = project(c);
-        if (aa)
-            core_.aaTriangle(pa, pb, pc, true, true, true);
-        else
-            core_.triangle(pa, pb, pc);
+        core_.triangle(project(a), project(b), project(c));
         return;
     }
     // Sutherland-Hodgman against each plane, w > 0 first.
@@ -421,12 +457,66 @@ void Glide3::clipTriangle(const ClipVertex& a, const ClipVertex& b, const ClipVe
     std::vector<Vertex> out;
     for (const ClipVertex& v : poly)
         out.push_back(project(v));
-    if (aa) {
-        core_.aaPolygon(int(out.size()), out.data());
-        return;
-    }
     for (size_t i = 1; i + 1 < out.size(); ++i)
         core_.triangle(out[0], out[i], out[i + 1]);
+}
+
+void Glide3::clipAaPolygon(std::vector<ClipVertex> poly, std::vector<bool> edges) {
+    if (poly.size() < 3 || edges.size() != poly.size())
+        return;
+    bool inside = true;
+    for (const ClipVertex& v : poly)
+        inside = inside && insideVolume(v);
+    if (!inside) {
+        // Sutherland-Hodgman as clipTriangle, each edge keeping its flag:
+        // a piece of an edge has the edge's, and the edge a plane cuts
+        // across the polygon has a fringe as well. The documents' own
+        // clipped anti-aliased triangle does so ("All edges of the clipped
+        // triangle will be anti-aliased", Glide 2.4 Programming Guide,
+        // guAADrawTriangleWithClip, drawn "with
+        // grAADrawPolygonVertexList", whose "exterior polygon edges are
+        // anti-aliased"); for the view volume that is Reluva's choice.
+        std::vector<ClipVertex> next;
+        std::vector<bool> nextEdges;
+        const int n = planes(poly[0]);
+        for (int k = -1; k < n && !poly.empty(); ++k) {
+            next.clear();
+            nextEdges.clear();
+            for (size_t i = 0; i < poly.size(); ++i) {
+                const ClipVertex& p = poly[i];
+                const ClipVertex& q = poly[(i + 1) % poly.size()];
+                constexpr float kNearW = 1e-6f;
+                const float dp = k < 0 ? p.w - kNearW : planeDistance(p, k);
+                const float dq = k < 0 ? q.w - kNearW : planeDistance(q, k);
+                if (dp >= 0) {
+                    next.push_back(p);
+                    nextEdges.push_back(edges[i]);
+                    if (dq < 0) { // leaving: then along the plane
+                        next.push_back(lerp(p, q, dp / (dp - dq)));
+                        nextEdges.push_back(true);
+                    }
+                } else if (dq >= 0) { // entering: the rest of this edge
+                    next.push_back(lerp(p, q, dp / (dp - dq)));
+                    nextEdges.push_back(edges[i]);
+                }
+            }
+            poly.swap(next);
+            edges.swap(nextEdges);
+        }
+        if (poly.size() < 3)
+            return;
+    }
+    std::vector<Vertex> out;
+    for (const ClipVertex& v : poly)
+        out.push_back(project(v));
+    if (out.size() == 3) {
+        core_.aaTriangle(out[0], out[1], out[2], edges[0], edges[1], edges[2]);
+        return;
+    }
+    std::unique_ptr<bool[]> flags(new bool[edges.size()]);
+    for (size_t i = 0; i < edges.size(); ++i)
+        flags[i] = edges[i];
+    core_.aaPolygon(int(out.size()), out.data(), flags.get());
 }
 
 void Glide3::clipLine(const ClipVertex& a, const ClipVertex& b, bool aa) {
@@ -490,10 +580,7 @@ void Glide3::drawTriangle(const uint8_t* a, const uint8_t* b, const uint8_t* c) 
 void Glide3::aaDrawTriangle(const uint8_t* a, const uint8_t* b, const uint8_t* c, bool ab, bool bc, bool ca) {
     pipeline().state().stwHints = kOwnStw;
     const ClipVertex va = readClip(a), vb = readClip(b), vc = readClip(c);
-    if (insideVolume(va) && insideVolume(vb) && insideVolume(vc))
-        core_.aaTriangle(project(va), project(vb), project(vc), ab, bc, ca);
-    else // clipped: its new edges are the volume's, drawn plain
-        clipTriangle(va, vb, vc, false);
+    clipAaPolygon({va, vb, vc}, {ab, bc, ca});
     lastMode_ = 0xffffffffu;
 }
 
@@ -542,15 +629,10 @@ void Glide3::drawVertexArray(uint32_t mode, const std::vector<const uint8_t*>& p
             clipTriangle(v[i], v[i + 1], v[i + 2], aa);
         break;
     case g3::kPolygon: {
-        // A fan; with GR_AA_ORDERED its outside edges anti-aliased.
-        bool inside = true;
-        for (const ClipVertex& p : v)
-            inside = inside && insideVolume(p);
-        if (aa && inside) {
-            std::vector<Vertex> out;
-            for (const ClipVertex& p : v)
-                out.push_back(project(p));
-            core_.aaPolygon(int(n), out.data());
+        // A fan; with GR_AA_ORDERED its outside edges anti-aliased (the
+        // polygon clipped whole, so that only its outside edges have them).
+        if (aa) {
+            clipAaPolygon(v, std::vector<bool>(n, true));
         } else {
             for (size_t i = 1; i + 1 < n; ++i)
                 clipTriangle(v[0], v[i], v[i + 1], false);
@@ -696,10 +778,8 @@ void Glide3::texDownloadMipMapLevelPartial(int tmu, uint32_t start, int thisLodL
 }
 
 void Glide3::texDownloadTablePartial(int type, const uint8_t* data, int first, int last) {
-    if (type == 3) {
-        notImplemented("grTexDownloadTable(GR_TEXTABLE_PALETTE_6666_EXT)", "the extension isn't offered");
-        return;
-    }
+    // GR_TEXTABLE_PALETTE_6666_EXT too, where the board has it (the core
+    // says if not).
     for (int i = 0; i < board_.tmus; ++i)
         core_.texDownloadTablePartial(i, type, data, first, last);
 }

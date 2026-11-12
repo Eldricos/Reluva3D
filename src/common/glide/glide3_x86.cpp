@@ -100,7 +100,22 @@ void Glide3Dll::addAll() {
         default: return 0u;
         }
     });
-    add("grGetProcAddress", 4, [](Cpu&) { return 0u; }); // no extensions offered
+    // The extensions' procedures (stdcall, as Glide's FX_CALL), handed out
+    // by name where the board has them (Reference Manual,
+    // grGetProcAddress), else 0.
+    procs_["grChromaRangeModeExt"] = addProc("grChromaRangeModeExt", 4, [&c2](Cpu& c) {
+        c2.chromaRangeMode(c.arg(0) == 1); // GR_CHROMARANGE_ENABLE_EXT
+        return 0u;
+    });
+    procs_["grChromaRangeExt"] = addProc("grChromaRangeExt", 12, [&c2, n](Cpu& c) {
+        c2.chromaRange(c.arg(0), c.arg(1), n(c, 2));
+        return 0u;
+    });
+    add("grGetProcAddress", 4, [this, &g](Cpu& c) {
+        const std::string name = c.string(c.arg(0), 64);
+        auto it = procs_.find(name);
+        return it != procs_.end() && g.offersProc(name) ? it->second : 0u;
+    });
     add("grSstSelect", 4, [&c2, n](Cpu& c) { c2.sstSelect(n(c, 0)); return 0u; });
     add("grSstWinOpen", 28, [&g, n](Cpu& c) {
         return g.sstWinOpen(c.arg(0), n(c, 1), n(c, 2), n(c, 3), n(c, 4), n(c, 5), n(c, 6));
@@ -279,12 +294,9 @@ void Glide3Dll::addAll() {
         return 0u;
     });
     add("grTexNCCTable", 4, [&g, n](Cpu& c) { g.texNCCTable(n(c, 0)); return 0u; });
-    add("grTexClampMode", 12, [&c2, n](Cpu& c) {
-        if (c.arg(1) > 1 || c.arg(2) > 1)
-            c2.notImplemented("grTexClampMode mirror", "GR_TEXTURECLAMP_MIRROR_EXT isn't offered: wrapped");
-        c2.texClampMode(n(c, 0), n(c, 1) == 1 ? kClampClamp : kClampWrap, n(c, 2) == 1 ? kClampClamp : kClampWrap);
-        return 0u;
-    });
+    // GR_TEXTURECLAMP_MIRROR_EXT (2) where the board has TEXMIRROR (the
+    // core wraps it elsewhere).
+    add("grTexClampMode", 12, [&c2, n](Cpu& c) { c2.texClampMode(n(c, 0), n(c, 1), n(c, 2)); return 0u; });
     add("grTexCombine", 28, [&c2, n, b](Cpu& c) {
         c2.texCombine(n(c, 0), n(c, 1), n(c, 2), n(c, 3), n(c, 4), b(c, 5), b(c, 6));
         return 0u;

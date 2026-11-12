@@ -7,6 +7,7 @@
 
 #include <algorithm>
 #include <cmath>
+#include <cstdio>
 #include <cstdlib>
 #include <cstring>
 
@@ -15,6 +16,7 @@ namespace reluva::glide {
 Board voodoo1Board() {
     Board b;
     b.generation = Generation::Voodoo1;
+    b.extensions = 0; // none on the Voodoo Graphics and Rush (Board::extensions)
     b.tmus = 1;
     b.tmuMemory = 2u << 20;
     b.frameBufferMemory = 2u << 20;
@@ -33,9 +35,26 @@ Board voodooRushBoard() {
     // 2K by 2K" (SST-96 specification, System Resolutions).
     b.maxWidth = 1600;
     b.maxHeight = 1200;
+    // The desktop the window is on: 1024x768 at 16 bits, the first row of
+    // the specification's in-place table (a choice; boardByName's
+    // "desktop=" changes it).
+    b.desktopWidth = 1024;
+    b.desktopHeight = 768;
+    b.desktopBits = 16;
+    b.lfbStride = 0;
+    b.lfbPixelPipeline = false;
+    b.lfbFormats = false;
+    // "It is a no-op on SST-96 systems, which may lack gamma correction
+    // hardware" (Glide 2.4 Reference Manual, grGammaCorrectionValue): no
+    // table to load or ask about (Glide 3's grGet(GR_GAMMA_TABLE_ENTRIES)
+    // and GR_BITS_GAMMA fail "if gamma correction is not available").
+    b.gammaTableEntries = 0;
     return b;
 }
 
+// Board's defaults: chroma range ("Source and Destination Chroma-range
+// functionality") and mirroring ("Texture coordinate clamping, wrapping,
+// and mirroring", Voodoo2 specification, Features) among them.
 Board voodoo2Board() { return Board{}; }
 
 Board voodoo3Board() {
@@ -53,13 +72,33 @@ Board voodoo3Board() {
     b.maxHeight = 1536;
     b.textureAlign = 16;
     b.gammaTableEntries = 256;
+    b.lfbStride = 2048;
+    // Chroma range, mirroring, "Additional 6666 palettized texture format"
+    // (Voodoo3 specification, Modifications from SST1).
+    b.extensions = kExtChromaRange | kExtTexMirror | kExtPalette6666;
     return b;
 }
 
 Board bansheeBoard() {
+    // The Banshee specification (revision 1.1, November 1998): one TMU
+    // ("Combined TMU unit", TREX0 alone in its FBI/TMU diagram), 4 to 16 MB
+    // of SGRAM or SDRAM shared by "RGB, alpha/depth-buffer, 2D desktop,
+    // video, and texture memory" (Memory Architecture), texture base
+    // addresses "in 16-byte units" (texBaseAddr), a 64-entry fog table, the
+    // palette with "PalettedRGBA (8 expanded to ARGB 6-6-6-6)", chroma
+    // range and texture mirroring (Modifications from SST1), a 256-entry
+    // CLUT a channel for gamma (dacData: 24 bits, red, green and blue, "the
+    // lower 256 entries" for the desktop), the 2048-pixel logical scan line
+    // (Linear Frame Buffer Access), and a RAMDAC "capable of doing
+    // 1600x1280 @ 76Hz" (Functional Overview): up to 1600x1200 here.
+    // Revision_ID "1=.35u, 2 = .25u": 1, the first.
     Board b = voodoo3Board();
     b.generation = Generation::Banshee;
     b.tmus = 1;
+    b.fbiRevision = 1;
+    b.tmuRevision = 1;
+    b.maxWidth = 1600;
+    b.maxHeight = 1200;
     return b;
 }
 
@@ -95,6 +134,20 @@ bool boardByName(const std::string& spec, Board& out) {
         else if (key == "tmurev" && value >= 0) {
             out.tmuRevision = value;
             out.palette = value >= 1 && out.generation != Generation::VoodooRush;
+        } else if (key == "desktop") {
+            // WxHxBITS (8 or 16 bits), or 0 for none.
+            int w = 0, h = 0, bits = 0;
+            const std::string v = option.substr(eq + 1);
+            if (v == "0") {
+                out.desktopWidth = out.desktopHeight = out.desktopBits = 0;
+            } else if (std::sscanf(v.c_str(), "%dx%dx%d", &w, &h, &bits) == 3 && w > 0 && h > 0 && w <= 2048 &&
+                       h <= 2048 && (bits == 8 || bits == 16)) {
+                out.desktopWidth = w;
+                out.desktopHeight = h;
+                out.desktopBits = bits;
+            } else {
+                return false;
+            }
         } else
             return false;
     }
@@ -110,16 +163,66 @@ Pipeline::Pipeline(Board board) : board_(board), renderer_(makeSoftwareRenderer(
 
 Pipeline::~Pipeline() = default;
 
-bool Pipeline::open(int width, int height, int colorBuffers, int auxBuffers) {
+uint64_t Pipeline::bufferBytes(int width, int height, int colorBuffers, int auxBuffers, bool windowed) const {
+    colorBuffers = std::clamp(colorBuffers, 1, 3);
+    const uint64_t buffer = uint64_t(std::max(width, 0)) * uint64_t(std::max(height, 0)) * 2u;
+    if (!windowed || board_.desktopBits == 0)
+        return buffer * uint64_t(colorBuffers + (auxBuffers > 0 ? 1 : 0));
+    // Windowed on a shared memory (SST-96 specification, System
+    // Resolutions: "windowed 3D requires the additional memory space of
+    // the 2D desktop"): the desktop, then the 3D buffers off screen. On a
+    // 16-bit desktop the front buffer is the window's own place on it
+    // ("In-Place 3D (one on-screen 3D buffer & one off-screen 3D buffer)"),
+    // on an 8-bit one every colour buffer is off screen ("Out-of-Place 3D
+    // (two off-screen 3D buffers)"). Its tables' totals add up so, for
+    // instance 1,572,864 + 614,400 for 640x480 double buffered on a
+    // 16-bit 1024x768 desktop (its 2,187,264).
+    const uint64_t desktop = uint64_t(board_.desktopWidth) * uint64_t(board_.desktopHeight) *
+                             uint64_t(board_.desktopBits / 8);
+    const int offScreen = board_.desktopBits == 16 ? colorBuffers - 1 : colorBuffers;
+    return desktop + buffer * uint64_t(offScreen + (auxBuffers > 0 ? 1 : 0));
+}
+
+bool Pipeline::fits(int width, int height, int colorBuffers, int auxBuffers, bool windowed) const {
     if (width <= 0 || height <= 0 || width > board_.maxWidth || height > board_.maxHeight)
         return false;
-    colorBuffers = std::clamp(colorBuffers, 1, 3);
-    const uint64_t need = uint64_t(width) * uint64_t(height) * 2u * uint64_t(colorBuffers + (auxBuffers > 0 ? 1 : 0));
-    if (need > uint64_t(board_.frameBufferMemory) * (board_.sli ? 2u : 1u))
+    if (windowed && board_.desktopBits != 0 && (width > board_.desktopWidth || height > board_.desktopHeight))
+        return false; // a window larger than the desktop it is on
+    return bufferBytes(width, height, colorBuffers, auxBuffers, windowed) <=
+           uint64_t(board_.frameBufferMemory) * (board_.sli ? 2u : 1u);
+}
+
+int Pipeline::lfbStride() const {
+    if (board_.lfbStride > 0)
+        return board_.lfbStride;
+    return (std::max(width_, 1) + 3) & ~3; // the X stride in quad pixels
+}
+
+bool Pipeline::resize(int width, int height) {
+    if (!open_ || !windowed_ || !fits(width, height, colorBuffers_, hasAuxAsked_ ? 1 : 0, true))
         return false;
+    const State kept = state_;
+    const uint64_t swaps = swaps_;
+    if (!open(width, height, colorBuffers_, hasAuxAsked_ ? 1 : 0, true))
+        return false;
+    const std::array<int, 4> clip = {state_.clip[0], state_.clip[1], state_.clip[2], state_.clip[3]};
+    state_ = kept;
+    std::copy(clip.begin(), clip.end(), state_.clip);
+    swaps_ = swaps;
+    return true;
+}
+
+bool Pipeline::open(int width, int height, int colorBuffers, int auxBuffers, bool windowed) {
+    windowed = windowed && board_.windowed;
+    if (!fits(width, height, colorBuffers, auxBuffers, windowed))
+        return false;
+    colorBuffers = std::clamp(colorBuffers, 1, 3);
+    const uint64_t need = bufferBytes(width, height, colorBuffers, auxBuffers, false);
     width_ = width;
     height_ = height;
     colorBuffers_ = colorBuffers;
+    windowed_ = windowed;
+    hasAuxAsked_ = auxBuffers > 0;
     // The auxiliary buffer is always kept: a board with room for it has it
     // (the application only chooses whether Glide checks for it).
     hasAux_ = true;
@@ -306,7 +409,27 @@ void Pipeline::setPalette(int tmu, int first, int last, const uint32_t* entries)
     last = std::clamp(last, 0, 255);
     for (int i = first; i <= last; ++i)
         palettes_[size_t(tmu)][size_t(i)] = entries[i - first] & 0xffffff;
+    palette6666_[size_t(tmu)] = false;
     renderer_->tablesChanged(*this, tmu);
+}
+
+void Pipeline::setPalette6666(int tmu, int first, int last, const uint32_t* entries) {
+    if (tmu < 0 || tmu >= board_.tmus)
+        return;
+    first = std::clamp(first, 0, 255);
+    last = std::clamp(last, 0, 255);
+    for (int i = first; i <= last; ++i) {
+        const uint32_t e = entries[i - first];
+        palettes_[size_t(tmu)][size_t(i)] =
+            (e >> 26 & 63) << 18 | (e >> 18 & 63) << 12 | (e >> 10 & 63) << 6 | (e >> 2 & 63);
+    }
+    palette6666_[size_t(tmu)] = true;
+    renderer_->tablesChanged(*this, tmu);
+}
+
+int Pipeline::textureFormat(int tmu) const {
+    const int format = state_.tmus[size_t(tmu)].info.format;
+    return format == kTexP8 && tmu >= 0 && tmu < board_.tmus && palette6666_[size_t(tmu)] ? 6 : format;
 }
 
 void Pipeline::setNcc(int tmu, int which, const NccTable& table) {

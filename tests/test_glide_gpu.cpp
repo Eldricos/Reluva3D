@@ -7,8 +7,10 @@
 // textures (point, bilinear, mipmapped, palette, NCC, two TMUs), blending,
 // chroma-key, alpha test, z and w buffering, table fog, clears in a clip
 // window, lines, points, a lower-left origin, and linear frame buffer
-// writes between draws. Without a GPU (none in the build, or no device)
-// the suite says so and passes.
+// writes between draws; Glide 3's extensions where the board has them
+// (mirrored textures, chroma range, the 6666 palette on a Voodoo3).
+// Without a GPU (none in the build, or no device) the suite says so and
+// passes.
 
 #include "backends/sdl3/sdl_compute.h"
 #include "common/glide/glide2.h"
@@ -130,6 +132,13 @@ void scene(Glide2& g) {
     g.texSource(0, 131072, kLevelsBoth, yiq);
     g.texFilterMode(0, kFilterBilinear, kFilterBilinear);
     quad(310, 130, 400, 220, 1);
+    // Mirrored (the Voodoo2's TEXMIRROR), point and bilinear.
+    g.texSource(0, 0, kLevelsBoth, info);
+    g.texClampMode(0, kClampMirror, kClampMirror);
+    g.texFilterMode(0, kFilterPoint, kFilterPoint);
+    quad(510, 130, 560, 220, 2.5f);
+    g.texFilterMode(0, kFilterBilinear, kFilterBilinear);
+    quad(570, 130, 635, 220, 3.5f);
     g.texClampMode(0, kClampWrap, kClampWrap);
     // Two TMUs: TMU1's texel times TMU0's.
     g.texSource(0, 0, kLevelsBoth, info);
@@ -149,6 +158,11 @@ void scene(Glide2& g) {
     g.chromakeyMode(1);
     g.chromakeyValue(0xff0000ff);
     g.drawTriangle(vtx(20, 240, 0, 0, 255), vtx(200, 240, 0, 0, 255), vtx(100, 300, 255, 0, 0));
+    // Chroma range: a gradient with a band of it dropped.
+    g.chromaRangeMode(true);
+    g.chromaRange(0xff200000, 0xffa0ffff, 0);
+    g.drawTriangle(vtx(20, 310, 0, 0, 0), vtx(200, 310, 255, 0, 128), vtx(110, 330, 128, 255, 0));
+    g.chromaRangeMode(false);
     g.chromakeyMode(0);
     g.alphaTestFunction(kCmpGreater);
     g.alphaTestReferenceValue(100);
@@ -209,15 +223,49 @@ void scene(Glide2& g) {
     g.bufferSwap(0);
 }
 
+// On a Voodoo3: a P_8 texture through the PALETTE6666 palette (its alpha
+// blended), and the same after a plain palette.
+void scene6666(Glide2& g) {
+    CHECK(g.sstWinOpen(0, 7, 0, kColorArgb, 0, 2, 1));
+    g.bufferClear(0xff406080, 0, 0);
+    uint32_t palette[256];
+    for (int i = 0; i < 256; ++i)
+        palette[i] = uint32_t(i) << 24 | uint32_t(255 - i) << 16 | uint32_t(i * 3 & 255) << 8 | uint32_t(i * 5 & 255);
+    std::vector<uint8_t> idx(32 * 32);
+    for (int i = 0; i < 32 * 32; ++i)
+        idx[size_t(i)] = uint8_t(i * 7);
+    const uint32_t at = g.texMinAddress(0);
+    Glide2TexInfo p8{3, 3, 3, kTexP8};
+    g.texDownloadMipMap(0, at, kLevelsBoth, p8, idx.data());
+    g.texSource(0, at, kLevelsBoth, p8);
+    g.texDownloadTable(0, kTablePalette6666, reinterpret_cast<const uint8_t*>(palette));
+    g.colorCombine(kFuncScaleOther, kFactorOne, kLocalIterated, kOtherTexture, false);
+    g.alphaCombine(kFuncScaleOther, kFactorOne, kLocalIterated, kOtherTexture, false);
+    g.alphaBlendFunction(kBlendSrcAlpha, kBlendOneMinusSrcAlpha, kBlendOne, kBlendZero);
+    for (int filter = 0; filter < 2; ++filter) {
+        g.texFilterMode(0, filter, filter);
+        const float x = 20.0f + 300.0f * float(filter);
+        g.drawTriangle(vtx(x, 20, 255, 255, 255, 255, 0, 1, 0, 0), vtx(x + 280, 30, 255, 255, 255, 255, 0, 1, 512, 0),
+                       vtx(x + 100, 300, 255, 255, 255, 255, 0, 1, 64, 512));
+    }
+    g.texDownloadTable(0, kTablePalette, reinterpret_cast<const uint8_t*>(palette));
+    g.drawTriangle(vtx(50, 320, 255, 255, 255, 255, 0, 1, 0, 0), vtx(600, 330, 255, 255, 255, 255, 0, 1, 256, 0),
+                   vtx(300, 470, 255, 255, 255, 255, 0, 1, 0, 256));
+    g.bufferSwap(0);
+}
+
 struct Frames {
     std::vector<uint16_t> front, back, aux;
 };
 
-Frames draw(std::unique_ptr<Renderer> renderer) {
-    Glide2 g;
+Frames draw(std::unique_ptr<Renderer> renderer, bool voodoo3 = false) {
+    Glide2 g(voodoo3 ? voodoo3Board() : voodoo2Board());
     if (renderer)
         g.pipeline().setRenderer(std::move(renderer));
-    scene(g);
+    if (voodoo3)
+        scene6666(g);
+    else
+        scene(g);
     g.pipeline().sync();
     const size_t n = 640 * 480;
     Frames f;
@@ -275,6 +323,17 @@ int main() {
         CHECK(int(seen[0].pixelsDiffering) == back && int(seen[1].pixelsDiffering) == front);
         CHECK(seen[0].meanDifference < 0.05 && seen[1].meanDifference < 0.01);
     }
+    // The Voodoo3's 6666 palette, on both.
+    auto gpu3 = reluva::makeSdlCompute(error);
+    const Frames sw3 = draw(nullptr, true), hw3 = draw(makeGpuRenderer(std::move(gpu3), error), true);
+    int max3 = 0;
+    const int diff3 = differing(sw3.front, hw3.front, max3);
+    std::printf("glide_gpu: the 6666 palette's frame: %d pixels differing (at most %d a channel)\n", diff3, max3);
+    CHECK(diff3 < 640 * 480 / 1000);
+    int drawn3 = 0;
+    for (uint16_t v : sw3.front)
+        drawn3 += v != sw3.front[639];
+    CHECK(drawn3 > 30000);
     // Something was drawn: most of the frame isn't the clear colour.
     int drawn = 0;
     for (uint16_t v : hw.back)

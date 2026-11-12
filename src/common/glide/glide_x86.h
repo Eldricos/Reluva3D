@@ -61,6 +61,9 @@ protected:
     // arguments' size.
     void add(const std::string& name, int argBytes, Fn fn);
     void stub(const std::string& name, int argBytes, uint32_t result = 0);
+    // A procedure that isn't exported, only handed out (grGetProcAddress's
+    // extension procedures): its native function's address.
+    uint32_t addProc(const std::string& name, int argBytes, Fn fn);
     const uint8_t* guest(uint32_t address, uint32_t size) const; // null if not all there
     static float argFloat(const x86::Cpu& c, int i);
     // guFogTableIndexToW and the guFogGenerate functions.

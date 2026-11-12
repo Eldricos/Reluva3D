@@ -30,6 +30,10 @@ constexpr int kMaxTmus = 3;
 // Which Voodoo (docs/engines/glide.md, Boards).
 enum class Generation { Voodoo1, VoodooRush, Voodoo2, Banshee, Voodoo3 };
 
+// Glide 3's extensions a board's hardware has (Board::extensions).
+enum Extension : uint32_t { kExtChromaRange = 1, kExtTexMirror = 2, kExtPalette6666 = 4 };
+
+// The default is the Voodoo2 (voodoo2Board()).
 struct Board {
     Generation generation = Generation::Voodoo2;
     int tmus = 2;
@@ -65,6 +69,43 @@ struct Board {
     // index", the 33rd closing the last interval), 256 on the Voodoo3 (its
     // "Triple 256x8 lookup tables").
     int gammaTableEntries = 32;
+    // The 2D desktop's share of the frame buffer memory, on a board whose
+    // 3D shares one memory with it in a window (the Voodoo Rush: "windowed
+    // 3D requires the additional memory space of the 2D desktop", SST-96
+    // specification, System Resolutions). desktopBits 16 is the
+    // specification's "in-place 3D": the front buffer is the desktop's own
+    // window, only the back buffers off screen; 8 is "out-of-place", every
+    // colour buffer off screen. 0 for boards with a frame buffer of their
+    // own (docs/engines/glide.md, Boards).
+    int desktopWidth = 0, desktopHeight = 0, desktopBits = 0;
+    // A linear frame buffer lock's scan line in pixels (GrLfbInfo_t's
+    // strideInBytes over the pixel size): the Voodoo Graphics' and
+    // Voodoo2's 1024-pixel logical scan line, the Banshee's and Voodoo3's
+    // 2048 ("all linear frame buffer accesses assume a 2048-pixel logical
+    // scan line width"); 0 for the Voodoo Rush, whose buffers are
+    // "separate linearly packed buffers" with an X stride in quad pixels
+    // (SST-96 specification, Changes from SST-1, colBufferSetup): the
+    // buffer's width rounded up to 4 pixels.
+    int lfbStride = 1024;
+    // What the linear frame buffer takes. The Voodoo Rush's goes "through
+    // the 2D engine" (SST-96 specification, Changes from SST-1): no pixel
+    // pipeline and no format but the buffers' own, 5:6:5 and the
+    // auxiliary buffer's 16 bits (Glide 3.0 Reference Manual,
+    // grLfbWriteRegion: "Not all 3Dfx graphics subsystems will support
+    // pixel pipeline processing on LFB writes (e.g. Voodoo Rush)";
+    // Programming Guide 3.0, chapter 11: "pixel pipe writes or source
+    // formats (e.g., Voodoo Rush)").
+    bool lfbPixelPipeline = true;
+    bool lfbFormats = true;
+    // Glide 3's extensions the board's hardware has (Glide 3.0 Programming
+    // Guide, chapter 13), each from its specification: kExtChromaRange
+    // (the chromaRange register: Voodoo2, Banshee, Voodoo3),
+    // kExtTexMirror (textureMode's mirroring: Voodoo2, tLOD's tmirrors and
+    // tmirrort: Banshee, Voodoo3), kExtPalette6666 (texture format 6,
+    // "8 bit Palette to RGBA": Banshee, Voodoo3). None on the Voodoo
+    // Graphics and Rush ("These extensions are not available on systems
+    // with Voodoo Graphics and Voodoo Rush hardware").
+    uint32_t extensions = kExtChromaRange | kExtTexMirror;
 };
 
 // The boards a host can stand in for, each as its specification gives it
@@ -73,19 +114,26 @@ struct Board {
 // - Voodoo Graphics (SST-1): one TMU of 2 MB, 2 MB of frame buffer (the
 //   4 MB card), up to 800x600 (Programming Guide table 3.3).
 // - Voodoo Rush (SST-96): one TMU of 2 MB without a palette, 4 MB of frame
-//   buffer shared with the 2D desktop, windowed Glide.
+//   buffer shared with the 2D desktop (1024x768 at 16 bits, a choice),
+//   windowed Glide, no gamma table, the linear frame buffer through the 2D
+//   chip.
 // - Voodoo2: NFS III's 12 MB card, two TMUs of 4 MB and 4 MB of frame
 //   buffer, up to 1024x768.
-// - Voodoo Banshee and Voodoo3: 16 MB of unified memory (the Voodoo3
-//   specification: "The amount of texture memory is only limited by the
-//   maximum amount of ... frame buffer memory"), one TMU and two.
+// - Voodoo Banshee: 16 MB of unified memory ("The minimum amount of memory
+//   supported by Banshee is 4 Mbytes, with a maximum of 16"; "The amount
+//   of texture memory is only limited by the maximum amount of Banshee
+//   frame buffer memory"), one TMU, up to 1600x1200 (its RAMDAC's), the
+//   palette with the 6666 format (Banshee specification, Functional
+//   Overview, Modifications from SST1).
+// - Voodoo3: the same with two TMUs, up to 2048x1536 (a choice).
 Board voodoo1Board();
 Board voodooRushBoard();
 Board voodoo2Board();
 Board bansheeBoard();
 Board voodoo3Board();
 // By name: "voodoo1" (or "voodoo", "sst1"), "rush", "voodoo2", "banshee",
-// "voodoo3", then optionally ",tmu=MB", ",fb=MB", ",tmus=N", ",tmurev=N"
+// "voodoo3", then optionally ",tmu=MB", ",fb=MB", ",tmus=N", ",tmurev=N",
+// ",desktop=WxHxBITS" (the Rush's 2D desktop; "desktop=0" for none)
 // ("voodoo1,tmu=4"); false for another.
 bool boardByName(const std::string& spec, Board& out);
 
@@ -114,6 +162,11 @@ struct TmuState {
     bool multibase = false;
     std::array<uint32_t, 4> multibaseAddress{}; // GR_TEXBASE_256, _128, _64, _32_TO_1
     bool clampS = false, clampT = false;
+    // Glide 3's GR_TEXTURECLAMP_MIRROR_EXT (the TEXMIRROR extension): the
+    // texture repeated mirrored, every other copy turned round (Glide 3.0
+    // Programming Guide, chapter 13, Figure 13.2; the Banshee's and
+    // Voodoo3's tLOD tmirrors and tmirrort). Instead of wrapping.
+    bool mirrorS = false, mirrorT = false;
     int minFilter = kFilterPoint, magFilter = kFilterPoint;
     int mipmapMode = kMipmapDisable;
     bool lodBlend = false;
@@ -134,6 +187,12 @@ struct State {
     int alphaRef = 0;
     bool chromakey = false;
     uint32_t chromakeyColor = 0; // 0x00RRGGBB
+    // Glide 3's chroma range (the CHROMARANGE extension, Programming Guide
+    // 3.0, chapter 13): with the chroma-key on, a pixel whose "other"
+    // colour has every component within [min, max] is dropped, instead of
+    // one equal to chromakeyColor (GR_CHROMARANGE_RGB_ALL_EXT, inclusive).
+    bool chromaRange = false;
+    uint32_t chromaRangeMin = 0, chromaRangeMax = 0; // 0x00RRGGBB
     int cull = kCullDisable;
     int depthMode = kDepthDisable, depthFunc = kCmpLess;
     bool depthMask = false;
@@ -216,7 +275,24 @@ public:
     // --- The display ------------------------------------------------------
     // Sets up the buffers for a resolution and resets the state to Glide's
     // defaults (grSstWinOpen): false if the board's memory can't hold them.
-    bool open(int width, int height, int colorBuffers, int auxBuffers);
+    // `windowed`: in the application's window on the desktop, on a board
+    // whose desktop shares the memory (the Voodoo Rush).
+    bool open(int width, int height, int colorBuffers, int auxBuffers, bool windowed = false);
+    // The bytes the buffers take, and whether they fit the board's memory
+    // (with the desktop's when `windowed`, as the SST-96 specification's
+    // tables count it: the desktop, the off-screen colour buffers, the
+    // auxiliary buffer).
+    uint64_t bufferBytes(int width, int height, int colorBuffers, int auxBuffers, bool windowed) const;
+    bool fits(int width, int height, int colorBuffers, int auxBuffers, bool windowed) const;
+    // A windowed board's back and auxiliary buffers resized to the window's
+    // new size, the state kept but the clip window (the whole window again)
+    // (grSstControlMode(GR_CONTROL_RESIZE)): false, nothing changed, if
+    // the memory can't hold them ("may fail if there is not enough
+    // offscreen video memory").
+    bool resize(int width, int height);
+    bool windowed() const { return windowed_; }
+    // A linear frame buffer lock's scan line, in pixels (Board::lfbStride).
+    int lfbStride() const;
     void close();
     bool isOpen() const { return open_; }
     // How many times open() succeeded: new buffers each time.
@@ -267,6 +343,17 @@ public:
     void downloadLevel(int tmu, uint32_t start, const TextureInfo& info, int evenOdd, int lod, const uint8_t* data,
                        int firstRow, int lastRow);
     void setPalette(int tmu, int first, int last, const uint32_t* entries); // 0x00RRGGBB
+    // Glide 3's PALETTE6666 extension: entries `first`-`last` from
+    // 0xAARRGGBB words, each channel's top 6 bits packed into the
+    // palette's 24 (alpha 23-18, red 17-12, green 11-6, blue 5-0), and the
+    // TMU's GR_TEXFMT_P_8 textures read through it as texture format 6,
+    // "8 bit Palette to RGBA" (Banshee specification, textureMode's
+    // formats). A plain palette download (setPalette) ends it.
+    void setPalette6666(int tmu, int first, int last, const uint32_t* entries);
+    bool palette6666(int tmu) const { return palette6666_[size_t(tmu)]; }
+    // The format a TMU's source is read in: its own, or format 6 for a P_8
+    // texture with the 6666 palette.
+    int textureFormat(int tmu) const;
     void setNcc(int tmu, int which, const NccTable& table);
     const uint8_t* tmuMemory(int tmu) const { return tmuMemory_[size_t(tmu)].data(); }
     const uint32_t* palette(int tmu) const { return palettes_[size_t(tmu)].data(); }
@@ -328,6 +415,8 @@ private:
     uint64_t opened_ = 0;
     int width_ = 0, height_ = 0, colorBuffers_ = 2;
     bool hasAux_ = false;
+    bool windowed_ = false;
+    bool hasAuxAsked_ = false;
     uint32_t textureBase_ = 0;
     bool gammaLoaded_ = false;
     std::array<std::vector<uint8_t>, 3> gammaTable_;
@@ -338,6 +427,7 @@ private:
     uint64_t swaps_ = 0;
     std::vector<std::vector<uint8_t>> tmuMemory_;
     std::vector<std::array<uint32_t, 256>> palettes_;
+    std::array<bool, kMaxTmus> palette6666_{};
     std::vector<std::array<NccTable, 2>> ncc_;
 };
 

@@ -14,8 +14,11 @@ Voodoo Graphics module `voodooa.dll` on a Voodoo Graphics stand-in
 (`-glideboard voodoo1`). Anti-aliased primitives, every linear frame
 buffer write format with the colour formats and swizzles, the utility
 library (texture manager, `.3df` files, RLE16, endian swaps), five board
-generations and Glide 3's clipping of clip coordinates are carried out
-too.
+generations as their specifications give them (the Voodoo Rush's memory
+shared with the 2D desktop, the Banshee's own configuration), Glide 3's
+extensions where a board has them (chroma range, mirrored textures, the
+6666 palette) and Glide 3's clipping of clip coordinates, anti-aliased
+edges included, are carried out too.
 
 ## Sources, and how each fact was found
 
@@ -36,9 +39,16 @@ other wrapper or emulator.
   the *Voodoo3* specification (revision 1.0, November 1999) for the
   board's fog table (64 entries, its `fogTable` register).
 - **The other boards**: the *SST-1 Graphics Engine* specification
-  (Voodoo Graphics, revision 1.61, December 1999) and the *SST-96*
-  specification (Voodoo Rush, revision 2.2, November 1999), bitsavers
-  `components/3dfx/`.
+  (Voodoo Graphics, revision 1.61, December 1999), the *SST-96*
+  specification (Voodoo Rush, revision 2.2, November 1999) and the
+  *Banshee High Performance Graphics Engine* specification (revision 1.1,
+  November 1998), bitsavers `components/3dfx/`
+  (`Voodoo1_SST-1_Spec_r1.61_199912.pdf`,
+  `Voodoo1_Rush_SST-96_Spec_r2.2_199911.pdf`,
+  `Voodoo2_Banshee_Spec_r1.1_199811.pdf`); the Glide 2.4 manuals
+  (`Glide_Reference_Manual_2.4_199707.pdf`,
+  `Glide_Programming_Guide_2.4_199707.pdf`) for what Glide does on the
+  SST-96. Read again in November 2026 for the boards (Boards, below).
 - **`.3df` files**: the TexUS guide (*Texus V2.01, 3Dfx Interactive
   Texture Utility Software*, December 1996, section 4, "3df File
   Format"), a 3dfx user document (the copy at
@@ -107,15 +117,18 @@ same in both APIs and are used as they are.
 - `Board`: the generation (Voodoo Graphics, Rush, Voodoo2, Banshee,
   Voodoo3), TMU count (1-3), texture memory per TMU, frame buffer memory,
   unified memory, revisions, the palette, SLI, the largest resolution,
-  windowed Glide, texture alignment, fog and gamma table sizes (Boards,
-  below). NFS III's board is a Voodoo2 with 4 MB of frame buffer and two
+  windowed Glide and the desktop sharing its memory, texture alignment,
+  fog and gamma table sizes, the linear frame buffer's scan line, formats
+  and pixel pipeline, Glide 3's extensions (Boards, below). NFS III's board is a Voodoo2 with 4 MB of frame buffer and two
   TMUs of 4 MB (the 12 MB card).
 - Frame buffer: three 16-bit 5:6:5 colour buffers (front, back, triple)
   and the 16-bit auxiliary buffer (depth, or alpha), at the resolution
   `grSstWinOpen` asks for. `open()` checks the board's memory as
-  Programming Guide table 3.3 does.
-- Texture memory: each TMU's bytes, its 256-entry palette and two NCC
-  tables. Downloads write the bytes; sampling reads and widens them, so a
+  Programming Guide table 3.3 does, with the 2D desktop's share on a
+  windowed Voodoo Rush (`bufferBytes`, `fits`); `resize()` is
+  `GR_CONTROL_RESIZE`.
+- Texture memory: each TMU's bytes, its 256-entry palette (or the 6666
+  one, `setPalette6666`) and two NCC tables. Downloads write the bytes; sampling reads and widens them, so a
   texture overwritten in memory changes as on the card.
 - `State`: everything the Glide state functions set, per TMU where Glide
   has it per TMU.
@@ -168,10 +181,13 @@ the `fbzMode`, `fogMode`, `alphaMode` figures):
    takes the texel under the sample, bilinear filtering the four round it
    weighted in 1/256ths. Clamp or wrap per axis. Texels widen as the
    specification's `textureMode` table says (fields repeated; palette and
-   NCC lookups). Then that TMU's `grTexCombine` with what the one above
-   gives.
+   NCC lookups; a P_8 texture through Glide 3's 6666 palette as format 6,
+   "8 bit Palette to RGBA"). Clamp, wrap, or with Glide 3's
+   `GR_TEXTURECLAMP_MIRROR_EXT` mirror (Boards, Glide 3's extensions).
+   Then that TMU's `grTexCombine` with what the one above gives.
 5. **Chroma-key** on the colour combine's "other" colour (Reference Manual,
-   `grChromakeyMode`), before the combine.
+   `grChromakeyMode`), before the combine; with Glide 3's chroma range
+   every component within the range instead.
 6. **Colour and alpha combine** (`grColorCombine`, `grAlphaCombine`): the
    functions and factors of the Reference Manual's tables; the arithmetic
    of the specification's figures: (other - local) times the factor plus
@@ -216,7 +232,9 @@ per-pixel work on the GPU (`gpu_renderer.cpp`, `shaders/rasterize.comp`).
   rows' spans and an index into a list of state records (everything the
   pixel units read: combine settings, constant colour, chroma-key, alpha
   test, depth, fog table and colour, blending, dither, masks, the target
-  slot; per TMU its format, filters, clamps, LOD range and bias, mipmap
+  slot, the chroma range; per TMU its format (format 6 for a P_8 texture
+  through the 6666 palette), filters, clamps (wrap, clamp or mirror), LOD
+  range and bias, mipmap
   mode, combine, detail, each level's address and size), a new record
   only when the state changes. A batch is binned into 16x16 tiles in
   drawing order and sent as one buffer; the kernel runs one workgroup a
@@ -289,11 +307,14 @@ Speed on this machine says little: its Vulkan is llvmpipe on the same
 CPU, and the interpreter is the limit (the same numbers there).
 
 `tests/test_glide_gpu.cpp` (the `glide_gpu` suite) draws a scene of every
-feature both ways: of 307,200 pixels 128 differ in the first frame (single
+feature both ways: of 307,200 pixels 134 differ in the first frame (single
 texels at boundaries in the high-frequency checker textures, up to a whole
 texel's colour), 7 in the second (a smooth gradient, a dither step), and
-1,298 auxiliary buffer values (w-buffer depths one step apart). Without
-a GPU device the suite says so and passes.
+1,298 auxiliary buffer values (w-buffer depths one step apart); a third
+frame on a Voodoo3 (a P_8 texture through the 6666 palette, point and
+bilinear) differs in 140 pixels, again single texels at the boundaries
+of a high-frequency index texture. Without a GPU device the suite says so
+and passes.
 
 ### The Glide 2 front end
 
@@ -302,9 +323,12 @@ converts Glide 2's constants. Implemented, with their documented meaning:
 
 - Start-up and the board: `grGlideInit`, `grGlideShutdown`,
   `grGlideGetVersion` ("Glide Version 2.46"), `grSstQueryBoards`,
-  `grSstQueryHardware`, `grSstSelect`, `grSstWinOpen` (fails for
-  `GR_RESOLUTION_NONE` but on the Voodoo Rush, as the Reference Manual says),
-  `grSstWinClose`, `grSstControl`/`grSstControlMode`,
+  `grSstQueryHardware` (a `GrSst96Config_t` for the Rush), `grSstSelect`,
+  `grSstWinOpen` (fails for `GR_RESOLUTION_NONE` but on the Voodoo Rush, as
+  the Reference Manual says; there it opens in the window, its memory
+  shared with the desktop), `grSstWinClose`,
+  `grSstControl`/`grSstControlMode` (`GR_CONTROL_RESIZE` resizes a windowed
+  Rush's buffers, Boards),
   `grSstScreenWidth/Height`, `grSstStatus` (idle, FIFOs empty),
   `grSstIdle`, `grSstIsBusy`, `grSstVRetraceOn` (alternates, so retrace
   waits end), `grSstVideoLine`, `grSstOrigin`, `grSstPerfStats`,
@@ -316,14 +340,19 @@ converts Glide 2's constants. Implemented, with their documented meaning:
   functions (fans), `guDrawTriangleWithClip` and friends, `grBufferClear`,
   `grBufferSwap`, `grBufferNumPending` (0), `grRenderBuffer`.
 - State: every combine, blend, test, depth, fog, chroma-key, clip, mask,
-  dither, cull and constant colour function; `grGammaCorrectionValue`;
+  dither, cull and constant colour function; `grGammaCorrectionValue` (a
+  no-op on the Rush, "which may lack gamma correction hardware");
   `guColorCombineFunction`, `guAlphaSource`, `grTexCombineFunction` and
   `guTexCombineFunction` as `grColorCombine`/`grAlphaCombine`/
   `grTexCombine` settings that give the effects their Reference Manual
   pages describe (Reluva's reading).
 - Fog tables: `guFogTableIndexToW`, `guFogGenerateExp`, `...Exp2`,
   `...Linear`, normalized as their pages say.
-- Textures: `grTexMinAddress` (0), `grTexMaxAddress` (the last 8-byte unit),
+- Textures: `grTexMinAddress` (0), `grTexMaxAddress` ("the highest valid
+  texture start address and is valid only for the smallest mipmap level
+  GR_LOD_1": the start of a 1x1 level's 8-byte unit at the memory's end,
+  on the board's texture alignment, so 16 bytes from the end on the
+  Banshee and Voodoo3),
   `grTexCalcMemRequired`, `grTexTextureMemRequired`, `grTexSource`,
   `grTexDownloadMipMap`, `...Level`, `...LevelPartial`,
   `grTexDownloadTable`, `...Partial` (palette and NCC), `grTexNCCTable`,
@@ -335,7 +364,11 @@ converts Glide 2's constants. Implemented, with their documented meaning:
   buffers, every write mode, either origin, through the pixel pipeline or
   not), `grLfbUnlock`, `grLfbConstantAlpha`, `grLfbConstantDepth`,
   `grLfbWriteRegion` (every source format; RLE16 read as runs across rows),
-  `grLfbReadRegion` (5:6:5).
+  `grLfbReadRegion` (5:6:5). The lock's stride is the board's logical
+  scan line (1024 pixels; 2048 on the Banshee and Voodoo3; the buffer's
+  width on the Rush), and on the Rush the linear frame buffer takes only
+  5:6:5 and the auxiliary buffer's 16 bits, without the pixel pipeline
+  (Boards).
 
 Texture memory layout: the specification's table (section 10, Texture
 Memory Access) gives each level's size, 16-bit levels in 8-byte units with
@@ -388,8 +421,11 @@ what changed, from the Glide 3.0 Reference Manual:
 - **Queries.** `grGet` answers the board's numbers (bits, fog and gamma
   table sizes, the state and layout buffer sizes, memory, boards, TMUs,
   revisions, statistics, the viewport, depth ranges), writing only if the
-  caller's buffer is large enough and returning the bytes written;
-  `grGetString` the extension list (empty), hardware ("Voodoo3 (tm)",
+  caller's buffer is large enough and returning the bytes written (failing
+  for `GR_BITS_GAMMA` and `GR_GAMMA_TABLE_ENTRIES` on the Rush, "if gamma
+  correction is not available"; `GR_LFB_PIXEL_PIPE` 0 there);
+  `grGetString` the extension list (the board's, Boards, or "a single
+  space" if none), hardware ("Voodoo3 (tm)",
   "Voodoo2"..., the names NFS III's patch DLL compares, RE `0x600115f0`),
   renderer, vendor and version ("3.10", the version the patch DLL takes
   as current, `0x600115e8`); `grQueryResolutions` every resolution,
@@ -429,8 +465,9 @@ what changed, from the Glide 3.0 Reference Manual:
 `voodoo3Board()`: a Voodoo3 with 16 MB of unified memory (Boards, below):
 `grGet(GR_MEMORY_UMA)` 16 MB, `GR_MEMORY_FB` and `GR_MEMORY_TMU` 0 as the
 manual says for a UMA configuration; textures from the first 16-byte
-boundary after the open window's buffers (`grTexMinAddress`) to the end;
-256 gamma entries; revisions 1 (a choice); up to 2048x1536 (a choice).
+boundary after the open window's buffers (`grTexMinAddress`) to 16 bytes
+before the end (`grTexMaxAddress`); 256 gamma entries; revisions 1 (a
+choice); up to 2048x1536 (a choice); the three extensions.
 
 **`grGet`'s numbers** are the Glide 3.x SDK header's (`glide.h`, `#define
 GR_FOG_TABLE_ENTRIES 0x04`, `GR_TEXTURE_ALIGN 0x24`, `GR_VIDEO_POSITION
@@ -453,11 +490,29 @@ below "3.10" it shuts Glide down at every close (`0x6000194a`, flag
 choice inside the DLL's own ranges. `GR_HARDWARE`: the manual lists
 "Voodoo Graphics", "Voodoo Rush", "Voodoo2" and "Banshee"; the patch DLL
 looks for "Voodoo Banshee" and "Voodoo3 (tm)" (RE, `0x600115f0`), which
-Reluva answers for those two.
+Reluva answers for those two. For the Banshee the documents disagree with
+the DLL: the 3.0 manual's list has "Banshee" (and no Voodoo3 at all), the
+patch DLL, built in 1999 against a later Glide (it takes 3.10 as current),
+compares "Voodoo Banshee", the name the Glide 3.0 release notes also use
+("Glide 3.0 supports ... Voodoo Banshee"). Reluva answers the later name,
+as it answers version 3.10 (a choice, in Open questions).
 
-Stubs (log once, return 0): `grSplash`; `grGetProcAddress` returns 0 (no
-extensions); the palette 6666 and mirror-clamp extensions aren't offered
-(logged if asked).
+**Extensions** (Glide 3.0 Programming Guide, chapter 13; Reference
+Manual, grGetProcAddress and grGetString), offered where the board's
+specification has the hardware (Boards): `CHROMARANGE`
+(`grChromaRangeModeExt`, `grChromaRangeExt`, handed out by
+`grGetProcAddress`; the range "order-insensitive", inclusive,
+`GR_CHROMARANGE_RGB_ALL_EXT` only), `TEXMIRROR`
+(`GR_TEXTURECLAMP_MIRROR_EXT` in `grTexClampMode`) and `PALETTE6666`
+(`GR_TEXTABLE_PALETTE_6666_EXT` in `grTexDownloadTable`: each entry
+given as 0xAARRGGBB, its channels' top 6 bits kept, "expanded to 8 bits
+... by replicating the two high-order bits" when read; Reluva's reading
+of the entry's layout). `TEXCHROMA` and `FOGCOORD` aren't offered: no
+board here has texture chroma-range or fog-coordinate registers in its
+specification.
+
+Stubs (log once, return 0): `grSplash`; `grGetProcAddress` for anything
+but the board's extension procedures.
 
 ### The x86 bindings
 
@@ -539,13 +594,27 @@ Reluva's reading, the same in software and on the GPU:
 - **Points**: the four pixels a pixel-sized square centred on the point
   overlaps, each with its share of the square (they sum to the vertex
   alpha).
+- **Clipped** (Glide 3's clip coordinates through the view volume, Clip
+  coordinates below): the polygon left after clipping, drawn as above
+  with a fringe outside each piece of an edge asked for and outside each
+  edge the clipping made (Reluva's choice, after the documents' own
+  clipped anti-aliased triangle: `guAADrawTriangleWithClip` "draws the
+  resultant polygon with grAADrawPolygonVertexList", "All edges of the
+  clipped triangle will be anti-aliased", Glide 2.4 Reference Manual and
+  Programming Guide, Anti-aliasing). A `GR_POLYGON` is clipped whole, so
+  the fan's inner edges stay without one.
+- `guAADrawTriangleWithClip` (Glide 2) is `grAADrawTriangle` with every
+  edge: clipping to the clip window and anti-aliasing the polygon's
+  edges gives the same pixels, as the fringe outside an edge on the clip
+  window lies outside the window, which the hardware drops.
 - The coverage pixels go to `Renderer::fragments`: the software
   rasterizer shades each with the triangle's gradients for the texture
   LOD; the GPU backend sends each as a one-pixel primitive whose plane is
   based at the pixel's centre (the kernel unchanged).
 
 `tests/test_glide_gpu.cpp`'s scene has an anti-aliased triangle, line and
-point: their pixels are the same on the GPU as in software.
+point: their pixels are the same on the GPU as in software (the clipped
+fringe goes through the same `fragments`, so it is too).
 
 ### Linear frame buffer writes
 
@@ -633,12 +702,16 @@ tmu=4")` with `tmu=`, `fb=` (MB), `tmus=`, `tmurev=`):
 |---|---|---|---|---|---|
 | TMUs | 1 | 1 | 2 | 1 | 2 |
 | Texture memory | 2 MB | 2 MB | 4 MB each | unified | unified |
-| Frame buffer | 2 MB | 4 MB | 4 MB | 16 MB with the textures | 16 MB with the textures |
-| Largest screen | 800x600 | 1600x1200 | 1024x768 | 2048x1536 | 2048x1536 |
-| Palette | TMU revision 1 on | no | yes | yes | yes |
+| Frame buffer | 2 MB | 4 MB, shared with the desktop | 4 MB | 16 MB with the textures | 16 MB with the textures |
+| Largest screen | 800x600 | 1600x1200 | 1024x768 | 1600x1200 | 2048x1536 |
+| Palette | TMU revision 1 on | no | yes | yes, and 6666 | yes, and 6666 |
 | `GR_RESOLUTION_NONE` | fails | the window | fails | fails | fails |
 | Texture alignment | 8 | 8 | 8 | 16 | 16 |
-| Gamma entries | 32 | 32 | 32 | 256 | 256 |
+| Gamma entries | 32 | none | 32 | 256 | 256 |
+| Lock stride (pixels) | 1024 | the buffer's width | 1024 | 2048 | 2048 |
+| LFB formats, pixel pipeline | all, yes | 5:6:5 and ZA16, no | all, yes | all, yes | all, yes |
+| Glide 3 extensions | none | none | CHROMARANGE, TEXMIRROR | CHROMARANGE, TEXMIRROR, PALETTE6666 | the same |
+| Revisions | 2 | 2 | 2 | 1 | 1 |
 | `grSstQueryHardware` type | SST-1 (0) | SST-96 (1) | Voodoo2 (3) | Banshee (4) | Banshee (4) |
 
 From the documents:
@@ -659,10 +732,70 @@ From the documents:
   leave out the 8-bit palette ones, so no palette. `grSstWinOpen`'s
   `GR_RESOLUTION_NONE` "is permitted for the SST-96. This signals Glide
   to use the user specified window" (Reference Manual): the window's size
-  from the host (`Glide2::windowSize`), 640x480 if none. The 2D desktop's
-  share of the memory in windowed mode isn't modelled.
+  from the host (`Glide2::windowSize`), 640x480 if none.
+  - **The desktop's memory** (SST-96 specification, 1.3 System
+    Resolutions): "Full-screen 3D requires the memory space of the
+    front/back 3D buffers, while windowed 3D requires the additional
+    memory space of the 2D desktop", the window's buffers off screen:
+    "two off-screen buffers (out-of-place 3D) or one on-screen buffer and
+    one off-screen buffer (in-place 3D -- requires equal 2D and 3D color
+    depths)". Its tables' totals are the desktop plus those buffers (a
+    16-bit 1024x768 desktop and a 640x480 window in place: 1,572,864 +
+    614,400 = 2,187,264; with a 16-bit depth buffer on a 1280x1024 one,
+    3,850,240; an 8-bit 1152x864 one out of place, 2,224,128). So
+    `Pipeline::fits` counts, for `GR_RESOLUTION_NONE`, the desktop, the
+    colour buffers but the front on a 16-bit desktop (all of them on an
+    8-bit one) and the auxiliary buffer, against the 4 MB; a named
+    resolution is full screen, the buffers alone. The window can't be
+    larger than the desktop. The desktop is 1024x768 at 16 bits, the
+    first row of the in-place table (a choice; `boardByName("rush,
+    desktop=1280x1024x16")` or `desktop=0`). That is what the Reference
+    Manual's `num_aux_buffers` says: "For a windowed application running
+    on SST-96, this parameter allows an application to run in a larger 3D
+    window if a depth buffer is not necessary" (grSstWinOpen). Some of
+    the tables' totals are misprinted (2,105,232 for 786,432 + 1,228,800;
+    2,492,264 for 2,492,464...); the sums are used. The command FIFO
+    lives in what is left ("CMDFIFO Space", 1 to 512 4 KB pages, section
+    3): Glide's share of it isn't documented, so nothing is held back for
+    it (a choice).
+  - **Resizing**: `grSstControlMode(GR_CONTROL_RESIZE)` "resizes the back
+    buffers and auxiliary buffers ... may fail if there is not enough
+    offscreen video memory to accommodate the resized buffers", ignored
+    "in full screen mode"; `GR_CONTROL_MOVE` validates the window's place
+    (Glide 2.4 Reference Manual, grSstControlMode). Here RESIZE asks the
+    host for the window's size again and reallocates the buffers if they
+    fit (`Pipeline::resize`, the state kept, the clip window the whole new
+    window: a choice), else fails with nothing changed; MOVE succeeds.
+  - **What Glide reports and allows**: `grSstQueryHardware` gives
+    `GR_SSTTYPE_SST96` with the header's `GrSst96Config_t` (fbRam, the
+    shared 4 MB; nTexelfx; one `GrTMUConfig_t`), no Pixelfx revision or
+    SLI field. The linear frame buffer goes "through 2D engine" and the
+    buffers are "separate linearly packed buffers" (SST-96 specification,
+    9. Changes from SST-1) with an X stride in quad pixels
+    (colBufferSetup): a lock's stride is the buffer's width rounded up to
+    4 pixels (Reluva's reading), the formats the buffers' own (5:6:5,
+    ZA16; `GR_LFBWRITEMODE_ANY` gives those, as the Reference Manual says
+    for the Rush), and no pixel pipeline: the Reference Manual's grLfbLock
+    "If the destination pixel format specified is not supported on the
+    target hardware, then the lock will fail", "If the underlying hardware
+    is incapable of processing pixels through the pixel pipeline, then the
+    lock will fail", and the 3.0 manuals name the Rush: "Not all hardware
+    supports pixel pipe writes or source formats (e.g. Voodoo Rush);
+    grLfbWriteRegion() will return FXFALSE" (Programming Guide 3.0,
+    chapter 11; Reference Manual 3.0, grLfbWriteRegion). RLE16 is still
+    taken (5:6:5 once expanded: a choice). `grGammaCorrectionValue` "is a
+    no-op on SST-96 systems, which may lack gamma correction hardware"
+    (Reference Manual 2.4), so no gamma table; Glide 3's `grGet` fails for
+    `GR_GAMMA_TABLE_ENTRIES` and `GR_BITS_GAMMA` there and answers
+    `GR_LFB_PIXEL_PIPE` 0. No Glide 3 extensions ("not available on
+    systems with Voodoo Graphics and Voodoo Rush hardware").
 - **Voodoo2**: as before (NFS III's 12 MB card); its 33-entry `clutData`
-  table indexed by "the 5 MSBs" gives 32 gamma entries.
+  table indexed by "the 5 MSBs" gives 32 gamma entries. Its Features list
+  "Texture coordinate clamping, wrapping, and mirroring" and "Source and
+  Destination Chroma-range functionality" (the `chromaRange` register):
+  Glide 3's `TEXMIRROR` and `CHROMARANGE` (the Programming Guide: "newer
+  hardware (like Voodoo2), supports all of the extensions"; its texture
+  formats have no 6666 palette, so not `PALETTE6666`).
 - **Banshee, Voodoo3**: the Voodoo3 specification's memory is one: "The
   amount of texture memory is only limited by the maximum amount of ...
   frame buffer memory", 4-16 MB; Glide 3's grGet describes such a "UMA
@@ -671,8 +804,37 @@ From the documents:
   the open window's buffers ("texbaseaddr ... in 16-byte units", which
   `grGet(GR_TEXTURE_ALIGN)` reports); every TMU reads the one memory (a
   download into TMU0 is TMU1's too). The video's "Triple 256x8 lookup
-  tables" give 256 gamma entries. The Banshee is the Voodoo3 with one TMU
-  (its own specification wasn't read: a choice).
+  tables" give 256 gamma entries. Its "Modifications from SST1" list
+  chroma range, "Texture mirroring" and the "Additional 6666 palettized
+  texture format": the three extensions.
+- **Banshee** (its specification, revision 1.1, November 1998): one
+  memory of "4 Mbytes, with a maximum of 16 Mbytes" for "RGB,
+  alpha/depth-buffer, 2D desktop, video, and texture memory", "The amount
+  of texture memory is only limited by the maximum amount of Banshee frame
+  buffer memory" (3.3 Functional Overview, Memory Architecture): unified,
+  16 MB (the most; a choice of card). One TMU: "Combined TMU unit"
+  (Modifications from SST1), TREX0 alone in the FBI/TMU diagram (3.2.3).
+  Texture bases "in 16-byte units" (texBaseAddr). A "64-entry lookup
+  table" for fog. Texture formats with "PalettedRGBA (8 expanded to ARGB
+  6-6-6-6)" (format 6, "8 bit Palette to RGBA", textureMode's table),
+  tLOD's tmirrors and tmirrort, the chromaRange register: the three
+  extensions. Gamma through the RAMDAC's CLUT, 24 bits an entry, "the
+  lower 256 entries" for the desktop (vidProcCfg, dacData): 256. Its
+  "high speed 220 Mhz ramdac, capable of doing 1600x1280 @ 76Hz": up to
+  1600x1200 here (the largest of Glide's resolutions within it).
+  Revision_ID "1=.35u, 2 = .25u": 1. Its linear frame buffer: "all linear
+  frame buffer accesses assume a 2048-pixel logical scan line width"
+  (Linear Frame Buffer Access), so a lock's stride is 4,096 bytes for the
+  16-bit modes and 8,192 for the 32-bit ones; the same on the Voodoo3,
+  whose specification has the same sentence. (Both go on to say "2048
+  bytes per logical scan line" for the 16-bit formats, the Voodoo2's
+  wording; the section is marked "(* FIX THIS *)" in the Banshee's. The
+  2048-pixel line is taken: resolutions over 1024 wide need it.) Glide 2
+  calls it `GR_SSTTYPE_Banshee` (4), with one TMU of the unified memory
+  (what Glide 2 reports for a UMA board's tmuRam isn't documented: the
+  whole memory, a choice). The specification's own additions that Glide
+  doesn't reach (separate RGB and alpha filters, the "blending fraction
+  from 1.4 to 1.8", the 2D engine, video overlay) aren't modelled.
 - **The SST-1's snapped coordinates**: NFS III's `voodooa.dll` adds
   3 × 2^18 to x and y and passes the sums to `grDrawTriangle` without
   taking it off again (RE, `THRASH_drawtri` `0x60003610`: `fadd
@@ -699,8 +861,10 @@ inside is drawn exactly as before. The manuals themselves leave geometric
 clipping to the application ("proper geometric clipping should be done
 by the application", grClipWindow); clipping here keeps a vertex behind
 the eye from being divided through (a choice, the volume the documents').
-An anti-aliased triangle that had to be clipped is drawn without its
-fringe, the clipped edges being the volume's.
+An anti-aliased triangle (`grAADrawTriangle`, or any with `GR_AA_ORDERED`)
+or polygon that had to be clipped keeps its fringe: each piece of an edge
+asked for has it, and so does each edge the clipping made (Anti-aliasing,
+above).
 
 ## NFS III's voodoo2a.dll
 
@@ -854,9 +1018,28 @@ memory and its grGet answers, `grLoadGammaTable`, `boardByName`); clip
 coordinates clipped (behind the eye, beyond the far plane, half through
 it, a line through w = 0, a point outside).
 
+`tests/test_glide_boards.cpp` (the `glide_boards` suite): the Rush's
+desktop memory against the SST-96 specification's table totals, a window
+that fits only without a depth buffer, full screen against windowed,
+`GR_CONTROL_RESIZE` (taken, refused for want of memory, ignored full
+screen), the Rush's locks and `grLfbWriteRegion` (formats, pixel
+pipeline, the packed stride), its gamma no-op and failing `grGet`s, its
+`GrSst96Config_t` through the interpreter; the Banshee's configuration,
+largest screen, `grGet`/`grGetString` answers and 2048-pixel lock
+stride; the extension strings by board ("a single space" for none), the
+6666 palette (packing, format 6, its alpha drawn, a plain palette after
+it, refused on a Voodoo2), mirrored textures (and wrapped where the
+board has no mirroring), the chroma range (inclusive, either order,
+the key alone again once off), `grGetProcAddress` through the
+interpreter; the fringe of clipped anti-aliased triangles (outside the
+original edges and the clipped one, only the edges asked for,
+`GR_AA_ORDERED`, unchanged when nothing is clipped, a clipped
+`GR_POLYGON` without inner fringes).
+
 `tests/test_glide_gpu.cpp` (the `glide_gpu` suite): the GPU backend
 against the software reference (The GPU backend, above), anti-aliased
-primitives included.
+primitives, mirrored textures, the chroma range and (on a Voodoo3) the
+6666 palette included.
 
 ## Compared with the native THRASH and softtria
 
@@ -865,12 +1048,13 @@ numbers and the causes of the differences.
 
 ## Extension points
 
-- **Glide 3's extensions** (`GR_FOG_WITH_TABLE_ON_FOGCOORD_EXT`, the
-  6666 palette, mirrored clamping, `GR_TEXFMT_ARGB_CMP_FXT1`...): not
-  offered; each logged once.
-- **Boards**: the Rush's windowed mode takes the 2D desktop's memory too
-  (not modelled), and `GR_CONTROL_RESIZE` doesn't resize. SLI is a flag
-  for the memory checks only. `Board::fogTableEntries` is where a board
+- **Glide 3's extensions**: `TEXCHROMA`, `FOGCOORD`
+  (`GR_FOG_WITH_TABLE_ON_FOGCOORD_EXT`) and later ones
+  (`GR_TEXFMT_ARGB_CMP_FXT1`...) aren't offered, each logged once if
+  asked for; the chroma range's other modes (the registers' exclusive
+  ranges and unions) have no Glide 3.0 constant.
+- **Boards**: SLI is a flag for the memory checks only. The Rush's
+  desktop is a fixed size (`desktop=`), not the host's. `Board::fogTableEntries` is where a board
   with a larger fog table would go (Glide 3's front end resamples to the
   core's 64).
 - **TMUs**: up to three; the rasterizer already chains them
@@ -894,8 +1078,12 @@ These are choices in the code that the documents leave open:
   and 2x2 ordered matrices only); Reluva uses the Bayer matrices with
   thresholds (2k + 1) / 2n of a step, as the native THRASH does
   (thrash.md, Dithering). Dither subtraction before blending (`fbzMode`
-  bit 19) is not done.
+  bit 19) is not done. Left as it is on purpose (November 2026): settling
+  it needs frames from a real card, or the user's decision.
 - The blend's rounding: the combine units' `(c × (f + 1)) >> 8` is used.
+  The Voodoo2 specification gives only Dnew = S·α + Dold·β; the Banshee's
+  "Increased blending fraction from 1.4 to 1.8" says the Banshee's is
+  finer than the earlier boards', not how either rounds.
 - The LOD's exact arithmetic (the hardware's own from the gradients of
   s/w, t/w and 1/w) and the LOD dither's pattern.
 - Bilinear weights: 1/256ths here; the hardware's fraction width isn't
@@ -911,17 +1099,30 @@ These are choices in the code that the documents leave open:
   combine (decal), filter (point-sampled) and clamp (wrap).
 - When the auxiliary buffer holds alpha: here when depth buffering is off
   and blending reads the destination alpha.
-- `grTexMaxAddress`'s exact value (here the memory size less 8).
 - Glide 3: a disabled parameter keeps its last value; a TMU without its
   own s and t takes TMU0's; 64 bytes for the state and layout buffers;
   "3.10" as the version string (inside the patch DLL's ranges); one
   refresh rate per resolution in `grQueryResolutions`; the Voodoo3's
   revisions (1) and largest screen; where textures start on a UMA board
-  (the first 16-byte boundary after the buffers); the Banshee as a
-  one-TMU Voodoo3.
+  (the first 16-byte boundary after the buffers); "Voodoo Banshee" for
+  `GR_HARDWARE` (the 3.0 manual says "Banshee"; the patch DLL compares
+  the longer name).
+- Boards: the Rush's desktop (1024x768, 16 bits), nothing kept back for
+  its command FIFO, its lock stride (the width in quad pixels), RLE16
+  still taken there, `GR_CONTROL_RESIZE` keeping the state; the Banshee's
+  16 MB (the specification allows 4-16), its 1600x1200 (from its RAMDAC),
+  the 2048-pixel scan line (its specification contradicts itself), the
+  tmuRam Glide 2 reports for a UMA board.
+- Glide 3's extensions: a 6666 palette entry given as 0xAARRGGBB (the
+  manuals give the stored 6:6:6:6 but not the argument's layout), a
+  mirrored index (the texel index reflected, so bilinear filtering takes
+  the edge texel twice at the seam), which board has which (from each
+  specification's registers).
 - Anti-aliasing: the coverage as 1 − the distance from the edge (the
   manuals say only that the alpha iterator stands for coverage); a line's
-  pixels within a pixel of it.
+  pixels within a pixel of it; a fringe along edges made by clipping to
+  the view volume (as the documents' `guAADrawTriangleWithClip` does for
+  the clip window).
 - `grLfbWriteColorSwizzle`'s meaning (from the Voodoo2's `lfbMode`),
   relative to Glide's default packing.
 - The texture manager: handles from 0, an NCC table made current with its
@@ -932,3 +1133,16 @@ These are choices in the code that the documents leave open:
 - The SST-1's snapped coordinates read by their low 16 bits.
 - Clip coordinates: clipped at all (the manuals leave it to the
   application).
+
+Settled from the documents (November 2026), no longer choices:
+- `grTexMaxAddress`: "the highest valid texture start address ... valid
+  only for the smallest mipmap level GR_LOD_1" (Reference Manual 2.4):
+  the memory less a 1x1 level's 8 bytes, on the board's alignment (less
+  16 on the Banshee and Voodoo3, where it was less 8).
+- `grGetString(GR_EXTENSION)` with none: "a single space" (Reference
+  Manual 3.0, grGetString), where it was empty.
+- The Banshee is no longer a one-TMU Voodoo3 by assumption: its own
+  specification gives its memory, TMU, formats, fog, gamma, revision,
+  scan line and largest screen (Boards).
+- The Rush's memory shared with the desktop, `GR_CONTROL_RESIZE`, and
+  what its linear frame buffer and gamma allow (Boards).
