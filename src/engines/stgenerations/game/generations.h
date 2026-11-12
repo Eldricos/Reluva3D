@@ -35,7 +35,7 @@ const uint32_t kSaveMagic = tagBE('S', 'T', 'G', 'S');
 // 1: the viewer's place; 2: adds a mission in progress; 3: doors, lifts,
 // lights and the rest the other missions need; 4: the date saved and the
 // campaign; 5: the bridge. Missions saved by an older version can't be read.
-const uint32_t kSaveVersion = 6;
+const uint32_t kSaveVersion = 7;
 const uint32_t kFirstMissionSaveVersion = 3;
 const uint32_t kFirstDatedSaveVersion = 4;
 const uint32_t kFirstBridgeSaveVersion = 5;
@@ -116,6 +116,14 @@ private:
     void showLevelPage(int page);
     // Handle a key on the 3D view; returns false if it isn't a movement key.
     bool handleWalkKey(const KeyState& state, bool down);
+    // An away action from the key map (KeyMap::AwayAction) pressed or released; false if it has no use here.
+    bool walkAction(int action, bool down);
+    // A mouse button (virtual key 1, 2 or 4) pressed or released over the 3D view.
+    void viewButton(int vk, bool down);
+    // Let go of every walking key and button (0x43F552).
+    void releaseWalkKeys();
+    // While Mouse Look is held: the turn (radians a second) and look (pitch a second) the mouse asks for.
+    void mouseLookRates(double& turn, double& look) const;
     // Move the camera by the keys held, over delta ms, keeping it on the floor.
     void updateWalk(uint32_t delta);
     void updateWalkStatus();
@@ -275,7 +283,7 @@ private:
     Camera _camera;
     uint32_t _levelTime = 0;
     enum WalkKey { kWalkForward, kWalkBack, kWalkTurnLeft, kWalkTurnRight, kWalkStrafeLeft, kWalkStrafeRight,
-                   kWalkLookUp, kWalkLookDown, kWalkCrouch, kWalkJump, kWalkKeyCount };
+                   kWalkLookUp, kWalkLookDown, kWalkCrouch, kWalkJump, kWalkRun, kWalkKeyCount };
     bool _walkKeys[kWalkKeyCount] = {};
     // A jump asked for, taken at the next step; and the low gravity jump's wait (ms).
     bool _jumpPressed = false;
@@ -289,6 +297,10 @@ private:
     uint32_t _flashLeft = 0;
     // Set while a fire key is held: one attack per press.
     bool _fireHeld = false;
+    // Mouse Look held (game+0xE8): the mouse turns the view.
+    bool _mouseLook = false;
+    // The mouse buttons pressed over the view, by virtual key.
+    int _viewButtons = 0;
     Overlay _viewOverlay;
     std::string _viewOverlayImage;
     bool _viewOverlayLoaded = false;

@@ -72,8 +72,12 @@ bool Generations::startFrontEnd() {
     // For testing: straight into a space combat (--combat=n), or the story
     // from any section (--story=Amargosa2; --story=list names them).
     std::string story = _options.story;
-    if (_options.combat > 0)
+    if (_options.combat > 0) {
+        // Combats 13-24 are the fleets', which the story fights as FightFleetN.
         story = text::format("SpaceCombat%dPlay", _options.combat);
+        if (!_campaign.hasSection(story))
+            story = text::format("FightFleet%d", _options.combat);
+    }
     if (story == "list") {
         std::string names;
         for (const std::string& name : _campaign.getSectionNames())
@@ -153,6 +157,13 @@ void Generations::loadSettings() {
     const int lookspring = number("lookspring", _options.lookspring);
     if (lookspring >= 0)
         _settings.lookspring = lookspring != 0;
+    // Unreadable maps keep the defaults, as the original does with a bad SGENS.CFG.
+    auto keys = _storedSettings.find("away_keys");
+    if (keys != _storedSettings.end())
+        _settings.awayKeys.fromString(keys->second);
+    keys = _storedSettings.find("starship_keys");
+    if (keys != _storedSettings.end())
+        _settings.starshipKeys.fromString(keys->second);
     syncSoundSettings();
 }
 
@@ -164,6 +175,8 @@ void Generations::saveSettings() {
     _storedSettings["subtitles"] = _settings.subtitles ? "1" : "0";
     _storedSettings["large_window"] = _settings.largeWindow ? "1" : "0";
     _storedSettings["lookspring"] = _settings.lookspring ? "1" : "0";
+    _storedSettings["away_keys"] = _settings.awayKeys.toString();
+    _storedSettings["starship_keys"] = _settings.starshipKeys.toString();
     std::string out = "# Star Trek: Generations' own settings, as its menu sets them.\n";
     for (const auto& [key, value] : _storedSettings)
         out += key + "=" + value + "\n";
@@ -295,6 +308,7 @@ bool Generations::playSpaceCombat(int number) {
     }
     _combat->setSubtitles(_settings.subtitles);
     _combat->setDifficulty(_settings.difficulty);
+    _combat->setKeyMap(_settings.starshipKeys);
     setTrueColour(true);
     setCursor(false);
     return true;
@@ -373,12 +387,19 @@ void Generations::openMenu(bool canReturn) {
     if (_combat)
         _system->initSize(Screen::kWidth, Screen::kHeight);
     _menuOpen = true;
+    // The menu takes the keys, so nothing stays held (as 0x43F552 clears them).
+    releaseWalkKeys();
+    if (_combat)
+        _combat->releaseKeys();
     _menu->setSlots(listSaves());
     bool inMission = _playingMission && _mission;
-    // Combat can't be saved: its state isn't kept. Nor can a mission that
-    // hasn't started.
-    _menu->open(_settings, canReturn, (inMission || _menuOverBridge) && !_combat && !_awaitingProceed,
+    // A combat in the story is saved as it started: its state isn't kept,
+    // and loading starts it again (the original's "save game at start of
+    // current encounter"). A mission that hasn't started can't be saved.
+    bool encounter = _combat && _campaign.getCombat();
+    _menu->open(_settings, canReturn, (inMission || _menuOverBridge || encounter) && !_awaitingProceed,
                 !inMission && !_combat);
+    _menu->setEncounter(encounter);
     _screen->getPalette() = _menu->getPalette();
     _screen->applyPalette();
     setCursor(false);
@@ -421,6 +442,12 @@ void Generations::handleMenuEvent(const Event& event) {
     case kEventLbuttondown:
         _menu->mouseDown(event.mouse.x, event.mouse.y);
         break;
+    case kEventRbuttondown:
+        _menu->mouseDown(event.mouse.x, event.mouse.y, 2);
+        break;
+    case kEventMbuttondown:
+        _menu->mouseDown(event.mouse.x, event.mouse.y, 4);
+        break;
     case kEventMousemove:
         _menu->mouseMove(event.mouse.x, event.mouse.y);
         break;
@@ -439,6 +466,8 @@ void Generations::handleMenuEvent(const Event& event) {
         saveSettings();
         if (_mission)
             _mission->setDifficulty(_settings.difficulty);
+        if (_combat)
+            _combat->setKeyMap(_settings.starshipKeys);
         if (_bridge)
             _bridge->setSubtitles(_settings.subtitles);
     }

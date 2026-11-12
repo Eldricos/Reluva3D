@@ -335,10 +335,58 @@ static void campaign_drives_the_bridge() {
     CHECK_EQUAL(a.number, 4);
 }
 
+static void combat_shield_materials() {
+    // One triangle facing the camera, then the same seen from behind.
+    Model3D model;
+    model.parts.resize(1);
+    Model3D::Part& part = model.parts[0];
+    part.vertices = { { -50, -50, 0, 0, 0 }, { 50, -50, 0, 0, 0 }, { 0, 50, 0, 0, 0 } };
+    part.triangles.push_back({ 0x8000, 0, 1, 2, 0, 0, -1 });
+    std::vector<CombatMaterial> materials(1);
+    materials[0].colour = 0x7C00; // red
+    materials[0].flags = 3;
+    auto none = [](const std::string&) { return (const CombatImage*)nullptr; };
+
+    Canvas screen;
+    screen.create(40, 40, Canvas::kArgb32);
+    auto clear = [&](uint32_t colour) {
+        for (int y = 0; y < 40; y++)
+            for (int x = 0; x < 40; x++)
+                *(uint32_t*)screen.getBasePtr(x, y) = colour;
+    };
+    auto middle = [&]() { return *(const uint32_t*)screen.getBasePtr(20, 20) & 0xFFFFFF; };
+    CombatRenderer r;
+    r.setViewport(40, 40, 90);
+    r.setCamera(Vec3(0, 0, -100), Mat3());
+
+    // The face's top bit is a flag, not part of the material's index.
+    clear(0xFF000000u);
+    r.begin(screen, 0, 0);
+    r.drawModel(model, materials, none, Vec3(), Mat3());
+    CHECK_EQUAL(middle() >> 16, 0xFFu * 55 / 100);
+
+    // A shield's material is see-through, lit by itself: half and half.
+    materials[0].param = 11000;
+    materials[0].flags = 0;
+    clear(0xFF0000FFu);
+    r.begin(screen, 0, 0);
+    r.drawModel(model, materials, none, Vec3(), Mat3());
+    CHECK_EQUAL(middle(), 0x7F007Fu);
+
+    // Without the top bit it has one side only.
+    part.triangles[0].material = 0;
+    part.triangles[0].nz = 1;
+    clear(0xFF0000FFu);
+    r.begin(screen, 0, 0);
+    r.drawModel(model, materials, none, Vec3(), Mat3());
+    CHECK_EQUAL(middle(), 0x0000FFu);
+}
+
 static const reluva::test::Suite suite("stgenerations.unit.combat", {
     {"combat gif textures", [](const std::filesystem::path&) { combat_gif_textures(); }},
     {"combat ras and model", [](const std::filesystem::path&) { combat_ras_and_model(); }},
     {"combat ship classes and missions", [](const std::filesystem::path&) { combat_ship_classes_and_missions(); }},
     {"combat projection", [](const std::filesystem::path&) { combat_projection(); }},
     {"campaign drives the bridge", [](const std::filesystem::path&) { campaign_drives_the_bridge(); }},
+    {"combat shield materials", [](const std::filesystem::path&) { combat_shield_materials(); }},
 });

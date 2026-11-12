@@ -1,6 +1,6 @@
 # Archives and standard files
 
-> **Code:** `src/common/zip.h`, `src/common/video/avi.h`, `src/common/video/cinepak.h` · **Confidence:** confirmed unless marked
+> **Status:** decoded · **Code:** `src/common/zip.h`, `src/common/video/avi.h`, `src/common/video/cinepak.h` · **Checked on:** the 2 CD Windows release: all 18 archives (8175 files) and all 14 movies · **Confidence:** confirmed unless marked
 
 ## Overview
 
@@ -30,4 +30,4 @@ Each location archive (e.g. `VERID1.DAT`) holds a `verid1/` folder with
 
 ## Sources and checks
 
-From STG-Engine's notes on the 2 CD Windows release ([README](README.md) says how they were made). All values are little-endian.
+From reading the game's files, the 2 CD Windows release, while the engine was STG-Engine ([REVERSE_ENGINEERING.md](../REVERSE_ENGINEERING.md) says how). All values are little-endian.

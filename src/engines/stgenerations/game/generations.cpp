@@ -38,6 +38,9 @@ const int kLevelPageMap = 0;
 const int kLevelPage3D = 1;
 const int kLevelPageTextures = 2;
 const double kPi = 3.14159265358979323846;
+// Walking: turning in radians a second, looking in pitch a second.
+const double kTurnSpeed = 2.0;
+const double kLookSpeed = 0.8;
 
 } // namespace
 
@@ -209,6 +212,9 @@ void Generations::handleEvent(const Event& event) {
         case kEventKeyup:
             _combat->keyUp(event.kbd);
             break;
+        case kEventMousemove:
+            _combat->mouseMove(event.mouse.x, event.mouse.y);
+            break;
         case kEventLbuttondown:
             _combat->mouseDown(event.mouse.x, event.mouse.y);
             break;
@@ -379,6 +385,17 @@ void Generations::handleEvent(const Event& event) {
     case kEventLbuttonup:
         if (_hudScreen && _mission)
             _hudScreen->mouseUp(*_mission, event.mouse.x, event.mouse.y);
+        viewButton(1, false);
+        break;
+    case kEventRbuttonup:
+        viewButton(2, false);
+        break;
+    case kEventMbuttonup:
+        viewButton(4, false);
+        break;
+    case kEventMbuttondown:
+        if (_level && _levelPage == kLevelPage3D && event.mouse.y < HudScreen::kView.bottom)
+            viewButton(4, true);
         break;
     case kEventLbuttondown:
     case kEventRbuttondown:
@@ -388,8 +405,8 @@ void Generations::handleEvent(const Event& event) {
             bool right = event.type == kEventRbuttondown;
             if (_hudScreen && _mission && event.mouse.y >= HudScreen::kView.bottom)
                 _hudScreen->mouseDown(*_mission, event.mouse.x, event.mouse.y, right);
-            else if (!right)
-                attack();
+            else
+                viewButton(right ? 2 : 1, true);
             break;
         }
         if (event.type == kEventRbuttondown)
@@ -398,6 +415,7 @@ void Generations::handleEvent(const Event& event) {
         playBeep(220 + event.mouse.x * 2);
         break;
     case kEventFocusLost:
+        releaseWalkKeys();
         pauseEngine(true);
         break;
     case kEventFocusGained:
@@ -1128,34 +1146,26 @@ void Generations::showLevelPage(int page) {
 }
 
 bool Generations::handleWalkKey(const KeyState& state, bool down) {
+    // The player's key map first (0x43E8FB), as the Controls panel sets it.
+    uint8_t action = _settings.awayKeys.get(KeyMap::virtualKey(state.keycode));
+    if (action != KeyMap::kNone && walkAction(action, down))
+        return true;
+
+    // Then this engine's own keys, for keys the map leaves free.
     uint32_t key = state.keycode;
     int walkKey;
     switch (key) {
-    case reluva::key::Up:
     case 'w':
         walkKey = kWalkForward;
         break;
-    case reluva::key::Down:
     case 's':
         walkKey = kWalkBack;
-        break;
-    case reluva::key::Left:
-        walkKey = kWalkTurnLeft;
-        break;
-    case reluva::key::Right:
-        walkKey = kWalkTurnRight;
         break;
     case 'a':
         walkKey = kWalkStrafeLeft;
         break;
     case 'd':
         walkKey = kWalkStrafeRight;
-        break;
-    case reluva::key::PageUp:
-        walkKey = kWalkLookUp;
-        break;
-    case reluva::key::PageDown:
-        walkKey = kWalkLookDown;
         break;
     case reluva::key::End:
         if (down)
@@ -1172,18 +1182,8 @@ bool Generations::handleWalkKey(const KeyState& state, bool down) {
         }
         walkKey = kWalkCrouch;
         break;
-    case reluva::key::Return:
-    case reluva::key::KpEnter:
-        // The original's crouch keys (table 0x545500, action 11).
-        walkKey = kWalkCrouch;
-        break;
     case 'x':
-    case reluva::key::KpPeriod:
-        // Jump (action 10), once per press.
-        if (down && !_walkKeys[kWalkJump])
-            _jumpPressed = true;
-        walkKey = kWalkJump;
-        break;
+        return walkAction(KeyMap::kAwayJump, down);
     case 'l':
         if (down) {
             _levelRenderer->setLightingEnabled(!_levelRenderer->isLightingEnabled());
@@ -1203,13 +1203,6 @@ bool Generations::handleWalkKey(const KeyState& state, bool down) {
             _hudScreen->setLeftMode(key == 'b'   ? HudScreen::kLeftLife
                                     : key == 'h' ? HudScreen::kLeftMap
                                                                : HudScreen::kLeftObject);
-        return true;
-    case reluva::key::LCtrl:
-    case reluva::key::RCtrl:
-        // The original's default fire key; one attack per press.
-        if (down && !_fireHeld)
-            attack();
-        _fireHeld = down;
         return true;
     case '1':
     case '2':
@@ -1233,10 +1226,92 @@ bool Generations::handleWalkKey(const KeyState& state, bool down) {
     return true;
 }
 
+bool Generations::walkAction(int action, bool down) {
+    int walkKey;
+    switch (action) {
+    case KeyMap::kAwayForward:
+        walkKey = kWalkForward;
+        break;
+    case KeyMap::kAwayBackward:
+        walkKey = kWalkBack;
+        break;
+    case KeyMap::kAwayLeft:
+        walkKey = kWalkTurnLeft;
+        break;
+    case KeyMap::kAwayRight:
+        walkKey = kWalkTurnRight;
+        break;
+    case KeyMap::kAwaySlideLeft:
+        walkKey = kWalkStrafeLeft;
+        break;
+    case KeyMap::kAwaySlideRight:
+        walkKey = kWalkStrafeRight;
+        break;
+    case KeyMap::kAwayLookUp:
+        walkKey = kWalkLookUp;
+        break;
+    case KeyMap::kAwayLookDown:
+        walkKey = kWalkLookDown;
+        break;
+    case KeyMap::kAwayCrouch:
+        walkKey = kWalkCrouch;
+        break;
+    case KeyMap::kAwayRun:
+        walkKey = kWalkRun;
+        break;
+    case KeyMap::kAwayJump:
+        // Once per press.
+        if (down && !_walkKeys[kWalkJump])
+            _jumpPressed = true;
+        walkKey = kWalkJump;
+        break;
+    case KeyMap::kAwayLookCenter:
+        if (down)
+            _camera.pitch = 0;
+        return true;
+    case KeyMap::kAwayAttack:
+        // One attack per press (game+0x2E8 latches it until the key is up).
+        if (down && !_fireHeld)
+            attack();
+        _fireHeld = down;
+        return true;
+    case KeyMap::kAwayMouseLook:
+        // game.vt120 (0x440BB4): letting go centres the view with Lookspring.
+        if (!down && _mouseLook && _settings.lookspring)
+            _camera.pitch = 0;
+        _mouseLook = down;
+        return true;
+    default:
+        return false;
+    }
+    _walkKeys[walkKey] = down;
+    return true;
+}
+
+void Generations::releaseWalkKeys() {
+    for (bool& held : _walkKeys)
+        held = false;
+    _fireHeld = _mouseLook = false;
+    _viewButtons = 0;
+}
+
+void Generations::viewButton(int vk, bool down) {
+    // The view's buttons go through the key map as virtual keys 1, 2 and 4
+    // (0x4420A7, 0x442123); a release counts only after a press in the view.
+    int bit = 1 << vk;
+    if (down)
+        _viewButtons |= bit;
+    else if (!(_viewButtons & bit))
+        return;
+    else
+        _viewButtons &= ~bit;
+    uint8_t action = _settings.awayKeys.get(vk);
+    if (action != KeyMap::kNone)
+        walkAction(action, down);
+}
+
 void Generations::updateWalk(uint32_t delta) {
     const double kSpeed = 25.0;    // world units per second
-    const double kTurnSpeed = 2.0; // radians per second
-    const double kLookSpeed = 0.8; // pitch per second
     double seconds = std::min<uint32_t>(delta, 100) / 1000.0;
 
     double forward = (_walkKeys[kWalkForward] ? 1 : 0) - (_walkKeys[kWalkBack] ? 1 : 0);
@@ -1281,7 +1356,20 @@ void Generations::updateWalk(uint32_t delta) {
         lookScale = (double)motion.lookRate / kDefault.lookRate;
     }
 
+    // Run doubles walking and turning (game+0x210 and +0x218, 0x43B904).
+    if (_walkKeys[kWalkRun]) {
+        moveScale *= 2;
+        turnScale *= 2;
+    }
+
     _camera.yaw += turn * kTurnSpeed * turnScale * seconds;
+    double mouseTurn = 0, mouseLook = 0;
+    if (_mouseLook)
+        mouseLookRates(mouseTurn, mouseLook);
+    if (controls & Mission::kControlTurn)
+        _camera.yaw += mouseTurn * seconds;
+    if (controls & Mission::kControlLook)
+        look += mouseLook / kLookSpeed / lookScale;
     // SET_PLAYER_SPIN: turned regardless, degrees a second (heading up is yaw down).
     if (_mission && _mission->getSpin())
         _camera.yaw -= _mission->getSpin() * kPi / 180 * seconds;
@@ -1325,8 +1413,32 @@ void Generations::updateWalk(uint32_t delta) {
     _camera.y = _walker->getY();
     _camera.z = _walker->getEye();
     _levelRenderer->setVisibleZones(_walker->getActiveZones() | (_mission ? _mission->getExtraZones() : 0));
-    if (turn != 0 || look != 0 || _camera.x != oldX || _camera.y != oldY || _camera.z != oldZ)
+    if (turn != 0 || look != 0 || mouseTurn != 0 || _camera.x != oldX || _camera.y != oldY || _camera.z != oldZ)
         updateWalkStatus();
+}
+
+void Generations::mouseLookRates(double& turn, double& look) const {
+    // 0x43AFA3: away from a 64-pixel band across the middle of the view, the
+    // mouse sets a heading and pitch atan(offset / distance from the far
+    // side to the band) degrees away, and each frame the view turns a
+    // fifth of the way there. The keys turn by the turn rate (15 by
+    // default, Mission::Motion) and look by the look rate (10) a frame,
+    // which here are kTurnSpeed and kLookSpeed; the mouse is scaled alike.
+    auto angle = [](int mouse, int size, int offset) {
+        int edge = size / 2 - offset;
+        mouse = std::max(0, std::min(size - 1, mouse));
+        int d = mouse - edge;
+        if (d > 0) {
+            edge += 64;
+            d = mouse - edge;
+            if (d < 0)
+                return 0.0;
+        }
+        return -std::atan2((double)d, (double)edge) * 180 / kPi;
+    };
+    turn = angle(_mouseX, _viewW, 32) / 5 / 15 * kTurnSpeed;
+    // Up the view is a positive pitch in the original, a negative one here.
+    look = -angle(_mouseY, _viewH, 16) / 5 / 10 * kLookSpeed;
 }
 
 void Generations::prepareAim(int w, int h) {
@@ -1369,8 +1481,10 @@ void Generations::drawViewOverlay(Canvas& view) {
                 log::warning("Could not load the view overlay %s", overlay.image.c_str());
         }
     }
-    // Mode 1 centres it, mode 2 lays it down row by row (the same for
-    // these full-width pictures), anything else draws nothing.
+    // 0x409DDC: a picture no wider than the view is centred in both modes;
+    // only a wider one differs (mode 1 crops round its middle, mode 2
+    // copies its rows from the left), which with the view always 640 wide
+    // never happens. Anything else draws nothing.
     if (!_viewOverlayLoaded || (overlay.mode != 1 && overlay.mode != 2))
         return;
     // One frame of every row (0x431355 sets no frame height).

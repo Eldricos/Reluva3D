@@ -9,7 +9,7 @@ namespace reluva::stgenerations {
 
 namespace {
 
-// Not kPi: MSVC only has it with _USE_MATH_DEFINES.
+// Not M_PI: MSVC only has it with _USE_MATH_DEFINES.
 constexpr double kPi = 3.14159265358979323846;
 
 const double kNear = 20;
@@ -115,11 +115,24 @@ void CombatRenderer::drawModel(const Model3D& model, const std::vector<CombatMat
             view[i] = _camera.inverse(world - _cameraPos);
         }
         for (const Model3D::Triangle& t : part.triangles) {
-            const CombatMaterial* m = t.material < materials.size() ? &materials[t.material] : nullptr;
+            // The top bit of a face's material is a flag (shields, debris,
+            // the phaser beam); the rest is the index.
+            uint16_t index = t.material & 0x7FFF;
+            const CombatMaterial* m = index < materials.size() ? &materials[index] : nullptr;
             const CombatImage* texture =
                 m && part.textured && !m->texture.empty() && (m->flags & 3) != 3 ? textures(m->texture) : nullptr;
             Vec3 normal = orientation.apply(Vec3(t.nx, t.ny, t.nz));
             double shade = kAmbient + (1 - kAmbient) * std::max(0.0, normal.dot(light));
+            // Only the shields' materials have a parameter: they are see-through
+            // and shine with their own light.
+            bool blend = m && m->param != 0;
+            if (blend) {
+                shade = 1;
+                // Without the top bit a see-through face shows one side only,
+                // so a sphere's far half doesn't double its colour.
+                if (!(t.material & 0x8000) && normal.dot(_camera.apply(view[t.a])) > 0)
+                    continue;
+            }
             ClipVertex v[3];
             const uint16_t idx[3] = { t.a, t.b, t.c };
             for (int k = 0; k < 3; k++) {
@@ -127,13 +140,13 @@ void CombatRenderer::drawModel(const Model3D& model, const std::vector<CombatMat
                 v[k].u = part.vertices[idx[k]].u;
                 v[k].v = part.vertices[idx[k]].v;
             }
-            drawTriangle(v, 3, texture, m ? m->rgb() : 0xFF808080u, shade, m && (m->flags & 3) == 2);
+            drawTriangle(v, 3, texture, m ? m->rgb() : 0xFF808080u, shade, m && (m->flags & 3) == 2, blend);
         }
     }
 }
 
 void CombatRenderer::drawTriangle(const ClipVertex* in, int count, const CombatImage* texture, uint32_t colour,
-                                  double shade, bool keyBlack) {
+                                  double shade, bool keyBlack, bool blend) {
     // Clip against the near plane.
     ClipVertex poly[8];
     int n = 0;
@@ -202,6 +215,11 @@ void CombatRenderer::drawTriangle(const ClipVertex* in, int count, const CombatI
                     if (keyBlack && (t & 0xFFFFFF) == 0)
                         continue;
                     pixel = shadeColour(t, shade);
+                }
+                if (blend) {
+                    // Half and half, behind what is nearer, leaving the depth.
+                    row[x] = 0xFF000000u | (((row[x] & 0xFEFEFE) >> 1) + ((pixel & 0xFEFEFE) >> 1));
+                    continue;
                 }
                 depth[x] = z;
                 row[x] = pixel;

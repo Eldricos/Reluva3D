@@ -1,6 +1,6 @@
 # Levels (GAME.LV2)
 
-> **Status:** partial · **Code:** `src/engines/stgenerations/formats/level.h`, `src/engines/stgenerations/game/render3d.h` · **Confidence:** confirmed unless marked
+> **Status:** partial · **Code:** `src/engines/stgenerations/formats/level.h`, `src/engines/stgenerations/game/render3d.h` · **Checked on:** the 2 CD Windows release, all 12 levels · **Confidence:** confirmed unless marked
 
 ## Overview
 
@@ -278,8 +278,15 @@ A sequence holds each view direction's frames in turn.
   centre. Beyond the home radius it walks home until it is inside the outer
   radius again. Crossing inwards past the inner radius turns it a quarter.
 - A wall turns it a quarter.
-- SET_ACTOR_COMBAT_PARAMS stores its angles as given. verid1 gives degrees,
-  so its wanderers turn by under a degree at a time, as in the original.
+- Its centre (`0x4C4015`) is its home point, or with a guard mode (record
+  +0x10D) what it guards: SET_ACTOR_COMBAT_PARAMS id, mode, target, ... sets
+  mode 1 for an actor or 2 for a billboard, found by number (`0x4B5DF0`), and
+  target 0 means the player. arvada1 and bersus have actors guard others
+  (10, 12, 18, 38-47); the rest wander about home or the player.
+- SET_ACTOR_COMBAT_PARAMS (`0x457703`) keeps any value given as 0x8000 (or
+  0x80000000 for the distances). It stores its angles as given. verid1 gives
+  degrees, so its wanderers turn by under a degree at a time, as in the
+  original.
 
 **Movement:** actors move with the player's sweep and slide, using their own
 radius, height and step height. They snap onto floors and never fall.
@@ -381,4 +388,4 @@ through the textures.
 
 ## Sources and checks
 
-From STG-Engine's notes on the 2 CD Windows release ([README](README.md) says how they were made). All values are little-endian.
+From the notes read off `sgens.exe` and the game's files, the 2 CD Windows release, while the engine was STG-Engine: [actors-ai](../research/actors-ai.md), [actors-draw](../research/actors-draw.md), [billboard-draw](../research/billboard-draw.md), [wall-slope](../research/wall-slope.md), [movers](../research/movers.md), in [research/](../research/README.md). [REVERSE_ENGINEERING.md](../REVERSE_ENGINEERING.md) says how they were made. All values are little-endian.

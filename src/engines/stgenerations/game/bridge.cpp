@@ -17,7 +17,7 @@ namespace reluva::stgenerations {
 
 namespace {
 
-// Not kPi: MSVC only has it with _USE_MATH_DEFINES.
+// Not M_PI: MSVC only has it with _USE_MATH_DEFINES.
 constexpr double kPi = 3.14159265358979323846;
 
 const char* const kArchive = "STELLAR.DAT";
