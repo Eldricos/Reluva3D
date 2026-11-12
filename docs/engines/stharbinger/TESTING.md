@@ -93,7 +93,7 @@ Everything under *Still to check* below.
 
 #### Unconfirmed details
 
-* The items in [UNCONFIRMED.md](UNCONFIRMED.md) that can be seen in the game, especially Quark's
+* The items in [UNCONFIRMED.md](UNCONFIRMED.md) that can be seen in the game, and Quark's
   lip-sync in QUARK010, QUARK011 and XOQ010.
 
 #### Conveniences
