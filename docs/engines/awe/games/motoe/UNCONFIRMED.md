@@ -5,7 +5,7 @@ having been seen to be so in the running game or a recording. Each is
 the best reading there is; none is known to be wrong. When one is
 settled, move it to the format page it belongs to and take it off here.
 
-## Read from the code, not watched
+## Read from the code, not seen running
 
 - **A walk eases out the gesture under way.** The game's walk start
   (`0x441160`) calls `0x4048f0`, which eases every finite gesture out
@@ -28,14 +28,9 @@ settled, move it to the format page it belongs to and take it off here.
   text in the install is known to end that way.
   [systems/interface.md](systems/interface.md).
 
-## Meanings inferred
+## Seen running, not traced in the code
 
-- **Fields loaded but never read.** The common `b54`, `b58`, `b68`,
-  `SPRT`'s `dc8`, the item's `1610` and `1612`, the camera's `238`,
-  `23a` and `1240`: nothing in the executable reads them, so what they
-  were for can't be told. [formats/ac2.md](formats/ac2.md).
-
-## Checked only against recordings
+### Checked only against recordings
 
 The recordings were calibrated before comparing: the prerendered
 background a frame shows is in the install, so fitting the frame's
@@ -54,7 +49,18 @@ capture's video range read as full range. What's left after that:
   large as any difference. The "shade brighter" look is the recording's
   contrast.
 
-## Settled since
+## Inferred
+
+- **Fields loaded but never read.** The common `b54`, `b58`, `b68`,
+  `SPRT`'s `dc8`, the item's `1610` and `1612`, the camera's `238`,
+  `23a` and `1240`: nothing in the executable reads them, so what they
+  were for can't be told. [formats/ac2.md](formats/ac2.md).
+
+## Guessed
+
+None yet.
+
+## Settled
 
 Moved to their format pages; kept here so the reasoning can be found:
 

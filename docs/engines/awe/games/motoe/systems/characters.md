@@ -1,5 +1,9 @@
 # Characters
 
+> **Code:** `src/engines/awe/animator.cpp`, `actor.cpp`, `scene_outdoors.cpp` · **Checked against:** the code (`motoe.exe`, English 1.0), the install's models, their track masks, and the scripts
+
+## Overview
+
 This page covers how *Murder on the Orient Express* animates its
 characters (`NPCX`, and `PCXX` for the player):
 
@@ -8,29 +12,9 @@ characters (`NPCX`, and `PCXX` for the player):
 - the behaviour behind those verbs: blinking, idle gestures and talking;
 - what they leave outdoors: footprints in the snow, and their breath.
 
-## How this was worked out
+## How it works
 
-This comes from `motoe.exe` (English 1.0), read in a disassembler to make
-Reluva work with the game:
-
-- the character's animated model, `0x403e10..0x405940`;
-- the model instance's Granny controls, `0x4275d0..0x42aad7`: loading an
-  animation and its mask (0x4297d0), playing one on the body (0x429f50,
-  with the pose's mask) or on the head or eye layer (0x42a650), stopping
-  one (0x429cc0, 0x429dd0). The Granny functions they call were named
-  from `motoe.exe`'s imports;
-- the turns, `0x4411f0..0x4420b0`;
-- the runner's handlers for the verbs;
-- outdoors: the character's update (`0x43ffa0`) and walk (`0x4422c0`),
-  the footprints' laying and fading (`0x43fda0`, `0x43fd00`), the
-  `FOOT` class (`0x40dda0`), the model's update with its breath
-  (`0x425f50`), the `BRTH` class (`0x406840`), and how the model draws
-  with a diffuse alpha under 1 (`0x428b1f`).
-
-The findings were checked against the install's models, their animation
-files' track masks, and the scenes' and dialogue's scripts.
-
-## When a character is there
+### When a character is there
 
 A character is an object like any other: drawn, shadow and all, only
 while it's shown. The character's draw (`0x425e00`, slot 0xc of the
@@ -46,7 +30,7 @@ only with `tag gretafollow`, and Michel in the corridors only until
 `tag micheladmonish`. The pick's list uses the same test
 ([../formats/ac2.md](../formats/ac2.md#the-pick-0x435eb0)).
 
-### Leaving a scene and coming back
+#### Leaving a scene and coming back
 
 The game keeps every scene of the place it's in, so a scene's characters
 come back as they were left: where they stood, and as scripts left them.
@@ -77,7 +61,7 @@ first `IDLE` script whose condition holds, empties the character's
 runner of what was queued (`0x409760`) and runs that script afresh
 (`0x408c80`).
 
-## Animations on Granny controls
+### Animations on Granny controls
 
 A character plays up to **ten** animations at once, each on a Granny
 control. Every animation is `models\<who>\<who>_<name>.gr2`.
@@ -95,7 +79,7 @@ toward the layer's pose by the mask of the layer's strongest animation,
 times how far that animation has eased in. That amount is its weight
 divided by its ease time, capped at 1.
 
-### Track masks
+#### Track masks
 
 The track mask is in each animation file's skeleton, as the bones'
 extended data `TrackMasktrackmask`. Only one bone of an animation carries
@@ -130,7 +114,7 @@ bone in full (0x4298f0 logs "No track mask data", and the control gets no
 mask). Other masks some animation files carry (`TrackMasksitidle1`) are
 never asked for.
 
-### The pose's mask: sitting
+#### The pose's mask: sitting
 
 MODL's `anim` names a mask of the character's **model** file, and MODL's
 condition says when it applies. In the data `anim` is always `sit`, on
@@ -152,7 +136,7 @@ and what hangs from it; the hips and legs stay in the seated pose. Most
 gestures weigh only the spine anyway, but an animation weighted on
 `Bip01`, or one without a mask, would otherwise move the whole body.
 
-### Base animations and overlays
+#### Base animations and overlays
 
 A **base** animation is a continuous full-body one: `idle1` and its
 variants (not `talkidle1`), `walk`, `run`, `sit...`, `eaves...`, and the
@@ -170,7 +154,7 @@ Everything else is an **overlay** that plays over the base.
 - **The end.** When an animation ends, an `anim` waiting on it is done.
   An animation stopped by another one ending it early doesn't report.
 
-### Which file plays
+#### Which file plays
 
 1. A **renamed animation**: in the ANIM part's list, an entry whose name
    matches and whose condition holds names the file to play.
@@ -179,7 +163,7 @@ Everything else is an **overlay** that plays over the base.
    `idle1` is `sitidle1`, and its `talkidle1` is `sittalkidle1`.
 3. Otherwise, the name itself.
 
-## The verbs
+### The verbs
 
 | Verb | Arguments | What it does | Waits |
 |------|-----------|--------------|-------|
@@ -193,7 +177,7 @@ Everything else is an **overlay** that plays over the base.
 | `attach`, `detach` | object | Attaches or detaches `models\objects\<name>_model.gr2`. The prop has its own skeleton, and the character's animations move its bones too, so it isn't fixed to a bone. | no |
 | `hideshadow`, `showshadow` | | The character's shadow flag. | no |
 
-### Headings
+#### Headings
 
 Headings are in degrees, the game's way. 0 faces +Z, and the heading
 grows as the character turns to its own left. A model at heading θ faces
@@ -203,7 +187,7 @@ grows as the character turns to its own left. A model at heading θ faces
 - A walk point holds the heading of someone arriving through its door,
   so `rotate -sp2` (the point's heading plus 180°) faces the door.
 
-### `turn`: the head
+#### `turn`: the head
 
 1. If the target is within 2° of the body's heading, nothing happens.
 2. Otherwise the shorter way is chosen. `Δ` is the angle that way, capped
@@ -216,7 +200,7 @@ grows as the character turns to its own left. A model at heading θ faces
 `turn up` or `turn down` on its own plays `headup` or `headdown` at
 weight 0.5. Only one character has those files.
 
-### `rotate`: the body
+#### `rotate`: the body
 
 `rotate camera` turns it to the camera's azimuth (the scene's Granny
 camera's, `0x441941`), not turned round for `-camera`.
@@ -233,7 +217,7 @@ camera's, `0x441941`), not turned round for `-camera`.
 5. Within 2° of the target, the heading is set, `idle1` plays, and the
    waiting script goes on.
 
-## Behaviour of their own
+### Behaviour of their own
 
 The ANIM part's settings, with Debenham's values as an example:
 
@@ -244,11 +228,11 @@ The ANIM part's settings, with Debenham's values as an example:
 | idle variation interval (least, most) | 8, 12 |
 | chances of variations 2, 3 and 4+ | 50, 30, 20 % |
 
-### Blinking
+#### Blinking
 
 Every 5 to 7 s, the character blinks once or twice.
 
-### Idle variations
+#### Idle variations
 
 The interval is redrawn each time, and after every gesture. It is 2 s
 shorter while a talking animation plays and 2 s longer otherwise.
@@ -261,7 +245,7 @@ When it runs out:
   other variation or door-knob animation plays, then `idle2`, `idle3` or
   a later one plays once over `idle1`.
 
-### Routines
+#### Routines
 
 A non-player character can have an `IDLE` list of conditional scripts.
 At entry, the first one whose condition holds runs on the character's own
@@ -274,7 +258,7 @@ anim think, wait 2, anim upset01, turn -40, wait 2, turn home, wait 3, loop
 The main script resumes the routine of a character it was started from
 (clicked) once it's over.
 
-### Walking a path
+#### Walking a path
 
 The path-finder ([../formats/ac2.md](../formats/ac2.md)) gives the points; the character walks
 them as legs (`0x442780` starts one, `0x4422c0` walks it each frame,
@@ -310,7 +294,7 @@ Reluva follows this (`ScenePage::beginWalk`, `stepWalk`). It moves the
 character at the walk's average pace, not by its root motion frame by
 frame ([../KNOWN_DIFFERENCES.md](../KNOWN_DIFFERENCES.md)).
 
-### Followers
+#### Followers
 
 A character whose `FLLW` is non-zero follows the player while its `COND`
 holds. In the data that is Michel at Belgrade and Greta Ohlsson at
@@ -323,7 +307,7 @@ Sirkeci. A follower behaves like this (`0x4400a0`):
   walks there by the path-finder. It stops 125 units short (`0x442780`),
   and runs when the player runs.
 
-### Talking
+#### Talking
 
 Over the course of a line in a conversation:
 
@@ -337,7 +321,7 @@ Over the course of a line in a conversation:
 The line's Target turns the speaker's head as `turn` would. When the box
 slides away, the heads turn home.
 
-### The face
+#### The face
 
 The face's bones hang from two masters, `Eye_Bones_Master` (eyes, lids,
 brows) and `Jaw_Bones_Master` (jaw, lips). The game has no code of its
@@ -368,12 +352,12 @@ or by the code: `fidle` (Poirot's, Antoinette's), `ftalk` and
 `flookright` (Antoinette's). Some models also carry a `TrackMaskhead`,
 which nothing reads.
 
-## Outdoors: footprints and breath
+### Outdoors: footprints and breath
 
 Two `MODL` fields ([../formats/ac2.md](../formats/ac2.md)) are for the snow. The player has
 them in the snowy exteriors.
 
-### Footprints
+#### Footprints
 
 A character with `footprints`, in a scene marked `OUTD`, leaves prints
 as it walks (or runs) along a path (`0x4422c0` calls `0x43fda0` with the
@@ -403,7 +387,7 @@ frame's time):
   (its z), and the pick sees it (it has no rectangle or outline, so
   nothing picks it).
 
-### Breath
+#### Breath
 
 A character with `breath`, while it's shown, has a `BRTH` particle
 system of its own (+0xe3c), made the first time (`0x425fd0`) and
@@ -485,3 +469,27 @@ Settled since:
 - **The shadows.** Checked against a recording of the game: the
   darkening, and the shadow's direction and length, as Reluva draws
   them (see [shadows.md](shadows.md)).
+
+## Sources and checks
+
+### How this was worked out
+
+This comes from `motoe.exe` (English 1.0), read in a disassembler to make
+Reluva work with the game:
+
+- the character's animated model, `0x403e10..0x405940`;
+- the model instance's Granny controls, `0x4275d0..0x42aad7`: loading an
+  animation and its mask (0x4297d0), playing one on the body (0x429f50,
+  with the pose's mask) or on the head or eye layer (0x42a650), stopping
+  one (0x429cc0, 0x429dd0). The Granny functions they call were named
+  from `motoe.exe`'s imports;
+- the turns, `0x4411f0..0x4420b0`;
+- the runner's handlers for the verbs;
+- outdoors: the character's update (`0x43ffa0`) and walk (`0x4422c0`),
+  the footprints' laying and fading (`0x43fda0`, `0x43fd00`), the
+  `FOOT` class (`0x40dda0`), the model's update with its breath
+  (`0x425f50`), the `BRTH` class (`0x406840`), and how the model draws
+  with a diffuse alpha under 1 (`0x428b1f`).
+
+The findings were checked against the install's models, their animation
+files' track masks, and the scenes' and dialogue's scripts.

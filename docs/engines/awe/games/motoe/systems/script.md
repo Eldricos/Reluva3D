@@ -1,30 +1,18 @@
 # The script runner
 
+> **Code:** `src/engines/awe/script.cpp` · **Checked against:** the code (`motoe.exe`); `awe script-check` over the English 1.0 install's 9,785 commands
+
+## Overview
+
 Everything the game does when something happens is a script: a hotspot's
 script, its conditional replacements (`listB`), a scene's events, an act's
 cells in `acts.txt`, the item tables' events, dialogue event files.
 [../formats/text.md](../formats/text.md) gives the commands' form (verbs and words, separated
 by commas or lines). This page covers how they run.
 
-## How this was worked out
+## How it works
 
-From `motoe.exe`'s runner, read in a disassembler:
-
-- `0x409024` adds an event: it splits a command into its words and queues
-  it (expanding the macros below).
-- `0x409ce0` runs the event at the front of the queue. It is one long
-  chain of verb comparisons, each verb's handler ending at a common tail
-  (`0x40b926`).
-- `0x409a80` ("event done: %s current event: %s", in its debug strings)
-  ends the event under way.
-
-`reluva-tool awe script-check <install>` reads every command in an install
-(scene scripts and their conditional scripts, scene event lists, the text
-tables, the dialogue event files) and counts them by verb, with their
-argument counts and examples. The numbers below are from the English
-1.0 install: 9,785 commands of 61 verbs.
-
-## Events
+### Events
 
 An event is up to five words: a verb and four arguments, 64 characters
 each. The runner keeps a queue of them and runs the one at the front.
@@ -65,7 +53,7 @@ in the place's other scenes too, so the game may animate a speaker off
 screen; Reluva, holding only the scene shown, skips those), its Povent
 on the player.
 
-## Conditions in scripts
+### Conditions in scripts
 
 `0x408c80`, which every script goes through (a click's, a scene's event,
 an act's cells), lets a condition in brackets stand among the commands:
@@ -78,7 +66,7 @@ commands run. Until the next condition in brackets, the commands after it
 are added only if it held. `(!tag failsuspects), tag winsuspects, tag
 challengescore +1` in the third solution's table works the same way.
 
-## Clicks while a script runs
+### Clicks while a script runs
 
 The runner keeps a lock (`+8`). When an event starts it's set, unless
 the verb is `walk`, `run` or `rotate`, or the event done last was an
@@ -92,7 +80,7 @@ drops what was queued (`0x409760`) and runs its own. The kimono scene
 uses this: `wait 6.25, unlock, wait 6.25, lock`, the woman clickable only
 in between.
 
-## As events are added
+### As events are added
 
 `0x409024` treats three verbs specially:
 
@@ -113,7 +101,7 @@ and the sound's number from the third.
 With a flag set (when skipping ahead, it seems), `walk`, `run` and
 `rotate` events aren't added at all.
 
-## The verbs
+### The verbs
 
 By use in the install. "Waits" marks verbs whose event lasts until what
 they start is over. The objects they work on are the game's: the scene
@@ -192,7 +180,7 @@ from 0x4155ef), from y −1 down and up from the bottom; while they're up
 (any mode but off) the cursor is hidden and nothing is picked or walked
 to (0x4140b0, 0x415fa0). Reluva does the same.
 
-## Movies
+### Movies
 
 `movie <name> [inscene] [silent]` (`0x40a725`) plays a cutscene. The
 game's movie object is `0x42ac00..0x42af10`.
@@ -224,7 +212,7 @@ game's movie object is `0x42ac00..0x42af10`.
 When the program starts, it queues `musica motoetheme, movie logos
 inscene` before the main menu (see [acts.md](acts.md)).
 
-## Items in hand
+### Items in hand
 
 Clicking with an item in hand (state 3) on an object (`0x41c050`):
 
@@ -275,3 +263,23 @@ It logs the rest in its info panel and ends them at once.
 Items are used as above (`src/engines/awe/scene_inventory.cpp`), picked
 up from the inventory window (`scene_interface.cpp`, with the bar, the
 window's pages and the cards: [interface.md](interface.md#in-reluva)).
+
+## Sources and checks
+
+### How this was worked out
+
+From `motoe.exe`'s runner, read in a disassembler:
+
+- `0x409024` adds an event: it splits a command into its words and queues
+  it (expanding the macros below).
+- `0x409ce0` runs the event at the front of the queue. It is one long
+  chain of verb comparisons, each verb's handler ending at a common tail
+  (`0x40b926`).
+- `0x409a80` ("event done: %s current event: %s", in its debug strings)
+  ends the event under way.
+
+`reluva-tool awe script-check <install>` reads every command in an install
+(scene scripts and their conditional scripts, scene event lists, the text
+tables, the dialogue event files) and counts them by verb, with their
+argument counts and examples. The numbers above are from the English
+1.0 install: 9,785 commands of 61 verbs.

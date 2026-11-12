@@ -1,20 +1,14 @@
 # Options
 
+> **Code:** `src/engines/awe/scene_options.cpp` · **Checked against:** the code (`motoe.exe`, English 1.0) and the options screen's scene
+
+## Overview
+
 The game's settings, its options screen, and what each setting changes.
 
-## How this was worked out
+## How it works
 
-This comes from `motoe.exe` (English 1.0), read in a disassembler to make
-Reluva work with the game:
-
-- the options screen's object (`0x42bd40`, vtable `0x482c50`);
-- the registry code (`0x42bae0` reads the settings, `0x42b990` writes
-  them);
-- the places each setting is read.
-
-It was checked against the screen's scene, `Menu.Options/menu.options_01.ac2`.
-
-## The settings
+### The settings
 
 The game keeps its settings in globals (`0x490048..0x490068`) and in the
 registry, under `HKCU\Software\DreamCatcher\Agatha Christie\<title>\Settings`
@@ -35,7 +29,7 @@ loaded.
 | `AntiAlias` | Anti-Aliasing | 0 | 0/1 | 4× multisampling if the card has it, else 2×. Changing it resets the device. |
 | `Slot` | — | 0 | | The last save slot used. Nothing reads it back. |
 
-## The options screen
+### The options screen
 
 `menu options` opens the scene `Menu.Options`. Its `PUZZ options` record
 creates the screen's object. The scene itself is a little 3D scene, with
@@ -96,3 +90,17 @@ kept in Reluva's folder for the game, as `options.ini` lines
   frame's targets are made again instead of the device being reset. The
   pictures are 2D and aren't touched, and the shadows' edges stay hard
   (their mask is made on the CPU, [shadows.md](shadows.md)).
+
+## Sources and checks
+
+### How this was worked out
+
+This comes from `motoe.exe` (English 1.0), read in a disassembler to make
+Reluva work with the game:
+
+- the options screen's object (`0x42bd40`, vtable `0x482c50`);
+- the registry code (`0x42bae0` reads the settings, `0x42b990` writes
+  them);
+- the places each setting is read.
+
+It was checked against the screen's scene, `Menu.Options/menu.options_01.ac2`.

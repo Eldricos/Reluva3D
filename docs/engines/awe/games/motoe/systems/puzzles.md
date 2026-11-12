@@ -1,5 +1,9 @@
 # Puzzle screens
 
+> **Code:** `src/engines/awe/scene_puzzles.cpp` · **Checked against:** the code (`motoe.exe`, English 1.0); the torn letter's solution by compositing its pieces, its arrows against a recording
+
+## Overview
+
 Three scenes of *Murder on the Orient Express* are puzzles with code of
 their own: the torn letter, the baggage car's safe and the puzzle box.
 Each scene's `PUZZ` record names its puzzle, which the game creates on
@@ -16,19 +20,9 @@ The puzzle object takes its input in this order:
 None of the three takes keys. Each screen is left by its strip along the
 bottom.
 
-## How this was worked out
+## How it works
 
-This comes from `motoe.exe` (English 1.0), read in a disassembler to make
-Reluva work with the game:
-
-- the scene entry that creates the puzzles (`0x436d00`);
-- the three classes: the torn letter `0x43ec00`, the safe `0x434390` and
-  the puzzle box `0x433290`.
-
-The torn letter's solution was checked by compositing its pieces in place
-over `paperfull.jpg`.
-
-## The torn letter (`Athens.12-13_12.Puzzle`)
+### The torn letter (`Athens.12-13_12.Puzzle`)
 
 **The pieces.** There are 20, `paper01.png` to `paper20.png`.
 
@@ -60,7 +54,7 @@ snaps) and within 15 degrees. Then the game runs `fade in paperfull, tag
 solved_tornletter, talk gen_tornpaper 2`, and the pieces' tags are
 removed.
 
-## The safe (`Baggage_Safe.01`)
+### The safe (`Baggage_Safe.01`)
 
 **The dial.** Pressing the dial's left half turns it one number up
 (`action left`), and the right half one number down (`action right`).
@@ -91,7 +85,7 @@ hotspot then opens the safe (`tag safe_solved`).
 `safe_index` and `safe_dir`, which nothing writes. So the dial is at 0 on
 every visit.
 
-## The puzzle box (`Calais.14-15_14.puzzle`)
+### The puzzle box (`Calais.14-15_14.puzzle`)
 
 **Drawing.** The box's pictures have the condition `0`; the puzzle draws
 them itself at (89, 130), in this order:
@@ -171,3 +165,17 @@ two clicks on the right-hand arrow (`action right`) turn an upside-down
 piece a quarter anticlockwise each time, to upright. The game adds 90° to
 the D3DX roll for `left` and takes 90° off for `right`. Reluva draws +90°
 as clockwise, so `right` turns anticlockwise, as in the recording.
+
+## Sources and checks
+
+### How this was worked out
+
+This comes from `motoe.exe` (English 1.0), read in a disassembler to make
+Reluva work with the game:
+
+- the scene entry that creates the puzzles (`0x436d00`);
+- the three classes: the torn letter `0x43ec00`, the safe `0x434390` and
+  the puzzle box `0x433290`.
+
+The torn letter's solution was checked by compositing its pieces in place
+over `paperfull.jpg`.

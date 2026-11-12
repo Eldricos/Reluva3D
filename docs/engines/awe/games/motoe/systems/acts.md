@@ -1,25 +1,18 @@
 # Acts, scenes and the game's start
 
+> **Status:** done · **Code:** `src/engines/awe/story.cpp`, `script.cpp` · **Checked against:** the code (`motoe.exe`, English 1.0), `acts.txt` and the 394 scenes; fades against a recording
+
+## Overview
+
 The story of *Murder on the Orient Express* is in acts: `01A` to `09A`.
 Each act has a row in `Text/acts.txt` that says what loads and what runs
 when it starts. This page covers how an act starts, how scenes change,
 and the state that goes with them: timers, time of day, weather, and the
 train.
 
-## How this was worked out
+## How it works
 
-This comes from `motoe.exe` (English 1.0), read in a disassembler to make
-Reluva work with the game:
-
-- the game object's act and scene code, `0x422470..0x423d40`;
-- the runner's `act`, `scene`, `savescene`, `timer` and `time` verbs;
-- scene entry, `0x4362b0`, and the evaluator's `timer`, `beenhere` and
-  `lastscene` words.
-
-The results were then checked against `acts.txt` and the 394 scenes of
-the English install.
-
-## acts.txt
+### acts.txt
 
 The table is tab separated, with a header row. Its columns are:
 
@@ -40,7 +33,7 @@ The table is tab separated, with a header row. Its columns are:
 Cells may be quoted, with doubled quotes inside. A cell of `0` counts as
 empty.
 
-## `act <act>`
+### `act <act>`
 
 The `act` verb changes the act, unless its argument is shorter than two
 characters. A bare `act` starts the current act again.
@@ -82,7 +75,7 @@ conditions:
 The other acts are moved on by `act` commands in scene scripts, dialogue
 cells and Post Load cells.
 
-## The game's start
+### The game's start
 
 When the program starts, it queues three commands:
 `musica motoetheme`, `movie logos inscene` and `scene menu.main_01 1 0`.
@@ -103,9 +96,9 @@ which starts 01A. 01A then runs:
 
 Market_01's scene event then plays the opening.
 
-## Scenes
+### Scenes
 
-### `scene <name> [<walk point>] [<flag>]`
+#### `scene <name> [<walk point>] [<flag>]`
 
 The walk point defaults to 1, and so does the flag.
 
@@ -118,13 +111,13 @@ are added unless the base has the same one (the same tag, file and
 place; the player by its file alone). If the scene isn't in the current
 location, the location is loaded first, behind a fade.
 
-### Leaving a scene
+#### Leaving a scene
 
 - Where the characters stood is kept, because the scene itself is kept.
 - The act's time, weather and moving take effect.
 - The scene's path becomes `lastscene`.
 
-### Entering a scene
+#### Entering a scene
 
 1. The player and a following character are placed at their walk point
    with the scene's number, or failing that at their first walk point.
@@ -150,7 +143,7 @@ location, the location is loaded first, behind a fade.
    (`Salon_01_06a.ac2`) gets the act added to it. This happens after the
    events, so `!beenhere this` holds during the first visit's event.
 
-### `savescene` and `gotoscene`
+#### `savescene` and `gotoscene`
 
 `savescene this|<scene> [<wp>] [<flag>]` keeps `<file> <wp> <flag>` in
 the text tag `savedscene`. The walk point and flag default to -1 and 0.
@@ -158,7 +151,7 @@ Scripts use it before going to a closeup.
 
 `gotoscene` runs `scene` with those words, taking `.ac2` off the name.
 
-## Timers and conditions
+### Timers and conditions
 
 | Command or condition | Effect |
 |----------------------|--------|
@@ -201,7 +194,7 @@ The page then does the following:
   `act09a`, isn't a command (no space), but 08A has no conditions, so it
   never runs; 09A is a developers' test act (its "What to do" says so).
 
-## Playing the acts headless
+### Playing the acts headless
 
 `reluva-tool awe game-run <install> [act|slotN...]` plays without a window
 and without a player. Each act is started as `act <x>` starts it (its
@@ -242,7 +235,7 @@ goodbyes, had been skipped (its first heading is a name, and Reluva read
 the tables by their headings); and missing tags compared as missing
 rather than as -99.
 
-### A playthrough from a new game: `-solve` and `-play`
+#### A playthrough from a new game: `-solve` and `-play`
 
 The explorer above clicks at random, and gets stuck where the game wants
 a player who knows what to do: 01A's market, 04A's eavesdropping, 04D's
@@ -407,7 +400,7 @@ No walkthrough of the game was consulted: where the search stuck, the
 scenes' scripts and the dialogue tables said what was missing, and the
 tool was made to find it.
 
-### As a player plays it: `-mouse`, `-characters`, `-3d`
+#### As a player plays it: `-mouse`, `-characters`, `-3d`
 
 The search above clicks objects, not points on the screen, and loads no
 characters. Three options bring the player closer to one at a mouse:
@@ -488,3 +481,18 @@ A sample was also played in a real window (Xvfb, with clicks from
 xdotool), from the main menu through the opening, Klaus's cleavers and on
 to the market's third scene. It matched a recording of the game, once
 the characters stood where they had been kept.
+
+## Sources and checks
+
+### How this was worked out
+
+This comes from `motoe.exe` (English 1.0), read in a disassembler to make
+Reluva work with the game:
+
+- the game object's act and scene code, `0x422470..0x423d40`;
+- the runner's `act`, `scene`, `savescene`, `timer` and `time` verbs;
+- scene entry, `0x4362b0`, and the evaluator's `timer`, `beenhere` and
+  `lastscene` words.
+
+The results were then checked against `acts.txt` and the 394 scenes of
+the English install.

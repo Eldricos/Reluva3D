@@ -1,10 +1,16 @@
 # Text files and script commands
 
+> **Status:** decoded · **Code:** `src/engines/awe/tables.cpp` · **Checked on:** the English release: `acts.txt`, `itemlist.txt`, `combinelist.txt`, `fonts.txt`, `interface.txt`, `navigation.txt`, `uselist.txt` and an event file
+
+## Overview
+
 `Text/` holds the game's tables and dialogue. `Text/Dialogue/Events`
 holds one small file per dialogue event, and `Text/Movies` the
 cutscenes' subtitles.
 
-## Format
+## Layout
+
+### Format
 
 Worked out from the files themselves (`acts.txt`, `itemlist.txt`,
 `combinelist.txt`, `fonts.txt`, `interface.txt`, `navigation.txt`,
@@ -17,10 +23,7 @@ Worked out from the files themselves (`acts.txt`, `itemlist.txt`,
   but tabs are padding.
 - `0` in a cell means none.
 
-`reluva-tool awe table-show <file>` prints a table row by row, with each
-cell's commands split out.
-
-## The tables
+### The tables
 
 | File | Columns |
 |------|---------|
@@ -35,7 +38,7 @@ cell's commands split out.
 
 The "Translation" columns are all `0` in the English release.
 
-## Script commands
+### Script commands
 
 Script cells hold commands separated by commas. Event files hold one per
 line. Each command is a verb and its arguments, separated by spaces:
@@ -56,3 +59,13 @@ exterior.forest_14`).
 
 How the commands run, and every verb the game uses, is in
 [../systems/script.md](../systems/script.md).
+
+## In Reluva
+
+`reluva-tool awe table-show <file>` prints a table row by row, with each
+cell's commands split out.
+
+## Sources and checks
+
+Worked out from the files themselves: [Format](#format) lists the ones
+read.

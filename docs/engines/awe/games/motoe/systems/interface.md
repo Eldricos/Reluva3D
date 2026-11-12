@@ -1,5 +1,9 @@
 # The interface: the bar, the inventory, the scrapbook, the cards
 
+> **Code:** `src/engines/awe/scene_interface.cpp` · **Checked against:** the code (`motoe.exe`, English 1.0); Reluva's screens compared by eye with the pictures the game's code places
+
+## Overview
+
 What *Murder on the Orient Express* draws over its scenes besides the
 dialogue box: the bar along the top of the screen (the bag, the train's
 five cars, the hat), the inventory window with its six pages (the items,
@@ -7,54 +11,9 @@ examining one, combining, the scrapbook, the passports, the fingerprint
 cards), the item held as the cursor, and the passport or fingerprint card
 a script holds up (`startpass`, `startprint`).
 
-## How this was worked out
+## How it works
 
-All of it comes from `motoe.exe` (English 1.0), read in a disassembler to
-make Reluva work with the game. The objects and the addresses read:
-
-- **The screen** (`[0x498818]`, built at `0x414170`): its per-frame update
-  `0x414400`, its drawing `0x414e40`, the clicks `0x416000` (left),
-  `0x416450` (right), the keys `0x4164e0`, the fade `0x415850`/`0x4158e0`,
-  the cursor `0x415650`.
-- **The bar**: its pictures loaded at `0x4142fd` (`topmenubar01.png`,
-  `topmenubar02.png`), its slide `0x417120`, drawing `0x417290`, the
-  section under the mouse `0x4175c0` (bounds at `0x48d650`), which cars
-  can be travelled to `0x417630`/`0x4176a0`, where the player is
-  `0x417760`, a click `0x4177f0` (jump table `0x417b80`).
-- **The inventory window** (`[0x49881c]`, built at `0x4190d0`): opening
-  and closing `0x4194d0`, the update `0x419990`, drawing `0x419a90`,
-  clicks `0x419d30`. Its pages share a base class (vtable `0x482874`:
-  the tabs `0x41cc90`, the description bar `0x41cae0`, the slider's blip
-  `0x41cb50`). The pages, by their vtables: the items `0x482834`
-  (`0x41ac20`...), examining `0x4827d0` (`0x41a020`...), combining
-  `0x482794` (`0x418110`...), the scrapbook `0x482948` (`0x41e390`...),
-  the passports `0x4828c4` (`0x41cdc0`...), the fingerprint cards
-  `0x482904` (`0x41d660`...). Positions are the floats after each
-  vtable (`0x482808`.., `0x48286c`, `0x4828ac`.., `0x4828fc`, `0x48293c`..,
-  `0x482980`..).
-- **An item** (`0x420630`, `0x1628` bytes): read from `Text\itemlist.txt`
-  at `0x420a70`; given at `0x41bc10`; its pictures there.
-- **The cards** held up: `0x417ba0` (start), `0x417e10` (update),
-  `0x417ea0` (the steps, jump table `0x41802c`), `0x418090` (end), the
-  pictures' fade `0x40eda0`.
-- **Text**: the screen's text call `0x414720` (font, rectangle, colour,
-  text, alpha, flags: 1 centred, 2 right, 4 centred down, 8 at the foot,
-  `0x1000` struck through). A text no wider than the rectangle is drawn
-  as it is, on one row. A wider one is broken by the rule the dialogue
-  line uses ([dialogue.md](dialogue.md), +0x1110): at spaces, two kept
-  after a word ending in `.`, `!` or `?`, a word starting the next row
-  when the row, the word and a space (two after such a word) measured
-  apart come to more than the rectangle's width. `0x414c30` counts the
-  rows the same way for the height (rows × row height). One quirk: the
-  last row is drawn only if it has more than one character
-  (`0x414b34`: `cmp eax, 1; jbe`), though it is counted in the height.
-  Fonts and colours are `Text\fonts.txt`'s, by their place in the list
-  from 0.
-
-`reluva-tool awe page-shot` pictures of Reluva's screens are compared by eye
-with the pictures the game's code places.
-
-## When the interface is there
+### When the interface is there
 
 `interface off` sets `[0x4986f4]`; `interface on` clears it. The interface
 (`0x4143c0`) is there when the runner isn't in its `+0xe8` state, a scene
@@ -70,7 +29,7 @@ The player can act (`0x415fa0`) when the screen isn't fading, nothing is
 loading, the runner isn't busy while locked, there's no dialogue box, no
 message is up, and no scrapbook picture is shown full screen.
 
-## The bar
+### The bar
 
 Two pictures of the whole bar, 1024 wide: `topmenubar01.png` (dark) and
 `topmenubar02.png` (lit), at (0, 0). It's cut into seven sections at x
@@ -139,7 +98,7 @@ on the bar is a use on nothing, below):
 | Athens-Paris | the baggage, restaurant, salon or Calais car | `fade out, scene athens.hall_01 1 0, fade in` |
 | | elsewhere | `fade out, scene athens.hall_06 2 0, fade in` |
 
-## The inventory window
+### The inventory window
 
 **Opening and closing** (`0x4194d0`): the bag, I (when the interface is
 there and there's no dialogue box), or a right click when the player can
@@ -174,7 +133,7 @@ to the start), and `blip.png` on the line between, at x + 78 +
 i × 342 / (n − 1), y + 29, which can be dragged (`mouseover1.wav`) to the
 nearest page.
 
-### The items (`windowinventory.png`)
+#### The items (`windowinventory.png`)
 
 Sixteen boxes a page, 4×4, each 96×96, from (x + 38, y + 54), 112 apart.
 An item keeps its slot (0, 1, 2...: page = slot / 16, box = slot mod 16);
@@ -192,7 +151,7 @@ only one blinks at a time.
 - With an item in hand, a click on an empty box puts it there (its sound),
   and on another item swaps them (that one is in hand).
 
-### Examine (`windowexamine.png`)
+#### Examine (`windowexamine.png`)
 
 The item in hand, else the one examined last, else the first. Its
 close-up is its `inv` picture's path with `\inv` made `\exa`, or `\ex2`
@@ -208,7 +167,7 @@ slot order (those in the bag, just taken or in hand).
   `discovery.wav` plays and the event runs.
 - A click on the picture, nothing in hand, picks the item up.
 
-### Combine (`windowcombine.png`)
+#### Combine (`windowcombine.png`)
 
 Four boxes on the left, (x + 56, y + 56 + 112i), 95×95; the result's box
 (x + 360, y + 224)–(x + 454, y + 319); the gears, (x + 221, y + 240)–
@@ -238,7 +197,7 @@ right − 20, top + 2).
 - The text: the description of the item under the mouse, else the
   message.
 
-### The passports (`windowpassports.png`)
+#### The passports (`windowpassports.png`)
 
 Opening the page moves the passports from the bag to it (state 5). Twelve
 a page, 6×2, their `fol<item>.jpg` from (x + 45, y + 61), 72 across and
@@ -246,7 +205,7 @@ a page, 6×2, their `fol<item>.jpg` from (x + 45, y + 61), 72 across and
 picture centred in (x + 40, y + 216)–(x + 472, y + 489), with its Examine
 Description in the bar. 1 to 3 pages (over 12 and 24 passports).
 
-### The fingerprint cards (`windowfingerprints.png`)
+#### The fingerprint cards (`windowfingerprints.png`)
 
 Two rows of cards, each a carousel: the people's (on top) and the prints
 lifted from things (below: the cards whose Examine Description says
@@ -263,7 +222,7 @@ Description is the upper card's name, a tag `<upper>=<lower>`
 else `talk gen_fingerprint 7`. Once a lower card has its tag, its Examine
 Description ("Matteo's print matches...") is in the bar.
 
-### The scrapbook (`windowscrapbook.png`)
+#### The scrapbook (`windowscrapbook.png`)
 
 `Text\Scrapbook\*.txt`, read again on each change. Text is in font 4
 (journal text), colour 13 (journal), from (x + 50, y + 60), a row's
@@ -302,7 +261,7 @@ The arrows `scraparrowbackward.png` (x + 41, y + 520) and
 (`mouseover1.wav`); back from a section's first page is its list, or the
 contents.
 
-## The item in hand
+### The item in hand
 
 The cursor (`0x415650`) with an item in hand: if the object under it
 would take the item (`0x419e90`: a conditional script asking for it holds,
@@ -311,7 +270,7 @@ or `uselist.txt` has it for the character), the operate cursor; else
 A click uses it ([script.md](script.md#items-in-hand)); a click on nothing
 is `talk gen_cantuse 1`, the item staying in hand.
 
-## The cards held up
+### The cards held up
 
 `startpass <who>` and `startprint` (`0x417ba0`) show a card in the middle
 of the screen: for a passport, `inventory\items\pass<who>\exapass<who>.png`
@@ -354,3 +313,52 @@ panel in a game (I is the inventory's).
 `start:slot12` starts a game at a developers' save, `run:<script>` runs a
 script (`run:startpass michel`), `click:x,y` and `rclick:x,y` click.
 `reluva-tool awe game-run -explore` combines items too.
+
+## Sources and checks
+
+### How this was worked out
+
+All of it comes from `motoe.exe` (English 1.0), read in a disassembler to
+make Reluva work with the game. The objects and the addresses read:
+
+- **The screen** (`[0x498818]`, built at `0x414170`): its per-frame update
+  `0x414400`, its drawing `0x414e40`, the clicks `0x416000` (left),
+  `0x416450` (right), the keys `0x4164e0`, the fade `0x415850`/`0x4158e0`,
+  the cursor `0x415650`.
+- **The bar**: its pictures loaded at `0x4142fd` (`topmenubar01.png`,
+  `topmenubar02.png`), its slide `0x417120`, drawing `0x417290`, the
+  section under the mouse `0x4175c0` (bounds at `0x48d650`), which cars
+  can be travelled to `0x417630`/`0x4176a0`, where the player is
+  `0x417760`, a click `0x4177f0` (jump table `0x417b80`).
+- **The inventory window** (`[0x49881c]`, built at `0x4190d0`): opening
+  and closing `0x4194d0`, the update `0x419990`, drawing `0x419a90`,
+  clicks `0x419d30`. Its pages share a base class (vtable `0x482874`:
+  the tabs `0x41cc90`, the description bar `0x41cae0`, the slider's blip
+  `0x41cb50`). The pages, by their vtables: the items `0x482834`
+  (`0x41ac20`...), examining `0x4827d0` (`0x41a020`...), combining
+  `0x482794` (`0x418110`...), the scrapbook `0x482948` (`0x41e390`...),
+  the passports `0x4828c4` (`0x41cdc0`...), the fingerprint cards
+  `0x482904` (`0x41d660`...). Positions are the floats after each
+  vtable (`0x482808`.., `0x48286c`, `0x4828ac`.., `0x4828fc`, `0x48293c`..,
+  `0x482980`..).
+- **An item** (`0x420630`, `0x1628` bytes): read from `Text\itemlist.txt`
+  at `0x420a70`; given at `0x41bc10`; its pictures there.
+- **The cards** held up: `0x417ba0` (start), `0x417e10` (update),
+  `0x417ea0` (the steps, jump table `0x41802c`), `0x418090` (end), the
+  pictures' fade `0x40eda0`.
+- **Text**: the screen's text call `0x414720` (font, rectangle, colour,
+  text, alpha, flags: 1 centred, 2 right, 4 centred down, 8 at the foot,
+  `0x1000` struck through). A text no wider than the rectangle is drawn
+  as it is, on one row. A wider one is broken by the rule the dialogue
+  line uses ([dialogue.md](dialogue.md), +0x1110): at spaces, two kept
+  after a word ending in `.`, `!` or `?`, a word starting the next row
+  when the row, the word and a space (two after such a word) measured
+  apart come to more than the rectangle's width. `0x414c30` counts the
+  rows the same way for the height (rows × row height). One quirk: the
+  last row is drawn only if it has more than one character
+  (`0x414b34`: `cmp eax, 1; jbe`), though it is counted in the height.
+  Fonts and colours are `Text\fonts.txt`'s, by their place in the list
+  from 0.
+
+`reluva-tool awe page-shot` pictures of Reluva's screens are compared by eye
+with the pictures the game's code places.

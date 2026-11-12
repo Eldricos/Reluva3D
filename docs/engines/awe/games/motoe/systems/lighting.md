@@ -1,40 +1,17 @@
 # Character lighting
 
+> **Status:** partial · **Code:** `src/engines/awe/lighting.cpp` · **Checked against:** the code (`motoe.exe`, English 1.0) and the install's 426 `LITE` records; the specular against a recording
+
+## Overview
+
 *Murder on the Orient Express* lights its 3D characters with Direct3D 8's
 fixed-function lighting, per vertex. The scene's `LITE` records are the
 lights, the camera record holds the ambient colour, and each character
 has its own material. The backgrounds are prerendered and aren't lit.
 
-## How this was worked out
+## How it works
 
-This comes from `motoe.exe` (English 1.0), read in a disassembler to make
-Reluva work with the game. The Direct3D 8 device calls were found by
-their vtable offsets (`SetMaterial` +0xa8, `SetLight` +0xb0,
-`LightEnable` +0xb8, `SetRenderState` +0xc8). The code read:
-
-- the `LITE` class: its constructor (`0x420cb0`), destructor
-  (`0x420dc0`), reader (`0x421ab0`), scene entry and exit method
-  (`0x420ee0`, vtable +0x48, which calls `SetLight` and `LightEnable`),
-  the re-apply after a change of time (`0x420fe0`), the switches
-  (`0x420e50`, `0x420e80`), the night check it uses (`0x420eb0`), the
-  flicker (`0x421400`) and the light-index picker (`0x436460`);
-- the scene's loops over its objects: on entering (`0x4362b0`), on
-  leaving (`0x436410`), re-testing conditions (`0x436280`, from the
-  `update` command at `0x40b4be`) and re-applying the lights
-  (`0x4364b0`); and the objects' common condition test (`0x40e900`);
-- the model draw's setup (`0x427160`): `SetMaterial`, `D3DRS_AMBIENT`,
-  `D3DRS_LIGHTING`, `D3DRS_SPECULARENABLE`, `D3DRS_NORMALIZENORMALS`;
-- the night test (`0x4027b0`) and the two night colours' initialisers
-  (`0x4010a0`, `0x401100`);
-- the scene reader's `OUTD` and `NVNT` (`0x435c44`), the camera's
-  constructor (`0x406960`) and the common fields' reader (`0x40fa20`);
-- the models' vertex format (`0x42675a`: position, normal, one texture
-  coordinate; no vertex colour, so the material's colours count).
-
-The colours, cone angles and attenuation values were then counted over
-the 426 `LITE` records of the English install.
-
-## The lights
+### The lights
 
 Each `LITE` becomes one Direct3D light, at the lowest index no other
 light in the scene uses. On entering a scene, every light is set
@@ -62,7 +39,7 @@ directional light (the main one, often warm, diffuse up to about 0.86)
 and one dim point light; 170 of the 394 scenes have none, and their
 characters get only the ambient light.
 
-## The material and the render states
+### The material and the render states
 
 For each character, the draw sets (`0x427160`):
 
@@ -78,7 +55,7 @@ For each character, the draw sets (`0x427160`):
 
 The texture is modulated by the lit colour (the default texture stage).
 
-## The ambient light
+### The ambient light
 
 `D3DRS_AMBIENT` is a byte colour: each channel times 255, truncated.
 
@@ -88,7 +65,7 @@ The texture is modulated by the lit colour (the default texture stage).
 - At night, outdoors (`OUTD`): (0.2734375, 0.3515625, 0.546875), a blue.
 - At night, otherwise: (0.234375, 0.2734375, 0.4296875).
 
-## Night
+### Night
 
 The scene is lit for the night (`0x4027b0`) unless it's marked `NVNT`,
 when the time of day is 2, or when it's 1 and the scene is marked `OUTD`
@@ -101,7 +78,7 @@ the characters are a dark blue. The exception is a scene showing a
 picture named `spotlight.tga`: its lights stay on, and indoors the
 ambient is white. No scene of the install has one.
 
-## The colour of a vertex
+### The colour of a vertex
 
 Direct3D's formula, with the material M, the ambient A and, for each
 light on, its diffuse D, ambient La and direction L from the vertex
@@ -141,3 +118,34 @@ moment of the recording (Walkthrough Part 10, 16:12): it adds up to
 nearer the recording's colours; nothing else in the frame changes. Not
 done: the flicker, and the `light` command (neither is
 used by the install).
+
+## Sources and checks
+
+### How this was worked out
+
+This comes from `motoe.exe` (English 1.0), read in a disassembler to make
+Reluva work with the game. The Direct3D 8 device calls were found by
+their vtable offsets (`SetMaterial` +0xa8, `SetLight` +0xb0,
+`LightEnable` +0xb8, `SetRenderState` +0xc8). The code read:
+
+- the `LITE` class: its constructor (`0x420cb0`), destructor
+  (`0x420dc0`), reader (`0x421ab0`), scene entry and exit method
+  (`0x420ee0`, vtable +0x48, which calls `SetLight` and `LightEnable`),
+  the re-apply after a change of time (`0x420fe0`), the switches
+  (`0x420e50`, `0x420e80`), the night check it uses (`0x420eb0`), the
+  flicker (`0x421400`) and the light-index picker (`0x436460`);
+- the scene's loops over its objects: on entering (`0x4362b0`), on
+  leaving (`0x436410`), re-testing conditions (`0x436280`, from the
+  `update` command at `0x40b4be`) and re-applying the lights
+  (`0x4364b0`); and the objects' common condition test (`0x40e900`);
+- the model draw's setup (`0x427160`): `SetMaterial`, `D3DRS_AMBIENT`,
+  `D3DRS_LIGHTING`, `D3DRS_SPECULARENABLE`, `D3DRS_NORMALIZENORMALS`;
+- the night test (`0x4027b0`) and the two night colours' initialisers
+  (`0x4010a0`, `0x401100`);
+- the scene reader's `OUTD` and `NVNT` (`0x435c44`), the camera's
+  constructor (`0x406960`) and the common fields' reader (`0x40fa20`);
+- the models' vertex format (`0x42675a`: position, normal, one texture
+  coordinate; no vertex colour, so the material's colours count).
+
+The colours, cone angles and attenuation values were then counted over
+the 426 `LITE` records of the English install.

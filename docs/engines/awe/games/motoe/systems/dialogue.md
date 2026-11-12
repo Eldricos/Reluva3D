@@ -1,18 +1,15 @@
 # Dialogue
 
+> **Code:** `src/engines/awe/dialogue.cpp`, `dialogue_box.cpp` · **Checked against:** the code (`motoe.exe`) and the dialogue tables
+
+## Overview
+
 Conversations are tables in `Text/Dialogue` (a table per act, and three
 generic ones), played by the game's dialogue manager. A `talk` command
 ([script.md](script.md)) starts one, and its `talk` event lasts until
 it's over.
 
-## How this was worked out
-
-From `motoe.exe`'s dialogue manager (`0x438f00`..`0x43e000`: the table
-loader, `talk`'s start at `0x43a630`, the choices, the line player), read
-in a disassembler, and checked against the tables: `dia_observation`
-(act 2), `dia_masterman` (act 6B), the generic tables, `dia_barnabyham`
-(act 7A) and the solutions (act 8). Of the 2,858 lines, 2,725 have their
-recording under the name below, and 525 an event file.
+## How it works
 
 In what follows, "DM" is the dialogue manager object
 (`[[0x498818]+0x14c]`, `this` in its functions), and **sure**, **likely**
@@ -20,7 +17,7 @@ and **guess** say how much of each point was read rather than inferred.
 `0x43e750` is a case-insensitive "contains" test (an empty needle always
 matches), `0x407ae0` evaluates a condition.
 
-## The tables
+### The tables
 
 `Name, Act, Conver., Thread, Nest, Speaker, Target, Line, Line
 Translation, Condition, Repeat, Prevent, Event, Povent, Duration,
@@ -28,7 +25,7 @@ Optional, Notes`. The game loads `gen_antoinette.txt`, `gen_comments.txt`
 and `gen_characters.txt`, and an act's `act<NN><x>.txt` when the act
 starts (`0x4224fb`).
 
-## 0. Overview of the flow
+### 0. Overview of the flow
 
 1. A table is loaded into a tree: **conversation part** (Name + Conver.) →
    **threads** (Thread column) → **lines** (Nest column). Several parts share a
@@ -57,9 +54,9 @@ starts (`0x4224fb`).
 
 ---
 
-## 1. Data structures
+### 1. Data structures
 
-### 1.1 Loader 0x438f00(path) (sure)
+#### 1.1 Loader 0x438f00(path) (sure)
 
 * Skips the file if it is already in DM+0x610 (a list of loaded paths,
   count DM+0x614), else adds the path.
@@ -85,7 +82,7 @@ starts (`0x4224fb`).
   appended to DM+0x8 (count DM+0xc) in file order. Threads and lines keep file
   order.
 
-### 1.2 Part node, 0x90 bytes (sure)
+#### 1.2 Part node, 0x90 bytes (sure)
 
 | off | content |
 |---|---|
@@ -97,7 +94,7 @@ starts (`0x4224fb`).
 Lookup `0x439c20(name, code)`: the first part with `wcsicmp(Name)==0` and the
 same code.
 
-### 1.3 Thread node, 0x1c bytes (sure for the fields, likely for the names)
+#### 1.3 Thread node, 0x1c bytes (sure for the fields, likely for the names)
 
 | off | content |
 |---|---|
@@ -109,7 +106,7 @@ same code.
 
 Lookup `0x439c70(part, code)`: the first thread with that code.
 
-### 1.4 Line record, 0x1324 bytes (sure)
+#### 1.4 Line record, 0x1324 bytes (sure)
 
 | off | column / meaning |
 |---|---|
@@ -132,7 +129,7 @@ Lookup `0x439c70(part, code)`: the first thread with that code.
 | +0x111e | voice base name: `Name + Act + Conver + Thread + Nest`, the column texts as written (e.g. `dia_observation02aa1a`) |
 | +0x1320 | picture: if Notes contains `.jpg`/`.png`/`.tga`, the picture loaded by 0x439ad0 (cached in DM+0x604), else 0 |
 
-### 1.5 Dialogue manager fields used here (sure unless marked)
+#### 1.5 Dialogue manager fields used here (sure unless marked)
 
 | off | meaning |
 |---|---|
@@ -179,9 +176,9 @@ Lookup `0x439c70(part, code)`: the first thread with that code.
 
 ---
 
-## 2. Starting: `talk` and 0x43a630
+### 2. Starting: `talk` and 0x43a630
 
-### 2.1 The `talk` verb, 0x40ba25 (sure)
+#### 2.1 The `talk` verb, 0x40ba25 (sure)
 
 `talk <name> <code> <opt3> <opt4>`:
 
@@ -212,7 +209,7 @@ and an empty needle always matches, this is in practice always
 `gen_canttalkf` (a quirk). Note that +0x624 is only recomputed when the
 requested part exists, so it may be left over from the previous conversation.
 
-### 2.2 DM::Start(name, part, thread, nest, gen, number, plus, greet), 0x43a630 (sure)
+#### 2.2 DM::Start(name, part, thread, nest, gen, number, plus, greet), 0x43a630 (sure)
 
 1. `c = find(name, part)`; none → return 0. DM+0x10 = c.
 2. Not in a dry run: closes or resets the inventory UI (`0x4194d0`, and for
@@ -280,7 +277,7 @@ you?", "Hello, I am afraid I am back again", "Something has occurred to
 me since I left you", "I'd like to talk to you again, if you don't mind"
 (an earlier one).
 
-### 2.3 Special cases (sure)
+#### 2.3 Special cases (sure)
 
 * `gen_` / `com_` in the name: the inventory is not fully reset (step 2).
   Otherwise these conversations are ordinary numbered parts (a single thread
@@ -296,7 +293,7 @@ me since I left you", "I'd like to talk to you again, if you don't mind"
   lines, no click skip and no progress saved. When the `movie` event ends, the
   runner calls 0x43b970 (dialogue reset).
 
-### 2.4 The exit thread, 0x43af20 (sure)
+#### 2.4 The exit thread, 0x43af20 (sure)
 
 name = `+0x624 + "exit"` (e.g. `gen_arbuthnot_exit`), r = `rand()%4`; if
 `word[0x4986f8] > 0` and r == 3, r = 4 (`word[0x4986f8]` is the time of day,
@@ -306,7 +303,7 @@ with that name, in load order, and copy all its lines into the new thread
 (DM+0x6e8 = r). If none is found, fall back to `gen_exit` with the same r.
 Thread `3` is always "available" and always listed last.
 
-### 2.5 The regreet thread, 0x43b180 (sure)
+#### 2.5 The regreet thread, 0x43b180 (sure)
 
 name = `"gen_regreet%d"` (visit tag value), r = `rand()%4`; copy the r-th
 thread `2` of the parts named so. Data: `gen_regreet1` and `gen_regreet2`
@@ -314,9 +311,9 @@ each have parts 0..3 with thread `2`.
 
 ---
 
-## 3. How a conversation plays
+### 3. How a conversation plays
 
-### 3.1 Line choice: pickLine(thread, nest, fwd), 0x439ca0 (sure)
+#### 3.1 Line choice: pickLine(thread, nest, fwd), 0x439ca0 (sure)
 
 * Collect the lines of the thread with this Nest code whose Condition holds
   (`0x407ae0`, an empty Condition holds).
@@ -332,7 +329,7 @@ each have parts 0..3 with thread `2`.
 * Debug only: in a dry run with the debug flag `[0x498818]+0x88`, a line whose
   condition fails logs `REQUIRED LINE NOT DELIVERED: <text>`.
 
-### 3.2 Which threads play automatically (sure)
+#### 3.2 Which threads play automatically (sure)
 
 * Thread `1` (0x60): the opening, played before the menu when the part is
   started without a thread and with greet. Once finished (status 1, no current
@@ -347,7 +344,7 @@ each have parts 0..3 with thread `2`.
 * A part with one thread (and no extras), or a talk naming a thread, plays that
   thread directly with no menu.
 
-### 3.3 Availability of a thread, 0x43b870 (sure)
+#### 3.3 Availability of a thread, 0x43b870 (sure)
 
 * Code `3` → always available.
 * status == 1: available only if t.current ≠ 0 **and** DM+0x52c ≠ 0 **and**
@@ -358,7 +355,7 @@ each have parts 0..3 with thread `2`.
 So a finished thread comes back only if its last line had a Repeat letter (4.5)
 and only while +0x52c is set.
 
-### 3.4 The menu, 0x43b560(first, keepBox) (sure)
+#### 3.4 The menu, 0x43b560(first, keepBox) (sure)
 
 * DM+0x52c = first. Count the threads other than `1`/`2` that are available;
   give each a current line (`pickLine(t, a, fwd=0)` if it has none; none →
@@ -430,7 +427,7 @@ Choosing (0x43ba50): +0x24=0, DM+0x14 = the thread, DM+0x18 = its current
 line, play it. The choice text is therefore also the first spoken line
 (Antoinette's question).
 
-### 3.5 After a thread ends (sure; see 4.5 for the line-end code)
+#### 3.5 After a thread ends (sure; see 4.5 for the line-end code)
 
 * Thread `3` → the conversation ends.
 * Povent contained `terminate` → the conversation ends.
@@ -440,7 +437,7 @@ line, play it. The choice text is therefore also the first spoken line
 * If the Povent runner is still busy → +0x320=3 (menu once it is idle).
 * Else the menu: `first = 1` if the thread was `1` or `2`, else 0.
 
-### 3.6 The trailing `+` (sure)
+#### 3.6 The trailing `+` (sure)
 
 `plus` (+0x530) makes the conversation continue with part+1 instead of ending:
 
@@ -455,7 +452,7 @@ Poirot's opening `1`, then the menu a/b/c. When two are done, the third plays
 by itself. Then parts b, c, d, e, f follow, each with its own `1` opening.
 After f, Start(g) fails and the conversation ends.
 
-### 3.7 Numbered parts vs lettered parts (sure)
+#### 3.7 Numbered parts vs lettered parts (sure)
 
 * Lettered parts (code < 99) save thread progress (4.6). Numbered parts
   (`0`=99, `1`=100...) do not: in-memory status is reset by every Start, so
@@ -465,9 +462,9 @@ After f, Start(g) fails and the conversation ends.
 
 ---
 
-## 4. Playing a line
+### 4. Playing a line
 
-### 4.1 Line start, 0x43c070 (sure)
+#### 4.1 Line start, 0x43c070 (sure)
 
 1. Colour (0x43ba80): Antoinette (Speaker contains `antoinette`) → colour 8.
    Another speaker → 9, toggling to 10 whenever the speaker differs from the
@@ -478,7 +475,7 @@ After f, Start(g) fails and the conversation ends.
    running and none queued). Otherwise speak now.
 3. Speak = 0x43bd30 (4.2), then 0x43c100 (4.3). +0x554 is incremented.
 
-### 4.2 Speaking, 0x43bd30 (sure, the character calls are likely)
+#### 4.2 Speaking, 0x43bd30 (sure, the character calls are likely)
 
 Skipped in a dry run. Speaker character = `0x43bb60`: the scene object named
 like Speaker (`0x4367b0(name,1)`); for `poirot` also `poirotbed`; then the same
@@ -512,7 +509,7 @@ no animation; the line still plays.
   (`0x425140`) ≠ -1 and changed → `0x4046c0` (mouth on) if > 0, else
   `0x4046f0` (mouth off). See [characters.md](characters.md#talking).
 
-### 4.3 Event and the event file, 0x43c100 (sure)
+#### 4.3 Event and the event file, 0x43c100 (sure)
 
 Reset the Event runner. If the **Event** column is not empty, queue it there.
 Otherwise the file
@@ -536,7 +533,7 @@ Generated threads (exit, regreet, extras) keep their own voice names (from
 their source rows) but look up event files under the current part's name.
 This is a quirk; such files do not exist.
 
-### 4.4 When a line ends (sure)
+#### 4.4 When a line ends (sure)
 
 The update (0x43d430, called from 0x416d8f) ends the line (0x43c310) when:
 
@@ -549,7 +546,7 @@ The update (0x43d430, called from 0x416d8f) ends the line (0x43c310) when:
 Nothing ends the line while the box is sliding, while the Prevent runner is
 busy, or while a Povent or pause is pending.
 
-### 4.5 Line end, 0x43c310 → 0x43c375 (sure)
+#### 4.5 Line end, 0x43c310 → 0x43c375 (sure)
 
 1. Stop the voice, fast-forward the Event runner, stop the talking anim
    (`0x404760`).
@@ -588,7 +585,7 @@ busy, or while a Povent or pause is pending.
      (0x43b8f0(keepBox)). Else advance → mark the part finished (0x43b810).
      Then, if the Povent runner is busy, +0x320=3; else the menu (3.5).
 
-### 4.6 Meaning of the Povent markers (sure for the code; the runner treats all of them as no-ops)
+#### 4.6 Meaning of the Povent markers (sure for the code; the runner treats all of them as no-ops)
 
 The runner's handlers for `juncture`, `terminate`, `advance`, `leavebox`,
 `nobox` and `mainloop` just end the event (0x40a39b, 0x40b28b, 0x409fa4,
@@ -616,7 +613,7 @@ in gen_characters have no effect.
 
 ---
 
-## 5. Ending, and telling the runner
+### 5. Ending, and telling the runner
 
 `0x43b8f0(keepBox)`:
 
@@ -642,7 +639,7 @@ ends. Exits exist only with gen (NPC clicks or `forcegen`).
 
 ---
 
-## 6. The dialogue box UI
+### 6. The dialogue box UI
 
 * Windows: 0x414190 loads `interface\dialoguewin%02d.png` for 01..05 into
   `[0x498818]+0xb8..+0xc8`, at x=0, y=768. Sizes: 01 = 1024x160 (the normal
@@ -697,7 +694,7 @@ ends. Exits exist only with gen (NPC clicks or `forcegen`).
 
 ---
 
-## 7. Lines heard: bookkeeping and "REQUIRED LINE NOT DELIVERED"
+### 7. Lines heard: bookkeeping and "REQUIRED LINE NOT DELIVERED"
 
 * Not tags: a separate list in the story state, `[0x498810]+0x2b8` (count
   +0x2bc), with records of 0x90 bytes: Name wchar[32], Act wchar[32] (+0x40),
@@ -736,7 +733,7 @@ ends. Exits exist only with gen (NPC clicks or `forcegen`).
 
 ---
 
-## 8. Check against the tables
+### 8. Check against the tables
 
 * **dia_observation (Act02a)**, started by `talk dia_observation a+`
   (acts.txt): parts a..f, each with an opening `1` by Poirot and lettered
@@ -767,7 +764,44 @@ ends. Exits exist only with gen (NPC clicks or `forcegen`).
 
 ---
 
-## 9. Open questions
+## In Reluva
+
+`src/engines/awe/dialogue.cpp` follows this: `DialogueBook` reads the
+tables into parts, threads and lines with the game's codes; the
+`DialogueManager` plays them with three script runners of its own
+(Prevent, Event, Povent), keeps progress in the `GameState` for the
+`talk` condition, builds the exit and "again" threads and the generic
+extras for characters clicked, and slides the box in and out. The
+Scenes page is its host: it plays the voices (`Sound/VO`), draws the box
+(`src/engines/awe/dialogue_box.cpp`) with act 8's picture choices,
+and passes on clicks, the wheel and the middle button. The speakers'
+heads and mouths move, the Captions option hides the said lines, and a
+talk's start closes the inventory and lets go of the item in hand
+(`talkStarting`). Movie subtitles are drawn as the movie mode draws them
+(timed by the movie's clock rather than run through the manager, which
+comes to the same: no voice, no pause, no clicks), and starting them
+counts as a talk start.
+
+Found by the playthrough search (acts.md): Reluva had counted every
+available extra and thread at a part's start and in the menu, also those
+with no line to offer (step 8). A character's fingerprint offer, whose
+first line wants the ribbon and the menu cards, so kept a part that had
+been heard going, and `talk dia_hubbard a+` never went on to part b.
+
+## Sources and checks
+
+### How this was worked out
+
+From `motoe.exe`'s dialogue manager (`0x438f00`..`0x43e000`: the table
+loader, `talk`'s start at `0x43a630`, the choices, the line player), read
+in a disassembler, and checked against the tables: `dia_observation`
+(act 2), `dia_masterman` (act 6B), the generic tables, `dia_barnabyham`
+(act 7A) and the solutions (act 8). Of the 2,858 lines, 2,725 have their
+recording under the name above, and 525 an event file.
+
+## Open questions
+
+Section 9 in this page's numbering.
 
 1. ~~`0x4194d0`, `0x419e80`, `0x419970` (inventory changes at Start)~~:
    0x4194d0 closes the inventory window (when it's open, +0x20, and the
@@ -861,28 +895,3 @@ ends. Exits exist only with gen (NPC clicks or `forcegen`).
     flag, and was updated only while a conversation was active (so a
     `talk` ended with its Povent runner still busy would never have
     been told done). It now follows the order above.
-
-
-## In Reluva
-
-`src/engines/awe/dialogue.cpp` follows this: `DialogueBook` reads the
-tables into parts, threads and lines with the game's codes; the
-`DialogueManager` plays them with three script runners of its own
-(Prevent, Event, Povent), keeps progress in the `GameState` for the
-`talk` condition, builds the exit and "again" threads and the generic
-extras for characters clicked, and slides the box in and out. The
-Scenes page is its host: it plays the voices (`Sound/VO`), draws the box
-(`src/engines/awe/dialogue_box.cpp`) with act 8's picture choices,
-and passes on clicks, the wheel and the middle button. The speakers'
-heads and mouths move, the Captions option hides the said lines, and a
-talk's start closes the inventory and lets go of the item in hand
-(`talkStarting`). Movie subtitles are drawn as the movie mode draws them
-(timed by the movie's clock rather than run through the manager, which
-comes to the same: no voice, no pause, no clicks), and starting them
-counts as a talk start.
-
-Found by the playthrough search (acts.md): Reluva had counted every
-available extra and thread at a part's start and in the menu, also those
-with no line to offer (step 8). A character's fingerprint offer, whose
-first line wants the ribbon and the menu cards, so kept a part that had
-been heard going, and `talk dia_hubbard a+` never went on to part b.

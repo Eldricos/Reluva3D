@@ -1,5 +1,9 @@
 # Granny 2 files (.gr2)
 
+> **Status:** decoded · **Code:** `src/engines/awe/gr2.cpp`, `oodle1.cpp`, `curves.cpp`, `bink_texture.cpp` · **Checked on:** Murder on the Orient Express's 1,803 files, against its `granny2.dll`
+
+## Overview
+
 RAD Game Tools' Granny 2 format: 1,803 files under `Models/<who>/`. Each
 character folder has a model (`poirot_model.GR2`; some also have a
 more detailed `_model_1024`, which the game never loads: nothing in
@@ -8,48 +12,9 @@ plus sounds tied to animations (`poirot_walk.wav`). They were exported
 from 3D Studio MAX 8 by the "Granny Standard Exporter, SDK version
 2.5.0.10" (the files say so).
 
-## How this was worked out
+## Layout
 
-- The container's layout is described publicly (the opengr2 wiki and the
-  RagnarokFileFormats notes). It was checked against `poirot_model.GR2`
-  and `poirot_walk.GR2`: each section's offsets and sizes, and each fixup
-  table ending where the next block starts.
-- Sections are compressed (Oodle1), the textures inside are
-  Bink-compressed, and some animations have compressed curves. None of
-  them is documented. All three were worked out from the disassembly of
-  the game's `granny2.dll` and are decoded natively: see "Oodle1",
-  "Bink textures" and "Compressed curves" below. The DLL itself, run in
-  Reluva's x86 interpreter (`src/engines/awe/granny_dll.cpp`), is only
-  kept to check them against. These are the exports called, with the
-  arguments Granny's public SDK header gives:
-  - `GrannyDecompressData(Format, FileIsByteReversed, CompressedSize,
-    Compressed, Stop0, Stop1, DecompressedSize, Decompressed)`, by
-    `reluva-tool awe files-check -oodle`;
-  - `GrannyBinkDecompressTexture(Width, Height, Flags, CompressedSize,
-    Compressed, DestLayout, DestStride, Dest)`, by `awe files-check -gr2
-    -textures`. The flags were taken from the DLL's own call to it in
-    `GrannyCopyTextureImage`: the texture's `SubFormat`, plus 1 if its
-    layout has alpha. Its start-up asks for the Windows directory, which
-    Reluva provides;
-  - `GrannyCurveExtractKnotValues`, on files the DLL loads itself, by
-    `awe files-check -gr2`;
-  - `GrannyEvaluateCurveAtT(Dimension, Normalize, BackwardsLoop, Curve,
-    ForwardsLoop, CurveDuration, t, Result, IdentityVector)`, by
-    `awe files-check -gr2 -curves`. The order of its arguments was checked in
-    its code (0x50050740 passes them on to 0x50017cd0); see "Evaluating
-    curves" below.
-
-  A file the DLL loads is converted to its own structures, which differ
-  from older files' (the plain curves' tracks are laid out differently).
-  So the checks find the curves in its memory by the DLL's exported types
-  (`GrannyFileInfoType`, `GrannyAnimationType`, `GrannyTrackGroupType`,
-  `GrannyTransformTrackType`: pointers to member definitions laid out as
-  in the files).
-- The results were checked by eye. Poirot was rendered with his three
-  textures, posed by the walk animation at 0.3 s
-  (`reluva-tool awe model-dump ... -anim ... -obj`).
-
-## Container
+### Container
 
 All little-endian, with 32-bit pointers:
 
@@ -82,11 +47,11 @@ points at. Reluva lays the sections out one after another in one block,
 from address 16 so that 0 stays null. It writes each fixed-up pointer as
 an address in that block.
 
-## Oodle1
+### Oodle1
 
 Reluva's decoder is `src/engines/awe/oodle1.cpp`.
 
-### How it was worked out
+#### How it was worked out
 
 From the disassembly of the game's `granny2.dll` (image base
 0x50000000), following `GrannyDecompressData` down:
@@ -115,7 +80,7 @@ From the disassembly of the game's `granny2.dll` (image base
 section of every file both natively and with the DLL (in the
 interpreter) and compares them byte for byte; see "Verification" below.
 
-### The stream
+#### The stream
 
 A section's compressed data starts with three part headers of three
 little-endian words each (36 bytes). The output is in three parts: up to
@@ -129,7 +94,7 @@ give 0.
 (The DLL can also byte-swap the header words of a byte-reversed file.
 The game's files aren't.)
 
-### The range decoder
+#### The range decoder
 
 State: `code`, `range`, and one held-back bit. It starts with the first
 byte `b`: `code = b >> 1`, the held bit `b & 1`, `range = 0x80`.
@@ -153,7 +118,7 @@ Three kinds of read, all with a step `s`, a count `n` and a value `q`:
   `code -= s * low`, and `range = s * f`, or `range -= s * low` if the
   symbol is the last (`low + f` reaches 0x4000).
 
-### The models
+#### The models
 
 Each model has a capacity (how many distinct symbols it holds) and a
 size hint, both from the part header. It keeps, as 16-bit numbers:
@@ -204,7 +169,7 @@ is noted (the first one, on a tie). After the loop, if there was one, and
 `seen`. Last, if `seen` is below the capacity and the escape's count is
 0, the escape's count becomes 1 and `total` goes up by 1.
 
-### A part's header and models
+#### A part's header and models
 
 Header words `h0`, `h1`, `h2`:
 
@@ -230,7 +195,7 @@ The models (capacity, hint):
 - `midCount` models for its middle 8 bits (high), chosen by mid:
   (`highCount`, `highCount - 1`).
 
-### Literals and matches
+#### Literals and matches
 
 Each step first decodes a length from the length model of the previous
 length; a new one is read as a value in [0, 65).
@@ -246,7 +211,7 @@ length; a new one is read as a value in [0, 65).
   copies from `(mid * 256 + high) * 4 + low + 1` bytes back, a byte at a
   time (it may overlap what it writes).
 
-### Verification
+#### Verification
 
 `reluva-tool awe files-check <game> -oodle` on the full install: 1,803 files,
 4,034 compressed sections (181 MB decompressed), all identical to the
@@ -257,7 +222,7 @@ The unit test encodes a short stream by hand (`tests/engines/awe/unit/formats.cp
 model's first two symbols need no table, so a few plain values and bits
 make literals and matches.
 
-## The data describes itself
+### The data describes itself
 
 The root object comes with a type: a list of members, each 32 bytes
 (type, name pointer, referenced type pointer, array width, three extra
@@ -273,7 +238,7 @@ The root is Granny's file info: `ArtToolInfo`, `ExporterInfo`,
 `Meshes`, `Models`, `TrackGroups`, `Animations`. `reluva-tool awe gr2-info -t`
 prints the whole tree.
 
-## What the game's files hold
+### What the game's files hold
 
 - **Units:** `UnitsPerMeter` 100; Z up, as in MAX. Poirot is about 400
   units tall.
@@ -307,7 +272,7 @@ prints the whole tree.
   scale/shear). A few animations have compressed curves instead (below).
   They are B-splines with one knot per control: see "Evaluating curves".
 
-## Compressed curves
+### Compressed curves
 
 Most animations have the plain curves above. 36 of the 1,701 have
 Granny's compressed curve formats instead: each curve holds a
@@ -374,7 +339,7 @@ scale, the components' scales, each knot and control. The sum of squares
 uses the unrounded components. Fused multiply-adds would round once where
 the DLL rounds twice, so `curves.cpp` is built without them.
 
-### How this was worked out
+#### How this was worked out
 
 - The member names and types come from the files' own type definitions
   (`reluva-tool awe gr2-info -t`).
@@ -400,13 +365,13 @@ the DLL rounds twice, so `curves.cpp` is built without them.
 - The expanded curves go to the same B-spline evaluation as the plain
   ones. `vendor01_walk` and `poirot_suprised` render posed as they should.
 
-## Evaluating curves
+### Evaluating curves
 
 Each curve, plain or expanded, is a B-spline with one knot per control.
 Reluva evaluates it as granny2.dll does (`Curve::evaluate`,
 `src/engines/awe/model.cpp`), and checks that against the DLL.
 
-### How this was worked out
+#### How this was worked out
 
 From the disassembly of `granny2.dll`, starting at the export
 `GrannyEvaluateCurveAtT` (0x50050740), and at the sampling of a control's
@@ -422,7 +387,7 @@ tracks:
 | 0x50044410 | a control's orientation track: the window, quaternions on one side, the sample, normalised |
 | 0x5001bbe0 | a control's loop state (`GrannyGetControlLoopState`) |
 
-### The B-spline
+#### The B-spline
 
 With knots t_0 … t_(n-1), controls P_0 … P_(n-1) and degree p (the
 files use 0, 1 and 2):
@@ -437,7 +402,7 @@ files use 0, 1 and 2):
 Each knot ends its control's interval. An animation's clock stays within
 [0, its duration], and the knots run from 0 to it.
 
-### Past the ends
+#### Past the ends
 
 Near either end, the window reaches past the curve. Granny fills in the
 missing knots and controls, in one of two ways:
@@ -472,7 +437,7 @@ Orientations are then normalised. A control's track does it exactly
 `GrannyEvaluateCurveAtT`'s own normalising is only close (a result
 seen was 3·10⁻⁵ short of unit length); its direction is the same.
 
-### In Reluva
+#### In Reluva
 
 `Curve::evaluate` takes the loop state (`CurveLoop`), and the Animator
 gives each slot's (`Animator::Slot::loop`). It computes the B-spline in
@@ -502,7 +467,7 @@ four values. On `poirot_walk`, looping, it was off by up to 239 units
 (the root, near the end) and 0.003 in an orientation. Scale/shear curves
 with more than one knot would have lost five of their nine values.
 
-### Verification
+#### Verification
 
 `reluva-tool awe files-check <game> -gr2 -curves` evaluates every curve of
 every animation both ways. The DLL loads the file itself, and
@@ -547,20 +512,20 @@ moves) differ by the root's motion alone: Granny's sampling takes
 it out of the pose; Reluva takes it out where it places the character
 (above).
 
-## Vector tracks
+### Vector tracks
 
 About 80 animations also have vector tracks: "Displacement Max
 Triangles", "value", "TrackMasktrackmask". These are settings that 3D
 Studio MAX animated, which the exporter kept. Nothing suggests the game
 uses them, so they aren't read (`awe files-check` counts them).
 
-## Bink textures
+### Bink textures
 
 The codec is Granny's own, not Bink video's. It is a wavelet codec
 with a range coder. Reluva decodes it in
 `src/engines/awe/bink_texture.cpp`.
 
-### How this was worked out
+#### How this was worked out
 
 From the disassembly of the game's `granny2.dll` (image base
 0x50000000), starting at the export `GrannyBinkDecompressTexture`
@@ -588,7 +553,7 @@ harness called these functions in the interpreter on the game's
 textures and compared their output with Reluva's. The verification is
 below.
 
-### Flags
+#### Flags
 
 The decoder's flags are the texture's `SubFormat`, plus 1 if its layout
 has alpha. Bit 0: an alpha plane. Bit 1: the planes are the colours
@@ -598,7 +563,7 @@ files only use 4 and 5 (`SubFormat` 4 without alpha, 5 with), so Reluva
 decodes only those. Textures of 256 pixels or fewer are stored raw; none
 are in the game.
 
-### Layout
+#### Layout
 
 The width and height are rounded up to multiples of 16 (W, H); the
 picture is the top-left part. The data is a 32-bit word (the size of
@@ -608,7 +573,7 @@ words, the sizes of its range-coded bytes and of its raw bits, then
 those bytes, then the bits. The raw bits are 32-bit little-endian words
 read from the lowest bit up.
 
-### Range decoder
+#### Range decoder
 
 `code` starts as the first byte >> 1, `range` as 0x80, and the first
 byte's low bit is held back. The DLL holds that bit in the low bit of a
@@ -625,7 +590,7 @@ is held back, `range <<= 8`.
 - Out of `1 << n`: the same with `r = range >> n`.
 - A uniform value out of `n`: the same with the interval (v, 1).
 
-### Adaptive model
+#### Adaptive model
 
 A model is made for a largest value: `n` = largest + 1 symbols. Index 0
 is an escape; each value gets an index when it first appears. All counts
@@ -655,7 +620,7 @@ To decode a symbol:
    reads the value. When all `n` values are in, the escape's count is
    taken off the total and set to 0.
 
-### Bands
+#### Bands
 
 Each plane is transformed in place, four levels deep. At each level the
 low band sits in the left half of the columns and the even rows, the
@@ -697,7 +662,7 @@ choice out of H + 1; then each flag, 0 if its symbol out of H is below
 that count. A row whose flag is 0 has no horizontal details at the last
 level.
 
-### Inverse transform
+#### Inverse transform
 
 Each level is rows first (from the band halves into a work copy), then
 columns (from even and odd rows back into place). Rows of 12 or more
@@ -720,14 +685,14 @@ smallest levels use two taps. With lows `L` and highs `H` of length m:
 Results are cut to 16 bits. The last level's rows use the row flags; the
 others have none.
 
-### Colours
+#### Colours
 
 With luma Y and differences U, V: `G = Y - (U + V) / 4` (rounded toward
 0), `R = U + G`, `B = V + G`, alpha from the fourth plane, each clamped
 to 0–255. Without an alpha plane the DLL's alpha is 0 (its planes start
 zeroed in the interpreter), and Reluva gives the same.
 
-### Verification
+#### Verification
 
 `reluva-tool awe files-check <game> -gr2 -textures` decodes every Bink
 texture of the install both ways and compares the RGBA bytes. Over the
@@ -735,3 +700,46 @@ full install (1,803 files) there are 278 Bink textures, from 64×64 to
 1024×1024 (and 512×256, 1024×256): 251 with flags 4 and 27 with flags 5.
 None differs. Run alone, a 512×512 texture takes about 11 ms natively
 against 2.2 s in the interpreter, a 1024×1024 one 85 ms against 8.6 s.
+
+## Sources and checks
+
+### How this was worked out
+
+- The container's layout is described publicly (the opengr2 wiki and the
+  RagnarokFileFormats notes). It was checked against `poirot_model.GR2`
+  and `poirot_walk.GR2`: each section's offsets and sizes, and each fixup
+  table ending where the next block starts.
+- Sections are compressed (Oodle1), the textures inside are
+  Bink-compressed, and some animations have compressed curves. None of
+  them is documented. All three were worked out from the disassembly of
+  the game's `granny2.dll` and are decoded natively: see "Oodle1",
+  "Bink textures" and "Compressed curves" above. The DLL itself, run in
+  Reluva's x86 interpreter (`src/engines/awe/granny_dll.cpp`), is only
+  kept to check them against. These are the exports called, with the
+  arguments Granny's public SDK header gives:
+  - `GrannyDecompressData(Format, FileIsByteReversed, CompressedSize,
+    Compressed, Stop0, Stop1, DecompressedSize, Decompressed)`, by
+    `reluva-tool awe files-check -oodle`;
+  - `GrannyBinkDecompressTexture(Width, Height, Flags, CompressedSize,
+    Compressed, DestLayout, DestStride, Dest)`, by `awe files-check -gr2
+    -textures`. The flags were taken from the DLL's own call to it in
+    `GrannyCopyTextureImage`: the texture's `SubFormat`, plus 1 if its
+    layout has alpha. Its start-up asks for the Windows directory, which
+    Reluva provides;
+  - `GrannyCurveExtractKnotValues`, on files the DLL loads itself, by
+    `awe files-check -gr2`;
+  - `GrannyEvaluateCurveAtT(Dimension, Normalize, BackwardsLoop, Curve,
+    ForwardsLoop, CurveDuration, t, Result, IdentityVector)`, by
+    `awe files-check -gr2 -curves`. The order of its arguments was checked in
+    its code (0x50050740 passes them on to 0x50017cd0); see "Evaluating
+    curves" above.
+
+  A file the DLL loads is converted to its own structures, which differ
+  from older files' (the plain curves' tracks are laid out differently).
+  So the checks find the curves in its memory by the DLL's exported types
+  (`GrannyFileInfoType`, `GrannyAnimationType`, `GrannyTrackGroupType`,
+  `GrannyTransformTrackType`: pointers to member definitions laid out as
+  in the files).
+- The results were checked by eye. Poirot was rendered with his three
+  textures, posed by the walk animation at 0.3 s
+  (`reluva-tool awe model-dump ... -anim ... -obj`).

@@ -1,5 +1,9 @@
 # Saved games
 
+> **Code:** `src/engines/awe/savegame.cpp` · **Checked against:** the code (`motoe.exe`, English 1.0); `awe save-check` over the 15 developer saves
+
+## Overview
+
 This page covers the save files of *Murder on the Orient Express*, the
 save and load screens, and how a save is restored.
 
@@ -11,25 +15,9 @@ There are three kinds of save file:
 - the developers' starting points, `Text\Scripts\slot<N>.ac2`, in the
   install.
 
-## How this was worked out
+## How it works
 
-This comes from `motoe.exe` (English 1.0), read in a disassembler to make
-Reluva work with the game:
-
-- the writer `0x411230` and the reader `0x411c60`;
-- the save screen's and load screen's objects (`0x4347a0`, `0x424260`);
-- the keys (`0x4164e0`);
-- the load sequence (`0x422470`, `0x422da0`);
-- the quick save's message: F2 (`0x4168c0`), the screen's timers
-  (`0x414400`), its drawing (`0x415511`, in the screen's draw
-  `0x414e40`) and the clicks and keys that put it away (`0x416000`,
-  `0x416450`, `0x4164e0`);
-- the caret (`0x434c91`, in the save screen's draw `0x434b90`).
-
-`reluva-tool awe save-check` reads the 15 developer saves to their last byte
-with the layout below, and writes each back to the same size.
-
-## The file
+### The file
 
 Each record is a tag followed by its data. Tags are four characters, like
 the scenes' (stored as a little-endian u32 whose value spells the name, so
@@ -75,7 +63,7 @@ writes only R8G8B8, R3G3B2, P8 and L8 surfaces, so the colour one comes
 out a 24-bit BMP: BGR rows, bottom first, no alpha. Reluva writes the
 same (`encodeBmp24`).
 
-## The save and load screens
+### The save and load screens
 
 The two screens are the scenes `Menu.Save` and `Menu.Load`, opened with
 `menu save` and `menu load`. Their `PUZZ save` and `PUZZ load` records
@@ -127,7 +115,7 @@ save screen and `fade out, action load, load, fade in` on the load
 screen. Cancel runs `fade out, previous, fade in`. Enter and Escape press
 OK and Cancel.
 
-## Keys in the game
+### Keys in the game
 
 - **Escape** (or P), S and L open the in-game menu, the save screen and
   the load screen, outside the menus. The view is kept first for the
@@ -155,7 +143,7 @@ OK and Cancel.
 The placard is the one the hover captions use; the message's text is
 looked up once and then kept.
 
-## The yes/no box
+### The yes/no box
 
 `yesno <text> <value>` (the main menu's Escape and EXIT, the in-game
 menu's MAIN MENU, overwriting a save) asks in a popup of its own
@@ -177,7 +165,7 @@ it), not the dialogue box:
 The value says what yes does (`0x432cb1`): 0 quits, 1 goes back to the
 main menu, 2 overwrites the save.
 
-## Restoring a save
+### Restoring a save
 
 `preload <x>` reads a save into the story state. `quick` is the quick
 save; any other name is the developers' `Text\Scripts\<x>.ac2`. Reading
@@ -229,3 +217,23 @@ gained.
 
 While the message shows, a key or a click only puts it away, the Scenes
 page's own keys (Left, Right, H, I...) included.
+
+## Sources and checks
+
+### How this was worked out
+
+This comes from `motoe.exe` (English 1.0), read in a disassembler to make
+Reluva work with the game:
+
+- the writer `0x411230` and the reader `0x411c60`;
+- the save screen's and load screen's objects (`0x4347a0`, `0x424260`);
+- the keys (`0x4164e0`);
+- the load sequence (`0x422470`, `0x422da0`);
+- the quick save's message: F2 (`0x4168c0`), the screen's timers
+  (`0x414400`), its drawing (`0x415511`, in the screen's draw
+  `0x414e40`) and the clicks and keys that put it away (`0x416000`,
+  `0x416450`, `0x4164e0`);
+- the caret (`0x434c91`, in the save screen's draw `0x434b90`).
+
+`reluva-tool awe save-check` reads the 15 developer saves to their last byte
+with the layout above, and writes each back to the same size.

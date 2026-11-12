@@ -199,3 +199,7 @@ wrong, and if possible compare with the same moment of a recording.
 - [ ] Act 7: Barnaby's radio, the fingerprint cards under the magnifier.
 - [ ] Act 8: the evidence choices with their pictures, the three
       solutions, the coda and the credits.
+
+## Last checked
+
+None recorded yet.

@@ -6,6 +6,14 @@ every line of Reluva is its own, written from these sources. The format
 pages in `docs/engines/awe/` say, for each part, which addresses and
 files it came from; this page describes the methods.
 
+## Ground rules
+
+- **All of Reluva's code is new.** Nothing is taken from the game's code.
+- **The game's code, text and assets stay in the player's copy.** Nothing
+  of them is in this repository.
+- See [CONTRIBUTING.md](../../../../../CONTRIBUTING.md) for what may and may not
+  be used.
+
 ## Sources
 
 Only sources CONTRIBUTING.md allows:
@@ -22,7 +30,9 @@ Only sources CONTRIBUTING.md allows:
 
 No leaked or unlicensed code, nor anything derived from it, was used.
 
-## Reading the executable
+## Methods
+
+### Reading the executable
 
 - **Disassembly.** `motoe.exe` was disassembled whole into a listing (the
   PE file's code section by Capstone, through `pefile`), with each
@@ -46,7 +56,7 @@ No leaked or unlicensed code, nor anything derived from it, was used.
   which is written in Reluva's own terms rather than translated
   instruction by instruction.
 
-## Running the original's code to compare
+### Running the original's code to compare
 
 `src/common/x86` is an interpreter for 32-bit x86 code (written for the
 id Tech 3 games; see [../../../../common/x86/README.md](../../../../common/x86/README.md)). It runs pieces of the
@@ -70,7 +80,7 @@ original to check Reluva's own code against them:
   over the 281 scenes with a walk grid, every point and heading the same
   (`awe path-check -all`). See [formats/ac2.md](formats/ac2.md).
 
-## Sweeping the install
+### Sweeping the install
 
 Readers were run over every file of the install (`reluva-tool
 awe files-check`): every scene, Granny file, text table, movie and sound. A
@@ -80,7 +90,7 @@ use, so each could be handled; `awe ac2-dump` and `awe table-show` show single
 files. Counts over the install (values of a field, which scenes use
 what) went into the docs.
 
-## Checking against the recordings
+### Checking against the recordings
 
 The walkthrough is about ten hours of video. To find a moment in it:
 
@@ -108,7 +118,7 @@ length from the owner's clips, lit colours in patches, fade lengths
 from frame to frame, the dialogue box's and pictures' places, movie
 subtitles' places and colours.
 
-## Playing the game without a player
+### Playing the game without a player
 
 `reluva-tool awe game-run` plays the game headless, with Reluva's own
 engine:
@@ -124,7 +134,7 @@ engine:
 - **The checks in [TESTING.md](TESTING.md)**: the route by the hand
   alone, saved and loaded after every action, and wandering off it.
 
-## When the sources disagree, or are silent
+### When the sources disagree, or are silent
 
 - The executable decides how the game behaves; the recordings decide
   what was actually seen (a reading of the code that a recording
@@ -132,3 +142,12 @@ engine:
 - What neither can settle is listed in [UNCONFIRMED.md](UNCONFIRMED.md);
   where Reluva knowingly differs, in
   [KNOWN_DIFFERENCES.md](KNOWN_DIFFERENCES.md).
+
+## The tools
+
+`reluva-tool help awe` lists the engine's commands
+(`src/engines/awe/tools/`).
+
+## Working files not included
+
+None yet.

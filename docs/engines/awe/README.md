@@ -1,5 +1,9 @@
 # The AWE engine (Agatha Christie games)
 
+Engine id `awe`, in `src/engines/awe/`.
+
+## Games
+
 AWE Productions made three Agatha Christie adventures for The Adventure
 Company on what looks like one engine, grown from game to game:
 
@@ -13,6 +17,11 @@ As with id Tech 3, one Reluva engine (`src/engines/awe/`, `awe` in `engines.cfg`
 should serve the family, with per-game differences in a table, rather than
 one engine per game. Orient Express is built first. The other two get
 added once their file lists have been compared against it.
+
+## Where it stands
+
+Only Murder on the Orient Express is recognised so far: see
+[games/motoe/](games/motoe/README.md#where-it-stands).
 
 ## This folder
 

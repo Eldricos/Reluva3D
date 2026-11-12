@@ -1,41 +1,16 @@
 # Character shadows
 
+> **Code:** `src/engines/awe/shadows.cpp` · **Checked against:** the code (`motoe.exe`, English 1.0) and a recording of the game with 3D Shadows on
+
+## Overview
+
 The characters' shadows in *Murder on the Orient Express* are planar.
 Each character is flattened onto the floor away from one light, and the
 pixels it covers are darkened by a constant amount.
 
-## How this was worked out
+## How it works
 
-This comes from `motoe.exe` (English 1.0), read in a disassembler to make
-Reluva work with the game:
-
-- the frame render (`0x402ed0`) and the scene's draw in depth order
-  (`0x435d90`, the depth `0x4104b0`: the object's depth field when it
-  isn't 0, else its z, characters' too. 35 characters set one, as
-  Antoinette's 11000 in the 7A dining car, in front of the tables'
-  cutouts at 2000);
-- the model mesh draw and its shadow pass (`0x428500` → `0x428250`), and
-  where a mesh is made rigid (`0x427ff5`, `GrannyMeshIsRigid`);
-- the darkening quad (`0x402ba0`);
-- the pictures' stencil writes (`0x437b00`, in the picture draw
-  `0x437ac0`; video loops draw through it too, `0x4062cb`) and the
-  particles' draw, which has none (`0x42d470`);
-- the player white-out (`0x402e20`).
-
-It was then checked against a recording of the game with 3D Shadows on:
-Antoinette walking about Sirkeci market 02. The shadow was found by
-dividing each frame by the median of the clip's frames: its pixels are
-those darkened by the same factor in all three colours.
-
-- **The darkening:** 0.755 to 0.761 in every frame (192/255 is 0.753;
-  the video's compression adds a little). Reluva's measures 0.757.
-- **The shape:** from the feet away from the light, toward the lower
-  right of the screen. Reluva's, with Antoinette moved to where she
-  stood in the recording (her position in a copy of the scene's file),
-  falls the same way and is as long, about 130 pixels across where the
-  game's is about 125. The outlines differ only with her pose.
-
-## What casts a shadow
+### What casts a shadow
 
 Every mesh of a character that has a material (its textured meshes, not
 helpers such as `Eye_L`) is drawn a second time just before its body.
@@ -65,7 +40,7 @@ A character casts no shadow when its MODL `shadow` field is 0. The
 `hideshadow` and `showshadow` verbs set that field. Footprints (`FOOT`)
 don't touch the stencil.
 
-### Rigid meshes
+#### Rigid meshes
 
 Granny keeps a mesh whose vertices have no bones of their own as a
 *rigid* mesh: the whole mesh follows one bone. The game draws one with
@@ -90,7 +65,7 @@ No shipped script attaches the cleaver or the luggage (Klaus's cleavers
 are a skinned model of their own), so the stray shadow only shows if one
 is attached with `attach luggage1` and the like.
 
-## What it darkens
+### What it darkens
 
 After the whole scene, one full-screen quad of colour ARGB `0x3F000000`
 is alpha-blended where the stencil is 1. Shadowed pixels are multiplied
@@ -127,7 +102,7 @@ which write no depth.
 Everything is switched by the **3D Shadows** option
 ([options.md](options.md)).
 
-## The player's white-out in the snow
+### The player's white-out in the snow
 
 While shadows are on, the player's own pixels (stencil 2) are washed
 toward white as they walk away from the camera. The amount comes from
@@ -188,3 +163,36 @@ run, each edge's test changing only once along it). Its edges can differ
 from a graphics card's by a pixel, and it leaves out a triangle with a
 corner behind the camera. Over the first 60 frames of the route the two
 differ by at most four pixels a frame, at shadows' edges.
+
+## Sources and checks
+
+### How this was worked out
+
+This comes from `motoe.exe` (English 1.0), read in a disassembler to make
+Reluva work with the game:
+
+- the frame render (`0x402ed0`) and the scene's draw in depth order
+  (`0x435d90`, the depth `0x4104b0`: the object's depth field when it
+  isn't 0, else its z, characters' too. 35 characters set one, as
+  Antoinette's 11000 in the 7A dining car, in front of the tables'
+  cutouts at 2000);
+- the model mesh draw and its shadow pass (`0x428500` → `0x428250`), and
+  where a mesh is made rigid (`0x427ff5`, `GrannyMeshIsRigid`);
+- the darkening quad (`0x402ba0`);
+- the pictures' stencil writes (`0x437b00`, in the picture draw
+  `0x437ac0`; video loops draw through it too, `0x4062cb`) and the
+  particles' draw, which has none (`0x42d470`);
+- the player white-out (`0x402e20`).
+
+It was then checked against a recording of the game with 3D Shadows on:
+Antoinette walking about Sirkeci market 02. The shadow was found by
+dividing each frame by the median of the clip's frames: its pixels are
+those darkened by the same factor in all three colours.
+
+- **The darkening:** 0.755 to 0.761 in every frame (192/255 is 0.753;
+  the video's compression adds a little). Reluva's measures 0.757.
+- **The shape:** from the feet away from the light, toward the lower
+  right of the screen. Reluva's, with Antoinette moved to where she
+  stood in the recording (her position in a copy of the scene's file),
+  falls the same way and is as long, about 130 pixels across where the
+  game's is about 125. The outlines differ only with her pose.

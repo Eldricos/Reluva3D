@@ -1,5 +1,9 @@
 # Scene files (.ac2)
 
+> **Status:** decoded · **Code:** `src/engines/awe/ac2.cpp` · **Checked on:** English 1.0: three files record by record, then all 394 scenes (`awe ac2-dump`)
+
+## Overview
+
 `Locations/<area>/<scene>.ac2`, about 380 in Murder on the Orient Express.
 Each describes one view of a place: its pictures, hotspots, characters,
 effects, camera, music and events. A scene's act variants are separate
@@ -10,50 +14,9 @@ The `.ac2` extension is also used for saves (`Text/Scripts/slot*.ac2`
 start with `DESC`). Those are a different set of records, read by
 another loader: see [../systems/saves.md](../systems/saves.md).
 
-## How this was worked out
+## Layout
 
-- Hexdumps of `Salon_01_06a.ac2`, `Salon_01_06b.ac2` (identical but for
-  one letter of the scene name) and `menu.main_01.ac2` gave the shape:
-  four-character tags, UTF-16 text in fixed buffers, and runs of `0xCD`.
-  `0xCD` is what Visual C++'s debug heap fills new memory with, so the
-  files are the game's objects written field by field.
-- `motoe.exe` (English 1.0, 684,032 bytes) was then read where it loads a
-  scene, for interoperability (CONTRIBUTING.md). The functions:
-
-  | Address | What |
-  |---------|------|
-  | `0x435990` | the scene loader: reads tags until `DONE` |
-  | `0x42b2a0` | the object factory: a tag to a new object |
-  | `0x40fa20` | every object's common fields |
-  | `0x438590` | 2D objects (`SPRT`) |
-  | `0x413320` | hotspots (`HOTS`) |
-  | `0x426310` | 3D models (`MODL`) |
-  | `0x405330` | animated models (`ANIM`) |
-  | `0x4403b0` | characters (`WALK`) |
-  | `0x42b060` | other characters (`FLLW`, `COND`, idles) |
-  | `0x42e2a0` | particles (`SYST`) |
-  | `0x403cd0` | animated pictures (`2DSP`) |
-  | `0x406710` | videos (`BNKX`) |
-  | `0x420980` | items |
-  | `0x421ab0` | lights |
-  | `0x406a60` | the camera |
-
-  Each object's load function is its class's virtual function at
-  `vtable + 0x44`; the classes' constructors set `vtable`, the tag
-  (object `+0xaf8`) and the field-group flags (object `+0xb74`).
-- Every record in the three files was then checked to end exactly where
-  the next tag begins (`reluva-tool awe ac2-dump` reads them to `DONE`).
-- **The fields' meanings** came from the same reading. Each field was
-  followed from where its load function stores it (the offset in the
-  object) to every instruction that touches that offset: the class's
-  constructor (its default), its copy and save functions, and the
-  methods that use it (drawing, updating, picking, sounds). Their
-  values over all 394 scenes (`awe ac2-dump` of each) were then checked
-  against that reading: the cursor numbers against the cursor pictures'
-  order, the scroll speeds against the fog and cloud pictures, and so
-  on. The addresses are given with each field.
-
-## Basics
+### Basics
 
 - **Numbers** are little-endian: 16-bit (u16), 32-bit integers (u32) and
   floats (f32).
@@ -74,7 +37,7 @@ another loader: see [../systems/saves.md](../systems/saves.md).
   part (`SPRT`, `MODL`...). The loader saves the file position, reads a
   tag, and goes back if it isn't the one it wants.
 
-## The scene's records
+### The scene's records
 
 The scene loader reads a tag at a time until `DONE` (or the end):
 
@@ -90,7 +53,7 @@ The scene loader reads a tag at a time until `DONE` (or the end):
 | `DONE` | the end |
 | anything else | an object, made by the factory, which then reads its own fields |
 
-## Objects
+### Objects
 
 The factory knows these tags (class sizes from its allocations):
 
@@ -108,7 +71,7 @@ The factory knows these tags (class sizes from its allocations):
 | `PCXX` | the player's character | common, `MODL`, `ANIM`, `WALK` |
 | `FOOT` | footprints, a model (not reachable from a scene: the scene's `FOOT` comes first) | common, `MODL` |
 
-### Common fields (`0x40fa20`)
+#### Common fields (`0x40fa20`)
 
 One u16 count covers all of them. Groups marked with a flag are only
 there for classes that have it: pictures (`2DOB` and those built on it,
@@ -150,7 +113,7 @@ where its use isn't known (or the game never reads it). Reluva uses the
 same names (in `src/engines/awe/ac2.cpp`), so they line up with the
 executable.
 
-### `SPRT`: a picture's settings
+#### `SPRT`: a picture's settings
 
 Counted:
 
@@ -166,7 +129,7 @@ The loader also marks pictures from `elements\fog` and `skies\clouds`
 (+0xdc0, `0x4372e0`): those that scroll aren't drawn while the "Fog,
 Haze, and Clouds" option is off ([../systems/options.md](../systems/options.md)).
 
-### How 2D objects are drawn
+#### How 2D objects are drawn
 
 The draw method (`0x437ac0`) uses Direct3D 8's `ID3DXSprite`: `Begin`,
 then `DrawTransform` for each 256-pixel tile of the picture, then `End`.
@@ -206,7 +169,7 @@ is at (1029, 145), scaled (1.5, 1.5) and turned 0.698. Each covers its
 window at a slant, and Reluva's Scenes page matches a video of the game
 there.
 
-### `HOTS`: a hotspot
+#### `HOTS`: a hotspot
 
 Counted: its name (text, `exitover`: also the picture shown on mouse
 over, `Locations/Menu.Main/Cutouts/exitover.png`), the sounds on mouse
@@ -225,7 +188,7 @@ mouse-over sound; when the mouse leaves, it hides that object again and
 stops the sound. A click on it (`0x416251`), or its key, stops the
 mouse-over sound and plays the click sound (`0x4131a0`).
 
-### `2DSP`, `BNKX`, `ITEM`
+#### `2DSP`, `BNKX`, `ITEM`
 
 No scene uses `2DAN`, `NING` or `ITEM`; what's below is from the code.
 
@@ -252,7 +215,7 @@ No scene uses `2DAN`, `NING` or `ITEM`; what's below is from the code.
   loaded and saved but never read. The list also gives the examine
   event (+0x1410) and description (+0x1010).
 
-### `LITE`
+#### `LITE`
 
 No common fields: a u16 count, then the fields below (`0x421ab0`). The
 first 22 fill a Direct3D 8 `D3DLIGHT8` at +0xd9c, which `0x420ee0`
@@ -278,7 +241,7 @@ hands to `SetLight`; how they light the characters is in
 | condition | text | 0x8d4 | when it's on (one light: `tag hutwindowopen`) | |
 | shadowOnly | u32 | 0xe1c | only places the shadows: never switched on | 0 |
 
-### `SYST`: particles
+#### `SYST`: particles
 
 Counted, 28 fields of f32 and u16 (the full order is in `ac2.cpp`).
 `PART`, `RAIN` and `SNOW` are one class: they share every method (update
@@ -340,7 +303,7 @@ In Salon_01, snow falls past each window (x −730 and 580, from y 300,
 falling at 300 a second, at depth −10500: in front of the snowscape, behind
 the moving countryside), shown while `weather >0`.
 
-### `MODL`, `ANIM`, `WALK`: models and characters
+#### `MODL`, `ANIM`, `WALK`: models and characters
 
 - `MODL` (`0x426310`), counted: a u32 (`shadow`: the character casts
   one), a pair list (models attached at load:
@@ -375,7 +338,7 @@ the moving countryside), shown while `weather >0`.
   tag. Then, whatever that tag is (`IDLE` in the files), a pair list of
   idle animations. The game doesn't check that last tag.
 
-## The mouse: picking and cursors
+### The mouse: picking and cursors
 
 How this was worked out: the interface object's frame update (`0x414400`)
 and drawing (`0x414e40`, the cursor at `0x415650`), its click
@@ -387,7 +350,7 @@ functions they call, found from the classes' vtables (`2DOB` `0x48300c`,
 the 16 pictures; the mouse's position is kept in two floats,
 `0x48b08c` and `0x48b090` (400, 300 at the start).
 
-### The pick (`0x435eb0`)
+#### The pick (`0x435eb0`)
 
 The objects the pick sees are those shown (+0xb00 and +0xb04 set: in
 Reluva's terms, not hidden and their condition holding, or shown by a
@@ -432,7 +395,7 @@ picks: an object that can be clicked runs its script (a hotspot first
 plays its click sound); otherwise the click walks the player to the
 floor point, as on nothing.
 
-### The cursor
+#### The cursor
 
 At load the interface makes the 16 cursor pictures (`0x413f00`), and
 `SetCursor(NULL)` hides Windows' own for good. Every frame (`0x414400`)
@@ -469,7 +432,7 @@ loaded as menus, +0x14fc, and the main menu), and in conversations
 (unless the mouse wheel has been choosing a line and the mouse hasn't
 moved since: `0x43d7f0`).
 
-### Keys
+#### Keys
 
 Escape and Enter, after the script runner has had them (`0x409860`),
 go to the scene (`0x436110`): the first hotspot whose `key` is
@@ -478,7 +441,7 @@ runs its script. The menus have them: the in-game menu's Resume (Escape),
 the save and load screens' OK (Enter) and Cancel (Escape), the options
 screen's Cancel (Escape; its OK has `VK_ENTER`, which matches neither).
 
-## The camera (`CAMR`)
+### The camera (`CAMR`)
 
 The camera object holds a Granny camera (`granny_camera`) at offset 4,
 which it hands to `GrannyBuildCameraMatrices` once loaded (`0x406d5d`).
@@ -517,7 +480,7 @@ becomes (x, z, −y). Then it's turned by rotY about Y and moved to the
 character's x, y, z. Characters drawn this way stand where the
 backgrounds expect them: at a door, on the floor, at the right size.
 
-### The walk grid
+#### The walk grid
 
 Each camera has its own map of where characters can walk: 64 × 64 cells
 over the floor (y = 0), centred on the world's origin, each `cell` units
@@ -646,7 +609,7 @@ body forward (Poirot's root, `Bip01`, moves 240 units in its 0.8 s
 loop: 300 units a second), and the loop starts again from the same place,
 so the character moves on by that much each loop.
 
-## Conditions
+### Conditions
 
 Objects (condition), conditional scripts (listB), music (`MUSC`) and
 characters (`COND`) hold conditions in the game's own language:
@@ -711,7 +674,52 @@ card, 7 taken away by `remove all`.
 conditions. Reluva's evaluator is `testCondition`
 (`src/engines/awe/conditions.cpp`).
 
-## Still to find
+## Sources and checks
+
+### How this was worked out
+
+- Hexdumps of `Salon_01_06a.ac2`, `Salon_01_06b.ac2` (identical but for
+  one letter of the scene name) and `menu.main_01.ac2` gave the shape:
+  four-character tags, UTF-16 text in fixed buffers, and runs of `0xCD`.
+  `0xCD` is what Visual C++'s debug heap fills new memory with, so the
+  files are the game's objects written field by field.
+- `motoe.exe` (English 1.0, 684,032 bytes) was then read where it loads a
+  scene, for interoperability (CONTRIBUTING.md). The functions:
+
+  | Address | What |
+  |---------|------|
+  | `0x435990` | the scene loader: reads tags until `DONE` |
+  | `0x42b2a0` | the object factory: a tag to a new object |
+  | `0x40fa20` | every object's common fields |
+  | `0x438590` | 2D objects (`SPRT`) |
+  | `0x413320` | hotspots (`HOTS`) |
+  | `0x426310` | 3D models (`MODL`) |
+  | `0x405330` | animated models (`ANIM`) |
+  | `0x4403b0` | characters (`WALK`) |
+  | `0x42b060` | other characters (`FLLW`, `COND`, idles) |
+  | `0x42e2a0` | particles (`SYST`) |
+  | `0x403cd0` | animated pictures (`2DSP`) |
+  | `0x406710` | videos (`BNKX`) |
+  | `0x420980` | items |
+  | `0x421ab0` | lights |
+  | `0x406a60` | the camera |
+
+  Each object's load function is its class's virtual function at
+  `vtable + 0x44`; the classes' constructors set `vtable`, the tag
+  (object `+0xaf8`) and the field-group flags (object `+0xb74`).
+- Every record in the three files was then checked to end exactly where
+  the next tag begins (`reluva-tool awe ac2-dump` reads them to `DONE`).
+- **The fields' meanings** came from the same reading. Each field was
+  followed from where its load function stores it (the offset in the
+  object) to every instruction that touches that offset: the class's
+  constructor (its default), its copy and save functions, and the
+  methods that use it (drawing, updating, picking, sounds). Their
+  values over all 394 scenes (`awe ac2-dump` of each) were then checked
+  against that reading: the cursor numbers against the cursor pictures'
+  order, the scroll speeds against the fog and cloud pictures, and so
+  on. The addresses are given with each field.
+
+## Open questions
 
 - The fields the game loads but never reads keep their offsets: the
   common `b54`, `b58` and `b68`, `SPRT`'s `dc8`, the item's `1610` and
