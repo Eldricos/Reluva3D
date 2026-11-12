@@ -1832,8 +1832,8 @@ README.md.
   [physics.md](../formats/nfs/physics.md).
 - Whether the Classics release differs from the original 1998 retail in
   data or code. Other releases (UK, German, patched) need their own
-  hashes. The `Rain`, `Snow`, `Night`, `Walls`, `Sparks`, `HP_Spikes`
-  and `HP_RacerList` clips were recorded from the user's own copy of
+  hashes. The `Rain`, `Snow`, `Night`, `Walls`, `Sparks`, `HP_Spikes`,
+  `HP_RacerList` and `HP_Disabled` clips were recorded from the user's own copy of
   this CD (November 2026: the CD's `nfs3.exe`, `d3da.dll`,
   `voodoo2a.dll`, `voodooa.dll`, `softtria.dll`, `eacsnd.dll` and
   `readme.txt` hash the same as the

@@ -1757,9 +1757,12 @@ the next as each ends (`0x4c86d0`). Nothing plays in a replay
 checks there is room (`0x40a910(n)`: n + queued ≤ 11). A call is an
 exchange:
 - the officer's call number (`0x40aa20`: slot 0x10 + the cop's index,
-  unless he spoke last, `0x5524ec`), from his bank: the cop index mod
+  unless he spoke last, `0x5524ec`, and his own counter, `0x5524cc` +
+  4 × cop, +1 a sound step at `0x40a330` and cleared as the call sign
+  is queued, is under 120), from his bank: the cop index mod
   8 picks `off..A` (0, 3, 6), `off..B` (2, 5, 7) or `off..C` (1, 4),
-  pitch 0x50 for 3, 4 and 5 (`0x40a410`, table `0x40a3f0`), volume 127,
+  pitch 0x50 for 3, 4 and 5 (`0x40a410`, table `0x40a3f0`; heard one
+  semitone up, × 1.0595, in `HP_Disabled`), volume 127,
   pan 0x3FFF;
 - often the dispatcher's acknowledgement (`0x40a970`);
 - the message (`0x40ab20(1, cop, kind)`), and for some kinds where
@@ -1997,6 +2000,11 @@ November 2026: `callers`, `gxref`, `gdecomp`, the disassembly).
   tipped past 60° (+0x10C under 0.5) also loses 1/64 of each spin a
   tick (`0x4292fb`-`0x429341`, `0x5371d8`; seen in `e10-h6`, Checked
   in runs).
+- **Seen in the user's copy** (`HP_Disabled`, below, The disabled cop
+  seen): a cop rammed up a bank lay on its side 1.4 s, silent, then
+  rolled onto its roof; its 0x1E came once, 10.8 s later, when the
+  radio was free of its own new-chase call; another cop's 0x1F came
+  where the computer racer had turned it over off screen.
 
 **Rolls by keys** (`c8-f1`, `c8-f2`, `c8-r1`, `c8-r2`, November 2026:
 the racer's pursuit, only the race type and the track poked at
@@ -3059,6 +3067,119 @@ in [net.md](net.md), Bit 0x80, holds):
 So the user's copy agrees with the code on every point checked, and
 with the earlier runs (`cp-stop8`, `cp-spike1`, `cop-spike2`).
 
+### The disabled cop seen (`HP_Disabled`)
+
+A clip the user recorded in November 2026 from their own copy (the
+same exe as `HP_Spikes`, Direct3D in a virtual machine; 669 s, 30
+frames a second): a one-player Hot Pursuit on Hometown, the player a
+racer in a red Aston Martin DB7 (the radio names it so: `Amd7`'s
+`iprdspch`), one computer racer, 8 laps, the digital HUD, MPH. The
+VM's sound is choppy. Two computer cops end on their roofs: one the
+computer racer turned over, off screen (about 0:50), and one the
+player rammed (7:25-7:29). Times are clip times in seconds.
+
+**How it was read.** Frames at 2, 10 and 30 a second, looked at.
+The sound (mono, 22,050 Hz) was matched against every slot of
+`off00a`-`c` and `disp00` (Hometown's banks), and against the car
+names (slot 0x00 of every colour's bank in the seven cars'
+`IPspchE.viv`, and 0x20 of their red and no-colour banks), decoded
+with `reluva-tool bnk-wav`, two
+ways: (1) each slot cut into 0.4 s pieces (0.2 s apart), each piece's
+normalised cross-correlation with the clip, a line counting when
+several pieces agree on its start (the dropouts break whole-slot
+correlation); background, the median |correlation| of a piece over
+the window, is 0.005-0.009 and its 99.9th percentile 0.06-0.08, and
+in the loud crash 0.13-0.17 for any slot; (2) a spectrogram match
+(log bands to 4.7 kHz, each band less its running median, cosine
+similarity), median 0.30-0.33, 99th percentile 0.36-0.42. Each slot
+was also tried played faster (linear interpolation, rates 0.9-1.5).
+
+**The radio plays pitch 0x50 one semitone up.** The waveform pieces
+match only within about 1% of a rate: cop 3's call sign (`off00a`
+0x13, 55.90) gives 0.13-0.15 at rates 1.00-1.04, 0.60 at 1.0595 and
+0.13 at 1.08; cop 5's 0x1E (below) peaks at 1.058-1.060. Cops 0
+and 1 (pitch 0x40) match at 1.00. So the record's 0x50
+(`0x40a410`, table `0x40a3f0`, cops 3, 4, 5) is 2^(1/12) = 1.0595,
+not 0x50/0x40: it fits the bend formula of bnk.md (The pitch) with the
+speech slots' bend range of 4 semitones (tag `0x0A` = 4): (0x50 −
+64) × 4 × 100 / 64 = 100 cents.
+
+**The player's ram (7:25-7:29).**
+
+| Time | Seen | Heard |
+|---|---|---|
+| 445.40 | a cop ahead on the right of the lane, slower, at a right-hand bend with a rocky bank on its right; the player at 123 MPH | |
+| 445.67-445.70 | the player's car hits the cop's left side (first frame touching 445.67, smoke 445.70); the player at 60 MPH at 445.70, 38 at 446.20 | |
+| 445.77 | | cop 5's call sign (`off00b` 0x15 at the semitone; pieces 0.32, 0.32, 0.26, 0.25, against 0.08-0.12 for voice B's other call signs): its call for a new chase (`0x40b220`) |
+| 445.8-446.1 | the cop is shoved up the bank and tips up | |
+| 446.1-447.5 | on its side against the bank, the roof towards the camera (about 1.4 s) | 447.2 "in pursuit of" the red DB7 (`Amd7` `iprdspch` 0x20, 0.25) |
+| 447.5-447.9 | it rolls on, down off the bank, roof first (at 447.87 still about 30° from flat) | |
+| 447.93-448.00 | on its roof on the road, flat to the eye | |
+| 448.00-448.75 | slides on its roof beside the player, sparks from the roof; leaves the picture at 448.75 as the player passes; the reset is not seen | 449.04 a place (`off00b` 0x44, 0.24); 450.05 "over 120 mph" (0x3D, 0.36) |
+| | | 452.76 the dispatcher's "all units be advised" (`disp00` 0x10, 0.35); 454.14 "unit" 5 (0x19, 0.37); 455.20 the car (`iprdspch` 0x00, 0.28) |
+| 458.74 | | **cop 5's "car disabled" (`off00b` 0x1E at the semitone): pieces 0.29, 0.26, 0.22, 0.21, one start; spectrogram 0.47 against a 99th percentile of 0.37, the next slot there 0.40**; to about 460.7 |
+| 461.01 | | cop 1's call sign (`off00c` 0x11, 0.22) and at 464.11 a place (0x44, 0.40): another call |
+
+A second cop, upright, is seen ahead on the right from 448.50 while
+the first is still in view, so it is another car. No 0x1D follows
+the 0x1E, and no 0x1E or 0x1F of any voice matches from 460.7 to
+545 s.
+
+Against the code (What a disabled cop or a crash needs, The radio):
+- **Only the roof counts.** The cop lay on its side for about 1.4 s
+  first (air mode, `0x402c80` false) and nothing was said for it;
+  the line belongs to the roll onto the roof at about 447.95.
+- **Said once, late.** The line is queued at the cop's next turn
+  (within 1/8 s of `0x402c80` turning true) and channel 0 then
+  takes it when free. It was busy: cop 5's own new-chase call,
+  started 0.07 s after the hit, ran from 445.77 to about 458.7 (call
+  sign, car, place, speed, click, the dispatcher's reply). The 0x1E
+  started as that ended, 10.8 s after the cop landed. The disabled
+  call needs room for 4 (`0x40a910(4)`); with the new-chase call's
+  remaining lines queued it fitted (not counted; the bit +0x711 0x10
+  is set even when it doesn't, `0x403966`, and the line is then
+  lost).
+- **No call sign, no "go ahead".** `0x40aa20` skips the call sign when
+  the same cop spoke last (`0x5524ec`, set as each call is queued) and
+  its counter (`0x5524cc` + 4 × cop, +1 a sound step at `0x40a330`,
+  cleared when the call sign is queued) is under 120; `0x40a970`
+  skips the dispatcher's acknowledgement whenever the same cop spoke
+  last. Cop 5's previous call was queued about 2.2 s before.
+- **No wrecker.** `0x40bba0` adds the wrecker (0x1D) and a place only
+  when its random 0-99 is over 50; neither came, in either case.
+- **The reset** was out of the picture: at 448.75, the last frame, the
+  cop was still sliding, and `0x429260` takes about 2.4 s from rest.
+
+**The computer racer's (0:35-0:58).** At 35.5-36.0 a cop passes the
+other way on the right, and the radio has cop 1's new-chase call:
+call sign (`off00c` 0x11, 36.01), a place (0x43, 39.28, pieces 0.41
+and 0.30), the dispatcher's "all units be advised" (40.59, 0.32),
+"unit" 1 (0x15, 41.96, 0.31) and the red DB7 (43.06, 0.24). The
+player crosses the covered bridge (43-45) and drives up the cutting
+beyond. No cop is on screen from 37 s to 54.5 s; on the map a car's
+dot follows close behind from 39 s and falls back out of it by 50 s
+(which car isn't told). Then:
+- 50.17: cop 1's call sign again (`off00c` 0x11; spectrogram 0.55).
+- **51.34-51.38: cop 1's "car disabled", `off00c` 0x1F at pitch 0x40:
+  pieces 0.47, 0.54, 0.22, 0.21, 0.24 and 0.35, all within 0.04 s of
+  one start (background median 0.008, 99.9th percentile 0.06-0.08);
+  spectrogram 0.53 against a 99th percentile of 0.37, the next best
+  start 0.38.** No 0x1D after it, nor any other 0x1E/0x1F to 75 s.
+- 55.90 and 58.84: cop 3's call sign and "has him again" (`off00a`
+  0x13, 0x24, at the semitone), a different cop.
+The flip itself is unseen. The radio had nothing matched from about
+45 s to 50.17, so if it was free the cop came to rest on its roof
+just before 50.17 (the call is queued within 1/8 s and started at
+once). Here the call sign was said though cop 1 spoke last (its
+counter had passed 120 in 14 s), and the dispatcher's
+acknowledgement was skipped for that reason, as `0x40a970` reads: the
+0x1F follows the call sign's end (51.15) by 0.2 s. So the 120 sound
+steps lie between about 2.2 s and 14 s.
+
+So both agree with the code: a computer cop flat on its roof, the
+line said once, from the cop's own voice (cop 1 voice C, cop 5 voice
+B), 0x1E or 0x1F.
+
 ## The handling, routine by routine
 
 An index of the car-handling code (November 2026), in the order a step
@@ -3801,8 +3922,9 @@ of every access to those offsets):
   (above, Radio runs on other tracks). Why the "from" place after
   Hometown's half mile wasn't started in `s7-x1` is settled (`c8-q1`-`q3`,
   above): a stop of the player began 0.45 s into the 0x7F line, and
-  `copspch` muted it and flushed the 14 lines queued behind it. A
-  disabled cop or a crash without a poke is still not heard: only a
+  `copspch` muted it and flushed the 14 lines queued behind it. In
+  our runs a
+  disabled cop or a crash without a poke was at first not heard: only a
   car flat on its roof (+0x10C under −0.9, on the ground) reaches
   them, there is no damage, wall or timer path, and the on-road code
   takes out any roll (above, What a disabled cop or a crash needs). No
@@ -3817,10 +3939,16 @@ of every access to those offsets):
   now heard without a poke** (`d2-c4`, `d2-c4v`): the player left on
   the grid until cop 3 took it at 138.475 s, then rolled onto the
   same bank by one left pulse; `0x403910` and `0x40bc30` ran at
-  142.221 s and slot 0x1A was said at 148.869 s. Left open: the
-  disabled cop (`0x403950`), which needs a computer cop on its roof
-  (keys steer only the player; no computer cop tipped 41° in any `d3-`
-  run). A slow target does draw its chasing cop off the road to it
+  142.221 s and slot 0x1A was said at 148.869 s. **The disabled cop
+  is now seen and heard in the user's own copy** (`HP_Disabled`,
+  November 2026; above, The disabled cop seen): a computer cop rammed
+  by the player at 55 m/s went up a bank onto its side, rolled onto
+  its roof on the road, and its "car disabled" line (0x1E) was said
+  once, as the code reads; a second cop's 0x1F was heard where a
+  computer racer turned it over off screen. In our own runs it is
+  still not reached without a poke (`0x403950` needs a computer cop on
+  its roof; keys steer only the player; no computer cop tipped 41° in
+  any `d3-` run). A slow target does draw its chasing cop off the road to it
   (+0x711 bit 2, `0x406b60`): in `e2-a2` cop 3 followed the player
   onto Hometown's bank and stopped on it level (A cop drawn onto the
   bank). Led up the bank's steep part in nineteen keys-only runs
@@ -3829,8 +3957,9 @@ of every access to those offsets):
   m up, in air mode for half a second in `w3`, but always braked to
   under about 21 m/s first (the target's speed + 5.81 m/s near a slow
   target) and stayed within 11° of flat; the player itself rolled
-  four more times beside it (`x2l`, `y2`, `z145200`, `z145400`, the crash line queued). Still
-  open. Whether a side hit in the air or a car landing on another can
+  four more times beside it (`x2l`, `y2`, `z145200`, `z145400`, the crash line queued). A
+  run that turns a computer cop over is still open; `HP_Disabled`
+  shows the way, a ram at speed into a slow cop beside a bank. Whether a side hit in the air or a car landing on another can
   roll a car is settled from the code but not seen (above, Rolls from
   car hits): cars are 3D boxes (`0x42fee0`, top and bottom faces
   included), and only a contact off the car's centre height rolls it,

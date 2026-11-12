@@ -999,7 +999,7 @@ differ only in the unit numbers, the dispatch name and the places.
 
 | Slot | What it is | Said by |
 |---|---|---|
-| 0x10-0x17 | the officer's call sign: his unit number "to" the dispatch (County on Hometown's banks, Central on Atlantica's); slot 0x10 + the cop's index | `0x40aa20`, first in every call unless he spoke last |
+| 0x10-0x17 | the officer's call sign: his unit number "to" the dispatch (County on Hometown's banks, Central on Atlantica's); slot 0x10 + the cop's index | `0x40aa20`, first in every call unless he spoke last and his call sign was queued under 120 sound steps ago (`0x5524cc`) |
 | 0x1A-0x1B | the suspect has crashed / wrecked | kind 0x23, `0x40bc30`, once a chase record (+0x54 bit 8, `0x403910`) |
 | 0x1D | asks for a wrecker (tow truck) | kind 0x1A, after 0x1E-0x1F half the time |
 | 0x1E-0x1F | his car is disabled, he can't go on | kind 0x19, `0x40bba0`, once a cop (+0x711 bit 0x10, `0x403950`) |
@@ -1022,7 +1022,15 @@ Heard in runs ([physics.md](physics.md), Radio runs; the cars' roofs
 poked: no car turned over in the runs without it; physics.md, What a disabled cop
 or a crash needs): a disabled cop said 0x1F then the wrecker 0x1D and a place, a
 crash 0x1B and a place, and the places along Hometown came from its
-rows as read, by the speaking cop's slice. The other tracks' places,
+rows as read, by the speaking cop's slice. The disabled line is also
+heard in the user's own copy without any poke (`HP_Disabled`,
+physics.md, The disabled cop seen): cop 1's 0x1F (`off00c`) after its
+call sign, where a computer racer turned it over off screen, and cop
+5's 0x1E (`off00b`), with neither call sign nor acknowledgement as cop
+5 had just spoken, 10.8 s after the player rolled it onto its roof;
+no wrecker in either. Cops 3, 4 and 5 (pitch 0x50) are played one
+semitone up (× 1.0595): the bend formula (The pitch) with the speech
+slots' bend range of 4 (tag `0x0A`), 0x50 being 16 over 64. The other tracks' places,
 and 0x7E and 0x7F, are under The places, below (`s7-` runs).
 
 Slots 0x18-0x19, 0x1C and 0x30 are empty, and kind 0x18 (slots
