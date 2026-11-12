@@ -1,6 +1,6 @@
 # Space combat (COMBAT.DAT)
 
-> **Code:** `src/engines/stgenerations/formats/combatdata.h`, `src/engines/stgenerations/game/combat.h` · **Confidence:** layout confirmed; behaviour from the code unless marked
+> **Status:** partial · **Code:** `src/engines/stgenerations/formats/combatdata.h`, `src/engines/stgenerations/game/combat.h` · **Checked on:** the 2 CD Windows release: `COMBAT.DAT` read whole, with the other archives, and its 27 briefing and console bitmaps decoded; the first fight played · **Confidence:** layout confirmed; behaviour from the code unless marked
 
 ## Overview
 

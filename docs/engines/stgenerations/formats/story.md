@@ -1,6 +1,6 @@
 # The story (STATES.INI)
 
-> **Status:** decoded · **Code:** `src/engines/stgenerations/game/campaign.h` · **Confidence:** layout confirmed; behaviour from the code unless marked
+> **Status:** decoded · **Code:** `src/engines/stgenerations/game/campaign.h` · **Checked on:** the 2 CD Windows release, its `STATES.INI`; New and the prologue's movie played · **Confidence:** layout confirmed; behaviour from the code unless marked
 
 ## Overview
 

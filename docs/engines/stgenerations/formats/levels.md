@@ -1,6 +1,6 @@
 # Levels (GAME.LV2)
 
-> **Status:** partial · **Code:** `src/engines/stgenerations/formats/level.h`, `src/engines/stgenerations/game/render3d.h` · **Confidence:** confirmed unless marked
+> **Status:** partial · **Code:** `src/engines/stgenerations/formats/level.h`, `src/engines/stgenerations/game/render3d.h` · **Checked on:** the 2 CD Windows release, all 12 levels · **Confidence:** confirmed unless marked
 
 ## Overview
 

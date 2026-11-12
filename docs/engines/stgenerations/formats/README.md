@@ -11,7 +11,7 @@ They came to Reluva with the engine, from STG-Engine's `doc/formats.md`, a page 
 - [overlays.md](overlays.md): Overlays (.OVR)
 - [sprites.md](sprites.md): Sprite sets (.GS2, .GSF)
 - [scripts.md](scripts.md): Mission scripts (GAME.BIN)
-- [levels.md](levels.md): Levels (GAME.LV2)
+- [levels.md](levels.md): Levels (GAME.LV2, an away mission's 3D map: its walls, floors, textures and actors)
 - [story.md](story.md): The story (STATES.INI)
 - [menu.md](menu.md): The captain's menu (OPTIONS.DAT)
 - [bridge.md](bridge.md): The bridge (STELLAR.DAT)

@@ -28,7 +28,10 @@ All of it was worked out on the 2 CD Windows release:
 - **The game's files**, read directly, for the formats: the archives, fonts,
   overlays, sprite sets, mission scripts, levels and the data files of the
   story, the captain's menu, the bridge and space combat.
-- **The executable, `sgens.exe`, disassembled with Ghidra**, for the
+- **The executable, `sgens.exe`, disassembled with Ghidra**, and searched
+  with small Python scripts on the Capstone disassembler (every instruction
+  that reads or writes a given field, the callers of a function, the
+  references to an address or constant, a table dumped), for the
   behaviour: how the scripts run, how the levels are drawn, the enemies' AI.
   The addresses in the code's comments (like `0x4A7C91`) are the original's
   functions each piece follows.
@@ -73,4 +76,16 @@ them):
 
 ## Working files not included
 
-None yet.
+- **The notes on the executable.** STG-Engine's work kept a note per part
+  of the game (the front end, the HUD, actors, space combat, the bridge,
+  the script instructions and others), read straight off `sgens.exe`, with
+  each fact's address and how sure it was. They were never committed to
+  STG-Engine or here; what they found is on the [formats/](formats/README.md)
+  pages and in the code's comments, with the same addresses.
+- **The search scripts** (Python, on Capstone) and Ghidra's project. To make
+  them again, load `sgens.exe` (1571328 bytes, MD5
+  `5044cd4e8cd2ef067dc79d86b38cc44d`) into Ghidra, or disassemble its code
+  section with Capstone in 32-bit x86 mode, and search it for the
+  addresses the pages give.
+- **The game's own files** used to check each format, which stay in the
+  player's copy ([CONTRIBUTING.md](../../../CONTRIBUTING.md)).

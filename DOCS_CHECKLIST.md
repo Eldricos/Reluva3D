@@ -59,21 +59,21 @@ Paths are under `docs/engines/`.
 
 ### stgenerations
 
-- [ ] `stgenerations/formats/bridge.md`: **Status** and **Checked on**.
+- [x] `stgenerations/formats/bridge.md`: **Status** and **Checked on**.
   Suggested from the docs: TESTING.md: the bridge played, with the crew's subtitled speech.
-- [ ] `stgenerations/formats/combat.md`: **Status** and **Checked on**.
+- [x] `stgenerations/formats/combat.md`: **Status** and **Checked on**.
   Suggested from the docs: TESTING.md: space combat's briefing and console played.
-- [ ] `stgenerations/formats/containers.md`: **Status** and **Checked on**.
+- [x] `stgenerations/formats/containers.md`: **Status** and **Checked on**.
   Suggested from the docs: TESTING.md: "all 18 archives (8175 files)" read on the 2 CD English release.
-- [ ] `stgenerations/formats/fonts.md`: **Checked on**.
+- [x] `stgenerations/formats/fonts.md`: **Checked on**.
   Suggested from the docs: TESTING.md: "5 fonts" read on the 2 CD English release.
-- [ ] `stgenerations/formats/levels.md`: **Checked on**.
+- [x] `stgenerations/formats/levels.md`: **Checked on**.
   Suggested from the docs: TESTING.md: "all 12 levels and their scripts" read on the 2 CD English release.
-- [ ] `stgenerations/formats/menu.md`: **Status** and **Checked on**.
+- [x] `stgenerations/formats/menu.md`: **Status** and **Checked on**.
   Suggested from the docs: TESTING.md: the captain's menu played (`stgenerations play`).
-- [ ] `stgenerations/formats/scripts.md`: **Checked on**.
+- [x] `stgenerations/formats/scripts.md`: **Checked on**.
   Suggested from the docs: TESTING.md: "all 12 levels and their scripts" read on the 2 CD English release.
-- [ ] `stgenerations/formats/story.md`: **Checked on**.
+- [x] `stgenerations/formats/story.md`: **Checked on**.
   Suggested from the docs: TESTING.md: New and the prologue's movie played.
 
 ### stharbinger
@@ -132,10 +132,10 @@ Each needs either content or confirmation that "None yet" is right.
 
 ### stgenerations
 
-- [ ] `stgenerations/KNOWN_DIFFERENCES.md`, "Bugs fixed": the original's own bugs Reluva doesn't reproduce, if any
-- [ ] `stgenerations/REVERSE_ENGINEERING.md`, "Working files not included": working files the notes mention but the repository leaves out, and how to make them again
-- [ ] `stgenerations/UNCONFIRMED.md`, "Seen running, not traced in the code": behaviour seen in the original but not found in its code
-- [ ] `stgenerations/UNCONFIRMED.md`, "Settled": items confirmed or corrected since, with the date and how
+- [x] `stgenerations/KNOWN_DIFFERENCES.md`, "Bugs fixed": the original's own bugs Reluva doesn't reproduce, if any
+- [x] `stgenerations/REVERSE_ENGINEERING.md`, "Working files not included": working files the notes mention but the repository leaves out, and how to make them again
+- [x] `stgenerations/UNCONFIRMED.md`, "Seen running, not traced in the code": behaviour seen in the original but not found in its code
+- [x] `stgenerations/UNCONFIRMED.md`, "Settled": items confirmed or corrected since, with the date and how
 
 ### stharbinger
 
@@ -205,8 +205,8 @@ in the game's README. If "Terms" lists are adopted, add the section to
 
 ### stgenerations
 
-- [ ] SGEN: first in `stgenerations/formats/menu.md:19`
-- [ ] LV2: first in `stgenerations/formats/README.md:14`
+- [x] SGEN: first in `stgenerations/formats/menu.md:19`
+- [x] LV2: first in `stgenerations/formats/README.md:14`
 
 ## 4. Candidates noted during the clean-up
 

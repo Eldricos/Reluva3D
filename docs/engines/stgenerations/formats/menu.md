@@ -1,6 +1,6 @@
 # The captain's menu (OPTIONS.DAT)
 
-> **Code:** `src/engines/stgenerations/game/optionsmenu.h`, `src/engines/stgenerations/game/keymap.h` · **Confidence:** layout confirmed; behaviour from the code unless marked
+> **Status:** decoded · **Code:** `src/engines/stgenerations/game/optionsmenu.h`, `src/engines/stgenerations/game/keymap.h` · **Checked on:** the 2 CD Windows release: `OPTIONS.DAT` read whole (68 files, 45 of them bitmaps); the captain's menu played · **Confidence:** layout confirmed; behaviour from the code unless marked
 
 ## Overview
 
@@ -16,7 +16,8 @@ normal, lit. The Load and Save rows are 30 pixels apart from y 33 of the panel,
 the automatic save's at 303. Every picture's colours are matched to
 `CAPTAINS.BMP`'s palette. Sounds: `X_1000`..`X_1003` (opened, pressed, empty
 slot, accept/cancel) and `M_2000`..`M_2002` (cancelled, confirmed, return).
-The original keeps its settings in `SGENS.CFG` (two 256-byte key maps, then
+The original keeps its settings in `SGENS.CFG` (its settings file, in the
+installed game's folder beside `sgens.exe`: two 256-byte key maps, then
 music and effects volume 0..29, difficulty, window size, subtitles,
 lookspring).
 

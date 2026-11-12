@@ -20,7 +20,9 @@ from, see [PORTING.md](PORTING.md).)
 
 ## Bugs fixed
 
-None yet.
+| Difference | Original | Where |
+|---|---|---|
+| A new game clears the bridge panel's transport or tactical button. It makes no difference in play, since each section of the story arms the button again | Nothing sets it back, even a new game: it keeps whatever the last `OnTransport` or `OnTactical` armed ([formats/bridge.md](formats/bridge.md#behaviour)) | `game/bridge.cpp` (`Bridge::reset`) |
 
 ## Not yet as the original
 

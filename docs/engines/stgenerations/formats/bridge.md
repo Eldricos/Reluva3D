@@ -1,6 +1,6 @@
 # The bridge (STELLAR.DAT)
 
-> **Code:** `src/engines/stgenerations/game/bridge.h` · **Confidence:** layout confirmed; behaviour from the code unless marked
+> **Status:** decoded · **Code:** `src/engines/stgenerations/game/bridge.h` · **Checked on:** the 2 CD Windows release: `STELLAR.DAT` read whole, with the other archives; the bridge played, with the crew's subtitled speech · **Confidence:** layout confirmed; behaviour from the code unless marked
 
 ## Overview
 
