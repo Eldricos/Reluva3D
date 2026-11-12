@@ -1,6 +1,6 @@
 # LEGO Alpha Team: into a mission, and the training tour
 
-> **Status:** done · **Checked against:** the game's own code running in Reluva: the tour played to its end with the fixed clock · **Confidence:** confirmed unless marked
+> **Status:** done · **Checked against:** the original running in Reluva · **Confidence:** confirmed unless marked
 
 ## Overview
 

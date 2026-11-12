@@ -1,6 +1,6 @@
 # LEGO Alpha Team: options
 
-> **Status:** done · **Checked against:** the game's own code running in Reluva, each option set by hand (not the original on Windows) · **Confidence:** confirmed unless marked
+> **Status:** done · **Checked against:** the original running in Reluva, each option set by hand · **Confidence:** confirmed unless marked
 
 ## Overview
 

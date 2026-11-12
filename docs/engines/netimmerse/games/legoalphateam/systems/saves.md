@@ -1,6 +1,6 @@
 # LEGO Alpha Team: saving
 
-> **Status:** done · **Checked against:** a `Game.txt` written and read back by the game's own code running in Reluva · **Confidence:** confirmed unless marked
+> **Status:** done · **Checked against:** the original running in Reluva · **Confidence:** confirmed unless marked
 
 ## Overview
 
