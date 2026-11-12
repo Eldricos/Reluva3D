@@ -25,7 +25,7 @@ the game's own code, both are given.
 |---|---|
 | **24** | The retail game, patch 1.2 ("EF 1.2 protocol"). This is the one to implement. Lilium calls it the legacy protocol and turns on its `compat` code paths for it. |
 | 25 | An older ioEF (iostvoyHM 1.37) native protocol. A Lilium server answers a version-25 connect with a message telling the client to fall back to 24. Not retail. |
-| 26 | Lilium Voyager's and later ioEF's own protocol: ioquake3's protocol 71 machinery (Huffman, checksummed netchan, field-count deltas) carrying Elite Force's structures. Not understood by the retail game. |
+| 26 | Lilium Voyager's and later ioEF's own protocol: ioquake3's protocol 71 machinery (Huffman, checksummed [netchan](#netchan), field-count deltas) carrying Elite Force's structures. Not understood by the retail game. |
 | 1.0, 1.1 | Unknown. The retail executables before 1.2 aren't covered by these sources. |
 
 Everything below is protocol 24 unless it says otherwise. Section

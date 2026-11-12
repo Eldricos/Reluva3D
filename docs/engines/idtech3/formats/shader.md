@@ -1,6 +1,6 @@
 # id Tech 3: shader scripts (`scripts/*.shader`)
 
-> **Status:** decoded · **Code:** `src/engines/idtech3/shader.cpp`, `world_renderer.cpp` · **Checked on:** generated test maps and the retail Elite Force maps; `reluva-tool idtech3 shader-check` on Elite Force's 1891 shaders (October 2026) · **Confidence:** confirmed unless marked
+> **Status:** decoded · **Code:** `src/engines/idtech3/shader.cpp`, `world_renderer.cpp` · **Checked on:** generated test maps and the retail Elite Force maps; `reluva-tool idtech3 shader-check` on Elite Force's shaders: 1872 in 1.0, 1891 in 1.2, 2059 with the Expansion Pack (November 2026) · **Confidence:** confirmed unless marked
 
 ## Overview
 
@@ -120,11 +120,12 @@ parser doesn't know (game additions).
 Every Quake III directive is parsed and drawn, except those listed at the
 end. The retail Elite Force maps look as in the original, and
 `shader-check` finds **no directive outside Quake III's set** in Elite
-Force's 1891 shaders.
+Force's shaders: 1872 in 1.0, 1891 in 1.2, 2059 with the Expansion Pack.
 All are drawn but `deformVertexes projectionShadow` (1, the original's
-shader for r_shadows 3's projected shadows); autosprites (2,
-`textures/scavenger/fire1` and `fire2`) on the level's surfaces, not on
-models (none uses them there); `deformVertexes normal` (2, the CTF
+shader for r_shadows 3's projected shadows); autosprites (in 1.2, 2:
+`textures/scavenger/fire1` and `fire2`; the Expansion Pack adds
+`textures/singularity/flare_red` and `flare_blue`) on the level's surfaces,
+not on models (none uses them there); `deformVertexes normal` (2, the CTF
 flags) as below.
 
 Sources: the Quake III Arena shader manual id Software published for map

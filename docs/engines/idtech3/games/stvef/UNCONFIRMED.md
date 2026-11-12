@@ -144,9 +144,10 @@ questions").
 
 ### Bots
 
-- **The bot library** is taken to be Quake III's, with its file formats and
-  rules read from ioquake3. That covers the AAS format, the characters,
-  the weights, chat and movement.
+- **The bot library** (botlib, the engine's code for bots) is taken to be Quake III's, with its file formats and
+  rules read from ioquake3. That covers the characters, the weights, chat
+  and movement; the AAS format (the bots' maps of levels) is settled
+  (below).
 - **Elementary actions:** say (400) has no evidence. Several others are
   unused by the game, so their numbers come from Quake III's order.
 - **Routing** gives the same kind of routes as the original's, not proven
@@ -208,4 +209,22 @@ unknown").
 
 ## Settled
 
-None yet.
+- **1.2's player state** (October 2026, corrected): Lilium Voyager's
+  468 bytes and the CD's QVMs' 460 are both right: 1.0's is 460, measured
+  in the CD's QVMs, and 1.2's 468, with `introTime` at 56, as play against
+  retail 1.2 shows. One word of 1.2's is still open (above).
+- **Single player uses no QVMs** (October 2026): its server game, client
+  game and menus are all in `efgamex86.dll` and `efuix86.dll`, and Reluva
+  runs it from those alone. The QVMs are Holomatch's.
+- **`GetGameAPI`'s table** (October 2026): read from the retail executable
+  ([sp-interface.md](systems/sp-interface.md)), where the first results
+  had guessed it from Jedi Outcast's.
+- **The cinematics are Bink videos** (October 2026): `video/*.bik`, played
+  by Reluva's Bink decoder ([cinematics.md](systems/cinematics.md)).
+- **The patches add paks** (October 2026): 1.1 adds `pak1.pk3`, 1.2
+  `pak2.pk3` and the Expansion Pack `pak3.pk3`, each told by its hash
+  ([pk3.md](../../formats/pk3.md)).
+- **The AAS format** is Quake III's (November 2026): all 33 `.aas` files of
+  1.2 with the Expansion Pack load with the layout read from ioquake3,
+  each as a bot joins ([aas.md](../../formats/aas.md)). The characters,
+  weights, chat and routing are still taken from Quake III (above).

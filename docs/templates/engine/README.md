@@ -60,3 +60,12 @@ subfolders as it grows (the game's formats, its pages, its game logic). -->
 - A game-files test, when it has one: see
   [docs/DEVELOPMENT.md](../../DEVELOPMENT.md#engine-tests).
 - What they cover, and what to check by hand: [TESTING.md](TESTING.md).
+
+## Terms
+
+<!-- Words of the engine's own (its formats, its parts, the original's
+names for them) that its pages use without explaining: a line each, in a
+few words, with a link to the page that says more. Delete this section if
+there are none. -->
+
+- **<term>:** <what it is, in a few words>.

@@ -1,6 +1,6 @@
 # Elite Force: running single player's DLLs
 
-> **Code:** `src/engines/idtech3/eliteforce/sp_game_host.{h,cpp}`, `src/engines/idtech3/pages/sp_play_viewer.cpp` · **Confidence:** confirmed unless marked
+> **Status:** done · **Code:** `src/engines/idtech3/eliteforce/sp_game_host.{h,cpp}`, `src/engines/idtech3/pages/sp_play_viewer.cpp` · **Checked against:** the retail DLLs themselves, running in the emulator; parts of play against the original running (October 2026, [TESTING.md](../TESTING.md#last-checked)) · **Confidence:** confirmed unless marked
 
 ## Overview
 
