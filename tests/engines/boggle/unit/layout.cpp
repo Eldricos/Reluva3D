@@ -7,6 +7,8 @@
 #include "tests/engines/boggle/system.h"
 #include "tests/support/test.h"
 #include "tests/support/truetype_fixture.h"
+#include <limits>
+#include <cstdlib>
 using namespace reluva;
 using namespace reluva::boggle;
 namespace {
@@ -55,6 +57,33 @@ void projection() {
     CHECK(crossed.project(1,1,2).reciprocalDepth==0);
     PlaneProjection extreme({{{INT32_MIN,0},{100,0},{100,100},{0,100}}});
     CHECK(extreme.project(1,1,2).reciprocalDepth==0);
+}
+void camera() {
+    CameraParameters p;p.position={0,0,-10};CameraProjection plain(p);
+    auto center=plain.project(0,0,0,1);CHECK(center.x==320 && center.y==240 && center.reciprocalDepth>0);
+    auto point=plain.project(1,1,0,1);CHECK(point.x==352 && point.y==208);
+    const auto distant=plain.project(1,1,10,1);CHECK(distant.x==336 && distant.y==224);
+    CHECK(std::abs(point.reciprocalDepth-2*distant.reciprocalDepth)<=1);
+    const auto scaled=plain.project(1,1,0,1,5,4);CHECK(scaled.x==440 && scaled.y==260);
+    CHECK(plain.project(1000,1000,0,1000).x==point.x);
+    p.pan=90;CameraProjection yaw(p);point=yaw.project(0,0,2,1);CHECK(point.x==256 && point.y==240);
+    p.pan=0;p.tilt=90;CameraProjection pitch(p);point=pitch.project(0,0,2,1);CHECK(point.x==320 && point.y==176);
+    p.pan=90;CameraProjection combined(p);point=combined.project(1,2,3,1,5,4);CHECK(point.x==472 && point.y==190);
+    CHECK(!plain.project(0,0,-10,1).reciprocalDepth && !plain.project(0,0,-100,1).reciprocalDepth);
+    CHECK(!plain.project(INT32_MIN,0,0,1).reciprocalDepth && !plain.project(0,INT32_MAX,0,1000000).reciprocalDepth);
+    for(int units:{0,1000001})CHECK(!plain.project(0,0,0,units).reciprocalDepth);
+    CHECK(!plain.project(0,0,0,1,9,1).reciprocalDepth && !plain.project(0,0,0,1,1,0).reciprocalDepth);
+    CHECK(!CameraProjection().project(0,0,0,1).reciprocalDepth);
+    const auto original=p;
+    for(double bad:{0.,9.,121.,std::numeric_limits<double>::quiet_NaN(),std::numeric_limits<double>::infinity()}) {
+        p=original;p.fov=bad;CHECK(!CameraProjection(p).project(0,0,0,1).reciprocalDepth);
+    }
+    p=original;p.width=8192;CHECK(!CameraProjection(p).project(0,0,0,1).reciprocalDepth);
+    p=original;p.tilt=181;CHECK(!CameraProjection(p).project(0,0,0,1).reciprocalDepth);
+    p=original;p.position[0]=65;CHECK(!CameraProjection(p).project(0,0,0,1).reciprocalDepth);
+    // Bounded extreme coordinates exercise integer intermediates under UBSan.
+    p=original;p.width=p.height=4096;p.fov=10;p.position={64,64,-64};
+    point=CameraProjection(p).project(64000000,-64000000,64000000,1000000,8,1);CHECK(point.reciprocalDepth>0);
 }
 void progress() {
     for(uint64_t duration=60000;duration<=300000;duration+=30000) {
@@ -209,6 +238,7 @@ void handwriting(const std::filesystem::path& tmp) {
 }
 static const test::Suite suite("boggle.unit.layout",{
     {"clockwise atlas sampling and independent per-board orientations",[](const auto&){orientation();}},
+    {"perspective camera, axis order, clipping, scaling and bounded coordinates",[](const auto&){camera();}},
     {"plane projection, analytic perspective and invalid geometry",[](const auto&){projection();}},
     {"source-derived timer progression and bounds",[](const auto&){progress();}},
     {"variant projection, selected cells and round render states",[](const auto& tmp){rendering(tmp);}},

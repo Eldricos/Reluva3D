@@ -280,3 +280,12 @@ installed raised/pressed computer cursors and records measured camera/grid
 contracts. Camera projection, animated cube overlays and exact dialog behavior
 remain separate comparison work; original pause audio and round-end lid state
 are pending VM observations.
+
+
+The owner confirmed the installed computer cursor pass works on Windows. The
+[playing-camera pass](../../engines/boggle/camera.md) now replaces the tray fit
+with measured final poses and a native perspective camera. The original
+initialization poses were not the playing poses: opening frames 42/43 adjust
+them, and the real viewport is 640x480. Screen-coordinate and depth contracts
+match the supplied retained-mode math within documented tolerances. Mesh shapes,
+moving cube overlays, original dialogs and pause audio remain unverified.

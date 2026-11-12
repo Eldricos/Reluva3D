@@ -1,16 +1,16 @@
 # The record of boggle.unit.layout (tests/engines/boggle/unit/layout.cpp).
 # Written by `reluva-tests boggle.unit.layout --update`; review its diff before committing.
 original.ready: 29730740cf4b0554
-original.start: 61fc490bd9641e77
-original.half: cfd97a31cb9fbc3b
-original.pending: ecf226c79878e266
-original.results: 5d2ad3e0c9513b6b
-original.untimed: ebb22f3cbfbfca3f
-original.quarter-turns: 8f1e1cedf7ce3b4c
+original.start: 8f16039b2719634c
+original.half: d2fd753f020fe2cc
+original.pending: cc5de1d49d9ed839
+original.results: 3f2c5e52c44d4918
+original.untimed: 2e71c0e2d16abd00
+original.quarter-turns: 405e86ca3638e0b1
 master.ready: 8fca11ca90529f1c
-master.start: ad4de9be9cb8d575
-master.half: 7439b982677640b5
-master.pending: cbed9268cae9ff84
-master.results: 51f63db59145ac7d
-master.untimed: a9055b510739d2f5
-master.quarter-turns: 2e933a399c0ba8dd
+master.start: 654df6a54b8ff7ac
+master.half: 0cf215a2063733ac
+master.pending: a7079ab482adbbdd
+master.results: 933cc8542cd5b82c
+master.untimed: bca2cdf9b6f1eb5c
+master.quarter-turns: 38c1f03ecb281d4d

@@ -40,7 +40,7 @@ file-format contract; the decoder and compositor are independently written.
 
 ## Geometry evidence for the next pass
 
-The existing projective tray fit remains in use. Isolated execution of the
+The first pass retained the projective tray fit. Isolated execution of the
 Classic initialization segment captures these final settings, including when
 replacement profile services return different values: the initializer overrides
 those profile values. Forty camera/profile/viewport checks match.
@@ -78,7 +78,8 @@ scripted computer round loads an invented multi-resource PE and verifies that
 the installed-cursor path restores pointer visibility at exit. Press/release
 boundary tests also check the displayed cursor state.
 
-Camera projection, moving cube overlays during lid clips, human cursor fidelity,
+The subsequent [playing-camera pass](camera.md) implements verified projection.
+Moving cube overlays during lid clips, human cursor fidelity,
 exact dialog placement/navigation and original pause/lid/audio appearance still
 need comparison. This pass does not claim complete Classic visual fidelity.
 All raw analysis, reference harnesses, decoded images and retail files remain

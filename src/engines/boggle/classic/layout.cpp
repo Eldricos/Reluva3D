@@ -25,11 +25,12 @@ void scaled(Surface& screen,const image::Image& image,int x,int y,int w,int h,bo
 using Vertex=ProjectedVertex;
 int64_t edge(Vertex a,Vertex b,int x,int y) {return int64_t(b.x-a.x)*(y-a.y)-int64_t(b.y-a.y)*(x-a.x);}
 Vertex point(bool master,int u,int v,int d) {
-    // Native approximation of the open tray, measured in the source 640x480
-    // images. This is not the original 3D camera/projection or dice rotation.
-    const std::array<ClassicPoint,4> p=master ? std::array<ClassicPoint,4>{{{137,107},{418,107},{447,351},{94,351}}}
-                                                : std::array<ClassicPoint,4>{{{135,145},{386,142},{409,350},{109,350}}};
-    return PlaneProjection(p).project(u,v,d,5,4);
+    // Verified final playing poses after the two opening-camera adjustments.
+    // Grid coordinates are native row-major: +X right, +Y toward the back.
+    // Flat cube faces remain native geometry; no retail mesh is embedded.
+    static const CameraProjection original({-36.5,0,{1.025f,.125f,-14.250009f},44,640,480});
+    static const CameraProjection masters({-34,.25,{.8f,-.5f,-13.199999f},47,640,480});
+    return (master?masters:original).project(11*(2*u-d),11*(d-2*v),0,2000,5,4);
 }
 std::array<Vertex,4> cell(bool master,size_t index,size_t side,int margin=6) {
     const int x=int(index%side)*100,y=int(index/side)*100,d=int(side)*100;

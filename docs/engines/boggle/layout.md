@@ -3,12 +3,12 @@
 Classic Original and Master now use their installed scene, top player strip,
 right-hand word panel and animated hourglass. The native framebuffer remains
 800x600; installed 640x480 artwork is scaled to fit. The cube tops use the
-installed Letters/LettersQu textures and a native approximation of the open
-tray's perspective. A single projective plane maps the grid onto the measured
-tray corners. Letter textures use reciprocal-depth interpolation across each
-cube top; mouse hit testing uses those same projected polygons.
+installed Letters/LettersQu textures and the verified [playing camera](camera.md).
+Cube centers use measured grid spacing; letter textures use reciprocal camera
+depth across each native flat face. Mouse hit testing and computer destinations
+use those same projected polygons.
 
-This is an intermediate presentation pass. Cube projection, lighting,
+This is an intermediate presentation pass. Cube shape, lighting,
 font, input box, buttons and digital-clock placement are native approximations;
 this does not establish pixel matching with the original Direct3D screen.
 The optional [handwriting font](fonts.md) now renders submitted words.
@@ -83,21 +83,21 @@ all Git worktrees. The owner confirmed the installed-artwork pass works on Windo
 appearance still needs VM comparison. The subsequent projective-plane/texture
 refinement was subsequently confirmed working by the owner on Windows.
 
-The supplied install passes all 28 Boggle CTest checks, including the new
-artwork and fresh-import checks. The normal full suite passes 38 checks and
-skips 23 unconfigured optional data checks. Shared Video 1 tests also pass with
-the Boggle engine disabled. All 737 original install files match their recorded
-SHA-256 hashes after validation.
+Current projection validation is recorded in [the camera pass](camera.md),
+including installed-artwork and fresh-import checks. The earlier shared Video 1
+checks also passed with the Boggle engine disabled. All retail files and decoded
+previews remain outside the repository.
 
-## Perspective refinement
+## Earlier perspective refinement
 
 The initial renderer used bilinear grid placement and affine interpolation of
 texture coordinates. A tilted rectangular plane needs a projective mapping:
-its equally spaced rows converge toward a vanishing point. The current native
-renderer fits one homography to the same measured tray corners and interpolates
-texture coordinates with reciprocal depth. This changes the rows and letter
-mapping while retaining the earlier corner calibration and hit-test polygons.
-It does not establish the original camera parameters, orientation generator or lighting.
+its equally spaced rows converge toward a vanishing point. Before the camera pass, the native
+renderer fitted one homography to the same measured tray corners and interpolated
+texture coordinates with reciprocal depth. That improved the rows and letter
+mapping while retaining the corner calibration and hit-test polygons. The
+current camera replaces that fit; orientation assignment and lighting still
+retain documented native policies.
 No additional assets or import changes are required.
 
 The projection uses bounded integer homogeneous coordinates and integer
@@ -145,5 +145,5 @@ continues to display the adjudicated total.
 
 The next [presentation fidelity pass](presentation-fidelity.md) establishes
 original camera/grid settings through isolated contracts and replaces the
-computer arrow with installed raised/pressed hand cursors. Camera settings do
-not yet replace the tray fit: final world-to-screen behavior remains unverified.
+computer arrow with installed raised/pressed hand cursors. The subsequent [playing-camera pass](camera.md) replaces the tray fit after
+verifying final opening adjustments, viewport dimensions and projection math.

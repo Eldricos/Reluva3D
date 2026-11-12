@@ -7,11 +7,11 @@ roster.3: a6fe3adf63cf2934
 roster.4: c9fbe976a02b209a
 roster.5: 3b3e54ad7661c868
 roster.6: 65610032376b548f
-roster.7: b00e1ab4ba992202
+roster.7: 9c32966977e3142e
 roster.8: e007c6f0ed93c4b6
-roster.9: 25949f1c7a73e1ab
+roster.9: ac4d5bc38e93bc57
 roster.10: 94f49b91af474d2f
-roster.11: a82d90f18a6924eb
+roster.11: e0a6453d7c838f97
 roster.12: 1fec3e3abb85cbda
 roster.13: 6f8c421db0d27529
 roster.14: 65610032376b548f
@@ -19,6 +19,6 @@ roster.15: 3b3e54ad7661c868
 roster.16: 8588ba94020b664b
 roster.17: 6258d970e39da4e8
 roster.18: 7cf3de165d03a819
-roster.19: b00e1ab4ba992202
-roster.20: 59318e5c49539e29
+roster.19: 9c32966977e3142e
+roster.20: 831c9e57dd47458d
 roster.21: 1fec3e3abb85cbda

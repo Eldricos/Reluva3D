@@ -64,7 +64,8 @@ rescheduling a word. Late frames can skip intermediate positions without causing
 a catch-up burst of visible submissions.
 
 The installed cursor/state mapping is now established; between-event
-interpolation and reconstructed geometry remain native.
+interpolation and cube shapes remain native. [Playing-camera projection](camera.md)
+now provides verified camera/grid geometry for the cursor destinations.
 Exact camera/idle pointer motion and frame-for-frame VM matching remain part of
 presentation comparison. Selection, nominal timing and retirement evidence are
 in the [completed AI milestone](ai-milestone.md).
