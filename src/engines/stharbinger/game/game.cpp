@@ -432,19 +432,6 @@ void Game::step() {
     // Erase, draw and advance the animations in the work buffer.
     renderAnims(true);
     draw::blit(screen_, workBuffer_, 0, 0);
-    // Beams that have run their time are wiped from the work buffer with the
-    // background, a little wider than drawn (0x22AE3).
-    for (Beam& b : beams_) {
-        if (--b.steps > 0 || draw::empty(workBuffer_))
-            continue;
-        int x0 = std::max(0, std::min(b.x0, b.x1) - 3), x1 = std::min(kScreenWidth, std::max(b.x0, b.x1) + 4);
-        int y0 = std::max(0, std::min(b.y0, b.y1) - 6), y1 = std::min(kScreenHeight, std::max(b.y0, b.y1) + 9);
-        for (int y = y0; y < y1 && y < background_.h; y++)
-            for (int x = x0; x < x1 && x < background_.w; x++)
-                *draw::at(workBuffer_, x, y) = *draw::at(background_, x, y);
-    }
-    beams_.erase(std::remove_if(beams_.begin(), beams_.end(), [](const Beam& b) { return b.steps <= 0; }),
-                 beams_.end());
     if (showHotspots_) {
         uint8_t on = uint8_t(palette_.findBestColor(0, 255, 0));
         uint8_t off = uint8_t(palette_.findBestColor(255, 0, 0));

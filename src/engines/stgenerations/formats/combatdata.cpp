@@ -306,11 +306,14 @@ bool CombatImage::loadRas(SeekableReadStream& stream) {
     const uint8_t* rows = &d[32 + mapLength];
     size_t available = d.size() - 32 - mapLength;
     pixels.assign((size_t)w * h, 0);
+    indices.assign((size_t)w * h, 0);
     for (int y = 0; y < h; y++) {
         for (int x = 0; x < w; x++) {
             size_t i = y * stride + x;
-            if (i < available)
+            if (i < available) {
                 pixels[(size_t)y * w + x] = palette[rows[i]];
+                indices[(size_t)y * w + x] = rows[i];
+            }
         }
     }
     return true;

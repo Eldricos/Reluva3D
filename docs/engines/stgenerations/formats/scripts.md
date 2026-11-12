@@ -1,6 +1,6 @@
 # Mission scripts (GAME.BIN)
 
-> **Status:** decoded · **Code:** `src/engines/stgenerations/formats/script.h`, `src/engines/stgenerations/game/vm.h` · **Confidence:** layout confirmed; behaviour from the code unless marked
+> **Status:** decoded · **Code:** `src/engines/stgenerations/formats/script.h`, `src/engines/stgenerations/game/vm.h` · **Checked on:** the 2 CD Windows release, all 12 levels' scripts · **Confidence:** layout confirmed; behaviour from the code unless marked
 
 ## Overview
 
@@ -331,8 +331,10 @@ heading in degrees.
     id, height, low, high: zones by height for a lift, the first at or below its height counting.
   - SET_SKY (0xB6) n: sky n, and the sky on. SHOW_VIEW_OVERLAY (0xB8) image, mode: a script
     resource's .OVR over the view, one frame of every row (-1 removes it). The mode is how it is
-    drawn (`0x409DDC`): 1 centred (helm.ovr, BIGCROP.OVR), 2 row by row (epsion's SHELL.OVR, the same
-    for these 640 x 252 pictures), anything else not at all. MAP_HEIGHT_BAND (0xC9) below, above.
+    drawn (`0x409DDC`): 1 (helm.ovr, BIGCROP.OVR) or 2 (epsion's SHELL.OVR), anything else not at
+    all. Both centre a picture no wider than the view; for a wider one, 1 crops round its middle and 2
+    copies each row from its left edge into the locked surface (`0x402A42`). SHELL.OVR is 640 wide, so
+    it is only wider in the original's small, 504-wide window. MAP_HEIGHT_BAND (0xC9) below, above.
   - ENGAGE (0x73) id: event 35 once the player walks 3 units off (another engaged object gets it at
     once). TELEPORT_PLAYER_RELATIVE (0x76) from, to: moved and turned by their difference.
   - Health: SET_ENVIRONMENT_DAMAGE (0x88) period: 1 health a period (kind 13), 0 stops;
@@ -594,4 +596,4 @@ reluva-tool stgenerations script out/verid1/game.bin
 
 ## Sources and checks
 
-From STG-Engine's notes on the 2 CD Windows release ([README](README.md) says how they were made). All values are little-endian.
+From the notes read off `sgens.exe` and the game's files, the 2 CD Windows release, while the engine was STG-Engine: [events](../research/events.md), [natives-a](../research/natives-a.md), [natives-b](../research/natives-b.md), [natives-c](../research/natives-c.md), [natives-d](../research/natives-d.md), [natives-e](../research/natives-e.md), [natives-f](../research/natives-f.md), [panels](../research/panels.md), [hud](../research/hud.md), [sound-table](../research/sound-table.md), [music-speech](../research/music-speech.md), [player-attack](../research/player-attack.md), [projectiles](../research/projectiles.md), [movers](../research/movers.md), in [research/](../research/README.md). [REVERSE_ENGINEERING.md](../REVERSE_ENGINEERING.md) says how they were made. All values are little-endian.

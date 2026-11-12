@@ -1387,6 +1387,60 @@ static void actors_walk_and_block() {
     CHECK_EQUAL(actors.getObstacleObject(player.getContactObstacle()), 0xA002);
 }
 
+static void actors_wander_about_what_they_guard() {
+    LevelBuilder builder;
+    builder.addFloor(-40, -40, 80, 80, 0);
+    builder.addActor(1, 10, 10, 0, Actors::kModeWander, 0);
+    builder.addActor(2, 30, 30, 0, Actors::kModeIdle, 0);
+    LevelFile level;
+    CHECK(loadLevel(level, builder.build()));
+    Walker player(level);
+    player.place(-20, 30, 0);
+    Actors actors(level, player, loadTestSprites);
+
+    // How close it comes to a point while it wanders: it heads back to its
+    // centre until inside the outer band.
+    auto closest = [&](double px, double py) {
+        std::vector<Actors::ScriptEvent> events;
+        double best = 1e9;
+        for (int t = 0; t < 8000; t += 20) {
+            actors.update(20, player, events);
+            double x, y, z;
+            uint16_t heading;
+            actors.getPosition(1, x, y, z, heading);
+            best = std::min(best, std::hypot(x - px, y - py));
+        }
+        return best;
+    };
+
+    // Guarding actor 2 (mode 1), it goes over and wanders about it.
+    Actors::Wander wander;
+    wander.guardMode = 1;
+    wander.guardTarget = 2;
+    wander.minTurn = 0x2000;
+    wander.maxTurn = 0x4000;
+    wander.inner = 0;
+    wander.home = 4 << 16;
+    wander.outer = 3 << 16;
+    wander.minWalk = 1 << 16;
+    wander.maxWalk = 2 << 16;
+    actors.setWander(1, wander);
+    CHECK(closest(30, 30) < 4);
+    CHECK(closest(-20, 30) > 15);
+
+    // Target 0, the rest kept: the player.
+    Actors::Wander toPlayer;
+    toPlayer.guardTarget = 0;
+    actors.setWander(1, toPlayer);
+    CHECK(closest(-20, 30) < 4);
+
+    // Mode 0: about home.
+    Actors::Wander toHome;
+    toHome.guardMode = 0;
+    actors.setWander(1, toHome);
+    CHECK(closest(10, 10) < 4);
+}
+
 static const reluva::test::Suite suite("stgenerations.unit.level", {
     {"level tables", [](const std::filesystem::path&) { level_tables(); }},
     {"level texture is column major", [](const std::filesystem::path&) { level_texture_is_column_major(); }},
@@ -1417,4 +1471,5 @@ static const reluva::test::Suite suite("stgenerations.unit.level", {
     {"walker fits a gap its width", [](const std::filesystem::path&) { walker_fits_a_gap_its_width(); }},
     {"walker line of sight", [](const std::filesystem::path&) { walker_line_of_sight(); }},
     {"actors walk and block", [](const std::filesystem::path&) { actors_walk_and_block(); }},
+    {"actors wander about what they guard", [](const std::filesystem::path&) { actors_wander_about_what_they_guard(); }},
 });

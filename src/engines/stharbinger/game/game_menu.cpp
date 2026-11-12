@@ -136,6 +136,10 @@ void Game::selectSave(int index) {
                 menu_.thumbnail[y * 320 + x] = info.screenshot[(y * 2) * 640 + x * 2];
         for (int i = 0; i < 256; i++)
             menu_.savePalette.setColor(i, info.palette[i * 3], info.palette[i * 3 + 1], info.palette[i * 3 + 2]);
+        // The thumbnail's colours in the menu's own palette (when it keeps it).
+        for (int i = 0; i < 256; i++)
+            menu_.thumbnailMap[i] =
+                uint8_t(menu_.artPalette.findBestColor(info.palette[i * 3], info.palette[i * 3 + 1], info.palette[i * 3 + 2]));
     }
 }
 
@@ -173,14 +177,11 @@ void Game::drawMenuScreen() {
 
     uint8_t grey = nearest(pal, 40, 40, 40), white = nearest(pal, 63, 63, 63), black = nearest(pal, 0, 0, 0);
     if (menu_.infoValid) {
-        uint8_t map[256];
-        for (int i = 0; i < 256; i++) {
-            const uint8_t* c = menu_.savePalette.data() + i * 3;
-            map[i] = savePalette ? uint8_t(i) : uint8_t(pal.findBestColor(c[0], c[1], c[2]));
-        }
         for (int y = 0; y < 240; y++)
-            for (int x = 0; x < 320; x++)
-                *draw::at(dst, kThumbX + x, kThumbY + y) = map[menu_.thumbnail[y * 320 + x]];
+            for (int x = 0; x < 320; x++) {
+                uint8_t c = menu_.thumbnail[y * 320 + x];
+                *draw::at(dst, kThumbX + x, kThumbY + y) = savePalette ? c : menu_.thumbnailMap[c];
+            }
     }
     std::string text = menu_.infoValid ? menu_.description : std::string();
     if (menu_.mode == GameMenu::kNameEntry) {

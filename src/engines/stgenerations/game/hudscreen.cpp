@@ -23,7 +23,8 @@ Rect inclusive(int x1, int y1, int x2, int y2) {
     return Rect(x1, y1, x2 + 1, y2 + 1);
 }
 
-// The console's parts, as the original lays them out (see doc/formats.md).
+// The console's parts, as the original lays them out (see
+// docs/engines/stgenerations/formats/scripts.md, "The away-team screen").
 const Rect kLeftPanel = inclusive(0, 253, 205, 458);
 const Rect kTabs[3] = { inclusive(6, 261, 28, 312), inclusive(6, 331, 28, 382), inclusive(6, 401, 28, 452) };
 const Rect kMap = inclusive(39, 267, 192, 414);

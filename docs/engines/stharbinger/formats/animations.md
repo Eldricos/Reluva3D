@@ -1,6 +1,6 @@
 # Animations and sprites (.RLE)
 
-> **Status:** decoded · **Code:** `src/engines/stharbinger/formats/graphics.cpp` · **Confidence:** confirmed unless marked
+> **Status:** decoded · **Code:** `src/engines/stharbinger/formats/graphics.cpp` · **Checked on:** both CDs' 1,458 `.RLE` files (with those inside archives), 28,650 frames: every frame's rows fit its header (STDS9H's extractor, October 2026) · **Confidence:** confirmed unless marked
 
 ## Overview
 

@@ -1,6 +1,6 @@
 # Fonts (.FNT)
 
-> **Status:** decoded · **Code:** `src/engines/stgenerations/formats/font.h` · **Confidence:** confirmed unless marked
+> **Status:** decoded · **Code:** `src/engines/stgenerations/formats/font.h` · **Checked on:** the 2 CD Windows release, all 5 fonts · **Confidence:** confirmed unless marked
 
 ## Overview
 
@@ -25,4 +25,4 @@ glyph[]:
 
 ## Sources and checks
 
-From STG-Engine's notes on the 2 CD Windows release ([README](README.md) says how they were made). All values are little-endian.
+From reading the game's files, the 2 CD Windows release, while the engine was STG-Engine ([REVERSE_ENGINEERING.md](../REVERSE_ENGINEERING.md) says how). All values are little-endian.

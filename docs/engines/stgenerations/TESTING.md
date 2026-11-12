@@ -55,6 +55,34 @@ of your own there.
   ending.
 - **The unconfirmed details** ([UNCONFIRMED.md](UNCONFIRMED.md)), against
   the original.
+- **The Controls screen:** the defaults match the original's; a key
+  clicked into a box moves there from any other action, and the old key
+  stops working; Accept keeps it after a restart, Cancel drops it; Mouse
+  Look takes only the left or right button. In a mission Shift runs, and
+  holding the right button turns and tilts the view towards the mouse
+  (with Lookspring on, letting go levels it). Changed keys work in space
+  combat too.
+- **Space combat:** a save made in a fight (the Save panel reads "Save game
+  at start of current encounter") starts that fight again; a hit on an
+  enemy's shields flashes on its side towards the shot; hits on the
+  Enterprise shake the screen, and dim it once a shield is badly hurt; the
+  shield facing display shows each ship inside its coloured sphere; the
+  viewscreen and radar sliders zoom and set the range.
+- **Each away mission,** in particular:
+
+  | Mission | Check in particular |
+  |---|---|
+  | AMARGOS1 | The bodies Riker beams up disappear (in STG-Engine, once, one stayed; it couldn't be made to happen again). The lifts, and the door that once stuck |
+  | AMARGOS2 | The helmet overlay (helm.ovr) over the view when it's worn |
+  | ANTILIOS | Water: wading, swimming under the surface and climbing out, with the low gravity under water; the tinted screen effects |
+  | ARVADA1 | Actors told to guard something stay near it rather than following the player |
+  | BERSUS | The same for its guards (actors 38-47); water, as in Antilios |
+  | ENTERP | The finale on the Enterprise |
+  | EPSION | The SHELL overlay over the view; the yellow streak transitions |
+  | GALORN1, GALORN2 | The BIGCROP overlay over the view |
+  | QURASH | The helmet overlay |
+  | VERID1 | The finale with Soran |
+
 - **Other systems:** Windows and macOS, a real sound card, a high-density screen (the
   pointer's second picture).
 - **Other releases:** no other language or build has been seen.

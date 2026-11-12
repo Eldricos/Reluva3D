@@ -87,6 +87,7 @@ void Campaign::start(const std::string& section) {
     _stack.clear();
     _mission = 0;
     _combat = 0;
+    _replayCombat = false;
     _clue = false;
     _onTransport.clear();
     _onTactical.clear();
@@ -105,7 +106,10 @@ void Campaign::jump(const std::string& section) {
 }
 
 void Campaign::restartSection() {
-    _line = 0;
+    if (_combat)
+        _replayCombat = true;
+    else
+        _line = 0;
 }
 
 void Campaign::setFlag(int flag, bool value) {
@@ -117,6 +121,12 @@ void Campaign::setFlag(int flag, bool value) {
 
 Campaign::Action Campaign::next() {
     Action action;
+    if (_replayCombat) {
+        _replayCombat = false;
+        action.type = Action::kSpaceCombat;
+        action.number = _combat;
+        return action;
+    }
     // A bound on lines run without an action, in case of a loop.
     for (int steps = 0; _running && !_mission && !_combat && steps < 10000; steps++) {
         const std::vector<std::vector<std::string>>& lines = _sections[_section];
@@ -372,6 +382,8 @@ Campaign::Result Campaign::execute(const std::vector<std::string>& words, Action
 }
 
 void Campaign::sync(Serializer& s) {
+    if (s.isLoading())
+        _replayCombat = false;
     s.syncString(_section);
     uint32_t line = (uint32_t)_line;
     s.syncAsUint32(line);

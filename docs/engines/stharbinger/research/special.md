@@ -51,7 +51,8 @@ hotspot: zap/temlyk/barlyk/hablyk/homebank...) and C1 (#193) for a **miss** (the
 hotspot 10,10,620,460) — always right after `SOUND phasor`. The script itself does the consequence.
 
 ### Renderer side (0x22AE3 step) — H
-* 0x22BD4: if 0x70FA8 != 0: --0x70FA8; when it reaches 0, every list entry's rect is restored from
+* 0x22BD4: if 0x70FA8 != 0: --0x70FA8 (on every render that passes the throttle, dl = 0, 1 or 2, so a
+  BACKGRND during a beam also uses up a step); when it reaches 0, every list entry's rect is restored from
   the clean background 0x71038 into the work buffer 0x71028 (x-3, y, w+6, h; 0x2CD1E) and marked dirty;
   [0x71004] = 0 (0x22DB5).
 * 0x23008 (pass 2, before priority-4 animations): if 0x70FA8 > 1 and count > 0, re-draw every entry
@@ -59,6 +60,10 @@ hotspot 10,10,620,460) — always right after `SOUND phasor`. The script itself 
 * So a beam lives for 3 renderer steps (~40-60 ms at 50 Hz): drawn directly by ACTIONSEQ, redrawn on
   step 1 (3→2), left on step 2 (2→1), erased on step 3 (1→0). Level-4 animations draw over it.
 * 0x71004 / 0x70FA8 are also zeroed at init (0x10188) and on load (0x1FA04/0x1FA0E).
+* The redraw at 0x23008 happens only once (while 0x70FA8 > 1 after the decrement), so the work buffer
+  gets a single copy of each beam; an enemy beam's jitter is redrawn once, not on every step.
+* The ACTIONSEQ draw goes straight to the screen (0x2D562), not into the work buffer: the next render's
+  blit replaces it with the work buffer's copy.
 
 ## 2. 0xC2 — enemy shot at the player (0x25B0E..0x25DB0) — H
 

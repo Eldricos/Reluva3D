@@ -79,8 +79,9 @@ private:
         Vec3 view;
         double u, v;
     };
+    // blend: see-through, mixed half and half with what is behind.
     void drawTriangle(const ClipVertex* v, int count, const CombatImage* texture, uint32_t colour, double shade,
-                      bool keyBlack);
+                      bool keyBlack, bool blend = false);
 
     int _w = 0, _h = 0;
     double _focal = 1;

@@ -400,13 +400,39 @@ bool Game::executeDirective(const Directive& d) {
 
 int Game::randomNumber(int n) { return n > 0 ? watcomRand() % n : 0; }
 
+void Game::drawBeam(Surface& dst, const Beam& b) {
+    if (b.enemy)
+        drawEnemyBeam(dst, b.x0, b.y0, b.x1, b.y1, b.color, 8, 460, [this](int n) { return randomNumber(n); });
+    else
+        drawPhaserBeam(dst, b.x0, b.y0, b.x1, b.y1, b.color);
+}
+
 void Game::drawBeams(Surface& dst) {
-    for (const Beam& b : beams_) {
-        if (b.enemy)
-            drawEnemyBeam(dst, b.x0, b.y0, b.x1, b.y1, b.color, 8, 460, [this](int n) { return randomNumber(n); });
-        else
-            drawPhaserBeam(dst, b.x0, b.y0, b.x1, b.y1, b.color);
+    for (const Beam& b : beams_)
+        drawBeam(dst, b);
+}
+
+void Game::addBeam(Beam b) {
+    // The box between the end points, at least 2 pixels each way; the renderer
+    // later wipes it 3 pixels wider on each side.
+    int right = std::max(b.x0, b.x1), bottom = std::max(b.y0, b.y1);
+    b.left = std::min(b.x0, b.x1);
+    b.top = std::min(b.y0, b.y1);
+    if (right - b.left < 2) {
+        b.left--;
+        right++;
     }
+    if (bottom - b.top < 2) {
+        b.top--;
+        bottom++;
+    }
+    b.w = right - b.left;
+    b.h = bottom - b.top;
+    beams_.push_back(b);
+    // Shown at once; a second beam does not reset the renders left.
+    drawBeam(screen_, b);
+    if (beamLife_ == 0)
+        beamLife_ = 3;
 }
 
 void Game::updateTick() {
@@ -467,8 +493,7 @@ void Game::actionSequence(const Directive& d) {
         b.x1 = aim.x;
         b.y1 = aim.y;
         b.color = uint8_t(palette_.findBestColor(255, 255, 255));
-        b.steps = 3;
-        beams_.push_back(b);
+        addBeam(b);
         break;
     }
     case 0xC2: {
@@ -484,8 +509,7 @@ void Game::actionSequence(const Directive& d) {
         b.x1 = randomNumber(620) + 10;
         b.y1 = 460;
         b.color = 1;
-        b.steps = 3;
-        beams_.push_back(b);
+        addBeam(b);
         if (b.x1 >= 213 && b.x1 <= 426)
             result = 0xFFFE;
         break;

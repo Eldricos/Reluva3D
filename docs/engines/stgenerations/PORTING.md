@@ -24,6 +24,33 @@ from STG-Engine), see [KNOWN_DIFFERENCES.md](KNOWN_DIFFERENCES.md).
    rewritten, the engine test, and the game's own files
    ([TESTING.md](TESTING.md)).
 
+## STG-Engine's later work
+
+STG-Engine went on after its `main` was ported: the 19 commits of its
+`claude/happy-faraday-hzpl8c` branch after `main` (`8e18ce3` to `36df0a6`)
+were brought across the same way, each file merged three ways (Reluva's
+file, STG-Engine's `main` and its later version, both put in Reluva's
+style), so the port's own changes stayed. They add:
+
+- **Keys:** the original's key maps, changed on the Controls screen
+  ([formats/menu.md](formats/menu.md#keys)), with Run, Mouse Look and
+  Lookspring in missions; `game/keymap.h` is new. The maps are kept in
+  `settings.ini` as `away_keys` and `starship_keys`.
+- **Space combat:** the enemy view placed as the original places it, the
+  viewscreen's zoom and the radar's range sliders, the radar as the
+  original draws it, the start facing the nearest enemy, the system and
+  shield facing displays, steering by the mouse, the stars, the shields
+  (their hit flashes, the facing spheres, the Enterprise's jolt), and
+  saving at the start of a fight ([formats/combat.md](formats/combat.md)).
+- **Missions:** actors guarding what SET_ACTOR_COMBAT_PARAMS names
+  ([formats/levels.md](formats/levels.md)).
+- **The menu:** the window size shown dimmed, as the view is always the
+  large one.
+- **Tests:** five more cases (key maps, the Controls screen, a save in
+  space combat, the shields' materials, guarding actors), and the engine
+  test's record made again for the changed settings screen, saves (their
+  version is 7) and settings.
+
 ## Where each part went
 
 | STG-Engine | Reluva |
@@ -157,7 +184,7 @@ starfield, F8 plays the movies in turn, F5/F7 save and load, Esc quits.
 
 | STG-Engine | Reluva |
 |---|---|
-| `test_script`, `test_level`, `test_hud`, `test_combat`, `test_campaign`, `test_sound` | `stgenerations.unit.script`, `.level`, `.hud`, `.combat`, `.campaign`, `.sound`: the same 51 cases |
+| `test_script`, `test_level`, `test_hud`, `test_combat`, `test_campaign`, `test_sound` | `stgenerations.unit.script`, `.level`, `.hud`, `.combat`, `.campaign`, `.sound`: the same 51 cases, and the 5 of STG-Engine's later work |
 | `test_engines` (fonts, subtitles, overlays, sprite sets, script files) | `stgenerations.unit.formats`: the same 5 cases |
 | `test_graphics` | `stgenerations.unit.canvas`: the same 7 cases, the pixel format one for the game's two formats |
 | `test_audio` | `stgenerations.unit.audio`: rewritten for the game's calls on Reluva's mixer |

@@ -386,6 +386,24 @@ static void testMd3() {
     cut.resize(cut.size() - 4);
     CHECK(parseMd3(cut, m));
     CHECK(parseMd3({'I', 'D', 'P', '2'}, m));
+
+    // An empty surface as the Expansion Pack's k_chair1.md3 has: 0 frames,
+    // one shader, no vertices or triangles, every offset 0. The original's
+    // loader takes it (its shader name read from the surface's own start),
+    // and draws the rest of the model.
+    auto withEmpty = buildMd3();
+    withEmpty[84] = 2; // two surfaces
+    const char header[] = "IDP3line01";
+    withEmpty.insert(withEmpty.end(), header, header + sizeof header - 1);
+    withEmpty.resize(withEmpty.size() + 64 - (sizeof header - 1 - 4), 0);
+    for (int32_t v : {0, 0, 1, 0, 0, 0, 0, 0, 0, 0})
+        for (int i = 0; i < 4; ++i)
+            withEmpty.push_back(uint8_t(uint32_t(v) >> (8 * i)));
+    err = parseMd3(withEmpty, m);
+    CHECK(!err);
+    CHECK(m.surfaces.size() == 2 && m.surfaces[0].indices.size() == 3);
+    CHECK(m.surfaces.size() == 2 && m.surfaces[1].vertexCount == 0 && m.surfaces[1].indices.empty() &&
+          m.surfaces[1].shaders.size() == 1 && m.surfaces[1].shaders[0] == "IDP3line01");
 }
 
 static void testSkinAndPlacement() {

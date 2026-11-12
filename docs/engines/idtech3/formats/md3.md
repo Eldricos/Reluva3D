@@ -1,6 +1,6 @@
 # id Tech 3: models (`.md3`) and skins (`.skin`)
 
-> **Status:** decoded · **Code:** `src/engines/idtech3/md3.cpp`, `model_cache.cpp` · **Checked on:** all 1156 retail Elite Force models (`reluva-tool idtech3 model-check`, October 2026) · **Confidence:** confirmed unless marked
+> **Status:** decoded · **Code:** `src/engines/idtech3/md3.cpp`, `model_cache.cpp` · **Checked on:** every `.md3` of Elite Force: 578 in 1.0 and 1.1, 594 in 1.2, 716 with the Expansion Pack (`reluva-tool idtech3 model-check`, November 2026) · **Confidence:** confirmed unless marked
 
 ## Overview
 
@@ -50,6 +50,21 @@ Each surface starts with a 108-byte header, offsets relative to it:
   and the normal as two angles in a byte each. The high byte is the
   latitude around Z and the low byte the longitude from +Z, both
   × 2π/256: normal = (cos lat · sin lng, sin lat · sin lng, cos lng).
+
+- **What the original's loader checks** (`R_LoadMD3`: `0x455d70` in 1.2's
+  `stvoy.exe`, `0x451dc0` in the Expansion Pack's, the same in
+  `stvoyHM.exe`): the version, 15, and that the model has a frame; a
+  surface with more than 1000 vertices or 2000 triangles only gets a
+  warning. A surface's own frame count isn't read: every surface has the
+  model's frames. The loader steps to the next surface by the surface's
+  end offset, even when it's 0. *(from the code)*
+- **An empty surface.** The Expansion Pack's
+  `models/mapobjects/scavenger/k_chair1.md3` (placed by
+  `_holodeck_warlord`) has a second surface, `line01`, with 0 frames, no
+  vertices or triangles, and every offset 0. Its shader name is read from
+  the surface's own start (`IDP3line01`, which isn't a shader), and it
+  draws nothing; the chair is its first surface. The file goes on past the
+  header's end with the remains of an earlier export, which nothing reads.
 
 Files ending `_1.md3` and `_2.md3` are lower-detail copies.
 
@@ -115,12 +130,23 @@ usually built into the map itself as triangle soups.
 
 ## Sources and checks
 
-`model-check` reads all 1156 retail models, and every one of
-their 3862 surfaces finds its shader or image (782 through skins) except
-12 that name none: models whose shader the game code picks
+`model-check` reads every model, `.md3` and `.mdr` alike
+([mdr.md](mdr.md)):
+
+| Release | `.md3` | `.mdr` | Models | Surfaces |
+|---|---|---|---|---|
+| 1.0, 1.1 | 578 | 170 | 748 | 2790 |
+| 1.2 | 594 | 196 | 790 | 2924 |
+| 1.2 with the Expansion Pack | 716 | 201 | 917 | 3833 |
+
+Every surface finds its shader or image except `k_chair1.md3`'s empty one
+(above, the Expansion Pack's) and 12 that name none, in every release:
+models whose shader the game code picks
 (`models/misc/telep.md3`) and player heads whose skin the game chooses
 (`models/players/munrocrew/head.md3`). Placed models sit where the
 original puts them.
 
 Sources: the GPL Quake III Arena source (`code/qcommon/qfiles.h`, the
-renderer's `tr_model.c`, `tr_surface.c`), read for the layout, not copied.
+renderer's `tr_model.c`, `tr_surface.c`), read for the layout, not copied;
+the retail executables for what their loader checks, at the addresses
+given.

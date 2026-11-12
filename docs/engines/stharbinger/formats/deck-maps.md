@@ -1,6 +1,6 @@
 # Deck maps (MAPS/*.DAT)
 
-> **Status:** decoded · **Code:** `src/engines/stharbinger/game/game_extras.cpp` · **Confidence:** layout confirmed; behaviour from the code unless marked
+> **Status:** decoded · **Code:** `src/engines/stharbinger/game/game_extras.cpp` · **Checked on:** all 4 `MAPS/*.DAT` files: sizes match the table, palettes picked by eye (STDS9H's extractor), and the map seen in play in STDS9H (October 2026) · **Confidence:** layout confirmed; behaviour from the code unless marked
 
 ## Overview
 

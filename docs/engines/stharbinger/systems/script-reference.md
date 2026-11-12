@@ -149,9 +149,15 @@ Nothing else is erased, so an `onthefly` animation that moves or changes shape
 leaves its old pixels behind, and a `oneframe` animation stays on screen after it
 turns itself off. These leftovers are part of the original's look. While a talker's
 line plays, the lip-sync loop's redraws also erase stopped `clear` animations, so
-a mouth's new shape replaces the old one instead of being drawn over it. Expired
-phaser and enemy beams are wiped with the background a few pixels wider than
-drawn.
+a mouth's new shape replaces the old one instead of being drawn over it.
+`ANIMDUMP` frees an animation without erasing it, so its last frame also stays
+until something draws over it.
+
+Phaser and enemy beams (`ACTIONSEQ` 0xC0..0xC2) are drawn on the screen at once
+and share one three-render timer, counted down by every render including
+`BACKGRND`'s: the renderer redraws them into the work buffer on the first (an
+enemy beam with new jitter), leaves them on the second and wipes their boxes,
+3 pixels wider on each side, with the background on the third.
 
 Flags, one bit per keyword pair (keyword k touches bit k / 2; odd k sets it):
 
@@ -345,7 +351,7 @@ The game starts in OPENING, whose script plays the intro (types 1C, 00, 1D, 14,
 |---|---|---|
 | 80 / 81 | tricorder icon over the backgrounds on / off | 999 |
 | A0xx | location xx for the deck map | 999 |
-| C0, C1 | the player's phaser: a beam from (320, 479) to the cursor's centre, shown for 3 steps; the script decides what it hit (C0 after a hit, C1 after a miss) | 999 |
+| C0, C1 | the player's phaser: a beam from (320, 479) to the cursor's centre, shown for 3 renders; the script decides what it hit (C0 after a hit, C1 after a miss) | 999 |
 | C2 | an enemy shot from the SETRECT hotspot (x + w/2, y + h - 5) to (10 + random(620), 460), a widening beam | 65534 (player hit) if the point is in 213..426, else 999 |
 | C3 | nothing | 999 |
 | F0 | stops the countdown's tick | 999 |

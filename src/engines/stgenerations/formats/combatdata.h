@@ -76,6 +76,8 @@ struct CombatImage {
     // map in three planes; colour (255,0,163) is see-through.
     bool loadRas(SeekableReadStream& stream);
     uint32_t get(int x, int y) const { return pixels[(size_t)y * w + x]; }
+    // A .RAS picture's colour indices, for the ships' system maps (S???_STR).
+    std::vector<uint8_t> indices;
 };
 
 // The palette of the animations and the starfield (STANDARD.PAL, 6-bit VGA).

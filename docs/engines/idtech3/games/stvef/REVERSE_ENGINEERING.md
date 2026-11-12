@@ -93,13 +93,15 @@ fit.
 Surveys run over the whole retail data, so a reader is checked against
 every file, not just a sample:
 
-- `bsp-check`: all 67 maps load.
-- `shader-check`: Elite Force's 1872 shaders use no directive outside
-  Quake III's.
+- `bsp-check`: all 67 maps of 1.2 load, and all 99 with the Expansion
+  Pack.
+- `shader-check`: Elite Force's shaders use no directive outside Quake
+  III's: 1872 in 1.0, 1891 in 1.2, 2059 with the Expansion Pack.
 - `entity-survey`: every entity class and key the maps use
   ([entities.md](formats/entities.md)).
-- `model-check`, `image-check`, `tex-survey` and `pk3-list`: models,
-  textures and archives.
+- `model-check`: every model reads, `.md3` and `.mdr`: 748 in 1.0, 790 in
+  1.2, 917 with the Expansion Pack ([md3.md](../../formats/md3.md)).
+- `image-check`, `tex-survey` and `pk3-list`: textures and archives.
 
 #### 4. Installers and releases
 
@@ -181,4 +183,21 @@ meanings, and what the engine does in answer.
 
 ## Working files not included
 
-None yet.
+- **The disassembly listings** of the retail binaries (`stvoy.exe` and
+  `stvoyHM.exe`, `efgamex86.dll` and `efuix86.dll`, 1.0's, 1.2's and the
+  Expansion Pack's). They are made from the game's own code, so they stay
+  out of the repository. To make them again from your copy:
+  1. `objdump -d -M intel --no-show-raw-insn <binary> > <binary>.asm`
+     (GNU binutils);
+  2. list the binary's strings: each run of printable bytes ending in a
+     NUL, by its address (the image base plus the section's virtual
+     address plus its offset in the section);
+  3. append each string, as a comment, to every line of the listing that
+     names its address. A short script does it; that's what
+     "[Disassembly of the retail binaries](#1-disassembly-of-the-retail-binaries)"
+     searches.
+- **Run logs and surveys.** Logs from `reluva-tool` (`qvm-run`,
+  `game-run -trace`, `sp-run -trace`) and survey files (`entity-survey`'s
+  output) are made again by running the command on your copy. The
+  game-files test keeps each command's output in the build, under
+  `gamedata/idtech3/` ([DEVELOPMENT.md](../../../../DEVELOPMENT.md#engine-tests)).

@@ -90,7 +90,8 @@ Differences seen in how Elite Force's maps use them:
 #### Scripts (single player)
 
 Elite Force's single player drives its story with scripts, as Jedi
-Outcast's ICARUS does (**JK2** for the naming throughout):
+Outcast's ICARUS does (Raven's script system: scripts compiled to `.IBI`
+files that the game runs; **JK2** for the naming throughout):
 
 - **Script hooks** (a script's path relative to `scripts/`, e.g.
   `borg1/rotate_splattamatron`): `spawnscript` (1,898), `usescript`

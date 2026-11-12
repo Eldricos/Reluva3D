@@ -82,6 +82,9 @@ save folder help.
      NPC file.
 3. **The holodeck missions** (the `_holodeck_*` maps).
    - Boothby should appear in the garden.
+   - The Warlord mission (`_holodeck_warlord`): its seven chairs should be
+     there. Their model, `k_chair1.md3`, has an empty second
+     surface that Reluva once refused ([md3.md](../../formats/md3.md)).
 4. **Saving and loading with the Expansion,** in the tour and in a
    mission, including autosaves.
 5. **The two kinds of save kept apart.** The Expansion's single player
@@ -103,7 +106,7 @@ save folder help.
    server from the server list (Local and Internet).
 4. Joining a server that uses paks the player doesn't have, with
    `cl_allowDownload 1`: they download, and the level loads.
-5. A pure server (`sv_pure 1`): the retail game joins Reluva's, and Reluva
+5. A pure server (`sv_pure 1`, which allows only its own paks): the retail game joins Reluva's, and Reluva
    joins a retail one.
 6. Chat, team chat, votes, and the in-game menu.
 

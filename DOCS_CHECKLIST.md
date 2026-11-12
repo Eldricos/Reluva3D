@@ -39,14 +39,14 @@ Paths are under `docs/engines/`.
 
 ### idtech3 (Elite Force)
 
-- [ ] `idtech3/formats/aas.md`: **Status** and **Checked on**
-- [ ] `idtech3/formats/mdr.md`: **Status** and **Checked on**
-- [ ] `idtech3/formats/text.md`: **Checked on**
-- [ ] `idtech3/games/stvef/systems/cinematics.md`: **Status** and **Checked against**
-- [ ] `idtech3/games/stvef/systems/input.md`: **Status**
-- [ ] `idtech3/games/stvef/systems/single-player.md`: **Status** and **Checked against**
-- [ ] `idtech3/games/stvef/systems/sp-interface.md`: **Status** and **Checked against**
-- [ ] `idtech3/games/stvef/systems/syscalls.md`: **Status**
+- [x] `idtech3/formats/aas.md`: **Status** and **Checked on**
+- [x] `idtech3/formats/mdr.md`: **Status** and **Checked on**
+- [x] `idtech3/formats/text.md`: **Checked on**
+- [x] `idtech3/games/stvef/systems/cinematics.md`: **Status** and **Checked against**
+- [x] `idtech3/games/stvef/systems/input.md`: **Status**
+- [x] `idtech3/games/stvef/systems/single-player.md`: **Status** and **Checked against**
+- [x] `idtech3/games/stvef/systems/sp-interface.md`: **Status** and **Checked against**
+- [x] `idtech3/games/stvef/systems/syscalls.md`: **Status**
 
 ### netimmerse (LEGO Alpha Team)
 
@@ -59,43 +59,43 @@ Paths are under `docs/engines/`.
 
 ### stgenerations
 
-- [ ] `stgenerations/formats/bridge.md`: **Status** and **Checked on**.
+- [x] `stgenerations/formats/bridge.md`: **Status** and **Checked on**.
   Suggested from the docs: TESTING.md: the bridge played, with the crew's subtitled speech.
-- [ ] `stgenerations/formats/combat.md`: **Status** and **Checked on**.
+- [x] `stgenerations/formats/combat.md`: **Status** and **Checked on**.
   Suggested from the docs: TESTING.md: space combat's briefing and console played.
-- [ ] `stgenerations/formats/containers.md`: **Status** and **Checked on**.
+- [x] `stgenerations/formats/containers.md`: **Status** and **Checked on**.
   Suggested from the docs: TESTING.md: "all 18 archives (8175 files)" read on the 2 CD English release.
-- [ ] `stgenerations/formats/fonts.md`: **Checked on**.
+- [x] `stgenerations/formats/fonts.md`: **Checked on**.
   Suggested from the docs: TESTING.md: "5 fonts" read on the 2 CD English release.
-- [ ] `stgenerations/formats/levels.md`: **Checked on**.
+- [x] `stgenerations/formats/levels.md`: **Checked on**.
   Suggested from the docs: TESTING.md: "all 12 levels and their scripts" read on the 2 CD English release.
-- [ ] `stgenerations/formats/menu.md`: **Status** and **Checked on**.
+- [x] `stgenerations/formats/menu.md`: **Status** and **Checked on**.
   Suggested from the docs: TESTING.md: the captain's menu played (`stgenerations play`).
-- [ ] `stgenerations/formats/scripts.md`: **Checked on**.
+- [x] `stgenerations/formats/scripts.md`: **Checked on**.
   Suggested from the docs: TESTING.md: "all 12 levels and their scripts" read on the 2 CD English release.
-- [ ] `stgenerations/formats/story.md`: **Checked on**.
+- [x] `stgenerations/formats/story.md`: **Checked on**.
   Suggested from the docs: TESTING.md: New and the prologue's movie played.
 
 ### stharbinger
 
-- [ ] `stharbinger/formats/action-sequences.md`: **Checked on**.
+- [x] `stharbinger/formats/action-sequences.md`: **Checked on**.
   Suggested from the docs: TESTING.md: action sequences checked on the real discs with STDS9H, before the port.
-- [ ] `stharbinger/formats/animations.md`: **Checked on**
-- [ ] `stharbinger/formats/archives.md`: **Checked on**
-- [ ] `stharbinger/formats/audio.md`: **Checked on**
-- [ ] `stharbinger/formats/backgrounds.md`: **Checked on**
-- [ ] `stharbinger/formats/cursors.md`: **Checked on**.
+- [x] `stharbinger/formats/animations.md`: **Checked on**
+- [x] `stharbinger/formats/archives.md`: **Checked on**
+- [x] `stharbinger/formats/audio.md`: **Checked on**
+- [x] `stharbinger/formats/backgrounds.md`: **Checked on**
+- [x] `stharbinger/formats/cursors.md`: **Checked on**.
   Suggested from the docs: TESTING.md: cursors checked on the real discs with STDS9H, before the port.
-- [ ] `stharbinger/formats/deck-maps.md`: **Checked on**.
+- [x] `stharbinger/formats/deck-maps.md`: **Checked on**.
   Suggested from the docs: TESTING.md: the deck map checked on the real discs with STDS9H, before the port.
-- [ ] `stharbinger/formats/discs.md`: **Checked on**.
+- [x] `stharbinger/formats/discs.md`: **Checked on**.
   Suggested from the docs: TESTING.md: disc detection checked on the real discs with STDS9H, before the port.
-- [ ] `stharbinger/formats/executable.md`: **Status** and **Checked on**
-- [ ] `stharbinger/formats/saves.md`: **Checked on**.
+- [x] `stharbinger/formats/executable.md`: **Status** and **Checked on**
+- [x] `stharbinger/formats/saves.md`: **Checked on**.
   Suggested from the docs: TESTING.md: save, load and delete checked on the real discs with STDS9H, before the port.
-- [ ] `stharbinger/formats/scripts.md`: **Checked on**.
+- [x] `stharbinger/formats/scripts.md`: **Checked on**.
   Suggested from the docs: TESTING.md: scene scripts and conversations checked on the real discs with STDS9H, before the port.
-- [ ] `stharbinger/formats/videos.md`: **Checked on**.
+- [x] `stharbinger/formats/videos.md`: **Checked on**.
   Suggested from the docs: TESTING.md: the intro videos checked on the real discs with STDS9H, before the port.
 
 ## 2. Sections that say "None yet"
@@ -120,9 +120,9 @@ Each needs either content or confirmation that "None yet" is right.
 
 ### idtech3 (Elite Force)
 
-- [ ] `idtech3/games/stvef/KNOWN_DIFFERENCES.md`, "Bugs fixed": the original's own bugs Reluva doesn't reproduce, if any
-- [ ] `idtech3/games/stvef/REVERSE_ENGINEERING.md`, "Working files not included": working files the notes mention but the repository leaves out, and how to make them again
-- [ ] `idtech3/games/stvef/UNCONFIRMED.md`, "Settled": items confirmed or corrected since, with the date and how
+- [x] `idtech3/games/stvef/KNOWN_DIFFERENCES.md`, "Bugs fixed": the original's own bugs Reluva doesn't reproduce, if any
+- [x] `idtech3/games/stvef/REVERSE_ENGINEERING.md`, "Working files not included": working files the notes mention but the repository leaves out, and how to make them again
+- [x] `idtech3/games/stvef/UNCONFIRMED.md`, "Settled": items confirmed or corrected since, with the date and how
 
 ### netimmerse (LEGO Alpha Team)
 
@@ -132,17 +132,20 @@ Each needs either content or confirmation that "None yet" is right.
 
 ### stgenerations
 
-- [ ] `stgenerations/KNOWN_DIFFERENCES.md`, "Bugs fixed": the original's own bugs Reluva doesn't reproduce, if any
-- [ ] `stgenerations/REVERSE_ENGINEERING.md`, "Working files not included": working files the notes mention but the repository leaves out, and how to make them again
-- [ ] `stgenerations/UNCONFIRMED.md`, "Seen running, not traced in the code": behaviour seen in the original but not found in its code
-- [ ] `stgenerations/UNCONFIRMED.md`, "Settled": items confirmed or corrected since, with the date and how
+- [x] `stgenerations/KNOWN_DIFFERENCES.md`, "Bugs fixed": the original's own bugs Reluva doesn't reproduce, if any
+- [x] `stgenerations/REVERSE_ENGINEERING.md`, "Working files not included": working files the notes mention but the repository leaves out, and how to make them again
+- [x] `stgenerations/UNCONFIRMED.md`, "Seen running, not traced in the code": behaviour seen in the original but not found in its code
+- [x] `stgenerations/UNCONFIRMED.md`, "Settled": items confirmed or corrected since, with the date and how
 
 ### stharbinger
 
-- [ ] `stharbinger/KNOWN_DIFFERENCES.md`, "Not yet as the original": known gaps
-- [ ] `stharbinger/TESTING.md`, "Last checked": a row per check: date, release, platform, what was checked
-- [ ] `stharbinger/UNCONFIRMED.md`, "Seen running, not traced in the code": behaviour seen in the original but not found in its code
-- [ ] `stharbinger/UNCONFIRMED.md`, "Settled": items confirmed or corrected since, with the date and how
+- [x] `stharbinger/KNOWN_DIFFERENCES.md`, "Not yet as the original": known gaps.
+  "None yet" is right: the engine is level with STDS9H's last fixes, and every known difference is under "By choice" or "Bugs fixed".
+- [x] `stharbinger/TESTING.md`, "Last checked": a row per check: date, release, platform, what was checked
+- [x] `stharbinger/UNCONFIRMED.md`, "Seen running, not traced in the code": behaviour seen in the original but not found in its code.
+  "None yet" is right: the original hasn't been watched running; everything was read from its code first.
+- [x] `stharbinger/UNCONFIRMED.md`, "Settled": items confirmed or corrected since, with the date and how.
+  "None yet" is right: no item on the page has been checked against the original since it was written.
 
 ## 3. Terms used without explanation
 
@@ -155,18 +158,23 @@ in the game's README. If "Terms" lists are adopted, add the section to
 
 ### idtech3 (Elite Force)
 
-- [ ] Holomatch: first in `idtech3/games/stvef/README.md:18`
-- [ ] QVM: first in `idtech3/README.md:25`
-- [ ] cgame: first in `idtech3/games/stvef/README.md:25`
-- [ ] qagame: first in `idtech3/games/stvef/README.md:25`
-- [ ] cvar: first in `idtech3/README.md:64`
-- [ ] configstring: first in `idtech3/games/stvef/README.md:26`
-- [ ] ICARUS: first in `idtech3/games/stvef/formats/entities.md:93`
-- [ ] refEntity: first in `idtech3/README.md:56`
-- [ ] netchan: first in `idtech3/games/stvef/systems/network.md:28`
-- [ ] pure server: first in `idtech3/games/stvef/TESTING.md:106`
-- [ ] botlib: first in `idtech3/games/stvef/systems/syscalls.md:265`
-- [ ] AAS: first in `idtech3/games/stvef/UNCONFIRMED.md:148`
+- [x] Holomatch: first in `idtech3/games/stvef/README.md:18`
+- [x] QVM: first in `idtech3/README.md:25`
+- [x] cgame: first in `idtech3/games/stvef/README.md:25`
+- [x] qagame: first in `idtech3/games/stvef/README.md:25`
+- [x] cvar: first in `idtech3/README.md:64`
+- [x] configstring: first in `idtech3/games/stvef/README.md:26`
+- [x] ICARUS: first in `idtech3/games/stvef/formats/entities.md:93`
+- [x] refEntity: first in `idtech3/README.md:56`
+- [x] netchan: first in `idtech3/games/stvef/systems/network.md:28`
+- [x] pure server: first in `idtech3/games/stvef/TESTING.md:106`
+- [x] botlib: first in `idtech3/games/stvef/systems/syscalls.md:265`
+- [x] AAS: first in `idtech3/games/stvef/UNCONFIRMED.md:148`
+
+  Done with a "Terms" list in `idtech3/README.md` (the engine's words) and
+  `idtech3/games/stvef/README.md` (Holomatch, ICARUS), a few words at the
+  first use on the other pages, and the section added to both README
+  templates.
 
 ### awe (Murder on the Orient Express)
 
@@ -197,22 +205,25 @@ in the game's README. If "Terms" lists are adopted, add the section to
 
 ### stharbinger
 
-- [ ] STDS9H: first in `stharbinger/README.md:5`
-- [ ] DOS/4GW: first in `stharbinger/REVERSE_ENGINEERING.md:15`
-- [ ] LE (the executable's format): first in `stharbinger/REVERSE_ENGINEERING.md:53`
-- [ ] directive: first in `stharbinger/formats/executable.md:17`
-- [ ] ACTIONSEQ: first in `stharbinger/UNCONFIRMED.md:43`
+- [x] STDS9H: first in `stharbinger/README.md:5`
+- [x] DOS/4GW: first in `stharbinger/REVERSE_ENGINEERING.md:15`
+- [x] LE (the executable's format): first in `stharbinger/REVERSE_ENGINEERING.md:53`
+- [x] directive: first in `stharbinger/formats/executable.md:17`
+- [x] ACTIONSEQ: first in `stharbinger/UNCONFIRMED.md:43`
 
 ### stgenerations
 
-- [ ] SGEN: first in `stgenerations/formats/menu.md:19`
-- [ ] LV2: first in `stgenerations/formats/README.md:14`
+- [x] SGEN: first in `stgenerations/formats/menu.md:19`
+- [x] LV2: first in `stgenerations/formats/README.md:14`
 
 ## 4. Candidates noted during the clean-up
 
-- [ ] `idtech3/games/stvef/KNOWN_DIFFERENCES.md`, "Bugs fixed": two items under
+- [x] `idtech3/games/stvef/KNOWN_DIFFERENCES.md`, "Bugs fixed": two items under
   "By choice" may belong here: keeping 1.x and Expansion Pack saves apart, and
   leaving out the original's cap of 5 copies of one sound per entity.
+  The saves moved: the original lists saves its game can't load. The sound
+  cap stays under "By choice": it's ioquake3's, and it was Reluva's own
+  first version that went silent with it, not the original.
 - [x] `clue/UNCONFIRMED.md`: "Read from the code, not seen running" holds the
   sections "Code and recordings disagree" and "Not traced, no visible effect
   known"; check each is under the heading that fits. Both fit: Reluva
@@ -221,3 +232,24 @@ in the game's README. If "Terms" lists are adopted, add the section to
 - [x] awe's `systems/dialogue.md` has 10 *(inferred)* items. If any matters to
   how Reluva behaves, list it in `awe/games/motoe/UNCONFIRMED.md` under
   "Inferred".
+- [x] `idtech3/formats/md3.md` says "all 1156 retail Elite Force models".
+  `model-check` counts 790 models in 1.2 and 917 with the Expansion Pack
+  (919 `.md3`/`.mdr` files in the paks); 1156 matches neither. Recount, and
+  give the release.
+  Done: the 790 and 917 counted `.md3` and `.mdr` files together.
+  `md3.md` and `mdr.md` now give each kind's count for every release (1.0
+  and 1.1: 578 and 170; 1.2: 594 and 196; with the Expansion Pack: 716 and
+  201), and `md3.md` has the totals.
+- [x] The Expansion Pack's `models/mapobjects/scavenger/k_chair1.md3`
+  doesn't read in Reluva: its surface 1 has 0 frames, the model 1. Check
+  whether the original draws it (and how) or never loads it, then make
+  Reluva match and note it in `md3.md`.
+  Done: the original's loader doesn't check a surface's frame count, so it
+  loads the model; Reluva now reads it the same way (`md3.md`). Seeing the
+  chairs drawn is in `idtech3/games/stvef/TESTING.md`.
+- [x] `idtech3/games/stvef/REVERSE_ENGINEERING.md` says Elite Force has
+  1872 shaders; `shader-check` counts 1891 in 1.2 (as the game's README
+  says) and 2059 with the Expansion Pack. Give the release with the count.
+  Done: 1872 is 1.0's count (1.1 has 1875). Each count now names its
+  release, in `REVERSE_ENGINEERING.md`, `PLAN.md`, `shader.md` and the
+  game's README; none of the releases uses a directive outside Quake III's.

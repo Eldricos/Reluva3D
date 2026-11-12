@@ -1,6 +1,6 @@
 # AAS files (the bots' maps) and bot scripts
 
-> **Code:** `src/engines/idtech3/botlib/` · **Confidence:** published unless marked
+> **Status:** decoded · **Code:** `src/engines/idtech3/botlib/` · **Checked on:** Elite Force 1.2 with the Expansion Pack: all 33 `.aas` files, each loaded for a bot (`reluva-tool idtech3 game-run <map> -addbot`), and all 57 of the game's bots joined with their scripts (November 2026) · **Confidence:** the `.aas` layout confirmed; the rest published unless marked
 
 ## Overview
 

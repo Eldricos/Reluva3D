@@ -1,6 +1,6 @@
 # Elite Force single player: how the DLLs and the engine talk
 
-> **Code:** `src/engines/idtech3/eliteforce/sp_game_host.cpp`, `sp_ui_host.cpp` · **Confidence:** from the code unless marked
+> **Status:** done · **Code:** `src/engines/idtech3/eliteforce/sp_game_host.cpp`, `sp_ui_host.cpp` · **Checked against:** the code only (`stvoy.exe`), with the retail DLLs running through Reluva's side of it · **Confidence:** from the code unless marked
 
 ## Overview
 

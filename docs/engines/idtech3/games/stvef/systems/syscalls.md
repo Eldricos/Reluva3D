@@ -1,6 +1,6 @@
 # Elite Force: the game modules' system calls
 
-> **Code:** `src/engines/idtech3/eliteforce/ui_host.cpp`, `game_host.cpp`, `cgame_host.cpp` · **Checked against:** the code only (logs of the game's own QVMs) · **Confidence:** from the code unless marked
+> **Status:** done · **Code:** `src/engines/idtech3/eliteforce/ui_host.cpp`, `game_host.cpp`, `cgame_host.cpp` · **Checked against:** the code only (logs of the game's own QVMs) · **Confidence:** from the code unless marked
 
 ## Overview
 

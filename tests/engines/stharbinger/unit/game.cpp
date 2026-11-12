@@ -839,6 +839,48 @@ static void test_anim_leftovers(const std::filesystem::path& tmp) {
     CHECK((p[61 * 640 + 1]) == (0));  // D erased when turned off
 }
 
+static void test_beam_timing(const std::filesystem::path& tmp) {
+    namespace fs = std::filesystem;
+    fs::path dir = tmp / "beams";
+    // One enemy shot (colours 1..3) from hotspot 0. As in the original (0x22BD4):
+    // drawn on the screen at once, copied into the work buffer once on the next
+    // render, left there on the second and wiped on the third.
+    ScriptBuilder s0;
+    s0.cmd(kCmdScene, {sym(0)})
+        .cmd(kCmdHotspot, {sym(0), num(300), num(100), num(40), num(40), sym(9), sym(0)})
+        .cmd(kCmdSetRect, {sym(0), num(300), num(100), num(40), num(40)})
+        .cmd(kCmdActionSeq, {num(0xC200), var(0)})
+        .cmd(kCmdReturn)
+        .cmd(kCmdLabel, {sym(9)})
+        .cmd(kCmdReturn);
+    writeArchive(dir, "CC", {s0.build()});
+    writeArchive(dir, "CV", {nameList({"ret"}, "S0.CCG")});
+    writeArchive(dir, "CH", {nameList({"zap"}, "S0.CCG")});
+
+    NullSystem system;
+
+    Platform platform(system, nullptr, {});
+
+    Harbinger engine(&platform, optionsFor(dir));
+    engine.initResources();
+    Game game(&engine);
+    auto beamPixels = [&game]() {
+        int n = 0;
+        for (uint8_t c : game.getScreen().pixels)
+            n += c >= 1 && c <= 3;
+        return n;
+    };
+    game.start(0);
+    CHECK(beamPixels() > 0); // drawn straight onto the screen
+    game.runSteps(1);
+    int first = beamPixels();
+    CHECK(first > 0); // redrawn into the work buffer
+    game.runSteps(1);
+    CHECK((beamPixels()) == (first)); // left as it is: no second jittered copy
+    game.runSteps(1);
+    CHECK((beamPixels()) == (0)); // wiped
+}
+
 static const reluva::test::Suite
     suite("stharbinger.unit.game",
           {
@@ -852,4 +894,5 @@ static const reluva::test::Suite
               {"special functions", [](const std::filesystem::path& tmp) { test_special_functions(tmp); }},
               {"anim composit", [](const std::filesystem::path& tmp) { test_anim_composit(tmp); }},
               {"anim leftovers", [](const std::filesystem::path& tmp) { test_anim_leftovers(tmp); }},
+              {"beam timing", [](const std::filesystem::path& tmp) { test_beam_timing(tmp); }},
           });

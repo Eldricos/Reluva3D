@@ -272,6 +272,7 @@ private:
         bool infoValid = false;
         std::string description;
         std::vector<uint8_t> thumbnail; // 320x240
+        uint8_t thumbnailMap[256] = {}; // its colours in the menu art's palette
         Palette savePalette;
         enum Mode { kMain, kConfirm, kNameEntry } mode = kMain;
         int confirmButton = -1;
@@ -356,7 +357,19 @@ private:
     void setBackground(int index, bool loadPalette);
     void playSound(int index, const Argument* mode);
     void actionSequence(const Directive& d);
+    // Beams drawn by ACTIONSEQ 0xC0..0xC2 (0x258BC): drawn on the screen at
+    // once, then kept by the renderer for `beamLife_` renders.
+    struct Beam {
+        bool enemy = false;
+        int x0 = 0, y0 = 0, x1 = 0, y1 = 0;
+        uint8_t color = 0;
+        int left = 0, top = 0, w = 0, h = 0; // the box between the end points
+    };
+    void drawBeam(Surface& dst, const Beam& b);
     void drawBeams(Surface& dst);
+    void addBeam(Beam b);
+    // Copies the rectangle (x, y, w, h) of the background into the work buffer, clipped.
+    void restoreRect(int x, int y, int w, int h);
     void updateTick();
     int randomNumber(int n);
     uint16_t evalReturnValue(const Argument* a) const;
@@ -510,14 +523,8 @@ private:
     uint32_t nextCycleMillis_ = 0;
     uint8_t videoPalette_[768] = {};
     std::vector<int> ambientSounds_;
-    // Beams drawn by ACTIONSEQ 0xC0..0xC2, shown for a few steps.
-    struct Beam {
-        bool enemy = false;
-        int x0 = 0, y0 = 0, x1 = 0, y1 = 0;
-        uint8_t color = 0;
-        int steps = 0;
-    };
     std::vector<Beam> beams_;
+    int beamLife_ = 0;
     int setRectHotspot_ = 0; // the hotspot SETRECT set last
     // The countdown's tick (ACTIONSEQ 0xF0..0xF5): tick.raw every `period` ms.
     uint32_t tickPeriod_ = 0xFFFF; // 0xFFFF: off
