@@ -8,12 +8,6 @@ not been confirmed against the original running, or in the real game data.
 
 ### Behaviour seen in the scripts
 
-* **Quark's talker code.** The TALKHEAD lines of QUARK010 and XOQ010 (and
-  QUARK011) give a speaker code that the script listings show as `ras`, while
-  Quark's clips use `qrk`. If that were what the game stores, Quark's lines
-  in those conversations would play without lip-sync. They do lip-sync in this
-  engine, so the listings probably show the wrong name for that symbol, but
-  this has not been checked against the original.
 * **Leftover pictures across scene changes.** The work buffer is only refilled
   by `BACKGRND`, so a scene that starts without one keeps showing the previous
   picture (and any animation leftovers) until it does. This follows the code;
@@ -70,4 +64,12 @@ None yet.
 
 ## Settled
 
-None yet.
+* **Quark's talker code** (November 2026, from the game's data). The
+  `TALKHEAD` lines of QUARK010, QUARK011, QUARK020 and XOQ010 looked as if
+  they gave Quark the speaker code `ras`, which isn't his clips' `qrk`, so
+  his lines would have played without lip-sync. The value is 54, and entry 54
+  of PROMBAR's `CCS` list (the scene's symbols, which the game reads speaker
+  codes from, 0x58600) is `qrk`. The `ras` came from the listing tool, which
+  named that argument from the wrong list; `reluva-tool stharbinger script`
+  now takes speaker codes from `CCS` as the game does. STDS9H had found the
+  same in October 2026 (its commit 3ac9db8).

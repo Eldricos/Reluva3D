@@ -145,7 +145,7 @@ Each needs either content or confirmation that "None yet" is right.
 - [x] `stharbinger/UNCONFIRMED.md`, "Seen running, not traced in the code": behaviour seen in the original but not found in its code.
   "None yet" is right: the original hasn't been watched running; everything was read from its code first.
 - [x] `stharbinger/UNCONFIRMED.md`, "Settled": items confirmed or corrected since, with the date and how.
-  "None yet" is right: no item on the page has been checked against the original since it was written.
+  Filled: Quark's talker code, settled from the game's data (November 2026).
 
 ## 3. Terms used without explanation
 
