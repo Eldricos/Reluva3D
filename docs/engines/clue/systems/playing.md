@@ -119,8 +119,9 @@ voices 29-32; nothing when the die isn't offered), and the lines for
 disproving and accusing (40-63). "Please move" (28), "end turn" (33, in
 the UK's files alone) and "choose object" (64) are in the table but
 nothing plays them, in 2.0 or 2.2. The recordings agree: in the three
-with the butler's voice on, the die's prompts are heard 1 to 12 times
-each, about 3 s after "..., it is your turn", and those three never. A sentence stays centred
+with the butler's voice on, the die's prompts are heard 31 times in all,
+each about 3 s after "..., it is your turn", and those three never.
+A sentence stays centred
 8 s, then scrolls left, coming round from the right. The suggestions'
 videos play in the right column when "Suggest Movies" is on; the spoken
 lines play when "Butler Voice" is on; "Walk Animations" off moves the

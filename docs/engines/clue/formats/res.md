@@ -26,7 +26,7 @@ All numbers are little-endian.
 Each file is exactly 12 bytes plus the compressed size, and each unpacks
 to the size given (all 153). `.o` (objects) and `.lvl` (the mansion) aren't
 packed. `dialogInfo.res` isn't either, and isn't a `DDRV`: it starts with
-`RESI` (the menus' and dialogs' layout, still to be worked out).
+`RESI`, the menus' and dialogs' layout ([resi.md](resi.md)).
 
 ### `DDRV`: an archive ("data drive")
 

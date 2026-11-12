@@ -1,6 +1,6 @@
 # Clue: Murder at Boddy Mansion: dialogInfo.res
 
-> **Status:** decoded · **Code:** `src/engines/clue/resi.h` · **Confidence:** layout from the code; meanings inferred unless marked
+> **Status:** decoded · **Code:** `src/engines/clue/resi.h` · **Checked on:** the retail CD (2.0, US and UK data), a clean install of it and the 2.2 patch: all three different files (US 2.0, UK 2.0, 2.2) · **Confidence:** layout confirmed; meanings inferred unless marked
 
 ## Overview
 
@@ -90,7 +90,7 @@ are, under the pointer, pressed), or 4 with a disabled one.
 | 7 | `menu:AexitBgnd` | Exit Game: Yes / No |
 | 9, 10 | | Connection Options: Internet Game Zone, LAN TCP/IP; Host New Game, Join Game |
 | 11, 12, 13 | | hosting, joining, the network game's players |
-| 15 | | Game Variants: Classic, No Die Roll |
+| 15 | | Game Variants: Classic, No Die Roll (no die: each turn a budget of nine moves, a square costing one and a secret passage, a suggestion or an accusation three) |
 | 17 | `menu:AcharPicker` | the six suspects, to choose who plays them |
 | 18-23 | `menu:A…SetupWin` | a suspect's player: Human (a name), Computer (Novice, Normal, Expert), None |
 | 24 | `menu:APrefsBgnd` | Preferences: 7 settings on/off, 2 volumes |
@@ -125,3 +125,11 @@ see [screen.md](../systems/screen.md#layout).
   from comparing the dialogs drawn by Reluva with recordings of the original
   (the menus, the preferences). `reluva-tool clue check` reads it and checks
   every picture it names.
+- **How it was checked:** `reluva-tool clue check` (`-uk` for the UK's) on
+  each of the three files there are: the US 2.0 one (the CD's `Data/US`,
+  the same file as a clean install's), the UK 2.0 one (`Data/UK`) and the
+  2.2 patch's. Each reads whole, 42 dialogs and 626 controls, and every
+  picture its controls name is found (November 2026; the game-files test's
+  `files` step, [TESTING.md](../TESTING.md#the-game-files-test)). The menus,
+  the set-up and the Esc menu's windows drawn from them were compared with
+  recordings of the original.

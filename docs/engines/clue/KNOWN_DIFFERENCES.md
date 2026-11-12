@@ -29,16 +29,39 @@ weather's pace), Reluva follows the code and the question is in
 
 ## Bugs fixed
 
-None yet.
+None. No bug of the original's is known that Reluva leaves out: where
+`Clue.exe`'s code does something odd, Reluva does it too. For instance:
+
+- **Three voices never spoken.** "Please move", "choose object" and the
+  UK's "end turn" are in `Clue.exe`'s table of voices (0x45E698), but
+  nothing plays them; Reluva doesn't either
+  ([playing.md](systems/playing.md#in-the-game)).
+- **The weather's clock runs on.** The weather's 300-second cycle is fed
+  the real time between ticks (0x4186A0), so it goes on through the
+  videos and the menus; so does Reluva's
+  ([UNCONFIRMED.md](UNCONFIRMED.md#the-weathers-pace)).
+- **Saving only between moves.** The Esc menu's Save works only when it's
+  a human's turn and nothing is going on, as the original's
+  ([saves.md](systems/saves.md)).
 
 ## Not yet as the original
+
+| What | The original | Reluva | Why |
+|---|---|---|---|
+| Walking into a room | From the door to the suspect's place in the room, by its walk grid's way-finder (0x41A0C0), round what stands there | Straight from the door to the place | Not done yet: the way-finder is in Reluva (walks about your own room take it, [playing.md](systems/playing.md)), but walks in from a door don't use it yet. |
 
 ### Not yet checked against the original
 
 | What | The original | Reluva | Why |
 |---|---|---|---|
-| The videos' colours | Decoded by Windows' own Cinepak codec (`iccvid.dll`) through DirectShow, in a 16-bit display mode | Decoded by Reluva's shared Cinepak decoder ([cinepak.md](../../common/video/cinepak.md)) to 24-bit colour, green as Y − U/2 − V with U/2 rounded towards 0 | The decoder Clue had before it moved to the shared one rounded U/2 down instead, so green differed by 1 in 255 wherever U is odd and negative; every other colour, and the sound, were the same in all 132 of Clue's AVIs. Which rounding `iccvid.dll` uses hasn't been looked at, and the original's 16-bit screen drops the lowest bits of green anyway. Against a recording of the original the difference is far below the recording's own (a mean 4 in 255). |
+| The videos' colours | Decoded by Windows' own Cinepak codec (`iccvid.dll`) through DirectShow, in a 16-bit display mode | Decoded by Reluva's shared Cinepak decoder ([cinepak.md](../../common/video/cinepak.md)) to 24-bit colour, green as Y − U/2 − V with U/2 rounded towards 0 | The decoder Clue had before it moved to the shared one rounded U/2 down instead, so green differed by 1 in 255 wherever U is odd and negative; every other colour, and the sound, were the same in all 44 of Clue's AVIs. Which rounding `iccvid.dll` uses hasn't been looked at, and the original's 16-bit screen drops the lowest bits of green anyway. Against a recording of the original the difference is far below the recording's own (a mean 4 in 255). |
 
 ## Additions outside the game
 
-None yet.
+| What | Where |
+|---|---|
+| A viewer of the game's data: the mansion (scrolled, from above, near walls on or off), the videos, animations, images, sounds and text. **F9** switches to it and back. | [README.md](README.md#using-it) |
+| Playing from the CD itself, or a copy of it, as well as from an install: the original has to be installed. Either language of the CD can be played. | [README.md](README.md#identification) |
+| A release that isn't in the detection table (another patch) is still found, as an unknown release. | [README.md](README.md#identification) |
+| The launcher's master volume, over the game's own sliders. | [preferences.md](systems/preferences.md) |
+| `reluva-tool clue` commands: list, extract and check the game's files, a level's placements, games of computer players on the board, and the game played headless (`game-run`). `reluva-tool cue-rip` makes the CD's music tracks from a BIN/CUE image. | [TESTING.md](TESTING.md), [music.md](systems/music.md) |

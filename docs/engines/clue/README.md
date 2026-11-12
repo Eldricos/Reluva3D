@@ -39,7 +39,7 @@ Data (`Data\Classic\` once installed: the CD's `LangIndepend`,
 | `Resource` | the mansion's rooms, floors, walls, objects and the six characters: `.res` images, `.a` animations, `.o` objects |
 | `Levels/clue.lvl` | the mansion, put together from them |
 | `UI` | menus, dialogs, fonts, cursors, the notepad, the ticker |
-| `dialogInfo.res` (install folder) | the layout of the menus and dialogs (`RESI`) |
+| `dialogInfo.res` (install folder) | the layout of the menus and dialogs: a format of its own, named `RESI` by its first four bytes ([resi.md](formats/resi.md)) |
 | `Sounds` | WAV, all PCM: effects, and each suspect's spoken lines |
 | `Text` | the How to Play pages, the ticker's sentences, credits |
 | `Video` | AVI, Cinepak with PCM sound: the intro, the deal, a clip for each suspect with each weapon (`CM_candle.avi` ...) and a `_prison` clip for each suspect |
@@ -52,7 +52,10 @@ The CD also has `UK` data: the same sounds and text in British English
 The readme describes options for translucency, dynamic lighting,
 walk cycles and walls, clickable animated objects in the rooms, hot-seat
 play for several people at one computer, and a "no die roll" variant
-played with credits.
+played with credits: no die, but nine moves to spend each turn, a square
+costing one and a secret passage, a suggestion or an accusation three
+(the readme calls the moves credits; How to Play's "Game Variants" page,
+moves).
 
 ### Identification
 
