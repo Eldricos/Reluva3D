@@ -2,7 +2,9 @@
 
 The [completed AI milestone](ai-milestone.md) replaces the former final-second
 preview with each plan's measured travel/press/release timeline. Timing still
-applies with the cursor hidden. The arrow and interpolation remain native.
+applies with the cursor hidden. The installed raised/pressed hand now replaces the native arrow when its
+resources are available; interpolation remains native. See the
+[presentation fidelity pass](presentation-fidelity.md).
 
 On Players, assign a computer through **Local Players / M**, then click
 **Computer Cursor** or press **V**. This is independent of Traditional / Chess
@@ -18,7 +20,7 @@ Partial traces disappear if time expires or the player ends before submission.
 
 The pointer is drawn inside the game framebuffer and follows the current board
 geometry, including the installed perspective artwork or the prototype board.
-It uses an independently drawn arrow. The system pointer is hidden during visible
+It uses the installed raised/pressed hand images, with a native arrow fallback. The system pointer is hidden during visible
 computer turns and restored for human turns, handoffs, results and leaving the
 game. Its desktop position is never moved. F1 / End Player and Menu / F3 remain
 available during tracing. Human input cannot submit words for a computer.
@@ -34,7 +36,7 @@ typed input, using the same validation, repeat and dictionary-review rules as
 Enter. History arrows retain their scrolling action, and clicking a completed
 result still reviews that word's path.
 
-No cursor bitmap or other new import file is needed; existing computer-capable
+No separate cursor bitmap or other new import file is needed; existing computer-capable
 imports work unchanged.
 
 ## Reference evidence and native presentation policy
@@ -61,7 +63,8 @@ centers; the arrow moves between the scheduled boundaries without consuming or
 rescheduling a word. Late frames can skip intermediate positions without causing
 a catch-up burst of visible submissions.
 
-The arrow, between-event interpolation and reconstructed geometry remain native.
+The installed cursor/state mapping is now established; between-event
+interpolation and reconstructed geometry remain native.
 Exact camera/idle pointer motion and frame-for-frame VM matching remain part of
 presentation comparison. Selection, nominal timing and retirement evidence are
 in the [completed AI milestone](ai-milestone.md).

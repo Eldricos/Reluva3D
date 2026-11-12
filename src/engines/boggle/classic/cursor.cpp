@@ -28,7 +28,7 @@ ComputerCursorFrame computerCursorFrame(const AcceptedWord& word,const std::vect
             const auto to=centers[word.path[i]];
             if(time<timeline->presses[i]){frame.point=interpolate(to,timeline->presses[i]);return frame;}
             frame.cubes=i+1;
-            if(time<timeline->releases[i]){frame.point=to;return frame;}
+            if(time<timeline->releases[i]){frame.point=to;frame.pressed=true;return frame;}
             from=to;start=timeline->releases[i];
         }
         frame.point=interpolate(submitPoint,timeline->duration);return frame;
@@ -53,6 +53,20 @@ ComputerCursorFrame computerCursorFrame(const AcceptedWord& word,const std::vect
     frame.point={int(from.x+(int64_t(to.x)-from.x)*fraction/int64_t(motion)),
                  int(from.y+(int64_t(to.y)-from.y)*fraction/int64_t(motion))};
     return frame;
+}
+Error ClassicCursorArtwork::read(const std::vector<PeResource>& resources) {
+    up_={};down_={};
+    const bool up=findPeResource(resources,12,5201,1033)!=nullptr,down=findPeResource(resources,12,5200,1033)!=nullptr;
+    if(!up && !down)return Error::success(); // synthetic/minimal language bundles retain the native arrow
+    if(!up || !down)return Error::fail("Incomplete Classic cursor artwork");
+    CursorImage normal,pressed;
+    if(auto error=readCursorGroup(resources,5201,1033,normal))return error;
+    if(auto error=readCursorGroup(resources,5200,1033,pressed))return error;
+    up_=std::move(normal);down_=std::move(pressed);return Error::success();
+}
+void ClassicCursorArtwork::draw(Surface& screen,ClassicPoint point,bool pressed) const {
+    if(active())(pressed?down_:up_).draw(screen,point.x,point.y);
+    else drawComputerCursor(screen,point);
 }
 void drawComputerCursor(Surface& screen,ClassicPoint point) {
     // An independently drawn native arrow. No original cursor bitmap is used.

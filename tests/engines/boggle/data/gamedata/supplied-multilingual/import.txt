@@ -2,6 +2,7 @@ plan: 2b7c0e98bdbbbf1d | decoded import: 7b5ee8f010ce0863aef6272fb06f0204
 original: 9e89d2ea5f1676de | decoded Classic: a91ea21b964e624c58011d9af99f0259
 master: 502e08b1b2820bbf | decoded Classic: 00300e30cd27a974e8768335fa9502c4
 presentation: 566ff4744da63f86 | decoded presentation: 631bbf21384eacdaa178b71ef2c7c056
+cursor: 44f231ee15b419f3 | decoded cursors: 286d1fe04293a3f50eadc1a22262ba65
 music: 46634e85e46a3e66 | decoded music: f0a87351902d54d16a2da6a9b64dcb63
 frontend: bacd3a2710729580 | decoded frontend: 60afd78d7288730155ffff7dda912a9b
 movies: 1c9b68f1f59fa1aa | decoded movies: abb22635617408befee5004becc849cc

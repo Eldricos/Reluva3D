@@ -11,6 +11,8 @@
 #include "tests/engines/boggle/system.h"
 #include "tests/support/test.h"
 #include <algorithm>
+#include <map>
+#include <limits>
 using namespace reluva;
 using namespace reluva::boggle;
 namespace {
@@ -28,6 +30,105 @@ GameTarget target(const std::filesystem::path& root,bool chess=false,bool master
     t.settings={{"classic_seed","6551"},{"classic_seconds","0"},{"classic_turns",chess?"chess":"traditional"},
         {"classic_variant",master?"master":"original"},{"classic_cursor","1"},{"classic_sound","0"},
         {"classic_animations","0"},{"classic_artwork",art?"1":"0"},{"frontend_movies","0"}};return t;
+}
+std::vector<uint8_t> cursorBitmap(unsigned depth=1) {
+    using namespace test::fixtures;
+    const size_t palette=size_t(1)<<depth,offset=44+palette*4;
+    std::vector<uint8_t> b(offset+16);put16(b,0,1);put16(b,2,1);put32(b,4,40);put32(b,8,2);put32(b,12,4);
+    put16(b,16,1);put16(b,18,uint16_t(depth));put32(b,24,8);
+    b[48]=b[49]=b[50]=255;
+    b[offset]=uint8_t(1u<<(8-depth));b[offset+4+depth/8]=depth==1?0x40:1; // bottom first: white/black, then black/white
+    b[offset+12]=0xc0; // transparent and inverted pixels on the top row
+    return b;
+}
+PeResource cursorResource(uint32_t type,uint32_t id,std::vector<uint8_t> bytes) {
+    PeResource r;r.type.id=type;r.name.id=id;r.language=1033;r.data=std::move(bytes);return r;
+}
+std::vector<uint8_t> cursorGroup(const std::vector<PeResource>& images) {
+    using namespace test::fixtures;
+    std::vector<uint8_t> b(6+images.size()*14);put16(b,2,2);put16(b,4,uint16_t(images.size()));
+    for(size_t i=0;i<images.size();++i) {
+        CursorImage decoded;CHECK(!readCursorImage(images[i].data,decoded));const auto at=6+i*14;
+        put16(b,at,uint16_t(decoded.colors.w));put16(b,at+2,uint16_t(decoded.colors.h*2));put16(b,at+4,1);
+        put16(b,at+6,uint16_t(decoded.depth));put32(b,at+8,uint32_t(images[i].data.size()));put16(b,at+12,uint16_t(images[i].name.id));
+    }
+    return b;
+}
+std::vector<PeResource> inventedCursors() {
+    std::vector<PeResource> r;
+    for(unsigned i=0;i<3;++i)r.push_back(cursorResource(1,i+1,cursorBitmap(i==0?1:i==1?4:8)));
+    r.push_back(cursorResource(12,5201,cursorGroup(r)));
+    auto pressed=cursorBitmap(8);pressed[48]=31;pressed[49]=97;pressed[50]=211;
+    r.push_back(cursorResource(1,4,pressed));r.push_back(cursorResource(12,5200,cursorGroup({r[4]})));
+    return r;
+}
+void cursorImages() {
+    using namespace test::fixtures;
+    for(unsigned depth:{1u,4u,8u}) {
+        auto b=cursorBitmap(depth);CursorImage image;CHECK(!readCursorImage(b,image));
+        CHECK(image.colors.w==2 && image.colors.h==2 && image.hotspotX==1 && image.hotspotY==1 && image.depth==depth);
+        Surface screen;screen.create(5,5,PixelFormat::RGBA32);
+        for(size_t i=0;i<screen.pixels.size();i+=4){screen.pixels[i]=10;screen.pixels[i+1]=20;screen.pixels[i+2]=30;screen.pixels[i+3]=91;}
+        image.draw(screen,2,2,1,1);
+        CHECK(screen.row(1)[4]==10 && screen.row(1)[8]==245 && screen.row(1)[9]==235 && screen.row(1)[10]==225);
+        CHECK(screen.row(1)[7]==91 && screen.row(2)[4]==255 && screen.row(2)[8]==0); // opaque white and black
+        const auto before=screen.pixels;image.draw(screen,INT32_MIN,INT32_MAX);CHECK(screen.pixels==before);
+        image.draw(screen,-1,-1); // clipped hotspot at the top-left edge
+        image.draw(screen,2,2,0,1);
+        for(size_t n=0;n<b.size();++n){CHECK(bool(readCursorImage({b.begin(),b.begin()+n},image)));CHECK(!image.depth && image.colors.rgba.empty());}
+        for(auto change:std::vector<std::pair<size_t,uint32_t>>{{4,12},{8,0},{8,257},{12,3},{16,0},{18,24},{20,1},{24,3},{36,(1u<<depth)+1}}) {
+            auto bad=b;put32(bad,change.first,change.second);CHECK(bool(readCursorImage(bad,image)));
+        }
+        auto bad=b;put16(bad,0,2);CHECK(bool(readCursorImage(bad,image)));
+    }
+    auto r=inventedCursors();CursorImage chosen;CHECK(!readCursorGroup(r,5201,1033,chosen) && chosen.depth==8);
+    CHECK(bool(readCursorGroup(r,5201,1031,chosen)) && !chosen.depth);
+    auto invalid=r;invalid[3].data.back()=99;CHECK(bool(readCursorGroup(invalid,5201,1033,chosen)));
+    invalid=r;invalid[0].data.pop_back();CHECK(bool(readCursorGroup(invalid,5201,1033,chosen)));
+    ClassicCursorArtwork artwork;CHECK(!artwork.read(r) && artwork.active());
+    Surface up,down;up.create(8,8,PixelFormat::RGBA32);down=up;artwork.draw(up,{3,3},false);artwork.draw(down,{3,3},true);CHECK(up.pixels!=down.pixels);
+    r.pop_back();CHECK(bool(artwork.read(r)) && !artwork.active());
+    CHECK(!artwork.read({}) && !artwork.active());
+}
+// Construct a data-only multi-resource PE from invented payloads, not game bytes.
+std::vector<uint8_t> cursorLanguage(std::vector<PeResource> resources) {
+    using namespace test::fixtures;
+    std::array<std::u16string,16> strings{};strings[0]=u"Invented cursor fixture";
+    resources.push_back(cursorResource(6,1,stringBlock(strings)));
+    std::map<uint32_t,std::vector<PeResource>> types;for(auto& r:resources)types[r.type.id].push_back(std::move(r));
+    std::vector<uint8_t> tree(16+types.size()*8);put16(tree,14,uint16_t(types.size()));size_t typeAt=16;
+    auto allocate=[&](size_t n){const auto at=tree.size();tree.resize(at+n);return at;};
+    for(auto& [type,items]:types) {
+        std::sort(items.begin(),items.end(),[](const auto& a,const auto& b){return a.name.id<b.name.id;});
+        const auto dir=allocate(16+items.size()*8);put32(tree,typeAt,type);put32(tree,typeAt+4,0x80000000u|uint32_t(dir));typeAt+=8;
+        put16(tree,dir+14,uint16_t(items.size()));
+        for(size_t i=0;i<items.size();++i) {
+            const auto lang=allocate(24),entry=allocate(16);const auto& item=items[i];
+            put32(tree,dir+16+i*8,item.name.id);put32(tree,dir+20+i*8,0x80000000u|uint32_t(lang));
+            put16(tree,lang+14,1);put32(tree,lang+16,1033);put32(tree,lang+20,uint32_t(entry));
+            const auto payload=allocate((item.data.size()+3)&~size_t(3));put32(tree,entry,uint32_t(0x3000+payload));put32(tree,entry+4,uint32_t(item.data.size()));
+            std::copy(item.data.begin(),item.data.end(),tree.begin()+payload);
+        }
+    }
+    auto pe=resourcePe({});const size_t raw=(tree.size()+511)&~size_t(511);pe.resize(512+raw);
+    put32(pe,0x98+96+20,uint32_t(tree.size()));put32(pe,0x98+224+8,uint32_t(tree.size()));put32(pe,0x98+224+16,uint32_t(raw));
+    std::copy(tree.begin(),tree.end(),pe.begin()+512);return pe;
+}
+void installedCursorFlow(const std::filesystem::path& tmp) {
+    std::vector<std::string> fallback;
+    for(bool installed:{false,true}) {
+        auto t=target(tmp / std::to_string(installed));
+        if(installed)fixtures::write(t.path / "Language/English.dll",cursorLanguage(inventedCursors()));
+        CursorSystem sys;sys.clock=[](size_t f){return uint64_t(f*300);};
+        sys.events=[](size_t f)->std::vector<Event>{
+            if(f==0)return {fixtures::keyEvent(key::Return)};
+            if(f==11)return {quit()};
+            return {};
+        };
+        ClassicGame game(sys,t,false,{"CPU Mr. Boggle"},{ComputerLevel::MrBoggle});CHECK(!game.run() && sys.cursorVisible && !sys.textEnabled);
+        if(!installed)fallback=sys.hashes;
+        else {CHECK(fallback.size()==sys.hashes.size());CHECK(fallback!=sys.hashes);}
+    }
 }
 void geometry() {
     std::vector<ClassicPoint> centers(16,{100,100});centers[0]={100,20};centers[1]={100,100};centers[5]={20,100};
@@ -54,7 +155,8 @@ void geometry() {
     word.path={0};centers.assign(16,{0,0});ComputerMotion timeline{{50},{150},1200};
     auto timed=[&](uint64_t time){return computerCursorFrame(word,centers,{0,0},time,1700,{550,220},&timeline);};
     CHECK(!timed(499).active && timed(500).active && !timed(549).cubes);
-    CHECK(timed(550).cubes==1 && timed(649).point.x==0);
+    CHECK(!timed(549).pressed && timed(550).cubes==1 && timed(550).pressed && timed(649).pressed);
+    CHECK(!timed(650).pressed && timed(649).point.x==0);
     CHECK(timed(1700).point.x==550 && timed(1700).point.y==220);
     timeline.releases={1200};CHECK(!timed(1700).active);
 }
@@ -204,6 +306,8 @@ void frontend(const std::filesystem::path& tmp) {
 }
 }
 static const test::Suite suite("boggle.unit.cursor",{
+    {"indexed cursor masks, inversion, hotspots, groups, truncation and fallback",[](const auto&){cursorImages();}},
+    {"installed cursor states replace the native arrow without retaining the system pointer",[](const auto& tmp){installedCursorFlow(tmp);}},
     {"cube/list interpolation, Qu prefix, invalid paths, clipping and strict settings",[](const auto&){geometry();}},
     {"both boards/renderers/modes animate without changing words, scores or deadlines",[](const auto& tmp){visible(tmp);}},
     {"Chess handoffs restore the user cursor and preserve shared-word scoring",[](const auto& tmp){handoffs(tmp);}},

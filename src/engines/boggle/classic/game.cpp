@@ -257,6 +257,11 @@ Error ClassicGame::run() {
     }
     ClassicArtwork artwork;
     if(auto err=artwork.open(resources,target_.path,options,clip))return err;
+    ClassicCursorArtwork cursorArtwork;
+    if(computerCursor && fs::findFile(target_.path,"Language/English.dll")) {
+        Language language;if(auto error=resources.language("Language/English.dll",language))return error;
+        if(auto error=cursorArtwork.read(language.resources))return error;
+    }
     ClassicAudio sound(sys_);
     ClassicTransition transition;
     UserDictionary user;
@@ -323,7 +328,7 @@ Error ClassicGame::run() {
     const HistoryButton pauseButton{artwork.active()?610:384,557,artwork.active()?166:110,29};
     bool running = true, dragging = false, resultsVisible = false, promptVisible = false;
     int pointerX=-1,pointerY=-1;
-    bool softwareCursor=false;
+    bool softwareCursor=false,computerPressed=false;
     std::optional<ClassicPoint> computerPointer;ClassicPoint traceOrigin;
     const AcceptedWord* tracing=nullptr;
     std::optional<size_t> reviewSelection;
@@ -331,7 +336,7 @@ Error ClassicGame::run() {
         const size_t count=results.ready()?results.words().size():size_t(std::count_if(round().words().begin(),round().words().end(),[](const auto& word){return word.state!=WordState::Declined;}));
         scroll=scrollWordHistory(scroll,count,artwork.active()?ClassicArtwork::visibleWords:14,rows);
     };
-    auto clear = [&] { followingU=false;input.clear(); selected.clear(); scroll = 0; dragging = false; reviewSelection.reset();computerPointer.reset();tracing=nullptr; };
+    auto clear = [&] { followingU=false;input.clear(); selected.clear(); scroll = 0; dragging = false; reviewSelection.reset();computerPointer.reset();computerPressed=false;tracing=nullptr; };
     auto toggleWords=[&]() {
         if(!resultsVisible || !results.ready())return;
         if(auto error=results.showAll(!results.allWords(),dictionary,&user)){message=error.message;return;}
@@ -702,11 +707,11 @@ Error ClassicGame::run() {
             const uint64_t now=gameTime();
             const uint64_t elapsed=chess?now:(now>=started[turn]?now-started[turn]:0);
             if(computerCursor) {
-                input.clear();selected.clear();
+                computerPressed=false;input.clear();selected.clear();
                 if(const auto* word=plan.nextWord()) {
                     if(tracing!=word){tracing=word;traceOrigin=computerPointer.value_or(word==plan.words().data()?cursorRest:submitPoint);}
                     const auto frame=computerCursorFrame(*word,centers,traceOrigin,elapsed,plan.due(),submitPoint,plan.nextMotion());
-                    computerPointer=frame.active?frame.point:traceOrigin;
+                    computerPointer=frame.active?frame.point:traceOrigin;computerPressed=frame.pressed;
                     if(frame.active) {
                         selected.assign(word->path.begin(),word->path.begin()+frame.cubes);
                         for(size_t cube:selected)input+=round().board().faces()[cube];
@@ -742,7 +747,7 @@ Error ClassicGame::run() {
         } else draw(screen, round(), gameTime(), letters, qu, palette, input, selected, results.ready() && scoreError && message.empty()?"High scores unavailable. H: details / retry.":competition.ready() && message.empty()?"1-4: player review / V: match scores / Up-Down: word path":message, scroll, fromMenu_,artwork,options.duration,seed,options.autoOrient,names[competition.ready()?reviewPlayer:turn],results,chess);
         const bool showComputerCursor=!gameplayClock.paused() && computerCursor && !handoff && !competition.ready() &&
             transition.type()==Transition::None && round().phase()==RoundPhase::Playing && kinds[turn]!=ComputerLevel::Human;
-        if(showComputerCursor)drawComputerCursor(screen,computerPointer.value_or(cursorRest));
+        if(showComputerCursor)cursorArtwork.draw(screen,computerPointer.value_or(cursorRest),computerPressed);
         if(showComputerCursor!=softwareCursor){softwareCursor=showComputerCursor;sys_.setMouseCursorVisible(!softwareCursor);}
         if(background)liveScores(screen,names,rounds,competition);
         if(matchOpen)matchTable(screen,names,competition,chess,background);

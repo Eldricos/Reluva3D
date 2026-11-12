@@ -142,3 +142,8 @@ visible-board choice is native; original round-end lid state remains unverified.
 The [All Words review](all-words.md) now supplies an optional discovered-word
 list, with blue potential-point entries and a separate ALL list count. SCORE
 continues to display the adjudicated total.
+
+The next [presentation fidelity pass](presentation-fidelity.md) establishes
+original camera/grid settings through isolated contracts and replaces the
+computer arrow with installed raised/pressed hand cursors. Camera settings do
+not yet replace the tray fit: final world-to-screen behavior remains unverified.

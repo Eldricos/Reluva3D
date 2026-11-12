@@ -271,3 +271,12 @@ words cannot enter through either input method; Pause has no shortcut, and
 minimizing/switching away pauses. Native incremental entry and mouse-only
 Pause/Resume now implement those contracts. Exact keyboard path choice, pause
 UI placement and audio pause behavior remain unverified.
+
+
+The owner confirmed the live keyboard constraint, minimum-length notice and
+manual-pause update compiles and works on Windows. The next
+[presentation fidelity pass](../../engines/boggle/presentation-fidelity.md) uses
+installed raised/pressed computer cursors and records measured camera/grid
+contracts. Camera projection, animated cube overlays and exact dialog behavior
+remain separate comparison work; original pause audio and round-end lid state
+are pending VM observations.
