@@ -1,5 +1,13 @@
 # LEGO Alpha Team: every mission
 
+> **Status:** done · **Checked against:** recordings of the original
+
+## Overview
+
+Every mission, loaded, run past Go and solved by the game's own solutions.
+
+## How it works
+
 - Done: every mission loads and runs. With a saved Adventure at each
   mission (`P0Space`), all 54 (the three later training missions, M0020
   to M0040, and the Adventure's 50, M1010 to M4070) load and show their
@@ -65,7 +73,9 @@
 - Single Missions lists only the missions an Adventure has reached ("Select
   a Mission to Revisit").
 
-## Against recordings of the original
+## Sources and checks
+
+### Against recordings of the original
 
 - Recordings of the original: a playthrough (the tutorial and all 51
   Adventure missions, 960x720, about eight hours), given by the game
@@ -87,7 +97,9 @@
   - Each recording shows that mission solved, which is what playing them
     through needs.
 
-## Still to do
+## Open questions
+
+### Still to do
 
 - every mission played start to finish by hand, placing the parts (each
   is solved by the game's own `_SOLVED.PUZ`, above, and Mission One by

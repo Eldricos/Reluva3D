@@ -1,5 +1,14 @@
 # LEGO Alpha Team: Mission One, and the camera
 
+> **Status:** done · **Checked against:** a recording of the original
+
+## Overview
+
+Mission One (M1010) played to the end, and how the game's camera chooses
+its shots there.
+
+## How it works
+
 - Done: Mission One (M1010) played to the end, from a saved Adventure at
   it. The view at each mission's start is a camera behind Dash; NextCam
   (412,428) five times shows the room from above. Dash runs from the far
@@ -160,3 +169,10 @@
     the pointer by relative motion, which the game doesn't follow all the
     way; `-point` first puts it where it's meant to be. A menu that's open
     takes the next click to close it.
+
+## Sources and checks
+
+- **Where the facts come from:** the game's own code, traced with
+  `at-run -watch` (above).
+- **How it was checked:** side by side with a recording the game owner
+  made of the original played with the camera input known (above).

@@ -1,6 +1,22 @@
 # LEGO Alpha Team: detection, the archives and the data viewer
 
-## Detection and the archives
+> **Status:** done · **Code:** `src/engines/netimmerse/viewers.h`, `src/engines/netimmerse/pac_archive.cpp` · **Checked against:** the retail files
+
+## Overview
+
+How Reluva recognises the game and reads its archives, and its data
+viewer of the game's files (F12 in the game, or the engine without
+`LEGOATeam.exe`), which the original doesn't have.
+
+## How it works
+
+The original reads the same files through its own code: the `.pac`
+archives through `DDPackedDirFileLib.dll` ([pac.md](../formats/pac.md)),
+and each kind of file as its page in [formats/](../formats/) says.
+
+## In Reluva
+
+### Detection and the archives
 
 - Done: detection by `Locale_en.pac`'s hash, with a fallback by file names
   for other releases. The launcher finds the game. Starting it opens every
@@ -17,7 +33,7 @@
   sounds as headerless PCM (`.DDS`), models (`.FIN`), TGA textures and
   lightmaps, puzzles, fonts and text.
 
-## The data viewer
+### The data viewer
 
 Like New Worlds and Elite Force before they ran, the engine first opens
 as a viewer; it checks each reader against all the retail files. Started
@@ -98,6 +114,8 @@ from the launcher, the engine now shows these pages (keys in
   click skips it. See [../../../../../common/video/avi.md](../../../../../common/video/avi.md)
   and [../../../../../common/video/indeo5.md](../../../../../common/video/indeo5.md), which
   record what came from FFmpeg's LGPL decoder.
+
+## Sources and checks
 
 The viewer was checked in this container with a software stand-in for the
 renderer, since it has no GPU: frames of characters, parts and levels

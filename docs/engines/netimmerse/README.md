@@ -4,7 +4,24 @@ Engine id `netimmerse`, in `src/engines/netimmerse/`, for games built on
 NetImmerse (Numerical Design, later Gamebryo). First game: LEGO Alpha Team
 (LEGO Media, 2000), game id `legoalphateam`, in `alphateam/`.
 
-## Where the engine goes
+## Games
+
+| Game | Id | Docs |
+|---|---|---|
+| LEGO Alpha Team (LEGO Media, 2000) | `legoalphateam` | [games/legoalphateam/](games/legoalphateam/README.md): where it stands, using it, its formats, how it runs and each part of it, and its known differences, unconfirmed items, testing and how it was worked out |
+
+A page goes in a game's folder when it was worked out from that game, and
+moves up to this folder once another game is found to share it. So far
+everything was read from LEGO Alpha Team.
+
+## This folder
+
+| Page | Covers |
+|---|---|
+| This page | The engine, where its code goes, and its tests |
+| [games/](games/) | A folder per game, for what was worked out from it |
+
+## Code
 
 Following idtech3/eliteforce: an engine for the technology, a subfolder
 for the game.
@@ -47,20 +64,3 @@ in `tests/engines/netimmerse/`:
 The emulator, the Windows stand-ins, DirectX, A3D and the Indeo video it
 uses are tested with the shared code (`reluva-tests common.unit.jit`,
 `common.unit.windows`, `common.unit.indeo`).
-
-## This folder
-
-| Page | Covers |
-|---|---|
-| This page | The engine, where its code goes, and its tests |
-| [games/](games/) | A folder per game, for what was worked out from it |
-
-## Games
-
-| Game | Id | Docs |
-|---|---|---|
-| LEGO Alpha Team (LEGO Media, 2000) | `legoalphateam` | [games/legoalphateam/](games/legoalphateam/README.md): where it stands, using it, its formats, how it runs and each part of it, and its known differences, unconfirmed items, testing and how it was worked out |
-
-A page goes in a game's folder when it was worked out from that game, and
-moves up to this folder once another game is found to share it. So far
-everything was read from LEGO Alpha Team.

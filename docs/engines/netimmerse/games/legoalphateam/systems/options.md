@@ -1,5 +1,15 @@
 # LEGO Alpha Team: options
 
+> **Status:** done
+
+## Overview
+
+The Options screen from the main menu: screen resolution, brightness and
+gamma, the music, voice-over and sound effects volumes, mouse sensitivity
+and the advanced options.
+
+## How it works
+
 - Done: the game's options (the Options screen from the main menu),
   checked one by one:
   - Screen resolution: the game changes the display mode itself
@@ -19,3 +29,8 @@
   - Mouse sensitivity and the advanced options (textures, lightmaps,
     backdrop, environment animation, shadows) are the game's own
     business: nothing of ours is involved.
+
+## Sources and checks
+
+- **How it was checked:** each option set in the game in Reluva, one by
+  one (above).

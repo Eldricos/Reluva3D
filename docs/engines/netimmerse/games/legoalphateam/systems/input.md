@@ -1,5 +1,13 @@
 # LEGO Alpha Team: input
 
+> **Status:** done
+
+## Overview
+
+The mouse and the keyboard, as the game reads them.
+
+## How it works
+
 - Done: input. Found from LoadComp's `DDMouse` and the program's window
   procedure, the game reads:
   - **the pointer by its movement:** each frame `DDMouse::GetState` takes
@@ -15,6 +23,9 @@
     DirectInput mouse, but only if a flag is set, and nothing sets it.
     DirectInput is stood in for all the same
     ([x86.md](../../../../../common/x86/README.md)), for other games.
+
+## In Reluva
+
 - In exclusive fullscreen, changing the display mode now makes it the
   desktop's size and puts the program's window over the whole screen, as
   DirectDraw does. The pointer and the window then agree.
@@ -25,3 +36,10 @@
   (Adventure, Single Missions, Options, Exit Game). Moving the game's
   pointer onto "Exit Game" and clicking brings up "Really Exit Game?".
   Everything the game imports is now stood in for.
+
+## Sources and checks
+
+- **Where the facts come from:** LoadComp's `DDMouse` and the program's
+  window procedure (above).
+- **How it was checked:** `at-run`'s clicks and pointer moves taking the
+  game from its demo to the main menu and "Really Exit Game?" (above).

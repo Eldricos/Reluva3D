@@ -1,5 +1,14 @@
 # LEGO Alpha Team: into a mission, and the training tour
 
+> **Status:** done
+
+## Overview
+
+From the menus into a mission, and the Alpha Team Training Area (M0010),
+the guided tour at the Adventure's start.
+
+## How it works
+
 - Into a mission, from the menus. The `at-run` options that help:
   - `-fixed-clock`: the clock follows the instruction count (40,000 to a
     millisecond) and the main thread's sleeps, so runs repeat exactly.
@@ -57,7 +66,7 @@
     begin click starts. So the first line never "finishes", and nothing
     ever ends the lock.
   - So the fix was the A3D stand-in (step 5 of
-    [running.md](running.md#the-decision)): streaming sources that
+    [PLAN.md](../PLAN.md#phases)): streaming sources that
     exist, play and end. With it, the begin click plays `M0010_010`
     (10.3 seconds) and then `M0010_020A` (1 second), each for its full
     length. The training then highlights a tile on the board and waits
@@ -155,3 +164,10 @@
     for the event (`DDBehavior::registerEvent`): `click:x,y` (with `*n`,
     clicked again every 40 frames until the training moves on),
     `point:x,y`, `key:vk`, `drag:x,y,x2,y2`, or `buttons`.
+
+## Sources and checks
+
+- **Where the facts come from:** the game's own code, traced as it ran
+  with `at-run` (`-watch`, `-calls`, `-dump`, `-graph`), above.
+- **How it was checked:** the tour played to its end with the fixed clock
+  and the route above.

@@ -1,5 +1,15 @@
 # LEGO Alpha Team: sound
 
+> **Status:** done · **Code:** `src/common/x86/a3d.cpp`
+
+## Overview
+
+The game's music, voices and sound effects, played through NetImmerse's
+A3D sound (`NiA3dSound`); in Reluva through an A3D stand-in and the
+engine's mixer.
+
+## How it works
+
 - Done: sound, through the A3D stand-in (`src/common/x86/a3d.cpp`,
   docs/common/x86/README.md). `NiA3dSoundSystem::Startup` now succeeds, and
   `DDStreamingAudioManager::AddSource` returns sources. The streaming
@@ -21,3 +31,10 @@
     under the wrong IID, so it stayed at the origin. With both fixed,
     Mission One's skills and interface sounds load and play, placed
     around the camera.
+
+## Sources and checks
+
+- **How it was checked:** Mission One's skills and interface sounds load
+  and play, placed around the camera (above). The volumes and pans haven't
+  been compared by ear with A3D hardware
+  ([UNCONFIRMED.md](../UNCONFIRMED.md)).

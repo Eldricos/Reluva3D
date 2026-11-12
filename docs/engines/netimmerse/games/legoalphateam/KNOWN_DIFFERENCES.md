@@ -12,7 +12,9 @@ camera, menus and saving are the original's own code. The differences are
 in what Reluva supplies in place of Windows, DirectX, Aureal A3D and the
 hardware.
 
-## Pictures
+## By choice
+
+### Pictures
 
 - **Drawn in software.** Direct3D 7 is a software rasterizer
   (`src/common/x86/directx/raster.cpp`) following the DirectX 7
@@ -39,23 +41,42 @@ hardware.
   (640x480 to 1024x768, 16 or 32 bits) is drawn at that size. In exclusive fullscreen, a mode change takes the
   desktop's size, as DirectDraw does.
 
-## Timing and speed
+### Timing and speed
 
 - **At most 60 frames a second.** The game draws as fast as it can and
   relies on `Flip` waiting for the display. Ours paces flips to a 60 Hz
   display whatever the real one runs at.
+- **The processor's speed** as the game measures it
+  (`DDCaps::CalcProcSpeed`, RDTSC across a `Sleep`) reads as 1 GHz, so it
+  recommends full detail (shadows, environment animation) where a period
+  machine might not.
+
+### Starting and leaving
+
+- **The intro movie** (`lmiintro.avi`) only plays if it has been copied
+  from the CD into the install folder (the installer leaves it on the
+  CD). A key or click skips it, as in the original; its very last frame
+  isn't shown.
+- **Quitting Reluva** while the game runs (closing the window, Ctrl+F5)
+  asks first, and doesn't save: the game itself saves only through Exit
+  Game and as an Adventure moves on, as it does on Windows.
+
+## Bugs fixed
+
+None yet.
+
+## Not yet as the original
+
+### Timing and speed
+
 - **Slower than the original on its own hardware** in busy scenes. The
   game's code runs in an x86 emulator with native code generation (JIT)
   and the drawing is done on the processor: about 45 frames a second in
   missions at 1024x768x32 on a 2020s desktop, lower in wide camera shots
   with much on screen, and dips while the attract sequence loads its next
   level ([research/speed.md](research/speed.md)).
-- **The processor's speed** as the game measures it
-  (`DDCaps::CalcProcSpeed`, RDTSC across a `Sleep`) reads as 1 GHz, so it
-  recommends full detail (shadows, environment animation) where a period
-  machine might not.
 
-## Sound
+### Sound
 
 Aureal A3D is stood in for (`src/common/x86/a3d.cpp`) from its public
 SDK documentation, through Reluva's mixer:
@@ -68,19 +89,7 @@ SDK documentation, through Reluva's mixer:
   sound like sounds beside you). `IsFeatureAvailable` reports none of
   them, so the game takes the paths it takes on a card without them.
 
-## Starting and leaving
-
-- **The intro movie** (`lmiintro.avi`) only plays if it has been copied
-  from the CD into the install folder (the installer leaves it on the
-  CD). A key or click skips it, as in the original; its very last frame
-  isn't shown.
-- **Quitting Reluva** while the game runs (closing the window, Ctrl+F5)
-  asks first, and doesn't save: the game itself saves only through Exit
-  Game and as an Adventure moves on, as it does on Windows.
-- **F12** pauses the game and opens Reluva's data viewer, which the
-  original doesn't have.
-
-## Not supported, and not needed
+### Not supported, and not needed
 
 - Structured exception handling (`RaiseException`, `RtlUnwind`) ends the
   run instead of being dispatched. The game hasn't been seen to use it.
@@ -89,3 +98,8 @@ SDK documentation, through Reluva's mixer:
   leftover the shipped game doesn't support (traced in
   [systems/missions.md](systems/missions.md)).
 - MMX and SSE instructions aren't emulated: the game's DLLs don't use them.
+
+## Additions outside the game
+
+- **F12** pauses the game and opens Reluva's data viewer, which the
+  original doesn't have.

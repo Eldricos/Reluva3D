@@ -1,30 +1,16 @@
 # LEGO Alpha Team: install layout
 
-Source: directory listings of the English Windows retail CD (volume label
-`LEGOATEN`) and of a full install from it (October 2026). The archives' contents come from
-reading them ([pac.md](pac.md)); meanings still marked *guess* come from
-the names alone and are to be confirmed.
+> **Status:** partial · **Code:** `src/engines/netimmerse/netimmerse.cpp` (detection) · **Checked on:** the English Windows retail CD (`LEGOATEN`) and a full install from it
 
-## Identification
+## Overview
 
-| File | Size | MD5 of first 5000 bytes |
-|---|---|---|
-| `LEGOATeam.exe` | 61,440 | `f4e48a14ef43f73ded1536266e16b94b` |
-| `Bhvr.pac` | 4,532,456 | `6e2ed1e3cc81583995361fa0ff31bd77` |
-| `Etc.pac` | 11,794,154 | `4a1e77f9c0b6d1d912571666838c91c5` |
-| `Locale_en.pac` | 82,323,720 | `333f2476ec15acf658af87f09dcbca43` |
-| `Map.pac` | 19,654,043 | `9d61f551f7649d7e3456a57dcb266339` |
-| `LMap.pac` | 53,475,662 | `c78850aa53e5ff5230ff9818b6738df2` |
-| `Fin.pac` | 20,642,530 | `3044e816442cbf6965c128991ade421f` |
-| `Audio.pac` | 92,796,224 | `2881a2a26b94d9d2c8401f3450a19759` |
-| `Ambient.pac` | 126,598,304 | `5b5a637eff72489fe191e6ba575dd3af` |
+What the English Windows retail CD and a full install from it hold: the
+program, its DLLs and eight `.pac` archives in the install folder, and
+what stays on the CD.
 
-Detection (`src/engines/netimmerse/netimmerse.cpp`) uses `Locale_en.pac`'s
-hash and requires `LEGOATeam.exe` to exist. An install with `LEGOATeam.exe`
-and `Bhvr.pac` but no known locale archive is still found, as "unknown
-release".
+## Layout
 
-## Install folder (`C:\Program Files\LEGO Media\Games\LEGO Alpha Team`)
+### Install folder (`C:\Program Files\LEGO Media\Games\LEGO Alpha Team`)
 
 | File | Size | What it is |
 |---|---|---|
@@ -51,11 +37,7 @@ release".
 | `Config.txt` | 0 | empty |
 | `Game.txt` | 0 | the game's settings, which it writes when they're changed. The readme names its `Width`, `Height` and `BPP` lines |
 
-Detection should key on `Locale_<xx>.pac` (one variant per language) plus
-`LEGOATeam.exe` existing, as New Worlds keys on its archive: patches tend
-to replace the executable, not the large archives.
-
-## CD only
+### CD only
 
 - `lmiintro.avi` (39,840,492): the LEGO Media intro movie, 640 × 480 Indeo 5
   at 15 frames a second with 22,050 Hz stereo PCM, 108.8 s. Not copied by
@@ -72,7 +54,39 @@ to replace the executable, not the large archives.
   and holds the text "Please place game CD in drive" and `LEGOAT`. Reluva
   will answer that check itself, so no CD is needed.
 
-## Not needed by Reluva
+### Not needed by Reluva
 
 `AutoPlay.exe`/`AUTORUN.INF`, `DirectX/` (DirectX installer), `ereg/`
 (electronic registration), `lego.ico`, `setup.bmp`.
+
+## In Reluva
+
+### Identification
+
+| File | Size | MD5 of first 5000 bytes |
+|---|---|---|
+| `LEGOATeam.exe` | 61,440 | `f4e48a14ef43f73ded1536266e16b94b` |
+| `Bhvr.pac` | 4,532,456 | `6e2ed1e3cc81583995361fa0ff31bd77` |
+| `Etc.pac` | 11,794,154 | `4a1e77f9c0b6d1d912571666838c91c5` |
+| `Locale_en.pac` | 82,323,720 | `333f2476ec15acf658af87f09dcbca43` |
+| `Map.pac` | 19,654,043 | `9d61f551f7649d7e3456a57dcb266339` |
+| `LMap.pac` | 53,475,662 | `c78850aa53e5ff5230ff9818b6738df2` |
+| `Fin.pac` | 20,642,530 | `3044e816442cbf6965c128991ade421f` |
+| `Audio.pac` | 92,796,224 | `2881a2a26b94d9d2c8401f3450a19759` |
+| `Ambient.pac` | 126,598,304 | `5b5a637eff72489fe191e6ba575dd3af` |
+
+Detection (`src/engines/netimmerse/netimmerse.cpp`) uses `Locale_en.pac`'s
+hash and requires `LEGOATeam.exe` to exist. An install with `LEGOATeam.exe`
+and `Bhvr.pac` but no known locale archive is still found, as "unknown
+release".
+
+Detection should key on `Locale_<xx>.pac` (one variant per language) plus
+`LEGOATeam.exe` existing, as New Worlds keys on its archive: patches tend
+to replace the executable, not the large archives.
+
+## Sources and checks
+
+Source: directory listings of the English Windows retail CD (volume label
+`LEGOATEN`) and of a full install from it (October 2026). The archives' contents come from
+reading them ([pac.md](pac.md)); meanings still marked *guess* come from
+the names alone and are to be confirmed.

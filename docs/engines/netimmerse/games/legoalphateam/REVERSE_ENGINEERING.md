@@ -5,7 +5,7 @@ knowledge came from, the tools used, and how the results were checked.
 The details of each step are in [../../systems/](systems/), [../../research/](research/) and the
 format documents under [../../formats/](formats/).
 
-## The rules
+## Ground rules
 
 Reluva is a clean-room project ([../../../../../CONTRIBUTING.md](../../../../../CONTRIBUTING.md)):
 
@@ -23,7 +23,20 @@ Reluva is a clean-room project ([../../../../../CONTRIBUTING.md](../../../../../
   install kept outside the repository.
 - **Documented:** each format document and each fix says how it was found.
 
-## 1. The install and the archives
+## Sources
+
+### What came from the game's owner
+
+Game files can't go in the repository. The whole install has been provided
+for study: the executables, the DLLs and all eight archives.
+
+Also useful: the CD's `readme.txt` and `Strings_en.txt` (the game's own
+description of its keys and options), and screenshots or a recording of
+the original running.
+
+## Methods
+
+### 1. The install and the archives
 
 - The install was listed file by file ([formats/install.md](formats/install.md)):
   the executable, the DLLs (NetImmerse's `Ni*.dll`, the game's own
@@ -34,7 +47,7 @@ Reluva is a clean-room project ([../../../../../CONTRIBUTING.md](../../../../../
   against the file's length and every entry's data. `pac-list` and
   `pac-extract` read them.
 
-## 2. The data formats
+### 2. The data formats
 
 - **Models (`.FIN`, [formats/fin.md](formats/fin.md))** are NetImmerse
   streams. The class names are written in the stream. Each class's
@@ -62,7 +75,7 @@ Reluva is a clean-room project ([../../../../../CONTRIBUTING.md](../../../../../
   result was checked picture by picture, byte for byte, against FFmpeg's
   decoding of the same file.
 
-## 3. Running the game
+### 3. Running the game
 
 Three ways were measured before choosing ([systems/running.md](systems/running.md)): reimplementing the game natively, running all its code with
 NetImmerse in an emulator, or the game's code with a native NetImmerse.
@@ -97,7 +110,7 @@ internals, only of what the program calls.
   door wrongly), RDTSC across `Sleep` (the game's processor-speed test),
   and MSVCRT's text mode (the save's CR-LF line ends).
 
-## 4. Checking the results
+### 4. Checking the results
 
 - **Repeatable runs.** `at-run` with `-fixed-clock` makes the game's
   clock follow the instructions run, so a run with scripted input
@@ -106,7 +119,7 @@ internals, only of what the program calls.
   the JIT and the drawing was required to leave both unchanged to the
   byte, at 640x480x16 and 1024x768x32.
 - **The engine's tests** keep these checks running
-  ([TESTING.md](TESTING.md), "The automated checks"): the game-files test
+  ([TESTING.md](TESTING.md), "Automated checks"): the game-files test
   plays the Mission One routes at both sizes and compares their frames
   and instruction counts with the committed records; the basic engine
   test and the unit tests need no game files, and run in CI.
@@ -124,15 +137,6 @@ internals, only of what the program calls.
   with the build's PDB, down to the hot instructions, and locally with the
   emulator's own sampling (`at-run -profile`, `-profile-addresses`).
 
-## What came from the game's owner
-
-Game files can't go in the repository. The whole install has been provided
-for study: the executables, the DLLs and all eight archives.
-
-Also useful: the CD's `readme.txt` and `Strings_en.txt` (the game's own
-description of its keys and options), and screenshots or a recording of
-the original running.
-
 ## The tools
 
 All in `reluva-tool`: the ones for any game in `src/tools/`, this engine's
@@ -146,3 +150,7 @@ in `src/engines/netimmerse/tools/` (`reluva-tool netimmerse <command>`;
 | `netimmerse fin-check` | read every model and tally classes and fields |
 | `netimmerse at-run` | run the game headless, with scripted input, tracing and frames |
 | `netimmerse at-sweep` | run many missions at once, solved or not |
+
+## Working files not included
+
+None yet.

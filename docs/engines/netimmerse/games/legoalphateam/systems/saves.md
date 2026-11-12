@@ -1,5 +1,14 @@
 # LEGO Alpha Team: saving
 
+> **Status:** done
+
+## Overview
+
+The game keeps one file, `Game.txt` in its install folder: how far each
+Adventure has got, and the settings.
+
+## How it works
+
 - Done: saving.
   - Found with `at-run -files`: the game writes one file, `Game.txt` in
     its install folder (the readme has players edit it). It's LoadComp's
@@ -27,3 +36,9 @@
   - Checked: a `Game.txt` with `P0Space  M1020` (CR-LF) shows "On the
     Right Path" on the first Adventure card, and choosing it starts that
     mission.
+
+## Sources and checks
+
+- **Where the facts come from:** `at-run -files`, and LoadComp's `DDInfo`
+  (above).
+- **How it was checked:** a saved `Game.txt` loaded by the game (above).

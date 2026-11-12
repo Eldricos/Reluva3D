@@ -1,70 +1,13 @@
 # LEGO Alpha Team: `.pac` archives
 
-Source: the eight archives of the English retail install (2,462 files in
-all), October 2026. The layout was worked out by hand on `Bhvr.pac` and
-`Etc.pac`. A short script then walked every archive's directory and checked
-it against the file. In all eight, every entry lies inside the file and the
-entries follow one another with no gaps, apart from the placeholders below.
+> **Status:** decoded · **Code:** `src/engines/netimmerse/pac_archive.{h,cpp}` · **Checked on:** the eight archives of the English retail install (2,462 files)
 
-All numbers are little-endian.
+## Overview
 
-**From the code** (November 2026): `DDPackedDirFileLib.dll`, which the
-game reads its archives with, settled the fields that had been guessed.
-`DDPackedDirFile::DDPackedDirFile(const char*)` reads the first 16 bytes,
-checks `PACK`, maps the file and reads the directory from offset 16 with
-`DDDirectory::Restore`. Each entry is the game's `DDFileAttr`, which
-`DDMappedFileBuf::open` hands to `MapViewOfFile`.
+The game's data archives, read by `DDPackedDirFileLib.dll`: eight in the
+English retail install, one per kind of data, holding the files below.
 
-## Header (16 bytes)
-
-| Offset | Size | Field |
-|---|---|---|
-| 0 | 4 | `PACK`, the only field the game checks |
-| 4 | 4 | the archive's size in bytes (equal to the file's size in all); not read by the game |
-| 8 | 4 | 0 in all; not read by the game |
-| 12 | 4 | where the first file's data starts. The game gives the directory's stream that many bytes from offset 16, more than it needs |
-
-## Directory (from offset 16)
-
-`DDDirectory::Restore`:
-
-| Size | Field |
-|---|---|
-| 4 | number of files |
-| per file | the entry below |
-| 4 | number of subdirectories: 0 in every archive |
-| per subdirectory | its name (zero-terminated, read as at most 64 bytes) and a directory of its own, read the same way |
-
-Each file's entry, in the order their data comes in:
-
-| Size | Field |
-|---|---|
-| variable | the name, zero-terminated (read as at most 64 bytes), upper case, with no folders (`B0001.DLL`, `ABADI MT CONDENSED.DDF`) |
-| 4 | the data's offset, its high 32 bits: 0 in all, the archives being under 4 GB. *(From the code: `MapViewOfFile`'s `dwFileOffsetHigh`; formerly guessed to be flags.)* |
-| 4 | the data's offset, its low 32 bits, from the start of the archive |
-| 4 | the data's size |
-| 8 | a Windows FILETIME, the file's date (17 to 22 August 2000 in `Bhvr.pac`; `Etc.pac`'s go back to March 1999) |
-
-So the 4 zero bytes that end every directory, just before the data, are
-the subdirectory count. The game maps each file's view from its offset
-rounded down to the allocation granularity, and reads it from the rest.
-
-**Placeholders.** `Ambient.pac` and `LMap.pac` each list one entry named after
-the archive itself (`AMBIENT.PAC`, first; `LMAP.PAC`, last) with offset,
-size and date all 0. The packing tool probably listed its own output file
-while writing it. They're read as empty files.
-
-## Reading them
-
-`src/engines/netimmerse/pac_archive.{h,cpp}` reads them as an `Archive`.
-Names are looked up ignoring case. It checks the header's size against the
-file's, and checks that every entry's name and fields lie inside the
-directory and its data inside the archive.
-An archive with subdirectories is refused, as none has any. `reluva-tool netimmerse pac-list <file.pac>` lists an
-archive (offset, size, date, name), and `reluva-tool netimmerse pac-extract <file.pac>
-<dir> [filter]` writes its files out.
-
-## Contents seen
+### Contents seen
 
 | Archive | Files | What they are |
 |---|---|---|
@@ -110,3 +53,71 @@ archive (offset, size, date, name), and `reluva-tool netimmerse pac-extract <fil
     have lines of their own. Most missions have a `_SOLVED.PUZ` beside them;
   - 3 `.TXT` files, tab-separated lists of the parts by category
     (`CATEGORYUNITS.TXT`).
+
+## Layout
+
+All numbers are little-endian.
+
+### Header (16 bytes)
+
+| Offset | Size | Field |
+|---|---|---|
+| 0 | 4 | `PACK`, the only field the game checks |
+| 4 | 4 | the archive's size in bytes (equal to the file's size in all); not read by the game |
+| 8 | 4 | 0 in all; not read by the game |
+| 12 | 4 | where the first file's data starts. The game gives the directory's stream that many bytes from offset 16, more than it needs |
+
+### Directory (from offset 16)
+
+`DDDirectory::Restore`:
+
+| Size | Field |
+|---|---|
+| 4 | number of files |
+| per file | the entry below |
+| 4 | number of subdirectories: 0 in every archive |
+| per subdirectory | its name (zero-terminated, read as at most 64 bytes) and a directory of its own, read the same way |
+
+Each file's entry, in the order their data comes in:
+
+| Size | Field |
+|---|---|
+| variable | the name, zero-terminated (read as at most 64 bytes), upper case, with no folders (`B0001.DLL`, `ABADI MT CONDENSED.DDF`) |
+| 4 | the data's offset, its high 32 bits: 0 in all, the archives being under 4 GB. *(From the code: `MapViewOfFile`'s `dwFileOffsetHigh`; formerly guessed to be flags.)* |
+| 4 | the data's offset, its low 32 bits, from the start of the archive |
+| 4 | the data's size |
+| 8 | a Windows FILETIME, the file's date (17 to 22 August 2000 in `Bhvr.pac`; `Etc.pac`'s go back to March 1999) |
+
+So the 4 zero bytes that end every directory, just before the data, are
+the subdirectory count. The game maps each file's view from its offset
+rounded down to the allocation granularity, and reads it from the rest.
+
+**Placeholders.** `Ambient.pac` and `LMap.pac` each list one entry named after
+the archive itself (`AMBIENT.PAC`, first; `LMAP.PAC`, last) with offset,
+size and date all 0. The packing tool probably listed its own output file
+while writing it. They're read as empty files.
+
+## In Reluva
+
+`src/engines/netimmerse/pac_archive.{h,cpp}` reads them as an `Archive`.
+Names are looked up ignoring case. It checks the header's size against the
+file's, and checks that every entry's name and fields lie inside the
+directory and its data inside the archive.
+An archive with subdirectories is refused, as none has any. `reluva-tool netimmerse pac-list <file.pac>` lists an
+archive (offset, size, date, name), and `reluva-tool netimmerse pac-extract <file.pac>
+<dir> [filter]` writes its files out.
+
+## Sources and checks
+
+Source: the eight archives of the English retail install (2,462 files in
+all), October 2026. The layout was worked out by hand on `Bhvr.pac` and
+`Etc.pac`. A short script then walked every archive's directory and checked
+it against the file. In all eight, every entry lies inside the file and the
+entries follow one another with no gaps, apart from the placeholders below.
+
+**From the code** (November 2026): `DDPackedDirFileLib.dll`, which the
+game reads its archives with, settled the fields that had been guessed.
+`DDPackedDirFile::DDPackedDirFile(const char*)` reads the first 16 bytes,
+checks `PACK`, maps the file and reads the directory from offset 16 with
+`DDDirectory::Restore`. Each entry is the game's `DDFileAttr`, which
+`DDMappedFileBuf::open` hands to `MapViewOfFile`.

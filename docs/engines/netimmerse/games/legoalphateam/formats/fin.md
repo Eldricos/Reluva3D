@@ -1,48 +1,15 @@
 # LEGO Alpha Team: `.FIN` models
 
-Source: the 147 `.FIN` files in the English retail `Fin.pac` (October 2026).
-This is how the layout was worked out:
+> **Status:** decoded · **Code:** `src/engines/netimmerse/fin.{h,cpp}` · **Checked on:** the 147 `.FIN` files in the English retail `Fin.pac`
 
-- **Splitting the files into objects.** The objects were found by their
-  headers: a class name, then a value used once as an id and linked to
-  from elsewhere. Every candidate for the 27 class names in the table
-  below behaves that way; the other `Ni…`/`DD…` strings are object names.
-- **Each class's fields.** These were found by comparing many objects of
-  the class and decoding a few by hand: the 4-object `OG9997.FIN` (a box)
-  first, then larger ones.
-- **The rule for the field before the collision volume.** It came from
-  where 1 to 5 fields failed to fit.
-- **Testing each hypothesis.** Each one was tested by whether every object
-  of the class then ended exactly where the next began. All 21 classes that
-  are read now do so for every object in every file. `reluva-tool netimmerse fin-check`
-  repeats the check, and also checks that every link points at an object of
-  the right kind and that every image named is in the archives.
+## Overview
 
-The NifTools project's `nif.xml` (GPL-3), which describes later NetImmerse
-and Gamebryo files and some of these early versions, was used for the
-meaning of fields once their place was found: the names of the
-bounding-volume types and of the alpha blend factors. Where it disagrees
-with these files (a capsule is 28 bytes here, not 32, for example), the
-files win.
+The game's 3D models: the 147 `.FIN` files in `Fin.pac`, one per part, each
+a NetImmerse stream under a header of the game's own (`Dweezil 23`).
 
-**Checked against the game's code** (October 2026). Fields whose
-meaning the files alone couldn't show were then named from the game's own
-DLLs. Reverse engineering of a legally owned program for interoperability
-is among the sources [CONTRIBUTING.md](../../../../../../CONTRIBUTING.md)
-allows. NiMain, NiAnimation, NiA3dSound and LoadComp export their C++
-functions by name. Each class's `LoadBinary` shows the order it reads its
-members (a stream read each, with its size and the member's offset), and
-the exported one-line accessors (`GetDimmer`, `GetCycleType`...) name the
-member at each offset. Where the meaning needed more, the code that uses
-a member was read: NiDirect3d's software lighting, `NiFlipTextures::Act`,
-`DDSkill::Update` and `DDActor::OnPreDisplay`, and calls were watched
-with `at-run -watch` while the game ran. The fields named this way are
-marked *(from the code)* below. The former *guesses* they settle are
-recorded with them.
+## Layout
 
-`src/engines/netimmerse/fin.{h,cpp}` reads them.
-
-## The file
+### The file
 
 - The line `Dweezil 23` and a newline, where NetImmerse's own files have
   their own header text.
@@ -64,7 +31,7 @@ All numbers are little-endian; floats are 32-bit IEEE.
 file was saved: 0 means the data after it is left out, anything else that
 it follows.
 
-## Shared fields
+### Shared fields
 
 **NiObjectNET** (every class read except `DDActorSharedData`):
 - the name (a length and characters, often empty);
@@ -111,7 +78,7 @@ together this way.
 The levels' `DDEnv` roots hold most of them: unions of up to 80 boxes and
 capsules, which are the level's walls and floors.
 
-## Nodes
+### Nodes
 
 **NiNode:** NiAVObject's fields, then the sorting mode (2 in every file:
 the default; 0 is on, 1 off), a number (0), a byte (1 or 0: whether it's
@@ -140,7 +107,7 @@ units, for the characters). Within it the skinned meshes (`Ni3dsSkin`)
 show and every node whose name starts `LOD_` is hidden; beyond it, the
 other way round. The viewer leaves them out with the hidden effects.
 
-## Shapes
+### Shapes
 
 **NiTriShape** (13,226) and **NiEnvMappedTriShape** (13, which adds
 nothing): NiAVObject's fields, then the geometry, in this order:
@@ -185,7 +152,7 @@ tracks (below), they walk, turn and wave.
 (5 vertices: a square and its centre), then a link and 9 floats of its own
 instead of planes and triangles.
 
-## Properties
+### Properties
 
 Each is NiObjectNET's fields, then:
 
@@ -213,7 +180,7 @@ texture format (7) *(from the code)*. No pixels
 are stored in the models. All 1,260 names are in `Map.pac`, `LMap.pac` or
 `Etc.pac`.
 
-## Animation
+### Animation
 
 Every object of every class now reads to exactly its end. `reluva-tool netimmerse fin-check` also checks the actors' tracks against
 the 3ds nodes (below). The viewer plays all of it.
@@ -236,7 +203,7 @@ Nothing came from the game's code or any other source.
 second). An actor's clip "at_rest" from 3.333 s starts at the 16,000-tick
 key.
 
-### DDActorSharedData (147, one per model)
+#### DDActorSharedData (147, one per model)
 
 The game's own data for a model. It doesn't start with NiObjectNET's
 fields. In order:
@@ -364,7 +331,7 @@ spine, and the arms.
 The levels' actors have clips (`anim1`...) but few or no tracks; their
 animation is in the morph shapes and material animators below.
 
-### NiFlipTextures (282)
+#### NiFlipTextures (282)
 
 Here an `NiAction`, not a controller. *(From the code: its
 `LoadBinary`, its accessors, and `Act`, the function that sets the
@@ -396,7 +363,7 @@ The rate isn't used there: it's already in the duration. The game calls
 clip lists (DDActorSharedData, above). Watched with `at-run -watch` in
 Mission One, the times went up by 160 ticks a call, within the clips.
 
-### Ni3dsColorAnimator (439), Ni3dsAlphaAnimator (393)
+#### Ni3dsColorAnimator (439), Ni3dsAlphaAnimator (393)
 
 NiObjectNET's fields, then the animation's settings, as
 `Ni3dsAnimationCore::AnimCoreLoadBinary` reads them *(from the code)*:
@@ -427,7 +394,7 @@ type and the keys:
 - colour: type 1 is 16 (time, r, g, b); type 2 is 64 (with two tangents
   and 24 bytes more).
 
-### Ni3dsMorphShape (122)
+#### Ni3dsMorphShape (122)
 
 A shape's fields, then:
 
@@ -464,7 +431,7 @@ across the key (±0.5), as Catmull-Rom's would be, or ±1 at the ends. The
 viewer blends them so, and, playing a clip, moves only the morph shapes
 the clip lists (DDActorSharedData, above).
 
-### NiLight (110, in the levels)
+#### NiLight (110, in the levels)
 
 NiAVObject's fields, then *(from the code: NiMain's `NiLight::LoadBinary`
 and accessors)*:
@@ -523,8 +490,54 @@ that have normals (characters, parts) with them, as above: every light's
 ambient, and the one light reaching a shape most strongly, from its
 direction, a spot within its cone.
 
-### DDCorona: glows
+#### DDCorona: glows
 
 A glow's shape is a 2 × 2 square in X and Z and its centre, with white
 vertex colours; its image is its own or inherited texture. The viewer
 draws it facing the camera, added to what's behind it.
+
+## In Reluva
+
+`src/engines/netimmerse/fin.{h,cpp}` reads them.
+
+## Sources and checks
+
+Source: the 147 `.FIN` files in the English retail `Fin.pac` (October 2026).
+This is how the layout was worked out:
+
+- **Splitting the files into objects.** The objects were found by their
+  headers: a class name, then a value used once as an id and linked to
+  from elsewhere. Every candidate for the 27 class names in the table
+  above behaves that way; the other `Ni…`/`DD…` strings are object names.
+- **Each class's fields.** These were found by comparing many objects of
+  the class and decoding a few by hand: the 4-object `OG9997.FIN` (a box)
+  first, then larger ones.
+- **The rule for the field before the collision volume.** It came from
+  where 1 to 5 fields failed to fit.
+- **Testing each hypothesis.** Each one was tested by whether every object
+  of the class then ended exactly where the next began. All 21 classes that
+  are read now do so for every object in every file. `reluva-tool netimmerse fin-check`
+  repeats the check, and also checks that every link points at an object of
+  the right kind and that every image named is in the archives.
+
+The NifTools project's `nif.xml` (GPL-3), which describes later NetImmerse
+and Gamebryo files and some of these early versions, was used for the
+meaning of fields once their place was found: the names of the
+bounding-volume types and of the alpha blend factors. Where it disagrees
+with these files (a capsule is 28 bytes here, not 32, for example), the
+files win.
+
+**Checked against the game's code** (October 2026). Fields whose
+meaning the files alone couldn't show were then named from the game's own
+DLLs. Reverse engineering of a legally owned program for interoperability
+is among the sources [CONTRIBUTING.md](../../../../../../CONTRIBUTING.md)
+allows. NiMain, NiAnimation, NiA3dSound and LoadComp export their C++
+functions by name. Each class's `LoadBinary` shows the order it reads its
+members (a stream read each, with its size and the member's offset), and
+the exported one-line accessors (`GetDimmer`, `GetCycleType`...) name the
+member at each offset. Where the meaning needed more, the code that uses
+a member was read: NiDirect3d's software lighting, `NiFlipTextures::Act`,
+`DDSkill::Update` and `DDActor::OnPreDisplay`, and calls were watched
+with `at-run -watch` while the game ran. The fields named this way are
+marked *(from the code)* below. The former *guesses* they settle are
+recorded with them.

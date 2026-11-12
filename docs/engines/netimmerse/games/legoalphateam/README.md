@@ -4,24 +4,14 @@ Game id `legoalphateam` (LEGO Media, 2000), the first game on the
 [NetImmerse engine](../../README.md); its own code is in
 `src/engines/netimmerse/alphateam/`.
 
-## This folder
+## Releases
 
-| Page | Covers |
-|---|---|
-| This page | What the install shows, where it stands, how to use it, the developer tools |
-| [formats/](formats/) | The game's files: [the install and the CD](formats/install.md), [`.pac` archives](formats/pac.md), [`.FIN` models](formats/fin.md) (with their animation, morphs, lights and glows), [`.DDF` fonts](formats/ddf.md), [the intro movie](formats/intro-movie.md) |
-| [systems/](systems/) | How the game runs, and each part of it: [running the game's own code](systems/running.md), [detection, the archives and the data viewer](systems/data-viewer.md), [input](systems/input.md), [sound](systems/sound.md), [options](systems/options.md), [saving](systems/saves.md), [into a mission and the training tour](systems/training.md), [every mission](systems/missions.md), [Mission One and the camera](systems/camera.md) |
-| [research/](research/) | Working notes: [speed, as it went](research/speed.md) |
-| [KNOWN_DIFFERENCES.md](KNOWN_DIFFERENCES.md) | Where it behaves differently from the original, and why |
-| [UNCONFIRMED.md](UNCONFIRMED.md) | What hasn't been checked against the original yet |
-| [TESTING.md](TESTING.md) | The playthrough checklist, how to report a problem, and the automated checks |
-| [REVERSE_ENGINEERING.md](REVERSE_ENGINEERING.md) | How it was all worked out, the rules followed and the tools |
+| Release | Recognised by | State |
+|---|---|---|
+| English, Windows retail CD (`LEGOATEN`) | `Locale_en.pac`'s hash, with `LEGOATeam.exe` ([formats/install.md](formats/install.md)) | Every mission works: see [Where it stands](#where-it-stands) |
+| Other releases | `LEGOATeam.exe` and `Bhvr.pac`, found as "unknown release" | Not seen: only the English version has been |
 
-The intro movie's formats are shared with any engine:
-[AVI](../../../../common/video/avi.md) and
-[Indeo 5](../../../../common/video/indeo5.md).
-
-## What the install shows
+### What the install shows
 
 - **It's a NetImmerse game.** `NiMain`, `NiAnimation`, `NiCollision`,
   `NiDirect3d` and `NiA3dSound` are NetImmerse's DLLs (Numerical Design
@@ -41,7 +31,6 @@ The intro movie's formats are shared with any engine:
   per language (`Locale_en.pac`).
 - **Sound** went through Aureal A3D (`NiA3dSound`), which no current
   machine has; Reluva's mixer replaces it.
-
 
 ## Where it stands
 
@@ -72,7 +61,6 @@ How it was built, measured and checked is in [systems/](systems/) and
   problem, and the automated checks;
 - [REVERSE_ENGINEERING.md](REVERSE_ENGINEERING.md): how it was all worked
   out, the rules followed and the tools.
-
 
 ## Using it
 
@@ -118,7 +106,6 @@ alone.
 - **Text**: the language's text files and the puzzles. **Left/Right** pick
   a file; **Up/Down**, **PageUp/PageDown** and **Home/End** scroll.
 
-
 ## Developer tools
 
 `reluva-tool netimmerse <command>` has commands for this game, built with
@@ -138,3 +125,20 @@ its options. `at-run`'s are described in
 [systems/running.md](systems/running.md#loading-and-starting-the-program)
 and [systems/training.md](systems/training.md).
 
+## This folder
+
+| Page | Covers |
+|---|---|
+| This page | What the install shows, where it stands, how to use it, the developer tools |
+| [formats/](formats/) | The game's files: [the install and the CD](formats/install.md), [`.pac` archives](formats/pac.md), [`.FIN` models](formats/fin.md) (with their animation, morphs, lights and glows), [`.DDF` fonts](formats/ddf.md), [the intro movie](formats/intro-movie.md) |
+| [systems/](systems/) | How the game runs, and each part of it: [running the game's own code](systems/running.md), [detection, the archives and the data viewer](systems/data-viewer.md), [input](systems/input.md), [sound](systems/sound.md), [options](systems/options.md), [saving](systems/saves.md), [into a mission and the training tour](systems/training.md), [every mission](systems/missions.md), [Mission One and the camera](systems/camera.md) |
+| [research/](research/) | Working notes: [speed, as it went](research/speed.md) |
+| [KNOWN_DIFFERENCES.md](KNOWN_DIFFERENCES.md) | Where it behaves differently from the original, and why |
+| [UNCONFIRMED.md](UNCONFIRMED.md) | What hasn't been checked against the original yet |
+| [TESTING.md](TESTING.md) | The playthrough checklist, how to report a problem, and the automated checks |
+| [REVERSE_ENGINEERING.md](REVERSE_ENGINEERING.md) | How it was all worked out, the rules followed and the tools |
+| [PLAN.md](PLAN.md) | The ways weighed for running the game, the decision, and the order of work |
+
+The intro movie's formats are shared with any engine:
+[AVI](../../../../common/video/avi.md) and
+[Indeo 5](../../../../common/video/indeo5.md).
