@@ -22,15 +22,15 @@ Paths are under `docs/engines/`.
 
 ### awe (Murder on the Orient Express)
 
-- [ ] `awe/games/motoe/systems/characters.md`: **Status**
-- [ ] `awe/games/motoe/systems/dialogue.md`: **Status**
-- [ ] `awe/games/motoe/systems/interface.md`: **Status**
-- [ ] `awe/games/motoe/systems/movies.md`: **Status** and **Checked against**
-- [ ] `awe/games/motoe/systems/options.md`: **Status**
-- [ ] `awe/games/motoe/systems/puzzles.md`: **Status**
-- [ ] `awe/games/motoe/systems/saves.md`: **Status**
-- [ ] `awe/games/motoe/systems/script.md`: **Status**
-- [ ] `awe/games/motoe/systems/shadows.md`: **Status**
+- [x] `awe/games/motoe/systems/characters.md`: **Status**
+- [x] `awe/games/motoe/systems/dialogue.md`: **Status**
+- [x] `awe/games/motoe/systems/interface.md`: **Status**
+- [x] `awe/games/motoe/systems/movies.md`: **Status** and **Checked against**
+- [x] `awe/games/motoe/systems/options.md`: **Status**
+- [x] `awe/games/motoe/systems/puzzles.md`: **Status**
+- [x] `awe/games/motoe/systems/saves.md`: **Status**
+- [x] `awe/games/motoe/systems/script.md`: **Status**
+- [x] `awe/games/motoe/systems/shadows.md`: **Status**
 
 ### clue
 
@@ -104,11 +104,11 @@ Each needs either content or confirmation that "None yet" is right.
 
 ### awe (Murder on the Orient Express)
 
-- [ ] `awe/games/motoe/KNOWN_DIFFERENCES.md`, "Bugs fixed": the original's own bugs Reluva doesn't reproduce, if any
-- [ ] `awe/games/motoe/KNOWN_DIFFERENCES.md`, "Additions outside the game": what Reluva adds around the game: viewers, tools, settings
-- [ ] `awe/games/motoe/REVERSE_ENGINEERING.md`, "Working files not included": working files the notes mention but the repository leaves out, and how to make them again
-- [ ] `awe/games/motoe/TESTING.md`, "Last checked": a row per check: date, release, platform, what was checked
-- [ ] `awe/games/motoe/UNCONFIRMED.md`, "Guessed": working assumptions
+- [x] `awe/games/motoe/KNOWN_DIFFERENCES.md`, "Bugs fixed": the original's own bugs Reluva doesn't reproduce, if any
+- [x] `awe/games/motoe/KNOWN_DIFFERENCES.md`, "Additions outside the game": what Reluva adds around the game: viewers, tools, settings
+- [x] `awe/games/motoe/REVERSE_ENGINEERING.md`, "Working files not included": working files the notes mention but the repository leaves out, and how to make them again
+- [x] `awe/games/motoe/TESTING.md`, "Last checked": a row per check: date, release, platform, what was checked
+- [x] `awe/games/motoe/UNCONFIRMED.md`, "Guessed": working assumptions
 
 ### clue
 
@@ -170,12 +170,12 @@ in the game's README. If "Terms" lists are adopted, add the section to
 
 ### awe (Murder on the Orient Express)
 
-- [ ] Granny: first in `awe/README.md:31`
-- [ ] Oodle1: first in `awe/games/motoe/README.md:28`
-- [ ] Povent: first in `awe/games/motoe/UNCONFIRMED.md:68`
-- [ ] `SPRT`, `HOTS`, `BNKX` and the other scene records: first in `awe/games/motoe/UNCONFIRMED.md:55`
-- [ ] track mask: first in `awe/games/motoe/README.md:105`
-- [ ] walk grid: first in `awe/games/motoe/REVERSE_ENGINEERING.md:80`
+- [x] Granny: first in `awe/README.md:31`
+- [x] Oodle1: first in `awe/games/motoe/README.md:28`
+- [x] Povent: first in `awe/games/motoe/UNCONFIRMED.md:68`
+- [x] `SPRT`, `HOTS`, `BNKX` and the other scene records: first in `awe/games/motoe/UNCONFIRMED.md:55`
+- [x] track mask: first in `awe/games/motoe/README.md:105`
+- [x] walk grid: first in `awe/games/motoe/REVERSE_ENGINEERING.md:80`
 
 ### netimmerse (LEGO Alpha Team)
 
@@ -216,6 +216,6 @@ in the game's README. If "Terms" lists are adopted, add the section to
 - [ ] `clue/UNCONFIRMED.md`: "Read from the code, not seen running" holds the
   sections "Code and recordings disagree" and "Not traced, no visible effect
   known"; check each is under the heading that fits.
-- [ ] awe's `systems/dialogue.md` has 10 *(inferred)* items. If any matters to
+- [x] awe's `systems/dialogue.md` has 10 *(inferred)* items. If any matters to
   how Reluva behaves, list it in `awe/games/motoe/UNCONFIRMED.md` under
   "Inferred".

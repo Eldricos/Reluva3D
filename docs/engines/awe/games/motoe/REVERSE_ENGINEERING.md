@@ -77,7 +77,8 @@ original to check Reluva's own code against them:
   conversion rounding differently from Bink's, by up to 7.
 - **The path-finder:** Reluva's port of `motoe.exe`'s path planning was
   compared with the game's own code in the interpreter: 22,480 searches
-  over the 281 scenes with a walk grid, every point and heading the same
+  over the 281 scenes with a walk grid (the camera's 64 × 64 map of the
+  floor's cells a character can walk on), every point and heading the same
   (`awe path-check -all`). See [formats/ac2.md](formats/ac2.md).
 
 ### Sweeping the install
@@ -150,4 +151,32 @@ engine:
 
 ## Working files not included
 
-None yet.
+Working files the notes above rely on. None is in the repository, as each
+holds or names the game's own material; each can be made again from a copy
+of the game:
+
+- **The disassembly of `motoe.exe`.** One instruction a line with its
+  address, about 180,000 lines, the strings an instruction refers to
+  beside it. Made by a short Python script: `pefile` maps the executable
+  and Capstone disassembles its code section in 32-bit mode
+  (`capstone.Cs(CS_ARCH_X86, CS_MODE_32)`). Reluva's own disassembler
+  (`reluva::x86::disassemble`, [disasm.md](../../../../common/x86/disasm.md))
+  writes the same syntax.
+- **The route** (`route.txt`): made by `reluva-tool awe game-run <game
+  folder> -solve route.txt -mouse -characters`, or by the
+  `awe.gamedata.route-search` step, which keeps it in the build
+  ([TESTING.md](TESTING.md)). The search is deterministic: it finds the
+  same route each time.
+- **The walkthrough's scene index.** For each part of the recordings, one
+  line a second: the scene whose background it shows, and how close the
+  match was. Made by matching each second's frame (small, greyscale)
+  against every scene's background picture.
+- **Voice matches.** Where a line of dialogue falls in a recording: a voice
+  file of the install cross-correlated with the part's soundtrack, as
+  described above.
+- **Frames and comparisons.** The route's screenshots (`awe game-run -play
+  <route> -mouse -3d -shots <dir>`), frames cut from the recordings, and
+  the pictures put side by side from them.
+
+The walkthrough recordings themselves are someone else's videos, not made
+here.
