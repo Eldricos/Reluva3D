@@ -596,4 +596,4 @@ reluva-tool stgenerations script out/verid1/game.bin
 
 ## Sources and checks
 
-From STG-Engine's notes on the 2 CD Windows release ([README](README.md) says how they were made). All values are little-endian.
+From the notes read off `sgens.exe` and the game's files, the 2 CD Windows release, while the engine was STG-Engine: [events](../research/events.md), [natives-a](../research/natives-a.md), [natives-b](../research/natives-b.md), [natives-c](../research/natives-c.md), [natives-d](../research/natives-d.md), [natives-e](../research/natives-e.md), [natives-f](../research/natives-f.md), [panels](../research/panels.md), [hud](../research/hud.md), [sound-table](../research/sound-table.md), [music-speech](../research/music-speech.md), [player-attack](../research/player-attack.md), [projectiles](../research/projectiles.md), [movers](../research/movers.md), in [research/](../research/README.md). [REVERSE_ENGINEERING.md](../REVERSE_ENGINEERING.md) says how they were made. All values are little-endian.

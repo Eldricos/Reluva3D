@@ -174,4 +174,4 @@ AI's clock (`0x47B83E`) counts 291.3 ticks a second.
 
 ## Sources and checks
 
-From STG-Engine's notes on the 2 CD Windows release ([README](README.md) says how they were made). All values are little-endian.
+From the notes read off `sgens.exe` and the game's files, the 2 CD Windows release, while the engine was STG-Engine: [combat](../research/combat.md), in [research/](../research/README.md). [REVERSE_ENGINEERING.md](../REVERSE_ENGINEERING.md) says how they were made. All values are little-endian.

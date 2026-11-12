@@ -45,4 +45,4 @@ decoder rather than misread. Only ANTILIOS.DAT has two, older than the
 
 ## Sources and checks
 
-From STG-Engine's notes on the 2 CD Windows release ([README](README.md) says how they were made). All values are little-endian.
+From the notes read off `sgens.exe` and the game's files, the 2 CD Windows release, while the engine was STG-Engine: [actors-draw](../research/actors-draw.md), in [research/](../research/README.md). [REVERSE_ENGINEERING.md](../REVERSE_ENGINEERING.md) says how they were made. All values are little-endian.

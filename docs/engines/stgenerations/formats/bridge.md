@@ -45,4 +45,4 @@ on a new game, which makes no difference as each section arms it again.
 
 ## Sources and checks
 
-From STG-Engine's notes on the 2 CD Windows release ([README](README.md) says how they were made). All values are little-endian.
+From the notes read off `sgens.exe` and the game's files, the 2 CD Windows release, while the engine was STG-Engine: [bridge](../research/bridge.md), in [research/](../research/README.md). [REVERSE_ENGINEERING.md](../REVERSE_ENGINEERING.md) says how they were made. All values are little-endian.
