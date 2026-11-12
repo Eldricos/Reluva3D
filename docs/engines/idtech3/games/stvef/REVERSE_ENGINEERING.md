@@ -93,9 +93,10 @@ fit.
 Surveys run over the whole retail data, so a reader is checked against
 every file, not just a sample:
 
-- `bsp-check`: all 67 maps load.
-- `shader-check`: Elite Force's 1872 shaders use no directive outside
-  Quake III's.
+- `bsp-check`: all 67 maps of 1.2 load, and all 99 with the Expansion
+  Pack.
+- `shader-check`: Elite Force's shaders use no directive outside Quake
+  III's: 1872 in 1.0, 1891 in 1.2, 2059 with the Expansion Pack.
 - `entity-survey`: every entity class and key the maps use
   ([entities.md](formats/entities.md)).
 - `model-check`, `image-check`, `tex-survey` and `pk3-list`: models,

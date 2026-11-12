@@ -239,6 +239,9 @@ in the game's README. If "Terms" lists are adopted, add the section to
   Done: the original's loader doesn't check a surface's frame count, so it
   loads the model; Reluva now reads it the same way (`md3.md`). Seeing the
   chairs drawn is in `idtech3/games/stvef/TESTING.md`.
-- [ ] `idtech3/games/stvef/REVERSE_ENGINEERING.md` says Elite Force has
+- [x] `idtech3/games/stvef/REVERSE_ENGINEERING.md` says Elite Force has
   1872 shaders; `shader-check` counts 1891 in 1.2 (as the game's README
   says) and 2059 with the Expansion Pack. Give the release with the count.
+  Done: 1872 is 1.0's count (1.1 has 1875). Each count now names its
+  release, in `REVERSE_ENGINEERING.md`, `PLAN.md`, `shader.md` and the
+  game's README; none of the releases uses a directive outside Quake III's.

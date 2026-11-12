@@ -35,8 +35,8 @@ Every game built on the Quake III Arena engine, Elite Force first (see
    the original sorts them, by their shaders' sorts across the level,
    models and effects; like the original, not by distance.
    Checked against the original: retail maps look right at 144 fps on an
-   RTX 2080, and Elite Force's 1872 shaders use no directive outside
-   Quake III's; their autosprite2 fire and portal/mirror shaders are
+   RTX 2080, and Elite Force's shaders (1872 in 1.0, 1891 in 1.2, 2059
+   with the Expansion Pack) use no directive outside Quake III's; their autosprite2 fire and portal/mirror shaders are
    drawn too.
 4. **Models**: done for MD3 and Elite Force's MDR, with interpolation
    between frames and the players' `animation.cfg` (the Models page plays
