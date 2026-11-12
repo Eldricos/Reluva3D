@@ -28,7 +28,8 @@ At opening frame 42, Original adds 10.25 degrees of tilt and translation
 `(0,-0.15,+0.3)`; frame 43 adds 9 degrees and `(0,-0.125,+0.5)`.
 Master adds 8.25 degrees and `(0,-0.1,0)` at frame 42, then 11.75 degrees and
 `(0,-0.1,0)` at frame 43. Pan and FOV stay unchanged. These observations establish
-the final playing poses; this pass does not add moving dice to those clips.
+the final playing poses. The subsequent [lid composition pass](lid-animation.md)
+uses these camera steps during opening and closing.
 
 A local translation precedes camera yaw and tilt. Projection transforms each
 world point into that camera frame, subtracts the local translation, then divides
@@ -87,13 +88,14 @@ hit testing in both variants, Master last-row input, letter/Qu orientation,
 results paths and visible/background computer behavior. Checksums were updated
 only for affected installed-artwork views; prototype views retain their records.
 Native previews of both supplied scenes were inspected outside Git. Original
-whole-screen VM appearance, moving cube overlays, mesh fidelity, exact dialogs
+whole-screen VM appearance, initial dice tumbling, mesh fidelity, exact dialogs
 and pause audio remain comparison work.
 
 The full normal run passes 63 checks, including all 40 Boggle checks with the
 supplied install, and skips ten optional id Tech 3 data checks. The synthetic
 Boggle suites and supplied-artwork renderer also pass ASan/UBSan with leak
 detection disabled for the execution tracer. Install, CD and fresh-import
-artwork checks agree on `ac26f5b8390c5cb37eb467ea98241f0a`. All 737 supplied
-installed files retain their manifest hashes. Windows owner testing of this
-camera pass remains pending.
+artwork checks for that playing-camera pass agreed on
+`ac26f5b8390c5cb37eb467ea98241f0a` before transition views were added. All 737
+supplied installed files retained their manifest hashes. The owner subsequently
+confirmed that build works; Windows testing of the newer lid composition is pending.

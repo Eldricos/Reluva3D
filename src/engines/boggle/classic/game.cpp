@@ -739,9 +739,11 @@ Error ClassicGame::run() {
         if(results.ready() && !scoreAttempted)saveScore();
         if(handoff)handoffScreen(screen,names[nextTurn],chess,rounds[nextTurn]->remaining(clocks.elapsed(nextTurn,nowMillis())),rounds[nextTurn]->timed(),finishedNotices);
         else if (transition.type() != Transition::None) {
-            const auto& frame = clip.frames[transition.frame(nowMillis())];
+            const size_t frameIndex=transition.frame(nowMillis());
+            const auto& frame = clip.frames[frameIndex];
             for (int y=0;y<height;++y) for (int x=0;x<width;++x)
                 std::copy_n(frame.pixel(x*frame.w/width,y*frame.h/height),4,screen.row(y)+x*4);
+            artwork.drawTransition(screen,round().board(),frameIndex,letters,qu,seed);
             rect(screen,0,height-40,width,40,dark);
             label(screen,24,height-25,transition.type() == Transition::Opening ? "Rolling dice and opening the lid..." : "Closing the lid...");
         } else draw(screen, round(), gameTime(), letters, qu, palette, input, selected, results.ready() && scoreError && message.empty()?"High scores unavailable. H: details / retry.":competition.ready() && message.empty()?"1-4: player review / V: match scores / Up-Down: word path":message, scroll, fromMenu_,artwork,options.duration,seed,options.autoOrient,names[competition.ready()?reviewPlayer:turn],results,chess);

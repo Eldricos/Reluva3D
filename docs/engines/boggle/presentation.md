@@ -22,8 +22,8 @@ mixer. Manual finish also supports Not Timed.
 The native opening phase lasts 4.4 seconds and closing lasts 1.1 seconds.
 Scheduling uses elapsed time rather than blocking sleeps. Late frames advance
 to the current image; the timer still starts at the actual end of opening.
-Decoded 640x480 frames are scaled into the native 800x600 framebuffer. Original
-moving 3D cube overlays/camera movement during the opening and closing clips
+Decoded 640x480 frames are scaled into the native 800x600 framebuffer. The [settled-dice lid overlay](lid-animation.md) now follows the observed
+clip rectangles and two-step camera movement. Initial rolling and tumbling
 remain unimplemented. The playable board uses a native projective layout and
 indexed hourglass animation; see [Classic layout](layout.md).
 

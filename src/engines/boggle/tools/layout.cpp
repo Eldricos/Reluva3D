@@ -5,6 +5,7 @@
 #include "common/fs.h"
 #include "tools/tool.h"
 #include <cstdio>
+#include <algorithm>
 namespace {
 int fonts(int argc,char** argv) {
     using namespace reluva;
@@ -57,6 +58,11 @@ int check(int argc,char** argv) {
         if(auto error=round.start(0))return failed(error);
         artwork.draw(screen,round,0,180000,letters,qu,{},0);
         digest.update(screen.pixels.data(),screen.pixels.size());++frames;
+        for(size_t frame:{34u,37u,42u,43u,44u,45u,50u,51u,52u}) {
+            std::fill(screen.pixels.begin(),screen.pixels.end(),uint8_t(17));
+            artwork.drawTransition(screen,round.board(),frame,letters,qu,0x1997);
+            digest.update(screen.pixels.data(),screen.pixels.size());++frames;
+        }
         ++variants;
     }
     std::printf("Classic artwork variants %zu, rendered states %zu\n",variants,frames);

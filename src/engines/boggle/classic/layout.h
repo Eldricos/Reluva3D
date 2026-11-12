@@ -10,6 +10,13 @@
 #include <string_view>
 namespace reluva::boggle {
 std::array<std::string,3> classicArtworkPaths(ClassicVariant variant);
+// Source-video coordinates; right and bottom are exclusive.
+struct ClassicLidView {
+    CameraParameters camera;
+    std::array<int,4> clip{};
+    bool visible=false;
+};
+ClassicLidView classicLidView(bool master,size_t frame);
 class ClassicArtwork {
 public:
     Error open(const Resources& resources,const std::filesystem::path& root,const ClassicOptions& options,
@@ -17,11 +24,16 @@ public:
     bool active() const { return active_; }
     void draw(Surface& screen,const ClassicRound& round,uint64_t now,uint64_t duration,
               const image::Image& letters,const image::Image& qu,const std::vector<size_t>& selected,size_t scroll,uint32_t boardSeed=0x1997,std::string_view player="PLAYER 1",const RoundResults* review=nullptr) const;
+    void drawTransition(Surface& screen,const Board& board,size_t frame,const image::Image& letters,
+                        const image::Image& qu,uint32_t boardSeed) const;
     std::optional<size_t> cellAt(int x,int y,size_t side) const;
     ClassicPoint cellCenter(size_t cell,size_t side) const;
     static size_t timerFrame(uint64_t remaining,uint64_t duration);
     static constexpr size_t visibleWords=23;
 private:
+    void drawCubes(Surface& screen,const Board& board,const CameraProjection& camera,
+                   const image::Image& letters,const image::Image& qu,const std::vector<size_t>& selected,
+                   uint32_t boardSeed,bool results) const;
     bool active_=false,master_=false,autoOrient_=true;
     image::Image open_,closed_,words_,names_;
     video::AviVideo1 timer_;

@@ -126,6 +126,38 @@ void rendering(const std::filesystem::path& tmp) {
             artwork.draw(screen,round,now,180000,letters,qu,selected,0);
             record.add(std::string(master?"master.":"original.")+name,test::Hash().bytes(screen.pixels).hex());
         };
+        // Every transition frame preserves the AVI outside its measured
+        // source rectangle. Stateless sampling also tolerates skipped frames.
+        std::vector<std::string> lidHashes;
+        const std::array<std::array<int,4>,4> expected=master?
+            std::array<std::array<int,4>,4>{{{80,306,486,338},{80,70,486,355},{80,110,486,338},{80,251,486,338}}}:
+            std::array<std::array<int,4>,4>{{{110,312,396,328},{110,125,396,350},{110,150,396,339},{110,279,396,328}}};
+        size_t expectedIndex=0;
+        for(size_t frame=0;frame<56;++frame) {
+            const auto view=classicLidView(master,frame);
+            CHECK(view.visible==(frame>=34 && frame<=51));
+            if(frame==34 || frame==43 || frame==45 || frame==51)CHECK(view.clip==expected[expectedIndex++]);
+            std::fill(screen.pixels.begin(),screen.pixels.end(),uint8_t(17));
+            artwork.drawTransition(screen,board,frame,letters,qu,0x1997);
+            size_t changed=0;
+            for(int y=0;y<600;++y)for(int x=0;x<800;++x) {
+                const bool different=screen.row(y)[x*4+3]!=17;
+                if(different) {
+                    ++changed;CHECK(view.visible);
+                    CHECK(x*4/5>=view.clip[0] && x*4/5<view.clip[2]);
+                    CHECK(y*4/5>=view.clip[1] && y*4/5<view.clip[3]);
+                }
+            }
+            if(!view.visible)CHECK(changed==0);
+            if(frame==37 || frame==43 || frame==46)CHECK(changed>0);
+            lidHashes.push_back(test::Hash().bytes(screen.pixels).hex());
+            if(frame>=34 && frame<=54)record.add(std::string(master?"master.lid.":"original.lid.")+std::to_string(frame),lidHashes.back());
+        }
+        for(size_t frame:{51u,34u,43u,44u,37u}) {
+            std::fill(screen.pixels.begin(),screen.pixels.end(),uint8_t(17));
+            artwork.drawTransition(screen,board,frame,letters,qu,0x1997);
+            CHECK(test::Hash().bytes(screen.pixels).hex()==lidHashes[frame]);
+        }
         capture("ready",0);CHECK(!round.start(0));capture("start",0);capture("half",90000,{0,1});
         CHECK(round.submit("AAAAA",90001)==Submission::UnknownWord);capture("pending",90001);
         round.finish();CHECK(!round.decide(DictionaryChoice::NoAll));capture("results",180000);

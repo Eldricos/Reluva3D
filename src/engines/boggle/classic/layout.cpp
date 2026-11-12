@@ -24,18 +24,18 @@ void scaled(Surface& screen,const image::Image& image,int x,int y,int w,int h,bo
 }
 using Vertex=ProjectedVertex;
 int64_t edge(Vertex a,Vertex b,int x,int y) {return int64_t(b.x-a.x)*(y-a.y)-int64_t(b.y-a.y)*(x-a.x);}
-Vertex point(bool master,int u,int v,int d) {
-    // Verified final playing poses after the two opening-camera adjustments.
-    // Grid coordinates are native row-major: +X right, +Y toward the back.
-    // Flat cube faces remain native geometry; no retail mesh is embedded.
-    static const CameraProjection original({-36.5,0,{1.025f,.125f,-14.250009f},44,640,480});
-    static const CameraProjection masters({-34,.25,{.8f,-.5f,-13.199999f},47,640,480});
-    return (master?masters:original).project(11*(2*u-d),11*(d-2*v),0,2000,5,4);
+Vertex point(const CameraProjection& camera,int u,int v,int d) {
+    return camera.project(11*(2*u-d),11*(d-2*v),0,2000,5,4);
 }
-std::array<Vertex,4> cell(bool master,size_t index,size_t side,int margin=6) {
+const CameraProjection& playingCamera(bool master) {
+    static const CameraProjection original(classicLidView(false,43).camera);
+    static const CameraProjection masters(classicLidView(true,43).camera);
+    return master?masters:original;
+}
+std::array<Vertex,4> cell(const CameraProjection& camera,size_t index,size_t side,int margin=6) {
     const int x=int(index%side)*100,y=int(index/side)*100,d=int(side)*100;
-    return {point(master,x+margin,y+margin,d),point(master,x+100-margin,y+margin,d),
-            point(master,x+100-margin,y+100-margin,d),point(master,x+margin,y+100-margin,d)};
+    return {point(camera,x+margin,y+margin,d),point(camera,x+100-margin,y+margin,d),
+            point(camera,x+100-margin,y+100-margin,d),point(camera,x+margin,y+100-margin,d)};
 }
 void triangle(Surface& screen,Vertex a,Vertex b,Vertex c,Color color,const image::Image* texture=nullptr) {
     int64_t area=edge(a,b,c.x,c.y);if(!area)return;
@@ -60,6 +60,33 @@ void triangle(Surface& screen,Vertex a,Vertex b,Vertex c,Color color,const image
 void quad(Surface& s,std::array<Vertex,4> p,Color c,const image::Image* image=nullptr) {
     triangle(s,p[0],p[1],p[2],c,image);triangle(s,p[0],p[2],p[3],c,image);
 }
+}
+ClassicLidView classicLidView(bool master,size_t frame) {
+    ClassicLidView view;
+    view.camera=master?CameraParameters{-54,.25,{.8f,-.3f,-13.199999f},47,640,480}
+                      :CameraParameters{-55.75,0,{1.025f,.4f,-15.050009f},44,640,480};
+    view.visible=frame>=34 && frame<=51;
+    if(!view.visible)return view;
+    const int pose=frame==43?2:(frame==42 || frame==44)?1:0;
+    if(master) {
+        if(pose==1){view.camera.tilt=-45.75;view.camera.position[1]=-.4f;}
+        if(pose==2){view.camera.tilt=-34;view.camera.position[1]=-.5f;}
+    } else {
+        if(pose==1){view.camera.tilt=-45.5;view.camera.position={1.025f,.25f,-14.750009f};}
+        if(pose==2){view.camera.tilt=-36.5;view.camera.position={1.025f,.125f,-14.250009f};}
+    }
+    if(master) {
+        const int top=frame==34?306:frame==35?262:frame==36?179:frame==42 || frame==45?110:
+                      frame==43 || frame==44?70:frame==50?180:frame==51?251:127;
+        const int bottom=frame==42 || frame==44?346:frame==43?355:338;
+        view.clip={80,top,486,bottom};
+    } else {
+        const int top=frame==34?312:frame==35 || frame==51?279:frame==36 || frame==50?215:
+                      frame==42 || frame==45?150:frame==43 || frame==44?125:175;
+        const int bottom=frame==42 || frame==45?339:frame==43 || frame==44?350:328;
+        view.clip={110,top,396,bottom};
+    }
+    return view;
 }
 std::array<std::string,3> classicArtworkPaths(ClassicVariant variant) {
     const std::string prefix=variant==ClassicVariant::Master ? "ClsM1" : "ClsO1";
@@ -99,35 +126,29 @@ size_t ClassicArtwork::timerFrame(uint64_t remaining,uint64_t duration) {
 }
 ClassicPoint ClassicArtwork::cellCenter(size_t index,size_t side) const {
     if((side!=4 && side!=5) || index>=side*side)return {-1,-1};
-    const auto p=point(master_,int(index%side)*100+50,int(index/side)*100+50,int(side)*100);return {p.x,p.y};
+    const auto p=point(playingCamera(master_),int(index%side)*100+50,int(index/side)*100+50,int(side)*100);return {p.x,p.y};
 }
 std::optional<size_t> ClassicArtwork::cellAt(int x,int y,size_t side) const {
     if(side!=4 && side!=5)return {};
     for(size_t i=0;i<side*side;++i) {
-        const auto p=cell(master_,i,side);bool inside=true;
+        const auto p=cell(playingCamera(master_),i,side);bool inside=true;
         for(size_t n=0;n<4;++n)if(edge(p[n],p[(n+1)%4],x,y)<0){inside=false;break;}
         if(inside)return i;
     }
     return {};
 }
-void ClassicArtwork::draw(Surface& screen,const ClassicRound& round,uint64_t now,uint64_t duration,
-                          const image::Image& letters,const image::Image& qu,const std::vector<size_t>& selected,size_t scroll,uint32_t boardSeed,std::string_view player,const RoundResults* review) const {
-    const bool boardVisible=round.phase()!=RoundPhase::Ready;
-    scaled(screen,boardVisible?open_:closed_,0,0,800,600);
-    scaled(screen,names_,0,0,621,40);scaled(screen,words_,621,0,179,600);
-    const Color white{245,245,255},black{12,12,20};
-    font::drawText(screen,12,13,player.size()>15?std::string(player.substr(0,12))+"...":std::string(player),white);
-    font::drawText(screen,113,13,std::to_string(review && review->ready()?review->score():round.score()),white);
-    font::drawText(screen,180,13,master_?"CLASSIC MASTER":"CLASSIC ORIGINAL",white);
-    font::drawText(screen,638,12,player,white,player.size()>12?1:2);
-    const size_t side=round.board().side();
-    if(boardVisible)for(size_t i=0;i<side*side;++i) {
-        auto outer=cell(master_,i,side),inner=cell(master_,i,side,10);
+void ClassicArtwork::drawCubes(Surface& screen,const Board& board,const CameraProjection& camera,
+                               const image::Image& letters,const image::Image& qu,const std::vector<size_t>& selected,
+                               uint32_t boardSeed,bool results) const {
+    const size_t side=board.side();
+    const Color white{245,245,255};
+    for(size_t i=0;i<side*side;++i) {
+        auto outer=cell(camera,i,side),inner=cell(camera,i,side,10);
         auto front=outer;front[0]=outer[3];front[1]=outer[2];front[2].y+=7;front[3].y+=7;
         quad(screen,front,{90,96,115});
         const bool marked=std::find(selected.begin(),selected.end(),i)!=selected.end();
         quad(screen,outer,marked?Color{50,220,240}:Color{174,176,192});
-        const auto& face=round.board().faces()[i];
+        const auto& face=board.faces()[i];
         if(face.size()==1 || face=="QU") {
             const auto& texture=face=="QU" ? qu : letters;const int index=face[0]-'A';
             const int x=index%5*512/6,y=index/5*512/6;
@@ -140,16 +161,45 @@ void ClassicArtwork::draw(Surface& screen,const ClassicRound& round,uint64_t now
             }
             quad(screen,inner,white,&texture);
         } else {
-            quad(screen,inner,white);const auto center=cellCenter(i,side);
+            quad(screen,inner,white);const auto center=point(camera,int(i%side)*100+50,int(i/side)*100+50,int(side)*100);
             font::drawText(screen,center.x-int(face.size())*3,center.y-5,face,{0,0,190});
         }
-        if(round.phase()==RoundPhase::Results && marked) {
+        if(results && marked) {
             const auto at=std::find(selected.begin(),selected.end(),i);
             const auto number=std::to_string(size_t(at-selected.begin())+1);
             box(screen,inner[0].x+2,inner[0].y+2,int(number.size())*6+2,11,{20,48,60});
             font::drawText(screen,inner[0].x+3,inner[0].y+3,number,white);
         }
     }
+}
+void ClassicArtwork::drawTransition(Surface& screen,const Board& board,size_t frame,const image::Image& letters,
+                                    const image::Image& qu,uint32_t boardSeed) const {
+    if(!active_)return;
+    const auto view=classicLidView(master_,frame);
+    if(!view.visible)return;
+    // Render only our native cube geometry. Transparent pixels preserve the
+    // decoded AVI; clipping reproduces the original dice-over-video layer.
+    Surface cubes;cubes.create(800,600,PixelFormat::RGBA32);
+    std::fill(cubes.pixels.begin(),cubes.pixels.end(),0);
+    drawCubes(cubes,board,CameraProjection(view.camera),letters,qu,{},boardSeed,false);
+    const auto scaled=[](int value){return (value*5+3)/4;};
+    for(int y=scaled(view.clip[1]);y<std::min(screen.h,scaled(view.clip[3]));++y)
+        for(int x=scaled(view.clip[0]);x<std::min(screen.w,scaled(view.clip[2]));++x) {
+            const auto* p=cubes.row(y)+x*4;
+            if(p[3])std::copy_n(p,4,screen.row(y)+x*4);
+        }
+}
+void ClassicArtwork::draw(Surface& screen,const ClassicRound& round,uint64_t now,uint64_t duration,
+                          const image::Image& letters,const image::Image& qu,const std::vector<size_t>& selected,size_t scroll,uint32_t boardSeed,std::string_view player,const RoundResults* review) const {
+    const bool boardVisible=round.phase()!=RoundPhase::Ready;
+    scaled(screen,boardVisible?open_:closed_,0,0,800,600);
+    scaled(screen,names_,0,0,621,40);scaled(screen,words_,621,0,179,600);
+    const Color white{245,245,255},black{12,12,20};
+    font::drawText(screen,12,13,player.size()>15?std::string(player.substr(0,12))+"...":std::string(player),white);
+    font::drawText(screen,113,13,std::to_string(review && review->ready()?review->score():round.score()),white);
+    font::drawText(screen,180,13,master_?"CLASSIC MASTER":"CLASSIC ORIGINAL",white);
+    font::drawText(screen,638,12,player,white,player.size()>12?1:2);
+    if(boardVisible)drawCubes(screen,round.board(),playingCamera(master_),letters,qu,selected,boardSeed,round.phase()==RoundPhase::Results);
     const uint64_t remaining=round.remaining(now);
     const int tx=master_?0:38,ty=master_?119:123,tw=master_?100:85,th=master_?175:160;
     if(boardVisible && round.timed())scaled(screen,timer_.frames[timerFrame(remaining,duration)],tx,ty,tw,th,true);

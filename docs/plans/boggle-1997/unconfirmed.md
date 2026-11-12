@@ -289,3 +289,12 @@ initialization poses were not the playing poses: opening frames 42/43 adjust
 them, and the real viewport is 640x480. Screen-coordinate and depth contracts
 match the supplied retained-mode math within documented tolerances. Mesh shapes,
 moving cube overlays, original dialogs and pause audio remain unverified.
+
+### Settled dice during lid transitions
+
+The owner confirmed the preceding playing-camera build works. Native settled
+dice now overlay the lid video with observed per-frame clipping and camera
+poses for both variants; see [lid composition](../../engines/boggle/lid-animation.md).
+Full initial roll/tumble motion, original mesh shading and VM appearance
+comparison remain outstanding. This does not resolve the existing question
+about the original lid state during round-end review.
