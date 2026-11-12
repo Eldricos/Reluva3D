@@ -51,23 +51,28 @@ capture's video range read as full range. What's left after that:
 
 ## Inferred
 
-- **Fields loaded but never read.** The common `b54`, `b58`, `b68`,
-  `SPRT`'s `dc8`, the item's `1610` and `1612`, the camera's `238`,
-  `23a` and `1240`: nothing in the executable reads them, so what they
+- **Fields loaded but never read.** In the scene files' records (four
+  letters each: a picture's settings are its `SPRT`, a hotspot's its
+  `HOTS`, a video's its `BNKX`), the fields every object has, `b54`,
+  `b58`, `b68`; `SPRT`'s `dc8`; the item's `1610` and `1612`; the
+  camera's `238`, `23a` and `1240`: nothing in the executable reads them, so what they
   were for can't be told. [formats/ac2.md](formats/ac2.md).
 
 ## Guessed
 
-None yet.
+None: the one guess, the place of a camera's roll in its rotation, has
+been checked against `granny2.dll` ([formats/ac2.md](formats/ac2.md)).
 
 ## Settled
 
 Moved to their format pages; kept here so the reasoning can be found:
 
 - **The order of the dialogue's updates within a frame:** read in full
-  from 0x43d430 (the Povent runner, then what waited on it in the same
-  frame, the pause, the Prevent, the line's events, the box's slide, the
-  line's end). Reluva's differed in four small ways and now follows it.
+  from 0x43d430. (A line of dialogue has three columns of commands in its
+  table: Prevent, run before the line is spoken, Event, alongside it, and
+  Povent, after it.) The order: the Povent runner, then what waited on it
+  in the same frame, the pause, the Prevent, the line's events, the box's
+  slide, the line's end. Reluva's differed in four small ways and now follows it.
   [systems/dialogue.md](systems/dialogue.md), section 9, item 10.
 
 - **A character's routine when its scene is shown again:** started

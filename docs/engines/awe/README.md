@@ -28,7 +28,7 @@ Only Murder on the Orient Express is recognised so far: see
 | Page | What's in it |
 |---|---|
 | This page | The engine and its family of games |
-| [formats/](formats/) | What every game on it shares: [Granny 2 (`.gr2`)](formats/gr2.md), RAD's model and animation format |
+| [formats/](formats/) | What every game on it shares: [Granny 2 (`.gr2`)](formats/gr2.md), the model and animation files of RAD Game Tools' Granny 3D, whose runtime (`granny2.dll`) the games call |
 | [games/](games/) | A folder per game, for what was worked out from it |
 
 A page goes in a game's folder when it was worked out from that game, and

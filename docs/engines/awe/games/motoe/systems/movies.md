@@ -1,6 +1,6 @@
 # Murder on the Orient Express: movies and video loops
 
-> **Code:** `src/engines/awe/movie_player.cpp` · **Confidence:** from the code unless marked
+> **Status:** done · **Code:** `src/engines/awe/movie_player.cpp` · **Checked against:** the game's `binkw32.dll` (English 1.0), run in Reluva's x86 interpreter, on all 87 movies and loops · **Confidence:** from the code unless marked
 
 ## Overview
 
@@ -24,3 +24,9 @@ with `binkw32.dll`'s own colour conversion.
 - `reluva-tool awe files-check <game folder> -bik` decodes every movie and
   loop of an install, and `awe bink-info` shows a file's header and frames
   (`-yuv`, `-wav`, `-tga` to decode it).
+- `reluva-tool awe bink-check <game folder> <movie.bik>...` decodes a file
+  by Reluva and by the game's `binkw32.dll` in the x86 interpreter, its
+  frames copied out as the game copies them, and compares them pixel by
+  pixel. Over all 87 of the install's files, every frame tried is the
+  same, apart from pixels over Y 235, where the DLL's path without MMX
+  clamps ([bink.md](../../../../../common/video/bink.md)).
