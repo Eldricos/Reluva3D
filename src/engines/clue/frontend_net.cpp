@@ -5,7 +5,7 @@
 // (dialog 9), Host or Join (10), Host Game (11), Join Game (12), the
 // players' picker with its chat (13), and the set-up of a suspect (18-23).
 // The Internet Game Zone is gone: its button joins a game by its address
-// instead, on the Host Game window relabelled (docs/engines/clue/README.md).
+// instead, on the Host Game window relabelled (docs/engines/clue/systems/network.md).
 
 #include "engines/clue/frontend.h"
 

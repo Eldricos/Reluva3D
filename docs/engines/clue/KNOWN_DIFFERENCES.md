@@ -10,7 +10,7 @@ may differ but haven't been settled are in
 
 | What | The original | Reluva | Why |
 |---|---|---|---|
-| Network play | DirectPlay, and the MSN Internet Gaming Zone for games over the internet | Its own protocol over UDP: games on the local network, or joined by the host's address ("Internet \| by address" in the Connection menu) | The Gaming Zone is gone and DirectPlay isn't portable. See [README.md, Network play](README.md#network-play). |
+| Network play | DirectPlay, and the MSN Internet Gaming Zone for games over the internet | Its own protocol over UDP: games on the local network, or joined by the host's address ("Internet \| by address" in the Connection menu) | The Gaming Zone is gone and DirectPlay isn't portable. See [network play](systems/network.md). |
 | Saved games | The original's own format | Reluva's own format, eight slots in a `saves` folder beside its preferences | Not compatible with the original's saves, and not meant to be. |
 | Settings in network games | One machine's preferences | Each player's own | Chosen when network play was designed. |
 | CD music | Played from the disc (Miles' "redbook" functions) | Played from the tracks ripped once into the game's folder (`track02.wav` ... `track05.wav` or `.mp3`; `reluva-tool cue-rip` makes them from a BIN/CUE image) | Reluva can't read the tracks from the files on the disc. Without them the game is silent, as the original is without its CD. |

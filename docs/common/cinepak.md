@@ -47,7 +47,7 @@ decodes Cinepak in `src/common/video/cinepak.cpp`
   clip of Mrs. Peacock with the candlestick (`MP_candle.avi`) was checked
   against a 640x480 recording of the original game: a mean difference of 4
   in 255 per colour, the recording's compression's blur. The files
-  themselves are described in [the Clue engine's docs](../engines/clue/README.md#videos).
+  themselves are described in [the Clue engine's docs](../engines/clue/formats/videos.md).
 - **Tools:** `reluva-tool avi-frames <file.avi> [folder] [frames... | all]`
   lists an AVI's streams, decodes every frame, timed, and writes those
   asked for as TGA files.

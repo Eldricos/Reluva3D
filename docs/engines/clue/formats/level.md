@@ -25,7 +25,7 @@ corner (its least x and y).
 
 The placements' x and y are in these units. That was measured on a
 recording of the original (the longplay listed in
-[README.md](README.md)): the grand piano, its
+[REVERSE_ENGINEERING.md](../REVERSE_ENGINEERING.md#the-recordings)): the grand piano, its
 music stand and the harp, found in a frame by matching their images, are
 (152, −9) and (102, −18) pixels apart on screen where the level has them
 (67, −85) and (33, −69) apart, as x − y and (x + y) / 2 give. A first
@@ -135,7 +135,8 @@ The layers, by what's on them:
 Without layer 4 the house is a cut-away dollhouse, every room open to
 view; with it the near walls hide the rooms. The original draws it solid
 and fades ("Translucency" on) or leaves out (off) only what stands in
-front of the suspect whose turn it is ([README.md](README.md)).
+front of the suspect whose turn it is
+([screen.md](../systems/screen.md#what-stands-in-front)).
 
 The height (the field after the position) lifts a thing off the floor:
 `Clue.exe` reads x, y and it as the object's position (0x4465D8) and
@@ -161,7 +162,7 @@ size, an 8 × 8 grid and a zoom.
 
 What stands in front of the suspect whose turn it is is drawn
 see-through, and the house dark but near it ("Lighting Effects"): see
-[README.md](README.md).
+[screen.md](../systems/screen.md#lighting-effects).
 
 How `Clue.exe` orders what it draws (read from its code): one list,
 each object put in before the first with a greater anchor y, then x,

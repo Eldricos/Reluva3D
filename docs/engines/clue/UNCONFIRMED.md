@@ -59,10 +59,10 @@ knowingly does differently is in [KNOWN_DIFFERENCES.md](KNOWN_DIFFERENCES.md).
 
 ## Not traced, no visible effect known
 
-- **Dialog controls' fields 12, 13 and 20** ([resi.md](resi.md)):
+- **Dialog controls' fields 12, 13 and 20** ([resi.md](formats/resi.md)):
   the same in every control of a dialog; EagleM's reader copies the block
   whole (0x1001C070). Nothing in the game is known to depend on them.
-- **Key 1800** on the hall's `r_logo` ([level.md](level.md)):
+- **Key 1800** on the hall's `r_logo` ([level.md](formats/level.md)):
   `Clue.exe` never reads it.
 
 ## Built from the code, not yet seen working

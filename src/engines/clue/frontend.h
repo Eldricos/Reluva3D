@@ -5,7 +5,7 @@
 
 // The game as it starts: the intro, the menus and their screens (all from
 // dialogInfo.res), setting up the players, then the game itself (play.h)
-// with its Esc menu (see docs/engines/clue/README.md).
+// with its Esc menu (see docs/engines/clue/systems/playing.md).
 
 #include "common/audio/mixer.h"
 #include "common/events.h"

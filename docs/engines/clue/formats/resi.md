@@ -114,4 +114,4 @@ storm, are `main_anim`'s animations, placed by the game: `Alt1anim`
 (13, 239), `Alt2anim` (13, 317), `Art1anim` (421, 239), `Art2anim`
 (396, 317), measured on a recording. The game's bar (its frames, buttons,
 the suspects' portraits, the ticker) is `ui.a`'s, placed by the game too:
-see [README.md](README.md).
+see [screen.md](../systems/screen.md#layout).

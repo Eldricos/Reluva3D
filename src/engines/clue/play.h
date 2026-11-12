@@ -8,7 +8,7 @@
 // suggestions and accusations (dialogInfo.res's in-game dialogs), the
 // suggestions' videos, and the computer players' turns. The rules are
 // rules.h's; where the pictures go, recordings of the original's
-// (docs/engines/clue/README.md).
+// (docs/engines/clue/systems/screen.md).
 
 #include "common/audio/mixer.h"
 #include "common/events.h"

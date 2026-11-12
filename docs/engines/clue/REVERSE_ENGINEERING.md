@@ -2,10 +2,9 @@
 
 How Reluva's Clue was made to match the original: the sources, the rules
 followed, and the methods, with what each found and the mistakes made on
-the way. The findings themselves are in [README.md](README.md) and the
-format pages ([res.md](res.md),
-[level.md](level.md), [board.md](board.md),
-[resi.md](resi.md)), each with the addresses in the
+the way. The findings themselves are in [README.md](README.md), the
+format pages ([formats/](formats/)) and the pages on how the game behaves
+([systems/](systems/)), each with the addresses in the
 executables it came from.
 
 ## Rules
@@ -30,7 +29,7 @@ executables it came from.
   its own window system), `ImageRLE16.dll` (the image drawing),
   `Mss32.dll` (the Miles Sound System), `SHW32.DLL` (SmartHeap).
 - **Recordings of the original** (YouTube, and the owner's own in a
-  virtual machine), listed in [README.md](README.md#reference-recordings):
+  virtual machine), listed [below](#the-recordings):
   used for what the code doesn't show (where EagleM places things), to
   check what the code says, and before the code was read.
 
@@ -157,3 +156,75 @@ against Reluva's code, and the recording-analysis scripts, with how to
 run each. What they make (the disassembly caches, pictures extracted from
 the game, frames and sound of recordings) stays out of the repository, as
 the game's files do.
+
+## The recordings
+
+Source: two recordings of the original on YouTube, watched frame by frame
+(October 2026): a longplay captured at the game's own 640×480
+(`MaiM8RGl2_c`, 52 min, one game) and a 720p one (`hwod9LA_9HU`, 56 min,
+two games). Times below are theirs ("L" and "C"). Matching the game's
+images in their frames also corrected the level's units (see
+[level.md](formats/level.md)).
+
+**Start.** The intro video (L 0:30), then the main menu: Start Game, Load
+Game, Preferences, How to Play, Credits, Exit Game, over the mansion on
+its hill (L 1:00). Start Game asks "Locally (on this machine)" or
+"Networked (with other machines)" (C 26:30). Then the six suspects: "Please
+select a human or computer player..."; clicking one asks "Miss Scarlet is
+played by... Human / Computer / None" and for a human "Please enter a name
+for this player" (C 0:30-1:30). At least three must play. The deal video
+follows (C 2:00).
+
+**The view.** The mansion at its own size, the camera on the suspect whose
+turn it is, 640 × about 410 above a bar. The walls nearest the camera are
+see-through, about half (L 3:00, 5:00). The scene is dark, lit in pools
+around the lamps and the suspects (L 3:30, 33:00): the "Dynamic Lighting"
+preference. The hall's floor has a large gold "Clue" inlaid (L 12:30).
+A move being planned shows its squares numbered 1, 2, 3 ... on the floor
+(L 36:30, C 5:30): the `tilenum` objects. Instead of the house, the board
+can be shown as a flat map, the rooms drawn from above around the hall,
+"To Kitchen" and "To Conservatory" at the secret passages (L 14:00); the
+second recording plays most of its game on it (C 33:00 on).
+
+**The bar** (bottom, 640 × about 70): the notepad and the cards on the
+left, the six suspects' portraits (the one playing in a lit circle), the
+Clue logo; under them a line of text, the ticker's sentences ("Miss
+Scarlet, it is your turn.", "Mrs. White suggests Mr. Green with the rope in
+the ballroom."). When it's a human's turn, icons for the die and the other
+actions show at the bar's right end.
+
+**Panels.** The left column (about 200 wide) holds the cards in hand (two
+by three, over the player's portrait; L 8:00) or the notepad (every card
+in three lists with each player's marks in their colour, X marks and
+ticks; L 13:00, C 15:00). The right column holds the choices: "Please
+choose a Weapon..." (L 7:30), "Please choose a Suspect..." (L 44:30), "You
+have suggested... [suspect] in the... [room] with the... [weapon]" with
+Suggest and Cancel, "Click on an element to change" (L 33:00), and the
+suggestion's video, a 200 × 400 clip (L 16:30, the `CM_*.avi` size). A card
+shown to disprove is drawn large with OK (L 24:00, 41:30); a human
+disproving picks one of their matching cards and clicks Done (L 45:30,
+50:00). A
+box at the top right says who can or can't disprove, with their portrait
+(L 4:00).
+
+**The end.** A right accusation shows its three cards with "Professor Plum
+has accused correctly" and Continue (C 45:30), then the player set-up
+again. The prison clip (a suspect in a cell) plays near the end of the
+second game (C 55:30); what leads to it is still to be seen.
+
+### The VM recordings
+
+A recording of the original 2.2 in a virtual machine, made for Reluva
+(1280×720, 27:42, October 2026; "VM" with its times): walking (0:40-
+1:00), each preference changed with the view before and after (0:20-
+3:00), every notepad mark and note (4:10-5:05), a lone human's wrong
+accusation and the end (7:30-7:53), a whole game won by a computer
+player (8:20-23:48), and a game of humans where one accuses wrongly and
+chooses how to go on disproving (24:00-27:40).
+
+A second, "VM2" (1280×720, 16:30, October 2026): a game with Lighting
+Effects on, its first minutes walking along the lit walls of the lounge
+and the hall.
+
+The original running in a virtual machine is the source for timings,
+which music plays where, and the computer players' behaviour.

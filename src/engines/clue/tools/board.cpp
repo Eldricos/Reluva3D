@@ -3,7 +3,7 @@
 
 // reluva-tool's Clue commands for its board: a level's placements, the
 // board it lays out, and games of computer players on it
-// (docs/engines/clue/board.md).
+// (docs/engines/clue/formats/board.md).
 
 #include "common/fs.h"
 #include "engines/clue/ai.h"

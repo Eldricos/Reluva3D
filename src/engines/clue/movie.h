@@ -4,7 +4,7 @@
 // Clue's videos (the murder scenes, the intro, the accusations): Cinepak
 // AVIs with 16-bit PCM sound, played by the shared AVI decoder
 // (common/video/avi.h) and shown by the clock, as Clue.exe's DirectShow
-// graph shows them. See docs/engines/clue/README.md (Videos).
+// graph shows them. See docs/engines/clue/formats/videos.md.
 
 #pragma once
 
