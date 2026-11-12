@@ -1642,8 +1642,43 @@ then gives the car +0x200 bit 0x20.
   on the next, the 0.2 s shift of the start being under the 2.4 s
   gap between car 4 and car 5. It is a block, as `cq-ram4` and
   `c5-b1` in one player: the cop drove into the racer's line and the
-  racer hit it; a chase from behind ending in a pin (`c7-q1`) was not
-  done over the network.
+  racer hit it; a chase from behind ending in a pin (`c7-q1`) is the
+  next paragraph.
+
+  **A network chase from behind ending in a pin** (`r2a`, `r2r`,
+  November 2026; settled by forced set-up, see [net.md](net.md), A
+  chase from behind ending in a pin). A human cop (the host's car 0)
+  against a human racer (the joiner's car 1, a Chevrolet Corvette):
+  with a human racer in the game the stop's limit is 11.18 m/s (Which
+  limit). Both copies ran `-deterministic 50000`, and the cars were
+  placed by pokes at the 641st world step (`0x4c48d0`) in both. The
+  racer was at Hometown slice 22, 21 m right of the `.col` point,
+  26 m/s, the joiner holding the gas to the end. The cop was at slice
+  21, 15 m right, 36 m/s, steered at the racer by `-drive` with full
+  gas in both copies; the host pressed H. No game test was poked out.
+  - The cop came alongside at step 696 and held the racer against the
+    right fence. The two slid side by side, 2.9-3.6 m apart, at
+    21.8-26 m/s for 2 s; the siren and the target came at step 702
+    (`0x404fce`, `0x4019a1`).
+  - Where the road bends (slices 34-37) the racer was turned off the
+    fence across the road: +0x7C4 went from 25.3 to 8.4 m/s while it
+    still moved at 16.9 m/s. The stop test reads +0x7C4, the speed
+    along the road, so a racer turned across the road passes it at
+    speed.
+  - Steps: stop test from 852 (`0x40559b`), record +0x1C = 2 and the
+    racer's pull-over, state 6, at 878 (`0x40554a`, `0x405818`), state
+    7 at 1006 (`0x405995`), the cop to 5 at 1008 (`0x4058bf`, the
+    speech `0x401580` and the officer `0x401c20`), and the ticket at
+    1202 = 1008 + 192 + 2 (`0x401ff0`, the human cop's 3 s).
+  - After the ticket both cars were put back on the road (`0x429100`):
+    the racer 5 slices on at 12 m right; the cop by `0x4040e0` →
+    `0x405220`, on the point.
+  - In the stop state 5 the cop stood at 0 m/s even with `-drive`'s
+    full gas still applied.
+  - Same steps in both copies, and only 06 went over the network.
+  - Failed tries: `-drive` with a 2 m gap only pushes from behind.
+    With the racer off the gas it was pushed along the left fence at
+    12.3 m/s, just over 11.18, and four stop tests failed (`r1b`).
 
 Checked at run time (`sw1-cop3`): the Hot Pursuit pokes put at
 `0x474ca0`, before the set-up picks its function by the race type
@@ -4066,11 +4101,13 @@ of every access to those offsets):
   by keys failed there (the racers steer round a standing cop) while
   the race differed run to run; with `-deterministic` in both copies
   it repeats, and a block planned on one run (`d1-n3`) stopped and
-  ticketed car 5 in both copies on the next (`d1-n4`). Left open: a
-  network chase from behind ending in a pin (`c7-q1`'s kind). Tried
-  once (`e4-n1`, net.md, What isn't known): `-drive` in both copies
-  keeps them in step, but straight-at-the-target steering left the
-  cop on Hometown's walls, a kilometre behind; still open.
+  ticketed car 5 in both copies on the next (`d1-n4`). A network
+  chase from behind ending in a pin (`c7-q1`'s kind) is **settled by
+  forced set-up** (November 2026, `r2a`, `r2r`; [net.md](net.md), A
+  chase from behind ending in a pin). Seeing it in natural play, with
+  no placing pokes, could be looked into later but isn't needed for
+  this version to be done. The block itself (`d1-n4`) and the earlier
+  `-drive` try (`e4-n1`) are in net.md.
 - The computer cops' driver (`0x4032e0`) was run in a racer's pursuit
   (`r2-cop1`, `r2-cop4`, `r2-cop5`, `c3-spk6`): chases, calls for help,
   two roadblocks, strips and a racer running over one, and the

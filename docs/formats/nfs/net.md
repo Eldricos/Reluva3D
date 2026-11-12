@@ -225,6 +225,105 @@ test, the pull-over and the ticket at the same steps (ticket at step
 262 s, the keys in car 0's word) and the two 04 barriers at its
 start.
 
+**A chase from behind ending in a pin, cop against a human racer**
+(`r2a`, `r2r`, November 2026; settled by forced set-up: the original
+game, memory pokes only to place the starting situation, no game test
+switched off). Two copies over TCP (127.0.0.42 hosting, .43 joining),
+`-deterministic 50000` in both, the lobby by `c7-net10`'s clicks, except
+that only the host picked the Pursuit Corvette; the joiner kept its
+Chevrolet Corvette. So the host is a human cop (car 0, `0x5e1120`)
+and the joiner a human racer (car 1, `0x5e1acc`): the network branch
+of `0x474640` with one human of each gives no computer racers or cops
+and four traffic cars (cars 2-5), and the stop's speed limit is 11.18
+m/s (`0x404c50`: a human racer in the game). Hometown, two laps.
+- **Keeping the copies in step.** The world step `0x4c48d0` runs
+  once a step in each copy, the first time with the step count
+  (`0x7d3684`) 0 (host about 101.7 s). The pokes were put at its 641st run
+  (`-poke at=0x4c48d0#641:...`, step 640), the same in both copies,
+  which then stayed equal: each step's step count, both cars' slice,
+  x, z, velocity x and z, state +0x6E0 and +0x7C4, read at
+  `0x4c48d0`, were the same in both copies at all 1,445 steps
+  compared in `r2a` and 1,308 in `r2r`. Poked by time instead
+  (`r3m`: the same pokes at `ms=111550` in each copy) they went out
+  of step: the host poked at step 630 and the joiner at step 804,
+  because each copy's milliseconds are its own clock (counted in
+  instructions, the waits for the other copy included; at step 640
+  the host read 111.5 s and the joiner 110.5 s). From step 631 the
+  copies differed (669 of 1,300 steps), and only the joiner's copy
+  made a stop and ticket. Nothing corrects it: the race sends only
+  the controls (06), each copy runs its own world from them, and a
+  poke is not a control.
+- **The pokes** (the same eight in each copy, `place.py` in the run
+  folder): each car on Hometown's virtual road point (`tr00.col`) of
+  its slice, so many metres along the point's right, 0.7 m along its
+  up: +0x98 the place and +0xA4 the velocity (24 bytes, the speed
+  along the point's forward), +0xC0 the rows (right, up, forward)
+  from the point and the spin +0xE4-+0xEC 0 (48 bytes), +0x1C and +0x4
+  the slice. Car 1 at slice 22, 21 m right (the fence on the right is
+  at about 22-23 m: cars against it sit at +22.1), 26 m/s; car 0 at
+  slice 21, about 6 m behind, 15 m right, 36 m/s.
+- **The controls.** The joiner held keypad 8 (gas) from its 110.5 s
+  to the end: its 06 carried `00ff0000`, and every host frame the
+  same as car 1's word. The host held H from 112.5 to 113.5 s (car
+  0's word `00000008`). The cop was steered by `-drive
+  0x5e1120:0x5e1acc:100000` (full gas, at car 1, no end) in both
+  copies: it writes car 0's controls after they are unpacked, from
+  the game's state only, so it must run in both, from before the
+  pokes and with no end, or the copies would differ.
+- **The run** (`r2r`; steps, then host / joiner seconds). Step 696:
+  the cop beside car 1, 2.9 m apart, pressing it against the right
+  fence. Step 702 (112.577 / 111.634 s): the siren (`0x404fce`), car 1
+  the target (`0x4019a1`, record `0x56e410`), the cop to state 4
+  (`0x405879`). Steps 696-824: the two side by side along the fence,
+  2.9-3.6 m apart, car 1 at +22.0-22.2 m, the cop at +19.4-19.8,
+  21.8-26 m/s, car 1 at full gas. Where the road bends (slices 34-37)
+  car 1 was turned off the fence across the road: its speed along the
+  road (+0x7C4) fell from 25.3 m/s at step 824 to 8.4 at step 856,
+  with 16.9 m/s of speed. Step 852 (114.959 / 113.804 s): the stop
+  test's first step (`0x40559b`), 4.4 m apart. Step 878, 24 steps on:
+  record +0x1C = 2 (`0x40554a`, then at each step to 1006, 65 times)
+  and in the same step car 1 to its state 6 (`0x405818`, the human
+  racer's pull-over, computer-driven). Step 1006: car 1 to 7
+  (`0x405995`). Step 1008 (117.354 / 116.095 s): the cop to 5
+  (`0x4058bf`), the police speech for a human target (`0x401580`, then
+  `0x412880` with 3 tickets left) and the officer (`0x401c20`). Step
+  1202 = 1008 + 192 + 2 (120.423 / 119.155 s): the ticket
+  (`0x401ff0`), the cop back to 3 (`0x405911`), car 1 back to 2
+  (`0x4059e0`, `0x4056e0`); both were then put back on the road
+  (car 1 at slice 40, 12 m right; the cop at slice 41 on the point,
+  `0x4040e0` → `0x405220`). `r2a` made the same things at steps 710,
+  826, 852, 964, 966 and 1160: the H press, made by the host's clock,
+  fell 8 steps later in that run.
+- **What each copy showed** (frames in the run's own pairs). The host
+  its chase view: the cop with its lights on beside the red Corvette
+  at the fence, its ticket count at none of 3; the joiner its cockpit
+  view. At the stop both showed the same scene, the officer at car 1's
+  door and the cop behind it, the joiner's with its ticketed message;
+  after it both HUDs counted 1 ticket of 3.
+- **The copies' memory** at the first `0x40554a`, at `0x4058bf` and at
+  `0x401ff0` (`-dumpmem at=...#1`, the eight cars and the record):
+  the record the same in both (at the ticket +0x1C 2, +0x28 1200 =
+  1008 + 192, +0x2C 1, +0x50 1), the cars the same but for the
+  pointers into each copy's heap (+0x20-+0x2C, +0x60-+0x6C,
+  +0x314-+0x4C8) and each copy's own view (+0x738-+0x797, +0x8B4,
+  +0x8B8, +0x934-+0x940), as in `c4-net1`.
+- **The network.** From 100 s on only 06 went and the two 04
+  barriers (101.5 and 101.7 s): the host sent 651 frames to its 122 s;
+  the pokes, the pin, the stop and the ticket sent nothing.
+- **Tries that failed** (the same set-up otherwise). With `-drive`'s
+  gap of 2 m (`r1a`, `r1b`: the cop placed 12 m behind and 3.5 m
+  inside at 30 m/s) the cop never pushed sideways: with gas held car 1
+  got away (9-17 m ahead, no stop); without gas it was pushed along
+  the left fence at 12.3 m/s, just over the 11.18, and the stop test
+  began four times and failed each time. With a gap of 0.5 m and the
+  cop 5 m inside at 34 m/s (`r2c`) both scraped the left fence at
+  21-22 m/s for 6 s with no stop test.
+
+nfs-host checks each `at=` poke and `-watch` at every instruction: a
+run with 68 `at=` dumps (`b0`) went too slowly to reach the race, so
+the dumps in time were taken by `ms=` and the step read by `-watch
+0x4c48d0`.
+
 **Pausing** (08, `0x4c55a0`, `0x4c5720`). The u32 at +4:
 
 | +4 | Sent by | Meaning |
@@ -839,13 +938,19 @@ was the lower.
   does with a send (transport, framing, retries), as the DLL isn't on
   the CD: not even in `Patch/npspatchnfs3.exe`, whose updater DLL
   exports only `NPSDoUpdate` and `NPSAbortUpdate` (Positional updates).
-- A network chase from behind ending in a pin (`c7-q1`'s kind, one
-  player) is still not done over TCP. The method is
-  ready (`d1-n4`: `-deterministic 50000` in both copies, the race
-  repeating step for step, keys planned on one run and used on the
-  next), but such a chase is many seconds of steering by keys at
-  speed, each try a pair of runs of some 260 s of game time to the
-  first lap's end. **Tried with `-drive`** (`e4-n1`, November 2026:
+- Settled by forced set-up (November 2026, `r2a`, `r2r`; Messages, A
+  chase from behind ending in a pin): a network chase from behind
+  ending in a pin, the host's human cop against the joiner's human
+  racer, both copies with `-deterministic 50000`, the two cars placed
+  by pokes at the 641st world step (`at=0x4c48d0#641`) in both
+  copies, the cop steered by `-drive` in both, the racer at full gas
+  by the joiner's keys. The cop pinned the racer against the fence,
+  and both copies made the stop test, the pull-over, the stop, the
+  speech, the officer and the ticket at the same steps (ticket at step
+  1202 in `r2r`), nothing but 06 going over. Poked by time instead
+  (`r3m`) the copies went out of step, because each copy's clock is
+  its own. Before it, `d1-n4` was a block, not a pin, and a chase
+  with no pokes was tried with `-drive` (`e4-n1`, November 2026:
   `d1-n4`'s lobby clicks, `-deterministic 50000` and the same
   `-drive` of the host's cop, car 0, at car 5 from 96 s in both
   copies, before the race was loaded, with no end; the host held H
@@ -859,13 +964,12 @@ was the lower.
   But the chase failed: steered straight at car 5, the cop kept under
   28 m/s against the racers' 34-45, ran onto walls, and was 1.0-1.8
   km behind and at 0 m/s from 164 s (as `-drive` did in one player,
-  physics.md, No roll without a poke). A pin needs steering along the
-  road, by keys planned run by run. What it needs from the code is the same as in one
-  player (physics.md, state 4): the human cop within 7 m (the
-  `0x4965b0` measure) of a target under the limit `0x404c50` picks
-  (20.12 or 11.18 m/s, physics.md, Which limit) for 24 steps, then
-  the racer's pull-over; only the host's keys (bits in
-  car 0's word of 06) would go over the link.
+  physics.md, No roll without a poke).
+  Left open (it can be looked into later but isn't needed for this
+  to count as done): the same seen in natural play (the cop catching
+  a racer from the grid by keys or `-drive` and pinning it, with no
+  placing pokes), and a pin against a computer racer over the
+  network.
 - What other EA games put in `dec`'s +0x4C-0x5B (zero from this one,
   which never reads them: IPX, `dec`). Settled: `add`'s +0x1C is the
   game's password, empty from this game, checked by the host only
