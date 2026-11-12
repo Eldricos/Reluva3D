@@ -97,8 +97,12 @@ full.
 
 The template made `docs/engines/<name>/` with its five pages: `README.md`,
 `KNOWN_DIFFERENCES.md`, `UNCONFIRMED.md`, `TESTING.md` and
-`REVERSE_ENGINEERING.md`. Every engine's docs follow the same layout,
-described in [docs/README.md](README.md#adding-docs).
+`REVERSE_ENGINEERING.md`, from [docs/templates/engine/](templates/README.md).
+Every engine's docs follow the same layout, described in
+[docs/README.md](README.md#adding-docs), and every other page starts from a
+template there too: [format.md](templates/format.md) for a file format,
+[system.md](templates/system.md) for part of how the game behaves, and
+[plan.md](templates/plan.md) for an optional plan.
 
 - **`README.md`:** what it runs, which releases, where it stands, how to
   use it.

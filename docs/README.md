@@ -9,6 +9,7 @@ requirements, building, running and contributing. The rest is here.
 | [ADDING_AN_ENGINE.md](ADDING_AN_ENGINE.md) | Starting a new engine from the template, and taking it to a game that runs |
 | [common/](common/) | Formats and components shared by engines, matching `src/common/` |
 | [engines/](engines/) | One folder per engine, matching `src/engines/<engine>/` |
+| [templates/](templates/README.md) | The templates every page starts from |
 
 ## Shared: `common/`
 
@@ -54,16 +55,19 @@ that engine and its games. Every engine's folder has the same layout:
 | Page or folder | What goes in it |
 |---|---|
 | `README.md` | What it runs (games and releases), where it stands, how to use it, and a table of this folder |
-| `KNOWN_DIFFERENCES.md` | Where Reluva knowingly differs from the original: by choice, not yet as the original, additions outside the game |
-| `UNCONFIRMED.md` | What hasn't been checked against the running original: read from the code but not seen, inferred, guessed |
-| `TESTING.md` | The automated checks, and what to check by hand in a playthrough |
+| `KNOWN_DIFFERENCES.md` | Where Reluva knowingly differs from the original: by choice, bugs fixed, not yet as the original, additions outside the game |
+| `UNCONFIRMED.md` | What hasn't been checked against the running original: read from the code but not seen, seen but not traced, inferred, guessed, and what's been settled |
+| `TESTING.md` | The automated checks, what to check by hand in a playthrough, and when it was last checked |
 | `REVERSE_ENGINEERING.md` | How the facts were found: the sources, the methods, the tools. An engine ported from another project may also have a `PORTING.md` |
 | `formats/` | A page per file format: a file's layout, and how the game reads it |
 | `systems/` | A page per part of how the game behaves at run time: scripts, dialogue, the interface, saves, AI, network play |
 | `research/` | Working notes that the pages above are built from: address maps, notes read straight off the executable, notes from recordings |
+| `PLAN.md` | Optional, while it's being built: the plan, its phases and the decisions taken. Facts go on their pages as they're found |
 
-- **The five pages** are made with the engine (`cmake/NewEngine.cmake`)
-  and kept even while short.
+- **Every page starts from a template** in [templates/](templates/README.md),
+  with its headings in the same order.
+- **The five pages** are made with the engine (`cmake/NewEngine.cmake`,
+  from `templates/engine/`) and kept even while short.
 - **The three folders** are made when they get their first page.
 - **A format or a system** gets its own page once there's something to
   say about it; a page that grows too big is split by topic, not kept as
