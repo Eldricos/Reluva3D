@@ -53,7 +53,9 @@ its shots there.
       from the camera base FindNewBase chooses; `IsObscured` tests a
       segment to the actor with `DDSpace::CollideSegment`, the actor
       left out, so a base beside the door isn't obscured.
-    - The interface behaviour (PE0300) then waits `GoalAnimTime`
+    - The interface behaviour (PE0300, `PE0300.DLL` in `Bhvr.pac`: the
+      behaviour DLL that runs the game's screens and a mission's start and
+      end) then waits `GoalAnimTime`
       seconds, plays `OgelRant` if the space has the option, waits two
       more, and while the music source still plays
       (`Sound_IsPlaying`), and only then turns the camera to

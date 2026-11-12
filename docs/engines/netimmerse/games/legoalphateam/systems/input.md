@@ -1,6 +1,6 @@
 # LEGO Alpha Team: input
 
-> **Status:** done · **Confidence:** from the code unless marked
+> **Status:** done · **Checked against:** the game's own code running in Reluva, taken by `at-run`'s clicks and pointer moves from its demo to the main menu · **Confidence:** from the code unless marked
 
 ## Overview
 

@@ -1,6 +1,6 @@
 # LEGO Alpha Team: sound
 
-> **Status:** done · **Code:** `src/common/x86/a3d.cpp` · **Confidence:** confirmed unless marked
+> **Status:** done · **Code:** `src/common/x86/a3d.cpp` · **Checked against:** the game's own code running in Reluva, by ear (not A3D hardware) · **Confidence:** confirmed unless marked
 
 ## Overview
 

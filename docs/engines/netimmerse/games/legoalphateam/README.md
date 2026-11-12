@@ -4,6 +4,11 @@ Game id `legoalphateam` (LEGO Media, 2000), the first game on the
 [NetImmerse engine](../../README.md); its own code is in
 `src/engines/netimmerse/alphateam/`.
 
+A contraption-puzzle game: the player places parts in a room, then gives
+the GO signal, and Dash, the one Alpha Team agent still free, works
+through them into Ogel's bases (Ogel is the villain). So the game's
+briefing has it (`BRIEFING_EN.TXT` in `Locale_en.pac`).
+
 ## Releases
 
 | Release | Recognised by | State |
@@ -114,7 +119,7 @@ the engine (`src/engines/netimmerse/tools/`):
 - `pac-list`, `pac-extract`: the `.pac` archives;
 - `fin-check`: reads every model, and checks the links and the animation
   tracks;
-- `at-run`: runs the game headless, with scripted clicks and keys, frame
+- `at-run`: runs the game's own program headless (no window or sound), with scripted clicks and keys, frame
   captures, profiling and tracing. `-solved <mission>` plays a mission's
   own solution;
 - `at-sweep`: runs every mission so, several at a time (`-solved` to solve

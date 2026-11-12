@@ -50,12 +50,12 @@ Paths are under `docs/engines/`.
 
 ### netimmerse (LEGO Alpha Team)
 
-- [ ] `netimmerse/games/legoalphateam/systems/input.md`: **Checked against**
-- [ ] `netimmerse/games/legoalphateam/systems/options.md`: **Checked against**
-- [ ] `netimmerse/games/legoalphateam/systems/running.md`: **Checked against**
-- [ ] `netimmerse/games/legoalphateam/systems/saves.md`: **Checked against**
-- [ ] `netimmerse/games/legoalphateam/systems/sound.md`: **Checked against**
-- [ ] `netimmerse/games/legoalphateam/systems/training.md`: **Checked against**
+- [x] `netimmerse/games/legoalphateam/systems/input.md`: **Checked against**
+- [x] `netimmerse/games/legoalphateam/systems/options.md`: **Checked against**
+- [x] `netimmerse/games/legoalphateam/systems/running.md`: **Checked against**
+- [x] `netimmerse/games/legoalphateam/systems/saves.md`: **Checked against**
+- [x] `netimmerse/games/legoalphateam/systems/sound.md`: **Checked against**
+- [x] `netimmerse/games/legoalphateam/systems/training.md`: **Checked against**
 
 ### stgenerations
 
@@ -126,9 +126,9 @@ Each needs either content or confirmation that "None yet" is right.
 
 ### netimmerse (LEGO Alpha Team)
 
-- [ ] `netimmerse/games/legoalphateam/KNOWN_DIFFERENCES.md`, "Bugs fixed": the original's own bugs Reluva doesn't reproduce, if any
-- [ ] `netimmerse/games/legoalphateam/REVERSE_ENGINEERING.md`, "Working files not included": working files the notes mention but the repository leaves out, and how to make them again
-- [ ] `netimmerse/games/legoalphateam/TESTING.md`, "Last checked": a row per check: date, release, platform, what was checked
+- [x] `netimmerse/games/legoalphateam/KNOWN_DIFFERENCES.md`, "Bugs fixed": the original's own bugs Reluva doesn't reproduce, if any
+- [x] `netimmerse/games/legoalphateam/REVERSE_ENGINEERING.md`, "Working files not included": working files the notes mention but the repository leaves out, and how to make them again
+- [x] `netimmerse/games/legoalphateam/TESTING.md`, "Last checked": a row per check: date, release, platform, what was checked
 
 ### stgenerations
 
@@ -179,14 +179,14 @@ in the game's README. If "Terms" lists are adopted, add the section to
 
 ### netimmerse (LEGO Alpha Team)
 
-- [ ] NIF: first in `netimmerse/README.md:30`
-- [ ] B1 (the option chosen): first in `netimmerse/games/legoalphateam/PLAN.md:3`
-- [ ] behaviour DLL: first in `netimmerse/games/legoalphateam/PLAN.md:21`
-- [ ] `at-run`: first in `netimmerse/games/legoalphateam/README.md:117`
-- [ ] DDIcam: first in `netimmerse/games/legoalphateam/REVERSE_ENGINEERING.md:104`
-- [ ] PE0300: first in `netimmerse/games/legoalphateam/systems/camera.md:56`
-- [ ] fixed clock: first in `netimmerse/games/legoalphateam/systems/training.md:80`
-- [ ] Dash and Ogel (the game's characters): first in `netimmerse/games/legoalphateam/formats/fin.md:312`
+- [x] NIF: first in `netimmerse/README.md:30`
+- [x] B1 (the option chosen): first in `netimmerse/games/legoalphateam/PLAN.md:3`
+- [x] behaviour DLL: first in `netimmerse/games/legoalphateam/PLAN.md:21`
+- [x] `at-run`: first in `netimmerse/games/legoalphateam/README.md:117`
+- [x] DDIcam: first in `netimmerse/games/legoalphateam/REVERSE_ENGINEERING.md:104`
+- [x] PE0300: first in `netimmerse/games/legoalphateam/systems/camera.md:56`
+- [x] fixed clock: first in `netimmerse/games/legoalphateam/systems/training.md:80`
+- [x] Dash and Ogel (the game's characters): first in `netimmerse/games/legoalphateam/formats/fin.md:312`
 
 ### clue
 

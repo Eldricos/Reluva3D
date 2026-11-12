@@ -309,7 +309,7 @@ objects, the translation, rotation matrix and scale follow 40 bytes after
 the pointer to the node's name. Each frame was fitted with the time that
 best matches one bone, and the others compared at that time:
 
-- Dash's bones (squad rotations): within 3 × 10⁻⁶ of squad over 60
+- Dash's bones (Dash: the Alpha Team agent the player guides; squad rotations): within 3 × 10⁻⁶ of squad over 60
   frames. Straight slerp was up to 0.14 off. Taking the shorter way round
   between the control quaternions was up to 1.3 off.
 - Evil Ogel's hose (Bezier positions): within 5 × 10⁻⁶ over 700 frames,
