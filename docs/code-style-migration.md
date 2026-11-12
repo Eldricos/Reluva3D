@@ -82,10 +82,29 @@ and check names the guide section it comes from. What changed and why:
   everywhere and not guessed from each file.
 - Added `Standard: c++20` (the project's standard), `InsertNewlineAtEOF`,
   `KeepEmptyLinesAtTheStartOfBlocks: false`.
-- New `.clang-format-ignore`: `third_party/` and the generated files (the
-  x86 DLL blob, shader blob, QVM and test-DLL byte arrays, Indeo, Bink and
-  stgenerations opcode tables). Without it, those files alone were 43,000
-  of the 60,000 changed lines.
+- Code that isn't Reluva's is never formatted:
+  - `third_party/.clang-format` (`DisableFormat: true`) covers stb and
+    minimp3.
+  - SDL3 and Dear ImGui aren't in the repository: CMake downloads them
+    into the build folder's `_deps/`, and an IDE often puts its build
+    folder inside the checkout (`out/`, `cmake-build-*/`). So
+    `CMakeLists.txt` writes a `.clang-format` that turns formatting off,
+    and a `.clang-format-ignore` matching everything, into the build
+    folder when it configures. SDL brings its own `.clang-format`, which
+    would otherwise win for its files. Checked on SDL's and ImGui's
+    sources in `build/` and `out/build/x64-Release/`: nothing changes.
+    `src/backends/sdl3/` is Reluva's own code and is formatted.
+  - clang-tidy: SDL also brings its own `.clang-tidy`, and the compile
+    database lists its files and ImGui's (243 of 596). So clang-tidy is
+    run only on Reluva's files, by pattern:
+    `run-clang-tidy -p build '^(?!.*/_deps/).*/(src|tests)/'` (at the top
+    of `.clang-tidy`, and what `tools/tidy.sh` will do).
+- New `.clang-format-ignore`: the generated files (the x86 DLL blob,
+  shader blob, QVM and test-DLL byte arrays, Indeo, Bink and stgenerations
+  opcode tables). Without it, those files alone were 43,000 of the 60,000
+  changed lines. In clang-format 18, `*` and `**` in this file match one
+  folder level only, which is why whole folders are switched off with a
+  `.clang-format` file instead.
 
 ### .clang-tidy
 

@@ -1,0 +1,4 @@
+# Code from other projects (see each folder's README), kept exactly as its
+# authors wrote it: clang-format leaves everything under here alone.
+DisableFormat: true
+SortIncludes: Never

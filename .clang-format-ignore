@@ -2,8 +2,13 @@
 # Generated files: regenerate them instead of editing; byte tables and
 # blobs aren't laid out by the coding guide's rules.
 
-# Code from other projects, kept as its authors wrote it
-third_party/**
+# Elsewhere clang-format is turned off by a .clang-format with
+# DisableFormat, which covers a whole folder at any depth (clang-format 18
+# matches * and ** here one folder level only):
+#   third_party/.clang-format    code from other projects
+#   <build folder>/.clang-format written by CMake: SDL3 and Dear ImGui,
+#                                which CMake downloads into _deps/
+# src/backends/sdl3/ is Reluva's own code and is formatted.
 
 # Generated (each names the script that writes it)
 src/backends/sdl3/shaders/compiled.h

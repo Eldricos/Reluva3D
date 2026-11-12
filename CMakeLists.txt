@@ -52,6 +52,29 @@ include(cmake/ReluvaEngines.cmake)
 
 include(FetchContent)
 
+# clang-format leaves the build folder alone: the code downloaded into it
+# (SDL3, Dear ImGui in _deps/) isn't ours, and an IDE often makes its build
+# folder inside the checkout (out/, cmake-build-*/). A .clang-format there
+# turns formatting off, but SDL brings a .clang-format of its own, which
+# is nearer to its files; so a .clang-format-ignore too, which clang-format
+# checks first. Its patterns match one folder level each (clang-format 18),
+# hence one per depth. Not in an in-source build, where this would switch
+# it off for Reluva's own code.
+set(ignore_all "# Written by Reluva's CMakeLists.txt: no formatting in the build folder.\n")
+set(level "*")
+foreach(depth RANGE 1 16)
+    string(APPEND ignore_all "${level}\n")
+    string(APPEND level "/*")
+endforeach()
+foreach(dir IN ITEMS "${CMAKE_BINARY_DIR}" "${FETCHCONTENT_BASE_DIR}")
+    if(dir AND NOT dir STREQUAL CMAKE_SOURCE_DIR)
+        file(WRITE "${dir}/.clang-format"
+             "# Written by Reluva's CMakeLists.txt: no formatting in the build folder.\n"
+             "DisableFormat: true\nSortIncludes: Never\n")
+        file(WRITE "${dir}/.clang-format-ignore" "${ignore_all}")
+    endif()
+endforeach()
+
 # --- SDL3 -------------------------------------------------------------------
 if(RELUVA_USE_SYSTEM_SDL)
     find_package(SDL3 REQUIRED CONFIG)

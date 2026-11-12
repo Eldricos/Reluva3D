@@ -4,7 +4,10 @@
 #
 # Requires clang-tidy 18 or later, and a compile database:
 #   cmake -B build -DCMAKE_EXPORT_COMPILE_COMMANDS=ON
-#   run-clang-tidy -p build
+#   run-clang-tidy -p build '^(?!.*/_deps/).*/(src|tests)/'
+# The compile database also lists SDL3's and Dear ImGui's own files (CMake
+# downloads them into build/_deps/, and SDL has a .clang-tidy of its own),
+# so the pattern names Reluva's src/ and tests/ and leaves out _deps/.
 ---
 Checks: >
   -*,
