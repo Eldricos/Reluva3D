@@ -1807,6 +1807,14 @@ README.md.
   part), and car 6 crosses 22.35 m/s a call early at 52.53 s and leads
   through its lane change; cars 3 and 4 meet at 64.9-68.9 s, not at the
   game's 63.6-64.2 s.
+  The computer cars' gears and rpm (`ai_gear_rpm` `0x4061b0`) are
+  ported and match the dumps (physics.md, Their gears and rpm). Left of
+  their handling: the air ticks and the landing (`car_landing`
+  `0x4a1ce0`, `car_body_under_road` `0x4a1210`, the air's spin clamp
+  `0x4a20c0` and drag in `0x4a2260`; frd.md, The air ticks after a hit),
+  where the page has a stub. The tyres (`0x4aca4f`), the wheels' angle
+  (`0x4ad2e1`) and the automatic box (`0x4a90a0`) are the human car's
+  (`0x4ae4c1`) and not on the computer cars' path.
 - How the wall hits' particles look in play (read from the code only;
   their sounds are measured, not listened to), and wall code 3's
   material: the code tells it from code 5 only by its sound (material

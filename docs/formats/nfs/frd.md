@@ -2855,6 +2855,32 @@ by up to 0.25 m. The speeds drift by up to 0.03-0.04 m/s in 1.5 s (car
 gravity's forward part (The contact's frame, above). Car 5 parts at
 its 53.10 s pick on the edge as before.
 
+**The air ticks after a hit, not yet the game's** (November 2026,
+`s4-runs`, `gdecomp` of `car_dynamics` `0x4a2830`). With +0x164 set
+(by a hard hit, the hits task's, or the put back's `0x428970`; or by
+`car_dynamics` itself when the car isn't flat, `0x49fde0`, or the road's
+normal y is under 0.6, `0x53c8c4`) `car_dynamics` adds gravity straight down (+0xA8 +
+−0.3065625, `0x53c8d4`) where on the road it goes through the +0x190
+rows, and with the clearance at most 0.6 (`0x3f199999` as an int) calls
+`car_landing` (`0x4a1ce0`; physics.md, Landing) instead of
+`car_on_road`: the velocity's part along the road rows' up and the
+three spins × (0.5 + e) only while the car moves into the road and
+`car_body_under_road` (`0x4a1210`, twelve points of the box) finds it
+under, and +0x164 cleared once the speed along the normal is under 0.5
+(`0x5efddc`), every spin under 0.6 (`0x53c88c`), the car flat
+(`0x49fde0`) and the clearance 0 or less; with the speed under 0.5 but
+the rest not met, the skid levels are the yaw spin × 5 (`0x53c894`,
+upright over 0.9). Over 0.6 the
+car is in the air: +0x164 counts up and the spins are held to ±2.4
+(`0x4a20c0`). `car_ai_physics` runs the model only with +0x164 0. In
+`t6-log`'s 16 ms dumps at the hits (`e6-runs/hit`) car 4's +0x164 was
+1 for one tick (63.584-63.600 s) and car 3's never set. The page keeps
+its stub: while `airTicks` is set it skips the dynamics (no gravity, no
+contact) and takes every spin × 0.6 each even step until all are under
+0.6 (`aiTilt`). Porting `car_landing` with `0x4a1210` and checking it
+against `r1-runs/u1` (`u1-a2`: computer cop B flying level and landing
+flat; `u1-a4`: landing 0.13 s after a hit at 14°) is left.
+
 **The roadside cop** (`d7-runs/sim/park`,
 the police car ordered to lay a strip from every 8th slice of Hometown,
 120 stops): with the spring and the cut it parked past a wall 81 times,
