@@ -2,7 +2,7 @@
 // Copyright (C) 2026 The Reluva contributors
 
 // LEGO Alpha Team's files, built for the tests as the format documents
-// (docs/engines/netimmerse/formats/) describe them: .pac archives, .FIN
+// (docs/engines/netimmerse/games/legoalphateam/formats/) describe them: .pac archives, .FIN
 // models, .DDF fonts. Shared by the unit tests and the engine test.
 
 #pragma once
@@ -82,7 +82,7 @@ inline void putFloat(std::vector<uint8_t>& b, float f) {
     put32(b, u);
 }
 
-// A model written as docs/engines/netimmerse/formats/fin.md describes: a LOD node
+// A model written as docs/engines/netimmerse/games/legoalphateam/formats/fin.md describes: a LOD node
 // (roots) over a node with a collision box, holding a textured triangle.
 struct FinWriter {
     std::vector<uint8_t> b;

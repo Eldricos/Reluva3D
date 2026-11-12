@@ -11,7 +11,7 @@
 #include <vector>
 
 // Scene files (.ac2, Locations/<area>/<scene>.ac2): what a scene holds,
-// as the game's loader reads it. See docs/engines/awe/formats/ac2.md.
+// as the game's loader reads it. See docs/engines/awe/games/motoe/formats/ac2.md.
 //
 // A file is a stream of records, each a four-character tag (stored as a
 // little-endian number, so "SCEN" reads "NECS") and its fields. Most

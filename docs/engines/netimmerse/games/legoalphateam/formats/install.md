@@ -61,7 +61,7 @@ to replace the executable, not the large archives.
   at 15 frames a second with 22,050 Hz stereo PCM, 108.8 s. Not copied by
   the installer, and the game's program never names it. Reluva plays it
   before the game when a copy is beside the install
-  ([../../../common/video/avi.md](../../../common/video/avi.md)).
+  ([../../../../../common/video/avi.md](../../../../../common/video/avi.md)).
 - `data1.cab`/`data1.hdr`/`data2.cab`, `ikernel.ex_`, `layout.bin`, `setup.*`:
   InstallShield 6 installer. The install folder already holds what it
   unpacks, so Reluva doesn't need to read cabinets.

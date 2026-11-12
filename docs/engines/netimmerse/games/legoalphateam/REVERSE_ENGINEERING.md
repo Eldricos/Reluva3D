@@ -2,12 +2,12 @@
 
 How Reluva's support for LEGO Alpha Team was built: where each piece of
 knowledge came from, the tools used, and how the results were checked.
-The details of each step are in [systems/](systems/), [research/](research/) and the
-format documents under [formats/](formats/).
+The details of each step are in [../../systems/](systems/), [../../research/](research/) and the
+format documents under [../../formats/](formats/).
 
 ## The rules
 
-Reluva is a clean-room project ([../../../CONTRIBUTING.md](../../../CONTRIBUTING.md)):
+Reluva is a clean-room project ([../../../../../CONTRIBUTING.md](../../../../../CONTRIBUTING.md)):
 
 - **Used:** the game's own files (the install and the CD, provided by its
   owner for study), observing the game run, reverse engineering of the
@@ -55,7 +55,7 @@ Reluva is a clean-room project ([../../../CONTRIBUTING.md](../../../CONTRIBUTING
   sounds (`.DDS`) and text** were worked out the same way: the data
   first, then the code that reads it.
 - **The intro movie** is Indeo 5 in AVI
-  ([../../common/video/indeo5.md](../../common/video/indeo5.md)). Intel
+  ([../../../../common/video/indeo5.md](../../../../common/video/indeo5.md)). Intel
   never published the format; its one full public description is FFmpeg's
   LGPL decoder, which was used as the reference (a choice recorded in that
   document, the licence being compatible with Reluva's GPL 3). The
@@ -73,7 +73,7 @@ internals, only of what the program calls.
   executable and every DLL: 792 into NetImmerse's DLLs, and the Windows,
   DirectX, A3D and C runtime functions listed in
   [running.md](systems/running.md).
-- **The x86 emulator** ([../../common/x86.md](../../common/x86.md)) loads
+- **The x86 emulator** ([../../../../common/x86.md](../../../../common/x86.md)) loads
   the PE images, relocates them, binds their imports, and runs them. Its
   instructions follow Intel's manuals; it was checked with unit tests and
   by running the game.

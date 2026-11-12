@@ -18,7 +18,7 @@
 // Many cells hold commands for the game's script, separated by commas:
 //   "scene sirkeci.market_01 1 0, fade in, add ticket"
 // and the dialogue event files hold one command per line. See
-// docs/engines/awe/formats/text.md.
+// docs/engines/awe/games/motoe/formats/text.md.
 
 namespace reluva::awe {
 

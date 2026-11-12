@@ -4,7 +4,7 @@
 # LEGO Alpha Team's engine test with the game's own files: one step each
 # time ctest runs this script (cmake -P), as registered by
 # reluva_add_gamedata_test in src/engines/netimmerse/CMakeLists.txt. See
-# docs/DEVELOPMENT.md (Engine tests) and docs/engines/netimmerse/TESTING.md.
+# docs/DEVELOPMENT.md (Engine tests) and docs/engines/netimmerse/games/legoalphateam/TESTING.md.
 #
 # The game's folder comes from the environment variable named by GAME_ENV
 # (RELUVA_ALPHATEAM): the installed game (the folder holding LEGOATeam.exe

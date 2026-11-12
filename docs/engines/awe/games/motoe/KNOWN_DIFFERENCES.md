@@ -28,7 +28,7 @@ The format pages give the detail; this page gathers them.
   them: the same colours, by the same per-vertex formula. Their meshes
   stay on the GPU and only the vertices are sent each frame. See
   [systems/lighting.md](systems/lighting.md) and
-  [README.md](README.md#frame-time).
+  [../../README.md](README.md#frame-time).
 - **Text is drawn by Reluva's own TrueType renderer**, not Windows'.
   The game's fonts are used, sized as Windows sizes them, but letters can
   differ a little in their edges: in the walkthrough the dialogue's lines
@@ -49,7 +49,7 @@ The format pages give the detail; this page gathers them.
   motion out of the pose through Granny's track groups and moves the
   model. Reluva takes out the distance the root moves in one loop
   instead (`Actor::motion`). The character goes the same way at the same
-  pace. See [formats/gr2.md](formats/gr2.md).
+  pace. See [../../formats/gr2.md](../../formats/gr2.md).
 - **An `anim` whose file is missing ends at once.** In the game it waits
   for ever, which would hang the script. No `anim` in the install names a
   missing file. See [systems/characters.md](systems/characters.md).

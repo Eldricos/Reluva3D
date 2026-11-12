@@ -4,7 +4,7 @@
 // The Scenes page's options: the game's settings (Music, Sound, Gamma,
 // Captions, Shadows, Water, Fog, Rain, AntiAlias), what they change, and
 // the options screen (Menu.Options's PUZZ options: 0x42bd40). See
-// docs/engines/awe/systems/options.md.
+// docs/engines/awe/games/motoe/systems/options.md.
 
 #include "engines/awe/viewers.h"
 

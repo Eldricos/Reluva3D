@@ -1,7 +1,7 @@
 # Elite Force single player: how the DLLs and the engine talk
 
 Single player's game logic lives in two native DLLs that the x86 interpreter
-runs (see [../../../common/x86.md](../../../common/x86.md)):
+runs (see [../../../../../common/x86.md](../../../../../common/x86.md)):
 
 - `efgamex86.dll` holds the server game and, in the same DLL, the client
   game (cgame).
@@ -128,7 +128,7 @@ The engine's listing (0x415700 in its `stvoy.exe`):
 
   Reluva lists them the same way (`listMods` and `packModList` in
   `filesystem.cpp`), and loads the one chosen (see "Mods" in
-  [idtech3.md](../README.md)).
+  [idtech3.md](../../../README.md)).
 - The search path is walked in order. A pak's files are taken in the pak's
   own order when:
   - the file's folder is at least as long as the path and starts with it
@@ -307,7 +307,7 @@ pictures black.
 
 Single player's `refEntity_t` isn't Holomatch's (whose renderer, in the
 patched Holomatch executable, numbers its effects its own way up to 14;
-[eliteforce-syscalls.md](eliteforce-syscalls.md)). It's 152 bytes:
+[syscalls.md](syscalls.md)). It's 152 bytes:
 Quake III's fields up to the shader's time (128), 12 bytes of Elite
 Force's, then a sprite's **radius at 144** and **rotation at 148**. The
 renderer (`stvoy.exe`) takes Quake III's kinds only:

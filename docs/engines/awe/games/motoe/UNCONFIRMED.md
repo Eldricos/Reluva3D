@@ -78,7 +78,7 @@ Moved to their format pages; kept here so the reasoning can be found:
   recording, sitting upright where Reluva had him slumped: a bug in
   reading Granny curves with no knots, found by posing his `sitidle1`
   with granny2.dll (`awe pose-check`) and fixed.
-  [formats/gr2.md](formats/gr2.md).
+  [../../formats/gr2.md](../../formats/gr2.md).
 - **The x87's precision:** 24 bits, not 53. Direct3D 8's `CreateDevice`
   sets it, the game doesn't ask it not to, and the path-finder is made
   after. At 53 bits 4 of 22,480 test paths differed from the game's; the

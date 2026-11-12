@@ -23,7 +23,7 @@ namespace reluva::idtech3 {
 int32_t pakChecksum(const ZipArchive& pak, std::optional<int32_t> feed = std::nullopt);
 
 // The pure check a client answers a server's game state with (Elite
-// Force's protocol 24, eliteforce-network.md): "cp", the pure checksums of
+// Force's protocol 24, docs/engines/idtech3/games/stvef/systems/network.md): "cp", the pure checksums of
 // the paks it has its client game and menus from, "@", those of the paks
 // it reads from (here: every pak in `files` the server says it has, by
 // their checksums in its sv_paks; all of them if it gives none), and the

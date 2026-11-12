@@ -41,7 +41,7 @@ using netimmerse::PacArchive;
 //
 // Detection keys on the language's archive, which also tells the languages
 // apart; the executable, which a patch would replace, is only required to
-// exist. See docs/engines/netimmerse/formats/install.md.
+// exist. See docs/engines/netimmerse/games/legoalphateam/formats/install.md.
 const std::vector<GameVariant> kVariants = {
     // English Windows retail CD, volume LEGOATEN (October 2026).
     {"legoalphateam", "LEGO Alpha Team", "en", "windows",

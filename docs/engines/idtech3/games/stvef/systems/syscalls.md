@@ -3,7 +3,7 @@
 Elite Force's Holomatch code is three QVMs in `pak0.pk3`: `vm/ui.qvm`
 (menus), `vm/cgame.qvm` (the client: HUD, effects) and `vm/qagame.qvm` (the
 server's game logic). Each reaches the engine through numbered system calls
-(see [../formats/qvm.md](../formats/qvm.md)). The numbers and arguments are Elite Force's own, so
+(see [../../../formats/qvm.md](../../../formats/qvm.md)). The numbers and arguments are Elite Force's own, so
 they're worked out here from the game's code, for interoperability:
 
 - `reluva-tool idtech3 qvm-info` lists the numbers each program's code uses.
@@ -13,7 +13,7 @@ they're worked out here from the game's code, for interoperability:
   calls, documented in the GPL Quake III source (the order of its
   `ui_public.h`, `cg_public.h`, `g_public.h`). The calls are identified
   from that order and the logs below, not from Raven's SDK, which Reluva
-  doesn't use (see [the engine page](../README.md)).
+  doesn't use (see [the engine page](../../../README.md)).
 
 "Seen" means the call appeared in a log with arguments that fit; "order"
 means it's assumed from Quake III's order (the seen calls fit that
@@ -71,7 +71,7 @@ screen stays black.
 | 43 | `GetGlconfig(&glconfig)` | seen | one pointer, during init, just before the fonts' shaders are registered |
 | 44 | `GetClientState(&state)` | order | |
 | 45 | `GetConfigString(index, buffer, size)` → whether there is one | order | answered with the match's configstrings while the in-game menu shows over one (its game type, in the server info at 0, decides what it offers); nothing otherwise |
-| 46–53 | server list and pings | implemented | from the GPL engine that runs Elite Force (eliteforce-network.md): 46 the local server count, 47 `(n, buffer, size)` its address, 48 and 49 the same for the Internet (master servers) list, 50 the ping queue's count, 51 `ClearPing(n)`, 52 `GetPing(n, buffer, size, &time)`, 53 `GetPingInfo(n, buffer, size)`; the menus run `localservers` and `ping <address>` to fill them |
+| 46–53 | server list and pings | implemented | from the GPL engine that runs Elite Force ([network.md](network.md)): 46 the local server count, 47 `(n, buffer, size)` its address, 48 and 49 the same for the Internet (master servers) list, 50 the ping queue's count, 51 `ClearPing(n)`, 52 `GetPing(n, buffer, size, &time)`, 53 `GetPingInfo(n, buffer, size)`; the menus run `localservers` and `ping <address>` to fill them |
 | 54 | `Cvar_Register(&vmCvar, name, default, flags)` | seen | 65 calls in init: `(…, "ui_ffa_fraglimit", "20", 1)`; the structures are 272 bytes apart, a `vmCvar_t` |
 | 55 | `Cvar_Update(&vmCvar)` | order | |
 | 56 | `MemoryRemaining()` | order | |
@@ -289,7 +289,7 @@ in `absmin`/`absmax`, a unit larger than the entity's box, as the original
 does), `SetBrushModel`, traces against the world and linked entities,
 point contents, entities in a box, entity contact and the PVS tests.
 Areas and area portals are separated as the original's: see
-[idtech3.md](../README.md) (Game code). A player joins as on the original server: the
+[idtech3.md](../../../README.md) (Game code). A player joins as on the original server: the
 userinfo string is stored for `GetUserinfo` (call 20), `vmMain(2,
 clientNum, 1, 0)` (connect: first time, not a bot) returns 0 or the
 address of the game's reason for refusing, and `vmMain(3, clientNum)`
@@ -505,7 +505,7 @@ turned, slightly bobbing axis, an origin just in front of and below the
 eye, and white (-1) at 116; the player's own body has flag 2 (Quake
 III's third person: drawn only in mirrors), as Quake III's client game
 does. Elite Force's player models are named `.mdr`; Reluva draws them
-([../formats/mdr.md](../formats/mdr.md)), as well as `.md3` models.
+([../../../formats/mdr.md](../../../formats/mdr.md)), as well as `.md3` models.
 
 The player state differs from Quake III's from 48: gravity (800) and
 speed (250) are at 56 and 60, after two words of Elite Force's own. The
@@ -520,7 +520,7 @@ sends only the fields in its table, the rest reaching the client game as
 0. Reluva's snapshots zero it (`GameHost::kPlayerStateServerOnly`).
 The protocol's full list of fields, and those it leaves out (48, 52,
 externalEventTime and everything after the arrays), is in
-[eliteforce-network.md](eliteforce-network.md) (Player state); network
+[network.md](network.md) (Player state); network
 play sends only those fields, as the original.
 
 Effects are scene entities of other types, seen with `reluva-tool

@@ -103,7 +103,7 @@ before M3010, M0040 before M3060.
 ## The automated checks
 
 The engine's tests are laid out as every engine's are
-([../../DEVELOPMENT.md](../../DEVELOPMENT.md#engine-tests)): unit tests and
+([../../../../DEVELOPMENT.md](../../../../DEVELOPMENT.md#engine-tests)): unit tests and
 a basic engine test that need no game files, and a game-files test run on
 your own install.
 

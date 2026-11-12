@@ -30,7 +30,7 @@ namespace reluva::idtech3::eliteforce {
 
 // Elite Force's game logic (vm/qagame.qvm, the server side of Holomatch)
 // run with the engine side of its system calls, in Elite Force's
-// numbering (docs/engines/idtech3/systems/eliteforce-syscalls.md). For now it
+// numbering (docs/engines/idtech3/games/stvef/systems/syscalls.md). For now it
 // loads a level: the map's entities are handed over, and what the game
 // does with them is recorded. Calls that would fill in the game's own
 // structures (traces, brush models) wait until their layouts are known;
@@ -103,7 +103,7 @@ public:
     void reserveClient(int32_t clientNum) { reserved_.insert(clientNum); }
     bool isBot(int32_t clientNum) const { return botClients_.count(clientNum) != 0; }
     // A player's input for one moment, as Elite Force's usercmd_t (24
-    // bytes, see eliteforce-syscalls.md): Quake III's fields with the
+    // bytes, see docs/engines/idtech3/games/stvef/systems/syscalls.md): Quake III's fields with the
     // buttons before the angles.
     struct UserCommand {
         int32_t serverTime = 0;          // ms, the level time it applies to

@@ -371,7 +371,7 @@ void readLight(Reader& r, FinLight& l) {
         l.illuminated.push_back(r.u32());
 }
 
-// DDActorSharedData. See docs/engines/netimmerse/formats/fin.md for the layout.
+// DDActorSharedData. See docs/engines/netimmerse/games/legoalphateam/formats/fin.md for the layout.
 void readActor(Reader& r, FinActor& a) {
     a.id = r.string();
     r.string();

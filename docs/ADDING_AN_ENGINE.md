@@ -104,9 +104,12 @@ described in [docs/README.md](README.md#adding-docs).
   use it.
 - **A page per file format** in `formats/`, and **a page per part of how
   the game behaves** in `systems/`, as each is worked out, with where each
-  fact came from. Working notes go in `research/`. Read
-  [CONTRIBUTING.md](../CONTRIBUTING.md) first: only clean-room work is
-  accepted.
+  fact came from. Working notes go in `research/`.
+- **An engine meant for several games** keeps each game's pages in
+  `games/<game id>/` from the start, and only what every game shares in
+  its own folder ([docs/README.md](README.md#adding-docs)).
+- **Read [CONTRIBUTING.md](../CONTRIBUTING.md) first:** only clean-room
+  work is accepted.
 - **Add a row** for it to the engines tables in the main
   [README](../README.md#games) and [docs/README.md](README.md).
 

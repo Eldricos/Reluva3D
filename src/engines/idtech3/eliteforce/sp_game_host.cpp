@@ -31,7 +31,7 @@ namespace reluva::idtech3::eliteforce {
 namespace {
 
 // The engine's functions in the table GetGameAPI is handed
-// (eliteforce-sp-interface.md).
+// (docs/engines/idtech3/games/stvef/systems/sp-interface.md).
 enum Import : int {
     Printf = 0,
     WriteCam = 1,

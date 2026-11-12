@@ -68,6 +68,17 @@ that engine and its games. Every engine's folder has the same layout:
 - **A format or a system** gets its own page once there's something to
   say about it; a page that grows too big is split by topic, not kept as
   one long notes file.
+- **An engine for a family of games** (one known from the start to be
+  meant for more than one game, as `idtech3`, `awe` and `netimmerse` are)
+  keeps each game's docs in `games/<game id>/`, laid out as above: the
+  five pages and the three folders. The engine's own folder then holds its
+  `README.md` (the engine, and a table of its games) and only what holds
+  for every game on it, such as the engine's or a middleware's own file
+  formats in `formats/`. A page worked out from one game stays in that
+  game's folder until another game is found to share it, then moves up.
+- **An engine for one game** (`clue`, `stgenerations`, `stharbinger`)
+  keeps everything in its own folder, with no `games/`. If a second game
+  comes to it, it moves to the layout above.
 - **Code in `src/common/`** that more than one engine can use is documented
   in `common/`.
 - Each fact gets its source: an address in a named binary, a file and its

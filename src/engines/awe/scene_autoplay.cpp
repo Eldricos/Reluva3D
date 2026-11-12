@@ -5,7 +5,7 @@
 // awe game-run): a game started at an act or a developer's save, moved on by a
 // player who only waits, skips the movies and takes the first choice, and
 // the scene's hotspots tried one by one. What it logs is how the acts are
-// checked; see docs/engines/awe/systems/acts.md.
+// checked; see docs/engines/awe/games/motoe/systems/acts.md.
 
 #include "engines/awe/viewers.h"
 

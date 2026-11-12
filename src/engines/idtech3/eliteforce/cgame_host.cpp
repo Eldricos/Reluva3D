@@ -20,7 +20,7 @@ namespace {
 
 // Elite Force cgame.qvm system calls (Quake III's client game order; the
 // seen ones checked against the game's own calls, see
-// docs/engines/idtech3/systems/eliteforce-syscalls.md).
+// docs/engines/idtech3/games/stvef/systems/syscalls.md).
 enum CgameCall : int {
     Print = 0,
     Error_ = 1,

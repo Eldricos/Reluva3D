@@ -8,7 +8,7 @@
 namespace reluva::idtech3::eliteforce {
 
 // Elite Force's refEntity_t: Quake III's 140 bytes, then 20 of its own (see
-// eliteforce-syscalls.md), with its effect types read from what its client
+// docs/engines/idtech3/games/stvef/systems/syscalls.md), with its effect types read from what its client
 // game adds when firing: a sprite facing the camera (1: radius at 136,
 // rotation in degrees at 132; its axes are left as they were cleared), a
 // quad in the entity's own axes (2: left and up, radius at 136; the first
@@ -58,7 +58,7 @@ constexpr RefEntityLayout kRefEntityLayout = [] {
 // refuses 8 and up): a sprite facing the camera (2), Quake III's beam,
 // rail core, rail rings and lightning (3 to 6), a mirror's or portal's
 // camera (7). Its client game adds sprites, portals and, for beam
-// entities, beams (eliteforce-sp-interface.md).
+// entities, beams (docs/engines/idtech3/games/stvef/systems/sp-interface.md).
 constexpr RefEntityLayout kSpRefEntityLayout = [] {
     RefEntityLayout l;
     l.size = 152;

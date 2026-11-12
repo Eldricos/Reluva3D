@@ -95,8 +95,8 @@ from the launcher, the engine now shows these pages (keys in
   sound. Reluva has its own AVI reader and Indeo 5 decoder; all 1,631
   pictures match FFmpeg's decode byte for byte. If the file is copied
   beside the install, the engine plays it before the game, and a key or
-  click skips it. See [../../../common/video/avi.md](../../../common/video/avi.md)
-  and [../../../common/video/indeo5.md](../../../common/video/indeo5.md), which
+  click skips it. See [../../../../../common/video/avi.md](../../../../../common/video/avi.md)
+  and [../../../../../common/video/indeo5.md](../../../../../common/video/indeo5.md), which
   record what came from FFmpeg's LGPL decoder.
 
 The viewer was checked in this container with a software stand-in for the

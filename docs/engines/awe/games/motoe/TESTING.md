@@ -64,7 +64,7 @@ output is kept in the build (`gamedata/awe/<step>/`), the previous run's
 beside it, and its checksum and summary line go in the record,
 `tests/engines/awe/data/gamedata/english-1.0/<step>.txt` (made on Linux;
 another release's go in a folder of their own, with
-`RELUVA_GAMEDATA_UPDATE=1`). See [DEVELOPMENT.md](../../DEVELOPMENT.md#engine-tests)
+`RELUVA_GAMEDATA_UPDATE=1`). See [DEVELOPMENT.md](../../../../DEVELOPMENT.md#engine-tests)
 for the shared helpers.
 
 ### The whole game: `reluva-tool awe game-check`
@@ -109,11 +109,11 @@ recordings to check how scenes look (see
 With the environment variable `RELUVA_PERF` set, Reluva writes to its
 console, every three seconds, the scene, the frames a second and where
 a frame's time goes (2D, characters, present); see
-[README.md](README.md#frame-time). Set it where Reluva is started:
+[../../README.md](README.md#frame-time). Set it where Reluva is started:
 `set RELUVA_PERF=1` in a Command Prompt, `$env:RELUVA_PERF = "1"` in
 PowerShell (`set` there makes a PowerShell variable the program never
 sees), `RELUVA_PERF=1 ./reluva` on Linux and macOS, or an `env` entry in
-Visual Studio's `launch.vs.json` (see [../../DEVELOPMENT.md](../../DEVELOPMENT.md)).
+Visual Studio's `launch.vs.json` (see [../../../../DEVELOPMENT.md](../../../../DEVELOPMENT.md)).
 
 `awe game-run -play <route> -mouse -3d -draw` plays the route in a window
 drawing every frame, so two builds can be timed on the same scenes, and

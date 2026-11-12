@@ -17,7 +17,7 @@ What can be checked by a program is checked automatically:
   RELUVA_STVEF=/path/to/EliteForce ctest --test-dir build -L gamedata
   ```
 
-See [DEVELOPMENT.md](../../DEVELOPMENT.md#engine-tests) for both, and
+See [DEVELOPMENT.md](../../../../DEVELOPMENT.md#engine-tests) for both, and
 [REVERSE_ENGINEERING.md](REVERSE_ENGINEERING.md) for the rest of the
 checking.
 

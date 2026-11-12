@@ -28,7 +28,7 @@ files win.
 **Checked against the game's code** (October 2026). Fields whose
 meaning the files alone couldn't show were then named from the game's own
 DLLs. Reverse engineering of a legally owned program for interoperability
-is among the sources [CONTRIBUTING.md](../../../../CONTRIBUTING.md)
+is among the sources [CONTRIBUTING.md](../../../../../../CONTRIBUTING.md)
 allows. NiMain, NiAnimation, NiA3dSound and LoadComp export their C++
 functions by name. Each class's `LoadBinary` shows the order it reads its
 members (a stream read each, with its size and the member's offset), and

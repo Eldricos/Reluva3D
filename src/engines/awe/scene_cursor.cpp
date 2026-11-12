@@ -4,7 +4,7 @@
 // The Scenes page's mouse: the game's pick of the object under it
 // (0x435eb0), the cursor it shows over it (0x415650, the 16 pictures of
 // 0x413f00), and the hotspots that keys press (0x436110). See
-// docs/engines/awe/formats/ac2.md.
+// docs/engines/awe/games/motoe/formats/ac2.md.
 
 #include "engines/awe/viewers.h"
 

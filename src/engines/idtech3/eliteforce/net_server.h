@@ -32,7 +32,7 @@ std::vector<std::string> configstringCommands(const std::map<int32_t, std::strin
                                               const std::map<int32_t, std::string>& now);
 
 // The server's side of Elite Force's network play (protocol 24, as the
-// retail game patched to 1.2 speaks it: eliteforce-network.md): players
+// retail game patched to 1.2 speaks it: docs/engines/idtech3/games/stvef/systems/network.md): players
 // on other machines find it (getinfo, getstatus), join it (getchallenge,
 // connect) and play, each with a connection of their own. It drives the
 // GameHost the page runs: their commands go to the game as they come,

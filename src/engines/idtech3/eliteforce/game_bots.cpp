@@ -6,7 +6,7 @@
 // up, the level's .aas map, the entities, the bots' commands), the map
 // queries (300 on), the elementary actions (400 on) and the AI (500 on).
 // Quake III's numbering, which Elite Force's game uses in the ranges
-// 200-211, 303-318, 401-427 and 500-572 (see eliteforce-syscalls.md);
+// 200-211, 303-318, 401-427 and 500-572 (see docs/engines/idtech3/games/stvef/systems/syscalls.md);
 // where Elite Force's may differ it's marked. The structures are Quake
 // III's (botlib.h, be_aas.h, be_ai_*.h of the GPL ioquake3 source), read
 // for their layout; the code is new.
@@ -56,7 +56,7 @@ enum BotCall : int {
     AasSwimming = 317,
     AasPredictClientMovement = 318,
     // Elementary actions: Elite Force's order (found from its calls: what
-    // each passes and where; see eliteforce-syscalls.md), with an alt
+    // each passes and where; see docs/engines/idtech3/games/stvef/systems/syscalls.md), with an alt
     // attack at the end.
     EaSay = 400,
     EaSayTeam = 401,

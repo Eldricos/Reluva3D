@@ -18,6 +18,10 @@ Every engine's docs are laid out the same way (see
 | [TESTING.md](TESTING.md) | The tests, and what to check by hand |
 | [REVERSE_ENGINEERING.md](REVERSE_ENGINEERING.md) | How it was worked out, and the tools |
 
+An engine meant for several games puts these pages and folders in
+`games/<game id>/`, one folder per game, and keeps here only what every
+game shares.
+
 ## Games
 
 | Game | Releases recognised | State |

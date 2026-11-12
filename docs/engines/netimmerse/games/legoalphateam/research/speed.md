@@ -11,7 +11,7 @@
   - The decoded-instruction cache (x86.md) cut the time to reach the menu
     from about 41 seconds to 28.
   - The rasterizer then took a third or so of the time at the menu. The
-    rasterizer's notes ([directx.md](../../../common/x86/directx.md)) have what was done; drawing 120 frames went
+    rasterizer's notes ([directx.md](../../../../../common/x86/directx.md)) have what was done; drawing 120 frames went
     from 7.4 seconds to 2.0. The interpreter is now most of the time.
   - Checking the speed-ups: with the clock driven by the instruction count
     and the click at a set frame, runs repeat exactly. Frames saved by the
@@ -22,7 +22,7 @@
     run that's two thirds loading and the menus): 42.0 seconds.
     - Blocks in the instruction cache (x86.md): 29.6 seconds.
     - Drawing on threads of their own, in order, while the program goes on
-      (the rasterizer's notes, [directx.md](../../../common/x86/directx.md)): 25.5 seconds.
+      (the rasterizer's notes, [directx.md](../../../../../common/x86/directx.md)): 25.5 seconds.
   - Then, where the interpreter's time went while playing, sampled by
     the program's own addresses: over a quarter of it was in
     `DDCycleCounter::Start` and `Stop` (DDPackedDirFileLib). They time the

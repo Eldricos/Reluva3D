@@ -14,7 +14,7 @@
 
 // The conditions the game's scenes and tables test: when a scene's object
 // is shown ("moving >0"), which of an object's scripts runs ("act 04a,
-// !tag micheladmonish"), which music plays. See docs/engines/awe/formats/ac2.md.
+// !tag micheladmonish"), which music plays. See docs/engines/awe/games/motoe/formats/ac2.md.
 //
 // The game's evaluator (motoe.exe 0x407ae0, a clause 0x407cb0):
 //

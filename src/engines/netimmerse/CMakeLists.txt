@@ -37,7 +37,7 @@ reluva_add_engine_tests(netimmerse
 
 # Its engine test with the game's own files (tests/engines/netimmerse/
 # gamedata.cmake): RELUVA_ALPHATEAM=<the game's folder> ctest -L gamedata.
-# See docs/engines/netimmerse/TESTING.md.
+# See docs/engines/netimmerse/games/legoalphateam/TESTING.md.
 reluva_add_gamedata_test(netimmerse
     GAME alphateam
     ENV RELUVA_ALPHATEAM

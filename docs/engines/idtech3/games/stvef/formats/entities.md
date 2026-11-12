@@ -1,6 +1,6 @@
 # Elite Force: map entities
 
-What the retail maps' entity lumps hold ([bsp.md](bsp.md) for the
+What the retail maps' entity lumps hold ([../../../formats/bsp.md](../../../formats/bsp.md) for the
 format), from `reluva-tool idtech3 entity-survey` run on the retail `baseEF`
 (patched to 1.2) in October 2026: **67 maps, 44,849 entities, 210
 classes, 106 keys**, all maps read without error. The survey's own output
@@ -16,7 +16,7 @@ Where a meaning is given, its source is marked:
 - **?**: not known.
 
 Raven's own Elite Force game source isn't used (see
-[../../engines/idtech3.md](../README.md)).
+[../../engines/idtech3.md](../../../README.md)).
 
 ## Who reads them
 
@@ -88,7 +88,7 @@ Differences seen in how Elite Force's maps use them:
 - **`trigger_multiple`**: `soundset` (560): entering it switches the
   ambient sound set, as Jedi Outcast's `trigger_multiple`/ambient sets
   (**JK2**); see the ambient sound calls in
-  [../systems/eliteforce-sp-interface.md](../systems/eliteforce-sp-interface.md).
+  [../systems/sp-interface.md](../systems/sp-interface.md).
 - **`worldspawn`**: `music` (47, Quake III's), `soundset` (41: the map's
   starting ambient set, **JK2**), `spawnscript` (26: a script run as the
   level starts, below), `infostring` (46: `II_<MAP>`, **?** — probably the

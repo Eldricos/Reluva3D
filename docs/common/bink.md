@@ -190,11 +190,11 @@ block starts on a 32-bit boundary.
 
 - **Movies** (`movie <name>`) play full screen with their sound decoded
   whole ahead, their subtitles under them
-  ([script.md](../engines/awe/systems/script.md)).
+  ([script.md](../engines/awe/games/motoe/systems/script.md)).
 - **Video loops**, objects whose file is a `.bik`, play in their scene as
   pictures do, from the start again when they've gone round
   (`Movie::rewind`), or once and held on the last frame with `BNKX loop
-  0` ([ac2.md](../engines/awe/formats/ac2.md)).
+  0` ([ac2.md](../engines/awe/games/motoe/formats/ac2.md)).
 - `reluva-tool awe files-check <game folder> -bik` decodes every movie and
   loop of an install, and `awe bink-info` shows a file's header and frames
   (`-yuv`, `-wav`, `-tga` to decode it).

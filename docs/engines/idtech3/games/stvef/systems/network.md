@@ -38,7 +38,7 @@ Everything below is protocol 24 unless it says otherwise. Section
 Retail data: `baseEF/pak0.pk3` (the CD) and `pak1.pk3` to `pak3.pk3`
 (patches 1.1 and 1.2) must all be present for Lilium to run as Elite
 Force. Lilium knows the four by their checksum (the pk3 "checksum" of
-[../formats/pk3.md](../formats/pk3.md)'s pure scheme, without the feed): 3376297517, 596947475,
+[../../../formats/pk3.md](../../../formats/pk3.md)'s pure scheme, without the feed): 3376297517, 596947475,
 3960871590, 1592359207, in that order.
 
 ## Constants
@@ -67,7 +67,7 @@ Force. Lilium knows the four by their checksum (the pk3 "checksum" of
 
 The game state the client game reads (1024 offsets, 16,000 characters)
 is Quake III's, which Reluva has confirmed independently
-([eliteforce-syscalls.md](eliteforce-syscalls.md)).
+([syscalls.md](syscalls.md)).
 
 ## Transport
 
@@ -700,7 +700,7 @@ Quake III. The client restricts itself to the listed pk3s and answers
 with `cp`. In protocol 24 the command is
 `cp <cgame pk3> <ui pk3> @ <referenced pk3>... <count code>` — **without**
 the server id Quake III 1.32 puts first. The numbers are pure checksums
-(see [../formats/pk3.md](../formats/pk3.md): the MD4-based checksum of the checksum feed then
+(see [../../../formats/pk3.md](../../../formats/pk3.md): the MD4-based checksum of the checksum feed then
 each non-empty file's CRC); the first is the pk3 holding `vm/cgame.qvm`,
 the second the one holding `vm/ui.qvm`, then every other pk3 the client
 has read from, then the checksum feed XOR all the referenced ones XOR
@@ -754,7 +754,7 @@ when pure. All in search order.
   as a console variable.
 - The rest are the games' own; Elite Force's numbering is Quake III's
   (models from 32, sounds from 288, players from 544,
-  [eliteforce-syscalls.md](eliteforce-syscalls.md)).
+  [syscalls.md](syscalls.md)).
 
 The **checksum feed** is a random 32-bit number the server picks at each
 map load; it seeds the pure checksums of both sides.
@@ -845,7 +845,7 @@ Elite Force's structures. Differences from protocol 24:
 
 ## Layout cross-check with Reluva
 
-Against [eliteforce-syscalls.md](eliteforce-syscalls.md) and
+Against [syscalls.md](syscalls.md) and
 `src/engines/idtech3/eliteforce/game_layout.h`:
 
 - **Entity state: agrees.** 204 bytes, no generic1 at the end (Reluva

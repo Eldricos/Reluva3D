@@ -18,7 +18,7 @@
 // plays, full-body or over it; blinking and idle variations; its head
 // turned and its eyes; its body rotated at the pace of its turning
 // animation; talking. The scripts' character verbs (anim, turn, look,
-// rotate, animate) end here. See docs/engines/awe/systems/characters.md.
+// rotate, animate) end here. See docs/engines/awe/games/motoe/systems/characters.md.
 
 namespace reluva::awe {
 

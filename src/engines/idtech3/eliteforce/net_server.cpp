@@ -148,7 +148,7 @@ void NetServer::levelStarted() {
     // lack), by checksum and by folder and name: those the server's side
     // read from since the level started (the map, its bots' map and
     // files, the game code's reads; not files read from every pak,
-    // eliteforce-network.md), any outside the game's own folder (a mod's),
+    // docs/engines/idtech3/games/stvef/systems/network.md), any outside the game's own folder (a mod's),
     // and, Reluva's addition, the client game's and menus'.
     pure_ = false;
     purePaks_.clear();
@@ -250,7 +250,7 @@ void NetServer::sendText(const reluva::net::Address& to, const std::string& text
 }
 
 std::string NetServer::infoString(const std::string& challenge) const {
-    // What the server list shows (eliteforce-network.md): Elite Force's
+    // What the server list shows (docs/engines/idtech3/games/stvef/systems/network.md): Elite Force's
     // servers send it quoted on one line.
     const int maxClients = std::clamp(cvars_.integer("sv_maxclients"), 1, 64);
     int clients = 0, humans = 0;

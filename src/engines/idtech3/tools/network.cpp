@@ -33,7 +33,7 @@ namespace {
 using namespace reluva::tool;
 using namespace reluva::idtech3::tool;
 
-// Network play from a terminal (protocol 24, eliteforce-network.md):
+// Network play from a terminal (protocol 24, docs/engines/idtech3/games/stvef/systems/network.md):
 // hosting a level as a server with no player of its own, for others to
 // join for `seconds`; or, with -join, joining a server and reporting
 // what it sends while walking forward.

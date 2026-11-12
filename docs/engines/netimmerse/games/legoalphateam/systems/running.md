@@ -147,7 +147,7 @@ B1's order of work:
 3. MSVCRT, MSVCP60, C++ exceptions and the extra thread, until the game
    reaches its first `DirectDrawCreateEx`.
 4. DirectDraw/Direct3D 7: the menus first, then a puzzle. Done in
-   software first (see [directx.md](../../../common/x86/directx.md)); `gfx::Renderer3D` can come later, for
+   software first (see [directx.md](../../../../../common/x86/directx.md)); `gfx::Renderer3D` can come later, for
    speed.
 5. DirectInput on `System` events, then A3D on the mixer.
 6. Speed: an instruction cache, then native NiMain hot spots, measured
@@ -178,7 +178,7 @@ B1's order of work:
   clock count n instructions a millisecond from that frame on.
 - Done: MSVCRT (all 79 imports, `src/common/x86/msvcrt.cpp`) and KERNEL32's
   files.
-- Done: MSVCP60, as our own DLL ([msvcp60.md](../../../common/x86/msvcp60.md)), and the rest of KERNEL32's
+- Done: MSVCP60, as our own DLL ([msvcp60.md](../../../../../common/x86/msvcp60.md)), and the rest of KERNEL32's
   imports (`src/common/x86/win32_system.cpp`: system information, the
   performance counter, critical sections and events for one thread, date
   and time text).
@@ -198,7 +198,7 @@ B1's order of work:
     80,60 (`at-run` reports the window);
   - calls `DirectDrawCreate` from NiDirect3d.
 - Done: DirectDraw and Direct3D 7 (`src/common/x86/directx/`,
-  [directx.md](../../../common/x86/directx.md)).
+  [directx.md](../../../../../common/x86/directx.md)).
   The game sets its 640×480 16-bit fullscreen mode and makes its renderer:
   - a flipping primary surface with a back buffer;
   - a Z buffer;
