@@ -866,6 +866,14 @@ instructions, 3,829 frames) and the code:
   `grTexMinAddress` is now 1,843,200 (above the three 640x480 buffers),
   so the budget (`about()` +0x70) is 16 MB − 8 − 2 × 1,843,200, 13,090,816
   bytes after rounding.
+- **With the extensions and the 16-byte `grTexMaxAddress`** (November
+  2026: the stand-in's Voodoo3 offers PALETTE6666 and TEXMIRROR, and
+  `grTexMaxAddress` is 16 MB − 16, docs/engines/glide.md): the same run,
+  3,829 frames, menus to the race with the cockpit, 297 s; the budget
+  13,090,800. The DLL's one `grTexDownloadTable` goes as the 6666 kind;
+  `grTexClampMode` was asked for wrap 4,942 times and clamp 1,655, never
+  mirror. The frames look as before (screenshots in the session's
+  scratch folder).
 
 ## The Glide stand-in
 
