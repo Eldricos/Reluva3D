@@ -1778,6 +1778,44 @@ TrackCollision straightRoad(int points, uint8_t codes = 0x44) {
 }
 } // namespace
 
+void testComputerGears() {
+    // ai_gear_rpm (0x4061b0), made-up gearbox: reverse, neutral and three
+    // gears, shift delay 3, minimum 1000 rpm, redline 6000.
+    AiCarData::Gears g;
+    g.gears = 5;
+    g.shiftDelay = 3;
+    g.rpmMin = 1000;
+    g.redline = 6000;
+    g.velocityToRpm = {-200, 0, 250, 150, 100, 0, 0, 0};
+    AiGearbox box; // neutral, 0 rpm
+    // Wanting 40 m/s, past the section's 22.35 + 10 and +0x7C4's 10 + 20:
+    // the aim is the redline less 200; first's 2500 is nearest, so first,
+    // the timer at the delay and the rpm an eighth of the way.
+    aiGearRpm(box, g, 40, 10, 22.35f, false);
+    CHECK(box.gear == 2 && box.timer == 3 && box.rpm == 312);
+    // While the timer runs: 0.4 x the redline (past the section's band),
+    // the timer down by one.
+    aiGearRpm(box, g, 40, 10, 22.35f, false);
+    CHECK(box.gear == 2 && box.timer == 2 && box.rpm == 312 + (2400 - 312) / 8);
+    box = {2, 3000, 0};
+    // Within 10 m/s of the section's speed the aim is half the redline:
+    // at 22 m/s second (3300) is nearer 3000 than third (2200).
+    aiGearRpm(box, g, 30, 22, 22.35f, false);
+    CHECK(box.gear == 3 && box.timer == 3 && box.rpm == 3000 + (3300 - 3000) / 8);
+    // Falling: an eighth of the way down, as an arithmetic shift.
+    box = {4, 3000, 0};
+    aiGearRpm(box, g, 30, 5, 22.35f, false);
+    CHECK(box.gear == 2 && box.rpm == 3000 - (3000 - 1250) / 8);
+    // Under the minimum the aim is the minimum; reversing is gear 0 at
+    // -ratio x speed.
+    box = {2, 900, 0};
+    aiGearRpm(box, g, 30, 1, 22.35f, false);
+    CHECK(box.rpm == 900 + (1000 - 900) / 8);
+    box = {2, 1000, 0};
+    aiGearRpm(box, g, 30, 10, 22.35f, true);
+    CHECK(box.gear == 0 && box.timer == 3 && box.rpm == 1000 + (2000 - 1000) / 8);
+}
+
 void testComputerDriving() {
     TrackCollision col = straightRoad(200);
     const auto& p = col.road[0];
@@ -4675,6 +4713,7 @@ int main() {
     testCarLighting();
     testCarReflection();
     testLightEffects();
+    testComputerGears();
     testComputerDriving();
     testComputerCatchUpAndCops();
     testComputerPursuits();

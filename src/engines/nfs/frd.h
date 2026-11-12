@@ -453,7 +453,36 @@ struct AiCarData {
     float latGrip = 0;              // lateral acceleration grip multiplier (P +0x248, field 30)
     float mass = 1472;              // mass [kg] (P +0x4, field 2)
     float downforce = 0;            // aerodynamic downforce multiplier (P +0x24C, field 31)
+    // The gearbox as ai_gear_rpm (0x4061b0) reads it: the gears (P +0x8,
+    // reverse and neutral counted), the shift delay in ticks (P +0x10,
+    // field 4), velocity to rpm by gear (P +0x94), the engine's minimum rpm
+    // and redline (P +0x1C0, +0x1C4, fields 12 and 13). The race's set-up
+    // (0x4a78d6, 0x4a7967) copies the automatic fields over the manual ones
+    // when the slot's flag (0x6fd548 + slot x 0x6C) is 1, as it is for the
+    // computer racers (t6-log's set-up, every slot): fields 75 and 76, else
+    // 3 and 7.
+    struct Gears {
+        int gears = 0, shiftDelay = 0, rpmMin = 0, redline = 0;
+        std::array<float, 8> velocityToRpm{};
+    } gearbox;
 };
+// ai_gear_rpm (0x4061b0, each call of car_ai_model): the rpm aimed at is
+// half the redline when the speed wanted is within 10 m/s over the track
+// section's (0x40ed40), else 0.8 x it within 20 m/s over +0x7C4, else the
+// redline less 200. While the shift timer (+0x64C) runs it counts down by
+// 1 (0x56ec78) and the rpm heads for 0.2 (0.4 past the section's speed) x
+// the redline; else the gear (2 to the gears less 1; 0 reversing) whose
+// rpm at +0x7C4 is nearest the aim, at least the minimum, and a new gear
+// starts the timer (the shift delay). The rpm moves an eighth of the way
+// (an arithmetic shift) each call. Products are floats, the rpms chopped.
+struct AiGearbox {
+    int gear = 1;  // +0x50B: 0 reverse, 1 neutral, 2 first
+    int rpm = 0;   // +0x590
+    int timer = 0; // +0x64C
+};
+void aiGearRpm(AiGearbox& box, const AiCarData::Gears& data, float speedWanted, float speed, float sectionSpeed,
+               bool reversing);
+
 // The fields of a car's carp.txt the computer's driving reads; false when
 // one is missing.
 bool parseCarpAi(const std::string& text, AiCarData& out);
@@ -535,6 +564,10 @@ struct AiCar {
     // set), and the step ai_ctl_slide is used to after a hit (+0x65C).
     float halfHeight = 0.669f, halfLength = 2.406f, mass = 1226.67f;
     int airTicks = 0, slideUntil = 0;
+    // The gear, rpm and shift timer (aiGearRpm), set each model call;
+    // only for the page's effects (the game's are read by the sound).
+    AiGearbox gearbox;
+    AiCarData::Gears gears; // its carp's, set by aiMove
     // The tyres' skid levels the controllers leave (+0x5C0 front, +0x5C4
     // rear), read by car_spiked_effects (0x42a560) for the wheels' smoke
     // and spray: set by aiMove (aiSkid), only for the page's effects.
