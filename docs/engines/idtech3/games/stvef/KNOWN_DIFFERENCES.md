@@ -1,6 +1,5 @@
 # Star Trek: Voyager - Elite Force: known differences from the original
 
-
 Where Reluva deliberately behaves differently from Star Trek: Voyager -
 Elite Force (`stvoy.exe`, `stvoyHM.exe` and the game's own code), leaves
 something out, or adds something. Anything not listed here is meant to

@@ -56,7 +56,6 @@ played with credits.
 
 ### Identification
 
-
 | File | Version | Size | MD5 of first 5000 bytes |
 |---|---|---|---|
 | `Clue.exe` | 2.0 (CD) | 386,048 | `7ddb4f359cfd8827b4f7b054e95b1cba` |

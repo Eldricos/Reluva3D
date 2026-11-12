@@ -18,6 +18,11 @@
 # cmake/NewEngine.cmake and builds and tests it, so the template keeps up
 # with the code it uses (src/engines/engine.h, the tests' and tools'
 # frameworks).
+#
+# The "docs" job checks the documentation against
+# docs/DOCUMENTATION_STANDARD.md: tools/check-docs.py (links, each engine's
+# pages, status lines, names) and markdownlint (headings; its rules are in
+# .markdownlint-cli2.jsonc).
 
 name: CI
 
@@ -197,3 +202,13 @@ jobs:
         run: |
           ./build/reluva-tool help template_check
           ./build/reluva-tool template_check files tests/engines/template_check
+
+  docs:
+    name: Docs
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v7
+      - name: Links, pages and names
+        run: python3 tools/check-docs.py
+      - name: Markdown
+        run: npx --yes markdownlint-cli2@0.23.3

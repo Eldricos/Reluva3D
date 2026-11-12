@@ -336,6 +336,7 @@ void example() {
 ## Modern C++ & Best Practices
 
 ### Null Pointers
+
 Always use `nullptr` instead of `NULL` or integer `0` for pointer initializations and comparisons.
 ```cpp
 Actor *currentActor = nullptr;
@@ -345,12 +346,14 @@ if (currentActor == nullptr) {
 ```
 
 ### Override and Final Specifiers
+
 Always append the `override` keyword when overriding virtual functions from a base class.
 ```cpp
 void update() override;
 ```
 
 ### Const-Correctness
+
 * Mark all member functions that do not mutate object state as `const`.
 * Pass non-primitive parameters by `const &` when they are not modified.
 ```cpp

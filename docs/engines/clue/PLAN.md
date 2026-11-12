@@ -89,4 +89,3 @@ exported names give the structure.
 
 The engine goes in `src/engines/clue/`, with the decoders likely to be
 of use to other games (AVI, Cinepak) in `src/common/`.
-

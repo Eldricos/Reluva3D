@@ -465,7 +465,7 @@ game's configstrings. As in Quake III, configstrings 0 and 1 are the
 server's own: the info strings of every server-info cvar (`mapname`,
 `g_gametype`...) and every system-info one, set after the game starts and
 after each frame. The client game finds the map's name in 0; without it,
-it asked to load `maps/.bsp`. 
+it asked to load `maps/.bsp`.
 The snapshot (`snapshot_t`) is Quake III's with Elite Force's player and
 entity states: snapFlags 0, ping 4, serverTime 8, the area mask 12 (32
 bytes), the player state 44 (460 bytes), numEntities 504, the entity

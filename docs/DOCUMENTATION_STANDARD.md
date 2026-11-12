@@ -129,3 +129,32 @@ are also `UNCONFIRMED.md`'s headings):
 - A common page's default is in its "Sources and checks"; it marks
   exceptions the same way. `research/` notes keep their own marks, which
   their folder's `README.md` explains.
+
+## Checks
+
+CI's "Docs" job checks the docs on every push, and both checks can be run
+before pushing, from the repository's root:
+
+```sh
+python3 tools/check-docs.py
+```
+
+checks that every relative link and `#anchor` goes somewhere, that each
+engine (or each game, in a family's engine) has its five pages, that each
+format and system page has a status line with a Confidence and a "Sources
+and checks", that each common page has its headings in order, that each
+`research/` has a `README.md`, and that names follow "Naming" above.
+
+```sh
+npx markdownlint-cli2@0.23.3
+```
+
+checks the headings' shape (one `#` title first, one level at a time, a
+blank line around each) and a few basics (no spaces at a line's end, no
+runs of blank lines). Its rules are in `.markdownlint-cli2.jsonc`.
+
+`research/` notes are left out of markdownlint, as they're kept as
+written; their links are still checked. An engine whose docs don't follow
+this standard yet is listed in `tools/check-docs.py` (`EXEMPT_ENGINES`)
+with the reason: its pages, names and Markdown aren't checked until it's
+taken off that list, but its links are.
