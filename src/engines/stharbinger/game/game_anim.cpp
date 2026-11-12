@@ -212,7 +212,8 @@ bool Game::executeAnimCommand(const Directive& d) {
         if (Anim* a = useAnim(a0)) {
             if (a->rle.frameCount() && !draw::empty(background_)) {
                 const RleAnimation::Frame& f = a->rle.getFrame(0);
-                const Surface& src = draw::empty(workBuffer_) ? background_ : workBuffer_;
+                bool current = !draw::empty(workBuffer_) && !workBufferStale_;
+                const Surface& src = current ? workBuffer_ : background_;
                 int x0 = std::max(0, a->x + f.x), y0 = std::max(0, a->y + f.y);
                 int x1 = std::min(background_.w, a->x + f.x + f.w);
                 int y1 = std::min(background_.h, a->y + f.y + f.h);
@@ -264,20 +265,28 @@ void Game::advanceAnim(Anim& a) {
     }
 }
 
+void Game::restoreRect(int x, int y, int w, int h) {
+    int x0 = std::max(0, x), y0 = std::max(0, y);
+    int x1 = std::min({workBuffer_.w, background_.w, x + w});
+    int y1 = std::min({workBuffer_.h, background_.h, y + h});
+    for (int py = y0; py < y1; py++)
+        for (int px = x0; px < x1; px++)
+            *draw::at(workBuffer_, px, py) = *draw::at(background_, px, py);
+}
+
 void Game::renderAnims(bool advance) {
     if (draw::empty(workBuffer_) || workBufferStale_) {
         draw::create(workBuffer_, kScreenWidth, kScreenHeight);
         draw::blit(workBuffer_, background_, 0, 0);
         workBufferStale_ = false;
     }
-    auto restore = [this](int x, int y, int w, int h) {
-        int x0 = std::max(0, x), y0 = std::max(0, y);
-        int x1 = std::min(std::min(workBuffer_.w, background_.w), x + w);
-        int y1 = std::min(std::min(workBuffer_.h, background_.h), y + h);
-        for (int py = y0; py < y1; py++)
-            for (int px = x0; px < x1; px++)
-                *draw::at(workBuffer_, px, py) = *draw::at(background_, px, py);
-    };
+    // Beams last three renders, BACKGRND's included: redrawn on the first, left
+    // on the second and wiped with the background on the third (0x22BD4).
+    if (beamLife_ > 0 && --beamLife_ == 0) {
+        for (const Beam& b : beams_)
+            restoreRect(b.left - 3, b.top, b.w + 6, b.h);
+        beams_.clear();
+    }
 
     // Erase: an animation that is off, or a clear one that is not stopped, gives
     // back the background under the frame it last drew. Nothing else is ever
@@ -295,7 +304,7 @@ void Game::renderAnims(bool advance) {
             continue;
         if (a.drawnFrame >= 0 && a.drawnFrame < a.rle.frameCount()) {
             const RleAnimation::Frame& f = a.rle.getFrame(a.drawnFrame);
-            restore(a.drawnX + f.x, a.drawnY + f.y, f.w, f.h);
+            restoreRect(a.drawnX + f.x, a.drawnY + f.y, f.w, f.h);
         }
         if (off) {
             // A script waiting for it carries on.
@@ -307,7 +316,7 @@ void Game::renderAnims(bool advance) {
     // Draw: priority 0 first, 4 on top; within a priority the lowest index is
     // on top. Beams from ACTIONSEQ 0xC0..0xC2 go under priority 4.
     for (int prio = 0; prio < kNumPriorities; prio++) {
-        if (prio == 4)
+        if (prio == 4 && beamLife_ > 1)
             drawBeams(workBuffer_);
         for (int i = int(anims_.size()) - 1; i >= 0; i--) {
             Anim& a = anims_[i];

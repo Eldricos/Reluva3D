@@ -22,6 +22,15 @@ not been confirmed against the original running, or in the real game data.
   is set to its rest frame without a lip-sync redraw, so for a stopped `clear`
   mouth the rest frame is drawn over the last shape until something erases it.
   This follows the code; whether it is visible in any scene is unknown.
+* **Skipping the static before a death video.** Esc during the 765 ms of TV
+  static before an action sequence's death video ends it there, and the last
+  static frame stays as the scene's picture until the game menu that follows.
+  Whether the original lets the static be skipped at all is not known; the
+  frame is never seen in play, because death always opens the menu.
+* **Beams across a scene change.** The beam timer and list are reset on load
+  and at start-up, as in the original, but not on a scene change. A beam that
+  is still up when a script changes scene would be wiped by its box in the new
+  scene. No script is known to do this.
 
 ## Seen running, not traced in the code
 

@@ -85,7 +85,11 @@ Everything under *Still to check* below.
 * A scene change that does not load a new background (the old picture should
   stay until the next `BACKGRND`).
 * Long conversations with several talking heads: no mouths piling up.
-* Phaser and enemy beams leaving no marks.
+* Phaser and enemy beams: each shot a single bolt (not a smear of several),
+  shown for about three frames and leaving no marks, including when a shot is
+  followed straight away by `BACKGRND`.
+* `ANIMDUMP` on a visible animation: its last frame stays until something draws
+  over it, as in the original.
 
 #### Unconfirmed details
 
