@@ -33,16 +33,19 @@ public:
 private:
     struct Cell {
         uint8_t y[4];
-        int8_t u, v;
+        int8_t u;
+        int8_t v;
     };
     struct Strip {
-        Cell v1[256], v4[256];
+        Cell v1[256];
+        Cell v4[256];
     };
 
     static void decodeCodebook(Cell *codebook, int chunk, const uint8_t *data, const uint8_t *end);
     bool decodeVectors(const Strip &strip, int chunk, int top, int bottom, const uint8_t *data, const uint8_t *end);
 
-    int _width, _height;
+    int _width;
+    int _height;
     Surface _picture;
     std::vector<Strip> _strips;
 };

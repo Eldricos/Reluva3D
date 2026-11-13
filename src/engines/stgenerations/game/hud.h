@@ -75,10 +75,12 @@ public:
 
     struct Animation {
         bool running = false;
-        int first = 0, last = 0;
+        int first = 0;
+        int last = 0;
         // Frames still to show; 0 runs forever.
         int remaining = 0;
-        uint32_t ms = 100, elapsed = 0;
+        uint32_t ms = 100;
+        uint32_t elapsed = 0;
     };
 
     struct Button {
@@ -99,7 +101,8 @@ public:
         int16_t image = -1;
         int frame = 0;
         // Where the player was when it opened.
-        double x = 0, y = 0;
+        double x = 0;
+        double y = 0;
         std::vector<Button> buttons;
         Animation animation;
         bool notifyWhenDone = false;
@@ -160,9 +163,14 @@ public:
     static const int kEffectSlots = 4;
     struct Effect {
         bool active = false;
-        uint8_t r = 0, g = 0, b = 0;
+        uint8_t r = 0;
+        uint8_t g = 0;
+        uint8_t b = 0;
         int percent = 0;
-        uint32_t fadeIn = 0, hold = 0, fadeOut = 0, elapsed = 0;
+        uint32_t fadeIn = 0;
+        uint32_t hold = 0;
+        uint32_t fadeOut = 0;
+        uint32_t elapsed = 0;
         uint16_t notify = 0;
     };
     void setEffect(int slot, uint8_t r, uint8_t g, uint8_t b, int percent, uint32_t fadeIn, uint32_t hold,

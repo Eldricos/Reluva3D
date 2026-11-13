@@ -89,7 +89,8 @@ private:
     SDL_GPUDevice *_gpu = nullptr; // set when renderer_ runs on SDL's GPU API, which 3D needs
     std::unique_ptr<SdlGpuRenderer> _renderer3d;
     SDL_Texture *_gameTexture = nullptr;
-    int _gameW = 0, _gameH = 0;
+    int _gameW = 0;
+    int _gameH = 0;
     PixelFormat _gameFormat = PixelFormat::kCLUT8;
     uint32_t _palette[256] = {};          // RGBA32, byte order R,G,B,A
     std::vector<uint32_t> _convertBuffer; // CLUT8 -> RGBA32 staging
@@ -100,12 +101,16 @@ private:
     float _sdlCursorScale = 0;        // the scale sdlCursor_ was made at
     bool _softwareCursor = false;     // drawn by us instead (cursorTexture_)
     SDL_Texture *_cursorTexture = nullptr;
-    bool _cursorVisible = true;         // setMouseCursorVisible
-    bool _mouseInside = false;          // the mouse is over the window
-    float _mouseX = 0, _mouseY = 0;     // in the picture's coordinates
-    uint64_t _lastPresent = 0;          // when the 2D picture was last shown (ms)
-    DisplayOptions _display;            // the game's; the launcher's are the defaults
-    int _launcherW = 0, _launcherH = 0; // the window's size before a game resized it
+    bool _cursorVisible = true; // setMouseCursorVisible
+    bool _mouseInside = false;  // the mouse is over the window
+    // in the picture's coordinates
+    float _mouseX = 0;
+    float _mouseY = 0;
+    uint64_t _lastPresent = 0; // when the 2D picture was last shown (ms)
+    DisplayOptions _display;   // the game's; the launcher's are the defaults
+    // the window's size before a game resized it
+    int _launcherW = 0;
+    int _launcherH = 0;
 
     SDL_AudioStream *_audioStream = nullptr;
     AudioCallback _audioCallback;

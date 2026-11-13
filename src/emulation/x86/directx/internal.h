@@ -21,12 +21,23 @@ namespace reluva::x86::dx {
 
 // --- Results ----------------------------------------------------------------------------
 constexpr uint32_t kDDOk = 0;
-constexpr uint32_t kDDErrGeneric = 0x80004005u, kDDErrInvalidParams = 0x80070057u, kDDErrOutOfMemory = 0x8007000eu,
-                   kDDErrUnsupported = 0x80004001u, kDDErrNotFound = 0x887600ffu, kDDErrInvalidObject = 0x88760082u,
-                   kDDErrSurfaceBusy = 0x887601aeu, kDDErrNoClipList = 0x887600cdu, kDDErrNotLocked = 0x887602b8u,
-                   kDDErrNoPalette = 0x887600ffu, kDDErrInvalidMode = 0x88760078u, kDDErrInvalidRect = 0x88760096u,
-                   kDDErrNoBlitHw = 0x8876023au, kDDErrNotFlippable = 0x887601e5u, kDDErrNoColorKey = 0x887600d7u,
-                   kD3DErrInvalidVertexType = 0x887602d4u, kDDErrCantCreateDc = 0x8876024bu;
+constexpr uint32_t kDDErrGeneric = 0x80004005u;
+constexpr uint32_t kDDErrInvalidParams = 0x80070057u;
+constexpr uint32_t kDDErrOutOfMemory = 0x8007000eu;
+constexpr uint32_t kDDErrUnsupported = 0x80004001u;
+constexpr uint32_t kDDErrNotFound = 0x887600ffu;
+constexpr uint32_t kDDErrInvalidObject = 0x88760082u;
+constexpr uint32_t kDDErrSurfaceBusy = 0x887601aeu;
+constexpr uint32_t kDDErrNoClipList = 0x887600cdu;
+constexpr uint32_t kDDErrNotLocked = 0x887602b8u;
+constexpr uint32_t kDDErrNoPalette = 0x887600ffu;
+constexpr uint32_t kDDErrInvalidMode = 0x88760078u;
+constexpr uint32_t kDDErrInvalidRect = 0x88760096u;
+constexpr uint32_t kDDErrNoBlitHw = 0x8876023au;
+constexpr uint32_t kDDErrNotFlippable = 0x887601e5u;
+constexpr uint32_t kDDErrNoColorKey = 0x887600d7u;
+constexpr uint32_t kD3DErrInvalidVertexType = 0x887602d4u;
+constexpr uint32_t kDDErrCantCreateDc = 0x8876024bu;
 
 // --- Pixel formats (DDPIXELFORMAT) ------------------------------------------------------
 enum : uint32_t {
@@ -39,7 +50,14 @@ enum : uint32_t {
     kPfBumpDuDv = 0x80000
 };
 struct PixelFormat {
-    uint32_t flags = 0, fourCC = 0, bits = 0, r = 0, g = 0, b = 0, a = 0; // for a Z buffer: bits, -, z mask, -
+    // for a Z buffer: bits, -, z mask, -
+    uint32_t flags = 0;
+    uint32_t fourCC = 0;
+    uint32_t bits = 0;
+    uint32_t r = 0;
+    uint32_t g = 0;
+    uint32_t b = 0;
+    uint32_t a = 0;
     bool operator==(const PixelFormat &o) const {
         return flags == o.flags && fourCC == o.fourCC && bits == o.bits && r == o.r && g == o.g && b == o.b && a == o.a;
     }
@@ -73,7 +91,10 @@ public:
 
 private:
     struct Channel {
-        uint32_t shift = 0, mask = 0, drop = 0, to = 0;
+        uint32_t shift = 0;
+        uint32_t mask = 0;
+        uint32_t drop = 0;
+        uint32_t to = 0;
         uint8_t table[256]{};
     };
     PixelFormat _format;
@@ -113,11 +134,15 @@ enum : uint32_t {
     kCapsLocalVidMem = 0x10000000,
     kCapsNonLocalVidMem = 0x08000000
 };
-constexpr uint32_t kCaps2TextureManage = 0x10, kCaps2MipMapSubLevel = 0x10000;
+constexpr uint32_t kCaps2TextureManage = 0x10;
+constexpr uint32_t kCaps2MipMapSubLevel = 0x10000;
 
 // --- Surfaces ------------------------------------------------------------------------------
 struct Rect {
-    int left = 0, top = 0, right = 0, bottom = 0;
+    int left = 0;
+    int top = 0;
+    int right = 0;
+    int bottom = 0;
     int width() const { return right - left; }
     int height() const { return bottom - top; }
     static Rect read(Cpu &c, uint32_t p);
@@ -129,7 +154,8 @@ class Palette;
 class Clipper;
 
 struct SurfaceData {
-    int width = 0, height = 0;
+    int width = 0;
+    int height = 0;
     int pitch = 0;
     uint32_t memory = 0; // in the process
     PixelFormat format;
@@ -141,8 +167,12 @@ struct SurfaceData {
 class Surface : public ComObject {
 public:
     SurfaceData d;
-    bool hasSrcKey = false, hasDestKey = false;
-    uint32_t srcKeyLow = 0, srcKeyHigh = 0, destKeyLow = 0, destKeyHigh = 0;
+    bool hasSrcKey = false;
+    bool hasDestKey = false;
+    uint32_t srcKeyLow = 0;
+    uint32_t srcKeyHigh = 0;
+    uint32_t destKeyLow = 0;
+    uint32_t destKeyHigh = 0;
     std::shared_ptr<Palette> palette;
     std::shared_ptr<Clipper> clipper;
     // Surfaces attached to this one: a flipping chain's next buffer, its Z
@@ -153,7 +183,8 @@ public:
     std::vector<Surface *> chain;
     int locks = 0;
     uint32_t dc = 0; // GetDC's
-    uint32_t priority = 0, lod = 0;
+    uint32_t priority = 0;
+    uint32_t lod = 0;
     DirectX::State *s = nullptr;
 
     std::optional<uint32_t> invoke(const ComInterface &iface, int index, Cpu &c) override;
@@ -215,10 +246,21 @@ private:
 
 // --- Interfaces ------------------------------------------------------------------------------
 struct Interfaces {
-    ComInterface directDraw, directDraw2, directDraw4, directDraw7;
-    ComInterface surface, surface2, surface3, surface4, surface7;
-    ComInterface palette, clipper, gammaControl;
-    ComInterface direct3d7, device7, vertexBuffer7;
+    ComInterface directDraw;
+    ComInterface directDraw2;
+    ComInterface directDraw4;
+    ComInterface directDraw7;
+    ComInterface surface;
+    ComInterface surface2;
+    ComInterface surface3;
+    ComInterface surface4;
+    ComInterface surface7;
+    ComInterface palette;
+    ComInterface clipper;
+    ComInterface gammaControl;
+    ComInterface direct3d7;
+    ComInterface device7;
+    ComInterface vertexBuffer7;
     Interfaces();
 };
 
@@ -267,8 +309,12 @@ struct DirectX::State {
     dx::Interfaces interfaces;
     DirectX::Frame frame;
     // The display: its mode, and whether the program owns it (fullscreen).
-    int width = 0, height = 0, bits = 0;
-    bool exclusive = false, noWindowChanges = false, fpuPreserve = false;
+    int width = 0;
+    int height = 0;
+    int bits = 0;
+    bool exclusive = false;
+    bool noWindowChanges = false;
+    bool fpuPreserve = false;
     // The display's gamma ramp (IDirectDrawGammaControl): red, green and
     // blue, 256 entries each, 0..65535; applied to the frames shown.
     std::array<uint16_t, 768> gamma = identityGamma();
@@ -278,7 +324,10 @@ struct DirectX::State {
             g[i] = uint16_t((i % 256) * 257);
         return g;
     }
-    int desktopWidth = 0, desktopHeight = 0, desktopBits = 0; // while a mode is set: the desktop's
+    // while a mode is set: the desktop's
+    int desktopWidth = 0;
+    int desktopHeight = 0;
+    int desktopBits = 0;
     uint32_t window = 0;
     uint32_t videoUsed = 0;
     std::weak_ptr<dx::Surface> primary;

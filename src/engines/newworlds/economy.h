@@ -53,11 +53,15 @@ struct ColonyMap {
 struct ColonyStructure {
     int id = 0;
     std::string type;
-    float x = 0, y = 0;           // its middle, world units
-    float progress = 1;           // 0 when ordered, 1 built
-    bool started = true;          // its cost paid (it waits for materials if not)
-    int deposit = 0;              // a mine's ore kind
-    int blockX = -1, blockY = -1; // a mine's deposit block
+    // its middle, world units
+    float x = 0;
+    float y = 0;
+    float progress = 1;  // 0 when ordered, 1 built
+    bool started = true; // its cost paid (it waits for materials if not)
+    int deposit = 0;     // a mine's ore kind
+    // a mine's deposit block
+    int blockX = -1;
+    int blockY = -1;
     bool exhausted = false;
 };
 
@@ -95,13 +99,17 @@ private:
 
     char _side;
     Stock _stock;
-    int _crew, _capacity;
+    int _crew;
+    int _capacity;
     ColonyMap _map;
     std::vector<ColonyStructure> _structures;
     std::array<float, kOres> _ore{};
     std::array<float, kMaterials> _made{};                     // fractions of materials refined
     std::vector<std::pair<std::pair<int, int>, float>> _mined; // blocks' ore taken so far
-    double _clock = 0, _lastPowerWarning = -1e9, _lastShortWarning = -1e9, _crewTimer = 0;
+    double _clock = 0;
+    double _lastPowerWarning = -1e9;
+    double _lastShortWarning = -1e9;
+    double _crewTimer = 0;
     int _nextId = 1;
 };
 

@@ -25,7 +25,8 @@ namespace reluva::clue {
 // file (kCaseFile).
 class Notebook {
 public:
-    static constexpr int kCaseFile = kSuspectCount, kOwners = kSuspectCount + 1;
+    static constexpr int kCaseFile = kSuspectCount;
+    static constexpr int kOwners = kSuspectCount + 1;
     enum Mark : uint8_t { kUnknown, kYes, kNo };
 
     // A fresh notebook for the seat `me`: its hand known, the seats not
@@ -57,7 +58,8 @@ private:
     std::array<int, kOwners> _handSize{};
     std::vector<std::pair<int, std::array<int, 3>>> _oneOf;
     std::vector<std::array<int, 3>> _notAll;
-    bool _countCards = true, _useClues = true;
+    bool _countCards = true;
+    bool _useClues = true;
     bool _contradiction = false;
 };
 
@@ -93,7 +95,8 @@ private:
         uint32_t current = 0;  // the suggestion last made
         uint32_t known = 0;    // every card known to be held
         uint32_t solution = 0; // the answer's cards found
-        std::array<uint32_t, kSuspectCount> has{}, hasNot{};
+        std::array<uint32_t, kSuspectCount> has{};
+        std::array<uint32_t, kSuspectCount> hasNot{};
         std::array<std::vector<uint32_t>, kSuspectCount> oneOf; // holds one of each
         std::array<uint32_t, kSuspectCount> shownTo{};          // what it has shown each
         uint32_t shownAny = 0;

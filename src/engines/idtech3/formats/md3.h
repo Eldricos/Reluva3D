@@ -21,7 +21,8 @@ namespace reluva::idtech3 {
 using Vec3 = std::array<float, 3>;
 
 struct Md3Frame {
-    Vec3 mins{}, maxs{};
+    Vec3 mins{};
+    Vec3 maxs{};
     Vec3 origin{};
     float radius = 0;
     std::string name;

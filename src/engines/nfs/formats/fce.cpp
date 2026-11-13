@@ -32,16 +32,31 @@ std::string name(const uint8_t *p) {
 }
 
 // The header's fields (docs/engines/nfs/games/nfs3/formats/fce.md).
-constexpr size_t kTriangles = 0x04, kVertices = 0x08;
-constexpr size_t kVertexTable = 0x10, kNormalTable = 0x14, kTriangleTable = 0x18;
-constexpr size_t kHalfSize = 0x28, kDummyCount = 0x34, kDummies = 0x38;
-constexpr size_t kPartCount = 0xf8, kPartPositions = 0xfc;
-constexpr size_t kFirstVertices = 0x3fc, kVertexCounts = 0x4fc, kFirstTriangles = 0x5fc, kTriangleCounts = 0x6fc;
-constexpr size_t kPrimaryCount = 0x7fc, kPrimaryColours = 0x800, kSecondaryCount = 0x900, kSecondaryColours = 0x904;
-constexpr size_t kDummyNames = 0xa04, kPartNames = 0xe04;
+constexpr size_t kTriangles = 0x04;
+constexpr size_t kVertices = 0x08;
+constexpr size_t kVertexTable = 0x10;
+constexpr size_t kNormalTable = 0x14;
+constexpr size_t kTriangleTable = 0x18;
+constexpr size_t kHalfSize = 0x28;
+constexpr size_t kDummyCount = 0x34;
+constexpr size_t kDummies = 0x38;
+constexpr size_t kPartCount = 0xf8;
+constexpr size_t kPartPositions = 0xfc;
+constexpr size_t kFirstVertices = 0x3fc;
+constexpr size_t kVertexCounts = 0x4fc;
+constexpr size_t kFirstTriangles = 0x5fc;
+constexpr size_t kTriangleCounts = 0x6fc;
+constexpr size_t kPrimaryCount = 0x7fc;
+constexpr size_t kPrimaryColours = 0x800;
+constexpr size_t kSecondaryCount = 0x900;
+constexpr size_t kSecondaryColours = 0x904;
+constexpr size_t kDummyNames = 0xa04;
+constexpr size_t kPartNames = 0xe04;
 constexpr size_t kDataStart = 0x1f04; // the tables' offsets count from here
 constexpr size_t kTriangleSize = 56;
-constexpr uint32_t kMaxParts = 64, kMaxDummies = 16, kMaxColours = 16;
+constexpr uint32_t kMaxParts = 64;
+constexpr uint32_t kMaxDummies = 16;
+constexpr uint32_t kMaxColours = 16;
 
 } // namespace
 

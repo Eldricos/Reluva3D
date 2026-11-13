@@ -31,7 +31,10 @@ private:
     struct Hotspot {
         int index;      // in the scene's CH list
         int background; // CB index current when it was defined, or -1
-        int x, y, w, h;
+        int x;
+        int y;
+        int w;
+        int h;
     };
 
     void enterScene(int index);

@@ -119,9 +119,12 @@ private:
     void parseGamestate(wire::MessageReader &r);
     void parseSnapshot(wire::MessageReader &r, uint64_t now);
     void parseDownload(wire::MessageReader &r, uint64_t now);
-    std::string _downloadName, _finishedName;
-    std::vector<uint8_t> _downloadData, _finishedData;
-    int32_t _downloadSize = -1, _downloadBlock = 0;
+    std::string _downloadName;
+    std::string _finishedName;
+    std::vector<uint8_t> _downloadData;
+    std::vector<uint8_t> _finishedData;
+    int32_t _downloadSize = -1;
+    int32_t _downloadBlock = 0;
     bool _finished = false;
     void serverCommand(int32_t sequence, const std::string &text);
     void sendPacket(uint64_t now);
@@ -133,7 +136,9 @@ private:
     uint16_t _qport;
     State _state = State::kConnecting;
     std::string _message;
-    uint64_t _lastSent = 0, _lastReceived = 0, _lastPacket = 0;
+    uint64_t _lastSent = 0;
+    uint64_t _lastReceived = 0;
+    uint64_t _lastPacket = 0;
     int _connectPackets = 0;
     int32_t _challenge = 0;
     wire::Netchan _chan;
@@ -146,14 +151,17 @@ private:
     // From the server.
     std::map<int32_t, std::string> _configstrings;
     std::map<int32_t, std::vector<uint8_t>> _baselines;
-    int32_t _gamestateSequence = 0, _gamestateMessage = 0, _checksumFeed = 0;
+    int32_t _gamestateSequence = 0;
+    int32_t _gamestateMessage = 0;
+    int32_t _checksumFeed = 0;
     bool _newGamestate = false;
     std::vector<std::string> _serverCommands;
     std::string _bigConfigstring;       // one coming in pieces (bcs0, bcs1, bcs2)
     int32_t _serverCommandSequence = 0; // the last received
     struct Snap {
         bool valid = false;
-        int32_t message = 0, serverTime = 0;
+        int32_t message = 0;
+        int32_t serverTime = 0;
         std::vector<uint8_t> playerState;
         std::map<int32_t, std::vector<uint8_t>> entities;
         std::array<uint8_t, 32> areaMask{};
@@ -164,14 +172,16 @@ private:
 
     // To the server.
     std::array<std::string, 64> _reliable;
-    int32_t _reliableSequence = 0, _reliableAcknowledge = 0;
+    int32_t _reliableSequence = 0;
+    int32_t _reliableAcknowledge = 0;
     std::deque<GameHost::UserCommand> _commands; // not yet sent twice
     size_t _commandsInLastPacket = 0;
 
     // The clock.
     bool _haveSnapshot = false;
     int64_t _timeDelta = 0;
-    int32_t _serverTime = 0, _newestSnapshotTime = 0;
+    int32_t _serverTime = 0;
+    int32_t _newestSnapshotTime = 0;
     bool _extrapolated = false;
 };
 

@@ -82,9 +82,12 @@ private:
     std::map<std::string, std::shared_ptr<LstArchive>> _archives;
     void loadLinkTables();
     bool _linkLoaded = false;
-    std::vector<std::string> _linkScenes, _linkVariables, _linkDialogues;
+    std::vector<std::string> _linkScenes;
+    std::vector<std::string> _linkVariables;
+    std::vector<std::string> _linkDialogues;
     std::string _speechName;
-    std::shared_ptr<LstArchive> _speechArchive, _phonemeArchive;
+    std::shared_ptr<LstArchive> _speechArchive;
+    std::shared_ptr<LstArchive> _phonemeArchive;
 };
 
 } // namespace reluva::stharbinger

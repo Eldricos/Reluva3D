@@ -153,7 +153,8 @@ private:
     System &_sys;
     Surface _screen;
     Surface _plasma;
-    int _mouseX = kWidth / 2, _mouseY = kHeight / 2;
+    int _mouseX = kWidth / 2;
+    int _mouseY = kHeight / 2;
     bool _customCursor = false;
     std::atomic<bool> _toneOn{false};
     double _phase = 0; // audio thread only

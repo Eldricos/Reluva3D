@@ -24,7 +24,8 @@ struct SoundHeader {
     uint32_t dataOffset = 0; // in a bank: from the bank's start
     // The loop, in samples: its first and its end (the last sample, or in
     // some banks the count); both 0 if it doesn't loop.
-    uint32_t loopStart = 0, loopEnd = 0;
+    uint32_t loopStart = 0;
+    uint32_t loopEnd = 0;
     std::map<int, uint32_t> tags; // every tag as read, the known ones too
 };
 

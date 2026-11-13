@@ -71,9 +71,15 @@ public:
 private:
     struct Target {
         RleAnimation rle;
-        int start = 0, hp = 1, damage = 1, period = 10, gun = 0xFF, id = 0;
+        int start = 0;
+        int hp = 1;
+        int damage = 1;
+        int period = 10;
+        int gun = 0xFF;
+        int id = 0;
         const RleAnimation *draw = nullptr; // the sprite, or its explosion
-        int drawFrame = 0, pathFrame = 0;
+        int drawFrame = 0;
+        int pathFrame = 0;
         int hits = 0;
         int muzzle = 0;
         int state = 0; // 0 alive, 1 exploding, 2 gone
@@ -82,11 +88,13 @@ private:
 
     struct Torpedo {
         int state = -1; // -1 free, 0..3 flying, 4 impact
-        int aimX = 0, aimY = 0;
+        int aimX = 0;
+        int aimY = 0;
         struct Sprite {
             const RleAnimation *anim = nullptr;
             int frame = 0;
-            int x = 0, y = 0;
+            int x = 0;
+            int y = 0;
         };
         Sprite sprites[4][4]; // [stage][left upper, left lower, right upper, right lower]
     };
@@ -94,7 +102,8 @@ private:
     struct DoorExplosion {
         const RleAnimation *anim = nullptr;
         int frame = 0;
-        int x = 0, y = 0;
+        int x = 0;
+        int y = 0;
         int delay = 0;
         int bang = 0;
     };
@@ -136,13 +145,17 @@ private:
     int _difficulty;
     std::string _name;
     Rect _rect;
-    int _startFrame = 100, _endFrame = 100;
-    bool _torpedoes = true, _shieldHud = true, _overlay = true;
+    int _startFrame = 100;
+    int _endFrame = 100;
+    bool _torpedoes = true;
+    bool _shieldHud = true;
+    bool _overlay = true;
 
     std::unique_ptr<smacker::Decoder> _video;
     std::shared_ptr<audio::QueuingStream> _videoAudio; // fed while the mixer plays it
     audio::SoundHandle _videoAudioHandle = audio::kNoSound;
-    Surface _work, _compose;
+    Surface _work;
+    Surface _compose;
     uint8_t _palette[768] = {};
     bool _paletteChanged = false;
 
@@ -150,7 +163,9 @@ private:
     std::vector<RleAnimation> _explosions; // sorted by name: large first, then small
     RleAnimation _torpedoAnims[6];         // T29L T17L T09L T29R T17R T09R
     RleAnimation _torpedoEnd;              // T5ALL
-    RleAnimation _shield, _windshield, _door;
+    RleAnimation _shield;
+    RleAnimation _windshield;
+    RleAnimation _door;
     int _doorStart = 0;
     int _doorFrame = 0;
     int _doorDamage = 0;
@@ -167,19 +182,25 @@ private:
     int _damage = 0;
     int _prevDamage = 0;
     int _winCountdown = 0;
-    int _shakeCount = 0, _shakeIntensity = 0;
-    int _shakeX = 0, _shakeY = 0;
+    int _shakeCount = 0;
+    int _shakeIntensity = 0;
+    int _shakeX = 0;
+    int _shakeY = 0;
     uint16_t _result = 0;
     bool _done = false;
     uint32_t _randSeed = 12345;
 
     struct PhaserShot {
         bool active = false;
-        int x = 0, y = 0;
+        int x = 0;
+        int y = 0;
     } _phaser;
 
     // Sounds.
-    std::vector<uint8_t> _bangs[5], _quant, _phasor, _shake;
+    std::vector<uint8_t> _bangs[5];
+    std::vector<uint8_t> _quant;
+    std::vector<uint8_t> _phasor;
+    std::vector<uint8_t> _shake;
     std::vector<std::vector<int16_t>> _musicSegments;
     std::vector<int> _musicOrder;
     int _musicTag = -1;

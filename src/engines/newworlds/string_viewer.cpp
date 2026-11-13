@@ -30,7 +30,8 @@ bool endsWith(const std::string &s, const char *suffix) {
 struct Piece {
     std::string text;
     Color color;
-    bool space = false, lineBreak = false;
+    bool space = false;
+    bool lineBreak = false;
 };
 
 // Splits a string into pieces: "~HEADING~" on a line of its own, printf

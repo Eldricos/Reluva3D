@@ -15,9 +15,16 @@ namespace reluva::idtech3::eliteforce {
 
 namespace {
 
-constexpr int32_t kSvcNop = 1, kSvcGamestate = 2, kSvcConfigstring = 3, kSvcBaseline = 4, kSvcServerCommand = 5,
-                  kSvcDownload = 6, kSvcSnapshot = 7;
-constexpr uint32_t kClcMove = 2, kClcMoveNoDelta = 3, kClcClientCommand = 4;
+constexpr int32_t kSvcNop = 1;
+constexpr int32_t kSvcGamestate = 2;
+constexpr int32_t kSvcConfigstring = 3;
+constexpr int32_t kSvcBaseline = 4;
+constexpr int32_t kSvcServerCommand = 5;
+constexpr int32_t kSvcDownload = 6;
+constexpr int32_t kSvcSnapshot = 7;
+constexpr uint32_t kClcMove = 2;
+constexpr uint32_t kClcMoveNoDelta = 3;
+constexpr uint32_t kClcClientCommand = 4;
 constexpr uint64_t kResendMs = 3000;    // getchallenge and connect, until answered
 constexpr uint64_t kWaitingMs = 1000;   // a packet a second while waiting for the level
 constexpr uint64_t kTimeoutMs = 200000; // cl_timeout

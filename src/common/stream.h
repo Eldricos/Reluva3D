@@ -70,7 +70,9 @@ public:
 
 private:
     std::shared_ptr<const std::vector<uint8_t>> _buffer;
-    uint32_t _offset, _size, _pos = 0;
+    uint32_t _offset;
+    uint32_t _size;
+    uint32_t _pos = 0;
     bool _eos = false;
 };
 

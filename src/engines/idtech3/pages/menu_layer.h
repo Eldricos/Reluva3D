@@ -22,7 +22,8 @@ namespace reluva::idtech3 {
 class MenuLayer {
 public:
     // The menus' own numbers for the menu to start on (Quake III's).
-    static constexpr int32_t kMainMenu = 1, kInGameMenu = 2;
+    static constexpr int32_t kMainMenu = 1;
+    static constexpr int32_t kInGameMenu = 2;
     // Their key catcher's bit while they take the keys (Quake III's).
     static constexpr int32_t kCatchUi = 2;
 
@@ -78,7 +79,8 @@ private:
     ViewerContext &_ctx;
     CvarStore &_cvars;
     gfx::Renderer3D *_renderer = nullptr;
-    int _frameW = 960, _frameH = 720;
+    int _frameW = 960;
+    int _frameH = 720;
     std::unique_ptr<ShaderCache> _shaders;
     std::unique_ptr<ModelCache> _models; // the models the menus show
     std::unique_ptr<SceneDrawer> _scene; // their pictures and scenes
@@ -87,17 +89,29 @@ private:
     std::vector<std::string> _commands;
     SoundLibrary _sounds{_ctx.files};
     std::map<int, audio::SoundHandle> _channels; // the sound on each of the menus' channels
-    std::string _error, _reportPath;
+    std::string _error;
+    std::string _reportPath;
     uint64_t _startMs = 0;
     // The mouse, and the menus' own pointer as last drawn (both in frame
     // pixels); the pointer's picture is drawn offset from its point.
-    bool _haveMouse = false, _haveCursor = false, _calibrate = false;
-    int _mouseX = 0, _mouseY = 0;
-    float _cursorX = 0, _cursorY = 0;
-    float _cursorOffsetX = 0, _cursorOffsetY = 0;
-    float _measuredX = 0, _measuredY = 0; // where its picture last put it
-    float _pendingX = 0, _pendingY = 0;   // the steps sent since, in pixels expected
-    float _gainX = 1, _gainY = 1;         // pixels moved per pixel expected
+    bool _haveMouse = false;
+    bool _haveCursor = false;
+    bool _calibrate = false;
+    int _mouseX = 0;
+    int _mouseY = 0;
+    float _cursorX = 0;
+    float _cursorY = 0;
+    float _cursorOffsetX = 0;
+    float _cursorOffsetY = 0;
+    // where its picture last put it
+    float _measuredX = 0;
+    float _measuredY = 0;
+    // the steps sent since, in pixels expected
+    float _pendingX = 0;
+    float _pendingY = 0;
+    // pixels moved per pixel expected
+    float _gainX = 1;
+    float _gainY = 1;
 };
 
 } // namespace reluva::idtech3

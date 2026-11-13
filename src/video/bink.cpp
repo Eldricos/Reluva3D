@@ -23,7 +23,8 @@ enum BlockType { kSkip, kScaled, kMotion, kRunBlock, kResidue, kIntra, kFill, kI
 
 constexpr double kPi = 3.14159265358979323846; // not M_PI: MSVC only has it with _USE_MATH_DEFINES
 constexpr uint32_t kAlphaFlag = 0x00100000;
-constexpr uint16_t kAudioDct = 0x1000, kAudioStereo = 0x2000;
+constexpr uint16_t kAudioDct = 0x1000;
+constexpr uint16_t kAudioStereo = 0x2000;
 
 uint32_t le32(const uint8_t *p) {
     return uint32_t(p[0]) | uint32_t(p[1]) << 8 | uint32_t(p[2]) << 16 | uint32_t(p[3]) << 24;
@@ -42,7 +43,10 @@ uint8_t clampByte(int v) {
 
 // The 8x8 inverse DCT the format is coded for, in its fixed-point form
 // (constants 1/sqrt(2) and the rotations, << 11).
-constexpr int kA1 = 2896, kA2 = 2217, kA3 = 3784, kA4 = -5352;
+constexpr int kA1 = 2896;
+constexpr int kA2 = 2217;
+constexpr int kA3 = 3784;
+constexpr int kA4 = -5352;
 
 template<typename Out, typename Munge>
 void idct8(const int32_t *s, int step, Out *d, int dstep, Munge munge) {

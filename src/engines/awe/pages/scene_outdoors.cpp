@@ -23,7 +23,9 @@ constexpr float kFootprintLife = 5;
 
 // The stride: the right foot down 0.45 s in, the left at 0.9 s, again
 // from 1.16666 s (0x43fda0).
-constexpr float kRightFoot = 0.45f, kLeftFoot = 0.9f, kStride = 1.16666f;
+constexpr float kRightFoot = 0.45f;
+constexpr float kLeftFoot = 0.9f;
+constexpr float kStride = 1.16666f;
 
 // The breath's particles, as BRTH's constructor (0x406840) sets them over
 // the particles' own defaults: one at a time every 0.3 s, thrown with no

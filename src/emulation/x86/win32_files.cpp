@@ -26,8 +26,11 @@ namespace reluva::x86 {
 namespace {
 
 constexpr uint32_t kInvalidHandle = 0xffffffffu;
-constexpr uint32_t kErrorFileNotFound = 2, kErrorPathNotFound = 3, kErrorAccessDenied = 5, kErrorInvalidHandle = 6,
-                   kErrorNoMoreFiles = 18;
+constexpr uint32_t kErrorFileNotFound = 2;
+constexpr uint32_t kErrorPathNotFound = 3;
+constexpr uint32_t kErrorAccessDenied = 5;
+constexpr uint32_t kErrorInvalidHandle = 6;
+constexpr uint32_t kErrorNoMoreFiles = 18;
 // FILETIME of 1970-01-01, in 100 ns units since 1601.
 constexpr uint64_t kUnixEpoch = 116444736000000000ULL;
 
@@ -87,11 +90,18 @@ namespace stdfs = std::filesystem;
 
 constexpr uint32_t kGenericWrite = 0x40000000;
 // Errors.
-constexpr uint32_t kFileNotFound = 2, kPathNotFound = 3, kAccessDenied = 5, kInvalidHandleError = 6, kNoMoreFiles = 18,
-                   kFileExists = 80, kAlreadyExists = 183;
+constexpr uint32_t kFileNotFound = 2;
+constexpr uint32_t kPathNotFound = 3;
+constexpr uint32_t kAccessDenied = 5;
+constexpr uint32_t kInvalidHandleError = 6;
+constexpr uint32_t kNoMoreFiles = 18;
+constexpr uint32_t kFileExists = 80;
+constexpr uint32_t kAlreadyExists = 183;
 constexpr uint32_t kStdHandles = 0x100; // stdin, stdout, stderr: 0x100 to 0x102 (win32.cpp)
 // Attributes.
-constexpr uint32_t kDirectory = 0x10, kArchive = 0x20, kReadOnly = 0x01;
+constexpr uint32_t kDirectory = 0x10;
+constexpr uint32_t kArchive = 0x20;
+constexpr uint32_t kReadOnly = 0x01;
 
 std::string lower(std::string s) {
     for (char &c : s)

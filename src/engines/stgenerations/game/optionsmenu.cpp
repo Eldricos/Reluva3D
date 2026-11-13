@@ -14,10 +14,15 @@ namespace {
 const char *const kArchive = "OPTIONS.DAT";
 
 // The panels' corner on the screen.
-const int kPanelX = 227, kPanelY = 29;
+const int kPanelX = 227;
+const int kPanelY = 29;
 // Slot rows on the Load and Save panels, within the panel, as OPTSAVE.BMP draws them.
-const int kSlotTop = 33, kSlotPitch = 30, kSlotHeight = 26;
-const int kSlotNameX = 31, kSlotDateX = 232, kSlotRight = 309;
+const int kSlotTop = 33;
+const int kSlotPitch = 30;
+const int kSlotHeight = 26;
+const int kSlotNameX = 31;
+const int kSlotDateX = 232;
+const int kSlotRight = 309;
 const int kMaxNameLength = 48;
 // The volume sliders, within the Settings panel.
 const Rect kEffectsSlider(106, 126, 318, 144);
@@ -25,7 +30,8 @@ const Rect kMusicSlider(106, 157, 318, 175);
 const int kSliderSteps = 30;
 
 // The selected key cell's highlight, KEYHIGH.BMP, from the cell (0x483C8B).
-const int kKeyHighX = -3, kKeyHighY = -6;
+const int kKeyHighX = -3;
+const int kKeyHighY = -6;
 
 } // namespace
 

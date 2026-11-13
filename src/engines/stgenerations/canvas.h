@@ -17,7 +17,8 @@ class Canvas {
 public:
     enum Format { kClut8, kArgb32 };
 
-    int w = 0, h = 0;
+    int w = 0;
+    int h = 0;
     int pitch = 0;
 
     Canvas() = default;

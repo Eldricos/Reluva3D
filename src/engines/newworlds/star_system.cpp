@@ -48,7 +48,9 @@ StarSystemLayout readStarSystem(const GeoModel &model) {
     out.faceSlot.assign(model.faces.size(), -1);
     out.faceBody.assign(model.faces.size(), -1);
     struct Info {
-        GeoModel::Vec3 centre{0, 0, 0}, lo{0, 0, 0}, hi{0, 0, 0};
+        GeoModel::Vec3 centre{0, 0, 0};
+        GeoModel::Vec3 lo{0, 0, 0};
+        GeoModel::Vec3 hi{0, 0, 0};
         float size = 0;
         int slot = 0;
         int cluster = -1;

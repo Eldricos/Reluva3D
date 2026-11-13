@@ -24,14 +24,20 @@ public:
 
 private:
     struct Edge {
-        std::array<float, 3> a, b;
+        std::array<float, 3> a;
+        std::array<float, 3> b;
         Color color;
         bool patch;
     };
     // The orbit camera's basis, rebuilt by render().
     struct Camera {
-        std::array<float, 3> pos{}, right{}, up{}, forward{};
-        float cx = 0, cy = 0, focal = 0;
+        std::array<float, 3> pos{};
+        std::array<float, 3> right{};
+        std::array<float, 3> up{};
+        std::array<float, 3> forward{};
+        float cx = 0;
+        float cy = 0;
+        float focal = 0;
     };
 
     void load(int index);
@@ -46,14 +52,19 @@ private:
     std::string _error; // why the map couldn't be shown
     std::vector<std::string> _info;
     std::vector<Edge> _edges;
-    std::array<float, 3> _mins{}, _maxs{};
+    std::array<float, 3> _mins{};
+    std::array<float, 3> _maxs{};
 
     // Orbit camera around `target_`.
     std::array<float, 3> _target{};
-    float _yaw = 0, _pitch = 0, _distance = 0;
-    bool _showPatches = true, _showInfo = true;
+    float _yaw = 0;
+    float _pitch = 0;
+    float _distance = 0;
+    bool _showPatches = true;
+    bool _showInfo = true;
     bool _dragging = false;
-    int _lastX = 0, _lastY = 0;
+    int _lastX = 0;
+    int _lastY = 0;
     bool _dirty = true;
     Camera _cam;
 };

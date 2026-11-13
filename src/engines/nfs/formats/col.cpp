@@ -30,8 +30,13 @@ TrackCollision::Vec3 unit(const uint8_t *p) {
     return {static_cast<int8_t>(p[0]) / 128.0f, static_cast<int8_t>(p[1]) / 128.0f, static_cast<int8_t>(p[2]) / 128.0f};
 }
 
-constexpr uint16_t kTextures = 2, kObjects = 7, kStructures = 8, kRoad = 15, kObjects2 = 18;
-constexpr size_t kRoadPointSize = 36, kKeySize = 20;
+constexpr uint16_t kTextures = 2;
+constexpr uint16_t kObjects = 7;
+constexpr uint16_t kStructures = 8;
+constexpr uint16_t kRoad = 15;
+constexpr uint16_t kObjects2 = 18;
+constexpr size_t kRoadPointSize = 36;
+constexpr size_t kKeySize = 20;
 
 Error readObjects(const uint8_t *p, const uint8_t *end, uint32_t count, std::vector<TrackCollision::Object> &out) {
     for (uint32_t i = 0; i < count; ++i) {

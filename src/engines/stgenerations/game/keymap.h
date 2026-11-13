@@ -51,7 +51,8 @@ public:
     };
 
     // The Controls panel's actions, in its order (tables 0x548B40 and 0x548B50).
-    static const int kAwayActions = 14, kStarshipActions = 17;
+    static const int kAwayActions = 14;
+    static const int kStarshipActions = 17;
     static const uint8_t kAwayPanel[kAwayActions];
     static const uint8_t kStarshipPanel[kStarshipActions];
 

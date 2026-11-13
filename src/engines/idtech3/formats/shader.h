@@ -27,12 +27,14 @@ struct Directive {
 // docs/engines/idtech3/formats/shader.md. Every directive is also kept, as
 // written, in `directives`.
 struct ShaderStage {
-    std::vector<std::string> maps;  // one image, or animMap's frames
-    float animFps = 0;              // animMap's rate; 0 = not animated
-    bool clamp = false;             // clampMap
-    bool lightmap = false;          // map $lightmap
-    bool whiteImage = false;        // map $whiteimage
-    std::string blendSrc, blendDst; // GL_* names, lower case; empty = opaque
+    std::vector<std::string> maps; // one image, or animMap's frames
+    float animFps = 0;             // animMap's rate; 0 = not animated
+    bool clamp = false;            // clampMap
+    bool lightmap = false;         // map $lightmap
+    bool whiteImage = false;       // map $whiteimage
+    // GL_* names, lower case; empty = opaque
+    std::string blendSrc;
+    std::string blendDst;
 
     enum class RgbGen : uint8_t {
         kDefault,
@@ -94,10 +96,13 @@ struct ShaderDeform {
         kProjectionShadow,
         kOther,
     } type = Type::kOther;
-    float spread = 0;                       // wave: 1 / div
-    gfx::Wave wave;                         // wave, normal (amplitude, frequency), move
-    std::array<float, 3> vector{};          // move
-    float width = 0, height = 0, speed = 0; // bulge
+    float spread = 0;              // wave: 1 / div
+    gfx::Wave wave;                // wave, normal (amplitude, frequency), move
+    std::array<float, 3> vector{}; // move
+    // bulge
+    float width = 0;
+    float height = 0;
+    float speed = 0;
 };
 
 struct ShaderDef {
@@ -111,7 +116,8 @@ struct ShaderDef {
     std::vector<ShaderDeform> deforms;
     float sort = 0; // 0 = not given; see sortKey() in world_renderer.cpp
     bool polygonOffset = false;
-    bool noMipmaps = false, noPicmip = false;
+    bool noMipmaps = false;
+    bool noPicmip = false;
     bool portal = false;
 
     bool sky = false;      // skyParms

@@ -112,10 +112,18 @@ private:
     const Ac2Record *_record;
     std::map<std::string, std::shared_ptr<const Animation>> _loaded;
     std::map<const Animation *, Motion> _motions;
-    float _talkEase = 0.15f, _blinkMin = 5, _blinkMax = 8, _idleMin = 8, _idleMax = 12;
-    int _chance2 = 50, _chance3 = 30, _chance4 = 20;
-    int _idles = 0, _talkIdles = 0;
-    float _blinkLeft = 0, _idleLeft = 0;
+    float _talkEase = 0.15f;
+    float _blinkMin = 5;
+    float _blinkMax = 8;
+    float _idleMin = 8;
+    float _idleMax = 12;
+    int _chance2 = 50;
+    int _chance3 = 30;
+    int _chance4 = 20;
+    int _idles = 0;
+    int _talkIdles = 0;
+    float _blinkLeft = 0;
+    float _idleLeft = 0;
     bool _conversation = false;
     bool _rotating = false;
     float _target = 0;  // degrees

@@ -18,12 +18,15 @@ namespace reluva::x86 {
 namespace {
 
 constexpr uint32_t kInfinite = 0xffffffffu;
-constexpr uint32_t kCurrentThread = 0xfffffffeu, kCurrentProcess = 0xffffffffu;
-constexpr uint32_t kWaitTimeout = 0x102, kWaitFailed = 0xffffffffu;
+constexpr uint32_t kCurrentThread = 0xfffffffeu;
+constexpr uint32_t kCurrentProcess = 0xffffffffu;
+constexpr uint32_t kWaitTimeout = 0x102;
+constexpr uint32_t kWaitFailed = 0xffffffffu;
 constexpr uint32_t kThreadStack = 1u << 20;
 
 struct EventObject : KernelObject {
-    bool manualReset = false, signaled = false;
+    bool manualReset = false;
+    bool signaled = false;
     std::function<bool()> signalWhen; // signalled once this holds (signalEventWhen)
 };
 

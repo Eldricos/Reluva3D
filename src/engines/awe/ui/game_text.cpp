@@ -34,7 +34,11 @@ const char *fontFile(const std::string &name) {
 std::vector<std::filesystem::path> systemFontFiles(const std::string &name, bool bold) {
     const std::string n = fs::toLower(name);
     struct Names {
-        const char *win, *mac, *core, *coreLower, *liberation;
+        const char *win;
+        const char *mac;
+        const char *core;
+        const char *coreLower;
+        const char *liberation;
     };
     Names f;
     if (n == "times new roman")

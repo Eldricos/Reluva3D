@@ -65,7 +65,10 @@ private:
 
     const std::vector<uint8_t> &_in;
     size_t _pos;
-    uint32_t _code = 0, _range = 0x80, _scale = 1, _bit = 0;
+    uint32_t _code = 0;
+    uint32_t _range = 0x80;
+    uint32_t _scale = 1;
+    uint32_t _bit = 0;
 };
 
 // Raw bits, least significant first, from little-endian 32-bit words.
@@ -239,9 +242,17 @@ private:
         }
     }
 
-    std::vector<uint16_t> _cdf, _freq, _values;
-    uint16_t _total = 0, _threshold = 0, _stepLimit = 0, _step = 0, _limit = 0;
-    uint16_t _used = 0, _inTable = 0, _symbols = 0;
+    std::vector<uint16_t> _cdf;
+    std::vector<uint16_t> _freq;
+    std::vector<uint16_t> _values;
+    uint16_t _total = 0;
+    uint16_t _threshold = 0;
+    uint16_t _stepLimit = 0;
+    uint16_t _step = 0;
+    uint16_t _limit = 0;
+    uint16_t _used = 0;
+    uint16_t _inTable = 0;
+    uint16_t _symbols = 0;
 };
 
 // The number of bits in v, at most 15.

@@ -18,7 +18,8 @@ namespace reluva::clue {
 struct ResiFont {
     uint32_t id = 0;
     std::string animation; // "largeu:Alargeu": frame n is character n
-    int32_t textSpacing = 0, lineSpacing = 0;
+    int32_t textSpacing = 0;
+    int32_t lineSpacing = 0;
 };
 
 struct ResiControl {
@@ -37,12 +38,17 @@ struct ResiControl {
     int32_t id = 0; // what the game knows it by; 9999 for decoration, 10000 Return/Cancel, 10001 OK/Yes
     // Its rectangle: right and bottom 0 when its image gives its size;
     // right -1 for the whole width of the screen.
-    int32_t left = 0, top = 0, right = 0, bottom = 0;
+    int32_t left = 0;
+    int32_t top = 0;
+    int32_t right = 0;
+    int32_t bottom = 0;
     // An Image's or ImageButton's animation is in text; a TextButton's
     // label is text and its animation animation. '|' breaks lines.
-    std::string text, animation;
+    std::string text;
+    std::string animation;
     std::vector<std::string> items;
-    int32_t font = 0, otherFont = 0;
+    int32_t font = 0;
+    int32_t otherFont = 0;
     int32_t group = 0; // 1: an alternative the game shows when needed; hidden at first
     // How its text sits in its rectangle (as in recordings: the
     // preferences' labels are left-aligned, the titles centred).

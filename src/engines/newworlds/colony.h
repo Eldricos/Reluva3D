@@ -20,7 +20,8 @@ namespace reluva::newworlds {
 // Where a side's colony starts in a mission, as a map position (eighths of
 // a block, row first); a < 0 if no recording gives it.
 struct ColonySite {
-    int a = -1, b = -1;
+    int a = -1;
+    int b = -1;
     const char *source = ""; // how it's known
 };
 ColonySite colonySite(std::string_view shortName, char side);
@@ -35,15 +36,19 @@ std::string buildingModel(std::string_view building, char side, bool *matched = 
 // (NaN where there's no ground), and a model's size across x and y in
 // model units (a block is 16384).
 struct ColonyGround {
-    int width = 0, height = 0;
+    int width = 0;
+    int height = 0;
     std::function<int(int bx, int by)> deposit;
     std::function<float(int a, int b)> heightAt;
     std::function<std::pair<float, float>(const std::string &model)> size;
 };
 
 struct ColonyBuilding {
-    std::string name, model;
-    int a = 0, b = 0; // its middle
+    std::string name;
+    std::string model;
+    // its middle
+    int a = 0;
+    int b = 0;
 };
 
 // Buildings on the map's tile grid (half a block, 4 map positions), each
@@ -77,7 +82,11 @@ public:
 
 private:
     struct Rect {
-        int x, y, w, h; // in tiles
+        // in tiles
+        int x;
+        int y;
+        int w;
+        int h;
     };
     bool tileFree(int tx, int ty, bool mine) const; // groundFits, and nothing stands there
     // On the map, flat (within flatness), near the hub's height.

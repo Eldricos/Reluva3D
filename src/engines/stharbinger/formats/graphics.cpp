@@ -30,7 +30,8 @@ bool loadCMP(SeekableReadStream &stream, Surface &surface, Palette *palette, boo
         return false;
 
     static const struct {
-        int w, h;
+        int w;
+        int h;
     } kSizes[] = {{640, 480}, {640, 400}, {320, 200}, {640, 350}};
     int w = 0;
     int h = 0;

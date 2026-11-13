@@ -87,7 +87,12 @@ private:
     void release(ComObject *object);
 };
 
-constexpr uint32_t kSOk = 0, kSFalse = 1, kENoInterface = 0x80004002u, kEInvalidArg = 0x80070057u,
-                   kEOutOfMemory = 0x8007000eu, kENotImpl = 0x80004001u, kEFail = 0x80004005u;
+constexpr uint32_t kSOk = 0;
+constexpr uint32_t kSFalse = 1;
+constexpr uint32_t kENoInterface = 0x80004002u;
+constexpr uint32_t kEInvalidArg = 0x80070057u;
+constexpr uint32_t kEOutOfMemory = 0x8007000eu;
+constexpr uint32_t kENotImpl = 0x80004001u;
+constexpr uint32_t kEFail = 0x80004005u;
 
 } // namespace reluva::x86

@@ -43,8 +43,13 @@ namespace {
 // between compilers' maths don't change the record.
 class RecordingRenderer : public gfx::Renderer3D {
 public:
-    Hash textures, meshes, draws;
-    int textureCount = 0, meshCount = 0, frames = 0, drawCount = 0;
+    Hash textures;
+    Hash meshes;
+    Hash draws;
+    int textureCount = 0;
+    int meshCount = 0;
+    int frames = 0;
+    int drawCount = 0;
 
     Error createTexture(int width, int height, const uint8_t *rgba, const gfx::TextureParams &params,
                         gfx::TextureId &out) override {
@@ -134,9 +139,11 @@ public:
         Event event;
     };
     std::vector<Input> inputs;
-    Hash screens, sound;
+    Hash screens;
+    Hash sound;
     int shown = 0;
-    int64_t soundFrames = 0, soundPeak = 0;
+    int64_t soundFrames = 0;
+    int64_t soundPeak = 0;
     std::vector<std::string> titles;
 
     void updateScreen(const Surface &s) override {

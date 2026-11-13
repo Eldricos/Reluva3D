@@ -15,7 +15,11 @@
 namespace reluva::glide {
 
 struct Rgba {
-    int r = 0, g = 0, b = 0, a = 0; // 0-255
+    // 0-255
+    int r = 0;
+    int g = 0;
+    int b = 0;
+    int a = 0;
 };
 
 inline Rgba unpackArgb(uint32_t v) {
@@ -61,9 +65,14 @@ int textureCombineFactor(int factor, int local, int otherAlpha, int localAlpha, 
 // the iterated depth's high 8 bits (GR_COMBINE_LOCAL_DEPTH). `chromaOther`
 // gets the colour combine's "other" colour, which chroma-keying compares.
 struct PixelCombine {
-    CombineSettings color, alpha;
-    int colorLocal = 0, colorOther = 0, alphaLocal = 0, alphaOther = 0; // CombineLocal/CombineOther
-    bool alphaControlsLighting = false;                                 // grAlphaControlsITRGBLighting
+    CombineSettings color;
+    CombineSettings alpha;
+    // CombineLocal/CombineOther
+    int colorLocal = 0;
+    int colorOther = 0;
+    int alphaLocal = 0;
+    int alphaOther = 0;
+    bool alphaControlsLighting = false; // grAlphaControlsITRGBLighting
 };
 Rgba combinePixel(const PixelCombine &p, const Rgba &iterated, const Rgba &texture, const Rgba &constant, int depth8,
                   Rgba *chromaOther);
@@ -150,7 +159,9 @@ inline bool compare(int func, int a, int b) {
 // (docs/engines/nfs/games/nfs3/systems/thrash.md, Dithering). Tabulated once.
 struct DitherTables {
     DitherTables();
-    uint8_t five[2][16][256], six[2][16][256]; // [4x4, 2x2][(y & 3) * 4 + (x & 3)][level]
+    // [4x4, 2x2][(y & 3) * 4 + (x & 3)][level]
+    uint8_t five[2][16][256];
+    uint8_t six[2][16][256];
 };
 extern const DitherTables kDitherTables;
 

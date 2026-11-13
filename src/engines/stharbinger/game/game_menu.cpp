@@ -45,8 +45,10 @@ const Rect kButtons[kNumButtons] = {
     {494, 447, 597, 469}, {332, 328, 431, 351}, {494, 328, 593, 351}, {332, 353, 431, 376}, {494, 353, 593, 376},
 };
 
-const int kThumbX = 301, kThumbY = 79;
-const int kTextX = 301, kTextY = 52;
+const int kThumbX = 301;
+const int kThumbY = 79;
+const int kTextX = 301;
+const int kTextY = 52;
 const Rect kTextBar(296, 49, 626, 67);
 const Rect kConfirmBox(120, 162, 520, 318);
 const size_t kMaxNameLength = 67;

@@ -28,17 +28,25 @@ namespace {
 
 using x86::Cpu;
 
-constexpr uint32_t kOk = 0, kNoInterface = 0x80004002u, kInvalidParams = 0x80070057u;
+constexpr uint32_t kOk = 0;
+constexpr uint32_t kNoInterface = 0x80004002u;
+constexpr uint32_t kInvalidParams = 0x80070057u;
 // DSBCAPS bits: a primary buffer, one in "hardware", one placed in 3D.
-constexpr uint32_t kPrimaryBuffer = 0x1, kLocHardware = 0x4, kLocSoftware = 0x8, kCtrl3d = 0x10;
+constexpr uint32_t kPrimaryBuffer = 0x1;
+constexpr uint32_t kLocHardware = 0x4;
+constexpr uint32_t kLocSoftware = 0x8;
+constexpr uint32_t kCtrl3d = 0x10;
 // The first part of the interfaces' IIDs (279AFA8x-4981-11CE-A521-0020AF0BE560).
-constexpr uint32_t kIidDirectSoundBuffer = 0x279afa85u, kIidDirectSound3DListener = 0x279afa84u,
-                   kIidDirectSound3DBuffer = 0x279afa86u;
+constexpr uint32_t kIidDirectSoundBuffer = 0x279afa85u;
+constexpr uint32_t kIidDirectSound3DListener = 0x279afa84u;
+constexpr uint32_t kIidDirectSound3DBuffer = 0x279afa86u;
 // How many buffers the stand-in says it plays "in hardware" (DSCAPS): the
 // game's D3D/EAX setting wants 3D ones. All are mixed in software anyway.
 constexpr uint32_t kHardwareBuffers = 64;
 // DDSCAPS bits.
-constexpr uint32_t kBackBuffer = 0x4, kFlip = 0x10, kPrimary = 0x200;
+constexpr uint32_t kBackBuffer = 0x4;
+constexpr uint32_t kFlip = 0x10;
+constexpr uint32_t kPrimary = 0x200;
 
 std::string guid(const Cpu &c, uint32_t p) {
     char buf[48];
@@ -76,13 +84,19 @@ void writeDesc(Cpu &c, uint32_t p, int w, int h, int bits, int pitch, uint32_t m
 // describes a pad's objects in DIJOYSTATE (c_dfDIJoystick, the data format
 // the game sets): five axes (X and Y the left stick, Z the triggers, Rx
 // and Ry the right stick), a hat (the d-pad) and twelve buttons.
-constexpr uint32_t kJoystickInstance = 0x52e1a000, kJoystickProduct = 0x52e1a001,
-                   kJoystickFFDriver = 0x52e1a002; // Reluva's own
-constexpr int kJoystickAxes = 5, kJoystickButtons = 12;
-constexpr uint32_t kPovOffset = 32, kButtonsOffset = 48, kJoyStateSize = 80;
+// Reluva's own
+constexpr uint32_t kJoystickInstance = 0x52e1a000;
+constexpr uint32_t kJoystickProduct = 0x52e1a001;
+constexpr uint32_t kJoystickFFDriver = 0x52e1a002;
+constexpr int kJoystickAxes = 5;
+constexpr int kJoystickButtons = 12;
+constexpr uint32_t kPovOffset = 32;
+constexpr uint32_t kButtonsOffset = 48;
+constexpr uint32_t kJoyStateSize = 80;
 // DirectInput's GUID_XAxis... (all A36D02xx-C9F3-11CF-BFC7-444553540000).
 constexpr uint32_t kAxisGuids[kJoystickAxes] = {0xa36d02e0, 0xa36d02e1, 0xa36d02e2, 0xa36d02f4, 0xa36d02f5};
-constexpr uint32_t kButtonGuid = 0xa36d02f0, kPovGuid = 0xa36d02f2;
+constexpr uint32_t kButtonGuid = 0xa36d02f0;
+constexpr uint32_t kPovGuid = 0xa36d02f2;
 // DI buttons from SDL's pad: A B X Y, the shoulders, Back, Start, the sticks, Guide.
 constexpr GamepadButton kButtonOrder[kJoystickButtons - 1] = {kPadSouth,        kPadEast,          kPadWest, kPadNorth,
                                                               kPadLeftShoulder, kPadRightShoulder, kPadBack, kPadStart,

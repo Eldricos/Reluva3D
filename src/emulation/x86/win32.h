@@ -40,7 +40,9 @@ public:
 
 private:
     Cpu &_cpu;
-    std::map<uint32_t, uint32_t> _free, _used; // start -> size
+    // start -> size
+    std::map<uint32_t, uint32_t> _free;
+    std::map<uint32_t, uint32_t> _used;
     // The free blocks' starts again, by their size's power of two (bucket
     // b: sizes from 2^b up to 2^(b+1)), to find the first fit without
     // walking every block below it: a fit is the lowest start among the
@@ -104,7 +106,8 @@ public:
 
     struct Module {
         std::string name;
-        uint32_t base = 0, size = 0;
+        uint32_t base = 0;
+        uint32_t size = 0;
         uint32_t entry = 0; // the address of DllMain (its C runtime's start-up); 0 if none
         PeImage image;
         uint32_t exportAddress(const std::string &name) const;
@@ -225,7 +228,8 @@ public:
     void setCurrentFolder(const std::string &folder);
     // The drives the program sees: their letters, and the volume label of
     // the CD-ROM drive, if any ("LEGOATEN").
-    std::string cdDrive = "D", cdLabel;
+    std::string cdDrive = "D";
+    std::string cdLabel;
 
     // An open file, for the stand-ins that work with files (KERNEL32's
     // handles and the C library's FILE).
@@ -253,7 +257,8 @@ public:
     // (openSerialPort) and overlapped reads, which need host threads.
     struct Drive {
         char letter = 'C';
-        std::filesystem::path root, writable;
+        std::filesystem::path root;
+        std::filesystem::path writable;
         uint32_t type = 3;
         std::string label;
         uint32_t serial = 0x12345678;
@@ -285,12 +290,17 @@ public:
     // threads it starts: its exit code if it did, else why it stopped.
     Error run(const Module &exe, uint32_t &exitCode);
     struct Thread : KernelObject {
-        uint32_t id = 0, stackTop = 0, tib = 0;
+        uint32_t id = 0;
+        uint32_t stackTop = 0;
+        uint32_t tib = 0;
         Cpu::Context context;
         std::function<uint32_t()> body; // runs on its host thread
         std::thread host;
-        bool started = false, finished = false;
-        bool terminate = false, exitRequested = false; // TerminateThread, ExitThread
+        bool started = false;
+        bool finished = false;
+        // TerminateThread, ExitThread
+        bool terminate = false;
+        bool exitRequested = false;
         int suspendCount = 0;
         uint32_t exitCode = 259; // STILL_ACTIVE
         int priority = 0;
@@ -343,7 +353,8 @@ public:
     std::function<void(Cpu &cpu)> beforeSleep;
     // How often every thread waited at once, and for how long in all
     // (microseconds): time the processor stood idle.
-    std::atomic<uint64_t> idleWaits{0}, idleMicros{0};
+    std::atomic<uint64_t> idleWaits{0};
+    std::atomic<uint64_t> idleMicros{0};
     // From the running thread: the instructions run on `t` so far (its
     // turn now included), and on the multimedia timer's thread (0 if
     // there's none).
@@ -374,12 +385,20 @@ public:
 
     // --- Windows and messages (USER32, GDI32) -----------------------------------
     // The desktop the program sees.
-    int screenWidth = 800, screenHeight = 600, screenBits = 16;
+    int screenWidth = 800;
+    int screenHeight = 600;
+    int screenBits = 16;
     struct Window {
-        std::string className, title;
+        std::string className;
+        std::string title;
         uint32_t proc = 0; // its window procedure
-        uint32_t style = 0, exStyle = 0;
-        int x = 0, y = 0, width = 0, height = 0; // the whole window, on the screen
+        uint32_t style = 0;
+        uint32_t exStyle = 0;
+        // the whole window, on the screen
+        int x = 0;
+        int y = 0;
+        int width = 0;
+        int height = 0;
         bool visible = false;
         uint32_t classStyle = 0; // its class's (CS_DBLCLKS: it gets double clicks)
     };
@@ -395,7 +414,8 @@ public:
     // Calls a window's procedure as SendMessageA does; 0 if there's no such window.
     uint32_t sendMessage(uint32_t window, uint32_t message, uint32_t wParam, uint32_t lParam);
     // The mouse pointer, on the screen.
-    int cursorX = 0, cursorY = 0;
+    int cursorX = 0;
+    int cursorY = 0;
     // Called when the program looks for a message and none is queued.
     std::function<void()> idle;
     // --- Input, as the engine passes it on ---------------------------------------
@@ -414,7 +434,9 @@ public:
     // The same input as raw devices see it (DirectInput listens).
     struct RawInput {
         enum class Kind { kMotion, kButton, kWheel, kKey } kind;
-        int a = 0, b = 0; // Motion: dx, dy; Button: button, down; Wheel: delta; Key: scan code, down
+        // Motion: dx, dy; Button: button, down; Wheel: delta; Key: scan code, down
+        int a = 0;
+        int b = 0;
     };
     std::vector<std::function<void(const RawInput &)>> rawInput;
 
@@ -444,7 +466,9 @@ private:
     // "dll!function" (lower-case dll) -> native address
     std::map<std::string, uint32_t> _provided;
     std::vector<std::string> _missing;
-    uint32_t _stackTop = 0, _tib = 0, _peb = 0;
+    uint32_t _stackTop = 0;
+    uint32_t _tib = 0;
+    uint32_t _peb = 0;
     struct TurnThread {
         uint32_t handle = 0;
         Cpu::Context context;
@@ -454,8 +478,11 @@ private:
     std::vector<TurnThread> _turnThreads;
     int _current = -1;          // the thread running (-1: the main one)
     uint32_t _threadReturn = 0; // where a thread's function returns to: a native that ends it
-    std::string _exeName, _programFolder = "C:\\STVEF\\";
-    uint32_t _commandLine = 0, _environment = 0, _environmentW = 0;
+    std::string _exeName;
+    std::string _programFolder = "C:\\STVEF\\";
+    uint32_t _commandLine = 0;
+    uint32_t _environment = 0;
+    uint32_t _environmentW = 0;
     uint32_t _lastError = 0;
     uint32_t _heapHandle = 0x7ffe0000; // HeapCreate's handles: never dereferenced
     uint32_t _exceptionFilter = 0;
@@ -466,14 +493,17 @@ private:
     void addUserStandIns();
     void addRegistryStandIns();
     struct WindowClass {
-        uint32_t proc = 0, style = 0;
+        uint32_t proc = 0;
+        uint32_t style = 0;
     };
     std::map<std::string, WindowClass> _classes; // by lower-case name
     uint32_t _buttons = 0;                       // MK_ flags held
     std::array<uint8_t, 256> _keysDown{};        // by virtual key
     std::optional<std::array<int, 4>> _clip;     // ClipCursor's: left, top, right, bottom
     uint32_t _lastClickTime = 0;
-    int _lastClickButton = -1, _lastClickX = 0, _lastClickY = 0;
+    int _lastClickButton = -1;
+    int _lastClickX = 0;
+    int _lastClickY = 0;
     void notify(const RawInput &r) {
         for (const auto &f : rawInput)
             f(r);
@@ -481,7 +511,10 @@ private:
     std::map<uint32_t, Window> _windows;
     uint32_t _nextWindow = 0x10010;
     struct Message {
-        uint32_t window, message, wParam, lParam;
+        uint32_t window;
+        uint32_t message;
+        uint32_t wParam;
+        uint32_t lParam;
     };
     std::vector<Message> _messages;
     int _cursorShown = 0;
@@ -494,9 +527,13 @@ private:
     uint32_t _nextKey = 0x3000;
     uint32_t _nextEvent = 0;
     uint64_t _slept = 0;
-    uint64_t _timeStampAt = 0, _timeStampExecuted = 0; // RDTSC's last reading, and the instructions then
+    // RDTSC's last reading, and the instructions then
+    uint64_t _timeStampAt = 0;
+    uint64_t _timeStampExecuted = 0;
     struct Event {
-        bool manualReset = false, set = false, tracked = false;
+        bool manualReset = false;
+        bool set = false;
+        bool tracked = false;
     };
     std::map<uint32_t, Event> _events;
     std::string _currentFolder = "C:\\";
@@ -535,7 +572,9 @@ private:
     std::string driveCurrent() const; // the current folder, without its last backslash
     // Overlapped device reads left pending, by OVERLAPPED address.
     struct PendingRead {
-        uint32_t handle = 0, buffer = 0, size = 0;
+        uint32_t handle = 0;
+        uint32_t buffer = 0;
+        uint32_t size = 0;
     };
     std::map<uint32_t, PendingRead> _pendingReads;
 
@@ -555,7 +594,9 @@ private:
     uint32_t _exitCode = 0;
     std::string _failure; // a thread's fault, which ends the process
     struct Timer {
-        uint32_t delay = 0, callback = 0, user = 0;
+        uint32_t delay = 0;
+        uint32_t callback = 0;
+        uint32_t user = 0;
         bool periodic = false;
         uint64_t due = 0;
     };

@@ -79,7 +79,8 @@ private:
 };
 
 struct LumpRange {
-    size_t offset = 0, size = 0;
+    size_t offset = 0;
+    size_t size = 0;
 };
 
 // Reads every record of a lump with `parse`, after checking its size is a

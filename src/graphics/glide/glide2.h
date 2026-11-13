@@ -27,11 +27,19 @@ namespace reluva::glide {
 // build glide2x.dll's callers use: 60 bytes): the fields in the header's
 // order.
 struct Glide2Vertex {
-    float x = 0, y = 0, z = 0;
-    float r = 0, g = 0, b = 0;
-    float ooz = 0, a = 0, oow = 0;
+    float x = 0;
+    float y = 0;
+    float z = 0;
+    float r = 0;
+    float g = 0;
+    float b = 0;
+    float ooz = 0;
+    float a = 0;
+    float oow = 0;
     struct Tmu {
-        float sow = 0, tow = 0, oow = 0;
+        float sow = 0;
+        float tow = 0;
+        float oow = 0;
     } tmuvtx[2];
 };
 static_assert(sizeof(Glide2Vertex) == 60, "GrVertex is 60 bytes");
@@ -39,7 +47,10 @@ static_assert(sizeof(Glide2Vertex) == 60, "GrVertex is 60 bytes");
 // GrTexInfo without its data pointer: Glide 2's LOD and aspect constants
 // (GR_LOD_256 is 0, GR_ASPECT_8x1 is 0).
 struct Glide2TexInfo {
-    int smallLod = 0, largeLod = 0, aspectRatio = 3, format = 0;
+    int smallLod = 0;
+    int largeLod = 0;
+    int aspectRatio = 3;
+    int format = 0;
 };
 
 // What grSstQueryHardware reports, one board.
@@ -226,14 +237,18 @@ public:
         bool valid = false;
         int tmu = 0;
         int evenOdd = kLevelsBoth;
-        int width = 0, height = 0;
+        int width = 0;
+        int height = 0;
         Glide2TexInfo info;
         int mipmapMode = kMipmapDisable;
-        int clampS = kClampWrap, clampT = kClampWrap;
-        int minFilter = kFilterPoint, magFilter = kFilterPoint;
+        int clampS = kClampWrap;
+        int clampT = kClampWrap;
+        int minFilter = kFilterPoint;
+        int magFilter = kFilterPoint;
         float lodBias = 0;
         bool lodBlend = false;
-        uint32_t start = 0, size = 0;
+        uint32_t start = 0;
+        uint32_t size = 0;
         bool hasNcc = false;
         NccTable ncc;
     };
@@ -309,7 +324,8 @@ private:
     Pipeline _pipeline;
     int _colorFormat = kColorArgb;
     int _lfbColorFormat = -1; // grLfbWriteColorFormat's, -1 the window's
-    bool _lfbSwizzleBytes = false, _lfbSwapWords = false;
+    bool _lfbSwizzleBytes = false;
+    bool _lfbSwapWords = false;
     bool _active = true;
     uint32_t _window = 0; // grSstWinOpen's window
     uint32_t _retraceCalls = 0;

@@ -18,10 +18,17 @@ namespace {
 
 constexpr int kTypeItem = 2; // the entity type of items (Quake III's ET_ITEM)
 // Item flags from the map.
-constexpr int kNotFree = 1, kNotTeam = 2, kNotSingle = 4, kNotBot = 8, kRoam = 16;
-constexpr float kAvoidMinimum = 10, kAvoidDefault = 30, kAvoidDropped = 10;
+constexpr int kNotFree = 1;
+constexpr int kNotTeam = 2;
+constexpr int kNotSingle = 4;
+constexpr int kNotBot = 8;
+constexpr int kRoam = 16;
+constexpr float kAvoidMinimum = 10;
+constexpr float kAvoidDefault = 30;
+constexpr float kAvoidDropped = 10;
 constexpr float kDroppedWeight = 1000;
-constexpr int kGameSinglePlayer = 2, kGameTeam = 3;
+constexpr int kGameSinglePlayer = 2;
+constexpr int kGameTeam = 3;
 
 float length(const Vec3f &v) {
     return std::sqrt(v[0] * v[0] + v[1] * v[1] + v[2] * v[2]);

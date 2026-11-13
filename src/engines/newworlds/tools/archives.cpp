@@ -127,7 +127,8 @@ int cmdCatProbe(int argc, char **argv) {
     std::vector<size_t> folderEnds;
     struct TagStat {
         uint16_t tag;
-        unsigned count = 0, sizeMismatches = 0;
+        unsigned count = 0;
+        unsigned sizeMismatches = 0;
         std::vector<std::string> extensions;
     };
     std::vector<TagStat> stats;

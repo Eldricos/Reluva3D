@@ -14,7 +14,8 @@ struct SdlSystem::Controller {
     bool isWheel = false;
     // A wheel's pedals by axis (-1: found as they rest), and the end each
     // of its axes rests at: where it's first seen at one (0 until then).
-    int accelerator = -1, brake = -1;
+    int accelerator = -1;
+    int brake = -1;
     int pedalAxis[2] = {-1, -1};
     float rest[16] = {};
 
@@ -22,11 +23,15 @@ struct SdlSystem::Controller {
     // none yet), or else the pad's rumble, sent again before it runs out.
     SDL_Haptic *haptic = nullptr;
     uint32_t features = 0;
-    int constant = -1, spring = -1, damper = -1, periodic = -1;
+    int constant = -1;
+    int spring = -1;
+    int damper = -1;
+    int periodic = -1;
     bool periodicSquare = false;
     bool autoCentre = true;
     bool rumble = false;
-    uint16_t rumbleLow = 0, rumbleHigh = 0;
+    uint16_t rumbleLow = 0;
+    uint16_t rumbleHigh = 0;
     uint64_t rumbleSentMs = 0;
 
     SDL_Joystick *joystick() const { return gamepad ? SDL_GetGamepadJoystick(gamepad) : wheel; }

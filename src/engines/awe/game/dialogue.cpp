@@ -14,10 +14,13 @@ namespace reluva::awe {
 
 namespace {
 
-constexpr int kOpening = 0x60, kRegreet = 0x61, kExit = 0x62; // threads 1, 2, 3
-constexpr float kBoxSpeed = 500;                              // pixels a second, sliding in and out
-constexpr float kPause = 0.4f;                                // between lines
-constexpr float kSkipAfter = 0.5f;                            // a click ends a line only after this
+// threads 1, 2, 3
+constexpr int kOpening = 0x60;
+constexpr int kRegreet = 0x61;
+constexpr int kExit = 0x62;
+constexpr float kBoxSpeed = 500;   // pixels a second, sliding in and out
+constexpr float kPause = 0.4f;     // between lines
+constexpr float kSkipAfter = 0.5f; // a click ends a line only after this
 
 bool isNumber(std::string_view s) {
     return !s.empty() && std::isdigit(uint8_t(s[0]));

@@ -189,8 +189,15 @@ public:
             draw();
     }
     struct GameStatus {
-        std::string scene, act, event;
-        bool idle = true, talking = false, movie = false, loading = false, puzzle = false, fading = false;
+        std::string scene;
+        std::string act;
+        std::string event;
+        bool idle = true;
+        bool talking = false;
+        bool movie = false;
+        bool loading = false;
+        bool puzzle = false;
+        bool fading = false;
     };
     GameStatus status() const;
     // The hotspots and characters that could be clicked now, and a click
@@ -285,7 +292,8 @@ public:
     };
     struct HandInput {
         enum class Kind { kNone, kMove, kClick, kRightClick, kKey } kind = Kind::kNone;
-        int x = 0, y = 0;
+        int x = 0;
+        int y = 0;
         uint32_t key = 0;
     };
     HandInput handStep(HandGoal &goal);
@@ -316,9 +324,14 @@ private:
         mutable uint64_t pickFrame = UINT64_MAX;
         // Where it stands and faces; while walking, the points still to
         // reach (world x, z).
-        float x = 0, y = 0, z = 0, rotY = 0;
+        float x = 0;
+        float y = 0;
+        float z = 0;
+        float rotY = 0;
         // Its pitch, roll and scale (0x425e60): the dead lying, the taller.
-        float rotX = 0, rotZ = 0, scale[3] = {1, 1, 1};
+        float rotX = 0;
+        float rotZ = 0;
+        float scale[3] = {1, 1, 1};
         float home = 0; // its heading when placed, in degrees ("rotate home")
         bool player = false;
         std::string who;                   // "antoinette": the model's folder
@@ -329,7 +342,9 @@ private:
         // still to walk (-1: the next leg to start), whether the first leg
         // turns on the spot first and is turning now, and running.
         float leg = -1;
-        bool turnFirst = false, turningFirst = false, running = false;
+        bool turnFirst = false;
+        bool turningFirst = false;
+        bool running = false;
         bool follower = false; // follows the player (FLLW, its COND holding)
         bool shadow = true;    // casts a shadow (MODL shadow, hideshadow/showshadow)
         float walkIn = 0;      // walking in: the distance left
@@ -337,7 +352,9 @@ private:
         // for "walk", "run", "rotate" or "anim" (that animation, by the
         // name asked and the name played).
         ScriptRunner *waiting = nullptr;
-        std::string waitVerb, waitAnim, waitAnimAs;
+        std::string waitVerb;
+        std::string waitAnim;
+        std::string waitAnimAs;
         // Its own routine (the IDLE list), and whether "pause" stopped it.
         std::unique_ptr<ScriptRunner> routine;
         bool paused = false;
@@ -352,7 +369,10 @@ private:
         // and its breath in the cold.
         struct Footprint {
             std::shared_ptr<GpuModel> model;
-            float x = 0, z = 0, rotY = 0, age = 0;
+            float x = 0;
+            float z = 0;
+            float rotY = 0;
+            float age = 0;
             size_t serial = 0; // its place after the scene's objects
         };
         std::vector<Footprint> footprints;
@@ -448,12 +468,16 @@ private:
     // 0x424260).
     struct SlotMenu {
         bool save = false;
-        int count = 0;         // slots there are
-        int page = 0, row = 0; // first slot shown (a multiple of 3), the row picked
-        std::string name;      // save: the name typed
+        int count = 0; // slots there are
+        // first slot shown (a multiple of 3), the row picked
+        int page = 0;
+        int row = 0;
+        std::string name; // save: the name typed
         struct Row {
             bool exists = false;
-            std::string description, date, time;
+            std::string description;
+            std::string date;
+            std::string time;
             image::Image thumbnail;
         } rows[3];
         int lastRow = -1;
@@ -474,26 +498,38 @@ private:
     // torn letter, the baggage car's safe, the puzzle box. Pictures they
     // move and turn are drawn by overrides.
     struct PictureOverride {
-        float x = 0, y = 0, depth = 0, roll = 0, cx = 0, cy = 0;
+        float x = 0;
+        float y = 0;
+        float depth = 0;
+        float roll = 0;
+        float cx = 0;
+        float cy = 0;
         bool tint = false; // picked: blue x 0.75
     };
     std::map<const Ac2Record *, PictureOverride> _overrides;
     struct TornLetter {
         std::vector<const Ac2Record *> pieces;
         int selected = -1;
-        bool dragging = false, solved = false;
+        bool dragging = false;
+        bool solved = false;
         float topz = 0;
-        int dragX = 0, dragY = 0;
+        int dragX = 0;
+        int dragY = 0;
     };
     struct Safe {
         const Ac2Record *dial = nullptr;
         int spinning = 0; // 1 right, 2 left
-        float timer = 0, interval = 0.25f;
-        int number = 0, entered = 0, expected = 2;
+        float timer = 0;
+        float interval = 0.25f;
+        int number = 0;
+        int entered = 0;
+        int expected = 2;
         bool opening = false; // a tool's step has pulled the handle
     };
     struct PuzzleBox {
-        int step = 0, selected = 0, misses = 0;
+        int step = 0;
+        int selected = 0;
+        int misses = 0;
         int state[5] = {0, 0, 0, 0, 0}; // by piece: 1 upper end, 2 lower end, 3 side, 4 lid
         bool solved = false;
     };
@@ -529,7 +565,8 @@ private:
     int boxPieceAt(int x, int y) const;            // 1 the end's upper half, 2 its lower, 3 the side, 4 the lid; 0 none
     const Ac2Record *tornPick(int x, int y) const; // the letter's front-most picture there
     void writeBoxTags();
-    int _lastMouseX = 0, _lastMouseY = 0;
+    int _lastMouseX = 0;
+    int _lastMouseY = 0;
     std::filesystem::path optionsFile() const;
     void loadOptions();
     void saveOptions() const;
@@ -560,7 +597,9 @@ private:
     struct YesNo {
         std::string text;
         int kind = 0;
-        int x[2] = {}, w[2] = {}, h[2] = {};
+        int x[2] = {};
+        int w[2] = {};
+        int h[2] = {};
         bool drawn = false;
         int highlighted = -1;
     };
@@ -603,7 +642,10 @@ private:
         // fading from; the fade (0 none, 1 in, 2 out, 3 page to page) and
         // its alpha; the button under the mouse (-1 none).
         bool open = false;
-        int page = 0, fromPage = 0, fade = 0, hover = -1;
+        int page = 0;
+        int fromPage = 0;
+        int fade = 0;
+        int hover = -1;
         float alpha = 0;
         bool fromInventory = false; // a script it started runs (its talks leave it open)
         std::string freshItem;      // the item just taken, which blinks for 5 s of the window open
@@ -618,23 +660,37 @@ private:
         std::string boxes[5];
         std::string message;
         // Passports: the page, how many, the one shown (by its place).
-        int passPage = 0, passPages = 1, passAt = 0;
+        int passPage = 0;
+        int passPages = 1;
+        int passAt = 0;
         // Fingerprint cards: the card shown in each row.
         int printAt[2] = {0, 0};
         // The scrapbook: the section (0 the contents), the level (0 the
         // contents, 1 a section's list, 2 an entry), each level's pages and
         // the page shown, the entry, the picture shown full screen.
-        int section = 0, level = 0, pages[3] = {1, 1, 1}, at[3] = {0, 0, 0};
-        std::string entry, zoom;
+        int section = 0;
+        int level = 0;
+        int pages[3] = {1, 1, 1};
+        int at[3] = {0, 0, 0};
+        std::string entry;
+        std::string zoom;
         // A card held up: the step (0 none, 1 the screen darkening, 2 the
         // card fading in, 3 shown, 4 fading out, 5 the screen brightening),
         // passport (1) or fingerprint card (2), whose; the darkness (0..128)
         // and the pictures' alphas, their clocks; the runner waiting.
-        int card = 0, cardKind = 0;
+        int card = 0;
+        int cardKind = 0;
         std::string cardWho;
         int cardRaise = 0; // 160 with the dialogue box up: the card 80 higher
-        float dim = 0, cardAlpha = 0, printAlpha = 0, dimClock = 0, cardClock = 0, printClock = 0;
-        int cardFade = 0, printFade = 0; // 1 out, 2 in
+        float dim = 0;
+        float cardAlpha = 0;
+        float printAlpha = 0;
+        float dimClock = 0;
+        float cardClock = 0;
+        float printClock = 0;
+        // 1 out, 2 in
+        int cardFade = 0;
+        int printFade = 0;
         ScriptRunner *cardRunner = nullptr;
         std::string cardVerb;
     } _ui;
@@ -660,7 +716,10 @@ private:
     int textHeight(int font, int width, const std::string &text, int *lines = nullptr);
     // Items: their itemlist.txt row's columns, pictures and places.
     struct ItemInfo {
-        std::string description, event, examine, flipped;
+        std::string description;
+        std::string event;
+        std::string examine;
+        std::string flipped;
     };
     ItemInfo itemInfo(const std::string &item) const;
     std::string itemPicture(const std::string &item, const char *kind) const;
@@ -683,7 +742,11 @@ private:
     void comparePrints();
     // The scrapbook (its texts read on each change).
     struct ScrapRow {
-        std::string heading, condition, tick, entry, entry2;
+        std::string heading;
+        std::string condition;
+        std::string tick;
+        std::string entry;
+        std::string entry2;
     };
     std::vector<ScrapRow> scrapRows();
     int drawScrapbook(int alpha, bool drawIt, int clickX = -1, int clickY = -1, std::string *clicked = nullptr);
@@ -741,7 +804,9 @@ private:
     std::string _base;                  // the base scene an act's variant is shown over
     std::string _error;
     int _selected = -1; // object highlighted, -1 none
-    bool _hotspots = true, _info = true, _showCharacters = true;
+    bool _hotspots = true;
+    bool _info = true;
+    bool _showCharacters = true;
     // What the scene's conditions test: the train moving or not (M), the
     // weather (W), the act of the scene's variant.
     GameState _state;
@@ -750,7 +815,9 @@ private:
     // Scrolling pictures (SPRT scroll): where each is now, and the part
     // of a pixel it has gone beyond that.
     struct Scroll {
-        float x = 0, y = 0, part = 0;
+        float x = 0;
+        float y = 0;
+        float part = 0;
     };
     std::map<const Ac2Record *, Scroll> _scrolls;
     bool scrollPictures(float dt); // whether any moved
@@ -775,7 +842,8 @@ private:
     bool _playing = false;
     std::map<std::string, audio::SoundHandle> _music;
     std::map<std::string, std::array<float, 3>> _positions; // the player's x, z and heading, by scene file left
-    float _fade = 0, _fadeTarget = 0;
+    float _fade = 0;
+    float _fadeTarget = 0;
     // "movie": the one playing over everything, its subtitles, the runner
     // waiting on it; and whether a scene is shown (one not "inscene" is
     // left for the movie: black until the next scene).
@@ -789,9 +857,13 @@ private:
         std::string location;
         std::vector<std::string> files;
         size_t next = 0;
-        bool screen = false, fadedIn = false; // the loading screen shown; faded in (+0x10f0)
+        // the loading screen shown; faded in (+0x10f0)
+        bool screen = false;
+        bool fadedIn = false;
         int wheel = 0;
-        std::string scene, verb; // a scene's: its name, and the verb waiting ("scene", "gotoscene")
+        // a scene's: its name, and the verb waiting ("scene", "gotoscene")
+        std::string scene;
+        std::string verb;
         int entry = 1;
         ScriptRunner *runner = nullptr;
         bool restore = false; // a saved game's
@@ -821,14 +893,17 @@ private:
     // key as npcPositions_ (the game keeps the scene, and the character
     // as scripts left it).
     struct KeptCharacter {
-        bool paused = false, shadow = true;
+        bool paused = false;
+        bool shadow = true;
         std::vector<std::string> props; // the models it holds
         std::string endless;            // a base animation playing for ever, else empty
     };
     std::map<std::string, KeptCharacter> _keptCharacters;
-    std::string _gameScene, _previousMenu;
+    std::string _gameScene;
+    std::string _previousMenu;
     image::Image _grab;
-    bool _grabDue = false, _quit = false;
+    bool _grabDue = false;
+    bool _quit = false;
     std::map<std::string, std::string> _interfaceTexts;
     ScriptRunner *_fadeRunner = nullptr;
     std::string _dialogueAct = "-";               // the act whose table is loaded
@@ -865,8 +940,10 @@ private:
             gfx::TextureId texture = 0; // put together; 0 for one alone
             const Ac2Record *alone = nullptr;
             const ParticleSystem *particles = nullptr; // or particles, drawn by the GPU
-            int w = 0, h = 0;
-            SpriteTransform at, at2;
+            int w = 0;
+            int h = 0;
+            SpriteTransform at;
+            SpriteTransform at2;
             bool twice = false; // a scrolling one, at at2 as well
         };
         std::vector<Part> parts;
@@ -956,7 +1033,9 @@ private:
     void releaseGpu();
 
     std::vector<Entry> _models;
-    int _index = 0, _animation = 0; // 0: rest pose, else animations[animation_ - 1]
+    // 0: rest pose, else animations[animation_ - 1]
+    int _index = 0;
+    int _animation = 0;
     std::unique_ptr<GpuModel> _gpu;
     Animation _anim;
     bool _hasAnim = false;
@@ -964,10 +1043,15 @@ private:
     gfx::Renderer3D *_renderer = nullptr;
     std::vector<gfx::MeshId> _meshes; // this frame's
     Surface _overlay;
-    float _yaw = -1.5708f, _pitch = 0.15f, _distance = 400;
+    float _yaw = -1.5708f;
+    float _pitch = 0.15f;
+    float _distance = 400;
     float _center[3] = {0, 0, 0};
-    bool _playing = true, _helpers = false, _dragging = false;
-    int _dragX = 0, _dragY = 0;
+    bool _playing = true;
+    bool _helpers = false;
+    bool _dragging = false;
+    int _dragX = 0;
+    int _dragY = 0;
     float _time = 0;
     uint64_t _lastMs = 0;
 };
@@ -1007,7 +1091,8 @@ private:
     void load();
     void draw();
     std::vector<std::string> _names;
-    int _index = 0, _scroll = 0;
+    int _index = 0;
+    int _scroll = 0;
     std::vector<std::string> _lines;
 };
 

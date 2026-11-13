@@ -43,9 +43,13 @@ public:
         Event event;
     };
     std::vector<Input> inputs;
-    Hash screens, palettes, sound;
-    int shown = 0, paletteSets = 0;
-    int64_t soundFrames = 0, soundPeak = 0;
+    Hash screens;
+    Hash palettes;
+    Hash sound;
+    int shown = 0;
+    int paletteSets = 0;
+    int64_t soundFrames = 0;
+    int64_t soundPeak = 0;
     std::vector<std::string> titles;
 
     void updateScreen(const Surface &s) override {

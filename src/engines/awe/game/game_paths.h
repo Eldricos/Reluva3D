@@ -28,7 +28,9 @@ public:
     // game (setSinglePrecision); else at 53 throughout.
     Error load(const std::vector<uint8_t> &exe, bool single = true);
     struct Point {
-        double a = 0, b = 0, heading = 0;
+        double a = 0;
+        double b = 0;
+        double heading = 0;
     };
     // One search (0x42ef40) on `grid` from one cell to another.
     Error search(const WalkGrid &grid, bool openThrees, WalkGrid::Cell from, WalkGrid::Cell to, bool allowTwos,

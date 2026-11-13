@@ -42,20 +42,30 @@ private:
     Surface _overlay;
     std::vector<std::string> _info;
     std::string _error;
-    int _model = -1;                          // a single model
-    int _lower = -1, _upper = -1, _head = -1; // a player's parts
+    int _model = -1; // a single model
+    // a player's parts
+    int _lower = -1;
+    int _upper = -1;
+    int _head = -1;
     const Skin *_skins[3] = {};
     std::array<float, 3> _center{};
     float _radius = 32;
-    float _yaw = 0, _pitch = 0, _distance = 100;
-    bool _dragging = false, _animate = false, _showInfo = true;
+    float _yaw = 0;
+    float _pitch = 0;
+    float _distance = 100;
+    bool _dragging = false;
+    bool _animate = false;
+    bool _showInfo = true;
     bool _torsoOnTag = true; // a player's torso placed on the legs' tag_torso (T toggles)
-    int _lastX = 0, _lastY = 0;
+    int _lastX = 0;
+    int _lastY = 0;
     int _frame = 0; // when not animating
-    uint64_t _startMs = 0, _lastMs = 0;
+    uint64_t _startMs = 0;
+    uint64_t _lastMs = 0;
     // A player's animations (animation.cfg) and the pair playing.
     std::vector<PlayerAnimation> _anims;
-    int _legsAnim = 0, _torsoAnim = 0;
+    int _legsAnim = 0;
+    int _torsoAnim = 0;
     float _animTime = 0; // seconds into them
     void nextAnimation(int step);
 };

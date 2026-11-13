@@ -29,7 +29,9 @@ public:
 
 private:
     struct Glyph {
-        int height = 0, width = 0, pitch = 0;
+        int height = 0;
+        int width = 0;
+        int pitch = 0;
         std::vector<uint8_t> bits;
     };
 

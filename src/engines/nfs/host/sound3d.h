@@ -12,32 +12,41 @@ namespace reluva::nfs {
 // DS3DLISTENER, Microsoft's published structures). DirectSound's
 // coordinates are left-handed: x to the right, y up, z ahead.
 struct Ds3dSource {
-    float position[3] = {0, 0, 0}, velocity[3] = {0, 0, 0};
+    float position[3] = {0, 0, 0};
+    float velocity[3] = {0, 0, 0};
     // The cone: inside and outside angles in degrees, which way it points,
     // and the attenuation outside it (hundredths of a decibel, 0 down to
     // -10000).
-    uint32_t insideCone = 360, outsideCone = 360;
+    uint32_t insideCone = 360;
+    uint32_t outsideCone = 360;
     float coneOrientation[3] = {0, 0, 1};
     int32_t coneOutsideVolume = 0;
-    float minDistance = 1, maxDistance = 1e9f;
+    float minDistance = 1;
+    float maxDistance = 1e9f;
     // DS3DMODE_NORMAL 0, HEADRELATIVE 1 (the position is the listener's
     // own), DISABLE 2 (no 3D: played as it is).
     uint32_t mode = 0;
 };
 
 struct Ds3dListener {
-    float position[3] = {0, 0, 0}, velocity[3] = {0, 0, 0};
-    float front[3] = {0, 0, 1}, top[3] = {0, 1, 0};
+    float position[3] = {0, 0, 0};
+    float velocity[3] = {0, 0, 0};
+    float front[3] = {0, 0, 1};
+    float top[3] = {0, 1, 0};
     // Metres a unit; how fast it falls off, and how strong the Doppler
     // shift is, each as many times the real world's (1 is real).
-    float distanceFactor = 1, rolloffFactor = 1, dopplerFactor = 1;
+    float distanceFactor = 1;
+    float rolloffFactor = 1;
+    float dopplerFactor = 1;
 };
 
 // What a source comes to at the listener: a gain for each speaker, the
 // ratio its frequency is shifted by, and how far behind the listener it is
 // (0 beside or ahead, 1 straight behind), for the rear's muffling.
 struct Ds3dResult {
-    double left = 1, right = 1, doppler = 1;
+    double left = 1;
+    double right = 1;
+    double doppler = 1;
     double behind = 0;
 };
 

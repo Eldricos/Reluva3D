@@ -25,12 +25,26 @@ namespace {
 using x86::Cpu;
 using Result = net::Sockets::Result;
 
-constexpr uint32_t kSocketError = 0xffffffffu, kInfinite = 0xffffffffu;
+constexpr uint32_t kSocketError = 0xffffffffu;
+constexpr uint32_t kInfinite = 0xffffffffu;
 // Winsock's error numbers.
-constexpr uint32_t kEINTR = 10004, kEFAULT = 10014, kEINVAL = 10022, kEMFILE = 10024, kEWOULDBLOCK = 10035,
-                   kENOTSOCK = 10038, kEPROTONOSUPPORT = 10043, kEAFNOSUPPORT = 10047, kEADDRINUSE = 10048,
-                   kEADDRNOTAVAIL = 10049, kENETUNREACH = 10051, kECONNRESET = 10054, kENOTCONN = 10057,
-                   kECONNREFUSED = 10061, kNOTINITIALISED = 10093, kSYSNOTREADY = 10091, kHostNotFound = 11001;
+constexpr uint32_t kEINTR = 10004;
+constexpr uint32_t kEFAULT = 10014;
+constexpr uint32_t kEINVAL = 10022;
+constexpr uint32_t kEMFILE = 10024;
+constexpr uint32_t kEWOULDBLOCK = 10035;
+constexpr uint32_t kENOTSOCK = 10038;
+constexpr uint32_t kEPROTONOSUPPORT = 10043;
+constexpr uint32_t kEAFNOSUPPORT = 10047;
+constexpr uint32_t kEADDRINUSE = 10048;
+constexpr uint32_t kEADDRNOTAVAIL = 10049;
+constexpr uint32_t kENETUNREACH = 10051;
+constexpr uint32_t kECONNRESET = 10054;
+constexpr uint32_t kENOTCONN = 10057;
+constexpr uint32_t kECONNREFUSED = 10061;
+constexpr uint32_t kNOTINITIALISED = 10093;
+constexpr uint32_t kSYSNOTREADY = 10091;
+constexpr uint32_t kHostNotFound = 11001;
 
 uint32_t wsError(Result r) {
     switch (r) {

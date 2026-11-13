@@ -31,7 +31,8 @@ constexpr size_t kFrameHeader = 24; // tag, size, then 16 bytes (mad.md)
 // first-coefficient form of run 0 level 1 ("1s") isn't used: it is "11s"
 // throughout.
 struct AcCode {
-    uint8_t run, level;
+    uint8_t run;
+    uint8_t level;
     const char *bits;
 };
 constexpr AcCode kAcCodes[] = {
@@ -153,7 +154,8 @@ constexpr const char *kEndOfBlock = "10";
 // A lookup by the next 16 bits: the code's length (0: no code), then the
 // run and level; level 0 is the escape, run 0xff the end of the block.
 struct AcEntry {
-    uint8_t length = 0, run = 0;
+    uint8_t length = 0;
+    uint8_t run = 0;
     int8_t level = 0;
 };
 const std::vector<AcEntry> &acTable() {
@@ -654,7 +656,10 @@ namespace {
 // The game's conversion tables (0x4fda20): 2Y + 1 plus twice each chroma
 // term, rounded to the nearest on its own, for 7-bit samples.
 struct DisplayTables {
-    int rv[256], gu[256], gv[256], bu[256];
+    int rv[256];
+    int gu[256];
+    int gv[256];
+    int bu[256];
     DisplayTables() {
         for (int s = 0; s < 256; ++s) {
             const double c = s - 63.5;

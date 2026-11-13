@@ -52,7 +52,8 @@ public:
 
 private:
     friend class Mixer;
-    const int _rate, _channels;
+    const int _rate;
+    const int _channels;
     mutable std::mutex _mutex;
     std::vector<int16_t> _samples; // queued, oldest first
     size_t _read = 0;              // samples_ before this have been taken
@@ -162,13 +163,15 @@ private:
         std::shared_ptr<const Sound> sound; // or
         std::shared_ptr<Stream> stream;
         SoundType type;
-        int volume, pan;
+        int volume;
+        int pan;
         bool loop;
         bool paused = false;
         double position = 0; // in the sound's frames
         bool done = false;
         // A stream's: the frames either side of `position`, and the next.
-        int16_t cur[2] = {0, 0}, next[2] = {0, 0};
+        int16_t cur[2] = {0, 0};
+        int16_t next[2] = {0, 0};
         bool primed = false;
         // A SoundStream's (playStream), instead of a sound or a stream.
         std::shared_ptr<SoundStream> queue = nullptr;

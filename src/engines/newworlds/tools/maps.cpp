@@ -102,7 +102,9 @@ int cmdGmfInfo(int argc, char **argv) {
 
     struct Record {
         size_t offset;
-        uint16_t type, length, third;
+        uint16_t type;
+        uint16_t length;
+        uint16_t third;
     };
     std::vector<Record> records;
     size_t p = 10;

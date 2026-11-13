@@ -34,7 +34,10 @@ using namespace reluva;
 
 namespace {
 
-constexpr uint32_t kCode = 0x2000, kA = 0x3000, kB = 0x3008, kOut = 0x3010;
+constexpr uint32_t kCode = 0x2000;
+constexpr uint32_t kA = 0x3000;
+constexpr uint32_t kB = 0x3008;
+constexpr uint32_t kOut = 0x3010;
 
 void put(std::vector<uint8_t> &code, std::initializer_list<int> bytes) {
     for (int b : bytes)

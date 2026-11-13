@@ -24,7 +24,8 @@ namespace reluva::newworlds {
 struct PartPose {
     bool moved = false;
     float m[9] = {1, 0, 0, 0, 1, 0, 0, 0, 1};
-    GeoModel::Vec3 from{0, 0, 0}, to{0, 0, 0};
+    GeoModel::Vec3 from{0, 0, 0};
+    GeoModel::Vec3 to{0, 0, 0};
 
     GeoModel::Vec3 turn(const GeoModel::Vec3 &v) const {
         return {m[0] * v.x + m[1] * v.y + m[2] * v.z, m[3] * v.x + m[4] * v.y + m[5] * v.z,
@@ -42,7 +43,8 @@ using Pose = std::vector<PartPose>; // one per geometry part
 // An .arf animation: its frames (a transform per animated part each) and
 // the .mdl state it plays (walk, stand, manipulate).
 struct Animation {
-    std::string name, state;
+    std::string name;
+    std::string state;
     std::vector<std::vector<PartTransform>> frames;
 };
 

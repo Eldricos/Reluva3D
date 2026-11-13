@@ -60,7 +60,8 @@ const std::map<std::string_view, uint32_t, std::less<>> kNodeExtra = {
 // failed) on reading past its end.
 struct Reader {
     const uint8_t *p;
-    size_t size, pos = 0;
+    size_t size;
+    size_t pos = 0;
     bool ok = true;
 
     bool need(size_t n) {

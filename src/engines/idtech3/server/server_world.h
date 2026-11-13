@@ -19,7 +19,10 @@ namespace reluva::idtech3 {
 // What the server's world needs of an entity, as its game has it now (read
 // from the game's own structure, laid out as that game lays it out).
 struct EntityShape {
-    Vec3f origin{}, angles{}, mins{}, maxs{};
+    Vec3f origin{};
+    Vec3f angles{};
+    Vec3f mins{};
+    Vec3f maxs{};
     int32_t contents = 0;
     int32_t owner = -1; // the entity number of its owner, or -1
     bool bmodel = false;
@@ -63,7 +66,8 @@ public:
     // (-1 if none; two for a door between them), the clusters it touches
     // (those inside the map), and how many leafs it's in.
     struct Placement {
-        Vec3f absMin{}, absMax{};
+        Vec3f absMin{};
+        Vec3f absMax{};
         std::pair<int, int> areas{-1, -1};
         std::vector<int> clusters;
         size_t leafCount = 0;
@@ -79,7 +83,8 @@ public:
     // the level and the linked entities whose contents are in `mask`, but
     // `pass` and what it owns or owns it (-1: none). `hit` gets the entity
     // stopped at (kWorld, or kNone).
-    static constexpr int32_t kWorld = 1022, kNone = 1023;
+    static constexpr int32_t kWorld = 1022;
+    static constexpr int32_t kNone = 1023;
     TraceResult trace(const Vec3f &start, const Vec3f &mins, const Vec3f &maxs, const Vec3f &end, int32_t pass,
                       int32_t mask, int32_t &hit, bool entities = true) const;
     // The contents at a point: the level's and the entities' it's in, but

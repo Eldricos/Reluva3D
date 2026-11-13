@@ -13,7 +13,8 @@ namespace reluva::idtech3::botlib {
 namespace {
 
 constexpr float kRecentTime = 20; // a line isn't used again for this long
-constexpr int kGenderFemale = 1, kGenderMale = 2;
+constexpr int kGenderFemale = 1;
+constexpr int kGenderMale = 2;
 
 char upper(char c) {
     return char(std::toupper(static_cast<unsigned char>(c)));

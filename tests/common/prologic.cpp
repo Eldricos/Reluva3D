@@ -25,7 +25,9 @@ constexpr double kPi = 3.14159265358979323846;
 
 struct Levels {
     double db[4]; // L, C, R, S, dB relative to full scale
-    double direction, dominance, steering;
+    double direction;
+    double dominance;
+    double steering;
 };
 
 // One second of a source at `angle` on the matrix circle (0 L, 45 C, 90 R,

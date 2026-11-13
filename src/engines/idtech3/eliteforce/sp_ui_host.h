@@ -92,8 +92,12 @@ public:
     // Raw images drawn (DrawStretchRaw: a saved game's picture): where in
     // the 640 x 480 screen, their size and RGBA pixels.
     struct RawImage {
-        float x = 0, y = 0, w = 0, h = 0;
-        int cols = 0, rows = 0;
+        float x = 0;
+        float y = 0;
+        float w = 0;
+        float h = 0;
+        int cols = 0;
+        int rows = 0;
         std::vector<uint8_t> rgba;
     };
     const std::vector<RawImage> &rawImages() const { return _raw; }
@@ -155,14 +159,22 @@ private:
     std::unique_ptr<x86::Cpu> _cpu;
     std::unique_ptr<x86::Win32Process> _process;
     const x86::Win32Process::Module *_module = nullptr;
-    uint32_t _imports = 0, _exports = 0, _scratch = 0, _scratch2 = 0, _comment = 0, _capture = 0;
+    uint32_t _imports = 0;
+    uint32_t _exports = 0;
+    uint32_t _scratch = 0;
+    uint32_t _scratch2 = 0;
+    uint32_t _comment = 0;
+    uint32_t _capture = 0;
     bool _captured = false;
     std::vector<std::string> _args;
     std::vector<std::string> _commands;
     int32_t _catcher = 0;
     bool _overstrike = false;
     int32_t _time = 0;
-    HandleTable _shaders, _models, _skins, _sounds;
+    HandleTable _shaders;
+    HandleTable _models;
+    HandleTable _skins;
+    HandleTable _sounds;
     std::vector<Picture> _pictures;
     std::vector<RawImage> _raw;
     Scene _scene;

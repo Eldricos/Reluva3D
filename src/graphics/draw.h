@@ -10,7 +10,8 @@
 namespace reluva {
 
 struct Point {
-    int x = 0, y = 0;
+    int x = 0;
+    int y = 0;
     constexpr Point() = default;
     constexpr Point(int px, int py) : x(px), y(py) {}
     bool operator==(const Point &) const = default;
@@ -18,7 +19,10 @@ struct Point {
 
 // Left and top inside, right and bottom outside.
 struct Rect {
-    int left = 0, top = 0, right = 0, bottom = 0;
+    int left = 0;
+    int top = 0;
+    int right = 0;
+    int bottom = 0;
     constexpr Rect() = default;
     constexpr Rect(int l, int t, int r, int b) : left(l), top(t), right(r), bottom(b) {}
     int width() const { return right - left; }

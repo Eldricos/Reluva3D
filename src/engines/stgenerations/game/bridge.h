@@ -36,8 +36,10 @@ namespace reluva::stgenerations {
 // original's 16-bit screen did, every bitmap in its own palette.
 class Bridge : public CampaignWorld {
 public:
-    static const int kWidth = 640, kHeight = 480;
-    static const int kSuns = 10, kFleets = 25;
+    static const int kWidth = 640;
+    static const int kHeight = 480;
+    static const int kSuns = 10;
+    static const int kFleets = 25;
 
     // What the player did that the campaign must act on.
     struct Event {
@@ -166,7 +168,9 @@ private:
 
     // Drawing.
     struct Projected {
-        int x, y, r;
+        int x;
+        int y;
+        int r;
         bool visible;
     };
     Projected project(double x, double y, double z, int size) const;
@@ -197,7 +201,8 @@ private:
     std::vector<Figure> _figures;
 
     // The saved state.
-    double _stardate = 48623.4, _targetStardate = 48623.4;
+    double _stardate = 48623.4;
+    double _targetStardate = 48623.4;
     std::map<std::string, std::set<int>> _flags;
     std::string _soran;
     std::string _clueWave;
@@ -216,7 +221,9 @@ private:
     bool _busy = false;
     MapMode _mapMode = kSectorView;
     int _system = -1;
-    double _camera[3], _cameraTarget[3], _cameraStep[3];
+    double _camera[3];
+    double _cameraTarget[3];
+    double _cameraStep[3];
     uint32_t _zoomLeft = 0;
     uint32_t _time = 0;
     uint32_t _stardateTimer = 0;
@@ -226,7 +233,9 @@ private:
     int _nexusState = 1; // 1 shown, 2 wiping out, 3 wiping in
     std::deque<QueueItem> _queue;
     bool _queuePlaying = false;
-    SoundHandle _queueHandle, _ambience, _effect;
+    SoundHandle _queueHandle;
+    SoundHandle _ambience;
+    SoundHandle _effect;
     uint32_t _queueLeft = 0;
     uint32_t _idleMusic = 0;
     bool _idleToggle = false;
@@ -240,11 +249,13 @@ private:
     std::vector<std::string> _textLines;
     int _textScroll = 0;
     uint32_t _commTime = 0;
-    int _mouth = 0, _eyes = 0;
+    int _mouth = 0;
+    int _eyes = 0;
     // Input.
     std::vector<Button> _buttons;
     int _pressed = -1;
-    int _mouseX = 0, _mouseY = 0;
+    int _mouseX = 0;
+    int _mouseY = 0;
     std::deque<Event> _events;
     // A combat to start once the queue is quiet.
     int _pendingCombat = 0;

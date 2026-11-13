@@ -177,11 +177,17 @@ constexpr int kMoves[8][2] = {{0, -1}, {1, 0}, {0, 1}, {-1, 0}, {1, -1}, {1, 1},
 
 // A turn then a straight line (0x431790's record: a part each).
 struct Turn {
-    bool clockwise = false;                           // round the circle, in (a, b)
-    Real cx = 0, cy = 0;                              // the circle's centre
-    Real start = 0;                                   // where on the circle it starts (an angle)
-    Real arc = 0;                                     // the turn's length
-    Real lineX = 0, lineY = 0, heading = 0, line = 0; // the straight part
+    bool clockwise = false; // round the circle, in (a, b)
+    // the circle's centre
+    Real cx = 0;
+    Real cy = 0;
+    Real start = 0; // where on the circle it starts (an angle)
+    Real arc = 0;   // the turn's length
+    // the straight part
+    Real lineX = 0;
+    Real lineY = 0;
+    Real heading = 0;
+    Real line = 0;
 };
 
 // From (x0, y0) facing `heading`, round a circle on one side until
@@ -288,10 +294,14 @@ int WalkGrid::search(Cell from, Cell to, bool openThrees, bool allowTwos, std::v
     const int goalA = to.a + offA;
     const int goalB = to.b + offB;
     struct Node {
-        uint32_t g = 0, f = 0;
-        bool open = false, seen = false;
-        int parent = -1;          // a window cell
-        int prev = -1, next = -1; // the open list's order
+        uint32_t g = 0;
+        uint32_t f = 0;
+        bool open = false;
+        bool seen = false;
+        int parent = -1; // a window cell
+        // the open list's order
+        int prev = -1;
+        int next = -1;
     };
     std::vector<Node> nodes(size_t(kWindow * kWindow));
     auto at = [](int a, int b) { return a * kWindow + b; };

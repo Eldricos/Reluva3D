@@ -29,32 +29,56 @@ struct SavedPlacement {
 };
 
 struct SaveGame {
-    std::string description, time, date;        // "VGFDGFDG", "10:41", "11-02-06"
-    int timeOfDay = 0, weather = 0, moving = 0; // GLBT, GLBW, GLBM: the globals when saved
+    // "VGFDGFDG", "10:41", "11-02-06"
+    std::string description;
+    std::string time;
+    std::string date;
+    // GLBT, GLBW, GLBM: the globals when saved
+    int timeOfDay = 0;
+    int weather = 0;
+    int moving = 0;
     // INFO: the location, the saved scene's path
     // ("Locations\Calais.Hall\Calais.Hall_03_06b.ac2"), the act.
-    std::string location, scene;
-    int actMajor = 1, actMinor = 1;
+    std::string location;
+    std::string scene;
+    int actMajor = 1;
+    int actMinor = 1;
     // ACTI: the act's row as the game held it (acts.txt isn't read again).
     struct Act {
-        std::string preLoad, location, postLoad, completion, event, music;
-        int weather = 0, timeOfDay = 0, moving = 0;
+        std::string preLoad;
+        std::string location;
+        std::string postLoad;
+        std::string completion;
+        std::string event;
+        std::string music;
+        int weather = 0;
+        int timeOfDay = 0;
+        int moving = 0;
     } act;
     using Placement = SavedPlacement;
-    std::optional<Placement> player, follower;              // CHAR, FLLW
-    std::vector<std::pair<std::string, int>> tags, timers;  // TAGS, TIMS
+    // CHAR, FLLW
+    std::optional<Placement> player;
+    std::optional<Placement> follower;
+    // TAGS, TIMS
+    std::vector<std::pair<std::string, int>> tags;
+    std::vector<std::pair<std::string, int>> timers;
     std::vector<std::pair<std::string, std::string>> texts; // STAT: text tags
     // POSI: where characters were, by scene file and model file
     // ("Sirkeci.Market_01.ac2", "klaus_model.gr2").
     struct Position {
-        std::string scene, character;
+        std::string scene;
+        std::string character;
         Placement at;
     };
     std::vector<Position> positions;
     // TALK: conversations' progress (part a = 0; thread "1" = 96).
     struct Talk {
-        std::string name, act;
-        int part = 0, thread = 0, status = 0, nest = -1;
+        std::string name;
+        std::string act;
+        int part = 0;
+        int thread = 0;
+        int status = 0;
+        int nest = -1;
     };
     std::vector<Talk> talks;
     // ITEM: the inventory page shown, then each item: its state (2 in the
@@ -63,7 +87,9 @@ struct SaveGame {
     int itemPage = 0;
     struct Item {
         std::string name;
-        int state = 2, slot = -1, page = -1;
+        int state = 2;
+        int slot = -1;
+        int page = -1;
     };
     std::vector<Item> items;
 };

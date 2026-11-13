@@ -63,7 +63,10 @@ private:
 
     const uint8_t *_p;
     const uint8_t *_end;
-    uint32_t _code = 0, _carry = 0, _range = 0x80, _step = 1;
+    uint32_t _code = 0;
+    uint32_t _carry = 0;
+    uint32_t _range = 0x80;
+    uint32_t _step = 1;
 };
 
 // An adaptive model of up to `capacity` distinct symbols. Slot 0 is the
@@ -194,9 +197,17 @@ private:
         }
     }
 
-    std::vector<uint16_t> _counts, _symbols, _cum;
-    uint16_t _total = 0, _threshold = 0, _step = 0, _maxStep = 0, _maxTotal = 0;
-    uint16_t _seen = 0, _built = 0, _capacity = 0;
+    std::vector<uint16_t> _counts;
+    std::vector<uint16_t> _symbols;
+    std::vector<uint16_t> _cum;
+    uint16_t _total = 0;
+    uint16_t _threshold = 0;
+    uint16_t _step = 0;
+    uint16_t _maxStep = 0;
+    uint16_t _maxTotal = 0;
+    uint16_t _seen = 0;
+    uint16_t _built = 0;
+    uint16_t _capacity = 0;
 };
 
 // The LZ77 coder of one part, with its models set up from the part's
@@ -283,10 +294,17 @@ private:
         return true;
     }
 
-    Model _literals[4], _lengths[65], _low, _mid;
+    Model _literals[4];
+    Model _lengths[65];
+    Model _low;
+    Model _mid;
     std::vector<Model> _high;
-    uint32_t _literalValues = 0, _window = 0, _lowValues = 0, _highValues = 0;
-    uint32_t _lastLength = 0, _done = 0;
+    uint32_t _literalValues = 0;
+    uint32_t _window = 0;
+    uint32_t _lowValues = 0;
+    uint32_t _highValues = 0;
+    uint32_t _lastLength = 0;
+    uint32_t _done = 0;
 };
 
 // Matches can run a little past the end of a part.

@@ -387,7 +387,8 @@ const char *typeTag(uint8_t t) {
 }
 
 struct Use {
-    int op, slot;
+    int op;
+    int slot;
     uint32_t value;
 };
 
@@ -693,7 +694,8 @@ public:
         }
     }
 
-    int resolved = 0, total = 0;
+    int resolved = 0;
+    int total = 0;
 
 private:
     const SceneSymbols *_sym;

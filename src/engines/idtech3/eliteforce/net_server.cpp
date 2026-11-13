@@ -24,9 +24,16 @@ namespace reluva::idtech3::eliteforce {
 namespace {
 
 // Server message opcodes (Quake III's numbers).
-constexpr uint32_t kSvcGamestate = 2, kSvcConfigstring = 3, kSvcBaseline = 4, kSvcServerCommand = 5, kSvcSnapshot = 7;
+constexpr uint32_t kSvcGamestate = 2;
+constexpr uint32_t kSvcConfigstring = 3;
+constexpr uint32_t kSvcBaseline = 4;
+constexpr uint32_t kSvcServerCommand = 5;
+constexpr uint32_t kSvcSnapshot = 7;
 // Client message opcodes.
-constexpr int32_t kClcNop = 1, kClcMove = 2, kClcMoveNoDelta = 3, kClcClientCommand = 4;
+constexpr int32_t kClcNop = 1;
+constexpr int32_t kClcMove = 2;
+constexpr int32_t kClcMoveNoDelta = 3;
+constexpr int32_t kClcClientCommand = 4;
 constexpr int kMaxPacketCommands = 32;
 constexpr int32_t kPlayersConfigstring = 544; // CS_PLAYERS: a player's info, "\n\<name>\..."
 constexpr int32_t kPersistantOffset = 268;    // playerState persistant[], 1.2's layout; [0] the score

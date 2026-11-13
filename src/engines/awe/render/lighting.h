@@ -22,11 +22,17 @@ using Rgb = std::array<float, 3>;
 // A LITE as handed to Direct3D (D3DLIGHT8), in the world (y up).
 struct SceneLight {
     enum class Type { kPoint = 1, kSpot = 2, kDirectional = 3 } type = Type::kPoint;
-    Rgb diffuse{}, ambient{}, specular{};
-    std::array<float, 3> position{}, direction{}; // direction: the way the light goes
+    Rgb diffuse{};
+    Rgb ambient{};
+    Rgb specular{};
+    // direction: the way the light goes
+    std::array<float, 3> position{};
+    std::array<float, 3> direction{};
     float range = 0;
     float attenuation[3] = {}; // 1 / (a0 + a1 d + a2 d²)
-    float theta = 0, phi = 0;  // a spot's inner and outer cone, radians
+    // a spot's inner and outer cone, radians
+    float theta = 0;
+    float phi = 0;
 };
 
 // What lights a scene's characters: the ambient light (D3DRS_AMBIENT,
@@ -40,7 +46,10 @@ struct SceneLighting {
 // A character's material (D3DMATERIAL8) from its common fields. Its
 // attached models use it too.
 struct Material {
-    Rgb diffuse{1, 1, 1}, ambient{1, 1, 1}, emissive{}, specular{};
+    Rgb diffuse{1, 1, 1};
+    Rgb ambient{1, 1, 1};
+    Rgb emissive{};
+    Rgb specular{};
     float power = 0;
     bool lit = true; // b0c (D3DRS_LIGHTING); unlit draws are white
     // The diffuse colour's alpha (+0x98), and whether the model is blended

@@ -28,9 +28,15 @@ bool loadPAL(SeekableReadStream &stream, Palette &palette);
 class RleAnimation {
 public:
     struct Frame {
-        uint8_t key = 0;                          // header byte 0, purpose unknown
-        int w = 0, h = 0, x = 0, y = 0;           // size and position
-        int16_t muzzleX[3] = {}, muzzleY[3] = {}; // arcade sprites: gun positions in the frame
+        uint8_t key = 0; // header byte 0, purpose unknown
+        // size and position
+        int w = 0;
+        int h = 0;
+        int x = 0;
+        int y = 0;
+        // arcade sprites: gun positions in the frame
+        int16_t muzzleX[3] = {};
+        int16_t muzzleY[3] = {};
         std::vector<uint8_t> data;
     };
 

@@ -71,14 +71,25 @@ private:
 
     ProLogicOptions _options;
     int _rate;
-    double _fastCoef, _slowCoef;
+    double _fastCoef;
+    double _slowCoef;
     // The power of Lt, Rt, Lt+Rt and Lt-Rt: followed fast, and slowly
     // (faster while the fast ones show one direction dominating).
-    double _fast[4] = {}, _slow[4] = {};
-    double _direction = 45, _dominance = 0, _steering = 0;
+    double _fast[4] = {};
+    double _slow[4] = {};
+    double _direction = 45;
+    double _dominance = 0;
+    double _steering = 0;
     // The surround's low-pass (direct form I) and delay line.
-    double _b0 = 1, _b1 = 0, _b2 = 0, _a1 = 0, _a2 = 0;
-    double _x1 = 0, _x2 = 0, _y1 = 0, _y2 = 0;
+    double _b0 = 1;
+    double _b1 = 0;
+    double _b2 = 0;
+    double _a1 = 0;
+    double _a2 = 0;
+    double _x1 = 0;
+    double _x2 = 0;
+    double _y1 = 0;
+    double _y2 = 0;
     std::vector<float> _delay;
     size_t _delayPos = 0;
 };

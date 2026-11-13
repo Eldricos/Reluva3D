@@ -114,7 +114,9 @@ static void testScriptInterpreter(const std::filesystem::path &tmp) {
 }
 
 // Dialogue command numbers used by the test.
-const uint8_t kDlgGotoCmd = 0x32, kDlgExitCmd = 0x39, kDlgBackCmd = 0x40;
+const uint8_t kDlgGotoCmd = 0x32;
+const uint8_t kDlgExitCmd = 0x39;
+const uint8_t kDlgBackCmd = 0x40;
 
 static void testConversation(const std::filesystem::path &tmp) {
     namespace fs = std::filesystem;

@@ -19,24 +19,30 @@ using ParticleVec = std::array<float, 3>;
 // A kind's template, the 128 bytes at 0x560b64 + kind × 128 (only the
 // fields the code reads; the offsets are the template's).
 struct ParticleTemplate {
-    int count = 0;                                      // +0x00 a burst's count (0x4cac20)
-    int life = 0;                                       // +0x04 ticks
-    int throttle = 0;                                   // +0x08 made only when (game tick / 2) % (throttle + 1) is 0
-    float up = 0, along = 0, across = 0;                // +0x10, +0x14, +0x18 speeds (below)
-    float spread = 0;                                   // +0x1c each speed × 1 ± spread/2 at random
-    float wobbleTurn = 0, wobble = 0, wobbleGrowth = 0; // +0x20, +0x24, +0x28 a sideways push
-    float gravity = 0;                                  // +0x2c added to the upward speed each tick
-    float spin = 0;                                     // +0x30 turns a tick, × the scale
-    float inherit = 0;                                  // +0x34 of the given velocity (a car's)
-    float drag = 1;                                     // +0x38 speeds, spin and wobble × this each tick
-    float size = 0;                                     // +0x40 half the picture's diagonal, in units
-    float growth = 0;                                   // +0x44 added to the size over the life, × the scale
-    float sizeSpread = 0;                               // +0x48 size × (1 + random × this)
-    uint32_t colour = 0;                                // +0x4c ARGB at birth
-    uint32_t fade = 0;                                  // +0x50 ARGB taken off, byte by byte, over the life
-    uint16_t flags = 0;                                 // +0x58 to the polygon (bit 0: added, inferred)
-    bool streak = false;                                // +0x5c drawn as a streak, not a picture
-    float reach = 0;                                    // +0x60 not drawn farther than this from the camera
+    int count = 0;    // +0x00 a burst's count (0x4cac20)
+    int life = 0;     // +0x04 ticks
+    int throttle = 0; // +0x08 made only when (game tick / 2) % (throttle + 1) is 0
+    // +0x10, +0x14, +0x18 speeds (below)
+    float up = 0;
+    float along = 0;
+    float across = 0;
+    float spread = 0; // +0x1c each speed × 1 ± spread/2 at random
+    // +0x20, +0x24, +0x28 a sideways push
+    float wobbleTurn = 0;
+    float wobble = 0;
+    float wobbleGrowth = 0;
+    float gravity = 0;         // +0x2c added to the upward speed each tick
+    float spin = 0;            // +0x30 turns a tick, × the scale
+    float inherit = 0;         // +0x34 of the given velocity (a car's)
+    float drag = 1;            // +0x38 speeds, spin and wobble × this each tick
+    float size = 0;            // +0x40 half the picture's diagonal, in units
+    float growth = 0;          // +0x44 added to the size over the life, × the scale
+    float sizeSpread = 0;      // +0x48 size × (1 + random × this)
+    uint32_t colour = 0;       // +0x4c ARGB at birth
+    uint32_t fade = 0;         // +0x50 ARGB taken off, byte by byte, over the life
+    uint16_t flags = 0;        // +0x58 to the polygon (bit 0: added, inferred)
+    bool streak = false;       // +0x5c drawn as a streak, not a picture
+    float reach = 0;           // +0x60 not drawn farther than this from the camera
     float speedScale = 0;      // +0x0c a wheel's particles at scale |car speed| / this, at most 1 (0x4cb010)
     bool spinHeld = false;     // +0x3c the spin turned back past +-0.25 of a turn (0x4cb2c0)
     uint32_t colourRandom = 0; // +0x54 each byte, times a random part, taken off the colour at birth
@@ -64,16 +70,27 @@ struct ParticleRandom {
 
 // One of the 600 slots at 0x7ddfd0 (128 bytes each; the offsets are its).
 struct Particle {
-    int life = 0;                                                        // +0x00 0: free
-    int kind = 0;                                                        // +0x04
-    int lifeMax = 0;                                                     // +0x08
-    ParticleVec position{}, velocity{};                                  // +0x0c, +0x18
-    float size = 0, baseSize = 0, growth = 0;                            // +0x24, +0x28, +0x2c
-    float angle = 0, spin = 0;                                           // +0x30 turns, +0x34
-    float wobbleAngle = 0, wobbleTurn = 0, wobble = 0, wobbleGrowth = 0; // +0x40-+0x4c
-    uint32_t colour = 0;                                                 // +0x54 ARGB
-    int children = 0;                                                    // +0x7e sparks made when it dies (0x4cab60)
-    bool halved = false;                                                 // +0x7d not made, or not drawn, at Horizon Low
+    int life = 0;    // +0x00 0: free
+    int kind = 0;    // +0x04
+    int lifeMax = 0; // +0x08
+    // +0x0c, +0x18
+    ParticleVec position{};
+    ParticleVec velocity{};
+    // +0x24, +0x28, +0x2c
+    float size = 0;
+    float baseSize = 0;
+    float growth = 0;
+    // +0x30 turns, +0x34
+    float angle = 0;
+    float spin = 0;
+    // +0x40-+0x4c
+    float wobbleAngle = 0;
+    float wobbleTurn = 0;
+    float wobble = 0;
+    float wobbleGrowth = 0;
+    uint32_t colour = 0; // +0x54 ARGB
+    int children = 0;    // +0x7e sparks made when it dies (0x4cab60)
+    bool halved = false; // +0x7d not made, or not drawn, at Horizon Low
     // The streak's tail (the game keeps it on the screen, +0x58, per view,
     // and whether it was drawn last frame, +0x78); here in the world.
     ParticleVec tail{};
@@ -217,8 +234,12 @@ uint32_t particleColour(const ParticleTemplate &t, float part);
 // (+0x168), `rough` its +0x15c.
 struct WallHit {
     int code = 0;
-    float speed = 0, impact = 0, rough = 0;
-    ParticleVec contact{}, carPosition{}, carVelocity{};
+    float speed = 0;
+    float impact = 0;
+    float rough = 0;
+    ParticleVec contact{};
+    ParticleVec carPosition{};
+    ParticleVec carVelocity{};
 };
 void wallHitParticles(ParticleSystem &system, const WallHit &hit, uint32_t tick, ParticleRandom &random,
                       int horizon = 0);
@@ -273,17 +294,23 @@ const WeatherKind *weatherKind(int type);
 // What 0x4dcdf0 makes of the .hrz's weather (0x478340 reads it into
 // 0x8ca1e8-0x8ca1fc and makes the four times running sums).
 struct WeatherSetup {
-    int kind = 0;                               // 0 none, 1 rain, 2 snow (0x8ca22c)
-    int count = 0;                              // drops (0x8ca234)
-    int splashes = 0;                           // splash slots (0x8ca278)
-    float half = 0, top = 0, bottom = 0;        // the box round the camera (0x8ca25c, 0x8ca264, 0x8ca260)
-    ParticleVec velocity{};                     // each update (0x8ca26c)
-    float flake = 0;                            // 0x8ca230
-    uint32_t colour = 0;                        // ARGB (0x8ca238 in each byte)
-    int splashLife = 0;                         // 0x8ca27c
-    float splashSize = 0;                       // 0x8ca280
-    int splashGrey = 0;                         // 0x8ca284
-    int startSlice = 0, endSlice = 0, fade = 0; // the stretch of road (0x8ca23c, 0x8ca240)
+    int kind = 0;     // 0 none, 1 rain, 2 snow (0x8ca22c)
+    int count = 0;    // drops (0x8ca234)
+    int splashes = 0; // splash slots (0x8ca278)
+    // the box round the camera (0x8ca25c, 0x8ca264, 0x8ca260)
+    float half = 0;
+    float top = 0;
+    float bottom = 0;
+    ParticleVec velocity{}; // each update (0x8ca26c)
+    float flake = 0;        // 0x8ca230
+    uint32_t colour = 0;    // ARGB (0x8ca238 in each byte)
+    int splashLife = 0;     // 0x8ca27c
+    float splashSize = 0;   // 0x8ca280
+    int splashGrey = 0;     // 0x8ca284
+    // the stretch of road (0x8ca23c, 0x8ca240)
+    int startSlice = 0;
+    int endSlice = 0;
+    int fade = 0;
     std::array<int, 4> times{}; // ticks: fading off from, off from, fading on from, back on at (0x8ca1f0-0x8ca1fc)
 };
 WeatherSetup weatherSetup(int type, int startSlice, int endSlice, int fade, int stayOn, int fadeOff, int stayOff,
@@ -311,9 +338,18 @@ int fixedCos(uint32_t angle);
 // the screen the game sets for it (0x4dbda0: 0x4bed20 with angle 0x78,
 // 120 degrees, so sx 184.75 and sy -216.1 at 640 x 480).
 struct WeatherView {
-    ParticleVec eye{}, right{}, up{}, forward{};
-    float sx = 184.752f, sy = -216.108f, cx = 320, cy = 240;
-    float left = 0, rightEdge = 640, top = 0, bottom = 480;
+    ParticleVec eye{};
+    ParticleVec right{};
+    ParticleVec up{};
+    ParticleVec forward{};
+    float sx = 184.752f;
+    float sy = -216.108f;
+    float cx = 320;
+    float cy = 240;
+    float left = 0;
+    float rightEdge = 640;
+    float top = 0;
+    float bottom = 480;
 };
 
 // A polygon of the pass, on the screen (pixels, y down): a drop's
@@ -329,7 +365,8 @@ struct WeatherPoly {
 
 class Weather {
 public:
-    static constexpr int kDrops = 800, kSplashes = 20;
+    static constexpr int kDrops = 800;
+    static constexpr int kSplashes = 20;
     struct Drop {
         ParticleVec position{};      // 0x8c56e8 + 12 x i
         std::array<float, 2> tail{}; // 0x8c0be8: the streak's end on the screen
@@ -337,10 +374,12 @@ public:
         bool tailSet = false;        // +9
     };
     struct Splash {
-        float x = 0, y = 0; // on the screen, before the view's scales (0x8c08c0)
-        int life = 0;       // updates (0x8c08c8)
-        float size = 0;     // 0x8c08cc
-        float angle = 0;    // turns (0x8c08d0)
+        // on the screen, before the view's scales (0x8c08c0)
+        float x = 0;
+        float y = 0;
+        int life = 0;    // updates (0x8c08c8)
+        float size = 0;  // 0x8c08cc
+        float angle = 0; // turns (0x8c08d0)
     };
     // 0x4dcdf0, then 0x4dd230: every drop at random in the box round the
     // camera, the splashes cleared; `step` begins the cycle.
@@ -386,7 +425,8 @@ private:
     WeatherSetup _setup;
     std::array<Drop, kDrops> _drops{};
     std::array<Splash, kSplashes> _splashes{};
-    int _last = -2, _cycleStart = 0;
+    int _last = -2;
+    int _cycleStart = 0;
     int _splashSounds = 0;
     bool _inCar = false; // 0x8ca2b4
 };
@@ -395,7 +435,8 @@ private:
 // 3), the volume (90 + random % 30) and the azimuth (random % 0xFFFF), in
 // the order the game draws them.
 struct SplashSound {
-    int sound = 0, volume = 0;
+    int sound = 0;
+    int volume = 0;
     uint32_t azimuth = 0;
 };
 SplashSound splashSound(ParticleRandom &random);
@@ -420,7 +461,10 @@ struct Splat {
     std::array<std::array<float, 2>, 4> corners{}; // +0x08-+0x24, x / z and y / z
     uint32_t colour = 0;                           // +0x28
     uint32_t flags = 0;                            // +0x2C
-    float x = 0, y = 0, size = 0;                  // +0x34, +0x38, +0x3C
+    // +0x34, +0x38, +0x3C
+    float x = 0;
+    float y = 0;
+    float size = 0;
 };
 class SplatScreen {
 public:
@@ -446,7 +490,8 @@ public:
         _sounds = 0;
         return n;
     }
-    static constexpr int kSoundSlot = 0xf, kSoundVolume = 0x7f;
+    static constexpr int kSoundSlot = 0xf;
+    static constexpr int kSoundVolume = 0x7f;
     // 0x4cb220, on the odd steps (0x4cb2c0): each live splat's alpha the
     // template's x its life / the template's life, then its life - 1;
     // freed once its alpha is 0.

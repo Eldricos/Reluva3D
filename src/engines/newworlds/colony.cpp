@@ -15,7 +15,8 @@ namespace {
 struct SiteEntry {
     const char *mission;
     char side;
-    int a, b;
+    int a;
+    int b;
     const char *source;
 };
 
@@ -98,10 +99,12 @@ constexpr std::pair<const char *, const char *> kUpgrades[] = {
 
 // The ground counts as flat for a building if it rises less than this
 // across a tile, and near the hub's height if within this of it.
-constexpr float kFlat = 1024, kNear = 2048;
+constexpr float kFlat = 1024;
+constexpr float kNear = 2048;
 // How many tiles from the site the hub may move, and how far around it
 // counts as its room.
-constexpr int kSearch = 6, kRoom = 3;
+constexpr int kSearch = 6;
+constexpr int kRoom = 3;
 // How far the starting pad reaches beyond the hub, in tiles.
 constexpr int kPad = 2;
 // Pads are level in the recordings: flatter ground than a building needs.

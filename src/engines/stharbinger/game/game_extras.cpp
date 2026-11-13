@@ -21,15 +21,19 @@ const Rect kCreditsWindow(258, 24, 638, 456);
 const int kCreditsLinePitch = 24;
 const int kCreditsStep = 4;           // pixels per scroll step
 const int kCreditsStepsPerScroll = 2; // one scroll step every 40 ms
-const uint8_t kHeadingColor = 0xFD, kTextColor = 7, kCreditsShadow = 0xFE;
+const uint8_t kHeadingColor = 0xFD;
+const uint8_t kTextColor = 7;
+const uint8_t kCreditsShadow = 0xFE;
 const uint32_t kCreditsFadeMillis = 500; // 10 steps of 50 ms
 
 // Deck maps: raw 8-bit images (maps\*.dat), the view shown, and where each
 // location is (DEEP.EXE tables 0x54BF4 / 0x54D20).
 struct DeckMap {
     const char *file;
-    int w, h;
-    int viewW, viewH;
+    int w;
+    int h;
+    int viewW;
+    int viewH;
 };
 const DeckMap kDeckMaps[4] = {
     {"MAPS/OPS.DAT", 301, 309, 240, 320},
@@ -39,7 +43,9 @@ const DeckMap kDeckMaps[4] = {
 };
 
 struct MapLocation {
-    int location, x, y;
+    int location;
+    int x;
+    int y;
 };
 const MapLocation kMapLocations[] = {
     {0, 36, 150},    {1, 58, 175},    {2, 40, 218},    {3, 72, 217},    {4, 120, 234},   {5, 180, 236},

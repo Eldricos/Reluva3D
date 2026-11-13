@@ -16,10 +16,13 @@ namespace reluva::idtech3::botlib {
 namespace {
 
 // Quake III's movement settings, as the bot library takes them.
-constexpr float kMaxStep = 18, kMaxBarrier = 32, kGravity = 800;
+constexpr float kMaxStep = 18;
+constexpr float kMaxBarrier = 32;
+constexpr float kGravity = 800;
 constexpr float kAvoidReachTime = 6;
 constexpr int kAvoidReachTries = 4;
-constexpr int kEntityWorld = 1022, kEntityNone = 1023;
+constexpr int kEntityWorld = 1022;
+constexpr int kEntityNone = 1023;
 constexpr int kLiquid = contents::kWater | contents::kSlime | contents::kLava;
 
 Vec3f sub(const Vec3f &a, const Vec3f &b) {

@@ -37,7 +37,8 @@ public:
     PointLight sample(const std::array<float, 3> &pos, bool forModel = true) const;
 
 private:
-    std::array<float, 3> _origin{}, _size{64, 64, 128};
+    std::array<float, 3> _origin{};
+    std::array<float, 3> _size{64, 64, 128};
     std::array<int, 3> _count{};
     std::vector<uint8_t> _data; // 8 bytes per point, colours already brightened
 };

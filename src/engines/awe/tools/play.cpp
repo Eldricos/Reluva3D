@@ -56,7 +56,10 @@ namespace reluva::awe {
 namespace {
 
 struct Action {
-    std::string kind, scene, target, item;
+    std::string kind;
+    std::string scene;
+    std::string target;
+    std::string item;
     int n = 0;
     std::vector<int> choices; // taken (or to take) at each choice
     std::vector<int> offered; // how many there were at each (not written)
@@ -175,7 +178,9 @@ public:
 
     // -shot <n>c<k>: before the k-th choice of action n is taken, a shot
     // of the box.
-    std::map<std::pair<size_t, size_t>, std::string> choiceShots, lineShots; // -shot <n>l<k>: a second into a line
+    // -shot <n>l<k>: a second into a line
+    std::map<std::pair<size_t, size_t>, std::string> choiceShots;
+    std::map<std::pair<size_t, size_t>, std::string> lineShots;
     size_t linesSaid = 0;
     uint64_t lineShotAt = 0;
     std::string lineShotFile;
@@ -664,9 +669,12 @@ private:
     std::unique_ptr<ScenePage> _page;
     std::vector<std::string> _log;
     bool _credits = false;
-    std::vector<int> _forced, _taken, _offered;
+    std::vector<int> _forced;
+    std::vector<int> _taken;
+    std::vector<int> _offered;
     std::string _then;
-    bool _watching = false, _unlocked = false;
+    bool _watching = false;
+    bool _unlocked = false;
     std::map<std::string, int> _counts;
 };
 
@@ -768,9 +776,12 @@ void reloadAndCompare(Player &player, size_t n, const Action &a) {
 // load that loses something, a script verb not done, a scene with nothing
 // to do and no way on.
 struct Wander {
-    size_t every = 0, steps = 30;
+    size_t every = 0;
+    size_t steps = 30;
     std::mt19937 rng{1};
-    size_t walks = 0, actions = 0, problems = 0;
+    size_t walks = 0;
+    size_t actions = 0;
+    size_t problems = 0;
     std::set<std::string> scenes;
 };
 
@@ -886,7 +897,8 @@ bool replay(Player &player, std::vector<Action> &path, bool print, size_t &done,
 struct Node {
     std::vector<uint8_t> save;
     size_t path = 0; // into the search's paths: the actions that led here
-    int progress = 0, depth = 0;
+    int progress = 0;
+    int depth = 0;
     int tier = 0;         // 1: nothing in it is new to its scene (no novelty)
     bool promise = false; // an item can be used there (the cursor would show it)
     std::string key;

@@ -55,8 +55,12 @@ constexpr const char *kSuspectPrints[] = {"printcount",       "printcountess",  
                                           "printmatteo",      "printengineer",    "printfireman"};
 
 // The window's pages' places (the floats after their vtables).
-constexpr int kArrowBack[4] = {46, 29, 76, 44}, kArrowOn[4] = {435, 29, 464, 44}; // 0x41c980
-constexpr int kBlipLeft = 78, kBlipSpan = 342;                                    // 0x482814, 0x482810
+// 0x41c980
+constexpr int kArrowBack[4] = {46, 29, 76, 44};
+constexpr int kArrowOn[4] = {435, 29, 464, 44};
+// 0x482814, 0x482810
+constexpr int kBlipLeft = 78;
+constexpr int kBlipSpan = 342;
 
 bool inside(int x, int y, int l, int t, int r, int b) {
     return x >= l && x < r && y >= t && y < b;

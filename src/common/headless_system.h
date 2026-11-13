@@ -47,7 +47,9 @@ public:
     int cursorChanges() const { return _cursorChanges; }
 
 private:
-    int _width = 0, _height = 0, _frames = 0;
+    int _width = 0;
+    int _height = 0;
+    int _frames = 0;
     uint64_t _millis = 0;
     std::string _title;
     Cursor _cursor;

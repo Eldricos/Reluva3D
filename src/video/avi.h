@@ -60,17 +60,23 @@ public:
 
 private:
     struct Chunk {
-        uint32_t offset, size;
+        uint32_t offset;
+        uint32_t size;
     };
     bool readList(uint32_t end, int depth);
 
     std::unique_ptr<SeekableReadStream> _stream;
     std::unique_ptr<cinepak::Decoder> _cinepak;
-    int _width = 0, _height = 0;
+    int _width = 0;
+    int _height = 0;
     uint32_t _frameMicros = 41666;
     uint32_t _videoCodec = 0;
-    int _streams = 0, _videoStream = -1, _audioStream = -1;
-    int _audioRate = 0, _audioChannels = 0, _audioBits = 0;
+    int _streams = 0;
+    int _videoStream = -1;
+    int _audioStream = -1;
+    int _audioRate = 0;
+    int _audioChannels = 0;
+    int _audioBits = 0;
     std::vector<Chunk> _frames;
     std::vector<uint8_t> _audio;
     int _current = -1;

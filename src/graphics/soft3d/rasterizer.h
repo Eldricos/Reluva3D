@@ -14,9 +14,13 @@ namespace reluva::soft3d {
 
 // A vertex after projection to the screen.
 struct ScreenVertex {
-    float x, y;  // pixels; pixel centres are at +0.5
-    float invZ;  // 1 / view-space depth: larger is nearer
-    float u, v;  // texture coordinates
+    // pixels; pixel centres are at +0.5
+    float x;
+    float y;
+    float invZ; // 1 / view-space depth: larger is nearer
+    // texture coordinates
+    float u;
+    float v;
     float s = 1; // light level, interpolated for smooth shading
 };
 

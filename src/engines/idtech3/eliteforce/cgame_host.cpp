@@ -106,11 +106,16 @@ constexpr int32_t kGlconfigSize = 5192;
 // player and entity states.
 // After the player state (1.0's 460 bytes, patch 1.2's 468) the offsets
 // follow from its size: 504, 508, 52732, 52736 and 52740 bytes with 1.0's.
-constexpr int32_t kSnapServerTime = 8, kSnapPlayerState = 44;
+constexpr int32_t kSnapServerTime = 8;
+constexpr int32_t kSnapPlayerState = 44;
 constexpr int32_t kSnapAreaMask = 12; // 32 bytes: a bit set for each area hidden behind a closed door
 constexpr int32_t kMaxSnapshotEntities = 256;
 struct SnapshotLayout {
-    int32_t numEntities, entities, numServerCommands, serverCommandSequence, size;
+    int32_t numEntities;
+    int32_t entities;
+    int32_t numServerCommands;
+    int32_t serverCommandSequence;
+    int32_t size;
 };
 SnapshotLayout snapshotLayout(int32_t playerStateSize) {
     const int32_t numEntities = kSnapPlayerState + playerStateSize;

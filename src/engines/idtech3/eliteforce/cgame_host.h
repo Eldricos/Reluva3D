@@ -136,17 +136,23 @@ private:
     GameLayout _layout = kLayout10;
     VmFiles _vmFiles;
     std::map<int32_t, std::string> _configstrings;
-    HandleTable _models, _skins, _shaders, _sounds;
+    HandleTable _models;
+    HandleTable _skins;
+    HandleTable _shaders;
+    HandleTable _sounds;
     std::vector<std::string> _commands;
-    std::string _collisionMap, _worldMap;
+    std::string _collisionMap;
+    std::string _worldMap;
     std::pair<std::string, std::string> _music;
     std::shared_ptr<const Bsp> _map;
     std::string _log;
     std::map<int, int> _unhandled;
-    std::vector<std::string> _clientCommands, _consoleCommands;
+    std::vector<std::string> _clientCommands;
+    std::vector<std::string> _consoleCommands;
     std::map<int, std::array<int32_t, 6>> _firstUnhandled;
     int32_t _time = 0;
-    int32_t _snapshotNumber = 0, _snapshotTime = 0;
+    int32_t _snapshotNumber = 0;
+    int32_t _snapshotTime = 0;
     std::map<int32_t, GameHost::Snapshot> _snapshots; // by number
     std::vector<std::string> _serverCommands;
     std::string _bigConfigstring;   // a long configstring coming in pieces (bcs0, bcs1, bcs2)
@@ -159,7 +165,8 @@ private:
     Scene _scene;
     std::map<int32_t, int32_t> _cleared;                      // memset(address, 0, size): the last size by address
     std::map<int32_t, std::shared_ptr<const Md3Model>> _md3s; // by model handle, for tags
-    std::array<float, 3> _tempBoxMins{}, _tempBoxMaxs{};
+    std::array<float, 3> _tempBoxMins{};
+    std::array<float, 3> _tempBoxMaxs{};
     std::unique_ptr<CollisionWorld> _world;
     std::unique_ptr<MarkSurfaces> _marks; // made from map_ on the first mark
     int32_t _weaponSelect = 0;

@@ -161,7 +161,8 @@ namespace {
 // DirectInput numbers them).
 struct KeyName {
     const char *name;
-    uint8_t vk, scan;
+    uint8_t vk;
+    uint8_t scan;
 };
 constexpr KeyName kKeys[] = {
     {"enter", 0x0d, 0x1c},

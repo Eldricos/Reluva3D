@@ -172,7 +172,8 @@ constexpr int kMaxGridPoints = 65; // each way, as the original's
 
 // A grid of blendable points, row by row.
 struct Mesh {
-    int w = 0, h = 0;
+    int w = 0;
+    int h = 0;
     std::vector<Point> p;
     Point &at(int x, int y) { return p[size_t(y * w + x)]; }
 };

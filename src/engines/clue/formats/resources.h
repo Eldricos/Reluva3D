@@ -55,8 +55,10 @@ struct Image {
     image::Image pixels; // RGBA, transparent where nothing is drawn
     // Where the pixels sit in a cell of their own size: a font's glyph in
     // its character box. Version 0x200 images fill their cell.
-    int cellW = 0, cellH = 0;
-    int offsetX = 0, offsetY = 0;
+    int cellW = 0;
+    int cellH = 0;
+    int offsetX = 0;
+    int offsetY = 0;
 };
 Error decodeImage(const std::vector<uint8_t> &record, Image &out);
 
@@ -67,7 +69,8 @@ struct Animation {
 
     struct Part {           // a layer's image in one frame
         uint16_t image = 0; // into images, or kNoImage
-        int16_t x = 0, y = 0;
+        int16_t x = 0;
+        int16_t y = 0;
         // Its own draw flags (EagleM's text form: "Flags"); 0 in all but a
         // few. Clue.exe draws the house's with them in place of the object's
         // (0x4285E8): the high 16 bits a pixel function of ImageRLE16.dll's,
@@ -81,8 +84,12 @@ struct Animation {
     // world x - y, screen y (x + y) / 2 - z, so the box's image spans
     // -sizeY .. sizeX across and rises height above the anchor.
     struct Frame {
-        int16_t anchorX = 0, anchorY = 0; // where the frame's top left is, from the anchor point
-        uint16_t sizeX = 0, sizeY = 0, height = 0;
+        // where the frame's top left is, from the anchor point
+        int16_t anchorX = 0;
+        int16_t anchorY = 0;
+        uint16_t sizeX = 0;
+        uint16_t sizeY = 0;
+        uint16_t height = 0;
         int16_t solid = 0; // 1 for objects, -1 for flat things (floors), 0 without a box
         // The long form's bytes 4-13 as read: 4-6 a world offset (Clue.exe's
         // "RelativeWorld", 0 in all), 7 the number of boxes, 8-9 the box's
@@ -98,7 +105,8 @@ struct Animation {
     enum Flags : uint8_t { kOnce = 0, kLoop = 1, kBackAndForth = 2 };
     int framesPerSecond = 0;
     uint8_t flags = kOnce;
-    int width = 0, height = 0;
+    int width = 0;
+    int height = 0;
     std::vector<std::string> images;       // "drive:Iname"
     std::vector<std::vector<Part>> layers; // [layer][frame]
     std::vector<Frame> frames;

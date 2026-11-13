@@ -438,7 +438,10 @@ namespace {
 // Builds levels of rectangular floors and straight walls for the walker.
 struct LevelBuilder {
     std::vector<std::pair<int32_t, int32_t>> vertices;
-    std::vector<std::vector<uint8_t>> flats, walls, actors, billboards;
+    std::vector<std::vector<uint8_t>> flats;
+    std::vector<std::vector<uint8_t>> walls;
+    std::vector<std::vector<uint8_t>> actors;
+    std::vector<std::vector<uint8_t>> billboards;
 
     // A 2 x 4 billboard standing at (x, y, z).
     void addBillboard(uint16_t id, double x, double y, double z, uint32_t flags, uint32_t zones) {

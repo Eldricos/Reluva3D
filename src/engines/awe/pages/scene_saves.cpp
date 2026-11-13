@@ -27,7 +27,9 @@ namespace {
 // The rows' tops on the save and load screens (0x490b98), and each row's
 // box: x 703..957, 190 high.
 constexpr int kRowTop[3] = {63, 287, 511};
-constexpr int kRowLeft = 703, kRowRight = 957, kRowHeight = 190;
+constexpr int kRowLeft = 703;
+constexpr int kRowRight = 957;
+constexpr int kRowHeight = 190;
 
 std::string fileNameOf(const std::string &path) {
     const size_t slash = path.find_last_of("/\\");

@@ -140,13 +140,17 @@ public:
         // Drawn at full brightness, as set by a script.
         bool fullbright = false;
         // SET_TEXTURE_SCROLL (0xAB): u and v speeds.
-        int16_t uScroll = 0, vScroll = 0;
+        int16_t uScroll = 0;
+        int16_t vScroll = 0;
         // Doors (see Movers): the mover this wall is part of (0x8A, 0 for
         // none), how it moves (0x8C), the mover's speed and wait (0x8E,
         // 0x90), and the mover walking into it starts, with how (0x92, 0x94).
-        int16_t moverId = 0, moverMode = 0;
-        uint16_t moverSpeed = 0, moverWait = 0;
-        int16_t bumpMover = 0, bumpMode = 0;
+        int16_t moverId = 0;
+        int16_t moverMode = 0;
+        uint16_t moverSpeed = 0;
+        uint16_t moverWait = 0;
+        int16_t bumpMover = 0;
+        int16_t bumpMode = 0;
     };
 
     // Wall and flat flag: a mover's follower part, not a leader.
@@ -204,9 +208,11 @@ public:
         uint64_t activeZones;
         // The raw 292-byte record, for the fields still being decoded.
         std::vector<uint8_t> raw;
-        int16_t uScroll = 0, vScroll = 0;
+        int16_t uScroll = 0;
+        int16_t vScroll = 0;
         // A mover follower: the mover (0x106) and mode 6 or 7 (0x108).
-        int16_t moverId = 0, moverMode = 0;
+        int16_t moverId = 0;
+        int16_t moverMode = 0;
         // ADD_FLAT_ZONE_BAND (0xC1): zones in play by height, highest first;
         // standing here, the first at or below the flat's height counts.
         std::vector<std::pair<int32_t, uint64_t>> zoneBands;
@@ -319,7 +325,9 @@ public:
         int32_t maxWalk;
         int32_t stepHeight;
         // Where shots leave from: across (x), up from the sprite's bottom (z) and ahead (y).
-        int32_t muzzleX, muzzleZ, muzzleY;
+        int32_t muzzleX;
+        int32_t muzzleZ;
+        int32_t muzzleY;
         Animation animations[kAnimationCount];
         // Sprite set number (NNN.gs2), which is also the actor's class.
         uint16_t spriteSet;

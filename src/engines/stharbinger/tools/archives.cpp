@@ -183,7 +183,8 @@ std::optional<stdfs::path> sibling(const stdfs::path &path, const std::string &e
 
 struct Entry {
     std::string name;
-    uint32_t start, end;
+    uint32_t start;
+    uint32_t end;
 };
 
 // NAME.LST's offsets into NAME.ALL, with NAME.CAT's names; what doesn't
@@ -327,8 +328,13 @@ double entropy(const std::vector<uint8_t> &d, size_t start = 0, size_t step = 1)
 }
 
 struct RawStats {
-    double entropy = 0, nearMid = 0, nearEdge = 0, oddNearZero = 0;
-    std::string autoFormat, guess, first16;
+    double entropy = 0;
+    double nearMid = 0;
+    double nearEdge = 0;
+    double oddNearZero = 0;
+    std::string autoFormat;
+    std::string guess;
+    std::string first16;
 };
 
 RawStats rawStats(const std::vector<uint8_t> &d) {
@@ -478,7 +484,8 @@ struct Options {
 
 struct Root {
     std::string label;
-    stdfs::path root, out;
+    stdfs::path root;
+    stdfs::path out;
 };
 
 class Extractor {
@@ -508,23 +515,38 @@ private:
         size_t emptyClips = 0;
     };
     struct ExeInfo {
-        std::string file, type;
+        std::string file;
+        std::string type;
         size_t size;
     };
     struct CmpInfo {
-        std::string file, palette, dims, first16, error;
-        size_t size = 0, outSize = 0;
+        std::string file;
+        std::string palette;
+        std::string dims;
+        std::string first16;
+        std::string error;
+        size_t size = 0;
+        size_t outSize = 0;
         uint32_t header = 0;
         bool headerMatches = false;
     };
     struct RleFrameInfo {
-        int frame, key, w, h, x, y;
+        int frame;
+        int key;
+        int w;
+        int h;
+        int x;
+        int y;
         size_t bytes;
     };
     struct RleInfo {
-        std::string file, palette, magic, error;
+        std::string file;
+        std::string palette;
+        std::string magic;
+        std::string error;
         size_t size = 0;
-        int countField = 0, framesFound = 0;
+        int countField = 0;
+        int framesFound = 0;
         long trailing = 0;
         std::vector<std::string> issues;
         std::vector<RleFrameInfo> frames;
@@ -535,9 +557,13 @@ private:
         RawStats stats;
     };
     struct MapInfo {
-        std::string file, palette, values, topWidths;
+        std::string file;
+        std::string palette;
+        std::string values;
+        std::string topWidths;
         size_t size = 0;
-        int width = 0, height = 0;
+        int width = 0;
+        int height = 0;
         long remainder = 0;
     };
     struct PalInfo {

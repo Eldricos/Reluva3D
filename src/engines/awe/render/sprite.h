@@ -15,9 +15,13 @@
 namespace reluva::awe {
 
 struct SpriteTransform {
-    float x = 0, y = 0;           // where the top-left corner goes
-    float scaleX = 1, scaleY = 1; // negative mirrors
-    float roll = 0;               // radians, clockwise on the screen
+    // where the top-left corner goes
+    float x = 0;
+    float y = 0;
+    // negative mirrors
+    float scaleX = 1;
+    float scaleY = 1;
+    float roll = 0; // radians, clockwise on the screen
     bool plain() const { return scaleX == 1 && scaleY == 1 && roll == 0; }
     // Where the picture's point (u, v) lands.
     void apply(float u, float v, float &outX, float &outY) const;

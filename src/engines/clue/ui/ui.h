@@ -52,7 +52,10 @@ private:
 };
 
 struct UiRect {
-    int x = 0, y = 0, w = 0, h = 0;
+    int x = 0;
+    int y = 0;
+    int w = 0;
+    int h = 0;
     bool contains(int px, int py) const { return px >= x && px < x + w && py >= y && py < y + h; }
 };
 
@@ -108,10 +111,13 @@ public:
 
 private:
     struct State {
-        bool visible = true, enabled = true, chosen = false;
+        bool visible = true;
+        bool enabled = true;
+        bool chosen = false;
         bool textSet = false;
         std::string text;
-        int value = 0, scroll = 0;
+        int value = 0;
+        int scroll = 0;
     };
     const ResiControl *hit(int mx, int my) const;
     UiRect rectOf(const ResiControl &c) const;
@@ -120,10 +126,16 @@ private:
     const GameData &_data;
     const Fonts &_fonts;
     const ResiDialog &_dialog;
-    int _x, _y;
-    int _width = 0, _height = 0; // the dialog's size, for controls reaching to its edges
-    std::vector<State> _state;   // one per control
-    int _hover = -1, _pressed = -1, _focus = -1, _dragging = -1;
+    int _x;
+    int _y;
+    // the dialog's size, for controls reaching to its edges
+    int _width = 0;
+    int _height = 0;
+    std::vector<State> _state; // one per control
+    int _hover = -1;
+    int _pressed = -1;
+    int _focus = -1;
+    int _dragging = -1;
 };
 
 } // namespace reluva::clue

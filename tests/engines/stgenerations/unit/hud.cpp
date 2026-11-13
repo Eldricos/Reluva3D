@@ -19,7 +19,8 @@ using namespace reluva::stgenerations;
 namespace {
 
 struct Sent {
-    uint16_t object, event;
+    uint16_t object;
+    uint16_t event;
     std::vector<int16_t> args;
 };
 

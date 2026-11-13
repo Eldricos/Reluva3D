@@ -71,8 +71,11 @@ public:
 
     // A round obstacle, such as an actor.
     struct Obstacle {
-        double x, y, radius;
-        double bottom, top;
+        double x;
+        double y;
+        double radius;
+        double bottom;
+        double top;
     };
 
     // Obstacles to collide with besides walls; the vector must outlive the
@@ -177,7 +180,8 @@ public:
         // Fraction of the move before touching.
         double t;
         // Unit direction along the obstacle, to slide along.
-        double slideX, slideY;
+        double slideX;
+        double slideY;
         // Index into the level's walls, or -1.
         int wall;
         // Index into the obstacles, or -1.
@@ -190,9 +194,15 @@ public:
 
 private:
     struct WallLine {
-        double x1, y1, x2, y2;
-        double nx, ny, d;
-        double top, bottom;
+        double x1;
+        double y1;
+        double x2;
+        double y2;
+        double nx;
+        double ny;
+        double d;
+        double top;
+        double bottom;
         uint64_t zones;
         bool bothSides;
         // kWallNoCollision: never in the way.
@@ -206,9 +216,12 @@ private:
 
     const LevelFile &_level;
     std::shared_ptr<std::vector<WallLine>> _walls;
-    double _x = 0, _y = 0, _feet = 0;
+    double _x = 0;
+    double _y = 0;
+    double _feet = 0;
     double _fallSpeed = 0;
-    double _gravity = kGravity, _maxFallSpeed = kMaxFallSpeed;
+    double _gravity = kGravity;
+    double _maxFallSpeed = kMaxFallSpeed;
     double _stepDown = kStepDown;
     double _landingSpeed = 0;
     int _landingFloor = -1;

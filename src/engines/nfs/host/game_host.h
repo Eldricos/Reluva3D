@@ -83,7 +83,8 @@ public:
         bool mmx = false;
         // Frames whose THRASH calls are logged in full (arguments, results,
         // the memory pointer arguments point at): from, to (inclusive).
-        uint64_t thrashLogFrom = 0, thrashLogTo = 0;
+        uint64_t thrashLogFrom = 0;
+        uint64_t thrashLogTo = 0;
         // Draw THRASH's triangles natively rather than in the software
         // renderer's own code (thrash_native.h).
         bool nativeThrash = false;
@@ -152,7 +153,9 @@ public:
         // write goes nowhere, a TCP send fails with WSAEWOULDBLOCK (as when
         // the socket's buffer is full). -netlog writes each with x for its
         // direction.
-        uint32_t netDrop = 0, netDropFrom = 0, netDropTo = 0;
+        uint32_t netDrop = 0;
+        uint32_t netDropFrom = 0;
+        uint32_t netDropTo = 0;
         // The serial link every COM port is (serial.cpp): "listen:port" to
         // wait for the other copy, "host:port" to connect to it; empty:
         // no serial ports.
@@ -181,32 +184,48 @@ public:
 
     // The window, as the game made it.
     struct Window {
-        uint32_t handle = 0, wndProc = 0, style = 0, userData = 0;
-        std::string className, title;
+        uint32_t handle = 0;
+        uint32_t wndProc = 0;
+        uint32_t style = 0;
+        uint32_t userData = 0;
+        std::string className;
+        std::string title;
         uint32_t threadId = 0;
-        int width = 640, height = 480;
+        int width = 640;
+        int height = 480;
     };
     const std::vector<Window> &windows() const { return _windows; }
 
     // THRASH's state, for reports.
     struct ThrashStats {
         std::string dll;
-        uint64_t frames = 0, textures = 0;
+        uint64_t frames = 0;
+        uint64_t textures = 0;
         uint64_t rendererInstructions = 0; // inside THRASH's functions (the software renderer's drawing)
-        int width = 0, height = 0, bits = 0;
-        uint64_t lastFrameInstructions = 0, frameInstructionsTotal = 0;
+        int width = 0;
+        int height = 0;
+        int bits = 0;
+        uint64_t lastFrameInstructions = 0;
+        uint64_t frameInstructionsTotal = 0;
         // Each frame: when it was flipped (ms), the instructions it took, how
         // many of them were the renderer's, and the processor's idle time
         // since the frame before (every thread waiting: microseconds, times).
         struct Frame {
-            uint64_t ms = 0, instructions = 0, renderer = 0;
-            uint64_t idleMicros = 0, idleWaits = 0;
+            uint64_t ms = 0;
+            uint64_t instructions = 0;
+            uint64_t renderer = 0;
+            uint64_t idleMicros = 0;
+            uint64_t idleWaits = 0;
             // Of the instructions, those run on the thread that flipped (the
             // game's own loop) and on the multimedia timer's thread.
-            uint64_t ownThread = 0, timerThread = 0;
+            uint64_t ownThread = 0;
+            uint64_t timerThread = 0;
         };
         std::vector<Frame> frameLog;
-        uint64_t lastIdleMicros = 0, lastIdleWaits = 0, lastOwn = 0, lastTimer = 0;
+        uint64_t lastIdleMicros = 0;
+        uint64_t lastIdleWaits = 0;
+        uint64_t lastOwn = 0;
+        uint64_t lastTimer = 0;
         std::map<std::string, uint64_t> calls;
         std::map<std::string, uint64_t> callInstructions; // run inside each function, in all
         std::map<int, uint64_t> textureFormats;           // talloc's format -> how many
@@ -248,7 +267,8 @@ public:
     // The sound buffers' blocks played, and of them those the game hadn't
     // written again since they last played (it fell behind).
     struct SoundStats {
-        uint64_t blocks = 0, stale = 0;
+        uint64_t blocks = 0;
+        uint64_t stale = 0;
         uint64_t staleAudible = 0;            // of those, the ones not silent: played as silence, if streamed
         std::vector<uint64_t> staleAudibleMs; // when (the game's clock), the first thousand
     };
@@ -275,15 +295,23 @@ public:
     // itself still the game's, in the interpreter).
     struct VoiceEnergy {
         uint64_t ms = 0;
-        uint32_t calls = 0, rearCalls = 0;
-        double frontC = 0, frontS = 0, rearC = 0, rearS = 0;
+        uint32_t calls = 0;
+        uint32_t rearCalls = 0;
+        double frontC = 0;
+        double frontS = 0;
+        double rearC = 0;
+        double rearS = 0;
     };
     void logVoices(std::vector<VoiceEnergy> *to, uint32_t windowMs);
 
 private:
     void recordSoundDue(uint64_t nowMs);
     struct Message {
-        uint32_t hwnd = 0, message = 0, wParam = 0, lParam = 0, time = 0;
+        uint32_t hwnd = 0;
+        uint32_t message = 0;
+        uint32_t wParam = 0;
+        uint32_t lParam = 0;
+        uint32_t time = 0;
     };
     void say(const std::string &line) const {
         if (log)
@@ -313,7 +341,8 @@ private:
     // Options::glideCompare: THRASH's calls drawn natively too, into a buffer
     // of 640x480 5:6:5 pixels in guest memory (thrash.cpp).
     void mirrorNative(const std::string &name, const std::vector<uint32_t> &args);
-    uint32_t _compareBuffer = 0, _compareClear = 0;
+    uint32_t _compareBuffer = 0;
+    uint32_t _compareClear = 0;
     std::array<int, 4> _compareClip{0, 0, 640, 480};
     void addDirectSound();
     void choosePositionalUpdates();
@@ -358,7 +387,8 @@ private:
     uint8_t _keys[256] = {};   // DirectInput's state, by scan code (0x80 down)
     uint8_t _vkDown[256] = {}; // by virtual-key code
     struct KeyEvent {
-        uint8_t vk = 0, scan = 0;
+        uint8_t vk = 0;
+        uint8_t scan = 0;
         bool down = false;
         uint64_t atMs = 0;
         char ch = 0; // the character it types (WM_CHAR), if any
@@ -370,10 +400,12 @@ private:
     // The mouse, as DirectInput reports it: buffered moves and buttons
     // (DIDEVICEOBJECTDATA's offset: 0 x, 4 y, 12 the first button).
     struct MouseEvent {
-        uint32_t offset = 0, data = 0;
+        uint32_t offset = 0;
+        uint32_t data = 0;
         uint64_t atMs = 0;
     };
-    std::deque<MouseEvent> _pendingMouse, _bufferedMouse;
+    std::deque<MouseEvent> _pendingMouse;
+    std::deque<MouseEvent> _bufferedMouse;
     std::deque<std::pair<uint64_t, GamepadState>> _pendingJoystick;
     GamepadState _joystick; // as applied
     // Each axis's range (DIPROP_RANGE), by its offset in DIJOYSTATE / 4.
@@ -390,14 +422,18 @@ private:
     std::mutex _forceMutex;
     std::map<uint32_t, DiEffect> _effects;
     uint32_t _forceGain = 10000;
-    bool _autoCentre = true, _forcePaused = false, _actuatorsOff = false;
+    bool _autoCentre = true;
+    bool _forcePaused = false;
+    bool _actuatorsOff = false;
     uint32_t _effectVtable = 0;
 
     // The game's sockets (winsock.cpp): Winsock's handle -> ours, and how
     // the game has it.
     struct WsSocket {
         int socket = -1;
-        bool stream = false, nonBlocking = false, bound = false;
+        bool stream = false;
+        bool nonBlocking = false;
+        bool bound = false;
         bool ipx = false; // an IPX datagram socket, carried over UDP (winsock.cpp)
     };
     std::map<uint32_t, WsSocket> _wsSockets;
@@ -411,9 +447,12 @@ private:
     bool dropOutgoing();
     uint64_t _netSent = 0;  // packets sent since netDropFrom
     uint32_t _wsBuffer = 0; // inet_ntoa's and gethostbyname's results
-    int _mouseDx = 0, _mouseDy = 0;
+    int _mouseDx = 0;
+    int _mouseDy = 0;
     bool _mouseButton = false;
-    uint32_t _keyboardEvent = 0, _mouseEvent = 0; // SetEventNotification's handles
+    // SetEventNotification's handles
+    uint32_t _keyboardEvent = 0;
+    uint32_t _mouseEvent = 0;
     uint32_t _inputSequence = 0;
     void applyInput();
 
@@ -425,7 +464,9 @@ private:
     void addExport(uint32_t module, const std::string &name, int argBytes, std::function<uint32_t(x86::Cpu &)> fn);
 
     ThrashStats _thrash;
-    uint64_t _lastFlip = 0, _lastFlipRenderer = 0; // instructions run at the last page flip
+    // instructions run at the last page flip
+    uint64_t _lastFlip = 0;
+    uint64_t _lastFlipRenderer = 0;
     // The game's own DLLs, loaded on LoadLibraryA: lower-case name -> module.
     std::map<std::string, const x86::Win32Process::Module *> _gameDlls;
     uint32_t _thrashBase = 0;
@@ -447,26 +488,46 @@ private:
 
     // DirectDraw's surfaces and palettes (directx.cpp), by object address.
     struct DdSurface {
-        int width = 0, height = 0, bits = 16, pitch = 0;
-        uint32_t memory = 0, back = 0, caps = 0, palette = 0, colorKey = 0;
-        bool primary = false, hasColorKey = false;
+        int width = 0;
+        int height = 0;
+        int bits = 16;
+        int pitch = 0;
+        uint32_t memory = 0;
+        uint32_t back = 0;
+        uint32_t caps = 0;
+        uint32_t palette = 0;
+        uint32_t colorKey = 0;
+        bool primary = false;
+        bool hasColorKey = false;
     };
     std::map<uint32_t, DdSurface> _surfaces;
     std::map<uint32_t, std::array<uint32_t, 256>> _palettes; // RGBA entries
-    uint32_t _surfaceVtable = 0, _paletteVtable = 0, _clipperVtable = 0;
-    int _modeWidth = 640, _modeHeight = 480, _modeBits = 16;
+    uint32_t _surfaceVtable = 0;
+    uint32_t _paletteVtable = 0;
+    uint32_t _clipperVtable = 0;
+    int _modeWidth = 640;
+    int _modeHeight = 480;
+    int _modeBits = 16;
     uint32_t newSurface(int width, int height, int bits, uint32_t caps);
     void present(const DdSurface &s);
     Surface _frame;
 
     // DirectSound's buffers: played in time, not heard yet.
     struct DsBuffer {
-        uint32_t memory = 0, size = 0;
-        int rate = 22050, blockAlign = 4, channels = 2, bits = 16;
-        bool primary = false, playing = false, looping = false;
+        uint32_t memory = 0;
+        uint32_t size = 0;
+        int rate = 22050;
+        int blockAlign = 4;
+        int channels = 2;
+        int bits = 16;
+        bool primary = false;
+        bool playing = false;
+        bool looping = false;
         uint64_t startMs = 0;
         uint32_t startPosition = 0;
-        int32_t volume = 0, pan = 0; // hundredths of a decibel
+        // hundredths of a decibel
+        int32_t volume = 0;
+        int32_t pan = 0;
         // Where mixSound has got to, in frames; resynced to the play cursor
         // when it drifts.
         double outCursor = 0;
@@ -482,7 +543,8 @@ private:
         uint32_t flags = 0;      // DSBCAPS_ as created; DSBCAPS_CTRL3D (0x10): placed by `place`
         // Its 3D parameters: those in force, and those set with
         // DS3D_DEFERRED, for CommitDeferredSettings.
-        Ds3dSource place, deferredPlace;
+        Ds3dSource place;
+        Ds3dSource deferredPlace;
         uint32_t position(uint64_t nowMs);
     };
     // Sound memory, by address: how many buffers share it (a buffer and its
@@ -490,10 +552,12 @@ private:
     std::map<uint32_t, int> _soundMemoryUsers;
     // IDirectSound3DBuffer objects -> the sound buffer each places.
     std::map<uint32_t, uint32_t> _sound3dBuffers;
-    uint32_t _sound3dBufferVtable = 0, _listenerObject = 0;
+    uint32_t _sound3dBufferVtable = 0;
+    uint32_t _listenerObject = 0;
     // The listener (the primary buffer's IDirectSound3DListener), as in
     // force and as deferred.
-    Ds3dListener _listener, _deferredListener;
+    Ds3dListener _listener;
+    Ds3dListener _deferredListener;
     std::mutex _soundMutex; // soundBuffers_, between the game and the audio thread
     std::vector<int32_t> _soundMix;
     SoundStats _soundStats;

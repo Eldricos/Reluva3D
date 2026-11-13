@@ -16,7 +16,9 @@ namespace reluva::image {
 
 namespace {
 
-constexpr uint32_t kRgb = 0, kRle8 = 1, kBitfields = 3;
+constexpr uint32_t kRgb = 0;
+constexpr uint32_t kRle8 = 1;
+constexpr uint32_t kBitfields = 3;
 
 uint16_t le16(const uint8_t *p) {
     return uint16_t(p[0] | p[1] << 8);

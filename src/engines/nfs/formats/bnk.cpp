@@ -23,8 +23,13 @@ uint32_t le32(const uint8_t *p) {
 }
 
 // The tags known (bnk.md).
-constexpr int kChannels = 0x82, kCompression = 0x83, kRate = 0x84, kSamples = 0x85, kLoopStart = 0x86, kLoopEnd = 0x87,
-              kDataOffset = 0x88;
+constexpr int kChannels = 0x82;
+constexpr int kCompression = 0x83;
+constexpr int kRate = 0x84;
+constexpr int kSamples = 0x85;
+constexpr int kLoopStart = 0x86;
+constexpr int kLoopEnd = 0x87;
+constexpr int kDataOffset = 0x88;
 // Bytes that open a section of tags rather than being one.
 bool isSection(uint8_t b) {
     return b == 0xfc || b == 0xfd || b == 0xfe;

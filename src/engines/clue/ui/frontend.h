@@ -35,7 +35,8 @@ constexpr int kSuspects = 6;
 // dialogs 35-39 and 44; 231 x 395): Clue.exe 0x435C7F places its exit
 // window at 320 less half its width across and in the middle between the
 // top frame (5) and the bar (413) down.
-constexpr int kOverGameX = 205, kOverGameY = 11;
+constexpr int kOverGameX = 205;
+constexpr int kOverGameY = 11;
 
 // The preferences screen's settings, saved between runs.
 struct Preferences {
@@ -51,7 +52,9 @@ struct Preferences {
     };
     // The original's defaults: all on but Auto Notes, both volumes half.
     std::array<bool, kSwitches> on{true, true, true, false, true, true, true};
-    int musicVolume = 50, masterVolume = 50; // 0-100
+    // 0-100
+    int musicVolume = 50;
+    int masterVolume = 50;
 
     void load(const std::filesystem::path &file);
     void save(const std::filesystem::path &file) const;
@@ -159,10 +162,12 @@ private:
     std::unique_ptr<Fonts> _fonts;
     std::unique_ptr<DialogView> _dialog;
     Screen _at = Screen::kIntro;
-    Screen _prefsReturn = Screen::kMainMenu, _rulesReturn = Screen::kMainMenu;
+    Screen _prefsReturn = Screen::kMainMenu;
+    Screen _rulesReturn = Screen::kMainMenu;
     bool _quit = false;
     uint64_t _now = 0;
-    int _mouseX = 320, _mouseY = 240;
+    int _mouseX = 320;
+    int _mouseY = 240;
 
     std::array<Player, kSuspects> _players;
     int _setupSuspect = 0;
@@ -189,7 +194,8 @@ private:
     std::unique_ptr<Mansion> _mansion;
     std::unique_ptr<Play> _play;
     std::unique_ptr<DialogView> _gameMenu; // the Esc menu, or its Save window
-    int _saveSlot = -1, _loadSlot = -1;
+    int _saveSlot = -1;
+    int _loadSlot = -1;
 
     // Network play: over the internet (by address) or the local network;
     // the session; the host's seat being set up and its draft; this
@@ -199,7 +205,8 @@ private:
     int _netSeat = 0;
     netplay::Seat _netDraft;
     int _netMaxHumans = 6;
-    std::string _netName = "Player", _netMessage;
+    std::string _netName = "Player";
+    std::string _netMessage;
     std::vector<std::string> _netChat;
     // The menus' storm (Clue.exe 0x40C350/0x40C4A0): mnThndr1 looping under
     // them; a click on a storm screen plays mnThndr2 and shows the lightning

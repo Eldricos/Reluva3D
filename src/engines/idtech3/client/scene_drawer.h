@@ -95,7 +95,8 @@ public:
     std::string effectSummary() const;
     // What's drawn of the program's entities (the original's
     // r_drawentities, and Reluva's own switch for effects alone).
-    bool showModels = true, showEffects = true;
+    bool showModels = true;
+    bool showEffects = true;
     int portalViews() const { return _portalViews; }
     const std::set<std::string> &unloadable() const { return _unloadable; }
 
@@ -117,37 +118,47 @@ private:
     ModelCache &_models;
     const RefEntityLayout &_layout;
     Handles _handles;
-    std::map<int32_t, int> _modelIds;                     // the program's model handle -> models_ id (-1: can't load)
-    std::vector<int> _pictureMaterials, _effectMaterials; // by shader handle; -2 not made yet
-    int _beamMaterial = -2;                               // Quake III's beam's (-2 not made yet)
+    std::map<int32_t, int> _modelIds; // the program's model handle -> models_ id (-1: can't load)
+    // by shader handle; -2 not made yet
+    std::vector<int> _pictureMaterials;
+    std::vector<int> _effectMaterials;
+    int _beamMaterial = -2; // Quake III's beam's (-2 not made yet)
     int beamMaterial();
     // Those of the other programs drawn with, by their shader table.
     struct Caches {
         std::map<int32_t, int> modelIds;
-        std::vector<int> pictureMaterials, effectMaterials;
+        std::vector<int> pictureMaterials;
+        std::vector<int> effectMaterials;
     };
     std::map<const HandleTable *, Caches> _others;
     std::array<std::vector<gfx::TextureId>, 3> _images; // this frame's, then older
     // This view's model entities, ready to draw.
     struct Placed {
-        int model = -1, frame = 0, oldFrame = 0;
+        int model = -1;
+        int frame = 0;
+        int oldFrame = 0;
         float backLerp = 0;
         gfx::Mat4 transform{};
         PointLight light;
         const Skin *skin = nullptr;
         std::string shader; // in place of the model's own, if set
         std::array<float, 4> color{1, 1, 1, 1};
-        float shaderTime = 0;                          // seconds: when its shader animations start
-        bool depthHack = false;                        // kept in front (the player's weapon)
-        bool thirdPerson = false, firstPerson = false; // only through mirrors; not through them
+        float shaderTime = 0;   // seconds: when its shader animations start
+        bool depthHack = false; // kept in front (the player's weapon)
+        // only through mirrors; not through them
+        bool thirdPerson = false;
+        bool firstPerson = false;
     };
     std::vector<Placed> _placed;
     std::vector<std::pair<int, gfx::Mat4>> _brushes; // the level's models (*N) placed this view
     // Mirrors' and portals' cameras this view.
     struct PortalEntity {
-        gfx::Vec3 origin{}, oldOrigin{};
+        gfx::Vec3 origin{};
+        gfx::Vec3 oldOrigin{};
         std::array<gfx::Vec3, 3> axes{};
-        int32_t frame = 0, oldFrame = 0, skinNum = 0;
+        int32_t frame = 0;
+        int32_t oldFrame = 0;
+        int32_t skinNum = 0;
     };
     std::vector<PortalEntity> _portalEntities;
     std::vector<uint8_t> _mainRefdef;
@@ -160,7 +171,8 @@ private:
     // the program's shader handle.
     struct Effect {
         int32_t shader = 0;
-        uint32_t firstIndex = 0, indexCount = 0;
+        uint32_t firstIndex = 0;
+        uint32_t indexCount = 0;
         std::array<float, 4> color{1, 1, 1, 1};
         float shaderTime = 0;
         bool depthHack = false;
@@ -174,7 +186,8 @@ private:
     std::vector<uint32_t> _effectIndices;
     std::minstd_rand _effectRandom;         // electricity's jitter
     std::vector<gfx::DynamicLight> _lights; // this view's
-    gfx::Vec3 _eye{}, _forward{1, 0, 0};
+    gfx::Vec3 _eye{};
+    gfx::Vec3 _forward{1, 0, 0};
     float _focal = 1;                  // the view's 1 / tan(half its height's angle)
     int _otherEntities = 0;            // entities not drawn (kinds not done yet)
     std::set<std::string> _unloadable; // models this view couldn't draw

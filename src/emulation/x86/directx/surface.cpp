@@ -37,7 +37,8 @@ enum : uint32_t {
     kBltKeySrc = 0x8000,
     kBltKeySrcOverride = 0x10000
 };
-constexpr uint32_t kCkeySrcBlt = 0x8, kCkeyDestBlt = 0x2;
+constexpr uint32_t kCkeySrcBlt = 0x8;
+constexpr uint32_t kCkeyDestBlt = 0x2;
 
 int shiftOf(uint32_t mask) {
     int s = 0;

@@ -50,9 +50,13 @@ public:
     int maxY() const { return _maxY; }
 
 private:
-    int _w, _h;
+    int _w;
+    int _h;
     std::vector<uint8_t> _bits;
-    int _minX = 1 << 30, _minY = 1 << 30, _maxX = -1, _maxY = -1;
+    int _minX = 1 << 30;
+    int _minY = 1 << 30;
+    int _maxX = -1;
+    int _maxY = -1;
 };
 
 // The game's stencil as the frame is drawn, on the CPU, for a device with
@@ -78,11 +82,15 @@ public:
 
 private:
     static constexpr float kFar = 3.0e38f;
-    int _w, _h;
+    int _w;
+    int _h;
     std::vector<uint8_t> _stencil;
     std::vector<float> _depth;
     // The box anything has touched, inclusive.
-    int _minX = 1 << 30, _minY = 1 << 30, _maxX = -1, _maxY = -1;
+    int _minX = 1 << 30;
+    int _minY = 1 << 30;
+    int _maxX = -1;
+    int _maxY = -1;
 };
 
 // The shadow's darkening: a fragment's colour times this (the game's quad,

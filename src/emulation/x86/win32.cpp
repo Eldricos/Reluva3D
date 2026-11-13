@@ -32,7 +32,8 @@ uint64_t steadyMs() {
             .count());
 }
 
-constexpr uint32_t kKernel32Handle = 0x7ff00000, kExeHandle = 0x00400000;
+constexpr uint32_t kKernel32Handle = 0x7ff00000;
+constexpr uint32_t kExeHandle = 0x00400000;
 constexpr uint32_t kStdHandles = 0x100; // stdin, stdout, stderr: 0x100 to 0x102
 constexpr uint32_t kInvalidHandle = 0xffffffffu;
 

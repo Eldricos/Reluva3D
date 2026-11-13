@@ -10,7 +10,8 @@ namespace reluva::font {
 
 namespace {
 
-constexpr int kW = 5, kH = 9;
+constexpr int kW = 5;
+constexpr int kH = 9;
 
 // Each glyph's rows, top to bottom, separated by spaces; rows left out at
 // the end are blank. '#' is set.

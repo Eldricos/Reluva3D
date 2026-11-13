@@ -81,7 +81,8 @@ public:
 private:
     int _lodBias = 0;
     struct Surface {
-        uint32_t firstIndex = 0, indexCount = 0;
+        uint32_t firstIndex = 0;
+        uint32_t indexCount = 0;
         int vertexCount = 0;
         int material = -1; // from the model's own shader name, once first needed
     };

@@ -123,9 +123,18 @@ constexpr int kTile = 16;
 
 // The uniform block (std140: 12 words).
 struct Params {
-    uint32_t width, height, tilesX, activeCount;
-    uint32_t statesBase, tablesBase, primsBase, spansBase;
-    uint32_t tileOffsets, tileList, activeTiles, pad0;
+    uint32_t width;
+    uint32_t height;
+    uint32_t tilesX;
+    uint32_t activeCount;
+    uint32_t statesBase;
+    uint32_t tablesBase;
+    uint32_t primsBase;
+    uint32_t spansBase;
+    uint32_t tileOffsets;
+    uint32_t tileList;
+    uint32_t activeTiles;
+    uint32_t pad0;
 };
 
 uint32_t floatBits(float f) {
@@ -199,11 +208,15 @@ private:
 
     std::unique_ptr<gfx::Compute> _gpu;
     gfx::ComputeKernel _kernel = 0;
-    gfx::ComputeBuffer _frame = 0, _tex = 0, _batchBuffer = 0;
+    gfx::ComputeBuffer _frame = 0;
+    gfx::ComputeBuffer _tex = 0;
+    gfx::ComputeBuffer _batchBuffer = 0;
     uint32_t _batchCapacity = 0; // bytes
     const Pipeline *_pipeline = nullptr;
     uint64_t _opened = 0;
-    int _width = 0, _height = 0, _tmus = 0;
+    int _width = 0;
+    int _height = 0;
+    int _tmus = 0;
     uint32_t _tmuBytes = 0;
     std::array<bool, Pipeline::kSlots> _gpuNewer{};  // drawn on the GPU since read back
     std::array<bool, Pipeline::kSlots> _hostKnown{}; // the host's copy was read back (snapshot_ is it)
@@ -211,12 +224,20 @@ private:
     bool _checkHost = false;
 
     // The batch being collected.
-    std::vector<uint32_t> _states, _tables, _prims, _spans;
+    std::vector<uint32_t> _states;
+    std::vector<uint32_t> _tables;
+    std::vector<uint32_t> _prims;
+    std::vector<uint32_t> _spans;
     struct Box {
-        int x0, y0, x1, y1; // inclusive
+        // inclusive
+        int x0;
+        int y0;
+        int x1;
+        int y1;
     };
     std::vector<Box> _boxes;
-    std::vector<uint32_t> _record, _lastRecord;
+    std::vector<uint32_t> _record;
+    std::vector<uint32_t> _lastRecord;
     uint32_t _lastState = 0;
     bool _haveState = false;
     std::array<int, kMaxTmus> _tableAt{-1, -1, -1};

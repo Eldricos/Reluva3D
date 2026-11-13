@@ -45,7 +45,8 @@ public:
 private:
     bool _fromClient;
     uint16_t _qport;
-    int32_t _outgoing = 1, _incoming = 0;
+    int32_t _outgoing = 1;
+    int32_t _incoming = 0;
     int _dropped = 0;
     // A message coming in pieces: its sequence and what's come so far.
     int32_t _fragmentSequence = 0;

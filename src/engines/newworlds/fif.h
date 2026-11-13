@@ -18,7 +18,11 @@ namespace reluva::newworlds {
 // docs/engines/newworlds/fif.md.
 struct GameFont {
     struct Glyph {
-        int x = 0, y = 0, width = 0, height = 0; // in the image; height 0: none
+        // in the image; height 0: none
+        int x = 0;
+        int y = 0;
+        int width = 0;
+        int height = 0;
     };
     std::string name;    // "fnt/final12"
     std::string archive; // the file it came from, e.g. "glblgui.cat"
@@ -28,7 +32,8 @@ struct GameFont {
     std::vector<Glyph> glyphs;
     // The image's brightness, used as each pixel's coverage (the glyphs are
     // white, edges grey, on black).
-    int imageWidth = 0, imageHeight = 0;
+    int imageWidth = 0;
+    int imageHeight = 0;
     std::vector<uint8_t> coverage;
 
     // The glyph a code point is drawn with: its own, else (for a code beyond

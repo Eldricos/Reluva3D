@@ -41,8 +41,10 @@ private:
 // intensity, presumably).
 struct MusicMap {
     struct Route {
-        int low = 0, high = 0; // the control value's range, inclusive
-        int next = 0;          // section
+        // the control value's range, inclusive
+        int low = 0;
+        int high = 0;
+        int next = 0; // section
     };
     struct Section {
         int part = 0;              // the first byte: its row of events

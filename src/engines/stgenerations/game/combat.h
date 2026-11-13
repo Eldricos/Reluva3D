@@ -41,7 +41,8 @@ namespace reluva::stgenerations {
 class SpaceCombat {
 public:
     enum Result { kRunning, kWon, kLost, kDestroyed };
-    static const int kWidth = 640, kHeight = 480;
+    static const int kWidth = 640;
+    static const int kHeight = 480;
 
     SpaceCombat(const ResourceManager &resources, Mixer *mixer, RandomSource &random);
     ~SpaceCombat();
@@ -76,19 +77,24 @@ public:
 private:
     struct Ship;
     struct Torpedo {
-        Vec3 position, velocity;
-        int owner, target;
+        Vec3 position;
+        Vec3 velocity;
+        int owner;
+        int target;
         uint32_t life;
         int damage;
         const SprAnimation *sprite;
     };
     struct Beam {
-        int from, to;
+        int from;
+        int to;
         Vec3 end;
         uint32_t time;
         uint32_t colour;
-        int damage, facingFrom;
-        bool hit, applied;
+        int damage;
+        int facingFrom;
+        bool hit;
+        bool applied;
     };
     struct Explosion {
         Vec3 position;
@@ -178,10 +184,12 @@ private:
     std::map<std::string, std::unique_ptr<Model3D>> _models;
     std::map<std::string, std::unique_ptr<std::vector<CombatMaterial>>> _materials;
     uint32_t _palette[256] = {};
-    MetFont _font, _smallFont;
+    MetFont _font;
+    MetFont _smallFont;
     RgbImage _briefing;
     RgbImage _proceed;
-    int _proceedX = 535, _proceedY = 429;
+    int _proceedX = 535;
+    int _proceedY = 429;
 
     std::vector<Ship> _ships; // [0] the Enterprise
     std::vector<Torpedo> _torpedoes;
@@ -193,7 +201,9 @@ private:
     // moves (0x4ADC6A): an offset from the centre, grown each step by
     // 1 + speed / top speed x 0.075.
     struct Streak {
-        double x, y, scale;
+        double x;
+        double y;
+        double scale;
         int type;
     };
     std::vector<Streak> _streaks;
@@ -225,7 +235,8 @@ private:
     bool _shakeFrame = false;
     // The dimming's level (0x54D468; 0 when not dimming), start and length in ms.
     int _dimLevel = 0;
-    uint32_t _dimStart = 0, _dimLength = 0;
+    uint32_t _dimStart = 0;
+    uint32_t _dimLength = 0;
     int _target = -1;
     int _aimedSystem = -1;
     Helm _helm = kStandBy;
@@ -237,7 +248,8 @@ private:
     // the knob and lit (F) below.
     struct Slider {
         Rect slot;
-        const char *unlit, *lit;
+        const char *unlit;
+        const char *lit;
         // The row of the slot the mouse last set.
         int row;
         // 0 at the top .. 18 at the bottom.
@@ -256,8 +268,10 @@ private:
     void drawSlider(Canvas &screen, const Slider &slider);
     double _keepRange = 0;
     bool _enemyView = false;
-    bool _phasersOnline = true, _photonsOnline = true;
-    uint32_t _phaserLockout = 0, _photonLockout = 0;
+    bool _phasersOnline = true;
+    bool _photonsOnline = true;
+    uint32_t _phaserLockout = 0;
+    uint32_t _photonLockout = 0;
     // Keys held: yaw, pitch, roll (-1..1) and speed changes.
     int _turnKeys[3] = {};
     int _speedKey = 0;
@@ -273,7 +287,9 @@ private:
     bool _optionsRequest = false;
     uint32_t _lifeSupportOut = 0;
 
-    SoundHandle _speech, _music, _effect;
+    SoundHandle _speech;
+    SoundHandle _music;
+    SoundHandle _effect;
     std::string _subtitle;
     uint32_t _subtitleLeft = 0;
     std::string _message;

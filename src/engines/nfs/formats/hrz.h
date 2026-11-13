@@ -22,29 +22,58 @@ struct Horizon {
         int density = 0; // percent
     };
     struct FogRegion {
-        FogPoint start, apex, end;
-        int beforeSlice = 0, centreSlice = 0, afterSlice = 0; // road slices
+        FogPoint start;
+        FogPoint apex;
+        FogPoint end;
+        // road slices
+        int beforeSlice = 0;
+        int centreSlice = 0;
+        int afterSlice = 0;
     };
 
     Rgb fogColour{};
-    int fogDensity = 0, fogOnPixmap = 0; // percent
+    // percent
+    int fogDensity = 0;
+    int fogOnPixmap = 0;
     std::vector<FogRegion> fogRegions;
     int cloudType = 0; // 0 none?, 1 additive, 2 blended
     int fogClouds = 0;
-    int lightning = 0, lightningChance = 0;
+    int lightning = 0;
+    int lightningChance = 0;
     int visualHeight = 0;
     std::array<int, 2> cloudDomeOffset{};
-    int cloudBright = 0, cloudVariance = 0, nimbus = 0;
-    int windSpeed = 0, windDirection = 0;
-    bool blackHorizon = false, mirror = false;
-    int radius = 0, rotation = 0; // world units, degrees
+    int cloudBright = 0;
+    int cloudVariance = 0;
+    int nimbus = 0;
+    int windSpeed = 0;
+    int windDirection = 0;
+    bool blackHorizon = false;
+    bool mirror = false;
+    // world units, degrees
+    int radius = 0;
+    int rotation = 0;
     bool hasPixmap = false;
     // Heights: the Gouraud-shaded area's base (world), then offsets from it.
-    int shadedBase = 0, shadedHeight = 0, shadedMidpoint = 0, pixmapTop = 0, pixmapBottom = 0;
-    Rgb earthTop{}, earthBase{}, skyTop{}, skyBaseSun{}, skyBaseOpposite{};
+    int shadedBase = 0;
+    int shadedHeight = 0;
+    int shadedMidpoint = 0;
+    int pixmapTop = 0;
+    int pixmapBottom = 0;
+    Rgb earthTop{};
+    Rgb earthBase{};
+    Rgb skyTop{};
+    Rgb skyBaseSun{};
+    Rgb skyBaseOpposite{};
     struct Weather {
-        int type = 0, startSlice = 0, endSlice = 0, fade = 0;
-        int stayOn = 0, fadeOff = 0, stayOff = 0, fadeOn = 0; // ticks
+        int type = 0;
+        int startSlice = 0;
+        int endSlice = 0;
+        int fade = 0;
+        // ticks
+        int stayOn = 0;
+        int fadeOff = 0;
+        int stayOff = 0;
+        int fadeOn = 0;
     } weather;
     Rgb ambient{}; // percent
 };
@@ -84,7 +113,8 @@ std::array<Horizon::Rgb, 16> skyBaseColours(const Horizon &h);
 // they tilt with its pitch. The sky's shading, the earth's and the
 // horizon picture are each such a row (0x479680, 0x4799d0, 0x479b90).
 struct SkyRow {
-    std::array<std::array<float, 3>, 9> bottom{}, top{};
+    std::array<std::array<float, 3>, 9> bottom{};
+    std::array<std::array<float, 3>, 9> top{};
     int firstSlot = 0;
 };
 SkyRow skyRow(const Horizon &h, const std::array<float, 3> &forward, float bottom, float height);
@@ -102,7 +132,8 @@ bool skyBlack(const Horizon &h, int track, int roadSlice);
 // game's, from `seed`), row by row along z.
 float cloudHeight(const Horizon &h, float r, int brightness = 0);
 constexpr int kCloudPoints = 13;
-constexpr float kCloudStep = 450, kCloudFirst = -3000;
+constexpr float kCloudStep = 450;
+constexpr float kCloudFirst = -3000;
 // `seed` is the game's: its tick count at start-up (`0x6fd3b4`, from
 // `0x47242c`), which seeds its generator (GameRandom) at each race's
 // set-up; the sky's set-up draws the points' random amounts from it before

@@ -86,7 +86,8 @@ public:
 
 private:
     const uint8_t *_src;
-    uint32_t _size, _pos = 0;
+    uint32_t _size;
+    uint32_t _pos = 0;
     uint32_t _bitBuf = 0;
     int _bitCnt = 0;
 };

@@ -77,7 +77,9 @@ public:
     // ones are filtered (r_texturemode).
     struct TextureOptions {
         int picmip = 0;
-        bool nearest = false, mipmaps = true, mipNearest = false;
+        bool nearest = false;
+        bool mipmaps = true;
+        bool mipNearest = false;
         bool anisotropic = false; // r_ext_texture_filter_anisotropic
     };
     void setTextureOptions(const TextureOptions &options) { _textureOptions = options; }

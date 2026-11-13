@@ -16,9 +16,15 @@ using Vec3f = std::array<float, 3>;
 // Content flags (the shaders' surfaceparms, as the games use them).
 namespace contents {
 constexpr int32_t kSolid = 1;
-constexpr int32_t kLava = 8, kSlime = 16, kWater = 32, kFog = 64;
-constexpr int32_t kPlayerClip = 0x10000, kMonsterClip = 0x20000;
-constexpr int32_t kBody = 0x2000000, kCorpse = 0x4000000, kTrigger = 0x40000000;
+constexpr int32_t kLava = 8;
+constexpr int32_t kSlime = 16;
+constexpr int32_t kWater = 32;
+constexpr int32_t kFog = 64;
+constexpr int32_t kPlayerClip = 0x10000;
+constexpr int32_t kMonsterClip = 0x20000;
+constexpr int32_t kBody = 0x2000000;
+constexpr int32_t kCorpse = 0x4000000;
+constexpr int32_t kTrigger = 0x40000000;
 } // namespace contents
 
 struct TraceResult {
@@ -96,22 +102,31 @@ private:
     struct Facet {
         std::array<BspPlane, 11> planes{}; // its plane both ways, 3 edges, 6 box sides
         int planeCount = 0;
-        Vec3f mins{}, maxs{};
+        Vec3f mins{};
+        Vec3f maxs{};
         void add(const BspPlane &p) { planes[size_t(planeCount++)] = p; }
     };
     // Neighbouring facets (as tessellated, a run along a row) under one
     // box, and runs of those under another, so a trace skips most of a
     // big curve at once.
     struct FacetGroup {
-        Vec3f mins{}, maxs{};
-        size_t first = 0, count = 0; // facets, or (for the outer level) runs
+        Vec3f mins{};
+        Vec3f maxs{};
+        // facets, or (for the outer level) runs
+        size_t first = 0;
+        size_t count = 0;
     };
     static constexpr size_t kFacetRun = 16;
     struct PatchCollide {
-        int32_t contents = 0, surfaceFlags = 0;
-        Vec3f mins{}, maxs{};
-        size_t firstFacet = 0, numFacets = 0;
-        size_t firstGroup = 0, numGroups = 0; // outer groups, in groups_
+        int32_t contents = 0;
+        int32_t surfaceFlags = 0;
+        Vec3f mins{};
+        Vec3f maxs{};
+        size_t firstFacet = 0;
+        size_t numFacets = 0;
+        // outer groups, in groups_
+        size_t firstGroup = 0;
+        size_t numGroups = 0;
     };
     std::vector<FacetGroup> _runs;   // facets, kFacetRun at most each
     std::vector<FacetGroup> _groups; // runs, kFacetRun at most each

@@ -132,13 +132,22 @@ private:
     gfx::TextureId _glow = 0;
     std::string _error;
     std::vector<std::string> _info;
-    gfx::Vec3 _centre{}, _home{};
-    float _radius = 1, _yaw = 0.8f, _pitch = 0.5f, _distance = 1;
-    bool _dragging = false, _showInfo = true, _useTextures = true, _useLightmaps = true, _showBackdrop = true;
+    gfx::Vec3 _centre{};
+    gfx::Vec3 _home{};
+    float _radius = 1;
+    float _yaw = 0.8f;
+    float _pitch = 0.5f;
+    float _distance = 1;
+    bool _dragging = false;
+    bool _showInfo = true;
+    bool _useTextures = true;
+    bool _useLightmaps = true;
+    bool _showBackdrop = true;
     bool _showHidden = false; // the effects the game shows on events
     int _lightMode = 0;       // G: 0 off, 1 marked, 2 marked and lighting the shapes
     unsigned _hiddenCount = 0;
-    int _lastX = 0, _lastY = 0;
+    int _lastX = 0;
+    int _lastY = 0;
     // Animation: the actor's tracks by node, the clips (0: the whole
     // timeline), where in the clip it is and whether it's playing.
     const FinActor *_actor = nullptr;
@@ -189,7 +198,8 @@ public:
 
 private:
     struct Entry {
-        std::string archive, name;
+        std::string archive;
+        std::string name;
     };
     void show(int index);
     std::vector<Entry> _entries;
@@ -206,7 +216,8 @@ public:
 
 private:
     struct Entry {
-        std::string archive, name;
+        std::string archive;
+        std::string name;
     };
     void show(int index);
     std::vector<Entry> _entries;
@@ -228,7 +239,8 @@ public:
 
 private:
     struct Entry {
-        std::string archive, name;
+        std::string archive;
+        std::string name;
     };
     void select(int index);
     void play();
@@ -250,12 +262,14 @@ public:
 
 private:
     struct File {
-        std::string archive, name;
+        std::string archive;
+        std::string name;
     };
     void show(int index);
     std::vector<File> _files;
     std::vector<std::string> _lines;
-    int _index = 0, _scroll = 0;
+    int _index = 0;
+    int _scroll = 0;
 };
 
 } // namespace reluva::netimmerse

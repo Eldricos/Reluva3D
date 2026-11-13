@@ -48,7 +48,10 @@ public:
 
 private:
     struct Glyph {
-        int width = 0, height = 0, xoff = 0, yoff = 0;
+        int width = 0;
+        int height = 0;
+        int xoff = 0;
+        int yoff = 0;
         float advance = 0;
         std::vector<uint8_t> coverage;
     };
@@ -58,7 +61,9 @@ private:
     std::vector<uint8_t> _data;
     struct Info;
     std::unique_ptr<Info> _info;
-    int _ascent = 0, _descent = 0, _lineGap = 0;
+    int _ascent = 0;
+    int _descent = 0;
+    int _lineGap = 0;
     std::map<std::pair<uint32_t, int>, Glyph> _glyphs; // (code point, size in 1/16 pixel)
 };
 

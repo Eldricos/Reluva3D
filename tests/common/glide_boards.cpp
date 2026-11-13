@@ -380,7 +380,10 @@ void testChromaRange() {
 // --- The anti-aliased fringe of clipped primitives ----------------------------------
 
 struct ClipV {
-    float x, y, z, w;
+    float x;
+    float y;
+    float z;
+    float w;
     uint32_t argb;
 };
 

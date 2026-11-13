@@ -24,10 +24,13 @@ enum Dialog {
     kSessionLost = 27,
     kHostGone = 28,
 };
-constexpr int kReturn = 10000, kOk = 10001;
+constexpr int kReturn = 10000;
+constexpr int kOk = 10001;
 constexpr int kSeats = netplay::kSeats;
 // Host Game: the controls by their place (the labels have no ids).
-constexpr size_t kTitleAt = 1, kGameNameLabelAt = 4, kMaxLabelAt = 6;
+constexpr size_t kTitleAt = 1;
+constexpr size_t kGameNameLabelAt = 4;
+constexpr size_t kMaxLabelAt = 6;
 const char *const kLevelName[3] = {"Novice CPU", "Normal CPU", "Expert CPU"};
 
 } // namespace

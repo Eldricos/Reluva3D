@@ -29,7 +29,11 @@ constexpr size_t kFrameHeader = 40;    // bounds, local origin, radius
 constexpr size_t kFrameNameSize = 16;  // after them, in frames that aren't packed
 constexpr size_t kBoneSize = 48;       // 3 x 4 floats
 constexpr size_t kPackedBoneSize = 24; // 12 16-bit numbers
-constexpr size_t kLodSize = 12, kSurfaceSize = 168, kVertexHeader = 24, kWeightSize = 20, kTagSize = 36;
+constexpr size_t kLodSize = 12;
+constexpr size_t kSurfaceSize = 168;
+constexpr size_t kVertexHeader = 24;
+constexpr size_t kWeightSize = 20;
+constexpr size_t kTagSize = 36;
 constexpr int kMaxBones = 128;
 
 uint32_t u32(const std::vector<uint8_t> &d, size_t at) {

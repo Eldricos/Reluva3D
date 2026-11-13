@@ -121,15 +121,20 @@ private:
     std::unique_ptr<ModelCache> _models;
     std::unique_ptr<SceneDrawer> _scene;
     LightGrid _grid;
-    int _frameW = 960, _frameH = 720;
+    int _frameW = 960;
+    int _frameH = 720;
     CvarStore &_cvars = _ctx.cvars;
     std::unique_ptr<eliteforce::SpGameHost> _game;
     std::unique_ptr<eliteforce::SpUiHost> _ui;
     SoundLibrary _soundLibrary{_ctx.files};
     std::unique_ptr<SoundSystem> _soundSystem; // with audio output
     Surface _overlay;
-    std::string _error, _menuError, _lastCommand;
-    uint64_t _lastCommandMs = 0, _startMs = 0, _nowMs = 0;
+    std::string _error;
+    std::string _menuError;
+    std::string _lastCommand;
+    uint64_t _lastCommandMs = 0;
+    uint64_t _startMs = 0;
+    uint64_t _nowMs = 0;
     bool _showInfo = true;
     uint64_t _lastMs = 0;
     int32_t _clientTime = 0;
@@ -147,10 +152,14 @@ private:
     bool _nextLoadTransition = false;
     std::string _pendingTransition;
     bool _runningTransition = false;
-    float _menuMouseX = 0, _menuMouseY = 0;
+    float _menuMouseX = 0;
+    float _menuMouseY = 0;
     bool _textInput = false;
     struct Timing {
-        float server = 0, client = 0, draw = 0; // ms, the last frame's
+        // ms, the last frame's
+        float server = 0;
+        float client = 0;
+        float draw = 0;
     };
     Timing _timing;
 };

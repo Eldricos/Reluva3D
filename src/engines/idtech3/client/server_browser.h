@@ -71,7 +71,8 @@ public:
 
 private:
     std::unique_ptr<net::UdpSocket> _socket;
-    std::vector<net::Address> _local, _global;
+    std::vector<net::Address> _local;
+    std::vector<net::Address> _global;
     std::vector<net::Address> _masters; // asked last (their answers are taken)
     bool _globalWaiting = false;
     uint64_t _scanStart = 0; // when the local network was last asked

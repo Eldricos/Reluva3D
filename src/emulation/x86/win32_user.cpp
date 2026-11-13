@@ -37,13 +37,23 @@ enum : uint32_t {
     kWmSysCommand = 0x112
 };
 constexpr uint32_t kScClose = 0xf060;
-constexpr uint32_t kWsBorder = 0x00800000, kWsDlgFrame = 0x00400000, kWsCaption = 0x00c00000,
-                   kWsThickFrame = 0x00040000, kWsVisible = 0x10000000, kWsChild = 0x40000000;
+constexpr uint32_t kWsBorder = 0x00800000;
+constexpr uint32_t kWsDlgFrame = 0x00400000;
+constexpr uint32_t kWsCaption = 0x00c00000;
+constexpr uint32_t kWsThickFrame = 0x00040000;
+constexpr uint32_t kWsVisible = 0x10000000;
+constexpr uint32_t kWsChild = 0x40000000;
 constexpr uint32_t kCwUseDefault = 0x80000000u;
-constexpr int kCaption = 19, kMenu = 19, kFixedFrame = 3, kSizeFrame = 4, kBorder = 1;
+constexpr int kCaption = 19;
+constexpr int kMenu = 19;
+constexpr int kFixedFrame = 3;
+constexpr int kSizeFrame = 4;
+constexpr int kBorder = 1;
 // Handles that are only ever passed back: icons and cursors, GDI's stock
 // objects, device contexts.
-constexpr uint32_t kResourceHandles = 0x20000, kStockObjects = 0x28000, kDeviceContext = 0x30000;
+constexpr uint32_t kResourceHandles = 0x20000;
+constexpr uint32_t kStockObjects = 0x28000;
+constexpr uint32_t kDeviceContext = 0x30000;
 
 std::string lower(std::string s) {
     for (char &c : s)
@@ -54,7 +64,10 @@ std::string lower(std::string s) {
 // How far the frame (and caption, and menu) reach in from each side of a
 // window with this style: left, top, right, bottom.
 struct Insets {
-    int left, top, right, bottom;
+    int left;
+    int top;
+    int right;
+    int bottom;
 };
 Insets frameOf(uint32_t style, bool menu) {
     int edge = 0;
@@ -93,7 +106,9 @@ bool windowsKey(uint32_t k, uint32_t &vk, uint32_t &scan) {
                                          0x31, 0x18, 0x19, 0x10, 0x13, 0x1f, 0x14, 0x16, 0x2f, 0x11, 0x2d, 0x15, 0x2c};
     static const uint8_t kKeypad[10] = {0x52, 0x4f, 0x50, 0x51, 0x4b, 0x4c, 0x4d, 0x47, 0x48, 0x49};
     struct Entry {
-        uint32_t key, vk, scan;
+        uint32_t key;
+        uint32_t vk;
+        uint32_t scan;
     };
     static const Entry kOthers[] = {
         {key::kReturn, 0x0d, 0x1c},
@@ -162,8 +177,11 @@ bool windowsKey(uint32_t k, uint32_t &vk, uint32_t &scan) {
 }
 
 namespace {
-constexpr uint32_t kWmMouseMove = 0x200, kWmLButtonDown = 0x201, kWmLButtonDblClk = 0x203, kWmMouseWheel = 0x20a,
-                   kWmKeyUp = 0x101;
+constexpr uint32_t kWmMouseMove = 0x200;
+constexpr uint32_t kWmLButtonDown = 0x201;
+constexpr uint32_t kWmLButtonDblClk = 0x203;
+constexpr uint32_t kWmMouseWheel = 0x20a;
+constexpr uint32_t kWmKeyUp = 0x101;
 constexpr uint32_t kCsDblClks = 0x8;
 constexpr uint32_t kDoubleClickMs = 500;
 constexpr int kDoubleClickDistance = 4;

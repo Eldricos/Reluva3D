@@ -96,11 +96,14 @@ private:
 
     std::vector<Instruction> _code;
     std::vector<uint8_t> _data; // a power of two in size; the stack is at the top
-    uint32_t _dataLength = 0, _litStart = 0, _litEnd = 0;
+    uint32_t _dataLength = 0;
+    uint32_t _litStart = 0;
+    uint32_t _litEnd = 0;
     int32_t _programStack = 0; // the stack pointer between calls
     int32_t _stackBottom = 0;  // the stack may not grow below this
     SystemCall _syscall;
-    uint64_t _limit = 0, _executed = 0;
+    uint64_t _limit = 0;
+    uint64_t _executed = 0;
     int _depth = 0; // nested call() through system calls
     std::string _abort;
     std::vector<std::pair<uint32_t, uint32_t>> _protected; // sorted, not overlapping

@@ -109,9 +109,11 @@ int cmdNfsHost(int argc, char **argv) {
     // point's right, slowed for the bends ahead: a driver that needs no other
     // car, for races run to their finish.
     struct Driver {
-        uint32_t car = 0, target = 0;
+        uint32_t car = 0;
+        uint32_t target = 0;
         bool road = false;
-        uint64_t from = 0, to = ~0ull;
+        uint64_t from = 0;
+        uint64_t to = ~0ull;
         float gap = 0; // 0: full gas; else metres behind the target, at its speed (road: metres right)
         uint64_t logged = 0;
     };
@@ -1094,7 +1096,10 @@ int cmdNfsMmxCheck(int argc, char **argv) {
     struct Voice {
         std::vector<uint8_t> bytes;
         uint32_t samples = 0;
-        int format = 4, compression = 0, left = 0, right = 0;
+        int format = 4;
+        int compression = 0;
+        int left = 0;
+        int right = 0;
         uint32_t step = 0x10000;
         int quality = 50;
     };
@@ -1149,9 +1154,21 @@ int cmdNfsMmxCheck(int argc, char **argv) {
     };
     // The differences of MMX (m) from float (f), over many samples.
     struct Diff {
-        uint64_t n = 0, nonzero = 0, even = 0, nonzeroF = 0, evenF = 0, clipM = 0, clipF = 0;
-        double sum = 0, sum2 = 0, sumG = 0, sumG2 = 0, mf = 0, ff = 0;
-        int maxAbs = 0, limit = 32767;
+        uint64_t n = 0;
+        uint64_t nonzero = 0;
+        uint64_t even = 0;
+        uint64_t nonzeroF = 0;
+        uint64_t evenF = 0;
+        uint64_t clipM = 0;
+        uint64_t clipF = 0;
+        double sum = 0;
+        double sum2 = 0;
+        double sumG = 0;
+        double sumG2 = 0;
+        double mf = 0;
+        double ff = 0;
+        int maxAbs = 0;
+        int limit = 32767;
         std::map<int, uint64_t> hist;
         void add(int m, int f) {
             ++n;

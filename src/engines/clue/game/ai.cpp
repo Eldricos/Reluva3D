@@ -199,7 +199,10 @@ void Notebook::settle() {
 
 namespace {
 
-constexpr uint32_t kSuspects = 0x3f, kWeapons = 0xfc0, kRooms = 0x1ff000, kAll = 0x1fffff;
+constexpr uint32_t kSuspects = 0x3f;
+constexpr uint32_t kWeapons = 0xfc0;
+constexpr uint32_t kRooms = 0x1ff000;
+constexpr uint32_t kAll = 0x1fffff;
 constexpr uint32_t kKinds[3] = {kSuspects, kWeapons, kRooms};
 
 int bits(uint32_t m) {

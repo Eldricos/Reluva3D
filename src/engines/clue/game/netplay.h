@@ -45,7 +45,9 @@ public:
     bool timedOut(uint64_t nowMs) const { return _lastHeard != 0 && nowMs - _lastHeard > kTimeoutMs; }
     void heard(uint64_t nowMs) { _lastHeard = nowMs; }
 
-    static constexpr uint64_t kResendMs = 250, kKeepAliveMs = 1000, kTimeoutMs = 15000;
+    static constexpr uint64_t kResendMs = 250;
+    static constexpr uint64_t kKeepAliveMs = 1000;
+    static constexpr uint64_t kTimeoutMs = 15000;
 
 private:
     struct Pending {
@@ -56,8 +58,10 @@ private:
     net::Address _peer;
     std::deque<Pending> _outgoing;
     std::map<uint32_t, Bytes> _early; // arrived out of order
-    uint32_t _nextSend = 1, _nextReceive = 1;
-    uint64_t _lastSent = 0, _lastHeard = 0;
+    uint32_t _nextSend = 1;
+    uint32_t _nextReceive = 1;
+    uint64_t _lastSent = 0;
+    uint64_t _lastHeard = 0;
     bool _ackDue = false;
 };
 
@@ -90,8 +94,10 @@ struct Command {
 // A game found on the local network.
 struct Found {
     net::Address address;
-    std::string gameName, hostName;
-    int humans = 0, maxHumans = 0;
+    std::string gameName;
+    std::string hostName;
+    int humans = 0;
+    int maxHumans = 0;
     bool started = false;
 };
 
@@ -152,14 +158,17 @@ private:
     State _state = State::kLobby;
     bool _host = false;
     int _me = 0;
-    std::string _myName, _refusal;
+    std::string _myName;
+    std::string _refusal;
     Lobby _lobby;
     uint32_t _seed = 0;
     // The host: each machine that joined, by its number; a player: the host's, as 0.
     std::map<int, Channel> _peers;
     int _nextPeer = 1;
     net::Address _hostAddress;
-    uint64_t _now = 0, _askedAt = 0, _connectStart = 0;
+    uint64_t _now = 0;
+    uint64_t _askedAt = 0;
+    uint64_t _connectStart = 0;
     std::vector<net::Address> _askAt;
     std::vector<Found> _found;
     std::deque<std::string> _chat;

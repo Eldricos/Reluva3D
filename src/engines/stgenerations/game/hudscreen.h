@@ -95,7 +95,10 @@ private:
     // The slot the left button went down on, or -1.
     int _pressedSlot = -1;
     bool _dragging = false;
-    int _pressX = 0, _pressY = 0, _mouseX = 0, _mouseY = 0;
+    int _pressX = 0;
+    int _pressY = 0;
+    int _mouseX = 0;
+    int _mouseY = 0;
     LeftMode _leftMode = kLeftLife;
     int _mapBand = 1;
     int _mapZoom = 1;

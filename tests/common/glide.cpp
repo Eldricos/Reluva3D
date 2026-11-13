@@ -605,9 +605,14 @@ void testGlide3() {
     g.vertexLayout(g3::kParamSt0, 24, g3::kParamEnable);
     CHECK(g.layoutMin() == 0 && g.layoutMax() == 32);
     struct GameVertex {
-        float x, y, z, q;
-        uint32_t argb, pad;
-        float s, t;
+        float x;
+        float y;
+        float z;
+        float q;
+        uint32_t argb;
+        uint32_t pad;
+        float s;
+        float t;
     };
     static_assert(sizeof(GameVertex) == 32);
     auto gv = [](float x, float y, uint32_t argb) { return GameVertex{x, y, 0, 1, argb, 0, 0, 0}; };

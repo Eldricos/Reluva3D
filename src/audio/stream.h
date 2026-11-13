@@ -55,7 +55,8 @@ private:
     Format _format;
     int _rate;
     bool _stereo;
-    size_t _count, _pos = 0;
+    size_t _count;
+    size_t _pos = 0;
     int _loopsLeft;
 };
 

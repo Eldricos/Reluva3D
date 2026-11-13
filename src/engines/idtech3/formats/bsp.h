@@ -30,26 +30,34 @@ struct BspPlane {
 struct BspNode {
     int32_t plane = 0;
     std::array<int32_t, 2> children{}; // negative: -(leaf + 1)
-    std::array<int32_t, 3> mins{}, maxs{};
+    std::array<int32_t, 3> mins{};
+    std::array<int32_t, 3> maxs{};
 };
 
 struct BspLeaf {
     int32_t cluster = 0; // -1: outside the map
     int32_t area = 0;
-    std::array<int32_t, 3> mins{}, maxs{};
-    int32_t firstLeafSurface = 0, numLeafSurfaces = 0;
-    int32_t firstLeafBrush = 0, numLeafBrushes = 0;
+    std::array<int32_t, 3> mins{};
+    std::array<int32_t, 3> maxs{};
+    int32_t firstLeafSurface = 0;
+    int32_t numLeafSurfaces = 0;
+    int32_t firstLeafBrush = 0;
+    int32_t numLeafBrushes = 0;
 };
 
 // Model 0 is the world; the others are brush entities' ("*1", "*2"...).
 struct BspModel {
-    std::array<float, 3> mins{}, maxs{};
-    int32_t firstSurface = 0, numSurfaces = 0;
-    int32_t firstBrush = 0, numBrushes = 0;
+    std::array<float, 3> mins{};
+    std::array<float, 3> maxs{};
+    int32_t firstSurface = 0;
+    int32_t numSurfaces = 0;
+    int32_t firstBrush = 0;
+    int32_t numBrushes = 0;
 };
 
 struct BspBrush {
-    int32_t firstSide = 0, numSides = 0;
+    int32_t firstSide = 0;
+    int32_t numSides = 0;
     int32_t shader = 0;
 };
 
@@ -78,13 +86,18 @@ struct BspSurface {
     int32_t shader = 0;
     int32_t fog = 0; // -1: none
     SurfaceType type = SurfaceType::kBad;
-    int32_t firstVertex = 0, numVertices = 0;
-    int32_t firstIndex = 0, numIndices = 0;
+    int32_t firstVertex = 0;
+    int32_t numVertices = 0;
+    int32_t firstIndex = 0;
+    int32_t numIndices = 0;
     int32_t lightmap = 0; // -1: none
-    std::array<int32_t, 2> lightmapPos{}, lightmapSize{};
+    std::array<int32_t, 2> lightmapPos{};
+    std::array<int32_t, 2> lightmapSize{};
     std::array<float, 3> lightmapOrigin{};
     std::array<std::array<float, 3>, 3> lightmapVecs{}; // s, t, normal; patches: bounds, bounds, normal
-    int32_t patchWidth = 0, patchHeight = 0;            // patch control points
+    // patch control points
+    int32_t patchWidth = 0;
+    int32_t patchHeight = 0;
 };
 
 constexpr int kLightmapSize = 128; // lightmaps are 128x128 RGB
@@ -107,7 +120,8 @@ struct Bsp {
     std::vector<BspSurface> surfaces;
     std::vector<uint8_t> lightmaps; // kLightmapSize^2 * 3 bytes each
     std::vector<uint8_t> lightGrid; // 8 bytes per point, see bsp.md
-    int32_t visClusters = 0, visClusterBytes = 0;
+    int32_t visClusters = 0;
+    int32_t visClusterBytes = 0;
     std::vector<uint8_t> visData; // visClusters * visClusterBytes bits
 
     // Values the original engine tolerates and parseBsp() corrected, as

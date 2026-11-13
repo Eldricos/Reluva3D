@@ -36,12 +36,20 @@ struct ParticleSettings {
     float life = 99;                  // e00: seconds
     int mode = 0;                     // e04: 0 thrown, 1 still, 2 falling
     bool blink = false;               // e14: on for e18 s, off for e1c s
-    float onTime = 3, offTime = 5;
-    bool screenSpace = false;            // e28: drawn on the screen, not through the camera
-    float sway = 0, swaySpeed = 0;       // e0c, e10: side to side, sin(angle) * sway
-    float gravity = 9.8f;                // e08
-    float fadeIn = 0, fadeOut = 0;       // e40, e44: seconds
-    int signX = 0, signY = 1, signZ = 0; // e38, e3a, e3c: mode 0's directions
+    float onTime = 3;
+    float offTime = 5;
+    bool screenSpace = false; // e28: drawn on the screen, not through the camera
+    // e0c, e10: side to side, sin(angle) * sway
+    float sway = 0;
+    float swaySpeed = 0;
+    float gravity = 9.8f; // e08
+    // e40, e44: seconds
+    float fadeIn = 0;
+    float fadeOut = 0;
+    // e38, e3a, e3c: mode 0's directions
+    int signX = 0;
+    int signY = 1;
+    int signZ = 0;
 
     // From a scene's object, over its class's defaults.
     static ParticleSettings fromRecord(const Ac2Record &o);
@@ -68,8 +76,12 @@ public:
 private:
     struct Particle {
         int bounces = 0;
-        float position[3]{}, velocity[3]{}, origin[3]{}, start[3]{};
-        float born = 0, swayAngle = 0;
+        float position[3]{};
+        float velocity[3]{};
+        float origin[3]{};
+        float start[3]{};
+        float born = 0;
+        float swayAngle = 0;
         bool dead = false;
     };
     int random(); // as the C library's rand(): 0..32767
@@ -78,7 +90,9 @@ private:
 
     ParticleSettings _s;
     std::vector<Particle> _particles;
-    float _time = 0, _nextBurst = 0, _blinkLeft = 0;
+    float _time = 0;
+    float _nextBurst = 0;
+    float _blinkLeft = 0;
     bool _on = true;
     uint32_t _seed;
 };

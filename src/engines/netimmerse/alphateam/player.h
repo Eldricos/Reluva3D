@@ -64,12 +64,20 @@ private:
     std::condition_variable _resume;
     std::deque<Event> _events;
     std::vector<uint32_t> _frame;
-    int _width = 0, _height = 0;
-    uint64_t _frameNumber = 0, _frameTaken = 0;
+    int _width = 0;
+    int _height = 0;
+    uint64_t _frameNumber = 0;
+    uint64_t _frameTaken = 0;
     std::chrono::steady_clock::time_point _nextFlip{}; // the next vertical blank a flip may show at
-    bool _paused = false, _stopping = false, _finished = false, _ended = false;
-    std::string _error, _output;
-    float _pendingX = 0, _pendingY = 0; // fractions of a pixel of movement not passed on yet
+    bool _paused = false;
+    bool _stopping = false;
+    bool _finished = false;
+    bool _ended = false;
+    std::string _error;
+    std::string _output;
+    // fractions of a pixel of movement not passed on yet
+    float _pendingX = 0;
+    float _pendingY = 0;
 };
 
 } // namespace reluva::netimmerse::alphateam

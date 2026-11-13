@@ -17,7 +17,10 @@ namespace reluva::x86 {
 
 namespace {
 
-constexpr uint32_t kErrorFileNotFound = 2, kErrorInvalidHandle = 6, kErrorMoreData = 234, kErrorNoMoreItems = 259;
+constexpr uint32_t kErrorFileNotFound = 2;
+constexpr uint32_t kErrorInvalidHandle = 6;
+constexpr uint32_t kErrorMoreData = 234;
+constexpr uint32_t kErrorNoMoreItems = 259;
 constexpr uint32_t kRegSz = 1;
 constexpr uint32_t kClassNotRegistered = 0x80040154u; // REGDB_E_CLASSNOTREG
 

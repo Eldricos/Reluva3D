@@ -92,14 +92,17 @@ private:
         reluva::net::Address address;
         uint16_t qport = 0;
         wire::Netchan chan{false, 0};
-        std::string userinfo, name;
+        std::string userinfo;
+        std::string name;
         int snapMs = 50;
-        uint64_t lastReceived = 0, zombieSince = 0;
+        uint64_t lastReceived = 0;
+        uint64_t zombieSince = 0;
         int32_t nextSnapshotTime = 0;
         // The commands for it, by sequence & 63, from reliableAcknowledge + 1
         // to reliableSequence.
         std::array<std::string, kMaxReliable> reliable;
-        int32_t reliableSequence = 0, reliableAcknowledge = 0;
+        int32_t reliableSequence = 0;
+        int32_t reliableAcknowledge = 0;
         int32_t lastClientCommand = 0;  // the last of its commands run
         int32_t messageAcknowledge = 0; // the last of our messages it has
         int32_t deltaMessage = -1;      // what to make the next snapshot a change from (-1: nothing)
@@ -110,7 +113,8 @@ private:
         // The rate (bytes a second; `unlimited` on the local network), the
         // last datagram sent, and those waiting for the rate.
         int rate = 3000;
-        bool unlimited = false, rateDelayed = false;
+        bool unlimited = false;
+        bool rateDelayed = false;
         size_t lastSentSize = 0;
         uint64_t lastSentMs = 0;
         std::deque<std::vector<uint8_t>> queued;
@@ -120,7 +124,8 @@ private:
             std::string name;
             bool opened = false;
             std::vector<uint8_t> data;
-            int clientBlock = 0, xmitBlock = 0;
+            int clientBlock = 0;
+            int xmitBlock = 0;
             uint64_t sendTime = 0;
         };
         Download download;
@@ -128,7 +133,8 @@ private:
         std::array<Frame, kPacketBackup> frames;
         // A pure server's check: whether it has answered this level's
         // (cp), and whether rightly.
-        bool pureAnswered = false, pureValid = false;
+        bool pureAnswered = false;
+        bool pureValid = false;
     };
 
     void outOfBand(const reluva::net::Address &from, const std::string &text, uint64_t now);
@@ -154,7 +160,8 @@ private:
     // Pure for this level (sv_pure as it started): what clients' answers
     // are checked against, with this level's checksum feed.
     bool _pure = false;
-    int32_t _pureCgame = 0, _pureUi = 0;
+    int32_t _pureCgame = 0;
+    int32_t _pureUi = 0;
     std::set<int32_t> _purePaks;
     std::vector<std::string> _referencedNames; // gamedir/name, without .pk3
     void heartbeat(uint64_t now, bool force);
@@ -177,7 +184,8 @@ private:
     std::map<reluva::net::Address, Challenge> _challenges;
     std::map<int32_t, std::vector<uint8_t>> _baselines;
     std::map<int32_t, std::string> _configstrings; // as last sent
-    size_t _serverCommandsSeen = 0, _dropsSeen = 0;
+    size_t _serverCommandsSeen = 0;
+    size_t _dropsSeen = 0;
     int32_t _checksumFeed = 0;
     int _levelCount = 0;
     int _restartsSeen = 0;           // of the game's map_restarts

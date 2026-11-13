@@ -110,7 +110,10 @@ public:
         std::array<int32_t, 3> angles{}; // view pitch, yaw, roll: 65536 = a full turn
         int32_t buttons = 0;
         uint8_t weapon = 0;
-        int8_t forward = 0, right = 0, up = 0; // -127..127
+        // -127..127
+        int8_t forward = 0;
+        int8_t right = 0;
+        int8_t up = 0;
     };
     // Hands the game a player's command and lets it act on it (ClientThink,
     // which reads it with GetUsercmd), as the server does for each
@@ -191,7 +194,9 @@ public:
     };
     // Milliseconds a server frame: 20 a second, Quake III's default sv_fps.
     static constexpr int32_t kFrameMs = 50;
-    static constexpr int32_t kPlayerStateSize = 460, kEntityStateSize = 204; // 1.0's; see layout()
+    // 1.0's; see layout()
+    static constexpr int32_t kPlayerStateSize = 460;
+    static constexpr int32_t kEntityStateSize = 204;
     // A word of the player state the original's network protocol doesn't
     // send, which snapshots carry as 0.
     static constexpr int32_t kPlayerStateServerOnly = 48;
@@ -277,12 +282,15 @@ private:
     GameData _gameData;
     GameLayout _layout = kLayout10;
     std::vector<uint8_t> _qvmData; // for restarting the game code
-    std::string _mapName, _requestedMap;
+    std::string _mapName;
+    std::string _requestedMap;
     bool _killBots = false; // the map command asking for the next level drops the bots
     int32_t _randomSeed = 0;
     int32_t _restartTime = 0; // a delayed map_restart's level time (0: none)
     int _restarts = 0;
-    std::string _levelGametype, _levelMaxClients; // as the level started
+    // as the level started
+    std::string _levelGametype;
+    std::string _levelMaxClients;
     int _snapshotsMade = 0;
     std::map<int32_t, std::string> _configstrings;
     std::vector<std::string> _consoleCommands;
@@ -298,7 +306,9 @@ private:
     uint64_t _startMs = 0;
     // Bots.
     botlib::BotLibrary _bots;
-    std::set<int32_t> _clientsInUse, _botClients, _reserved;
+    std::set<int32_t> _clientsInUse;
+    std::set<int32_t> _botClients;
+    std::set<int32_t> _reserved;
     std::map<int32_t, size_t> _botMessagesRead;            // per bot, server commands read so far
     std::map<int32_t, std::vector<int32_t>> _botSnapshots; // per bot, the entities it sees this frame
     std::vector<Entity> _bspEntities;

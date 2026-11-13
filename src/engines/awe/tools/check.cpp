@@ -51,8 +51,12 @@ bool endsWith(const std::string &s, const char *suffix) {
 struct Gr2Result {
     std::string error; // empty if it read
     std::vector<std::string> warnings;
-    bool model = false, animation = false;
-    size_t bones = 0, meshes = 0, textures = 0, tracks = 0;
+    bool model = false;
+    bool animation = false;
+    size_t bones = 0;
+    size_t meshes = 0;
+    size_t textures = 0;
+    size_t tracks = 0;
     std::string vertexLayout; // the first mesh's vertex members
     std::set<int> degrees;    // curve degrees used
     std::set<std::string> compressions;
@@ -60,12 +64,14 @@ struct Gr2Result {
     // Curves in compressed formats, by format; each expanded natively and
     // by granny2.dll, and those that differ.
     std::map<std::string, size_t> curveFormats;
-    size_t curves = 0, curvesDiffering = 0;
+    size_t curves = 0;
+    size_t curvesDiffering = 0;
     // Bink textures by flags (SubFormat, +1 for alpha); with -textures,
     // how many differ from granny2.dll's, and the time each way took.
     std::map<uint32_t, size_t> binkTextures;
     size_t binkMismatches = 0;
-    double nativeSeconds = 0, dllSeconds = 0;
+    double nativeSeconds = 0;
+    double dllSeconds = 0;
     // With -curves: every curve evaluated by Curve::evaluate and by
     // granny2.dll (GrannyEvaluateCurveAtT) at many times, in each way a
     // control loops; the largest difference by kind (position,
@@ -77,7 +83,8 @@ struct Gr2Result {
     };
     static constexpr int kLoopModes = 4; // once, looping, the first and the last of several
     CurveDifference curveDifferences[kLoopModes][3];
-    size_t curvesEvaluated = 0, curveSamples = 0;
+    size_t curvesEvaluated = 0;
+    size_t curveSamples = 0;
 };
 
 std::string layoutOf(const awe::Gr2Object &vertexData) {
@@ -605,7 +612,8 @@ int checkOodle(const reluva::Archive &files, const std::string &filter, unsigned
     }
     struct Result {
         std::vector<std::string> failures;
-        size_t sections = 0, bytes = 0;
+        size_t sections = 0;
+        size_t bytes = 0;
     };
     std::vector<Result> results(names.size());
     std::atomic<size_t> next{0};
@@ -727,7 +735,9 @@ int checkScenes(const reluva::Archive &files, bool verbose) {
     // The cameras' walk grids: their cell sizes and values, and the cells
     // that characters, their walk points and "walk a b" commands land on.
     struct Landing {
-        size_t open = 0, blocked = 0, off = 0;
+        size_t open = 0;
+        size_t blocked = 0;
+        size_t off = 0;
     };
     std::map<int, size_t> cellSizes;
     std::map<int, size_t> cellValues;

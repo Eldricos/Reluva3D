@@ -16,17 +16,25 @@ namespace reluva::nfs {
 // glyphs for Windows-1252 characters cut from one 4-bit coverage atlas.
 struct Font {
     struct Glyph {
-        int width = 0, height = 0;
-        int x = 0, y = 0;             // in the atlas
-        int advance = 0;              // pen movement after drawing
-        int offsetX = 0, offsetY = 0; // from the pen and the line's top
+        int width = 0;
+        int height = 0;
+        // in the atlas
+        int x = 0;
+        int y = 0;
+        int advance = 0; // pen movement after drawing
+        // from the pen and the line's top
+        int offsetX = 0;
+        int offsetY = 0;
     };
     int lineHeight = 0;
-    int lineGap = 0;                 // added to lineHeight between lines
-    int penX = 0, penY = 0;          // added to the pen where drawing starts
+    int lineGap = 0; // added to lineHeight between lines
+    // added to the pen where drawing starts
+    int penX = 0;
+    int penY = 0;
     int flags = 0;                   // not understood yet
     std::array<Glyph, 256> glyphs{}; // by character code; width 0: none
-    int atlasWidth = 0, atlasHeight = 0;
+    int atlasWidth = 0;
+    int atlasHeight = 0;
     std::vector<uint8_t> coverage; // atlas pixels, 0 (clear) to 255 (solid)
 
     bool has(uint8_t code) const { return glyphs[code].width > 0; }

@@ -20,7 +20,8 @@ namespace reluva::idtech3 {
 class StartPage : public Page {
 public:
     struct Choice {
-        std::string label, detail;
+        std::string label;
+        std::string detail;
         std::string page; // the page it starts on
     };
     StartPage(ViewerContext &ctx, std::vector<Choice> choices);

@@ -82,7 +82,10 @@ private:
     struct Hotspot {
         bool defined = false;
         bool enabled = false; // hotspots start disabled; HOTON enables them
-        int x = 0, y = 0, w = 0, h = 0;
+        int x = 0;
+        int y = 0;
+        int w = 0;
+        int h = 0;
         int label = -1;
         int cursor = 0;
     };
@@ -123,13 +126,17 @@ private:
         uint8_t flags = kAnimFlagOff;
         int rate = 0; // a frame is shown for rate + 1 steps
         int countdown = 0;
-        int frame = 0;              // -1: no current frame
-        int drawnFrame = -1;        // the frame last drawn into the work buffer, -1: none
-        int drawnX = 0, drawnY = 0; // and where it went
-        bool suspended = false;     // the script waits for it (ANIMSUSPEND)
-        int x = 0, y = 0;           // added to each frame's own position
-        int priority = 0;           // 0..4, 4 on top
-        int endLabel = -1;          // ANIMEND
+        int frame = 0;       // -1: no current frame
+        int drawnFrame = -1; // the frame last drawn into the work buffer, -1: none
+        // and where it went
+        int drawnX = 0;
+        int drawnY = 0;
+        bool suspended = false; // the script waits for it (ANIMSUSPEND)
+        // added to each frame's own position
+        int x = 0;
+        int y = 0;
+        int priority = 0;  // 0..4, 4 on top
+        int endLabel = -1; // ANIMEND
     };
 
     // ---- Conversations (game_dialogue.cpp) -------------------------------
@@ -139,7 +146,8 @@ private:
     // A reference to a dialogue item: group and position in the NPC or choice tree.
     struct ItemRef {
         bool npc = false;
-        int group = -1, item = -1;
+        int group = -1;
+        int item = -1;
         bool valid() const { return group >= 0; }
         bool operator==(const ItemRef &o) const { return npc == o.npc && group == o.group && item == o.item; }
     };
@@ -161,13 +169,16 @@ private:
             int target = -1; // -1: none
             ItemRef except;  // ignored when testing for "exhausted"
         };
-        Redirect doneX[kMaxGroups], emptyXGoto[kMaxGroups], emptyXReply[kMaxGroups];
+        Redirect doneX[kMaxGroups];
+        Redirect emptyXGoto[kMaxGroups];
+        Redirect emptyXReply[kMaxGroups];
         std::vector<int> current; // per NPC group: the item it says next
         struct ItemFlags {
             bool on = true;
             bool said = false;
         };
-        std::vector<std::vector<ItemFlags>> npcFlags, choiceFlags;
+        std::vector<std::vector<ItemFlags>> npcFlags;
+        std::vector<std::vector<ItemFlags>> choiceFlags;
         struct Hook {
             int group;
             int state; // 0 HOOK, 1 THOOK, 2 THOOK used up
@@ -178,8 +189,10 @@ private:
     };
 
     struct Talker {
-        std::string code;          // speaker code from the clip names ("odo" ...)
-        int mouth = -1, head = -1; // animation indexes
+        std::string code; // speaker code from the clip names ("odo" ...)
+        // animation indexes
+        int mouth = -1;
+        int head = -1;
     };
 
     struct ConversationOp {
@@ -223,11 +236,14 @@ private:
         Phonemes phonemes;
         int mouth = -1;
         size_t phonemeNode = 0;
-        uint32_t speechStart = 0, nodeStart = 0;
+        uint32_t speechStart = 0;
+        uint32_t nodeStart = 0;
         // The menu.
         std::vector<ItemRef> menu;
         std::vector<int> menuWidths;
-        int menuX = 0, menuY = 0, lineHeight = 0;
+        int menuX = 0;
+        int menuY = 0;
+        int lineHeight = 0;
         int hover = -1;
         bool menuVisible = false;
         bool menuWaiting = false;
@@ -239,7 +255,8 @@ private:
     struct VideoPlayback {
         bool active = false;
         std::unique_ptr<smacker::Decoder> decoder;
-        int x = 0, y = 0;
+        int x = 0;
+        int y = 0;
         uint32_t startMillis = 0;
         int framesShown = 0;
         bool trans = false;       // TRANS videos stop the ambient sounds
@@ -253,8 +270,10 @@ private:
     };
 
     struct CursorImage {
-        int w = 0, h = 0;
-        int hotX = 0, hotY = 0;
+        int w = 0;
+        int h = 0;
+        int hotX = 0;
+        int hotY = 0;
         uint8_t transparent = 0;
         std::vector<uint8_t> pixels;
     };
@@ -291,8 +310,10 @@ private:
         enum Phase { kBlank, kFadeIn, kScroll, kFadeOut } phase = kFadeIn;
         uint32_t phaseStart = 0;
         int offset = 0; // pixels scrolled
-        Surface blank, background;
-        Palette blankPalette, palette;
+        Surface blank;
+        Surface background;
+        Palette blankPalette;
+        Palette palette;
     };
 
     // ---- Script thread --------------------------------------------------
@@ -361,9 +382,16 @@ private:
     // once, then kept by the renderer for `beamLife_` renders.
     struct Beam {
         bool enemy = false;
-        int x0 = 0, y0 = 0, x1 = 0, y1 = 0;
+        int x0 = 0;
+        int y0 = 0;
+        int x1 = 0;
+        int y1 = 0;
         uint8_t color = 0;
-        int left = 0, top = 0, w = 0, h = 0; // the box between the end points
+        // the box between the end points
+        int left = 0;
+        int top = 0;
+        int w = 0;
+        int h = 0;
     };
     void drawBeam(Surface &dst, const Beam &b);
     void drawBeams(Surface &dst);
@@ -514,7 +542,8 @@ private:
     std::unique_ptr<Arcade> _arcade;
     std::string _arcadeResultVariable;
     uint32_t _arcadeStartMillis = 0;
-    bool _arcadeLeft = false, _arcadeRight = false;
+    bool _arcadeLeft = false;
+    bool _arcadeRight = false;
     int _arcadeDifficulty = 1; // 0..2; the game menu sets it (default 1)
     int _lastArcadeDamage = 0; // carried into some later sequences
     std::map<int, ArcadeGroupState> _arcadeGroups;

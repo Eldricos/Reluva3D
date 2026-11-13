@@ -46,7 +46,8 @@ int patchLevel(const BspVertex *control, int width, int height, float error);
 // - Normals come from the grid's shape (its neighbouring points), turned
 //   to face the way the map's own normals do.
 struct PatchGrid {
-    int width = 0, height = 0;
+    int width = 0;
+    int height = 0;
     std::vector<BspVertex> points;
     // The group of patches that must be cut alike so they meet: the
     // centre and size of its bounds, as the map stores them.

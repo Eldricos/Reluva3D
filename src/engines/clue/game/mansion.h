@@ -21,8 +21,11 @@ namespace reluva::clue {
 // The camera looks from beyond +x +y: screen x is x - y, screen y is
 // (x + y) / 2 - z.
 struct WorldBox {
-    int x = 0, y = 0;
-    int sizeX = 0, sizeY = 0, height = 0;
+    int x = 0;
+    int y = 0;
+    int sizeX = 0;
+    int sizeY = 0;
+    int height = 0;
     int z = 0;    // how high above the floor it is placed
     int zOff = 0; // where its box starts above that (the frame's box offset)
 };
@@ -44,7 +47,10 @@ int compareDepth(const WorldBox &a, const WorldBox &b);
 
 // Where screen rectangles are: x, y, width, height.
 struct ScreenRect {
-    int x = 0, y = 0, w = 0, h = 0;
+    int x = 0;
+    int y = 0;
+    int w = 0;
+    int h = 0;
     bool overlaps(const ScreenRect &o) const { return x < o.x + o.w && o.x < x + w && y < o.y + o.h && o.y < y + h; }
     bool contains(int px, int py) const { return px >= x && px < x + w && py >= y && py < y + h; }
 };
@@ -91,14 +97,17 @@ uint8_t shade(uint8_t c8, int level);
 // at 0x4289c0): by max(dx, dy) + min(dx, dy) / 2, full within 80, a step
 // darker each 16 on, to 1/4 from 240.
 int lightShade(int lx, int ly, int x, int y);
-constexpr int kShadeNone = 0, kShadeSeeThrough = 3, kShadeUnlit = 17;
+constexpr int kShadeNone = 0;
+constexpr int kShadeSeeThrough = 3;
+constexpr int kShadeUnlit = 17;
 
 class Mansion {
 public:
     // An image to draw, from the item's anchor point.
     struct Piece {
         const Image *image = nullptr;
-        int dx = 0, dy = 0;
+        int dx = 0;
+        int dy = 0;
         int layer = 0; // its layer in the animation (walls and floors are lit by it)
         int blend = 0; // its part's own pixel function (2-4) in place of the light, or 0
     };
@@ -112,16 +121,21 @@ public:
         WorldBox box;
         bool flat = false; // floors and the outside: drawn first, in layer order
         int layer = 0;
-        int anchorX = 0, anchorY = 0; // on screen
-        ScreenRect rect;              // of frame 0 on screen
+        // on screen
+        int anchorX = 0;
+        int anchorY = 0;
+        ScreenRect rect; // of frame 0 on screen
         // Its kind, as Clue.exe makes its object of it (docs/engines/clue/
         // formats/level.md): the placement's tag's, or else the object's, primary
         // and secondary types. 0 a wall, 3 furniture, 4 and 5 hot spots,
         // 8 a secret passage, 12 drapes ...
-        uint8_t kind = 0, subKind = 0;
-        bool keepsSolid = false;    // furniture with a timing at 2000: never see-through
-        int worldX = 0, worldY = 0; // the placement's position (box.x, box.y less the frame's offsets)
-        int layers = 0;             // its animation's
+        uint8_t kind = 0;
+        uint8_t subKind = 0;
+        bool keepsSolid = false; // furniture with a timing at 2000: never see-through
+        // the placement's position (box.x, box.y less the frame's offsets)
+        int worldX = 0;
+        int worldY = 0;
+        int layers = 0; // its animation's
     };
 
     // Something drawn among the items that isn't in the level: a suspect
@@ -138,7 +152,8 @@ public:
         // along x and y. In a room (a suspect's), only the walls; hot spots
         // only from the corridors.
         bool reveal = false;
-        bool inRoom = false, inCorridor = false;
+        bool inRoom = false;
+        bool inCorridor = false;
     };
     // An animation's frames as pieces to draw (kept).
     const std::vector<Frame> *frames(const GameData &data, const Animation &anim) { return resolve(data, anim); }

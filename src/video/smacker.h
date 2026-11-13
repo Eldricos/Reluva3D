@@ -61,7 +61,9 @@ private:
 
     std::unique_ptr<SeekableReadStream> _stream;
     bool _smk4 = false;
-    int _width = 0, _height = 0, _displayHeight = 0;
+    int _width = 0;
+    int _height = 0;
+    int _displayHeight = 0;
     int _frameCount = 0;
     int _curFrame = -1;
     uint32_t _frameMicros = 0;
@@ -72,7 +74,10 @@ private:
     std::vector<uint8_t> _frameTypes;
     int64_t _nextFramePos = 0;
 
-    std::unique_ptr<BigTree> _mmap, _mclr, _full, _type;
+    std::unique_ptr<BigTree> _mmap;
+    std::unique_ptr<BigTree> _mclr;
+    std::unique_ptr<BigTree> _full;
+    std::unique_ptr<BigTree> _type;
     Surface _frame;   // as stored
     Surface _surface; // as displayed
     uint8_t _palette[768] = {};

@@ -71,8 +71,10 @@ enum class Cull : uint8_t { kNone, kBack, kFront };
 enum class AlphaTest : uint8_t { kNone, kGt0, kLt128, kGe128 };
 
 struct DrawState {
-    Blend src = Blend::kOne, dst = Blend::kZero; // One/Zero: opaque
-    bool depthTest = true;                       // passes when nearer or equal
+    // One/Zero: opaque
+    Blend src = Blend::kOne;
+    Blend dst = Blend::kZero;
+    bool depthTest = true;   // passes when nearer or equal
     bool depthEqual = false; // with depthTest: passes only when equal, for extra passes over drawn geometry
     bool depthWrite = true;
     bool depthBias = false; // pulled towards the camera, for decals on walls
@@ -87,7 +89,10 @@ struct DrawState {
 enum class WaveFunc : uint8_t { kSin, kTriangle, kSquare, kSawtooth, kInverseSawtooth, kNoise };
 struct Wave {
     WaveFunc func = WaveFunc::kSin;
-    float base = 0, amplitude = 0, phase = 0, frequency = 0;
+    float base = 0;
+    float amplitude = 0;
+    float phase = 0;
+    float frequency = 0;
 };
 // The wave's value at `time` seconds, as the GPU computes it too.
 float evaluate(const Wave &wave, float time);
@@ -114,7 +119,9 @@ struct Deform {
     float spread = 0;
     Vec3 vector{};
     // Bulge: along the normal by height * sin(u * width + time * speed).
-    float width = 0, height = 0, speed = 0;
+    float width = 0;
+    float height = 0;
+    float speed = 0;
 };
 
 // A light added for a frame (a shot, an explosion): it brightens what's
@@ -128,7 +135,8 @@ constexpr int kMaxDynamicLights = 16;
 
 struct DrawCall {
     MeshId mesh = 0;
-    uint32_t firstIndex = 0, indexCount = 0;
+    uint32_t firstIndex = 0;
+    uint32_t indexCount = 0;
     int32_t vertexOffset = 0; // added to every index, e.g. to pick an animation frame's vertices
     // Positions and normals blended towards those this many vertices on
     // instead (another animation frame's), by `backLerp` (0: none).
@@ -139,21 +147,29 @@ struct DrawCall {
     Mat4 model = identity();
     TextureId texture = 0; // 0: white
     TexGen texGen = TexGen::kUv;
-    Vec3 texVector0{}, texVector1{}; // TexGen::Vector's two vectors
+    // TexGen::Vector's two vectors
+    Vec3 texVector0{};
+    Vec3 texVector1{};
     // Texture coordinates go through rows (pre) then a turbulence, then
     // rows (post): each pair of rows maps (u, v) to (row0 . (u, v, 1),
     // row1 . (u, v, 1)). Turbulence adds amplitude * sin(2 pi (p + phase))
     // with p = (x + z) / 1024 to u and p = y / 1024 to v.
-    std::array<float, 3> preRow0{1, 0, 0}, preRow1{0, 1, 0};
-    float turbAmplitude = 0, turbPhase = 0;
-    std::array<float, 3> postRow0{1, 0, 0}, postRow1{0, 1, 0};
+    std::array<float, 3> preRow0{1, 0, 0};
+    std::array<float, 3> preRow1{0, 1, 0};
+    float turbAmplitude = 0;
+    float turbPhase = 0;
+    std::array<float, 3> postRow0{1, 0, 0};
+    std::array<float, 3> postRow1{0, 1, 0};
     // The fragment is texture * colour, the colour's RGB and alpha each
     // from the constant, the vertex colour, or one minus it, times the
     // constant. Components may exceed 1 (results are clamped).
     std::array<float, 4> color{1, 1, 1, 1};
-    ColorSource rgbSource = ColorSource::kConstant, alphaSource = ColorSource::kConstant;
-    Vec3 ambientLight{}, directedLight{}; // for ColorSource::Lighting, 1 = full
-    Vec3 lightDirection{0, 0, 1};         // towards the light, in world space
+    ColorSource rgbSource = ColorSource::kConstant;
+    ColorSource alphaSource = ColorSource::kConstant;
+    // for ColorSource::Lighting, 1 = full
+    Vec3 ambientLight{};
+    Vec3 directedLight{};
+    Vec3 lightDirection{0, 0, 1}; // towards the light, in world space
     // > 0: the fragment's alpha is instead clamp(distance from the camera
     // / fogDistance), for blending a fog colour over drawn geometry.
     float fogDistance = 0;

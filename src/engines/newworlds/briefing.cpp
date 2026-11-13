@@ -13,7 +13,9 @@ namespace {
 using V = BriefingView;
 
 struct Site {
-    int a = -1, b = -1; // a map position (eighths of a block, row first); -1 the whole map
+    // a map position (eighths of a block, row first); -1 the whole map
+    int a = -1;
+    int b = -1;
 };
 
 struct Step {
@@ -56,16 +58,35 @@ struct Script {
 // from the mines it reported exhausted early, which lie beside it), or a
 // site a message named. Steps about places no message located, and the
 // turning overviews, show the whole map.
-constexpr Site kF1Colony{407, 209}, kF1Temple{332, 152}; // the start's readout; the energy source
-constexpr Site kK1Colony{244, 92}, kK1Temple{372, 107};  // mine; the Taubat temple
-constexpr Site kK2Colony{300, 284}, kK2Ally{279, 26};    // between the two mines; the allied base
-constexpr Site kJ1Colony{52, 148}, kJ2Colony{92, 404}, kJ2Alien{112, 260};
-constexpr Site kJ3Colony{204, 172}, kJ4Colony{340, 180}, kK12Colony{84, 252}, kK14Colony{100, 292};
+// the start's readout; the energy source
+constexpr Site kF1Colony{407, 209};
+constexpr Site kF1Temple{332, 152};
+// mine; the Taubat temple
+constexpr Site kK1Colony{244, 92};
+constexpr Site kK1Temple{372, 107};
+// between the two mines; the allied base
+constexpr Site kK2Colony{300, 284};
+constexpr Site kK2Ally{279, 26};
+constexpr Site kJ1Colony{52, 148};
+constexpr Site kJ2Colony{92, 404};
+constexpr Site kJ2Alien{112, 260};
+constexpr Site kJ3Colony{204, 172};
+constexpr Site kJ4Colony{340, 180};
+constexpr Site kK12Colony{84, 252};
+constexpr Site kK14Colony{100, 292};
 // The Romulans' (play-r*.md, play-j*r.md): J1's from the start's readout,
 // J2's from the readout it kept returning to, the rest from mines.
-constexpr Site kR1Rival{165, 323}, kR2Colony{260, 356}, kJ1RColony{111, 442}, kJ2RColony{166, 184};
-constexpr Site kJ3RColony{103, 311}, kJ4RColony{276, 380}, kR9Colony{308, 428}, kJ6RColony{92, 196};
-constexpr Site kJ7RColony{200, 324}, kR12Colony{260, 264}, kR14Colony{260, 272};
+constexpr Site kR1Rival{165, 323};
+constexpr Site kR2Colony{260, 356};
+constexpr Site kJ1RColony{111, 442};
+constexpr Site kJ2RColony{166, 184};
+constexpr Site kJ3RColony{103, 311};
+constexpr Site kJ4RColony{276, 380};
+constexpr Site kR9Colony{308, 428};
+constexpr Site kJ6RColony{92, 196};
+constexpr Site kJ7RColony{200, 324};
+constexpr Site kR12Colony{260, 264};
+constexpr Site kR14Colony{260, 272};
 
 // The briefings as recorded play showed them (docs/engines/newworlds/play-*.md):
 // which page and view went with each clip. Where the recording didn't show
