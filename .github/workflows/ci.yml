@@ -30,6 +30,10 @@
 # docs/DOCUMENTATION_STANDARD.md: tools/check-docs.py (links, each engine's
 # pages, status lines, names) and markdownlint (headings; its rules are in
 # .markdownlint-cli2.jsonc).
+#
+# The "commits" job checks a pull request's commits and branch name against
+# docs/COMMIT_STANDARD.md (tools/check-commits.py): subjects, bodies,
+# sign-offs, and that no game file is committed.
 
 name: CI
 
@@ -273,3 +277,18 @@ jobs:
             echo "### Members one to a declaration (tools/split_members.py)"
             tail -n 1 members.txt 2> /dev/null || echo "not run"
           } >> "$GITHUB_STEP_SUMMARY"
+
+  commits:
+    name: Commits
+    if: github.event_name == 'pull_request'
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
+      - name: Commits and branch
+        env:
+          BASE: ${{ github.event.pull_request.base.sha }}
+          HEAD: ${{ github.event.pull_request.head.sha }}
+          BRANCH: ${{ github.head_ref }}
+        run: python3 tools/check-commits.py "$BASE..$HEAD" --branch "$BRANCH"
