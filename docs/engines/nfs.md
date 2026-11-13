@@ -1371,7 +1371,15 @@ Started. Done so far:
   at full gas or holding GAP metres behind the target at its speed, for
   scripted chases in either player's car (`-drivesign -1` turns the
   steering's sign round). It was made for the Hot Pursuit runs in
-  [physics.md](../formats/nfs/physics.md).
+  [physics.md](../formats/nfs/physics.md). With TARGET `road` it
+  follows the track's virtual road instead (its points at `0x5dd948`,
+  the count at `0x5dd940`, [col.md](../formats/nfs/col.md)): aimed at
+  the point 3-12 slices past the car's slice (+0x1C, more the faster
+  it goes), GAP metres to that point's right, and slowed for the bend
+  ahead (the largest turn of the road's forward over the next 2.5 s,
+  60 m/s on the straight down to 16), so a human's car can be run to
+  a race's finish with no other car to follow (net.md, Positional
+  updates over a whole race: two laps of Hometown in 5:21).
   `reluva-tool nfs-mmx-check <game> [trials]` runs the two mixers on the
   same voices: the game twice in the interpreter, the MMX flag clear in
   one and set in the other, each voice started with `iSNDmixstart` and
@@ -1603,15 +1611,19 @@ Still to do:
     each copy runs its own car and places the others from their
     statuses, so no step waits on the network. Its dialogs never offer
     the choice; `positionalupdates=on` in `reluva.ini` (`nfs-host
-    -positional`) makes them choose it, for every player alike.
+    -positional`) makes them choose it, for every player alike. Two
+    copies with it ran a Single Race to its finish (0d, then the 0c
+    records between barriers 0x22 and 0x23, the same Race Summary in
+    both) and a Knockout; the lobby greys Hot Pursuit out and makes it
+    a Single Race (`0x440498`), as each copy would run its own cops
+    (net.md, Every race type).
   - Internet play through EA's online service (could, not needed). Its
     servers are gone, and its client DLL (NPS, 33 functions the game
     looks up, `0x4a54f0`) isn't on the CD; plain TCP play over the
     internet doesn't need either. A stand-in written from the game's own
     calls, with Reluva as the relay, would give only the service's way
     of starting a race (its command line, `-IP=`... `-PNUM=`), with
-    positional updates as above and Knockout in Hot Pursuit's place
-    (`0x452b11`).
+    positional updates as above and no Hot Pursuit (`0x440470`).
 - **Not planned:** running d3da itself (see above; its look is the
   game's own, The Direct3D look; a shared Direct3D stand-in is planned
   for later, when other engines need one, below). The Glide renderer isn't needed to
