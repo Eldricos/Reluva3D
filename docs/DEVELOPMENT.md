@@ -70,11 +70,14 @@ Two tools check it, both needing version 18 of their LLVM program
 - **`python3 tools/tidy.py`** checks with clang-tidy (`.clang-tidy`: names,
   `nullptr`, `override`, const-correctness...): every file, the ones named,
   or `--changed`. It makes a compile database in `build-tidy/` with every
-  engine enabled. `--fix --checks=-*,<check>` applies one check's fixes.
+  engine enabled. `--fix --checks=-*,<check>` applies one check's fixes;
+  `--rename-declared-in <folder>` renames what that folder declares to the
+  guide's names, with every use (`--dry-run` lists them first).
 
 Run both with `--changed` before a pull request. CI's "Code style" job
-does the same: an unformatted file fails the run, while clang-tidy's
-findings are only reported for now. Generated files and `third_party/`
+does the same, and fails on an unformatted file or a clang-tidy finding
+in a changed file. A name that has to stay as it is (see the guide's
+Naming: Exceptions) gets a `// NOLINT(<check>): reason`. Generated files and `third_party/`
 are never formatted (`.clang-format-ignore`). Commits that only reformat
 or rename go in `.git-blame-ignore-revs`; run
 `git config blame.ignoreRevsFile .git-blame-ignore-revs` once, and
