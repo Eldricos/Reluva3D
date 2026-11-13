@@ -246,9 +246,9 @@ bool CombatImage::loadGif(SeekableReadStream &stream) {
         bool interlaced = (imageFlags & 0x40) != 0;
         int row = 0;
         for (int pass = 0; pass < (interlaced ? 4 : 1); pass++) {
-            static const int start[4] = {0, 4, 2, 1};
-            static const int step[4] = {8, 8, 4, 2};
-            for (int y = interlaced ? start[pass] : 0; y < h; y += interlaced ? step[pass] : 1, row++) {
+            static const int kStart[4] = {0, 4, 2, 1};
+            static const int kStep[4] = {8, 8, 4, 2};
+            for (int y = interlaced ? kStart[pass] : 0; y < h; y += interlaced ? kStep[pass] : 1, row++) {
                 for (int x = 0; x < w; x++)
                     pixels[(size_t)y * w + x] = palette[out[(size_t)row * w + x]];
             }

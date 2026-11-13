@@ -90,7 +90,7 @@ bool ScriptFile::parseProgram() {
                 block.nextState = (int16_t)word(p + 1);
                 block.codeStart = (uint32_t)(p + 2);
                 p += 2;
-                while (word(p) != OP_END) {
+                while (word(p) != kOpEnd) {
                     p += getInstructionLength(word(p));
                     if (p >= size) {
                         log::warning("ScriptFile: block at word %u has no end", block.codeStart);

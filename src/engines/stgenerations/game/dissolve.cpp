@@ -7,7 +7,7 @@
 #include <vector>
 
 namespace reluva::stgenerations {
-namespace Dissolve {
+namespace dissolve {
 
 namespace {
 
@@ -90,5 +90,5 @@ void crossfade(Canvas &surface, const Canvas &from, const Canvas &to, int amount
     }
 }
 
-} // namespace Dissolve
+} // namespace dissolve
 } // namespace reluva::stgenerations

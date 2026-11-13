@@ -33,22 +33,22 @@ class TempDir {
 public:
     TempDir() {
         static int next = 0;
-        path_ = std::filesystem::temp_directory_path() /
+        _path = std::filesystem::temp_directory_path() /
                 ("reluva-stg-test-" + std::to_string(reinterpret_cast<uintptr_t>(this)) + "-" + std::to_string(++next));
         std::error_code ec;
-        std::filesystem::remove_all(path_, ec);
-        std::filesystem::create_directories(path_, ec);
+        std::filesystem::remove_all(_path, ec);
+        std::filesystem::create_directories(_path, ec);
     }
     ~TempDir() {
         std::error_code ec;
-        std::filesystem::remove_all(path_, ec);
+        std::filesystem::remove_all(_path, ec);
     }
     TempDir(const TempDir &) = delete;
     TempDir &operator=(const TempDir &) = delete;
-    const std::filesystem::path &path() const { return path_; }
+    const std::filesystem::path &path() const { return _path; }
     // A file relative to the folder, its folders made.
     void writeFile(const std::string &name, const std::vector<uint8_t> &data) const {
-        const std::filesystem::path p = path_ / name;
+        const std::filesystem::path p = _path / name;
         std::error_code ec;
         std::filesystem::create_directories(p.parent_path(), ec);
         reluva::writeFile(p, data);
@@ -58,7 +58,7 @@ public:
     }
 
 private:
-    std::filesystem::path path_;
+    std::filesystem::path _path;
 };
 
 // An 8-bit BMP of width x height pixels (rows top first), or RLE8 data as

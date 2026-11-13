@@ -31,7 +31,7 @@ using namespace reluva;
 using namespace reluva::stgenerations;
 
 uint32_t keyNamed(const std::string &name) {
-    static const std::map<std::string, uint32_t> names = {
+    static const std::map<std::string, uint32_t> kNames = {
         {"esc", key::Escape},    {"escape", key::Escape}, {"space", key::Space},         {"return", key::Return},
         {"enter", key::Return},  {"tab", key::Tab},       {"backspace", key::Backspace}, {"up", key::Up},
         {"down", key::Down},     {"left", key::Left},     {"right", key::Right},         {"home", key::Home},
@@ -39,7 +39,7 @@ uint32_t keyNamed(const std::string &name) {
         {"lshift", key::LShift}, {"kpplus", key::KpPlus}, {"kpminus", key::KpMinus},     {"kpenter", key::KpEnter},
     };
     const std::string n = text::toLower(name);
-    if (auto it = names.find(n); it != names.end())
+    if (auto it = kNames.find(n); it != kNames.end())
         return it->second;
     if (n.size() >= 2 && n[0] == 'f' && std::atoi(n.c_str() + 1) >= 1)
         return key::F1 + uint32_t(std::atoi(n.c_str() + 1) - 1);
@@ -178,7 +178,7 @@ int cmdPlay(int argc, char **argv) {
     return 0;
 }
 
-const reluva::tool::Commands commands(
+const reluva::tool::Commands kCommands(
     "stgenerations",
     {
         {"play", "<game folder> [options]",

@@ -116,36 +116,36 @@ Options optionsFor(const GameTarget &target) {
 
 class StgenerationsEngine : public Engine {
 public:
-    StgenerationsEngine(System &system, const GameTarget &target) : sys_(system), target_(target) {}
+    StgenerationsEngine(System &system, const GameTarget &target) : _sys(system), _target(target) {}
 
     Error run() override {
-        log::setDebugLevel(std::atoi(setting(target_, kDebugLevel).c_str()));
-        for (const std::string &channel : text::split(setting(target_, kDebugChannels), ','))
+        log::setDebugLevel(std::atoi(setting(_target, kDebugLevel).c_str()));
+        for (const std::string &channel : text::split(setting(_target, kDebugChannels), ','))
             if (!text::trim(channel).empty())
                 enableDebugChannel(text::trim(channel));
 
-        audio::Mixer mixer(sys_.audioRate());
-        mixer.setMasterVolume(settings::volume(target_.settings, settings::kMasterVolume));
+        audio::Mixer mixer(_sys.audioRate());
+        mixer.setMasterVolume(settings::volume(_target.settings, settings::kMasterVolume));
         // No sound card shouldn't stop anyone playing.
-        const Error audioErr = audio::startMixerOutput(sys_, mixer);
+        const Error audioErr = audio::startMixerOutput(_sys, mixer);
         if (audioErr)
             log::warning("No sound: %s", audioErr.message.c_str());
-        Platform platform(sys_, &mixer, target_.savePath);
+        Platform platform(_sys, &mixer, _target.savePath);
         platform.setSoundOutput(!audioErr);
-        platform.setWindowCaption("Reluva - " + target_.description);
+        platform.setWindowCaption("Reluva - " + _target.description);
         Error result;
         {
-            Generations game(&platform, optionsFor(target_));
+            Generations game(&platform, optionsFor(_target));
             result = game.run();
         }
-        sys_.stopAudio();
-        sys_.setMouseCursor(nullptr);
+        _sys.stopAudio();
+        _sys.setMouseCursor(nullptr);
         return result;
     }
 
 private:
-    System &sys_;
-    GameTarget target_;
+    System &_sys;
+    GameTarget _target;
 };
 
 class StgenerationsMetaEngine : public MetaEngine {
@@ -248,8 +248,8 @@ public:
 namespace reluva {
 
 const MetaEngine &stgenerationsMetaEngine() {
-    static const stgenerations::StgenerationsMetaEngine instance;
-    return instance;
+    static const stgenerations::StgenerationsMetaEngine kInstance;
+    return kInstance;
 }
 
 } // namespace reluva

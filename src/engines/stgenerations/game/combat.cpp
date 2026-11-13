@@ -1390,7 +1390,7 @@ void SpaceCombat::mouseDown(int x, int y) {
     }
     // The display buttons at the panels' feet (hotspots 15, 16, 0x4AEC22).
     for (int panel = 0; panel < 2; panel++) {
-        if (_phase == kFight && kViewButton[panel].contains(x, y)) {
+        if (_phase == kFight && _kViewButton[panel].contains(x, y)) {
             _shieldView[panel] = !_shieldView[panel];
             speak(_shieldView[panel] ? 0x12C : 0x12B, true);
             return;
@@ -1407,7 +1407,7 @@ void SpaceCombat::mouseDown(int x, int y) {
         _pressed = 0;
     else if (_phase == kFight && Rect(320, 380, 425, 400).contains(x, y))
         _pressed = 1;
-    else if (_phase == kFight && kConnLine.contains(x, y))
+    else if (_phase == kFight && _kConnLine.contains(x, y))
         _helmMenu = !_helmMenu;
 }
 
@@ -1449,7 +1449,7 @@ void SpaceCombat::mouseUp(int x, int y) {
         nextTarget(true);
     } else if (Rect(177, 344, 190, 372).contains(x, y)) {
         toggleEnemyView();
-    } else if (_helmMenu && !kConnLine.contains(x, y)) {
+    } else if (_helmMenu && !_kConnLine.contains(x, y)) {
         // The helm menu (CONNMNU0), a row each 20 pixels: let go over one to
         // give the order, anywhere else to put it away.
         _helmMenu = false;

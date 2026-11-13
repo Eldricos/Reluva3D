@@ -28,19 +28,19 @@ class SoundStream : public audio::Stream {
 public:
     SoundStream(std::shared_ptr<const audio::Sound> sound, int loops = 1);
     int read(int16_t *out, int samples) override;
-    bool stereo() const override { return sound_->channels == 2; }
-    int rate() const override { return sound_->rate; }
+    bool stereo() const override { return _sound->channels == 2; }
+    int rate() const override { return _sound->rate; }
     bool ended() const override;
-    void setLoops(int loops) { loops_ = loops; }
-    const audio::Sound &sound() const { return *sound_; }
+    void setLoops(int loops) { _loops = loops; }
+    const audio::Sound &sound() const { return *_sound; }
     // Its length in milliseconds, once through.
     uint32_t lengthMs() const;
 
 private:
-    std::shared_ptr<const audio::Sound> sound_;
-    size_t pos_ = 0;
-    int loops_;
-    int played_ = 0;
+    std::shared_ptr<const audio::Sound> _sound;
+    size_t _pos = 0;
+    int _loops;
+    int _played = 0;
 };
 
 // A WAV file as a stream; nullptr if it isn't one Reluva reads.
@@ -65,33 +65,33 @@ public:
     static constexpr int kMaxChannelVolume = 255;
     static constexpr int kMaxMixerVolume = 256;
 
-    explicit Mixer(audio::Mixer &mixer) : mixer_(mixer) {}
+    explicit Mixer(audio::Mixer &mixer) : _mixer(mixer) {}
 
     // `volume` 0..255, `balance` -127 (left) .. 127 (right).
     void playStream(SoundType type, SoundHandle *handle, std::unique_ptr<audio::Stream> stream, int id = -1,
                     uint8_t volume = kMaxChannelVolume, int8_t balance = 0);
-    void stopAll() { mixer_.stopAll(); }
-    void stopHandle(SoundHandle handle) { mixer_.stop(handle.val); }
-    void pauseHandle(SoundHandle handle, bool paused) { mixer_.setPaused(handle.val, paused); }
-    bool isSoundHandleActive(SoundHandle handle) const { return mixer_.isPlaying(handle.val); }
-    bool isSoundTypeActive(SoundType type) const { return mixer_.isTypePlaying(toType(type)); }
-    void setChannelVolume(SoundHandle handle, uint8_t volume) { mixer_.setVolume(handle.val, toVolume(volume)); }
-    void setChannelBalance(SoundHandle handle, int8_t balance) { mixer_.setPan(handle.val, balance); }
+    void stopAll() { _mixer.stopAll(); }
+    void stopHandle(SoundHandle handle) { _mixer.stop(handle.val); }
+    void pauseHandle(SoundHandle handle, bool paused) { _mixer.setPaused(handle.val, paused); }
+    bool isSoundHandleActive(SoundHandle handle) const { return _mixer.isPlaying(handle.val); }
+    bool isSoundTypeActive(SoundType type) const { return _mixer.isTypePlaying(toType(type)); }
+    void setChannelVolume(SoundHandle handle, uint8_t volume) { _mixer.setVolume(handle.val, toVolume(volume)); }
+    void setChannelBalance(SoundHandle handle, int8_t balance) { _mixer.setPan(handle.val, balance); }
     // 0..kMaxMixerVolume, as the player's settings set them.
     void setVolumeForSoundType(SoundType type, int volume);
     int getVolumeForSoundType(SoundType type) const;
 
-    audio::Mixer &mixer() { return mixer_; }
+    audio::Mixer &mixer() { return _mixer; }
     // Off: nothing is played (no sound device to pull the mixer).
-    void setEnabled(bool on) { enabled_ = on; }
+    void setEnabled(bool on) { _enabled = on; }
 
 private:
     static audio::SoundType toType(SoundType type);
     static int toVolume(int volume) { return (volume < 0 ? 0 : volume > 255 ? 255 : volume) * audio::kMaxVolume / 255; }
 
-    audio::Mixer &mixer_;
-    bool enabled_ = true;
-    int typeVolume_[4] = {kMaxMixerVolume, kMaxMixerVolume, kMaxMixerVolume, kMaxMixerVolume};
+    audio::Mixer &_mixer;
+    bool _enabled = true;
+    int _typeVolume[4] = {kMaxMixerVolume, kMaxMixerVolume, kMaxMixerVolume, kMaxMixerVolume};
 };
 
 } // namespace reluva::stgenerations

@@ -38,7 +38,7 @@ bool loadProgram(ScriptFile &script, const std::vector<uint16_t> &program) {
     return script.load(stream);
 }
 
-const uint16_t P = OP_PUSH;
+const uint16_t kP = kOpPush;
 
 // Records native calls; NATIVE_68 pops two values and pushes their sum.
 class TestHost : public ScriptHost {
@@ -61,10 +61,10 @@ public:
 
 } // namespace
 
-static void script_program_structure() {
+static void scriptProgramStructure() {
     // One object (type 1, id 7) with two states; state 0 has two blocks.
-    std::vector<uint16_t> program = {1, 7, 0x8000, 2,      0xFFFF, P, 5,      OP_END, 9,      1,      kOpPush32,
-                                     1, 2, OP_END, 0x3000, 0x8001, 2, 0xFFFF, OP_END, 0x3000, 0x2000, 0x1000};
+    std::vector<uint16_t> program = {1, 7, 0x8000, 2,      0xFFFF, kP, 5,      kOpEnd, 9,      1,      kOpPush32,
+                                     1, 2, kOpEnd, 0x3000, 0x8001, 2,  0xFFFF, kOpEnd, 0x3000, 0x2000, 0x1000};
     ScriptFile script;
     CHECK(loadProgram(script, program));
     CHECK_EQUAL(script.getObjects().size(), (size_t)1);
@@ -86,59 +86,59 @@ static void script_program_structure() {
     CHECK(!loadProgram(script, program));
 }
 
-static void script_vm_arithmetic_order() {
+static void scriptVmArithmeticOrder() {
     // The original computes "top op below": push 10, push 3 gives 3-10, 3/10...
     std::vector<uint16_t> program = {1,
                                      1,
                                      0x8000,
                                      10,
                                      0xFFFF,
-                                     P,
+                                     kP,
                                      10,
-                                     P,
+                                     kP,
                                      3,
-                                     OP_SUB,
-                                     OP_SET_RESULT,
-                                     OP_END,
+                                     kOpSub,
+                                     kOpSetResult,
+                                     kOpEnd,
                                      11,
                                      0xFFFF,
-                                     P,
+                                     kP,
                                      3,
-                                     P,
+                                     kP,
                                      12,
-                                     OP_DIV,
-                                     OP_SET_RESULT,
-                                     OP_END,
+                                     kOpDiv,
+                                     kOpSetResult,
+                                     kOpEnd,
                                      12,
                                      0xFFFF,
-                                     P,
+                                     kP,
                                      5,
-                                     P,
+                                     kP,
                                      9,
-                                     OP_SIGN_DIFF,
-                                     OP_SET_RESULT,
-                                     OP_END,
+                                     kOpSignDiff,
+                                     kOpSetResult,
+                                     kOpEnd,
                                      13,
                                      0xFFFF,
-                                     P,
+                                     kP,
                                      0x7FFF,
-                                     OP_INC,
-                                     OP_HIGH_BITS,
-                                     OP_SET_RESULT,
-                                     OP_END,
+                                     kOpInc,
+                                     kOpHighBits,
+                                     kOpSetResult,
+                                     kOpEnd,
                                      14,
                                      0xFFFF,
-                                     P,
+                                     kP,
                                      0x3456,
-                                     P,
+                                     kP,
                                      0x00FF,
-                                     OP_AND,
-                                     P,
+                                     kOpAnd,
+                                     kP,
                                      1,
-                                     OP_ADD,
-                                     OP_NOT,
-                                     OP_SET_RESULT,
-                                     OP_END,
+                                     kOpAdd,
+                                     kOpNot,
+                                     kOpSetResult,
+                                     kOpEnd,
                                      0x3000,
                                      0x2000,
                                      0x1000};
@@ -154,39 +154,12 @@ static void script_vm_arithmetic_order() {
     CHECK_EQUAL(vm.sendEvent(obj, 14), (int16_t)~0x57);
 }
 
-static void script_vm_conditionals() {
+static void scriptVmConditionals() {
     // result = 1; if (arg == 5) { if (arg > 9) result = 2 else result = 3 } else result = 4
-    std::vector<uint16_t> program = {1,
-                                     1,
-                                     0x8000,
-                                     10,
-                                     0xFFFF,
-                                     P,
-                                     1,
-                                     OP_SET_RESULT,
-                                     P,
-                                     5,
-                                     OP_IF_EQ,
-                                     P,
-                                     9,
-                                     OP_IF_GT,
-                                     P,
-                                     2,
-                                     OP_SET_RESULT,
-                                     OP_ELSE,
-                                     P,
-                                     3,
-                                     OP_SET_RESULT,
-                                     OP_ENDIF,
-                                     OP_ELSE,
-                                     P,
-                                     4,
-                                     OP_SET_RESULT,
-                                     OP_ENDIF,
-                                     OP_END,
-                                     0x3000,
-                                     0x2000,
-                                     0x1000};
+    std::vector<uint16_t> program = {1,      1,       0x8000,       10,       0xFFFF,  kP, 1, kOpSetResult, kP,
+                                     5,      kOpIfEq, kP,           9,        kOpIfGt, kP, 2, kOpSetResult, kOpElse,
+                                     kP,     3,       kOpSetResult, kOpEndif, kOpElse, kP, 4, kOpSetResult, kOpEndif,
+                                     kOpEnd, 0x3000,  0x2000,       0x1000};
     ScriptFile script;
     CHECK(loadProgram(script, program));
     ScriptVM vm(script, nullptr);
@@ -196,7 +169,7 @@ static void script_vm_conditionals() {
     CHECK_EQUAL(vm.sendEvent(obj, 10, {6}), 4);
 }
 
-static void script_vm_states_and_events() {
+static void scriptVmStatesAndEvents() {
     // State 0: on enter set global 1 = 10; on event 5 go to state 1 via
     // CASE when the argument is 7. State 1: on leave set global 2, on enter
     // count in global 3. Event 6 uses GOTO_STATE.
@@ -205,53 +178,53 @@ static void script_vm_states_and_events() {
                                      0x8000,
                                      2,
                                      0xFFFF,
-                                     P,
+                                     kP,
                                      10,
-                                     P,
+                                     kP,
                                      1,
-                                     OP_SET_GLOBAL,
-                                     OP_END,
+                                     kOpSetGlobal,
+                                     kOpEnd,
                                      5,
                                      0xFFFF,
-                                     P,
+                                     kP,
                                      1,
-                                     P,
+                                     kP,
                                      7,
-                                     OP_CASE,
-                                     P,
+                                     kOpCase,
+                                     kP,
                                      99,
-                                     P,
+                                     kP,
                                      4,
-                                     OP_SET_GLOBAL,
-                                     OP_END,
+                                     kOpSetGlobal,
+                                     kOpEnd,
                                      3,
                                      0xFFFF,
-                                     P,
+                                     kP,
                                      1,
-                                     P,
+                                     kP,
                                      2,
-                                     OP_SET_GLOBAL,
-                                     OP_END,
+                                     kOpSetGlobal,
+                                     kOpEnd,
                                      0x3000,
                                      0x8001,
                                      2,
                                      0xFFFF,
-                                     P,
+                                     kP,
                                      3,
-                                     OP_GET_GLOBAL,
-                                     OP_INC,
-                                     P,
+                                     kOpGetGlobal,
+                                     kOpInc,
+                                     kP,
                                      3,
-                                     OP_SET_GLOBAL,
-                                     OP_END,
+                                     kOpSetGlobal,
+                                     kOpEnd,
                                      6,
                                      0xFFFF,
-                                     P,
+                                     kP,
                                      0,
-                                     OP_GOTO_STATE,
-                                     OP_PUSH_SELF,
-                                     OP_SET_RESULT,
-                                     OP_END,
+                                     kOpGotoState,
+                                     kOpPushSelf,
+                                     kOpSetResult,
+                                     kOpEnd,
                                      0x3000,
                                      0x2000,
                                      0x1000};
@@ -286,50 +259,30 @@ static void script_vm_states_and_events() {
     CHECK_EQUAL(host.unhandled.back(), 77);
 }
 
-static void script_vm_locals_args_natives_and_parents() {
+static void scriptVmLocalsArgsNativesAndParents() {
     // Event 9 stores its two arguments in locals and returns local0 - local1,
     // then calls NATIVE_68 (a + b in the test host). The child object has no
     // handler of its own and inherits the parent's.
-    std::vector<uint16_t> program = {1,
-                                     1,
-                                     0x8000,
-                                     9,
-                                     0xFFFF,
-                                     P,
-                                     2,
-                                     OP_ALLOC_LOCALS,
-                                     P,
-                                     0,
-                                     OP_SET_LOCAL,
-                                     P,
-                                     1,
-                                     OP_SET_LOCAL,
-                                     P,
-                                     1,
-                                     OP_GET_LOCAL,
-                                     P,
-                                     0,
-                                     OP_GET_LOCAL,
-                                     OP_SUB,
-                                     OP_SET_RESULT,
-                                     P,
-                                     100,
-                                     P,
-                                     20,
-                                     0x68,
-                                     OP_SET_RESULT,
-                                     OP_END,
-                                     0x3000,
-                                     0x2000,
-                                     1,
-                                     2,
-                                     0x8000,
-                                     2,
-                                     0xFFFF,
-                                     OP_END,
-                                     0x3000,
-                                     0x2000,
-                                     0x1000};
+    std::vector<uint16_t> program = {1,           1,
+                                     0x8000,      9,
+                                     0xFFFF,      kP,
+                                     2,           kOpAllocLocals,
+                                     kP,          0,
+                                     kOpSetLocal, kP,
+                                     1,           kOpSetLocal,
+                                     kP,          1,
+                                     kOpGetLocal, kP,
+                                     0,           kOpGetLocal,
+                                     kOpSub,      kOpSetResult,
+                                     kP,          100,
+                                     kP,          20,
+                                     0x68,        kOpSetResult,
+                                     kOpEnd,      0x3000,
+                                     0x2000,      1,
+                                     2,           0x8000,
+                                     2,           0xFFFF,
+                                     kOpEnd,      0x3000,
+                                     0x2000,      0x1000};
     ScriptFile script;
     CHECK(loadProgram(script, program));
     TestHost host;
@@ -353,9 +306,9 @@ static void script_vm_locals_args_natives_and_parents() {
     CHECK_EQUAL(child.locals[0], 1);
 }
 
-static void script_opcode_table() {
-    CHECK(getOpcodeInfo(OP_PUSH) != nullptr);
-    CHECK_EQUAL(getInstructionLength(OP_PUSH_BLOCK), 8);
+static void scriptOpcodeTable() {
+    CHECK(getOpcodeInfo(kOpPush) != nullptr);
+    CHECK_EQUAL(getInstructionLength(kOpPushBlock), 8);
     int implemented = 0;
     for (uint16_t op = 0; op < kOpcodeCount; op++)
         implemented += getOpcodeInfo(op) != nullptr;
@@ -364,13 +317,13 @@ static void script_opcode_table() {
 }
 
 static const reluva::test::Suite
-    suite("stgenerations.unit.script",
-          {
-              {"script program structure", [](const std::filesystem::path &) { script_program_structure(); }},
-              {"script vm arithmetic order", [](const std::filesystem::path &) { script_vm_arithmetic_order(); }},
-              {"script vm conditionals", [](const std::filesystem::path &) { script_vm_conditionals(); }},
-              {"script vm states and events", [](const std::filesystem::path &) { script_vm_states_and_events(); }},
-              {"script vm locals args natives and parents",
-               [](const std::filesystem::path &) { script_vm_locals_args_natives_and_parents(); }},
-              {"script opcode table", [](const std::filesystem::path &) { script_opcode_table(); }},
-          });
+    kSuite("stgenerations.unit.script",
+           {
+               {"script program structure", [](const std::filesystem::path &) { scriptProgramStructure(); }},
+               {"script vm arithmetic order", [](const std::filesystem::path &) { scriptVmArithmeticOrder(); }},
+               {"script vm conditionals", [](const std::filesystem::path &) { scriptVmConditionals(); }},
+               {"script vm states and events", [](const std::filesystem::path &) { scriptVmStatesAndEvents(); }},
+               {"script vm locals args natives and parents",
+                [](const std::filesystem::path &) { scriptVmLocalsArgsNativesAndParents(); }},
+               {"script opcode table", [](const std::filesystem::path &) { scriptOpcodeTable(); }},
+           });

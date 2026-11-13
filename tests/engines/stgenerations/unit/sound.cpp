@@ -86,7 +86,7 @@ std::vector<uint8_t> makeWAV() {
 
 } // namespace
 
-static void sound_file_names_and_subtitles() {
+static void soundFileNamesAndSubtitles() {
     MissionSound::Location where;
     CHECK_EQUAL(MissionSound::getFileName(0x4006B, "WAV", where), std::string("RIKE0107.WAV"));
     CHECK(where == MissionSound::kLocationMission);
@@ -99,7 +99,7 @@ static void sound_file_names_and_subtitles() {
                 std::string("RIKER: Hello\\ there"));
 }
 
-static void sound_cues_positions_and_events() {
+static void soundCuesPositionsAndEvents() {
     std::vector<uint8_t> scriptBytes = makeSoundScript();
     MemoryReadStream scriptStream(scriptBytes);
     ScriptFile script;
@@ -113,9 +113,9 @@ static void sound_cues_positions_and_events() {
                       MissionSound::Location /*where*/) -> std::unique_ptr<SeekableReadStream> {
         opened.push_back(name);
         if (name == "RIKE0107.TXT") {
-            static const char text[] = "RIKER: \\T00FF00\\Make it so.";
+            static const char kText[] = "RIKER: \\T00FF00\\Make it so.";
             return std::unique_ptr<SeekableReadStream>(
-                new MemoryReadStream(std::vector<uint8_t>(text, text + sizeof(text) - 1)));
+                new MemoryReadStream(std::vector<uint8_t>(kText, kText + sizeof(kText) - 1)));
         }
         return std::unique_ptr<SeekableReadStream>(new MemoryReadStream(wav));
     };
@@ -173,9 +173,9 @@ static void sound_cues_positions_and_events() {
     CHECK(!sound.fadeOut((uint32_t)handle << 16, 50));
 }
 
-static const reluva::test::Suite suite(
+static const reluva::test::Suite kSuite(
     "stgenerations.unit.sound",
     {
-        {"sound file names and subtitles", [](const std::filesystem::path &) { sound_file_names_and_subtitles(); }},
-        {"sound cues positions and events", [](const std::filesystem::path &) { sound_cues_positions_and_events(); }},
+        {"sound file names and subtitles", [](const std::filesystem::path &) { soundFileNamesAndSubtitles(); }},
+        {"sound cues positions and events", [](const std::filesystem::path &) { soundCuesPositionsAndEvents(); }},
     });

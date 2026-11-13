@@ -1177,7 +1177,7 @@ void Mission::unhandledEvent(ScriptVM & /*vm*/, ScriptInstance &self, uint16_t e
 
 void Mission::callNative(ScriptVM &vm, ScriptInstance &self, uint16_t op) {
     switch (op) {
-    case OP_SEND_SIGNAL: {
+    case kOpSendSignal: {
         uint16_t id = (uint16_t)vm.pop();
         int16_t value = vm.pop();
         send(id, kEventSignal, {value});

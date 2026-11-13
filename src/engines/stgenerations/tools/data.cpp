@@ -342,7 +342,7 @@ int cmdMovies(int argc, char **argv) {
     return 0;
 }
 
-const tool::Commands commands(
+const tool::Commands kCommands(
     "stgenerations",
     {
         {"parts", "<folder>", "the parts of the game a folder holds: the installed game and each CD", cmdParts},

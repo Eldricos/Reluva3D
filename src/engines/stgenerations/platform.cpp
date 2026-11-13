@@ -12,56 +12,56 @@
 namespace reluva::stgenerations {
 
 Platform::Platform(System &system, audio::Mixer *mixer, std::filesystem::path saveDir)
-    : system_(system), mixer_(mixer), saveDir_(std::move(saveDir)) {
+    : _system(system), _mixer(mixer), _saveDir(std::move(saveDir)) {
 }
 
 void Platform::initSize(int width, int height, Canvas::Format format) {
-    if (graphics_ && screen_.w == width && screen_.h == height && screen_.format() == format)
+    if (_graphics && _screen.w == width && _screen.h == height && _screen.format() == format)
         return;
     const PixelFormat pf = format == Canvas::kClut8 ? PixelFormat::kCLUT8 : PixelFormat::kRGBA32;
-    system_.initGraphics(width, height, pf);
-    graphics_ = true;
-    screen_.create(width, height, format);
-    frame_.create(width, height, pf);
+    _system.initGraphics(width, height, pf);
+    _graphics = true;
+    _screen.create(width, height, format);
+    _frame.create(width, height, pf);
     // A new screen starts black: the palette the game set is its again.
     if (format == Canvas::kClut8) {
-        const auto colors = palette_.colors();
-        system_.setPalette(colors.data(), 0, 256);
+        const auto colors = _palette.colors();
+        _system.setPalette(colors.data(), 0, 256);
     }
 }
 
 void Platform::setPalette(const uint8_t *colors, unsigned start, unsigned num) {
     for (unsigned i = 0; i < num && start + i < 256; i++)
-        palette_.setColor(int(start + i), colors[i * 3], colors[i * 3 + 1], colors[i * 3 + 2]);
-    const auto all = palette_.colors();
+        _palette.setColor(int(start + i), colors[i * 3], colors[i * 3 + 1], colors[i * 3 + 2]);
+    const auto all = _palette.colors();
     if (start < 256)
-        system_.setPalette(all.data() + start, int(start), int(std::min(num, 256 - start)));
+        _system.setPalette(all.data() + start, int(start), int(std::min(num, 256 - start)));
     // The pointer is coloured from the palette, as the original's was.
-    if (cursorSet_)
+    if (_cursorSet)
         refreshCursor();
 }
 
 void Platform::grabPalette(uint8_t *colors, unsigned start, unsigned num) const {
     for (unsigned i = 0; i < num && start + i < 256; i++)
-        palette_.getColor(int(start + i), colors[i * 3], colors[i * 3 + 1], colors[i * 3 + 2]);
+        _palette.getColor(int(start + i), colors[i * 3], colors[i * 3 + 1], colors[i * 3 + 2]);
 }
 
 void Platform::copyRectToScreen(const void *buf, int pitch, int x, int y, int w, int h) {
-    screen_.copyRectToSurface(buf, pitch, x, y, w, h);
+    _screen.copyRectToSurface(buf, pitch, x, y, w, h);
 }
 
 void Platform::updateScreen() {
-    if (!graphics_)
+    if (!_graphics)
         return;
-    if (screen_.isClut8()) {
-        for (int y = 0; y < screen_.h; y++)
-            std::copy_n(static_cast<const uint8_t *>(screen_.getBasePtr(0, y)), screen_.w, frame_.row(y));
+    if (_screen.isClut8()) {
+        for (int y = 0; y < _screen.h; y++)
+            std::copy_n(static_cast<const uint8_t *>(_screen.getBasePtr(0, y)), _screen.w, _frame.row(y));
     } else {
         // 0xAARRGGBB to R, G, B, A bytes, shown opaque.
-        for (int y = 0; y < screen_.h; y++) {
-            const uint8_t *src = static_cast<const uint8_t *>(screen_.getBasePtr(0, y));
-            uint8_t *dst = frame_.row(y);
-            for (int x = 0; x < screen_.w; x++) {
+        for (int y = 0; y < _screen.h; y++) {
+            const uint8_t *src = static_cast<const uint8_t *>(_screen.getBasePtr(0, y));
+            uint8_t *dst = _frame.row(y);
+            for (int x = 0; x < _screen.w; x++) {
                 uint32_t c;
                 std::memcpy(&c, src + x * 4, 4);
                 dst[x * 4] = uint8_t(c >> 16);
@@ -71,59 +71,59 @@ void Platform::updateScreen() {
             }
         }
     }
-    system_.updateScreen(frame_);
+    _system.updateScreen(_frame);
 }
 
 void Platform::setWindowCaption(const std::string &caption) {
-    system_.setWindowTitle(caption);
+    _system.setWindowTitle(caption);
 }
 
 bool Platform::showMouse(bool visible) {
-    const bool was = mouseVisible_;
-    mouseVisible_ = visible;
-    system_.setMouseCursorVisible(visible);
+    const bool was = _mouseVisible;
+    _mouseVisible = visible;
+    _system.setMouseCursorVisible(visible);
     return was;
 }
 
 void Platform::setMouseCursor(const void *buf, unsigned w, unsigned h, int hotspotX, int hotspotY, uint32_t keycolor) {
-    cursorImage_.create(int(w), int(h), Canvas::kClut8);
-    cursorImage_.copyRectToSurface(buf, int(w), 0, 0, int(w), int(h));
-    cursorHotX_ = hotspotX;
-    cursorHotY_ = hotspotY;
-    cursorKey_ = keycolor;
-    cursorSet_ = true;
+    _cursorImage.create(int(w), int(h), Canvas::kClut8);
+    _cursorImage.copyRectToSurface(buf, int(w), 0, 0, int(w), int(h));
+    _cursorHotX = hotspotX;
+    _cursorHotY = hotspotY;
+    _cursorKey = keycolor;
+    _cursorSet = true;
     refreshCursor();
 }
 
 void Platform::refreshCursor() {
-    if (cursorImage_.empty()) {
-        system_.setMouseCursor(nullptr);
+    if (_cursorImage.empty()) {
+        _system.setMouseCursor(nullptr);
         return;
     }
     const Cursor c =
-        cursor::fromIndexed(static_cast<const uint8_t *>(cursorImage_.getPixels()), cursorImage_.w, cursorImage_.h,
-                            cursorImage_.pitch, palette_.data(), int(cursorKey_ & 0xFF), cursorHotX_, cursorHotY_);
-    system_.setMouseCursor(&c);
+        cursor::fromIndexed(static_cast<const uint8_t *>(_cursorImage.getPixels()), _cursorImage.w, _cursorImage.h,
+                            _cursorImage.pitch, _palette.data(), int(_cursorKey & 0xFF), _cursorHotX, _cursorHotY);
+    _system.setMouseCursor(&c);
 }
 
 void Platform::setTextInput(bool on) {
-    if (on == textInput_)
+    if (on == _textInput)
         return;
-    textInput_ = on;
-    system_.setTextInput(on);
+    _textInput = on;
+    _system.setTextInput(on);
 }
 
 Point Platform::clampToScreen(int x, int y) const {
     // In the screen, as the original's window gave it (in the borders, or
     // dragged out of the window, at its edge).
-    const int w = screen_.w > 0 ? screen_.w : 640;
-    const int h = screen_.h > 0 ? screen_.h : 480;
+    const int w = _screen.w > 0 ? _screen.w : 640;
+    const int h = _screen.h > 0 ? _screen.h : 480;
     return Point(std::clamp(x, 0, w - 1), std::clamp(y, 0, h - 1));
 }
 
 bool Platform::translate(const reluva::Event &in, Event &out) {
     out = Event{};
-    out.mouse = mouse_;
+    out.mouse = _mouse;
     auto flags = [](uint16_t mods) {
         return uint8_t(((mods & keymod::Ctrl) ? kKbdCtrl : 0) | ((mods & keymod::Alt) ? kKbdAlt : 0) |
                        ((mods & keymod::Shift) ? kKbdShift : 0));
@@ -131,11 +131,11 @@ bool Platform::translate(const reluva::Event &in, Event &out) {
     switch (in.type) {
     case reluva::EventType::Quit:
         out.type = kEventQuit;
-        quit_ = true;
+        _quit = true;
         return true;
     case reluva::EventType::ReturnToLauncher:
         out.type = kEventReturnToLauncher;
-        quit_ = true;
+        _quit = true;
         return true;
     case reluva::EventType::KeyDown:
     case reluva::EventType::KeyUp:
@@ -162,28 +162,28 @@ bool Platform::translate(const reluva::Event &in, Event &out) {
         default:
             break;
         }
-        modifiers_ = out.kbd.flags;
+        _modifiers = out.kbd.flags;
         return true;
     case reluva::EventType::TextInput:
         // A character typed, while text input is on: printable ASCII only,
         // as the original's names were.
-        if (!textInput_ || in.text[0] < 32 || in.text[0] > 126 || in.text[1] != 0)
+        if (!_textInput || in.text[0] < 32 || in.text[0] > 126 || in.text[1] != 0)
             return false;
         out.type = kEventKeydown;
         out.kbd.keycode = key::Unknown;
         out.kbd.ascii = uint16_t(in.text[0]);
-        out.kbd.flags = uint8_t(modifiers_);
+        out.kbd.flags = uint8_t(_modifiers);
         return true;
     case reluva::EventType::MouseMove:
-        mouse_ = clampToScreen(in.mouseX, in.mouseY);
+        _mouse = clampToScreen(in.mouseX, in.mouseY);
         out.type = kEventMousemove;
-        out.mouse = mouse_;
+        out.mouse = _mouse;
         return true;
     case reluva::EventType::MouseDown:
     case reluva::EventType::MouseUp: {
         const bool down = in.type == reluva::EventType::MouseDown;
-        mouse_ = clampToScreen(in.mouseX, in.mouseY);
-        out.mouse = mouse_;
+        _mouse = clampToScreen(in.mouseX, in.mouseY);
+        out.mouse = _mouse;
         int bit = 0;
         switch (in.button) {
         case MouseButton::Left:
@@ -201,7 +201,7 @@ bool Platform::translate(const reluva::Event &in, Event &out) {
         default:
             return false;
         }
-        buttons_ = down ? buttons_ | bit : buttons_ & ~bit;
+        _buttons = down ? _buttons | bit : _buttons & ~bit;
         return true;
     }
     case reluva::EventType::MouseWheel:
@@ -221,41 +221,41 @@ bool Platform::translate(const reluva::Event &in, Event &out) {
 }
 
 bool Platform::pollEvent(Event &event) {
-    if (!queue_.empty()) {
-        event = queue_.front();
-        queue_.pop_front();
+    if (!_queue.empty()) {
+        event = _queue.front();
+        _queue.pop_front();
         return true;
     }
     reluva::Event in;
-    while (system_.pollEvent(in))
+    while (_system.pollEvent(in))
         if (translate(in, event))
             return true;
     return false;
 }
 
 uint32_t Platform::getMillis() const {
-    return uint32_t(system_.getMillis());
+    return uint32_t(_system.getMillis());
 }
 
 void Platform::delayMillis(uint32_t ms) {
-    system_.delayMillis(ms);
+    _system.delayMillis(ms);
 }
 
 std::unique_ptr<SeekableReadStream> Platform::openForLoading(const std::string &name) const {
     std::vector<uint8_t> data;
-    if (saveDir_.empty() || !readFile(saveDir_ / name, data))
+    if (_saveDir.empty() || !readFile(_saveDir / name, data))
         return nullptr;
     return std::make_unique<MemoryReadStream>(std::move(data));
 }
 
 bool Platform::saveFile(const std::string &name, const std::vector<uint8_t> &data) {
-    if (saveDir_.empty())
+    if (_saveDir.empty())
         return false;
     std::error_code ec;
-    std::filesystem::create_directories(saveDir_, ec);
+    std::filesystem::create_directories(_saveDir, ec);
     // Written beside it first, so a failed write leaves the old one.
-    const std::filesystem::path path = saveDir_ / name;
-    const std::filesystem::path part = saveDir_ / (name + ".part");
+    const std::filesystem::path path = _saveDir / name;
+    const std::filesystem::path part = _saveDir / (name + ".part");
     if (!writeFile(part, data))
         return false;
     std::filesystem::rename(part, path, ec);
@@ -264,20 +264,20 @@ bool Platform::saveFile(const std::string &name, const std::vector<uint8_t> &dat
 
 bool Platform::removeFile(const std::string &name) {
     std::error_code ec;
-    return !saveDir_.empty() && std::filesystem::remove(saveDir_ / name, ec);
+    return !_saveDir.empty() && std::filesystem::remove(_saveDir / name, ec);
 }
 
 bool Platform::fileExists(const std::string &name) const {
     std::error_code ec;
-    return !saveDir_.empty() && std::filesystem::is_regular_file(saveDir_ / name, ec);
+    return !_saveDir.empty() && std::filesystem::is_regular_file(_saveDir / name, ec);
 }
 
 std::vector<std::string> Platform::listFiles(const std::string &pattern) const {
     std::vector<std::string> out;
     std::error_code ec;
-    if (saveDir_.empty() || !std::filesystem::is_directory(saveDir_, ec))
+    if (_saveDir.empty() || !std::filesystem::is_directory(_saveDir, ec))
         return out;
-    for (const auto &entry : std::filesystem::directory_iterator(saveDir_, ec)) {
+    for (const auto &entry : std::filesystem::directory_iterator(_saveDir, ec)) {
         const std::string name = entry.path().filename().string();
         if (entry.is_regular_file(ec) && text::matchGlob(name, pattern))
             out.push_back(name);

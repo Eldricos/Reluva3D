@@ -59,7 +59,7 @@ Campaign::Action::Type next(Campaign &c, int *number = nullptr) {
 
 } // namespace
 
-static void campaign_runs_the_script() {
+static void campaignRunsTheScript() {
     typedef Campaign::Action A;
     Campaign c;
     CHECK(!c.load("[Other]\nIntro\n"));
@@ -116,7 +116,7 @@ static void campaign_runs_the_script() {
     CHECK(!c.isRunning());
 }
 
-static void options_menu_panels() {
+static void optionsMenuPanels() {
     typedef OptionsMenu M;
     ResourceManager resources;
     M menu(resources); // no pictures: the logic works without them
@@ -185,7 +185,7 @@ static void options_menu_panels() {
     CHECK_EQUAL(menu.takeResult(), M::kReturn);
 }
 
-static void key_maps() {
+static void keyMaps() {
     KeyMap away = KeyMap::awayDefaults();
     CHECK_EQUAL(away.get(0x26), (int)KeyMap::kAwayForward);
     CHECK_EQUAL(away.get(0x02), (int)KeyMap::kAwayMouseLook);
@@ -222,7 +222,7 @@ static void key_maps() {
     CHECK_EQUAL(KeyMap::keyName(0x1B), std::string("?!?"));
 }
 
-static void options_menu_controls() {
+static void optionsMenuControls() {
     typedef OptionsMenu M;
     ResourceManager resources;
     M menu(resources);
@@ -299,7 +299,7 @@ struct HiddenBridge : CampaignWorld {
 
 } // namespace
 
-static void campaign_saved_in_a_combat_starts_it_again() {
+static void campaignSavedInACombatStartsItAgain() {
     typedef Campaign::Action A;
     HiddenBridge bridge;
     Campaign c;
@@ -333,12 +333,12 @@ static void campaign_saved_in_a_combat_starts_it_again() {
 }
 
 static const reluva::test::Suite
-    suite("stgenerations.unit.campaign",
-          {
-              {"campaign runs the script", [](const std::filesystem::path &) { campaign_runs_the_script(); }},
-              {"options menu panels", [](const std::filesystem::path &) { options_menu_panels(); }},
-              {"key maps", [](const std::filesystem::path &) { key_maps(); }},
-              {"options menu controls", [](const std::filesystem::path &) { options_menu_controls(); }},
-              {"campaign saved in a combat starts it again",
-               [](const std::filesystem::path &) { campaign_saved_in_a_combat_starts_it_again(); }},
-          });
+    kSuite("stgenerations.unit.campaign",
+           {
+               {"campaign runs the script", [](const std::filesystem::path &) { campaignRunsTheScript(); }},
+               {"options menu panels", [](const std::filesystem::path &) { optionsMenuPanels(); }},
+               {"key maps", [](const std::filesystem::path &) { keyMaps(); }},
+               {"options menu controls", [](const std::filesystem::path &) { optionsMenuControls(); }},
+               {"campaign saved in a combat starts it again",
+                [](const std::filesystem::path &) { campaignSavedInACombatStartsItAgain(); }},
+           });

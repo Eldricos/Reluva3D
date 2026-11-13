@@ -14,36 +14,36 @@ Canvas &Canvas::operator=(Canvas &&other) noexcept {
         w = other.w;
         h = other.h;
         pitch = other.pitch;
-        format_ = other.format_;
-        pixels_ = std::move(other.pixels_);
-        other.pixels_.clear();
+        _format = other._format;
+        _pixels = std::move(other._pixels);
+        other._pixels.clear();
         other.w = other.h = other.pitch = 0;
     }
     return *this;
 }
 
 void Canvas::create(int width, int height, Format format) {
-    format_ = format;
+    _format = format;
     if (width <= 0 || height <= 0) {
         free();
-        format_ = format;
+        _format = format;
         return;
     }
     w = width;
     h = height;
     pitch = width * bytesPerPixel();
-    pixels_.assign(size_t(height) * size_t(pitch), 0);
+    _pixels.assign(size_t(height) * size_t(pitch), 0);
 }
 
 void Canvas::free() {
-    pixels_.clear();
-    pixels_.shrink_to_fit();
+    _pixels.clear();
+    _pixels.shrink_to_fit();
     w = h = pitch = 0;
 }
 
 uint32_t Canvas::getPixel(int x, int y) const {
     const uint8_t *p = static_cast<const uint8_t *>(getBasePtr(x, y));
-    if (format_ == kClut8)
+    if (_format == kClut8)
         return *p;
     uint32_t v;
     std::memcpy(&v, p, 4);
@@ -54,7 +54,7 @@ void Canvas::setPixel(int x, int y, uint32_t color) {
     if (x < 0 || y < 0 || x >= w || y >= h)
         return;
     uint8_t *p = static_cast<uint8_t *>(getBasePtr(x, y));
-    if (format_ == kClut8)
+    if (_format == kClut8)
         *p = uint8_t(color);
     else
         std::memcpy(p, &color, 4);
@@ -65,7 +65,7 @@ void Canvas::fillRect(Rect r, uint32_t color) {
     if (r.isEmpty())
         return;
     for (int y = r.top; y < r.bottom; y++) {
-        if (format_ == kClut8) {
+        if (_format == kClut8) {
             std::memset(getBasePtr(r.left, y), int(color & 0xFF), size_t(r.width()));
         } else {
             for (int x = r.left; x < r.right; x++)

@@ -390,6 +390,6 @@ void engineTest(const std::filesystem::path &tmp) {
 } // namespace
 
 static const reluva::test::Suite
-    suite("stgenerations.engine", {
-                                      {"import and play", [](const std::filesystem::path &tmp) { engineTest(tmp); }},
-                                  });
+    kSuite("stgenerations.engine", {
+                                       {"import and play", [](const std::filesystem::path &tmp) { engineTest(tmp); }},
+                                   });

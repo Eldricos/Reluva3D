@@ -690,7 +690,7 @@ void Generations::drawTransition(const Mission::TransitionView &transition, Pale
         // The briefing in its own colours, speckled.
         drawBriefing(screen, _proceedLoaded, false);
         palette = _briefing.getPalette();
-        Dissolve::speckle(screen, palette.findBestColor(transition.r, transition.g, transition.b), transition.amount,
+        dissolve::speckle(screen, palette.findBestColor(transition.r, transition.g, transition.b), transition.amount,
                           transition.style, _dissolveRandom);
         return;
     }
@@ -707,7 +707,7 @@ void Generations::drawTransition(const Mission::TransitionView &transition, Pale
     case 1:
         // The game speckled; it is what the crossfade starts from.
         copyScreen(_transitionFrom);
-        Dissolve::speckle(screen, colour, transition.amount, transition.style, _dissolveRandom);
+        dissolve::speckle(screen, colour, transition.amount, transition.style, _dissolveRandom);
         break;
     case 2: {
         // The first picture to the second (the game, or black for the
@@ -736,15 +736,15 @@ void Generations::drawTransition(const Mission::TransitionView &transition, Pale
         } else if (_transitionFrom.w == screen.w && _transitionFrom.h == screen.h) {
             screen.copyRectToSurface(_transitionFrom, 0, 0, Rect(0, 0, screen.w, screen.h));
         }
-        Dissolve::crossfade(screen, screen, to, transition.amount, _dissolveRandom);
-        Dissolve::speckle(screen, colour, 0x100, transition.style, _dissolveRandom);
+        dissolve::crossfade(screen, screen, to, transition.amount, _dissolveRandom);
+        dissolve::speckle(screen, colour, 0x100, transition.style, _dissolveRandom);
         break;
     }
     case 3:
         // The second picture clearing.
         if (ending)
             screen.fillRect(Rect(0, 0, screen.w, screen.h), black);
-        Dissolve::speckle(screen, colour, transition.amount, transition.style, _dissolveRandom);
+        dissolve::speckle(screen, colour, transition.amount, transition.style, _dissolveRandom);
         break;
     default:
         if (ending)

@@ -72,7 +72,7 @@ std::string read(const ResourceManager &r, const std::string &name, size_t n) {
 
 } // namespace
 
-static void registered_and_empty() {
+static void registeredAndEmpty() {
     const MetaEngine *engine = findEngine("stgenerations");
     CHECK(engine != nullptr);
     if (!engine)
@@ -113,7 +113,7 @@ static void releases() {
 
 // An install and both CDs side by side, as copied off the discs: found, and
 // imported with what the game needs from each CD.
-static void import_with_both_cds() {
+static void importWithBothCds() {
     stgtest::TempDir t;
     writeInstall(t, "Generations/");
     writeDisc(t, "Disk 1/", 1);
@@ -160,7 +160,7 @@ static void import_with_both_cds() {
 
 // Started from one CD, the rest added as the launcher's "Add CD or
 // installed game..." does.
-static void import_piece_by_piece() {
+static void importPieceByPiece() {
     stgtest::TempDir t;
     writeInstall(t, "install/");
     writeDisc(t, "cd1/", 1);
@@ -188,7 +188,7 @@ static void import_piece_by_piece() {
 
 // A CD copied with errors: the two CDs' STELLAR.DATs differ, and the
 // import takes the whole one, whichever CD it's on.
-static void import_takes_the_whole_copy() {
+static void importTakesTheWholeCopy() {
     stgtest::TempDir t;
     writeInstall(t, "install/");
     writeDisc(t, "cd1/", 1);
@@ -217,7 +217,7 @@ static void import_takes_the_whole_copy() {
 // A file the setup copied in, damaged in the install but whole on its CD
 // (GALORN1.DAT is on disc 2): the CD's copy goes where the install's would,
 // whichever is added first.
-static void import_takes_the_whole_installed_file() {
+static void importTakesTheWholeInstalledFile() {
     std::vector<uint8_t> good = test::buildZip({{"galorn1/troi0083.wav", test::toBytes("Counsellor Troi"), {}}});
     std::vector<uint8_t> bad = good;
     bad[30 + 20 + 3] ^= 0x10; // a bit of the file's data: its CRC no longer matches
@@ -251,7 +251,7 @@ static void import_takes_the_whole_installed_file() {
 
 // The CDs' folders given (STG-Engine's --cd1 and --cd2, the cd1 and cd2
 // settings here): searched as an import's are, the installed files first.
-static void cd_folders_given() {
+static void cdFoldersGiven() {
     stgtest::TempDir install;
     stgtest::TempDir cd1;
     stgtest::TempDir cd2;
@@ -270,14 +270,14 @@ static void cd_folders_given() {
 }
 
 static const reluva::test::Suite
-    suite("stgenerations.unit.detection",
-          {
-              {"registered and empty", [](const std::filesystem::path &) { registered_and_empty(); }},
-              {"releases", [](const std::filesystem::path &) { releases(); }},
-              {"import with both cds", [](const std::filesystem::path &) { import_with_both_cds(); }},
-              {"import piece by piece", [](const std::filesystem::path &) { import_piece_by_piece(); }},
-              {"import takes the whole copy", [](const std::filesystem::path &) { import_takes_the_whole_copy(); }},
-              {"import takes the whole installed file",
-               [](const std::filesystem::path &) { import_takes_the_whole_installed_file(); }},
-              {"cd folders given", [](const std::filesystem::path &) { cd_folders_given(); }},
-          });
+    kSuite("stgenerations.unit.detection",
+           {
+               {"registered and empty", [](const std::filesystem::path &) { registeredAndEmpty(); }},
+               {"releases", [](const std::filesystem::path &) { releases(); }},
+               {"import with both cds", [](const std::filesystem::path &) { importWithBothCds(); }},
+               {"import piece by piece", [](const std::filesystem::path &) { importPieceByPiece(); }},
+               {"import takes the whole copy", [](const std::filesystem::path &) { importTakesTheWholeCopy(); }},
+               {"import takes the whole installed file",
+                [](const std::filesystem::path &) { importTakesTheWholeInstalledFile(); }},
+               {"cd folders given", [](const std::filesystem::path &) { cdFoldersGiven(); }},
+           });
