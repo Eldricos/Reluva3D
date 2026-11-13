@@ -24,7 +24,6 @@ using reluva::Error;
 using reluva::nfs::VivArchive;
 namespace stdfs = std::filesystem;
 
-
 inline std::string lowerAscii(std::string s) {
     for (char &c : s)
         c = char(std::tolower(static_cast<unsigned char>(c)));

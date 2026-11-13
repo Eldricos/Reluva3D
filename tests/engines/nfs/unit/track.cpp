@@ -9,7 +9,6 @@ using namespace reluva::nfs::testing;
 
 namespace {
 
-
 // Lights as nfs3.exe's table has them (frd.md, Lights).
 // The cars' reflection on the sky's sphere map (fce.md, flags).
 void testReflectionUv() {
@@ -21,7 +20,6 @@ void testReflectionUv() {
     const float d = std::sqrt(0.5f); // 45 degrees: 0.5 + 0.7071 * 0.7071 / sqrt(2 * 1.7071)
     CHECK(near(reflectionUv(d, 0, d), 0.5f + 0.5f / std::sqrt(2 * (1 + d)), 0.5f));
 }
-
 
 void testPolygonAnimation() {
     Track::Polygon p;
@@ -39,7 +37,6 @@ void testPolygonAnimation() {
     CHECK(p.textureAt(0) == 7 && p.textureAt(500) == 7);
 }
 
-
 // Placed sounds as the game plays them (frd.md, Sounds).
 void testPlacedSounds() {
     // 2^18 / distance^2, at most 127: full within 45 units.
@@ -56,7 +53,6 @@ void testPlacedSounds() {
     CHECK(t.fires(47, random) && !t.fires(48, random));
 }
 
-
 void testLightLook() {
     // Dimmed: k = 0.5 * 65536 >> 8 = 128, each byte * k >> 8; 1 and above unchanged.
     CHECK(dimLight(0xffdf1616, 0.5f) == 0x7f6f0b0b && dimLight(0xffdf1616, 1) == 0xffdf1616);
@@ -69,7 +65,6 @@ void testLightLook() {
     CHECK(lightLook(6, 4).shown && !lightLook(6, 5).shown && lightLook(6, 37).shown);
     CHECK(lightLook(10, 0).color >> 24 == 0xba && lightLook(10, 0).size == 2.5f);
 }
-
 
 // The weather's rain and snow (col.md, Rain and snow), from 0x4dcdf0 and
 // the functions it sets up for.
@@ -231,7 +226,6 @@ void testWeather() {
     CHECK(polys[0].at[0][0] == 320 && polys[0].at[1][0] == 326 && polys[0].at[2][1] == 246);
 }
 
-
 // The cars' particles beyond the tyre smoke: the wheels' spray (0x42a280,
 // 0x4cb010, the surface table 0x553080), car hits (0x42ac40 type 5,
 // car_smoke_tick 0x42b480, 0x4caea0) and their sounds, and the Direct3D
@@ -384,7 +378,6 @@ void testCarEffects() {
         s.life = 5;
     CHECK(!lens.hit(1, 0, 0, 1, false, random));
 }
-
 
 void testParticles() {
     // The side codes' kinds (0x553740) and the burst's count (0x4cac20).
@@ -549,7 +542,6 @@ void testParticles() {
           d.tail == (ParticleVec{7, 5, 5}));
 }
 
-
 void testViewAndRoadFrame() {
     // The screen (0x4dbce0, 0x4bf260): 90 degrees across, 36 up for each
     // half, at 640 x 480: 320 and -330.33; 75 degrees: 37 and 30.
@@ -599,7 +591,6 @@ void testViewAndRoadFrame() {
     b.virtualRoad.resize(12);
     CHECK(!polygonRoadFrame(b, 0, f));
 }
-
 
 void testTrack() {
     const Bytes file = makeTrack();
@@ -686,7 +677,6 @@ void testTrack() {
           blockDetailAt(201, false, 3) == -1);
     CHECK(blockDetailAt(499, false, 0) == 2 && blockDetailAt(501, false, 0) == -1);
 }
-
 
 void testHeadlights() {
     // The cut-off of far polygons (0x41b3bf): 500 ahead, day or night.
@@ -858,7 +848,6 @@ void testHeadlights() {
     CHECK(aiSlicesSpeed({}, 0) == 64);
 }
 
-
 void testCarLighting() {
     // 0x49d8f0: base a third of red and green, half of blue; top twice,
     // at most 255. 0x49da30: base + (top - base) x n . L when lit.
@@ -905,7 +894,6 @@ void testCarLighting() {
     CHECK(!carLightGlow("SMLN", 0, 1, false, false, 8, 1).shown);
 }
 
-
 void testCarReflection() {
     // 0x49c880 and 0x49ca50: integer HSV, the hue a turn in 256.
     CHECK((rgbToHsv({255, 0, 0}) == std::array<int, 3>{0, 255, 255}));
@@ -933,7 +921,6 @@ void testCarReflection() {
     f = reflectionFrame({0, 5, 0}); // from straight above
     CHECK(std::fabs(f[2][1] + 1) < 1e-5f);
 }
-
 
 void testLightEffects() {
     // 0x491190: glw0 fading with the depth, glw3 at full colour; none
@@ -987,7 +974,6 @@ void testLightEffects() {
     CHECK(!fogBeam({0, 0, 0}, right, up, ahead, {0, 0, -150}, 0x80ffffffu).shown);
 }
 
-
 void testSkinPaint() {
     // The loader's recolouring (0x49cd00, 0x49cc50): alpha under 128 the
     // paint, 128-254 its secondary colour, 255 kept, 0 transparent.
@@ -1026,19 +1012,20 @@ void testSkinPaint() {
 
 } // namespace
 
-static const reluva::test::Suite kSuite("nfs.unit.track", {
-    {"track", [](const stdfs::path &) { testTrack(); }},
-    {"light look", [](const stdfs::path &) { testLightLook(); }},
-    {"particles", [](const stdfs::path &) { testParticles(); }},
-    {"car effects", [](const stdfs::path &) { testCarEffects(); }},
-    {"weather", [](const stdfs::path &) { testWeather(); }},
-    {"polygon animation", [](const stdfs::path &) { testPolygonAnimation(); }},
-    {"reflection uv", [](const stdfs::path &) { testReflectionUv(); }},
-    {"placed sounds", [](const stdfs::path &) { testPlacedSounds(); }},
-    {"headlights", [](const stdfs::path &) { testHeadlights(); }},
-    {"view and road frame", [](const stdfs::path &) { testViewAndRoadFrame(); }},
-    {"car lighting", [](const stdfs::path &) { testCarLighting(); }},
-    {"car reflection", [](const stdfs::path &) { testCarReflection(); }},
-    {"light effects", [](const stdfs::path &) { testLightEffects(); }},
-    {"skin paint", [](const stdfs::path &) { testSkinPaint(); }},
-});
+static const reluva::test::Suite
+    kSuite("nfs.unit.track", {
+                                 {"track", [](const stdfs::path &) { testTrack(); }},
+                                 {"light look", [](const stdfs::path &) { testLightLook(); }},
+                                 {"particles", [](const stdfs::path &) { testParticles(); }},
+                                 {"car effects", [](const stdfs::path &) { testCarEffects(); }},
+                                 {"weather", [](const stdfs::path &) { testWeather(); }},
+                                 {"polygon animation", [](const stdfs::path &) { testPolygonAnimation(); }},
+                                 {"reflection uv", [](const stdfs::path &) { testReflectionUv(); }},
+                                 {"placed sounds", [](const stdfs::path &) { testPlacedSounds(); }},
+                                 {"headlights", [](const stdfs::path &) { testHeadlights(); }},
+                                 {"view and road frame", [](const stdfs::path &) { testViewAndRoadFrame(); }},
+                                 {"car lighting", [](const stdfs::path &) { testCarLighting(); }},
+                                 {"car reflection", [](const stdfs::path &) { testCarReflection(); }},
+                                 {"light effects", [](const stdfs::path &) { testLightEffects(); }},
+                                 {"skin paint", [](const stdfs::path &) { testSkinPaint(); }},
+                             });

@@ -44,12 +44,10 @@ namespace stdfs = std::filesystem;
 
 namespace reluva::nfs::testing {
 
-
 inline void touch(const stdfs::path &file, const std::string &contents = "x") {
     stdfs::create_directories(file.parent_path());
     std::ofstream(file, std::ios::binary) << contents;
 }
-
 
 // An install as the game's installer lays it out (mixed case), without the
 // CD's music and movies.
@@ -64,7 +62,6 @@ inline void makeInstall(const stdfs::path &dir) {
     touch(dir / "GameData/CarModel/Traffic/0000/car.viv");
 }
 
-
 // The CD, in its lower-case spelling, with the music and movies.
 inline void makeCd(const stdfs::path &dir) {
     touch(dir / "nfs3.exe");
@@ -75,9 +72,7 @@ inline void makeCd(const stdfs::path &dir) {
     touch(dir / "fedata/movies/titleav.mad");
 }
 
-
 using Bytes = std::vector<uint8_t>;
-
 
 inline void put16(Bytes &b, unsigned v) {
     b.push_back(uint8_t(v));
@@ -97,7 +92,6 @@ inline void put32be(Bytes &b, uint32_t v) {
 inline void putText(Bytes &b, const char *s, size_t n) {
     b.insert(b.end(), s, s + n);
 }
-
 
 inline Bytes makeViv(const std::vector<std::pair<std::string, std::string>> &files) {
     uint32_t dirSize = 16;
@@ -125,7 +119,6 @@ inline Bytes makeViv(const std::vector<std::pair<std::string, std::string>> &fil
     return b;
 }
 
-
 // A shape block: the type, the offset to the next block (0: last), then
 // width, height, centre and position.
 inline void putShapeHeader(Bytes &b, uint8_t type, uint32_t next, int w, int h, int cx, int cy, int x, int y) {
@@ -140,7 +133,6 @@ inline void putShapeHeader(Bytes &b, uint8_t type, uint32_t next, int w, int h, 
     put16(b, unsigned(x) & 0xffff);
     put16(b, unsigned(y) & 0xffff);
 }
-
 
 inline Bytes makeShapeBank(const std::vector<std::pair<std::string, Bytes>> &shapes) {
     Bytes b = {'S', 'H', 'P', 'I'};
@@ -161,7 +153,6 @@ inline Bytes makeShapeBank(const std::vector<std::pair<std::string, Bytes>> &sha
     return b;
 }
 
-
 inline void putFloat(Bytes &b, size_t at, float f) {
     uint32_t v;
     std::memcpy(&v, &f, 4);
@@ -174,13 +165,11 @@ inline void putU32(Bytes &b, size_t at, uint32_t v) {
         b[at + i] = uint8_t(v >> (8 * i));
 }
 
-
 inline void putF(Bytes &b, float f) {
     uint32_t v;
     std::memcpy(&v, &f, 4);
     put32(b, v);
 }
-
 
 inline void putPolygon(Bytes &b, std::array<uint16_t, 4> v, uint16_t texture) {
     for (uint16_t i : v)
@@ -190,7 +179,6 @@ inline void putPolygon(Bytes &b, std::array<uint16_t, 4> v, uint16_t texture) {
     b.push_back(0x10);
     b.push_back(0xf9);
 }
-
 
 // A one-block track (frd.md): the header, the block, its polygons and
 // object layers, the extra object groups and the texture table.
@@ -292,7 +280,6 @@ inline Bytes makeTrack() {
     return b;
 }
 
-
 // A straight road along +z, a point every 4: two lanes each side, 4
 // wide (the bytes 8), walls 10 away, road strips in lanes 5-8.
 inline TrackCollision straightRoad(int points, uint8_t codes = 0x44) {
@@ -311,7 +298,6 @@ inline TrackCollision straightRoad(int points, uint8_t codes = 0x44) {
     return col;
 }
 
-
 // A PT header: tags (tag, length, big-endian value), then 0xFF.
 inline Bytes ptHeader(std::vector<std::pair<uint8_t, uint32_t>> tags) {
     Bytes b = {'P', 'T', 0, 0, 0x06, 1, 25, 0xfd};
@@ -325,7 +311,6 @@ inline Bytes ptHeader(std::vector<std::pair<uint8_t, uint32_t>> tags) {
     b.push_back(0xff);
     return b;
 }
-
 
 // Bits as a MAD frame holds them: 16-bit little-endian words, each from its
 // top bit.
@@ -350,7 +335,6 @@ struct MadBits {
         return out;
     }
 };
-
 
 inline Bytes madFrame(char kind, const MadBits &bits, int qscale = 1, int width = 16) {
     Bytes f = {'M', 'A', 'D', uint8_t(kind)};

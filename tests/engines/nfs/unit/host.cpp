@@ -9,7 +9,6 @@ using namespace reluva::nfs::testing;
 
 namespace {
 
-
 // THRASH's fog as voodoo2a.dll has Glide draw it (thrash.md, Fog).
 void testThrashFog() {
     CHECK(glideFog(0, 5) == 0);
@@ -88,7 +87,6 @@ void testThrashFog() {
     const ThrashFrame frame = t.takeFrame();
     CHECK(frame.batches.size() == 1 && frame.batches[0].fog == 250 && frame.batches[0].fogColour == 0xff0000);
 }
-
 
 // THRASH drawn as d3da.dll's Direct3D device draws (thrash.md, d3da's
 // device defaults): bilinear filtering, state 7 picking point sampling or
@@ -199,7 +197,6 @@ void testThrashDirect3D() {
     }
 }
 
-
 // THRASH's blend modes in the software rasterizer, as the GPU's drawing
 // (thrash_gpu.cpp) and softtria do them (thrash.md, Blend modes): while
 // blending is on (state 0xa) state 0x68's mode applies to opaque pixels
@@ -251,8 +248,6 @@ void testThrashBlend() {
     t.setState(0x68, 0);
     CHECK(draw(0xff404040u) == 8);
 }
-
-
 
 // DirectInput effects as the game would set them, in a little memory of
 // their own: DIEFFECT read, and what playing effects add up to.
@@ -361,7 +356,6 @@ void testForceEffects() {
     CHECK(spring.durationUs == DiEffect::kInfinite && spring.positiveCoefficient == 2000);
 }
 
-
 // DirectSound 3D's model (sound3d.h): distance, pan, cone and Doppler.
 void testSound3d() {
     auto near = [](double a, double b) { return std::fabs(a - b) < 1e-4; };
@@ -453,10 +447,11 @@ void testSound3d() {
 
 } // namespace
 
-static const reluva::test::Suite kSuite("nfs.unit.host", {
-    {"force effects", [](const stdfs::path &) { testForceEffects(); }},
-    {"sound3d", [](const stdfs::path &) { testSound3d(); }},
-    {"thrash fog", [](const stdfs::path &) { testThrashFog(); }},
-    {"thrash direct3d", [](const stdfs::path &) { testThrashDirect3D(); }},
-    {"thrash blend", [](const stdfs::path &) { testThrashBlend(); }},
-});
+static const reluva::test::Suite kSuite("nfs.unit.host",
+                                        {
+                                            {"force effects", [](const stdfs::path &) { testForceEffects(); }},
+                                            {"sound3d", [](const stdfs::path &) { testSound3d(); }},
+                                            {"thrash fog", [](const stdfs::path &) { testThrashFog(); }},
+                                            {"thrash direct3d", [](const stdfs::path &) { testThrashDirect3D(); }},
+                                            {"thrash blend", [](const stdfs::path &) { testThrashBlend(); }},
+                                        });

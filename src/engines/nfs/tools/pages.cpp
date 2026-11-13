@@ -55,7 +55,6 @@ using reluva::nfs::VivArchive;
 using namespace reluva::nfs::tools;
 namespace stdfs = std::filesystem;
 
-
 // Draws one of the engine's viewer pages after the keys given, as the
 // engine would, without a window: for checking pages and taking pictures
 // of them.
@@ -160,9 +159,11 @@ int cmdNfsPage(int argc, char **argv) {
     return 0;
 }
 
-const reluva::tool::Commands kCommands("nfs", {
-    {"page", "<game folder> <out.tga> <page> [key...]",
-     "one of the engine's pages drawn after the keys given, as a TGA, without a window", cmdNfsPage},
-});
+const reluva::tool::Commands
+    kCommands("nfs",
+              {
+                  {"page", "<game folder> <out.tga> <page> [key...]",
+                   "one of the engine's pages drawn after the keys given, as a TGA, without a window", cmdNfsPage},
+              });
 
 } // namespace

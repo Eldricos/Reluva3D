@@ -1624,6 +1624,40 @@ stand-in's default shows what the game asked for, drawn on an idealised
 device, and the profiles are guesses at particular cards, not
 references.
 
+### Merged into main (November 2026, done)
+
+The branch was merged into main after main's reorganisation, following
+docs/code-style-migration.md for a branch made before it:
+
+- **The layout.** The engine is in the standard layout
+  (`src/engines/nfs/`: `formats/`, `render/`, `pages/`, `host/`,
+  `tools/`; tools/relocations/2026-11-nfs-engine.txt); its shared code
+  by subject (tools/relocations/2026-11-nfs-shared.txt): the Glide
+  stand-in's pipeline in `src/graphics/glide/`, what serves it to the
+  game in `src/emulation/x86/glide/`, GPU compute in `src/graphics/`,
+  EA's codecs and the Pro Logic model in `src/audio/`, the game
+  controllers and GPU compute's SDL side in `src/backends/`. Its
+  reluva-tool commands are `reluva-tool nfs <command>` (`nfs-host` is
+  `reluva-tool nfs host`). Its tests are suites in `tests/engines/nfs/`
+  and `tests/common/`, with the basic engine test and the game-files test
+  main asks of every engine ([TESTING.md](TESTING.md)).
+- **The x86 emulator** is main's (its decoded-instruction cache and JIT);
+  the branch's additions are carried into it: segment registers, MMX,
+  exact FILD/FISTP (kept through the cache's FXCH and FST by
+  `Cpu::exactX87`), the readable first page, threads switched at any
+  instruction; and, as modes the game turns on, drives
+  (`Win32Process::addDrive`) and host threads (`useHostThreads`), so the
+  other engines' programs see the stand-ins they had
+  ([docs/common/x86/](../../../../common/x86/README.md)).
+- **What changed for the game.** The x87 unit's transcendental
+  instructions aren't rounded to 24 bits (main's, as Intel documents), and
+  the process's memory is laid out by main's constructor: the hosted
+  runs' end states differ from the branch's, the menus and races play
+  the same (the game's calls and frames counted the same in a run to the
+  race). The sound comes to the mixer as an `OutputStream`. The speed is
+  about the same on the same machine (30 million instructions a second in
+  the menus here, 28 before).
+
 ### Open questions
 
 What isn't known yet; the items that matter to how Reluva behaves are also in [UNCONFIRMED.md](UNCONFIRMED.md).

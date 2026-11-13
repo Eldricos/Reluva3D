@@ -9,7 +9,6 @@ using namespace reluva::nfs::testing;
 
 namespace {
 
-
 // The computer's cars in the air and landing (car_dynamics 0x4a2830 with
 // +0x164 set, car_landing 0x4a1ce0, car_body_under_road 0x4a1210): on a
 // straight level road along z, the road's frame set as aiRoadFrame would.
@@ -251,7 +250,6 @@ void testComputerAir() {
     }
 }
 
-
 void testComputerGears() {
     // ai_gear_rpm (0x4061b0), made-up gearbox: reverse, neutral and three
     // gears, shift delay 3, minimum 1000 rpm, redline 6000.
@@ -289,7 +287,6 @@ void testComputerGears() {
     aiGearRpm(box, g, 30, 10, 22.35f, true);
     CHECK(box.gear == 0 && box.timer == 3 && box.rpm == 1000 + (2000 - 1000) / 8);
 }
-
 
 void testComputerDriving() {
     TrackCollision col = straightRoad(200);
@@ -671,7 +668,6 @@ void testComputerDriving() {
     CHECK(!parseCarpAi("maximum braking deceleration(18)\n10\n", parsed));
 }
 
-
 void testComputerCatchUpAndCops() {
     // The track sections' speeds (0x40ed40), the switch falling through.
     CHECK(trackSectionSpeed(0, 0x200) == 13.4109f && trackSectionSpeed(0, 10) == 22.3515f);
@@ -863,7 +859,6 @@ void testComputerCatchUpAndCops() {
     CHECK(parsedCars[1].cop && parsedCars[1].siren && parsedCars[1].braking && parsedCars[1].beamScroll == 1 &&
           parsedCars[1].speed == 31.5f && !parsedCars[1].human);
 }
-
 
 // Car against car (0x4310c0 -> 0x430c80: the box test 0x42fee0, the hit
 // 0x42f280 with 0x42e820).
@@ -1536,7 +1531,6 @@ void testCarHits() {
     }
 }
 
-
 void testComputerPursuits() {
     // Lanes 4 wide (bytes 8), two each side, walls 10 away.
     TrackCollision col = straightRoad(200);
@@ -1686,7 +1680,6 @@ void testComputerPursuits() {
     CHECK(!block[1].across && !block[1].blockWatch && block[1].orderKind == 2);
     CHECK(std::string(aiRadioCall(0x40b670)) == "suspect ticketed" && std::string(aiRadioCall(0x123)).empty());
 }
-
 
 // The police stand-in's rules from November 2026's reading (d6): the stop's
 // hold by race distance, the strip's quad and the wheels on it, the calls
@@ -1932,12 +1925,14 @@ void testCopCalls() {
 
 } // namespace
 
-static const reluva::test::Suite kSuite("nfs.unit.computer", {
-    {"computer gears", [](const stdfs::path &) { testComputerGears(); }},
-    {"computer air", [](const stdfs::path &) { testComputerAir(); }},
-    {"computer driving", [](const stdfs::path &) { testComputerDriving(); }},
-    {"computer catch up and cops", [](const stdfs::path &) { testComputerCatchUpAndCops(); }},
-    {"computer pursuits", [](const stdfs::path &) { testComputerPursuits(); }},
-    {"car hits", [](const stdfs::path &) { testCarHits(); }},
-    {"cop calls", [](const stdfs::path &) { testCopCalls(); }},
-});
+static const reluva::test::Suite
+    kSuite("nfs.unit.computer",
+           {
+               {"computer gears", [](const stdfs::path &) { testComputerGears(); }},
+               {"computer air", [](const stdfs::path &) { testComputerAir(); }},
+               {"computer driving", [](const stdfs::path &) { testComputerDriving(); }},
+               {"computer catch up and cops", [](const stdfs::path &) { testComputerCatchUpAndCops(); }},
+               {"computer pursuits", [](const stdfs::path &) { testComputerPursuits(); }},
+               {"car hits", [](const stdfs::path &) { testCarHits(); }},
+               {"cop calls", [](const stdfs::path &) { testCopCalls(); }},
+           });

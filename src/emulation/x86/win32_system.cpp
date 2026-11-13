@@ -254,7 +254,8 @@ void Win32Process::addSystemStandIns() {
         return n;
     };
     stdcall(k, "GetDateFormatA", 6, [formatted](Cpu &c) {
-        const SystemTime t = c.arg(2) ? readSystemTime(c, c.arg(2)) : x86::now(); // (not Win32Process::now, the threads' clock)
+        const SystemTime t =
+            c.arg(2) ? readSystemTime(c, c.arg(2)) : x86::now(); // (not Win32Process::now, the threads' clock)
         const std::string picture = c.arg(3)         ? c.string(c.arg(3))
                                     : (c.arg(1) & 2) ? "dddd, MMMM dd, yyyy" // DATE_LONGDATE
                                                      : "M/d/yyyy";

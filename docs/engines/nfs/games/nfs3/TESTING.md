@@ -35,17 +35,17 @@ with keys, and the format readers on the same files; against its record
 ### The game-files test
 
 With your own copy, `RELUVA_NFS3=<the install> ctest --test-dir build -L
-gamedata` (the CD's files beside it as `NFS3-CD`, or set `RELUVA_NFS3_CD`).
+gamedata`, the CD's files beside the install as `NFS3-CD`.
 `tests/engines/nfs/gamedata.cmake` runs `reluva-tool nfs` commands on the
 game, one step each:
 
 | Step | What it runs |
 |---|---|
-| `release` | What the game is (`reluva --detect`'s way), and the files' signatures |
-| `survey` | Every file of the install and the CD read and counted (`survey`) |
-| `formats` | Every `.viv` listed, every picture bank decoded, the text, every model, track, sound bank and music stream, and the movies' first frames, to checksums |
-| `host` | The retail game run from the menus into a Hometown race on an instruction clock (`host -deterministic 50000 -nomovie`), natively drawn, to its end state and a frame's checksum |
-| `host_glide` | The same on the Glide stand-in (`-glide`) |
+| `release` | What the game is (`reluva-tool detect`), and whether the CD's files are beside it |
+| `survey` | Every file of the install and the CD by name, size and MD5, as one checksum; every file the engine reads, read and counted (`survey`) |
+| `formats` | Every archive, picture, string table, font, model, track, collision file, sound, music section, movie frame and movie's sound decoded, each kind as a checksum (`survey -hash`) |
+| `host` | The retail game run from the menus into a Hometown race by clicks, on an instruction clock (`host -deterministic 50000 -nomovie -native`, 3.5 billion instructions): its end state, its system calls and the last frame written (in the race), as checksums |
+| `host_glide` | The same with its own Voodoo 2 renderer on the Glide stand-in (`-glide`) |
 
 The records, in `tests/engines/nfs/data/gamedata/<release>/`, hold only
 counts and checksums. They were made on Linux with the US Classics CD's

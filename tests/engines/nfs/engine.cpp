@@ -94,8 +94,8 @@ Event keyDown(uint32_t k) {
 
 void write(const stdfs::path &file, const Bytes &bytes) {
     stdfs::create_directories(file.parent_path());
-    std::ofstream(file, std::ios::binary).write(reinterpret_cast<const char *>(bytes.data()),
-                                                std::streamsize(bytes.size()));
+    std::ofstream(file, std::ios::binary)
+        .write(reinterpret_cast<const char *>(bytes.data()), std::streamsize(bytes.size()));
 }
 
 // A shape bank of two pictures: 8-bit with its palette, and 32-bit.
@@ -240,8 +240,8 @@ void readFormats(const stdfs::path &install, const stdfs::path &cd, test::Record
                 h.i32(s.rate).bytes(s.samples.data(), s.samples.size() * 2);
             }
         }
-        rec.add("formats.bnk", std::to_string(decoded) + " of " + std::to_string(sounds.slots.size()) + " sounds " +
-                                   h.hex());
+        rec.add("formats.bnk",
+                std::to_string(decoded) + " of " + std::to_string(sounds.slots.size()) + " sounds " + h.hex());
     }
     MadMovie mad;
     if (Error err = mad.open(read(cd / "fedata/movies/titleav.mad")))
@@ -288,7 +288,7 @@ void engineTest(const stdfs::path &tmp) {
 
     // Played: each page in turn (Tab), with the keys its page takes, then
     // back to the launcher.
-    GameTarget target{"nfs3", "nfs", found.empty() ? "nfs3" : found[0].gameId, "Need for Speed III", install,
+    GameTarget target{"nfs3",        "nfs", found.empty() ? "nfs3" : found[0].gameId, "Need for Speed III", install,
                       tmp / "saves", {}};
     PlayingSystem sys;
     uint64_t at = 200;
@@ -318,6 +318,7 @@ void engineTest(const stdfs::path &tmp) {
 
 } // namespace
 
-static const reluva::test::Suite kSuite("nfs.engine", {
-    {"play through", [](const std::filesystem::path &tmp) { engineTest(tmp); }},
-});
+static const reluva::test::Suite kSuite("nfs.engine",
+                                        {
+                                            {"play through", [](const std::filesystem::path &tmp) { engineTest(tmp); }},
+                                        });

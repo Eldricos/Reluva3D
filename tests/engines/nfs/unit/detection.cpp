@@ -9,7 +9,6 @@ using namespace reluva::nfs::testing;
 
 namespace {
 
-
 void testDetection(const stdfs::path &tmp) {
     const stdfs::path install = tmp / "detect/Need For Speed III";
     makeInstall(install);
@@ -35,7 +34,6 @@ void testDetection(const stdfs::path &tmp) {
     CHECK(findGame("nfs3") != nullptr);
     CHECK(findGame("nfs4") == nullptr);
 }
-
 
 void testFolders(const stdfs::path &tmp) {
     const stdfs::path root = tmp / "folders";
@@ -79,7 +77,6 @@ void testFolders(const stdfs::path &tmp) {
     CHECK(f.cdSource == "install folder");
 }
 
-
 void testListings(const stdfs::path &tmp) {
     const stdfs::path install = tmp / "listings";
     makeInstall(install);
@@ -103,7 +100,6 @@ void testListings(const stdfs::path &tmp) {
     CHECK(filesWithExtension(install, "FeData/movies", ".mad").empty());
     CHECK(filesWithExtension(stdfs::path(), "FeData/movies", ".mad").empty());
 }
-
 
 void testGameFiles(const stdfs::path &tmp) {
     const stdfs::path install = tmp / "files/install", cd = tmp / "files/cd";
@@ -148,9 +144,10 @@ void testGameFiles(const stdfs::path &tmp) {
 
 } // namespace
 
-static const reluva::test::Suite kSuite("nfs.unit.detection", {
-    {"detection", [](const stdfs::path &tmp) { testDetection(tmp); }},
-    {"folders", [](const stdfs::path &tmp) { testFolders(tmp); }},
-    {"listings", [](const stdfs::path &tmp) { testListings(tmp); }},
-    {"game files", [](const stdfs::path &tmp) { testGameFiles(tmp); }},
-});
+static const reluva::test::Suite kSuite("nfs.unit.detection",
+                                        {
+                                            {"detection", [](const stdfs::path &tmp) { testDetection(tmp); }},
+                                            {"folders", [](const stdfs::path &tmp) { testFolders(tmp); }},
+                                            {"listings", [](const stdfs::path &tmp) { testListings(tmp); }},
+                                            {"game files", [](const stdfs::path &tmp) { testGameFiles(tmp); }},
+                                        });

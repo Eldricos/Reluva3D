@@ -9,7 +9,6 @@ using namespace reluva::nfs::testing;
 
 namespace {
 
-
 void testRefPack() {
     // The three copy forms and both literal forms, by hand (refpack.md).
     const Bytes small = {0x10, 0xfb, 0x00, 0x00, 0x0c, 0xe0, 'a', 'b', 'c', 'd', // 4 literals
@@ -89,7 +88,6 @@ void testRefPack() {
     CHECK(plain.size() == 5);
 }
 
-
 void testViv() {
     VivArchive viv;
     CHECK(!viv.open(makeViv({{"carp.txt", "Serial Number"}, {"car.fce", "abc"}}), "test.viv"));
@@ -128,7 +126,6 @@ void testViv() {
     stdfs::remove(file);
     CHECK(viv.open(file));
 }
-
 
 void testShapes() {
     // 8-bit, 2x1, with a 16-bit palette of 2 colours and a text block.
@@ -226,7 +223,6 @@ void testShapes() {
     CHECK(parseShapeBank(Bytes{'S', 'H', 'P', 'X'}, bank));
 }
 
-
 // A cockpit's gauges block (fsh.md, Gauges) and its needles.
 void testCockpit() {
     Shape dash;
@@ -270,7 +266,6 @@ void testCockpit() {
     CHECK(!readCockpit(dash, c));
 }
 
-
 void testTextTable() {
     // Three offsets, then the strings; the last without its 0.
     Bytes b;
@@ -299,7 +294,6 @@ void testTextTable() {
     CHECK(parseTextTable(odd, table));
     CHECK(parseTextTable(Bytes{1, 0}, table));
 }
-
 
 void testFont() {
     // Two glyphs over a 4x2 atlas of 4-bit pixels, high nibble first.
@@ -364,7 +358,6 @@ void testFont() {
     CHECK(parseFont(wrongType, font));
     CHECK(parseFont(Bytes(b.begin(), b.end() - 1), font)); // atlas cut short
 }
-
 
 void testModel() {
     // The parts each detail draws (0x4bb4c0): a car of 13 parts.
@@ -454,7 +447,6 @@ void testModel() {
     CHECK(parseModel(tooMany, m));
     CHECK(parseModel(Bytes(100, 0), m));
 }
-
 
 void testHorizon() {
     // Comments (one inside a line, as the retail files have), one fog
@@ -666,7 +658,6 @@ void testHorizon() {
     CHECK(ticking.life == 6 && boltFlash(ticking) == 127);
 }
 
-
 void testCollision() {
     Bytes b = {'C', 'O', 'L', 'L'};
     put32(b, 11);
@@ -747,7 +738,6 @@ void testCollision() {
     CHECK(parseCollision(badStructure, c));
     CHECK(parseCollision(Bytes{'C', 'O', 'L', 'X'}, c));
 }
-
 
 void testSoundBank() {
     // Four slots: PCM, empty (0), EA-XA, and a stale one pointing into the
@@ -830,7 +820,6 @@ void testSoundBank() {
     flat.tags = {{0x10, 249}}; // a signed byte
     CHECK(patchCents(flat, 60, 64) == -7);
 }
-
 
 void testMusic() {
     // A stream of two segments: EA-XA stereo (one block of 30 samples:
@@ -923,7 +912,6 @@ void testMusic() {
     CHECK(parseMusicMap(badRoute, m));
     CHECK(parseMusicMap(Bytes(map.begin(), map.end() - 1), m));
 }
-
 
 void testMovie() {
     // A 16x16 intra frame: luma blocks of 138, 100 and 128, then one whose
@@ -1154,17 +1142,18 @@ void testMovie() {
 
 } // namespace
 
-static const reluva::test::Suite kSuite("nfs.unit.formats", {
-    {"ref pack", [](const stdfs::path &) { testRefPack(); }},
-    {"viv", [](const stdfs::path &) { testViv(); }},
-    {"shapes", [](const stdfs::path &) { testShapes(); }},
-    {"cockpit", [](const stdfs::path &) { testCockpit(); }},
-    {"text table", [](const stdfs::path &) { testTextTable(); }},
-    {"font", [](const stdfs::path &) { testFont(); }},
-    {"model", [](const stdfs::path &) { testModel(); }},
-    {"horizon", [](const stdfs::path &) { testHorizon(); }},
-    {"collision", [](const stdfs::path &) { testCollision(); }},
-    {"sound bank", [](const stdfs::path &) { testSoundBank(); }},
-    {"music", [](const stdfs::path &) { testMusic(); }},
-    {"movie", [](const stdfs::path &) { testMovie(); }},
-});
+static const reluva::test::Suite kSuite("nfs.unit.formats",
+                                        {
+                                            {"ref pack", [](const stdfs::path &) { testRefPack(); }},
+                                            {"viv", [](const stdfs::path &) { testViv(); }},
+                                            {"shapes", [](const stdfs::path &) { testShapes(); }},
+                                            {"cockpit", [](const stdfs::path &) { testCockpit(); }},
+                                            {"text table", [](const stdfs::path &) { testTextTable(); }},
+                                            {"font", [](const stdfs::path &) { testFont(); }},
+                                            {"model", [](const stdfs::path &) { testModel(); }},
+                                            {"horizon", [](const stdfs::path &) { testHorizon(); }},
+                                            {"collision", [](const stdfs::path &) { testCollision(); }},
+                                            {"sound bank", [](const stdfs::path &) { testSoundBank(); }},
+                                            {"music", [](const stdfs::path &) { testMusic(); }},
+                                            {"movie", [](const stdfs::path &) { testMovie(); }},
+                                        });

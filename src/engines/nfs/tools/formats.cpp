@@ -230,23 +230,41 @@ int cmdFfnRender(int argc, char **argv) {
 
 // Opens every file of the kinds Reluva reads under the folders given,
 // .viv archives' contents included, and reports any that fail.
+// With -hash, each kind's decoded contents as a checksum (FNV-1a, 64
+// bits), files in the order of their paths: what changes when a reader
+// does, with nothing of the game's own in it.
+struct SurveyCount {
+    int ok = 0, failed = 0;
+    uint64_t hash = 0xcbf29ce484222325ull;
+    void add(const void *data, size_t size) {
+        const auto *b = static_cast<const uint8_t *>(data);
+        for (size_t i = 0; i < size; ++i)
+            hash = (hash ^ b[i]) * 0x100000001b3ull;
+    }
+    template<typename T>
+    void add(const std::vector<T> &v) {
+        add(v.data(), v.size() * sizeof(T));
+    }
+    void add(int32_t v) { add(&v, 4); }
+};
+
 int cmdNfsSurvey(int argc, char **argv) {
     std::vector<stdfs::path> roots;
-    bool verbose = false;
+    bool verbose = false, hashes = false;
     for (int i = 2; i < argc; ++i) {
         if (std::strcmp(argv[i], "-v") == 0)
             verbose = true;
+        else if (std::strcmp(argv[i], "-hash") == 0)
+            hashes = true;
         else
             roots.push_back(argv[i]);
     }
     if (roots.empty()) {
-        std::fprintf(stderr, "usage: reluva-tool nfs survey <folder>... [-v]\n");
+        std::fprintf(stderr, "usage: reluva-tool nfs survey <folder>... [-v] [-hash]\n");
         return 2;
     }
 
-    struct Count {
-        int ok = 0, failed = 0;
-    };
+    using Count = SurveyCount;
     Count vivs, banks, pictures, tables, fonts, models, tracks, collisions, horizons, soundBanks, sounds, streams,
         segments, maps, movies, frames, movieAudio;
     std::vector<std::string> unsupported; // in EA's other compression schemes
@@ -279,20 +297,41 @@ int cmdNfsSurvey(int argc, char **argv) {
             report(banks, what, err);
             for (const auto &shape : bank.shapes) {
                 reluva::image::Image img;
-                report(pictures, what + ":" + shape.name, reluva::nfs::decodeShape(shape, img));
+                const Error e = reluva::nfs::decodeShape(shape, img);
+                report(pictures, what + ":" + shape.name, e);
+                if (!e) {
+                    pictures.add(img.w), pictures.add(img.h);
+                    pictures.add(img.rgba);
+                }
             }
         } else if (ext == ".ffn") {
             reluva::nfs::Font font;
             report(fonts, what, reluva::nfs::parseFont(data, font));
+            fonts.add(data);
         } else if (ext == ".fce") {
             reluva::nfs::Model model;
-            report(models, what, reluva::nfs::parseModel(data, model));
+            const Error e = reluva::nfs::parseModel(data, model);
+            report(models, what, e);
+            if (!e)
+                for (const auto &v : model.vertices)
+                    models.add(&v, sizeof v);
         } else if (ext == ".frd") {
             reluva::nfs::Track track;
-            report(tracks, what, reluva::nfs::parseTrack(data, track));
+            const Error e = reluva::nfs::parseTrack(data, track);
+            report(tracks, what, e);
+            if (!e)
+                for (const auto &b : track.blocks) {
+                    tracks.add(b.vertices);
+                    tracks.add(b.colours);
+                    tracks.add(int32_t(b.polygons.size()));
+                }
         } else if (ext == ".col") {
             reluva::nfs::TrackCollision collision;
-            report(collisions, what, reluva::nfs::parseCollision(data, collision));
+            const Error e = reluva::nfs::parseCollision(data, collision);
+            report(collisions, what, e);
+            if (!e)
+                for (const auto &r : collision.road)
+                    collisions.add(&r.position, sizeof r.position);
         } else if (ext == ".bnk") {
             reluva::nfs::SoundBank bank;
             const Error err = reluva::nfs::parseSoundBank(data, bank);
@@ -300,8 +339,10 @@ int cmdNfsSurvey(int argc, char **argv) {
             for (size_t i = 0; i < bank.slots.size(); ++i)
                 if (bank.slots[i]) {
                     reluva::audio::Sound sound;
-                    report(sounds, what + ":" + std::to_string(i),
-                           reluva::nfs::decodeBankSound(data, *bank.slots[i], sound));
+                    const Error e = reluva::nfs::decodeBankSound(data, *bank.slots[i], sound);
+                    report(sounds, what + ":" + std::to_string(i), e);
+                    if (!e)
+                        sounds.add(sound.samples);
                 }
         } else if (ext == ".mus") {
             reluva::nfs::MusicStream stream;
@@ -309,7 +350,10 @@ int cmdNfsSurvey(int argc, char **argv) {
             report(streams, what, err);
             for (size_t i = 0; i < stream.segments().size(); ++i) {
                 reluva::audio::Sound sound;
-                report(segments, what + ":" + std::to_string(i), stream.decode(i, sound));
+                const Error e = stream.decode(i, sound);
+                report(segments, what + ":" + std::to_string(i), e);
+                if (!e)
+                    segments.add(sound.samples);
             }
         } else if (ext == ".map" || ext == ".lin") {
             // Checked against the .mus beside it, whose segments it names.
@@ -332,27 +376,44 @@ int cmdNfsSurvey(int argc, char **argv) {
             const Error err = movie.open(std::move(data));
             report(movies, what, err);
             reluva::nfs::MadDecoder decoder;
-            for (size_t i = 0; !err && i < movie.frames().size(); ++i)
-                report(frames, what + ":" + std::to_string(i), movie.decodeFrame(decoder, i));
+            for (size_t i = 0; !err && i < movie.frames().size(); ++i) {
+                const Error e = movie.decodeFrame(decoder, i);
+                report(frames, what + ":" + std::to_string(i), e);
+                if (!e && hashes)
+                    for (int plane = 0; plane < 3; ++plane) {
+                        const int h = plane ? decoder.height() / 2 : decoder.height();
+                        frames.add(decoder.plane(plane), size_t(decoder.stride(plane)) * size_t(h));
+                    }
+            }
             if (!err && movie.hasAudio()) {
                 reluva::audio::Sound sound;
-                report(movieAudio, what, movie.decodeAudio(sound));
+                const Error e = movie.decodeAudio(sound);
+                report(movieAudio, what, e);
+                if (!e)
+                    movieAudio.add(sound.samples);
             }
         } else if (ext == ".hrz") {
             reluva::nfs::Horizon horizon;
             report(horizons, what, reluva::nfs::parseHorizon(std::string(data.begin(), data.end()), horizon));
         } else if (stem == "text") {
             reluva::nfs::TextTable table;
-            report(tables, what, reluva::nfs::parseTextTable(data, table));
+            const Error e = reluva::nfs::parseTextTable(data, table);
+            report(tables, what, e);
+            if (!e)
+                for (const auto &t : table.strings)
+                    tables.add(t.c_str(), t.size() + 1);
         }
     };
 
     for (const auto &root : roots) {
         std::error_code ec;
-        for (const auto &entry : stdfs::recursive_directory_iterator(root, ec)) {
-            if (!entry.is_regular_file(ec))
-                continue;
-            const stdfs::path &path = entry.path();
+        std::vector<stdfs::path> paths; // in order, for the checksums
+        for (const auto &entry : stdfs::recursive_directory_iterator(root, ec))
+            if (entry.is_regular_file(ec))
+                paths.push_back(entry.path());
+        std::sort(paths.begin(), paths.end(),
+                  [](const stdfs::path &a, const stdfs::path &b) { return a.generic_string() < b.generic_string(); });
+        for (const stdfs::path &path : paths) {
             const std::string ext = lower(path.extension().string());
             if (ext == ".viv") {
                 VivArchive viv;
@@ -362,8 +423,10 @@ int cmdNfsSurvey(int argc, char **argv) {
                     continue;
                 std::vector<uint8_t> data;
                 for (const auto &e : viv.entries())
-                    if (!viv.read(e.name, data))
+                    if (!viv.read(e.name, data)) {
+                        vivs.add(data);
                         check(e.name, std::move(data), path.string() + ":" + e.name);
+                    }
             } else if (ext == ".fsh" || ext == ".qfs" || ext == ".ffn" || ext == ".fce" || ext == ".frd" ||
                        ext == ".col" || ext == ".hrz" || ext == ".bnk" || ext == ".mus" || ext == ".map" ||
                        ext == ".lin" || ext == ".mad" || lower(path.stem().string()) == "text") {
@@ -385,7 +448,11 @@ int cmdNfsSurvey(int argc, char **argv) {
                            "movie frames",  "movie audio"};
     int failed = 0;
     for (int i = 0; i < 17; ++i) {
-        std::printf("%-16s %6d read, %d failed\n", names[i], all[i]->ok, all[i]->failed);
+        if (hashes)
+            std::printf("%-16s %6d read, %d failed, checksum %016llx\n", names[i], all[i]->ok, all[i]->failed,
+                        (unsigned long long)all[i]->hash);
+        else
+            std::printf("%-16s %6d read, %d failed\n", names[i], all[i]->ok, all[i]->failed);
         failed += all[i]->failed;
     }
     // Known and documented (docs/engines/nfs/games/nfs3/formats/refpack.md), so not failures.
@@ -899,43 +966,34 @@ int cmdMadWav(int argc, char **argv) {
     return 0;
 }
 
-const reluva::tool::Commands kCommands("nfs", {
-    {"viv-list", "<file.viv>",
-     "list a .viv archive's files", cmdVivList},
-    {"viv-extract", "<file.viv> <output dir>",
-     "write a .viv archive's files to a folder", cmdVivExtract},
-    {"fsh-info", "<file.fsh | file.qfs | file.viv name>",
-     "list a shape bank's pictures (.fsh, .qfs, or one in a .viv)", cmdFshInfo},
-    {"fsh-dump", "<file.fsh | file.qfs | file.viv name> <output dir>",
-     "write a shape bank's pictures as TGA files", cmdFshDump},
-    {"text-dump", "<text.eng>",
-     "print a front-end string table", cmdTextDump},
-    {"ffn-render", "<file.ffn> <out.tga> [text]",
-     "draw text in one of the game's fonts, as a TGA", cmdFfnRender},
-    {"survey", "<folder>... [-v]",
-     "what an install or CD holds: each kind of file, read and counted", cmdNfsSurvey},
-    {"fce-info", "<file.fce | file.viv name>",
-     "a car model's parts, vertices, triangles and colours", cmdFceInfo},
-    {"fce-obj", "<file.fce | file.viv name> <out.obj>",
-     "a car model as a Wavefront OBJ", cmdFceObj},
-    {"frd-check", "<file.frd>...",
-     "read tracks' .frd files and report what they hold", cmdFrdCheck},
-    {"frd-obj", "<file.frd> <out.obj> [detail 0-2]",
-     "a track as a Wavefront OBJ, at a level of detail", cmdFrdObj},
-    {"bnk-info", "<file.bnk | file.viv name>",
-     "a sound bank's sounds: format, rate, length, loop", cmdBnkInfo},
-    {"bnk-wav", "<file.bnk | file.viv name> <output dir>",
-     "a sound bank's sounds as WAV files", cmdBnkWav},
-    {"mus-info", "<file.mus> [file.map | file.lin]",
-     "a music stream's sections, with its map or linear order", cmdMusInfo},
-    {"mus-wav", "<file.mus> <segment | all> <output dir>",
-     "music sections as WAV files", cmdMusWav},
-    {"mad-info", "<file.mad>",
-     "a movie's frames and sound", cmdMadInfo},
-    {"mad-frames", "<file.mad> <output dir> [first frame] [count] [-game] [-display 1-3]",
-     "a movie's frames as TGA files", cmdMadFrames},
-    {"mad-wav", "<file.mad> <out.wav>",
-     "a movie's sound as a WAV file", cmdMadWav},
-});
+const reluva::tool::Commands kCommands(
+    "nfs",
+    {
+        {"viv-list", "<file.viv>", "list a .viv archive's files", cmdVivList},
+        {"viv-extract", "<file.viv> <output dir>", "write a .viv archive's files to a folder", cmdVivExtract},
+        {"fsh-info", "<file.fsh | file.qfs | file.viv name>",
+         "list a shape bank's pictures (.fsh, .qfs, or one in a .viv)", cmdFshInfo},
+        {"fsh-dump", "<file.fsh | file.qfs | file.viv name> <output dir>", "write a shape bank's pictures as TGA files",
+         cmdFshDump},
+        {"text-dump", "<text.eng>", "print a front-end string table", cmdTextDump},
+        {"ffn-render", "<file.ffn> <out.tga> [text]", "draw text in one of the game's fonts, as a TGA", cmdFfnRender},
+        {"survey", "<folder>... [-v] [-hash]",
+         "what an install or CD holds: each kind of file, read and counted (-hash: each kind's decoded contents as a "
+         "checksum)",
+         cmdNfsSurvey},
+        {"fce-info", "<file.fce | file.viv name>", "a car model's parts, vertices, triangles and colours", cmdFceInfo},
+        {"fce-obj", "<file.fce | file.viv name> <out.obj>", "a car model as a Wavefront OBJ", cmdFceObj},
+        {"frd-check", "<file.frd>...", "read tracks' .frd files and report what they hold", cmdFrdCheck},
+        {"frd-obj", "<file.frd> <out.obj> [detail 0-2]", "a track as a Wavefront OBJ, at a level of detail", cmdFrdObj},
+        {"bnk-info", "<file.bnk | file.viv name>", "a sound bank's sounds: format, rate, length, loop", cmdBnkInfo},
+        {"bnk-wav", "<file.bnk | file.viv name> <output dir>", "a sound bank's sounds as WAV files", cmdBnkWav},
+        {"mus-info", "<file.mus> [file.map | file.lin]", "a music stream's sections, with its map or linear order",
+         cmdMusInfo},
+        {"mus-wav", "<file.mus> <segment | all> <output dir>", "music sections as WAV files", cmdMusWav},
+        {"mad-info", "<file.mad>", "a movie's frames and sound", cmdMadInfo},
+        {"mad-frames", "<file.mad> <output dir> [first frame] [count] [-game] [-display 1-3]",
+         "a movie's frames as TGA files", cmdMadFrames},
+        {"mad-wav", "<file.mad> <out.wav>", "a movie's sound as a WAV file", cmdMadWav},
+    });
 
 } // namespace
