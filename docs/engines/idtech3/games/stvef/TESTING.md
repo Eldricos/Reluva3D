@@ -1,4 +1,4 @@
-# Star Trek: Voyager - Elite Force: testing
+# Elite Force: testing
 
 What still needs trying in the real game, by a person, with the retail
 files.

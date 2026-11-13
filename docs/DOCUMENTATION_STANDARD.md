@@ -20,7 +20,7 @@ Every engine's folder has the same layout:
 
 | Page or folder | What goes in it |
 |---|---|
-| `README.md` | What it runs (games and releases), where it stands, how to use it, and a table of this folder |
+| `README.md` | What it runs (games and releases), where it stands, how to use it, a table of this folder, and "Terms": the engine's or game's own words its pages use without explaining, a line each |
 | `KNOWN_DIFFERENCES.md` | Where Reluva knowingly differs from the original: by choice, bugs fixed, not yet as the original, additions outside the game |
 | `UNCONFIRMED.md` | What hasn't been checked against the running original: read from the code but not seen, seen but not traced, inferred, guessed, and what's been settled |
 | `TESTING.md` | The automated checks, what to check by hand in a playthrough, and when it was last checked |
@@ -148,8 +148,11 @@ python3 tools/check-docs.py
 checks that every relative link and `#anchor` goes somewhere, that each
 engine (or each game, in a family's engine) has its five pages, that each
 format and system page has a status line with a Confidence and a "Sources
-and checks", that Status and Confidence use the standard's words, that each common page has its headings in order, that each
-`research/` has a `README.md`, and that names follow "Naming" above.
+and checks", that Status, Confidence and italic tags use the standard's
+words, that the standard pages have their templates' headings, that every
+page's title starts with its engine's or game's name, that each common
+page has its headings in order, that each `research/` has a `README.md`,
+and that names follow "Naming" above.
 
 ```sh
 npx markdownlint-cli2@0.23.3

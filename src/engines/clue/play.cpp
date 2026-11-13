@@ -511,7 +511,7 @@ void Play::apply(const netplay::Command& c) {
             return;
         plan_.clear();
         sound("door open.wav");
-        placeWalkers(false);
+        placeWalkers(true); // out of the passage
         centreOn(s);
         pause(500);
         then([this] { afterAction(); });
@@ -626,7 +626,7 @@ void Play::computerTurn() {
     }
     case ComputerPlayer::Action::Passage:
         game_.takePassage();
-        placeWalkers(false);
+        placeWalkers(true); // out of the passage
         centreOn(s);
         pause(800);
         break;
@@ -705,23 +705,47 @@ std::deque<std::pair<int, int>> Play::roomRoute(int worldX, int worldY) const {
             for (const Timing& t : mansion_.level()->placements[it.placement].timings)
                 if (t.time == 1100)
                     return {};
+    // A click on the floor goes round the others too, with no second try
+    // (0x424A38: the cells' mask 0xFF).
     const Walker& w = walkers_[size_t(s)];
+    return wayFind(s, room, w.x, w.y, worldX, worldY, true);
+}
+
+std::set<std::pair<int, int>> Play::othersCells(int suspect) const {
+    std::set<std::pair<int, int>> cells;
+    for (int k = 0; k < kSuspectCount; ++k)
+        if (k != suspect) {
+            const Walker& w = walkers_[size_t(k)];
+            const int ex = w.route.empty() ? w.x : w.route.back().first;
+            const int ey = w.route.empty() ? w.y : w.route.back().second;
+            cells.insert({cell32(ex), cell32(ey)});
+        }
+    return cells;
+}
+
+std::deque<std::pair<int, int>> Play::wayFind(int suspect, int room, int fromX, int fromY, int toX, int toY,
+                                              bool aroundOthers) const {
     // Clue.exe's way-finder (0x41A0C0), over the house's 32-unit cells (their
-    // middles the points, 0x421100; blocked where a thing's box stands,
-    // 0x427FC0): from the suspect's cell, breadth first, until the cell
-    // clicked is reached. A step goes up, down, right, left, then up-right,
-    // down-right, down-left, up-left, to a cell not blocked and in the same
-    // room; a slanting step only when neither cell it passes between is
-    // blocked. Then back from the cell clicked, each time to the first cell
-    // in that order that is free, in the room and a step nearer; the way is
-    // those cells, the suspect's own left out.
+    // middles the points, 0x421100). Each cell has flags: 1 where a thing's
+    // box stands (0x427FC0), and a suspect's own bit, 2 << suspect, where it
+    // stands (0x424F10, 0x425DC0; cleared as it leaves, 0x425710). A cell is
+    // blocked if its flags meet the mask the caller gives: 0xFF, round
+    // things and suspects alike; 1, round things only. From the start's
+    // cell, breadth first, until the end's is reached. A step goes up,
+    // down, right, left, then up-right, down-right, down-left, up-left, to a
+    // cell not blocked and in the same room; a slanting step only when
+    // neither cell it passes between is blocked. Then back from the end,
+    // each time to the first cell in that order that is free, in the room
+    // and a step nearer (0x41A7D4); the way is those cells, the start's
+    // left out.
     using Cell = std::pair<int, int>;
-    const auto blocked = [&](const Cell& c) { return blocked_.count(c) != 0; };
+    const std::set<Cell> others = aroundOthers ? othersCells(suspect) : std::set<Cell>{};
+    const auto blocked = [&](const Cell& c) { return blocked_.count(c) != 0 || others.count(c) != 0; };
     const auto open = [&](const Cell& c) {
         return !blocked(c) && board_.roomAt(Board::squareAt(c.first * 32 + 16, c.second * 32 + 16)) == room;
     };
     static const int kStep[8][2] = {{0, -1}, {0, 1}, {1, 0}, {-1, 0}, {1, -1}, {1, 1}, {-1, 1}, {-1, -1}};
-    const Cell from{cell32(w.x), cell32(w.y)}, to{cell32(worldX), cell32(worldY)};
+    const Cell from{cell32(fromX), cell32(fromY)}, to{cell32(toX), cell32(toY)};
     if (!open(to) || from == to)
         return {};
     std::map<Cell, int> steps{{from, 0}};
@@ -750,6 +774,11 @@ std::deque<std::pair<int, int>> Play::roomRoute(int worldX, int worldY) const {
     Cell c = to;
     for (int k = steps.at(to); k > 0; --k) {
         route.push_front({c.first * 32 + 16, c.second * 32 + 16});
+        // The start's cell isn't part of the way, so it needn't be free: it
+        // may stand under a thing (a door's square's corner can). Clue.exe's
+        // loop (0x41A7F4) stops by its count and returns the way whatever.
+        if (k == 1)
+            break;
         bool back = false;
         for (const auto& d : kStep) {
             const Cell n{c.first + d[0], c.second + d[1]};
@@ -768,14 +797,7 @@ std::deque<std::pair<int, int>> Play::roomRoute(int worldX, int worldY) const {
 
 std::pair<int, int> Play::roomSpot(int suspect, int room, int fromX, int fromY) const {
     // The cells the others stand on (where they are going) are taken.
-    std::set<std::pair<int, int>> taken;
-    for (int k = 0; k < kSuspectCount; ++k)
-        if (k != suspect) {
-            const Walker& w = walkers_[size_t(k)];
-            const int ex = w.route.empty() ? w.x : w.route.back().first;
-            const int ey = w.route.empty() ? w.y : w.route.back().second;
-            taken.insert({cell32(ex), cell32(ey)});
-        }
+    const std::set<std::pair<int, int>> taken = othersCells(suspect);
     // Squares of 128, 160 ... 288 around the point, 32 apart, each from its
     // largest y and x: the first cell free, in the room, not a door's.
     for (int r = 128; r < 320; r += 32)
@@ -823,16 +845,32 @@ void Play::startWalk(const std::vector<Place>& path) {
             continue;
         }
         // Into a room: through its door, to a free place in it looked for
-        // from the door's square's middle (Clue.exe's 0x4242A2).
+        // from the door's square's middle (Clue.exe's 0x4242A2), the way
+        // there the way-finder's from the door's square (0x424309): round
+        // things and suspects, else round things only (0x42434F); straight,
+        // if neither finds one.
         int fromX = w.x, fromY = w.y;
+        const Board::Door* door = nullptr;
         for (const Board::Door& d : board_.doors())
             if (d.room == p.room && i > 0 && d.outside == path[i - 1].square) {
+                door = &d;
                 w.route.push_back(point(d.inside));
                 fromX = Board::kGridOrigin + d.inside.x * Board::kSquareSize + 32;
                 fromY = Board::kGridOrigin + d.inside.y * Board::kSquareSize + 32;
                 break;
             }
-        w.route.push_back(roomSpot(s, p.room, fromX, fromY));
+        const std::pair<int, int> spot = roomSpot(s, p.room, fromX, fromY);
+        std::deque<std::pair<int, int>> way;
+        if (door) {
+            const int cornerX = fromX - 32, cornerY = fromY - 32;
+            way = wayFind(s, p.room, cornerX, cornerY, spot.first, spot.second, true);
+            if (way.empty())
+                way = wayFind(s, p.room, cornerX, cornerY, spot.first, spot.second, false);
+        }
+        if (way.empty())
+            w.route.push_back(spot);
+        else
+            w.route.insert(w.route.end(), way.begin(), way.end());
     }
     if (!look_.walkAnimations || w.route.empty()) {
         if (!w.route.empty()) {
@@ -850,9 +888,12 @@ void Play::startWalk(const std::vector<Place>& path) {
 }
 
 void Play::placeWalkers(bool walk) {
-    (void)walk;
-    // Each suspect to where the game has them, at once: after a passage,
-    // after being brought in by a suggestion, after being moved off a door.
+    // Each suspect to where the game has them: after a passage, after being
+    // brought in by a suggestion, after being moved off a door. At once,
+    // but with `walk` the one whose turn it is, out of a passage, walks to
+    // its place as Clue.exe has it (0x425CC0: put 32 in front of the
+    // passage, its place looked for from there, the way by the way-finder
+    // through 0x424900, round things and suspects; at once if there's none).
     for (int s = 0; s < kSuspectCount; ++s) {
         Walker& w = walkers_[size_t(s)];
         if (w.walking)
@@ -864,15 +905,30 @@ void Play::placeWalkers(bool walk) {
                 // the room (0x425CC0); brought in by a suggestion: from
                 // where the suggester stands (0x41BEA0).
                 int fromX = walkers_[size_t(game_.turn())].x, fromY = walkers_[size_t(game_.turn())].y;
+                bool passage = false;
                 if (s == game_.turn())
                     for (const Passage& ps : passages_)
                         if (ps.room == p.room) {
                             fromX = ps.x + (ps.facing == 2 ? 32 : ps.facing == 6 ? -32 : 0);
                             fromY = ps.y + (ps.facing == 4 ? 32 : ps.facing == 0 ? -32 : 0);
+                            passage = true;
                         }
                 const auto [x, y] = roomSpot(s, p.room, fromX, fromY);
-                w.x = x;
-                w.y = y;
+                std::deque<std::pair<int, int>> way;
+                if (walk && passage && look_.walkAnimations)
+                    way = wayFind(s, p.room, fromX, fromY, x, y, true);
+                if (way.empty()) {
+                    w.x = x;
+                    w.y = y;
+                    continue;
+                }
+                w.x = fromX;
+                w.y = fromY;
+                w.route = std::move(way);
+                w.walking = true;
+                w.fx = w.x;
+                w.fy = w.y;
+                follow_ = s;
             }
         } else
             Board::standingPoint(p.square, w.x, w.y);

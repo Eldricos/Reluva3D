@@ -67,6 +67,7 @@ the repository's root after a build:
 | `harness/harness` | Drives Reluva headless by a script of keys, clicks and waits, saving screenshots: `harness clue <game> <out> wait:2 key:x click:320,96 shot:name ...` |
 | `harness/fullgame`, `netgame` | Whole games, alone and over the network, without a display. |
 | `harness/roomwalk` | Walks about a room: the ways to its cells from where the suspect stands, and the walk the `RoomWalk` command plays (`roomwalk <game> <room>`). |
+| `harness/doorwalk` | Walks into the rooms: each door's way to the suspect's place and each passage's, checked step by step (`doorwalk <game>`; exit code 1 if a way has a bad step). |
 
 ## Recordings (`py/`)
 

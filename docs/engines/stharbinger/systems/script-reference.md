@@ -1,4 +1,4 @@
-# Harbinger script reference
+# Star Trek: Deep Space Nine - Harbinger: the script reference
 
 > **Status:** done · **Code:** `src/engines/stharbinger/game/`, `src/engines/stharbinger/formats/script.cpp` · **Checked against:** the code only · **Confidence:** from the code unless marked
 
@@ -255,7 +255,7 @@ the current turn.
 | 4B / 4A | `TON` / `TOFF` item | until the next NPC turn |
 | 38 | `SET` y g.i | NPC group g says item i next |
 | 39 | `EXIT` | end after this turn |
-| 3A | `TALKHEAD` dlg, -, name, code, mouth, head | resets the talkers and registers the first |
+| 3A | `TALKHEAD` dlg, -, name, code, mouth, head | resets the talkers and registers the first (the code is a symbol of the scene's `CCS` list; a mouth or head outside the scene's animations means none) |
 | 3B / 40 | `RUDE` / `BACK` b | start group next time after an aborted / normal end |
 | 3C | `DONE` g, t | when menu g is exhausted, go to t |
 | 3D | `ADDLINE` d | adds a line for `PROTAGONIST` (25 at most) |

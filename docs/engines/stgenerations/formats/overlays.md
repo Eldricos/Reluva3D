@@ -1,4 +1,4 @@
-# Overlays (.OVR)
+# Star Trek: Generations: overlays (`.OVR`)
 
 > **Status:** decoded · **Code:** `src/engines/stgenerations/formats/overlay.h` · **Checked on:** the 2 CD Windows release, two samples · **Confidence:** confirmed unless marked
 

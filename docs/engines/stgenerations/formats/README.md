@@ -1,4 +1,4 @@
-# Star Trek: Generations' file formats
+# Star Trek: Generations: file formats
 
 Notes from reverse engineering the 2 CD Windows release. "Decoded" means a
 decoder exists in `src/engines/stgenerations` and has been checked against real files.

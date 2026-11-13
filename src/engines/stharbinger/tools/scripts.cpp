@@ -388,6 +388,10 @@ struct SceneSymbols {
     // The name a type-02 value stands for, or "" if none is known.
     std::string resolve(int op, int slot, uint32_t value, const SlotKinds& slots) const {
         const Key key{op, slot};
+        // A talker's speaker code (TALKHEAD's slot 3, TALKER's slot 2) is the
+        // scene's CCS symbol with that index, as the game reads it (0x58600).
+        if (((op == 0x3A && slot == 3) || (op == 0x51 && slot == 2)) && value < scene->xref.size())
+            return scene->xref[value].symbol;
         if (const int* kind = slots.kind(key)) {
             const auto& list = scene->lists[*kind];
             if (value < list.size())

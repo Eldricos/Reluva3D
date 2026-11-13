@@ -16,8 +16,8 @@ what stays on the CD.
 |---|---|---|
 | `LEGOATeam.exe` | 61,440 | the game; small, so the work is done in the DLLs below |
 | `Launcher.exe` | 507,904 | same size as the CD's `AutoPlay.exe`; *(guessed)*: the same menu program (play, uninstall, website) |
-| `BaseClassComp.dll` | 28,672 | the game's own code, as "components": its base classes, `DDNamedObject` (a named object) and `DDEvent` (events, with their own memory pages) *(from its exports)* |
-| `BehaviorComp.dll` | 40,960 | 〃 the behaviours' framework: hierarchical state machines (`DDHFSM`, `DDState`, `DDTransition`, `DDTrigger`, entry and exit ports, choice points) and `DDBehavior`, which runs one for an actor. The parts' DLLs in `Bhvr.pac` import it, with LoadComp, LegoLogicComp and BaseClassComp *(from the exports and imports)* |
+| `BaseClassComp.dll` | 28,672 | the game's own code, as "components": its base classes, `DDNamedObject` (a named object) and `DDEvent` (events, with their own memory pages) *(from the code)* |
+| `BehaviorComp.dll` | 40,960 | 〃 the behaviours' framework: hierarchical state machines (`DDHFSM`, `DDState`, `DDTransition`, `DDTrigger`, entry and exit ports, choice points) and `DDBehavior`, which runs one for an actor. The parts' DLLs in `Bhvr.pac` import it, with LoadComp, LegoLogicComp and BaseClassComp *(from the code)* |
 | `LegoLogicComp.dll` | 163,840 | 〃 the game's rules |
 | `LoadComp.dll` | 749,568 | 〃 loading; the largest of the four |
 | `DDPackedDirFileLib.dll` | 69,632 | reads the `.pac` archives ("packed directory") |
@@ -89,4 +89,5 @@ to replace the executable, not the large archives.
 Worked out from directory listings of the CD and the install (October
 2026). The archives' contents come from
 reading them ([pac.md](pac.md)); meanings still marked *(guessed)* come from
-the names alone and are to be confirmed.
+the names alone and are to be confirmed. Those marked *(from the code)* come
+from the DLLs' export and import tables.

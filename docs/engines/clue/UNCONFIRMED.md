@@ -52,7 +52,10 @@ checks are in [TESTING.md](TESTING.md).
 
 - Walking about your own room (0x423B5B, 0x424900), and in a network game
   seen by everyone (sent as the original sends the click, 0x41BD90), the
-  way the original's way-finder takes (0x41A0C0).
+  way the original's way-finder takes (0x41A0C0), round the furniture and
+  the other suspects.
+- Walking into a room from a door (0x4242A2) and out of a secret passage
+  (0x425CC0) by the same way-finder.
 - Hot spots: only on your turn, only in your room, hit by the box's
   outline; the credits portraits reacting to the pointer; clicks on the
   board from above.

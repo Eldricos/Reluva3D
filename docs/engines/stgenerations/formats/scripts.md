@@ -1,4 +1,4 @@
-# Mission scripts (GAME.BIN)
+# Star Trek: Generations: mission scripts (`GAME.BIN`)
 
 > **Status:** decoded · **Code:** `src/engines/stgenerations/formats/script.h`, `src/engines/stgenerations/game/vm.h` · **Checked on:** the 2 CD Windows release, all 12 levels' scripts · **Confidence:** layout confirmed; behaviour from the code unless marked
 
