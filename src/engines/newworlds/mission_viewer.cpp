@@ -3,11 +3,11 @@
 
 #include "engines/newworlds/model_render.h"
 #include "engines/newworlds/star_system.h"
-#include "engines/newworlds/view3d.h"
+#include "engines/newworlds/soft3d.h"
 #include "engines/newworlds/viewers.h"
 
-#include "common/audio/decode.h"
-#include "common/font.h"
+#include "audio/decode.h"
+#include "graphics/font.h"
 #include "common/fs.h"
 
 #include <algorithm>
@@ -928,7 +928,7 @@ void MissionViewer::drawPlay() {
 }
 
 // The in-game interface, laid out as the recordings show it on the 640 x
-// 480 screen; see docs/formats/newworlds/gui.md#the-in-game-interface.
+// 480 screen; see docs/engines/newworlds/gui.md#the-in-game-interface.
 void MissionViewer::drawInterface() {
     const Level& level = missions_[size_t(current_)];
     const char side = missionSides(level.shortName)[size_t(side_)];

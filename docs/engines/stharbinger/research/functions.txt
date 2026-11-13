@@ -1,0 +1,55 @@
+# Code addresses inside functions, named from their own debug messages
+
+Execute_Scene_Directive/ccSUB            00011C5F 00015F8A
+Execute_Scene_Directive/ccMULTIPLY       00011D38 0001604C
+Execute_Scene_Directive/ccDIVIDE         00011DD6 000160D5
+Execute_Scene_Directive/ccHOTON          0001274D 00016249
+Execute_Scene_Directive/ccHOTOFF         00012800 000162EF
+Execute_Scene_Directive/ccHOTTYPE        00012893
+Start_Ambient_Sound                      0001306B
+Execute_Scene_Directive                  000137E1
+Display_Background                       00013A73
+Start_Sound                              00014402
+Start_Sound_With_Type                    000144C6
+Execute_Directive_List/cctTALKER         00014F8C
+Execute_Dialogue                         00016B14
+Weirdness                                00016D25
+Open_File                                0001ADFD
+Get_DB_File_Length                       0001B620
+Load_Animations                          0001C032 0001C0B8
+Load_One_Animation                       0001C284
+Load_Backgrounds                         0001C61E 0001C713
+Load_Dialogues                           0001C9BA 0001CD91 0001CF96
+Get_Dialogue_Index                       0001D05B
+Load_One_Sound                           0001D0D8
+Load_Sounds                              0001D2B6
+Load_Music_Pattern_File                  0001D649
+Load_Directive_List                      0001DE57
+Save_Game                                0001EAFD 0001F09E
+Save_DoneXblock                          0001F500
+Save_Textblock                           0001F60D 0001F6AA
+Save_Frame_Index                         0001F7EC
+Save_Scene_Index                         0001F88C
+Load_Saved_Game                          0001F996
+Load_Textblock_Data                      000201F3
+Load_DoneXblock                          000202FB
+Load_Textblock                           000203EB
+Restore_Backgrounds                      0002060D
+Restore_Animation_Status                 000206E6
+Restore_Scene_Pointers                   000209A5
+Set_Lastframe_To_Frame                   00020B03
+Fetch_Scene_Directive                    00020BB2
+Handle_Dialogue_Unload                   00020C89
+Handle_Dialogue_Reload                   00020D2A
+Game_Setup                               00020E1C 000222A0 00022344 000223B0
+Display_Credits_Background               00022515 000225AE
+Display_Credits_Bakcground               00022622
+Set_Animation_To_Frame                   00024DC5
+Start_Hires_Smacker_Video_To_Screen      00027D16
+Start_Hires_Smacker_Video_To_Buffer      00027E2A
+Open_Dialogue_SoundDB                    0002B152
+AIL_DEBUG                                0002E4F9
+AIL_SYS_DEBUG                            0002E513
+IO_ADDR                                  000387B9
+DMA_8_bit                                00038812
+DMA_16_bit                               00038840

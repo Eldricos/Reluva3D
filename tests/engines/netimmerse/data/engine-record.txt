@@ -1,0 +1,13 @@
+# The record of netimmerse.engine (tests/engines/netimmerse/engine.cpp).
+# Written by `reluva-tests netimmerse.engine --update`; review its diff before committing.
+detect.no_program: 0
+detect.program: legoalphateam LEGO Alpha Team (unknown release)
+run.result: ok
+run.size: 640x480
+run.screens: 180 622a2fc0749fe745
+run.sound: 24255 frames, peak 8000 06e4edf70cee9435
+run.3d: 40 frames, 10 draws eee59e8e0d70a1e1
+run.3d.textures: 1 4e9e390d50081b15
+run.3d.meshes: 1 4d06f1a725de476a
+run.titles: Reluva - LEGO Alpha Team - Archives (Tab: next page, Esc: back) | Reluva - LEGO Alpha Team - Models: THING.FIN (1/2) | Reluva - LEGO Alpha Team - Models: U0001.FIN (2/2) | Reluva - LEGO Alpha Team - Textures | Reluva - LEGO Alpha Team - Fonts | Reluva - LEGO Alpha Team - Sounds | Reluva - LEGO Alpha Team - Text: M0010.PUZ | Reluva - LEGO Alpha Team - Text: Locale_en.txt | Reluva - LEGO Alpha Team - Archives (Tab: next page, Esc: back)
+run.saves: 0

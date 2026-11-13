@@ -1,0 +1,7 @@
+# Commits that only reformat or rename (docs/code-style-migration.md):
+# `git blame` skips them and shows who last changed each line for real.
+# GitHub's blame view reads this file by itself; for git, once per clone:
+#   git config blame.ignoreRevsFile .git-blame-ignore-revs
+#
+# One full commit hash per line, with a comment saying what it was. Only
+# commits whose changes a script made: never one with a hand edit in it.

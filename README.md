@@ -2,194 +2,350 @@
 
 **R**eimplemented **E**ngines for **L**egacy, **U**nsupported & **V**intage **A**dventures.
 
-A framework for running classic games natively on modern systems by
-reimplementing their engines, in the spirit of ScummVM. Games are not
-included: you point Reluva at your own installed copy.
+Reluva runs classic games natively on modern systems by reimplementing
+their engines, in the spirit of ScummVM. Games aren't included: you point
+Reluva at your own copy, and it plays it on Windows, Linux or macOS. There's
+no emulator of the old computer and no original engine, and nothing to
+install from the game's CD. Where a game's logic is its own compiled code
+(LEGO Alpha Team's, Elite Force's game DLLs), Reluva runs that code and
+supplies the parts of Windows it calls.
 
-## Layout
+## Games
 
-```
-src/common/        platform-independent core: System interface, events,
-                   surfaces, config, case-insensitive file lookup, detection,
-                   text and a built-in font; archives (folders, .zip/.pk3) and
-                   search sets; image decoding (TGA, JPEG, PNG, BMP); the 3D
-                   rendering interface (gfx3d.h)
-  audio/           sound decoders and the mixer, shared by every engine: WAV (PCM, IMA ADPCM), MP3
-third_party/       outside code Reluva builds in, each with its licence (minimp3, stb_image)
-src/backends/sdl3/ the only code that touches SDL (window, rendering, input, audio),
-                   including 3D on SDL's GPU API and its shaders
-src/launcher/      Dear ImGui game list: add / remove / start games
-src/engines/       one directory per engine, plus registry.cpp listing them
-  testbed/         built-in test "game" that exercises the backend
-  newworlds/       Star Trek: New Worlds: readers for its archives and their
-                   files; currently runs as a data viewer
-  idtech3/         games on the Quake III Arena engine, starting with Star Trek:
-                   Voyager - Elite Force: search path, shader scripts, BSP
-                   maps; currently runs as a data viewer (docs/engines/idtech3.md)
-  nfs/             Need for Speed III: Hot Pursuit: its archives, pictures,
-                   text, fonts, car models, tracks, sounds, music and
-                   movies; a data viewer, the tracks and cars in 3D, and
-                   the retail game itself run in the x86 interpreter
-                   (docs/engines/nfs.md)
-src/tools/         reluva-tool, utilities for studying game data
-tests/             unit tests for common/ and the engines
-```
+Each engine is a module that can run a family of games.
 
-Engines only use `common/` and `engines/engine.h`. They never include SDL.
+| Engine | Games | State | Docs |
+|---|---|---|---|
+| `idtech3` | Star Trek: Voyager - Elite Force (1.0, 1.2, Expansion Pack); later, other Quake III engine games | Playable: single player, Holomatch (multiplayer, LAN and Internet), mods | [docs/engines/idtech3](docs/engines/idtech3/README.md) |
+| `stharbinger` | Star Trek: Deep Space Nine - Harbinger (DOS, two CDs) | Every part of the game runs; being checked against the original | [docs/engines/stharbinger](docs/engines/stharbinger/README.md) |
+| `newworlds` | Star Trek: New Worlds | Data viewer, first missions playable on their maps; off by default | [docs/engines/newworlds](docs/engines/newworlds/README.md) |
+| `stgenerations` | Star Trek: Generations (Windows, two CDs) | Every part of the game runs; a full playthrough to come | [docs/engines/stgenerations](docs/engines/stgenerations/README.md) |
+| `awe` | Agatha Christie: Murder on the Orient Express (English 1.0); later, AWE's other Agatha Christie games | Playable from a new game to the credits; being checked against the original | [docs/engines/awe](docs/engines/awe/README.md) |
+| `clue` | Clue: Murder at Boddy Mansion, and in the UK Cluedo: Murder at Blackwell Grange (Windows, 2.0 and 2.2) | Playable: against computer players at three levels, hot seat, network play; being checked against the original | [docs/engines/clue](docs/engines/clue/README.md) |
+| `netimmerse` | LEGO Alpha Team (English, Windows); later, other NetImmerse games | Playable: menus, saving, options, sound in 3D, every mission; slower than the original in busy scenes; a data viewer of its files | [docs/engines/netimmerse](docs/engines/netimmerse/README.md) |
+| `testbed` | A test pattern, no game | For checking a system's graphics, sound and input | — |
+
+## Requirements
+
+**To play:**
+
+- 64-bit Windows, Linux (X11 or Wayland) or macOS.
+- For 3D games, a graphics driver with Vulkan (Windows, Linux) or Metal
+  (macOS). Current drivers for AMD, Intel and NVIDIA have it; on Linux,
+  Mesa's is the `mesa-vulkan-drivers` package (or your distro's
+  equivalent).
+- Your own copy of the game. Each engine's docs say which releases it
+  recognises.
+
+**To build:**
+
+- CMake 3.24 or later, Git, and a C++20 compiler: GCC, Clang, Visual Studio
+  2022, or Apple's command line tools.
+- SDL3 and Dear ImGui are downloaded and built by CMake. The first configure
+  needs internet access and takes a few minutes.
+- On Linux, the system headers SDL builds against (below).
 
 ## Building
 
-Needs CMake 3.24+, Git and a C++20 compiler. SDL3 and Dear ImGui are
-downloaded and built automatically.
+### Linux
 
-```sh
-cmake -S . -B build -DCMAKE_BUILD_TYPE=Release
-cmake --build build -j
-./build/reluva
+1. **Install the tools and SDL's build dependencies.**
+
+   **Ubuntu / Debian / Mint / Pop!_OS** (tested on Ubuntu 24.04):
+
+   ```sh
+   sudo apt install build-essential git cmake ninja-build pkg-config \
+     libasound2-dev libpulse-dev libpipewire-0.3-dev libjack-dev libsndio-dev \
+     libx11-dev libxext-dev libxrandr-dev libxcursor-dev libxfixes-dev libxi-dev \
+     libxss-dev libxtst-dev libxkbcommon-dev libdrm-dev libgbm-dev \
+     libgl1-mesa-dev libgles2-mesa-dev libegl1-mesa-dev \
+     libdbus-1-dev libibus-1.0-dev libudev-dev libwayland-dev libdecor-0-dev liburing-dev
+   ```
+
+   **Fedora:**
+
+   ```sh
+   sudo dnf install gcc-c++ git cmake ninja-build \
+     alsa-lib-devel pulseaudio-libs-devel pipewire-devel pipewire-jack-audio-connection-kit-devel \
+     libX11-devel libXext-devel libXrandr-devel libXcursor-devel libXfixes-devel libXi-devel \
+     libXScrnSaver-devel libxkbcommon-devel libdrm-devel mesa-libgbm-devel \
+     mesa-libGL-devel mesa-libGLES-devel mesa-libEGL-devel vulkan-devel \
+     wayland-devel wayland-protocols-devel libdecor-devel dbus-devel ibus-devel systemd-devel liburing-devel
+   ```
+
+   **Arch / Manjaro / SteamOS:**
+
+   ```sh
+   sudo pacman -S base-devel git cmake ninja alsa-lib jack libpulse pipewire sndio \
+     libx11 libxcursor libxext libxinerama libxkbcommon libxrandr libxrender libxss libxtst \
+     mesa vulkan-headers wayland wayland-protocols libdecor ibus libusb hidapi
+   ```
+
+   The Fedora and Arch lists follow SDL's own
+   [Linux build notes](https://wiki.libsdl.org/SDL3/README-linux#build-dependencies).
+   Check there if a package name has changed.
+
+2. **Build and run:**
+
+   ```sh
+   git clone https://github.com/Eldricos/Reluva3D.git
+   cd Reluva3D
+   cmake -S . -B build -G Ninja -DCMAKE_BUILD_TYPE=Release
+   cmake --build build
+   ./build/reluva
+   ```
+
+### Windows (Visual Studio 2022)
+
+1. **Install Visual Studio.**
+   1. Run the [Visual Studio 2022 installer](https://visualstudio.microsoft.com/vs/)
+      (Community edition is free).
+   2. Tick the **Desktop development with C++** workload. Its default
+      components include **C++ CMake tools for Windows** and a **Windows
+      SDK**, the two you need.
+   3. Under **Individual components**, also tick **Git for Windows**, unless
+      you have Git already.
+2. **Open the project.**
+   1. Start Visual Studio, choose **Clone a repository**, and paste
+      `https://github.com/Eldricos/Reluva3D.git`. If you've cloned it
+      already, use **File > Open > Folder...** instead.
+   2. Visual Studio configures the project from `CMakeLists.txt`. The first
+      time, it downloads and builds SDL3 and ImGui. Wait for *"CMake
+      generation finished."* in the **Output** window, with "CMake" chosen
+      in its dropdown.
+3. **Build and run.**
+   1. In the toolbar, choose **x64-Release** for a fast build (or
+      **x64-Debug** for debugging).
+   2. In **Select Startup Item**, next to the green ▶ button, choose
+      **reluva.exe**.
+   3. Press **F5** to build and run under the debugger, or **Ctrl+F5** to
+      run without it.
+
+   A console window beside the game shows Reluva's log.
+
+**From a command prompt instead:** use the **x64 Native Tools Command Prompt
+for VS 2022** (in the Start menu):
+
+```bat
+git clone https://github.com/Eldricos/Reluva3D.git
+cd Reluva3D
+cmake -S . -B build -G "Visual Studio 17 2022" -A x64
+cmake --build build --config Release
+build\Release\reluva.exe
 ```
 
-Engines are CMake options (`RELUVA_ENGINE_IDTECH3` and `RELUVA_ENGINE_NFS` on,
-`RELUVA_ENGINE_NEWWORLDS` off by default for now); see the build notes.
+With this generator, pick Debug or Release with `--config` when building.
 
-See **[docs/BUILDING.md](docs/BUILDING.md)** for step-by-step instructions for
-Linux (with each distro's packages) and Windows with Visual Studio 2022.
+### macOS
 
-## Usage
+1. **Install the tools:** Apple's command line tools
+   (`xcode-select --install`), then CMake and Ninja, for example with
+   [Homebrew](https://brew.sh): `brew install cmake ninja`.
+2. **Build and run:**
 
-- `reluva` opens the launcher. *Add Game...* scans a folder for supported games.
-- `reluva <target>` starts a configured game directly. `reluva testbed`
-  runs the test pattern.
-- `reluva --hash <files...>` prints detection signatures for an engine's table.
-- `reluva-tool` has developer tools for studying game data: `hexdump`,
-  `cat-probe`, `cat-list` and `cat-extract` (New Worlds archives); `viv-list`,
-  `viv-extract`, `fsh-info`, `fsh-dump`, `text-dump`, `ffn-render`, `fce-info`, `fce-obj`,
-  `frd-check`, `frd-obj`, `bnk-info`, `bnk-wav`, `mus-info`, `mus-wav`, `mad-info`,
-  `mad-frames`, `mad-wav`, `nfs-survey`, `nfs-page` and `nfs-host` (Need for Speed III;
-  `nfs-host` runs the retail `nfs3.exe` in the x86 interpreter and reports how it goes),
-  and `prologic` (a stereo WAV through the Pro Logic decoder model: four channels and
-  their levels).
-- In game: **Ctrl+F5** returns to the launcher, **Alt+Enter** toggles fullscreen.
-- New Worlds currently opens as a data viewer. **Tab** switches between missions, models,
-  textures, maps, sounds, strings and fonts, **Left/Right** step through them and **F** cycles filters.
-  Missions (level.dat's list) show their map with the briefing over it: **Up/Down** turn its
-  pages, **B** hides it, **J** picks the side of a joint mission, **Space** plays the mission's
-  voice clip, **N/P** the next or previous one, **M** the planet's music, **Enter** plays the
-  briefing step by step (**Enter** again skips a step, **Backspace** stops), **X** steps through
-  the mission's script (its events, messages and objectives; **Z** stops), **I** shows the game's
-  interface over the map in the side's style (the script's messages and objectives in it), **C**
-  shows or hides the colony (its hub where the recordings put it, growing as the script builds)
-  and **V** looks at it, and **F3** plays on the map with the game's own camera and controls
-  (select and move the colony's starting units, **B** to build, the mission's script running;
-  see `docs/formats/newworlds/game.md`); the map's
-  keys work too. For
-  models, drag with the mouse (or **W/A/S/D**) to rotate, use the wheel (or
-  **+/-**) to zoom, **Space** to spin, **P** to show one part at a time, **L**
-  for outlines, **U** for texture-coordinate checks, **T** to turn textures off, **G** to change how alpha layers are used (by default glow in `_g` textures, transparency in the others), **H** for smooth or flat shading, **M** for the model's points (from its .mdl), **N** to select the next one and **K** to play its animations (or sweep its turret)
-  (glow, ignored, transparency), **C** to
-  colour faces by texture number, **B** to show back faces
-  and **R** to reset the view. Maps are built from their ground tiles: drag to
-  rotate, use the wheel to zoom, **W/A/S/D** to move, **Q/E** to turn,
-  **Left/Right** for the next map, **T** for textures, **G** to colour the ground by its terrain codes or show resource deposits, **O** for the placed trees and rocks, **H** for smooth or flat shading, **K** for
-  the walls between levels and **L** for outlines. For sounds, **Space** (or
-  **Enter**) plays or stops the selected one, **A** plays each as it's selected and **F**
-  lists every copy of the sounds the archives store more than once. For strings,
-  **Left/Right** picks a table, **Up/Down**, **PageUp/PageDown** and **Home/End**
-  scroll, **+/-** change the text size and **F** switches to the game's fonts.
-  For fonts, **Left/Right** picks one, **+/-** change the size and **B** outlines
-  the glyphs' boxes.
+   ```sh
+   git clone https://github.com/Eldricos/Reluva3D.git
+   cd Reluva3D
+   cmake -S . -B build -G Ninja -DCMAKE_BUILD_TYPE=Release
+   cmake --build build
+   ./build/reluva
+   ```
 
-- Elite Force (id Tech 3) also opens as a data viewer, starting on its maps in 3D.
-  **Tab** switches between the 3D world, models, wireframe maps, textures and files. In the world,
-  **Left/Right** picks a map, drag to look, **W/A/S/D** move, **Space/C** (or **E/Q**) go up
-  and down, **Shift** goes faster, **R** returns to the start and **I** shows or hides the
-  info; it needs a GPU with Vulkan (Linux, Windows) or Metal (macOS). Models placed by the
-  map's entities show too. The models page shows every model, players put together:
-  **Left/Right** step, drag to turn, the wheel zooms, **A** animates, **,/.** step frames.
-  For wireframe maps,
-  **Left/Right** picks one,
-  drag (or **Shift+arrows**) rotates, the wheel (or **+/-**) zooms, **W/A/S/D/Q/E** move,
-  **P** shows or hides patches, **I** the info and **R** resets the view. For textures,
-  **Left/Right** step through them (**PageUp/PageDown** by 10). The files page lists the
-  search path and which archive each file comes from.
+macOS builds and passes the tests and the 3D render check on Apple Silicon
+in CI. It hasn't been played on a Mac yet.
 
-- Need for Speed III is found from its install folder or a copy of its CD. It reads
-  the music and movies from the CD's files: in the install if they were copied there,
-  in a copy of the CD beside the install (a folder with `nfs3.exe` and
-  `GameData/Audio/pc`), or wherever `cdpath=` in the game's section of `reluva.ini`
-  says. It opens as a data viewer: **Tab** switches between what it found (the folders,
-  tracks and cars), the game itself, the tracks and cars in 3D, textures, strings,
-  fonts, sounds, music and movies. The **Play** page runs the retail `nfs3.exe` in the
-  x86 interpreter, starting it when first shown. The keyboard and mouse go to the game,
-  **Esc** included; **Ctrl+F5** goes back to the launcher. It writes its saves and
-  settings to Reluva's save folder for the game, never to the install. It plays its
-  own movies (Esc skips the intro), and races run at about real time. With a GPU
-  the game is drawn with it, at twice its 640x480 unless `renderscale=` (1 to 4) in
-  the game's section of `reluva.ini` says otherwise. Its textures are filtered, as
-  the game's renderers ask for; `texturefilter=point` point-samples them instead. The game is told it has a Voodoo 2 and draws as for one (with fog);
-  `renderer=direct3d` tells it it has its Direct3D renderer instead, and it draws its
-  Direct3D look (no fog, flatter clouds, filtered textures), and `renderer=glide` runs
-  its own Voodoo 2 renderer on Reluva's Glide stand-in. A game controller connected when the game starts is offered to it as a
-  joystick (a racing wheel as a wheel), and the game's own Controllers screen binds it
-  (`joystick=off` leaves it out). The window holds the mouse while the game is shown,
-  the game drawing its own pointer. The black lines the game leaves between a movie's
-  are filled in (`movielines=keep` keeps them). Exit Game goes back to the launcher. The game's force feedback goes to a wheel's motor or a
-  pad's rumble (`forcefeedback=off` leaves it out); `wheelpedals=2,3` names a wheel's
-  accelerator and brake axes if they aren't found. Its network play (Connect Players,
-Network (TCP)) uses the machine's network, other players joining on TCP port 1030
-(`network=off` leaves it out); Network (IPX) works on the local network too.
-`serial=listen:2300` on one machine and `serial=host:2300` on the other make
-Serial a link between them, and `modem=listen:2400` / `modem=host:2400` do the
-same for Modem (Answer and Dial). `positionalupdates=on` has network races use the
-game's positional updates, meant for slow links and the internet (each copy runs its
-own car and places the others from their reports); every player needs it alike, and
-the game then leaves Hot Pursuit out of the race types. The game's Dolby Surround sound mode
-encodes sounds behind into the stereo; `surround=prologic` decodes it with a model
-of a Pro Logic decoder, written from the public description, and plays it on a 4.0
-or 5.1 device when the default one has that many channels (stereo, unchanged,
-otherwise). `surround=passive` uses the passive matrix alone, and
-`surround=headphones` folds the decoded channels back to stereo. Without the
-setting the sound plays as mixed. The 3D pages
-  need a GPU with Vulkan (Linux, Windows) or Metal (macOS). On tracks, **PageUp/PageDown**
-  pick one, **W/A/S/D** move, the arrows or a drag look, **Space/C** go up and down,
-  **Shift** goes faster, **N/B** jump to the next or previous piece of road, **1/2/3** pick
-  the road's detail, **H** cycles day, night, weather and night with weather, **G** shows
-  the walls the game keeps cars within, **X** steps through the texture sets (the two
-  16-bit ones, then their 8-bit versions), and **T/V/L/O/F/Y/M** turn textures, vertex
-  lighting, lane markings, objects, back faces, fog, and the lights and placed sounds off
-  and on. The sky has its clouds, sun or moon, fog and lightning; the lights glow and the
-  placed sounds play as the camera nears them. On cars,
-  **Left/Right** pick one, drag or **W/A/S/D** turn it, the wheel zooms, **L** changes the
-  detail, **T** the skin, **C** back faces and **Space** spins it. For textures, **Up/Down** pick a file
-  (**PageUp/PageDown** by 10), **Left/Right** a picture in it (**Home/End** the first and
-  last), **B** changes the background and **A** turns alpha off and on. For strings,
-  **Left/Right** pick a language, **Up/Down**, **PageUp/PageDown** and **Home/End** scroll,
-  and **F** switches between the game's font and Reluva's. For fonts, **Left/Right** pick
-  one and **+/-** change the size. For sounds, **PageUp/PageDown** pick a bank, **Up/Down**
-  a sound in it (played as it's picked; **P** turns that off), **Space** plays it and **S**
-  stops it; sounds with a loop (engines) loop until stopped, and **Left/Right** move the
-  pitch a semitone. For music, **Up/Down** pick a stream and **Space** plays it from its
-  start section (a race's intro), each section leading straight into the next as its map
-  says for the intensity, which
-  **Left/Right** change; **N** moves on at once and **L** switches between the map and the
-  linear order. For movies, **Up/Down** pick one, **Space** pauses, **Left/Right** jump 5
-  seconds and **PageUp/PageDown** step a frame.
+### Choosing engines
 
-The config is saved as `reluva.ini` in SDL's preferences folder
-(`~/.local/share/reluva/reluva/` on Linux, `%APPDATA%\reluva\reluva\` on Windows).
+`engines.cfg`, at the top of the repository, lists the engines to build, one
+per line:
+
+```
+idtech3=enabled
+stharbinger=enabled
+newworlds=disabled
+stgenerations=enabled
+clue=enabled
+```
+
+- **Leaving an engine out.** Set it to `disabled` (say, one that doesn't
+  build at the moment), and back to `enabled` to build it again. The next
+  build picks the change up by itself, in Visual Studio too.
+- **Just for your machine.** Put the lines to change in `engines.local.cfg`
+  beside it. Its lines win, and git ignores it.
+- **The testbed** is always built.
+- **New Worlds** is disabled by default: two of its files hold string
+  literals longer than Visual Studio accepts. With GCC or Clang, enable it.
+
+A typo is caught when CMake configures:
+
+- **A line naming no engine, or a value other than `enabled` or
+  `disabled`,** stops it with a message.
+- **An engine folder with no line** is reported and left out.
+
+The summary line, `Reluva engines: ...`, shows what's built.
+
+### Build options
+
+| Option | What | Default |
+|---|---|---|
+| `RELUVA_BUILD_TESTS` | the unit tests | on |
+| `RELUVA_USE_SYSTEM_SDL` | use an installed SDL3 instead of building it | off |
+| `RELUVA_ENGINES_FILE` | another engine list, instead of `engines.cfg` | `engines.cfg` |
+
+In Visual Studio the options are under **Project > CMake Settings**.
+[docs/DEVELOPMENT.md](docs/DEVELOPMENT.md) has debug builds, tests, the
+render check and troubleshooting.
+
+## Using Reluva
+
+`reluva` opens the launcher, a list of your games.
+
+- **Add Game...** finds the games in a folder, such as an existing install,
+  and plays them from there.
+- **Import Game...** copies a game from its CD, a disc image, or an install
+  into Reluva's own library folder. It takes only the files Reluva needs, so
+  nothing has to be installed, on any system. Some engines can apply a
+  game's patches and expansions as they're copied.
+- **Start** (or a double-click) plays the selected game. Settings for the
+  selected game, where an engine has them, are shown below the buttons.
+
+### Settings
+
+Settings are kept at three levels, and a game takes the most specific one
+set:
+
+- **Every game:** **Settings...**, with *Every game* chosen.
+- **An engine's games:** **Settings...**, with *All <engine> games* chosen.
+  An engine's own settings, where it has some, are here too.
+- **One game:** *This game's settings*, under the selected game's buttons.
+
+Each setting starts out unset: Reluva's default, or what's set at the
+level above (the list shows which). The settings every engine has:
+
+| Setting | Choices | Default |
+|---|---|---|
+| Start in | a window, full screen | a window |
+| Window size | as it is, 2x where it fits, 1x to 4x the game's picture | as it is |
+| Scaling | any size (letterboxed), whole multiples only | any size |
+| Pixels | sharp, smoothed | sharp |
+| Vertical sync | on, off | on |
+| Master volume | 0% to 200% | 100% |
+
+They're stored in `reluva.ini`: every game's in `[reluva]`, an engine's in
+`[engine:<engine>]`, a game's in its own section.
+
+In a game:
+
+- **Ctrl+F5** returns to the launcher.
+- **Alt+Enter** toggles fullscreen.
+
+What each game's pages and keys are is in its engine's docs.
+
+### From the command line
+
+| Command | What it does |
+|---|---|
+| `reluva <name>` | Starts a game from the launcher's list directly, by its entry's name |
+| `reluva testbed` | The test pattern: **Esc** to exit, **Space** for a tone, **C** for a cursor of its own |
+| `reluva --hash <files...>` | Prints files' detection signatures, for an engine's table of releases |
+| `reluva --detect <folders...>` | Lists the games found in each folder |
+| `reluva-tool` | Developer tools for studying games' files: `reluva-tool <engine> <command>`; alone, it lists the engines and the commands for any game |
+
+### Where Reluva keeps its files
+
+Everything goes in SDL's preferences folder for Reluva:
+
+| System | Folder |
+|---|---|
+| Linux | `~/.local/share/reluva/reluva/` |
+| Windows | `%APPDATA%\reluva\reluva\` |
+| macOS | `~/Library/Application Support/reluva/reluva/` |
+
+In it:
+
+- **`reluva.ini`:** the launcher's list of games, and the settings (for
+  every game, each engine's games, and each game).
+- **`games/<name>/`:** each game's own files: its settings, saved games,
+  screenshots and downloads.
+- **`library/`:** games copied by *Import Game...*.
+- **`reluva.log`:** Reluva's messages (errors, warnings, what an engine
+  reports), also written to the console; the run before's is kept as
+  `reluva-previous.log`. Send it with a problem report.
+
+## Repository layout
+
+```
+src/
+  base/              main.cpp: the program
+  common/            the core the rest builds on: the System interface, events, config and
+                     settings, case-insensitive file lookup, byte streams, detection, archives
+                     (folders, .zip/.pk3) and search sets, PKWARE DCL, Wise installers, PE files,
+                     text, hashes, logging
+  audio/             sound decoders, streams and the mixer: WAV (PCM, IMA ADPCM), MP3, raw PCM
+  video/             video decoders: Bink, Smacker, Cinepak and Indeo 5 in AVI
+  graphics/          surfaces and 8-bit drawing, palettes, fonts (built-in and TrueType),
+                     cursors, the 3D rendering interface (gfx3d.h) and software 3D (soft3d/)
+  image/             pictures (TGA, JPEG, PNG, BMP)
+  emulation/x86/     an x86 emulator (with a JIT on x86-64) and stand-ins for Windows,
+                     DirectX and A3D, for games' native code
+  backends/          the only code that touches SDL or the system: platform/sdl3/ (window,
+                     input, audio), graphics/sdl3/ (2D and 3D on SDL's GPU API),
+                     networking/sockets/
+  gui/               the launcher (Dear ImGui)
+  engines/           one folder per engine, each laid out the same way
+                     (docs/ADDING_AN_ENGINE.md), plus registry.cpp listing them
+  devtools/          reluva-tool, with its commands for any game, and reluva-render-check
+tests/               the tests (reluva-tests) and their data: shared code's in common/, each
+                     engine's in engines/<engine>/
+tools/               scripts for working on Reluva (docs checks, moving files)
+third_party/         outside code built in, each with its licence (minimp3, stb_image,
+                     stb_truetype)
+docs/                documentation: shared in docs/common/, each engine's in docs/engines/<engine>/
+```
+
+Each folder under `src/` that is a library has its own `CMakeLists.txt`.
+
+Engines use only the shared code (`common/`, `audio/`, `video/`,
+`graphics/`, `image/`, `emulation/`) and `src/engines/engine.h`. They
+never include SDL.
+
+## Documentation
+
+[docs/README.md](docs/README.md) is the map. In short:
+
+- [docs/DEVELOPMENT.md](docs/DEVELOPMENT.md): working on Reluva.
+- [docs/CODING_GUIDE.md](docs/CODING_GUIDE.md): how its code is written.
+- [docs/DOCUMENTATION_STANDARD.md](docs/DOCUMENTATION_STANDARD.md): how its
+  docs are laid out, named and written.
+- [docs/common/](docs/common/): formats and components shared by engines.
+- `docs/engines/<engine>/`: everything about one engine and its games.
 
 ## Adding an engine
 
-1. Create `src/engines/<name>/` with an `Engine` and a `MetaEngine` (copy `testbed`).
-2. Add a detection table built with `reluva --hash`.
-3. Register its accessor in `src/engines/registry.cpp` and add the source to
-   `CMakeLists.txt`.
+```sh
+cmake -DENGINE=<name> -DTITLE="<Name shown>" -P cmake/NewEngine.cmake
+```
 
-Read [CONTRIBUTING.md](CONTRIBUTING.md) first: only clean-room work is accepted.
+starts one from a template: its folder in `src/engines/`, its first
+`reluva-tool` command, its tests and its docs folder, and its line in
+`engines.cfg`. It builds and passes its tests from the start.
+[docs/ADDING_AN_ENGINE.md](docs/ADDING_AN_ENGINE.md) goes from there to an
+engine that runs a game.
+
+## Contributing
+
+Read [CONTRIBUTING.md](CONTRIBUTING.md) first: only clean-room work is
+accepted. Code follows [docs/CODING_GUIDE.md](docs/CODING_GUIDE.md), and
+docs follow [docs/DOCUMENTATION_STANDARD.md](docs/DOCUMENTATION_STANDARD.md).
 
 ## License
 
 Reluva is free software, licensed under the GNU General Public License,
 version 3 or (at your option) any later version. See [LICENSE](LICENSE).
+
+The Indeo 5 decoder (`src/video/indeo5*`) is derived from FFmpeg's
+LGPL 2.1+ decoder by Maxim Poliakovski, used under the GPL 3 as the LGPL
+allows.
 
 Reluva doesn't include any game data. Games and their assets remain the
 property of their respective owners.

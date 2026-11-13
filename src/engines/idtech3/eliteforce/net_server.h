@@ -32,7 +32,7 @@ std::vector<std::string> configstringCommands(const std::map<int32_t, std::strin
                                               const std::map<int32_t, std::string>& now);
 
 // The server's side of Elite Force's network play (protocol 24, as the
-// retail game patched to 1.2 speaks it: eliteforce-network.md): players
+// retail game patched to 1.2 speaks it: docs/engines/idtech3/games/stvef/systems/network.md): players
 // on other machines find it (getinfo, getstatus), join it (getchallenge,
 // connect) and play, each with a connection of their own. It drives the
 // GameHost the page runs: their commands go to the game as they come,
@@ -53,6 +53,8 @@ public:
     // The game's files, for the paks the level uses (which players
     // missing them may download, if sv_allowDownload is on).
     void setFiles(const SearchSet* files) { files_ = files; }
+    // Whether this level checks players' paks (sv_pure 1 when it started).
+    bool pure() const { return pure_; }
     // Slots the network mustn't give out (the page's own player).
     void reserve(int32_t clientNum) { reserved_.insert(clientNum); }
     // The level has (re)started: baselines and configstrings taken anew,
@@ -124,6 +126,9 @@ private:
         Download download;
         int ping = 0;
         std::array<Frame, kPacketBackup> frames;
+        // A pure server's check: whether it has answered this level's
+        // (cp), and whether rightly.
+        bool pureAnswered = false, pureValid = false;
     };
 
     void outOfBand(const reluva::net::Address& from, const std::string& text, uint64_t now);
@@ -146,6 +151,11 @@ private:
     void sendDownload(Client& c, uint64_t now);
     bool downloadAllowed(const std::string& name, std::string& why) const;
     const SearchSet* files_ = nullptr;
+    // Pure for this level (sv_pure as it started): what clients' answers
+    // are checked against, with this level's checksum feed.
+    bool pure_ = false;
+    int32_t pureCgame_ = 0, pureUi_ = 0;
+    std::set<int32_t> purePaks_;
     std::vector<std::string> referencedNames_; // gamedir/name, without .pk3
     void heartbeat(uint64_t now, bool force);
     std::vector<reluva::net::Address> masters_;

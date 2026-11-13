@@ -3,7 +3,7 @@
 
 #pragma once
 
-#include "engines/idtech3/qvm.h"
+#include "engines/idtech3/vm/qvm.h"
 
 #include <cstdint>
 
@@ -14,13 +14,13 @@ namespace reluva::idtech3::eliteforce {
 //
 // - The CD's game code (1.0), found from the code itself: what it passes
 //   to traces and SetBrushModel, and the size of what it copies whole
-//   (see eliteforce-syscalls.md). An entity state of 204 bytes (Quake
+//   (see docs/engines/idtech3/games/stvef/systems/syscalls.md). An entity state of 204 bytes (Quake
 //   III's is 208), then entityShared_t at 204 with one field fewer than
 //   1.2's before the box (which of linkcount, svFlags and singleClient
 //   isn't known, so svFlags is found from the running game); a player
 //   state of 460 bytes.
 // - Patch 1.2's, as the GPL engine that runs it has them (see
-//   eliteforce-network.md): linked, linkcount, svFlags, singleClient,
+//   docs/engines/idtech3/games/stvef/systems/network.md): linked, linkcount, svFlags, singleClient,
 //   then the box; a player state of 468 bytes (an intro timer at 56, the
 //   rest after it 4 bytes on).
 //

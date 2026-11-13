@@ -1,0 +1,32 @@
+# The record of stgenerations.engine (tests/engines/stgenerations/engine.cpp).
+# Written by `reluva-tests stgenerations.engine --update`; review its diff before committing.
+detect.source: 0
+detect.install: Star Trek: Generations (a release Reluva doesn't know) (without its CDs: import it with them to play)
+import.files: 21
+import.list: 83fb4a99cc5b1b32
+import.notes: From the CDs, still missing: MOVIE/MOV_02.AVI, MOVIE/MOV_03.AVI, MOVIE/MOV_05.AVI, MOVIE/MOV_06.AVI, .... Add the CDs (or copies of them) for the story, space combat, the music and the movies.
+detect.imported: stgenerations: Star Trek: Generations (a release Reluva doesn't know)
+run: ok
+run.frames: 639
+run.size: 640x480
+run.title: Reluva - Star Trek: Generations (a release Reluva doesn't know)
+screen.2000: title: 90c889a514deab85
+screen.3500: menu: 30f1ebbafa2212c6
+screen.4500: new game?: 7649e156e144da66
+screen.5150: movie, frame 1: 08eb2e19a385a925
+screen.5450: movie, frame 4: 62d4d9eb28c3c925
+screen.7000: bridge: a06da2fdfd3614a5
+screen.8000: menu over the bridge: e349723a4d814ecd
+screen.10000: save, named: 5460719d29446ee5
+screen.11000: saved: a06da2fdfd3614a5
+screen.12500: settings: 99b4da542a50fcfe
+screen.15000: load: de231e524f6ed9d6
+screen.17000: loaded: a06da2fdfd3614a5
+cursor.menu: 15x15 8a7befd674c19a35
+cursor.after: the system's
+run.until: 18586
+save.stg.s00: c1ac3041ac244ef1 (1032 bytes)
+save.stg.s09: 623607d007c2e9ff (1042 bytes)
+settings: e02bf16a64002ed9 (383 bytes)
+viewer: ok
+viewer.volumes: 128 music, 64 speech, 192 effects

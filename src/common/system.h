@@ -3,8 +3,9 @@
 
 #pragma once
 
+#include "graphics/cursor.h"
 #include "common/events.h"
-#include "common/gfx3d.h"
+#include "graphics/gfx3d.h"
 #include "common/net.h"
 #include "common/types.h"
 
@@ -15,6 +16,22 @@
 #include <vector>
 
 namespace reluva {
+
+// How a game's picture is shown in the window. The defaults are Reluva's
+// own: the window kept as it is, the picture letterboxed into it at any
+// size with sharp pixels, waiting for the display's refresh. Set from the
+// display settings (settings.h) by the frontend before a game starts.
+struct DisplayOptions {
+    static constexpr int kAutoScale = -1;
+    bool fullscreen = false;     // start in full screen (Alt+Enter still switches)
+    int windowScale = 0;         // the window as a multiple of the game's size; 0: as it is;
+                                 // kAutoScale: 2 where it fits, else 1
+    bool integerScaling = false; // whole multiples only, with borders
+    bool smooth = false;         // smoothed (linear) instead of sharp pixels, when scaled
+    bool vsync = true;           // wait for the display's refresh
+
+    bool operator==(const DisplayOptions&) const = default;
+};
 
 // Everything an engine may ask of the platform. Engines must never include
 // SDL (or any other backend) headers; they go through this interface so the
@@ -52,6 +69,12 @@ public:
     // Whether the system's mouse pointer shows over the game (for games
     // that draw their own).
     virtual void setMouseCursorVisible(bool visible) { (void)visible; }
+    // The game's own mouse pointer (graphics/cursor.h) in place of the
+    // system's; nullptr goes back to the system's. Shown while the pointer
+    // is (setMouseCursorVisible), over the game's 2D or 3D picture, scaled
+    // as the picture is; the next initGraphics() or init3D() keeps it.
+    // Backends without a pointer ignore it.
+    virtual void setMouseCursor(const Cursor* cursor) { (void)cursor; }
     // Whether the mouse is held by the window, hidden, for looking around:
     // MouseMove events then carry only how far it moved (moveX, moveY).
     virtual void setRelativeMouse(bool on) { (void)on; }
@@ -80,6 +103,18 @@ public:
         (void)width, (void)height, (void)bits;
         return false;
     }
+    // After a Quit event (or, with `toLauncher`, a ReturnToLauncher one):
+    // asks the player whether to leave after all, showing `text`. True to
+    // leave; false keeps the game going and the event is forgotten. Without
+    // a way to ask, leaves.
+    virtual bool confirmQuit(const std::string& text, bool toLauncher = false) {
+        (void)text, (void)toLauncher;
+        return true;
+    }
+    // How the picture is shown (the player's display settings): taken up by
+    // the next initGraphics() or init3D(); vsync at once. Backends without a
+    // window ignore it.
+    virtual void setDisplayOptions(const DisplayOptions& options) { (void)options; }
 
     // --- Time ---------------------------------------------------------------
     virtual uint64_t getMillis() const = 0;

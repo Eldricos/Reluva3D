@@ -3,7 +3,7 @@
 
 #include "engines/newworlds/viewers.h"
 
-#include "common/audio/decode.h"
+#include "audio/decode.h"
 #include "common/fs.h"
 
 #include <algorithm>
