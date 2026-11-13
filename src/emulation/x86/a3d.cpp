@@ -441,6 +441,7 @@ public:
             return 0;
         return int(std::clamp(dx / std::sqrt(d), -1.0, 1.0) * audio::kMaxPan * 0.8);
     }
+    // NOLINTNEXTLINE(readability-make-member-function-const): sets its sound's volume and pan
     void heard() {
         if (sound != audio::kNoSound && s->mixer) {
             s->mixer->setVolume(sound, volume());

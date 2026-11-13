@@ -80,6 +80,7 @@ void DirectDraw::writeCaps(Cpu &c, uint32_t p, bool hardware) {
     put(364, kSurfaceCaps); // ddsCaps
 }
 
+// NOLINTNEXTLINE(readability-make-member-function-const): calls the program back
 uint32_t DirectDraw::enumModes(Cpu &c, const ComInterface &iface) {
     const uint32_t filter = c.arg(2);
     const uint32_t context = c.arg(3);
@@ -120,6 +121,7 @@ uint32_t DirectDraw::enumModes(Cpu &c, const ComInterface &iface) {
 // CreateSurface(desc, out, outer): a primary surface (with back buffers if
 // it flips), a Z buffer, or an off-screen surface or texture (with its
 // smaller mip levels).
+// NOLINTNEXTLINE(readability-make-member-function-const): creates a surface of its own
 uint32_t DirectDraw::createSurface(Cpu &c, const ComInterface &iface) {
     const uint32_t p = c.arg(1);
     const uint32_t out = c.arg(2);

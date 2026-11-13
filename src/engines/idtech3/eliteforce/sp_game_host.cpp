@@ -685,6 +685,7 @@ void SpGameHost::writeVmCvar(uint32_t address, const CvarStore::Cvar &cv) {
     cpu_->writeString(address + 16, cv.value, 256);
 }
 
+// NOLINTNEXTLINE(readability-make-member-function-const): starts sounds
 void SpGameHost::playAmbient(const std::vector<raven::AmbientSets::Sound> &sounds) {
     if (!soundSystem)
         return;

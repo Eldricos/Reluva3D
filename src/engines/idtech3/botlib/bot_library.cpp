@@ -136,6 +136,7 @@ BotScript::Loader BotLibrary::scriptLoader() const {
     };
 }
 
+// NOLINTNEXTLINE(readability-make-member-function-const): makes a bot act
 void BotLibrary::command(int client, const std::string &text) {
     if (clientCommand)
         clientCommand(client, text);

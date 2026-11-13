@@ -250,6 +250,7 @@ uint32_t Surface::pixel(int x, int y) const {
     }
 }
 
+// NOLINTNEXTLINE(readability-make-member-function-const): writes the surface's pixels
 void Surface::setPixel(int x, int y, uint32_t v) {
     const uint32_t at = d.memory + uint32_t(y * d.pitch) + uint32_t(x) * d.format.bytes();
     switch (d.format.bytes()) {

@@ -389,6 +389,7 @@ public:
                 return f;
         return nullptr;
     }
+    // NOLINTNEXTLINE(readability-make-member-function-const): creates a device and registers it
     std::shared_ptr<Device> make(const std::string &guid) {
         if (guid != kSysMouse && guid != kSysKeyboard)
             return nullptr;
