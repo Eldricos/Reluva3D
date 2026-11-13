@@ -2346,6 +2346,9 @@ void TrackPage::moveCars(float dt) {
         // second after their models): what the hits did to their places,
         // speeds and yaw.
         aiCollide(ai, collision_, aiStep_, &carHits_);
+        // The impacts task (car_impacts_task 0x42b900, after the hits): the
+        // reset of a tipped car (car_reset_timer 0x429260).
+        aiImpacts(ai, collision_, aiStep_);
         // Then every car's place by its velocity (car_move 0x4a2c60, the
         // Sc64 task, last). What a cop's step did to the cars stepped
         // before it (a racer pulled over by its strip, its chase record)

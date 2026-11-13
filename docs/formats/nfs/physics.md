@@ -2078,7 +2078,12 @@ November 2026: `callers`, `gxref`, `gdecomp`, the disassembly).
   runs, a car on the ground (+0x164 0, clearance under 5, +0x184 0)
   tipped past 60° (+0x10C under 0.5) also loses 1/64 of each spin a
   tick (`0x4292fb`-`0x429341`, `0x5371d8`; seen in `e10-h6`, Checked
-  in runs).
+  in runs). Read in full and ported to the Track page's computer cars
+  in `s7r` (frd.md, The reset of a tipped car): the timer runs in the
+  impacts task after the hits, 2 more a tick off a road polygon; the
+  reset leaves an upright, settled car alone, and like `0x429100` it
+  raises the car 1.5 m in y. On its roof `car_on_road` holds the body
+  on the side it is on (the sign of +0x10C, `0x4a1b18`).
 - **Seen in the user's copy** (`HP_Disabled`, below, The disabled cop
   seen): a cop rammed up a bank lay on its side 1.4 s, silent, then
   rolled onto its roof; its 0x1E came once, 10.8 s later, when the

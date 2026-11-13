@@ -1884,6 +1884,79 @@ void testComputerAir() {
         }
         CHECK(parseCarpAi(carp, d) && d.suspStiffness == 1.5f);
     }
+    // On its roof car_on_road (0x4a1b18) takes the body's up on the side
+    // it is on: a car rolled 170 degrees is turned on to its roof, not back
+    // over; flat on its roof its spins about x and z are 0.
+    {
+        AiCar c = make(0, {0, 0, 0});
+        c.airTicks = 0;
+        c.roll = 0.47f;
+        const float before = c.roll;
+        aiTilt(c, 2, col);
+        CHECK(c.roll > before);
+        c.roll = 0.5f;
+        c.spinX = c.spinZ = 0.3f;
+        aiTilt(c, 4, col);
+        CHECK(c.spinX == 0 && c.spinZ == 0);
+    }
+    // The reset (car_reset_timer 0x429260, car_reset_tipped 0x428f90): on
+    // its roof and still, the timer starts at 700 and loses 1 + 8 a tick;
+    // at 0 the car is put 5 slices on, 1.5 m up, still and in the air.
+    {
+        AiCar c = make(0, {0, 0, 0});
+        c.airTicks = 0;
+        c.roll = 0.5f;
+        c.groundSpeed = 0;
+        c.yawRate = 0.5f;
+        std::vector<AiCar> v{c};
+        aiImpacts(v, col, 1); // odd: nothing
+        CHECK(v[0].resetTimer == 0);
+        aiImpacts(v, col, 2);
+        CHECK(v[0].resetTimer == 700);
+        aiImpacts(v, col, 4);
+        // On the ground past 60 degrees the spins lose 1/64 a tick.
+        CHECK(v[0].resetTimer == 691 && v[0].yawRate == 0.5f - 0.5f * 0.015625f);
+        for (int k = 6; v[0].resets == 0 && k < 400; k += 2)
+            aiImpacts(v, col, k);
+        CHECK(v[0].resets == 1 && v[0].slice == 25 && v[0].resetTimer == 0 && v[0].airTicks == 1 &&
+              v[0].lift == 1.5f && v[0].vel == (std::array<float, 3>{0, 0, 0}) && v[0].roll == 0 &&
+              v[0].ghostTicks == 64 && v[0].yawRate == 0);
+        // Upright now: no new timer.
+        aiImpacts(v, col, 400);
+        CHECK(v[0].resetTimer == 0);
+        // Moving (+0xB8 + |vy| at least 1) it loses only 1 a tick.
+        AiCar m = c;
+        m.groundSpeed = 2;
+        std::vector<AiCar> w{m};
+        aiImpacts(w, col, 2);
+        aiImpacts(w, col, 4);
+        CHECK(w[0].resetTimer == 699);
+        // 0x428f90 leaves an upright car on the road where it is.
+        AiCar u = make(0, {0, 0, 0});
+        u.airTicks = 0;
+        std::vector<AiCar> x{u};
+        aiResetTipped(x, 0, col);
+        CHECK(x[0].resets == 1 && x[0].slice == 20 && x[0].along == 0.5f);
+        // Spinning about x at 1 turn/s or more it is put back.
+        x[0].spinX = 1.0f;
+        aiResetTipped(x, 0, col);
+        CHECK(x[0].resets == 2 && x[0].slice == 25);
+    }
+    // 0x429100 raises the car 1.5 m too (0x5efdd0) and holds +0x524 at 0x20:
+    // no other put back for 32 ticks.
+    {
+        AiCar c = make(0, {0, 0, 10});
+        std::vector<AiCar> v{c};
+        aiPutBack(v, 0, col);
+        CHECK(v[0].slice == 25 && v[0].lift == 1.5f && v[0].putBackHold == 0x20);
+        aiPutBack(v, 0, col);
+        CHECK(v[0].slice == 25);
+        for (int k = 2; k <= 64; k += 2)
+            aiImpacts(v, col, k);
+        CHECK(v[0].putBackHold == 0);
+        aiPutBack(v, 0, col);
+        CHECK(v[0].slice == 30);
+    }
 }
 
 void testComputerGears() {

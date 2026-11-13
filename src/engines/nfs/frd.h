@@ -714,6 +714,16 @@ struct AiCar {
     int offRoadTicks = 0;
     bool putBackDue = false;
     int ghostTicks = 0;
+    // +0x524: 0x20 once put back (0x429100), down by one each tick (the
+    // impacts task 0x42b900), cleared by a reset (0x428970); no put back
+    // while it runs.
+    int putBackHold = 0;
+    // The reset (car_reset_timer 0x429260, from the impacts task): +0x8A0,
+    // started at 700 (0x5efdc0) when the body's up . the road polygon's up
+    // is under 0.75 or the car is on surface 0 or 14, taken down each tick
+    // (aiResetTimer); at 0 the car is put 5 slices on (0x428f90,
+    // aiResetTipped). `resets` (+0x2C0) counts 0x428f90's calls.
+    int resetTimer = 0, resets = 0;
     RoadSearch road; // its track position's search (+0xC)
     // The track aiRoadFrame searched (kept for the put back's road test,
     // aiSpotOnRoad); null until then.
@@ -864,6 +874,30 @@ bool aiSpotOnRoad(const Track& track, int slice, const std::array<float, 3>& poi
 // up to 10), still, lined up with the road, a ghost to the hits for 64
 // ticks. aiStep and aiCopStep call it when aiMove asked (putBackDue).
 void aiPutBack(std::vector<AiCar>& cars, size_t self, const TrackCollision& col);
+// The impacts task (car_impacts_task 0x42b900, Sc32 priority 50: each even
+// step after the hits, aiCollide, for every car in turn): +0x524 taken down
+// (`putBackHold`) and the reset timer (aiResetTimer). The hits' own effects
+// on the controller (0x406120, 0x404a00) aiCollide does.
+void aiImpacts(std::vector<AiCar>& cars, const TrackCollision& col, int step);
+// car_reset_timer (0x429260) for a computer car: while +0x8A0 runs it loses
+// 1 a tick, 2 more off a road polygon (+0x20 or +0x24 0) or on surface 0 or
+// 14, 8 more on the ground (+0x164 0) with +0xB8 + |vy| under 1; on the
+// ground with the clearance under 5 and +0x10C under 0.5 the three spins
+// lose 1/64 (0x5371d8); at 0 (or under) aiResetTipped and the timer 0.
+// Stopped, it starts at 700 (0x5efdc0) when the body's up row . the road
+// polygon's up (+0xCC . +0x130) is under 0.75 (0x5371dc) or the surface
+// (+0x18C) is 0 or 14. (A human's 175, 0x5efdc4, and its gas, and a
+// traffic car, which is never reset, aren't the page's.)
+void aiResetTimer(std::vector<AiCar>& cars, size_t self, const TrackCollision& col);
+// car_reset_tipped (0x428f90): +0x2C0 counted; a car upright (+0x10C over
+// 0.75), with the spins about x and z under 1 turn/s, on a surface not 0
+// or 14, at most 5 air ticks and the clearance under 0.6 is left as it is;
+// any other is put 5 slices on the race's way (0x5efdcc) at the first free
+// spot (0x428d60, as aiPutBack), 1.5 m up (0x5efdd0; x 0.5 under cover,
+// 0x420bf0), still, its spins and forces 0 and in the air (0x428970), a
+// ghost to the hits for 64 ticks (+0x174). Unlike 0x429100 it has no gate
+// (a pulled-over car, +0x524) and leaves +0x524 0.
+void aiResetTipped(std::vector<AiCar>& cars, size_t self, const TrackCollision& col);
 // One step (of 64 a second) of the computer's driving for cars[self], as
 // an AI racer (+0x200 bit 8). Its driver
 // (car_driver_ai 0x409c00) acts only when aiDriverActs lets it, every 8

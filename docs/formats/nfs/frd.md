@@ -2992,6 +2992,64 @@ changes, 895 decisions and 3.35 m/s; the boxes' height and tilt 125, 875
 and 3.30; the air's turn after the dynamics 125, 872 and 3.99. Each is
 the game's code, so all are kept.
 
+**The reset of a tipped car** (November 2026, `s7r-runs`; read with
+`gdecomp` and `asm` of `car_impacts_task` `0x42b900`, `car_reset_timer`
+`0x429260`, `car_reset_tipped` `0x428f90`, `0x428970`, `0x429100` and
+`car_on_road` `0x4a1b13`-`0x4a1cc6`; checked against `r1-runs/u1`
+`u1-a1`, where cop 2 rolled on to its roof at 62.24 s and `0x428f90`
+put it back at 65.132 s):
+
+- The impacts task (Sc32 priority 50, after the hits at 40) takes +0x524
+  down by one and calls `car_reset_timer` for each car. While +0x8A0 is
+  over 0 a computer car's loses 1 a tick (+0x200 bit 4 clear), 2 more
+  when its track position is in no polygon (+0x20 or +0x24 0, which
+  `trackpos_surface` with its check reads as surface 1) or on surface 0
+  or 14, and 8 more on the ground (+0x164 0) with +0xB8 + |+0xA8| under
+  1. On the ground with the clearance under 5, +0x184 0 and +0x10C under
+  0.5 the three spins lose 1/64 (`0x5371d8`). At 0 or under,
+  `0x428f90` (not for traffic, +0x200 bit 0x10) and the timer 0, and the
+  task returns. Stopped, it starts at 700 (`0x5efdc0`, `0x42c5f4`; a
+  human's 175, `0x5efdc4`, in a pursuit) when the body's up row . the
+  road polygon's up (+0xCC . +0x130, fresh) is under 0.75 (`0x5371dc`)
+  or the surface (+0x18C) is 0 or 14; +0x184 (only ever written 0 for a
+  car) would give 0x200.
+- `0x428f90` counts +0x2C0 and leaves a car alone that is upright
+  (+0x10C over 0.75, compared as ints), spins under 1 turn/s about x and z
+  (+0xE4, +0xEC; any negative spin passes), on a surface not 0 or 14,
+  +0x184 0, at most 5 air ticks and with the clearance under 0.6. Any
+  other goes 5 slices on the race's way (`0x5efdcc`), `0x428d60`'s free
+  spot (as the put back's), +0x9C + 1.5 (`0x5efdd0`, × 0.5 under cover,
+  `0x420bf0`), the velocity 0, `0x428970` (spins, forces, +0x524 and the
+  impacts 0, the lane, +0x164 1) and +0x174 64. It has none of
+  `0x429100`'s gates (+0x524, a racer finished, the race not started, a
+  pulled-over car) and leaves +0x524 0 where `0x429100` sets 0x20.
+- **The put back is raised too.** `0x429100` adds the same 1.5 m to +0x9C
+  after `0x428d60`; the page had put the car on the road. In `u1-a1`
+  three ticks after the reset cop 2 has +0x164 4, clearance 1.47 and vy
+  −0.92 (three ticks of gravity), on slice 6 (slice 1 + 5).
+- **On its roof the body is held there.** `car_on_road` sets the spins
+  about x and z from the body's up × the sign of +0x10C (1 over 0, else
+  −1) against the road's up, and zeroes them with |+0x10C| over 0.9;
+  the page had taken the up as it is, so a car on its roof was turned
+  back over on to its wheels (seeded from `u1-a1` at 62.271 s it was
+  upright again 1.5 s later; the game's lay on its roof, +0x10C −1.000,
+  until the reset).
+
+In `u1-a1`'s dumps (31 ms apart, 84 pairs with the timer running), 75
+steps of +0x8A0 are one tick of the rule on either dump's state (1 in
+the air or moving, 9 at rest on its roof); the other 9 are 0 or 2 ticks
+between dumps (`tchk.py`). The page (`aiImpacts`, `aiResetTimer`,
+`aiResetTipped`, `AiCar::resetTimer`, `resets`, `putBackHold`; the
+roof's side in `aiTilt`), seeded with `landchk` from cop 2's dumps at
+62.736, 63.108 and 63.945 s (timer 657, 580, 337), resets it at 65.05,
+65.11 and 65.10 s (the game's 65.132; the first is early because the
+page's car came to rest sooner); after it +0x164 4, clearance 1.471, vy
+−0.92 three ticks on and 12, 0.93, −3.37 eleven on (the game's 4, 1.47,
+−0.92 and 12, 0.97, −3.37). In `t6-log`'s window no car tips or is put
+back, so the table (`s7r-runs/all.sh`) is as before: decisions to 56 s
+324 of 338, to 78 s 872 of 1,568, lane changes 125, speeds 0.44 m/s rms
+over 50-64 s and 3.99 over the window, hits 66.
+
 **The roadside cop** (`d7-runs/sim/park`,
 the police car ordered to lay a strip from every 8th slice of Hometown,
 120 stops): with the spring and the cut it parked past a wall 81 times,

@@ -3971,6 +3971,22 @@ bool aiSpotOnRoad(const Track& track, int slice, const std::array<float, 3>& poi
     return polygonRoadFrame(b, index, f) && f.up[1] * 32768.0f * 2 >= 0.8f;
 }
 
+namespace {
+// The surface of the road polygon a car's track position is in
+// (trackpos_surface 0x4207e0: byte 1 of its record & 0x3F); -1 when it is
+// in none (+0x20 or +0x24 0). Without the track searched, 1 (the road).
+int aiRoadSurfaceAt(const AiCar& c) {
+    if (!c.roadTrack)
+        return 1;
+    if (!c.road.found || c.road.polygon < 0)
+        return -1;
+    const size_t block = static_cast<size_t>(c.road.foundSlice >> 3);
+    if (block >= c.roadTrack->blocks.size())
+        return -1;
+    return roadSurface(c.roadTrack->blocks[block], static_cast<size_t>(c.road.polygon));
+}
+} // namespace
+
 bool aiSpotFree(const std::vector<AiCar>& cars, size_t self, const TrackCollision& col, int slice, float offset) {
     const int n = static_cast<int>(col.road.size());
     if (n < 2)
@@ -4001,23 +4017,22 @@ bool aiSpotFree(const std::vector<AiCar>& cars, size_t self, const TrackCollisio
     return true;
 }
 
-void aiPutBack(std::vector<AiCar>& cars, size_t self, const TrackCollision& col) {
+namespace {
+// 0x428d60 from `from` and what 0x429100 and 0x428f90 do after it: the
+// slice's point if free, else the lanes' middles out from the point, right
+// before left (0x428e1a, 0x428e88), on along the race's way for up to 10
+// slices; none free, the first slice's point. There 0x4a0aa0 lines the car
+// up with the road (its box on the road polygon's plane), then it is
+// raised in y (0x5efdd0's 1.5, x 0.5 under cover: 0x420bf0 at the new
+// place), still (the velocity 0) and 0x428970: the spins and forces 0,
+// +0x164 1, +0x524 0, the lane (+0x638) of the new place, the strip's
+// catch (+0x621 bit 0x40) cleared; then a ghost to the hits for 64 ticks
+// (+0x174).
+void aiPlaceAhead(std::vector<AiCar>& cars, size_t self, const TrackCollision& col, int from) {
     const int n = static_cast<int>(col.road.size());
-    if (n < 2 || self >= cars.size())
-        return;
     AiCar& me = cars[self];
-    me.putBackDue = false;
-    // 0x429100: not while it (or, for a cop, its target) is pulled over.
-    if (me.pulledOver || (me.chasing >= 0 && static_cast<size_t>(me.chasing) < cars.size() && cars[size_t(me.chasing)].pulledOver))
-        return;
     auto wrap = [&](int s) { return ((s % n) + n) % n; };
-    // The race's way (0x429100: +1, -1 on a backward track g_backward), not
-    // the car's: 5 slices on (0x5efdcc), and on from there (0x428d60).
     const int way = me.raceBackward ? -1 : 1;
-    const int from = wrap(aiSlice(me) + way * 5); // 0x5efdcc
-    // 0x428d60: the slice's point if free, else the lanes' middles out
-    // from the point, right before left (0x428e1a, 0x428e88), on along the
-    // way for up to 10 slices; none free, the first slice's point.
     int slice = from;
     float offset = 0;
     bool found = aiSpotFree(cars, self, col, from, 0);
@@ -4039,10 +4054,6 @@ void aiPutBack(std::vector<AiCar>& cars, size_t self, const TrackCollision& col)
             }
         }
     }
-    // 0x4a0aa0: on the slice's point, moved along its right, lined up with
-    // the road and still (0x429100: the velocity 0; 0x428970: the spins,
-    // the forces 0, +0x164 1, the strip's catch +0x621 bit 0x40 cleared);
-    // a ghost to the other cars for 64 ticks (+0x174).
     me.slice = slice;
     me.roadSlice = slice;
     me.velSlice = slice;
@@ -4056,9 +4067,7 @@ void aiPutBack(std::vector<AiCar>& cars, size_t self, const TrackCollision& col)
     me.roll = me.pitch = me.rollRate = me.pitchRate = 0;
     me.spinX = me.spinZ = 0;
     me.airTicks = 1;
-    // On the road (0x4a0aa0 puts it 0.5 up and then down onto it): the
-    // clearance 0, so the landing ends the air ticks at once.
-    me.lift = 0;
+    me.putBackHold = 0;
     me.liftMove = {};
     me.liftPlaneSet = me.liftRowsSet = false;
     me.spiked = false;
@@ -4075,6 +4084,118 @@ void aiPutBack(std::vector<AiCar>& cars, size_t self, const TrackCollision& col)
             aiSetRows(me, col, {0, 0, 0}, {me.roadRight[0] * w, me.roadRight[1] * w, me.roadRight[2] * w}, me.roadUp,
                       {me.roadForward[0] * w, me.roadForward[1] * w, me.roadForward[2] * w});
         me.side = aiMeasuredSide(col, me);
+    }
+    // On the plane (0x4a0aa0), then +0x9C gains 1.5 (0x5efdd0), halved
+    // under cover (0x5371d0 in 0x428f90, 0x5371d4 in 0x429100, both 0.5):
+    // the clearance gains that rise along the road polygon's up (+0x130).
+    const auto& p = col.road[size_t(slice)];
+    float rise = 1.5f;
+    if (pointCovered(p, aiPlace(col, me)))
+        rise *= 0.5f;
+    me.lift = rise * (me.roadUpSet ? me.roadUp[1] : unit3(p.normal)[1]);
+}
+} // namespace
+
+void aiPutBack(std::vector<AiCar>& cars, size_t self, const TrackCollision& col) {
+    const int n = static_cast<int>(col.road.size());
+    if (n < 2 || self >= cars.size())
+        return;
+    AiCar& me = cars[self];
+    me.putBackDue = false;
+    // 0x429100: not while +0x524 runs (a put back in the last 32 ticks);
+    // not while it (or, for a cop, its target) is pulled over.
+    if (me.putBackHold != 0)
+        return;
+    if (me.pulledOver || (me.chasing >= 0 && static_cast<size_t>(me.chasing) < cars.size() && cars[size_t(me.chasing)].pulledOver))
+        return;
+    // The race's way (0x429100: +1, -1 on a backward track g_backward), not
+    // the car's: 5 slices on (0x5efdcc), and on from there (0x428d60).
+    const int way = me.raceBackward ? -1 : 1;
+    aiPlaceAhead(cars, self, col, ((aiSlice(me) + way * 5) % n + n) % n);
+    me.putBackHold = 0x20;
+}
+
+void aiResetTipped(std::vector<AiCar>& cars, size_t self, const TrackCollision& col) {
+    const int n = static_cast<int>(col.road.size());
+    if (n < 2 || self >= cars.size())
+        return;
+    AiCar& me = cars[self];
+    ++me.resets; // +0x2C0
+    std::array<float, 3> f{}, r{}, u{};
+    aiTiltedAxes(col, me, f, r, u);
+    const auto& here = col.road[size_t(((me.slice % n) + n) % n)];
+    const std::array<float, 3> up = me.roadUpSet ? me.roadUp : unit3(here.normal);
+    const float upright = dot3(u, up);
+    const int surface = aiRoadSurfaceAt(me) < 0 ? 1 : aiRoadSurfaceAt(me);
+    // 0x428fd1-0x429022, as ints: +0x10C over 0.75, +0xE4 and +0xEC under
+    // 1, the surface (+0x18C) not 14 or 0, +0x184 0 (never set on the
+    // page), +0x164 at most 5 (unsigned), +0x15C under 0.6: left as it is.
+    if (upright > 0.75f && me.spinX < 1.0f && me.spinZ < 1.0f && surface != 14 && surface != 0 && me.airTicks <= 5 &&
+        me.lift < 0.6f)
+        return;
+    const int way = me.raceBackward ? -1 : 1;
+    aiPlaceAhead(cars, self, col, ((aiSlice(me) + way * 5) % n + n) % n);
+}
+
+void aiResetTimer(std::vector<AiCar>& cars, size_t self, const TrackCollision& col) {
+    const int n = static_cast<int>(col.road.size());
+    if (n < 2 || self >= cars.size())
+        return;
+    AiCar& me = cars[self];
+    const int surface = aiRoadSurfaceAt(me);
+    const bool inPolygon = surface >= 0;
+    std::array<float, 3> f{}, r{}, u{};
+    aiTiltedAxes(col, me, f, r, u);
+    const auto& here = col.road[size_t(((me.slice % n) + n) % n)];
+    const std::array<float, 3> up = me.roadUpSet ? me.roadUp : unit3(here.normal);
+    // +0x10C: the body's up row . the road polygon's up (car_road_dots
+    // 0x4a2690, at the end of car_integrate_turn, before this task).
+    const float upright = dot3(u, up);
+    if (me.resetTimer > 0) {
+        // A computer car (+0x200 bit 4 clear): 1 a tick.
+        --me.resetTimer;
+        // trackpos_surface(+0xC, 1) (0x4207e0): off a polygon (+0x20 or
+        // +0x24 0), or on surface 0 or 14, 2 more.
+        if (!inPolygon || surface == 0 || surface == 14)
+            me.resetTimer -= 2;
+        // 0x4292cc-0x429341: +0x15C under 5, +0x184 0, +0x164 0 and +0x10C
+        // under 0.5: each spin less itself x 1/64 (0x5371d8).
+        if (me.lift < 5.0f && me.airTicks == 0 && upright < 0.5f) {
+            me.spinX -= me.spinX * 0.015625f;
+            me.yawRate -= me.yawRate * 0.015625f;
+            me.spinZ -= me.spinZ * 0.015625f;
+        }
+        // +0xB8 + |+0xA8| under 1, on the ground: 8 more.
+        float ground = me.groundSpeed;
+        if (ground < 0) {
+            const float ax = std::fabs(me.vel[0]), az = std::fabs(me.vel[2]);
+            ground = std::max(ax, az) + std::min(ax, az) * 0.25f;
+        }
+        if (ground + std::fabs(me.vel[1]) < 1.0f && me.airTicks == 0)
+            me.resetTimer -= 8;
+        if (me.resetTimer < 1) {
+            aiResetTipped(cars, self, col);
+            cars[self].resetTimer = 0;
+            return;
+        }
+    }
+    // 0x4293f5-0x429474: stopped, +0xCC . +0x130 under 0.75 (0x5371dc) or
+    // the surface (+0x18C: trackpos_surface's, 1 off a polygon) 0 or 14
+    // starts it at 700 (0x5efdc0, set at 0x42c5f4).
+    const int carSurface = inPolygon ? surface : 1;
+    if (me.resetTimer < 1 && (upright < 0.75f || carSurface == 0 || carSurface == 14))
+        me.resetTimer = 700;
+}
+
+void aiImpacts(std::vector<AiCar>& cars, const TrackCollision& col, int step) {
+    if ((step & 1) != 0)
+        return;
+    // car_impacts_task (0x42b900) for each car: +0x524 down, ...,
+    // car_reset_timer.
+    for (size_t i = 0; i < cars.size(); ++i) {
+        if (cars[i].putBackHold != 0)
+            --cars[i].putBackHold;
+        aiResetTimer(cars, i, col);
     }
 }
 
@@ -4128,12 +4249,18 @@ void aiTilt(AiCar& car, int step, const TrackCollision& col) {
     // car_on_road turns the body towards the up of the rows it took the
     // velocity through (0x4a1a3d's frame, aiContactFrame), when the box
     // touches (the clearance 0 or less); the page always.
-    if (car.contactUpSet)
-        nu = car.contactUp;
     std::array<float, 3> f{}, r{}, u{};
     aiTiltedAxes(col, car, f, r, u);
-    const float dz = u[0] - nu[0], dx = nu[2] - u[2];
-    if (dot3(u, nu) > 0.9f && std::fabs(dz) <= 0.02f && std::fabs(dx) <= 0.02f) {
+    // +0x10C, the body's up . the road's (car_road_dots 0x4a2690); the
+    // body's up is taken on the side the car is on (0x4a1b18-0x4a1b33: x 1
+    // over 0, else x -1), so a car on its roof is held there, and the test
+    // is |+0x10C| over 0.9 (0x4a1b63-0x4a1b96).
+    const float upright = dot3(u, nu);
+    const float s = upright > 0 ? 1.0f : -1.0f;
+    if (car.contactUpSet)
+        nu = car.contactUp;
+    const float dz = s * u[0] - nu[0], dx = nu[2] - s * u[2];
+    if (std::fabs(upright) > 0.9f && std::fabs(dz) <= 0.02f && std::fabs(dx) <= 0.02f) {
         car.rollRate = car.pitchRate = 0;
         car.spinX = car.spinZ = 0;
         return;
