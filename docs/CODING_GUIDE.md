@@ -109,6 +109,21 @@ Avoid global variables unless no other options work. Use the `g_` prefix for the
 int g_someGlobalVariable;
 ```
 
+### Acronyms
+
+An acronym keeps its capitals, as in ScummVM: `kRGBA32`, `kCLUT8`, `kUK`, `HUDScreen`, `loadBMP()`. A name that starts with one is still camel case: `rgbImage`.
+
+### Exceptions
+
+Some names keep the spelling something outside Reluva gives them:
+
+* Names the C++ standard library looks for: `value_type`, `result_type`, `is_transparent` and the like.
+* Functions of the compiler's runtime that Reluva declares: `__register_frame`.
+* The x86 processor's registers and flags, as its manuals name them: `reg[EAX]`, `eflags & CF`.
+* A formula's or a specification's notation, in a local variable: one capital letter, perhaps with a digit or a letter (`S`, `T`, `Q` texture coordinates, `Y`, `U`, `V` planes, `Xc`), and Indeo's transform terms (`b0_1`).
+
+`.clang-tidy` knows these. Any other name that has to stay as it is gets a `// NOLINT(readability-identifier-naming)` saying why.
+
 ---
 
 ## Braces

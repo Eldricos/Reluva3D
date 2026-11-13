@@ -86,6 +86,33 @@ CheckOptions:
   - key: readability-identifier-naming.ConstantParameterCase
     value: camelBack
 
+  # --- Naming: exceptions (the guide's Naming: Exceptions) --------------------
+  # Names the C++ standard library looks for (a container's value_type, a
+  # random engine's result_type, a transparent comparator's is_transparent).
+  - key: readability-identifier-naming.TypeAliasIgnoredRegexp
+    value: '^(value_type|size_type|difference_type|pointer|const_pointer|reference|const_reference|iterator|const_iterator|reverse_iterator|const_reverse_iterator|key_type|mapped_type|element_type|result_type|is_transparent|char_type|traits_type)$'
+  - key: readability-identifier-naming.TypedefIgnoredRegexp
+    value: '^(value_type|size_type|difference_type|pointer|const_pointer|reference|const_reference|iterator|const_iterator|reverse_iterator|const_reverse_iterator|key_type|mapped_type|element_type|result_type|is_transparent|char_type|traits_type)$'
+  # Functions of the compiler's runtime that Reluva declares (__register_frame).
+  # (An ignored pattern has to match the whole name.)
+  - key: readability-identifier-naming.FunctionIgnoredRegexp
+    value: '__.*'
+  - key: readability-identifier-naming.GlobalFunctionIgnoredRegexp
+    value: '__.*'
+  # The x86 processor's registers and flags, as its manuals name them:
+  # reg[EAX], eflags & CF.
+  - key: readability-identifier-naming.EnumConstantIgnoredRegexp
+    value: '^(E[ABCD]X|E[SB]P|E[SD]I|[ACDIOPSTZ]F)$'
+  - key: readability-identifier-naming.ConstexprVariableIgnoredRegexp
+    value: '^[ACDIOPSTZ]F$'
+  # A formula's or a specification's notation in a local: one capital letter,
+  # perhaps with a digit or a letter (S, T, Q, Y, U, V, Xc, E0), and Indeo's
+  # transform terms (b0_1 ... b3_9).
+  - key: readability-identifier-naming.VariableIgnoredRegexp
+    value: '^([A-Z][a-z0-9]?|b[0-9]_[0-9])$'
+  - key: readability-identifier-naming.LocalConstantIgnoredRegexp
+    value: '^([A-Z][a-z0-9]?|b[0-9]_[0-9])$'
+
   # --- Naming: Type Names -- AnInt, AClass, AStruct, CoolThing ---------------
   - key: readability-identifier-naming.ClassCase
     value: CamelCase
