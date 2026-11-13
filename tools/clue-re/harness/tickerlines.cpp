@@ -9,12 +9,12 @@
 #include "image/image.h"
 using namespace reluva; using namespace reluva::clue;
 int main(int argc, char** argv) {
-    GameData data; data.open(argv[1], Language::US);
+    GameData data; data.open(argv[1], Language::kUS);
     Resi resi; { std::ifstream in(*data.find("dialogInfo.res"), std::ios::binary); std::vector<uint8_t> b((std::istreambuf_iterator<char>(in)), {}); parseResi(b, resi); }
     Fonts fonts(data, resi); const BitmapFont* f = fonts.get(2);
     std::ifstream t(*data.find("TickerStrings.txt")); std::string line; std::vector<std::string> lines;
     while (std::getline(t, line)) { if (!line.empty() && line.back() == '\r') line.pop_back(); lines.push_back(line); }
-    Surface s; s.create(640, 18 * int(lines.size()), PixelFormat::RGBA32);
+    Surface s; s.create(640, 18 * int(lines.size()), PixelFormat::kRGBA32);
     const Animation* an = data.animation("ticker:Aticker");
     struct G { const Image* im = nullptr; int x0 = 0, x1 = -1; };
     std::vector<G> gl(256);

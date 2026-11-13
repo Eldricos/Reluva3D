@@ -26,9 +26,13 @@ The C++ programs in `harness/` are built against Reluva's libraries, from
 the repository's root after a build:
 
     g++ -std=c++20 -O1 -Isrc -I. tools/clue-re/harness/NAME.cpp \
-        build/engines/clue/libreluva_engine_clue.a build/libreluva_common.a -lpthread -o NAME
+        build/engines/clue/libreluva_engine_clue.a build/src/emulation/libreluva_emulation.a \
+        build/src/video/libreluva_video.a build/src/image/libreluva_image.a \
+        build/src/graphics/libreluva_graphics.a build/src/audio/libreluva_audio.a \
+        build/src/common/libreluva_common.a -lpthread -o NAME
 
-`harness.cpp` and `netgame.cpp` also need `src/backends/networking/sockets/socket_net.cpp`.
+`harness.cpp` and `netgame.cpp` also need the sockets backend,
+`build/src/backends/libreluva_backend_sockets.a`, before the common library.
 
 ## The executables (`py/`)
 

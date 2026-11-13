@@ -4,7 +4,7 @@
 #include <cstring>
 using namespace reluva; using namespace reluva::clue;
 int main(int argc, char** argv) {
-    GameData data; data.open(argv[1], Language::US);
+    GameData data; data.open(argv[1], Language::kUS);
     DataDrive f; f.open(*data.find("clue.lvl")); Level lvl; parseLevel(f, lvl);
     for (const auto& pl : lvl.placements) {
         const std::string& n = lvl.objects[pl.object];

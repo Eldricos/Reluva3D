@@ -42,27 +42,27 @@ struct Null : System {
 // points of the billiard room from where Miss Scarlet stands, and the walk
 // played out by the RoomWalk command.
 int main(int argc, char** argv) {
-    GameData data; data.open(argv[1], Language::US);
+    GameData data; data.open(argv[1], Language::kUS);
     Resi resi; { std::ifstream in(*data.find("dialogInfo.res"), std::ios::binary); std::vector<uint8_t> b((std::istreambuf_iterator<char>(in)), {}); parseResi(b, resi); }
     Fonts fonts(data, resi);
     DataDrive f; f.open(*data.find("clue.lvl")); Level lvl; parseLevel(f, lvl);
     Mansion m; m.build(data, lvl);
-    Null sys; Surface s; s.create(640, 480, PixelFormat::RGBA32);
+    Null sys; Surface s; s.create(640, 480, PixelFormat::kRGBA32);
     Play p(sys, s, data, nullptr, resi, fonts, m, lvl);
-    std::array<Player, 6> pl; pl[0].kind = Player::Human; pl[1].kind = Player::Computer; pl[2].kind = Player::Computer;
+    std::array<Player, 6> pl; pl[0].kind = Player::kHuman; pl[1].kind = Player::kComputer; pl[2].kind = Player::kComputer;
     p.start(pl, false, 3); uint64_t t = 1000; for (int i = 0; i < 50; ++i) p.update(t += 16);
     const int room = argc > 2 ? std::atoi(argv[2]) : 6;
-    p.game_.places_[0] = Place{{}, room};
-    p.walkers_[0].x = p.walkers_[0].y = -100000; // off the board: placed afresh in the room
+    p._game._places[0] = Place{{}, room};
+    p._walkers[0].x = p._walkers[0].y = -100000; // off the board: placed afresh in the room
     p.placeWalkers(false);
-    const Play::Walker& w = p.walkers_[0];
+    const Play::Walker& w = p._walkers[0];
     // Points of the room: each 32-unit cell's middle, a few of them.
     std::vector<std::pair<int,int>> cells;
     for (int y = 0; y < 3000; y += 32) for (int x = 0; x < 3000; x += 32)
-        if (p.board_.roomAt(Board::squareAt(x + 16, y + 16)) == room && !p.blocked_.count({x / 32, y / 32})) cells.push_back({x + 16, y + 16});
+        if (p._board.roomAt(Board::squareAt(x + 16, y + 16)) == room && !p._blocked.count({x / 32, y / 32})) cells.push_back({x + 16, y + 16});
     std::printf("%zu free cells in the room\n", cells.size());
-    p.walkers_[0].x = cells[0].first; p.walkers_[0].y = cells[0].second; // a free cell of the room
-    { const int cx = w.x / 32, cy = w.y / 32; std::printf("Miss Scarlet (turn %d) in room %d at %d,%d\n", p.game_.turn(), room, w.x, w.y); std::printf("start cell %d,%d blocked %d room %d\n", cx, cy, int(p.blocked_.count({cx, cy})), p.board_.roomAt(Board::squareAt(cx * 32 + 16, cy * 32 + 16))); }
+    p._walkers[0].x = cells[0].first; p._walkers[0].y = cells[0].second; // a free cell of the room
+    { const int cx = w.x / 32, cy = w.y / 32; std::printf("Miss Scarlet (turn %d) in room %d at %d,%d\n", p._game.turn(), room, w.x, w.y); std::printf("start cell %d,%d blocked %d room %d\n", cx, cy, int(p._blocked.count({cx, cy})), p._board.roomAt(Board::squareAt(cx * 32 + 16, cy * 32 + 16))); }
     int reachable = 0, shown = 0;
     for (size_t i = 0; i < cells.size(); i += 7) {
         auto r = p.roomRoute(cells[i].first, cells[i].second);
@@ -77,8 +77,8 @@ int main(int argc, char** argv) {
     std::printf("reachable %d of %zu tried\n", reachable, (cells.size() + 6) / 7);
     // The walk, as a command.
     const auto goal = cells[cells.size() / 2];
-    netplay::Command c; c.type = netplay::Command::RoomWalk; c.seat = 0; c.args = {int16_t(goal.first), int16_t(goal.second)};
+    netplay::Command c; c.type = netplay::Command::kRoomWalk; c.seat = 0; c.args = {int16_t(goal.first), int16_t(goal.second)};
     p.apply(c);
-    for (int i = 0; i < 600 && p.walkers_[0].walking; ++i) p.update(t += 16);
-    std::printf("walked to %d,%d (asked %d,%d), still walking %d, game place room %d\n", w.x, w.y, goal.first, goal.second, int(w.walking), p.game_.place(0).room);
+    for (int i = 0; i < 600 && p._walkers[0].walking; ++i) p.update(t += 16);
+    std::printf("walked to %d,%d (asked %d,%d), still walking %d, game place room %d\n", w.x, w.y, goal.first, goal.second, int(w.walking), p._game.place(0).room);
 }

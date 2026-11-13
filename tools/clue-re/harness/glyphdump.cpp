@@ -4,7 +4,7 @@
 #include <string>
 using namespace reluva; using namespace reluva::clue;
 int main(int argc, char** argv) {
-    GameData data; data.open(argv[1], Language::US);
+    GameData data; data.open(argv[1], Language::kUS);
     const Animation* a = data.animation(argv[2]);
     const std::string text = argv[3];
     std::ofstream o(argv[4]);

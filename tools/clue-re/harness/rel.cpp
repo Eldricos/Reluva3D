@@ -5,7 +5,7 @@
 #include <cstdlib>
 using namespace reluva; using namespace reluva::clue;
 int main(int argc, char** argv) {
-    GameData data; data.open(argv[1], Language::US);
+    GameData data; data.open(argv[1], Language::kUS);
     DataDrive f; f.open(*data.find("clue.lvl")); Level lvl; parseLevel(f, lvl);
     Mansion m; m.build(data, lvl);
     int ax = std::atoi(argv[2]), ay = std::atoi(argv[3]);

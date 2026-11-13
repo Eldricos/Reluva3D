@@ -2,7 +2,7 @@
 #include <cstdio>
 using namespace reluva; using namespace reluva::clue;
 int main(int argc, char** argv) {
-    GameData data; data.open(argv[1], Language::US);
+    GameData data; data.open(argv[1], Language::kUS);
     std::printf("ticker.res at %s\n", data.find("ticker.res") ? data.find("ticker.res")->string().c_str() : "-");
     const Animation* a = data.animation("ticker:Aticker");
     std::printf("cell %dx%d\n", a->width, a->height);

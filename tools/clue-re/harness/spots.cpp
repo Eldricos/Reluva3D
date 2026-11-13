@@ -8,7 +8,7 @@
 using namespace reluva; using namespace reluva::clue;
 int cell32(int v) { return (v + (v < 0 ? 31 : 0)) >> 5; }
 int main(int argc, char** argv) {
-    GameData data; data.open(argv[1], Language::US);
+    GameData data; data.open(argv[1], Language::kUS);
     DataDrive f; f.open(*data.find("clue.lvl")); Level lvl; parseLevel(f, lvl);
     Mansion m; m.build(data, lvl); Board b; b.build(lvl);
     std::set<std::pair<int,int>> blocked;

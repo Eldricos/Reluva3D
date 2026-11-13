@@ -13,17 +13,17 @@ int main(int argc, char** argv) {
         Game game; std::array<bool,6> pl{}; for (int k = 0; k < players; ++k) pl[k] = true; game.start(board, pl, false, uint32_t(g + 1));
         std::array<ComputerPlayer, 6> ai; for (int s = 0; s < 6; ++s) ai[s].reset(game, s, g * 31 + s, level);
         int turns = 0;
-        for (int steps = 0; game.phase() != Game::Phase::Over && steps < 200000; ++steps) {
+        for (int steps = 0; game.phase() != Game::Phase::kOver && steps < 200000; ++steps) {
             auto& me = ai[game.turn()];
             switch (me.decide(game)) {
-            case ComputerPlayer::Action::Roll: game.rollDie(); break;
-            case ComputerPlayer::Action::Passage: game.takePassage(); break;
-            case ComputerPlayer::Action::Walk: game.walk(me.chooseWalk(game)); break;
-            case ComputerPlayer::Action::Suggest: { auto a = me.chooseSuggestion(game); ++sugg; selfNamed += a.suspect == game.turn();
-                game.suggest(a.suspect, a.weapon); if (game.phase() == Game::Phase::Disprove) game.show(ai[game.disprover()].chooseShow(game, game.turn()));
+            case ComputerPlayer::Action::kRoll: game.rollDie(); break;
+            case ComputerPlayer::Action::kPassage: game.takePassage(); break;
+            case ComputerPlayer::Action::kWalk: game.walk(me.chooseWalk(game)); break;
+            case ComputerPlayer::Action::kSuggest: { auto a = me.chooseSuggestion(game); ++sugg; selfNamed += a.suspect == game.turn();
+                game.suggest(a.suspect, a.weapon); if (game.phase() == Game::Phase::kDisprove) game.show(ai[game.disprover()].chooseShow(game, game.turn()));
                 for (auto& p : ai) p.observe(game); break; }
-            case ComputerPlayer::Action::Accuse: game.accuse(me.chooseAccusation()); break;
-            case ComputerPlayer::Action::EndTurn: game.endTurn(); ++turns; break;
+            case ComputerPlayer::Action::kAccuse: game.accuse(me.chooseAccusation()); break;
+            case ComputerPlayer::Action::kEndTurn: game.endTurn(); ++turns; break;
             }
         }
         rounds += double(turns) / players; within12 += turns <= 12 * players;
