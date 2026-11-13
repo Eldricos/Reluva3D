@@ -331,7 +331,34 @@ Error GameHost::load() {
         addNativeRoutines();
         addNativeSound();
     }
+    if (options_.positionalUpdates)
+        choosePositionalUpdates();
     return Error::success();
+}
+
+void GameHost::choosePositionalUpdates() {
+    // The network dialog's set-up 0x43f320 starts 0x6fd50c (Positional
+    // rather than Controller Updates) at 0, from edx, in its kinds 0 and 1
+    // (0x43f43e, 0x43f451), and its handler can only clear it (0x43f927),
+    // as no dialog shows that choice (net.md, Positional updates). Both
+    // stores are made to write 1 from the register holding 1 there (esi,
+    // eax), where the code is as expected; kind 2 is left as it is.
+    const uint8_t expected[6] = {0x89, 0x15, 0x0c, 0xd5, 0x6f, 0x00}; // mov [0x6fd50c], edx
+    auto matches = [&](uint32_t a) {
+        for (uint32_t i = 0; i < 6; ++i)
+            if (cpu_->read8(a + i) != expected[i])
+                return false;
+        return true;
+    };
+    if (!matches(0x43f43e) || !matches(0x43f451)) {
+        say("positional updates: nfs3.exe's network dialog isn't the expected code; left as it is");
+        return;
+    }
+    cpu_->write8(0x43f43f, 0x35); // mov [0x6fd50c], esi (1)
+    const uint8_t storeEax[6] = {0xa3, 0x0c, 0xd5, 0x6f, 0x00, 0x90}; // mov [0x6fd50c], eax (1); nop
+    for (uint32_t i = 0; i < 6; ++i)
+        cpu_->write8(0x43f451 + i, storeEax[i]);
+    say("positional updates chosen for network races");
 }
 
 bool GameHost::replaceRoutine(uint32_t address, uint32_t size, uint64_t hash, const char* name, Cpu::Native fn) {

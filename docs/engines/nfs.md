@@ -1598,7 +1598,20 @@ Still to do:
   - Real machines over a LAN and the internet: so far only two copies
     on one machine have played.
   - How a race holds up over a slower link, or when a copy stalls for
-    loading longer than the original did.
+    loading longer than the original did. The game's own answer to a
+    slow link is its positional updates (net.md, Positional updates):
+    each copy runs its own car and places the others from their
+    statuses, so no step waits on the network. Its dialogs never offer
+    the choice; `positionalupdates=on` in `reluva.ini` (`nfs-host
+    -positional`) makes them choose it, for every player alike.
+  - Internet play through EA's online service (could, not needed). Its
+    servers are gone, and its client DLL (NPS, 33 functions the game
+    looks up, `0x4a54f0`) isn't on the CD; plain TCP play over the
+    internet doesn't need either. A stand-in written from the game's own
+    calls, with Reluva as the relay, would give only the service's way
+    of starting a race (its command line, `-IP=`... `-PNUM=`), with
+    positional updates as above and Knockout in Hot Pursuit's place
+    (`0x452b11`).
 - **Not planned:** running d3da itself (see above; its look is the
   game's own, The Direct3D look; a shared Direct3D stand-in is planned
   for later, when other engines need one, below). The Glide renderer isn't needed to

@@ -56,6 +56,10 @@ public:
              std::string wheelPedals = {}, bool network = true, bool fillMovies = true, std::string serial = {},
              std::string modem = {}, bool glide = false, bool direct3d = false, bool glideSoftware = false,
              std::string glideDll = {}, std::string glideBoard = {});
+    // Network races with positional updates (reluva.ini's
+    // positionalupdates=on; GameHost::Options::positionalUpdates). Set
+    // before the page is first shown; every player needs the same.
+    void setPositionalUpdates(bool on) { positionalUpdates_ = on; }
     ~PlayPage() override;
     const char* name() const override { return "Play"; }
     bool capturesEscape() const override { return true; }
@@ -92,6 +96,7 @@ private:
     bool offerJoystick_ = true;
     bool forceFeedback_ = true;
     bool smoothTextures_ = true;
+    bool positionalUpdates_ = false;
     bool network_ = true; // the game's sockets on the machine's (System::sockets)
     std::string serial_, modem_; // its COM ports' and modem's links (GameHost::Options)
     bool fillMovies_ = true; // the black lines between a movie's filled in

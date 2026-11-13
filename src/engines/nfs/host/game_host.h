@@ -54,6 +54,12 @@ public:
         // With nativeThrash: textures point-sampled instead of the
         // bilinear filtering both DLLs ask for (NativeThrash::setPointSampled).
         bool pointSampled = false;
+        // Network races with positional updates (net.md, Positional
+        // updates): each copy runs its own car without waiting for the
+        // others, which it places from their statuses every 32 steps. The
+        // game has the choice but its host and join dialogs never show it;
+        // this makes them choose it. Every player needs it the same.
+        bool positionalUpdates = false;
         std::filesystem::path saveFolder; // what the game writes; the install folder stays as it is
         uint32_t memoryMb = 256;
         uint64_t instructionLimit = 0; // 0: none
@@ -310,6 +316,7 @@ private:
     uint32_t compareBuffer_ = 0, compareClear_ = 0;
     std::array<int, 4> compareClip_{0, 0, 640, 480};
     void addDirectSound();
+    void choosePositionalUpdates();
     void addNativeRoutines(); // the C library's hottest routines in nfs3.exe, natively
     void addNativeSound();    // its sound mixer's loops (native_sound.cpp)
     // Replaces the routine at `address` with a native function (a jump to

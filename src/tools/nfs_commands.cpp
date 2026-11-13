@@ -95,6 +95,7 @@ const char* const kUsageLines =
     "                       [-gpudump list dir] (that list in full: list.csv and its textures)\n"
     "                       [-present voodoo2a.dll] (the renderer the game is told of, -renderer's loaded in\n"
     "                       its place; the default; none: as -renderer)\n"
+    "                       [-positional] (network races with positional updates, every player alike)\n"
     "                       [-pointfilter] (native drawing: textures point-sampled, not bilinear)\n"
     "                       [-direct3d] (the game told of d3da.dll, the Direct3D renderer: its Direct3D look,\n"
     "                       drawn natively as d3da's device draws; -present d3da.dll -native)\n"
@@ -1120,6 +1121,8 @@ int cmdNfsHost(int argc, char** argv) {
             options.presentedRenderer.clear();
         } else if (arg == "-native") {
             options.nativeThrash = true;
+        } else if (arg == "-positional") { // network races with positional updates (net.md)
+            options.positionalUpdates = true;
         } else if (arg == "-pointfilter") { // the native THRASH's textures point-sampled, not bilinear
             options.pointSampled = true;
         } else if (arg == "-direct3d") { // the game told of d3da.dll, drawn natively as d3da's device draws

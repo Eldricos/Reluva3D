@@ -582,13 +582,15 @@ std::vector<std::unique_ptr<Page>> makePages(const char* gameName, const GameFol
     };
     const std::string scale = setting("renderscale");
     pagesPointSampled = setting("texturefilter") == "point";
-    pages.push_back(std::make_unique<PlayPage>(folders, saveFolder, mixer, scale.empty() ? 2 : std::atoi(scale.c_str()),
+    auto play = std::make_unique<PlayPage>(folders, saveFolder, mixer, scale.empty() ? 2 : std::atoi(scale.c_str()),
                                                setting("texturefilter") != "point", setting("joystick") != "off",
                                                setting("forcefeedback") != "off", setting("wheelpedals"),
                                                setting("network") != "off", setting("movielines") != "keep",
                                                setting("serial"), setting("modem"), setting("renderer") == "glide",
                                                setting("renderer") == "direct3d", setting("glide") == "software",
-                                               setting("glidedll"), setting("glideboard")));
+                                               setting("glidedll"), setting("glideboard"));
+    play->setPositionalUpdates(setting("positionalupdates") == "on");
+    pages.push_back(std::move(play));
     pages.push_back(std::make_unique<TrackPage>(files, folders, mixer));
     pages.push_back(std::make_unique<CarPage>(files));
     pages.push_back(std::make_unique<TexturePage>(files));

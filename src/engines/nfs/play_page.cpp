@@ -185,6 +185,7 @@ void PlayPage::start() {
     options.saveFolder = saveFolder_.empty() ? folders_.install / "reluva-save" : saveFolder_ / "game";
     options.nativeThrash = true;
     options.pointSampled = !smoothTextures_;
+    options.positionalUpdates = positionalUpdates_;
     // Told it has a Voodoo 2, the game draws its sky and fog (it fogs only
     // for 3dfx cards); the drawing is still Reluva's. Or, told of d3da.dll,
     // it takes its Direct3D path, drawn as d3da's device draws.
