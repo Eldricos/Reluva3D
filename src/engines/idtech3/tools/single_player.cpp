@@ -9,7 +9,7 @@
 
 #include "common/fs.h"
 #include "emulation/x86/cpu.h"
-#include "engines/idtech3/bsp.h"
+#include "engines/idtech3/formats/bsp.h"
 #include "engines/idtech3/cvars.h"
 #include "engines/idtech3/eliteforce/sp_game_host.h"
 #include "engines/idtech3/eliteforce/sp_ui_host.h"

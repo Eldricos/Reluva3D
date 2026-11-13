@@ -7,16 +7,16 @@
 #include "devtools/tool.h"
 #include "engines/idtech3/tools/game_folder.h"
 
-#include "engines/idtech3/bsp.h"
+#include "engines/idtech3/formats/bsp.h"
 #include "engines/idtech3/cvars.h"
 #include "engines/idtech3/eliteforce/cgame_host.h"
 #include "engines/idtech3/eliteforce/game_host.h"
 #include "engines/idtech3/eliteforce/net_client.h"
 #include "engines/idtech3/eliteforce/ui_host.h"
-#include "engines/idtech3/entities.h"
+#include "engines/idtech3/formats/entities.h"
 #include "engines/idtech3/info_string.h"
-#include "engines/idtech3/qvm.h"
-#include "engines/idtech3/shader.h"
+#include "engines/idtech3/vm/qvm.h"
+#include "engines/idtech3/formats/shader.h"
 
 #include <algorithm>
 #include <array>

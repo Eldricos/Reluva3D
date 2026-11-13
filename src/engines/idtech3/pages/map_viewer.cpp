@@ -6,7 +6,7 @@
 // and a summary of its lumps and entities. A stand-in until the engine has
 // a real renderer.
 
-#include "engines/idtech3/entities.h"
+#include "engines/idtech3/formats/entities.h"
 #include "engines/idtech3/pages/map_viewer.h"
 
 #include "graphics/font.h"

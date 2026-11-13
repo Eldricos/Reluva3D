@@ -44,13 +44,13 @@
 //           wheel or +/- to zoom, W/A/S/D/Q/E to move, R to reset the view,
 //           P to show or hide patches, I to show or hide the info.
 
-#include "engines/idtech3/bindings.h"
+#include "engines/idtech3/client/bindings.h"
 #include "engines/idtech3/cvars.h"
 #include "engines/idtech3/games.h"
-#include "engines/idtech3/shader.h"
-#include "engines/idtech3/shader_cache.h"
-#include "engines/idtech3/model_cache.h"
-#include "engines/idtech3/world_renderer.h"
+#include "engines/idtech3/formats/shader.h"
+#include "engines/idtech3/render/shader_cache.h"
+#include "engines/idtech3/render/model_cache.h"
+#include "engines/idtech3/render/world_renderer.h"
 
 #include "common/archive.h"
 #include "audio/mixer.h"

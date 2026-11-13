@@ -2,7 +2,7 @@
 // Copyright (C) 2026 The Reluva contributors
 
 #include "engines/idtech3/collision.h"
-#include "engines/idtech3/patch.h"
+#include "engines/idtech3/render/patch.h"
 
 #include <algorithm>
 #include <cmath>

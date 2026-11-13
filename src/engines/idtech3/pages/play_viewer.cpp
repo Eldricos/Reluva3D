@@ -12,7 +12,7 @@
 
 #include "engines/idtech3/eliteforce/cgame_host.h"
 #include "engines/idtech3/eliteforce/game_host.h"
-#include "engines/idtech3/entities.h"
+#include "engines/idtech3/formats/entities.h"
 #include "engines/idtech3/filesystem.h"
 #include "engines/idtech3/info_string.h"
 #include "engines/idtech3/pure.h"

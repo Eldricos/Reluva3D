@@ -3,7 +3,7 @@
 
 #pragma once
 
-#include "engines/idtech3/qvm.h"
+#include "engines/idtech3/vm/qvm.h"
 
 #include <cstdint>
 

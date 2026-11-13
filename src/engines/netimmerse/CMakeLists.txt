@@ -7,15 +7,15 @@
 reluva_add_engine(netimmerse
     ACCESSOR netImmerseMetaEngine
     SOURCES
+        netimmerse.cpp
         alphateam/game_process.cpp
         alphateam/player.cpp
-        data.cpp
-        ddf.cpp
-        fin.cpp
-        model_page.cpp
-        netimmerse.cpp
-        pac_archive.cpp
-        viewers.cpp)
+        formats/data.cpp
+        formats/ddf.cpp
+        formats/fin.cpp
+        formats/pac_archive.cpp
+        pages/model_page.cpp
+        pages/viewers.cpp)
 
 # Its reluva-tool commands (reluva-tool help netimmerse lists them).
 reluva_add_engine_tools(netimmerse

@@ -33,8 +33,8 @@
 #include "backends/platform/sdl3/sdl_system.h"
 #include "common/archive.h"
 #include "audio/mixer.h"
-#include "engines/awe/story.h"
-#include "engines/awe/viewers.h"
+#include "engines/awe/game/story.h"
+#include "engines/awe/pages/viewers.h"
 
 #include <algorithm>
 #include <cctype>

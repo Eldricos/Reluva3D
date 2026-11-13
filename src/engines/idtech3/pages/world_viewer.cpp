@@ -4,7 +4,7 @@
 // The data viewer's World page: a map drawn by WorldRenderer on the GPU,
 // with a fly camera starting where the player does.
 
-#include "engines/idtech3/entities.h"
+#include "engines/idtech3/formats/entities.h"
 #include "engines/idtech3/pages/world_viewer.h"
 
 #include "graphics/font.h"

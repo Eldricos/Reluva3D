@@ -16,8 +16,8 @@
 
 #include "engines/engine.h"
 #include "engines/netimmerse/alphateam/player.h"
-#include "engines/netimmerse/pac_archive.h"
-#include "engines/netimmerse/viewers.h"
+#include "engines/netimmerse/formats/pac_archive.h"
+#include "engines/netimmerse/pages/viewers.h"
 #include "audio/mixer.h"
 #include "common/fs.h"
 #include "common/settings.h"

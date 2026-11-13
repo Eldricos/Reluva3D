@@ -3,7 +3,7 @@
 
 #include "engines/idtech3/client/player_input.h"
 
-#include "engines/idtech3/bindings.h"
+#include "engines/idtech3/client/bindings.h"
 
 #include "common/fs.h"
 

@@ -9,8 +9,8 @@
 //   reluva-tool netimmerse fin-check <Fin.pac> [file.pac...]
 
 #include "common/fs.h"
-#include "engines/netimmerse/fin.h"
-#include "engines/netimmerse/pac_archive.h"
+#include "engines/netimmerse/formats/fin.h"
+#include "engines/netimmerse/formats/pac_archive.h"
 #include "devtools/tool.h"
 
 #include <algorithm>

@@ -7,9 +7,9 @@
 #include "engines/idtech3/tools/game_folder.h"
 
 #include "common/fs.h"
-#include "engines/idtech3/bsp.h"
-#include "engines/idtech3/entities.h"
-#include "engines/idtech3/shader.h"
+#include "engines/idtech3/formats/bsp.h"
+#include "engines/idtech3/formats/entities.h"
+#include "engines/idtech3/formats/shader.h"
 
 #include <algorithm>
 #include <cstdint>

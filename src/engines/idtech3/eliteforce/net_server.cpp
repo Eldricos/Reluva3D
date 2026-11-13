@@ -5,11 +5,11 @@
 
 #include "engines/idtech3/eliteforce/game_info.h"
 
-#include "engines/idtech3/bindings.h"
+#include "engines/idtech3/client/bindings.h"
 #include "engines/idtech3/eliteforce/net_fields.h"
 #include "engines/idtech3/info_string.h"
 #include "engines/idtech3/pure.h"
-#include "engines/idtech3/server_browser.h"
+#include "engines/idtech3/client/server_browser.h"
 
 #include "common/fs.h"
 

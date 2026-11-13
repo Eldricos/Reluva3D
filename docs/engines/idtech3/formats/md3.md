@@ -1,6 +1,6 @@
 # id Tech 3: models (`.md3`) and skins (`.skin`)
 
-> **Status:** decoded · **Code:** `src/engines/idtech3/md3.cpp`, `model_cache.cpp` · **Checked on:** every `.md3` of Elite Force: 578 in 1.0 and 1.1, 594 in 1.2, 716 with the Expansion Pack (`reluva-tool idtech3 model-check`, November 2026) · **Confidence:** confirmed unless marked
+> **Status:** decoded · **Code:** `src/engines/idtech3/formats/md3.cpp`, `model_cache.cpp` · **Checked on:** every `.md3` of Elite Force: 578 in 1.0 and 1.1, 594 in 1.2, 716 with the Expansion Pack (`reluva-tool idtech3 model-check`, November 2026) · **Confidence:** confirmed unless marked
 
 ## Overview
 
@@ -78,7 +78,7 @@ ignoring case.
 
 A player's folder holds an `animation.cfg` naming the runs of frames its
 parts play. How the file is read was taken from the GPL ioquake3 game code
-(`cg_players.c`); Reluva's reader is `src/engines/idtech3/player_animation.cpp`.
+(`cg_players.c`); Reluva's reader is `src/engines/idtech3/formats/player_animation.cpp`.
 
 Lines of words (`sex f`, `soundpath alexa`) are settings; every other line
 is four numbers and a comment naming the animation:

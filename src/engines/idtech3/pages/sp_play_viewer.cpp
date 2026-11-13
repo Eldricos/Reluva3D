@@ -2,10 +2,10 @@
 // Copyright (C) 2026 The Reluva contributors
 
 #include "engines/idtech3/eliteforce/sp_game_host.h"
-#include "engines/idtech3/entities.h"
+#include "engines/idtech3/formats/entities.h"
 #include "engines/idtech3/games.h"
 #include "engines/idtech3/pages/sp_play_viewer.h"
-#include "engines/idtech3/shader.h"
+#include "engines/idtech3/formats/shader.h"
 
 #include "graphics/font.h"
 #include "image/image.h"

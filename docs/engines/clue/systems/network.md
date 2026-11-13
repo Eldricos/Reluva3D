@@ -1,6 +1,6 @@
 # Clue: Murder at Boddy Mansion: network play
 
-> **Status:** done · **Code:** `src/engines/clue/netplay.h`, `src/engines/clue/frontend_net.cpp` · **Checked against:** Reluva's own tests, not the original · **Confidence:** Reluva's own protocol; the original's screens confirmed (from its files)
+> **Status:** done · **Code:** `src/engines/clue/game/netplay.h`, `src/engines/clue/ui/frontend_net.cpp` · **Checked against:** Reluva's own tests, not the original · **Confidence:** Reluva's own protocol; the original's screens confirmed (from its files)
 
 ## Overview
 
@@ -66,7 +66,7 @@ to every machine, 0x41BD90) goes to the host, which sends every action, in one o
 everyone, itself included. Every machine plays the actions out from the
 same deal and seed, so the die and the computer players come out the
 same everywhere. The host checks each action is from the machine whose
-player it is. `src/engines/clue/netplay.h`.
+player it is. `src/engines/clue/game/netplay.h`.
 
 ## Sources and checks
 

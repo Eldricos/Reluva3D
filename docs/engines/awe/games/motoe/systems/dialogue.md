@@ -1,6 +1,6 @@
 # Murder on the Orient Express: dialogue
 
-> **Status:** done · **Code:** `src/engines/awe/dialogue.cpp`, `dialogue_box.cpp` · **Checked against:** the code (`motoe.exe`) and the dialogue tables · **Confidence:** from the code unless marked
+> **Status:** done · **Code:** `src/engines/awe/game/dialogue.cpp`, `dialogue_box.cpp` · **Checked against:** the code (`motoe.exe`) and the dialogue tables · **Confidence:** from the code unless marked
 
 ## Overview
 
@@ -797,14 +797,14 @@ ends. Exits exist only with gen (NPC clicks or `forcegen`).
 
 ## In Reluva
 
-`src/engines/awe/dialogue.cpp` follows this: `DialogueBook` reads the
+`src/engines/awe/game/dialogue.cpp` follows this: `DialogueBook` reads the
 tables into parts, threads and lines with the game's codes; the
 `DialogueManager` plays them with three script runners of its own
 (Prevent, Event, Povent), keeps progress in the `GameState` for the
 `talk` condition, builds the exit and "again" threads and the generic
 extras for characters clicked, and slides the box in and out. The
 Scenes page is its host: it plays the voices (`Sound/VO`), draws the box
-(`src/engines/awe/dialogue_box.cpp`) with act 8's picture choices,
+(`src/engines/awe/ui/dialogue_box.cpp`) with act 8's picture choices,
 and passes on clicks, the wheel and the middle button. The speakers'
 heads and mouths move, the Captions option hides the said lines, and a
 talk's start closes the inventory and lets go of the item in hand

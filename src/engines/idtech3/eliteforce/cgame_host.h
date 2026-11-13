@@ -5,16 +5,16 @@
 
 #include "common/archive.h"
 #include "common/types.h"
-#include "engines/idtech3/bsp.h"
+#include "engines/idtech3/formats/bsp.h"
 #include "engines/idtech3/collision.h"
 #include "engines/idtech3/cvars.h"
 #include "engines/idtech3/eliteforce/game_host.h"
 #include "engines/idtech3/client/scene.h"
-#include "engines/idtech3/marks.h"
-#include "engines/idtech3/md3.h"
-#include "engines/idtech3/qvm.h"
-#include "engines/idtech3/sound_system.h"
-#include "engines/idtech3/vm_services.h"
+#include "engines/idtech3/formats/marks.h"
+#include "engines/idtech3/formats/md3.h"
+#include "engines/idtech3/vm/qvm.h"
+#include "engines/idtech3/audio/sound_system.h"
+#include "engines/idtech3/vm/vm_services.h"
 
 #include <array>
 #include <cstdint>

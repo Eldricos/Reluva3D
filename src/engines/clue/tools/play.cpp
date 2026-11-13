@@ -9,11 +9,11 @@
 
 #include "common/headless_system.h"
 #include "image/image.h"
-#include "engines/clue/frontend.h"
+#include "engines/clue/ui/frontend.h"
 #include "engines/clue/game_data.h"
-#include "engines/clue/resi.h"
-#include "engines/clue/rules.h"
-#include "engines/clue/ui.h"
+#include "engines/clue/formats/resi.h"
+#include "engines/clue/game/rules.h"
+#include "engines/clue/ui/ui.h"
 #include "engines/registry.h"
 #include "devtools/tool.h"
 

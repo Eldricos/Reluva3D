@@ -4,8 +4,8 @@
 #pragma once
 
 #include "engines/idtech3/pages/page.h"
-#include "engines/idtech3/model_cache.h"
-#include "engines/idtech3/player_animation.h"
+#include "engines/idtech3/render/model_cache.h"
+#include "engines/idtech3/formats/player_animation.h"
 
 #include <array>
 #include <memory>

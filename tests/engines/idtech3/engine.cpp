@@ -32,7 +32,7 @@
 
 #include "common/archive.h"
 #include "common/net.h"
-#include "engines/idtech3/bsp.h"
+#include "engines/idtech3/formats/bsp.h"
 #include "engines/idtech3/collision.h"
 #include "engines/idtech3/cvars.h"
 #include "engines/idtech3/eliteforce/cgame_host.h"
@@ -41,8 +41,8 @@
 #include "engines/idtech3/eliteforce/net_server.h"
 #include "engines/idtech3/eliteforce/ui_host.h"
 #include "engines/idtech3/filesystem.h"
-#include "engines/idtech3/md3.h"
-#include "engines/idtech3/shader.h"
+#include "engines/idtech3/formats/md3.h"
+#include "engines/idtech3/formats/shader.h"
 #include "engines/registry.h"
 
 #include "tests/engines/idtech3/data/qvm/fake_cgame_qvm.h"

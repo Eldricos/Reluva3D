@@ -1,4 +1,4 @@
-#include "engines/clue/resi.h"
+#include "engines/clue/formats/resi.h"
 #include <cstdio>
 #include <fstream>
 #include <iterator>

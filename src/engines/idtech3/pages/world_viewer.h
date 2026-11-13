@@ -4,9 +4,9 @@
 #pragma once
 
 #include "engines/idtech3/pages/page.h"
-#include "engines/idtech3/bsp.h"
-#include "engines/idtech3/light_grid.h"
-#include "engines/idtech3/world_renderer.h"
+#include "engines/idtech3/formats/bsp.h"
+#include "engines/idtech3/render/light_grid.h"
+#include "engines/idtech3/render/world_renderer.h"
 
 #include <array>
 #include <memory>

@@ -1,6 +1,6 @@
 #include "engines/clue/game_data.h"
-#include "engines/clue/resi.h"
-#include "engines/clue/ui.h"
+#include "engines/clue/formats/resi.h"
+#include "engines/clue/ui/ui.h"
 #include <cstdio>
 #include <fstream>
 using namespace reluva; using namespace reluva::clue;

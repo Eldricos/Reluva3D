@@ -1,6 +1,6 @@
 # Murder on the Orient Express: text files and script commands
 
-> **Status:** decoded · **Code:** `src/engines/awe/tables.cpp` · **Checked on:** the English release: `acts.txt`, `itemlist.txt`, `combinelist.txt`, `fonts.txt`, `interface.txt`, `navigation.txt`, `uselist.txt` and an event file · **Confidence:** confirmed unless marked
+> **Status:** decoded · **Code:** `src/engines/awe/formats/tables.cpp` · **Checked on:** the English release: `acts.txt`, `itemlist.txt`, `combinelist.txt`, `fonts.txt`, `interface.txt`, `navigation.txt`, `uselist.txt` and an event file · **Confidence:** confirmed unless marked
 
 ## Overview
 

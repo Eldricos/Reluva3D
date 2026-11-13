@@ -16,8 +16,8 @@
 //   reluva-tests clue.engine [--update]
 
 #include "common/headless_system.h"
-#include "engines/clue/level.h"
-#include "engines/clue/rules.h"
+#include "engines/clue/formats/level.h"
+#include "engines/clue/game/rules.h"
 #include "engines/registry.h"
 #include "tests/engines/clue/support.h"
 #include "tests/support/record.h"

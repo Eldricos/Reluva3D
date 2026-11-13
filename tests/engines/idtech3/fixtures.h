@@ -7,7 +7,7 @@
 
 #pragma once
 
-#include "engines/idtech3/bsp.h"
+#include "engines/idtech3/formats/bsp.h"
 #include "engines/idtech3/collision.h"
 
 #include <cmath>

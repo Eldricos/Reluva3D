@@ -8,7 +8,7 @@ As in ScummVM: lower case for all source and header files and for folders, with 
 
 * `actor.cpp` (`class Actor`)
 * `cool_game_function.h` (`class CoolGameFunction`)
-* `engines/clue/board.cpp`, `video/smacker.h`
+* `engines/clue/game/board.cpp`, `video/smacker.h`
 
 Every file starts with its license and copyright lines, and every header has `#pragma once`:
 

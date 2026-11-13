@@ -5,12 +5,12 @@
 
 #include "common/archive.h"
 #include "common/types.h"
-#include "engines/idtech3/bindings.h"
+#include "engines/idtech3/client/bindings.h"
 #include "engines/idtech3/cvars.h"
 #include "engines/idtech3/client/scene.h"
-#include "engines/idtech3/qvm.h"
-#include "engines/idtech3/server_browser.h"
-#include "engines/idtech3/vm_services.h"
+#include "engines/idtech3/vm/qvm.h"
+#include "engines/idtech3/client/server_browser.h"
+#include "engines/idtech3/vm/vm_services.h"
 
 #include <array>
 #include <cstdint>

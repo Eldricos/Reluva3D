@@ -17,7 +17,7 @@
 #include "common/archive.h"
 #include "audio/mixer.h"
 #include "common/settings.h"
-#include "engines/awe/viewers.h"
+#include "engines/awe/pages/viewers.h"
 
 #include <cstdio>
 

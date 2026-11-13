@@ -1,6 +1,6 @@
 # Clue: Murder at Boddy Mansion: the computer players
 
-> **Status:** done · **Code:** `src/engines/clue/ai.h` · **Checked against:** `Clue.exe` 2.2's code, and recordings of the original · **Confidence:** from the code unless marked
+> **Status:** done · **Code:** `src/engines/clue/game/ai.h` · **Checked against:** `Clue.exe` 2.2's code, and recordings of the original · **Confidence:** from the code unless marked
 
 ## Overview
 

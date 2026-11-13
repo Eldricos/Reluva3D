@@ -13,7 +13,7 @@
 
 #include "common/fs.h"
 #include "engines/netimmerse/alphateam/game_process.h"
-#include "engines/netimmerse/pac_archive.h"
+#include "engines/netimmerse/formats/pac_archive.h"
 #include "devtools/tool.h"
 
 #include <algorithm>

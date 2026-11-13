@@ -1,7 +1,7 @@
 // Renders each TickerStrings.txt line in the ticker's font, centred on a 640x18 strip, as one PGM row block.
 #include "engines/clue/game_data.h"
-#include "engines/clue/resi.h"
-#include "engines/clue/ui.h"
+#include "engines/clue/formats/resi.h"
+#include "engines/clue/ui/ui.h"
 #include <cstdio>
 #include <fstream>
 #include <sstream>

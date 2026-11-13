@@ -22,7 +22,7 @@
 #include "engines/engine.h"
 #include "engines/idtech3/filesystem.h"
 #include "engines/idtech3/games.h"
-#include "engines/idtech3/shader.h"
+#include "engines/idtech3/formats/shader.h"
 #include "engines/idtech3/pages/file_viewer.h"
 #include "engines/idtech3/pages/map_viewer.h"
 #include "engines/idtech3/pages/menu_viewer.h"

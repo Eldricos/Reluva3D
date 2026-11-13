@@ -1,6 +1,6 @@
 # Clue: Murder at Boddy Mansion: the game's screen
 
-> **Status:** done · **Code:** `src/engines/clue/mansion.h`, `src/engines/clue/play.h` · **Checked against:** `Clue.exe` 2.2's code, and recordings of the original · **Confidence:** confirmed unless marked
+> **Status:** done · **Code:** `src/engines/clue/game/mansion.h`, `src/engines/clue/game/play.h` · **Checked against:** `Clue.exe` 2.2's code, and recordings of the original · **Confidence:** confirmed unless marked
 
 ## Overview
 

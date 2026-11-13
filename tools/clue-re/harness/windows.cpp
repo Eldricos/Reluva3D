@@ -20,9 +20,9 @@
 #include "audio/mixer.h"
 #include "video/avi.h"
 #include "engines/clue/game_data.h"
-#include "engines/clue/ui.h"
+#include "engines/clue/ui/ui.h"
 #define private public
-#include "engines/clue/play.h"
+#include "engines/clue/game/play.h"
 #undef private
 using namespace reluva; using namespace reluva::clue;
 struct Null : System {

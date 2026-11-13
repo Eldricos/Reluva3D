@@ -1,6 +1,6 @@
 # Clue: Murder at Boddy Mansion: playing
 
-> **Status:** partial · **Code:** `src/engines/clue/play.h`, `src/engines/clue/rules.h`, `src/engines/clue/frontend.h` · **Checked against:** `Clue.exe`'s code, and recordings of the original · **Confidence:** from the code unless marked
+> **Status:** partial · **Code:** `src/engines/clue/game/play.h`, `src/engines/clue/game/rules.h`, `src/engines/clue/ui/frontend.h` · **Checked against:** `Clue.exe`'s code, and recordings of the original · **Confidence:** from the code unless marked
 
 ## Overview
 

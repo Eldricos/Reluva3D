@@ -6,27 +6,27 @@
 reluva_add_engine(clue
     ACCESSOR clueMetaEngine
     SOURCES
-        ai.cpp
-        animation_viewer.cpp
-        board.cpp
         clue.cpp
-        frontend.cpp
-        frontend_net.cpp
         game_data.cpp
-        image_viewer.cpp
-        level.cpp
-        mansion.cpp
-        mansion_viewer.cpp
-        movie.cpp
-        netplay.cpp
-        play.cpp
-        resi.cpp
-        resources.cpp
-        rules.cpp
-        sound_viewer.cpp
-        text_viewer.cpp
-        ui.cpp
-        video_viewer.cpp)
+        formats/level.cpp
+        formats/resi.cpp
+        formats/resources.cpp
+        game/ai.cpp
+        game/board.cpp
+        game/mansion.cpp
+        game/netplay.cpp
+        game/play.cpp
+        game/rules.cpp
+        pages/animation_viewer.cpp
+        pages/image_viewer.cpp
+        pages/mansion_viewer.cpp
+        pages/sound_viewer.cpp
+        pages/text_viewer.cpp
+        pages/video_viewer.cpp
+        ui/frontend.cpp
+        ui/frontend_net.cpp
+        ui/movie.cpp
+        ui/ui.cpp)
 
 # Its reluva-tool commands (reluva-tool help clue lists them).
 reluva_add_engine_tools(clue

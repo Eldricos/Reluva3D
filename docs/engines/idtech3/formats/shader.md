@@ -1,6 +1,6 @@
 # id Tech 3: shader scripts (`scripts/*.shader`)
 
-> **Status:** decoded · **Code:** `src/engines/idtech3/shader.cpp`, `world_renderer.cpp` · **Checked on:** generated test maps and the retail Elite Force maps; `reluva-tool idtech3 shader-check` on Elite Force's shaders: 1872 in 1.0, 1891 in 1.2, 2059 with the Expansion Pack (November 2026) · **Confidence:** confirmed unless marked
+> **Status:** decoded · **Code:** `src/engines/idtech3/formats/shader.cpp`, `world_renderer.cpp` · **Checked on:** generated test maps and the retail Elite Force maps; `reluva-tool idtech3 shader-check` on Elite Force's shaders: 1872 in 1.0, 1891 in 1.2, 2059 with the Expansion Pack (November 2026) · **Confidence:** confirmed unless marked
 
 ## Overview
 
@@ -63,7 +63,7 @@ Waves are `<func> <base> <amplitude> <phase> <frequency>`, func one of
 
 Read from the GPL Quake III Arena renderer (`tr_shader.c`,
 `tr_shade_calc.c`, `tr_sky.c`, `tr_bsp.c`) for behaviour; Reluva's code
-(`src/engines/idtech3/world_renderer.cpp`) is written from this description.
+(`src/engines/idtech3/render/world_renderer.cpp`) is written from this description.
 
 - **Stages** are drawn in order, each a pass over the surface.
 - **Depth:** a stage writes depth unless it blends (anything but

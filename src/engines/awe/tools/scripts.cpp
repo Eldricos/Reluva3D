@@ -10,8 +10,8 @@
 
 #include "common/archive.h"
 #include "common/fs.h"
-#include "engines/awe/ac2.h"
-#include "engines/awe/tables.h"
+#include "engines/awe/formats/ac2.h"
+#include "engines/awe/formats/tables.h"
 
 #include <algorithm>
 #include <cstdio>

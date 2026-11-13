@@ -10,13 +10,13 @@
 #include "emulation/x86/format.h"
 #include "engines/idtech3/eliteforce/game_layout.h"
 #include "engines/idtech3/raven/savegame.h"
-#include "engines/idtech3/entities.h"
+#include "engines/idtech3/formats/entities.h"
 
 #include "common/detection.h"
 #include "common/md5.h"
 #include "common/archive.h"
 #include "common/fs.h"
-#include "engines/idtech3/vm_services.h"
+#include "engines/idtech3/vm/vm_services.h"
 
 #include <algorithm>
 #include <array>

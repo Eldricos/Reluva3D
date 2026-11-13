@@ -3,7 +3,7 @@
 
 #include "engines/idtech3/eliteforce/net_client.h"
 
-#include "engines/idtech3/bindings.h"
+#include "engines/idtech3/client/bindings.h"
 #include "engines/idtech3/eliteforce/net_fields.h"
 #include "engines/idtech3/info_string.h"
 

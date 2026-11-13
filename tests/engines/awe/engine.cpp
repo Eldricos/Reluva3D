@@ -15,7 +15,7 @@
 
 #include "common/headless_system.h"
 #include "image/image.h"
-#include "engines/awe/savegame.h"
+#include "engines/awe/formats/savegame.h"
 #include "engines/registry.h"
 #include "tests/engines/awe/fixtures.h"
 #include "tests/support/record.h"

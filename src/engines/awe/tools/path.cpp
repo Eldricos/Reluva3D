@@ -8,9 +8,9 @@
 #include "engines/awe/tools/tools.h"
 
 #include "common/fs.h"
-#include "engines/awe/ac2.h"
-#include "engines/awe/game_paths.h"
-#include "engines/awe/walk_grid.h"
+#include "engines/awe/formats/ac2.h"
+#include "engines/awe/game/game_paths.h"
+#include "engines/awe/game/walk_grid.h"
 
 #include <algorithm>
 #include <chrono>

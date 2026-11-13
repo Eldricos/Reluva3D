@@ -8,10 +8,10 @@
 //
 //   reluva-tests netimmerse.unit.formats
 
-#include "engines/netimmerse/data.h"
-#include "engines/netimmerse/ddf.h"
-#include "engines/netimmerse/fin.h"
-#include "engines/netimmerse/pac_archive.h"
+#include "engines/netimmerse/formats/data.h"
+#include "engines/netimmerse/formats/ddf.h"
+#include "engines/netimmerse/formats/fin.h"
+#include "engines/netimmerse/formats/pac_archive.h"
 #include "tests/engines/netimmerse/fixtures.h"
 #include "tests/support/test.h"
 

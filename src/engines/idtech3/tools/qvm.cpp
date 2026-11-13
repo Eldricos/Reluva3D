@@ -7,7 +7,7 @@
 #include "engines/idtech3/tools/game_folder.h"
 
 #include "engines/idtech3/cvars.h"
-#include "engines/idtech3/qvm.h"
+#include "engines/idtech3/vm/qvm.h"
 
 #include <algorithm>
 #include <cctype>

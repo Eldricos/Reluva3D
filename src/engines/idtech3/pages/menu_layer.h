@@ -6,7 +6,7 @@
 #include "engines/idtech3/pages/page.h"
 #include "engines/idtech3/client/scene_drawer.h"
 #include "engines/idtech3/eliteforce/ui_host.h"
-#include "engines/idtech3/sounds.h"
+#include "engines/idtech3/audio/sounds.h"
 
 #include <map>
 #include <memory>

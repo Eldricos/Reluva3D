@@ -1,6 +1,6 @@
 # Murder on the Orient Express: movies and video loops
 
-> **Status:** done · **Code:** `src/engines/awe/movie_player.cpp` · **Checked against:** the game's `binkw32.dll` (English 1.0), run in Reluva's x86 interpreter, on all 87 movies and loops · **Confidence:** from the code unless marked
+> **Status:** done · **Code:** `src/engines/awe/render/movie_player.cpp` · **Checked against:** the game's `binkw32.dll` (English 1.0), run in Reluva's x86 interpreter, on all 87 movies and loops · **Confidence:** from the code unless marked
 
 ## Overview
 

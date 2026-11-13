@@ -7,14 +7,14 @@
 #include "engines/idtech3/tools/game_folder.h"
 
 #include "backends/networking/sockets/socket_net.h"
-#include "engines/idtech3/bsp.h"
+#include "engines/idtech3/formats/bsp.h"
 #include "engines/idtech3/cvars.h"
 #include "engines/idtech3/eliteforce/game_host.h"
 #include "engines/idtech3/eliteforce/game_info.h"
 #include "engines/idtech3/eliteforce/net_client.h"
 #include "engines/idtech3/eliteforce/net_server.h"
 #include "engines/idtech3/info_string.h"
-#include "engines/idtech3/server_browser.h"
+#include "engines/idtech3/client/server_browser.h"
 
 #include <algorithm>
 #include <chrono>

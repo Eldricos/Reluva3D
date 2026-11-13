@@ -1,6 +1,6 @@
 # Murder on the Orient Express: acts, scenes and the game's start
 
-> **Status:** done · **Code:** `src/engines/awe/story.cpp`, `script.cpp` · **Checked against:** the code (`motoe.exe`, English 1.0), `acts.txt` and the 394 scenes; fades against a recording · **Confidence:** from the code unless marked
+> **Status:** done · **Code:** `src/engines/awe/game/story.cpp`, `script.cpp` · **Checked against:** the code (`motoe.exe`, English 1.0), `acts.txt` and the 394 scenes; fades against a recording · **Confidence:** from the code unless marked
 
 ## Overview
 
@@ -164,7 +164,7 @@ Scripts use it before going to a closeup.
 
 ## In Reluva
 
-`Story` (`src/engines/awe/story.cpp`) handles the acts: it reads
+`Story` (`src/engines/awe/game/story.cpp`) handles the acts: it reads
 `acts.txt`, starts acts, loads their locations, and checks their
 completion. It also ticks the timers. `ScriptRunner` does `timer`,
 `time`, `reset` and `savescene` itself.

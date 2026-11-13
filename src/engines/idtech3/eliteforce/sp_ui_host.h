@@ -7,12 +7,12 @@
 #include "common/types.h"
 #include "emulation/x86/cpu.h"
 #include "emulation/x86/win32.h"
-#include "engines/idtech3/bindings.h"
+#include "engines/idtech3/client/bindings.h"
 #include "engines/idtech3/collision.h"
 #include "engines/idtech3/cvars.h"
 #include "engines/idtech3/client/scene.h"
-#include "engines/idtech3/md3.h"
-#include "engines/idtech3/vm_services.h"
+#include "engines/idtech3/formats/md3.h"
+#include "engines/idtech3/vm/vm_services.h"
 
 #include <array>
 #include <cstdint>

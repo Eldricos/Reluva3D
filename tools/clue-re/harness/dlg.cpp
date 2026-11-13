@@ -1,5 +1,5 @@
 #include "engines/clue/game_data.h"
-#include "engines/clue/resi.h"
+#include "engines/clue/formats/resi.h"
 #include <fstream>
 #include <iterator>
 static std::vector<uint8_t> readFile(const char* p) { std::ifstream f(p, std::ios::binary); return {std::istreambuf_iterator<char>(f), {}}; }

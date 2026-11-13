@@ -13,9 +13,9 @@
 #include "engines/idtech3/eliteforce/net_client.h"
 #include "engines/idtech3/eliteforce/net_server.h"
 #include "engines/idtech3/eliteforce/ui_host.h"
-#include "engines/idtech3/light_grid.h"
-#include "engines/idtech3/sound_system.h"
-#include "engines/idtech3/sounds.h"
+#include "engines/idtech3/render/light_grid.h"
+#include "engines/idtech3/audio/sound_system.h"
+#include "engines/idtech3/audio/sounds.h"
 
 #include <array>
 #include <chrono>

@@ -6,7 +6,7 @@
 #include "engines/idtech3/pages/page.h"
 #include "engines/idtech3/client/joystick_input.h"
 #include "engines/idtech3/pages/menu_layer.h"
-#include "engines/idtech3/server_browser.h"
+#include "engines/idtech3/client/server_browser.h"
 
 #include <memory>
 #include <string>

@@ -1,7 +1,7 @@
 #include "engines/clue/game_data.h"
-#include "engines/clue/level.h"
-#include "engines/clue/mansion.h"
-#include "engines/clue/board.h"
+#include "engines/clue/formats/level.h"
+#include "engines/clue/game/mansion.h"
+#include "engines/clue/game/board.h"
 #include <cstdio>
 #include <set>
 #include <algorithm>

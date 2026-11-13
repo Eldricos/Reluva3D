@@ -3,8 +3,8 @@
 
 #include "engines/idtech3/eliteforce/cgame_host.h"
 
-#include "engines/idtech3/md3.h"
-#include "engines/idtech3/shader.h"
+#include "engines/idtech3/formats/md3.h"
+#include "engines/idtech3/formats/shader.h"
 
 #include <array>
 #include <cstdlib>

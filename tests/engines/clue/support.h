@@ -6,8 +6,8 @@
 
 #pragma once
 
-#include "engines/clue/board.h"
-#include "engines/clue/level.h"
+#include "engines/clue/game/board.h"
+#include "engines/clue/formats/level.h"
 #include "tests/support/test.h"
 
 #include <cstdint>

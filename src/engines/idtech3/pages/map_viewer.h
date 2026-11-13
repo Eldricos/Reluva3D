@@ -4,7 +4,7 @@
 #pragma once
 
 #include "engines/idtech3/pages/page.h"
-#include "engines/idtech3/bsp.h"
+#include "engines/idtech3/formats/bsp.h"
 
 #include <array>
 #include <memory>

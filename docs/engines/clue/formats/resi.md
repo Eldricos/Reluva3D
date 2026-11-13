@@ -1,6 +1,6 @@
 # Clue: Murder at Boddy Mansion: dialogInfo.res
 
-> **Status:** decoded · **Code:** `src/engines/clue/resi.h` · **Checked on:** the retail CD (2.0, US and UK data), a clean install of it and the 2.2 patch: all three different files (US 2.0, UK 2.0, 2.2) · **Confidence:** layout confirmed; meanings inferred unless marked
+> **Status:** decoded · **Code:** `src/engines/clue/formats/resi.h` · **Checked on:** the retail CD (2.0, US and UK data), a clean install of it and the 2.2 patch: all three different files (US 2.0, UK 2.0, 2.2) · **Confidence:** layout confirmed; meanings inferred unless marked
 
 ## Overview
 

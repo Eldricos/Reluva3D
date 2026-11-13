@@ -5,7 +5,7 @@
 
 #include "engines/idtech3/eliteforce/game_info.h"
 
-#include "engines/idtech3/md3.h"
+#include "engines/idtech3/formats/md3.h"
 
 #include "common/fs.h"
 

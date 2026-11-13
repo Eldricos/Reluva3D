@@ -3,8 +3,8 @@
 
 #pragma once
 
-#include "engines/idtech3/md3.h"
-#include "engines/idtech3/qvm.h"
+#include "engines/idtech3/formats/md3.h"
+#include "engines/idtech3/vm/qvm.h"
 
 #include <array>
 #include <cstddef>

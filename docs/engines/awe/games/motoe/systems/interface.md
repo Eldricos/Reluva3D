@@ -1,6 +1,6 @@
 # Murder on the Orient Express: the interface (the bar, the inventory, the scrapbook, the cards)
 
-> **Status:** done · **Code:** `src/engines/awe/scene_interface.cpp` · **Checked against:** the code (`motoe.exe`, English 1.0); Reluva's screens compared by eye with the pictures the game's code places · **Confidence:** from the code unless marked
+> **Status:** done · **Code:** `src/engines/awe/pages/scene_interface.cpp` · **Checked against:** the code (`motoe.exe`, English 1.0); Reluva's screens compared by eye with the pictures the game's code places · **Confidence:** from the code unless marked
 
 ## Overview
 
@@ -292,7 +292,7 @@ under the dialogue box and the cursor.
 
 ## In Reluva
 
-`src/engines/awe/scene_interface.cpp` does all of the above in the Scenes
+`src/engines/awe/pages/scene_interface.cpp` does all of the above in the Scenes
 page, in a game. The items are the `GameState`'s list, as the game's: in
 the order taken, each with its own state and slot. `addItem` adds one, as
 the game's `0x41bc10` does, every time, whatever's there already: the

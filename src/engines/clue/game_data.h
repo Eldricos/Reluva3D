@@ -3,8 +3,8 @@
 
 #pragma once
 
-#include "engines/clue/level.h"
-#include "engines/clue/resources.h"
+#include "engines/clue/formats/level.h"
+#include "engines/clue/formats/resources.h"
 
 #include <filesystem>
 #include <map>

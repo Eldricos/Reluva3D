@@ -9,10 +9,10 @@
 #include "engines/idtech3/client/scene_drawer.h"
 #include "engines/idtech3/eliteforce/sp_game_host.h"
 #include "engines/idtech3/eliteforce/sp_ui_host.h"
-#include "engines/idtech3/light_grid.h"
+#include "engines/idtech3/render/light_grid.h"
 #include "engines/idtech3/raven/savegame.h"
-#include "engines/idtech3/sound_system.h"
-#include "engines/idtech3/sounds.h"
+#include "engines/idtech3/audio/sound_system.h"
+#include "engines/idtech3/audio/sounds.h"
 
 #include "video/bink.h"
 

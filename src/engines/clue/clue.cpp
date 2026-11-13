@@ -18,8 +18,8 @@
 
 #include "common/fs.h"
 #include "common/settings.h"
-#include "engines/clue/frontend.h"
-#include "engines/clue/viewers.h"
+#include "engines/clue/ui/frontend.h"
+#include "engines/clue/pages/viewers.h"
 #include "engines/engine.h"
 
 namespace reluva {

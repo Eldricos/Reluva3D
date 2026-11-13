@@ -5,11 +5,11 @@
 
 #include "engines/idtech3/client/ref_entity.h"
 #include "engines/idtech3/client/scene.h"
-#include "engines/idtech3/light_grid.h"
-#include "engines/idtech3/model_cache.h"
-#include "engines/idtech3/shader_cache.h"
-#include "engines/idtech3/vm_services.h"
-#include "engines/idtech3/world_renderer.h"
+#include "engines/idtech3/render/light_grid.h"
+#include "engines/idtech3/render/model_cache.h"
+#include "engines/idtech3/render/shader_cache.h"
+#include "engines/idtech3/vm/vm_services.h"
+#include "engines/idtech3/render/world_renderer.h"
 
 #include "graphics/gfx3d.h"
 
