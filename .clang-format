@@ -95,6 +95,11 @@ ColumnLimit: 120
 # --- Not in guide: keep the existing layout -----------------------------------
 # Include order is not set by the guide; keep the order each file has.
 SortIncludes: Never
+# Nor of using-declarations
+SortUsingDeclarations: Never
+# A string literal stays whole, even past the line length: split strings
+# are hard to search for (an error message, a command's usage text)
+BreakStringLiterals: false
 MaxEmptyLinesToKeep: 1
 KeepEmptyLinesAtTheStartOfBlocks: false
 InsertNewlineAtEOF: true

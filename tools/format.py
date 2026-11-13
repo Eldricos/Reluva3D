@@ -11,6 +11,16 @@ docs/CODING_GUIDE.md has them (.clang-format).
     python3 tools/format.py --changed        only files changed since they
                                              left main (or --changed <base>)
     python3 tools/format.py <file or folder>...   only those
+    python3 tools/format.py --verify <commit>
+                                             check that every C/C++ file
+                                             changed since <commit> differs
+                                             only in layout: the same text
+                                             once whitespace is removed
+                                             (namespace closing comments
+                                             aside). For reviewing a
+                                             formatting commit:
+                                             --verify <commit>~1 after
+                                             checking it out.
 
 Covers src/ and tests/, leaving out what .clang-format-ignore lists
 (generated files) and what clang-format is switched off for (third_party/).
@@ -21,6 +31,7 @@ clang-format.
 
 import concurrent.futures
 import os
+import re
 import subprocess
 import sys
 
@@ -76,12 +87,56 @@ def select(paths):
     return sorted(set(out))
 
 
+NAMESPACE_COMMENT = re.compile(r"//\s*namespace\b[^\n]*")
+WHITESPACE = re.compile(r"\s+")
+
+
+def layout_free(text):
+    """The text with its layout taken out: no whitespace, and no
+    `// namespace x` closing comments (clang-format adds and corrects them)."""
+    text = text.replace("\\\r\n", "").replace("\\\n", "")  # a line continuation is layout too
+    return WHITESPACE.sub("", NAMESPACE_COMMENT.sub("", text))
+
+
+def verify(base):
+    """Every C/C++ file changed since `base`: the same once layout is taken
+    out. Prints each that isn't, with where they first differ."""
+    names = [f for f in git("diff", "--name-only", "-M", "--diff-filter=AMR", base).splitlines()
+             if f.endswith(SOURCES)]
+    renamed = {}
+    for line in git("diff", "--name-status", "-M", "--diff-filter=R", base).splitlines():
+        _, old, new = line.split("\t")
+        renamed[new] = old
+    bad = 0
+    for f in names:
+        try:
+            before = git("show", f"{base}:{renamed.get(f, f)}")
+        except subprocess.CalledProcessError:
+            continue  # a new file: nothing to compare with
+        with open(f, encoding="utf-8", newline="") as h:
+            after = h.read()
+        a, b = layout_free(before), layout_free(after)
+        if a != b:
+            bad += 1
+            i = next((k for k, (x, y) in enumerate(zip(a, b)) if x != y), min(len(a), len(b)))
+            print(f"{f}: not only layout; first difference (whitespace removed):\n"
+                  f"    before: ...{a[max(0, i - 40):i + 40]}...\n"
+                  f"    after:  ...{b[max(0, i - 40):i + 40]}...")
+    print(f"{len(names)} files changed since {base}; {bad} with more than layout changed")
+    return 1 if bad else 0
+
+
 def main():
     os.chdir(git("rev-parse", "--show-toplevel").strip())
     args = sys.argv[1:]
     if "-h" in args or "--help" in args:
         print(__doc__)
         return 0
+    if "--verify" in args:
+        i = args.index("--verify")
+        if i + 1 >= len(args):
+            sys.exit("--verify <commit>: the commit to compare with")
+        return verify(args[i + 1])
     check = "--check" in args
     args = [a for a in args if a != "--check"]
     paths = None
