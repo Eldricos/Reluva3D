@@ -65,7 +65,7 @@ float glideFog(float w, float value);
 // page flips); this keeps a copy of each texture as the game gave it.
 class NativeThrash {
 public:
-    explicit NativeThrash(x86::Cpu &cpu) : cpu_(cpu) {}
+    explicit NativeThrash(x86::Cpu &cpu) : _cpu(cpu) {}
 
     // Where drawing goes: 16-bit 5:6:5 pixels in emulated memory.
     void setTarget(uint32_t address, int pitch, int width, int height);
@@ -77,14 +77,14 @@ public:
     // given no pixels.
     uint32_t tupdate(uint32_t handle, uint32_t pixels, uint32_t palette);
     void treset() {
-        textures_.clear();
-        changed_.clear();
-        resetTextures_ = true;
+        _textures.clear();
+        _changed.clear();
+        _resetTextures = true;
     }
     // Draws into a list rather than into memory, from now on.
-    void setRecording(bool on) { recording_ = on; }
+    void setRecording(bool on) { _recording = on; }
     // Draws into memory too while recording (to compare the two).
-    void setAlsoRasterize(bool on) { alsoRasterize_ = on; }
+    void setAlsoRasterize(bool on) { _alsoRasterize = on; }
     // A filled rectangle (a clear), into the list.
     void fill(int x0, int y0, int x1, int y1, uint32_t argb);
     // The list drawn since the last call, with the textures changed.
@@ -99,7 +99,7 @@ public:
     // texture blend (modulated, colour and alpha) are as without it: the
     // game sends d3da no fog, and the rest is the same.
     void setDirect3D(bool on);
-    bool direct3D() const { return direct3D_; }
+    bool direct3D() const { return _direct3D; }
     // Textures are bilinear-filtered, as both DLLs ask for (voodoo2a.dll
     // sends itself state 7 1 after setvideomode, 0x6000208f; d3da's device
     // starts LINEAR): thrash.md, Texture filtering. With this on they are
@@ -114,9 +114,9 @@ public:
     void line(uint32_t a, uint32_t b);
     void point(uint32_t a);
 
-    uint64_t pixels() const { return pixels_; }
+    uint64_t pixels() const { return _pixels; }
     // Textures of a format not read yet, for reports.
-    const std::map<int, int> &unknownFormats() const { return unknownFormats_; }
+    const std::map<int, int> &unknownFormats() const { return _unknownFormats; }
 
 private:
     struct Vertex {
@@ -145,38 +145,38 @@ private:
     // dithering is on).
     void put(uint8_t *pixel, uint32_t argb, int x, int y);
 
-    x86::Cpu &cpu_;
-    uint32_t target_ = 0;
-    int pitch_ = 0, width_ = 0, height_ = 0;
-    int clipX0_ = 0, clipY0_ = 0, clipX1_ = 640, clipY1_ = 480;
-    std::map<uint32_t, Texture> textures_;
-    const Texture *texture_ = nullptr;
-    uint32_t textureHandle_ = 0;
-    int cull_ = 0; // state 2: 0 none, 1 counter-clockwise, 2 clockwise
+    x86::Cpu &_cpu;
+    uint32_t _target = 0;
+    int _pitch = 0, _width = 0, _height = 0;
+    int _clipX0 = 0, _clipY0 = 0, _clipX1 = 640, _clipY1 = 480;
+    std::map<uint32_t, Texture> _textures;
+    const Texture *_texture = nullptr;
+    uint32_t _textureHandle = 0;
+    int _cull = 0; // state 2: 0 none, 1 counter-clockwise, 2 clockwise
     // State 5: dithering. voodoo2a.dll's setstate 5 calls grDitherMode(2)
     // (4x4) for a value not 0, else grDitherMode(0); Glide starts at 4x4.
-    bool dither_ = true;
-    bool gouraud_ = true;       // state 6
-    bool direct3D_ = false;     // d3da's device (setDirect3D)
-    bool bilinear_ = true;      // textures filtered: both DLLs' default, and d3da's state 7
-    bool pointSampled_ = false; // held point-sampled (setPointSampled)
-    bool wrap_ = true;          // state 0xd: 1 wrap, 0 clamp
-    int blend_ = 0;             // state 0x68: 0 alpha, 1 additive, 2 darken, 3 multiply
-    bool alphaBlend_ = false;   // state 0xa
+    bool _dither = true;
+    bool _gouraud = true;       // state 6
+    bool _direct3D = false;     // d3da's device (setDirect3D)
+    bool _bilinear = true;      // textures filtered: both DLLs' default, and d3da's state 7
+    bool _pointSampled = false; // held point-sampled (setPointSampled)
+    bool _wrap = true;          // state 0xd: 1 wrap, 0 clamp
+    int _blend = 0;             // state 0x68: 0 alpha, 1 additive, 2 darken, 3 multiply
+    bool _alphaBlend = false;   // state 0xa
     // Fog: on or off as the last of states 0xe and 0x15 said, with the
     // last nonzero 0xe's table (Glide's 64 entries, of 255) and 0xf's colour.
-    bool fogOn_ = false;
-    float fogValue_ = 0;
-    std::array<float, 64> fogTable_{};
-    uint32_t fogColour_ = 0;
+    bool _fogOn = false;
+    float _fogValue = 0;
+    std::array<float, 64> _fogTable{};
+    uint32_t _fogColour = 0;
     float fogAt(float w) const; // fogTable_ read as Glide reads it, 0 to 1
-    bool recording_ = false;
-    bool alsoRasterize_ = false;
-    ThrashFrame frame_;
-    std::set<uint32_t> changed_; // textures made or updated since the last frame
-    bool resetTextures_ = false;
-    uint64_t pixels_ = 0;
-    std::map<int, int> unknownFormats_;
+    bool _recording = false;
+    bool _alsoRasterize = false;
+    ThrashFrame _frame;
+    std::set<uint32_t> _changed; // textures made or updated since the last frame
+    bool _resetTextures = false;
+    uint64_t _pixels = 0;
+    std::map<int, int> _unknownFormats;
 };
 
 } // namespace reluva::nfs

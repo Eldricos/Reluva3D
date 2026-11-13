@@ -1096,17 +1096,17 @@ void testCarHits() {
         std::vector<uint8_t> flat(100, 30);
         one[0].heading = 0;
         aiRaceTick(one, road, 4);
-        aiStep(one, 0, road, flat, d, 8, 1, false, AiPhase::Drive);
+        aiStep(one, 0, road, flat, d, 8, 1, false, AiPhase::kDrive);
         CHECK(one[0].laneLeft == 8 && one[0].lane == 8 && one[0].laneRight == 8);
         one[0].heading = 3.14159265f / 6;
         aiRaceTick(one, road, 10);
-        aiStep(one, 0, road, flat, d, 16, 1, false, AiPhase::Drive);
+        aiStep(one, 0, road, flat, d, 16, 1, false, AiPhase::kDrive);
         CHECK(one[0].laneLeft == 7 && one[0].lane == 8 && one[0].laneRight == 8);
         // The driver's half alone moves nothing; the model's half alone
         // votes nothing.
         CHECK(one[0].lateral == 3.0f && one[0].speed == 0 && one[0].wanted > 0);
         one[0].pick = -1;
-        aiStep(one, 0, road, flat, d, 24, 1, false, AiPhase::Move);
+        aiStep(one, 0, road, flat, d, 24, 1, false, AiPhase::kMove);
         CHECK(one[0].pick == -1 && one[0].speed > 0);
     }
     // ai_ctl_rails' side force along the road polygon's right (+0x124):
@@ -1133,12 +1133,12 @@ void testCarHits() {
         std::vector<uint8_t> flat(100, 30);
         std::vector<AiCar> va{a};
         std::vector<AiCar> vb{b};
-        aiStep(va, 0, road, flat, d, 1, 1, false, AiPhase::Move); // odd: the side offset measured along each right
-        aiStep(vb, 0, road, flat, d, 1, 1, false, AiPhase::Move);
+        aiStep(va, 0, road, flat, d, 1, 1, false, AiPhase::kMove); // odd: the side offset measured along each right
+        aiStep(vb, 0, road, flat, d, 1, 1, false, AiPhase::kMove);
         vb[0].side = va[0].side;
-        aiStep(va, 0, road, flat, d, 2, 1, false, AiPhase::Move);
-        aiStep(vb, 0, road, flat, d, 2, 1, false, AiPhase::Move);
-        CHECK(va[0].steer == AiCar::Rails && vb[0].steer == AiCar::Rails && va[0].sideSpeed > 0);
+        aiStep(va, 0, road, flat, d, 2, 1, false, AiPhase::kMove);
+        aiStep(vb, 0, road, flat, d, 2, 1, false, AiPhase::kMove);
+        CHECK(va[0].steer == AiCar::kRails && vb[0].steer == AiCar::kRails && va[0].sideSpeed > 0);
         CHECK(std::fabs(vb[0].sideSpeed - va[0].sideSpeed * std::cos(t)) < 1e-4f);
     }
     // Put back on the road (0x429100): 5 slices on, at the slice's point,
@@ -1198,7 +1198,7 @@ void testCarHits() {
         d.accel.fill(4);
         std::vector<uint8_t> flat(100, 30);
         std::vector<AiCar> rv{r};
-        aiStep(rv, 0, road, flat, d, 2, 1, false, AiPhase::Move);
+        aiStep(rv, 0, road, flat, d, 2, 1, false, AiPhase::kMove);
         CHECK(rv[0].slice == 35 && rv[0].reverseCount == 0 && rv[0].ghostTicks == 64 && !rv[0].putBackDue);
         // Off the lanes (lane 11, two past the edge's 9) and slow: +0x7D8
         // counts; its bit 0x40 steers at its own slice, over 1000 it is
@@ -1209,12 +1209,12 @@ void testCarHits() {
         o.speed = 1;
         o.offRoadTicks = 1000;
         std::vector<AiCar> ov{o};
-        aiStep(ov, 0, road, flat, d, 2, 1, false, AiPhase::Move);
+        aiStep(ov, 0, road, flat, d, 2, 1, false, AiPhase::kMove);
         CHECK(ov[0].slice == 35 && ov[0].offRoadTicks == 0);
         o.offRoadTicks = 5;
         o.lane = 8;
         ov = {o};
-        aiStep(ov, 0, road, flat, d, 2, 1, false, AiPhase::Move);
+        aiStep(ov, 0, road, flat, d, 2, 1, false, AiPhase::kMove);
         CHECK(ov[0].offRoadTicks == 0 && ov[0].slice == 30);
     }
     // A roadblock's hit (0x42ac40 -> 0x42ad35): a racer swerving into a
@@ -1277,17 +1277,17 @@ void testCarHits() {
     // them.
     {
         AiCar s;
-        s.steer = AiCar::Rails;
+        s.steer = AiCar::kRails;
         aiSkid(s, -10, false);
         CHECK(std::fabs(s.skidFront - 0.45f) < 1e-6f && s.skidRear == 0);
         aiSkid(s, 10, true);
         CHECK(std::fabs(s.skidFront - 0.45f) < 1e-6f && std::fabs(s.skidRear - 1.5f) < 1e-6f);
         aiSkid(s, 6, true);
         CHECK(s.skidFront == 0 && s.skidRear == 0);
-        s.steer = AiCar::Slide;
+        s.steer = AiCar::kSlide;
         aiSkid(s, -9, false);
         CHECK(s.skidFront == 2 && s.skidRear == 2);
-        s.steer = AiCar::Slow;
+        s.steer = AiCar::kSlow;
         aiSkid(s, 20, true);
         CHECK(s.skidFront == 2 && s.skidRear == 2);
         // car_spiked_effects' wheel levels from them: the front x 7.5.
@@ -1486,9 +1486,9 @@ void testCarHits() {
         car.speed = car.wanted = 30;
         car.raceState = 3;
         std::vector<AiCar> one{car};
-        aiStep(one, 0, g, flat, go, 0, -1, false, AiPhase::Move);
+        aiStep(one, 0, g, flat, go, 0, -1, false, AiPhase::kMove);
         CHECK(std::fabs(one[0].speed - 30 * 0.98f) < 0.01f && one[0].braking && one[0].skidRear > 2.9f);
-        aiStep(one, 0, g, flat, go, 0, -1, false, AiPhase::Drive);
+        aiStep(one, 0, g, flat, go, 0, -1, false, AiPhase::kDrive);
         CHECK(one[0].pursuit == 4);
         for (int step = 2; step < 64 * 6; step += 2)
             aiStep(one, 0, g, flat, go, step, -1, false);
@@ -1497,7 +1497,7 @@ void testCarHits() {
         car.raceState = 1;
         car.wanted = 40;
         one = {car};
-        aiStep(one, 0, g, flat, go, 0, -1, false, AiPhase::Move);
+        aiStep(one, 0, g, flat, go, 0, -1, false, AiPhase::kMove);
         CHECK(one[0].speed > 30 && !one[0].braking);
     }
     // Tipped (+0x10C under 0.9): the dynamics put it in the air (+0x164 1,
@@ -1516,7 +1516,7 @@ void testCarHits() {
         car.roll = 0.12f; // 43 degrees (the road turns it back 1/64 turn first)
         car.skidFront = car.skidRear = 5;
         std::vector<AiCar> one{car};
-        aiStep(one, 0, g, flat, go, 0, -1, false, AiPhase::Move);
+        aiStep(one, 0, g, flat, go, 0, -1, false, AiPhase::kMove);
         CHECK(std::fabs(one[0].speed - 20 * 0.98f) < 0.02f && one[0].skidFront == 0 && one[0].skidRear == 0 &&
               one[0].airTicks == 1);
     }
@@ -1535,7 +1535,7 @@ void testCarHits() {
         car.distance = 4;
         car.raceStartStep = 4;
         std::vector<AiCar> one{car};
-        aiStep(one, 0, g, flat, go, 2, -1, false, AiPhase::Move);
+        aiStep(one, 0, g, flat, go, 2, -1, false, AiPhase::kMove);
         CHECK(one[0].speed == 0 && one[0].braking);
         AiCarData start = go;
         start.accel[0] = 6;
@@ -1544,11 +1544,11 @@ void testCarHits() {
         car.raceStartStep = 0;
         car.slot = probe.pick();
         one = {car};
-        aiStep(one, 0, g, flat, start, 4, -1, false, AiPhase::Move);
+        aiStep(one, 0, g, flat, start, 4, -1, false, AiPhase::kMove);
         aiStartRandom() = saved;
         car.slot = car.slot == 0 ? 1 : 0; // not picked
         std::vector<AiCar> other{car};
-        aiStep(other, 0, g, flat, start, 4, -1, false, AiPhase::Move);
+        aiStep(other, 0, g, flat, start, 4, -1, false, AiPhase::kMove);
         aiStartRandom() = saved;
         CHECK(one[0].skidRear == 10 && other[0].skidRear != 10);
         CHECK(std::fabs((one[0].vel[0] - other[0].vel[0]) - 0.5f / 32) < 1e-5f);
@@ -1806,7 +1806,7 @@ void testCopCalls() {
     steer.sideKept = true;
     steer.velSlice = 20;
     aiSteerStep(steer, col, 0);
-    CHECK(steer.steer == AiCar::Rails && std::fabs(steer.sideSpeed - 38 * 1.045f / 32) < 1e-4f &&
+    CHECK(steer.steer == AiCar::kRails && std::fabs(steer.sideSpeed - 38 * 1.045f / 32) < 1e-4f &&
           std::fabs(steer.side - steer.sideSpeed / 64) < 1e-5f);
     for (int k = 1; k < 192; ++k)
         aiSteerStep(steer, col, k);
@@ -1817,7 +1817,7 @@ void testCopCalls() {
     still.offset = -4;
     for (int k = 0; k < 128; ++k)
         aiSteerStep(still, col, k);
-    CHECK(still.steer == AiCar::Slide && std::fabs(still.side - steer.side) < 0.05f);
+    CHECK(still.steer == AiCar::kSlide && std::fabs(still.side - steer.side) < 0.05f);
     // Slow (ai_ctl_slow under 13.41 m/s), it turns towards the point and
     // goes there, not past the wall (10, less its half width).
     AiCar slow = steer;
@@ -1845,13 +1845,13 @@ void testCopCalls() {
         edge.offset = 9.5f;
         for (int k = 0; k < 128; ++k)
             aiSteerStep(edge, col, k);
-        CHECK(edge.side > 8.5f && edge.steer == AiCar::Rails);
+        CHECK(edge.side > 8.5f && edge.steer == AiCar::kRails);
         TrackCollision oneSided = straightRoad(200);
         for (auto &q : oneSided.road)
             q.extra[0] = 0x20; // two lanes left, none right
         AiCar right = steer;
         aiSteerStep(right, oneSided, 0);
-        CHECK(right.side > 0 && right.steer == AiCar::Slide);
+        CHECK(right.side > 0 && right.steer == AiCar::kSlide);
     }
     // The controllers steer by the spin about the body's up (+0x4FC: the
     // spins +0xE4, +0xE8, +0xEC along the up row, car_ai_physics
@@ -1872,7 +1872,7 @@ void testCopCalls() {
         aiSteerStep(tilt, col, 0);
         const float wanted = std::clamp(-tilt.headingError * 2.5f, -0.8f, 0.8f);
         const float yaw = 0.1f + std::clamp(-(spinUp - wanted) * 5.0f, -0.8f, 0.8f) * u[1] / 32;
-        CHECK(tilt.steer == AiCar::Rails && std::fabs(tilt.yawRate - yaw) < 1e-6f && u[1] < 0.99f);
+        CHECK(tilt.steer == AiCar::kRails && std::fabs(tilt.yawRate - yaw) < 1e-6f && u[1] < 0.99f);
     }
     // On a bend the velocity is kept as the slice is left: running straight
     // on, the car is carried wide of the turned road and pushed back.

@@ -28,7 +28,7 @@ class GameFiles {
 public:
     void scan(const GameFolders &folders);
 
-    const std::vector<FileRef> &files() const { return files_; }
+    const std::vector<FileRef> &files() const { return _files; }
     // The files whose name (the part after the last '/') ends with one of
     // the extensions given (".fsh"), ignoring case, in scan order.
     std::vector<FileRef> withExtensions(std::initializer_list<const char *> extensions) const;
@@ -38,10 +38,10 @@ public:
     Error read(const FileRef &ref, std::vector<uint8_t> &out) const;
 
 private:
-    std::vector<FileRef> files_;
+    std::vector<FileRef> _files;
     // The .viv last read from, kept open for the next read.
-    mutable std::filesystem::path cachedPath_;
-    mutable std::unique_ptr<VivArchive> cached_;
+    mutable std::filesystem::path _cachedPath;
+    mutable std::unique_ptr<VivArchive> _cached;
 };
 
 } // namespace reluva::nfs

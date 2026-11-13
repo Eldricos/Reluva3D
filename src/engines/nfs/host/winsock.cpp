@@ -30,7 +30,7 @@ constexpr uint32_t kSocketError = 0xffffffffu, kInfinite = 0xffffffffu;
 constexpr uint32_t kEINTR = 10004, kEFAULT = 10014, kEINVAL = 10022, kEMFILE = 10024, kEWOULDBLOCK = 10035,
                    kENOTSOCK = 10038, kEPROTONOSUPPORT = 10043, kEAFNOSUPPORT = 10047, kEADDRINUSE = 10048,
                    kEADDRNOTAVAIL = 10049, kENETUNREACH = 10051, kECONNRESET = 10054, kENOTCONN = 10057,
-                   kECONNREFUSED = 10061, kNOTINITIALISED = 10093, kSYSNOTREADY = 10091, kHOST_NOT_FOUND = 11001;
+                   kECONNREFUSED = 10061, kNOTINITIALISED = 10093, kSYSNOTREADY = 10091, kHostNotFound = 11001;
 
 uint32_t wsError(Result r) {
     switch (r) {
@@ -124,53 +124,53 @@ void writeAddress(Cpu &c, uint32_t at, uint32_t lengthAt, const net::Address &a)
 
 void GameHost::logTraffic(bool sent, uint32_t handle, const net::Address &peer, const uint8_t *data, size_t size,
                           bool dropped) {
-    if (!netLog_ || !size)
+    if (!_netLog || !size)
         return;
-    const uint32_t ms = process_->milliseconds ? process_->milliseconds() : 0;
-    std::fprintf(netLog_, "%u %c %u %s %zu ", ms,
+    const uint32_t ms = _process->milliseconds ? _process->milliseconds() : 0;
+    std::fprintf(_netLog, "%u %c %u %s %zu ", ms,
                  dropped ? 'x'
                  : sent  ? '>'
                          : '<',
                  handle, peer.toString().c_str(), size);
     for (size_t i = 0; i < size; ++i)
-        std::fprintf(netLog_, "%02x", data[i]);
-    std::fprintf(netLog_, "\n");
-    std::fflush(netLog_);
+        std::fprintf(_netLog, "%02x", data[i]);
+    std::fprintf(_netLog, "\n");
+    std::fflush(_netLog);
 }
 
 bool GameHost::dropOutgoing() {
-    const uint32_t ms = process_->milliseconds ? process_->milliseconds() : 0;
-    if (!options_.netDrop || ms < options_.netDropFrom || (options_.netDropTo && ms >= options_.netDropTo))
+    const uint32_t ms = _process->milliseconds ? _process->milliseconds() : 0;
+    if (!_options.netDrop || ms < _options.netDropFrom || (_options.netDropTo && ms >= _options.netDropTo))
         return false;
-    return ++netSent_ % options_.netDrop == 0;
+    return ++_netSent % _options.netDrop == 0;
 }
 
 void GameHost::addNetwork() {
-    if (!options_.netLog.empty() && !netLog_)
-        netLog_ = std::fopen(options_.netLog.c_str(), "w");
+    if (!_options.netLog.empty() && !_netLog)
+        _netLog = std::fopen(_options.netLog.c_str(), "w");
     const char *w = "WSOCK32.dll";
-    net::Sockets *net = options_.sockets.get();
-    auto self = [this] { return process_->currentThread() ? process_->currentThread()->id : 0u; };
+    net::Sockets *net = _options.sockets.get();
+    auto self = [this] { return _process->currentThread() ? _process->currentThread()->id : 0u; };
     auto fail = [this, self](uint32_t error) {
-        wsLastError_[self()] = error;
+        _wsLastError[self()] = error;
         return kSocketError;
     };
     auto find = [this](uint32_t handle) -> WsSocket * {
-        auto it = wsSockets_.find(handle);
-        return it == wsSockets_.end() ? nullptr : &it->second;
+        auto it = _wsSockets.find(handle);
+        return it == _wsSockets.end() ? nullptr : &it->second;
     };
     // The address the game gives, with "any" as Options::netAddress.
     auto ours = [this](net::Address a) {
-        if (!a.ip && options_.netAddress)
-            a.ip = options_.netAddress;
+        if (!a.ip && _options.netAddress)
+            a.ip = _options.netAddress;
         return a;
     };
     // A socket not yet bound, given Options::netAddress before it's used,
     // so what it sends comes from there.
     auto bindIfNeeded = [this, net](WsSocket &s) {
-        if (s.bound || !options_.netAddress)
+        if (s.bound || !_options.netAddress)
             return;
-        net->bind(s.socket, {options_.netAddress, 0});
+        net->bind(s.socket, {_options.netAddress, 0});
         s.bound = true;
     };
     // Calls again while it would block, if the socket blocks: waiting for
@@ -181,20 +181,20 @@ void GameHost::addNetwork() {
         const bool nonBlocking = s.nonBlocking;
         Result r = call();
         while (!nonBlocking && (r == Result::WouldBlock || r == Result::InProgress)) {
-            process_->wait(
+            _process->wait(
                 [net, socket, forWrite] {
                     const net::Sockets::Ready ready = net->ready(socket);
                     return ready.failed || (forWrite ? ready.write : ready.read);
                 },
                 kInfinite);
-            if (process_->ending())
+            if (_process->ending())
                 return Result::Failed;
             r = call();
         }
         return r;
     };
     auto log = [this](const std::string &line) {
-        if (options_.callLog)
+        if (_options.callLog)
             say("  winsock: " + line);
     };
 
@@ -213,28 +213,28 @@ void GameHost::addNetwork() {
             c.write16(d + 390, 256);   // iMaxSockets
             c.write16(d + 392, 65467); // iMaxUdpDg
         }
-        wsStarted_ = true;
+        _wsStarted = true;
         return 0u;
     });
     provide(w, "#116", 0, [this, net](Cpu &) { // WSACleanup: the sockets left closed
-        for (const auto &entry : wsSockets_)   // (not a structured binding: Visual Studio wants it captured)
+        for (const auto &entry : _wsSockets)   // (not a structured binding: Visual Studio wants it captured)
             net->close(entry.second.socket);
-        wsSockets_.clear();
-        wsStarted_ = false;
+        _wsSockets.clear();
+        _wsStarted = false;
         return 0u;
     });
     provide(w, "#111", 0, [this, net, self](Cpu &) { // WSAGetLastError
-        return net ? wsLastError_[self()] : kSYSNOTREADY;
+        return net ? _wsLastError[self()] : kSYSNOTREADY;
     });
     provide(w, "#112", 1, [this, self](Cpu &c) { // WSASetLastError
-        wsLastError_[self()] = c.arg(0);
+        _wsLastError[self()] = c.arg(0);
         return 0u;
     });
 
     // socket(af, type, protocol): TCP and UDP over IPv4, and IPX datagrams
     // (AF_IPX 6, SOCK_DGRAM, NSPROTO_IPX 1000-1255) over UDP; not SPX.
     provide(w, "#23", 3, [this, net, fail, log](Cpu &c) {
-        if (!wsStarted_)
+        if (!_wsStarted)
             return fail(kNOTINITIALISED);
         const bool ipx = c.arg(0) == 6;
         if (c.arg(0) != 2 && !ipx)
@@ -249,8 +249,8 @@ void GameHost::addNetwork() {
             return fail(kEMFILE);
         if (ipx) // IPX sockets may broadcast and hear broadcasts without asking
             net->setOption(s.socket, net::Sockets::Broadcast, 1);
-        const uint32_t handle = nextWsSocket_++;
-        wsSockets_[handle] = s;
+        const uint32_t handle = _nextWsSocket++;
+        _wsSockets[handle] = s;
         log("socket " + std::to_string(handle) + (s.stream ? " (TCP)" : s.ipx ? " (IPX)" : " (UDP)"));
         return handle;
     });
@@ -259,7 +259,7 @@ void GameHost::addNetwork() {
         if (!s)
             return fail(kENOTSOCK);
         net->close(s->socket);
-        wsSockets_.erase(c.arg(0));
+        _wsSockets.erase(c.arg(0));
         return 0u;
     });
     provide(w, "#2", 3, [net, find, fail, ours, log](Cpu &c) { // bind(s, name, namelen)
@@ -300,8 +300,8 @@ void GameHost::addNetwork() {
         a.bound = true;
         a.socket = accepted;
         a.nonBlocking = nonBlocking;
-        const uint32_t handle = nextWsSocket_++;
-        wsSockets_[handle] = a;
+        const uint32_t handle = _nextWsSocket++;
+        _wsSockets[handle] = a;
         writeAddress(c, c.arg(1), c.arg(2), from);
         log("accept on " + std::to_string(c.arg(0)) + ": " + std::to_string(handle) + " from " + from.toString());
         return handle;
@@ -340,7 +340,7 @@ void GameHost::addNetwork() {
     // This machine's address for an IPX node: Options::netAddress, or its
     // name's.
     auto ipxNode = [this, net] {
-        uint32_t ip = options_.netAddress;
+        uint32_t ip = _options.netAddress;
         if (!ip && !net->resolve(net->hostName(), ip))
             ip = 0x7f000001;
         return ip;
@@ -381,7 +381,7 @@ void GameHost::addNetwork() {
             return fail(wsError(Result::WouldBlock));
         }
         const Result r = blocking(*s, true, [&] { return net->send(sock, data.data(), data.size(), done); });
-        if (r == Result::Ok && netLog_) {
+        if (r == Result::Ok && _netLog) {
             net::Address peer;
             net->peerAddress(sock, peer);
             logTraffic(true, c.arg(0), peer, data.data(), done);
@@ -401,7 +401,7 @@ void GameHost::addNetwork() {
             return fail(wsError(r));
         for (size_t i = 0; i < done; ++i)
             c.write8(c.arg(1) + uint32_t(i), data[i]);
-        if (!peek && netLog_) {
+        if (!peek && _netLog) {
             net::Address peer;
             net->peerAddress(sock, peer);
             logTraffic(false, c.arg(0), peer, data.data(), done);
@@ -427,9 +427,9 @@ void GameHost::addNetwork() {
             return r == Result::Ok ? uint32_t(done) : fail(wsError(r));
         }
         std::vector<net::Address> targets{to};
-        if (to.ip == 0xffffffffu && !options_.broadcastTo.empty()) {
+        if (to.ip == 0xffffffffu && !_options.broadcastTo.empty()) {
             targets.clear();
-            for (uint32_t ip : options_.broadcastTo)
+            for (uint32_t ip : _options.broadcastTo)
                 targets.push_back({ip, to.port});
         }
         if (dropOutgoing()) { // lost on the way
@@ -438,7 +438,7 @@ void GameHost::addNetwork() {
         }
         Result r = Result::Ok;
         for (const net::Address &t : targets)
-            if (!(options_.netAddress && t.ip == options_.netAddress)) // not to itself
+            if (!(_options.netAddress && t.ip == _options.netAddress)) // not to itself
                 r = net->sendTo(s->socket, t, data.data(), data.size());
         logTraffic(true, c.arg(0), to, data.data(), data.size());
         return r == Result::Ok ? c.arg(2) : fail(wsError(r));
@@ -598,8 +598,8 @@ void GameHost::addNetwork() {
         if (c.arg(4))
             timeoutMs = c.read32(c.arg(4)) * 1000 + c.read32(c.arg(4) + 4) / 1000;
         if (!check() && timeoutMs != 0) {
-            process_->wait(check, timeoutMs);
-            if (process_->ending())
+            _process->wait(check, timeoutMs);
+            if (_process->ending())
                 return fail(kEINTR);
             check();
         }
@@ -648,9 +648,9 @@ void GameHost::addNetwork() {
     // inet_ntoa's text at +0, gethostbyname's hostent at +32 (name at +64,
     // its address list at +48, the address at +56).
     auto buffer = [this] {
-        if (!wsBuffer_)
-            wsBuffer_ = process_->memory().alloc(384);
-        return wsBuffer_;
+        if (!_wsBuffer)
+            _wsBuffer = _process->memory().alloc(384);
+        return _wsBuffer;
     };
     provide(w, "#11", 1, [buffer](Cpu &c) { // inet_ntoa
         const uint32_t v = c.arg(0);
@@ -663,15 +663,15 @@ void GameHost::addNetwork() {
     // gethostname(name, length): the machine's (or, with Options::netAddress,
     // that address, so each copy's is its own).
     auto ourName = [this, net] {
-        if (options_.netAddress) {
-            const uint32_t ip = options_.netAddress;
+        if (_options.netAddress) {
+            const uint32_t ip = _options.netAddress;
             return std::to_string(ip >> 24) + "." + std::to_string((ip >> 16) & 0xff) + "." +
                    std::to_string((ip >> 8) & 0xff) + "." + std::to_string(ip & 0xff);
         }
         return net ? net->hostName() : std::string("localhost");
     };
     provide(w, "#57", 2, [this, ourName, fail](Cpu &c) {
-        if (!wsStarted_)
+        if (!_wsStarted)
             return fail(kNOTINITIALISED);
         const std::string name = ourName();
         if (name.size() + 1 > c.arg(1))
@@ -682,16 +682,16 @@ void GameHost::addNetwork() {
     // gethostbyname(name): one IPv4 address; this machine's own name as
     // Options::netAddress if set.
     provide(w, "#52", 1, [this, net, buffer, ourName, self, log](Cpu &c) -> uint32_t {
-        if (!wsStarted_) {
-            wsLastError_[self()] = kNOTINITIALISED;
+        if (!_wsStarted) {
+            _wsLastError[self()] = kNOTINITIALISED;
             return 0;
         }
         const std::string name = c.string(c.arg(0), 256);
         uint32_t ip = 0;
-        if (options_.netAddress && name == ourName())
-            ip = options_.netAddress;
+        if (_options.netAddress && name == ourName())
+            ip = _options.netAddress;
         else if (!net->resolve(name, ip)) {
-            wsLastError_[self()] = kHOST_NOT_FOUND;
+            _wsLastError[self()] = kHostNotFound;
             log("gethostbyname " + name + ": not found");
             return 0;
         }

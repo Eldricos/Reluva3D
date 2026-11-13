@@ -15,19 +15,19 @@ namespace {
 // Reads little-endian values in order, failing (once) past the end.
 class Reader {
 public:
-    explicit Reader(const std::vector<uint8_t> &data) : d_(data) {}
+    explicit Reader(const std::vector<uint8_t> &data) : _d(data) {}
 
-    bool ok() const { return ok_; }
-    size_t pos() const { return pos_; }
-    bool has(size_t n) const { return ok_ && pos_ + n <= d_.size(); }
+    bool ok() const { return _ok; }
+    size_t pos() const { return _pos; }
+    bool has(size_t n) const { return _ok && _pos + n <= _d.size(); }
 
     const uint8_t *take(size_t n) {
         if (!has(n)) {
-            ok_ = false;
+            _ok = false;
             return nullptr;
         }
-        const uint8_t *p = d_.data() + pos_;
-        pos_ += n;
+        const uint8_t *p = _d.data() + _pos;
+        _pos += n;
         return p;
     }
     uint32_t u32() {
@@ -64,15 +64,15 @@ public:
     // than allocating for a count the rest of the file can't hold.
     uint32_t count(size_t size) {
         const uint32_t n = u32();
-        if (ok_ && size && static_cast<uint64_t>(n) * size > d_.size() - pos_)
-            ok_ = false;
-        return ok_ ? n : 0;
+        if (_ok && size && static_cast<uint64_t>(n) * size > _d.size() - _pos)
+            _ok = false;
+        return _ok ? n : 0;
     }
 
 private:
-    const std::vector<uint8_t> &d_;
-    size_t pos_ = 0;
-    bool ok_ = true;
+    const std::vector<uint8_t> &_d;
+    size_t _pos = 0;
+    bool _ok = true;
 };
 
 constexpr size_t kHeaderSize = 28;
@@ -2627,16 +2627,16 @@ AiDynamics aiModelSteer(AiCar &me, const TrackCollision &col, int step, int trac
     auto clampTo = [](float x, float limit) { return std::clamp(x, -limit, limit); };
     const float ground = out.ground;
     if (me.reversing || out.forward < 0) {
-        me.steer = AiCar::Slow;
+        me.steer = AiCar::kSlow;
     } else if (offLanes || std::fabs(error) > 0.04f || std::fabs(me.speed) < 0.5f || step < me.slideUntil || slipping) {
-        me.steer = AiCar::Slide;
+        me.steer = AiCar::kSlide;
     } else if (std::fabs(me.speed) < 13.4109f) {
-        me.steer = AiCar::Slow;
+        me.steer = AiCar::kSlow;
     } else {
-        me.steer = AiCar::Rails;
+        me.steer = AiCar::kRails;
     }
     float sideForce = 0; // along the body's right (+0x4E0) for the slow and sliding controllers
-    if (me.steer == AiCar::Rails) {
+    if (me.steer == AiCar::kRails) {
         // ai_ctl_rails: the side speed wanted -5 x (+0x7B8 - aim), in
         // +-32 and +-half the ground speed (under 22.35 m/s +-0.129 x
         // the speed), against the velocity along the right of the road 2
@@ -2660,7 +2660,7 @@ AiDynamics aiModelSteer(AiCar &me, const TrackCollision &col, int step, int trac
         for (size_t c = 0; c < 3; ++c)
             me.vel[c] += force / 32.0f * rr[c];
         aiYawForce(me, tf, tr, tu, clampTo(-(spinUp - wantedYaw) * 5.0f, 0.8f));
-    } else if (me.steer == AiCar::Slow) {
+    } else if (me.steer == AiCar::kSlow) {
         // ai_ctl_slow: the yaw from the heading error, the side speed
         // damped, in the car's frame. The side speed wanted is sin(error)
         // x +0x4F4 for an error of 0 or more, and -sin((1 + error) x 2 pi)
@@ -2790,10 +2790,10 @@ void aiSteerStep(AiCar &me, const TrackCollision &col, int step, int track) {
 // them as they were.
 void aiSkid(AiCar &me, float side, bool braking) {
     const float over = std::fabs(side) - 7.0f;
-    if (me.steer == AiCar::Rails) {
+    if (me.steer == AiCar::kRails) {
         me.skidFront = over > 0 ? over * 0.15f : 0.0f;
         me.skidRear = over > 0 && braking ? over * 0.5f : 0.0f;
-    } else if (me.steer == AiCar::Slide) {
+    } else if (me.steer == AiCar::kSlide) {
         me.skidFront = me.skidRear = over > 0 ? over : 0.0f;
     }
 }
@@ -3085,7 +3085,7 @@ void aiMove(AiCar &me, const AiCarData &data, bool weather, int step, const Trac
     const float way = me.way < 0 ? -1.0f : 1.0f;
     const float forwardSpeed = dyn.forward; // +0x4F4
     bool alongCar = false;
-    if (me.steer == AiCar::Rails) {
+    if (me.steer == AiCar::kRails) {
         if (error > 0) {
             force = accel();
             me.braking = false;
@@ -3105,9 +3105,9 @@ void aiMove(AiCar &me, const AiCarData &data, bool weather, int step, const Trac
         // the road: a car turned off its way (after a hit, sliding) runs
         // slower along the road for the same push.
         float w = std::fabs(me.wanted);
-        if (me.steer == AiCar::Slow)
+        if (me.steer == AiCar::kSlow)
             w = std::min(w, 16.4109f);
-        if (me.steer == AiCar::Slow && me.reversing) {
+        if (me.steer == AiCar::kSlow && me.reversing) {
             if (-w < forwardSpeed) {
                 force = -accel();
                 me.braking = false;
@@ -3117,12 +3117,12 @@ void aiMove(AiCar &me, const AiCarData &data, bool weather, int step, const Trac
         } else if (w - forwardSpeed > 1.0f) {
             force = accel();
             me.braking = false;
-            spin = me.steer == AiCar::Slide && aiStartSpin(me, data, force, aiStartRandom());
+            spin = me.steer == AiCar::kSlide && aiStartSpin(me, data, force, aiStartRandom());
         } else {
             force = -brake(w - forwardSpeed);
         }
         alongCar = true;
-        if (me.steer == AiCar::Slide && !tipped) {
+        if (me.steer == AiCar::kSlide && !tipped) {
             aiSkid(me, dyn.carSide, false);
             if (spin)
                 me.skidRear = 10; // 0x4084bc
@@ -3192,7 +3192,7 @@ namespace {
 // only its lanes (state 10 with a racer near); or a racer pulling over
 // (its state 5: 0x408b30, 0x408bd0).
 struct CopCall {
-    enum Kind { Section, Chase, Roadside, LanesOnly, PullOver } kind = Section;
+    enum Kind { kSection, kChase, kRoadside, kLanesOnly, kPullOver } kind = kSection;
     float k = 1.19f, plus = 0;
     bool chase = false;
 };
@@ -3298,7 +3298,7 @@ void aiDrive(std::vector<AiCar> &cars, size_t self, const TrackCollision &col, c
         }
     }
     auto along = [](const AiCar &c) { return static_cast<float>(c.way) * c.speed; }; // +0x7C0
-    const CopCall::Kind kind = cop ? cop->kind : CopCall::Section;
+    const CopCall::Kind kind = cop ? cop->kind : CopCall::kSection;
     // The lane picked from the sums (lane_choose_best 0x40da30, the same
     // lane on a tie) and its aim (0x40daf0).
     auto choose = [&](int nudge) {
@@ -3318,7 +3318,7 @@ void aiDrive(std::vector<AiCar> &cars, size_t self, const TrackCollision &col, c
         me.target = aiLaneOffset(here, me.pick, me.halfWidth, me.way > 0 ? nudge : -nudge);
     };
     const bool atEdge = lane == 6 - leftLanes || lane == rightLanes + 7;
-    if (kind == CopCall::PullOver) {
+    if (kind == CopCall::kPullOver) {
         // 0x408b30: 11 m/s until in the lane past the road's lanes, then 0;
         // 0x408bd0: +150 for the nearer edge's lane, or its own there.
         me.wanted = atEdge ? 0.0f : 11.0f;
@@ -3335,7 +3335,7 @@ void aiDrive(std::vector<AiCar> &cars, size_t self, const TrackCollision &col, c
     const int targetSide = target ? (target->lane < lane ? 0 : target->lane == lane ? 1 : 2) : 1;
     const float top = data.maxVelocity * (me.copFast ? 1.1f : 1.0f); // 0x401370
     bool chaseSection = false;                                       // cop_ai_chase gave the section's speed x 1.19
-    if (kind == CopCall::Chase && target) {
+    if (kind == CopCall::kChase && target) {
         // cop_ai_chase (0x4025c0): within 16 slices, or with the target
         // pulled over, 0x402420; else behind it the top speed, reversing
         // ended (ai_reverse_set 1); 16 or more past it the section's
@@ -3357,9 +3357,9 @@ void aiDrive(std::vector<AiCar> &cars, size_t self, const TrackCollision &col, c
             }
         }
     }
-    if (kind == CopCall::LanesOnly) {
+    if (kind == CopCall::kLanesOnly) {
         // the speed wanted as it was
-    } else if (kind == CopCall::Roadside) {
+    } else if (kind == CopCall::kRoadside) {
         // State 3 (ai_speed_wanted_section with 0 and 6.5): 6.5 m/s.
         me.wanted = std::min(6.5f, top);
     } else if (!cop) {
@@ -3368,7 +3368,7 @@ void aiDrive(std::vector<AiCar> &cars, size_t self, const TrackCollision &col, c
         // (0x4093ab-0x4093ca), then by the scale (0x409464).
         me.wanted = std::min(aiSlicesSpeed(speeds, mySlice), data.topSpeedCap * aiTrackFactor(track)) *
                     std::min(me.scale, 1.0f);
-    } else if (kind != CopCall::Chase || !target || chaseSection) {
+    } else if (kind != CopCall::kChase || !target || chaseSection) {
         // ai_speed_wanted_section (0x401430): the section's speed x k + plus,
         // at most the top speed.
         const float k = chaseSection ? 1.19f : cop->k;
@@ -3490,7 +3490,7 @@ void aiDrive(std::vector<AiCar> &cars, size_t self, const TrackCollision &col, c
         look = 9;
     const int far = ahead(look);
     const TrackCollision::RoadPoint &there = point(far);
-    const bool roadside = kind == CopCall::Roadside;
+    const bool roadside = kind == CopCall::kRoadside;
     if (roadside) {
         // 0x402d90: +100 for the nearer road edge's lane (its own off the
         // road's lanes); the state's other rows are 0x40d720, 0x40d800 and
@@ -3644,7 +3644,7 @@ void aiStep(std::vector<AiCar> &cars, size_t self, const TrackCollision &col, co
             const AiCarData &data, int step, int track, bool weather, AiPhase phase) {
     if (self >= cars.size())
         return;
-    if (phase == AiPhase::Move) {
+    if (phase == AiPhase::kMove) {
         aiMove(cars[self], data, weather, step, col, track);
         if (cars[self].putBackDue)
             aiPutBack(cars, self, col);
@@ -3672,7 +3672,7 @@ void aiStep(std::vector<AiCar> &cars, size_t self, const TrackCollision &col, co
         }
         if (me.pursuit == 5) {
             CopCall pull;
-            pull.kind = CopCall::PullOver;
+            pull.kind = CopCall::kPullOver;
             aiDrive(cars, self, col, speeds, data, step, track, weather, &pull);
             if (std::fabs(me.speed) < 3.0f || me.pullUntil < step) {
                 if (copsOn() == 0) {
@@ -3717,7 +3717,7 @@ void aiStep(std::vector<AiCar> &cars, size_t self, const TrackCollision &col, co
                 me.pursuit = 4;
         }
     }
-    if (phase == AiPhase::Drive)
+    if (phase == AiPhase::kDrive)
         return;
     aiMove(me, data, weather, step, col, track);
     if (me.putBackDue)
@@ -4653,7 +4653,7 @@ void aiCopStep(std::vector<AiCar> &cars, size_t self, const TrackCollision &col,
     if (n < 2 || self >= cars.size())
         return;
     AiCar &me = cars[self];
-    if (phase == AiPhase::Move) {
+    if (phase == AiPhase::kMove) {
         aiMove(me, data, weather, step, col, track);
         if (me.putBackDue)
             aiPutBack(cars, self, col);
@@ -5070,7 +5070,7 @@ void aiCopStep(std::vector<AiCar> &cars, size_t self, const TrackCollision &col,
             }
             break;
         case 3:
-            call.kind = CopCall::Roadside;
+            call.kind = CopCall::kRoadside;
             aiDrive(cars, self, col, {}, data, step, track, weather, &call);
             {
                 const auto &p = col.road[size_t(((me.slice % n) + n) % n)];
@@ -5123,7 +5123,7 @@ void aiCopStep(std::vector<AiCar> &cars, size_t self, const TrackCollision &col,
                 me.worldKept = false;
                 me.reversing = false;
             }
-            call.kind = CopCall::Chase;
+            call.kind = CopCall::kChase;
             call.chase = true;
             aiDrive(cars, self, col, {}, data, step, track, weather, &call);
             overspeed(*t);
@@ -5250,7 +5250,7 @@ void aiCopStep(std::vector<AiCar> &cars, size_t self, const TrackCollision &col,
                     me.sideSpeed *= 0.5f;
                     me.copState = 11;
                 } else {
-                    call.kind = CopCall::LanesOnly;
+                    call.kind = CopCall::kLanesOnly;
                     aiDrive(cars, self, col, {}, data, step, track, weather, &call);
                 }
             }
@@ -5263,7 +5263,7 @@ void aiCopStep(std::vector<AiCar> &cars, size_t self, const TrackCollision &col,
         }
         }
     }
-    if (phase == AiPhase::Drive)
+    if (phase == AiPhase::kDrive)
         return;
     aiMove(me, data, weather, step, col, track);
     if (me.putBackDue)

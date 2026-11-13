@@ -940,7 +940,7 @@ int cmdMadFrames(int argc, char **argv) {
     // Frames refer to those before, so decoding starts at the beginning.
     reluva::nfs::MadDecoder decoder;
     if (game)
-        decoder.setArithmetic(reluva::nfs::MadDecoder::Arithmetic::Game);
+        decoder.setArithmetic(reluva::nfs::MadDecoder::Arithmetic::kGame);
     int written = 0;
     for (size_t i = 0; i < movie.frames().size() && i < first + count; ++i) {
         if (Error err = movie.decodeFrame(decoder, i))

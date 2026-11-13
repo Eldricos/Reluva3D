@@ -937,7 +937,7 @@ void testMovie() {
     }
     const Bytes intra = madFrame('k', k);
     MadDecoder d;
-    d.setArithmetic(MadDecoder::Arithmetic::Reference);
+    d.setArithmetic(MadDecoder::Arithmetic::kReference);
     CHECK(!d.decode(intra.data(), intra.size()));
     CHECK(d.width() == 16 && d.height() == 16);
     auto y = [&](int x, int row) { return d.plane(0)[row * d.stride(0) + x]; };
@@ -954,7 +954,7 @@ void testMovie() {
     // chroma 128 the 7-bit 64, half a step above the centre 63.5; the
     // colour by mad.md's formula, cut to 5:6:5 and widened again.
     Surface shown;
-    d.toGameSurface(shown, MadDecoder::Display::Interpolate);
+    d.toGameSurface(shown, MadDecoder::Display::kInterpolate);
     CHECK(shown.w == 32 && shown.h == 32);
     {
         const int l = 2 * (138 >> 1) + 1;
@@ -972,7 +972,7 @@ void testMovie() {
     // Mode 3 leaves each line's last 4 pixels and the last line black;
     // mode 1 leaves the odd lines black.
     CHECK(shown.row(0)[28 * 4] == 0 && shown.row(0)[27 * 4] != 0 && shown.row(31)[0] == 0 && shown.row(1)[0] != 0);
-    d.toGameSurface(shown, MadDecoder::Display::Repeat);
+    d.toGameSurface(shown, MadDecoder::Display::kRepeat);
     CHECK(shown.row(1)[0] == 0 && shown.row(2)[0] != 0 && shown.row(0)[31 * 4] != 0);
 
     // An inter frame copying block 0 only ("01", map 000001), vector 0,0,
@@ -1018,7 +1018,7 @@ void testMovie() {
     // is 5; the escaped block's coefficient is 100 x Q, Q = 16 x 2^12 x 5906
     // / 2^16 = 5906, spread from about +17 to -18 across.
     MadDecoder g;
-    g.setArithmetic(MadDecoder::Arithmetic::Game);
+    g.setArithmetic(MadDecoder::Arithmetic::kGame);
     CHECK(!g.decode(intra.data(), intra.size()));
     auto gy = [&](int x, int row) { return g.plane(0)[row * g.stride(0) + x]; };
     CHECK(gy(0, 0) == 69 && gy(8, 0) == 50 && gy(0, 8) == 64);
@@ -1101,7 +1101,7 @@ void testMovie() {
     CHECK(!g.decode(twoFrame.data(), twoFrame.size()) && gu(g, 7) == 74 && gu(g, 8) == 64);
     CHECK(!g.decode(leftFrame.data(), leftFrame.size()) && gu(g, 7) == 74 && gu(g, 8) == 74 && gu(g, 9) == 64);
     MadDecoder r;
-    r.setArithmetic(MadDecoder::Arithmetic::Reference);
+    r.setArithmetic(MadDecoder::Arithmetic::kReference);
     CHECK(!r.decode(twoFrame.data(), twoFrame.size()) && gu(r, 7) > 128 && gu(r, 8) == 128);
     CHECK(!r.decode(leftFrame.data(), leftFrame.size()) && gu(r, 8) == 128);
 
@@ -1138,7 +1138,7 @@ void testMovie() {
     CHECK(!movie.decodeAudio(sound));
     CHECK(sound.channels == 2 && sound.rate == 22050 && sound.samples.size() == 56);
     MadDecoder fresh;
-    fresh.setArithmetic(MadDecoder::Arithmetic::Reference);
+    fresh.setArithmetic(MadDecoder::Arithmetic::kReference);
     CHECK(!movie.decodeFrame(fresh, 0) && !movie.decodeFrame(fresh, 1));
     CHECK(fresh.plane(0)[0] == 144);
     CHECK(movie.decodeFrame(fresh, 2));

@@ -31,10 +31,10 @@ public:
     }
     // The next frame drawn, kept for capture() (RGBA, the renderer's size).
     void captureNext() {
-        if (renderer_)
-            renderer_->captureNextFrame();
+        if (_renderer)
+            _renderer->captureNextFrame();
     }
-    bool capture(std::vector<uint8_t> &rgba) { return renderer_ && renderer_->takeCapture(rgba); }
+    bool capture(std::vector<uint8_t> &rgba) { return _renderer && _renderer->takeCapture(rgba); }
     // Point-sampled textures (else bilinear, as both DLLs ask for), unless a
     // batch says (ThrashFrame::Batch::filter, d3da's).
     bool nearest = false;
@@ -45,16 +45,16 @@ public:
 private:
     gfx::TextureId texture(uint32_t handle, bool wrap, bool point);
 
-    gfx::Renderer3D *renderer_ = nullptr;
-    gfx::MeshId mesh_ = 0;
-    size_t indexCapacity_ = 0; // indices 0, 1, 2... set this far
-    std::vector<gfx::Vertex> vertices_;
-    Surface scaledOverlay_;                             // an overlay of the game's size, enlarged to the renderer's
-    std::map<uint32_t, ThrashFrame::Texture> textures_; // by handle: what they hold
-    std::map<std::tuple<uint32_t, bool, bool>, gfx::TextureId> gpuTextures_; // by handle, wrapping, nearest
+    gfx::Renderer3D *_renderer = nullptr;
+    gfx::MeshId _mesh = 0;
+    size_t _indexCapacity = 0; // indices 0, 1, 2... set this far
+    std::vector<gfx::Vertex> _vertices;
+    Surface _scaledOverlay;                             // an overlay of the game's size, enlarged to the renderer's
+    std::map<uint32_t, ThrashFrame::Texture> _textures; // by handle: what they hold
+    std::map<std::tuple<uint32_t, bool, bool>, gfx::TextureId> _gpuTextures; // by handle, wrapping, nearest
     // Textures replaced while a frame was being drawn (a draw already made
     // may use them): destroyed once it's shown.
-    std::vector<gfx::TextureId> retired_;
+    std::vector<gfx::TextureId> _retired;
 };
 
 } // namespace reluva::nfs

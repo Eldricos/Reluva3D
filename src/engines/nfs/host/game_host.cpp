@@ -48,31 +48,31 @@ std::string describe(const Cpu &c, uint32_t v) {
 
 } // namespace
 
-GameHost::GameHost(GameFolders folders, Options options) : folders_(std::move(folders)), options_(std::move(options)) {
-    if (options_.glide) {
+GameHost::GameHost(GameFolders folders, Options options) : _folders(std::move(folders)), _options(std::move(options)) {
+    if (_options.glide) {
         // The game's own Voodoo 2 renderer, drawing through Reluva's Glide.
-        options_.renderer = "voodoo2a.dll";
-        options_.presentedRenderer.clear();
-        options_.nativeThrash = options_.glideCompare;
-        options_.gpuThrash = false;
+        _options.renderer = "voodoo2a.dll";
+        _options.presentedRenderer.clear();
+        _options.nativeThrash = _options.glideCompare;
+        _options.gpuThrash = false;
     }
-    cpu_ = std::make_unique<Cpu>(options_.memoryMb << 20);
-    cpu_->setInstructionLimit(options_.instructionLimit);
-    cpu_->reportMmx = options_.mmx;
-    cpu_->exactX87 = true; // its memcpy copies 8 bytes at a time through FILD and FISTP
+    _cpu = std::make_unique<Cpu>(_options.memoryMb << 20);
+    _cpu->setInstructionLimit(_options.instructionLimit);
+    _cpu->reportMmx = _options.mmx;
+    _cpu->exactX87 = true; // its memcpy copies 8 bytes at a time through FILD and FISTP
     // An EXE is loaded (0x400000 kept clear for it); its threads wait on
     // each other, so they run on host threads of their own.
-    process_ = std::make_unique<x86::Win32Process>(*cpu_, "nfs3.exe", true);
-    process_->useHostThreads();
-    process_->output = [this](const std::string &s) { say("[program] " + s); };
-    if (options_.instructionsPerMs) {
-        const uint64_t perMs = options_.instructionsPerMs;
-        process_->milliseconds = [this, perMs] { return uint32_t(cpu_->executed() / perMs + idleMs_); };
-        process_->idleTick = [this] { ++idleMs_; };
-    } else if (options_.timeScale != 1.0) {
+    _process = std::make_unique<x86::Win32Process>(*_cpu, "nfs3.exe", true);
+    _process->useHostThreads();
+    _process->output = [this](const std::string &s) { say("[program] " + s); };
+    if (_options.instructionsPerMs) {
+        const uint64_t perMs = _options.instructionsPerMs;
+        _process->milliseconds = [this, perMs] { return uint32_t(_cpu->executed() / perMs + _idleMs); };
+        _process->idleTick = [this] { ++_idleMs; };
+    } else if (_options.timeScale != 1.0) {
         const auto start = std::chrono::steady_clock::now();
-        const double scale = options_.timeScale;
-        process_->milliseconds = [start, scale] {
+        const double scale = _options.timeScale;
+        _process->milliseconds = [start, scale] {
             const double ms =
                 std::chrono::duration<double, std::milli>(std::chrono::steady_clock::now() - start).count();
             return uint32_t(ms * scale);
@@ -83,54 +83,54 @@ GameHost::GameHost(GameFolders folders, Options options) : folders_(std::move(fo
     // first run (by MHz: above 266 is the highest); counting instructions it
     // found 60 MHz and turned the horizon off (docs/engines/nfs/games/nfs3/PLAN.md, Sky and
     // fog).
-    cpu_->timeStamp = [this, last = uint64_t(0), perMs = uint64_t(options_.cpuMhz) * 1000]() mutable {
-        last = std::max(last + 1, uint64_t(process_->now()) * perMs);
+    _cpu->timeStamp = [this, last = uint64_t(0), perMs = uint64_t(_options.cpuMhz) * 1000]() mutable {
+        last = std::max(last + 1, uint64_t(_process->now()) * perMs);
         return last;
     };
-    process_->fileOpened = [this](const std::string &path, bool found) {
-        if (options_.callLog)
+    _process->fileOpened = [this](const std::string &path, bool found) {
+        if (_options.callLog)
             say(std::string(found ? "  file " : "  no file ") + path);
     };
     // C: the install folder, with what the game writes kept apart; D: the CD.
     x86::Win32Process::Drive c;
     c.letter = 'C';
-    c.root = folders_.install;
-    c.writable = options_.saveFolder;
+    c.root = _folders.install;
+    c.writable = _options.saveFolder;
     c.label = "NFS3";
-    process_->addDrive(c);
-    if (!folders_.cd.empty()) {
+    _process->addDrive(c);
+    if (!_folders.cd.empty()) {
         x86::Win32Process::Drive d;
         d.letter = 'D';
-        d.root = folders_.cd;
+        d.root = _folders.cd;
         d.type = 5;
         d.label = "NFS3";
         d.serial = 0x1998;
-        process_->addDrive(d);
+        _process->addDrive(d);
     }
-    process_->setProgram("nfs3.exe", "C:\\");
-    process_->setCommandLine(options_.commandLine);
+    _process->setProgram("nfs3.exe", "C:\\");
+    _process->setCommandLine(_options.commandLine);
     // Before each native function: input that's due, and the log. Kept
     // cheap: the game makes millions of these calls.
-    cpu_->nativeTrace = [this](Cpu &cpu, const std::string &name) {
-        if (inputQueued_.load(std::memory_order_relaxed))
+    _cpu->nativeTrace = [this](Cpu &cpu, const std::string &name) {
+        if (_inputQueued.load(std::memory_order_relaxed))
             applyInput();
-        if (soundRecord_) {
-            const uint64_t now = process_->now();
-            if (now >= soundRecordNextMs_)
+        if (_soundRecord) {
+            const uint64_t now = _process->now();
+            if (now >= _soundRecordNextMs)
                 recordSoundDue(now);
         }
-        if (logged_ >= options_.callLog)
+        if (_logged >= _options.callLog)
             return;
         const bool routine = name.find("CriticalSection") != std::string::npos ||
                              name.find("Tls") != std::string::npos || name.ends_with("GetTickCount") ||
                              name.ends_with("timeGetTime");
         if (!routine) {
-            ++logged_;
+            ++_logged;
             std::string line = "  " + name + "(";
             for (int i = 0; i < 4; ++i)
                 line += (i ? ", " : "") + describe(cpu, cpu.arg(i));
             say(line + ") from " + hex(cpu.read32(cpu.reg[Cpu::ESP])) + " [thread " +
-                std::to_string(process_->currentThread() ? process_->currentThread()->id : 0) + "]");
+                std::to_string(_process->currentThread() ? _process->currentThread()->id : 0) + "]");
         }
     };
     addSystem();
@@ -139,20 +139,20 @@ GameHost::GameHost(GameFolders folders, Options options) : folders_(std::move(fo
     addSerial();
     addDirectX();
     addDirectSound();
-    if (options_.glide)
+    if (_options.glide)
         addGlide();
-    if (options_.nativeThrash) {
-        native_ = std::make_unique<NativeThrash>(*cpu_);
-        native_->setRecording(options_.gpuThrash);
-        native_->setAlsoRasterize(options_.gpuThrash && options_.gpuAndSoftware);
-        native_->setPointSampled(options_.pointSampled);
-        native_->setDirect3D(lower(options_.presentedRenderer) == "d3da.dll");
+    if (_options.nativeThrash) {
+        _native = std::make_unique<NativeThrash>(*_cpu);
+        _native->setRecording(_options.gpuThrash);
+        _native->setAlsoRasterize(_options.gpuThrash && _options.gpuAndSoftware);
+        _native->setPointSampled(_options.pointSampled);
+        _native->setDirect3D(lower(_options.presentedRenderer) == "d3da.dll");
     }
 }
 
 GameHost::~GameHost() {
-    if (netLog_)
-        std::fclose(netLog_);
+    if (_netLog)
+        std::fclose(_netLog);
 }
 
 namespace {
@@ -271,38 +271,38 @@ char keyChar(const KeyName &k) {
 bool GameHost::queueKey(const std::string &name, bool down, uint64_t atMs) {
     for (const KeyName &k : kKeys)
         if (lower(name) == k.name) {
-            std::lock_guard<std::mutex> lock(inputMutex_);
-            queueInOrder(pendingKeys_, KeyEvent{k.vk, k.scan, down, atMs, keyChar(k)});
-            inputQueued_ = true;
+            std::lock_guard<std::mutex> lock(_inputMutex);
+            queueInOrder(_pendingKeys, KeyEvent{k.vk, k.scan, down, atMs, keyChar(k)});
+            _inputQueued = true;
             return true;
         }
     return false;
 }
 
 void GameHost::queueMouseMove(int dx, int dy, uint64_t atMs) {
-    std::lock_guard<std::mutex> lock(inputMutex_);
+    std::lock_guard<std::mutex> lock(_inputMutex);
     if (dx)
-        queueInOrder(pendingMouse_, MouseEvent{0, uint32_t(dx), atMs});
+        queueInOrder(_pendingMouse, MouseEvent{0, uint32_t(dx), atMs});
     if (dy)
-        queueInOrder(pendingMouse_, MouseEvent{4, uint32_t(dy), atMs});
-    inputQueued_ = true;
+        queueInOrder(_pendingMouse, MouseEvent{4, uint32_t(dy), atMs});
+    _inputQueued = true;
 }
 
 void GameHost::setJoystick(const GamepadState &state, uint64_t atMs) {
-    std::lock_guard<std::mutex> lock(inputMutex_);
-    pendingJoystick_.emplace_back(atMs, state);
-    inputQueued_ = true;
+    std::lock_guard<std::mutex> lock(_inputMutex);
+    _pendingJoystick.emplace_back(atMs, state);
+    _inputQueued = true;
 }
 
 void GameHost::queueMouseButton(bool down, uint64_t atMs) {
-    std::lock_guard<std::mutex> lock(inputMutex_);
-    queueInOrder(pendingMouse_, MouseEvent{12, down ? 0x80u : 0u, atMs});
-    inputQueued_ = true;
+    std::lock_guard<std::mutex> lock(_inputMutex);
+    queueInOrder(_pendingMouse, MouseEvent{12, down ? 0x80u : 0u, atMs});
+    _inputQueued = true;
 }
 
 std::map<std::string, uint64_t> GameHost::callCounts() const {
     std::map<std::string, uint64_t> out;
-    for (auto &[name, count] : cpu_->nativeCallCounts())
+    for (auto &[name, count] : _cpu->nativeCallCounts())
         out[name] += count;
     return out;
 }
@@ -311,98 +311,98 @@ void GameHost::applyInput() {
     std::vector<KeyEvent> due;
     std::vector<MouseEvent> mouse;
     {
-        std::lock_guard<std::mutex> lock(inputMutex_);
-        const uint64_t t = process_->now();
-        while (!pendingKeys_.empty() && pendingKeys_.front().atMs <= t) {
-            due.push_back(pendingKeys_.front());
-            pendingKeys_.pop_front();
+        std::lock_guard<std::mutex> lock(_inputMutex);
+        const uint64_t t = _process->now();
+        while (!_pendingKeys.empty() && _pendingKeys.front().atMs <= t) {
+            due.push_back(_pendingKeys.front());
+            _pendingKeys.pop_front();
         }
-        while (!pendingJoystick_.empty() && pendingJoystick_.front().first <= t) {
-            joystick_ = pendingJoystick_.front().second;
-            pendingJoystick_.pop_front();
+        while (!_pendingJoystick.empty() && _pendingJoystick.front().first <= t) {
+            _joystick = _pendingJoystick.front().second;
+            _pendingJoystick.pop_front();
         }
-        while (!pendingMouse_.empty() && pendingMouse_.front().atMs <= t) {
-            mouse.push_back(pendingMouse_.front());
-            pendingMouse_.pop_front();
+        while (!_pendingMouse.empty() && _pendingMouse.front().atMs <= t) {
+            mouse.push_back(_pendingMouse.front());
+            _pendingMouse.pop_front();
         }
-        inputQueued_ = !pendingKeys_.empty() || !pendingJoystick_.empty() || !pendingMouse_.empty();
+        _inputQueued = !_pendingKeys.empty() || !_pendingJoystick.empty() || !_pendingMouse.empty();
     }
     for (const MouseEvent &m : mouse) {
         if (m.offset == 0)
-            mouseDx_ += int32_t(m.data);
+            _mouseDx += int32_t(m.data);
         else if (m.offset == 4)
-            mouseDy_ += int32_t(m.data);
+            _mouseDy += int32_t(m.data);
         else
-            mouseButton_ = m.data != 0;
-        bufferedMouse_.push_back(m);
-        if (bufferedMouse_.size() > 64)
-            bufferedMouse_.pop_front();
+            _mouseButton = m.data != 0;
+        _bufferedMouse.push_back(m);
+        if (_bufferedMouse.size() > 64)
+            _bufferedMouse.pop_front();
     }
-    if (!mouse.empty() && mouseEvent_)
-        process_->setEvent(mouseEvent_);
-    if (!due.empty() && keyboardEvent_)
-        process_->setEvent(keyboardEvent_);
+    if (!mouse.empty() && _mouseEvent)
+        _process->setEvent(_mouseEvent);
+    if (!due.empty() && _keyboardEvent)
+        _process->setEvent(_keyboardEvent);
     for (const KeyEvent &e : due) {
-        keys_[e.scan] = e.down ? 0x80 : 0;
-        vkDown_[e.vk] = e.down;
-        bufferedKeys_.push_back(e);
-        if (bufferedKeys_.size() > 64)
-            bufferedKeys_.pop_front();
+        _keys[e.scan] = e.down ? 0x80 : 0;
+        _vkDown[e.vk] = e.down;
+        _bufferedKeys.push_back(e);
+        if (_bufferedKeys.size() > 64)
+            _bufferedKeys.pop_front();
         // WM_KEYDOWN / WM_KEYUP to the game's window: the scan code in
         // bits 16-23, the previous state and transition bits for a release.
-        if (!windows_.empty()) {
+        if (!_windows.empty()) {
             const uint32_t lParam =
                 1u | uint32_t(e.scan & 0x7f) << 16 | (e.scan & 0x80 ? 1u << 24 : 0u) | (e.down ? 0u : 0xc0000000u);
-            queues_[windows_.front().threadId].push_back(
-                {windows_.front().handle, e.down ? 0x100u : 0x101u, e.vk, lParam, uint32_t(process_->now())});
+            _queues[_windows.front().threadId].push_back(
+                {_windows.front().handle, e.down ? 0x100u : 0x101u, e.vk, lParam, uint32_t(_process->now())});
             if (e.down && e.ch) // WM_CHAR, as TranslateMessage would make
-                queues_[windows_.front().threadId].push_back(
-                    {windows_.front().handle, 0x102u, uint32_t(uint8_t(e.ch)), lParam, uint32_t(process_->now())});
+                _queues[_windows.front().threadId].push_back(
+                    {_windows.front().handle, 0x102u, uint32_t(uint8_t(e.ch)), lParam, uint32_t(_process->now())});
         }
     }
 }
 
 void GameHost::provide(const char *dll, const char *name, int args, std::function<uint32_t(Cpu &)> fn) {
     const uint32_t pop = uint32_t(args) * 4;
-    const uint32_t address = process_->provide(dll, name, [fn = std::move(fn), pop](Cpu &c) {
+    const uint32_t address = _process->provide(dll, name, [fn = std::move(fn), pop](Cpu &c) {
         c.reg[Cpu::EAX] = fn(c);
         return pop;
     });
     // LoadLibraryA of a system DLL gives a module with these as its exports.
     const std::string key = lower(dll);
-    if (!nativeModules_.count(key))
-        addNativeModule(key, 0x6d000000u + uint32_t(nativeModules_.size()) * 0x10000u);
-    nativeExports_[nativeModules_[key]][name] = address;
+    if (!_nativeModules.count(key))
+        addNativeModule(key, 0x6d000000u + uint32_t(_nativeModules.size()) * 0x10000u);
+    _nativeExports[_nativeModules[key]][name] = address;
 }
 
 void GameHost::addNativeModule(const std::string &name, uint32_t handle) {
-    nativeModules_[lower(name)] = handle;
+    _nativeModules[lower(name)] = handle;
 }
 
 void GameHost::addExport(uint32_t module, const std::string &name, int argBytes, std::function<uint32_t(Cpu &)> fn) {
     const uint32_t pop = uint32_t(argBytes);
-    nativeExports_[module][name] = cpu_->addNative(name, [fn = std::move(fn), pop](Cpu &c) {
+    _nativeExports[module][name] = _cpu->addNative(name, [fn = std::move(fn), pop](Cpu &c) {
         c.reg[Cpu::EAX] = fn(c);
         return pop;
     });
 }
 
 Error GameHost::load() {
-    const std::filesystem::path path = folders_.install / "nfs3.exe";
+    const std::filesystem::path path = _folders.install / "nfs3.exe";
     std::ifstream in(path, std::ios::binary);
     if (!in)
         return Error::fail("Can't read " + path.string());
     const std::vector<uint8_t> file((std::istreambuf_iterator<char>(in)), {});
-    if (Error e = process_->load("nfs3.exe", file, exe_))
+    if (Error e = _process->load("nfs3.exe", file, _exe))
         return e;
-    say("nfs3.exe loaded at " + hex(exe_->base));
-    for (const std::string &m : process_->missingImports())
+    say("nfs3.exe loaded at " + hex(_exe->base));
+    for (const std::string &m : _process->missingImports())
         say("  not stood in for: " + m);
-    if (options_.nativeRoutines) {
+    if (_options.nativeRoutines) {
         addNativeRoutines();
         addNativeSound();
     }
-    if (options_.positionalUpdates)
+    if (_options.positionalUpdates)
         choosePositionalUpdates();
     return Error::success();
 }
@@ -417,7 +417,7 @@ void GameHost::choosePositionalUpdates() {
     const uint8_t expected[6] = {0x89, 0x15, 0x0c, 0xd5, 0x6f, 0x00}; // mov [0x6fd50c], edx
     auto matches = [&](uint32_t a) {
         for (uint32_t i = 0; i < 6; ++i)
-            if (cpu_->read8(a + i) != expected[i])
+            if (_cpu->read8(a + i) != expected[i])
                 return false;
         return true;
     };
@@ -425,22 +425,22 @@ void GameHost::choosePositionalUpdates() {
         say("positional updates: nfs3.exe's network dialog isn't the expected code; left as it is");
         return;
     }
-    cpu_->write8(0x43f43f, 0x35);                                     // mov [0x6fd50c], esi (1)
+    _cpu->write8(0x43f43f, 0x35);                                     // mov [0x6fd50c], esi (1)
     const uint8_t storeEax[6] = {0xa3, 0x0c, 0xd5, 0x6f, 0x00, 0x90}; // mov [0x6fd50c], eax (1); nop
     for (uint32_t i = 0; i < 6; ++i)
-        cpu_->write8(0x43f451 + i, storeEax[i]);
+        _cpu->write8(0x43f451 + i, storeEax[i]);
     say("positional updates chosen for network races");
 }
 
 bool GameHost::replaceRoutine(uint32_t address, uint32_t size, uint64_t hash, const char *name, Cpu::Native fn) {
     uint64_t h = 0xcbf29ce484222325ull;
     for (uint32_t i = 0; i < size; ++i)
-        h = (h ^ cpu_->read8(address + i)) * 0x100000001b3ull;
+        h = (h ^ _cpu->read8(address + i)) * 0x100000001b3ull;
     if (h != hash || size < 5)
         return false;
-    const uint32_t native = cpu_->addNative(name, std::move(fn));
-    cpu_->write8(address, 0xe9); // JMP rel32
-    cpu_->write32(address + 1, native - (address + 5));
+    const uint32_t native = _cpu->addNative(name, std::move(fn));
+    _cpu->write8(address, 0xe9); // JMP rel32
+    _cpu->write32(address + 1, native - (address + 5));
     return true;
 }
 
@@ -452,11 +452,11 @@ void GameHost::addNativeRoutines() {
     // in EAX) and returns as the routine would.
     auto replace = [this](uint32_t address, std::vector<uint8_t> expected, const char *name, Cpu::Native fn) {
         for (size_t i = 0; i < expected.size(); ++i)
-            if (cpu_->read8(address + uint32_t(i)) != expected[i])
+            if (_cpu->read8(address + uint32_t(i)) != expected[i])
                 return;
-        const uint32_t native = cpu_->addNative(name, std::move(fn));
-        cpu_->write8(address, 0xe9); // JMP rel32
-        cpu_->write32(address + 1, native - (address + 5));
+        const uint32_t native = _cpu->addNative(name, std::move(fn));
+        _cpu->write8(address, 0xe9); // JMP rel32
+        _cpu->write32(address + 1, native - (address + 5));
     };
     // strcmp(EAX, EDX): -1, 0 or 1, the bytes compared unsigned.
     replace(0x4ee310, {0x53, 0x51, 0x89, 0xc3, 0x39, 0xd0, 0x74, 0x6c}, "nfs3.exe strcmp", [](Cpu &c) {
@@ -492,20 +492,20 @@ void GameHost::addNativeRoutines() {
 }
 
 Error GameHost::run(uint32_t &exitCode) {
-    if (!exe_)
+    if (!_exe)
         return Error::fail("nfs3.exe isn't loaded");
-    return process_->run(*exe_, exitCode);
+    return _process->run(*_exe, exitCode);
 }
 
 uint32_t GameHost::newObject(uint32_t vtable) {
     // The object: its vtable pointer, then room for whatever it keeps.
-    const uint32_t object = process_->memory().alloc(64);
-    cpu_->write32(object, vtable);
+    const uint32_t object = _process->memory().alloc(64);
+    _cpu->write32(object, vtable);
     return object;
 }
 
 uint32_t GameHost::makeVtable(const std::string &interface, const std::vector<Method> &methods) {
-    const uint32_t vtable = process_->memory().alloc(uint32_t(methods.size()) * 4);
+    const uint32_t vtable = _process->memory().alloc(uint32_t(methods.size()) * 4);
     for (size_t i = 0; i < methods.size(); ++i) {
         const Method &m = methods[i];
         const std::string name = interface + "::" + m.name;
@@ -516,7 +516,7 @@ uint32_t GameHost::makeVtable(const std::string &interface, const std::vector<Me
                 return 0x80004001u;
             };
         const uint32_t pop = uint32_t(m.args) * 4;
-        cpu_->write32(vtable + 4 * uint32_t(i), cpu_->addNative(name, [fn, pop](Cpu &c) {
+        _cpu->write32(vtable + 4 * uint32_t(i), _cpu->addNative(name, [fn, pop](Cpu &c) {
             c.reg[Cpu::EAX] = fn(c);
             return pop;
         }));
@@ -533,48 +533,48 @@ void GameHost::addSystem() {
         if (slash != std::string::npos)
             name = name.substr(slash + 1);
         // The game's own DLLs (the renderers, the sound) from its folder.
-        if (auto it = gameDlls_.find(name); it != gameDlls_.end())
+        if (auto it = _gameDlls.find(name); it != _gameDlls.end())
             return it->second->base;
         if (name.find("kernel32") == std::string::npos && name.find("user32") == std::string::npos &&
-            !nativeModules_.count(name)) {
+            !_nativeModules.count(name)) {
             // Told of another renderer, the game asks for it: renderer it is.
             const std::string dllFile =
-                !options_.presentedRenderer.empty() && name == options_.presentedRenderer ? options_.renderer : name;
+                !_options.presentedRenderer.empty() && name == _options.presentedRenderer ? _options.renderer : name;
             // Options::glideDll: the renderer from outside the install.
-            const bool outside = options_.glide && !options_.glideDll.empty() && dllFile == options_.renderer;
-            std::ifstream in(outside ? std::filesystem::path(options_.glideDll)
-                                     : process_->hostPath("C:\\" + dllFile, false),
+            const bool outside = _options.glide && !_options.glideDll.empty() && dllFile == _options.renderer;
+            std::ifstream in(outside ? std::filesystem::path(_options.glideDll)
+                                     : _process->hostPath("C:\\" + dllFile, false),
                              std::ios::binary);
             if (in) {
                 const std::vector<uint8_t> file((std::istreambuf_iterator<char>(in)), {});
                 const x86::Win32Process::Module *m = nullptr;
-                if (Error e = process_->load(name, file, m)) {
+                if (Error e = _process->load(name, file, m)) {
                     say("  LoadLibraryA(\"" + name + "\"): " + e.message);
                     return 0u;
                 }
-                gameDlls_[name] = m;
+                _gameDlls[name] = m;
                 if (name.find("eacsnd") == std::string::npos) {
-                    thrash_.dll = name;
-                    thrashBase_ = m->base;
+                    _thrash.dll = name;
+                    _thrashBase = m->base;
                     // The retail softtria.dll (June 1998), whose globals thrash.md describes.
-                    softtriaKnown_ = dllFile == "softtria.dll" && m->image.timestamp == 0x35e4344f &&
+                    _softtriaKnown = dllFile == "softtria.dll" && m->image.timestamp == 0x35e4344f &&
                                      m->image.imageBase == 0x60000000;
                 }
                 say("  " + name + (dllFile != name ? " (" + dllFile + ")" : std::string()) + " loaded at " +
                     hex(m->base));
-                if (Error e = process_->attach(*m)) {
+                if (Error e = _process->attach(*m)) {
                     say("  " + name + ": " + e.message);
                     return 0u;
                 }
                 return m->base;
             }
         }
-        if (auto it = nativeModules_.find(name); it != nativeModules_.end())
+        if (auto it = _nativeModules.find(name); it != _nativeModules.end())
             return it->second;
-        if (const auto *m = process_->module(name))
+        if (const auto *m = _process->module(name))
             return m->base;
         say("  LoadLibraryA(\"" + name + "\"): not there");
-        process_->setLastError(126);
+        _process->setLastError(126);
         return 0u;
     });
     provide(k, "FreeLibrary", 1, [](Cpu &) { return 1u; });
@@ -603,28 +603,28 @@ void GameHost::addSystem() {
         const uint32_t handle = c.arg(0);
         const uint32_t name = c.arg(1);
         const std::string function = name < 0x10000 ? "#" + std::to_string(name) : c.string(name);
-        if (const auto *m = process_->moduleAt(handle)) {
+        if (const auto *m = _process->moduleAt(handle)) {
             for (const PeImage::Export &e : m->image.exports)
                 if ((name < 0x10000 ? e.ordinal == name : e.name == function) && e.forwarder.empty())
-                    return handle == thrashBase_ ? wrapThrash(function, m->base + e.rva) : m->base + e.rva;
+                    return handle == _thrashBase ? wrapThrash(function, m->base + e.rva) : m->base + e.rva;
             say("  GetProcAddress: " + m->name + " has no " + function);
             return 0u;
         }
-        if (auto it = nativeExports_.find(handle); it != nativeExports_.end()) {
+        if (auto it = _nativeExports.find(handle); it != _nativeExports.end()) {
             auto f = it->second.find(function);
             if (f != it->second.end())
                 return f->second;
             say("  GetProcAddress: no " + function);
             return 0u;
         }
-        process_->setLastError(127);
+        _process->setLastError(127);
         say("  GetProcAddress(" + hex(handle) + ", " + function + "): not there");
         return 0u;
     });
 
     // Windows 98, which the game was made for (4.10, build 1998): it then
     // reads low memory to tell, as that allows.
-    cpu_->readableFirstPage = true;
+    _cpu->readableFirstPage = true;
     provide(k, "GetVersion", 0, [](Cpu &) { return 0xc0000a04u; });
     provide(k, "GetVersionExA", 1, [](Cpu &c) {
         const uint32_t p = c.arg(0);
@@ -691,8 +691,8 @@ void GameHost::addSystem() {
     provide(k, "GetCommandLineW", 0, [this](Cpu &c) {
         static uint32_t wide = 0;
         if (!wide) {
-            const std::string s = options_.commandLine;
-            wide = process_->memory().alloc(uint32_t(s.size() + 1) * 2);
+            const std::string s = _options.commandLine;
+            wide = _process->memory().alloc(uint32_t(s.size() + 1) * 2);
             for (size_t i = 0; i < s.size(); ++i)
                 c.write16(wide + 2 * uint32_t(i), uint8_t(s[i]));
         }
@@ -758,7 +758,7 @@ void GameHost::addSystem() {
     };
     auto registry = std::make_shared<std::map<std::string, std::map<std::string, Value>>>();
     (*registry)["software\\electronic arts\\need for speed iii"] = {
-        {"thrash driver", {1, options_.presentedRenderer.empty() ? options_.renderer : options_.presentedRenderer}},
+        {"thrash driver", {1, _options.presentedRenderer.empty() ? _options.renderer : _options.presentedRenderer}},
         {"d3d device", {4, "", 0}},
     };
     // For d3da, the Direct3D device 3dSetup would have found: the game reads
@@ -766,7 +766,7 @@ void GameHost::addSystem() {
     // Velocity 128" halves the effects intensity's default; 0x4a4410, the
     // menus' "texteffects", is left out for "RAGE PRO"), so a plain one
     // gives the general path.
-    if (lower(options_.presentedRenderer.empty() ? options_.renderer : options_.presentedRenderer) == "d3da.dll")
+    if (lower(_options.presentedRenderer.empty() ? _options.renderer : _options.presentedRenderer) == "d3da.dll")
         (*registry)["software\\electronic arts\\need for speed iii"]["3d device description"] = {1, "Direct3D HAL"};
     auto keys = std::make_shared<std::map<uint32_t, std::string>>();
     const char *a = "ADVAPI32.dll";
@@ -823,7 +823,7 @@ void GameHost::addSystem() {
     // is twice the resource's: VerQueryValueA writes text values, converted
     // to ANSI, into the second half, as Windows NT does.
     auto versionInfo = [this](const std::string &windowsPath) {
-        std::ifstream in(process_->hostPath(windowsPath, false), std::ios::binary);
+        std::ifstream in(_process->hostPath(windowsPath, false), std::ios::binary);
         const std::vector<uint8_t> file((std::istreambuf_iterator<char>(in)), {});
         PeImage pe;
         if (file.empty() || parsePe(file, pe))
@@ -916,53 +916,53 @@ void GameHost::addSystem() {
 
 uint32_t GameHost::callWindow(const Window &w, uint32_t msg, uint32_t wParam, uint32_t lParam) {
     uint32_t result = 0;
-    if (Error e = cpu_->call(w.wndProc, {w.handle, msg, wParam, lParam}, result))
-        cpu_->abort("the window procedure failed: " + e.message);
+    if (Error e = _cpu->call(w.wndProc, {w.handle, msg, wParam, lParam}, result))
+        _cpu->abort("the window procedure failed: " + e.message);
     return result;
 }
 
 GameHost::Window *GameHost::window(uint32_t handle) {
-    for (Window &w : windows_)
+    for (Window &w : _windows)
         if (w.handle == handle)
             return &w;
     return nullptr;
 }
 
 void GameHost::post(uint32_t threadId, const Message &m) {
-    queues_[threadId].push_back(m);
-    process_->preempt();
+    _queues[threadId].push_back(m);
+    _process->preempt();
 }
 
 void GameHost::addUser() {
     const char *u = "USER32.dll";
-    auto self = [this]() { return process_->currentThread() ? process_->currentThread()->id : 0x104u; };
+    auto self = [this]() { return _process->currentThread() ? _process->currentThread()->id : 0x104u; };
 
     // RegisterClassA(WNDCLASSA*): the procedure at +4, the name at +36.
     provide(u, "RegisterClassA", 1, [this](Cpu &c) {
         const uint32_t p = c.arg(0);
         const std::string name = c.read32(p + 36) < 0x10000 ? hex(c.read32(p + 36)) : c.string(c.read32(p + 36));
-        classes_[lower(name)] = c.read32(p + 4);
-        return 0xc000u + uint32_t(classes_.size());
+        _classes[lower(name)] = c.read32(p + 4);
+        return 0xc000u + uint32_t(_classes.size());
     });
     // CreateWindowExA(exStyle, class, title, style, x, y, w, h, parent, menu, instance, param)
     provide(u, "CreateWindowExA", 12, [this, self](Cpu &c) -> uint32_t {
         const std::string cls = c.arg(1) < 0x10000 ? hex(c.arg(1)) : c.string(c.arg(1));
-        auto it = classes_.find(lower(cls));
-        if (it == classes_.end()) {
+        auto it = _classes.find(lower(cls));
+        if (it == _classes.end()) {
             say("  CreateWindowExA: no class " + cls);
             return 0u;
         }
         Window w;
-        w.handle = (nextWindow_ += 4);
+        w.handle = (_nextWindow += 4);
         w.wndProc = it->second;
         w.className = cls;
         w.title = c.string(c.arg(2));
         w.style = c.arg(3);
         w.threadId = self();
-        windows_.push_back(w);
+        _windows.push_back(w);
         say("  window \"" + w.title + "\" (" + cls + ") made");
         // WM_NCCREATE and WM_CREATE, with a CREATESTRUCT.
-        const uint32_t cs = process_->memory().alloc(48);
+        const uint32_t cs = _process->memory().alloc(48);
         const uint32_t fields[] = {c.arg(11), c.arg(10), c.arg(9), c.arg(8), c.arg(7), c.arg(6),
                                    c.arg(5),  c.arg(4),  c.arg(3), c.arg(2), c.arg(1), c.arg(0)};
         for (uint32_t i = 0; i < 12; ++i)
@@ -991,7 +991,7 @@ void GameHost::addUser() {
         if (Window *w = window(c.arg(0))) {
             const Window copy = *w;
             callWindow(copy, 0x02, 0, 0); // WM_DESTROY
-            std::erase_if(windows_, [&](const Window &x) { return x.handle == copy.handle; });
+            std::erase_if(_windows, [&](const Window &x) { return x.handle == copy.handle; });
         }
         return 1u;
     });
@@ -1004,7 +1004,7 @@ void GameHost::addUser() {
     provide(u, "GetWindowThreadProcessId", 2, [this](Cpu &c) {
         if (c.arg(1))
             c.write32(c.arg(1), 0x100u); // GetCurrentProcessId's
-        for (const Window &w : windows_)
+        for (const Window &w : _windows)
             if (w.handle == c.arg(0))
                 return w.threadId;
         return 0u;
@@ -1057,22 +1057,22 @@ void GameHost::addUser() {
             c.write32(p + 4 * i, v[i]);
     };
     provide(u, "GetMessageA", 4, [this, self, writeMsg](Cpu &c) {
-        auto &q = queues_[self()];
-        if (tapiDeliver_)
-            tapiDeliver_(c);
+        auto &q = _queues[self()];
+        if (_tapiDeliver)
+            _tapiDeliver(c);
         // While a call is under way, TAPI's window gets status messages:
         // the game's loop waiting on it comes round at least every 100 ms.
-        const bool tapi = tapiNews_ && tapiThread_ == self();
-        process_->wait([&] { return !q.empty() || (tapi && tapiNews_()); }, tapi && tapiBusy_() ? 100u : 0xffffffffu);
-        if (process_->ending()) {
+        const bool tapi = _tapiNews && _tapiThread == self();
+        _process->wait([&] { return !q.empty() || (tapi && _tapiNews()); }, tapi && _tapiBusy() ? 100u : 0xffffffffu);
+        if (_process->ending()) {
             c.abort("the process is ending");
             return 0u;
         }
         if (q.empty() && tapi) {
             // TAPI's news: its callbacks run, and WM_NULL comes back, as
             // the message to TAPI's own window would.
-            tapiDeliver_(c);
-            writeMsg(c, c.arg(0), {0, 0, 0, 0, uint32_t(process_->now())});
+            _tapiDeliver(c);
+            writeMsg(c, c.arg(0), {0, 0, 0, 0, uint32_t(_process->now())});
             return 1u;
         }
         const Message m = q.front();
@@ -1081,11 +1081,11 @@ void GameHost::addUser() {
         return m.message == 0x12 ? 0u : 1u; // WM_QUIT
     });
     provide(u, "PeekMessageA", 5, [this, self, writeMsg](Cpu &c) {
-        auto &q = queues_[self()];
-        if (tapiDeliver_)
-            tapiDeliver_(c);
+        auto &q = _queues[self()];
+        if (_tapiDeliver)
+            _tapiDeliver(c);
         if (q.empty()) {
-            process_->yield();
+            _process->yield();
             return 0u;
         }
         writeMsg(c, c.arg(0), q.front());
@@ -1103,7 +1103,7 @@ void GameHost::addUser() {
     });
     provide(u, "PostMessageA", 4, [this](Cpu &c) {
         Window *w = window(c.arg(0));
-        post(w ? w->threadId : 0x104u, {c.arg(0), c.arg(1), c.arg(2), c.arg(3), uint32_t(process_->now())});
+        post(w ? w->threadId : 0x104u, {c.arg(0), c.arg(1), c.arg(2), c.arg(3), uint32_t(_process->now())});
         return 1u;
     });
     provide(u, "SendNotifyMessageA", 4, [this, self](Cpu &c) {
@@ -1112,32 +1112,32 @@ void GameHost::addUser() {
             const Window copy = *w;
             callWindow(copy, c.arg(1), c.arg(2), c.arg(3));
         } else {
-            post(w ? w->threadId : 0x104u, {c.arg(0), c.arg(1), c.arg(2), c.arg(3), uint32_t(process_->now())});
+            post(w ? w->threadId : 0x104u, {c.arg(0), c.arg(1), c.arg(2), c.arg(3), uint32_t(_process->now())});
         }
         return 1u;
     });
     provide(u, "PostThreadMessageA", 4, [this](Cpu &c) {
-        post(c.arg(0), {0, c.arg(1), c.arg(2), c.arg(3), uint32_t(process_->now())});
+        post(c.arg(0), {0, c.arg(1), c.arg(2), c.arg(3), uint32_t(_process->now())});
         return 1u;
     });
     provide(u, "PostQuitMessage", 1, [this, self](Cpu &c) {
-        post(self(), {0, 0x12, c.arg(0), 0, uint32_t(process_->now())});
+        post(self(), {0, 0x12, c.arg(0), 0, uint32_t(_process->now())});
         return 0u;
     });
 
     // Input: keys from Reluva's events (none yet), the cursor.
-    provide(u, "GetAsyncKeyState", 1, [this](Cpu &c) { return vkDown_[c.arg(0) & 0xff] ? 0x8000u : 0u; });
-    provide(u, "GetKeyState", 1, [this](Cpu &c) { return vkDown_[c.arg(0) & 0xff] ? 0xff80u : 0u; });
+    provide(u, "GetAsyncKeyState", 1, [this](Cpu &c) { return _vkDown[c.arg(0) & 0xff] ? 0x8000u : 0u; });
+    provide(u, "GetKeyState", 1, [this](Cpu &c) { return _vkDown[c.arg(0) & 0xff] ? 0xff80u : 0u; });
     provide(u, "GetKeyboardType", 1, [](Cpu &c) -> uint32_t { return c.arg(0) == 0 ? 4 : c.arg(0) == 2 ? 12 : 0; });
     provide(u, "keybd_event", 4, [](Cpu &) { return 0u; });
     provide(u, "SetCursor", 1, [](Cpu &) { return 0u; });
     provide(u, "SetCursorPos", 2, [](Cpu &) { return 1u; });
-    provide(u, "ShowCursor", 1, [this](Cpu &c) { return uint32_t(cursorCount_ += c.arg(0) ? 1 : -1); });
+    provide(u, "ShowCursor", 1, [this](Cpu &c) { return uint32_t(_cursorCount += c.arg(0) ? 1 : -1); });
     provide(u, "SwapMouseButton", 1, [](Cpu &) { return 0u; });
     provide(u, "LoadIconA", 2, [](Cpu &) { return 0x30001u; });
     // The screen's size; SM_NETWORK (63) when there's a network.
     provide(u, "GetSystemMetrics", 1, [this](Cpu &c) -> uint32_t {
-        return c.arg(0) == 0 ? 640 : c.arg(0) == 1 ? 480 : c.arg(0) == 63 ? (options_.sockets ? 1 : 0) : 0;
+        return c.arg(0) == 0 ? 640 : c.arg(0) == 1 ? 480 : c.arg(0) == 63 ? (_options.sockets ? 1 : 0) : 0;
     });
     provide(u, "SystemParametersInfoA", 4, [](Cpu &) { return 1u; });
     provide(u, "SetWindowsHookExA", 4, [](Cpu &) { return 0x40001u; });
@@ -1161,7 +1161,7 @@ void GameHost::addUser() {
         return c.arg(1);
     });
     // wsprintfA(buffer, format, ...): cdecl.
-    process_->provide(u, "wsprintfA", [](Cpu &c) {
+    _process->provide(u, "wsprintfA", [](Cpu &c) {
         const std::string s = x86::formatPrintf(c, c.arg(1), c.reg[Cpu::ESP] + 12);
         c.writeString(c.arg(0), s, 1024);
         c.reg[Cpu::EAX] = uint32_t(std::min<size_t>(s.size(), 1023));

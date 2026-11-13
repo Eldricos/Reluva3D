@@ -106,10 +106,10 @@ uint32_t NativeThrash::sampleBilinear(const Texture &t, float fu, float fv, bool
 }
 
 void NativeThrash::setTarget(uint32_t address, int pitch, int width, int height) {
-    target_ = address;
-    pitch_ = pitch;
-    width_ = width;
-    height_ = height;
+    _target = address;
+    _pitch = pitch;
+    _width = width;
+    _height = height;
 }
 
 void NativeThrash::talloc(uint32_t handle, int width, int height, int format) {
@@ -118,28 +118,28 @@ void NativeThrash::talloc(uint32_t handle, int width, int height, int format) {
     t.height = std::max(height, 1);
     t.format = format;
     t.rgba.assign(size_t(t.width) * size_t(t.height), 0xffffffffu);
-    textures_[handle] = std::move(t);
-    changed_.insert(handle);
-    if (handle == textureHandle_)
-        texture_ = &textures_[handle];
+    _textures[handle] = std::move(t);
+    _changed.insert(handle);
+    if (handle == _textureHandle)
+        _texture = &_textures[handle];
 }
 
 uint32_t NativeThrash::tupdate(uint32_t handle, uint32_t pixels, uint32_t palette) {
-    auto it = textures_.find(handle);
-    if (it == textures_.end())
+    auto it = _textures.find(handle);
+    if (it == _textures.end())
         return handle;
     Texture &t = it->second;
     const size_t n = t.rgba.size();
-    changed_.insert(handle);
+    _changed.insert(handle);
     if (t.format == 2) {
         // 8-bit indices into a palette of 256 0x00RRGGBB colours, either
         // given on its own; index 255 is left out.
-        if (pixels && cpu_.valid(pixels, uint32_t(n))) {
-            const uint8_t *p = cpu_.memory().data() + pixels;
+        if (pixels && _cpu.valid(pixels, uint32_t(n))) {
+            const uint8_t *p = _cpu.memory().data() + pixels;
             t.indices.assign(p, p + n);
         }
-        if (palette && cpu_.valid(palette, 1024)) {
-            const uint8_t *p = cpu_.memory().data() + palette;
+        if (palette && _cpu.valid(palette, 1024)) {
+            const uint8_t *p = _cpu.memory().data() + palette;
             for (int i = 0; i < 256; ++i)
                 t.palette[size_t(i)] = 0xff000000u | uint32_t(p[4 * i] | p[4 * i + 1] << 8 | p[4 * i + 2] << 16);
         }
@@ -157,9 +157,9 @@ uint32_t NativeThrash::tupdate(uint32_t handle, uint32_t pixels, uint32_t palett
         return t.format == 3 || t.format == 4 ? 0 : handle;
     // The other formats, all 16 bits a texel: 3 1:5:5:5 (the top bit set
     // where opaque), 4 5:6:5 (opaque), 7 4:4:4:4.
-    if (!cpu_.valid(pixels, uint32_t(n * 2)))
+    if (!_cpu.valid(pixels, uint32_t(n * 2)))
         return handle;
-    const uint8_t *p = cpu_.memory().data() + pixels;
+    const uint8_t *p = _cpu.memory().data() + pixels;
     t.transparent = false;
     for (size_t i = 0; i < n; ++i) {
         const uint16_t v = uint16_t(p[2 * i] | p[2 * i + 1] << 8);
@@ -171,7 +171,7 @@ uint32_t NativeThrash::tupdate(uint32_t handle, uint32_t pixels, uint32_t palett
         else if (t.format == 7)
             c = from4444(v);
         else {
-            ++unknownFormats_[t.format];
+            ++_unknownFormats[t.format];
             c = from565(v);
         }
         if ((c >> 24) != 0xff)
@@ -184,55 +184,55 @@ uint32_t NativeThrash::tupdate(uint32_t handle, uint32_t pixels, uint32_t palett
 void NativeThrash::setState(uint32_t id, uint32_t value) {
     switch (id) {
     case 0x1: { // the texture: a handle, or 0 for none
-        textureHandle_ = value;
-        auto it = textures_.find(value);
-        texture_ = it == textures_.end() ? nullptr : &it->second;
+        _textureHandle = value;
+        auto it = _textures.find(value);
+        _texture = it == _textures.end() ? nullptr : &it->second;
         break;
     }
     case 0x2:
-        cull_ = int(value);
+        _cull = int(value);
         break;
     case 0x5: // d3da's setstate does nothing for it: its device never dithers
-        if (!direct3D_)
-            dither_ = value != 0;
+        if (!_direct3D)
+            _dither = value != 0;
         break;
     case 0x6:
-        gouraud_ = value != 0;
+        _gouraud = value != 0;
         break;
     case 0x7: // only d3da's: 0 point-sampled, 1 bilinear (TEXTUREMAG and MIN), other values ignored
-        if (direct3D_ && value <= 1)
-            bilinear_ = value == 1;
+        if (_direct3D && value <= 1)
+            _bilinear = value == 1;
         break;
     case 0xd:
-        wrap_ = value != 0;
+        _wrap = value != 0;
         break;
     case 0x68:
-        blend_ = int(value & 3);
+        _blend = int(value & 3);
         break;
     case 0xa:
-        alphaBlend_ = value != 0;
+        _alphaBlend = value != 0;
         break;
     // Fog, as voodoo2a.dll has Glide do it: 0xe builds the table from its
     // value and turns table fog on, or (0) off; 0x15 turns it on (modes
     // 1, 2, 4 and 8, all the same) or off (0) with the table it has.
     case 0xe:
-        fogOn_ = value != 0;
-        if (fogOn_) {
-            fogValue_ = float(value);
+        _fogOn = value != 0;
+        if (_fogOn) {
+            _fogValue = float(value);
             for (int i = 0; i < 64; ++i) {
                 const float w = std::pow(2.0f, 3.0f + float(i >> 2)) / float(8 - (i & 3));
-                fogTable_[size_t(i)] = std::round(glideFog(w, fogValue_) * 255) / 255;
+                _fogTable[size_t(i)] = std::round(glideFog(w, _fogValue) * 255) / 255;
             }
         }
         break;
     case 0xf:
-        fogColour_ = value & 0xffffff;
+        _fogColour = value & 0xffffff;
         break;
     case 0x15:
         if (value == 0)
-            fogOn_ = false;
+            _fogOn = false;
         else if (value == 1 || value == 2 || value == 4 || value == 8)
-            fogOn_ = fogValue_ != 0;
+            _fogOn = _fogValue != 0;
         break;
     default:
         break;
@@ -240,18 +240,18 @@ void NativeThrash::setState(uint32_t id, uint32_t value) {
 }
 
 void NativeThrash::setDirect3D(bool on) {
-    direct3D_ = on;
+    _direct3D = on;
     // d3da's device set-up (0x60004137-0x600042af): TEXTUREMAG and
     // TEXTUREMIN LINEAR, DITHERENABLE off. voodoo2a.dll's own set-up after
     // setvideomode asks for bilinear too (0x6000208f), so either way the
     // filter starts bilinear unless held point-sampled.
-    bilinear_ = !pointSampled_;
-    dither_ = !on;
+    _bilinear = !_pointSampled;
+    _dither = !on;
 }
 
 void NativeThrash::setPointSampled(bool on) {
-    pointSampled_ = on;
-    bilinear_ = !on;
+    _pointSampled = on;
+    _bilinear = !on;
 }
 
 float glideFog(float w, float value) {
@@ -269,36 +269,36 @@ float glideFog(float w, float value) {
 // interpolates; below entry 0's w (1) it's entry 0, past the last the last.
 float NativeThrash::fogAt(float w) const {
     if (!(w > 1))
-        return fogTable_[0];
+        return _fogTable[0];
     int e = 0;
     const float s = std::frexp(w, &e) * 2; // w = s * 2^(e - 1), s in [1, 2)
     const int k = e - 1;
     if (k >= 16)
-        return fogTable_[63];
-    static constexpr float at[5] = {1.0f, 8.0f / 7, 8.0f / 6, 8.0f / 5, 2.0f};
-    const int j = s < at[1] ? 0 : s < at[2] ? 1 : s < at[3] ? 2 : 3;
+        return _fogTable[63];
+    static constexpr float kAt[5] = {1.0f, 8.0f / 7, 8.0f / 6, 8.0f / 5, 2.0f};
+    const int j = s < kAt[1] ? 0 : s < kAt[2] ? 1 : s < kAt[3] ? 2 : 3;
     const int i = 4 * k + j;
-    const float lo = fogTable_[size_t(i)];
-    const float hi = fogTable_[size_t(std::min(i + 1, 63))];
-    return lo + (hi - lo) * (s - at[j]) / (at[j + 1] - at[j]);
+    const float lo = _fogTable[size_t(i)];
+    const float hi = _fogTable[size_t(std::min(i + 1, 63))];
+    return lo + (hi - lo) * (s - kAt[j]) / (kAt[j + 1] - kAt[j]);
 }
 
 void NativeThrash::clip(int x0, int y0, int x1, int y1) {
-    clipX0_ = x0;
-    clipY0_ = y0;
-    clipX1_ = x1;
-    clipY1_ = y1;
+    _clipX0 = x0;
+    _clipY0 = y0;
+    _clipX1 = x1;
+    _clipY1 = y1;
 }
 
 NativeThrash::Vertex NativeThrash::vertex(uint32_t address) const {
     Vertex v{};
-    if (cpu_.valid(address, 32))
-        std::memcpy(&v, cpu_.memory().data() + address, 32);
+    if (_cpu.valid(address, 32))
+        std::memcpy(&v, _cpu.memory().data() + address, 32);
     return v;
 }
 
 void NativeThrash::plot(int x, int y, uint32_t argb) {
-    put(cpu_.memory().data() + target_ + size_t(y) * size_t(pitch_) + size_t(x) * 2, argb, x, y);
+    put(_cpu.memory().data() + _target + size_t(y) * size_t(_pitch) + size_t(x) * 2, argb, x, y);
 }
 
 void NativeThrash::put(uint8_t *p, uint32_t argb, int x, int y) {
@@ -311,7 +311,7 @@ void NativeThrash::put(uint8_t *p, uint32_t argb, int x, int y) {
     // the GPU's (source alpha, one) adds it and softtria's additive spans
     // do (thrash.md, Blend modes). Otherwise what's translucent is blended
     // over what's drawn, and what's opaque replaces it.
-    const int mode = alphaBlend_ ? blend_ : 0;
+    const int mode = _alphaBlend ? _blend : 0;
     if (a < 255 || mode != 0) {
         const uint16_t d = uint16_t(p[0] | p[1] << 8);
         const uint32_t dr = ((d >> 11) & 31) * 255 / 31;
@@ -340,29 +340,29 @@ void NativeThrash::put(uint8_t *p, uint32_t argb, int x, int y) {
             break;
         }
     }
-    const uint16_t v = dither_ ? to565Dithered(r, g, b, x, y) : to565(r, g, b);
+    const uint16_t v = _dither ? to565Dithered(r, g, b, x, y) : to565(r, g, b);
     p[0] = uint8_t(v);
     p[1] = uint8_t(v >> 8);
-    ++pixels_;
+    ++_pixels;
 }
 
 void NativeThrash::rasterize(const Vertex &a, const Vertex &b, const Vertex &c) {
-    if (!target_)
+    if (!_target)
         return;
     // Screen space, y down: the signed area is positive for triangles that
     // turn clockwise on screen.
     const float area = (b.x - a.x) * (c.y - a.y) - (c.x - a.x) * (b.y - a.y);
     if (area == 0 || !std::isfinite(area))
         return;
-    if ((cull_ == 1 && area < 0) || (cull_ == 2 && area > 0))
+    if ((_cull == 1 && area < 0) || (_cull == 2 && area > 0))
         return;
-    const int x0 = std::max({int(std::floor(std::min({a.x, b.x, c.x}))), clipX0_, 0});
-    const int x1 = std::min({int(std::ceil(std::max({a.x, b.x, c.x}))), clipX1_, width_});
-    const int y0 = std::max({int(std::floor(std::min({a.y, b.y, c.y}))), clipY0_, 0});
-    const int y1 = std::min({int(std::ceil(std::max({a.y, b.y, c.y}))), clipY1_, height_});
+    const int x0 = std::max({int(std::floor(std::min({a.x, b.x, c.x}))), _clipX0, 0});
+    const int x1 = std::min({int(std::ceil(std::max({a.x, b.x, c.x}))), _clipX1, _width});
+    const int y0 = std::max({int(std::floor(std::min({a.y, b.y, c.y}))), _clipY0, 0});
+    const int y1 = std::min({int(std::ceil(std::max({a.y, b.y, c.y}))), _clipY1, _height});
     if (x0 >= x1 || y0 >= y1)
         return;
-    if (!cpu_.valid(target_ + uint32_t(y0) * uint32_t(pitch_), uint32_t((y1 - y0) * pitch_)))
+    if (!_cpu.valid(_target + uint32_t(y0) * uint32_t(_pitch), uint32_t((y1 - y0) * _pitch)))
         return;
     const float inv = 1.0f / area;
     // Barycentric weights l0 (a's), l1 (b's), l2 = 1 - l0 - l1, and how
@@ -373,24 +373,24 @@ void NativeThrash::rasterize(const Vertex &a, const Vertex &b, const Vertex &c) 
     const float l1dy = (a.x - c.x) * inv;
     // Values interpolated across the triangle (linear on screen): 1/w, u/w,
     // v/w, then the colour's channels.
-    enum { W, U, V, R, G, B, A, kValues };
+    enum { kW, kU, kV, kR, kG, kB, kA, kValues };
     float at0[kValues];
     float at1[kValues];
     float at2[kValues];
     auto load = [](float *to, const Vertex &v) {
-        to[W] = v.rhw;
-        to[U] = v.u * v.rhw;
-        to[V] = v.v * v.rhw;
-        to[R] = float((v.diffuse >> 16) & 255);
-        to[G] = float((v.diffuse >> 8) & 255);
-        to[B] = float(v.diffuse & 255);
-        to[A] = float(v.diffuse >> 24);
+        to[kW] = v.rhw;
+        to[kU] = v.u * v.rhw;
+        to[kV] = v.v * v.rhw;
+        to[kR] = float((v.diffuse >> 16) & 255);
+        to[kG] = float((v.diffuse >> 8) & 255);
+        to[kB] = float(v.diffuse & 255);
+        to[kA] = float(v.diffuse >> 24);
     };
     load(at0, a);
     load(at1, b);
     load(at2, c);
-    if (!gouraud_) // flat: the first vertex's colour throughout
-        for (int i = R; i < kValues; ++i)
+    if (!_gouraud) // flat: the first vertex's colour throughout
+        for (int i = kR; i < kValues; ++i)
             at1[i] = at2[i] = at0[i];
     float dx[kValues];
     float dy[kValues];
@@ -406,14 +406,14 @@ void NativeThrash::rasterize(const Vertex &a, const Vertex &b, const Vertex &c) 
         dy[i] = l0dy * d0 + l1dy * d1;
         base[i] = at2[i] + l0 * d0 + l1 * d1;
     }
-    const Texture *tex = texture_;
+    const Texture *tex = _texture;
     const int tw = tex ? tex->width : 1;
     const int th = tex ? tex->height : 1;
     const float ftw = float(tw);
     const float fth = float(th);
-    const bool bilinear = bilinear_;
+    const bool bilinear = _bilinear;
     const float l2dx = -l0dx - l1dx;
-    uint8_t *const memory = cpu_.memory().data();
+    uint8_t *const memory = _cpu.memory().data();
     for (int y = y0; y < y1; ++y) {
         const float rowOff = float(y - y0);
         const float r0 = l0 + l0dy * rowOff;
@@ -443,18 +443,18 @@ void NativeThrash::rasterize(const Vertex &a, const Vertex &b, const Vertex &c) 
         const float colOff = float(xs - x0);
         for (int i = 0; i < kValues; ++i)
             v[i] = base[i] + dy[i] * rowOff + dx[i] * colOff;
-        uint8_t *p = memory + target_ + size_t(y) * size_t(pitch_) + size_t(xs) * 2;
+        uint8_t *p = memory + _target + size_t(y) * size_t(_pitch) + size_t(xs) * 2;
         for (int x = xs; x <= xe; ++x, p += 2) {
-            float r = v[R];
-            float g = v[G];
-            float bl = v[B];
-            float al = v[A];
+            float r = v[kR];
+            float g = v[kG];
+            float bl = v[kB];
+            float al = v[kA];
             bool draw = true;
             if (tex) {
-                const float w = 1.0f / v[W];
-                const float fu = v[U] * w * ftw;
-                const float fv = v[V] * w * fth;
-                const uint32_t t = bilinear ? sampleBilinear(*tex, fu, fv, wrap_) : samplePoint(*tex, fu, fv, wrap_);
+                const float w = 1.0f / v[kW];
+                const float fu = v[kU] * w * ftw;
+                const float fv = v[kV] * w * fth;
+                const uint32_t t = bilinear ? sampleBilinear(*tex, fu, fv, _wrap) : samplePoint(*tex, fu, fv, _wrap);
                 const uint32_t ta = t >> 24;
                 if (ta == 0)
                     draw = false; // left out, as the colour key / alpha test does
@@ -465,11 +465,11 @@ void NativeThrash::rasterize(const Vertex &a, const Vertex &b, const Vertex &c) 
                     al = al * float(ta) * (1.0f / 255);
                 }
             }
-            if (draw && fogOn_) {
-                const float f = fogAt(1.0f / v[W]);
-                r += (float((fogColour_ >> 16) & 255) - r) * f;
-                g += (float((fogColour_ >> 8) & 255) - g) * f;
-                bl += (float(fogColour_ & 255) - bl) * f;
+            if (draw && _fogOn) {
+                const float f = fogAt(1.0f / v[kW]);
+                r += (float((_fogColour >> 16) & 255) - r) * f;
+                g += (float((_fogColour >> 8) & 255) - g) * f;
+                bl += (float(_fogColour & 255) - bl) * f;
             }
             if (draw)
                 put(p,
@@ -484,28 +484,28 @@ void NativeThrash::rasterize(const Vertex &a, const Vertex &b, const Vertex &c) 
 
 ThrashFrame::Batch &NativeThrash::batch() {
     ThrashFrame::Batch b;
-    b.texture = texture_ ? textureHandle_ : 0;
-    b.wrap = wrap_;
-    b.blend = alphaBlend_;
-    b.blendMode = blend_;
-    b.cull = cull_;
-    b.filter = direct3D_ ? int(bilinear_) : -1;
-    b.fog = fogOn_ ? fogValue_ : 0;
-    b.fogColour = fogOn_ ? fogColour_ : 0;
-    b.clip[0] = std::max(clipX0_, 0);
-    b.clip[1] = std::max(clipY0_, 0);
-    b.clip[2] = std::min(clipX1_, frame_.width);
-    b.clip[3] = std::min(clipY1_, frame_.height);
-    b.first = uint32_t(frame_.vertices.size());
-    if (!frame_.batches.empty()) {
-        const ThrashFrame::Batch &last = frame_.batches.back();
+    b.texture = _texture ? _textureHandle : 0;
+    b.wrap = _wrap;
+    b.blend = _alphaBlend;
+    b.blendMode = _blend;
+    b.cull = _cull;
+    b.filter = _direct3D ? int(_bilinear) : -1;
+    b.fog = _fogOn ? _fogValue : 0;
+    b.fogColour = _fogOn ? _fogColour : 0;
+    b.clip[0] = std::max(_clipX0, 0);
+    b.clip[1] = std::max(_clipY0, 0);
+    b.clip[2] = std::min(_clipX1, _frame.width);
+    b.clip[3] = std::min(_clipY1, _frame.height);
+    b.first = uint32_t(_frame.vertices.size());
+    if (!_frame.batches.empty()) {
+        const ThrashFrame::Batch &last = _frame.batches.back();
         if (last.texture == b.texture && last.wrap == b.wrap && last.blend == b.blend &&
             last.blendMode == b.blendMode && last.cull == b.cull && last.filter == b.filter && last.fog == b.fog &&
             last.fogColour == b.fogColour && std::equal(b.clip, b.clip + 4, last.clip))
-            return frame_.batches.back();
+            return _frame.batches.back();
     }
-    frame_.batches.push_back(b);
-    return frame_.batches.back();
+    _frame.batches.push_back(b);
+    return _frame.batches.back();
 }
 
 void NativeThrash::record(const Vertex &a, const Vertex &b, const Vertex &c) {
@@ -513,46 +513,46 @@ void NativeThrash::record(const Vertex &a, const Vertex &b, const Vertex &c) {
     // Flat shading: the first vertex's colour throughout.
     const uint32_t flat = a.diffuse;
     for (const Vertex *v : {&a, &b, &c})
-        frame_.vertices.push_back({v->x, v->y, v->z, v->rhw, gouraud_ ? v->diffuse : flat, v->u, v->v});
+        _frame.vertices.push_back({v->x, v->y, v->z, v->rhw, _gouraud ? v->diffuse : flat, v->u, v->v});
     to.count += 3;
 }
 
 void NativeThrash::fill(int x0, int y0, int x1, int y1, uint32_t argb) {
-    const Texture *texture = texture_;
-    const bool blend = alphaBlend_;
-    const int cull = cull_;
-    const bool fog = fogOn_;
-    texture_ = nullptr;
-    alphaBlend_ = false;
-    cull_ = 0;
-    fogOn_ = false;
+    const Texture *texture = _texture;
+    const bool blend = _alphaBlend;
+    const int cull = _cull;
+    const bool fog = _fogOn;
+    _texture = nullptr;
+    _alphaBlend = false;
+    _cull = 0;
+    _fogOn = false;
     const auto corner = [&](int x, int y) { return Vertex{float(x), float(y), 0, 1, argb | 0xff000000u, 0, 0, 0}; };
     record(corner(x0, y0), corner(x1, y0), corner(x1, y1));
     record(corner(x0, y0), corner(x1, y1), corner(x0, y1));
-    texture_ = texture;
-    alphaBlend_ = blend;
-    cull_ = cull;
-    fogOn_ = fog;
+    _texture = texture;
+    _alphaBlend = blend;
+    _cull = cull;
+    _fogOn = fog;
 }
 
 ThrashFrame NativeThrash::takeFrame() {
-    ThrashFrame out = std::move(frame_);
-    frame_ = ThrashFrame{};
-    frame_.width = out.width;
-    frame_.height = out.height;
-    out.resetTextures = resetTextures_;
-    resetTextures_ = false;
-    for (uint32_t handle : changed_)
-        if (auto it = textures_.find(handle); it != textures_.end())
+    ThrashFrame out = std::move(_frame);
+    _frame = ThrashFrame{};
+    _frame.width = out.width;
+    _frame.height = out.height;
+    out.resetTextures = _resetTextures;
+    _resetTextures = false;
+    for (uint32_t handle : _changed)
+        if (auto it = _textures.find(handle); it != _textures.end())
             out.textures.push_back({handle, it->second.width, it->second.height, it->second.rgba});
-    changed_.clear();
+    _changed.clear();
     return out;
 }
 
 void NativeThrash::triangle(uint32_t a, uint32_t b, uint32_t c) {
-    if (recording_)
+    if (_recording)
         record(vertex(a), vertex(b), vertex(c));
-    if (!recording_ || alsoRasterize_)
+    if (!_recording || _alsoRasterize)
         rasterize(vertex(a), vertex(b), vertex(c));
 }
 
@@ -561,10 +561,10 @@ void NativeThrash::quad(uint32_t a, uint32_t b, uint32_t c, uint32_t d) {
     const Vertex vb = vertex(b);
     const Vertex vc = vertex(c);
     const Vertex vd = vertex(d);
-    if (recording_) {
+    if (_recording) {
         record(va, vb, vc);
         record(va, vc, vd);
-        if (!alsoRasterize_)
+        if (!_alsoRasterize)
             return;
     }
     rasterize(va, vb, vc);
@@ -574,7 +574,7 @@ void NativeThrash::quad(uint32_t a, uint32_t b, uint32_t c, uint32_t d) {
 void NativeThrash::line(uint32_t a, uint32_t b) {
     const Vertex va = vertex(a);
     const Vertex vb = vertex(b);
-    if (recording_) {
+    if (_recording) {
         // A quad a pixel wide, across the line, in its first vertex's colour.
         const float dx = vb.x - va.x;
         const float dy = vb.y - va.y;
@@ -583,8 +583,8 @@ void NativeThrash::line(uint32_t a, uint32_t b) {
             return;
         const float nx = -dy / length * 0.5f;
         const float ny = dx / length * 0.5f;
-        const Texture *texture = texture_;
-        texture_ = nullptr;
+        const Texture *texture = _texture;
+        _texture = nullptr;
         auto at = [&](const Vertex &v, float s) {
             Vertex o = v;
             o.x += nx * s;
@@ -592,16 +592,16 @@ void NativeThrash::line(uint32_t a, uint32_t b) {
             o.diffuse = va.diffuse | 0xff000000u;
             return o;
         };
-        const int cull = cull_;
-        cull_ = 0;
+        const int cull = _cull;
+        _cull = 0;
         record(at(va, 1), at(vb, 1), at(vb, -1));
         record(at(va, 1), at(vb, -1), at(va, -1));
-        cull_ = cull;
-        texture_ = texture;
-        if (!alsoRasterize_)
+        _cull = cull;
+        _texture = texture;
+        if (!_alsoRasterize)
             return;
     }
-    if (!target_)
+    if (!_target)
         return;
     const float dx = vb.x - va.x;
     const float dy = vb.y - va.y;
@@ -612,27 +612,27 @@ void NativeThrash::line(uint32_t a, uint32_t b) {
         const float t = float(i) / float(steps);
         const int x = int(va.x + dx * t);
         const int y = int(va.y + dy * t);
-        if (x >= std::max(clipX0_, 0) && x < std::min(clipX1_, width_) && y >= std::max(clipY0_, 0) &&
-            y < std::min(clipY1_, height_))
+        if (x >= std::max(_clipX0, 0) && x < std::min(_clipX1, _width) && y >= std::max(_clipY0, 0) &&
+            y < std::min(_clipY1, _height))
             plot(x, y, va.diffuse | 0xff000000u);
     }
 }
 
 void NativeThrash::point(uint32_t a) {
     const Vertex v = vertex(a);
-    if (recording_) {
+    if (_recording) {
         const int x = int(v.x);
         const int y = int(v.y);
         fill(x, y, x + 1, y + 1, v.diffuse);
-        if (!alsoRasterize_)
+        if (!_alsoRasterize)
             return;
     }
-    if (!target_)
+    if (!_target)
         return;
     const int x = int(v.x);
     const int y = int(v.y);
-    if (x >= std::max(clipX0_, 0) && x < std::min(clipX1_, width_) && y >= std::max(clipY0_, 0) &&
-        y < std::min(clipY1_, height_))
+    if (x >= std::max(_clipX0, 0) && x < std::min(_clipX1, _width) && y >= std::max(_clipY0, 0) &&
+        y < std::min(_clipY1, _height))
         plot(x, y, v.diffuse | 0xff000000u);
 }
 

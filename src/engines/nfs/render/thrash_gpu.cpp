@@ -27,28 +27,28 @@ gfx::Mat4 screenToClip(int x0, int y0, int w, int h) {
 } // namespace
 
 void ThrashGpu::setRenderer(gfx::Renderer3D *renderer) {
-    if (renderer_ && renderer_ != renderer) {
-        renderer_->setKeepFrame(false); // as the next user expects it
-        renderer_->setFrameAlphaUnused(false);
-        for (const auto &[key, id] : gpuTextures_)
-            renderer_->destroyTexture(id);
-        for (gfx::TextureId id : retired_)
-            renderer_->destroyTexture(id);
-        if (mesh_)
-            renderer_->destroyMesh(mesh_);
+    if (_renderer && _renderer != renderer) {
+        _renderer->setKeepFrame(false); // as the next user expects it
+        _renderer->setFrameAlphaUnused(false);
+        for (const auto &[key, id] : _gpuTextures)
+            _renderer->destroyTexture(id);
+        for (gfx::TextureId id : _retired)
+            _renderer->destroyTexture(id);
+        if (_mesh)
+            _renderer->destroyMesh(_mesh);
     }
-    gpuTextures_.clear();
-    retired_.clear();
-    mesh_ = 0;
-    indexCapacity_ = 0;
-    renderer_ = renderer;
+    _gpuTextures.clear();
+    _retired.clear();
+    _mesh = 0;
+    _indexCapacity = 0;
+    _renderer = renderer;
     // The game draws into a buffer kept from frame to frame, sometimes
     // adding to what's there (a loading screen's progress bar).
     // Nothing reads its alpha: blended and added polygons, which races
     // alternate, can share a pipeline.
-    if (renderer_) {
-        renderer_->setKeepFrame(true);
-        renderer_->setFrameAlphaUnused(true);
+    if (_renderer) {
+        _renderer->setKeepFrame(true);
+        _renderer->setFrameAlphaUnused(true);
     }
 }
 
@@ -56,27 +56,27 @@ void ThrashGpu::updateTextures(const ThrashFrame &frame) {
     auto drop = [this](uint32_t handle) {
         for (bool wrap : {false, true})
             for (bool point : {false, true})
-                if (auto it = gpuTextures_.find({handle, wrap, point}); it != gpuTextures_.end()) {
-                    retired_.push_back(it->second);
-                    gpuTextures_.erase(it);
+                if (auto it = _gpuTextures.find({handle, wrap, point}); it != _gpuTextures.end()) {
+                    _retired.push_back(it->second);
+                    _gpuTextures.erase(it);
                 }
     };
     if (frame.resetTextures) {
-        for (const auto &[handle, t] : textures_)
+        for (const auto &[handle, t] : _textures)
             drop(handle);
-        textures_.clear();
+        _textures.clear();
     }
     for (const ThrashFrame::Texture &t : frame.textures) {
         drop(t.handle);
-        textures_[t.handle] = t;
+        _textures[t.handle] = t;
     }
 }
 
 gfx::TextureId ThrashGpu::texture(uint32_t handle, bool wrap, bool point) {
-    if (auto it = gpuTextures_.find({handle, wrap, point}); it != gpuTextures_.end())
+    if (auto it = _gpuTextures.find({handle, wrap, point}); it != _gpuTextures.end())
         return it->second;
-    auto t = textures_.find(handle);
-    if (t == textures_.end() || t->second.rgba.empty())
+    auto t = _textures.find(handle);
+    if (t == _textures.end() || t->second.rgba.empty())
         return 0;
     std::vector<uint8_t> rgba(t->second.rgba.size() * 4);
     for (size_t i = 0; i < t->second.rgba.size(); ++i) {
@@ -91,20 +91,20 @@ gfx::TextureId ThrashGpu::texture(uint32_t handle, bool wrap, bool point) {
     params.mipmaps = false;
     params.nearest = point;
     gfx::TextureId id = 0;
-    if (renderer_->createTexture(t->second.width, t->second.height, rgba.data(), params, id))
+    if (_renderer->createTexture(t->second.width, t->second.height, rgba.data(), params, id))
         return 0;
-    gpuTextures_[{handle, wrap, point}] = id;
+    _gpuTextures[{handle, wrap, point}] = id;
     return id;
 }
 
 void ThrashGpu::draw(const std::vector<const ThrashFrame *> &frames, const Surface *overlay) {
-    if (!renderer_ || frames.empty())
+    if (!_renderer || frames.empty())
         return;
     // All the frames' vertices in the one mesh, each frame's after the last's.
     std::vector<uint32_t> base;
-    vertices_.clear();
+    _vertices.clear();
     for (const ThrashFrame *frame : frames) {
-        base.push_back(uint32_t(vertices_.size()));
+        base.push_back(uint32_t(_vertices.size()));
         for (size_t i = 0; i < frame->vertices.size(); ++i) {
             const ThrashFrame::Vertex &v = frame->vertices[i];
             // 1/w as given, for perspective; but a triangle whose three are
@@ -125,28 +125,28 @@ void ThrashGpu::draw(const std::vector<const ThrashFrame *> &frames, const Surfa
             o.color[1] = uint8_t(v.diffuse >> 8);
             o.color[2] = uint8_t(v.diffuse);
             o.color[3] = uint8_t(v.diffuse >> 24);
-            vertices_.push_back(o);
+            _vertices.push_back(o);
         }
     }
     // Its indices are 0, 1, 2... (each triangle has vertices of its own),
     // set again only to grow.
-    bool ok = !vertices_.empty();
-    if (ok && vertices_.size() > indexCapacity_) {
-        std::vector<uint32_t> indices(vertices_.size() + vertices_.size() / 2);
+    bool ok = !_vertices.empty();
+    if (ok && _vertices.size() > _indexCapacity) {
+        std::vector<uint32_t> indices(_vertices.size() + _vertices.size() / 2);
         std::iota(indices.begin(), indices.end(), 0u);
-        std::vector<gfx::Vertex> padded = vertices_;
+        std::vector<gfx::Vertex> padded = _vertices;
         padded.resize(indices.size());
-        if (mesh_)
-            renderer_->destroyMesh(mesh_);
-        mesh_ = 0;
-        ok = !renderer_->createMesh(padded, indices, mesh_);
-        indexCapacity_ = ok ? indices.size() : 0;
+        if (_mesh)
+            _renderer->destroyMesh(_mesh);
+        _mesh = 0;
+        ok = !_renderer->createMesh(padded, indices, _mesh);
+        _indexCapacity = ok ? indices.size() : 0;
     } else if (ok) {
-        ok = !renderer_->setMeshVertices(mesh_, vertices_);
+        ok = !_renderer->setMeshVertices(_mesh, _vertices);
     }
 
     const ThrashFrame &first = *frames.front();
-    renderer_->beginFrame(screenToClip(0, 0, first.width, first.height), {0, 0, 0}, Color{0, 0, 0});
+    _renderer->beginFrame(screenToClip(0, 0, first.width, first.height), {0, 0, 0}, Color{0, 0, 0});
     for (size_t f = 0; f < frames.size(); ++f) {
         const ThrashFrame &frame = *frames[f];
         // Textures as this frame has them: a draw already made keeps the
@@ -159,10 +159,10 @@ void ThrashGpu::draw(const std::vector<const ThrashFrame *> &frames, const Surfa
             const int h = b.clip[3] - b.clip[1];
             if (!b.count || w <= 0 || h <= 0)
                 continue;
-            renderer_->setViewport(b.clip[0] * scale, b.clip[1] * scale, w * scale, h * scale);
-            renderer_->setView(screenToClip(b.clip[0], b.clip[1], w, h), {0, 0, 0});
+            _renderer->setViewport(b.clip[0] * scale, b.clip[1] * scale, w * scale, h * scale);
+            _renderer->setView(screenToClip(b.clip[0], b.clip[1], w, h), {0, 0, 0});
             gfx::DrawCall call;
-            call.mesh = mesh_;
+            call.mesh = _mesh;
             call.firstIndex = base[f] + b.first;
             call.indexCount = b.count;
             call.texture = b.texture ? texture(b.texture, b.wrap, b.filter < 0 ? nearest : b.filter == 0) : 0;
@@ -194,25 +194,25 @@ void ThrashGpu::draw(const std::vector<const ThrashFrame *> &frames, const Surfa
             }
             // Texels of alpha 0 are left out (the colour key).
             s.alphaTest = call.texture ? gfx::AlphaTest::Gt0 : gfx::AlphaTest::None;
-            renderer_->draw(call);
+            _renderer->draw(call);
         }
     }
     // An overlay the game's size (a movie's frame), enlarged to the frame's.
-    if (overlay && (overlay->w != renderer_->width() || overlay->h != renderer_->height()) && overlay->w > 0 &&
+    if (overlay && (overlay->w != _renderer->width() || overlay->h != _renderer->height()) && overlay->w > 0 &&
         overlay->h > 0) {
-        scaledOverlay_.create(renderer_->width(), renderer_->height(), PixelFormat::kRGBA32);
-        for (int y = 0; y < scaledOverlay_.h; ++y) {
-            const uint32_t *src = reinterpret_cast<const uint32_t *>(overlay->row(y * overlay->h / scaledOverlay_.h));
-            uint32_t *dst = reinterpret_cast<uint32_t *>(scaledOverlay_.row(y));
-            for (int x = 0; x < scaledOverlay_.w; ++x)
-                dst[x] = src[x * overlay->w / scaledOverlay_.w];
+        _scaledOverlay.create(_renderer->width(), _renderer->height(), PixelFormat::kRGBA32);
+        for (int y = 0; y < _scaledOverlay.h; ++y) {
+            const uint32_t *src = reinterpret_cast<const uint32_t *>(overlay->row(y * overlay->h / _scaledOverlay.h));
+            uint32_t *dst = reinterpret_cast<uint32_t *>(_scaledOverlay.row(y));
+            for (int x = 0; x < _scaledOverlay.w; ++x)
+                dst[x] = src[x * overlay->w / _scaledOverlay.w];
         }
-        overlay = &scaledOverlay_;
+        overlay = &_scaledOverlay;
     }
-    renderer_->endFrame(overlay);
-    for (gfx::TextureId id : retired_)
-        renderer_->destroyTexture(id);
-    retired_.clear();
+    _renderer->endFrame(overlay);
+    for (gfx::TextureId id : _retired)
+        _renderer->destroyTexture(id);
+    _retired.clear();
 }
 
 } // namespace reluva::nfs

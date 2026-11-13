@@ -100,15 +100,15 @@ public:
     void step(uint32_t tick, ParticleRandom &random, int horizon = 0);
     // A free slot, else the one with the least life (0x4ca4b0).
     Particle &slot();
-    std::array<Particle, kSlots> &particles() { return slots_; }
-    const std::array<Particle, kSlots> &particles() const { return slots_; }
+    std::array<Particle, kSlots> &particles() { return _slots; }
+    const std::array<Particle, kSlots> &particles() const { return _slots; }
     int live() const;
-    void clear() { slots_ = {}; }
+    void clear() { _slots = {}; }
     // The renderer is Direct3D: kind 7's template as 0x4cb670 sets it.
     bool direct3d = false;
 
 private:
-    std::array<Particle, kSlots> slots_{};
+    std::array<Particle, kSlots> _slots{};
 };
 
 // The effects intensity (SFX_INTENSITY, 0x6fbc38) as the Direct3D
@@ -372,23 +372,23 @@ public:
     // splash it makes: rain.bnk, bank entry 4, sound 0-3 at random,
     // volume 90-119, a random azimuth): taken by the caller.
     int takeSplashSounds() {
-        const int n = splashSounds_;
-        splashSounds_ = 0;
+        const int n = _splashSounds;
+        _splashSounds = 0;
         return n;
     }
-    const WeatherSetup &setup() const { return setup_; }
-    std::array<Drop, kDrops> &drops() { return drops_; }
-    std::array<Splash, kSplashes> &splashes() { return splashes_; }
+    const WeatherSetup &setup() const { return _setup; }
+    std::array<Drop, kDrops> &drops() { return _drops; }
+    std::array<Splash, kSplashes> &splashes() { return _splashes; }
 
 private:
     void respawnTop(Drop &d, const ParticleVec &eye, ParticleRandom &random) const;
     bool splash(const WeatherView &view, const ParticleVec &at, ParticleRandom &random);
-    WeatherSetup setup_;
-    std::array<Drop, kDrops> drops_{};
-    std::array<Splash, kSplashes> splashes_{};
-    int last_ = -2, cycleStart_ = 0;
-    int splashSounds_ = 0;
-    bool inCar_ = false; // 0x8ca2b4
+    WeatherSetup _setup;
+    std::array<Drop, kDrops> _drops{};
+    std::array<Splash, kSplashes> _splashes{};
+    int _last = -2, _cycleStart = 0;
+    int _splashSounds = 0;
+    bool _inCar = false; // 0x8ca2b4
 };
 
 // One of the rain's splash sounds (0x414f90 with -1): the sound (random &
@@ -442,8 +442,8 @@ public:
     // slot 0xF, volume 0x7F, azimuth 0 (0x3FFF or 0xC000 by the view in
     // split screen), through sound_start (0x4182b0).
     int takeSounds() {
-        const int n = sounds_;
-        sounds_ = 0;
+        const int n = _sounds;
+        _sounds = 0;
         return n;
     }
     static constexpr int kSoundSlot = 0xf, kSoundVolume = 0x7f;
@@ -451,17 +451,17 @@ public:
     // template's x its life / the template's life, then its life - 1;
     // freed once its alpha is 0.
     void step();
-    std::array<Splat, kSlots> &splats() { return slots_; }
-    const std::array<Splat, kSlots> &splats() const { return slots_; }
+    std::array<Splat, kSlots> &splats() { return _slots; }
+    const std::array<Splat, kSlots> &splats() const { return _slots; }
     int live() const;
     void clear() {
-        slots_ = {};
-        sounds_ = 0;
+        _slots = {};
+        _sounds = 0;
     }
 
 private:
-    std::array<Splat, kSlots> slots_{};
-    int sounds_ = 0;
+    std::array<Splat, kSlots> _slots{};
+    int _sounds = 0;
 };
 
 } // namespace reluva::nfs

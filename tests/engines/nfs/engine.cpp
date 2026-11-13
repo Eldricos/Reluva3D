@@ -73,8 +73,8 @@ public:
             titles.push_back(t);
     }
     bool pollEvent(Event &ev) override {
-        if (next_ < inputs.size() && inputs[next_].at <= getMillis()) {
-            ev = inputs[next_++].event;
+        if (_next < inputs.size() && inputs[_next].at <= getMillis()) {
+            ev = inputs[_next++].event;
             return true;
         }
         HeadlessSystem::delayMillis(1);
@@ -82,7 +82,7 @@ public:
     }
 
 private:
-    size_t next_ = 0;
+    size_t _next = 0;
 };
 
 Event keyDown(uint32_t k) {

@@ -280,7 +280,7 @@ void testForceEffects() {
     memory[0x190] = uint32_t(-1); // from -X
     memory[0x200] = 5000;         // magnitude
     DiEffect push;
-    CHECK(DiEffect::kindOf(0x13541c20, push.kind) && push.kind == DiEffect::Constant);
+    CHECK(DiEffect::kindOf(0x13541c20, push.kind) && push.kind == DiEffect::kConstant);
     CHECK(!DiEffect::kindOf(0x6f1d2b60, push.kind));
     push.set(read32, 0x100, 0x3ff);
     CHECK(push.durationUs == 500000 && push.gain == 8000 && push.xAxis == 0 && push.magnitude == 5000);
@@ -333,7 +333,7 @@ void testForceEffects() {
     memory[0x204] = 0;
     memory[0x20c] = 83000;
     DiEffect sine;
-    sine.kind = DiEffect::Sine;
+    sine.kind = DiEffect::kSine;
     sine.set(read32, 0x100, 0x3ff);
     sine.playing = true;
     sine.durationUs = DiEffect::kInfinite;
@@ -344,7 +344,7 @@ void testForceEffects() {
     memory[0x20c] = 9500; // + saturation
     memory[0x210] = 9500;
     DiEffect spring;
-    spring.kind = DiEffect::Spring;
+    spring.kind = DiEffect::kSpring;
     spring.set(read32, 0x100, 0x3ff);
     spring.playing = true;
     spring.durationUs = DiEffect::kInfinite;

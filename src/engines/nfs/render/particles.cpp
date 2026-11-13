@@ -99,7 +99,7 @@ uint32_t ParticleRandom::next() {
 
 Particle &ParticleSystem::slot() {
     Particle *least = nullptr;
-    for (Particle &p : slots_) {
+    for (Particle &p : _slots) {
         if (p.life == 0)
             return p;
         if (!least || p.life <= least->life)
@@ -109,7 +109,7 @@ Particle &ParticleSystem::slot() {
 }
 
 int ParticleSystem::live() const {
-    return static_cast<int>(std::count_if(slots_.begin(), slots_.end(), [](const Particle &p) { return p.life != 0; }));
+    return static_cast<int>(std::count_if(_slots.begin(), _slots.end(), [](const Particle &p) { return p.life != 0; }));
 }
 
 Particle *ParticleSystem::spawn(int kind, const ParticleVec &at, float scale, const ParticleVec &a,
@@ -209,7 +209,7 @@ uint32_t particleColour(const ParticleTemplate &t, float part) {
 
 void ParticleSystem::step(uint32_t tick, ParticleRandom &random, int horizon) {
     const bool odd = tick & 1;
-    for (Particle &p : slots_) {
+    for (Particle &p : _slots) {
         if (p.life == 0)
             continue;
         const ParticleTemplate *t = particleTemplate(p.kind, direct3d);
@@ -523,13 +523,13 @@ uint32_t grey4(int g) {
 
 // The quarter table of 0x5672ac: 65536 sin(k turns / 1024), k 0-256.
 int sineTable(int k) {
-    static const std::array<int, 257> table = [] {
+    static const std::array<int, 257> kTable = [] {
         std::array<int, 257> t{};
         for (int i = 0; i <= 256; ++i)
             t[size_t(i)] = static_cast<int>(std::lround(65536.0 * std::sin(i * 6.283185307179586 / 1024.0)));
         return t;
     }();
-    return table[size_t(k)];
+    return kTable[size_t(k)];
 }
 
 // The table's sine of a 1024-step index, by quadrant.
@@ -664,15 +664,15 @@ float snowflakeSide(const WeatherSetup &s, float w) {
 }
 
 void Weather::start(const WeatherSetup &setup, const ParticleVec &eye, int step, ParticleRandom &random) {
-    setup_ = setup;
-    drops_ = {};
-    splashes_ = {};
-    last_ = step; // 0x8c0be0, so the first move is two ticks on
-    cycleStart_ = step;
+    _setup = setup;
+    _drops = {};
+    _splashes = {};
+    _last = step; // 0x8c0be0, so the first move is two ticks on
+    _cycleStart = step;
     const float h = setup.half;
     const float range = setup.top - setup.bottom;
     for (int i = 0; i < setup.count; ++i) {
-        Drop &d = drops_[size_t(i)];
+        Drop &d = _drops[size_t(i)];
         d.position[0] = random.unit() * h * 2 - h + eye[0];
         d.position[1] = random.unit() * range + setup.bottom + eye[1];
         d.position[2] = random.unit() * h * 2 - h + eye[2];
@@ -680,33 +680,33 @@ void Weather::start(const WeatherSetup &setup, const ParticleVec &eye, int step,
 }
 
 int Weather::active(int slice, int trackSlices, int step, int sfxLevel) {
-    if (setup_.kind == 0)
+    if (_setup.kind == 0)
         return 0;
-    int n = weatherAtSlice(setup_, slice, trackSlices);
+    int n = weatherAtSlice(_setup, slice, trackSlices);
     bool restart = false;
-    n = weatherAtTime(setup_, n, step - cycleStart_, &restart);
+    n = weatherAtTime(_setup, n, step - _cycleStart, &restart);
     if (restart)
-        cycleStart_ = step;
+        _cycleStart = step;
     return weatherForEffects(n, sfxLevel);
 }
 
 void Weather::update(int step, int active, const ParticleVec &eye, bool covered, ParticleRandom &random) {
-    if (setup_.kind == 0 || step - last_ <= 1)
+    if (_setup.kind == 0 || step - _last <= 1)
         return;
-    last_ = step;
-    for (int i = 0; i < setup_.splashes; ++i)
-        if (splashes_[size_t(i)].life != 0)
-            --splashes_[size_t(i)].life;
-    for (int i = 0; i < setup_.count; ++i)
+    _last = step;
+    for (int i = 0; i < _setup.splashes; ++i)
+        if (_splashes[size_t(i)].life != 0)
+            --_splashes[size_t(i)].life;
+    for (int i = 0; i < _setup.count; ++i)
         for (size_t a = 0; a < 3; ++a)
-            drops_[size_t(i)].position[a] += setup_.velocity[a];
-    const float h = setup_.half;
-    const float range = setup_.top - setup_.bottom;
-    for (int i = 0; i < std::min(active, setup_.count); ++i) {
-        Drop &d = drops_[size_t(i)];
+            _drops[size_t(i)].position[a] += _setup.velocity[a];
+    const float h = _setup.half;
+    const float range = _setup.top - _setup.bottom;
+    for (int i = 0; i < std::min(active, _setup.count); ++i) {
+        Drop &d = _drops[size_t(i)];
         ParticleVec &p = d.position;
         // Snow drifts round a little circle, each flake its own way.
-        if (setup_.kind == 2 && !d.hidden) {
+        if (_setup.kind == 2 && !d.hidden) {
             const uint32_t angle = static_cast<uint32_t>(i) * 0x100 + static_cast<uint32_t>(step) * 0x100;
             p[0] = static_cast<float>((fixedSin(angle) >> 4) * kFixed) + p[0];
             p[2] = static_cast<float>((fixedCos(angle) >> 4) * kFixed) + p[2];
@@ -714,12 +714,12 @@ void Weather::update(int step, int active, const ParticleVec &eye, bool covered,
         float x = p[0] - eye[0];
         float y = p[1] - eye[1];
         float z = p[2] - eye[2];
-        if (!(y < setup_.bottom || y > setup_.top || std::fabs(x) > h || std::fabs(z) > h))
+        if (!(y < _setup.bottom || y > _setup.top || std::fabs(x) > h || std::fabs(z) > h))
             continue;
         // Out of the box: back in on the other side (0x4dd7c7).
         d.hidden = covered;
         auto otherTwo = [&](float &a, float &b) {
-            a = random.unit() * range + setup_.bottom;
+            a = random.unit() * range + _setup.bottom;
             b = random.unit() * h * 2 - h;
         };
         if (x > h) {
@@ -735,9 +735,9 @@ void Weather::update(int step, int active, const ParticleVec &eye, bool covered,
             d.tailSet = false;
             otherTwo(y, z);
         }
-        if (y > setup_.top || y < setup_.bottom) {
+        if (y > _setup.top || y < _setup.bottom) {
             d.tailSet = false;
-            y = y > setup_.top ? setup_.bottom : setup_.top;
+            y = y > _setup.top ? _setup.bottom : _setup.top;
             x = random.unit() * h * 2 - h;
             z = random.unit() * h * 2 - h;
         }
@@ -746,28 +746,28 @@ void Weather::update(int step, int active, const ParticleVec &eye, bool covered,
 }
 
 void Weather::cut(const ParticleVec &eye, bool covered, ParticleRandom &random) {
-    if (setup_.kind == 0)
+    if (_setup.kind == 0)
         return;
     if (!covered) {
-        const float h = setup_.half;
-        const float range = setup_.top - setup_.bottom;
-        for (int i = 0; i < setup_.count; ++i) {
-            Drop &d = drops_[size_t(i)];
+        const float h = _setup.half;
+        const float range = _setup.top - _setup.bottom;
+        for (int i = 0; i < _setup.count; ++i) {
+            Drop &d = _drops[size_t(i)];
             d.tailSet = false;
             d.position[0] = random.unit() * h * 2 - h + eye[0];
-            d.position[1] = random.unit() * range + setup_.bottom + eye[1];
+            d.position[1] = random.unit() * range + _setup.bottom + eye[1];
             d.position[2] = random.unit() * h * 2 - h + eye[2];
         }
     }
-    for (int i = 0; i < setup_.splashes; ++i)
-        splashes_[size_t(i)].life = 0;
+    for (int i = 0; i < _setup.splashes; ++i)
+        _splashes[size_t(i)].life = 0;
 }
 
 void Weather::tails(bool inCar, bool cut) {
-    if (inCar != inCar_ || cut)
-        for (int i = 0; i < setup_.count; ++i)
-            drops_[size_t(i)].tailSet = false;
-    inCar_ = inCar;
+    if (inCar != _inCar || cut)
+        for (int i = 0; i < _setup.count; ++i)
+            _drops[size_t(i)].tailSet = false;
+    _inCar = inCar;
 }
 
 SplashSound splashSound(ParticleRandom &random) {
@@ -779,8 +779,8 @@ SplashSound splashSound(ParticleRandom &random) {
 }
 
 void Weather::respawnTop(Drop &d, const ParticleVec &eye, ParticleRandom &random) const {
-    const float h = setup_.half;
-    d.position[1] = eye[1] + setup_.top;
+    const float h = _setup.half;
+    d.position[1] = eye[1] + _setup.top;
     d.position[0] = random.unit() * h * 2 - h + eye[0];
     d.position[2] = random.unit() * h * 2 - h + eye[2];
     d.tailSet = false;
@@ -791,22 +791,22 @@ void Weather::respawnTop(Drop &d, const ParticleVec &eye, ParticleRandom &random
 // less up to a quarter, its size a half to all of the kind's, its angle at
 // random. False when every slot is in use.
 bool Weather::splash(const WeatherView &view, const ParticleVec &at, ParticleRandom &random) {
-    for (int i = 0; i < setup_.splashes; ++i) {
-        Splash &s = splashes_[size_t(i)];
+    for (int i = 0; i < _setup.splashes; ++i) {
+        Splash &s = _splashes[size_t(i)];
         if (s.life != 0)
             continue;
         const float d[3] = {at[0] - view.eye[0], at[1] - view.eye[1], at[2] - view.eye[2]};
         const float w = d[0] * view.forward[0] + d[1] * view.forward[1] + d[2] * view.forward[2];
         const float inv = std::fabs(w) == 0 ? 65535.0f : 1.0f / w;
-        int quarter = setup_.splashLife >> 2;
+        int quarter = _setup.splashLife >> 2;
         if (quarter < 2)
             quarter = 1;
         const uint32_t r = random.next();
         s.x = (d[0] * view.right[0] + d[1] * view.right[1] + d[2] * view.right[2]) * inv;
         s.y = (d[0] * view.up[0] + d[1] * view.up[1] + d[2] * view.up[2]) * inv;
-        s.life = setup_.splashLife - static_cast<int>(r % static_cast<uint32_t>(quarter));
-        const float size = random.unit() * setup_.splashSize;
-        s.size = size < setup_.splashSize * 0.5f ? setup_.splashSize * 0.5f : std::min(size, setup_.splashSize);
+        s.life = _setup.splashLife - static_cast<int>(r % static_cast<uint32_t>(quarter));
+        const float size = random.unit() * _setup.splashSize;
+        s.size = size < _setup.splashSize * 0.5f ? _setup.splashSize * 0.5f : std::min(size, _setup.splashSize);
         s.angle = random.unit();
         return true;
     }
@@ -815,11 +815,11 @@ bool Weather::splash(const WeatherView &view, const ParticleVec &at, ParticleRan
 
 void Weather::draw(const WeatherView &view, int active, bool splashes, ParticleRandom &random,
                    std::vector<WeatherPoly> &out, float intensity) {
-    if (setup_.kind == 0)
+    if (_setup.kind == 0)
         return;
-    const bool rain = setup_.kind == 1;
-    for (int i = 0; i < std::min(active, setup_.count); ++i) {
-        Drop &d = drops_[size_t(i)];
+    const bool rain = _setup.kind == 1;
+    for (int i = 0; i < std::min(active, _setup.count); ++i) {
+        Drop &d = _drops[size_t(i)];
         if (d.hidden)
             continue;
         const float r[3] = {d.position[0] - view.eye[0], d.position[1] - view.eye[1], d.position[2] - view.eye[2]};
@@ -829,7 +829,7 @@ void Weather::draw(const WeatherView &view, int active, bool splashes, ParticleR
             respawnTop(d, view.eye, random);
             continue;
         }
-        if (w <= 0 || w > setup_.half) {
+        if (w <= 0 || w > _setup.half) {
             d.tailSet = false;
             continue;
         }
@@ -843,13 +843,13 @@ void Weather::draw(const WeatherView &view, int active, bool splashes, ParticleR
         // rain also plays one of its sounds, 0x414f90, 0x4de989).
         if (w < 3 && splash(view, d.position, random)) {
             if (rain)
-                ++splashSounds_;
+                ++_splashSounds;
             respawnTop(d, view.eye, random);
             continue;
         }
         WeatherPoly poly;
         poly.depth = w;
-        poly.colour = dimByIntensity(setup_.colour, intensity);
+        poly.colour = dimByIntensity(_setup.colour, intensity);
         if (rain) {
             // From where it was, halfway on each frame, to where it is, and
             // two pixels across at its head.
@@ -861,7 +861,7 @@ void Weather::draw(const WeatherView &view, int active, bool splashes, ParticleR
             poly.corners = 3;
             poly.at = {{{d.tail[0], d.tail[1]}, {x, y}, {x + 2.0f, y}, {0, 0}}};
         } else {
-            const float side = snowflakeSide(setup_, w);
+            const float side = snowflakeSide(_setup, w);
             poly.corners = 4;
             poly.at = {{{x, y}, {x + side, y}, {x + side, y + side}, {x, y + side}}};
         }
@@ -869,14 +869,14 @@ void Weather::draw(const WeatherView &view, int active, bool splashes, ParticleR
     }
     if (!splashes)
         return;
-    for (int i = 0; i < setup_.splashes; ++i) {
-        const Splash &s = splashes_[size_t(i)];
+    for (int i = 0; i < _setup.splashes; ++i) {
+        const Splash &s = _splashes[size_t(i)];
         if (s.life == 0)
             continue;
-        const int grey = setup_.splashGrey * s.life / setup_.splashLife;
+        const int grey = _setup.splashGrey * s.life / _setup.splashLife;
         float size = s.size;
         if (rain)
-            size = static_cast<float>(s.life) * size / static_cast<float>(setup_.splashLife);
+            size = static_cast<float>(s.life) * size / static_cast<float>(_setup.splashLife);
         const float c = static_cast<float>(std::cos(s.angle * kTurn)) * size;
         const float n = static_cast<float>(std::sin(s.angle * kTurn)) * size;
         WeatherPoly poly;
@@ -919,7 +919,7 @@ bool SplatScreen::hit(int kind, float x, float y, float z, bool inCar, ParticleR
         return true;
     for (int i = 0; i < t->count; ++i) {
         Splat *free = nullptr;
-        for (Splat &s : slots_)
+        for (Splat &s : _slots)
             if (s.life == 0) {
                 free = &s;
                 break;
@@ -934,7 +934,7 @@ bool SplatScreen::hit(int kind, float x, float y, float z, bool inCar, ParticleR
             sy += random.unit() * t->jitter * 2.0f - t->jitter;
         }
         bool covered = false;
-        for (Splat &s : slots_) {
+        for (Splat &s : _slots) {
             if (s.life == 0 || !(std::fabs(sx - s.x) < s.size * 0.5f) || !(std::fabs(sy - s.y) < s.size * 0.5f))
                 continue; // 0x5403a0
             if (kind != 10 || s.kind != 11) {
@@ -958,13 +958,13 @@ bool SplatScreen::hit(int kind, float x, float y, float z, bool inCar, ParticleR
         free->colour = t->colour;
         free->flags = t->flags;
         if (kind == 4)
-            ++sounds_; // 0x4ca833: 0x415010(view)
+            ++_sounds; // 0x4ca833: 0x415010(view)
     }
     return true;
 }
 
 void SplatScreen::step() {
-    for (Splat &s : slots_) {
+    for (Splat &s : _slots) {
         if (s.life == 0)
             continue;
         const SplatTemplate *t = splatTemplate(s.kind);
@@ -978,7 +978,7 @@ void SplatScreen::step() {
 }
 
 int SplatScreen::live() const {
-    return static_cast<int>(std::count_if(slots_.begin(), slots_.end(), [](const Splat &s) { return s.life != 0; }));
+    return static_cast<int>(std::count_if(_slots.begin(), _slots.end(), [](const Splat &s) { return s.life != 0; }));
 }
 
 } // namespace reluva::nfs

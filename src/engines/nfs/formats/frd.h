@@ -549,7 +549,7 @@ struct AiCar {
     bool worldKept = false;
     float keptSpeed = 0, keptSide = 0, keptHeading = 0;
     int keptWay = 0, keptSlice = -1;
-    enum Steer : uint8_t { Rails, Slow, Slide } steer = Rails;
+    enum Steer : uint8_t { kRails, kSlow, kSlide } steer = kRails;
     float sideForce = 0; // ai_ctl_rails' force across the road (0x56ec6c), for its drive's loss
     float target = 0;    // the offset wanted (+0x7B4)
     float speed = 0;     // m/s along its way (+0x7C4)
@@ -851,7 +851,7 @@ bool aiAtRaceStart(int distance, int place, int racers, bool backward = false, i
 // model 0x4088f0, the hits 0x4311d0, and the Sc64 positions 0x4a2c60):
 // Drive the driver alone, Move the model and the motion, Both one after
 // the other.
-enum class AiPhase { Both, Drive, Move };
+enum class AiPhase { kBoth, kDrive, kMove };
 // A car's half extent across the road (+0x21C, 0x42cd00): its half
 // width, height and length each x |the road's right (+0x124) . its right,
 // up, forward|.
@@ -926,7 +926,7 @@ void aiResetTipped(std::vector<AiCar> &cars, size_t self, const TrackCollision &
 // the brake held only when more than 5 m/s too fast; its side offset
 // follows the aim every step. speeds: the table for its way.
 void aiStep(std::vector<AiCar> &cars, size_t self, const TrackCollision &col, const std::vector<uint8_t> &speeds,
-            const AiCarData &data, int step, int track, bool weather, AiPhase phase = AiPhase::Both);
+            const AiCarData &data, int step, int track, bool weather, AiPhase phase = AiPhase::kBoth);
 // One step (64 a second) of a computer car's motion across the road, as
 // the game's model has it (car_ai_model 0x408600 on the even steps, then
 // ai_integrate 0x4071a0): its heading error to the point it steers at
@@ -1032,7 +1032,7 @@ float aiCatchUpFactor(const AiRace &race, int distance, int place);
 // backup, 0x4043a0) to the free cops in `cars`. Its strip's hits are
 // tested each step (0x4297d0, 0x4ca160: the racers' wheels on its quad).
 void aiCopStep(std::vector<AiCar> &cars, size_t self, const TrackCollision &col, const AiCarData &data, int step,
-               int track, bool weather, AiPhase phase = AiPhase::Both);
+               int track, bool weather, AiPhase phase = AiPhase::kBoth);
 
 // Car against car (physics.md, Rolls from car hits): car_collisions_task
 // (0x4311d0, 32 a second, after the cars' models) hands each car in play

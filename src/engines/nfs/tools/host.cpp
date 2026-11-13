@@ -1451,9 +1451,9 @@ int cmdNfsMmxCheck(int argc, char **argv) {
             }
             compare(voices, frames, outFormat, d);
         }
-        static const char *const names[9] = {"", "  8-bit mono",   "  8-bit stereo", "", "  16-bit mono", "", "",
-                                             "", "  16-bit stereo"};
-        d.print(names[outFormat]);
+        static const char *const kNames[9] = {"", "  8-bit mono",   "  8-bit stereo", "", "  16-bit mono", "", "",
+                                              "", "  16-bit stereo"};
+        d.print(kNames[outFormat]);
     }
     // 8. The bus saturating: a voice made loud (x 4), three copies of it,
     // then two negated; and the other way round.

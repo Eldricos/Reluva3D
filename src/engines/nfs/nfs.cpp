@@ -39,34 +39,34 @@ constexpr int kScreenH = 480;
 class NfsEngine : public Engine {
 public:
     NfsEngine(System &system, GameTarget target, const GameInfo &game)
-        : sys_(system), target_(std::move(target)), game_(game) {}
+        : _sys(system), _target(std::move(target)), _game(game) {}
 
     Error run() override {
-        const GameFolders folders = nfs::findFolders(target_.path, target_.settings, game_.executable);
+        const GameFolders folders = nfs::findFolders(_target.path, _target.settings, _game.executable);
         if (nfs::trackFolders(folders.install).empty())
             return Error::fail("No tracks (GameData/Tracks/trkNNN) found in " + folders.install.string());
         nfs::GameFiles files;
         files.scan(folders);
 
-        if (Error err = sys_.initGraphics(kScreenW, kScreenH, PixelFormat::kRGBA32))
+        if (Error err = _sys.initGraphics(kScreenW, kScreenH, PixelFormat::kRGBA32))
             return err;
-        screen_.create(kScreenW, kScreenH, PixelFormat::kRGBA32);
+        _screen.create(kScreenW, kScreenH, PixelFormat::kRGBA32);
 
         // One mixer for the pages' sounds; without audio output, none. The
         // pages go before it. surround= in reluva.ini sends it through the
         // Pro Logic decoder model, for the game's Dolby Surround mode.
-        audio::Mixer mixer(sys_.audioRate());
-        const auto surround = target_.settings.find("surround");
+        audio::Mixer mixer(_sys.audioRate());
+        const auto surround = _target.settings.find("surround");
         const bool audioOut = !audio::startMixerOutput(
-            sys_, mixer,
-            audio::surroundFromSetting(surround == target_.settings.end() ? std::string() : surround->second));
-        mixer.setMasterVolume(settings::volume(target_.settings, settings::kMasterVolume));
+            _sys, mixer,
+            audio::surroundFromSetting(surround == _target.settings.end() ? std::string() : surround->second));
+        mixer.setMasterVolume(settings::volume(_target.settings, settings::kMasterVolume));
         struct AudioOff { // stops the output before the mixer goes
             System &sys;
             ~AudioOff() { sys.stopAudio(); }
-        } audioOff{sys_};
+        } audioOff{_sys};
         auto pages =
-            nfs::makePages(game_.name, folders, files, audioOut ? &mixer : nullptr, target_.savePath, target_.settings);
+            nfs::makePages(_game.name, folders, files, audioOut ? &mixer : nullptr, _target.savePath, _target.settings);
 
         size_t page = 0;
         bool dirty = true;
@@ -75,20 +75,20 @@ public:
             const bool was3D = pages[page]->uses3D();
             pages[page]->deactivate();
             if (was3D)
-                if (Error err = sys_.initGraphics(kScreenW, kScreenH, PixelFormat::kRGBA32))
+                if (Error err = _sys.initGraphics(kScreenW, kScreenH, PixelFormat::kRGBA32))
                     return err;
             page = next;
-            sys_.setWindowTitle(std::string("Reluva - ") + game_.name + " - " + pages[page]->name());
-            pages[page]->activate(sys_);
+            _sys.setWindowTitle(std::string("Reluva - ") + _game.name + " - " + pages[page]->name());
+            pages[page]->activate(_sys);
             dirty = true;
             return Error::success();
         };
-        sys_.setWindowTitle(std::string("Reluva - ") + game_.name + " - " + pages[page]->name());
-        pages[page]->activate(sys_);
+        _sys.setWindowTitle(std::string("Reluva - ") + _game.name + " - " + pages[page]->name());
+        pages[page]->activate(_sys);
 
         while (true) {
             Event ev;
-            while (sys_.pollEvent(ev)) {
+            while (_sys.pollEvent(ev)) {
                 if (ev.type == EventType::Quit || ev.type == EventType::ReturnToLauncher) {
                     pages[page]->deactivate();
                     return Error::success();
@@ -112,25 +112,25 @@ public:
             }
             if (pages[page]->uses3D()) {
                 // Paced by presenting (vsync).
-                pages[page]->update(sys_.getMillis());
+                pages[page]->update(_sys.getMillis());
                 continue;
             }
-            if (pages[page]->tick(sys_.getMillis()))
+            if (pages[page]->tick(_sys.getMillis()))
                 dirty = true;
             if (dirty) {
-                pages[page]->draw(screen_);
+                pages[page]->draw(_screen);
                 dirty = false;
             }
-            sys_.updateScreen(screen_);
-            sys_.delayMillis(10);
+            _sys.updateScreen(_screen);
+            _sys.delayMillis(10);
         }
     }
 
 private:
-    System &sys_;
-    GameTarget target_;
-    const GameInfo &game_;
-    Surface screen_;
+    System &_sys;
+    GameTarget _target;
+    const GameInfo &_game;
+    Surface _screen;
 };
 
 class NfsMetaEngine : public MetaEngine {
@@ -200,8 +200,8 @@ public:
 } // namespace
 
 const MetaEngine &nfsMetaEngine() {
-    static const NfsMetaEngine instance;
-    return instance;
+    static const NfsMetaEngine kInstance;
+    return kInstance;
 }
 
 } // namespace reluva

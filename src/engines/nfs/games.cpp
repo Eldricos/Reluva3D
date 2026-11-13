@@ -6,10 +6,10 @@
 namespace reluva::nfs {
 
 const std::vector<GameInfo> &games() {
-    static const std::vector<GameInfo> list = {
+    static const std::vector<GameInfo> kList = {
         {"nfs3", "Need for Speed III: Hot Pursuit", "nfs3.exe"},
     };
-    return list;
+    return kList;
 }
 
 const GameInfo *findGame(std::string_view gameId) {
@@ -29,7 +29,7 @@ const GameInfo *findGame(std::string_view gameId) {
 // executables from owned copies. Until then they're found by
 // fallbackTable().
 const std::vector<GameVariant> &detectionTable() {
-    static const std::vector<GameVariant> table = {
+    static const std::vector<GameVariant> kTable = {
         // US "Need for Speed III Classics" CD and its install (October 2026).
         {"nfs3",
          "Need for Speed III: Hot Pursuit (Classics)",
@@ -38,18 +38,18 @@ const std::vector<GameVariant> &detectionTable() {
          {{"nfs3.exe", "5cbf7d80f6b993926f7b41a0aa3ffc99", 1589248},
           {"GameData/Tracks/trk000/tr00.frd", "42ac1185877f2c7fbaa0de8c7b0d6351", 1422739}}},
     };
-    return table;
+    return kTable;
 }
 
 const std::vector<GameVariant> &fallbackTable() {
-    static const std::vector<GameVariant> table = {
+    static const std::vector<GameVariant> kTable = {
         {"nfs3",
          "Need for Speed III: Hot Pursuit (unknown release)",
          "",
          "windows",
          {{"nfs3.exe", "", -1}, {"GameData/Tracks/trk000/tr00.frd", "", -1}}},
     };
-    return table;
+    return kTable;
 }
 
 } // namespace reluva::nfs
