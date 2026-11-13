@@ -14,7 +14,7 @@
 #include "engines/stgenerations/platform.h"
 #include "engines/stgenerations/game/dissolve.h"
 #include "engines/stgenerations/formats/locations.h"
-#include "common/video/avi.h"
+#include "video/avi.h"
 
 namespace reluva::stgenerations {
 
@@ -44,9 +44,9 @@ const double kLookSpeed = 0.8;
 
 } // namespace
 
-Generations::Generations(Platform* system, Options options)
+Generations::Generations(Platform *system, Options options)
     : _system(system), _eventMan(system), _options(std::move(options)), _random(0) {
-    if (audio::Mixer* mixer = _system->getMixer()) {
+    if (audio::Mixer *mixer = _system->getMixer()) {
         _mixerWrapper = std::make_unique<Mixer>(*mixer);
         _mixer = _mixerWrapper.get();
         _mixer->setEnabled(_system->hasSoundOutput());
@@ -79,26 +79,30 @@ Error Generations::run() {
     _resources.scan();
     _resources.logInventory();
     loadFont();
-    for (const Location& location : getLocations()) {
+    for (const Location &location : getLocations()) {
         ResourceRef ref;
         if (findLocationLevel(_resources, location, ref))
-            _missions.push_back({ location.folder, ref });
+            _missions.push_back({location.folder, ref});
     }
 
     if (_options.unknownVariant)
         log::warning("This version of %s is not known; only the resource viewer is available",
                      _options.description.c_str());
 
-    log::debug(1, "%d images and %d sounds found", (int)_resources.getImages().size(), (int)_resources.getSounds().size());
+    log::debug(1, "%d images and %d sounds found", (int)_resources.getImages().size(),
+               (int)_resources.getSounds().size());
     log::debug(1, "Controls: Left/Right = image, PgUp/PgDn = archive, Up/Down = sound, Space = replay sound,");
-    log::debug(1, "          Home = starfield, click = test tone, F5/F7 = save/load, Alt+Enter = fullscreen, Esc = quit");
-    log::debug(1, "          On a level: [ ] = floor plan, 3D view, textures; in 3D, arrows/WASD move, PgUp/PgDn look, L lighting, C collision");
+    log::debug(1,
+               "          Home = starfield, click = test tone, F5/F7 = save/load, Alt+Enter = fullscreen, Esc = quit");
+    log::debug(
+        1,
+        "          On a level: [ ] = floor plan, 3D view, textures; in 3D, arrows/WASD move, PgUp/PgDn look, L lighting, C collision");
     _status = "Up/Down, Enter: missions   Left/Right: images   PgUp/PgDn: archives   Tab: levels   Esc: quit";
 
     for (int i = 0; i < kNumStars; i++)
-        _stars.push_back({ (int32_t)_random.getRandomNumberRng(0, 2000) - 1000,
-                           (int32_t)_random.getRandomNumberRng(0, 2000) - 1000,
-                           (int32_t)_random.getRandomNumberRng(1, 1000) });
+        _stars.push_back({(int32_t)_random.getRandomNumberRng(0, 2000) - 1000,
+                          (int32_t)_random.getRandomNumberRng(0, 2000) - 1000,
+                          (int32_t)_random.getRandomNumberRng(1, 1000)});
 
     // The volumes, whatever runs: the game, or the resource viewer.
     loadSettings();
@@ -128,7 +132,7 @@ Error Generations::run() {
 }
 
 void Generations::initPalette() {
-    Palette& pal = _screen->getPalette();
+    Palette &pal = _screen->getPalette();
     pal.setColor(kColorBlack, 0, 0, 0);
     for (int i = kColorStarFirst; i <= kColorStarLast; i++) {
         uint8_t v = (uint8_t)(i * 255 / kColorStarLast);
@@ -137,7 +141,8 @@ void Generations::initPalette() {
     for (int r = 0; r < 6; r++) {
         for (int g = 0; g < 6; g++) {
             for (int b = 0; b < 6; b++)
-                pal.setColor(kColorCubeFirst + r * 36 + g * 6 + b, (uint8_t)(r * 51), (uint8_t)(g * 51), (uint8_t)(b * 51));
+                pal.setColor(kColorCubeFirst + r * 36 + g * 6 + b, (uint8_t)(r * 51), (uint8_t)(g * 51),
+                             (uint8_t)(b * 51));
         }
     }
     // LCARS-ish orange for the frame.
@@ -159,7 +164,7 @@ void Generations::setCursor(bool target) {
     if (target == _targetCursor)
         return;
     _targetCursor = target;
-    const Palette& palette = _screen->getPalette();
+    const Palette &palette = _screen->getPalette();
     uint8_t white = palette.findBestColor(255, 255, 255), black = palette.findBestColor(0, 0, 0);
     if (!white)
         white = 1;
@@ -187,7 +192,7 @@ void Generations::setCursor(bool target) {
 }
 
 void Generations::loadFont() {
-    ResourceRef ref = { "COMMON.DAT", "FONTS/ACTION.FNT" };
+    ResourceRef ref = {"COMMON.DAT", "FONTS/ACTION.FNT"};
     std::unique_ptr<SeekableReadStream> stream = _resources.open(ref);
     if (!stream || !_font.load(*stream))
         log::warning("Could not load %s; text will not be shown", ref.toString().c_str());
@@ -199,7 +204,7 @@ void Generations::loadFont() {
         log::warning("No palette found in COMMON.DAT; text colours will be approximate");
 }
 
-void Generations::handleEvent(const Event& event) {
+void Generations::handleEvent(const Event &event) {
     if (_menuOpen) {
         handleMenuEvent(event);
         return;
@@ -280,7 +285,7 @@ void Generations::handleEvent(const Event& event) {
         (event.type == kEventKeydown || event.type == kEventKeyup)) {
         // The weapon's power level (0x44A1B7 and 0x44A159), if it has one;
         // with Shift, or without, they change pages.
-        const Mission::Item* item = _mission->getItem(_mission->getActiveItem());
+        const Mission::Item *item = _mission->getItem(_mission->getActiveItem());
         if (item && item->maxLevel > 0) {
             if (event.type == kEventKeydown) {
                 _mission->setItemLevel(item->level + (event.kbd.keycode == ']' ? 1 : -1));
@@ -349,7 +354,7 @@ void Generations::handleEvent(const Event& event) {
             break;
         case (reluva::key::F1 + 7): {
             // Play the movies in turn.
-            static const char* const kMovies[] = { "MOVIE/MOV_01.AVI", "MOVIE/MOV_02.AVI" };
+            static const char *const kMovies[] = {"MOVIE/MOV_01.AVI", "MOVIE/MOV_02.AVI"};
             playMovie(kMovies[_movieChoice++ % 2]);
             _dirty = true;
             break;
@@ -461,7 +466,7 @@ void Generations::drawFrame(uint32_t delta) {
     }
     if (_playingMission && _mission && _mission->isFinished()) {
         std::string message = text::format("%s %s", _missions[_missionChoice].name.c_str(),
-                                                _mission->isAccomplished() ? "accomplished" : "ended, objectives not met");
+                                           _mission->isAccomplished() ? "accomplished" : "ended, objectives not met");
         // Codes left for the campaign (SET_MISSION_OUTCOME).
         for (int32_t code : _mission->getOutcomes())
             message += text::format(" [%d]", code);
@@ -529,7 +534,7 @@ void Generations::drawFrame(uint32_t delta) {
             _overlayTime = 0;
             _overlayFrame = (_overlayFrame + 1) % _sprites.getFrameCount();
         }
-        const SpriteSet::Frame& f = _sprites.getFrame(_overlayFrame);
+        const SpriteSet::Frame &f = _sprites.getFrame(_overlayFrame);
         Canvas frame;
         frame.create(_sprites.getMaxWidth(), _sprites.getMaxHeight(), Canvas::kClut8);
         uint8_t background = _screen->getPalette().findBestColor(0, 0, 0);
@@ -562,7 +567,7 @@ void Generations::drawFrame(uint32_t delta) {
     } else {
         _screen->clear(kColorBlack);
         drawStarfield(delta);
-        Canvas& s = _screen->getSurface();
+        Canvas &s = _screen->getSurface();
         s.frameRect(Rect(8, 8, Screen::kWidth - 8, Screen::kHeight - kTextPanelHeight - 8), kColorFrame);
         drawMissionList();
     }
@@ -590,18 +595,18 @@ void Generations::drawMissionScreen(uint32_t delta) {
 
     // Shaking moves the whole view; the underwater ripple (VIEW_OVERLAY)
     // shifts each row, a wave 168 rows long rolling down a row every 64 ms.
-    Hud& hud = _mission->getHud();
+    Hud &hud = _mission->getHud();
     int shakeX, shakeY;
     hud.getShakeOffset(shakeX, shakeY);
-    Canvas& screen = _screen->getSurface();
+    Canvas &screen = _screen->getSurface();
     uint8_t black = _screen->getPalette().findBestColor(0, 0, 0);
     for (int y = 0; y < view.h; y++) {
         int dx = shakeX;
         if (hud.hasRipple())
             dx += (int)std::lround(5.5 * std::sin(2 * 3.14159265358979 * (y + _levelTime / 64.0) / 168) + 0.5);
         int sy = y - shakeY;
-        uint8_t* out = (uint8_t*)screen.getBasePtr(0, y);
-        const uint8_t* src = sy >= 0 && sy < view.h ? (const uint8_t*)view.getBasePtr(0, sy) : nullptr;
+        uint8_t *out = (uint8_t *)screen.getBasePtr(0, y);
+        const uint8_t *src = sy >= 0 && sy < view.h ? (const uint8_t *)view.getBasePtr(0, sy) : nullptr;
         for (int x = 0; x < view.w; x++) {
             int sx = x - dx;
             out[x] = src && sx >= 0 && sx < view.w ? src[sx] : black;
@@ -616,7 +621,7 @@ void Generations::drawMissionScreen(uint32_t delta) {
 
     // One line of text: what is said, or else the status.
     if (_font.isLoaded()) {
-        const Palette& pal = _screen->getPalette();
+        const Palette &pal = _screen->getPalette();
         uint8_t remap[256];
         for (int i = 0; i < 256; i++) {
             uint8_t r, g, b;
@@ -626,7 +631,7 @@ void Generations::drawMissionScreen(uint32_t delta) {
                 r = g = b = (uint8_t)i;
             remap[i] = pal.findBestColor(r, g, b);
         }
-        const std::string& text = _subtitle.empty() ? _status : _subtitle;
+        const std::string &text = _subtitle.empty() ? _status : _subtitle;
         std::vector<std::string> lines = _font.wordWrap(text, HudScreen::kTextLine.width());
         if (!lines.empty())
             _font.drawString(screen, lines[0], HudScreen::kTextLine.left, HudScreen::kTextLine.top, remap);
@@ -638,7 +643,7 @@ void Generations::applyScreenEffects() {
     if (!_mission || !_level)
         return;
     // 0x43199A: each slot blends every colour towards its own, slot 0 last.
-    Hud& hud = _mission->getHud();
+    Hud &hud = _mission->getHud();
     bool any = false;
     Palette blended = _level->getPalette();
     for (int slot = Hud::kEffectSlots - 1; slot >= 0; slot--) {
@@ -651,7 +656,7 @@ void Generations::applyScreenEffects() {
             uint8_t pr, pg, pb;
             blended.getColor(i, pr, pg, pb);
             blended.setColor(i, (uint8_t)((pr * (128 - k) + r * k) >> 7), (uint8_t)((pg * (128 - k) + g * k) >> 7),
-                        (uint8_t)((pb * (128 - k) + b * k) >> 7));
+                             (uint8_t)((pb * (128 - k) + b * k) >> 7));
         }
     }
 
@@ -670,8 +675,8 @@ void Generations::applyScreenEffects() {
     _paletteBlended = any;
 }
 
-void Generations::drawTransition(const Mission::TransitionView& transition, Palette& palette) {
-    Canvas& screen = _screen->getSurface();
+void Generations::drawTransition(const Mission::TransitionView &transition, Palette &palette) {
+    Canvas &screen = _screen->getSurface();
     bool briefing = transition.kind == Mission::TransitionView::kBriefing && _briefingLoaded;
     if (transition.phase == 1 && briefing) {
         // The briefing in its own colours, speckled.
@@ -684,7 +689,7 @@ void Generations::drawTransition(const Mission::TransitionView& transition, Pale
     uint8_t colour = palette.findBestColor(transition.r, transition.g, transition.b);
     uint8_t black = palette.findBestColor(0, 0, 0);
     bool ending = transition.kind == Mission::TransitionView::kEnding;
-    auto copyScreen = [&screen](Canvas& to) {
+    auto copyScreen = [&screen](Canvas &to) {
         if (to.w != screen.w || to.h != screen.h)
             to.create(screen.w, screen.h, Canvas::kClut8);
         to.copyRectToSurface(screen, 0, 0, Rect(0, 0, screen.w, screen.h));
@@ -714,7 +719,7 @@ void Generations::drawTransition(const Mission::TransitionView& transition, Pale
             }
             drawBriefing(screen, _proceedLoaded, false);
             for (int y = 0; y < screen.h; y++) {
-                uint8_t* row = (uint8_t*)screen.getBasePtr(0, y);
+                uint8_t *row = (uint8_t *)screen.getBasePtr(0, y);
                 for (int x = 0; x < screen.w; x++)
                     row[x] = remap[row[x]];
             }
@@ -738,24 +743,24 @@ void Generations::drawTransition(const Mission::TransitionView& transition, Pale
     }
 }
 
-void Generations::drawBriefing(Canvas& screen, bool withProceed, bool pressed) {
-    const Canvas& picture = _briefing.getSurface();
+void Generations::drawBriefing(Canvas &screen, bool withProceed, bool pressed) {
+    const Canvas &picture = _briefing.getSurface();
     screen.fillRect(Rect(0, 0, screen.w, screen.h), 0);
     screen.copyRectToSurface(picture, std::max(0, (screen.w - picture.w) / 2), std::max(0, (screen.h - picture.h) / 2),
                              Rect(0, 0, std::min<int>(picture.w, screen.w), std::min<int>(picture.h, screen.h)));
     if (!withProceed)
         return;
     // PROCEED.BMP: pressed above, normal below; magenta is see-through.
-    const Canvas& button = _proceed.getSurface();
-    const Palette& from = _proceed.getPalette();
-    const Palette& to = _briefing.getPalette();
+    const Canvas &button = _proceed.getSurface();
+    const Palette &from = _proceed.getPalette();
+    const Palette &to = _briefing.getPalette();
     int height = button.h / 2;
     for (int y = 0; y < height; y++) {
         int sy = pressed ? y : y + height, dy = _proceedY + y;
         if (dy < 0 || dy >= screen.h)
             continue;
-        const uint8_t* src = (const uint8_t*)button.getBasePtr(0, sy);
-        uint8_t* out = (uint8_t*)screen.getBasePtr(0, dy);
+        const uint8_t *src = (const uint8_t *)button.getBasePtr(0, sy);
+        uint8_t *out = (uint8_t *)screen.getBasePtr(0, dy);
         for (int x = 0; x < button.w; x++) {
             int dx = _proceedX + x;
             if (dx < 0 || dx >= screen.w)
@@ -770,7 +775,7 @@ void Generations::drawBriefing(Canvas& screen, bool withProceed, bool pressed) {
 }
 
 bool Generations::isOverProceed(int x, int y) const {
-    const Canvas& button = _proceed.getSurface();
+    const Canvas &button = _proceed.getSurface();
     return x >= _proceedX && x < _proceedX + button.w && y >= _proceedY && y < _proceedY + button.h / 2;
 }
 
@@ -796,7 +801,7 @@ void Generations::drawTextPanel() {
 
     // Translate the font's colours into whatever palette is current, so
     // text keeps its look over every image.
-    const Palette& pal = _screen->getPalette();
+    const Palette &pal = _screen->getPalette();
     uint8_t remap[256];
     for (int i = 0; i < 256; i++) {
         uint8_t r, g, b;
@@ -809,7 +814,7 @@ void Generations::drawTextPanel() {
     uint8_t background = pal.findBestColor(0, 0, 0);
     uint8_t highlight = pal.findBestColor(255, 153, 0);
 
-    Canvas& s = _screen->getSurface();
+    Canvas &s = _screen->getSurface();
     int top = Screen::kHeight - kTextPanelHeight;
     s.fillRect(Rect(0, top, Screen::kWidth, Screen::kHeight), background);
     s.hLine(0, top, Screen::kWidth - 1, highlight);
@@ -818,7 +823,7 @@ void Generations::drawTextPanel() {
     int y = top + 4;
     _font.drawString(s, _status, margin, y, remap);
     y += _font.getHeight();
-    for (const std::string& line : _font.wordWrap(_subtitle, Screen::kWidth - 2 * margin)) {
+    for (const std::string &line : _font.wordWrap(_subtitle, Screen::kWidth - 2 * margin)) {
         if (y + _font.getHeight() > Screen::kHeight)
             break;
         _font.drawString(s, line, margin, y, remap);
@@ -833,7 +838,7 @@ bool Generations::isOnStarfield() const {
 void Generations::drawMissionList() {
     if (!_font.isLoaded() || _missions.empty())
         return;
-    const Palette& pal = _screen->getPalette();
+    const Palette &pal = _screen->getPalette();
     uint8_t remap[256];
     for (int i = 0; i < 256; i++) {
         uint8_t r, g, b;
@@ -843,7 +848,7 @@ void Generations::drawMissionList() {
             r = g = b = (uint8_t)i;
         remap[i] = pal.findBestColor(r, g, b);
     }
-    Canvas& s = _screen->getSurface();
+    Canvas &s = _screen->getSurface();
     int x = 40, y = 32;
     _font.drawString(s, "Away missions (Up/Down, Enter):", x, y, remap);
     y += _font.getHeight() * 3 / 2;
@@ -869,7 +874,7 @@ void Generations::playMission(int index) {
     showLevelPage(kLevelPage3D);
 }
 
-void Generations::leaveMission(const std::string& message) {
+void Generations::leaveMission(const std::string &message) {
     if (_mission)
         _carriedArray = _mission->getCarriedArray();
     _playingMission = false;
@@ -883,11 +888,11 @@ void Generations::leaveMission(const std::string& message) {
 }
 
 void Generations::drawStarfield(uint32_t delta) {
-    Canvas& s = _screen->getSurface();
+    Canvas &s = _screen->getSurface();
     const int cx = Screen::kWidth / 2, cy = Screen::kHeight / 2;
     int32_t speed = (int32_t)std::max<uint32_t>(1, delta / 2);
 
-    for (Star& star : _stars) {
+    for (Star &star : _stars) {
         star.z -= speed;
         if (star.z <= 1) {
             star.x = (int32_t)_random.getRandomNumberRng(0, 2000) - 1000;
@@ -907,14 +912,14 @@ void Generations::drawStarfield(uint32_t delta) {
 }
 
 void Generations::showImage(int index) {
-    const std::vector<ResourceRef>& images = _resources.getImages();
+    const std::vector<ResourceRef> &images = _resources.getImages();
     if (images.empty())
         return;
 
     int count = (int)images.size();
     index = ((index % count) + count) % count;
     _imageIndex = index;
-    const ResourceRef& ref = images[index];
+    const ResourceRef &ref = images[index];
     _imageLoaded = _overlayLoaded = _spritesLoaded = false;
     _hudScreen.reset();
     _heldItem.load(_resources, _levelRef, 0);
@@ -933,12 +938,13 @@ void Generations::showImage(int index) {
     } else {
         _imageLoaded = _resources.loadImage(ref, _image);
         if (_imageLoaded && _image.hasPalette()) {
-            std::memcpy(_screen->getPalette().data(), _image.getPalette().data(), size_t(_image.getPaletteColorCount()) * 3);
+            std::memcpy(_screen->getPalette().data(), _image.getPalette().data(),
+                        size_t(_image.getPaletteColorCount()) * 3);
             _screen->applyPalette();
         } else {
             initPalette();
         }
-        const Canvas& surf = _image.getSurface();
+        const Canvas &surf = _image.getSurface();
         _status = text::format("%s  %dx%d", ref.toString().c_str(), surf.w, surf.h);
         if (!_imageLoaded)
             _status += "  (could not decode)";
@@ -949,7 +955,7 @@ void Generations::showImage(int index) {
     _dirty = true;
 }
 
-void Generations::showLevel(const ResourceRef& ref, bool run) {
+void Generations::showLevel(const ResourceRef &ref, bool run) {
     std::unique_ptr<SeekableReadStream> stream = _resources.open(ref);
     _hudScreen.reset();
     _heldItem.load(_resources, _levelRef, 0);
@@ -979,9 +985,9 @@ void Generations::showLevel(const ResourceRef& ref, bool run) {
     {
         size_t slash = ref.name.find_last_of("/\\");
         std::string folder = ref.name.substr(0, slash + 1);
-        ResourceRef briefing = { ref.archive, folder + "BRIEFING.BMP" };
+        ResourceRef briefing = {ref.archive, folder + "BRIEFING.BMP"};
         _briefingLoaded = _proceedLoaded = false;
-        for (const ResourceRef& image : _resources.getImages()) {
+        for (const ResourceRef &image : _resources.getImages()) {
             if (image.archive == briefing.archive && text::toLower(image.name) == text::toLower(briefing.name))
                 _briefingLoaded = _resources.loadImage(image, _briefing) && _briefing.hasPalette();
             else if (text::toLower(image.archive) == "common.dat" && text::toLower(image.name) == "proceed.bmp")
@@ -991,7 +997,7 @@ void Generations::showLevel(const ResourceRef& ref, bool run) {
         std::string name = text::toLower(folder.substr(0, folder.empty() ? 0 : folder.size() - 1));
         name = name.substr(name.find_last_of("/\\") == std::string::npos ? 0 : name.find_last_of("/\\") + 1);
         bool placed = false;
-        for (const Location& location : getLocations()) {
+        for (const Location &location : getLocations()) {
             if (text::toLower(location.folder) == name) {
                 _proceedX = location.proceedX;
                 _proceedY = location.proceedY;
@@ -1022,13 +1028,13 @@ void Generations::showLevel(const ResourceRef& ref, bool run) {
     showLevelPage(0);
 }
 
-void Generations::loadActors(const ResourceRef& levelRef) {
+void Generations::loadActors(const ResourceRef &levelRef) {
     // Sprite sets are NNN.gs2 next to GAME.LV2 (0x4C01B0).
     size_t slash = levelRef.name.find_last_of("/\\");
     std::string folder = slash == std::string::npos ? "" : levelRef.name.substr(0, slash + 1);
     bool upper = !levelRef.name.empty() && std::isupper((unsigned char)levelRef.name.back());
-    auto loader = [this, levelRef, folder, upper](uint16_t number, SpriteSet& set) {
-        ResourceRef ref = { levelRef.archive, folder + text::format(upper ? "%03u.GS2" : "%03u.gs2", number) };
+    auto loader = [this, levelRef, folder, upper](uint16_t number, SpriteSet &set) {
+        ResourceRef ref = {levelRef.archive, folder + text::format(upper ? "%03u.GS2" : "%03u.gs2", number)};
         std::unique_ptr<SeekableReadStream> stream = _resources.open(ref);
         if (!stream || !set.load(*stream)) {
             log::warning("Could not load the sprite set %s", ref.toString().c_str());
@@ -1042,12 +1048,12 @@ void Generations::loadActors(const ResourceRef& levelRef) {
     _levelRenderer->setSprites(&_actorSprites);
 }
 
-bool Generations::findSoundFile(const std::string& name, const std::string& archivePrefix, ResourceRef& ref) const {
+bool Generations::findSoundFile(const std::string &name, const std::string &archivePrefix, ResourceRef &ref) const {
     // Subtitles sit next to their WAVs, so look for the WAV and swap the extension.
     std::string base = text::toLower(name.substr(0, name.rfind('.')));
     std::string extension = name.substr(name.rfind('.'));
-    const ResourceRef* fallback = nullptr;
-    for (const ResourceRef& sound : _resources.getSounds()) {
+    const ResourceRef *fallback = nullptr;
+    for (const ResourceRef &sound : _resources.getSounds()) {
         size_t slash = sound.name.find_last_of("/\\");
         std::string file = sound.name.substr(slash == std::string::npos ? 0 : slash + 1);
         if (text::toLower(file.substr(0, file.rfind('.'))) != base)
@@ -1066,7 +1072,7 @@ bool Generations::findSoundFile(const std::string& name, const std::string& arch
     return true;
 }
 
-void Generations::startMission(const ResourceRef& levelRef, bool run) {
+void Generations::startMission(const ResourceRef &levelRef, bool run) {
     // A level's scripts are in GAME.BIN next to its GAME.LV2.
     ResourceRef ref = levelRef;
     size_t dot = ref.name.rfind('.');
@@ -1086,16 +1092,18 @@ void Generations::startMission(const ResourceRef& levelRef, bool run) {
     // Sound files: a mission's own in <mission>/sounds, the rest found by
     // name in COMMON.DAT or the MUSIC archives.
     std::string folder = levelRef.name.substr(0, levelRef.name.find_last_of("/\\") + 1);
-    auto openSound = [this, levelRef, folder](const std::string& name, MissionSound::Location where)
-        -> std::unique_ptr<SeekableReadStream> {
+    auto openSound = [this, levelRef, folder](const std::string &name,
+                                              MissionSound::Location where) -> std::unique_ptr<SeekableReadStream> {
         if (where == MissionSound::kLocationMission) {
-            ResourceRef ref = { levelRef.archive, folder + "sounds/" + name };
+            ResourceRef ref = {levelRef.archive, folder + "sounds/" + name};
             if (std::unique_ptr<SeekableReadStream> stream = _resources.open(ref))
                 return stream;
         }
         ResourceRef ref;
-        if (!findSoundFile(name, where == MissionSound::kLocationMission ? levelRef.archive
-                                     : where == MissionSound::kLocationCommon ? "COMMON.DAT" : "MUSIC.",
+        if (!findSoundFile(name,
+                           where == MissionSound::kLocationMission  ? levelRef.archive
+                           : where == MissionSound::kLocationCommon ? "COMMON.DAT"
+                                                                    : "MUSIC.",
                            ref))
             return nullptr;
         return _resources.open(ref);
@@ -1123,13 +1131,13 @@ void Generations::showLevelPage(int page) {
         _screen->applyPalette();
         _paletteBlended = false;
     }
-    for (bool& held : _walkKeys)
+    for (bool &held : _walkKeys)
         held = false;
 
     if (_levelPage == kLevelPageMap) {
         _status = text::format("%s  map: %d sectors, %d walls, %d vertices  ([ ] 3D view, textures)",
-                                 _levelName.c_str(), (int)_level->getSectors().size(),
-                                 (int)_level->getWalls().size(), (int)_level->getVertices().size());
+                               _levelName.c_str(), (int)_level->getSectors().size(), (int)_level->getWalls().size(),
+                               (int)_level->getVertices().size());
     } else if (_levelPage == kLevelPage3D) {
         updateWalkStatus();
     } else {
@@ -1138,14 +1146,14 @@ void Generations::showLevelPage(int page) {
         uint16_t id = _levelTextures[index];
         if (_level->loadTexture(id, texture))
             _status = text::format("%s  texture %d/%d (id %u) %dx%d", _levelName.c_str(), index + 1,
-                                     (int)_levelTextures.size(), id, texture.surface.w, texture.surface.h);
+                                   (int)_levelTextures.size(), id, texture.surface.w, texture.surface.h);
         else
             _status = text::format("%s  texture %u (could not decode)", _levelName.c_str(), id);
     }
     _dirty = true;
 }
 
-bool Generations::handleWalkKey(const KeyState& state, bool down) {
+bool Generations::handleWalkKey(const KeyState &state, bool down) {
     // The player's key map first (0x43E8FB), as the Controls panel sets it.
     uint8_t action = _settings.awayKeys.get(KeyMap::virtualKey(state.keycode));
     if (action != KeyMap::kNone && walkAction(action, down))
@@ -1202,7 +1210,7 @@ bool Generations::handleWalkKey(const KeyState& state, bool down) {
         if (down && _hudScreen)
             _hudScreen->setLeftMode(key == 'b'   ? HudScreen::kLeftLife
                                     : key == 'h' ? HudScreen::kLeftMap
-                                                               : HudScreen::kLeftObject);
+                                                 : HudScreen::kLeftObject);
         return true;
     case '1':
     case '2':
@@ -1289,7 +1297,7 @@ bool Generations::walkAction(int action, bool down) {
 }
 
 void Generations::releaseWalkKeys() {
-    for (bool& held : _walkKeys)
+    for (bool &held : _walkKeys)
         held = false;
     _fireHeld = _mouseLook = false;
     _viewButtons = 0;
@@ -1311,7 +1319,7 @@ void Generations::viewButton(int vk, bool down) {
 }
 
 void Generations::updateWalk(uint32_t delta) {
-    const double kSpeed = 25.0;    // world units per second
+    const double kSpeed = 25.0; // world units per second
     double seconds = std::min<uint32_t>(delta, 100) / 1000.0;
 
     double forward = (_walkKeys[kWalkForward] ? 1 : 0) - (_walkKeys[kWalkBack] ? 1 : 0);
@@ -1350,7 +1358,7 @@ void Generations::updateWalk(uint32_t delta) {
     double moveScale = 1, turnScale = 1, lookScale = 1;
     if (_mission) {
         static const Mission::Motion kDefault;
-        const Mission::Motion& motion = _mission->getMotion();
+        const Mission::Motion &motion = _mission->getMotion();
         moveScale = motion.speed / kDefault.speed;
         turnScale = (double)motion.turnRate / kDefault.turnRate;
         lookScale = (double)motion.lookRate / kDefault.lookRate;
@@ -1417,7 +1425,7 @@ void Generations::updateWalk(uint32_t delta) {
         updateWalkStatus();
 }
 
-void Generations::mouseLookRates(double& turn, double& look) const {
+void Generations::mouseLookRates(double &turn, double &look) const {
     // 0x43AFA3: away from a 64-pixel band across the middle of the view, the
     // mouse sets a heading and pitch atan(offset / distance from the far
     // side to the band) degrees away, and each frame the view turns a
@@ -1465,17 +1473,16 @@ void Generations::prepareAim(int w, int h) {
               HeldItem::place(*HeldItem::getStyle(kind), _aimX, _aimY, w, h).usable);
 }
 
-void Generations::drawViewOverlay(Canvas& view) {
+void Generations::drawViewOverlay(Canvas &view) {
     // SHOW_VIEW_OVERLAY: centred at the top of the view, like the punch.
-    const Mission::ViewOverlay& overlay = _mission->getViewOverlay();
+    const Mission::ViewOverlay &overlay = _mission->getViewOverlay();
     if (overlay.image != _viewOverlayImage) {
         _viewOverlayImage = overlay.image;
         _viewOverlayLoaded = false;
         if (!overlay.image.empty()) {
             size_t slash = _levelRef.name.find_last_of("/\\");
             std::string folder = slash == std::string::npos ? "" : _levelRef.name.substr(0, slash + 1);
-            std::unique_ptr<SeekableReadStream> stream =
-                _resources.open({ _levelRef.archive, folder + overlay.image });
+            std::unique_ptr<SeekableReadStream> stream = _resources.open({_levelRef.archive, folder + overlay.image});
             _viewOverlayLoaded = stream && _viewOverlay.load(*stream);
             if (!_viewOverlayLoaded)
                 log::warning("Could not load the view overlay %s", overlay.image.c_str());
@@ -1491,7 +1498,7 @@ void Generations::drawViewOverlay(Canvas& view) {
     _viewOverlay.drawFrame(view, 0, _viewOverlay.getRowCount(), (view.w - _viewOverlay.getWidth()) / 2, 0);
 }
 
-void Generations::drawHands(Canvas& view, uint32_t delta) {
+void Generations::drawHands(Canvas &view, uint32_t delta) {
     if (_mission)
         drawViewOverlay(view);
     if (_heldItem.getKind()) {
@@ -1516,15 +1523,15 @@ void Generations::attack() {
         // From the gun's muzzle, which follows the cursor; below the gun's
         // line it can't be used.
         double ahead = 1.5, up = -0.5, left = 0;
-        if (const HeldItem::Style* style = HeldItem::getStyle(_heldItem.getKind())) {
+        if (const HeldItem::Style *style = HeldItem::getStyle(_heldItem.getKind())) {
             if (!HeldItem::place(*style, _aimX, _aimY, _viewW, _viewH).usable)
                 return;
             HeldItem::getMuzzle(*style, _aimX, _aimY, _viewW, _viewH, ahead, up, left);
         }
-        Mission::FireResult result = _mission->fireWeapon(_camera, _levelRenderer->getPick(), _aimX, _aimY, _viewW,
-                                                          _viewH, ahead, up, left);
+        Mission::FireResult result =
+            _mission->fireWeapon(_camera, _levelRenderer->getPick(), _aimX, _aimY, _viewW, _viewH, ahead, up, left);
         if (result == Mission::kFired) {
-            const Mission::Item* item = _mission->getItem(_mission->getActiveItem());
+            const Mission::Item *item = _mission->getItem(_mission->getActiveItem());
             _flashLeft = item && item->setting > 0 ? item->setting : 150;
             updateWalkStatus();
         }
@@ -1534,13 +1541,13 @@ void Generations::attack() {
 
     // Bare hands: play the punch overlay (SET_PUNCH), which lands on its
     // hit frame. It sits beside GAME.LV2.
-    const Mission::Punch& punch = _mission->getPunch();
+    const Mission::Punch &punch = _mission->getPunch();
     if (punch.image != _punchImage) {
         _punchImage = punch.image;
         _punchFrameHeight = 0;
         size_t slash = _levelRef.name.find_last_of("/\\");
         std::string folder = slash == std::string::npos ? "" : _levelRef.name.substr(0, slash + 1);
-        std::unique_ptr<SeekableReadStream> stream = _resources.open({ _levelRef.archive, folder + punch.image });
+        std::unique_ptr<SeekableReadStream> stream = _resources.open({_levelRef.archive, folder + punch.image});
         // Frames as tall as the original's 3D view (0x431D25).
         if (stream && _punchOverlay.load(*stream))
             _punchFrameHeight = std::min<int>(Overlay::kViewHeight, _punchOverlay.getRowCount());
@@ -1554,10 +1561,10 @@ void Generations::attack() {
     _punchTime = 0;
 }
 
-void Generations::updatePunch(uint32_t delta, Canvas& view) {
+void Generations::updatePunch(uint32_t delta, Canvas &view) {
     if (!_punching || !_mission)
         return;
-    const Mission::Punch& punch = _mission->getPunch();
+    const Mission::Punch &punch = _mission->getPunch();
     int frames = _punchFrameHeight ? _punchOverlay.getRowCount() / _punchFrameHeight : 0;
     // One frame per tick at most (0x431E57); the blow lands on the first
     // frame showing the hit frame.
@@ -1584,21 +1591,20 @@ void Generations::updateWalkStatus() {
     if (text::hasSuffixIgnoreCase(level, ".dat"))
         level = level.substr(0, level.size() - 4);
     _status = text::format("%s 3D %.0f,%.0f,%.0f %.0fdeg  WASD PgUp/Dn  L: light %s  Shift+C: walls %s", level.c_str(),
-                             _camera.x, _camera.y, _camera.z, degrees,
-                             _levelRenderer->isLightingEnabled() ? "on" : "off",
-                             _walker->isCollisionEnabled() ? "on" : "off");
+                           _camera.x, _camera.y, _camera.z, degrees, _levelRenderer->isLightingEnabled() ? "on" : "off",
+                           _walker->isCollisionEnabled() ? "on" : "off");
     if (_mission) {
         _shownHealth = _mission->getHealth();
         _status += text::format("  health %d", _shownHealth);
         if (_mission->getActiveItem())
             _status += text::format("  item %04x", _mission->getActiveItem());
-        const Mission::Item* item = _mission->getItem(_mission->getActiveItem());
+        const Mission::Item *item = _mission->getItem(_mission->getActiveItem());
         if (item && item->maxLevel > 0)
             _status += text::format(" power %d charge %d/%d", item->level, item->charge, item->maxCharge);
     }
 }
 
-void Generations::showSprites(const ResourceRef& ref) {
+void Generations::showSprites(const ResourceRef &ref) {
     std::unique_ptr<SeekableReadStream> stream = _resources.open(ref);
     _spritesLoaded = stream && _sprites.load(*stream) && _sprites.getFrameCount() > 0;
     if (!_spritesLoaded) {
@@ -1613,7 +1619,7 @@ void Generations::showSprites(const ResourceRef& ref) {
     Palette palette;
     size_t slash = ref.name.find_last_of("/\\");
     std::string folder = slash == std::string::npos ? "" : ref.name.substr(0, slash + 1);
-    std::unique_ptr<SeekableReadStream> levelStream = _resources.open({ ref.archive, folder + "GAME.LV2" });
+    std::unique_ptr<SeekableReadStream> levelStream = _resources.open({ref.archive, folder + "GAME.LV2"});
     LevelFile level;
     if (levelStream && level.load(*levelStream)) {
         _screen->getPalette() = level.getPalette();
@@ -1626,15 +1632,15 @@ void Generations::showSprites(const ResourceRef& ref) {
     }
 
     int sequences = 0;
-    for (const std::vector<uint8_t>& sequence : _sprites.getSequences())
+    for (const std::vector<uint8_t> &sequence : _sprites.getSequences())
         sequences += !sequence.empty();
     _overlayFrame = 0;
     _overlayTime = 0;
-    _status = text::format("%s  %d frames up to %dx%d, %d sequences", ref.toString().c_str(),
-                             _sprites.getFrameCount(), _sprites.getMaxWidth(), _sprites.getMaxHeight(), sequences);
+    _status = text::format("%s  %d frames up to %dx%d, %d sequences", ref.toString().c_str(), _sprites.getFrameCount(),
+                           _sprites.getMaxWidth(), _sprites.getMaxHeight(), sequences);
 }
 
-void Generations::showOverlay(const ResourceRef& ref) {
+void Generations::showOverlay(const ResourceRef &ref) {
     std::unique_ptr<SeekableReadStream> stream = _resources.open(ref);
     _overlayLoaded = stream && _overlay.load(*stream);
     if (!_overlayLoaded) {
@@ -1666,11 +1672,11 @@ void Generations::showOverlay(const ResourceRef& ref) {
     _overlayFrame = 0;
     _overlayTime = 0;
     _status = text::format("%s  %dx%d, %d frames", ref.toString().c_str(), _overlay.getWidth(), _overlayFrameHeight,
-                             rows / _overlayFrameHeight);
+                           rows / _overlayFrameHeight);
 }
 
 void Generations::jumpArchive(int direction) {
-    const std::vector<ResourceRef>& images = _resources.getImages();
+    const std::vector<ResourceRef> &images = _resources.getImages();
     if (images.empty())
         return;
 
@@ -1690,7 +1696,7 @@ void Generations::jumpArchive(int direction) {
 }
 
 void Generations::jumpLevel(int direction) {
-    const std::vector<ResourceRef>& images = _resources.getImages();
+    const std::vector<ResourceRef> &images = _resources.getImages();
     int count = (int)images.size();
     for (int step = 1; step <= count; step++) {
         int index = (((_imageIndex + direction * step) % count) + count) % count;
@@ -1719,7 +1725,7 @@ void Generations::showStarfield() {
 }
 
 void Generations::playSound(int index) {
-    const std::vector<ResourceRef>& sounds = _resources.getSounds();
+    const std::vector<ResourceRef> &sounds = _resources.getSounds();
     if (sounds.empty()) {
         playBeep(440);
         return;
@@ -1728,7 +1734,7 @@ void Generations::playSound(int index) {
     int count = (int)sounds.size();
     index = ((index % count) + count) % count;
     _soundIndex = index;
-    const ResourceRef& ref = sounds[index];
+    const ResourceRef &ref = sounds[index];
 
     std::unique_ptr<SoundStream> stream = _resources.loadSound(ref);
     if (!stream)
@@ -1742,8 +1748,7 @@ void Generations::playSound(int index) {
         _subtitle = desc;
 
     _mixer->stopHandle(_soundHandle);
-    _mixer->playStream(music ? Mixer::kMusicSoundType : Mixer::kSpeechSoundType, &_soundHandle,
-                       std::move(stream));
+    _mixer->playStream(music ? Mixer::kMusicSoundType : Mixer::kSpeechSoundType, &_soundHandle, std::move(stream));
     _dirty = true;
 }
 
@@ -1761,7 +1766,7 @@ void Generations::playBeep(int frequency) {
                        makeRawStream(std::move(data), rate, kRaw16Bits | kRawLittleEndian));
 }
 
-bool Generations::playMovie(const std::string& name) {
+bool Generations::playMovie(const std::string &name) {
     avi::Decoder movie;
     std::unique_ptr<SeekableReadStream> file = _resources.open({"", name});
     if (!file || !movie.load(std::move(file)) || !movie.canDecode()) {
@@ -1809,9 +1814,9 @@ bool Generations::playMovie(const std::string& name) {
             drawn = true;
         }
         if (drawn && movie.currentFrame() >= 0) {
-            const Surface& s = movie.surface();
+            const Surface &s = movie.surface();
             for (int py = 0; py < s.h; py++) {
-                const uint8_t* src = s.row(py);
+                const uint8_t *src = s.row(py);
                 for (int px = 0; px < s.w; px++)
                     picture[size_t(py) * s.w + px] = argb(src[px * 4], src[px * 4 + 1], src[px * 4 + 2]);
             }
@@ -1829,13 +1834,15 @@ bool Generations::playMovie(const std::string& name) {
     return true;
 }
 
-std::string Generations::getSaveFileName(int slot) { return text::format("stg.s%02d", slot); }
+std::string Generations::getSaveFileName(int slot) {
+    return text::format("stg.s%02d", slot);
+}
 
-Error Generations::saveGameState(int slot, const std::string& description) {
+Error Generations::saveGameState(int slot, const std::string &description) {
     if (_awaitingProceed)
         return Error::fail("the mission hasn't started");
     MemoryWriteStream file;
-    MemoryWriteStream* out = &file;
+    MemoryWriteStream *out = &file;
 
     out->writeUint32BE(kSaveMagic);
     out->writeUint32LE(kSaveVersion);

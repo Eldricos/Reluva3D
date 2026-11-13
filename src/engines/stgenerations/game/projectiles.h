@@ -34,12 +34,7 @@ namespace reluva::stgenerations {
 // to throw where it hits or runs out.
 class Projectiles {
 public:
-    enum Kind {
-        kKindNone = 0,
-        kKindBeam = 1,
-        kKindBolt = 2,
-        kKindBurst = 3
-    };
+    enum Kind { kKindNone = 0, kKindBeam = 1, kKindBolt = 2, kKindBurst = 3 };
 
     // A section 4 record (100 bytes).
     struct Type {
@@ -70,14 +65,7 @@ public:
 
     // What a shot ran into.
     struct Hit {
-        enum Target {
-            kNothing,
-            kWall,
-            kFlat,
-            kBillboard,
-            kActor,
-            kPlayer
-        };
+        enum Target { kNothing, kWall, kFlat, kBillboard, kActor, kPlayer };
         Target target = kNothing;
         // Index into the level's walls, flats or billboards, or the actor's object id.
         int index = -1;
@@ -101,11 +89,11 @@ public:
         double x, y, bottom, top, radius;
     };
 
-    Projectiles(const LevelFile& level, const std::vector<uint8_t>& section4);
+    Projectiles(const LevelFile &level, const std::vector<uint8_t> &section4);
     ~Projectiles();
 
     int getTypeCount() const { return (int)_types.size(); }
-    const Type& getType(int type) const { return _types[type]; }
+    const Type &getType(int type) const { return _types[type]; }
     // Weapon items set the damage of the type they fire (0x44A03A); everything firing it is affected.
     void setDamage(int type, int16_t damage) { _types[type].damage = damage; }
 
@@ -117,15 +105,15 @@ public:
     // Advance by ms. zones are the zones in play, for walls, floors and
     // billboards; targets are the actors; the player stands at (playerX,
     // playerY) with eyes at playerEye and the given radius.
-    void update(uint32_t ms, uint64_t zones, const std::vector<Target>& targets, double playerX, double playerY,
-                double playerEye, double playerRadius, std::vector<Report>& reports);
+    void update(uint32_t ms, uint64_t zones, const std::vector<Target> &targets, double playerX, double playerY,
+                double playerEye, double playerRadius, std::vector<Report> &reports);
 
     // Sprites for everything in flight.
-    void getSprites(std::vector<SpriteDraw>& sprites);
+    void getSprites(std::vector<SpriteDraw> &sprites);
 
     int getCount() const { return (int)_shots.size(); }
     // Walls a door moved: take their new places.
-    void refreshWalls(const std::vector<int>& walls);
+    void refreshWalls(const std::vector<int> &walls);
     // Drop every shot in flight (loading a saved game).
     void clear() { _shots.clear(); }
 
@@ -155,14 +143,14 @@ private:
     };
 
     void makeLine(int index);
-    Hit sweep(const Shot& shot, double x0, double y0, double z0, double x1, double y1, double z1, uint64_t zones,
-              const std::vector<Target>& targets, double playerX, double playerY, double playerEye,
-              double playerRadius, double& t, double& normalX, double& normalY) const;
-    void spawnBurst(const Type& type, double x, double y, double z, double yaw, double pitch, double extraSpeed);
-    void finish(Shot& shot, const Hit& hit, double yaw, double pitch, std::vector<Report>& reports);
-    const Canvas* getTexture(uint16_t id);
+    Hit sweep(const Shot &shot, double x0, double y0, double z0, double x1, double y1, double z1, uint64_t zones,
+              const std::vector<Target> &targets, double playerX, double playerY, double playerEye, double playerRadius,
+              double &t, double &normalX, double &normalY) const;
+    void spawnBurst(const Type &type, double x, double y, double z, double yaw, double pitch, double extraSpeed);
+    void finish(Shot &shot, const Hit &hit, double yaw, double pitch, std::vector<Report> &reports);
+    const Canvas *getTexture(uint16_t id);
 
-    const LevelFile& _level;
+    const LevelFile &_level;
     std::vector<Type> _types;
     std::vector<Line> _walls;
     std::vector<Shot> _shots;
@@ -171,4 +159,3 @@ private:
 };
 
 } // namespace reluva::stgenerations
-

@@ -6,7 +6,7 @@
 
 #include "engines/stharbinger/game/game.h"
 
-#include "common/audio/stream.h"
+#include "audio/stream.h"
 #include "common/log.h"
 #include "common/text.h"
 #include "engines/stharbinger/harbinger.h"
@@ -28,7 +28,7 @@ enum VideoKind {
 };
 
 struct VideoEntry {
-    const char* name;
+    const char *name;
     VideoDir dir;
     VideoKind kind;
     int x, y;
@@ -54,7 +54,7 @@ const VideoEntry kVideos[32] = {
     {"DEF2", kDirMovies, kArcade, 80, 106},     {"CAN2", kDirMovies, kArcade, 80, 62},
 };
 
-const char* const kDirNames[] = {"INTRO", "MOVIES", "TRANS"};
+const char *const kDirNames[] = {"INTRO", "MOVIES", "TRANS"};
 
 const uint16_t kVideoPlayed = 0;
 const uint16_t kVideoSkipped = 1;
@@ -74,8 +74,8 @@ const uint32_t kCycleMillis = 300;
 
 // ---- Videos -----------------------------------------------------------------------------
 
-bool Game::startVideo(const std::string& dir, const std::string& name, int x, int y, bool keepScreen,
-                      RleAnimation* staticNoise) {
+bool Game::startVideo(const std::string &dir, const std::string &name, int x, int y, bool keepScreen,
+                      RleAnimation *staticNoise) {
     std::string path = dir + "/" + text::toUpper(name) + ".SMK";
     auto stream = resources_.openFile(path);
     auto decoder = std::make_unique<smacker::Decoder>();
@@ -104,7 +104,7 @@ bool Game::startVideo(const std::string& dir, const std::string& name, int x, in
         video_.startMillis = video_.staticUntil;
     }
 
-    audio::Mixer* mixer = system_->getMixer();
+    audio::Mixer *mixer = system_->getMixer();
     if (mixer && video_.decoder->hasAudio()) {
         auto audio = std::make_shared<audio::QueuingStream>(video_.decoder->audioRate(), video_.decoder->audioStereo());
         video_.audio = audio;
@@ -118,13 +118,13 @@ bool Game::startVideo(const std::string& dir, const std::string& name, int x, in
 void Game::updateVideo() {
     if (millis_ < video_.staticUntil) {
         // The static, each frame at its own screen position.
-        const RleAnimation& noise = video_.staticNoise;
+        const RleAnimation &noise = video_.staticNoise;
         int frame = int((millis_ + kStaticMillis - video_.staticUntil) / kStaticFrameMillis) % noise.frameCount();
         noise.drawFrame(frame, background_);
         draw::blit(screen_, background_, 0, 0);
         return;
     }
-    smacker::Decoder& dec = *video_.decoder;
+    smacker::Decoder &dec = *video_.decoder;
     uint64_t elapsed = uint64_t(millis_ - video_.startMillis) * 1000;
     // Show every frame whose time has come; the last one stays for its full time.
     while (video_.framesShown < dec.frameCount() && uint64_t(video_.framesShown) * dec.frameMicros() <= elapsed) {
@@ -182,15 +182,15 @@ void Game::finishVideo(bool skipped) {
         startCredits(true, false);
 }
 
-bool Game::playActionSequenceVideo(int type, const Argument* resultVar) {
+bool Game::playActionSequenceVideo(int type, const Argument *resultVar) {
     if (type < 0 || type >= 32 || kVideos[type].kind == kRejected)
         return false;
-    const VideoEntry& v = kVideos[type];
+    const VideoEntry &v = kVideos[type];
     bool trans = v.dir == kDirTrans;
     if (trans) {
         // TRANS videos stop the ambient sounds and start them again afterwards.
         std::vector<int> ambients = ambientSounds_;
-        if (audio::Mixer* mixer = system_->getMixer())
+        if (audio::Mixer *mixer = system_->getMixer())
             for (audio::SoundHandle h : ambients_)
                 mixer->stop(h);
         ambients_.clear();
@@ -213,7 +213,7 @@ bool Game::playActionSequenceVideo(int type, const Argument* resultVar) {
     return true;
 }
 
-int Game::playVideoFile(const std::string& path) {
+int Game::playVideoFile(const std::string &path) {
     system_->initGraphics(kScreenWidth, kScreenHeight);
     draw::create(screen_, kScreenWidth, kScreenHeight);
     system_->setMouseCursorVisible(false);
@@ -251,10 +251,10 @@ int Game::playVideoFile(const std::string& path) {
 
 // ---- Action sequences ---------------------------------------------------------------------
 
-void Game::startArcade(int type, const Argument* resultVar) {
+void Game::startArcade(int type, const Argument *resultVar) {
     // The scene's sounds stop; the cockpit picture the script has shown stays
     // around the video.
-    if (audio::Mixer* mixer = system_->getMixer())
+    if (audio::Mixer *mixer = system_->getMixer())
         for (audio::SoundHandle h : ambients_)
             mixer->stop(h);
     std::vector<int> ambients = ambientSounds_;
@@ -282,7 +282,7 @@ void Game::updateArcade() {
     if (arcade_->update(millis_ - arcadeStartMillis_, aim, arcadeLeft_, arcadeRight_))
         arcadeLeft_ = arcadeRight_ = false;
     if (arcade_->takePaletteChanged()) {
-        const uint8_t* p = arcade_->palette();
+        const uint8_t *p = arcade_->palette();
         for (int i = 0; i < 256; i++)
             palette_.setColor(i, p[i * 3], p[i * 3 + 1], p[i * 3 + 2]);
         fadeLevel_ = 256;
@@ -402,17 +402,17 @@ Point Game::cursorHitPoint(bool menu) const {
     int id = currentCursor();
     if (id < 0 || id >= int(cursors_.size()))
         return mouse_;
-    const CursorImage& c = cursors_[id];
+    const CursorImage &c = cursors_[id];
     if (menu)
         return Point{mouse_.x + c.hotX, mouse_.y + c.hotY};
     return Point{mouse_.x + c.w / 2, mouse_.y + c.h / 2};
 }
 
-void Game::drawCursor(Surface& dst) {
+void Game::drawCursor(Surface &dst) {
     int id = currentCursor();
     if (video_.active || id < 0 || id >= int(cursors_.size()))
         return;
-    const CursorImage& c = cursors_[id];
+    const CursorImage &c = cursors_[id];
     // The game keeps the whole cursor on screen.
     int x = std::min<int>(mouse_.x, kScreenWidth - c.w - 1);
     int y = std::min<int>(mouse_.y, kScreenHeight - c.h - 1);
@@ -431,7 +431,7 @@ void Game::cyclePalette() {
     if (millis_ < nextCycleMillis_)
         return;
     nextCycleMillis_ = millis_ + kCycleMillis;
-    const uint8_t* p = palette_.data();
+    const uint8_t *p = palette_.data();
     uint8_t last[3] = {p[15], p[16], p[17]};
     for (int i = 5; i > 1; i--)
         palette_.setColor(i, p[(i - 1) * 3], p[(i - 1) * 3 + 1], p[(i - 1) * 3 + 2]);

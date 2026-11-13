@@ -1,6 +1,6 @@
 # LEGO Alpha Team: sound
 
-> **Status:** done · **Code:** `src/common/x86/a3d.cpp` · **Checked against:** the original running in Reluva, by ear · **Confidence:** confirmed unless marked
+> **Status:** done · **Code:** `src/emulation/x86/a3d.cpp` · **Checked against:** the original running in Reluva, by ear · **Confidence:** confirmed unless marked
 
 ## Overview
 
@@ -10,7 +10,7 @@ engine's mixer.
 
 ## How it works
 
-- Done: sound, through the A3D stand-in (`src/common/x86/a3d.cpp`,
+- Done: sound, through the A3D stand-in (`src/emulation/x86/a3d.cpp`,
   docs/common/x86/README.md). `NiA3dSoundSystem::Startup` now succeeds, and
   `DDStreamingAudioManager::AddSource` returns sources. The streaming
   thread fills them as their play positions move, and the engine hears

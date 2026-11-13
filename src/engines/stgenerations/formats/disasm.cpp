@@ -8,10 +8,10 @@
 
 namespace reluva::stgenerations {
 
-std::string disassembleInstruction(const std::vector<uint16_t>& code, uint32_t ip) {
+std::string disassembleInstruction(const std::vector<uint16_t> &code, uint32_t ip) {
     auto word = [&](uint32_t i) -> uint16_t { return i < code.size() ? code[i] : 0; };
     uint16_t op = word(ip);
-    const OpcodeInfo* info = getOpcodeInfo(op);
+    const OpcodeInfo *info = getOpcodeInfo(op);
     if (!info)
         return text::format("??? %04x", op);
 
@@ -33,19 +33,20 @@ std::string disassembleInstruction(const std::vector<uint16_t>& code, uint32_t i
     return text;
 }
 
-std::string disassembleScript(const ScriptFile& script) {
-    const std::vector<uint16_t>& code = script.getCode();
+std::string disassembleScript(const ScriptFile &script) {
+    const std::vector<uint16_t> &code = script.getCode();
     std::string out;
-    const std::vector<ScriptObject>& objects = script.getObjects();
+    const std::vector<ScriptObject> &objects = script.getObjects();
 
     for (size_t o = 0; o < objects.size(); o++) {
-        const ScriptObject& object = objects[o];
+        const ScriptObject &object = objects[o];
         out += text::format("object %u: type %u, id 0x%04x\n", (unsigned)o, object.type, object.id);
-        for (const ScriptState& state : object.states) {
+        for (const ScriptState &state : object.states) {
             out += text::format("  state %u\n", state.id);
-            for (const ScriptBlock& block : state.blocks) {
-                const char* eventName = block.event == kEventEnterState ? " (enter)"
-                                        : block.event == kEventLeaveState ? " (leave)" : "";
+            for (const ScriptBlock &block : state.blocks) {
+                const char *eventName = block.event == kEventEnterState   ? " (enter)"
+                                        : block.event == kEventLeaveState ? " (leave)"
+                                                                          : "";
                 out += text::format("    on event %u%s", block.event, eventName);
                 if (block.nextState != -1)
                     out += text::format(", then state %d", block.nextState);
@@ -57,7 +58,7 @@ std::string disassembleScript(const ScriptFile& script) {
                     uint16_t op = code[ip];
                     if (op == OP_ENDIF || op == OP_ELSE)
                         depth--;
-                    const OpcodeInfo* info = getOpcodeInfo(op);
+                    const OpcodeInfo *info = getOpcodeInfo(op);
                     std::string line = std::string(depth * 2, ' ') + disassembleInstruction(code, ip);
                     if (info && op >= OP_FIRST_NATIVE && info->note && *info->note)
                         line += std::string(std::max<int>(1, 40 - (int)line.size()), ' ') + "; " + info->note;

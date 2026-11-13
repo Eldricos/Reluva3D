@@ -30,11 +30,11 @@
 
 #include "engines/awe/tools/tools.h"
 
-#include "backends/sdl3/sdl_system.h"
+#include "backends/platform/sdl3/sdl_system.h"
 #include "common/archive.h"
-#include "common/audio/mixer.h"
-#include "engines/awe/story.h"
-#include "engines/awe/viewers.h"
+#include "audio/mixer.h"
+#include "engines/awe/game/story.h"
+#include "engines/awe/pages/viewers.h"
 
 #include <algorithm>
 #include <cctype>
@@ -58,12 +58,12 @@ namespace {
 struct Action {
     std::string kind, scene, target, item;
     int n = 0;
-    std::vector<int> choices;   // taken (or to take) at each choice
-    std::vector<int> offered;   // how many there were at each (not written)
-    std::string then;           // clicked while it runs ("name#n")
+    std::vector<int> choices; // taken (or to take) at each choice
+    std::vector<int> offered; // how many there were at each (not written)
+    std::string then;         // clicked while it runs ("name#n")
 };
 
-std::vector<std::string> split(const std::string& s, char sep) {
+std::vector<std::string> split(const std::string &s, char sep) {
     std::vector<std::string> out;
     std::string cur;
     for (char c : s) {
@@ -78,14 +78,14 @@ std::vector<std::string> split(const std::string& s, char sep) {
     return out;
 }
 
-std::string toLine(const Action& a) {
+std::string toLine(const Action &a) {
     if (a.kind == "new")
         return "new";
     std::string choices;
     for (int c : a.choices)
         choices += (choices.empty() ? "" : ".") + std::to_string(c + 1);
-    std::string line = a.kind + "|" + a.scene + "|" + a.target + "|" + (a.target.empty() ? "" : std::to_string(a.n)) +
-                       "|" + choices;
+    std::string line =
+        a.kind + "|" + a.scene + "|" + a.target + "|" + (a.target.empty() ? "" : std::to_string(a.n)) + "|" + choices;
     if (!a.item.empty() || !a.then.empty())
         line += "|" + a.item;
     if (!a.then.empty())
@@ -93,7 +93,7 @@ std::string toLine(const Action& a) {
     return line;
 }
 
-bool fromLine(const std::string& line, Action& a) {
+bool fromLine(const std::string &line, Action &a) {
     const std::vector<std::string> f = split(line, '|');
     if (f.empty() || f[0].empty() || f[0][0] == '#')
         return false;
@@ -106,7 +106,7 @@ bool fromLine(const std::string& line, Action& a) {
     if (f.size() > 3 && !f[3].empty())
         a.n = std::atoi(f[3].c_str());
     if (f.size() > 4 && !f[4].empty())
-        for (const std::string& c : split(f[4], '.'))
+        for (const std::string &c : split(f[4], '.'))
             a.choices.push_back(std::atoi(c.c_str()) - 1);
     if (f.size() > 5)
         a.item = f[5];
@@ -119,8 +119,7 @@ bool fromLine(const std::string& line, Action& a) {
 // game to settle, and looks at the story state.
 class Player {
 public:
-    Player(DirectoryArchive& files, double limit, System* threeD = nullptr, bool characters = false,
-           bool sound = false)
+    Player(DirectoryArchive &files, double limit, System *threeD = nullptr, bool characters = false, bool sound = false)
         : limit_(limit) {
         sys_.threeD = threeD;
         sys_.characters = characters;
@@ -131,12 +130,18 @@ public:
             mixer_ = std::make_unique<audio::Mixer>(kMixRate);
         // The fonts, for -shot's boxes and captions.
         const bool haveFonts = !fonts_.load(files);
-        ctx_ = std::make_unique<ViewerContext>(ViewerContext{sys_, files, mixer_.get(), screen_,
-                                                             std::filesystem::temp_directory_path() / "reluva-awe-solve",
-                                                             haveFonts ? &fonts_ : nullptr, {}, -1});
+        ctx_ =
+            std::make_unique<ViewerContext>(ViewerContext{sys_,
+                                                          files,
+                                                          mixer_.get(),
+                                                          screen_,
+                                                          std::filesystem::temp_directory_path() / "reluva-awe-solve",
+                                                          haveFonts ? &fonts_ : nullptr,
+                                                          {},
+                                                          -1});
         page_ = std::make_unique<ScenePage>(*ctx_);
         page_->cutLines = !sound;
-        page_->onLog = [this](const std::string& l) {
+        page_->onLog = [this](const std::string &l) {
             log_.push_back(l);
             if (l.find("movie credits") != std::string::npos)
                 credits_ = true;
@@ -157,14 +162,14 @@ public:
         };
         page_->setDrawing(false);
         page_->activate();
-        page_->chooser = [this](const std::vector<std::string>& choices) { return choose(choices); };
+        page_->chooser = [this](const std::vector<std::string> &choices) { return choose(choices); };
         page_->watchConditions([this](std::string_view clause, bool holds) {
             if (watching_)
                 tested.emplace(std::string(clause), holds);
         });
     }
 
-    ScenePage& page() { return *page_; }
+    ScenePage &page() { return *page_; }
     // The game's clock, in milliseconds since it started.
     uint64_t gameMs() const { return sys_.now; }
 
@@ -174,12 +179,12 @@ public:
     size_t linesSaid_ = 0;
     uint64_t lineShotAt_ = 0;
     std::string lineShotFile_;
-    size_t action = 0; // the playthrough's action being done, from 1
+    size_t action = 0;    // the playthrough's action being done, from 1
     bool drawing = false; // -draw: every frame drawn, as in a window (RELUVA_PERF times them)
 
     // -shot: the screen as it is now, drawn (the 3D under the 2D with a
     // window), saved to `file` as a TGA.
-    bool shot(const std::filesystem::path& file) {
+    bool shot(const std::filesystem::path &file) {
         page_->setDrawing(true);
         page_->requestScreenshot(file);
         std::error_code ec;
@@ -195,12 +200,12 @@ public:
     // after it; and loaded again.
     std::vector<uint8_t> snapshot() const {
         std::vector<uint8_t> out = page_->saveToMemory();
-        const std::string& last = page_->gameState().lastScene;
+        const std::string &last = page_->gameState().lastScene;
         out.insert(out.end(), last.begin(), last.end());
         out.push_back(uint8_t(last.size()));
         return out;
     }
-    bool restore(const std::vector<uint8_t>& data) {
+    bool restore(const std::vector<uint8_t> &data) {
         if (data.empty())
             return false;
         const size_t n = data.back();
@@ -213,7 +218,7 @@ public:
         page_->setLastScene(std::string(data.end() - long(n + 1), data.end() - 1));
         return ok;
     }
-    std::vector<std::string>& log() { return log_; }
+    std::vector<std::string> &log() { return log_; }
     bool credits() const { return credits_; }
     std::string problem; // why the last action failed, if it did
     // What could be clicked while the last action's scripts ran
@@ -289,7 +294,7 @@ public:
     // What a player could do now, each with no choices yet.
     std::vector<Action> actions() {
         std::vector<Action> out;
-        ScenePage& p = *page_;
+        ScenePage &p = *page_;
         const std::string scene = p.status().scene;
         if (scene.rfind("menu.", 0) == 0)
             return out;
@@ -316,7 +321,7 @@ public:
                 out.push_back(a);
             // (The items the cursor shows it would take: the others are
             // only Antoinette's "can't".)
-            for (const std::string& item : p.usableItems(i)) {
+            for (const std::string &item : p.usableItems(i)) {
                 if (mouse && !p.pointFor(i, x, y, item))
                     continue;
                 Action u = a;
@@ -325,29 +330,29 @@ public:
                 out.push_back(u);
             }
         }
-        for (const std::vector<std::string>& parts : p.combinations()) {
+        for (const std::vector<std::string> &parts : p.combinations()) {
             Action a;
             a.kind = "combine";
             a.scene = scene;
-            for (const std::string& part : parts)
+            for (const std::string &part : parts)
                 a.item += (a.item.empty() ? "" : "+") + part;
             out.push_back(a);
         }
-        for (const std::string& item : p.decombinable()) {
+        for (const std::string &item : p.decombinable()) {
             Action a;
             a.kind = "decombine";
             a.scene = scene;
             a.item = item;
             out.push_back(a);
         }
-        for (const std::string& item : p.flippableItems()) {
+        for (const std::string &item : p.flippableItems()) {
             Action a;
             a.kind = "flip";
             a.scene = scene;
             a.item = item;
             out.push_back(a);
         }
-        for (const auto& [person, thing] : p.matchingPrints()) {
+        for (const auto &[person, thing] : p.matchingPrints()) {
             Action a;
             a.kind = "compare";
             a.scene = scene;
@@ -366,7 +371,7 @@ public:
 
     // Does the action, then lets the game settle. Its choices are taken
     // as given, then the least taken; what was taken is written back.
-    bool act(Action& a) {
+    bool act(Action &a) {
         problem.clear();
         forced_ = a.choices;
         then_ = a.then;
@@ -376,7 +381,7 @@ public:
         taken_.clear();
         offered_.clear();
         counts_.clear();
-        ScenePage& p = *page_;
+        ScenePage &p = *page_;
         bool ok = true;
         if (a.kind == "new") {
             p.startAt("new");
@@ -479,35 +484,36 @@ public:
     // scenes seen (beenhere).
     std::set<std::string> features(bool withSeen) const {
         std::set<std::string> out;
-        const GameState& s = page_->gameState();
+        const GameState &s = page_->gameState();
         out.insert("act " + s.act);
         out.insert("scene " + s.scene);
         out.insert("last " + s.lastScene); // "lastscene" is tested (where the shoes are compared)
-        for (const auto& [name, v] : s.tags)
+        for (const auto &[name, v] : s.tags)
             out.insert("tag " + name + " " + std::to_string(v));
         // Each item and state (just taken or in hand: in the bag), and
         // whether there's more than one: a second shows, but a third is no
         // new state (a puzzle solved again after a load gives its item again,
         // as the game's does, and the search would go on taking them).
         std::map<std::string, int> items;
-        for (const GameState::Item& i : s.items)
+        for (const GameState::Item &i : s.items)
             items[i.name + " " + std::to_string(i.state == 1 || i.state == 3 ? 2 : i.state)]++;
-        for (const auto& [item, n] : items)
+        for (const auto &[item, n] : items)
             out.insert("item " + item + (n > 1 ? " x2+" : ""));
-        for (const auto& [key, t] : s.talks)
+        for (const auto &[key, t] : s.talks)
             out.insert("talk " + key + " " + std::to_string(t.status) + " " + std::to_string(t.nest));
-        for (const auto& [name, v] : s.texts)
+        for (const auto &[name, v] : s.texts)
             if (name.rfind("savedscene", 0) != 0 && withSeen)
                 out.insert("seen " + name);
         return out;
     }
 
 private:
-    int choose(const std::vector<std::string>& choices) {
+    int choose(const std::vector<std::string> &choices) {
         int pick = -1;
         const size_t at = taken_.size();
         if (const auto s = choiceShots.find({action, at + 1}); s != choiceShots.end())
-            std::printf("  shot at choice %zu: %s %s\n", at + 1, s->second.c_str(), shot(s->second) ? "saved" : "not saved");
+            std::printf("  shot at choice %zu: %s %s\n", at + 1, s->second.c_str(),
+                        shot(s->second) ? "saved" : "not saved");
         if (at < forced_.size() && forced_[at] >= 0 && forced_[at] < int(choices.size()))
             pick = forced_[at];
         for (int i = 0; i < int(choices.size()) && pick < 0; i++) {
@@ -522,9 +528,10 @@ private:
         counts_[choices[size_t(pick)]]++;
         // In the log, numbered for -shot c<k>.
         std::string offered;
-        for (const std::string& c : choices)
+        for (const std::string &c : choices)
             offered += (offered.empty() ? "" : " | ") + c.substr(0, 40);
-        log_.push_back("  choice " + std::to_string(action) + "c" + std::to_string(at + 1) + ": " + std::to_string(pick + 1) + " of [" + offered + "]");
+        log_.push_back("  choice " + std::to_string(action) + "c" + std::to_string(at + 1) + ": " +
+                       std::to_string(pick + 1) + " of [" + offered + "]");
         taken_.push_back(pick);
         offered_.push_back(int(choices.size()));
         return pick;
@@ -539,7 +546,7 @@ public:
     std::vector<std::string> handMissed; // done the tools' way: no way to by the mouse
 
 private:
-    void deliver(const ScenePage::HandInput& in) {
+    void deliver(const ScenePage::HandInput &in) {
         using K = ScenePage::HandInput::Kind;
         if (in.kind == K::None)
             return;
@@ -568,8 +575,8 @@ private:
     // An action as a goal for the hand, its inputs made a game frame
     // apart till it's done. False if it isn't one the hand does, or the
     // hand can't do it from here (then done the tools' way, and listed).
-    bool handDoes(const Action& a, bool& ok) {
-        ScenePage& p = *page_;
+    bool handDoes(const Action &a, bool &ok) {
+        ScenePage &p = *page_;
         ScenePage::HandGoal g;
         if (a.kind == "click" || a.kind == "use") {
             const std::vector<std::string> names = p.clickables();
@@ -659,9 +666,9 @@ private:
     std::map<std::string, int> counts_;
 };
 
-std::string joinFeatures(const std::set<std::string>& f) {
+std::string joinFeatures(const std::set<std::string> &f) {
     std::string out;
-    for (const std::string& s : f)
+    for (const std::string &s : f)
         out += s + "\n";
     return out;
 }
@@ -669,15 +676,15 @@ std::string joinFeatures(const std::set<std::string>& f) {
 // The story tags: not the dialogue's "met them here" ones ("<scene>
 // <conversation>", a space in the name), which change whenever a scene is
 // left after a talk.
-bool storyTag(const std::string& feature) {
+bool storyTag(const std::string &feature) {
     return feature.rfind("tag ", 0) == 0 && std::count(feature.begin(), feature.end(), ' ') == 2;
 }
 
 // The story as far as tags and items go (a dead end's, not climbed to
 // again).
-std::string outlineOf(const std::set<std::string>& f) {
+std::string outlineOf(const std::set<std::string> &f) {
     std::string out;
-    for (const std::string& s : f)
+    for (const std::string &s : f)
         if (storyTag(s) || s.rfind("item ", 0) == 0 || s.rfind("act ", 0) == 0)
             out += s + "\n";
     return out;
@@ -685,9 +692,9 @@ std::string outlineOf(const std::set<std::string>& f) {
 
 // How far on a state is: the story tags and items it has, then the
 // conversations heard.
-int progressOf(const std::set<std::string>& f) {
+int progressOf(const std::set<std::string> &f) {
     int n = 0;
-    for (const std::string& s : f)
+    for (const std::string &s : f)
         if (storyTag(s) || s.rfind("item ", 0) == 0)
             n += 2;
         else if (s.rfind("talk ", 0) == 0 && s.find(" 1 ", 5) != std::string::npos)
@@ -695,12 +702,12 @@ int progressOf(const std::set<std::string>& f) {
     return n;
 }
 
-int actRank(const std::string& act) {
+int actRank(const std::string &act) {
     int major = 0, minor = 0;
     return parseActName(act, major, minor) ? major * 10 + minor : 0;
 }
 
-bool readPlaythrough(const std::string& file, std::vector<Action>& out) {
+bool readPlaythrough(const std::string &file, std::vector<Action> &out) {
     std::ifstream in(file);
     if (!in)
         return false;
@@ -715,9 +722,9 @@ bool readPlaythrough(const std::string& file, std::vector<Action>& out) {
     return true;
 }
 
-void writePlaythrough(const std::string& file, const std::vector<Action>& path) {
+void writePlaythrough(const std::string &file, const std::vector<Action> &path) {
     std::ofstream out(file);
-    for (const Action& a : path)
+    for (const Action &a : path)
         out << toLine(a) << "\n";
 }
 
@@ -728,7 +735,7 @@ void writePlaythrough(const std::string& file, const std::vector<Action>& path) 
 // the loaded game lacks or has more of is listed.
 size_t reloadDiffs = 0;
 
-void reloadAndCompare(Player& player, size_t n, const Action& a) {
+void reloadAndCompare(Player &player, size_t n, const Action &a) {
     const std::set<std::string> before = player.features(true);
     const std::vector<uint8_t> save = player.snapshot();
     if (!player.restore(save)) {
@@ -737,11 +744,11 @@ void reloadAndCompare(Player& player, size_t n, const Action& a) {
         return;
     }
     const std::set<std::string> after = player.features(true);
-    for (const std::string& f : before)
+    for (const std::string &f : before)
         if (!after.count(f))
             std::printf("  after %zu (%s): lost on loading: %s\n", n, toLine(a).substr(0, 60).c_str(), f.c_str()),
                 reloadDiffs++;
-    for (const std::string& f : after)
+    for (const std::string &f : after)
         if (!before.count(f))
             std::printf("  after %zu (%s): new on loading: %s\n", n, toLine(a).substr(0, 60).c_str(), f.c_str()),
                 reloadDiffs++;
@@ -761,10 +768,10 @@ struct Wander {
     std::set<std::string> scenes;
 };
 
-void wander(Player& player, size_t at, Wander& w) {
+void wander(Player &player, size_t at, Wander &w) {
     const std::vector<uint8_t> back = player.snapshot();
     w.walks++;
-    auto problem = [&](const std::string& what) {
+    auto problem = [&](const std::string &what) {
         w.problems++;
         std::printf("  wander from %zu: %s\n", at, what.c_str());
     };
@@ -784,7 +791,7 @@ void wander(Player& player, size_t at, Wander& w) {
         // (mostly "that won't work").
         const std::vector<std::string> names = player.page().clickables();
         std::vector<std::string> bag;
-        for (const GameState::Item& i : player.page().gameState().items)
+        for (const GameState::Item &i : player.page().gameState().items)
             if (i.state == 1 || i.state == 2)
                 bag.push_back(i.name);
         if (!names.empty() && !bag.empty() && w.rng() % 8 == 0) {
@@ -818,10 +825,10 @@ void wander(Player& player, size_t at, Wander& w) {
                 break;
             }
             const std::set<std::string> after = player.features(true);
-            for (const std::string& f : before)
+            for (const std::string &f : before)
                 if (!after.count(f))
                     problem("lost on loading: " + f);
-            for (const std::string& f : after)
+            for (const std::string &f : after)
                 if (!before.count(f))
                     problem("new on loading: " + f);
         }
@@ -830,11 +837,11 @@ void wander(Player& player, size_t at, Wander& w) {
         problem("couldn't go back to the route");
 }
 
-bool replay(Player& player, std::vector<Action>& path, bool print, size_t& done, size_t logFrom = SIZE_MAX,
-            const std::map<size_t, std::string>& shots = {}, const std::string& shotsDir = {},
-            bool reloadEach = false, Wander* w = nullptr) {
+bool replay(Player &player, std::vector<Action> &path, bool print, size_t &done, size_t logFrom = SIZE_MAX,
+            const std::map<size_t, std::string> &shots = {}, const std::string &shotsDir = {}, bool reloadEach = false,
+            Wander *w = nullptr) {
     done = 0;
-    for (Action& a : path) {
+    for (Action &a : path) {
         if (!shotsDir.empty()) {
             // -shots: the screen before every action, named by its number
             // and scene.
@@ -874,14 +881,14 @@ struct Node {
     std::vector<uint8_t> save;
     size_t path = 0; // into the search's paths: the actions that led here
     int progress = 0, depth = 0;
-    int tier = 0; // 1: nothing in it is new to its scene (no novelty)
+    int tier = 0;         // 1: nothing in it is new to its scene (no novelty)
     bool promise = false; // an item can be used there (the cursor would show it)
     std::string key;
 };
 
 } // namespace
 
-int aweCommandSolve(int argc, char** argv) {
+int aweCommandSolve(int argc, char **argv) {
     reloadDiffs = 0; // (awe game-check runs several in one process)
     // reluva-tool awe game-run <game> -solve <out> [-from <file>] [-budget n] [-level n] [-noclimb]
     //     [-goal text] [-t s] [-v]
@@ -905,7 +912,8 @@ int aweCommandSolve(int argc, char** argv) {
     std::string wavFile;
     std::map<size_t, std::string> shots;
     std::string shotsDir; // -shots: a frame before every action
-    std::map<std::pair<size_t, size_t>, std::string> choiceShots, lineShots; // -shot: before which action or choice, to which file
+    std::map<std::pair<size_t, size_t>, std::string> choiceShots,
+        lineShots;             // -shot: before which action or choice, to which file
     size_t logFrom = SIZE_MAX; // -log n: the script log from the n-th action on
     for (int i = 3; i < argc; i++) {
         const std::string a = argv[i];
@@ -937,7 +945,7 @@ int aweCommandSolve(int argc, char** argv) {
             reloadEach = true;
         else if (a == "-wander" && i + 2 < argc)
             wanderer.every = size_t(std::atoi(argv[i + 1])), wanderer.rng.seed(unsigned(std::atoi(argv[i + 2]))),
-                i += 2;
+            i += 2;
         else if (a == "-wandersteps" && i + 1 < argc)
             wanderer.steps = size_t(std::atoi(argv[++i]));
         else if (a == "-mouse")
@@ -959,11 +967,11 @@ int aweCommandSolve(int argc, char** argv) {
         else if (a == "-shot" && i + 2 < argc && std::strchr(argv[i + 1], 'l'))
             lineShots[{size_t(std::atoi(argv[i + 1])), size_t(std::atoi(std::strchr(argv[i + 1], 'l') + 1))}] =
                 argv[i + 2],
-                i += 2;
+                                                                                                        i += 2;
         else if (a == "-shot" && i + 2 < argc && std::strchr(argv[i + 1], 'c'))
             choiceShots[{size_t(std::atoi(argv[i + 1])), size_t(std::atoi(std::strchr(argv[i + 1], 'c') + 1))}] =
                 argv[i + 2],
-                i += 2;
+                                                                                                          i += 2;
         else if (a == "-shot" && i + 2 < argc)
             shots[size_t(std::atoi(argv[i + 1]))] = argv[i + 2], i += 2;
     }
@@ -1007,12 +1015,12 @@ int aweCommandSolve(int argc, char** argv) {
         if (!wavFile.empty()) {
             // 16-bit stereo PCM.
             std::ofstream out(wavFile, std::ios::binary);
-            auto u32 = [&](uint32_t v) { out.write(reinterpret_cast<const char*>(&v), 4); };
-            auto u16 = [&](uint16_t v) { out.write(reinterpret_cast<const char*>(&v), 2); };
+            auto u32 = [&](uint32_t v) { out.write(reinterpret_cast<const char *>(&v), 4); };
+            auto u16 = [&](uint16_t v) { out.write(reinterpret_cast<const char *>(&v), 2); };
             const uint32_t bytes = uint32_t(player.mixed.size() * 2);
             out.write("RIFF", 4), u32(36 + bytes), out.write("WAVEfmt ", 8), u32(16), u16(1), u16(2);
             u32(Player::kMixRate), u32(Player::kMixRate * 4), u16(4), u16(16), out.write("data", 4), u32(bytes);
-            out.write(reinterpret_cast<const char*>(player.mixed.data()), std::streamsize(bytes));
+            out.write(reinterpret_cast<const char *>(player.mixed.data()), std::streamsize(bytes));
         }
         const ScenePage::GameStatus st = player.page().status();
         std::printf("%zu of %zu actions; act %s, scene %s; %s; %.1f minutes of game time\n", done, path.size(),
@@ -1021,20 +1029,20 @@ int aweCommandSolve(int argc, char** argv) {
         if (hand) {
             std::printf("%zu inputs by the hand; %zu actions it couldn't do:\n", player.handInputs,
                         player.handMissed.size());
-            for (const std::string& m : player.handMissed)
+            for (const std::string &m : player.handMissed)
                 std::printf("  %s\n", m.c_str());
         }
         if (mouse) {
             std::printf("%zu clicks and uses by the mouse; %zu with no point the game's pick finds them at:\n",
                         player.clicked, player.missed.size());
-            for (const std::string& m : player.missed)
+            for (const std::string &m : player.missed)
                 std::printf("  %s\n", m.c_str());
             if (verbose)
-                for (const std::string& m : player.points)
+                for (const std::string &m : player.points)
                     std::printf("  clicked %s\n", m.c_str());
         }
         if (verbose)
-            for (const std::string& l : player.log())
+            for (const std::string &l : player.log())
                 std::printf("%s\n", l.c_str());
         if (reload) {
             // Saved and loaded again, as the search does.
@@ -1043,10 +1051,10 @@ int aweCommandSolve(int argc, char** argv) {
             const size_t from = player.log().size();
             player.restore(save);
             const std::set<std::string> after = player.features(true);
-            for (const std::string& f : before)
+            for (const std::string &f : before)
                 if (!after.count(f))
                     std::printf("  lost on loading: %s\n", f.c_str());
-            for (const std::string& f : after)
+            for (const std::string &f : after)
                 if (!before.count(f))
                     std::printf("  new on loading: %s\n", f.c_str());
             if (verbose)
@@ -1055,15 +1063,15 @@ int aweCommandSolve(int argc, char** argv) {
         }
         if (list) {
             // What could be done next, and the story state.
-            for (const Action& a : player.actions())
+            for (const Action &a : player.actions())
                 std::printf("  can: %s\n", toLine(a).c_str());
-            for (const std::string& f : player.features(true))
+            for (const std::string &f : player.features(true))
                 std::printf("  %s\n", f.c_str());
         }
         // Passed: the credits reached, and nothing listed by -reloadeach,
         // -wander or -hand.
         return ok && player.credits() && reloadDiffs == 0 && wanderer.problems == 0 && player.handMissed.empty() ? 0
-                                                                                                             : 1;
+                                                                                                                 : 1;
     }
 
     // The search. Its start: the playthrough given, else a new game and Play.
@@ -1112,7 +1120,7 @@ int aweCommandSolve(int argc, char** argv) {
     };
     // States with something new to their scene first, then those where an
     // item can be used, then the furthest on, then the nearest the start.
-    auto cmp = [](const Node& a, const Node& b) {
+    auto cmp = [](const Node &a, const Node &b) {
         if (a.tier != b.tier)
             return a.tier > b.tier;
         if (a.promise != b.promise)
@@ -1138,7 +1146,7 @@ int aweCommandSolve(int argc, char** argv) {
     std::vector<Level> levels;
     std::set<std::string> actStory; // the story features had in the act
     std::set<std::string> deadEnds;
-    auto storyFeature = [](const std::string& x) {
+    auto storyFeature = [](const std::string &x) {
         return storyTag(x) || x.rfind("item ", 0) == 0 || x.rfind("talk ", 0) == 0;
     };
     // The tags whose values the game compares ("tag alibis >9"), as the
@@ -1148,7 +1156,7 @@ int aweCommandSolve(int argc, char** argv) {
     // value past that number (a pair of shoes compared again and again
     // counts each time, the data testing one tag and setting another).
     std::map<std::string, int> valued;
-    auto storyOf = [&](const std::string& x) {
+    auto storyOf = [&](const std::string &x) {
         if (!storyTag(x))
             return x;
         const size_t name = x.find(' ') + 1, value = x.find(' ', name);
@@ -1157,8 +1165,8 @@ int aweCommandSolve(int argc, char** argv) {
             return x.substr(0, value);
         return x.substr(0, value + 1) + std::to_string(std::min(std::atoi(x.c_str() + value + 1), it->second + 1));
     };
-    auto noteTested = [&](const std::map<std::string, bool>& tested) {
-        for (const auto& [clause, held] : tested) {
+    auto noteTested = [&](const std::map<std::string, bool> &tested) {
+        for (const auto &[clause, held] : tested) {
             std::string c = clause;
             while (!c.empty() && (c[0] == '!' || c[0] == ' '))
                 c.erase(0, 1);
@@ -1185,15 +1193,15 @@ int aweCommandSolve(int argc, char** argv) {
         rootSave = root.save;
         rootProgress = root.progress;
         levelExpansions = 0;
-        for (const std::string& x : player.features(false))
+        for (const std::string &x : player.features(false))
             if (storyFeature(x))
                 actStory.insert(storyOf(x));
-        for (const std::string& x : player.features(true))
+        for (const std::string &x : player.features(true))
             if (x.rfind("talk ", 0) != 0)
                 seenHere.insert(player.page().status().scene + "|" + storyOf(x));
         best = root;
         seenKeys.insert(root.key);
-        for (const std::string& f : player.features(true))
+        for (const std::string &f : player.features(true))
             seenFeatures.insert(f);
         frontier.push(root);
         writePlaythrough(solveTo, committed);
@@ -1238,7 +1246,7 @@ int aweCommandSolve(int argc, char** argv) {
         // the bar's travel do doesn't depend on the scene they're done in
         // (but the car the bar's travel is from).
         std::string story;
-        for (const std::string& f : split(node.key, '\n'))
+        for (const std::string &f : split(node.key, '\n'))
             if (f.rfind("scene ", 0) != 0 && f.rfind("last ", 0) != 0)
                 story += f + "\n";
         const std::string here = player.page().status().scene;
@@ -1267,7 +1275,7 @@ int aweCommandSolve(int argc, char** argv) {
             const std::string memoKey = here + "|" + toLine(a);
             if (const auto dead = deadRuns.find(memoKey); dead != deadRuns.end()) {
                 bool same = true;
-                for (const auto& [clause, held] : dead->second)
+                for (const auto &[clause, held] : dead->second)
                     if (player.page().holds(clause) != held) {
                         same = false;
                         break;
@@ -1276,7 +1284,7 @@ int aweCommandSolve(int argc, char** argv) {
                     skipped++;
                     if (verbose) {
                         std::string why;
-                        for (const auto& [clause, held] : dead->second)
+                        for (const auto &[clause, held] : dead->second)
                             why += " [" + clause + (held ? "]" : " no]");
                         std::printf("  (skipped %s:%s)\n", toLine(a).c_str(), why.c_str());
                     }
@@ -1308,7 +1316,7 @@ int aweCommandSolve(int argc, char** argv) {
             // And with a click while it ran, on each thing that could be
             // clicked then.
             if (todo[k].then.empty())
-                for (const std::string& id : player.inBetween) {
+                for (const std::string &id : player.inBetween) {
                     Action v = todo[k];
                     v.choices = a.choices;
                     v.then = id.substr(id.find('|') + 1);
@@ -1323,10 +1331,10 @@ int aweCommandSolve(int argc, char** argv) {
                 // What it changed.
                 const std::vector<std::string> before = split(node.key, '\n'), after = split(key, '\n');
                 std::string d;
-                for (const std::string& x : before)
+                for (const std::string &x : before)
                     if (std::find(after.begin(), after.end(), x) == after.end())
                         d += " -[" + x + "]";
-                for (const std::string& x : after)
+                for (const std::string &x : after)
                     if (std::find(before.begin(), before.end(), x) == before.end())
                         d += " +[" + x + "]";
                 std::printf("    diff %s:%s\n", toLine(a).c_str(), d.c_str());
@@ -1334,7 +1342,7 @@ int aweCommandSolve(int argc, char** argv) {
             if (key == node.key && a.then.empty())
                 deadRuns[memoKey] = player.tested, deadCount++;
             int novel = 0;
-            for (const std::string& s : player.features(true))
+            for (const std::string &s : player.features(true))
                 if (seenFeatures.insert(s).second)
                     novel++;
             if (!seenKeys.insert(key).second)
@@ -1346,7 +1354,7 @@ int aweCommandSolve(int argc, char** argv) {
                             st.act != fromAct ? (" ACT " + st.act).c_str() : "", novel);
             bool reached = false;
             if (!goal.empty())
-                for (const std::string& s : player.features(true))
+                for (const std::string &s : player.features(true))
                     reached |= s.find(goal) != std::string::npos;
             if (reached) {
                 // The state asked for (-goal): the way there, and stop.
@@ -1376,7 +1384,7 @@ int aweCommandSolve(int argc, char** argv) {
             }
             noteTested(player.tested);
             std::vector<std::string> newToAct;
-            for (const std::string& x : f)
+            for (const std::string &x : f)
                 if (storyFeature(x) && !actStory.count(storyOf(x)))
                     newToAct.push_back(storyOf(x));
             const bool further = climb && !newToAct.empty() && !deadEnds.count(outlineOf(f));
@@ -1403,20 +1411,18 @@ int aweCommandSolve(int argc, char** argv) {
             // (Not the conversations' progress: hearing a choice otherwise
             // isn't a reason to look round the whole train again.)
             int novelHere = 0;
-            for (const std::string& x : player.features(true))
-                if (x.rfind("scene ", 0) != 0 && x.rfind("talk ", 0) != 0 &&
-                    (x.rfind("tag ", 0) != 0 || storyTag(x)))
+            for (const std::string &x : player.features(true))
+                if (x.rfind("scene ", 0) != 0 && x.rfind("talk ", 0) != 0 && (x.rfind("tag ", 0) != 0 || storyTag(x)))
                     novelHere += seenHere.insert(st.scene + "|" + storyOf(x)).second;
             n.tier = novelHere ? 0 : 1;
-            for (const Action& next : player.actions())
+            for (const Action &next : player.actions())
                 n.promise |= next.kind == "use";
             if (n.progress > best.progress)
                 best = n;
             frontier.push(std::move(n));
         }
         if (expansions % 20 == 0) {
-            const double secs =
-                std::chrono::duration<double>(std::chrono::steady_clock::now() - began).count();
+            const double secs = std::chrono::duration<double>(std::chrono::steady_clock::now() - began).count();
             std::printf("  .. %d expanded, %d runs (%d changed nothing, %d skipped), %zu waiting, %zu states, %.0f s "
                         "(%.0f loading, %.0f playing)\n",
                         expansions, runs, deadCount, skipped, frontier.size(), seenKeys.size(), secs, restoreTime,
@@ -1428,7 +1434,7 @@ int aweCommandSolve(int argc, char** argv) {
     {
         const std::vector<Action> way = best.path == SIZE_MAX ? std::vector<Action>() : pathOf(best.path);
         std::printf("furthest (progress %d), after:\n", best.progress);
-        for (const Action& a : way)
+        for (const Action &a : way)
             std::printf("  %s\n", toLine(a).c_str());
         std::printf("%s", best.key.c_str());
         std::vector<Action> all = committed;

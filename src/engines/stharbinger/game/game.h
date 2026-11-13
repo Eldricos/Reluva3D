@@ -3,8 +3,8 @@
 
 #pragma once
 
-#include "common/audio/mixer.h"
-#include "common/video/smacker.h"
+#include "audio/mixer.h"
+#include "video/smacker.h"
 #include "engines/stharbinger/formats/dialogue.h"
 #include "engines/stharbinger/formats/font.h"
 #include "engines/stharbinger/formats/graphics.h"
@@ -34,7 +34,7 @@ class Harbinger;
 // a scene make the script wait while animations keep playing.
 class Game {
 public:
-    explicit Game(Harbinger* vm);
+    explicit Game(Harbinger *vm);
     ~Game();
 
     // `startScene` indexes Harbinger::getScenes(); -1 starts the game normally.
@@ -44,11 +44,11 @@ public:
     void start(int scene);
     void runSteps(int steps); // 20 ms each
     void click(int x, int y);
-    int32_t getVariable(const std::string& name) const;
+    int32_t getVariable(const std::string &name) const;
     // Animation state, for tests.
-    bool isAnimVisible(const std::string& name) const;
-    int getAnimFrame(const std::string& name) const;
-    const std::string& getSceneName() const;
+    bool isAnimVisible(const std::string &name) const;
+    int getAnimFrame(const std::string &name) const;
+    const std::string &getSceneName() const;
     bool isScriptRunning() const { return thread_.active; }
     // The conversation, for tests: whether one runs, and the menu labels when
     // the player is asked to choose.
@@ -62,19 +62,19 @@ public:
     // For tests: press a menu button, answer a confirmation, type a save name.
     void pressMenuButton(int button) { menuButton(button); }
     void answerMenu(bool yes) { menuConfirm(yes); }
-    void typeSaveName(const std::string& name);
+    void typeSaveName(const std::string &name);
     int getSaveCount() const { return int(menu_.saves.size()); }
-    const Surface& getScreen() const { return screen_; }
+    const Surface &getScreen() const { return screen_; }
     void moveMouse(int x, int y);
     // For tests: a right click (torpedo) at the given point.
     void rightClick(int x, int y);
     std::vector<std::string> getMenuLabels() const;
     void pickMenuEntry(int entry);
     // Plays DS9/<path> (e.g. "INTRO/VNM.SMK") on its own, for the developer start mode "video".
-    int playVideoFile(const std::string& path);
+    int playVideoFile(const std::string &path);
     // Starts a conversation by dialogue name in a scene that hosts it (after
     // that scene's entry script). For testing the dialogue scripts.
-    bool debugTalk(const std::string& dialogue);
+    bool debugTalk(const std::string &dialogue);
 
 private:
     // ---- Scene state ----------------------------------------------------
@@ -141,7 +141,7 @@ private:
         bool npc = false;
         int group = -1, item = -1;
         bool valid() const { return group >= 0; }
-        bool operator==(const ItemRef& o) const { return npc == o.npc && group == o.group && item == o.item; }
+        bool operator==(const ItemRef &o) const { return npc == o.npc && group == o.group && item == o.item; }
     };
 
     // What a dialogue remembers for the whole game (DEEP.EXE keeps the records
@@ -191,7 +191,7 @@ private:
             kCloseMenu,
             kLoop // DONE checks, then the next turn
         } type;
-        const DirectiveList* list = nullptr;
+        const DirectiveList *list = nullptr;
         size_t pos = 0;
         int line = -1;
     };
@@ -330,7 +330,7 @@ private:
     void leaveScene();
     void switchScenes();
     bool soundsPlaying();
-    void handleEvent(const InputEvent& event);
+    void handleEvent(const InputEvent &event);
     void step();
     void tickTimers();
     void updateFade();
@@ -343,20 +343,20 @@ private:
     void runThread();
     void jumpToLabel(int label);
     // Executes one directive. Returns false when the thread stops or waits.
-    bool executeDirective(const Directive& d);
+    bool executeDirective(const Directive &d);
     bool isWaitOver();
 
-    uint16_t getValue(const Argument* arg) const;
-    uint16_t getVariable(const Argument* arg) const;
-    void setVariable(const Argument* arg, uint16_t value);
-    std::string variableName(const Argument* arg) const;
-    bool jumpTo(const Argument* arg);
-    bool gosub(const Argument* arg);
+    uint16_t getValue(const Argument *arg) const;
+    uint16_t getVariable(const Argument *arg) const;
+    void setVariable(const Argument *arg, uint16_t value);
+    std::string variableName(const Argument *arg) const;
+    bool jumpTo(const Argument *arg);
+    bool gosub(const Argument *arg);
     void buildLabels();
 
     void setBackground(int index, bool loadPalette);
-    void playSound(int index, const Argument* mode);
-    void actionSequence(const Directive& d);
+    void playSound(int index, const Argument *mode);
+    void actionSequence(const Directive &d);
     // Beams drawn by ACTIONSEQ 0xC0..0xC2 (0x258BC): drawn on the screen at
     // once, then kept by the renderer for `beamLife_` renders.
     struct Beam {
@@ -365,46 +365,46 @@ private:
         uint8_t color = 0;
         int left = 0, top = 0, w = 0, h = 0; // the box between the end points
     };
-    void drawBeam(Surface& dst, const Beam& b);
-    void drawBeams(Surface& dst);
+    void drawBeam(Surface &dst, const Beam &b);
+    void drawBeams(Surface &dst);
     void addBeam(Beam b);
     // Copies the rectangle (x, y, w, h) of the background into the work buffer, clipped.
     void restoreRect(int x, int y, int w, int h);
     void updateTick();
     int randomNumber(int n);
-    uint16_t evalReturnValue(const Argument* a) const;
+    uint16_t evalReturnValue(const Argument *a) const;
     std::string listName(ListKind kind, int index) const;
-    std::string describe(const Directive& d) const;
+    std::string describe(const Directive &d) const;
 
     // game_dialogue.cpp
     void loadFont();
     void startConversation(int cdIndex, int hotspot);
-    DialogueState* getDialogueState(int index);
+    DialogueState *getDialogueState(int index);
     void updateConversation();
     void processConversationOps();
-    bool runDialogueList(ConversationOp& op);
-    bool executeDialogueDirective(const Directive& d);
+    bool runDialogueList(ConversationOp &op);
+    bool executeDialogueDirective(const Directive &d);
     void dialogueTurn();
-    void npcTurn(DialogueState& st);
-    void menuTurn(DialogueState& st);
+    void npcTurn(DialogueState &st);
+    void menuTurn(DialogueState &st);
     void pickChoice(int entry);
     void abortConversation(bool rude, int hotspot);
     void finishConversation();
     void restoreTempFlags();
-    bool isExhausted(const DialogueState& st, int group) const;
-    bool isExhausted(const DialogueState& st, int group, const ItemRef& except) const;
-    int applyRedirect(const DialogueState& st, int group, const uint8_t* table,
-                      const DialogueState::Redirect* redirects) const;
-    std::vector<ItemRef> availableChoices(DialogueState& st, int group, bool consumeHooks);
-    DialogueState::ItemFlags* getItemFlags(DialogueState& st, const ItemRef& ref);
-    ItemRef getItemRef(const Argument* arg) const;
-    void setItemOn(DialogueState& st, const ItemRef& ref, bool on, bool temporary);
-    void registerTalker(int slot, const std::string& code, int mouth, int head);
+    bool isExhausted(const DialogueState &st, int group) const;
+    bool isExhausted(const DialogueState &st, int group, const ItemRef &except) const;
+    int applyRedirect(const DialogueState &st, int group, const uint8_t *table,
+                      const DialogueState::Redirect *redirects) const;
+    std::vector<ItemRef> availableChoices(DialogueState &st, int group, bool consumeHooks);
+    DialogueState::ItemFlags *getItemFlags(DialogueState &st, const ItemRef &ref);
+    ItemRef getItemRef(const Argument *arg) const;
+    void setItemOn(DialogueState &st, const ItemRef &ref, bool on, bool temporary);
+    void registerTalker(int slot, const std::string &code, int mouth, int head);
     void startSpeech(int line);
     void updateSpeech();
     int phonemeFrame(int anim, int code) const;
-    void layoutMenu(DialogueState& st);
-    void drawMenu(Surface& dst);
+    void layoutMenu(DialogueState &st);
+    void drawMenu(Surface &dst);
     int menuEntryAt(int x, int y) const;
     bool handleConversationClick(int x, int y);
     void tickConversationTimers();
@@ -413,18 +413,18 @@ private:
     // game_video.cpp
     // Starts DS9/<dir>/<name>.SMK at (x, y). Returns false if it is missing.
     // `staticNoise` (if it has frames) is shown first, for kStaticMillis.
-    bool startVideo(const std::string& dir, const std::string& name, int x, int y, bool keepScreen,
-                    RleAnimation* staticNoise = nullptr);
+    bool startVideo(const std::string &dir, const std::string &name, int x, int y, bool keepScreen,
+                    RleAnimation *staticNoise = nullptr);
     void updateVideo();
     void finishVideo(bool skipped);
-    bool playActionSequenceVideo(int type, const Argument* resultVar);
-    void startArcade(int type, const Argument* resultVar);
+    bool playActionSequenceVideo(int type, const Argument *resultVar);
+    void startArcade(int type, const Argument *resultVar);
     void updateArcade();
     void finishArcade();
     void loadCursors();
     int currentCursor() const;
     Point cursorHitPoint(bool menu) const;
-    void drawCursor(Surface& dst);
+    void drawCursor(Surface &dst);
     void cyclePalette();
 
     // game_save.cpp
@@ -436,9 +436,9 @@ private:
     std::string getSaveDirectory() const;
     // Writes the game as DEEP.EXE does (savegame\NAME.ds9); `resumePc` is the
     // directive the script continues from.
-    bool saveGame(const std::string& fileName, const std::string& description, uint32_t resumePc);
-    bool loadGame(const std::string& fileName);
-    static bool readSaveInfo(const std::string& path, SaveInfo& info);
+    bool saveGame(const std::string &fileName, const std::string &description, uint32_t resumePc);
+    bool loadGame(const std::string &fileName);
+    static bool readSaveInfo(const std::string &path, SaveInfo &info);
     uint32_t getResumePc() const;
     void startNewGame();
     void loadSettings();
@@ -452,7 +452,7 @@ private:
     void selectSave(int index);
     void drawMenuScreen();
     int menuButtonAt(int x, int y) const;
-    void handleMenuEvent(const InputEvent& event);
+    void handleMenuEvent(const InputEvent &event);
     void menuButton(int button);
     void menuConfirm(bool yes);
     void finishNameEntry();
@@ -467,21 +467,21 @@ private:
 
     // game_anim.cpp
     void setupAnims();
-    bool executeAnimCommand(const Directive& d);
-    Anim* useAnim(const Argument* arg);
+    bool executeAnimCommand(const Directive &d);
+    Anim *useAnim(const Argument *arg);
     void loadAnim(int index, bool lazy);
     void unloadAnim(int index);
-    void applyAnimKeyword(Anim& a, uint16_t keyword);
-    void restartAnim(Anim& a);
-    void advanceAnim(Anim& a);
+    void applyAnimKeyword(Anim &a, uint16_t keyword);
+    void restartAnim(Anim &a);
+    void advanceAnim(Anim &a);
     // One pass of the renderer over the work buffer: erase, draw and, if
     // `advance`, step the animations.
     void renderAnims(bool advance);
 
-    Harbinger* vm_;
-    Platform* system_;
-    Resources& resources_;
-    const std::vector<Scene>& scenes_;
+    Harbinger *vm_;
+    Platform *system_;
+    Resources &resources_;
+    const std::vector<Scene> &scenes_;
     bool quit_ = false;
 
     // Variables are global: one 16-bit value per name, shared by all scenes
@@ -490,7 +490,7 @@ private:
 
     int sceneIndex_ = -1;
     int pendingScene_ = -1;
-    const Scene* scene_ = nullptr;
+    const Scene *scene_ = nullptr;
     std::map<uint32_t, uint32_t> labels_; // label number -> directive index
 
     std::vector<Hotspot> hotspots_; // by CH index

@@ -19,7 +19,7 @@ constexpr uint32_t kMaxParts = 256;
 constexpr uint32_t kMaxPartValue = 255; // sanity limit for a part's node number
 
 struct Reader {
-    const std::vector<uint8_t>& d;
+    const std::vector<uint8_t> &d;
     bool has(size_t at, size_t bytes) const { return at <= d.size() && bytes <= d.size() - at; }
     uint32_t u32(size_t o) const {
         return uint32_t(d[o]) | uint32_t(d[o + 1]) << 8 | uint32_t(d[o + 2]) << 16 | uint32_t(d[o + 3]) << 24;
@@ -39,14 +39,14 @@ std::string hex(size_t v) {
     return buf;
 }
 
-bool isUnit(const GeoModel::Vec3& v) {
+bool isUnit(const GeoModel::Vec3 &v) {
     const float len = std::sqrt(v.x * v.x + v.y * v.y + v.z * v.z);
     return std::fabs(len - 1.0f) < 0.01f;
 }
 
 } // namespace
 
-Error parseGeo(const std::vector<uint8_t>& data, GeoModel& out) {
+Error parseGeo(const std::vector<uint8_t> &data, GeoModel &out) {
     out = GeoModel{};
     const Reader r{data};
     if (!r.has(0, 16))
@@ -74,7 +74,9 @@ Error parseGeo(const std::vector<uint8_t>& data, GeoModel& out) {
                                std::to_string(n) + ", " + std::to_string(r.u32(p + 12)) + ")");
         p += 16;
         for (uint32_t k = 0; k < n; ++k, p += kCornerSize)
-            face.corners.push_back({r.u32(p), r.f32(p + 4) * kUvScale, r.f32(p + 8) * kUvScale,
+            face.corners.push_back({r.u32(p),
+                                    r.f32(p + 4) * kUvScale,
+                                    r.f32(p + 8) * kUvScale,
                                     {r.u32(p + 12), r.u32(p + 16), r.u32(p + 20), r.u32(p + 24), r.u32(p + 28)}});
         partCount = std::max(partCount, face.part + 1);
         out.faces.push_back(std::move(face));
@@ -83,8 +85,8 @@ Error parseGeo(const std::vector<uint8_t>& data, GeoModel& out) {
     // Bounds: u32 last face's part, u32 ?, u32 part count, u32 attachment
     // count, then centre x, y and radius.
     if (!r.has(p, 28) || r.u32(p) != out.faces.back().part || r.u32(p + 8) != partCount)
-        return Error::fail("no bounds block after the faces at " + hex(p) + " (" + std::to_string(r.u32(p)) +
-                           ", " + std::to_string(r.u32(p + 4)) + ", " + std::to_string(r.u32(p + 8)) + ", " +
+        return Error::fail("no bounds block after the faces at " + hex(p) + " (" + std::to_string(r.u32(p)) + ", " +
+                           std::to_string(r.u32(p + 4)) + ", " + std::to_string(r.u32(p + 8)) + ", " +
                            std::to_string(r.u32(p + 12)) + "; " + std::to_string(partCount) + " parts)");
     out.centreX = r.f32(p + 16);
     out.centreY = r.f32(p + 20);
@@ -192,22 +194,22 @@ Error parseGeo(const std::vector<uint8_t>& data, GeoModel& out) {
     }
 
     // Consistency: every index in range, every edge's vertices on its faces.
-    for (const auto& face : out.faces)
-        for (const auto& c : face.corners)
+    for (const auto &face : out.faces)
+        for (const auto &c : face.corners)
             if (c.vertex >= out.parts[face.part].vertices.size())
                 return Error::fail("a face of part " + std::to_string(face.part) + " uses vertex " +
                                    std::to_string(c.vertex) + " of " +
                                    std::to_string(out.parts[face.part].vertices.size()));
     auto onFace = [&](uint32_t vertex, uint32_t face) {
-        for (const auto& c : out.faces[face].corners)
+        for (const auto &c : out.faces[face].corners)
             if (c.vertex == vertex)
                 return true;
         return false;
     };
     for (size_t pi = 0; pi < out.parts.size(); ++pi) {
-        const auto& part = out.parts[pi];
+        const auto &part = out.parts[pi];
         for (size_t i = 0; i < part.edges.size(); ++i) {
-            const auto& e = part.edges[i];
+            const auto &e = part.edges[i];
             const std::string name = "edge " + std::to_string(i) + " of part " + std::to_string(pi);
             if (e.v0 >= part.vertices.size() || e.v1 >= part.vertices.size() || e.faceA >= out.faces.size() ||
                 e.faceB >= out.faces.size() || out.faces[e.faceA].part != pi || out.faces[e.faceB].part != pi)
@@ -221,11 +223,11 @@ Error parseGeo(const std::vector<uint8_t>& data, GeoModel& out) {
 
 // Edge heights at 5 points along each side, from the model's vertices that
 // lie on the side (linear in between), after the tile's rotation.
-TileSides tileSides(const GeoModel& geo, int rotation) {
+TileSides tileSides(const GeoModel &geo, int rotation) {
     TileSides e;
     std::vector<std::pair<float, float>> side[4]; // (position along the side, height)
-    for (const auto& part : geo.parts)
-        for (const auto& v : part.vertices) {
+    for (const auto &part : geo.parts)
+        for (const auto &v : part.vertices) {
             float x = v.x, y = v.y;
             for (int k = 0; k < rotation; ++k) {
                 const float t = x;
@@ -243,7 +245,7 @@ TileSides tileSides(const GeoModel& geo, int rotation) {
                 side[3].push_back({x, v.z});
         }
     for (int s = 0; s < 4; ++s) {
-        auto& pts = side[s];
+        auto &pts = side[s];
         if (pts.empty())
             continue;
         std::sort(pts.begin(), pts.end());

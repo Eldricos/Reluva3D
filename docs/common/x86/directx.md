@@ -2,7 +2,7 @@
 
 ## What it is
 
-`src/common/x86/com.{h,cpp}` makes COM objects programs can call. Each
+`src/emulation/x86/com.{h,cpp}` makes COM objects programs can call. Each
 interface is a vtable of native functions in the program's memory,
 dispatching to a C++ object. `directx/` has the objects, written from the
 DirectX 7 documentation. Interfaces, method orders and IIDs are the SDK

@@ -19,7 +19,7 @@ namespace reluva::newworlds {
 // The system a mission's string table names most often, among the models'
 // names (compared as letters only, ignoring case: "F'Thorc" is fthorc);
 // empty if it names none.
-std::string starSystemName(const StringTable& table, const std::vector<std::string>& systems);
+std::string starSystemName(const StringTable &table, const std::vector<std::string> &systems);
 
 // What a system model's pieces are, read from its shape: a cylinder of
 // starfield round everything, the star (a stack of slices all numbered 0),
@@ -41,7 +41,7 @@ struct StarSystemLayout {
     // part of, or -1 for the starfield.
     std::vector<int> faceSlot, faceBody;
 };
-StarSystemLayout readStarSystem(const GeoModel& model);
+StarSystemLayout readStarSystem(const GeoModel &model);
 
 // Texture stems (in lbp/txr/solsys/) for each texture number: stars1-4 for
 // the starfield, sun for the star, the mission's world (planetWorld: "ice",
@@ -51,7 +51,7 @@ StarSystemLayout readStarSystem(const GeoModel& model);
 // the colours recordings show (geo.md#star-systems).
 // system: the model's name, for the stars the recordings show red
 // (bezouk, sakuntul: sun3, the reddest).
-std::vector<std::string> starSystemTextures(const StarSystemLayout& layout, std::string_view planetWorld,
+std::vector<std::string> starSystemTextures(const StarSystemLayout &layout, std::string_view planetWorld,
                                             std::string_view system = {});
 
 // The solsys picture for a planet archive's world ("icewrld.cat" -> "ice");
@@ -60,6 +60,6 @@ std::string planetPicture(std::string_view archiveName);
 
 // The body to look at: the mission's planet (the first planet, by texture
 // number), else the star; -1 if there's none.
-int missionBody(const StarSystemLayout& layout);
+int missionBody(const StarSystemLayout &layout);
 
 } // namespace reluva::newworlds

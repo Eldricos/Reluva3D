@@ -6,7 +6,7 @@
 
 #include "engines/idtech3/pages/model_viewer.h"
 
-#include "common/font.h"
+#include "graphics/font.h"
 #include "common/fs.h"
 
 #include <algorithm>
@@ -24,28 +24,28 @@ constexpr int kFrameH = 720;
 constexpr float kPi = 3.14159265358979f;
 constexpr float kAnimationFps = 15;
 
-bool endsWith(const std::string& s, const char* suffix) {
+bool endsWith(const std::string &s, const char *suffix) {
     const size_t n = std::char_traits<char>::length(suffix);
     return s.size() >= n && s.compare(s.size() - n, n, suffix) == 0;
 }
 
-std::string folderOf(const std::string& path) {
+std::string folderOf(const std::string &path) {
     const size_t slash = path.find_last_of('/');
     return slash == std::string::npos ? std::string() : path.substr(0, slash);
 }
 
 } // namespace
 
-ModelViewer::ModelViewer(ViewerContext& ctx) : Page(ctx) {
+ModelViewer::ModelViewer(ViewerContext &ctx) : Page(ctx) {
     std::set<std::string> names;
-    for (const std::string& n : ctx.files.list())
+    for (const std::string &n : ctx.files.list())
         names.insert(normalizeArchiveName(n));
     std::set<std::string> players;
     // A player part in either format (Elite Force's bodies are .mdr).
-    auto has = [&](const std::string& dir, const char* part) {
+    auto has = [&](const std::string &dir, const char *part) {
         return names.count(dir + "/" + part + ".md3") || names.count(dir + "/" + part + ".mdr");
     };
-    for (const std::string& n : names) {
+    for (const std::string &n : names) {
         if (!endsWith(n, ".md3") && !endsWith(n, ".mdr"))
             continue;
         // Lower-detail copies of a model.
@@ -53,7 +53,7 @@ ModelViewer::ModelViewer(ViewerContext& ctx) : Page(ctx) {
             continue;
         const std::string dir = folderOf(n);
         bool part = false;
-        for (const char* p : {"lower", "upper", "head"})
+        for (const char *p : {"lower", "upper", "head"})
             part = part || endsWith(n, (std::string("/") + p + ".md3").c_str()) ||
                    endsWith(n, (std::string("/") + p + ".mdr").c_str());
         if (part && has(dir, "lower") && has(dir, "upper") && has(dir, "head")) {
@@ -65,7 +65,9 @@ ModelViewer::ModelViewer(ViewerContext& ctx) : Page(ctx) {
     }
 }
 
-ModelViewer::~ModelViewer() { deactivate(); }
+ModelViewer::~ModelViewer() {
+    deactivate();
+}
 
 void ModelViewer::deactivate() {
     models_.reset();
@@ -92,7 +94,7 @@ void ModelViewer::activate() {
 
 void ModelViewer::show(int index) {
     index_ = index;
-    const Entry& e = entries_[size_t(index)];
+    const Entry &e = entries_[size_t(index)];
     setTitle(e.name + " (" + std::to_string(index + 1) + "/" + std::to_string(entries_.size()) + ")");
     models_->clear();
     shaders_->clear();
@@ -105,10 +107,10 @@ void ModelViewer::show(int index) {
     anims_.clear();
     animTime_ = 0;
 
-    std::vector<const Md3Model*> parts;
+    std::vector<const Md3Model *> parts;
     if (e.player) {
         // Each part as .mdr if there is one (Elite Force's), else .md3.
-        auto part = [&](const char* name) {
+        auto part = [&](const char *name) {
             const std::string mdr = e.name + "/" + name + ".mdr";
             return models_->load(ctx_.files.has(mdr) ? mdr : e.name + "/" + name + ".md3", &error_);
         };
@@ -149,7 +151,7 @@ void ModelViewer::show(int index) {
 
     // Frame the first frame's bounds (a player stands about 60 units
     // above its legs' origin).
-    const Md3Frame& f = parts[0]->frames.front();
+    const Md3Frame &f = parts[0]->frames.front();
     for (int i = 0; i < 3; ++i)
         center_[size_t(i)] = (f.mins[size_t(i)] + f.maxs[size_t(i)]) / 2;
     radius_ = std::max(8.0f, f.radius);
@@ -161,13 +163,13 @@ void ModelViewer::show(int index) {
 
     info_.push_back(e.name);
     for (size_t pi = 0; pi < parts.size(); ++pi) {
-        const Md3Model* m = parts[pi];
+        const Md3Model *m = parts[pi];
         size_t verts = 0, tris = 0;
         std::set<std::string> shaderNames;
-        for (const Md3Surface& s : m->surfaces) {
+        for (const Md3Surface &s : m->surfaces) {
             verts += size_t(s.vertexCount);
             tris += s.indices.size() / 3;
-            for (const std::string& sh : s.shaders)
+            for (const std::string &sh : s.shaders)
                 shaderNames.insert(sh);
         }
         std::string tags;
@@ -180,15 +182,15 @@ void ModelViewer::show(int index) {
         info_.push_back(line);
         // Each surface's shader (from the skin if it names one) and whether
         // it, or the image it needs, is there.
-        for (const Md3Surface& s : m->surfaces) {
+        for (const Md3Surface &s : m->surfaces) {
             std::string shader = s.shaders.empty() ? std::string() : s.shaders.front();
-            if (const Skin* skin = skins_[pi])
+            if (const Skin *skin = skins_[pi])
                 if (auto it = skin->find(fs::toLower(s.name)); it != skin->end())
                     shader = it->second;
             bool found = !shader.empty();
-            if (const ShaderDef* def = ctx_.shaders.find(shader)) {
-                for (const ShaderStage& st : def->stages)
-                    for (const std::string& img : st.maps)
+            if (const ShaderDef *def = ctx_.shaders.find(shader)) {
+                for (const ShaderStage &st : def->stages)
+                    for (const std::string &img : st.maps)
                         if (!img.empty() && img[0] != '$' && findImage(ctx_.files, img).empty())
                             found = false;
             } else if (found) {
@@ -206,7 +208,7 @@ void ModelViewer::resetView() {
     distance_ = radius_ * 2.6f;
 }
 
-void ModelViewer::handleEvent(const Event& ev) {
+void ModelViewer::handleEvent(const Event &ev) {
     if (!renderer_ || entries_.empty())
         return;
     if (ev.type == EventType::KeyDown) {
@@ -267,7 +269,7 @@ void ModelViewer::nextAnimation(int step) {
     const int n = int(anims_.size());
     const int current = step > 0 ? std::max(legsAnim_, torsoAnim_) : std::min(legsAnim_, torsoAnim_);
     const int i = ((current + step) % n + n) % n;
-    auto find = [&](const char* name, PlayerAnimation::Part part) {
+    auto find = [&](const char *name, PlayerAnimation::Part part) {
         for (size_t k = 0; k < anims_.size(); ++k)
             if (anims_[k].name == name)
                 return int(k);
@@ -277,7 +279,9 @@ void ModelViewer::nextAnimation(int step) {
         return 0;
     };
     switch (anims_[size_t(i)].part) {
-    case PlayerAnimation::Part::Both: legsAnim_ = torsoAnim_ = i; break;
+    case PlayerAnimation::Part::Both:
+        legsAnim_ = torsoAnim_ = i;
+        break;
     case PlayerAnimation::Part::Torso:
         torsoAnim_ = i;
         if (anims_[size_t(legsAnim_)].part != PlayerAnimation::Part::Legs)
@@ -306,9 +310,8 @@ void ModelViewer::update(uint64_t nowMs) {
     const gfx::Vec3 eye{center_[0] + offset[0] * distance_, center_[1] + offset[1] * distance_,
                         center_[2] + offset[2] * distance_};
     const float aspect = float(kFrameW) / float(kFrameH);
-    const gfx::Mat4 viewProj =
-        gfx::multiply(gfx::perspective(0.9f, aspect, 1, 8192),
-                      gfx::lookAlong(eye, {-offset[0], -offset[1], -offset[2]}, {0, 0, 1}));
+    const gfx::Mat4 viewProj = gfx::multiply(gfx::perspective(0.9f, aspect, 1, 8192),
+                                             gfx::lookAlong(eye, {-offset[0], -offset[1], -offset[2]}, {0, 0, 1}));
     renderer_->setGamma(brightness(ctx_));
     renderer_->beginFrame(viewProj, eye, {70, 74, 82});
 
@@ -322,8 +325,8 @@ void ModelViewer::update(uint64_t nowMs) {
     } else if (lower_ >= 0) {
         // Legs at the origin, the torso on the legs' tag_torso, the head
         // on the torso's tag_head.
-        const Md3Model& legs = models_->model(lower_);
-        const Md3Model& torso = models_->model(upper_);
+        const Md3Model &legs = models_->model(lower_);
+        const Md3Model &torso = models_->model(upper_);
         const int nl = int(legs.frames.size()), nt = int(torso.frames.size());
         // Each half's frame, the next and how far towards it: from its
         // animation (animation.cfg) if the player has them, else frame by
@@ -337,9 +340,9 @@ void ModelViewer::update(uint64_t nowMs) {
             ft = std::clamp(ft, 0, nt - 1), nextT = std::clamp(nextT, 0, nt - 1);
         }
         // A tag between two frames.
-        auto tagBetween = [](const Md3Model& m, int a, int b, float f, const char* name) -> std::optional<Md3Tag> {
-            const Md3Tag* ta = m.tag(a, name);
-            const Md3Tag* tb = m.tag(b, name);
+        auto tagBetween = [](const Md3Model &m, int a, int b, float f, const char *name) -> std::optional<Md3Tag> {
+            const Md3Tag *ta = m.tag(a, name);
+            const Md3Tag *tb = m.tag(b, name);
             if (!ta || !tb)
                 return std::nullopt;
             Md3Tag t = *ta;
@@ -365,8 +368,8 @@ void ModelViewer::update(uint64_t nowMs) {
         frames = "legs frame " + std::to_string(fl + 1) + "/" + std::to_string(nl) + ", torso " +
                  std::to_string(ft + 1) + "/" + std::to_string(nt) +
                  (anims_.empty() ? std::string()
-                                 : "; " + anims_[size_t(legsAnim_)].name + " with " +
-                                       anims_[size_t(torsoAnim_)].name + " ([ ]: animation)") +
+                                 : "; " + anims_[size_t(legsAnim_)].name + " with " + anims_[size_t(torsoAnim_)].name +
+                                       " ([ ]: animation)") +
                  (torsoOnTag_ ? "; torso on the legs' tag_torso (T: as in its file)"
                               : "; torso as in its file (T: on the legs' tag_torso)");
     }
@@ -381,7 +384,7 @@ void ModelViewer::update(uint64_t nowMs) {
                             std::to_string(shaders_->missingImages()) + " images missing");
         const int lh = font::kLineHeight;
         size_t widest = 0;
-        for (const std::string& l : lines)
+        for (const std::string &l : lines)
             widest = std::max(widest, font::length(l));
         const int boxW = std::min(kFrameW, int(widest) * font::kAdvance + 8), boxH = int(lines.size()) * lh + 6;
         for (int y = 0; y < boxH; ++y)

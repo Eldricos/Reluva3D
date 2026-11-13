@@ -20,7 +20,7 @@ double fromFixed(int32_t v) {
     return v / kFixed;
 }
 
-bool insideFlat(const std::vector<LevelFile::Vertex>& vertices, const LevelFile::Sector& flat, double x, double y) {
+bool insideFlat(const std::vector<LevelFile::Vertex> &vertices, const LevelFile::Sector &flat, double x, double y) {
     bool inside = false;
     size_t n = flat.vertices.size();
     for (size_t i = 0, j = n - 1; i < n; j = i++) {
@@ -55,10 +55,11 @@ double circleHit(double x0, double y0, double dx, double dy, double cx, double c
 const double Projectiles::kPlayerBelowEye = 6.0;
 const double Projectiles::kPlayerAboveEye = 0.51;
 
-Projectiles::Projectiles(const LevelFile& level, const std::vector<uint8_t>& section4) : _level(level), _random(0x50524F4A) {
+Projectiles::Projectiles(const LevelFile &level, const std::vector<uint8_t> &section4)
+    : _level(level), _random(0x50524F4A) {
     // The table ends at the first record of kind 0.
     for (size_t p = 0; p + kRecordSize <= section4.size(); p += kRecordSize) {
-        const uint8_t* r = &section4[p];
+        const uint8_t *r = &section4[p];
         Type type;
         type.kind = (int)readLE32(r);
         if (type.kind == 0)
@@ -91,9 +92,9 @@ Projectiles::Projectiles(const LevelFile& level, const std::vector<uint8_t>& sec
 }
 
 void Projectiles::makeLine(int index) {
-    const std::vector<LevelFile::Vertex>& vertices = _level.getVertices();
-    const LevelFile::Wall& wall = _level.getWalls()[index];
-    Line& line = _walls[index];
+    const std::vector<LevelFile::Vertex> &vertices = _level.getVertices();
+    const LevelFile::Wall &wall = _level.getWalls()[index];
+    Line &line = _walls[index];
     line.x1 = fromFixed(vertices[wall.vertex1].x);
     line.y1 = fromFixed(vertices[wall.vertex1].y);
     line.x2 = fromFixed(vertices[wall.vertex2].x);
@@ -103,18 +104,19 @@ void Projectiles::makeLine(int index) {
     line.d = fromFixed(wall.distance);
 }
 
-void Projectiles::refreshWalls(const std::vector<int>& walls) {
+void Projectiles::refreshWalls(const std::vector<int> &walls) {
     for (int index : walls)
         makeLine(index);
 }
 
-Projectiles::~Projectiles() {}
+Projectiles::~Projectiles() {
+}
 
 void Projectiles::fire(int typeIndex, double x, double y, double z, double yaw, double pitch, int shooter,
                        double extraSpeed) {
     if (typeIndex < 0 || typeIndex >= (int)_types.size())
         return;
-    const Type& type = _types[typeIndex];
+    const Type &type = _types[typeIndex];
     if (type.kind == kKindBurst) {
         spawnBurst(type, x, y, z, yaw, pitch, extraSpeed);
         return;
@@ -134,7 +136,7 @@ void Projectiles::fire(int typeIndex, double x, double y, double z, double yaw, 
     _shots.push_back(shot);
 }
 
-void Projectiles::spawnBurst(const Type& type, double x, double y, double z, double yaw, double pitch,
+void Projectiles::spawnBurst(const Type &type, double x, double y, double z, double yaw, double pitch,
                              double extraSpeed) {
     // 0x4B6C50: sparks spread in a cone, each at two to four times the
     // type's speed (or a quarter of what threw them, for a type without
@@ -160,11 +162,11 @@ void Projectiles::spawnBurst(const Type& type, double x, double y, double z, dou
     }
 }
 
-Projectiles::Hit Projectiles::sweep(const Shot& shot, double x0, double y0, double z0, double x1, double y1,
-                                    double z1, uint64_t zones, const std::vector<Target>& targets, double playerX,
-                                    double playerY, double playerEye, double playerRadius, double& best,
-                                    double& normalX, double& normalY) const {
-    const Type& type = _types[shot.type];
+Projectiles::Hit Projectiles::sweep(const Shot &shot, double x0, double y0, double z0, double x1, double y1, double z1,
+                                    uint64_t zones, const std::vector<Target> &targets, double playerX, double playerY,
+                                    double playerEye, double playerRadius, double &best, double &normalX,
+                                    double &normalY) const {
+    const Type &type = _types[shot.type];
     double r = type.halfWidth;
     double dx = x1 - x0, dy = y1 - y0, dz = z1 - z0;
     Hit hit;
@@ -181,12 +183,13 @@ Projectiles::Hit Projectiles::sweep(const Shot& shot, double x0, double y0, doub
 
     // Walls: crossed from the front, or either way if solid on both sides,
     // within their height give or take the shot's radius.
-    const std::vector<LevelFile::Wall>& walls = _level.getWalls();
+    const std::vector<LevelFile::Wall> &walls = _level.getWalls();
     for (size_t i = 0; i < walls.size(); i++) {
-        const LevelFile::Wall& wall = walls[i];
-        if (!(wall.flags & LevelFile::kFlagVisible) || (wall.flags & LevelFile::kWallNoCollision) || !(wall.zones & zones))
+        const LevelFile::Wall &wall = walls[i];
+        if (!(wall.flags & LevelFile::kFlagVisible) || (wall.flags & LevelFile::kWallNoCollision) ||
+            !(wall.zones & zones))
             continue;
-        const Line& w = _walls[i];
+        const Line &w = _walls[i];
         double s0 = w.nx * x0 + w.ny * y0 + w.d, s1 = w.nx * x1 + w.ny * y1 + w.d;
         bool crosses = (s0 >= 0 && s1 < 0) || ((wall.flags & LevelFile::kWallSolidBothSides) && s0 < 0 && s1 >= 0);
         if (!crosses)
@@ -204,9 +207,9 @@ Projectiles::Hit Projectiles::sweep(const Shot& shot, double x0, double y0, doub
 
     // Floors when going down, ceilings when going up.
     if (dz != 0) {
-        const std::vector<LevelFile::Sector>& flats = _level.getSectors();
+        const std::vector<LevelFile::Sector> &flats = _level.getSectors();
         for (size_t i = 0; i < flats.size(); i++) {
-            const LevelFile::Sector& flat = flats[i];
+            const LevelFile::Sector &flat = flats[i];
             if (!(flat.flags & LevelFile::kFlagVisible) || !(flat.zones & zones) || flat.vertices.size() < 3)
                 continue;
             if (flat.isCeiling() != (dz > 0))
@@ -221,8 +224,7 @@ Projectiles::Hit Projectiles::sweep(const Shot& shot, double x0, double y0, doub
     }
 
     // Billboards, actors and the player as upright cylinders.
-    auto cylinder = [&](double cx, double cy, double radius, double bottom, double top, Hit::Target target,
-                        int index) {
+    auto cylinder = [&](double cx, double cy, double radius, double bottom, double top, Hit::Target target, int index) {
         double t = circleHit(x0, y0, dx, dy, cx, cy, radius);
         if (t < 0 || t >= best)
             return;
@@ -230,23 +232,23 @@ Projectiles::Hit Projectiles::sweep(const Shot& shot, double x0, double y0, doub
         if (z >= bottom && z <= top)
             take(t, target, index, 0, 0);
     };
-    const std::vector<LevelFile::Billboard>& billboards = _level.getBillboards();
+    const std::vector<LevelFile::Billboard> &billboards = _level.getBillboards();
     for (size_t i = 0; i < billboards.size(); i++) {
-        const LevelFile::Billboard& b = billboards[i];
+        const LevelFile::Billboard &b = billboards[i];
         if (b.hidden || !(b.zones & zones))
             continue;
         double bottom = fromFixed(b.z);
         cylinder(fromFixed(b.x), fromFixed(b.y), fromFixed(b.radius) + r, bottom - r,
                  bottom + fromFixed(b.boxHeight) + r, Hit::kBillboard, (int)i);
     }
-    for (const Target& a : targets) {
+    for (const Target &a : targets) {
         if (a.radius <= 0 || (int)a.object == shot.shooter)
             continue;
         cylinder(a.x, a.y, a.radius + r, a.bottom - r, a.top + r, Hit::kActor, a.object);
     }
     if (shot.shooter != kShooterPlayer) {
-        cylinder(playerX, playerY, playerRadius, playerEye - kPlayerBelowEye, playerEye + kPlayerAboveEye,
-                 Hit::kPlayer, -1);
+        cylinder(playerX, playerY, playerRadius, playerEye - kPlayerBelowEye, playerEye + kPlayerAboveEye, Hit::kPlayer,
+                 -1);
     }
 
     if (hit.target != Hit::kNothing) {
@@ -258,14 +260,14 @@ Projectiles::Hit Projectiles::sweep(const Shot& shot, double x0, double y0, doub
     return hit;
 }
 
-void Projectiles::finish(Shot& shot, const Hit& hit, double yaw, double pitch, std::vector<Report>& reports) {
-    const Type& type = _types[shot.type];
+void Projectiles::finish(Shot &shot, const Hit &hit, double yaw, double pitch, std::vector<Report> &reports) {
+    const Type &type = _types[shot.type];
     if (hit.target != Hit::kNothing)
-        reports.push_back({ Report::kHit, hit });
+        reports.push_back({Report::kHit, hit});
     if (type.impact >= 0 && type.impact < (int)_types.size()) {
         // 0x4C5030: the sparks fly back off what was hit.
         if (hit.target == Hit::kWall) {
-            const Line& w = _walls[hit.index];
+            const Line &w = _walls[hit.index];
             yaw = 2 * std::atan2(w.y2 - w.y1, w.x2 - w.x1) - yaw;
         } else if (hit.target == Hit::kFlat) {
             pitch = -pitch;
@@ -279,18 +281,18 @@ void Projectiles::finish(Shot& shot, const Hit& hit, double yaw, double pitch, s
         at.z = shot.z;
         at.type = type.impact;
         if (_types[type.impact].fireSound >= 0)
-            reports.push_back({ Report::kFired, at });
+            reports.push_back({Report::kFired, at});
         fire(type.impact, shot.x, shot.y, shot.z, yaw, pitch, kShooterNone, speed);
     }
 }
 
-void Projectiles::update(uint32_t ms, uint64_t zones, const std::vector<Target>& targets, double playerX, double playerY,
-                         double playerEye, double playerRadius, std::vector<Report>& reports) {
+void Projectiles::update(uint32_t ms, uint64_t zones, const std::vector<Target> &targets, double playerX,
+                         double playerY, double playerEye, double playerRadius, std::vector<Report> &reports) {
     // New shots (sparks) are appended while this runs; they start next time.
     size_t count = _shots.size();
     for (size_t i = 0; i < count; i++) {
         Shot shot = _shots[i];
-        const Type& type = _types[shot.type];
+        const Type &type = _types[shot.type];
         double speed = std::sqrt(shot.vx * shot.vx + shot.vy * shot.vy + shot.vz * shot.vz);
         double yaw = std::atan2(shot.vy, shot.vx), pitch = speed > 0 ? std::asin(shot.vz / speed) : 0;
         shot.age += ms;
@@ -352,11 +354,11 @@ void Projectiles::update(uint32_t ms, uint64_t zones, const std::vector<Target>&
         }
         _shots[i] = shot;
     }
-    _shots.erase(std::remove_if(_shots.begin(), _shots.end(), [](const Shot& s) { return s.dead; }), _shots.end());
+    _shots.erase(std::remove_if(_shots.begin(), _shots.end(), [](const Shot &s) { return s.dead; }), _shots.end());
 }
 
-const Canvas* Projectiles::getTexture(uint16_t id) {
-    std::unique_ptr<LevelFile::Texture>& texture = _textures[id];
+const Canvas *Projectiles::getTexture(uint16_t id) {
+    std::unique_ptr<LevelFile::Texture> &texture = _textures[id];
     if (!texture) {
         texture.reset(new LevelFile::Texture());
         if (!_level.loadTexture(id, *texture))
@@ -365,11 +367,11 @@ const Canvas* Projectiles::getTexture(uint16_t id) {
     return texture->surface.w ? &texture->surface : nullptr;
 }
 
-void Projectiles::getSprites(std::vector<SpriteDraw>& sprites) {
-    for (const Shot& shot : _shots) {
-        const Type& type = _types[shot.type];
+void Projectiles::getSprites(std::vector<SpriteDraw> &sprites) {
+    for (const Shot &shot : _shots) {
+        const Type &type = _types[shot.type];
         uint32_t frame = (uint32_t)(((uint64_t)shot.age * type.animationRate >> 16) + shot.phase) % type.frames;
-        const Canvas* surface = getTexture((uint16_t)(type.texture + frame));
+        const Canvas *surface = getTexture((uint16_t)(type.texture + frame));
         if (!surface)
             continue;
         SpriteDraw sprite;

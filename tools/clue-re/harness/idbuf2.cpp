@@ -2,8 +2,8 @@
 // their start), finds the camera that best matches a frame (PPM, lighting off), and writes for
 // each pixel the item drawn last there, with each item's world place.
 #include "engines/clue/game_data.h"
-#include "engines/clue/level.h"
-#include "engines/clue/mansion.h"
+#include "engines/clue/formats/level.h"
+#include "engines/clue/game/mansion.h"
 #include <cstdio>
 #include <cstdlib>
 #include <fstream>

@@ -32,7 +32,7 @@
 
 #include "common/archive.h"
 #include "common/net.h"
-#include "engines/idtech3/bsp.h"
+#include "engines/idtech3/formats/bsp.h"
 #include "engines/idtech3/collision.h"
 #include "engines/idtech3/cvars.h"
 #include "engines/idtech3/eliteforce/cgame_host.h"
@@ -41,8 +41,8 @@
 #include "engines/idtech3/eliteforce/net_server.h"
 #include "engines/idtech3/eliteforce/ui_host.h"
 #include "engines/idtech3/filesystem.h"
-#include "engines/idtech3/md3.h"
-#include "engines/idtech3/shader.h"
+#include "engines/idtech3/formats/md3.h"
+#include "engines/idtech3/formats/shader.h"
 #include "engines/registry.h"
 
 #include "tests/engines/idtech3/data/qvm/fake_cgame_qvm.h"
@@ -71,10 +71,12 @@ namespace {
 using test::Hash;
 using test::Record;
 
-std::vector<uint8_t> bytesOf(const uint8_t* begin, size_t size) { return {begin, begin + size}; }
+std::vector<uint8_t> bytesOf(const uint8_t *begin, size_t size) {
+    return {begin, begin + size};
+}
 
 // The install: two paks and a loose file in the game's folder.
-void makeInstall(const std::filesystem::path& dir) {
+void makeInstall(const std::filesystem::path &dir) {
     using test::toBytes;
     std::filesystem::remove_all(dir);
     const std::string shaders = "textures/test/wall\n{\n\tsurfaceparm metalsteps\n\tcull none\n"
@@ -93,13 +95,12 @@ void makeInstall(const std::filesystem::path& dir) {
                                     {"scripts/test.txt", toBytes("from pak0\n"), {}},
                                     {"scripts/other.txt", toBytes("x"), {}}}));
     // A later pak overrides the first; a loose file overrides both.
-    test::writeFile(dir / "BaseEF" / "pak1.pk3",
-                    test::buildZip({{"scripts/test.txt", toBytes("hello world\n"), {}},
-                                    {"scripts/patched.txt", toBytes("from pak1\n"), {}}}));
+    test::writeFile(dir / "BaseEF" / "pak1.pk3", test::buildZip({{"scripts/test.txt", toBytes("hello world\n"), {}},
+                                                                 {"scripts/patched.txt", toBytes("from pak1\n"), {}}}));
     test::writeFile(dir / "BaseEF" / "scripts" / "patched.txt", toBytes("loose\n"));
 }
 
-std::string text(const SearchSet& set, const char* name) {
+std::string text(const SearchSet &set, const char *name) {
     std::vector<uint8_t> data;
     if (set.read(name, data))
         return "(missing)";
@@ -109,28 +110,28 @@ std::string text(const SearchSet& set, const char* name) {
     return s;
 }
 
-void install(const std::filesystem::path& dir, const SearchSet& set, Record& rec) {
+void install(const std::filesystem::path &dir, const SearchSet &set, Record &rec) {
     Hash list;
     const auto names = set.list();
-    for (const std::string& n : names)
+    for (const std::string &n : names)
         list.text(n);
     rec.add("install.files", std::to_string(names.size()) + " " + list.hex());
     rec.add("install.override.pak1", text(set, "scripts/test.txt"));
     rec.add("install.override.loose", text(set, "scripts/patched.txt"));
     std::string found;
-    for (const DetectedGame& g : detectGames(dir))
+    for (const DetectedGame &g : detectGames(dir))
         found += (found.empty() ? "" : "; ") + g.engineId + "/" + g.gameId + " " + g.description;
     rec.add("install.detected", found.empty() ? "(none)" : found);
 }
 
-void files(const SearchSet& set, Record& rec) {
+void files(const SearchSet &set, Record &rec) {
     ShaderLibrary shaders;
     std::vector<std::string> warnings;
     shaders.load(set, &warnings);
     Hash h;
-    for (const ShaderDef& s : shaders.all()) {
+    for (const ShaderDef &s : shaders.all()) {
         h.text(s.name).i32(int32_t(s.stages.size())).i32(int32_t(s.cull)).i32(int32_t(s.surfaceParms.size()));
-        for (const auto& p : s.surfaceParms)
+        for (const auto &p : s.surfaceParms)
             h.text(p);
     }
     rec.add("shaders", std::to_string(shaders.size()) + " " + std::to_string(warnings.size()) + " warnings " + h.hex());
@@ -141,7 +142,7 @@ void files(const SearchSet& set, Record& rec) {
         rec.fail("map", "not read");
     } else {
         Hash m;
-        for (const auto& v : bsp.vertices)
+        for (const auto &v : bsp.vertices)
             m.bytes(&v, sizeof v);
         for (int32_t i : bsp.indices)
             m.i32(i);
@@ -156,7 +157,7 @@ void files(const SearchSet& set, Record& rec) {
     } else {
         Hash m;
         for (int f = 0; f < 2; ++f)
-            if (const auto* tag = model.tag(f, "tag_top"))
+            if (const auto *tag = model.tag(f, "tag_top"))
                 m.f32(tag->origin[0]).f32(tag->origin[1]).f32(tag->origin[2]);
         rec.add("model", std::to_string(model.frames.size()) + " frames " + m.hex());
     }
@@ -165,7 +166,7 @@ void files(const SearchSet& set, Record& rec) {
 // The map's solid parts: boxes and points swept across it, straight
 // through the engine's collision (every value as computed), and through
 // the game code's calls (as it sees them: what's hit, where, in eighths).
-void world(ef::GameHost& game, const Bsp& bsp, Record& rec) {
+void world(ef::GameHost &game, const Bsp &bsp, Record &rec) {
     CollisionWorld collision(bsp);
     Hash direct;
     int hits = 0;
@@ -181,8 +182,8 @@ void world(ef::GameHost& game, const Bsp& bsp, Record& rec) {
                     direct.f32(t.normal[0]).f32(t.normal[1]).f32(t.normal[2]).i32(t.contents);
                     direct.i32(t.allSolid).i32(t.startSolid);
                 }
-                const TraceResult turned = collision.transformedTrace(start, end, mins, maxs, 1, -1, {200, 0, 0},
-                                                                      {0, float(x) / 4, 0});
+                const TraceResult turned =
+                    collision.transformedTrace(start, end, mins, maxs, 1, -1, {200, 0, 0}, {0, float(x) / 4, 0});
                 direct.f32(turned.fraction).f32(turned.endPos[0]).f32(turned.endPos[2]);
                 direct.i32(collision.pointContents({float(x), float(y), -size}, 0));
             }
@@ -193,8 +194,8 @@ void world(ef::GameHost& game, const Bsp& bsp, Record& rec) {
     for (int x = -320; x <= 320; x += 40)
         for (int size : {0, 16}) {
             for (int call : {24, 25, 26}) {
-                const std::vector<int32_t> args = call == 24 ? std::vector<int32_t>{x, 0, 500, size, -1}
-                                                             : std::vector<int32_t>{};
+                const std::vector<int32_t> args =
+                    call == 24 ? std::vector<int32_t>{x, 0, 500, size, -1} : std::vector<int32_t>{};
                 viaGame.i32(game.call(call, args, r) ? -999999 : r);
             }
             viaGame.i32(game.call(28, {x, 0, -size}, r) ? -999999 : r);
@@ -207,7 +208,7 @@ void world(ef::GameHost& game, const Bsp& bsp, Record& rec) {
 
 // The level on a server, a player joining over the network, the client
 // game drawing what it's sent.
-void play(const SearchSet& set, Record& rec) {
+void play(const SearchSet &set, Record &rec) {
     CvarStore cvars;
     ef::GameHost game(set, cvars);
     if (Error e = game.load())
@@ -220,7 +221,7 @@ void play(const SearchSet& set, Record& rec) {
         return rec.fail("server.start", e.message);
     {
         Hash cs;
-        for (const auto& [index, value] : game.configstrings())
+        for (const auto &[index, value] : game.configstrings())
             cs.i32(index).text(value);
         rec.add("server.start", "level time " + std::to_string(game.levelTime()) + ", " +
                                     std::to_string(game.linked().size()) + " linked, configstrings " + cs.hex());
@@ -232,7 +233,7 @@ void play(const SearchSet& set, Record& rec) {
     auto network = net::LoopbackNetwork::create();
     cvars.create("sv_lanForceRate", "1", 0);
     auto serverOwned = std::make_unique<ef::NetServer>(game, cvars, network->open(27960));
-    ef::NetServer& server = *serverOwned;
+    ef::NetServer &server = *serverOwned;
     server.levelStarted();
     ef::NetClient client(network->open(0), {0x7f000001u, 27960}, "\\name\\Tester\\snaps\\20", 77);
     uint64_t now = 1000;
@@ -253,7 +254,7 @@ void play(const SearchSet& set, Record& rec) {
         return rec.fail("client.connect", "no game state after " + std::to_string(ticks) + " frames");
     {
         Hash cs;
-        for (const auto& [index, value] : client.configstrings())
+        for (const auto &[index, value] : client.configstrings())
             cs.i32(index).text(value);
         rec.add("client.connect", std::to_string(ticks) + " frames, configstrings " + cs.hex());
     }
@@ -269,10 +270,10 @@ void play(const SearchSet& set, Record& rec) {
     if (Error e = cgame.call(ef::CgameHost::Init, {0, 0, 0}, r))
         return rec.fail("cgame.init", e.message);
 
-    network->setDropFilter([](const net::Address&, const net::Address&, size_t index) { return index % 4 == 3; });
+    network->setDropFilter([](const net::Address &, const net::Address &, size_t index) { return index % 4 == 3; });
     // A stretch of play: the player runs forward, then strafes; every tenth
     // frame, the server's and the client's states go into the record.
-    auto playFor = [&](const std::string& step, int frames, int8_t forward, int8_t right) {
+    auto playFor = [&](const std::string &step, int frames, int8_t forward, int8_t right) {
         Hash server, snapshots, scenes;
         int got = 0;
         for (int i = 0; i < frames; ++i) {
@@ -285,10 +286,10 @@ void play(const SearchSet& set, Record& rec) {
             tick();
             for (const int32_t e : game.linked())
                 server.i32(e).bytes(game.entityState(e));
-            for (auto& snap : client.takeSnapshots()) {
+            for (auto &snap : client.takeSnapshots()) {
                 ++got;
                 snapshots.i32(snap.serverTime).i32(snap.snapFlags).bytes(snap.playerState);
-                for (const auto& e : snap.entities)
+                for (const auto &e : snap.entities)
                     snapshots.bytes(e);
                 cgame.newSnapshot(snap);
             }
@@ -298,9 +299,9 @@ void play(const SearchSet& set, Record& rec) {
                 if (!cgame.call(call, {}, r))
                     scenes.i32(r);
             if (!cgame.call(31, {}, r)) {
-                for (const auto& e : cgame.scene().entities)
+                for (const auto &e : cgame.scene().entities)
                     scenes.bytes(e.bytes);
-                for (const auto& v : cgame.scene().views)
+                for (const auto &v : cgame.scene().views)
                     scenes.bytes(v.refdef);
             }
         }
@@ -311,10 +312,10 @@ void play(const SearchSet& set, Record& rec) {
     playFor("play.forward", 40, 127, 0);
     playFor("play.strafe", 30, 0, -127);
     const Vec3f where = game.entityVec(4, 272);
-    rec.add("play.player", std::to_string(int(where[0])) + " " + std::to_string(int(where[1])) + " " +
-                               std::to_string(int(where[2])));
+    rec.add("play.player",
+            std::to_string(int(where[0])) + " " + std::to_string(int(where[1])) + " " + std::to_string(int(where[2])));
     std::string announced = "no";
-    for (const std::string& c : client.serverCommands())
+    for (const std::string &c : client.serverCommands())
         if (c.find("entered the game") != std::string::npos)
             announced = "yes";
     rec.add("play.announced", announced);
@@ -323,8 +324,8 @@ void play(const SearchSet& set, Record& rec) {
     bool handled = false;
     if (Error e = game.serverCommand("map_restart 0", &handled))
         return rec.fail("play.restart", e.message);
-    rec.add("play.restart", std::string(handled ? "handled" : "not handled") + ", restarts " +
-                                std::to_string(game.restarts()));
+    rec.add("play.restart",
+            std::string(handled ? "handled" : "not handled") + ", restarts " + std::to_string(game.restarts()));
     playFor("play.after-restart", 20, 127, 0);
 
     // Leaving.
@@ -338,7 +339,7 @@ void play(const SearchSet& set, Record& rec) {
 }
 
 // The menus: started, a menu open and drawn, keys typed.
-void menus(const SearchSet& set, Record& rec) {
+void menus(const SearchSet &set, Record &rec) {
     CvarStore cvars;
     ef::UiHost ui(set, cvars);
     if (Error e = ui.load())
@@ -352,9 +353,9 @@ void menus(const SearchSet& set, Record& rec) {
     for (int frame = 0; frame < 5; ++frame) {
         ui.call(ef::UiHost::MouseEvent, {7, 3});
         ui.call(ef::UiHost::Refresh, {1000 + frame * 50}, r);
-        for (const auto& p : ui.pictures())
-            pictures.f32(p.x).f32(p.y).f32(p.w).f32(p.h).f32(p.s1).f32(p.t1).f32(p.s2).f32(p.t2)
-                .text(ui.shaders().name(p.shader));
+        for (const auto &p : ui.pictures())
+            pictures.f32(p.x).f32(p.y).f32(p.w).f32(p.h).f32(p.s1).f32(p.t1).f32(p.s2).f32(p.t2).text(
+                ui.shaders().name(p.shader));
     }
     rec.add("menus.drawn", pictures.hex());
     for (int key : {'R' | 1024, 'e' | 1024, 'l' | 1024})
@@ -368,7 +369,7 @@ void menus(const SearchSet& set, Record& rec) {
 
 // The run, its record against the committed one (or, with --update,
 // written as the new one).
-void engineTest(const std::filesystem::path& tmp) {
+void engineTest(const std::filesystem::path &tmp) {
     const std::filesystem::path dir = tmp / "install";
     makeInstall(dir);
     Record rec;
@@ -386,6 +387,7 @@ void engineTest(const std::filesystem::path& tmp) {
 
 } // namespace
 
-static const reluva::test::Suite suite("idtech3.engine", {
-    {"play through", [](const std::filesystem::path& tmp) { engineTest(tmp); }},
-});
+static const reluva::test::Suite suite("idtech3.engine",
+                                       {
+                                           {"play through", [](const std::filesystem::path &tmp) { engineTest(tmp); }},
+                                       });

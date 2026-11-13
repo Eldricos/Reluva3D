@@ -1,6 +1,6 @@
 # Murder on the Orient Express: saved games
 
-> **Status:** done · **Code:** `src/engines/awe/savegame.cpp` · **Checked against:** the code (`motoe.exe`, English 1.0); `awe save-check` over the 15 developer saves · **Confidence:** from the code unless marked
+> **Status:** done · **Code:** `src/engines/awe/formats/savegame.cpp` · **Checked against:** the code (`motoe.exe`, English 1.0); `awe save-check` over the 15 developer saves · **Confidence:** from the code unless marked
 
 ## Overview
 

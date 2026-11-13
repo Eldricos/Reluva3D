@@ -56,9 +56,11 @@ with its headings in the same order.
 
 ## Shared code: `common/`
 
-**Code in `src/common/`** that more than one engine can use is documented
-in `common/`, in the same folders as its code (`common/video/` for
-`src/common/video/`), a page per component. A common page holds only
+**Shared code** that more than one engine can use (`src/common/`,
+`src/audio/`, `src/video/`, `src/graphics/`, `src/image/`,
+`src/emulation/`) is documented in `common/`, a folder per subject
+(`common/video/` for `src/video/`, `common/x86/` for
+`src/emulation/x86/`), a page per component. A common page holds only
 what's true of the component for any engine, under these headings:
 
 1. `## What it is`: what it is, and where its code is.

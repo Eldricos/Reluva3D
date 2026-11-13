@@ -4,14 +4,14 @@
 // id Tech 3 unit tests: The hosts that run the games' code: the server game, the client game, the menus, saved games.
 
 #include "common/fs.h"
-#include "engines/idtech3/bindings.h"
+#include "engines/idtech3/client/bindings.h"
 #include "engines/idtech3/client/joystick_input.h"
 #include "engines/idtech3/client/player_input.h"
 #include "engines/idtech3/botlib/aas.h"
 #include "engines/idtech3/botlib/bot_library.h"
 #include "engines/idtech3/botlib/bot_script.h"
 #include "engines/idtech3/botlib/character.h"
-#include "engines/idtech3/bsp.h"
+#include "engines/idtech3/formats/bsp.h"
 #include "engines/idtech3/collision.h"
 #include "engines/idtech3/cvars.h"
 #include "engines/idtech3/eliteforce/cgame_host.h"
@@ -24,29 +24,29 @@
 #include "engines/idtech3/eliteforce/net_server.h"
 #include "engines/idtech3/eliteforce/sp_game_host.h"
 #include "engines/idtech3/eliteforce/ui_host.h"
-#include "engines/idtech3/entities.h"
+#include "engines/idtech3/formats/entities.h"
 #include "engines/idtech3/filesystem.h"
 #include "engines/idtech3/info_string.h"
 #include "engines/idtech3/games.h"
-#include "engines/idtech3/lexer.h"
-#include "engines/idtech3/marks.h"
-#include "engines/idtech3/light_grid.h"
-#include "engines/idtech3/md3.h"
-#include "engines/idtech3/model_cache.h"
+#include "engines/idtech3/formats/lexer.h"
+#include "engines/idtech3/formats/marks.h"
+#include "engines/idtech3/render/light_grid.h"
+#include "engines/idtech3/formats/md3.h"
+#include "engines/idtech3/render/model_cache.h"
 #include "engines/idtech3/wire/message.h"
 #include "engines/idtech3/wire/netchan.h"
-#include "engines/idtech3/patch.h"
-#include "engines/idtech3/player_animation.h"
+#include "engines/idtech3/render/patch.h"
+#include "engines/idtech3/formats/player_animation.h"
 #include "engines/idtech3/pure.h"
-#include "engines/idtech3/qvm.h"
-#include "engines/idtech3/server_browser.h"
-#include "backends/sockets/socket_net.h"
-#include "engines/idtech3/shader.h"
+#include "engines/idtech3/vm/qvm.h"
+#include "engines/idtech3/client/server_browser.h"
+#include "backends/networking/sockets/socket_net.h"
+#include "engines/idtech3/formats/shader.h"
 #include "engines/idtech3/raven/ambient_sets.h"
-#include "engines/idtech3/sound_system.h"
-#include "engines/idtech3/sounds.h"
+#include "engines/idtech3/audio/sound_system.h"
+#include "engines/idtech3/audio/sounds.h"
 #include "engines/idtech3/pages/page.h"
-#include "common/audio/wav.h"
+#include "audio/wav.h"
 #include "common/md4.h"
 #include "common/zip.h"
 #include "engines/registry.h"
@@ -54,7 +54,7 @@
 #include "tests/engines/idtech3/data/qvm/fake_game_qvm.h"
 #include "tests/engines/idtech3/data/qvm/fake_ui_qvm.h"
 #include "tests/engines/idtech3/data/qvm/test_vm_qvm.h"
-#include "engines/idtech3/vm_services.h"
+#include "engines/idtech3/vm/vm_services.h"
 #include "tests/engines/idtech3/fixtures.h"
 #include "tests/support/test.h"
 #include "tests/support/zip_writer.h"
@@ -134,12 +134,13 @@ static void testSaveKind() {
 // The game logic starting a level: its entities handed over token by
 // token, as the original server does, by a QVM the Quake III compiler
 // made from tests/engines/idtech3/data/qvm/fake_game.c.
-static void testGameHost(const std::filesystem::path& tmp) {
+static void testGameHost(const std::filesystem::path &tmp) {
     namespace ef = eliteforce;
     std::filesystem::remove_all(tmp);
-    test::writeFile(tmp / "BaseEF" / "pak0.pk3",
-                    test::buildZip({{"vm/qagame.qvm",
-                                     std::vector<uint8_t>(std::begin(kFakeGameQvm), std::end(kFakeGameQvm)), {}}}));
+    test::writeFile(
+        tmp / "BaseEF" / "pak0.pk3",
+        test::buildZip(
+            {{"vm/qagame.qvm", std::vector<uint8_t>(std::begin(kFakeGameQvm), std::end(kFakeGameQvm)), {}}}));
     SearchSet set;
     std::vector<std::string> warnings;
     CHECK(!mountGameDir(set, tmp, "BaseEF", 0, warnings));
@@ -185,10 +186,10 @@ static void testGameHost(const std::filesystem::path& tmp) {
     CHECK(!game.call(25, {}, r) && r == 128 * 8 + 1);
     CHECK(!game.call(24, {-200, 0, 500, 0, -1}, r) && r == 2);
     CHECK(!game.call(25, {}, r) && r == 32 * 8 + 1);
-    CHECK(!game.call(24, {-200, 0, 500, 0, 2}, r) && r == 1022); // ignoring the item
+    CHECK(!game.call(24, {-200, 0, 500, 0, 2}, r) && r == 1022);                               // ignoring the item
     CHECK(!game.call(24, {0, 0, 100, 16, -1}, r) && !game.call(25, {}, r) && r == 16 * 8 + 1); // a box
-    CHECK(!game.call(24, {0, 0, -10, 0, -1}, r) && !game.call(26, {}, r) && r == 101); // starting in the floor
-    CHECK(!game.call(24, {1000, 0, 100, 0, -1}, r) && r == 1023); // nothing there
+    CHECK(!game.call(24, {0, 0, -10, 0, -1}, r) && !game.call(26, {}, r) && r == 101);         // starting in the floor
+    CHECK(!game.call(24, {1000, 0, 100, 0, -1}, r) && r == 1023);                              // nothing there
     CHECK(!game.call(28, {0, 0, -32}, r) && r == contents::Solid);
     CHECK(!game.call(28, {200, 0, 64}, r) && r == -1); // inside the door
     CHECK(!game.call(28, {0, 0, 64}, r) && r == 0);
@@ -252,13 +253,13 @@ static void testGameHost(const std::filesystem::path& tmp) {
 // The client game starting: the server's configstrings handed over as
 // its game state (Quake III's gamestate_t), by a QVM the Quake III
 // compiler made from tests/engines/idtech3/data/qvm/fake_cgame.c.
-static void testCgameHost(const std::filesystem::path& tmp) {
+static void testCgameHost(const std::filesystem::path &tmp) {
     namespace ef = eliteforce;
     std::filesystem::remove_all(tmp);
-    test::writeFile(tmp / "BaseEF" / "pak0.pk3",
-                    test::buildZip({{"vm/cgame.qvm",
-                                     std::vector<uint8_t>(std::begin(kFakeCgameQvm), std::end(kFakeCgameQvm)), {}},
-                                    {"models/test/box.md3", buildMd3(), {}}}));
+    test::writeFile(
+        tmp / "BaseEF" / "pak0.pk3",
+        test::buildZip({{"vm/cgame.qvm", std::vector<uint8_t>(std::begin(kFakeCgameQvm), std::end(kFakeCgameQvm)), {}},
+                        {"models/test/box.md3", buildMd3(), {}}}));
     SearchSet set;
     std::vector<std::string> warnings;
     CHECK(!mountGameDir(set, tmp, "BaseEF", 0, warnings));
@@ -337,17 +338,18 @@ static void testCgameHost(const std::filesystem::path& tmp) {
 
 // The menus' system calls, called by a QVM the Quake III compiler made
 // from tests/engines/idtech3/data/qvm/fake_ui.c.
-static void testUiHost(const std::filesystem::path& tmp) {
+static void testUiHost(const std::filesystem::path &tmp) {
     using test::toBytes;
     namespace ef = eliteforce;
     std::filesystem::remove_all(tmp);
-    test::writeFile(tmp / "BaseEF" / "pak0.pk3",
-                    test::buildZip({{"vm/ui.qvm", std::vector<uint8_t>(std::begin(kFakeUiQvm), std::end(kFakeUiQvm)), {}},
-                                    {"scripts/test.txt", toBytes("hello world\n"), {}},
-                                    {"scripts/other.txt", toBytes("x"), {}},
-                                    {"scripts/sub/deep.txt", toBytes("x"), {}},
-                                    {"scripts/a.shader", toBytes("x"), {}},
-                                    {"models/test/box.md3", buildMd3(), {}}}));
+    test::writeFile(
+        tmp / "BaseEF" / "pak0.pk3",
+        test::buildZip({{"vm/ui.qvm", std::vector<uint8_t>(std::begin(kFakeUiQvm), std::end(kFakeUiQvm)), {}},
+                        {"scripts/test.txt", toBytes("hello world\n"), {}},
+                        {"scripts/other.txt", toBytes("x"), {}},
+                        {"scripts/sub/deep.txt", toBytes("x"), {}},
+                        {"scripts/a.shader", toBytes("x"), {}},
+                        {"models/test/box.md3", buildMd3(), {}}}));
     SearchSet set;
     std::vector<std::string> warnings;
     CHECK(!mountGameDir(set, tmp, "BaseEF", 0, warnings));
@@ -374,7 +376,7 @@ static void testUiHost(const std::filesystem::path& tmp) {
     CHECK(!ui.call(ef::UiHost::Refresh, {1234}, r) && r == 1234);
     CHECK(ui.pictures().size() == 3); // two, then the pointer
     if (ui.pictures().size() == 3) {
-        const auto& p = ui.pictures()[0];
+        const auto &p = ui.pictures()[0];
         CHECK(p.x == 10 && p.y == 20 && p.w == 320 && p.h == 30 && p.s1 == 0 && p.t2 == 0.5f);
         CHECK(p.color[0] == 1 && p.color[1] == 0.5f && p.color[2] == 0 && p.color[3] == 1);
         CHECK(ui.shaders().name(p.shader) == "menu/test");
@@ -400,7 +402,7 @@ static void testUiHost(const std::filesystem::path& tmp) {
     // Call 58, the model bounds the main menu asks for: frame 0's box.
     Md3Model box;
     CHECK(!parseMd3(buildMd3(), box));
-    const auto& f0 = box.frames[0];
+    const auto &f0 = box.frames[0];
     const int boxCode = int(f0.mins[0] * 10) + int(f0.mins[1] * 100) + int(f0.mins[2] * 1000) +
                         int(f0.maxs[0] * 10000) + int(f0.maxs[1] * 100000) + int(f0.maxs[2] * 1000000);
     CHECK(boxCode != 0);
@@ -422,7 +424,7 @@ static void testUiHost(const std::filesystem::path& tmp) {
 
     // A menu sound: passed on by name with its channel.
     std::vector<std::pair<std::string, int>> played;
-    ui.startLocalSound = [&](const std::string& name, int channel) { played.emplace_back(name, channel); };
+    ui.startLocalSound = [&](const std::string &name, int channel) { played.emplace_back(name, channel); };
     CHECK(!ui.call(33));
     CHECK(played.size() == 1 && played[0].first == "sound/interface/button1.wav" && played[0].second == 6);
 
@@ -430,10 +432,12 @@ static void testUiHost(const std::filesystem::path& tmp) {
     std::filesystem::remove_all(tmp);
 }
 
-static const reluva::test::Suite suite("idtech3.unit.game-code", {
-    {"server game", [](const std::filesystem::path& tmp) { testGameHost(tmp / "game"); }},
-    {"client game", [](const std::filesystem::path& tmp) { testCgameHost(tmp / "cgame"); }},
-    {"menus", [](const std::filesystem::path& tmp) { testUiHost(tmp / "ui"); }},
-    {"save chunks", [](const std::filesystem::path&) { testSaveChunks(); }},
-    {"save kind", [](const std::filesystem::path&) { testSaveKind(); }},
-});
+static const reluva::test::Suite
+    suite("idtech3.unit.game-code",
+          {
+              {"server game", [](const std::filesystem::path &tmp) { testGameHost(tmp / "game"); }},
+              {"client game", [](const std::filesystem::path &tmp) { testCgameHost(tmp / "cgame"); }},
+              {"menus", [](const std::filesystem::path &tmp) { testUiHost(tmp / "ui"); }},
+              {"save chunks", [](const std::filesystem::path &) { testSaveChunks(); }},
+              {"save kind", [](const std::filesystem::path &) { testSaveKind(); }},
+          });

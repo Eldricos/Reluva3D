@@ -3,17 +3,17 @@
 
 // The Clue engine's unit tests: Saved games: written and read back.
 
-#include "engines/clue/ai.h"
-#include "engines/clue/board.h"
-#include "engines/clue/frontend.h"
+#include "engines/clue/game/ai.h"
+#include "engines/clue/game/board.h"
+#include "engines/clue/ui/frontend.h"
 #include "engines/clue/game_data.h"
-#include "engines/clue/level.h"
-#include "engines/clue/mansion.h"
-#include "engines/clue/netplay.h"
-#include "engines/clue/resi.h"
-#include "engines/clue/resources.h"
-#include "engines/clue/rules.h"
-#include "engines/clue/ui.h"
+#include "engines/clue/formats/level.h"
+#include "engines/clue/game/mansion.h"
+#include "engines/clue/game/netplay.h"
+#include "engines/clue/formats/resi.h"
+#include "engines/clue/formats/resources.h"
+#include "engines/clue/game/rules.h"
+#include "engines/clue/ui/ui.h"
 #include "tests/engines/clue/support.h"
 #include "tests/support/test.h"
 #include "tests/support/zip_writer.h"
@@ -43,13 +43,19 @@ static void testSaveLoad() {
     for (int s = 0; s < kSuspectCount; ++s)
         if (playing[size_t(s)])
             ai[size_t(s)].reset(game, s, 100u + uint32_t(s), s % 3);
-    const auto step = [](Game& g, std::array<ComputerPlayer, kSuspectCount>& players,
-                         const std::array<bool, kSuspectCount>& in) {
-        ComputerPlayer& me = players[size_t(g.turn())];
+    const auto step = [](Game &g, std::array<ComputerPlayer, kSuspectCount> &players,
+                         const std::array<bool, kSuspectCount> &in) {
+        ComputerPlayer &me = players[size_t(g.turn())];
         switch (me.decide(g)) {
-        case ComputerPlayer::Action::Roll: g.rollDie(); break;
-        case ComputerPlayer::Action::Passage: g.takePassage(); break;
-        case ComputerPlayer::Action::Walk: g.walk(me.chooseWalk(g)); break;
+        case ComputerPlayer::Action::Roll:
+            g.rollDie();
+            break;
+        case ComputerPlayer::Action::Passage:
+            g.takePassage();
+            break;
+        case ComputerPlayer::Action::Walk:
+            g.walk(me.chooseWalk(g));
+            break;
         case ComputerPlayer::Action::Suggest: {
             const Accusation a = me.chooseSuggestion(g);
             g.suggest(a.suspect, a.weapon);
@@ -60,8 +66,12 @@ static void testSaveLoad() {
                     players[size_t(s)].observe(g);
             break;
         }
-        case ComputerPlayer::Action::Accuse: g.accuse(me.chooseAccusation()); break;
-        case ComputerPlayer::Action::EndTurn: g.endTurn(); break;
+        case ComputerPlayer::Action::Accuse:
+            g.accuse(me.chooseAccusation());
+            break;
+        case ComputerPlayer::Action::EndTurn:
+            g.endTurn();
+            break;
         }
     };
     for (int i = 0; i < 60 && game.phase() != Game::Phase::Over; ++i)
@@ -124,7 +134,8 @@ static void testRandomNumbers() {
     CHECK(!b.load(tooMany));
 }
 
-static const reluva::test::Suite suite("clue.unit.saves", {
-    {"save and load", [](const std::filesystem::path&) { testSaveLoad(); }},
-    {"random numbers", [](const std::filesystem::path&) { testRandomNumbers(); }},
-});
+static const reluva::test::Suite
+    suite("clue.unit.saves", {
+                                 {"save and load", [](const std::filesystem::path &) { testSaveLoad(); }},
+                                 {"random numbers", [](const std::filesystem::path &) { testRandomNumbers(); }},
+                             });

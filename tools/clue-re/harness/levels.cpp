@@ -1,6 +1,6 @@
-#include "engines/clue/ai.h"
-#include "engines/clue/level.h"
-#include "engines/clue/resources.h"
+#include "engines/clue/game/ai.h"
+#include "engines/clue/formats/level.h"
+#include "engines/clue/formats/resources.h"
 #include <cstdio>
 #include <cstdlib>
 using namespace reluva; using namespace reluva::clue;

@@ -16,7 +16,7 @@ constexpr int kDefaultCase = 999999; // a default case: always below it
 
 // A number: a sign may go before it (a weight's minus is dropped, as the
 // original does).
-bool readValue(BotScript& s, float& value) {
+bool readValue(BotScript &s, float &value) {
     double v = 0;
     if (!s.readNumber(v))
         return false;
@@ -25,7 +25,7 @@ bool readValue(BotScript& s, float& value) {
 }
 
 // "return w;" or "return balance(w, min, max);" (the middle value used).
-bool readReturn(BotScript& s, FuzzySwitch& f) {
+bool readReturn(BotScript &s, FuzzySwitch &f) {
     if (s.check("balance")) {
         float lo = 0, hi = 0;
         if (!s.expect("(") || !readValue(s, f.weight) || !s.expect(",") || !readValue(s, lo) || !s.expect(",") ||
@@ -37,13 +37,13 @@ bool readReturn(BotScript& s, FuzzySwitch& f) {
     return s.expect(";");
 }
 
-std::unique_ptr<FuzzySwitch> readSwitch(BotScript& s) {
+std::unique_ptr<FuzzySwitch> readSwitch(BotScript &s) {
     // switch (INDEX) { case N: <return or switch> ... default: ... }
     double index = 0;
     if (!s.expect("(") || !s.readNumber(index) || !s.expect(")") || !s.expect("{"))
         return nullptr;
     std::unique_ptr<FuzzySwitch> first;
-    FuzzySwitch* last = nullptr;
+    FuzzySwitch *last = nullptr;
     bool haveDefault = false;
     BotToken t;
     while (s.next(t) && !t.is("}")) {
@@ -76,7 +76,7 @@ std::unique_ptr<FuzzySwitch> readSwitch(BotScript& s) {
         }
         if (braced && !s.expect("}"))
             return nullptr;
-        FuzzySwitch* raw = f.get();
+        FuzzySwitch *raw = f.get();
         if (last)
             last->next = std::move(f);
         else
@@ -103,7 +103,7 @@ struct Field {
     std::vector<double> numbers;
     std::string text;
 };
-bool readStructure(BotScript& s, std::map<std::string, Field>& out) {
+bool readStructure(BotScript &s, std::map<std::string, Field> &out) {
     if (!s.expect("{"))
         return false;
     BotToken t;
@@ -112,7 +112,7 @@ bool readStructure(BotScript& s, std::map<std::string, Field>& out) {
             s.fail("expected a field name, found " + t.text);
             return false;
         }
-        Field& f = out[t.text];
+        Field &f = out[t.text];
         if (s.check("{")) {
             do {
                 double v = 0;
@@ -142,19 +142,19 @@ bool readStructure(BotScript& s, std::map<std::string, Field>& out) {
     return s.error().empty();
 }
 
-float num(const std::map<std::string, Field>& m, const char* name, size_t i = 0) {
+float num(const std::map<std::string, Field> &m, const char *name, size_t i = 0) {
     const auto it = m.find(name);
     return it == m.end() || i >= it->second.numbers.size() ? 0.0f : float(it->second.numbers[i]);
 }
-std::string text(const std::map<std::string, Field>& m, const char* name) {
+std::string text(const std::map<std::string, Field> &m, const char *name) {
     const auto it = m.find(name);
     return it == m.end() ? std::string() : it->second.text;
 }
-Vec3f vec(const std::map<std::string, Field>& m, const char* name) {
+Vec3f vec(const std::map<std::string, Field> &m, const char *name) {
     return {num(m, name, 0), num(m, name, 1), num(m, name, 2)};
 }
 
-bool done(BotScript& s, std::string* error) {
+bool done(BotScript &s, std::string *error) {
     if (!s.error().empty()) {
         if (error)
             *error = s.error();
@@ -165,18 +165,18 @@ bool done(BotScript& s, std::string* error) {
 
 } // namespace
 
-int WeightConfig::find(const std::string& name) const {
+int WeightConfig::find(const std::string &name) const {
     for (size_t i = 0; i < weights.size(); ++i)
         if (weights[i].first == name)
             return int(i);
     return -1;
 }
 
-float WeightConfig::evaluate(int weight, const std::vector<int>& inventory) const {
+float WeightConfig::evaluate(int weight, const std::vector<int> &inventory) const {
     if (weight < 0 || size_t(weight) >= weights.size())
         return 0;
     // Down the switches: a case applies while the count is below its value.
-    const FuzzySwitch* f = weights[size_t(weight)].second.get();
+    const FuzzySwitch *f = weights[size_t(weight)].second.get();
     while (f) {
         const int count = f->index >= 0 && size_t(f->index) < inventory.size() ? inventory[size_t(f->index)] : 0;
         if (count < f->value) {
@@ -192,8 +192,8 @@ float WeightConfig::evaluate(int weight, const std::vector<int>& inventory) cons
     return 0;
 }
 
-std::unique_ptr<WeightConfig> readWeightConfig(const BotScript::Loader& load, const std::string& file,
-                                               std::string* error) {
+std::unique_ptr<WeightConfig> readWeightConfig(const BotScript::Loader &load, const std::string &file,
+                                               std::string *error) {
     BotScript s(load);
     if (!s.open(file)) {
         done(s, error);
@@ -231,8 +231,8 @@ std::unique_ptr<WeightConfig> readWeightConfig(const BotScript::Loader& load, co
     return config;
 }
 
-bool readItemConfig(const BotScript::Loader& load, const std::string& file, std::vector<ItemInfo>& out,
-                    std::string* error) {
+bool readItemConfig(const BotScript::Loader &load, const std::string &file, std::vector<ItemInfo> &out,
+                    std::string *error) {
     out.clear();
     BotScript s(load);
     if (!s.open(file))
@@ -260,8 +260,8 @@ bool readItemConfig(const BotScript::Loader& load, const std::string& file, std:
     return done(s, error);
 }
 
-bool readWeaponConfig(const BotScript::Loader& load, const std::string& file, std::vector<WeaponInfo>& out,
-                      std::string* error) {
+bool readWeaponConfig(const BotScript::Loader &load, const std::string &file, std::vector<WeaponInfo> &out,
+                      std::string *error) {
     out.assign(32, {});
     BotScript s(load);
     if (!s.open(file))
@@ -329,11 +329,11 @@ bool readWeaponConfig(const BotScript::Loader& load, const std::string& file, st
     if (!done(s, error))
         return false;
     // Each weapon with its projectile's description.
-    for (WeaponInfo& w : out) {
+    for (WeaponInfo &w : out) {
         if (!w.valid)
             continue;
         bool found = false;
-        for (const ProjectileInfo& p : projectiles)
+        for (const ProjectileInfo &p : projectiles)
             if (p.name == w.projectile) {
                 w.proj = p;
                 found = true;

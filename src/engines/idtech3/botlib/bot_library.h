@@ -144,10 +144,10 @@ public:
     static constexpr int kMaxClients = 64, kMaxEntities = 1024, kMaxUserMove = 400;
 
     // Reads a file of the game's (pk3s and folders), for the scripts and maps.
-    std::function<bool(const std::string& path, std::vector<uint8_t>& data)> readFile;
+    std::function<bool(const std::string &path, std::vector<uint8_t> &data)> readFile;
     // A command a bot sends as if typed ("say hello").
-    std::function<void(int client, const std::string& command)> clientCommand;
-    std::function<void(const std::string& text)> print;
+    std::function<void(int client, const std::string &command)> clientCommand;
+    std::function<void(const std::string &text)> print;
     // A box swept through the world and its entities (the engine's trace).
     struct Trace {
         float fraction = 1;
@@ -156,48 +156,48 @@ public:
         int entity = 1023; // 1022 the world, 1023 nothing
         Vec3f normal{};    // of what it hit
     };
-    std::function<Trace(const Vec3f& start, const Vec3f& mins, const Vec3f& maxs, const Vec3f& end, int passEntity,
+    std::function<Trace(const Vec3f &start, const Vec3f &mins, const Vec3f &maxs, const Vec3f &end, int passEntity,
                         int mask)>
         trace;
-    std::function<int(const Vec3f& point)> pointContents;
+    std::function<int(const Vec3f &point)> pointContents;
     // A brush model's box (*1, *2... as numbers), unmoved, and where the
     // brush entity with it (a lift) is now.
-    std::function<bool(int model, Vec3f& mins, Vec3f& maxs)> modelBounds;
-    std::function<bool(int model, Vec3f& origin)> moverOrigin;
+    std::function<bool(int model, Vec3f &mins, Vec3f &maxs)> modelBounds;
+    std::function<bool(int model, Vec3f &origin)> moverOrigin;
     // The map's entities (classname, origin...), from 1 as the original
     // numbers them.
-    std::function<bool(int entity, const std::string& key, std::string& value)> entityKey;
+    std::function<bool(int entity, const std::string &key, std::string &value)> entityKey;
     int entityCount = 0;
 
     int setup();
     int shutdown();
     bool isSetup() const { return setup_; }
-    void setLibVar(const std::string& name, const std::string& value) { libVars_[name] = value; }
-    std::string libVar(const std::string& name) const;
-    void addGlobalDefine(const std::string& text) { defines_.push_back(text); }
+    void setLibVar(const std::string &name, const std::string &value) { libVars_[name] = value; }
+    std::string libVar(const std::string &name) const;
+    void addGlobalDefine(const std::string &text) { defines_.push_back(text); }
     // Loads maps/<name>.aas.
-    int loadMap(const std::string& mapName);
+    int loadMap(const std::string &mapName);
     int startFrame(float time);
-    int updateEntity(int number, const BotEntityState* state);
+    int updateEntity(int number, const BotEntityState *state);
     float time() const { return time_; }
 
-    AasWorld& aas() { return aas_; }
+    AasWorld &aas() { return aas_; }
     bool aasInitialized() const { return aas_.loaded(); }
-    const BotEntityInfo& entityInfo(int number) const;
+    const BotEntityInfo &entityInfo(int number) const;
 
     // A loader for the bot scripts: paths under botfiles/.
     BotScript::Loader scriptLoader() const;
-    const std::vector<std::string>& globalDefines() const { return defines_; }
-    BotCharacters& characters() { return characters_; }
+    const std::vector<std::string> &globalDefines() const { return defines_; }
+    BotCharacters &characters() { return characters_; }
 
     // Elementary actions.
-    BotInput& input(int client) { return inputs_[size_t(std::clamp(client, 0, kMaxClients - 1))]; }
-    void say(int client, const std::string& text) { command(client, "say " + text); }
-    void sayTeam(int client, const std::string& text) { command(client, "say_team " + text); }
-    void command(int client, const std::string& text);
+    BotInput &input(int client) { return inputs_[size_t(std::clamp(client, 0, kMaxClients - 1))]; }
+    void say(int client, const std::string &text) { command(client, "say " + text); }
+    void sayTeam(int client, const std::string &text) { command(client, "say_team " + text); }
+    void command(int client, const std::string &text);
     void jump(int client);
     void delayedJump(int client);
-    void move(int client, const Vec3f& dir, float speed);
+    void move(int client, const Vec3f &dir, float speed);
     BotInput getInput(int client, float thinkTime);
     void resetInput(int client);
 
@@ -210,52 +210,52 @@ public:
     void freeGoalState(int handle);
     void resetGoalState(int handle);
     void resetAvoidGoals(int handle);
-    void pushGoal(int handle, const BotGoal& goal);
+    void pushGoal(int handle, const BotGoal &goal);
     void popGoal(int handle);
     void emptyGoalStack(int handle);
-    bool topGoal(int handle, BotGoal& goal, int depth = 1) const;
-    int loadItemWeights(int handle, const std::string& file);
+    bool topGoal(int handle, BotGoal &goal, int depth = 1) const;
+    int loadItemWeights(int handle, const std::string &file);
     void freeItemWeights(int handle);
-    bool chooseLtgItem(int handle, const Vec3f& origin, const std::vector<int>& inventory, int travelFlags);
-    bool chooseNbgItem(int handle, const Vec3f& origin, const std::vector<int>& inventory, int travelFlags,
-                       const BotGoal* ltg, float maxTime);
-    static bool touchingGoal(const Vec3f& origin, const BotGoal& goal);
-    bool itemGoalInVisButNotVisible(int viewer, const Vec3f& eye, const BotGoal& goal);
-    int levelItemGoal(int index, const std::string& name, BotGoal& goal) const;
+    bool chooseLtgItem(int handle, const Vec3f &origin, const std::vector<int> &inventory, int travelFlags);
+    bool chooseNbgItem(int handle, const Vec3f &origin, const std::vector<int> &inventory, int travelFlags,
+                       const BotGoal *ltg, float maxTime);
+    static bool touchingGoal(const Vec3f &origin, const BotGoal &goal);
+    bool itemGoalInVisButNotVisible(int viewer, const Vec3f &eye, const BotGoal &goal);
+    int levelItemGoal(int index, const std::string &name, BotGoal &goal) const;
     float avoidGoalTime(int handle, int number) const;
     void removeFromAvoidGoals(int handle, int number);
     void initLevelItems();
     void updateEntityItems();
     std::string goalName(int number) const;
-    int nextCampSpotGoal(int num, BotGoal& goal) const;
-    bool mapLocationGoal(const std::string& name, BotGoal& goal) const;
+    int nextCampSpotGoal(int num, BotGoal &goal) const;
+    bool mapLocationGoal(const std::string &name, BotGoal &goal) const;
     // The area a bot at a point is in, or its last one with reachabilities.
-    int reachabilityArea(const Vec3f& origin) const;
+    int reachabilityArea(const Vec3f &origin) const;
 
     // Weapons (bot_weapons.cpp).
     int allocWeaponState();
     void freeWeaponState(int handle);
-    int loadWeaponWeights(int handle, const std::string& file);
-    int chooseBestFightWeapon(int handle, const std::vector<int>& inventory) const;
-    const WeaponInfo* weaponInfo(int weapon) const;
+    int loadWeaponWeights(int handle, const std::string &file);
+    int chooseBestFightWeapon(int handle, const std::vector<int> &inventory) const;
+    const WeaponInfo *weaponInfo(int weapon) const;
 
     // Movement (bot_move.cpp): following routes, per kind of travel.
     int allocMoveState();
     void freeMoveState(int handle);
     void resetMoveState(int handle);
-    void initMoveState(int handle, const BotInitMove& init);
-    BotMoveResult moveToGoal(int handle, const BotGoal& goal, int travelFlags);
-    bool moveInDirection(int handle, const Vec3f& dir, float speed, int type);
+    void initMoveState(int handle, const BotInitMove &init);
+    BotMoveResult moveToGoal(int handle, const BotGoal &goal, int travelFlags);
+    bool moveInDirection(int handle, const Vec3f &dir, float speed, int type);
     void resetAvoidReach(int handle);
     void resetLastAvoidReach(int handle);
-    bool movementViewTarget(int handle, const BotGoal& goal, int travelFlags, float lookahead, Vec3f& target);
-    bool predictVisiblePosition(const Vec3f& origin, int area, const BotGoal& goal, int travelFlags, Vec3f& target);
+    bool movementViewTarget(int handle, const BotGoal &goal, int travelFlags, float lookahead, Vec3f &target);
+    bool predictVisiblePosition(const Vec3f &origin, int area, const BotGoal &goal, int travelFlags, Vec3f &target);
     // A player's movement simulated frame by frame (`frameTime` seconds
     // each): moving by `cmdMove` (a direction and speed; up to jump, down
     // a lot to crouch) for the first `cmdFrames`, falling, sliding along
     // walls and up steps, until one of the `stopEvents` or `maxFrames`.
-    bool predictClientMovement(BotClientMove& move, int entity, const Vec3f& origin, int presenceType, bool onGround,
-                               const Vec3f& velocity, const Vec3f& cmdMove, int cmdFrames, int maxFrames,
+    bool predictClientMovement(BotClientMove &move, int entity, const Vec3f &origin, int presenceType, bool onGround,
+                               const Vec3f &velocity, const Vec3f &cmdMove, int cmdFrames, int maxFrames,
                                float frameTime, int stopEvents, int stopArea);
 
 private:
@@ -292,13 +292,16 @@ private:
         int area = 0;
         std::string name;
     };
-    template <class T> static T* state(std::vector<std::unique_ptr<T>>& v, int handle) {
+    template<class T>
+    static T *state(std::vector<std::unique_ptr<T>> &v, int handle) {
         return handle >= 1 && size_t(handle) <= v.size() ? v[size_t(handle) - 1].get() : nullptr;
     }
-    template <class T> static const T* state(const std::vector<std::unique_ptr<T>>& v, int handle) {
+    template<class T>
+    static const T *state(const std::vector<std::unique_ptr<T>> &v, int handle) {
         return handle >= 1 && size_t(handle) <= v.size() ? v[size_t(handle) - 1].get() : nullptr;
     }
-    template <class T> static int alloc(std::vector<std::unique_ptr<T>>& v) {
+    template<class T>
+    static int alloc(std::vector<std::unique_ptr<T>> &v) {
         for (size_t i = 0; i < v.size(); ++i)
             if (!v[i]) {
                 v[i] = std::make_unique<T>();
@@ -307,19 +310,19 @@ private:
         v.push_back(std::make_unique<T>());
         return int(v.size());
     }
-    std::shared_ptr<WeightConfig> weights(const std::string& file);
+    std::shared_ptr<WeightConfig> weights(const std::string &file);
     void loadConfigs();
-    int bestReachableArea(const Vec3f& origin, const Vec3f& mins, const Vec3f& maxs, Vec3f& goalOrigin) const;
-    bool itemAllowed(const LevelItem& li) const;
-    bool chooseItem(int handle, const Vec3f& origin, const std::vector<int>& inventory, int travelFlags,
-                    const BotGoal* ltg, float maxTime, bool nearby);
-    int reachabilityToGoal(const Vec3f& origin, int area, int lastGoalArea, int lastArea, MoveState* ms,
-                           const BotGoal& goal, int travelFlags);
-    bool onGround(const MoveState& ms) const;
-    void checkBlocked(const MoveState& ms, const Vec3f& dir, bool checkBottom, BotMoveResult& result) const;
-    float gapDistance(const MoveState& ms, const Vec3f& hordir) const;
-    BotMoveResult travel(MoveState& ms, const AasReach& reach, bool finishing);
-    int entityOnTopOf(const MoveState& ms) const;
+    int bestReachableArea(const Vec3f &origin, const Vec3f &mins, const Vec3f &maxs, Vec3f &goalOrigin) const;
+    bool itemAllowed(const LevelItem &li) const;
+    bool chooseItem(int handle, const Vec3f &origin, const std::vector<int> &inventory, int travelFlags,
+                    const BotGoal *ltg, float maxTime, bool nearby);
+    int reachabilityToGoal(const Vec3f &origin, int area, int lastGoalArea, int lastArea, MoveState *ms,
+                           const BotGoal &goal, int travelFlags);
+    bool onGround(const MoveState &ms) const;
+    void checkBlocked(const MoveState &ms, const Vec3f &dir, bool checkBottom, BotMoveResult &result) const;
+    float gapDistance(const MoveState &ms, const Vec3f &hordir) const;
+    BotMoveResult travel(MoveState &ms, const AasReach &reach, bool finishing);
+    int entityOnTopOf(const MoveState &ms) const;
 
     bool setup_ = false;
     std::map<std::string, std::string> libVars_;
@@ -344,9 +347,9 @@ private:
     // brush model `model` is now; whether it's down (its top below the
     // reachability's start); the middle of its top at the start's height;
     // whether a bot at `origin` stands on it.
-    bool moverDown(const AasReach& reach) const;
-    Vec3f moverBottomCenter(const AasReach& reach) const;
-    bool onMover(const Vec3f& origin, int entity, const AasReach& reach) const;
+    bool moverDown(const AasReach &reach) const;
+    Vec3f moverBottomCenter(const AasReach &reach) const;
+    bool onMover(const Vec3f &origin, int entity, const AasReach &reach) const;
 };
 
 } // namespace reluva::idtech3::botlib

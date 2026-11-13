@@ -1,6 +1,6 @@
 # Clue: Murder at Boddy Mansion: saved games
 
-> **Status:** done · **Code:** `src/engines/clue/rules.h`, `src/engines/clue/frontend.cpp` · **Checked against:** screenshots of the original · **Confidence:** the screens seen, not traced; the file is Reluva's own
+> **Status:** done · **Code:** `src/engines/clue/game/rules.h`, `src/engines/clue/ui/frontend.cpp` · **Checked against:** screenshots of the original · **Confidence:** the screens seen, not traced; the file is Reluva's own
 
 ## Overview
 

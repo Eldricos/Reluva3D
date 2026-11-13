@@ -6,7 +6,7 @@
 #include "engines/idtech3/pages/page.h"
 #include "engines/idtech3/client/scene_drawer.h"
 #include "engines/idtech3/eliteforce/ui_host.h"
-#include "engines/idtech3/sounds.h"
+#include "engines/idtech3/audio/sounds.h"
 
 #include <map>
 #include <memory>
@@ -26,12 +26,12 @@ public:
     // Their key catcher's bit while they take the keys (Quake III's).
     static constexpr int32_t kCatchUi = 2;
 
-    MenuLayer(ViewerContext& ctx, CvarStore& cvars) : ctx_(ctx), cvars_(cvars) {}
+    MenuLayer(ViewerContext &ctx, CvarStore &cvars) : ctx_(ctx), cvars_(cvars) {}
     ~MenuLayer() { detach(); }
 
     // Drawing into `renderer`'s frames of w x h pixels (detach() before
     // the renderer goes); the menus keep running across.
-    void attach(gfx::Renderer3D* renderer, int w, int h);
+    void attach(gfx::Renderer3D *renderer, int w, int h);
     void detach();
 
     // Loads and starts the menus on `menu` (they're kept: start them
@@ -41,19 +41,19 @@ public:
     void show(int32_t menu);
     void reset();
     bool running() const { return ui_ != nullptr; }
-    eliteforce::UiHost* ui() { return ui_.get(); }
+    eliteforce::UiHost *ui() { return ui_.get(); }
     // Whether they're taking the keys (shown, not closed by the player).
     bool open() const { return ui_ && (ui_->catcher() & kCatchUi); }
 
     // Why they stopped, and where the details were written.
-    const std::string& error() const { return error_; }
-    const std::string& reportPath() const { return reportPath_; }
+    const std::string &error() const { return error_; }
+    const std::string &reportPath() const { return reportPath_; }
     void clearError() {
         error_.clear();
         reportPath_.clear();
     }
 
-    void handleEvent(const Event& ev);
+    void handleEvent(const Event &ev);
     // A key by its Quake III number (the joystick's: JOY1..., the arrows
     // its axes give), pressed or released; the menus take presses only.
     void key(int32_t q3key, bool down);
@@ -65,19 +65,19 @@ public:
 
     // Set before start(): the server list's (the Menu page's), and what
     // the menus are told of the connection and its configstrings.
-    ServerBrowser* browser = nullptr;
-    std::function<void(eliteforce::UiHost&)> configure;
+    ServerBrowser *browser = nullptr;
+    std::function<void(eliteforce::UiHost &)> configure;
 
 private:
-    void stop(const Error& err);
+    void stop(const Error &err);
     void pinCursor();
     void syncCursor();
     void findCursor();
-    void playSound(const std::string& name, int channel);
+    void playSound(const std::string &name, int channel);
 
-    ViewerContext& ctx_;
-    CvarStore& cvars_;
-    gfx::Renderer3D* renderer_ = nullptr;
+    ViewerContext &ctx_;
+    CvarStore &cvars_;
+    gfx::Renderer3D *renderer_ = nullptr;
     int frameW_ = 960, frameH_ = 720;
     std::unique_ptr<ShaderCache> shaders_;
     std::unique_ptr<ModelCache> models_; // the models the menus show

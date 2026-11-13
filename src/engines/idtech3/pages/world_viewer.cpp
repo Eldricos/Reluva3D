@@ -4,10 +4,10 @@
 // The data viewer's World page: a map drawn by WorldRenderer on the GPU,
 // with a fly camera starting where the player does.
 
-#include "engines/idtech3/entities.h"
+#include "engines/idtech3/formats/entities.h"
 #include "engines/idtech3/pages/world_viewer.h"
 
-#include "common/font.h"
+#include "graphics/font.h"
 #include "common/fs.h"
 
 #include <algorithm>
@@ -31,15 +31,17 @@ enum Held { Forward, Back, Left, Right, Up, Down, Fast };
 
 } // namespace
 
-WorldViewer::WorldViewer(ViewerContext& ctx) : Page(ctx) {
-    for (const std::string& n : ctx.files.list()) {
+WorldViewer::WorldViewer(ViewerContext &ctx) : Page(ctx) {
+    for (const std::string &n : ctx.files.list()) {
         const std::string key = normalizeArchiveName(n);
         if (key.rfind("maps/", 0) == 0 && key.size() > 4 && key.compare(key.size() - 4, 4, ".bsp") == 0)
             names_.push_back(n);
     }
 }
 
-WorldViewer::~WorldViewer() { deactivate(); }
+WorldViewer::~WorldViewer() {
+    deactivate();
+}
 
 void WorldViewer::deactivate() {
     // The renderer's resources go with it when the engine leaves 3D; the
@@ -76,7 +78,7 @@ void WorldViewer::load(int index) {
     index_ = index;
     error_.clear();
     info_.clear();
-    const std::string& name = names_[size_t(index)];
+    const std::string &name = names_[size_t(index)];
     setTitle(name + " (" + std::to_string(index + 1) + "/" + std::to_string(names_.size()) + ")");
 
     placed_.clear();
@@ -115,8 +117,8 @@ void WorldViewer::load(int index) {
         // Models named by entities (brush models, "*n", are map geometry).
         // Items and characters get theirs from the game code, so they
         // aren't shown here.
-        for (const Entity& e : entities)
-            for (const char* key : {"model", "model2"}) {
+        for (const Entity &e : entities)
+            for (const char *key : {"model", "model2"}) {
                 const std::string model = e.get(key);
                 if (model.size() < 4 || fs::toLower(model.substr(model.size() - 4)) != ".md3")
                     continue;
@@ -131,15 +133,15 @@ void WorldViewer::load(int index) {
                     angles[1] = std::strtof(e.get("angle", "0").c_str(), nullptr);
                 Placed p;
                 p.model = id;
-                p.transform = placement({origin[0], origin[1], origin[2]},
-                                        anglesToAxes({angles[0], angles[1], angles[2]}));
+                p.transform =
+                    placement({origin[0], origin[1], origin[2]}, anglesToAxes({angles[0], angles[1], angles[2]}));
                 p.light = grid_.sample({origin[0], origin[1], origin[2]});
                 placed_.push_back(p);
             }
 
-        const Entity* start = nullptr;
-        for (const char* cls : {"info_player_start", "info_player_deathmatch"}) {
-            for (const Entity& e : entities)
+        const Entity *start = nullptr;
+        for (const char *cls : {"info_player_start", "info_player_deathmatch"}) {
+            for (const Entity &e : entities)
                 if (e.classname() == cls) {
                     start = &e;
                     break;
@@ -159,15 +161,15 @@ void WorldViewer::load(int index) {
     if (error_.empty()) {
         char line[160];
         std::snprintf(line, sizeof line, "%zu triangles in %zu batches, %zu images (%d missing), %zu lightmaps",
-                      world_->triangleCount(), world_->batchCount(), shaders_->imageCount(),
-                      shaders_->missingImages(), bsp.lightmapCount());
+                      world_->triangleCount(), world_->batchCount(), shaders_->imageCount(), shaders_->missingImages(),
+                      bsp.lightmapCount());
         info_.push_back(line);
         std::snprintf(line, sizeof line, "%zu models placed by entities%s%s", placed_.size(),
                       unloadable ? ", couldn't load " : "", unloadable ? std::to_string(unloadable).c_str() : "");
         info_.push_back(line);
         // What the map's shaders use that isn't drawn yet.
         std::string missing;
-        for (const auto& [feature, n] : shaders_->unsupported())
+        for (const auto &[feature, n] : shaders_->unsupported())
             missing += (missing.empty() ? "" : ", ") + feature + (n > 1 ? " x" + std::to_string(n) : "");
         if (!missing.empty())
             info_.push_back("Not drawn yet: " + missing);
@@ -180,19 +182,37 @@ void WorldViewer::toStart() {
     pitch_ = 0;
 }
 
-void WorldViewer::handleEvent(const Event& ev) {
+void WorldViewer::handleEvent(const Event &ev) {
     if (!renderer_ || names_.empty())
         return;
     auto hold = [&](uint32_t k, bool down) {
         switch (k) {
-        case 'w': held_[Forward] = down; return true;
-        case 's': held_[Back] = down; return true;
-        case 'a': held_[Left] = down; return true;
-        case 'd': held_[Right] = down; return true;
-        case key::Space: case 'e': held_[Up] = down; return true;
-        case 'c': case 'q': held_[Down] = down; return true;
-        case key::LShift: case key::RShift: held_[Fast] = down; return true;
-        default: return false;
+        case 'w':
+            held_[Forward] = down;
+            return true;
+        case 's':
+            held_[Back] = down;
+            return true;
+        case 'a':
+            held_[Left] = down;
+            return true;
+        case 'd':
+            held_[Right] = down;
+            return true;
+        case key::Space:
+        case 'e':
+            held_[Up] = down;
+            return true;
+        case 'c':
+        case 'q':
+            held_[Down] = down;
+            return true;
+        case key::LShift:
+        case key::RShift:
+            held_[Fast] = down;
+            return true;
+        default:
+            return false;
         }
     };
     if (ev.type == EventType::KeyUp) {
@@ -252,10 +272,10 @@ void WorldViewer::update(uint64_t nowMs) {
     const float time = float(nowMs - loadedMs_) / 1000.0f;
     world_->drawSky(time);
     world_->drawSurfaces(time, 0, kLastOpaque);
-    for (const Placed& p : placed_)
+    for (const Placed &p : placed_)
         models_->draw(p.model, 0, p.transform, p.light, time, nullptr, 0, kLastOpaque);
     world_->drawSurfaces(time, kLastOpaque + 0.5f);
-    for (const Placed& p : placed_)
+    for (const Placed &p : placed_)
         models_->draw(p.model, 0, p.transform, p.light, time, nullptr, kLastOpaque + 0.5f);
     drawOverlay(nowMs);
     const auto t1 = Clock::now();
@@ -290,11 +310,11 @@ void WorldViewer::drawOverlay(uint64_t nowMs) {
     // A translucent box behind the text keeps it readable.
     const int lh = font::kLineHeight;
     size_t widest = 0;
-    for (const std::string& l : lines)
+    for (const std::string &l : lines)
         widest = std::max(widest, font::length(l));
     const int boxW = std::min(kFrameW, int(widest) * font::kAdvance + 8), boxH = int(lines.size()) * lh + 6;
     for (int y = 0; y < boxH; ++y) {
-        uint8_t* p = overlay_.row(y);
+        uint8_t *p = overlay_.row(y);
         for (int x = 0; x < boxW; ++x)
             p[x * 4 + 3] = 150;
     }

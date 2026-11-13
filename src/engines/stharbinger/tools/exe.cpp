@@ -12,8 +12,8 @@
 // (every 32-bit pointer the loader relocates) says which code, or which data
 // table, refers to each string.
 
-#include "common/x86/disasm.h"
-#include "tools/tool.h"
+#include "emulation/x86/disasm.h"
+#include "devtools/tool.h"
 
 #include <algorithm>
 #include <cstdio>
@@ -53,30 +53,32 @@ struct LeFile {
     std::vector<LeObject> objects;
     std::vector<Fixup> fixups;
 
-    const LeObject* objectAt(uint32_t va) const {
-        for (const LeObject& o : objects)
+    const LeObject *objectAt(uint32_t va) const {
+        for (const LeObject &o : objects)
             if (o.base <= va && va < o.base + o.vsize)
                 return &o;
         return nullptr;
     }
 };
 
-uint16_t u16(const Bytes& d, size_t o) { return o + 2 <= d.size() ? uint16_t(d[o] | d[o + 1] << 8) : 0; }
-uint32_t u32(const Bytes& d, size_t o) {
+uint16_t u16(const Bytes &d, size_t o) {
+    return o + 2 <= d.size() ? uint16_t(d[o] | d[o + 1] << 8) : 0;
+}
+uint32_t u32(const Bytes &d, size_t o) {
     return o + 4 <= d.size()
                ? uint32_t(d[o]) | uint32_t(d[o + 1]) << 8 | uint32_t(d[o + 2]) << 16 | uint32_t(d[o + 3]) << 24
                : 0;
 }
 
 // The last "MZ" ending at or before `end`, or -1.
-long long findMzBefore(const Bytes& d, long long end) {
+long long findMzBefore(const Bytes &d, long long end) {
     for (long long i = end - 2; i >= 0; --i)
         if (d[size_t(i)] == 'M' && d[size_t(i) + 1] == 'Z')
             return i;
     return -1;
 }
 
-bool loadLe(const Bytes& d, LeFile& le, std::string& error) {
+bool loadLe(const Bytes &d, LeFile &le, std::string &error) {
     // The LE header: "LE", byte and word order 0, format level 0, a CPU
     // type 1..4; then the MZ stub whose e_lfanew points to it.
     static const uint8_t sig[8] = {'L', 'E', 0, 0, 0, 0, 0, 0};
@@ -126,7 +128,7 @@ bool loadLe(const Bytes& d, LeFile& le, std::string& error) {
         const uint32_t num = p + 3 <= d.size() ? uint32_t(d[p]) << 16 | uint32_t(d[p + 1]) << 8 | d[p + 2] : 0;
         pageFile.push_back(dataPages + (long long)(num - 1) * le.pageSize);
     }
-    for (LeObject& o : le.objects) {
+    for (LeObject &o : le.objects) {
         o.image.assign(o.vsize, 0);
         for (uint32_t k = 0; k < o.count; ++k) {
             const uint32_t pg = o.first - 1 + k;
@@ -145,8 +147,8 @@ bool loadLe(const Bytes& d, LeFile& le, std::string& error) {
     // The fixups: per page, records of (source type, flags, source offset or
     // a list of them, target object, target offset).
     const size_t fpt = h + u32(d, h + 0x68), frt = h + u32(d, h + 0x6c);
-    std::map<uint32_t, std::pair<const LeObject*, uint32_t>> pageObject;
-    for (const LeObject& o : le.objects)
+    std::map<uint32_t, std::pair<const LeObject *, uint32_t>> pageObject;
+    for (const LeObject &o : le.objects)
         for (uint32_t k = 0; k < o.count; ++k)
             pageObject[o.first - 1 + k] = {&o, k};
     for (uint32_t pg = 0; pg < le.npages; ++pg) {
@@ -155,7 +157,7 @@ bool loadLe(const Bytes& d, LeFile& le, std::string& error) {
             error = "page " + std::to_string(pg + 1) + " belongs to no object";
             return false;
         }
-        const LeObject& obj = *it->second.first;
+        const LeObject &obj = *it->second.first;
         const uint32_t k = it->second.second;
         size_t p = frt + u32(d, fpt + 4 * size_t(pg));
         const size_t end = frt + u32(d, fpt + 4 * size_t(pg + 1));
@@ -215,9 +217,9 @@ struct FoundString {
 
 // NUL-terminated runs of printable text (and tabs, line ends), at least
 // `minLength` long and at least a third letters or digits.
-std::vector<FoundString> findStrings(const LeObject& obj, size_t minLength = 4) {
+std::vector<FoundString> findStrings(const LeObject &obj, size_t minLength = 4) {
     std::vector<FoundString> out;
-    const Bytes& img = obj.image;
+    const Bytes &img = obj.image;
     auto allowed = [](uint8_t c) { return (c >= 0x20 && c <= 0x7e) || c == '\t' || c == '\r' || c == '\n'; };
     size_t i = 0;
     while (i < img.size()) {
@@ -243,7 +245,7 @@ std::vector<FoundString> findStrings(const LeObject& obj, size_t minLength = 4) 
 }
 
 // What the debug messages say of the function they come from.
-std::optional<std::string> functionName(const std::string& s) {
+std::optional<std::string> functionName(const std::string &s) {
     static const std::regex func(R"(^\s*([A-Za-z_][A-Za-z0-9_]{2,}):\s)");
     static const std::regex in(R"(^\s*In ([A-Z][A-Za-z0-9]*(?:_[A-Za-z0-9]+)+)\b)"); // "In Load_Dialogues: ..."
     static const std::regex directive(R"(^\s*([A-Z][a-z]+(?: [A-Z][a-z]+)+) / (cc[A-Za-z]+))"); // ".../ ccSUB"
@@ -263,15 +265,15 @@ std::optional<std::string> functionName(const std::string& s) {
     return std::nullopt;
 }
 
-std::string strip(const std::string& s) {
-    const char* ws = " \t\r\n\v\f";
+std::string strip(const std::string &s) {
+    const char *ws = " \t\r\n\v\f";
     const size_t b = s.find_first_not_of(ws);
     if (b == std::string::npos)
         return {};
     return s.substr(b, s.find_last_not_of(ws) - b + 1);
 }
 
-std::string category(const std::string& s) {
+std::string category(const std::string &s) {
     static const std::regex file(
         R"((^|[\\/])[\w\-]+\.(cmp|rle|raw|pal|smk|dat|all|lst|cat|mus|vce|ini|dig|mgd|sav|cfg|txt|ani|pcx|fnt|exe)$|^\.\w{2,3}$|\\)",
         std::regex::icase);
@@ -289,16 +291,24 @@ std::string category(const std::string& s) {
 }
 
 // A string as Python's repr() writes it.
-std::string pyRepr(const std::string& s) {
+std::string pyRepr(const std::string &s) {
     const bool single = s.find('\'') != std::string::npos && s.find('"') == std::string::npos;
     const char q = single ? '"' : '\'';
     std::string out(1, q);
     for (unsigned char c : s) {
         switch (c) {
-        case '\\': out += "\\\\"; break;
-        case '\n': out += "\\n"; break;
-        case '\r': out += "\\r"; break;
-        case '\t': out += "\\t"; break;
+        case '\\':
+            out += "\\\\";
+            break;
+        case '\n':
+            out += "\\n";
+            break;
+        case '\r':
+            out += "\\r";
+            break;
+        case '\t':
+            out += "\\t";
+            break;
         default:
             if (c == q) {
                 out += '\\';
@@ -322,7 +332,7 @@ std::string hex8(uint32_t v) {
 }
 
 // A CSV field as Python's csv module writes it (quoted when it must be).
-std::string csvField(const std::string& s) {
+std::string csvField(const std::string &s) {
     if (s.find_first_of(",\"\r\n") == std::string::npos)
         return s;
     std::string out = "\"";
@@ -331,7 +341,7 @@ std::string csvField(const std::string& s) {
     return out + "\"";
 }
 
-bool writeText(const std::filesystem::path& path, const std::string& text) {
+bool writeText(const std::filesystem::path &path, const std::string &text) {
     std::ofstream out(path, std::ios::binary);
     out << text;
     if (!out) {
@@ -341,14 +351,14 @@ bool writeText(const std::filesystem::path& path, const std::string& text) {
     return true;
 }
 
-std::string join(const std::vector<std::string>& lines) {
+std::string join(const std::vector<std::string> &lines) {
     std::string out;
     for (size_t i = 0; i < lines.size(); ++i)
         out += (i ? "\n" : "") + lines[i];
     return out + "\n";
 }
 
-int cmdExeStrings(int argc, char** argv) {
+int cmdExeStrings(int argc, char **argv) {
     if (argc < 4) {
         std::fprintf(stderr, "usage: reluva-tool stharbinger exe-strings <DEEP.EXE> <out folder>\n");
         return 1;
@@ -367,30 +377,30 @@ int cmdExeStrings(int argc, char** argv) {
     std::filesystem::create_directories(out, ec);
 
     std::map<uint32_t, std::vector<uint32_t>> refs; // target -> sources
-    for (const Fixup& f : le.fixups)
+    for (const Fixup &f : le.fixups)
         refs[f.target].push_back(f.source);
     auto refsOf = [&](uint32_t va) -> std::vector<uint32_t> {
         const auto it = refs.find(va);
         return it == refs.end() ? std::vector<uint32_t>{} : it->second;
     };
     std::vector<FoundString> strings;
-    for (const LeObject& o : le.objects)
-        for (FoundString& s : findStrings(o))
+    for (const LeObject &o : le.objects)
+        for (FoundString &s : findStrings(o))
             strings.push_back(std::move(s));
     std::map<uint32_t, std::string> byVa;
-    for (const FoundString& s : strings)
+    for (const FoundString &s : strings)
         byVa[s.va] = s.text;
 
     // Function names from "Name: message" strings referenced by code, in
     // the order they're first found.
     std::vector<std::string> funcOrder;
     std::map<std::string, std::set<uint32_t>> funcs;
-    for (const FoundString& s : strings) {
+    for (const FoundString &s : strings) {
         const auto name = functionName(s.text);
         if (!name)
             continue;
         for (uint32_t src : refsOf(s.va)) {
-            const LeObject* o = le.objectAt(src);
+            const LeObject *o = le.objectAt(src);
             if (o && o->code) {
                 if (!funcs.count(*name))
                     funcOrder.push_back(*name);
@@ -401,15 +411,15 @@ int cmdExeStrings(int argc, char** argv) {
 
     // Arrays of pointers to strings inside the data object.
     std::vector<std::pair<uint32_t, uint32_t>> dataPtrs;
-    for (const Fixup& f : le.fixups) {
-        const LeObject* o = le.objectAt(f.source);
+    for (const Fixup &f : le.fixups) {
+        const LeObject *o = le.objectAt(f.source);
         if (o && !o->code && byVa.count(f.target))
             dataPtrs.push_back({f.source, f.target});
     }
     std::sort(dataPtrs.begin(), dataPtrs.end());
     std::vector<std::vector<std::pair<uint32_t, uint32_t>>> tables;
     std::vector<std::pair<uint32_t, uint32_t>> run;
-    for (const auto& st : dataPtrs) {
+    for (const auto &st : dataPtrs) {
         const int64_t step = run.empty() ? 0 : int64_t(st.first) - int64_t(run.back().first);
         if (!run.empty() && (step == 4 || step == 8 || step == 12 || step == 16) &&
             (run.size() < 2 || step == int64_t(run[1].first) - int64_t(run[0].first))) {
@@ -427,12 +437,12 @@ int cmdExeStrings(int argc, char** argv) {
         std::sort(vas.begin(), vas.end());
         std::string s;
         for (size_t i = 0; i < vas.size() && i < 12; ++i) {
-            const LeObject* o = le.objectAt(vas[i]);
+            const LeObject *o = le.objectAt(vas[i]);
             s += (i ? " " : "") + std::string(o && o->code ? "C:" : "D:") + hex8(vas[i]);
         }
         return s + (vas.size() > 12 ? " ..." : "");
     };
-    auto padded = [](const std::string& s, size_t width) {
+    auto padded = [](const std::string &s, size_t width) {
         return s.size() >= width ? s : s + std::string(width - s.size(), ' ');
     };
 
@@ -440,7 +450,7 @@ int cmdExeStrings(int argc, char** argv) {
                                       ""};
     std::string csv = "address,category,ref_count,referenced_from,text\r\n";
     std::vector<std::pair<std::string, int>> counts; // by category, in the order first seen
-    for (const FoundString& s : strings) {
+    for (const FoundString &s : strings) {
         const std::string cat = category(s.text);
         const std::vector<uint32_t> r = refsOf(s.va);
         lines.push_back(hex8(s.va) + "  " + padded(cat, 7) + " " +
@@ -452,7 +462,7 @@ int cmdExeStrings(int argc, char** argv) {
             from += (i ? " " : "") + hex8(sorted[i]);
         csv += hex8(s.va) + "," + cat + "," + std::to_string(r.size()) + "," + csvField(from) + "," + csvField(s.text) +
                "\r\n";
-        auto c = std::find_if(counts.begin(), counts.end(), [&](const auto& kv) { return kv.first == cat; });
+        auto c = std::find_if(counts.begin(), counts.end(), [&](const auto &kv) { return kv.first == cat; });
         if (c == counts.end())
             counts.push_back({cat, 1});
         else
@@ -463,8 +473,8 @@ int cmdExeStrings(int argc, char** argv) {
 
     std::vector<std::string> fl = {"# Code addresses inside functions, named from their own debug messages", ""};
     std::stable_sort(funcOrder.begin(), funcOrder.end(),
-                     [&](const std::string& a, const std::string& b) { return *funcs[a].begin() < *funcs[b].begin(); });
-    for (const std::string& name : funcOrder) {
+                     [&](const std::string &a, const std::string &b) { return *funcs[a].begin() < *funcs[b].begin(); });
+    for (const std::string &name : funcOrder) {
         std::string vas;
         for (uint32_t v : funcs[name])
             vas += (vas.empty() ? "" : " ") + hex8(v);
@@ -474,14 +484,14 @@ int cmdExeStrings(int argc, char** argv) {
         return 1;
 
     std::vector<std::string> tl = {"# Arrays of string pointers in the data object (address, stride, entries)", ""};
-    for (const auto& t : tables) {
+    for (const auto &t : tables) {
         const uint32_t stride = t[1].first - t[0].first;
         const std::string codeRefs = where(refsOf(t[0].first));
         char head[160];
         std::snprintf(head, sizeof head, "table at %08X, stride %u, %zu entries, used by %s", t[0].first, stride,
                       t.size(), codeRefs.empty() ? "(no direct reference)" : codeRefs.c_str());
         tl.push_back(head);
-        for (const auto& [s, tv] : t)
+        for (const auto &[s, tv] : t)
             tl.push_back("    " + hex8(s) + " -> " + hex8(tv) + " " + pyRepr(byVa[tv]));
         tl.push_back("");
     }
@@ -489,7 +499,7 @@ int cmdExeStrings(int argc, char** argv) {
         return 1;
 
     std::vector<std::string> files;
-    for (const FoundString& s : strings)
+    for (const FoundString &s : strings)
         if (category(s.text) == "file") {
             const std::string w = where(refsOf(s.va));
             files.push_back(hex8(s.va) + "  " + padded(w.empty() ? "-" : w, 36) + " " + pyRepr(s.text));
@@ -497,23 +507,23 @@ int cmdExeStrings(int argc, char** argv) {
     if (!writeText(out / "files.txt", join(files)))
         return 1;
 
-    std::stable_sort(counts.begin(), counts.end(), [](const auto& a, const auto& b) { return a.second > b.second; });
+    std::stable_sort(counts.begin(), counts.end(), [](const auto &a, const auto &b) { return a.second > b.second; });
     const uint32_t entry = le.entryObject >= 1 && le.entryObject <= le.objects.size()
                                ? le.objects[le.entryObject - 1].base + le.entryOffset
                                : le.entryOffset;
     std::printf("program at file offset %s0x%llx, LE header at 0x%zx, entry point %08X\n", le.mz < 0 ? "-" : "",
                 static_cast<unsigned long long>(le.mz < 0 ? -le.mz : le.mz), le.le, entry);
-    for (const LeObject& o : le.objects)
+    for (const LeObject &o : le.objects)
         std::printf("  object %d (%s): %08X-%08X\n", o.n, o.code ? "code" : "data", o.base, o.base + o.vsize);
     std::string summary;
-    for (const auto& [cat, n] : counts)
+    for (const auto &[cat, n] : counts)
         summary += (summary.empty() ? "" : ", ") + cat + " " + std::to_string(n);
     std::printf("%zu fixups, %zu strings (%s)\n", le.fixups.size(), strings.size(), summary.c_str());
     std::printf("%zu named functions, %zu string tables -> %s\n", funcs.size(), tables.size(), out.string().c_str());
     return 0;
 }
 
-int cmdExeDisasm(int argc, char** argv) {
+int cmdExeDisasm(int argc, char **argv) {
     if (argc < 5) {
         std::fprintf(stderr, "usage: reluva-tool stharbinger exe-disasm <DEEP.EXE> <start> <end> [names file]\n");
         return 1;
@@ -544,13 +554,13 @@ int cmdExeDisasm(int argc, char** argv) {
         }
     }
 
-    const LeObject& code = le.objects[0];
+    const LeObject &code = le.objects[0];
     std::map<uint32_t, std::string> strings;
-    for (const LeObject& o : le.objects)
-        for (const FoundString& s : findStrings(o))
+    for (const LeObject &o : le.objects)
+        for (const FoundString &s : findStrings(o))
             strings[s.va] = s.text;
     std::map<uint32_t, uint32_t> fixups;
-    for (const Fixup& f : le.fixups)
+    for (const Fixup &f : le.fixups)
         fixups[f.source] = f.target;
 
     uint32_t p = start;

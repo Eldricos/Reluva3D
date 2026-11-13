@@ -3,9 +3,9 @@
 
 // reluva-tool's New Worlds commands for its models (.geo, .mdl).
 
-#include "tools/tool.h"
+#include "devtools/tool.h"
 
-#include "common/font.h"
+#include "graphics/font.h"
 #include "engines/newworlds/cat_archive.h"
 #include "engines/newworlds/geo.h"
 #include "engines/newworlds/mdl.h"
@@ -29,23 +29,23 @@ namespace {
 
 using namespace reluva::tool;
 
-bool writeObj(const reluva::newworlds::GeoModel& m, const std::string& path) {
+bool writeObj(const reluva::newworlds::GeoModel &m, const std::string &path) {
     std::ofstream f(path);
     f << "# exported by reluva-tool newworlds geo-info\n";
     // OBJ numbers vertices across the whole file, so offset each part's.
     std::vector<size_t> base;
     size_t next = 1;
-    for (const auto& part : m.parts) {
+    for (const auto &part : m.parts) {
         base.push_back(next);
         next += part.vertices.size();
-        for (const auto& v : part.vertices)
+        for (const auto &v : part.vertices)
             f << "v " << v.x << ' ' << v.y << ' ' << v.z << '\n';
     }
     size_t vt = 1;
     for (size_t pi = 0; pi < m.parts.size(); ++pi) {
         f << "g part" << pi << '\n';
         uint32_t slot = ~0u;
-        for (const auto& face : m.faces) {
+        for (const auto &face : m.faces) {
             if (face.part != pi)
                 continue;
             // The face's texture number, as a material name.
@@ -53,10 +53,10 @@ bool writeObj(const reluva::newworlds::GeoModel& m, const std::string& path) {
                 slot = face.corners.back().extra[4];
                 f << "usemtl slot" << slot << '\n';
             }
-            for (const auto& c : face.corners)
+            for (const auto &c : face.corners)
                 f << "vt " << c.u << ' ' << 1.0f - c.v << '\n';
             f << 'f';
-            for (const auto& c : face.corners)
+            for (const auto &c : face.corners)
                 f << ' ' << base[pi] + c.vertex << '/' << vt++;
             f << '\n';
         }
@@ -64,7 +64,7 @@ bool writeObj(const reluva::newworlds::GeoModel& m, const std::string& path) {
     return bool(f);
 }
 
-int cmdGeoInfo(int argc, char** argv) {
+int cmdGeoInfo(int argc, char **argv) {
     if (argc < 3) {
         std::fprintf(stderr, "usage: reluva-tool newworlds geo-info <file.geo> [out.obj]\n");
         return 2;
@@ -78,13 +78,13 @@ int cmdGeoInfo(int argc, char** argv) {
         return 1;
     }
     size_t corners = 0;
-    for (const auto& face : m.faces)
+    for (const auto &face : m.faces)
         corners += face.corners.size();
     std::printf("%zu faces (%zu corners), %zu part(s)\n", m.faces.size(), corners, m.parts.size());
     for (size_t pi = 0; pi < m.parts.size(); ++pi) {
-        const auto& part = m.parts[pi];
+        const auto &part = m.parts[pi];
         float lo[3] = {1e30f, 1e30f, 1e30f}, hi[3] = {-1e30f, -1e30f, -1e30f};
-        for (const auto& v : part.vertices) {
+        for (const auto &v : part.vertices) {
             const float c[3] = {v.x, v.y, v.z};
             for (int i = 0; i < 3; ++i) {
                 lo[i] = std::min(lo[i], c[i]);
@@ -92,20 +92,20 @@ int cmdGeoInfo(int argc, char** argv) {
             }
         }
         size_t faces = 0;
-        for (const auto& face : m.faces)
+        for (const auto &face : m.faces)
             faces += face.part == pi;
         std::string lists;
-        for (const auto& list : part.normalLists)
+        for (const auto &list : part.normalLists)
             lists += (lists.empty() ? "" : "+") + std::to_string(list.size());
         std::printf("  part %zu (%u): %zu faces, %zu vertices, %zu edges, normal lists of %s; x %g..%g, y %g..%g, "
                     "z %g..%g\n",
                     pi, part.node, faces, part.vertices.size(), part.edges.size(),
-                    lists.empty() ? "none" : lists.c_str(), double(lo[0]),
-                    double(hi[0]), double(lo[1]), double(hi[1]), double(lo[2]), double(hi[2]));
+                    lists.empty() ? "none" : lists.c_str(), double(lo[0]), double(hi[0]), double(lo[1]), double(hi[1]),
+                    double(lo[2]), double(hi[2]));
     }
     std::printf("centre %g, %g; radius %g\n", double(m.centreX), double(m.centreY), double(m.radius));
     for (size_t i = 0; i < m.attachments.size(); ++i) {
-        const auto& a = m.attachments[i];
+        const auto &a = m.attachments[i];
         std::printf("  attachment %zu at (%g, %g, %g); frame", i, double(a.position.x), double(a.position.y),
                     double(a.position.z));
         for (float f : a.frame)
@@ -118,15 +118,15 @@ int cmdGeoInfo(int argc, char** argv) {
     for (size_t i = 1; i < m.faces.size(); ++i)
         ++seconds[m.faces[i].groupB];
     std::printf("faces' second header value (value x count):");
-    for (const auto& [value, n] : seconds)
+    for (const auto &[value, n] : seconds)
         std::printf(" %u x%u", value, n);
     std::printf("\n");
     // The last value of each face's last corner: a texture number?
     std::map<uint32_t, unsigned> tails;
-    for (const auto& face : m.faces)
+    for (const auto &face : m.faces)
         ++tails[face.corners.back().extra[4]];
     std::printf("last value of each face's last corner (value x count):");
-    for (const auto& [value, n] : tails)
+    for (const auto &[value, n] : tails)
         std::printf(" %u x%u", value, n);
     std::printf("\n");
 
@@ -135,22 +135,22 @@ int cmdGeoInfo(int argc, char** argv) {
     // the corners (Newell's method), either way round.
     unsigned same = 0, opposite = 0, other = 0, outOfRange = 0;
     for (size_t i = 1; i < m.faces.size(); ++i) {
-        const auto& face = m.faces[i];
-        const auto& part = m.parts[face.part];
+        const auto &face = m.faces[i];
+        const auto &part = m.parts[face.part];
         if (part.normalLists.empty() || face.groupB >= part.normalLists[0].size()) {
             ++outOfRange;
             continue;
         }
         double n[3] = {0, 0, 0};
         for (size_t k = 0; k < face.corners.size(); ++k) {
-            const auto& a = part.vertices[face.corners[k].vertex];
-            const auto& b = part.vertices[face.corners[(k + 1) % face.corners.size()].vertex];
+            const auto &a = part.vertices[face.corners[k].vertex];
+            const auto &b = part.vertices[face.corners[(k + 1) % face.corners.size()].vertex];
             n[0] += double(a.y - b.y) * double(a.z + b.z);
             n[1] += double(a.z - b.z) * double(a.x + b.x);
             n[2] += double(a.x - b.x) * double(a.y + b.y);
         }
         const double len = std::sqrt(n[0] * n[0] + n[1] * n[1] + n[2] * n[2]);
-        const auto& s = part.normalLists[0][face.groupB];
+        const auto &s = part.normalLists[0][face.groupB];
         const double d = len > 0 ? (n[0] * s.x + n[1] * s.y + n[2] * s.z) / len : 0;
         if (d > 0.99)
             ++same;
@@ -172,7 +172,7 @@ int cmdGeoInfo(int argc, char** argv) {
     return 0;
 }
 
-int cmdGeoFaces(int argc, char** argv) {
+int cmdGeoFaces(int argc, char **argv) {
     if (argc < 3) {
         std::fprintf(stderr, "usage: reluva-tool newworlds geo-faces <file.geo>\n");
         return 2;
@@ -212,7 +212,7 @@ int cmdGeoFaces(int argc, char** argv) {
 // Per texture number of each model: how many faces use it, their area, how
 // they face (share of area facing up, down or sideways) and the range of
 // their texture coordinates, to tell what kind of texture each must be.
-int cmdGeoSlots(int argc, char** argv) {
+int cmdGeoSlots(int argc, char **argv) {
     if (argc < 3) {
         std::fprintf(stderr, "usage: reluva-tool newworlds geo-slots <file.geo>...\n");
         return 2;
@@ -225,16 +225,20 @@ int cmdGeoSlots(int argc, char** argv) {
             std::printf("%s: doesn't read\n", argv[a]);
             continue;
         }
-        struct Slot { unsigned faces = 0; double area = 0, up = 0, down = 0, tilt = 0; float u0 = 1e9f, u1 = -1e9f, v0 = 1e9f, v1 = -1e9f; };
+        struct Slot {
+            unsigned faces = 0;
+            double area = 0, up = 0, down = 0, tilt = 0;
+            float u0 = 1e9f, u1 = -1e9f, v0 = 1e9f, v1 = -1e9f;
+        };
         std::map<uint32_t, Slot> slots;
-        for (const auto& f : geo.faces) {
-            Slot& sl = slots[f.corners.back().extra[4]];
+        for (const auto &f : geo.faces) {
+            Slot &sl = slots[f.corners.back().extra[4]];
             ++sl.faces;
-            const auto& vs = geo.parts[f.part].vertices;
+            const auto &vs = geo.parts[f.part].vertices;
             double nx = 0, ny = 0, nz = 0;
             for (size_t i = 0; i < f.corners.size(); ++i) {
-                const auto& p = vs[f.corners[i].vertex];
-                const auto& q = vs[f.corners[(i + 1) % f.corners.size()].vertex];
+                const auto &p = vs[f.corners[i].vertex];
+                const auto &q = vs[f.corners[(i + 1) % f.corners.size()].vertex];
                 nx += (p.y - q.y) * (p.z + q.z);
                 ny += (p.z - q.z) * (p.x + q.x);
                 nz += (p.x - q.x) * (p.y + q.y);
@@ -245,7 +249,7 @@ int cmdGeoSlots(int argc, char** argv) {
             sl.area += area;
             if (area > 0) {
                 const double c = nz / (2 * area); // faces are clockwise from the front, so -c is up
-                sl.tilt += std::fabs(c) * area;  // |cos| of the angle from vertical axis, area-weighted
+                sl.tilt += std::fabs(c) * area;   // |cos| of the angle from vertical axis, area-weighted
                 if (-c > 0.7)
                     sl.up += area;
                 else if (c > 0.7)
@@ -253,10 +257,11 @@ int cmdGeoSlots(int argc, char** argv) {
             }
         }
         std::printf("%s:\n", argv[a]);
-        for (const auto& [n, sl] : slots)
-            std::printf("  %u: %3u faces, area %9.0f, up %3.0f%% down %3.0f%%, u %5.2f..%5.2f v %5.2f..%5.2f, tilt %.2f\n", n,
-                        sl.faces, sl.area, sl.area ? 100 * sl.up / sl.area : 0, sl.area ? 100 * sl.down / sl.area : 0,
-                        sl.u0, sl.u1, sl.v0, sl.v1, sl.area ? sl.tilt / sl.area : 0);
+        for (const auto &[n, sl] : slots)
+            std::printf(
+                "  %u: %3u faces, area %9.0f, up %3.0f%% down %3.0f%%, u %5.2f..%5.2f v %5.2f..%5.2f, tilt %.2f\n", n,
+                sl.faces, sl.area, sl.area ? 100 * sl.up / sl.area : 0, sl.area ? 100 * sl.down / sl.area : 0, sl.u0,
+                sl.u1, sl.v0, sl.v1, sl.area ? sl.tilt / sl.area : 0);
     }
     return 0;
 }
@@ -265,7 +270,7 @@ int cmdGeoSlots(int argc, char** argv) {
 // viewer shows them, two views each with its name: every main model (not
 // lod/ or a variant) whose name holds the filter, from the
 // archives given. Textures are found across all of them.
-int cmdGeoSheet(int argc, char** argv) {
+int cmdGeoSheet(int argc, char **argv) {
     // -l: larger cells, four views each, a model a row; -t: eight views
     // round it at the briefings' height.
     const bool turntable = argc >= 3 && std::strcmp(argv[2], "-t") == 0;
@@ -289,15 +294,15 @@ int cmdGeoSheet(int argc, char** argv) {
     const std::vector<nw::TextureFile> textures = nw::listTextureFiles(archives);
     const std::string filter = argv[3];
     std::vector<std::string> names;
-    for (const auto& a : archives)
-        for (const auto& e : a->entries()) {
+    for (const auto &a : archives)
+        for (const auto &e : a->entries()) {
             std::string folder, stem, ext;
             nw::splitName(e.name, folder, stem, ext);
             // Variants: damaged (_d, _ad), low detail (_l), shadow (_s) and
             // placement outline (_p).
-            const bool variant = stem.size() > 2 && (stem.ends_with("_d") || stem.ends_with("_l") || stem.ends_with("_s") ||
-                                                     stem.ends_with("_p") ||
-                                                     (stem.ends_with("d") && stem[stem.size() - 3] == '_'));
+            const bool variant =
+                stem.size() > 2 && (stem.ends_with("_d") || stem.ends_with("_l") || stem.ends_with("_s") ||
+                                    stem.ends_with("_p") || (stem.ends_with("d") && stem[stem.size() - 3] == '_'));
             if (e.tag == nw::cattag::Geometry && e.name.find("/lod/") == std::string::npos && !variant &&
                 e.name.find(filter) != std::string::npos)
                 names.push_back(e.name);
@@ -306,7 +311,10 @@ int cmdGeoSheet(int argc, char** argv) {
         std::fprintf(stderr, "no models match %s\n", filter.c_str());
         return 1;
     }
-    const int kCellW = large ? 320 : 200, kCellH = large ? 240 : 150, kPerRow = large ? 1 : 4, kViews = turntable ? 8 : large ? 4 : 2;
+    const int kCellW = large ? 320 : 200, kCellH = large ? 240 : 150, kPerRow = large ? 1 : 4,
+              kViews = turntable ? 8
+                       : large   ? 4
+                                 : 2;
     const int rows = int((names.size() + size_t(kPerRow) - 1) / size_t(kPerRow));
     reluva::Surface sheet;
     sheet.create(kPerRow * kViews * kCellW, rows * kCellH, reluva::PixelFormat::RGBA32);
@@ -328,7 +336,8 @@ int cmdGeoSheet(int argc, char** argv) {
                 nw::splitName(names[i], folder, stem, ext);
                 reluva::font::drawText(cell, 3, 3, ok ? stem : stem + " ?", {255, 230, 80});
             }
-            const int x0 = int(i % size_t(kPerRow)) * kViews * kCellW + view * kCellW, y0 = int(i / size_t(kPerRow)) * kCellH;
+            const int x0 = int(i % size_t(kPerRow)) * kViews * kCellW + view * kCellW,
+                      y0 = int(i / size_t(kPerRow)) * kCellH;
             for (int y = 0; y < kCellH; ++y)
                 std::memcpy(sheet.row(y0 + y) + x0 * 4, cell.row(y), size_t(kCellW) * 4);
         }
@@ -337,12 +346,12 @@ int cmdGeoSheet(int argc, char** argv) {
     out << "P6\n" << sheet.w << ' ' << sheet.h << "\n255\n";
     for (int y = 0; y < sheet.h; ++y)
         for (int x = 0; x < sheet.w; ++x)
-            out.write(reinterpret_cast<const char*>(sheet.row(y) + x * 4), 3);
+            out.write(reinterpret_cast<const char *>(sheet.row(y) + x * 4), 3);
     std::printf("%zu models drawn to %s\n", names.size(), argv[2]);
     return out ? 0 : 1;
 }
 
-int cmdGeoTextures(int argc, char** argv) {
+int cmdGeoTextures(int argc, char **argv) {
     int first = 2;
     const bool all = argc > 2 && std::strcmp(argv[2], "-a") == 0;
     if (all)
@@ -364,8 +373,8 @@ int cmdGeoTextures(int argc, char** argv) {
     const std::vector<nw::TextureFile> textures = nw::listTextureFiles(archives);
     unsigned models = 0, without = 0, short_ = 0;
     std::vector<uint8_t> data;
-    for (const auto& cat : archives)
-        for (const auto& e : cat->entries()) {
+    for (const auto &cat : archives)
+        for (const auto &e : cat->entries()) {
             if (e.tag != nw::cattag::Geometry)
                 continue;
             ++models;
@@ -373,12 +382,12 @@ int cmdGeoTextures(int argc, char** argv) {
             uint32_t needed = 0;
             nw::GeoModel m;
             if (!cat->read(e, data) && !nw::parseGeo(data, m))
-                for (const auto& face : m.faces)
+                for (const auto &face : m.faces)
                     needed = std::max(needed, face.corners.back().extra[4] + 1);
             auto slots = nw::findModelTextures(e.name, textures, needed);
             nw::addDoorTextures(m, e.name, textures, slots);
             nw::addPadTextures(m, e.name, textures, slots);
-            const size_t found = size_t(std::count_if(slots.begin(), slots.end(), [](auto* t) { return t; }));
+            const size_t found = size_t(std::count_if(slots.begin(), slots.end(), [](auto *t) { return t; }));
             const bool tooFew = found < needed;
             if (found == 0)
                 ++without;
@@ -387,7 +396,7 @@ int cmdGeoTextures(int argc, char** argv) {
             if (!all && !tooFew)
                 continue;
             std::printf("%s: needs %u, found", e.name.c_str(), needed);
-            for (const auto* t : slots)
+            for (const auto *t : slots)
                 std::printf(" %s", t ? t->stem.c_str() : "?");
             if (slots.empty())
                 std::printf(" none");
@@ -398,7 +407,7 @@ int cmdGeoTextures(int argc, char** argv) {
                 const size_t prefix = std::min<size_t>(3, stem.size());
                 std::printf("; similar:");
                 unsigned shown = 0;
-                for (const auto& t : textures)
+                for (const auto &t : textures)
                     if (t.folder == folder && t.stem.compare(0, prefix, stem, 0, prefix) == 0 && shown++ < 10)
                         std::printf(" %s", t.stem.c_str());
                 if (!shown)
@@ -406,12 +415,11 @@ int cmdGeoTextures(int argc, char** argv) {
             }
             std::printf("\n");
         }
-    std::printf("%u models: %u without textures, %u with fewer than their faces number\n", models, without,
-                short_);
+    std::printf("%u models: %u without textures, %u with fewer than their faces number\n", models, without, short_);
     return 0;
 }
 
-int cmdGeoSurvey(int argc, char** argv) {
+int cmdGeoSurvey(int argc, char **argv) {
     if (argc < 3) {
         std::fprintf(stderr, "usage: reluva-tool newworlds geo-survey <file.cat>...\n");
         return 2;
@@ -425,7 +433,7 @@ int cmdGeoSurvey(int argc, char** argv) {
             std::fprintf(stderr, "%s\n", err.message.c_str());
             return 1;
         }
-        for (const auto& e : cat.entries()) {
+        for (const auto &e : cat.entries()) {
             if (e.tag != reluva::newworlds::cattag::Geometry || cat.read(e, d))
                 continue;
             ++total;
@@ -437,7 +445,7 @@ int cmdGeoSurvey(int argc, char** argv) {
             }
             // Group by message with numbers (decimal or 0x hex) removed.
             std::string key;
-            const std::string& msg = err.message;
+            const std::string &msg = err.message;
             for (size_t i = 0; i < msg.size();) {
                 if (msg[i] >= '0' && msg[i] <= '9') {
                     if (msg.compare(i, 2, "0x") == 0)
@@ -454,7 +462,7 @@ int cmdGeoSurvey(int argc, char** argv) {
         }
     }
     std::printf("%u models, %u decode\n\n", total, ok);
-    for (const auto& [key, list] : failures) {
+    for (const auto &[key, list] : failures) {
         std::printf("%5zu  %s\n", list.size(), key.c_str());
         for (size_t i = 0; i < list.size() && i < 3; ++i)
             std::printf("       e.g. %s\n", list[i].c_str());
@@ -462,17 +470,17 @@ int cmdGeoSurvey(int argc, char** argv) {
     return 0;
 }
 
-int cmdMdlInfo(int argc, char** argv) {
+int cmdMdlInfo(int argc, char **argv) {
     if (argc != 3) {
         std::fprintf(stderr, "usage: reluva-tool newworlds mdl-info <file.mdl | file.cat>\n");
         return 2;
     }
     namespace nw = reluva::newworlds;
-    auto list = [](const char* what, const std::vector<nw::MdlModel::Name>& names) {
+    auto list = [](const char *what, const std::vector<nw::MdlModel::Name> &names) {
         if (names.empty())
             return;
         std::printf("  %s:", what);
-        for (const auto& n : names)
+        for (const auto &n : names)
             std::printf(" %s=%d", n.name.c_str(), n.value);
         std::printf("\n");
     };
@@ -486,7 +494,7 @@ int cmdMdlInfo(int argc, char** argv) {
         std::map<std::string, unsigned> states;
         unsigned count = 0, failed = 0;
         std::vector<uint8_t> data;
-        for (const auto& e : cat.entries()) {
+        for (const auto &e : cat.entries()) {
             if (e.tag != nw::cattag::Mdl)
                 continue;
             ++count;
@@ -500,12 +508,12 @@ int cmdMdlInfo(int argc, char** argv) {
                 continue;
             }
             std::string key;
-            for (const auto& s : m.states)
+            for (const auto &s : m.states)
                 key += (key.empty() ? "" : ", ") + (s.empty() ? std::string("(unnamed)") : s);
             ++states[key.empty() ? "(none listed)" : key];
         }
         std::printf("%u metamodels, %u decode\nstates:\n", count, count - failed);
-        for (const auto& [k, n] : states)
+        for (const auto &[k, n] : states)
             std::printf("  %4u  %s\n", n, k.c_str());
         return failed ? 1 : 0;
     }
@@ -525,13 +533,13 @@ int cmdMdlInfo(int argc, char** argv) {
     list("places", m.places);
     list("animated", m.animated);
     std::printf("  states:");
-    for (const auto& s : m.states)
+    for (const auto &s : m.states)
         std::printf(" \"%s\"", s.c_str());
     std::printf("\n");
     for (size_t i = 0; i < m.reference.size(); ++i) {
-        const auto& t = m.reference[i];
+        const auto &t = m.reference[i];
         std::string name = "#" + std::to_string(i);
-        for (const auto& a : m.animated)
+        for (const auto &a : m.animated)
             if (a.value == int32_t(i))
                 name = a.name;
         std::printf("  reference pose %zu %-16s at (%g, %g, %g)\n", i, name.c_str(), double(t.position.x),
@@ -540,28 +548,21 @@ int cmdMdlInfo(int argc, char** argv) {
     return 0;
 }
 
-const Commands commands("newworlds", {
-    {"geo-info", "<file.geo> [out.obj]",
-     "decode a model; optionally export it as OBJ",
-     cmdGeoInfo},
-    {"geo-faces", "<file.geo>",
-     "walk a model's faces, showing each header and corner, and dump the bytes where the walk stops",
-     cmdGeoFaces},
-    {"geo-slots", "<file.geo>...",
-     "per texture number: faces, area, facing, texture coordinates",
-     cmdGeoSlots},
-    {"geo-sheet", "[-l|-t] <out.ppm> <name filter> <file.cat>...",
-     "draw models to a contact sheet, two views each (-l: larger, four; -t: eight round it)",
-     cmdGeoSheet},
-    {"geo-textures", "[-a] <file.cat>...",
-     "show which textures each model gets (by default only models with too few, with similar names)",
-     cmdGeoTextures},
-    {"geo-survey", "<file.cat>...",
-     "decode every model, group failures by reason",
-     cmdGeoSurvey},
-    {"mdl-info", "<file.mdl | file.cat>",
-     "show a metamodel's names and states, or survey every one in an archive",
-     cmdMdlInfo},
-});
+const Commands commands(
+    "newworlds",
+    {
+        {"geo-info", "<file.geo> [out.obj]", "decode a model; optionally export it as OBJ", cmdGeoInfo},
+        {"geo-faces", "<file.geo>",
+         "walk a model's faces, showing each header and corner, and dump the bytes where the walk stops", cmdGeoFaces},
+        {"geo-slots", "<file.geo>...", "per texture number: faces, area, facing, texture coordinates", cmdGeoSlots},
+        {"geo-sheet", "[-l|-t] <out.ppm> <name filter> <file.cat>...",
+         "draw models to a contact sheet, two views each (-l: larger, four; -t: eight round it)", cmdGeoSheet},
+        {"geo-textures", "[-a] <file.cat>...",
+         "show which textures each model gets (by default only models with too few, with similar names)",
+         cmdGeoTextures},
+        {"geo-survey", "<file.cat>...", "decode every model, group failures by reason", cmdGeoSurvey},
+        {"mdl-info", "<file.mdl | file.cat>", "show a metamodel's names and states, or survey every one in an archive",
+         cmdMdlInfo},
+    });
 
 } // namespace

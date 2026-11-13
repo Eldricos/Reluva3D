@@ -1,0 +1,46 @@
+# The source layout of November 2026 (docs/code-style-migration.md): the
+# shared code split by subject under src/, as ScummVM has it, and the
+# backends by kind. Apply with: python3 tools/relocate.py <this file>
+
+# Folders: anything still under them moves, and mentions of them change
+src/common/audio/     src/audio/            bare
+src/common/video/     src/video/            bare
+src/common/x86/       src/emulation/x86/    bare
+src/common/soft3d/    src/graphics/soft3d/  bare
+src/launcher/         src/gui/
+src/tools/            src/devtools/
+src/backends/sdl3/shaders/  src/backends/graphics/sdl3/shaders/
+src/backends/sockets/ src/backends/networking/sockets/
+
+# Files
+src/backends/sdl3/sdl_gpu.cpp            src/backends/graphics/sdl3/sdl_gpu.cpp
+src/backends/sdl3/sdl_gpu.h              src/backends/graphics/sdl3/sdl_gpu.h
+src/backends/sdl3/sdl_system.cpp         src/backends/platform/sdl3/sdl_system.cpp
+src/backends/sdl3/sdl_system.h           src/backends/platform/sdl3/sdl_system.h
+src/main.cpp                             src/base/main.cpp
+src/tools/commands.cpp                   src/devtools/commands.cpp
+src/tools/games.cpp                      src/devtools/games.cpp
+src/tools/main.cpp                       src/devtools/main.cpp
+src/tools/media.cpp                      src/devtools/media.cpp
+src/tools/render_check.cpp               src/devtools/render_check.cpp
+src/tools/tool.cpp                       src/devtools/tool.cpp
+src/tools/tool.h                         src/devtools/tool.h
+src/tools/x86.cpp                        src/devtools/x86.cpp
+src/common/cursor.cpp                    src/graphics/cursor.cpp
+src/common/cursor.h                      src/graphics/cursor.h
+src/common/draw.cpp                      src/graphics/draw.cpp
+src/common/draw.h                        src/graphics/draw.h
+src/common/font.cpp                      src/graphics/font.cpp
+src/common/font.h                        src/graphics/font.h
+src/common/gfx3d.cpp                     src/graphics/gfx3d.cpp
+src/common/gfx3d.h                       src/graphics/gfx3d.h
+src/common/palette.cpp                   src/graphics/palette.cpp
+src/common/palette.h                     src/graphics/palette.h
+src/common/truetype.cpp                  src/graphics/truetype.cpp
+src/common/truetype.h                    src/graphics/truetype.h
+src/launcher/launcher.cpp                src/gui/launcher.cpp
+src/launcher/launcher.h                  src/gui/launcher.h
+src/common/bmp.cpp                       src/image/bmp.cpp
+src/common/bmp.h                         src/image/bmp.h
+src/common/image.cpp                     src/image/image.cpp
+src/common/image.h                       src/image/image.h

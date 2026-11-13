@@ -3,7 +3,7 @@
 
 // reluva-tool's New Worlds commands for its archives (.cat) and string tables.
 
-#include "tools/tool.h"
+#include "devtools/tool.h"
 
 #include "engines/newworlds/cat_archive.h"
 #include "engines/newworlds/string_table.h"
@@ -30,8 +30,8 @@ std::string formatTime(uint32_t t) {
     int64_t day = doy - (153 * mp + 2) / 5 + 1, month = mp < 10 ? mp + 3 : mp - 9;
     int64_t year = yoe + era * 400 + (month <= 2);
     char buf[32];
-    std::snprintf(buf, sizeof buf, "%04d-%02d-%02d %02d:%02d", int(year), int(month), int(day),
-                  int(secs / 3600), int(secs / 60 % 60));
+    std::snprintf(buf, sizeof buf, "%04d-%02d-%02d %02d:%02d", int(year), int(month), int(day), int(secs / 3600),
+                  int(secs / 60 % 60));
     return buf;
 }
 
@@ -51,7 +51,7 @@ constexpr size_t kFolderEntrySize = 264;
 
 constexpr uint16_t kFolderTag = 0x29;
 
-std::string readName(const Bytes& d, size_t p) {
+std::string readName(const Bytes &d, size_t p) {
     std::string n;
     for (size_t k = p; k < p + kPathLen && k < d.size() && d[k]; ++k) {
         if (d[k] < 32 || d[k] >= 127)
@@ -70,19 +70,20 @@ struct TagRule {
 };
 
 struct Walker {
-    const Bytes& d;
+    const Bytes &d;
     uint32_t tocSize;
     uint8_t archiveByte;
     std::vector<TagRule> rules;
 
     TagRule rule(uint16_t tag) const {
-        for (const TagRule& r : rules)
+        for (const TagRule &r : rules)
             if (r.tag == tag)
                 return r;
-        return tag == kFolderTag ? TagRule{tag, kFolderEntrySize, true, false} : TagRule{tag, kFileEntrySize, false, false};
+        return tag == kFolderTag ? TagRule{tag, kFolderEntrySize, true, false}
+                                 : TagRule{tag, kFileEntrySize, false, false};
     }
-    void learn(const TagRule& r) {
-        for (TagRule& x : rules)
+    void learn(const TagRule &r) {
+        for (TagRule &x : rules)
             if (x.tag == r.tag) {
                 x = r;
                 return;
@@ -96,7 +97,7 @@ struct Walker {
     }
 };
 
-int cmdCatProbe(int argc, char** argv) {
+int cmdCatProbe(int argc, char **argv) {
     if (argc < 3) {
         std::fprintf(stderr, "usage: reluva-tool newworlds cat-probe <file.cat> [-q]\n");
         return 2;
@@ -125,8 +126,8 @@ int cmdCatProbe(int argc, char** argv) {
         std::vector<std::string> extensions;
     };
     std::vector<TagStat> stats;
-    auto statFor = [&](uint16_t tag) -> TagStat& {
-        for (TagStat& s : stats)
+    auto statFor = [&](uint16_t tag) -> TagStat & {
+        for (TagStat &s : stats)
             if (s.tag == tag)
                 return s;
         stats.push_back(TagStat{tag, 0, 0, {}});
@@ -194,7 +195,7 @@ int cmdCatProbe(int argc, char** argv) {
         while (!folderEnds.empty() && chunk >= folderEnds.back())
             folderEnds.pop_back();
         const std::string indent(folderEnds.size() * 2, ' ');
-        TagStat& st = statFor(tag);
+        TagStat &st = statFor(tag);
         ++st.count;
 
         if (r.container) {
@@ -211,7 +212,7 @@ int cmdCatProbe(int argc, char** argv) {
             st.sizeMismatches += !sizeOk;
             std::string ext = extensionOf(name);
             bool seen = false;
-            for (const std::string& e : st.extensions)
+            for (const std::string &e : st.extensions)
                 seen |= e == ext;
             if (!seen && !ext.empty())
                 st.extensions.push_back(ext);
@@ -238,7 +239,7 @@ int cmdCatProbe(int argc, char** argv) {
         std::printf("* = stored size differs from the size in the entry's copied metadata\n\n");
     }
     std::printf("tags:");
-    for (const TagStat& s : stats) {
+    for (const TagStat &s : stats) {
         const TagRule r = w.rule(s.tag);
         std::printf(" 0x%x x%u", s.tag, s.count);
         if (r.container)
@@ -252,16 +253,17 @@ int cmdCatProbe(int argc, char** argv) {
         std::printf(")");
     }
     std::printf("\n");
-    for (const TagRule& r : w.rules)
+    for (const TagRule &r : w.rules)
         if (r.learned)
-            std::printf("learned: tag 0x%x entry %zu bytes, %s\n", r.tag, r.entrySize, r.container ? "container" : "file");
+            std::printf("learned: tag 0x%x entry %zu bytes, %s\n", r.tag, r.entrySize,
+                        r.container ? "container" : "file");
     const bool ok = tableOk && trailing >= 0;
     std::printf("RESULT: %s (%u entries, table %s, %lld trailing bytes)\n", ok ? "OK" : "FAIL", entries,
                 tableOk ? "exact" : "MISMATCH", trailing);
     return ok ? 0 : 1;
 }
 
-int cmdCatList(int argc, char** argv) {
+int cmdCatList(int argc, char **argv) {
     if (argc < 3) {
         std::fprintf(stderr, "usage: reluva-tool newworlds cat-list <file.cat>\n");
         return 2;
@@ -271,8 +273,8 @@ int cmdCatList(int argc, char** argv) {
         std::fprintf(stderr, "%s\n", err.message.c_str());
         return 1;
     }
-    const auto& entries = cat.entries();
-    for (const auto& e : entries) {
+    const auto &entries = cat.entries();
+    for (const auto &e : entries) {
         int depth = 0;
         for (int p = e.parent; p >= 0; p = entries[size_t(p)].parent)
             ++depth;
@@ -282,7 +284,7 @@ int cmdCatList(int argc, char** argv) {
     return 0;
 }
 
-int cmdCatExtract(int argc, char** argv) {
+int cmdCatExtract(int argc, char **argv) {
     if (argc < 4) {
         std::fprintf(stderr, "usage: reluva-tool newworlds cat-extract <file.cat> <output dir> [name filter]\n");
         return 2;
@@ -296,13 +298,13 @@ int cmdCatExtract(int argc, char** argv) {
     const std::string filter = argc > 4 ? argv[4] : "";
     std::vector<uint8_t> data;
     unsigned written = 0;
-    for (const auto& e : cat.entries()) {
+    for (const auto &e : cat.entries()) {
         if (e.container || e.name.empty() || e.name.find(filter) == std::string::npos)
             continue;
         // Names come from the archive: refuse anything that could escape outDir.
         const std::filesystem::path rel(e.name);
         bool safe = !rel.is_absolute() && !rel.has_root_name();
-        for (const auto& part : rel)
+        for (const auto &part : rel)
             safe &= part != "..";
         if (!safe) {
             std::fprintf(stderr, "skipping unsafe name %s\n", e.name.c_str());
@@ -316,7 +318,7 @@ int cmdCatExtract(int argc, char** argv) {
         std::error_code ec;
         std::filesystem::create_directories(out.parent_path(), ec);
         std::ofstream f(out, std::ios::binary);
-        f.write(reinterpret_cast<const char*>(data.data()), std::streamsize(data.size()));
+        f.write(reinterpret_cast<const char *>(data.data()), std::streamsize(data.size()));
         if (!f) {
             std::fprintf(stderr, "cannot write %s\n", out.string().c_str());
             return 1;
@@ -327,7 +329,7 @@ int cmdCatExtract(int argc, char** argv) {
     return 0;
 }
 
-int cmdStbDump(int argc, char** argv) {
+int cmdStbDump(int argc, char **argv) {
     if (argc < 3) {
         std::fprintf(stderr, "usage: reluva-tool newworlds stb-dump <file.stb | file.cat>\n");
         return 2;
@@ -343,7 +345,7 @@ int cmdStbDump(int argc, char** argv) {
         }
         unsigned count = 0, good = 0;
         Bytes d;
-        for (const auto& e : cat.entries()) {
+        for (const auto &e : cat.entries()) {
             const bool stb = e.name.size() > 4 && e.name.compare(e.name.size() - 4, 4, ".stb") == 0;
             if (e.container || (e.tag != nw::cattag::Strings && !stb))
                 continue;
@@ -358,7 +360,7 @@ int cmdStbDump(int argc, char** argv) {
             }
             ++good;
             uint32_t maxId = 0;
-            for (const auto& s : table.strings())
+            for (const auto &s : table.strings())
                 maxId = std::max(maxId, s.id);
             const std::string first = table.strings().empty() ? "" : table.strings()[0].text.substr(0, 40);
             std::printf("%-28s %3zu strings, ids up to %3u  %s\n", e.name.c_str(), table.strings().size(), maxId,
@@ -372,7 +374,7 @@ int cmdStbDump(int argc, char** argv) {
         return 1;
     nw::StringTable table;
     reluva::Error err = table.parse(d);
-    for (const auto& s : table.strings())
+    for (const auto &s : table.strings())
         std::printf("%6u  %s\n", s.id, s.text.c_str());
     if (err) {
         std::fprintf(stderr, "%s\n", err.message.c_str());
@@ -382,19 +384,15 @@ int cmdStbDump(int argc, char** argv) {
     return 0;
 }
 
-const Commands commands("newworlds", {
-    {"cat-probe", "<file.cat> [-q]",
-     "check a .cat file against the documented layout and work out unknown entry kinds",
-     cmdCatProbe},
-    {"cat-list", "<file.cat>",
-     "list a .cat file's contents",
-     cmdCatList},
-    {"cat-extract", "<file.cat> <output dir> [name filter]",
-     "extract files whose name contains filter",
-     cmdCatExtract},
-    {"stb-dump", "<file.stb | file.cat>",
-     "print a string table, or list an archive's",
-     cmdStbDump},
-});
+const Commands
+    commands("newworlds",
+             {
+                 {"cat-probe", "<file.cat> [-q]",
+                  "check a .cat file against the documented layout and work out unknown entry kinds", cmdCatProbe},
+                 {"cat-list", "<file.cat>", "list a .cat file's contents", cmdCatList},
+                 {"cat-extract", "<file.cat> <output dir> [name filter]", "extract files whose name contains filter",
+                  cmdCatExtract},
+                 {"stb-dump", "<file.stb | file.cat>", "print a string table, or list an archive's", cmdStbDump},
+             });
 
 } // namespace

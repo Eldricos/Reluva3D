@@ -1,6 +1,6 @@
 # Clue: Murder at Boddy Mansion: objects and the mansion
 
-> **Status:** decoded · **Code:** `src/engines/clue/level.h` · **Checked on:** the CD's, the install's and the 2.2 patch's `.o` files and `clue.lvl`: every record · **Confidence:** confirmed unless marked
+> **Status:** decoded · **Code:** `src/engines/clue/formats/level.h` · **Checked on:** the CD's, the install's and the 2.2 patch's `.o` files and `clue.lvl`: every record · **Confidence:** confirmed unless marked
 
 ## Overview
 

@@ -1,7 +1,7 @@
 // Renders the engine's mansion scene whole, for comparing with recordings.
 #include "engines/clue/game_data.h"
-#include "engines/clue/level.h"
-#include "engines/clue/mansion.h"
+#include "engines/clue/formats/level.h"
+#include "engines/clue/game/mansion.h"
 #include <cstdio>
 #include <fstream>
 using namespace reluva; using namespace reluva::clue;

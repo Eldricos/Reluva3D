@@ -24,11 +24,11 @@ public:
     // Reads `base`.LST, `base`.ALL and the optional `base`.CAT from `source`
     // (e.g. base = "SSE/SSE"). Returns nullptr if the .LST or .ALL is missing
     // or the offsets are invalid.
-    static std::shared_ptr<LstArchive> open(const Archive& source, const std::string& base);
-    static std::shared_ptr<LstArchive> open(const SearchSet& source, const std::string& base);
+    static std::shared_ptr<LstArchive> open(const Archive &source, const std::string &base);
+    static std::shared_ptr<LstArchive> open(const SearchSet &source, const std::string &base);
     // The same from data already in memory; `cat` may be empty.
-    static std::shared_ptr<LstArchive> create(std::vector<uint8_t> all, const std::vector<uint8_t>& lst,
-                                              const std::vector<uint8_t>& cat = std::vector<uint8_t>());
+    static std::shared_ptr<LstArchive> create(std::vector<uint8_t> all, const std::vector<uint8_t> &lst,
+                                              const std::vector<uint8_t> &cat = std::vector<uint8_t>());
 
     uint32_t size() const { return uint32_t(offsets_.size()) - 1; }
     uint32_t entrySize(uint32_t index) const;
@@ -37,19 +37,19 @@ public:
     // The name from the .CAT, or an empty string.
     std::string getName(uint32_t index) const;
     // Serves the members under a directory, e.g. "ART/" + name.
-    void setPrefix(const std::string& prefix);
+    void setPrefix(const std::string &prefix);
 
     std::vector<std::string> list() const override;
     bool has(std::string_view name) const override;
-    Error read(std::string_view name, std::vector<uint8_t>& out) const override;
+    Error read(std::string_view name, std::vector<uint8_t> &out) const override;
     std::string describe() const override { return description_; }
     // A stream over a member, or nullptr.
     std::unique_ptr<MemoryReadStream> openMember(std::string_view name) const;
 
 private:
     LstArchive() {}
-    using Reader = bool (*)(const void* source, const std::string& name, std::vector<uint8_t>& out);
-    static std::shared_ptr<LstArchive> open(const void* source, Reader reader, const std::string& base);
+    using Reader = bool (*)(const void *source, const std::string &name, std::vector<uint8_t> &out);
+    static std::shared_ptr<LstArchive> open(const void *source, Reader reader, const std::string &base);
 
     std::string description_;
 
@@ -65,7 +65,7 @@ public:
     explicit SharedArchive(std::shared_ptr<const Archive> archive) : archive_(std::move(archive)) {}
     std::vector<std::string> list() const override { return archive_->list(); }
     bool has(std::string_view name) const override { return archive_->has(name); }
-    Error read(std::string_view name, std::vector<uint8_t>& out) const override { return archive_->read(name, out); }
+    Error read(std::string_view name, std::vector<uint8_t> &out) const override { return archive_->read(name, out); }
     std::string describe() const override { return archive_->describe(); }
 
 private:
@@ -73,6 +73,6 @@ private:
 };
 
 // A file of a search set as a stream, or nullptr if it isn't there.
-std::unique_ptr<SeekableReadStream> openFile(const SearchSet& search, std::string_view name);
+std::unique_ptr<SeekableReadStream> openFile(const SearchSet &search, std::string_view name);
 
 } // namespace reluva::stharbinger

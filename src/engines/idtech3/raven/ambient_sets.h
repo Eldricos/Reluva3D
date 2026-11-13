@@ -40,8 +40,8 @@ public:
         // Their volume (0-255): a random one in [volumeMin, volumeMax].
         int volumeMin = 255, volumeMax = 255;
         std::vector<std::string> subWaves; // "sound/<dir>/<wave>.wav", at most 8
-        std::string loopedWave;           // "sound/<name>.wav", or empty
-        int radius = 250;                 // local sets
+        std::string loopedWave;            // "sound/<name>.wav", or empty
+        int radius = 250;                  // local sets
         // While cross-fading (0-255), and since when.
         int masterVolume = 255;
         int64_t fadeStart = 0;
@@ -65,29 +65,29 @@ public:
     // Reads sound/sound.txt's text (AS_ParseSets): the sets asked for.
     // Problems (an unknown keyword, a set asked for but missing) go to
     // `warnings`. False if the file isn't an ambient set file.
-    bool parse(std::string_view text, std::vector<std::string>& warnings);
+    bool parse(std::string_view text, std::vector<std::string> &warnings);
     bool parsed() const { return parsed_; }
     void clear();
 
-    const Set* find(std::string_view name) const;
+    const Set *find(std::string_view name) const;
     size_t size() const { return sets_.size(); }
 
     // The level's general set this frame, heard at `origin` (the view),
     // at `nowMs` (S_UpdateAmbientSet).
-    std::vector<Sound> updateGeneral(std::string_view name, const Vec3f& origin, int64_t nowMs);
+    std::vector<Sound> updateGeneral(std::string_view name, const Vec3f &origin, int64_t nowMs);
     // A local set on entity `entity` at `origin`, heard from `listener`;
     // `lastMs` is when it last played a sound, and the result's time is
     // the new one (S_AddLocalSet).
-    std::vector<Sound> addLocal(std::string_view name, const Vec3f& listener, const Vec3f& origin, int entity,
-                                int64_t& lastMs, int64_t nowMs);
+    std::vector<Sound> addLocal(std::string_view name, const Vec3f &listener, const Vec3f &origin, int entity,
+                                int64_t &lastMs, int64_t nowMs);
     // A brush model set's sound for `stage`, or empty (AS_GetBModelSound).
     std::string bmodelSound(std::string_view name, int stage) const;
 
 private:
-    Set* findSet(std::string_view name);
+    Set *findSet(std::string_view name);
     int pick(int low, int high);
     void fade(int64_t nowMs);
-    void playGeneral(const Set& set, const Vec3f& origin, int64_t& lastMs, int64_t nowMs, std::vector<Sound>& out);
+    void playGeneral(const Set &set, const Vec3f &origin, int64_t &lastMs, int64_t nowMs, std::vector<Sound> &out);
 
     std::vector<Set> sets_;
     std::map<std::string, size_t> byName_; // lower case

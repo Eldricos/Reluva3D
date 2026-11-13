@@ -17,7 +17,7 @@ hardware.
 ### Pictures
 
 - **Drawn in software.** Direct3D 7 is a software rasterizer
-  (`src/common/x86/directx/raster.cpp`) following the DirectX 7
+  (`src/emulation/x86/directx/raster.cpp`) following the DirectX 7
   documentation's fixed-function pipeline, not a graphics card. A card of
   2000 drew with its own quirks, which ours doesn't copy:
   - no dithering in 16-bit colour: colours are rounded to the nearest
@@ -82,7 +82,7 @@ are kept as they are. One shows in Reluva as it would on Windows:
 
 ### Sound
 
-Aureal A3D is stood in for (`src/common/x86/a3d.cpp`) from its public
+Aureal A3D is stood in for (`src/emulation/x86/a3d.cpp`) from its public
 SDK documentation, through Reluva's mixer:
 
 - 3D sounds get a volume from their distance (A3D's inverse-distance

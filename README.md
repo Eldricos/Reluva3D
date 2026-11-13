@@ -275,31 +275,39 @@ In it:
 ## Repository layout
 
 ```
-src/common/          platform-independent core: the System interface, events, surfaces and 8-bit
-                     drawing, palettes, config, case-insensitive file lookup, byte streams,
-                     detection, archives (folders, .zip/.pk3) and search sets, PKWARE DCL, images,
-                     text and fonts (built-in and TrueType), logging, the 3D rendering interface (gfx3d.h), installers
-                     (Wise), and shared interpreters and decoders
+src/
+  base/              main.cpp: the program
+  common/            the core the rest builds on: the System interface, events, config and
+                     settings, case-insensitive file lookup, byte streams, detection, archives
+                     (folders, .zip/.pk3) and search sets, PKWARE DCL, Wise installers, PE files,
+                     text, hashes, logging
   audio/             sound decoders, streams and the mixer: WAV (PCM, IMA ADPCM), MP3, raw PCM
   video/             video decoders: Bink, Smacker, Cinepak and Indeo 5 in AVI
-  x86/               an x86 emulator (with a JIT on x86-64) and stand-ins for Windows, DirectX
-                     and A3D, for games' native code
-src/backends/sdl3/   the only code that touches SDL: window, rendering (2D and 3D, on SDL's GPU
-                     API), input, audio
-src/backends/sockets/ networking
-src/launcher/        the launcher (Dear ImGui)
-src/engines/         one folder per engine (its reluva-tool commands in its tools/), plus
-                     registry.cpp listing them
-src/tools/           reluva-tool, with its commands for any game, and reluva-render-check
+  graphics/          surfaces and 8-bit drawing, palettes, fonts (built-in and TrueType),
+                     cursors, the 3D rendering interface (gfx3d.h) and software 3D (soft3d/)
+  image/             pictures (TGA, JPEG, PNG, BMP)
+  emulation/x86/     an x86 emulator (with a JIT on x86-64) and stand-ins for Windows,
+                     DirectX and A3D, for games' native code
+  backends/          the only code that touches SDL or the system: platform/sdl3/ (window,
+                     input, audio), graphics/sdl3/ (2D and 3D on SDL's GPU API),
+                     networking/sockets/
+  gui/               the launcher (Dear ImGui)
+  engines/           one folder per engine, each laid out the same way
+                     (docs/ADDING_AN_ENGINE.md), plus registry.cpp listing them
+  devtools/          reluva-tool, with its commands for any game, and reluva-render-check
 tests/               the tests (reluva-tests) and their data: shared code's in common/, each
                      engine's in engines/<engine>/
+tools/               scripts for working on Reluva (docs checks, moving files)
 third_party/         outside code built in, each with its licence (minimp3, stb_image,
                      stb_truetype)
 docs/                documentation: shared in docs/common/, each engine's in docs/engines/<engine>/
 ```
 
-Engines use only `src/common/` and `src/engines/engine.h`. They never
-include SDL.
+Each folder under `src/` that is a library has its own `CMakeLists.txt`.
+
+Engines use only the shared code (`common/`, `audio/`, `video/`,
+`graphics/`, `image/`, `emulation/`) and `src/engines/engine.h`. They
+never include SDL.
 
 ## Documentation
 
@@ -335,7 +343,7 @@ docs follow [docs/DOCUMENTATION_STANDARD.md](docs/DOCUMENTATION_STANDARD.md).
 Reluva is free software, licensed under the GNU General Public License,
 version 3 or (at your option) any later version. See [LICENSE](LICENSE).
 
-The Indeo 5 decoder (`src/common/video/indeo5*`) is derived from FFmpeg's
+The Indeo 5 decoder (`src/video/indeo5*`) is derived from FFmpeg's
 LGPL 2.1+ decoder by Maxim Poliakovski, used under the GPL 3 as the LGPL
 allows.
 

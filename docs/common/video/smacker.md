@@ -3,7 +3,7 @@
 ## What it is
 
 RAD Game Tools' video format from before Bink, used by many 1990s games.
-Reluva decodes SMK2 and SMK4 in `src/common/video/smacker.cpp`
+Reluva decodes SMK2 and SMK4 in `src/video/smacker.cpp`
 (`reluva::smacker::Decoder`).
 
 ## What Reluva supports
@@ -16,7 +16,7 @@ Reluva decodes SMK2 and SMK4 in `src/common/video/smacker.cpp`
   (`height()` is the height shown).
 - **Sound:** the first audio track with data, raw or Huffman-packed DPCM,
   8 or 16 bits, mono or stereo. `takeAudio()` hands over what each frame
-  carried, for a `QueuingStream` (`src/common/audio/stream.h`).
+  carried, for a `QueuingStream` (`src/audio/stream.h`).
 - **Not handled:** Bink audio inside a Smacker file (flag `0x08000000`), and
   the ring frame's looping (a player may restart from frame 1 itself).
 

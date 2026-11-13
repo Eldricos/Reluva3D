@@ -15,12 +15,12 @@ namespace {
 constexpr uint16_t kTileLinks = 21; // record types, in the order they're stored
 constexpr uint16_t kTile = 20;
 constexpr uint16_t kBlock = 19;
-constexpr size_t kGridOffset = 18;  // in a type-20 body, after its header values
+constexpr size_t kGridOffset = 18; // in a type-20 body, after its header values
 constexpr size_t kCellEntrySize = 10;
 constexpr size_t kPaletteSize = 1024;
 
 struct Reader {
-    const std::vector<uint8_t>& d;
+    const std::vector<uint8_t> &d;
     bool has(size_t at, size_t bytes) const { return at <= d.size() && bytes <= d.size() - at; }
     uint16_t u16(size_t o) const { return uint16_t(d[o] | d[o + 1] << 8); }
     uint32_t u32(size_t o) const {
@@ -42,7 +42,7 @@ std::string hex(size_t v) {
 // each cell's list ended by ffffffff); one 10-byte entry per grid cell (u16
 // block, u16 ?, u16 ?, u32 where its list starts); a 1024-byte colour table (u32 B, G, R, 0
 // per terrain code, ending with a zero entry).
-Error parseGmf(const std::vector<uint8_t>& data, GmfMap& out) {
+Error parseGmf(const std::vector<uint8_t> &data, GmfMap &out) {
     out = GmfMap{};
     const Reader r{data};
     if (!r.has(0, 10))
@@ -132,25 +132,25 @@ Error parseGmf(const std::vector<uint8_t>& data, GmfMap& out) {
     return Error::success();
 }
 
-int tileAt(const GmfMap& map, int tx, int ty) {
+int tileAt(const GmfMap &map, int tx, int ty) {
     if (tx < 0 || ty < 0 || tx >= 2 * map.width || ty >= 2 * map.height)
         return -1;
     static constexpr int kSlotAt[2][2] = {{0, 3}, {1, 2}}; // [x][y] within the block
-    const auto& block = map.blocks[map.cells[size_t(ty / 2) * size_t(map.width) + size_t(tx / 2)].block];
+    const auto &block = map.blocks[map.cells[size_t(ty / 2) * size_t(map.width) + size_t(tx / 2)].block];
     return int(block[size_t(kSlotAt[tx % 2][ty % 2])]);
 }
 
-std::vector<size_t> tileModelOrder(const std::vector<std::string>& geoNames) {
-    auto stem = [](const std::string& name) {
+std::vector<size_t> tileModelOrder(const std::vector<std::string> &geoNames) {
+    auto stem = [](const std::string &name) {
         const size_t slash = name.rfind('/'), dot = name.rfind('.');
         const size_t from = slash == std::string::npos ? 0 : slash + 1;
         return name.substr(from, (dot == std::string::npos || dot < from ? name.size() : dot) - from);
     };
-    auto isLod = [](const std::string& name) { return name.find("/lod/") != std::string::npos; };
+    auto isLod = [](const std::string &name) { return name.find("/lod/") != std::string::npos; };
     // The base family: the one with a model numbered _26 (ice_26, alpin_26,
     // vol_26; alien_ goes on to 29).
     std::string base;
-    for (const auto& n : geoNames) {
+    for (const auto &n : geoNames) {
         const std::string s = stem(n);
         if (!isLod(n) && s.size() > 3 && s.compare(s.size() - 3, 3, "_26") == 0)
             base = s.substr(0, s.size() - 3);
@@ -168,41 +168,41 @@ std::vector<size_t> tileModelOrder(const std::vector<std::string>& geoNames) {
         return base + number;
     };
     for (int i = 1; i <= 16; ++i)
-        places.push_back({baseTile(i)});              // 0-15
-    places.push_back({"hole_01"});                    // 16: a plateau at the top level
-    places.push_back({baseTile(21)});                 // 17: not used by any map seen
-    places.push_back({baseTile(22)});                 // 18: the third corner slope
-    places.push_back({baseTile(20)});                 // 19
-    places.push_back({baseTile(18)});                 // 20
-    for (const char* n : {"crack_03", "crack_04", "crack_05", "crack_06", "", "crack_08"})
-        places.push_back({n});                        // 21-26: crack_0N at 18 + N
-    for (const char* n : {"brid_01", "brid_02", "ramp", "concrete", "hole_03", "hole_02", "concact"})
-        places.push_back({n});                        // 27-33
-    places.push_back({baseTile(19)});                 // 34
+        places.push_back({baseTile(i)}); // 0-15
+    places.push_back({"hole_01"});       // 16: a plateau at the top level
+    places.push_back({baseTile(21)});    // 17: not used by any map seen
+    places.push_back({baseTile(22)});    // 18: the third corner slope
+    places.push_back({baseTile(20)});    // 19
+    places.push_back({baseTile(18)});    // 20
+    for (const char *n : {"crack_03", "crack_04", "crack_05", "crack_06", "", "crack_08"})
+        places.push_back({n}); // 21-26: crack_0N at 18 + N
+    for (const char *n : {"brid_01", "brid_02", "ramp", "concrete", "hole_03", "hole_02", "concact"})
+        places.push_back({n});        // 27-33
+    places.push_back({baseTile(19)}); // 34
     for (int i = 23; i <= 26; ++i)
-        places.push_back({baseTile(i)});              // 35-38
-    places.push_back({baseTile(17)});                 // 39
-    places.push_back({""});                           // 40: flat ground, model unknown
-    for (const char* n : {"ball_01", "ball_02", "ball_03"})
-        places.push_back({n});                        // 41-43 (alnwrld)
-    places.push_back({"water_01"});                   // 44-47: alpwrld's water; alnwrld's
-    places.push_back({"water_02", baseTile(27)});     // shallow alien_27-29 (their order
-    places.push_back({"water_03", baseTile(28)});     // isn't sure)
+        places.push_back({baseTile(i)}); // 35-38
+    places.push_back({baseTile(17)});    // 39
+    places.push_back({""});              // 40: flat ground, model unknown
+    for (const char *n : {"ball_01", "ball_02", "ball_03"})
+        places.push_back({n});                    // 41-43 (alnwrld)
+    places.push_back({"water_01"});               // 44-47: alpwrld's water; alnwrld's
+    places.push_back({"water_02", baseTile(27)}); // shallow alien_27-29 (their order
+    places.push_back({"water_03", baseTile(28)}); // isn't sure)
     places.push_back({"water_04", baseTile(29)});
-    places.push_back({"mount_01"});                   // 48-49
+    places.push_back({"mount_01"}); // 48-49
     places.push_back({"mount_02"});
-    places.push_back({"arche_01"});                   // 50-51 (deswrld)
+    places.push_back({"arche_01"}); // 50-51 (deswrld)
     places.push_back({"needle_0"});
-    places.push_back({"icecave1", "lavafall"});       // 52 (icewrld, vlcwrld)
-    places.push_back({"icecave2"});                   // 53
-    places.push_back({"finger_1"});                   // 54 (redwrld)
+    places.push_back({"icecave1", "lavafall"}); // 52 (icewrld, vlcwrld)
+    places.push_back({"icecave2"});             // 53
+    places.push_back({"finger_1"});             // 54 (redwrld)
 
     std::vector<size_t> order;
     std::vector<bool> used(geoNames.size());
-    for (const auto& names : places) {
+    for (const auto &names : places) {
         size_t found = kNoModel;
         for (size_t i = 0; i < geoNames.size() && found == kNoModel && !base.empty(); ++i)
-            for (const auto& n : names)
+            for (const auto &n : names)
                 if (!used[i] && !isLod(geoNames[i]) && stem(geoNames[i]) == n)
                     found = i;
         if (found != kNoModel)

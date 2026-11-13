@@ -33,20 +33,20 @@ struct GameFont {
 
     // The glyph a code point is drawn with: its own, else (for a code beyond
     // Latin-1) its plain form, else '?'; nullptr if the font has none.
-    const Glyph* glyph(uint32_t codePoint) const;
+    const Glyph *glyph(uint32_t codePoint) const;
     int textWidth(std::string_view utf8) const;
     // Blends UTF-8 text in the colour into an RGBA32 surface with its
     // top-left corner at (x, y); returns the x after the last character.
-    int drawText(Surface& surface, int x, int y, std::string_view utf8, Color color, int scale = 1) const;
+    int drawText(Surface &surface, int x, int y, std::string_view utf8, Color color, int scale = 1) const;
 };
 
 // Reads a .fif glyph table.
-Error parseFif(const std::vector<uint8_t>& data, GameFont& out);
+Error parseFif(const std::vector<uint8_t> &data, GameFont &out);
 // Adds the image from a .fbp.
-Error setFontImage(const std::vector<uint8_t>& fbp, GameFont& font);
+Error setFontImage(const std::vector<uint8_t> &fbp, GameFont &font);
 
 // Every font in the archives, once per name (fedgui.cat stores fe5pt four
 // times). Fonts that don't read are left out.
-std::vector<GameFont> loadGameFonts(const Archives& archives);
+std::vector<GameFont> loadGameFonts(const Archives &archives);
 
 } // namespace reluva::newworlds

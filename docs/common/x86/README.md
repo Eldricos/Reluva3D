@@ -8,7 +8,7 @@ with stand-ins for the parts of Windows, DirectX and the libraries it
 calls. The code stays in the user's copy, on any machine Reluva builds
 for. It's new code, written from Intel's published instruction set
 reference and Microsoft's published PE/COFF specification and API
-documentation. It's all in `src/common/x86/`.
+documentation. It's all in `src/emulation/x86/`.
 
 | Page | What it covers |
 |---|---|

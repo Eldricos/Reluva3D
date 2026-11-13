@@ -3,8 +3,8 @@
 
 #pragma once
 
-#include "common/audio/mixer.h"
-#include "common/audio/stream.h"
+#include "audio/mixer.h"
+#include "audio/stream.h"
 
 #include <memory>
 #include <vector>
@@ -21,13 +21,15 @@ const int kVolumeArcadeMusic = 64;
 const int kVolumeSpeech = 75;
 
 // A game volume (0..127) on the mixer's scale (0..audio::kMaxVolume).
-inline int mixerVolume(int gameVolume) { return gameVolume * audio::kMaxVolume / kVolumeFull; }
+inline int mixerVolume(int gameVolume) {
+    return gameVolume * audio::kMaxVolume / kVolumeFull;
+}
 
 enum RawFormat { kRawU8, kRawS8, kRawS16LE, kRawS16BE };
 
 // The files have no header and mix formats, so the format is worked out from the
 // data: the high byte of 16-bit samples is far more predictable than the low byte.
-RawFormat detectRawFormat(const std::vector<uint8_t>& data);
+RawFormat detectRawFormat(const std::vector<uint8_t> &data);
 
 // Makes a stream for raw sound data (`loops` 0 = forever).
 std::unique_ptr<audio::Stream> makeRawStream(std::vector<uint8_t> data, int loops = 1);

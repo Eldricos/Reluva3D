@@ -20,12 +20,12 @@ Voyager - Elite Force (`stvef`).
 | Text files | done: tokenizer ([text.md](formats/text.md)) and entity lump |
 | Shader scripts | every Quake III directive parsed into typed fields, unknown ones listed (`reluva-tool idtech3 shader-check`) ([shader.md](formats/shader.md)) |
 | Maps | every BSP lump read and validated; all 67 retail maps load ([bsp.md](formats/bsp.md)) |
-| Images | TGA, JPEG, PNG (`common/image.cpp`) |
+| Images | TGA, JPEG, PNG (`image/image.cpp`) |
 | Models | MD3 and Elite Force's MDR, players put together from their parts, lit by the light grid ([md3.md](formats/md3.md), [mdr.md](formats/mdr.md)) |
 | Game code | QVM interpreter done ([qvm.md](formats/qvm.md)); Elite Force's menus, game and client game run on it |
 | Viewer | Menu, Play, World, Models, Maps, Textures and Files pages |
 | Renderer | Every shader stage, sky boxes and cloud layers, curved surfaces, fog, dynamic lights, models' levels of detail, and visibility as the original's renderer has it |
-| Sound | sounds by name, decoded once (`sounds.cpp`), mixed by `common/audio`'s mixer; the menus' sounds; in the Play page sounds placed in the world, looping sounds and music (`sound_system.cpp`) |
+| Sound | sounds by name, decoded once (`sounds.cpp`), mixed by `src/audio`'s mixer; the menus' sounds; in the Play page sounds placed in the world, looping sounds and music (`sound_system.cpp`) |
 
 How each part works with Elite Force, in full: [games/stvef/](games/stvef/README.md#where-it-stands).
 

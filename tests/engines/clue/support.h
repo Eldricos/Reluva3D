@@ -6,8 +6,8 @@
 
 #pragma once
 
-#include "engines/clue/board.h"
-#include "engines/clue/level.h"
+#include "engines/clue/game/board.h"
+#include "engines/clue/formats/level.h"
 #include "tests/support/test.h"
 
 #include <cstdint>
@@ -20,23 +20,23 @@ namespace reluva::clue::testing {
 
 using Bytes = std::vector<uint8_t>;
 
-inline void put16(Bytes& b, uint32_t v) {
+inline void put16(Bytes &b, uint32_t v) {
     b.push_back(uint8_t(v));
     b.push_back(uint8_t(v >> 8));
 }
 
-inline void put32(Bytes& b, uint32_t v) {
+inline void put32(Bytes &b, uint32_t v) {
     put16(b, v & 0xffff);
     put16(b, v >> 16);
 }
 
-inline void putText(Bytes& b, const char* s) {
+inline void putText(Bytes &b, const char *s) {
     b.push_back(uint8_t(std::strlen(s)));
     b.insert(b.end(), s, s + std::strlen(s));
 }
 
 // A zlib stream holding the data in one stored (uncompressed) block.
-inline Bytes zlibStored(const Bytes& data) {
+inline Bytes zlibStored(const Bytes &data) {
     Bytes z = {0x78, 0x01, 0x01};
     put16(z, uint32_t(data.size()));
     put16(z, uint32_t(~data.size() & 0xffff));
@@ -52,7 +52,7 @@ inline Bytes zlibStored(const Bytes& data) {
     return z;
 }
 
-inline Bytes pack(const Bytes& data) {
+inline Bytes pack(const Bytes &data) {
     const Bytes z = zlibStored(data);
     Bytes p = {'P', 'A', 'C', 'K'};
     put32(p, uint32_t(z.size()));
@@ -63,10 +63,10 @@ inline Bytes pack(const Bytes& data) {
 
 // A DDRV archive of named records, its directory in reverse name order as
 // the game's aren't in file order either.
-inline Bytes drive(const std::vector<std::pair<std::string, Bytes>>& files) {
+inline Bytes drive(const std::vector<std::pair<std::string, Bytes>> &files) {
     Bytes d = {'D', 'D', 'R', 'V', 0, 0, 0, 0, 0, 0, 0, 0};
     std::vector<uint32_t> offsets;
-    for (const auto& f : files) {
+    for (const auto &f : files) {
         offsets.push_back(uint32_t(d.size()));
         d.insert(d.end(), f.second.begin(), f.second.end());
     }
@@ -138,9 +138,9 @@ inline Bytes animation(bool shortForm, int solid = 1, int sizeX = 16, int sizeY 
     put16(r, 0x200);
     r.push_back(0x80);
     r.insert(r.end(), 128, 0xcd); // unnamed
-    r.insert(r.end(), {6, 2, 2});  // kind, kind, layers
-    put16(r, 2);                   // frames
-    put16(r, 2);                   // images
+    r.insert(r.end(), {6, 2, 2}); // kind, kind, layers
+    put16(r, 2);                  // frames
+    put16(r, 2);                  // images
     put16(r, 75);
     put16(r, 120);
     put32(r, 10);
@@ -151,9 +151,9 @@ inline Bytes animation(bool shortForm, int solid = 1, int sizeX = 16, int sizeY 
     for (int layer = 0; layer < 2; ++layer) {
         put32(r, uint32_t(layer));
         for (int frame = 0; frame < 2; ++frame) {
-            put16(r, uint32_t(layer));                  // image
-            put16(r, uint32_t(layer * 10 + frame));     // x
-            put16(r, uint32_t(-5 & 0xffff));            // y
+            put16(r, uint32_t(layer));              // image
+            put16(r, uint32_t(layer * 10 + frame)); // x
+            put16(r, uint32_t(-5 & 0xffff));        // y
             put16(r, 0);
             put16(r, 0);
         }
@@ -183,8 +183,8 @@ inline Bytes animation(bool shortForm, int solid = 1, int sizeX = 16, int sizeY 
 }
 
 // An object record: its states and timings.
-inline Bytes objectRecord(const char* name, uint8_t type, const std::vector<std::pair<int, const char*>>& states,
-                          const std::vector<std::pair<int, int>>& timings = {}) {
+inline Bytes objectRecord(const char *name, uint8_t type, const std::vector<std::pair<int, const char *>> &states,
+                          const std::vector<std::pair<int, int>> &timings = {}) {
     Bytes r;
     put16(r, 0); // the length, filled in below
     r.push_back(1);
@@ -195,14 +195,14 @@ inline Bytes objectRecord(const char* name, uint8_t type, const std::vector<std:
     r.push_back(type);
     put32(r, 1);
     put16(r, uint32_t(states.size()));
-    for (const auto& [id, anim] : states) {
+    for (const auto &[id, anim] : states) {
         put16(r, uint32_t(id));
         Bytes a(32, 0);
         std::memcpy(a.data(), anim, std::strlen(anim));
         r.insert(r.end(), a.begin(), a.end());
     }
     put16(r, uint32_t(timings.size()));
-    for (const auto& [time, state] : timings) {
+    for (const auto &[time, state] : timings) {
         put16(r, uint32_t(time));
         r.push_back(0);
         put16(r, uint32_t(state));
@@ -221,15 +221,15 @@ struct TestPlacement {
 };
 
 // clue.lvl: World.dat's names and Objects.dat's placements.
-inline Bytes levelFile(const std::vector<const char*>& names, const std::vector<TestPlacement>& placements) {
+inline Bytes levelFile(const std::vector<const char *> &names, const std::vector<TestPlacement> &placements) {
     Bytes world(40, 0);
     std::memcpy(world.data(), "Unnamed", 7);
     put16(world, uint32_t(names.size()));
-    for (const char* n : names)
+    for (const char *n : names)
         putText(world, n);
     Bytes objects;
     put16(objects, uint32_t(placements.size()));
-    for (const TestPlacement& p : placements) {
+    for (const TestPlacement &p : placements) {
         Bytes r;
         r.push_back(p.flags);
         if (p.flags & 0x02)
@@ -241,7 +241,7 @@ inline Bytes levelFile(const std::vector<const char*>& names, const std::vector<
         r.push_back(uint8_t(p.layer));
         if (p.flags & 0x20) {
             put16(r, uint32_t(p.timings.size()));
-            for (const auto& [time, state] : p.timings) {
+            for (const auto &[time, state] : p.timings) {
                 put16(r, uint32_t(time));
                 r.push_back(0);
                 put16(r, uint32_t(state));
@@ -251,12 +251,12 @@ inline Bytes levelFile(const std::vector<const char*>& names, const std::vector<
         put16(objects, uint32_t(r.size() + 2));
         objects.insert(objects.end(), r.begin(), r.end());
     }
-    return drive({{"/World.dat", world}, {"/Info.dat", {0, 0}}, {"/Objects.dat", objects},
-                  {"/Workspace.dat", Bytes(32, 0)}});
+    return drive(
+        {{"/World.dat", world}, {"/Info.dat", {0, 0}}, {"/Objects.dat", objects}, {"/Workspace.dat", Bytes(32, 0)}});
 }
 
 // A RESI string: its length, the characters and a NUL (nothing for "").
-inline void putResiText(Bytes& b, const std::string& s) {
+inline void putResiText(Bytes &b, const std::string &s) {
     b.push_back(uint8_t(s.size()));
     if (s.empty())
         return;
@@ -265,8 +265,8 @@ inline void putResiText(Bytes& b, const std::string& s) {
 }
 
 // A control: its 112-byte block, its two strings and its list's items.
-inline void putControl(Bytes& b, int type, int id, int l, int t, int r, int bot, int centreX, int font, int group,
-                       const std::string& text, const std::string& anim, const std::vector<std::string>& items = {}) {
+inline void putControl(Bytes &b, int type, int id, int l, int t, int r, int bot, int centreX, int font, int group,
+                       const std::string &text, const std::string &anim, const std::vector<std::string> &items = {}) {
     std::array<int32_t, 28> v{};
     v[0] = type;
     v[1] = id;
@@ -287,7 +287,7 @@ inline void putControl(Bytes& b, int type, int id, int l, int t, int r, int bot,
     putResiText(b, text);
     putResiText(b, anim);
     put16(b, uint32_t(items.size()));
-    for (const auto& item : items)
+    for (const auto &item : items)
         putResiText(b, item);
 }
 
@@ -314,14 +314,14 @@ inline Bytes resiFile() {
 // five apart; the kitchen and the study have the secret passages.
 inline Level boardLevel() {
     Level level;
-    const auto object = [&](const std::string& name) {
+    const auto object = [&](const std::string &name) {
         for (size_t i = 0; i < level.objects.size(); ++i)
             if (level.objects[i] == name)
                 return uint16_t(i);
         level.objects.push_back(name);
         return uint16_t(level.objects.size() - 1);
     };
-    const auto place = [&](const std::string& name, int x, int y, int layer) {
+    const auto place = [&](const std::string &name, int x, int y, int layer) {
         Placement p;
         p.object = object(name);
         p.x = int16_t(x);
@@ -333,8 +333,8 @@ inline Level boardLevel() {
     for (int x = 0; x <= 26; ++x)
         for (int y : {2, 3})
             place("r_hwfloor:Ohwfloor", at(x), at(y), 0);
-    static const char* const kFolders[kRoomCount] = {"hallroom", "lounge", "diningroom", "kitchen", "ballroom",
-                                                     "conservatory", "billiardroom", "library", "study"};
+    static const char *const kFolders[kRoomCount] = {
+        "hallroom", "lounge", "diningroom", "kitchen", "ballroom", "conservatory", "billiardroom", "library", "study"};
     for (int r = 0; r < kRoomCount; ++r) {
         for (int x = 3 * r; x < 3 * r + 2; ++x)
             for (int y : {0, 1})
@@ -344,7 +344,7 @@ inline Level boardLevel() {
     }
     place("secretpass:Oktsp", at(9) + 8, at(0) + 8, 5);
     place("secretpass:Osp_w", at(24) + 8, at(0) + 8, 5);
-    static const char* const kNames[kSuspectCount] = {"scarlet", "mustard", "white", "green", "peacock", "plum"};
+    static const char *const kNames[kSuspectCount] = {"scarlet", "mustard", "white", "green", "peacock", "plum"};
     for (int s = 0; s < kSuspectCount; ++s)
         place(std::string("character:O") + kNames[s], at(5 * s) + 24, at(3) + 24, 7);
     return level;

@@ -2,7 +2,7 @@
 
 ## What it is
 
-`src/common/x86/msvcp60.h` and `runtime/`: MSVCP60.dll, Visual C++ 6's C++
+`src/emulation/x86/msvcp60.h` and `runtime/`: MSVCP60.dll, Visual C++ 6's C++
 library.
 Programs build its classes inline and derive from them, so it isn't
 stood in for natively. `runtime/msvcp60.cpp` is our own replacement,
@@ -37,7 +37,7 @@ importing only MSVCRT; `loadMsvcp60` loads it into a process.
 LEGO Alpha Team's code derives from the C++ library's classes, builds them
 inline and reads their fields, so stand-ins written natively (as MSVCRT's
 are) won't do: the objects have to be laid out as Visual C++ 6's were.
-`src/common/x86/runtime/msvcp60.cpp` is a replacement written here, each
+`src/emulation/x86/runtime/msvcp60.cpp` is a replacement written here, each
 function doing what the C++ standard says. `build_msvcp60.sh` builds it
 with clang (`i686-pc-windows-msvc`, freestanding, importing only MSVCRT)
 into a DLL embedded in Reluva and loaded before the program's modules.

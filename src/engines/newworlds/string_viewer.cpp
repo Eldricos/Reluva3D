@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 // Copyright (C) 2026 The Reluva contributors
 
-#include "common/font.h"
+#include "graphics/font.h"
 #include "common/text.h"
 #include "engines/newworlds/viewers.h"
 
@@ -20,7 +20,7 @@ constexpr Color kHeadingColor{255, 200, 80}; // ~HEADING~
 constexpr Color kFormatColor{120, 200, 255}; // printf codes: %d, %%
 constexpr int kMargin = 4;
 
-bool endsWith(const std::string& s, const char* suffix) {
+bool endsWith(const std::string &s, const char *suffix) {
     const size_t n = std::char_traits<char>::length(suffix);
     return s.size() >= n && s.compare(s.size() - n, n, suffix) == 0;
 }
@@ -35,9 +35,9 @@ struct Piece {
 
 // Splits a string into pieces: "~HEADING~" on a line of its own, printf
 // codes coloured, '\n' as breaks.
-std::vector<Piece> piecesOf(const std::string& text) {
+std::vector<Piece> piecesOf(const std::string &text) {
     std::vector<Piece> out;
-    auto add = [&](const std::string& word, Color c) {
+    auto add = [&](const std::string &word, Color c) {
         // Mark printf codes within the word.
         size_t at = 0;
         for (size_t i = 0; i < word.size(); ++i) {
@@ -88,12 +88,12 @@ std::vector<Piece> piecesOf(const std::string& text) {
 
 } // namespace
 
-StringViewer::StringViewer(System& sys, Surface& screen, const Archives& archives)
+StringViewer::StringViewer(System &sys, Surface &screen, const Archives &archives)
     : sys_(sys), screen_(screen), archives_(archives) {
     // misc.cat stores one table (str/eng/frend.stb) with the texture tag, so
     // go by name as well as tag.
     for (size_t a = 0; a < archives_.size(); ++a) {
-        const auto& entries = archives_[a]->entries();
+        const auto &entries = archives_[a]->entries();
         for (size_t i = 0; i < entries.size(); ++i)
             if (!entries[i].container && (entries[i].tag == cattag::Strings || endsWith(entries[i].name, ".stb")))
                 tables_.push_back({a, i});
@@ -137,14 +137,30 @@ void StringViewer::handleKey(uint32_t k) {
         return;
     const int last = std::max(0, int(lines_.size()) - rows());
     switch (k) {
-    case key::Right: show((current_ + 1) % n); return;
-    case key::Left: show((current_ + n - 1) % n); return;
-    case key::Down: top_ = std::min(top_ + 1, last); break;
-    case key::Up: top_ = std::max(top_ - 1, 0); break;
-    case key::PageDown: top_ = std::min(top_ + rows() - 1, last); break;
-    case key::PageUp: top_ = std::max(top_ - (rows() - 1), 0); break;
-    case key::Home: top_ = 0; break;
-    case key::End: top_ = last; break;
+    case key::Right:
+        show((current_ + 1) % n);
+        return;
+    case key::Left:
+        show((current_ + n - 1) % n);
+        return;
+    case key::Down:
+        top_ = std::min(top_ + 1, last);
+        break;
+    case key::Up:
+        top_ = std::max(top_ - 1, 0);
+        break;
+    case key::PageDown:
+        top_ = std::min(top_ + rows() - 1, last);
+        break;
+    case key::PageUp:
+        top_ = std::max(top_ - (rows() - 1), 0);
+        break;
+    case key::Home:
+        top_ = 0;
+        break;
+    case key::End:
+        top_ = last;
+        break;
     case '+':
     case '=':
         scale_ = std::min(scale_ + 1, 3);
@@ -159,7 +175,8 @@ void StringViewer::handleKey(uint32_t k) {
         font_ = font_ + 1 < int(fonts_.size()) ? font_ + 1 : -1;
         layout();
         break;
-    default: return;
+    default:
+        return;
     }
     draw();
     updateTitle();
@@ -169,8 +186,8 @@ void StringViewer::show(int index) {
     current_ = index;
     top_ = 0;
     status_.clear();
-    const EntryRef& ref = tables_[size_t(index)];
-    CatArchive& cat = *archives_[ref.archive];
+    const EntryRef &ref = tables_[size_t(index)];
+    CatArchive &cat = *archives_[ref.archive];
     std::vector<uint8_t> data;
     if (Error err = cat.read(cat.entries()[ref.entry], data))
         status_ = err.message;
@@ -187,7 +204,7 @@ void StringViewer::layout() {
     lines_.clear();
     const int idWidth = measure("9999 ");
     const int width = std::max(measure("MMMMMMMMMM"), screen_.w - 2 * kMargin - idWidth);
-    for (const StringTable::String& s : table_.strings()) {
+    for (const StringTable::String &s : table_.strings()) {
         Line line{std::to_string(s.id), {}};
         int used = 0; // pixels on this line after the id column
         auto newLine = [&] {
@@ -195,7 +212,7 @@ void StringViewer::layout() {
             line = Line{};
             used = 0;
         };
-        for (const Piece& p : piecesOf(s.text)) {
+        for (const Piece &p : piecesOf(s.text)) {
             if (p.lineBreak) {
                 if (used > 0)
                     newLine();
@@ -232,7 +249,7 @@ void StringViewer::layout() {
 
 void StringViewer::draw() {
     for (int y = 0; y < screen_.h; ++y) {
-        uint8_t* row = screen_.row(y);
+        uint8_t *row = screen_.row(y);
         for (int x = 0; x < screen_.w; ++x, row += 4)
             row[0] = kBackground.r, row[1] = kBackground.g, row[2] = kBackground.b, row[3] = 255;
     }
@@ -242,12 +259,12 @@ void StringViewer::draw() {
     }
     const int idWidth = measure("9999 ");
     for (int r = 0; r < rows() && top_ + r < int(lines_.size()); ++r) {
-        const Line& line = lines_[size_t(top_ + r)];
+        const Line &line = lines_[size_t(top_ + r)];
         const int y = kMargin + r * lineHeight();
         // Ids right-aligned in their column.
         drawSpan(kMargin + idWidth - measure(line.id + " "), y, line.id, kIdColor);
         int x = kMargin + idWidth;
-        for (const Span& span : line.spans)
+        for (const Span &span : line.spans)
             x = drawSpan(x, y, span.text, span.color);
     }
 }
@@ -255,7 +272,7 @@ void StringViewer::draw() {
 void StringViewer::updateTitle() {
     if (tables_.empty())
         return;
-    const EntryRef& ref = tables_[size_t(current_)];
+    const EntryRef &ref = tables_[size_t(current_)];
     std::string title = "New Worlds strings " + std::to_string(current_ + 1) + "/" + std::to_string(tables_.size()) +
                         ": " + archives_[ref.archive]->entries()[ref.entry].name + " in " +
                         archives_[ref.archive]->path().filename().string() + " (";

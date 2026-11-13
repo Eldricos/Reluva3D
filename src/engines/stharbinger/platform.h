@@ -3,8 +3,8 @@
 
 #pragma once
 
-#include "common/audio/mixer.h"
-#include "common/draw.h"
+#include "audio/mixer.h"
+#include "graphics/draw.h"
 #include "common/events.h"
 #include "common/system.h"
 
@@ -38,36 +38,36 @@ class Platform {
 public:
     // `mixer` may be null (no sound); `saveDir` is the game's own folder
     // for its files (GameTarget::savePath).
-    Platform(System& system, audio::Mixer* mixer, std::filesystem::path saveDir);
+    Platform(System &system, audio::Mixer *mixer, std::filesystem::path saveDir);
 
     void initGraphics(int width, int height);
     // `rgb`: 8 bits per channel, `count` entries from `start`.
-    void setPalette(const uint8_t* rgb, int start, int count);
+    void setPalette(const uint8_t *rgb, int start, int count);
     // The picture shown by the next updateScreen().
-    void copyRectToScreen(const Surface& screen);
+    void copyRectToScreen(const Surface &screen);
     void updateScreen();
-    void setWindowTitle(const std::string& title);
+    void setWindowTitle(const std::string &title);
     void setMouseCursorVisible(bool visible);
     // Typed characters arrive as kKeyDown events with `ascii` (for names).
     void setTextInput(bool on);
 
     // False when no more events are pending.
-    bool pollEvent(InputEvent& event);
+    bool pollEvent(InputEvent &event);
     // The player closed the window or went back to the launcher.
     bool quitRequested() const { return quit_; }
 
     uint32_t getMillis() const;
     void delayMillis(uint32_t ms);
 
-    audio::Mixer* getMixer() { return mixer_; }
+    audio::Mixer *getMixer() { return mixer_; }
 
     // The folder for saved games and settings, made if needed, with a
     // separator at the end; the game adds its own subfolders.
     std::string getSavePath();
 
 private:
-    System& system_;
-    audio::Mixer* mixer_;
+    System &system_;
+    audio::Mixer *mixer_;
     std::filesystem::path saveDir_;
     Surface screen_;
     bool graphics_ = false;

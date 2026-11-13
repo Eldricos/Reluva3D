@@ -13,21 +13,23 @@ namespace {
 constexpr size_t kScrambleStart = 6;
 constexpr uint32_t kFragmentBit = 0x80000000u;
 
-void putLong(std::vector<uint8_t>& out, uint32_t v) {
+void putLong(std::vector<uint8_t> &out, uint32_t v) {
     for (int i = 0; i < 4; ++i)
         out.push_back(uint8_t(v >> (8 * i)));
 }
-void putShort(std::vector<uint8_t>& out, uint16_t v) {
+void putShort(std::vector<uint8_t> &out, uint16_t v) {
     out.push_back(uint8_t(v));
     out.push_back(uint8_t(v >> 8));
 }
-uint32_t getLong(const std::vector<uint8_t>& d, size_t at) {
+uint32_t getLong(const std::vector<uint8_t> &d, size_t at) {
     return uint32_t(d[at]) | uint32_t(d[at + 1]) << 8 | uint32_t(d[at + 2]) << 16 | uint32_t(d[at + 3]) << 24;
 }
-uint16_t getShort(const std::vector<uint8_t>& d, size_t at) { return uint16_t(d[at] | d[at + 1] << 8); }
+uint16_t getShort(const std::vector<uint8_t> &d, size_t at) {
+    return uint16_t(d[at] | d[at + 1] << 8);
+}
 
 // The sequence of numbers and the swap mask scrambling uses.
-std::vector<uint32_t> scrambleSequence(const std::vector<uint8_t>& d, uint32_t& mask) {
+std::vector<uint32_t> scrambleSequence(const std::vector<uint8_t> &d, uint32_t &mask) {
     const auto n = uint32_t(d.size());
     uint32_t seed = (getLong(d, 0) * 3u) ^ (n * 123u) ^ 0x87243987u;
     std::vector<uint32_t> r(n);
@@ -45,7 +47,7 @@ std::vector<uint32_t> scrambleSequence(const std::vector<uint8_t>& d, uint32_t& 
 
 } // namespace
 
-void Netchan::scramble(std::vector<uint8_t>& d) {
+void Netchan::scramble(std::vector<uint8_t> &d) {
     if (d.size() <= kScrambleStart)
         return;
     uint32_t mask = 0;
@@ -56,7 +58,7 @@ void Netchan::scramble(std::vector<uint8_t>& d) {
         std::swap(d[i], d[kScrambleStart + (r[i] & mask)]);
 }
 
-void Netchan::unscramble(std::vector<uint8_t>& d) {
+void Netchan::unscramble(std::vector<uint8_t> &d) {
     if (d.size() <= kScrambleStart)
         return;
     uint32_t mask = 0;
@@ -67,7 +69,7 @@ void Netchan::unscramble(std::vector<uint8_t>& d) {
         d[i] = uint8_t(d[i] ^ r[i]);
 }
 
-std::vector<std::vector<uint8_t>> Netchan::transmit(const std::vector<uint8_t>& message) {
+std::vector<std::vector<uint8_t>> Netchan::transmit(const std::vector<uint8_t> &message) {
     std::vector<std::vector<uint8_t>> out;
     const auto sequence = uint32_t(outgoing_++);
     auto header = [&](uint32_t seq) {
@@ -102,14 +104,14 @@ std::vector<std::vector<uint8_t>> Netchan::transmit(const std::vector<uint8_t>& 
     return out;
 }
 
-bool Netchan::clientQport(const std::vector<uint8_t>& datagram, uint16_t& qport) {
+bool Netchan::clientQport(const std::vector<uint8_t> &datagram, uint16_t &qport) {
     if (datagram.size() < 6)
         return false;
     qport = getShort(datagram, 4);
     return true;
 }
 
-bool Netchan::process(std::vector<uint8_t> d, std::vector<uint8_t>& message) {
+bool Netchan::process(std::vector<uint8_t> d, std::vector<uint8_t> &message) {
     if (d.size() < 4)
         return false;
     unscramble(d);

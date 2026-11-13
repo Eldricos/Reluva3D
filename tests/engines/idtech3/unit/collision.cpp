@@ -4,14 +4,14 @@
 // id Tech 3 unit tests: Collision, the server's world, area portals and marks.
 
 #include "common/fs.h"
-#include "engines/idtech3/bindings.h"
+#include "engines/idtech3/client/bindings.h"
 #include "engines/idtech3/client/joystick_input.h"
 #include "engines/idtech3/client/player_input.h"
 #include "engines/idtech3/botlib/aas.h"
 #include "engines/idtech3/botlib/bot_library.h"
 #include "engines/idtech3/botlib/bot_script.h"
 #include "engines/idtech3/botlib/character.h"
-#include "engines/idtech3/bsp.h"
+#include "engines/idtech3/formats/bsp.h"
 #include "engines/idtech3/collision.h"
 #include "engines/idtech3/cvars.h"
 #include "engines/idtech3/eliteforce/cgame_host.h"
@@ -24,29 +24,29 @@
 #include "engines/idtech3/eliteforce/net_server.h"
 #include "engines/idtech3/eliteforce/sp_game_host.h"
 #include "engines/idtech3/eliteforce/ui_host.h"
-#include "engines/idtech3/entities.h"
+#include "engines/idtech3/formats/entities.h"
 #include "engines/idtech3/filesystem.h"
 #include "engines/idtech3/info_string.h"
 #include "engines/idtech3/games.h"
-#include "engines/idtech3/lexer.h"
-#include "engines/idtech3/marks.h"
-#include "engines/idtech3/light_grid.h"
-#include "engines/idtech3/md3.h"
-#include "engines/idtech3/model_cache.h"
+#include "engines/idtech3/formats/lexer.h"
+#include "engines/idtech3/formats/marks.h"
+#include "engines/idtech3/render/light_grid.h"
+#include "engines/idtech3/formats/md3.h"
+#include "engines/idtech3/render/model_cache.h"
 #include "engines/idtech3/wire/message.h"
 #include "engines/idtech3/wire/netchan.h"
-#include "engines/idtech3/patch.h"
-#include "engines/idtech3/player_animation.h"
+#include "engines/idtech3/render/patch.h"
+#include "engines/idtech3/formats/player_animation.h"
 #include "engines/idtech3/pure.h"
-#include "engines/idtech3/qvm.h"
-#include "engines/idtech3/server_browser.h"
-#include "backends/sockets/socket_net.h"
-#include "engines/idtech3/shader.h"
+#include "engines/idtech3/vm/qvm.h"
+#include "engines/idtech3/client/server_browser.h"
+#include "backends/networking/sockets/socket_net.h"
+#include "engines/idtech3/formats/shader.h"
 #include "engines/idtech3/raven/ambient_sets.h"
-#include "engines/idtech3/sound_system.h"
-#include "engines/idtech3/sounds.h"
+#include "engines/idtech3/audio/sound_system.h"
+#include "engines/idtech3/audio/sounds.h"
 #include "engines/idtech3/pages/page.h"
-#include "common/audio/wav.h"
+#include "audio/wav.h"
 #include "common/md4.h"
 #include "common/zip.h"
 #include "engines/registry.h"
@@ -54,7 +54,7 @@
 #include "tests/engines/idtech3/data/qvm/fake_game_qvm.h"
 #include "tests/engines/idtech3/data/qvm/fake_ui_qvm.h"
 #include "tests/engines/idtech3/data/qvm/test_vm_qvm.h"
-#include "engines/idtech3/vm_services.h"
+#include "engines/idtech3/vm/vm_services.h"
 #include "tests/engines/idtech3/fixtures.h"
 #include "tests/support/test.h"
 #include "tests/support/zip_writer.h"
@@ -83,7 +83,7 @@ using namespace reluva::idtech3::fixtures;
 static void testServerWorld() {
     using namespace reluva::idtech3;
     std::map<int32_t, EntityShape> shapes;
-    ServerWorld world([&](int32_t n, EntityShape& out) {
+    ServerWorld world([&](int32_t n, EntityShape &out) {
         const auto it = shapes.find(n);
         if (it == shapes.end())
             return false;
@@ -114,8 +114,8 @@ static void testServerWorld() {
         world.unlink(n);
         shapes.erase(n);
     }
-    auto touches = [&](int32_t n, const Vec3f& lo, const Vec3f& hi) {
-        const ServerWorld::Placement* p = world.placement(n);
+    auto touches = [&](int32_t n, const Vec3f &lo, const Vec3f &hi) {
+        const ServerWorld::Placement *p = world.placement(n);
         for (int i = 0; i < 3; ++i)
             if (p->absMin[size_t(i)] > hi[size_t(i)] || p->absMax[size_t(i)] < lo[size_t(i)])
                 return false;
@@ -140,7 +140,7 @@ static void testServerWorld() {
         float bestFraction = 1;
         int32_t bestHit = ServerWorld::kNone;
         for (const int32_t n : world.linked()) {
-            const EntityShape& s = shapes[n];
+            const EntityShape &s = shapes[n];
             if (n == pass || s.owner == pass || (shapes.count(pass) && shapes[pass].owner == n) || !(s.contents & 1))
                 continue;
             Vec3f boxMin = s.mins, boxMax = s.maxs;
@@ -162,7 +162,7 @@ static void testServerWorld() {
         movesAgree &= t.fraction == bestFraction && hit == bestHit;
         int32_t contents = 0;
         for (const int32_t n : world.linked()) {
-            const EntityShape& s = shapes[n];
+            const EntityShape &s = shapes[n];
             bool inside = true;
             for (int i = 0; i < 3; ++i)
                 inside &= a[size_t(i)] >= s.origin[size_t(i)] + s.mins[size_t(i)] &&
@@ -316,16 +316,16 @@ void testMarks() {
     marks.mark(square, {0, 0, -20}, 384, 128, points, fragments);
     CHECK(!fragments.empty() && fragments.size() <= 2);
     float area = 0;
-    for (const auto& f : fragments) {
+    for (const auto &f : fragments) {
         CHECK(f.numPoints >= 3);
         for (int i = 1; i + 1 < f.numPoints; ++i) {
-            const Vec3f& a = points[size_t(f.firstPoint)];
-            const Vec3f& b = points[size_t(f.firstPoint + i)];
-            const Vec3f& c = points[size_t(f.firstPoint + i + 1)];
+            const Vec3f &a = points[size_t(f.firstPoint)];
+            const Vec3f &b = points[size_t(f.firstPoint + i)];
+            const Vec3f &c = points[size_t(f.firstPoint + i + 1)];
             area += std::fabs((b[0] - a[0]) * (c[1] - a[1]) - (b[1] - a[1]) * (c[0] - a[0])) / 2;
         }
     }
-    for (const Vec3f& p : points)
+    for (const Vec3f &p : points)
         CHECK(std::fabs(p[2]) < 1e-4f && std::fabs(p[0]) <= 8.001f && std::fabs(p[1]) <= 8.001f);
     CHECK(std::fabs(area - 256) < 0.1f); // the whole square, on the floor
     // From below, the floor faces away; too far above, it's out of reach.
@@ -365,10 +365,12 @@ void testAreaPortals() {
     CHECK(areas.connected(0, 2));
 }
 
-static const reluva::test::Suite suite("idtech3.unit.collision", {
-    {"traces", [](const std::filesystem::path&) { testCollision(); }},
-    {"patch collision", [](const std::filesystem::path&) { testPatchCollision(); }},
-    {"server world", [](const std::filesystem::path&) { testServerWorld(); }},
-    {"area portals", [](const std::filesystem::path&) { testAreaPortals(); }},
-    {"marks", [](const std::filesystem::path&) { testMarks(); }},
-});
+static const reluva::test::Suite
+    suite("idtech3.unit.collision",
+          {
+              {"traces", [](const std::filesystem::path &) { testCollision(); }},
+              {"patch collision", [](const std::filesystem::path &) { testPatchCollision(); }},
+              {"server world", [](const std::filesystem::path &) { testServerWorld(); }},
+              {"area portals", [](const std::filesystem::path &) { testAreaPortals(); }},
+              {"marks", [](const std::filesystem::path &) { testMarks(); }},
+          });

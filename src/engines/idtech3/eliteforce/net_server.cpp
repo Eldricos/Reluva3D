@@ -5,11 +5,11 @@
 
 #include "engines/idtech3/eliteforce/game_info.h"
 
-#include "engines/idtech3/bindings.h"
+#include "engines/idtech3/client/bindings.h"
 #include "engines/idtech3/eliteforce/net_fields.h"
 #include "engines/idtech3/info_string.h"
 #include "engines/idtech3/pure.h"
-#include "engines/idtech3/server_browser.h"
+#include "engines/idtech3/client/server_browser.h"
 
 #include "common/fs.h"
 
@@ -24,23 +24,22 @@ namespace reluva::idtech3::eliteforce {
 namespace {
 
 // Server message opcodes (Quake III's numbers).
-constexpr uint32_t kSvcGamestate = 2, kSvcConfigstring = 3, kSvcBaseline = 4, kSvcServerCommand = 5,
-                   kSvcSnapshot = 7;
+constexpr uint32_t kSvcGamestate = 2, kSvcConfigstring = 3, kSvcBaseline = 4, kSvcServerCommand = 5, kSvcSnapshot = 7;
 // Client message opcodes.
 constexpr int32_t kClcNop = 1, kClcMove = 2, kClcMoveNoDelta = 3, kClcClientCommand = 4;
 constexpr int kMaxPacketCommands = 32;
 constexpr int32_t kPlayersConfigstring = 544; // CS_PLAYERS: a player's info, "\n\<name>\..."
-constexpr int32_t kPersistantOffset = 268;   // playerState persistant[], 1.2's layout; [0] the score
-constexpr size_t kConfigstringPiece = 1000;  // longer configstrings go in pieces (bcs0, bcs1, bcs2)
+constexpr int32_t kPersistantOffset = 268;    // playerState persistant[], 1.2's layout; [0] the score
+constexpr size_t kConfigstringPiece = 1000;   // longer configstrings go in pieces (bcs0, bcs1, bcs2)
 constexpr uint64_t kZombieMs = 2000;
 constexpr uint64_t kChallengeMs = 60000;
 
 } // namespace
 
-std::vector<std::string> configstringCommands(const std::map<int32_t, std::string>& before,
-                                              const std::map<int32_t, std::string>& now) {
+std::vector<std::string> configstringCommands(const std::map<int32_t, std::string> &before,
+                                              const std::map<int32_t, std::string> &now) {
     std::vector<std::string> out;
-    for (const auto& [index, text] : now) {
+    for (const auto &[index, text] : now) {
         const auto it = before.find(index);
         if (it != before.end() && it->second == text)
             continue;
@@ -50,17 +49,17 @@ std::vector<std::string> configstringCommands(const std::map<int32_t, std::strin
             continue;
         }
         for (size_t at = 0; at < text.size(); at += kConfigstringPiece) {
-            const char* kind = at == 0 ? "bcs0 " : at + kConfigstringPiece >= text.size() ? "bcs2 " : "bcs1 ";
+            const char *kind = at == 0 ? "bcs0 " : at + kConfigstringPiece >= text.size() ? "bcs2 " : "bcs1 ";
             out.push_back(kind + i + " \"" + text.substr(at, kConfigstringPiece) + "\"");
         }
     }
-    for (const auto& [index, text] : before)
+    for (const auto &[index, text] : before)
         if (!now.count(index))
             out.push_back("cs " + std::to_string(index) + " \"\"");
     return out;
 }
 
-NetServer::NetServer(GameHost& game, CvarStore& cvars, std::unique_ptr<reluva::net::UdpSocket> socket)
+NetServer::NetServer(GameHost &game, CvarStore &cvars, std::unique_ptr<reluva::net::UdpSocket> socket)
     : game_(game), cvars_(cvars), socket_(std::move(socket)) {
     cvars_.create("sv_timeout", "200", 0);
     clients_.resize(64);
@@ -71,7 +70,7 @@ NetServer::~NetServer() {
     // As the original when it shuts down: a last message to everyone,
     // telling them it's gone; and two heartbeats, so the masters ask, get
     // no answer and drop it.
-    for (Client& c : clients_)
+    for (Client &c : clients_)
         if (c.state >= State::Connected)
             finalMessage(c, "Server shut down", lastNow_);
     heartbeat(lastNow_, true);
@@ -86,7 +85,7 @@ void NetServer::heartbeat(uint64_t now, bool force) {
     nextHeartbeat_ = now + 300000;
     if (!mastersResolved_) {
         mastersResolved_ = true;
-        for (const std::string& name : masterServerNames(cvars_, masterServers())) {
+        for (const std::string &name : masterServerNames(cvars_, masterServers())) {
             const auto [host, port] = reluva::net::splitHostPort(name, ServerBrowser::kMasterPort);
             uint32_t ip = 0;
             if (resolveHost(host, ip))
@@ -95,14 +94,14 @@ void NetServer::heartbeat(uint64_t now, bool force) {
                 print("Couldn't find the master server " + name + "\n");
         }
     }
-    for (const reluva::net::Address& m : masters_) {
+    for (const reluva::net::Address &m : masters_) {
         sendText(m, "\\heartbeat\\" + std::to_string(port()) + "\\gamename\\STEF1\\");
         if (print)
             print("Heartbeat to the master at " + m.toString() + "\n");
     }
 }
 
-void NetServer::finalMessage(Client& c, const std::string& reason, uint64_t now) {
+void NetServer::finalMessage(Client &c, const std::string &reason, uint64_t now) {
     // As the original: the reason as a command, and twice, a snapshot
     // with it (the client game reads commands as snapshots say they're
     // there; the retail client acts on disconnect only then).
@@ -128,16 +127,18 @@ uint32_t NetServer::nextRandom() {
 
 namespace {
 
-constexpr int kDownloadWindow = 48;   // blocks sent ahead of the client's acknowledgement
+constexpr int kDownloadWindow = 48; // blocks sent ahead of the client's acknowledgement
 constexpr size_t kDownloadBlock = 1024;
 
 // A pak's name as the original lists it: its folder and name, without .pk3.
-std::string pakName(const ZipArchive& pak) {
+std::string pakName(const ZipArchive &pak) {
     const std::filesystem::path p(pak.describe());
     return p.parent_path().filename().string() + "/" + p.stem().string();
 }
 
-int downloadBlocks(size_t size) { return int(size / kDownloadBlock + (size % kDownloadBlock ? 1 : 0)) + 1; }
+int downloadBlocks(size_t size) {
+    return int(size / kDownloadBlock + (size % kDownloadBlock ? 1 : 0)) + 1;
+}
 
 } // namespace
 
@@ -153,29 +154,29 @@ void NetServer::levelStarted() {
     pure_ = false;
     purePaks_.clear();
     if (files_) {
-        std::set<const Archive*> used;
-        auto note = [&](const std::string& name) {
-            if (const Archive* a = files_->find(name))
+        std::set<const Archive *> used;
+        auto note = [&](const std::string &name) {
+            if (const Archive *a = files_->find(name))
                 used.insert(a);
         };
         const std::string map = cvars_.string("mapname");
         note("maps/" + map + ".bsp");
         note("vm/cgame.qvm");
         note("vm/ui.qvm");
-        for (const std::string& name : game_.filesRead())
+        for (const std::string &name : game_.filesRead())
             if (referencesPak(name))
                 note(name);
         std::string sums, names, allSums, allNames;
         referencedNames_.clear();
-        for (const Archive* a : files_->archives()) {
-            const auto* pak = dynamic_cast<const ZipArchive*>(a);
+        for (const Archive *a : files_->archives()) {
+            const auto *pak = dynamic_cast<const ZipArchive *>(a);
             if (!pak)
                 continue;
             const std::string name = pakName(*pak);
             allSums += std::to_string(pakChecksum(*pak)) + " ";
             allNames += name + " ";
             std::string folder = name.substr(0, name.find('/'));
-            for (char& ch : folder)
+            for (char &ch : folder)
                 ch = char(std::tolower(static_cast<unsigned char>(ch)));
             if (!used.count(pak) && folder == "baseef")
                 continue;
@@ -191,15 +192,15 @@ void NetServer::levelStarted() {
         // Pure (sv_pure 1): every pak the server has, which players may
         // read only from, and the checksums their answers must give. The
         // client game and menus must come from paks for that.
-        const auto* cgame = dynamic_cast<const ZipArchive*>(files_->find("vm/cgame.qvm"));
-        const auto* ui = dynamic_cast<const ZipArchive*>(files_->find("vm/ui.qvm"));
+        const auto *cgame = dynamic_cast<const ZipArchive *>(files_->find("vm/cgame.qvm"));
+        const auto *ui = dynamic_cast<const ZipArchive *>(files_->find("vm/ui.qvm"));
         if (cvars_.integer("sv_pure") != 0) {
             if (cgame && ui) {
                 pure_ = true;
                 pureCgame_ = pakChecksum(*cgame, checksumFeed_);
                 pureUi_ = pakChecksum(*ui, checksumFeed_);
-                for (const Archive* a : files_->archives())
-                    if (const auto* pak = dynamic_cast<const ZipArchive*>(a))
+                for (const Archive *a : files_->archives())
+                    if (const auto *pak = dynamic_cast<const ZipArchive *>(a))
                         purePaks_.insert(pakChecksum(*pak, checksumFeed_));
             } else if (print) {
                 print("sv_pure is set, but the client game or menus aren't in a pak: not pure\n");
@@ -224,7 +225,7 @@ void NetServer::levelStarted() {
     restartsSeen_ = game_.restarts();
     restartedIds_.clear();
     serverId_ = cvars_.integer("sv_serverid");
-    for (Client& c : clients_)
+    for (Client &c : clients_)
         if (c.state >= State::Connected) {
             c.state = State::Connected;
             c.gamestateMessage = -1;
@@ -237,19 +238,19 @@ void NetServer::levelStarted() {
 
 std::vector<std::pair<int32_t, std::string>> NetServer::players() const {
     std::vector<std::pair<int32_t, std::string>> out;
-    for (const Client& c : clients_)
+    for (const Client &c : clients_)
         if (c.state >= State::Connected)
             out.emplace_back(c.number, c.name);
     return out;
 }
 
-void NetServer::sendText(const reluva::net::Address& to, const std::string& text) {
+void NetServer::sendText(const reluva::net::Address &to, const std::string &text) {
     std::vector<uint8_t> d(4, 0xff);
     d.insert(d.end(), text.begin(), text.end());
     socket_->send(to, d);
 }
 
-std::string NetServer::infoString(const std::string& challenge) const {
+std::string NetServer::infoString(const std::string &challenge) const {
     // What the server list shows (docs/engines/idtech3/games/stvef/systems/network.md): Elite Force's
     // servers send it quoted on one line.
     const int maxClients = std::clamp(cvars_.integer("sv_maxclients"), 1, 64);
@@ -290,14 +291,13 @@ Error NetServer::receive(uint64_t now) {
     noteServerId();
     // Pieces of messages that waited for the rate, then download blocks
     // as the rate allows (on the local network, a few at a time).
-    for (Client& c : clients_) {
+    for (Client &c : clients_) {
         if (c.state == State::Free)
             continue;
         if (!c.queued.empty())
             sendQueued(c, now, false);
-        for (int i = 0; i < (c.unlimited ? 8 : 1) && !c.download.name.empty() && c.queued.empty() &&
-                        rateWait(c, now) == 0;
-             ++i)
+        for (int i = 0;
+             i < (c.unlimited ? 8 : 1) && !c.download.name.empty() && c.queued.empty() && rateWait(c, now) == 0; ++i)
             sendDownload(c, now);
     }
     reluva::net::Address from;
@@ -310,15 +310,15 @@ Error NetServer::receive(uint64_t now) {
         uint16_t qport = 0;
         if (!wire::Netchan::clientQport(d, qport))
             continue;
-        if (Client* c = clientFor(from, qport))
+        if (Client *c = clientFor(from, qport))
             if (Error err = packet(*c, d, now))
                 return err;
     }
     return Error::success();
 }
 
-NetServer::Client* NetServer::clientFor(const reluva::net::Address& from, uint16_t qport) {
-    for (Client& c : clients_)
+NetServer::Client *NetServer::clientFor(const reluva::net::Address &from, uint16_t qport) {
+    for (Client &c : clients_)
         if (c.state != State::Free && c.address.ip == from.ip && c.qport == qport) {
             c.address.port = from.port; // a router may have changed it
             return &c;
@@ -326,18 +326,18 @@ NetServer::Client* NetServer::clientFor(const reluva::net::Address& from, uint16
     return nullptr;
 }
 
-void NetServer::outOfBand(const reluva::net::Address& from, const std::string& text, uint64_t now) {
+void NetServer::outOfBand(const reluva::net::Address &from, const std::string &text, uint64_t now) {
     std::string line = text;
     if (const size_t nl = line.find('\n'); nl != std::string::npos)
         line.resize(nl);
     const std::vector<std::string> words = splitCommand(line);
     if (words.empty())
         return;
-    const std::string& verb = words[0];
+    const std::string &verb = words[0];
     // A master checking on the server after a heartbeat (the community's
     // ask with getinfo, Raven's with getstatus): it can reach it.
     if ((verb == "getinfo" || verb == "getstatus") && print &&
-        std::any_of(masters_.begin(), masters_.end(), [&](const auto& m) { return m.ip == from.ip; }))
+        std::any_of(masters_.begin(), masters_.end(), [&](const auto &m) { return m.ip == from.ip; }))
         print("The master at " + from.toString() + " asked about this server, so it can reach it\n");
     if (verb == "getinfo") {
         sendText(from, "infoResponse \"" + infoString(words.size() > 1 ? words[1] : "") + "\"");
@@ -356,14 +356,14 @@ void NetServer::outOfBand(const reluva::net::Address& from, const std::string& t
             if (s.playerState.size() >= size_t(kPersistantOffset + 4))
                 std::memcpy(&score, s.playerState.data() + kPersistantOffset, 4);
             int ping = 0;
-            for (const Client& c : clients_)
+            for (const Client &c : clients_)
                 if (c.state >= State::Connected && c.number == n)
                     ping = c.ping;
             reply += std::to_string(score) + " " + std::to_string(ping) + " \"" + name + "\"\n";
         }
         sendText(from, reply);
     } else if (verb == "getchallenge") {
-        Challenge& ch = challenges_[from];
+        Challenge &ch = challenges_[from];
         if (!ch.value || now - ch.time > kChallengeMs)
             ch = {int32_t(nextRandom() & 0x7fffffff) | 1, now};
         sendText(from, "challengeResponse " + std::to_string(ch.value));
@@ -373,7 +373,7 @@ void NetServer::outOfBand(const reluva::net::Address& from, const std::string& t
     // "disconnect" and anything else: nothing to answer.
 }
 
-void NetServer::connect(const reluva::net::Address& from, const std::string& userinfo, uint64_t now) {
+void NetServer::connect(const reluva::net::Address &from, const std::string &userinfo, uint64_t now) {
     const std::string protocol = infoValue(userinfo, "protocol");
     if (protocol != "24") {
         sendText(from, "print\nServer uses protocol version 24 (yours is " + protocol + ").\n");
@@ -390,8 +390,8 @@ void NetServer::connect(const reluva::net::Address& from, const std::string& use
     const auto qport = uint16_t(std::atoi(infoValue(userinfo, "qport").c_str()));
     // A player connecting again (the same address and qport) keeps their slot.
     int32_t number = -1;
-    Client* slot = nullptr;
-    for (Client& c : clients_)
+    Client *slot = nullptr;
+    for (Client &c : clients_)
         if (c.state >= State::Connected && c.address.ip == from.ip && c.qport == qport) {
             if (now - c.lastReceived < 3000 && c.state == State::Connected) {
                 sendText(from, "connectResponse");
@@ -407,7 +407,7 @@ void NetServer::connect(const reluva::net::Address& from, const std::string& use
             if (reserved_.count(n) || !game_.clientSlotFree(n))
                 continue;
             bool ours = false;
-            for (const Client& c : clients_)
+            for (const Client &c : clients_)
                 ours = ours || (c.state != State::Free && c.number == n);
             if (!ours)
                 number = n;
@@ -417,7 +417,7 @@ void NetServer::connect(const reluva::net::Address& from, const std::string& use
         return;
     }
     if (!slot)
-        for (Client& c : clients_)
+        for (Client &c : clients_)
             if (c.state == State::Free) {
                 slot = &c;
                 break;
@@ -446,7 +446,7 @@ void NetServer::connect(const reluva::net::Address& from, const std::string& use
         print(slot->name + " connected from " + from.toString() + "\n");
 }
 
-void NetServer::applyUserinfo(Client& c) {
+void NetServer::applyUserinfo(Client &c) {
     c.name = infoValue(c.userinfo, "name");
     // The rate: players on the local network aren't held to one unless the
     // server is a public one (dedicated 2) or sv_lanForceRate is 0; others
@@ -461,7 +461,7 @@ void NetServer::applyUserinfo(Client& c) {
     c.snapMs = 1000 / snaps;
 }
 
-Error NetServer::packet(Client& c, const std::vector<uint8_t>& datagram, uint64_t now) {
+Error NetServer::packet(Client &c, const std::vector<uint8_t> &datagram, uint64_t now) {
     std::vector<uint8_t> message;
     if (c.state == State::Zombie || !c.chan.process(datagram, message))
         return Error::success();
@@ -474,7 +474,7 @@ Error NetServer::packet(Client& c, const std::vector<uint8_t>& datagram, uint64_
         return Error::success();
     if (reliableAcknowledge <= c.reliableSequence && reliableAcknowledge >= c.reliableSequence - kMaxReliable)
         c.reliableAcknowledge = std::max(c.reliableAcknowledge, reliableAcknowledge);
-    const Frame& acked = c.frames[size_t(c.messageAcknowledge & (kPacketBackup - 1))];
+    const Frame &acked = c.frames[size_t(c.messageAcknowledge & (kPacketBackup - 1))];
     if (acked.message == c.messageAcknowledge && acked.sentMs)
         c.ping = int(now - acked.sentMs);
     // Commands from before the level it has: the game state again once
@@ -538,7 +538,7 @@ Error NetServer::packet(Client& c, const std::vector<uint8_t>& datagram, uint64_
             }
             if (c.state != State::Active)
                 break;
-            for (const GameHost::UserCommand& cmd : commands) {
+            for (const GameHost::UserCommand &cmd : commands) {
                 if (cmd.serverTime <= c.lastCommand.serverTime)
                     continue;
                 c.lastCommand = cmd;
@@ -555,12 +555,12 @@ Error NetServer::packet(Client& c, const std::vector<uint8_t>& datagram, uint64_
     return Error::success();
 }
 
-Error NetServer::clientCommand(Client& c, const std::string& text) {
+Error NetServer::clientCommand(Client &c, const std::string &text) {
     // The engine's own, then the game's.
     const std::vector<std::string> words = splitCommand(text);
     if (words.empty())
         return Error::success();
-    const std::string& verb = words[0];
+    const std::string &verb = words[0];
     if (verb == "userinfo") {
         c.userinfo = words.size() > 1 ? words[1] : std::string();
         setInfoValue(c.userinfo, "ip", c.address.toString());
@@ -627,7 +627,7 @@ Error NetServer::clientCommand(Client& c, const std::string& text) {
     return game_.clientCommand(c.number, text);
 }
 
-void NetServer::addReliable(Client& c, const std::string& text) {
+void NetServer::addReliable(Client &c, const std::string &text) {
     if (c.reliableSequence - c.reliableAcknowledge >= kMaxReliable) {
         drop(c, "Server command overflow", 0);
         return;
@@ -636,7 +636,7 @@ void NetServer::addReliable(Client& c, const std::string& text) {
     c.reliable[size_t(c.reliableSequence & (kMaxReliable - 1))] = text;
 }
 
-void NetServer::writeReliable(Client& c, wire::MessageWriter& w) {
+void NetServer::writeReliable(Client &c, wire::MessageWriter &w) {
     for (int32_t i = c.reliableAcknowledge + 1; i <= c.reliableSequence; ++i) {
         w.byte(kSvcServerCommand);
         w.longValue(i);
@@ -644,15 +644,15 @@ void NetServer::writeReliable(Client& c, wire::MessageWriter& w) {
     }
 }
 
-void NetServer::transmit(Client& c, const wire::MessageWriter& w) {
+void NetServer::transmit(Client &c, const wire::MessageWriter &w) {
     // The first datagram now unless others wait; a message in pieces sends
     // the rest one at a time as the client's rate allows (sendQueued).
-    for (std::vector<uint8_t>& d : c.chan.transmit(w.bytes()))
+    for (std::vector<uint8_t> &d : c.chan.transmit(w.bytes()))
         c.queued.push_back(std::move(d));
     sendQueued(c, lastNow_, true);
 }
 
-void NetServer::sendQueued(Client& c, uint64_t now, bool first) {
+void NetServer::sendQueued(Client &c, uint64_t now, bool first) {
     while (!c.queued.empty() && (first || rateWait(c, now) == 0)) {
         socket_->send(c.address, c.queued.front());
         c.lastSentSize = c.queued.front().size();
@@ -664,7 +664,7 @@ void NetServer::sendQueued(Client& c, uint64_t now, bool first) {
     }
 }
 
-int NetServer::rateWait(const Client& c, uint64_t now) const {
+int NetServer::rateWait(const Client &c, uint64_t now) const {
     // As the original: the time the last datagram (and 28 bytes of UDP
     // and IP) takes at the client's rate, less what has passed since.
     if (c.unlimited)
@@ -679,7 +679,7 @@ int NetServer::rateWait(const Client& c, uint64_t now) const {
     return passed > ms ? 0 : ms - passed;
 }
 
-void NetServer::sendGamestate(Client& c, uint64_t now) {
+void NetServer::sendGamestate(Client &c, uint64_t now) {
     c.state = State::Primed;
     c.gamestateMessage = c.chan.outgoingSequence() + 1;
     c.gamestateMs = now;
@@ -688,7 +688,7 @@ void NetServer::sendGamestate(Client& c, uint64_t now) {
     writeReliable(c, w);
     w.byte(kSvcGamestate);
     w.longValue(c.reliableSequence);
-    for (const auto& [index, text] : game_.configstrings()) {
+    for (const auto &[index, text] : game_.configstrings()) {
         if (text.empty())
             continue;
         w.byte(kSvcConfigstring);
@@ -696,7 +696,7 @@ void NetServer::sendGamestate(Client& c, uint64_t now) {
         w.bigString(text);
     }
     const std::vector<uint8_t> none;
-    for (const auto& [number, state] : baselines_) {
+    for (const auto &[number, state] : baselines_) {
         w.byte(kSvcBaseline);
         writeEntityDelta(w, none, state, true);
     }
@@ -705,25 +705,25 @@ void NetServer::sendGamestate(Client& c, uint64_t now) {
     transmit(c, w);
 }
 
-void NetServer::sendSnapshot(Client& c, uint64_t now) {
+void NetServer::sendSnapshot(Client &c, uint64_t now) {
     const int32_t sequence = c.chan.outgoingSequence() + 1;
-    Frame& frame = c.frames[size_t(sequence & (kPacketBackup - 1))];
+    Frame &frame = c.frames[size_t(sequence & (kPacketBackup - 1))];
     const GameHost::Snapshot s = game_.snapshot(c.number);
     frame = Frame{};
     frame.message = sequence;
     frame.sentMs = now;
     frame.playerState = s.playerState;
     frame.serverTime = s.serverTime;
-    for (const std::vector<uint8_t>& e : s.entities) {
+    for (const std::vector<uint8_t> &e : s.entities) {
         int32_t number = 0;
         std::memcpy(&number, e.data(), 4);
         frame.entities[number] = e;
     }
     // A change from the snapshot it last had, if it's still kept.
-    const Frame* old = nullptr;
+    const Frame *old = nullptr;
     int32_t deltaNum = 0;
     if (c.deltaMessage > 0 && sequence - c.deltaMessage < kPacketBackup - 3) {
-        const Frame& f = c.frames[size_t(c.deltaMessage & (kPacketBackup - 1))];
+        const Frame &f = c.frames[size_t(c.deltaMessage & (kPacketBackup - 1))];
         if (f.message == c.deltaMessage) {
             old = &f;
             deltaNum = sequence - c.deltaMessage;
@@ -745,7 +745,7 @@ void NetServer::sendSnapshot(Client& c, uint64_t now) {
     writePlayerDelta(w, old ? old->playerState : none, frame.playerState);
     // The entities: the old and new lists merged by number.
     static const std::map<int32_t, std::vector<uint8_t>> noEntities;
-    const auto& before = old ? old->entities : noEntities;
+    const auto &before = old ? old->entities : noEntities;
     auto o = before.begin();
     auto n = frame.entities.begin();
     while (o != before.end() || n != frame.entities.end()) {
@@ -766,7 +766,7 @@ void NetServer::sendSnapshot(Client& c, uint64_t now) {
     transmit(c, w);
 }
 
-void NetServer::writeDummySnapshot(Client& c, wire::MessageWriter& w) {
+void NetServer::writeDummySnapshot(Client &c, wire::MessageWriter &w) {
     // What goes before each download block (protocol 24): a snapshot with
     // nothing in it, for the reliable acknowledgement.
     w.byte(kSvcSnapshot);
@@ -780,7 +780,7 @@ void NetServer::writeDummySnapshot(Client& c, wire::MessageWriter& w) {
     w.bits(uint32_t(kNoEntity), kEntityNumberBits);
 }
 
-bool NetServer::downloadAllowed(const std::string& name, std::string& why) const {
+bool NetServer::downloadAllowed(const std::string &name, std::string &why) const {
     // As the original: only with sv_allowDownload, only paks the level
     // uses, and never Raven's own (pak0 to pak3 in baseEF).
     std::string base = name;
@@ -789,7 +789,7 @@ bool NetServer::downloadAllowed(const std::string& name, std::string& why) const
     else
         base.clear();
     bool referenced = false;
-    for (const std::string& r : referencedNames_)
+    for (const std::string &r : referencedNames_)
         referenced = referenced || fs::toLower(r) == fs::toLower(base);
     const std::string lower = fs::toLower(base);
     const bool raven = lower.size() == 10 && lower.rfind("baseef/pak", 0) == 0 && lower[9] >= '0' && lower[9] <= '3';
@@ -804,8 +804,8 @@ bool NetServer::downloadAllowed(const std::string& name, std::string& why) const
     return false;
 }
 
-void NetServer::sendDownload(Client& c, uint64_t now) {
-    Client::Download& d = c.download;
+void NetServer::sendDownload(Client &c, uint64_t now) {
+    Client::Download &d = c.download;
     if (!d.opened) {
         d.opened = true;
         std::string why;
@@ -815,15 +815,16 @@ void NetServer::sendDownload(Client& c, uint64_t now) {
             // The pak's file itself, from where the level's files are.
             ok = false;
             if (files_)
-                for (const Archive* a : files_->archives())
-                    if (const auto* pak = dynamic_cast<const ZipArchive*>(a))
+                for (const Archive *a : files_->archives())
+                    if (const auto *pak = dynamic_cast<const ZipArchive *>(a))
                         if (fs::toLower(pakName(*pak) + ".pk3") == fs::toLower(d.name)) {
                             const std::filesystem::path path(pak->describe());
                             std::error_code ec;
                             const auto size = std::filesystem::file_size(path, ec);
                             std::ifstream in(path, std::ios::binary);
                             d.data.resize(size_t(ec ? 0 : size));
-                            ok = !ec && in.read(reinterpret_cast<char*>(d.data.data()), std::streamsize(d.data.size()));
+                            ok =
+                                !ec && in.read(reinterpret_cast<char *>(d.data.data()), std::streamsize(d.data.size()));
                         }
             if (!ok)
                 why = "not found";
@@ -866,7 +867,7 @@ void NetServer::sendDownload(Client& c, uint64_t now) {
     d.sendTime = now;
 }
 
-void NetServer::drop(Client& c, const std::string& reason, uint64_t now) {
+void NetServer::drop(Client &c, const std::string &reason, uint64_t now) {
     if (c.state <= State::Zombie)
         return;
     // Its last message, while it's still in the game, then out.
@@ -881,9 +882,9 @@ void NetServer::drop(Client& c, const std::string& reason, uint64_t now) {
 Error NetServer::frame(uint64_t now) {
     lastNow_ = now;
     // Players the game dropped (kicked, a bad password...).
-    const auto& drops = game_.drops();
+    const auto &drops = game_.drops();
     for (; dropsSeen_ < drops.size(); ++dropsSeen_)
-        for (Client& c : clients_)
+        for (Client &c : clients_)
             if (c.state >= State::Connected && c.number == drops[dropsSeen_].first) {
                 // As the original's engine when the game drops a player:
                 // told why, and the game told they've gone (ClientDisconnect).
@@ -892,15 +893,15 @@ Error NetServer::frame(uint64_t now) {
     // Configstrings that changed, to those that have had a game state.
     const std::vector<std::string> changes = configstringCommands(configstrings_, game_.configstrings());
     configstrings_ = game_.configstrings();
-    for (Client& c : clients_)
+    for (Client &c : clients_)
         if (c.state >= State::Primed)
-            for (const std::string& change : changes)
+            for (const std::string &change : changes)
                 addReliable(c, change);
     // The game's commands to players.
-    const auto& commands = game_.serverCommands();
+    const auto &commands = game_.serverCommands();
     for (; serverCommandsSeen_ < commands.size(); ++serverCommandsSeen_) {
-        const auto& [to, text] = commands[serverCommandsSeen_];
-        for (Client& c : clients_)
+        const auto &[to, text] = commands[serverCommandsSeen_];
+        for (Client &c : clients_)
             if (c.state >= State::Primed && (to == -1 || to == c.number))
                 addReliable(c, text);
     }
@@ -910,7 +911,7 @@ Error NetServer::frame(uint64_t now) {
         restartsSeen_ = game_.restarts();
         noteServerId();
         ++levelCount_; // the snapshots' flag 4
-        for (Client& c : clients_) {
+        for (Client &c : clients_) {
             if (c.state < State::Connected)
                 continue;
             addReliable(c, "map_restart");
@@ -934,7 +935,7 @@ Error NetServer::frame(uint64_t now) {
     }
     const uint64_t timeoutMs = uint64_t(std::max(1, cvars_.integer("sv_timeout"))) * 1000;
     const int32_t levelTime = game_.levelTime();
-    for (Client& c : clients_) {
+    for (Client &c : clients_) {
         if (c.state == State::Zombie) {
             if (now - c.zombieSince > kZombieMs)
                 c.state = State::Free;

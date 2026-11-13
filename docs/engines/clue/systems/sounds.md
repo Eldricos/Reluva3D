@@ -1,6 +1,6 @@
 # Clue: Murder at Boddy Mansion: hot spots, weather and sounds
 
-> **Status:** done · **Code:** `src/engines/clue/play.cpp` · **Checked against:** `Clue.exe` 2.2's code, and a recording of the original · **Confidence:** confirmed unless marked
+> **Status:** done · **Code:** `src/engines/clue/game/play.cpp` · **Checked against:** `Clue.exe` 2.2's code, and a recording of the original · **Confidence:** confirmed unless marked
 
 ## Overview
 

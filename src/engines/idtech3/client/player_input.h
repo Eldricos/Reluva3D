@@ -24,12 +24,12 @@ public:
     // A key's binding (`line`), pressed or released: "+name" holds the
     // engine's button while the key is down, or runs the client game's
     // +name/-name pair through `command`; other commands run on the press.
-    void runBinding(const std::string& line, int32_t key, bool down,
-                    const std::function<void(const std::string&)>& command);
-    bool held(const char* button) const;
+    void runBinding(const std::string &line, int32_t key, bool down,
+                    const std::function<void(const std::string &)> &command);
+    bool held(const char *button) const;
     void releaseAll() { buttons_.clear(); }
     // The buttons held, each with the keys holding it.
-    const std::map<std::string, std::set<int32_t>>& buttons() const { return buttons_; }
+    const std::map<std::string, std::set<int32_t>> &buttons() const { return buttons_; }
 
     // The joystick's analog axes this frame, -127 to 127 (JoystickInput):
     // x turns the view (with +strafe, steps sideways), y moves forward
@@ -48,7 +48,7 @@ public:
     // cl_freelook (else +mlook to look up and down), cl_yawspeed and
     // cl_pitchspeed degrees a second, times cl_anglespeedkey with +speed;
     // with +strafe, left and right step instead of turning.
-    void turn(const CvarStore& cvars, int32_t dtMs);
+    void turn(const CvarStore &cvars, int32_t dtMs);
     float yaw = 0, pitch = 0; // degrees
 
     // The command for this moment: where the player looks (65536 to a
@@ -59,16 +59,16 @@ public:
         int32_t buttons = 0;
         int8_t forward = 0, right = 0, up = 0;
     };
-    Command command(const CvarStore& cvars, const GameInfo& game) const;
+    Command command(const CvarStore &cvars, const GameInfo &game) const;
 
     // Whether `name` is one of the engine's buttons (not the client game's).
-    static bool isButton(const std::string& name);
+    static bool isButton(const std::string &name);
 
 private:
     std::map<std::string, std::set<int32_t>> buttons_; // and the keys holding each
-    float mouseX_ = 0, mouseY_ = 0;                     // moved since the last turn
-    float lastMouseX_ = 0, lastMouseY_ = 0;             // the last turn's, for m_filter
-    int32_t joyX_ = 0, joyY_ = 0;                       // the joystick's analog axes
+    float mouseX_ = 0, mouseY_ = 0;                    // moved since the last turn
+    float lastMouseX_ = 0, lastMouseY_ = 0;            // the last turn's, for m_filter
+    int32_t joyX_ = 0, joyY_ = 0;                      // the joystick's analog axes
 };
 
 } // namespace reluva::idtech3

@@ -1,6 +1,6 @@
 # Clue: Murder at Boddy Mansion: the board
 
-> **Status:** decoded · **Code:** `src/engines/clue/board.h` · **Checked on:** `clue.lvl`, against the classic board, the game's own overhead map and `Clue.exe` 2.2's code · **Confidence:** confirmed unless marked
+> **Status:** decoded · **Code:** `src/engines/clue/game/board.h` · **Checked on:** `clue.lvl`, against the classic board, the game's own overhead map and `Clue.exe` 2.2's code · **Confidence:** confirmed unless marked
 
 ## Overview
 

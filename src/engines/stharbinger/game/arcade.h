@@ -3,9 +3,9 @@
 
 #pragma once
 
-#include "common/audio/mixer.h"
-#include "common/draw.h"
-#include "common/video/smacker.h"
+#include "audio/mixer.h"
+#include "graphics/draw.h"
+#include "video/smacker.h"
 #include "engines/stharbinger/formats/graphics.h"
 #include "engines/stharbinger/platform.h"
 
@@ -43,12 +43,12 @@ enum ArcadeResult {
 // at once. Everything advances one step per video frame.
 class Arcade {
 public:
-    Arcade(Resources& resources, audio::Mixer* mixer, int type, int difficulty);
+    Arcade(Resources &resources, audio::Mixer *mixer, int type, int difficulty);
     ~Arcade();
 
     // `screen` is the picture shown when the sequence starts (the cockpit).
     // Returns false if the video is missing.
-    bool start(const Surface& screen, int initialDamage, const std::map<int, ArcadeGroupState>& groups);
+    bool start(const Surface &screen, int initialDamage, const std::map<int, ArcadeGroupState> &groups);
     // Advances to `millis` after the start. The buttons are presses not yet
     // handled; `aim` is the gunsight's centre. Returns true if a video frame ran
     // (which handles the presses).
@@ -57,13 +57,13 @@ public:
     bool isDone() const { return done_; }
     uint16_t getResult() const { return result_; }
     int getDamage() const { return damage_; }
-    const char* getDeathVideo() const;
-    const std::string& getName() const { return name_; }
-    void saveGroups(std::map<int, ArcadeGroupState>& out) const;
+    const char *getDeathVideo() const;
+    const std::string &getName() const { return name_; }
+    void saveGroups(std::map<int, ArcadeGroupState> &out) const;
 
-    const Surface& getScreen() const { return compose_; }
+    const Surface &getScreen() const { return compose_; }
     // 256 RGB entries; true once after each change.
-    const uint8_t* palette() const { return palette_; }
+    const uint8_t *palette() const { return palette_; }
     bool takePaletteChanged();
 
     int getFrame() const { return frame_; }
@@ -72,7 +72,7 @@ private:
     struct Target {
         RleAnimation rle;
         int start = 0, hp = 1, damage = 1, period = 10, gun = 0xFF, id = 0;
-        const RleAnimation* draw = nullptr; // the sprite, or its explosion
+        const RleAnimation *draw = nullptr; // the sprite, or its explosion
         int drawFrame = 0, pathFrame = 0;
         int hits = 0;
         int muzzle = 0;
@@ -84,7 +84,7 @@ private:
         int state = -1; // -1 free, 0..3 flying, 4 impact
         int aimX = 0, aimY = 0;
         struct Sprite {
-            const RleAnimation* anim = nullptr;
+            const RleAnimation *anim = nullptr;
             int frame = 0;
             int x = 0, y = 0;
         };
@@ -92,7 +92,7 @@ private:
     };
 
     struct DoorExplosion {
-        const RleAnimation* anim = nullptr;
+        const RleAnimation *anim = nullptr;
         int frame = 0;
         int x = 0, y = 0;
         int delay = 0;
@@ -108,13 +108,13 @@ private:
     void loadData();
     void loadMusic();
     void loadVoice();
-    bool loadSound(const std::string& name, std::vector<uint8_t>& data) const;
-    void playSound(const std::vector<uint8_t>& data, audio::SoundType type = audio::SoundType::Effects);
+    bool loadSound(const std::string &name, std::vector<uint8_t> &data) const;
+    void playSound(const std::vector<uint8_t> &data, audio::SoundType type = audio::SoundType::Effects);
 
     void stepFrame(bool leftPressed, bool rightPressed);
     void updateDoor(bool leftPressed);
     void updateTargets();
-    void enemyFire(Target& t, int x, int y);
+    void enemyFire(Target &t, int x, int y);
     void fireTorpedo();
     void updateTorpedoes();
     void torpedoImpact(int x, int y);
@@ -130,8 +130,8 @@ private:
     int random(int n);
     static int torpedoDirection(int dx, int dy);
 
-    Resources& resources_;
-    audio::Mixer* mixer_;
+    Resources &resources_;
+    audio::Mixer *mixer_;
     int type_;
     int difficulty_;
     std::string name_;

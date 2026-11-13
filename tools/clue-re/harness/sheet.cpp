@@ -1,6 +1,6 @@
 // Draws each named animation's frames (all layers) in a row on a sheet, with its size.
 #include "engines/clue/game_data.h"
-#include "common/image.h"
+#include "image/image.h"
 #include <cstdio>
 #include <fstream>
 #include <algorithm>

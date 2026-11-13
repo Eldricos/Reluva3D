@@ -16,12 +16,12 @@ Every game built on the Quake III Arena engine, Elite Force first (see
    The Expansion Pack is detected too. Still to do: detect its other
    releases (the Mac and other-language versions).
 2. **3D rendering in `System`.** Done: `gfx::Renderer3D` in
-   `src/common/gfx3d.h` (textures, static meshes, draw calls with blend,
+   `src/graphics/gfx3d.h` (textures, static meshes, draw calls with blend,
    depth, cull and alpha-test state, a 2D overlay), reached through
    `System::init3D`. The SDL3 backend implements it with SDL's GPU API
-   (`src/backends/sdl3/sdl_gpu.cpp`) on the same GPU device as SDL's
+   (`src/backends/graphics/sdl3/sdl_gpu.cpp`) on the same GPU device as SDL's
    renderer, which the launcher keeps using. Shaders: see
-   `src/backends/sdl3/shaders/build.sh`. Vulkan is tested: Mesa's software driver on Linux, and an
+   `src/backends/graphics/sdl3/shaders/build.sh`. Vulkan is tested: Mesa's software driver on Linux, and an
    NVIDIA RTX 2080 on Windows (Visual Studio 2022 build), where retail maps
    run at the monitor's 144 Hz with about 1.2 ms of CPU time per frame.
    The Metal path
@@ -133,7 +133,7 @@ one has to be checked before anything is written:
 - **Single player**: its logic ships as native x86 code
   (`efgamex86.dll`, with the menus in `efuix86.dll`), 32-bit Windows DLLs
   built with Visual C++ 6. Reluva runs them the way it runs the QVMs: in
-  an interpreter, here of the x86 processor (`src/common/x86`, see
+  an interpreter, here of the x86 processor (`src/emulation/x86`, see
   [x86.md](../../common/x86/README.md)), with the engine's functions and the few Windows ones
   they call (KERNEL32's, for their C runtime) provided natively. The DLLs
   stay in the user's copy. Their interface to the engine (the tables

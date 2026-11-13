@@ -3,13 +3,13 @@
 
 // reluva-tool's id Tech 3 commands for maps (.bsp) and their entities.
 
-#include "tools/tool.h"
+#include "devtools/tool.h"
 #include "engines/idtech3/tools/game_folder.h"
 
 #include "common/fs.h"
-#include "engines/idtech3/bsp.h"
-#include "engines/idtech3/entities.h"
-#include "engines/idtech3/shader.h"
+#include "engines/idtech3/formats/bsp.h"
+#include "engines/idtech3/formats/entities.h"
+#include "engines/idtech3/formats/shader.h"
 
 #include <algorithm>
 #include <cstdint>
@@ -27,7 +27,7 @@ namespace {
 using namespace reluva::tool;
 using namespace reluva::idtech3::tool;
 
-int cmdBspCheck(int argc, char** argv) {
+int cmdBspCheck(int argc, char **argv) {
     if (argc != 3) {
         std::fprintf(stderr, "usage: reluva-tool idtech3 bsp-check <game folder>\n");
         return 2;
@@ -37,7 +37,7 @@ int cmdBspCheck(int argc, char** argv) {
         return 1;
     int maps = 0, failed = 0, corrected = 0;
     Bytes data;
-    for (const std::string& name : set.list()) {
+    for (const std::string &name : set.list()) {
         const std::string key = reluva::normalizeArchiveName(name);
         if (key.rfind("maps/", 0) != 0 || key.size() < 4 || key.compare(key.size() - 4, 4, ".bsp") != 0)
             continue;
@@ -51,7 +51,7 @@ int cmdBspCheck(int argc, char** argv) {
             std::printf("FAIL %s: %s\n", name.c_str(), err.message.c_str());
             continue;
         }
-        const auto& f = bsp.fixes;
+        const auto &f = bsp.fixes;
         if (f.total())
             ++corrected;
         std::printf("ok   %s: %zu surfaces, %zu lightmaps", name.c_str(), bsp.surfaces.size(), bsp.lightmapCount());
@@ -67,7 +67,7 @@ int cmdBspCheck(int argc, char** argv) {
 // A map's entities: all, or those with any key or value containing one of
 // the texts given (ignoring case), each followed by the entities that
 // target it (what triggers it).
-int cmdBspEntities(int argc, char** argv) {
+int cmdBspEntities(int argc, char **argv) {
     if (argc < 4) {
         std::fprintf(stderr, "usage: reluva-tool idtech3 bsp-entities <game folder> <map> [text]...\n");
         return 2;
@@ -95,16 +95,16 @@ int cmdBspEntities(int argc, char** argv) {
     std::vector<std::string> wanted;
     for (int i = 4; i < argc; ++i)
         wanted.push_back(reluva::fs::toLower(argv[i]));
-    auto print = [&](size_t n, const char* indent) {
+    auto print = [&](size_t n, const char *indent) {
         std::printf("%s#%zu", indent, n);
-        for (const auto& [k, v] : entities[n].pairs)
+        for (const auto &[k, v] : entities[n].pairs)
             std::printf(" %s=\"%s\"", k.c_str(), v.c_str());
         std::printf("\n");
     };
     for (size_t n = 0; n < entities.size(); ++n) {
         bool match = wanted.empty();
-        for (const auto& [k, v] : entities[n].pairs)
-            for (const std::string& w : wanted)
+        for (const auto &[k, v] : entities[n].pairs)
+            for (const std::string &w : wanted)
                 match = match || reluva::fs::toLower(k).find(w) != std::string::npos ||
                         reluva::fs::toLower(v).find(w) != std::string::npos;
         if (!match)
@@ -116,7 +116,7 @@ int cmdBspEntities(int argc, char** argv) {
         if (name.empty())
             continue;
         for (size_t m = 0; m < entities.size(); ++m)
-            for (const auto& [k, v] : entities[m].pairs)
+            for (const auto &[k, v] : entities[m].pairs)
                 if ((k == "target" || k == "target2" || k == "target3" || k == "target4") &&
                     reluva::fs::toLower(v) == reluva::fs::toLower(name)) {
                     print(m, "    targeted by ");
@@ -126,7 +126,7 @@ int cmdBspEntities(int argc, char** argv) {
     return 0;
 }
 
-int cmdEntitySurvey(int argc, char** argv) {
+int cmdEntitySurvey(int argc, char **argv) {
     // Every entity class and key in every map of a game folder: how many
     // entities and maps use each, a few of the values each key takes, and
     // the spawnflags bits each class uses; written to a file as plain text.
@@ -161,7 +161,7 @@ int cmdEntitySurvey(int argc, char** argv) {
     size_t total = 0;
     auto lower = [](std::string t) { return reluva::fs::toLower(t); };
     Bytes data;
-    for (const std::string& name : set.list()) {
+    for (const std::string &name : set.list()) {
         const std::string file = reluva::normalizeArchiveName(name);
         if (file.rfind("maps/", 0) != 0 || file.size() < 4 || file.compare(file.size() - 4, 4, ".bsp") != 0)
             continue;
@@ -179,16 +179,16 @@ int cmdEntitySurvey(int argc, char** argv) {
         }
         mapCounts.emplace_back(map, entities.size());
         total += entities.size();
-        for (const q3::Entity& e : entities) {
+        for (const q3::Entity &e : entities) {
             const std::string cls = e.classname().empty() ? "(no classname)" : lower(e.classname());
-            ClassStats& c = classes[cls];
+            ClassStats &c = classes[cls];
             ++c.count;
             c.maps.insert(map);
-            for (const auto& [k, v] : e.pairs) {
+            for (const auto &[k, v] : e.pairs) {
                 const std::string key = lower(k);
                 if (key == "classname")
                     continue;
-                KeyStats& ks = c.keys[key];
+                KeyStats &ks = c.keys[key];
                 ++ks.uses;
                 ks.maps.insert(map);
                 if (ks.values.count(v) || ks.values.size() < kMaxValues)
@@ -207,7 +207,7 @@ int cmdEntitySurvey(int argc, char** argv) {
 
     // Text as it is, but quotes and anything unprintable escaped, and long
     // values shortened.
-    auto shown = [](const std::string& v) {
+    auto shown = [](const std::string &v) {
         std::string out;
         for (unsigned char ch : v.substr(0, 80)) {
             if (ch == '"' || ch == '\\')
@@ -221,10 +221,10 @@ int cmdEntitySurvey(int argc, char** argv) {
         }
         return v.size() > 80 ? out + "..." : out;
     };
-    auto mapList = [](const std::set<std::string>& maps, size_t limit) {
+    auto mapList = [](const std::set<std::string> &maps, size_t limit) {
         std::string out;
         size_t n = 0;
-        for (const std::string& m : maps) {
+        for (const std::string &m : maps) {
             if (n++ == limit) {
                 out += " +" + std::to_string(maps.size() - limit) + " more";
                 break;
@@ -242,47 +242,47 @@ int cmdEntitySurvey(int argc, char** argv) {
     out << "Reluva entity survey of " << argv[2] << "\n";
     out << mapCounts.size() << " maps, " << total << " entities, " << classes.size() << " classes, "
         << keyClasses.size() << " keys\n";
-    for (const std::string& f : failures)
+    for (const std::string &f : failures)
         out << "FAILED " << f << "\n";
     out << "\n== Maps (entities) ==\n";
-    for (const auto& [m, n] : mapCounts)
+    for (const auto &[m, n] : mapCounts)
         out << m << " " << n << "\n";
 
-    std::vector<const std::pair<const std::string, ClassStats>*> order;
-    for (const auto& c : classes)
+    std::vector<const std::pair<const std::string, ClassStats> *> order;
+    for (const auto &c : classes)
         order.push_back(&c);
-    std::sort(order.begin(), order.end(), [](auto* a, auto* b) {
+    std::sort(order.begin(), order.end(), [](auto *a, auto *b) {
         return a->second.maps.size() != b->second.maps.size() ? a->second.maps.size() > b->second.maps.size()
-                                                                : a->first < b->first;
+                                                              : a->first < b->first;
     });
     out << "\n== Classes (by how many maps use them) ==\n";
-    for (const auto* entry : order) {
-        const auto& [cls, c] = *entry;
-        out << "\n" << cls << ": " << c.count << " entities in " << c.maps.size() << " maps:" << mapList(c.maps, 12)
-            << "\n";
+    for (const auto *entry : order) {
+        const auto &[cls, c] = *entry;
+        out << "\n"
+            << cls << ": " << c.count << " entities in " << c.maps.size() << " maps:" << mapList(c.maps, 12) << "\n";
         if (c.flagBits) {
             out << "  spawnflags bits:";
             for (int b = 0; b < 32; ++b)
                 if (c.flagBits & (1u << b))
                     out << " " << (1u << b);
             out << "; values:";
-            for (const auto& [v, n] : c.flagValues)
+            for (const auto &[v, n] : c.flagValues)
                 out << " " << v << "(" << n << ")";
             out << "\n";
         }
-        std::vector<const std::pair<const std::string, KeyStats>*> keys;
-        for (const auto& k : c.keys)
+        std::vector<const std::pair<const std::string, KeyStats> *> keys;
+        for (const auto &k : c.keys)
             keys.push_back(&k);
-        std::sort(keys.begin(), keys.end(), [](auto* a, auto* b) {
+        std::sort(keys.begin(), keys.end(), [](auto *a, auto *b) {
             return a->second.uses != b->second.uses ? a->second.uses > b->second.uses : a->first < b->first;
         });
-        for (const auto* ke : keys) {
-            const auto& [key, ks] = *ke;
+        for (const auto *ke : keys) {
+            const auto &[key, ks] = *ke;
             out << "  " << key << ": " << ks.uses << " of " << c.count << ", " << ks.values.size()
                 << (ks.moreValues ? "+" : "") << " distinct";
             // The most common values first, up to six.
             std::vector<std::pair<std::string, int>> vals(ks.values.begin(), ks.values.end());
-            std::stable_sort(vals.begin(), vals.end(), [](auto& a, auto& b) { return a.second > b.second; });
+            std::stable_sort(vals.begin(), vals.end(), [](auto &a, auto &b) { return a.second > b.second; });
             for (size_t i = 0; i < vals.size() && i < 6; ++i)
                 out << (i ? " | " : ": ") << "\"" << shown(vals[i].first) << "\""
                     << (vals[i].second > 1 ? "x" + std::to_string(vals[i].second) : "");
@@ -291,12 +291,12 @@ int cmdEntitySurvey(int argc, char** argv) {
     }
 
     out << "\n== Keys (the classes using each) ==\n";
-    for (const auto& [key, users] : keyClasses) {
+    for (const auto &[key, users] : keyClasses) {
         int uses = 0;
-        for (const auto& [cls, n] : users)
+        for (const auto &[cls, n] : users)
             uses += n;
         out << key << ": " << uses << " uses;";
-        for (const auto& [cls, n] : users)
+        for (const auto &[cls, n] : users)
             out << " " << cls << "(" << n << ")";
         out << "\n";
     }
@@ -309,7 +309,7 @@ int cmdEntitySurvey(int argc, char** argv) {
     return failures.empty() ? 0 : 1;
 }
 
-int cmdPortalCheck(int argc, char** argv) {
+int cmdPortalCheck(int argc, char **argv) {
     // Every map's portals and mirrors: the surfaces whose shader says
     // `portal`, and the entities that place their cameras (Quake III's
     // misc_portal_surface, aimed by its target, a misc_portal_camera).
@@ -324,7 +324,7 @@ int cmdPortalCheck(int argc, char** argv) {
     q3::ShaderLibrary shaders;
     shaders.load(set, nullptr);
     Bytes data;
-    for (const std::string& name : set.list()) {
+    for (const std::string &name : set.list()) {
         const std::string key = reluva::normalizeArchiveName(name);
         if (key.rfind("maps/", 0) != 0 || key.size() < 4 || key.compare(key.size() - 4, 4, ".bsp") != 0)
             continue;
@@ -332,24 +332,24 @@ int cmdPortalCheck(int argc, char** argv) {
         if (set.read(name, data) || q3::parseBsp(data, bsp))
             continue;
         std::map<std::string, int> portalSurfaces;
-        for (const q3::BspSurface& s : bsp.surfaces)
+        for (const q3::BspSurface &s : bsp.surfaces)
             if (s.shader >= 0 && size_t(s.shader) < bsp.shaders.size())
-                if (const q3::ShaderDef* def = shaders.find(bsp.shaders[size_t(s.shader)].name); def && def->portal)
+                if (const q3::ShaderDef *def = shaders.find(bsp.shaders[size_t(s.shader)].name); def && def->portal)
                     ++portalSurfaces[def->name];
         std::vector<q3::Entity> entities;
         q3::parseEntities(bsp.entities, entities);
-        std::vector<const q3::Entity*> portalEntities;
-        for (const q3::Entity& e : entities)
+        std::vector<const q3::Entity *> portalEntities;
+        for (const q3::Entity &e : entities)
             if (e.classname().rfind("misc_portal", 0) == 0)
                 portalEntities.push_back(&e);
         if (portalSurfaces.empty() && portalEntities.empty())
             continue;
         std::printf("%s:\n", key.c_str());
-        for (const auto& [shader, count] : portalSurfaces)
+        for (const auto &[shader, count] : portalSurfaces)
             std::printf("  %d surface%s with %s\n", count, count == 1 ? "" : "s", shader.c_str());
-        for (const q3::Entity* e : portalEntities) {
+        for (const q3::Entity *e : portalEntities) {
             std::printf("  %s", e->classname().c_str());
-            for (const auto& [k, v] : e->pairs)
+            for (const auto &[k, v] : e->pairs)
                 if (k != "classname")
                     std::printf(" %s \"%s\"", k.c_str(), v.c_str());
             std::printf("\n");
@@ -358,21 +358,19 @@ int cmdPortalCheck(int argc, char** argv) {
     return 0;
 }
 
-const Commands commands("idtech3", {
-    {"bsp-check", "<game folder, e.g. .../BaseEF>",
-     "load every maps/*.bsp of a game folder",
-     cmdBspCheck},
-    {"bsp-entities", "<game folder> <map> [text]...",
-     "a map's entities, or those with a key or value containing one of the texts, each followed by "
-     "those that target it",
-     cmdBspEntities},
-    {"entity-survey", "<game folder> [output file]",
-     "every entity class and key in the game's maps, written to a file; report failures and "
-     "corrections",
-     cmdEntitySurvey},
-    {"portal-check", "<game folder>",
-     "each map's portal and mirror surfaces and portal entities",
-     cmdPortalCheck},
-});
+const Commands commands(
+    "idtech3",
+    {
+        {"bsp-check", "<game folder, e.g. .../BaseEF>", "load every maps/*.bsp of a game folder", cmdBspCheck},
+        {"bsp-entities", "<game folder> <map> [text]...",
+         "a map's entities, or those with a key or value containing one of the texts, each followed by "
+         "those that target it",
+         cmdBspEntities},
+        {"entity-survey", "<game folder> [output file]",
+         "every entity class and key in the game's maps, written to a file; report failures and "
+         "corrections",
+         cmdEntitySurvey},
+        {"portal-check", "<game folder>", "each map's portal and mirror surfaces and portal entities", cmdPortalCheck},
+    });
 
 } // namespace

@@ -20,44 +20,52 @@ const std::vector<GameVariant> kVariants = {
     //  {{"<file>", "<md5>", <size>}, {"<other file>", "", -1}}},
 };
 
+/**
+ * The game running: for now an empty screen until the player quits.
+ */
 class @CLASS@Engine : public Engine {
 public:
-    @CLASS@Engine(System& system, const GameTarget& target) : sys_(system), target_(target) {}
+    @CLASS@Engine(System &system, const GameTarget &target) : _sys(system), _target(target) {}
 
     Error run() override {
-        if (Error err = sys_.initGraphics(kWidth, kHeight, PixelFormat::CLUT8))
+        if (Error err = _sys.initGraphics(kWidth, kHeight, PixelFormat::CLUT8))
             return err;
-        sys_.setWindowTitle(("Reluva - " + target_.description).c_str());
+        _sys.setWindowTitle(("Reluva - " + _target.description).c_str());
         Surface screen;
         screen.create(kWidth, kHeight, PixelFormat::CLUT8);
         for (bool running = true; running;) {
             Event ev;
-            while (sys_.pollEvent(ev))
+            while (_sys.pollEvent(ev))
                 if (ev.type == EventType::Quit || ev.type == EventType::ReturnToLauncher ||
                     (ev.type == EventType::KeyDown && ev.key == key::Escape))
                     running = false;
-            sys_.updateScreen(screen);
-            sys_.delayMillis(1);
+            _sys.updateScreen(screen);
+            _sys.delayMillis(1);
         }
         return Error::success();
     }
 
 private:
-    static constexpr int kWidth = 640, kHeight = 480;
-    System& sys_;
-    GameTarget target_;
+    static constexpr int kWidth = 640;
+    static constexpr int kHeight = 480;
+    System &_sys;
+    GameTarget _target;
 };
 
+/**
+ * The engine as the launcher sees it: its name, the releases it
+ * recognises, and making a @CLASS@Engine to run one.
+ */
 class @CLASS@MetaEngine : public MetaEngine {
 public:
-    const char* id() const override { return "@ENGINE@"; }
-    const char* name() const override { return "@TITLE@"; }
+    const char *id() const override { return "@ENGINE@"; }
+    const char *name() const override { return "@TITLE@"; }
 
-    std::vector<DetectedGame> detect(const std::filesystem::path& dir) const override {
+    std::vector<DetectedGame> detect(const std::filesystem::path &dir) const override {
         return detectFromTable(id(), kVariants, dir);
     }
 
-    std::unique_ptr<Engine> create(System& system, const GameTarget& target) const override {
+    std::unique_ptr<Engine> create(System &system, const GameTarget &target) const override {
         return std::make_unique<@CLASS@Engine>(system, target);
     }
 };
@@ -68,9 +76,9 @@ public:
 
 namespace reluva {
 
-const MetaEngine& @ACCESSOR@() {
-    static const @ENGINE@::@CLASS@MetaEngine instance;
-    return instance;
+const MetaEngine &@ACCESSOR@() {
+    static const @ENGINE@::@CLASS@MetaEngine kInstance;
+    return kInstance;
 }
 
 } // namespace reluva

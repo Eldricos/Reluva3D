@@ -13,7 +13,7 @@ namespace reluva::text {
 
 // Convert UTF-16 little-endian code units to UTF-8. Unpaired surrogates
 // become U+FFFD.
-std::string utf16leToUtf8(const uint16_t* units, size_t count);
+std::string utf16leToUtf8(const uint16_t *units, size_t count);
 
 // Convert Windows-1252 text (the Western code page of Windows 95 games) to
 // UTF-8. Its five unassigned bytes become U+FFFD.
@@ -21,7 +21,7 @@ std::string windows1252ToUtf8(std::string_view s);
 
 // The code point at s[i] of UTF-8 text, advancing i past it (U+FFFD for a
 // bad sequence). i must be less than s.size().
-uint32_t nextUtf8(std::string_view s, size_t& i);
+uint32_t nextUtf8(std::string_view s, size_t &i);
 
 // A code point as Latin-1 (U+0000-U+00FF) for drawing in fonts limited to
 // it: typographic quotes and dashes become their ASCII forms, a bullet a
@@ -41,7 +41,7 @@ std::vector<std::string> split(std::string_view s, char sep);
 // Without the white space at either end.
 std::string trim(std::string_view s);
 // printf's formatting into a string.
-std::string format(const char* fmt, ...)
+std::string format(const char *fmt, ...)
 #if defined(__GNUC__) || defined(__clang__)
     __attribute__((format(printf, 1, 2)))
 #endif

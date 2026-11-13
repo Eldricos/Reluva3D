@@ -1,6 +1,6 @@
 # LEGO Alpha Team: detection, the archives and the data viewer
 
-> **Status:** done · **Code:** `src/engines/netimmerse/viewers.h`, `src/engines/netimmerse/pac_archive.cpp` · **Checked against:** the retail files · **Confidence:** confirmed unless marked
+> **Status:** done · **Code:** `src/engines/netimmerse/pages/viewers.h`, `src/engines/netimmerse/formats/pac_archive.cpp` · **Checked against:** the retail files · **Confidence:** confirmed unless marked
 
 ## Overview
 
@@ -23,7 +23,7 @@ and each kind of file as its page in [formats/](../formats/) says.
   archive and shows what each holds.
 - Done: the `.pac` format ([pac.md](../formats/pac.md)), checked
   against all eight retail archives.
-- Done: `PacArchive : Archive` (`src/engines/netimmerse/pac_archive.cpp`), so
+- Done: `PacArchive : Archive` (`src/engines/netimmerse/formats/pac_archive.cpp`), so
   `.pac` files join a `SearchSet` like any other archive. It's tested in
   `tests/engines/netimmerse/unit/formats.cpp` (`netimmerse.unit.formats`), on archives the tests build.
 - Done: `reluva-tool netimmerse pac-list` and `pac-extract`, as for New Worlds' `.cat`.
@@ -38,7 +38,7 @@ and each kind of file as its page in [formats/](../formats/) says.
 Like New Worlds and Elite Force before they ran, the engine first opens
 as a viewer; it checks each reader against all the retail files. Started
 from the launcher, the engine now shows these pages (keys in
-`src/engines/netimmerse/viewers.h`; Tab moves between them):
+`src/engines/netimmerse/pages/viewers.h`; Tab moves between them):
 
 - Done: **Archives**: what each `.pac` holds.
 - Done: **Models**: every `.FIN` model, characters, parts and levels alike,

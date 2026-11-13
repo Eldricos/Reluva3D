@@ -21,7 +21,7 @@ namespace reluva {
 class Serializer {
 public:
     // Loading from `in`, or saving to `out` (the other nullptr).
-    Serializer(ReadStream* in, MemoryWriteStream* out) : in_(in), out_(out) {}
+    Serializer(ReadStream *in, MemoryWriteStream *out) : in_(in), out_(out) {}
 
     // The layout's version, for data saved before a field was added.
     void setVersion(uint32_t version) { version_ = version; }
@@ -32,7 +32,7 @@ public:
     bool err() const { return failed_ || (in_ && in_->err()); }
     void fail() { failed_ = true; }
 
-    void syncBytes(void* data, uint32_t size) {
+    void syncBytes(void *data, uint32_t size) {
         if (in_) {
             if (in_->read(data, size) != size)
                 failed_ = true;
@@ -41,8 +41,8 @@ public:
         }
     }
 
-    template <typename T>
-    void syncAsInt(T& value, int bytes) {
+    template<typename T>
+    void syncAsInt(T &value, int bytes) {
         uint8_t buffer[8] = {};
         if (out_) {
             const uint64_t v = uint64_t(int64_t(value));
@@ -61,27 +61,27 @@ public:
         }
     }
 
-    void syncAsByte(uint8_t& value) { syncAsInt(value, 1); }
-    void syncAsBool(bool& value) {
+    void syncAsByte(uint8_t &value) { syncAsInt(value, 1); }
+    void syncAsBool(bool &value) {
         uint8_t b = value ? 1 : 0;
         syncAsInt(b, 1);
         value = b != 0;
     }
-    void syncAsUint16(uint16_t& value) { syncAsInt(value, 2); }
-    void syncAsSint16(int16_t& value) { syncAsInt(value, 2); }
-    void syncAsUint32(uint32_t& value) { syncAsInt(value, 4); }
-    void syncAsSint32(int32_t& value) { syncAsInt(value, 4); }
-    void syncAsUint64(uint64_t& value) { syncAsInt(value, 8); }
+    void syncAsUint16(uint16_t &value) { syncAsInt(value, 2); }
+    void syncAsSint16(int16_t &value) { syncAsInt(value, 2); }
+    void syncAsUint32(uint32_t &value) { syncAsInt(value, 4); }
+    void syncAsSint32(int32_t &value) { syncAsInt(value, 4); }
+    void syncAsUint64(uint64_t &value) { syncAsInt(value, 8); }
     // An int in 32 bits.
-    void syncAsInt(int& value) { syncAsInt(value, 4); }
+    void syncAsInt(int &value) { syncAsInt(value, 4); }
     // A double's bits, as they are.
-    void syncAsDouble(double& value) {
+    void syncAsDouble(double &value) {
         uint64_t bits = 0;
         std::memcpy(&bits, &value, sizeof bits);
         syncAsInt(bits, 8);
         std::memcpy(&value, &bits, sizeof bits);
     }
-    void syncString(std::string& value) {
+    void syncString(std::string &value) {
         uint32_t size = uint32_t(value.size());
         syncAsUint32(size);
         if (in_) {
@@ -95,8 +95,8 @@ public:
             syncBytes(value.data(), size);
     }
     // A vector, each element with sync(serializer, element).
-    template <typename T, typename F>
-    void syncVector(std::vector<T>& values, F sync) {
+    template<typename T, typename F>
+    void syncVector(std::vector<T> &values, F sync) {
         uint32_t size = uint32_t(values.size());
         syncAsUint32(size);
         if (in_) {
@@ -106,7 +106,7 @@ public:
             }
             values.resize(size);
         }
-        for (T& value : values) {
+        for (T &value : values) {
             if (err())
                 return;
             sync(*this, value);
@@ -122,8 +122,8 @@ public:
     }
 
 private:
-    ReadStream* in_;
-    MemoryWriteStream* out_;
+    ReadStream *in_;
+    MemoryWriteStream *out_;
     bool failed_ = false;
     uint32_t version_ = 0;
 };

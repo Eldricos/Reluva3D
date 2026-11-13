@@ -21,14 +21,14 @@ namespace reluva::newworlds {
 // a block, row first); a < 0 if no recording gives it.
 struct ColonySite {
     int a = -1, b = -1;
-    const char* source = ""; // how it's known
+    const char *source = ""; // how it's known
 };
 ColonySite colonySite(std::string_view shortName, char side);
 
 // A building's model for a side, by the name the mission scripts use
 // ("vehicle-yard"); empty if none is known. matched: whether recordings
 // matched it (play-f1.md, play-k1.md) rather than its name alone.
-std::string buildingModel(std::string_view building, char side, bool* matched = nullptr);
+std::string buildingModel(std::string_view building, char side, bool *matched = nullptr);
 
 // What the layout needs to know of the map: its size in blocks, a block's
 // resource deposit (0 for none), the ground's height at a map position
@@ -38,7 +38,7 @@ struct ColonyGround {
     int width = 0, height = 0;
     std::function<int(int bx, int by)> deposit;
     std::function<float(int a, int b)> heightAt;
-    std::function<std::pair<float, float>(const std::string& model)> size;
+    std::function<std::pair<float, float>(const std::string &model)> size;
 };
 
 struct ColonyBuilding {
@@ -65,27 +65,27 @@ public:
     // there (a, b), and whether it fits (free, flat ground near the hub's
     // height; a mine's middle on a deposit). False if the side has no
     // model for it.
-    bool spotAt(std::string_view building, int a, int b, int& ma, int& mb, bool& fits) const;
+    bool spotAt(std::string_view building, int a, int b, int &ma, int &mb, bool &fits) const;
     // Adds it there if it fits.
     bool addAt(std::string_view building, int a, int b);
-    const std::vector<ColonyBuilding>& buildings() const { return buildings_; }
+    const std::vector<ColonyBuilding> &buildings() const { return buildings_; }
     // The concrete the colony starts on, as tile positions (x east, y
     // north): its ground within two tiles of the hub. Recordings show the
     // starting colony on concrete tiles and buildings added later on the
     // bare ground (colony.md); how far the game's pads reach isn't known.
-    const std::vector<std::pair<int, int>>& pad() const { return pad_; }
+    const std::vector<std::pair<int, int>> &pad() const { return pad_; }
 
 private:
     struct Rect {
         int x, y, w, h; // in tiles
     };
-    bool tileFree(int tx, int ty, bool mine) const;   // groundFits, and nothing stands there
+    bool tileFree(int tx, int ty, bool mine) const; // groundFits, and nothing stands there
     // On the map, flat (within flatness), near the hub's height.
     bool groundFits(int tx, int ty, bool mine, float flatness) const;
-    bool fits(const Rect& r, bool mine) const;
-    bool spotRect(std::string_view building, int a, int b, std::string& model, Rect& r) const;
-    Rect footprint(const std::string& model, int tx, int ty) const;
-    void place(std::string_view name, const std::string& model, const Rect& r);
+    bool fits(const Rect &r, bool mine) const;
+    bool spotRect(std::string_view building, int a, int b, std::string &model, Rect &r) const;
+    Rect footprint(const std::string &model, int tx, int ty) const;
+    void place(std::string_view name, const std::string &model, const Rect &r);
 
     char side_;
     ColonyGround ground_;

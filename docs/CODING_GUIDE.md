@@ -4,10 +4,36 @@ Rules for coding must be adhered to whenever possible. Rare exceptions may be ma
 
 ## File Names
 
-Use camel case starting with an upper case letter for all source and header files (matching class names).
+As in ScummVM: lower case for all source and header files and for folders, with words separated by underscores. A file holding one main class is named after it.
 
-* `ActorClass.cpp`
-* `CoolGameFunction.h`
+* `actor.cpp` (`class Actor`)
+* `cool_game_function.h` (`class CoolGameFunction`)
+* `engines/clue/game/board.cpp`, `video/smacker.h`
+
+Every file starts with its license and copyright lines, and every header has `#pragma once`:
+
+```cpp
+// SPDX-License-Identifier: GPL-3.0-or-later
+// Copyright (C) 2026 The Reluva contributors
+
+#pragma once
+```
+
+---
+
+## Namespaces
+
+Lower case, nested with `::`. Everything is in `reluva`; an engine's code is in `reluva::<engine>`, named like its folder.
+
+```cpp
+namespace reluva::clue {
+```
+
+The closing brace says which namespace it closes (clang-format adds this):
+
+```cpp
+} // namespace reluva::clue
+```
 
 ---
 
@@ -32,12 +58,23 @@ template<typename CoolThing>
 void theseCool(CoolThing thing) { /* ... */ }
 ```
 
+Values of an `enum` or `enum class` are constants: `kRed`, `kGreen`.
+
 ### Class Member Variables
 
 Prefixed with `_` and in camel case starting with lowercase.
 
 ```cpp
 char *_coolVariable;
+```
+
+The prefix is for private and protected members. Public data members, the fields of a plain struct, have no prefix:
+
+```cpp
+struct GameTarget {
+    std::string gameId;
+    std::filesystem::path path;
+};
 ```
 
 ### Class Methods
@@ -133,7 +170,6 @@ while (true) {
 
 ```cpp
 someFunction(a, b, c);
-int d, e;
 ```
 
 ### Comment operators followed by a space character
@@ -168,15 +204,15 @@ class PowerUp : public PlayerArmor {
 ### Indentation level is not increased after namespace clause
 
 ```cpp
-namespace Reluva {
+namespace reluva {
 
-byte Actor::kRandomActor = 0;
+const int Actor::kMaxActors = 32;
 
-void Actor::initActorClass(ReluvaLauncher *reluva) {
-    _vm = reluva;
+void Actor::initActorClass(Engine *engine) {
+    _engine = engine;
 }
 
-} // End of namespace Reluva
+} // namespace reluva
 ```
 
 ### Array delete operator has no whitespace before `[]`
@@ -190,8 +226,8 @@ delete[] chaos;
 No whitespace between template keyword and `<`:
 
 ```cpp
-template<typename chaos>
-void myFunc(chaos arg) {
+template<typename Chaos>
+void myFunc(Chaos arg) {
     // ...
 }
 ```
@@ -247,7 +283,7 @@ case kThisCrazy:
     a = 1;
     func1();
     b = a + 1;
-    // fall through
+    [[fallthrough]];
 case kThisAlsoCrazy:
     moreCrazy();
     a = 3;
@@ -260,10 +296,11 @@ case kPlayCmd:
     close();
     break;
 default:
-    Dialog::handleCommand(sender, cmd, data);
+    Menu::handleCommand(sender, cmd, data);
 }
 ```
-- Use the `fall through` comment for consistency and so that the compiler will see it and suppress potential warnings.
+
+- Mark every fall through with `[[fallthrough]];`. Every compiler understands it and checks it; a `// fall through` comment is only understood by GCC.
 
 ---
 
@@ -272,12 +309,34 @@ default:
 ### Avoid composite one-liners
 
 ```cpp
-if (condition) be_crazy();  // BAD
+if (condition) beCrazy();  // BAD
 
 // GOOD
 if (condition)
-    be_crazy();
+    beCrazy();
 ```
+
+### Exception: short functions in a class
+
+A function defined inside its class, whose body is one short statement, may stay on one line. So may a short lambda (an argument, or an entry in a list such as a test suite's cases). Everywhere else the semicolon rule applies.
+
+```cpp
+class Actor {
+public:
+    int health() const { return _health; }       // GOOD
+    void setHealth(int health) { _health = health; } // GOOD
+};
+
+std::sort(list.begin(), list.end(), [](int a, int b) { return a > b; }); // GOOD
+
+int Actor::health() const { return _health; }   // BAD: not inside the class
+```
+
+---
+
+## Line Length
+
+Lines are at most 120 characters. clang-format wraps longer ones.
 
 ### Split variable declarations
 
@@ -333,6 +392,10 @@ void example() {
 
 ---
 
+Macros are in upper case, and Reluva's own start with `RELUVA_`: `RELUVA_FORCE_INLINE`.
+
+---
+
 ## Modern C++ & Best Practices
 
 ### Null Pointers
@@ -358,7 +421,7 @@ void update() override;
 * Pass non-primitive parameters by `const &` when they are not modified.
 ```cpp
 int getHealth() const;
-void processData(const Common::String &name);
+void processData(const std::string &name);
 ```
 
 ---
@@ -366,6 +429,8 @@ void processData(const Common::String &name);
 ## Documentation (Doxygen)
 
 Use standard Doxygen blocks for public classes, methods, and structures to ensure clear documentation generation.
+
+New code uses Doxygen blocks from the start. Existing code has plain `//` comments: when you work on a file, turn the comments on its public classes, methods and structures into Doxygen blocks.
 
 ```cpp
 /**

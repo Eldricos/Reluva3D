@@ -5,7 +5,7 @@
 
 #include <vector>
 
-#include "common/palette.h"
+#include "graphics/palette.h"
 #include "engines/stgenerations/canvas.h"
 #include "common/stream.h"
 
@@ -96,7 +96,7 @@ public:
 
         // The light level for a group brightness of percent (100 = on).
         int getLevel(int percent) const;
-        void sync(Serializer& s);
+        void sync(Serializer &s);
     };
 
     static const int kLightLevels = 8;
@@ -213,7 +213,7 @@ public:
 
         // The zones in play while the player stands here.
         uint64_t getActiveZones() const {
-            for (const auto& band : zoneBands) {
+            for (const auto &band : zoneBands) {
                 if (band.first <= height)
                     return band.second;
             }
@@ -345,42 +345,42 @@ public:
         Canvas surface;
     };
 
-    bool load(SeekableReadStream& stream);
+    bool load(SeekableReadStream &stream);
 
-    const std::vector<ChunkEntry>& getDirectory() const { return _directory; }
-    const ChunkEntry* findChunk(uint16_t type, uint16_t id) const;
+    const std::vector<ChunkEntry> &getDirectory() const { return _directory; }
+    const ChunkEntry *findChunk(uint16_t type, uint16_t id) const;
     // A chunk's bytes, or an empty vector if it is missing.
     std::vector<uint8_t> getChunkData(uint16_t type, uint16_t id) const;
 
-    const Palette& getPalette() const { return _palette; }
-    const std::vector<Vertex>& getVertices() const { return _vertices; }
-    const std::vector<Wall>& getWalls() const { return _walls; }
-    const std::vector<Sector>& getSectors() const { return _sectors; }
-    const std::vector<Billboard>& getBillboards() const { return _billboards; }
-    const std::vector<Actor>& getActors() const { return _actors; }
+    const Palette &getPalette() const { return _palette; }
+    const std::vector<Vertex> &getVertices() const { return _vertices; }
+    const std::vector<Wall> &getWalls() const { return _walls; }
+    const std::vector<Sector> &getSectors() const { return _sectors; }
+    const std::vector<Billboard> &getBillboards() const { return _billboards; }
+    const std::vector<Actor> &getActors() const { return _actors; }
 
     // Writable tables, for the scripts to change the level as it is played.
     // Save or load what scripts change: the walls', flats' and billboards'
     // textures, flags, lights and visibility, and where billboards are.
-    void syncState(Serializer& s);
+    void syncState(Serializer &s);
 
-    std::vector<Wall>& getWalls() { return _walls; }
+    std::vector<Wall> &getWalls() { return _walls; }
     // Doors move vertices.
-    std::vector<Vertex>& getVertices() { return _vertices; }
+    std::vector<Vertex> &getVertices() { return _vertices; }
     // Recompute a wall's normal and distance from its vertices, as 0x4B76F0 does.
     void updateWallGeometry(int index);
-    std::vector<Sector>& getSectors() { return _sectors; }
-    std::vector<Billboard>& getBillboards() { return _billboards; }
+    std::vector<Sector> &getSectors() { return _sectors; }
+    std::vector<Billboard> &getBillboards() { return _billboards; }
 
     // The sky image, if the level has one. The header holds the image size
     // at offset 16 and its height at offset 24; rows are stored in order.
-    bool loadSky(Canvas& sky) const;
+    bool loadSky(Canvas &sky) const;
     // The rows of a sky whose header height doesn't fit its size, or 0.
-    uint32_t guessSkyHeight(const uint8_t* pixels, uint32_t size) const;
+    uint32_t guessSkyHeight(const uint8_t *pixels, uint32_t size) const;
 
     // Ids of all texture chunks, in directory order.
     std::vector<uint16_t> getTextureIds() const;
-    bool loadTexture(uint16_t id, Texture& texture) const;
+    bool loadTexture(uint16_t id, Texture &texture) const;
 
 private:
     bool loadTables();
@@ -397,7 +397,6 @@ private:
 
 // Draw a level's floor plan from above into dst: sectors filled, walls on
 // top, scaled to fit the surface. Colour indices refer to the level palette.
-void drawLevelMap(const LevelFile& level, Canvas& dst);
+void drawLevelMap(const LevelFile &level, Canvas &dst);
 
 } // namespace reluva::stgenerations
-

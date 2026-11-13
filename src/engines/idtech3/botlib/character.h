@@ -37,17 +37,17 @@ class BotCharacters {
 public:
     // Reads `file` from the scripts with `load`; nullptr when it has no
     // such skill (`skill` < 0: the first it has) or can't be read.
-    static std::unique_ptr<BotCharacter> read(const BotScript::Loader& load, const std::string& file, int skill,
-                                              std::string* error = nullptr);
+    static std::unique_ptr<BotCharacter> read(const BotScript::Loader &load, const std::string &file, int skill,
+                                              std::string *error = nullptr);
 
     // The original's choice: the skill clamped to 1..5; skills 1, 4 and 5
     // read as they are (or the nearest the file has, or the default
     // character's), others blended between 1 and 4 or 4 and 5; what the
     // file leaves out taken from the default character
     // (bots/default_c.c). A handle from 1, 0 if none could be read.
-    int load(const BotScript::Loader& load, const std::string& file, float skill, std::string* log = nullptr);
+    int load(const BotScript::Loader &load, const std::string &file, float skill, std::string *log = nullptr);
     void free(int handle);
-    const BotCharacter* get(int handle) const;
+    const BotCharacter *get(int handle) const;
 
     float floatValue(int handle, int index) const;
     float boundedFloat(int handle, int index, float min, float max) const;
@@ -56,8 +56,8 @@ public:
     std::string string(int handle, int index) const;
 
 private:
-    std::unique_ptr<BotCharacter> loadSkill(const BotScript::Loader& load, const std::string& file, int skill,
-                                            std::string* log);
+    std::unique_ptr<BotCharacter> loadSkill(const BotScript::Loader &load, const std::string &file, int skill,
+                                            std::string *log);
     std::vector<std::unique_ptr<BotCharacter>> characters_; // by handle - 1
 };
 

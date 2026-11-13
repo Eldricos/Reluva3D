@@ -3,8 +3,8 @@
 
 #include "engines/idtech3/eliteforce/cgame_host.h"
 
-#include "engines/idtech3/md3.h"
-#include "engines/idtech3/shader.h"
+#include "engines/idtech3/formats/md3.h"
+#include "engines/idtech3/formats/shader.h"
 
 #include <array>
 #include <cstdlib>
@@ -121,7 +121,7 @@ SnapshotLayout snapshotLayout(int32_t playerStateSize) {
 constexpr int32_t kTempBoxModel = 0x10000; // CM_TempBoxModel's handle (the original keeps one at a time too)
 
 // Quake III's trace_t (56 bytes), as the game logic's traces.
-void writeTrace(Qvm& vm, int32_t address, const TraceResult& t, int32_t entityNum) {
+void writeTrace(Qvm &vm, int32_t address, const TraceResult &t, int32_t entityNum) {
     if (!vm.checkWrite(address, 56))
         return;
     vm.writeInt(address + 0, t.allSolid);
@@ -150,12 +150,12 @@ void writeTrace(Qvm& vm, int32_t address, const TraceResult& t, int32_t entityNu
 
 // A command line split into words as Quake III's Cmd_TokenizeString does:
 // at white space, a quoted string as one word, // comments ending it.
-Vec3f readVec3(const Qvm& vm, int32_t address) {
+Vec3f readVec3(const Qvm &vm, int32_t address) {
     return {Qvm::asFloat(vm.readInt(address)), Qvm::asFloat(vm.readInt(address + 4)),
             Qvm::asFloat(vm.readInt(address + 8))};
 }
 
-std::vector<std::string> tokenize(const std::string& line) {
+std::vector<std::string> tokenize(const std::string &line) {
     std::vector<std::string> words;
     size_t i = 0;
     while (true) {
@@ -194,8 +194,8 @@ void CgameHost::newSnapshot(GameHost::Snapshot snapshot) {
         snapshots_.erase(snapshots_.begin());
 }
 
-CgameHost::CgameHost(const SearchSet& files, CvarStore& cvars) : files_(files), cvars_(cvars), vmFiles_(files) {
-    vm_.setSystemCall([this](Qvm& vm, int number, const int32_t* args) { return systemCall(vm, number, args); });
+CgameHost::CgameHost(const SearchSet &files, CvarStore &cvars) : files_(files), cvars_(cvars), vmFiles_(files) {
+    vm_.setSystemCall([this](Qvm &vm, int number, const int32_t *args) { return systemCall(vm, number, args); });
 }
 
 Error CgameHost::load() {
@@ -208,11 +208,11 @@ Error CgameHost::load() {
     return Error::success();
 }
 
-Error CgameHost::call(int32_t command, const std::vector<int32_t>& args, int32_t& result) {
+Error CgameHost::call(int32_t command, const std::vector<int32_t> &args, int32_t &result) {
     return vm_.call(command, args, result);
 }
 
-Error CgameHost::consoleCommand(const std::string& text, bool& handled) {
+Error CgameHost::consoleCommand(const std::string &text, bool &handled) {
     args_ = tokenize(text);
     int32_t result = 0;
     Error err = call(ConsoleCommand, {}, result);
@@ -232,7 +232,7 @@ void CgameHost::writeGameState(int32_t address) {
     // Offset 0 is an empty string, for configstrings not set.
     const int32_t data = address + 4 * kMaxConfigstrings;
     int32_t used = 1;
-    for (const auto& [index, text] : configstrings_) {
+    for (const auto &[index, text] : configstrings_) {
         if (index < 0 || index >= kMaxConfigstrings || text.empty())
             continue;
         if (used + int32_t(text.size()) + 1 > kGameStateChars) {
@@ -268,7 +268,7 @@ void CgameHost::writeGlconfig(int32_t address) {
     vm_.writeInt(w + 52, 60);
 }
 
-int32_t CgameHost::systemCall(Qvm& vm, int number, const int32_t* a) {
+int32_t CgameHost::systemCall(Qvm &vm, int number, const int32_t *a) {
     if (trace)
         trace(number, a);
     auto str = [&](int i, size_t max = 1024) { return vm.string(a[i], max); };
@@ -289,25 +289,37 @@ int32_t CgameHost::systemCall(Qvm& vm, int number, const int32_t* a) {
             print(text);
         return 0;
     }
-    case Error_: vm.abort("cgame.qvm: " + str(0)); return 0;
-    case Milliseconds: return time_;
+    case Error_:
+        vm.abort("cgame.qvm: " + str(0));
+        return 0;
+    case Milliseconds:
+        return time_;
     case CvarRegister: {
-        const CvarStore::Cvar& cv = cvars_.create(str(1, 256), str(2, 256), a[3]);
+        const CvarStore::Cvar &cv = cvars_.create(str(1, 256), str(2, 256), a[3]);
         if (a[0])
             cvars_.writeVmCvar(vm, a[0], cv.handle);
         return 0;
     }
-    case CvarUpdate: cvars_.updateVmCvar(vm, a[0]); return 0;
-    case CvarSet: cvars_.set(str(0, 256), str(1, 256), true); return 0; // forced, as the original's Cvar_Set
+    case CvarUpdate:
+        cvars_.updateVmCvar(vm, a[0]);
+        return 0;
+    case CvarSet:
+        cvars_.set(str(0, 256), str(1, 256), true);
+        return 0; // forced, as the original's Cvar_Set
     case SetLocalCvar:
         // Holomatch's engine sets the cvar forced (read-only ones too),
         // without counting it as a change of the player's settings to send.
         // Reluva sends them only on connecting, so a forced set is enough.
         cvars_.set(str(0, 256), str(1, 256), true);
         return 0;
-    case CvarVariableStringBuffer: vm.writeString(a[1], cvars_.string(str(0, 256)), a[2]); return 0;
-    case Argc: return int32_t(args_.size());
-    case Argv: vm.writeString(a[1], a[0] >= 0 && size_t(a[0]) < args_.size() ? args_[size_t(a[0])] : "", a[2]); return 0;
+    case CvarVariableStringBuffer:
+        vm.writeString(a[1], cvars_.string(str(0, 256)), a[2]);
+        return 0;
+    case Argc:
+        return int32_t(args_.size());
+    case Argv:
+        vm.writeString(a[1], a[0] >= 0 && size_t(a[0]) < args_.size() ? args_[size_t(a[0])] : "", a[2]);
+        return 0;
     case Args: {
         std::string rest;
         for (size_t i = 1; i < args_.size(); ++i)
@@ -315,12 +327,22 @@ int32_t CgameHost::systemCall(Qvm& vm, int number, const int32_t* a) {
         vm.writeString(a[0], rest, a[1]);
         return 0;
     }
-    case FsFOpenFile: return vmFiles_.open(vm, a[0], a[1], a[2]);
-    case FsRead: return vmFiles_.read(vm, a[0], a[1], a[2]);
-    case FsFCloseFile: vmFiles_.close(a[0]); return 0;
-    case AddCommand: commands_.push_back(str(0, 64)); return 0;
-    case SendClientCommand: clientCommands_.push_back(str(0, 1024)); return 0;
-    case SendConsoleCommand: consoleCommands_.push_back(str(0, 1024)); return 0;
+    case FsFOpenFile:
+        return vmFiles_.open(vm, a[0], a[1], a[2]);
+    case FsRead:
+        return vmFiles_.read(vm, a[0], a[1], a[2]);
+    case FsFCloseFile:
+        vmFiles_.close(a[0]);
+        return 0;
+    case AddCommand:
+        commands_.push_back(str(0, 64));
+        return 0;
+    case SendClientCommand:
+        clientCommands_.push_back(str(0, 1024));
+        return 0;
+    case SendConsoleCommand:
+        consoleCommands_.push_back(str(0, 1024));
+        return 0;
     case UpdateScreen: // the loading screen
         if (updateScreen)
             updateScreen();
@@ -338,25 +360,34 @@ int32_t CgameHost::systemCall(Qvm& vm, int number, const int32_t* a) {
         marks_.reset();
         return 0;
     }
-    case CmNumInlineModels: return map_ ? int32_t(map_->models.size()) : 0;
-    case SRegisterSound: return sounds_.add(str(0, 256));
+    case CmNumInlineModels:
+        return map_ ? int32_t(map_->models.size()) : 0;
+    case SRegisterSound:
+        return sounds_.add(str(0, 256));
     case SStartBackgroundTrack: // (intro, loop)
         music_ = {str(0, 256), str(1, 256)};
         if (soundSystem)
             soundSystem->startBackgroundTrack(music_.first, music_.second);
         return 0;
-    case RLoadWorldMap: worldMap_ = str(0, 256); return 0;
-    case RRegisterModel: return models_.add(str(0, 256));
-    case RRegisterSkin: return skins_.add(str(0, 256));
+    case RLoadWorldMap:
+        worldMap_ = str(0, 256);
+        return 0;
+    case RRegisterModel:
+        return models_.add(str(0, 256));
+    case RRegisterSkin:
+        return skins_.add(str(0, 256));
     case RRegisterShader:
-    case RRegisterShaderNoMip: return shaders_.add(str(0, 256));
+    case RRegisterShaderNoMip:
+        return shaders_.add(str(0, 256));
     case RRegisterShader3D: {
         // The CTF flags' team pictures (models/flags/<team>_red): 0 for a
         // team without one, and the client game takes the default.
         const std::string name = str(0, 256);
         return findImage(files_, name).empty() ? 0 : shaders_.add(name);
     }
-    case RClearScene: scene_.clear(); return 0;
+    case RClearScene:
+        scene_.clear();
+        return 0;
     case RSetColor: // (rgba or 0 for white)
         if (!a[0])
             color_ = {1, 1, 1, 1};
@@ -371,7 +402,7 @@ int32_t CgameHost::systemCall(Qvm& vm, int number, const int32_t* a) {
     }
     case RModelBounds: { // (model, mins[3], maxs[3])
         std::array<float, 3> mins{}, maxs{};
-        const std::string& name = models_.name(a[0]);
+        const std::string &name = models_.name(a[0]);
         if (!name.empty() && name[0] == '*') { // one of the map's brush models
             const int n = std::atoi(name.c_str() + 1);
             if (map_ && n > 0 && size_t(n) < map_->models.size()) {
@@ -406,7 +437,7 @@ int32_t CgameHost::systemCall(Qvm& vm, int number, const int32_t* a) {
         const SnapshotLayout l = snapshotLayout(layout_.playerStateSize);
         if (it == snapshots_.end() || !vm.checkWrite(a[1], l.size))
             return 0;
-        const GameHost::Snapshot& s = it->second;
+        const GameHost::Snapshot &s = it->second;
         std::memset(&vm.memory()[size_t(a[1])], 0, size_t(l.numEntities)); // flags, ping, area mask (all visible)
         vm.writeInt(a[1], s.snapFlags);
         vm.writeInt(a[1] + kSnapServerTime, s.serverTime);
@@ -423,14 +454,15 @@ int32_t CgameHost::systemCall(Qvm& vm, int number, const int32_t* a) {
         vm.writeInt(a[1] + l.serverCommandSequence, s.serverCommandSequence);
         return 1;
     }
-    case CmInlineModel: return a[0]; // the map's model n is clip model n
+    case CmInlineModel:
+        return a[0];     // the map's model n is clip model n
     case CmTempBoxModel: // (mins, maxs): a box to trace against, until the next one
         for (int i = 0; i < 3; ++i) {
             tempBoxMins_[size_t(i)] = Qvm::asFloat(vm.readInt(a[0] + 4 * i));
             tempBoxMaxs_[size_t(i)] = Qvm::asFloat(vm.readInt(a[1] + 4 * i));
         }
         return kTempBoxModel;
-    case CmPointContents: // (point, model)
+    case CmPointContents:              // (point, model)
     case CmTransformedPointContents: { // (point, model, origin, angles)
         auto vec = [&](int32_t addr) {
             Vec3f v{};
@@ -456,7 +488,7 @@ int32_t CgameHost::systemCall(Qvm& vm, int number, const int32_t* a) {
             world_ = std::make_unique<CollisionWorld>(*map_);
         return world_->transformedPointContents(point, a[1], origin, angles);
     }
-    case CmBoxTrace: // (results, start, end, mins, maxs, model, brushmask)
+    case CmBoxTrace:              // (results, start, end, mins, maxs, model, brushmask)
     case CmTransformedBoxTrace: { // ... origin, angles
         auto vec = [&](int32_t addr) {
             Vec3f v{};
@@ -546,23 +578,28 @@ int32_t CgameHost::systemCall(Qvm& vm, int number, const int32_t* a) {
         scene_.addEntity(vm, a[0], it != cleared_.end() ? it->second : 0);
         return 0;
     }
-    case RAddPolyToScene: scene_.addPoly(vm, a[0], a[1], a[2]); return 0; // (shader, numVerts, verts)
+    case RAddPolyToScene:
+        scene_.addPoly(vm, a[0], a[1], a[2]);
+        return 0;          // (shader, numVerts, verts)
     case RAddLightToScene: // (origin, intensity, r, g, b)
         scene_.addLight(vm, a[0], Qvm::asFloat(a[1]), Qvm::asFloat(a[2]), Qvm::asFloat(a[3]), Qvm::asFloat(a[4]));
         return 0;
-    case RRenderScene: scene_.render(vm, a[0], pictures_.size()); return 0;
+    case RRenderScene:
+        scene_.render(vm, a[0], pictures_.size());
+        return 0;
     case RLerpTag: { // (orientation_t*, model, startFrame, endFrame, frac, tagName) -> found
         auto [it, added] = md3s_.try_emplace(a[1]);
         if (added) {
             std::vector<uint8_t> data;
             auto md3 = std::make_shared<Md3Model>();
-            const std::string& name = models_.name(a[1]);
+            const std::string &name = models_.name(a[1]);
             if (!name.empty() && name[0] != '*' && !files_.read(name, data) && !parseModel(data, *md3))
                 it->second = std::move(md3);
         }
         return writeLerpTag(vm, a[0], it->second.get(), a[2], a[3], Qvm::asFloat(a[4]), str(5, 64));
     }
-    case GetCurrentCmdNumber: return userCommandNumber_;
+    case GetCurrentCmdNumber:
+        return userCommandNumber_;
     case GetUserCmd: { // (number, usercmd_t*) -> whether it's still kept
         const auto it = userCommands_.find(a[0]);
         if (it == userCommands_.end() || !vm.checkWrite(a[1], 24))
@@ -570,7 +607,9 @@ int32_t CgameHost::systemCall(Qvm& vm, int number, const int32_t* a) {
         GameHost::writeUserCommand(vm, a[1], it->second);
         return 1;
     }
-    case SetUserCmdValue: weaponSelect_ = a[0]; return 0; // (weapon, sensitivity scale): what the next commands carry
+    case SetUserCmdValue:
+        weaponSelect_ = a[0];
+        return 0;            // (weapon, sensitivity scale): what the next commands carry
     case GetServerCommand: { // (sequence) -> whether it's there; it becomes Argc/Argv
         if (a[0] < 1 || size_t(a[0]) > serverCommands_.size())
             return 0;
@@ -597,10 +636,16 @@ int32_t CgameHost::systemCall(Qvm& vm, int number, const int32_t* a) {
         }
         return 1;
     }
-    case Floor: return Qvm::fromFloat(std::floor(Qvm::asFloat(a[0])));
-    case MemoryRemaining: return 64 << 20; // plenty: the client game loads every player model up front
-    case GetGlconfig: writeGlconfig(a[0]); return 0;
-    case GetGameState: writeGameState(a[0]); return 0;
+    case Floor:
+        return Qvm::fromFloat(std::floor(Qvm::asFloat(a[0])));
+    case MemoryRemaining:
+        return 64 << 20; // plenty: the client game loads every player model up front
+    case GetGlconfig:
+        writeGlconfig(a[0]);
+        return 0;
+    case GetGameState:
+        writeGameState(a[0]);
+        return 0;
     default:
         if (!unhandled_[number]++)
             firstUnhandled_[number] = {a[0], a[1], a[2], a[3], a[4], a[5]};

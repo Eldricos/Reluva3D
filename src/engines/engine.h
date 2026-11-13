@@ -18,7 +18,7 @@ namespace reluva {
 
 // A game the user has added, as stored in the config file.
 struct GameTarget {
-    std::string target;   // config section name, unique per install
+    std::string target; // config section name, unique per install
     std::string engineId;
     std::string gameId;
     std::string description;
@@ -58,15 +58,16 @@ class MetaEngine {
 public:
     virtual ~MetaEngine() = default;
 
-    virtual const char* id() const = 0;
-    virtual const char* name() const = 0;
+    virtual const char *id() const = 0;
+    virtual const char *name() const = 0;
 
-    virtual std::vector<DetectedGame> detect(const std::filesystem::path& dir) const = 0;
+    virtual std::vector<DetectedGame> detect(const std::filesystem::path &dir) const = 0;
     // The games in `source` that can be imported (copied into a folder of
     // their own to run from): none unless the engine knows how.
-    virtual std::vector<ImportPlan> planImport(const std::filesystem::path& /*source*/) const { return {}; }
+    virtual std::vector<ImportPlan> planImport(const std::filesystem::path & /*source*/) const { return {}; }
     // The choices it offers for the game in `dir` (none by default).
-    virtual std::vector<GameOption> options(const std::string& /*gameId*/, const std::filesystem::path& /*dir*/) const {
+    virtual std::vector<GameOption> options(const std::string & /*gameId*/,
+                                            const std::filesystem::path & /*dir*/) const {
         return {};
     }
     // Settings for all of the engine's games, which each game can also set
@@ -78,12 +79,12 @@ public:
     // Adds what `file` holds for `plan`'s game (its patch: the patched
     // files, in place of the plan's own); false, with why in `message`, if
     // it isn't one the engine knows.
-    virtual bool addToImport(ImportPlan& /*plan*/, const std::filesystem::path& /*file*/,
-                             std::string& message) const {
+    virtual bool addToImport(ImportPlan & /*plan*/, const std::filesystem::path & /*file*/,
+                             std::string &message) const {
         message = "not a file Reluva can use for this game";
         return false;
     }
-    virtual std::unique_ptr<Engine> create(System& system, const GameTarget& target) const = 0;
+    virtual std::unique_ptr<Engine> create(System &system, const GameTarget &target) const = 0;
 };
 
 } // namespace reluva

@@ -47,7 +47,7 @@ matched ignoring case.
 | `Locations/Menu.*` | the menus are scenes like any other | `.ac2` + images | — |
 | `Text/Scripts/slot0..14.ac2` (25 KB → 365 KB) | per-chapter game state? Starting saves? | `.ac2` | — |
 | `Models/<Character>/*.GR2` (1,803) | `<name>_model.GR2` mesh + skeleton, one GR2 per animation (`poirot_walk.GR2`), face animations (`_f*`), `_model_1024` more detailed meshes the game never loads | Granny 2 | — |
-| `Models/<Character>/*.wav` | footstep/move sounds tied to animations | WAV | `common/audio` |
+| `Models/<Character>/*.wav` | footstep/move sounds tied to animations | WAV | `src/audio` |
 | `Movies/*.bik` (46, 570 MB) | cutscenes | Bink 1 (2006 predates Bink 2) | — |
 | `Elements/Binks`, `Elements/Water` | looping video textures: flames, curtains, water, blizzard | Bink | — |
 | `Elements/Fog`, `Skies`, `Particles`, `Snowscapes` | effects layers. The fog TGAs are 3,145,772 bytes = 1024×768×4 + header, so **the game's frame is 1024×768** | TGA/JPG | yes |
@@ -233,7 +233,7 @@ RagnarokFileFormats' GR2 notes, and the Knit reader. Plan:
 
 Needed early: cutscenes, the intro and logos, and video loops in the scenes.
 Bink 1 is documented on the MultimediaWiki. Write a decoder in
-`src/common/video/` (shared, since many games of the era use Bink):
+`src/video/` (shared, since many games of the era use Bink):
 container, video (bundles, Huffman trees, DCT blocks, motion), and Bink
 audio (the DCT/RDFT variants). Check its frames against reference
 decodes. The x86 route (`binkw32.dll`) is a poor fit here: real-time video

@@ -4,17 +4,17 @@
 // The Clue engine's unit tests: The front end: a dialog drawn from
 // dialogInfo.res, and the original's Prefs.ini.
 
-#include "engines/clue/ai.h"
-#include "engines/clue/board.h"
-#include "engines/clue/frontend.h"
+#include "engines/clue/game/ai.h"
+#include "engines/clue/game/board.h"
+#include "engines/clue/ui/frontend.h"
 #include "engines/clue/game_data.h"
-#include "engines/clue/level.h"
-#include "engines/clue/mansion.h"
-#include "engines/clue/netplay.h"
-#include "engines/clue/resi.h"
-#include "engines/clue/resources.h"
-#include "engines/clue/rules.h"
-#include "engines/clue/ui.h"
+#include "engines/clue/formats/level.h"
+#include "engines/clue/game/mansion.h"
+#include "engines/clue/game/netplay.h"
+#include "engines/clue/formats/resi.h"
+#include "engines/clue/formats/resources.h"
+#include "engines/clue/game/rules.h"
+#include "engines/clue/ui/ui.h"
 #include "tests/engines/clue/support.h"
 #include "tests/support/test.h"
 #include "tests/support/zip_writer.h"
@@ -31,7 +31,7 @@ using namespace reluva;
 using namespace reluva::clue;
 using namespace reluva::clue::testing;
 
-static void testDialog(const std::filesystem::path& tmp) {
+static void testDialog(const std::filesystem::path &tmp) {
     std::filesystem::remove_all(tmp);
     std::filesystem::create_directories(tmp / "Data" / "Classic");
     GameData data;
@@ -89,7 +89,9 @@ static void testOriginalPrefs() {
     CHECK(!p.loadOriginal({1, 2, 3}));
 }
 
-static const reluva::test::Suite suite("clue.unit.frontend", {
-    {"dialog", [](const std::filesystem::path& tmp) { testDialog(tmp / "dialog"); }},
-    {"original preferences", [](const std::filesystem::path&) { testOriginalPrefs(); }},
-});
+static const reluva::test::Suite
+    suite("clue.unit.frontend",
+          {
+              {"dialog", [](const std::filesystem::path &tmp) { testDialog(tmp / "dialog"); }},
+              {"original preferences", [](const std::filesystem::path &) { testOriginalPrefs(); }},
+          });

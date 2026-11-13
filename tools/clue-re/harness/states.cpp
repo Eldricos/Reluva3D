@@ -1,5 +1,5 @@
 #include "engines/clue/game_data.h"
-#include "engines/clue/level.h"
+#include "engines/clue/formats/level.h"
 #include <cstdio>
 #include <set>
 using namespace reluva; using namespace reluva::clue;

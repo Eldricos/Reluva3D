@@ -1,5 +1,5 @@
 #include "engines/clue/game_data.h"
-#include "engines/clue/resources.h"
+#include "engines/clue/formats/resources.h"
 #include <cstdio>
 #include <map>
 using namespace reluva::clue;

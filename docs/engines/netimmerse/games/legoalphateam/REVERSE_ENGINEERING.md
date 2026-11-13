@@ -140,7 +140,7 @@ internals, only of what the program calls.
 
 ## The tools
 
-All in `reluva-tool`: the ones for any game in `src/tools/`, this engine's
+All in `reluva-tool`: the ones for any game in `src/devtools/`, this engine's
 in `src/engines/netimmerse/tools/` (`reluva-tool netimmerse <command>`;
 `reluva-tool help netimmerse` lists them). The ones used for this game:
 

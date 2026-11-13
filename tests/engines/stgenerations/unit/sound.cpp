@@ -18,7 +18,7 @@ namespace {
 
 // A 56-byte sound table entry.
 std::vector<uint8_t> soundEntry(uint32_t key, uint32_t flags, int positionMode = 0, double x = 0, double radius = 0,
-                             int32_t repeats = 0) {
+                                int32_t repeats = 0) {
     std::vector<uint8_t> r(56);
     writeLE32(&r[0x00], key);
     writeLE32(&r[0x04], 64);
@@ -36,14 +36,14 @@ std::vector<uint8_t> soundEntry(uint32_t key, uint32_t flags, int positionMode =
 // and cue 5, which plays sound 0, waits 500 ms and plays it again.
 std::vector<uint8_t> makeSoundScript() {
     std::vector<std::vector<uint8_t>> sections(6);
-    for (const std::vector<uint8_t>& e :
-         { soundEntry(0x4006B, MissionSound::kFlagSubtitle), soundEntry(0x00003, 0, 1, 10, 20),
-           soundEntry(0x1000032, 0), soundEntry(0x121D4D, MissionSound::kFlagStream) })
+    for (const std::vector<uint8_t> &e :
+         {soundEntry(0x4006B, MissionSound::kFlagSubtitle), soundEntry(0x00003, 0, 1, 10, 20), soundEntry(0x1000032, 0),
+          soundEntry(0x121D4D, MissionSound::kFlagStream)})
         sections[3].insert(sections[3].end(), e.begin(), e.end());
     std::vector<uint8_t> end(56, 0xFF);
     sections[3].insert(sections[3].end(), end.begin(), end.end());
 
-    const uint32_t cue[] = { 0x12345678, 5, 0x20, 0, 0, 0, (uint32_t)-500, 0, 0, 0, 0x87654321, 0xFFFFFFFF };
+    const uint32_t cue[] = {0x12345678, 5, 0x20, 0, 0, 0, (uint32_t)-500, 0, 0, 0, 0x87654321, 0xFFFFFFFF};
     for (uint32_t word : cue) {
         uint8_t b[4];
         writeLE32(b, word);
@@ -59,7 +59,7 @@ std::vector<uint8_t> makeSoundScript() {
         writeLE32(&file[16 + i * 4], (uint32_t)sections[i].size());
     file.push_back(0x00);
     file.push_back(0x10); // the program: end marker 0x1000
-    for (const std::vector<uint8_t>& s : sections)
+    for (const std::vector<uint8_t> &s : sections)
         file.insert(file.end(), s.begin(), s.end());
     writeLE32(&file[8], (uint32_t)file.size() - 12);
     return file;
@@ -96,7 +96,7 @@ static void sound_file_names_and_subtitles() {
     CHECK(where == MissionSound::kLocationMusic);
 
     CHECK_EQUAL(MissionSound::cleanSubtitle("RIKER: \\T00FF00\\Hello\\\\ there\r\n"),
-             std::string("RIKER: Hello\\ there"));
+                std::string("RIKER: Hello\\ there"));
 }
 
 static void sound_cues_positions_and_events() {
@@ -109,8 +109,8 @@ static void sound_cues_positions_and_events() {
     Mixer mixer(out);
     std::vector<uint8_t> wav = makeWAV();
     std::vector<std::string> opened;
-    auto opener = [&](const std::string& name, MissionSound::Location /*where*/)
-        -> std::unique_ptr<SeekableReadStream> {
+    auto opener = [&](const std::string &name,
+                      MissionSound::Location /*where*/) -> std::unique_ptr<SeekableReadStream> {
         opened.push_back(name);
         if (name == "RIKE0107.TXT") {
             static const char text[] = "RIKER: \\T00FF00\\Make it so.";
@@ -124,9 +124,9 @@ static void sound_cues_positions_and_events() {
     CHECK_EQUAL(sound.getCueCount(), 1);
 
     std::vector<int16_t> buffer(22050 * 2);
-    auto run = [&](uint32_t ms, std::vector<MissionSound::Finished>& finished) {
+    auto run = [&](uint32_t ms, std::vector<MissionSound::Finished> &finished) {
         out.mix(buffer.data(), int(22050 * ms / 1000));
-        MissionSound::Listener listener = { 0, 0, 0, 0 };
+        MissionSound::Listener listener = {0, 0, 0, 0};
         sound.update(ms, listener, finished);
     };
 
@@ -161,7 +161,7 @@ static void sound_cues_positions_and_events() {
     CHECK_EQUAL(opened.size(), (size_t)1);
     opened.clear();
     sound.play(1);
-    MissionSound::Listener far = { 100, 0, 0, 0 };
+    MissionSound::Listener far = {100, 0, 0, 0};
     finished.clear();
     sound.update(10, far, finished);
     CHECK(opened.empty());
@@ -173,7 +173,9 @@ static void sound_cues_positions_and_events() {
     CHECK(!sound.fadeOut((uint32_t)handle << 16, 50));
 }
 
-static const reluva::test::Suite suite("stgenerations.unit.sound", {
-    {"sound file names and subtitles", [](const std::filesystem::path&) { sound_file_names_and_subtitles(); }},
-    {"sound cues positions and events", [](const std::filesystem::path&) { sound_cues_positions_and_events(); }},
-});
+static const reluva::test::Suite suite(
+    "stgenerations.unit.sound",
+    {
+        {"sound file names and subtitles", [](const std::filesystem::path &) { sound_file_names_and_subtitles(); }},
+        {"sound cues positions and events", [](const std::filesystem::path &) { sound_cues_positions_and_events(); }},
+    });

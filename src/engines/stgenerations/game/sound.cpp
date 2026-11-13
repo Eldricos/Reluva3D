@@ -16,7 +16,7 @@ namespace reluva::stgenerations {
 
 namespace {
 
-const char* const kDebugChannel = "sound";
+const char *const kDebugChannel = "sound";
 const double kFixed = 65536.0;
 const uint32_t kCueStart = 0x12345678;
 const uint32_t kCueEnd = 0x87654321;
@@ -25,10 +25,8 @@ const int kCueSection = 2;
 // Volumes the original treats as inaudible for positional sounds.
 const int kAudibleVolume = 10;
 // Speaker prefixes of sound file names (table at 0x53FDA8).
-const char* const kPrefixes[] = {
-    "MISC", "PICA", "TROI", "GEOR", "RIKE", "DATA", "WORF", "CRUS", "KIRK", "ROMU", "KLIN",
-    "SORA", "CHOD", "HANU", "EXTR", "KRAU", "LURS", "BETO", "MUSI", "TEMP", "COMP"
-};
+const char *const kPrefixes[] = {"MISC", "PICA", "TROI", "GEOR", "RIKE", "DATA", "WORF", "CRUS", "KIRK", "ROMU", "KLIN",
+                                 "SORA", "CHOD", "HANU", "EXTR", "KRAU", "LURS", "BETO", "MUSI", "TEMP", "COMP"};
 const uint32_t kPrefixMusic = 18;
 const uint32_t kKeyCommon = 0x1000000;
 
@@ -71,13 +69,13 @@ struct MissionSound::Voice {
     uint32_t length = 0;
 };
 
-MissionSound::MissionSound(const ScriptFile& script, Mixer* mixer, const FileOpener& opener,
-                           const ObjectLocator& locator)
+MissionSound::MissionSound(const ScriptFile &script, Mixer *mixer, const FileOpener &opener,
+                           const ObjectLocator &locator)
     : _mixer(mixer), _opener(opener), _locator(locator) {
     // Section 3: 56-byte entries, ended by a key of -1.
-    const std::vector<uint8_t>& sounds = script.getSection(kSoundSection);
+    const std::vector<uint8_t> &sounds = script.getSection(kSoundSection);
     for (size_t p = 0; p + 56 <= sounds.size(); p += 56) {
-        const uint8_t* r = &sounds[p];
+        const uint8_t *r = &sounds[p];
         if ((int32_t)readLE32(r) == -1)
             break;
         Definition d;
@@ -100,7 +98,7 @@ MissionSound::MissionSound(const ScriptFile& script, Mixer* mixer, const FileOpe
     }
 
     // Section 2: cues, each between two magic numbers.
-    const std::vector<uint8_t>& cues = script.getSection(kCueSection);
+    const std::vector<uint8_t> &cues = script.getSection(kCueSection);
     size_t p = 0;
     while (p + 16 <= cues.size() && readLE32(&cues[p]) == kCueStart) {
         Cue cue;
@@ -122,14 +120,14 @@ MissionSound::~MissionSound() {
     stopAll();
 }
 
-std::string MissionSound::getFileName(uint32_t key, const char* extension, Location& where) {
+std::string MissionSound::getFileName(uint32_t key, const char *extension, Location &where) {
     uint32_t prefix = (key >> 16) & 0xFF;
     where = (key & kKeyCommon) ? kLocationCommon : prefix == kPrefixMusic ? kLocationMusic : kLocationMission;
-    const char* name = prefix < sizeof(kPrefixes) / sizeof(kPrefixes[0]) ? kPrefixes[prefix] : "MISC";
+    const char *name = prefix < sizeof(kPrefixes) / sizeof(kPrefixes[0]) ? kPrefixes[prefix] : "MISC";
     return text::format("%s%04u.%s", name, key & 0xFFFF, extension);
 }
 
-std::string MissionSound::cleanSubtitle(const std::string& text) {
+std::string MissionSound::cleanSubtitle(const std::string &text) {
     std::string out;
     for (size_t i = 0; i < text.size(); i++) {
         if (text[i] == '\\' && i + 1 < text.size()) {
@@ -171,7 +169,7 @@ std::vector<int> MissionSound::findVoices(uint32_t reference) const {
     std::vector<int> found;
     uint16_t high = (uint16_t)(reference >> 16);
     for (size_t i = 0; i < _voices.size(); i++) {
-        const Voice& v = *_voices[i];
+        const Voice &v = *_voices[i];
         if (high == 0 || high == 0xFFFF ? v.sound == (int)(reference & 0xFFFF) : v.serial == (uint32_t)high - 1)
             found.push_back((int)i);
     }
@@ -181,7 +179,7 @@ std::vector<int> MissionSound::findVoices(uint32_t reference) const {
 int MissionSound::startVoice(int sound, uint16_t requester, std::vector<int32_t> chain, uint32_t extraDelay) {
     if (sound < 0 || sound >= (int)_sounds.size())
         return -1;
-    const Definition& d = _sounds[sound];
+    const Definition &d = _sounds[sound];
     std::unique_ptr<Voice> voice(new Voice());
     voice->serial = _nextSerial++;
     voice->sound = sound;
@@ -224,7 +222,7 @@ int MissionSound::playFadeIn(uint32_t reference, uint32_t ms) {
     int sound = definitionOf(reference);
     int handle = play(sound);
     if (handle > 0) {
-        Voice& v = *_voices.back();
+        Voice &v = *_voices.back();
         v.fadeTarget = _sounds[sound].volume;
         v.volume = 0;
         v.fadeRate = ms ? v.fadeTarget / ms : 64;
@@ -233,10 +231,10 @@ int MissionSound::playFadeIn(uint32_t reference, uint32_t ms) {
 }
 
 void MissionSound::playCue(int number, uint16_t requester) {
-    auto it = std::find_if(_cues.begin(), _cues.end(), [number](const Cue& c) { return c.number == number; });
+    auto it = std::find_if(_cues.begin(), _cues.end(), [number](const Cue &c) { return c.number == number; });
     if (it == _cues.end())
         return;
-    Cue& cue = *it;
+    Cue &cue = *it;
     std::vector<int32_t> picked;
     size_t n = cue.members.size();
 
@@ -306,7 +304,7 @@ void MissionSound::playCue(int number, uint16_t requester) {
 void MissionSound::stop(uint32_t reference) {
     std::vector<int> found = findVoices(reference);
     for (auto it = found.rbegin(); it != found.rend(); ++it) {
-        Voice& v = *_voices[*it];
+        Voice &v = *_voices[*it];
         if (_mixer)
             _mixer->stopHandle(v.handle);
         v.chain.clear();
@@ -331,7 +329,7 @@ bool MissionSound::fadeOut(uint32_t reference, uint32_t ms) {
         found.push_back((int)_voices.size() - 1);
     }
     for (int index : found) {
-        Voice& v = *_voices[index];
+        Voice &v = *_voices[index];
         v.fadeTarget = 0;
         v.fadeRate = ms ? std::max(v.volume, 1.0) / ms : 64;
         v.stopAfterFade = true;
@@ -398,8 +396,8 @@ void MissionSound::setRadius(uint32_t reference, double radius) {
         _sounds[sound].radius = radius;
 }
 
-bool MissionSound::placeVoice(Voice& voice, const Listener& listener, int& volume, int8_t& balance) const {
-    const Definition& d = _sounds[voice.sound];
+bool MissionSound::placeVoice(Voice &voice, const Listener &listener, int &volume, int8_t &balance) const {
+    const Definition &d = _sounds[voice.sound];
     volume = (d.flags & kFlagMuted) ? 0 : (int)std::lround(voice.volume);
     balance = (d.flags & kFlagLeft) ? -127 : (d.flags & kFlagRight) ? 127 : 0;
     if (d.positionMode == kPositionNone)
@@ -430,7 +428,7 @@ void MissionSound::stealChannel() {
     // Eight channels: a new sound takes the lowest priority, oldest one.
     int playing = 0, victim = -1;
     for (size_t i = 0; i < _voices.size(); i++) {
-        const Voice& v = *_voices[i];
+        const Voice &v = *_voices[i];
         if (!v.started || v.waiting || !_mixer || !_mixer->isSoundHandleActive(v.handle))
             continue;
         playing++;
@@ -444,8 +442,8 @@ void MissionSound::stealChannel() {
     }
 }
 
-void MissionSound::beginPlayback(Voice& voice, const Listener& listener) {
-    const Definition& d = _sounds[voice.sound];
+void MissionSound::beginPlayback(Voice &voice, const Listener &listener) {
+    const Definition &d = _sounds[voice.sound];
     voice.started = true;
     voice.waiting = false;
     int volume;
@@ -475,7 +473,8 @@ void MissionSound::beginPlayback(Voice& voice, const Listener& listener) {
     file->seek(0);
     uint32_t length = 0;
     if (readWavInfo(*file, info) && info.sampleRate && info.channels && info.bitsPerSample)
-        length = (uint32_t)((uint64_t)info.dataSize * 1000 / ((uint64_t)info.sampleRate * info.channels * info.bitsPerSample / 8));
+        length = (uint32_t)((uint64_t)info.dataSize * 1000 /
+                            ((uint64_t)info.sampleRate * info.channels * info.bitsPerSample / 8));
     voice.length = length;
 
     // Seamless loops play as a looping stream; loops with a gap restart.
@@ -492,9 +491,9 @@ void MissionSound::beginPlayback(Voice& voice, const Listener& listener) {
 
     if (_mixer) {
         stealChannel();
-        Mixer::SoundType type = where == kLocationMusic ? Mixer::kMusicSoundType
-                                       : (d.flags & kFlagSubtitle) ? Mixer::kSpeechSoundType
-                                                                     : Mixer::kSFXSoundType;
+        Mixer::SoundType type = where == kLocationMusic     ? Mixer::kMusicSoundType
+                                : (d.flags & kFlagSubtitle) ? Mixer::kSpeechSoundType
+                                                            : Mixer::kSFXSoundType;
         _mixer->playStream(type, &voice.handle, std::move(playing), -1, mixerVolume(volume), balance);
     }
     debugC(2, kDebugChannel, "sound %d: %s", voice.sound, name.c_str());
@@ -511,7 +510,7 @@ void MissionSound::beginPlayback(Voice& voice, const Listener& listener) {
     }
 }
 
-void MissionSound::finishVoice(size_t index, std::vector<Finished>& finished) {
+void MissionSound::finishVoice(size_t index, std::vector<Finished> &finished) {
     std::unique_ptr<Voice> voice = std::move(_voices[index]);
     _voices.erase(_voices.begin() + index);
 
@@ -524,18 +523,19 @@ void MissionSound::finishVoice(size_t index, std::vector<Finished>& finished) {
         int sound = voice->chain[i];
         if (sound >= 0 && sound < (int)_sounds.size())
             _sounds[sound].repeats = 0;
-        startVoice(sound, voice->requester, std::vector<int32_t>(voice->chain.begin() + i + 1, voice->chain.end()), delay);
+        startVoice(sound, voice->requester, std::vector<int32_t>(voice->chain.begin() + i + 1, voice->chain.end()),
+                   delay);
         return;
     }
     if (voice->requester)
-        finished.push_back({ voice->requester });
+        finished.push_back({voice->requester});
 }
 
-void MissionSound::update(uint32_t ms, const Listener& listener, std::vector<Finished>& finished) {
+void MissionSound::update(uint32_t ms, const Listener &listener, std::vector<Finished> &finished) {
     _time += ms;
     _listener = listener;
     for (size_t i = 0; i < _voices.size();) {
-        Voice& v = *_voices[i];
+        Voice &v = *_voices[i];
         if (!v.started || v.waiting) {
             if (_time >= v.startAt) {
                 if (v.sound < 0) {
@@ -584,7 +584,7 @@ void MissionSound::update(uint32_t ms, const Listener& listener, std::vector<Fin
 
         // Ended: repeat after a gap, or finish.
         if (v.sound >= 0 && v.playsLeft != 0 && (v.playsLeft == kForever || --v.playsLeft > 0)) {
-            const Definition& d = _sounds[v.sound];
+            const Definition &d = _sounds[v.sound];
             uint32_t gap = d.maxGap > d.minGap ? d.minGap + random(d.maxGap - d.minGap + 1) : d.minGap;
             v.waiting = true;
             v.startAt = _time + gap;
@@ -595,7 +595,7 @@ void MissionSound::update(uint32_t ms, const Listener& listener, std::vector<Fin
     }
 }
 
-bool MissionSound::takeSubtitle(std::string& text, uint32_t& durationMs) {
+bool MissionSound::takeSubtitle(std::string &text, uint32_t &durationMs) {
     if (!_hasSubtitle)
         return false;
     text = _subtitle;
@@ -607,14 +607,14 @@ bool MissionSound::takeSubtitle(std::string& text, uint32_t& durationMs) {
 void MissionSound::pauseAll(bool paused) {
     if (!_mixer)
         return;
-    for (const std::unique_ptr<Voice>& v : _voices) {
+    for (const std::unique_ptr<Voice> &v : _voices) {
         if (v->started)
             _mixer->pauseHandle(v->handle, paused);
     }
 }
 
 void MissionSound::stopAll() {
-    for (const std::unique_ptr<Voice>& v : _voices) {
+    for (const std::unique_ptr<Voice> &v : _voices) {
         if (_mixer && v->started)
             _mixer->stopHandle(v->handle);
     }

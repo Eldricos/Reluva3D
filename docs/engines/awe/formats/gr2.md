@@ -1,6 +1,6 @@
 # AWE: Granny 2 files (`.gr2`)
 
-> **Status:** decoded · **Code:** `src/engines/awe/gr2.cpp`, `oodle1.cpp`, `curves.cpp`, `bink_texture.cpp` · **Checked on:** Murder on the Orient Express's 1,803 files, against its `granny2.dll` · **Confidence:** confirmed unless marked
+> **Status:** decoded · **Code:** `src/engines/awe/formats/gr2.cpp`, `oodle1.cpp`, `curves.cpp`, `bink_texture.cpp` · **Checked on:** Murder on the Orient Express's 1,803 files, against its `granny2.dll` · **Confidence:** confirmed unless marked
 
 ## Overview
 
@@ -49,7 +49,7 @@ an address in that block.
 
 ### Oodle1
 
-Reluva's decoder is `src/engines/awe/oodle1.cpp`.
+Reluva's decoder is `src/engines/awe/formats/oodle1.cpp`.
 
 #### How it was worked out
 
@@ -279,7 +279,7 @@ Granny's compressed curve formats instead: each curve holds a
 `CurveData` variant whose type names the format. Every format starts
 with a header of two bytes, `Format` and `Degree`. The DLL picks the
 format's code by the `Format` byte, so Reluva does too
-(`src/engines/awe/curves.cpp`). The other members are read by name from
+(`src/engines/awe/formats/curves.cpp`). The other members are read by name from
 the variant's own type.
 
 The full install has 10,314 compressed curves:
@@ -369,7 +369,7 @@ the DLL rounds twice, so `curves.cpp` is built without them.
 
 Each curve, plain or expanded, is a B-spline with one knot per control.
 Reluva evaluates it as granny2.dll does (`Curve::evaluate`,
-`src/engines/awe/model.cpp`), and checks that against the DLL.
+`src/engines/awe/formats/model.cpp`), and checks that against the DLL.
 
 #### How this was worked out
 
@@ -523,7 +523,7 @@ uses them, so they aren't read (`awe files-check` counts them).
 
 The codec is Granny's own, not Bink video's. It is a wavelet codec
 with a range coder. Reluva decodes it in
-`src/engines/awe/bink_texture.cpp`.
+`src/engines/awe/formats/bink_texture.cpp`.
 
 #### How this was worked out
 
@@ -714,7 +714,7 @@ against 2.2 s in the interpreter, a 1024×1024 one 85 ms against 8.6 s.
   them is documented. All three were worked out from the disassembly of
   the game's `granny2.dll` and are decoded natively: see "Oodle1",
   "Bink textures" and "Compressed curves" above. The DLL itself, run in
-  Reluva's x86 interpreter (`src/engines/awe/granny_dll.cpp`), is only
+  Reluva's x86 interpreter (`src/engines/awe/formats/granny_dll.cpp`), is only
   kept to check them against. These are the exports called, with the
   arguments Granny's public SDK header gives:
   - `GrannyDecompressData(Format, FileIsByteReversed, CompressedSize,

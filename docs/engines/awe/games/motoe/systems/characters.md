@@ -1,6 +1,6 @@
 # Murder on the Orient Express: characters
 
-> **Status:** done · **Code:** `src/engines/awe/animator.cpp`, `actor.cpp`, `scene_outdoors.cpp` · **Checked against:** the code (`motoe.exe`, English 1.0), the install's models, their track masks, and the scripts · **Confidence:** from the code unless marked
+> **Status:** done · **Code:** `src/engines/awe/game/animator.cpp`, `actor.cpp`, `scene_outdoors.cpp` · **Checked against:** the code (`motoe.exe`, English 1.0), the install's models, their track masks, and the scripts · **Confidence:** from the code unless marked
 
 ## Overview
 
@@ -422,7 +422,7 @@ character faces, forward or back, rather than straight ahead.
 
 ## In Reluva
 
-`Animator` (`src/engines/awe/animator.cpp`) handles the animations: the
+`Animator` (`src/engines/awe/game/animator.cpp`) handles the animations: the
 ten slots, the three layers, the masks, eases and ends. `Actor`
 (`actor.cpp`) holds a character's behaviour and verbs. The Scenes page
 gives each character an Actor, runs its routine, and passes the verbs and

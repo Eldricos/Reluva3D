@@ -3,7 +3,7 @@
 
 #include "engines/idtech3/client/player_input.h"
 
-#include "engines/idtech3/bindings.h"
+#include "engines/idtech3/client/bindings.h"
 
 #include "common/fs.h"
 
@@ -17,28 +17,30 @@ namespace reluva::idtech3 {
 namespace {
 
 // An angle in degrees as usercmd_t carries it: 65536 to a full turn.
-int32_t toShort(float degrees) { return int32_t(std::lround(degrees * 65536.0f / 360.0f)) & 0xffff; }
+int32_t toShort(float degrees) {
+    return int32_t(std::lround(degrees * 65536.0f / 360.0f)) & 0xffff;
+}
 
-float setting(const CvarStore& cvars, const char* name, float fallback) {
+float setting(const CvarStore &cvars, const char *name, float fallback) {
     return cvars.find(name) ? cvars.value(name) : fallback;
 }
 
 } // namespace
 
-bool PlayerInput::isButton(const std::string& name) {
-    static const char* const kButtons[] = {"forward", "back", "moveleft", "moveright", "moveup", "movedown",
-                                           "left", "right", "lookup", "lookdown", "speed", "strafe",
-                                           "attack", "altattack", "mlook", "klook"};
-    for (const char* b : kButtons)
+bool PlayerInput::isButton(const std::string &name) {
+    static const char *const kButtons[] = {"forward", "back",      "moveleft", "moveright", "moveup", "movedown",
+                                           "left",    "right",     "lookup",   "lookdown",  "speed",  "strafe",
+                                           "attack",  "altattack", "mlook",    "klook"};
+    for (const char *b : kButtons)
         if (name == b)
             return true;
     return name.rfind("button", 0) == 0 && name.size() > 6 && name.size() <= 8 &&
            std::isdigit(static_cast<unsigned char>(name[6]));
 }
 
-void PlayerInput::runBinding(const std::string& line, int32_t key, bool down,
-                             const std::function<void(const std::string&)>& command) {
-    for (const std::string& text : splitCommands(line)) {
+void PlayerInput::runBinding(const std::string &line, int32_t key, bool down,
+                             const std::function<void(const std::string &)> &command) {
+    for (const std::string &text : splitCommands(line)) {
         const std::vector<std::string> w = splitCommand(text);
         if (w.empty())
             continue;
@@ -64,12 +66,12 @@ void PlayerInput::runBinding(const std::string& line, int32_t key, bool down,
     }
 }
 
-bool PlayerInput::held(const char* button) const {
+bool PlayerInput::held(const char *button) const {
     const auto it = buttons_.find(button);
     return it != buttons_.end() && !it->second.empty();
 }
 
-void PlayerInput::turn(const CvarStore& cvars, int32_t dtMs) {
+void PlayerInput::turn(const CvarStore &cvars, int32_t dtMs) {
     float mx = mouseX_, my = mouseY_;
     mouseX_ = mouseY_ = 0;
     if (setting(cvars, "m_filter", 0) != 0) {
@@ -86,8 +88,7 @@ void PlayerInput::turn(const CvarStore& cvars, int32_t dtMs) {
     yaw -= mx * sensitivity * setting(cvars, "m_yaw", 0.022f);
     if (setting(cvars, "cl_freelook", 1) != 0 || held("mlook"))
         pitch += my * sensitivity * setting(cvars, "m_pitch", 0.022f);
-    const float keyScale =
-        (held("speed") ? setting(cvars, "cl_anglespeedkey", 1.5f) : 1.0f) * float(dtMs) / 1000.0f;
+    const float keyScale = (held("speed") ? setting(cvars, "cl_anglespeedkey", 1.5f) : 1.0f) * float(dtMs) / 1000.0f;
     if (!held("strafe"))
         yaw += float(held("left") - held("right")) * setting(cvars, "cl_yawspeed", 140) * keyScale;
     pitch += float(held("lookdown") - held("lookup")) * setting(cvars, "cl_pitchspeed", 140) * keyScale;
@@ -106,10 +107,10 @@ void PlayerInput::turn(const CvarStore& cvars, int32_t dtMs) {
     pitch = std::remainder(pitch, 360.0f);
 }
 
-PlayerInput::Command PlayerInput::command(const CvarStore& cvars, const GameInfo& game) const {
+PlayerInput::Command PlayerInput::command(const CvarStore &cvars, const GameInfo &game) const {
     Command cmd;
     cmd.angles = {toShort(pitch), toShort(yaw), 0};
-    for (const auto& [name, keys] : buttons_) {
+    for (const auto &[name, keys] : buttons_) {
         if (keys.empty())
             continue;
         if (name == "attack")

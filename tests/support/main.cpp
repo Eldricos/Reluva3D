@@ -20,40 +20,42 @@
 
 namespace reluva::test {
 
-std::vector<SuiteInfo>& suites() {
+std::vector<SuiteInfo> &suites() {
     static std::vector<SuiteInfo> all;
     return all;
 }
 
-int& failures() {
+int &failures() {
     static int count = 0;
     return count;
 }
 
-void fail(const std::string& message) {
+void fail(const std::string &message) {
     std::fprintf(stderr, "FAILED: %s\n", message.c_str());
     ++failures();
 }
 
 namespace {
-std::set<std::string>& options() {
+std::set<std::string> &options() {
     static std::set<std::string> set;
     return set;
 }
 
 // Whether `name` is `filter`, or under it ("idtech3" covers
 // "idtech3.unit.collision", not "idtech3x").
-bool under(const std::string& name, const std::string& filter) {
-    return name == filter || (name.size() > filter.size() && name.compare(0, filter.size(), filter) == 0 &&
-                              name[filter.size()] == '.');
+bool under(const std::string &name, const std::string &filter) {
+    return name == filter ||
+           (name.size() > filter.size() && name.compare(0, filter.size(), filter) == 0 && name[filter.size()] == '.');
 }
 } // namespace
 
-bool option(const std::string& name) { return options().count(name) > 0; }
+bool option(const std::string &name) {
+    return options().count(name) > 0;
+}
 
 } // namespace reluva::test
 
-int main(int argc, char** argv) {
+int main(int argc, char **argv) {
     using namespace reluva::test;
     std::vector<std::string> filters;
     bool list = false, coveredBy = false;
@@ -68,13 +70,13 @@ int main(int argc, char** argv) {
         else
             filters.push_back(a);
     }
-    auto& all = suites();
-    std::sort(all.begin(), all.end(), [](const SuiteInfo& a, const SuiteInfo& b) { return a.name < b.name; });
+    auto &all = suites();
+    std::sort(all.begin(), all.end(), [](const SuiteInfo &a, const SuiteInfo &b) { return a.name < b.name; });
 
     if (coveredBy) {
         int missing = 0;
-        for (const SuiteInfo& s : all)
-            if (std::none_of(filters.begin(), filters.end(), [&](const std::string& f) { return under(s.name, f); })) {
+        for (const SuiteInfo &s : all)
+            if (std::none_of(filters.begin(), filters.end(), [&](const std::string &f) { return under(s.name, f); })) {
                 std::fprintf(stderr, "The suite %s isn't run by ctest: add it to its CMakeLists.txt's TOPICS\n",
                              s.name.c_str());
                 ++missing;
@@ -84,9 +86,9 @@ int main(int argc, char** argv) {
         return missing ? 1 : 0;
     }
     if (list) {
-        for (const SuiteInfo& s : all) {
+        for (const SuiteInfo &s : all) {
             std::printf("%s\n", s.name.c_str());
-            for (const Case& c : s.cases)
+            for (const Case &c : s.cases)
                 std::printf("    %s\n", c.first.c_str());
         }
         return 0;
@@ -94,13 +96,13 @@ int main(int argc, char** argv) {
 
     const std::filesystem::path root = std::filesystem::temp_directory_path() / "reluva_tests";
     int ran = 0;
-    for (const SuiteInfo& s : all) {
+    for (const SuiteInfo &s : all) {
         if (!filters.empty() &&
-            std::none_of(filters.begin(), filters.end(), [&](const std::string& f) { return under(s.name, f); }))
+            std::none_of(filters.begin(), filters.end(), [&](const std::string &f) { return under(s.name, f); }))
             continue;
         const auto start = std::chrono::steady_clock::now();
         const int before = failures();
-        for (const Case& c : s.cases) {
+        for (const Case &c : s.cases) {
             std::filesystem::path tmp = root / s.name / c.first;
             std::error_code ec;
             std::filesystem::remove_all(tmp, ec);

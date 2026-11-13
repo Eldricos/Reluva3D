@@ -1,8 +1,8 @@
 // Renders a 640x480 view with the camera put so that an object's frame-0
 // top-left piece lands where a recording shows it.
 #include "engines/clue/game_data.h"
-#include "engines/clue/level.h"
-#include "engines/clue/mansion.h"
+#include "engines/clue/formats/level.h"
+#include "engines/clue/game/mansion.h"
 #include <cstdio>
 #include <cstring>
 #include <fstream>

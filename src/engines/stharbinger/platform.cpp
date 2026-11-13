@@ -3,14 +3,15 @@
 
 #include "engines/stharbinger/platform.h"
 
-#include "common/palette.h"
+#include "graphics/palette.h"
 
 #include <system_error>
 
 namespace reluva::stharbinger {
 
-Platform::Platform(System& system, audio::Mixer* mixer, std::filesystem::path saveDir)
-    : system_(system), mixer_(mixer), saveDir_(std::move(saveDir)) {}
+Platform::Platform(System &system, audio::Mixer *mixer, std::filesystem::path saveDir)
+    : system_(system), mixer_(mixer), saveDir_(std::move(saveDir)) {
+}
 
 void Platform::initGraphics(int width, int height) {
     if (!graphics_ || screen_.w != width || screen_.h != height) {
@@ -20,12 +21,12 @@ void Platform::initGraphics(int width, int height) {
     }
 }
 
-void Platform::setPalette(const uint8_t* rgb, int start, int count) {
+void Platform::setPalette(const uint8_t *rgb, int start, int count) {
     const auto colors = toColors(rgb, count);
     system_.setPalette(colors.data(), start, count);
 }
 
-void Platform::copyRectToScreen(const Surface& screen) {
+void Platform::copyRectToScreen(const Surface &screen) {
     if (screen.w == screen_.w && screen.h == screen_.h)
         screen_.pixels = screen.pixels;
 }
@@ -35,13 +36,19 @@ void Platform::updateScreen() {
         system_.updateScreen(screen_);
 }
 
-void Platform::setWindowTitle(const std::string& title) { system_.setWindowTitle(title); }
+void Platform::setWindowTitle(const std::string &title) {
+    system_.setWindowTitle(title);
+}
 
-void Platform::setMouseCursorVisible(bool visible) { system_.setMouseCursorVisible(visible); }
+void Platform::setMouseCursorVisible(bool visible) {
+    system_.setMouseCursorVisible(visible);
+}
 
-void Platform::setTextInput(bool on) { system_.setTextInput(on); }
+void Platform::setTextInput(bool on) {
+    system_.setTextInput(on);
+}
 
-bool Platform::pollEvent(InputEvent& out) {
+bool Platform::pollEvent(InputEvent &out) {
     Event ev;
     while (system_.pollEvent(ev)) {
         out = InputEvent();
@@ -65,22 +72,29 @@ bool Platform::pollEvent(InputEvent& out) {
                 return true;
             }
             break;
-        case EventType::MouseMove: out.type = InputEvent::kMouseMove; return true;
+        case EventType::MouseMove:
+            out.type = InputEvent::kMouseMove;
+            return true;
         case EventType::MouseDown:
             if (ev.button == MouseButton::Left || ev.button == MouseButton::Right) {
                 out.type = ev.button == MouseButton::Left ? InputEvent::kLeftDown : InputEvent::kRightDown;
                 return true;
             }
             break;
-        default: break;
+        default:
+            break;
         }
     }
     return false;
 }
 
-uint32_t Platform::getMillis() const { return uint32_t(system_.getMillis()); }
+uint32_t Platform::getMillis() const {
+    return uint32_t(system_.getMillis());
+}
 
-void Platform::delayMillis(uint32_t ms) { system_.delayMillis(ms); }
+void Platform::delayMillis(uint32_t ms) {
+    system_.delayMillis(ms);
+}
 
 std::string Platform::getSavePath() {
     std::error_code ec;

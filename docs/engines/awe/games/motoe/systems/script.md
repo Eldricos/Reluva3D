@@ -1,6 +1,6 @@
 # Murder on the Orient Express: the script runner
 
-> **Status:** done · **Code:** `src/engines/awe/script.cpp` · **Checked against:** the code (`motoe.exe`); `awe script-check` over the English 1.0 install's 9,797 commands · **Confidence:** from the code unless marked
+> **Status:** done · **Code:** `src/engines/awe/game/script.cpp` · **Checked against:** the code (`motoe.exe`); `awe script-check` over the English 1.0 install's 9,797 commands · **Confidence:** from the code unless marked
 
 ## Overview
 
@@ -239,7 +239,7 @@ taking apart, are in [interface.md](interface.md#combine-windowcombinepng).
 
 ## In Reluva
 
-`ScriptRunner` (`src/engines/awe/script.cpp`) is the runner: the queue,
+`ScriptRunner` (`src/engines/awe/game/script.cpp`) is the runner: the queue,
 done and waiting, the `a` forms, `wait`, the macros and script files. It
 does the state verbs itself (`tag`, `removetag`, `add`, `remove`,
 `restore`, `use`, `clear`, `timer`, `time`, `reset`, `savescene`,
@@ -260,7 +260,7 @@ characters' verbs (`anim`, `turn`, `look`, `rotate`, `animate`, `pause`,
 `resume`, `loop`, `attach`, `detach`: [characters.md](characters.md)).
 It logs the rest in its info panel and ends them at once.
 
-Items are used as above (`src/engines/awe/scene_inventory.cpp`), picked
+Items are used as above (`src/engines/awe/pages/scene_inventory.cpp`), picked
 up from the inventory window (`scene_interface.cpp`, with the bar, the
 window's pages and the cards: [interface.md](interface.md#in-reluva)).
 

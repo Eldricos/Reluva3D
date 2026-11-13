@@ -3,7 +3,7 @@
 
 #pragma once
 
-#include "common/draw.h"
+#include "graphics/draw.h"
 #include "common/stream.h"
 
 #include <string>
@@ -17,15 +17,15 @@ namespace reluva::stharbinger {
 // 1-bit rows, most significant bit first, each row starting on a byte.
 class Font {
 public:
-    bool load(SeekableReadStream& stream);
+    bool load(SeekableReadStream &stream);
     bool empty() const { return glyphs_.empty(); }
 
     // The height of the space character.
     int getLineHeight() const { return glyphs_.empty() ? 0 : glyphs_[0].height; }
-    int getStringWidth(const std::string& text) const;
+    int getStringWidth(const std::string &text) const;
 
     // Draws `text` with a drop shadow one pixel right and down, as DEEP.EXE does.
-    void drawString(Surface& dst, int x, int y, const std::string& text, uint8_t color, uint8_t shadow) const;
+    void drawString(Surface &dst, int x, int y, const std::string &text, uint8_t color, uint8_t shadow) const;
 
 private:
     struct Glyph {
@@ -33,8 +33,8 @@ private:
         std::vector<uint8_t> bits;
     };
 
-    const Glyph* getGlyph(char c) const;
-    void drawGlyph(Surface& dst, int x, int y, const Glyph& g, uint8_t color, bool shadow) const;
+    const Glyph *getGlyph(char c) const;
+    void drawGlyph(Surface &dst, int x, int y, const Glyph &g, uint8_t color, bool shadow) const;
 
     std::vector<Glyph> glyphs_;
 };

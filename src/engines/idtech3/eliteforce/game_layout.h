@@ -3,7 +3,7 @@
 
 #pragma once
 
-#include "engines/idtech3/qvm.h"
+#include "engines/idtech3/vm/qvm.h"
 
 #include <cstdint>
 
@@ -49,8 +49,8 @@ constexpr int32_t kSolidBrushModel = 0xffffff;
 
 // Which layout game code was built with: 1.2's copies 468-byte player
 // states whole, 1.0's 460-byte ones.
-inline const GameLayout& detectLayout(const Qvm& vm) {
-    for (const auto& i : vm.code())
+inline const GameLayout &detectLayout(const Qvm &vm) {
+    for (const auto &i : vm.code())
         if (i.op == qvmop::BlockCopy && i.operand == kLayout12.playerStateSize)
             return kLayout12;
     return kLayout10;

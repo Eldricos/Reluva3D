@@ -1,6 +1,6 @@
 #include "engines/clue/game_data.h"
-#include "engines/clue/level.h"
-#include "engines/clue/mansion.h"
+#include "engines/clue/formats/level.h"
+#include "engines/clue/game/mansion.h"
 #include <cstdlib>
 #include <fstream>
 using namespace reluva; using namespace reluva::clue;

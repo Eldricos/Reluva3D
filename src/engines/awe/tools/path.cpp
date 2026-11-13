@@ -8,9 +8,9 @@
 #include "engines/awe/tools/tools.h"
 
 #include "common/fs.h"
-#include "engines/awe/ac2.h"
-#include "engines/awe/game_paths.h"
-#include "engines/awe/walk_grid.h"
+#include "engines/awe/formats/ac2.h"
+#include "engines/awe/game/game_paths.h"
+#include "engines/awe/game/walk_grid.h"
 
 #include <algorithm>
 #include <chrono>
@@ -27,7 +27,7 @@ namespace reluva::awe {
 
 namespace {
 
-std::vector<uint8_t> readFile(const std::string& path) {
+std::vector<uint8_t> readFile(const std::string &path) {
     std::ifstream f(path, std::ios::binary);
     return std::vector<uint8_t>(std::istreambuf_iterator<char>(f), {});
 }
@@ -37,8 +37,8 @@ double since(std::chrono::steady_clock::time_point t) {
 }
 
 // Both searches between two cells; true if they agree to the bit.
-bool compare(GamePathFinder& game, const WalkGrid& grid, WalkGrid::Cell from, WalkGrid::Cell to, bool openThrees,
-             bool allowTwos, double& gameMs, double& oursMs, std::string& why) {
+bool compare(GamePathFinder &game, const WalkGrid &grid, WalkGrid::Cell from, WalkGrid::Cell to, bool openThrees,
+             bool allowTwos, double &gameMs, double &oursMs, std::string &why) {
     std::vector<GamePathFinder::Point> theirs;
     auto t = std::chrono::steady_clock::now();
     if (Error e = game.search(grid, openThrees, from, to, allowTwos, theirs)) {
@@ -57,12 +57,12 @@ bool compare(GamePathFinder& game, const WalkGrid& grid, WalkGrid::Cell from, Wa
     if (!same) {
         char buf[96];
         why = "game:";
-        for (const auto& p : theirs) {
+        for (const auto &p : theirs) {
             std::snprintf(buf, sizeof buf, " (%.17g, %.17g; %.17g)", p.a, p.b, p.heading);
             why += buf;
         }
         why += "\n    ours:";
-        for (const auto& p : ours) {
+        for (const auto &p : ours) {
             std::snprintf(buf, sizeof buf, " (%.17g, %.17g; %.17g)", p.a, p.b, p.heading);
             why += buf;
         }
@@ -72,7 +72,7 @@ bool compare(GamePathFinder& game, const WalkGrid& grid, WalkGrid::Cell from, Wa
 
 // -all: from cells of each scene's grid to others, every way the game
 // searches; `perScene` pairs each (all pairs of open cells if 0).
-int compareAll(GamePathFinder& game, const std::string& folder, int perScene) {
+int compareAll(GamePathFinder &game, const std::string &folder, int perScene) {
     size_t scenes = 0, searches = 0, mismatches = 0, found = 0;
     double gameMs = 0, oursMs = 0;
     std::mt19937 random(1);
@@ -82,11 +82,11 @@ int compareAll(GamePathFinder& game, const std::string& folder, int perScene) {
         return 1;
     }
     std::vector<std::filesystem::path> files;
-    for (const auto& entry : std::filesystem::recursive_directory_iterator(*locations))
+    for (const auto &entry : std::filesystem::recursive_directory_iterator(*locations))
         if (entry.is_regular_file() && fs::toLower(entry.path().extension().string()) == ".ac2")
             files.push_back(entry.path());
     std::sort(files.begin(), files.end());
-    for (const std::filesystem::path& file : files) {
+    for (const std::filesystem::path &file : files) {
         const std::string name = file.filename().string();
         Ac2Scene scene;
         if (parseAc2(readFile(file.string()), scene) || !scene.camera())
@@ -127,7 +127,7 @@ int compareAll(GamePathFinder& game, const std::string& folder, int perScene) {
 
 } // namespace
 
-int aweCommandPath(int argc, char** argv) {
+int aweCommandPath(int argc, char **argv) {
     const bool all = argc >= 4 && std::strcmp(argv[3], "-all") == 0;
     if (argc < 4 || (!all && argc < 8)) {
         std::fprintf(stderr, "usage: reluva-tool awe path-check <game folder> <scene.ac2> <a0> <b0> <a1> <b1>\n"
@@ -169,16 +169,16 @@ int aweCommandPath(int argc, char** argv) {
         return 1;
     }
     std::printf("game (%.1f ms):   %zu points:", since(t), theirs.size());
-    for (const auto& p : theirs)
+    for (const auto &p : theirs)
         std::printf(" (%g, %g; %.3f)", p.a, p.b, p.heading);
     std::vector<WalkGrid::Point> ours;
     t = std::chrono::steady_clock::now();
     grid.search(from, to, false, false, ours);
     std::printf("\nReluva (%.1f ms): %zu points:", since(t), ours.size());
-    for (const auto& p : ours)
+    for (const auto &p : ours)
         std::printf(" (%g, %g; %.3f)", p.a, p.b, p.heading);
     std::printf("\nas it walks (0x440ce0's tries):");
-    for (const WalkGrid::Cell& c : grid.findPath(from, to))
+    for (const WalkGrid::Cell &c : grid.findPath(from, to))
         std::printf(" (%d, %d)", c.a, c.b);
     std::printf("\n");
     return 0;

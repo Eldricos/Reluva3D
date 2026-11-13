@@ -6,14 +6,14 @@
 // (docs/engines/clue/formats/board.md).
 
 #include "common/fs.h"
-#include "engines/clue/ai.h"
-#include "engines/clue/board.h"
+#include "engines/clue/game/ai.h"
+#include "engines/clue/game/board.h"
 #include "engines/clue/game_data.h"
-#include "engines/clue/level.h"
-#include "engines/clue/mansion.h"
-#include "engines/clue/resi.h"
-#include "engines/clue/resources.h"
-#include "tools/tool.h"
+#include "engines/clue/formats/level.h"
+#include "engines/clue/game/mansion.h"
+#include "engines/clue/formats/resi.h"
+#include "engines/clue/formats/resources.h"
+#include "devtools/tool.h"
 
 #include <algorithm>
 #include <cstdint>
@@ -31,7 +31,7 @@ namespace {
 
 using namespace reluva::tool;
 
-int cmdClueLevel(int argc, char** argv) {
+int cmdClueLevel(int argc, char **argv) {
     if (argc < 3 || argc > 4) {
         std::fprintf(stderr, "usage: reluva-tool clue level <clue.lvl> [-v]\n");
         return 2;
@@ -50,7 +50,7 @@ int cmdClueLevel(int argc, char** argv) {
     std::printf("\"%s\": %zu object names, %zu placements\n", level.title.c_str(), level.objects.size(),
                 level.placements.size());
     std::map<int, int> layers, flags;
-    for (const auto& pl : level.placements) {
+    for (const auto &pl : level.placements) {
         ++layers[pl.layer];
         ++flags[pl.flags];
         if (verbose) {
@@ -58,16 +58,16 @@ int cmdClueLevel(int argc, char** argv) {
                         pl.x, pl.y, pl.z, pl.flags);
             if (pl.flags & 0x02)
                 std::printf("  tag %u", pl.tag);
-            for (const auto& t : pl.timings)
+            for (const auto &t : pl.timings)
                 std::printf("  [%u ms -> %u]", t.time, t.state);
             std::printf("\n");
         }
     }
     std::printf("by layer:");
-    for (const auto& [l, n] : layers)
+    for (const auto &[l, n] : layers)
         std::printf("  %d: %d", l, n);
     std::printf("\nby flags:");
-    for (const auto& [f, n] : flags)
+    for (const auto &[f, n] : flags)
         std::printf("  %02x: %d", f, n);
     std::printf("\n");
     return 0;
@@ -75,7 +75,7 @@ int cmdClueLevel(int argc, char** argv) {
 
 // The board clue.lvl lays out, drawn in characters: '.' corridors, a room's
 // letter, '#' its doors' squares, a digit a suspect's start.
-int cmdClueBoard(int argc, char** argv) {
+int cmdClueBoard(int argc, char **argv) {
     if (argc != 3 && argc != 4 && argc != 6) {
         std::fprintf(stderr, "usage: reluva-tool clue board <clue.lvl> [games [novice|normal|expert players]]\n");
         return 2;
@@ -92,19 +92,19 @@ int cmdClueBoard(int argc, char** argv) {
         std::fprintf(stderr, "%s\n", err.message.c_str());
         return 1;
     }
-    static const char* const kRooms[] = {"Hall", "Lounge", "Dining Room", "Kitchen", "Ballroom",
-                                         "Conservatory", "Billiard Room", "Library", "Study"};
+    static const char *const kRooms[] = {"Hall",         "Lounge",        "Dining Room", "Kitchen", "Ballroom",
+                                         "Conservatory", "Billiard Room", "Library",     "Study"};
     int x0 = 1 << 20, y0 = 1 << 20, x1 = -x0, y1 = -y0;
-    const auto extend = [&](const reluva::clue::Square& s) {
+    const auto extend = [&](const reluva::clue::Square &s) {
         x0 = std::min(x0, s.x), y0 = std::min(y0, s.y), x1 = std::max(x1, s.x), y1 = std::max(y1, s.y);
     };
-    for (const auto& s : board.corridor())
+    for (const auto &s : board.corridor())
         extend(s);
     for (int r = 0; r < reluva::clue::kRoomCount; ++r)
-        for (const auto& s : board.roomSquares(r))
+        for (const auto &s : board.roomSquares(r))
             extend(s);
     std::set<reluva::clue::Square> doorSquares;
-    for (const auto& d : board.doors())
+    for (const auto &d : board.doors())
         doorSquares.insert(d.inside);
     for (int y = y0; y <= y1; ++y) {
         std::string line;
@@ -125,11 +125,12 @@ int cmdClueBoard(int argc, char** argv) {
     std::printf("columns %d to %d; %zu corridor squares\n", x0, x1, board.corridor().size());
     for (int r = 0; r < reluva::clue::kRoomCount; ++r) {
         int doors = 0;
-        for (const auto& d : board.doors())
+        for (const auto &d : board.doors())
             doors += d.room == r;
         const int to = board.passage(r);
         std::printf("%c %-13s %3zu squares, %d doors%s%s\n", 'A' + r, kRooms[r], board.roomSquares(r).size(), doors,
-                    to == reluva::clue::kNoRoom ? "" : ", a passage to the ", to == reluva::clue::kNoRoom ? "" : kRooms[to]);
+                    to == reluva::clue::kNoRoom ? "" : ", a passage to the ",
+                    to == reluva::clue::kNoRoom ? "" : kRooms[to]);
     }
     for (int k = 0; k < reluva::clue::kSuspectCount; ++k)
         std::printf("suspect %d starts at %d,%d\n", k, board.start(k).x, board.start(k).y);
@@ -163,12 +164,18 @@ int cmdClueBoard(int argc, char** argv) {
         const int turnsBefore = turns;
         int steps = 0, early = 0, earlySelf = 0;
         for (; game.phase() != Game::Phase::Over && steps < 100000; ++steps) {
-            ComputerPlayer& me = ai[size_t(game.turn())];
+            ComputerPlayer &me = ai[size_t(game.turn())];
             reluva::Error e;
             switch (me.decide(game)) {
-            case ComputerPlayer::Action::Roll: game.rollDie(); break;
-            case ComputerPlayer::Action::Passage: e = game.takePassage(); break;
-            case ComputerPlayer::Action::Walk: e = game.walk(me.chooseWalk(game)); break;
+            case ComputerPlayer::Action::Roll:
+                game.rollDie();
+                break;
+            case ComputerPlayer::Action::Passage:
+                e = game.takePassage();
+                break;
+            case ComputerPlayer::Action::Walk:
+                e = game.walk(me.chooseWalk(game));
+                break;
             case ComputerPlayer::Action::Suggest: {
                 const auto a = me.chooseSuggestion(game);
                 ++suggestions;
@@ -227,10 +234,12 @@ int cmdClueBoard(int argc, char** argv) {
     return unfinished ? 1 : 0;
 }
 
-const Commands commands("clue", {
-    {"level", "<clue.lvl> [-v]", "a Clue level's placements (each one with -v)", cmdClueLevel},
-    {"board", "<clue.lvl> [games [novice|normal|expert players]]",
-     "the board a Clue level lays out; with a number, that many games of computer players on it", cmdClueBoard},
-});
+const Commands
+    commands("clue", {
+                         {"level", "<clue.lvl> [-v]", "a Clue level's placements (each one with -v)", cmdClueLevel},
+                         {"board", "<clue.lvl> [games [novice|normal|expert players]]",
+                          "the board a Clue level lays out; with a number, that many games of computer players on it",
+                          cmdClueBoard},
+                     });
 
 } // namespace

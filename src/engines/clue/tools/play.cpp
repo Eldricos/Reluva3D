@@ -8,14 +8,14 @@
 // game-files test (tests/engines/clue/gamedata.cmake).
 
 #include "common/headless_system.h"
-#include "common/image.h"
-#include "engines/clue/frontend.h"
+#include "image/image.h"
+#include "engines/clue/ui/frontend.h"
 #include "engines/clue/game_data.h"
-#include "engines/clue/resi.h"
-#include "engines/clue/rules.h"
-#include "engines/clue/ui.h"
+#include "engines/clue/formats/resi.h"
+#include "engines/clue/game/rules.h"
+#include "engines/clue/ui/ui.h"
 #include "engines/registry.h"
-#include "tools/tool.h"
+#include "devtools/tool.h"
 
 #include <algorithm>
 #include <cstdint>
@@ -37,7 +37,7 @@ using namespace reluva::tool;
 // FNV-1a, 64 bits: the same on every machine.
 struct Hash {
     uint64_t h = 0xcbf29ce484222325ull;
-    void bytes(const uint8_t* p, size_t n) {
+    void bytes(const uint8_t *p, size_t n) {
         for (size_t i = 0; i < n; ++i)
             h = (h ^ p[i]) * 0x100000001b3ull;
     }
@@ -63,7 +63,7 @@ public:
     std::vector<std::string> titles;
     std::filesystem::path shots;
 
-    void updateScreen(const Surface& s) override {
+    void updateScreen(const Surface &s) override {
         HeadlessSystem::updateScreen(s);
         screens.bytes(s.pixels.data(), s.pixels.size());
         shown++;
@@ -77,14 +77,14 @@ public:
             char name[32];
             std::snprintf(name, sizeof name, "%06llu.png", static_cast<unsigned long long>(getMillis()));
             std::ofstream(shots / name, std::ios::binary)
-                .write(reinterpret_cast<const char*>(png.data()), std::streamsize(png.size()));
+                .write(reinterpret_cast<const char *>(png.data()), std::streamsize(png.size()));
         }
     }
-    void setWindowTitle(const std::string& t) override {
+    void setWindowTitle(const std::string &t) override {
         if (titles.empty() || titles.back() != t)
             titles.push_back(t);
     }
-    bool pollEvent(Event& ev) override {
+    bool pollEvent(Event &ev) override {
         if (next_ < inputs.size() && inputs[next_].at <= getMillis()) {
             ev = inputs[next_++].event;
             return true;
@@ -115,7 +115,7 @@ Event mouse(EventType type, int x, int y) {
 }
 
 // The saved games written: each one's name, and a checksum of the game.
-std::string savesIn(const std::filesystem::path& dir) {
+std::string savesIn(const std::filesystem::path &dir) {
     std::string out;
     std::error_code ec;
     std::vector<std::filesystem::path> files;
@@ -123,7 +123,7 @@ std::string savesIn(const std::filesystem::path& dir) {
         if (it->is_regular_file(ec) && it->path().extension() == ".sav")
             files.push_back(it->path());
     std::sort(files.begin(), files.end());
-    for (const auto& f : files) {
+    for (const auto &f : files) {
         std::ifstream in(f, std::ios::binary);
         std::string tag, name;
         std::getline(in, tag);
@@ -136,7 +136,7 @@ std::string savesIn(const std::filesystem::path& dir) {
     return out.empty() ? "(none)" : out;
 }
 
-int cmdGameRun(int argc, char** argv) {
+int cmdGameRun(int argc, char **argv) {
     if (argc < 3) {
         std::fprintf(stderr, "usage: reluva-tool clue game-run <game folder> [-uk] [-shots <folder>]\n");
         return 2;
@@ -152,10 +152,10 @@ int cmdGameRun(int argc, char** argv) {
     }
 
     // The game in the folder: the US's, or with -uk the UK's (the CD has both).
-    const MetaEngine* engine = findEngine("clue");
+    const MetaEngine *engine = findEngine("clue");
     const std::vector<DetectedGame> games = engine ? engine->detect(gameDir) : std::vector<DetectedGame>{};
     std::vector<DetectedGame> found;
-    for (const DetectedGame& g : games)
+    for (const DetectedGame &g : games)
         if ((g.gameId == "clue-uk") == uk)
             found.push_back(g);
     if (found.empty()) {
@@ -171,7 +171,7 @@ int cmdGameRun(int argc, char** argv) {
         return 1;
     }
     clue::Resi resi;
-    const std::filesystem::path* resiFile = data.find("dialogInfo.res");
+    const std::filesystem::path *resiFile = data.find("dialogInfo.res");
     std::vector<uint8_t> resiBytes;
     if (!resiFile || !readFile(resiFile->string().c_str(), resiBytes) || clue::parseResi(resiBytes, resi)) {
         std::fprintf(stderr, "No dialogInfo.res to read in %s\n", gameDir.string().c_str());
@@ -190,12 +190,12 @@ int cmdGameRun(int argc, char** argv) {
         std::filesystem::create_directories(shots);
     uint64_t t = 1000;
     bool missing = false;
-    const auto at = [&](const Event& e, uint64_t wait) {
+    const auto at = [&](const Event &e, uint64_t wait) {
         sys.inputs.push_back({t, e});
         t += wait;
     };
     const auto click = [&](int dialog, int id, bool overGame = false) {
-        const clue::ResiDialog* d = resi.dialog(dialog);
+        const clue::ResiDialog *d = resi.dialog(dialog);
         clue::UiRect r;
         if (d)
             r = clue::DialogView(data, fonts, *d, overGame ? clue::kOverGameX : 0, overGame ? clue::kOverGameY : 0)
@@ -216,13 +216,13 @@ int cmdGameRun(int argc, char** argv) {
     click(17, 5);                   // Miss Scarlet: a person
     click(18, 0);
     click(18, 10001);
-    click(17, 6);                   // Colonel Mustard: a computer player
+    click(17, 6); // Colonel Mustard: a computer player
     click(19, 1);
     click(19, 10001);
-    click(17, 7);                   // Mrs. White: a computer player
+    click(17, 7); // Mrs. White: a computer player
     click(20, 1);
     click(20, 10001);
-    click(17, 29);                  // Start
+    click(17, 29); // Start
     t += 2000;
     at(keyDown(key::Escape), 10000); // the deal
     at(keyDown(key::Escape), 1500);  // the Esc menu
@@ -252,7 +252,7 @@ int cmdGameRun(int argc, char** argv) {
     std::printf("result: %s\n", err ? ("error: " + err.message).c_str() : "ok");
     std::printf("screens: %d %s, %.1f s\n", sys.shown, sys.screens.hex().c_str(), double(sys.getMillis()) / 1000);
     std::string titles;
-    for (const std::string& title : sys.titles)
+    for (const std::string &title : sys.titles)
         titles += (titles.empty() ? "" : " / ") + title;
     std::printf("titles: %s\n", titles.c_str());
     std::printf("saved: %s\n", savesIn(saves).c_str());
@@ -260,11 +260,13 @@ int cmdGameRun(int argc, char** argv) {
     return err ? 1 : 0;
 }
 
-const Commands commands("clue", {
-    {"game-run", "<game folder> [-uk] [-shots <folder>]",
-     "play the game headless (the UK's with -uk): a new game of a person and two computer players, saved, left and loaded again; "
-     "a checksum of every screen shown and of the saved game (-shots writes a screen a second)",
-     cmdGameRun},
-});
+const Commands commands(
+    "clue",
+    {
+        {"game-run", "<game folder> [-uk] [-shots <folder>]",
+         "play the game headless (the UK's with -uk): a new game of a person and two computer players, saved, left and loaded again; "
+         "a checksum of every screen shown and of the saved game (-shots writes a screen a second)",
+         cmdGameRun},
+    });
 
 } // namespace

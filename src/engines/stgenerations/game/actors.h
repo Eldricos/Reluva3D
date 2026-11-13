@@ -94,12 +94,12 @@ public:
     };
 
     // Loads sprite set NNN.gs2; returns false if it can't.
-    typedef std::function<bool(uint16_t number, SpriteSet& set)> SpriteLoader;
+    typedef std::function<bool(uint16_t number, SpriteSet &set)> SpriteLoader;
 
     static const uint16_t kObjectType = 0xA000;
 
     // Places every actor on its floor and loads the sprite sets they use.
-    Actors(const LevelFile& level, const Walker& prototype, const SpriteLoader& loader);
+    Actors(const LevelFile &level, const Walker &prototype, const SpriteLoader &loader);
     ~Actors();
 
     int getCount() const { return (int)_actors.size(); }
@@ -108,15 +108,15 @@ public:
     // each actor's mode and animation, and collect the events raised. player
     // is the player's walker; actors standing in zones it can't see are
     // frozen, as in the original.
-    void update(uint32_t ms, const Walker& player, std::vector<ScriptEvent>& events);
+    void update(uint32_t ms, const Walker &player, std::vector<ScriptEvent> &events);
 
     // Actors as obstacles, for the player's walker. Updated in place.
-    const std::vector<Walker::Obstacle>& getObstacles() const { return _obstacles; }
+    const std::vector<Walker::Obstacle> &getObstacles() const { return _obstacles; }
     // The script object of the actor behind an obstacle.
     uint16_t getObstacleObject(int obstacle) const;
 
     // The sprites to draw, seen from (cameraX, cameraY).
-    void getSprites(double cameraX, double cameraY, uint64_t visibleZones, std::vector<SpriteDraw>& sprites) const;
+    void getSprites(double cameraX, double cameraY, uint64_t visibleZones, std::vector<SpriteDraw> &sprites) const;
 
     // Script control. id is an actor's script object id; ids without type
     // bits are taken as actor ids, as the original's lookup (game.vt[0x15C]) does.
@@ -136,7 +136,7 @@ public:
     // SET_ACTOR_CLIMB_ANGLE.
     void setClimbAngle(uint16_t id, int degrees);
     // Position in world units and heading in 1/65536 turns.
-    bool getPosition(uint16_t id, double& x, double& y, double& z, uint16_t& heading) const;
+    bool getPosition(uint16_t id, double &x, double &y, double &z, uint16_t &heading) const;
     void setPosition(uint16_t id, double x, double y, double z, uint16_t heading);
     void setHeading(uint16_t id, uint16_t heading);
     void setStepHeight(uint16_t id, double height);
@@ -153,18 +153,18 @@ public:
         int guardMode = kKeep, guardTarget = kKeep, minTurn = kKeep, maxTurn = kKeep;
         uint32_t inner = kKeep32, home = kKeep32, outer = kKeep32, minWalk = kKeep32, maxWalk = kKeep32;
     };
-    void setWander(uint16_t id, const Wander& wander);
+    void setWander(uint16_t id, const Wander &wander);
     // Saves from before guard targets (they wandered about the player).
     static const uint32_t kGuardSaveVersion = 7;
     // Where a guard target is (0x4B5DF0: mode 1 an actor, else a billboard); false if it's gone.
-    bool getGuardPosition(int mode, uint16_t target, double& x, double& y) const;
+    bool getGuardPosition(int mode, uint16_t target, double &x, double &y) const;
     // Distances for the proximity events between actors of class
     // actorClass and the player (targetClass 0): radii[1] near, [2] lost,
     // [3] in range, [4] out of range. radii[0] is unused, as in the original.
     void setProximity(int actorClass, int targetClass, const double radii[5]);
 
     // Save or load every actor's state, and the settings scripts gave them.
-    void sync(Serializer& s);
+    void sync(Serializer &s);
 
     // Set the stats; values of kKeep leave a stat as it is. Order as CombatStats.
     void setCombatStats(uint16_t id, const int32_t values[7]);
@@ -187,9 +187,9 @@ public:
         double x, y, z, yaw, pitch;
     };
     // Move the shots fired since the last call into shots.
-    void takeShots(std::vector<Shot>& shots);
+    void takeShots(std::vector<Shot> &shots);
     // The actors, as things shots can hit.
-    void getTargets(std::vector<Projectiles::Target>& targets) const;
+    void getTargets(std::vector<Projectiles::Target> &targets) const;
 
     // Headings: 65536 is a full turn, 0 faces +y and 16384 faces -x.
     static uint16_t headingTowards(double dx, double dy);
@@ -198,18 +198,18 @@ private:
     struct Actor;
 
     std::vector<int> findAll(uint16_t id) const;
-    bool getTarget(const Actor& actor, const Walker& player, double& x, double& y, double& z) const;
+    bool getTarget(const Actor &actor, const Walker &player, double &x, double &y, double &z) const;
     // Advance the animation; returns the distance walked with it.
-    double runAnimation(Actor& actor, uint32_t ms, std::vector<ScriptEvent>& events);
-    void runProximity(Actor& actor, const Walker& player, bool frozen, std::vector<ScriptEvent>& events);
-    void runWander(Actor& actor, int index, double step, const Walker& player, uint32_t ms);
-    void runWalkTo(Actor& actor, double step, const Walker& player, uint32_t ms, std::vector<ScriptEvent>& events);
-    void moveForward(Actor& actor, double distance, uint32_t ms);
-    bool turnTowards(Actor& actor, uint16_t goal, uint32_t ms);
-    Shot aim(const Actor& actor, const Walker& player) const;
+    double runAnimation(Actor &actor, uint32_t ms, std::vector<ScriptEvent> &events);
+    void runProximity(Actor &actor, const Walker &player, bool frozen, std::vector<ScriptEvent> &events);
+    void runWander(Actor &actor, int index, double step, const Walker &player, uint32_t ms);
+    void runWalkTo(Actor &actor, double step, const Walker &player, uint32_t ms, std::vector<ScriptEvent> &events);
+    void moveForward(Actor &actor, double distance, uint32_t ms);
+    bool turnTowards(Actor &actor, uint16_t goal, uint32_t ms);
+    Shot aim(const Actor &actor, const Walker &player) const;
     uint32_t random();
 
-    const LevelFile& _level;
+    const LevelFile &_level;
     std::vector<std::unique_ptr<Actor>> _actors;
     std::map<uint16_t, std::unique_ptr<SpriteSet>> _sprites;
     std::vector<Walker::Obstacle> _obstacles;
@@ -223,4 +223,3 @@ private:
 };
 
 } // namespace reluva::stgenerations
-

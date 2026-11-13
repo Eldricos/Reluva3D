@@ -11,7 +11,7 @@
 
 #include "engines/stharbinger/game/game.h"
 
-#include "common/audio/stream.h"
+#include "audio/stream.h"
 #include "common/log.h"
 #include "common/text.h"
 #include "engines/stharbinger/formats/audio.h"
@@ -113,20 +113,24 @@ bool isSceneCommandAllowed(uint8_t command) {
     case kCmdMapOff:
     case kCmdFadeOut:
     case kCmdFadeIn:
-    case kCmdRequireDisc: return true;
-    default: return false;
+    case kCmdRequireDisc:
+        return true;
+    default:
+        return false;
     }
 }
 
-uint8_t byteArg(const Argument* a) { return a ? uint8_t(a->value & 0xFF) : 0xFF; }
+uint8_t byteArg(const Argument *a) {
+    return a ? uint8_t(a->value & 0xFF) : 0xFF;
+}
 
 // The palette entry nearest to a 6-bit grey, skipping the reserved 1..5 (0x19720).
-uint8_t nearestColor(const Palette& palette, int r, int g, int b) {
+uint8_t nearestColor(const Palette &palette, int r, int g, int b) {
     int best = 0, bestDist = 1 << 30;
     for (int i = 0; i < 255; i++) {
         if (i >= 1 && i <= 5)
             continue;
-        const uint8_t* c = palette.data() + i * 3;
+        const uint8_t *c = palette.data() + i * 3;
         int d = std::abs((c[0] >> 2) - r) + std::abs((c[1] >> 2) - g) + std::abs((c[2] >> 2) - b);
         if (d < bestDist) {
             bestDist = d;
@@ -146,7 +150,7 @@ Game::DialogueState::DialogueState() {
 
 // ---- State --------------------------------------------------------------------
 
-Game::DialogueState* Game::getDialogueState(int index) {
+Game::DialogueState *Game::getDialogueState(int index) {
     auto it = dialogues_.find(index);
     if (it != dialogues_.end())
         return &it->second;
@@ -157,14 +161,14 @@ Game::DialogueState* Game::getDialogueState(int index) {
         return nullptr;
     }
     st.current.assign(st.data.npcLines.size(), 0);
-    for (const auto& g : st.data.npcLines)
+    for (const auto &g : st.data.npcLines)
         st.npcFlags.emplace_back(g.size());
-    for (const auto& g : st.data.choices)
+    for (const auto &g : st.data.choices)
         st.choiceFlags.emplace_back(g.size());
     return &(dialogues_[index] = std::move(st));
 }
 
-Game::ItemRef Game::getItemRef(const Argument* arg) const {
+Game::ItemRef Game::getItemRef(const Argument *arg) const {
     // x g.i: item i of choice group g; y/z g.i: of NPC group g.
     ItemRef ref;
     if (!arg || !(arg->type & (kArgPair08 | kArgPair10)))
@@ -175,22 +179,22 @@ Game::ItemRef Game::getItemRef(const Argument* arg) const {
     return ref;
 }
 
-Game::DialogueState::ItemFlags* Game::getItemFlags(DialogueState& st, const ItemRef& ref) {
-    auto& flags = ref.npc ? st.npcFlags : st.choiceFlags;
+Game::DialogueState::ItemFlags *Game::getItemFlags(DialogueState &st, const ItemRef &ref) {
+    auto &flags = ref.npc ? st.npcFlags : st.choiceFlags;
     if (ref.group < 0 || ref.group >= int(flags.size()) || ref.item < 0 || ref.item >= int(flags[ref.group].size()))
         return nullptr;
     return &flags[ref.group][ref.item];
 }
 
-void Game::setItemOn(DialogueState& st, const ItemRef& ref, bool on, bool temporary) {
-    DialogueState::ItemFlags* flags = getItemFlags(st, ref);
+void Game::setItemOn(DialogueState &st, const ItemRef &ref, bool on, bool temporary) {
+    DialogueState::ItemFlags *flags = getItemFlags(st, ref);
     if (!flags)
         return;
     if (temporary) {
         conv_.tempFlags.push_back({ref, flags->on});
     } else {
         // A permanent change also survives the undoing of TON/TOFF.
-        for (auto& t : conv_.tempFlags)
+        for (auto &t : conv_.tempFlags)
             if (t.item == ref)
                 t.saved = on;
     }
@@ -200,22 +204,24 @@ void Game::setItemOn(DialogueState& st, const ItemRef& ref, bool on, bool tempor
 void Game::restoreTempFlags() {
     if (conv_.dialogue < 0)
         return;
-    DialogueState& st = dialogues_[conv_.dialogue];
-    for (const auto& t : conv_.tempFlags)
-        if (DialogueState::ItemFlags* flags = getItemFlags(st, t.item))
+    DialogueState &st = dialogues_[conv_.dialogue];
+    for (const auto &t : conv_.tempFlags)
+        if (DialogueState::ItemFlags *flags = getItemFlags(st, t.item))
             flags->on = t.saved;
     conv_.tempFlags.clear();
 }
 
-bool Game::isExhausted(const DialogueState& st, int group) const { return isExhausted(st, group, ItemRef()); }
+bool Game::isExhausted(const DialogueState &st, int group) const {
+    return isExhausted(st, group, ItemRef());
+}
 
-bool Game::isExhausted(const DialogueState& st, int group, const ItemRef& except) const {
+bool Game::isExhausted(const DialogueState &st, int group, const ItemRef &except) const {
     // No choice of the group, or of a group hooked to it, is on and unsaid.
     auto check = [&](int g) {
         if (g < 0 || g >= int(st.choiceFlags.size()))
             return true;
         for (int i = 0; i < int(st.choiceFlags[g].size()); i++) {
-            const auto& f = st.choiceFlags[g][i];
+            const auto &f = st.choiceFlags[g][i];
             ItemRef ref;
             ref.group = g;
             ref.item = i;
@@ -227,14 +233,14 @@ bool Game::isExhausted(const DialogueState& st, int group, const ItemRef& except
     if (!check(group))
         return false;
     if (group >= 0 && group < kMaxGroups)
-        for (const auto& h : st.hooks[group])
+        for (const auto &h : st.hooks[group])
             if (!check(h.group))
                 return false;
     return true;
 }
 
-int Game::applyRedirect(const DialogueState& st, int group, const uint8_t* table,
-                        const DialogueState::Redirect* redirects) const {
+int Game::applyRedirect(const DialogueState &st, int group, const uint8_t *table,
+                        const DialogueState::Redirect *redirects) const {
     if (group >= 0 && group < kMaxGroups && table[group] != 0xFF && isExhausted(st, group))
         group = table[group];
     if (group >= 0 && group < kMaxGroups && redirects[group].target >= 0 &&
@@ -243,13 +249,13 @@ int Game::applyRedirect(const DialogueState& st, int group, const uint8_t* table
     return group;
 }
 
-std::vector<Game::ItemRef> Game::availableChoices(DialogueState& st, int group, bool consumeHooks) {
+std::vector<Game::ItemRef> Game::availableChoices(DialogueState &st, int group, bool consumeHooks) {
     std::vector<ItemRef> out;
     auto add = [&](int g) {
         if (g < 0 || g >= int(st.choiceFlags.size()))
             return;
         for (int i = 0; i < int(st.choiceFlags[g].size()); i++) {
-            const auto& f = st.choiceFlags[g][i];
+            const auto &f = st.choiceFlags[g][i];
             if (f.on && !f.said) {
                 ItemRef ref;
                 ref.group = g;
@@ -260,7 +266,7 @@ std::vector<Game::ItemRef> Game::availableChoices(DialogueState& st, int group, 
     };
     add(group);
     if (group >= 0 && group < kMaxGroups) {
-        for (auto& h : st.hooks[group]) {
+        for (auto &h : st.hooks[group]) {
             if (h.state == 2)
                 continue;
             if (consumeHooks && h.state == 1)
@@ -284,10 +290,10 @@ void Game::loadFont() {
 }
 
 void Game::startConversation(int cdIndex, int hotspot) {
-    const auto& cd = scene_->lists[kListDialogues];
+    const auto &cd = scene_->lists[kListDialogues];
     if (cdIndex < 0 || cdIndex >= int(cd.size()))
         return;
-    const std::string& name = cd[cdIndex].name;
+    const std::string &name = cd[cdIndex].name;
     int index = findDialogue(name);
     if (index < 0) {
         log::warning("CONVERSE: unknown dialogue %s", name.c_str());
@@ -299,7 +305,7 @@ void Game::startConversation(int cdIndex, int hotspot) {
                      name.c_str());
         return;
     }
-    DialogueState* st = getDialogueState(index);
+    DialogueState *st = getDialogueState(index);
     if (!st)
         return;
     loadFont();
@@ -365,8 +371,8 @@ void Game::processConversationOps() {
             finishConversation();
             return;
         }
-        DialogueState& st = dialogues_[conv_.dialogue];
-        ConversationOp& op = conv_.ops.front();
+        DialogueState &st = dialogues_[conv_.dialogue];
+        ConversationOp &op = conv_.ops.front();
         switch (op.type) {
         case ConversationOp::kRunList:
             if (!runDialogueList(op))
@@ -413,11 +419,11 @@ void Game::processConversationOps() {
     }
 }
 
-bool Game::runDialogueList(ConversationOp& op) {
+bool Game::runDialogueList(ConversationOp &op) {
     // Directives run until a GOTO or REPLY, which skips the rest of every list
     // until the next turn.
     while (op.pos < op.list->size() && !conv_.jumpTaken) {
-        const Directive& d = (*op.list)[op.pos++];
+        const Directive &d = (*op.list)[op.pos++];
         log::debug(4, "  dialogue: %s", describe(d).c_str());
         if (!executeDialogueDirective(d))
             return false;
@@ -428,14 +434,14 @@ bool Game::runDialogueList(ConversationOp& op) {
 }
 
 void Game::dialogueTurn() {
-    DialogueState& st = dialogues_[conv_.dialogue];
+    DialogueState &st = dialogues_[conv_.dialogue];
     if (st.replyMode)
         menuTurn(st);
     else
         npcTurn(st);
 }
 
-void Game::npcTurn(DialogueState& st) {
+void Game::npcTurn(DialogueState &st) {
     restoreTempFlags();
     int g = -1;
     for (int i = std::max(st.cur, 0); i < kMaxGroups - 1 && i < int(st.data.npcLines.size()); i++) {
@@ -451,13 +457,13 @@ void Game::npcTurn(DialogueState& st) {
     st.cur = g;
     st.replyMode = true; // then the menu of the same group, unless a list says otherwise
     int index = std::min<int>(st.current[g], int(st.data.npcLines[g].size()) - 1);
-    const DialogueItem& item = st.data.npcLines[g][index];
+    const DialogueItem &item = st.data.npcLines[g][index];
 
     ConversationOp op;
     op.type = ConversationOp::kSpeak;
     op.line = item.line;
     conv_.ops.push_back(op);
-    for (const auto& sub : item.subItems) {
+    for (const auto &sub : item.subItems) {
         ConversationOp list;
         list.type = ConversationOp::kRunList;
         list.list = &sub.script;
@@ -471,7 +477,7 @@ void Game::npcTurn(DialogueState& st) {
     conv_.ops.push_back(list);
 }
 
-void Game::menuTurn(DialogueState& st) {
+void Game::menuTurn(DialogueState &st) {
     // An exhausted menu can send the conversation to an NPC group ...
     int g0 = st.cur;
     st.cur = applyRedirect(st, st.cur, st.emptyGoto, st.emptyXGoto);
@@ -516,10 +522,10 @@ void Game::menuTurn(DialogueState& st) {
 void Game::pickChoice(int entry) {
     if (entry < 0 || entry >= int(conv_.menu.size()))
         return;
-    DialogueState& st = dialogues_[conv_.dialogue];
+    DialogueState &st = dialogues_[conv_.dialogue];
     ItemRef ref = conv_.menu[entry];
-    const DialogueItem& item = st.data.choices[ref.group][ref.item];
-    if (DialogueState::ItemFlags* flags = getItemFlags(st, ref))
+    const DialogueItem &item = st.data.choices[ref.group][ref.item];
+    if (DialogueState::ItemFlags *flags = getItemFlags(st, ref))
         flags->said = true;
     if (st.cur >= 0 && st.cur < kMaxGroups)
         conv_.lastPick[st.cur] = ref;
@@ -529,7 +535,7 @@ void Game::pickChoice(int entry) {
 
     // Replace the menu operation with: say the line, run its list, next group.
     auto it = std::find_if(conv_.ops.begin(), conv_.ops.end(),
-                           [](const ConversationOp& o) { return o.type == ConversationOp::kMenu; });
+                           [](const ConversationOp &o) { return o.type == ConversationOp::kMenu; });
     if (it == conv_.ops.end())
         return;
     it = conv_.ops.erase(it);
@@ -546,15 +552,15 @@ void Game::pickChoice(int entry) {
 
 void Game::abortConversation(bool rude, int hotspot) {
     // Clicking another hotspot, or a timer ending the talk (0x17459).
-    DialogueState& st = dialogues_[conv_.dialogue];
+    DialogueState &st = dialogues_[conv_.dialogue];
     st.exit = true;
     st.rude = rude;
     if (st.cur >= 0 && st.cur < kMaxGroups)
         conv_.lastPick[st.cur] = ItemRef();
     // Choices picked in other groups during this conversation come back.
-    for (const ItemRef& ref : conv_.lastPick)
+    for (const ItemRef &ref : conv_.lastPick)
         if (ref.valid())
-            if (DialogueState::ItemFlags* flags = getItemFlags(st, ref))
+            if (DialogueState::ItemFlags *flags = getItemFlags(st, ref))
                 flags->said = false;
     conv_.ops.clear();
     conv_.result = hotspot;
@@ -578,7 +584,7 @@ void Game::finishConversation() {
 
 // ---- Dialogue commands ----------------------------------------------------------------
 
-void Game::registerTalker(int slot, const std::string& code, int mouth, int head) {
+void Game::registerTalker(int slot, const std::string &code, int mouth, int head) {
     if (slot >= kMaxTalkers)
         return;
     if (slot >= int(conv_.talkers.size()))
@@ -588,7 +594,7 @@ void Game::registerTalker(int slot, const std::string& code, int mouth, int head
         mouth = -1;
     if (head >= int(anims_.size()))
         head = -1;
-    Talker& t = conv_.talkers[slot];
+    Talker &t = conv_.talkers[slot];
     t.code = code;
     t.mouth = mouth;
     t.head = head;
@@ -596,7 +602,7 @@ void Game::registerTalker(int slot, const std::string& code, int mouth, int head
     if (mouth >= 0 && mouth < int(anims_.size())) {
         if (!anims_[mouth].loaded)
             loadAnim(mouth, true);
-        Anim& a = anims_[mouth];
+        Anim &a = anims_[mouth];
         a.flags = kAnimFlagStop;
         a.frame = phonemeFrame(mouth, kRestMouth);
         a.priority = 2;
@@ -605,15 +611,15 @@ void Game::registerTalker(int slot, const std::string& code, int mouth, int head
     if (head >= 0 && head < int(anims_.size())) {
         if (!anims_[head].loaded)
             loadAnim(head, true);
-        Anim& a = anims_[head];
+        Anim &a = anims_[head];
         a.flags = kAnimFlagStop;
         a.frame = 0;
         a.priority = 1;
     }
 }
 
-bool Game::executeDialogueDirective(const Directive& d) {
-    DialogueState& st = dialogues_[conv_.dialogue];
+bool Game::executeDialogueDirective(const Directive &d) {
+    DialogueState &st = dialogues_[conv_.dialogue];
     const Argument *a0 = d.getArg(0), *a1 = d.getArg(1), *a2 = d.getArg(2);
     auto test = [&]() { return getValue(a0) == getValue(a1); };
     auto speak = [&](int line) {
@@ -623,7 +629,7 @@ bool Game::executeDialogueDirective(const Directive& d) {
         conv_.ops.push_front(op);
         return false; // the list resumes after the line
     };
-    auto xrefSymbol = [&](const Argument* a) {
+    auto xrefSymbol = [&](const Argument *a) {
         if (!a || a->type != kArgSymbol || a->value >= scene_->xref.size())
             return std::string();
         return scene_->xref[a->value].symbol;
@@ -649,15 +655,19 @@ bool Game::executeDialogueDirective(const Directive& d) {
         int g = byteArg(a0), t = byteArg(a1);
         if (t >= kMaxGroups)
             return true;
-        auto& chain = st.hooks[t];
-        if (std::none_of(chain.begin(), chain.end(), [&](const DialogueState::Hook& h) { return h.group == g; }))
+        auto &chain = st.hooks[t];
+        if (std::none_of(chain.begin(), chain.end(), [&](const DialogueState::Hook &h) { return h.group == g; }))
             chain.push_back({g, d.command == kDlgTHook ? 1 : 0});
         return true;
     }
     case kDlgOn:
-    case kDlgOff: setItemOn(st, getItemRef(a0), d.command == kDlgOn, false); return true;
+    case kDlgOff:
+        setItemOn(st, getItemRef(a0), d.command == kDlgOn, false);
+        return true;
     case kDlgTOn:
-    case kDlgTOff: setItemOn(st, getItemRef(a0), d.command == kDlgTOn, true); return true;
+    case kDlgTOff:
+        setItemOn(st, getItemRef(a0), d.command == kDlgTOn, true);
+        return true;
     case kDlgIfOn:
     case kDlgIfOff:
         if (test())
@@ -679,12 +689,18 @@ bool Game::executeDialogueDirective(const Directive& d) {
     }
     case kDlgUnspeak:
     case kDlgSpeak:
-        if (DialogueState::ItemFlags* flags = getItemFlags(st, getItemRef(a0)))
+        if (DialogueState::ItemFlags *flags = getItemFlags(st, getItemRef(a0)))
             flags->said = d.command == kDlgSpeak;
         return true;
-    case kDlgExit: st.exit = true; return true;
-    case kDlgRude: st.rudeGroup = byteArg(a0); return true;
-    case kDlgBack: st.backGroup = byteArg(a0); return true;
+    case kDlgExit:
+        st.exit = true;
+        return true;
+    case kDlgRude:
+        st.rudeGroup = byteArg(a0);
+        return true;
+    case kDlgBack:
+        st.backGroup = byteArg(a0);
+        return true;
     case kDlgDone:
         if (byteArg(a0) < kMaxGroups)
             st.done[byteArg(a0)] = byteArg(a1);
@@ -698,7 +714,7 @@ bool Game::executeDialogueDirective(const Directive& d) {
         int g = byteArg(a0);
         if (g >= kMaxGroups)
             return true;
-        DialogueState::Redirect* table = d.command == kDlgDoneX      ? st.doneX
+        DialogueState::Redirect *table = d.command == kDlgDoneX      ? st.doneX
                                          : byteArg(d.getArg(3)) == 2 ? st.emptyXGoto
                                                                      : st.emptyXReply;
         table[g].target = byteArg(a1);
@@ -715,11 +731,13 @@ bool Game::executeDialogueDirective(const Directive& d) {
             return speak(conv_.protagonistLines[i]);
         return true;
     }
-    case kDlgMood: return speak(a0 ? int(a0->value) : 0);
+    case kDlgMood:
+        return speak(a0 ? int(a0->value) : 0);
     case kDlgSay:
     case kDlgSay2:
     case kDlgSay3:
-    case kDlgSay4: return speak(a2 ? int(a2->value) : 0);
+    case kDlgSay4:
+        return speak(a2 ? int(a2->value) : 0);
     case kDlgCountChoices: {
         int g = byteArg(a0);
         setVariable(a1, uint16_t(availableChoices(st, g, false).size()));
@@ -754,7 +772,8 @@ bool Game::executeDialogueDirective(const Directive& d) {
             registerTalker(slot, code, int(a0->value), int(a1->value));
         return true;
     }
-    default: break;
+    default:
+        break;
     }
 
     if (!isSceneCommandAllowed(d.command))
@@ -784,7 +803,7 @@ int Game::phonemeFrame(int anim, int code) const {
 }
 
 void Game::startSpeech(int line) {
-    DialogueState& st = dialogues_[conv_.dialogue];
+    DialogueState &st = dialogues_[conv_.dialogue];
     conv_.speaking = true;
     conv_.speechStart = conv_.nodeStart = millis_;
     conv_.speechEnd = millis_;
@@ -795,8 +814,8 @@ void Game::startSpeech(int line) {
     // The speaker code is in the clip name: <conversation 3><speaker 3><index 2>.
     std::string clip = line >= 0 && line < int(st.data.clips.size()) ? st.data.clips[line] : std::string();
     std::string code = clip.size() >= 6 ? clip.substr(3, 3) : std::string();
-    const Talker* talker = nullptr;
-    for (const Talker& t : conv_.talkers)
+    const Talker *talker = nullptr;
+    for (const Talker &t : conv_.talkers)
         if (!code.empty() && text::equalsIgnoreCase(t.code, code))
             talker = &t;
     log::debug(2, "Line %d (%s)%s", line, clip.c_str(), talker ? " with lip-sync" : "");
@@ -815,7 +834,7 @@ void Game::startSpeech(int line) {
     }
     if (!data.empty()) {
         conv_.speechEnd = millis_ + uint32_t(uint64_t(data.size()) * 1000 / kSampleRate);
-        if (audio::Mixer* mixer = system_->getMixer())
+        if (audio::Mixer *mixer = system_->getMixer())
             conv_.speechHandle = mixer->play(
                 std::make_unique<audio::RawStream>(std::move(data), audio::RawStream::Format::U8, kSampleRate),
                 audio::SoundType::Speech, mixerVolume(kVolumeSpeech));
@@ -827,7 +846,7 @@ void Game::startSpeech(int line) {
 void Game::updateSpeech() {
     if (millis_ < conv_.speechEnd) {
         // Move the mouth along the phoneme timeline; it starts two units in.
-        const Phonemes& ph = conv_.phonemes;
+        const Phonemes &ph = conv_.phonemes;
         if (conv_.mouth >= 0 && !ph.nodes.empty()) {
             uint32_t clock = millis_ - conv_.speechStart + 2 * ph.unitMillis;
             while (conv_.phonemeNode + 1 < ph.nodes.size() &&
@@ -835,7 +854,7 @@ void Game::updateSpeech() {
                 conv_.nodeStart += ph.getNodeMillis(conv_.phonemeNode);
                 conv_.phonemeNode++;
             }
-            Anim& mouth = anims_[conv_.mouth];
+            Anim &mouth = anims_[conv_.mouth];
             mouth.flags = kAnimFlagStop;
             mouth.rate = 0;
             mouth.frame = phonemeFrame(conv_.mouth, ph.nodes[conv_.phonemeNode].code);
@@ -853,23 +872,23 @@ void Game::updateSpeech() {
 
 // ---- The menu ---------------------------------------------------------------------------
 
-void Game::layoutMenu(DialogueState& st) {
-    auto label = [&](const ItemRef& ref) {
-        const DialogueItem& item = st.data.choices[ref.group][ref.item];
+void Game::layoutMenu(DialogueState &st) {
+    auto label = [&](const ItemRef &ref) {
+        const DialogueItem &item = st.data.choices[ref.group][ref.item];
         std::string text =
             item.choice < st.data.menuLabels.size() ? st.data.menuLabels[item.choice] : st.data.getMenuLabel(item.line);
         return text.substr(0, kMaxLabelLength);
     };
-    auto width = [&](const std::string& text) {
+    auto width = [&](const std::string &text) {
         return font_.empty() ? int(text.size()) * 8 : font_.getStringWidth(text);
     };
     // The widest label of the whole dialogue decides which side the menu goes.
     int widest = 0;
-    for (const std::string& l : st.data.menuLabels)
+    for (const std::string &l : st.data.menuLabels)
         widest = std::max(widest, width(l.substr(0, kMaxLabelLength)));
     conv_.lineHeight = font_.empty() ? 10 : std::max(1, font_.getLineHeight());
     conv_.menuWidths.clear();
-    for (const ItemRef& ref : conv_.menu)
+    for (const ItemRef &ref : conv_.menu)
         conv_.menuWidths.push_back(width(label(ref)));
 
     int hx = 0, hy = 0, hw = 0;
@@ -895,16 +914,16 @@ int Game::menuEntryAt(int x, int y) const {
     return -1;
 }
 
-void Game::drawMenu(Surface& dst) {
+void Game::drawMenu(Surface &dst) {
     if (!conv_.active || !conv_.menuVisible)
         return;
-    const DialogueState& st = dialogues_[conv_.dialogue];
+    const DialogueState &st = dialogues_[conv_.dialogue];
     uint8_t normal = nearestColor(palette_, 40, 40, 40);
     uint8_t bright = nearestColor(palette_, 63, 63, 63);
     uint8_t shadow = nearestColor(palette_, 0, 0, 0);
     for (int i = 0; i < int(conv_.menu.size()); i++) {
-        const ItemRef& ref = conv_.menu[i];
-        const DialogueItem& item = st.data.choices[ref.group][ref.item];
+        const ItemRef &ref = conv_.menu[i];
+        const DialogueItem &item = st.data.choices[ref.group][ref.item];
         std::string text =
             item.choice < st.data.menuLabels.size() ? st.data.menuLabels[item.choice] : st.data.getMenuLabel(item.line);
         text = text.substr(0, kMaxLabelLength);
@@ -943,9 +962,9 @@ std::vector<std::string> Game::getMenuLabels() const {
     std::vector<std::string> out;
     if (!conv_.active || !conv_.menuWaiting)
         return out;
-    const DialogueState& st = dialogues_.at(conv_.dialogue);
-    for (const ItemRef& ref : conv_.menu) {
-        const DialogueItem& item = st.data.choices[ref.group][ref.item];
+    const DialogueState &st = dialogues_.at(conv_.dialogue);
+    for (const ItemRef &ref : conv_.menu) {
+        const DialogueItem &item = st.data.choices[ref.group][ref.item];
         out.push_back(item.choice < st.data.menuLabels.size() ? st.data.menuLabels[item.choice]
                                                               : st.data.getMenuLabel(item.line));
     }
@@ -959,9 +978,9 @@ void Game::pickMenuEntry(int entry) {
     }
 }
 
-bool Game::debugTalk(const std::string& dialogue) {
+bool Game::debugTalk(const std::string &dialogue) {
     for (int i = 0; i < int(scenes_.size()); i++) {
-        const auto& cd = scenes_[i].lists[kListDialogues];
+        const auto &cd = scenes_[i].lists[kListDialogues];
         for (int k = 0; k < int(cd.size()); k++) {
             if (!text::equalsIgnoreCase(cd[k].name, dialogue))
                 continue;
@@ -991,7 +1010,7 @@ void Game::tickConversationTimers() {
     // Only global timers run while the menu waits. A handler ends with RETURNVAL:
     // #0 keeps waiting, x g.i / y g.i continue with menu / NPC group g, anything
     // else ends the conversation (rudely if even).
-    for (Timer& t : timers_) {
+    for (Timer &t : timers_) {
         if (!t.defined || !t.active || t.count == 0 || (t.kind != kTimerGlobal && t.kind != 3))
             continue;
         if (--t.count != 0)
@@ -999,14 +1018,14 @@ void Game::tickConversationTimers() {
         uint16_t v = runNestedHandler(t.label);
         if (v == 0x8000)
             return;
-        DialogueState& st = dialogues_[conv_.dialogue];
+        DialogueState &st = dialogues_[conv_.dialogue];
         conv_.menuWaiting = false;
         if (v & 0xC0) {
             st.cur = (v & 0x7FFF) >> 8;
             st.replyMode = (v & 0x80) != 0;
             conv_.menuVisible = false;
             auto it = std::find_if(conv_.ops.begin(), conv_.ops.end(),
-                                   [](const ConversationOp& o) { return o.type == ConversationOp::kMenu; });
+                                   [](const ConversationOp &o) { return o.type == ConversationOp::kMenu; });
             if (it != conv_.ops.end())
                 conv_.ops.erase(it);
         } else {

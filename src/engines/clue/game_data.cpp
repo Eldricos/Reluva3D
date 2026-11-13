@@ -12,21 +12,25 @@ namespace reluva::clue {
 namespace {
 
 // The data's own folders, as Clue.exe names them.
-const char* const kSubfolders[] = {"UI", "Resource", "Levels", "Sounds", "NSSounds", "Text", "Video"};
+const char *const kSubfolders[] = {"UI", "Resource", "Levels", "Sounds", "NSSounds", "Text", "Video"};
 
 // The file a resource drive keeps each kind of resource in.
-const char* kindExtension(char kind) {
+const char *kindExtension(char kind) {
     switch (kind) {
-    case 'I': return ".res"; // images
-    case 'A': return ".a";   // animations
-    case 'O': return ".o";   // objects
-    default: return nullptr;
+    case 'I':
+        return ".res"; // images
+    case 'A':
+        return ".a"; // animations
+    case 'O':
+        return ".o"; // objects
+    default:
+        return nullptr;
     }
 }
 
 } // namespace
 
-Error GameData::open(const std::filesystem::path& gameDir, Language language) {
+Error GameData::open(const std::filesystem::path &gameDir, Language language) {
     language_ = language;
     folders_.clear();
     files_.clear();
@@ -40,20 +44,20 @@ Error GameData::open(const std::filesystem::path& gameDir, Language language) {
         roots.push_back(*classic);
     } else {
         // The CD: the language's own files first, then the shared ones.
-        for (const char* name : {language == Language::UK ? "Data/UK" : "Data/US", "Data/ClueSpecific",
-                                 "Data/LangIndepend"})
+        for (const char *name :
+             {language == Language::UK ? "Data/UK" : "Data/US", "Data/ClueSpecific", "Data/LangIndepend"})
             if (auto dir = fs::findDirectory(gameDir, name))
                 roots.push_back(*dir);
     }
     if (roots.empty())
         return Error::fail("No Data/Classic (an install) or Data/LangIndepend (the CD) in " + gameDir.string());
-    for (const auto& root : roots) {
+    for (const auto &root : roots) {
         folders_.push_back(root);
-        for (const char* sub : kSubfolders)
+        for (const char *sub : kSubfolders)
             if (auto dir = fs::findDirectory(root, sub))
                 folders_.push_back(*dir);
     }
-    for (const auto& dir : folders_) {
+    for (const auto &dir : folders_) {
         std::error_code ec;
         for (std::filesystem::directory_iterator it(dir, ec), end; !ec && it != end; it.increment(ec))
             if (it->is_regular_file(ec))
@@ -62,7 +66,7 @@ Error GameData::open(const std::filesystem::path& gameDir, Language language) {
     return Error::success();
 }
 
-const std::filesystem::path* GameData::find(std::string_view fileName) const {
+const std::filesystem::path *GameData::find(std::string_view fileName) const {
     auto it = files_.find(fs::toLower(fileName));
     return it == files_.end() ? nullptr : &it->second;
 }
@@ -70,21 +74,21 @@ const std::filesystem::path* GameData::find(std::string_view fileName) const {
 std::vector<std::filesystem::path> GameData::withExtension(std::string_view ext) const {
     std::vector<std::filesystem::path> out;
     const std::string want = fs::toLower(ext);
-    for (const auto& [name, path] : files_)
+    for (const auto &[name, path] : files_)
         if (name.size() > want.size() && name.compare(name.size() - want.size(), want.size(), want) == 0)
             out.push_back(path);
     return out;
 }
 
-const DataDrive* GameData::drive(std::string_view driveName, char kind) const {
-    const char* ext = kindExtension(kind);
+const DataDrive *GameData::drive(std::string_view driveName, char kind) const {
+    const char *ext = kindExtension(kind);
     if (!ext)
         return nullptr;
     const std::string file = fs::toLower(driveName) + ext;
     auto it = drives_.find(file);
     if (it == drives_.end()) {
         std::unique_ptr<DataDrive> d;
-        if (const auto* path = find(file)) {
+        if (const auto *path = find(file)) {
             d = std::make_unique<DataDrive>();
             if (Error err = d->open(*path)) {
                 lastError_ = err.message;
@@ -98,7 +102,7 @@ const DataDrive* GameData::drive(std::string_view driveName, char kind) const {
     return it->second.get();
 }
 
-const Image* GameData::image(std::string_view fullName) const {
+const Image *GameData::image(std::string_view fullName) const {
     const std::string key = fs::toLower(fullName);
     auto it = images_.find(key);
     if (it != images_.end())
@@ -107,8 +111,8 @@ const Image* GameData::image(std::string_view fullName) const {
     ResourceName n;
     if (!splitResourceName(fullName, n)) {
         lastError_ = "not a resource name: " + std::string(fullName);
-    } else if (const DataDrive* d = drive(n.drive, 'I')) {
-        if (const DataDrive::Entry* e = d->find(n.name)) {
+    } else if (const DataDrive *d = drive(n.drive, 'I')) {
+        if (const DataDrive::Entry *e = d->find(n.name)) {
             img = std::make_unique<Image>();
             if (Error err = decodeImage(d->read(*e), *img)) {
                 lastError_ = std::string(fullName) + ": " + err.message;
@@ -121,7 +125,7 @@ const Image* GameData::image(std::string_view fullName) const {
     return images_.emplace(key, std::move(img)).first->second.get();
 }
 
-const Animation* GameData::animation(std::string_view fullName) const {
+const Animation *GameData::animation(std::string_view fullName) const {
     const std::string key = fs::toLower(fullName);
     auto it = animations_.find(key);
     if (it != animations_.end())
@@ -130,8 +134,8 @@ const Animation* GameData::animation(std::string_view fullName) const {
     ResourceName n;
     if (!splitResourceName(fullName, n)) {
         lastError_ = "not a resource name: " + std::string(fullName);
-    } else if (const DataDrive* d = drive(n.drive, 'A')) {
-        if (const DataDrive::Entry* e = d->find(n.name)) {
+    } else if (const DataDrive *d = drive(n.drive, 'A')) {
+        if (const DataDrive::Entry *e = d->find(n.name)) {
             anim = std::make_unique<Animation>();
             if (Error err = parseAnimation(d->read(*e), *anim)) {
                 lastError_ = std::string(fullName) + ": " + err.message;
@@ -144,7 +148,7 @@ const Animation* GameData::animation(std::string_view fullName) const {
     return animations_.emplace(key, std::move(anim)).first->second.get();
 }
 
-const ObjectDef* GameData::object(std::string_view fullName) const {
+const ObjectDef *GameData::object(std::string_view fullName) const {
     const std::string key = fs::toLower(fullName);
     auto it = objects_.find(key);
     if (it != objects_.end())
@@ -153,8 +157,8 @@ const ObjectDef* GameData::object(std::string_view fullName) const {
     ResourceName n;
     if (!splitResourceName(fullName, n)) {
         lastError_ = "not a resource name: " + std::string(fullName);
-    } else if (const DataDrive* d = drive(n.drive, 'O')) {
-        if (const DataDrive::Entry* e = d->find(n.name)) {
+    } else if (const DataDrive *d = drive(n.drive, 'O')) {
+        if (const DataDrive::Entry *e = d->find(n.name)) {
             obj = std::make_unique<ObjectDef>();
             if (Error err = parseObject(d->read(*e), *obj)) {
                 lastError_ = std::string(fullName) + ": " + err.message;

@@ -1,6 +1,6 @@
 # Murder on the Orient Express: character lighting
 
-> **Status:** partial · **Code:** `src/engines/awe/lighting.cpp` · **Checked against:** the code (`motoe.exe`, English 1.0) and the install's 426 `LITE` records; the specular against a recording · **Confidence:** from the code unless marked
+> **Status:** partial · **Code:** `src/engines/awe/render/lighting.cpp` · **Checked against:** the code (`motoe.exe`, English 1.0) and the install's 426 `LITE` records; the specular against a recording · **Confidence:** from the code unless marked
 
 ## Overview
 
@@ -104,7 +104,7 @@ constructor clears the `D3DLIGHT8`).
 
 ## In Reluva
 
-`src/engines/awe/lighting.cpp` builds the scene's lights and ambient
+`src/engines/awe/render/lighting.cpp` builds the scene's lights and ambient
 light, and lights each vertex of the CPU-skinned characters with the
 formula above; the result is the vertex colour the texture is multiplied
 by. The specular goes into a second vertex colour, drawn as a pass that

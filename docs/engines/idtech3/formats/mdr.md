@@ -1,6 +1,6 @@
 # id Tech 3: MDR models (Elite Force's player bodies)
 
-> **Status:** decoded · **Code:** `src/engines/idtech3/mdr.cpp` · **Checked on:** every `.mdr` of Elite Force, read: 170 in 1.0 and 1.1, 196 in 1.2, 201 with the Expansion Pack (`reluva-tool idtech3 model-check`, November 2026) · **Confidence:** the layout confirmed; the rest published unless marked
+> **Status:** decoded · **Code:** `src/engines/idtech3/formats/mdr.cpp` · **Checked on:** every `.mdr` of Elite Force, read: 170 in 1.0 and 1.1, 196 in 1.2, 201 with the Expansion Pack (`reluva-tool idtech3 model-check`, November 2026) · **Confidence:** the layout confirmed; the rest published unless marked
 
 ## Overview
 
@@ -9,7 +9,7 @@ for its players' bodies (`models/players2/<name>/lower.mdr` and
 `upper.mdr`; heads stay `.md3`). The layout, the packed bones and how a
 vertex is placed were read from the GPL ioquake3 renderer, which loads
 these files (`qfiles.h`, `tr_model.c`, `tr_animation.c`); Reluva's reader,
-`src/engines/idtech3/mdr.cpp`, is new code from this description.
+`src/engines/idtech3/formats/mdr.cpp`, is new code from this description.
 
 ## Layout
 

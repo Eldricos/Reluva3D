@@ -29,8 +29,8 @@ constexpr int kPrioritiesPerGameDir = 1000;
 // is an error.
 // Paks named in `skip` (lower case) are left out (the Expansion Pack's,
 // when it isn't wanted).
-Error mountGameDir(SearchSet& set, const std::filesystem::path& install, std::string_view gameDir, int layer,
-                   std::vector<std::string>& warnings, const std::vector<std::string>& skip = {});
+Error mountGameDir(SearchSet &set, const std::filesystem::path &install, std::string_view gameDir, int layer,
+                   std::vector<std::string> &warnings, const std::vector<std::string> &skip = {});
 
 // The paks for downloaded paks (and the like) start at this priority, above
 // every game folder mountGame adds.
@@ -40,15 +40,15 @@ constexpr int kDownloadPriority = 4 * kPrioritiesPerGameDir;
 // the game, if any), then the mod's (if one is given) in each, later ones
 // searched first. The base game's install folder must be there; the rest
 // are added if they are.
-Error mountGame(SearchSet& set, const std::filesystem::path& install, const std::filesystem::path& home,
-                std::string_view baseDir, std::string_view mod, std::vector<std::string>& warnings,
-                const std::vector<std::string>& skip = {});
+Error mountGame(SearchSet &set, const std::filesystem::path &install, const std::filesystem::path &home,
+                std::string_view baseDir, std::string_view mod, std::vector<std::string> &warnings,
+                const std::vector<std::string> &skip = {});
 // A name fs_game may take: a single folder's name, not the base game's (any
 // case) and not starting with '.'; empty if it's none (the game itself).
 std::string modFolderName(std::string_view value, std::string_view baseDir);
 // Where a mod's own files go in a game's save folder (its saves, settings,
 // screenshots): mods/<mod>; the save folder itself for none.
-std::filesystem::path modSavePath(const std::filesystem::path& savePath, std::string_view mod);
+std::filesystem::path modSavePath(const std::filesystem::path &savePath, std::string_view mod);
 
 // The mods an install holds, as Elite Force's engines list them for
 // "$modlist" (FS_GetFileList; 1.2's and the Expansion Pack's alike): the
@@ -58,10 +58,10 @@ std::filesystem::path modSavePath(const std::filesystem::path& savePath, std::st
 struct ModFolder {
     std::string name, description;
 };
-std::vector<ModFolder> listMods(const std::filesystem::path& install, std::string_view baseDir);
+std::vector<ModFolder> listMods(const std::filesystem::path &install, std::string_view baseDir);
 // Into a buffer of `size` bytes as they write it: each mod's name and
 // description, each with its NUL, stopping at the first that would leave
 // 2 bytes or fewer. Returns how many were written.
-uint32_t packModList(const std::vector<ModFolder>& mods, uint32_t size, std::vector<uint8_t>& out);
+uint32_t packModList(const std::vector<ModFolder> &mods, uint32_t size, std::vector<uint8_t> &out);
 
 } // namespace reluva::idtech3

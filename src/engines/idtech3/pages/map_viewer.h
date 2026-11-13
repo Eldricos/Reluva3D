@@ -4,7 +4,7 @@
 #pragma once
 
 #include "engines/idtech3/pages/page.h"
-#include "engines/idtech3/bsp.h"
+#include "engines/idtech3/formats/bsp.h"
 
 #include <array>
 #include <memory>
@@ -15,11 +15,11 @@ namespace reluva::idtech3 {
 
 class MapViewer : public Page {
 public:
-    explicit MapViewer(ViewerContext& ctx);
-    const char* name() const override { return "Maps"; }
+    explicit MapViewer(ViewerContext &ctx);
+    const char *name() const override { return "Maps"; }
     size_t count() const override { return names_.size(); }
     void activate() override;
-    void handleEvent(const Event& ev) override;
+    void handleEvent(const Event &ev) override;
     void update(uint64_t nowMs) override;
 
 private:
@@ -37,7 +37,7 @@ private:
     void load(int index);
     void resetView();
     void render();
-    void drawLine3d(const std::array<float, 3>& a, const std::array<float, 3>& b, Color c);
+    void drawLine3d(const std::array<float, 3> &a, const std::array<float, 3> &b, Color c);
     void drawLine2d(float x0, float y0, float x1, float y1, Color c);
 
     std::vector<std::string> names_;

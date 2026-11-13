@@ -3,8 +3,8 @@
 
 #pragma once
 
-#include "common/draw.h"
-#include "common/palette.h"
+#include "graphics/draw.h"
+#include "graphics/palette.h"
 #include "common/stream.h"
 
 #include <algorithm>
@@ -16,10 +16,10 @@ namespace reluva::stharbinger {
 // Backgrounds (.CMP): u32 length, then PKWARE DCL "implode" data that unpacks to
 // 640x480 8-bit pixels (a few have a 768-byte VGA palette appended).
 // `palette` is set and `hasPalette` true only for those.
-bool loadCMP(SeekableReadStream& stream, Surface& surface, Palette* palette = nullptr, bool* hasPalette = nullptr);
+bool loadCMP(SeekableReadStream &stream, Surface &surface, Palette *palette = nullptr, bool *hasPalette = nullptr);
 
 // Palettes (.PAL): 768 bytes of 6-bit VGA values.
-bool loadPAL(SeekableReadStream& stream, Palette& palette);
+bool loadPAL(SeekableReadStream &stream, Palette &palette);
 
 // Animations and sprites (.RLE): an 8-byte header, u16 frame count, then frames.
 // Scene animations have the fixed header 00 00 01 01 0A FF 00 00; arcade
@@ -35,34 +35,34 @@ public:
     };
 
     // Loads a scene animation (checks the fixed header).
-    bool load(SeekableReadStream& stream);
-    bool load(const uint8_t* data, uint32_t size);
+    bool load(SeekableReadStream &stream);
+    bool load(const uint8_t *data, uint32_t size);
     // Loads any RLE file and returns its 8 header bytes (arcade sprites).
-    bool loadWithHeader(SeekableReadStream& stream, uint8_t header[8]);
+    bool loadWithHeader(SeekableReadStream &stream, uint8_t header[8]);
 
     int frameCount() const { return int(frames_.size()); }
-    const Frame& getFrame(int i) const { return frames_[i]; }
+    const Frame &getFrame(int i) const { return frames_[i]; }
 
     // Draws frame `i` at its own position plus (dx, dy), leaving skipped pixels alone.
-    void drawFrame(int i, Surface& dst, int dx = 0, int dy = 0) const;
+    void drawFrame(int i, Surface &dst, int dx = 0, int dy = 0) const;
     // Draws frame `i` with its top-left at (x, y), clipped to `clip` if given.
-    void drawFrameAt(int i, Surface& dst, int x, int y, const Rect* clip = nullptr) const;
+    void drawFrameAt(int i, Surface &dst, int x, int y, const Rect *clip = nullptr) const;
 
 private:
-    bool parse(const uint8_t* data, uint32_t size, bool checkHeader);
+    bool parse(const uint8_t *data, uint32_t size, bool checkHeader);
 
     std::vector<Frame> frames_;
 };
 
 // A phaser beam (DEEP.EXE 0x27215): a line drawn as vertical runs that taper
 // from 13 pixels at (x0, y0) to 1 pixel at (x1, y1).
-void drawPhaserBeam(Surface& dst, int x0, int y0, int x1, int y1, uint8_t color);
+void drawPhaserBeam(Surface &dst, int x0, int y0, int x1, int y1, uint8_t color);
 
 // An enemy beam (0x273E4 / 0x2759D): a jittery line, in thirds of width 1, 3
 // and 5 in colours c, c + 1, c + 2, each point a streak of `streak` pixels
 // downward, stopping at `bottom`. `random(n)` gives 0..n-1.
-template <class Random>
-void drawEnemyBeam(Surface& dst, int x0, int y0, int x1, int y1, uint8_t color, int streak, int bottom, Random random) {
+template<class Random>
+void drawEnemyBeam(Surface &dst, int x0, int y0, int x1, int y1, uint8_t color, int streak, int bottom, Random random) {
     int dx = std::abs(x1 - x0), dy = std::abs(y1 - y0);
     int sx = x0 < x1 ? 1 : -1, sy = y0 < y1 ? 1 : -1;
     int len = std::max(1, std::max(dx, dy));

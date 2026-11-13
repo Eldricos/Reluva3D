@@ -30,7 +30,7 @@ for the game.
   NIF reading (NetImmerse's stream format for a scene graph and its
   objects, which the game's `.FIN` models are, under a header of their
   own: [fin.md](games/legoalphateam/formats/fin.md)), the scene graph, rendering through `gfx::Renderer3D`, sound
-  through `common/audio`. Built when `engines.cfg` has `netimmerse=enabled`, as it does by
+  through `src/audio`. Built when `engines.cfg` has `netimmerse=enabled`, as it does by
   default (it was off at first, which left the launcher not recognising
   the game in a default build).
 - Game id `legoalphateam`, with what is specific to it in

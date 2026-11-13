@@ -20,7 +20,7 @@ namespace {
 // Not M_PI: MSVC only has it with _USE_MATH_DEFINES.
 constexpr double kPi = 3.14159265358979323846;
 
-const char* const kArchive = "STELLAR.DAT";
+const char *const kArchive = "STELLAR.DAT";
 const int kMapHeight = 362;
 const int kPanelTop = 362;
 // The text and scanner display's corner (GUI (0,6)).
@@ -36,27 +36,25 @@ const uint32_t kScanFrameMillis = 60;
 const int kScanFrames = 29;
 const double kNewGameStardate = 48623.4;
 // Fleet slots around a star (0x46E96B), in map units, sector and system view.
-const int kSlotOffsets[2][4][2] = {
-    { { -15, -10 }, { -15, 10 }, { 25, -10 }, { 25, 10 } },
-    { { -40, -10 }, { -40, 25 }, { 40, -10 }, { 40, 25 } }
-};
+const int kSlotOffsets[2][4][2] = {{{-15, -10}, {-15, 10}, {25, -10}, {25, 10}},
+                                   {{-40, -10}, {-40, 25}, {40, -10}, {40, 25}}};
 
-std::string lower(const std::string& s) {
+std::string lower(const std::string &s) {
     return text::toLower(s);
 }
 
-std::string join(const std::vector<std::string>& args, size_t from) {
+std::string join(const std::vector<std::string> &args, size_t from) {
     std::string text;
     for (size_t i = from; i < args.size(); i++)
         text += (text.empty() ? "" : " ") + args[i];
     return text;
 }
 
-int toInt(const std::vector<std::string>& args, size_t i) {
+int toInt(const std::vector<std::string> &args, size_t i) {
     return i < args.size() ? std::atoi(args[i].c_str()) : 0;
 }
 
-std::string arg(const std::vector<std::string>& args, size_t i) {
+std::string arg(const std::vector<std::string> &args, size_t i) {
     return i < args.size() ? args[i] : std::string();
 }
 
@@ -120,7 +118,7 @@ struct Bridge::Button {
     enum Id { kSetCourse, kContext, kOptions, kView, kSimulate, kScan, kUp, kDown };
     Id id;
     Rect rect;
-    const char* file;
+    const char *file;
     int frames;
     bool hasDim;
     int state = 0;
@@ -128,11 +126,10 @@ struct Bridge::Button {
     bool flash = false;
 };
 
-Bridge::Bridge(const ResourceManager& resources, Mixer* mixer, Campaign& campaign,
-               RandomSource& random)
+Bridge::Bridge(const ResourceManager &resources, Mixer *mixer, Campaign &campaign, RandomSource &random)
     : _resources(resources), _mixer(mixer), _campaign(campaign), _random(random) {
     // The panel's buttons (GUI loader 0x47347C), at y 362 on.
-    auto add = [this](Button::Id id, int l, int t, int r, int b, const char* file, int frames, bool hasDim) {
+    auto add = [this](Button::Id id, int l, int t, int r, int b, const char *file, int frames, bool hasDim) {
         Button button;
         button.id = id;
         button.rect = Rect(l, t + kPanelTop, r, b + kPanelTop);
@@ -162,11 +159,11 @@ Bridge::~Bridge() {
 
 // Data
 
-std::unique_ptr<SeekableReadStream> Bridge::open(const std::string& path) const {
-    return _resources.open({ kArchive, path });
+std::unique_ptr<SeekableReadStream> Bridge::open(const std::string &path) const {
+    return _resources.open({kArchive, path});
 }
 
-const RgbImage* Bridge::image(const std::string& path, int frames, int key) {
+const RgbImage *Bridge::image(const std::string &path, int frames, int key) {
     std::string name = lower(path) + text::format("#%d", frames);
     auto it = _images.find(name);
     if (it != _images.end())
@@ -181,12 +178,12 @@ const RgbImage* Bridge::image(const std::string& path, int frames, int key) {
     } else {
         log::warning("Bridge: can't load %s", path.c_str());
     }
-    const RgbImage* found = result.get();
+    const RgbImage *found = result.get();
     _images[name] = std::move(result);
     return found;
 }
 
-const RgbImage* Bridge::overlay(const std::string& path, int frameHeight, const std::string& palette) {
+const RgbImage *Bridge::overlay(const std::string &path, int frameHeight, const std::string &palette) {
     std::string name = lower(path);
     auto it = _images.find(name);
     if (it != _images.end())
@@ -201,7 +198,7 @@ const RgbImage* Bridge::overlay(const std::string& path, int frameHeight, const 
     } else {
         log::warning("Bridge: can't load %s", path.c_str());
     }
-    const RgbImage* found = result.get();
+    const RgbImage *found = result.get();
     _images[name] = std::move(result);
     return found;
 }
@@ -227,7 +224,7 @@ bool Bridge::load() {
     for (int i = 1; i <= _ini.getInt("Universe", "NumSuns", kSuns) && i <= kSuns; i++) {
         Sun sun;
         sun.name = _ini.get("Universe", text::format("Sun%d", i));
-        const std::string& s = sun.name;
+        const std::string &s = sun.name;
         std::vector<std::string> location = text::split(_ini.get(s, "Location", "0,0,0"), ',');
         sun.x = location.size() > 0 ? std::atof(location[0].c_str()) : 0;
         sun.y = location.size() > 1 ? std::atof(location[1].c_str()) : 0;
@@ -245,7 +242,7 @@ bool Bridge::load() {
         for (int p = 1; p <= _ini.getInt(s, "NumPlanets"); p++) {
             Planet planet;
             planet.name = s + text::format("%d", p);
-            const std::string& n = planet.name;
+            const std::string &n = planet.name;
             planet.texture = _ini.get(n, "TextureGraphic");
             planet.scan = _ini.get(n, "ScanGraphic");
             planet.size = _ini.getInt(n, "Size", 16);
@@ -255,8 +252,8 @@ bool Bridge::load() {
             planet.intersect = _ini.getDouble(n, "OrbitIntersect", intersect);
             for (int m = 1; m <= _ini.getInt(n, "NumMoons"); m++) {
                 std::string moon = n + text::format("Moon%d", m);
-                planet.moons.push_back({ _ini.get(moon, "TextureGraphic"), _ini.getInt(moon, "Size", 8),
-                                         (double)(planet.size / 2 + 6 * m), 4.0 + 2 * m, 0 });
+                planet.moons.push_back({_ini.get(moon, "TextureGraphic"), _ini.getInt(moon, "Size", 8),
+                                        (double)(planet.size / 2 + 6 * m), 4.0 + 2 * m, 0});
             }
             sun.planets.push_back(planet);
         }
@@ -264,7 +261,7 @@ bool Bridge::load() {
     }
 
     _figures.clear();
-    for (const char* who : { "Data", "Picard" }) {
+    for (const char *who : {"Data", "Picard"}) {
         Figure figure;
         int count = _ini.getInt("PicardDataAnimation", text::format("Num%sSequences", who), 0);
         for (int i = 1; i <= count; i++) {
@@ -278,7 +275,7 @@ bool Bridge::load() {
             for (int k = 1; k <= _ini.getInt(s, "NumSequences"); k++) {
                 std::vector<std::string> step = text::split(_ini.get(s, text::format("Sequence%d", k)), ',');
                 if (step.size() == 2)
-                    sequence.steps.push_back({ std::atoi(step[0].c_str()), std::atoi(step[1].c_str()) });
+                    sequence.steps.push_back({std::atoi(step[0].c_str()), std::atoi(step[1].c_str())});
             }
             figure.sequences.push_back(sequence);
         }
@@ -320,8 +317,8 @@ void Bridge::reset() {
     _camera[2] = 1000;
 
     // The objects' readings (0x4644ED: only on a new game).
-    auto readings = [this](const std::string& section) {
-        std::set<int>& f = flags(section);
+    auto readings = [this](const std::string &section) {
+        std::set<int> &f = flags(section);
         if (_ini.getBool(section, "HasTrilithium"))
             f.insert(2);
         if (_ini.getBool(section, "HasEnergy"))
@@ -329,13 +326,13 @@ void Bridge::reset() {
         if (_ini.getBool(section, "HasLife"))
             f.insert(4);
     };
-    for (Sun& sun : _suns) {
+    for (Sun &sun : _suns) {
         readings(sun.name);
         sun.destructTime = 0;
-        for (Planet& planet : sun.planets) {
+        for (Planet &planet : sun.planets) {
             readings(planet.name);
             planet.angle = _random.getRandomNumber(359) * kPi / 180;
-            for (Planet::Moon& moon : planet.moons)
+            for (Planet::Moon &moon : planet.moons)
                 moon.angle = _random.getRandomNumber(359) * kPi / 180;
         }
     }
@@ -344,7 +341,7 @@ void Bridge::reset() {
     _fleets.clear();
     _fleets.resize(kFleets + 1);
     for (int i = 0; i <= kFleets; i++) {
-        Fleet& fleet = _fleets[i];
+        Fleet &fleet = _fleets[i];
         fleet.name = i == 0 ? std::string("Enterprise") : text::format("Fleet%d", i);
         std::string type = lower(_ini.get(fleet.name, "Type", i == 0 ? "Galaxy" : "Klingon"));
         fleet.kind = type == "galaxy"     ? "ENT"
@@ -361,7 +358,7 @@ void Bridge::reset() {
     }
 }
 
-int Bridge::findSun(const std::string& name) const {
+int Bridge::findSun(const std::string &name) const {
     for (int i = 0; i < (int)_suns.size(); i++) {
         if (text::equalsIgnoreCase(_suns[i].name, name))
             return i;
@@ -369,7 +366,7 @@ int Bridge::findSun(const std::string& name) const {
     return -1;
 }
 
-int Bridge::findFleet(const std::string& name) const {
+int Bridge::findFleet(const std::string &name) const {
     if (text::equalsIgnoreCase(name, "Enterprise"))
         return 0;
     if (name.size() > 5 && text::equalsIgnoreCase(name.substr(0, 5), "fleet")) {
@@ -380,21 +377,21 @@ int Bridge::findFleet(const std::string& name) const {
     return -1;
 }
 
-std::set<int>& Bridge::flags(const std::string& object) {
+std::set<int> &Bridge::flags(const std::string &object) {
     return _flags[lower(object)];
 }
 
-const std::set<int>* Bridge::findFlags(const std::string& object) const {
+const std::set<int> *Bridge::findFlags(const std::string &object) const {
     auto it = _flags.find(lower(object));
     return it == _flags.end() ? nullptr : &it->second;
 }
 
-bool Bridge::getObjectFlag(const std::string& object, int flag) const {
-    const std::set<int>* f = findFlags(object);
+bool Bridge::getObjectFlag(const std::string &object, int flag) const {
+    const std::set<int> *f = findFlags(object);
     return f && f->count(flag);
 }
 
-int Bridge::sunOf(const std::string& object) const {
+int Bridge::sunOf(const std::string &object) const {
     if (object.empty())
         return -1;
     int fleet = findFleet(object);
@@ -403,14 +400,14 @@ int Bridge::sunOf(const std::string& object) const {
     if (text::equalsIgnoreCase(object, "SpaceStation"))
         return findSun("Amargosa");
     for (int i = 0; i < (int)_suns.size(); i++) {
-        const std::string& name = _suns[i].name;
+        const std::string &name = _suns[i].name;
         if (object.size() >= name.size() && text::equalsIgnoreCase(object.substr(0, name.size()), name))
             return i;
     }
     return -1;
 }
 
-bool Bridge::isEnterpriseAt(const std::string& sun) const {
+bool Bridge::isEnterpriseAt(const std::string &sun) const {
     int i = findSun(sun);
     return i >= 0 && !_fleets.empty() && _fleets[0].location == i;
 }
@@ -428,7 +425,7 @@ bool Bridge::isEnterpriseIdle() const {
 
 // Commands
 
-void Bridge::bridgeCommand(const std::string& command, const std::vector<std::string>& args) {
+void Bridge::bridgeCommand(const std::string &command, const std::vector<std::string> &args) {
     // Moving things about and setting flags happen with or without the
     // bridge up; everything else brings it up (0x4185FA).
     bool quiet = command == "move" || command == "hidefleet" || command == "setfleetflag" ||
@@ -472,14 +469,14 @@ void Bridge::bridgeCommand(const std::string& command, const std::vector<std::st
     } else if (command == "setfleetflag") {
         int n = toInt(args, 0);
         if (n >= 0 && n <= kFleets) {
-            std::set<int>& f = flags(_fleets[n].name);
+            std::set<int> &f = flags(_fleets[n].name);
             if (text::equalsIgnoreCase(arg(args, 2), "true"))
                 f.insert(toInt(args, 1));
             else
                 f.erase(toInt(args, 1));
         }
     } else if (command == "setobjectflag") {
-        std::set<int>& f = flags(arg(args, 0));
+        std::set<int> &f = flags(arg(args, 0));
         if (text::equalsIgnoreCase(arg(args, 2), "true"))
             f.insert(toInt(args, 1));
         else
@@ -538,7 +535,7 @@ void Bridge::bridgeCommand(const std::string& command, const std::vector<std::st
 void Bridge::moveEnterprise(int sun) {
     if (_fleets.empty())
         return;
-    Fleet& e = _fleets[0];
+    Fleet &e = _fleets[0];
     e.location = sun;
     e.state = sun >= 0 ? 8 : 0;
     e.frame = 8;
@@ -549,14 +546,14 @@ void Bridge::moveEnterprise(int sun) {
 void Bridge::moveFleet(int n, int sun) {
     if (n < 1 || n > kFleets)
         return;
-    Fleet& f = _fleets[n];
+    Fleet &f = _fleets[n];
     f.location = sun;
     f.state = sun >= 0 ? 8 : 0;
     f.frame = 8;
     flags(f.name).erase(6);
 }
 
-void Bridge::moveSoran(const std::string& object) {
+void Bridge::moveSoran(const std::string &object) {
     if (!_soran.empty())
         flags(_soran).erase(1);
     _soran = object;
@@ -565,10 +562,10 @@ void Bridge::moveSoran(const std::string& object) {
     updateButtons();
 }
 
-void Bridge::warpFleetIn(int n, int sun, const std::string& sound) {
+void Bridge::warpFleetIn(int n, int sun, const std::string &sound) {
     if (n < 1 || n > kFleets || sun < 0)
         return;
-    Fleet& f = _fleets[n];
+    Fleet &f = _fleets[n];
     // A fleet beaten in combat doesn't come back.
     if (getObjectFlag(f.name, 8) || f.location == sun)
         return;
@@ -580,10 +577,10 @@ void Bridge::warpFleetIn(int n, int sun, const std::string& sound) {
     flags(f.name).insert(6);
 }
 
-void Bridge::warpFleetAway(int n, const std::string& sound) {
+void Bridge::warpFleetAway(int n, const std::string &sound) {
     if (n < 1 || n > kFleets)
         return;
-    Fleet& f = _fleets[n];
+    Fleet &f = _fleets[n];
     if (getObjectFlag(f.name, 6) || f.location < 0)
         return;
     if (!sound.empty())
@@ -628,13 +625,16 @@ void Bridge::destroySun(int sun) {
     updateButtons();
 }
 
-void Bridge::setText(const std::string& kind, const std::string& object, const std::string& text) {
+void Bridge::setText(const std::string &kind, const std::string &object, const std::string &text) {
     std::string k = lower(kind);
-    const char* key = k == "dead" ? "DeadScanText" : k == "long" ? "LongScan" : k == "short" ? "ShortScan" : "SoranScan";
+    const char *key = k == "dead"    ? "DeadScanText"
+                      : k == "long"  ? "LongScan"
+                      : k == "short" ? "ShortScan"
+                                     : "SoranScan";
     _ini.set(object, key, text);
 }
 
-void Bridge::setFleetAlert(int n, const std::string& level) {
+void Bridge::setFleetAlert(int n, const std::string &level) {
     if (n < 0 || n > kFleets)
         return;
     std::string l = lower(level);
@@ -647,13 +647,13 @@ void Bridge::setControls(bool enabled) {
     updateButtons();
 }
 
-void Bridge::select(const std::string& object) {
+void Bridge::select(const std::string &object) {
     _selected = object;
     updateButtons();
 }
 
 void Bridge::setCourse(int sun, bool fromScript) {
-    Fleet& e = _fleets[0];
+    Fleet &e = _fleets[0];
     if (sun < 0)
         return;
     flags(_suns[sun].name).insert(5);
@@ -705,20 +705,20 @@ void Bridge::zoomOut() {
 
 // Sound
 
-void Bridge::queue(const std::string& path, int type) {
+void Bridge::queue(const std::string &path, int type) {
     if (path.empty())
         return;
-    _queue.push_back({ path, type });
+    _queue.push_back({path, type});
     _idleMusic = 0;
     // A voice fades out music playing (0x478C7C).
     if (type == 3 && _queuePlaying && _queue.front().type == 2 && _queueLeft == 0)
         _queueLeft = 1000;
 }
 
-void Bridge::playEffect(const std::string& path) {
+void Bridge::playEffect(const std::string &path) {
     if (!_mixer)
         return;
-    std::unique_ptr<SoundStream> stream = _resources.loadSound({ kArchive, path });
+    std::unique_ptr<SoundStream> stream = _resources.loadSound({kArchive, path});
     if (stream)
         _mixer->playStream(Mixer::kSFXSoundType, &_effect, std::move(stream));
 }
@@ -726,11 +726,9 @@ void Bridge::playEffect(const std::string& path) {
 void Bridge::startAmbience() {
     if (!_mixer || _mixer->isSoundHandleActive(_ambience))
         return;
-    std::unique_ptr<SoundStream> stream =
-        _resources.loadSound({ kArchive, "Sound\\SoundFX\\Stellar.wav" });
+    std::unique_ptr<SoundStream> stream = _resources.loadSound({kArchive, "Sound\\SoundFX\\Stellar.wav"});
     if (stream)
-        _mixer->playStream(Mixer::kSFXSoundType, &_ambience,
-                           makeLooping(std::move(stream), 0));
+        _mixer->playStream(Mixer::kSFXSoundType, &_ambience, makeLooping(std::move(stream), 0));
 }
 
 void Bridge::updateQueue(uint32_t ms) {
@@ -766,14 +764,14 @@ void Bridge::updateQueue(uint32_t ms) {
         return;
     }
 
-    const QueueItem& item = _queue.front();
+    const QueueItem &item = _queue.front();
     // Music is in MUSIC.1/2 unless a path says otherwise.
-    ResourceRef ref = { kArchive, item.path };
+    ResourceRef ref = {kArchive, item.path};
     if (item.type == 2 && item.path.find('\\') == std::string::npos) {
         ref.archive.clear();
-        for (const char* archive : { "MUSIC.1", "MUSIC.2" }) {
-            if (_resources.hasResource({ archive, text::toUpper(item.path) })) {
-                ref = { archive, text::toUpper(item.path) };
+        for (const char *archive : {"MUSIC.1", "MUSIC.2"}) {
+            if (_resources.hasResource({archive, text::toUpper(item.path)})) {
+                ref = {archive, text::toUpper(item.path)};
                 break;
             }
         }
@@ -787,8 +785,8 @@ void Bridge::updateQueue(uint32_t ms) {
         _queue.pop_front();
         return;
     }
-    _mixer->playStream(item.type == 2 ? Mixer::kMusicSoundType : Mixer::kSpeechSoundType,
-                       &_queueHandle, std::move(stream));
+    _mixer->playStream(item.type == 2 ? Mixer::kMusicSoundType : Mixer::kSpeechSoundType, &_queueHandle,
+                       std::move(stream));
     _queuePlaying = true;
     _queueLeft = 0;
     _subtitle = item.type == 3 ? _resources.loadSubtitle(ref) : std::string();
@@ -853,7 +851,7 @@ void Bridge::update(uint32_t ms) {
 
 void Bridge::updateFleets(uint32_t ms) {
     for (int i = 0; i < (int)_fleets.size(); i++) {
-        Fleet& f = _fleets[i];
+        Fleet &f = _fleets[i];
         f.timer += ms;
         switch (f.state) {
         case 1: // waiting for the queue, then warping in
@@ -882,7 +880,7 @@ void Bridge::updateFleets(uint32_t ms) {
                 f.state = 5;
             break;
         case 5: {
-            const char* sound = f.kind == "ENT"   ? "EWarpOut"
+            const char *sound = f.kind == "ENT"   ? "EWarpOut"
                                 : f.kind == "WAR" ? "RWarpOut"
                                 : f.kind == "CHO" ? "CWarpOut"
                                                   : "KWarpOut";
@@ -925,13 +923,13 @@ void Bridge::updateFleets(uint32_t ms) {
 }
 
 void Bridge::arrive() {
-    Fleet& e = _fleets[0];
+    Fleet &e = _fleets[0];
     flags(e.name).erase(14);
     _busy = false;
     setControls(true);
     // A fleet on red alert attacks at once.
     for (int n = 1; n <= kFleets; n++) {
-        const Fleet& f = _fleets[n];
+        const Fleet &f = _fleets[n];
         if (f.location != e.location || f.alert != 2 || getObjectFlag(f.name, 8) || getObjectFlag(f.name, 6))
             continue;
         queue("Sound\\SoundFX\\CommBoop.wav", 1);
@@ -957,14 +955,14 @@ void Bridge::updateMap(uint32_t ms) {
             _mapMode = _mapMode == kZoomingIn ? kSystemView : kSectorView;
         }
     }
-    for (Sun& sun : _suns) {
+    for (Sun &sun : _suns) {
         if (getObjectFlag(sun.name, 8) || getObjectFlag(sun.name, 7))
             sun.destructTime += ms;
         else
             sun.destructTime = 0;
-        for (Planet& planet : sun.planets) {
+        for (Planet &planet : sun.planets) {
             planet.angle += ms * 2 * kPi / (1000 * std::max(1.0, planet.period));
-            for (Planet::Moon& moon : planet.moons)
+            for (Planet::Moon &moon : planet.moons)
                 moon.angle += ms * 2 * kPi / (1000 * moon.period);
         }
     }
@@ -993,7 +991,7 @@ void Bridge::updateMap(uint32_t ms) {
 
 void Bridge::updateAnimations(uint32_t ms) {
     // Data and Picard: a sequence, then 5 to 15 seconds still (0x46EFB7).
-    for (Figure& figure : _figures) {
+    for (Figure &figure : _figures) {
         if (figure.sequences.empty())
             continue;
         figure.timer += ms;
@@ -1010,8 +1008,9 @@ void Bridge::updateAnimations(uint32_t ms) {
             }
             continue;
         }
-        const Figure::Sequence& sequence = figure.sequences[figure.current];
-        while (figure.step < (int)sequence.steps.size() && figure.timer >= (uint32_t)sequence.steps[figure.step].second) {
+        const Figure::Sequence &sequence = figure.sequences[figure.current];
+        while (figure.step < (int)sequence.steps.size() &&
+               figure.timer >= (uint32_t)sequence.steps[figure.step].second) {
             figure.timer -= sequence.steps[figure.step].second;
             if (figure.step + 1 >= (int)sequence.steps.size()) {
                 figure.playing = false;
@@ -1037,7 +1036,7 @@ void Bridge::pickNexus(bool speak) {
         return;
     // sunGone(i): sun i of UNIVERSE.INI destroyed or being simulated.
     auto gone = [this](int i) {
-        const std::string& name = _suns[i - 1].name;
+        const std::string &name = _suns[i - 1].name;
         return getObjectFlag(name, 8) || getObjectFlag(name, 7);
     };
     int pair = (gone(1) ? 1 : 0) + (gone(4) ? 1 : 0) + (gone(6) ? 1 : 0);
@@ -1080,7 +1079,7 @@ void Bridge::pickNexus(bool speak) {
     }
 }
 
-void Bridge::startScan(const std::string& object, bool shortRange) {
+void Bridge::startScan(const std::string &object, bool shortRange) {
     if (object.empty()) {
         queue("Sound\\Voices\\Data0211.wav", 3);
         return;
@@ -1113,8 +1112,8 @@ void Bridge::finishScan() {
     else
         text = _ini.get(section, "ShortScan");
     _textLines.clear();
-    for (const std::string& paragraph : text::split(text, '~')) {
-        for (const std::string& line : wrapText(paragraph, kTextArea.width()))
+    for (const std::string &paragraph : text::split(text, '~')) {
+        for (const std::string &line : wrapText(paragraph, kTextArea.width()))
             _textLines.push_back(line);
     }
     _textScroll = 0;
@@ -1130,7 +1129,7 @@ void Bridge::finishScan() {
 void Bridge::simulate(int sun) {
     if (sun < 0)
         return;
-    const std::string& name = _suns[sun].name;
+    const std::string &name = _suns[sun].name;
     flags(name).insert(5);
     if (getObjectFlag(name, 7)) {
         queue("Sound\\Voices\\Comp0159.wav", 3);
@@ -1150,8 +1149,8 @@ int Bridge::contextState() const {
     if (!_controls || _fleets.empty())
         return -1;
     int here = _fleets[0].location;
-    if (!_scanObject.empty() && _scanShort && _panelMode == kPanelResult && here >= 0 &&
-        sunOf(_scanObject) == here && isEnterpriseIdle()) {
+    if (!_scanObject.empty() && _scanShort && _panelMode == kPanelResult && here >= 0 && sunOf(_scanObject) == here &&
+        isEnterpriseIdle()) {
         if (getObjectFlag(_scanObject, 1)) {
             if (_contextMode == kContextTransport)
                 return 1;
@@ -1199,7 +1198,7 @@ void Bridge::updateButtons() {
     int selectedSun = sunOf(_selected);
     bool system = _mapMode == kSystemView || _mapMode == kZoomingIn;
     bool on = _controls && !_busy;
-    for (Button& b : _buttons) {
+    for (Button &b : _buttons) {
         b.enabled = on;
         b.flash = false;
         switch (b.id) {
@@ -1264,7 +1263,7 @@ void Bridge::mouseUp(int x, int y) {
     _pressed = -1;
     if (pressed < 0 || !_buttons[pressed].rect.contains(x, y) || !_buttons[pressed].enabled)
         return;
-    Button& b = _buttons[pressed];
+    Button &b = _buttons[pressed];
     int here = _fleets[0].location;
     switch (b.id) {
     case Button::kSetCourse: {
@@ -1309,7 +1308,7 @@ void Bridge::mouseUp(int x, int y) {
     updateButtons();
 }
 
-void Bridge::keyDown(const KeyState& key) {
+void Bridge::keyDown(const KeyState &key) {
     switch (key.keycode) {
     case reluva::key::Space:
         // Skip what's playing (0x479AD7).
@@ -1352,11 +1351,11 @@ Bridge::Event Bridge::takeEvent() {
 
 // Drawing
 
-void Bridge::sunPosition(int sun, double& x, double& y, double& z) const {
+void Bridge::sunPosition(int sun, double &x, double &y, double &z) const {
     // 0x465A03: Location is a screen position in the sector view.
     double maxZ = _ini.getDouble("Display", "MaxZ", 1000);
     double cx = _ini.getDouble("Display", "CenterX", 316), cy = _ini.getDouble("Display", "CenterY", 120);
-    const Sun& s = _suns[sun];
+    const Sun &s = _suns[sun];
     x = (s.x + 320 - cx) * maxZ;
     y = (s.y + 180 - cy) * maxZ;
     z = s.z * 10;
@@ -1380,7 +1379,7 @@ Bridge::Projected Bridge::project(double x, double y, double z, int size) const 
     return p;
 }
 
-void Bridge::planetPosition(const Planet& planet, int sun, double& x, double& y, double& z) const {
+void Bridge::planetPosition(const Planet &planet, int sun, double &x, double &y, double &z) const {
     // A tilted circle round the sun, spread by DistanceMagnification
     // (0x464F54).
     double minZ = _ini.getDouble("Display", "MinZ", 200), maxZ = _ini.getDouble("Display", "MaxZ", 1000);
@@ -1408,11 +1407,11 @@ int Bridge::fleetSlot(int n) const {
     return slot % 4;
 }
 
-void Bridge::fleetPosition(int n, double& x, double& y, double& z) const {
+void Bridge::fleetPosition(int n, double &x, double &y, double &z) const {
     double maxZ = _ini.getDouble("Display", "MaxZ", 1000);
     sunPosition(_fleets[n].location, x, y, z);
     bool system = _mapMode == kSystemView;
-    const int* offset = kSlotOffsets[system ? 1 : 0][fleetSlot(n)];
+    const int *offset = kSlotOffsets[system ? 1 : 0][fleetSlot(n)];
     x += offset[0] * maxZ;
     y += offset[1] * maxZ;
 }
@@ -1420,7 +1419,7 @@ void Bridge::fleetPosition(int n, double& x, double& y, double& z) const {
 std::string Bridge::hit(int x, int y) const {
     std::string best;
     int bestDistance = 1 << 30;
-    auto consider = [&](const std::string& name, const Projected& p, int radius) {
+    auto consider = [&](const std::string &name, const Projected &p, int radius) {
         if (!p.visible)
             return;
         int dx = x - p.x, dy = y - p.y, d = dx * dx + dy * dy;
@@ -1436,7 +1435,7 @@ std::string Bridge::hit(int x, int y) const {
         Projected p = project(sx, sy, sz, _suns[i].size);
         consider(_suns[i].name, p, std::max(p.r, 12));
         if (system && i == _system) {
-            for (const Planet& planet : _suns[i].planets) {
+            for (const Planet &planet : _suns[i].planets) {
                 double px, py, pz;
                 planetPosition(planet, i, px, py, pz);
                 Projected pp = project(px, py, pz, planet.size);
@@ -1450,7 +1449,7 @@ std::string Bridge::hit(int x, int y) const {
         }
     }
     for (int n = 0; n < (int)_fleets.size(); n++) {
-        const Fleet& f = _fleets[n];
+        const Fleet &f = _fleets[n];
         if (f.location < 0 || (n > 0 && getObjectFlag(f.name, 6)) || f.state == 0 || f.state == 7)
             continue;
         if (system && f.location != _system)
@@ -1463,7 +1462,7 @@ std::string Bridge::hit(int x, int y) const {
     return best;
 }
 
-void Bridge::drawText(Canvas& screen, const std::string& text, int x, int y, const Rect* clip) {
+void Bridge::drawText(Canvas &screen, const std::string &text, int x, int y, const Rect *clip) {
     uint32_t palette[256];
     for (int i = 0; i < 256; i++) {
         uint8_t r, g, b;
@@ -1473,12 +1472,11 @@ void Bridge::drawText(Canvas& screen, const std::string& text, int x, int y, con
     _font.drawStringRgb(screen, text, x, y, palette, clip);
 }
 
-std::vector<std::string> Bridge::wrapText(const std::string& text, int width) const {
+std::vector<std::string> Bridge::wrapText(const std::string &text, int width) const {
     return _font.wordWrap(text::trim(text), width);
 }
 
-void Bridge::drawDisc(Canvas& screen, const RgbImage& texture, int frame, int cx, int cy, int r,
-                      double light) {
+void Bridge::drawDisc(Canvas &screen, const RgbImage &texture, int frame, int cx, int cy, int r, double light) {
     // A planet: its texture wrapped round a sphere, lit from the sun's side.
     int tw = texture.getWidth(), th = texture.getFrameHeight();
     for (int dy = -r; dy <= r; dy++) {
@@ -1498,22 +1496,23 @@ void Bridge::drawDisc(Canvas& screen, const RgbImage& texture, int frame, int cx
             double shade = 0.25 + 0.75 * std::max(0.0, nx * std::cos(light) + nz * 0.5 - ny * std::sin(light) * 0.3);
             shade = std::min(1.0, shade);
             uint32_t rr = (uint32_t)(((c >> 16) & 0xFF) * shade), gg = (uint32_t)(((c >> 8) & 0xFF) * shade),
-                   bb = (uint32_t)((c & 0xFF) * shade);
-            *(uint32_t*)screen.getBasePtr(x, y) = 0xFF000000u | rr << 16 | gg << 8 | bb;
+                     bb = (uint32_t)((c & 0xFF) * shade);
+            *(uint32_t *)screen.getBasePtr(x, y) = 0xFF000000u | rr << 16 | gg << 8 | bb;
         }
     }
 }
 
-void Bridge::drawMap(Canvas& screen) {
-    if (const RgbImage* background = image("View\\Backgrnd.bmp", 1, RgbImage::kOpaque))
+void Bridge::drawMap(Canvas &screen) {
+    if (const RgbImage *background = image("View\\Backgrnd.bmp", 1, RgbImage::kOpaque))
         background->draw(screen, 0, 0, 0, &kMapArea);
 
     // The Nexus, wiping in or out.
     if (_nexusShown) {
         auto drawNexus = [&](int graphic, int left, int right) {
             std::string path = _ini.get("Nexus", text::format("Graphic%d", graphic));
-            std::vector<std::string> at = text::split(_ini.get("Nexus", text::format("Location%d", graphic), "0,0"), ',');
-            const RgbImage* nexus = overlay(path, 0, "Nexus\\Nexus.bmp");
+            std::vector<std::string> at =
+                text::split(_ini.get("Nexus", text::format("Location%d", graphic), "0,0"), ',');
+            const RgbImage *nexus = overlay(path, 0, "Nexus\\Nexus.bmp");
             if (!nexus)
                 return;
             Rect clip(left, 0, right, kMapHeight);
@@ -1527,16 +1526,16 @@ void Bridge::drawMap(Canvas& screen) {
 
     bool system = _mapMode == kSystemView || (_mapMode == kZoomingIn && _zoomLeft < kZoomMillis / 2) ||
                   (_mapMode == kZoomingOut && _zoomLeft > kZoomMillis / 2);
-    const RgbImage* names = image("View\\SysNames.bmp", 10);
+    const RgbImage *names = image("View\\SysNames.bmp", 10);
     for (int i = 0; i < (int)_suns.size(); i++) {
-        const Sun& sun = _suns[i];
+        const Sun &sun = _suns[i];
         double x, y, z;
         sunPosition(i, x, y, z);
         Projected p = project(x, y, z, sun.size);
         if (!p.visible)
             continue;
         bool dead = getObjectFlag(sun.name, 8) || getObjectFlag(sun.name, 7);
-        const RgbImage* texture = nullptr;
+        const RgbImage *texture = nullptr;
         int frame = 0;
         if (dead && (int)(sun.destructTime * sun.fps / 1000) < sun.destructFrames) {
             texture = image(sun.destruct, sun.destructFrames);
@@ -1555,17 +1554,17 @@ void Bridge::drawMap(Canvas& screen) {
             names->draw(screen, 9 - i, p.x - names->getWidth() / 2, p.y + p.r + 2, &kMapArea);
 
         if (system && i == _system) {
-            for (const Planet& planet : sun.planets) {
+            for (const Planet &planet : sun.planets) {
                 double px, py, pz;
                 planetPosition(planet, i, px, py, pz);
                 Projected pp = project(px, py, pz, planet.size);
-                const RgbImage* tex = image(planet.texture, 1, RgbImage::kOpaque);
+                const RgbImage *tex = image(planet.texture, 1, RgbImage::kOpaque);
                 if (pp.visible && tex)
                     drawDisc(screen, *tex, 0, pp.x, pp.y, pp.r, std::atan2(p.y - pp.y, p.x - pp.x));
-                for (const Planet::Moon& moon : planet.moons) {
+                for (const Planet::Moon &moon : planet.moons) {
                     int mx = pp.x + (int)(std::cos(moon.angle) * (pp.r + moon.distance / 2)),
                         my = pp.y + (int)(std::sin(moon.angle) * (pp.r + moon.distance / 2) * 0.4);
-                    const RgbImage* mt = image(moon.texture, 1, RgbImage::kOpaque);
+                    const RgbImage *mt = image(moon.texture, 1, RgbImage::kOpaque);
                     if (mt)
                         drawDisc(screen, *mt, 0, mx, my, std::max(1, moon.size / 4), 0);
                 }
@@ -1573,7 +1572,7 @@ void Bridge::drawMap(Canvas& screen) {
             if (i == findSun("Amargosa") && _ini.hasSection("SpaceStation")) {
                 double maxZ = _ini.getDouble("Display", "MaxZ", 1000);
                 Projected ps = project(x + 40 * maxZ, y + 30 * maxZ, z, _ini.getInt("SpaceStation", "Size", 126));
-                const RgbImage* station = image(_ini.get("SpaceStation", "TextureGraphic"), 2);
+                const RgbImage *station = image(_ini.get("SpaceStation", "TextureGraphic"), 2);
                 if (station)
                     station->drawScaled(screen, (_time / 500) % 2, ps.x - ps.r, ps.y - ps.r, 2 * ps.r, 2 * ps.r,
                                         &kMapArea);
@@ -1583,7 +1582,7 @@ void Bridge::drawMap(Canvas& screen) {
 
     // The fleets, the Enterprise among them.
     for (int n = 0; n < (int)_fleets.size(); n++) {
-        const Fleet& f = _fleets[n];
+        const Fleet &f = _fleets[n];
         if (f.location < 0 || f.state == 0 || f.state == 7 || f.state == 1)
             continue;
         if (n > 0 && getObjectFlag(f.name, 6) && f.state != 2 && f.state != 3)
@@ -1596,7 +1595,7 @@ void Bridge::drawMap(Canvas& screen) {
         bool out = f.state == 5 || f.state == 6;
         int size = system ? 128 : 64;
         std::string path = text::format("Fleet\\%s%s%s.rle", f.kind.c_str(), system ? "L" : "S", out ? "OUT" : "IN");
-        const RgbImage* sprite = overlay(path, size, "Fleet\\EntSIn.bmp");
+        const RgbImage *sprite = overlay(path, size, "Fleet\\EntSIn.bmp");
         if (sprite)
             sprite->draw(screen, f.frame, p.x - size / 2, p.y - size / 2, &kMapArea);
     }
@@ -1604,7 +1603,7 @@ void Bridge::drawMap(Canvas& screen) {
     // The selection's ring.
     if (!_selected.empty()) {
         int sun = findSun(_selected), fleet = findFleet(_selected);
-        Projected p = { 0, 0, 0, false };
+        Projected p = {0, 0, 0, false};
         if (sun >= 0) {
             double x, y, z;
             sunPosition(sun, x, y, z);
@@ -1616,7 +1615,7 @@ void Bridge::drawMap(Canvas& screen) {
             p = project(x, y, z, 16);
             p.r = system ? 40 : 18;
         } else if (system && sunOf(_selected) == _system) {
-            for (const Planet& planet : _suns[_system].planets) {
+            for (const Planet &planet : _suns[_system].planets) {
                 if (!text::equalsIgnoreCase(planet.name, _selected))
                     continue;
                 double x, y, z;
@@ -1631,35 +1630,36 @@ void Bridge::drawMap(Canvas& screen) {
                 p.r = 24;
             }
         }
-        const RgbImage* ring = image(_panelMode == kPanelScanning ? "View\\CurScan.bmp" : "View\\CurIdle.bmp", 2);
+        const RgbImage *ring = image(_panelMode == kPanelScanning ? "View\\CurScan.bmp" : "View\\CurIdle.bmp", 2);
         if (p.visible && ring && (system || sun >= 0 || fleet >= 0))
             ring->drawScaled(screen, (_time / 400) % 2, p.x - p.r, p.y - p.r, 2 * p.r, 2 * p.r, &kMapArea);
     }
 
     // The bridge rail, with Data and Picard (0x46E76F).
-    if (const RgbImage* equip = image("View\\Equip.bmp"))
+    if (const RgbImage *equip = image("View\\Equip.bmp"))
         equip->draw(screen, 0, 155, 196, &kMapArea);
-    for (const Figure& figure : _figures) {
+    for (const Figure &figure : _figures) {
         if (figure.sequences.empty())
             continue;
-        const Figure::Sequence& sequence = figure.sequences[figure.current];
-        int frame = sequence.steps.empty() ? 1 : sequence.steps[std::min(figure.step, (int)sequence.steps.size() - 1)].first;
+        const Figure::Sequence &sequence = figure.sequences[figure.current];
+        int frame =
+            sequence.steps.empty() ? 1 : sequence.steps[std::min(figure.step, (int)sequence.steps.size() - 1)].first;
         if (!figure.playing && !sequence.steps.empty())
             frame = sequence.steps.back().first;
-        if (const RgbImage* img = image(sequence.graphic, sequence.frames))
+        if (const RgbImage *img = image(sequence.graphic, sequence.frames))
             img->draw(screen, frame - 1, sequence.x, sequence.y, &kMapArea);
     }
 }
 
-void Bridge::drawPanel(Canvas& screen) {
-    if (const RgbImage* back = image("GUI\\GUI-Back.bmp"))
+void Bridge::drawPanel(Canvas &screen) {
+    if (const RgbImage *back = image("GUI\\GUI-Back.bmp"))
         back->draw(screen, 0, 0, kPanelTop);
 
     // The buttons: frame = dim + 2 * state + lit (0x46F9CA).
     bool flashOn = (_time / 125) % 2 == 0;
     for (int i = 0; i < (int)_buttons.size(); i++) {
-        const Button& b = _buttons[i];
-        const RgbImage* img = image(b.file, b.frames);
+        const Button &b = _buttons[i];
+        const RgbImage *img = image(b.file, b.frames);
         if (!img)
             continue;
         int frame;
@@ -1673,7 +1673,7 @@ void Bridge::drawPanel(Canvas& screen) {
     }
 
     // The stardate (Numerals.bmp: 0123456789. six pixels apiece).
-    if (const RgbImage* digits = image("GUI\\Numerals.bmp", 2)) {
+    if (const RgbImage *digits = image("GUI\\Numerals.bmp", 2)) {
         // Eight digits fill the field the panel leaves for them.
         std::string text = text::format("%.2f", _stardate);
         int x = kStardateX;
@@ -1691,7 +1691,7 @@ void Bridge::drawPanel(Canvas& screen) {
     const Rect scanner(kScannerX, kScannerY, kScannerX + 256, kScannerY + 96);
     switch (_panelMode) {
     case kPanelScanning:
-        if (const RgbImage* scan = image("GUI\\SC-Activ.bmp", kScanFrames))
+        if (const RgbImage *scan = image("GUI\\SC-Activ.bmp", kScanFrames))
             scan->draw(screen, std::min(kScanFrames - 1, (int)(_scanTime / kScanFrameMillis)), kScannerX, kScannerY,
                        &scanner);
         break;
@@ -1707,41 +1707,41 @@ void Bridge::drawPanel(Canvas& screen) {
             graphic = _ini.get(_scanObject, "ScanGraphic");
             frames = std::max(1, _ini.getInt(_scanObject, "ScanFrames", 1));
         }
-        if (const RgbImage* img = image(graphic, frames, RgbImage::kOpaque))
+        if (const RgbImage *img = image(graphic, frames, RgbImage::kOpaque))
             img->draw(screen, (int)(_time / 500) % frames, kScannerX, kScannerY, &scanner);
         // The readings found (scanner icons, 4 frames each).
         int frame = (int)(_time / 150) % 4;
         if (_scanShort && getObjectFlag(_scanObject, 1) && _campaign.getFlag(1))
-            if (const RgbImage* i = image("GUI\\SC-Life.bmp", 4))
+            if (const RgbImage *i = image("GUI\\SC-Life.bmp", 4))
                 i->draw(screen, frame, 12, kPanelTop + 91);
         if (getObjectFlag(_scanObject, 3) && _campaign.getFlag(3))
-            if (const RgbImage* i = image("GUI\\SC-Energ.bmp", 4))
+            if (const RgbImage *i = image("GUI\\SC-Energ.bmp", 4))
                 i->draw(screen, frame, 36, kPanelTop + 91);
         if (_scanShort && getObjectFlag(_scanObject, 2) && _campaign.getFlag(2))
-            if (const RgbImage* i = image("GUI\\SC-Trili.bmp", 4))
+            if (const RgbImage *i = image("GUI\\SC-Trili.bmp", 4))
                 i->draw(screen, frame, 60, kPanelTop + 91);
         break;
     }
     case kPanelFederation:
-        if (const RgbImage* img = image("GUI\\SCFeder.bmp"))
+        if (const RgbImage *img = image("GUI\\SCFeder.bmp"))
             img->draw(screen, 0, kScannerX + 63, kScannerY);
         break;
     case kPanelMaleTalking:
     case kPanelMaleListening:
-        if (const RgbImage* img = image("GUI\\SCMale.bmp"))
+        if (const RgbImage *img = image("GUI\\SCMale.bmp"))
             img->draw(screen, 0, kScannerX, kScannerY + 1);
-        if (const RgbImage* img = image("GUI\\SCMEyes.bmp", 2))
+        if (const RgbImage *img = image("GUI\\SCMEyes.bmp", 2))
             img->draw(screen, _eyes, kScannerX + 111, kScannerY + 24);
-        if (const RgbImage* img = image("GUI\\SCMMouth.bmp", 5))
+        if (const RgbImage *img = image("GUI\\SCMMouth.bmp", 5))
             img->draw(screen, _mouth, kScannerX + 117, kScannerY + 41);
         break;
     case kPanelFemaleTalking:
     case kPanelFemaleListening:
-        if (const RgbImage* img = image("GUI\\SCFemale.bmp"))
+        if (const RgbImage *img = image("GUI\\SCFemale.bmp"))
             img->draw(screen, 0, kScannerX, kScannerY + 1);
-        if (const RgbImage* img = image("GUI\\SCFEyes.bmp", 2))
+        if (const RgbImage *img = image("GUI\\SCFEyes.bmp", 2))
             img->draw(screen, _eyes, kScannerX + 128, kScannerY + 30);
-        if (const RgbImage* img = image("GUI\\SCFMouth.bmp", 5))
+        if (const RgbImage *img = image("GUI\\SCFMouth.bmp", 5))
             img->draw(screen, _mouth, kScannerX + 121, kScannerY + 44);
         break;
     default:
@@ -1763,14 +1763,14 @@ void Bridge::drawPanel(Canvas& screen) {
     }
 }
 
-void Bridge::draw(Canvas& screen) {
+void Bridge::draw(Canvas &screen) {
     drawMap(screen);
     drawPanel(screen);
 }
 
 // Saving
 
-void Bridge::sync(Serializer& s) {
+void Bridge::sync(Serializer &s) {
     s.syncAsDouble(_stardate);
     s.syncAsDouble(_targetStardate);
     uint32_t count = (uint32_t)_flags.size();
@@ -1785,15 +1785,15 @@ void Bridge::sync(Serializer& s) {
             std::string name;
             s.syncString(name);
             std::vector<int> list;
-            s.syncVector(list, [](Serializer& ser, int& v) { ser.syncAsInt(v); });
+            s.syncVector(list, [](Serializer &ser, int &v) { ser.syncAsInt(v); });
             _flags[name] = std::set<int>(list.begin(), list.end());
         }
     } else {
-        for (auto& entry : _flags) {
+        for (auto &entry : _flags) {
             std::string name = entry.first;
             s.syncString(name);
             std::vector<int> list(entry.second.begin(), entry.second.end());
-            s.syncVector(list, [](Serializer& ser, int& v) { ser.syncAsInt(v); });
+            s.syncVector(list, [](Serializer &ser, int &v) { ser.syncAsInt(v); });
         }
     }
     s.syncString(_soran);
@@ -1807,7 +1807,7 @@ void Bridge::sync(Serializer& s) {
     s.syncAsBool(_controls);
     s.syncAsInt(_contextMode);
     s.syncCount((uint32_t)_fleets.size());
-    for (Fleet& f : _fleets) {
+    for (Fleet &f : _fleets) {
         s.syncAsInt(f.location);
         s.syncAsInt(f.alert);
         s.syncAsInt(f.state);
@@ -1819,7 +1819,7 @@ void Bridge::sync(Serializer& s) {
 void Bridge::afterLoad() {
     // Fleets on their way somewhere are gone; the Enterprise gets there.
     for (int n = 0; n < (int)_fleets.size(); n++) {
-        Fleet& f = _fleets[n];
+        Fleet &f = _fleets[n];
         if (n == 0 && f.state >= 2 && f.state <= 7) {
             f.location = f.destination;
             f.state = 8;

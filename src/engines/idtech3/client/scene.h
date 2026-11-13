@@ -3,8 +3,8 @@
 
 #pragma once
 
-#include "engines/idtech3/md3.h"
-#include "engines/idtech3/qvm.h"
+#include "engines/idtech3/formats/md3.h"
+#include "engines/idtech3/vm/qvm.h"
 
 #include <array>
 #include <cstddef>
@@ -73,34 +73,34 @@ struct Scene {
     std::vector<Light> lights;
     std::vector<uint8_t> view; // set by RenderScene: the last one
     int renders = 0;
-    std::vector<View> views; // every RenderScene, in order
+    std::vector<View> views;  // every RenderScene, in order
     size_t pending = 0;       // entities from here wait for the next RenderScene
     size_t pendingPolys = 0;  // the same for polygons
     size_t pendingLights = 0; // and lights
 
     // The calls, with the program's memory and arguments.
     void clear();
-    void addEntity(Qvm& vm, int32_t address, int32_t clearedSize);
-    void addPoly(Qvm& vm, int32_t shader, int32_t count, int32_t address);
-    void addLight(Qvm& vm, int32_t origin, float intensity, float r, float g, float b);
-    void render(Qvm& vm, int32_t refdef, size_t picturesSoFar);
+    void addEntity(Qvm &vm, int32_t address, int32_t clearedSize);
+    void addPoly(Qvm &vm, int32_t shader, int32_t count, int32_t address);
+    void addLight(Qvm &vm, int32_t origin, float intensity, float r, float g, float b);
+    void render(Qvm &vm, int32_t refdef, size_t picturesSoFar);
     // The same from bytes already read (native programs' memory).
-    void addEntity(const uint8_t* bytes, size_t size, int32_t clearedSize);
-    void addPoly(int32_t shader, int32_t count, const uint8_t* vertices);
-    void addLight(const std::array<float, 3>& origin, float intensity, float r, float g, float b);
-    void render(const uint8_t* refdef, size_t picturesSoFar);
+    void addEntity(const uint8_t *bytes, size_t size, int32_t clearedSize);
+    void addPoly(int32_t shader, int32_t count, const uint8_t *vertices);
+    void addLight(const std::array<float, 3> &origin, float intensity, float r, float g, float b);
+    void render(const uint8_t *refdef, size_t picturesSoFar);
 };
 
 // LerpTag (orientation_t*, model, startFrame, endFrame, frac, tagName):
 // `model`'s tag between two frames, the origin and axes blended (the axes
 // renormalised) as the original renderer does, written at `address`;
 // whether it was found (if not, at the origin, unrotated).
-int32_t writeLerpTag(Qvm& vm, int32_t address, const Md3Model* model, int32_t startFrame, int32_t endFrame,
-                     float frac, const std::string& tagName);
+int32_t writeLerpTag(Qvm &vm, int32_t address, const Md3Model *model, int32_t startFrame, int32_t endFrame, float frac,
+                     const std::string &tagName);
 
 // The same tag as 12 floats (origin, then the three axes); whether found.
-bool lerpTag(const Md3Model* model, int32_t startFrame, int32_t endFrame, float frac, const std::string& tagName,
-             std::array<float, 12>& out);
+bool lerpTag(const Md3Model *model, int32_t startFrame, int32_t endFrame, float frac, const std::string &tagName,
+             std::array<float, 12> &out);
 
 constexpr int32_t kRefdefSize = 112;    // the client game clears this much of cg.refdef
 constexpr int32_t kRefEntityKept = 256; // bytes kept of each refEntity_t

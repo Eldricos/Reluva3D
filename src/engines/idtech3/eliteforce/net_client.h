@@ -39,8 +39,8 @@ public:
 
     // `userinfo`: the player's settings (name, model...); the protocol,
     // qport and challenge are added.
-    NetClient(std::unique_ptr<reluva::net::UdpSocket> socket, const reluva::net::Address& server,
-              std::string userinfo, uint16_t qport);
+    NetClient(std::unique_ptr<reluva::net::UdpSocket> socket, const reluva::net::Address &server, std::string userinfo,
+              uint16_t qport);
     // Playing a recorded match instead (a .efdemo file, as the original's
     // client writes it: each message the server sent, after its sequence
     // number and length, ending with -1 -1). Nothing is sent; the
@@ -55,12 +55,12 @@ public:
     // The player's command for this moment (its serverTime from
     // serverTime()); they go out at most cl_maxpackets a second, each
     // packet with the ones since the one before the last.
-    void addCommand(const GameHost::UserCommand& cmd);
+    void addCommand(const GameHost::UserCommand &cmd);
     // Something the player typed for the server ("say hi"...), sent until
     // it's acknowledged.
-    void addClientCommand(const std::string& text);
+    void addClientCommand(const std::string &text);
     // The player's settings changed (sent as a userinfo command).
-    void setUserinfo(const std::string& userinfo);
+    void setUserinfo(const std::string &userinfo);
     // Leaving: the server is told (three times, in case some are lost).
     void disconnect();
     // The player has loaded the level: from now on its moves are sent.
@@ -73,24 +73,24 @@ public:
     // name as the server lists it: "baseEF/name.pk3"): asked for, then
     // its blocks taken and acknowledged one by one. Snapshots are ignored
     // meanwhile.
-    void download(const std::string& remoteName);
+    void download(const std::string &remoteName);
     bool downloading() const { return !downloadName_.empty(); }
-    const std::string& downloadName() const { return downloadName_; }
+    const std::string &downloadName() const { return downloadName_; }
     int32_t downloadSize() const { return downloadSize_; } // -1 until known
     size_t downloadCount() const { return downloadData_.size(); }
     // A download that has finished: its name and bytes (false if none).
-    bool takeDownload(std::string& name, std::vector<uint8_t>& data);
+    bool takeDownload(std::string &name, std::vector<uint8_t> &data);
 
     State state() const { return state_; }
-    const reluva::net::Address& server() const { return server_; }
+    const reluva::net::Address &server() const { return server_; }
     int connectPackets() const { return connectPackets_; }
     // Why it isn't connected, or what the server said ("print").
-    const std::string& message() const { return message_; }
+    const std::string &message() const { return message_; }
 
     // The game state: configstrings, the command sequence it started at
     // and the incoming message it came with (for the client game's
     // Init), whether it has come; a new one means a new level.
-    const std::map<int32_t, std::string>& configstrings() const { return configstrings_; }
+    const std::map<int32_t, std::string> &configstrings() const { return configstrings_; }
     int32_t gamestateCommandSequence() const { return gamestateSequence_; }
     int32_t gamestateMessage() const { return gamestateMessage_; }
     // The number the server's pure check seeds pak checksums with.
@@ -104,26 +104,26 @@ public:
     std::vector<GameHost::Snapshot> takeSnapshots() { return std::move(newSnapshots_); }
     // The commands the server sent, by sequence from 1 (those before the
     // game state's are empty).
-    const std::vector<std::string>& serverCommands() const { return serverCommands_; }
+    const std::vector<std::string> &serverCommands() const { return serverCommands_; }
     // The time to show the level at, following the server's clock as
     // the original's client does (a little behind the newest snapshot).
     int32_t serverTime() const { return serverTime_; }
     bool hasSnapshot() const { return haveSnapshot_; }
 
 private:
-    void sendText(const std::string& text);
-    void outOfBand(const std::string& text, uint64_t now);
-    void parseMessage(wire::MessageReader& r, uint64_t now);
+    void sendText(const std::string &text);
+    void outOfBand(const std::string &text, uint64_t now);
+    void parseMessage(wire::MessageReader &r, uint64_t now);
     void readDemo(uint64_t now);
     bool readDemoMessage(uint64_t now);
-    void parseGamestate(wire::MessageReader& r);
-    void parseSnapshot(wire::MessageReader& r, uint64_t now);
-    void parseDownload(wire::MessageReader& r, uint64_t now);
+    void parseGamestate(wire::MessageReader &r);
+    void parseSnapshot(wire::MessageReader &r, uint64_t now);
+    void parseDownload(wire::MessageReader &r, uint64_t now);
     std::string downloadName_, finishedName_;
     std::vector<uint8_t> downloadData_, finishedData_;
     int32_t downloadSize_ = -1, downloadBlock_ = 0;
     bool finished_ = false;
-    void serverCommand(int32_t sequence, const std::string& text);
+    void serverCommand(int32_t sequence, const std::string &text);
     void sendPacket(uint64_t now);
     void adjustTime(int32_t snapshotTime, uint64_t now);
 
@@ -149,7 +149,7 @@ private:
     int32_t gamestateSequence_ = 0, gamestateMessage_ = 0, checksumFeed_ = 0;
     bool newGamestate_ = false;
     std::vector<std::string> serverCommands_;
-    std::string bigConfigstring_; // one coming in pieces (bcs0, bcs1, bcs2)
+    std::string bigConfigstring_;       // one coming in pieces (bcs0, bcs1, bcs2)
     int32_t serverCommandSequence_ = 0; // the last received
     struct Snap {
         bool valid = false;

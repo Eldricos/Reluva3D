@@ -3,12 +3,12 @@
 
 #pragma once
 
-#include "common/soft3d/rasterizer.h"
-#include "common/soft3d/view3d.h"
+#include "graphics/soft3d/rasterizer.h"
+#include "graphics/soft3d/view3d.h"
 
 namespace reluva::newworlds {
 
-// The software 3D helpers (common/soft3d), as this engine's viewers use them.
+// The software 3D helpers (graphics/soft3d), as this engine's viewers use them.
 using soft3d::clipNear;
 using soft3d::cross;
 using soft3d::dot;

@@ -38,7 +38,7 @@ Notes for developers. Building and running are covered in the
   - `reluva-tool help [engine] <command>` shows one.
 - **Where the commands are.** The ones for any game (bytes, Windows DLLs,
   detecting and importing games, AVI movies and CD images' audio tracks)
-  are in `src/tools/`. Each engine's are in
+  are in `src/devtools/`. Each engine's are in
   its `tools/` folder, by topic (`src/engines/idtech3/tools/qvm.cpp`), and
   are built only with the engine.
 - **Adding one.** Write it as `int cmdName(int argc, char** argv)` (its
@@ -54,7 +54,31 @@ Notes for developers. Building and running are covered in the
 
   A new file goes in the engine's `reluva_add_engine_tools` list, in its
   `CMakeLists.txt`. Helpers every command can use (`readFile`, `rd32`,
-  `hexdump`) are in `src/tools/tool.h`.
+  `hexdump`) are in `src/devtools/tool.h`.
+
+## Code style
+
+Code follows [CODING_GUIDE.md](CODING_GUIDE.md); the plan bringing the
+existing code in line is [code-style-migration.md](code-style-migration.md).
+Two tools check it, both needing version 18 of their LLVM program
+(another lays code out differently):
+
+- **`python3 tools/format.py`** formats with clang-format
+  (`.clang-format`): every file, the ones named
+  (`tools/format.py src/engines/clue`), or `--changed` (those changed since
+  the branch left `main`). `--check` lists what needs formatting instead.
+- **`python3 tools/tidy.py`** checks with clang-tidy (`.clang-tidy`: names,
+  `nullptr`, `override`, const-correctness...): every file, the ones named,
+  or `--changed`. It makes a compile database in `build-tidy/` with every
+  engine enabled. `--fix --checks=-*,<check>` applies one check's fixes.
+
+Run both with `--changed` before a pull request. CI's "Code style" job
+does the same: an unformatted file fails the run, while clang-tidy's
+findings are only reported for now. Generated files and `third_party/`
+are never formatted (`.clang-format-ignore`). Commits that only reformat
+or rename go in `.git-blame-ignore-revs`; run
+`git config blame.ignoreRevsFile .git-blame-ignore-revs` once, and
+`git blame` passes over them.
 
 ## Tests
 
@@ -274,9 +298,9 @@ renderer and compares them with the reference frames there:
   available. Setting `SDL_RENDER_DRIVER` to another renderer (e.g.
   `opengl`) forces that fallback.
 - **Shaders.** They are compiled into
-  `src/backends/sdl3/shaders/compiled.h`, which is committed. Only after
+  `src/backends/graphics/sdl3/shaders/compiled.h`, which is committed. Only after
   changing `draw.vert` or `draw.frag`, run
-  `src/backends/sdl3/shaders/build.sh`. It needs `glslang-tools` and
+  `src/backends/graphics/sdl3/shaders/build.sh`. It needs `glslang-tools` and
   `spirv-cross`.
 
 ## Cursors

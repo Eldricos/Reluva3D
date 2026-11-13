@@ -21,9 +21,9 @@ constexpr uint64_t kDetectionHashBytes = 5000;
 
 // One file that must be present for a game variant to match.
 struct FileSignature {
-    std::string name;     // relative path, matched case-insensitively
-    std::string md5;      // of the first kDetectionHashBytes bytes; empty = any
-    int64_t size = -1;    // exact file size; -1 = any
+    std::string name;  // relative path, matched case-insensitively
+    std::string md5;   // of the first kDetectionHashBytes bytes; empty = any
+    int64_t size = -1; // exact file size; -1 = any
 };
 
 // One release of a game (language, platform, patch level...).
@@ -68,7 +68,7 @@ struct ImportPlan {
     std::string addFolderTooltip = "Copy an expansion too, from its CD (or a folder it was installed to)";
     uint64_t totalBytes() const {
         uint64_t n = 0;
-        for (const File& f : files)
+        for (const File &f : files)
             n += f.size;
         return n;
     }
@@ -78,12 +78,11 @@ struct ImportPlan {
 // ".part" file renamed when whole. `progress` is told the bytes copied so
 // far and the total, often; returning false stops the import (what was
 // copied stays). Fails on the first file that can't be read or written.
-Error runImport(const ImportPlan& plan, const std::filesystem::path& dest,
-                const std::function<bool(uint64_t done, uint64_t total)>& progress);
+Error runImport(const ImportPlan &plan, const std::filesystem::path &dest,
+                const std::function<bool(uint64_t done, uint64_t total)> &progress);
 
 // Return every variant in `table` whose files all match inside `dir`.
-std::vector<DetectedGame> detectFromTable(const std::string& engineId,
-                                          const std::vector<GameVariant>& table,
-                                          const std::filesystem::path& dir);
+std::vector<DetectedGame> detectFromTable(const std::string &engineId, const std::vector<GameVariant> &table,
+                                          const std::filesystem::path &dir);
 
 } // namespace reluva

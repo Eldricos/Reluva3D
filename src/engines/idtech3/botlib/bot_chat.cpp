@@ -15,15 +15,20 @@ namespace {
 constexpr float kRecentTime = 20; // a line isn't used again for this long
 constexpr int kGenderFemale = 1, kGenderMale = 2;
 
-char upper(char c) { return char(std::toupper(static_cast<unsigned char>(c))); }
-bool equalNoCase(const std::string& a, const std::string& b) {
-    return a.size() == b.size() && std::equal(a.begin(), a.end(), b.begin(), [](char x, char y) { return upper(x) == upper(y); });
+char upper(char c) {
+    return char(std::toupper(static_cast<unsigned char>(c)));
 }
-bool separator(char c) { return c == ' ' || c == '.' || c == ',' || c == '!'; }
+bool equalNoCase(const std::string &a, const std::string &b) {
+    return a.size() == b.size() &&
+           std::equal(a.begin(), a.end(), b.begin(), [](char x, char y) { return upper(x) == upper(y); });
+}
+bool separator(char c) {
+    return c == ' ' || c == '.' || c == ',' || c == '!';
+}
 
 // Where `word` is in `s` as a whole word (at a word's start, ended by the
 // text's end or a separator), from `from`; npos if not.
-size_t findWord(const std::string& s, const std::string& word, size_t from = 0) {
+size_t findWord(const std::string &s, const std::string &word, size_t from = 0) {
     if (word.empty())
         return std::string::npos;
     size_t i = from;
@@ -45,11 +50,12 @@ size_t findWord(const std::string& s, const std::string& word, size_t from = 0) 
 
 // Each whole-word `synonym` replaced by `replacement`, unless it is part
 // of the replacement already there.
-void replaceWords(std::string& s, const std::string& synonym, const std::string& replacement) {
+void replaceWords(std::string &s, const std::string &synonym, const std::string &replacement) {
     size_t at = findWord(s, synonym);
     while (at != std::string::npos) {
         bool inside = false;
-        for (size_t r = findWord(s, replacement); r != std::string::npos && !inside; r = findWord(s, replacement, r + 1))
+        for (size_t r = findWord(s, replacement); r != std::string::npos && !inside;
+             r = findWord(s, replacement, r + 1))
             inside = r <= at && at < r + replacement.size();
         if (!inside) {
             s.replace(at, synonym.size(), replacement);
@@ -62,7 +68,7 @@ void replaceWords(std::string& s, const std::string& synonym, const std::string&
 
 // A line of a chat: strings, variables (numbers) and random words
 // (names), separated by commas, ended by a semicolon.
-bool readMessage(BotScript& script, std::string& out) {
+bool readMessage(BotScript &script, std::string &out) {
     out.clear();
     BotToken t;
     while (true) {
@@ -93,7 +99,7 @@ bool readMessage(BotScript& script, std::string& out) {
 
 } // namespace
 
-int BotChat::stringContains(const std::string& a, const std::string& b, bool caseSensitive) {
+int BotChat::stringContains(const std::string &a, const std::string &b, bool caseSensitive) {
     if (b.size() > a.size())
         return -1;
     for (size_t i = 0; i + b.size() <= a.size(); ++i) {
@@ -106,11 +112,12 @@ int BotChat::stringContains(const std::string& a, const std::string& b, bool cas
     return -1;
 }
 
-void BotChat::unifyWhiteSpaces(std::string& s) {
+void BotChat::unifyWhiteSpaces(std::string &s) {
     // Anything but letters, digits and ()?:'/,.[]-_+= counts as white
     // space: runs of it become one space, none at either end.
     auto word = [](char c) {
-        return std::isalnum(static_cast<unsigned char>(c)) || std::string("()?:'/,.[]-_+=").find(c) != std::string::npos;
+        return std::isalnum(static_cast<unsigned char>(c)) ||
+               std::string("()?:'/,.[]-_+=").find(c) != std::string::npos;
     };
     std::string out;
     size_t i = 0;
@@ -130,17 +137,17 @@ void BotChat::unifyWhiteSpaces(std::string& s) {
     s = out;
 }
 
-void BotChat::setup(const BotScript::Loader& load, const std::function<std::string(const std::string&)>& libVar,
-                    std::string* log) {
+void BotChat::setup(const BotScript::Loader &load, const std::function<std::string(const std::string &)> &libVar,
+                    std::string *log) {
     synonyms_.clear();
     randoms_.clear();
     templates_.clear();
     replies_.clear();
-    auto file = [&](const char* var, const char* fallback) {
+    auto file = [&](const char *var, const char *fallback) {
         const std::string v = libVar ? libVar(var) : std::string();
         return v.empty() ? std::string(fallback) : v;
     };
-    auto note = [&](const BotScript& s) {
+    auto note = [&](const BotScript &s) {
         if (log && !s.error().empty())
             *log += s.error() + "\n";
     };
@@ -208,7 +215,7 @@ void BotChat::setup(const BotScript::Loader& load, const std::function<std::stri
         }
         note(s);
     }
-    auto readPieces = [&](BotScript& s, const char* end, std::vector<Piece>& pieces) {
+    auto readPieces = [&](BotScript &s, const char *end, std::vector<Piece> &pieces) {
         bool lastVariable = false;
         while (s.next(t)) {
             Piece p;
@@ -228,7 +235,7 @@ void BotChat::setup(const BotScript::Loader& load, const std::function<std::stri
                         return false;
                     p.strings.push_back(alt);
                 }
-                if (std::none_of(p.strings.begin(), p.strings.end(), [](const std::string& x) { return x.empty(); }))
+                if (std::none_of(p.strings.begin(), p.strings.end(), [](const std::string &x) { return x.empty(); }))
                     lastVariable = false;
             } else {
                 s.fail("invalid token " + t.text);
@@ -339,10 +346,10 @@ void BotChat::setup(const BotScript::Loader& load, const std::function<std::stri
                 std::to_string(replies_.size()) + " replies\n";
 }
 
-BotChat::State* BotChat::state(int handle) {
+BotChat::State *BotChat::state(int handle) {
     return handle >= 1 && size_t(handle) <= states_.size() ? states_[size_t(handle) - 1].get() : nullptr;
 }
-const BotChat::State* BotChat::state(int handle) const {
+const BotChat::State *BotChat::state(int handle) const {
     return handle >= 1 && size_t(handle) <= states_.size() ? states_[size_t(handle) - 1].get() : nullptr;
 }
 
@@ -361,14 +368,14 @@ void BotChat::freeState(int handle) {
         states_[size_t(handle) - 1].reset();
 }
 
-bool BotChat::loadChatFile(int handle, const BotScript::Loader& load, const std::string& file,
-                           const std::string& name) {
-    State* cs = state(handle);
+bool BotChat::loadChatFile(int handle, const BotScript::Loader &load, const std::string &file,
+                           const std::string &name) {
+    State *cs = state(handle);
     if (!cs)
         return false;
     // Each file's chat read once, shared by the bots using it.
     const std::string key = file + "|" + name;
-    for (const auto& [k, chat] : chatFiles_)
+    for (const auto &[k, chat] : chatFiles_)
         if (k == key) {
             cs->chat = chat;
             return true;
@@ -410,17 +417,17 @@ bool BotChat::loadChatFile(int handle, const BotScript::Loader& load, const std:
 }
 
 void BotChat::setGender(int handle, int gender) {
-    if (State* cs = state(handle))
+    if (State *cs = state(handle))
         cs->gender = gender == kGenderFemale || gender == kGenderMale ? gender : 0;
 }
 
-void BotChat::setName(int handle, const std::string& name) {
-    if (State* cs = state(handle))
+void BotChat::setName(int handle, const std::string &name) {
+    if (State *cs = state(handle))
         cs->name = name.substr(0, 31);
 }
 
-void BotChat::queueConsoleMessage(int handle, int type, const std::string& text) {
-    State* cs = state(handle);
+void BotChat::queueConsoleMessage(int handle, int type, const std::string &text) {
+    State *cs = state(handle);
     if (!cs || cs->console.size() >= 1024)
         return;
     if (++cs->nextHandle > 8192)
@@ -429,7 +436,7 @@ void BotChat::queueConsoleMessage(int handle, int type, const std::string& text)
 }
 
 void BotChat::removeConsoleMessage(int handle, int message) {
-    State* cs = state(handle);
+    State *cs = state(handle);
     if (!cs)
         return;
     for (auto it = cs->console.begin(); it != cs->console.end(); ++it)
@@ -439,27 +446,27 @@ void BotChat::removeConsoleMessage(int handle, int message) {
         }
 }
 
-const BotChat::ConsoleMessage* BotChat::nextConsoleMessage(int handle) const {
-    const State* cs = state(handle);
+const BotChat::ConsoleMessage *BotChat::nextConsoleMessage(int handle) const {
+    const State *cs = state(handle);
     return cs && !cs->console.empty() ? &cs->console.front() : nullptr;
 }
 
 int BotChat::numConsoleMessages(int handle) const {
-    const State* cs = state(handle);
+    const State *cs = state(handle);
     return cs ? int(cs->console.size()) : 0;
 }
 
-int BotChat::numInitialChats(int handle, const std::string& type) const {
-    const State* cs = state(handle);
+int BotChat::numInitialChats(int handle, const std::string &type) const {
+    const State *cs = state(handle);
     if (!cs || !cs->chat)
         return 0;
-    for (const ChatType& t : *cs->chat)
+    for (const ChatType &t : *cs->chat)
         if (equalNoCase(t.name, type))
             return int(t.messages.size());
     return 0;
 }
 
-BotMatch BotChat::withVariables(BotMatch match, const std::vector<const char*>& vars) {
+BotMatch BotChat::withVariables(BotMatch match, const std::vector<const char *> &vars) {
     // The game's words (names, places) after the text, as variables 0-7.
     for (size_t i = 0; i < vars.size() && i < size_t(BotMatch::kVariables); ++i) {
         if (!vars[i])
@@ -471,21 +478,21 @@ BotMatch BotChat::withVariables(BotMatch match, const std::vector<const char*>& 
     return match;
 }
 
-void BotChat::initialChat(int handle, const std::string& type, int mcontext, const std::vector<const char*>& vars) {
-    State* cs = state(handle);
+void BotChat::initialChat(int handle, const std::string &type, int mcontext, const std::vector<const char *> &vars) {
+    State *cs = state(handle);
     if (!cs || !cs->chat)
         return;
-    for (ChatType& t : *cs->chat) {
+    for (ChatType &t : *cs->chat) {
         if (!equalNoCase(t.name, type))
             continue;
         // A line not used lately, at random; else the one used longest ago.
-        std::vector<Message*> fresh;
-        for (Message& m : t.messages)
+        std::vector<Message *> fresh;
+        for (Message &m : t.messages)
             if (m.time <= now())
                 fresh.push_back(&m);
-        Message* chosen = nullptr;
+        Message *chosen = nullptr;
         if (fresh.empty()) {
-            for (Message& m : t.messages)
+            for (Message &m : t.messages)
                 if (!chosen || m.time < chosen->time)
                     chosen = &m;
         } else {
@@ -498,30 +505,44 @@ void BotChat::initialChat(int handle, const std::string& type, int mcontext, con
     }
 }
 
-bool BotChat::replyChat(int handle, const std::string& message, int mcontext, int vcontext,
-                        const std::vector<const char*>& vars) {
-    State* cs = state(handle);
+bool BotChat::replyChat(int handle, const std::string &message, int mcontext, int vcontext,
+                        const std::vector<const char *> &vars) {
+    State *cs = state(handle);
     if (!cs)
         return false;
     BotMatch match;
     match.text = message.substr(0, kMessageSize - 1);
     // The reply with the highest priority whose keys fit the message: all
     // its & keys, none of its ! keys, and one of the others.
-    Reply* best = nullptr;
-    Message* bestMessage = nullptr;
+    Reply *best = nullptr;
+    Message *bestMessage = nullptr;
     BotMatch bestMatch;
-    for (Reply& r : replies_) {
+    for (Reply &r : replies_) {
         bool found = false;
-        for (const ReplyKey& k : r.keys) {
+        for (const ReplyKey &k : r.keys) {
             bool res = false;
             switch (k.kind) {
-            case ReplyKey::Name: res = stringContains(message, cs->name, false) >= 0; break;
-            case ReplyKey::BotNames: res = stringContains(k.text, cs->name, false) >= 0; break;
-            case ReplyKey::Female: res = cs->gender == kGenderFemale; break;
-            case ReplyKey::Male: res = cs->gender == kGenderMale; break;
-            case ReplyKey::Genderless: res = cs->gender == 0; break;
-            case ReplyKey::Match: res = stringsMatch(k.match, match); break;
-            case ReplyKey::String: res = findWord(message, k.text) != std::string::npos; break;
+            case ReplyKey::Name:
+                res = stringContains(message, cs->name, false) >= 0;
+                break;
+            case ReplyKey::BotNames:
+                res = stringContains(k.text, cs->name, false) >= 0;
+                break;
+            case ReplyKey::Female:
+                res = cs->gender == kGenderFemale;
+                break;
+            case ReplyKey::Male:
+                res = cs->gender == kGenderMale;
+                break;
+            case ReplyKey::Genderless:
+                res = cs->gender == 0;
+                break;
+            case ReplyKey::Match:
+                res = stringsMatch(k.match, match);
+                break;
+            case ReplyKey::String:
+                res = findWord(message, k.text) != std::string::npos;
+                break;
             }
             if (k.must && !res) {
                 found = false;
@@ -536,8 +557,8 @@ bool BotChat::replyChat(int handle, const std::string& message, int mcontext, in
         }
         if (!found || (best && r.priority <= best->priority) || r.messages.empty())
             continue;
-        std::vector<Message*> fresh;
-        for (Message& m : r.messages)
+        std::vector<Message *> fresh;
+        for (Message &m : r.messages)
             if (m.time <= now())
                 fresh.push_back(&m);
         if (fresh.empty())
@@ -554,12 +575,12 @@ bool BotChat::replyChat(int handle, const std::string& message, int mcontext, in
 }
 
 int BotChat::chatLength(int handle) const {
-    const State* cs = state(handle);
+    const State *cs = state(handle);
     return cs ? int(cs->message.size()) : 0;
 }
 
 void BotChat::enterChat(int handle, int client, int sendTo) {
-    State* cs = state(handle);
+    State *cs = state(handle);
     if (!cs || cs->message.empty())
         return;
     const std::string text = takeChatMessage(handle);
@@ -568,7 +589,7 @@ void BotChat::enterChat(int handle, int client, int sendTo) {
 }
 
 std::string BotChat::takeChatMessage(int handle) {
-    State* cs = state(handle);
+    State *cs = state(handle);
     if (!cs)
         return {};
     std::string text;
@@ -579,19 +600,19 @@ std::string BotChat::takeChatMessage(int handle) {
     return text;
 }
 
-bool BotChat::stringsMatch(const std::vector<Piece>& pieces, BotMatch& match) const {
+bool BotChat::stringsMatch(const std::vector<Piece> &pieces, BotMatch &match) const {
     // Each string piece found in order (one of its alternatives); a
     // variable takes what lies between.
     int lastVariable = -1;
     size_t pos = 0;
-    for (const Piece& p : pieces) {
+    for (const Piece &p : pieces) {
         if (p.variable) {
             match.offset[size_t(p.index)] = int(pos);
             lastVariable = p.index;
             continue;
         }
         size_t next = std::string::npos, used = 0;
-        for (const std::string& alt : p.strings) {
+        for (const std::string &alt : p.strings) {
             if (alt.empty()) {
                 next = pos;
                 used = 0;
@@ -624,12 +645,12 @@ bool BotChat::stringsMatch(const std::vector<Piece>& pieces, BotMatch& match) co
     return pos >= match.text.size();
 }
 
-bool BotChat::findMatch(const std::string& text, BotMatch& match, int context) const {
+bool BotChat::findMatch(const std::string &text, BotMatch &match, int context) const {
     match = BotMatch{};
     match.text = text.substr(0, kMessageSize - 1);
     while (!match.text.empty() && match.text.back() == '\n')
         match.text.pop_back();
-    for (const Template& t : templates_) {
+    for (const Template &t : templates_) {
         if (!(t.context & context))
             continue;
         match.offset.fill(-1);
@@ -642,24 +663,24 @@ bool BotChat::findMatch(const std::string& text, BotMatch& match, int context) c
     return false;
 }
 
-std::string BotChat::matchVariable(const BotMatch& match, int variable) {
+std::string BotChat::matchVariable(const BotMatch &match, int variable) {
     if (variable < 0 || variable >= BotMatch::kVariables || match.offset[size_t(variable)] < 0)
         return {};
     const size_t at = size_t(match.offset[size_t(variable)]);
     return at < match.text.size() ? match.text.substr(at, size_t(std::max(0, match.length[size_t(variable)]))) : "";
 }
 
-void BotChat::replaceSynonyms(std::string& s, int context) const {
+void BotChat::replaceSynonyms(std::string &s, int context) const {
     // Every other word of a list in the context becomes its first.
-    for (const Synonyms& list : synonyms_)
+    for (const Synonyms &list : synonyms_)
         if (list.context & context)
             for (size_t i = 1; i < list.words.size(); ++i)
                 replaceWords(s, list.words[i].first, list.words[0].first);
 }
 
-void BotChat::replaceWeightedSynonyms(std::string& s, int context) {
+void BotChat::replaceWeightedSynonyms(std::string &s, int context) {
     // For variety: each list's words all become one of them, chosen by weight.
-    for (const Synonyms& list : synonyms_) {
+    for (const Synonyms &list : synonyms_) {
         if (!(list.context & context))
             continue;
         const float pick = std::uniform_real_distribution<float>(0, 1)(random_) * list.total;
@@ -682,7 +703,7 @@ void BotChat::replaceWeightedSynonyms(std::string& s, int context) {
     }
 }
 
-void BotChat::replaceReplySynonyms(std::string& s, int context) const {
+void BotChat::replaceReplySynonyms(std::string &s, int context) const {
     // Word by word: one starting with a synonym becomes the list's first.
     size_t i = 0;
     while (i < s.size()) {
@@ -691,7 +712,7 @@ void BotChat::replaceReplySynonyms(std::string& s, int context) const {
         if (i >= s.size())
             break;
         bool done = false;
-        for (const Synonyms& list : synonyms_) {
+        for (const Synonyms &list : synonyms_) {
             if (!(list.context & context))
                 continue;
             for (size_t k = 1; k < list.words.size() && !done; ++k) {
@@ -710,7 +731,7 @@ void BotChat::replaceReplySynonyms(std::string& s, int context) const {
     }
 }
 
-bool BotChat::expand(std::string& out, const std::string& message, int mcontext, const BotMatch& match, int vcontext,
+bool BotChat::expand(std::string &out, const std::string &message, int mcontext, const BotMatch &match, int vcontext,
                      bool reply) {
     out.clear();
     bool expanded = false;
@@ -739,8 +760,8 @@ bool BotChat::expand(std::string& out, const std::string& message, int mcontext,
                 out += word;
             }
         } else if (kind == 'r') {
-            const std::vector<std::string>* list = nullptr;
-            for (const auto& [name, strings] : randoms_)
+            const std::vector<std::string> *list = nullptr;
+            for (const auto &[name, strings] : randoms_)
                 if (name == inner)
                     list = &strings;
             if (!list || list->empty()) {
@@ -759,7 +780,7 @@ bool BotChat::expand(std::string& out, const std::string& message, int mcontext,
     return ok && expanded;
 }
 
-std::string BotChat::construct(const std::string& message, int mcontext, const BotMatch& match, int vcontext,
+std::string BotChat::construct(const std::string &message, int mcontext, const BotMatch &match, int vcontext,
                                bool reply) {
     std::string source = message, out;
     for (int i = 0; i < 10; ++i) {

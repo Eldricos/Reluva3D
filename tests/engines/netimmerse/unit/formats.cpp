@@ -8,10 +8,10 @@
 //
 //   reluva-tests netimmerse.unit.formats
 
-#include "engines/netimmerse/data.h"
-#include "engines/netimmerse/ddf.h"
-#include "engines/netimmerse/fin.h"
-#include "engines/netimmerse/pac_archive.h"
+#include "engines/netimmerse/formats/data.h"
+#include "engines/netimmerse/formats/ddf.h"
+#include "engines/netimmerse/formats/fin.h"
+#include "engines/netimmerse/formats/pac_archive.h"
 #include "tests/engines/netimmerse/fixtures.h"
 #include "tests/support/test.h"
 
@@ -28,10 +28,7 @@ using namespace reluva;
 using namespace reluva::netimmerse;
 using namespace reluva::netimmerse::testing;
 
-
 namespace {
-
-
 
 const std::vector<PacFile> kFiles = {
     {"ABADI MT CONDENSED.DDF", "FNT2Abadi", kFileTime, 0},
@@ -39,7 +36,7 @@ const std::vector<PacFile> kFiles = {
     {"M0020.PUZ", "PUZVER 1\r\nNEARFAR 20 10000\r\n", kFileTime + 10000000, 0},
 };
 
-void testRead(const std::filesystem::path& tmp) {
+void testRead(const std::filesystem::path &tmp) {
     const auto path = writeFile(tmp / "test.pac", buildPac(kFiles));
     PacArchive pac;
     CHECK(!pac.open(path));
@@ -47,7 +44,7 @@ void testRead(const std::filesystem::path& tmp) {
     CHECK(pac.list() == std::vector<std::string>({"ABADI MT CONDENSED.DDF", "EMPTY.TXT", "M0020.PUZ"}));
     CHECK(pac.dataStart() == 20 + (23 + 20) + (10 + 20) + (10 + 20) + 4);
 
-    const PacArchive::Entry* e = pac.entry("abadi mt condensed.ddf");
+    const PacArchive::Entry *e = pac.entry("abadi mt condensed.ddf");
     CHECK(e && e->offset == pac.dataStart() && e->size == 9 && e->modified == kFileTime);
     CHECK(PacArchive::unixTime(kFileTime) == 966859200);
     CHECK(PacArchive::unixTime(0) == 0);
@@ -59,7 +56,7 @@ void testRead(const std::filesystem::path& tmp) {
     CHECK(pac.read("missing.tga", data));
 }
 
-void testSearchSet(const std::filesystem::path& tmp) {
+void testSearchSet(const std::filesystem::path &tmp) {
     auto low = std::make_unique<PacArchive>(), high = std::make_unique<PacArchive>();
     CHECK(!low->open(writeFile(tmp / "low.pac", buildPac({{"A.TXT", "low"}, {"B.TXT", "only low"}}))));
     CHECK(!high->open(writeFile(tmp / "high.pac", buildPac({{"A.TXT", "high"}}))));
@@ -71,7 +68,7 @@ void testSearchSet(const std::filesystem::path& tmp) {
     CHECK(!set.read("b.txt", data) && asString(data) == "only low");
 }
 
-void testPlaceholder(const std::filesystem::path& tmp) {
+void testPlaceholder(const std::filesystem::path &tmp) {
     // An entry with offset and size 0, as Ambient.pac and LMap.pac list
     // themselves: accepted, and read as empty.
     std::vector<uint8_t> bytes = buildPac({{"SELF.PAC", "", 0, 0}, {"E0000.DDS", "sound", kFileTime, 0}});
@@ -88,7 +85,7 @@ void testPlaceholder(const std::filesystem::path& tmp) {
     CHECK(pac.open(writeFile(tmp / "bad0.pac", bad)));
 }
 
-void testOffsetHighAndSubdirectories(const std::filesystem::path& tmp) {
+void testOffsetHighAndSubdirectories(const std::filesystem::path &tmp) {
     // The word before the offset is its high half (DDFileAttr, as
     // MapViewOfFile takes it): 1 puts the data 4 GB on, past this archive.
     PacArchive pac;
@@ -100,7 +97,7 @@ void testOffsetHighAndSubdirectories(const std::filesystem::path& tmp) {
     CHECK(pac.open(writeFile(tmp / "sub.pac", sub)));
 }
 
-void testRejectsDamage(const std::filesystem::path& tmp) {
+void testRejectsDamage(const std::filesystem::path &tmp) {
     const std::vector<uint8_t> good = buildPac(kFiles);
     auto fails = [&](std::vector<uint8_t> bytes) {
         PacArchive pac;
@@ -151,7 +148,6 @@ void testRejectsDamage(const std::filesystem::path& tmp) {
     CHECK(fails(noZero));
 }
 
-
 void testDds() {
     // 22,050 Hz stereo: a WAVEFORMATEX, then two frames.
     std::vector<uint8_t> d = {1, 0, 2, 0};
@@ -180,8 +176,9 @@ void testDds() {
 }
 
 void testLocaleText() {
-    const auto e = parseLocaleText("####\r\n# Assorted UI Strings\r\n####\r\n\r\n==MenuExitButton==\r\nExit Game\r\n\r\n"
-                                   "==Brief==\r\n\r\nLine one\r\n\r\nLine two\r\n\r\n\r\n==Empty==\r\n==Last==\r\nend");
+    const auto e =
+        parseLocaleText("####\r\n# Assorted UI Strings\r\n####\r\n\r\n==MenuExitButton==\r\nExit Game\r\n\r\n"
+                        "==Brief==\r\n\r\nLine one\r\n\r\nLine two\r\n\r\n\r\n==Empty==\r\n==Last==\r\nend");
     CHECK(e.size() == 4);
     CHECK(e[0].first == "MenuExitButton" && e[0].second == "Exit Game");
     CHECK(e[1].first == "Brief" && e[1].second == "Line one\n\nLine two");
@@ -189,23 +186,23 @@ void testLocaleText() {
     CHECK(e[3].first == "Last" && e[3].second == "end");
 }
 
-
 void testFin() {
     const std::vector<uint8_t> data = buildFin();
     FinFile f;
     CHECK(!f.parse(data));
     CHECK(f.roots() == std::vector<uint32_t>({0x50}));
     CHECK(f.objects().size() == 7);
-    for (const auto& o : f.objects())
+    for (const auto &o : f.objects())
         CHECK(o.read && o.exact);
-    CHECK(f.nodes.size() == 2 && f.nodes[0x50].levelsOfDetail && f.nodes[0x50].children == std::vector<uint32_t>({0x100}));
+    CHECK(f.nodes.size() == 2 && f.nodes[0x50].levelsOfDetail &&
+          f.nodes[0x50].children == std::vector<uint32_t>({0x100}));
     CHECK(f.nodes[0x100].name == "Holder" && f.nodes[0x100].translation[0] == 5 && f.nodes[0x100].scale == 2);
     CHECK(f.nodes[0x100].hidden && !f.nodes[0x50].hidden && !f.shapes[0x200].hidden);
-    const FinSkin& skin = f.skins[0x600];
+    const FinSkin &skin = f.skins[0x600];
     CHECK(skin.vertexCount == 3 && skin.firstInfluence == std::vector<uint32_t>({0, 1, 2, 2}));
     CHECK(skin.influences.size() == 2 && skin.influences[1].bone == 0x100 && skin.influences[1].offset[0] == 1 &&
           skin.influences[1].weight == 1);
-    const FinShape& s = f.shapes[0x200];
+    const FinShape &s = f.shapes[0x200];
     CHECK(s.vertexCount == 3 && s.vertices.size() == 9 && s.normals.empty() && s.uvSets == 1 && s.uvw.size() == 9);
     CHECK(s.triangles == std::vector<uint16_t>({0, 1, 2}) && s.properties == std::vector<uint32_t>({0x300, 0x400}));
     CHECK(f.materials[0x300].glossiness == 0.25f && f.materials[0x300].alpha == 0.75f);
@@ -233,7 +230,6 @@ void testFin() {
 }
 
 } // namespace
-
 
 void testDdf() {
     DdfFont font;
@@ -270,14 +266,13 @@ void testDdf() {
             CHECK(screen.row(y)[x * 4] == ((x == 1 || x == 2) && (y == 2 || y == 3) ? 200 : 0));
 }
 
-
 void testFinAnimation() {
     FinFile f;
     CHECK(!f.parse(buildAnimatedFin()));
-    for (const auto& o : f.objects())
+    for (const auto &o : f.objects())
         CHECK(o.read && o.exact);
     CHECK(f.animatedNodes() == std::vector<uint32_t>({0x10, 0x20}));
-    const FinFlip& flip = f.flips[0x700];
+    const FinFlip &flip = f.flips[0x700];
     CHECK(flip.outOfBounds == FinFlip::Clamp && flip.rate == 0.25f && flip.startTime == 160 && flip.duration == 1920 &&
           flip.target == 0x400);
     // Images as Act gives them: 1920 ticks over 4 images, from 160.
@@ -288,10 +283,10 @@ void testFinAnimation() {
     FinFlip reverse = flip;
     reverse.outOfBounds = FinFlip::Reverse;
     CHECK(reverse.image(160 + 1920 + 480, 4) == 3 && reverse.image(160 + 480, 4) == 1);
-    const FinMaterialAnimator& a = f.materialAnimators[0x710];
+    const FinMaterialAnimator &a = f.materialAnimators[0x710];
     CHECK(a.alpha && a.target == 0x300 && a.stop == 3200 && a.keys.size() == 2 && a.keys[1].time == 3200 &&
           a.keys[0].value[0] == 1);
-    const FinActor& actor = f.actors[0x720];
+    const FinActor &actor = f.actors[0x720];
     CHECK(actor.id == "U0001" && actor.name == "Thing");
     CHECK(actor.clips.size() == 1 && actor.clips[0].name == "spin" && actor.clips[0].start == 1 &&
           actor.clips[0].sound == "whirr" && actor.clips[0].loop && actor.clips[0].volume == 0.5f &&
@@ -300,38 +295,40 @@ void testFinAnimation() {
           actor.clips[0].delay == 0);
     CHECK(actor.clips[0].tracks == std::vector<uint16_t>({0, 1}) && actor.clips[0].flips.empty() &&
           actor.clips[0].morphs.empty());
-    const FinMorph& weed = f.morphs[0x740];
-    CHECK(weed.keys.size() == 2 && weed.targets.size() == 2 && weed.keys[1].time == 3200 &&
-          weed.keys[0].value == 1 && weed.keys[0].tension == 0.5f && weed.keys[0].derived[0] == -1 &&
-          weed.keys[1].weights[1] == 1 && weed.keys[0].in[1] == 0.5f && weed.keys[0].out[1] == 0.5f &&
-          weed.targets[1][2] == 1);
+    const FinMorph &weed = f.morphs[0x740];
+    CHECK(weed.keys.size() == 2 && weed.targets.size() == 2 && weed.keys[1].time == 3200 && weed.keys[0].value == 1 &&
+          weed.keys[0].tension == 0.5f && weed.keys[0].derived[0] == -1 && weed.keys[1].weights[1] == 1 &&
+          weed.keys[0].in[1] == 0.5f && weed.keys[0].out[1] == 0.5f && weed.targets[1][2] == 1);
     CHECK(f.nodes[0x750].actor == 0x720);
-    const FinLight& lamp = f.lights[0x730];
-    CHECK(lamp.type == FinLight::Point && lamp.on && lamp.dimmer == 3 && lamp.diffuse[0] == 1 &&
-          lamp.attenuated && lamp.attenuationDistance == 32000 && lamp.attenuationCurve == 0 &&
-          lamp.illuminated.empty());
+    const FinLight &lamp = f.lights[0x730];
+    CHECK(lamp.type == FinLight::Point && lamp.on && lamp.dimmer == 3 && lamp.diffuse[0] == 1 && lamp.attenuated &&
+          lamp.attenuationDistance == 32000 && lamp.attenuationCurve == 0 && lamp.illuminated.empty());
     CHECK(actor.tracks.size() == 2 && actor.footprint.size() == 1 && actor.footprint[0][1] == 2);
-    const FinActor::Track& node = actor.tracks[0];
+    const FinActor::Track &node = actor.tracks[0];
     CHECK(node.rotations.size() == 1 && node.rotations[0].time == 4800 && node.rotations[0].value[0] == 0 &&
           node.rotations[0].value[3] == 1);
     CHECK(node.positions.size() == 2 && node.positions[1].value[2] == 6 && node.scales.empty() && node.visible.empty());
-    const FinActor::Track& bone = actor.tracks[1];
-    CHECK(bone.rotations.empty() && bone.euler[0].size() == 1 && bone.euler[0][0].value == 0.5f && bone.euler[1].empty());
+    const FinActor::Track &bone = actor.tracks[1];
+    CHECK(bone.rotations.empty() && bone.euler[0].size() == 1 && bone.euler[0][0].value == 0.5f &&
+          bone.euler[1].empty());
     CHECK(bone.scales.size() == 1 && bone.scales[0].value == 2 && bone.scales[0].curve && bone.scales[0].in == 0.5f &&
           bone.scales[0].out == 0.25f);
     CHECK(!node.positions[0].curve && !node.rotations[0].curve);
     CHECK(bone.visible.size() == 1 && bone.visible[0].time == 4800 && !bone.visible[0].value);
 }
 
-static const test::Suite suite("netimmerse.unit.formats", {
-    {"pac read", [](const std::filesystem::path& tmp) { testRead(tmp); }},
-    {"pac search set", [](const std::filesystem::path& tmp) { testSearchSet(tmp); }},
-    {"pac placeholder", [](const std::filesystem::path& tmp) { testPlaceholder(tmp); }},
-    {"pac offset high half and subdirectories", [](const std::filesystem::path& tmp) { testOffsetHighAndSubdirectories(tmp); }},
-    {"pac damage refused", [](const std::filesystem::path& tmp) { testRejectsDamage(tmp); }},
-    {"dds sounds", [](const std::filesystem::path&) { testDds(); }},
-    {"locale text", [](const std::filesystem::path&) { testLocaleText(); }},
-    {"fin models", [](const std::filesystem::path&) { testFin(); }},
-    {"fin animation", [](const std::filesystem::path&) { testFinAnimation(); }},
-    {"ddf fonts", [](const std::filesystem::path&) { testDdf(); }},
-});
+static const test::Suite
+    suite("netimmerse.unit.formats",
+          {
+              {"pac read", [](const std::filesystem::path &tmp) { testRead(tmp); }},
+              {"pac search set", [](const std::filesystem::path &tmp) { testSearchSet(tmp); }},
+              {"pac placeholder", [](const std::filesystem::path &tmp) { testPlaceholder(tmp); }},
+              {"pac offset high half and subdirectories",
+               [](const std::filesystem::path &tmp) { testOffsetHighAndSubdirectories(tmp); }},
+              {"pac damage refused", [](const std::filesystem::path &tmp) { testRejectsDamage(tmp); }},
+              {"dds sounds", [](const std::filesystem::path &) { testDds(); }},
+              {"locale text", [](const std::filesystem::path &) { testLocaleText(); }},
+              {"fin models", [](const std::filesystem::path &) { testFin(); }},
+              {"fin animation", [](const std::filesystem::path &) { testFinAnimation(); }},
+              {"ddf fonts", [](const std::filesystem::path &) { testDdf(); }},
+          });

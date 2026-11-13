@@ -5,8 +5,8 @@
 
 #include "common/events.h"
 #include "common/system.h"
-#include "common/audio/mixer.h"
-#include "common/audio/sound.h"
+#include "audio/mixer.h"
+#include "audio/sound.h"
 #include "common/types.h"
 #include "engines/newworlds/briefing.h"
 #include "engines/newworlds/cat_archive.h"
@@ -50,7 +50,7 @@ namespace reluva::newworlds {
 //   F: filter (all, failed, colour-keyed, with alpha)
 class TextureViewer {
 public:
-    TextureViewer(System& sys, Surface& screen, const Archives& archives);
+    TextureViewer(System &sys, Surface &screen, const Archives &archives);
     size_t count() const { return textures_.size(); }
     void activate(); // redraw and retitle after switching to this viewer
     void handleKey(uint32_t key);
@@ -66,11 +66,11 @@ private:
     void show(int index);
     void fill(int x0, int y0, int w, int h, uint8_t r, uint8_t g, uint8_t b);
     void drawCheckerboard();
-    void drawTexture(const Texture& tex);
+    void drawTexture(const Texture &tex);
 
-    System& sys_;
-    Surface& screen_;
-    const Archives& archives_;
+    System &sys_;
+    Surface &screen_;
+    const Archives &archives_;
     std::vector<TextureRef> textures_;
     std::vector<size_t> visible_; // indices into textures_ that pass the filter
     bool classified_ = false;
@@ -92,10 +92,10 @@ private:
 //   B: back faces (hidden, shown, only back faces)   F: filter (all, multi-part, failed)
 class ModelViewer {
 public:
-    ModelViewer(System& sys, Surface& screen, const Archives& archives);
+    ModelViewer(System &sys, Surface &screen, const Archives &archives);
     size_t count() const { return models_.size(); }
     void activate();
-    void handleEvent(const Event& ev);
+    void handleEvent(const Event &ev);
     void update(uint64_t nowMs); // redraws when something changed
 
 private:
@@ -105,13 +105,13 @@ private:
     void resetView();
     void render();
     void updateTitle();
-    void drawLine(float x0, float y0, float x1, float y1, const uint8_t* colour = nullptr);
-    void loadTextures(const std::string& modelName);
-    void loadMetamodel(const std::string& modelName);
+    void drawLine(float x0, float y0, float x1, float y1, const uint8_t *colour = nullptr);
+    void loadTextures(const std::string &modelName);
+    void loadMetamodel(const std::string &modelName);
 
-    System& sys_;
-    Surface& screen_;
-    const Archives& archives_;
+    System &sys_;
+    Surface &screen_;
+    const Archives &archives_;
     Rasterizer raster_;
     std::vector<EntryRef> models_;
     std::vector<uint32_t> partCounts_; // per model; 0 when it doesn't decode
@@ -157,12 +157,12 @@ private:
 //   terrain codes in its colour table; textures tinted by resource deposit)
 class MapViewer {
 public:
-    MapViewer(System& sys, Surface& screen, const Archives& archives);
+    MapViewer(System &sys, Surface &screen, const Archives &archives);
     // level.dat's missions, to name each map's mission in the title.
     void setLevels(std::vector<Level> levels) { levels_ = std::move(levels); }
     size_t count() const { return maps_.size(); }
     void activate();
-    void handleEvent(const Event& ev);
+    void handleEvent(const Event &ev);
     void update(uint64_t nowMs); // redraws when something changed
 
     // For the missions page, which shows its maps through this viewer:
@@ -174,7 +174,7 @@ public:
     // Called after each redraw, to draw over the map.
     void setOverlay(std::function<void()> overlay) { overlay_ = std::move(overlay); }
     // Given the title this viewer would set, returns the one to set instead.
-    void setTitleFilter(std::function<std::string(const std::string&)> filter) { titleFilter_ = std::move(filter); }
+    void setTitleFilter(std::function<std::string(const std::string &)> filter) { titleFilter_ = std::move(filter); }
     void redraw() { dirty_ = true; }
     // How the ground is coloured (0 textures, 1 terrain codes, 2 deposits).
     int colouring() const { return colouring_; }
@@ -192,10 +192,10 @@ public:
     // colours, with the camera's target marked; the target as a map
     // position (eighths of a block, row first); the camera's heading in
     // degrees (0 when unturned, clockwise).
-    void drawMinimap(Surface& s, int x, int y, int w, int h) const;
+    void drawMinimap(Surface &s, int x, int y, int w, int h) const;
     // A world point's pixel on a minimap drawn at x, y, w, h.
-    void minimapPoint(float wx, float wy, int x, int y, int w, int h, int& px, int& py) const;
-    void cameraPosition(int& a, int& b) const;
+    void minimapPoint(float wx, float wy, int x, int y, int w, int h, int &px, int &py) const;
+    void cameraPosition(int &a, int &b) const;
     float heading() const;
     void setColouring(int colouring) {
         colouring_ = colouring;
@@ -208,20 +208,20 @@ public:
         std::string model;
         int a = 0, b = 0;
         int turn = 0;
-        float progress = 1; // under construction: 0 just begun, 1 built
+        float progress = 1;  // under construction: 0 just begun, 1 built
         std::string builder; // the construction bee working on it ("geo/fed/fconbee.geo"), or none
     };
-    void setBuildings(const std::vector<Building>& buildings);
+    void setBuildings(const std::vector<Building> &buildings);
     // A building's construction moved on (by its index in setBuildings').
     // The recordings show an apron first, then the building rising out of
     // it (play-tutorials.md): here its model flat, then growing upwards.
     void setBuildingProgress(size_t i, float progress);
     // The hologram of a building being placed (play): its model, tinted
     // green where it can go and red where it can't; model empty for none.
-    void setGhost(const std::string& model, int a, int b, bool valid);
+    void setGhost(const std::string &model, int a, int b, bool valid);
     // Tiles (x east, y north) drawn with the planet's concrete texture
     // instead of their own, as under a starting colony. Cleared by showMap.
-    void setPaved(const std::vector<std::pair<int, int>>& tiles);
+    void setPaved(const std::vector<std::pair<int, int>> &tiles);
     // The shown map's size in blocks, a block's resource deposit (0 for
     // none), and the ground's height at a map position (NaN off the map
     // or where no tile is).
@@ -233,7 +233,7 @@ public:
     int depositAmount(int bx, int by) const;
     float groundAt(int a, int b);
     // A building model's size across x and y (0 if it isn't there).
-    std::pair<float, float> modelSize(const std::string& name);
+    std::pair<float, float> modelSize(const std::string &name);
 
     // For play (the missions page): units to draw this frame, by model, at
     // world positions (x east, y north), standing on the ground; the
@@ -260,8 +260,8 @@ public:
     float worldHeight() const { return float(map_.height) * kBlockUnits; }
     // The world point under a screen pixel (false if the ray misses the
     // map), and a world point's pixel (false if behind the camera).
-    bool screenToGround(int sx, int sy, float& x, float& y);
-    bool worldToScreen(float x, float y, float z, int& sx, int& sy) const;
+    bool screenToGround(int sx, int sy, float &x, float &y);
+    bool worldToScreen(float x, float y, float z, int &sx, int &sy) const;
 
     // The game's camera (play-tutorials.md): the bird's-eye view, F2's sky
     // view, F1's first-person view; arrows move, numpad 4/6 turn, 8/2 zoom
@@ -286,8 +286,8 @@ public:
 private:
     using Vec3 = GeoModel::Vec3;
     struct TileModel {
-        std::string name;              // e.g. "geo/map/ice/ice_07.geo"
-        std::string error;             // when it doesn't decode
+        std::string name;  // e.g. "geo/map/ice/ice_07.geo"
+        std::string error; // when it doesn't decode
         GeoModel geo;
         std::vector<Vec3> faceNormals; // per face, unit length
         std::vector<Texture> textures; // in the order the faces number them
@@ -302,7 +302,7 @@ private:
     struct Placed {
         Vec3 position;
         float angle; // anticlockwise, in radians
-        const TileModel* model;
+        const TileModel *model;
         float progress = 1;
         std::string builder;
     };
@@ -312,7 +312,7 @@ private:
         std::vector<Animation> animations;
         bool turret = false;
     };
-    const Motion& motionOf(const std::string& model);
+    const Motion &motionOf(const std::string &model);
 
     void show(int index);
     void resetView();
@@ -320,24 +320,24 @@ private:
     void updateTitle();
     // An entry of the map's archive; ground tiles get textures by role, other
     // models those named after them.
-    void loadModel(size_t entry, TileModel& m, bool ground);
+    void loadModel(size_t entry, TileModel &m, bool ground);
     // The rest of loading a model, once read; buildings get their doors'
     // and aprons' textures too.
-    void prepareModel(const std::vector<uint8_t>& data, TileModel& m, bool ground, bool building);
+    void prepareModel(const std::vector<uint8_t> &data, TileModel &m, bool ground, bool building);
     // A model by name, loaded once; buildings get their doors' and aprons'
     // textures.
-    const TileModel& namedModel(const std::string& name, bool building = true);
-    const TileModel& tileModel(uint32_t index);
+    const TileModel &namedModel(const std::string &name, bool building = true);
+    const TileModel &tileModel(uint32_t index);
     float groundHeight(float x, float y);
     void placeScenery();
     void makeUnderlay();
-    const TileEdges& tileEdges(uint32_t tile);
+    const TileEdges &tileEdges(uint32_t tile);
     int tileAt(int tx, int ty) const; // tile record at a tile position, or -1
-    static unsigned terrainCode(const GmfMap::Tile& tile, int cx, int cy);
+    static unsigned terrainCode(const GmfMap::Tile &tile, int cx, int cy);
 
-    System& sys_;
-    Surface& screen_;
-    const Archives& archives_;
+    System &sys_;
+    Surface &screen_;
+    const Archives &archives_;
     Rasterizer raster_;
     std::vector<EntryRef> maps_;
     std::vector<Level> levels_;
@@ -346,11 +346,11 @@ private:
     int current_ = 0;
 
     GmfMap map_;
-    std::string status_;                 // decode error, if any
-    std::vector<size_t> archiveModels_;  // entry indices of the map archive's .geo files, by model number
+    std::string status_;                // decode error, if any
+    std::vector<size_t> archiveModels_; // entry indices of the map archive's .geo files, by model number
     std::map<uint32_t, TileModel> tileModels_;
     std::map<uint32_t, TileEdges> tileEdges_;
-    Texture wallTexture_; // the map archive's last cliff texture, if any
+    Texture wallTexture_;                    // the map archive's last cliff texture, if any
     std::map<int, TileModel> sceneryModels_; // by object type
     std::vector<Placed> placed_;
     std::map<std::string, TileModel> buildingModels_; // by name, across maps
@@ -368,7 +368,7 @@ private:
     void updateHidden();
     std::set<std::pair<int, int>> paved_;
     std::map<uint32_t, TileModel> pavedModels_; // tile models with the concrete texture throughout
-    const TileModel& pavedModel(uint32_t index);
+    const TileModel &pavedModel(uint32_t index);
     Texture underlay_; // ground showing through tiles with GmfMap::Tile::underlay
 
     float targetX_ = 0, targetY_ = 0, targetZ_ = 0, yaw_ = 0, pitch_ = 0, distance_ = 1;
@@ -379,7 +379,7 @@ private:
     bool dirty_ = true;
     unsigned drawnTiles_ = 0, drawnFaces_ = 0, drawnObjects_ = 0;
     std::function<void()> overlay_;
-    std::function<std::string(const std::string&)> titleFilter_;
+    std::function<std::string(const std::string &)> titleFilter_;
 };
 
 // Plays the sounds (.wav) and shows their waveforms.
@@ -390,8 +390,8 @@ public:
     // gameDir: the game folder, whose loose .mp3 and .wav files (Media/) are
     // listed after the archives' sounds; empty for none. mixer: the engine's,
     // playing into the System's output; nullptr when there's no output.
-    SoundViewer(System& sys, Surface& screen, const Archives& archives, audio::Mixer* mixer,
-                const std::filesystem::path& gameDir = {});
+    SoundViewer(System &sys, Surface &screen, const Archives &archives, audio::Mixer *mixer,
+                const std::filesystem::path &gameDir = {});
     size_t count() const { return sounds_.size(); }
     void activate();
     void deactivate(); // stops playing when switching to another viewer
@@ -405,19 +405,19 @@ private:
     bool playing() const;
     void draw();
     void updateTitle();
-    const std::string& nameOf(size_t sound) const;
+    const std::string &nameOf(size_t sound) const;
     std::string archiveOf(size_t sound) const; // its archive's file name
 
-    System& sys_;
-    Surface& screen_;
-    const Archives& archives_;
+    System &sys_;
+    Surface &screen_;
+    const Archives &archives_;
     // A sound in an archive, or a loose file in the game folder.
     struct Item {
         EntryRef ref{0, 0};
         std::filesystem::path file; // empty for an archive's
         std::string name;           // the archive's name for it, or the path in the game folder
     };
-    Error read(size_t sound, std::vector<uint8_t>& data) const;
+    Error read(size_t sound, std::vector<uint8_t> &data) const;
     std::vector<Item> sounds_;
     // The archives store some sounds many times over (kliactor has kneg1.wav
     // 24 times, in 4 slots of each vehicle's set), sometimes under other
@@ -430,14 +430,14 @@ private:
     int current_ = 0;
     std::string status_;
     std::shared_ptr<const audio::Sound> sound_; // the one shown
-    audio::Mixer* mixer_;                       // one sound at a time here
+    audio::Mixer *mixer_;                       // one sound at a time here
     audio::SoundHandle playing_ = audio::kNoSound;
 };
 
 // Shows the string tables (.stb), word-wrapped, with their ids.
 class StringViewer {
 public:
-    StringViewer(System& sys, Surface& screen, const Archives& archives);
+    StringViewer(System &sys, Surface &screen, const Archives &archives);
     size_t count() const { return tables_.size(); }
     void activate();
     void handleKey(uint32_t key);
@@ -462,9 +462,9 @@ private:
     int lineHeight() const;
     int drawSpan(int x, int y, std::string_view text, Color color);
 
-    System& sys_;
-    Surface& screen_;
-    const Archives& archives_;
+    System &sys_;
+    Surface &screen_;
+    const Archives &archives_;
     std::vector<EntryRef> tables_;
     std::vector<GameFont> fonts_;
     int font_ = -1; // index in fonts_, -1 for the built-in font
@@ -478,7 +478,7 @@ private:
 // Shows the game's fonts: each one's characters and some sample text.
 class FontViewer {
 public:
-    FontViewer(System& sys, Surface& screen, const Archives& archives);
+    FontViewer(System &sys, Surface &screen, const Archives &archives);
     size_t count() const { return fonts_.size(); }
     void activate();
     void handleKey(uint32_t key);
@@ -487,8 +487,8 @@ private:
     void draw();
     void updateTitle();
 
-    System& sys_;
-    Surface& screen_;
+    System &sys_;
+    Surface &screen_;
     std::vector<GameFont> fonts_;
     int current_ = 0, scale_ = 2;
     bool boxes_ = false; // outline each glyph's box
@@ -517,12 +517,12 @@ private:
 //   starting units to select and move; world.h): Escape or F3 leaves
 class MissionViewer {
 public:
-    MissionViewer(System& sys, Surface& screen, const Archives& archives, std::vector<Level> levels,
-                  audio::Mixer* mixer, const std::filesystem::path& gameDir);
+    MissionViewer(System &sys, Surface &screen, const Archives &archives, std::vector<Level> levels,
+                  audio::Mixer *mixer, const std::filesystem::path &gameDir);
     size_t count() const { return missions_.size(); }
     void activate();
     void deactivate(); // stops the sound when switching to another viewer
-    void handleEvent(const Event& ev);
+    void handleEvent(const Event &ev);
     void update(uint64_t nowMs);
     // Playing: Tab and Escape are the game's, not the data viewer's.
     bool playing() const { return playing_; }
@@ -538,30 +538,30 @@ private:
     void loadSide(); // the briefing and clips for the mission's current side
     void drawBriefing();
     void drawNoMap();
-    std::string title(const std::string& mapTitle) const;
+    std::string title(const std::string &mapTitle) const;
     void updateTitle();
     void redraw();
     // The briefing player: steps run one after another, each as long as its
     // clip (a few seconds when it has none, or its clip is missing).
     void drawInterface();
-    void stepScript(); // the next scripted event (X)
+    void stepScript();  // the next scripted event (X)
     void startColony(); // the hub alone, for the mission's side
     // Play: the game's controls over the map.
     void startPlay();
     void stopPlay();
-    bool playEvent(const Event& ev); // true if play used it
+    bool playEvent(const Event &ev); // true if play used it
     void showUnits();
     void drawPlay(); // the selection box, the full-screen Tricorder
-    bool hubPosition(float& x, float& y) const;
+    bool hubPosition(float &x, float &y) const;
     // Building in play (B): the menu's types for the side, the hologram
     // under the pointer, placing it, and its construction drawn.
-    std::vector<const BuildingType*> buildMenu() const;
-    void choose(const BuildingType& t);
+    std::vector<const BuildingType *> buildMenu() const;
+    void choose(const BuildingType &t);
     void updateGhost();
     void placeBuilding();
     void showProgress();
-    void deliver(const ScriptEvent& fired, const std::vector<MissionRun::Output>& out);
-    void showColony();  // hands the colony's buildings to the map
+    void deliver(const ScriptEvent &fired, const std::vector<MissionRun::Output> &out);
+    void showColony(); // hands the colony's buildings to the map
     void stopScript();
     void startBriefing();
     void stopBriefing();
@@ -577,7 +577,7 @@ private:
     void loadStarSystem(); // the one the mission's table names
     bool drawStarSystem();
     // A model turning on the grid, with its textures (loaded once).
-    bool drawModel(const std::string& name);
+    bool drawModel(const std::string &name);
     struct BriefingModel {
         TexturedModel model;
         bool ok = false;
@@ -590,20 +590,20 @@ private:
     void stopMusic();
     bool clipPlaying() const;
     // Reads and decodes one of the game folder's sound files.
-    std::shared_ptr<const audio::Sound> loadSound(const std::string& stem);
+    std::shared_ptr<const audio::Sound> loadSound(const std::string &stem);
     // Text in the briefing's font: the game's fe8pt if there, else Reluva's.
     int measure(std::string_view text) const;
     int lineHeight() const;
     void drawText(int x, int y, std::string_view text, Color color);
 
-    System& sys_;
-    Surface& screen_;
-    const Archives& archives_;
+    System &sys_;
+    Surface &screen_;
+    const Archives &archives_;
     std::vector<Level> missions_;
-    audio::Mixer* mixer_;
+    audio::Mixer *mixer_;
     MapViewer map_;
     std::vector<GameFont> fonts_;
-    const GameFont* font_ = nullptr;
+    const GameFont *font_ = nullptr;
     // The game folder's loose MP3s, by upper-case stem (F1005 -> its path).
     std::map<std::string, std::filesystem::path> mediaFiles_;
 
@@ -616,7 +616,7 @@ private:
     std::vector<BriefingStep> script_;
     std::map<char, Texture> emblems_; // 640 x 480, by side
     GeoModel galaxy_;
-    std::vector<Texture> galaxyTextures_; // in the order its faces number them
+    std::vector<Texture> galaxyTextures_;  // in the order its faces number them
     std::vector<std::string> systemNames_; // geo/solsys/'s systems
     std::string systemName_;
     GeoModel system_;
@@ -637,7 +637,7 @@ private:
     std::unique_ptr<Economy> economy_;
     std::vector<int> structureIds_; // per colony building, its economy structure
     bool buildMenu_ = false, ghostOk_ = false;
-    std::string placing_;            // the type being placed, or empty
+    std::string placing_;           // the type being placed, or empty
     int ghostA_ = -1, ghostB_ = -1; // where its hologram stands
     bool playing_ = false, boxing_ = false, tricorderFull_ = false;
     int mouseX_ = 0, mouseY_ = 0, boxX_ = 0, boxY_ = 0;

@@ -1,43 +1,106 @@
+# Formatting rules from docs/CODING_GUIDE.md. Each setting notes the guide
+# section it implements; settings the guide doesn't cover are marked
+# "(not in guide)" and keep the code's existing layout.
+#
+# Requires clang-format 18 or later.
 ---
 Language: Cpp
 BasedOnStyle: LLVM
+Standard: c++20
 
-# Indentation & Spacing
+# --- Indents Must Be Four Spaces ---------------------------------------------
 IndentWidth: 4
 TabWidth: 4
 UseTab: Never
+ContinuationIndentWidth: 4
+# "Indentation level is not increased after namespace clause"
 NamespaceIndentation: None
+# Switch/Case Constructs: `case` lines up with `switch`
 IndentCaseLabels: false
+IndentCaseBlocks: false
+# Preprocessor Pragmas: "must start from the first column"
 IndentPPDirectives: None
+# `public:` / `private:` at the class's own indentation
 AccessModifierOffset: -4
 
-# Braces & Breaking
+# --- Braces --------------------------------------------------------------------
+# Opening brace on the same line for functions, classes, control statements
 BreakBeforeBraces: Attach
+
+# --- Semicolons Must Be Followed By A New Line / Vertical Space -------------
+# "Avoid composite one-liners": the body of an if/loop goes on its own line
 AllowShortIfStatementsOnASingleLine: Never
 AllowShortLoopsOnASingleLine: false
+AllowShortCaseLabelsOnASingleLine: false
+# Only `{}` may stay on one line ("Mandatory {} for empty for/while loops")
 AllowShortBlocksOnASingleLine: Empty
-AllowShortFunctionsOnASingleLine: Empty
+# "Exception: short functions in a class": `int get() const { return _x; }`
+# may stay on one line inside its class (and `{}` anywhere); a function
+# defined outside its class doesn't
+AllowShortFunctionsOnASingleLine: InlineOnly
+# ...and so may a short lambda, wherever it is: an argument, or an entry
+# of a list (a test suite's cases)
+AllowShortLambdasOnASingleLine: All
+# enum values are not statements, so a short enum may stay on one line
+AllowShortEnumsOnASingleLine: true
+
+# --- Template definitions ----------------------------------------------------
+# `template<typename T>` with no space, and on its own line
+SpaceAfterTemplateKeyword: false
 AlwaysBreakTemplateDeclarations: Yes
 
-# Pointers & References (char *ptr, int &ref)
+# --- Pointers and casts / References ---------------------------------------
+# `char *ptr`, `int &ref`
 PointerAlignment: Right
 ReferenceAlignment: Right
-
-# Whitespace & Operators
+DerivePointerAlignment: false
+# `(const char *)chaos`: no space after a cast
 SpaceAfterCStyleCast: false
-SpaceAfterTemplateKeyword: false
-SpaceBeforeParens: ControlStatements
-SpaceBeforeAssignmentOperators: true
-SpaceBeforeInheritanceColon: true
-SpaceAroundPointerQualifiers: Default
-SpacesInAngles: Never
 SpacesInCStyleCastParentheses: false
-SpacesInParentheses: false
-SpacesInSquareBrackets: false
+SpaceAroundPointerQualifiers: Default
 
-# Comments & Miscellaneous
+# --- Whitespaces ------------------------------------------------------------
+# "C++ reserved words separated from opening parentheses by a white space";
+# no space in `operator()()` or `foo()`
+SpaceBeforeParens: ControlStatements
+# "Operators surrounded by a space character"
+SpaceBeforeAssignmentOperators: true
+# "colons must be surrounded by white space" (inheritance and `?:`)
+SpaceBeforeInheritanceColon: true
+SpaceBeforeCtorInitializerColon: true
+SpaceBeforeRangeBasedForLoopColon: true
+# No padding inside (), [], <>
+SpacesInAngles: Never
+SpacesInParens: Never
+SpacesInSquareBrackets: false
+SpaceBeforeSquareBrackets: false
+SpacesInContainerLiterals: false
+Cpp11BracedListStyle: true
+
+# --- Comments ---------------------------------------------------------------
+# "Comment operators followed by a space character": `// text`
+SpacesInLineCommentPrefix:
+  Minimum: 1
+  Maximum: -1
+SpacesBeforeTrailingComments: 1
 AlignTrailingComments: true
+# Keep hand-wrapped comments and Doxygen blocks as written
 ReflowComments: false
-ColumnLimit: 0
+# Namespaces: `} // namespace reluva::clue`
+FixNamespaceComments: true
+
+# --- Line Length ------------------------------------------------------------
+ColumnLimit: 120
+
+# --- Not in guide: keep the existing layout -----------------------------------
+# Include order is not set by the guide; keep the order each file has.
 SortIncludes: Never
+# Nor of using-declarations
+SortUsingDeclarations: Never
+# A string literal stays whole, even past the line length: split strings
+# are hard to search for (an error message, a command's usage text)
+BreakStringLiterals: false
+MaxEmptyLinesToKeep: 1
+KeepEmptyLinesAtTheStartOfBlocks: false
+InsertNewlineAtEOF: true
 ...

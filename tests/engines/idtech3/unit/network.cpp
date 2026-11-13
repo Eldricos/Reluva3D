@@ -4,14 +4,14 @@
 // id Tech 3 unit tests: Network play: messages and deltas, pure checks, the server browser, downloads, snapshots, a game played over the network.
 
 #include "common/fs.h"
-#include "engines/idtech3/bindings.h"
+#include "engines/idtech3/client/bindings.h"
 #include "engines/idtech3/client/joystick_input.h"
 #include "engines/idtech3/client/player_input.h"
 #include "engines/idtech3/botlib/aas.h"
 #include "engines/idtech3/botlib/bot_library.h"
 #include "engines/idtech3/botlib/bot_script.h"
 #include "engines/idtech3/botlib/character.h"
-#include "engines/idtech3/bsp.h"
+#include "engines/idtech3/formats/bsp.h"
 #include "engines/idtech3/collision.h"
 #include "engines/idtech3/cvars.h"
 #include "engines/idtech3/eliteforce/cgame_host.h"
@@ -24,29 +24,29 @@
 #include "engines/idtech3/eliteforce/net_server.h"
 #include "engines/idtech3/eliteforce/sp_game_host.h"
 #include "engines/idtech3/eliteforce/ui_host.h"
-#include "engines/idtech3/entities.h"
+#include "engines/idtech3/formats/entities.h"
 #include "engines/idtech3/filesystem.h"
 #include "engines/idtech3/info_string.h"
 #include "engines/idtech3/games.h"
-#include "engines/idtech3/lexer.h"
-#include "engines/idtech3/marks.h"
-#include "engines/idtech3/light_grid.h"
-#include "engines/idtech3/md3.h"
-#include "engines/idtech3/model_cache.h"
+#include "engines/idtech3/formats/lexer.h"
+#include "engines/idtech3/formats/marks.h"
+#include "engines/idtech3/render/light_grid.h"
+#include "engines/idtech3/formats/md3.h"
+#include "engines/idtech3/render/model_cache.h"
 #include "engines/idtech3/wire/message.h"
 #include "engines/idtech3/wire/netchan.h"
-#include "engines/idtech3/patch.h"
-#include "engines/idtech3/player_animation.h"
+#include "engines/idtech3/render/patch.h"
+#include "engines/idtech3/formats/player_animation.h"
 #include "engines/idtech3/pure.h"
-#include "engines/idtech3/qvm.h"
-#include "engines/idtech3/server_browser.h"
-#include "backends/sockets/socket_net.h"
-#include "engines/idtech3/shader.h"
+#include "engines/idtech3/vm/qvm.h"
+#include "engines/idtech3/client/server_browser.h"
+#include "backends/networking/sockets/socket_net.h"
+#include "engines/idtech3/formats/shader.h"
 #include "engines/idtech3/raven/ambient_sets.h"
-#include "engines/idtech3/sound_system.h"
-#include "engines/idtech3/sounds.h"
+#include "engines/idtech3/audio/sound_system.h"
+#include "engines/idtech3/audio/sounds.h"
 #include "engines/idtech3/pages/page.h"
-#include "common/audio/wav.h"
+#include "audio/wav.h"
 #include "common/md4.h"
 #include "common/zip.h"
 #include "engines/registry.h"
@@ -54,7 +54,7 @@
 #include "tests/engines/idtech3/data/qvm/fake_game_qvm.h"
 #include "tests/engines/idtech3/data/qvm/fake_ui_qvm.h"
 #include "tests/engines/idtech3/data/qvm/test_vm_qvm.h"
-#include "engines/idtech3/vm_services.h"
+#include "engines/idtech3/vm/vm_services.h"
 #include "tests/engines/idtech3/fixtures.h"
 #include "tests/support/test.h"
 #include "tests/support/zip_writer.h"
@@ -82,18 +82,18 @@ using namespace reluva::idtech3::fixtures;
 // Raven's) sent to a player who asks, block by block, when
 // sv_allowDownload is on; refused when it's off. A pak holding only the
 // server's game code isn't one the level uses, as the original counts.
-static void testDownloads(const std::filesystem::path& tmp) {
+static void testDownloads(const std::filesystem::path &tmp) {
     namespace ef = eliteforce;
     std::filesystem::remove_all(tmp);
     // Over 48 KB, so the window and its acknowledgements matter.
     std::vector<uint8_t> filler(70000);
     for (size_t i = 0; i < filler.size(); ++i)
         filler[i] = uint8_t(i * 7 + i / 300);
-    test::writeFile(tmp / "BaseEF" / "zz_custom.pk3",
-                    test::buildZip({{"vm/qagame.qvm",
-                                     std::vector<uint8_t>(std::begin(kFakeGameQvm), std::end(kFakeGameQvm)), {}},
-                                    {"maps/borg2.bsp", {1, 2, 3, 4}, {}},
-                                    {"filler.dat", filler, {}}}));
+    test::writeFile(
+        tmp / "BaseEF" / "zz_custom.pk3",
+        test::buildZip({{"vm/qagame.qvm", std::vector<uint8_t>(std::begin(kFakeGameQvm), std::end(kFakeGameQvm)), {}},
+                        {"maps/borg2.bsp", {1, 2, 3, 4}, {}},
+                        {"filler.dat", filler, {}}}));
     test::writeFile(tmp / "BaseEF" / "zz_code.pk3", test::buildZip({{"vm/qagame.qvm", {5, 6, 7}, {}}}));
     std::vector<uint8_t> pakBytes;
     {
@@ -119,7 +119,7 @@ static void testDownloads(const std::filesystem::path& tmp) {
     server.levelStarted();
     CHECK(cvars.string("sv_referencedPakNames") == "BaseEF/zz_custom ");
     uint64_t now = 1000;
-    auto tick = [&](ef::NetClient& client) {
+    auto tick = [&](ef::NetClient &client) {
         client.frame(now);
         CHECK(!server.receive(now));
         CHECK(!game.runFrame());
@@ -169,14 +169,14 @@ static void testDownloads(const std::filesystem::path& tmp) {
 // A pure server (sv_pure 1): it lists its paks, holds a player's moves
 // until its paks are checked (cp), lets in one that answers rightly and
 // drops one that doesn't.
-static void testPureServer(const std::filesystem::path& tmp) {
+static void testPureServer(const std::filesystem::path &tmp) {
     namespace ef = eliteforce;
     std::filesystem::remove_all(tmp);
-    test::writeFile(tmp / "BaseEF" / "pak0.pk3",
-                    test::buildZip({{"vm/qagame.qvm",
-                                     std::vector<uint8_t>(std::begin(kFakeGameQvm), std::end(kFakeGameQvm)), {}},
-                                    {"vm/cgame.qvm", {1, 2, 3}, {}},
-                                    {"vm/ui.qvm", {4, 5, 6}, {}}}));
+    test::writeFile(
+        tmp / "BaseEF" / "pak0.pk3",
+        test::buildZip({{"vm/qagame.qvm", std::vector<uint8_t>(std::begin(kFakeGameQvm), std::end(kFakeGameQvm)), {}},
+                        {"vm/cgame.qvm", {1, 2, 3}, {}},
+                        {"vm/ui.qvm", {4, 5, 6}, {}}}));
     test::writeFile(tmp / "BaseEF" / "pak1.pk3", test::buildZip({{"maps/borg2.bsp", {7, 8, 9}, {}}}));
     SearchSet set;
     std::vector<std::string> warnings;
@@ -204,14 +204,14 @@ static void testPureServer(const std::filesystem::path& tmp) {
         ++paks;
     CHECK(paks == 2 && infoValue(sysInfo, "sv_pakNames").find("BaseEF/pak1") != std::string::npos);
     uint64_t now = 1000;
-    auto tick = [&](ef::NetClient& client) {
+    auto tick = [&](ef::NetClient &client) {
         client.frame(now);
         CHECK(!server.receive(now));
         CHECK(!game.runFrame());
         CHECK(!server.frame(now));
         now += 50;
     };
-    auto play = [&](ef::NetClient& client, int frames) {
+    auto play = [&](ef::NetClient &client, int frames) {
         for (int i = 0; i < frames; ++i) {
             ef::GameHost::UserCommand cmd;
             cmd.serverTime = game.levelTime();
@@ -251,12 +251,13 @@ static void testPureServer(const std::filesystem::path& tmp) {
 
 // What a snapshot holds: the fake game's level on a map cut in two at
 // x = 0, each half its own cluster and area; the player on the +x side.
-static void testSnapshotCulling(const std::filesystem::path& tmp) {
+static void testSnapshotCulling(const std::filesystem::path &tmp) {
     namespace ef = eliteforce;
     std::filesystem::remove_all(tmp);
-    test::writeFile(tmp / "BaseEF" / "pak0.pk3",
-                    test::buildZip({{"vm/qagame.qvm",
-                                     std::vector<uint8_t>(std::begin(kFakeGameQvm), std::end(kFakeGameQvm)), {}}}));
+    test::writeFile(
+        tmp / "BaseEF" / "pak0.pk3",
+        test::buildZip(
+            {{"vm/qagame.qvm", std::vector<uint8_t>(std::begin(kFakeGameQvm), std::end(kFakeGameQvm)), {}}}));
     SearchSet set;
     std::vector<std::string> warnings;
     CHECK(!mountGameDir(set, tmp, "BaseEF", 0, warnings));
@@ -290,7 +291,7 @@ static void testSnapshotCulling(const std::filesystem::path& tmp) {
     game.vm().writeInt(body + 272, Qvm::fromFloat(300));
     auto numbers = [&] {
         std::set<int32_t> out;
-        for (const auto& e : game.snapshot(0).entities)
+        for (const auto &e : game.snapshot(0).entities)
             out.insert(int32_t(e[0]));
         return out;
     };
@@ -311,12 +312,13 @@ static void testSnapshotCulling(const std::filesystem::path& tmp) {
 
 // A player joining over the network: the fake game's server, and a
 // client talking to it through sockets in memory (some datagrams lost).
-static void testNetworkPlay(const std::filesystem::path& tmp, bool systemSockets, bool limitRate = false) {
+static void testNetworkPlay(const std::filesystem::path &tmp, bool systemSockets, bool limitRate = false) {
     namespace ef = eliteforce;
     std::filesystem::remove_all(tmp);
-    test::writeFile(tmp / "BaseEF" / "pak0.pk3",
-                    test::buildZip({{"vm/qagame.qvm",
-                                     std::vector<uint8_t>(std::begin(kFakeGameQvm), std::end(kFakeGameQvm)), {}}}));
+    test::writeFile(
+        tmp / "BaseEF" / "pak0.pk3",
+        test::buildZip(
+            {{"vm/qagame.qvm", std::vector<uint8_t>(std::begin(kFakeGameQvm), std::end(kFakeGameQvm)), {}}}));
     SearchSet set;
     std::vector<std::string> warnings;
     CHECK(!mountGameDir(set, tmp, "BaseEF", 0, warnings));
@@ -339,14 +341,15 @@ static void testNetworkPlay(const std::filesystem::path& tmp, bool systemSockets
     std::string socketError;
     std::unique_ptr<net::UdpSocket> serverSocket =
         systemSockets ? net::openSystemUdp(0, socketError) : network->open(27960);
-    std::unique_ptr<net::UdpSocket> clientSocket = systemSockets ? net::openSystemUdp(0, socketError) : network->open(0);
+    std::unique_ptr<net::UdpSocket> clientSocket =
+        systemSockets ? net::openSystemUdp(0, socketError) : network->open(0);
     if (!serverSocket || !clientSocket) {
         std::printf("(network play over system sockets not tested: %s)\n", socketError.c_str());
         return;
     }
     const uint16_t serverPort = serverSocket->port();
     auto serverOwned = std::make_unique<ef::NetServer>(game, cvars, std::move(serverSocket));
-    ef::NetServer& server = *serverOwned;
+    ef::NetServer &server = *serverOwned;
     server.levelStarted();
     ef::NetClient client(std::move(clientSocket), {0x7f000001u, serverPort}, "\\name\\Remote\\snaps\\20", 77);
     uint64_t now = 1000;
@@ -368,7 +371,7 @@ static void testNetworkPlay(const std::filesystem::path& tmp, bool systemSockets
     // Loaded: its moves put it in the level and move it along.
     client.setLoaded();
     // From now on every fourth datagram each way is lost (in memory).
-    network->setDropFilter([](const net::Address&, const net::Address&, size_t index) { return index % 4 == 3; });
+    network->setDropFilter([](const net::Address &, const net::Address &, size_t index) { return index % 4 == 3; });
     std::vector<ef::GameHost::Snapshot> got;
     for (int i = 0; i < 60; ++i) {
         ef::GameHost::UserCommand cmd;
@@ -376,16 +379,16 @@ static void testNetworkPlay(const std::filesystem::path& tmp, bool systemSockets
         cmd.forward = 127;
         client.addCommand(cmd);
         tick();
-        for (auto& snap : client.takeSnapshots())
+        for (auto &snap : client.takeSnapshots())
             got.push_back(std::move(snap));
     }
     CHECK(client.state() == ef::NetClient::State::Active && got.size() > 20);
     CHECK(game.linked().count(4) && game.entityVec(4, 272)[0] > 100); // moved by its commands
     // What it has is what the server has (the door's state, every byte).
     if (!got.empty()) {
-        const auto& last = got.back();
+        const auto &last = got.back();
         bool foundDoor = false;
-        for (const auto& e : last.entities)
+        for (const auto &e : last.entities)
             if (e[0] == 1)
                 foundDoor = e == game.entityState(1);
         CHECK(foundDoor);
@@ -393,7 +396,7 @@ static void testNetworkPlay(const std::filesystem::path& tmp, bool systemSockets
     }
     // The game's announcement reached it.
     bool announced = false;
-    for (const std::string& c : client.serverCommands())
+    for (const std::string &c : client.serverCommands())
         announced = announced || c.find("entered the game") != std::string::npos;
     CHECK(announced);
     // Snapshots while loading are flagged not active; in the game, not.
@@ -401,7 +404,7 @@ static void testNetworkPlay(const std::filesystem::path& tmp, bool systemSockets
     // At 3000 bytes a second (no rate given), some snapshots are held back
     // and the next flagged so; unlimited, none.
     bool delayed = false;
-    for (const auto& snap : got)
+    for (const auto &snap : got)
         delayed = delayed || (snap.snapFlags & 1);
     CHECK(delayed == limitRate);
     if (!systemSockets) {
@@ -413,7 +416,7 @@ static void testNetworkPlay(const std::filesystem::path& tmp, bool systemSockets
                 cmd.forward = 127;
                 client.addCommand(cmd);
                 tick();
-                for (auto& snap : client.takeSnapshots())
+                for (auto &snap : client.takeSnapshots())
                     got.push_back(std::move(snap));
             }
         };
@@ -426,7 +429,7 @@ static void testNetworkPlay(const std::filesystem::path& tmp, bool systemSockets
         got.clear();
         play(10);
         bool restartSent = false;
-        for (const std::string& c : client.serverCommands())
+        for (const std::string &c : client.serverCommands())
             restartSent = restartSent || c == "map_restart";
         CHECK(restartSent && client.state() == ef::NetClient::State::Active && !got.empty() &&
               (got.back().snapFlags & 4) != flagBefore);
@@ -461,7 +464,7 @@ static void testNetworkPlay(const std::filesystem::path& tmp, bool systemSockets
         cvars.set("sv_master2", "");
         cvars.create("dedicated", "0", 0);
         cvars.set("dedicated", "2", true); // (latched: forced, as at a new level)
-        server.resolveHost = [](const std::string& host, uint32_t& ip) {
+        server.resolveHost = [](const std::string &host, uint32_t &ip) {
             net::Address a;
             if (!net::parseAddress(host, 0, a))
                 return false;
@@ -557,8 +560,8 @@ static void testNetDeltas() {
     using namespace reluva::idtech3::eliteforce;
     using reluva::idtech3::wire::MessageReader;
     using reluva::idtech3::wire::MessageWriter;
-    auto put = [](std::vector<uint8_t>& s, int32_t at, int32_t v) { std::memcpy(s.data() + at, &v, 4); };
-    auto putF = [&](std::vector<uint8_t>& s, int32_t at, float v) {
+    auto put = [](std::vector<uint8_t> &s, int32_t at, int32_t v) { std::memcpy(s.data() + at, &v, 4); };
+    auto putF = [&](std::vector<uint8_t> &s, int32_t at, float v) {
         int32_t i;
         std::memcpy(&i, &v, 4);
         put(s, at, i);
@@ -590,13 +593,13 @@ static void testNetDeltas() {
     std::vector<uint8_t> p(kNetPlayerStateSize, 0), q;
     put(p, 0, 123456);
     putF(p, 20, 12.5f);
-    put(p, 16, -5);    // pm_time, signed
-    put(p, 180, -10);  // viewheight, signed
-    put(p, 204, -3);   // stats[0]
-    put(p, 396 + 8, 40); // ammo[2]
+    put(p, 16, -5);         // pm_time, signed
+    put(p, 180, -10);       // viewheight, signed
+    put(p, 204, -3);        // stats[0]
+    put(p, 396 + 8, 40);    // ammo[2]
     put(p, 332 + 4, 99999); // powerups[1]
-    put(p, 56, 777);   // introTime, last
-    put(p, 48, 200);   // not sent
+    put(p, 56, 777);        // introTime, last
+    put(p, 48, 200);        // not sent
     MessageWriter pw;
     writePlayerDelta(pw, {}, p);
     CHECK(pw.bitCount() > 48 + 4);
@@ -625,28 +628,29 @@ static void testNetDeltas() {
     CHECK(r2.serverTime == 5016 && r2.forward == -127 && r2.right == -127);
 }
 
-static void testPureCheck(const std::filesystem::path& tmp) {
+static void testPureCheck(const std::filesystem::path &tmp) {
     std::filesystem::remove_all(tmp);
     // Two paks: the game code in one, a map in the other; an empty file
     // doesn't count towards a checksum.
-    test::writeFile(tmp / "BaseEF" / "pak0.pk3",
-                    test::buildZip({{"vm/cgame.qvm", {1, 2, 3}, {}}, {"vm/ui.qvm", {4, 5}, {}}, {"empty.txt", {}, {}}}));
+    test::writeFile(
+        tmp / "BaseEF" / "pak0.pk3",
+        test::buildZip({{"vm/cgame.qvm", {1, 2, 3}, {}}, {"vm/ui.qvm", {4, 5}, {}}, {"empty.txt", {}, {}}}));
     test::writeFile(tmp / "BaseEF" / "pak1.pk3", test::buildZip({{"maps/x.bsp", {9, 9, 9, 9}, {}}}));
     SearchSet set;
     std::vector<std::string> warnings;
     CHECK(!mountGameDir(set, tmp, "BaseEF", 0, warnings));
-    std::vector<const ZipArchive*> paks;
-    for (const Archive* a : set.archives())
-        if (const auto* z = dynamic_cast<const ZipArchive*>(a))
+    std::vector<const ZipArchive *> paks;
+    for (const Archive *a : set.archives())
+        if (const auto *z = dynamic_cast<const ZipArchive *>(a))
             paks.push_back(z);
     CHECK(paks.size() == 2);
     if (paks.size() != 2)
         return;
-    const ZipArchive* code = paks[0]->has("vm/cgame.qvm") ? paks[0] : paks[1];
-    const ZipArchive* map = code == paks[0] ? paks[1] : paks[0];
+    const ZipArchive *code = paks[0]->has("vm/cgame.qvm") ? paks[0] : paks[1];
+    const ZipArchive *map = code == paks[0] ? paks[1] : paks[0];
     // The checksum: MD4 of the CRCs, folded; the pure one with the feed first.
     std::vector<uint8_t> words;
-    for (const auto& e : map->entries())
+    for (const auto &e : map->entries())
         if (e.size > 0)
             for (int i = 0; i < 4; ++i)
                 words.push_back(uint8_t(e.crc >> (8 * i)));
@@ -699,8 +703,7 @@ static void testPureCheck(const std::filesystem::path& tmp) {
 
     // What counts as using a pak: not the files read from every pak, nor
     // the server's game code.
-    CHECK(referencesPak("maps/hm_borg1.bsp") && referencesPak("botfiles/chars.h") &&
-          referencesPak("vm/cgame.qvm"));
+    CHECK(referencesPak("maps/hm_borg1.bsp") && referencesPak("botfiles/chars.h") && referencesPak("vm/cgame.qvm"));
     CHECK(!referencesPak("scripts/borg.shader") && !referencesPak("scripts/arenas.txt") &&
           !referencesPak("botfiles/bots/munro.bot") && !referencesPak("Scripts/X.ARENA") &&
           !referencesPak("vm/qagame.qvm") && !referencesPak("levelshots/hm_borg1.jpg"));
@@ -719,7 +722,7 @@ static void testServerBrowser() {
     while (server->receive(from, data))
         asked += std::string(data.begin() + 4, data.end()) == "getinfo xxx";
     CHECK(asked == 2); // twice on its port
-    auto reply = [&](const std::string& text) {
+    auto reply = [&](const std::string &text) {
         std::vector<uint8_t> d(4, 0xff);
         d.insert(d.end(), text.begin(), text.end());
         server->send(from, d);
@@ -749,7 +752,9 @@ static void testServerBrowser() {
     browser.globalServers({{0x7f000001u, 27953}}, 24, "");
     CHECK(browser.globalServerCount() == -1); // waiting for an answer
     CHECK(master->receive(from, data) && std::string(data.begin() + 4, data.end()) == "getservers 24 full empty");
-    const std::string list = "getserversResponse\\C0A80105" "6D38\\0A000002" "6D39\\EOT";
+    const std::string list = "getserversResponse\\C0A80105"
+                             "6D38\\0A000002"
+                             "6D39\\EOT";
     std::vector<uint8_t> answer(4, 0xff);
     answer.insert(answer.end(), list.begin(), list.end());
     master->send(from, answer);
@@ -763,15 +768,19 @@ static void testServerBrowser() {
     CHECK(ServerBrowser::infoFromResponse(q3) == "\\hostname\\Q3");
 }
 
-static const reluva::test::Suite suite("idtech3.unit.network", {
-    {"messages", [](const std::filesystem::path&) { testNetMessages(); }},
-    {"deltas", [](const std::filesystem::path&) { testNetDeltas(); }},
-    {"pure check", [](const std::filesystem::path& tmp) { testPureCheck(tmp / "pure"); }},
-    {"server browser", [](const std::filesystem::path&) { testServerBrowser(); }},
-    {"downloads", [](const std::filesystem::path& tmp) { testDownloads(tmp / "downloads"); }},
-    {"pure server", [](const std::filesystem::path& tmp) { testPureServer(tmp / "pure"); }},
-    {"snapshot culling", [](const std::filesystem::path& tmp) { testSnapshotCulling(tmp / "culling"); }},
-    {"network play", [](const std::filesystem::path& tmp) { testNetworkPlay(tmp / "netplay", false); }},
-    {"network play over sockets", [](const std::filesystem::path& tmp) { testNetworkPlay(tmp / "netplay-udp", true); }},
-    {"network play at a rate", [](const std::filesystem::path& tmp) { testNetworkPlay(tmp / "netplay-rate", false, true); }},
-});
+static const reluva::test::Suite
+    suite("idtech3.unit.network",
+          {
+              {"messages", [](const std::filesystem::path &) { testNetMessages(); }},
+              {"deltas", [](const std::filesystem::path &) { testNetDeltas(); }},
+              {"pure check", [](const std::filesystem::path &tmp) { testPureCheck(tmp / "pure"); }},
+              {"server browser", [](const std::filesystem::path &) { testServerBrowser(); }},
+              {"downloads", [](const std::filesystem::path &tmp) { testDownloads(tmp / "downloads"); }},
+              {"pure server", [](const std::filesystem::path &tmp) { testPureServer(tmp / "pure"); }},
+              {"snapshot culling", [](const std::filesystem::path &tmp) { testSnapshotCulling(tmp / "culling"); }},
+              {"network play", [](const std::filesystem::path &tmp) { testNetworkPlay(tmp / "netplay", false); }},
+              {"network play over sockets",
+               [](const std::filesystem::path &tmp) { testNetworkPlay(tmp / "netplay-udp", true); }},
+              {"network play at a rate",
+               [](const std::filesystem::path &tmp) { testNetworkPlay(tmp / "netplay-rate", false, true); }},
+          });

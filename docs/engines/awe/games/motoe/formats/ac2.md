@@ -1,6 +1,6 @@
 # Murder on the Orient Express: scene files (`.ac2`)
 
-> **Status:** decoded · **Code:** `src/engines/awe/ac2.cpp` · **Checked on:** English 1.0: three files record by record, then all 394 scenes (`awe ac2-dump`) · **Confidence:** confirmed unless marked
+> **Status:** decoded · **Code:** `src/engines/awe/formats/ac2.cpp` · **Checked on:** English 1.0: three files record by record, then all 394 scenes (`awe ac2-dump`) · **Confidence:** confirmed unless marked
 
 ## Overview
 
@@ -112,7 +112,7 @@ characters all four.
 
 A field's name in the table is the original's offset in its object
 where its use isn't known (or the game never reads it). Reluva uses the
-same names (in `src/engines/awe/ac2.cpp`), so they line up with the
+same names (in `src/engines/awe/formats/ac2.cpp`), so they line up with the
 executable.
 
 #### `SPRT`: a picture's settings
@@ -579,7 +579,7 @@ outside a room are 0 too: the walls' 1s keep a search inside.
   first.
 
   Reluva's port is `WalkGrid::search` and `WalkGrid::findPath`
-  (`src/engines/awe/walk_grid.cpp`), with the game's three tries.
+  (`src/engines/awe/game/walk_grid.cpp`), with the game's three tries.
   - **Arithmetic:** the game does its sums on the x87 at 24 bits.
     Direct3D 8's `CreateDevice` sets the x87 to single precision unless
     asked not to (`D3DCREATE_FPU_PRESERVE`), and the game creates its
@@ -601,7 +601,7 @@ outside a room are 0 too: the walls' 1s keep a search inside.
     plans paths between random open cells of every scene, four ways each
     (3s open or not, 2s allowed or not). It plans each both with the
     port and with the game's own code from the user's `motoe.exe`, run in
-    the x86 interpreter (`src/engines/awe/game_paths.cpp`), and compares
+    the x86 interpreter (`src/engines/awe/game/game_paths.cpp`), and compares
     every point and heading.
   - **Result:** on the English 1.0 install, 20 pairs in each of the
     281 scenes with a walk grid gave 22,480 searches (19,024 with a
@@ -678,7 +678,7 @@ card, 7 taken away by `remove all`.
 
 `reluva-tool awe script-check` counts the words of the install's 2,175
 conditions. Reluva's evaluator is `testCondition`
-(`src/engines/awe/conditions.cpp`).
+(`src/engines/awe/game/conditions.cpp`).
 
 ## Sources and checks
 

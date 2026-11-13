@@ -26,7 +26,7 @@ Each step can be seen working before the next.
    playing. Scrolls; an overview of the whole house. The near walls
    see-through, solid or hidden.
 3. **Video** (done, [formats/videos.md](formats/videos.md)). An AVI reader and a Cinepak decoder in
-   `src/common/video` ([common/cinepak.md](../../common/video/cinepak.md)); the
+   `src/video` ([common/cinepak.md](../../common/video/cinepak.md)); the
    videos page plays all 44 with their sound.
 4. **The interface** (done, but for the in-game panels). `dialogInfo.res`
    read ([formats/resi.md](formats/resi.md)); the game's

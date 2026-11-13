@@ -3,7 +3,7 @@
 
 #pragma once
 
-#include "engines/idtech3/bsp.h"
+#include "engines/idtech3/formats/bsp.h"
 
 #include <array>
 #include <cstdint>
@@ -26,10 +26,10 @@ struct TraceResult {
     bool startSolid = false; // it starts inside something solid
     float fraction = 1;      // how far it got: 1 = all the way
     Vec3f endPos{};
-    Vec3f normal{};          // the plane hit
+    Vec3f normal{}; // the plane hit
     float dist = 0;
     int32_t surfaceFlags = 0;
-    int32_t contents = 0;    // of what was hit
+    int32_t contents = 0; // of what was hit
 };
 
 // A map's solid parts for moving things through: a box (or a point) swept
@@ -41,15 +41,15 @@ struct TraceResult {
 // through the same leaves. See docs/engines/idtech3/formats/bsp.md.
 class CollisionWorld {
 public:
-    explicit CollisionWorld(const Bsp& bsp);
+    explicit CollisionWorld(const Bsp &bsp);
 
     // Model 0 is the world, others brush entities' (*1, *2...), traced
     // in their own coordinates. mins/maxs give the box around the moving
     // point (zeros for a point).
-    TraceResult trace(const Vec3f& start, const Vec3f& end, const Vec3f& mins, const Vec3f& maxs, int model,
+    TraceResult trace(const Vec3f &start, const Vec3f &end, const Vec3f &mins, const Vec3f &maxs, int model,
                       int32_t mask) const;
     // The contents of everything at a point.
-    int32_t pointContents(const Vec3f& point, int model) const;
+    int32_t pointContents(const Vec3f &point, int model) const;
     // The same against brush model `model` standing at `origin`, turned by
     // `angles` (pitch, yaw, roll in degrees), as the original's
     // CM_TransformedBoxTrace: the box is moved by its middle (an uneven
@@ -57,37 +57,37 @@ public:
     // axes, but not the box (the original leaves it unturned: turning it
     // would spoil the brushes' bevels); the plane hit is turned back, and
     // the end found along the move in the world.
-    TraceResult transformedTrace(const Vec3f& start, const Vec3f& end, const Vec3f& mins, const Vec3f& maxs,
-                                 int model, int32_t mask, const Vec3f& origin, const Vec3f& angles) const;
-    int32_t transformedPointContents(const Vec3f& point, int model, const Vec3f& origin, const Vec3f& angles) const;
+    TraceResult transformedTrace(const Vec3f &start, const Vec3f &end, const Vec3f &mins, const Vec3f &maxs, int model,
+                                 int32_t mask, const Vec3f &origin, const Vec3f &angles) const;
+    int32_t transformedPointContents(const Vec3f &point, int model, const Vec3f &origin, const Vec3f &angles) const;
     // A turn's axes, as Quake III works them out from (pitch, yaw, roll):
     // forward, left and up, a point's coordinates in them its dot
     // products with each.
-    static std::array<Vec3f, 3> turnAxes(const Vec3f& angles);
+    static std::array<Vec3f, 3> turnAxes(const Vec3f &angles);
     // The leaf a point is in, for visibility.
-    int leafAt(const Vec3f& point) const;
+    int leafAt(const Vec3f &point) const;
     // The leaves a box touches (inside or on their edges).
-    void boxLeafs(const Vec3f& mins, const Vec3f& maxs, std::vector<int>& leafs) const;
+    void boxLeafs(const Vec3f &mins, const Vec3f &maxs, std::vector<int> &leafs) const;
     // The area a leaf is in (-1: none, as solid leaves).
     int leafArea(int leaf) const {
         return leaf >= 0 && size_t(leaf) < bsp_.leafs.size() ? bsp_.leafs[size_t(leaf)].area : -1;
     }
     // How many areas the map is cut into (by its area portals).
     int areaCount() const { return areaCount_; }
-    bool modelBounds(int model, Vec3f& mins, Vec3f& maxs) const;
+    bool modelBounds(int model, Vec3f &mins, Vec3f &maxs) const;
     int modelCount() const { return int(bsp_.models.size()); }
-    const Bsp& bsp() const { return bsp_; }
+    const Bsp &bsp() const { return bsp_; }
 
     // A box of given contents, for entities that aren't brush models;
     // traced in the same way.
-    static TraceResult traceBox(const Vec3f& start, const Vec3f& end, const Vec3f& mins, const Vec3f& maxs,
-                                const Vec3f& boxMins, const Vec3f& boxMaxs, int32_t boxContents);
+    static TraceResult traceBox(const Vec3f &start, const Vec3f &end, const Vec3f &mins, const Vec3f &maxs,
+                                const Vec3f &boxMins, const Vec3f &boxMaxs, int32_t boxContents);
 
 private:
     struct Work; // one trace's state
-    void traceNode(Work& w, int node) const;
-    void traceBrush(Work& w, int brush) const;
-    void tracePatch(Work& w, int surface) const;
+    void traceNode(Work &w, int node) const;
+    void traceBrush(Work &w, int brush) const;
+    void tracePatch(Work &w, int surface) const;
     int32_t brushContents(int brush) const;
     void buildPatches();
 
@@ -97,7 +97,7 @@ private:
         std::array<BspPlane, 11> planes{}; // its plane both ways, 3 edges, 6 box sides
         int planeCount = 0;
         Vec3f mins{}, maxs{};
-        void add(const BspPlane& p) { planes[size_t(planeCount++)] = p; }
+        void add(const BspPlane &p) { planes[size_t(planeCount++)] = p; }
     };
     // Neighbouring facets (as tessellated, a run along a row) under one
     // box, and runs of those under another, so a trace skips most of a
@@ -116,7 +116,7 @@ private:
     std::vector<FacetGroup> runs_;   // facets, kFacetRun at most each
     std::vector<FacetGroup> groups_; // runs, kFacetRun at most each
 
-    const Bsp& bsp_;
+    const Bsp &bsp_;
     mutable std::vector<uint32_t> checked_;        // per brush: the trace that last tested it
     mutable std::vector<uint32_t> checkedPatches_; // per surface, likewise
     mutable uint32_t traceCount_ = 0;

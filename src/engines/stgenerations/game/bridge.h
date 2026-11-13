@@ -47,7 +47,7 @@ public:
         int fleet = 0;
     };
 
-    Bridge(const ResourceManager& resources, Mixer* mixer, Campaign& campaign, RandomSource& random);
+    Bridge(const ResourceManager &resources, Mixer *mixer, Campaign &campaign, RandomSource &random);
     ~Bridge() override;
 
     // Read UNIVERSE.INI and the pictures; false if STELLAR.DAT lacks them.
@@ -56,17 +56,17 @@ public:
     void reset();
 
     // CampaignWorld
-    void bridgeCommand(const std::string& command, const std::vector<std::string>& args) override;
+    void bridgeCommand(const std::string &command, const std::vector<std::string> &args) override;
     bool isBridgeShown() const override { return _shown; }
-    bool isEnterpriseAt(const std::string& sun) const override;
-    bool getObjectFlag(const std::string& object, int flag) const override;
+    bool isEnterpriseAt(const std::string &sun) const override;
+    bool getObjectFlag(const std::string &object, int flag) const override;
     double getStardate() const override { return _stardate; }
     bool isAudioQueueEmpty() const override { return _queue.empty(); }
     bool isWarping() const override;
     bool isZooming() const override { return _zoomLeft > 0; }
     bool isEnterpriseIdle() const override;
 
-    bool isSun(const std::string& name) const { return findSun(name) >= 0; }
+    bool isSun(const std::string &name) const { return findSun(name) >= 0; }
 
     // Another activity takes the screen: the bridge goes, with its sounds.
     void hide();
@@ -75,19 +75,19 @@ public:
     // Run by ms.
     void update(uint32_t ms);
     // Draw on a 640 x 480 ARGB8888 surface.
-    void draw(Canvas& screen);
+    void draw(Canvas &screen);
 
     void mouseMove(int x, int y);
     void mouseDown(int x, int y);
     void mouseUp(int x, int y);
-    void keyDown(const KeyState& key);
+    void keyDown(const KeyState &key);
     Event takeEvent();
 
     // Subtitles on or off.
     void setSubtitles(bool on) { _subtitles = on; }
 
     // Save or load the map's state (0x565AC0..), not the pictures.
-    void sync(Serializer& s);
+    void sync(Serializer &s);
     // After loading: fleets that were warping are gone (0x419703).
     void afterLoad();
 
@@ -115,23 +115,23 @@ private:
     enum ContextMode { kContextIdle = 0, kContextTransport = 1, kContextTactical = 2 };
 
     // Data.
-    const RgbImage* image(const std::string& path, int frames = 1, int key = 254);
-    const RgbImage* overlay(const std::string& path, int frameHeight, const std::string& palette);
-    std::unique_ptr<SeekableReadStream> open(const std::string& path) const;
-    int findSun(const std::string& name) const;
+    const RgbImage *image(const std::string &path, int frames = 1, int key = 254);
+    const RgbImage *overlay(const std::string &path, int frameHeight, const std::string &palette);
+    std::unique_ptr<SeekableReadStream> open(const std::string &path) const;
+    int findSun(const std::string &name) const;
     // "Fleet3" is 3, "Enterprise" 0; -1 if it isn't a fleet.
-    int findFleet(const std::string& name) const;
-    std::set<int>& flags(const std::string& object);
-    const std::set<int>* findFlags(const std::string& object) const;
+    int findFleet(const std::string &name) const;
+    std::set<int> &flags(const std::string &object);
+    const std::set<int> *findFlags(const std::string &object) const;
     // The sun an object belongs to, or -1.
-    int sunOf(const std::string& object) const;
+    int sunOf(const std::string &object) const;
 
     // Commands.
     void moveEnterprise(int sun);
     void moveFleet(int fleet, int sun);
-    void moveSoran(const std::string& object);
-    void warpFleetIn(int fleet, int sun, const std::string& sound);
-    void warpFleetAway(int fleet, const std::string& sound);
+    void moveSoran(const std::string &object);
+    void warpFleetIn(int fleet, int sun, const std::string &sound);
+    void warpFleetAway(int fleet, const std::string &sound);
     void hideFleet(int fleet);
     void warpAway(int sun);
     void destroySun(int sun);
@@ -139,13 +139,13 @@ private:
     void zoomIn(int sun);
     void zoomOut();
     void setControls(bool enabled);
-    void setText(const std::string& kind, const std::string& object, const std::string& text);
-    void setFleetAlert(int fleet, const std::string& level);
+    void setText(const std::string &kind, const std::string &object, const std::string &text);
+    void setFleetAlert(int fleet, const std::string &level);
 
     // Sound.
-    void queue(const std::string& path, int type);
+    void queue(const std::string &path, int type);
     void updateQueue(uint32_t ms);
-    void playEffect(const std::string& path);
+    void playEffect(const std::string &path);
     void startAmbience();
 
     // Simulation.
@@ -154,7 +154,7 @@ private:
     void updateMap(uint32_t ms);
     void updateAnimations(uint32_t ms);
     void pickNexus(bool speak);
-    void startScan(const std::string& object, bool shortRange);
+    void startScan(const std::string &object, bool shortRange);
     void finishScan();
     void simulate(int sun);
     void updateButtons();
@@ -162,7 +162,7 @@ private:
     void pressContext();
     // Add to the stardate (0x472A91): it climbs a tenth every half second.
     void addTime(double amount) { _targetStardate += amount; }
-    void select(const std::string& object);
+    void select(const std::string &object);
 
     // Drawing.
     struct Projected {
@@ -170,22 +170,22 @@ private:
         bool visible;
     };
     Projected project(double x, double y, double z, int size) const;
-    void sunPosition(int sun, double& x, double& y, double& z) const;
-    void fleetPosition(int fleet, double& x, double& y, double& z) const;
-    void planetPosition(const Planet& planet, int sun, double& x, double& y, double& z) const;
+    void sunPosition(int sun, double &x, double &y, double &z) const;
+    void fleetPosition(int fleet, double &x, double &y, double &z) const;
+    void planetPosition(const Planet &planet, int sun, double &x, double &y, double &z) const;
     int fleetSlot(int fleet) const;
-    void drawMap(Canvas& screen);
-    void drawPanel(Canvas& screen);
-    void drawText(Canvas& screen, const std::string& text, int x, int y, const Rect* clip = nullptr);
-    void drawDisc(Canvas& screen, const RgbImage& texture, int frame, int cx, int cy, int r, double light);
+    void drawMap(Canvas &screen);
+    void drawPanel(Canvas &screen);
+    void drawText(Canvas &screen, const std::string &text, int x, int y, const Rect *clip = nullptr);
+    void drawDisc(Canvas &screen, const RgbImage &texture, int frame, int cx, int cy, int r, double light);
     // The object under (x, y) on the map, or empty.
     std::string hit(int x, int y) const;
-    std::vector<std::string> wrapText(const std::string& text, int width) const;
+    std::vector<std::string> wrapText(const std::string &text, int width) const;
 
-    const ResourceManager& _resources;
-    Mixer* _mixer;
-    Campaign& _campaign;
-    RandomSource& _random;
+    const ResourceManager &_resources;
+    Mixer *_mixer;
+    Campaign &_campaign;
+    RandomSource &_random;
     IniFile _ini;
     std::map<std::string, std::unique_ptr<RgbImage>> _images;
     Font _font;
@@ -251,4 +251,3 @@ private:
 };
 
 } // namespace reluva::stgenerations
-

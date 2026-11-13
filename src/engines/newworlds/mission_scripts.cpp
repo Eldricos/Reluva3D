@@ -16,7 +16,7 @@ namespace reluva::newworlds {
 
 namespace {
 
-constexpr const char* kScripts = R"(
+constexpr const char *kScripts = R"(
 # --- Rules every mission shares (seen in every recording) -------------------
 mission generic F
 every built *
@@ -1115,7 +1115,7 @@ on all-completed
 
 } // namespace
 
-const std::vector<MissionScript>& missionScripts() {
+const std::vector<MissionScript> &missionScripts() {
     static const std::vector<MissionScript> scripts = [] {
         std::vector<MissionScript> s;
         if (Error err = parseMissionScripts(kScripts, s))

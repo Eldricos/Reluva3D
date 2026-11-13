@@ -3,7 +3,7 @@
 
 #include "engines/newworlds/viewers.h"
 
-#include "common/audio/decode.h"
+#include "audio/decode.h"
 #include "common/fs.h"
 
 #include <algorithm>
@@ -14,11 +14,11 @@
 
 namespace reluva::newworlds {
 
-SoundViewer::SoundViewer(System& sys, Surface& screen, const Archives& archives, audio::Mixer* mixer,
-                         const std::filesystem::path& gameDir)
+SoundViewer::SoundViewer(System &sys, Surface &screen, const Archives &archives, audio::Mixer *mixer,
+                         const std::filesystem::path &gameDir)
     : sys_(sys), screen_(screen), archives_(archives), mixer_(mixer) {
     for (size_t a = 0; a < archives_.size(); ++a) {
-        const auto& entries = archives_[a]->entries();
+        const auto &entries = archives_[a]->entries();
         for (size_t i = 0; i < entries.size(); ++i)
             if (entries[i].tag == cattag::Wave)
                 sounds_.push_back({{a, i}, {}, entries[i].name});
@@ -47,8 +47,8 @@ SoundViewer::SoundViewer(System& sys, Surface& screen, const Archives& archives,
                 loose.push_back({it->path().lexically_relative(gameDir).generic_string(), it->path()});
         }
     std::sort(loose.begin(), loose.end(),
-              [](const auto& x, const auto& y) { return fs::toLower(x.first) < fs::toLower(y.first); });
-    for (auto& [name, path] : loose) {
+              [](const auto &x, const auto &y) { return fs::toLower(x.first) < fs::toLower(y.first); });
+    for (auto &[name, path] : loose) {
         firstCopy_.push_back(sounds_.size());
         sounds_.push_back({{0, 0}, std::move(path), std::move(name)});
     }
@@ -57,10 +57,10 @@ SoundViewer::SoundViewer(System& sys, Surface& screen, const Archives& archives,
             shownSounds_.push_back(s);
 }
 
-Error SoundViewer::read(size_t sound, std::vector<uint8_t>& data) const {
-    const Item& item = sounds_[sound];
+Error SoundViewer::read(size_t sound, std::vector<uint8_t> &data) const {
+    const Item &item = sounds_[sound];
     if (item.file.empty()) {
-        CatArchive& cat = *archives_[item.ref.archive];
+        CatArchive &cat = *archives_[item.ref.archive];
         return cat.read(cat.entries()[item.ref.entry], data);
     }
     std::ifstream in(item.file, std::ios::binary);
@@ -70,10 +70,12 @@ Error SoundViewer::read(size_t sound, std::vector<uint8_t>& data) const {
     return Error::success();
 }
 
-const std::string& SoundViewer::nameOf(size_t sound) const { return sounds_[sound].name; }
+const std::string &SoundViewer::nameOf(size_t sound) const {
+    return sounds_[sound].name;
+}
 
 std::string SoundViewer::archiveOf(size_t sound) const {
-    const Item& item = sounds_[sound];
+    const Item &item = sounds_[sound];
     return item.file.empty() ? archives_[item.ref.archive]->path().filename().string() : "the game folder";
 }
 
@@ -87,7 +89,9 @@ void SoundViewer::activate() {
     updateTitle();
 }
 
-void SoundViewer::deactivate() { stop(); }
+void SoundViewer::deactivate() {
+    stop();
+}
 
 void SoundViewer::handleKey(uint32_t k) {
     const int n = int(shownSounds_.size());
@@ -108,12 +112,24 @@ void SoundViewer::handleKey(uint32_t k) {
         updateTitle();
         break;
     }
-    case key::Right: show((current_ + 1) % n); break;
-    case key::Left: show((current_ + n - 1) % n); break;
-    case key::PageDown: show(std::min(current_ + 10, n - 1)); break;
-    case key::PageUp: show(std::max(current_ - 10, 0)); break;
-    case key::Home: show(0); break;
-    case key::End: show(n - 1); break;
+    case key::Right:
+        show((current_ + 1) % n);
+        break;
+    case key::Left:
+        show((current_ + n - 1) % n);
+        break;
+    case key::PageDown:
+        show(std::min(current_ + 10, n - 1));
+        break;
+    case key::PageUp:
+        show(std::max(current_ - 10, 0));
+        break;
+    case key::Home:
+        show(0);
+        break;
+    case key::End:
+        show(n - 1);
+        break;
     case key::Space:
     case key::Return:
         if (playing())
@@ -121,8 +137,12 @@ void SoundViewer::handleKey(uint32_t k) {
         else
             play();
         break;
-    case 'a': autoPlay_ = !autoPlay_; updateTitle(); break;
-    default: break;
+    case 'a':
+        autoPlay_ = !autoPlay_;
+        updateTitle();
+        break;
+    default:
+        break;
     }
 }
 
@@ -153,7 +173,9 @@ void SoundViewer::show(int index) {
         play();
 }
 
-bool SoundViewer::playing() const { return mixer_ && mixer_->isPlaying(playing_); }
+bool SoundViewer::playing() const {
+    return mixer_ && mixer_->isPlaying(playing_);
+}
 
 void SoundViewer::play() {
     if (!mixer_) {
@@ -174,7 +196,7 @@ void SoundViewer::stop() {
 void SoundViewer::draw() {
     const int w = screen_.w, h = screen_.h;
     for (int y = 0; y < h; ++y) {
-        uint8_t* row = screen_.row(y);
+        uint8_t *row = screen_.row(y);
         for (int x = 0; x < w; ++x, row += 4)
             row[0] = 22, row[1] = 26, row[2] = 38, row[3] = 255;
     }
@@ -188,7 +210,7 @@ void SoundViewer::draw() {
     auto plot = [&](int x, int y, uint8_t r, uint8_t g, uint8_t b) {
         if (x < 0 || y < 0 || x >= w || y >= h)
             return;
-        uint8_t* p = screen_.row(y) + x * 4;
+        uint8_t *p = screen_.row(y) + x * 4;
         p[0] = r, p[1] = g, p[2] = b;
     };
     const int mid = h / 2;

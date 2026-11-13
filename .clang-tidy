@@ -1,42 +1,97 @@
+# Checks for the rules in docs/CODING_GUIDE.md that clang-format can't
+# enforce (naming, nullptr, override, const-correctness, ...). Each check
+# notes the guide section it implements.
+#
+# Requires clang-tidy 18 or later, and a compile database:
+#   cmake -B build -DCMAKE_EXPORT_COMPILE_COMMANDS=ON
+#   run-clang-tidy -p build '^(?!.*/_deps/).*/(src|tests)/'
+# The compile database also lists SDL3's and Dear ImGui's own files (CMake
+# downloads them into build/_deps/, and SDL has a .clang-tidy of its own),
+# so the pattern names Reluva's src/ and tests/ and leaves out _deps/.
 ---
 Checks: >
   -*,
   readability-identifier-naming,
-  readability-braces-around-statements,
   readability-isolate-declaration,
   readability-make-member-function-const,
-  readability-else-after-return,
   modernize-use-nullptr,
   modernize-use-override,
-  modernize-avoid-c-arrays,
   performance-unnecessary-value-param,
   cppcoreguidelines-macro-usage,
   cppcoreguidelines-avoid-non-const-global-variables,
+  bugprone-suspicious-semicolon,
+  clang-diagnostic-empty-body,
   clang-diagnostic-implicit-fallthrough
 
+# Guide sections, by check:
+#   readability-identifier-naming ............ Naming (all of it)
+#   readability-isolate-declaration .......... Vertical Space: "Split variable declarations"
+#   readability-make-member-function-const ... Const-Correctness: const member functions
+#   performance-unnecessary-value-param ...... Const-Correctness: pass by `const &`
+#   modernize-use-nullptr .................... Null Pointers
+#   modernize-use-override ................... Override and Final Specifiers
+#   cppcoreguidelines-macro-usage ............ Constants: "Avoid #define for creating constants"
+#   cppcoreguidelines-avoid-non-const-global-variables
+#                                              Global Variables: "Avoid global variables"
+#   bugprone-suspicious-semicolon,
+#   clang-diagnostic-empty-body .............. "Mandatory {} for empty for/while loops"
+#   clang-diagnostic-implicit-fallthrough .... Switch/Case: mark every fall through
+#
+# A fall through is marked `[[fallthrough]];` (Switch/Case Constructs).
+# Clang doesn't accept a `// fall through` comment instead.
+
+# The two clang-diagnostic-* checks report only warnings the compile
+# enables, so enable them here.
+ExtraArgs:
+  - -Wempty-body
+  - -Wimplicit-fallthrough
+
 WarningsAsErrors: ''
-HeaderFilterRegex: '.*'
+# Our headers only: not third_party/ or the dependencies CMake downloads
+# (build/_deps/sdl3-src/..., build/_deps/imgui-src/...).
+HeaderFilterRegex: '(^|/)(src|tests)/'
 FormatStyle: file
 
 CheckOptions:
-  # Constants: kRandomConstant
-  - key: readability-identifier-naming.ConstantCase
+  # --- Naming: Constants -- kRandomConstant ----------------------------------
+  # Named constants: namespace scope, static, constexpr, static class
+  # constants, enum values. A `const` local variable or parameter is not a
+  # named constant and is named like any other (below).
+  - key: readability-identifier-naming.GlobalConstantCase
     value: CamelCase
-  - key: readability-identifier-naming.ConstantPrefix
+  - key: readability-identifier-naming.GlobalConstantPrefix
+    value: k
+  - key: readability-identifier-naming.StaticConstantCase
+    value: CamelCase
+  - key: readability-identifier-naming.StaticConstantPrefix
     value: k
   - key: readability-identifier-naming.ConstexprVariableCase
     value: CamelCase
   - key: readability-identifier-naming.ConstexprVariablePrefix
     value: k
+  - key: readability-identifier-naming.ClassConstantCase
+    value: CamelCase
+  - key: readability-identifier-naming.ClassConstantPrefix
+    value: k
   - key: readability-identifier-naming.EnumConstantCase
     value: CamelCase
   - key: readability-identifier-naming.EnumConstantPrefix
     value: k
+  - key: readability-identifier-naming.ScopedEnumConstantCase
+    value: CamelCase
+  - key: readability-identifier-naming.ScopedEnumConstantPrefix
+    value: k
+  - key: readability-identifier-naming.LocalConstantCase
+    value: camelBack
+  - key: readability-identifier-naming.ConstantParameterCase
+    value: camelBack
 
-  # Types & Templates: AnInt, AClass, AStruct, CoolThing
+  # --- Naming: Type Names -- AnInt, AClass, AStruct, CoolThing ---------------
   - key: readability-identifier-naming.ClassCase
     value: CamelCase
   - key: readability-identifier-naming.StructCase
+    value: CamelCase
+  - key: readability-identifier-naming.UnionCase
     value: CamelCase
   - key: readability-identifier-naming.EnumCase
     value: CamelCase
@@ -44,14 +99,13 @@ CheckOptions:
     value: CamelCase
   - key: readability-identifier-naming.TypeAliasCase
     value: CamelCase
+  # "This includes template types"
   - key: readability-identifier-naming.TemplateParameterCase
     value: CamelCase
 
-  # Class Member Variables: _coolVariable
-  - key: readability-identifier-naming.MemberCase
-    value: camelBack
-  - key: readability-identifier-naming.MemberPrefix
-    value: _
+  # --- Naming: Class Member Variables -- _coolVariable -----------------------
+  # Private and protected data members. Public data members (a plain struct's
+  # fields: `target.path`) have no prefix; see the plan's open question.
   - key: readability-identifier-naming.PrivateMemberCase
     value: camelBack
   - key: readability-identifier-naming.PrivateMemberPrefix
@@ -60,30 +114,47 @@ CheckOptions:
     value: camelBack
   - key: readability-identifier-naming.ProtectedMemberPrefix
     value: _
+  - key: readability-identifier-naming.PublicMemberCase
+    value: camelBack
 
-  # Methods & Functions: coolRandomMethod, coolGlobalFunction
+  # --- Naming: Class Methods / Non-Member Functions -- coolRandomMethod ------
   - key: readability-identifier-naming.FunctionCase
     value: camelBack
   - key: readability-identifier-naming.MethodCase
     value: camelBack
+  - key: readability-identifier-naming.IgnoreMainLikeFunctions
+    value: true
 
-  # Local Variables & Parameters: coolVariable
+  # --- Naming: Local Variables -- coolVariable --------------------------------
   - key: readability-identifier-naming.VariableCase
     value: camelBack
   - key: readability-identifier-naming.ParameterCase
     value: camelBack
 
-  # Global Variables: g_someGlobalVariable
+  # --- Naming: Global Variables -- g_someGlobalVariable -----------------------
   - key: readability-identifier-naming.GlobalVariableCase
     value: camelBack
   - key: readability-identifier-naming.GlobalVariablePrefix
     value: g_
 
-  # Enforce braces on all loops/conditionals (catches empty `while (...);`)
-  - key: readability-braces-around-statements.ShortStatementLines
-    value: 0
+  # --- Namespaces: reluva::clue ----------------------------------------------
+  - key: readability-identifier-naming.NamespaceCase
+    value: lower_case
 
-  # Macro restrictions (prefer const/enums over #define)
+  # --- Preprocessor: macros in upper case (as the guide's examples) ----------
+  - key: readability-identifier-naming.MacroDefinitionCase
+    value: UPPER_CASE
+
+  # --- Constants: "Avoid #define for creating constants" ----------------------
+  # Allowed: our own RELUVA_ macros (platform switches, attributes), USE_
+  # feature switches, the test framework's CHECK macros, and the macros that
+  # configure third-party headers (STB*, MINIMP3_*) and Windows' headers.
   - key: cppcoreguidelines-macro-usage.AllowedRegexp
-    value: '^USE_.*|^CRAZY$'
+    value: '^(RELUVA_|USE_|CHECK|STB|MINIMP3_|WIN32_LEAN_AND_MEAN$|NOMINMAX$)'
+
+  # --- Override and Final Specifiers -----------------------------------------
+  # The guide asks for `override` on overriding *functions*; a destructor
+  # of a class with a virtual destructor is left as `~Foo();`.
+  - key: modernize-use-override.IgnoreDestructors
+    value: true
 ...

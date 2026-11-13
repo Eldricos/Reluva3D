@@ -2,7 +2,7 @@
 #include "engines/engine.h"
 namespace reluva { const MetaEngine& clueMetaEngine(); } // the Clue engine alone, without the registry
 #include "engines/engine.h"
-#include "backends/sockets/socket_net.h"
+#include "backends/networking/sockets/socket_net.h"
 #include <cstdio>
 #include <cstdlib>
 #include <deque>

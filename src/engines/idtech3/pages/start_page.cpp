@@ -3,7 +3,7 @@
 
 #include "engines/idtech3/pages/start_page.h"
 
-#include "common/font.h"
+#include "graphics/font.h"
 
 #include <algorithm>
 
@@ -15,9 +15,9 @@ constexpr int kChoiceTop = 200, kChoiceHeight = 56, kChoiceLeft = 70, kChoiceWid
 
 } // namespace
 
-StartPage::StartPage(ViewerContext& ctx, std::vector<Choice> choices) : Page(ctx), choices_(std::move(choices)) {
+StartPage::StartPage(ViewerContext &ctx, std::vector<Choice> choices) : Page(ctx), choices_(std::move(choices)) {
     // The first level's picture behind the choices.
-    for (const char* ext : {".tga", ".jpg"}) {
+    for (const char *ext : {".tga", ".jpg"}) {
         std::vector<uint8_t> data;
         if (!ctx.game.firstMap.empty() && !ctx.files.read("levelshots/" + ctx.game.firstMap + ext, data) &&
             !image::decode(data, background_))
@@ -43,7 +43,7 @@ void StartPage::choose(size_t i) {
         ctx_.requestPage = choices_[i].page;
 }
 
-void StartPage::handleEvent(const Event& ev) {
+void StartPage::handleEvent(const Event &ev) {
     if (ev.type == EventType::MouseMove || ev.type == EventType::MouseDown) {
         const int i = choiceAt(ev.mouseX, ev.mouseY);
         if (i >= 0 && size_t(i) != selected_) {
@@ -70,14 +70,14 @@ void StartPage::handleEvent(const Event& ev) {
 }
 
 void StartPage::draw() {
-    Surface& s = ctx_.screen;
+    Surface &s = ctx_.screen;
     // The picture, scaled to the screen and darkened; else a plain dark blue.
     for (int y = 0; y < s.h; ++y) {
-        uint8_t* row = s.row(y);
+        uint8_t *row = s.row(y);
         for (int x = 0; x < s.w; ++x) {
-            uint8_t* p = row + x * 4;
+            uint8_t *p = row + x * 4;
             if (background_.w > 0) {
-                const uint8_t* q = background_.pixel(x * background_.w / s.w, y * background_.h / s.h);
+                const uint8_t *q = background_.pixel(x * background_.w / s.w, y * background_.h / s.h);
                 for (int c = 0; c < 3; ++c)
                     p[c] = uint8_t(q[c] * 2 / 7);
             } else {
@@ -89,7 +89,7 @@ void StartPage::draw() {
         }
     }
     const int titleScale = 3;
-    const std::string& title = ctx_.game.name;
+    const std::string &title = ctx_.game.name;
     const int titleWidth = int(title.size()) * font::kAdvance * titleScale;
     const int titleX = std::max(8, (s.w - titleWidth) / 2);
     font::drawText(s, titleX, 90, title, {255, 200, 90}, titleWidth > s.w - 16 ? 2 : titleScale);

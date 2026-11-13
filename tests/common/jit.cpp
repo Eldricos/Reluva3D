@@ -9,8 +9,8 @@
 //   reluva-tests common.unit.jit
 
 #include "common/types.h"
-#include "common/x86/cpu.h"
-#include "common/x86/win32.h"
+#include "emulation/x86/cpu.h"
+#include "emulation/x86/win32.h"
 #include "tests/common/data/x86_testdll.h"
 #include "tests/support/test.h"
 
@@ -24,9 +24,8 @@
 
 using namespace reluva;
 
-
 // Runs `code` (hand-encoded, ending in RET) as a function of no arguments.
-static uint32_t runX86(x86::Cpu& cpu, std::vector<uint8_t> code, bool* ok = nullptr) {
+static uint32_t runX86(x86::Cpu &cpu, std::vector<uint8_t> code, bool *ok = nullptr) {
     const uint32_t at = 0x2000;
     std::copy(code.begin(), code.end(), cpu.memory().begin() + at);
     uint32_t result = 0;
@@ -40,7 +39,7 @@ static uint32_t runX86(x86::Cpu& cpu, std::vector<uint8_t> code, bool* ok = null
 
 // Runs `code` with the registers and flags as they are, giving whether it
 // failed.
-static bool runX86Keeping(x86::Cpu& cpu, const std::vector<uint8_t>& code, uint32_t& result) {
+static bool runX86Keeping(x86::Cpu &cpu, const std::vector<uint8_t> &code, uint32_t &result) {
     std::copy(code.begin(), code.end(), cpu.memory().begin() + 0x2000);
     return bool(cpu.call(0x2000, {}, result));
 }
@@ -61,8 +60,8 @@ static void testX86Instructions(bool cached) {
         CHECK(runX86(cpu, {0xb8, 7, 0, 0, 0, 0x50, 0x5a, 0x8d, 0x44, 0x52, 0x01, 0xc3}) == 22);
         // mov eax, 0; mov ah, 5; mov dl, ah; mov ecx, 0x3000; mov [ecx], dl;
         // mov bl, [ecx]; movzx eax, bl; ret  (5)
-        CHECK(runX86(cpu, {0xb8, 0, 0, 0, 0, 0xc6, 0xc4, 5, 0x88, 0xe2, 0xb9, 0, 0x30, 0, 0, 0x88, 0x11, 0x8a, 0x19,
-                           0x0f, 0xb6, 0xc3, 0xc3}) == 5);
+        CHECK(runX86(cpu, {0xb8, 0, 0, 0,    0,    0xc6, 0xc4, 5,    0x88, 0xe2, 0xb9, 0,
+                           0x30, 0, 0, 0x88, 0x11, 0x8a, 0x19, 0x0f, 0xb6, 0xc3, 0xc3}) == 5);
         // A fault names its instruction and leaves the registers as they were
         // when it came: mov ecx, 0x10; mov eax, [ecx]; ret
         bool ok = true;
@@ -80,17 +79,17 @@ static void testX86Instructions(bool cached) {
         // pop edx; shr eax, 1; pushfd; pop ecx; sar eax, 1; lea eax,
         // [eax + edx]; add eax, ecx; ret (flags as the handlers have them).
         {
-            const std::vector<uint8_t> shifts = {0xb8, 1, 0, 0, 0x80, 0xd1, 0xe0, 0x9c, 0x5a, 0xd1, 0xe8, 0x9c, 0x59,
-                                                 0xd1, 0xf8, 0x8d, 0x04, 0x10, 0x01, 0xc8, 0xc3};
-            const std::vector<uint8_t> byImm = {0xb8, 1, 0, 0, 0x80, 0xc1, 0xe0, 1, 0x9c, 0x5a, 0xc1, 0xe8, 1, 0x9c, 0x59,
-                                                0xc1, 0xf8, 1, 0x8d, 0x04, 0x10, 0x01, 0xc8, 0xc3};
+            const std::vector<uint8_t> shifts = {0xb8, 1,    0,    0,    0x80, 0xd1, 0xe0, 0x9c, 0x5a, 0xd1, 0xe8,
+                                                 0x9c, 0x59, 0xd1, 0xf8, 0x8d, 0x04, 0x10, 0x01, 0xc8, 0xc3};
+            const std::vector<uint8_t> byImm = {0xb8, 1,    0,    0,    0x80, 0xc1, 0xe0, 1,    0x9c, 0x5a, 0xc1, 0xe8,
+                                                1,    0x9c, 0x59, 0xc1, 0xf8, 1,    0x8d, 0x04, 0x10, 0x01, 0xc8, 0xc3};
             CHECK(runX86(cpu, shifts) == runX86(cpu, byImm));
         }
         // FCOM, FNSTSW AX and TEST AH: fld1; fldz; fcomp st(1); fnstsw ax;
         // test ah, 0x41; setnz al; fstp st(0); and eax, C3 C2 C1 C0 and AL's
         // bit; ret (C0: less).
-        CHECK(runX86(cpu, {0xd9, 0xe8, 0xd9, 0xee, 0xd8, 0xd9, 0xdf, 0xe0, 0xf6, 0xc4, 0x41, 0x0f, 0x95, 0xc0, 0xdd, 0xd8,
-                           0x25, 0x01, 0x47, 0, 0, 0xc3}) == 0x101);
+        CHECK(runX86(cpu, {0xd9, 0xe8, 0xd9, 0xee, 0xd8, 0xd9, 0xdf, 0xe0, 0xf6, 0xc4, 0x41,
+                           0x0f, 0x95, 0xc0, 0xdd, 0xd8, 0x25, 0x01, 0x47, 0,    0,    0xc3}) == 0x101);
     }
     // mov eax, 5; add eax, 0xfffffffb; setz al; movzx eax, al; ret
     CHECK(runX86(cpu, {0xb8, 5, 0, 0, 0, 0x83, 0xc0, 0xfb, 0x0f, 0x94, 0xc0, 0x0f, 0xb6, 0xc0, 0xc3}) == 1);
@@ -105,8 +104,8 @@ static void testX86Instructions(bool cached) {
     CHECK(runX86(cpu, {0xb8, 0x78, 0x56, 0x34, 0x12, 0x0f, 0xc8, 0xc3}) == 0x78563412);
     // rep stosb then repe cmpsb: mov edi, 0x3000; mov ecx, 8; mov al, 0x41; rep stosb;
     // mov esi, 0x3000; mov edi, 0x3004; mov ecx, 4; repe cmpsb; mov eax, ecx; ret  (0: all equal)
-    CHECK(runX86(cpu, {0xbf, 0, 0x30, 0, 0, 0xb9, 8, 0, 0, 0, 0xb0, 0x41, 0xf3, 0xaa, 0xbe, 0, 0x30, 0, 0, 0xbf, 4, 0x30,
-                       0, 0, 0xb9, 4, 0, 0, 0, 0xf3, 0xa6, 0x89, 0xc8, 0xc3}) == 0);
+    CHECK(runX86(cpu, {0xbf, 0, 0x30, 0, 0,    0xb9, 8, 0,    0, 0, 0xb0, 0x41, 0xf3, 0xaa, 0xbe, 0,    0x30,
+                       0,    0, 0xbf, 4, 0x30, 0,    0, 0xb9, 4, 0, 0,    0,    0xf3, 0xa6, 0x89, 0xc8, 0xc3}) == 0);
     CHECK(cpu.read32(0x3000) == 0x41414141);
     // x87: fld1; fld1; faddp; fsqrt; fstp dword [0x3000]; mov eax, [0x3000]; ret  (sqrt 2 as a float)
     runX86(cpu, {0xd9, 0xe8, 0xd9, 0xe8, 0xde, 0xc1, 0xd9, 0xfa, 0xd9, 0x1d, 0, 0x30, 0, 0, 0xa1, 0, 0x30, 0, 0, 0xc3});
@@ -125,7 +124,7 @@ static void testX86Instructions(bool cached) {
     runX86(cpu, {0x31, 0xc9, 0xf7, 0xf1, 0xc3}, &ok);
     CHECK(!ok);
     // A native function, stdcall with one argument: push 20; call [native]; ret
-    const uint32_t native = cpu.addNative("double", [](x86::Cpu& c) {
+    const uint32_t native = cpu.addNative("double", [](x86::Cpu &c) {
         c.reg[x86::Cpu::EAX] = c.arg(0) * 2;
         return 4u;
     });
@@ -159,7 +158,7 @@ static void testX86CacheAgreement() {
         static const uint8_t kRegs[6] = {0, 1, 2, 3, 6, 7};
         return kRegs[pick(6)];
     };
-    auto instruction = [&](std::vector<uint8_t>& out) {
+    auto instruction = [&](std::vector<uint8_t> &out) {
         std::vector<uint8_t> b;
         const bool o16 = pick(6) == 0;
         // A ModRM operand: a register, [ebp+d8], [ebp+d32], [d32] (through a
@@ -209,8 +208,10 @@ static void testX86CacheAgreement() {
             imm(op == 0x81 ? wordSize : 1);
             break;
         }
-        case 5: b.push_back(uint8_t(0x40 | pick(2) << 3 | reg32())); break; // INC, DEC
-        case 6: // TEST
+        case 5:
+            b.push_back(uint8_t(0x40 | pick(2) << 3 | reg32()));
+            break; // INC, DEC
+        case 6:    // TEST
             b.push_back(uint8_t(0x84 | pick(2)));
             modrm(int(pick(8)), b.back() & 1);
             break;
@@ -246,14 +247,20 @@ static void testX86CacheAgreement() {
         }
         case 13: // SETcc, MOVZX/MOVSX, IMUL
             switch (pick(3)) {
-            case 0: b.insert(b.end(), {0x0f, uint8_t(0x90 | pick(16))}); modrm(int(pick(8)), false); break;
+            case 0:
+                b.insert(b.end(), {0x0f, uint8_t(0x90 | pick(16))});
+                modrm(int(pick(8)), false);
+                break;
             case 1: {
                 const uint8_t op = std::array<uint8_t, 4>{0xb6, 0xb7, 0xbe, 0xbf}[pick(4)];
                 b.insert(b.end(), {0x0f, op});
                 modrm(reg32(), op & 1);
                 break;
             }
-            default: b.insert(b.end(), {0x0f, 0xaf}); modrm(reg32(), true); break;
+            default:
+                b.insert(b.end(), {0x0f, 0xaf});
+                modrm(reg32(), true);
+                break;
             }
             break;
         case 14: { // IMUL r, r/m, imm
@@ -282,13 +289,15 @@ static void testX86CacheAgreement() {
             b.insert(b.end(), {uint8_t(d), uint8_t(d >> 8), uint8_t(d >> 16), 0});
             break;
         }
-        case 18: b.push_back(pick(2) ? 0x90 : 0x99); break;
+        case 18:
+            b.push_back(pick(2) ? 0x90 : 0x99);
+            break;
         case 19:
         case 20: { // x87 on memory
             // (FISTP, FLDCW and FNSTCW run from their bytes.)
             static const uint8_t kOps[][2] = {{0xd8, 8}, {0xdc, 8}, {0xd9, 0}, {0xd9, 2}, {0xd9, 3}, {0xdd, 0},
                                               {0xdd, 2}, {0xdd, 3}, {0xdb, 0}, {0xdb, 3}, {0xd9, 5}, {0xd9, 7}};
-            const auto& o = kOps[pick(12)];
+            const auto &o = kOps[pick(12)];
             b.push_back(o[0]);
             modrm(o[1] == 8 ? int(pick(8)) : o[1], false, true);
             break;
@@ -297,7 +306,7 @@ static void testX86CacheAgreement() {
             static const uint8_t kOps[][2] = {{0xd8, 0xc0}, {0xd8, 0xc8}, {0xd8, 0xe0}, {0xd8, 0xf0}, {0xd8, 0xd0},
                                               {0xdc, 0xc0}, {0xdc, 0xe8}, {0xde, 0xc0}, {0xde, 0xf8}, {0xd9, 0xc0},
                                               {0xd9, 0xc8}, {0xdd, 0xd0}, {0xdd, 0xd8}, {0xdc, 0xd0}};
-            const auto& o = kOps[pick(14)];
+            const auto &o = kOps[pick(14)];
             b.insert(b.end(), {o[0], uint8_t(o[1] | pick(8))});
             break;
         }
@@ -305,11 +314,12 @@ static void testX86CacheAgreement() {
             // (FCOMPP and FSQRT run from their bytes.)
             static const uint8_t kOps[][2] = {{0xd9, 0xe0}, {0xd9, 0xe1}, {0xd9, 0xe8}, {0xd9, 0xee},
                                               {0xdf, 0xe0}, {0xde, 0xd9}, {0xd9, 0xfa}};
-            const auto& o = kOps[pick(7)];
+            const auto &o = kOps[pick(7)];
             b.insert(b.end(), {o[0], o[1]});
             break;
         }
-        default: break; // a jump, below
+        default:
+            break; // a jump, below
         }
         if (b.empty())
             return false;
@@ -337,10 +347,18 @@ static void testX86CacheAgreement() {
                     instruction(next);
                 const uint8_t length = uint8_t(next.size());
                 switch (pick(4)) {
-                case 0: one = {uint8_t(0x70 | pick(16)), length}; break;
-                case 1: one = {0x0f, uint8_t(0x80 | pick(16)), length, 0, 0, 0}; break;
-                case 2: one = {0xeb, length}; break;
-                default: one = {0xe9, length, 0, 0, 0}; break;
+                case 0:
+                    one = {uint8_t(0x70 | pick(16)), length};
+                    break;
+                case 1:
+                    one = {0x0f, uint8_t(0x80 | pick(16)), length, 0, 0, 0};
+                    break;
+                case 2:
+                    one = {0xeb, length};
+                    break;
+                default:
+                    one = {0xe9, length, 0, 0, 0};
+                    break;
                 }
                 one.insert(one.end(), next.begin(), next.end());
             }
@@ -348,14 +366,14 @@ static void testX86CacheAgreement() {
         }
         code.push_back(0xc3);
         std::vector<uint8_t> data(0x200);
-        for (uint8_t& d : data)
+        for (uint8_t &d : data)
             d = uint8_t(random());
         std::array<uint32_t, 8> regs;
-        for (uint32_t& r : regs)
+        for (uint32_t &r : regs)
             r = uint32_t(random());
         const uint32_t flags = 0x202 | (uint32_t(random()) & 0x8d5);
         std::array<double, 8> fpu;
-        for (double& f : fpu)
+        for (double &f : fpu)
             f = double(int32_t(random())) / 1024.0;
         std::array<uint32_t, 8> after[2];
         uint32_t flagsAfter[2], result[2];
@@ -364,7 +382,7 @@ static void testX86CacheAgreement() {
         bool ok[2];
         static x86::Cpu cpus[2] = {x86::Cpu(1u << 20), x86::Cpu(1u << 20)};
         for (int k = 0; k < 2; ++k) {
-            x86::Cpu& cpu = cpus[k];
+            x86::Cpu &cpu = cpus[k];
             cpu.cacheOn = k == 0;
             cpu.setInstructionLimit(10000);
             cpu.reg = regs;
@@ -403,7 +421,7 @@ static void testX86Dll(bool cached) {
     x86::Cpu cpu(64u << 20);
     cpu.cacheOn = cached;
     x86::Win32Process process(cpu);
-    const x86::Win32Process::Module* m = nullptr;
+    const x86::Win32Process::Module *m = nullptr;
     const std::vector<uint8_t> file(std::begin(kX86TestDll), std::end(kX86TestDll));
     CHECK(!process.load("testdll.dll", file, m));
     if (!m)
@@ -430,7 +448,7 @@ static void testX86Dll(bool cached) {
         }
     // Loaded again it goes elsewhere, relocated: its table of function
     // pointers (test 13) must still work.
-    const x86::Win32Process::Module* again = nullptr;
+    const x86::Win32Process::Module *again = nullptr;
     CHECK(!process.load("testdll2.dll", file, again));
     if (again) {
         CHECK(again->base != m->base);
@@ -444,10 +462,12 @@ static void testX86Dll(bool cached) {
 // time, getting its turn when the main thread sleeps and it's due; one
 // returns, which ends it.
 
-static const test::Suite suite("common.unit.jit", {
-    {"instructions, cached and native", [](const std::filesystem::path&) { testX86Instructions(true); }},
-    {"instructions, interpreted", [](const std::filesystem::path&) { testX86Instructions(false); }},
-    {"test dll, cached and native", [](const std::filesystem::path&) { testX86Dll(true); }},
-    {"test dll, interpreted", [](const std::filesystem::path&) { testX86Dll(false); }},
-    {"cache and interpreter agree", [](const std::filesystem::path&) { testX86CacheAgreement(); }},
-});
+static const test::Suite
+    suite("common.unit.jit",
+          {
+              {"instructions, cached and native", [](const std::filesystem::path &) { testX86Instructions(true); }},
+              {"instructions, interpreted", [](const std::filesystem::path &) { testX86Instructions(false); }},
+              {"test dll, cached and native", [](const std::filesystem::path &) { testX86Dll(true); }},
+              {"test dll, interpreted", [](const std::filesystem::path &) { testX86Dll(false); }},
+              {"cache and interpreter agree", [](const std::filesystem::path &) { testX86CacheAgreement(); }},
+          });

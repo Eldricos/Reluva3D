@@ -7,29 +7,29 @@
 
 #pragma once
 
-#include "engines/awe/ac2.h"
-#include "engines/awe/bink_texture.h"
-#include "engines/awe/camera.h"
-#include "engines/awe/conditions.h"
-#include "engines/awe/curves.h"
-#include "engines/awe/dialogue.h"
-#include "engines/awe/game_text.h"
-#include "engines/awe/gr2.h"
-#include "engines/awe/model.h"
-#include "engines/awe/oodle1.h"
-#include "engines/awe/particles.h"
-#include "engines/awe/picking.h"
-#include "engines/awe/script.h"
-#include "engines/awe/story.h"
-#include "engines/awe/savegame.h"
-#include "engines/awe/shadows.h"
-#include "engines/awe/lighting.h"
-#include "common/image.h"
-#include "engines/awe/actor.h"
-#include "engines/awe/animator.h"
-#include "engines/awe/sprite.h"
-#include "engines/awe/tables.h"
-#include "engines/awe/walk_grid.h"
+#include "engines/awe/formats/ac2.h"
+#include "engines/awe/formats/bink_texture.h"
+#include "engines/awe/game/camera.h"
+#include "engines/awe/game/conditions.h"
+#include "engines/awe/formats/curves.h"
+#include "engines/awe/game/dialogue.h"
+#include "engines/awe/ui/game_text.h"
+#include "engines/awe/formats/gr2.h"
+#include "engines/awe/formats/model.h"
+#include "engines/awe/formats/oodle1.h"
+#include "engines/awe/render/particles.h"
+#include "engines/awe/game/picking.h"
+#include "engines/awe/game/script.h"
+#include "engines/awe/game/story.h"
+#include "engines/awe/formats/savegame.h"
+#include "engines/awe/render/shadows.h"
+#include "engines/awe/render/lighting.h"
+#include "image/image.h"
+#include "engines/awe/game/actor.h"
+#include "engines/awe/game/animator.h"
+#include "engines/awe/render/sprite.h"
+#include "engines/awe/formats/tables.h"
+#include "engines/awe/game/walk_grid.h"
 #include <cmath>
 #include <cstdio>
 #include <cstring>
@@ -59,9 +59,9 @@ struct Bytes {
         std::memcpy(&v, &f, 4);
         u32(v);
     }
-    void tag(const char* t) { u32(uint32_t(t[0]) << 24 | uint32_t(t[1]) << 16 | uint32_t(t[2]) << 8 | uint32_t(t[3])); }
+    void tag(const char *t) { u32(uint32_t(t[0]) << 24 | uint32_t(t[1]) << 16 | uint32_t(t[2]) << 8 | uint32_t(t[3])); }
     // UTF-16 in a fixed buffer, the rest filled as the game's files are.
-    void text(const std::string& s, size_t chars) {
+    void text(const std::string &s, size_t chars) {
         for (char c : s)
             u16(uint8_t(c));
         u16(0);
@@ -74,7 +74,7 @@ struct Bytes {
     }
 };
 
-inline std::vector<uint8_t> utf16File(const std::string& s) {
+inline std::vector<uint8_t> utf16File(const std::string &s) {
     Bytes b;
     b.d = {0xff, 0xfe};
     for (char c : s)
@@ -85,7 +85,7 @@ inline std::vector<uint8_t> utf16File(const std::string& s) {
 // instant. It records what it was asked.
 struct FakeHost : ScriptHost {
     std::vector<std::string> started;
-    bool start(ScriptRunner&, const ScriptEvent& e, bool wait) override {
+    bool start(ScriptRunner &, const ScriptEvent &e, bool wait) override {
         std::string s = e.verb();
         for (size_t i = 1; i < e.words.size(); i++)
             s += " " + e.words[i];

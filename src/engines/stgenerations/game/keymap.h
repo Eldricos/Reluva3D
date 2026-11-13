@@ -70,15 +70,15 @@ public:
     // The first two keys bound to action, as the Controls panel shows them
     // (0x485CF0): with one, it is first and second is -1; with two, the
     // higher key comes first. -1 for none.
-    void findKeys(uint8_t action, int& first, int& second) const;
+    void findKeys(uint8_t action, int &first, int &second) const;
 
     // As text for the configuration: "vk:action" pairs in hex, by commas.
     std::string toString() const;
     // Read toString()'s text; false (and the map unchanged) if it isn't valid.
-    bool fromString(const std::string& text);
+    bool fromString(const std::string &text);
 
-    bool operator==(const KeyMap& o) const;
-    bool operator!=(const KeyMap& o) const { return !(*this == o); }
+    bool operator==(const KeyMap &o) const;
+    bool operator!=(const KeyMap &o) const { return !(*this == o); }
 
     // The virtual key of a key, as Windows numbers it, or -1.
     static int virtualKey(uint32_t key);
@@ -90,4 +90,3 @@ private:
 };
 
 } // namespace reluva::stgenerations
-

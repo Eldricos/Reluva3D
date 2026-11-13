@@ -19,7 +19,7 @@ const uint32_t kRleFrameHeaderSize = 25;
 
 } // namespace
 
-bool loadCMP(SeekableReadStream& stream, Surface& surface, Palette* palette, bool* hasPalette) {
+bool loadCMP(SeekableReadStream &stream, Surface &surface, Palette *palette, bool *hasPalette) {
     if (hasPalette)
         *hasPalette = false;
     std::vector<uint8_t> packed = stream.readAll();
@@ -34,7 +34,7 @@ bool loadCMP(SeekableReadStream& stream, Surface& surface, Palette* palette, boo
     } kSizes[] = {{640, 480}, {640, 400}, {320, 200}, {640, 350}};
     int w = 0, h = 0;
     bool tail = false;
-    for (const auto& s : kSizes) {
+    for (const auto &s : kSizes) {
         size_t n = size_t(s.w) * s.h;
         if (pixels.size() == n || pixels.size() == n + 768) {
             w = s.w;
@@ -61,7 +61,7 @@ bool loadCMP(SeekableReadStream& stream, Surface& surface, Palette* palette, boo
     return true;
 }
 
-bool loadPAL(SeekableReadStream& stream, Palette& palette) {
+bool loadPAL(SeekableReadStream &stream, Palette &palette) {
     uint8_t data[768];
     if (stream.read(data, sizeof(data)) != sizeof(data))
         return false;
@@ -69,14 +69,16 @@ bool loadPAL(SeekableReadStream& stream, Palette& palette) {
     return true;
 }
 
-bool RleAnimation::load(SeekableReadStream& stream) {
+bool RleAnimation::load(SeekableReadStream &stream) {
     std::vector<uint8_t> data = stream.readAll();
     return load(data.data(), uint32_t(data.size()));
 }
 
-bool RleAnimation::load(const uint8_t* data, uint32_t size) { return parse(data, size, true); }
+bool RleAnimation::load(const uint8_t *data, uint32_t size) {
+    return parse(data, size, true);
+}
 
-bool RleAnimation::loadWithHeader(SeekableReadStream& stream, uint8_t header[8]) {
+bool RleAnimation::loadWithHeader(SeekableReadStream &stream, uint8_t header[8]) {
     std::vector<uint8_t> data = stream.readAll();
     if (data.size() < 10)
         return false;
@@ -84,14 +86,14 @@ bool RleAnimation::loadWithHeader(SeekableReadStream& stream, uint8_t header[8])
     return parse(data.data(), uint32_t(data.size()), false);
 }
 
-bool RleAnimation::parse(const uint8_t* data, uint32_t size, bool checkHeader) {
+bool RleAnimation::parse(const uint8_t *data, uint32_t size, bool checkHeader) {
     frames_.clear();
     if (size < 10 || (checkHeader && std::memcmp(data, kRleMagic, sizeof(kRleMagic)) != 0))
         return false;
     uint32_t count = readLE16(data + 8);
     uint32_t pos = 10;
     while (frames_.size() < count && pos + kRleFrameHeaderSize <= size) {
-        const uint8_t* hdr = data + pos;
+        const uint8_t *hdr = data + pos;
         uint32_t length = readLE32(hdr + 21);
         if (pos + kRleFrameHeaderSize + length > size) {
             log::warning("RLE: frame %u runs past the end of the file", unsigned(frames_.size()));
@@ -114,26 +116,26 @@ bool RleAnimation::parse(const uint8_t* data, uint32_t size, bool checkHeader) {
     return !frames_.empty();
 }
 
-void RleAnimation::drawFrame(int i, Surface& dst, int dx, int dy) const {
+void RleAnimation::drawFrame(int i, Surface &dst, int dx, int dy) const {
     if (i < 0 || i >= frameCount())
         return;
     drawFrameAt(i, dst, frames_[i].x + dx, frames_[i].y + dy);
 }
 
-void RleAnimation::drawFrameAt(int i, Surface& dst, int ox, int oy, const Rect* clip) const {
+void RleAnimation::drawFrameAt(int i, Surface &dst, int ox, int oy, const Rect *clip) const {
     if (i < 0 || i >= frameCount())
         return;
-    const Frame& f = frames_[i];
+    const Frame &f = frames_[i];
     Rect bounds(0, 0, dst.w, dst.h);
     if (clip)
         bounds = Rect(std::max(0, clip->left), std::max(0, clip->top), std::min(dst.w, clip->right),
                       std::min(dst.h, clip->bottom));
-    const uint8_t* p = f.data.data();
-    const uint8_t* end = p + f.data.size();
+    const uint8_t *p = f.data.data();
+    const uint8_t *end = p + f.data.size();
     int row = -1, x = 0;
 
     // Writes `n` pixels of the current row, clipped to the frame and the surface.
-    auto put = [&](const uint8_t* src, int n, bool run) {
+    auto put = [&](const uint8_t *src, int n, bool run) {
         int sy = oy + row;
         if (row < f.h && sy >= bounds.top && sy < bounds.bottom) {
             for (int k = 0; k < n; k++) {
@@ -175,7 +177,7 @@ void RleAnimation::drawFrameAt(int i, Surface& dst, int ox, int oy, const Rect* 
     }
 }
 
-void drawPhaserBeam(Surface& dst, int x0, int y0, int x1, int y1, uint8_t color) {
+void drawPhaserBeam(Surface &dst, int x0, int y0, int x1, int y1, uint8_t color) {
     int dx = std::abs(x1 - x0), dy = std::abs(y1 - y0);
     int sx = x0 < x1 ? 1 : -1, sy = y0 < y1 ? 1 : -1;
     int len = std::max(dx, dy);

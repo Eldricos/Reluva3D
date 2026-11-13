@@ -57,17 +57,41 @@ and adds `<name>=enabled` to `engines.cfg`. Build it: it compiles, and
 ## 3. Make it run
 
 - **The engine** gets a `System` (`src/common/system.h`): graphics (2D,
-  or 3D through `src/common/gfx3d.h`), input events, sound, timing. Never
-  include SDL; use `src/common/` for files, archives, images, sound,
-  video and fonts, and add there what another engine could use too.
+  or 3D through `src/graphics/gfx3d.h`), input events, sound, timing. Never
+  include SDL. Use the shared code, and add there what another engine
+  could use too: `src/common/` (files, archives, streams, settings),
+  `src/audio/`, `src/video/`, `src/graphics/` (drawing, palettes, fonts,
+  cursors, 3D), `src/image/`, and `src/emulation/x86/` to run a game's
+  own Windows code.
 - **A mouse pointer of the game's own** goes to `System::setMouseCursor`
-  (a `Cursor` from `src/common/cursor.h`, made from the game's palette
+  (a `Cursor` from `src/graphics/cursor.h`, made from the game's palette
   indices with `cursor::fromIndexed`). The backend shows it as the
   system's pointer, scaled as the picture is, so it moves as smoothly as
   any; the engine needn't draw it into its frames.
-- **Code layout.** As it grows, keep files by topic in subfolders (the
-  game's formats, its pages, its game logic), as `src/engines/idtech3/`
-  does, and list them in its `CMakeLists.txt`.
+- **Code layout.** Every engine has the same inside, so anyone who knows
+  one can find their way around another:
+
+  ```text
+  src/engines/<name>/
+    CMakeLists.txt
+    <name>.cpp        the MetaEngine: registration, options, importing
+    detection.cpp/.h  recognising the game's folders, if it's more than a table
+    formats/          reading (and writing) the game's files
+    game/             the game's logic and state: rules, AI, scripts, the world
+    render/           drawing: models, scenes, sprites, effects, movies
+    audio/            the game's sound and music
+    ui/               menus, dialogs, the HUD, the front end
+    pages/            the launcher's pages: data viewers, debug views
+    tools/            reluva-tool commands
+    <game>/           code for one game of an engine that runs several
+  ```
+
+  Make a folder when the engine has several files of its kind; one file
+  of a kind may stay at the top, as may engine-wide glue (`platform.cpp`,
+  `debug.cpp`, a game-data helper). An engine whose original had modules
+  of its own may keep them as folders (idtech3: `client/`, `server/`,
+  `botlib/`, `wire/`, `vm/`). List each file, with its folder, in the
+  engine's `CMakeLists.txt`.
 - **Developer commands** for studying the game's files go in its `tools/`
   folder, by topic: a function and a line in the table at the end of the
   file. See [DEVELOPMENT.md](DEVELOPMENT.md#reluva-tool).

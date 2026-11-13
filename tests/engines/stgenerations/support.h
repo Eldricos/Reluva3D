@@ -16,14 +16,14 @@
 #include <vector>
 
 // CHECK(a == b), saying what each side was when they differ (for numbers).
-#define CHECK_EQUAL(a, b)                                                                                     \
-    do {                                                                                                      \
-        const auto checkA_ = (a);                                                                             \
-        const auto checkB_ = (b);                                                                             \
-        if (!(checkA_ == checkB_)) {                                                                          \
-            std::fprintf(stderr, "%s:%d: CHECK_EQUAL failed: %s == %s\n", __FILE__, __LINE__, #a, #b);        \
-            ++::reluva::test::failures();                                                                     \
-        }                                                                                                     \
+#define CHECK_EQUAL(a, b)                                                                                              \
+    do {                                                                                                               \
+        const auto checkA_ = (a);                                                                                      \
+        const auto checkB_ = (b);                                                                                      \
+        if (!(checkA_ == checkB_)) {                                                                                   \
+            std::fprintf(stderr, "%s:%d: CHECK_EQUAL failed: %s == %s\n", __FILE__, __LINE__, #a, #b);                 \
+            ++::reluva::test::failures();                                                                              \
+        }                                                                                                              \
     } while (0)
 
 namespace reluva::stgenerations::stgtest {
@@ -43,17 +43,17 @@ public:
         std::error_code ec;
         std::filesystem::remove_all(path_, ec);
     }
-    TempDir(const TempDir&) = delete;
-    TempDir& operator=(const TempDir&) = delete;
-    const std::filesystem::path& path() const { return path_; }
+    TempDir(const TempDir &) = delete;
+    TempDir &operator=(const TempDir &) = delete;
+    const std::filesystem::path &path() const { return path_; }
     // A file relative to the folder, its folders made.
-    void writeFile(const std::string& name, const std::vector<uint8_t>& data) const {
+    void writeFile(const std::string &name, const std::vector<uint8_t> &data) const {
         const std::filesystem::path p = path_ / name;
         std::error_code ec;
         std::filesystem::create_directories(p.parent_path(), ec);
         reluva::writeFile(p, data);
     }
-    void writeFile(const std::string& name, const std::string& data) const {
+    void writeFile(const std::string &name, const std::string &data) const {
         writeFile(name, std::vector<uint8_t>(data.begin(), data.end()));
     }
 
@@ -63,7 +63,7 @@ private:
 
 // An 8-bit BMP of width x height pixels (rows top first), or RLE8 data as
 // given; two colours: 0 black, 1 R 255 G 128 B 0.
-inline std::vector<uint8_t> makeBMP8(int width, int height, const std::vector<uint8_t>& pixels, bool rle) {
+inline std::vector<uint8_t> makeBMP8(int width, int height, const std::vector<uint8_t> &pixels, bool rle) {
     MemoryWriteStream w;
     const int pitch = (width + 3) & ~3;
     std::vector<uint8_t> data;

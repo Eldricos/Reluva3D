@@ -3,7 +3,7 @@
 
 #include "engines/idtech3/pages/texture_viewer.h"
 
-#include "common/font.h"
+#include "graphics/font.h"
 
 #include <algorithm>
 #include <filesystem>
@@ -12,9 +12,9 @@ namespace reluva::idtech3 {
 
 namespace {
 
-bool hasExtension(const std::string& name, std::initializer_list<const char*> exts) {
+bool hasExtension(const std::string &name, std::initializer_list<const char *> exts) {
     const std::string key = normalizeArchiveName(name);
-    for (const char* e : exts) {
+    for (const char *e : exts) {
         const std::string ext = e;
         if (key.size() > ext.size() && key.compare(key.size() - ext.size(), ext.size(), ext) == 0)
             return true;
@@ -26,13 +26,13 @@ bool hasExtension(const std::string& name, std::initializer_list<const char*> ex
 
 // --- TextureViewer ----------------------------------------------------------------------
 
-TextureViewer::TextureViewer(ViewerContext& ctx) : Page(ctx) {
-    for (const std::string& n : ctx.files.list())
+TextureViewer::TextureViewer(ViewerContext &ctx) : Page(ctx) {
+    for (const std::string &n : ctx.files.list())
         if (hasExtension(n, {".tga", ".jpg", ".jpeg", ".png"}))
             names_.push_back(n);
 }
 
-void TextureViewer::handleEvent(const Event& ev) {
+void TextureViewer::handleEvent(const Event &ev) {
     if (ev.type != EventType::KeyDown || names_.empty())
         return;
     int i = index_;
@@ -55,18 +55,18 @@ void TextureViewer::handleEvent(const Event& ev) {
 
 void TextureViewer::show(int index) {
     index_ = index;
-    Surface& s = ctx_.screen;
+    Surface &s = ctx_.screen;
     // Checkerboard, so transparency shows.
     for (int y = 0; y < s.h; ++y)
         for (int x = 0; x < s.w; ++x) {
             const uint8_t v = ((x / 16 + y / 16) & 1) ? 70 : 50;
-            uint8_t* p = s.row(y) + x * 4;
+            uint8_t *p = s.row(y) + x * 4;
             p[0] = p[1] = p[2] = v;
             p[3] = 255;
         }
     if (names_.empty())
         return;
-    const std::string& name = names_[size_t(index)];
+    const std::string &name = names_[size_t(index)];
     const std::string where = std::to_string(index + 1) + "/" + std::to_string(names_.size());
     setTitle(name + " (" + where + ")");
 
@@ -101,7 +101,7 @@ void TextureViewer::show(int index) {
     }
     fill(0, 0, s.w, 3 * lh, 16, 18, 24);
     text(4, 4, name + "  " + where);
-    const Archive* from = ctx_.files.find(name);
+    const Archive *from = ctx_.files.find(name);
     text(4, 4 + lh, info + (from ? "  from " + std::filesystem::path(from->describe()).filename().string() : ""),
          {150, 200, 255});
 }

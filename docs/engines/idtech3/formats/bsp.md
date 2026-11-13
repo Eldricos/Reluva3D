@@ -1,6 +1,6 @@
 # id Tech 3: compiled maps (`maps/*.bsp`)
 
-> **Status:** decoded · **Code:** `src/engines/idtech3/bsp.cpp` · **Checked on:** all 67 retail Elite Force maps (`reluva-tool idtech3 bsp-check`, October 2026) · **Confidence:** confirmed unless marked
+> **Status:** decoded · **Code:** `src/engines/idtech3/formats/bsp.cpp` · **Checked on:** all 67 retail Elite Force maps (`reluva-tool idtech3 bsp-check`, October 2026) · **Confidence:** confirmed unless marked
 
 ## Overview
 
@@ -81,7 +81,7 @@ cos lng).
 To light a point the original blends the eight surrounding grid points by
 distance, skipping any that are all black (inside walls) and rescaling
 the rest, normalizes the blended direction, then adds 32 to the ambient
-light (capped at 255). `src/engines/idtech3/light_grid.cpp`; read from the
+light (capped at 255). `src/engines/idtech3/render/light_grid.cpp`; read from the
 GPL renderer's `tr_bsp.c` and `tr_light.c`.
 
 ## Behaviour

@@ -22,24 +22,34 @@ constexpr int kAvoidReachTries = 4;
 constexpr int kEntityWorld = 1022, kEntityNone = 1023;
 constexpr int kLiquid = contents::Water | contents::Slime | contents::Lava;
 
-Vec3f sub(const Vec3f& a, const Vec3f& b) { return {a[0] - b[0], a[1] - b[1], a[2] - b[2]}; }
-Vec3f add_(const Vec3f& a, const Vec3f& b) { return {a[0] + b[0], a[1] + b[1], a[2] + b[2]}; }
-Vec3f scale(const Vec3f& a, float s) { return {a[0] * s, a[1] * s, a[2] * s}; }
-float dot(const Vec3f& a, const Vec3f& b) { return a[0] * b[0] + a[1] * b[1] + a[2] * b[2]; }
-float length(const Vec3f& v) { return std::sqrt(dot(v, v)); }
-float normalize(Vec3f& v) {
+Vec3f sub(const Vec3f &a, const Vec3f &b) {
+    return {a[0] - b[0], a[1] - b[1], a[2] - b[2]};
+}
+Vec3f add_(const Vec3f &a, const Vec3f &b) {
+    return {a[0] + b[0], a[1] + b[1], a[2] + b[2]};
+}
+Vec3f scale(const Vec3f &a, float s) {
+    return {a[0] * s, a[1] * s, a[2] * s};
+}
+float dot(const Vec3f &a, const Vec3f &b) {
+    return a[0] * b[0] + a[1] * b[1] + a[2] * b[2];
+}
+float length(const Vec3f &v) {
+    return std::sqrt(dot(v, v));
+}
+float normalize(Vec3f &v) {
     const float l = length(v);
     if (l > 0)
         v = scale(v, 1 / l);
     return l;
 }
 // The way from `from` to `to` along the ground, and how far.
-float horizontal(const Vec3f& from, const Vec3f& to, Vec3f& dir) {
+float horizontal(const Vec3f &from, const Vec3f &to, Vec3f &dir) {
     dir = {to[0] - from[0], to[1] - from[1], 0};
     return normalize(dir);
 }
 // Pitch and yaw looking along a direction, in degrees (up is negative pitch).
-Vec3f anglesOf(const Vec3f& dir) {
+Vec3f anglesOf(const Vec3f &dir) {
     const float forward = std::sqrt(dir[0] * dir[0] + dir[1] * dir[1]);
     float yaw = std::atan2(dir[1], dir[0]) * 180 / 3.14159265f;
     if (yaw < 0)
@@ -50,17 +60,22 @@ Vec3f anglesOf(const Vec3f& dir) {
 
 float reachabilityTime(int travelType) {
     switch (travelType & travel::TypeMask) {
-    case travel::Ladder: return 6;
+    case travel::Ladder:
+        return 6;
     case travel::Elevator:
     case travel::JumpPad:
-    case travel::FuncBob: return 10;
-    default: return 5;
+    case travel::FuncBob:
+        return 10;
+    default:
+        return 5;
     }
 }
 
 } // namespace
 
-int BotLibrary::allocMoveState() { return alloc(moveStates_); }
+int BotLibrary::allocMoveState() {
+    return alloc(moveStates_);
+}
 
 void BotLibrary::freeMoveState(int handle) {
     if (state(moveStates_, handle))
@@ -68,12 +83,12 @@ void BotLibrary::freeMoveState(int handle) {
 }
 
 void BotLibrary::resetMoveState(int handle) {
-    if (MoveState* ms = state(moveStates_, handle))
+    if (MoveState *ms = state(moveStates_, handle))
         *ms = MoveState{};
 }
 
-void BotLibrary::initMoveState(int handle, const BotInitMove& init) {
-    MoveState* ms = state(moveStates_, handle);
+void BotLibrary::initMoveState(int handle, const BotInitMove &init) {
+    MoveState *ms = state(moveStates_, handle);
     if (!ms)
         return;
     ms->origin = init.origin;
@@ -91,13 +106,13 @@ void BotLibrary::initMoveState(int handle, const BotInitMove& init) {
 }
 
 void BotLibrary::resetAvoidReach(int handle) {
-    if (MoveState* ms = state(moveStates_, handle))
+    if (MoveState *ms = state(moveStates_, handle))
         ms->avoidReach.clear();
 }
 
 void BotLibrary::resetLastAvoidReach(int handle) {
     // The latest reachability added to the avoided ones taken off.
-    MoveState* ms = state(moveStates_, handle);
+    MoveState *ms = state(moveStates_, handle);
     if (!ms || ms->avoidReach.empty())
         return;
     auto latest = ms->avoidReach.begin();
@@ -108,7 +123,7 @@ void BotLibrary::resetLastAvoidReach(int handle) {
         ms->avoidReach.erase(latest);
 }
 
-bool BotLibrary::onGround(const MoveState& ms) const {
+bool BotLibrary::onGround(const MoveState &ms) const {
     if (ms.moveFlags & moveflag::OnGround)
         return true;
     if (!trace)
@@ -120,7 +135,7 @@ bool BotLibrary::onGround(const MoveState& ms) const {
     return !t.startSolid && t.fraction < 1 && ms.velocity[2] <= 10;
 }
 
-bool BotLibrary::moverDown(const AasReach& reach) const {
+bool BotLibrary::moverDown(const AasReach &reach) const {
     Vec3f mins{}, maxs{}, origin{};
     const int model = reach.face & 0xffff;
     if (!modelBounds || !moverOrigin || !modelBounds(model, mins, maxs) || !moverOrigin(model, origin))
@@ -128,7 +143,7 @@ bool BotLibrary::moverDown(const AasReach& reach) const {
     return origin[2] + maxs[2] < reach.start[2];
 }
 
-Vec3f BotLibrary::moverBottomCenter(const AasReach& reach) const {
+Vec3f BotLibrary::moverBottomCenter(const AasReach &reach) const {
     Vec3f mins{}, maxs{}, origin{};
     const int model = reach.face & 0xffff;
     if (modelBounds)
@@ -138,7 +153,7 @@ Vec3f BotLibrary::moverBottomCenter(const AasReach& reach) const {
     return {origin[0] + (mins[0] + maxs[0]) / 2, origin[1] + (mins[1] + maxs[1]) / 2, reach.start[2]};
 }
 
-bool BotLibrary::onMover(const Vec3f& origin, int entity, const AasReach& reach) const {
+bool BotLibrary::onMover(const Vec3f &origin, int entity, const AasReach &reach) const {
     // Within its box (and 16 units) across, and a short box dropped from
     // above the bot lands on it.
     Vec3f mins{}, maxs{}, at{};
@@ -154,7 +169,7 @@ bool BotLibrary::onMover(const Vec3f& origin, int entity, const AasReach& reach)
            entityInfo(t.entity).modelIndex == model;
 }
 
-int BotLibrary::entityOnTopOf(const MoveState& ms) const {
+int BotLibrary::entityOnTopOf(const MoveState &ms) const {
     if (!trace)
         return -1;
     Vec3f mins{}, maxs{};
@@ -166,7 +181,7 @@ int BotLibrary::entityOnTopOf(const MoveState& ms) const {
     return -1;
 }
 
-void BotLibrary::checkBlocked(const MoveState& ms, const Vec3f& dir, bool checkBottom, BotMoveResult& result) const {
+void BotLibrary::checkBlocked(const MoveState &ms, const Vec3f &dir, bool checkBottom, BotMoveResult &result) const {
     // Something just ahead that isn't the world: an entity in the way (a
     // door, another player), for the game to deal with.
     if (!trace)
@@ -194,7 +209,7 @@ void BotLibrary::checkBlocked(const MoveState& ms, const Vec3f& dir, bool checkB
     }
 }
 
-float BotLibrary::gapDistance(const MoveState& ms, const Vec3f& hordir) const {
+float BotLibrary::gapDistance(const MoveState &ms, const Vec3f &hordir) const {
     // How far ahead the floor drops away (0: it doesn't within 100 units),
     // to slow down before it.
     if (!trace)
@@ -223,8 +238,8 @@ float BotLibrary::gapDistance(const MoveState& ms, const Vec3f& hordir) const {
     return 0;
 }
 
-int BotLibrary::reachabilityToGoal(const Vec3f& origin, int area, int lastGoalArea, int lastArea, MoveState* ms,
-                                   const BotGoal& goal, int travelFlags) {
+int BotLibrary::reachabilityToGoal(const Vec3f &origin, int area, int lastGoalArea, int lastArea, MoveState *ms,
+                                   const BotGoal &goal, int travelFlags) {
     // The area's reachability with the quickest way on to the goal, not
     // straight back where the bot came from, nor one tried too often lately.
     (void)origin;
@@ -240,7 +255,7 @@ int BotLibrary::reachabilityToGoal(const Vec3f& origin, int area, int lastGoalAr
             if (it != ms->avoidReach.end() && it->second.first >= time_ && it->second.second > kAvoidReachTries)
                 continue;
         }
-        const AasReach& reach = aas_.reachabilities()[size_t(r)];
+        const AasReach &reach = aas_.reachabilities()[size_t(r)];
         if (lastGoalArea == goal.area && reach.area == lastArea)
             continue;
         if ((AasWorld::travelFlagForType(reach.travelType) | aas_.contentsTravelFlags(reach.area)) & ~travelFlags)
@@ -257,9 +272,9 @@ int BotLibrary::reachabilityToGoal(const Vec3f& origin, int area, int lastGoalAr
     return best;
 }
 
-BotMoveResult BotLibrary::moveToGoal(int handle, const BotGoal& goal, int travelFlags) {
+BotMoveResult BotLibrary::moveToGoal(int handle, const BotGoal &goal, int travelFlags) {
     BotMoveResult result;
-    MoveState* ms = state(moveStates_, handle);
+    MoveState *ms = state(moveStates_, handle);
     if (!ms || !aas_.loaded()) {
         result.failure = true;
         return result;
@@ -276,11 +291,11 @@ BotMoveResult BotLibrary::moveToGoal(int handle, const BotGoal& goal, int travel
             const std::string kind = type == modelTypes_.end() ? std::string() : type->second;
             if (kind == "func_plat" || kind == "func_bobbing") {
                 const int travelType = kind == "func_plat" ? travel::Elevator : travel::FuncBob;
-                const AasReach* last = ms->lastReach ? &aas_.reachabilities()[size_t(ms->lastReach)] : nullptr;
+                const AasReach *last = ms->lastReach ? &aas_.reachabilities()[size_t(ms->lastReach)] : nullptr;
                 if (!last || (last->travelType & travel::TypeMask) != travelType || (last->face & 0xffff) != model) {
                     int found = 0;
                     for (size_t r = 1; r < aas_.reachabilities().size() && !found; ++r) {
-                        const AasReach& reach = aas_.reachabilities()[r];
+                        const AasReach &reach = aas_.reachabilities()[r];
                         if ((reach.travelType & travel::TypeMask) == travelType && (reach.face & 0xffff) == model)
                             found = int(r);
                     }
@@ -346,7 +361,7 @@ BotMoveResult BotLibrary::moveToGoal(int handle, const BotGoal& goal, int travel
         // changed or it took too long; elevators until reached.
         int reach = ms->lastReach;
         if (reach) {
-            const AasReach& r = aas_.reachabilities()[size_t(reach)];
+            const AasReach &r = aas_.reachabilities()[size_t(reach)];
             const int type = r.travelType & travel::TypeMask;
             if (!(AasWorld::travelFlagForType(r.travelType) & travelFlags)) {
                 reach = 0;
@@ -366,7 +381,7 @@ BotMoveResult BotLibrary::moveToGoal(int handle, const BotGoal& goal, int travel
             if (reach) {
                 ms->reachTime = time_ + reachabilityTime(aas_.reachabilities()[size_t(reach)].travelType);
                 // Tried once more; given up on for a while after a few tries.
-                auto& avoid = ms->avoidReach[reach];
+                auto &avoid = ms->avoidReach[reach];
                 avoid.second = avoid.first >= time_ ? avoid.second + 1 : 1;
                 avoid.first = time_ + kAvoidReachTime;
             }
@@ -375,7 +390,7 @@ BotMoveResult BotLibrary::moveToGoal(int handle, const BotGoal& goal, int travel
         ms->lastGoalArea = goal.area;
         ms->lastArea = ms->area;
         if (reach) {
-            const AasReach& r = aas_.reachabilities()[size_t(reach)];
+            const AasReach &r = aas_.reachabilities()[size_t(reach)];
             const int flags = result.flags;
             result = travel(*ms, r, false);
             result.flags |= flags;
@@ -385,7 +400,7 @@ BotMoveResult BotLibrary::moveToGoal(int handle, const BotGoal& goal, int travel
         }
     } else if (ms->lastReach) {
         // In the air: finish what the last reachability started.
-        const AasReach& r = aas_.reachabilities()[size_t(ms->lastReach)];
+        const AasReach &r = aas_.reachabilities()[size_t(ms->lastReach)];
         result = travel(*ms, r, true);
         result.travelType = r.travelType;
     }
@@ -395,11 +410,11 @@ BotMoveResult BotLibrary::moveToGoal(int handle, const BotGoal& goal, int travel
     return result;
 }
 
-BotMoveResult BotLibrary::travel(MoveState& ms, const AasReach& reach, bool finishing) {
+BotMoveResult BotLibrary::travel(MoveState &ms, const AasReach &reach, bool finishing) {
     BotMoveResult result;
     Vec3f dir{};
     const int client = ms.client;
-    auto airControl = [&](const Vec3f& goal, Vec3f& out, float& speed) {
+    auto airControl = [&](const Vec3f &goal, Vec3f &out, float &speed) {
         // Where the bot comes down, falling as it goes, and the way from
         // there to the goal: to steer while in the air.
         Vec3f org = ms.origin, vel = scale(ms.velocity, 0.1f);
@@ -676,8 +691,8 @@ BotMoveResult BotLibrary::travel(MoveState& ms, const AasReach& reach, bool fini
         }
         Vec3f toCenter{};
         const float distCenter = horizontal(ms.origin, moverBottomCenter(reach), toCenter);
-        const bool towardsCenter = distStart < 20 || distCenter < distStart ||
-                                   toStart[0] * toCenter[0] + toStart[1] * toCenter[1] < 0;
+        const bool towardsCenter =
+            distStart < 20 || distCenter < distStart || toStart[0] * toCenter[0] + toStart[1] * toCenter[1] < 0;
         dir = towardsCenter ? toCenter : toStart;
         const float dist = towardsCenter ? distCenter : distStart;
         checkBlocked(ms, dir, false, result);
@@ -685,13 +700,15 @@ BotMoveResult BotLibrary::travel(MoveState& ms, const AasReach& reach, bool fini
         result.moveDir = dir;
         break;
     }
-    default: result.failure = true; break;
+    default:
+        result.failure = true;
+        break;
     }
     return result;
 }
 
-bool BotLibrary::moveInDirection(int handle, const Vec3f& dirIn, float speed, int type) {
-    MoveState* ms = state(moveStates_, handle);
+bool BotLibrary::moveInDirection(int handle, const Vec3f &dirIn, float speed, int type) {
+    MoveState *ms = state(moveStates_, handle);
     if (!ms)
         return false;
     Vec3f dir = dirIn;
@@ -709,9 +726,9 @@ bool BotLibrary::moveInDirection(int handle, const Vec3f& dirIn, float speed, in
         Vec3f mins{}, maxs{};
         AasWorld::presenceBox(presence::Crouch, mins, maxs);
         const Vec3f ahead = add_(ms->origin, scale(dir, 32));
-        const Trace t = trace({ahead[0], ahead[1], ahead[2] + kMaxStep}, mins, maxs,
-                              {ahead[0], ahead[1], ahead[2] - kMaxStep - 40}, ms->entity,
-                              contents::Solid | contents::PlayerClip);
+        const Trace t =
+            trace({ahead[0], ahead[1], ahead[2] + kMaxStep}, mins, maxs, {ahead[0], ahead[1], ahead[2] - kMaxStep - 40},
+                  ms->entity, contents::Solid | contents::PlayerClip);
         if (!t.startSolid) {
             if (t.fraction >= 1)
                 return false;
@@ -730,7 +747,7 @@ bool BotLibrary::moveInDirection(int handle, const Vec3f& dirIn, float speed, in
 
 namespace {
 // Along a path towards a point `lookahead` units ahead: false while short of it.
-bool addToTarget(const Vec3f& start, const Vec3f& end, float maxDist, float& dist, Vec3f& target) {
+bool addToTarget(const Vec3f &start, const Vec3f &end, float maxDist, float &dist, Vec3f &target) {
     Vec3f d = sub(end, start);
     const float len = normalize(d);
     if (dist + len >= maxDist) {
@@ -743,16 +760,16 @@ bool addToTarget(const Vec3f& start, const Vec3f& end, float maxDist, float& dis
 }
 } // namespace
 
-bool BotLibrary::movementViewTarget(int handle, const BotGoal& goal, int travelFlags, float lookahead, Vec3f& target) {
+bool BotLibrary::movementViewTarget(int handle, const BotGoal &goal, int travelFlags, float lookahead, Vec3f &target) {
     // A point some way along the route, to look at while moving.
-    MoveState* ms = state(moveStates_, handle);
+    MoveState *ms = state(moveStates_, handle);
     if (!ms || !ms->lastReach)
         return false;
     int reach = ms->lastReach, lastArea = ms->lastArea;
     Vec3f end = ms->origin;
     float dist = 0;
     for (int steps = 0; reach && dist < lookahead && steps < 32; ++steps) {
-        const AasReach& r = aas_.reachabilities()[size_t(reach)];
+        const AasReach &r = aas_.reachabilities()[size_t(reach)];
         if (addToTarget(end, r.start, lookahead, dist, target))
             return true;
         const int type = r.travelType & travel::TypeMask;
@@ -773,13 +790,13 @@ bool BotLibrary::movementViewTarget(int handle, const BotGoal& goal, int travelF
     return false;
 }
 
-bool BotLibrary::predictVisiblePosition(const Vec3f& origin, int area, const BotGoal& goal, int travelFlags,
-                                        Vec3f& target) {
+bool BotLibrary::predictVisiblePosition(const Vec3f &origin, int area, const BotGoal &goal, int travelFlags,
+                                        Vec3f &target) {
     // Following the route from `origin` to the goal, the first point the
     // goal can be seen from.
     if (!area || !goal.area)
         return false;
-    auto visible = [&](const Vec3f& from) {
+    auto visible = [&](const Vec3f &from) {
         if (!trace)
             return false;
         const Trace t = trace(goal.origin, {}, {}, from, goal.entity, contents::Solid);
@@ -791,7 +808,7 @@ bool BotLibrary::predictVisiblePosition(const Vec3f& origin, int area, const Bot
         const int reach = reachabilityToGoal(end, area, goal.area, lastArea, nullptr, goal, travelFlags);
         if (!reach)
             return false;
-        const AasReach& r = aas_.reachabilities()[size_t(reach)];
+        const AasReach &r = aas_.reachabilities()[size_t(reach)];
         if (visible(r.start)) {
             target = r.start;
             return true;
@@ -807,8 +824,8 @@ bool BotLibrary::predictVisiblePosition(const Vec3f& origin, int area, const Bot
     return false;
 }
 
-bool BotLibrary::predictClientMovement(BotClientMove& move, int entity, const Vec3f& origin, int presenceType,
-                                       bool onGround, const Vec3f& velocityIn, const Vec3f& cmdMove, int cmdFrames,
+bool BotLibrary::predictClientMovement(BotClientMove &move, int entity, const Vec3f &origin, int presenceType,
+                                       bool onGround, const Vec3f &velocityIn, const Vec3f &cmdMove, int cmdFrames,
                                        int maxFrames, float frameTime, int stopEvents, int stopArea) {
     move = BotClientMove{};
     if (!trace)
@@ -817,7 +834,7 @@ bool BotLibrary::predictClientMovement(BotClientMove& move, int entity, const Ve
         frameTime = 0.1f;
     // The movement settings, as the bot library's (its settings or Quake
     // III's defaults).
-    auto setting = [&](const char* name, float fallback) {
+    auto setting = [&](const char *name, float fallback) {
         const std::string v = libVar(name);
         return v.empty() ? fallback : float(std::atof(v.c_str()));
     };
@@ -832,30 +849,28 @@ bool BotLibrary::predictClientMovement(BotClientMove& move, int entity, const Ve
     const float jumpVel = setting("phys_jumpvel", 270), maxBarrier = setting("phys_maxbarrier", 33);
     constexpr int solid = contents::Solid | contents::PlayerClip | contents::Body;
 
-    auto box = [&](int presenceType, Vec3f& mins, Vec3f& maxs) {
+    auto box = [&](int presenceType, Vec3f &mins, Vec3f &maxs) {
         AasWorld::presenceBox(presenceType == presence::Crouch ? presence::Crouch : presence::Normal, mins, maxs);
     };
-    auto traceBox = [&](const Vec3f& from, const Vec3f& to, int presenceType, int pass) {
+    auto traceBox = [&](const Vec3f &from, const Vec3f &to, int presenceType, int pass) {
         Vec3f mins{}, maxs{};
         box(presenceType, mins, maxs);
         return trace(from, mins, maxs, to, pass, solid);
     };
-    auto swimming = [&](const Vec3f& p) {
-        return pointContents && (pointContents({p[0], p[1], p[2] - 2}) & kLiquid);
-    };
-    auto groundBelow = [&](const Vec3f& p, int presenceType) {
+    auto swimming = [&](const Vec3f &p) { return pointContents && (pointContents({p[0], p[1], p[2] - 2}) & kLiquid); };
+    auto groundBelow = [&](const Vec3f &p, int presenceType) {
         const Trace t = traceBox(p, {p[0], p[1], p[2] - 10}, presenceType, entity);
         return !t.startSolid && t.fraction < 1 && p[2] - t.end[2] <= 10 && t.normal[2] >= maxSteepness;
     };
     // Speeding up towards `wishSpeed` along `dir`, as the game's movement does.
-    auto accelerate = [&](Vec3f& vel, const Vec3f& dir, float wishSpeed, float accel) {
+    auto accelerate = [&](Vec3f &vel, const Vec3f &dir, float wishSpeed, float accel) {
         const float add = wishSpeed - dot(vel, dir);
         if (add <= 0)
             return;
         const float a = std::min(accel * frameTime * wishSpeed, add);
         vel = add_(vel, scale(dir, a));
     };
-    auto finish = [&](const Vec3f& at, const Vec3f& vel, const Trace& t, int event, int n, int area) {
+    auto finish = [&](const Vec3f &at, const Vec3f &vel, const Trace &t, int event, int n, int area) {
         move.endPos = at;
         move.endArea = area;
         move.velocity = vel;

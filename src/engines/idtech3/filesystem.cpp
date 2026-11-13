@@ -12,8 +12,8 @@
 
 namespace reluva::idtech3 {
 
-Error mountGameDir(SearchSet& set, const std::filesystem::path& install, std::string_view gameDir, int layer,
-                   std::vector<std::string>& warnings, const std::vector<std::string>& skip) {
+Error mountGameDir(SearchSet &set, const std::filesystem::path &install, std::string_view gameDir, int layer,
+                   std::vector<std::string> &warnings, const std::vector<std::string> &skip) {
     const auto dir = fs::findDirectory(install, gameDir);
     if (!dir)
         return Error::fail("No " + std::string(gameDir) + " folder in " + install.string());
@@ -26,17 +26,18 @@ Error mountGameDir(SearchSet& set, const std::filesystem::path& install, std::st
             paks.push_back(it->path());
     // Compared in upper case (fs::windowsNameLess): that puts '_' after the
     // letters, unlike lower case, and decides which pak overrides which.
-    auto name = [](const std::filesystem::path& p) {
+    auto name = [](const std::filesystem::path &p) {
         const std::u8string u8 = p.filename().u8string();
         return std::string(u8.begin(), u8.end());
     };
-    std::sort(paks.begin(), paks.end(), [&](const auto& a, const auto& b) { return fs::windowsNameLess(name(a), name(b)); });
+    std::sort(paks.begin(), paks.end(),
+              [&](const auto &a, const auto &b) { return fs::windowsNameLess(name(a), name(b)); });
     if (paks.size() >= kPrioritiesPerGameDir)
         return Error::fail("Too many .pk3 files in " + dir->string());
 
     const int base = layer * kPrioritiesPerGameDir;
     int priority = base;
-    for (const auto& p : paks) {
+    for (const auto &p : paks) {
         auto zip = std::make_unique<ZipArchive>();
         if (Error err = zip->open(p)) {
             warnings.push_back(err.message);
@@ -54,9 +55,9 @@ Error mountGameDir(SearchSet& set, const std::filesystem::path& install, std::st
     return Error::success();
 }
 
-Error mountGame(SearchSet& set, const std::filesystem::path& install, const std::filesystem::path& home,
-                std::string_view baseDir, std::string_view mod, std::vector<std::string>& warnings,
-                const std::vector<std::string>& skip) {
+Error mountGame(SearchSet &set, const std::filesystem::path &install, const std::filesystem::path &home,
+                std::string_view baseDir, std::string_view mod, std::vector<std::string> &warnings,
+                const std::vector<std::string> &skip) {
     set.clear();
     if (Error err = mountGameDir(set, install, baseDir, 0, warnings, skip))
         return err;
@@ -78,14 +79,14 @@ std::string modFolderName(std::string_view value, std::string_view baseDir) {
     return std::string(value);
 }
 
-std::filesystem::path modSavePath(const std::filesystem::path& savePath, std::string_view mod) {
+std::filesystem::path modSavePath(const std::filesystem::path &savePath, std::string_view mod) {
     if (savePath.empty() || mod.empty())
         return savePath;
     return savePath / "mods" / std::filesystem::path(std::u8string(mod.begin(), mod.end()));
 }
 
-std::vector<ModFolder> listMods(const std::filesystem::path& install, std::string_view baseDir) {
-    auto utf8 = [](const std::filesystem::path& p) {
+std::vector<ModFolder> listMods(const std::filesystem::path &install, std::string_view baseDir) {
+    auto utf8 = [](const std::filesystem::path &p) {
         const std::u8string u8 = p.u8string();
         return std::string(u8.begin(), u8.end());
     };
@@ -96,10 +97,11 @@ std::vector<ModFolder> listMods(const std::filesystem::path& install, std::strin
         if (it->is_directory(ec) && !name.empty() && name[0] != '.' && fs::toLower(name) != fs::toLower(baseDir))
             folders.push_back(it->path());
     }
-    std::sort(folders.begin(), folders.end(),
-              [&](const auto& a, const auto& b) { return fs::windowsNameLess(utf8(a.filename()), utf8(b.filename())); });
+    std::sort(folders.begin(), folders.end(), [&](const auto &a, const auto &b) {
+        return fs::windowsNameLess(utf8(a.filename()), utf8(b.filename()));
+    });
     std::vector<ModFolder> out;
-    for (const std::filesystem::path& folder : folders) {
+    for (const std::filesystem::path &folder : folders) {
         // Only folders with paks of their own.
         bool paks = false;
         for (std::filesystem::directory_iterator it(folder, ec), end; !ec && it != end && !paks; it.increment(ec))
@@ -125,13 +127,13 @@ std::vector<ModFolder> listMods(const std::filesystem::path& install, std::strin
     return out;
 }
 
-uint32_t packModList(const std::vector<ModFolder>& mods, uint32_t size, std::vector<uint8_t>& out) {
+uint32_t packModList(const std::vector<ModFolder> &mods, uint32_t size, std::vector<uint8_t> &out) {
     out.assign(size ? 1 : 0, 0);
     if (!size)
         return 0;
     out.clear();
     uint32_t count = 0;
-    for (const ModFolder& mod : mods) {
+    for (const ModFolder &mod : mods) {
         // The list ends at the first that doesn't leave more than 2 bytes.
         if (out.size() + mod.name.size() + 1 + mod.description.size() + 1 + 2 >= size)
             break;

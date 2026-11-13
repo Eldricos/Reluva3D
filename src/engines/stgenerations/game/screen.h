@@ -3,7 +3,7 @@
 
 #pragma once
 
-#include "common/palette.h"
+#include "graphics/palette.h"
 #include "engines/stgenerations/canvas.h"
 
 namespace reluva::stgenerations {
@@ -20,12 +20,12 @@ public:
     static const int kWidth = 640;
     static const int kHeight = 480;
 
-    explicit Screen(Platform* system);
+    explicit Screen(Platform *system);
 
     void init();
 
-    Canvas& getSurface() { return _surface; }
-    Palette& getPalette() { return _palette; }
+    Canvas &getSurface() { return _surface; }
+    Palette &getPalette() { return _palette; }
 
     void clear(uint8_t color = 0);
 
@@ -33,20 +33,19 @@ public:
     void applyPalette();
 
     // Draw a surface centred on screen, converting truecolour images to the palette.
-    void drawCentered(const Canvas& image);
+    void drawCentered(const Canvas &image);
 
     // Draw an image centred in the top areaHeight rows, enlarged by the
     // largest whole factor (up to 3x) that fits.
-    void drawImage(const Canvas& image, int areaHeight);
+    void drawImage(const Canvas &image, int areaHeight);
 
     // Copy the back buffer to the backend and present it.
     void update();
 
 private:
-    Platform* _system;
+    Platform *_system;
     Canvas _surface;
     Palette _palette;
 };
 
 } // namespace reluva::stgenerations
-

@@ -3,10 +3,10 @@
 
 // reluva-tool's New Worlds commands for its sounds and fonts.
 
-#include "tools/tool.h"
+#include "devtools/tool.h"
 
-#include "common/audio/decode.h"
-#include "common/audio/wav.h"
+#include "audio/decode.h"
+#include "audio/wav.h"
 #include "engines/newworlds/cat_archive.h"
 #include "engines/newworlds/fif.h"
 #include "engines/newworlds/model_textures.h"
@@ -25,13 +25,13 @@ namespace {
 
 using namespace reluva::tool;
 
-int cmdWavInfo(int argc, char** argv) {
+int cmdWavInfo(int argc, char **argv) {
     if (argc != 3) {
         std::fprintf(stderr, "usage: reluva-tool newworlds wav-info <file.wav | file.mp3 | file.cat>\n");
         return 2;
     }
     namespace nw = reluva::newworlds;
-    auto describe = [](const std::string& name, const std::vector<uint8_t>& data, const std::string& note = "") {
+    auto describe = [](const std::string &name, const std::vector<uint8_t> &data, const std::string &note = "") {
         reluva::audio::Sound s;
         if (reluva::Error err = reluva::audio::decodeSound(data, s)) {
             std::printf("%-28s %s\n", name.c_str(), err.message.c_str());
@@ -55,7 +55,7 @@ int cmdWavInfo(int argc, char** argv) {
         std::map<std::string, unsigned> first; // bytes -> entry number
         std::vector<uint8_t> data;
         for (size_t i = 0; i < cat.entries().size(); ++i) {
-            const auto& e = cat.entries()[i];
+            const auto &e = cat.entries()[i];
             if (e.tag != nw::cattag::Wave)
                 continue;
             ++count;
@@ -65,7 +65,8 @@ int cmdWavInfo(int argc, char** argv) {
             }
             const auto [it, added] = first.emplace(std::string(data.begin(), data.end()), unsigned(i));
             const std::string note =
-                added ? "" : " copy of " + cat.entries()[it->second].name + " (entry " + std::to_string(it->second) + ")";
+                added ? ""
+                      : " copy of " + cat.entries()[it->second].name + " (entry " + std::to_string(it->second) + ")";
             good += describe(e.name, data, note);
         }
         std::printf("%u sounds (%zu different), %u decode\n", count, first.size(), good);
@@ -79,7 +80,7 @@ int cmdWavInfo(int argc, char** argv) {
     return describe(path, data) ? 0 : 1;
 }
 
-int cmdWavDecode(int argc, char** argv) {
+int cmdWavDecode(int argc, char **argv) {
     if (argc != 4) {
         std::fprintf(stderr, "usage: reluva-tool newworlds wav-decode <in.wav | in.mp3> <out.wav>\n");
         return 2;
@@ -96,7 +97,7 @@ int cmdWavDecode(int argc, char** argv) {
     }
     const std::vector<uint8_t> out = reluva::audio::encodePcmWav(s);
     std::ofstream f(argv[3], std::ios::binary);
-    f.write(reinterpret_cast<const char*>(out.data()), std::streamsize(out.size()));
+    f.write(reinterpret_cast<const char *>(out.data()), std::streamsize(out.size()));
     if (!f) {
         std::fprintf(stderr, "cannot write %s\n", argv[3]);
         return 1;
@@ -105,16 +106,16 @@ int cmdWavDecode(int argc, char** argv) {
     return 0;
 }
 
-int cmdFifInfo(int argc, char** argv) {
+int cmdFifInfo(int argc, char **argv) {
     if (argc != 3) {
         std::fprintf(stderr, "usage: reluva-tool newworlds fif-info <file.fif | file.cat>\n");
         return 2;
     }
     namespace nw = reluva::newworlds;
-    auto summary = [](const nw::GameFont& f) {
+    auto summary = [](const nw::GameFont &f) {
         size_t drawn = 0;
         int widest = 0;
-        for (const auto& g : f.glyphs) {
+        for (const auto &g : f.glyphs) {
             drawn += g.height > 0;
             widest = std::max(widest, g.width);
         }
@@ -131,12 +132,12 @@ int cmdFifInfo(int argc, char** argv) {
             return 1;
         }
         unsigned listed = 0;
-        for (const auto& e : cat->entries())
+        for (const auto &e : cat->entries())
             listed += e.tag == nw::cattag::Fif;
         nw::Archives archives;
         archives.push_back(std::move(cat));
         const auto fonts = nw::loadGameFonts(archives);
-        for (const auto& f : fonts)
+        for (const auto &f : fonts)
             std::printf("%-16s %dx%d image; %s\n", f.name.c_str(), f.imageWidth, f.imageHeight, summary(f).c_str());
         std::printf("%u font entries, %zu different fonts read\n", listed, fonts.size());
         return 0;
@@ -151,7 +152,7 @@ int cmdFifInfo(int argc, char** argv) {
     }
     std::printf("%s\n", summary(f).c_str());
     for (size_t i = 0; i < f.glyphs.size(); ++i) {
-        const auto& g = f.glyphs[i];
+        const auto &g = f.glyphs[i];
         const uint32_t code = f.first + uint32_t(i);
         std::printf("  %3u %c  x %3d y %3d  %2d x %2d%s\n", code, code < 127 ? char(code) : ' ', g.x, g.y, g.width,
                     g.height, g.height ? "" : "  (none)");
@@ -159,16 +160,13 @@ int cmdFifInfo(int argc, char** argv) {
     return 0;
 }
 
-const Commands commands("newworlds", {
-    {"wav-info", "<file.wav | file.mp3 | file.cat>",
-     "show a sound's format and length, or survey an archive's",
-     cmdWavInfo},
-    {"wav-decode", "<in.wav | in.mp3> <out.wav>",
-     "decode a sound to 16-bit PCM",
-     cmdWavDecode},
-    {"fif-info", "<file.fif | file.cat>",
-     "show a font's glyph table, or list an archive's fonts",
-     cmdFifInfo},
-});
+const Commands commands("newworlds",
+                        {
+                            {"wav-info", "<file.wav | file.mp3 | file.cat>",
+                             "show a sound's format and length, or survey an archive's", cmdWavInfo},
+                            {"wav-decode", "<in.wav | in.mp3> <out.wav>", "decode a sound to 16-bit PCM", cmdWavDecode},
+                            {"fif-info", "<file.fif | file.cat>",
+                             "show a font's glyph table, or list an archive's fonts", cmdFifInfo},
+                        });
 
 } // namespace

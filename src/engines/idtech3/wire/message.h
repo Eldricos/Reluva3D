@@ -27,12 +27,12 @@ public:
     // Floats in entity and player states: whole numbers from -4096 to
     // 4095 in 13 bits, anything else in 32.
     void smallFloat(float v);
-    void string(const std::string& s, size_t maxLength = 1023);
-    void bigString(const std::string& s) { string(s, 8191); }
-    void data(const uint8_t* bytes, size_t count);
+    void string(const std::string &s, size_t maxLength = 1023);
+    void bigString(const std::string &s) { string(s, 8191); }
+    void data(const uint8_t *bytes, size_t count);
     void alignToByte();
 
-    const std::vector<uint8_t>& bytes() const { return data_; }
+    const std::vector<uint8_t> &bytes() const { return data_; }
     size_t bitCount() const { return bit_; }
 
 private:
@@ -44,7 +44,7 @@ class MessageReader {
 public:
     MessageReader() = default;
     explicit MessageReader(std::vector<uint8_t> bytes) : data_(std::move(bytes)) {}
-    MessageReader(const uint8_t* bytes, size_t count) : data_(bytes, bytes + count) {}
+    MessageReader(const uint8_t *bytes, size_t count) : data_(bytes, bytes + count) {}
 
     // A value of `bits` bits (1 to 32); past the end, bits read as 0 and
     // overflowed() says so. `sign` extends the top bit.
@@ -66,7 +66,7 @@ public:
     size_t bitPosition() const { return bit_; }
     // The bytes after the first `count`, for the netchan's header.
     void skipBytes(size_t count) { bit_ = count * 8; }
-    const std::vector<uint8_t>& bytes() const { return data_; }
+    const std::vector<uint8_t> &bytes() const { return data_; }
 
 private:
     std::vector<uint8_t> data_;

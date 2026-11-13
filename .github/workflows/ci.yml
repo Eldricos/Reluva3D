@@ -1,5 +1,5 @@
 # Builds Reluva and runs its tests on Linux, macOS and Windows, and checks
-# the 3D renderer (src/tools/render_check.cpp) against the reference frames
+# the 3D renderer (src/devtools/render_check.cpp) against the reference frames
 # in tests/render: on macOS through Metal, on Linux through Vulkan on
 # Mesa's software driver (lavapipe). Windows' runners have no Vulkan driver,
 # so there it's built and tested only.
@@ -18,6 +18,14 @@
 # cmake/NewEngine.cmake and builds and tests it, so the template keeps up
 # with the code it uses (src/engines/engine.h, the tests' and tools'
 # frameworks).
+#
+# The "style" job checks the code against docs/CODING_GUIDE.md:
+# formatting (tools/format.py, clang-format 18) on every file, which fails
+# the run if any file isn't formatted (run python3 tools/format.py
+# --changed, and commit), and clang-tidy 18 (tools/tidy.py) on the files
+# the push or pull request changes, which for now only reports until the
+# names are brought in line (docs/code-style-migration.md). The counts are
+# in the run's summary.
 #
 # The "docs" job checks the documentation against
 # docs/DOCUMENTATION_STANDARD.md: tools/check-docs.py (links, each engine's
@@ -212,3 +220,45 @@ jobs:
         run: python3 tools/check-docs.py
       - name: Markdown
         run: npx --yes markdownlint-cli2@0.23.3
+
+  style:
+    name: Code style
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          # All history: clang-tidy checks what changed since the base.
+          fetch-depth: 0
+      - name: Packages
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y ninja-build clang-format-18 clang-tidy-18
+      - name: Formatting
+        # bash with pipefail (not the default's plain -e), so | tee keeps
+        # the check's exit status.
+        shell: bash
+        run: python3 tools/format.py --check | tee format.txt
+      - name: clang-tidy (changed files)
+        # Report only until the names are brought in line (Phase 4).
+        continue-on-error: true
+        shell: bash
+        env:
+          BASE: ${{ github.event_name == 'pull_request' && format('origin/{0}', github.base_ref) || github.event.before }}
+        run: |
+          # A new branch's first push has no "before": compare with main.
+          if ! git rev-parse -q --verify "$BASE^{commit}" > /dev/null; then BASE=origin/main; fi
+          # Only a configure for the compile database: SDL without a
+          # window system needs none of its packages.
+          python3 tools/tidy.py --changed "$BASE" --cmake -G Ninja \
+            -DSDL_UNIX_CONSOLE_BUILD=ON -DSDL_X11=OFF -DSDL_WAYLAND=OFF | tee tidy.txt
+      - name: Summary
+        if: always()
+        run: |
+          {
+            echo "### Formatting (tools/format.py)"
+            tail -n 1 format.txt 2> /dev/null || echo "not run"
+            echo "### clang-tidy on the changed files (tools/tidy.py)"
+            echo '```'
+            grep -E '^ *[0-9]+  [a-z]|findings|No C\+\+ files' tidy.txt 2> /dev/null || echo "not run"
+            echo '```'
+          } >> "$GITHUB_STEP_SUMMARY"

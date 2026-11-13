@@ -25,23 +25,25 @@ namespace reluva::stharbinger::testing {
 using NullSystem = HeadlessSystem;
 
 // The game in `dir`, as the engine runs it.
-inline Options optionsFor(const std::filesystem::path& dir) {
+inline Options optionsFor(const std::filesystem::path &dir) {
     Options o;
     o.paths.push_back(dir.string());
     return o;
 }
 
-inline void putU32(std::vector<uint8_t>& v, uint32_t x) {
+inline void putU32(std::vector<uint8_t> &v, uint32_t x) {
     for (int i = 0; i < 4; i++)
         v.push_back(uint8_t(x >> (8 * i)));
 }
 
-inline void putFile(const std::filesystem::path& path, const std::vector<uint8_t>& data) {
+inline void putFile(const std::filesystem::path &path, const std::vector<uint8_t> &data) {
     std::filesystem::create_directories(path.parent_path());
-    std::ofstream(path, std::ios::binary).write(reinterpret_cast<const char*>(data.data()), data.size());
+    std::ofstream(path, std::ios::binary).write(reinterpret_cast<const char *>(data.data()), data.size());
 }
 
-inline std::vector<uint8_t> bytes(const std::string& s) { return std::vector<uint8_t>(s.begin(), s.end()); }
+inline std::vector<uint8_t> bytes(const std::string &s) {
+    return std::vector<uint8_t>(s.begin(), s.end());
+}
 
 // Builds a directive list; unused slots are padded with type 00.
 struct ScriptBuilder {
@@ -49,7 +51,7 @@ struct ScriptBuilder {
     uint16_t count = 0;
 
     // Arguments are (type, value) pairs.
-    ScriptBuilder& cmd(uint8_t command, std::vector<std::pair<uint8_t, uint16_t>> args = {}) {
+    ScriptBuilder &cmd(uint8_t command, std::vector<std::pair<uint8_t, uint16_t>> args = {}) {
         body.push_back(command);
         int argc = getArgCount(command);
         for (int slot = 0; slot < argc; slot++) {
@@ -73,13 +75,19 @@ struct ScriptBuilder {
     }
 };
 
-inline std::pair<uint8_t, uint16_t> var(uint16_t n) { return {kArgSymbol, n}; }
-inline std::pair<uint8_t, uint16_t> sym(uint16_t n) { return {kArgSymbol, n}; }
-inline std::pair<uint8_t, uint16_t> num(uint16_t n) { return {kArgConst, n}; }
+inline std::pair<uint8_t, uint16_t> var(uint16_t n) {
+    return {kArgSymbol, n};
+}
+inline std::pair<uint8_t, uint16_t> sym(uint16_t n) {
+    return {kArgSymbol, n};
+}
+inline std::pair<uint8_t, uint16_t> num(uint16_t n) {
+    return {kArgConst, n};
+}
 
-inline std::vector<uint8_t> nameList(const std::vector<std::string>& names, const std::string& source) {
+inline std::vector<uint8_t> nameList(const std::vector<std::string> &names, const std::string &source) {
     std::vector<uint8_t> out;
-    for (const std::string& n : names) {
+    for (const std::string &n : names) {
         out.insert(out.end(), n.begin(), n.end());
         out.push_back(0);
         out.insert(out.end(), source.begin(), source.end());
@@ -90,10 +98,10 @@ inline std::vector<uint8_t> nameList(const std::vector<std::string>& names, cons
 }
 
 // Writes NAME.ALL and NAME.LST with one entry per scene slot.
-inline void writeArchive(const std::filesystem::path& dir, const std::string& name,
-                         const std::vector<std::vector<uint8_t>>& entries) {
+inline void writeArchive(const std::filesystem::path &dir, const std::string &name,
+                         const std::vector<std::vector<uint8_t>> &entries) {
     std::vector<uint8_t> all, lst;
-    for (const auto& e : entries) {
+    for (const auto &e : entries) {
         putU32(lst, uint32_t(all.size()));
         all.insert(all.end(), e.begin(), e.end());
     }

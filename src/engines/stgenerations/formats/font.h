@@ -7,7 +7,7 @@
 #include <vector>
 
 #include "engines/stgenerations/canvas.h"
-#include "common/draw.h"
+#include "graphics/draw.h"
 #include "common/stream.h"
 #include "common/text.h"
 
@@ -31,7 +31,7 @@ namespace reluva::stgenerations {
 //     uint8  pixels[height][width], palette indices
 class Font {
 public:
-    bool load(SeekableReadStream& stream);
+    bool load(SeekableReadStream &stream);
 
     bool isLoaded() const { return !_glyphs.empty(); }
     int getHeight() const { return _height; }
@@ -40,22 +40,22 @@ public:
     bool hasGlyph(uint16_t c) const { return _glyphs.count(c) != 0; }
 
     int getCharWidth(uint16_t c) const;
-    int getStringWidth(const std::string& str) const;
+    int getStringWidth(const std::string &str) const;
 
     // Draw text with its top left corner at (x, y) in the glyphs' own
     // colours. The glyphs have dark outline pixels, so drawing them all in
     // one colour makes text unreadable; instead, remap (if given) translates
     // each glyph colour index into the destination palette.
-    void drawChar(Canvas& dst, uint16_t c, int x, int y, const uint8_t* remap = nullptr) const;
-    void drawString(Canvas& dst, const std::string& str, int x, int y, const uint8_t* remap = nullptr) const;
+    void drawChar(Canvas &dst, uint16_t c, int x, int y, const uint8_t *remap = nullptr) const;
+    void drawString(Canvas &dst, const std::string &str, int x, int y, const uint8_t *remap = nullptr) const;
 
     // Draw text on a true-colour (ARGB8888) surface, each glyph colour
     // looked up in palette (0xAARRGGBB).
-    void drawStringRgb(Canvas& dst, const std::string& str, int x, int y, const uint32_t* palette,
-                       const Rect* clip = nullptr) const;
+    void drawStringRgb(Canvas &dst, const std::string &str, int x, int y, const uint32_t *palette,
+                       const Rect *clip = nullptr) const;
 
     // Split text into lines no wider than maxWidth, breaking at spaces.
-    std::vector<std::string> wordWrap(const std::string& str, int maxWidth) const;
+    std::vector<std::string> wordWrap(const std::string &str, int maxWidth) const;
 
 private:
     struct Glyph {
@@ -64,7 +64,7 @@ private:
         std::vector<uint8_t> pixels;
     };
 
-    const Glyph* findGlyph(uint16_t c) const;
+    const Glyph *findGlyph(uint16_t c) const;
 
     std::map<uint16_t, Glyph> _glyphs;
     uint8_t _transparent = 0;
@@ -72,4 +72,3 @@ private:
 };
 
 } // namespace reluva::stgenerations
-

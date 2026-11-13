@@ -45,7 +45,7 @@ struct Model3D {
     // Half the largest extent.
     float radius = 0;
 
-    bool load(SeekableReadStream& stream);
+    bool load(SeekableReadStream &stream);
 };
 
 // A model's materials (.MTL, .MTR, .DMG; loader 0x4E5520), 36 bytes each.
@@ -57,7 +57,7 @@ struct CombatMaterial {
     uint32_t flags = 0;
     std::string texture;
 
-    static bool loadList(SeekableReadStream& stream, std::vector<CombatMaterial>& list);
+    static bool loadList(SeekableReadStream &stream, std::vector<CombatMaterial> &list);
     // The colour as 0xAARRGGBB.
     uint32_t rgb() const;
 };
@@ -69,19 +69,19 @@ struct CombatImage {
     std::vector<uint32_t> pixels;
 
     // A GIF87a/89a (the .IMG textures).
-    bool loadGif(SeekableReadStream& stream);
+    bool loadGif(SeekableReadStream &stream);
     // An IFF PBM (.LBM: BOOM, PHOTON, PHASER1, SHIELD).
-    bool loadLbm(SeekableReadStream& stream);
+    bool loadLbm(SeekableReadStream &stream);
     // A Sun rasterfile (.RAS, loader 0x49C23E), 8-bit with its own colour
     // map in three planes; colour (255,0,163) is see-through.
-    bool loadRas(SeekableReadStream& stream);
+    bool loadRas(SeekableReadStream &stream);
     uint32_t get(int x, int y) const { return pixels[(size_t)y * w + x]; }
     // A .RAS picture's colour indices, for the ships' system maps (S???_STR).
     std::vector<uint8_t> indices;
 };
 
 // The palette of the animations and the starfield (STANDARD.PAL, 6-bit VGA).
-bool loadStandardPalette(SeekableReadStream& stream, uint32_t palette[256]);
+bool loadStandardPalette(SeekableReadStream &stream, uint32_t palette[256]);
 
 // An animation (.SPR, anim.cpp 0x4AF7B0): explosions, shield hits,
 // torpedoes and phaser beams, in STANDARD.PAL. Chunks of 'SPRT', 'LIST',
@@ -92,7 +92,7 @@ struct SprAnimation {
     // Palette indices; 0 is see-through.
     std::vector<std::vector<uint8_t>> frames;
 
-    bool load(SeekableReadStream& stream);
+    bool load(SeekableReadStream &stream);
 };
 
 // A ship class from SYSTEMS.DAT (parser 0x49C770).
@@ -131,7 +131,7 @@ struct ShipClass {
     // Spread, in degrees, of a salvo of 1..10 torpedoes.
     int cone[10] = {};
 
-    static bool loadAll(const std::string& text, std::vector<ShipClass>& classes);
+    static bool loadAll(const std::string &text, std::vector<ShipClass> &classes);
 };
 
 // A ship line of SCn.MIS (parser 0x4A36A4).
@@ -142,7 +142,7 @@ struct MissionShip {
     int wave = 1;
 };
 
-bool loadCombatMission(const std::string& text, std::vector<MissionShip>& ships);
+bool loadCombatMission(const std::string &text, std::vector<MissionShip> &ships);
 
 // A font (.MET): the cells of ASCII 32..127 in a .RAS strip, big endian.
 struct MetFont {
@@ -151,8 +151,7 @@ struct MetFont {
     };
     Cell cells[96] = {};
 
-    bool load(SeekableReadStream& stream);
+    bool load(SeekableReadStream &stream);
 };
 
 } // namespace reluva::stgenerations
-
