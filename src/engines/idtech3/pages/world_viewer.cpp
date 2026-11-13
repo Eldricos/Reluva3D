@@ -127,7 +127,8 @@ void WorldViewer::load(int index) {
                     ++unloadable;
                     continue;
                 }
-                float origin[3] = {0, 0, 0}, angles[3] = {0, 0, 0};
+                float origin[3] = {0, 0, 0};
+                float angles[3] = {0, 0, 0};
                 e.vector("origin", origin);
                 if (!e.vector("angles", angles))
                     angles[1] = std::strtof(e.get("angle", "0").c_str(), nullptr);
@@ -312,7 +313,8 @@ void WorldViewer::drawOverlay(uint64_t nowMs) {
     size_t widest = 0;
     for (const std::string &l : lines)
         widest = std::max(widest, font::length(l));
-    const int boxW = std::min(kFrameW, int(widest) * font::kAdvance + 8), boxH = int(lines.size()) * lh + 6;
+    const int boxW = std::min(kFrameW, int(widest) * font::kAdvance + 8);
+    const int boxH = int(lines.size()) * lh + 6;
     for (int y = 0; y < boxH; ++y) {
         uint8_t *p = overlay_.row(y);
         for (int x = 0; x < boxW; ++x)

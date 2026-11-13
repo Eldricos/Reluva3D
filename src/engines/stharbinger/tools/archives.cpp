@@ -155,9 +155,14 @@ Rgb falseColourPalette() {
             pal.insert(pal.end(), 3, uint8_t(16 * i));
             continue;
         }
-        const double h = std::fmod(i * 0.618033988749895, 1.0), s = 0.65, v = 0.95;
+        const double h = std::fmod(i * 0.618033988749895, 1.0);
+        const double s = 0.65;
+        const double v = 0.95;
         const int k = int(h * 6);
-        const double f = h * 6 - k, p = v * (1 - s), q = v * (1 - f * s), t = v * (1 - (1 - f) * s);
+        const double f = h * 6 - k;
+        const double p = v * (1 - s);
+        const double q = v * (1 - f * s);
+        const double t = v * (1 - (1 - f) * s);
         const double rgb[6][3] = {{v, t, p}, {q, v, p}, {p, v, t}, {p, q, v}, {t, p, v}, {v, p, q}};
         for (double c : rgb[k % 6])
             pal.push_back(uint8_t(int(c * 255)));
@@ -266,7 +271,8 @@ std::string phonemeWords(const std::vector<uint8_t> &clip) {
 long findLeHeader(const std::vector<uint8_t> &d) {
     for (size_t o = 0; o + 12 <= d.size(); o++)
         if (d[o] == 'L' && d[o + 1] == 'E' && !std::memcmp(&d[o + 2], "\0\0\0\0\0\0", 6)) {
-            const int cpu = readLE16(&d[o + 8]), os = readLE16(&d[o + 10]);
+            const int cpu = readLE16(&d[o + 8]);
+            const int os = readLE16(&d[o + 10]);
             if (cpu >= 1 && cpu <= 4 && os >= 1 && os <= 4)
                 return long(o);
         }
@@ -307,7 +313,8 @@ std::string identifyExe(const std::vector<uint8_t> &d) {
 // --- Sound statistics -----------------------------------------------------------
 
 double entropy(const std::vector<uint8_t> &d, size_t start = 0, size_t step = 1) {
-    size_t counts[256] = {}, n = 0;
+    size_t counts[256] = {};
+    size_t n = 0;
     for (size_t i = start; i < d.size(); i += step, n++)
         counts[d[i]]++;
     double e = 0;
@@ -331,7 +338,10 @@ RawStats rawStats(const std::vector<uint8_t> &d) {
     for (uint8_t b : d)
         hist[b]++;
     st.entropy = entropy(d);
-    size_t mid = 0, edge = 0, oddEdge = 0, odd = 0;
+    size_t mid = 0;
+    size_t edge = 0;
+    size_t oddEdge = 0;
+    size_t odd = 0;
     for (int v = 0x70; v < 0x90; v++)
         mid += hist[v];
     for (int v = 0; v < 0x10; v++)
@@ -410,7 +420,8 @@ std::string choosePalette(const std::string &stemIn, const std::map<std::string,
 // byte differs from the next, how often the pair below is the same.
 int guessWidth(const std::vector<uint8_t> &d, std::vector<std::pair<double, int>> *top = nullptr) {
     const size_t n = d.size();
-    const int lo = 32, hi = int(std::min<size_t>(2048, n / 4));
+    const int lo = 32;
+    const int hi = int(std::min<size_t>(2048, n / 4));
     std::vector<size_t> edges;
     for (size_t i = 0; i + 1 < n; i++)
         if (d[i] != d[i + 1])
@@ -421,7 +432,8 @@ int guessWidth(const std::vector<uint8_t> &d, std::vector<std::pair<double, int>
     std::vector<std::pair<double, int>> scores;
     for (int w = lo; w <= hi; w++) {
         const size_t lim = n - size_t(w) - 1;
-        size_t t = 0, m = 0;
+        size_t t = 0;
+        size_t m = 0;
         for (size_t k = 0; k < edges.size(); k += step) {
             const size_t i = edges[k];
             if (i < lim) {
@@ -712,7 +724,8 @@ private:
         c.outSize = pixels.size();
         c.first16 = hexBytes(pixels.data(), pixels.size());
         static const int kSizes[][2] = {{640, 480}, {640, 400}, {320, 200}, {640, 350}};
-        int w = 0, h = 0;
+        int w = 0;
+        int h = 0;
         size_t tail = 0;
         for (const auto &s : kSizes) {
             const size_t n = size_t(s[0]) * size_t(s[1]);
@@ -784,7 +797,8 @@ private:
                 continue;
             // Drawn twice, over 0 and over 255: a pixel the frame writes is the
             // same in both; the rest is transparent.
-            Surface a, b;
+            Surface a;
+            Surface b;
             draw::create(a, f.w, f.h, 0);
             draw::create(b, f.w, f.h, 255);
             anim.drawFrameAt(i, a, 0, 0);
@@ -851,7 +865,8 @@ private:
         for (const ExeInfo &e : exes_)
             add(text::format("  %-50s %8zu  %s", e.file.c_str(), e.size, e.type.c_str()));
 
-        size_t ok = 0, headerOk = 0;
+        size_t ok = 0;
+        size_t headerOk = 0;
         std::map<size_t, int> sizes;
         for (const CmpInfo &c : cmps_) {
             ok += !c.dims.empty();
@@ -873,7 +888,9 @@ private:
             if (!c.error.empty() && shown++ < 15)
                 add("  FAIL " + c.file + ": " + c.error);
 
-        size_t frames = 0, chained = 0, countOk = 0;
+        size_t frames = 0;
+        size_t chained = 0;
+        size_t countOk = 0;
         std::map<std::string, int> magics;
         for (const RleInfo &x : rles_) {
             frames += x.frames.size();
@@ -1105,16 +1122,19 @@ int cmdMapPalettes(int argc, char **argv) {
                 maps.emplace(upper(p.stem().string()), d);
         }
     }
-    const int tile = 200, cols = 8;
+    const int tile = 200;
+    const int cols = 8;
     for (const auto &[name, d] : maps) {
         const int w = guessWidth(d);
         if (!w || pals.empty())
             continue;
         const int h = int(d.size() / size_t(w));
         const int step = std::max(1, (std::max(w, h) + tile - 1) / tile);
-        const int tw = (w + step - 1) / step, th = (h + step - 1) / step;
+        const int tw = (w + step - 1) / step;
+        const int th = (h + step - 1) / step;
         const int rows = (int(pals.size()) + cols - 1) / cols;
-        const int sw = cols * (tw + 4), sh = rows * (th + 4);
+        const int sw = cols * (tw + 4);
+        const int sh = rows * (th + 4);
         image::Image sheet;
         sheet.w = sw;
         sheet.h = sh;
@@ -1124,7 +1144,8 @@ int cmdMapPalettes(int argc, char **argv) {
         std::string index;
         int i = 0;
         for (const auto &[pname, pal] : pals) {
-            const int ox = (i % cols) * (tw + 4), oy = (i / cols) * (th + 4);
+            const int ox = (i % cols) * (tw + 4);
+            const int oy = (i / cols) * (th + 4);
             for (int y = 0; y < th; y++)
                 for (int x = 0; x < tw; x++) {
                     const uint8_t v = d[size_t(y * step) * size_t(w) + size_t(x * step)];

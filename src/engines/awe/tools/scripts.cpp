@@ -71,8 +71,12 @@ int aweCommandScripts(int argc, char **argv) {
         std::fprintf(stderr, "%s\n", e.message.c_str());
         return 1;
     }
-    std::map<std::string, Usage> verbs, unknown, words;
-    size_t commands = 0, conditions = 0, mixed = 0;
+    std::map<std::string, Usage> verbs;
+    std::map<std::string, Usage> unknown;
+    std::map<std::string, Usage> words;
+    size_t commands = 0;
+    size_t conditions = 0;
+    size_t mixed = 0;
     // A condition's clauses, by their word (0x407ae0: split at ',' and
     // '|', a clause's '!' and the words after it).
     auto takeCondition = [&](std::string_view text, const std::string &source) {

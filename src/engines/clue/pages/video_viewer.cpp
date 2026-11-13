@@ -143,8 +143,10 @@ void VideoViewer::draw() {
     double scale = zoom_ ? zoom_ : std::max(1, std::min(kScreenW / pic.w, kScreenH / pic.h));
     if (pic.w * scale > kScreenW || pic.h * scale > kScreenH)
         scale = std::min(double(kScreenW) / pic.w, double(areaH) / pic.h);
-    const int w = int(pic.w * scale), h = int(pic.h * scale);
-    const int x0 = (kScreenW - w) / 2, y0 = std::max(0, (h > areaH ? kScreenH - h : areaH - h) / 2);
+    const int w = int(pic.w * scale);
+    const int h = int(pic.h * scale);
+    const int x0 = (kScreenW - w) / 2;
+    const int y0 = std::max(0, (h > areaH ? kScreenH - h : areaH - h) / 2);
     for (int y = 0; y < h && y0 + y < kScreenH; ++y) {
         const int sy = std::min(pic.h - 1, int(y / scale));
         uint8_t *d = screen_.row(y0 + y) + x0 * 4;

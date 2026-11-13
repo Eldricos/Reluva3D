@@ -198,7 +198,8 @@ void testVideoSettings() {
         control[i].pos = {float(i % 3) * 64, float(i / 3) * 64, 0};
     CHECK(patchLevel(control, 3, 3, 4) == 1);
     control[4].pos[2] = 64;
-    const int coarse = patchLevel(control, 3, 3, 4), fine = patchLevel(control, 3, 3, 0.5f);
+    const int coarse = patchLevel(control, 3, 3, 4);
+    const int fine = patchLevel(control, 3, 3, 0.5f);
     CHECK(coarse >= 2 && fine > coarse && fine <= 16);
 }
 

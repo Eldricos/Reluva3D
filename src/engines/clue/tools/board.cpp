@@ -49,7 +49,8 @@ int cmdClueLevel(int argc, char **argv) {
     const bool verbose = argc > 3 && std::strcmp(argv[3], "-v") == 0;
     std::printf("\"%s\": %zu object names, %zu placements\n", level.title.c_str(), level.objects.size(),
                 level.placements.size());
-    std::map<int, int> layers, flags;
+    std::map<int, int> layers;
+    std::map<int, int> flags;
     for (const auto &pl : level.placements) {
         ++layers[pl.layer];
         ++flags[pl.flags];
@@ -94,7 +95,10 @@ int cmdClueBoard(int argc, char **argv) {
     }
     static const char *const kRooms[] = {"Hall",         "Lounge",        "Dining Room", "Kitchen", "Ballroom",
                                          "Conservatory", "Billiard Room", "Library",     "Study"};
-    int x0 = 1 << 20, y0 = 1 << 20, x1 = -x0, y1 = -y0;
+    int x0 = 1 << 20;
+    int y0 = 1 << 20;
+    int x1 = -x0;
+    int y1 = -y0;
     const auto extend = [&](const reluva::clue::Square &s) {
         x0 = std::min(x0, s.x), y0 = std::min(y0, s.y), x1 = std::max(x1, s.x), y1 = std::max(y1, s.y);
     };
@@ -137,13 +141,19 @@ int cmdClueBoard(int argc, char **argv) {
     // Games of six computer players on it, alternately with the die and without.
     const int games = argc > 3 ? std::atoi(argv[3]) : 0;
     // Or all of one level, so many of them: "novice 3", "expert 5" ...
-    int onlyLevel = -1, players = 6;
+    int onlyLevel = -1;
+    int players = 6;
     if (argc > 5) {
         const std::string lv = argv[4];
         onlyLevel = lv == "novice" ? 0 : lv == "normal" ? 1 : 2;
         players = std::clamp(std::atoi(argv[5]), 3, 6);
     }
-    int turns = 0, unfinished = 0, wrong = 0, suggestions = 0, selfNamed = 0, within12 = 0;
+    int turns = 0;
+    int unfinished = 0;
+    int wrong = 0;
+    int suggestions = 0;
+    int selfNamed = 0;
+    int within12 = 0;
     // As a recording can show it: games whose first 15 suggestions have no
     // one naming itself.
     int noSelfIn15 = 0;
@@ -162,7 +172,9 @@ int cmdClueBoard(int argc, char **argv) {
         for (int s = 0; s < reluva::clue::kSuspectCount; ++s)
             ai[size_t(s)].reset(game, s, uint32_t(g * 31 + s), onlyLevel >= 0 ? onlyLevel : (s + g) % 3);
         const int turnsBefore = turns;
-        int steps = 0, early = 0, earlySelf = 0;
+        int steps = 0;
+        int early = 0;
+        int earlySelf = 0;
         for (; game.phase() != Game::Phase::Over && steps < 100000; ++steps) {
             ComputerPlayer &me = ai[size_t(game.turn())];
             reluva::Error e;

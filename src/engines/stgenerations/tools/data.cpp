@@ -62,7 +62,8 @@ bool openGame(int argc, char **argv, ResourceManager &resources, const char *usa
         std::fprintf(stderr, "usage: reluva-tool stgenerations %s <game folder> [--cd1 <dir>] [--cd2 <dir>]\n", usage);
         return false;
     }
-    std::filesystem::path cd1, cd2;
+    std::filesystem::path cd1;
+    std::filesystem::path cd2;
     for (int i = 3; i + 1 < argc; i += 2) {
         if (!std::strcmp(argv[i], "--cd1"))
             cd1 = argv[i + 1];
@@ -123,7 +124,9 @@ int cmdArchives(int argc, char **argv) {
     ResourceManager resources;
     if (!openGame(argc, argv, resources, "archives"))
         return 2;
-    int read = 0, failed = 0, damaged = 0;
+    int read = 0;
+    int failed = 0;
+    int damaged = 0;
     for (const auto &[name, zip] : resources.getArchives()) {
         Sum sum;
         int n = 0;
@@ -161,7 +164,9 @@ int cmdPictures(int argc, char **argv) {
     ResourceManager resources;
     if (!openGame(argc, argv, resources, "pictures"))
         return 2;
-    int counts[4] = {}, failed = 0, unreachable = 0;
+    int counts[4] = {};
+    int failed = 0;
+    int unreachable = 0;
     for (const ResourceRef &ref : everyFile(resources)) {
         const int kind = hasExtension(ref, ".bmp")   ? 0
                          : hasExtension(ref, ".ovr") ? 1
@@ -222,7 +227,8 @@ int cmdLevels(int argc, char **argv) {
     ResourceManager resources;
     if (!openGame(argc, argv, resources, "levels"))
         return 2;
-    int levels = 0, failed = 0;
+    int levels = 0;
+    int failed = 0;
     for (const Location &location : getLocations()) {
         ResourceRef ref;
         if (!findLocationLevel(resources, location, ref)) {
@@ -237,7 +243,8 @@ int cmdLevels(int argc, char **argv) {
             continue;
         }
         Sum sum;
-        int textures = 0, badTextures = 0;
+        int textures = 0;
+        int badTextures = 0;
         for (uint16_t id : level.getTextureIds()) {
             LevelFile::Texture t;
             if (level.loadTexture(id, t)) {
@@ -275,7 +282,8 @@ int cmdSounds(int argc, char **argv) {
     ResourceManager resources;
     if (!openGame(argc, argv, resources, "sounds"))
         return 2;
-    int read = 0, failed = 0;
+    int read = 0;
+    int failed = 0;
     uint64_t ms = 0;
     Sum all;
     for (const ResourceRef &ref : resources.getSounds()) {
@@ -300,7 +308,8 @@ int cmdMovies(int argc, char **argv) {
     ResourceManager resources;
     if (!openGame(argc, argv, resources, "movies"))
         return 2;
-    int read = 0, failed = 0;
+    int read = 0;
+    int failed = 0;
     for (const DataFileLocation *f = dataFiles(); f->name; f++) {
         if (!text::hasSuffixIgnoreCase(f->name, ".avi"))
             continue;

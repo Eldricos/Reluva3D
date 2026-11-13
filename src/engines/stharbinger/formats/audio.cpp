@@ -38,7 +38,8 @@ RawFormat detectRawFormat(const std::vector<uint8_t> &data) {
         return kRawS16LE;
     if (hi < 0.1 || hi - lo > 1.0)
         return kRawS16BE;
-    size_t nearMid = 0, nearEdge = 0;
+    size_t nearMid = 0;
+    size_t nearEdge = 0;
     for (size_t i = 0; i < data.size() && i < 65536; i++) {
         uint8_t b = data[i];
         if (b >= 0x60 && b < 0xA0)

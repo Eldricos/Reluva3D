@@ -22,7 +22,9 @@ Error decode(const std::vector<uint8_t> &data, Image &out) {
     out = Image{};
     if (data.empty() || data.size() > static_cast<size_t>(INT_MAX))
         return Error::fail("Not an image");
-    int w = 0, h = 0, channels = 0;
+    int w = 0;
+    int h = 0;
+    int channels = 0;
     stbi_uc *pixels = stbi_load_from_memory(data.data(), static_cast<int>(data.size()), &w, &h, &channels, 4);
     if (!pixels)
         return Error::fail(std::string("Cannot decode image: ") + stbi_failure_reason());
@@ -94,7 +96,8 @@ std::vector<uint8_t> encodePng(const Image &img) {
         z.insert(z.end(), raw.begin() + std::ptrdiff_t(pos), raw.begin() + std::ptrdiff_t(pos + n));
         pos += n;
     } while (pos < raw.size());
-    uint32_t a = 1, b = 0; // Adler-32
+    uint32_t a = 1;
+    uint32_t b = 0; // Adler-32
     for (uint8_t c : raw) {
         a = (a + c) % 65521;
         b = (b + a) % 65521;
@@ -137,7 +140,9 @@ void blitOver(Surface &dst, const Image &img, int x, int y) {
         for (int sx = std::max(0, -x); sx < img.w && x + sx < dst.w; sx++) {
             const uint8_t *s = img.pixel(sx, sy);
             uint8_t *d = row + (x + sx) * 4;
-            const int a = s[3], da = d[3] * (255 - a) / 255, out = a + da;
+            const int a = s[3];
+            const int da = d[3] * (255 - a) / 255;
+            const int out = a + da;
             if (out == 0)
                 continue;
             for (int c = 0; c < 3; c++)

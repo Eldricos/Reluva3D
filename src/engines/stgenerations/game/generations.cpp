@@ -165,7 +165,8 @@ void Generations::setCursor(bool target) {
         return;
     _targetCursor = target;
     const Palette &palette = _screen->getPalette();
-    uint8_t white = palette.findBestColor(255, 255, 255), black = palette.findBestColor(0, 0, 0);
+    uint8_t white = palette.findBestColor(255, 255, 255);
+    uint8_t black = palette.findBestColor(0, 0, 0);
     if (!white)
         white = 1;
     if (!black)
@@ -596,7 +597,8 @@ void Generations::drawMissionScreen(uint32_t delta) {
     // Shaking moves the whole view; the underwater ripple (VIEW_OVERLAY)
     // shifts each row, a wave 168 rows long rolling down a row every 64 ms.
     Hud &hud = _mission->getHud();
-    int shakeX, shakeY;
+    int shakeX;
+    int shakeY;
     hud.getShakeOffset(shakeX, shakeY);
     Canvas &screen = _screen->getSurface();
     uint8_t black = _screen->getPalette().findBestColor(0, 0, 0);
@@ -624,7 +626,9 @@ void Generations::drawMissionScreen(uint32_t delta) {
         const Palette &pal = _screen->getPalette();
         uint8_t remap[256];
         for (int i = 0; i < 256; i++) {
-            uint8_t r, g, b;
+            uint8_t r;
+            uint8_t g;
+            uint8_t b;
             if (_hasFontPalette)
                 _fontPalette.getColor(i, r, g, b);
             else
@@ -647,13 +651,17 @@ void Generations::applyScreenEffects() {
     bool any = false;
     Palette blended = _level->getPalette();
     for (int slot = Hud::kEffectSlots - 1; slot >= 0; slot--) {
-        uint8_t r, g, b;
+        uint8_t r;
+        uint8_t g;
+        uint8_t b;
         int k = hud.getEffectWeight(slot, r, g, b);
         if (k <= 0)
             continue;
         any = true;
         for (int i = 0; i < 256; i++) {
-            uint8_t pr, pg, pb;
+            uint8_t pr;
+            uint8_t pg;
+            uint8_t pb;
             blended.getColor(i, pr, pg, pb);
             blended.setColor(i, (uint8_t)((pr * (128 - k) + r * k) >> 7), (uint8_t)((pg * (128 - k) + g * k) >> 7),
                              (uint8_t)((pb * (128 - k) + b * k) >> 7));
@@ -713,7 +721,9 @@ void Generations::drawTransition(const Mission::TransitionView &transition, Pale
             Palette from = _briefing.getPalette();
             uint8_t remap[256];
             for (int i = 0; i < 256; i++) {
-                uint8_t r, g, b;
+                uint8_t r;
+                uint8_t g;
+                uint8_t b;
                 from.getColor(i, r, g, b);
                 remap[i] = palette.findBestColor(r, g, b);
             }
@@ -756,7 +766,8 @@ void Generations::drawBriefing(Canvas &screen, bool withProceed, bool pressed) {
     const Palette &to = _briefing.getPalette();
     int height = button.h / 2;
     for (int y = 0; y < height; y++) {
-        int sy = pressed ? y : y + height, dy = _proceedY + y;
+        int sy = pressed ? y : y + height;
+        int dy = _proceedY + y;
         if (dy < 0 || dy >= screen.h)
             continue;
         const uint8_t *src = (const uint8_t *)button.getBasePtr(0, sy);
@@ -765,7 +776,9 @@ void Generations::drawBriefing(Canvas &screen, bool withProceed, bool pressed) {
             int dx = _proceedX + x;
             if (dx < 0 || dx >= screen.w)
                 continue;
-            uint8_t r, g, b;
+            uint8_t r;
+            uint8_t g;
+            uint8_t b;
             from.getColor(src[x], r, g, b);
             if (r == 255 && g == 0 && b == 255)
                 continue;
@@ -804,7 +817,9 @@ void Generations::drawTextPanel() {
     const Palette &pal = _screen->getPalette();
     uint8_t remap[256];
     for (int i = 0; i < 256; i++) {
-        uint8_t r, g, b;
+        uint8_t r;
+        uint8_t g;
+        uint8_t b;
         if (_hasFontPalette)
             _fontPalette.getColor(i, r, g, b);
         else
@@ -841,7 +856,9 @@ void Generations::drawMissionList() {
     const Palette &pal = _screen->getPalette();
     uint8_t remap[256];
     for (int i = 0; i < 256; i++) {
-        uint8_t r, g, b;
+        uint8_t r;
+        uint8_t g;
+        uint8_t b;
         if (_hasFontPalette)
             _fontPalette.getColor(i, r, g, b);
         else
@@ -849,7 +866,8 @@ void Generations::drawMissionList() {
         remap[i] = pal.findBestColor(r, g, b);
     }
     Canvas &s = _screen->getSurface();
-    int x = 40, y = 32;
+    int x = 40;
+    int y = 32;
     _font.drawString(s, "Away missions (Up/Down, Enter):", x, y, remap);
     y += _font.getHeight() * 3 / 2;
     for (int i = 0; i < (int)_missions.size(); i++) {
@@ -889,7 +907,8 @@ void Generations::leaveMission(const std::string &message) {
 
 void Generations::drawStarfield(uint32_t delta) {
     Canvas &s = _screen->getSurface();
-    const int cx = Screen::kWidth / 2, cy = Screen::kHeight / 2;
+    const int cx = Screen::kWidth / 2;
+    const int cy = Screen::kHeight / 2;
     int32_t speed = (int32_t)std::max<uint32_t>(1, delta / 2);
 
     for (Star &star : _stars) {
@@ -1355,7 +1374,9 @@ void Generations::updateWalk(uint32_t delta) {
     bool swim = lowGravity && (controls & Mission::kControlSwim);
     // The scripts' motion settings (SET_PLAYER_MOTION) scale the viewer's
     // speeds, the original's defaults giving these; cutscenes set 0.
-    double moveScale = 1, turnScale = 1, lookScale = 1;
+    double moveScale = 1;
+    double turnScale = 1;
+    double lookScale = 1;
     if (_mission) {
         static const Mission::Motion kDefault;
         const Mission::Motion &motion = _mission->getMotion();
@@ -1371,7 +1392,8 @@ void Generations::updateWalk(uint32_t delta) {
     }
 
     _camera.yaw += turn * kTurnSpeed * turnScale * seconds;
-    double mouseTurn = 0, mouseLook = 0;
+    double mouseTurn = 0;
+    double mouseLook = 0;
     if (_mouseLook)
         mouseLookRates(mouseTurn, mouseLook);
     if (controls & Mission::kControlTurn)
@@ -1383,7 +1405,8 @@ void Generations::updateWalk(uint32_t delta) {
         _camera.yaw -= _mission->getSpin() * kPi / 180 * seconds;
     _camera.pitch = std::max(-1.0, std::min(1.0, _camera.pitch + look * kLookSpeed * lookScale * seconds));
     double step = kSpeed * moveScale * seconds;
-    double across = 1, up = 0;
+    double across = 1;
+    double up = 0;
     if (swim) {
         // The pitch is a shear of the view; its angle's cosine and sine.
         double length = std::sqrt(1 + _camera.pitch * _camera.pitch);
@@ -1396,7 +1419,9 @@ void Generations::updateWalk(uint32_t delta) {
         _walker->moveVertically(forward * up * step);
 
     // Move every frame, so falls carry on without a key held.
-    double oldX = _camera.x, oldY = _camera.y, oldZ = _camera.z;
+    double oldX = _camera.x;
+    double oldY = _camera.y;
+    double oldZ = _camera.z;
     if (!_mission || !_mission->isInTransition())
         _walker->move(dx, dy, seconds);
     if (_mission) {
@@ -1522,7 +1547,9 @@ void Generations::attack() {
     if (_heldItem.getKind()) {
         // From the gun's muzzle, which follows the cursor; below the gun's
         // line it can't be used.
-        double ahead = 1.5, up = -0.5, left = 0;
+        double ahead = 1.5;
+        double up = -0.5;
+        double left = 0;
         if (const HeldItem::Style *style = HeldItem::getStyle(_heldItem.getKind())) {
             if (!HeldItem::place(*style, _aimX, _aimY, _viewW, _viewH).usable)
                 return;
@@ -1790,7 +1817,8 @@ bool Generations::playMovie(const std::string &name) {
 
     int x = (Screen::kWidth - std::min(movie.width(), (int)Screen::kWidth)) / 2;
     int y = (Screen::kHeight - std::min(movie.height(), (int)Screen::kHeight)) / 2;
-    int w = std::min(movie.width(), (int)Screen::kWidth), h = std::min(movie.height(), (int)Screen::kHeight);
+    int w = std::min(movie.width(), (int)Screen::kWidth);
+    int h = std::min(movie.height(), (int)Screen::kHeight);
     // The picture as the screen takes it (0xAARRGGBB).
     std::vector<uint32_t> picture(size_t(movie.width()) * movie.height());
     uint32_t start = _system->getMillis();
@@ -1945,7 +1973,8 @@ Error Generations::loadGameState(int slot) {
         }
         if (index < 0)
             return Error::fail("the mission " + std::string(name.c_str()) + " isn't installed");
-        double yaw = 0, pitch = 0;
+        double yaw = 0;
+        double pitch = 0;
         int leftMode = 0;
         s.syncAsDouble(yaw);
         s.syncAsDouble(pitch);

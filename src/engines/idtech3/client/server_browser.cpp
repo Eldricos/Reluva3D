@@ -71,7 +71,8 @@ std::vector<net::Address> ServerBrowser::serversFromResponse(const std::vector<u
         uint8_t bytes[6];
         bool ok = true;
         for (int b = 0; b < 6 && ok; ++b) {
-            const int hi = hex(d[i + 1 + 2 * size_t(b)]), lo = hex(d[i + 2 + 2 * size_t(b)]);
+            const int hi = hex(d[i + 1 + 2 * size_t(b)]);
+            const int lo = hex(d[i + 2 + 2 * size_t(b)]);
             ok = hi >= 0 && lo >= 0;
             bytes[b] = uint8_t(hi << 4 | lo);
         }

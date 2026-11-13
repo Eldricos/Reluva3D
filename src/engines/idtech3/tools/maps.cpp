@@ -35,7 +35,9 @@ int cmdBspCheck(int argc, char **argv) {
     reluva::SearchSet set;
     if (!mountIdTech3(argv[2], set))
         return 1;
-    int maps = 0, failed = 0, corrected = 0;
+    int maps = 0;
+    int failed = 0;
+    int corrected = 0;
     Bytes data;
     for (const std::string &name : set.list()) {
         const std::string key = reluva::normalizeArchiveName(name);

@@ -467,7 +467,8 @@ void Cpu::x87(uint8_t op) {
         }
         case 0xf5:   // FPREM1
         case 0xf8: { // FPREM
-            const double x = st(0), y = st(1);
+            const double x = st(0);
+            const double y = st(1);
             const double q = modrm == 0xf8 ? std::trunc(x / y) : std::nearbyint(x / y);
             st(0) = modrm == 0xf8 ? std::fmod(x, y) : std::remainder(x, y);
             const uint64_t qi = std::isfinite(q) ? uint64_t(std::fabs(q)) : 0;

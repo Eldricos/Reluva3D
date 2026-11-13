@@ -92,7 +92,8 @@ bool GameUi::load(const Archives &archives, char side) {
 }
 
 void GameUi::blit(Surface &s, const Texture &t, int dx, int dy, bool flipX, bool flipY, bool transpose) const {
-    const int w = transpose ? t.height : t.width, h = transpose ? t.width : t.height;
+    const int w = transpose ? t.height : t.width;
+    const int h = transpose ? t.width : t.height;
     for (int y = 0; y < h; ++y) {
         if (dy + y < 0 || dy + y >= s.h)
             continue;
@@ -100,7 +101,8 @@ void GameUi::blit(Surface &s, const Texture &t, int dx, int dy, bool flipX, bool
         for (int x = 0; x < w; ++x) {
             if (dx + x < 0 || dx + x >= s.w)
                 continue;
-            int sx = transpose ? y : x, sy = transpose ? x : y;
+            int sx = transpose ? y : x;
+            int sy = transpose ? x : y;
             if (flipX)
                 sx = t.width - 1 - sx;
             if (flipY)
@@ -127,7 +129,8 @@ void GameUi::drawPicture(Surface &s, const Texture &t, int x0, int y0, int w, in
 }
 
 void GameUi::drawPanel(Surface &s, int x, int y, int w, int h, std::string_view title) const {
-    const int c = corner_.width, b = border_.height; // 12 and 12
+    const int c = corner_.width;
+    const int b = border_.height; // 12 and 12
     // The inside: the side's wallpaper tile, darkened.
     for (int yy = y + b; yy < y + h - b; ++yy) {
         if (yy < 0 || yy >= s.h)

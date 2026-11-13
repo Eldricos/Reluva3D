@@ -404,7 +404,8 @@ bool BotLibrary::chooseNbgItem(int handle, const Vec3f &origin, const std::vecto
 
 bool BotLibrary::touchingGoal(const Vec3f &origin, const BotGoal &goal) {
     // Inside the goal's box grown by a standing player's.
-    Vec3f mins{}, maxs{};
+    Vec3f mins{};
+    Vec3f maxs{};
     AasWorld::presenceBox(presence::Normal, mins, maxs);
     for (size_t i = 0; i < 3; ++i)
         if (origin[i] < goal.origin[i] + goal.mins[i] - maxs[i] || origin[i] > goal.origin[i] + goal.maxs[i] - mins[i])

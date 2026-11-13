@@ -72,7 +72,8 @@ void Arena::release(uint32_t start, uint32_t size) {
     if (next != free_.begin()) {
         auto prev = std::prev(next);
         if (prev->first + prev->second == start) {
-            const uint32_t at = prev->first, joined = prev->second + size;
+            const uint32_t at = prev->first;
+            const uint32_t joined = prev->second + size;
             removeFree(prev);
             addFree(at, joined);
             return;
@@ -111,7 +112,8 @@ uint32_t Arena::alloc(uint32_t size, uint32_t align) {
         }
     if (found) {
         auto it = free_.find(best);
-        const uint32_t start = it->first, length = it->second;
+        const uint32_t start = it->first;
+        const uint32_t length = it->second;
         const uint32_t aligned = (start + align - 1) & ~(align - 1);
         removeFree(it);
         if (aligned > start)
@@ -132,7 +134,8 @@ bool Arena::claim(uint32_t address, uint32_t size) {
     if (it == free_.begin())
         return false;
     --it;
-    const uint32_t start = it->first, length = it->second;
+    const uint32_t start = it->first;
+    const uint32_t length = it->second;
     if (uint64_t(address) + size > uint64_t(start) + length)
         return false;
     removeFree(it);
@@ -240,7 +243,8 @@ constexpr uint32_t kThreadStackSize = 1u << 20;
 uint32_t Win32Process::startThread(uint32_t start, uint32_t arg) {
     // Its stack, and a thread information block like the main one's.
     const uint32_t tib = arena_->alloc(Cpu::kPageSize + kThreadStackSize, Cpu::kPageSize);
-    const uint32_t stack = tib + Cpu::kPageSize, top = stack + kThreadStackSize;
+    const uint32_t stack = tib + Cpu::kPageSize;
+    const uint32_t top = stack + kThreadStackSize;
     const uint32_t id = 0x104 + 4 * uint32_t(threads_.size() + 1);
     cpu_.write32(tib + 0x00, 0xffffffffu); // no exception handlers yet
     cpu_.write32(tib + 0x04, top);
@@ -553,7 +557,9 @@ void Win32Process::addStandIns() {
         return n ? n : 0xffffffffu;
     });
     stdcall(k, "HeapReAlloc", 4, [this](Cpu &c) {
-        const uint32_t flags = c.arg(1), old = c.arg(2), size = std::max(c.arg(3), 1u);
+        const uint32_t flags = c.arg(1);
+        const uint32_t old = c.arg(2);
+        const uint32_t size = std::max(c.arg(3), 1u);
         const uint32_t oldSize = arena_->size(old);
         if (!oldSize)
             return 0u;
@@ -642,7 +648,8 @@ void Win32Process::addStandIns() {
         return uint32_t(std::min<size_t>(path.size(), size - 1));
     });
     stdcall(k, "GetProcAddress", 2, [this](Cpu &c) -> uint32_t {
-        const uint32_t handle = c.arg(0), name = c.arg(1);
+        const uint32_t handle = c.arg(0);
+        const uint32_t name = c.arg(1);
         const bool byOrdinal = name < 0x10000;
         const std::string function = byOrdinal ? std::string() : c.string(name);
         if (handle >= kKernel32Handle && handle <= kKernel32Handle + 0x1000 * uint32_t(standInDlls_.size()) &&
@@ -730,7 +737,10 @@ void Win32Process::addStandIns() {
         return c.arg(0) >= kStdHandles && c.arg(0) <= kStdHandles + 2 ? 2u : 0u; // FILE_TYPE_CHAR
     });
     stdcall(k, "WriteFile", 5, [this, say](Cpu &c) {
-        const uint32_t handle = c.arg(0), buffer = c.arg(1), size = c.arg(2), written = c.arg(3);
+        const uint32_t handle = c.arg(0);
+        const uint32_t buffer = c.arg(1);
+        const uint32_t size = c.arg(2);
+        const uint32_t written = c.arg(3);
         if (!c.valid(buffer, size))
             return 0u;
         if (handle == kStdHandles + 1 || handle == kStdHandles + 2)

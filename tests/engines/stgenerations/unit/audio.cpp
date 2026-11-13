@@ -162,7 +162,8 @@ static void mixer_kinds() {
     CHECK_EQUAL(buf[0], 32767);
 
     mixer.stopAll();
-    SoundHandle music, speech;
+    SoundHandle music;
+    SoundHandle speech;
     mixer.playStream(Mixer::kMusicSoundType, &music,
                      makeRawStream(makePCM16(100, 1), 22050, kRaw16Bits | kRawLittleEndian));
     mixer.playStream(Mixer::kSpeechSoundType, &speech,

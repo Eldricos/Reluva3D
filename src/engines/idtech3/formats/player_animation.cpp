@@ -40,7 +40,9 @@ std::vector<PlayerAnimation> parseAnimationConfig(std::string_view text) {
             line.resize(comment);
         }
         std::istringstream words(line);
-        int first = 0, count = 0, loop = 0;
+        int first = 0;
+        int count = 0;
+        int loop = 0;
         float fps = 0;
         if (!(words >> first >> count >> loop >> fps))
             continue; // sex, soundpath, blank lines
@@ -56,7 +58,8 @@ std::vector<PlayerAnimation> parseAnimationConfig(std::string_view text) {
         out.push_back(a);
     }
     // The legs model has no torso frames: its animations come that much earlier.
-    int firstTorso = -1, firstLegs = -1;
+    int firstTorso = -1;
+    int firstLegs = -1;
     for (const PlayerAnimation &a : out) {
         if (a.part == PlayerAnimation::Part::Torso && firstTorso < 0)
             firstTorso = a.first;

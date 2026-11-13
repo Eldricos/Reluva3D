@@ -81,7 +81,9 @@ void DirectDraw::writeCaps(Cpu &c, uint32_t p, bool hardware) {
 }
 
 uint32_t DirectDraw::enumModes(Cpu &c, const ComInterface &iface) {
-    const uint32_t filter = c.arg(2), context = c.arg(3), callback = c.arg(4);
+    const uint32_t filter = c.arg(2);
+    const uint32_t context = c.arg(3);
+    const uint32_t callback = c.arg(4);
     const bool v2 = &iface == &s->interfaces.directDraw7 || &iface == &s->interfaces.directDraw4;
     const uint32_t size = v2 ? 124 : 108;
     const uint32_t desc = s->process.memory().alloc(size);
@@ -119,7 +121,8 @@ uint32_t DirectDraw::enumModes(Cpu &c, const ComInterface &iface) {
 // it flips), a Z buffer, or an off-screen surface or texture (with its
 // smaller mip levels).
 uint32_t DirectDraw::createSurface(Cpu &c, const ComInterface &iface) {
-    const uint32_t p = c.arg(1), out = c.arg(2);
+    const uint32_t p = c.arg(1);
+    const uint32_t out = c.arg(2);
     if (!c.valid(p, 108) || !c.valid(out, 4))
         return kDDErrInvalidParams;
     const bool desc2 = c.read32(p) == 124;
@@ -129,7 +132,8 @@ uint32_t DirectDraw::createSurface(Cpu &c, const ComInterface &iface) {
                                        : &iface == &s->interfaces.directDraw4 ? s->interfaces.surface4
                                                                               : s->interfaces.surface;
     const int displayBits = s->bits ? s->bits : s->process.screenBits;
-    int width = int(c.read32(p + 12)), height = int(c.read32(p + 8));
+    int width = int(c.read32(p + 12));
+    int height = int(c.read32(p + 8));
     PixelFormat format = (flags & kSdPixelFormat) ? PixelFormat::read(c, p + 72) : rgbFormat(displayBits);
     if (!(caps[0] & kCapsSystemMemory) && !(caps[1] & kCaps2TextureManage))
         caps[0] |= kCapsVideoMemory | kCapsLocalVidMem;
@@ -236,7 +240,9 @@ std::optional<uint32_t> DirectDraw::invoke(const ComInterface &iface, int index,
         return kDDOk;
     }
     if (m == "SetDisplayMode") {
-        const int w = int(c.arg(1)), h = int(c.arg(2)), bits = int(c.arg(3));
+        const int w = int(c.arg(1));
+        const int h = int(c.arg(2));
+        const int bits = int(c.arg(3));
         const auto &modes = s->owner.modes;
         if (std::none_of(modes.begin(), modes.end(), [&](const DirectX::Mode &mode) {
                 return mode.width == w && mode.height == h && mode.bits == bits;
@@ -266,7 +272,8 @@ std::optional<uint32_t> DirectDraw::invoke(const ComInterface &iface, int index,
         return kDDOk;
     }
     if (m == "GetAvailableVidMem") {
-        const uint32_t total = c.arg(2), free = c.arg(3);
+        const uint32_t total = c.arg(2);
+        const uint32_t free = c.arg(3);
         if (total)
             c.write32(total, s->owner.videoMemory);
         if (free)
@@ -358,7 +365,8 @@ DirectX::DirectX(Win32Process &process) : s_(std::make_unique<State>(*this, proc
         c.writeString(a, t, uint32_t(t.size() + 1));
         return a;
     };
-    const uint32_t description = text("Primary Display Driver"), name = text("display");
+    const uint32_t description = text("Primary Display Driver");
+    const uint32_t name = text("display");
 
     auto create = [s](uint32_t guid) {
         auto dd = std::make_shared<dx::DirectDraw>();

@@ -56,7 +56,8 @@ std::vector<std::string> chooseGroundTextures(const std::string &modelStem, cons
                                               const std::vector<std::string> &planetStems) {
     const Names names(planetStems);
     // "alpin_07" -> family "alpin", number "07".
-    std::string family = modelStem, number;
+    std::string family = modelStem;
+    std::string number;
     if (const size_t u = modelStem.rfind('_'); u != std::string::npos) {
         family = modelStem.substr(0, u);
         number = modelStem.substr(u + 1);
@@ -81,7 +82,10 @@ std::vector<std::string> chooseGroundTextures(const std::string &modelStem, cons
     std::vector<std::array<float, kRoles>> area(slots, std::array<float, kRoles>{});
     for (const auto &face : model.faces) {
         const auto &verts = model.parts[face.part].vertices;
-        float nx = 0, ny = 0, nz = 0, z = 0; // Newell's method
+        float nx = 0;
+        float ny = 0;
+        float nz = 0;
+        float z = 0; // Newell's method
         for (size_t i = 0; i < face.corners.size(); ++i) {
             const auto &a = verts[face.corners[i].vertex];
             const auto &b = verts[face.corners[(i + 1) % face.corners.size()].vertex];

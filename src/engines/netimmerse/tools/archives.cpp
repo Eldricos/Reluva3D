@@ -29,11 +29,17 @@ namespace {
 
 // Unix time -> "YYYY-MM-DD HH:MM" (UTC), without platform time functions.
 std::string formatTime(uint32_t t) {
-    int64_t days = t / 86400, secs = t % 86400;
-    int64_t z = days + 719468, era = z / 146097, doe = z - era * 146097;
+    int64_t days = t / 86400;
+    int64_t secs = t % 86400;
+    int64_t z = days + 719468;
+    int64_t era = z / 146097;
+    int64_t doe = z - era * 146097;
     int64_t yoe = (doe - doe / 1460 + doe / 36524 - doe / 146096) / 365;
-    int64_t doy = doe - (365 * yoe + yoe / 4 - yoe / 100), mp = (5 * doy + 2) / 153;
-    int64_t d = doy - (153 * mp + 2) / 5 + 1, m = mp < 10 ? mp + 3 : mp - 9, y = yoe + era * 400 + (m <= 2);
+    int64_t doy = doe - (365 * yoe + yoe / 4 - yoe / 100);
+    int64_t mp = (5 * doy + 2) / 153;
+    int64_t d = doy - (153 * mp + 2) / 5 + 1;
+    int64_t m = mp < 10 ? mp + 3 : mp - 9;
+    int64_t y = yoe + era * 400 + (m <= 2);
     char buf[32];
     std::snprintf(buf, sizeof buf, "%04d-%02d-%02d %02d:%02d", int(y), int(m), int(d), int(secs / 3600),
                   int(secs / 60 % 60));
@@ -136,14 +142,26 @@ int cmdFinCheck(int argc, char **argv) {
     };
     std::map<std::string, Count> counts;
     std::set<std::string> missingImages;
-    unsigned files = 0, failed = 0, badLinks = 0, shapes = 0, triangles = 0;
-    unsigned actorsWithTracks = 0, trackMismatches = 0, keysChecked = 0, keysMatching = 0;
+    unsigned files = 0;
+    unsigned failed = 0;
+    unsigned badLinks = 0;
+    unsigned shapes = 0;
+    unsigned triangles = 0;
+    unsigned actorsWithTracks = 0;
+    unsigned trackMismatches = 0;
+    unsigned keysChecked = 0;
+    unsigned keysMatching = 0;
     // Lights, by their settings: type, switch, attenuation (its switch,
     // distance and curve).
     std::map<std::string, unsigned> lightKinds;
-    unsigned clipLists = 0, clipListsOut = 0;
+    unsigned clipLists = 0;
+    unsigned clipListsOut = 0;
     unsigned flipModes[4] = {}; // loop, reverse, clamp, other
-    unsigned clipSounds = 0, soundLoop = 0, soundUnplaced = 0, soundMuted = 0, soundOdd = 0;
+    unsigned clipSounds = 0;
+    unsigned soundLoop = 0;
+    unsigned soundUnplaced = 0;
+    unsigned soundMuted = 0;
+    unsigned soundOdd = 0;
     std::vector<uint8_t> data;
     for (const auto &e : fin.entries()) {
         if (e.size == 0)

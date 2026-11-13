@@ -209,7 +209,8 @@ std::vector<std::string> readLines(const GameData &data, const char *file) {
 
 // The facing (0 n ... 7 nw; n is -y, e +x) of a step.
 int facingOf(int dx, int dy) {
-    const int sx = (dx > 0) - (dx < 0), sy = (dy > 0) - (dy < 0);
+    const int sx = (dx > 0) - (dx < 0);
+    const int sy = (dy > 0) - (dy < 0);
     static const int kFacing[3][3] = {{7, 6, 5}, {0, 2, 4}, {1, 2, 3}}; // [sx + 1][sy + 1]
     if (sx == 0 && sy == 0)
         return -1;
@@ -795,7 +796,8 @@ std::deque<std::pair<int, int>> Play::wayFind(int suspect, int room, int fromX, 
         return !blocked(c) && board_.roomAt(Board::squareAt(c.first * 32 + 16, c.second * 32 + 16)) == room;
     };
     static const int kStep[8][2] = {{0, -1}, {0, 1}, {1, 0}, {-1, 0}, {1, -1}, {1, 1}, {-1, 1}, {-1, -1}};
-    const Cell from{cell32(fromX), cell32(fromY)}, to{cell32(toX), cell32(toY)};
+    const Cell from{cell32(fromX), cell32(fromY)};
+    const Cell to{cell32(toX), cell32(toY)};
     if (!open(to) || from == to)
         return {};
     std::map<Cell, int> steps{{from, 0}};
@@ -865,7 +867,8 @@ std::pair<int, int> Play::roomSpot(int suspect, int room, int fromX, int fromY) 
                     return {x, y};
             }
     // None: the room's first square (it can't be, with six suspects).
-    int x = 0, y = 0;
+    int x = 0;
+    int y = 0;
     if (!board_.roomSquares(room).empty())
         Board::standingPoint(board_.roomSquares(room).front(), x, y);
     return {x, y};
@@ -877,7 +880,8 @@ void Play::startWalk(const std::vector<Place> &path) {
     Walker &w = walkers_[size_t(s)];
     w.route.clear();
     const auto point = [](const Square &sq) {
-        int x, y;
+        int x;
+        int y;
         Board::standingPoint(sq, x, y);
         return std::pair<int, int>{x, y};
     };
@@ -899,7 +903,8 @@ void Play::startWalk(const std::vector<Place> &path) {
         // there the way-finder's from the door's square (0x424309): round
         // things and suspects, else round things only (0x42434F); straight,
         // if neither finds one.
-        int fromX = w.x, fromY = w.y;
+        int fromX = w.x;
+        int fromY = w.y;
         const Board::Door *door = nullptr;
         for (const Board::Door &d : board_.doors())
             if (d.room == p.room && i > 0 && d.outside == path[i - 1].square) {
@@ -912,7 +917,8 @@ void Play::startWalk(const std::vector<Place> &path) {
         const std::pair<int, int> spot = roomSpot(s, p.room, fromX, fromY);
         std::deque<std::pair<int, int>> way;
         if (door) {
-            const int cornerX = fromX - 32, cornerY = fromY - 32;
+            const int cornerX = fromX - 32;
+            const int cornerY = fromY - 32;
             way = wayFind(s, p.room, cornerX, cornerY, spot.first, spot.second, true);
             if (way.empty())
                 way = wayFind(s, p.room, cornerX, cornerY, spot.first, spot.second, false);
@@ -954,7 +960,8 @@ void Play::placeWalkers(bool walk) {
                 // Through a secret passage: from 32 in front of the one in
                 // the room (0x425CC0); brought in by a suggestion: from
                 // where the suggester stands (0x41BEA0).
-                int fromX = walkers_[size_t(game_.turn())].x, fromY = walkers_[size_t(game_.turn())].y;
+                int fromX = walkers_[size_t(game_.turn())].x;
+                int fromY = walkers_[size_t(game_.turn())].y;
                 bool passage = false;
                 if (s == game_.turn())
                     for (const Passage &ps : passages_)
@@ -1225,7 +1232,8 @@ void Play::openPick() {
 }
 
 int Play::pickSlot(size_t i) const {
-    static const int kOne[] = {12}, kMore[] = {13, 14, 15};
+    static const int kOne[] = {12};
+    static const int kMore[] = {13, 14, 15};
     return pickCards_.size() == 1 ? kOne[0] : kMore[std::min<size_t>(i, 2)];
 }
 
@@ -1321,7 +1329,8 @@ void Play::handleEvent(const Event &ev) {
     if (window_ != Window::None && dialog_) {
         if (window_ == Window::Choose && choosePage_ == 3 && ev.type == EventType::MouseUp) {
             // The summary's pictures: click one to choose it again.
-            const int x = ev.mouseX - kRightX, y = ev.mouseY - kRightY;
+            const int x = ev.mouseX - kRightX;
+            const int y = ev.mouseY - kRightY;
             const int page = kSummarySuspect.contains(x, y)                 ? 0
                              : kSummaryWeapon.contains(x, y)                ? 1
                              : kSummaryRoom.contains(x, y) && chooseAccuse_ ? 2
@@ -1377,7 +1386,8 @@ void Play::handleEvent(const Event &ev) {
         return;
     const int pressed = pressedAction_;
     pressedAction_ = -1;
-    const int x = ev.mouseX, y = ev.mouseY;
+    const int x = ev.mouseX;
+    const int y = ev.mouseY;
     if (y >= kBarTop) {
         // The bar: the notes and cards, the actions.
         if (x >= 39 && x < 84) {
@@ -1566,8 +1576,10 @@ void Play::updateAmbience() {
         return;
     // Where the camera looks, on the floor: the view's middle, x - y and
     // (x + y) / 2 undone.
-    const int sx = camX_ + kW / 2, sy = camY_ + kBarTop / 2;
-    const int lx = sy + floorDiv(sx, 2), ly = sy - floorDiv(sx, 2);
+    const int sx = camX_ + kW / 2;
+    const int sy = camY_ + kBarTop / 2;
+    const int lx = sy + floorDiv(sx, 2);
+    const int ly = sy - floorDiv(sx, 2);
     for (size_t k = 0; k < std::size(kAmbientSound); ++k) {
         long best = LONG_MAX;
         int dx = 0;
@@ -1592,12 +1604,14 @@ void Play::updateAmbience() {
             continue;
         }
         const double d = std::sqrt(double(best));
-        int volume = 100, pan = 64;
+        int volume = 100;
+        int pan = 64;
         if (d > 1) {
             volume = int(100 - 100 * d / 500);
             pan = int(64 + 52 * (dx / d));
         }
-        const int v = audio::kMaxVolume * volume / 127, p = (pan - 64) * audio::kMaxPan / 63;
+        const int v = audio::kMaxVolume * volume / 127;
+        const int p = (pan - 64) * audio::kMaxPan / 63;
         if (h == audio::kNoSound || !mixer_->isPlaying(h)) {
             if (const auto loop = loadSound(kAmbientSound[k]))
                 h = mixer_->play(loop, audio::SoundType::Effects, v, p, true);
@@ -1619,8 +1633,10 @@ void Play::clickView(int x, int y) {
                 return;
             }
     // The floor's square under the pointer: x - y and (x + y) / 2 undone.
-    const int sx = x + camX_, sy = y + camY_;
-    const int wx = sy + floorDiv(sx, 2), wy = sy - floorDiv(sx, 2);
+    const int sx = x + camX_;
+    const int sy = y + camY_;
+    const int wx = sy + floorDiv(sx, 2);
+    const int wy = sy - floorDiv(sx, 2);
     const Square sq = Board::squareAt(wx, wy);
     // The floor of the room the suspect is in: a walk about it (Clue.exe
     // 0x423B5B), whether or not it may move.
@@ -1692,7 +1708,8 @@ void Play::clickSquare(const Place &p) {
     sound("ting.wav"); // a number put down (Clue.exe 0x423EE8)
     // The view goes to the newest square, as the original's does.
     if (!p.inRoom()) {
-        int wx, wy;
+        int wx;
+        int wy;
         Board::standingPoint(p.square, wx, wy);
         camX_ = (wx - wy) - kW / 2;
         camY_ = floorDiv(wx + wy, 2) - kBarTop / 2;
@@ -1761,7 +1778,9 @@ void Play::update(uint64_t nowMs) {
         double left = double(kWalkSpeed) * double(dt) / 1000.0;
         while (left > 0 && !w.route.empty()) {
             const auto [tx, ty] = w.route.front();
-            const double dx = tx - w.fx, dy = ty - w.fy, d = std::hypot(dx, dy);
+            const double dx = tx - w.fx;
+            const double dy = ty - w.fy;
+            const double d = std::hypot(dx, dy);
             if (const int f = facingOf(tx - int(std::lround(w.fx)), ty - int(std::lround(w.fy))); f >= 0)
                 w.facing = f;
             if (d <= left) {
@@ -2037,7 +2056,8 @@ void Play::drawTicker() {
     if (!f || ticker_.empty())
         return;
     // Drawn into a strip the ticker's width, so as to come round.
-    const int w = kTickerRight - kTickerLeft, h = 18;
+    const int w = kTickerRight - kTickerLeft;
+    const int h = 18;
     if (tickerStrip_.w != w)
         tickerStrip_.create(w, h, PixelFormat::RGBA32);
     std::fill(tickerStrip_.pixels.begin(), tickerStrip_.pixels.end(), 0);
@@ -2141,7 +2161,8 @@ void Play::drawMap() {
     if (localTurn() && game_.canMove() && !busy())
         for (size_t i = 0; i < plan_.size() && i < 9; ++i)
             if (!plan_[i].inRoom()) {
-                int x, y;
+                int x;
+                int y;
                 at(plan_[i].square.x, plan_[i].square.y, x, y);
                 drawAnimation(std::string("tilenum:Aoverhead_") + char('a' + i), x + 1, y + 1);
             }
@@ -2153,7 +2174,8 @@ void Play::drawMap() {
         if (!st)
             continue;
         const Walker &w = walkers_[size_t(s)];
-        int x, y;
+        int x;
+        int y;
         at((w.x - 40) / 64.0, (w.y - 40) / 64.0, x, y);
         drawAnimation(st->animation, x, y);
     }

@@ -192,7 +192,8 @@ bool turnTowards(Real x0, Real y0, Real x1, Real y1, bool clockwise, Real headin
     t.start = h;
     t.cx = x0 - cos(h) * kTurnRadius;
     t.cy = y0 - sin(h) * kTurnRadius;
-    const Real dx = x1 - t.cx, dy = y1 - t.cy;
+    const Real dx = x1 - t.cx;
+    const Real dy = y1 - t.cy;
     const Real d = sqrt(dy * dy + dx * dx);
     if (below(d, kTurnRadius))
         return false;
@@ -234,7 +235,8 @@ bool turnClear(const WalkGrid &grid, const Turn &t, bool openThrees, bool allowT
     if (!below(0, length))
         return true;
     for (Real s = 0;;) {
-        Real x, y;
+        Real x;
+        Real y;
         if (s < t.arc || s == t.arc) {
             const Real angle = (t.clockwise ? -s : s) / kTurnRadius + t.start;
             x = cos(angle) * kTurnRadius + t.cx;
@@ -245,7 +247,10 @@ bool turnClear(const WalkGrid &grid, const Turn &t, bool openThrees, bool allowT
             y = sin(t.heading) * along + t.lineY;
         }
         const Real half = kWidth * 0.5;
-        const int a1 = int(half + x), b1 = int(half + y), a0 = int(x - half), b0 = int(y - half);
+        const int a1 = int(half + x);
+        const int b1 = int(half + y);
+        const int a0 = int(x - half);
+        const int b0 = int(y - half);
         if (a0 < 0 || b0 < 0 || a1 >= WalkGrid::kSize || b1 >= WalkGrid::kSize)
             return false;
         for (const WalkGrid::Cell c : {WalkGrid::Cell{int(x), int(y)}, WalkGrid::Cell{a1, b1}, WalkGrid::Cell{a0, b1},
@@ -271,12 +276,16 @@ int WalkGrid::search(Cell from, Cell to, bool openThrees, bool allowTwos, std::v
         return 0;
 
     // 0x42f1f0: A* over a window of 192 x 192 cells round both ends.
-    const int da = to.a - from.a, db = to.b - from.b;
+    const int da = to.a - from.a;
+    const int db = to.b - from.b;
     if (std::abs(da) > 128 || std::abs(db) > 128)
         return -2;
     const int offA = 96 - (std::abs(da) / 2 + std::min(from.a, to.a));
     const int offB = 96 - (std::abs(db) / 2 + std::min(from.b, to.b));
-    const int startA = from.a + offA, startB = from.b + offB, goalA = to.a + offA, goalB = to.b + offB;
+    const int startA = from.a + offA;
+    const int startB = from.b + offB;
+    const int goalA = to.a + offA;
+    const int goalB = to.b + offB;
     struct Node {
         uint32_t g = 0, f = 0;
         bool open = false, seen = false;
@@ -287,7 +296,8 @@ int WalkGrid::search(Cell from, Cell to, bool openThrees, bool allowTwos, std::v
     auto at = [](int a, int b) { return a * kWindow + b; };
     // The open list: nodes join at its end, and the first with the least
     // estimate leaves it.
-    int head = at(startA, startB), tail = head;
+    int head = at(startA, startB);
+    int tail = head;
     Node &start = nodes[size_t(head)];
     start.f = uint32_t(distance(std::abs(to.a - from.a), std::abs(to.b - from.b)));
     start.open = start.seen = true;
@@ -305,9 +315,11 @@ int WalkGrid::search(Cell from, Cell to, bool openThrees, bool allowTwos, std::v
         (b.prev >= 0 ? nodes[size_t(b.prev)].next : head) = b.next;
         (b.next >= 0 ? nodes[size_t(b.next)].prev : tail) = b.prev;
         b.open = false;
-        const int a = best / kWindow, bb = best % kWindow;
+        const int a = best / kWindow;
+        const int bb = best % kWindow;
         for (int m = 0; m < 8; m++) {
-            const int na = a + kMoves[m][0], nb = bb + kMoves[m][1];
+            const int na = a + kMoves[m][0];
+            const int nb = bb + kMoves[m][1];
             if (na < 0 || na >= kWindow || nb < 0 || nb >= kWindow ||
                 blocked({na - offA, nb - offB}, openThrees, allowTwos))
                 continue;

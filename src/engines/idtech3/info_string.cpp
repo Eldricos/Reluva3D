@@ -43,7 +43,9 @@ void setInfoValue(std::string &info, const std::string &key, const std::string &
                 out.push_back(c);
         return out;
     };
-    const std::string k = clean(key), v = clean(value), lower = fs::toLower(k);
+    const std::string k = clean(key);
+    const std::string v = clean(value);
+    const std::string lower = fs::toLower(k);
     std::string rebuilt;
     for (const auto &[name, old] : infoPairs(info))
         if (fs::toLower(name) != lower)

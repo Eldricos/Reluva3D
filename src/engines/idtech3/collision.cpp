@@ -66,7 +66,8 @@ void CollisionWorld::buildPatches() {
         if (!shader.contentFlags)
             continue;
         const BspVertex *control = &bsp_.vertices[size_t(surf.firstVertex)];
-        const int w = surf.patchWidth, h = surf.patchHeight;
+        const int w = surf.patchWidth;
+        const int h = surf.patchHeight;
         // Within a sixteenth of a unit of round (2 * sqrt(bend) cuts).
         const int level = patchLevel(control, w, h, 0.125f);
         std::vector<BspVertex> verts;
@@ -120,7 +121,8 @@ void CollisionWorld::buildPatches() {
                 const float hi = std::max({p[0][size_t(axis)], p[1][size_t(axis)], p[2][size_t(axis)]});
                 f.mins[size_t(axis)] = lo - 0.5f;
                 f.maxs[size_t(axis)] = hi + 0.5f;
-                BspPlane up, down;
+                BspPlane up;
+                BspPlane down;
                 up.normal[size_t(axis)] = 1;
                 up.dist = hi + 0.5f;
                 down.normal[size_t(axis)] = -1;
@@ -171,7 +173,8 @@ void CollisionWorld::tracePatch(Work &w, int surface) const {
     if (!(pc.contents & w.mask))
         return;
     // The swept box's bounds, to skip what it can't reach.
-    Vec3f lo{}, hi{};
+    Vec3f lo{};
+    Vec3f hi{};
     for (size_t i = 0; i < 3; ++i) {
         lo[i] = std::min(w.start[i], w.end[i]) - w.extents[i] - 1;
         hi[i] = std::max(w.start[i], w.end[i]) + w.extents[i] + 1;
@@ -186,7 +189,8 @@ void CollisionWorld::tracePatch(Work &w, int surface) const {
         return;
     // Each facet as a brush's sides (traceBrush).
     auto testFacet = [&](const Facet &facet) {
-        float enter = -1, leave = 1;
+        float enter = -1;
+        float leave = 1;
         const BspPlane *hitPlane = nullptr;
         bool startsOut = false;
         for (int pi = 0; pi < facet.planeCount; ++pi) {
@@ -248,9 +252,11 @@ void CollisionWorld::traceBrush(Work &w, int brush) const {
     // Clip the line against each side's plane, pushed out by the box:
     // the line is inside the brush between the last plane it enters
     // and the first it leaves.
-    float enter = -1, leave = 1;
+    float enter = -1;
+    float leave = 1;
     const BspBrushSide *hitSide = nullptr;
-    bool startsOut = false, endsOut = false;
+    bool startsOut = false;
+    bool endsOut = false;
     for (int s = 0; s < b.numSides; ++s) {
         const BspBrushSide &side = bsp_.brushSides[size_t(b.firstSide + s)];
         const BspPlane &p = bsp_.planes[size_t(side.plane)];
@@ -378,7 +384,9 @@ TraceResult CollisionWorld::traceBox(const Vec3f &start, const Vec3f &end, const
     // normal picks out one coordinate, and the moving box reaches its
     // half size along it.
     TraceResult r;
-    Vec3f from{}, to{}, extents{};
+    Vec3f from{};
+    Vec3f to{};
+    Vec3f extents{};
     for (int i = 0; i < 3; ++i) {
         const float centre = (mins[size_t(i)] + maxs[size_t(i)]) * 0.5f;
         extents[size_t(i)] = (maxs[size_t(i)] - mins[size_t(i)]) * 0.5f;
@@ -392,9 +400,11 @@ TraceResult CollisionWorld::traceBox(const Vec3f &start, const Vec3f &end, const
     };
     if (boxContents == 0) // nothing to hit
         return finish();
-    float enter = -1, leave = 1;
+    float enter = -1;
+    float leave = 1;
     int hitPlane = -1; // axis * 2, + 1 for the low side
-    bool startsOut = false, endsOut = false;
+    bool startsOut = false;
+    bool endsOut = false;
     for (int plane = 0; plane < 6; ++plane) {
         const int axis = plane / 2;
         const bool low = plane & 1;
@@ -469,7 +479,8 @@ void CollisionWorld::boxLeafs(const Vec3f &mins, const Vec3f &maxs, std::vector<
         const BspNode &n = bsp_.nodes[size_t(node)];
         const BspPlane &p = bsp_.planes[size_t(n.plane)];
         // The box's nearest and farthest corners from the plane.
-        float lo = -p.dist, hi = -p.dist;
+        float lo = -p.dist;
+        float hi = -p.dist;
         for (size_t k = 0; k < 3; ++k) {
             lo += p.normal[k] * (p.normal[k] >= 0 ? mins[k] : maxs[k]);
             hi += p.normal[k] * (p.normal[k] >= 0 ? maxs[k] : mins[k]);
@@ -528,9 +539,12 @@ void AreaPortals::flood() {
 
 std::array<Vec3f, 3> CollisionWorld::turnAxes(const Vec3f &angles) {
     constexpr float kRad = 3.14159265358979f / 180;
-    const float sp = std::sin(angles[0] * kRad), cp = std::cos(angles[0] * kRad);
-    const float sy = std::sin(angles[1] * kRad), cy = std::cos(angles[1] * kRad);
-    const float sr = std::sin(angles[2] * kRad), cr = std::cos(angles[2] * kRad);
+    const float sp = std::sin(angles[0] * kRad);
+    const float cp = std::cos(angles[0] * kRad);
+    const float sy = std::sin(angles[1] * kRad);
+    const float cy = std::cos(angles[1] * kRad);
+    const float sr = std::sin(angles[2] * kRad);
+    const float cr = std::cos(angles[2] * kRad);
     const Vec3f forward{cp * cy, cp * sy, -sp};
     const Vec3f left{sr * sp * cy - cr * sy, sr * sp * sy + cr * cy, sr * cp};
     const Vec3f up{cr * sp * cy + sr * sy, cr * sp * sy - sr * cy, cr * cp};
@@ -561,7 +575,9 @@ Vec3f outOfAxes(const std::array<Vec3f, 3> &axes, const Vec3f &v) {
 
 TraceResult CollisionWorld::transformedTrace(const Vec3f &start, const Vec3f &end, const Vec3f &mins, const Vec3f &maxs,
                                              int model, int32_t mask, const Vec3f &origin, const Vec3f &angles) const {
-    Vec3f half{}, a{}, b{};
+    Vec3f half{};
+    Vec3f a{};
+    Vec3f b{};
     for (size_t k = 0; k < 3; ++k) {
         const float middle = (mins[k] + maxs[k]) * 0.5f;
         half[k] = maxs[k] - middle;

@@ -93,7 +93,8 @@ Options optionsFor(const GameTarget &target) {
     bool unknown = false;
     detectInstall("stgenerations", kVariants, target.path, &unknown);
     o.unknownVariant = unknown;
-    const std::string cd1 = setting(target, kCd1), cd2 = setting(target, kCd2);
+    const std::string cd1 = setting(target, kCd1);
+    const std::string cd2 = setting(target, kCd2);
     o.cd1 = cd1;
     o.cd2 = cd2;
     o.viewer = setting(target, kStartMode) == "viewer";

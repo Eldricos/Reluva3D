@@ -95,7 +95,8 @@ Error GrannyDll::binkTexture(int width, int height, uint32_t flags, const std::v
     if (width <= 0 || height <= 0 || width > 4096 || height > 4096)
         return Error::fail("Bad texture size");
     x86::Arena &mem = process_->memory();
-    const uint32_t stride = uint32_t(width) * 4, size = stride * uint32_t(height);
+    const uint32_t stride = uint32_t(width) * 4;
+    const uint32_t size = stride * uint32_t(height);
     const uint32_t src = mem.alloc(uint32_t(in.size()) + kPadding);
     const uint32_t dst = mem.alloc(size);
     // A granny_pixel_layout: bytes per pixel, then each component's shift
@@ -140,7 +141,8 @@ Error GrannyDll::camera(const Camera &in, int width, int height, float view[16],
     if (!init || !aspect || !build || !toWindow)
         return Error::fail("granny2.dll has no camera functions");
     x86::Arena &mem = process_->memory();
-    const uint32_t cam = mem.alloc(0x200), pt = mem.alloc(32);
+    const uint32_t cam = mem.alloc(0x200);
+    const uint32_t pt = mem.alloc(32);
     auto putFloat = [&](uint32_t a, float f) {
         uint32_t v;
         std::memcpy(&v, &f, 4);
@@ -175,7 +177,8 @@ Error GrannyDll::camera(const Camera &in, int width, int height, float view[16],
         }
         // GrannySetCameraAspectRatios(Camera, PhysicalAspectRatio, ScreenWidth,
         //                             ScreenHeight, WindowWidth, WindowHeight)
-        const float w = float(width), h = float(height);
+        const float w = float(width);
+        const float h = float(height);
         e = cpu_->call(aspect, {cam, bits(w / h), bits(w), bits(h), bits(w), bits(h)}, ignored);
     }
     if (!e)
@@ -256,13 +259,17 @@ Error GrannyDll::worldPose(const LoadedFile &model, const LoadedFile &animation,
     for (int i = 0; i < 9; i++)
         if (!(fn[i] = module_->exportAddress(names[i])))
             return Error::fail(std::string("granny2.dll has no ") + names[i]);
-    const uint32_t infoType = type("GrannyFileInfoType"), skeletonType = type("GrannySkeletonType");
-    uint32_t models = 0, animations = 0, bones = 0;
+    const uint32_t infoType = type("GrannyFileInfoType");
+    const uint32_t skeletonType = type("GrannySkeletonType");
+    uint32_t models = 0;
+    uint32_t animations = 0;
+    uint32_t bones = 0;
     if (!infoType || !skeletonType || !memberOffset(infoType, "Models", models) ||
         !memberOffset(infoType, "Animations", animations) || !memberOffset(skeletonType, "Bones", bones))
         return Error::fail("granny2.dll's types aren't as expected");
     // file info -> Models[0], Animations[0] (counted arrays of pointers)
-    const uint32_t m = read32(read32(model.info + models + 4)), a = read32(read32(animation.info + animations + 4));
+    const uint32_t m = read32(read32(model.info + models + 4));
+    const uint32_t a = read32(read32(animation.info + animations + 4));
     if (!m || !a)
         return Error::fail("no model or no animation");
     auto bits = [](float f) {
@@ -270,7 +277,12 @@ Error GrannyDll::worldPose(const LoadedFile &model, const LoadedFile &animation,
         std::memcpy(&v, &f, 4);
         return v;
     };
-    uint32_t instance = 0, control = 0, skeleton = 0, local = 0, world = 0, ignored = 0;
+    uint32_t instance = 0;
+    uint32_t control = 0;
+    uint32_t skeleton = 0;
+    uint32_t local = 0;
+    uint32_t world = 0;
+    uint32_t ignored = 0;
     Error e = cpu_->call(fn[0], {m}, instance);
     if (!e)
         e = cpu_->call(fn[1], {bits(0.0f), a, instance}, control);
@@ -310,7 +322,9 @@ Error GrannyDll::expandCurve(uint32_t address, const std::vector<float> &identit
     const uint32_t extract = module_->exportAddress("_GrannyCurveExtractKnotValues@24");
     if (!knotCount || !dimension || !degree || !extract)
         return Error::fail("granny2.dll has no curve functions");
-    uint32_t n = 0, dim = 0, deg = 0;
+    uint32_t n = 0;
+    uint32_t dim = 0;
+    uint32_t deg = 0;
     if (Error e = cpu_->call(knotCount, {address}, n))
         return e;
     if (Error e = cpu_->call(dimension, {address}, dim))
@@ -323,8 +337,9 @@ Error GrannyDll::expandCurve(uint32_t address, const std::vector<float> &identit
     if (knots > 100000)
         return Error::fail("curve with " + std::to_string(knots) + " knots");
     x86::Arena &mem = process_->memory();
-    const uint32_t knotOut = mem.alloc(4 * knots), controlOut = mem.alloc(4 * knots * dim),
-                   ident = mem.alloc(4 * uint32_t(identity.size()) + 4);
+    const uint32_t knotOut = mem.alloc(4 * knots);
+    const uint32_t controlOut = mem.alloc(4 * knots * dim);
+    const uint32_t ident = mem.alloc(4 * uint32_t(identity.size()) + 4);
     Error e;
     if (!knotOut || !controlOut || !ident) {
         e = Error::fail("Out of emulated memory");
@@ -409,7 +424,8 @@ Error GrannyDll::evaluateCurve(uint32_t address, const std::vector<float> &ident
         std::memcpy(&v, &f, 4);
         return v;
     };
-    const uint32_t ident = curveScratch_, result = curveScratch_ + 4 * 16;
+    const uint32_t ident = curveScratch_;
+    const uint32_t result = curveScratch_ + 4 * 16;
     for (size_t i = 0; i < identity.size(); i++) {
         cpu_->write32(ident + 4 * uint32_t(i), bits(identity[i]));
         cpu_->write32(result + 4 * uint32_t(i), 0);

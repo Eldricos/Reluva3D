@@ -65,10 +65,14 @@ const Font::Glyph &Font::glyph(uint32_t cp, float pixels) {
     if (!info_)
         return g;
     const float s = scale(pixels);
-    int advance = 0, bearing = 0;
+    int advance = 0;
+    int bearing = 0;
     stbtt_GetCodepointHMetrics(&info_->font, int(cp), &advance, &bearing);
     g.advance = float(advance) * s;
-    int x0 = 0, y0 = 0, x1 = 0, y1 = 0;
+    int x0 = 0;
+    int y0 = 0;
+    int x1 = 0;
+    int y1 = 0;
     stbtt_GetCodepointBitmapBox(&info_->font, int(cp), s, s, &x0, &y0, &x1, &y1);
     g.width = std::max(0, x1 - x0);
     g.height = std::max(0, y1 - y0);
@@ -95,7 +99,8 @@ int Font::draw(Surface &dst, int x, int y, std::string_view utf8, float pixels, 
     float pen = float(x);
     for (size_t i = 0; i < utf8.size();) {
         const Glyph &g = glyph(text::nextUtf8(utf8, i), pixels);
-        const int gx = int(std::lround(pen)) + g.xoff, gy = baseline + g.yoff;
+        const int gx = int(std::lround(pen)) + g.xoff;
+        const int gy = baseline + g.yoff;
         for (int r = 0; r < g.height; r++) {
             const int dy = gy + r;
             if (dy < 0 || dy >= dst.h)

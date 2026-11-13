@@ -82,9 +82,13 @@ Error parseMd3(const std::vector<uint8_t> &data, Md3Model &out) {
         return Error::fail("Unsupported MD3 version " + std::to_string(version));
     out.name = h.name(64);
     h.i32(); // flags
-    const int32_t numFrames = h.i32(), numTags = h.i32(), numSurfaces = h.i32();
+    const int32_t numFrames = h.i32();
+    const int32_t numTags = h.i32();
+    const int32_t numSurfaces = h.i32();
     h.i32(); // skins, unused
-    const int32_t ofsFrames = h.i32(), ofsTags = h.i32(), ofsSurfaces = h.i32();
+    const int32_t ofsFrames = h.i32();
+    const int32_t ofsTags = h.i32();
+    const int32_t ofsSurfaces = h.i32();
     if (numFrames < 1 || numTags < 0 || numSurfaces < 0 || !fits(data.size(), ofsFrames, numFrames, kFrameSize) ||
         !fits(data.size(), ofsTags, int64_t(numFrames) * numTags, kTagSize))
         return Error::fail("MD3 frames or tags lie outside the file");
@@ -127,8 +131,14 @@ Error parseMd3(const std::vector<uint8_t> &data, Md3Model &out) {
         // surface with both (0 frames, every offset 0), and the original
         // draws the chair.
         sr.i32(); // frames
-        const int32_t numShaders = sr.i32(), numVerts = sr.i32(), numTris = sr.i32();
-        const int32_t ofsTris = sr.i32(), ofsShaders = sr.i32(), ofsSt = sr.i32(), ofsXyz = sr.i32(), ofsEnd = sr.i32();
+        const int32_t numShaders = sr.i32();
+        const int32_t numVerts = sr.i32();
+        const int32_t numTris = sr.i32();
+        const int32_t ofsTris = sr.i32();
+        const int32_t ofsShaders = sr.i32();
+        const int32_t ofsSt = sr.i32();
+        const int32_t ofsXyz = sr.i32();
+        const int32_t ofsEnd = sr.i32();
         if (numVerts < 0 || numTris < 0 || numShaders < 0 || ofsEnd < 0 ||
             !fits(data.size(), at + ofsShaders, numShaders, kShaderSize) ||
             !fits(data.size(), at + ofsTris, numTris, 12) || !fits(data.size(), at + ofsSt, numVerts, 8) ||
@@ -162,7 +172,8 @@ Error parseMd3(const std::vector<uint8_t> &data, Md3Model &out) {
             for (float &c : v.pos)
                 c = xr.i16() * kXyzScale;
             const uint16_t n = static_cast<uint16_t>(xr.i16());
-            const float lat = float((n >> 8) & 0xff) * kTau / 256, lng = float(n & 0xff) * kTau / 256;
+            const float lat = float((n >> 8) & 0xff) * kTau / 256;
+            const float lng = float(n & 0xff) * kTau / 256;
             v.normal = {std::cos(lat) * std::sin(lng), std::sin(lat) * std::sin(lng), std::cos(lng)};
             surf.vertices.push_back(v);
         }

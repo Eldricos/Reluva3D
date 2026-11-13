@@ -163,7 +163,8 @@ std::string Actor::anim(std::string_view name, float weight, int loops, float ea
 
 void Actor::turnHead(float heading, float body, int upDown) {
     // 0x4412b0: the shorter way, a weight of a degree in 90 (at most 45).
-    float left, right;
+    float left;
+    float right;
     steps(body, normalizeDegrees(heading), left, right);
     if (std::min(left, right) < 2)
         return;
@@ -222,7 +223,8 @@ Actor::Motion Actor::motion(const Animation &animation) {
                             local[b] = model.bones[b].rest;
                 poseFromLocal(model, std::move(local), out);
             };
-            Pose start, end;
+            Pose start;
+            Pose end;
             posed(0, start);
             posed(animation.duration, end);
             const Mat4 &a = start.world[size_t(root)];
@@ -237,7 +239,8 @@ Actor::Motion Actor::motion(const Animation &animation) {
             const int axis = std::abs(a[2]) < std::abs(a[6]) ? 0 : 4;
             auto yaw = [&](const Mat4 &w) { return std::atan2(w[size_t(axis + 1)], w[size_t(axis)]); };
             constexpr int kSteps = 32;
-            float total = 0, last = yaw(a);
+            float total = 0;
+            float last = yaw(a);
             for (int k = 1; k <= kSteps; k++) {
                 Pose p;
                 posed(animation.duration * float(k) / kSteps, p);
@@ -256,7 +259,8 @@ Actor::Motion Actor::motion(const Animation &animation) {
 
 bool Actor::rotateTo(float heading, float from) {
     target_ = normalizeDegrees(heading);
-    float left, right;
+    float left;
+    float right;
     steps(normalizeDegrees(from), target_, left, right);
     if (std::min(left, right) < 2)
         return false;
@@ -363,7 +367,8 @@ void Actor::update(float seconds, float &heading) {
     if (!rotating_)
         return;
     heading = normalizeDegrees(heading);
-    float left, right;
+    float left;
+    float right;
     steps(heading, target_, left, right);
     const float left0 = direction_ > 0 ? left : right;
     const float step = pace_ * seconds;

@@ -41,7 +41,8 @@ inline Bytes zlibStored(const Bytes &data) {
     put16(z, uint32_t(data.size()));
     put16(z, uint32_t(~data.size() & 0xffff));
     z.insert(z.end(), data.begin(), data.end());
-    uint32_t a = 1, b = 0;
+    uint32_t a = 1;
+    uint32_t b = 0;
     for (uint8_t v : data) {
         a = (a + v) % 65521;
         b = (b + a) % 65521;

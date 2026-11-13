@@ -90,7 +90,8 @@ int cmdQvmInfo(int argc, char **argv) {
     // System calls in the code: a constant negative target just before a
     // CALL. Per number: how many call sites, and in how many functions.
     std::map<int, std::pair<int, std::set<int>>> calls;
-    int indirect = 0, function = -1;
+    int indirect = 0;
+    int function = -1;
     for (size_t i = 0; i < code.size(); ++i) {
         if (code[i].op == q3::qvmop::Enter) {
             ++functions;
@@ -210,7 +211,8 @@ int cmdQvmRefs(int argc, char **argv) {
     q3::Qvm vm;
     if (!loadQvm(argv[2], argv[3], vm))
         return 1;
-    const long long base = std::strtoll(argv[4], nullptr, 0), size = std::strtoll(argv[5], nullptr, 0);
+    const long long base = std::strtoll(argv[4], nullptr, 0);
+    const long long size = std::strtoll(argv[5], nullptr, 0);
     // Constants inside the range are addresses of a structure's fields (or
     // of the structure itself): per offset, how often, and what the code
     // does with the address next.
@@ -283,7 +285,8 @@ int cmdQvmDis(int argc, char **argv) {
                 strings[int32_t(i)] = std::string(mem.begin() + long(i), mem.begin() + long(j));
             i = j + 1;
         }
-        std::set<size_t> users, callees;
+        std::set<size_t> users;
+        std::set<size_t> callees;
         for (const auto &[address, text] : strings) {
             std::printf("string at %d: \"%s\"\n", address, text.c_str());
             for (size_t i = 0; i < code.size(); ++i)
@@ -409,7 +412,8 @@ int cmdQvmDis(int argc, char **argv) {
         // is made from (a number, a text, a local or global variable...),
         // what the code does with the result, and texts the calling
         // function uses (its messages often name what it calls).
-        const int lo = std::atoi(argv[5]), hi = std::atoi(argv[6]);
+        const int lo = std::atoi(argv[5]);
+        const int hi = std::atoi(argv[6]);
         auto text = [&](int32_t v) -> std::string {
             if (v <= 0 || uint32_t(v) < vm.litStart() || uint32_t(v) >= vm.litEnd())
                 return {};

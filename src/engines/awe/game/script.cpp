@@ -70,7 +70,8 @@ void ScriptRunner::run(std::string_view commands) {
     character_ = owner_;
     // A condition in brackets ("(tag x >3, has y)") decides, there and
     // then, whether the commands after it are added, up to the next one.
-    bool doIt = true, open = false;
+    bool doIt = true;
+    bool open = false;
     std::string condition;
     for (Command &c : parseCommands(commands)) {
         std::string text;
@@ -133,7 +134,9 @@ void ScriptRunner::add(std::vector<std::string> words, int depth) {
     }
     if (verb == "dooropen" || verb == "doorlocked") {
         // The macros of 0x4091f0 and 0x409320.
-        const std::string point = word(1), side = word(2), number = word(3);
+        const std::string point = word(1);
+        const std::string side = word(2);
+        const std::string number = word(3);
         const bool open = verb == "dooropen";
         std::vector<std::vector<std::string>> steps = {{"walk", point},
                                                        {"rotate", "-" + point},

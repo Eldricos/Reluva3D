@@ -333,7 +333,8 @@ void KeyBindings::execute(std::string_view text, CvarStore &cvars, int *ignored,
             cvars.set(w[1], value);
             continue;
         } else if (verb == "exec" && w.size() >= 2 && readFile && depth < 8) {
-            std::string name = w[1], contents;
+            std::string name = w[1];
+            std::string contents;
             if (name.find('.') == std::string::npos)
                 name += ".cfg";
             if (readFile(name, contents))

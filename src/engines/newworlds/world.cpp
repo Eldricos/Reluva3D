@@ -45,7 +45,8 @@ bool World::canStep(int tx, int ty, int dx, int dy) const {
         return true;
     // The ground along the way, from one tile's middle to the other's, a
     // quarter tile at a time.
-    const float x0 = (float(tx) + 0.5f) * kTile, y0 = (float(ty) + 0.5f) * kTile;
+    const float x0 = (float(tx) + 0.5f) * kTile;
+    const float y0 = (float(ty) + 0.5f) * kTile;
     float last = terrain_.heightAt(x0, y0);
     for (int i = 1; i <= 4; ++i) {
         const float h = terrain_.heightAt(x0 + float(dx) * kTile * float(i) / 4, y0 + float(dy) * kTile * float(i) / 4);
@@ -57,12 +58,15 @@ bool World::canStep(int tx, int ty, int dx, int dy) const {
 }
 
 std::vector<std::pair<float, float>> World::findPath(float x0, float y0, float x1, float y1) const {
-    const int w = terrain_.width, h = terrain_.height;
+    const int w = terrain_.width;
+    const int h = terrain_.height;
     if (w <= 0 || h <= 0)
         return {};
     auto clampT = [](int v, int n) { return std::clamp(v, 0, n - 1); };
-    const int sx = clampT(tileOf(x0), w), sy = clampT(tileOf(y0), h);
-    int gx = clampT(tileOf(x1), w), gy = clampT(tileOf(y1), h);
+    const int sx = clampT(tileOf(x0), w);
+    const int sy = clampT(tileOf(y0), h);
+    int gx = clampT(tileOf(x1), w);
+    int gy = clampT(tileOf(y1), h);
     bool moved = false;
     if (!passable(gx, gy)) {
         // The nearest open tile, ring by ring.
@@ -82,7 +86,8 @@ std::vector<std::pair<float, float>> World::findPath(float x0, float y0, float x
     using Node = std::pair<float, int>; // estimate, tile index
     std::priority_queue<Node, std::vector<Node>, std::greater<>> open;
     auto guess = [&](int x, int y) {
-        const float dx = float(std::abs(x - gx)), dy = float(std::abs(y - gy));
+        const float dx = float(std::abs(x - gx));
+        const float dy = float(std::abs(y - gy));
         return std::max(dx, dy) + 0.4142f * std::min(dx, dy);
     };
     cost[index(sx, sy)] = 0;
@@ -91,7 +96,8 @@ std::vector<std::pair<float, float>> World::findPath(float x0, float y0, float x
     while (!open.empty() && !reached) {
         const auto [est, i] = open.top();
         open.pop();
-        const int x = i % w, y = i / w;
+        const int x = i % w;
+        const int y = i / w;
         if (est - guess(x, y) > cost[size_t(i)] + 1e-3f)
             continue; // a stale entry
         for (int dy = -1; dy <= 1; ++dy)
@@ -126,10 +132,12 @@ std::vector<std::pair<float, float>> World::findPath(float x0, float y0, float x
     auto clear = [&](std::pair<float, float> a, std::pair<float, float> b) {
         const float d = std::hypot(b.first - a.first, b.second - a.second);
         const int n = std::max(1, int(d / (kTile / 4)));
-        int px = tileOf(a.first), py = tileOf(a.second);
+        int px = tileOf(a.first);
+        int py = tileOf(a.second);
         for (int k = 1; k <= n; ++k) {
             const float t = float(k) / float(n);
-            const int qx = tileOf(a.first + (b.first - a.first) * t), qy = tileOf(a.second + (b.second - a.second) * t);
+            const int qx = tileOf(a.first + (b.first - a.first) * t);
+            const int qy = tileOf(a.second + (b.second - a.second) * t);
             if (qx != px || qy != py) {
                 if (std::abs(qx - px) > 1 || std::abs(qy - py) > 1 || !canStep(px, py, qx - px, qy - py))
                     return false;
@@ -219,7 +227,8 @@ bool World::selectGroup(int n) {
 }
 
 bool World::groupCentre(int n, float &x, float &y) const {
-    float sx = 0, sy = 0;
+    float sx = 0;
+    float sy = 0;
     int count = 0;
     for (const Unit &u : units_) {
         const bool in =
@@ -242,7 +251,9 @@ bool World::advance(double seconds) {
         float left = u.kind.speed * float(seconds);
         while (left > 0 && !u.path.empty()) {
             const auto [tx, ty] = u.path.front();
-            const float dx = tx - u.x, dy = ty - u.y, d = std::hypot(dx, dy);
+            const float dx = tx - u.x;
+            const float dy = ty - u.y;
+            const float d = std::hypot(dx, dy);
             if (d > 1)
                 u.heading = std::atan2(dy, dx);
             if (d <= left) {

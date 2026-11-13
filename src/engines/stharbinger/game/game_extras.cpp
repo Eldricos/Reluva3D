@@ -197,10 +197,12 @@ bool Game::openDeckMap() {
         return false;
 
     // The view around the marker, at the bottom left of the screen.
-    int vw = std::min(map.viewW, map.w), vh = std::min(map.viewH, map.h);
+    int vw = std::min(map.viewW, map.w);
+    int vh = std::min(map.viewH, map.h);
     int left = std::clamp(where->x - vw / 2, 0, map.w - vw);
     int top = std::clamp(where->y - vh / 2, 0, map.h - vh);
-    int sx = 0, sy = kScreenHeight - vh;
+    int sx = 0;
+    int sy = kScreenHeight - vh;
     uint8_t grey = uint8_t(palette_.findBestColor(162, 162, 162));
     draw::create(deckMapFrame_, kScreenWidth, kScreenHeight);
     draw::blit(deckMapFrame_, cleanScreen_, 0, 0);
@@ -213,7 +215,8 @@ bool Game::openDeckMap() {
     // A grey band at the top and the marker: an X of 4-pixel strokes in the
     // cycling colours 2 and 3.
     draw::fillRect(deckMapFrame_, sx, sy, vw, 6, grey);
-    int mx = sx + where->x - left, my = sy + where->y - top;
+    int mx = sx + where->x - left;
+    int my = sy + where->y - top;
     for (int t = 0; t < 12; t++) {
         uint8_t c = (t & 1) ? 3 : 2;
         for (int k = 0; k < 4; k++) {

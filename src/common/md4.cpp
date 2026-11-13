@@ -19,7 +19,10 @@ void block(uint32_t h[4], const uint8_t *p) {
     for (int i = 0; i < 16; ++i)
         x[i] = uint32_t(p[4 * i]) | uint32_t(p[4 * i + 1]) << 8 | uint32_t(p[4 * i + 2]) << 16 |
                uint32_t(p[4 * i + 3]) << 24;
-    uint32_t a = h[0], b = h[1], c = h[2], d = h[3];
+    uint32_t a = h[0];
+    uint32_t b = h[1];
+    uint32_t c = h[2];
+    uint32_t d = h[3];
     // Round 1: F(x, y, z) = (x & y) | (~x & z), shifts 3, 7, 11, 19.
     auto f = [](uint32_t x1, uint32_t y, uint32_t z) { return (x1 & y) | (~x1 & z); };
     static const int s1[4] = {3, 7, 11, 19};

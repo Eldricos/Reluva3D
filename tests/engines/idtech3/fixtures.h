@@ -138,8 +138,11 @@ inline std::vector<uint8_t> buildMd3(int badIndex = -1) {
         std::memcpy(b.data(), s, std::strlen(s));
         out.insert(out.end(), b.begin(), b.end());
     };
-    const int frames = 2, tags = 1;
-    const int ofsFrames = 108, ofsTags = ofsFrames + 56 * frames, ofsSurf = ofsTags + 112 * frames * tags;
+    const int frames = 2;
+    const int tags = 1;
+    const int ofsFrames = 108;
+    const int ofsTags = ofsFrames + 56 * frames;
+    const int ofsSurf = ofsTags + 112 * frames * tags;
     out.insert(out.end(), {'I', 'D', 'P', '3'});
     i32(15);
     name("models/test/box.md3", 64);
@@ -163,8 +166,11 @@ inline std::vector<uint8_t> buildMd3(int badIndex = -1) {
             f32(v);
     }
     // Surface: header (108), shader (68), triangle (12), st (3 * 8), xyz (2 * 3 * 8).
-    const int ofsShaders = 108, ofsTris = ofsShaders + 68, ofsSt = ofsTris + 12, ofsXyz = ofsSt + 24,
-              ofsEnd = ofsXyz + 48;
+    const int ofsShaders = 108;
+    const int ofsTris = ofsShaders + 68;
+    const int ofsSt = ofsTris + 12;
+    const int ofsXyz = ofsSt + 24;
+    const int ofsEnd = ofsXyz + 48;
     out.insert(out.end(), {'I', 'D', 'P', '3'});
     name("box", 64);
     i32(0);
@@ -203,7 +209,8 @@ inline std::shared_ptr<Bsp> collisionMap() {
     auto addBox = [&](Vec3f mins, Vec3f maxs) {
         const int first = int(bsp->brushSides.size());
         for (int axis = 0; axis < 3; ++axis) {
-            BspPlane hi, lo;
+            BspPlane hi;
+            BspPlane lo;
             hi.normal[size_t(axis)] = 1;
             hi.dist = maxs[size_t(axis)];
             lo.normal[size_t(axis)] = -1;

@@ -147,7 +147,8 @@ void Player::drain() {
             // passed on: whole pixels, keeping the fractions for later.
             pendingX_ += ev.moveX;
             pendingY_ += ev.moveY;
-            const int dx = int(std::trunc(pendingX_)), dy = int(std::trunc(pendingY_));
+            const int dx = int(std::trunc(pendingX_));
+            const int dy = int(std::trunc(pendingY_));
             pendingX_ -= float(dx);
             pendingY_ -= float(dy);
             if (dx || dy)
@@ -169,7 +170,8 @@ void Player::drain() {
             break;
         case EventType::KeyDown:
         case EventType::KeyUp: {
-            uint32_t vk = 0, scan = 0;
+            uint32_t vk = 0;
+            uint32_t scan = 0;
             if (x86::windowsKey(ev.key, vk, scan))
                 p.key(vk, scan, ev.type == EventType::KeyDown);
             break;

@@ -191,7 +191,8 @@ const RgbImage *Bridge::overlay(const std::string &path, int frameHeight, const 
     std::unique_ptr<RgbImage> result;
     BitmapDecoder decoder;
     Overlay rle;
-    std::unique_ptr<SeekableReadStream> stream = open(path), paletteStream = open(palette);
+    std::unique_ptr<SeekableReadStream> stream = open(path);
+    std::unique_ptr<SeekableReadStream> paletteStream = open(palette);
     if (stream && paletteStream && rle.load(*stream) && decoder.loadStream(*paletteStream) && decoder.hasPalette()) {
         result.reset(new RgbImage());
         result->load(rle, decoder.getPalette(), frameHeight > 0 ? frameHeight : rle.getRowCount());
@@ -238,7 +239,8 @@ bool Bridge::load() {
         sun.destroyedFrames = _ini.getInt(s, "DestroyedFrames", 6);
         // Antilios has no Size: the texture's width (0x464716).
         sun.size = _ini.getInt(s, "Size", 64);
-        double pitch = _ini.getDouble(s, "OrbitPitch"), intersect = _ini.getDouble(s, "OrbitIntersect");
+        double pitch = _ini.getDouble(s, "OrbitPitch");
+        double intersect = _ini.getDouble(s, "OrbitIntersect");
         for (int p = 1; p <= _ini.getInt(s, "NumPlanets"); p++) {
             Planet planet;
             planet.name = s + text::format("%d", p);
@@ -676,7 +678,9 @@ void Bridge::zoomIn(int sun) {
     if (sun < 0 || (_mapMode == kSystemView && _system == sun))
         return;
     _system = sun;
-    double x, y, z;
+    double x;
+    double y;
+    double z;
     sunPosition(sun, x, y, z);
     double minZ = _ini.getDouble("Display", "MinZ", 200);
     _cameraTarget[0] = x;
@@ -1354,7 +1358,8 @@ Bridge::Event Bridge::takeEvent() {
 void Bridge::sunPosition(int sun, double &x, double &y, double &z) const {
     // 0x465A03: Location is a screen position in the sector view.
     double maxZ = _ini.getDouble("Display", "MaxZ", 1000);
-    double cx = _ini.getDouble("Display", "CenterX", 316), cy = _ini.getDouble("Display", "CenterY", 120);
+    double cx = _ini.getDouble("Display", "CenterX", 316);
+    double cy = _ini.getDouble("Display", "CenterY", 120);
     const Sun &s = _suns[sun];
     x = (s.x + 320 - cx) * maxZ;
     y = (s.y + 180 - cy) * maxZ;
@@ -1363,7 +1368,8 @@ void Bridge::sunPosition(int sun, double &x, double &y, double &z) const {
 
 Bridge::Projected Bridge::project(double x, double y, double z, int size) const {
     // 0x46CD96.
-    double cx = _ini.getDouble("Display", "CenterX", 316), cy = _ini.getDouble("Display", "CenterY", 120);
+    double cx = _ini.getDouble("Display", "CenterX", 316);
+    double cy = _ini.getDouble("Display", "CenterY", 120);
     double magnify = _ini.getDouble("Display", "SizeMagnification", 200);
     Projected p;
     double d = std::fabs(z - _camera[2]);
@@ -1382,12 +1388,17 @@ Bridge::Projected Bridge::project(double x, double y, double z, int size) const 
 void Bridge::planetPosition(const Planet &planet, int sun, double &x, double &y, double &z) const {
     // A tilted circle round the sun, spread by DistanceMagnification
     // (0x464F54).
-    double minZ = _ini.getDouble("Display", "MinZ", 200), maxZ = _ini.getDouble("Display", "MaxZ", 1000);
+    double minZ = _ini.getDouble("Display", "MinZ", 200);
+    double maxZ = _ini.getDouble("Display", "MaxZ", 1000);
     double magnify = _ini.getDouble("Display", "DistanceMagnification", 400);
     double s = (_camera[2] - minZ) / (maxZ - minZ) + 0.8;
-    double px = planet.distance * std::cos(planet.angle), py = planet.distance * std::sin(planet.angle), pz = 0;
-    double pitch = planet.pitch * kPi / 180, cross = planet.intersect * kPi / 180;
-    double ry = py * std::cos(pitch), rz = py * std::sin(pitch);
+    double px = planet.distance * std::cos(planet.angle);
+    double py = planet.distance * std::sin(planet.angle);
+    double pz = 0;
+    double pitch = planet.pitch * kPi / 180;
+    double cross = planet.intersect * kPi / 180;
+    double ry = py * std::cos(pitch);
+    double rz = py * std::sin(pitch);
     py = ry;
     pz = rz;
     double rx = px * std::cos(cross) - py * std::sin(cross);
@@ -1399,7 +1410,8 @@ void Bridge::planetPosition(const Planet &planet, int sun, double &x, double &y,
 }
 
 int Bridge::fleetSlot(int n) const {
-    int location = _fleets[n].location, slot = 0;
+    int location = _fleets[n].location;
+    int slot = 0;
     for (int i = 0; i < n; i++) {
         if (_fleets[i].location == location && _fleets[i].state != 0)
             slot++;
@@ -1422,7 +1434,9 @@ std::string Bridge::hit(int x, int y) const {
     auto consider = [&](const std::string &name, const Projected &p, int radius) {
         if (!p.visible)
             return;
-        int dx = x - p.x, dy = y - p.y, d = dx * dx + dy * dy;
+        int dx = x - p.x;
+        int dy = y - p.y;
+        int d = dx * dx + dy * dy;
         if (d <= radius * radius && d < bestDistance) {
             bestDistance = d;
             best = name;
@@ -1430,13 +1444,17 @@ std::string Bridge::hit(int x, int y) const {
     };
     bool system = _mapMode == kSystemView;
     for (int i = 0; i < (int)_suns.size(); i++) {
-        double sx, sy, sz;
+        double sx;
+        double sy;
+        double sz;
         sunPosition(i, sx, sy, sz);
         Projected p = project(sx, sy, sz, _suns[i].size);
         consider(_suns[i].name, p, std::max(p.r, 12));
         if (system && i == _system) {
             for (const Planet &planet : _suns[i].planets) {
-                double px, py, pz;
+                double px;
+                double py;
+                double pz;
                 planetPosition(planet, i, px, py, pz);
                 Projected pp = project(px, py, pz, planet.size);
                 consider(planet.name, pp, std::max(pp.r, 8));
@@ -1454,7 +1472,9 @@ std::string Bridge::hit(int x, int y) const {
             continue;
         if (system && f.location != _system)
             continue;
-        double fx, fy, fz;
+        double fx;
+        double fy;
+        double fz;
         fleetPosition(n, fx, fy, fz);
         Projected p = project(fx, fy, fz, 16);
         consider(f.name, p, system ? 40 : 18);
@@ -1465,7 +1485,9 @@ std::string Bridge::hit(int x, int y) const {
 void Bridge::drawText(Canvas &screen, const std::string &text, int x, int y, const Rect *clip) {
     uint32_t palette[256];
     for (int i = 0; i < 256; i++) {
-        uint8_t r, g, b;
+        uint8_t r;
+        uint8_t g;
+        uint8_t b;
         _fontPalette.getColor(i, r, g, b);
         palette[i] = 0xFF000000u | (uint32_t)r << 16 | (uint32_t)g << 8 | b;
     }
@@ -1478,7 +1500,8 @@ std::vector<std::string> Bridge::wrapText(const std::string &text, int width) co
 
 void Bridge::drawDisc(Canvas &screen, const RgbImage &texture, int frame, int cx, int cy, int r, double light) {
     // A planet: its texture wrapped round a sphere, lit from the sun's side.
-    int tw = texture.getWidth(), th = texture.getFrameHeight();
+    int tw = texture.getWidth();
+    int th = texture.getFrameHeight();
     for (int dy = -r; dy <= r; dy++) {
         int y = cy + dy;
         if (y < 0 || y >= kMapHeight)
@@ -1487,16 +1510,21 @@ void Bridge::drawDisc(Canvas &screen, const RgbImage &texture, int frame, int cx
             int x = cx + dx;
             if (x < 0 || x >= screen.w || dx * dx + dy * dy > r * r)
                 continue;
-            double nx = (double)dx / r, ny = (double)dy / r, nz = std::sqrt(std::max(0.0, 1 - nx * nx - ny * ny));
-            double u = 0.5 + std::atan2(nx, nz) / (2 * kPi) + _time / 60000.0, v = 0.5 + std::asin(ny) / kPi;
-            int tx = ((int)(u * tw) % tw + tw) % tw, ty = std::max(0, std::min(th - 1, (int)(v * th)));
+            double nx = (double)dx / r;
+            double ny = (double)dy / r;
+            double nz = std::sqrt(std::max(0.0, 1 - nx * nx - ny * ny));
+            double u = 0.5 + std::atan2(nx, nz) / (2 * kPi) + _time / 60000.0;
+            double v = 0.5 + std::asin(ny) / kPi;
+            int tx = ((int)(u * tw) % tw + tw) % tw;
+            int ty = std::max(0, std::min(th - 1, (int)(v * th)));
             uint32_t c = texture.getPixel(frame, tx, ty);
             if (!(c >> 24))
                 continue;
             double shade = 0.25 + 0.75 * std::max(0.0, nx * std::cos(light) + nz * 0.5 - ny * std::sin(light) * 0.3);
             shade = std::min(1.0, shade);
-            uint32_t rr = (uint32_t)(((c >> 16) & 0xFF) * shade), gg = (uint32_t)(((c >> 8) & 0xFF) * shade),
-                     bb = (uint32_t)((c & 0xFF) * shade);
+            uint32_t rr = (uint32_t)(((c >> 16) & 0xFF) * shade);
+            uint32_t gg = (uint32_t)(((c >> 8) & 0xFF) * shade);
+            uint32_t bb = (uint32_t)((c & 0xFF) * shade);
             *(uint32_t *)screen.getBasePtr(x, y) = 0xFF000000u | rr << 16 | gg << 8 | bb;
         }
     }
@@ -1529,7 +1557,9 @@ void Bridge::drawMap(Canvas &screen) {
     const RgbImage *names = image("View\\SysNames.bmp", 10);
     for (int i = 0; i < (int)_suns.size(); i++) {
         const Sun &sun = _suns[i];
-        double x, y, z;
+        double x;
+        double y;
+        double z;
         sunPosition(i, x, y, z);
         Projected p = project(x, y, z, sun.size);
         if (!p.visible)
@@ -1555,15 +1585,17 @@ void Bridge::drawMap(Canvas &screen) {
 
         if (system && i == _system) {
             for (const Planet &planet : sun.planets) {
-                double px, py, pz;
+                double px;
+                double py;
+                double pz;
                 planetPosition(planet, i, px, py, pz);
                 Projected pp = project(px, py, pz, planet.size);
                 const RgbImage *tex = image(planet.texture, 1, RgbImage::kOpaque);
                 if (pp.visible && tex)
                     drawDisc(screen, *tex, 0, pp.x, pp.y, pp.r, std::atan2(p.y - pp.y, p.x - pp.x));
                 for (const Planet::Moon &moon : planet.moons) {
-                    int mx = pp.x + (int)(std::cos(moon.angle) * (pp.r + moon.distance / 2)),
-                        my = pp.y + (int)(std::sin(moon.angle) * (pp.r + moon.distance / 2) * 0.4);
+                    int mx = pp.x + (int)(std::cos(moon.angle) * (pp.r + moon.distance / 2));
+                    int my = pp.y + (int)(std::sin(moon.angle) * (pp.r + moon.distance / 2) * 0.4);
                     const RgbImage *mt = image(moon.texture, 1, RgbImage::kOpaque);
                     if (mt)
                         drawDisc(screen, *mt, 0, mx, my, std::max(1, moon.size / 4), 0);
@@ -1589,7 +1621,9 @@ void Bridge::drawMap(Canvas &screen) {
             continue;
         if (system && f.location != _system)
             continue;
-        double x, y, z;
+        double x;
+        double y;
+        double z;
         fleetPosition(n, x, y, z);
         Projected p = project(x, y, z, 16);
         bool out = f.state == 5 || f.state == 6;
@@ -1602,15 +1636,20 @@ void Bridge::drawMap(Canvas &screen) {
 
     // The selection's ring.
     if (!_selected.empty()) {
-        int sun = findSun(_selected), fleet = findFleet(_selected);
+        int sun = findSun(_selected);
+        int fleet = findFleet(_selected);
         Projected p = {0, 0, 0, false};
         if (sun >= 0) {
-            double x, y, z;
+            double x;
+            double y;
+            double z;
             sunPosition(sun, x, y, z);
             p = project(x, y, z, _suns[sun].size);
             p.r = std::max(p.r + 6, 12);
         } else if (fleet >= 0 && fleet < (int)_fleets.size() && _fleets[fleet].location >= 0) {
-            double x, y, z;
+            double x;
+            double y;
+            double z;
             fleetPosition(fleet, x, y, z);
             p = project(x, y, z, 16);
             p.r = system ? 40 : 18;
@@ -1618,13 +1657,18 @@ void Bridge::drawMap(Canvas &screen) {
             for (const Planet &planet : _suns[_system].planets) {
                 if (!text::equalsIgnoreCase(planet.name, _selected))
                     continue;
-                double x, y, z;
+                double x;
+                double y;
+                double z;
                 planetPosition(planet, _system, x, y, z);
                 p = project(x, y, z, planet.size);
                 p.r += 6;
             }
             if (text::equalsIgnoreCase(_selected, "SpaceStation")) {
-                double x, y, z, maxZ = _ini.getDouble("Display", "MaxZ", 1000);
+                double x;
+                double y;
+                double z;
+                double maxZ = _ini.getDouble("Display", "MaxZ", 1000);
                 sunPosition(_system, x, y, z);
                 p = project(x + 40 * maxZ, y + 30 * maxZ, z, 32);
                 p.r = 24;

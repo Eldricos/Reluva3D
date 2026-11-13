@@ -72,7 +72,8 @@ inline std::vector<ViewVertex> clipNear(const std::vector<ViewVertex> &in, float
     for (size_t i = 0; i < in.size(); ++i) {
         const ViewVertex &a = in[i];
         const ViewVertex &b = in[(i + 1) % in.size()];
-        const bool aIn = a.z >= nearZ, bIn = b.z >= nearZ;
+        const bool aIn = a.z >= nearZ;
+        const bool bIn = b.z >= nearZ;
         if (aIn)
             out.push_back(a);
         if (aIn != bIn) {

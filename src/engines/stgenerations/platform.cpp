@@ -116,7 +116,8 @@ void Platform::setTextInput(bool on) {
 Point Platform::clampToScreen(int x, int y) const {
     // In the screen, as the original's window gave it (in the borders, or
     // dragged out of the window, at its edge).
-    const int w = screen_.w > 0 ? screen_.w : 640, h = screen_.h > 0 ? screen_.h : 480;
+    const int w = screen_.w > 0 ? screen_.w : 640;
+    const int h = screen_.h > 0 ? screen_.h : 480;
     return Point(std::clamp(x, 0, w - 1), std::clamp(y, 0, h - 1));
 }
 
@@ -253,7 +254,8 @@ bool Platform::saveFile(const std::string &name, const std::vector<uint8_t> &dat
     std::error_code ec;
     std::filesystem::create_directories(saveDir_, ec);
     // Written beside it first, so a failed write leaves the old one.
-    const std::filesystem::path path = saveDir_ / name, part = saveDir_ / (name + ".part");
+    const std::filesystem::path path = saveDir_ / name;
+    const std::filesystem::path part = saveDir_ / (name + ".part");
     if (!writeFile(part, data))
         return false;
     std::filesystem::rename(part, path, ec);

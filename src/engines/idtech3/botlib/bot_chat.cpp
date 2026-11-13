@@ -262,7 +262,8 @@ void BotChat::setup(const BotScript::Loader &load, const std::function<std::stri
                 while (!s.check("}") && s.error().empty()) {
                     Template m;
                     m.context = context;
-                    double type = 0, subtype = 0;
+                    double type = 0;
+                    double subtype = 0;
                     if (!readPieces(s, "=", m.pieces) || !s.expect("(") || !s.readNumber(type) || !s.expect(",") ||
                         !s.readNumber(subtype) || !s.expect(")") || !s.expect(";"))
                         break;
@@ -611,7 +612,8 @@ bool BotChat::stringsMatch(const std::vector<Piece> &pieces, BotMatch &match) co
             lastVariable = p.index;
             continue;
         }
-        size_t next = std::string::npos, used = 0;
+        size_t next = std::string::npos;
+        size_t used = 0;
         for (const std::string &alt : p.strings) {
             if (alt.empty()) {
                 next = pos;
@@ -782,7 +784,8 @@ bool BotChat::expand(std::string &out, const std::string &message, int mcontext,
 
 std::string BotChat::construct(const std::string &message, int mcontext, const BotMatch &match, int vcontext,
                                bool reply) {
-    std::string source = message, out;
+    std::string source = message;
+    std::string out;
     for (int i = 0; i < 10; ++i) {
         const bool more = expand(out, source, mcontext, match, vcontext, reply);
         source = out;

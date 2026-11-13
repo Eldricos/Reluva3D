@@ -29,8 +29,12 @@ std::string found(const std::filesystem::path &dir) {
 }
 
 void testDetection(const std::filesystem::path &tmp) {
-    const std::vector<uint8_t> exe = {'M', 'Z'}, wav = {'R', 'I', 'F', 'F'};
-    const auto us = tmp / "us", uk = tmp / "uk", cd = tmp / "cd", none = tmp / "none";
+    const std::vector<uint8_t> exe = {'M', 'Z'};
+    const std::vector<uint8_t> wav = {'R', 'I', 'F', 'F'};
+    const auto us = tmp / "us";
+    const auto uk = tmp / "uk";
+    const auto cd = tmp / "cd";
+    const auto none = tmp / "none";
     test::writeFile(us / "Clue.exe", exe);
     test::writeFile(us / "Data" / "Classic" / "Sounds" / "turn_MS.wav", wav);
     test::writeFile(uk / "CLUE.EXE", exe);

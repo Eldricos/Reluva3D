@@ -93,7 +93,8 @@ PointLight LightGrid::sample(const std::array<float, 3> &pos, bool forModel) con
         }
         // Direction as two angles: longitude (byte 6) from +Z, latitude
         // (byte 7) around it.
-        const float lat = float(p[7]) * kTau / 256, lng = float(p[6]) * kTau / 256;
+        const float lat = float(p[7]) * kTau / 256;
+        const float lng = float(p[6]) * kTau / 256;
         const std::array<float, 3> n{std::cos(lat) * std::sin(lng), std::sin(lat) * std::sin(lng), std::cos(lng)};
         for (int c = 0; c < 3; ++c)
             dir[size_t(c)] += weight * n[size_t(c)];

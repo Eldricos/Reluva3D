@@ -67,7 +67,9 @@ Error SaveReader::next(uint32_t id, std::vector<uint8_t> &out, size_t length) {
     if (position_ + 12 > bytes_.size())
         return Error::fail("The saved game ends before its " + chunkName(id) + " chunk");
     const uint8_t *p = bytes_.data() + position_;
-    const uint32_t found = get32(p), size = get32(p + 4), checksum = get32(p + 8);
+    const uint32_t found = get32(p);
+    const uint32_t size = get32(p + 4);
+    const uint32_t checksum = get32(p + 8);
     if (found != id)
         return Error::fail("Expected a " + chunkName(id) + " chunk, found " + chunkName(found));
     if (length && size != length)

@@ -99,13 +99,15 @@ static std::vector<uint8_t> buildAas(bool scramble) {
     // Areas 0 (dummy) to 3: number, faces, mins, maxs, center.
     for (int a = 0; a < 4; ++a) {
         i32(lumps[7], a), i32(lumps[7], 0), i32(lumps[7], 0);
-        const float x0 = float(a - 1) * 100, x1 = float(a) * 100;
+        const float x0 = float(a - 1) * 100;
+        const float x1 = float(a) * 100;
         for (float v : {x0, -50.0f, 0.0f, x1, 50.0f, 50.0f, (x0 + x1) / 2, 0.0f, 25.0f})
             f32(lumps[7], v);
     }
     // Settings: grounded, standing; reachabilities: area 1 -> 2 (index 1),
     // 2 -> 1 and 2 -> 3 (2, 3), 3 -> 2 (4); index 0 a dummy.
-    const int first[4] = {0, 1, 2, 4}, count[4] = {0, 1, 2, 1};
+    const int first[4] = {0, 1, 2, 4};
+    const int count[4] = {0, 1, 2, 1};
     for (int a = 0; a < 4; ++a)
         for (int v : {0, 1, 2, a == 0 ? 0 : 1, 0, count[a], first[a]})
             i32(lumps[8], v);
@@ -152,7 +154,8 @@ static void testAas() {
         CHECK(aas.pointArea({50, 0, 10}) == 1 && aas.pointArea({150, 0, 10}) == 2 && aas.pointArea({250, 0, 10}) == 3);
         // Area 1 to 3: two reachabilities (10 each), crossing area 2 from
         // 105 to 195 (90 units walked, 0.33 a unit: 29), plus 1 for the goal.
-        int time = 0, reach = 0;
+        int time = 0;
+        int reach = 0;
         CHECK(aas.route(1, nullptr, 3, tfl::Default, time, reach));
         CHECK(reach == 1 && time == 1 + 10 + 10 + 29);
         // From a point: plus walking to the reachability's start.

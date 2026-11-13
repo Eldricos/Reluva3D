@@ -250,7 +250,8 @@ void SdlSystem::applyPresentation(int width, int height) {
                 scale = 2 * width <= usable.w && 2 * height <= usable.h ? 2 : 1;
             while (scale > 1 && (scale * width > usable.w || scale * height > usable.h))
                 --scale;
-            int w = 0, h = 0;
+            int w = 0;
+            int h = 0;
             SDL_GetWindowSize(window_, &w, &h);
             if (w != scale * width || h != scale * height) {
                 if (launcherW_ == 0) {
@@ -524,7 +525,8 @@ void SdlSystem::refreshCursor() {
     // How many of the window's pixels a game pixel takes now, and how many
     // of its points (the system's pointer is sized in points; a second
     // picture gives it the pixels on high-density screens).
-    int lw = 0, lh = 0;
+    int lw = 0;
+    int lh = 0;
     SDL_RendererLogicalPresentation mode = SDL_LOGICAL_PRESENTATION_DISABLED;
     SDL_GetRenderLogicalPresentation(renderer_, &lw, &lh, &mode);
     float pixelScale = 1;
@@ -615,7 +617,8 @@ void SdlSystem::setVideoMode(int width, int height, bool fullscreen) {
         SDL_SetWindowFullscreen(window_, fullscreen);
     }
     SDL_Rect usable{};
-    int w = 0, h = 0;
+    int w = 0;
+    int h = 0;
     SDL_GetWindowSize(window_, &w, &h);
     if (!fullscreen && (w != width || h != height) &&
         SDL_GetDisplayUsableBounds(SDL_GetDisplayForWindow(window_), &usable) && width <= usable.w &&

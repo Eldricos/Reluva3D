@@ -170,9 +170,12 @@ void ParticleSystem::update(float dt) {
         // rotation (D3DXMatrixRotationYawPitchRoll), then gravity.
         const float v[3] = {age * p.start[0], age * p.start[1], age * p.start[2]};
         // Yaw is rotY (the object's +8), pitch rotX (+4), roll rotZ (+0xc).
-        const float cy = std::cos(s_.rotation[1]), sy = std::sin(s_.rotation[1]);
-        const float cp = std::cos(s_.rotation[0]), sp = std::sin(s_.rotation[0]);
-        const float cr = std::cos(s_.rotation[2]), sr = std::sin(s_.rotation[2]);
+        const float cy = std::cos(s_.rotation[1]);
+        const float sy = std::sin(s_.rotation[1]);
+        const float cp = std::cos(s_.rotation[0]);
+        const float sp = std::sin(s_.rotation[0]);
+        const float cr = std::cos(s_.rotation[2]);
+        const float sr = std::sin(s_.rotation[2]);
         // A row vector times roll (about Z), pitch (X), then yaw (Y).
         const float t[3] = {v[0] * cr - v[1] * sr, v[0] * sr + v[1] * cr, v[2]};
         const float u[3] = {t[0], t[1] * cp - t[2] * sp, t[1] * sp + t[2] * cp};

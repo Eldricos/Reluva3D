@@ -53,7 +53,8 @@ uint8_t extract(uint32_t pixel, uint32_t mask) {
 }
 
 void decodeRle8(const uint8_t *p, const uint8_t *end, Surface &s, bool bottomUp) {
-    int x = 0, y = 0;
+    int x = 0;
+    int y = 0;
     auto put = [&](uint8_t color) {
         if (x < s.w && y < s.h)
             s.row(bottomUp ? s.h - 1 - y : y)[x] = color;
@@ -112,7 +113,9 @@ Error decodeInfo(const uint8_t *data, size_t size, size_t info, const uint8_t *p
     if (width <= 0 || width > 8192 || height == 0 || height > 8192)
         return Error::fail("BMP: a size of " + std::to_string(width) + "x" + std::to_string(height));
 
-    uint32_t rMask = 0x7C00, gMask = 0x03E0, bMask = 0x001F;
+    uint32_t rMask = 0x7C00;
+    uint32_t gMask = 0x03E0;
+    uint32_t bMask = 0x001F;
     if (bits == 32)
         rMask = 0xFF0000, gMask = 0xFF00, bMask = 0xFF;
     size_t paletteAt = info + headerSize;

@@ -24,8 +24,12 @@ Error decodeDds(const std::vector<uint8_t> &data, audio::Sound &out) {
     if (data.size() < kHeaderSize)
         return Error::fail("too short for a sound");
     const uint8_t *h = data.data();
-    const uint16_t format = le16(h), channels = le16(h + 2), blockAlign = le16(h + 12), bits = le16(h + 14);
-    const uint32_t rate = le32(h + 4), byteRate = le32(h + 8);
+    const uint16_t format = le16(h);
+    const uint16_t channels = le16(h + 2);
+    const uint16_t blockAlign = le16(h + 12);
+    const uint16_t bits = le16(h + 14);
+    const uint32_t rate = le32(h + 4);
+    const uint32_t byteRate = le32(h + 8);
     if (format != 1)
         return Error::fail("format " + std::to_string(format) + ", not PCM");
     if ((channels != 1 && channels != 2) || bits != 16 || blockAlign != channels * 2 || rate == 0 || rate > 192000 ||

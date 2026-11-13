@@ -122,7 +122,9 @@ static void test_rle_decode(const std::filesystem::path & /*tmp*/) {
 }
 
 static void test_raw_format_detection(const std::filesystem::path & /*tmp*/) {
-    std::vector<uint8_t> s16, u8, zeroLow;
+    std::vector<uint8_t> s16;
+    std::vector<uint8_t> u8;
+    std::vector<uint8_t> zeroLow;
     for (int i = 0; i < 20000; i++) {
         int v = int(8000 * std::sin(i * 0.05)) + (i * 7919 % 97);
         s16.push_back(uint8_t(v & 0xFF));
@@ -170,7 +172,11 @@ static void test_resources_disc_layout(const std::filesystem::path &tmp) {
 }
 
 static void test_dialogue_record(const std::filesystem::path & /*tmp*/) {
-    ScriptBuilder a, b, npc, pick, sub;
+    ScriptBuilder a;
+    ScriptBuilder b;
+    ScriptBuilder npc;
+    ScriptBuilder pick;
+    ScriptBuilder sub;
     a.cmd(kCmdNop);
     npc.cmd(kCmdLet, {num(1), var(0)});
     pick.cmd(0x39); // EXIT

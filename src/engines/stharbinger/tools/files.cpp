@@ -110,7 +110,9 @@ int cmdConversations(int argc, char **argv) {
     }
     const int runs = argc == 4 ? std::max(1, std::atoi(argv[3])) : 3;
     return withGame(argv[2], [runs](Harbinger &engine) {
-        int played = 0, stuck = 0, menus = 0;
+        int played = 0;
+        int stuck = 0;
+        int menus = 0;
         for (int seed = 1; seed <= runs; seed++) {
             std::srand(unsigned(seed));
             Game game(&engine);
@@ -118,7 +120,8 @@ int cmdConversations(int argc, char **argv) {
                 if (!game.debugTalk(getDialogueName(d)))
                     continue;
                 played++;
-                int steps = 0, lastMenu = 0;
+                int steps = 0;
+                int lastMenu = 0;
                 while (game.isConversationActive() && steps < 20000 && steps - lastMenu < 10000) {
                     const std::vector<std::string> menu = game.getMenuLabels();
                     if (!menu.empty()) {

@@ -246,7 +246,8 @@ Error parseBsp(const std::vector<uint8_t> &data, Bsp &out) {
         return Error::fail("Unsupported BSP version " + std::to_string(out.version) + " (expected 46)");
     LumpRange lumps[kLumps];
     for (int i = 0; i < kLumps; ++i) {
-        const int32_t offset = header.i32(), size = header.i32();
+        const int32_t offset = header.i32();
+        const int32_t size = header.i32();
         if (offset < 0 || size < 0 || size_t(offset) + size_t(size) > data.size())
             return Error::fail(std::string("BSP ") + kLumpNames[i] + " lump lies outside the file");
         lumps[i] = {size_t(offset), size_t(size)};

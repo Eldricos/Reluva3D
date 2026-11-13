@@ -164,7 +164,8 @@ void ModelViewer::show(int index) {
     info_.push_back(e.name);
     for (size_t pi = 0; pi < parts.size(); ++pi) {
         const Md3Model *m = parts[pi];
-        size_t verts = 0, tris = 0;
+        size_t verts = 0;
+        size_t tris = 0;
         std::set<std::string> shaderNames;
         for (const Md3Surface &s : m->surfaces) {
             verts += size_t(s.vertexCount);
@@ -327,12 +328,17 @@ void ModelViewer::update(uint64_t nowMs) {
         // on the torso's tag_head.
         const Md3Model &legs = models_->model(lower_);
         const Md3Model &torso = models_->model(upper_);
-        const int nl = int(legs.frames.size()), nt = int(torso.frames.size());
+        const int nl = int(legs.frames.size());
+        const int nt = int(torso.frames.size());
         // Each half's frame, the next and how far towards it: from its
         // animation (animation.cfg) if the player has them, else frame by
         // frame through the whole model.
-        int fl = ((frame % nl) + nl) % nl, ft = ((frame % nt) + nt) % nt, nextL = fl, nextT = ft;
-        float lerpL = 0, lerpT = 0;
+        int fl = ((frame % nl) + nl) % nl;
+        int ft = ((frame % nt) + nt) % nt;
+        int nextL = fl;
+        int nextT = ft;
+        float lerpL = 0;
+        float lerpT = 0;
         if (!anims_.empty()) {
             anims_[size_t(legsAnim_)].frameAt(animTime_, fl, nextL, lerpL);
             anims_[size_t(torsoAnim_)].frameAt(animTime_, ft, nextT, lerpT);
@@ -386,7 +392,8 @@ void ModelViewer::update(uint64_t nowMs) {
         size_t widest = 0;
         for (const std::string &l : lines)
             widest = std::max(widest, font::length(l));
-        const int boxW = std::min(kFrameW, int(widest) * font::kAdvance + 8), boxH = int(lines.size()) * lh + 6;
+        const int boxW = std::min(kFrameW, int(widest) * font::kAdvance + 8);
+        const int boxH = int(lines.size()) * lh + 6;
         for (int y = 0; y < boxH; ++y)
             for (int x = 0; x < boxW; ++x)
                 overlay_.row(y)[x * 4 + 3] = 150;

@@ -23,11 +23,16 @@ using namespace reluva::tool;
 
 // Unix time -> "YYYY-MM-DD HH:MM" (UTC), without platform time functions.
 std::string formatTime(uint32_t t) {
-    int64_t days = t / 86400, secs = t % 86400;
-    int64_t z = days + 719468, era = z / 146097, doe = z - era * 146097;
+    int64_t days = t / 86400;
+    int64_t secs = t % 86400;
+    int64_t z = days + 719468;
+    int64_t era = z / 146097;
+    int64_t doe = z - era * 146097;
     int64_t yoe = (doe - doe / 1460 + doe / 36524 - doe / 146096) / 365;
-    int64_t doy = doe - (365 * yoe + yoe / 4 - yoe / 100), mp = (5 * doy + 2) / 153;
-    int64_t day = doy - (153 * mp + 2) / 5 + 1, month = mp < 10 ? mp + 3 : mp - 9;
+    int64_t doy = doe - (365 * yoe + yoe / 4 - yoe / 100);
+    int64_t mp = (5 * doy + 2) / 153;
+    int64_t day = doy - (153 * mp + 2) / 5 + 1;
+    int64_t month = mp < 10 ? mp + 3 : mp - 9;
     int64_t year = yoe + era * 400 + (month <= 2);
     char buf[32];
     std::snprintf(buf, sizeof buf, "%04d-%02d-%02d %02d:%02d", int(year), int(month), int(day), int(secs / 3600),
@@ -134,12 +139,15 @@ int cmdCatProbe(int argc, char **argv) {
         return stats.back();
     };
 
-    size_t pos = 0x10, expectedChunk = tocEnd;
-    size_t prevPos = 0, prevChunk = 0;
+    size_t pos = 0x10;
+    size_t expectedChunk = tocEnd;
+    size_t prevPos = 0;
+    size_t prevChunk = 0;
     uint32_t prevSize = 0;
     uint16_t prevTag = 0;
     int prevIndex = -1;
-    unsigned entries = 0, indexGaps = 0;
+    unsigned entries = 0;
+    unsigned indexGaps = 0;
     for (unsigned i = 0; i < count; ++i) {
         if (!w.validEntry(pos, prevIndex, expectedChunk)) {
             // The previous entry's rule was wrong. Try the other kind (file /
@@ -149,7 +157,8 @@ int cmdCatProbe(int argc, char **argv) {
             // match can be a later entry that skips a container's children.
             bool recovered = false;
             const TagRule old = w.rule(prevTag);
-            size_t bestQ = 0, bestWant = 0;
+            size_t bestQ = 0;
+            size_t bestWant = 0;
             bool bestContainer = false;
             for (int attempt = 0; attempt < 2 && i > 0; ++attempt) {
                 const bool container = attempt == 0 ? old.container : !old.container;
@@ -343,7 +352,8 @@ int cmdStbDump(int argc, char **argv) {
             std::fprintf(stderr, "%s\n", err.message.c_str());
             return 1;
         }
-        unsigned count = 0, good = 0;
+        unsigned count = 0;
+        unsigned good = 0;
         Bytes d;
         for (const auto &e : cat.entries()) {
             const bool stb = e.name.size() > 4 && e.name.compare(e.name.size() - 4, 4, ".stb") == 0;

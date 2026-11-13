@@ -300,7 +300,8 @@ void SDLCALL Launcher::pickFolderCallback(void *userdata, const char *const *fil
 }
 
 void Launcher::handlePickedFolder() {
-    std::optional<std::string> folder, error;
+    std::optional<std::string> folder;
+    std::optional<std::string> error;
     {
         std::lock_guard lock(pickMutex_);
         folder.swap(pickedFolder_);
@@ -316,7 +317,8 @@ void Launcher::handlePickedFolder() {
         // of the patch's files alone, into its folder).
         if (pickFor_ == Pick::PatchForGame) {
             const std::string path = config_.get(selected_, "path");
-            const std::string engine = config_.get(selected_, "engine"), gameId = config_.get(selected_, "gameid");
+            const std::string engine = config_.get(selected_, "engine");
+            const std::string gameId = config_.get(selected_, "gameid");
             ImportPlan plan;
             for (const DetectedGame &g : detectGames(path))
                 if (g.engineId == engine && g.gameId == gameId)
@@ -566,7 +568,8 @@ void Launcher::drawSettingsWindow() {
 
 GameTarget Launcher::launchTarget(const std::string &name) {
     // A patch (or more of the game) may have been added to the folder since.
-    const std::string engine = config_.get(name, "engine"), gameId = config_.get(name, "gameid");
+    const std::string engine = config_.get(name, "engine");
+    const std::string gameId = config_.get(name, "gameid");
     for (const DetectedGame &g : detectGames(config_.get(name, "path")))
         if (g.engineId == engine && g.gameId == gameId && g.description != config_.get(name, "description")) {
             config_.set(name, "description", g.description);

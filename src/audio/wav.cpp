@@ -89,7 +89,10 @@ Error decodeWav(const std::vector<uint8_t> &d, Sound &out) {
     out = Sound{};
     if (d.size() < 12 || std::memcmp(d.data(), "RIFF", 4) != 0 || std::memcmp(d.data() + 8, "WAVE", 4) != 0)
         return Error::fail("not a RIFF WAVE file");
-    size_t fmt = 0, fmtSize = 0, data = 0, dataSize = 0;
+    size_t fmt = 0;
+    size_t fmtSize = 0;
+    size_t data = 0;
+    size_t dataSize = 0;
     uint32_t factFrames = 0;
     for (size_t p = 12; p + 8 <= d.size();) {
         const size_t size = u32(d, p + 4);

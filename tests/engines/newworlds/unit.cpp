@@ -839,7 +839,8 @@ void testStarSystem() {
     const StarSystemLayout layout = readStarSystem(m);
     CHECK(layout.backdropSlots == std::vector<int>{2});
     CHECK(layout.bodies.size() == 3);
-    int stars = 0, ringed = 0;
+    int stars = 0;
+    int ringed = 0;
     for (const auto &b : layout.bodies) {
         stars += b.star;
         if (b.ringSlot >= 0) {
@@ -942,7 +943,8 @@ void testEconomy() {
     CHECK(e.order("mining-station", 5 * kTile, 7 * kTile, 5, 7) != 0);
     const int dilithium = e.stock()[Dilithium];
     bool dry = false;
-    int at = -1, bt = -1;
+    int at = -1;
+    int bt = -1;
     for (int i = 0; i < 2000 && !dry; ++i)
         for (const ScriptEvent &x : e.advance(1))
             if (x.kind == "mine-exhausted")
@@ -1002,7 +1004,8 @@ void testWorld() {
     const Unit &ub = *w.unit(b);
     CHECK(!ua.moving() && !ub.moving());
     CHECK(std::hypot(ua.x - 3.5f * kTile, ua.y - 5.5f * kTile) < 2000 && std::hypot(ua.x - ub.x, ua.y - ub.y) > 500);
-    float gx = 0, gy = 0;
+    float gx = 0;
+    float gy = 0;
     CHECK(w.groupCentre(1, gx, gy) && std::fabs(gx - 3.5f * kTile) < 1500 && !w.groupCentre(3, gx, gy));
 }
 
@@ -1068,7 +1071,10 @@ void testRasterizer() {
         ++hits[size_t(px - surf.pixels.data()) / 4];
         return true;
     };
-    const ScreenVertex a{2, 2, 1, 0, 0}, b{12, 2, 1, 1, 0}, c{12, 12, 1, 1, 1}, d{2, 12, 1, 0, 1};
+    const ScreenVertex a{2, 2, 1, 0, 0};
+    const ScreenVertex b{12, 2, 1, 1, 0};
+    const ScreenVertex c{12, 12, 1, 1, 1};
+    const ScreenVertex d{2, 12, 1, 0, 1};
     r.drawTriangle(a, b, c, count);
     r.begin(surf); // fresh depth so the second triangle isn't hidden by equal depth
     r.drawTriangle(a, c, d, count);
@@ -1081,8 +1087,12 @@ void testRasterizer() {
     // The nearer triangle wins whichever is drawn first; u/v interpolate.
     for (int order = 0; order < 2; ++order) {
         r.begin(surf);
-        const ScreenVertex n0{0, 0, 1.0f, 0, 0}, n1{16, 0, 1.0f, 1, 0}, n2{0, 16, 1.0f, 0, 1};
-        const ScreenVertex f0{0, 0, 0.5f, 0, 0}, f1{16, 0, 0.5f, 0, 0}, f2{0, 16, 0.5f, 0, 0};
+        const ScreenVertex n0{0, 0, 1.0f, 0, 0};
+        const ScreenVertex n1{16, 0, 1.0f, 1, 0};
+        const ScreenVertex n2{0, 16, 1.0f, 0, 1};
+        const ScreenVertex f0{0, 0, 0.5f, 0, 0};
+        const ScreenVertex f1{16, 0, 0.5f, 0, 0};
+        const ScreenVertex f2{0, 16, 0.5f, 0, 0};
         auto paint = [](uint8_t value) {
             return [value](float, float, uint8_t *px) {
                 px[0] = value;

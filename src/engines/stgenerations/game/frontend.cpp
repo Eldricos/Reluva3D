@@ -515,7 +515,8 @@ void Generations::handleMenuEvent(const Event &event) {
 std::vector<OptionsMenu::Slot> Generations::listSaves() {
     std::vector<OptionsMenu::Slot> slots(OptionsMenu::kAutoSaveSlot + 1);
     for (int i = 0; i < (int)slots.size(); i++) {
-        std::string description, date;
+        std::string description;
+        std::string date;
         if (readSaveHeader(i, description, date)) {
             slots[i].used = true;
             slots[i].name = description;
@@ -658,13 +659,16 @@ bool Generations::loadCredits(std::vector<RollLine> &lines) {
     uint32_t pe = u32(0x3C);
     if (u32(pe) != 0x4550)
         return false;
-    uint32_t sections = u16(pe + 6), base = u32(pe + 52);
+    uint32_t sections = u16(pe + 6);
+    uint32_t base = u32(pe + 52);
     size_t table = pe + 24 + u16(pe + 20);
     // A virtual address to a file offset, or 0.
     auto offset = [&](uint32_t va) -> size_t {
         for (uint32_t i = 0; i < sections; i++) {
             size_t s = table + 40 * i;
-            uint32_t start = base + u32(s + 12), size = std::max(u32(s + 8), u32(s + 16)), raw = u32(s + 20);
+            uint32_t start = base + u32(s + 12);
+            uint32_t size = std::max(u32(s + 8), u32(s + 16));
+            uint32_t raw = u32(s + 20);
             if (va >= start && va - start < size && raw + (va - start) < data.size())
                 return raw + (va - start);
         }
@@ -681,7 +685,8 @@ bool Generations::loadCredits(std::vector<RollLine> &lines) {
     };
 
     size_t records = offset(0x5401CC);
-    std::string heading, name;
+    std::string heading;
+    std::string name;
     if (!records || !text(u32(records), heading) || heading != "Producer")
         return false;
     for (int i = 0; i < 1000; i++) {

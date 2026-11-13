@@ -31,7 +31,8 @@ struct Chunk {
 
 // Build an LV2 file from chunks, laying them out after the directory.
 std::vector<uint8_t> makeLevelFile(const std::vector<Chunk> &chunks) {
-    const uint32_t headerSize = 48, entrySize = 16;
+    const uint32_t headerSize = 48;
+    const uint32_t entrySize = 16;
     std::vector<uint8_t> file(headerSize + chunks.size() * entrySize);
     writeLE32(&file[0], LevelFile::kVersion);
     for (int i = 0; i < LevelFile::kRecordSizeCount; i++)
@@ -108,7 +109,9 @@ static void level_tables() {
     CHECK(loadLevel(level, makeLevelFile(makeSquareLevel())));
 
     CHECK_EQUAL(level.getDirectory().size(), (size_t)5);
-    uint8_t r, g, b;
+    uint8_t r;
+    uint8_t g;
+    uint8_t b;
     level.getPalette().getColor(7, r, g, b);
     CHECK_EQUAL(b, 200);
     CHECK_EQUAL(r, 0);
@@ -503,8 +506,12 @@ struct LevelBuilder {
                  uint32_t zone = 1, uint16_t objectId = 0) {
         std::vector<uint8_t> r(152);
         writeLE16(&r[0x14], objectId);
-        double dx = x1 - x0, dy = y1 - y0, length = std::sqrt(dx * dx + dy * dy);
-        double nx = -dy / length, ny = dx / length, d = -(nx * x0 + ny * y0);
+        double dx = x1 - x0;
+        double dy = y1 - y0;
+        double length = std::sqrt(dx * dx + dy * dy);
+        double nx = -dy / length;
+        double ny = dx / length;
+        double d = -(nx * x0 + ny * y0);
         writeLE32(&r[0x1C], (uint32_t)(int32_t)(nx * 65536));
         writeLE32(&r[0x24], (uint32_t)(int32_t)(ny * 65536));
         writeLE32(&r[0x28], (uint32_t)(int32_t)(d * 65536));
@@ -825,7 +832,8 @@ static void mission_items_rest_on_floors() {
     Mission mission(level, script, renderer, walker, nullptr);
     // At the start: item 7 settles past the pass-through floor onto
     // the one below, and takes its zones. Item 8 has no floor under it.
-    const LevelFile::Billboard &seven = level.getBillboards()[0], &eight = level.getBillboards()[1];
+    const LevelFile::Billboard &seven = level.getBillboards()[0];
+    const LevelFile::Billboard &eight = level.getBillboards()[1];
     CHECK(seven.z == 0);
     CHECK_EQUAL(seven.zones, (uint64_t)1);
     CHECK(eight.z == 0);
@@ -1580,7 +1588,8 @@ static void actors_walk_and_block() {
 
     // Actor 1 walks at the player: 64 frames a second at 1 unit per frame.
     std::vector<Actors::ScriptEvent> events;
-    int arrived = 0, cycles = 0;
+    int arrived = 0;
+    int cycles = 0;
     for (int i = 0; i < 15; i++) {
         events.clear();
         actors.update(20, player, events);
@@ -1590,7 +1599,9 @@ static void actors_walk_and_block() {
             cycles += event.event == Actors::kEventCycle;
         }
     }
-    double x, y, z;
+    double x;
+    double y;
+    double z;
     uint16_t heading;
     CHECK(actors.getPosition(1, x, y, z, heading));
     CHECK(x > 20 && x < 30);
@@ -1631,7 +1642,9 @@ static void actors_wander_about_what_they_guard() {
         double best = 1e9;
         for (int t = 0; t < 8000; t += 20) {
             actors.update(20, player, events);
-            double x, y, z;
+            double x;
+            double y;
+            double z;
             uint16_t heading;
             actors.getPosition(1, x, y, z, heading);
             best = std::min(best, std::hypot(x - px, y - py));

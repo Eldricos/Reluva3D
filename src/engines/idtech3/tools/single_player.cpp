@@ -51,7 +51,8 @@ int cmdSpMenus(int argc, char **argv) {
     std::vector<std::string> skipPaks; // -skippak name: a pak left out (the Expansion Pack's, say)
     bool fixedClock = false;           // -fixedclock: a clock that only moves with the frames, for runs that repeat
     int clockFrame = 0;
-    std::string dllPath, menu = "main";
+    std::string dllPath;
+    std::string menu = "main";
     std::vector<std::pair<int, int32_t>> keys; // (frame, key)
     std::vector<std::pair<std::string, std::string>> settings;
     for (int i = 3; i < argc; ++i) {
@@ -171,7 +172,10 @@ int cmdSpRun(int argc, char **argv) {
     namespace q3 = reluva::idtech3;
     namespace ef = reluva::idtech3::eliteforce;
     int frames = 20;
-    bool traceCalls = false, noClient = false, runCgame = false, watch = false;
+    bool traceCalls = false;
+    bool noClient = false;
+    bool runCgame = false;
+    bool watch = false;
     std::vector<std::string> finds;    // -find text: entities with a text field containing it
     bool icarusNames = false;          // -icarus: the script system's table of entity names
     std::vector<std::string> skipPaks; // -skippak name: a pak left out (the Expansion Pack's, say)
@@ -436,12 +440,16 @@ int cmdSpRun(int argc, char **argv) {
             return 1;
         }
         std::string line;
-        int f = 0, lastButtons = 0;
+        int f = 0;
+        int lastButtons = 0;
         while (std::getline(in, line)) {
             if (line.empty() || line[0] == '#')
                 continue;
             ef::SpGameHost::UserCommand cmd;
-            int weapon = 0, forward = 0, right = 0, up = 0;
+            int weapon = 0;
+            int forward = 0;
+            int right = 0;
+            int up = 0;
             if (std::sscanf(line.c_str(), "%d %d %d %d %d %d %d %d %d", &cmd.serverTime, &cmd.buttons, &weapon,
                             &cmd.angles[0], &cmd.angles[1], &cmd.angles[2], &forward, &right, &up) != 9)
                 continue;
@@ -519,7 +527,8 @@ int cmdSpRun(int argc, char **argv) {
             std::vector<std::string> order;
             std::map<std::string, std::tuple<int, uint32_t, uint32_t>> seen;
             for (size_t at = 0; at + 12 <= out.size();) {
-                uint32_t id, length;
+                uint32_t id;
+                uint32_t length;
                 std::memcpy(&id, out.data() + at, 4);
                 std::memcpy(&length, out.data() + at + 4, 4);
                 const std::string name = reluva::idtech3::raven::chunkName(id);
@@ -607,7 +616,8 @@ int cmdSpRun(int argc, char **argv) {
         auto key = [&](uint32_t node, std::string &out) {
             if (!cpu.valid(node, 36) || node == head)
                 return false;
-            const uint32_t text = cpu.read32(node + 16), length = cpu.read32(node + 20);
+            const uint32_t text = cpu.read32(node + 16);
+            const uint32_t length = cpu.read32(node + 20);
             if (!cpu.valid(text, 1) || length > 255)
                 return false;
             out.assign(reinterpret_cast<const char *>(cpu.memory().data() + text), length);
@@ -636,8 +646,10 @@ int cmdSpRun(int argc, char **argv) {
             std::string want = f;
             for (char &c : want)
                 c = char(std::toupper(static_cast<unsigned char>(c)));
-            uint32_t node = root, best = 0;
-            std::string k, path;
+            uint32_t node = root;
+            uint32_t best = 0;
+            std::string k;
+            std::string path;
             while (key(node, k)) {
                 path += " " + k;
                 if (k < want) {
@@ -724,7 +736,8 @@ int cmdIbiDump(int argc, char **argv) {
     size_t at = 8;
     int depth = 0;
     while (at + 9 <= d.size()) {
-        const int32_t id = i32(at), members = i32(at + 4);
+        const int32_t id = i32(at);
+        const int32_t members = i32(at + 4);
         const uint8_t flags = d[at + 8];
         at += 9;
         if (id == 25) // block end
@@ -735,7 +748,8 @@ int cmdIbiDump(int argc, char **argv) {
             line += " flags " + std::to_string(flags);
         line += " (";
         for (int32_t m = 0; m < members && at + 8 <= d.size(); ++m) {
-            const int32_t mid = i32(at), size = i32(at + 4);
+            const int32_t mid = i32(at);
+            const int32_t size = i32(at + 4);
             at += 8;
             if (size < 0 || at + size_t(size) > d.size())
                 break;

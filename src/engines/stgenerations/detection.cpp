@@ -116,7 +116,8 @@ int damagedMembers(const std::filesystem::path &file) {
 bool sameFile(const std::filesystem::path &a, const std::filesystem::path &b) {
     if (sizeOf(a) != sizeOf(b))
         return false;
-    std::vector<uint8_t> x, y;
+    std::vector<uint8_t> x;
+    std::vector<uint8_t> y;
     return readFile(a, x) && readFile(b, y) && x == y;
 }
 
@@ -199,7 +200,8 @@ namespace {
 void preferWhole(ImportPlan::File &planned, const std::filesystem::path &candidate) {
     if (!text::hasSuffixIgnoreCase(planned.to, ".dat") || sameFile(planned.from, candidate))
         return;
-    const int now = damagedMembers(planned.from), other = damagedMembers(candidate);
+    const int now = damagedMembers(planned.from);
+    const int other = damagedMembers(candidate);
     if (other >= 0 && (now < 0 || other < now)) {
         planned.from = candidate;
         planned.size = sizeOf(candidate);

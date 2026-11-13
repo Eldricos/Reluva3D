@@ -186,7 +186,8 @@ bool compare(uint32_t func, float a, float b) { // a (new) against b (stored)
 }
 
 float blendFactor(uint32_t f, const Color &src, const Color &dst, int channel) {
-    const float s[4] = {src.r, src.g, src.b, src.a}, d[4] = {dst.r, dst.g, dst.b, dst.a};
+    const float s[4] = {src.r, src.g, src.b, src.a};
+    const float d[4] = {dst.r, dst.g, dst.b, dst.a};
     switch (f) {
     case 1:
         return 0;
@@ -266,7 +267,9 @@ void Device::transformAndLight(const VertexLayout &layout, uint32_t vertices, ui
     if (!c.valid(vertices, stride * count))
         return out.clear();
     const uint8_t *mem = c.memory().data() + vertices;
-    const Matrix world = transforms[1], view = transforms[2], proj = transforms[3];
+    const Matrix world = transforms[1];
+    const Matrix view = transforms[2];
+    const Matrix proj = transforms[3];
     const Matrix worldView = multiply(world, view);
     const Matrix all = multiply(worldView, proj);
     const bool lighting = renderStates[kLighting] && !layout.rhw;
@@ -274,7 +277,8 @@ void Device::transformAndLight(const VertexLayout &layout, uint32_t vertices, ui
     const bool specularOn = renderStates[kSpecularEnable] != 0;
     const Color ambientLight = unpack(renderStates[kAmbient]);
     const uint32_t fogMode = renderStates[kFogEnable] ? renderStates[kFogVertexMode] : 0;
-    const float fogStart = asFloat(renderStates[kFogStart]), fogEnd = asFloat(renderStates[kFogEnd]);
+    const float fogStart = asFloat(renderStates[kFogStart]);
+    const float fogEnd = asFloat(renderStates[kFogEnd]);
     const float fogDensity = asFloat(renderStates[kFogDensity]);
 
     // The enabled lights in camera space.
@@ -299,10 +303,12 @@ void Device::transformAndLight(const VertexLayout &layout, uint32_t vertices, ui
     for (uint32_t i = 0; i < count; ++i) {
         const uint8_t *v = mem + i * stride;
         ClipVertex &o = out[i];
-        const bool hasDiffuse = layout.diffuse, hasSpecular = layout.specular;
+        const bool hasDiffuse = layout.diffuse;
+        const bool hasSpecular = layout.specular;
         const Color vDiffuse = hasDiffuse ? unpack(vertexWord(v + layout.diffuseAt)) : Color{1, 1, 1, 1};
         const Color vSpecular = hasSpecular ? unpack(vertexWord(v + layout.specularAt)) : Color{0, 0, 0, 0};
-        float eye[4] = {0, 0, 0, 1}, normal[3] = {0, 0, 0};
+        float eye[4] = {0, 0, 0, 1};
+        float normal[3] = {0, 0, 0};
         if (layout.rhw) {
             o.x = vertexFloat(v), o.y = vertexFloat(v + 4), o.z = vertexFloat(v + 8), o.w = vertexFloat(v + 12);
             o.diffuse = vDiffuse;
@@ -336,7 +342,8 @@ void Device::transformAndLight(const VertexLayout &layout, uint32_t vertices, ui
                 const Color mAmbient = source(kAmbientSource, material.ambient);
                 const Color mSpecular = source(kSpecularSource, material.specular);
                 const Color mEmissive = source(kEmissiveSource, material.emissive);
-                Color d = add(mEmissive, mul(ambientLight, mAmbient)), sp{};
+                Color d = add(mEmissive, mul(ambientLight, mAmbient));
+                Color sp{};
                 float toEye[3] = {-eye[0], -eye[1], -eye[2]};
                 if (renderStates[kLocalViewer])
                     normalize3(toEye);
@@ -345,7 +352,8 @@ void Device::transformAndLight(const VertexLayout &layout, uint32_t vertices, ui
                 for (const EyeLight &e : eyeLights) {
                     const Light &l = *e.l;
                     float toLight[3];
-                    float atten = 1, spot = 1;
+                    float atten = 1;
+                    float spot = 1;
                     if (l.type == 3) { // directional
                         toLight[0] = -e.dir[0], toLight[1] = -e.dir[1], toLight[2] = -e.dir[2];
                     } else {
@@ -358,7 +366,8 @@ void Device::transformAndLight(const VertexLayout &layout, uint32_t vertices, ui
                         atten = a > 0 ? 1 / a : 1;
                         if (l.type == 2) { // spot
                             const float rho = -dot3(toLight, e.dir);
-                            const float cosPhi = std::cos(l.phi / 2), cosTheta = std::cos(l.theta / 2);
+                            const float cosPhi = std::cos(l.phi / 2);
+                            const float cosTheta = std::cos(l.theta / 2);
                             if (rho <= cosPhi)
                                 spot = 0;
                             else if (rho < cosTheta)
@@ -398,7 +407,8 @@ void Device::transformAndLight(const VertexLayout &layout, uint32_t vertices, ui
         // Each stage's coordinates: a set of the vertex's, or generated.
         for (int st = 0; st < stages; ++st) {
             const uint32_t index = stageStates[size_t(st)][kTexCoordIndex];
-            const uint32_t set = index & 0xffff, gen = index >> 16;
+            const uint32_t set = index & 0xffff;
+            const uint32_t gen = index >> 16;
             float coord[4] = {0, 0, 1, 0};
             if (gen && !layout.rhw) {
                 float g[3] = {0, 0, 0};
@@ -717,7 +727,8 @@ void Device::triangle(const ClipVertex &a, const ClipVertex &b, const ClipVertex
             for (size_t i = 0; i < poly->n; ++i) {
                 const ClipVertex &p = (*poly)[i];
                 const ClipVertex &q = (*poly)[(i + 1) % poly->n];
-                const float dp = planeDistance(p, plane), dq = planeDistance(q, plane);
+                const float dp = planeDistance(p, plane);
+                const float dq = planeDistance(q, plane);
                 if (dp >= 0)
                     next.v[next.n++] = p;
                 if ((dp >= 0) != (dq >= 0))
@@ -751,10 +762,12 @@ void Device::triangle(const ClipVertex &a, const ClipVertex &b, const ClipVertex
 }
 
 void Device::line(const ClipVertex &a0, const ClipVertex &b0) {
-    ClipVertex a = a0, b = b0;
+    ClipVertex a = a0;
+    ClipVertex b = b0;
     if (!projected) {
         for (int plane = 0; plane < 6; ++plane) {
-            const float da = planeDistance(a, plane), db = planeDistance(b, plane);
+            const float da = planeDistance(a, plane);
+            const float db = planeDistance(b, plane);
             if (da < 0 && db < 0)
                 return;
             if (da < 0)
@@ -805,7 +818,8 @@ void Device::point(const ClipVertex &a0) {
 // Fills a projected triangle: every pixel whose centre (whole
 // coordinates) is inside, or on a top or left edge.
 void Draw::rasterize(Raster &r, const ClipVertex &a, const ClipVertex &b, const ClipVertex &c) const {
-    const int left = std::max(viewport.x, 0), top = std::max(viewport.y, 0);
+    const int left = std::max(viewport.x, 0);
+    const int top = std::max(viewport.y, 0);
     const int right = std::min(viewport.x + viewport.width, target->d.width);
     const int bottom = std::min(viewport.y + viewport.height, target->d.height);
     const int x0 = std::max(left, int(std::ceil(std::min({a.x, b.x, c.x}))));
@@ -879,7 +893,9 @@ void Draw::rasterize(Raster &r, const ClipVertex &a, const ClipVertex &b, const 
         for (int k = 0; k < count; ++k)
             values[i][2 + k] = attr[i][k];
     }
-    float fx[2 + kAttributes], fy[2 + kAttributes], f0[2 + kAttributes];
+    float fx[2 + kAttributes];
+    float fy[2 + kAttributes];
+    float f0[2 + kAttributes];
     for (int k = 0; k < n; ++k) {
         fx[k] = float((e[0].a * values[0][k] + e[1].a * values[1][k] + e[2].a * values[2][k]) / area);
         fy[k] = float((e[0].b * values[0][k] + e[1].b * values[1][k] + e[2].b * values[2][k]) / area);
@@ -888,14 +904,16 @@ void Draw::rasterize(Raster &r, const ClipVertex &a, const ClipVertex &b, const 
     float flatColors[8];
     for (int k = 0; k < 8; ++k)
         flatColors[k] = attr[0][k] / a.w; // the first vertex's colours
-    float row[2 + kAttributes], here[kAttributes];
+    float row[2 + kAttributes];
+    float here[kAttributes];
     const bool quick = span4Fits();
     for (int y = y0; y <= y1; ++y) {
         if (r.bands > 1 && (y >> 3) % r.bands != r.band) // another thread's row
             continue;
         // The row's span: where each edge is inside, then each pixel there
         // tested exactly.
-        double from = x0, to = x1;
+        double from = x0;
+        double to = x1;
         bool empty = false;
         for (const Edge &ed : e) {
             const double rest = ed.b * y + ed.c;
@@ -908,7 +926,8 @@ void Draw::rasterize(Raster &r, const ClipVertex &a, const ClipVertex &b, const 
         }
         if (empty || from > to)
             continue;
-        const int xs = int(from), xe = int(to);
+        const int xs = int(from);
+        const int xe = int(to);
         for (int k = 0; k < n; ++k)
             row[k] = f0[k] + fy[k] * float(y) + fx[k] * float(xs);
         // The pixels inside: each edge's test only changes once along the
@@ -921,7 +940,8 @@ void Draw::rasterize(Raster &r, const ClipVertex &a, const ClipVertex &b, const 
             }
             return true;
         };
-        int first = xs, last = xe;
+        int first = xs;
+        int last = xe;
         while (first <= last && !inside(first))
             ++first;
         while (last >= first && !inside(last))
@@ -992,9 +1012,12 @@ bool Draw::sample4(const Raster &r, int stage, __m128 u, __m128 v, __m128i &out)
     const Sampler &sm = r.samplers[stage];
     if (!sm.argb || !sm.wrapPow2)
         return false;
-    const __m128 fx = _mm_mul_ps(u, _mm_set1_ps(sm.fw)), fy = _mm_mul_ps(v, _mm_set1_ps(sm.fh));
-    const __m128i mx = _mm_set1_epi32(sm.width - 1), my = _mm_set1_epi32(sm.height - 1);
-    alignas(16) int32_t xs[4], ys[4];
+    const __m128 fx = _mm_mul_ps(u, _mm_set1_ps(sm.fw));
+    const __m128 fy = _mm_mul_ps(v, _mm_set1_ps(sm.fh));
+    const __m128i mx = _mm_set1_epi32(sm.width - 1);
+    const __m128i my = _mm_set1_epi32(sm.height - 1);
+    alignas(16) int32_t xs[4];
+    alignas(16) int32_t ys[4];
     alignas(16) uint32_t t[4][4]; // t00, t10, t01, t11
     if (!sm.linear) {
         _mm_store_si128(reinterpret_cast<__m128i *>(xs), _mm_and_si128(floor4(fx), mx));
@@ -1004,18 +1027,22 @@ bool Draw::sample4(const Raster &r, int stage, __m128 u, __m128 v, __m128i &out)
         out = _mm_load_si128(reinterpret_cast<const __m128i *>(t[0]));
         return true;
     }
-    const __m128 gx = _mm_sub_ps(fx, _mm_set1_ps(0.5f)), gy = _mm_sub_ps(fy, _mm_set1_ps(0.5f));
-    const __m128i ix = floor4(gx), iy = floor4(gy);
+    const __m128 gx = _mm_sub_ps(fx, _mm_set1_ps(0.5f));
+    const __m128 gy = _mm_sub_ps(fy, _mm_set1_ps(0.5f));
+    const __m128i ix = floor4(gx);
+    const __m128i iy = floor4(gy);
     const __m128 k256 = _mm_set1_ps(256.0f);
     const __m128i ax = _mm_cvttps_epi32(_mm_mul_ps(_mm_sub_ps(gx, _mm_cvtepi32_ps(ix)), k256));
     const __m128i ay = _mm_cvttps_epi32(_mm_mul_ps(_mm_sub_ps(gy, _mm_cvtepi32_ps(iy)), k256));
     // Out of 0..256 (only from coordinates no int holds): sample's way.
-    const __m128i none = _mm_setzero_si128(), most = _mm_set1_epi32(256);
+    const __m128i none = _mm_setzero_si128();
+    const __m128i most = _mm_set1_epi32(256);
     const __m128i bad = _mm_or_si128(_mm_or_si128(_mm_cmpgt_epi32(none, ax), _mm_cmpgt_epi32(ax, most)),
                                      _mm_or_si128(_mm_cmpgt_epi32(none, ay), _mm_cmpgt_epi32(ay, most)));
     if (_mm_movemask_epi8(bad))
         return false;
-    alignas(16) int32_t x1s[4], y1s[4];
+    alignas(16) int32_t x1s[4];
+    alignas(16) int32_t y1s[4];
     const __m128i one = _mm_set1_epi32(1);
     _mm_store_si128(reinterpret_cast<__m128i *>(xs), _mm_and_si128(ix, mx));
     _mm_store_si128(reinterpret_cast<__m128i *>(x1s), _mm_and_si128(_mm_add_epi32(ix, one), mx));
@@ -1033,7 +1060,8 @@ bool Draw::sample4(const Raster &r, int stage, __m128 u, __m128 v, __m128i &out)
             const __m128i v4 = _mm_load_si128(reinterpret_cast<const __m128i *>(p));
             return h ? _mm_unpackhi_epi8(v4, zero) : _mm_unpacklo_epi8(v4, zero);
         };
-        const __m128i wx = weights(ax, h == 1), wy = weights(ay, h == 1);
+        const __m128i wx = weights(ax, h == 1);
+        const __m128i wy = weights(ay, h == 1);
         half[h] = mix16(mix16(unpack16(t[0]), unpack16(t[1]), wx), mix16(unpack16(t[2]), unpack16(t[3]), wx), wy);
     }
     out = _mm_packus_epi16(half[0], half[1]);
@@ -1049,7 +1077,9 @@ int Draw::span4(const Raster &r, int x, int last, int y, float *row, const float
                 const float *flatColors) const {
 #ifdef RELUVA_SPAN4
     const PixelConfig &cf = cfg_;
-    const __m128 zero = _mm_setzero_ps(), one = _mm_set1_ps(1.0f), half = _mm_set1_ps(0.5f);
+    const __m128 zero = _mm_setzero_ps();
+    const __m128 one = _mm_set1_ps(1.0f);
+    const __m128 half = _mm_set1_ps(0.5f);
     // std::clamp(v, 0, 1), NaN kept as it does: (v < 0) ? 0 : (1 < v) ? 1 : v.
     auto clamp01 = [&](__m128 v) { return _mm_max_ps(zero, _mm_min_ps(one, v)); };
     // uint32_t(std::clamp(v, 0, 1) * max + 0.5f); a NaN gives 0, as the
@@ -1083,7 +1113,8 @@ int Draw::span4(const Raster &r, int x, int last, int y, float *row, const float
             // depthTest on a 16-bit depth buffer, four at a time:
             // uint32_t(double(clamp(z, 0, 1)) * zMax + 0.5) against what's there.
             const __m128 z = clamp01(_mm_load_ps(lane[0]));
-            const __m128d zMax = _mm_set1_pd(cf.zMax), halfD = _mm_set1_pd(0.5);
+            const __m128d zMax = _mm_set1_pd(cf.zMax);
+            const __m128d halfD = _mm_set1_pd(0.5);
             auto depth2 = [&](__m128 two) {
                 const __m128d d = _mm_add_pd(_mm_mul_pd(_mm_cvtps_pd(two), zMax), halfD);
                 return _mm_cvttpd_epi32(_mm_and_pd(d, _mm_cmpord_pd(d, d))); // two, low; a NaN gives 0
@@ -1120,7 +1151,8 @@ int Draw::span4(const Raster &r, int x, int last, int y, float *row, const float
                 ok = _mm_set1_epi32(-1);
                 break;
             }
-            alignas(16) uint32_t zs[4], oks[4];
+            alignas(16) uint32_t zs[4];
+            alignas(16) uint32_t oks[4];
             _mm_store_si128(reinterpret_cast<__m128i *>(zs), zn);
             _mm_store_si128(reinterpret_cast<__m128i *>(oks), ok);
             for (int i = 0; i < 4; ++i) {
@@ -1153,7 +1185,8 @@ int Draw::span4(const Raster &r, int x, int last, int y, float *row, const float
             if (sc.usesTexture) {
                 __m128i t;
                 if (!sample4(r, st, here[8 + 2 * st], here[9 + 2 * st], t)) {
-                    alignas(16) float u[4], v[4];
+                    alignas(16) float u[4];
+                    alignas(16) float v[4];
                     _mm_store_ps(u, here[8 + 2 * st]);
                     _mm_store_ps(v, here[9 + 2 * st]);
                     for (int i = 0; i < 4; ++i)
@@ -1219,7 +1252,8 @@ int Draw::span4(const Raster &r, int x, int last, int y, float *row, const float
                     dst[0][i] = fr.of255[raw >> 16 & 0xff], dst[1][i] = fr.of255[raw >> 8 & 0xff],
                     dst[2][i] = fr.of255[raw & 0xff];
             }
-            const __m128 a = current[3], ia = _mm_sub_ps(one, current[3]);
+            const __m128 a = current[3];
+            const __m128 ia = _mm_sub_ps(one, current[3]);
             for (int i = 0; i < 3; ++i)
                 o[i] = _mm_add_ps(_mm_mul_ps(current[i], a), _mm_mul_ps(_mm_load_ps(dst[i]), ia));
         }
@@ -1371,7 +1405,8 @@ RELUVA_PIXEL_STEP uint32_t Draw::sample(const Raster &r, int stage, float u, flo
             isKeyed = isKeyed || sm.keyed[at];
         return sm.argb[at];
     };
-    const float fx = u * sm.fw, fy = v * sm.fh;
+    const float fx = u * sm.fw;
+    const float fy = v * sm.fh;
     if (!sm.linear) {
         bool k = false;
         const uint32_t r = texel(floorInt(fx), floorInt(fy), k);
@@ -1379,9 +1414,12 @@ RELUVA_PIXEL_STEP uint32_t Draw::sample(const Raster &r, int stage, float u, flo
             *keyed = k;
         return r;
     }
-    const float gx = fx - 0.5f, gy = fy - 0.5f;
-    const int ix = floorInt(gx), iy = floorInt(gy);
-    const int ax = int((gx - float(ix)) * 256), ay = int((gy - float(iy)) * 256); // 8-bit weights
+    const float gx = fx - 0.5f;
+    const float gy = fy - 0.5f;
+    const int ix = floorInt(gx);
+    const int iy = floorInt(gy);
+    const int ax = int((gx - float(ix)) * 256);
+    const int ay = int((gy - float(iy)) * 256); // 8-bit weights
     // Two channels at a time (0x00ff00ff masks), weights out of 256.
     auto mix = [](uint32_t p, uint32_t q, int w) {
         const uint32_t rb = ((p & 0xff00ff) * uint32_t(256 - w) + (q & 0xff00ff) * uint32_t(w)) >> 8 & 0xff00ff;
@@ -1393,15 +1431,22 @@ RELUVA_PIXEL_STEP uint32_t Draw::sample(const Raster &r, int stage, float u, flo
         return mix(mix(p[0], p[1], ax), mix(p[sm.width], p[sm.width + 1], ax), ay);
     }
     if (!keyed && sm.wrapPow2) { // wrapping across an edge: the texel's addressing, by masks
-        const int mx = sm.width - 1, my = sm.height - 1;
-        const size_t x0 = size_t(ix & mx), x1 = size_t((ix + 1) & mx);
+        const int mx = sm.width - 1;
+        const int my = sm.height - 1;
+        const size_t x0 = size_t(ix & mx);
+        const size_t x1 = size_t((ix + 1) & mx);
         const uint32_t *r0 = sm.argb + size_t(iy & my) * size_t(sm.width);
         const uint32_t *r1 = sm.argb + size_t((iy + 1) & my) * size_t(sm.width);
         return mix(mix(r0[x0], r0[x1], ax), mix(r1[x0], r1[x1], ax), ay);
     }
-    bool k00 = false, k10 = false, k01 = false, k11 = false;
-    const uint32_t t00 = texel(ix, iy, k00), t10 = texel(ix + 1, iy, k10);
-    const uint32_t t01 = texel(ix, iy + 1, k01), t11 = texel(ix + 1, iy + 1, k11);
+    bool k00 = false;
+    bool k10 = false;
+    bool k01 = false;
+    bool k11 = false;
+    const uint32_t t00 = texel(ix, iy, k00);
+    const uint32_t t10 = texel(ix + 1, iy, k10);
+    const uint32_t t01 = texel(ix, iy + 1, k01);
+    const uint32_t t11 = texel(ix + 1, iy + 1, k11);
     // The colour key keys the nearest texel's colour.
     if (keyed)
         *keyed = ax < 128 ? (ay < 128 ? k00 : k01) : (ay < 128 ? k10 : k11);
@@ -1597,7 +1642,8 @@ RELUVA_PIXEL_STEP void Draw::shade(const Raster &r, int x, int y, float z, float
         };
         // One operation on three channels (colour) or one (alpha).
         auto apply = [&](uint32_t op, uint32_t arg1, uint32_t arg2, float *out, int from, int to) {
-            float x1[4], x2[4];
+            float x1[4];
+            float x2[4];
             arg(arg1, x1);
             arg(arg2, x2);
             auto each = [&](auto f) {
@@ -1717,9 +1763,11 @@ RELUVA_PIXEL_STEP void Draw::finish(int x, int y, float z, float eyeW, const flo
     float out[4] = {current.r, current.g, current.b, current.a};
     if (cf.blend) {
         const Color dst = readTarget();
-        const float sv[4] = {current.r, current.g, current.b, current.a}, dv[4] = {dst.r, dst.g, dst.b, dst.a};
+        const float sv[4] = {current.r, current.g, current.b, current.a};
+        const float dv[4] = {dst.r, dst.g, dst.b, dst.a};
         if (cf.srcBlend == 5 && cf.destBlend == 6) { // SRCALPHA, INVSRCALPHA: the usual
-            const float a = current.a, ia = 1 - current.a;
+            const float a = current.a;
+            const float ia = 1 - current.a;
             for (int i = 0; i < 4; ++i)
                 out[i] = sv[i] * a + dv[i] * ia;
         } else {

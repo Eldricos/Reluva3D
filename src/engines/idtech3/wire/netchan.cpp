@@ -121,7 +121,8 @@ bool Netchan::process(std::vector<uint8_t> d, std::vector<uint8_t> &message) {
     size_t at = 4;
     if (!fromClient_)
         at += 2; // what a client sends has its qport; this end reads from one
-    uint16_t fragmentStart = 0, fragmentLength = 0;
+    uint16_t fragmentStart = 0;
+    uint16_t fragmentLength = 0;
     if (fragment) {
         if (d.size() < at + 4)
             return false;

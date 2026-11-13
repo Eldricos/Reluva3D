@@ -383,13 +383,15 @@ bool PlayViewer::startDownloads() {
     // cl_allowDownload, downloaded; without it, only named.
     const auto &cs = client_->configstrings();
     const std::string info = cs.count(1) ? cs.at(1) : std::string();
-    std::istringstream sums(infoValue(info, "sv_referencedPaks")), names(infoValue(info, "sv_referencedPakNames"));
+    std::istringstream sums(infoValue(info, "sv_referencedPaks"));
+    std::istringstream names(infoValue(info, "sv_referencedPakNames"));
     std::set<int32_t> ours;
     for (const Archive *a : ctx_.files.archives())
         if (const auto *pak = dynamic_cast<const ZipArchive *>(a))
             ours.insert(pakChecksum(*pak));
     downloads_.clear();
-    std::string sum, name;
+    std::string sum;
+    std::string name;
     while (sums >> sum && names >> name) {
         const auto checksum = int32_t(std::strtoll(sum.c_str(), nullptr, 10));
         const std::string lower = fs::toLower(name);
@@ -1684,7 +1686,8 @@ void PlayViewer::drawOverlay(uint64_t nowMs, bool haveView) {
             if (recentFrames_.size() > 1) {
                 const auto &first = recentFrames_.front();
                 const auto &last = recentFrames_.back();
-                int commands = 0, longest = 0;
+                int commands = 0;
+                int longest = 0;
                 for (const auto &f : recentFrames_) {
                     commands += f.command;
                     longest = std::max(longest, f.dt);

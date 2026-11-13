@@ -152,7 +152,8 @@ void MenuLayer::syncCursor() {
     // frame, jiggling it (and the highlight of whatever it's on). The
     // steps are scaled by how far one moved the picture before (gain_),
     // in case the menus scale movement themselves.
-    const float unitX = gainX_ * float(frameW_) / 640.0f, unitY = gainY_ * float(frameH_) / 480.0f;
+    const float unitX = gainX_ * float(frameW_) / 640.0f;
+    const float unitY = gainY_ * float(frameH_) / 480.0f;
     const auto dx = int32_t((float(mouseX_) - cursorX_) / unitX);
     const auto dy = int32_t((float(mouseY_) - cursorY_) / unitY);
     if (!dx && !dy)
@@ -177,7 +178,8 @@ void MenuLayer::findCursor() {
             cursorOffsetX_ = std::abs(it->x) < 100 ? it->x : 0;
             cursorOffsetY_ = std::abs(it->y) < 100 ? it->y : 0;
         }
-        const float x = it->x - cursorOffsetX_, y = it->y - cursorOffsetY_;
+        const float x = it->x - cursorOffsetX_;
+        const float y = it->y - cursorOffsetY_;
         // How far the steps since the last frame moved it, against what
         // was expected; not at the screen's edges, where it stops.
         auto learn = [](float &gain, float moved, float expected, float pos, float size) {

@@ -138,7 +138,8 @@ void putBe24(Bytes &b, uint32_t v) {
 // A 160x120 Cinepak frame of one strip: a V1 codebook of two colours that
 // change with `n`, and every block from it, in a check pattern.
 Bytes cinepakFrame(int n) {
-    constexpr int kW = 160, kH = 120;
+    constexpr int kW = 160;
+    constexpr int kH = 120;
     Bytes codebook;
     for (int e = 0; e < 2; ++e) {
         const uint8_t y = uint8_t(e ? 200 - 20 * n : 40 + 20 * n);
@@ -210,7 +211,10 @@ Bytes movie(int frames) {
     put32(astrf, 44100);
     put16(astrf, 2);
     put16(astrf, 16);
-    Bytes vstrl, astrl, hdrl, movi;
+    Bytes vstrl;
+    Bytes astrl;
+    Bytes hdrl;
+    Bytes movi;
     putChunk(vstrl, "strh", vstrh);
     putChunk(vstrl, "strf", vstrf);
     putChunk(astrl, "strh", astrh);
@@ -307,7 +311,8 @@ std::string listSaves(const std::filesystem::path &dir) {
             // A saved game: its name, and a checksum of the rest (the
             // game as it was).
             std::ifstream in(it->path(), std::ios::binary);
-            std::string tag, name;
+            std::string tag;
+            std::string name;
             if (it->path().extension() == ".sav" && std::getline(in, tag) && saveio::getString(in, name)) {
                 const std::vector<uint8_t> rest((std::istreambuf_iterator<char>(in)), {});
                 what += " (" + tag + ", \"" + name + "\", " + Hash().bytes(rest).hex() + ")";
@@ -340,17 +345,19 @@ void engineTest(const std::filesystem::path &tmp) {
     PlayingSystem sys;
     uint64_t t = 2000;
     const auto click = [&](int dialog, int id, int dx = 0, int dy = 0) {
-        const int x = dx + 140, y = dy + 55 + 36 * buttonRow(dialog, id);
+        const int x = dx + 140;
+        const int y = dy + 55 + 36 * buttonRow(dialog, id);
         sys.inputs.push_back({t, mouse(EventType::MouseMove, x, y)});
         sys.inputs.push_back({t + 20, mouse(EventType::MouseDown, x, y)});
         sys.inputs.push_back({t + 40, mouse(EventType::MouseUp, x, y)});
         t += 1500;
     };
-    constexpr int kOverX = 205, kOverY = 11; // the Esc menu's windows, over the game
-    click(1, 1);                             // New Game
-    click(2, 0);                             // here
-    click(17, 5);                            // Miss Scarlet
-    click(18, 0);                            // a person
+    constexpr int kOverX = 205;
+    constexpr int kOverY = 11; // the Esc menu's windows, over the game
+    click(1, 1);               // New Game
+    click(2, 0);               // here
+    click(17, 5);              // Miss Scarlet
+    click(18, 0);              // a person
     click(18, kOk);
     click(17, 6); // Colonel Mustard
     click(19, 1); // a computer player

@@ -68,7 +68,8 @@ std::string ScenePage::interfaceText(const std::string &tag) {
         std::vector<uint8_t> data;
         if (!ctx_.files.read("text/interface.txt", data)) {
             const Table t = parseTable(decodeText(data));
-            const int text = t.column("Text"), translation = t.column("Translation");
+            const int text = t.column("Text");
+            const int translation = t.column("Translation");
             for (size_t r = 0; r < t.rows.size(); r++) {
                 const std::string &tr = t.cell(r, translation);
                 interfaceTexts_[fs::toLower(t.cell(r, 0))] = tr.empty() || tr == "0" ? t.cell(r, text) : tr;
@@ -109,7 +110,8 @@ SaveGame ScenePage::captureSave(const std::string &description) const {
         const size_t from = lower.find('\\') + 1;
         s.location = lower.substr(from, lower.find('\\', from) - from);
     }
-    int major = 1, minor = 1;
+    int major = 1;
+    int minor = 1;
     if (parseActName(state_.act, major, minor))
         s.actMajor = major, s.actMinor = minor;
     if (const ActRow *row = story_->row()) {
@@ -145,7 +147,9 @@ SaveGame ScenePage::captureSave(const std::string &description) const {
     for (const auto &[key, progress] : state_.talks) {
         // talkKey: "name|act|part|thread".
         SaveGame::Talk k;
-        size_t a = key.find('|'), b = key.find('|', a + 1), c = key.find('|', b + 1);
+        size_t a = key.find('|');
+        size_t b = key.find('|', a + 1);
+        size_t c = key.find('|', b + 1);
         k.name = key.substr(0, a);
         k.act = key.substr(a + 1, b - a - 1);
         k.part = std::atoi(key.c_str() + b + 1);
@@ -285,7 +289,8 @@ void ScenePage::drawMessage() {
     const TextStyle *style = ctx_.fonts ? ctx_.fonts->style("location descriptions") : nullptr;
     if (!style || !style->font)
         return;
-    const int w = style->font->width(message_, style->pixels), h = style->font->lineHeight(style->pixels);
+    const int w = style->font->width(message_, style->pixels);
+    const int h = style->font->lineHeight(style->pixels);
     ctx_.fonts->draw(ctx_.screen, *style, (kScreenW - w) / 2, (placard.h - h) / 2 + top + 2, message_,
                      ctx_.fonts->colour("navigation text", {230, 170, 75}));
 }
@@ -434,7 +439,8 @@ void ScenePage::slotAction(const std::string &word, const std::string &second) {
             image::Image t;
             t.w = 256, t.h = 192;
             t.rgba.resize(size_t(t.w) * t.h * 4);
-            const int fx = grab_.w / t.w, fy = grab_.h / t.h;
+            const int fx = grab_.w / t.w;
+            const int fy = grab_.h / t.h;
             for (int y = 0; y < t.h; y++)
                 for (int x = 0; x < t.w; x++)
                     for (int c = 0; c < 3; c++) {

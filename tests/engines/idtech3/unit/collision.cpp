@@ -106,7 +106,8 @@ static void testServerWorld() {
         s.contents = n % 3 ? 1 : 0x2000000;
         s.owner = n % 7 == 0 ? n - 1 : -1;
         shapes[n] = s;
-        Vec3f lo{}, hi{};
+        Vec3f lo{};
+        Vec3f hi{};
         world.link(n, s, lo, hi);
         CHECK(lo[0] == s.origin[0] + s.mins[0] - 1 && hi[2] == s.origin[2] + s.maxs[2] + 1);
     }
@@ -121,19 +122,24 @@ static void testServerWorld() {
                 return false;
         return true;
     };
-    bool boxesAgree = true, movesAgree = true, pointsAgree = true;
+    bool boxesAgree = true;
+    bool movesAgree = true;
+    bool pointsAgree = true;
     for (int k = 0; k < 300; ++k) {
         const Vec3f lo{r(-1100, 1000), r(-1100, 1000), r(-300, 200)};
         const Vec3f hi{lo[0] + r(0, 300), lo[1] + r(0, 300), lo[2] + r(0, 100)};
-        std::vector<int32_t> found, expected;
+        std::vector<int32_t> found;
+        std::vector<int32_t> expected;
         world.entitiesInBox(lo, hi, found);
         for (const int32_t n : world.linked())
             if (touches(n, lo, hi))
                 expected.push_back(n);
         boxesAgree &= found == expected;
         // A move: the nearest entity it meets, as by trying every one.
-        const Vec3f a{r(-1000, 1000), r(-1000, 1000), 0}, b{r(-1000, 1000), r(-1000, 1000), 0};
-        const Vec3f mins{-16, -16, -24}, maxs{16, 16, 32};
+        const Vec3f a{r(-1000, 1000), r(-1000, 1000), 0};
+        const Vec3f b{r(-1000, 1000), r(-1000, 1000), 0};
+        const Vec3f mins{-16, -16, -24};
+        const Vec3f maxs{16, 16, 32};
         const int32_t pass = int32_t(rng() % 200);
         int32_t hit = 0;
         const TraceResult t = world.trace(a, mins, maxs, b, pass, 1, hit);
@@ -143,7 +149,8 @@ static void testServerWorld() {
             const EntityShape &s = shapes[n];
             if (n == pass || s.owner == pass || (shapes.count(pass) && shapes[pass].owner == n) || !(s.contents & 1))
                 continue;
-            Vec3f boxMin = s.mins, boxMax = s.maxs;
+            Vec3f boxMin = s.mins;
+            Vec3f boxMax = s.maxs;
             for (int i = 0; i < 3; ++i) {
                 boxMin[size_t(i)] += s.origin[size_t(i)];
                 boxMax[size_t(i)] += s.origin[size_t(i)];
@@ -212,7 +219,8 @@ static void testPatchCollision() {
         model.numSurfaces = 1;
         bsp.models.push_back(model);
         CollisionWorld world(bsp);
-        const Vec3f mins{-15, -15, -24}, maxs{15, 15, 32};
+        const Vec3f mins{-15, -15, -24};
+        const Vec3f maxs{15, 15, 32};
         // Dropped onto its middle: stopped with the box's bottom on it.
         TraceResult t = world.trace({0, 0, 200}, {0, 0, -200}, mins, maxs, 0, contents::Solid);
         const float top = bent ? 32.0f : 0.0f; // the arch's height there: half the raised row's
@@ -257,13 +265,15 @@ static void testCollision() {
     CHECK(near(t.endPos[0], -8.125f) && t.normal[0] == -1);
     CHECK(world.pointContents({0, 0, -32}, 0) == contents::Solid && world.pointContents({0, 0, 32}, 0) == 0);
     CHECK(world.pointContents({0, 0, 64}, 1) == contents::Solid);
-    Vec3f mins, maxs;
+    Vec3f mins;
+    Vec3f maxs;
     CHECK(world.modelBounds(1, mins, maxs) && maxs[2] == 128 && !world.modelBounds(2, mins, maxs));
     // The door standing at x = 200 turned a quarter (yaw 90): it now lies
     // across x (136 to 264) and is thin along y (-8 to 8). A move along y
     // at x = 240 hits it, the plane turned back to the world's; one along
     // x at y = 40 misses, where the unturned door would have stopped it.
-    const Vec3f at{200, 0, 0}, quarter{0, 90, 0};
+    const Vec3f at{200, 0, 0};
+    const Vec3f quarter{0, 90, 0};
     t = world.transformedTrace({240, -100, 64}, {240, 100, 64}, zero, zero, 1, contents::Solid, at, quarter);
     CHECK(t.fraction < 1 && near(t.endPos[1], -8.125f) && near(t.endPos[0], 240) && near(t.normal[1], -1) &&
           near(t.normal[0], 0));

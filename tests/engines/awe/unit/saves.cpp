@@ -42,7 +42,9 @@ void testSaveGame() {
     CHECK(back.positions.size() == 1 && back.positions[0].character == "klaus_model.gr2");
     CHECK(back.talks.size() == 1 && back.talks[0].thread == 96 && back.talks[0].nest == 0);
     CHECK(back.items.size() == 1 && back.items[0].name == "ticket");
-    std::string d, date, time;
+    std::string d;
+    std::string date;
+    std::string time;
     CHECK(!readSaveHeader(data, d, date, time) && d == "TEST" && time == "10:41" && date == "11-02-06");
     // Cut short, or a record it doesn't know: an error.
     CHECK(readSaveGame(std::vector<uint8_t>(data.begin(), data.end() - 3), back));

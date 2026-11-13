@@ -70,7 +70,8 @@ Cursor scaled(const Cursor &c, float factor, bool smooth) {
     out.hotX = std::clamp(int(std::lround(float(c.hotX) * factor)), 0, out.w - 1);
     out.hotY = std::clamp(int(std::lround(float(c.hotY) * factor)), 0, out.h - 1);
     out.rgba.assign(size_t(out.w) * size_t(out.h) * 4, 0);
-    const float sx = float(c.w) / float(out.w), sy = float(c.h) / float(out.h);
+    const float sx = float(c.w) / float(out.w);
+    const float sy = float(c.h) / float(out.h);
     for (int y = 0; y < out.h; ++y) {
         for (int x = 0; x < out.w; ++x) {
             uint8_t *d = out.pixel(x, y);
@@ -84,12 +85,16 @@ Cursor scaled(const Cursor &c, float factor, bool smooth) {
             // don't darken the edges.
             const float fu = std::clamp((float(x) + 0.5f) * sx - 0.5f, 0.0f, float(c.w - 1));
             const float fv = std::clamp((float(y) + 0.5f) * sy - 0.5f, 0.0f, float(c.h - 1));
-            const int u0 = int(fu), v0 = int(fv);
-            const int u1 = std::min(c.w - 1, u0 + 1), v1 = std::min(c.h - 1, v0 + 1);
-            const float tu = fu - float(u0), tv = fv - float(v0);
+            const int u0 = int(fu);
+            const int v0 = int(fv);
+            const int u1 = std::min(c.w - 1, u0 + 1);
+            const int v1 = std::min(c.h - 1, v0 + 1);
+            const float tu = fu - float(u0);
+            const float tv = fv - float(v0);
             const uint8_t *q[4] = {c.pixel(u0, v0), c.pixel(u1, v0), c.pixel(u0, v1), c.pixel(u1, v1)};
             const float wt[4] = {(1 - tu) * (1 - tv), tu * (1 - tv), (1 - tu) * tv, tu * tv};
-            float rgb[3] = {0, 0, 0}, a = 0;
+            float rgb[3] = {0, 0, 0};
+            float a = 0;
             for (int k = 0; k < 4; ++k) {
                 const float wa = wt[k] * float(q[k][3]);
                 for (int ch = 0; ch < 3; ++ch)
@@ -108,7 +113,8 @@ Cursor scaled(const Cursor &c, float factor, bool smooth) {
 void draw(Surface &target, const Cursor &c, int x, int y) {
     if (c.empty() || target.format != PixelFormat::RGBA32)
         return;
-    const int left = x - c.hotX, top = y - c.hotY;
+    const int left = x - c.hotX;
+    const int top = y - c.hotY;
     for (int v = std::max(0, -top); v < c.h && top + v < target.h; ++v) {
         uint8_t *row = target.row(top + v);
         for (int u = std::max(0, -left); u < c.w && left + u < target.w; ++u) {

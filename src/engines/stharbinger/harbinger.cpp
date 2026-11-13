@@ -99,7 +99,8 @@ void Harbinger::printInfo() {
         std::string cols[3];
         const ListKind kinds[3] = {kListBackgrounds, kListAnims, kListSounds};
         for (int k = 0; k < 3; k++) {
-            int found = 0, count = int(scene.lists[kinds[k]].size());
+            int found = 0;
+            int count = int(scene.lists[kinds[k]].size());
             for (const NameEntry &e : scene.lists[kinds[k]])
                 found += resources_.hasResource(kinds[k], e.name) ? 1 : 0;
             totals[k][0] += found;
@@ -115,7 +116,9 @@ void Harbinger::printInfo() {
                 unsigned(scenes_.size()), totals[0][0], totals[0][1], totals[1][0], totals[1][1], totals[2][0],
                 totals[2][1]);
     if (auto ccb = resources_.getArchive("CCB")) {
-        int parsed = 0, items = 0, lines = 0;
+        int parsed = 0;
+        int items = 0;
+        int lines = 0;
         for (uint32_t i = 0; i < ccb->size(); i++) {
             Dialogue dialogue;
             std::string err;

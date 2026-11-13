@@ -324,7 +324,8 @@ std::vector<uint8_t> encodeBmp24(int width, int height, const std::vector<uint8_
     // BITMAPFILEHEADER, BITMAPINFOHEADER, then BGR rows bottom first, each
     // padded to 4 bytes: as D3DX's BMP writer (0x448d24) writes an
     // R8G8B8 surface, the only colour format it writes.
-    const uint32_t stride = (uint32_t(width) * 3 + 3) & ~3u, imageSize = stride * uint32_t(height);
+    const uint32_t stride = (uint32_t(width) * 3 + 3) & ~3u;
+    const uint32_t imageSize = stride * uint32_t(height);
     std::vector<uint8_t> out(54 + imageSize, 0);
     auto put32 = [&](size_t at, uint32_t v) { std::memcpy(out.data() + at, &v, 4); };
     auto put16 = [&](size_t at, uint16_t v) { std::memcpy(out.data() + at, &v, 2); };

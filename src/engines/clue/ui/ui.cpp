@@ -73,7 +73,8 @@ BitmapFont::BitmapFont(const GameData &data, const ResiFont &font, bool packed) 
         // labels in dialogs are drawn by their cells). A glyph without ink
         // (the space) keeps its cell and a pixel.
         const image::Image &px = g.image->pixels;
-        int first = -1, last = -1;
+        int first = -1;
+        int last = -1;
         for (int x = 0; x < px.w; ++x)
             for (int y = 0; y < px.h; ++y)
                 if (px.pixel(x, y)[3]) {
@@ -432,7 +433,8 @@ void DialogView::drawControls(Surface &s) const {
             const Picture p = picture(data_, c.text, 0);
             if (!p.image)
                 break;
-            const int kw = p.image->pixels.w, kh = p.image->pixels.h;
+            const int kw = p.image->pixels.w;
+            const int kh = p.image->pixels.h;
             const int range = c.type == ResiControl::Slider ? std::max(0, r.w - kw) : std::max(0, r.h - kh);
             const int at = range * st.value / 100;
             if (c.type == ResiControl::Slider)

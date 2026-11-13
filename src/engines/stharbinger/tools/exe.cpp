@@ -146,7 +146,8 @@ bool loadLe(const Bytes &d, LeFile &le, std::string &error) {
 
     // The fixups: per page, records of (source type, flags, source offset or
     // a list of them, target object, target offset).
-    const size_t fpt = h + u32(d, h + 0x68), frt = h + u32(d, h + 0x6c);
+    const size_t fpt = h + u32(d, h + 0x68);
+    const size_t frt = h + u32(d, h + 0x6c);
     std::map<uint32_t, std::pair<const LeObject *, uint32_t>> pageObject;
     for (const LeObject &o : le.objects)
         for (uint32_t k = 0; k < o.count; ++k)
@@ -166,7 +167,8 @@ bool loadLe(const Bytes &d, LeFile &le, std::string &error) {
                 error = "fixup table runs past the end of the file";
                 return false;
             }
-            const uint8_t src = d[p], fl = d[p + 1];
+            const uint8_t src = d[p];
+            const uint8_t fl = d[p + 1];
             p += 2;
             uint8_t cnt = 0;
             int16_t srcoff = 0;
@@ -548,7 +550,8 @@ int cmdExeDisasm(int argc, char **argv) {
     if (std::ifstream in(namesFile); in) {
         std::string line;
         while (std::getline(in, line)) {
-            char addr[64] = {}, name[256] = {};
+            char addr[64] = {};
+            char name[256] = {};
             if (std::sscanf(line.c_str(), "%63s %255s", addr, name) == 2)
                 names[uint32_t(std::strtoul(addr, nullptr, 16))] = name;
         }

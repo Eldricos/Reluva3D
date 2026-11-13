@@ -113,7 +113,8 @@ Error parseMissionScripts(std::string_view text, std::vector<MissionScript> &out
             continue;
         }
         if (t[0] == "site") {
-            int a, b;
+            int a;
+            int b;
             if (t.size() != 4 || !toInt(t[2], a) || !toInt(t[3], b))
                 return fail("expected: site <name> <a> <b>");
             m.sites[t[1]] = {a, b};

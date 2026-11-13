@@ -38,7 +38,8 @@ void Decoder::decodeCodebook(Cell *codebook, int chunk, const uint8_t *data, con
     // Greyscale codebooks (0x04) have no colour bytes; partial ones (0x01)
     // say which entries change with a bit each, in 32-bit words.
     const int n = (chunk & 0x04) ? 4 : 6;
-    uint32_t flags = 0, mask = 0;
+    uint32_t flags = 0;
+    uint32_t mask = 0;
     for (int i = 0; i < 256; ++i) {
         if (chunk & 0x01) {
             mask >>= 1;
@@ -70,7 +71,8 @@ bool Decoder::decodeVectors(const Strip &strip, int chunk, int top, int bottom, 
                             const uint8_t *end) {
     // 0x30: every block coded, a bit each for V1 or V4. 0x31: a bit for
     // skipped or coded first. 0x32: every block V1.
-    uint32_t flags = 0, mask = 0;
+    uint32_t flags = 0;
+    uint32_t mask = 0;
     auto nextBit = [&](bool &bit) {
         mask >>= 1;
         if (!mask) {
@@ -115,7 +117,8 @@ bool Decoder::decodeVectors(const Strip &strip, int chunk, int top, int bottom, 
                     return false;
                 const Cell &cell = strip.v1[*data++];
                 for (int i = 0; i < 4; ++i) {
-                    const int cx = x + (i & 1) * 2, cy = y + (i >> 1) * 2;
+                    const int cx = x + (i & 1) * 2;
+                    const int cy = y + (i >> 1) * 2;
                     put(cx, cy, cell, i);
                     put(cx + 1, cy, cell, i);
                     put(cx, cy + 1, cell, i);
@@ -126,7 +129,8 @@ bool Decoder::decodeVectors(const Strip &strip, int chunk, int top, int bottom, 
                     return false;
                 for (int q = 0; q < 4; ++q) {
                     const Cell &cell = strip.v4[*data++];
-                    const int cx = x + (q & 1) * 2, cy = y + (q >> 1) * 2;
+                    const int cx = x + (q & 1) * 2;
+                    const int cy = y + (q >> 1) * 2;
                     for (int i = 0; i < 4; ++i)
                         put(cx + (i & 1), cy + (i >> 1), cell, i);
                 }
@@ -179,7 +183,8 @@ bool Decoder::decode(const uint8_t *data, uint32_t size) {
             uint32_t chunkSize = be24(data + 1);
             if (chunkSize < 4 || data + chunkSize > stripEnd)
                 chunkSize = uint32_t(stripEnd - data);
-            const uint8_t *body = data + 4, *bodyEnd = data + chunkSize;
+            const uint8_t *body = data + 4;
+            const uint8_t *bodyEnd = data + chunkSize;
             switch (chunk) {
             case 0x20:
             case 0x21:

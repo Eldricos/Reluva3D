@@ -328,7 +328,8 @@ uint32_t SpUiHost::fileList(const std::string &folder, const std::string &extens
             const size_t dot = n.rfind('.');
             return !listSave(dot == std::string::npos ? n : n.substr(0, dot));
         });
-    uint32_t used = 0, count = 0;
+    uint32_t used = 0;
+    uint32_t count = 0;
     for (const std::string &n : names) {
         if (used + n.size() + 1 > size)
             break;
@@ -446,7 +447,8 @@ void SpUiHost::addImports() {
         // mods' folders and descriptions, as the engine lists them.
         const std::string folder = str(c, 0, 256);
         if (folder == "$modlist") {
-            const uint32_t buffer = c.arg(2), size = c.arg(3);
+            const uint32_t buffer = c.arg(2);
+            const uint32_t size = c.arg(3);
             if (int32_t(size) <= 0 || !c.valid(buffer, size))
                 return 0;
             std::vector<uint8_t> list;
@@ -577,7 +579,8 @@ void SpUiHost::addImports() {
     import(SavePicture, [this, openSave](x86::Cpu &c) -> uint32_t {
         // (name, buffer of 256 x 256 x 4)
         SaveReader r;
-        std::vector<uint8_t> comment, shot;
+        std::vector<uint8_t> comment;
+        std::vector<uint8_t> shot;
         if (!openSave(c, 0, r) || r.next(chunkId("COMM"), comment) || r.next(chunkId("SHOT"), shot, kShotSize) ||
             !c.valid(c.arg(1), kShotSize))
             return 0;

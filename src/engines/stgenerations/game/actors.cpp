@@ -547,22 +547,27 @@ Actors::Shot Actors::aim(const Actor &actor, const Walker &player) const {
     // 0x4C4460: from the muzzle, turned with the actor, at the target: the
     // player's eyes, or halfway up another actor.
     double angle = actor.heading * 2 * kPi / 65536;
-    double s = std::sin(angle), c = std::cos(angle);
-    double ox = fromFixed(actor.data.muzzleX), oy = fromFixed(actor.data.muzzleY);
+    double s = std::sin(angle);
+    double c = std::cos(angle);
+    double ox = fromFixed(actor.data.muzzleX);
+    double oy = fromFixed(actor.data.muzzleY);
     Shot shot;
     shot.shooter = (uint16_t)(actor.data.objectId | kObjectType);
     shot.weapon = actor.weapon;
     shot.x = actor.x + ox * c - oy * s;
     shot.y = actor.y + oy * c + ox * s;
     shot.z = actor.z + fromFixed(actor.data.drawOffset) + fromFixed(actor.data.muzzleZ);
-    double tx = player.getX(), ty = player.getY(), tz = player.getEye();
+    double tx = player.getX();
+    double ty = player.getY();
+    double tz = player.getEye();
     if (actor.target != 0) {
         uint16_t heading;
         std::vector<int> parts = findAll(actor.target);
         if (getPosition(actor.target, tx, ty, tz, heading) && !parts.empty())
             tz += fromFixed(_actors[parts[0]]->data.bodyHeight) / 2;
     }
-    double dx = tx - shot.x, dy = ty - shot.y;
+    double dx = tx - shot.x;
+    double dy = ty - shot.y;
     shot.yaw = std::atan2(dy, dx);
     shot.pitch = std::atan2(tz - shot.z, std::sqrt(dx * dx + dy * dy));
     return shot;
@@ -600,7 +605,8 @@ void Actors::moveForward(Actor &actor, double distance, uint32_t ms) {
     if (distance <= 0)
         return;
     double angle = actor.heading * 2 * kPi / 65536;
-    double oldX = actor.x, oldY = actor.y;
+    double oldX = actor.x;
+    double oldY = actor.y;
     actor.walker.move(-std::sin(angle) * distance, std::cos(angle) * distance, ms / 1000.0);
     actor.x = actor.walker.getX();
     actor.y = actor.walker.getY();
@@ -640,7 +646,8 @@ void Actors::runWander(Actor &actor, int /*index*/, double step, const Walker &p
     // 0x4C3C10, mode 6. The centre (0x4C4015) is home, or else what it
     // guards: an actor (1) or a billboard (2), the player if none.
     const LevelFile::Actor &data = actor.data;
-    double cx = actor.homeX, cy = actor.homeY;
+    double cx = actor.homeX;
+    double cy = actor.homeY;
     if (data.guardMode) {
         cx = player.getX();
         cy = player.getY();
@@ -649,7 +656,8 @@ void Actors::runWander(Actor &actor, int /*index*/, double step, const Walker &p
     }
     double distance = distance2D(cx - actor.x, cy - actor.y);
     uint16_t towardsCentre = headingTowards(cx - actor.x, cy - actor.y);
-    double inner = fromFixed(data.innerRadius), home = fromFixed(data.homeRadius);
+    double inner = fromFixed(data.innerRadius);
+    double home = fromFixed(data.homeRadius);
     double outer = fromFixed(data.outerRadius);
 
     if (actor.returning) {
@@ -677,7 +685,8 @@ void Actors::runWander(Actor &actor, int /*index*/, double step, const Walker &p
         actor.goal = (uint16_t)(actor.heading + data.minTurn + (range ? random() % (range + 1) : 0));
         actor.turning = true;
         actor.walked = 0;
-        double minWalk = fromFixed(data.minWalk), maxWalk = fromFixed(data.maxWalk);
+        double minWalk = fromFixed(data.minWalk);
+        double maxWalk = fromFixed(data.maxWalk);
         actor.nextTurn = minWalk + (maxWalk > minWalk ? (maxWalk - minWalk) * (random() % 1024) / 1023.0 : 0);
     }
     if (actor.turning && turnTowards(actor, actor.goal, ms))
@@ -694,7 +703,9 @@ void Actors::runWander(Actor &actor, int /*index*/, double step, const Walker &p
 void Actors::runWalkTo(Actor &actor, double step, const Walker &player, uint32_t ms, std::vector<ScriptEvent> &events) {
     // Mode 7: straight at the target. Arrival is reported every tick while
     // within reach; the actor keeps going until a script changes its mode.
-    double tx, ty, tz;
+    double tx;
+    double ty;
+    double tz;
     getTarget(actor, player, tx, ty, tz);
     if (distance2D(tx - actor.x, ty - actor.y) < fromFixed(actor.data.reach))
         events.push_back({(uint16_t)(actor.data.objectId | kObjectType), kEventArrived});
@@ -740,7 +751,8 @@ void Actors::runProximity(Actor &actor, const Walker &player, bool frozen, std::
     // floors in the zones of both.
     double d = distance3D(player.getX() - actor.x, player.getY() - actor.y, player.getEye() - actor.z);
     auto sees = [&]() {
-        double base = actor.z + fromFixed(actor.data.drawOffset), muzzle = fromFixed(actor.data.muzzleZ);
+        double base = actor.z + fromFixed(actor.data.drawOffset);
+        double muzzle = fromFixed(actor.data.muzzleZ);
         double eye = base + muzzle + (fromFixed(actor.data.height) - muzzle) / 2;
         int floor = actor.walker.getFloor();
         uint64_t zones = player.getActiveZones();
@@ -792,7 +804,9 @@ void Actors::update(uint32_t ms, const Walker &player, std::vector<ScriptEvent> 
         switch (actor.mode) {
         case kModeFace:
         case kModeAttack: {
-            double tx, ty, tz;
+            double tx;
+            double ty;
+            double tz;
             getTarget(actor, player, tx, ty, tz);
             if (turnTowards(actor, headingTowards(tx - actor.x, ty - actor.y), ms) && actor.announce &&
                 actor.mode == kModeFace) {

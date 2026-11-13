@@ -71,7 +71,8 @@ Affine tcModMatrix(const ShaderStage::TcMod &m, float time) {
     switch (m.type) {
     case T::Scroll: {
         // Only the fraction matters, and keeps precision over long times.
-        const float s = m.v[0] * time, t = m.v[1] * time;
+        const float s = m.v[0] * time;
+        const float t = m.v[1] * time;
         a.r0[2] = s - std::floor(s);
         a.r1[2] = t - std::floor(t);
         break;
@@ -83,7 +84,8 @@ Affine tcModMatrix(const ShaderStage::TcMod &m, float time) {
     case T::Rotate: {
         // Around the texture's centre; positive degrees turn it clockwise.
         const float rad = -m.v[0] * time * kPi / 180;
-        const float c = std::cos(rad), s = std::sin(rad);
+        const float c = std::cos(rad);
+        const float s = std::sin(rad);
         a.r0 = {c, -s, 0.5f - 0.5f * c + 0.5f * s};
         a.r1 = {s, c, 0.5f - 0.5f * s - 0.5f * c};
         break;
@@ -180,7 +182,8 @@ gfx::TextureId ShaderCache::image(const std::string &name, bool clamp, bool mipm
         // Texture detail: halved (each 2x2 pixels averaged), down to a
         // pixel at least.
         for (int i = 0; picmip && i < textureOptions_.picmip && (img.w > 1 || img.h > 1); ++i) {
-            const int w = std::max(1, img.w / 2), h = std::max(1, img.h / 2);
+            const int w = std::max(1, img.w / 2);
+            const int h = std::max(1, img.h / 2);
             std::vector<uint8_t> half(size_t(w) * size_t(h) * 4);
             for (int y = 0; y < h; ++y)
                 for (int x = 0; x < w; ++x)
@@ -188,7 +191,8 @@ gfx::TextureId ShaderCache::image(const std::string &name, bool clamp, bool mipm
                         int sum = 0;
                         for (int dy = 0; dy < 2; ++dy)
                             for (int dx = 0; dx < 2; ++dx) {
-                                const int sx = std::min(img.w - 1, x * 2 + dx), sy = std::min(img.h - 1, y * 2 + dy);
+                                const int sx = std::min(img.w - 1, x * 2 + dx);
+                                const int sy = std::min(img.h - 1, y * 2 + dy);
                                 sum += img.rgba[(size_t(sy) * size_t(img.w) + size_t(sx)) * 4 + size_t(c)];
                             }
                         half[(size_t(y) * size_t(w) + size_t(x)) * 4 + size_t(c)] = uint8_t((sum + 2) / 4);
@@ -418,7 +422,8 @@ void ShaderCache::draw(int material, const gfx::DrawCall &base, gfx::TextureId l
         call.texVector0 = d.tcVectors[0];
         call.texVector1 = d.tcVectors[1];
         // tcMods in order; a turb splits them into before and after.
-        Affine pre, post;
+        Affine pre;
+        Affine post;
         bool turbSeen = false;
         for (const ShaderStage::TcMod &mod : d.tcMods) {
             if (mod.type == ShaderStage::TcMod::Type::Turb && !turbSeen) {
