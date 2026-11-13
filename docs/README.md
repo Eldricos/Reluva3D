@@ -9,6 +9,7 @@ requirements, building, running and contributing. The rest is here.
 | [ADDING_AN_ENGINE.md](ADDING_AN_ENGINE.md) | Starting a new engine from the template, and taking it to a game that runs |
 | [CODING_GUIDE.md](CODING_GUIDE.md) | How Reluva's code is written: names, braces, spacing, comments |
 | [DOCUMENTATION_STANDARD.md](DOCUMENTATION_STANDARD.md) | How the docs are laid out, named and written |
+| [COMMIT_STANDARD.md](COMMIT_STANDARD.md) | How commits, branches and pull requests are written |
 | [common/](common/) | Formats and components shared by engines, matching `src/common/` |
 | [engines/](engines/) | One folder per engine, matching `src/engines/<engine>/` |
 | [templates/](templates/README.md) | The templates every page starts from |

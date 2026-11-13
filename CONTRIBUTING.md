@@ -40,3 +40,14 @@ The tools that check it, and how to run them before a pull request, are in
 [docs/DEVELOPMENT.md](docs/DEVELOPMENT.md#code-style): `tools/format.py`,
 `tools/tidy.py` and `tools/split_members.py`, each with `--changed`. CI
 runs the same checks on what a pull request changes.
+
+## Commits and pull requests
+
+Write commits, branches and pull requests as
+[docs/COMMIT_STANDARD.md](docs/COMMIT_STANDARD.md) says: subjects as
+`<scope>: <what changed>`, a body that says why and where the facts came
+from, and a `Signed-off-by:` on every commit (`git commit -s`), which says
+the change was written from the sources this page allows. A pull request
+fills in its template. CI checks the commits with
+`tools/check-commits.py`; run it before pushing with
+`python3 tools/check-commits.py origin/main..HEAD`.

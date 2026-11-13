@@ -9,7 +9,7 @@ page. [README.md](README.md) is the map of what's there.
 | Where | What |
 |---|---|
 | The repository's root | `README.md` (what Reluva is, building, using it, the games table) and `CONTRIBUTING.md` (what may be used) |
-| `docs/` | The guides for working on Reluva: [DEVELOPMENT.md](DEVELOPMENT.md), [ADDING_AN_ENGINE.md](ADDING_AN_ENGINE.md), [CODING_GUIDE.md](CODING_GUIDE.md), and this page |
+| `docs/` | The guides for working on Reluva: [DEVELOPMENT.md](DEVELOPMENT.md), [ADDING_AN_ENGINE.md](ADDING_AN_ENGINE.md), [CODING_GUIDE.md](CODING_GUIDE.md), [COMMIT_STANDARD.md](COMMIT_STANDARD.md), and this page |
 | `docs/common/` | Code in `src/common/` that more than one engine can use (below) |
 | `docs/engines/<engine>/` | One engine and its games, and only what is about them (below) |
 | `docs/templates/` | The templates every page starts from |
@@ -81,7 +81,7 @@ that engine's docs, not here.
   `KNOWN_DIFFERENCES.md`, `UNCONFIRMED.md`, `TESTING.md`,
   `REVERSE_ENGINEERING.md`, `PLAN.md`, `PORTING.md`; so are the guides in
   `docs/` (`DEVELOPMENT.md`, `ADDING_AN_ENGINE.md`, `CODING_GUIDE.md`,
-  `DOCUMENTATION_STANDARD.md`) and the root's `README.md` and
+  `COMMIT_STANDARD.md`, `DOCUMENTATION_STANDARD.md`) and the root's `README.md` and
   `CONTRIBUTING.md`.
 - **Every other page is in lower case, with hyphens:** format, system,
   common and research pages, and the templates. A format page is named
