@@ -34,12 +34,14 @@ fact came from. This record shows the work was done independently.
 ## Code
 
 Write code as [docs/CODING_GUIDE.md](docs/CODING_GUIDE.md) says: its
-layout, names, and Doxygen comments on public classes, methods and
-structures (turn a file's plain comments into them when you work on it).
-The tools that check it, and how to run them before a pull request, are in
+layout, names and comments (why, not what), and Doxygen comments on
+public classes, methods and structures (turn a file's plain comments into
+them when you work on it). The tools that check it, and how to run them
+before a pull request, are in
 [docs/DEVELOPMENT.md](docs/DEVELOPMENT.md#code-style): `tools/format.py`,
-`tools/tidy.py` and `tools/split_members.py`, each with `--changed`. CI
-runs the same checks on what a pull request changes.
+`tools/tidy.py`, `tools/split_members.py` and `tools/comments.py`, each
+with `--changed`. CI runs the same checks on what a pull request changes.
+AI coding tools get the same rules, in brief, from [AGENTS.md](AGENTS.md).
 
 ## Commits and pull requests
 

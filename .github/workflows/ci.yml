@@ -264,6 +264,16 @@ jobs:
         run: |
           if ! git rev-parse -q --verify "$BASE^{commit}" > /dev/null; then BASE=origin/main; fi
           python3 tools/split_members.py --changed "$BASE" | tee members.txt
+      - name: Comments (changed lines)
+        # Warnings on the pull request's lines, not a failure: a script
+        # can be wrong about a comment.
+        if: always()
+        shell: bash
+        env:
+          BASE: ${{ github.event_name == 'pull_request' && format('origin/{0}', github.base_ref) || github.event.before }}
+        run: |
+          if ! git rev-parse -q --verify "$BASE^{commit}" > /dev/null; then BASE=origin/main; fi
+          python3 tools/comments.py --changed "$BASE" --github | tee comments.txt
       - name: Summary
         if: always()
         run: |
@@ -276,6 +286,8 @@ jobs:
             echo '```'
             echo "### Members one to a declaration (tools/split_members.py)"
             tail -n 1 members.txt 2> /dev/null || echo "not run"
+            echo "### Comments (tools/comments.py, warnings only)"
+            tail -n 1 comments.txt 2> /dev/null || echo "not run"
           } >> "$GITHUB_STEP_SUMMARY"
 
   commits:
