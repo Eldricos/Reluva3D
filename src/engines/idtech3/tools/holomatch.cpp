@@ -52,8 +52,9 @@ int cmdUiRun(int argc, char **argv) {
     int height = 480;
     int glwords = 5124;
     std::vector<std::pair<int, int>> clicks; // -click x y: in the menus' 640 x 480, one every 20 frames
+    // -vmcall instruction: a function run; -peek address: a word shown
     std::vector<int32_t> vmCalls;
-    std::vector<int32_t> peeks; // -vmcall instruction: a function run; -peek address: a word shown
+    std::vector<int32_t> peeks;
     std::vector<std::string> shownCvars;
     std::vector<std::string> latched; // -cvar name: shown at the end; -latch name: made a Latch variable first
     bool traceCalls = false;

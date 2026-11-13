@@ -129,8 +129,9 @@ void GameUi::drawPicture(Surface &s, const Texture &t, int x0, int y0, int w, in
 }
 
 void GameUi::drawPanel(Surface &s, int x, int y, int w, int h, std::string_view title) const {
+    // 12 and 12
     const int c = corner_.width;
-    const int b = border_.height; // 12 and 12
+    const int b = border_.height;
     // The inside: the side's wallpaper tile, darkened.
     for (int yy = y + b; yy < y + h - b; ++yy) {
         if (yy < 0 || yy >= s.h)

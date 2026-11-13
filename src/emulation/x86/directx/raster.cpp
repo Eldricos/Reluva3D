@@ -1418,8 +1418,9 @@ RELUVA_PIXEL_STEP uint32_t Draw::sample(const Raster &r, int stage, float u, flo
     const float gy = fy - 0.5f;
     const int ix = floorInt(gx);
     const int iy = floorInt(gy);
+    // 8-bit weights
     const int ax = int((gx - float(ix)) * 256);
-    const int ay = int((gy - float(iy)) * 256); // 8-bit weights
+    const int ay = int((gy - float(iy)) * 256);
     // Two channels at a time (0x00ff00ff masks), weights out of 256.
     auto mix = [](uint32_t p, uint32_t q, int w) {
         const uint32_t rb = ((p & 0xff00ff) * uint32_t(256 - w) + (q & 0xff00ff) * uint32_t(w)) >> 8 & 0xff00ff;

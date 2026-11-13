@@ -655,8 +655,9 @@ void MapViewer::zoomAt(int sx, int sy, bool in) {
 
 bool MapViewer::gameKey(uint32_t k, int mouseX, int mouseY) {
     const float step = std::max(distance_ * 0.12f, kTileSize * 0.25f);
+    // forward along the ground
     const float fx = -std::sin(yaw_);
-    const float fy = std::cos(yaw_); // forward along the ground
+    const float fy = std::cos(yaw_);
     auto move = [&](float ax, float ay) {
         locked_ = false;
         centreOn(targetX_ + ax * step, targetY_ + ay * step);
@@ -804,8 +805,9 @@ void MapViewer::handleEvent(const Event &ev) {
     const int n = int(maps_.size());
     // Moving: a tenth of the view distance, relative to the way the camera faces.
     const float step = distance_ * 0.1f;
+    // forward along the ground
     const float fx = -std::sin(yaw_);
-    const float fy = std::cos(yaw_); // forward along the ground
+    const float fy = std::cos(yaw_);
     switch (ev.key) {
     case 'w':
         targetX_ += fx * step, targetY_ += fy * step;

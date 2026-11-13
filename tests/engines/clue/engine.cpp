@@ -352,12 +352,13 @@ void engineTest(const std::filesystem::path &tmp) {
         sys.inputs.push_back({t + 40, mouse(EventType::MouseUp, x, y)});
         t += 1500;
     };
+    // the Esc menu's windows, over the game
     constexpr int kOverX = 205;
-    constexpr int kOverY = 11; // the Esc menu's windows, over the game
-    click(1, 1);               // New Game
-    click(2, 0);               // here
-    click(17, 5);              // Miss Scarlet
-    click(18, 0);              // a person
+    constexpr int kOverY = 11;
+    click(1, 1);  // New Game
+    click(2, 0);  // here
+    click(17, 5); // Miss Scarlet
+    click(18, 0); // a person
     click(18, kOk);
     click(17, 6); // Colonel Mustard
     click(19, 1); // a computer player

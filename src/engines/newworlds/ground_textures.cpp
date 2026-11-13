@@ -82,10 +82,11 @@ std::vector<std::string> chooseGroundTextures(const std::string &modelStem, cons
     std::vector<std::array<float, kRoles>> area(slots, std::array<float, kRoles>{});
     for (const auto &face : model.faces) {
         const auto &verts = model.parts[face.part].vertices;
+        // Newell's method
         float nx = 0;
         float ny = 0;
         float nz = 0;
-        float z = 0; // Newell's method
+        float z = 0;
         for (size_t i = 0; i < face.corners.size(); ++i) {
             const auto &a = verts[face.corners[i].vertex];
             const auto &b = verts[face.corners[(i + 1) % face.corners.size()].vertex];

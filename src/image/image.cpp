@@ -96,8 +96,9 @@ std::vector<uint8_t> encodePng(const Image &img) {
         z.insert(z.end(), raw.begin() + std::ptrdiff_t(pos), raw.begin() + std::ptrdiff_t(pos + n));
         pos += n;
     } while (pos < raw.size());
+    // Adler-32
     uint32_t a = 1;
-    uint32_t b = 0; // Adler-32
+    uint32_t b = 0;
     for (uint8_t c : raw) {
         a = (a + c) % 65521;
         b = (b + a) % 65521;

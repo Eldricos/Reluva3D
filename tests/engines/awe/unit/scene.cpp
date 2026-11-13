@@ -328,8 +328,9 @@ void testPicking() {
     gfx::Mat4 m = gfx::identity();
     m[0] = 0, m[1] = 1, m[4] = -1, m[5] = 0; // 90 degrees about z
     m[12] = 100, m[13] = 0, m[14] = 0;
+    // along the bone's x: the world's +y
     const float lo[3] = {0, -5, -5};
-    const float hi[3] = {50, 5, 5}; // along the bone's x: the world's +y
+    const float hi[3] = {50, 5, 5};
     CHECK(rayHitsBox(m, lo, hi, {100, 25, -100}, {0, 0, 1}));
     CHECK(!rayHitsBox(m, lo, hi, {100, 60, -100}, {0, 0, 1}));
     CHECK(!rayHitsBox(m, lo, hi, {100, 25, -100}, {0, 0, -1})); // behind the ray's start

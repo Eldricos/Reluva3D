@@ -108,8 +108,9 @@ bool hasSuffixIgnoreCase(std::string_view s, std::string_view suffix) {
 bool matchGlob(std::string_view s, std::string_view pattern) {
     size_t i = 0;
     size_t p = 0;
+    // the last '*' and where it was tried from
     size_t star = std::string_view::npos;
-    size_t mark = 0; // the last '*' and where it was tried from
+    size_t mark = 0;
     while (i < s.size()) {
         if (p < pattern.size() && pattern[p] == '*') {
             star = p++;

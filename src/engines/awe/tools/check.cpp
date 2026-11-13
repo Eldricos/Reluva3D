@@ -609,8 +609,9 @@ int checkOodle(const reluva::Archive &files, const std::string &filter, unsigned
     };
     std::vector<Result> results(names.size());
     std::atomic<size_t> next{0};
+    // nanoseconds, summed over the threads
     std::atomic<int64_t> nativeTime{0};
-    std::atomic<int64_t> dllTime{0}; // nanoseconds, summed over the threads
+    std::atomic<int64_t> dllTime{0};
     std::mutex mutex;
     std::string startError;
     auto worker = [&] {
