@@ -64,7 +64,7 @@ sleeping 10 + 50 × i ms, before giving up on the player.
 | `08` | 12 | the pause menu: +4 u32 an operation, +8 u32 a frame (below); +1-3 whatever the buffer held | `0x4c5b00` |
 | `09` | 16 | +1 the sender's car; +4, +8, +0xC three u32 flags for its steering, gas and brake bindings, kept in the set-up's car (+0x14-0x1C, `0x6fd550` + car × 0x6C). `0x43c000` gives 1 unless the control is bound to an input device's axis (binding kind 1) and that device's record (`0x6fc970` + n × 0x88) lacks flag 4; so 1 for keys. **Flag 4 is a gamepad** (read November 2026): the record's first u32 is set when DirectInput lists the device (`0x436980`, the EnumDevices callback): 4 for a joystick of subtype 4 (gamepad), 2 for subtype 6 (wheel), else 1; `0x435690` adds 8 when its capabilities have force feedback (DIDC_FORCEFEEDBACK, `0x435788`); `0x472b60` copies the records to `0x6fc970`. So the flag is 0 only for a joystick's or a wheel's axis: an analogue control. Of the three, the receiver reads the steering's (set-up +0x24: ramp the steering, physics.md) and the brake's (+0x2C); no reader of the gas's (+0x28, written at `0x43daef`, `0x49adc8`) was found | `0x43dab0` |
 | `0b` | 14 + 2 per AI car | a status every 32 steps (`0x4c7bd0`, [nfs-threads.md](../../engines/nfs-threads.md)). Positional updates only (below) | `0x4c7d30` |
-| `0c` | 196 | +1 a car; +4 0xC0 bytes of the car's race record (car + 0x224: finish time, laps), copied in. Sent at the race's end (`0x4c7ea0`, from `0x455423`, the results), the local car's to the host and the host's for every car, between barriers 0x22 and 0x23 (90 s). Positional updates only | `0x4c7f90` |
+| `0c` | 196 | +1 a car; +4 0xC0 bytes of the car's race record (car + 0x224: finish time, laps), copied in. Sent at the race's end (`0x4c7ea0`, from `0x455423`, the results), the local car's to the host and the host's for every car, between barriers 0x22 and 0x23 (90 s); the host passes each player's on to all, the sender too (Every race type). Positional updates only | `0x4c7f90` |
 | `0d` | 2 | +1 a car that has finished: its +0x2C4 is set to 3 (`0x4c7e50`). Sent with each 0b once the local car has finished (`0x4c7d09`). Positional updates only | `0x4c7e80` |
 | `0e` | 18 | +2 eight u16, one per slot, to `0x7a22ca`: 2 for a player the host has dropped (`0x49ecf0`); seen when a player quit (`0e` `0f`, then 0, 2, 0...) | `0x49edb0` |
 | `0f`, `11` | 28 | a car offered: +1 a 16-byte key, compared with each car's +0x31C (`0x439990`; the Corvette's is 0x13 and zeros, its serial number); +0x14 u32 the car's flags (car +0x380, below); +0x18 u32 the size of its `carp.txt`. `0f` goes from a player to the host, `11` from the host to the others (Car download, below) | `0x49b3e0`, `0x49b470` |
@@ -105,8 +105,15 @@ connects through `NPSConnectToServer` of an NPS client DLL
 each copy takes only its own car's frames (`0x4c67c6`), stores its own
 word without waiting for the host (`0x4c6154`), the other players' cars
 are driven by `0x40bf50` from their 0b statuses (`0x42c4c4`), and the
-results are made to agree with 0c. Where the front end would set Hot
-Pursuit it sets Knockout instead (`0x452b11`).
+results are made to agree with 0c. Hot Pursuit can't be chosen with
+it (Every race type, below): the network lobby greys it out and turns
+it into a Single Race (`0x440498`). The other tests in the front end,
+where the race-type menu `0x452bd0` leaves Hot Pursuit out and its
+handler `0x452ac0` sets Knockout where it would set Hot Pursuit
+(`0x452b11`), Tournament for Knockout (`0x452b3f`), never see it set:
+that menu is the One Player and Two Players screens' (`0x452f20`,
+`0x452d40`, from `0x452f80`), and both clear `0x6fd50c` just before
+building it (`0x452f34`, `0x452d57`).
 
 **The CD's `Patch/npspatchnfs3.exe` isn't that DLL** (November 2026,
 unpacked outside the repo: the MS cabinet in the file's overlay at
@@ -142,8 +149,9 @@ and `0x43f451` write 1 in memory, after checking their bytes; the file
 is unchanged. Two copies with it (and `-deterministic 50000`), the
 lobby by `c7-runs/net.sh`'s clicks, Hometown over TCP: once the race
 began (96.5 s by the host's clock, 97.3 s by the joiner's) no 06 went
-either way, only 0b: 92 from the host and 93 from the joiner to the
-run's end at about 120 s. Before it, the lobby's messages as without
+either way, only 0b: 48 from the host and 45 from the joiner to the
+run's end at about 120 s (92 and 93 are each copy's sent and received
+together). Before it, the lobby's messages as without
 the option (00-05).
 
 **Captured with positional updates.** In a copy of the game (`nfs3.exe`
@@ -162,6 +170,100 @@ each copy sent 0d with its slot after every 0b (`0d00` from the host,
 road slices, 0x77E), +8 the slice (1, 4, 7...: the grid), +0x14 the
 step the lap began less 512 (`0x4ce4c7`; -512 here), +0x98 the place (car +0x2BC), +0xA0 the state (3,
 finished).
+
+**Every race type, two copies, unpatched** (November 2026, `s7p-runs`:
+`net.sh` there is `c7-runs/net.sh`'s lobby with `-positional` in both
+copies; nothing patched or poked unless said). The human cars were
+driven to the finish by `nfs-host -drive CAR:road:90000:...:3` in each
+copy for its own car (the road follower, [nfs.md](../../engines/nfs.md),
+nfs-host): it writes the steering and pedals where the game unpacks a
+human's controls, as `-drive` at a car does, and touches nothing else.
+- **A Single Race to its finish** (`r3`: Hometown, two laps, the full
+  grid, traffic on; the copies on their own clocks, without
+  `-deterministic`, as two machines would be). The race began at 95.5
+  s and went on with only 0b: the host sent 672 and the joiner 673, two
+  a second. Each human car finished (host 431.9 s, joiner 432.4 s), and
+  from then each copy sent 0d with its own slot after every 0b, 14
+  each (`0d00`, `0d01`). Then barrier 7 (host 440.65 s), barrier 0x22,
+  the 0c records and barrier 0x23 within 0.15 s: the joiner sent one
+  0c (car 1), the host eight (car 0, the six computer cars 2-7, and
+  the joiner's car 1 passed back on to all, `0x4c7f90`), then the
+  players' 03 again from the lobby. Both copies' Race Summary showed
+  the same: the computer cars from 3:48 to 4:11, the host's car 7th
+  in 5:20.65 and the joiner's 8th in 5:21.06, each copy scrolled to its
+  own row (host 4th-7th, joiner 5th-8th). Those times are the records'
+  +4 (the step the car finished: 21,034 and 21,060) less 512, ÷ 64
+  steps a second. Each human record's +0x98 (the place) was 8 in the
+  0c, in both copies; the summary places by time, so that doesn't
+  show. The 0c of every car were the same in both copies' logs.
+  `r4` was the same race with `-deterministic 50000` in both: the same
+  messages (0b 688/689, 0d 14 each, barriers 7, 0x22, 0x23, 0c 1 and
+  8) and the same records in both copies (host 5:28.59, joiner
+  5:29.37, the computer cars from 3:54.34).
+- **Instruction clocks drift apart here.** Lockstep holds two copies
+  together (each step waits for the host's frame); positional updates
+  don't, so with `-deterministic` each copy's clock is its own count
+  of instructions and runs at its own speed through the machine's
+  load. In `r1` the joiner was 9 s behind the host by its 199 s and
+  falling further; the computer cars it placed from the host's 0b
+  (their distances, `0x4c7d30`) were those seconds ahead of where the
+  joiner's own race was, and a `-drive` at one of them ran the
+  joiner's car into a rock face. In `hp1` the host's run reached its
+  instruction limit first and closed its socket: the joiner's
+  `tcp_recv` (`0x4f6640`) peeked 0 bytes (`0x4f66b5`), `0x4f6870`
+  called the connection's lost callback (`0x4a6470`, set at
+  `0x4a6413`), which abandons the session (`0x7a22dc`), and the joiner
+  went back to Game Setup with the game's lost-connection message.
+  That is the run's end, not a fault: it came at the joiner's 164.4 s
+  in `hp3` (watched), the host's limit being 175 s by its clock. The
+  same lost callback ended `r3`'s joiner after its host's run ended. On
+  real clocks (`r3`, `ko1`) the copies stayed within 0.04 s.
+- **Hot Pursuit isn't offered.** The network lobby's set-up (the
+  `mainmult` screen's first routine `0x440470`, from the screen table
+  at `0x555e80`) checks `0x6fd50c`: when set it clears the race list's
+  second entry's flag (`0x4404a7`, the u16 at `0x555732` of the list
+  of six at `0x555730`: Single Race, Hot Pursuit, Knockout Beginner and
+  Expert, Tournament Beginner and Expert, as `0x440160` maps the list's
+  `0x5556d8` to `racetype` and `gamelevel`), and turns a Hot Pursuit
+  already chosen (`racetype` 3) into a Single Race (`0x440498`, both
+  variables 0). In `hp1` (`r2-runs/net.sh`'s clicks, which pick Hot
+  Pursuit) the host's list showed Hot Pursuit dimmed, the click on it
+  did nothing, and a Single Race was raced. `-watch 0x440498` hit at
+  each copy's lobby (`hp4`: the host twice, the joiner once). Over EA's online service
+  (`0x7a22e4` 2) the same routine enables only the entry for the
+  command line's race. No pursuit routine reads `0x6fd50c`: its 22
+  readers are the network dialog, the lobby and results screens, the
+  One and Two Players race menu above, the replay's save (`0x4bd201`: no replay is saved), the lap music
+  (`0x4130ee`), three computer-driver routines (`0x4065d2`,
+  `0x408f22`, `0x409b9b`), the race task (`0x42c4c4`) and the network
+  code. So nothing in Reluva needs to keep Hot Pursuit out.
+- **Hot Pursuit forced** (`hp4`: `-poke ms=94000:0x6fd3b8:3:4` in the
+  host, after its lobby's set-up; the joiner's car by the road
+  follower, the host's `-drive` at the joiner's car). The host sent 02
+  with Hot Pursuit, both lobbies showed it, and the race ran: two human
+  racers, no computer racers, the computer cops and traffic, the cop
+  radar and tickets 0/3 on both HUDs. Only 0b went (host 198, joiner
+  203; 14 bytes from the host too, no computer racers to report). Each
+  copy ran its own cops: in the host a cop (car 5) took the joiner's
+  car as its target at the host's 179.5 s (`0x4019a1`); in the joiner
+  cars 3, 5 and 2 took the host's car at its 139.5, 172.4 and 178.0 s.
+  Both HUDs said 2nd of 2. Nothing about a chase goes over the network
+  in this mode, so each copy would stop and ticket on its own: that is
+  why the lobby keeps it out.
+- **Knockout** (`ko1`, `ko2`: the host's race list's Knockout
+  (Beginner), clicks 70000:240:77 and 73000:215:125; real clocks).
+  The lobby set Class A and the Ferrari 550 for both, Hometown, two
+  laps. The race ran as the Single Race did: only 0b (host 579,
+  joiner 580 by the end of `ko1` at about 397 s, the race unfinished).
+  In `ko2`, run on to 560 s, the round ended as the Single Race:
+  0b 659 each way, 0d from each car's finish (host 14, joiner 15),
+  barriers 7, 0x22 and 0x23 and the 0c records (joiner 1, host 8) at
+  436.9 s. Both copies' Knockout Race Summary agreed: the computer
+  cars from 3:14.94 to 3:24.59, the joiner's car 7th in 5:13.90 and the
+  host's 8th in 5:14.09, its row in red, knocked out. Tournament
+  wasn't run; it takes the same path (the lobby's list, the results
+  through 0c in `0x455410`, which then calls `0x455070` for a
+  Tournament and `0x455140` for a Knockout).
 
 **The race settings** (02). The host builds the message from the
 front end's variables (`0x49aa80`) and sends it whenever they differ
@@ -926,11 +1028,14 @@ was the lower.
   and +0xF0 is `copassist`.)
 - Settled (November 2026): an input device's flag 4 is a gamepad
   (Messages, 09). No run used a joystick over the network.
-- 0b, 0c and 0d were captured only from a patched copy: the unpatched
+- 0b, 0c and 0d were first captured from a patched copy: the unpatched
   game sends them only when launched by EA's online service, whose NPS
   DLL isn't on the CD. The patched copy is a byte patch of these
-  captures (Positional updates), not EA's (Reluva's
-  `positionalupdates=on` now chooses the mode in memory, `c7-pos1`): the CD's
+  captures (Positional updates), not EA's. Settled since (November
+  2026, Every race type): Reluva's `positionalupdates=on` chooses the
+  mode in memory, and two unpatched copies sent all three in a race run
+  to its finish (`r3`, `r4`). Still open: how the mode holds up over a
+  slow or lossy link, which is what it was for. The CD's
   `Patch/npspatchnfs3.exe`, checked November 2026, is the installer
   of EA's auto-updater and holds no game code, no patch of `nfs3.exe`
   and no NPS client DLL (Positional updates). The

@@ -90,6 +90,7 @@ const char* const kUsageLines =
     "                       [-count ADDR] (how many times the instruction at ADDR ran; repeatable)\n"
     "                       [-drive CAR:TARGET:FROMMS[:TOMS[:GAP]]] (CAR, a human's, steered at TARGET from\n"
     "                       the controls; full gas, or GAP metres behind at its speed) [-drivesign -1]\n"
+    "                       (TARGET road: along the virtual road, GAP metres right of it, slowed for bends)\n"
     "                       [-hotspots from to] (instructions counted by where they run, 16-byte blocks)\n"
     "                       [-gpulog] (THRASH recorded as for the GPU; each frame's list summed up)\n"
     "                       [-gpudump list dir] (that list in full: list.csv and its textures)\n"
@@ -1050,10 +1051,16 @@ int cmdNfsHost(int argc, char** argv) {
     // -drive: a human's car steered at another car, its controls written as
     // the game unpacks them (0x4314c9, after the steering and pedals): a
     // steady pair of hands for scripted chases.
+    // TARGET `road`: steered along the track's virtual road instead (its
+    // points at 0x5dd948, 36 bytes, the count at 0x5dd940; col.md), at a
+    // point a little ahead of the car's slice (+0x1C), GAP metres to the
+    // point's right, slowed for the bends ahead: a driver that needs no other
+    // car, for races run to their finish.
     struct Driver {
         uint32_t car = 0, target = 0;
+        bool road = false;
         uint64_t from = 0, to = ~0ull;
-        float gap = 0; // 0: full gas; else metres behind the target, at its speed
+        float gap = 0; // 0: full gas; else metres behind the target, at its speed (road: metres right)
         uint64_t logged = 0;
     };
     std::vector<Driver> drivers;
@@ -1080,7 +1087,10 @@ int cmdNfsHost(int argc, char** argv) {
             Driver d;
             char* at = argv[++a];
             d.car = uint32_t(std::strtoul(at, &at, 0));
-            if (*at == ':')
+            if (*at == ':' && std::strncmp(at + 1, "road", 4) == 0) {
+                d.road = true;
+                at += 5;
+            } else if (*at == ':')
                 d.target = uint32_t(std::strtoul(at + 1, &at, 0));
             if (*at == ':')
                 d.from = std::strtoull(at + 1, &at, 10);
@@ -1088,7 +1098,7 @@ int cmdNfsHost(int argc, char** argv) {
                 d.to = std::strtoull(at + 1, &at, 10);
             if (*at == ':')
                 d.gap = std::strtof(at + 1, &at);
-            if (!d.car || !d.target)
+            if (!d.car || (!d.target && !d.road))
                 return fail(Error::fail("-drive: CAR:TARGET:FROMMS[:TOMS[:GAP]]"));
             drivers.push_back(d);
         } else if (arg == "-drivesign" && a + 1 < argc)
@@ -1409,7 +1419,27 @@ int cmdNfsHost(int argc, char** argv) {
                     if (c.reg[reluva::x86::Cpu::ECX] != d.car || now < d.from || now >= d.to)
                         continue;
                     auto f = [&](uint32_t a) { return std::bit_cast<float>(c.read32(a)); };
-                    const float dx = f(d.target + 0x98) - f(d.car + 0x98), dz = f(d.target + 0xa0) - f(d.car + 0xa0);
+                    auto s8 = [&](uint32_t a) { return float(int8_t(c.read8(a))); };
+                    float tx = 0, tz = 0;
+                    const uint32_t roadPoints = c.read32(0x5dd948), n = c.read32(0x5dd940);
+                    const uint32_t slice = c.read32(d.car + 0x1c);
+                    float fwd0[3] = {0, 0, 0};
+                    if (d.road) {
+                        if (!roadPoints || !n || n > 100000)
+                            continue;
+                        const float vx = f(d.car + 0xa4), vz = f(d.car + 0xac);
+                        // About 18 m and 0.6 s ahead.
+                        const uint32_t k = uint32_t(std::clamp(3.0f + std::sqrt(vx * vx + vz * vz) * 0.1f, 3.0f, 12.0f));
+                        const uint32_t p = roadPoints + 36 * ((slice + k) % n), p0 = roadPoints + 36 * (slice % n);
+                        for (int i = 0; i < 3; ++i)
+                            fwd0[i] = s8(p0 + 20 + i);
+                        tx = float(int32_t(c.read32(p))) / 65536 + d.gap * s8(p + 24) / 128;
+                        tz = float(int32_t(c.read32(p + 8))) / 65536 + d.gap * s8(p + 26) / 128;
+                    } else {
+                        tx = f(d.target + 0x98);
+                        tz = f(d.target + 0xa0);
+                    }
+                    const float dx = tx - f(d.car + 0x98), dz = tz - f(d.car + 0xa0);
                     const float across = dx * f(d.car + 0x190) + dz * f(d.car + 0x198);
                     const float along = dx * f(d.car + 0x1a8) + dz * f(d.car + 0x1b0);
                     const float angle = std::atan2(across, along), dist = std::sqrt(dx * dx + dz * dz);
@@ -1417,10 +1447,23 @@ int cmdNfsHost(int argc, char** argv) {
                         const float x = f(car + 0xa4), y = f(car + 0xa8), z = f(car + 0xac);
                         return std::sqrt(x * x + y * y + z * z);
                     };
-                    const float v = speed(d.car), vt = speed(d.target);
+                    const float v = speed(d.car), vt = d.road ? 0.0f : speed(d.target);
                     const int steer = int(std::clamp(driveSign * angle / 0.35f * 127.0f, -128.0f, 127.0f));
                     int gas = 255, brake = 0;
-                    if (d.gap > 0) {
+                    if (d.road) {
+                        // The car's slice's forward against those up to about
+                        // 2.5 s on (6 m a slice): the sharper the bend ahead, the slower.
+                        float bend = 0;
+                        const uint32_t ahead = uint32_t(std::clamp(4.0f + v * 0.42f, 4.0f, 25.0f));
+                        for (uint32_t j = 1; j <= ahead && n; ++j) {
+                            const uint32_t q = roadPoints + 36 * ((slice + j) % n);
+                            const float dot = fwd0[0] * s8(q + 20) + fwd0[1] * s8(q + 21) + fwd0[2] * s8(q + 22);
+                            bend = std::max(bend, std::acos(std::clamp(dot / (128.0f * 128.0f), -1.0f, 1.0f)));
+                        }
+                        const float wanted = std::clamp(60.0f - 45.0f * (bend - 0.2f), 16.0f, 60.0f);
+                        gas = v < wanted ? 255 : 0;
+                        brake = v > wanted + 3 ? 255 : 0;
+                    } else if (d.gap > 0) {
                         const float wanted = vt + 0.5f * (dist - d.gap);
                         gas = v < wanted ? 255 : 0;
                         brake = v > wanted + 2 ? 255 : 0;
@@ -1433,8 +1476,8 @@ int cmdNfsHost(int argc, char** argv) {
                     if (now >= d.logged + 500) {
                         d.logged = now;
                         std::printf("  drive %08x at %08x ms %llu: %.1f m, %.2f rad, %.1f against %.1f m/s, steer %d gas %d"
-                                    " brake %d\n",
-                                    d.car, d.target, (unsigned long long)now, dist, angle, v, vt, steer, gas, brake);
+                                    " brake %d slice %u\n",
+                                    d.car, d.target, (unsigned long long)now, dist, angle, v, vt, steer, gas, brake, slice);
                     }
                 }
             for (auto& [address, n] : counted)
