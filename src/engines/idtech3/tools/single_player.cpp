@@ -4,11 +4,11 @@
 // reluva-tool's id Tech 3 commands running Elite Force's single player: its game
 // code and menus (native DLLs, in the x86 interpreter) and its scripts.
 
-#include "tools/tool.h"
+#include "devtools/tool.h"
 #include "engines/idtech3/tools/game_folder.h"
 
 #include "common/fs.h"
-#include "common/x86/cpu.h"
+#include "emulation/x86/cpu.h"
 #include "engines/idtech3/bsp.h"
 #include "engines/idtech3/cvars.h"
 #include "engines/idtech3/eliteforce/sp_game_host.h"

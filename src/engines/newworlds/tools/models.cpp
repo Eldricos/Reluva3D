@@ -3,9 +3,9 @@
 
 // reluva-tool's New Worlds commands for its models (.geo, .mdl).
 
-#include "tools/tool.h"
+#include "devtools/tool.h"
 
-#include "common/font.h"
+#include "graphics/font.h"
 #include "engines/newworlds/cat_archive.h"
 #include "engines/newworlds/geo.h"
 #include "engines/newworlds/mdl.h"

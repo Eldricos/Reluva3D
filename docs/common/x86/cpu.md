@@ -2,7 +2,7 @@
 
 ## What it is
 
-`src/common/x86/cpu.{h,cpp}`, `fpu.cpp` and `cpu_cache.cpp`: the
+`src/emulation/x86/cpu.{h,cpp}`, `fpu.cpp` and `cpu_cache.cpp`: the
 emulated processor, its x87 unit, the native functions programs call into,
 and the cache of decoded instructions that runs them quickly. Native code
 for the cache's blocks is [jit.md](jit.md).
@@ -32,7 +32,7 @@ for the cache's blocks is [jit.md](jit.md).
 
 ### The decoded-instruction cache
 
-`src/common/x86/cpu_cache.cpp`. Instructions run in blocks: from an
+`src/emulation/x86/cpu_cache.cpp`. Instructions run in blocks: from an
 address, the instructions up to the first that may go elsewhere (a jump,
 call or return, or one run from its bytes that might), at most 16 of
 them. Blocks are kept in a direct-mapped table of 32768, by their first

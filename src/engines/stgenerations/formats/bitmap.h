@@ -3,7 +3,7 @@
 
 #pragma once
 
-#include "common/palette.h"
+#include "graphics/palette.h"
 #include "common/stream.h"
 #include "engines/stgenerations/canvas.h"
 
@@ -12,7 +12,7 @@
 namespace reluva::stgenerations {
 
 // One of the game's BMPs, as the game draws it: an 8-bit one's palette
-// indices and palette, or a true colour one as 0xAARRGGBB (common/bmp.h
+// indices and palette, or a true colour one as 0xAARRGGBB (image/bmp.h
 // reads them).
 class BitmapDecoder {
 public:

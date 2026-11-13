@@ -6,9 +6,9 @@
 #include <map>
 #include <memory>
 
-#include "common/palette.h"
+#include "graphics/palette.h"
 #include "engines/stgenerations/canvas.h"
-#include "common/draw.h"
+#include "graphics/draw.h"
 #include "engines/stgenerations/formats/framedimage.h"
 #include "engines/stgenerations/formats/resources.h"
 

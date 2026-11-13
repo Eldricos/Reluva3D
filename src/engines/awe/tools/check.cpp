@@ -9,9 +9,9 @@
 #include "engines/awe/tools/tools.h"
 
 #include "common/archive.h"
-#include "common/audio/decode.h"
+#include "audio/decode.h"
 #include "common/fs.h"
-#include "common/video/bink.h"
+#include "video/bink.h"
 #include "engines/awe/ac2.h"
 #include "engines/awe/bink_texture.h"
 #include "engines/awe/camera.h"

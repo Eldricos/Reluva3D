@@ -3,8 +3,8 @@
 
 #include "engines/awe/viewers.h"
 
-#include "common/audio/decode.h"
-#include "common/font.h"
+#include "audio/decode.h"
+#include "graphics/font.h"
 #include "common/parallel.h"
 #include "common/fs.h"
 #include "common/text.h"

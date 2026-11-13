@@ -11,7 +11,7 @@
 
 #include "engines/stharbinger/game/game.h"
 
-#include "common/audio/stream.h"
+#include "audio/stream.h"
 #include "common/log.h"
 #include "common/text.h"
 #include "engines/stharbinger/formats/audio.h"

@@ -38,7 +38,7 @@ Notes for developers. Building and running are covered in the
   - `reluva-tool help [engine] <command>` shows one.
 - **Where the commands are.** The ones for any game (bytes, Windows DLLs,
   detecting and importing games, AVI movies and CD images' audio tracks)
-  are in `src/tools/`. Each engine's are in
+  are in `src/devtools/`. Each engine's are in
   its `tools/` folder, by topic (`src/engines/idtech3/tools/qvm.cpp`), and
   are built only with the engine.
 - **Adding one.** Write it as `int cmdName(int argc, char** argv)` (its
@@ -54,7 +54,7 @@ Notes for developers. Building and running are covered in the
 
   A new file goes in the engine's `reluva_add_engine_tools` list, in its
   `CMakeLists.txt`. Helpers every command can use (`readFile`, `rd32`,
-  `hexdump`) are in `src/tools/tool.h`.
+  `hexdump`) are in `src/devtools/tool.h`.
 
 ## Tests
 
@@ -274,9 +274,9 @@ renderer and compares them with the reference frames there:
   available. Setting `SDL_RENDER_DRIVER` to another renderer (e.g.
   `opengl`) forces that fallback.
 - **Shaders.** They are compiled into
-  `src/backends/sdl3/shaders/compiled.h`, which is committed. Only after
+  `src/backends/graphics/sdl3/shaders/compiled.h`, which is committed. Only after
   changing `draw.vert` or `draw.frag`, run
-  `src/backends/sdl3/shaders/build.sh`. It needs `glslang-tools` and
+  `src/backends/graphics/sdl3/shaders/build.sh`. It needs `glslang-tools` and
   `spirv-cross`.
 
 ## Cursors

@@ -7,8 +7,8 @@
 #include "engines/idtech3/pages/sp_play_viewer.h"
 #include "engines/idtech3/shader.h"
 
-#include "common/font.h"
-#include "common/image.h"
+#include "graphics/font.h"
+#include "image/image.h"
 #include "common/fs.h"
 
 #include <algorithm>

@@ -3,7 +3,7 @@
 
 #include "common/settings.h"
 
-#include "common/audio/mixer.h"
+#include "audio/mixer.h"
 
 #include <algorithm>
 #include <cstdlib>

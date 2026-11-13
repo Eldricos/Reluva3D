@@ -14,7 +14,7 @@
 #include "engines/idtech3/sound_system.h"
 #include "engines/idtech3/sounds.h"
 
-#include "common/video/bink.h"
+#include "video/bink.h"
 
 #include <array>
 #include <chrono>

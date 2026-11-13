@@ -5,7 +5,7 @@
 
 #include "engines/idtech3/pages/page.h"
 
-#include "common/image.h"
+#include "image/image.h"
 
 #include <string>
 #include <vector>

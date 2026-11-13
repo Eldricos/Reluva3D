@@ -3,10 +3,10 @@
 
 // reluva-tool's id Tech 3 command for videos (Bink).
 
-#include "tools/tool.h"
+#include "devtools/tool.h"
 #include "engines/idtech3/tools/game_folder.h"
 
-#include "common/video/bink.h"
+#include "video/bink.h"
 
 #include <chrono>
 #include <cstdint>

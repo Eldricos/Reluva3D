@@ -24,7 +24,7 @@
 #include "engines/awe/savegame.h"
 #include "engines/awe/shadows.h"
 #include "engines/awe/lighting.h"
-#include "common/image.h"
+#include "image/image.h"
 #include "engines/awe/actor.h"
 #include "engines/awe/animator.h"
 #include "engines/awe/sprite.h"

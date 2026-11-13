@@ -10,7 +10,7 @@
 // rules.h's; where the pictures go, recordings of the original's
 // (docs/engines/clue/systems/screen.md).
 
-#include "common/audio/mixer.h"
+#include "audio/mixer.h"
 #include "common/events.h"
 #include "common/system.h"
 #include "engines/clue/ai.h"

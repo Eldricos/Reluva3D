@@ -3,7 +3,7 @@
 ## What it is
 
 RAD Game Tools' video format, from after Smacker. Reluva decodes it in
-`src/common/video/bink.cpp` (`bink::Movie`).
+`src/video/bink.cpp` (`bink::Movie`).
 
 ## What Reluva supports
 
@@ -155,7 +155,7 @@ block starts on a 32-bit boundary.
 - **Fixed tables:** the format's 16 code trees, the coefficient scan order,
   the 16 run patterns, the quantisers and the audio band edges are
   constants every decoder must use. They are in
-  `src/common/video/bink_tables.cpp`.
+  `src/video/bink_tables.cpp`.
 - **How it was checked:** `reluva-tool idtech3 bink-decode <file> -yuv out.yuv -pcm
   out.pcm` writes what Reluva decodes, for comparing with
   `ffmpeg -i <file> -f rawvideo -pix_fmt yuv420p` and `-f s16le`.

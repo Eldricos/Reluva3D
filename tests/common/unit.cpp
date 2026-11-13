@@ -3,43 +3,43 @@
 
 // Small self-contained tests for common/. No framework, to keep deps at zero.
 
-#include "common/audio/decode.h"
-#include "common/audio/mixer.h"
-#include "common/audio/mp3.h"
-#include "common/audio/stream.h"
-#include "common/audio/wav.h"
+#include "audio/decode.h"
+#include "audio/mixer.h"
+#include "audio/mp3.h"
+#include "audio/stream.h"
+#include "audio/wav.h"
 #include "tests/common/data/smacker_videos.h"
 #include "tests/common/data/tone440_mp3.h"
 #include "tests/common/data/x86_testdll.h"
 #include "common/archive.h"
-#include "common/bmp.h"
+#include "image/bmp.h"
 #include "common/bytes.h"
 #include "common/config.h"
 #include "common/cue.h"
-#include "common/cursor.h"
+#include "graphics/cursor.h"
 #include "common/dcl.h"
 #include "common/detection.h"
-#include "common/draw.h"
-#include "common/font.h"
+#include "graphics/draw.h"
+#include "graphics/font.h"
 #include "common/fs.h"
 #include "common/headless_system.h"
-#include "common/gfx3d.h"
-#include "common/image.h"
+#include "graphics/gfx3d.h"
+#include "image/image.h"
 #include "common/md4.h"
 #include "common/md5.h"
 #include "common/net.h"
-#include "common/palette.h"
+#include "graphics/palette.h"
 #include "common/serializer.h"
 #include "common/settings.h"
 #include "common/stream.h"
 #include "common/text.h"
-#include "common/video/avi.h"
-#include "common/video/bink.h"
-#include "common/video/cinepak.h"
-#include "common/video/smacker.h"
-#include "common/x86/cpu.h"
-#include "common/x86/disasm.h"
-#include "common/x86/win32.h"
+#include "video/avi.h"
+#include "video/bink.h"
+#include "video/cinepak.h"
+#include "video/smacker.h"
+#include "emulation/x86/cpu.h"
+#include "emulation/x86/disasm.h"
+#include "emulation/x86/win32.h"
 #include "common/zip.h"
 #include "common/inflate.h"
 #include "common/wise.h"
@@ -1013,7 +1013,7 @@ static const reluva::test::Suite hashesSuite("common.unit.hashes", {
     {"md4", [](const std::filesystem::path&) { testMd4(); }},
 });
 
-// BMPs keeping their palette indices (common/bmp.h): 8-bit stored bottom
+// BMPs keeping their palette indices (image/bmp.h): 8-bit stored bottom
 // up, RLE8, 4-bit, 24-bit, and a DIB without the file header.
 static void testBmp() {
     using namespace reluva;
@@ -1207,7 +1207,7 @@ static const reluva::test::Suite audioSuite("common.unit.audio", {
     {"mixer pause", [](const std::filesystem::path&) { testMixerPause(); }},
 });
 
-// Cursors (common/cursor.h): made from palette indices or a surface,
+// Cursors (graphics/cursor.h): made from palette indices or a surface,
 // scaled with their hotspot, and drawn by a backend that has to.
 static void testCursors() {
     using namespace reluva;

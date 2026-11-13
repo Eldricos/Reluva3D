@@ -3,11 +3,11 @@
 
 #pragma once
 
-#include "common/audio/mixer.h"
-#include "common/cursor.h"
-#include "common/draw.h"
+#include "audio/mixer.h"
+#include "graphics/cursor.h"
+#include "graphics/draw.h"
 #include "common/events.h"
-#include "common/palette.h"
+#include "graphics/palette.h"
 #include "common/stream.h"
 #include "common/system.h"
 #include "engines/stgenerations/canvas.h"

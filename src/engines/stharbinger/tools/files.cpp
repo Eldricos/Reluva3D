@@ -15,7 +15,7 @@
 #include "engines/stharbinger/game/game.h"
 #include "engines/stharbinger/harbinger.h"
 #include "engines/stharbinger/platform.h"
-#include "tools/tool.h"
+#include "devtools/tool.h"
 
 #include <cstdio>
 #include <cstdlib>

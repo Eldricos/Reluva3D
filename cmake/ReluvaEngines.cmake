@@ -22,7 +22,7 @@ function(reluva_add_engine name)
     endif()
     set(target reluva_engine_${name})
     add_library(${target} STATIC ${E_SOURCES})
-    target_link_libraries(${target} PUBLIC reluva_common PRIVATE reluva_warnings)
+    target_link_libraries(${target} PUBLIC reluva_shared PRIVATE reluva_warnings)
     set_property(GLOBAL APPEND PROPERTY RELUVA_ENGINE_TARGETS ${target})
     set_property(GLOBAL APPEND PROPERTY RELUVA_ENGINE_ACCESSORS ${E_ACCESSOR})
 endfunction()
@@ -61,12 +61,8 @@ function(reluva_finish_tests)
     add_executable(reluva-tests
         ${PROJECT_SOURCE_DIR}/tests/support/main.cpp
         ${PROJECT_SOURCE_DIR}/tests/support/record.cpp
-        ${PROJECT_SOURCE_DIR}/src/backends/sockets/socket_net.cpp
         ${sources})
-    target_link_libraries(reluva-tests PRIVATE reluva_engines reluva_warnings)
-    if(WIN32)
-        target_link_libraries(reluva-tests PRIVATE ws2_32 iphlpapi)
-    endif()
+    target_link_libraries(reluva-tests PRIVATE reluva_engines reluva_backend_sockets reluva_warnings)
     # Test files include their data and helpers from the repository's top
     # ("tests/engines/idtech3/fixtures.h") and find committed records through
     # RELUVA_SOURCE_DIR.
@@ -83,7 +79,7 @@ endfunction()
 # reluva_add_engine_tools(<engine> [WITH_SDL] SOURCES <file>...)
 #   An engine's reluva-tool commands (src/engines/<engine>/tools/), built into
 #   reluva-tool only when the engine is. Each file registers its commands
-#   (src/tools/tool.h). WITH_SDL: they open a window of their own, through
+#   (src/devtools/tool.h). WITH_SDL: they open a window of their own, through
 #   the SDL backend (src/backends/sdl3/), which reluva-tool is then built
 #   with. reluva_finish_tool makes the program.
 function(reluva_add_engine_tools name)
@@ -100,16 +96,10 @@ endfunction()
 function(reluva_finish_tool)
     get_property(sources GLOBAL PROPERTY RELUVA_TOOL_SOURCES)
     get_property(with_sdl GLOBAL PROPERTY RELUVA_TOOL_WITH_SDL)
-    add_executable(reluva-tool ${ARGN} ${PROJECT_SOURCE_DIR}/src/backends/sockets/socket_net.cpp ${sources})
-    target_link_libraries(reluva-tool PRIVATE reluva_engines reluva_warnings)
+    add_executable(reluva-tool ${ARGN} ${sources})
+    target_link_libraries(reluva-tool PRIVATE reluva_engines reluva_backend_sockets reluva_warnings)
     if(with_sdl)
-        target_sources(reluva-tool PRIVATE
-            ${PROJECT_SOURCE_DIR}/src/backends/sdl3/sdl_system.cpp
-            ${PROJECT_SOURCE_DIR}/src/backends/sdl3/sdl_gpu.cpp)
-        target_link_libraries(reluva-tool PRIVATE SDL3::SDL3)
-    endif()
-    if(WIN32)
-        target_link_libraries(reluva-tool PRIVATE ws2_32 iphlpapi)
+        target_link_libraries(reluva-tool PRIVATE reluva_backend_sdl3)
     endif()
 endfunction()
 
@@ -250,5 +240,5 @@ function(reluva_configure_engines)
     get_property(targets GLOBAL PROPERTY RELUVA_ENGINE_TARGETS)
     add_library(reluva_engines STATIC "${PROJECT_SOURCE_DIR}/src/engines/registry.cpp")
     target_include_directories(reluva_engines PRIVATE "${PROJECT_BINARY_DIR}/generated")
-    target_link_libraries(reluva_engines PUBLIC reluva_common ${targets} PRIVATE reluva_warnings)
+    target_link_libraries(reluva_engines PUBLIC reluva_shared ${targets} PRIVATE reluva_warnings)
 endfunction()

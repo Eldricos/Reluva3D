@@ -4,7 +4,7 @@
 
 Cinepak (`cvid`) was the common video codec of mid-1990s CD-ROM games, in
 Video for Windows (`.avi`) and QuickTime files. Reluva decodes it in
-`src/common/video/cinepak.cpp` (`reluva::cinepak::Decoder`); the AVI files
+`src/video/cinepak.cpp` (`reluva::cinepak::Decoder`); the AVI files
 around it are read by [avi.md](avi.md)'s reader.
 
 ## What Reluva supports

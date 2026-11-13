@@ -23,7 +23,7 @@
 #include "common/text.h"
 #include "engines/stharbinger/detection.h"
 #include "engines/stharbinger/formats/resources.h"
-#include "tools/tool.h"
+#include "devtools/tool.h"
 
 #include <algorithm>
 #include <cstdio>

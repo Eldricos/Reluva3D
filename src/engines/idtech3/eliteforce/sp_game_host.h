@@ -5,8 +5,8 @@
 
 #include "common/archive.h"
 #include "common/types.h"
-#include "common/x86/cpu.h"
-#include "common/x86/win32.h"
+#include "emulation/x86/cpu.h"
+#include "emulation/x86/win32.h"
 #include "engines/idtech3/raven/ambient_sets.h"
 #include "engines/idtech3/bsp.h"
 #include "engines/idtech3/collision.h"

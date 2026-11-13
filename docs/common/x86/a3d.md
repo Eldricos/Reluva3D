@@ -2,7 +2,7 @@
 
 ## What it is
 
-`src/common/x86/a3d.cpp`: Aureal's 3D sound API, for programs run in the
+`src/emulation/x86/a3d.cpp`: Aureal's 3D sound API, for programs run in the
 [x86 emulator](README.md), played through Reluva's mixer. No current
 machine has an A3D card.
 

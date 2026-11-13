@@ -3,7 +3,7 @@
 
 #include "engines/stgenerations/audio.h"
 
-#include "common/audio/wav.h"
+#include "audio/wav.h"
 #include "common/bytes.h"
 
 #include <algorithm>

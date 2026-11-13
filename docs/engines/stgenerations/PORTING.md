@@ -57,13 +57,13 @@ style), so the port's own changes stayed. They add:
 |---|---|
 | `engines/stg/stg.cpp`, `frontend.cpp` (`STGEngine`) | `game/generations.cpp`, `game/frontend.cpp` (`Generations`, no longer an `Engine` subclass: `stgenerations.cpp` runs it) |
 | `engines/stg/detection.cpp`, `detection_tables.h` | `stgenerations.cpp` (`kVariants`, the MetaEngine), `detection.cpp` (the fallback by executable, the CDs, importing) |
-| `engines/stg/movie.cpp` (Cinepak, AVI) | `src/common/video/cinepak.cpp`, `avi.cpp`, for any engine |
+| `engines/stg/movie.cpp` (Cinepak, AVI) | `src/video/cinepak.cpp`, `avi.cpp`, for any engine |
 | `engines/stg/resources.cpp`, `font`, `overlay`, `sprite`, `rgbimage`, `framedimage`, `level`, `script`, `opcodes`, `disasm`, `combatdata`, `ini`, `locations` | `formats/` |
 | `engines/stg/` the rest (campaign, bridge, mission, vm, actors, movers, projectiles, walker, hud, hudscreen, helditem, combat, combatrender, render3d, screen, dissolve, sound, optionsmenu) | `game/` |
 | `common/graphics/surface`, `pixelformat` | `canvas.cpp` (`Canvas`: the game's 8-bit and 0xAARRGGBB surfaces, as before) |
-| `common/graphics/palette` | `src/common/palette.h` (`Palette`; its nearest colour is the same) |
-| `common/image/bmp` | `src/common/bmp.h`, with `formats/bitmap.cpp` making the game's `Canvas` of it |
-| `common/audio/` (mixer, streams, WAV) | Reluva's mixer (`src/common/audio/`), with `audio.cpp` giving the game the calls it was written with |
+| `common/graphics/palette` | `src/graphics/palette.h` (`Palette`; its nearest colour is the same) |
+| `common/image/bmp` | `src/image/bmp.h`, with `formats/bitmap.cpp` making the game's `Canvas` of it |
+| `common/audio/` (mixer, streams, WAV) | Reluva's mixer (`src/audio/`), with `audio.cpp` giving the game the calls it was written with |
 | `common/serializer.h` | `src/common/serializer.h`, the same byte layout |
 | `common/random` | `game/random.cpp`, the same numbers |
 | `common/system.h` (`OSystem`), `events` | `platform.cpp` (`Platform`, over Reluva's `System`) |
@@ -81,11 +81,11 @@ Added to `src/common/` for this engine, for any engine to use, none of it
 changing what was there (each engine's tests and records are the same):
 
 - **The game's own mouse pointer:** `System::setMouseCursor` and
-  `common/cursor.h`. The SDL backend shows it as the system's pointer,
+  `graphics/cursor.h`. The SDL backend shows it as the system's pointer,
   scaled with the picture (or draws it itself where it can't).
-- **Videos:** Cinepak and AVI (`common/video/cinepak.h`, `avi.h`).
+- **Videos:** Cinepak and AVI (`video/cinepak.h`, `avi.h`).
 - **Pictures:** BMPs as stored, palette indices with their palette
-  (`common/bmp.h`).
+  (`image/bmp.h`).
 - **Saved games:** `Serializer` (`common/serializer.h`).
 - **Input:** the keypad's + - * / keys, and the window's focus gained and
   lost (`common/events.h`).

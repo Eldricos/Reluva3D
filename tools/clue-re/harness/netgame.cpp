@@ -14,8 +14,8 @@
 #include <filesystem>
 #include <optional>
 #include <string_view>
-#include "common/audio/mixer.h"
-#include "common/video/avi.h"
+#include "audio/mixer.h"
+#include "video/avi.h"
 #include "engines/clue/game_data.h"
 #include "engines/clue/ui.h"
 #define private public

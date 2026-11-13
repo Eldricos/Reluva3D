@@ -7,7 +7,7 @@
 #include <vector>
 
 #include "engines/stgenerations/canvas.h"
-#include "common/draw.h"
+#include "graphics/draw.h"
 #include "common/stream.h"
 #include "common/text.h"
 

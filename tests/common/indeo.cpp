@@ -1,14 +1,14 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 // Copyright (C) 2026 The Reluva contributors
 
-// Indeo 5 video (common/video/indeo5.h), and an Indeo AVI read through
+// Indeo 5 video (video/indeo5.h), and an Indeo AVI read through
 // avi::Decoder as the movie player does.
 //
 //   reluva-tests common.unit.indeo
 
 #include "common/stream.h"
-#include "common/video/avi.h"
-#include "common/video/indeo5.h"
+#include "video/avi.h"
+#include "video/indeo5.h"
 #include "tests/support/test.h"
 
 #include <cstdint>

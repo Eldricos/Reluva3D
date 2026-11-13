@@ -14,7 +14,7 @@
 #include "engines/stgenerations/platform.h"
 #include "engines/stgenerations/game/dissolve.h"
 #include "engines/stgenerations/formats/locations.h"
-#include "common/video/avi.h"
+#include "video/avi.h"
 
 namespace reluva::stgenerations {
 

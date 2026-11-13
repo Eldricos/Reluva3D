@@ -9,8 +9,8 @@
 //   reluva-tests common.unit.jit
 
 #include "common/types.h"
-#include "common/x86/cpu.h"
-#include "common/x86/win32.h"
+#include "emulation/x86/cpu.h"
+#include "emulation/x86/win32.h"
 #include "tests/common/data/x86_testdll.h"
 #include "tests/support/test.h"
 

@@ -1,6 +1,6 @@
 # Videos (.SMK)
 
-> **Status:** decoded · **Code:** `src/engines/stharbinger/game/game_video.cpp`, `src/common/video/smacker.cpp` · **Checked on:** the intro, cut-scene and action-sequence videos played in STDS9H (October 2026); the decoder against FFmpeg on made-up files (the unit tests) · **Confidence:** confirmed unless marked
+> **Status:** decoded · **Code:** `src/engines/stharbinger/game/game_video.cpp`, `src/video/smacker.cpp` · **Checked on:** the intro, cut-scene and action-sequence videos played in STDS9H (October 2026); the decoder against FFmpeg on made-up files (the unit tests) · **Confidence:** confirmed unless marked
 
 ## Overview
 

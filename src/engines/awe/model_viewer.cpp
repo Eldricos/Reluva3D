@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 // Copyright (C) 2026 The Reluva contributors
 
-#include "common/font.h"
+#include "graphics/font.h"
 #include "common/fs.h"
 #include "engines/awe/model_draw.h"
 #include "engines/awe/viewers.h"

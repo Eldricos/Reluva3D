@@ -3,10 +3,10 @@
 
 #pragma once
 
-#include "common/audio/mixer.h"
+#include "audio/mixer.h"
 #include "common/types.h"
-#include "common/image.h"
-#include "common/video/bink.h"
+#include "image/image.h"
+#include "video/bink.h"
 
 #include <cstdint>
 #include <memory>

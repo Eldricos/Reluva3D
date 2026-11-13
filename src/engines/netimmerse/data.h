@@ -3,7 +3,7 @@
 
 #pragma once
 
-#include "common/audio/sound.h"
+#include "audio/sound.h"
 #include "common/types.h"
 
 #include <cstdint>

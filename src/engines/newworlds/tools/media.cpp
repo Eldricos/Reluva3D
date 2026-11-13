@@ -3,10 +3,10 @@
 
 // reluva-tool's New Worlds commands for its sounds and fonts.
 
-#include "tools/tool.h"
+#include "devtools/tool.h"
 
-#include "common/audio/decode.h"
-#include "common/audio/wav.h"
+#include "audio/decode.h"
+#include "audio/wav.h"
 #include "engines/newworlds/cat_archive.h"
 #include "engines/newworlds/fif.h"
 #include "engines/newworlds/model_textures.h"

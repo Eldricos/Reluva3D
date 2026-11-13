@@ -4,11 +4,11 @@
 #pragma once
 
 #include "common/types.h"
-#include "common/x86/a3d.h"
-#include "common/x86/cpu.h"
-#include "common/x86/directx/dinput.h"
-#include "common/x86/directx/directx.h"
-#include "common/x86/win32.h"
+#include "emulation/x86/a3d.h"
+#include "emulation/x86/cpu.h"
+#include "emulation/x86/directx/dinput.h"
+#include "emulation/x86/directx/directx.h"
+#include "emulation/x86/win32.h"
 
 #include <cstdint>
 #include <filesystem>

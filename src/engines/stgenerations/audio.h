@@ -3,9 +3,9 @@
 
 #pragma once
 
-#include "common/audio/mixer.h"
-#include "common/audio/sound.h"
-#include "common/audio/stream.h"
+#include "audio/mixer.h"
+#include "audio/sound.h"
+#include "audio/stream.h"
 #include "common/stream.h"
 
 #include <cstdint>

@@ -8,7 +8,7 @@
 #include <set>
 #include <vector>
 
-#include "common/draw.h"
+#include "graphics/draw.h"
 #include "common/types.h"
 
 namespace reluva {

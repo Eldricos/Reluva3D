@@ -1,6 +1,6 @@
 # Clue: Murder at Boddy Mansion: videos (`.avi`)
 
-> **Status:** decoded · **Code:** `src/engines/clue/movie.h`, `src/common/video/avi.h`, `src/common/video/cinepak.h` · **Checked on:** the retail CD (2.0), a clean install of it and the 2.2 patch's install: all 44 files, the same in each · **Confidence:** confirmed unless marked
+> **Status:** decoded · **Code:** `src/engines/clue/movie.h`, `src/video/avi.h`, `src/video/cinepak.h` · **Checked on:** the retail CD (2.0), a clean install of it and the 2.2 patch's install: all 44 files, the same in each · **Confidence:** confirmed unless marked
 
 ## Overview
 

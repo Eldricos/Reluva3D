@@ -69,7 +69,7 @@ mission tables seem to be those missions' voice-over slots; see
 
 The data viewer's strings page (**Tab**) shows each table word-wrapped
 with its ids, headings in yellow and printf codes in blue, in Reluva's own
-built-in font (`src/common/font.cpp`). **Left/Right** picks a table,
+built-in font (`src/graphics/font.cpp`). **Left/Right** picks a table,
 **Up/Down**, **PageUp/PageDown** and **Home/End** scroll, **+/-** change
 the text size.
 

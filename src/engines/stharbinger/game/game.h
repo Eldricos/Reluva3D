@@ -3,8 +3,8 @@
 
 #pragma once
 
-#include "common/audio/mixer.h"
-#include "common/video/smacker.h"
+#include "audio/mixer.h"
+#include "video/smacker.h"
 #include "engines/stharbinger/formats/dialogue.h"
 #include "engines/stharbinger/formats/font.h"
 #include "engines/stharbinger/formats/graphics.h"

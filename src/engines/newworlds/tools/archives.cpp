@@ -3,7 +3,7 @@
 
 // reluva-tool's New Worlds commands for its archives (.cat) and string tables.
 
-#include "tools/tool.h"
+#include "devtools/tool.h"
 
 #include "engines/newworlds/cat_archive.h"
 #include "engines/newworlds/string_table.h"

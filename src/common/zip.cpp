@@ -7,7 +7,7 @@
 
 #include "common/zip.h"
 
-#include "stb_image.h" // inflate only; image.cpp holds the implementation
+#include "stb_image.h" // inflate only; stb_image.cpp holds the implementation
 
 #include <algorithm>
 #include <array>

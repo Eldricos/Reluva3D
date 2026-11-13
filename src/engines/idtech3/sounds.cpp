@@ -3,7 +3,7 @@
 
 #include "engines/idtech3/sounds.h"
 
-#include "common/audio/decode.h"
+#include "audio/decode.h"
 
 namespace reluva::idtech3 {
 

@@ -8,7 +8,7 @@
 //
 // LEGO Alpha Team is played by running its own program in the x86
 // interpreter (alphateam/player.h), after the CD's intro movie if it's
-// beside the game (common/video/movie.h). F12 pauses it and opens the data viewer
+// beside the game (video/movie.h). F12 pauses it and opens the data viewer
 // (viewers.h): the archives, models, textures, sounds and text. Tab moves
 // between the viewer's pages; Esc goes back to the game. Without the
 // program, the engine is the viewer alone, and Esc goes back to the
@@ -18,10 +18,10 @@
 #include "engines/netimmerse/alphateam/player.h"
 #include "engines/netimmerse/pac_archive.h"
 #include "engines/netimmerse/viewers.h"
-#include "common/audio/mixer.h"
+#include "audio/mixer.h"
 #include "common/fs.h"
 #include "common/settings.h"
-#include "common/video/movie.h"
+#include "video/movie.h"
 
 #include <algorithm>
 #include <cstdio>

@@ -6,7 +6,7 @@
 
 #include "engines/idtech3/eliteforce/game_info.h"
 
-#include "common/x86/format.h"
+#include "emulation/x86/format.h"
 #include "engines/idtech3/eliteforce/sp_game_host.h"
 #include "engines/idtech3/raven/savegame.h"
 

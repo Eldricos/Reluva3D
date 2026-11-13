@@ -17,10 +17,10 @@
 #include "engines/awe/tables.h"
 #include "engines/awe/viewers.h"
 #include "common/archive.h"
-#include "common/image.h"
+#include "image/image.h"
 #include "common/system.h"
-#include "common/video/bink.h"
-#include "tools/tool.h"
+#include "video/bink.h"
+#include "devtools/tool.h"
 
 #include <algorithm>
 #include <cmath>

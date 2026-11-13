@@ -8,7 +8,7 @@
 
 #include "engines/idtech3/eliteforce/game_host.h"
 
-#include "common/font.h"
+#include "graphics/font.h"
 #include "common/fs.h"
 
 #include <algorithm>

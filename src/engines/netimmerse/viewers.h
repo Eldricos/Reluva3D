@@ -33,9 +33,9 @@
 #include "engines/netimmerse/pac_archive.h"
 
 #include "common/archive.h"
-#include "common/audio/mixer.h"
+#include "audio/mixer.h"
 #include "common/events.h"
-#include "common/gfx3d.h"
+#include "graphics/gfx3d.h"
 #include "common/system.h"
 
 #include <cstdint>

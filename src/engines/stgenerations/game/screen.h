@@ -3,7 +3,7 @@
 
 #pragma once
 
-#include "common/palette.h"
+#include "graphics/palette.h"
 #include "engines/stgenerations/canvas.h"
 
 namespace reluva::stgenerations {

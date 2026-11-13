@@ -78,10 +78,10 @@ reports a Pentium, so any CPU-specific paths stay off).
   tracing that `-watch`, `-calls`, `-log` and `-step` need on only from
   that frame (it's much slower), and `-clock-rate frame@n` makes the fixed
   clock count n instructions a millisecond from that frame on.
-- Done: MSVCRT (all 79 imports, `src/common/x86/msvcrt.cpp`) and KERNEL32's
+- Done: MSVCRT (all 79 imports, `src/emulation/x86/msvcrt.cpp`) and KERNEL32's
   files.
 - Done: MSVCP60, as our own DLL ([msvcp60.md](../../../../../common/x86/msvcp60.md)), and the rest of KERNEL32's
-  imports (`src/common/x86/win32_system.cpp`: system information, the
+  imports (`src/emulation/x86/win32_system.cpp`: system information, the
   performance counter, critical sections and events for one thread, date
   and time text).
 - Every DLL's start-up (static constructors and `DllMain`) now runs
@@ -99,7 +99,7 @@ reports a Pentium, so any CPU-specific paths stay off).
   - asks the desktop's colour depth, then sets the window to 640×480 at
     80,60 (`at-run` reports the window);
   - calls `DirectDrawCreate` from NiDirect3d.
-- Done: DirectDraw and Direct3D 7 (`src/common/x86/directx/`,
+- Done: DirectDraw and Direct3D 7 (`src/emulation/x86/directx/`,
   [directx.md](../../../../../common/x86/directx.md)).
   The game sets its 640×480 16-bit fullscreen mode and makes its renderer:
   - a flipping primary surface with a back buffer;

@@ -15,7 +15,7 @@
 #include "common/zip.h"
 #include "engines/stgenerations/formats/disasm.h"
 #include "engines/stgenerations/formats/script.h"
-#include "tools/tool.h"
+#include "devtools/tool.h"
 
 #include <algorithm>
 #include <cctype>

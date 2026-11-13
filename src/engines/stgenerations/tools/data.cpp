@@ -10,7 +10,7 @@
 #include "common/fs.h"
 #include "common/stream.h"
 #include "common/text.h"
-#include "common/video/avi.h"
+#include "video/avi.h"
 #include "engines/stgenerations/audio.h"
 #include "engines/stgenerations/detection.h"
 #include "engines/stgenerations/formats/bitmap.h"
@@ -21,7 +21,7 @@
 #include "engines/stgenerations/formats/resources.h"
 #include "engines/stgenerations/formats/script.h"
 #include "engines/stgenerations/formats/sprite.h"
-#include "tools/tool.h"
+#include "devtools/tool.h"
 
 #include <cstdio>
 #include <cstring>

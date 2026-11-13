@@ -7,7 +7,7 @@
 #include "engines/idtech3/eliteforce/game_info.h"
 
 #include "common/md4.h"
-#include "common/x86/format.h"
+#include "emulation/x86/format.h"
 #include "engines/idtech3/eliteforce/game_layout.h"
 #include "engines/idtech3/raven/savegame.h"
 #include "engines/idtech3/entities.h"

@@ -3,15 +3,15 @@
 
 // Clue's videos (the murder scenes, the intro, the accusations): Cinepak
 // AVIs with 16-bit PCM sound, played by the shared AVI decoder
-// (common/video/avi.h) and shown by the clock, as Clue.exe's DirectShow
+// (video/avi.h) and shown by the clock, as Clue.exe's DirectShow
 // graph shows them. See docs/engines/clue/formats/videos.md.
 
 #pragma once
 
-#include "common/audio/sound.h"
-#include "common/image.h"
+#include "audio/sound.h"
+#include "image/image.h"
 #include "common/types.h"
-#include "common/video/avi.h"
+#include "video/avi.h"
 
 #include <cstdint>
 #include <string>

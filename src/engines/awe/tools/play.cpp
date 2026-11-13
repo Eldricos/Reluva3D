@@ -30,9 +30,9 @@
 
 #include "engines/awe/tools/tools.h"
 
-#include "backends/sdl3/sdl_system.h"
+#include "backends/platform/sdl3/sdl_system.h"
 #include "common/archive.h"
-#include "common/audio/mixer.h"
+#include "audio/mixer.h"
 #include "engines/awe/story.h"
 #include "engines/awe/viewers.h"
 

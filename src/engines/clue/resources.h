@@ -6,7 +6,7 @@
 // Clue's resource files: PACK compression, DDRV archives, EIMG images and
 // ANIM animations. See docs/engines/clue/formats/res.md.
 
-#include "common/image.h"
+#include "image/image.h"
 #include "common/types.h"
 
 #include <array>

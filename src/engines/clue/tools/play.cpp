@@ -8,14 +8,14 @@
 // game-files test (tests/engines/clue/gamedata.cmake).
 
 #include "common/headless_system.h"
-#include "common/image.h"
+#include "image/image.h"
 #include "engines/clue/frontend.h"
 #include "engines/clue/game_data.h"
 #include "engines/clue/resi.h"
 #include "engines/clue/rules.h"
 #include "engines/clue/ui.h"
 #include "engines/registry.h"
-#include "tools/tool.h"
+#include "devtools/tool.h"
 
 #include <algorithm>
 #include <cstdint>

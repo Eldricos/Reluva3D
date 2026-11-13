@@ -9,7 +9,7 @@
 #include "engines/idtech3/entities.h"
 #include "engines/idtech3/pages/map_viewer.h"
 
-#include "common/font.h"
+#include "graphics/font.h"
 
 #include <algorithm>
 #include <cmath>

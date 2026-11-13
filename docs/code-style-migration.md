@@ -17,7 +17,7 @@ see it; expect about another 10% on top of the tidy numbers.
 | --- | --- | --- |
 | `src/engines/` (7 engines + testbed) | 452 | 131,600 |
 | `src/common/` | 122 | 30,700 |
-| `src/backends/`, `src/launcher/`, `src/tools/`, `main.cpp` | 18 | 7,250 |
+| `src/backends/`, `src/gui/`, `src/devtools/`, `base/main.cpp` | 18 | 7,250 |
 | `tests/` | 72 | 24,600 |
 | `tools/clue-re/` (reverse-engineering scratch: C++ and Python) | 46 | 1,400 |
 | `third_party/` (stb, minimp3: never touched) | 3 | 14,900 |
@@ -58,7 +58,7 @@ lines, not counting generated files, which are now excluded (step 1.1).
   passes, but the macOS build (Clang, CI job switched off) would fail, and
   clang-tidy skips that file. Fix it before the rename step
   (`emplace(Placement{})`, or move `Placement` out of `SaveGame`).
-- `src/common/x86/runtime/msvcp60.cpp` defines `THISCALL` and `EXPORT`
+- `src/emulation/x86/runtime/msvcp60.cpp` defines `THISCALL` and `EXPORT`
   macros without the `RELUVA_` prefix, and its exported names must match
   MSVC's own: its names have to be left out of any rename.
 
@@ -323,7 +323,7 @@ The current layout:
 
 ```text
 src/
-  main.cpp
+  base/main.cpp
   common/            utilities, fs, config, detection, images, fonts, drawing,
     audio/ video/    3D, net, and the whole x86/Win32/DirectX emulator
     soft3d/ x86/
@@ -374,7 +374,7 @@ ScummVM's `common/`, `audio/`, `video/`, `graphics/`, `image/`, `gui/`,
 `base/`:
 
 ```text
-base/            main.cpp, engine.h, registry (what ScummVM calls base/)
+base/            base/main.cpp, engine.h, registry (what ScummVM calls base/)
 common/          strings, fs, streams, config, settings, log, hashes,
                  archives (zip, wise, dcl, inflate), serializer
 audio/           mixer, decoders, mp3, wav
@@ -382,7 +382,7 @@ video/           bink, smacker, cinepak, indeo, avi
 graphics/        draw, palette, font, truetype, cursor, gfx3d, soft3d
 image/           bmp, image (stb)
 emulation/x86/   cpu, jit, fpu, disasm, pe, win32/, directx/, runtime/
-                 (the Windows emulator, now under common/x86)
+                 (the Windows emulator, now under emulation/x86)
 net/             net.h (and backends/networking for sockets)
 backends/        platform/sdl3/, graphics/gpu/, networking/sockets/
 gui/             launcher

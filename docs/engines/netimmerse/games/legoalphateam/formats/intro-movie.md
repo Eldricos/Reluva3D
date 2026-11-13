@@ -1,6 +1,6 @@
 # LEGO Alpha Team: the intro movie (`lmiintro.avi`)
 
-> **Status:** decoded · **Code:** `src/common/video/movie.h` · **Checked on:** `lmiintro.avi`, the one file · **Confidence:** confirmed unless marked
+> **Status:** decoded · **Code:** `src/video/movie.h` · **Checked on:** `lmiintro.avi`, the one file · **Confidence:** confirmed unless marked
 
 ## Overview
 
@@ -19,7 +19,7 @@ frames are 115 key frames, 758 inter frames, 721 droppable inter frames and
 
 The game's own program doesn't name the file: it was the CD's intro, not
 the game's. Reluva plays it before the game if it has been copied beside
-the install (`common/video/movie.h`); a key or click skips it.
+the install (`video/movie.h`); a key or click skips it.
 
 ## Sources and checks
 

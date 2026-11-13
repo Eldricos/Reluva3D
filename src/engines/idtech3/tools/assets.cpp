@@ -3,7 +3,7 @@
 
 // reluva-tool's id Tech 3 commands for shaders, images and models.
 
-#include "tools/tool.h"
+#include "devtools/tool.h"
 #include "engines/idtech3/tools/game_folder.h"
 
 #include "common/fs.h"

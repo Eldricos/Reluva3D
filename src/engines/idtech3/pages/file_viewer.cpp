@@ -3,7 +3,7 @@
 
 #include "engines/idtech3/pages/file_viewer.h"
 
-#include "common/font.h"
+#include "graphics/font.h"
 
 #include <algorithm>
 #include <filesystem>

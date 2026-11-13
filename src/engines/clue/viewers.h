@@ -3,8 +3,8 @@
 
 #pragma once
 
-#include "common/audio/mixer.h"
-#include "common/audio/sound.h"
+#include "audio/mixer.h"
+#include "audio/sound.h"
 #include "common/events.h"
 #include "common/system.h"
 #include "common/types.h"

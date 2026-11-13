@@ -7,18 +7,18 @@
 //
 //   reluva-tests common.unit.windows
 
-#include "common/audio/mixer.h"
+#include "audio/mixer.h"
 #include "common/fs.h"
 #include "common/types.h"
-#include "common/x86/a3d.h"
-#include "common/x86/com.h"
-#include "common/x86/cpu.h"
-#include "common/x86/directx/dinput.h"
-#include "common/x86/directx/directx.h"
-#include "common/x86/directx/internal.h"
-#include "common/x86/msvcp60.h"
-#include "common/x86/msvcrt.h"
-#include "common/x86/win32.h"
+#include "emulation/x86/a3d.h"
+#include "emulation/x86/com.h"
+#include "emulation/x86/cpu.h"
+#include "emulation/x86/directx/dinput.h"
+#include "emulation/x86/directx/directx.h"
+#include "emulation/x86/directx/internal.h"
+#include "emulation/x86/msvcp60.h"
+#include "emulation/x86/msvcrt.h"
+#include "emulation/x86/win32.h"
 #include "tests/support/test.h"
 
 #include <algorithm>

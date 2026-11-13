@@ -6,7 +6,7 @@
 
 #include "engines/idtech3/pages/model_viewer.h"
 
-#include "common/font.h"
+#include "graphics/font.h"
 #include "common/fs.h"
 
 #include <algorithm>

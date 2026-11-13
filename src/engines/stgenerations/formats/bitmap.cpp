@@ -3,7 +3,7 @@
 
 #include "engines/stgenerations/formats/bitmap.h"
 
-#include "common/bmp.h"
+#include "image/bmp.h"
 #include "common/log.h"
 
 #include <cstring>

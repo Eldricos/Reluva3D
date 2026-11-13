@@ -7,7 +7,7 @@
 // switches between the system's pointer and a cursor of the game's own
 // (System::setMouseCursor).
 
-#include "common/cursor.h"
+#include "graphics/cursor.h"
 #include "engines/engine.h"
 
 #include <atomic>

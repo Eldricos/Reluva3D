@@ -5,7 +5,7 @@
 
 #include "common/bytes.h"
 
-#include "common/palette.h"
+#include "graphics/palette.h"
 #include "engines/stgenerations/canvas.h"
 #include "engines/stgenerations/formats/bitmap.h"
 #include "common/stream.h"

@@ -3,7 +3,7 @@
 
 #pragma once
 
-#include "common/image.h"
+#include "image/image.h"
 #include "common/types.h"
 
 // How the game draws a scene's 2D objects (pictures, video loops): with

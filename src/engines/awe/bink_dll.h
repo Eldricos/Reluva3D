@@ -4,8 +4,8 @@
 #pragma once
 
 #include "common/types.h"
-#include "common/x86/cpu.h"
-#include "common/x86/win32.h"
+#include "emulation/x86/cpu.h"
+#include "emulation/x86/win32.h"
 
 #include <cstdint>
 #include <memory>

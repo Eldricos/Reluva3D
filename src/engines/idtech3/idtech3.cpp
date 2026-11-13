@@ -15,7 +15,7 @@
 // objectives); Esc goes back to the launcher (on the Menu page Ctrl+Esc,
 // as the menus take Esc).
 
-#include "common/audio/mixer.h"
+#include "audio/mixer.h"
 #include "common/fs.h"
 #include "common/settings.h"
 #include "common/zip.h"

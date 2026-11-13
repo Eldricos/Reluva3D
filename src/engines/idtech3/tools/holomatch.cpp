@@ -4,7 +4,7 @@
 // reluva-tool's id Tech 3 commands running Holomatch's game code (Elite Force's
 // multiplayer): the server's, the client game's and the menus'.
 
-#include "tools/tool.h"
+#include "devtools/tool.h"
 #include "engines/idtech3/tools/game_folder.h"
 
 #include "engines/idtech3/bsp.h"

@@ -24,19 +24,19 @@
 // format out; sounds are written as 16-bit WAV whatever their format; and
 // it runs on one thread.
 
-#include "common/audio/stream.h"
-#include "common/audio/wav.h"
+#include "audio/stream.h"
+#include "audio/wav.h"
 #include "common/bytes.h"
 #include "common/dcl.h"
 #include "common/fs.h"
-#include "common/image.h"
+#include "image/image.h"
 #include "common/stream.h"
 #include "common/text.h"
 #include "engines/stharbinger/detection.h"
 #include "engines/stharbinger/formats/archive.h"
 #include "engines/stharbinger/formats/audio.h"
 #include "engines/stharbinger/formats/graphics.h"
-#include "tools/tool.h"
+#include "devtools/tool.h"
 
 #include <algorithm>
 #include <cmath>

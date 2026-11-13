@@ -3,7 +3,7 @@
 
 #include "engines/idtech3/pages/start_page.h"
 
-#include "common/font.h"
+#include "graphics/font.h"
 
 #include <algorithm>
 

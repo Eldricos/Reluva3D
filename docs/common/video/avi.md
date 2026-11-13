@@ -2,11 +2,11 @@
 
 ## What it is
 
-`src/common/video/avi.{h,cpp}` (`reluva::avi::Decoder`) reads Microsoft's AVI container
+`src/video/avi.{h,cpp}` (`reluva::avi::Decoder`) reads Microsoft's AVI container
 far enough to play a movie: the first video stream's frames and the first
 audio stream's PCM. For another codec than Cinepak it hands out each
 frame's bytes (`readFrame`), which is how the Indeo 5 movie player
-(`common/video/movie.h`) uses it. The layout is Microsoft's published
+(`video/movie.h`) uses it. The layout is Microsoft's published
 RIFF/AVI format.
 
 ## What Reluva supports

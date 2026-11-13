@@ -146,7 +146,7 @@
     took the drawing threads' time on the route from 276 s to 184 s and
     the route's wall time from 98 s to 75 s, with the same frames at
     both resolutions.
-  - The blocks as native code (`common/x86/jit.cpp`, docs/common/x86/README.md):
+  - The blocks as native code (`emulation/x86/jit.cpp`, docs/common/x86/README.md):
     moves, LEA, PUSH and POP made host instructions, the rest called
     directly; then the ALU and jumps made too, with flags only where
     read, and blocks going on to the next in the native code. The

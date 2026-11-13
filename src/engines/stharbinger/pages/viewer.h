@@ -3,7 +3,7 @@
 
 #pragma once
 
-#include "common/audio/mixer.h"
+#include "audio/mixer.h"
 #include "engines/stharbinger/formats/graphics.h"
 #include "engines/stharbinger/formats/resources.h"
 #include "engines/stharbinger/platform.h"

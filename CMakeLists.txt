@@ -115,114 +115,34 @@ else()
     target_compile_options(reluva_warnings INTERFACE -Wall -Wextra -Wpedantic)
 endif()
 
-# --- common: platform-independent core, no SDL allowed here -------------------
-add_library(reluva_common STATIC
-    src/common/config.cpp
-    src/common/cue.cpp
-    src/common/fs.cpp
-    src/common/md5.cpp
-    src/common/md4.cpp
-    src/common/archive.cpp
-    src/common/zip.cpp
-    src/common/video/bink.cpp
-    src/common/video/bink_tables.cpp
-    src/common/video/smacker.cpp
-    src/common/video/cinepak.cpp
-    src/common/video/avi.cpp
-    src/common/video/indeo5.cpp
-    src/common/video/indeo5_tables.cpp
-    src/common/video/movie.cpp
-    src/common/image.cpp
-    src/common/gfx3d.cpp
-    src/common/net.cpp
-    src/common/pe.cpp
-    src/common/x86/cpu.cpp
-    src/common/x86/cpu_cache.cpp
-    src/common/x86/jit.cpp
-    src/common/x86/fpu.cpp
-    src/common/x86/win32.cpp
-    src/common/x86/win32_files.cpp
-    src/common/x86/win32_system.cpp
-    src/common/x86/win32_user.cpp
-    src/common/x86/win32_registry.cpp
-    src/common/x86/msvcrt.cpp
-    src/common/x86/msvcp60.cpp
-    src/common/x86/com.cpp
-    src/common/x86/directx/ddraw.cpp
-    src/common/x86/directx/surface.cpp
-    src/common/x86/directx/interfaces.cpp
-    src/common/x86/directx/d3d7.cpp
-    src/common/x86/directx/raster.cpp
-    src/common/x86/directx/dinput.cpp
-    src/common/x86/a3d.cpp
-    src/common/x86/format.cpp
-    src/common/x86/disasm.cpp
-    src/common/detection.cpp
-    src/common/inflate.cpp
-    src/common/wise.cpp
-    src/common/audio/decode.cpp
-    src/common/audio/mixer.cpp
-    src/common/audio/stream.cpp
-    src/common/audio/mp3.cpp
-    src/common/audio/wav.cpp
-    src/common/font.cpp
-    src/common/text.cpp
-    src/common/stream.cpp
-    src/common/log.cpp
-    src/common/palette.cpp
-    src/common/draw.cpp
-    src/common/settings.cpp
-    src/common/dcl.cpp
-    src/common/cursor.cpp
-    src/common/bmp.cpp
-    src/common/truetype.cpp)
-target_include_directories(reluva_common PUBLIC src)
-# Third-party headers (third_party/, see each README) as system includes, so
-# our warnings don't apply to them.
-target_include_directories(reluva_common SYSTEM PRIVATE third_party/minimp3 third_party/stb)
-target_link_libraries(reluva_common PRIVATE reluva_warnings)
+# --- shared code: a library per folder (each folder's CMakeLists.txt) ------
+# common/ is the core the others build on; none of them may use SDL.
+add_subdirectory(src/common)
+add_subdirectory(src/audio)
+add_subdirectory(src/graphics)
+add_subdirectory(src/image)
+add_subdirectory(src/video)
+add_subdirectory(src/emulation)
 
-# --- engines: talk only to common/ --------------------------------------------
+# Everything an engine may use. Engines link this and nothing else from
+# src/: not the backends, the launcher or the tools.
+add_library(reluva_shared INTERFACE)
+target_link_libraries(reluva_shared INTERFACE reluva_common reluva_audio reluva_graphics reluva_image reluva_video
+                                              reluva_emulation)
+
+# --- engines: talk only to the shared code (reluva_shared) ---------------------
 # Each engine's own CMakeLists.txt (src/engines/<engine>/) declares it; the
 # ones engines.cfg enables are built, with the registry over them
 # (reluva_engines).
 reluva_configure_engines()
 
-# --- executable: SDL3 backend + ImGui launcher --------------------------------
-add_executable(reluva
-    src/main.cpp
-    src/backends/sdl3/sdl_system.cpp
-    src/backends/sdl3/sdl_gpu.cpp
-    src/backends/sockets/socket_net.cpp
-    src/launcher/launcher.cpp)
-target_link_libraries(reluva PRIVATE reluva_engines imgui SDL3::SDL3 reluva_warnings)
-if(WIN32)
-    target_link_libraries(reluva PRIVATE ws2_32 iphlpapi)
-endif()
-
-# --- developer tools -----------------------------------------------------------
-# A check of the 3D renderer on whatever GPU backend SDL picks (Metal on
-# macOS, Vulkan elsewhere) against reference frames: see
-# src/tools/render_check.cpp and .github/workflows/ci.yml.
-add_executable(reluva-render-check
-    src/tools/render_check.cpp
-    src/backends/sdl3/sdl_system.cpp
-    src/backends/sdl3/sdl_gpu.cpp
-    src/backends/sockets/socket_net.cpp)
-target_link_libraries(reluva-render-check PRIVATE reluva_common SDL3::SDL3 reluva_warnings)
-if(WIN32)
-    target_link_libraries(reluva-render-check PRIVATE ws2_32 iphlpapi)
-endif()
-
-# reluva-tool: the shared commands (src/tools/) and each enabled engine's
-# (reluva_add_engine_tools in its CMakeLists.txt).
-reluva_finish_tool(
-    src/tools/main.cpp
-    src/tools/tool.cpp
-    src/tools/commands.cpp
-    src/tools/media.cpp
-    src/tools/games.cpp
-    src/tools/x86.cpp)
+# --- backends, launcher, programs ---------------------------------------------
+add_subdirectory(src/backends)
+add_subdirectory(src/gui)
+# reluva: the program (src/base/)
+add_subdirectory(src/base)
+# reluva-render-check and reluva-tool (src/devtools/)
+add_subdirectory(src/devtools)
 
 # --- tests ----------------------------------------------------------------------
 # reluva-tests: the shared code's tests (tests/common/) and each enabled

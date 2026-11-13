@@ -3,9 +3,9 @@
 
 #pragma once
 
-#include "common/cursor.h"
+#include "graphics/cursor.h"
 #include "common/events.h"
-#include "common/gfx3d.h"
+#include "graphics/gfx3d.h"
 #include "common/net.h"
 #include "common/types.h"
 
@@ -69,7 +69,7 @@ public:
     // Whether the system's mouse pointer shows over the game (for games
     // that draw their own).
     virtual void setMouseCursorVisible(bool visible) { (void)visible; }
-    // The game's own mouse pointer (common/cursor.h) in place of the
+    // The game's own mouse pointer (graphics/cursor.h) in place of the
     // system's; nullptr goes back to the system's. Shown while the pointer
     // is (setMouseCursorVisible), over the game's 2D or 3D picture, scaled
     // as the picture is; the next initGraphics() or init3D() keeps it.

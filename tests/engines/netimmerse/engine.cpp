@@ -18,7 +18,7 @@
 //
 //   reluva-tests netimmerse.engine [--update]
 
-#include "common/gfx3d.h"
+#include "graphics/gfx3d.h"
 #include "common/headless_system.h"
 #include "engines/registry.h"
 #include "tests/engines/netimmerse/fixtures.h"

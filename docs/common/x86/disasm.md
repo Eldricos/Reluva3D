@@ -2,7 +2,7 @@
 
 ## What it is
 
-`src/common/x86/disasm.h` (`reluva::x86::disassemble`) turns 32-bit x86
+`src/emulation/x86/disasm.h` (`reluva::x86::disassemble`) turns 32-bit x86
 code back into text, in Intel syntax as capstone writes it, for studying a
 game's executable.
 

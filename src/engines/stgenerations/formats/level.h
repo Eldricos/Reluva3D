@@ -5,7 +5,7 @@
 
 #include <vector>
 
-#include "common/palette.h"
+#include "graphics/palette.h"
 #include "engines/stgenerations/canvas.h"
 #include "common/stream.h"
 

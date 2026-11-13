@@ -3,8 +3,8 @@
 
 #include "engines/clue/viewers.h"
 
-#include "common/audio/decode.h"
-#include "common/font.h"
+#include "audio/decode.h"
+#include "graphics/font.h"
 #include "common/fs.h"
 
 #include <algorithm>

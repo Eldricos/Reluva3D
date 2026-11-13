@@ -1,5 +1,5 @@
 # Builds Reluva and runs its tests on Linux, macOS and Windows, and checks
-# the 3D renderer (src/tools/render_check.cpp) against the reference frames
+# the 3D renderer (src/devtools/render_check.cpp) against the reference frames
 # in tests/render: on macOS through Metal, on Linux through Vulkan on
 # Mesa's software driver (lavapipe). Windows' runners have no Vulkan driver,
 # so there it's built and tested only.

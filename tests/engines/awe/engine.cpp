@@ -14,7 +14,7 @@
 //   reluva-tests awe.engine [--update]
 
 #include "common/headless_system.h"
-#include "common/image.h"
+#include "image/image.h"
 #include "engines/awe/savegame.h"
 #include "engines/registry.h"
 #include "tests/engines/awe/fixtures.h"

@@ -3,7 +3,7 @@
 
 #include "engines/stharbinger/platform.h"
 
-#include "common/palette.h"
+#include "graphics/palette.h"
 
 #include <system_error>
 

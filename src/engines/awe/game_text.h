@@ -4,7 +4,7 @@
 #pragma once
 
 #include "common/archive.h"
-#include "common/truetype.h"
+#include "graphics/truetype.h"
 #include "common/types.h"
 
 #include <map>

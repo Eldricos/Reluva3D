@@ -3,7 +3,7 @@
 
 // reluva-tool's New Worlds commands for its maps (.gmf) and missions.
 
-#include "tools/tool.h"
+#include "devtools/tool.h"
 
 #include "engines/newworlds/cat_archive.h"
 #include "engines/newworlds/geo.h"

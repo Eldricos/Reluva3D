@@ -5,8 +5,8 @@
 
 #include "common/fs.h"
 #include "common/pe.h"
-#include "common/x86/msvcp60.h"
-#include "common/x86/msvcrt.h"
+#include "emulation/x86/msvcp60.h"
+#include "emulation/x86/msvcrt.h"
 
 #include <algorithm>
 #include <fstream>

@@ -3,9 +3,9 @@
 
 #pragma once
 
-#include "common/audio/mixer.h"
-#include "common/draw.h"
-#include "common/video/smacker.h"
+#include "audio/mixer.h"
+#include "graphics/draw.h"
+#include "video/smacker.h"
 #include "engines/stharbinger/formats/graphics.h"
 #include "engines/stharbinger/platform.h"
 

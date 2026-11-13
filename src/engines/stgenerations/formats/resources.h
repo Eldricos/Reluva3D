@@ -11,7 +11,7 @@
 #include "engines/stgenerations/audio.h"
 #include "common/archive.h"
 #include "common/fs.h"
-#include "common/palette.h"
+#include "graphics/palette.h"
 #include "engines/stgenerations/formats/bitmap.h"
 #include "common/text.h"
 #include "common/zip.h"

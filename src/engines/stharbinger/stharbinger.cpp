@@ -6,7 +6,7 @@
 // it from its CDs, its settings, making an Engine to run it) and its Engine.
 // The game itself is Harbinger (harbinger.h) and Game (game/game.h).
 
-#include "common/audio/mixer.h"
+#include "audio/mixer.h"
 #include "common/fs.h"
 #include "common/log.h"
 #include "common/settings.h"

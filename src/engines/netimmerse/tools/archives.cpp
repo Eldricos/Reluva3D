@@ -11,7 +11,7 @@
 #include "common/fs.h"
 #include "engines/netimmerse/fin.h"
 #include "engines/netimmerse/pac_archive.h"
-#include "tools/tool.h"
+#include "devtools/tool.h"
 
 #include <algorithm>
 #include <cmath>

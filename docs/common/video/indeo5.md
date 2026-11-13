@@ -3,7 +3,7 @@
 ## What it is
 
 Intel's video codec of the late 1990s, in AVI files.
-`src/common/video/indeo5.{h,cpp}` decodes it; `common/video/movie.h`
+`src/video/indeo5.{h,cpp}` decodes it; `video/movie.h`
 plays an AVI with it ([avi.md](avi.md)).
 
 ## What Reluva supports
@@ -140,7 +140,7 @@ compatible with Reluva's GPL 3). Two things were taken as they are:
 - **The format's fixed tables**: the macroblock and block Huffman code
   descriptors, the nine run/value maps, the quantisation base and scale
   tables, and the standard picture sizes. A decoder must use these exact
-  numbers. `src/common/video/indeo5_tables.cpp` was generated from FFmpeg's
+  numbers. `src/video/indeo5_tables.cpp` was generated from FFmpeg's
   source by a script and says so.
 - **The arithmetic**: the slant transforms' integer steps, motion
   compensation's rounding and the 5/3 wavelet recomposition. Anything else

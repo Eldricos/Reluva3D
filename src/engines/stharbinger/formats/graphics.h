@@ -3,8 +3,8 @@
 
 #pragma once
 
-#include "common/draw.h"
-#include "common/palette.h"
+#include "graphics/draw.h"
+#include "graphics/palette.h"
 #include "common/stream.h"
 
 #include <algorithm>

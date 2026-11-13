@@ -2,7 +2,7 @@
 
 ## What it is
 
-`src/common/x86/win32*.cpp`, `msvcrt.cpp` and `com.cpp`: a Windows
+`src/emulation/x86/win32*.cpp`, `msvcrt.cpp` and `com.cpp`: a Windows
 process for programs run in the [x86 emulator](README.md), with stand-ins
 for the parts of Windows and the C runtime they call. DirectX, A3D and the
 C++ library have pages of their own ([directx.md](directx.md),

@@ -3,7 +3,7 @@
 
 #pragma once
 
-#include "common/draw.h"
+#include "graphics/draw.h"
 #include "common/stream.h"
 
 #include <string>

@@ -4,13 +4,13 @@
 #pragma once
 
 #include "common/archive.h"
-#include "common/audio/mixer.h"
+#include "audio/mixer.h"
 #include "common/events.h"
-#include "common/gfx3d.h"
-#include "common/image.h"
+#include "graphics/gfx3d.h"
+#include "image/image.h"
 #include "common/system.h"
 #include "common/types.h"
-#include "common/video/bink.h"
+#include "video/bink.h"
 #include "engines/awe/ac2.h"
 #include "engines/awe/actor.h"
 #include "engines/awe/conditions.h"

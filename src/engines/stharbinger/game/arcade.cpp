@@ -3,7 +3,7 @@
 
 #include "engines/stharbinger/game/arcade.h"
 
-#include "common/audio/stream.h"
+#include "audio/stream.h"
 #include "common/fs.h"
 #include "common/log.h"
 #include "common/text.h"

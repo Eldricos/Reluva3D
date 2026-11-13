@@ -4,9 +4,9 @@
 #include "engines/netimmerse/viewers.h"
 #include "engines/netimmerse/data.h"
 
-#include "common/font.h"
+#include "graphics/font.h"
 #include "common/fs.h"
-#include "common/image.h"
+#include "image/image.h"
 
 #include <algorithm>
 #include <cmath>

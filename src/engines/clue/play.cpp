@@ -9,7 +9,7 @@
 
 #include "engines/clue/viewers.h"
 
-#include "common/audio/decode.h"
+#include "audio/decode.h"
 
 #include <algorithm>
 #include <climits>

@@ -6,7 +6,7 @@
 #include <fstream>
 #include <sstream>
 #include <algorithm>
-#include "common/image.h"
+#include "image/image.h"
 using namespace reluva; using namespace reluva::clue;
 int main(int argc, char** argv) {
     GameData data; data.open(argv[1], Language::US);

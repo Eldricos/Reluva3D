@@ -5,8 +5,8 @@
 
 #include "common/events.h"
 #include "common/system.h"
-#include "common/audio/mixer.h"
-#include "common/audio/sound.h"
+#include "audio/mixer.h"
+#include "audio/sound.h"
 #include "common/types.h"
 #include "engines/newworlds/briefing.h"
 #include "engines/newworlds/cat_archive.h"

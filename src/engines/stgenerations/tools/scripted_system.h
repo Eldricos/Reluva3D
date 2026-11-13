@@ -3,7 +3,7 @@
 
 #pragma once
 
-#include "common/audio/mixer.h"
+#include "audio/mixer.h"
 #include "common/headless_system.h"
 #include "common/types.h"
 

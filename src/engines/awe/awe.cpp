@@ -15,7 +15,7 @@
 #include "engines/engine.h"
 
 #include "common/archive.h"
-#include "common/audio/mixer.h"
+#include "audio/mixer.h"
 #include "common/settings.h"
 #include "engines/awe/viewers.h"
 

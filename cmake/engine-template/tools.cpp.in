@@ -2,10 +2,10 @@
 // Copyright (C) @YEAR@ The Reluva contributors
 
 // reluva-tool's @TITLE@ commands for a game's files. Add a command as a
-// function and a line in the table at the end (src/tools/tool.h); add a
+// function and a line in the table at the end (src/devtools/tool.h); add a
 // file to reluva_add_engine_tools in the engine's CMakeLists.txt.
 
-#include "tools/tool.h"
+#include "devtools/tool.h"
 
 #include <cstdio>
 #include <filesystem>

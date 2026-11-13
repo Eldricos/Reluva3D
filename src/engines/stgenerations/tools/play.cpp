@@ -6,7 +6,7 @@
 // frame shown. For seeing what the port does on a machine without a
 // display, and for the game-files test.
 
-#include "common/image.h"
+#include "image/image.h"
 #include "common/md5.h"
 #include "common/stream.h"
 #include "common/text.h"
@@ -16,7 +16,7 @@
 #include "engines/stgenerations/game/random.h"
 #include "engines/stgenerations/platform.h"
 #include "engines/stgenerations/tools/scripted_system.h"
-#include "tools/tool.h"
+#include "devtools/tool.h"
 
 #include <cstdio>
 #include <cstdlib>

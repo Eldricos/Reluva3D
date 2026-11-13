@@ -3,7 +3,7 @@
 
 #pragma once
 
-#include "common/gfx3d.h"
+#include "graphics/gfx3d.h"
 #include "engines/awe/ac2.h"
 #include "engines/awe/model.h"
 

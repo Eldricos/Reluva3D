@@ -58,7 +58,7 @@ No leaked or unlicensed code, nor anything derived from it, was used.
 
 ### Running the original's code to compare
 
-`src/common/x86` is an interpreter for 32-bit x86 code (written for the
+`src/emulation/x86` is an interpreter for 32-bit x86 code (written for the
 id Tech 3 games; see [../../../../common/x86/README.md](../../../../common/x86/README.md)). It runs pieces of the
 original to check Reluva's own code against them:
 

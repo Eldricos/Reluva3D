@@ -7,7 +7,7 @@
 #include "engines/idtech3/entities.h"
 #include "engines/idtech3/pages/world_viewer.h"
 
-#include "common/font.h"
+#include "graphics/font.h"
 #include "common/fs.h"
 
 #include <algorithm>

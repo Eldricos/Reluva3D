@@ -53,9 +53,9 @@
 #include "engines/idtech3/world_renderer.h"
 
 #include "common/archive.h"
-#include "common/audio/mixer.h"
+#include "audio/mixer.h"
 #include "common/events.h"
-#include "common/image.h"
+#include "image/image.h"
 #include "common/system.h"
 
 #include <cstdint>

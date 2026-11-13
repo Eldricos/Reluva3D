@@ -3,10 +3,10 @@
 
 // reluva-tool's id Tech 3 commands for network play.
 
-#include "tools/tool.h"
+#include "devtools/tool.h"
 #include "engines/idtech3/tools/game_folder.h"
 
-#include "backends/sockets/socket_net.h"
+#include "backends/networking/sockets/socket_net.h"
 #include "engines/idtech3/bsp.h"
 #include "engines/idtech3/cvars.h"
 #include "engines/idtech3/eliteforce/game_host.h"

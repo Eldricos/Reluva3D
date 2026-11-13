@@ -19,8 +19,8 @@
 #include "engines/idtech3/client/scene_drawer.h"
 #include "engines/idtech3/pages/play_viewer.h"
 
-#include "common/font.h"
-#include "common/image.h"
+#include "graphics/font.h"
+#include "image/image.h"
 #include "common/zip.h"
 #include "common/fs.h"
 

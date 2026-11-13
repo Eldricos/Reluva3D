@@ -11,7 +11,7 @@
 #include "engines/idtech3/vm_services.h"
 #include "engines/idtech3/world_renderer.h"
 
-#include "common/gfx3d.h"
+#include "graphics/gfx3d.h"
 
 #include <array>
 #include <cstdint>

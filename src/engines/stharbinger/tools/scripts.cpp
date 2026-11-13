@@ -30,7 +30,7 @@
 #include "engines/stharbinger/formats/dialogue.h"
 #include "engines/stharbinger/formats/resources.h"
 #include "engines/stharbinger/formats/script.h"
-#include "tools/tool.h"
+#include "devtools/tool.h"
 
 #include <algorithm>
 #include <cstdio>

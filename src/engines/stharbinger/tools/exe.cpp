@@ -12,8 +12,8 @@
 // (every 32-bit pointer the loader relocates) says which code, or which data
 // table, refers to each string.
 
-#include "common/x86/disasm.h"
-#include "tools/tool.h"
+#include "emulation/x86/disasm.h"
+#include "devtools/tool.h"
 
 #include <algorithm>
 #include <cstdio>

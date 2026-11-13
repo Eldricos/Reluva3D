@@ -11,13 +11,13 @@
 # src/backends/sdl3/ is Reluva's own code and is formatted.
 
 # Generated (each names the script that writes it)
-src/backends/sdl3/shaders/compiled.h
-src/common/x86/runtime/msvcp60_dll.h
-src/common/video/indeo5_tables.cpp
+src/backends/graphics/sdl3/shaders/compiled.h
+src/emulation/x86/runtime/msvcp60_dll.h
+src/video/indeo5_tables.cpp
 src/engines/stgenerations/formats/opcodes.cpp
 tests/common/data/*.h
 tests/engines/idtech3/data/qvm/*_qvm.h
 
 # Large constant tables transcribed from the original programs
-src/common/video/bink_tables.cpp
+src/video/bink_tables.cpp
 

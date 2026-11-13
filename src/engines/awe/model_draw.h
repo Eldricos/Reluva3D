@@ -4,7 +4,7 @@
 #pragma once
 
 #include "common/archive.h"
-#include "common/gfx3d.h"
+#include "graphics/gfx3d.h"
 #include "engines/awe/ac2.h"
 #include "engines/awe/granny_dll.h"
 #include "engines/awe/lighting.h"

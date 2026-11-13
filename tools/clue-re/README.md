@@ -28,7 +28,7 @@ the repository's root after a build:
     g++ -std=c++20 -O1 -Isrc -I. tools/clue-re/harness/NAME.cpp \
         build/engines/clue/libreluva_engine_clue.a build/libreluva_common.a -lpthread -o NAME
 
-`harness.cpp` and `netgame.cpp` also need `src/backends/sockets/socket_net.cpp`.
+`harness.cpp` and `netgame.cpp` also need `src/backends/networking/sockets/socket_net.cpp`.
 
 ## The executables (`py/`)
 

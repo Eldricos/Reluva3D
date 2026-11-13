@@ -6,7 +6,7 @@
 #include "engines/idtech3/collision.h"
 #include "engines/idtech3/sounds.h"
 
-#include "common/audio/mixer.h"
+#include "audio/mixer.h"
 
 #include <array>
 #include <cstdint>

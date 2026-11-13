@@ -13,7 +13,7 @@
 #include "engines/clue/mansion.h"
 #include "engines/clue/resi.h"
 #include "engines/clue/resources.h"
-#include "tools/tool.h"
+#include "devtools/tool.h"
 
 #include <algorithm>
 #include <cstdint>

@@ -7,7 +7,7 @@
 // dialogInfo.res), setting up the players, then the game itself (play.h)
 // with its Esc menu (see docs/engines/clue/systems/playing.md).
 
-#include "common/audio/mixer.h"
+#include "audio/mixer.h"
 #include "common/events.h"
 #include "common/system.h"
 #include "engines/clue/game_data.h"

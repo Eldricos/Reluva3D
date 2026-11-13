@@ -3,8 +3,8 @@
 
 #include "engines/awe/game_paths.h"
 
-#include "common/x86/cpu.h"
-#include "common/x86/win32.h"
+#include "emulation/x86/cpu.h"
+#include "emulation/x86/win32.h"
 
 #include <algorithm>
 #include <cstdlib>

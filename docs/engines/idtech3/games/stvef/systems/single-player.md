@@ -48,7 +48,7 @@ server game:
 - **Cvars.** The engine's cvar structures live in emulated memory and are
   kept up to date, since the game reads them directly.
 - **printf-style calls.** `Printf`, `Error` and `SendServerCommand` are
-  formatted from the emulated stack (`src/common/x86/format.cpp`).
+  formatted from the emulated stack (`src/emulation/x86/format.cpp`).
 
 `reluva-tool idtech3 sp-run <game folder> <map>` runs it and reports what the game
 did. It finds the DLL beside the game folder unless given `-dll`.
