@@ -176,10 +176,9 @@ constexpr int32_t kWeaponInfoSize = 552; // weaponinfo_t: strings of 80
 constexpr int32_t kInventorySize = 256;  // the bots' inventory counts
 constexpr int32_t kMatchSize = 328;      // bot_match_t: text, type, subtype, 8 x (offset byte, length)
 
-
 } // namespace
 
-Error GameHost::serverCommand(const std::string& text, bool* handled) {
+Error GameHost::serverCommand(const std::string &text, bool *handled) {
     // The engine's own commands first (map_restart, map, kick...).
     if (engineCommand(splitCommand(text))) {
         if (handled)
@@ -202,7 +201,7 @@ void GameHost::runQueuedConsoleCommands() {
     // know.
     while (consoleCommandsRun_ < consoleCommands_.size()) {
         const std::string text = consoleCommands_[consoleCommandsRun_++];
-        for (const std::string& command : splitCommands(text)) {
+        for (const std::string &command : splitCommands(text)) {
             if (command.empty())
                 continue;
             bool handled = false;
@@ -227,7 +226,8 @@ std::vector<int32_t> GameHost::botSnapshotEntities(int32_t clientNum) {
             continue;
         if (eyeLeaf >= 0 && !entityInt(n, layout_.bmodel)) {
             const int leaf = world_->leafAt(entityVec(n, layout_.currentOrigin));
-            if (leaf >= 0 && !map_->clusterVisible(map_->leafs[size_t(eyeLeaf)].cluster, map_->leafs[size_t(leaf)].cluster))
+            if (leaf >= 0 &&
+                !map_->clusterVisible(map_->leafs[size_t(eyeLeaf)].cluster, map_->leafs[size_t(leaf)].cluster))
                 continue;
         }
         out.push_back(n);
@@ -246,8 +246,8 @@ void GameHost::runBotFrame() {
     call(BotAiStartFrame, {levelTime_}, ignored);
 }
 
-int32_t GameHost::botCall(Qvm& vm, int number, const int32_t* a) {
-    auto& samples = botCallSamples_[number];
+int32_t GameHost::botCall(Qvm &vm, int number, const int32_t *a) {
+    auto &samples = botCallSamples_[number];
     if (samples.size() < 3)
         samples.emplace_back(a, a + 6);
     auto str = [&](int i, size_t max = 1024) { return vm.string(a[i], max); };
@@ -257,10 +257,10 @@ int32_t GameHost::botCall(Qvm& vm, int number, const int32_t* a) {
         ++unhandled_[number];
         return 0;
     };
-    botlib::BotLibrary& b = bots_;
-    botlib::AasWorld& aas = b.aas();
+    botlib::BotLibrary &b = bots_;
+    botlib::AasWorld &aas = b.aas();
     // bot_goal_t: origin, area, mins, maxs, entity, number, flags, item info.
-    auto readGoal = [&](int32_t p, botlib::BotGoal& g) {
+    auto readGoal = [&](int32_t p, botlib::BotGoal &g) {
         if (!vm.valid(p, kGoalSize))
             return false;
         g.origin = vec(p);
@@ -273,7 +273,7 @@ int32_t GameHost::botCall(Qvm& vm, int number, const int32_t* a) {
         g.itemInfo = vm.readInt(p + 52);
         return true;
     };
-    auto writeGoal = [&](int32_t p, const botlib::BotGoal& g) {
+    auto writeGoal = [&](int32_t p, const botlib::BotGoal &g) {
         if (!vm.checkWrite(p, kGoalSize))
             return 0;
         writeVec(p, g.origin);
@@ -288,7 +288,7 @@ int32_t GameHost::botCall(Qvm& vm, int number, const int32_t* a) {
     };
     // bot_match_t: the text (256), type, subtype, then each variable's
     // offset (a signed byte) and length (an int after 3 bytes' padding).
-    auto writeMatch = [&](int32_t p, const botlib::BotMatch& m) {
+    auto writeMatch = [&](int32_t p, const botlib::BotMatch &m) {
         std::memset(&vm.memory()[size_t(p)], 0, size_t(kMatchSize));
         vm.writeString(p, m.text, 256);
         vm.writeInt(p + 256, m.type);
@@ -298,7 +298,7 @@ int32_t GameHost::botCall(Qvm& vm, int number, const int32_t* a) {
             vm.writeInt(p + 268 + 8 * i, m.length[size_t(i)]);
         }
     };
-    auto readMatch = [&](int32_t p, botlib::BotMatch& m) {
+    auto readMatch = [&](int32_t p, botlib::BotMatch &m) {
         if (!vm.valid(p, kMatchSize))
             return false;
         m.text = vm.string(p, 256);
@@ -317,7 +317,7 @@ int32_t GameHost::botCall(Qvm& vm, int number, const int32_t* a) {
                 counts[size_t(i)] = vm.readInt(p + 4 * i);
         return counts;
     };
-    auto writeWeaponInfo = [&](int32_t p, const botlib::WeaponInfo& w) {
+    auto writeWeaponInfo = [&](int32_t p, const botlib::WeaponInfo &w) {
         // valid, number, name, model, level, weaponindex, flags,
         // projectile, numprojectiles, spreads, speed, acceleration,
         // recoil, offset, angleoffset, extrazvelocity, ammo amount and
@@ -329,8 +329,8 @@ int32_t GameHost::botCall(Qvm& vm, int number, const int32_t* a) {
         int32_t at = p;
         auto i32 = [&](int v) { vm.writeInt(at, v), at += 4; };
         auto f32 = [&](float v) { vm.writeInt(at, Qvm::fromFloat(v)), at += 4; };
-        auto text = [&](const std::string& t) { vm.writeString(at, t, 80), at += 80; };
-        auto v3 = [&](const Vec3f& v) { writeVec(at, v), at += 12; };
+        auto text = [&](const std::string &t) { vm.writeString(at, t, 80), at += 80; };
+        auto v3 = [&](const Vec3f &v) { writeVec(at, v), at += 12; };
         i32(w.valid), i32(w.number), text(w.name), text(w.model), i32(w.level), i32(w.weaponIndex), i32(w.flags);
         text(w.projectile), i32(w.numProjectiles), f32(w.hspread), f32(w.vspread), f32(w.speed), f32(w.acceleration);
         v3(w.recoil), v3(w.offset), v3(w.angleOffset), f32(w.extraZVelocity), i32(w.ammoAmount), i32(w.ammoIndex);
@@ -358,46 +358,54 @@ int32_t GameHost::botCall(Qvm& vm, int number, const int32_t* a) {
         botSnapshots_.erase(a[0]);
         return 0;
     case LibSetup:
-        b.readFile = [this](const std::string& path, std::vector<uint8_t>& data) {
+        b.readFile = [this](const std::string &path, std::vector<uint8_t> &data) {
             if (files_.read(path, data))
                 return false;
             filesRead_.insert(path);
             return true;
         };
-        b.clientCommand = [this](int client, const std::string& text) { clientCommand(client, text); };
-        b.print = [this](const std::string& text) {
+        b.clientCommand = [this](int client, const std::string &text) { clientCommand(client, text); };
+        b.print = [this](const std::string &text) {
             if (print)
                 print(text);
             else
                 log_ += text;
         };
         return b.setup();
-    case LibShutdown: return b.shutdown();
-    case LibVarSet: b.setLibVar(str(0, 256), str(1, 256)); return 0;
-    case LibVarGet: vm.writeString(a[1], b.libVar(str(0, 256)), a[2]); return 0;
-    case LibAddGlobalDefine: b.addGlobalDefine(str(0, 1024)); return 0;
-    case LibStartFrame: return b.startFrame(flt(0));
+    case LibShutdown:
+        return b.shutdown();
+    case LibVarSet:
+        b.setLibVar(str(0, 256), str(1, 256));
+        return 0;
+    case LibVarGet:
+        vm.writeString(a[1], b.libVar(str(0, 256)), a[2]);
+        return 0;
+    case LibAddGlobalDefine:
+        b.addGlobalDefine(str(0, 1024));
+        return 0;
+    case LibStartFrame:
+        return b.startFrame(flt(0));
     case LibLoadMap: {
         if (map_)
             parseEntities(map_->entities, bspEntities_);
         b.entityCount = int(bspEntities_.size());
-        b.entityKey = [this](int e, const std::string& key, std::string& value) {
+        b.entityKey = [this](int e, const std::string &key, std::string &value) {
             if (e < 1 || size_t(e) > bspEntities_.size() || !bspEntities_[size_t(e) - 1].has(key))
                 return false;
             value = bspEntities_[size_t(e) - 1].get(key);
             return true;
         };
-        b.trace = [this](const Vec3f& start, const Vec3f& mins, const Vec3f& maxs, const Vec3f& end, int pass,
+        b.trace = [this](const Vec3f &start, const Vec3f &mins, const Vec3f &maxs, const Vec3f &end, int pass,
                          int mask) {
             int32_t hit = kEntityNone;
             const TraceResult t = traceMove(start, mins, maxs, end, pass, mask, hit);
             return botlib::BotLibrary::Trace{t.fraction, t.endPos, t.startSolid, hit, t.normal};
         };
-        b.pointContents = [this](const Vec3f& p) { return world_ ? world_->pointContents(p, 0) : 0; };
-        b.modelBounds = [this](int model, Vec3f& mins, Vec3f& maxs) {
+        b.pointContents = [this](const Vec3f &p) { return world_ ? world_->pointContents(p, 0) : 0; };
+        b.modelBounds = [this](int model, Vec3f &mins, Vec3f &maxs) {
             return world_ && world_->modelBounds(model, mins, maxs);
         };
-        b.moverOrigin = [this](int model, Vec3f& origin) {
+        b.moverOrigin = [this](int model, Vec3f &origin) {
             // The linked brush entity with that model, as the original's
             // bot library finds a lift.
             for (const int32_t n : serverWorld_.linked())
@@ -424,13 +432,14 @@ int32_t GameHost::botCall(Qvm& vm, int number, const int32_t* a) {
         s.oldOrigin = vec(p + 32);
         s.mins = vec(p + 44);
         s.maxs = vec(p + 56);
-        int32_t* ints[] = {&s.groundEnt, &s.solid, &s.modelIndex, &s.modelIndex2, &s.frame, &s.event,
-                           &s.eventParm, &s.powerups, &s.weapon, &s.legsAnim, &s.torsoAnim};
+        int32_t *ints[] = {&s.groundEnt, &s.solid,    &s.modelIndex, &s.modelIndex2, &s.frame,    &s.event,
+                           &s.eventParm, &s.powerups, &s.weapon,     &s.legsAnim,    &s.torsoAnim};
         for (size_t i = 0; i < std::size(ints); ++i)
             *ints[i] = vm.readInt(p + 68 + 4 * int32_t(i));
         return b.updateEntity(a[0], &s);
     }
-    case LibTest: return 0;
+    case LibTest:
+        return 0;
     case GetSnapshotEntity: { // (client, sequence) -> entity number, -1 past the end
         const auto it = botSnapshots_.find(a[0]);
         if (it == botSnapshots_.end() || a[1] < 0 || size_t(a[1]) >= it->second.size())
@@ -438,9 +447,9 @@ int32_t GameHost::botCall(Qvm& vm, int number, const int32_t* a) {
         return it->second[size_t(a[1])];
     }
     case GetConsoleMessage: { // (client, buffer, size) -> whether there was one
-        size_t& read = botMessagesRead_[a[0]];
+        size_t &read = botMessagesRead_[a[0]];
         while (read < serverCommands_.size()) {
-            const auto& [to, text] = serverCommands_[read++];
+            const auto &[to, text] = serverCommands_[read++];
             if (to == a[0] || to == -1) {
                 vm.writeString(a[1], text, a[2]);
                 return 1;
@@ -468,7 +477,7 @@ int32_t GameHost::botCall(Qvm& vm, int number, const int32_t* a) {
     case AasEntityInfo: {
         if (!vm.checkWrite(a[1], kEntityInfoSize))
             return 0;
-        const botlib::BotEntityInfo& e = b.entityInfo(a[0]);
+        const botlib::BotEntityInfo &e = b.entityInfo(a[0]);
         const int32_t p = a[1];
         vm.writeInt(p, e.valid);
         vm.writeInt(p + 4, e.type);
@@ -476,16 +485,17 @@ int32_t GameHost::botCall(Qvm& vm, int number, const int32_t* a) {
         vm.writeInt(p + 12, Qvm::fromFloat(e.lastTime));
         vm.writeInt(p + 16, Qvm::fromFloat(e.updateTime));
         vm.writeInt(p + 20, e.number);
-        const Vec3f* vecs[] = {&e.origin, &e.angles, &e.oldOrigin, &e.lastVisOrigin, &e.mins, &e.maxs};
+        const Vec3f *vecs[] = {&e.origin, &e.angles, &e.oldOrigin, &e.lastVisOrigin, &e.mins, &e.maxs};
         for (size_t i = 0; i < std::size(vecs); ++i)
             writeVec(p + 24 + 12 * int32_t(i), *vecs[i]);
-        const int ints[] = {e.groundEnt, e.solid, e.modelIndex, e.modelIndex2, e.frame, e.event,
-                            e.eventParm, e.powerups, e.weapon, e.legsAnim, e.torsoAnim};
+        const int ints[] = {e.groundEnt, e.solid,    e.modelIndex, e.modelIndex2, e.frame,    e.event,
+                            e.eventParm, e.powerups, e.weapon,     e.legsAnim,    e.torsoAnim};
         for (size_t i = 0; i < std::size(ints); ++i)
             vm.writeInt(p + 96 + 4 * int32_t(i), ints[i]);
         return 0;
     }
-    case AasInitialized: return b.aasInitialized();
+    case AasInitialized:
+        return b.aasInitialized();
     case AasPresenceTypeBoundingBox: {
         Vec3f mins{}, maxs{};
         botlib::AasWorld::presenceBox(a[0], mins, maxs);
@@ -495,8 +505,10 @@ int32_t GameHost::botCall(Qvm& vm, int number, const int32_t* a) {
         }
         return 0;
     }
-    case AasTime: return Qvm::fromFloat(b.time());
-    case AasPointAreaNum: return aas.pointArea(vec(a[0]));
+    case AasTime:
+        return Qvm::fromFloat(b.time());
+    case AasPointAreaNum:
+        return aas.pointArea(vec(a[0]));
     case AasTraceAreas: { // (start, end, areas*, points*, max) -> count
         std::vector<int> areas;
         std::vector<Vec3f> points;
@@ -510,7 +522,8 @@ int32_t GameHost::botCall(Qvm& vm, int number, const int32_t* a) {
         }
         return n;
     }
-    case AasPointContents: return world_ ? world_->pointContents(vec(a[0]), 0) : 0;
+    case AasPointContents:
+        return world_ ? world_->pointContents(vec(a[0]), 0) : 0;
     case AasNextBspEntity: {
         const int next = a[0] + 1;
         return next >= 1 && size_t(next) <= bspEntities_.size() ? next : 0;
@@ -537,8 +550,10 @@ int32_t GameHost::botCall(Qvm& vm, int number, const int32_t* a) {
         }
         return found;
     }
-    case AasAreaReachability: return aas.validArea(a[0]) ? aas.settings(a[0]).numReach : 0;
-    case AasAreaTravelTimeToGoalArea: return aas.travelTime(a[0], vec(a[1]), a[2], a[3]);
+    case AasAreaReachability:
+        return aas.validArea(a[0]) ? aas.settings(a[0]).numReach : 0;
+    case AasAreaTravelTimeToGoalArea:
+        return aas.travelTime(a[0], vec(a[1]), a[2], a[3]);
     case AasSwimming: {
         Vec3f p = vec(a[0]);
         p[2] -= 2;
@@ -572,32 +587,83 @@ int32_t GameHost::botCall(Qvm& vm, int number, const int32_t* a) {
         return ok;
     }
 
-    case EaSay: b.say(a[0], str(1)); return 0;
-    case EaSayTeam: b.sayTeam(a[0], str(1)); return 0;
-    case EaCommand: b.command(a[0], str(1)); return 0;
-    case EaUseItem: b.command(a[0], "use " + str(1)); return 0;
-    case EaDropItem: b.command(a[0], "drop " + str(1)); return 0;
-    case EaUseInv: b.command(a[0], "invuse " + str(1)); return 0;
-    case EaDropInv: b.command(a[0], "invdrop " + str(1)); return 0;
-    case EaGesture: b.input(a[0]).actionFlags |= botlib::action::Gesture; return 0;
-    case EaTalk: b.input(a[0]).actionFlags |= botlib::action::Talk; return 0;
-    case EaAttack: b.input(a[0]).actionFlags |= botlib::action::Attack; return 0;
-    case EaAltAttack: b.input(a[0]).actionFlags |= botlib::action::AltAttack; return 0;
-    case EaUse: b.input(a[0]).actionFlags |= botlib::action::Use; return 0;
-    case EaRespawn: b.input(a[0]).actionFlags |= botlib::action::Respawn; return 0;
-    case EaCrouch: b.input(a[0]).actionFlags |= botlib::action::Crouch; return 0;
-    case EaMoveUp: b.input(a[0]).actionFlags |= botlib::action::MoveUp; return 0;
-    case EaMoveDown: b.input(a[0]).actionFlags |= botlib::action::MoveDown; return 0;
-    case EaMoveForward: b.input(a[0]).actionFlags |= botlib::action::MoveForward; return 0;
-    case EaMoveBack: b.input(a[0]).actionFlags |= botlib::action::MoveBack; return 0;
-    case EaMoveLeft: b.input(a[0]).actionFlags |= botlib::action::MoveLeft; return 0;
-    case EaMoveRight: b.input(a[0]).actionFlags |= botlib::action::MoveRight; return 0;
-    case EaSelectWeapon: b.input(a[0]).weapon = a[1]; return 0;
-    case EaJump: b.jump(a[0]); return 0;
-    case EaDelayedJump: b.delayedJump(a[0]); return 0;
-    case EaMove: b.move(a[0], vec(a[1]), flt(2)); return 0;
-    case EaView: b.input(a[0]).viewAngles = vec(a[1]); return 0;
-    case EaEndRegular: return 0;
+    case EaSay:
+        b.say(a[0], str(1));
+        return 0;
+    case EaSayTeam:
+        b.sayTeam(a[0], str(1));
+        return 0;
+    case EaCommand:
+        b.command(a[0], str(1));
+        return 0;
+    case EaUseItem:
+        b.command(a[0], "use " + str(1));
+        return 0;
+    case EaDropItem:
+        b.command(a[0], "drop " + str(1));
+        return 0;
+    case EaUseInv:
+        b.command(a[0], "invuse " + str(1));
+        return 0;
+    case EaDropInv:
+        b.command(a[0], "invdrop " + str(1));
+        return 0;
+    case EaGesture:
+        b.input(a[0]).actionFlags |= botlib::action::Gesture;
+        return 0;
+    case EaTalk:
+        b.input(a[0]).actionFlags |= botlib::action::Talk;
+        return 0;
+    case EaAttack:
+        b.input(a[0]).actionFlags |= botlib::action::Attack;
+        return 0;
+    case EaAltAttack:
+        b.input(a[0]).actionFlags |= botlib::action::AltAttack;
+        return 0;
+    case EaUse:
+        b.input(a[0]).actionFlags |= botlib::action::Use;
+        return 0;
+    case EaRespawn:
+        b.input(a[0]).actionFlags |= botlib::action::Respawn;
+        return 0;
+    case EaCrouch:
+        b.input(a[0]).actionFlags |= botlib::action::Crouch;
+        return 0;
+    case EaMoveUp:
+        b.input(a[0]).actionFlags |= botlib::action::MoveUp;
+        return 0;
+    case EaMoveDown:
+        b.input(a[0]).actionFlags |= botlib::action::MoveDown;
+        return 0;
+    case EaMoveForward:
+        b.input(a[0]).actionFlags |= botlib::action::MoveForward;
+        return 0;
+    case EaMoveBack:
+        b.input(a[0]).actionFlags |= botlib::action::MoveBack;
+        return 0;
+    case EaMoveLeft:
+        b.input(a[0]).actionFlags |= botlib::action::MoveLeft;
+        return 0;
+    case EaMoveRight:
+        b.input(a[0]).actionFlags |= botlib::action::MoveRight;
+        return 0;
+    case EaSelectWeapon:
+        b.input(a[0]).weapon = a[1];
+        return 0;
+    case EaJump:
+        b.jump(a[0]);
+        return 0;
+    case EaDelayedJump:
+        b.delayedJump(a[0]);
+        return 0;
+    case EaMove:
+        b.move(a[0], vec(a[1]), flt(2));
+        return 0;
+    case EaView:
+        b.input(a[0]).viewAngles = vec(a[1]);
+        return 0;
+    case EaEndRegular:
+        return 0;
     case EaGetInput: {
         if (!vm.checkWrite(a[2], kInputSize))
             return 0;
@@ -610,7 +676,9 @@ int32_t GameHost::botCall(Qvm& vm, int number, const int32_t* a) {
         vm.writeInt(a[2] + 36, in.weapon);
         return 0;
     }
-    case EaResetInput: b.resetInput(a[0]); return 0;
+    case EaResetInput:
+        b.resetInput(a[0]);
+        return 0;
 
     case AiLoadCharacter: {
         std::string log;
@@ -619,28 +687,47 @@ int32_t GameHost::botCall(Qvm& vm, int number, const int32_t* a) {
             print("couldn't load bot character " + str(0, 256) + ":\n" + log);
         return h;
     }
-    case AiFreeCharacter: b.characters().free(a[0]); return 0;
-    case AiCharacteristicFloat: return Qvm::fromFloat(b.characters().floatValue(a[0], a[1]));
-    case AiCharacteristicBFloat: return Qvm::fromFloat(b.characters().boundedFloat(a[0], a[1], flt(2), flt(3)));
-    case AiCharacteristicInteger: return b.characters().integer(a[0], a[1]);
-    case AiCharacteristicBInteger: return b.characters().boundedInteger(a[0], a[1], a[2], a[3]);
-    case AiCharacteristicString: vm.writeString(a[2], b.characters().string(a[0], a[1]), a[3]); return 0;
+    case AiFreeCharacter:
+        b.characters().free(a[0]);
+        return 0;
+    case AiCharacteristicFloat:
+        return Qvm::fromFloat(b.characters().floatValue(a[0], a[1]));
+    case AiCharacteristicBFloat:
+        return Qvm::fromFloat(b.characters().boundedFloat(a[0], a[1], flt(2), flt(3)));
+    case AiCharacteristicInteger:
+        return b.characters().integer(a[0], a[1]);
+    case AiCharacteristicBInteger:
+        return b.characters().boundedInteger(a[0], a[1], a[2], a[3]);
+    case AiCharacteristicString:
+        vm.writeString(a[2], b.characters().string(a[0], a[1]), a[3]);
+        return 0;
 
     // Chat.
-    case AiAllocChatState: return b.chat.allocState();
-    case AiFreeChatState: b.chat.freeState(a[0]); return 0;
+    case AiAllocChatState:
+        return b.chat.allocState();
+    case AiFreeChatState:
+        b.chat.freeState(a[0]);
+        return 0;
     case AiLoadChatFile: // (chatstate, file, name)
         if (b.chat.loadChatFile(a[0], b.scriptLoader(), str(1, 256), str(2, 256)))
             return botlib::blerr::None;
         if (print)
             print("couldn't load chat " + str(2, 256) + " from " + str(1, 256) + "\n");
         return botlib::blerr::CannotLoadInitialChat;
-    case AiSetChatGender: b.chat.setGender(a[0], a[1]); return 0;
-    case AiSetChatName: b.chat.setName(a[0], str(1, 256)); return 0;
-    case AiQueueConsoleMessage: b.chat.queueConsoleMessage(a[0], a[1], str(2, 256)); return 0;
-    case AiRemoveConsoleMessage: b.chat.removeConsoleMessage(a[0], a[1]); return 0;
+    case AiSetChatGender:
+        b.chat.setGender(a[0], a[1]);
+        return 0;
+    case AiSetChatName:
+        b.chat.setName(a[0], str(1, 256));
+        return 0;
+    case AiQueueConsoleMessage:
+        b.chat.queueConsoleMessage(a[0], a[1], str(2, 256));
+        return 0;
+    case AiRemoveConsoleMessage:
+        b.chat.removeConsoleMessage(a[0], a[1]);
+        return 0;
     case AiNextConsoleMessage: { // (chatstate, bot_consolemessage_t*): handle, time, type, text
-        const botlib::BotChat::ConsoleMessage* m = b.chat.nextConsoleMessage(a[0]);
+        const botlib::BotChat::ConsoleMessage *m = b.chat.nextConsoleMessage(a[0]);
         if (!m || !vm.checkWrite(a[1], 12 + 256))
             return 0;
         vm.writeInt(a[1], m->handle);
@@ -649,12 +736,13 @@ int32_t GameHost::botCall(Qvm& vm, int number, const int32_t* a) {
         vm.writeString(a[1] + 12, m->text, 256);
         return m->handle;
     }
-    case AiNumConsoleMessage: return b.chat.numConsoleMessages(a[0]);
+    case AiNumConsoleMessage:
+        return b.chat.numConsoleMessages(a[0]);
     case AiInitialChat: // (chatstate, type, mcontext, var0..var7)
     case AiReplyChat: { // (chatstate, message, mcontext, vcontext, var0..var7)
         const int first = number == AiInitialChat ? 3 : 4;
         std::vector<std::string> texts(8);
-        std::vector<const char*> vars(8, nullptr);
+        std::vector<const char *> vars(8, nullptr);
         for (int i = 0; i < 8; ++i)
             if (a[first + i]) {
                 texts[size_t(i)] = str(first + i, 256);
@@ -666,9 +754,13 @@ int32_t GameHost::botCall(Qvm& vm, int number, const int32_t* a) {
         }
         return b.chat.replyChat(a[0], str(1, 256), a[2], a[3], vars);
     }
-    case AiChatLength: return b.chat.chatLength(a[0]);
-    case AiEnterChat: b.chat.enterChat(a[0], a[1], a[2]); return 0; // (chatstate, the bot's client, to whom)
-    case AiStringContains: return botlib::BotChat::stringContains(str(0), str(1), a[2] != 0);
+    case AiChatLength:
+        return b.chat.chatLength(a[0]);
+    case AiEnterChat:
+        b.chat.enterChat(a[0], a[1], a[2]);
+        return 0; // (chatstate, the bot's client, to whom)
+    case AiStringContains:
+        return botlib::BotChat::stringContains(str(0), str(1), a[2] != 0);
     case AiFindMatch: { // (text, bot_match_t*, context)
         botlib::BotMatch m;
         const bool found = b.chat.findMatch(str(0, 256), m, a[2]);
@@ -695,22 +787,36 @@ int32_t GameHost::botCall(Qvm& vm, int number, const int32_t* a) {
         vm.writeString(a[0], text, 256);
         return 0;
     }
-    case AiNumInitialChats: return b.chat.numInitialChats(a[0], str(1, 256));
-    case AiGetChatMessage: vm.writeString(a[1], b.chat.takeChatMessage(a[0]), a[2]); return 0;
+    case AiNumInitialChats:
+        return b.chat.numInitialChats(a[0], str(1, 256));
+    case AiGetChatMessage:
+        vm.writeString(a[1], b.chat.takeChatMessage(a[0]), a[2]);
+        return 0;
 
     // Goals.
-    case AiAllocGoalState: return b.allocGoalState(a[0]);
-    case AiFreeGoalState: b.freeGoalState(a[0]); return 0;
-    case AiResetGoalState: b.resetGoalState(a[0]); return 0;
-    case AiResetAvoidGoals: b.resetAvoidGoals(a[0]); return 0;
-    case AiEmptyGoalStack: b.emptyGoalStack(a[0]); return 0;
+    case AiAllocGoalState:
+        return b.allocGoalState(a[0]);
+    case AiFreeGoalState:
+        b.freeGoalState(a[0]);
+        return 0;
+    case AiResetGoalState:
+        b.resetGoalState(a[0]);
+        return 0;
+    case AiResetAvoidGoals:
+        b.resetAvoidGoals(a[0]);
+        return 0;
+    case AiEmptyGoalStack:
+        b.emptyGoalStack(a[0]);
+        return 0;
     case AiPushGoal: {
         botlib::BotGoal g;
         if (readGoal(a[1], g))
             b.pushGoal(a[0], g);
         return 0;
     }
-    case AiPopGoal: b.popGoal(a[0]); return 0;
+    case AiPopGoal:
+        b.popGoal(a[0]);
+        return 0;
     case AiGetTopGoal:
     case AiGetSecondGoal: {
         botlib::BotGoal g;
@@ -718,7 +824,8 @@ int32_t GameHost::botCall(Qvm& vm, int number, const int32_t* a) {
             return 0;
         return writeGoal(a[1], g);
     }
-    case AiChooseLtgItem: return b.chooseLtgItem(a[0], vec(a[1]), inventory(a[2]), a[3]);
+    case AiChooseLtgItem:
+        return b.chooseLtgItem(a[0], vec(a[1]), inventory(a[2]), a[3]);
     case AiChooseNbgItem: {
         botlib::BotGoal ltg;
         const bool haveLtg = a[4] && readGoal(a[4], ltg);
@@ -739,13 +846,25 @@ int32_t GameHost::botCall(Qvm& vm, int number, const int32_t* a) {
             writeGoal(a[2], g);
         return n;
     }
-    case AiAvoidGoalTime: return Qvm::fromFloat(b.avoidGoalTime(a[0], a[1]));
-    case AiRemoveFromAvoidGoals: b.removeFromAvoidGoals(a[0], a[1]); return 0;
-    case AiInitLevelItems: b.initLevelItems(); return 0;
-    case AiUpdateEntityItems: b.updateEntityItems(); return 0;
-    case AiLoadItemWeights: return b.loadItemWeights(a[0], str(1, 256));
-    case AiFreeItemWeights: b.freeItemWeights(a[0]); return 0;
-    case AiGoalName: vm.writeString(a[1], b.goalName(a[0]), a[2]); return 0;
+    case AiAvoidGoalTime:
+        return Qvm::fromFloat(b.avoidGoalTime(a[0], a[1]));
+    case AiRemoveFromAvoidGoals:
+        b.removeFromAvoidGoals(a[0], a[1]);
+        return 0;
+    case AiInitLevelItems:
+        b.initLevelItems();
+        return 0;
+    case AiUpdateEntityItems:
+        b.updateEntityItems();
+        return 0;
+    case AiLoadItemWeights:
+        return b.loadItemWeights(a[0], str(1, 256));
+    case AiFreeItemWeights:
+        b.freeItemWeights(a[0]);
+        return 0;
+    case AiGoalName:
+        vm.writeString(a[1], b.goalName(a[0]), a[2]);
+        return 0;
     case AiGetNextCampSpotGoal: {
         botlib::BotGoal g;
         const int n = b.nextCampSpotGoal(a[0], g);
@@ -759,12 +878,18 @@ int32_t GameHost::botCall(Qvm& vm, int number, const int32_t* a) {
     }
     case AiDumpAvoidGoals:
     case AiDumpGoalStack:
-    case AiSaveGoalFuzzyLogic: return 0;
+    case AiSaveGoalFuzzyLogic:
+        return 0;
 
     // Movement.
-    case AiAllocMoveState: return b.allocMoveState();
-    case AiFreeMoveState: b.freeMoveState(a[0]); return 0;
-    case AiResetMoveState: b.resetMoveState(a[0]); return 0;
+    case AiAllocMoveState:
+        return b.allocMoveState();
+    case AiFreeMoveState:
+        b.freeMoveState(a[0]);
+        return 0;
+    case AiResetMoveState:
+        b.resetMoveState(a[0]);
+        return 0;
     case AiInitMoveState: {
         if (!vm.valid(a[1], kInitMoveSize))
             return 0;
@@ -802,10 +927,16 @@ int32_t GameHost::botCall(Qvm& vm, int number, const int32_t* a) {
         writeVec(p + 40, r.idealViewAngles);
         return 0;
     }
-    case AiMoveInDirection: return b.moveInDirection(a[0], vec(a[1]), flt(2), a[3]);
-    case AiResetAvoidReach: b.resetAvoidReach(a[0]); return 0;
-    case AiResetLastAvoidReach: b.resetLastAvoidReach(a[0]); return 0;
-    case AiReachabilityArea: return b.reachabilityArea(vec(a[0]));
+    case AiMoveInDirection:
+        return b.moveInDirection(a[0], vec(a[1]), flt(2), a[3]);
+    case AiResetAvoidReach:
+        b.resetAvoidReach(a[0]);
+        return 0;
+    case AiResetLastAvoidReach:
+        b.resetLastAvoidReach(a[0]);
+        return 0;
+    case AiReachabilityArea:
+        return b.reachabilityArea(vec(a[0]));
     case AiMovementViewTarget: { // (movestate, goal*, travelflags, lookahead, target*)
         botlib::BotGoal g;
         Vec3f target{};
@@ -825,13 +956,19 @@ int32_t GameHost::botCall(Qvm& vm, int number, const int32_t* a) {
     }
 
     // Weapons.
-    case AiAllocWeaponState: return b.allocWeaponState();
-    case AiFreeWeaponState: b.freeWeaponState(a[0]); return 0;
-    case AiResetWeaponState: return 0;
-    case AiLoadWeaponWeights: return b.loadWeaponWeights(a[0], str(1, 256));
-    case AiChooseBestFightWeapon: return b.chooseBestFightWeapon(a[0], inventory(a[1]));
+    case AiAllocWeaponState:
+        return b.allocWeaponState();
+    case AiFreeWeaponState:
+        b.freeWeaponState(a[0]);
+        return 0;
+    case AiResetWeaponState:
+        return 0;
+    case AiLoadWeaponWeights:
+        return b.loadWeaponWeights(a[0], str(1, 256));
+    case AiChooseBestFightWeapon:
+        return b.chooseBestFightWeapon(a[0], inventory(a[1]));
     case AiGetWeaponInfo: { // (weaponstate, weapon, weaponinfo_t*)
-        const botlib::WeaponInfo* w = b.weaponInfo(a[1]);
+        const botlib::WeaponInfo *w = b.weaponInfo(a[1]);
         if (!w || !vm.checkWrite(a[2], kWeaponInfoSize))
             return 0;
         writeWeaponInfo(a[2], *w);
@@ -840,8 +977,10 @@ int32_t GameHost::botCall(Qvm& vm, int number, const int32_t* a) {
 
     case AiGeneticParentsAndChildSelection:
     case AiInterbreedGoalFuzzyLogic:
-    case AiMutateGoalFuzzyLogic: return 0;
-    default: return fail();
+    case AiMutateGoalFuzzyLogic:
+        return 0;
+    default:
+        return fail();
     }
 }
 

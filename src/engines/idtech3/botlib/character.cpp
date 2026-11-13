@@ -11,11 +11,11 @@
 namespace reluva::idtech3::botlib {
 
 namespace {
-const char* const kDefaultCharacter = "bots/default_c.c";
+const char *const kDefaultCharacter = "bots/default_c.c";
 } // namespace
 
-std::unique_ptr<BotCharacter> BotCharacters::read(const BotScript::Loader& load, const std::string& file, int skill,
-                                                  std::string* error) {
+std::unique_ptr<BotCharacter> BotCharacters::read(const BotScript::Loader &load, const std::string &file, int skill,
+                                                  std::string *error) {
     BotScript script(load);
     if (!script.open(file)) {
         if (error)
@@ -51,7 +51,7 @@ std::unique_ptr<BotCharacter> BotCharacters::read(const BotScript::Loader& load,
                 script.fail("characteristic index out of range");
                 break;
             }
-            BotCharacter::Value& v = ch->values[size_t(index)];
+            BotCharacter::Value &v = ch->values[size_t(index)];
             if (v.type != BotCharacter::Value::Type::None) {
                 script.fail("characteristic " + std::to_string(index) + " given twice");
                 break;
@@ -96,14 +96,14 @@ std::unique_ptr<BotCharacter> BotCharacters::read(const BotScript::Loader& load,
     return ch;
 }
 
-std::unique_ptr<BotCharacter> BotCharacters::loadSkill(const BotScript::Loader& load, const std::string& file,
-                                                       int skill, std::string* log) {
+std::unique_ptr<BotCharacter> BotCharacters::loadSkill(const BotScript::Loader &load, const std::string &file,
+                                                       int skill, std::string *log) {
     // The skill from the file, else from the default character, else the
     // file's first, else the default's first; then what's missing taken
     // from the default character at that skill.
     std::string error;
     std::unique_ptr<BotCharacter> ch;
-    for (const auto& [f, s] : {std::make_pair(file, skill), std::make_pair(std::string(kDefaultCharacter), skill),
+    for (const auto &[f, s] : {std::make_pair(file, skill), std::make_pair(std::string(kDefaultCharacter), skill),
                                std::make_pair(file, -1), std::make_pair(std::string(kDefaultCharacter), -1)}) {
         if ((ch = read(load, f, s, &error)))
             break;
@@ -120,7 +120,7 @@ std::unique_ptr<BotCharacter> BotCharacters::loadSkill(const BotScript::Loader& 
     return ch;
 }
 
-int BotCharacters::load(const BotScript::Loader& load, const std::string& file, float skill, std::string* log) {
+int BotCharacters::load(const BotScript::Loader &load, const std::string &file, float skill, std::string *log) {
     skill = std::clamp(skill, 1.0f, 5.0f);
     std::unique_ptr<BotCharacter> result;
     if (skill == 1 || skill == 4 || skill == 5) {
@@ -139,8 +139,8 @@ int BotCharacters::load(const BotScript::Loader& load, const std::string& file, 
             result->skill = skill;
             const float scale = (skill - a->skill) / (b->skill - a->skill);
             for (size_t i = 0; i < size_t(BotCharacter::kCount); ++i) {
-                const auto& va = a->values[i];
-                const auto& vb = b->values[i];
+                const auto &va = a->values[i];
+                const auto &vb = b->values[i];
                 if (va.type == BotCharacter::Value::Type::Float && vb.type == BotCharacter::Value::Type::Float)
                     result->values[i].number = va.number + (vb.number - va.number) * scale;
             }
@@ -162,20 +162,20 @@ void BotCharacters::free(int handle) {
         characters_[size_t(handle) - 1].reset();
 }
 
-const BotCharacter* BotCharacters::get(int handle) const {
+const BotCharacter *BotCharacters::get(int handle) const {
     if (handle < 1 || size_t(handle) > characters_.size())
         return nullptr;
     return characters_[size_t(handle) - 1].get();
 }
 
 float BotCharacters::floatValue(int handle, int index) const {
-    const BotCharacter* ch = get(handle);
+    const BotCharacter *ch = get(handle);
     if (!ch || index < 0 || index >= BotCharacter::kCount)
         return 0;
-    const auto& v = ch->values[size_t(index)];
+    const auto &v = ch->values[size_t(index)];
     return v.type == BotCharacter::Value::Type::Integer ? float(v.integer)
            : v.type == BotCharacter::Value::Type::Float ? v.number
-                                                         : 0;
+                                                        : 0;
 }
 
 float BotCharacters::boundedFloat(int handle, int index, float min, float max) const {
@@ -183,13 +183,13 @@ float BotCharacters::boundedFloat(int handle, int index, float min, float max) c
 }
 
 int BotCharacters::integer(int handle, int index) const {
-    const BotCharacter* ch = get(handle);
+    const BotCharacter *ch = get(handle);
     if (!ch || index < 0 || index >= BotCharacter::kCount)
         return 0;
-    const auto& v = ch->values[size_t(index)];
+    const auto &v = ch->values[size_t(index)];
     return v.type == BotCharacter::Value::Type::Integer ? v.integer
            : v.type == BotCharacter::Value::Type::Float ? int(v.number)
-                                                         : 0;
+                                                        : 0;
 }
 
 int BotCharacters::boundedInteger(int handle, int index, int min, int max) const {
@@ -197,10 +197,10 @@ int BotCharacters::boundedInteger(int handle, int index, int min, int max) const
 }
 
 std::string BotCharacters::string(int handle, int index) const {
-    const BotCharacter* ch = get(handle);
+    const BotCharacter *ch = get(handle);
     if (!ch || index < 0 || index >= BotCharacter::kCount)
         return {};
-    const auto& v = ch->values[size_t(index)];
+    const auto &v = ch->values[size_t(index)];
     return v.type == BotCharacter::Value::Type::String ? v.text : std::string();
 }
 

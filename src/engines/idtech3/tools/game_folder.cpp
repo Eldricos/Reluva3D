@@ -9,13 +9,13 @@
 
 namespace reluva::idtech3::tool {
 
-std::pair<std::filesystem::path, std::string> idTech3Folders(const char* folder) {
+std::pair<std::filesystem::path, std::string> idTech3Folders(const char *folder) {
     const std::filesystem::path dir = std::filesystem::path(folder).lexically_normal();
     const std::filesystem::path path = dir.has_filename() ? dir : dir.parent_path();
     return {path.parent_path(), path.filename().string()};
 }
 
-bool mountIdTech3(const char* folder, reluva::SearchSet& set, const std::vector<std::string>& skip) {
+bool mountIdTech3(const char *folder, reluva::SearchSet &set, const std::vector<std::string> &skip) {
     const std::filesystem::path dir = std::filesystem::path(folder).lexically_normal();
     const std::filesystem::path path = dir.has_filename() ? dir : dir.parent_path();
     std::vector<std::string> warnings;
@@ -24,7 +24,7 @@ bool mountIdTech3(const char* folder, reluva::SearchSet& set, const std::vector<
         std::fprintf(stderr, "%s\n", err.message.c_str());
         return false;
     }
-    for (const std::string& w : warnings)
+    for (const std::string &w : warnings)
         std::fprintf(stderr, "warning: %s\n", w.c_str());
     return true;
 }

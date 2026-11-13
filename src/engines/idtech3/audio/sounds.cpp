@@ -39,7 +39,7 @@ std::shared_ptr<const audio::Sound> SoundLibrary::find(std::string_view name) {
     const size_t slash = full.rfind('/');
     const size_t dot = full.find('.', slash == std::string::npos ? 0 : slash);
     const std::string stem = dot == std::string::npos ? full : full.substr(0, dot);
-    for (const char* ext : {".wav", ".mp3"})
+    for (const char *ext : {".wav", ".mp3"})
         if (stem + ext != full)
             if (auto sound = get(stem + ext))
                 return sound;

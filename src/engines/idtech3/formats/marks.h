@@ -30,7 +30,7 @@ public:
     // The world's surfaces (the map's first model): planar faces,
     // triangle soups and patches, tessellated as they're drawn: straying
     // from round by at most `subdivisions` units (r_subdivisions).
-    explicit MarkSurfaces(const Bsp& bsp, float subdivisions = 4);
+    explicit MarkSurfaces(const Bsp &bsp, float subdivisions = 4);
 
     struct Fragment {
         int32_t firstPoint = 0, numPoints = 0; // in the points handed back
@@ -39,8 +39,8 @@ public:
     // polygon (both ways), each triangle clipped to the polygon's edges
     // swept along it. Appends to `points` and `fragments`, stopping before
     // either would pass its limit.
-    void mark(const std::vector<Vec3f>& polygon, const Vec3f& projection, size_t maxPoints, size_t maxFragments,
-              std::vector<Vec3f>& points, std::vector<Fragment>& fragments) const;
+    void mark(const std::vector<Vec3f> &polygon, const Vec3f &projection, size_t maxPoints, size_t maxFragments,
+              std::vector<Vec3f> &points, std::vector<Fragment> &fragments) const;
 
     size_t triangleCount() const { return triangles_.size(); }
 

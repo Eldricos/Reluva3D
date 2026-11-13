@@ -12,15 +12,19 @@ namespace reluva::idtech3 {
 
 namespace {
 
-Vec3f sub(const Vec3f& a, const Vec3f& b) { return {a[0] - b[0], a[1] - b[1], a[2] - b[2]}; }
-float dot(const Vec3f& a, const Vec3f& b) { return a[0] * b[0] + a[1] * b[1] + a[2] * b[2]; }
-Vec3f cross(const Vec3f& a, const Vec3f& b) {
+Vec3f sub(const Vec3f &a, const Vec3f &b) {
+    return {a[0] - b[0], a[1] - b[1], a[2] - b[2]};
+}
+float dot(const Vec3f &a, const Vec3f &b) {
+    return a[0] * b[0] + a[1] * b[1] + a[2] * b[2];
+}
+Vec3f cross(const Vec3f &a, const Vec3f &b) {
     return {a[1] * b[2] - a[2] * b[1], a[2] * b[0] - a[0] * b[2], a[0] * b[1] - a[1] * b[0]};
 }
 Vec3f normalized(Vec3f v) {
     const float len = std::sqrt(dot(v, v));
     if (len > 1e-9f)
-        for (float& c : v)
+        for (float &c : v)
             c /= len;
     return v;
 }
@@ -32,11 +36,11 @@ struct ClipPlane {
 };
 
 // Cuts `poly` down to the side of `plane` it keeps.
-void clip(std::vector<Vec3f>& poly, const ClipPlane& plane) {
+void clip(std::vector<Vec3f> &poly, const ClipPlane &plane) {
     std::vector<Vec3f> out;
     for (size_t i = 0; i < poly.size(); ++i) {
-        const Vec3f& a = poly[i];
-        const Vec3f& b = poly[(i + 1) % poly.size()];
+        const Vec3f &a = poly[i];
+        const Vec3f &b = poly[(i + 1) % poly.size()];
         const float da = dot(plane.normal, a) - plane.dist, db = dot(plane.normal, b) - plane.dist;
         if (da >= 0)
             out.push_back(a);
@@ -50,25 +54,25 @@ void clip(std::vector<Vec3f>& poly, const ClipPlane& plane) {
 
 } // namespace
 
-MarkSurfaces::MarkSurfaces(const Bsp& bsp, float subdivisions) {
+MarkSurfaces::MarkSurfaces(const Bsp &bsp, float subdivisions) {
     if (bsp.models.empty())
         return;
-    const BspModel& world = bsp.models[0];
+    const BspModel &world = bsp.models[0];
     std::vector<BspVertex> patchVerts;
     std::vector<uint32_t> patchIndices;
     // The curves as drawn (WorldRenderer cuts them the same way).
     const std::vector<PatchGrid> grids = buildPatchGrids(bsp, subdivisions);
     for (int si = world.firstSurface; si < world.firstSurface + world.numSurfaces; ++si) {
-        const BspSurface& s = bsp.surfaces[size_t(si)];
+        const BspSurface &s = bsp.surfaces[size_t(si)];
         if (s.type != SurfaceType::Planar && s.type != SurfaceType::TriangleSoup && s.type != SurfaceType::Patch)
             continue;
         if (s.shader >= 0 && size_t(s.shader) < bsp.shaders.size() &&
             (bsp.shaders[size_t(s.shader)].surfaceFlags &
              (surfaceflags::Sky | surfaceflags::NoImpact | surfaceflags::NoMarks)))
             continue;
-        const BspVertex* v = &bsp.vertices[size_t(s.firstVertex)];
-        const BspVertex* verts = v;
-        const int32_t* idx = nullptr;
+        const BspVertex *v = &bsp.vertices[size_t(s.firstVertex)];
+        const BspVertex *verts = v;
+        const int32_t *idx = nullptr;
         std::vector<int32_t> patchIdx;
         size_t indexCount = 0;
         if (s.type == SurfaceType::Patch) {
@@ -88,7 +92,7 @@ MarkSurfaces::MarkSurfaces(const Bsp& bsp, float subdivisions) {
             Triangle t;
             Vec3f normalSum{};
             for (size_t k = 0; k < 3; ++k) {
-                const BspVertex& bv = verts[idx[i + k]];
+                const BspVertex &bv = verts[idx[i + k]];
                 t.corners[k] = bv.pos;
                 for (size_t c = 0; c < 3; ++c) {
                     normalSum[c] += bv.normal[c];
@@ -102,7 +106,7 @@ MarkSurfaces::MarkSurfaces(const Bsp& bsp, float subdivisions) {
             if (dot(t.normal, t.normal) < 0.5f)
                 continue; // degenerate
             if (dot(t.normal, normalSum) < 0)
-                for (float& c : t.normal)
+                for (float &c : t.normal)
                     c = -c;
             triangles_.push_back(t);
         }
@@ -112,8 +116,8 @@ MarkSurfaces::MarkSurfaces(const Bsp& bsp, float subdivisions) {
     }
 }
 
-void MarkSurfaces::mark(const std::vector<Vec3f>& polygon, const Vec3f& projection, size_t maxPoints,
-                        size_t maxFragments, std::vector<Vec3f>& points, std::vector<Fragment>& fragments) const {
+void MarkSurfaces::mark(const std::vector<Vec3f> &polygon, const Vec3f &projection, size_t maxPoints,
+                        size_t maxFragments, std::vector<Vec3f> &points, std::vector<Fragment> &fragments) const {
     if (polygon.size() < 3)
         return;
     const float depth = std::sqrt(dot(projection, projection));
@@ -123,7 +127,7 @@ void MarkSurfaces::mark(const std::vector<Vec3f>& polygon, const Vec3f& projecti
     // The volume the mark reaches: the polygon swept its projection's
     // length both ways.
     Vec3f mins{1e30f, 1e30f, 1e30f}, maxs{-1e30f, -1e30f, -1e30f}, center{};
-    for (const Vec3f& p : polygon)
+    for (const Vec3f &p : polygon)
         for (size_t c = 0; c < 3; ++c) {
             mins[c] = std::min(mins[c], std::min(p[c] - projection[c], p[c] + projection[c]));
             maxs[c] = std::max(maxs[c], std::max(p[c] - projection[c], p[c] + projection[c]));
@@ -133,13 +137,13 @@ void MarkSurfaces::mark(const std::vector<Vec3f>& polygon, const Vec3f& projecti
     // the two ends across it.
     std::vector<ClipPlane> planes;
     for (size_t i = 0; i < polygon.size(); ++i) {
-        const Vec3f& a = polygon[i];
-        const Vec3f& b = polygon[(i + 1) % polygon.size()];
+        const Vec3f &a = polygon[i];
+        const Vec3f &b = polygon[(i + 1) % polygon.size()];
         Vec3f n = normalized(cross(dir, sub(b, a)));
         if (dot(n, n) < 0.5f)
             continue;
         if (dot(n, center) < dot(n, a))
-            for (float& c : n)
+            for (float &c : n)
                 c = -c;
         planes.push_back({n, dot(n, a)});
     }
@@ -148,19 +152,19 @@ void MarkSurfaces::mark(const std::vector<Vec3f>& polygon, const Vec3f& projecti
     planes.push_back({{-dir[0], -dir[1], -dir[2]}, -(mid + depth)});
 
     std::vector<Vec3f> poly;
-    for (const Surface& s : surfaces_) {
+    for (const Surface &s : surfaces_) {
         bool outside = false;
         for (size_t c = 0; c < 3 && !outside; ++c)
             outside = s.maxs[c] < mins[c] || s.mins[c] > maxs[c];
         if (outside)
             continue;
         for (size_t ti = s.first; ti < s.first + s.count; ++ti) {
-            const Triangle& t = triangles_[ti];
+            const Triangle &t = triangles_[ti];
             // Only surfaces the mark comes at from the front.
             if (dot(t.normal, dir) > -0.1f)
                 continue;
             poly.assign(t.corners.begin(), t.corners.end());
-            for (const ClipPlane& plane : planes) {
+            for (const ClipPlane &plane : planes) {
                 clip(poly, plane);
                 if (poly.size() < 3)
                     break;

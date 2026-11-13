@@ -15,9 +15,9 @@ int BotLibrary::setup() {
     if (print)
         print("------- BotLib Initialization -------\n");
     chat.time = [this] { return time_; };
-    chat.command = [this](int client, const std::string& text) { command(client, text); };
+    chat.command = [this](int client, const std::string &text) { command(client, text); };
     std::string log;
-    chat.setup(scriptLoader(), [this](const std::string& name) { return libVar(name); }, &log);
+    chat.setup(scriptLoader(), [this](const std::string &name) { return libVar(name); }, &log);
     if (print)
         print(log);
     return blerr::None;
@@ -34,12 +34,12 @@ int BotLibrary::shutdown() {
     return blerr::None;
 }
 
-std::string BotLibrary::libVar(const std::string& name) const {
+std::string BotLibrary::libVar(const std::string &name) const {
     const auto it = libVars_.find(name);
     return it == libVars_.end() ? std::string() : it->second;
 }
 
-int BotLibrary::loadMap(const std::string& mapName) {
+int BotLibrary::loadMap(const std::string &mapName) {
     if (!setup_)
         return blerr::LibraryNotSetup;
     const std::string path = "maps/" + mapName + ".aas";
@@ -78,20 +78,20 @@ int BotLibrary::startFrame(float time) {
         return blerr::LibraryNotSetup;
     time_ = time;
     // Entities not updated since the last frame count as gone.
-    for (BotEntityInfo& e : entities_)
+    for (BotEntityInfo &e : entities_)
         e.valid = false;
     ++frames_;
     return blerr::None;
 }
 
-int BotLibrary::updateEntity(int number, const BotEntityState* state) {
+int BotLibrary::updateEntity(int number, const BotEntityState *state) {
     if (!setup_)
         return blerr::LibraryNotSetup;
     if (number < 0 || number >= kMaxEntities)
         return blerr::InvalidEntityNumber;
     if (!aas_.loaded())
         return blerr::NoAasFile;
-    BotEntityInfo& e = entities_[size_t(number)];
+    BotEntityInfo &e = entities_[size_t(number)];
     if (!state)
         return blerr::None;
     e.updateTime = time_ - e.lastTime;
@@ -120,13 +120,13 @@ int BotLibrary::updateEntity(int number, const BotEntityState* state) {
     return blerr::None;
 }
 
-const BotEntityInfo& BotLibrary::entityInfo(int number) const {
+const BotEntityInfo &BotLibrary::entityInfo(int number) const {
     static const BotEntityInfo none;
     return number >= 0 && number < kMaxEntities ? entities_[size_t(number)] : none;
 }
 
 BotScript::Loader BotLibrary::scriptLoader() const {
-    return [this](const std::string& path, std::string& text) {
+    return [this](const std::string &path, std::string &text) {
         std::vector<uint8_t> data;
         if (!readFile || !readFile("botfiles/" + path, data))
             return false;
@@ -135,14 +135,14 @@ BotScript::Loader BotLibrary::scriptLoader() const {
     };
 }
 
-void BotLibrary::command(int client, const std::string& text) {
+void BotLibrary::command(int client, const std::string &text) {
     if (clientCommand)
         clientCommand(client, text);
 }
 
 void BotLibrary::jump(int client) {
     // A jump only every other frame, so the game sees the key let go.
-    BotInput& in = input(client);
+    BotInput &in = input(client);
     if (in.actionFlags & action::JumpedLastFrame)
         in.actionFlags &= ~action::Jump;
     else
@@ -150,27 +150,27 @@ void BotLibrary::jump(int client) {
 }
 
 void BotLibrary::delayedJump(int client) {
-    BotInput& in = input(client);
+    BotInput &in = input(client);
     if (in.actionFlags & action::JumpedLastFrame)
         in.actionFlags &= ~action::DelayedJump;
     else
         in.actionFlags |= action::DelayedJump;
 }
 
-void BotLibrary::move(int client, const Vec3f& dir, float speed) {
-    BotInput& in = input(client);
+void BotLibrary::move(int client, const Vec3f &dir, float speed) {
+    BotInput &in = input(client);
     in.dir = dir;
     in.speed = std::clamp(speed, -float(kMaxUserMove), float(kMaxUserMove));
 }
 
 BotInput BotLibrary::getInput(int client, float thinkTime) {
-    BotInput& in = input(client);
+    BotInput &in = input(client);
     in.thinkTime = thinkTime;
     return in;
 }
 
 void BotLibrary::resetInput(int client) {
-    BotInput& in = input(client);
+    BotInput &in = input(client);
     const bool jumped = in.actionFlags & action::Jump;
     in.thinkTime = 0;
     in.dir = {};

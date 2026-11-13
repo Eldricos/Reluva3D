@@ -21,12 +21,12 @@ namespace reluva::idtech3 {
 namespace {
 
 constexpr int32_t kMagic = 0x12721444, kMagic2 = 0x12721445;
-constexpr int32_t kStackSize = 0x10000;  // the program stack, at the top of the data
+constexpr int32_t kStackSize = 0x10000; // the program stack, at the top of the data
 constexpr int kOpStackSize = 1024;
 constexpr int kSyscallArgs = 16;
-constexpr int kMaxDepth = 64;            // nested call()s through system calls
+constexpr int kMaxDepth = 64; // nested call()s through system calls
 
-int32_t le32(const uint8_t* p) {
+int32_t le32(const uint8_t *p) {
     return static_cast<int32_t>(uint32_t(p[0]) | uint32_t(p[1]) << 8 | uint32_t(p[2]) << 16 | uint32_t(p[3]) << 24);
 }
 
@@ -34,9 +34,27 @@ int32_t le32(const uint8_t* p) {
 
 int qvmop::operandSize(uint8_t op) {
     switch (op) {
-    case Enter: case Leave: case Const: case Local: case BlockCopy:
-    case Eq: case Ne: case Lti: case Lei: case Gti: case Gei: case Ltu: case Leu: case Gtu: case Geu:
-    case Eqf: case Nef: case Ltf: case Lef: case Gtf: case Gef:
+    case Enter:
+    case Leave:
+    case Const:
+    case Local:
+    case BlockCopy:
+    case Eq:
+    case Ne:
+    case Lti:
+    case Lei:
+    case Gti:
+    case Gei:
+    case Ltu:
+    case Leu:
+    case Gtu:
+    case Geu:
+    case Eqf:
+    case Nef:
+    case Ltf:
+    case Lef:
+    case Gtf:
+    case Gef:
         return 4;
     case Arg:
         return 1;
@@ -45,19 +63,24 @@ int qvmop::operandSize(uint8_t op) {
     }
 }
 
-const char* qvmop::name(uint8_t op) {
-    static const char* const names[] = {
-        "UNDEF", "IGNORE", "BREAK", "ENTER", "LEAVE", "CALL", "PUSH", "POP", "CONST", "LOCAL", "JUMP",
-        "EQ", "NE", "LTI", "LEI", "GTI", "GEI", "LTU", "LEU", "GTU", "GEU", "EQF", "NEF", "LTF", "LEF", "GTF", "GEF",
-        "LOAD1", "LOAD2", "LOAD4", "STORE1", "STORE2", "STORE4", "ARG", "BLOCK_COPY",
-        "SEX8", "SEX16", "NEGI", "ADD", "SUB", "DIVI", "DIVU", "MODI", "MODU", "MULI", "MULU",
-        "BAND", "BOR", "BXOR", "BCOM", "LSH", "RSHI", "RSHU", "NEGF", "ADDF", "SUBF", "DIVF", "MULF", "CVIF", "CVFI",
+const char *qvmop::name(uint8_t op) {
+    static const char *const names[] = {
+        "UNDEF",  "IGNORE", "BREAK",  "ENTER", "LEAVE",      "CALL", "PUSH",  "POP",   "CONST", "LOCAL",
+        "JUMP",   "EQ",     "NE",     "LTI",   "LEI",        "GTI",  "GEI",   "LTU",   "LEU",   "GTU",
+        "GEU",    "EQF",    "NEF",    "LTF",   "LEF",        "GTF",  "GEF",   "LOAD1", "LOAD2", "LOAD4",
+        "STORE1", "STORE2", "STORE4", "ARG",   "BLOCK_COPY", "SEX8", "SEX16", "NEGI",  "ADD",   "SUB",
+        "DIVI",   "DIVU",   "MODI",   "MODU",  "MULI",       "MULU", "BAND",  "BOR",   "BXOR",  "BCOM",
+        "LSH",    "RSHI",   "RSHU",   "NEGF",  "ADDF",       "SUBF", "DIVF",  "MULF",  "CVIF",  "CVFI",
     };
     return op < Count ? names[op] : "?";
 }
 
-float Qvm::asFloat(int32_t word) { return std::bit_cast<float>(word); }
-int32_t Qvm::fromFloat(float value) { return std::bit_cast<int32_t>(value); }
+float Qvm::asFloat(int32_t word) {
+    return std::bit_cast<float>(word);
+}
+int32_t Qvm::fromFloat(float value) {
+    return std::bit_cast<int32_t>(value);
+}
 
 std::string Qvm::string(int32_t address, size_t max) const {
     std::string s;
@@ -81,12 +104,12 @@ void Qvm::writeInt(int32_t address, int32_t value) {
         std::memcpy(&data_[size_t(address)], &value, 4);
 }
 
-const std::pair<uint32_t, uint32_t>* Qvm::protectedOverlap(int64_t address, int64_t size) const {
+const std::pair<uint32_t, uint32_t> *Qvm::protectedOverlap(int64_t address, int64_t size) const {
     if (address >= int64_t(protectedEnd_) || size <= 0)
         return nullptr;
     // The first range ending after address, if it starts before the write ends.
     auto it = std::upper_bound(protected_.begin(), protected_.end(), uint32_t(std::max<int64_t>(address, 0)),
-                               [](uint32_t a, const std::pair<uint32_t, uint32_t>& r) { return a < r.second; });
+                               [](uint32_t a, const std::pair<uint32_t, uint32_t> &r) { return a < r.second; });
     return it != protected_.end() && int64_t(it->first) < address + size ? &*it : nullptr;
 }
 
@@ -96,7 +119,7 @@ bool Qvm::checkWrite(int64_t address, int64_t size) {
         abort(who + " wrote outside the program's memory, at " + std::to_string(address));
         return false;
     }
-    if (const auto* r = protectedOverlap(address, size)) {
+    if (const auto *r = protectedOverlap(address, size)) {
         abort(who + " wrote " + std::to_string(size) + " bytes at " + std::to_string(address) +
               ", over the jump table at " + std::to_string(r->first) + "-" + std::to_string(r->second));
         return false;
@@ -131,8 +154,7 @@ void Qvm::findJumpTables() {
         const int64_t table = int64_t(code_[i].operand) + 4 * lo;
         const int64_t entries = hi - lo + 1;
         // Anything unexpected: leave it unprotected rather than guess.
-        if (!haveLo || !haveHi || entries <= 0 || entries > 4096 || table < 0 ||
-            table + 4 * entries > int64_t(litEnd_))
+        if (!haveLo || !haveHi || entries <= 0 || entries > 4096 || table < 0 || table + 4 * entries > int64_t(litEnd_))
             continue;
         bool plausible = true;
         for (int64_t e = 0; e < entries && plausible; ++e) {
@@ -144,7 +166,7 @@ void Qvm::findJumpTables() {
     }
     std::sort(protected_.begin(), protected_.end());
     std::vector<std::pair<uint32_t, uint32_t>> merged;
-    for (const auto& r : protected_) {
+    for (const auto &r : protected_) {
         if (!merged.empty() && r.first <= merged.back().second)
             merged.back().second = std::max(merged.back().second, r.second);
         else
@@ -165,7 +187,7 @@ bool Qvm::writeString(int32_t address, std::string_view text, int32_t size) {
     return true;
 }
 
-Error Qvm::load(const std::vector<uint8_t>& file) {
+Error Qvm::load(const std::vector<uint8_t> &file) {
     code_.clear();
     data_.clear();
     if (file.size() < 32)
@@ -207,10 +229,10 @@ Error Qvm::load(const std::vector<uint8_t>& file) {
     }
     // Branch targets are instruction numbers.
     for (size_t i = 0; i < code_.size(); ++i) {
-        const Instruction& in = code_[i];
+        const Instruction &in = code_[i];
         if (in.op >= qvmop::Eq && in.op <= qvmop::Gef && (in.operand < 0 || in.operand >= count))
-            return Error::fail("QVM instruction " + std::to_string(i) + " branches to " +
-                               std::to_string(in.operand) + " (of " + std::to_string(count) + ")");
+            return Error::fail("QVM instruction " + std::to_string(i) + " branches to " + std::to_string(in.operand) +
+                               " (of " + std::to_string(count) + ")");
     }
 
     // Data: initialised words, literals (bytes, e.g. strings), then zeros;
@@ -236,13 +258,13 @@ Error Qvm::load(const std::vector<uint8_t>& file) {
     return Error::success();
 }
 
-Error Qvm::call(int32_t command, const std::vector<int32_t>& args, int32_t& result) {
+Error Qvm::call(int32_t command, const std::vector<int32_t> &args, int32_t &result) {
     std::vector<int32_t> all{command};
     all.insert(all.end(), args.begin(), args.end());
     return callAt(0, all, result);
 }
 
-Error Qvm::callAt(int32_t instruction, const std::vector<int32_t>& args, int32_t& result) {
+Error Qvm::callAt(int32_t instruction, const std::vector<int32_t> &args, int32_t &result) {
     result = 0;
     if (code_.empty())
         return Error::fail("No QVM loaded");
@@ -273,14 +295,14 @@ Error Qvm::callAt(int32_t instruction, const std::vector<int32_t>& args, int32_t
     return err;
 }
 
-Error Qvm::run(int32_t& result, int32_t entry) {
+Error Qvm::run(int32_t &result, int32_t entry) {
     using namespace qvmop;
     std::array<int32_t, kOpStackSize> stack{};
     int top = 0; // stack[top - 1] is the top; stack[0] is never used
     int32_t sp = programStack_;
     int32_t pc = entry;
     const int32_t count = int32_t(code_.size());
-    auto fail = [&](int32_t at, const std::string& what) {
+    auto fail = [&](int32_t at, const std::string &what) {
         return Error::fail("QVM instruction " + std::to_string(at) + " (" + name(code_[size_t(at)].op) + "): " + what);
     };
 
@@ -321,9 +343,12 @@ Error Qvm::run(int32_t& result, int32_t entry) {
         };
         bool ok = true;
         switch (in.op) {
-        case Undef: return fail(at, "undefined instruction");
-        case Break: return fail(at, "breakpoint");
-        case Ignore: break;
+        case Undef:
+            return fail(at, "undefined instruction");
+        case Break:
+            return fail(at, "breakpoint");
+        case Ignore:
+            break;
         case Enter:
             sp -= in.operand;
             if (sp < stackBottom_ || (sp & 3))
@@ -376,14 +401,20 @@ Error Qvm::run(int32_t& result, int32_t entry) {
             pc = readInt(sp);
             break;
         }
-        case Push: ok = push(0); break;
+        case Push:
+            ok = push(0);
+            break;
         case Pop:
             ok = need(1);
             if (ok)
                 --top;
             break;
-        case Const: ok = push(in.operand); break;
-        case Local: ok = push(sp + in.operand); break;
+        case Const:
+            ok = push(in.operand);
+            break;
+        case Local:
+            ok = push(sp + in.operand);
+            break;
         case Jump: {
             if (!need(1))
                 return fail(at, "operand stack underflow");
@@ -393,30 +424,64 @@ Error Qvm::run(int32_t& result, int32_t entry) {
             pc = target;
             break;
         }
-        case Eq: ok = branch([](int32_t a, int32_t b) { return a == b; }); break;
-        case Ne: ok = branch([](int32_t a, int32_t b) { return a != b; }); break;
-        case Lti: ok = branch([](int32_t a, int32_t b) { return a < b; }); break;
-        case Lei: ok = branch([](int32_t a, int32_t b) { return a <= b; }); break;
-        case Gti: ok = branch([](int32_t a, int32_t b) { return a > b; }); break;
-        case Gei: ok = branch([](int32_t a, int32_t b) { return a >= b; }); break;
-        case Ltu: ok = branch([](int32_t a, int32_t b) { return uint32_t(a) < uint32_t(b); }); break;
-        case Leu: ok = branch([](int32_t a, int32_t b) { return uint32_t(a) <= uint32_t(b); }); break;
-        case Gtu: ok = branch([](int32_t a, int32_t b) { return uint32_t(a) > uint32_t(b); }); break;
-        case Geu: ok = branch([](int32_t a, int32_t b) { return uint32_t(a) >= uint32_t(b); }); break;
-        case Eqf: ok = branch([](int32_t a, int32_t b) { return asFloat(a) == asFloat(b); }); break;
-        case Nef: ok = branch([](int32_t a, int32_t b) { return asFloat(a) != asFloat(b); }); break;
-        case Ltf: ok = branch([](int32_t a, int32_t b) { return asFloat(a) < asFloat(b); }); break;
-        case Lef: ok = branch([](int32_t a, int32_t b) { return asFloat(a) <= asFloat(b); }); break;
-        case Gtf: ok = branch([](int32_t a, int32_t b) { return asFloat(a) > asFloat(b); }); break;
-        case Gef: ok = branch([](int32_t a, int32_t b) { return asFloat(a) >= asFloat(b); }); break;
-        case Load1: case Load2: case Load4: {
+        case Eq:
+            ok = branch([](int32_t a, int32_t b) { return a == b; });
+            break;
+        case Ne:
+            ok = branch([](int32_t a, int32_t b) { return a != b; });
+            break;
+        case Lti:
+            ok = branch([](int32_t a, int32_t b) { return a < b; });
+            break;
+        case Lei:
+            ok = branch([](int32_t a, int32_t b) { return a <= b; });
+            break;
+        case Gti:
+            ok = branch([](int32_t a, int32_t b) { return a > b; });
+            break;
+        case Gei:
+            ok = branch([](int32_t a, int32_t b) { return a >= b; });
+            break;
+        case Ltu:
+            ok = branch([](int32_t a, int32_t b) { return uint32_t(a) < uint32_t(b); });
+            break;
+        case Leu:
+            ok = branch([](int32_t a, int32_t b) { return uint32_t(a) <= uint32_t(b); });
+            break;
+        case Gtu:
+            ok = branch([](int32_t a, int32_t b) { return uint32_t(a) > uint32_t(b); });
+            break;
+        case Geu:
+            ok = branch([](int32_t a, int32_t b) { return uint32_t(a) >= uint32_t(b); });
+            break;
+        case Eqf:
+            ok = branch([](int32_t a, int32_t b) { return asFloat(a) == asFloat(b); });
+            break;
+        case Nef:
+            ok = branch([](int32_t a, int32_t b) { return asFloat(a) != asFloat(b); });
+            break;
+        case Ltf:
+            ok = branch([](int32_t a, int32_t b) { return asFloat(a) < asFloat(b); });
+            break;
+        case Lef:
+            ok = branch([](int32_t a, int32_t b) { return asFloat(a) <= asFloat(b); });
+            break;
+        case Gtf:
+            ok = branch([](int32_t a, int32_t b) { return asFloat(a) > asFloat(b); });
+            break;
+        case Gef:
+            ok = branch([](int32_t a, int32_t b) { return asFloat(a) >= asFloat(b); });
+            break;
+        case Load1:
+        case Load2:
+        case Load4: {
             if (!need(1))
                 return fail(at, "operand stack underflow");
             const int32_t address = stack[size_t(top)];
             const int size = in.op == Load1 ? 1 : in.op == Load2 ? 2 : 4;
             if (!valid(address, size))
                 return fail(at, "reads outside memory at " + std::to_string(address));
-            const uint8_t* p = &data_[size_t(address)];
+            const uint8_t *p = &data_[size_t(address)];
             if (size == 1)
                 stack[size_t(top)] = p[0];
             else if (size == 2) {
@@ -428,17 +493,19 @@ Error Qvm::run(int32_t& result, int32_t entry) {
             }
             break;
         }
-        case Store1: case Store2: case Store4: {
+        case Store1:
+        case Store2:
+        case Store4: {
             if (!need(2))
                 return fail(at, "operand stack underflow");
             const int32_t value = stack[size_t(top--)], address = stack[size_t(top--)];
             const int size = in.op == Store1 ? 1 : in.op == Store2 ? 2 : 4;
             if (!valid(address, size))
                 return fail(at, "writes outside memory at " + std::to_string(address));
-            if (const auto* r = protectedOverlap(address, size))
+            if (const auto *r = protectedOverlap(address, size))
                 return fail(at, "writes at " + std::to_string(address) + ", over the jump table at " +
                                     std::to_string(r->first) + "-" + std::to_string(r->second));
-            uint8_t* p = &data_[size_t(address)];
+            uint8_t *p = &data_[size_t(address)];
             if (size == 1)
                 p[0] = uint8_t(value);
             else if (size == 2) {
@@ -489,11 +556,20 @@ Error Qvm::run(int32_t& result, int32_t entry) {
             if (ok)
                 stack[size_t(top)] = ~stack[size_t(top)];
             break;
-        case Add: ok = binary([](int32_t a, int32_t b) { return int32_t(uint32_t(a) + uint32_t(b)); }); break;
-        case Sub: ok = binary([](int32_t a, int32_t b) { return int32_t(uint32_t(a) - uint32_t(b)); }); break;
+        case Add:
+            ok = binary([](int32_t a, int32_t b) { return int32_t(uint32_t(a) + uint32_t(b)); });
+            break;
+        case Sub:
+            ok = binary([](int32_t a, int32_t b) { return int32_t(uint32_t(a) - uint32_t(b)); });
+            break;
         case Muli:
-        case Mulu: ok = binary([](int32_t a, int32_t b) { return int32_t(uint32_t(a) * uint32_t(b)); }); break;
-        case Divi: case Divu: case Modi: case Modu: {
+        case Mulu:
+            ok = binary([](int32_t a, int32_t b) { return int32_t(uint32_t(a) * uint32_t(b)); });
+            break;
+        case Divi:
+        case Divu:
+        case Modi:
+        case Modu: {
             if (!need(2))
                 return fail(at, "operand stack underflow");
             if (stack[size_t(top)] == 0)
@@ -511,21 +587,41 @@ Error Qvm::run(int32_t& result, int32_t entry) {
                 });
             break;
         }
-        case Band: ok = binary([](int32_t a, int32_t b) { return a & b; }); break;
-        case Bor: ok = binary([](int32_t a, int32_t b) { return a | b; }); break;
-        case Bxor: ok = binary([](int32_t a, int32_t b) { return a ^ b; }); break;
-        case Lsh: ok = binary([](int32_t a, int32_t b) { return int32_t(uint32_t(a) << (b & 31)); }); break;
-        case Rshi: ok = binary([](int32_t a, int32_t b) { return a >> (b & 31); }); break;
-        case Rshu: ok = binary([](int32_t a, int32_t b) { return int32_t(uint32_t(a) >> (b & 31)); }); break;
+        case Band:
+            ok = binary([](int32_t a, int32_t b) { return a & b; });
+            break;
+        case Bor:
+            ok = binary([](int32_t a, int32_t b) { return a | b; });
+            break;
+        case Bxor:
+            ok = binary([](int32_t a, int32_t b) { return a ^ b; });
+            break;
+        case Lsh:
+            ok = binary([](int32_t a, int32_t b) { return int32_t(uint32_t(a) << (b & 31)); });
+            break;
+        case Rshi:
+            ok = binary([](int32_t a, int32_t b) { return a >> (b & 31); });
+            break;
+        case Rshu:
+            ok = binary([](int32_t a, int32_t b) { return int32_t(uint32_t(a) >> (b & 31)); });
+            break;
         case Negf:
             ok = need(1);
             if (ok)
                 stack[size_t(top)] = fromFloat(-asFloat(stack[size_t(top)]));
             break;
-        case Addf: ok = fbinary([](float a, float b) { return a + b; }); break;
-        case Subf: ok = fbinary([](float a, float b) { return a - b; }); break;
-        case Mulf: ok = fbinary([](float a, float b) { return a * b; }); break;
-        case Divf: ok = fbinary([](float a, float b) { return a / b; }); break;
+        case Addf:
+            ok = fbinary([](float a, float b) { return a + b; });
+            break;
+        case Subf:
+            ok = fbinary([](float a, float b) { return a - b; });
+            break;
+        case Mulf:
+            ok = fbinary([](float a, float b) { return a * b; });
+            break;
+        case Divf:
+            ok = fbinary([](float a, float b) { return a / b; });
+            break;
         case Cvif:
             ok = need(1);
             if (ok)
@@ -537,13 +633,15 @@ Error Qvm::run(int32_t& result, int32_t entry) {
                 // Towards zero; out-of-range values and NaN saturate instead
                 // of being undefined.
                 const float f = asFloat(stack[size_t(top)]);
-                stack[size_t(top)] = std::isnan(f) ? 0 : f >= 2147483648.0f ? INT32_MAX
-                                                       : f <= -2147483648.0f ? INT32_MIN
-                                                                             : int32_t(f);
+                stack[size_t(top)] = std::isnan(f)         ? 0
+                                     : f >= 2147483648.0f  ? INT32_MAX
+                                     : f <= -2147483648.0f ? INT32_MIN
+                                                           : int32_t(f);
             }
             break;
         }
-        default: return fail(at, "unknown opcode");
+        default:
+            return fail(at, "unknown opcode");
         }
         if (!ok)
             return fail(at, "operand stack underflow or overflow");

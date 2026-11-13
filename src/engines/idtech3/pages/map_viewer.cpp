@@ -25,12 +25,16 @@ using Vec3 = std::array<float, 3>;
 
 constexpr float kPi = 3.14159265358979f;
 
-Vec3 sub(const Vec3& a, const Vec3& b) { return {a[0] - b[0], a[1] - b[1], a[2] - b[2]}; }
-float dot(const Vec3& a, const Vec3& b) { return a[0] * b[0] + a[1] * b[1] + a[2] * b[2]; }
-Vec3 cross(const Vec3& a, const Vec3& b) {
+Vec3 sub(const Vec3 &a, const Vec3 &b) {
+    return {a[0] - b[0], a[1] - b[1], a[2] - b[2]};
+}
+float dot(const Vec3 &a, const Vec3 &b) {
+    return a[0] * b[0] + a[1] * b[1] + a[2] * b[2];
+}
+Vec3 cross(const Vec3 &a, const Vec3 &b) {
     return {a[1] * b[2] - a[2] * b[1], a[2] * b[0] - a[0] * b[2], a[0] * b[1] - a[1] * b[0]};
 }
-Vec3 normalize(const Vec3& v) {
+Vec3 normalize(const Vec3 &v) {
     const float len = std::sqrt(dot(v, v));
     return len > 0 ? Vec3{v[0] / len, v[1] / len, v[2] / len} : v;
 }
@@ -39,8 +43,8 @@ constexpr float kNear = 4.0f;
 
 } // namespace
 
-MapViewer::MapViewer(ViewerContext& ctx) : Page(ctx) {
-    for (const std::string& n : ctx.files.list()) {
+MapViewer::MapViewer(ViewerContext &ctx) : Page(ctx) {
+    for (const std::string &n : ctx.files.list()) {
         const std::string key = normalizeArchiveName(n);
         if (key.rfind("maps/", 0) == 0 && key.size() > 4 && key.compare(key.size() - 4, 4, ".bsp") == 0)
             names_.push_back(n);
@@ -58,7 +62,7 @@ void MapViewer::load(int index) {
     error_.clear();
     info_.clear();
     edges_.clear();
-    const std::string& name = names_[size_t(index)];
+    const std::string &name = names_[size_t(index)];
     setTitle(name + " (" + std::to_string(index + 1) + "/" + std::to_string(names_.size()) + ")");
 
     std::vector<uint8_t> data;
@@ -79,14 +83,13 @@ void MapViewer::load(int index) {
                     std::to_string(bsp_.models.size()) + " models");
     info_.push_back(std::to_string(bsp_.brushes.size()) + " brushes, " + std::to_string(bsp_.leafs.size()) +
                     " leafs, " + std::to_string(bsp_.visClusters) + " clusters, " +
-                    std::to_string(bsp_.lightmapCount()) + " lightmaps, " + std::to_string(bsp_.fogs.size()) +
-                    " fogs");
-    if (const auto& f = bsp_.fixes; f.total())
+                    std::to_string(bsp_.lightmapCount()) + " lightmaps, " + std::to_string(bsp_.fogs.size()) + " fogs");
+    if (const auto &f = bsp_.fixes; f.total())
         info_.push_back("Corrected, as the original does: " + std::to_string(f.lightmaps) + " lightmap, " +
                         std::to_string(f.fogs) + " fog, " + std::to_string(f.flares) + " flare/bad, " +
                         std::to_string(f.types) + " type");
     int missing = 0;
-    for (const BspShader& s : bsp_.shaders)
+    for (const BspShader &s : bsp_.shaders)
         if (!ctx_.shaders.find(s.name) && !ctx_.files.has(s.name + ".tga") && !ctx_.files.has(s.name + ".jpg"))
             ++missing;
     info_.push_back(std::to_string(missing) + " shaders with neither a script nor an image");
@@ -96,10 +99,10 @@ void MapViewer::load(int index) {
         if (!entities.empty() && entities[0].has("message"))
             info_.push_back("\"" + entities[0].get("message") + "\"");
         std::map<std::string, int> classes;
-        for (const Entity& e : entities)
+        for (const Entity &e : entities)
             ++classes[e.classname()];
         std::vector<std::pair<int, std::string>> sorted;
-        for (const auto& [c, n] : classes)
+        for (const auto &[c, n] : classes)
             sorted.emplace_back(-n, c);
         std::sort(sorted.begin(), sorted.end());
         std::string line = std::to_string(entities.size()) + " entities:";
@@ -112,15 +115,15 @@ void MapViewer::load(int index) {
         error_ = "The map has no world model";
         return;
     }
-    const BspModel& world = bsp_.models[0];
+    const BspModel &world = bsp_.models[0];
     mins_ = world.mins;
     maxs_ = world.maxs;
     for (int si = world.firstSurface; si < world.firstSurface + world.numSurfaces; ++si) {
-        const BspSurface& s = bsp_.surfaces[size_t(si)];
-        const ShaderDef* def = ctx_.shaders.find(bsp_.shaders[size_t(s.shader)].name);
+        const BspSurface &s = bsp_.surfaces[size_t(si)];
+        const ShaderDef *def = ctx_.shaders.find(bsp_.shaders[size_t(s.shader)].name);
         if (def && (def->sky || def->hasSurfaceParm("nodraw")))
             continue;
-        const BspVertex* v = &bsp_.vertices[size_t(s.firstVertex)];
+        const BspVertex *v = &bsp_.vertices[size_t(s.firstVertex)];
         if (s.type == SurfaceType::Planar || s.type == SurfaceType::TriangleSoup) {
             Color c{90, 200, 110};
             if (s.type == SurfaceType::Planar) {
@@ -129,7 +132,7 @@ void MapViewer::load(int index) {
                 c = {uint8_t(110 * shade), uint8_t(160 * shade), uint8_t(255 * shade)};
             }
             std::set<std::pair<int, int>> seen;
-            const int32_t* idx = &bsp_.indices[size_t(s.firstIndex)];
+            const int32_t *idx = &bsp_.indices[size_t(s.firstIndex)];
             for (int t = 0; t + 2 < s.numIndices; t += 3)
                 for (int k = 0; k < 3; ++k) {
                     int a = idx[t + k], b = idx[t + (k + 1) % 3];
@@ -163,7 +166,7 @@ void MapViewer::resetView() {
     dirty_ = true;
 }
 
-void MapViewer::handleEvent(const Event& ev) {
+void MapViewer::handleEvent(const Event &ev) {
     if (names_.empty())
         return;
     if (ev.type == EventType::MouseDown && ev.button == MouseButton::Left) {
@@ -186,7 +189,7 @@ void MapViewer::handleEvent(const Event& ev) {
         // Moves along the ground, relative to where the camera looks.
         const float step = distance_ * 0.05f;
         const Vec3 fwd{-std::cos(yaw_), -std::sin(yaw_), 0}, side{std::sin(yaw_), -std::cos(yaw_), 0};
-        auto move = [&](const Vec3& dir, float amount) {
+        auto move = [&](const Vec3 &dir, float amount) {
             for (int i = 0; i < 3; ++i)
                 target_[size_t(i)] += dir[size_t(i)] * amount;
         };
@@ -246,7 +249,7 @@ void MapViewer::render() {
         return;
     }
 
-    Surface& s = ctx_.screen;
+    Surface &s = ctx_.screen;
     // Z is up in id Tech 3 maps.
     const Vec3 offset{std::cos(pitch_) * std::cos(yaw_), std::cos(pitch_) * std::sin(yaw_), std::sin(pitch_)};
     for (int i = 0; i < 3; ++i)
@@ -258,7 +261,7 @@ void MapViewer::render() {
     cam_.cy = float(s.h) / 2;
     cam_.focal = float(s.w) / 2; // 90 degree horizontal field of view
 
-    for (const Edge& e : edges_)
+    for (const Edge &e : edges_)
         if (showPatches_ || !e.patch)
             drawLine3d(e.a, e.b, e.color);
 
@@ -269,7 +272,7 @@ void MapViewer::render() {
     }
 }
 
-void MapViewer::drawLine3d(const Vec3& a, const Vec3& b, Color c) {
+void MapViewer::drawLine3d(const Vec3 &a, const Vec3 &b, Color c) {
     const Vec3 ra = sub(a, cam_.pos), rb = sub(b, cam_.pos);
     Vec3 pa{dot(ra, cam_.right), dot(ra, cam_.up), dot(ra, cam_.forward)};
     Vec3 pb{dot(rb, cam_.right), dot(rb, cam_.up), dot(rb, cam_.forward)};
@@ -286,7 +289,7 @@ void MapViewer::drawLine3d(const Vec3& a, const Vec3& b, Color c) {
 }
 
 void MapViewer::drawLine2d(float x0, float y0, float x1, float y1, Color c) {
-    Surface& s = ctx_.screen;
+    Surface &s = ctx_.screen;
     // Liang-Barsky clip to the screen, then step one pixel at a time.
     float t0 = 0, t1 = 1;
     const float dx = x1 - x0, dy = y1 - y0;
@@ -314,7 +317,7 @@ void MapViewer::drawLine2d(float x0, float y0, float x1, float y1, Color c) {
         const int y = int(sy + (ey - sy) * float(i) / float(steps) + 0.5f);
         if (x < 0 || y < 0 || x >= s.w || y >= s.h)
             continue;
-        uint8_t* px = s.row(y) + x * 4;
+        uint8_t *px = s.row(y) + x * 4;
         px[0] = c.r;
         px[1] = c.g;
         px[2] = c.b;

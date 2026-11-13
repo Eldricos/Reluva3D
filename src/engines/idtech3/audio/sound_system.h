@@ -28,10 +28,10 @@ namespace reluva::idtech3 {
 // re-adds each frame; the music.
 class SoundSystem {
 public:
-    SoundSystem(audio::Mixer& mixer, SoundLibrary& sounds) : mixer_(mixer), sounds_(sounds) {}
+    SoundSystem(audio::Mixer &mixer, SoundLibrary &sounds) : mixer_(mixer), sounds_(sounds) {}
     ~SoundSystem() { stopAll(); }
-    SoundSystem(const SoundSystem&) = delete;
-    SoundSystem& operator=(const SoundSystem&) = delete;
+    SoundSystem(const SoundSystem &) = delete;
+    SoundSystem &operator=(const SoundSystem &) = delete;
 
     // A new sound never cuts one already playing, on any channel; the same
     // sound the entity started under 50 ms ago (at the same spot, if it
@@ -43,26 +43,26 @@ public:
     void setTime(uint64_t ms) { nowMs_ = ms; }
 
     // A sound at `origin`, or (without one) following entity `entity`.
-    void startSound(const std::optional<Vec3f>& origin, int entity, int channel, const std::string& name);
+    void startSound(const std::optional<Vec3f> &origin, int entity, int channel, const std::string &name);
     // A sound heard as it is, wherever the listener is (the announcer,
     // the menus' sounds).
-    void startLocalSound(const std::string& name, int channel);
+    void startLocalSound(const std::string &name, int channel);
     // Looping sounds: those added between clearLoopingSounds() and
     // endFrame() play; the rest stop.
     void clearLoopingSounds();
-    void addLoopingSound(int entity, const Vec3f& origin, const std::string& name);
-    void updateEntityPosition(int entity, const Vec3f& origin);
+    void addLoopingSound(int entity, const Vec3f &origin, const std::string &name);
+    void updateEntityPosition(int entity, const Vec3f &origin);
     // Ambient set sounds (AmbientSets): at a volume of their own (0 to 1)
     // rather than faded by distance, though still panned to where they
     // are. Loops play while added each frame (until endFrame()).
-    void addAmbientLoop(int entity, const Vec3f& origin, float volume, const std::string& name);
-    void startAmbientSound(int entity, const Vec3f& origin, float volume, const std::string& name);
+    void addAmbientLoop(int entity, const Vec3f &origin, float volume, const std::string &name);
+    void startAmbientSound(int entity, const Vec3f &origin, float volume, const std::string &name);
     // Where the listener is (entity `entity`) and which way it faces:
     // forward, left, up.
-    void respatialize(int entity, const Vec3f& origin, const std::array<Vec3f, 3>& axes);
+    void respatialize(int entity, const Vec3f &origin, const std::array<Vec3f, 3> &axes);
     // The music: `intro` once, then `loop` round and round (either may be
     // empty); names without an extension are tried as .mp3 and .wav.
-    void startBackgroundTrack(const std::string& intro, const std::string& loop);
+    void startBackgroundTrack(const std::string &intro, const std::string &loop);
     void stopBackgroundTrack();
     // Each frame, after the client game's: positions and volumes brought
     // up to date, looping sounds not re-added stopped, music moved on.
@@ -74,7 +74,7 @@ public:
     void stopSounds();
     size_t playingCount() const { return playing_.size(); }
     // Sounds asked for that couldn't be found or read.
-    const std::set<std::string>& missing() const { return missing_; }
+    const std::set<std::string> &missing() const { return missing_; }
     // The sounds asked for in the last two seconds, by name and entity
     // (the latest six): how many times, and what became of the last.
     std::vector<std::string> recent() const;
@@ -85,7 +85,7 @@ public:
     // is heard from the listener: full volume within 80 units, then
     // fading by 0.0008 a unit; panned by how far to the listener's right
     // it is.
-    std::pair<float, float> spatialize(const Vec3f& origin) const;
+    std::pair<float, float> spatialize(const Vec3f &origin) const;
 
 private:
     struct Playing {
@@ -98,15 +98,15 @@ private:
         std::optional<float> volume; // ambient: its own volume
     };
     // Whether `entity` may start `name` now (see kAutoChannel).
-    bool allowed(int entity, bool local, const std::string& name, const std::optional<Vec3f>& origin) const;
-    std::shared_ptr<const audio::Sound> find(const std::string& name);
+    bool allowed(int entity, bool local, const std::string &name, const std::optional<Vec3f> &origin) const;
+    std::shared_ptr<const audio::Sound> find(const std::string &name);
     // Sets the sound's volume and pan for where it is; the volume.
     // An ambient sound's own volume replaces the one for its distance.
-    float place(audio::SoundHandle handle, const std::optional<Vec3f>& origin, int entity,
+    float place(audio::SoundHandle handle, const std::optional<Vec3f> &origin, int entity,
                 std::optional<float> volume = std::nullopt);
 
-    audio::Mixer& mixer_;
-    SoundLibrary& sounds_;
+    audio::Mixer &mixer_;
+    SoundLibrary &sounds_;
     std::vector<Playing> playing_;
     std::map<int, Vec3f> entities_;
     // Looping sounds by (entity, name): playing, and added this frame.
@@ -115,7 +115,7 @@ private:
     // Ambient loops, the same way, with their volumes.
     std::map<std::pair<int, std::string>, audio::SoundHandle> ambientLoops_;
     std::map<std::pair<int, std::string>, std::pair<Vec3f, float>> ambientAdded_;
-    void note(const std::string& name, int entity, std::string line);
+    void note(const std::string &name, int entity, std::string line);
     struct Start {
         uint64_t ms = 0;
         std::string name;

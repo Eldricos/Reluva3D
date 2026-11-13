@@ -77,7 +77,7 @@ enum UiCall : int {
     CvarRegister = 54,
     CvarUpdate = 55,
     MemoryRemaining = 56,
-    SetCdKey = 57, // (key) -> whether it's taken; seen on the CD key screen's Accept
+    SetCdKey = 57,     // (key) -> whether it's taken; seen on the CD key screen's Accept
     RModelBounds = 58, // (model, mins[3], maxs[3]); seen after registering the phaser model
 };
 
@@ -92,8 +92,8 @@ constexpr int32_t kClientStateSize = 12 + 3 * 1024;
 
 } // namespace
 
-UiHost::UiHost(const SearchSet& files, CvarStore& cvars) : files_(files), cvars_(cvars), vmFiles_(files) {
-    vm_.setSystemCall([this](Qvm& vm, int number, const int32_t* args) { return systemCall(vm, number, args); });
+UiHost::UiHost(const SearchSet &files, CvarStore &cvars) : files_(files), cvars_(cvars), vmFiles_(files) {
+    vm_.setSystemCall([this](Qvm &vm, int number, const int32_t *args) { return systemCall(vm, number, args); });
 }
 
 Error UiHost::load() {
@@ -129,7 +129,7 @@ Error UiHost::load() {
     return Error::success();
 }
 
-Error UiHost::call(int32_t command, const std::vector<int32_t>& args, int32_t& result) {
+Error UiHost::call(int32_t command, const std::vector<int32_t> &args, int32_t &result) {
     Error err = vm_.call(command, args, result);
     // The menus ask for the CD key until ui_cdkeychecked is set, which
     // they do once one is accepted. With a key kept from an earlier run,
@@ -162,7 +162,7 @@ Error UiHost::refresh(int32_t time) {
     return call(Refresh, {time});
 }
 
-bool UiHost::cdKeyLooksValid(const std::string& key) {
+bool UiHost::cdKeyLooksValid(const std::string &key) {
     // The menus' own rule: up to 22 characters, 18 of them letters or
     // digits (the rest, say, dashes).
     if (key.size() > 22)
@@ -173,7 +173,7 @@ bool UiHost::cdKeyLooksValid(const std::string& key) {
     return alphanumeric == 18;
 }
 
-const std::string& UiHost::storedCdKey() {
+const std::string &UiHost::storedCdKey() {
     if (!cdKeyRead_) {
         // Kept by Reluva, not where the original keeps it.
         cdKeyRead_ = true;
@@ -194,16 +194,15 @@ void UiHost::writeGlconfig(int32_t address) {
     vm_.writeString(address + 2048, "1.0", 1024);
     // Quake III's 17 words, in its order, from glconfigWords_.
     const int32_t words[17] = {
-        2048,   // maxTextureSize
-        2,      // numTextureUnits
-        32, 24, 8, // colour, depth, stencil bits
-        0, 0,   // driverType (ICD), hardwareType (generic)
-        0,      // deviceSupportsGamma
-        0, 1,   // textureCompression, textureEnvAddAvailable
-        width_, height_,
-        Qvm::fromFloat(float(width_) / float(height_)),
-        60,     // displayFrequency
-        0, 0, 0, // isFullscreen, stereoEnabled, smpActive
+        2048,               // maxTextureSize
+        2,                  // numTextureUnits
+        32,     24,      8, // colour, depth, stencil bits
+        0,      0,          // driverType (ICD), hardwareType (generic)
+        0,                  // deviceSupportsGamma
+        0,      1,          // textureCompression, textureEnvAddAvailable
+        width_, height_, Qvm::fromFloat(float(width_) / float(height_)),
+        60,                 // displayFrequency
+        0,      0,       0, // isFullscreen, stereoEnabled, smpActive
     };
     for (int i = 0; i < 17; ++i)
         if (glconfigWords_ + 4 * i + 4 <= kGlconfigSize)
@@ -222,7 +221,7 @@ void UiHost::writeClientState(int32_t address) {
     vm_.writeString(address + 12 + 2048, clientState.message, 1024);
 }
 
-bool UiHost::browserCommand(const std::string& line) {
+bool UiHost::browserCommand(const std::string &line) {
     // The server list's own commands, run at once as the original runs
     // them (EXEC_NOW), so the menus see their pings straight away.
     if (!browser)
@@ -270,7 +269,7 @@ bool UiHost::browserCommand(const std::string& line) {
 std::vector<std::string> UiHost::recentCalls() const {
     std::vector<std::string> out;
     for (size_t i = 0; i < recent_.size(); ++i) {
-        const Recent& r = recent_[(recentNext_ + i) % recent_.size()];
+        const Recent &r = recent_[(recentNext_ + i) % recent_.size()];
         if (r.number < 0)
             continue;
         std::string line = "system call " + std::to_string(r.number) + " (" + std::to_string(r.args[0]) + ", " +
@@ -283,11 +282,11 @@ std::vector<std::string> UiHost::recentCalls() const {
     return out;
 }
 
-int32_t UiHost::systemCall(Qvm& vm, int number, const int32_t* a) {
+int32_t UiHost::systemCall(Qvm &vm, int number, const int32_t *a) {
     if (trace)
         trace(number, a);
     {
-        Recent& r = recent_[recentNext_];
+        Recent &r = recent_[recentNext_];
         recentNext_ = (recentNext_ + 1) % recent_.size();
         r.number = number;
         std::copy(a, a + 4, r.args);
@@ -311,7 +310,9 @@ int32_t UiHost::systemCall(Qvm& vm, int number, const int32_t* a) {
         return result;
 
     switch (number) {
-    case Error_: vm.abort("ui.qvm: " + str(0)); return 0;
+    case Error_:
+        vm.abort("ui.qvm: " + str(0));
+        return 0;
     case Print: {
         const std::string text = str(0, 4096);
         if (print)
@@ -320,12 +321,18 @@ int32_t UiHost::systemCall(Qvm& vm, int number, const int32_t* a) {
             log_ += text;
         return 0;
     }
-    case Milliseconds: return time_;
+    case Milliseconds:
+        return time_;
     // Set at once, as the original engine's Cvar_Set (forced: a latched
     // variable too; only what's typed at the console waits for a level).
-    case CvarSet: cvars_.set(str(0, 256), str(1, 256), true); return 0;
-    case CvarVariableValue: return Qvm::fromFloat(cvars_.value(str(0, 256)));
-    case CvarVariableStringBuffer: vm.writeString(a[1], cvars_.string(str(0, 256)), a[2]); return 0;
+    case CvarSet:
+        cvars_.set(str(0, 256), str(1, 256), true);
+        return 0;
+    case CvarVariableValue:
+        return Qvm::fromFloat(cvars_.value(str(0, 256)));
+    case CvarVariableStringBuffer:
+        vm.writeString(a[1], cvars_.string(str(0, 256)), a[2]);
+        return 0;
     case CvarSetValue: {
         // Quake III writes whole numbers without a decimal point.
         const float v = f(1);
@@ -334,50 +341,72 @@ int32_t UiHost::systemCall(Qvm& vm, int number, const int32_t* a) {
         return 0;
     }
     case CvarReset:
-        if (const CvarStore::Cvar* cv = cvars_.find(str(0, 256)))
+        if (const CvarStore::Cvar *cv = cvars_.find(str(0, 256)))
             cvars_.set(cv->name, cv->defaultValue);
         return 0;
-    case CvarCreate: cvars_.create(str(0, 256), str(1, 256), a[2]); return 0;
+    case CvarCreate:
+        cvars_.create(str(0, 256), str(1, 256), a[2]);
+        return 0;
     case CvarInfoStringBuffer: {
         std::string info;
-        for (const CvarStore::Cvar& cv : cvars_.all())
+        for (const CvarStore::Cvar &cv : cvars_.all())
             if (cv.flags & a[0])
                 info += "\\" + cv.name + "\\" + cv.value;
         vm.writeString(a[1], info, a[2]);
         return 0;
     }
-    case Argc: return 0;
-    case Argv: vm.writeString(a[1], "", a[2]); return 0;
+    case Argc:
+        return 0;
+    case Argv:
+        vm.writeString(a[1], "", a[2]);
+        return 0;
     case CmdExecuteText: {
         const std::string text = str(1, 4096);
         bool handled = false;
-        for (const std::string& command : splitCommands(text))
+        for (const std::string &command : splitCommands(text))
             handled = browserCommand(command) || handled;
         if (!handled)
             commands_.push_back(text);
         return 0;
     }
-    case FsFOpenFile: return vmFiles_.open(vm, a[0], a[1], a[2]);
-    case FsRead: return vmFiles_.read(vm, a[0], a[1], a[2]);
-    case FsFCloseFile: vmFiles_.close(a[0]); return 0;
-    case FsGetFileList: return vmFiles_.list(vm, a[0], a[1], a[2], a[3]);
-    case RRegisterModel: return models_.add(str(0, 256));
-    case RRegisterSkin: return skins_.add(str(0, 256));
-    case RRegisterShaderNoMip: return shaders_.add(str(0, 256));
-    case RClearScene: scene_.clear(); return 0;
-    case RAddRefEntityToScene: scene_.addEntity(vm, a[0], 0); return 0;
-    case RAddPolyToScene: scene_.addPoly(vm, a[0], a[1], a[2]); return 0; // (shader, numVerts, verts)
+    case FsFOpenFile:
+        return vmFiles_.open(vm, a[0], a[1], a[2]);
+    case FsRead:
+        return vmFiles_.read(vm, a[0], a[1], a[2]);
+    case FsFCloseFile:
+        vmFiles_.close(a[0]);
+        return 0;
+    case FsGetFileList:
+        return vmFiles_.list(vm, a[0], a[1], a[2], a[3]);
+    case RRegisterModel:
+        return models_.add(str(0, 256));
+    case RRegisterSkin:
+        return skins_.add(str(0, 256));
+    case RRegisterShaderNoMip:
+        return shaders_.add(str(0, 256));
+    case RClearScene:
+        scene_.clear();
+        return 0;
+    case RAddRefEntityToScene:
+        scene_.addEntity(vm, a[0], 0);
+        return 0;
+    case RAddPolyToScene:
+        scene_.addPoly(vm, a[0], a[1], a[2]);
+        return 0;          // (shader, numVerts, verts)
     case RAddLightToScene: // (origin, intensity, r, g, b)
         scene_.addLight(vm, a[0], Qvm::asFloat(a[1]), Qvm::asFloat(a[2]), Qvm::asFloat(a[3]), Qvm::asFloat(a[4]));
         return 0;
-    case RRenderScene: scene_.render(vm, a[0], pictures_.size()); return 0;
-    case UpdateScreen: return 0; // drawn each frame anyway
+    case RRenderScene:
+        scene_.render(vm, a[0], pictures_.size());
+        return 0;
+    case UpdateScreen:
+        return 0; // drawn each frame anyway
     case CmLerpTag: {
         auto [it, added] = md3s_.try_emplace(a[1]);
         if (added) {
             std::vector<uint8_t> data;
             auto md3 = std::make_shared<Md3Model>();
-            const std::string& name = models_.name(a[1]);
+            const std::string &name = models_.name(a[1]);
             if (!name.empty() && !files_.read(name, data) && !parseModel(data, *md3))
                 it->second = std::move(md3);
         }
@@ -395,35 +424,57 @@ int32_t UiHost::systemCall(Qvm& vm, int number, const int32_t* a) {
     case RDrawStretchPic:
         pictures_.push_back({f(0), f(1), f(2), f(3), f(4), f(5), f(6), f(7), a[8], color_});
         return 0;
-    case SRegisterSound: return sounds_.add(str(0, 256));
+    case SRegisterSound:
+        return sounds_.add(str(0, 256));
     case SStartLocalSound: // (sound, channel); the menus use channel 6
         if (startLocalSound && !sounds_.name(a[0]).empty())
             startLocalSound(sounds_.name(a[0]), a[1]);
         return 0;
-    case KeyKeynumToStringBuf: vm.writeString(a[1], KeyBindings::keyName(a[0]), a[2]); return 0;
-    case KeyGetBindingBuf: vm.writeString(a[1], bindings ? bindings->get(a[0]) : std::string(), a[2]); return 0;
+    case KeyKeynumToStringBuf:
+        vm.writeString(a[1], KeyBindings::keyName(a[0]), a[2]);
+        return 0;
+    case KeyGetBindingBuf:
+        vm.writeString(a[1], bindings ? bindings->get(a[0]) : std::string(), a[2]);
+        return 0;
     case KeySetBinding: // (key, command): the Controls menu
         if (bindings)
             bindings->set(a[0], str(1, 1024));
         return 0;
-    case KeyIsDown: return 0;
-    case KeyGetOverstrikeMode: return overstrike_;
-    case KeySetOverstrikeMode: overstrike_ = a[0] != 0; return 0;
-    case KeyClearStates: return 0;
-    case KeyGetCatcher: return catcher_;
-    case KeySetCatcher: catcher_ = a[0]; return 0;
-    case GetClipboardData: vm.writeString(a[0], "", a[1]); return 0;
-    case GetGlconfig: writeGlconfig(a[0]); return 0;
-    case GetClientState: writeClientState(a[0]); return 0;
-    case LanGetLocalServerCount: return browser ? browser->localServerCount() : 0;
+    case KeyIsDown:
+        return 0;
+    case KeyGetOverstrikeMode:
+        return overstrike_;
+    case KeySetOverstrikeMode:
+        overstrike_ = a[0] != 0;
+        return 0;
+    case KeyClearStates:
+        return 0;
+    case KeyGetCatcher:
+        return catcher_;
+    case KeySetCatcher:
+        catcher_ = a[0];
+        return 0;
+    case GetClipboardData:
+        vm.writeString(a[0], "", a[1]);
+        return 0;
+    case GetGlconfig:
+        writeGlconfig(a[0]);
+        return 0;
+    case GetClientState:
+        writeClientState(a[0]);
+        return 0;
+    case LanGetLocalServerCount:
+        return browser ? browser->localServerCount() : 0;
     case LanGetLocalServerAddressString:
         vm.writeString(a[1], browser ? browser->localServerAddress(a[0]) : std::string(), a[2]);
         return 0;
-    case LanGetGlobalServerCount: return browser ? browser->globalServerCount() : 0;
+    case LanGetGlobalServerCount:
+        return browser ? browser->globalServerCount() : 0;
     case LanGetGlobalServerAddressString:
         vm.writeString(a[1], browser ? browser->globalServerAddress(a[0]) : std::string(), a[2]);
         return 0;
-    case LanGetPingQueueCount: return browser ? browser->pingQueueCount() : 0;
+    case LanGetPingQueueCount:
+        return browser ? browser->pingQueueCount() : 0;
     case LanClearPing:
         if (browser)
             browser->clearPing(a[0]);
@@ -439,20 +490,25 @@ int32_t UiHost::systemCall(Qvm& vm, int number, const int32_t* a) {
             vm.writeInt(a[3], time);
         return 0;
     }
-    case LanGetPingInfo: vm.writeString(a[1], browser ? browser->pingInfo(a[0]) : std::string(), a[2]); return 0;
+    case LanGetPingInfo:
+        vm.writeString(a[1], browser ? browser->pingInfo(a[0]) : std::string(), a[2]);
+        return 0;
     case GetConfigString: { // (index, buffer, size) -> whether there's one
         const std::string text = configstring ? configstring(a[0]) : std::string();
         vm.writeString(a[1], text, a[2]);
         return configstring ? 1 : 0;
     }
     case CvarRegister: {
-        const CvarStore::Cvar& cv = cvars_.create(str(1, 256), str(2, 256), a[3]);
+        const CvarStore::Cvar &cv = cvars_.create(str(1, 256), str(2, 256), a[3]);
         if (a[0])
             cvars_.writeVmCvar(vm, a[0], cv.handle);
         return 0;
     }
-    case CvarUpdate: cvars_.updateVmCvar(vm, a[0]); return 0;
-    case MemoryRemaining: return 8 << 20;
+    case CvarUpdate:
+        cvars_.updateVmCvar(vm, a[0]);
+        return 0;
+    case MemoryRemaining:
+        return 8 << 20;
     case SetCdKey: {
         // The CD key screen's Accept, after the menus' own check: whether
         // the engine takes the key. The original engine also checks it
@@ -477,7 +533,7 @@ int32_t UiHost::systemCall(Qvm& vm, int number, const int32_t* a) {
         if (added) {
             std::vector<uint8_t> data;
             Md3Model md3;
-            const std::string& name = models_.name(a[0]);
+            const std::string &name = models_.name(a[0]);
             if (!name.empty() && !files_.read(name, data) && !parseModel(data, md3) && !md3.frames.empty())
                 it->second = {md3.frames[0].mins, md3.frames[0].maxs};
         }
@@ -487,7 +543,9 @@ int32_t UiHost::systemCall(Qvm& vm, int number, const int32_t* a) {
         }
         return 0;
     }
-    default: ++unhandled_[number]; return 0;
+    default:
+        ++unhandled_[number];
+        return 0;
     }
 }
 

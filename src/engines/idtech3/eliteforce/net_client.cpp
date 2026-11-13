@@ -18,23 +18,24 @@ namespace {
 constexpr int32_t kSvcNop = 1, kSvcGamestate = 2, kSvcConfigstring = 3, kSvcBaseline = 4, kSvcServerCommand = 5,
                   kSvcDownload = 6, kSvcSnapshot = 7;
 constexpr uint32_t kClcMove = 2, kClcMoveNoDelta = 3, kClcClientCommand = 4;
-constexpr uint64_t kResendMs = 3000;   // getchallenge and connect, until answered
-constexpr uint64_t kWaitingMs = 1000;  // a packet a second while waiting for the level
+constexpr uint64_t kResendMs = 3000;    // getchallenge and connect, until answered
+constexpr uint64_t kWaitingMs = 1000;   // a packet a second while waiting for the level
 constexpr uint64_t kTimeoutMs = 200000; // cl_timeout
-constexpr int kMaxPackets = 43;        // Elite Force's cl_maxpackets
+constexpr int kMaxPackets = 43;         // Elite Force's cl_maxpackets
 constexpr size_t kMaxPacketCommands = 32;
 
 } // namespace
 
-NetClient::NetClient(std::unique_ptr<reluva::net::UdpSocket> socket, const reluva::net::Address& server,
+NetClient::NetClient(std::unique_ptr<reluva::net::UdpSocket> socket, const reluva::net::Address &server,
                      std::string userinfo, uint16_t qport)
-    : socket_(std::move(socket)), server_(server), userinfo_(std::move(userinfo)), qport_(qport),
-      chan_(true, qport) {}
+    : socket_(std::move(socket)), server_(server), userinfo_(std::move(userinfo)), qport_(qport), chan_(true, qport) {
+}
 
 NetClient::NetClient(std::vector<uint8_t> demo)
-    : qport_(0), state_(State::Connected), chan_(true, 0), demo_(true), demoData_(std::move(demo)) {}
+    : qport_(0), state_(State::Connected), chan_(true, 0), demo_(true), demoData_(std::move(demo)) {
+}
 
-void NetClient::sendText(const std::string& text) {
+void NetClient::sendText(const std::string &text) {
     if (!socket_)
         return;
     std::vector<uint8_t> d(4, 0xff);
@@ -65,7 +66,8 @@ void NetClient::frame(uint64_t now) {
         parseMessage(r, now);
     }
     switch (state_) {
-    case State::Disconnected: return;
+    case State::Disconnected:
+        return;
     case State::Connecting:
         if (!lastSent_ || now - lastSent_ >= kResendMs) {
             lastSent_ = now;
@@ -84,7 +86,8 @@ void NetClient::frame(uint64_t now) {
             sendText("connect \"" + info + "\"");
         }
         return;
-    default: break;
+    default:
+        break;
     }
     if (now - lastReceived_ > kTimeoutMs) {
         state_ = State::Disconnected;
@@ -132,20 +135,21 @@ bool NetClient::readDemoMessage(uint64_t now) {
     };
     // The end: -1 for both, or the file running out.
     if (demoAt_ + 8 > demoData_.size() || word(demoAt_ + 4) < 0 ||
-        size_t(word(demoAt_ + 4)) > demoData_.size() - demoAt_ - 8 || word(demoAt_ + 4) > int32_t(wire::Netchan::kMaxMessage)) {
+        size_t(word(demoAt_ + 4)) > demoData_.size() - demoAt_ - 8 ||
+        word(demoAt_ + 4) > int32_t(wire::Netchan::kMaxMessage)) {
         state_ = State::Disconnected;
         return false;
     }
     incoming_ = word(demoAt_);
     const auto length = size_t(word(demoAt_ + 4));
-    wire::MessageReader r(std::vector<uint8_t>(demoData_.begin() + long(demoAt_ + 8),
-                                               demoData_.begin() + long(demoAt_ + 8 + length)));
+    wire::MessageReader r(
+        std::vector<uint8_t>(demoData_.begin() + long(demoAt_ + 8), demoData_.begin() + long(demoAt_ + 8 + length)));
     demoAt_ += 8 + length;
     parseMessage(r, now);
     return true;
 }
 
-void NetClient::outOfBand(const std::string& text, uint64_t now) {
+void NetClient::outOfBand(const std::string &text, uint64_t now) {
     if (text.rfind("print\n", 0) == 0) {
         message_ = text.substr(6);
         while (!message_.empty() && message_.back() == '\n')
@@ -169,7 +173,7 @@ void NetClient::outOfBand(const std::string& text, uint64_t now) {
     }
 }
 
-void NetClient::parseMessage(wire::MessageReader& r, uint64_t now) {
+void NetClient::parseMessage(wire::MessageReader &r, uint64_t now) {
     while (!r.atEnd()) {
         const int32_t op = r.byte();
         if (op == kSvcServerCommand) {
@@ -193,7 +197,7 @@ void NetClient::parseMessage(wire::MessageReader& r, uint64_t now) {
     }
 }
 
-void NetClient::serverCommand(int32_t sequence, const std::string& text) {
+void NetClient::serverCommand(int32_t sequence, const std::string &text) {
     if (sequence <= serverCommandSequence_)
         return;
     serverCommandSequence_ = sequence;
@@ -223,7 +227,7 @@ void NetClient::serverCommand(int32_t sequence, const std::string& text) {
     }
 }
 
-void NetClient::parseGamestate(wire::MessageReader& r) {
+void NetClient::parseGamestate(wire::MessageReader &r) {
     gamestateSequence_ = r.longValue();
     serverCommandSequence_ = gamestateSequence_;
     serverCommands_.assign(size_t(std::max(0, gamestateSequence_)), std::string());
@@ -256,7 +260,7 @@ void NetClient::parseGamestate(wire::MessageReader& r) {
     commandsInLastPacket_ = 0;
 }
 
-void NetClient::parseSnapshot(wire::MessageReader& r, uint64_t now) {
+void NetClient::parseSnapshot(wire::MessageReader &r, uint64_t now) {
     const int32_t acknowledged = r.longValue();
     if (acknowledged <= reliableSequence_ && acknowledged > reliableAcknowledge_)
         reliableAcknowledge_ = acknowledged;
@@ -269,11 +273,11 @@ void NetClient::parseSnapshot(wire::MessageReader& r, uint64_t now) {
     const std::vector<uint8_t> mask = r.data(size_t(maskBytes));
     std::copy(mask.begin(), mask.end(), snap.areaMask.begin());
     // A change from an older one, if it's still kept.
-    const Snap* old = nullptr;
+    const Snap *old = nullptr;
     snap.valid = true;
     if (deltaNum > 0) {
         const int32_t oldMessage = snap.message - deltaNum;
-        const Snap& o = snaps_[size_t(oldMessage & 31)];
+        const Snap &o = snaps_[size_t(oldMessage & 31)];
         if (o.valid && o.message == oldMessage)
             old = &o;
         else
@@ -282,7 +286,7 @@ void NetClient::parseSnapshot(wire::MessageReader& r, uint64_t now) {
     static const std::vector<uint8_t> none;
     readPlayerDelta(r, old ? old->playerState : none, snap.playerState);
     static const std::map<int32_t, std::vector<uint8_t>> noEntities;
-    const auto& before = old ? old->entities : noEntities;
+    const auto &before = old ? old->entities : noEntities;
     auto o = before.begin();
     while (!r.overflowed()) {
         const auto number = int32_t(r.bits(kEntityNumberBits));
@@ -312,7 +316,7 @@ void NetClient::parseSnapshot(wire::MessageReader& r, uint64_t now) {
     GameHost::Snapshot out;
     out.serverTime = snap.serverTime;
     out.playerState = snap.playerState;
-    for (const auto& [number, state] : snap.entities)
+    for (const auto &[number, state] : snap.entities)
         out.entities.push_back(state);
     out.serverCommandSequence = serverCommandSequence_;
     out.messageNum = snap.message;
@@ -322,7 +326,7 @@ void NetClient::parseSnapshot(wire::MessageReader& r, uint64_t now) {
     adjustTime(snap.serverTime, now);
 }
 
-void NetClient::download(const std::string& remoteName) {
+void NetClient::download(const std::string &remoteName) {
     downloadName_ = remoteName;
     downloadData_.clear();
     downloadSize_ = -1;
@@ -330,7 +334,7 @@ void NetClient::download(const std::string& remoteName) {
     addClientCommand("download " + remoteName);
 }
 
-bool NetClient::takeDownload(std::string& name, std::vector<uint8_t>& data) {
+bool NetClient::takeDownload(std::string &name, std::vector<uint8_t> &data) {
     if (!finished_)
         return false;
     finished_ = false;
@@ -339,7 +343,7 @@ bool NetClient::takeDownload(std::string& name, std::vector<uint8_t>& data) {
     return true;
 }
 
-void NetClient::parseDownload(wire::MessageReader& r, uint64_t now) {
+void NetClient::parseDownload(wire::MessageReader &r, uint64_t now) {
     // A block: its number, for block 0 the file's size (-1: refused), its
     // length (0: the end) and its bytes; acknowledged in order (nextdl).
     const auto block = int32_t(uint16_t(r.shortValue()));
@@ -405,7 +409,7 @@ void NetClient::adjustTime(int32_t snapshotTime, uint64_t now) {
     }
 }
 
-void NetClient::addCommand(const GameHost::UserCommand& cmd) {
+void NetClient::addCommand(const GameHost::UserCommand &cmd) {
     if (state_ < State::Primed)
         return;
     commands_.push_back(cmd);
@@ -416,14 +420,14 @@ void NetClient::addCommand(const GameHost::UserCommand& cmd) {
     }
 }
 
-void NetClient::addClientCommand(const std::string& text) {
+void NetClient::addClientCommand(const std::string &text) {
     if (reliableSequence_ - reliableAcknowledge_ >= int32_t(reliable_.size()))
         return; // too many waiting
     ++reliableSequence_;
     reliable_[size_t(reliableSequence_ & 63)] = text;
 }
 
-void NetClient::setUserinfo(const std::string& userinfo) {
+void NetClient::setUserinfo(const std::string &userinfo) {
     userinfo_ = userinfo;
     if (state_ >= State::Connected)
         addClientCommand("userinfo \"" + userinfo + "\"");
@@ -459,7 +463,7 @@ void NetClient::sendPacket(uint64_t now) {
         w.byte(delta ? kClcMove : kClcMoveNoDelta);
         w.byte(uint32_t(commands_.size()));
         GameHost::UserCommand previous;
-        for (const GameHost::UserCommand& cmd : commands_) {
+        for (const GameHost::UserCommand &cmd : commands_) {
             writeUserCommand(w, previous, cmd);
             previous = cmd;
         }
@@ -468,7 +472,7 @@ void NetClient::sendPacket(uint64_t now) {
             commands_.pop_front();
         commandsInLastPacket_ = commands_.size();
     }
-    for (const std::vector<uint8_t>& d : chan_.transmit(w.bytes()))
+    for (const std::vector<uint8_t> &d : chan_.transmit(w.bytes()))
         socket_->send(server_, d);
 }
 

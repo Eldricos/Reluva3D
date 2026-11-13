@@ -53,7 +53,7 @@ void MessageWriter::alignToByte() {
     }
 }
 
-void MessageWriter::string(const std::string& s, size_t maxLength) {
+void MessageWriter::string(const std::string &s, size_t maxLength) {
     alignToByte();
     const size_t n = s.size() < maxLength ? s.size() : maxLength;
     for (size_t i = 0; i < n; ++i)
@@ -62,7 +62,7 @@ void MessageWriter::string(const std::string& s, size_t maxLength) {
     bit_ = data_.size() * 8;
 }
 
-void MessageWriter::data(const uint8_t* bytes, size_t count) {
+void MessageWriter::data(const uint8_t *bytes, size_t count) {
     alignToByte();
     data_.insert(data_.end(), bytes, bytes + count);
     bit_ = data_.size() * 8;

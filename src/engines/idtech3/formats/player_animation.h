@@ -22,7 +22,7 @@ struct PlayerAnimation {
 
     // The frame `seconds` into the animation, as a whole frame and the
     // fraction of the way to the next.
-    void frameAt(float seconds, int& frame, int& next, float& fraction) const;
+    void frameAt(float seconds, int &frame, int &next, float &fraction) const;
 };
 
 // The animations in an animation.cfg's text: lines of first frame, count,

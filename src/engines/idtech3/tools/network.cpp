@@ -37,12 +37,14 @@ using namespace reluva::idtech3::tool;
 // hosting a level as a server with no player of its own, for others to
 // join for `seconds`; or, with -join, joining a server and reporting
 // what it sends while walking forward.
-int cmdNetRun(int argc, char** argv) {
+int cmdNetRun(int argc, char **argv) {
     namespace q3 = reluva::idtech3;
     namespace ef = reluva::idtech3::eliteforce;
     if (argc < 4) {
-        std::fprintf(stderr, "usage: reluva-tool idtech3 net-run <game folder> <map> [seconds] [-port N] [-public] [-pure] [-addbot <name>]...\n"
-                             "       reluva-tool idtech3 net-run <game folder> -join <host[:port]> [seconds] [-name <name>]\n");
+        std::fprintf(
+            stderr,
+            "usage: reluva-tool idtech3 net-run <game folder> <map> [seconds] [-port N] [-public] [-pure] [-addbot <name>]...\n"
+            "       reluva-tool idtech3 net-run <game folder> -join <host[:port]> [seconds] [-name <name>]\n");
         return 1;
     }
     reluva::SearchSet set;
@@ -76,7 +78,9 @@ int cmdNetRun(int argc, char** argv) {
     }
     using Clock = std::chrono::steady_clock;
     const auto start = Clock::now();
-    auto nowMs = [&] { return uint64_t(std::chrono::duration_cast<std::chrono::milliseconds>(Clock::now() - start).count()) + 1; };
+    auto nowMs = [&] {
+        return uint64_t(std::chrono::duration_cast<std::chrono::milliseconds>(Clock::now() - start).count()) + 1;
+    };
     std::string err;
     q3::CvarStore cvars;
 
@@ -110,13 +114,13 @@ int cmdNetRun(int argc, char** argv) {
                     return 1;
             }
             if (client.takeNewGamestate()) {
-                const auto& cs = client.configstrings();
+                const auto &cs = client.configstrings();
                 std::printf("game state: %zu configstrings, map %s, commands from %d\n", cs.size(),
                             cs.count(0) ? q3::infoValue(cs.at(0), "mapname").c_str() : "?",
                             client.gamestateCommandSequence());
                 client.setLoaded();
             }
-            for (const auto& snap : client.takeSnapshots()) {
+            for (const auto &snap : client.takeSnapshots()) {
                 ++snapshots;
                 entities = snap.entities.size();
                 lastTime = snap.serverTime;
@@ -130,7 +134,8 @@ int cmdNetRun(int argc, char** argv) {
             }
             for (; commandsSeen < client.serverCommands().size(); ++commandsSeen)
                 if (!client.serverCommands()[commandsSeen].empty())
-                    std::printf("server command %zu: %s\n", commandsSeen + 1, client.serverCommands()[commandsSeen].c_str());
+                    std::printf("server command %zu: %s\n", commandsSeen + 1,
+                                client.serverCommands()[commandsSeen].c_str());
             if (client.hasSnapshot()) {
                 ef::GameHost::UserCommand cmd;
                 cmd.serverTime = client.serverTime();
@@ -139,7 +144,8 @@ int cmdNetRun(int argc, char** argv) {
             }
             std::this_thread::sleep_for(std::chrono::milliseconds(10));
         }
-        std::printf("%zu snapshots (the last at server time %d, %zu entities); leaving\n", snapshots, lastTime, entities);
+        std::printf("%zu snapshots (the last at server time %d, %zu entities); leaving\n", snapshots, lastTime,
+                    entities);
         client.disconnect();
         return snapshots ? 0 : 1;
     }
@@ -158,17 +164,19 @@ int cmdNetRun(int argc, char** argv) {
     if (publicServer)
         cvars.set("dedicated", "2");
     ef::GameHost game(set, cvars);
-    game.print = [](const std::string& text) {
+    game.print = [](const std::string &text) {
         std::printf("game: %s%s", text.c_str(), text.empty() || text.back() != '\n' ? "\n" : "");
     };
-    if (reluva::Error e = game.load(); e || (e = game.startLevel(map, bsp, int32_t(start.time_since_epoch().count())))) {
+    if (reluva::Error e = game.load();
+        e || (e = game.startLevel(map, bsp, int32_t(start.time_since_epoch().count())))) {
         std::fprintf(stderr, "net-run: %s\n", e.message.c_str());
         return 1;
     }
     std::printf("game code: Elite Force %s layout\n", game.layout().version == 12 ? "1.2" : "1.0");
     if (game.layout().version != 12)
-        std::printf("warning: the protocol carries patch 1.2's layouts; players joining 1.0's game won't see it right\n");
-    for (const std::string& bot : bots)
+        std::printf(
+            "warning: the protocol carries patch 1.2's layouts; players joining 1.0's game won't see it right\n");
+    for (const std::string &bot : bots)
         if (reluva::Error e = game.serverCommand("addbot " + bot))
             std::fprintf(stderr, "net-run: addbot: %s\n", e.message.c_str());
     auto socket = reluva::net::openSystemUdp(uint16_t(port), err);
@@ -177,8 +185,8 @@ int cmdNetRun(int argc, char** argv) {
         return 1;
     }
     ef::NetServer server(game, cvars, std::move(socket));
-    server.print = [](const std::string& text) { std::printf("server: %s", text.c_str()); };
-    server.resolveHost = [](const std::string& host, uint32_t& ip) { return reluva::net::resolveSystemHost(host, ip); };
+    server.print = [](const std::string &text) { std::printf("server: %s", text.c_str()); };
+    server.resolveHost = [](const std::string &host, uint32_t &ip) { return reluva::net::resolveSystemHost(host, ip); };
     server.setFiles(&set);
     if (pure)
         cvars.set("sv_pure", "1");
@@ -202,7 +210,7 @@ int cmdNetRun(int argc, char** argv) {
         std::this_thread::sleep_for(std::chrono::milliseconds(5));
     }
     std::printf("done; players at the end:");
-    for (const auto& [number, who] : server.players())
+    for (const auto &[number, who] : server.players())
         std::printf(" %d: %s", number, who.c_str());
     std::printf("\n");
     return 0;
@@ -211,14 +219,14 @@ int cmdNetRun(int argc, char** argv) {
 // Looking for servers as the menus' list does (getinfo, broadcast on the
 // four server ports), or asking one (getinfo and getstatus), printing
 // every answer as it comes, for when the list stays empty.
-int cmdNetFind(int argc, char** argv) {
+int cmdNetFind(int argc, char **argv) {
     std::string err;
     auto socket = reluva::net::openSystemUdp(0, err);
     if (!socket) {
         std::fprintf(stderr, "net-find: %s\n", err.c_str());
         return 1;
     }
-    auto send = [&](const reluva::net::Address& to, const std::string& text) {
+    auto send = [&](const reluva::net::Address &to, const std::string &text) {
         std::vector<uint8_t> d(4, 0xff);
         d.insert(d.end(), text.begin(), text.end());
         const bool sent = socket->send(to, d);
@@ -262,7 +270,7 @@ int cmdNetFind(int argc, char** argv) {
 
 // Asking master servers for their lists, as the menus' Internet list
 // does (and in dpmaster's form too), printing what each answers.
-int cmdNetMaster(int argc, char** argv) {
+int cmdNetMaster(int argc, char **argv) {
     namespace q3 = reluva::idtech3;
     std::vector<std::string> names;
     for (int i = 2; i < argc; ++i)
@@ -278,7 +286,7 @@ int cmdNetMaster(int argc, char** argv) {
         return 1;
     }
     int answers = 0;
-    for (const std::string& name : names) {
+    for (const std::string &name : names) {
         const auto [host, port] = reluva::net::splitHostPort(name, q3::ServerBrowser::kMasterPort);
         uint32_t ip = 0;
         if (!reluva::net::resolveSystemHost(host, ip)) {
@@ -287,7 +295,7 @@ int cmdNetMaster(int argc, char** argv) {
         }
         const reluva::net::Address master{ip, port};
         std::printf("%s (%s):\n", name.c_str(), master.toString().c_str());
-        for (const char* query : {"getservers 24", "getservers 24 full empty", "getservers EliteForce 24 full empty"}) {
+        for (const char *query : {"getservers 24", "getservers 24 full empty", "getservers EliteForce 24 full empty"}) {
             std::vector<uint8_t> d(4, 0xff);
             d.insert(d.end(), query, query + std::strlen(query));
             socket->send(master, d);
@@ -318,17 +326,18 @@ int cmdNetMaster(int argc, char** argv) {
     return answers ? 0 : 1;
 }
 
-const Commands commands("idtech3", {
-    {"net-run", "<game folder> <map> [seconds] [-port N] [-public] [-pure] [-addbot name]... | -join <host[:port]> [seconds] [-name name]",
-     "host a level as a server, with no player of its own, for others to join; or (-join) join a "
-     "server and report what it sends",
-     cmdNetRun},
-    {"net-find", "[host[:port]]",
-     "look for servers on the network as the menus' list does, or ask one, printing every answer",
-     cmdNetFind},
-    {"net-master", "[master[:port]]...",
-     "ask master servers for their lists, as the menus' Internet list does",
-     cmdNetMaster},
-});
+const Commands commands(
+    "idtech3",
+    {
+        {"net-run",
+         "<game folder> <map> [seconds] [-port N] [-public] [-pure] [-addbot name]... | -join <host[:port]> [seconds] [-name name]",
+         "host a level as a server, with no player of its own, for others to join; or (-join) join a "
+         "server and report what it sends",
+         cmdNetRun},
+        {"net-find", "[host[:port]]",
+         "look for servers on the network as the menus' list does, or ask one, printing every answer", cmdNetFind},
+        {"net-master", "[master[:port]]...", "ask master servers for their lists, as the menus' Internet list does",
+         cmdNetMaster},
+    });
 
 } // namespace
