@@ -100,7 +100,7 @@ void testOffsetHighAndSubdirectories(const std::filesystem::path &tmp) {
 
 void testRejectsDamage(const std::filesystem::path &tmp) {
     const std::vector<uint8_t> good = buildPac(kFiles);
-    auto fails = [&](std::vector<uint8_t> bytes) {
+    auto fails = [&](const std::vector<uint8_t> &bytes) {
         PacArchive pac;
         return bool(pac.open(writeFile(tmp / "bad.pac", bytes)));
     };

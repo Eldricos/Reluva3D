@@ -161,7 +161,7 @@ int cmdEntitySurvey(int argc, char **argv) {
     std::vector<std::pair<std::string, size_t>> mapCounts;
     std::vector<std::string> failures;
     size_t total = 0;
-    auto lower = [](std::string t) { return reluva::fs::toLower(t); };
+    auto lower = [](const std::string &t) { return reluva::fs::toLower(t); };
     Bytes data;
     for (const std::string &name : set.list()) {
         const std::string file = reluva::normalizeArchiveName(name);

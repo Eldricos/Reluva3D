@@ -101,7 +101,7 @@ struct FinWriter {
         put32(b, 0); // no extra data
         b.push_back(flags);
     }
-    void avObject(const std::string &name, std::array<float, 3> t, std::vector<uint32_t> props, bool box,
+    void avObject(const std::string &name, std::array<float, 3> t, const std::vector<uint32_t> &props, bool box,
                   uint8_t flags = 0) {
         objectNet(name, flags);
         for (float f : t)
@@ -128,7 +128,7 @@ struct FinWriter {
                 putFloat(b, 0);
         }
     }
-    void nodeTail(std::vector<uint32_t> children) {
+    void nodeTail(const std::vector<uint32_t> &children) {
         put32(b, 2);
         put32(b, 0);
         b.push_back(1);

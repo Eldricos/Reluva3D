@@ -86,7 +86,7 @@ void printButtons(reluva::x86::Win32Process &p, int width, int height) {
 void printGraph(reluva::x86::Cpu &cpu, const std::vector<uint32_t> &roots,
                 const std::vector<std::pair<uint32_t, uint32_t>> &scans) {
     using reluva::x86::Cpu;
-    auto vcall = [&](uint32_t object, int slot, std::vector<uint32_t> args = {}) -> uint32_t {
+    auto vcall = [&](uint32_t object, int slot, const std::vector<uint32_t> &args = {}) -> uint32_t {
         if (!object || !cpu.valid(object, 4) || !cpu.valid(cpu.read32(object) + 4 * uint32_t(slot), 4))
             return 0;
         const auto saved = cpu.reg;

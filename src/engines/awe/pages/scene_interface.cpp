@@ -145,7 +145,7 @@ ScenePage::ItemInfo ScenePage::itemInfo(const std::string &item) const {
     const Table &t = itemTable("itemlist.txt");
     for (size_t r = 0; r < t.rows.size(); r++)
         if (fs::toLower(unquoted(t.cell(r, 0))) == item) {
-            auto none = [](std::string s) { return s == "0" ? std::string() : s; };
+            auto none = [](const std::string &s) { return s == "0" ? std::string() : s; };
             info.description = none(translated(t, r, 1));
             info.event = none(unquoted(t.cell(r, 3)));
             info.examine = none(translated(t, r, 4));

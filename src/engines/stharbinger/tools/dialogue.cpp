@@ -223,7 +223,7 @@ int cmdDialogue(int argc, char **argv) {
         const std::string choice = line.label.empty() ? "" : "  [choice: " + line.label + "]";
         const std::string whoColon = who + ":";
         // "%5d %-9s %-8s %s%s" (widths in characters)
-        auto pad = [](std::string s, size_t w) {
+        auto pad = [](const std::string &s, size_t w) {
             size_t chars = 0;
             for (unsigned char ch : s)
                 chars += (ch & 0xC0) != 0x80;

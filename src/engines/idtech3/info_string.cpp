@@ -36,7 +36,7 @@ std::string infoValue(const std::string &info, const std::string &key) {
 }
 
 void setInfoValue(std::string &info, const std::string &key, const std::string &value) {
-    auto clean = [](std::string s) {
+    auto clean = [](const std::string &s) {
         std::string out;
         for (char c : s)
             if (c != '\\' && c != '"' && c != ';')

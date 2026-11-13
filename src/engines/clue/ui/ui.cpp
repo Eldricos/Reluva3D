@@ -218,7 +218,7 @@ void DialogView::setEnabled(int id, bool e) {
             state_[i].enabled = e;
 }
 
-void DialogView::setText(int id, std::string text) {
+void DialogView::setText(int id, const std::string &text) {
     for (size_t i = 0; i < state_.size(); ++i)
         if (dialog_.controls[i].id == id) {
             state_[i].text = text;

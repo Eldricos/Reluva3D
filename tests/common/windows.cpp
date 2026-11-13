@@ -259,7 +259,7 @@ static void testMsvcp60(const std::filesystem::path &tmp) {
         return a;
     };
     uint32_t r = 0;
-    auto method = [&](uint32_t self, const char *name, std::vector<uint32_t> args) {
+    auto method = [&](uint32_t self, const char *name, const std::vector<uint32_t> &args) {
         cpu.reg[x86::Cpu::ECX] = self;
         const bool ok = !cpu.call(fn(name), args, r);
         CHECK(ok);

@@ -123,7 +123,7 @@ int cmdUiRun(int argc, char **argv) {
         ui.trace = [](int number, const int32_t *a) {
             std::printf("  syscall %3d (%d, %d, %d, %d)\n", number, a[0], a[1], a[2], a[3]);
         };
-    auto step = [&](const char *what, reluva::Error err) {
+    auto step = [&](const char *what, const reluva::Error &err) {
         std::printf("%s: %s after %llu instructions\n", what, err ? err.message.c_str() : "ok",
                     static_cast<unsigned long long>(ui.vm().executed()));
         return !err;
@@ -299,7 +299,7 @@ int cmdGameRun(int argc, char **argv) {
         game.trace = [](int number, const int32_t *a) {
             std::printf("  syscall %3d (%d, %d, %d, %d)\n", number, a[0], a[1], a[2], a[3]);
         };
-    auto step = [&](const char *what, reluva::Error err) {
+    auto step = [&](const char *what, const reluva::Error &err) {
         std::printf("%s: %s after %llu instructions\n", what, err ? err.message.c_str() : "ok",
                     static_cast<unsigned long long>(game.vm().executed()));
         return !err;

@@ -193,7 +193,7 @@ std::map<std::string, std::string> parseSkin(std::string_view text) {
         std::string line(text.substr(start, end - start));
         start = end + 1;
         // Trim spaces, tabs and carriage returns around both halves.
-        auto trim = [](std::string s) {
+        auto trim = [](const std::string &s) {
             const size_t a = s.find_first_not_of(" \t\r\"");
             const size_t b = s.find_last_not_of(" \t\r\"");
             return a == std::string::npos ? std::string() : s.substr(a, b - a + 1);

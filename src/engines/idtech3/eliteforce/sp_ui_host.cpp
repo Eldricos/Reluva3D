@@ -130,7 +130,7 @@ SpUiHost::SpUiHost(const SearchSet &files, CvarStore &cvars) : files_(files), cv
 
 SpUiHost::~SpUiHost() = default;
 
-void SpUiHost::import(int slot, std::function<uint32_t(x86::Cpu &)> fn) {
+void SpUiHost::import(int slot, const std::function<uint32_t(x86::Cpu &)> &fn) {
     const uint32_t address = cpu_->addNative("ui engine[" + std::to_string(slot) + "]", [fn](x86::Cpu &c) {
         c.reg[x86::Cpu::EAX] = fn(c);
         return 0u;

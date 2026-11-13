@@ -128,7 +128,7 @@ int SpGameHost::importPosition(int slot) const {
     return slot < SendConsoleCommand ? slot + 1 : slot + 2;
 }
 
-void SpGameHost::import(int slot, std::function<uint32_t(x86::Cpu &)> fn) {
+void SpGameHost::import(int slot, const std::function<uint32_t(x86::Cpu &)> &fn) {
     // cdecl: the caller pops the arguments.
     const uint32_t address = cpu_->addNative("engine[" + std::to_string(slot) + "]", [this, slot, fn](x86::Cpu &c) {
         callCounts_.add(slot);
@@ -1547,7 +1547,7 @@ void SpGameHost::addImports() {
     if (expansion_) {
         // Its slots of their own (not through import(), which places the
         // 1.x slots).
-        auto own = [this](int position, const char *name, std::function<uint32_t(x86::Cpu &)> fn) {
+        auto own = [this](int position, const char *name, const std::function<uint32_t(x86::Cpu &)> &fn) {
             const uint32_t address = cpu_->addNative(name, [fn](x86::Cpu &c) {
                 c.reg[x86::Cpu::EAX] = fn(c);
                 return 0u;
