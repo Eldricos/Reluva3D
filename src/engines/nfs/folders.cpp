@@ -55,9 +55,16 @@ GameFolders findFolders(const stdfs::path &install, const std::map<std::string, 
         return out;
     }
 
+    // The parent as the install's own path names it. absolute() and
+    // lexically_normal() settle "." and ".." without asking the file system,
+    // which on Windows could hand back other spellings (long names for short
+    // ones in the temp folder), so the CD found stays under the same prefix.
     std::error_code ec;
-    const stdfs::path self = stdfs::weakly_canonical(install, ec);
-    const stdfs::path parent = (ec ? install : self).parent_path();
+    stdfs::path self = stdfs::absolute(install, ec);
+    self = (ec ? install : self).lexically_normal();
+    if (!self.has_filename())
+        self = self.parent_path();
+    const stdfs::path parent = self.parent_path();
     for (const std::string &name : entries(parent, true)) {
         const stdfs::path dir = parent / name;
         if (stdfs::equivalent(dir, install, ec))

@@ -67,10 +67,16 @@ void testStream(net::Sockets &s) {
     // Nothing listening: refused, as ready() shows.
     const int lonely = s.open(net::Sockets::Stream);
     const Result c = s.connect(lonely, at);
-    if (c == Result::InProgress)
-        CHECK(s.ready(lonely, 2000).failed);
-    else
+    if (c == Result::InProgress) {
+        // Windows tries a refused connect again before giving up, about two
+        // seconds in all, so this waits longer than that.
+        bool failed = false;
+        for (int i = 0; i < 10 && !failed; ++i)
+            failed = s.ready(lonely, 1000).failed;
+        CHECK(failed);
+    } else {
         CHECK(c == Result::Refused);
+    }
     s.close(lonely);
 }
 

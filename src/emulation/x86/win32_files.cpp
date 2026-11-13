@@ -163,9 +163,15 @@ stdfs::path resolve(const stdfs::path &base, const std::vector<std::string> &nam
         if (exists) {
             std::error_code ec;
             stdfs::path found;
+#if !defined(_WIN32)
+            // A case-sensitive file system has the name as given, if at all.
             if (stdfs::exists(p / n, ec)) {
                 found = p / n;
-            } else {
+            } else
+#endif
+            {
+                // On Windows exists() ignores case too, so the folder is read
+                // for the name as it is spelled there.
                 const std::string want = lower(n);
                 for (const auto &e : stdfs::directory_iterator(p, ec))
                     if (lower(e.path().filename().string()) == want) {
