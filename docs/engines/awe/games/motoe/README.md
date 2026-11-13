@@ -193,6 +193,13 @@ In the market at the start of the game (Sirkeci.Market_03, measured
 under a software GPU, so the present isn't a real card's), the 2D went
 from 5 to 2.3 ms a frame and the characters from 9 to 3.4 ms.
 
+**Left to clean up:** the scene browser (the data viewer's Scenes
+page) is still code inside `ScenePage` (`src/engines/awe/game/`), so it's
+built into `reluva` too, though the game turns it off
+(`ScenePage::Browser::kOff`) and players can't reach it. Moving it out
+means splitting the page's scene loading and drawing into the game's part
+and a viewer layer over it in `pages/`.
+
 ## Using it
 
 - **The game.** `reluva` starts it at its logos and main menu, as the

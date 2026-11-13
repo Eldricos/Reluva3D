@@ -29,6 +29,12 @@ Voyager - Elite Force (`stvef`).
 
 How each part works with Elite Force, in full: [games/stvef/](games/stvef/README.md#where-it-stands).
 
+**Left to clean up:** the game's `Session`
+(`src/engines/idtech3/client/session.h`) has three hooks (`addPages`,
+`pageKey`, `switched`) that only the data viewer's `ViewerSession` fills
+in; in `reluva` they do nothing. They could go if the viewer ran the
+game's pages another way.
+
 ## This folder
 
 | Doc | What's in it |

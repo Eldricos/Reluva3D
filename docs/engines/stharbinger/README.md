@@ -65,6 +65,12 @@ what remains is checking it against the original
 In STDS9H it was checked on the real discs; the port to Reluva passes all of
 STDS9H's tests and Reluva's own, but hasn't been played on the discs yet.
 
+**Left to clean up:** `Game::playVideoFile`
+(`src/engines/stharbinger/game/game_video.cpp`) only serves the viewer's
+one-video mode, but stays in the game's library, and so in `reluva`,
+because it drives `Game`'s own video state. Moving it to `pages/` means
+giving the viewer a way to start and run a `Game`'s video.
+
 ## Using it
 
 ### Adding the game

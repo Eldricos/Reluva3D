@@ -35,6 +35,14 @@ port. It hasn't been played through from start to finish in Reluva yet;
 that, and the few effects not yet compared with the original
 ([UNCONFIRMED.md](UNCONFIRMED.md)), are what's left.
 
+**Left to clean up:** some of the resource viewer's state is still in
+`Generations` (`src/engines/stgenerations/game/`), and so in `reluva`,
+because the game shares it: the image and sound indexes every save holds,
+the floor-plan page the game passes through to reach the 3D view, and
+leaving a mission for the list. Moving it out means taking the level,
+mission and 3D-walk core out of `Generations` into a class of its own
+that the game and `ResourceViewer` both use.
+
 ## Using it
 
 ### Adding the game
