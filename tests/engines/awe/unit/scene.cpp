@@ -63,10 +63,10 @@ void testWalkGrid() {
     Ac2Record camr;
     camr.tag = "CAMR";
     Ac2Value size;
-    size.type = Ac2Value::Type::U16;
+    size.type = Ac2Value::Type::kU16;
     size.raw = 20;
     Ac2Value grid;
-    grid.type = Ac2Value::Type::Bytes;
+    grid.type = Ac2Value::Type::kBytes;
     grid.raw = 64;
     grid.bytes.assign(64 * 64, 0);
     for (int b = 0; b < 64; b++)
@@ -189,7 +189,7 @@ void testSprite() {
     img.w = img.h = 2;
     img.rgba.assign(16, 255);
     Surface dst;
-    dst.create(8, 8, PixelFormat::RGBA32);
+    dst.create(8, 8, PixelFormat::kRGBA32);
     std::fill(dst.pixels.begin(), dst.pixels.end(), 0);
     SpriteTransform s2;
     s2.x = 1, s2.y = 1, s2.scaleX = 2, s2.scaleY = 2;
@@ -200,7 +200,7 @@ void testSprite() {
 
 Ac2Value realValue(float f) {
     Ac2Value v;
-    v.type = Ac2Value::Type::F32;
+    v.type = Ac2Value::Type::kF32;
     std::memcpy(&v.raw, &f, 4);
     return v;
 }
@@ -358,7 +358,7 @@ void testShadows() {
         Ac2Record r{"LITE", {}, {}};
         auto f = [](float v) {
             Ac2Value a;
-            a.type = Ac2Value::Type::F32;
+            a.type = Ac2Value::Type::kF32;
             std::memcpy(&a.raw, &v, 4);
             return a;
         };
@@ -433,7 +433,7 @@ void testShadows() {
 void testLighting() {
     auto num = [](float v) {
         Ac2Value a;
-        a.type = Ac2Value::Type::F32;
+        a.type = Ac2Value::Type::kF32;
         std::memcpy(&a.raw, &v, 4);
         return a;
     };
@@ -521,14 +521,14 @@ void testLighting() {
 
 } // namespace
 
-static const reluva::test::Suite suite("awe.unit.scene",
-                                       {
-                                           {"camera", [](const std::filesystem::path &) { testCamera(); }},
-                                           {"walk grid", [](const std::filesystem::path &) { testWalkGrid(); }},
-                                           {"conditions", [](const std::filesystem::path &) { testConditions(); }},
-                                           {"sprites", [](const std::filesystem::path &) { testSprite(); }},
-                                           {"particles", [](const std::filesystem::path &) { testParticles(); }},
-                                           {"picking", [](const std::filesystem::path &) { testPicking(); }},
-                                           {"shadows", [](const std::filesystem::path &) { testShadows(); }},
-                                           {"lighting", [](const std::filesystem::path &) { testLighting(); }},
-                                       });
+static const reluva::test::Suite kSuite("awe.unit.scene",
+                                        {
+                                            {"camera", [](const std::filesystem::path &) { testCamera(); }},
+                                            {"walk grid", [](const std::filesystem::path &) { testWalkGrid(); }},
+                                            {"conditions", [](const std::filesystem::path &) { testConditions(); }},
+                                            {"sprites", [](const std::filesystem::path &) { testSprite(); }},
+                                            {"particles", [](const std::filesystem::path &) { testParticles(); }},
+                                            {"picking", [](const std::filesystem::path &) { testPicking(); }},
+                                            {"shadows", [](const std::filesystem::path &) { testShadows(); }},
+                                            {"lighting", [](const std::filesystem::path &) { testLighting(); }},
+                                        });

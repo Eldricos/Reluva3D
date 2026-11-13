@@ -21,36 +21,36 @@ namespace reluva {
 class Serializer {
 public:
     // Loading from `in`, or saving to `out` (the other nullptr).
-    Serializer(ReadStream *in, MemoryWriteStream *out) : in_(in), out_(out) {}
+    Serializer(ReadStream *in, MemoryWriteStream *out) : _in(in), _out(out) {}
 
     // The layout's version, for data saved before a field was added.
-    void setVersion(uint32_t version) { version_ = version; }
-    uint32_t version() const { return version_; }
+    void setVersion(uint32_t version) { _version = version; }
+    uint32_t version() const { return _version; }
 
-    bool isLoading() const { return in_ != nullptr; }
-    bool isSaving() const { return out_ != nullptr; }
-    bool err() const { return failed_ || (in_ && in_->err()); }
-    void fail() { failed_ = true; }
+    bool isLoading() const { return _in != nullptr; }
+    bool isSaving() const { return _out != nullptr; }
+    bool err() const { return _failed || (_in && _in->err()); }
+    void fail() { _failed = true; }
 
     void syncBytes(void *data, uint32_t size) {
-        if (in_) {
-            if (in_->read(data, size) != size)
-                failed_ = true;
-        } else if (out_) {
-            out_->write(data, size);
+        if (_in) {
+            if (_in->read(data, size) != size)
+                _failed = true;
+        } else if (_out) {
+            _out->write(data, size);
         }
     }
 
     template<typename T>
     void syncAsInt(T &value, int bytes) {
         uint8_t buffer[8] = {};
-        if (out_) {
+        if (_out) {
             const uint64_t v = uint64_t(int64_t(value));
             for (int i = 0; i < bytes; ++i)
                 buffer[i] = uint8_t(v >> (8 * i));
         }
         syncBytes(buffer, uint32_t(bytes));
-        if (in_) {
+        if (_in) {
             uint64_t v = 0;
             for (int i = 0; i < bytes; ++i)
                 v |= uint64_t(buffer[i]) << (8 * i);
@@ -84,9 +84,9 @@ public:
     void syncString(std::string &value) {
         uint32_t size = uint32_t(value.size());
         syncAsUint32(size);
-        if (in_) {
+        if (_in) {
             if (size > (1u << 20) || err()) {
-                failed_ = true;
+                _failed = true;
                 return;
             }
             value.resize(size);
@@ -99,9 +99,9 @@ public:
     void syncVector(std::vector<T> &values, F sync) {
         uint32_t size = uint32_t(values.size());
         syncAsUint32(size);
-        if (in_) {
+        if (_in) {
             if (size > (1u << 24) || err()) {
-                failed_ = true;
+                _failed = true;
                 return;
             }
             values.resize(size);
@@ -118,14 +118,14 @@ public:
         uint32_t stored = count;
         syncAsUint32(stored);
         if (stored != count)
-            failed_ = true;
+            _failed = true;
     }
 
 private:
-    ReadStream *in_;
-    MemoryWriteStream *out_;
-    bool failed_ = false;
-    uint32_t version_ = 0;
+    ReadStream *_in;
+    MemoryWriteStream *_out;
+    bool _failed = false;
+    uint32_t _version = 0;
 };
 
 } // namespace reluva

@@ -44,8 +44,8 @@ void wrap(const std::string &line, std::vector<std::string> &out) {
 
 } // namespace
 
-TextViewer::TextViewer(System &sys, Surface &screen, const GameData &data) : sys_(sys), screen_(screen), data_(data) {
-    files_ = data_.withExtension(".txt");
+TextViewer::TextViewer(System &sys, Surface &screen, const GameData &data) : _sys(sys), _screen(screen), _data(data) {
+    _files = _data.withExtension(".txt");
 }
 
 void TextViewer::activate() {
@@ -54,11 +54,11 @@ void TextViewer::activate() {
 }
 
 void TextViewer::load() {
-    lines_.clear();
-    top_ = 0;
-    if (files_.empty())
+    _lines.clear();
+    _top = 0;
+    if (_files.empty())
         return;
-    std::ifstream in(files_[size_t(current_)], std::ios::binary);
+    std::ifstream in(_files[size_t(_current)], std::ios::binary);
     const std::string raw((std::istreambuf_iterator<char>(in)), std::istreambuf_iterator<char>());
     const std::string utf8 = text::windows1252ToUtf8(raw);
     size_t pos = 0;
@@ -69,41 +69,41 @@ void TextViewer::load() {
         std::string line = utf8.substr(pos, end - pos);
         if (!line.empty() && line.back() == '\r')
             line.pop_back();
-        wrap(line, lines_);
+        wrap(line, _lines);
         pos = end + 1;
     }
 }
 
 void TextViewer::handleKey(uint32_t key) {
-    if (files_.empty())
+    if (_files.empty())
         return;
-    const int maxTop = std::max(0, int(lines_.size()) - kRows);
+    const int maxTop = std::max(0, int(_lines.size()) - kRows);
     switch (key) {
-    case key::Right:
-        current_ = (current_ + 1) % int(files_.size());
+    case key::kRight:
+        _current = (_current + 1) % int(_files.size());
         load();
         break;
-    case key::Left:
-        current_ = (current_ + int(files_.size()) - 1) % int(files_.size());
+    case key::kLeft:
+        _current = (_current + int(_files.size()) - 1) % int(_files.size());
         load();
         break;
-    case key::Down:
-        top_ = std::min(maxTop, top_ + 1);
+    case key::kDown:
+        _top = std::min(maxTop, _top + 1);
         break;
-    case key::Up:
-        top_ = std::max(0, top_ - 1);
+    case key::kUp:
+        _top = std::max(0, _top - 1);
         break;
-    case key::PageDown:
-        top_ = std::min(maxTop, top_ + kRows);
+    case key::kPageDown:
+        _top = std::min(maxTop, _top + kRows);
         break;
-    case key::PageUp:
-        top_ = std::max(0, top_ - kRows);
+    case key::kPageUp:
+        _top = std::max(0, _top - kRows);
         break;
-    case key::Home:
-        top_ = 0;
+    case key::kHome:
+        _top = 0;
         break;
-    case key::End:
-        top_ = maxTop;
+    case key::kEnd:
+        _top = maxTop;
         break;
     default:
         return;
@@ -112,18 +112,18 @@ void TextViewer::handleKey(uint32_t key) {
 }
 
 void TextViewer::draw() {
-    fillRect(screen_, 0, 0, kScreenW, kScreenH, {250, 246, 232});
-    if (files_.empty()) {
-        drawInfo(screen_, "No text files found");
+    fillRect(_screen, 0, 0, kScreenW, kScreenH, {250, 246, 232});
+    if (_files.empty()) {
+        drawInfo(_screen, "No text files found");
         return;
     }
-    for (int r = 0; r < kRows && top_ + r < int(lines_.size()); ++r)
-        font::drawText(screen_, kMargin, kMargin + r * font::kLineHeight, lines_[size_t(top_ + r)], {32, 24, 16});
-    const std::string name = files_[size_t(current_)].filename().string();
-    drawInfo(screen_, name + "   file " + std::to_string(current_ + 1) + "/" + std::to_string(files_.size()),
-             "lines " + std::to_string(top_ + 1) + "-" + std::to_string(std::min(int(lines_.size()), top_ + kRows)) +
-                 " of " + std::to_string(lines_.size()));
-    sys_.setWindowTitle(std::string(gameName(data_.language())) + " text: " + name);
+    for (int r = 0; r < kRows && _top + r < int(_lines.size()); ++r)
+        font::drawText(_screen, kMargin, kMargin + r * font::kLineHeight, _lines[size_t(_top + r)], {32, 24, 16});
+    const std::string name = _files[size_t(_current)].filename().string();
+    drawInfo(_screen, name + "   file " + std::to_string(_current + 1) + "/" + std::to_string(_files.size()),
+             "lines " + std::to_string(_top + 1) + "-" + std::to_string(std::min(int(_lines.size()), _top + kRows)) +
+                 " of " + std::to_string(_lines.size()));
+    _sys.setWindowTitle(std::string(gameName(_data.language())) + " text: " + name);
 }
 
 } // namespace reluva::clue

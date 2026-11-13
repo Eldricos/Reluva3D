@@ -42,7 +42,7 @@ std::unique_ptr<BotCharacter> BotCharacters::read(const BotScript::Loader &load,
         // Index and value pairs up to the closing brace.
         ch->skill = float(int(level));
         while (script.next(t) && !t.is("}")) {
-            if (t.type != BotToken::Type::Number || t.isFloat) {
+            if (t.type != BotToken::Type::kNumber || t.isFloat) {
                 script.fail("expected an integer index, found " + t.text);
                 break;
             }
@@ -52,7 +52,7 @@ std::unique_ptr<BotCharacter> BotCharacters::read(const BotScript::Loader &load,
                 break;
             }
             BotCharacter::Value &v = ch->values[size_t(index)];
-            if (v.type != BotCharacter::Value::Type::None) {
+            if (v.type != BotCharacter::Value::Type::kNone) {
                 script.fail("characteristic " + std::to_string(index) + " given twice");
                 break;
             }
@@ -66,14 +66,14 @@ std::unique_ptr<BotCharacter> BotCharacters::read(const BotScript::Loader &load,
                 sign = -1;
                 script.next(value);
             }
-            if (value.type == BotToken::Type::Number && value.isFloat) {
-                v.type = BotCharacter::Value::Type::Float;
+            if (value.type == BotToken::Type::kNumber && value.isFloat) {
+                v.type = BotCharacter::Value::Type::kFloat;
                 v.number = float(sign * value.number);
-            } else if (value.type == BotToken::Type::Number) {
-                v.type = BotCharacter::Value::Type::Integer;
+            } else if (value.type == BotToken::Type::kNumber) {
+                v.type = BotCharacter::Value::Type::kInteger;
                 v.integer = int(sign * value.number);
-            } else if (value.type == BotToken::Type::String) {
-                v.type = BotCharacter::Value::Type::String;
+            } else if (value.type == BotToken::Type::kString) {
+                v.type = BotCharacter::Value::Type::kString;
                 v.text = value.text;
             } else {
                 script.fail("expected an integer, float or string, found " + value.text);
@@ -114,7 +114,7 @@ std::unique_ptr<BotCharacter> BotCharacters::loadSkill(const BotScript::Loader &
         return nullptr;
     if (const auto def = read(load, kDefaultCharacter, skill)) {
         for (int i = 0; i < BotCharacter::kCount; ++i)
-            if (ch->values[size_t(i)].type == BotCharacter::Value::Type::None)
+            if (ch->values[size_t(i)].type == BotCharacter::Value::Type::kNone)
                 ch->values[size_t(i)] = def->values[size_t(i)];
     }
     return ch;
@@ -142,31 +142,31 @@ int BotCharacters::load(const BotScript::Loader &load, const std::string &file, 
             for (size_t i = 0; i < size_t(BotCharacter::kCount); ++i) {
                 const auto &va = a->values[i];
                 const auto &vb = b->values[i];
-                if (va.type == BotCharacter::Value::Type::Float && vb.type == BotCharacter::Value::Type::Float)
+                if (va.type == BotCharacter::Value::Type::kFloat && vb.type == BotCharacter::Value::Type::kFloat)
                     result->values[i].number = va.number + (vb.number - va.number) * scale;
             }
         }
     }
     if (!result)
         return 0;
-    for (size_t i = 0; i < characters_.size(); ++i)
-        if (!characters_[i]) {
-            characters_[i] = std::move(result);
+    for (size_t i = 0; i < _characters.size(); ++i)
+        if (!_characters[i]) {
+            _characters[i] = std::move(result);
             return int(i) + 1;
         }
-    characters_.push_back(std::move(result));
-    return int(characters_.size());
+    _characters.push_back(std::move(result));
+    return int(_characters.size());
 }
 
 void BotCharacters::free(int handle) {
-    if (handle >= 1 && size_t(handle) <= characters_.size())
-        characters_[size_t(handle) - 1].reset();
+    if (handle >= 1 && size_t(handle) <= _characters.size())
+        _characters[size_t(handle) - 1].reset();
 }
 
 const BotCharacter *BotCharacters::get(int handle) const {
-    if (handle < 1 || size_t(handle) > characters_.size())
+    if (handle < 1 || size_t(handle) > _characters.size())
         return nullptr;
-    return characters_[size_t(handle) - 1].get();
+    return _characters[size_t(handle) - 1].get();
 }
 
 float BotCharacters::floatValue(int handle, int index) const {
@@ -174,9 +174,9 @@ float BotCharacters::floatValue(int handle, int index) const {
     if (!ch || index < 0 || index >= BotCharacter::kCount)
         return 0;
     const auto &v = ch->values[size_t(index)];
-    return v.type == BotCharacter::Value::Type::Integer ? float(v.integer)
-           : v.type == BotCharacter::Value::Type::Float ? v.number
-                                                        : 0;
+    return v.type == BotCharacter::Value::Type::kInteger ? float(v.integer)
+           : v.type == BotCharacter::Value::Type::kFloat ? v.number
+                                                         : 0;
 }
 
 float BotCharacters::boundedFloat(int handle, int index, float min, float max) const {
@@ -188,9 +188,9 @@ int BotCharacters::integer(int handle, int index) const {
     if (!ch || index < 0 || index >= BotCharacter::kCount)
         return 0;
     const auto &v = ch->values[size_t(index)];
-    return v.type == BotCharacter::Value::Type::Integer ? v.integer
-           : v.type == BotCharacter::Value::Type::Float ? int(v.number)
-                                                        : 0;
+    return v.type == BotCharacter::Value::Type::kInteger ? v.integer
+           : v.type == BotCharacter::Value::Type::kFloat ? int(v.number)
+                                                         : 0;
 }
 
 int BotCharacters::boundedInteger(int handle, int index, int min, int max) const {
@@ -202,7 +202,7 @@ std::string BotCharacters::string(int handle, int index) const {
     if (!ch || index < 0 || index >= BotCharacter::kCount)
         return {};
     const auto &v = ch->values[size_t(index)];
-    return v.type == BotCharacter::Value::Type::String ? v.text : std::string();
+    return v.type == BotCharacter::Value::Type::kString ? v.text : std::string();
 }
 
 } // namespace reluva::idtech3::botlib

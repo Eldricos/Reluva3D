@@ -17,7 +17,7 @@ namespace reluva::x86 {
 
 namespace {
 
-constexpr uint16_t C0 = 1u << 8, C1 = 1u << 9, C2 = 1u << 10, C3 = 1u << 14;
+constexpr uint16_t kC0 = 1u << 8, kC1 = 1u << 9, kC2 = 1u << 10, kC3 = 1u << 14;
 constexpr uint16_t kTopMask = 7u << 11;
 
 double fromExtended(const uint8_t *p) {
@@ -116,21 +116,21 @@ void Cpu::copyExact(int to, int from) {
 void Cpu::fpuCompare(double a, double b, bool setEflags, bool) {
     uint16_t c = 0;
     if (std::isnan(a) || std::isnan(b))
-        c = C3 | C2 | C0;
+        c = kC3 | kC2 | kC0;
     else if (a < b)
-        c = C0;
+        c = kC0;
     else if (a == b)
-        c = C3;
+        c = kC3;
     if (setEflags) {
         eflags &= ~(ZF | PF | CF | OF | SF | AF);
-        if (c & C3)
+        if (c & kC3)
             eflags |= ZF;
-        if (c & C2)
+        if (c & kC2)
             eflags |= PF;
-        if (c & C0)
+        if (c & kC0)
             eflags |= CF;
     } else {
-        fpu.status = uint16_t((fpu.status & ~(C3 | C2 | C1 | C0)) | c);
+        fpu.status = uint16_t((fpu.status & ~(kC3 | kC2 | kC1 | kC0)) | c);
     }
 }
 
@@ -163,8 +163,8 @@ int64_t toInteger(double v, int bits) {
 
 void Cpu::x87(uint8_t op) {
     decodeModrm();
-    const int r = d_.regField;
-    const uint32_t a = d_.address;
+    const int r = _d.regField;
+    const uint32_t a = _d.address;
     auto arith = [&](int kind, double &dst, double x, double y) {
         // dst = x op y for the eight arithmetic forms (2, 3 compare x, y)
         switch (kind) {
@@ -262,15 +262,15 @@ void Cpu::x87(uint8_t op) {
         fpu.tags = 0xff;
         fpu.top = 0;
     };
-    auto setC = [&](uint16_t bits) { fpu.status = uint16_t((fpu.status & ~(C3 | C2 | C1 | C0)) | bits); };
+    auto setC = [&](uint16_t bits) { fpu.status = uint16_t((fpu.status & ~(kC3 | kC2 | kC1 | kC0)) | bits); };
     auto fcmov = [&](bool cond) {
         if (cond) {
-            st(0) = st(d_.rm);
-            copyExact(0, d_.rm);
+            st(0) = st(_d.rm);
+            copyExact(0, _d.rm);
         }
     };
 
-    if (d_.memoryOperand) {
+    if (_d.memoryOperand) {
         switch (op) {
         case 0xd8:
             arith(r, st(0), st(0), loadFloat());
@@ -451,7 +451,7 @@ void Cpu::x87(uint8_t op) {
         fault("x87 instruction " + std::to_string(op) + " /" + std::to_string(r) + " (memory) not implemented");
     }
 
-    const int i = d_.rm;
+    const int i = _d.rm;
     const uint8_t modrm = uint8_t(0xc0 | r << 3 | i);
     switch (op) {
     case 0xd8:
@@ -507,19 +507,19 @@ void Cpu::x87(uint8_t op) {
             return;
         case 0xe5: { // FXAM
             const double v = st(0);
-            uint16_t c = std::signbit(v) ? C1 : 0;
+            uint16_t c = std::signbit(v) ? kC1 : 0;
             if (fpu.tags & (1u << fpu.top))
-                c |= C3 | C0;
+                c |= kC3 | kC0;
             else if (std::isnan(v))
-                c |= C0;
+                c |= kC0;
             else if (std::isinf(v))
-                c |= C2 | C0;
+                c |= kC2 | kC0;
             else if (v == 0.0)
-                c |= C3;
+                c |= kC3;
             else if (!std::isnormal(v))
-                c |= C3 | C2;
+                c |= kC3 | kC2;
             else
-                c |= C2;
+                c |= kC2;
             setC(c);
             return;
         }
@@ -579,7 +579,7 @@ void Cpu::x87(uint8_t op) {
             const double q = modrm == 0xf8 ? std::trunc(x / y) : std::nearbyint(x / y);
             st(0) = modrm == 0xf8 ? std::fmod(x, y) : std::remainder(x, y);
             const uint64_t qi = std::isfinite(q) ? uint64_t(std::fabs(q)) : 0;
-            setC(uint16_t(((qi & 4) ? C0 : 0) | ((qi & 2) ? C3 : 0) | ((qi & 1) ? C1 : 0)));
+            setC(uint16_t(((qi & 4) ? kC0 : 0) | ((qi & 2) ? kC3 : 0) | ((qi & 1) ? kC1 : 0)));
             return;
         }
         case 0xf6:

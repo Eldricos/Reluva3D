@@ -4,7 +4,7 @@
 #include <map>
 using namespace reluva::clue;
 int main(int, char** argv) {
-    GameData data; if (data.open(argv[1], Language::US)) return 1;
+    GameData data; if (data.open(argv[1], Language::kUS)) return 1;
     std::map<uint32_t,int> h; std::map<uint32_t,std::string> ex;
     for (auto& path : data.withExtension(".a")) {
         DataDrive d; if (d.open(path)) continue;

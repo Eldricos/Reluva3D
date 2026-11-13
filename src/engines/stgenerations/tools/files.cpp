@@ -523,7 +523,7 @@ int cmdFiles(int argc, char **argv) {
     return 0;
 }
 
-const tool::Commands commands(
+const tool::Commands kCommands(
     "stgenerations",
     {
         {"files", "<game folder>", "every file in a game's folder, with its size and detection signature", cmdFiles},

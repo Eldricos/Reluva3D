@@ -29,33 +29,33 @@ bool hasExtension(const std::string &name, std::initializer_list<const char *> e
 TextureViewer::TextureViewer(ViewerContext &ctx) : Page(ctx) {
     for (const std::string &n : ctx.files.list())
         if (hasExtension(n, {".tga", ".jpg", ".jpeg", ".png"}))
-            names_.push_back(n);
+            _names.push_back(n);
 }
 
 void TextureViewer::handleEvent(const Event &ev) {
-    if (ev.type != EventType::KeyDown || names_.empty())
+    if (ev.type != EventType::kKeyDown || _names.empty())
         return;
-    int i = index_;
-    if (ev.key == key::Left)
+    int i = _index;
+    if (ev.key == key::kLeft)
         --i;
-    else if (ev.key == key::Right)
+    else if (ev.key == key::kRight)
         ++i;
-    else if (ev.key == key::PageUp)
+    else if (ev.key == key::kPageUp)
         i -= 10;
-    else if (ev.key == key::PageDown)
+    else if (ev.key == key::kPageDown)
         i += 10;
-    else if (ev.key == key::Home)
+    else if (ev.key == key::kHome)
         i = 0;
-    else if (ev.key == key::End)
-        i = static_cast<int>(names_.size()) - 1;
+    else if (ev.key == key::kEnd)
+        i = static_cast<int>(_names.size()) - 1;
     else
         return;
-    show(std::clamp(i, 0, static_cast<int>(names_.size()) - 1));
+    show(std::clamp(i, 0, static_cast<int>(_names.size()) - 1));
 }
 
 void TextureViewer::show(int index) {
-    index_ = index;
-    Surface &s = ctx_.screen;
+    _index = index;
+    Surface &s = _ctx.screen;
     // Checkerboard, so transparency shows.
     for (int y = 0; y < s.h; ++y)
         for (int x = 0; x < s.w; ++x) {
@@ -64,17 +64,17 @@ void TextureViewer::show(int index) {
             p[0] = p[1] = p[2] = v;
             p[3] = 255;
         }
-    if (names_.empty())
+    if (_names.empty())
         return;
-    const std::string &name = names_[size_t(index)];
-    const std::string where = std::to_string(index + 1) + "/" + std::to_string(names_.size());
+    const std::string &name = _names[size_t(index)];
+    const std::string where = std::to_string(index + 1) + "/" + std::to_string(_names.size());
     setTitle(name + " (" + where + ")");
 
     const int lh = font::kLineHeight;
     std::vector<uint8_t> data;
     image::Image img;
     std::string info;
-    if (Error err = ctx_.files.read(name, data)) {
+    if (Error err = _ctx.files.read(name, data)) {
         info = err.message;
     } else if (Error derr = image::decode(data, img)) {
         info = derr.message;
@@ -102,7 +102,7 @@ void TextureViewer::show(int index) {
     }
     fill(0, 0, s.w, 3 * lh, 16, 18, 24);
     text(4, 4, name + "  " + where);
-    const Archive *from = ctx_.files.find(name);
+    const Archive *from = _ctx.files.find(name);
     text(4, 4 + lh, info + (from ? "  from " + std::filesystem::path(from->describe()).filename().string() : ""),
          {150, 200, 255});
 }

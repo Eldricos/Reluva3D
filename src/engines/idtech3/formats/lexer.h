@@ -15,7 +15,7 @@ namespace reluva::idtech3 {
 // comments are skipped.
 class Lexer {
 public:
-    explicit Lexer(std::string_view text) : text_(text) {}
+    explicit Lexer(std::string_view text) : _text(text) {}
 
     // The next token, or nullopt at the end of the text. With
     // crossLines = false, also nullopt (without consuming anything) when
@@ -30,7 +30,7 @@ public:
     // "{". Returns false if the text ends first.
     bool skipBlock();
 
-    int line() const { return line_; } // 1-based line of the last token read
+    int line() const { return _line; } // 1-based line of the last token read
     bool atEnd();
 
 private:
@@ -38,9 +38,9 @@ private:
     // crossLines is false. Returns false if it stopped at a newline.
     bool skipSpace(bool crossLines);
 
-    std::string_view text_;
-    size_t pos_ = 0;
-    int line_ = 1;
+    std::string_view _text;
+    size_t _pos = 0;
+    int _line = 1;
 };
 
 } // namespace reluva::idtech3

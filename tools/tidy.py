@@ -12,6 +12,16 @@ nullptr, override, const-correctness...).
     python3 tools/tidy.py <file or folder>...   only those
     python3 tools/tidy.py --fix --checks=-*,readability-isolate-declaration src/engines/clue
                                              apply one check's fixes
+    python3 tools/tidy.py --rename-declared-in src/engines/clue [--dry-run]
+                                             rename to the coding guide's
+                                             names the identifiers *declared*
+                                             in those folders or files (repeat the
+                                             option for several), with every
+                                             use in the files checked (all of
+                                             Reluva's, or those named); names
+                                             declared elsewhere are left, even
+                                             where these files use them.
+                                             --dry-run lists old -> new only.
 
 Prints each finding and a count per check; exits 1 if there was any.
 
@@ -66,8 +76,19 @@ def main():
         build = args[i + 1]
         del args[i:i + 2]
     fix = "--fix" in args
+    dry_run = "--dry-run" in args
     checks = [a for a in args if a.startswith("--checks=")]
-    args = [a for a in args if a != "--fix" and not a.startswith("--checks=")]
+    args = [a for a in args if a not in ("--fix", "--dry-run") and not a.startswith("--checks=")]
+    declared_in = []
+    while "--rename-declared-in" in args:
+        i = args.index("--rename-declared-in")
+        if i + 1 >= len(args):
+            sys.exit("--rename-declared-in <folder>")
+        given = args[i + 1].rstrip("/")
+        declared_in.append(given if os.path.isfile(given) else given + "/")
+        del args[i:i + 2]
+    if declared_in:
+        checks = ["--checks=-*,readability-identifier-naming"]
     paths = None
     if "--changed" in args:
         i = args.index("--changed")
@@ -130,6 +151,9 @@ def main():
             sys.exit("--fix: clang-apply-replacements (from clang-tidy 18) not found: "
                      "set CLANG_APPLY_REPLACEMENTS to it")
         command += ["-fix", f"-clang-apply-replacements-binary={apply}"]
+    if declared_in:
+        command.append(pattern)
+        return rename(command, declared_in, dry_run)
     command.append(pattern)
     print("Running clang-tidy...", flush=True)
     done = subprocess.run(command, capture_output=True, text=True)
@@ -156,6 +180,82 @@ def main():
         print((done.stdout + done.stderr)[-3000:], file=sys.stderr)
         return 2
     return 1 if findings else 0
+
+
+def rename(command, declared_in, dry_run):
+    """Renames the identifiers declared in `declared_in` (repository-relative
+    folders), with their uses: clang-tidy's readability-identifier-naming
+    fixes, exported, kept for those declarations only, and applied."""
+    import tempfile
+    try:
+        import yaml
+    except ImportError:
+        sys.exit("--rename-declared-in needs PyYAML: python3 -m pip install pyyaml")
+    root = os.getcwd() + os.sep
+    with tempfile.TemporaryDirectory() as tmp:
+        exported = os.path.join(tmp, "all.yaml")
+        print("Running clang-tidy (renames are applied afterwards)...", flush=True)
+        done = subprocess.run(command[:-1] + ["-export-fixes", exported, command[-1]],
+                              capture_output=True, text=True)
+        errors = sorted({l for l in (done.stdout + done.stderr).splitlines() if ": error:" in l})
+        if not os.path.exists(exported):
+            print("\n".join(errors) or (done.stdout + done.stderr)[-3000:], file=sys.stderr)
+            sys.exit("clang-tidy exported nothing")
+        with open(exported, encoding="utf-8") as f:
+            data = yaml.safe_load(f) or {}
+        kept, renames, unfixable = [], {}, set()
+        for d in data.get("Diagnostics") or []:
+            if d.get("DiagnosticName") != "readability-identifier-naming":
+                continue
+            msg = d.get("DiagnosticMessage") or {}
+            path = msg.get("FilePath", "")
+            rel = path[len(root):] if path.startswith(root) else path
+            if not any(rel.startswith(p) for p in declared_in):
+                continue
+            m = re.search(r"invalid case style for ([a-z ]+) '([^']+)'", msg.get("Message", ""))
+            old = m.group(2) if m else "?"
+            offset = msg.get("FileOffset", 0)
+            with open(path, "rb") as f:
+                line = f.read(offset).count(b"\n") + 1
+            where = f"{rel}:{line}"
+            reps = msg.get("Replacements") or []
+            if not reps:
+                unfixable.add(f"{where}: {old} ({m.group(1) if m else ''}): clang-tidy can't rename it here")
+                continue
+            new = next((r["ReplacementText"] for r in reps
+                        if r.get("FilePath") == path and r.get("Offset") == offset), reps[0]["ReplacementText"])
+            renames.setdefault((where, old), set()).add(new)
+            kept.append(d)
+        clash = {k: v for k, v in renames.items() if len(v) > 1}
+        for (where, old), new in sorted(renames.items()):
+            print(f"{where}: {old} -> {', '.join(sorted(new))}")
+        for u in sorted(unfixable):
+            print(u)
+        for e in errors:
+            print(e)
+        print(f"{len(renames)} identifiers to rename, declared in {', '.join(declared_in)}"
+              f"; {len(unfixable)} for a hand rename; {len(errors)} compile errors")
+        if clash:
+            sys.exit(f"{len(clash)} identifiers have two different new names: not renamed")
+        if errors:
+            sys.exit("clang-tidy couldn't compile every file: not renamed (a file it can't read keeps old names)")
+        if dry_run or not kept:
+            return 0
+        fixes_dir = os.path.join(tmp, "fixes")
+        os.mkdir(fixes_dir)
+        with open(os.path.join(fixes_dir, "renames.yaml"), "w", encoding="utf-8") as f:
+            yaml.safe_dump({"MainSourceFile": "", "Diagnostics": kept}, f, sort_keys=False)
+        apply = os.environ.get("CLANG_APPLY_REPLACEMENTS") or next(
+            (p for p in ("clang-apply-replacements-18", "clang-apply-replacements")
+             if subprocess.run(["which", p], capture_output=True).returncode == 0), None)
+        if not apply:
+            sys.exit("clang-apply-replacements (from clang-tidy 18) not found: set CLANG_APPLY_REPLACEMENTS to it")
+        done = subprocess.run([apply, fixes_dir], capture_output=True, text=True)
+        if done.returncode != 0:
+            print(done.stdout + done.stderr, file=sys.stderr)
+            sys.exit("clang-apply-replacements failed: nothing, or only part, renamed (git diff shows which)")
+        print(f"renamed {len(renames)} identifiers")
+    return 0
 
 
 if __name__ == "__main__":

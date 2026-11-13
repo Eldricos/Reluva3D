@@ -260,7 +260,7 @@ void testDdf() {
         for (int x = 0; x < 4; ++x)
             page.pixel(x, y)[3] = (x < 2 && y < 2) ? 255 : 0;
     Surface screen;
-    screen.create(8, 8, PixelFormat::RGBA32);
+    screen.create(8, 8, PixelFormat::kRGBA32);
     CHECK(font.draw(screen, {page}, 0, 0, "A", {200, 0, 0}) == 3);
     // The baseline is 4 down, so "A" (2 above it) fills rows 2-3, columns 1-2.
     for (int y = 0; y < 8; ++y)
@@ -275,15 +275,15 @@ void testFinAnimation() {
         CHECK(o.read && o.exact);
     CHECK(f.animatedNodes() == std::vector<uint32_t>({0x10, 0x20}));
     const FinFlip &flip = f.flips[0x700];
-    CHECK(flip.outOfBounds == FinFlip::Clamp && flip.rate == 0.25f && flip.startTime == 160 && flip.duration == 1920 &&
+    CHECK(flip.outOfBounds == FinFlip::kClamp && flip.rate == 0.25f && flip.startTime == 160 && flip.duration == 1920 &&
           flip.target == 0x400);
     // Images as Act gives them: 1920 ticks over 4 images, from 160.
     CHECK(flip.image(0, 4) == 0 && flip.image(160 + 480, 4) == 1 && flip.image(5000, 4) == 3);
     FinFlip loop = flip;
-    loop.outOfBounds = FinFlip::Loop;
+    loop.outOfBounds = FinFlip::kLoop;
     CHECK(loop.image(160 + 1920 + 960, 4) == 2 && loop.image(160 - 480, 4) == 3);
     FinFlip reverse = flip;
-    reverse.outOfBounds = FinFlip::Reverse;
+    reverse.outOfBounds = FinFlip::kReverse;
     CHECK(reverse.image(160 + 1920 + 480, 4) == 3 && reverse.image(160 + 480, 4) == 1);
     const FinMaterialAnimator &a = f.materialAnimators[0x710];
     CHECK(a.alpha && a.target == 0x300 && a.stop == 3200 && a.keys.size() == 2 && a.keys[1].time == 3200 &&
@@ -303,7 +303,7 @@ void testFinAnimation() {
           weed.keys[0].in[1] == 0.5f && weed.keys[0].out[1] == 0.5f && weed.targets[1][2] == 1);
     CHECK(f.nodes[0x750].actor == 0x720);
     const FinLight &lamp = f.lights[0x730];
-    CHECK(lamp.type == FinLight::Point && lamp.on && lamp.dimmer == 3 && lamp.diffuse[0] == 1 && lamp.attenuated &&
+    CHECK(lamp.type == FinLight::kPoint && lamp.on && lamp.dimmer == 3 && lamp.diffuse[0] == 1 && lamp.attenuated &&
           lamp.attenuationDistance == 32000 && lamp.attenuationCurve == 0 && lamp.illuminated.empty());
     CHECK(actor.tracks.size() == 2 && actor.footprint.size() == 1 && actor.footprint[0][1] == 2);
     const FinActor::Track &node = actor.tracks[0];
@@ -320,17 +320,17 @@ void testFinAnimation() {
 }
 
 static const test::Suite
-    suite("netimmerse.unit.formats",
-          {
-              {"pac read", [](const std::filesystem::path &tmp) { testRead(tmp); }},
-              {"pac search set", [](const std::filesystem::path &tmp) { testSearchSet(tmp); }},
-              {"pac placeholder", [](const std::filesystem::path &tmp) { testPlaceholder(tmp); }},
-              {"pac offset high half and subdirectories",
-               [](const std::filesystem::path &tmp) { testOffsetHighAndSubdirectories(tmp); }},
-              {"pac damage refused", [](const std::filesystem::path &tmp) { testRejectsDamage(tmp); }},
-              {"dds sounds", [](const std::filesystem::path &) { testDds(); }},
-              {"locale text", [](const std::filesystem::path &) { testLocaleText(); }},
-              {"fin models", [](const std::filesystem::path &) { testFin(); }},
-              {"fin animation", [](const std::filesystem::path &) { testFinAnimation(); }},
-              {"ddf fonts", [](const std::filesystem::path &) { testDdf(); }},
-          });
+    kSuite("netimmerse.unit.formats",
+           {
+               {"pac read", [](const std::filesystem::path &tmp) { testRead(tmp); }},
+               {"pac search set", [](const std::filesystem::path &tmp) { testSearchSet(tmp); }},
+               {"pac placeholder", [](const std::filesystem::path &tmp) { testPlaceholder(tmp); }},
+               {"pac offset high half and subdirectories",
+                [](const std::filesystem::path &tmp) { testOffsetHighAndSubdirectories(tmp); }},
+               {"pac damage refused", [](const std::filesystem::path &tmp) { testRejectsDamage(tmp); }},
+               {"dds sounds", [](const std::filesystem::path &) { testDds(); }},
+               {"locale text", [](const std::filesystem::path &) { testLocaleText(); }},
+               {"fin models", [](const std::filesystem::path &) { testFin(); }},
+               {"fin animation", [](const std::filesystem::path &) { testFinAnimation(); }},
+               {"ddf fonts", [](const std::filesystem::path &) { testDdf(); }},
+           });

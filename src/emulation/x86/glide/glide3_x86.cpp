@@ -11,47 +11,47 @@ namespace reluva::glide {
 
 using x86::Cpu;
 
-Glide3Dll::Glide3Dll(Cpu &cpu, x86::Arena &memory, Board board) : GlideDll(cpu, memory, "glide3x.dll"), glide_(board) {
-    setCore(glide_.core());
+Glide3Dll::Glide3Dll(Cpu &cpu, x86::Arena &memory, Board board) : GlideDll(cpu, memory, "glide3x.dll"), _glide(board) {
+    setCore(_glide.core());
     addAll();
 }
 
 const uint8_t *Glide3Dll::vertex(uint32_t address) const {
-    const int lo = glide_.layoutMin();
-    const int hi = glide_.layoutMax();
+    const int lo = _glide.layoutMin();
+    const int hi = _glide.layoutMax();
     const uint32_t first = address + uint32_t(lo);
     if (!guest(first, uint32_t(hi - lo)))
         return nullptr;
-    return cpu_.memory().data() + address;
+    return _cpu.memory().data() + address;
 }
 
 Glide3TexInfo Glide3Dll::texInfo(uint32_t address) const {
     // GrTexInfo: smallLodLog2, largeLodLog2, aspectRatioLog2, format, data.
     Glide3TexInfo t;
     if (guest(address, 20)) {
-        t.smallLodLog2 = int(cpu_.read32(address));
-        t.largeLodLog2 = int(cpu_.read32(address + 4));
-        t.aspectRatioLog2 = int(int32_t(cpu_.read32(address + 8)));
-        t.format = int(cpu_.read32(address + 12));
+        t.smallLodLog2 = int(_cpu.read32(address));
+        t.largeLodLog2 = int(_cpu.read32(address + 4));
+        t.aspectRatioLog2 = int(int32_t(_cpu.read32(address + 8)));
+        t.format = int(_cpu.read32(address + 12));
     }
     return t;
 }
 
 uint32_t Glide3Dll::guestString(const std::string &s) {
-    auto it = strings_.find(s);
-    if (it != strings_.end())
+    auto it = _strings.find(s);
+    if (it != _strings.end())
         return it->second;
-    const uint32_t at = memory_.alloc(uint32_t(s.size() + 1));
+    const uint32_t at = _memory.alloc(uint32_t(s.size() + 1));
     if (!at)
         return 0;
-    cpu_.writeString(at, s, uint32_t(s.size() + 1));
-    strings_[s] = at;
+    _cpu.writeString(at, s, uint32_t(s.size() + 1));
+    _strings[s] = at;
     return at;
 }
 
 void Glide3Dll::addAll() {
-    Glide3 &g = glide_;
-    Glide2 &c2 = glide_.core();
+    Glide3 &g = _glide;
+    Glide2 &c2 = _glide.core();
     auto b = [](Cpu &c, int i) { return c.arg(i) != 0; };
     auto n = [](Cpu &c, int i) { return int(c.arg(i)); };
 
@@ -117,18 +117,18 @@ void Glide3Dll::addAll() {
     // The extensions' procedures (stdcall, as Glide's FX_CALL), handed out
     // by name where the board has them (Reference Manual,
     // grGetProcAddress), else 0.
-    procs_["grChromaRangeModeExt"] = addProc("grChromaRangeModeExt", 4, [&c2](Cpu &c) {
+    _procs["grChromaRangeModeExt"] = addProc("grChromaRangeModeExt", 4, [&c2](Cpu &c) {
         c2.chromaRangeMode(c.arg(0) == 1); // GR_CHROMARANGE_ENABLE_EXT
         return 0u;
     });
-    procs_["grChromaRangeExt"] = addProc("grChromaRangeExt", 12, [&c2, n](Cpu &c) {
+    _procs["grChromaRangeExt"] = addProc("grChromaRangeExt", 12, [&c2, n](Cpu &c) {
         c2.chromaRange(c.arg(0), c.arg(1), n(c, 2));
         return 0u;
     });
     add("grGetProcAddress", 4, [this, &g](Cpu &c) {
         const std::string name = c.string(c.arg(0), 64);
-        auto it = procs_.find(name);
-        return it != procs_.end() && g.offersProc(name) ? it->second : 0u;
+        auto it = _procs.find(name);
+        return it != _procs.end() && g.offersProc(name) ? it->second : 0u;
     });
     add("grSstSelect", 4, [&c2, n](Cpu &c) {
         c2.sstSelect(n(c, 0));
@@ -188,8 +188,8 @@ void Glide3Dll::addAll() {
     // disabled... too many for 64 bytes, so as for the state, a number.
     add("grGlideGetVertexLayout", 4, [this, &g](Cpu &c) {
         if (guest(c.arg(0), 8)) {
-            const uint32_t token = uint32_t(layouts_.size() + 1);
-            layouts_.push_back(g.layout());
+            const uint32_t token = uint32_t(_layouts.size() + 1);
+            _layouts.push_back(g.layout());
             c.write32(c.arg(0), token);
             c.write32(c.arg(0) + 4, 0x4c474c53);
         }
@@ -198,8 +198,8 @@ void Glide3Dll::addAll() {
     add("grGlideSetVertexLayout", 4, [this, &g](Cpu &c) {
         if (guest(c.arg(0), 8) && c.read32(c.arg(0) + 4) == 0x4c474c53) {
             const uint32_t token = c.read32(c.arg(0));
-            if (token >= 1 && token <= layouts_.size())
-                g.setLayout(layouts_[token - 1]);
+            if (token >= 1 && token <= _layouts.size())
+                g.setLayout(_layouts[token - 1]);
         }
         return 0u;
     });
@@ -476,7 +476,7 @@ void Glide3Dll::addAll() {
         if (!p || stride < 0)
             return 0u;
         return c2.lfbWriteRegion(n(c, 0), c.arg(1), c.arg(2), format, width, height, stride, p,
-                                 cpu_.memory().size() - c.arg(8), pipeline)
+                                 _cpu.memory().size() - c.arg(8), pipeline)
                    ? 1u
                    : 0u;
     });
@@ -486,7 +486,7 @@ void Glide3Dll::addAll() {
         const uint32_t stride = c.arg(5);
         if (!height || !guest(c.arg(6), stride * (height - 1) + width * 2))
             return 0u;
-        return c2.lfbReadRegion(n(c, 0), c.arg(1), c.arg(2), width, height, stride, cpu_.memory().data() + c.arg(6))
+        return c2.lfbReadRegion(n(c, 0), c.arg(1), c.arg(2), width, height, stride, _cpu.memory().data() + c.arg(6))
                    ? 1u
                    : 0u;
     });

@@ -32,19 +32,19 @@ public:
     void data(const uint8_t *bytes, size_t count);
     void alignToByte();
 
-    const std::vector<uint8_t> &bytes() const { return data_; }
-    size_t bitCount() const { return bit_; }
+    const std::vector<uint8_t> &bytes() const { return _data; }
+    size_t bitCount() const { return _bit; }
 
 private:
-    std::vector<uint8_t> data_;
-    size_t bit_ = 0;
+    std::vector<uint8_t> _data;
+    size_t _bit = 0;
 };
 
 class MessageReader {
 public:
     MessageReader() = default;
-    explicit MessageReader(std::vector<uint8_t> bytes) : data_(std::move(bytes)) {}
-    MessageReader(const uint8_t *bytes, size_t count) : data_(bytes, bytes + count) {}
+    explicit MessageReader(std::vector<uint8_t> bytes) : _data(std::move(bytes)) {}
+    MessageReader(const uint8_t *bytes, size_t count) : _data(bytes, bytes + count) {}
 
     // A value of `bits` bits (1 to 32); past the end, bits read as 0 and
     // overflowed() says so. `sign` extends the top bit.
@@ -61,17 +61,17 @@ public:
     std::vector<uint8_t> data(size_t count);
     void alignToByte();
 
-    bool atEnd() const { return bit_ >= data_.size() * 8; }
-    bool overflowed() const { return overflowed_; }
-    size_t bitPosition() const { return bit_; }
+    bool atEnd() const { return _bit >= _data.size() * 8; }
+    bool overflowed() const { return _overflowed; }
+    size_t bitPosition() const { return _bit; }
     // The bytes after the first `count`, for the netchan's header.
-    void skipBytes(size_t count) { bit_ = count * 8; }
-    const std::vector<uint8_t> &bytes() const { return data_; }
+    void skipBytes(size_t count) { _bit = count * 8; }
+    const std::vector<uint8_t> &bytes() const { return _data; }
 
 private:
-    std::vector<uint8_t> data_;
-    size_t bit_ = 0;
-    bool overflowed_ = false;
+    std::vector<uint8_t> _data;
+    size_t _bit = 0;
+    bool _overflowed = false;
 };
 
 } // namespace reluva::idtech3::wire

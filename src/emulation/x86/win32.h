@@ -39,15 +39,15 @@ public:
     uint32_t freeBytes() const;
 
 private:
-    Cpu &cpu_;
-    std::map<uint32_t, uint32_t> free_, used_; // start -> size
+    Cpu &_cpu;
+    std::map<uint32_t, uint32_t> _free, _used; // start -> size
     // The free blocks' starts again, by their size's power of two (bucket
     // b: sizes from 2^b up to 2^(b+1)), to find the first fit without
     // walking every block below it: a fit is the lowest start among the
     // blocks that hold the size whatever their alignment (the first of
     // each bucket big enough) and those of the buckets that may hold it,
     // tried in order below that.
-    std::set<uint32_t> bySize_[33];
+    std::set<uint32_t> _bySize[33];
     static int bucket(uint32_t size);
     void addFree(uint32_t start, uint32_t size);
     void removeFree(std::map<uint32_t, uint32_t>::iterator it);
@@ -99,8 +99,8 @@ public:
     // below the native functions, so the whole bottom is free for images
     // (LEGO Alpha Team's layout, which its references were recorded with).
     explicit Win32Process(Cpu &cpu, std::string exeName = "host.exe", bool loadsExe = false, bool stackAtTop = false);
-    Cpu &cpu() { return cpu_; }
-    Arena &memory() { return *arena_; }
+    Cpu &cpu() { return _cpu; }
+    Arena &memory() { return *_arena; }
 
     struct Module {
         std::string name;
@@ -117,7 +117,7 @@ public:
     // The modules loaded, in order.
     std::vector<const Module *> modules() const {
         std::vector<const Module *> all;
-        for (const auto &m : modules_)
+        for (const auto &m : _modules)
             all.push_back(m.get());
         return all;
     }
@@ -154,7 +154,7 @@ public:
     uint32_t standIn(const std::string &dll, const std::string &name) const { return provided(dll, name); }
     // The imports the loaded modules have that nothing stands in for
     // ("DLL!function"); calling one fails the run.
-    const std::vector<std::string> &missingImports() const { return missing_; }
+    const std::vector<std::string> &missingImports() const { return _missing; }
 
     // What the program writes for a debugger, or to its standard output
     // and error (its C runtime's messages).
@@ -165,7 +165,7 @@ public:
     // doesn't wait (the other threads run meanwhile, and it goes on), so a
     // clock that follows the instructions run can add them, as the time
     // that would have passed.
-    uint64_t slept() const { return slept_; }
+    uint64_t slept() const { return _slept; }
 
     // Events (CreateEventA). No thread can wait on one that another sets
     // (they take turns), so an event reads as set to a wait, unless it's
@@ -179,7 +179,7 @@ public:
     bool setEvent(uint32_t handle);
 
     // The thread's stack and information block (FS).
-    uint32_t stackTop() const { return stackTop_; }
+    uint32_t stackTop() const { return _stackTop; }
 
     // The program: its file name and folder as the program sees them
     // ("LEGOATeam.exe", "C:\\LEGO Alpha Team\\"), for its command line and
@@ -189,16 +189,16 @@ public:
     // RDTSC reads a 1 GHz processor's count by the process's clock
     // (milliseconds), not the instructions run (Cpu::timeStamp's default).
     void timeStampFromClock();
-    const std::string &programFolder() const { return programFolder_; }
-    const std::string &programName() const { return exeName_; }
+    const std::string &programFolder() const { return _programFolder; }
+    const std::string &programName() const { return _exeName; }
     // Where the command line is, as GetCommandLineA returns it.
-    uint32_t commandLineAddress() const { return commandLine_; }
+    uint32_t commandLineAddress() const { return _commandLine; }
     // Replaces the command line setProgram made ("nfs3.exe -d3d").
     void setCommandLine(const std::string &line);
 
     // The last error, for stand-ins added from outside (SetLastError).
-    void setLastError(uint32_t e) { lastError_ = e; }
-    uint32_t lastError() const { return lastError_; }
+    void setLastError(uint32_t e) { _lastError = e; }
+    uint32_t lastError() const { return _lastError; }
 
     // --- Handles ------------------------------------------------------------------
     // Kernel objects by handle, for the stand-ins of drives and host threads
@@ -206,8 +206,8 @@ public:
     uint32_t addHandle(std::shared_ptr<KernelObject> object);
     template<typename T>
     std::shared_ptr<T> object(uint32_t handle) const {
-        auto it = handles_.find(handle);
-        return it == handles_.end() ? nullptr : std::dynamic_pointer_cast<T>(it->second);
+        auto it = _handles.find(handle);
+        return it == _handles.end() ? nullptr : std::dynamic_pointer_cast<T>(it->second);
     }
     bool closeHandle(uint32_t handle);
 
@@ -221,7 +221,7 @@ public:
     // the current folder (the program's own folder, until SetCurrentDirectory
     // or _chdir changes it).
     std::string fullPath(const std::string &path) const;
-    std::string currentFolder() const { return currentFolder_; }
+    std::string currentFolder() const { return _currentFolder; }
     void setCurrentFolder(const std::string &folder);
     // The drives the program sees: their letters, and the volume label of
     // the CD-ROM drive, if any ("LEGOATEN").
@@ -279,7 +279,7 @@ public:
     // waits, events, mutexes, critical sections, TLS, Sleep, timeSetEvent,
     // ExitProcess) in place of the others; run() then runs the program.
     void useHostThreads();
-    bool hostThreads() const { return hostThreads_; }
+    bool hostThreads() const { return _hostThreads; }
     // Runs an executable's start-up (its entry point, which never returns)
     // on the main thread until the program ends the process, with the
     // threads it starts: its exit code if it did, else why it stopped.
@@ -308,7 +308,7 @@ public:
     // stack and information block of its own; suspended if asked.
     std::shared_ptr<Thread> createThread(std::function<uint32_t()> body, bool suspended, std::string name);
     void resumeThread(Thread &t);
-    Thread *currentThread() const { return running_; }
+    Thread *currentThread() const { return _running; }
     // From the running thread: waits until `ready` is true or `timeoutMs`
     // passes (0xffffffff: never), letting the others run. False if it timed
     // out; ends the run (with abort()) if the process is ending.
@@ -325,7 +325,7 @@ public:
     bool ending() const;
     // From any thread: ends the process, as ExitProcess would; run() then
     // returns once every thread has unwound.
-    void requestExit() { exiting_ = true; }
+    void requestExit() { _exiting = true; }
     // Resets an event, then signals it as soon as `condition` holds (checked
     // whenever a thread waits on it), for overlapped I/O finishing.
     void signalEventWhen(uint32_t handle, std::function<bool()> condition);
@@ -348,9 +348,9 @@ public:
     // turn now included), and on the multimedia timer's thread (0 if
     // there's none).
     uint64_t instructionsOn(const Thread *t) const {
-        return t ? t->instructions + (t == running_ ? cpu_.executed() - turnStart_ : 0) : 0;
+        return t ? t->instructions + (t == _running ? _cpu.executed() - _turnStart : 0) : 0;
     }
-    uint64_t timerInstructions() const { return instructionsOn(timerThread_.get()); }
+    uint64_t timerInstructions() const { return instructionsOn(_timerThread.get()); }
 
     // --- Threads ---------------------------------------------------------------
     // The program's other threads take turns with its main one: when the
@@ -363,13 +363,13 @@ public:
     uint32_t startThread(uint32_t start, uint32_t arg);
     // The threads that are due, each for a turn. Nothing while one runs.
     void runThreads();
-    bool inThread() const { return current_ >= 0; }
+    bool inThread() const { return _current >= 0; }
     // For the running thread's natives: it sleeps for `ms` (giving way), or
     // ends.
     void threadSleep(uint32_t ms);
     void threadEnd();
     // Threads started, and those still going.
-    size_t threadsStarted() const { return turnThreads_.size(); }
+    size_t threadsStarted() const { return _turnThreads.size(); }
     size_t threadsRunning() const;
 
     // --- Windows and messages (USER32, GDI32) -----------------------------------
@@ -413,7 +413,7 @@ public:
     void key(uint32_t virtualKey, uint32_t scanCode, bool down);
     // The same input as raw devices see it (DirectInput listens).
     struct RawInput {
-        enum class Kind { Motion, Button, Wheel, Key } kind;
+        enum class Kind { kMotion, kButton, kWheel, kKey } kind;
         int a = 0, b = 0; // Motion: dx, dy; Button: button, down; Wheel: delta; Key: scan code, down
     };
     std::vector<std::function<void(const RawInput &)>> rawInput;
@@ -438,28 +438,28 @@ public:
     std::function<uint32_t(const std::string &clsid, const std::string &iid, uint32_t out)> createComObject;
 
 private:
-    Cpu &cpu_;
-    std::unique_ptr<Arena> arena_;
-    std::vector<std::unique_ptr<Module>> modules_;
+    Cpu &_cpu;
+    std::unique_ptr<Arena> _arena;
+    std::vector<std::unique_ptr<Module>> _modules;
     // "dll!function" (lower-case dll) -> native address
-    std::map<std::string, uint32_t> provided_;
-    std::vector<std::string> missing_;
-    uint32_t stackTop_ = 0, tib_ = 0, peb_ = 0;
+    std::map<std::string, uint32_t> _provided;
+    std::vector<std::string> _missing;
+    uint32_t _stackTop = 0, _tib = 0, _peb = 0;
     struct TurnThread {
         uint32_t handle = 0;
         Cpu::Context context;
         uint32_t wakeAt = 0; // in milliseconds()
         bool finished = false;
     };
-    std::vector<TurnThread> turnThreads_;
-    int current_ = -1;          // the thread running (-1: the main one)
-    uint32_t threadReturn_ = 0; // where a thread's function returns to: a native that ends it
-    std::string exeName_, programFolder_ = "C:\\STVEF\\";
-    uint32_t commandLine_ = 0, environment_ = 0, environmentW_ = 0;
-    uint32_t lastError_ = 0;
-    uint32_t heapHandle_ = 0x7ffe0000; // HeapCreate's handles: never dereferenced
-    uint32_t exceptionFilter_ = 0;
-    uint64_t startMs_ = 0;
+    std::vector<TurnThread> _turnThreads;
+    int _current = -1;          // the thread running (-1: the main one)
+    uint32_t _threadReturn = 0; // where a thread's function returns to: a native that ends it
+    std::string _exeName, _programFolder = "C:\\STVEF\\";
+    uint32_t _commandLine = 0, _environment = 0, _environmentW = 0;
+    uint32_t _lastError = 0;
+    uint32_t _heapHandle = 0x7ffe0000; // HeapCreate's handles: never dereferenced
+    uint32_t _exceptionFilter = 0;
+    uint64_t _startMs = 0;
     void addStandIns();
     void addFileStandIns();
     void addSystemStandIns();
@@ -468,66 +468,66 @@ private:
     struct WindowClass {
         uint32_t proc = 0, style = 0;
     };
-    std::map<std::string, WindowClass> classes_; // by lower-case name
-    uint32_t buttons_ = 0;                       // MK_ flags held
-    std::array<uint8_t, 256> keysDown_{};        // by virtual key
-    std::optional<std::array<int, 4>> clip_;     // ClipCursor's: left, top, right, bottom
-    uint32_t lastClickTime_ = 0;
-    int lastClickButton_ = -1, lastClickX_ = 0, lastClickY_ = 0;
+    std::map<std::string, WindowClass> _classes; // by lower-case name
+    uint32_t _buttons = 0;                       // MK_ flags held
+    std::array<uint8_t, 256> _keysDown{};        // by virtual key
+    std::optional<std::array<int, 4>> _clip;     // ClipCursor's: left, top, right, bottom
+    uint32_t _lastClickTime = 0;
+    int _lastClickButton = -1, _lastClickX = 0, _lastClickY = 0;
     void notify(const RawInput &r) {
         for (const auto &f : rawInput)
             f(r);
     }
-    std::map<uint32_t, Window> windows_;
-    uint32_t nextWindow_ = 0x10010;
+    std::map<uint32_t, Window> _windows;
+    uint32_t _nextWindow = 0x10010;
     struct Message {
         uint32_t window, message, wParam, lParam;
     };
-    std::vector<Message> messages_;
-    int cursorShown_ = 0;
+    std::vector<Message> _messages;
+    int _cursorShown = 0;
     struct RegistryKey {
         std::string path; // as first given
         std::vector<std::pair<std::string, std::pair<uint32_t, std::vector<uint8_t>>>> values;
     };
-    std::map<std::string, RegistryKey> registry_; // by lower-case path
-    std::map<uint32_t, std::string> openKeys_;    // handle -> lower-case path
-    uint32_t nextKey_ = 0x3000;
-    uint32_t nextEvent_ = 0;
-    uint64_t slept_ = 0;
-    uint64_t timeStampAt_ = 0, timeStampExecuted_ = 0; // RDTSC's last reading, and the instructions then
+    std::map<std::string, RegistryKey> _registry; // by lower-case path
+    std::map<uint32_t, std::string> _openKeys;    // handle -> lower-case path
+    uint32_t _nextKey = 0x3000;
+    uint32_t _nextEvent = 0;
+    uint64_t _slept = 0;
+    uint64_t _timeStampAt = 0, _timeStampExecuted = 0; // RDTSC's last reading, and the instructions then
     struct Event {
         bool manualReset = false, set = false, tracked = false;
     };
-    std::map<uint32_t, Event> events_;
-    std::string currentFolder_ = "C:\\";
-    std::map<uint32_t, OpenFile> files_;
-    uint32_t nextFile_ = 0x2000;
+    std::map<uint32_t, Event> _events;
+    std::string _currentFolder = "C:\\";
+    std::map<uint32_t, OpenFile> _files;
+    uint32_t _nextFile = 0x2000;
     struct Mapping {
         uint32_t file = 0; // a file handle, or 0 for memory
         uint32_t size = 0;
     };
-    std::map<uint32_t, Mapping> mappings_;
+    std::map<uint32_t, Mapping> _mappings;
     struct Search {
         std::vector<std::filesystem::directory_entry> entries;
         size_t next = 0;
     };
-    std::map<uint32_t, Search> searches_;
+    std::map<uint32_t, Search> _searches;
     uint32_t bind(const std::string &dll, const std::string &function, uint32_t ordinal);
     uint32_t moduleHandle(const std::string &name) const;
     // A DLL from the program's files, loaded and started (LoadLibraryA's).
     const Module *loadFromDisk(const std::string &name);
-    mutable std::vector<std::string> standInDlls_; // lower-case names, by handle
-    std::map<uint32_t, uint32_t> virtualBlocks_;   // VirtualAlloc's: start -> size
+    mutable std::vector<std::string> _standInDlls; // lower-case names, by handle
+    std::map<uint32_t, uint32_t> _virtualBlocks;   // VirtualAlloc's: start -> size
     void stdcall(const char *dll, const char *name, int args, std::function<uint32_t(Cpu &)> fn);
     // The executable's base: the first module loaded that isn't a DLL.
     uint32_t exeBase() const;
 
     // Handles (addHandle): from 0x10000000, apart from the files' and keys'.
-    std::map<uint32_t, std::shared_ptr<KernelObject>> handles_;
-    uint32_t nextHandle_ = 0x10000000;
+    std::map<uint32_t, std::shared_ptr<KernelObject>> _handles;
+    uint32_t _nextHandle = 0x10000000;
 
     // Drives (win32_files.cpp).
-    std::vector<Drive> drives_;
+    std::vector<Drive> _drives;
     void addDriveStandIns();
     // A Windows path made full ("C:\\NFS3\\GameData"): "." and ".."
     // resolved, a drive's own current folder for "D:name".
@@ -537,10 +537,10 @@ private:
     struct PendingRead {
         uint32_t handle = 0, buffer = 0, size = 0;
     };
-    std::map<uint32_t, PendingRead> pendingReads_;
+    std::map<uint32_t, PendingRead> _pendingReads;
 
     // Host threads (win32_threads.cpp).
-    bool hostThreads_ = false;
+    bool _hostThreads = false;
     bool setHostEvent(uint32_t handle); // an event of theirs (setEvent)
     void addThreadStandIns();
     // Hands the processor to the next thread that can run (or keeps it).
@@ -548,24 +548,24 @@ private:
     void runThread(std::shared_ptr<Thread> t);
     void exitAll(std::unique_lock<std::mutex> &lock);
     uint32_t allocTib(uint32_t stackTop, uint32_t stackBottom, uint32_t id);
-    std::vector<std::shared_ptr<Thread>> threads_;
-    Thread *running_ = nullptr;
-    std::mutex mutex_;
-    std::atomic<bool> exiting_{false}; // set from other threads too (requestExit)
-    uint32_t exitCode_ = 0;
-    std::string failure_; // a thread's fault, which ends the process
+    std::vector<std::shared_ptr<Thread>> _threads;
+    Thread *_running = nullptr;
+    std::mutex _mutex;
+    std::atomic<bool> _exiting{false}; // set from other threads too (requestExit)
+    uint32_t _exitCode = 0;
+    std::string _failure; // a thread's fault, which ends the process
     struct Timer {
         uint32_t delay = 0, callback = 0, user = 0;
         bool periodic = false;
         uint64_t due = 0;
     };
-    std::map<uint32_t, Timer> timers_; // by timeSetEvent's id
-    uint32_t nextTimer_ = 1;
-    std::shared_ptr<Thread> timerThread_;
-    uint64_t turnStart_ = 0; // instructions run when the running thread's turn began
+    std::map<uint32_t, Timer> _timers; // by timeSetEvent's id
+    uint32_t _nextTimer = 1;
+    std::shared_ptr<Thread> _timerThread;
+    uint64_t _turnStart = 0; // instructions run when the running thread's turn began
     uint32_t runTimers();
-    uint32_t nextThreadId_ = 0x104;
-    std::vector<bool> tlsUsed_ = std::vector<bool>(64);
+    uint32_t _nextThreadId = 0x104;
+    std::vector<bool> _tlsUsed = std::vector<bool>(64);
 };
 
 } // namespace reluva::x86

@@ -313,7 +313,7 @@ int cmdGeoSheet(int argc, char **argv) {
             const bool variant =
                 stem.size() > 2 && (stem.ends_with("_d") || stem.ends_with("_l") || stem.ends_with("_s") ||
                                     stem.ends_with("_p") || (stem.ends_with("d") && stem[stem.size() - 3] == '_'));
-            if (e.tag == nw::cattag::Geometry && e.name.find("/lod/") == std::string::npos && !variant &&
+            if (e.tag == nw::cattag::kGeometry && e.name.find("/lod/") == std::string::npos && !variant &&
                 e.name.find(filter) != std::string::npos)
                 names.push_back(e.name);
         }
@@ -327,9 +327,9 @@ int cmdGeoSheet(int argc, char **argv) {
     const int kViews = turntable ? 8 : large ? 4 : 2;
     const int rows = int((names.size() + size_t(kPerRow) - 1) / size_t(kPerRow));
     reluva::Surface sheet;
-    sheet.create(kPerRow * kViews * kCellW, rows * kCellH, reluva::PixelFormat::RGBA32);
+    sheet.create(kPerRow * kViews * kCellW, rows * kCellH, reluva::PixelFormat::kRGBA32);
     reluva::Surface cell;
-    cell.create(kCellW, kCellH, reluva::PixelFormat::RGBA32);
+    cell.create(kCellW, kCellH, reluva::PixelFormat::kRGBA32);
     nw::Rasterizer raster;
     for (size_t i = 0; i < names.size(); ++i) {
         nw::TexturedModel m;
@@ -386,11 +386,11 @@ int cmdGeoTextures(int argc, char **argv) {
     const std::vector<nw::TextureFile> textures = nw::listTextureFiles(archives);
     unsigned models = 0;
     unsigned without = 0;
-    unsigned short_ = 0;
+    unsigned shortOfTextures = 0;
     std::vector<uint8_t> data;
     for (const auto &cat : archives)
         for (const auto &e : cat->entries()) {
-            if (e.tag != nw::cattag::Geometry)
+            if (e.tag != nw::cattag::kGeometry)
                 continue;
             ++models;
             // How many textures the faces number: the highest number + 1.
@@ -407,7 +407,7 @@ int cmdGeoTextures(int argc, char **argv) {
             if (found == 0)
                 ++without;
             else if (tooFew)
-                ++short_;
+                ++shortOfTextures;
             if (!all && !tooFew)
                 continue;
             std::printf("%s: needs %u, found", e.name.c_str(), needed);
@@ -432,7 +432,8 @@ int cmdGeoTextures(int argc, char **argv) {
             }
             std::printf("\n");
         }
-    std::printf("%u models: %u without textures, %u with fewer than their faces number\n", models, without, short_);
+    std::printf("%u models: %u without textures, %u with fewer than their faces number\n", models, without,
+                shortOfTextures);
     return 0;
 }
 
@@ -452,7 +453,7 @@ int cmdGeoSurvey(int argc, char **argv) {
             return 1;
         }
         for (const auto &e : cat.entries()) {
-            if (e.tag != reluva::newworlds::cattag::Geometry || cat.read(e, d))
+            if (e.tag != reluva::newworlds::cattag::kGeometry || cat.read(e, d))
                 continue;
             ++total;
             reluva::newworlds::GeoModel m;
@@ -514,7 +515,7 @@ int cmdMdlInfo(int argc, char **argv) {
         unsigned failed = 0;
         std::vector<uint8_t> data;
         for (const auto &e : cat.entries()) {
-            if (e.tag != nw::cattag::Mdl)
+            if (e.tag != nw::cattag::kMdl)
                 continue;
             ++count;
             nw::MdlModel m;
@@ -567,7 +568,7 @@ int cmdMdlInfo(int argc, char **argv) {
     return 0;
 }
 
-const Commands commands(
+const Commands kCommands(
     "newworlds",
     {
         {"geo-info", "<file.geo> [out.obj]", "decode a model; optionally export it as OBJ", cmdGeoInfo},

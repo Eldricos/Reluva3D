@@ -52,7 +52,7 @@ static std::vector<uint8_t> makeWav(const std::vector<uint8_t> &pcm, bool junk =
     return w.data();
 }
 
-static void raw_stream_formats() {
+static void rawStreamFormats() {
     // 8-bit unsigned: 0x80 is silence, 0xFF near full scale.
     auto s8 = makeRawStream({0x80, 0xFF, 0x00}, 11025, kRawUnsigned);
     int16_t buf[4] = {};
@@ -70,7 +70,7 @@ static void raw_stream_formats() {
     CHECK_EQUAL(buf[1], int16_t(0xEDCC));
 }
 
-static void looping_stream() {
+static void loopingStream() {
     MemoryReadStream file(makeWav(makePCM16(10, 1)));
     auto looped = makeLooping(makeWavStream(file), 3);
     int16_t buf[64];
@@ -83,7 +83,7 @@ static void looping_stream() {
     CHECK(!forever->ended());
 }
 
-static void wave_parsing() {
+static void waveParsing() {
     MemoryReadStream r(makeWav(makePCM16(4, 1000)));
     WavInfo info;
     CHECK(readWavInfo(r, info));
@@ -108,7 +108,7 @@ static void wave_parsing() {
     CHECK(makeWavStream(bad) == nullptr);
 }
 
-static void mixer_volume_and_balance() {
+static void mixerVolumeAndBalance() {
     audio::Mixer out(22050);
     Mixer mixer(out);
     int16_t buf[200];
@@ -151,7 +151,7 @@ static void mixer_volume_and_balance() {
     CHECK(!mixer.isSoundHandleActive(SoundHandle()));
 }
 
-static void mixer_kinds() {
+static void mixerKinds() {
     audio::Mixer out(22050);
     Mixer mixer(out);
     for (int i = 0; i < 4; i++)
@@ -180,7 +180,7 @@ static void mixer_kinds() {
 
 // Without a sound device nothing pulls the mixer: nothing is played, so no
 // sound is kept waiting for ever.
-static void no_sound_output() {
+static void noSoundOutput() {
     audio::Mixer out(22050);
     Mixer mixer(out);
     mixer.setEnabled(false);
@@ -191,16 +191,16 @@ static void no_sound_output() {
 
 // The platform's input: the mouse kept in the screen, as the original's
 // window gave it; buttons held; text typed only while asked for.
-static void platform_input() {
+static void platformInput() {
     ScriptedSystem sys;
     Platform platform(sys, nullptr, {});
     platform.initSize(640, 480);
     reluva::Event e;
-    e.type = reluva::EventType::MouseMove;
+    e.type = reluva::EventType::kMouseMove;
     e.mouseX = -20, e.mouseY = 700;
     sys.schedule(0, e);
-    e.type = reluva::EventType::MouseDown;
-    e.button = MouseButton::Left;
+    e.type = reluva::EventType::kMouseDown;
+    e.button = MouseButton::kLeft;
     e.mouseX = 900, e.mouseY = 10;
     sys.schedule(0, e);
     sys.type(0, "a");
@@ -215,13 +215,13 @@ static void platform_input() {
 }
 
 static const reluva::test::Suite
-    suite("stgenerations.unit.audio",
-          {
-              {"no sound output", [](const std::filesystem::path &) { no_sound_output(); }},
-              {"platform input", [](const std::filesystem::path &) { platform_input(); }},
-              {"raw stream formats", [](const std::filesystem::path &) { raw_stream_formats(); }},
-              {"looping stream", [](const std::filesystem::path &) { looping_stream(); }},
-              {"wave parsing", [](const std::filesystem::path &) { wave_parsing(); }},
-              {"mixer volume and balance", [](const std::filesystem::path &) { mixer_volume_and_balance(); }},
-              {"mixer kinds", [](const std::filesystem::path &) { mixer_kinds(); }},
-          });
+    kSuite("stgenerations.unit.audio",
+           {
+               {"no sound output", [](const std::filesystem::path &) { noSoundOutput(); }},
+               {"platform input", [](const std::filesystem::path &) { platformInput(); }},
+               {"raw stream formats", [](const std::filesystem::path &) { rawStreamFormats(); }},
+               {"looping stream", [](const std::filesystem::path &) { loopingStream(); }},
+               {"wave parsing", [](const std::filesystem::path &) { waveParsing(); }},
+               {"mixer volume and balance", [](const std::filesystem::path &) { mixerVolumeAndBalance(); }},
+               {"mixer kinds", [](const std::filesystem::path &) { mixerKinds(); }},
+           });

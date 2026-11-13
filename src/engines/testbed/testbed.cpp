@@ -23,74 +23,74 @@ constexpr double kPi = 3.14159265358979323846;
 
 class TestbedEngine : public Engine {
 public:
-    explicit TestbedEngine(System &system) : sys_(system) {}
+    explicit TestbedEngine(System &system) : _sys(system) {}
 
     Error run() override {
-        if (Error err = sys_.initGraphics(kWidth, kHeight, PixelFormat::CLUT8))
+        if (Error err = _sys.initGraphics(kWidth, kHeight, PixelFormat::kCLUT8))
             return err;
-        sys_.setWindowTitle("Reluva - Testbed (Esc: back, Space: tone, C: cursor)");
-        screen_.create(kWidth, kHeight, PixelFormat::CLUT8);
+        _sys.setWindowTitle("Reluva - Testbed (Esc: back, Space: tone, C: cursor)");
+        _screen.create(kWidth, kHeight, PixelFormat::kCLUT8);
 
-        const int rate = sys_.audioRate();
+        const int rate = _sys.audioRate();
         // Audio failing is not fatal for the testbed; it just stays silent.
-        sys_.startAudio([this, rate](int16_t *out, int frames) {
-            const bool on = toneOn_.load();
+        _sys.startAudio([this, rate](int16_t *out, int frames) {
+            const bool on = _toneOn.load();
             for (int i = 0; i < frames; ++i) {
                 int16_t s = 0;
                 if (on) {
-                    s = static_cast<int16_t>(std::sin(phase_) * 6000);
-                    phase_ += 2 * kPi * 440.0 / rate;
-                    if (phase_ > 2 * kPi)
-                        phase_ -= 2 * kPi;
+                    s = static_cast<int16_t>(std::sin(_phase) * 6000);
+                    _phase += 2 * kPi * 440.0 / rate;
+                    if (_phase > 2 * kPi)
+                        _phase -= 2 * kPi;
                 }
                 out[i * 2] = s;
                 out[i * 2 + 1] = s;
             }
         });
 
-        const uint64_t start = sys_.getMillis();
+        const uint64_t start = _sys.getMillis();
         bool running = true;
         while (running) {
             Event ev;
-            while (sys_.pollEvent(ev)) {
+            while (_sys.pollEvent(ev)) {
                 switch (ev.type) {
-                case EventType::Quit:
-                case EventType::ReturnToLauncher:
+                case EventType::kQuit:
+                case EventType::kReturnToLauncher:
                     running = false;
                     break;
-                case EventType::KeyDown:
-                    if (ev.key == key::Escape)
+                case EventType::kKeyDown:
+                    if (ev.key == key::kEscape)
                         running = false;
-                    else if (ev.key == key::Space && !ev.repeat)
-                        toneOn_ = !toneOn_;
+                    else if (ev.key == key::kSpace && !ev.repeat)
+                        _toneOn = !_toneOn;
                     else if (ev.key == 'c' && !ev.repeat)
                         toggleCursor();
                     break;
-                case EventType::MouseMove:
-                    mouseX_ = ev.mouseX;
-                    mouseY_ = ev.mouseY;
+                case EventType::kMouseMove:
+                    _mouseX = ev.mouseX;
+                    _mouseY = ev.mouseY;
                     break;
                 default:
                     break;
                 }
             }
 
-            const uint64_t t = sys_.getMillis() - start;
+            const uint64_t t = _sys.getMillis() - start;
             drawFrame(t);
-            sys_.updateScreen(screen_);
-            sys_.delayMillis(1); // vsync paces the loop; this just yields
+            _sys.updateScreen(_screen);
+            _sys.delayMillis(1); // vsync paces the loop; this just yields
         }
 
-        sys_.stopAudio();
+        _sys.stopAudio();
         return Error::success();
     }
 
 private:
     // An arrow in two colours, drawn here, with its hotspot at its tip.
     void toggleCursor() {
-        customCursor_ = !customCursor_;
-        if (!customCursor_) {
-            sys_.setMouseCursor(nullptr);
+        _customCursor = !_customCursor;
+        if (!_customCursor) {
+            _sys.setMouseCursor(nullptr);
             return;
         }
         static const char *const kArrow[] = {
@@ -98,26 +98,26 @@ private:
             "XOOOOOX...", "XOOOOOOX..", "XOOOOOOOX.", "XOOOOOXXXX", "XOOXOOX...", "XOX.XOOX..",
             "XX..XOOX..", "X....XOOX.", ".....XOOX.", "......XX..",
         };
-        constexpr int w = 10;
-        constexpr int h = 16;
-        uint8_t pixels[w * h];
-        for (int y = 0; y < h; ++y)
-            for (int x = 0; x < w; ++x)
-                pixels[y * w + x] = kArrow[y][x] == 'X' ? 1 : kArrow[y][x] == 'O' ? 2 : 0;
+        constexpr int kW = 10;
+        constexpr int kH = 16;
+        uint8_t pixels[kW * kH];
+        for (int y = 0; y < kH; ++y)
+            for (int x = 0; x < kW; ++x)
+                pixels[y * kW + x] = kArrow[y][x] == 'X' ? 1 : kArrow[y][x] == 'O' ? 2 : 0;
         uint8_t palette[768] = {};
         palette[3] = 20, palette[4] = 20, palette[5] = 60;   // 1: the outline, dark blue
         palette[6] = 255, palette[7] = 200, palette[8] = 40; // 2: the inside, amber
-        const Cursor c = cursor::fromIndexed(pixels, w, h, w, palette, 0, 0, 0);
-        sys_.setMouseCursor(&c);
+        const Cursor c = cursor::fromIndexed(pixels, kW, kH, kW, palette, 0, 0, 0);
+        _sys.setMouseCursor(&c);
     }
 
     void drawFrame(uint64_t t) {
         // Static plasma pattern in indices 0-254; animation comes purely from
         // palette cycling, the way many games of the era did it.
-        if (plasma_.pixels.empty()) {
-            plasma_.create(kWidth, kHeight, PixelFormat::CLUT8);
+        if (_plasma.pixels.empty()) {
+            _plasma.create(kWidth, kHeight, PixelFormat::kCLUT8);
             for (int y = 0; y < kHeight; ++y) {
-                uint8_t *row = plasma_.row(y);
+                uint8_t *row = _plasma.row(y);
                 for (int x = 0; x < kWidth; ++x) {
                     double v = std::sin(x / 16.0) + std::sin(y / 8.0) + std::sin((x + y) / 16.0) +
                                std::sin(std::hypot(x - 160, y - 100) / 8.0);
@@ -125,7 +125,7 @@ private:
                 }
             }
         }
-        screen_.pixels = plasma_.pixels;
+        _screen.pixels = _plasma.pixels;
 
         Color pal[256];
         const double shift = t / 1000.0;
@@ -136,27 +136,27 @@ private:
             pal[i].b = static_cast<uint8_t>(127 + 127 * std::sin(a + 4 * kPi / 3));
         }
         pal[255] = {255, 255, 255};
-        sys_.setPalette(pal, 0, 256);
+        _sys.setPalette(pal, 0, 256);
 
         // Crosshair at the mouse in colour 255, to verify coordinate mapping.
         for (int d = -4; d <= 4; ++d) {
-            putPixel(mouseX_ + d, mouseY_, 255);
-            putPixel(mouseX_, mouseY_ + d, 255);
+            putPixel(_mouseX + d, _mouseY, 255);
+            putPixel(_mouseX, _mouseY + d, 255);
         }
     }
 
     void putPixel(int x, int y, uint8_t c) {
         if (x >= 0 && y >= 0 && x < kWidth && y < kHeight)
-            screen_.row(y)[x] = c;
+            _screen.row(y)[x] = c;
     }
 
-    System &sys_;
-    Surface screen_;
-    Surface plasma_;
-    int mouseX_ = kWidth / 2, mouseY_ = kHeight / 2;
-    bool customCursor_ = false;
-    std::atomic<bool> toneOn_{false};
-    double phase_ = 0; // audio thread only
+    System &_sys;
+    Surface _screen;
+    Surface _plasma;
+    int _mouseX = kWidth / 2, _mouseY = kHeight / 2;
+    bool _customCursor = false;
+    std::atomic<bool> _toneOn{false};
+    double _phase = 0; // audio thread only
 };
 
 class TestbedMetaEngine : public MetaEngine {
@@ -175,8 +175,8 @@ public:
 } // namespace
 
 const MetaEngine &testbedMetaEngine() {
-    static const TestbedMetaEngine instance;
-    return instance;
+    static const TestbedMetaEngine kInstance;
+    return kInstance;
 }
 
 } // namespace reluva

@@ -13,23 +13,23 @@ namespace reluva::newworlds {
 
 namespace {
 
-enum Role { Top, Middle, Low, Slope, Pit, kRoles };
+enum Role { kTop, kMiddle, kLow, kSlope, kPit, kRoles };
 
 // Heights of the levels built into the ground models: 0, 3264 and 7360.
 Role faceRole(float flatness, float z) {
     if (flatness < 0.9f)
-        return z < -1000 ? Pit : Slope;
+        return z < -1000 ? kPit : kSlope;
     if (z > 5500)
-        return Top;
+        return kTop;
     if (z > 2000)
-        return Middle;
-    return z > -1000 ? Low : Pit;
+        return kMiddle;
+    return z > -1000 ? kLow : kPit;
 }
 
 class Names {
 public:
-    explicit Names(const std::vector<std::string> &stems) : stems_(stems) {}
-    bool has(const std::string &s) const { return std::find(stems_.begin(), stems_.end(), s) != stems_.end(); }
+    explicit Names(const std::vector<std::string> &stems) : _stems(stems) {}
+    bool has(const std::string &s) const { return std::find(_stems.begin(), _stems.end(), s) != _stems.end(); }
     // The first family with a texture numbered like the model, else its 01,
     // else any texture of the family.
     std::string pick(std::initializer_list<const char *> families, const std::string &number) const {
@@ -40,14 +40,14 @@ public:
             if (has(std::string(f) + "01"))
                 return std::string(f) + "01";
         for (const char *f : families)
-            for (const std::string &s : stems_)
+            for (const std::string &s : _stems)
                 if (s.rfind(f, 0) == 0)
                     return s;
         return {};
     }
 
 private:
-    const std::vector<std::string> &stems_;
+    const std::vector<std::string> &_stems;
 };
 
 } // namespace
@@ -116,14 +116,14 @@ std::vector<std::string> chooseGroundTextures(const std::string &modelStem, cons
     };
     auto byRole = [&](Role r) -> std::string {
         switch (r) {
-        case Top:
+        case kTop:
             return names.pick({"top", "snow"}, roleNumber);
-        case Middle:
+        case kMiddle:
             return names.pick({"med", "rock"}, roleNumber);
-        case Low:
+        case kLow:
             return low();
-        case Pit:
-        case Slope:
+        case kPit:
+        case kSlope:
         case kRoles:
             break;
         }
@@ -134,7 +134,7 @@ std::vector<std::string> chooseGroundTextures(const std::string &modelStem, cons
     for (size_t s = 0; s < slots; ++s) {
         const auto &a = area[s];
         const Role role = Role(std::max_element(a.begin(), a.end()) - a.begin());
-        const bool slope = role == Slope || role == Pit;
+        const bool slope = role == kSlope || role == kPit;
         std::string pick;
         if (family == "hole" || family == "water")
             pick = names.has(family + number) ? family + number : names.pick({family.c_str()}, "");

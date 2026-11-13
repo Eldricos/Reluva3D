@@ -171,13 +171,13 @@ bool Jit::supported() {
 #endif
 }
 
-Jit::Jit(const Layout &layout) : layout_(layout), index_(size_t(layout.blockMask) + 1), data_(kDataSize) {
+Jit::Jit(const Layout &layout) : _layout(layout), _index(size_t(layout.blockMask) + 1), _data(kDataSize) {
 #if defined(RELUVA_JIT_WINDOWS) || defined(RELUVA_JIT_LINUX)
-    base_ = allocate(kBufferSize);
-    if (!base_)
+    _base = allocate(kBufferSize);
+    if (!_base)
         return;
-    size_ = kBufferSize;
-    Emitter w{base_};
+    _size = kBufferSize;
+    Emitter w{_base};
     [[maybe_unused]] size_t entryAt = 0;
 #if defined(RELUVA_JIT_WINDOWS)
     // UNWIND_INFO: version 1; a 9-byte prologue; four codes, last first: at
@@ -185,7 +185,7 @@ Jit::Jit(const Layout &layout) : layout_(layout), index_(size_t(layout.blockMask
     const uint8_t info[] = {0x01, 0x09, 0x04, 0x00, 0x09, 0x32, 0x05, 0xd0, 0x03, 0xc0, 0x01, 0x30};
     w.bytes(info);
     entryAt = 16;
-    w.at = base_ + entryAt;
+    w.at = _base + entryAt;
 #else
     // .eh_frame: a CIE (return address at the CFA - 8, the CFA rsp + 8 on
     // entry) and an FDE for the whole buffer: the pushes (rbx, r12, r13
@@ -208,27 +208,27 @@ Jit::Jit(const Layout &layout) : layout_(layout), index_(size_t(layout.blockMask
                            0x44, 0x0e, 0x40, 0x00, 0x00}; // sub rsp 32
     u32(4 + 16 + sizeof fde);
     u32(uint32_t(fdeAt + 4)); // back to the CIE, from this field
-    u64(reinterpret_cast<uint64_t>(base_));
+    u64(reinterpret_cast<uint64_t>(_base));
     u64(kBufferSize);
     eh.insert(eh.end(), fde, fde + sizeof fde);
     u32(0); // the end
     uint8_t *frame = new uint8_t[eh.size()];
     std::memcpy(frame, eh.data(), eh.size());
     __register_frame(frame);
-    unwind_ = frame;
+    _unwind = frame;
 #endif
-    entry_ = reinterpret_cast<void (*)(void *, const uint8_t *)>(w.at);
+    _entry = reinterpret_cast<void (*)(void *, const uint8_t *)>(w.at);
     w.bytes(kPrologue);
     w.bytes(kEntryTakeArgs);
-    w.u8(0x49), w.u8(0xbc), w.u64(reinterpret_cast<uint64_t>(layout_.memory)); // mov r12, memory
-    w.u8(0x49), w.u8(0xbd), w.u64(reinterpret_cast<uint64_t>(layout_.pages));  // mov r13, pages
+    w.u8(0x49), w.u8(0xbc), w.u64(reinterpret_cast<uint64_t>(_layout.memory)); // mov r12, memory
+    w.u8(0x49), w.u8(0xbd), w.u64(reinterpret_cast<uint64_t>(_layout.pages));  // mov r13, pages
     w.u8(0x45), w.u8(0x31), w.u8(0xd2);                                        // xor r10d, r10d: no link
     w.bytes(kEntryJump);
     // The dispatch (see jit.h).
-    w.at = base_ + ((size_t(w.at - base_) + 15) & ~size_t(15));
-    dispatch_ = w.at;
+    w.at = _base + ((size_t(w.at - _base) + 15) & ~size_t(15));
+    _dispatch = w.at;
     {
-        const Layout &L = layout_;
+        const Layout &L = _layout;
         uint8_t *exits[16];
         int n = 0;
         auto exitIf = [&](uint8_t cc) { w.u8(0x0f), w.u8(cc), exits[n++] = w.rel32(); };
@@ -247,7 +247,7 @@ Jit::Jit(const Layout &layout) : layout_(layout), index_(size_t(layout.blockMask
         w.u8(0xc1), w.u8(0xe9), w.u8(uint8_t(32 - bits));                         // shr ecx, 32 - bits
         w.u8(0x83), w.u8(0xe1), w.u8(0xfe);                                       // and ecx, ~1: the pair's first
         w.u8(0x48), w.u8(0xc1), w.u8(0xe1), w.u8(4);                              // shl rcx, 4
-        w.u8(0x49), w.u8(0xb8), w.u64(reinterpret_cast<uint64_t>(index_.data())); // mov r8, index
+        w.u8(0x49), w.u8(0xb8), w.u64(reinterpret_cast<uint64_t>(_index.data())); // mov r8, index
         w.u8(0x4c), w.u8(0x01), w.u8(0xc1);                                       // add rcx, r8: its entry
         // Either of the pair (one cache line).
         w.u8(0x39), w.u8(0x01);                       // cmp [start], eax
@@ -264,7 +264,7 @@ Jit::Jit(const Layout &layout) : layout_(layout), index_(size_t(layout.blockMask
         w.rbx({0x4c, 0x03}, 0, L.executed);                               // add r8, [executed]
         w.rbx({0x4c, 0x3b}, 0, L.runEnd), exitIf(0x87);                   // cmp r8, [end]; ja exit
         w.rbx({0x4c, 0x89}, 0, L.executed);                               // mov [executed], r8
-        w.u8(0x48), w.u8(0xb9), w.u64(reinterpret_cast<uint64_t>(base_)); // mov rcx, buffer
+        w.u8(0x48), w.u8(0xb9), w.u64(reinterpret_cast<uint64_t>(_base)); // mov rcx, buffer
         w.u8(0x4c), w.u8(0x01), w.u8(0xc9);                               // add rcx, r9: the code
         // The block counted: its entries (the code's header), count, start.
         w.u8(0x4c), w.u8(0x8b), w.u8(0x41), w.u8(0xf0); // mov r8, [rcx - 16]
@@ -285,62 +285,62 @@ Jit::Jit(const Layout &layout) : layout_(layout), index_(size_t(layout.blockMask
         w.call(reinterpret_cast<const void *>(L.callNative));
         w.u8(0x85), w.u8(0xc0), exitIf(0x84);             // test eax, eax; jz exit
         w.u8(0x45), w.u8(0x31), w.u8(0xd2);               // xor r10d, r10d: no link
-        w.u8(0xe9), Emitter::patch(w.rel32(), dispatch_); // jmp dispatch
+        w.u8(0xe9), Emitter::patch(w.rel32(), _dispatch); // jmp dispatch
         for (int i = 0; i < n; ++i)
             Emitter::patch(exits[i], w.at);
         w.bytes(kEpilogue); // back to runCached
     }
-    bodyStart_ = used_ = (size_t(w.at - base_) + 15) & ~size_t(15);
+    _bodyStart = _used = (size_t(w.at - _base) + 15) & ~size_t(15);
 #if defined(RELUVA_JIT_WINDOWS)
     auto *fn = new RUNTIME_FUNCTION{};
     fn->BeginAddress = DWORD(entryAt);
     fn->EndAddress = DWORD(kBufferSize);
     fn->UnwindData = 0;
-    if (!RtlAddFunctionTable(fn, 1, reinterpret_cast<DWORD64>(base_))) {
+    if (!RtlAddFunctionTable(fn, 1, reinterpret_cast<DWORD64>(_base))) {
         delete fn;
-        release(base_, size_);
-        base_ = nullptr;
+        release(_base, _size);
+        _base = nullptr;
         return;
     }
-    unwind_ = fn;
+    _unwind = fn;
 #endif
 #endif
 }
 
 Jit::~Jit() {
 #if defined(RELUVA_JIT_WINDOWS)
-    if (unwind_) {
-        RtlDeleteFunctionTable(static_cast<RUNTIME_FUNCTION *>(unwind_));
-        delete static_cast<RUNTIME_FUNCTION *>(unwind_);
+    if (_unwind) {
+        RtlDeleteFunctionTable(static_cast<RUNTIME_FUNCTION *>(_unwind));
+        delete static_cast<RUNTIME_FUNCTION *>(_unwind);
     }
 #elif defined(RELUVA_JIT_LINUX)
-    if (unwind_) {
-        __deregister_frame(unwind_);
-        delete[] static_cast<uint8_t *>(unwind_);
+    if (_unwind) {
+        __deregister_frame(_unwind);
+        delete[] static_cast<uint8_t *>(_unwind);
     }
 #endif
 #if defined(RELUVA_JIT_WINDOWS) || defined(RELUVA_JIT_LINUX)
-    if (base_)
-        release(base_, size_);
+    if (_base)
+        release(_base, _size);
 #endif
 }
 
 const uint8_t *Jit::compile(const Op *ops, int count, uint32_t end, const void *entries, size_t entrySize) {
-    if (!base_)
+    if (!_base)
         return nullptr;
     const size_t most = size_t(count) * 320 + 256;
     const size_t data = (size_t(count) * entrySize + 15) / 16 * 16 + 2 * sizeof(Link);
-    if (used_ + most > size_ || dataUsed_ + data > data_.size())
+    if (_used + most > _size || _dataUsed + data > _data.size())
         return nullptr;
-    const Layout &L = layout_;
+    const Layout &L = _layout;
     // The entries' copy, then the exits' links.
-    uint8_t *copies = data_.data() + dataUsed_;
+    uint8_t *copies = _data.data() + _dataUsed;
     std::memcpy(copies, entries, size_t(count) * entrySize);
     Link *links = reinterpret_cast<Link *>(copies + (size_t(count) * entrySize + 15) / 16 * 16);
     links[0] = links[1] = Link{};
-    dataUsed_ += data;
+    _dataUsed += data;
     // The header, then the code.
-    uint8_t *header = base_ + used_;
+    uint8_t *header = _base + _used;
     const uint64_t copiesAt = reinterpret_cast<uint64_t>(copies);
     const uint64_t counted = uint64_t(uint32_t(count));
     std::memcpy(header, &copiesAt, 8);
@@ -432,27 +432,27 @@ const uint8_t *Jit::compile(const Op *ops, int count, uint32_t end, const void *
         for (int j = i + 1; j < count; ++j) {
             const Op &n = ops[j];
             switch (n.kind) {
-            case Kind::MovRegRm:
-            case Kind::MovRmReg:
-            case Kind::MovRmImm:
-            case Kind::MovRegImm:
-            case Kind::Lea:
-            case Kind::PushReg:
-            case Kind::PushImm:
-            case Kind::PopReg:
-            case Kind::FLoad:
-            case Kind::FLoadInt:
-            case Kind::FLoadSt:
-            case Kind::FStore:
-            case Kind::FStoreSt:
-            case Kind::FArith:
-            case Kind::FArithSt0:
-            case Kind::FArithSti:
-            case Kind::Fxch:
-            case Kind::FCom:
-            case Kind::FnstswAx:
+            case Kind::kMovRegRm:
+            case Kind::kMovRmReg:
+            case Kind::kMovRmImm:
+            case Kind::kMovRegImm:
+            case Kind::kLea:
+            case Kind::kPushReg:
+            case Kind::kPushImm:
+            case Kind::kPopReg:
+            case Kind::kFLoad:
+            case Kind::kFLoadInt:
+            case Kind::kFLoadSt:
+            case Kind::kFStore:
+            case Kind::kFStoreSt:
+            case Kind::kFArith:
+            case Kind::kFArithSt0:
+            case Kind::kFArithSti:
+            case Kind::kFxch:
+            case Kind::kFCom:
+            case Kind::kFnstswAx:
                 continue;
-            case Kind::Alu: // all but ADC and SBB (CF in) and INC and DEC (CF kept) set them all
+            case Kind::kAlu: // all but ADC and SBB (CF in) and INC and DEC (CF kept) set them all
                 return n.alu == 2 || n.alu == 3 || n.alu == 9 || n.alu == 10;
             default:
                 return true;
@@ -556,7 +556,7 @@ const uint8_t *Jit::compile(const Op *ops, int count, uint32_t end, const void *
         const Op &o = ops[i];
         eipSet = false;
         switch (o.kind) {
-        case Kind::Alu: {
+        case Kind::kAlu: {
             const int size = o.size;
             const bool test = o.alu == 8;
             const bool incDec = o.alu >= 9;
@@ -655,21 +655,21 @@ const uint8_t *Jit::compile(const Op *ops, int count, uint32_t end, const void *
             }
             break;
         }
-        case Kind::FLoad:
+        case Kind::kFLoad:
             loadRealTo(o, 0);
             push();
             break;
-        case Kind::FLoadInt:
+        case Kind::kFLoadInt:
             address(o);
             load(o, kEdx, 4);
             w.u8(0xf2), w.u8(0x0f), w.u8(0x2a), w.u8(0xc2); // cvtsi2sd xmm0, edx
             push();
             break;
-        case Kind::FLoadSt:
+        case Kind::kFLoadSt:
             st0Index(), stIndex(o.rm), fpuReg(0x10, 0, kEdx); // st(i), before the push
             push();
             break;
-        case Kind::FStore:
+        case Kind::kFStore:
             // storeReal of st(0), popped first if it's to be (the address
             // doesn't depend on it, and neither faults).
             st0Index(), fpuReg(0x10, 0, kEcx);
@@ -689,30 +689,30 @@ const uint8_t *Jit::compile(const Op *ops, int count, uint32_t end, const void *
                 store(o, kEdx, 4);
             }
             break;
-        case Kind::FStoreSt:
+        case Kind::kFStoreSt:
             st0Index(), fpuReg(0x10, 0, kEcx);
             stIndex(o.rm), fpuReg(0x11, 0, kEdx);
             if (o.cc)
                 pop();
             break;
-        case Kind::Fxch:
+        case Kind::kFxch:
             st0Index(), stIndex(o.rm);
             fpuReg(0x10, 0, kEcx), fpuReg(0x10, 1, kEdx);
             fpuReg(0x11, 1, kEcx), fpuReg(0x11, 0, kEdx);
             break;
-        case Kind::FArith:
+        case Kind::kFArith:
             loadRealTo(o, 1);
             st0Index(), fpuReg(0x10, 0, kEcx);
             fpuOp(o.alu);
             fpuReg(0x11, 0, kEcx);
             break;
-        case Kind::FArithSt0:
+        case Kind::kFArithSt0:
             st0Index(), stIndex(o.rm);
             fpuReg(0x10, 0, kEcx), fpuReg(0x10, 1, kEdx);
             fpuOp(o.alu);
             fpuReg(0x11, 0, kEcx);
             break;
-        case Kind::FCom:
+        case Kind::kFCom:
             // Cpu::fpuCompare into the status word: C0, C2, C3 where UCOMISD
             // sets CF, PF and ZF (all three unordered), C1 cleared; then pop
             // for FCOMP.
@@ -733,7 +733,7 @@ const uint8_t *Jit::compile(const Op *ops, int count, uint32_t end, const void *
             if (o.cc)
                 st0Index(), pop();
             break;
-        case Kind::FnstswAx:
+        case Kind::kFnstswAx:
             // AX <- (status & ~(7 << 11)) | top << 11.
             w.rbx({0x0f, 0xb7}, kEdx, L.fpuStatus);  // movzx edx, word [status]
             w.u8(0x81), w.u8(0xe2), w.u32(~0x3800u); // and edx, ~(7 << 11)
@@ -742,7 +742,7 @@ const uint8_t *Jit::compile(const Op *ops, int count, uint32_t end, const void *
             w.u8(0x09), w.u8(0xca);                  // or edx, ecx
             w.rbx({0x66, 0x89}, kEdx, regAt(0));     // mov [eax], dx
             break;
-        case Kind::FArithSti: {
+        case Kind::kFArithSti: {
             static constexpr int kSwap[8] = {0, 1, 2, 3, 5, 4, 7, 6};
             st0Index(), stIndex(o.rm);
             fpuReg(0x10, 0, kEdx), fpuReg(0x10, 1, kEcx); // st(i) op st(0)
@@ -752,7 +752,7 @@ const uint8_t *Jit::compile(const Op *ops, int count, uint32_t end, const void *
                 pop();
             break;
         }
-        case Kind::Jcc: {
+        case Kind::kJcc: {
             // condition<cc> on eflags: test it, then eip one way or the other.
             w.rbx({0x8b}, kEax, L.eflags); // mov eax, [eflags]
             static constexpr uint32_t kMask[6] = {0x800, 0x1, 0x40, 0x41, 0x80, 0x4};
@@ -778,26 +778,26 @@ const uint8_t *Jit::compile(const Op *ops, int count, uint32_t end, const void *
             eipSet = true;
             break;
         }
-        case Kind::Jmp:
+        case Kind::kJmp:
             storeImm32(L.eip, o.start + o.length + o.imm);
             storeImm32(L.start, o.start);
             eipSet = true;
             break;
-        case Kind::CallRel:
+        case Kind::kCallRel:
             w.u8(0xba), w.u32(o.start + o.length); // the return address
             pushValue(o);
             storeImm32(L.eip, o.start + o.length + o.imm);
             storeImm32(L.start, o.start);
             eipSet = true;
             break;
-        case Kind::JmpRm:
-        case Kind::CallRm:
+        case Kind::kJmpRm:
+        case Kind::kCallRm:
             if (o.mem) {
                 address(o);
                 load(o, kEdx, 4);
             } else
                 loadReg(kEdx, o.rm, 4);
-            if (o.kind == Kind::CallRm) {
+            if (o.kind == Kind::kCallRm) {
                 w.u8(0x41), w.u8(0x89), w.u8(0xd1);    // mov r9d, edx: the target
                 w.u8(0xba), w.u32(o.start + o.length); // the return address
                 pushValue(o);
@@ -807,7 +807,7 @@ const uint8_t *Jit::compile(const Op *ops, int count, uint32_t end, const void *
             storeImm32(L.start, o.start);
             eipSet = true;
             break;
-        case Kind::Ret:
+        case Kind::kRet:
             // Cpu::pop, then ESP past the immediate.
             w.rbx({0x8b}, kEax, regAt(4));
             load(o, kEdx, 4);
@@ -816,7 +816,7 @@ const uint8_t *Jit::compile(const Op *ops, int count, uint32_t end, const void *
             storeImm32(L.start, o.start);
             eipSet = true;
             break;
-        case Kind::MovRegRm:
+        case Kind::kMovRegRm:
             if (o.mem) {
                 address(o);
                 load(o, kEdx, o.size);
@@ -824,7 +824,7 @@ const uint8_t *Jit::compile(const Op *ops, int count, uint32_t end, const void *
                 loadReg(kEdx, o.rm, o.size);
             storeReg(o.reg, kEdx, o.size);
             break;
-        case Kind::MovRmReg:
+        case Kind::kMovRmReg:
             loadReg(kEdx, o.reg, o.size);
             if (o.mem) {
                 address(o);
@@ -832,7 +832,7 @@ const uint8_t *Jit::compile(const Op *ops, int count, uint32_t end, const void *
             } else
                 storeReg(o.rm, kEdx, o.size);
             break;
-        case Kind::MovRmImm:
+        case Kind::kMovRmImm:
             w.u8(0xba), w.u32(o.imm); // mov edx, imm
             if (o.mem) {
                 address(o);
@@ -840,17 +840,17 @@ const uint8_t *Jit::compile(const Op *ops, int count, uint32_t end, const void *
             } else
                 storeReg(o.rm, kEdx, o.size);
             break;
-        case Kind::MovRegImm:
+        case Kind::kMovRegImm:
             storeImm32(regAt(o.rm), o.imm);
             break;
-        case Kind::Lea:
+        case Kind::kLea:
             address(o, false);
             storeReg(o.reg, kEax, 4);
             break;
-        case Kind::PushReg:
-        case Kind::PushImm:
+        case Kind::kPushReg:
+        case Kind::kPushImm:
             // Cpu::push: the value first, then ESP down, then the store.
-            if (o.kind == Kind::PushReg)
+            if (o.kind == Kind::kPushReg)
                 loadReg(kEdx, o.rm, 4);
             else
                 w.u8(0xba), w.u32(o.imm);
@@ -859,14 +859,14 @@ const uint8_t *Jit::compile(const Op *ops, int count, uint32_t end, const void *
             w.rbx({0x89}, kEax, regAt(4));   // mov [esp], eax
             store(o, kEdx, 4);
             break;
-        case Kind::PopReg:
+        case Kind::kPopReg:
             // Cpu::pop: the load, then ESP up, then the register.
             w.rbx({0x8b}, kEax, regAt(4));
             load(o, kEdx, 4);
             w.rbx({0x83}, 0, regAt(4)), w.u8(4); // add dword [esp], 4
             storeReg(o.rm, kEdx, 4);
             break;
-        case Kind::Call:
+        case Kind::kCall:
             storeImm32(L.eip, o.start);
             storeImm32(L.start, o.start);
             w.bytes(kFirstArgCpu);
@@ -909,14 +909,14 @@ const uint8_t *Jit::compile(const Op *ops, int count, uint32_t end, const void *
         w.u8(0xff), w.u8(0xe2); // jmp rdx
         Emitter::patch(miss1, w.at), Emitter::patch(miss2, w.at), Emitter::patch(miss3, w.at);
         w.u8(0x49), w.u8(0x89), w.u8(0xc2);               // mov r10, rax: to fill
-        w.u8(0xe9), Emitter::patch(w.rel32(), dispatch_); // jmp dispatch
+        w.u8(0xe9), Emitter::patch(w.rel32(), _dispatch); // jmp dispatch
     };
     const Op &last = ops[count - 1];
     if (!eipSet) {
         link(&links[0], end);
-    } else if (last.kind == Kind::Jmp || last.kind == Kind::CallRel) {
+    } else if (last.kind == Kind::kJmp || last.kind == Kind::kCallRel) {
         link(&links[0], last.start + last.length + last.imm);
-    } else if (last.kind == Kind::Jcc) {
+    } else if (last.kind == Kind::kJcc) {
         const uint32_t after = last.start + last.length;
         const uint32_t taken = after + last.imm;
         w.u8(0x81), w.u8(0xfa), w.u32(taken); // cmp edx, taken (eip, as the condition made it)
@@ -928,7 +928,7 @@ const uint8_t *Jit::compile(const Op *ops, int count, uint32_t end, const void *
     } else {
         w.u8(0x45), w.u8(0x31), w.u8(0xd2); // xor r10d, r10d: no link
         w.u8(0xe9);
-        Emitter::patch(w.rel32(), dispatch_);
+        Emitter::patch(w.rel32(), _dispatch);
     }
     // A write to a page holding cached code: codeEpoch_ on (inc dword), then back.
     for (int i = 0; i < nMarks; ++i) {
@@ -950,7 +950,7 @@ const uint8_t *Jit::compile(const Op *ops, int count, uint32_t end, const void *
         w.call(reinterpret_cast<const void *>(L.memoryFault));
         w.u8(0xcc);
     }
-    used_ = (size_t(w.at - base_) + 15) & ~size_t(15);
+    _used = (size_t(w.at - _base) + 15) & ~size_t(15);
 #if defined(RELUVA_JIT_WINDOWS)
     FlushInstructionCache(GetCurrentProcess(), code, size_t(w.at - code));
 #endif
@@ -958,15 +958,15 @@ const uint8_t *Jit::compile(const Op *ops, int count, uint32_t end, const void *
 }
 
 void Jit::reset() {
-    used_ = bodyStart_;
-    dataUsed_ = 0;
-    ++generation_;
-    for (Entry &e : index_)
+    _used = _bodyStart;
+    _dataUsed = 0;
+    ++_generation;
+    for (Entry &e : _index)
         e.code = 0;
 }
 
 void Jit::setEntry(uint32_t slot, uint32_t start, uint32_t epoch, const uint8_t *code, uint32_t count) {
-    index_[slot] = {start, epoch, code ? uint32_t(code - base_) : 0u, count};
+    _index[slot] = {start, epoch, code ? uint32_t(code - _base) : 0u, count};
 }
 
 } // namespace reluva::x86

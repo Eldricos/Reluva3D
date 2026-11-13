@@ -223,23 +223,23 @@ void reflectionToPrediction(const float *rc, float *lpc) {
 
 } // namespace
 
-MicroTalkDecoder::MicroTalkDecoder(const uint8_t *data, size_t size) : p_(data), end_(data + size) {
+MicroTalkDecoder::MicroTalkDecoder(const uint8_t *data, size_t size) : _p(data), _end(data + size) {
 }
 
 int MicroTalkDecoder::readByte() {
-    if (p_ < end_)
-        return *p_++;
-    overrun_ = true;
+    if (_p < _end)
+        return *_p++;
+    _overrun = true;
     return 0;
 }
 
 int MicroTalkDecoder::readBits(int count) {
-    const int value = static_cast<int>(bitsValue_ & ((1u << count) - 1));
-    bitsValue_ >>= count;
-    bitsCount_ -= count;
-    if (bitsCount_ < 8) {
-        bitsValue_ |= static_cast<unsigned>(readByte()) << bitsCount_;
-        bitsCount_ += 8;
+    const int value = static_cast<int>(_bitsValue & ((1u << count) - 1));
+    _bitsValue >>= count;
+    _bitsCount -= count;
+    if (_bitsCount < 8) {
+        _bitsValue |= static_cast<unsigned>(readByte()) << _bitsCount;
+        _bitsCount += 8;
     }
     return value;
 }
@@ -247,12 +247,12 @@ int MicroTalkDecoder::readBits(int count) {
 void MicroTalkDecoder::parseHeader() {
     // Reduced bandwidth (1 bit), the multi-pulse threshold (4), the first
     // fixed gain (4) and the gains' ratio (6).
-    reducedBandwidth_ = readBits(1) != 0;
-    multipulseThreshold_ = 32 - readBits(4);
-    fixedGains_[0] = 8.0f * static_cast<float>(1 + readBits(4));
+    _reducedBandwidth = readBits(1) != 0;
+    _multipulseThreshold = 32 - readBits(4);
+    _fixedGains[0] = 8.0f * static_cast<float>(1 + readBits(4));
     const float ratio = 1.04f + static_cast<float>(readBits(6)) * 0.001f;
     for (int i = 1; i < 64; ++i)
-        fixedGains_[i] = fixedGains_[i - 1] * ratio;
+        _fixedGains[i] = _fixedGains[i - 1] * ratio;
 }
 
 void MicroTalkDecoder::decodeExcitation(bool multipulse, float *out, int stride) {
@@ -262,7 +262,7 @@ void MicroTalkDecoder::decodeExcitation(bool multipulse, float *out, int stride)
         bool large = false;
         int i = 0;
         while (i < kSubframe) {
-            const int code = kCodeTables[large ? 1 : 0][bitsValue_ & 0xff];
+            const int code = kCodeTables[large ? 1 : 0][_bitsValue & 0xff];
             large = kPulseCodes[code].largeModelNext;
             readBits(kPulseCodes[code].bits);
             if (code > 3) {
@@ -292,28 +292,28 @@ void MicroTalkDecoder::decodeExcitation(bool multipulse, float *out, int stride)
 
 void MicroTalkDecoder::synthesise(int offset, int blocks) {
     float lpc[12];
-    reflectionToPrediction(reflection_, lpc);
-    float *p = frame_ + offset;
+    reflectionToPrediction(_reflection, lpc);
+    float *p = _frame + offset;
     for (int b = 0; b < blocks; ++b)
         for (int j = 0; j < 12; ++j) {
             float x = *p;
             for (int k = 0; k < j; ++k)
-                x += lpc[k] * history_[k - j + 12];
+                x += lpc[k] * _history[k - j + 12];
             for (int k = j; k < 12; ++k)
-                x += lpc[k] * history_[k - j];
-            history_[11 - j] = x;
+                x += lpc[k] * _history[k - j];
+            _history[11 - j] = x;
             *p++ = x;
         }
 }
 
 const float *MicroTalkDecoder::decodeFrame() {
-    if (!bitsCount_) {
-        bitsValue_ = static_cast<unsigned>(readByte());
-        bitsCount_ = 8;
+    if (!_bitsCount) {
+        _bitsValue = static_cast<unsigned>(readByte());
+        _bitsCount = 8;
     }
-    if (!headerParsed_) {
+    if (!_headerParsed) {
         parseHeader();
-        headerParsed_ = true;
+        _headerParsed = true;
     }
 
     // 12 reflection coefficients, reached in four steps over the frame.
@@ -323,13 +323,13 @@ const float *MicroTalkDecoder::decodeFrame() {
         int index;
         if (i == 0) {
             index = readBits(6);
-            multipulse = index < multipulseThreshold_;
+            multipulse = index < _multipulseThreshold;
         } else if (i < 4) {
             index = readBits(6);
         } else {
             index = 16 + readBits(5);
         }
-        step[i] = (kReflection[index] - reflection_[i]) * 0.25f;
+        step[i] = (kReflection[index] - _reflection[i]) * 0.25f;
     }
 
     // Four subframes of 108 samples: pitch (lag, gain) and the excitation.
@@ -337,8 +337,8 @@ const float *MicroTalkDecoder::decodeFrame() {
     for (int s = 0; s < 4; ++s) {
         const int lag = readBits(8);
         const float pitchGain = static_cast<float>(readBits(4)) / 15.0f;
-        float fixedGain = fixedGains_[readBits(6)];
-        if (!reducedBandwidth_) {
+        float fixedGain = _fixedGains[readBits(6)];
+        if (!_reducedBandwidth) {
             decodeExcitation(multipulse, excitation + 5, 1);
         } else {
             // Every other sample coded; the rest zero or interpolated.
@@ -364,17 +364,17 @@ const float *MicroTalkDecoder::decodeFrame() {
             // subframes; a lag over 216 in the first subframe reads before
             // it, into the state before it (state_), as in the original.
             const int from = 108 * s + 216 - lag + j;
-            frame_[108 * s + j] = fixedGain * excitation[5 + j] + pitchGain * adaptive_[from];
+            _frame[108 * s + j] = fixedGain * excitation[5 + j] + pitchGain * _adaptive[from];
         }
     }
-    std::copy(frame_ + 108, frame_ + 432, adaptive_);
+    std::copy(_frame + 108, _frame + 432, _adaptive);
 
     for (int s = 0; s < 4; ++s) {
         for (int j = 0; j < 12; ++j)
-            reflection_[j] += step[j];
+            _reflection[j] += step[j];
         synthesise(12 * s, s < 3 ? 1 : 33);
     }
-    return frame_;
+    return _frame;
 }
 
 Error decodeMicroTalk(const uint8_t *data, size_t size, size_t samples, std::vector<int16_t> &out) {

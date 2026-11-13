@@ -160,14 +160,14 @@ int cmdTable(int argc, char **argv) {
     return 0;
 }
 
-const Commands
-    commands("", {
-                     {"hexdump", "<file> [offset] [length]",
-                      "show a file's bytes as hex and text; the offset may be hex (0x..) or negative (from the end)",
-                      cmdHexdump},
-                     {"chunks", "<file>", "try to read any file as a (u16 tag, u32 size) chunk tree", cmdChunks},
-                     {"words", "<file> [offset] [count]", "show 4-byte values as hex, integer and float", cmdWords},
-                     {"table", "<file> [values per row] [offset]", "show 4-byte values compactly, N per row", cmdTable},
-                 });
+const Commands kCommands(
+    "",
+    {
+        {"hexdump", "<file> [offset] [length]",
+         "show a file's bytes as hex and text; the offset may be hex (0x..) or negative (from the end)", cmdHexdump},
+        {"chunks", "<file>", "try to read any file as a (u16 tag, u32 size) chunk tree", cmdChunks},
+        {"words", "<file> [offset] [count]", "show 4-byte values as hex, integer and float", cmdWords},
+        {"table", "<file> [values per row] [offset]", "show 4-byte values compactly, N per row", cmdTable},
+    });
 
 } // namespace

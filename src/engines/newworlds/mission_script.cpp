@@ -65,12 +65,12 @@ std::string displayName(const std::string &id) {
 }
 
 const char *sectionName(const std::string &s) {
-    static const std::pair<const char *, const char *> names[] = {
+    static const std::pair<const char *, const char *> kNames[] = {
         {"command", "Command"},           {"operations", "Operations"},
         {"engineering", "Engineering"},   {"science", "Science"},
         {"medical", "Medical"},           {"security", "Security"},
         {"intelligence", "Intelligence"}, {"communications", "Communications"}};
-    for (const auto &[id, name] : names)
+    for (const auto &[id, name] : kNames)
         if (s == id)
             return name;
     return nullptr;
@@ -188,15 +188,15 @@ const MissionScript *findMissionScript(std::string_view shortName, char side) {
     return nullptr;
 }
 
-MissionRun::MissionRun(const MissionScript &script, const MissionScript *generic) : script_(script) {
+MissionRun::MissionRun(const MissionScript &script, const MissionScript *generic) : _script(script) {
     for (const auto &h : script.handlers)
-        rules_.push_back({&h});
+        _rules.push_back({&h});
     if (generic)
         for (const auto &h : generic->handlers)
-            rules_.push_back({&h});
+            _rules.push_back({&h});
     for (const auto &o : script.objectives)
         if (!o.hidden)
-            revealed_.insert(o.id);
+            _revealed.insert(o.id);
 }
 
 bool MissionRun::requirementsMet(const ScriptEvent &want) const {
@@ -210,8 +210,8 @@ bool MissionRun::requirementsMet(const ScriptEvent &want) const {
             const size_t star = alt.find('*');
             const std::string name = alt.substr(0, star);
             const int count = star == std::string::npos ? 1 : std::atoi(alt.c_str() + star + 1);
-            const auto it = built_.find(name);
-            any = it != built_.end() && it->second >= count;
+            const auto it = _built.find(name);
+            any = it != _built.end() && it->second >= count;
             from = bar + 1;
         }
         if (!any)
@@ -250,8 +250,8 @@ std::string MissionRun::expand(const std::string &text, const ScriptEvent &ev) c
             out += pos(ev.b);
         else if (key == "1" && !ev.args.empty())
             out += displayName(ev.args[0]);
-        else if (key.rfind("site:", 0) == 0 && script_.sites.count(key.substr(5))) {
-            const auto [a, b] = script_.sites.at(key.substr(5));
+        else if (key.rfind("site:", 0) == 0 && _script.sites.count(key.substr(5))) {
+            const auto [a, b] = _script.sites.at(key.substr(5));
             out += "<" + pos(a) + ":" + pos(b) + ">";
         } else {
             out += text.substr(i, close - i + 1);
@@ -268,26 +268,26 @@ void MissionRun::run(const MissionScript::Handler &h, const ScriptEvent &ev, std
             break;
         if (a.verb == "say") {
             const char *section = sectionName(a.args[0]);
-            out.push_back({Output::Message, section ? section : a.args[0], expand(a.args[1], ev), 0});
+            out.push_back({Output::kMessage, section ? section : a.args[0], expand(a.args[1], ev), 0});
         } else if (a.verb == "complete") {
             const uint32_t id = uint32_t(std::atoi(a.args[0].c_str()));
-            if (completed_.insert(id).second) {
-                revealed_.insert(id);
-                out.push_back({Output::Completed, {}, {}, id});
+            if (_completed.insert(id).second) {
+                _revealed.insert(id);
+                out.push_back({Output::kCompleted, {}, {}, id});
                 follow.push_back({"completed", {a.args[0]}});
             }
         } else if (a.verb == "reveal") {
             const uint32_t id = uint32_t(std::atoi(a.args[0].c_str()));
-            if (revealed_.insert(id).second)
-                out.push_back({Output::Revealed, {}, {}, id});
+            if (_revealed.insert(id).second)
+                out.push_back({Output::kRevealed, {}, {}, id});
         } else if (a.verb == "win") {
-            won_ = true;
-            out.push_back({Output::Won, {}, {}, 0});
+            _won = true;
+            out.push_back({Output::kWon, {}, {}, 0});
         } else if (a.verb == "lose") {
-            lost_ = true;
-            out.push_back({Output::Lost, {}, {}, uint32_t(std::atoi(a.args[0].c_str()))});
+            _lost = true;
+            out.push_back({Output::kLost, {}, {}, uint32_t(std::atoi(a.args[0].c_str()))});
         } else if (a.verb == "timer") {
-            timers_[a.args[0]] = std::atof(a.args[1].c_str());
+            _timers[a.args[0]] = std::atof(a.args[1].c_str());
         } else if (a.verb == "research") {
             follow.push_back({"research-available", {a.args[0]}});
         }
@@ -299,31 +299,31 @@ void MissionRun::run(const MissionScript::Handler &h, const ScriptEvent &ev, std
 }
 
 void MissionRun::checkAllCompleted(std::vector<Output> &out) {
-    if (allDone_ || finished())
+    if (_allDone || finished())
         return;
     bool any = false;
-    for (const auto &o : script_.objectives) {
-        if (o.optional || !revealed_.count(o.id))
+    for (const auto &o : _script.objectives) {
+        if (o.optional || !_revealed.count(o.id))
             continue;
-        if (!completed_.count(o.id))
+        if (!_completed.count(o.id))
             return;
         any = true;
     }
     if (!any)
         return;
-    allDone_ = true;
+    _allDone = true;
     auto more = fire({"all-completed", {}});
     out.insert(out.end(), more.begin(), more.end());
 }
 
 std::vector<MissionRun::Output> MissionRun::fire(const ScriptEvent &event) {
     std::vector<Output> out;
-    if (finished() || depth_ > 16)
+    if (finished() || _depth > 16)
         return out;
-    ++depth_;
+    ++_depth;
     if (event.kind == "built" && !event.args.empty())
-        ++built_[event.args[0]];
-    for (Rule &r : rules_) {
+        ++_built[event.args[0]];
+    for (Rule &r : _rules) {
         if ((r.fired && !r.handler->every) || !matches(r.handler->event, event))
             continue;
         r.fired = true;
@@ -331,22 +331,22 @@ std::vector<MissionRun::Output> MissionRun::fire(const ScriptEvent &event) {
         if (finished())
             break;
     }
-    if (depth_ == 1)
+    if (_depth == 1)
         checkAllCompleted(out);
-    --depth_;
+    --_depth;
     return out;
 }
 
 std::vector<MissionRun::Output> MissionRun::advance(double seconds) {
     std::vector<Output> out;
     std::vector<std::string> due;
-    for (auto &[name, left] : timers_) {
+    for (auto &[name, left] : _timers) {
         left -= seconds;
         if (left <= 0)
             due.push_back(name);
     }
     for (const std::string &name : due) {
-        timers_.erase(name);
+        _timers.erase(name);
         auto more = fire({"timer", {name}});
         out.insert(out.end(), more.begin(), more.end());
     }
@@ -355,21 +355,21 @@ std::vector<MissionRun::Output> MissionRun::advance(double seconds) {
 
 double MissionRun::nextTimer() const {
     double next = -1;
-    for (const auto &[name, left] : timers_)
+    for (const auto &[name, left] : _timers)
         if (next < 0 || left < next)
             next = left;
     return next;
 }
 
 MissionRun::State MissionRun::objectiveState(uint32_t id) const {
-    if (completed_.count(id))
-        return State::Complete;
-    return revealed_.count(id) ? State::Incomplete : State::Hidden;
+    if (_completed.count(id))
+        return State::kComplete;
+    return _revealed.count(id) ? State::kIncomplete : State::kHidden;
 }
 
 std::vector<ScriptEvent> MissionRun::walkthrough() const {
     std::vector<ScriptEvent> out;
-    for (const auto &h : script_.handlers) {
+    for (const auto &h : _script.handlers) {
         const ScriptEvent &e = h.event;
         // Lost-mission handlers, follow-on events and timers happen by
         // themselves (or shouldn't, in a walkthrough).
@@ -390,9 +390,9 @@ std::vector<ScriptEvent> MissionRun::walkthrough() const {
         for (std::string &arg : ev.args)
             if (arg == "*")
                 arg = "somewhere";
-        if (!e.args.empty() && script_.sites.count(e.args.back())) {
-            ev.a = script_.sites.at(e.args.back()).first;
-            ev.b = script_.sites.at(e.args.back()).second;
+        if (!e.args.empty() && _script.sites.count(e.args.back())) {
+            ev.a = _script.sites.at(e.args.back()).first;
+            ev.b = _script.sites.at(e.args.back()).second;
         }
         out.push_back(std::move(ev));
     }
@@ -404,11 +404,11 @@ std::string announcementFor(const ScriptEvent &event, const std::vector<MissionR
     auto has = [&](MissionRun::Output::Kind k) {
         return std::any_of(out.begin(), out.end(), [&](const MissionRun::Output &o) { return o.kind == k; });
     };
-    if (has(MissionRun::Output::Won))
+    if (has(MissionRun::Output::kWon))
         return s + "miswin";
-    if (has(MissionRun::Output::Lost))
+    if (has(MissionRun::Output::kLost))
         return s + "mislose";
-    if (has(MissionRun::Output::Completed))
+    if (has(MissionRun::Output::kCompleted))
         return s + "objmet";
     if (event.kind == "power-low")
         return s + "lowpowr";

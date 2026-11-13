@@ -10,29 +10,29 @@
 namespace reluva::awe {
 
 bool WalkGrid::load(const Ac2Record &camr) {
-    size_ = 0;
-    cells_.fill(0);
+    _size = 0;
+    _cells.fill(0);
     const Ac2Value *grid = camr.field("grid");
     if (!grid || camr.i("cellSize") <= 0)
         return false;
     // The game reads size x size bytes into its 64-wide array as they come.
-    const size_t n = std::min(grid->bytes.size(), cells_.size());
-    std::copy(grid->bytes.begin(), grid->bytes.begin() + std::ptrdiff_t(n), cells_.begin());
-    size_ = camr.i("cellSize");
+    const size_t n = std::min(grid->bytes.size(), _cells.size());
+    std::copy(grid->bytes.begin(), grid->bytes.begin() + std::ptrdiff_t(n), _cells.begin());
+    _size = camr.i("cellSize");
     return true;
 }
 
 void WalkGrid::centre(Cell c, float &x, float &z) const {
-    x = float((c.a - 32) * size_ + size_ / 2);
-    z = float((32 - c.b) * size_ - size_ / 2);
+    x = float((c.a - 32) * _size + _size / 2);
+    z = float((32 - c.b) * _size - _size / 2);
 }
 
 WalkGrid::Cell WalkGrid::cellAt(float x, float z) const {
     Cell c;
     for (int i = 0; i < kSize; i++) {
-        if (float((i - 32) * size_) <= x && x <= float((i - 31) * size_))
+        if (float((i - 32) * _size) <= x && x <= float((i - 31) * _size))
             c.a = i;
-        if (float((31 - i) * size_) <= z && z <= float((32 - i) * size_))
+        if (float((31 - i) * _size) <= z && z <= float((32 - i) * _size))
             c.b = i;
     }
     if (!c.valid())
@@ -64,10 +64,11 @@ namespace {
 // doubles. `Real` does the same: a double, rounded after each of those
 // operations when `single` is on. At 53 bits (single off) it's a double.
 
-bool single = true;
+// NOLINTNEXTLINE(cppcoreguidelines-avoid-non-const-global-variables): the x87 precision the game set, for every Real calculation
+bool g_single = true;
 
 double x87(double v) {
-    return single ? double(float(v)) : v;
+    return g_single ? double(float(v)) : v;
 }
 
 struct Real {
@@ -139,14 +140,14 @@ bool below(Real a, Real b) {
 // code repeated after every angle sum).
 Real normalize(Real v) {
     // 0x42e820, made at start-up, at 53 bits.
-    static const Real almostTwoPi = kTwoPi.v - 1e-8;
+    static const Real kAlmostTwoPi = kTwoPi.v - 1e-8;
     if (!below(v, kTwoPi))
         do
             v -= kTwoPi;
         while (!below(v, kTwoPi));
     while (below(v, 0))
         v += kTwoPi;
-    if (below(v, 1e-8) || !(below(v, almostTwoPi) || v == almostTwoPi))
+    if (below(v, 1e-8) || !(below(v, kAlmostTwoPi) || v == kAlmostTwoPi))
         v = 0;
     return v;
 }
@@ -160,7 +161,7 @@ Real runtimeAcos(Real x) {
 // a table at each precision.
 int distance(int i, int j) {
     static std::vector<int> tables[2];
-    std::vector<int> &t = tables[single];
+    std::vector<int> &t = tables[g_single];
     if (t.empty()) {
         t.resize(size_t(kWindow * kWindow));
         for (int a = 0; a < kWindow; a++)
@@ -266,7 +267,7 @@ bool turnClear(const WalkGrid &grid, const Turn &t, bool openThrees, bool allowT
 } // namespace
 
 void WalkGrid::setSinglePrecision(bool on) {
-    single = on;
+    g_single = on;
 }
 
 int WalkGrid::search(Cell from, Cell to, bool openThrees, bool allowTwos, std::vector<Point> &out) const {

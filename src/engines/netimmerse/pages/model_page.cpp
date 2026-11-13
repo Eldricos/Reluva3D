@@ -113,12 +113,12 @@ auto sample(const std::vector<Key> &keys, float t, Mix mix) {
     return mix(*a, *b, u);
 }
 
-const auto mixFloat = [](float a, float b, float f) { return a + (b - a) * f; };
-const auto mix3 = [](const std::array<float, 3> &a, const std::array<float, 3> &b, float f) {
+const auto kMixFloat = [](float a, float b, float f) { return a + (b - a) * f; };
+const auto kMix3 = [](const std::array<float, 3> &a, const std::array<float, 3> &b, float f) {
     return std::array<float, 3>{a[0] + (b[0] - a[0]) * f, a[1] + (b[1] - a[1]) * f, a[2] + (b[2] - a[2]) * f};
 };
 // Keys whose value is all there is, blended straight.
-const auto straight3 = [](const auto &a, const auto &b, float u) { return mix3(a.value, b.value, u); };
+const auto kStraight3 = [](const auto &a, const auto &b, float u) { return kMix3(a.value, b.value, u); };
 
 // The curves between keys (docs/engines/netimmerse/games/legoalphateam/formats/fin.md): a position
 // by its key's cubic, a rotation by squad through the control quaternions,
@@ -126,7 +126,7 @@ const auto straight3 = [](const auto &a, const auto &b, float u) { return mix3(a
 // next. Straight keys blend straight.
 std::array<float, 3> positionCurve(const FinActor::PositionKey &a, const FinActor::PositionKey &b, float u) {
     if (!a.curve)
-        return mix3(a.value, b.value, u);
+        return kMix3(a.value, b.value, u);
     std::array<float, 3> p{};
     for (size_t k = 0; k < 3; ++k)
         p[k] = a.value[k] + u * (a.out[k] + u * (a.a[k] + u * a.b[k]));
@@ -143,7 +143,7 @@ std::array<float, 4> rotationCurve(const FinActor::RotationKey &a, const FinActo
 
 float numberCurve(const FinActor::FloatKey &a, const FinActor::FloatKey &b, float u) {
     if (!a.curve || !b.curve)
-        return mixFloat(a.value, b.value, u);
+        return kMixFloat(a.value, b.value, u);
     const float u2 = u * u;
     const float u3 = u2 * u;
     return (2 * u3 - 3 * u2 + 1) * a.value + (u3 - 2 * u2 + u) * a.out + (-2 * u3 + 3 * u2) * b.value +
@@ -228,27 +228,27 @@ std::vector<float> normalsOf(const std::vector<float> &pos, const std::vector<ui
 gfx::Blend blendOf(uint32_t f) {
     switch (f) {
     case 0:
-        return gfx::Blend::One;
+        return gfx::Blend::kOne;
     case 1:
-        return gfx::Blend::Zero;
+        return gfx::Blend::kZero;
     case 2:
-        return gfx::Blend::SrcColor;
+        return gfx::Blend::kSrcColor;
     case 3:
-        return gfx::Blend::OneMinusSrcColor;
+        return gfx::Blend::kOneMinusSrcColor;
     case 4:
-        return gfx::Blend::DstColor;
+        return gfx::Blend::kDstColor;
     case 5:
-        return gfx::Blend::OneMinusDstColor;
+        return gfx::Blend::kOneMinusDstColor;
     case 6:
-        return gfx::Blend::SrcAlpha;
+        return gfx::Blend::kSrcAlpha;
     case 7:
-        return gfx::Blend::OneMinusSrcAlpha;
+        return gfx::Blend::kOneMinusSrcAlpha;
     case 8:
-        return gfx::Blend::DstAlpha;
+        return gfx::Blend::kDstAlpha;
     case 9:
-        return gfx::Blend::OneMinusDstAlpha;
+        return gfx::Blend::kOneMinusDstAlpha;
     default:
-        return gfx::Blend::One;
+        return gfx::Blend::kOne;
     }
 }
 
@@ -295,7 +295,7 @@ gfx::Mat4 facingCamera(const gfx::Mat4 &at, const gfx::Vec3 &eye) {
 } // namespace
 
 struct ModelPage::Item {
-    enum class Kind : uint8_t { Shape, Skin, Morph, Glow, Light } kind = Kind::Shape;
+    enum class Kind : uint8_t { kShape, kSkin, kMorph, kGlow, kLight } kind = Kind::kShape;
     uint32_t id = 0; // the shape's (or light's)
     gfx::MeshId mesh = 0;
     uint32_t indexCount = 0;
@@ -314,7 +314,7 @@ struct ModelPage::Item {
     // turned to face the camera, then `rel` (the placement below it).
     bool billboard = false;
     gfx::Mat4 billboardAt = gfx::identity(), rel = gfx::identity();
-    gfx::Blend src = gfx::Blend::One, dst = gfx::Blend::Zero;
+    gfx::Blend src = gfx::Blend::kOne, dst = gfx::Blend::kZero;
     // Depth test and write: on, unless an NiZBufferProperty turns them off.
     bool depthTest = true, depthWrite = true;
     gfx::Vec3 localCentre{}, centre{}; // of its vertices; in the world, for sorting what blends
@@ -326,7 +326,7 @@ ModelPage::ModelPage(ViewerContext &ctx) : Page(ctx) {
         return;
     for (const PacArchive::Entry &e : fin->second->entries())
         if (e.size)
-            names_.push_back(e.name);
+            _names.push_back(e.name);
 }
 
 ModelPage::~ModelPage() {
@@ -334,51 +334,51 @@ ModelPage::~ModelPage() {
 }
 
 void ModelPage::clearItems() {
-    if (renderer_) {
-        for (const Item &item : items_)
+    if (_renderer) {
+        for (const Item &item : _items)
             if (item.mesh)
-                renderer_->destroyMesh(item.mesh);
-        if (footprint_)
-            renderer_->destroyMesh(footprint_);
+                _renderer->destroyMesh(item.mesh);
+        if (_footprint)
+            _renderer->destroyMesh(_footprint);
     }
-    items_.clear();
-    itemOf_.clear();
-    footprint_ = 0;
-    footprintCount_ = 0;
+    _items.clear();
+    _itemOf.clear();
+    _footprint = 0;
+    _footprintCount = 0;
     stopClipSound();
 }
 
 void ModelPage::stopClipSound() {
-    if (ctx_.mixer && clipSound_ != audio::kNoSound)
-        ctx_.mixer->stop(clipSound_);
-    clipSound_ = audio::kNoSound;
-    soundClip_ = -1;
-    soundPass_ = -1;
+    if (_ctx.mixer && _clipSound != audio::kNoSound)
+        _ctx.mixer->stop(_clipSound);
+    _clipSound = audio::kNoSound;
+    _soundClip = -1;
+    _soundPass = -1;
 }
 
 void ModelPage::clipSound() {
-    if (!ctx_.mixer || clips_.empty())
+    if (!_ctx.mixer || _clips.empty())
         return;
-    const FinActor::Clip &c = clips_[size_t(clip_)];
+    const FinActor::Clip &c = _clips[size_t(_clip)];
     const float length = c.end - c.start;
-    const long pass = length > 0 ? long(clipTime_ / length) : 0;
-    if (clip_ == soundClip_ && (pass == soundPass_ || c.loop))
+    const long pass = length > 0 ? long(_clipTime / length) : 0;
+    if (_clip == _soundClip && (pass == _soundPass || c.loop))
         return;
     stopClipSound();
-    soundClip_ = clip_;
-    soundPass_ = pass;
-    if (c.sound.empty() || !playing_)
+    _soundClip = _clip;
+    _soundPass = pass;
+    if (c.sound.empty() || !_playing)
         return;
-    auto it = sounds_.find(c.sound);
-    if (it == sounds_.end()) {
+    auto it = _sounds.find(c.sound);
+    if (it == _sounds.end()) {
         std::shared_ptr<audio::Sound> sound = std::make_shared<audio::Sound>();
         std::vector<uint8_t> data;
-        if (ctx_.files.read(c.sound + ".DDS", data) || decodeDds(data, *sound))
+        if (_ctx.files.read(c.sound + ".DDS", data) || decodeDds(data, *sound))
             sound.reset();
-        it = sounds_.emplace(c.sound, sound).first;
+        it = _sounds.emplace(c.sound, sound).first;
     }
     if (it->second)
-        clipSound_ = ctx_.mixer->play(it->second, audio::SoundType::Effects,
+        _clipSound = _ctx.mixer->play(it->second, audio::SoundType::kEffects,
                                       int(std::clamp(c.volume, 0.0f, 1.0f) * audio::kMaxVolume), 0, c.loop);
 }
 
@@ -386,54 +386,54 @@ void ModelPage::deactivate() {
     // The renderer's textures and meshes go with it when another page
     // takes the screen.
     clearItems();
-    if (renderer_) {
-        for (const auto &[name, id] : textures_)
+    if (_renderer) {
+        for (const auto &[name, id] : _textures)
             if (id)
-                renderer_->destroyTexture(id);
-        if (glow_)
-            renderer_->destroyTexture(glow_);
+                _renderer->destroyTexture(id);
+        if (_glow)
+            _renderer->destroyTexture(_glow);
     }
-    textures_.clear();
-    glow_ = 0;
-    renderer_ = nullptr;
+    _textures.clear();
+    _glow = 0;
+    _renderer = nullptr;
 }
 
 void ModelPage::activate() {
-    if (Error err = ctx_.sys.init3D(kFrameW, kFrameH, renderer_)) {
-        renderer_ = nullptr;
+    if (Error err = _ctx.sys.init3D(kFrameW, kFrameH, _renderer)) {
+        _renderer = nullptr;
         use2D();
         clear(16, 18, 24);
         text(8, 8, "The Models page needs 3D rendering, which isn't available:", {255, 120, 120});
         text(8, 8 + font::kLineHeight, err.message);
-        ctx_.sys.updateScreen(ctx_.screen);
+        _ctx.sys.updateScreen(_ctx.screen);
         setTitle("Models: 3D rendering not available");
         return;
     }
-    overlay_.create(kFrameW, kFrameH, PixelFormat::RGBA32);
-    show(index_);
+    _overlay.create(kFrameW, kFrameH, PixelFormat::kRGBA32);
+    show(_index);
 }
 
 gfx::TextureId ModelPage::texture(const std::string &name) {
     const std::string key = fs::toLower(name);
-    if (auto it = textures_.find(key); it != textures_.end())
+    if (auto it = _textures.find(key); it != _textures.end())
         return it->second;
     gfx::TextureId id = 0;
     std::vector<uint8_t> data;
     image::Image img;
-    if (!ctx_.files.read(name, data) && !image::decode(data, img)) {
+    if (!_ctx.files.read(name, data) && !image::decode(data, img)) {
         gfx::TextureParams params;
-        if (renderer_->createTexture(img.w, img.h, img.rgba.data(), params, id))
+        if (_renderer->createTexture(img.w, img.h, img.rgba.data(), params, id))
             id = 0;
     }
-    textures_[key] = id;
+    _textures[key] = id;
     return id;
 }
 
 // A soft white spot, for the glows without an image of their own and the
 // lights' markers.
 gfx::TextureId ModelPage::glowTexture() {
-    if (glow_)
-        return glow_;
+    if (_glow)
+        return _glow;
     constexpr int kSize = 32;
     std::vector<uint8_t> rgba(kSize * kSize * 4, 255);
     for (int y = 0; y < kSize; ++y)
@@ -443,53 +443,53 @@ gfx::TextureId ModelPage::glowTexture() {
             const float a = std::clamp(1 - std::sqrt(dx * dx + dy * dy), 0.0f, 1.0f);
             rgba[size_t(y * kSize + x) * 4 + 3] = uint8_t(a * a * 255);
         }
-    if (renderer_->createTexture(kSize, kSize, rgba.data(), gfx::TextureParams{}, glow_))
-        glow_ = 0;
-    return glow_;
+    if (_renderer->createTexture(kSize, kSize, rgba.data(), gfx::TextureParams{}, _glow))
+        _glow = 0;
+    return _glow;
 }
 
 bool ModelPage::clipMoves(const std::vector<uint16_t> FinActor::Clip::*list, size_t number) const {
-    if (clip_ == 0 || clips_.empty())
+    if (_clip == 0 || _clips.empty())
         return true;
-    const std::vector<uint16_t> &l = clips_[size_t(clip_)].*list;
+    const std::vector<uint16_t> &l = _clips[size_t(_clip)].*list;
     return std::find(l.begin(), l.end(), number) != l.end();
 }
 
 float ModelPage::clipTicks() const {
-    if (clips_.empty())
+    if (_clips.empty())
         return 0;
-    const FinActor::Clip &c = clips_[size_t(clip_)];
+    const FinActor::Clip &c = _clips[size_t(_clip)];
     const float length = c.end - c.start;
-    return (c.start + (length > 0 ? std::fmod(clipTime_, length) : 0)) * kTicksPerSecond;
+    return (c.start + (length > 0 ? std::fmod(_clipTime, length) : 0)) * kTicksPerSecond;
 }
 
 void ModelPage::show(int index) {
-    const int n = int(names_.size());
-    index_ = ((index % n) + n) % n;
+    const int n = int(_names.size());
+    _index = ((index % n) + n) % n;
     clearItems();
-    info_.clear();
-    error_.clear();
-    actor_ = nullptr;
-    trackOf_.clear();
-    animatorsOf_.clear();
-    flipOf_.clear();
-    flipNumber_.clear();
-    morphNumber_.clear();
-    heldPose_.clear();
-    heldWeights_.clear();
-    clips_.clear();
-    clip_ = 0;
-    clipTime_ = 0;
-    const std::string &name = names_[size_t(index_)];
-    setTitle("Models: " + name + " (" + std::to_string(index_ + 1) + "/" + std::to_string(n) + ")");
+    _info.clear();
+    _error.clear();
+    _actor = nullptr;
+    _trackOf.clear();
+    _animatorsOf.clear();
+    _flipOf.clear();
+    _flipNumber.clear();
+    _morphNumber.clear();
+    _heldPose.clear();
+    _heldWeights.clear();
+    _clips.clear();
+    _clip = 0;
+    _clipTime = 0;
+    const std::string &name = _names[size_t(_index)];
+    setTitle("Models: " + name + " (" + std::to_string(_index + 1) + "/" + std::to_string(n) + ")");
 
     std::vector<uint8_t> data;
-    Error err = ctx_.archives.at("Fin.pac")->read(name, data);
+    Error err = _ctx.archives.at("Fin.pac")->read(name, data);
     if (!err)
-        err = model_.parse(data);
+        err = _model.parse(data);
     if (err) {
-        error_ = name + ": " + err.message;
-        model_ = FinFile();
+        _error = name + ": " + err.message;
+        _model = FinFile();
         return;
     }
 
@@ -497,13 +497,13 @@ void ModelPage::show(int index) {
     // order; the materials' animators and the textures' flip-books by what
     // they target. The whole timeline is the first clip, then the actor's.
     float lastKey = 0;
-    if (!model_.actors.empty()) {
-        actor_ = &model_.actors.begin()->second;
-        const std::vector<uint32_t> nodes = model_.animatedNodes();
-        if (nodes.size() == actor_->tracks.size())
+    if (!_model.actors.empty()) {
+        _actor = &_model.actors.begin()->second;
+        const std::vector<uint32_t> nodes = _model.animatedNodes();
+        if (nodes.size() == _actor->tracks.size())
             for (size_t i = 0; i < nodes.size(); ++i) {
-                trackOf_[nodes[i]] = i;
-                const FinActor::Track &t = actor_->tracks[i];
+                _trackOf[nodes[i]] = i;
+                const FinActor::Track &t = _actor->tracks[i];
                 for (float k :
                      {t.positions.empty() ? 0 : t.positions.back().time,
                       t.rotations.empty() ? 0 : t.rotations.back().time, t.scales.empty() ? 0 : t.scales.back().time,
@@ -514,58 +514,58 @@ void ModelPage::show(int index) {
                         lastKey = std::max(lastKey, axis.back().time);
             }
     }
-    for (const auto &[id, a] : model_.materialAnimators) {
-        animatorsOf_[a.target].push_back(&a);
+    for (const auto &[id, a] : _model.materialAnimators) {
+        _animatorsOf[a.target].push_back(&a);
         if (!a.keys.empty())
             lastKey = std::max(lastKey, a.keys.back().time);
     }
-    for (const auto &[id, f] : model_.flips)
-        flipOf_[f.target] = &f;
-    for (const FinObjectInfo &o : model_.objects())
-        if (auto f = model_.flips.find(o.id); o.type == "NiFlipTextures" && f != model_.flips.end())
-            flipNumber_[&f->second] = uint16_t(flipNumber_.size());
-    for (const FinObjectInfo &o : model_.objects())
-        if (o.type == "Ni3dsMorphShape" && model_.morphs.count(o.id))
-            morphNumber_[o.id] = uint16_t(morphNumber_.size());
-    for (const auto &[id, m] : model_.morphs)
+    for (const auto &[id, f] : _model.flips)
+        _flipOf[f.target] = &f;
+    for (const FinObjectInfo &o : _model.objects())
+        if (auto f = _model.flips.find(o.id); o.type == "NiFlipTextures" && f != _model.flips.end())
+            _flipNumber[&f->second] = uint16_t(_flipNumber.size());
+    for (const FinObjectInfo &o : _model.objects())
+        if (o.type == "Ni3dsMorphShape" && _model.morphs.count(o.id))
+            _morphNumber[o.id] = uint16_t(_morphNumber.size());
+    for (const auto &[id, m] : _model.morphs)
         if (!m.keys.empty())
             lastKey = std::max(lastKey, m.keys.back().time);
     // An actor's clips end before a few stray keys far out (Evil Ogel's go
     // to 381 s, his clips to 74 s): its whole timeline is theirs.
-    if (actor_ && !actor_->clips.empty()) {
+    if (_actor && !_actor->clips.empty()) {
         lastKey = 0;
-        for (const FinActor::Clip &c : actor_->clips)
+        for (const FinActor::Clip &c : _actor->clips)
             lastKey = std::max(lastKey, c.end * kTicksPerSecond);
     }
     FinActor::Clip whole;
     whole.name = "whole timeline";
     whole.end = lastKey / kTicksPerSecond;
-    clips_.push_back(whole);
-    if (actor_)
-        for (const FinActor::Clip &c : actor_->clips)
-            clips_.push_back(c);
+    _clips.push_back(whole);
+    if (_actor)
+        for (const FinActor::Clip &c : _actor->clips)
+            _clips.push_back(c);
 
     walk(clipTicks(), true);
-    posedTicks_ = clipTicks();
+    _posedTicks = clipTicks();
     resetView();
     // The footprint: its polygon as a fan of triangles, a little above the
     // floor it's on.
-    if (actor_ && actor_->footprint.size() >= 3) {
-        std::vector<gfx::Vertex> verts(actor_->footprint.size());
+    if (_actor && _actor->footprint.size() >= 3) {
+        std::vector<gfx::Vertex> verts(_actor->footprint.size());
         std::vector<uint32_t> fan;
         for (size_t i = 0; i < verts.size(); ++i) {
             for (size_t k = 0; k < 3; ++k)
-                verts[i].pos[k] = actor_->footprint[i][k];
+                verts[i].pos[k] = _actor->footprint[i][k];
             verts[i].normal[2] = 1;
             for (size_t k = 0; k < 4; ++k)
                 verts[i].color[k] = 255;
             if (i >= 2)
                 fan.insert(fan.end(), {0u, uint32_t(i - 1), uint32_t(i)});
         }
-        if (!renderer_->createMesh(verts, fan, footprint_))
-            footprintCount_ = uint32_t(fan.size());
+        if (!_renderer->createMesh(verts, fan, _footprint))
+            _footprintCount = uint32_t(fan.size());
         else
-            footprint_ = 0;
+            _footprint = 0;
     }
 
     unsigned shapes = 0;
@@ -573,10 +573,10 @@ void ModelPage::show(int index) {
     unsigned glows = 0;
     unsigned missing = 0;
     std::vector<std::string> missingNames;
-    for (const Item &item : items_) {
-        if (item.kind == Item::Kind::Glow)
+    for (const Item &item : _items) {
+        if (item.kind == Item::Kind::kGlow)
             ++glows;
-        else if (item.kind != Item::Kind::Light) {
+        else if (item.kind != Item::Kind::kLight) {
             ++shapes;
             triangles += item.indexCount / 3;
         }
@@ -591,40 +591,40 @@ void ModelPage::show(int index) {
             }
     }
     unsigned unread = 0;
-    for (const auto &o : model_.objects())
+    for (const auto &o : _model.objects())
         unread += !o.read;
-    info_.push_back(name + ": " + std::to_string(shapes) + " shapes, " + std::to_string(triangles) + " triangles, " +
-                    std::to_string(glows) + " glows, " + std::to_string(model_.lights.size()) + " lights, " +
-                    std::to_string(model_.objects().size()) + " objects" +
+    _info.push_back(name + ": " + std::to_string(shapes) + " shapes, " + std::to_string(triangles) + " triangles, " +
+                    std::to_string(glows) + " glows, " + std::to_string(_model.lights.size()) + " lights, " +
+                    std::to_string(_model.objects().size()) + " objects" +
                     (unread ? " (" + std::to_string(unread) + " not read)" : ""));
-    info_.push_back("Animated: " + std::to_string(trackOf_.size()) + " nodes, " + std::to_string(model_.morphs.size()) +
-                    " morphs, " + std::to_string(model_.materialAnimators.size()) + " material animators, " +
-                    std::to_string(model_.flips.size()) + " flip-books");
+    _info.push_back("Animated: " + std::to_string(_trackOf.size()) + " nodes, " + std::to_string(_model.morphs.size()) +
+                    " morphs, " + std::to_string(_model.materialAnimators.size()) + " material animators, " +
+                    std::to_string(_model.flips.size()) + " flip-books");
     if (missing) {
         std::string m = std::to_string(missing) + " images not found:";
         for (const std::string &name : missingNames)
             m += " " + name;
-        info_.push_back(m);
+        _info.push_back(m);
     }
 }
 
 void ModelPage::pose(float ticks) {
     walk(ticks, false);
-    posedTicks_ = ticks;
+    _posedTicks = ticks;
 }
 
 void ModelPage::walk(float ticks, bool create) {
-    for (Item &item : items_)
+    for (Item &item : _items)
         item.visible = false;
     std::array<float, 3> lo{std::numeric_limits<float>::max(), std::numeric_limits<float>::max(),
                             std::numeric_limits<float>::max()};
     std::array<float, 3> hi{-lo[0], -lo[1], -lo[2]};
     if (create)
-        hiddenCount_ = 0;
+        _hiddenCount = 0;
 
     auto applyProperties = [&](const FinAvObject &o, Inherited in) {
         for (uint32_t p : o.properties) {
-            const std::string type = model_.typeOf(p);
+            const std::string type = _model.typeOf(p);
             if (type == "NiTextureProperty")
                 in.texture = p;
             else if (type == "NiMultiTextureProperty")
@@ -649,8 +649,8 @@ void ModelPage::walk(float ticks, bool create) {
     // time; found again after.
     auto itemFor = [&](uint32_t id, Item::Kind kind, const FinShape &s, const Inherited &in, bool backdrop) -> Item * {
         if (!create) {
-            auto it = itemOf_.find(id);
-            return it == itemOf_.end() ? nullptr : &items_[it->second];
+            auto it = _itemOf.find(id);
+            return it == _itemOf.end() ? nullptr : &_items[it->second];
         }
         Item item;
         item.kind = kind;
@@ -659,50 +659,50 @@ void ModelPage::walk(float ticks, bool create) {
         // Images: the texture's (its first, or a flip-book's frames), the
         // multi-texture's lightmap. The texture uses the first uv set, the
         // lightmap the last.
-        if (auto t = model_.textures.find(in.texture); t != model_.textures.end())
+        if (auto t = _model.textures.find(in.texture); t != _model.textures.end())
             for (uint32_t frame : t->second)
-                if (auto img = model_.images.find(frame); img != model_.images.end())
+                if (auto img = _model.images.find(frame); img != _model.images.end())
                     item.frames.push_back(img->second);
-        if (auto f = flipOf_.find(in.texture); f != flipOf_.end() && item.frames.size() > 1)
+        if (auto f = _flipOf.find(in.texture); f != _flipOf.end() && item.frames.size() > 1)
             item.flip = f->second;
         else if (item.frames.size() > 1)
             item.frames.resize(1);
-        if (auto mt = model_.multiTextures.find(in.multiTexture); mt != model_.multiTextures.end())
-            if (auto img = model_.images.find(mt->second); img != model_.images.end())
+        if (auto mt = _model.multiTextures.find(in.multiTexture); mt != _model.multiTextures.end())
+            if (auto img = _model.images.find(mt->second); img != _model.images.end())
                 item.lightmap = img->second;
         item.material = in.material;
-        if (auto mat = model_.materials.find(in.material); mat != model_.materials.end())
+        if (auto mat = _model.materials.find(in.material); mat != _model.materials.end())
             item.baseColor = {mat->second.diffuse[0], mat->second.diffuse[1], mat->second.diffuse[2],
                               mat->second.alpha};
-        if (auto al = model_.alphas.find(in.alpha); al != model_.alphas.end() && al->second.blend) {
+        if (auto al = _model.alphas.find(in.alpha); al != _model.alphas.end() && al->second.blend) {
             item.blend = true;
             item.src = blendOf(al->second.source);
             item.dst = blendOf(al->second.destination);
         }
-        if (auto z = model_.zBuffers.find(in.zBuffer); z != model_.zBuffers.end()) {
+        if (auto z = _model.zBuffers.find(in.zBuffer); z != _model.zBuffers.end()) {
             item.depthTest = z->second[0] != 0;
             item.depthWrite = z->second[1] != 0;
         }
         item.vertexColors = !s.colors.empty();
         item.lit = !item.vertexColors && !s.normals.empty();
-        if (kind == Item::Kind::Glow) {
+        if (kind == Item::Kind::kGlow) {
             // Added to what's behind, facing the camera.
             item.blend = item.additive = item.billboard = true;
-            item.src = gfx::Blend::SrcAlpha;
-            item.dst = gfx::Blend::One;
+            item.src = gfx::Blend::kSrcAlpha;
+            item.dst = gfx::Blend::kOne;
             item.depthWrite = false;
             item.lit = false;
         }
-        itemOf_[id] = items_.size();
-        items_.push_back(std::move(item));
-        return &items_.back();
+        _itemOf[id] = _items.size();
+        _items.push_back(std::move(item));
+        return &_items.back();
     };
     // A fixed mesh made once; a skin's or morph's again each time.
     auto setMesh = [&](Item &item, const std::vector<gfx::Vertex> &verts, const std::vector<uint32_t> &indices) {
         if (item.mesh)
-            renderer_->destroyMesh(item.mesh);
+            _renderer->destroyMesh(item.mesh);
         item.mesh = 0;
-        if (renderer_->createMesh(verts, indices, item.mesh))
+        if (_renderer->createMesh(verts, indices, item.mesh))
             item.mesh = 0;
         item.indexCount = uint32_t(indices.size());
         item.localCentre = {};
@@ -714,7 +714,7 @@ void ModelPage::walk(float ticks, bool create) {
     auto place = [&](Item &item, const gfx::Mat4 &world, const Billboard &billboard, const std::vector<float> &local) {
         item.visible = true;
         item.world = world;
-        if (item.kind == Item::Kind::Glow || item.kind == Item::Kind::Light) {
+        if (item.kind == Item::Kind::kGlow || item.kind == Item::Kind::kLight) {
             item.billboard = true;
             item.billboardAt = world;
             item.rel = gfx::identity();
@@ -724,7 +724,7 @@ void ModelPage::walk(float ticks, bool create) {
             item.rel = billboard.rel;
         }
         item.centre = gfx::transformPoint(world, item.localCentre);
-        if (create && !item.backdrop && item.kind != Item::Kind::Glow && item.kind != Item::Kind::Light)
+        if (create && !item.backdrop && item.kind != Item::Kind::kGlow && item.kind != Item::Kind::kLight)
             for (size_t v = 0; v + 2 < local.size(); v += 3) {
                 const gfx::Vec3 w = gfx::transformPoint(world, {local[v], local[v + 1], local[v + 2]});
                 for (size_t k = 0; k < 3; ++k) {
@@ -755,29 +755,29 @@ void ModelPage::walk(float ticks, bool create) {
     // which the game must switch to itself, as nothing in the file says.
     auto isStandIn = [&](const FinNode &n) {
         return n.name.rfind("LOD_", 0) == 0 && n.children.size() == 1 &&
-               model_.typeOf(n.children.front()) == "NiBillboardNode";
+               _model.typeOf(n.children.front()) == "NiBillboardNode";
     };
     std::function<void(uint32_t, const gfx::Mat4 &, const Inherited &, int, bool, Billboard)> visit =
         [&](uint32_t id, const gfx::Mat4 &parent, const Inherited &inherited, int depth, bool backdrop,
             Billboard billboard) {
             if (depth > 64)
                 return;
-            if (auto node = model_.nodes.find(id); node != model_.nodes.end()) {
+            if (auto node = _model.nodes.find(id); node != _model.nodes.end()) {
                 const FinNode &n = node->second;
                 if (n.hidden || isStandIn(n)) {
-                    hiddenCount_ += create;
-                    if (!showHidden_)
+                    _hiddenCount += create;
+                    if (!_showHidden)
                         return;
                 }
                 bool shown = true;
-                const auto track = trackOf_.find(id);
+                const auto track = _trackOf.find(id);
                 gfx::Mat4 local;
-                if (track == trackOf_.end()) {
+                if (track == _trackOf.end()) {
                     local = localMatrix(n);
                 } else if (clipMoves(&FinActor::Clip::tracks, track->second)) {
-                    local = animated(n, actor_->tracks[track->second], ticks, shown);
-                    heldPose_[id] = {local, shown};
-                } else if (auto held = heldPose_.find(id); held != heldPose_.end()) {
+                    local = animated(n, _actor->tracks[track->second], ticks, shown);
+                    _heldPose[id] = {local, shown};
+                } else if (auto held = _heldPose.find(id); held != _heldPose.end()) {
                     local = held->second.local, shown = held->second.shown;
                 } else {
                     local = localMatrix(n); // as saved, which is the first key's pose
@@ -788,7 +788,7 @@ void ModelPage::walk(float ticks, bool create) {
                 worlds[id] = world;
                 if (billboard.on) {
                     billboard.rel = gfx::multiply(billboard.rel, local);
-                } else if (model_.typeOf(id) == "NiBillboardNode") {
+                } else if (_model.typeOf(id) == "NiBillboardNode") {
                     billboard.on = true;
                     billboard.at = world;
                 }
@@ -799,16 +799,16 @@ void ModelPage::walk(float ticks, bool create) {
                     visit(n.children[i], world, in, depth + 1, sky, billboard);
                 return;
             }
-            if (auto skin = model_.skins.find(id); skin != model_.skins.end()) {
+            if (auto skin = _model.skins.find(id); skin != _model.skins.end()) {
                 skins.push_back({id, &skin->second, parent, applyProperties(skin->second, inherited), backdrop});
                 return;
             }
-            if (auto light = model_.lights.find(id); light != model_.lights.end()) {
+            if (auto light = _model.lights.find(id); light != _model.lights.end()) {
                 const FinLight &l = light->second;
-                if (Item *item = itemFor(id, Item::Kind::Light, FinShape{}, inherited, backdrop)) {
+                if (Item *item = itemFor(id, Item::Kind::kLight, FinShape{}, inherited, backdrop)) {
                     if (create) {
                         // A small spot in the light's colour, sized with the view.
-                        static const std::vector<uint32_t> quad{0, 1, 2, 0, 2, 3};
+                        static const std::vector<uint32_t> kQuad{0, 1, 2, 0, 2, 3};
                         std::vector<gfx::Vertex> verts(4);
                         const float corner[4][2] = {{-1, -1}, {1, -1}, {1, 1}, {-1, 1}};
                         for (size_t v = 0; v < 4; ++v) {
@@ -819,10 +819,10 @@ void ModelPage::walk(float ticks, bool create) {
                             for (size_t k = 0; k < 4; ++k)
                                 verts[v].color[k] = 255;
                         }
-                        setMesh(*item, verts, quad);
+                        setMesh(*item, verts, kQuad);
                         item->blend = item->additive = true;
-                        item->src = gfx::Blend::SrcAlpha;
-                        item->dst = gfx::Blend::One;
+                        item->src = gfx::Blend::kSrcAlpha;
+                        item->dst = gfx::Blend::kOne;
                         item->depthWrite = false;
                         item->baseColor = {std::min(1.0f, l.diffuse[0]), std::min(1.0f, l.diffuse[1]),
                                            std::min(1.0f, l.diffuse[2]), 1};
@@ -832,19 +832,19 @@ void ModelPage::walk(float ticks, bool create) {
                 return;
             }
             const FinShape *s = nullptr;
-            Item::Kind kind = Item::Kind::Shape;
-            if (auto it = model_.shapes.find(id); it != model_.shapes.end()) {
+            Item::Kind kind = Item::Kind::kShape;
+            if (auto it = _model.shapes.find(id); it != _model.shapes.end()) {
                 s = &it->second;
-            } else if (auto m = model_.morphs.find(id); m != model_.morphs.end()) {
+            } else if (auto m = _model.morphs.find(id); m != _model.morphs.end()) {
                 s = &m->second;
-                kind = Item::Kind::Morph;
-            } else if (auto g = model_.coronas.find(id); g != model_.coronas.end()) {
+                kind = Item::Kind::kMorph;
+            } else if (auto g = _model.coronas.find(id); g != _model.coronas.end()) {
                 s = &g->second;
-                kind = Item::Kind::Glow;
+                kind = Item::Kind::kGlow;
             }
-            if (!s || s->vertices.empty() || (s->hidden && !showHidden_))
+            if (!s || s->vertices.empty() || (s->hidden && !_showHidden))
                 return;
-            if (kind != Item::Kind::Glow && s->triangles.empty())
+            if (kind != Item::Kind::kGlow && s->triangles.empty())
                 return;
             if (billboard.on)
                 billboard.rel = gfx::multiply(billboard.rel, localMatrix(*s));
@@ -853,18 +853,18 @@ void ModelPage::walk(float ticks, bool create) {
                 return;
             const std::vector<float> *local = &s->vertices;
             std::vector<float> blended;
-            if (kind == Item::Kind::Morph) {
+            if (kind == Item::Kind::kMorph) {
                 // The targets blended by the weights keyed now.
-                const FinMorph &m = model_.morphs.at(id);
+                const FinMorph &m = _model.morphs.at(id);
                 if (!m.keys.empty() && !m.targets.empty() && m.keys.front().weights.size() == m.targets.size()) {
                     // Each weight by Hermite's curve, with the key's tangent
                     // out and the next's in (NiBaryMorphKey::MorphInterpolate).
                     // Those the clip doesn't move stay as they were.
-                    const auto number = morphNumber_.find(id);
+                    const auto number = _morphNumber.find(id);
                     const bool moves =
-                        number == morphNumber_.end() || clipMoves(&FinActor::Clip::morphs, number->second);
+                        number == _morphNumber.end() || clipMoves(&FinActor::Clip::morphs, number->second);
                     std::vector<float> w;
-                    if (auto held = heldWeights_.find(id); !moves && held != heldWeights_.end()) {
+                    if (auto held = _heldWeights.find(id); !moves && held != _heldWeights.end()) {
                         w = held->second;
                     } else {
                         const float t = moves ? ticks : m.keys.front().time;
@@ -887,7 +887,7 @@ void ModelPage::walk(float ticks, bool create) {
                                 w[i] = p.weights[i] + u * (p.out[i] + u * (ca + u * cb));
                             }
                         }
-                        heldWeights_[id] = w;
+                        _heldWeights[id] = w;
                     }
                     // The first target is the shape; the others are offsets
                     // from it, added by their weights.
@@ -899,7 +899,7 @@ void ModelPage::walk(float ticks, bool create) {
                     local = &blended;
                 }
                 setMesh(*item, vertexData(*s, *local, normalsOf(*local, s->triangles)), indicesOf(*s));
-            } else if (create && kind == Item::Kind::Glow) {
+            } else if (create && kind == Item::Kind::kGlow) {
                 // A square (in X and Z) and its centre, turned to lie in X
                 // and Y so it faces the camera as a billboard does; a fan of
                 // four triangles from the centre.
@@ -918,7 +918,7 @@ void ModelPage::walk(float ticks, bool create) {
             }
             place(*item, gfx::multiply(parent, localMatrix(*s)), billboard, *local);
         };
-    for (uint32_t root : model_.roots())
+    for (uint32_t root : _model.roots())
         visit(root, gfx::identity(), Inherited{}, 0, false, Billboard{});
 
     // Skins: each vertex where its bones put it (the weighted sum of each
@@ -929,7 +929,7 @@ void ModelPage::walk(float ticks, bool create) {
         const FinSkin &s = *p.skin;
         if (s.triangles.empty() || s.vertices.empty() || s.firstInfluence.size() != size_t(s.vertexCount) + 1)
             continue;
-        Item *item = itemFor(p.id, Item::Kind::Skin, s, p.in, p.backdrop);
+        Item *item = itemFor(p.id, Item::Kind::kSkin, s, p.in, p.backdrop);
         if (!item)
             continue;
         const gfx::Mat4 own = gfx::multiply(p.parent, localMatrix(s));
@@ -962,106 +962,106 @@ void ModelPage::walk(float ticks, bool create) {
     if (!create)
         return;
     if (lo[0] > hi[0]) {
-        centre_ = {0, 0, 0};
-        radius_ = 10;
+        _centre = {0, 0, 0};
+        _radius = 10;
     } else {
-        centre_ = {(lo[0] + hi[0]) / 2, (lo[1] + hi[1]) / 2, (lo[2] + hi[2]) / 2};
-        radius_ = std::max(1.0f, std::sqrt((hi[0] - lo[0]) * (hi[0] - lo[0]) + (hi[1] - lo[1]) * (hi[1] - lo[1]) +
+        _centre = {(lo[0] + hi[0]) / 2, (lo[1] + hi[1]) / 2, (lo[2] + hi[2]) / 2};
+        _radius = std::max(1.0f, std::sqrt((hi[0] - lo[0]) * (hi[0] - lo[0]) + (hi[1] - lo[1]) * (hi[1] - lo[1]) +
                                            (hi[2] - lo[2]) * (hi[2] - lo[2])) /
                                      2);
     }
-    home_ = centre_;
+    _home = _centre;
 }
 
 void ModelPage::resetView() {
-    centre_ = home_;
-    yaw_ = 0.8f;
-    pitch_ = 0.5f;
-    distance_ = radius_ * 2.2f;
+    _centre = _home;
+    _yaw = 0.8f;
+    _pitch = 0.5f;
+    _distance = _radius * 2.2f;
 }
 
 void ModelPage::handleEvent(const Event &ev) {
-    if (!renderer_)
+    if (!_renderer)
         return;
-    const int n = int(names_.size());
+    const int n = int(_names.size());
     switch (ev.type) {
-    case EventType::KeyDown:
+    case EventType::kKeyDown:
         switch (ev.key) {
-        case key::Left:
-            show(index_ - 1);
+        case key::kLeft:
+            show(_index - 1);
             break;
-        case key::Right:
-            show(index_ + 1);
+        case key::kRight:
+            show(_index + 1);
             break;
-        case key::PageUp:
-            show(index_ - 10);
+        case key::kPageUp:
+            show(_index - 10);
             break;
-        case key::PageDown:
-            show(index_ + 10);
+        case key::kPageDown:
+            show(_index + 10);
             break;
-        case key::Home:
+        case key::kHome:
             show(0);
             break;
-        case key::End:
+        case key::kEnd:
             show(n - 1);
             break;
         case '+':
         case '=':
-            distance_ *= 0.85f;
+            _distance *= 0.85f;
             break;
         case '-':
-            distance_ /= 0.85f;
+            _distance /= 0.85f;
             break;
         case 'r':
             resetView();
             break;
         case 'i':
-            showInfo_ = !showInfo_;
+            _showInfo = !_showInfo;
             break;
         case 't':
-            useTextures_ = !useTextures_;
+            _useTextures = !_useTextures;
             break;
         case 'l':
-            useLightmaps_ = !useLightmaps_;
+            _useLightmaps = !_useLightmaps;
             break;
         case 'b':
-            showBackdrop_ = !showBackdrop_;
+            _showBackdrop = !_showBackdrop;
             break;
         case 'g':
-            lightMode_ = (lightMode_ + 1) % 3;
+            _lightMode = (_lightMode + 1) % 3;
             break;
         case 'f':
-            showFootprint_ = !showFootprint_;
+            _showFootprint = !_showFootprint;
             break;
         case 'c':
         case 'v':
-            if (!clips_.empty()) {
-                const int count = int(clips_.size());
-                clip_ = (clip_ + (ev.key == 'c' ? 1 : count - 1)) % count;
-                clipTime_ = 0;
+            if (!_clips.empty()) {
+                const int count = int(_clips.size());
+                _clip = (_clip + (ev.key == 'c' ? 1 : count - 1)) % count;
+                _clipTime = 0;
             }
             break;
         case ' ':
-            playing_ = !playing_;
-            if (!playing_)
+            _playing = !_playing;
+            if (!_playing)
                 stopClipSound();
             break;
         case 'h': {
-            showHidden_ = !showHidden_;
+            _showHidden = !_showHidden;
             // Keep the view and the clip.
-            const gfx::Vec3 centre = centre_;
-            const float yaw = yaw_;
-            const float pitch = pitch_;
-            const float distance = distance_;
-            const float time = clipTime_;
-            const int clip = clip_;
-            show(index_);
-            centre_ = centre;
-            yaw_ = yaw;
-            pitch_ = pitch;
-            distance_ = distance;
-            clip_ = clip;
-            clipTime_ = time;
+            const gfx::Vec3 centre = _centre;
+            const float yaw = _yaw;
+            const float pitch = _pitch;
+            const float distance = _distance;
+            const float time = _clipTime;
+            const int clip = _clip;
+            show(_index);
+            _centre = centre;
+            _yaw = yaw;
+            _pitch = pitch;
+            _distance = distance;
+            _clip = clip;
+            _clipTime = time;
             break;
         }
         case 'w':
@@ -1072,39 +1072,39 @@ void ModelPage::handleEvent(const Event &ev) {
         case 'e': {
             // Move the centre along the view's directions, a tenth of the
             // distance a press.
-            const float step = distance_ * 0.1f;
-            const gfx::Vec3 fwd{-std::cos(yaw_), -std::sin(yaw_), 0};
-            const gfx::Vec3 right{std::sin(yaw_), -std::cos(yaw_), 0};
+            const float step = _distance * 0.1f;
+            const gfx::Vec3 fwd{-std::cos(_yaw), -std::sin(_yaw), 0};
+            const gfx::Vec3 right{std::sin(_yaw), -std::cos(_yaw), 0};
             const float f = ev.key == 'w' ? step : ev.key == 's' ? -step : 0;
             const float r = ev.key == 'd' ? step : ev.key == 'a' ? -step : 0;
             const float u = ev.key == 'e' ? step : ev.key == 'q' ? -step : 0;
             for (size_t k = 0; k < 3; ++k)
-                centre_[k] += fwd[k] * f + right[k] * r;
-            centre_[2] += u;
+                _centre[k] += fwd[k] * f + right[k] * r;
+            _centre[2] += u;
             break;
         }
         default:
             break;
         }
         break;
-    case EventType::MouseDown:
-        dragging_ = true;
-        lastX_ = ev.mouseX;
-        lastY_ = ev.mouseY;
+    case EventType::kMouseDown:
+        _dragging = true;
+        _lastX = ev.mouseX;
+        _lastY = ev.mouseY;
         break;
-    case EventType::MouseUp:
-        dragging_ = false;
+    case EventType::kMouseUp:
+        _dragging = false;
         break;
-    case EventType::MouseMove:
-        if (dragging_) {
-            yaw_ -= float(ev.mouseX - lastX_) * 0.01f;
-            pitch_ = std::clamp(pitch_ + float(ev.mouseY - lastY_) * 0.01f, -1.5f, 1.5f);
-            lastX_ = ev.mouseX;
-            lastY_ = ev.mouseY;
+    case EventType::kMouseMove:
+        if (_dragging) {
+            _yaw -= float(ev.mouseX - _lastX) * 0.01f;
+            _pitch = std::clamp(_pitch + float(ev.mouseY - _lastY) * 0.01f, -1.5f, 1.5f);
+            _lastX = ev.mouseX;
+            _lastY = ev.mouseY;
         }
         break;
-    case EventType::MouseWheel:
-        distance_ *= ev.wheelY > 0 ? 0.85f : 1 / 0.85f;
+    case EventType::kMouseWheel:
+        _distance *= ev.wheelY > 0 ? 0.85f : 1 / 0.85f;
         break;
     default:
         break;
@@ -1112,36 +1112,36 @@ void ModelPage::handleEvent(const Event &ev) {
 }
 
 void ModelPage::update(uint64_t nowMs) {
-    if (!renderer_)
+    if (!_renderer)
         return;
     // The clock: the clip moves on while playing.
-    const uint64_t step = lastMs_ ? std::min<uint64_t>(nowMs - std::min(nowMs, lastMs_), 100) : 0;
-    lastMs_ = nowMs;
-    if (playing_)
-        clipTime_ += float(step) / 1000;
-    if (const float ticks = clipTicks(); ticks != posedTicks_)
+    const uint64_t step = _lastMs ? std::min<uint64_t>(nowMs - std::min(nowMs, _lastMs), 100) : 0;
+    _lastMs = nowMs;
+    if (_playing)
+        _clipTime += float(step) / 1000;
+    if (const float ticks = clipTicks(); ticks != _posedTicks)
         pose(ticks);
     clipSound();
 
-    const gfx::Vec3 offset{std::cos(pitch_) * std::cos(yaw_), std::cos(pitch_) * std::sin(yaw_), std::sin(pitch_)};
-    const gfx::Vec3 eye{centre_[0] + offset[0] * distance_, centre_[1] + offset[1] * distance_,
-                        centre_[2] + offset[2] * distance_};
-    const float zNear = std::max(0.5f, distance_ / 1000);
-    const float zFar = distance_ + radius_ * 4;
+    const gfx::Vec3 offset{std::cos(_pitch) * std::cos(_yaw), std::cos(_pitch) * std::sin(_yaw), std::sin(_pitch)};
+    const gfx::Vec3 eye{_centre[0] + offset[0] * _distance, _centre[1] + offset[1] * _distance,
+                        _centre[2] + offset[2] * _distance};
+    const float zNear = std::max(0.5f, _distance / 1000);
+    const float zFar = _distance + _radius * 4;
     const gfx::Mat4 viewProj = gfx::multiply(gfx::perspective(0.9f, float(kFrameW) / float(kFrameH), zNear, zFar),
                                              gfx::lookAlong(eye, {-offset[0], -offset[1], -offset[2]}, {0, 0, 1}));
-    renderer_->beginFrame(viewProj, eye, {60, 64, 74});
+    _renderer->beginFrame(viewProj, eye, {60, 64, 74});
 
     // Material animators: the colour and alpha keyed now. Colour 1 is the
     // diffuse colour, 3 emissive (added); 0, ambient, is left out.
-    const float ticks = posedTicks_;
-    for (Item &item : items_) {
+    const float ticks = _posedTicks;
+    for (Item &item : _items) {
         item.color = item.baseColor;
-        if (auto a = animatorsOf_.find(item.material); a != animatorsOf_.end())
+        if (auto a = _animatorsOf.find(item.material); a != _animatorsOf.end())
             for (const FinMaterialAnimator *anim : a->second) {
                 if (anim->keys.empty())
                     continue;
-                const std::array<float, 3> v = sample(anim->keys, ticks, straight3);
+                const std::array<float, 3> v = sample(anim->keys, ticks, kStraight3);
                 if (anim->alpha) {
                     item.color[3] = v[0];
                 } else if (anim->channel == 1) {
@@ -1151,7 +1151,7 @@ void ModelPage::update(uint64_t nowMs) {
                         item.color[k] += v[k];
                 }
             }
-        if (item.vertexColors && item.kind != Item::Kind::Light)
+        if (item.vertexColors && item.kind != Item::Kind::kLight)
             item.color = {1, 1, 1, item.color[3]};
     }
 
@@ -1159,14 +1159,14 @@ void ModelPage::update(uint64_t nowMs) {
     // those that blend, the farthest first.
     std::vector<const Item *> order;
     auto drawn = [&](const Item &item) {
-        return item.visible && item.mesh && (showBackdrop_ || !item.backdrop) &&
-               (item.kind != Item::Kind::Light || lightMode_ > 0);
+        return item.visible && item.mesh && (_showBackdrop || !item.backdrop) &&
+               (item.kind != Item::Kind::kLight || _lightMode > 0);
     };
-    for (const Item &item : items_)
+    for (const Item &item : _items)
         if (!item.blend && drawn(item))
             order.push_back(&item);
     const size_t opaque = order.size();
-    for (const Item &item : items_)
+    for (const Item &item : _items)
         if (item.blend && drawn(item))
             order.push_back(&item);
     auto distance2 = [&](const Item *i) {
@@ -1177,7 +1177,7 @@ void ModelPage::update(uint64_t nowMs) {
     };
     std::stable_sort(order.begin() + std::ptrdiff_t(opaque), order.end(),
                      [&](const Item *a, const Item *b) { return distance2(a) > distance2(b); });
-    const float markerSize = radius_ * 0.03f;
+    const float markerSize = _radius * 0.03f;
     // The model's own lights (G twice), for the shapes lit by normals, as
     // NiDirect3d lights vertices (fin.md): every light's ambient, and the
     // one light reaching the shape most strongly, from its direction. Each
@@ -1192,17 +1192,17 @@ void ModelPage::update(uint64_t nowMs) {
     };
     std::vector<SceneLight> sceneLights;
     gfx::Vec3 sceneAmbient{};
-    if (lightMode_ == 2)
-        for (const Item &item : items_) {
-            if (item.kind != Item::Kind::Light || !item.visible)
+    if (_lightMode == 2)
+        for (const Item &item : _items) {
+            if (item.kind != Item::Kind::kLight || !item.visible)
                 continue;
-            const FinLight &l = model_.lights.at(item.id);
+            const FinLight &l = _model.lights.at(item.id);
             if (!l.on)
                 continue;
             SceneLight sl;
             sl.position = {item.world[12], item.world[13], item.world[14]};
-            sl.directional = l.type == FinLight::Directional;
-            if (l.type == FinLight::Spot) {
+            sl.directional = l.type == FinLight::kDirectional;
+            if (l.type == FinLight::kSpot) {
                 const float angle = l.spotAngle * 3.14159265f / 180;
                 sl.spot = std::cos(angle) > 0; // wider than a half-space: as a point light
                 sl.cos2 = std::cos(angle) * std::cos(angle);
@@ -1218,7 +1218,7 @@ void ModelPage::update(uint64_t nowMs) {
                 sl.color[k] = std::clamp(l.diffuse[k] * l.dimmer, 0.0f, 2.0f);
                 sceneAmbient[k] += l.ambient[k] * l.dimmer;
             }
-            if (l.type == FinLight::Ambient)
+            if (l.type == FinLight::kAmbient)
                 continue;
             // At the distance D, 1/64; the curve c sets the cubic part,
             // k = c^4. No distance: nothing reaches.
@@ -1240,7 +1240,7 @@ void ModelPage::update(uint64_t nowMs) {
         call.mesh = item.mesh;
         call.indexCount = item.indexCount;
         call.model = item.billboard ? gfx::multiply(facingCamera(item.billboardAt, eye), item.rel) : item.world;
-        if (item.kind == Item::Kind::Light) {
+        if (item.kind == Item::Kind::kLight) {
             gfx::Mat4 scale = gfx::identity();
             scale[0] = scale[5] = scale[10] = markerSize;
             gfx::Mat4 at = facingCamera(item.billboardAt, eye);
@@ -1255,21 +1255,21 @@ void ModelPage::update(uint64_t nowMs) {
         // clip's time in whole ticks: those the clip lists (all of them
         // on the whole timeline); the others keep theirs.
         if (item.flip && item.frames.size() > 1) {
-            const FinActor::Clip &c = clips_[size_t(clip_)];
-            const auto number = flipNumber_.find(item.flip);
-            if (clip_ == 0 || (number != flipNumber_.end() &&
+            const FinActor::Clip &c = _clips[size_t(_clip)];
+            const auto number = _flipNumber.find(item.flip);
+            if (_clip == 0 || (number != _flipNumber.end() &&
                                std::find(c.flips.begin(), c.flips.end(), number->second) != c.flips.end()))
                 item.image = item.flip->image(std::floor(double(clipTicks()) + 0.5), item.frames.size());
         }
         const size_t frame = item.image;
-        call.texture = useTextures_ && !item.frames.empty() ? texture(item.frames[frame]) : 0;
-        if ((item.kind == Item::Kind::Glow && !call.texture) || item.kind == Item::Kind::Light)
+        call.texture = _useTextures && !item.frames.empty() ? texture(item.frames[frame]) : 0;
+        if ((item.kind == Item::Kind::kGlow && !call.texture) || item.kind == Item::Kind::kLight)
             call.texture = glowTexture();
         call.color = item.color;
-        call.rgbSource = item.vertexColors && item.kind != Item::Kind::Light ? gfx::ColorSource::Vertex
-                         : item.lit                                          ? gfx::ColorSource::Lighting
-                                                                             : gfx::ColorSource::Constant;
-        call.alphaSource = item.vertexColors ? gfx::ColorSource::Vertex : gfx::ColorSource::Constant;
+        call.rgbSource = item.vertexColors && item.kind != Item::Kind::kLight ? gfx::ColorSource::kVertex
+                         : item.lit                                           ? gfx::ColorSource::kLighting
+                                                                              : gfx::ColorSource::kConstant;
+        call.alphaSource = item.vertexColors ? gfx::ColorSource::kVertex : gfx::ColorSource::kConstant;
         // A light over the viewer's shoulder; or the model's own.
         call.ambientLight = {0.45f, 0.45f, 0.45f};
         call.directedLight = {0.6f, 0.6f, 0.6f};
@@ -1316,77 +1316,77 @@ void ModelPage::update(uint64_t nowMs) {
         // the files asks otherwise (closed shapes that blend, such as the
         // skeletons' heads, would otherwise show their insides);
         // billboards are seen from the front anyway.
-        call.state.cull = item.billboard ? gfx::Cull::None : gfx::Cull::Back;
+        call.state.cull = item.billboard ? gfx::Cull::kNone : gfx::Cull::kBack;
         call.state.depthTest = item.depthTest;
         call.state.depthWrite = item.depthWrite;
         if (item.blend) {
             call.state.src = item.src;
             call.state.dst = item.dst;
-            call.state.alphaTest = gfx::AlphaTest::Gt0;
+            call.state.alphaTest = gfx::AlphaTest::kGt0;
         }
-        renderer_->draw(call);
-        if (useLightmaps_ && !item.lightmap.empty() && !item.blend) {
+        _renderer->draw(call);
+        if (_useLightmaps && !item.lightmap.empty() && !item.blend) {
             if (const gfx::TextureId lm = texture(item.lightmap)) {
                 gfx::DrawCall light = call;
                 light.texture = lm;
-                light.texGen = gfx::TexGen::Uv2;
+                light.texGen = gfx::TexGen::kUv2;
                 light.color = {1, 1, 1, 1};
-                light.rgbSource = light.alphaSource = gfx::ColorSource::Constant;
-                light.state.src = gfx::Blend::DstColor;
-                light.state.dst = gfx::Blend::Zero;
+                light.rgbSource = light.alphaSource = gfx::ColorSource::kConstant;
+                light.state.src = gfx::Blend::kDstColor;
+                light.state.dst = gfx::Blend::kZero;
                 light.state.depthEqual = true;
                 light.state.depthWrite = false;
-                renderer_->draw(light);
+                _renderer->draw(light);
             }
         }
     }
 
-    if (showFootprint_ && footprint_) {
+    if (_showFootprint && _footprint) {
         gfx::DrawCall call;
-        call.mesh = footprint_;
-        call.indexCount = footprintCount_;
+        call.mesh = _footprint;
+        call.indexCount = _footprintCount;
         call.color = {0.3f, 1, 0.4f, 0.4f};
-        call.state.cull = gfx::Cull::None;
+        call.state.cull = gfx::Cull::kNone;
         call.state.depthTest = false; // over the model, as it's under it
         call.state.depthWrite = false;
-        call.state.src = gfx::Blend::SrcAlpha;
-        call.state.dst = gfx::Blend::OneMinusSrcAlpha;
-        renderer_->draw(call);
+        call.state.src = gfx::Blend::kSrcAlpha;
+        call.state.dst = gfx::Blend::kOneMinusSrcAlpha;
+        _renderer->draw(call);
     }
 
-    std::fill(overlay_.pixels.begin(), overlay_.pixels.end(), 0);
+    std::fill(_overlay.pixels.begin(), _overlay.pixels.end(), 0);
     std::vector<std::string> lines;
-    if (showInfo_) {
-        lines = info_;
-        if (clips_.size() > 1 || (!clips_.empty() && clips_.front().end > 0)) {
-            const FinActor::Clip &c = clips_[size_t(clip_)];
+    if (_showInfo) {
+        lines = _info;
+        if (_clips.size() > 1 || (!_clips.empty() && _clips.front().end > 0)) {
+            const FinActor::Clip &c = _clips[size_t(_clip)];
             char at[64];
             std::snprintf(at, sizeof at, "%.2f s of %.2f",
-                          c.end > c.start ? std::fmod(clipTime_, c.end - c.start) : 0.0f, c.end - c.start);
+                          c.end > c.start ? std::fmod(_clipTime, c.end - c.start) : 0.0f, c.end - c.start);
             std::string sound;
             if (!c.sound.empty()) {
-                auto it = sounds_.find(c.sound);
-                sound = "  sound " + c.sound + (it != sounds_.end() && !it->second ? " (not found)" : "") +
+                auto it = _sounds.find(c.sound);
+                sound = "  sound " + c.sound + (it != _sounds.end() && !it->second ? " (not found)" : "") +
                         (c.loop ? ", looping" : "");
             }
-            lines.push_back("Clip " + std::to_string(clip_ + 1) + "/" + std::to_string(clips_.size()) + ": " + c.name +
-                            "  " + at + (playing_ ? "" : " (paused)") + sound + "   C/V: clip   Space: pause");
+            lines.push_back("Clip " + std::to_string(_clip + 1) + "/" + std::to_string(_clips.size()) + ": " + c.name +
+                            "  " + at + (_playing ? "" : " (paused)") + sound + "   C/V: clip   Space: pause");
         }
         lines.push_back("Left/Right: model   drag: turn   wheel: zoom   W/A/S/D/Q/E: move   R: reset   I: info");
         lines.push_back(
-            std::string("T: textures (") + (useTextures_ ? "on" : "off") + ")   L: lightmaps (" +
-            (useLightmaps_ ? "on" : "off") + ")   B: sky (" + (showBackdrop_ ? "on" : "off") + ")   G: lights (" +
-            (lightMode_ == 0   ? "off"
-             : lightMode_ == 1 ? "marked"
+            std::string("T: textures (") + (_useTextures ? "on" : "off") + ")   L: lightmaps (" +
+            (_useLightmaps ? "on" : "off") + ")   B: sky (" + (_showBackdrop ? "on" : "off") + ")   G: lights (" +
+            (_lightMode == 0   ? "off"
+             : _lightMode == 1 ? "marked"
                                : "lighting") +
             ")   F: footprint (" +
-            (!footprint_      ? "none"
-             : showFootprint_ ? "on"
+            (!_footprint      ? "none"
+             : _showFootprint ? "on"
                               : "off") +
-            ")   H: hidden (" + std::to_string(hiddenCount_) + ", " + (showHidden_ ? "shown" : "not shown") + ")");
+            ")   H: hidden (" + std::to_string(_hiddenCount) + ", " + (_showHidden ? "shown" : "not shown") + ")");
     }
-    if (!error_.empty())
-        lines.push_back(error_);
+    if (!_error.empty())
+        lines.push_back(_error);
     if (!lines.empty()) {
         const int lh = font::kLineHeight;
         size_t widest = 0;
@@ -1396,12 +1396,12 @@ void ModelPage::update(uint64_t nowMs) {
         const int boxH = int(lines.size()) * lh + 6;
         for (int y = 0; y < boxH; ++y)
             for (int x = 0; x < boxW; ++x)
-                overlay_.row(y)[x * 4 + 3] = 150;
+                _overlay.row(y)[x * 4 + 3] = 150;
         for (size_t i = 0; i < lines.size(); ++i)
-            font::drawText(overlay_, 4, 3 + int(i) * lh, lines[i],
-                           lines[i] == error_ ? Color{255, 120, 120} : Color{230, 230, 230});
+            font::drawText(_overlay, 4, 3 + int(i) * lh, lines[i],
+                           lines[i] == _error ? Color{255, 120, 120} : Color{230, 230, 230});
     }
-    renderer_->endFrame(&overlay_);
+    _renderer->endFrame(&_overlay);
 }
 
 } // namespace reluva::netimmerse

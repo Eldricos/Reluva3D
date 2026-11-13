@@ -62,43 +62,43 @@ public:
             titles.push_back(t);
     }
     bool pollEvent(Event &ev) override {
-        if (next_ < inputs.size() && inputs[next_].at <= getMillis()) {
-            ev = inputs[next_++].event;
+        if (_next < inputs.size() && inputs[_next].at <= getMillis()) {
+            ev = inputs[_next++].event;
             return true;
         }
         return false;
     }
     void delayMillis(uint32_t ms) override {
         HeadlessSystem::delayMillis(ms);
-        if (!audio_)
+        if (!_audio)
             return;
-        pending_ += int64_t(ms) * 44100;
-        const int frames = int(pending_ / 1000);
-        pending_ %= 1000;
+        _pending += int64_t(ms) * 44100;
+        const int frames = int(_pending / 1000);
+        _pending %= 1000;
         std::vector<int16_t> buf(size_t(frames) * 2);
-        audio_(buf.data(), frames);
+        _audio(buf.data(), frames);
         sound.bytes(buf.data(), buf.size() * 2);
         soundFrames += frames;
         for (int16_t v : buf)
             soundPeak = std::max<int64_t>(soundPeak, v < 0 ? -int64_t(v) : v);
     }
     Error startAudio(AudioCallback cb) override {
-        audio_ = std::move(cb);
+        _audio = std::move(cb);
         return Error::success();
     }
-    void stopAudio() override { audio_ = nullptr; }
+    void stopAudio() override { _audio = nullptr; }
     int audioRate() const override { return 44100; }
 
 private:
-    size_t next_ = 0;
-    AudioCallback audio_;
-    int64_t pending_ = 0;
+    size_t _next = 0;
+    AudioCallback _audio;
+    int64_t _pending = 0;
 };
 
 Event mouse(EventType type, int x, int y) {
     Event e;
     e.type = type;
-    e.button = MouseButton::Left;
+    e.button = MouseButton::kLeft;
     e.mouseX = x;
     e.mouseY = y;
     return e;
@@ -233,9 +233,9 @@ void engineTest(const std::filesystem::path &tmp) {
                       tmp / "saves",
                       {{"start_scene", "S0"}, {"music_volume", "100"}}};
     PlayingSystem sys;
-    sys.inputs = {{2000, mouse(EventType::MouseMove, 150, 150)},
-                  {2020, mouse(EventType::MouseDown, 150, 150)},
-                  {3000, Event{EventType::ReturnToLauncher}}};
+    sys.inputs = {{2000, mouse(EventType::kMouseMove, 150, 150)},
+                  {2020, mouse(EventType::kMouseDown, 150, 150)},
+                  {3000, Event{EventType::kReturnToLauncher}}};
     auto game = engine->create(sys, target);
     const Error err = game->run();
     rec.add("run.result", err ? "error: " + err.message : std::string("ok"));
@@ -256,7 +256,7 @@ void engineTest(const std::filesystem::path &tmp) {
 
 } // namespace
 
-static const reluva::test::Suite suite("stharbinger.engine",
-                                       {
-                                           {"play through", [](const std::filesystem::path &tmp) { engineTest(tmp); }},
-                                       });
+static const reluva::test::Suite kSuite("stharbinger.engine",
+                                        {
+                                            {"play through", [](const std::filesystem::path &tmp) { engineTest(tmp); }},
+                                        });

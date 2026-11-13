@@ -21,64 +21,64 @@ namespace {
 // Elite Force ui.qvm system calls. The evidence for each number is in
 // docs/engines/idtech3/games/stvef/systems/syscalls.md.
 enum UiCall : int {
-    Error_ = 0,
-    Print = 1,
-    Milliseconds = 2,
-    CvarSet = 3,
-    CvarVariableValue = 4,
-    CvarVariableStringBuffer = 5,
-    CvarSetValue = 6,
-    CvarReset = 7,
-    CvarCreate = 8,
-    CvarInfoStringBuffer = 9,
-    Argc = 10,
-    Argv = 11,
-    CmdExecuteText = 12,
-    FsFOpenFile = 13,
-    FsRead = 14,
-    FsWrite = 15,
-    FsFCloseFile = 16,
-    FsGetFileList = 17,
-    RRegisterModel = 18,
-    RRegisterSkin = 19,
-    RRegisterShaderNoMip = 20,
-    RClearScene = 21,
-    RAddRefEntityToScene = 22,
-    RAddPolyToScene = 23,
-    RAddLightToScene = 24,
-    RRenderScene = 25,
-    RSetColor = 26,
-    RDrawStretchPic = 27,
-    UpdateScreen = 28,
-    CmLerpTag = 29, // Quake III's number; (orientation_t*, model, startFrame, endFrame, frac, tagName)
-    SRegisterSound = 31,
-    SStartLocalSound = 32,
-    KeyKeynumToStringBuf = 33,
-    KeyGetBindingBuf = 34,
-    KeySetBinding = 35,
-    KeyIsDown = 36,
-    KeyGetOverstrikeMode = 37,
-    KeySetOverstrikeMode = 38,
-    KeyClearStates = 39,
-    KeyGetCatcher = 40,
-    KeySetCatcher = 41,
-    GetClipboardData = 42,
-    GetGlconfig = 43,
-    GetClientState = 44,
-    GetConfigString = 45,
-    LanGetLocalServerCount = 46,
-    LanGetLocalServerAddressString = 47, // (n, buffer, size)
-    LanGetGlobalServerCount = 48,
-    LanGetGlobalServerAddressString = 49,
-    LanGetPingQueueCount = 50,
-    LanClearPing = 51,   // (n)
-    LanGetPing = 52,     // (n, buffer, size, &time)
-    LanGetPingInfo = 53, // (n, buffer, size)
-    CvarRegister = 54,
-    CvarUpdate = 55,
-    MemoryRemaining = 56,
-    SetCdKey = 57,     // (key) -> whether it's taken; seen on the CD key screen's Accept
-    RModelBounds = 58, // (model, mins[3], maxs[3]); seen after registering the phaser model
+    kError = 0,
+    kPrint = 1,
+    kMilliseconds = 2,
+    kCvarSet = 3,
+    kCvarVariableValue = 4,
+    kCvarVariableStringBuffer = 5,
+    kCvarSetValue = 6,
+    kCvarReset = 7,
+    kCvarCreate = 8,
+    kCvarInfoStringBuffer = 9,
+    kArgc = 10,
+    kArgv = 11,
+    kCmdExecuteText = 12,
+    kFsFOpenFile = 13,
+    kFsRead = 14,
+    kFsWrite = 15,
+    kFsFCloseFile = 16,
+    kFsGetFileList = 17,
+    kRRegisterModel = 18,
+    kRRegisterSkin = 19,
+    kRRegisterShaderNoMip = 20,
+    kRClearScene = 21,
+    kRAddRefEntityToScene = 22,
+    kRAddPolyToScene = 23,
+    kRAddLightToScene = 24,
+    kRRenderScene = 25,
+    kRSetColor = 26,
+    kRDrawStretchPic = 27,
+    kUpdateScreen = 28,
+    kCmLerpTag = 29, // Quake III's number; (orientation_t*, model, startFrame, endFrame, frac, tagName)
+    kSRegisterSound = 31,
+    kSStartLocalSound = 32,
+    kKeyKeynumToStringBuf = 33,
+    kKeyGetBindingBuf = 34,
+    kKeySetBinding = 35,
+    kKeyIsDown = 36,
+    kKeyGetOverstrikeMode = 37,
+    kKeySetOverstrikeMode = 38,
+    kKeyClearStates = 39,
+    kKeyGetCatcher = 40,
+    kKeySetCatcher = 41,
+    kGetClipboardData = 42,
+    kGetGlconfig = 43,
+    kGetClientState = 44,
+    kGetConfigString = 45,
+    kLanGetLocalServerCount = 46,
+    kLanGetLocalServerAddressString = 47, // (n, buffer, size)
+    kLanGetGlobalServerCount = 48,
+    kLanGetGlobalServerAddressString = 49,
+    kLanGetPingQueueCount = 50,
+    kLanClearPing = 51,   // (n)
+    kLanGetPing = 52,     // (n, buffer, size, &time)
+    kLanGetPingInfo = 53, // (n, buffer, size)
+    kCvarRegister = 54,
+    kCvarUpdate = 55,
+    kMemoryRemaining = 56,
+    kSetCdKey = 57,     // (key) -> whether it's taken; seen on the CD key screen's Accept
+    kRModelBounds = 58, // (model, mins[3], maxs[3]); seen after registering the phaser model
 };
 
 // glconfig_t as Elite Force's menus use it (qvm-refs): renderer, vendor
@@ -92,15 +92,15 @@ constexpr int32_t kClientStateSize = 12 + 3 * 1024;
 
 } // namespace
 
-UiHost::UiHost(const SearchSet &files, CvarStore &cvars) : files_(files), cvars_(cvars), vmFiles_(files) {
-    vm_.setSystemCall([this](Qvm &vm, int number, const int32_t *args) { return systemCall(vm, number, args); });
+UiHost::UiHost(const SearchSet &files, CvarStore &cvars) : _files(files), _cvars(cvars), _vmFiles(files) {
+    _vm.setSystemCall([this](Qvm &vm, int number, const int32_t *args) { return systemCall(vm, number, args); });
 }
 
 Error UiHost::load() {
     std::vector<uint8_t> data;
-    if (Error err = files_.read("vm/ui.qvm", data))
+    if (Error err = _files.read("vm/ui.qvm", data))
         return Error::fail("vm/ui.qvm: " + err.message);
-    if (Error err = vm_.load(data))
+    if (Error err = _vm.load(data))
         return Error::fail("vm/ui.qvm: " + err.message);
     // The Expansion Pack's menus: patch 1.2's show the Holomatch modes'
     // buttons and the settings that go with them when ui_cdkeychecked2 is
@@ -111,18 +111,18 @@ Error UiHost::load() {
     {
         std::vector<uint8_t> expansion;
         std::vector<uint8_t> base;
-        const bool hasExpansionKey = !files_.read("expefq3.key", expansion) && !expansion.empty() &&
-                                     (files_.read("efq3.key", base) || base != expansion);
-        cvars_.create("reluva_modeButtons", "1", CvarStore::Archive);
-        cvars_.create("ui_cdkeychecked2", "0", CvarStore::ReadOnly);
-        cvars_.set("ui_cdkeychecked2", hasExpansionKey || cvars_.integer("reluva_modeButtons") ? "1" : "0", true);
+        const bool hasExpansionKey = !_files.read("expefq3.key", expansion) && !expansion.empty() &&
+                                     (_files.read("efq3.key", base) || base != expansion);
+        _cvars.create("reluva_modeButtons", "1", CvarStore::kArchive);
+        _cvars.create("ui_cdkeychecked2", "0", CvarStore::kReadOnly);
+        _cvars.set("ui_cdkeychecked2", hasExpansionKey || _cvars.integer("reluva_modeButtons") ? "1" : "0", true);
     }
     // The engine's settings the server list reads: its protocol, and the
     // master servers.
-    cvars_.create("protocol", "24", CvarStore::ServerInfo | CvarStore::ReadOnly);
-    masterServerNames(cvars_, masterServers());
+    _cvars.create("protocol", "24", CvarStore::kServerInfo | CvarStore::kReadOnly);
+    masterServerNames(_cvars, masterServers());
     int32_t version = 0;
-    if (Error err = call(GetApiVersion, {}, version))
+    if (Error err = call(kGetApiVersion, {}, version))
         return err;
     if (version != kApiVersion)
         return Error::fail("vm/ui.qvm reports API version " + std::to_string(version) + ", not " +
@@ -131,36 +131,36 @@ Error UiHost::load() {
 }
 
 Error UiHost::call(int32_t command, const std::vector<int32_t> &args, int32_t &result) {
-    Error err = vm_.call(command, args, result);
+    Error err = _vm.call(command, args, result);
     // The menus ask for the CD key until ui_cdkeychecked is set, which
     // they do once one is accepted. With a key kept from an earlier run,
     // that has happened.
-    if (!err && command == Init && cdKeyLooksValid(storedCdKey()))
-        cvars_.set("ui_cdkeychecked", "1", true);
+    if (!err && command == kInit && cdKeyLooksValid(storedCdKey()))
+        _cvars.set("ui_cdkeychecked", "1", true);
     return err;
 }
 
 Error UiHost::refresh(int32_t time) {
     setTime(time);
     int32_t fullscreen = 0;
-    if (Error err = call(IsFullscreen, {}, fullscreen))
+    if (Error err = call(kIsFullscreen, {}, fullscreen))
         return err;
     // Disconnected, the menus always show something covering the screen:
     // the main menu, if nothing else, as the original's engine reopens it
     // (only then: over a match, the in-game menu doesn't cover it).
-    if (!fullscreen && clientState.connState <= 1 && !mainMenuNotFullscreen_) {
-        if (Error err = call(SetActiveMenu, {1})) // the main menu
+    if (!fullscreen && clientState.connState <= 1 && !_mainMenuNotFullscreen) {
+        if (Error err = call(kSetActiveMenu, {1})) // the main menu
             return err;
         // It should cover the screen now; if it doesn't, opening it every
         // frame would only keep resetting it.
-        if (Error err = call(IsFullscreen, {}, fullscreen))
+        if (Error err = call(kIsFullscreen, {}, fullscreen))
             return err;
         if (!fullscreen) {
-            mainMenuNotFullscreen_ = true;
-            log_ += "Reluva: the main menu doesn't report covering the screen; not reopening it\n";
+            _mainMenuNotFullscreen = true;
+            _log += "Reluva: the main menu doesn't report covering the screen; not reopening it\n";
         }
     }
-    return call(Refresh, {time});
+    return call(kRefresh, {time});
 }
 
 bool UiHost::cdKeyLooksValid(const std::string &key) {
@@ -175,24 +175,24 @@ bool UiHost::cdKeyLooksValid(const std::string &key) {
 }
 
 const std::string &UiHost::storedCdKey() {
-    if (!cdKeyRead_) {
+    if (!_cdKeyRead) {
         // Kept by Reluva, not where the original keeps it.
-        cdKeyRead_ = true;
-        if (!keyFile_.empty()) {
-            std::ifstream in(keyFile_);
-            std::getline(in, cdKey_);
+        _cdKeyRead = true;
+        if (!_keyFile.empty()) {
+            std::ifstream in(_keyFile);
+            std::getline(in, _cdKey);
         }
     }
-    return cdKey_;
+    return _cdKey;
 }
 
 void UiHost::writeGlconfig(int32_t address) {
-    if (!vm_.checkWrite(address, kGlconfigSize))
+    if (!_vm.checkWrite(address, kGlconfigSize))
         return;
-    std::memset(&vm_.memory()[size_t(address)], 0, kGlconfigSize);
-    vm_.writeString(address, "Reluva", 1024);
-    vm_.writeString(address + 1024, "Reluva", 1024);
-    vm_.writeString(address + 2048, "1.0", 1024);
+    std::memset(&_vm.memory()[size_t(address)], 0, kGlconfigSize);
+    _vm.writeString(address, "Reluva", 1024);
+    _vm.writeString(address + 1024, "Reluva", 1024);
+    _vm.writeString(address + 2048, "1.0", 1024);
     // Quake III's 17 words, in its order, from glconfigWords_.
     const int32_t words[17] = {
         2048,               // maxTextureSize
@@ -201,25 +201,25 @@ void UiHost::writeGlconfig(int32_t address) {
         0,      0,          // driverType (ICD), hardwareType (generic)
         0,                  // deviceSupportsGamma
         0,      1,          // textureCompression, textureEnvAddAvailable
-        width_, height_, Qvm::fromFloat(float(width_) / float(height_)),
+        _width, _height, Qvm::fromFloat(float(_width) / float(_height)),
         60,                 // displayFrequency
         0,      0,       0, // isFullscreen, stereoEnabled, smpActive
     };
     for (int i = 0; i < 17; ++i)
-        if (glconfigWords_ + 4 * i + 4 <= kGlconfigSize)
-            vm_.writeInt(address + glconfigWords_ + 4 * i, words[i]);
+        if (_glconfigWords + 4 * i + 4 <= kGlconfigSize)
+            _vm.writeInt(address + _glconfigWords + 4 * i, words[i]);
 }
 
 void UiHost::writeClientState(int32_t address) {
-    if (!vm_.checkWrite(address, kClientStateSize))
+    if (!_vm.checkWrite(address, kClientStateSize))
         return;
-    std::memset(&vm_.memory()[size_t(address)], 0, kClientStateSize);
-    vm_.writeInt(address, clientState.connState);
-    vm_.writeInt(address + 4, clientState.connectPacketCount);
-    vm_.writeInt(address + 8, clientState.clientNum);
-    vm_.writeString(address + 12, clientState.serverName, 1024);
-    vm_.writeString(address + 12 + 1024, clientState.updateInfo, 1024);
-    vm_.writeString(address + 12 + 2048, clientState.message, 1024);
+    std::memset(&_vm.memory()[size_t(address)], 0, kClientStateSize);
+    _vm.writeInt(address, clientState.connState);
+    _vm.writeInt(address + 4, clientState.connectPacketCount);
+    _vm.writeInt(address + 8, clientState.clientNum);
+    _vm.writeString(address + 12, clientState.serverName, 1024);
+    _vm.writeString(address + 12 + 1024, clientState.updateInfo, 1024);
+    _vm.writeString(address + 12 + 2048, clientState.message, 1024);
 }
 
 bool UiHost::browserCommand(const std::string &line) {
@@ -244,10 +244,10 @@ bool UiHost::browserCommand(const std::string &line) {
         std::string keywords;
         for (size_t i = 3; i < words.size(); ++i)
             keywords += (keywords.empty() ? "" : " ") + words[i];
-        const std::vector<std::string> names = masterServerNames(cvars_, masterServers());
+        const std::vector<std::string> names = masterServerNames(_cvars, masterServers());
         std::vector<net::Address> masters;
         for (size_t i = 0; i < names.size(); ++i) {
-            if (master > 0 && cvars_.string("sv_master" + std::to_string(master + 1)) != names[i])
+            if (master > 0 && _cvars.string("sv_master" + std::to_string(master + 1)) != names[i])
                 continue;
             const auto [host, port] = net::splitHostPort(names[i], ServerBrowser::kMasterPort);
             uint32_t ip = 0;
@@ -269,8 +269,8 @@ bool UiHost::browserCommand(const std::string &line) {
 
 std::vector<std::string> UiHost::recentCalls() const {
     std::vector<std::string> out;
-    for (size_t i = 0; i < recent_.size(); ++i) {
-        const Recent &r = recent_[(recentNext_ + i) % recent_.size()];
+    for (size_t i = 0; i < _recent.size(); ++i) {
+        const Recent &r = _recent[(_recentNext + i) % _recent.size()];
         if (r.number < 0)
             continue;
         std::string line = "system call " + std::to_string(r.number) + " (" + std::to_string(r.args[0]) + ", " +
@@ -287,12 +287,12 @@ int32_t UiHost::systemCall(Qvm &vm, int number, const int32_t *a) {
     if (trace)
         trace(number, a);
     {
-        Recent &r = recent_[recentNext_];
-        recentNext_ = (recentNext_ + 1) % recent_.size();
+        Recent &r = _recent[_recentNext];
+        _recentNext = (_recentNext + 1) % _recent.size();
         r.number = number;
         std::copy(a, a + 4, r.args);
         r.text.clear();
-        if (number != SetCdKey)
+        if (number != kSetCdKey)
             for (int i = 0; i < 2 && r.text.empty(); ++i) {
                 if (a[i] <= 0 || !vm.valid(a[i], 1))
                     continue;
@@ -311,206 +311,206 @@ int32_t UiHost::systemCall(Qvm &vm, int number, const int32_t *a) {
         return result;
 
     switch (number) {
-    case Error_:
+    case kError:
         vm.abort("ui.qvm: " + str(0));
         return 0;
-    case Print: {
+    case kPrint: {
         const std::string text = str(0, 4096);
         if (print)
             print(text);
         else
-            log_ += text;
+            _log += text;
         return 0;
     }
-    case Milliseconds:
-        return time_;
+    case kMilliseconds:
+        return _time;
     // Set at once, as the original engine's Cvar_Set (forced: a latched
     // variable too; only what's typed at the console waits for a level).
-    case CvarSet:
-        cvars_.set(str(0, 256), str(1, 256), true);
+    case kCvarSet:
+        _cvars.set(str(0, 256), str(1, 256), true);
         return 0;
-    case CvarVariableValue:
-        return Qvm::fromFloat(cvars_.value(str(0, 256)));
-    case CvarVariableStringBuffer:
-        vm.writeString(a[1], cvars_.string(str(0, 256)), a[2]);
+    case kCvarVariableValue:
+        return Qvm::fromFloat(_cvars.value(str(0, 256)));
+    case kCvarVariableStringBuffer:
+        vm.writeString(a[1], _cvars.string(str(0, 256)), a[2]);
         return 0;
-    case CvarSetValue: {
+    case kCvarSetValue: {
         // Quake III writes whole numbers without a decimal point.
         const float v = f(1);
         const std::string text = v == float(int32_t(v)) ? std::to_string(int32_t(v)) : std::to_string(v);
-        cvars_.set(str(0, 256), text, true);
+        _cvars.set(str(0, 256), text, true);
         return 0;
     }
-    case CvarReset:
-        if (const CvarStore::Cvar *cv = cvars_.find(str(0, 256)))
-            cvars_.set(cv->name, cv->defaultValue);
+    case kCvarReset:
+        if (const CvarStore::Cvar *cv = _cvars.find(str(0, 256)))
+            _cvars.set(cv->name, cv->defaultValue);
         return 0;
-    case CvarCreate:
-        cvars_.create(str(0, 256), str(1, 256), a[2]);
+    case kCvarCreate:
+        _cvars.create(str(0, 256), str(1, 256), a[2]);
         return 0;
-    case CvarInfoStringBuffer: {
+    case kCvarInfoStringBuffer: {
         std::string info;
-        for (const CvarStore::Cvar &cv : cvars_.all())
+        for (const CvarStore::Cvar &cv : _cvars.all())
             if (cv.flags & a[0])
                 info += "\\" + cv.name + "\\" + cv.value;
         vm.writeString(a[1], info, a[2]);
         return 0;
     }
-    case Argc:
+    case kArgc:
         return 0;
-    case Argv:
+    case kArgv:
         vm.writeString(a[1], "", a[2]);
         return 0;
-    case CmdExecuteText: {
+    case kCmdExecuteText: {
         const std::string text = str(1, 4096);
         bool handled = false;
         for (const std::string &command : splitCommands(text))
             handled = browserCommand(command) || handled;
         if (!handled)
-            commands_.push_back(text);
+            _commands.push_back(text);
         return 0;
     }
-    case FsFOpenFile:
-        return vmFiles_.open(vm, a[0], a[1], a[2]);
-    case FsRead:
-        return vmFiles_.read(vm, a[0], a[1], a[2]);
-    case FsFCloseFile:
-        vmFiles_.close(a[0]);
+    case kFsFOpenFile:
+        return _vmFiles.open(vm, a[0], a[1], a[2]);
+    case kFsRead:
+        return _vmFiles.read(vm, a[0], a[1], a[2]);
+    case kFsFCloseFile:
+        _vmFiles.close(a[0]);
         return 0;
-    case FsGetFileList:
-        return vmFiles_.list(vm, a[0], a[1], a[2], a[3]);
-    case RRegisterModel:
-        return models_.add(str(0, 256));
-    case RRegisterSkin:
-        return skins_.add(str(0, 256));
-    case RRegisterShaderNoMip:
-        return shaders_.add(str(0, 256));
-    case RClearScene:
-        scene_.clear();
+    case kFsGetFileList:
+        return _vmFiles.list(vm, a[0], a[1], a[2], a[3]);
+    case kRRegisterModel:
+        return _models.add(str(0, 256));
+    case kRRegisterSkin:
+        return _skins.add(str(0, 256));
+    case kRRegisterShaderNoMip:
+        return _shaders.add(str(0, 256));
+    case kRClearScene:
+        _scene.clear();
         return 0;
-    case RAddRefEntityToScene:
-        scene_.addEntity(vm, a[0], 0);
+    case kRAddRefEntityToScene:
+        _scene.addEntity(vm, a[0], 0);
         return 0;
-    case RAddPolyToScene:
-        scene_.addPoly(vm, a[0], a[1], a[2]);
-        return 0;          // (shader, numVerts, verts)
-    case RAddLightToScene: // (origin, intensity, r, g, b)
-        scene_.addLight(vm, a[0], Qvm::asFloat(a[1]), Qvm::asFloat(a[2]), Qvm::asFloat(a[3]), Qvm::asFloat(a[4]));
+    case kRAddPolyToScene:
+        _scene.addPoly(vm, a[0], a[1], a[2]);
+        return 0;           // (shader, numVerts, verts)
+    case kRAddLightToScene: // (origin, intensity, r, g, b)
+        _scene.addLight(vm, a[0], Qvm::asFloat(a[1]), Qvm::asFloat(a[2]), Qvm::asFloat(a[3]), Qvm::asFloat(a[4]));
         return 0;
-    case RRenderScene:
-        scene_.render(vm, a[0], pictures_.size());
+    case kRRenderScene:
+        _scene.render(vm, a[0], _pictures.size());
         return 0;
-    case UpdateScreen:
+    case kUpdateScreen:
         return 0; // drawn each frame anyway
-    case CmLerpTag: {
-        auto [it, added] = md3s_.try_emplace(a[1]);
+    case kCmLerpTag: {
+        auto [it, added] = _md3s.try_emplace(a[1]);
         if (added) {
             std::vector<uint8_t> data;
             auto md3 = std::make_shared<Md3Model>();
-            const std::string &name = models_.name(a[1]);
-            if (!name.empty() && !files_.read(name, data) && !parseModel(data, *md3))
+            const std::string &name = _models.name(a[1]);
+            if (!name.empty() && !_files.read(name, data) && !parseModel(data, *md3))
                 it->second = std::move(md3);
         }
         return writeLerpTag(vm, a[0], it->second.get(), a[2], a[3], Qvm::asFloat(a[4]), str(5, 64));
     }
-    case RSetColor:
+    case kRSetColor:
         if (!a[0])
-            color_ = {1, 1, 1, 1};
+            _color = {1, 1, 1, 1};
         else if (!vm.valid(a[0], 16))
             vm.abort("R_SetColor: colour outside the program's memory");
         else
             for (int i = 0; i < 4; ++i)
-                color_[size_t(i)] = Qvm::asFloat(vm.readInt(a[0] + 4 * i));
+                _color[size_t(i)] = Qvm::asFloat(vm.readInt(a[0] + 4 * i));
         return 0;
-    case RDrawStretchPic:
-        pictures_.push_back({f(0), f(1), f(2), f(3), f(4), f(5), f(6), f(7), a[8], color_});
+    case kRDrawStretchPic:
+        _pictures.push_back({f(0), f(1), f(2), f(3), f(4), f(5), f(6), f(7), a[8], _color});
         return 0;
-    case SRegisterSound:
-        return sounds_.add(str(0, 256));
-    case SStartLocalSound: // (sound, channel); the menus use channel 6
-        if (startLocalSound && !sounds_.name(a[0]).empty())
-            startLocalSound(sounds_.name(a[0]), a[1]);
+    case kSRegisterSound:
+        return _sounds.add(str(0, 256));
+    case kSStartLocalSound: // (sound, channel); the menus use channel 6
+        if (startLocalSound && !_sounds.name(a[0]).empty())
+            startLocalSound(_sounds.name(a[0]), a[1]);
         return 0;
-    case KeyKeynumToStringBuf:
+    case kKeyKeynumToStringBuf:
         vm.writeString(a[1], KeyBindings::keyName(a[0]), a[2]);
         return 0;
-    case KeyGetBindingBuf:
+    case kKeyGetBindingBuf:
         vm.writeString(a[1], bindings ? bindings->get(a[0]) : std::string(), a[2]);
         return 0;
-    case KeySetBinding: // (key, command): the Controls menu
+    case kKeySetBinding: // (key, command): the Controls menu
         if (bindings)
             bindings->set(a[0], str(1, 1024));
         return 0;
-    case KeyIsDown:
+    case kKeyIsDown:
         return 0;
-    case KeyGetOverstrikeMode:
-        return overstrike_;
-    case KeySetOverstrikeMode:
-        overstrike_ = a[0] != 0;
+    case kKeyGetOverstrikeMode:
+        return _overstrike;
+    case kKeySetOverstrikeMode:
+        _overstrike = a[0] != 0;
         return 0;
-    case KeyClearStates:
+    case kKeyClearStates:
         return 0;
-    case KeyGetCatcher:
-        return catcher_;
-    case KeySetCatcher:
-        catcher_ = a[0];
+    case kKeyGetCatcher:
+        return _catcher;
+    case kKeySetCatcher:
+        _catcher = a[0];
         return 0;
-    case GetClipboardData:
+    case kGetClipboardData:
         vm.writeString(a[0], "", a[1]);
         return 0;
-    case GetGlconfig:
+    case kGetGlconfig:
         writeGlconfig(a[0]);
         return 0;
-    case GetClientState:
+    case kGetClientState:
         writeClientState(a[0]);
         return 0;
-    case LanGetLocalServerCount:
+    case kLanGetLocalServerCount:
         return browser ? browser->localServerCount() : 0;
-    case LanGetLocalServerAddressString:
+    case kLanGetLocalServerAddressString:
         vm.writeString(a[1], browser ? browser->localServerAddress(a[0]) : std::string(), a[2]);
         return 0;
-    case LanGetGlobalServerCount:
+    case kLanGetGlobalServerCount:
         return browser ? browser->globalServerCount() : 0;
-    case LanGetGlobalServerAddressString:
+    case kLanGetGlobalServerAddressString:
         vm.writeString(a[1], browser ? browser->globalServerAddress(a[0]) : std::string(), a[2]);
         return 0;
-    case LanGetPingQueueCount:
+    case kLanGetPingQueueCount:
         return browser ? browser->pingQueueCount() : 0;
-    case LanClearPing:
+    case kLanClearPing:
         if (browser)
             browser->clearPing(a[0]);
         return 0;
-    case LanGetPing: {
+    case kLanGetPing: {
         std::string address;
         int time = 0;
         if (browser)
-            browser->getPing(a[0], now, cvars_.integer("cl_maxPing") ? cvars_.integer("cl_maxPing") : 800, address,
+            browser->getPing(a[0], now, _cvars.integer("cl_maxPing") ? _cvars.integer("cl_maxPing") : 800, address,
                              time);
         vm.writeString(a[1], address, a[2]);
         if (vm.checkWrite(a[3], 4))
             vm.writeInt(a[3], time);
         return 0;
     }
-    case LanGetPingInfo:
+    case kLanGetPingInfo:
         vm.writeString(a[1], browser ? browser->pingInfo(a[0]) : std::string(), a[2]);
         return 0;
-    case GetConfigString: { // (index, buffer, size) -> whether there's one
+    case kGetConfigString: { // (index, buffer, size) -> whether there's one
         const std::string text = configstring ? configstring(a[0]) : std::string();
         vm.writeString(a[1], text, a[2]);
         return configstring ? 1 : 0;
     }
-    case CvarRegister: {
-        const CvarStore::Cvar &cv = cvars_.create(str(1, 256), str(2, 256), a[3]);
+    case kCvarRegister: {
+        const CvarStore::Cvar &cv = _cvars.create(str(1, 256), str(2, 256), a[3]);
         if (a[0])
-            cvars_.writeVmCvar(vm, a[0], cv.handle);
+            _cvars.writeVmCvar(vm, a[0], cv.handle);
         return 0;
     }
-    case CvarUpdate:
-        cvars_.updateVmCvar(vm, a[0]);
+    case kCvarUpdate:
+        _cvars.updateVmCvar(vm, a[0]);
         return 0;
-    case MemoryRemaining:
+    case kMemoryRemaining:
         return 8 << 20;
-    case SetCdKey: {
+    case kSetCdKey: {
         // The CD key screen's Accept, after the menus' own check: whether
         // the engine takes the key. The original engine also checks it
         // against its own rules for the online service, which is gone;
@@ -518,24 +518,24 @@ int32_t UiHost::systemCall(Qvm &vm, int number, const int32_t *a) {
         const std::string key = str(0, 64);
         if (!cdKeyLooksValid(key))
             return 0;
-        cdKey_ = key;
-        cdKeyRead_ = true;
-        if (!keyFile_.empty()) {
+        _cdKey = key;
+        _cdKeyRead = true;
+        if (!_keyFile.empty()) {
             std::error_code ec;
-            std::filesystem::create_directories(keyFile_.parent_path(), ec);
-            std::ofstream(keyFile_) << cdKey_ << '\n';
+            std::filesystem::create_directories(_keyFile.parent_path(), ec);
+            std::ofstream(_keyFile) << _cdKey << '\n';
         }
         return 1;
     }
-    case RModelBounds: {
+    case kRModelBounds: {
         // The first frame's box, as the original renderer gives; zeros for
         // a model it can't read.
-        auto [it, added] = modelBounds_.try_emplace(a[0]);
+        auto [it, added] = _modelBounds.try_emplace(a[0]);
         if (added) {
             std::vector<uint8_t> data;
             Md3Model md3;
-            const std::string &name = models_.name(a[0]);
-            if (!name.empty() && !files_.read(name, data) && !parseModel(data, md3) && !md3.frames.empty())
+            const std::string &name = _models.name(a[0]);
+            if (!name.empty() && !_files.read(name, data) && !parseModel(data, md3) && !md3.frames.empty())
                 it->second = {md3.frames[0].mins, md3.frames[0].maxs};
         }
         for (int i = 0; i < 3; ++i) {
@@ -545,7 +545,7 @@ int32_t UiHost::systemCall(Qvm &vm, int number, const int32_t *a) {
         return 0;
     }
     default:
-        ++unhandled_[number];
+        ++_unhandled[number];
         return 0;
     }
 }

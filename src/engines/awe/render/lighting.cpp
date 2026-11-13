@@ -96,7 +96,7 @@ SceneLighting sceneLighting(const Ac2Scene &scene, const GameState &state, const
         l.attenuation[1] = num(*o, "att1", 0.001f);
         l.attenuation[2] = num(*o, "att2", 0);
         // No attenuation at all would be refused: a little linear instead.
-        if (l.type != SceneLight::Type::Directional && l.attenuation[0] + l.attenuation[1] + l.attenuation[2] == 0)
+        if (l.type != SceneLight::Type::kDirectional && l.attenuation[0] + l.attenuation[1] + l.attenuation[2] == 0)
             l.attenuation[1] = 0.0001f;
         l.theta = num(*o, "theta", 0.5f), l.phi = num(*o, "phi", 1);
         out.lights.push_back(l);
@@ -137,7 +137,7 @@ Rgb lightVertex(const SceneLighting &lighting, const Material &material, const f
         // The direction towards the light, and how much of it arrives.
         float to[3];
         float strength = 1;
-        if (l.type == SceneLight::Type::Directional) {
+        if (l.type == SceneLight::Type::kDirectional) {
             for (size_t k = 0; k < 3; k++)
                 to[k] = -l.direction[k];
         } else {
@@ -153,7 +153,7 @@ Rgb lightVertex(const SceneLighting &lighting, const Material &material, const f
             continue;
         for (float &v : to)
             v /= len;
-        if (l.type == SceneLight::Type::Spot) {
+        if (l.type == SceneLight::Type::kSpot) {
             // Full inside theta, none outside phi, linear between (falloff 1).
             const float dl = std::sqrt(l.direction[0] * l.direction[0] + l.direction[1] * l.direction[1] +
                                        l.direction[2] * l.direction[2]);

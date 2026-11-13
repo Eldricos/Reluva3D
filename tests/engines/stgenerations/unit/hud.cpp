@@ -25,7 +25,7 @@ struct Sent {
 
 } // namespace
 
-static void hud_inventory() {
+static void hudInventory() {
     std::vector<Sent> sent;
     Hud hud([&](uint16_t o, uint16_t e, const std::vector<int16_t> &a) { sent.push_back({o, e, a}); });
     CHECK_EQUAL(hud.addItem(0x2001, -1), 1); // the first free slot is 1, not 0
@@ -42,7 +42,7 @@ static void hud_inventory() {
     CHECK_EQUAL(hud.addItem(0x2200, -1), -1); // full
 }
 
-static void hud_panels() {
+static void hudPanels() {
     std::vector<Sent> sent;
     Hud hud([&](uint16_t o, uint16_t e, const std::vector<int16_t> &a) { sent.push_back({o, e, a}); });
     hud.showPanel(0xA004, 12, 0, 10, 10);
@@ -83,7 +83,7 @@ static void hud_panels() {
     CHECK(!hud.getVisiblePanel());
 }
 
-static void hud_effects() {
+static void hudEffects() {
     std::vector<Sent> sent;
     Hud hud([&](uint16_t o, uint16_t e, const std::vector<int16_t> &a) { sent.push_back({o, e, a}); });
     // 50% red over 100 ms in, 100 held, 100 out, then event 55.
@@ -111,7 +111,7 @@ static void hud_effects() {
     CHECK_EQUAL(hud.getEffectWeight(3, r, g, b), 38);
 }
 
-static void hud_drag_items() {
+static void hudDragItems() {
     Hud hud([](uint16_t, uint16_t, const std::vector<int16_t> &) {});
     hud.addItem(0x2001, -1); // slot 1
     hud.addItem(0x2002, -1); // slot 2
@@ -132,7 +132,7 @@ static void hud_drag_items() {
     CHECK_EQUAL(hud.getSlot(0), 0x2004);
 }
 
-static void held_item_follows_the_cursor() {
+static void heldItemFollowsTheCursor() {
     const HeldItem::Style *phaser = HeldItem::getStyle(2);
     CHECK(phaser != nullptr);
     CHECK(HeldItem::getStyle(1) == nullptr);
@@ -161,7 +161,7 @@ static void held_item_follows_the_cursor() {
     CHECK(up < 0);
 }
 
-static void level_unproject() {
+static void levelUnproject() {
     Camera camera;
     camera.x = 10;
     camera.y = 20;
@@ -182,7 +182,7 @@ static void level_unproject() {
     CHECK(std::fabs(z - 5) < 1e-9);
 }
 
-static void transition_dissolve() {
+static void transitionDissolve() {
     RandomSource random(1);
     auto count = [](const Canvas &s, uint8_t value) {
         int n = 0;
@@ -202,38 +202,38 @@ static void transition_dissolve() {
 
     // Nothing at 0; a quarter of each row asked for at 256, fewer landing
     // where picks repeat.
-    Dissolve::speckle(a, 9, 0, 1, random);
+    dissolve::speckle(a, 9, 0, 1, random);
     CHECK_EQUAL(count(a, 9), 0);
-    Dissolve::speckle(a, 9, 256, 1, random);
+    dissolve::speckle(a, 9, 256, 1, random);
     int speckled = count(a, 9);
     CHECK(speckled > 0 && speckled <= 16 * 16);
     // Past half, the colour with the picture showing through.
     a.fillRect(Rect(0, 0, 64, 16), 1);
-    Dissolve::speckle(a, 9, 0x3FF, 1, random);
+    dissolve::speckle(a, 9, 0x3FF, 1, random);
     CHECK_EQUAL(count(a, 9), 64 * 16);
     // A streak is a sixteenth of the width (less at the right edge).
     a.fillRect(Rect(0, 0, 64, 16), 1);
-    Dissolve::speckle(a, 9, 4, 2, random);
+    dissolve::speckle(a, 9, 4, 2, random);
     CHECK(count(a, 9) > 0 && count(a, 9) <= 4);
 
     // The crossfade goes from all of one to all of the other.
     a.fillRect(Rect(0, 0, 64, 16), 1);
-    Dissolve::crossfade(out, a, b, 0, random);
+    dissolve::crossfade(out, a, b, 0, random);
     CHECK_EQUAL(count(out, 1), 64 * 16);
-    Dissolve::crossfade(out, a, b, 600, random);
+    dissolve::crossfade(out, a, b, 600, random);
     CHECK(count(out, 2) > count(out, 1));
-    Dissolve::crossfade(out, a, b, 0x3FF, random);
+    dissolve::crossfade(out, a, b, 0x3FF, random);
     CHECK_EQUAL(count(out, 2), 64 * 16);
 }
 
 static const reluva::test::Suite
-    suite("stgenerations.unit.hud",
-          {
-              {"hud inventory", [](const std::filesystem::path &) { hud_inventory(); }},
-              {"hud panels", [](const std::filesystem::path &) { hud_panels(); }},
-              {"hud effects", [](const std::filesystem::path &) { hud_effects(); }},
-              {"hud drag items", [](const std::filesystem::path &) { hud_drag_items(); }},
-              {"held item follows the cursor", [](const std::filesystem::path &) { held_item_follows_the_cursor(); }},
-              {"level unproject", [](const std::filesystem::path &) { level_unproject(); }},
-              {"transition dissolve", [](const std::filesystem::path &) { transition_dissolve(); }},
-          });
+    kSuite("stgenerations.unit.hud",
+           {
+               {"hud inventory", [](const std::filesystem::path &) { hudInventory(); }},
+               {"hud panels", [](const std::filesystem::path &) { hudPanels(); }},
+               {"hud effects", [](const std::filesystem::path &) { hudEffects(); }},
+               {"hud drag items", [](const std::filesystem::path &) { hudDragItems(); }},
+               {"held item follows the cursor", [](const std::filesystem::path &) { heldItemFollowsTheCursor(); }},
+               {"level unproject", [](const std::filesystem::path &) { levelUnproject(); }},
+               {"transition dissolve", [](const std::filesystem::path &) { transitionDissolve(); }},
+           });

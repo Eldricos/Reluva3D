@@ -170,9 +170,9 @@ public:
     // Runs it until it ends the process or fails.
     Error run(uint32_t &exitCode);
 
-    x86::Cpu &cpu() { return *cpu_; }
-    x86::Win32Process &process() { return *process_; }
-    const x86::Win32Process::Module *exe() const { return exe_; }
+    x86::Cpu &cpu() { return *_cpu; }
+    x86::Win32Process &process() { return *_process; }
+    const x86::Win32Process::Module *exe() const { return _exe; }
 
     // Lines for the report: the calls logged, files opened, messages.
     std::function<void(const std::string &line)> log;
@@ -186,7 +186,7 @@ public:
         uint32_t threadId = 0;
         int width = 640, height = 480;
     };
-    const std::vector<Window> &windows() const { return windows_; }
+    const std::vector<Window> &windows() const { return _windows; }
 
     // THRASH's state, for reports.
     struct ThrashStats {
@@ -211,15 +211,15 @@ public:
         std::map<std::string, uint64_t> callInstructions; // run inside each function, in all
         std::map<int, uint64_t> textureFormats;           // talloc's format -> how many
     };
-    const ThrashStats &thrash() const { return thrash_; }
+    const ThrashStats &thrash() const { return _thrash; }
     // The Glide stand-in (Options::glide), if there is one: glide2x.dll's,
     // or glide3x.dll's for a DLL that loads it (Options::glideDll).
-    glide::GlideDll *glide() { return glide_.get(); }
+    glide::GlideDll *glide() { return _glide.get(); }
     // With Options::glideGpu 2: each Glide frame's difference from the
     // software reference, at its buffer swap.
     std::function<void(const glide::FrameComparison &)> onGlideComparison;
     // What draws Glide's pixels ("software", or the GPU device's name).
-    const std::string &glideRenderer() const { return glideRenderer_; }
+    const std::string &glideRenderer() const { return _glideRenderer; }
     // Called after each page flip with the frame drawn so far, as RGBA.
     std::function<void(const Surface &frame)> onFrame;
     // With gpuThrash, called after each page flip with what THRASH drew
@@ -253,8 +253,8 @@ public:
         std::vector<uint64_t> staleAudibleMs; // when (the game's clock), the first thousand
     };
     SoundStats soundStats() {
-        std::lock_guard<std::mutex> lock(soundMutex_);
-        return soundStats_;
+        std::lock_guard<std::mutex> lock(_soundMutex);
+        return _soundStats;
     }
     // Fills `frames` stereo frames at `rate` with what the playing buffers
     // hold at their play cursors, from any thread.
@@ -298,23 +298,23 @@ private:
     void addModem();   // TAPI32 for a modem, on Options::modem (serial.cpp)
     // TAPI's events, delivered when the thread that started it next asks
     // for messages or sleeps (serial.cpp).
-    std::function<void(x86::Cpu &)> tapiDeliver_;
-    std::function<bool()> tapiNews_; // whether there are events (a wait condition)
-    uint32_t tapiThread_ = 0;        // the thread they go to: the one that started TAPI
-    std::function<bool()> tapiBusy_; // whether a call is under way (or awaited)
+    std::function<void(x86::Cpu &)> _tapiDeliver;
+    std::function<bool()> _tapiNews; // whether there are events (a wait condition)
+    uint32_t _tapiThread = 0;        // the thread they go to: the one that started TAPI
+    std::function<bool()> _tapiBusy; // whether a call is under way (or awaited)
     class CommPort;
     class SerialLink;
     class ModemPort;
     friend class SerialLink;
     void addDirectX(); // DDRAW and DINPUT
     void addGlide();   // glide2x.dll or glide3x.dll, on Options::glide (thrash.cpp)
-    std::unique_ptr<glide::GlideDll> glide_;
-    std::string glideRenderer_ = "software";
+    std::unique_ptr<glide::GlideDll> _glide;
+    std::string _glideRenderer = "software";
     // Options::glideCompare: THRASH's calls drawn natively too, into a buffer
     // of 640x480 5:6:5 pixels in guest memory (thrash.cpp).
     void mirrorNative(const std::string &name, const std::vector<uint32_t> &args);
-    uint32_t compareBuffer_ = 0, compareClear_ = 0;
-    std::array<int, 4> compareClip_{0, 0, 640, 480};
+    uint32_t _compareBuffer = 0, _compareClear = 0;
+    std::array<int, 4> _compareClip{0, 0, 640, 480};
     void addDirectSound();
     void choosePositionalUpdates();
     void addNativeRoutines(); // the C library's hottest routines in nfs3.exe, natively
@@ -342,42 +342,42 @@ private:
     Window *window(uint32_t handle);
     void post(uint32_t threadId, const Message &m);
 
-    GameFolders folders_;
-    Options options_;
-    std::unique_ptr<x86::Cpu> cpu_;
-    std::unique_ptr<x86::Win32Process> process_;
-    std::atomic<uint64_t> idleMs_{0}; // Options::instructionsPerMs: the milliseconds every thread waited
-    const x86::Win32Process::Module *exe_ = nullptr;
-    int logged_ = 0;
+    GameFolders _folders;
+    Options _options;
+    std::unique_ptr<x86::Cpu> _cpu;
+    std::unique_ptr<x86::Win32Process> _process;
+    std::atomic<uint64_t> _idleMs{0}; // Options::instructionsPerMs: the milliseconds every thread waited
+    const x86::Win32Process::Module *_exe = nullptr;
+    int _logged = 0;
 
-    std::map<std::string, uint32_t> classes_; // class name (lower case) -> window procedure
-    std::vector<Window> windows_;
-    std::map<uint32_t, std::deque<Message>> queues_; // by thread id
-    uint32_t nextWindow_ = 0x10020;
-    int cursorCount_ = 0;
-    uint8_t keys_[256] = {};   // DirectInput's state, by scan code (0x80 down)
-    uint8_t vkDown_[256] = {}; // by virtual-key code
+    std::map<std::string, uint32_t> _classes; // class name (lower case) -> window procedure
+    std::vector<Window> _windows;
+    std::map<uint32_t, std::deque<Message>> _queues; // by thread id
+    uint32_t _nextWindow = 0x10020;
+    int _cursorCount = 0;
+    uint8_t _keys[256] = {};   // DirectInput's state, by scan code (0x80 down)
+    uint8_t _vkDown[256] = {}; // by virtual-key code
     struct KeyEvent {
         uint8_t vk = 0, scan = 0;
         bool down = false;
         uint64_t atMs = 0;
         char ch = 0; // the character it types (WM_CHAR), if any
     };
-    std::mutex inputMutex_;
-    std::atomic<bool> inputQueued_{false}; // something in the pending queues below
-    std::deque<KeyEvent> pendingKeys_;
-    std::deque<KeyEvent> bufferedKeys_; // for DirectInput's GetDeviceData
+    std::mutex _inputMutex;
+    std::atomic<bool> _inputQueued{false}; // something in the pending queues below
+    std::deque<KeyEvent> _pendingKeys;
+    std::deque<KeyEvent> _bufferedKeys; // for DirectInput's GetDeviceData
     // The mouse, as DirectInput reports it: buffered moves and buttons
     // (DIDEVICEOBJECTDATA's offset: 0 x, 4 y, 12 the first button).
     struct MouseEvent {
         uint32_t offset = 0, data = 0;
         uint64_t atMs = 0;
     };
-    std::deque<MouseEvent> pendingMouse_, bufferedMouse_;
-    std::deque<std::pair<uint64_t, GamepadState>> pendingJoystick_;
-    GamepadState joystick_; // as applied
+    std::deque<MouseEvent> _pendingMouse, _bufferedMouse;
+    std::deque<std::pair<uint64_t, GamepadState>> _pendingJoystick;
+    GamepadState _joystick; // as applied
     // Each axis's range (DIPROP_RANGE), by its offset in DIJOYSTATE / 4.
-    std::array<std::pair<int32_t, int32_t>, 8> axisRange_{};
+    std::array<std::pair<int32_t, int32_t>, 8> _axisRange{};
     void joystickState(x86::Cpu &c, uint32_t to, uint32_t size);
     uint32_t joystickType() const; // DIDEVTYPE
     // Fills a DIEFFECTINFOA for the effect with that GUID; its DIEFT type.
@@ -387,11 +387,11 @@ private:
     // Force feedback: the effects by object, the device's gain
     // (DIPROP_FFGAIN), auto-centring (DIPROP_AUTOCENTER), and whether
     // SendForceFeedbackCommand has paused them or turned the motors off.
-    std::mutex forceMutex_;
-    std::map<uint32_t, DiEffect> effects_;
-    uint32_t forceGain_ = 10000;
-    bool autoCentre_ = true, forcePaused_ = false, actuatorsOff_ = false;
-    uint32_t effectVtable_ = 0;
+    std::mutex _forceMutex;
+    std::map<uint32_t, DiEffect> _effects;
+    uint32_t _forceGain = 10000;
+    bool _autoCentre = true, _forcePaused = false, _actuatorsOff = false;
+    uint32_t _effectVtable = 0;
 
     // The game's sockets (winsock.cpp): Winsock's handle -> ours, and how
     // the game has it.
@@ -400,47 +400,47 @@ private:
         bool stream = false, nonBlocking = false, bound = false;
         bool ipx = false; // an IPX datagram socket, carried over UDP (winsock.cpp)
     };
-    std::map<uint32_t, WsSocket> wsSockets_;
-    uint32_t nextWsSocket_ = 0x100;
-    std::map<uint32_t, uint32_t> wsLastError_; // by thread
-    bool wsStarted_ = false;
-    std::FILE *netLog_ = nullptr;
+    std::map<uint32_t, WsSocket> _wsSockets;
+    uint32_t _nextWsSocket = 0x100;
+    std::map<uint32_t, uint32_t> _wsLastError; // by thread
+    bool _wsStarted = false;
+    std::FILE *_netLog = nullptr;
     void logTraffic(bool sent, uint32_t handle, const net::Address &peer, const uint8_t *data, size_t size,
                     bool dropped = false);
     // Whether this packet sent is one Options::netDrop loses.
     bool dropOutgoing();
-    uint64_t netSent_ = 0;  // packets sent since netDropFrom
-    uint32_t wsBuffer_ = 0; // inet_ntoa's and gethostbyname's results
-    int mouseDx_ = 0, mouseDy_ = 0;
-    bool mouseButton_ = false;
-    uint32_t keyboardEvent_ = 0, mouseEvent_ = 0; // SetEventNotification's handles
-    uint32_t inputSequence_ = 0;
+    uint64_t _netSent = 0;  // packets sent since netDropFrom
+    uint32_t _wsBuffer = 0; // inet_ntoa's and gethostbyname's results
+    int _mouseDx = 0, _mouseDy = 0;
+    bool _mouseButton = false;
+    uint32_t _keyboardEvent = 0, _mouseEvent = 0; // SetEventNotification's handles
+    uint32_t _inputSequence = 0;
     void applyInput();
 
     // Native modules for LoadLibraryA: lower-case name -> handle, and each
     // handle's exports.
-    std::map<std::string, uint32_t> nativeModules_;
-    std::map<uint32_t, std::map<std::string, uint32_t>> nativeExports_;
+    std::map<std::string, uint32_t> _nativeModules;
+    std::map<uint32_t, std::map<std::string, uint32_t>> _nativeExports;
     void addNativeModule(const std::string &name, uint32_t handle);
     void addExport(uint32_t module, const std::string &name, int argBytes, std::function<uint32_t(x86::Cpu &)> fn);
 
-    ThrashStats thrash_;
-    uint64_t lastFlip_ = 0, lastFlipRenderer_ = 0; // instructions run at the last page flip
+    ThrashStats _thrash;
+    uint64_t _lastFlip = 0, _lastFlipRenderer = 0; // instructions run at the last page flip
     // The game's own DLLs, loaded on LoadLibraryA: lower-case name -> module.
-    std::map<std::string, const x86::Win32Process::Module *> gameDlls_;
-    uint32_t thrashBase_ = 0;
+    std::map<std::string, const x86::Win32Process::Module *> _gameDlls;
+    uint32_t _thrashBase = 0;
     uint32_t wrapThrash(const std::string &name, uint32_t address);
-    std::unique_ptr<NativeThrash> native_;
-    uint32_t thrashWindow_ = 2; // THRASH_window's choice: 1 the front buffer, 2 the back
+    std::unique_ptr<NativeThrash> _native;
+    uint32_t _thrashWindow = 2; // THRASH_window's choice: 1 the front buffer, 2 the back
     // Each window's buffer, as THRASH_lockwindow reports it: address, pitch,
     // width, height (the renderer draws there; a page flip shows it).
-    std::map<uint32_t, std::array<uint32_t, 4>> windowBuffers_;
+    std::map<uint32_t, std::array<uint32_t, 4>> _windowBuffers;
     // Does a THRASH call natively if it can (`result`: what it returns).
     bool nativeDraw(const std::string &name, const std::vector<uint32_t> &args, uint32_t &result);
     // The retail softtria.dll, known well enough that its page flips and
     // clears are done natively too (thrash.md): where it was loaded, less
     // where it asks to be; unset for any other renderer.
-    bool softtriaKnown_ = false;
+    bool _softtriaKnown = false;
     uint32_t softtria(uint32_t address) const; // one of its globals, by its own address
     // A frame shown straight from a 16-bit 5:6:5 buffer's rectangle.
     void presentBuffer(uint32_t buffer, int pitch, int x0, int y0, int width, int height);
@@ -451,13 +451,13 @@ private:
         uint32_t memory = 0, back = 0, caps = 0, palette = 0, colorKey = 0;
         bool primary = false, hasColorKey = false;
     };
-    std::map<uint32_t, DdSurface> surfaces_;
-    std::map<uint32_t, std::array<uint32_t, 256>> palettes_; // RGBA entries
-    uint32_t surfaceVtable_ = 0, paletteVtable_ = 0, clipperVtable_ = 0;
-    int modeWidth_ = 640, modeHeight_ = 480, modeBits_ = 16;
+    std::map<uint32_t, DdSurface> _surfaces;
+    std::map<uint32_t, std::array<uint32_t, 256>> _palettes; // RGBA entries
+    uint32_t _surfaceVtable = 0, _paletteVtable = 0, _clipperVtable = 0;
+    int _modeWidth = 640, _modeHeight = 480, _modeBits = 16;
     uint32_t newSurface(int width, int height, int bits, uint32_t caps);
     void present(const DdSurface &s);
-    Surface frame_;
+    Surface _frame;
 
     // DirectSound's buffers: played in time, not heard yet.
     struct DsBuffer {
@@ -487,26 +487,26 @@ private:
     };
     // Sound memory, by address: how many buffers share it (a buffer and its
     // duplicates), so it's freed with the last.
-    std::map<uint32_t, int> soundMemoryUsers_;
+    std::map<uint32_t, int> _soundMemoryUsers;
     // IDirectSound3DBuffer objects -> the sound buffer each places.
-    std::map<uint32_t, uint32_t> sound3dBuffers_;
-    uint32_t sound3dBufferVtable_ = 0, listenerObject_ = 0;
+    std::map<uint32_t, uint32_t> _sound3dBuffers;
+    uint32_t _sound3dBufferVtable = 0, _listenerObject = 0;
     // The listener (the primary buffer's IDirectSound3DListener), as in
     // force and as deferred.
-    Ds3dListener listener_, deferredListener_;
-    std::mutex soundMutex_; // soundBuffers_, between the game and the audio thread
-    std::vector<int32_t> soundMix_;
-    SoundStats soundStats_;
-    std::vector<VoiceEnergy> *voiceLog_ = nullptr; // logVoices'
-    uint32_t voiceWindowMs_ = 100;
+    Ds3dListener _listener, _deferredListener;
+    std::mutex _soundMutex; // soundBuffers_, between the game and the audio thread
+    std::vector<int32_t> _soundMix;
+    SoundStats _soundStats;
+    std::vector<VoiceEnergy> *_voiceLog = nullptr; // logVoices'
+    uint32_t _voiceWindowMs = 100;
     void voiceMixed(bool rear, double c, double s, uint32_t calls);
-    bool mmxVoicesHooked_ = false;
+    bool _mmxVoicesHooked = false;
     void hookMmxMixers();                         // -voices with MMX: at the MMX mixers' entries (native_sound.cpp)
-    std::vector<int16_t> *soundRecord_ = nullptr; // recordSound's
-    int soundRecordRate_ = 0;
-    uint64_t soundRecordNextMs_ = 0; // when the next step is due
-    std::map<uint32_t, DsBuffer> soundBuffers_;
-    uint32_t soundBufferVtable_ = 0;
+    std::vector<int16_t> *_soundRecord = nullptr; // recordSound's
+    int _soundRecordRate = 0;
+    uint64_t _soundRecordNextMs = 0; // when the next step is due
+    std::map<uint32_t, DsBuffer> _soundBuffers;
+    uint32_t _soundBufferVtable = 0;
 };
 
 } // namespace reluva::nfs

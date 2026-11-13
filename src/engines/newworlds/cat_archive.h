@@ -17,21 +17,21 @@ namespace reluva::newworlds {
 
 // Chunk tags in .cat archives. See docs/engines/newworlds/cat.md.
 namespace cattag {
-constexpr uint16_t Group = 0x00; // container, purpose unknown
-constexpr uint16_t Root = 0x01;
-constexpr uint16_t Table = 0x05;
-constexpr uint16_t Gmf = 0x11;        // .gmf
-constexpr uint16_t Texture = 0x16;    // .lbp .mp0-.mp4 .eb0 .eb1 .fbp
-constexpr uint16_t Geometry = 0x17;   // .geo
-constexpr uint16_t Arf = 0x25;        // .arf
-constexpr uint16_t Fif = 0x26;        // .fif glyph table
-constexpr uint16_t FontPart = 0x27;   // container inside FontSet: a .fif and its .fbp image
-constexpr uint16_t FontSet = 0x28;    // container: one font
-constexpr uint16_t TextureSet = 0x29; // container: .mmb + texture levels
-constexpr uint16_t Mmb = 0x2a;        // .mmb
-constexpr uint16_t Mdl = 0x2c;        // .mdl
-constexpr uint16_t Strings = 0x32;    // .stb
-constexpr uint16_t Wave = 0x33;       // .wav
+constexpr uint16_t kGroup = 0x00; // container, purpose unknown
+constexpr uint16_t kRoot = 0x01;
+constexpr uint16_t kTable = 0x05;
+constexpr uint16_t kGmf = 0x11;        // .gmf
+constexpr uint16_t kTexture = 0x16;    // .lbp .mp0-.mp4 .eb0 .eb1 .fbp
+constexpr uint16_t kGeometry = 0x17;   // .geo
+constexpr uint16_t kArf = 0x25;        // .arf
+constexpr uint16_t kFif = 0x26;        // .fif glyph table
+constexpr uint16_t kFontPart = 0x27;   // container inside FontSet: a .fif and its .fbp image
+constexpr uint16_t kFontSet = 0x28;    // container: one font
+constexpr uint16_t kTextureSet = 0x29; // container: .mmb + texture levels
+constexpr uint16_t kMmb = 0x2a;        // .mmb
+constexpr uint16_t kMdl = 0x2c;        // .mdl
+constexpr uint16_t kStrings = 0x32;    // .stb
+constexpr uint16_t kWave = 0x33;       // .wav
 } // namespace cattag
 
 bool isContainerTag(uint16_t tag);
@@ -51,8 +51,8 @@ class CatArchive {
 public:
     Error open(const std::filesystem::path &path);
 
-    const std::vector<CatEntry> &entries() const { return entries_; }
-    const std::filesystem::path &path() const { return path_; }
+    const std::vector<CatEntry> &entries() const { return _entries; }
+    const std::filesystem::path &path() const { return _path; }
     // Look up a file by normalized name, ignoring case and slash direction.
     const CatEntry *find(std::string_view name) const;
     Error read(const CatEntry &entry, std::vector<uint8_t> &out);
@@ -61,10 +61,10 @@ public:
     static std::string normalizeName(std::string_view originalPath);
 
 private:
-    std::filesystem::path path_;
-    std::ifstream file_;
-    std::vector<CatEntry> entries_;
-    std::unordered_map<std::string, size_t> byName_;
+    std::filesystem::path _path;
+    std::ifstream _file;
+    std::vector<CatEntry> _entries;
+    std::unordered_map<std::string, size_t> _byName;
 };
 
 } // namespace reluva::newworlds

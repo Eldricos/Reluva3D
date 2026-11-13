@@ -50,19 +50,19 @@ constexpr const char *kUkOnlyFile = "Sounds/end turn.wav";
 
 class ClueEngine : public Engine {
 public:
-    ClueEngine(System &system, GameTarget target) : sys_(system), target_(std::move(target)) {}
+    ClueEngine(System &system, GameTarget target) : _sys(system), _target(std::move(target)) {}
 
     Error run() override {
-        const auto language = target_.gameId == "clue-uk" ? clue::Language::UK : clue::Language::US;
-        if (Error err = data_.open(target_.path, language))
+        const auto language = _target.gameId == "clue-uk" ? clue::Language::kUK : clue::Language::kUS;
+        if (Error err = _data.open(_target.path, language))
             return err;
-        if (Error err = sys_.initGraphics(clue::kScreenW, clue::kScreenH, PixelFormat::RGBA32))
+        if (Error err = _sys.initGraphics(clue::kScreenW, clue::kScreenH, PixelFormat::kRGBA32))
             return err;
-        screen_.create(clue::kScreenW, clue::kScreenH, PixelFormat::RGBA32);
-        audio::Mixer mixer(sys_.audioRate());
+        _screen.create(clue::kScreenW, clue::kScreenH, PixelFormat::kRGBA32);
+        audio::Mixer mixer(_sys.audioRate());
         // The launcher's master volume, over the game's own sliders.
-        mixer.setMasterVolume(settings::volume(target_.settings, settings::kMasterVolume));
-        const bool audioOut = !audio::startMixerOutput(sys_, mixer);
+        mixer.setMasterVolume(settings::volume(_target.settings, settings::kMasterVolume));
+        const bool audioOut = !audio::startMixerOutput(_sys, mixer);
         struct AudioStop {
             System &sys;
             bool on;
@@ -70,20 +70,20 @@ public:
                 if (on)
                     sys.stopAudio();
             }
-        } audioStop{sys_, audioOut};
+        } audioStop{_sys, audioOut};
 
-        clue::FrontEnd game(sys_, screen_, data_, audioOut ? &mixer : nullptr,
-                            target_.savePath.empty() ? std::filesystem::path() : target_.savePath / "preferences.ini");
+        clue::FrontEnd game(_sys, _screen, _data, audioOut ? &mixer : nullptr,
+                            _target.savePath.empty() ? std::filesystem::path() : _target.savePath / "preferences.ini");
         if (Error err = game.open())
             return err;
         bool viewing = false; // the data viewer instead of the game
 
-        MansionViewer mansion(sys_, screen_, data_);
-        VideoViewer videos(sys_, screen_, data_, audioOut ? &mixer : nullptr);
-        AnimationViewer animations(sys_, screen_, data_);
-        ImageViewer images(sys_, screen_, data_);
-        SoundViewer sounds(sys_, screen_, data_, audioOut ? &mixer : nullptr);
-        TextViewer texts(sys_, screen_, data_);
+        MansionViewer mansion(_sys, _screen, _data);
+        VideoViewer videos(_sys, _screen, _data, audioOut ? &mixer : nullptr);
+        AnimationViewer animations(_sys, _screen, _data);
+        ImageViewer images(_sys, _screen, _data);
+        SoundViewer sounds(_sys, _screen, _data, audioOut ? &mixer : nullptr);
+        TextViewer texts(_sys, _screen, _data);
         // Viewer 0 shows the mansion (or why it can't), 1 videos, 2
         // animations, 3 images, 4 sounds, 5 text; Tab moves to the next one
         // that has something to show.
@@ -116,10 +116,10 @@ public:
 
         while (true) {
             Event ev;
-            while (sys_.pollEvent(ev)) {
-                if (ev.type == EventType::Quit || ev.type == EventType::ReturnToLauncher)
+            while (_sys.pollEvent(ev)) {
+                if (ev.type == EventType::kQuit || ev.type == EventType::kReturnToLauncher)
                     return Error::success();
-                if (ev.type == EventType::KeyDown && ev.key == key::F1 + 8) { // F9
+                if (ev.type == EventType::kKeyDown && ev.key == key::kF1 + 8) { // F9
                     if (viewing) {
                         leaveViewer();
                     } else {
@@ -136,19 +136,19 @@ public:
                 if (viewer == 0) {
                     // Tab, and Esc outside the overview, are the engine's;
                     // the rest is the mansion's (the mouse too).
-                    const bool keyDown = ev.type == EventType::KeyDown;
-                    if (!(keyDown && (ev.key == key::Tab || (ev.key == key::Escape && !mansion.overview())))) {
+                    const bool keyDown = ev.type == EventType::kKeyDown;
+                    if (!(keyDown && (ev.key == key::kTab || (ev.key == key::kEscape && !mansion.overview())))) {
                         mansion.handleEvent(ev);
                         continue;
                     }
                 }
-                if (ev.type != EventType::KeyDown)
+                if (ev.type != EventType::kKeyDown)
                     continue;
-                if (ev.key == key::Escape) {
+                if (ev.key == key::kEscape) {
                     leaveViewer();
                     continue;
                 }
-                if (ev.key == key::Tab) {
+                if (ev.key == key::kTab) {
                     if (viewer == 1)
                         videos.deactivate();
                     else if (viewer == 4)
@@ -171,27 +171,27 @@ public:
                     texts.handleKey(ev.key);
             }
             if (!viewing) {
-                game.update(sys_.getMillis());
+                game.update(_sys.getMillis());
                 if (game.quit())
                     return Error::success();
             } else if (viewer == 0)
-                mansion.update(sys_.getMillis());
+                mansion.update(_sys.getMillis());
             else if (viewer == 1)
-                videos.update(sys_.getMillis());
+                videos.update(_sys.getMillis());
             else if (viewer == 2)
-                animations.update(sys_.getMillis());
+                animations.update(_sys.getMillis());
             else if (viewer == 4)
-                sounds.update(sys_.getMillis());
-            sys_.updateScreen(screen_);
-            sys_.delayMillis(10);
+                sounds.update(_sys.getMillis());
+            _sys.updateScreen(_screen);
+            _sys.delayMillis(10);
         }
     }
 
 private:
-    System &sys_;
-    GameTarget target_;
-    Surface screen_;
-    clue::GameData data_;
+    System &_sys;
+    GameTarget _target;
+    Surface _screen;
+    clue::GameData _data;
 };
 
 class ClueMetaEngine : public MetaEngine {
@@ -210,7 +210,7 @@ public:
             std::string what = version;
             if (cd && !exe.empty())
                 what += ", CD";
-            const clue::Language language = uk ? clue::Language::UK : clue::Language::US;
+            const clue::Language language = uk ? clue::Language::kUK : clue::Language::kUS;
             found.push_back({id(), uk ? "clue-uk" : "clue", std::string(clue::gameTitle(language)) + " (" + what + ")",
                              uk ? "en-gb" : "en", "windows"});
         };
@@ -235,8 +235,8 @@ public:
 } // namespace
 
 const MetaEngine &clueMetaEngine() {
-    static const ClueMetaEngine instance;
-    return instance;
+    static const ClueMetaEngine kInstance;
+    return kInstance;
 }
 
 } // namespace reluva

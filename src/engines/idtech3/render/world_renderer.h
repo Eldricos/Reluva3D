@@ -20,7 +20,7 @@ namespace reluva::idtech3 {
 // surfaces. See docs/engines/idtech3/README.md for what's approximate or missing.
 class WorldRenderer {
 public:
-    WorldRenderer(gfx::Renderer3D &renderer, ShaderCache &shaders) : r_(renderer), shaders_(shaders) {}
+    WorldRenderer(gfx::Renderer3D &renderer, ShaderCache &shaders) : _r(renderer), _shaders(shaders) {}
     ~WorldRenderer() { clear(); }
     WorldRenderer(const WorldRenderer &) = delete;
     WorldRenderer &operator=(const WorldRenderer &) = delete;
@@ -29,9 +29,9 @@ public:
     // instead of its lightmaps; how far curves may stray from round, in
     // units; the sky left plain (the frame's clear colour shows).
     void setOptions(bool vertexLight, float subdivisions, bool fastSky) {
-        vertexLight_ = vertexLight;
-        subdivisions_ = subdivisions;
-        fastSky_ = fastSky;
+        _vertexLight = vertexLight;
+        _subdivisions = subdivisions;
+        _fastSky = fastSky;
     }
     // Builds the GPU data for `bsp`.
     Error load(const Bsp &bsp, const ShaderLibrary &library);
@@ -45,7 +45,7 @@ public:
     // sky shows, as the original draws it only there (cracks in the level
     // elsewhere show nothing behind them, not the sky).
     void drawSkyShape(const gfx::DrawState &state) const;
-    bool hasSky() const { return skyMesh_ != 0; }
+    bool hasSky() const { return _skyMesh != 0; }
     // `worldOnly`: the level's own surfaces, not its brush entities' (doors,
     // lifts), which the game places (drawModel).
     void drawSurfaces(float time, float sortMin = 0, float sortMax = 1e9f, bool worldOnly = false) const;
@@ -57,7 +57,7 @@ public:
     // its colour. After the opaque surfaces are drawn.
     void drawDynamicLights(const std::vector<gfx::DynamicLight> &lights) const;
     // Every sort its shaders have (brush entities' included), in order.
-    const std::vector<float> &sorts() const { return sorts_; }
+    const std::vector<float> &sorts() const { return _sorts; }
     // Where a view is and which areas closed doors hide (refdef_t's area
     // mask: a bit set for each hidden one): from then on the draws are of
     // only the level's surfaces that can be seen from there, as the
@@ -87,7 +87,7 @@ public:
     // with `state` (untextured: for marking where it is, or its depth).
     void drawSurfaceShape(int surface, const gfx::DrawState &state) const;
 
-    size_t batchCount() const { return batches_.size(); }
+    size_t batchCount() const { return _batches.size(); }
     // What the last setView found, for the info line: the eye's cluster
     // (-1 outside the map), whether only what's visible is drawn, how many
     // of the level's surfaces are, of how many, and the areas hidden.
@@ -98,11 +98,11 @@ public:
         int hiddenAreas = 0;
     };
     Visibility visibility() const;
-    size_t triangleCount() const { return triangles_; }
+    size_t triangleCount() const { return _triangles; }
 
 private:
-    bool vertexLight_ = false, fastSky_ = false;
-    float subdivisions_ = 4;
+    bool _vertexLight = false, _fastSky = false;
+    float _subdivisions = 4;
     struct Batch {
         float sort = 3;
         int material = 0;
@@ -120,13 +120,13 @@ private:
     void buildSky(const ShaderDef &sky);
     void drawFog(int material, const gfx::DrawCall &base, int fog, float time) const;
 
-    gfx::Renderer3D &r_;
-    ShaderCache &shaders_;
-    gfx::MeshId mesh_ = 0;
-    std::vector<gfx::TextureId> lightmaps_;
-    std::vector<Fog> fogs_;
-    std::vector<Batch> batches_; // in drawing order
-    std::vector<float> sorts_;   // its batches' and sprites' sorts, in order
+    gfx::Renderer3D &_r;
+    ShaderCache &_shaders;
+    gfx::MeshId _mesh = 0;
+    std::vector<gfx::TextureId> _lightmaps;
+    std::vector<Fog> _fogs;
+    std::vector<Batch> _batches; // in drawing order
+    std::vector<float> _sorts;   // its batches' and sprites' sorts, in order
     // Each opaque surface's triangles (in the index buffer) and bounds,
     // for dynamic lights.
     struct LitSurface {
@@ -134,7 +134,7 @@ private:
         std::array<float, 3> mins{}, maxs{};
         int surface = -1; // the map's
     };
-    std::vector<LitSurface> litSurfaces_;
+    std::vector<LitSurface> _litSurfaces;
     // Visibility (setView): each world surface's triangles, the map's
     // leaves and vis data, and what the last view could see.
     struct SurfaceRange {
@@ -143,14 +143,14 @@ private:
         std::array<float, 3> mins{}, maxs{}; // its bounds
     };
     int leafAt(const std::array<float, 3> &p) const;
-    std::vector<SurfaceRange> surfaceRanges_;
-    std::vector<uint32_t> allIndices_;
-    std::vector<BspPlane> visPlanes_;
-    std::vector<BspNode> visNodes_;
-    std::vector<BspLeaf> visLeafs_;
-    std::vector<int32_t> visLeafSurfaces_;
-    int32_t visClusters_ = 0, visClusterBytes_ = 0;
-    std::vector<uint8_t> visData_;
+    std::vector<SurfaceRange> _surfaceRanges;
+    std::vector<uint32_t> _allIndices;
+    std::vector<BspPlane> _visPlanes;
+    std::vector<BspNode> _visNodes;
+    std::vector<BspLeaf> _visLeafs;
+    std::vector<int32_t> _visLeafSurfaces;
+    int32_t _visClusters = 0, _visClusterBytes = 0;
+    std::vector<uint8_t> _visData;
     // A view's selection (setView): its cluster and area mask, the
     // surfaces past them (visibleMark == visibleStamp), and this frame's
     // inside the view (frameMark == frameStamp), where each starts in its
@@ -171,14 +171,14 @@ private:
         size_t frameSurfaces = 0;
         std::vector<std::pair<uint32_t, uint32_t>> batchRanges; // first, count
     };
-    std::array<ViewSlot, 2> slots_;
-    int activeSlot_ = 0;
+    std::array<ViewSlot, 2> _slots;
+    int _activeSlot = 0;
     const ViewSlot *culled() const {
-        return slots_[size_t(activeSlot_)].culling ? &slots_[size_t(activeSlot_)] : nullptr;
+        return _slots[size_t(_activeSlot)].culling ? &_slots[size_t(_activeSlot)] : nullptr;
     }
-    gfx::MeshId drawMesh() const { return culled() ? culled()->mesh : mesh_; }
+    gfx::MeshId drawMesh() const { return culled() ? culled()->mesh : _mesh; }
     // The level's mirror and portal surfaces.
-    std::vector<Portal> portals_;
+    std::vector<Portal> _portals;
     // Its autosprite surfaces, kept as laid out and turned as drawn.
     struct Sprite {
         int surface = -1, material = 0, lightmap = -1, fog = -1;
@@ -187,20 +187,20 @@ private:
         std::vector<gfx::Vertex> vertices;
         std::vector<uint32_t> indices; // relative to the vertices
     };
-    std::vector<Sprite> sprites_;
-    std::array<std::array<float, 3>, 3> camera_{}; // left, up, forward
-    bool cameraMirrored_ = false, cameraSet_ = false;
+    std::vector<Sprite> _sprites;
+    std::array<std::array<float, 3>, 3> _camera{}; // left, up, forward
+    bool _cameraMirrored = false, _cameraSet = false;
     void drawSprites(float time, float sortMin, float sortMax) const;
-    size_t triangles_ = 0;
+    size_t _triangles = 0;
 
     // The sky: a box around the camera, the far box's six sides then the
     // sky shader's stages (cloud layers) over it.
-    gfx::MeshId skyMesh_ = 0;
-    std::array<gfx::TextureId, 6> skySides_{};
-    std::array<uint32_t, 6> skySideFirst_{}; // index ranges in skyMesh_
-    uint32_t skySideCount_ = 0;
-    int skyMaterial_ = -1;
-    uint32_t cloudCount_ = 0; // the box without its bottom, from index 0
+    gfx::MeshId _skyMesh = 0;
+    std::array<gfx::TextureId, 6> _skySides{};
+    std::array<uint32_t, 6> _skySideFirst{}; // index ranges in skyMesh_
+    uint32_t _skySideCount = 0;
+    int _skyMaterial = -1;
+    uint32_t _cloudCount = 0; // the box without its bottom, from index 0
 };
 
 // Doubles a light colour the way the original does on loading (it's

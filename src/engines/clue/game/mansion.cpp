@@ -177,8 +177,8 @@ std::vector<size_t> exeDepthOrder(const std::vector<WorldBox> &boxes, const std:
 }
 
 const std::vector<Mansion::Frame> *Mansion::resolve(const GameData &data, const Animation &anim) {
-    auto it = frames_.find(&anim);
-    if (it != frames_.end())
+    auto it = _frames.find(&anim);
+    if (it != _frames.end())
         return &it->second;
     std::vector<Frame> frames(anim.frameCount());
     for (size_t f = 0; f < anim.frameCount(); ++f) {
@@ -195,23 +195,23 @@ const std::vector<Mansion::Frame> *Mansion::resolve(const GameData &data, const 
                 continue;
             const Image *img = data.image(anim.images[part.image]);
             if (!img) {
-                problems_.push_back(data.lastError());
+                _problems.push_back(data.lastError());
                 continue;
             }
             frames[f].push_back(
                 {img, ax + part.x + img->offsetX, ay + part.y + img->offsetY, int(l), int(part.flags >> 16)});
         }
     }
-    return &frames_.emplace(&anim, std::move(frames)).first->second;
+    return &_frames.emplace(&anim, std::move(frames)).first->second;
 }
 
 Error Mansion::build(const GameData &data, const Level &level) {
-    level_ = &level;
-    items_.clear();
-    states_.clear();
-    order_.clear();
-    problems_.clear();
-    frames_.clear();
+    _level = &level;
+    _items.clear();
+    _states.clear();
+    _order.clear();
+    _problems.clear();
+    _frames.clear();
     for (size_t i = 0; i < level.placements.size(); ++i) {
         const Placement &pl = level.placements[i];
         const std::string &name = level.objects[pl.object];
@@ -219,7 +219,7 @@ Error Mansion::build(const GameData &data, const Level &level) {
         item.placement = i;
         item.object = data.object(name);
         if (!item.object) {
-            problems_.push_back(data.lastError());
+            _problems.push_back(data.lastError());
             continue;
         }
         // The state it starts in (Clue.exe 0x446064): 0 in all the game's.
@@ -227,12 +227,12 @@ Error Mansion::build(const GameData &data, const Level &level) {
         if (!state && !item.object->states.empty())
             state = &item.object->states.front();
         if (!state) {
-            problems_.push_back(name + " has no states");
+            _problems.push_back(name + " has no states");
             continue;
         }
         item.animation = data.animation(state->animation);
         if (!item.animation || item.animation->frameCount() == 0) {
-            problems_.push_back(item.animation ? state->animation + " has no frames" : data.lastError());
+            _problems.push_back(item.animation ? state->animation + " has no frames" : data.lastError());
             continue;
         }
         item.frames = resolve(data, *item.animation);
@@ -282,9 +282,9 @@ Error Mansion::build(const GameData &data, const Level &level) {
                 any = true;
             }
         item.rect = {x0, y0, x1 - x0, y1 - y0};
-        items_.push_back(item);
+        _items.push_back(item);
     }
-    if (items_.empty())
+    if (_items.empty())
         return Error::fail("nothing in the level could be built");
 
     // Flat things first: the black outside (layer 6), under the floors'
@@ -292,12 +292,12 @@ Error Mansion::build(const GameData &data, const Level &level) {
     // rest, sorted by their boxes.
     std::vector<size_t> flat;
     std::vector<size_t> solid;
-    for (size_t i = 0; i < items_.size(); ++i)
-        (items_[i].flat ? flat : solid).push_back(i);
+    for (size_t i = 0; i < _items.size(); ++i)
+        (_items[i].flat ? flat : solid).push_back(i);
     const auto flatRank = [](int layer) { return layer == 6 ? -1 : layer; };
     std::stable_sort(flat.begin(), flat.end(), [&](size_t a, size_t b) {
-        const Item &x = items_[a];
-        const Item &y = items_[b];
+        const Item &x = _items[a];
+        const Item &y = _items[b];
         if (flatRank(x.layer) != flatRank(y.layer))
             return flatRank(x.layer) < flatRank(y.layer);
         return x.anchorY < y.anchorY;
@@ -306,26 +306,26 @@ Error Mansion::build(const GameData &data, const Level &level) {
     std::vector<ScreenRect> rects;
     std::vector<std::array<int, 3>> keys;
     for (size_t i : solid) {
-        boxes.push_back(items_[i].box);
-        rects.push_back(items_[i].rect);
-        keys.push_back({items_[i].worldX, items_[i].worldY, items_[i].box.z});
+        boxes.push_back(_items[i].box);
+        rects.push_back(_items[i].rect);
+        keys.push_back({_items[i].worldX, _items[i].worldY, _items[i].box.z});
     }
-    order_ = flat;
-    flatCount_ = flat.size();
+    _order = flat;
+    _flatCount = flat.size();
     for (size_t k : exeDepthOrder(boxes, rects, keys))
-        order_.push_back(solid[k]);
-    orderOf_.assign(items_.size(), 0);
-    for (size_t n = 0; n < order_.size(); ++n)
-        orderOf_[order_[n]] = n;
+        _order.push_back(solid[k]);
+    _orderOf.assign(_items.size(), 0);
+    for (size_t n = 0; n < _order.size(); ++n)
+        _orderOf[_order[n]] = n;
 
-    bounds_ = items_.front().rect;
-    for (const Item &it : items_) {
-        const int x1 = std::max(bounds_.x + bounds_.w, it.rect.x + it.rect.w);
-        const int y1 = std::max(bounds_.y + bounds_.h, it.rect.y + it.rect.h);
-        bounds_.x = std::min(bounds_.x, it.rect.x);
-        bounds_.y = std::min(bounds_.y, it.rect.y);
-        bounds_.w = x1 - bounds_.x;
-        bounds_.h = y1 - bounds_.y;
+    _bounds = _items.front().rect;
+    for (const Item &it : _items) {
+        const int x1 = std::max(_bounds.x + _bounds.w, it.rect.x + it.rect.w);
+        const int y1 = std::max(_bounds.y + _bounds.h, it.rect.y + it.rect.h);
+        _bounds.x = std::min(_bounds.x, it.rect.x);
+        _bounds.y = std::min(_bounds.y, it.rect.y);
+        _bounds.w = x1 - _bounds.x;
+        _bounds.h = y1 - _bounds.y;
     }
     return Error::success();
 }
@@ -438,9 +438,9 @@ void blitShaded(Surface &dst, const image::Image &img, int x, int y, int level) 
 } // namespace
 
 bool Mansion::playState(const GameData &data, size_t item, uint16_t state, uint64_t startMs, bool loop) {
-    if (item >= items_.size())
+    if (item >= _items.size())
         return false;
-    Item &it = items_[item];
+    Item &it = _items[item];
     const ObjectDef::State *st = it.object->state(state);
     const Animation *a = st ? data.animation(st->animation) : nullptr;
     if (!a || a->frameCount() == 0)
@@ -450,7 +450,7 @@ bool Mansion::playState(const GameData &data, size_t item, uint16_t state, uint6
     p.frames = resolve(data, *a);
     p.start = startMs;
     p.loop = loop;
-    states_[item] = p;
+    _states[item] = p;
     // Its rectangle takes in the new frames, so it isn't left out of a view.
     for (const Frame &frame : *p.frames)
         for (const Piece &piece : frame) {
@@ -467,8 +467,8 @@ bool Mansion::playState(const GameData &data, size_t item, uint16_t state, uint6
 }
 
 bool Mansion::playingState(size_t item, uint64_t nowMs) const {
-    auto it = states_.find(item);
-    if (it == states_.end())
+    auto it = _states.find(item);
+    if (it == _states.end())
         return false;
     const Playing &p = it->second;
     if (p.loop)
@@ -478,9 +478,9 @@ bool Mansion::playingState(size_t item, uint64_t nowMs) const {
 
 const std::vector<Mansion::Frame> &Mansion::framesAt(size_t index, uint64_t nowMs, const MansionLook &look,
                                                      size_t &frame) const {
-    const Item &item = items_[index];
+    const Item &item = _items[index];
     frame = 0;
-    if (auto it = states_.find(index); it != states_.end() && playingState(index, nowMs)) {
+    if (auto it = _states.find(index); it != _states.end() && playingState(index, nowMs)) {
         const Playing &p = it->second;
         // A state played once (a reaction) goes through once; looping (the
         // drapes) by its own flags.
@@ -496,12 +496,12 @@ const std::vector<Mansion::Frame> &Mansion::framesAt(size_t index, uint64_t nowM
 }
 
 int Mansion::itemAt(int x, int y, const MansionLook &look, uint64_t nowMs) const {
-    for (size_t n = order_.size(); n-- > 0;) {
-        const size_t i = order_[n];
-        const Item &item = items_[i];
+    for (size_t n = _order.size(); n-- > 0;) {
+        const size_t i = _order[n];
+        const Item &item = _items[i];
         // The near walls, see-through, don't stop the pointer.
         if (item.flat || !shown(item, look) || !item.rect.contains(x, y) ||
-            (item.layer == 4 && look.nearWalls != MansionLook::NearWalls::Solid))
+            (item.layer == 4 && look.nearWalls != MansionLook::NearWalls::kSolid))
             continue;
         size_t f = 0;
         const auto &frames = framesAt(i, nowMs, look, f);
@@ -517,16 +517,16 @@ int Mansion::itemAt(int x, int y, const MansionLook &look, uint64_t nowMs) const
 }
 
 bool Mansion::shown(const Item &item, const MansionLook &look) const {
-    if (item.object->type == ObjectDef::TileNumber)
+    if (item.object->type == ObjectDef::kTileNumber)
         return look.tileNumbers;
-    if (item.object->type == ObjectDef::Character)
+    if (item.object->type == ObjectDef::kCharacter)
         return look.characters;
     // "Mansion Walls" off: Clue.exe's walls don't draw themselves, nor its
     // furniture of the secondary type 1 (the lamps on the walls).
     if (!look.walls && (item.kind == 0 || (item.kind == 3 && item.subKind == 1)))
         return false;
     if (item.layer == 4)
-        return look.nearWalls != MansionLook::NearWalls::Hidden;
+        return look.nearWalls != MansionLook::NearWalls::kHidden;
     if (item.layer == 6)
         return look.outside;
     return true;
@@ -587,7 +587,7 @@ bool inFrontOf(const Mansion::Item &item, const Mansion::Actor &a) {
     default:
         return false;
     }
-    if (a.inRoom && item.object->type != ObjectDef::Wall)
+    if (a.inRoom && item.object->type != ObjectDef::kWall)
         return false;
     const WorldBox &b = item.box;
     return b.x <= a.box.x + kRevealReach && b.x + b.sizeX - kRevealSlack > a.box.x && b.y <= a.box.y + kRevealReach &&
@@ -598,16 +598,16 @@ bool inFrontOf(const Mansion::Item &item, const Mansion::Actor &a) {
 
 size_t Mansion::insertionPoint(const Actor &actor) const {
     if (actor.flat)
-        return flatCount_;
+        return _flatCount;
     // After everything it is in front of, before everything in front of it
     // (of what it overlaps on screen); when the two can't both be had, the
     // things in front of it win.
     const ScreenRect rect = actorRect(actor);
-    size_t after = flatCount_;
-    size_t before = order_.size();
-    for (size_t n = flatCount_; n < order_.size(); ++n) {
-        const Item &item = items_[order_[n]];
-        if (!item.rect.overlaps(rect) || item.object->type == ObjectDef::Character)
+    size_t after = _flatCount;
+    size_t before = _order.size();
+    for (size_t n = _flatCount; n < _order.size(); ++n) {
+        const Item &item = _items[_order[n]];
+        if (!item.rect.overlaps(rect) || item.object->type == ObjectDef::kCharacter)
             continue;
         // Clue.exe's test both ways; where it can't tell (or both hold),
         // its first order: by y, then x.
@@ -669,7 +669,7 @@ void Mansion::draw(Surface &target, int camX, int camY, const MansionLook &look,
         if (a.reveal)
             revealing.push_back(&a);
     }
-    const bool fades = look.inFront != MansionLook::InFront::Solid;
+    const bool fades = look.inFront != MansionLook::InFront::kSolid;
     // Lighting, as Clue.exe's (0x428220 with Lighting Effects on): each
     // revealing actor gives its light, from the middle of its box, to what
     // it reaches and doesn't show through; each thing keeps the nearest.
@@ -702,23 +702,23 @@ void Mansion::draw(Surface &target, int camX, int camY, const MansionLook &look,
                     image::blit(target, p.image->pixels, ax + p.dx, ay + p.dy, a.opacity);
         }
     };
-    for (size_t n = 0; n < order_.size(); ++n) {
+    for (size_t n = 0; n < _order.size(); ++n) {
         drawActors(n);
-        const Item &item = items_[order_[n]];
+        const Item &item = _items[_order[n]];
         if (!shown(item, look) || !item.rect.overlaps(view))
             continue;
         size_t f = 0;
-        const auto &frames = framesAt(order_[n], nowMs, look, f);
+        const auto &frames = framesAt(_order[n], nowMs, look, f);
         // In front of the suspect whose turn it is or a move's number: see-
         // through, or left out, the whole piece.
         bool seeThrough = false;
         if (fades && !item.flat &&
             std::any_of(revealing.begin(), revealing.end(), [&](const Actor *a) { return inFrontOf(item, *a); })) {
-            if (look.inFront == MansionLook::InFront::Hidden)
+            if (look.inFront == MansionLook::InFront::kHidden)
                 continue;
             seeThrough = true;
         }
-        if (item.layer == 4 && look.nearWalls == MansionLook::NearWalls::SeeThrough)
+        if (item.layer == 4 && look.nearWalls == MansionLook::NearWalls::kSeeThrough)
             seeThrough = true;
         const int x0 = item.anchorX - camX;
         const int y0 = item.anchorY - camY;
@@ -760,7 +760,7 @@ void Mansion::draw(Surface &target, int camX, int camY, const MansionLook &look,
             blitShaded(target, p.image->pixels, x0 + p.dx, y0 + p.dy, p.blend ? p.blend : lit.at(px, py));
         }
     }
-    drawActors(order_.size());
+    drawActors(_order.size());
 }
 
 } // namespace reluva::clue

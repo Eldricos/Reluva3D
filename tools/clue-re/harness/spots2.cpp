@@ -7,7 +7,7 @@
 #include <map>
 using namespace reluva; using namespace reluva::clue;
 int main(int, char** argv) {
-    GameData data; if (data.open(argv[1], Language::US)) { std::puts("open"); return 1; }
+    GameData data; if (data.open(argv[1], Language::kUS)) { std::puts("open"); return 1; }
     DataDrive f; Level lvl; f.open(*data.find("clue.lvl")); parseLevel(f, lvl);
     Mansion m; if (m.build(data, lvl)) { std::puts("build"); return 1; }
     Board board; board.build(lvl);

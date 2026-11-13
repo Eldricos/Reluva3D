@@ -88,16 +88,16 @@ bool RleAnimation::loadWithHeader(SeekableReadStream &stream, uint8_t header[8])
 }
 
 bool RleAnimation::parse(const uint8_t *data, uint32_t size, bool checkHeader) {
-    frames_.clear();
+    _frames.clear();
     if (size < 10 || (checkHeader && std::memcmp(data, kRleMagic, sizeof(kRleMagic)) != 0))
         return false;
     uint32_t count = readLE16(data + 8);
     uint32_t pos = 10;
-    while (frames_.size() < count && pos + kRleFrameHeaderSize <= size) {
+    while (_frames.size() < count && pos + kRleFrameHeaderSize <= size) {
         const uint8_t *hdr = data + pos;
         uint32_t length = readLE32(hdr + 21);
         if (pos + kRleFrameHeaderSize + length > size) {
-            log::warning("RLE: frame %u runs past the end of the file", unsigned(frames_.size()));
+            log::warning("RLE: frame %u runs past the end of the file", unsigned(_frames.size()));
             break;
         }
         Frame f;
@@ -111,22 +111,22 @@ bool RleAnimation::parse(const uint8_t *data, uint32_t size, bool checkHeader) {
             f.muzzleY[m] = int16_t(readLE16(hdr + 15 + m * 2));
         }
         f.data.assign(hdr + kRleFrameHeaderSize, hdr + kRleFrameHeaderSize + length);
-        frames_.push_back(std::move(f));
+        _frames.push_back(std::move(f));
         pos += kRleFrameHeaderSize + length;
     }
-    return !frames_.empty();
+    return !_frames.empty();
 }
 
 void RleAnimation::drawFrame(int i, Surface &dst, int dx, int dy) const {
     if (i < 0 || i >= frameCount())
         return;
-    drawFrameAt(i, dst, frames_[i].x + dx, frames_[i].y + dy);
+    drawFrameAt(i, dst, _frames[i].x + dx, _frames[i].y + dy);
 }
 
 void RleAnimation::drawFrameAt(int i, Surface &dst, int ox, int oy, const Rect *clip) const {
     if (i < 0 || i >= frameCount())
         return;
-    const Frame &f = frames_[i];
+    const Frame &f = _frames[i];
     Rect bounds(0, 0, dst.w, dst.h);
     if (clip)
         bounds = Rect(std::max(0, clip->left), std::max(0, clip->top), std::min(dst.w, clip->right),

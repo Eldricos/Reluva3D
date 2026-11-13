@@ -25,24 +25,24 @@ void block(uint32_t h[4], const uint8_t *p) {
     uint32_t d = h[3];
     // Round 1: F(x, y, z) = (x & y) | (~x & z), shifts 3, 7, 11, 19.
     auto f = [](uint32_t x1, uint32_t y, uint32_t z) { return (x1 & y) | (~x1 & z); };
-    static const int s1[4] = {3, 7, 11, 19};
+    static const int kS1[4] = {3, 7, 11, 19};
     for (int i = 0; i < 16; ++i) {
-        const uint32_t t = rotl(a + f(b, c, d) + x[i], s1[i & 3]);
+        const uint32_t t = rotl(a + f(b, c, d) + x[i], kS1[i & 3]);
         a = d, d = c, c = b, b = t;
     }
     // Round 2: G(x, y, z) = majority, the words by column, + 0x5a827999.
     auto g = [](uint32_t x1, uint32_t y, uint32_t z) { return (x1 & y) | (x1 & z) | (y & z); };
-    static const int s2[4] = {3, 5, 9, 13};
+    static const int kS2[4] = {3, 5, 9, 13};
     for (int i = 0; i < 16; ++i) {
         const int k = (i % 4) * 4 + i / 4;
-        const uint32_t t = rotl(a + g(b, c, d) + x[k] + 0x5a827999u, s2[i & 3]);
+        const uint32_t t = rotl(a + g(b, c, d) + x[k] + 0x5a827999u, kS2[i & 3]);
         a = d, d = c, c = b, b = t;
     }
     // Round 3: H(x, y, z) = x ^ y ^ z, the words in bit-reversed order, + 0x6ed9eba1.
-    static const int order3[16] = {0, 8, 4, 12, 2, 10, 6, 14, 1, 9, 5, 13, 3, 11, 7, 15};
-    static const int s3[4] = {3, 9, 11, 15};
+    static const int kOrder3[16] = {0, 8, 4, 12, 2, 10, 6, 14, 1, 9, 5, 13, 3, 11, 7, 15};
+    static const int kS3[4] = {3, 9, 11, 15};
     for (int i = 0; i < 16; ++i) {
-        const uint32_t t = rotl(a + (b ^ c ^ d) + x[order3[i]] + 0x6ed9eba1u, s3[i & 3]);
+        const uint32_t t = rotl(a + (b ^ c ^ d) + x[kOrder3[i]] + 0x6ed9eba1u, kS3[i & 3]);
         a = d, d = c, c = b, b = t;
     }
     h[0] += a, h[1] += b, h[2] += c, h[3] += d;

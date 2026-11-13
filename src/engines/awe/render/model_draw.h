@@ -67,7 +67,7 @@ public:
     GpuModel(const GpuModel &) = delete;
     GpuModel &operator=(const GpuModel &) = delete;
 
-    const Model &model() const { return model_; }
+    const Model &model() const { return _model; }
     // Skins the model for `pose` and draws it placed by `placement`
     // (meshes made for the frame go into `frameMeshes`, for the caller to
     // destroy after the frame). Untextured meshes (the face's bone boxes)
@@ -94,9 +94,9 @@ private:
                     std::vector<gfx::MeshId> &frameMeshes);
     void shadowPass(gfx::MeshId mesh, uint32_t indexCount, const gfx::Mat4 &model);
 
-    gfx::Renderer3D &renderer_;
-    Model model_;
-    std::vector<gfx::TextureId> textures_;
+    gfx::Renderer3D &_renderer;
+    Model _model;
+    std::vector<gfx::TextureId> _textures;
 };
 
 // The rest pose, or an animation's pose at `time` (looping).

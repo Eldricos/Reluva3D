@@ -50,7 +50,7 @@ struct ParticleSettings {
 class ParticleSystem {
 public:
     explicit ParticleSystem(ParticleSettings settings, uint32_t seed = 1);
-    const ParticleSettings &settings() const { return s_; }
+    const ParticleSettings &settings() const { return _s; }
     // Moves the particles on by `dt` seconds, emitting new ones.
     void update(float dt);
     // Moves the emitter, and sets the velocity the particles emitted from
@@ -63,7 +63,7 @@ public:
     };
     // What's drawn, each particle `copies` times over.
     void points(std::vector<Point> &out) const;
-    size_t count() const { return particles_.size(); }
+    size_t count() const { return _particles.size(); }
 
 private:
     struct Particle {
@@ -76,11 +76,11 @@ private:
     float spreadRandom(float centre);
     void emit();
 
-    ParticleSettings s_;
-    std::vector<Particle> particles_;
-    float time_ = 0, nextBurst_ = 0, blinkLeft_ = 0;
-    bool on_ = true;
-    uint32_t seed_;
+    ParticleSettings _s;
+    std::vector<Particle> _particles;
+    float _time = 0, _nextBurst = 0, _blinkLeft = 0;
+    bool _on = true;
+    uint32_t _seed;
 };
 
 } // namespace reluva::awe

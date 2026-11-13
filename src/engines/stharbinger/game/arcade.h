@@ -54,19 +54,19 @@ public:
     // (which handles the presses).
     bool update(uint32_t millis, Point aim, bool leftPressed, bool rightPressed);
 
-    bool isDone() const { return done_; }
-    uint16_t getResult() const { return result_; }
-    int getDamage() const { return damage_; }
+    bool isDone() const { return _done; }
+    uint16_t getResult() const { return _result; }
+    int getDamage() const { return _damage; }
     const char *getDeathVideo() const;
-    const std::string &getName() const { return name_; }
+    const std::string &getName() const { return _name; }
     void saveGroups(std::map<int, ArcadeGroupState> &out) const;
 
-    const Surface &getScreen() const { return compose_; }
+    const Surface &getScreen() const { return _compose; }
     // 256 RGB entries; true once after each change.
-    const uint8_t *palette() const { return palette_; }
+    const uint8_t *palette() const { return _palette; }
     bool takePaletteChanged();
 
-    int getFrame() const { return frame_; }
+    int getFrame() const { return _frame; }
 
 private:
     struct Target {
@@ -109,7 +109,7 @@ private:
     void loadMusic();
     void loadVoice();
     bool loadSound(const std::string &name, std::vector<uint8_t> &data) const;
-    void playSound(const std::vector<uint8_t> &data, audio::SoundType type = audio::SoundType::Effects);
+    void playSound(const std::vector<uint8_t> &data, audio::SoundType type = audio::SoundType::kEffects);
 
     void stepFrame(bool leftPressed, bool rightPressed);
     void updateDoor(bool leftPressed);
@@ -130,66 +130,66 @@ private:
     int random(int n);
     static int torpedoDirection(int dx, int dy);
 
-    Resources &resources_;
-    audio::Mixer *mixer_;
-    int type_;
-    int difficulty_;
-    std::string name_;
-    Rect rect_;
-    int startFrame_ = 100, endFrame_ = 100;
-    bool torpedoes_ = true, shieldHud_ = true, overlay_ = true;
+    Resources &_resources;
+    audio::Mixer *_mixer;
+    int _type;
+    int _difficulty;
+    std::string _name;
+    Rect _rect;
+    int _startFrame = 100, _endFrame = 100;
+    bool _torpedoes = true, _shieldHud = true, _overlay = true;
 
-    std::unique_ptr<smacker::Decoder> video_;
-    std::shared_ptr<audio::QueuingStream> videoAudio_; // fed while the mixer plays it
-    audio::SoundHandle videoAudioHandle_ = audio::kNoSound;
-    Surface work_, compose_;
-    uint8_t palette_[768] = {};
-    bool paletteChanged_ = false;
+    std::unique_ptr<smacker::Decoder> _video;
+    std::shared_ptr<audio::QueuingStream> _videoAudio; // fed while the mixer plays it
+    audio::SoundHandle _videoAudioHandle = audio::kNoSound;
+    Surface _work, _compose;
+    uint8_t _palette[768] = {};
+    bool _paletteChanged = false;
 
-    std::vector<Target> targets_;
-    std::vector<RleAnimation> explosions_; // sorted by name: large first, then small
-    RleAnimation torpedoAnims_[6];         // T29L T17L T09L T29R T17R T09R
-    RleAnimation torpedoEnd_;              // T5ALL
-    RleAnimation shield_, windshield_, door_;
-    int doorStart_ = 0;
-    int doorFrame_ = 0;
-    int doorDamage_ = 0;
-    bool doorDestroyed_ = false;
-    int doorOverlayDelay_ = 0;
-    std::vector<DoorExplosion> doorExplosions_;
+    std::vector<Target> _targets;
+    std::vector<RleAnimation> _explosions; // sorted by name: large first, then small
+    RleAnimation _torpedoAnims[6];         // T29L T17L T09L T29R T17R T09R
+    RleAnimation _torpedoEnd;              // T5ALL
+    RleAnimation _shield, _windshield, _door;
+    int _doorStart = 0;
+    int _doorFrame = 0;
+    int _doorDamage = 0;
+    bool _doorDestroyed = false;
+    int _doorOverlayDelay = 0;
+    std::vector<DoorExplosion> _doorExplosions;
 
-    Torpedo torps_[4];
-    bool torpedoFiredThisFrame_ = false;
-    int targetUnderSight_ = -1;
-    Point aim_;
+    Torpedo _torps[4];
+    bool _torpedoFiredThisFrame = false;
+    int _targetUnderSight = -1;
+    Point _aim;
 
-    int frame_ = -1; // the video frame just decoded
-    int damage_ = 0;
-    int prevDamage_ = 0;
-    int winCountdown_ = 0;
-    int shakeCount_ = 0, shakeIntensity_ = 0;
-    int shakeX_ = 0, shakeY_ = 0;
-    uint16_t result_ = 0;
-    bool done_ = false;
-    uint32_t randSeed_ = 12345;
+    int _frame = -1; // the video frame just decoded
+    int _damage = 0;
+    int _prevDamage = 0;
+    int _winCountdown = 0;
+    int _shakeCount = 0, _shakeIntensity = 0;
+    int _shakeX = 0, _shakeY = 0;
+    uint16_t _result = 0;
+    bool _done = false;
+    uint32_t _randSeed = 12345;
 
     struct PhaserShot {
         bool active = false;
         int x = 0, y = 0;
-    } phaser_;
+    } _phaser;
 
     // Sounds.
-    std::vector<uint8_t> bangs_[5], quant_, phasor_, shake_;
-    std::vector<std::vector<int16_t>> musicSegments_;
-    std::vector<int> musicOrder_;
-    int musicTag_ = -1;
-    int musicValue_ = 0;
-    int tagFrame_ = -1;
+    std::vector<uint8_t> _bangs[5], _quant, _phasor, _shake;
+    std::vector<std::vector<int16_t>> _musicSegments;
+    std::vector<int> _musicOrder;
+    int _musicTag = -1;
+    int _musicValue = 0;
+    int _tagFrame = -1;
     class MusicStream;
-    std::shared_ptr<MusicStream> music_; // its tag is played on cue
-    audio::SoundHandle musicHandle_ = audio::kNoSound;
-    std::vector<VoiceCue> voice_;
-    int voiceFlags_[20] = {};
+    std::shared_ptr<MusicStream> _music; // its tag is played on cue
+    audio::SoundHandle _musicHandle = audio::kNoSound;
+    std::vector<VoiceCue> _voice;
+    int _voiceFlags[20] = {};
 };
 
 } // namespace reluva::stharbinger

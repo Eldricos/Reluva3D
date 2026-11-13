@@ -51,35 +51,35 @@ void brightenLight(uint8_t *rgb) {
 
 void WorldRenderer::clear() {
     // The views' meshes first: they use the level's vertices.
-    for (ViewSlot &v : slots_) {
+    for (ViewSlot &v : _slots) {
         if (v.mesh)
-            r_.destroyMesh(v.mesh);
+            _r.destroyMesh(v.mesh);
         v = ViewSlot{};
     }
-    activeSlot_ = 0;
-    portals_.clear();
-    sprites_.clear();
-    for (gfx::MeshId m : {mesh_, skyMesh_})
+    _activeSlot = 0;
+    _portals.clear();
+    _sprites.clear();
+    for (gfx::MeshId m : {_mesh, _skyMesh})
         if (m)
-            r_.destroyMesh(m);
-    mesh_ = skyMesh_ = 0;
-    surfaceRanges_.clear();
-    allIndices_.clear();
-    for (gfx::TextureId t : lightmaps_)
-        r_.destroyTexture(t);
-    lightmaps_.clear();
-    fogs_.clear();
-    batches_.clear();
-    sorts_.clear();
-    litSurfaces_.clear();
-    skySides_ = {};
-    skyMaterial_ = -1;
-    triangles_ = 0;
+            _r.destroyMesh(m);
+    _mesh = _skyMesh = 0;
+    _surfaceRanges.clear();
+    _allIndices.clear();
+    for (gfx::TextureId t : _lightmaps)
+        _r.destroyTexture(t);
+    _lightmaps.clear();
+    _fogs.clear();
+    _batches.clear();
+    _sorts.clear();
+    _litSurfaces.clear();
+    _skySides = {};
+    _skyMaterial = -1;
+    _triangles = 0;
 }
 
 void WorldRenderer::drawFog(int material, const gfx::DrawCall &base, int fog, float time) const {
-    const Fog &f = fogs_[size_t(fog)];
-    shaders_.drawFog(material, base, f.color, f.distance, f.plane, time);
+    const Fog &f = _fogs[size_t(fog)];
+    _shaders.drawFog(material, base, f.color, f.distance, f.plane, time);
 }
 
 void WorldRenderer::buildSky(const ShaderDef &sky) {
@@ -100,7 +100,7 @@ void WorldRenderer::buildSky(const ShaderDef &sky) {
     std::vector<uint32_t> indices;
     for (int side = 0; side < 6; ++side) {
         const uint32_t base = uint32_t(verts.size());
-        skySideFirst_[size_t(side)] = uint32_t(indices.size());
+        _skySideFirst[size_t(side)] = uint32_t(indices.size());
         for (int j = 0; j <= kSubdiv; ++j)
             for (int i = 0; i <= kSubdiv; ++i) {
                 const float s = float(i) / kSubdiv * 2 - 1;
@@ -135,14 +135,14 @@ void WorldRenderer::buildSky(const ShaderDef &sky) {
                 indices.insert(indices.end(), {a, a + 1, a + kSubdiv + 1, a + 1, a + kSubdiv + 2, a + kSubdiv + 1});
             }
     }
-    skySideCount_ = uint32_t(indices.size() / 6);
-    cloudCount_ = skySideCount_ * 5; // every side but the bottom
-    if (r_.createMesh(verts, indices, skyMesh_))
+    _skySideCount = uint32_t(indices.size() / 6);
+    _cloudCount = _skySideCount * 5; // every side but the bottom
+    if (_r.createMesh(verts, indices, _skyMesh))
         return;
     if (!sky.skyFarBox.empty())
         for (int side = 0; side < 6; ++side)
-            skySides_[size_t(side)] =
-                shaders_.image(sky.skyFarBox + "_" + kSuffix[kImageForSide[side]], true, !sky.noMipmaps, !sky.noPicmip);
+            _skySides[size_t(side)] =
+                _shaders.image(sky.skyFarBox + "_" + kSuffix[kImageForSide[side]], true, !sky.noMipmaps, !sky.noPicmip);
 }
 
 Error WorldRenderer::load(const Bsp &bsp, const ShaderLibrary &library) {
@@ -160,9 +160,9 @@ Error WorldRenderer::load(const Bsp &bsp, const ShaderLibrary &library) {
         p.clamp = true;
         p.mipmaps = false;
         gfx::TextureId t = 0;
-        if (Error err = r_.createTexture(kLightmapSize, kLightmapSize, rgba.data(), p, t))
+        if (Error err = _r.createTexture(kLightmapSize, kLightmapSize, rgba.data(), p, t))
             return err;
-        lightmaps_.push_back(t);
+        _lightmaps.push_back(t);
     }
 
     for (const BspFog &f : bsp.fogs) {
@@ -179,7 +179,7 @@ Error WorldRenderer::load(const Bsp &bsp, const ShaderLibrary &library) {
                 fog.plane = {p.normal[0], p.normal[1], p.normal[2], p.dist};
             }
         }
-        fogs_.push_back(fog);
+        _fogs.push_back(fog);
     }
 
     // Every surface's triangles, grouped by what they're drawn with and
@@ -208,20 +208,20 @@ Error WorldRenderer::load(const Bsp &bsp, const ShaderLibrary &library) {
     std::vector<uint32_t> patchIndices;
     // Curves cut as the original's: finely enough to stray from round by
     // at most r_subdivisions units, neighbours stitched.
-    const std::vector<PatchGrid> grids = buildPatchGrids(bsp, subdivisions_);
+    const std::vector<PatchGrid> grids = buildPatchGrids(bsp, _subdivisions);
     for (size_t mi = 0; mi < bsp.models.size(); ++mi) {
         const BspModel &model = bsp.models[mi];
         for (int si = model.firstSurface; si < model.firstSurface + model.numSurfaces; ++si) {
             const BspSurface &s = bsp.surfaces[size_t(si)];
-            if (s.type != SurfaceType::Planar && s.type != SurfaceType::TriangleSoup && s.type != SurfaceType::Patch)
+            if (s.type != SurfaceType::kPlanar && s.type != SurfaceType::kTriangleSoup && s.type != SurfaceType::kPatch)
                 continue;
             // Triangle soups are always lit by their vertices, as are
             // surfaces without a lightmap.
-            const bool lightmapped = s.lightmap >= 0 && size_t(s.lightmap) < lightmaps_.size() &&
-                                     s.type != SurfaceType::TriangleSoup && !vertexLight_;
-            const int materialIndex = shaders_.material(bsp.shaders[size_t(s.shader)].name,
-                                                        lightmapped ? Lighting::Lightmap : Lighting::Vertex);
-            const ShaderCache::Material &mat = shaders_.get(materialIndex);
+            const bool lightmapped = s.lightmap >= 0 && size_t(s.lightmap) < _lightmaps.size() &&
+                                     s.type != SurfaceType::kTriangleSoup && !_vertexLight;
+            const int materialIndex = _shaders.material(bsp.shaders[size_t(s.shader)].name,
+                                                        lightmapped ? Lighting::kLightmap : Lighting::kVertex);
+            const ShaderCache::Material &mat = _shaders.get(materialIndex);
             // The sky's surfaces aren't drawn, but kept for where the sky
             // shows (drawSkyShape), in batches of their own sort.
             bool sky = false;
@@ -233,7 +233,7 @@ Error WorldRenderer::load(const Bsp &bsp, const ShaderLibrary &library) {
             }
             // Quads that turn to face the camera: kept aside, rebuilt as
             // they're drawn (a quad each four vertices and six indices).
-            if (!sky && mat.autosprite && mi == 0 && s.type != SurfaceType::Patch && s.numVertices >= 4 &&
+            if (!sky && mat.autosprite && mi == 0 && s.type != SurfaceType::kPatch && s.numVertices >= 4 &&
                 s.numVertices % 4 == 0 && s.numIndices == s.numVertices / 4 * 6) {
                 Sprite sp;
                 sp.surface = si;
@@ -247,7 +247,7 @@ Error WorldRenderer::load(const Bsp &bsp, const ShaderLibrary &library) {
                     sp.vertices.push_back(toGfx(sv[i]));
                 for (int i = 0; i < s.numIndices; ++i)
                     sp.indices.push_back(uint32_t(bsp.indices[size_t(s.firstIndex + i)]));
-                sprites_.push_back(std::move(sp));
+                _sprites.push_back(std::move(sp));
                 continue;
             }
             const GroupKey key{sky ? kSkySort : mat.sort, materialIndex, lightmapped ? s.lightmap : -1, s.fog, int(mi)};
@@ -255,7 +255,7 @@ Error WorldRenderer::load(const Bsp &bsp, const ShaderLibrary &library) {
             const auto offset = uint32_t(out.size());
             const uint32_t base = uint32_t(vertices.size());
             const BspVertex *v = &bsp.vertices[size_t(s.firstVertex)];
-            if (s.type == SurfaceType::Patch) {
+            if (s.type == SurfaceType::kPatch) {
                 patchVerts.clear();
                 patchIndices.clear();
                 triangulateGrid(grids[size_t(si)], patchVerts, patchIndices);
@@ -272,7 +272,7 @@ Error WorldRenderer::load(const Bsp &bsp, const ShaderLibrary &library) {
             }
             // Solid, unmoving surfaces take dynamic lights (the world's:
             // brush entities move).
-            const bool deformed = mat.deforms[0].type != gfx::Deform::Type::None;
+            const bool deformed = mat.deforms[0].type != gfx::Deform::Type::kNone;
             if (mi == 0 && out.size() > offset) {
                 Placed p{key, offset, uint32_t(out.size()) - offset, {1e9f, 1e9f, 1e9f}, {-1e9f, -1e9f, -1e9f}};
                 for (size_t vi = base; vi < vertices.size(); ++vi)
@@ -301,26 +301,26 @@ Error WorldRenderer::load(const Bsp &bsp, const ShaderLibrary &library) {
         if (list.empty())
             continue;
         groupStart[key] = uint32_t(indices.size());
-        groupBatch[key] = int(batches_.size());
-        batches_.push_back({std::get<0>(key), std::get<1>(key), std::get<2>(key), std::get<3>(key),
+        groupBatch[key] = int(_batches.size());
+        _batches.push_back({std::get<0>(key), std::get<1>(key), std::get<2>(key), std::get<3>(key),
                             uint32_t(indices.size()), uint32_t(list.size()), std::get<4>(key)});
         indices.insert(indices.end(), list.begin(), list.end());
     }
-    triangles_ = indices.size() / 3;
+    _triangles = indices.size() / 3;
     for (const Pending &p : pending)
-        litSurfaces_.push_back({groupStart[p.group] + p.offset, p.count, p.mins, p.maxs, p.surface});
-    surfaceRanges_.assign(bsp.surfaces.size(), {});
+        _litSurfaces.push_back({groupStart[p.group] + p.offset, p.count, p.mins, p.maxs, p.surface});
+    _surfaceRanges.assign(bsp.surfaces.size(), {});
     for (size_t s = 0; s < placed.size(); ++s)
         if (placed[s])
-            surfaceRanges_[s] = {groupBatch[placed[s]->group], groupStart[placed[s]->group] + placed[s]->offset,
+            _surfaceRanges[s] = {groupBatch[placed[s]->group], groupStart[placed[s]->group] + placed[s]->offset,
                                  placed[s]->count, placed[s]->mins, placed[s]->maxs};
     // The mirrors and portals: each surface's plane (from its first
     // triangle) and bounds, and its shader's range.
-    for (size_t s = 0; s < surfaceRanges_.size(); ++s) {
-        const SurfaceRange &r = surfaceRanges_[s];
+    for (size_t s = 0; s < _surfaceRanges.size(); ++s) {
+        const SurfaceRange &r = _surfaceRanges[s];
         if (r.batch < 0 || r.count < 3)
             continue;
-        const ShaderCache::Material &mat = shaders_.get(batches_[size_t(r.batch)].material);
+        const ShaderCache::Material &mat = _shaders.get(_batches[size_t(r.batch)].material);
         if (!mat.portal)
             continue;
         const float *p0 = vertices[indices[r.firstIndex]].pos;
@@ -335,67 +335,67 @@ Error WorldRenderer::load(const Bsp &bsp, const ShaderLibrary &library) {
             continue;
         for (float &v : n)
             v /= len;
-        portals_.push_back({int(s), n, n[0] * p0[0] + n[1] * p0[1] + n[2] * p0[2], r.mins, r.maxs, mat.portalRange});
+        _portals.push_back({int(s), n, n[0] * p0[0] + n[1] * p0[1] + n[2] * p0[2], r.mins, r.maxs, mat.portalRange});
     }
     // What visibility needs of the map, kept.
-    visPlanes_ = bsp.planes;
-    visNodes_ = bsp.nodes;
-    visLeafs_ = bsp.leafs;
-    visLeafSurfaces_ = bsp.leafSurfaces;
-    visClusters_ = bsp.visClusters;
-    visClusterBytes_ = bsp.visClusterBytes;
-    visData_ = bsp.visData;
-    allIndices_ = indices;
+    _visPlanes = bsp.planes;
+    _visNodes = bsp.nodes;
+    _visLeafs = bsp.leafs;
+    _visLeafSurfaces = bsp.leafSurfaces;
+    _visClusters = bsp.visClusters;
+    _visClusterBytes = bsp.visClusterBytes;
+    _visData = bsp.visData;
+    _allIndices = indices;
 
     // The sky, from the first sky shader the map uses.
     for (const BspShader &s : bsp.shaders)
         if (const ShaderDef *def = library.find(s.name); def && def->sky) {
             buildSky(*def);
-            skyMaterial_ = def->stages.empty() ? -1 : shaders_.material(*def, Lighting::Vertex, true);
+            _skyMaterial = def->stages.empty() ? -1 : _shaders.material(*def, Lighting::kVertex, true);
             break;
         }
 
     if (indices.empty())
         return Error::fail("The map has nothing to draw");
-    for (const Batch &b : batches_)
+    for (const Batch &b : _batches)
         if (b.sort != kSkySort)
-            sorts_.push_back(b.sort);
-    for (const Sprite &sp : sprites_)
-        sorts_.push_back(sp.sort);
-    std::sort(sorts_.begin(), sorts_.end());
-    sorts_.erase(std::unique(sorts_.begin(), sorts_.end()), sorts_.end());
-    return r_.createMesh(vertices, indices, mesh_);
+            _sorts.push_back(b.sort);
+    for (const Sprite &sp : _sprites)
+        _sorts.push_back(sp.sort);
+    std::sort(_sorts.begin(), _sorts.end());
+    _sorts.erase(std::unique(_sorts.begin(), _sorts.end()), _sorts.end());
+    return _r.createMesh(vertices, indices, _mesh);
 }
 
 void WorldRenderer::drawSky(float time) const {
     // Around the camera, before the rest, which covers it.
-    if (skyMesh_ && !fastSky_) {
+    if (_skyMesh && !_fastSky) {
         for (size_t side = 0; side < 6; ++side) {
-            if (!skySides_[side])
+            if (!_skySides[side])
                 continue;
             gfx::DrawCall call;
-            call.mesh = skyMesh_;
-            call.firstIndex = skySideFirst_[side];
-            call.indexCount = skySideCount_;
-            call.texture = skySides_[side];
+            call.mesh = _skyMesh;
+            call.firstIndex = _skySideFirst[side];
+            call.indexCount = _skySideCount;
+            call.texture = _skySides[side];
             call.followCamera = true;
             call.state.depthTest = call.state.depthWrite = false;
-            call.state.cull = gfx::Cull::None;
-            r_.draw(call);
+            call.state.cull = gfx::Cull::kNone;
+            _r.draw(call);
         }
-        if (skyMaterial_ >= 0) {
+        if (_skyMaterial >= 0) {
             gfx::DrawCall clouds;
-            clouds.mesh = skyMesh_;
-            clouds.indexCount = cloudCount_;
-            shaders_.draw(skyMaterial_, clouds, 0, time, true);
+            clouds.mesh = _skyMesh;
+            clouds.indexCount = _cloudCount;
+            _shaders.draw(_skyMaterial, clouds, 0, time, true);
         }
     }
 }
 
 void WorldRenderer::drawSkyShape(const gfx::DrawState &state) const {
     const ViewSlot *view = culled();
-    for (size_t i = 0; i < batches_.size(); ++i) {
-        const Batch &b = batches_[i];
+    for (size_t i = 0; i < _batches.size(); ++i) {
+        const Batch &b = _batches[i];
         if (b.sort != kSkySort)
             continue;
         gfx::DrawCall call;
@@ -409,26 +409,26 @@ void WorldRenderer::drawSkyShape(const gfx::DrawState &state) const {
             call.indexCount = view->batchRanges[i].second;
         }
         call.state = state;
-        r_.draw(call);
+        _r.draw(call);
     }
 }
 
 void WorldRenderer::drawDynamicLights(const std::vector<gfx::DynamicLight> &lights) const {
-    if (lights.empty() || !mesh_)
+    if (lights.empty() || !_mesh)
         return;
-    r_.setDynamicLights(lights);
+    _r.setDynamicLights(lights);
     const size_t n = std::min<size_t>(lights.size(), gfx::kMaxDynamicLights);
     gfx::DrawCall call;
     call.mesh = drawMesh();
     call.dynamicLights = true;
     const ViewSlot *view = culled();
     // Over what's drawn: the result is what's there times (1 + the light).
-    call.state.src = gfx::Blend::DstColor;
-    call.state.dst = gfx::Blend::One;
+    call.state.src = gfx::Blend::kDstColor;
+    call.state.dst = gfx::Blend::kOne;
     call.state.depthEqual = true;
     call.state.depthWrite = false;
-    call.state.cull = gfx::Cull::None;
-    for (const LitSurface &s : litSurfaces_) {
+    call.state.cull = gfx::Cull::kNone;
+    for (const LitSurface &s : _litSurfaces) {
         // Only those drawn this frame, from where they are in its list.
         uint32_t first = s.firstIndex;
         if (view) {
@@ -447,14 +447,14 @@ void WorldRenderer::drawDynamicLights(const std::vector<gfx::DynamicLight> &ligh
             continue;
         call.firstIndex = first;
         call.indexCount = s.indexCount;
-        r_.draw(call);
+        _r.draw(call);
     }
 }
 
 void WorldRenderer::drawSurfaces(float time, float sortMin, float sortMax, bool worldOnly) const {
     const ViewSlot *view = culled();
-    for (size_t i = 0; i < batches_.size(); ++i) {
-        const Batch &b = batches_[i];
+    for (size_t i = 0; i < _batches.size(); ++i) {
+        const Batch &b = _batches[i];
         if (b.sort < sortMin || b.sort > sortMax || (worldOnly && b.model != 0))
             continue;
         gfx::DrawCall base;
@@ -468,7 +468,7 @@ void WorldRenderer::drawSurfaces(float time, float sortMin, float sortMax, bool 
             base.firstIndex = view->batchRanges[i].first;
             base.indexCount = view->batchRanges[i].second;
         }
-        shaders_.draw(b.material, base, b.lightmap >= 0 ? lightmaps_[size_t(b.lightmap)] : 0, time);
+        _shaders.draw(b.material, base, b.lightmap >= 0 ? _lightmaps[size_t(b.lightmap)] : 0, time);
         if (b.fog >= 0)
             drawFog(b.material, base, b.fog, time);
     }
@@ -476,12 +476,12 @@ void WorldRenderer::drawSurfaces(float time, float sortMin, float sortMax, bool 
 }
 
 int WorldRenderer::leafAt(const std::array<float, 3> &p) const {
-    if (visNodes_.empty())
-        return visLeafs_.empty() ? -1 : 0;
+    if (_visNodes.empty())
+        return _visLeafs.empty() ? -1 : 0;
     int node = 0;
     while (node >= 0) {
-        const BspNode &n = visNodes_[size_t(node)];
-        const BspPlane &pl = visPlanes_[size_t(n.plane)];
+        const BspNode &n = _visNodes[size_t(node)];
+        const BspPlane &pl = _visPlanes[size_t(n.plane)];
         node = n.children[p[0] * pl.normal[0] + p[1] * pl.normal[1] + p[2] * pl.normal[2] - pl.dist >= 0 ? 0 : 1];
     }
     return -1 - node;
@@ -495,40 +495,40 @@ void WorldRenderer::setView(int slot, const std::array<float, 3> &eye, const std
     // worked out again when the cluster or the mask changes; then, each
     // frame the view moves, those of them inside the view. Outside the map
     // (no cluster), everything.
-    activeSlot_ = std::clamp(slot, 0, int(slots_.size()) - 1);
-    ViewSlot &v = slots_[size_t(activeSlot_)];
-    if (!mesh_)
+    _activeSlot = std::clamp(slot, 0, int(_slots.size()) - 1);
+    ViewSlot &v = _slots[size_t(_activeSlot)];
+    if (!_mesh)
         return;
     const int leaf = leafAt(eye);
-    const int cluster = leaf >= 0 && size_t(leaf) < visLeafs_.size() ? visLeafs_[size_t(leaf)].cluster : -1;
+    const int cluster = leaf >= 0 && size_t(leaf) < _visLeafs.size() ? _visLeafs[size_t(leaf)].cluster : -1;
     bool changed = false;
     if (cluster != v.cluster || areaMask != v.mask) {
         changed = true;
         v.cluster = cluster;
         v.mask = areaMask;
         v.pvsSurfaces.clear();
-        if (cluster >= 0 && !visData_.empty()) {
-            if (v.visibleMark.size() != surfaceRanges_.size())
-                v.visibleMark.assign(surfaceRanges_.size(), 0);
+        if (cluster >= 0 && !_visData.empty()) {
+            if (v.visibleMark.size() != _surfaceRanges.size())
+                v.visibleMark.assign(_surfaceRanges.size(), 0);
             ++v.visibleStamp;
-            const uint8_t *pvs = &visData_[size_t(cluster) * size_t(visClusterBytes_)];
-            for (const BspLeaf &l : visLeafs_) {
-                if (l.cluster < 0 || l.cluster >= visClusters_ || !(pvs[l.cluster >> 3] & (1 << (l.cluster & 7))))
+            const uint8_t *pvs = &_visData[size_t(cluster) * size_t(_visClusterBytes)];
+            for (const BspLeaf &l : _visLeafs) {
+                if (l.cluster < 0 || l.cluster >= _visClusters || !(pvs[l.cluster >> 3] & (1 << (l.cluster & 7))))
                     continue;
                 if (l.area >= 0 && l.area < 256 && (areaMask[size_t(l.area >> 3)] & (1 << (l.area & 7))))
                     continue; // behind a closed door
                 for (int i = 0; i < l.numLeafSurfaces; ++i) {
-                    const int32_t sf = visLeafSurfaces_[size_t(l.firstLeafSurface + i)];
+                    const int32_t sf = _visLeafSurfaces[size_t(l.firstLeafSurface + i)];
                     if (sf >= 0 && size_t(sf) < v.visibleMark.size() && v.visibleMark[size_t(sf)] != v.visibleStamp) {
                         v.visibleMark[size_t(sf)] = v.visibleStamp;
-                        if (surfaceRanges_[size_t(sf)].batch >= 0)
+                        if (_surfaceRanges[size_t(sf)].batch >= 0)
                             v.pvsSurfaces.push_back(sf);
                     }
                 }
             }
         }
     }
-    if (cluster < 0 || visData_.empty()) {
+    if (cluster < 0 || _visData.empty()) {
         v.culling = false; // everything, from the level's own list
         return;
     }
@@ -562,33 +562,33 @@ void WorldRenderer::setView(int slot, const std::array<float, 3> &eye, const std
         }
         return true;
     };
-    if (v.frameMark.size() != surfaceRanges_.size()) {
-        v.frameMark.assign(surfaceRanges_.size(), 0);
-        v.frameFirst.assign(surfaceRanges_.size(), 0);
+    if (v.frameMark.size() != _surfaceRanges.size()) {
+        v.frameMark.assign(_surfaceRanges.size(), 0);
+        v.frameFirst.assign(_surfaceRanges.size(), 0);
     }
     ++v.frameStamp;
-    std::vector<std::vector<int32_t>> perBatch(batches_.size());
+    std::vector<std::vector<int32_t>> perBatch(_batches.size());
     for (int32_t sf : v.pvsSurfaces)
-        if (inside(surfaceRanges_[size_t(sf)]))
-            perBatch[size_t(surfaceRanges_[size_t(sf)].batch)].push_back(sf);
+        if (inside(_surfaceRanges[size_t(sf)]))
+            perBatch[size_t(_surfaceRanges[size_t(sf)].batch)].push_back(sf);
     // Each batch's surfaces one after another: the frame's whole list. The
     // brush entities' (doors, lifts: placed where the game moves them, not
     // culled) whole.
     v.frameIndices.clear();
     v.frameSurfaces = 0;
-    v.batchRanges.assign(batches_.size(), {0, 0});
-    for (size_t b = 0; b < batches_.size(); ++b) {
+    v.batchRanges.assign(_batches.size(), {0, 0});
+    for (size_t b = 0; b < _batches.size(); ++b) {
         const auto first = uint32_t(v.frameIndices.size());
-        if (batches_[b].model != 0) {
-            v.frameIndices.insert(v.frameIndices.end(), allIndices_.begin() + batches_[b].firstIndex,
-                                  allIndices_.begin() + batches_[b].firstIndex + batches_[b].indexCount);
+        if (_batches[b].model != 0) {
+            v.frameIndices.insert(v.frameIndices.end(), _allIndices.begin() + _batches[b].firstIndex,
+                                  _allIndices.begin() + _batches[b].firstIndex + _batches[b].indexCount);
         } else {
             for (int32_t sf : perBatch[b]) {
-                const SurfaceRange &r = surfaceRanges_[size_t(sf)];
+                const SurfaceRange &r = _surfaceRanges[size_t(sf)];
                 v.frameMark[size_t(sf)] = v.frameStamp;
                 v.frameFirst[size_t(sf)] = uint32_t(v.frameIndices.size());
-                v.frameIndices.insert(v.frameIndices.end(), allIndices_.begin() + r.firstIndex,
-                                      allIndices_.begin() + r.firstIndex + r.count);
+                v.frameIndices.insert(v.frameIndices.end(), _allIndices.begin() + r.firstIndex,
+                                      _allIndices.begin() + r.firstIndex + r.count);
                 ++v.frameSurfaces;
             }
         }
@@ -597,7 +597,7 @@ void WorldRenderer::setView(int slot, const std::array<float, 3> &eye, const std
     if (v.frameIndices.empty())
         v.frameIndices.push_back(0); // a buffer can't be empty; nothing draws from it
     Error err =
-        v.mesh ? r_.setMeshIndices(v.mesh, v.frameIndices) : r_.createIndexedMesh(mesh_, v.frameIndices, v.mesh);
+        v.mesh ? _r.setMeshIndices(v.mesh, v.frameIndices) : _r.createIndexedMesh(_mesh, v.frameIndices, v.mesh);
     v.culling = !err;
 }
 
@@ -605,7 +605,7 @@ std::vector<WorldRenderer::Portal> WorldRenderer::visiblePortals(const std::arra
     // Those the current view draws, facing the eye, nearest first.
     std::vector<std::pair<float, Portal>> found;
     const ViewSlot *view = culled();
-    for (Portal p : portals_) {
+    for (Portal p : _portals) {
         if (view && view->frameMark[size_t(p.surface)] != view->frameStamp)
             continue;
         float side = -p.dist;
@@ -631,26 +631,26 @@ std::vector<WorldRenderer::Portal> WorldRenderer::visiblePortals(const std::arra
 }
 
 void WorldRenderer::drawSurfaceShape(int surface, const gfx::DrawState &state) const {
-    if (surface < 0 || size_t(surface) >= surfaceRanges_.size() || surfaceRanges_[size_t(surface)].batch < 0)
+    if (surface < 0 || size_t(surface) >= _surfaceRanges.size() || _surfaceRanges[size_t(surface)].batch < 0)
         return;
     gfx::DrawCall call;
     call.mesh = drawMesh();
-    call.firstIndex = surfaceRanges_[size_t(surface)].firstIndex;
-    call.indexCount = surfaceRanges_[size_t(surface)].count;
+    call.firstIndex = _surfaceRanges[size_t(surface)].firstIndex;
+    call.indexCount = _surfaceRanges[size_t(surface)].count;
     if (const ViewSlot *view = culled()) {
         if (view->frameMark[size_t(surface)] != view->frameStamp)
             return;
         call.firstIndex = view->frameFirst[size_t(surface)];
     }
     call.state = state;
-    r_.draw(call);
+    _r.draw(call);
 }
 
 void WorldRenderer::setCamera(const std::array<float, 3> &left, const std::array<float, 3> &up,
                               const std::array<float, 3> &forward, bool mirrored) {
-    camera_ = {left, up, forward};
-    cameraMirrored_ = mirrored;
-    cameraSet_ = true;
+    _camera = {left, up, forward};
+    _cameraMirrored = mirrored;
+    _cameraSet = true;
 }
 
 void WorldRenderer::drawSprites(float time, float sortMin, float sortMax) const {
@@ -674,11 +674,11 @@ void WorldRenderer::drawSprites(float time, float sortMin, float sortMax) const 
         for (size_t k = 0; k < 3; ++k)
             v.pos[k] = p[k];
     };
-    V left = camera_[0];
-    if (cameraMirrored_)
+    V left = _camera[0];
+    if (_cameraMirrored)
         for (float &c : left)
             c = -c;
-    for (const Sprite &sp : sprites_) {
+    for (const Sprite &sp : _sprites) {
         if (sp.sort < sortMin || sp.sort > sortMax)
             continue;
         if (view && (size_t(sp.surface) >= view->visibleMark.size() ||
@@ -688,7 +688,7 @@ void WorldRenderer::drawSprites(float time, float sortMin, float sortMax) const 
         for (size_t q = 0; q + 3 < sp.vertices.size(); q += 4) {
             const gfx::Vertex *in = &sp.vertices[q];
             const auto qb = uint32_t(verts.size());
-            if (!cameraSet_) {
+            if (!_cameraSet) {
                 verts.insert(verts.end(), in, in + 4);
             } else if (sp.kind == 1) {
                 V mid{};
@@ -701,21 +701,21 @@ void WorldRenderer::drawSprites(float time, float sortMin, float sortMax) const 
                 const float st[4][2] = {{0, 0}, {1, 0}, {1, 1}, {0, 1}};
                 for (int i = 0; i < 4; ++i) {
                     gfx::Vertex v = in[0];
-                    put(v, {mid[0] + (left[0] * corners[i][0] + camera_[1][0] * corners[i][1]) * radius,
-                            mid[1] + (left[1] * corners[i][0] + camera_[1][1] * corners[i][1]) * radius,
-                            mid[2] + (left[2] * corners[i][0] + camera_[1][2] * corners[i][1]) * radius});
+                    put(v, {mid[0] + (left[0] * corners[i][0] + _camera[1][0] * corners[i][1]) * radius,
+                            mid[1] + (left[1] * corners[i][0] + _camera[1][1] * corners[i][1]) * radius,
+                            mid[2] + (left[2] * corners[i][0] + _camera[1][2] * corners[i][1]) * radius});
                     v.uv[0] = st[i][0];
                     v.uv[1] = st[i][1];
                     verts.push_back(v);
                 }
             } else {
                 gfx::Vertex out[4] = {in[0], in[1], in[2], in[3]};
-                static const int edge[6][2] = {{0, 1}, {0, 2}, {0, 3}, {1, 2}, {1, 3}, {2, 3}};
+                static const int kEdge[6][2] = {{0, 1}, {0, 2}, {0, 3}, {1, 2}, {1, 3}, {2, 3}};
                 int nums[2] = {0, 0};
                 float lengths[2] = {1e30f, 1e30f};
                 for (int j = 0; j < 6; ++j) {
-                    const V a = at(in[edge[j][0]]);
-                    const V b = at(in[edge[j][1]]);
+                    const V a = at(in[kEdge[j][0]]);
+                    const V b = at(in[kEdge[j][1]]);
                     const float l =
                         (a[0] - b[0]) * (a[0] - b[0]) + (a[1] - b[1]) * (a[1] - b[1]) + (a[2] - b[2]) * (a[2] - b[2]);
                     if (l < lengths[0]) {
@@ -730,12 +730,12 @@ void WorldRenderer::drawSprites(float time, float sortMin, float sortMax) const 
                 }
                 V mid[2];
                 for (int j = 0; j < 2; ++j) {
-                    const V a = at(in[edge[nums[j]][0]]);
-                    const V b = at(in[edge[nums[j]][1]]);
+                    const V a = at(in[kEdge[nums[j]][0]]);
+                    const V b = at(in[kEdge[nums[j]][1]]);
                     mid[j] = {(a[0] + b[0]) / 2, (a[1] + b[1]) / 2, (a[2] + b[2]) / 2};
                 }
                 const V major{mid[1][0] - mid[0][0], mid[1][1] - mid[0][1], mid[1][2] - mid[0][2]};
-                const V &f = camera_[2];
+                const V &f = _camera[2];
                 V minor{major[1] * f[2] - major[2] * f[1], major[2] * f[0] - major[0] * f[2],
                         major[0] * f[1] - major[1] * f[0]};
                 const float ml = std::sqrt(minor[0] * minor[0] + minor[1] * minor[1] + minor[2] * minor[2]);
@@ -744,8 +744,8 @@ void WorldRenderer::drawSprites(float time, float sortMin, float sortMax) const 
                         c /= ml;
                 const uint32_t *qi = &sp.indices[q / 4 * 6];
                 for (int j = 0; j < 2; ++j) {
-                    const int e0 = edge[nums[j]][0];
-                    const int e1 = edge[nums[j]][1];
+                    const int e0 = kEdge[nums[j]][0];
+                    const int e1 = kEdge[nums[j]][1];
                     const float l = 0.5f * std::sqrt(lengths[j]);
                     // Which way round the edge runs in the triangles says which
                     // way to spread it.
@@ -769,7 +769,7 @@ void WorldRenderer::drawSprites(float time, float sortMin, float sortMax) const 
     if (parts.empty())
         return;
     gfx::MeshId mesh = 0;
-    if (r_.createMesh(verts, idx, mesh) || !mesh)
+    if (_r.createMesh(verts, idx, mesh) || !mesh)
         return;
     for (const Part &p : parts) {
         gfx::DrawCall base;
@@ -777,19 +777,19 @@ void WorldRenderer::drawSprites(float time, float sortMin, float sortMax) const 
         base.firstIndex = p.first;
         base.indexCount = p.count;
         const int lm = p.sprite->lightmap;
-        shaders_.draw(p.sprite->material, base, lm >= 0 ? lightmaps_[size_t(lm)] : 0, time);
+        _shaders.draw(p.sprite->material, base, lm >= 0 ? _lightmaps[size_t(lm)] : 0, time);
         if (p.sprite->fog >= 0)
             drawFog(p.sprite->material, base, p.sprite->fog, time);
     }
-    r_.destroyMesh(mesh);
+    _r.destroyMesh(mesh);
 }
 
 WorldRenderer::Visibility WorldRenderer::visibility() const {
     Visibility v;
-    const ViewSlot &view = slots_[0];
+    const ViewSlot &view = _slots[0];
     v.cluster = view.cluster < -1 ? -1 : view.cluster;
     v.culling = view.culling;
-    for (const SurfaceRange &r : surfaceRanges_)
+    for (const SurfaceRange &r : _surfaceRanges)
         v.total += r.batch >= 0;
     v.potentiallyVisible = view.culling ? view.pvsSurfaces.size() : v.total;
     v.visible = view.culling ? view.frameSurfaces : v.total;
@@ -801,8 +801,8 @@ WorldRenderer::Visibility WorldRenderer::visibility() const {
 
 void WorldRenderer::drawModel(int model, const gfx::Mat4 &transform, float time, float sortMin, float sortMax) const {
     const ViewSlot *view = culled();
-    for (size_t i = 0; i < batches_.size(); ++i) {
-        const Batch &b = batches_[i];
+    for (size_t i = 0; i < _batches.size(); ++i) {
+        const Batch &b = _batches[i];
         if (b.model != model || b.sort < sortMin || b.sort > sortMax)
             continue;
         gfx::DrawCall base;
@@ -811,7 +811,7 @@ void WorldRenderer::drawModel(int model, const gfx::Mat4 &transform, float time,
         // From the frame's list while culling (setView), else as loaded.
         base.firstIndex = view ? view->batchRanges[i].first : b.firstIndex;
         base.indexCount = b.indexCount;
-        shaders_.draw(b.material, base, b.lightmap >= 0 ? lightmaps_[size_t(b.lightmap)] : 0, time);
+        _shaders.draw(b.material, base, b.lightmap >= 0 ? _lightmaps[size_t(b.lightmap)] : 0, time);
         if (b.fog >= 0)
             drawFog(b.material, base, b.fog, time);
     }

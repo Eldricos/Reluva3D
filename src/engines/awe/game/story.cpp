@@ -79,8 +79,8 @@ std::vector<ActRow> readActs(const Table &table) {
     return out;
 }
 
-Story::Story(GameState &state, ScriptRunner &main) : state_(state), main_(main) {
-    main_.onEmpty = [this] { runnerEmpty(); };
+Story::Story(GameState &state, ScriptRunner &main) : _state(state), _main(main) {
+    _main.onEmpty = [this] { runnerEmpty(); };
 }
 
 bool Story::startAct(std::string_view arg) {
@@ -88,96 +88,96 @@ bool Story::startAct(std::string_view arg) {
     int major;
     int minor;
     if (parseActName(arg, major, minor))
-        state_.act = actName(major, minor);
+        _state.act = actName(major, minor);
     if (onActTables)
-        onActTables(state_.act);
+        onActTables(_state.act);
     // Without a row the last act's stays (0x423070 clears it only when it
     // finds one).
     const ActRow *found = nullptr;
-    for (const ActRow &r : acts_)
-        if (r.act == state_.act)
+    for (const ActRow &r : _acts)
+        if (r.act == _state.act)
             found = &r;
     if (!found)
         return false;
-    row_ = *found;
-    previousLocation_ = location_;
-    location_ = row_->location;
-    loading_ = true;
-    waitingLoad_ = false;
-    if (given(row_->preLoad))
-        main_.run(row_->preLoad);
+    _row = *found;
+    _previousLocation = _location;
+    _location = _row->location;
+    _loading = true;
+    _waitingLoad = false;
+    if (given(_row->preLoad))
+        _main.run(_row->preLoad);
     return true;
 }
 
 void Story::update(float seconds) {
     // Every timer goes on by a second each second (0x412580).
-    second_ += seconds;
-    for (; second_ >= 1; second_ -= 1)
-        addTime(state_, 1);
+    _second += seconds;
+    for (; _second >= 1; _second -= 1)
+        addTime(_state, 1);
     // The load state machine (0x422a90): once PreLoad (and whatever was
     // queued before it) has run, the location; then, once it's loaded,
     // Post Load.
-    if (loading_ && !waitingLoad_ && main_.idle()) {
-        waitingLoad_ = true;
+    if (_loading && !_waitingLoad && _main.idle()) {
+        _waitingLoad = true;
         leavingScene();
         // A new place before act 04A and from 08A on drops what was kept
         // (0x423430); inside the train only the on-demand scenes go.
         const bool flush =
-            !previousLocation_.empty() && previousLocation_ != location_ && (state_.act < "04a" || state_.act >= "08a");
+            !_previousLocation.empty() && _previousLocation != _location && (_state.act < "04a" || _state.act >= "08a");
         if (onLoadLocation)
-            onLoadLocation(location_, flush);
+            onLoadLocation(_location, flush);
         else
             locationLoaded();
     }
 }
 
 bool Story::sceneLocation(const std::string &location) {
-    previousLocation_ = location_;
-    location_ = location;
-    return !previousLocation_.empty() && previousLocation_ != location_ && (state_.act < "04a" || state_.act >= "08a");
+    _previousLocation = _location;
+    _location = location;
+    return !_previousLocation.empty() && _previousLocation != _location && (_state.act < "04a" || _state.act >= "08a");
 }
 
 void Story::restore(const ActRow &row, const std::string &location) {
-    row_ = row;
-    previousLocation_ = location_;
-    location_ = location;
-    restoring_ = true;
+    _row = row;
+    _previousLocation = _location;
+    _location = location;
+    _restoring = true;
     // At once: the load's own fade out has been waited for by the caller.
-    loading_ = waitingLoad_ = true;
+    _loading = _waitingLoad = true;
     leavingScene();
     const bool flush =
-        !previousLocation_.empty() && previousLocation_ != location_ && (state_.act < "04a" || state_.act >= "08a");
+        !_previousLocation.empty() && _previousLocation != _location && (_state.act < "04a" || _state.act >= "08a");
     if (onLoadLocation)
-        onLoadLocation(location_, flush);
+        onLoadLocation(_location, flush);
     else
         locationLoaded();
 }
 
 void Story::locationLoaded() {
-    if (!loading_ || !waitingLoad_)
+    if (!_loading || !_waitingLoad)
         return;
-    loading_ = waitingLoad_ = false;
-    if (restoring_) {
-        restoring_ = false;
+    _loading = _waitingLoad = false;
+    if (_restoring) {
+        _restoring = false;
         return;
     }
-    if (row_ && given(row_->postLoad))
-        main_.run(row_->postLoad);
+    if (_row && given(_row->postLoad))
+        _main.run(_row->postLoad);
 }
 
 void Story::leavingScene() {
-    if (!row_)
+    if (!_row)
         return;
-    state_.values["time"] = row_->time;
-    state_.values["weather"] = row_->weather;
-    state_.values["moving"] = row_->moving;
+    _state.values["time"] = _row->time;
+    _state.values["weather"] = _row->weather;
+    _state.values["moving"] = _row->moving;
 }
 
 void Story::runnerEmpty() {
     // The act's Completion Conditions, each time the queue runs dry
     // (0x409a80); "0" never holds.
-    if (row_ && given(row_->completion) && testCondition(row_->completion, state_))
-        main_.run(row_->event);
+    if (_row && given(_row->completion) && testCondition(_row->completion, _state))
+        _main.run(_row->event);
 }
 
 } // namespace reluva::awe

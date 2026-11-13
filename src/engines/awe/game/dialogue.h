@@ -83,16 +83,16 @@ public:
     // Adds a table's rows: a new part whenever the Name or Conver.
     // changes, a new thread whenever the Thread does (0x438f00).
     void add(const Table &table);
-    void clear() { parts_.clear(); }
+    void clear() { _parts.clear(); }
     // The first part of that name and code; null if none.
     DialoguePart *find(std::string_view name, int code);
-    std::vector<DialoguePart> &parts() { return parts_; }
-    const std::vector<DialoguePart> &parts() const { return parts_; }
+    std::vector<DialoguePart> &parts() { return _parts; }
+    const std::vector<DialoguePart> &parts() const { return _parts; }
     // All the lines of a conversation, in table order.
     std::vector<const DialogueLine *> conversation(std::string_view name) const;
 
 private:
-    std::vector<DialoguePart> parts_;
+    std::vector<DialoguePart> _parts;
 };
 
 // What a conversation needs from the game around it.
@@ -133,7 +133,7 @@ class DialogueManager {
 public:
     DialogueManager(GameState &state, ScriptHost &scripts, DialogueHost &host);
 
-    DialogueBook &book() { return book_; }
+    DialogueBook &book() { return _book; }
 
     // "talk <name> <code> [options]" (0x40ba25 -> 0x43a630): part, thread
     // and nest from the code's letters (-1 for none), `gen` to offer the
@@ -160,7 +160,7 @@ public:
     void wheel(int steps, int x, int y);
     // Whether the wheel chose last and the mouse hasn't moved since: the
     // cursor is hidden then (0x43d7f0).
-    bool wheelChoosing() const { return wheelX_ != -1 && wheelY_ != -1; }
+    bool wheelChoosing() const { return _wheelX != -1 && _wheelY != -1; }
     // The middle button (the wheel pressed): the highlighted choice taken
     // (0x43d890).
     void middleClick();
@@ -169,7 +169,7 @@ public:
     bool choose(int i);
     // Whether a choice or a click would be taken now (no box sliding, no
     // Prevent or pause under way).
-    bool ready() const { return slide_ == 0 && !waitPrevent_ && !pending_ && pause_ < 0; }
+    bool ready() const { return _slide == 0 && !_waitPrevent && !_pending && _pause < 0; }
     // Whether a click now would end the line being said (click()).
     bool lineSkippable() const;
 
@@ -178,20 +178,20 @@ public:
     void leaveScene(const std::string &scene);
 
     // What to draw.
-    bool active() const { return active_; }
+    bool active() const { return _active; }
     bool boxShown() const;
-    int boxTop() const { return int(boxY_); }
-    int boxHeight() const { return boxHeight_; }
-    int window() const { return window_; } // 0: dialoguewin01, 1: dialoguewin02
-    bool choosing() const { return choosing_; }
+    int boxTop() const { return int(_boxY); }
+    int boxHeight() const { return _boxHeight; }
+    int window() const { return _window; } // 0: dialoguewin01, 1: dialoguewin02
+    bool choosing() const { return _choosing; }
     // The line being said and its colour (fonts.txt's: 8 Antoinette, 9 and
     // 10 the others).
     const DialogueLine *line() const;
-    int colour() const { return colour_; }
+    int colour() const { return _colour; }
     // Whether the line's text is drawn now (0x43cf90): not while its
     // Prevent or a Povent runs, nothing is pending, nor in the pause before
     // the next line. The box is drawn empty meanwhile.
-    bool lineShown() const { return !waitPrevent_ && !pending_ && pause_ < 0 && povent_.idle(); }
+    bool lineShown() const { return !_waitPrevent && !_pending && _pause < 0 && _povent.idle(); }
     struct Choice {
         std::string text;
         DialoguePart *part;
@@ -200,8 +200,8 @@ public:
         // act 8's evidence), else empty.
         std::string picture;
     };
-    const std::vector<Choice> &choices() const { return choices_; }
-    int highlighted() const { return highlighted_; }
+    const std::vector<Choice> &choices() const { return _choices; }
+    int highlighted() const { return _highlighted; }
     // Where each choice is, from the box's drawing, for the mouse: its
     // text row, and its picture if it has one; a picture is tried before
     // the rows (0x43c810).
@@ -210,8 +210,8 @@ public:
         int choice = -1;
         bool picture = false;
     };
-    void setChoiceAreas(std::vector<ChoiceArea> areas) { choiceAreas_ = std::move(areas); }
-    const std::vector<ChoiceArea> &choiceAreas() const { return choiceAreas_; }
+    void setChoiceAreas(std::vector<ChoiceArea> areas) { _choiceAreas = std::move(areas); }
+    const std::vector<ChoiceArea> &choiceAreas() const { return _choiceAreas; }
 
     // For a log.
     std::function<void(const std::string &line)> onLog;
@@ -244,36 +244,36 @@ private:
             onLog(s);
     }
 
-    GameState &state_;
-    DialogueHost &host_;
-    DialogueBook book_;
-    ScriptRunner prevent_, events_, povent_;
-    ScriptRunner *caller_ = nullptr; // the runner whose "talk" this is
+    GameState &_state;
+    DialogueHost &_host;
+    DialogueBook _book;
+    ScriptRunner _prevent, _events, _povent;
+    ScriptRunner *_caller = nullptr; // the runner whose "talk" this is
 
-    DialoguePart *part_ = nullptr;
-    int thread_ = -1, line_ = -1; // indices into part_
-    bool active_ = false, choosing_ = false, playing_ = false;
-    bool firstOffer_ = true, plus_ = false, goOn_ = false, gen_ = false, greet_ = true;
-    int number_ = -1, lastAlternative_ = -1;
-    bool dry_ = false; // a dry run (cantalk)
-    bool waitPrevent_ = false, voice_ = false, showWhilePovent_ = true;
-    float textLeft_ = 0, lineTime_ = 0, pause_ = -1;
-    int pending_ = 0; // after the Povent: 1 end the talk, 2 the next line, 3 the menu
-    int colour_ = 8;
-    std::string lastSpeaker_;
-    std::string speaker_; // whose line plays
-    int level_ = -1;      // the voice's last level
-    std::string prefix_;  // gen_<npc>_
-    std::vector<std::string> turned_;
+    DialoguePart *_part = nullptr;
+    int _thread = -1, _line = -1; // indices into part_
+    bool _active = false, _choosing = false, _playing = false;
+    bool _firstOffer = true, _plus = false, _goOn = false, _gen = false, _greet = true;
+    int _number = -1, _lastAlternative = -1;
+    bool _dry = false; // a dry run (cantalk)
+    bool _waitPrevent = false, _voice = false, _showWhilePovent = true;
+    float _textLeft = 0, _lineTime = 0, _pause = -1;
+    int _pending = 0; // after the Povent: 1 end the talk, 2 the next line, 3 the menu
+    int _colour = 8;
+    std::string _lastSpeaker;
+    std::string _speaker; // whose line plays
+    int _level = -1;      // the voice's last level
+    std::string _prefix;  // gen_<npc>_
+    std::vector<std::string> _turned;
     // The box.
-    float boxY_ = 768;
-    int boxHeight_ = 160, window_ = 0, slide_ = 0; // slide: 1 in, 2 out
+    float _boxY = 768;
+    int _boxHeight = 160, _window = 0, _slide = 0; // slide: 1 in, 2 out
     // Choices.
-    std::vector<Choice> choices_;
-    std::vector<ChoiceArea> choiceAreas_;
-    int highlighted_ = -1;
-    int wheelX_ = -1, wheelY_ = -1; // where the mouse was when the wheel chose
-    unsigned random_ = 1;
+    std::vector<Choice> _choices;
+    std::vector<ChoiceArea> _choiceAreas;
+    int _highlighted = -1;
+    int _wheelX = -1, _wheelY = -1; // where the mouse was when the wheel chose
+    unsigned _random = 1;
     int rand();
 };
 

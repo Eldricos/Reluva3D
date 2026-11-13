@@ -34,7 +34,7 @@ const char *const kLevelName[3] = {"Novice CPU", "Normal CPU", "Expert CPU"};
 
 std::unique_ptr<net::UdpSocket> FrontEnd::netSocket(uint16_t port, std::string &error) {
     std::unique_ptr<net::UdpSocket> socket;
-    if (Error err = sys_.openUdp(port, socket)) {
+    if (Error err = _sys.openUdp(port, socket)) {
         error = err.message;
         return nullptr;
     }
@@ -43,65 +43,65 @@ std::unique_ptr<net::UdpSocket> FrontEnd::netSocket(uint16_t port, std::string &
 
 void FrontEnd::netShow(Screen s) {
     switch (s) {
-    case Screen::NetHost:
-    case Screen::NetAddress:
+    case Screen::kNetHost:
+    case Screen::kNetAddress:
         showDialog(kNetHostDialog);
-        if (s == Screen::NetHost) {
-            dialog_->setText(0, netName_ + "'s game");
+        if (s == Screen::kNetHost) {
+            _dialog->setText(0, _netName + "'s game");
             for (int n = 2; n <= kSeats; ++n) {
-                dialog_->setVisible(3 + 2 * (n - 2), n == netMaxHumans_);
-                dialog_->setVisible(4 + 2 * (n - 2), n != netMaxHumans_);
+                _dialog->setVisible(3 + 2 * (n - 2), n == _netMaxHumans);
+                _dialog->setVisible(4 + 2 * (n - 2), n != _netMaxHumans);
             }
         } else {
             // Joining by address, in place of the Game Zone.
-            dialog_->setTextAt(kTitleAt, "Join Game");
-            dialog_->setTextAt(kGameNameLabelAt, "Please Enter the Host's Address");
+            _dialog->setTextAt(kTitleAt, "Join Game");
+            _dialog->setTextAt(kGameNameLabelAt, "Please Enter the Host's Address");
             for (size_t i = kMaxLabelAt; i < kMaxLabelAt + 6; ++i)
-                dialog_->setVisibleAt(i, false);
+                _dialog->setVisibleAt(i, false);
             for (int id = 3; id <= 12; ++id)
-                dialog_->setVisible(id, false);
+                _dialog->setVisible(id, false);
             // The row of boxes behind them is in the window's picture:
             // covered as it's drawn (FrontEnd::update).
-            dialog_->setText(0, netMessage_.empty() ? std::string() : netMessage_);
-            netMessage_.clear();
+            _dialog->setText(0, _netMessage.empty() ? std::string() : _netMessage);
+            _netMessage.clear();
         }
-        dialog_->setText(1, netName_);
-        dialog_->focus(0);
-        sys_.setTextInput(true);
+        _dialog->setText(1, _netName);
+        _dialog->focus(0);
+        _sys.setTextInput(true);
         break;
-    case Screen::NetJoin: {
+    case Screen::kNetJoin: {
         showDialog(kNetJoinDialog);
-        dialog_->setText(6, netName_);
-        dialog_->focus(6);
-        sys_.setTextInput(true);
+        _dialog->setText(6, _netName);
+        _dialog->focus(6);
+        _sys.setTextInput(true);
         // Asking at each network the machine is on.
         std::vector<net::Address> askAt{net::Address::broadcast(netplay::kDefaultPort)};
-        for (uint32_t ip : sys_.broadcastAddresses())
+        for (uint32_t ip : _sys.broadcastAddresses())
             askAt.push_back({ip, netplay::kDefaultPort});
         std::string error;
         auto socket = netSocket(0, error);
-        net_ = socket ? netplay::Session::browse(std::move(socket), askAt) : nullptr;
+        _net = socket ? netplay::Session::browse(std::move(socket), askAt) : nullptr;
         for (int slot = 1; slot <= 5; ++slot) {
-            dialog_->setText(slot, slot == 1 && !net_ ? error : "");
-            dialog_->setEnabled(slot, false);
+            _dialog->setText(slot, slot == 1 && !_net ? error : "");
+            _dialog->setEnabled(slot, false);
         }
         break;
     }
-    case Screen::NetLobby:
+    case Screen::kNetLobby:
         showDialog(kNetLobbyDialog);
-        dialog_->focus(64);
-        sys_.setTextInput(true);
+        _dialog->focus(64);
+        _sys.setTextInput(true);
         refreshLobby();
         break;
-    case Screen::NetSetup:
-        showDialog(kSetupFirst + netSeat_);
+    case Screen::kNetSetup:
+        showDialog(kSetupFirst + _netSeat);
         refreshNetSetup();
         break;
-    case Screen::NetMessage:
-        sys_.setTextInput(false);
-        showDialog(netMessage_ == "host" ? kHostGone : kSessionLost);
-        if (netMessage_ != "host")
-            dialog_->setTextAt(1, netMessage_);
+    case Screen::kNetMessage:
+        _sys.setTextInput(false);
+        showDialog(_netMessage == "host" ? kHostGone : kSessionLost);
+        if (_netMessage != "host")
+            _dialog->setTextAt(1, _netMessage);
         break;
     default:
         break;
@@ -109,96 +109,96 @@ void FrontEnd::netShow(Screen s) {
 }
 
 void FrontEnd::refreshLobby() {
-    if (!dialog_ || !net_)
+    if (!_dialog || !_net)
         return;
-    const netplay::Lobby &l = net_->lobby();
+    const netplay::Lobby &l = _net->lobby();
     for (int k = 0; k < kSeats; ++k) {
         const netplay::Seat &seat = l.seats[size_t(k)];
-        const bool taken = seat.kind != netplay::Seat::None;
-        dialog_->setVisible(5 + k, !taken);
-        dialog_->setVisible(11 + k, taken);
-        dialog_->setVisible(23 + k, taken);
+        const bool taken = seat.kind != netplay::Seat::kNone;
+        _dialog->setVisible(5 + k, !taken);
+        _dialog->setVisible(11 + k, taken);
+        _dialog->setVisible(23 + k, taken);
         if (taken)
-            dialog_->setText(23 + k, seat.kind == netplay::Seat::Human ? "is|" + seat.name
-                                                                       : std::string("is|") + kLevelName[seat.level]);
+            _dialog->setText(23 + k, seat.kind == netplay::Seat::kHuman ? "is|" + seat.name
+                                                                        : std::string("is|") + kLevelName[seat.level]);
     }
-    const bool host = net_->isHost();
-    dialog_->setVisible(65, !host);
-    dialog_->setVisible(66, host && !net_->canStart());
-    dialog_->setVisible(67, host && net_->canStart());
-    dialog_->setEnabled(29, host && net_->canStart());
+    const bool host = _net->isHost();
+    _dialog->setVisible(65, !host);
+    _dialog->setVisible(66, host && !_net->canStart());
+    _dialog->setVisible(67, host && _net->canStart());
+    _dialog->setEnabled(29, host && _net->canStart());
     // The chat's last three lines.
     for (int k = 0; k < 3; ++k) {
-        const int from = int(netChat_.size()) - 3 + k;
-        dialog_->setText(61 + k, from >= 0 ? netChat_[size_t(from)] : std::string());
+        const int from = int(_netChat.size()) - 3 + k;
+        _dialog->setText(61 + k, from >= 0 ? _netChat[size_t(from)] : std::string());
     }
 }
 
 void FrontEnd::refreshNetSetup() {
-    const netplay::Seat &d = netDraft_;
-    dialog_->setChosen(0, d.kind == netplay::Seat::Human);
-    dialog_->setChosen(1, d.kind == netplay::Seat::Computer);
-    dialog_->setChosen(2, d.kind == netplay::Seat::None);
+    const netplay::Seat &d = _netDraft;
+    _dialog->setChosen(0, d.kind == netplay::Seat::kHuman);
+    _dialog->setChosen(1, d.kind == netplay::Seat::kComputer);
+    _dialog->setChosen(2, d.kind == netplay::Seat::kNone);
     for (int id : {3, 4, 5, 6, 7})
-        dialog_->setVisible(id, d.kind == netplay::Seat::Computer);
+        _dialog->setVisible(id, d.kind == netplay::Seat::kComputer);
     for (int level = 0; level < 3; ++level)
-        dialog_->setChosen(5 + level, d.level == level);
+        _dialog->setChosen(5 + level, d.level == level);
     // A human here is the host's own: no name to type.
     for (int id : {8, 9, 10})
-        dialog_->setVisible(id, false);
-    dialog_->setEnabled(12, net_ && net_->canStart());
+        _dialog->setVisible(id, false);
+    _dialog->setEnabled(12, _net && _net->canStart());
 }
 
 void FrontEnd::netClick(int id) {
-    switch (at_) {
-    case Screen::Connection:
-        netInternet_ = id == 0;
-        go(Screen::NetGame);
+    switch (_at) {
+    case Screen::kConnection:
+        _netInternet = id == 0;
+        go(Screen::kNetGame);
         break;
-    case Screen::NetGame:
+    case Screen::kNetGame:
         if (id == 1)
-            go(Screen::NetHost);
+            go(Screen::kNetHost);
         else if (id == 2)
-            go(netInternet_ ? Screen::NetAddress : Screen::NetJoin);
+            go(_netInternet ? Screen::kNetAddress : Screen::kNetJoin);
         else if (id == 0)
-            go(Screen::MainMenu);
+            go(Screen::kMainMenu);
         else if (id == kReturn)
-            go(Screen::Connection);
+            go(Screen::kConnection);
         break;
-    case Screen::NetHost:
+    case Screen::kNetHost:
         if (id >= 3 && id <= 12) {
-            netMaxHumans_ = 2 + (id - 3) / 2;
+            _netMaxHumans = 2 + (id - 3) / 2;
             for (int n = 2; n <= kSeats; ++n) {
-                dialog_->setVisible(3 + 2 * (n - 2), n == netMaxHumans_);
-                dialog_->setVisible(4 + 2 * (n - 2), n != netMaxHumans_);
+                _dialog->setVisible(3 + 2 * (n - 2), n == _netMaxHumans);
+                _dialog->setVisible(4 + 2 * (n - 2), n != _netMaxHumans);
             }
         } else if (id == 2) {
-            if (!dialog_->text(1).empty())
-                netName_ = dialog_->text(1);
+            if (!_dialog->text(1).empty())
+                _netName = _dialog->text(1);
             std::string error;
             auto socket = netSocket(netplay::kDefaultPort, error);
             if (!socket) {
-                dialog_->setTextAt(kGameNameLabelAt, "Can't host: " + error);
+                _dialog->setTextAt(kGameNameLabelAt, "Can't host: " + error);
                 break;
             }
-            net_ = netplay::Session::host(std::move(socket), dialog_->text(0), netName_, netMaxHumans_);
-            netChat_ = {"Hosting on port " + std::to_string(netplay::kDefaultPort) + "."};
-            net_->take(-1);
-            go(Screen::NetLobby);
+            _net = netplay::Session::host(std::move(socket), _dialog->text(0), _netName, _netMaxHumans);
+            _netChat = {"Hosting on port " + std::to_string(netplay::kDefaultPort) + "."};
+            _net->take(-1);
+            go(Screen::kNetLobby);
         } else if (id == kReturn)
-            go(Screen::NetGame);
+            go(Screen::kNetGame);
         break;
-    case Screen::NetAddress:
+    case Screen::kNetAddress:
         if (id == 2) {
-            if (!dialog_->text(1).empty())
-                netName_ = dialog_->text(1);
+            if (!_dialog->text(1).empty())
+                _netName = _dialog->text(1);
             // "address" or "address:port", by number or by name.
-            const auto [hostName, port] = net::splitHostPort(dialog_->text(0), netplay::kDefaultPort);
+            const auto [hostName, port] = net::splitHostPort(_dialog->text(0), netplay::kDefaultPort);
             net::Address address;
             uint32_t ip = 0;
-            if (!net::parseAddress(dialog_->text(0), netplay::kDefaultPort, address)) {
-                if (hostName.empty() || !sys_.resolveHost(hostName, ip)) {
-                    dialog_->setTextAt(kGameNameLabelAt, "No such address. Please Enter the Host's Address");
+            if (!net::parseAddress(_dialog->text(0), netplay::kDefaultPort, address)) {
+                if (hostName.empty() || !_sys.resolveHost(hostName, ip)) {
+                    _dialog->setTextAt(kGameNameLabelAt, "No such address. Please Enter the Host's Address");
                     break;
                 }
                 address = {ip, port};
@@ -206,85 +206,85 @@ void FrontEnd::netClick(int id) {
             std::string error;
             auto socket = netSocket(0, error);
             if (!socket) {
-                dialog_->setTextAt(kGameNameLabelAt, "Can't connect: " + error);
+                _dialog->setTextAt(kGameNameLabelAt, "Can't connect: " + error);
                 break;
             }
-            net_ = netplay::Session::join(std::move(socket), address, netName_);
-            netChat_ = {"Connecting to " + address.toString() + " ..."};
-            go(Screen::NetLobby);
+            _net = netplay::Session::join(std::move(socket), address, _netName);
+            _netChat = {"Connecting to " + address.toString() + " ..."};
+            go(Screen::kNetLobby);
         } else if (id == kReturn)
-            go(Screen::NetGame);
+            go(Screen::kNetGame);
         break;
-    case Screen::NetJoin:
-        if (id == 0 && net_)
-            net_->refresh();
-        else if (id >= 1 && id <= 5 && net_ && size_t(id - 1) < net_->found().size()) {
-            if (!dialog_->text(6).empty())
-                netName_ = dialog_->text(6);
-            const net::Address address = net_->found()[size_t(id - 1)].address;
+    case Screen::kNetJoin:
+        if (id == 0 && _net)
+            _net->refresh();
+        else if (id >= 1 && id <= 5 && _net && size_t(id - 1) < _net->found().size()) {
+            if (!_dialog->text(6).empty())
+                _netName = _dialog->text(6);
+            const net::Address address = _net->found()[size_t(id - 1)].address;
             std::string error;
             auto socket = netSocket(0, error);
             if (!socket)
                 break;
-            net_ = netplay::Session::join(std::move(socket), address, netName_);
-            netChat_ = {"Connecting to " + address.toString() + " ..."};
-            go(Screen::NetLobby);
+            _net = netplay::Session::join(std::move(socket), address, _netName);
+            _netChat = {"Connecting to " + address.toString() + " ..."};
+            go(Screen::kNetLobby);
         } else if (id == kReturn) {
-            net_.reset();
-            go(Screen::NetGame);
+            _net.reset();
+            go(Screen::kNetGame);
         }
         break;
-    case Screen::NetLobby:
-        if (!net_)
+    case Screen::kNetLobby:
+        if (!_net)
             break;
         if (id >= 5 && id <= 16) {
             const int seat = (id - 5) % kSeats;
-            const netplay::Seat &s = net_->lobby().seats[size_t(seat)];
-            if (net_->isHost() && !(s.kind == netplay::Seat::Human && s.owner != 0)) {
+            const netplay::Seat &s = _net->lobby().seats[size_t(seat)];
+            if (_net->isHost() && !(s.kind == netplay::Seat::kHuman && s.owner != 0)) {
                 // The host sets up any suspect not another player's.
-                netSeat_ = seat;
-                netDraft_ = s;
-                go(Screen::NetSetup);
-            } else if (s.kind == netplay::Seat::Human && s.owner == net_->me())
-                net_->take(-1); // given back
-            else if (s.kind != netplay::Seat::Human)
-                net_->take(seat);
-        } else if (id == 29 && net_->canStart())
-            net_->start(uint32_t(sys_.getMillis() * 2654435761u));
+                _netSeat = seat;
+                _netDraft = s;
+                go(Screen::kNetSetup);
+            } else if (s.kind == netplay::Seat::kHuman && s.owner == _net->me())
+                _net->take(-1); // given back
+            else if (s.kind != netplay::Seat::kHuman)
+                _net->take(seat);
+        } else if (id == 29 && _net->canStart())
+            _net->start(uint32_t(_sys.getMillis() * 2654435761u));
         else if (id == 60) {
-            net_->chat(dialog_->text(64));
-            dialog_->setText(64, "");
+            _net->chat(_dialog->text(64));
+            _dialog->setText(64, "");
         } else if (id == 30)
             netLeave();
         break;
-    case Screen::NetSetup:
+    case Screen::kNetSetup:
         if (id == 0)
-            netDraft_.kind = netplay::Seat::Human;
+            _netDraft.kind = netplay::Seat::kHuman;
         else if (id == 1)
-            netDraft_.kind = netplay::Seat::Computer;
+            _netDraft.kind = netplay::Seat::kComputer;
         else if (id == 2)
-            netDraft_.kind = netplay::Seat::None;
+            _netDraft.kind = netplay::Seat::kNone;
         else if (id >= 5 && id <= 7)
-            netDraft_.level = uint8_t(id - 5);
-        else if (id == 11 && net_) {
+            _netDraft.level = uint8_t(id - 5);
+        else if (id == 11 && _net) {
             // Options: the variant.
-            net_->setNoDieRoll(!net_->lobby().noDieRoll);
-            netChat_.push_back(net_->lobby().noDieRoll ? "Variant: No Die Roll." : "Variant: Classic.");
+            _net->setNoDieRoll(!_net->lobby().noDieRoll);
+            _netChat.push_back(_net->lobby().noDieRoll ? "Variant: No Die Roll." : "Variant: Classic.");
         }
         if (id <= 7) {
             refreshNetSetup();
             break;
         }
-        if ((id == kOk || id == 12) && net_)
-            net_->setSeat(netSeat_, netDraft_.kind, netDraft_.level);
-        if (id == 12 && net_ && net_->canStart())
-            net_->start(uint32_t(sys_.getMillis() * 2654435761u));
+        if ((id == kOk || id == 12) && _net)
+            _net->setSeat(_netSeat, _netDraft.kind, _netDraft.level);
+        if (id == 12 && _net && _net->canStart())
+            _net->start(uint32_t(_sys.getMillis() * 2654435761u));
         else if (id == kOk || id == kReturn)
-            go(Screen::NetLobby);
+            go(Screen::kNetLobby);
         break;
-    case Screen::NetMessage:
+    case Screen::kNetMessage:
         if (id == kOk)
-            go(Screen::MainMenu);
+            go(Screen::kMainMenu);
         break;
     default:
         break;
@@ -292,63 +292,63 @@ void FrontEnd::netClick(int id) {
 }
 
 void FrontEnd::netLeave() {
-    if (net_)
-        net_->leave();
-    net_.reset();
-    netChat_.clear();
-    sys_.setTextInput(false);
-    go(Screen::MainMenu);
+    if (_net)
+        _net->leave();
+    _net.reset();
+    _netChat.clear();
+    _sys.setTextInput(false);
+    go(Screen::kMainMenu);
 }
 
 void FrontEnd::netLost(std::string message) {
     // (by value: it may be the session's own, which goes now)
-    if (play_)
-        play_->stopSounds();
-    play_.reset();
-    net_.reset();
-    netMessage_ = std::move(message);
-    go(Screen::NetMessage);
+    if (_play)
+        _play->stopSounds();
+    _play.reset();
+    _net.reset();
+    _netMessage = std::move(message);
+    go(Screen::kNetMessage);
 }
 
 void FrontEnd::netUpdate() {
-    if (!net_)
+    if (!_net)
         return;
-    net_->update(now_);
+    _net->update(_now);
     std::string line;
-    while (net_->nextChat(line))
-        netChat_.push_back(line);
+    while (_net->nextChat(line))
+        _netChat.push_back(line);
     using State = netplay::Session::State;
-    switch (net_->state()) {
-    case State::Browsing:
-        if (at_ == Screen::NetJoin && dialog_) {
-            const auto &found = net_->found();
+    switch (_net->state()) {
+    case State::kBrowsing:
+        if (_at == Screen::kNetJoin && _dialog) {
+            const auto &found = _net->found();
             for (int slot = 1; slot <= 5; ++slot) {
                 const size_t i = size_t(slot - 1);
                 if (i < found.size())
-                    dialog_->setText(slot, found[i].gameName + " (" + std::to_string(found[i].humans) + "/" +
+                    _dialog->setText(slot, found[i].gameName + " (" + std::to_string(found[i].humans) + "/" +
                                                std::to_string(found[i].maxHumans) + ")" +
                                                (found[i].started ? " playing" : ""));
-                dialog_->setEnabled(slot, i < found.size() && !found[i].started);
+                _dialog->setEnabled(slot, i < found.size() && !found[i].started);
             }
         }
         break;
-    case State::Refused:
-        netLost(net_->refusal());
+    case State::kRefused:
+        netLost(_net->refusal());
         break;
-    case State::Lost:
-        netLost(net_->isHost() ? "The Game Session|Has Been Lost" : "host");
+    case State::kLost:
+        netLost(_net->isHost() ? "The Game Session|Has Been Lost" : "host");
         break;
-    case State::Connecting:
-    case State::Lobby:
-        if (at_ == Screen::NetLobby)
+    case State::kConnecting:
+    case State::kLobby:
+        if (_at == Screen::kNetLobby)
             refreshLobby();
         break;
-    case State::Playing:
+    case State::kPlaying:
         // The game begun: in, as a game at one machine is.
-        if (at_ == Screen::NetLobby || at_ == Screen::NetSetup) {
-            sys_.setTextInput(false);
-            play_.reset();
-            go(Screen::Loading);
+        if (_at == Screen::kNetLobby || _at == Screen::kNetSetup) {
+            _sys.setTextInput(false);
+            _play.reset();
+            go(Screen::kLoading);
         }
         break;
     }

@@ -27,8 +27,8 @@ struct ScreenVertex {
 class Rasterizer {
 public:
     void begin(Surface &target) {
-        target_ = &target;
-        depth_.assign(size_t(target.w) * size_t(target.h), 0.0f);
+        _target = &target;
+        _depth.assign(size_t(target.w) * size_t(target.h), 0.0f);
     }
 
     // shade(u, v, rgba), or shade(u, v, light, rgba), sets the pixel's colour
@@ -47,8 +47,8 @@ public:
             std::swap(v1, v2);
             area = -area;
         }
-        const int w = target_->w;
-        const int h = target_->h;
+        const int w = _target->w;
+        const int h = _target->h;
         const int x0 = std::max(0, int(std::floor(std::min({v0->x, v1->x, v2->x}))));
         const int x1 = std::min(w - 1, int(std::ceil(std::max({v0->x, v1->x, v2->x}))));
         const int y0 = std::max(0, int(std::floor(std::min({v0->y, v1->y, v2->y}))));
@@ -59,8 +59,8 @@ public:
         const float inv = 1.0f / area;
         for (int y = y0; y <= y1; ++y) {
             const float py = float(y) + 0.5f;
-            uint8_t *row = target_->row(y);
-            float *depthRow = &depth_[size_t(y) * size_t(w)];
+            uint8_t *row = _target->row(y);
+            float *depthRow = &_depth[size_t(y) * size_t(w)];
             for (int x = x0; x <= x1; ++x) {
                 const float px = float(x) + 0.5f;
                 const float w0 = edge(*v1, *v2, px, py);
@@ -103,8 +103,8 @@ private:
         return dy < 0 || (dy == 0 && dx > 0);
     }
 
-    Surface *target_ = nullptr;
-    std::vector<float> depth_;
+    Surface *_target = nullptr;
+    std::vector<float> _depth;
 };
 
 } // namespace reluva::soft3d

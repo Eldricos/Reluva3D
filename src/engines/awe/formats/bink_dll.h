@@ -21,7 +21,7 @@ namespace reluva::awe {
 class BinkDll {
 public:
     Error load(const std::vector<uint8_t> &dll);
-    bool loaded() const { return module_ != nullptr; }
+    bool loaded() const { return _module != nullptr; }
 
     // Opens a movie (the file's bytes); its size and frame count.
     Error open(const std::vector<uint8_t> &bik, int &width, int &height, uint32_t &frames);
@@ -34,13 +34,13 @@ public:
     void close();
 
 private:
-    std::unique_ptr<x86::Cpu> cpu_;
-    std::unique_ptr<x86::Win32Process> process_;
-    const x86::Win32Process::Module *module_ = nullptr;
-    std::vector<uint8_t> file_; // the movie being read
-    uint32_t filePos_ = 0;
-    uint32_t bink_ = 0, buffer_ = 0;
-    int width_ = 0, height_ = 0;
+    std::unique_ptr<x86::Cpu> _cpu;
+    std::unique_ptr<x86::Win32Process> _process;
+    const x86::Win32Process::Module *_module = nullptr;
+    std::vector<uint8_t> _file; // the movie being read
+    uint32_t _filePos = 0;
+    uint32_t _bink = 0, _buffer = 0;
+    int _width = 0, _height = 0;
 };
 
 } // namespace reluva::awe

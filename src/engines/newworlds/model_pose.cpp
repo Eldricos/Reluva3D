@@ -11,16 +11,16 @@
 
 namespace reluva::newworlds {
 
-Metamodels::Metamodels(const Archives &archives) : archives_(archives) {
-    for (size_t a = 0; a < archives_.size(); ++a) {
-        const auto &entries = archives_[a]->entries();
+Metamodels::Metamodels(const Archives &archives) : _archives(archives) {
+    for (size_t a = 0; a < _archives.size(); ++a) {
+        const auto &entries = _archives[a]->entries();
         for (size_t i = 0; i < entries.size(); ++i)
-            if (entries[i].tag == cattag::Mdl) {
+            if (entries[i].tag == cattag::kMdl) {
                 std::string folder;
                 std::string stem;
                 std::string ext;
                 splitName(entries[i].name, folder, stem, ext);
-                metamodels_.emplace(folder + "/" + stem, EntryRef{a, i});
+                _metamodels.emplace(folder + "/" + stem, EntryRef{a, i});
             }
     }
 }
@@ -37,10 +37,10 @@ bool Metamodels::find(const std::string &modelName, MdlModel &out) const {
     const size_t u = stem.rfind('_');
     std::vector<uint8_t> data;
     for (const std::string &want : {stem, joined, u == std::string::npos ? stem : stem.substr(0, u)}) {
-        auto found = metamodels_.find(folder + "/" + want);
-        if (found == metamodels_.end())
+        auto found = _metamodels.find(folder + "/" + want);
+        if (found == _metamodels.end())
             continue;
-        CatArchive &cat = *archives_[found->second.archive];
+        CatArchive &cat = *_archives[found->second.archive];
         out = MdlModel{};
         if (!cat.read(cat.entries()[found->second.entry], data) && !parseMdl(data, out))
             return true;
@@ -70,10 +70,10 @@ std::vector<Animation> Metamodels::animations(const std::string &modelName, cons
         std::map<std::string, EntryRef> frames; // by frame name, sorted
     };
     std::map<std::string, Set> sets;
-    for (size_t a = 0; a < archives_.size(); ++a) {
-        const auto &entries = archives_[a]->entries();
+    for (size_t a = 0; a < _archives.size(); ++a) {
+        const auto &entries = _archives[a]->entries();
         for (size_t i = 0; i < entries.size(); ++i) {
-            if (entries[i].tag != cattag::Arf)
+            if (entries[i].tag != cattag::kArf)
                 continue;
             std::string folder;
             std::string frame;
@@ -96,7 +96,7 @@ std::vector<Animation> Metamodels::animations(const std::string &modelName, cons
     for (auto &[name, set] : sets) {
         Animation anim{name, {}, {}};
         for (const auto &[frame, ref] : set.frames) {
-            CatArchive &cat = *archives_[ref.archive];
+            CatArchive &cat = *_archives[ref.archive];
             std::vector<PartTransform> t;
             if (cat.read(cat.entries()[ref.entry], data) || parseArf(data, t) || t.size() != mdl.animated.size()) {
                 anim.frames.clear();

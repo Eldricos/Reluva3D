@@ -30,15 +30,15 @@ public:
     std::vector<std::string> list() const override;
     bool has(std::string_view name) const override;
     Error read(std::string_view name, std::vector<uint8_t> &out) const override;
-    std::string describe() const override { return name_; }
+    std::string describe() const override { return _name; }
 
-    const std::vector<Entry> &entries() const { return entries_; }
+    const std::vector<Entry> &entries() const { return _entries; }
 
 private:
-    std::string name_;
-    std::vector<uint8_t> data_;
-    std::vector<Entry> entries_;
-    std::unordered_map<std::string, size_t> byName_; // normalized name -> entries_ index
+    std::string _name;
+    std::vector<uint8_t> _data;
+    std::vector<Entry> _entries;
+    std::unordered_map<std::string, size_t> _byName; // normalized name -> entries_ index
 };
 
 } // namespace reluva::nfs

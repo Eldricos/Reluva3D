@@ -58,10 +58,10 @@ ModelViewer::ModelViewer(ViewerContext &ctx) : Page(ctx) {
                    endsWith(n, (std::string("/") + p + ".mdr").c_str());
         if (part && has(dir, "lower") && has(dir, "upper") && has(dir, "head")) {
             if (players.insert(dir).second)
-                entries_.push_back({dir, true});
+                _entries.push_back({dir, true});
             continue;
         }
-        entries_.push_back({n, false});
+        _entries.push_back({n, false});
     }
 }
 
@@ -70,98 +70,98 @@ ModelViewer::~ModelViewer() {
 }
 
 void ModelViewer::deactivate() {
-    models_.reset();
-    shaders_.reset();
-    renderer_ = nullptr;
+    _models.reset();
+    _shaders.reset();
+    _renderer = nullptr;
 }
 
 void ModelViewer::activate() {
-    if (Error err = ctx_.sys.init3D(kFrameW, kFrameH, renderer_)) {
-        renderer_ = nullptr;
-        ctx_.sys.initGraphics(ctx_.screen.w, ctx_.screen.h, PixelFormat::RGBA32);
+    if (Error err = _ctx.sys.init3D(kFrameW, kFrameH, _renderer)) {
+        _renderer = nullptr;
+        _ctx.sys.initGraphics(_ctx.screen.w, _ctx.screen.h, PixelFormat::kRGBA32);
         clear(16, 18, 24);
         text(4, 4, "The Models page needs 3D rendering, which isn't available:", {255, 120, 120});
         text(4, 4 + font::kLineHeight, err.message);
         setTitle("3D rendering not available");
         return;
     }
-    overlay_.create(kFrameW, kFrameH, PixelFormat::RGBA32);
-    shaders_ = std::make_unique<ShaderCache>(*renderer_, ctx_.files, ctx_.shaders);
-    models_ = std::make_unique<ModelCache>(*renderer_, *shaders_, ctx_.files);
-    applyVideoSettings(videoSettings(ctx_.cvars), *shaders_, nullptr, models_.get());
-    show(index_);
+    _overlay.create(kFrameW, kFrameH, PixelFormat::kRGBA32);
+    _shaders = std::make_unique<ShaderCache>(*_renderer, _ctx.files, _ctx.shaders);
+    _models = std::make_unique<ModelCache>(*_renderer, *_shaders, _ctx.files);
+    applyVideoSettings(videoSettings(_ctx.cvars), *_shaders, nullptr, _models.get());
+    show(_index);
 }
 
 void ModelViewer::show(int index) {
-    index_ = index;
-    const Entry &e = entries_[size_t(index)];
-    setTitle(e.name + " (" + std::to_string(index + 1) + "/" + std::to_string(entries_.size()) + ")");
-    models_->clear();
-    shaders_->clear();
-    info_.clear();
-    error_.clear();
-    model_ = lower_ = upper_ = head_ = -1;
-    skins_[0] = skins_[1] = skins_[2] = nullptr;
-    frame_ = 0;
-    startMs_ = ctx_.sys.getMillis();
-    anims_.clear();
-    animTime_ = 0;
+    _index = index;
+    const Entry &e = _entries[size_t(index)];
+    setTitle(e.name + " (" + std::to_string(index + 1) + "/" + std::to_string(_entries.size()) + ")");
+    _models->clear();
+    _shaders->clear();
+    _info.clear();
+    _error.clear();
+    _model = _lower = _upper = _head = -1;
+    _skins[0] = _skins[1] = _skins[2] = nullptr;
+    _frame = 0;
+    _startMs = _ctx.sys.getMillis();
+    _anims.clear();
+    _animTime = 0;
 
     std::vector<const Md3Model *> parts;
     if (e.player) {
         // Each part as .mdr if there is one (Elite Force's), else .md3.
         auto part = [&](const char *name) {
             const std::string mdr = e.name + "/" + name + ".mdr";
-            return models_->load(ctx_.files.has(mdr) ? mdr : e.name + "/" + name + ".md3", &error_);
+            return _models->load(_ctx.files.has(mdr) ? mdr : e.name + "/" + name + ".md3", &_error);
         };
-        lower_ = part("lower");
-        upper_ = part("upper");
-        head_ = part("head");
-        if (lower_ < 0 || upper_ < 0 || head_ < 0) {
-            info_.push_back(e.name);
+        _lower = part("lower");
+        _upper = part("upper");
+        _head = part("head");
+        if (_lower < 0 || _upper < 0 || _head < 0) {
+            _info.push_back(e.name);
             return;
         }
         // Its animations: played in pairs, legs and torso, as the game does.
         std::vector<uint8_t> cfg;
-        if (Error err = ctx_.files.read(e.name + "/animation.cfg", cfg); !err) {
-            anims_ = parseAnimationConfig(std::string(cfg.begin(), cfg.end()));
-            legsAnim_ = torsoAnim_ = -1;
-            for (size_t i = 0; i < anims_.size(); ++i) {
-                if (anims_[i].name == "LEGS_IDLE" || (legsAnim_ < 0 && anims_[i].part == PlayerAnimation::Part::Legs))
-                    legsAnim_ = int(i);
-                if (anims_[i].name == "TORSO_STAND" ||
-                    (torsoAnim_ < 0 && anims_[i].part == PlayerAnimation::Part::Torso))
-                    torsoAnim_ = int(i);
+        if (Error err = _ctx.files.read(e.name + "/animation.cfg", cfg); !err) {
+            _anims = parseAnimationConfig(std::string(cfg.begin(), cfg.end()));
+            _legsAnim = _torsoAnim = -1;
+            for (size_t i = 0; i < _anims.size(); ++i) {
+                if (_anims[i].name == "LEGS_IDLE" || (_legsAnim < 0 && _anims[i].part == PlayerAnimation::Part::kLegs))
+                    _legsAnim = int(i);
+                if (_anims[i].name == "TORSO_STAND" ||
+                    (_torsoAnim < 0 && _anims[i].part == PlayerAnimation::Part::kTorso))
+                    _torsoAnim = int(i);
             }
-            if (legsAnim_ < 0 || torsoAnim_ < 0)
-                anims_.clear();
+            if (_legsAnim < 0 || _torsoAnim < 0)
+                _anims.clear();
         }
-        skins_[0] = &models_->skin(e.name + "/lower_default.skin");
-        skins_[1] = &models_->skin(e.name + "/upper_default.skin");
-        skins_[2] = &models_->skin(e.name + "/head_default.skin");
-        parts = {&models_->model(lower_), &models_->model(upper_), &models_->model(head_)};
+        _skins[0] = &_models->skin(e.name + "/lower_default.skin");
+        _skins[1] = &_models->skin(e.name + "/upper_default.skin");
+        _skins[2] = &_models->skin(e.name + "/head_default.skin");
+        parts = {&_models->model(_lower), &_models->model(_upper), &_models->model(_head)};
     } else {
-        model_ = models_->load(e.name, &error_);
-        if (model_ < 0) {
-            info_.push_back(e.name);
+        _model = _models->load(e.name, &_error);
+        if (_model < 0) {
+            _info.push_back(e.name);
             return;
         }
-        parts = {&models_->model(model_)};
+        parts = {&_models->model(_model)};
     }
 
     // Frame the first frame's bounds (a player stands about 60 units
     // above its legs' origin).
     const Md3Frame &f = parts[0]->frames.front();
     for (int i = 0; i < 3; ++i)
-        center_[size_t(i)] = (f.mins[size_t(i)] + f.maxs[size_t(i)]) / 2;
-    radius_ = std::max(8.0f, f.radius);
+        _center[size_t(i)] = (f.mins[size_t(i)] + f.maxs[size_t(i)]) / 2;
+    _radius = std::max(8.0f, f.radius);
     if (e.player) {
-        center_[2] += 16;
-        radius_ = std::max(radius_, 40.0f);
+        _center[2] += 16;
+        _radius = std::max(_radius, 40.0f);
     }
     resetView();
 
-    info_.push_back(e.name);
+    _info.push_back(e.name);
     for (size_t pi = 0; pi < parts.size(); ++pi) {
         const Md3Model *m = parts[pi];
         size_t verts = 0;
@@ -180,86 +180,86 @@ void ModelViewer::show(int index) {
         std::snprintf(line, sizeof line, "%s: %zu frames, %zu surfaces, %zu vertices, %zu triangles%s%s",
                       m->name.empty() ? "model" : m->name.c_str(), m->frames.size(), m->surfaces.size(), verts, tris,
                       tags.empty() ? "" : ", tags: ", tags.c_str());
-        info_.push_back(line);
+        _info.push_back(line);
         // Each surface's shader (from the skin if it names one) and whether
         // it, or the image it needs, is there.
         for (const Md3Surface &s : m->surfaces) {
             std::string shader = s.shaders.empty() ? std::string() : s.shaders.front();
-            if (const Skin *skin = skins_[pi])
+            if (const Skin *skin = _skins[pi])
                 if (auto it = skin->find(fs::toLower(s.name)); it != skin->end())
                     shader = it->second;
             bool found = !shader.empty();
-            if (const ShaderDef *def = ctx_.shaders.find(shader)) {
+            if (const ShaderDef *def = _ctx.shaders.find(shader)) {
                 for (const ShaderStage &st : def->stages)
                     for (const std::string &img : st.maps)
-                        if (!img.empty() && img[0] != '$' && findImage(ctx_.files, img).empty())
+                        if (!img.empty() && img[0] != '$' && findImage(_ctx.files, img).empty())
                             found = false;
             } else if (found) {
-                found = !findImage(ctx_.files, shader).empty();
+                found = !findImage(_ctx.files, shader).empty();
             }
-            info_.push_back("  " + s.name + ": " + (shader.empty() ? std::string("(no shader)") : shader) +
+            _info.push_back("  " + s.name + ": " + (shader.empty() ? std::string("(no shader)") : shader) +
                             (found ? "" : "  [MISSING]"));
         }
     }
 }
 
 void ModelViewer::resetView() {
-    yaw_ = kPi * 0.85f;
-    pitch_ = 0.25f;
-    distance_ = radius_ * 2.6f;
+    _yaw = kPi * 0.85f;
+    _pitch = 0.25f;
+    _distance = _radius * 2.6f;
 }
 
 void ModelViewer::handleEvent(const Event &ev) {
-    if (!renderer_ || entries_.empty())
+    if (!_renderer || _entries.empty())
         return;
-    if (ev.type == EventType::KeyDown) {
-        const int n = static_cast<int>(entries_.size());
-        int i = index_;
-        if (ev.key == key::Left)
+    if (ev.type == EventType::kKeyDown) {
+        const int n = static_cast<int>(_entries.size());
+        int i = _index;
+        if (ev.key == key::kLeft)
             i = (i + n - 1) % n;
-        else if (ev.key == key::Right)
+        else if (ev.key == key::kRight)
             i = (i + 1) % n;
-        else if (ev.key == key::PageUp)
+        else if (ev.key == key::kPageUp)
             i = std::max(0, i - 10);
-        else if (ev.key == key::PageDown)
+        else if (ev.key == key::kPageDown)
             i = std::min(n - 1, i + 10);
-        else if (ev.key == key::Home)
+        else if (ev.key == key::kHome)
             i = 0;
-        else if (ev.key == key::End)
+        else if (ev.key == key::kEnd)
             i = n - 1;
         else if (ev.key == 'a')
-            animate_ = !animate_;
+            _animate = !_animate;
         else if (ev.key == 't')
-            torsoOnTag_ = !torsoOnTag_;
-        else if ((ev.key == '[' || ev.key == ']') && !anims_.empty())
+            _torsoOnTag = !_torsoOnTag;
+        else if ((ev.key == '[' || ev.key == ']') && !_anims.empty())
             nextAnimation(ev.key == ']' ? 1 : -1);
         else if (ev.key == ',')
-            --frame_;
+            --_frame;
         else if (ev.key == '.')
-            ++frame_;
+            ++_frame;
         else if (ev.key == 'r')
             resetView();
         else if (ev.key == 'i')
-            showInfo_ = !showInfo_;
+            _showInfo = !_showInfo;
         else if (ev.key == '+' || ev.key == '=')
-            distance_ = std::max(radius_ * 0.3f, distance_ * 0.9f);
+            _distance = std::max(_radius * 0.3f, _distance * 0.9f);
         else if (ev.key == '-')
-            distance_ /= 0.9f;
-        if (i != index_)
+            _distance /= 0.9f;
+        if (i != _index)
             show(i);
-    } else if (ev.type == EventType::MouseDown && ev.button == MouseButton::Left) {
-        dragging_ = true;
-        lastX_ = ev.mouseX;
-        lastY_ = ev.mouseY;
-    } else if (ev.type == EventType::MouseUp && ev.button == MouseButton::Left) {
-        dragging_ = false;
-    } else if (ev.type == EventType::MouseMove && dragging_) {
-        yaw_ -= float(ev.mouseX - lastX_) * 0.01f;
-        pitch_ = std::clamp(pitch_ + float(ev.mouseY - lastY_) * 0.01f, -1.5f, 1.5f);
-        lastX_ = ev.mouseX;
-        lastY_ = ev.mouseY;
-    } else if (ev.type == EventType::MouseWheel) {
-        distance_ = std::max(radius_ * 0.3f, distance_ * std::pow(0.9f, float(ev.wheelY)));
+    } else if (ev.type == EventType::kMouseDown && ev.button == MouseButton::kLeft) {
+        _dragging = true;
+        _lastX = ev.mouseX;
+        _lastY = ev.mouseY;
+    } else if (ev.type == EventType::kMouseUp && ev.button == MouseButton::kLeft) {
+        _dragging = false;
+    } else if (ev.type == EventType::kMouseMove && _dragging) {
+        _yaw -= float(ev.mouseX - _lastX) * 0.01f;
+        _pitch = std::clamp(_pitch + float(ev.mouseY - _lastY) * 0.01f, -1.5f, 1.5f);
+        _lastX = ev.mouseX;
+        _lastY = ev.mouseY;
+    } else if (ev.type == EventType::kMouseWheel) {
+        _distance = std::max(_radius * 0.3f, _distance * std::pow(0.9f, float(ev.wheelY)));
     }
 }
 
@@ -267,67 +267,67 @@ void ModelViewer::nextAnimation(int step) {
     // Through every animation: one for the whole body plays on both
     // halves; a torso or legs one on its half, the other going back to
     // standing or idling if it was playing one for the whole body.
-    const int n = int(anims_.size());
-    const int current = step > 0 ? std::max(legsAnim_, torsoAnim_) : std::min(legsAnim_, torsoAnim_);
+    const int n = int(_anims.size());
+    const int current = step > 0 ? std::max(_legsAnim, _torsoAnim) : std::min(_legsAnim, _torsoAnim);
     const int i = ((current + step) % n + n) % n;
     auto find = [&](const char *name, PlayerAnimation::Part part) {
-        for (size_t k = 0; k < anims_.size(); ++k)
-            if (anims_[k].name == name)
+        for (size_t k = 0; k < _anims.size(); ++k)
+            if (_anims[k].name == name)
                 return int(k);
-        for (size_t k = 0; k < anims_.size(); ++k)
-            if (anims_[k].part == part)
+        for (size_t k = 0; k < _anims.size(); ++k)
+            if (_anims[k].part == part)
                 return int(k);
         return 0;
     };
-    switch (anims_[size_t(i)].part) {
-    case PlayerAnimation::Part::Both:
-        legsAnim_ = torsoAnim_ = i;
+    switch (_anims[size_t(i)].part) {
+    case PlayerAnimation::Part::kBoth:
+        _legsAnim = _torsoAnim = i;
         break;
-    case PlayerAnimation::Part::Torso:
-        torsoAnim_ = i;
-        if (anims_[size_t(legsAnim_)].part != PlayerAnimation::Part::Legs)
-            legsAnim_ = find("LEGS_IDLE", PlayerAnimation::Part::Legs);
+    case PlayerAnimation::Part::kTorso:
+        _torsoAnim = i;
+        if (_anims[size_t(_legsAnim)].part != PlayerAnimation::Part::kLegs)
+            _legsAnim = find("LEGS_IDLE", PlayerAnimation::Part::kLegs);
         break;
-    case PlayerAnimation::Part::Legs:
-        legsAnim_ = i;
-        if (anims_[size_t(torsoAnim_)].part != PlayerAnimation::Part::Torso)
-            torsoAnim_ = find("TORSO_STAND", PlayerAnimation::Part::Torso);
+    case PlayerAnimation::Part::kLegs:
+        _legsAnim = i;
+        if (_anims[size_t(_torsoAnim)].part != PlayerAnimation::Part::kTorso)
+            _torsoAnim = find("TORSO_STAND", PlayerAnimation::Part::kTorso);
         break;
     }
-    animTime_ = 0;
-    animate_ = true;
+    _animTime = 0;
+    _animate = true;
 }
 
 void ModelViewer::update(uint64_t nowMs) {
-    if (!renderer_)
+    if (!_renderer)
         return;
-    const float time = float(nowMs - startMs_) / 1000.0f;
-    if (animate_ && lastMs_ != 0)
-        animTime_ += std::min(float(nowMs - lastMs_), 100.0f) / 1000.0f;
-    lastMs_ = nowMs;
-    const int frame = animate_ ? int(time * kAnimationFps) : frame_;
+    const float time = float(nowMs - _startMs) / 1000.0f;
+    if (_animate && _lastMs != 0)
+        _animTime += std::min(float(nowMs - _lastMs), 100.0f) / 1000.0f;
+    _lastMs = nowMs;
+    const int frame = _animate ? int(time * kAnimationFps) : _frame;
 
-    const gfx::Vec3 offset{std::cos(pitch_) * std::cos(yaw_), std::cos(pitch_) * std::sin(yaw_), std::sin(pitch_)};
-    const gfx::Vec3 eye{center_[0] + offset[0] * distance_, center_[1] + offset[1] * distance_,
-                        center_[2] + offset[2] * distance_};
+    const gfx::Vec3 offset{std::cos(_pitch) * std::cos(_yaw), std::cos(_pitch) * std::sin(_yaw), std::sin(_pitch)};
+    const gfx::Vec3 eye{_center[0] + offset[0] * _distance, _center[1] + offset[1] * _distance,
+                        _center[2] + offset[2] * _distance};
     const float aspect = float(kFrameW) / float(kFrameH);
     const gfx::Mat4 viewProj = gfx::multiply(gfx::perspective(0.9f, aspect, 1, 8192),
                                              gfx::lookAlong(eye, {-offset[0], -offset[1], -offset[2]}, {0, 0, 1}));
-    renderer_->setGamma(brightness(ctx_));
-    renderer_->beginFrame(viewProj, eye, {70, 74, 82});
+    _renderer->setGamma(brightness(_ctx));
+    _renderer->beginFrame(viewProj, eye, {70, 74, 82});
 
     // No map, so no light grid: a fixed light, as the original uses then.
     const PointLight light = LightGrid{}.sample({0, 0, 0});
     std::string frames;
-    if (model_ >= 0) {
-        models_->draw(model_, frame, gfx::identity(), light, time);
-        const int n = int(models_->model(model_).frames.size());
+    if (_model >= 0) {
+        _models->draw(_model, frame, gfx::identity(), light, time);
+        const int n = int(_models->model(_model).frames.size());
         frames = "frame " + std::to_string(((frame % n) + n) % n + 1) + "/" + std::to_string(n);
-    } else if (lower_ >= 0) {
+    } else if (_lower >= 0) {
         // Legs at the origin, the torso on the legs' tag_torso, the head
         // on the torso's tag_head.
-        const Md3Model &legs = models_->model(lower_);
-        const Md3Model &torso = models_->model(upper_);
+        const Md3Model &legs = _models->model(_lower);
+        const Md3Model &torso = _models->model(_upper);
         const int nl = int(legs.frames.size());
         const int nt = int(torso.frames.size());
         // Each half's frame, the next and how far towards it: from its
@@ -339,9 +339,9 @@ void ModelViewer::update(uint64_t nowMs) {
         int nextT = ft;
         float lerpL = 0;
         float lerpT = 0;
-        if (!anims_.empty()) {
-            anims_[size_t(legsAnim_)].frameAt(animTime_, fl, nextL, lerpL);
-            anims_[size_t(torsoAnim_)].frameAt(animTime_, ft, nextT, lerpT);
+        if (!_anims.empty()) {
+            _anims[size_t(_legsAnim)].frameAt(_animTime, fl, nextL, lerpL);
+            _anims[size_t(_torsoAnim)].frameAt(_animTime, ft, nextT, lerpT);
             fl = std::clamp(fl, 0, nl - 1), nextL = std::clamp(nextL, 0, nl - 1);
             ft = std::clamp(ft, 0, nt - 1), nextT = std::clamp(nextT, 0, nt - 1);
         }
@@ -360,34 +360,34 @@ void ModelViewer::update(uint64_t nowMs) {
             return t;
         };
         const gfx::Mat4 base = gfx::identity();
-        models_->draw(lower_, nextL, base, light, time, skins_[0], 0, 1e9f, {}, nullptr, fl, 1 - lerpL);
+        _models->draw(_lower, nextL, base, light, time, _skins[0], 0, 1e9f, {}, nullptr, fl, 1 - lerpL);
         // (With T, the torso where its own file has it instead, to compare:
         // skeletal models' halves may already fit together.)
         gfx::Mat4 torsoAt = base;
-        if (const auto t = tagBetween(legs, fl, nextL, lerpL, "tag_torso"); t && torsoOnTag_)
+        if (const auto t = tagBetween(legs, fl, nextL, lerpL, "tag_torso"); t && _torsoOnTag)
             torsoAt = gfx::multiply(base, tagPlacement(*t));
-        models_->draw(upper_, nextT, torsoAt, light, time, skins_[1], 0, 1e9f, {}, nullptr, ft, 1 - lerpT);
+        _models->draw(_upper, nextT, torsoAt, light, time, _skins[1], 0, 1e9f, {}, nullptr, ft, 1 - lerpT);
         gfx::Mat4 headAt = torsoAt;
         if (const auto t = tagBetween(torso, ft, nextT, lerpT, "tag_head"))
             headAt = gfx::multiply(torsoAt, tagPlacement(*t));
-        models_->draw(head_, 0, headAt, light, time, skins_[2]);
+        _models->draw(_head, 0, headAt, light, time, _skins[2]);
         frames = "legs frame " + std::to_string(fl + 1) + "/" + std::to_string(nl) + ", torso " +
                  std::to_string(ft + 1) + "/" + std::to_string(nt) +
-                 (anims_.empty() ? std::string()
-                                 : "; " + anims_[size_t(legsAnim_)].name + " with " + anims_[size_t(torsoAnim_)].name +
+                 (_anims.empty() ? std::string()
+                                 : "; " + _anims[size_t(_legsAnim)].name + " with " + _anims[size_t(_torsoAnim)].name +
                                        " ([ ]: animation)") +
-                 (torsoOnTag_ ? "; torso on the legs' tag_torso (T: as in its file)"
+                 (_torsoOnTag ? "; torso on the legs' tag_torso (T: as in its file)"
                               : "; torso as in its file (T: on the legs' tag_torso)");
     }
 
-    std::fill(overlay_.pixels.begin(), overlay_.pixels.end(), 0);
-    if (showInfo_ || !error_.empty()) {
-        std::vector<std::string> lines = info_;
-        if (!error_.empty())
-            lines.push_back(error_);
+    std::fill(_overlay.pixels.begin(), _overlay.pixels.end(), 0);
+    if (_showInfo || !_error.empty()) {
+        std::vector<std::string> lines = _info;
+        if (!_error.empty())
+            lines.push_back(_error);
         if (!frames.empty())
-            lines.push_back(frames + (animate_ ? " (A: stop)" : " (A: animate, ,/.: step)") + ", " +
-                            std::to_string(shaders_->missingImages()) + " images missing");
+            lines.push_back(frames + (_animate ? " (A: stop)" : " (A: animate, ,/.: step)") + ", " +
+                            std::to_string(_shaders->missingImages()) + " images missing");
         const int lh = font::kLineHeight;
         size_t widest = 0;
         for (const std::string &l : lines)
@@ -396,12 +396,12 @@ void ModelViewer::update(uint64_t nowMs) {
         const int boxH = int(lines.size()) * lh + 6;
         for (int y = 0; y < boxH; ++y)
             for (int x = 0; x < boxW; ++x)
-                overlay_.row(y)[x * 4 + 3] = 150;
+                _overlay.row(y)[x * 4 + 3] = 150;
         for (size_t i = 0; i < lines.size(); ++i)
-            font::drawText(overlay_, 4, 3 + int(i) * lh, lines[i],
-                           !error_.empty() && lines[i] == error_ ? Color{255, 120, 120} : Color{230, 230, 230});
+            font::drawText(_overlay, 4, 3 + int(i) * lh, lines[i],
+                           !_error.empty() && lines[i] == _error ? Color{255, 120, 120} : Color{230, 230, 230});
     }
-    renderer_->endFrame(&overlay_);
+    _renderer->endFrame(&_overlay);
 }
 
 } // namespace reluva::idtech3

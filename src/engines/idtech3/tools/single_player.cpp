@@ -785,7 +785,7 @@ int cmdIbiDump(int argc, char **argv) {
     return 0;
 }
 
-const Commands commands(
+const Commands kCommands(
     "idtech3",
     {
         {"sp-menus",

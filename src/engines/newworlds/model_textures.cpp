@@ -30,7 +30,7 @@ std::vector<TextureFile> listTextureFiles(const Archives &archives) {
     for (size_t a = 0; a < archives.size(); ++a) {
         const auto &entries = archives[a]->entries();
         for (size_t i = 0; i < entries.size(); ++i) {
-            if (entries[i].tag != cattag::Texture)
+            if (entries[i].tag != cattag::kTexture)
                 continue;
             TextureFile t;
             std::string ext;

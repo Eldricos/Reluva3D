@@ -139,7 +139,7 @@ Error inflateStream(const uint8_t *data, size_t dataSize, std::vector<uint8_t> &
     out.clear();
     consumed = 0;
     Inflater in{data, dataSize, 0, 0, 0, false, out, maxSize};
-    static const Huffman fixedLit = [] {
+    static const Huffman kFixedLit = [] {
         std::array<uint8_t, 288> l{};
         for (size_t i = 0; i < 288; ++i)
             l[i] = i < 144 ? 8 : i < 256 ? 9 : i < 280 ? 7 : 8;
@@ -147,7 +147,7 @@ Error inflateStream(const uint8_t *data, size_t dataSize, std::vector<uint8_t> &
         build(h, l.data(), 288);
         return h;
     }();
-    static const Huffman fixedDist = [] {
+    static const Huffman kFixedDist = [] {
         std::array<uint8_t, 30> l;
         l.fill(5);
         Huffman h;
@@ -173,7 +173,7 @@ Error inflateStream(const uint8_t *data, size_t dataSize, std::vector<uint8_t> &
             out.insert(out.end(), data + in.pos, data + in.pos + len);
             in.pos += len;
         } else if (type == 1) {
-            if (!codes(in, fixedLit, fixedDist))
+            if (!codes(in, kFixedLit, kFixedDist))
                 return Error::fail("Damaged deflate data");
         } else if (type == 2) {
             // The block's own codes: their lengths, coded with a code

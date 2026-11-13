@@ -46,48 +46,48 @@ void putPixel(uint8_t *o, const Texture &t, size_t i) {
 } // namespace
 
 bool GameUi::load(const Archives &archives, char side) {
-    side_ = side;
+    _side = side;
     const std::string folder = side == 'K' ? "kln" : side == 'R' ? "rom" : "fed";
     const std::string base = "lbp/gui/" + folder + "/";
-    loaded_ =
-        loadPicture(archives, base + "corner.lbp", corner_) && loadPicture(archives, base + "border.lbp", border_);
-    if (!loaded_)
+    _loaded =
+        loadPicture(archives, base + "corner.lbp", _corner) && loadPicture(archives, base + "border.lbp", _border);
+    if (!_loaded)
         return false;
-    loadPicture(archives, base + "wallpapr.lbp", wallpaper_);
+    loadPicture(archives, base + "wallpapr.lbp", _wallpaper);
     for (const char *n : {"logo32", "shldicon", "pwricon", "popnicon", "closebut", "vcr"}) {
         Texture t;
         if (loadPicture(archives, base + n + ".lbp", t))
-            icons_[n] = std::move(t);
+            _icons[n] = std::move(t);
     }
     // Crew portraits: f_c1, k_c1, r_c1 ... (the large ones, 64 x 60).
     const char prefix = side == 'K' ? 'k' : side == 'R' ? 'r' : 'f';
-    for (int i = 1; i <= 40 && crew_.size() < std::size(kSections); ++i) {
+    for (int i = 1; i <= 40 && _crew.size() < std::size(kSections); ++i) {
         Texture t;
         if (loadPicture(archives, base + "ptrt/crew/lg/" + prefix + "_c" + std::to_string(i) + ".lbp", t))
-            crew_.push_back(std::move(t));
+            _crew.push_back(std::move(t));
     }
     if (side == 'R')
         for (const auto &[section, stem] : kRomulanFaces) {
             Texture t;
             if (loadPicture(archives, base + "ptrt/crew/lg/" + stem + ".lbp", t))
-                faces_[section] = std::move(t);
+                _faces[section] = std::move(t);
         }
     for (const char *n : {"taubat", "metar", "hubrin", "orion"}) {
         Texture t;
         if (loadPicture(archives, base + "ptrt/crew/lg/" + n + ".lbp", t))
-            natives_[n] = std::move(t);
+            _natives[n] = std::move(t);
     }
     // Fonts: fe8pt/kl8pt/rm8pt and fe5pt/kl5pt/rm5pt.
-    fonts_ = loadGameFonts(archives);
+    _fonts = loadGameFonts(archives);
     const std::string f = side == 'K' ? "kl" : side == 'R' ? "rm" : "fe";
-    for (const GameFont &g : fonts_) {
+    for (const GameFont &g : _fonts) {
         if (g.name == "fnt/" + f + "5pt")
-            small_ = &g;
+            _small = &g;
         if (g.name == "fnt/" + f + "8pt")
-            large_ = &g;
+            _large = &g;
     }
     if (side == 'K')
-        title_ = {240, 150, 40}, text_ = {90, 170, 255};
+        _title = {240, 150, 40}, _text = {90, 170, 255};
     return true;
 }
 
@@ -130,8 +130,8 @@ void GameUi::drawPicture(Surface &s, const Texture &t, int x0, int y0, int w, in
 
 void GameUi::drawPanel(Surface &s, int x, int y, int w, int h, std::string_view title) const {
     // 12 and 12
-    const int c = corner_.width;
-    const int b = border_.height;
+    const int c = _corner.width;
+    const int b = _border.height;
     // The inside: the side's wallpaper tile, darkened.
     for (int yy = y + b; yy < y + h - b; ++yy) {
         if (yy < 0 || yy >= s.h)
@@ -141,9 +141,9 @@ void GameUi::drawPanel(Surface &s, int x, int y, int w, int h, std::string_view 
             if (xx < 0 || xx >= s.w)
                 continue;
             uint8_t *o = row + xx * 4;
-            if (!wallpaper_.rgba.empty()) {
-                const uint8_t *p = &wallpaper_.rgba[(size_t((yy - y) % wallpaper_.height) * size_t(wallpaper_.width) +
-                                                     size_t((xx - x) % wallpaper_.width)) *
+            if (!_wallpaper.rgba.empty()) {
+                const uint8_t *p = &_wallpaper.rgba[(size_t((yy - y) % _wallpaper.height) * size_t(_wallpaper.width) +
+                                                     size_t((xx - x) % _wallpaper.width)) *
                                                     4];
                 o[0] = uint8_t(p[0] / 2), o[1] = uint8_t(p[1] / 2), o[2] = uint8_t(p[2] / 2);
             } else {
@@ -153,39 +153,39 @@ void GameUi::drawPanel(Surface &s, int x, int y, int w, int h, std::string_view 
     }
     // The edges: the border tile along the top, flipped along the bottom,
     // turned along the sides; the corner piece in each corner.
-    for (int xx = x + c; xx < x + w - c; xx += border_.width) {
-        blit(s, border_, xx, y, false, false, false);
-        blit(s, border_, xx, y + h - b, false, true, false);
+    for (int xx = x + c; xx < x + w - c; xx += _border.width) {
+        blit(s, _border, xx, y, false, false, false);
+        blit(s, _border, xx, y + h - b, false, true, false);
     }
-    for (int yy = y + c; yy < y + h - c; yy += border_.width) {
-        blit(s, border_, x, yy, false, false, true);
-        blit(s, border_, x + w - b, yy, false, true, true);
+    for (int yy = y + c; yy < y + h - c; yy += _border.width) {
+        blit(s, _border, x, yy, false, false, true);
+        blit(s, _border, x + w - b, yy, false, true, true);
     }
-    blit(s, corner_, x, y, false, false, false);
-    blit(s, corner_, x + w - c, y, true, false, false);
-    blit(s, corner_, x, y + h - c, false, true, false);
-    blit(s, corner_, x + w - c, y + h - c, true, true, false);
+    blit(s, _corner, x, y, false, false, false);
+    blit(s, _corner, x + w - c, y, true, false, false);
+    blit(s, _corner, x, y + h - c, false, true, false);
+    blit(s, _corner, x + w - c, y + h - c, true, true, false);
     // The title, centred in the top bar.
     if (!title.empty()) {
-        const int tw = large_ ? large_->textWidth(title) : 0;
-        drawLarge(s, x + (w - tw) / 2, y + 1, title, title_);
+        const int tw = _large ? _large->textWidth(title) : 0;
+        drawLarge(s, x + (w - tw) / 2, y + 1, title, _title);
     }
 }
 
 int GameUi::drawSmall(Surface &s, int x, int y, std::string_view text, Color c) const {
-    return small_ ? small_->drawText(s, x, y, text, c) : x;
+    return _small ? _small->drawText(s, x, y, text, c) : x;
 }
 
 int GameUi::drawLarge(Surface &s, int x, int y, std::string_view text, Color c) const {
-    return large_ ? large_->drawText(s, x, y, text, c) : drawSmall(s, x, y, text, c);
+    return _large ? _large->drawText(s, x, y, text, c) : drawSmall(s, x, y, text, c);
 }
 
 int GameUi::smallWidth(std::string_view text) const {
-    return small_ ? small_->textWidth(text) : 0;
+    return _small ? _small->textWidth(text) : 0;
 }
 
 int GameUi::smallHeight() const {
-    return small_ ? small_->lineHeight : 9;
+    return _small ? _small->lineHeight : 9;
 }
 
 std::vector<std::string> GameUi::wrapSmall(std::string_view text, int width) const {
@@ -210,23 +210,23 @@ std::vector<std::string> GameUi::wrapSmall(std::string_view text, int width) con
 }
 
 const Texture *GameUi::portraitFor(std::string_view sender, std::string_view natives) const {
-    for (const auto &[section, face] : faces_)
+    for (const auto &[section, face] : _faces)
         if (sender.rfind(section, 0) == 0)
             return &face;
     for (size_t i = 0; i < std::size(kSections); ++i)
         if (sender.rfind(kSections[i], 0) == 0)
-            return i < crew_.size() ? &crew_[i] : nullptr;
+            return i < _crew.size() ? &_crew[i] : nullptr;
     if (sender.rfind("Incoming", 0) == 0) {
-        const auto it = natives_.find(std::string(natives));
-        if (it != natives_.end())
+        const auto it = _natives.find(std::string(natives));
+        if (it != _natives.end())
             return &it->second;
     }
     return icon("logo32");
 }
 
 const Texture *GameUi::icon(std::string_view name) const {
-    const auto it = icons_.find(std::string(name));
-    return it == icons_.end() ? nullptr : &it->second;
+    const auto it = _icons.find(std::string(name));
+    return it == _icons.end() ? nullptr : &it->second;
 }
 
 } // namespace reluva::newworlds

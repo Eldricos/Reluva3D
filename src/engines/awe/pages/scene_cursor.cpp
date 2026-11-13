@@ -49,9 +49,9 @@ bool ScenePage::objectShown(const Ac2Record &o) const {
     // Loaded and shown (+0xb00, +0xb04): as its condition was when the
     // scene was entered or "update" last ran, or as "hide" or "show" left
     // it since. One not yet tested (a scene being read) by its condition.
-    if (const auto it = shownNow_.find(&o); it != shownNow_.end())
+    if (const auto it = _shownNow.find(&o); it != _shownNow.end())
         return it->second;
-    return testCondition(conditionOf(o), state_);
+    return testCondition(conditionOf(o), _state);
 }
 
 bool ScenePage::clickable(const Ac2Record &o) const {
@@ -60,7 +60,7 @@ bool ScenePage::clickable(const Ac2Record &o) const {
         return true;
     if (const Ac2Value *alternatives = o.field("listB"))
         for (const auto &[condition, run] : alternatives->pairs)
-            if (testCondition(condition, state_))
+            if (testCondition(condition, _state))
                 return true;
     return false;
 }
@@ -71,7 +71,7 @@ int ScenePage::cursorOf(const Ac2Record &o) const {
     // items 3, characters 6).
     if (const Ac2Value *conditional = o.field("conditionalCursors"))
         for (const auto &[condition, cursor] : conditional->pairs)
-            if (testCondition(condition, state_))
+            if (testCondition(condition, _state))
                 return std::atoi(cursor.c_str());
     if (o.field("cursor"))
         return o.i("cursor");
@@ -87,10 +87,10 @@ bool ScenePage::objectRect(const Ac2Record &o, int &left, int &top, int &right, 
     // A model's rectangle follows it on the screen: where it was put
     // against where the file has it (0x40ea70 at load, 0x40eb60 as it
     // moves).
-    const Ac2Record *camr = scene_.camera();
+    const Ac2Record *camr = _scene.camera();
     if (!camr)
         return true;
-    for (const Character &c : characters_) {
+    for (const Character &c : _characters) {
         if (c.record != &o)
             continue;
         const SceneCamera cam = SceneCamera::fromRecord(*camr);
@@ -124,13 +124,13 @@ bool ScenePage::hitObject(const Ac2Record &o, int sx, int sy) const {
 bool ScenePage::hitBones(const Ac2Record &o, int sx, int sy) const {
     // 0x428c80: the ray through the point (GrannyGetPickingRay) against
     // the boxes of the bones named Bip01 something, as they're posed now.
-    const Ac2Record *camr = scene_.camera();
+    const Ac2Record *camr = _scene.camera();
     if (!camr)
         return false;
-    for (const Character &c : characters_) {
+    for (const Character &c : _characters) {
         if (c.record != &o || !c.model || !c.actor)
             continue;
-        if (c.pickFrame != frame_) {
+        if (c.pickFrame != _frame) {
             // Posed once for all the points picked till the page moves on.
             c.pickBoxes.clear();
             auto add = [&](const Model &model, const Pose &pose) {
@@ -149,7 +149,7 @@ bool ScenePage::hitBones(const Ac2Record &o, int sx, int sy) const {
                 c.actor->animator().poseFor(prop->model(), propPose);
                 add(prop->model(), propPose);
             }
-            c.pickFrame = frame_;
+            c.pickFrame = _frame;
         }
         gfx::Vec3 from;
         gfx::Vec3 dir;
@@ -166,14 +166,14 @@ const Ac2Record *ScenePage::pickAt(int sx, int sy) const {
     // 0x435eb0 as the mouse and clicks use it, over the objects shown.
     std::vector<const Ac2Record *> list;
     std::vector<PickCandidate> candidates;
-    for (const Ac2Record *o : scene_.objects()) {
+    for (const Ac2Record *o : _scene.objects()) {
         if (!objectShown(*o))
             continue;
         PickCandidate c;
         c.depth = o->f("depth") != 0 ? o->f("depth") : o->f("z");
         c.character = isCharacter(*o);
         if (c.character)
-            for (const Character &ch : characters_)
+            for (const Character &ch : _characters)
                 if (ch.record == o && o->f("depth") == 0)
                     c.depth = ch.z;
         c.pickFirst = o->i("pickFirst") != 0;
@@ -195,7 +195,7 @@ const Ac2Record *ScenePage::pickAt(int sx, int sy) const {
 
 const std::string &ScenePage::itemInHand() const {
     // The item the next click uses, taken from the inventory.
-    return state_.held;
+    return _state.held;
 }
 
 bool ScenePage::canUseOn(const std::string &item, const Ac2Record &o) {
@@ -204,16 +204,16 @@ bool ScenePage::canUseOn(const std::string &item, const Ac2Record &o) {
     // uselist.txt has a row for the item and it whose condition holds
     // (0x41c4b0).
     const std::string name = fs::toLower(item);
-    const std::string was = state_.held;
-    state_.held = name;
+    const std::string was = _state.held;
+    _state.held = name;
     bool can = false;
     if (const Ac2Value *alternatives = o.field("listB"))
         for (const auto &[condition, run] : alternatives->pairs)
-            if (fs::toLower(condition).find("use") != std::string::npos && testCondition(condition, state_)) {
+            if (fs::toLower(condition).find("use") != std::string::npos && testCondition(condition, _state)) {
                 can = true;
                 break;
             }
-    state_.held = was;
+    _state.held = was;
     if (can || !isCharacter(o)) // NPCX or PCXX (0x419ec7)
         return can;
     auto unquoted = [](std::string s) {
@@ -224,7 +224,7 @@ bool ScenePage::canUseOn(const std::string &item, const Ac2Record &o) {
     for (size_t r = 0; r < t.rows.size(); r++)
         if (fs::toLower(unquoted(t.cell(r, 0))) == name &&
             model.find(fs::toLower(unquoted(t.cell(r, 1))) + "_model") != std::string::npos &&
-            testCondition(unquoted(t.cell(r, 2)), state_))
+            testCondition(unquoted(t.cell(r, 2)), _state))
             return true;
     return false;
 }
@@ -232,10 +232,10 @@ bool ScenePage::canUseOn(const std::string &item, const Ac2Record &o) {
 bool ScenePage::interfaceShown() const {
     // 0x4143c0: the scene shows the interface (SHOW), and "interface off"
     // hasn't hidden it.
-    for (const Ac2Record &r : scene_.records)
+    for (const Ac2Record &r : _scene.records)
         if (r.tag == "SHOW")
-            return r.i("value") != 0 && !interfaceOff_;
-    return !interfaceOff_;
+            return r.i("value") != 0 && !_interfaceOff;
+    return !_interfaceOff;
 }
 
 bool ScenePage::cursorShown() const {
@@ -243,21 +243,21 @@ bool ScenePage::cursorShown() const {
     // screen shows; else where the interface shows, in the menus, and in
     // conversations; but not while the letterbox is up, or in a
     // conversation while the wheel has chosen and the mouse not moved.
-    if (!sceneShown_ || movie_ || load_.screen || interfaceOff_)
+    if (!_sceneShown || _movie || _load.screen || _interfaceOff)
         return false;
-    if (!interfaceShown() && location_.rfind("menu.", 0) != 0 && !dialogue_->active())
+    if (!interfaceShown() && _location.rfind("menu.", 0) != 0 && !_dialogue->active())
         return false;
-    return letterbox_.mode == 0 && !(dialogue_->active() && dialogue_->wheelChoosing());
+    return _letterbox.mode == 0 && !(_dialogue->active() && _dialogue->wheelChoosing());
 }
 
 bool ScenePage::pickAllowed(int sy) const {
     // 0x414400, 0x415fa0: not while the screen fades, a locked script
     // runs, a conversation goes on or the letterbox is up; not over the
     // interface bar (the top 60 pixels while it's down, else 5: 0x417580).
-    if (!sceneShown_ || movie_ || load_.screen || fade_ != fadeTarget_ || runner_->locked() || dialogue_->active() ||
-        letterbox_.mode != 0)
+    if (!_sceneShown || _movie || _load.screen || _fade != _fadeTarget || _runner->locked() || _dialogue->active() ||
+        _letterbox.mode != 0)
         return false;
-    return sy >= (!ui_.barShown && ui_.barAlpha == 0 ? 5 : 60);
+    return sy >= (!_ui.barShown && _ui.barAlpha == 0 ? 5 : 60);
 }
 
 int ScenePage::cursorUnder(int sx, int sy, const Ac2Record **under) const {
@@ -278,13 +278,13 @@ void ScenePage::drawCursor() {
     if (!cursorShown())
         return;
     const Ac2Record *under = nullptr;
-    const int cursor = cursorUnder(lastMouseX_, lastMouseY_, &under);
-    int x = lastMouseX_;
-    int y = lastMouseY_;
+    const int cursor = cursorUnder(_lastMouseX, _lastMouseY, &under);
+    int x = _lastMouseX;
+    int y = _lastMouseY;
     auto put = [&](const std::string &file, int px, int py) {
         SpriteTransform t;
         t.x = float(px), t.y = float(py);
-        drawSprite(ctx_.screen, picture(file), t, true);
+        drawSprite(_ctx.screen, picture(file), t, true);
     };
     put(kCursors[cursor == 1 ? 1 : 0], x, y);
     if (x + 62 > kScreenW)
@@ -311,34 +311,34 @@ void ScenePage::updateHotspots() {
     // its name names ("exitover") and plays its mouse-over sound; gone,
     // the picture is hidden and the sound stopped. Not while the screen
     // fades.
-    if (fade_ != fadeTarget_ || !drawing_) // a tool not drawing has no mouse
+    if (_fade != _fadeTarget || !_drawing) // a tool not drawing has no mouse
         return;
-    const std::string scene = scene_.path + "#" + std::to_string(index_);
-    if (scene != overScene_)
-        overScene_ = scene, over_.clear();
-    for (const Ac2Record *o : scene_.objects()) {
+    const std::string scene = _scene.path + "#" + std::to_string(_index);
+    if (scene != _overScene)
+        _overScene = scene, _over.clear();
+    for (const Ac2Record *o : _scene.objects()) {
         const Ac2Record *hot = o->tag == "SPOT" ? o->part("HOTS") : nullptr;
         if (!hot)
             continue;
-        const bool in = objectShown(*o) && hitObject(*o, lastMouseX_, lastMouseY_) && clickable(*o);
-        if (in == (over_.count(o) != 0))
+        const bool in = objectShown(*o) && hitObject(*o, _lastMouseX, _lastMouseY) && clickable(*o);
+        if (in == (_over.count(o) != 0))
             continue;
         const std::string name = fs::toLower(hot->text("name"));
         std::string sound = fs::toLower(hot->text("hoverSound"));
         sound = sound.substr(0, sound.rfind('.'));
         if (in) {
-            over_.insert(o);
+            _over.insert(o);
             if (!name.empty())
                 showObject(name, true);
             if (!sound.empty())
                 startSound(sound, hot->i("hoverSoundLoops") != 0);
         } else {
-            over_.erase(o);
+            _over.erase(o);
             if (!name.empty())
                 showObject(name, false);
             stopSound(sound);
         }
-        cursorMoved_ = true;
+        _cursorMoved = true;
     }
 }
 
@@ -347,12 +347,12 @@ void ScenePage::stopSound(const std::string &name) {
     std::string key = fs::toLower(name);
     if (const size_t slash = key.find_last_of("\\/"); slash != std::string::npos)
         key = key.substr(slash + 1);
-    if (key.empty() || !ctx_.mixer)
+    if (key.empty() || !_ctx.mixer)
         return;
-    for (auto it = sounds_.begin(); it != sounds_.end(); ++it)
-        if (it->first.find(key) != std::string::npos && ctx_.mixer->isPlaying(it->second)) {
-            ctx_.mixer->stop(it->second);
-            sounds_.erase(it);
+    for (auto it = _sounds.begin(); it != _sounds.end(); ++it)
+        if (it->first.find(key) != std::string::npos && _ctx.mixer->isPlaying(it->second)) {
+            _ctx.mixer->stop(it->second);
+            _sounds.erase(it);
             return;
         }
 }
@@ -374,10 +374,10 @@ void ScenePage::hotspotPressed(const Ac2Record &o) {
 bool ScenePage::hotspotKey(uint32_t key) {
     // 0x436110: Escape and Enter press the first hotspot whose key is
     // VK_ESCAPE or VK_RETURN (shown or not), its script run.
-    const char *name = key == key::Escape ? "vk_escape" : key == key::Return ? "vk_return" : nullptr;
+    const char *name = key == key::kEscape ? "vk_escape" : key == key::kReturn ? "vk_return" : nullptr;
     if (!name)
         return false;
-    for (const Ac2Record *o : scene_.objects()) {
+    for (const Ac2Record *o : _scene.objects()) {
         const Ac2Record *hot = o->tag == "SPOT" ? o->part("HOTS") : nullptr;
         if (!hot || fs::toLower(hot->text("key")) != name)
             continue;

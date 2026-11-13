@@ -3,7 +3,7 @@
 #include <string>
 using namespace reluva; using namespace reluva::clue;
 int main(int argc, char** argv) {
-    GameData data; data.open(argv[1], Language::US);
+    GameData data; data.open(argv[1], Language::kUS);
     const Animation* a = data.animation(argv[2]);
     const std::string text = argv[3];
     int w[4] = {0, 0, 0, 0}; int firstInk = -1, x[4] = {0, 0, 0, 0}, endInk[4] = {0, 0, 0, 0}, startInk[4] = {-1, -1, -1, -1};

@@ -17,42 +17,42 @@ namespace reluva {
 class HeadlessSystem : public System {
 public:
     Error initGraphics(int width, int height, PixelFormat) override {
-        width_ = width;
-        height_ = height;
+        _width = width;
+        _height = height;
         return Error::success();
     }
     void setPalette(const Color *, int, int) override {}
-    void updateScreen(const Surface &) override { ++frames_; }
-    void setWindowTitle(const std::string &title) override { title_ = title; }
-    void setMouseCursorVisible(bool visible) override { cursorVisible_ = visible; }
+    void updateScreen(const Surface &) override { ++_frames; }
+    void setWindowTitle(const std::string &title) override { _title = title; }
+    void setMouseCursorVisible(bool visible) override { _cursorVisible = visible; }
     void setMouseCursor(const Cursor *cursor) override {
-        cursor_ = cursor ? *cursor : Cursor{};
-        ++cursorChanges_;
+        _cursor = cursor ? *cursor : Cursor{};
+        ++_cursorChanges;
     }
     bool pollEvent(Event &) override { return false; }
-    uint64_t getMillis() const override { return millis_; }
-    void delayMillis(uint32_t ms) override { millis_ += ms; }
+    uint64_t getMillis() const override { return _millis; }
+    void delayMillis(uint32_t ms) override { _millis += ms; }
     Error startAudio(AudioCallback) override { return Error::fail("no sound output"); }
     void stopAudio() override {}
     int audioRate() const override { return 22050; }
 
-    int width() const { return width_; }
-    int height() const { return height_; }
-    int frames() const { return frames_; }
-    const std::string &title() const { return title_; }
+    int width() const { return _width; }
+    int height() const { return _height; }
+    int frames() const { return _frames; }
+    const std::string &title() const { return _title; }
     // The game's cursor (empty: the system's), whether it's shown, and how
     // many times it was set.
-    const Cursor &cursor() const { return cursor_; }
-    bool cursorVisible() const { return cursorVisible_; }
-    int cursorChanges() const { return cursorChanges_; }
+    const Cursor &cursor() const { return _cursor; }
+    bool cursorVisible() const { return _cursorVisible; }
+    int cursorChanges() const { return _cursorChanges; }
 
 private:
-    int width_ = 0, height_ = 0, frames_ = 0;
-    uint64_t millis_ = 0;
-    std::string title_;
-    Cursor cursor_;
-    bool cursorVisible_ = true;
-    int cursorChanges_ = 0;
+    int _width = 0, _height = 0, _frames = 0;
+    uint64_t _millis = 0;
+    std::string _title;
+    Cursor _cursor;
+    bool _cursorVisible = true;
+    int _cursorChanges = 0;
 };
 
 } // namespace reluva

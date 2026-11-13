@@ -11,27 +11,27 @@ namespace {
 
 class Reader {
 public:
-    explicit Reader(const std::vector<uint8_t> &d) : d_(d) {}
-    bool fail() const { return fail_; }
+    explicit Reader(const std::vector<uint8_t> &d) : _d(d) {}
+    bool fail() const { return _fail; }
     bool need(size_t n) {
-        if (fail_ || p_ > d_.size() || d_.size() - p_ < n)
-            fail_ = true;
-        return !fail_;
+        if (_fail || _p > _d.size() || _d.size() - _p < n)
+            _fail = true;
+        return !_fail;
     }
-    uint8_t u8() { return need(1) ? d_[p_++] : 0; }
+    uint8_t u8() { return need(1) ? _d[_p++] : 0; }
     uint16_t u16() {
         if (!need(2))
             return 0;
-        const uint16_t v = uint16_t(d_[p_] | d_[p_ + 1] << 8);
-        p_ += 2;
+        const uint16_t v = uint16_t(_d[_p] | _d[_p + 1] << 8);
+        _p += 2;
         return v;
     }
     int32_t i32() {
         if (!need(4))
             return 0;
         const uint32_t v =
-            uint32_t(d_[p_]) | uint32_t(d_[p_ + 1]) << 8 | uint32_t(d_[p_ + 2]) << 16 | uint32_t(d_[p_ + 3]) << 24;
-        p_ += 4;
+            uint32_t(_d[_p]) | uint32_t(_d[_p + 1]) << 8 | uint32_t(_d[_p + 2]) << 16 | uint32_t(_d[_p + 3]) << 24;
+        _p += 4;
         return int32_t(v);
     }
     // A string: its length, then that many characters and a NUL (absent
@@ -40,16 +40,16 @@ public:
         const size_t n = u8();
         if (n == 0 || !need(n + 1))
             return {};
-        std::string s(reinterpret_cast<const char *>(d_.data() + p_), n);
-        p_ += n + 1;
+        std::string s(reinterpret_cast<const char *>(_d.data() + _p), n);
+        _p += n + 1;
         return s;
     }
-    size_t pos() const { return p_; }
+    size_t pos() const { return _p; }
 
 private:
-    const std::vector<uint8_t> &d_;
-    size_t p_ = 0;
-    bool fail_ = false;
+    const std::vector<uint8_t> &_d;
+    size_t _p = 0;
+    bool _fail = false;
 };
 
 } // namespace

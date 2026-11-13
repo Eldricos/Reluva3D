@@ -30,7 +30,7 @@ std::vector<float> readFloats(const Gr2File &file, const Gr2Object &o, const cha
     const Gr2Member *m = o.member(name);
     if (!m)
         return out;
-    if (m->type == Gr2Type::Real32) {
+    if (m->type == Gr2Type::kReal32) {
         for (uint32_t i = 0; i < std::max<uint32_t>(1, m->arrayWidth); i++)
             out.push_back(float(o.number(name, i)));
         return out;
@@ -51,9 +51,9 @@ struct Range {
 };
 Range quaternionRange(unsigned entry) {
     const float h = 0.70710677f; // √½ as a float, 0x3f3504f3
-    static const Range ranges[8] = {{2 * h, -h},    {h, -h / 2},     {h / 2, -h * 0.75f}, {h / 2, -h / 4},
-                                    {h / 2, h / 4}, {h / 4, -h / 4}, {h / 4, -h / 8},     {h / 4, 0}};
-    const Range r = ranges[entry & 7];
+    static const Range kRanges[8] = {{2 * h, -h},    {h, -h / 2},     {h / 2, -h * 0.75f}, {h / 2, -h / 4},
+                                     {h / 2, h / 4}, {h / 4, -h / 4}, {h / 4, -h / 8},     {h / 4, 0}};
+    const Range r = kRanges[entry & 7];
     return entry & 8 ? Range{-r.scale, -r.offset} : r;
 }
 
@@ -61,7 +61,7 @@ Range quaternionRange(unsigned entry) {
 // values (as the format's name says).
 Error readKnotsControls(const Gr2File &file, const Gr2Object &data, CurveData &out) {
     const CurveFormat f = CurveFormat(out.format);
-    const uint32_t size = f == CurveFormat::D4nK16uC15u || f == CurveFormat::D3K16uC16u ? 2 : 1;
+    const uint32_t size = f == CurveFormat::kD4nK16uC15u || f == CurveFormat::kD3K16uC16u ? 2 : 1;
     const Gr2Object::Array a = data.array("KnotsControls");
     if (a.count && a.stride != size)
         return Error::fail(std::string(curveFormatName(out.format)) + "'s KnotsControls aren't " +
@@ -81,33 +81,33 @@ const char *curveFormatName(uint8_t format) {
 Error readCurveData(const Gr2File &file, const Gr2Object &curve, CurveData &out) {
     out = CurveData();
     const Gr2Object data = curve.object("CurveData");
-    if (!data.valid() || data.members().empty() || data.members()[0].type != Gr2Type::Inline)
+    if (!data.valid() || data.members().empty() || data.members()[0].type != Gr2Type::kInline)
         return Error::fail("no CurveData");
     // Its first member is the header every format starts with.
     const Gr2Object header = data.object(data.members()[0].name);
     out.format = uint8_t(header.number("Format"));
     out.degree = uint8_t(header.number("Degree"));
     switch (CurveFormat(out.format)) {
-    case CurveFormat::DaIdentity:
+    case CurveFormat::kDaIdentity:
         out.dimension = int(data.number("Dimension"));
         break;
-    case CurveFormat::DaConstant32f:
-    case CurveFormat::D3Constant32f:
+    case CurveFormat::kDaConstant32f:
+    case CurveFormat::kD3Constant32f:
         out.controls = readFloats(file, data, "Controls");
         break;
-    case CurveFormat::DaK32fC32f:
+    case CurveFormat::kDaK32fC32f:
         out.knots = readFloats(file, data, "Knots");
         out.controls = readFloats(file, data, "Controls");
         break;
-    case CurveFormat::D4nK16uC15u:
-    case CurveFormat::D4nK8uC7u:
+    case CurveFormat::kD4nK16uC15u:
+    case CurveFormat::kD4nK8uC7u:
         out.packed = uint16_t(data.number("ScaleOffsetTableEntries"));
         out.oneOverKnotScale = float(data.number("OneOverKnotScale"));
         if (Error e = readKnotsControls(file, data, out))
             return e;
         break;
-    case CurveFormat::D3K16uC16u:
-    case CurveFormat::D3K8uC8u:
+    case CurveFormat::kD3K16uC16u:
+    case CurveFormat::kD3K8uC8u:
         out.packed = uint16_t(data.number("OneOverKnotScaleTrunc"));
         for (uint32_t c = 0; c < 3; c++) {
             out.controlScales[c] = float(data.number("ControlScales", c));
@@ -127,18 +127,18 @@ Error expandCurve(const CurveData &data, const std::vector<float> &identity, Cur
     out = Curve();
     out.degree = data.degree;
     switch (CurveFormat(data.format)) {
-    case CurveFormat::DaIdentity:
+    case CurveFormat::kDaIdentity:
         // The DLL copies its Dimension values of the identity it's given.
         out.knots = {0};
         out.controls = identity;
         out.controls.resize(size_t(std::max(data.dimension, 0)), 0.0f);
         break;
-    case CurveFormat::DaConstant32f:
-    case CurveFormat::D3Constant32f:
+    case CurveFormat::kDaConstant32f:
+    case CurveFormat::kD3Constant32f:
         out.knots = {0};
         out.controls = data.controls;
         break;
-    case CurveFormat::DaK32fC32f:
+    case CurveFormat::kDaK32fC32f:
         // As many values a knot as there are whole sets of controls.
         out.knots = data.knots;
         if (!out.knots.empty()) {
@@ -146,13 +146,13 @@ Error expandCurve(const CurveData &data, const std::vector<float> &identity, Cur
             out.controls.resize(data.controls.size() / out.knots.size() * out.knots.size());
         }
         break;
-    case CurveFormat::D4nK16uC15u:
-    case CurveFormat::D4nK8uC7u: {
+    case CurveFormat::kD4nK16uC15u:
+    case CurveFormat::kD4nK8uC7u: {
         // n knots, then 3 values a knot: a unit quaternion's three smaller
         // components, 15 or 7 bits each; the top bits say which component
         // was left out (and its sign), rebuilt as the square root of what
         // the others leave of 1.
-        const bool wide = CurveFormat(data.format) == CurveFormat::D4nK16uC15u;
+        const bool wide = CurveFormat(data.format) == CurveFormat::kD4nK16uC15u;
         const unsigned bits = wide ? 15 : 7;
         const unsigned mask = (1u << bits) - 1;
         const std::vector<uint16_t> &kc = data.knotsControls;
@@ -188,8 +188,8 @@ Error expandCurve(const CurveData &data, const std::vector<float> &identity, Cur
         }
         break;
     }
-    case CurveFormat::D3K16uC16u:
-    case CurveFormat::D3K8uC8u: {
+    case CurveFormat::kD3K16uC16u:
+    case CurveFormat::kD3K8uC8u: {
         // n knots, then 3 values a knot, each scaled and offset. The
         // knots' scale is stored as the top 16 bits of a float.
         const std::vector<uint16_t> &kc = data.knotsControls;

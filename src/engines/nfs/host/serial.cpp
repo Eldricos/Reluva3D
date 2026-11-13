@@ -44,85 +44,85 @@ public:
     virtual bool connected() = 0;
     virtual void purge() = 0;
 
-    std::array<uint32_t, 5> timeouts_{}; // COMMTIMEOUTS
-    std::array<uint8_t, 28> dcb_{};      // the DCB last set
-    bool dcbSet_ = false;
+    std::array<uint32_t, 5> timeouts{}; // COMMTIMEOUTS
+    std::array<uint8_t, 28> dcb{};      // the DCB last set
+    bool dcbSet = false;
 };
 
 class GameHost::SerialLink : public CommPort {
 public:
-    SerialLink(GameHost &host, net::Sockets &net) : host_(host), net_(net) {}
+    SerialLink(GameHost &host, net::Sockets &net) : _host(host), _net(net) {}
     ~SerialLink() override {
-        if (stream_ >= 0)
-            net_.close(stream_);
-        if (listener_ >= 0)
-            net_.close(listener_);
+        if (_stream >= 0)
+            _net.close(_stream);
+        if (_listener >= 0)
+            _net.close(_listener);
     }
 
     // Starts listening on `at` or connecting to it.
     bool start(bool listen, const net::Address &at) {
         if (listen) {
-            listener_ = net_.open(net::Sockets::Stream);
-            if (listener_ < 0)
+            _listener = _net.open(net::Sockets::kStream);
+            if (_listener < 0)
                 return false;
-            net_.setOption(listener_, net::Sockets::ReuseAddress, 1);
-            if (net_.bind(listener_, at) != Result::Ok || net_.listen(listener_, 1) != Result::Ok)
+            _net.setOption(_listener, net::Sockets::kReuseAddress, 1);
+            if (_net.bind(_listener, at) != Result::kOk || _net.listen(_listener, 1) != Result::kOk)
                 return false;
-            host_.say("  serial: listening on " + at.toString());
+            _host.say("  serial: listening on " + at.toString());
             return true;
         }
-        target_ = at;
-        host_.say("  serial: connecting to " + at.toString());
+        _target = at;
+        _host.say("  serial: connecting to " + at.toString());
         return dial();
     }
 
     // A connection to target_ under way (again, after one that failed:
     // the other copy may not be listening yet).
     bool dial() {
-        if (stream_ >= 0)
-            net_.close(stream_);
-        lastDial_ = std::chrono::steady_clock::now();
-        stream_ = net_.open(net::Sockets::Stream);
-        if (stream_ < 0)
+        if (_stream >= 0)
+            _net.close(_stream);
+        _lastDial = std::chrono::steady_clock::now();
+        _stream = _net.open(net::Sockets::kStream);
+        if (_stream < 0)
             return false;
-        if (host_.options_.netAddress)
-            net_.bind(stream_, {host_.options_.netAddress, 0});
-        const Result r = net_.connect(stream_, target_);
-        connecting_ = r == Result::InProgress || r == Result::WouldBlock;
-        connected_ = r == Result::Ok;
+        if (_host._options.netAddress)
+            _net.bind(_stream, {_host._options.netAddress, 0});
+        const Result r = _net.connect(_stream, _target);
+        _connecting = r == Result::kInProgress || r == Result::kWouldBlock;
+        _connected = r == Result::kOk;
         return true;
     }
 
     // Whether the other end is there (the cable's carrier); accepts or
     // finishes connecting first, without waiting.
     bool connected() override {
-        if (connected_)
+        if (_connected)
             return true;
-        if (listener_ >= 0 && stream_ < 0) {
+        if (_listener >= 0 && _stream < 0) {
             int accepted = -1;
             net::Address from;
-            if (net_.accept(listener_, accepted, from) == Result::Ok) {
-                stream_ = accepted;
-                connected_ = true;
-                net_.setOption(stream_, net::Sockets::NoDelay, 1);
-                host_.say("  serial: connected from " + from.toString());
+            if (_net.accept(_listener, accepted, from) == Result::kOk) {
+                _stream = accepted;
+                _connected = true;
+                _net.setOption(_stream, net::Sockets::kNoDelay, 1);
+                _host.say("  serial: connected from " + from.toString());
             }
-        } else if (connecting_) {
-            const net::Sockets::Ready ready = net_.ready(stream_);
+        } else if (_connecting) {
+            const net::Sockets::Ready ready = _net.ready(_stream);
             if (ready.failed) {
-                connecting_ = false;
+                _connecting = false;
             } else if (ready.write) {
-                connecting_ = false;
-                connected_ = true;
-                net_.setOption(stream_, net::Sockets::NoDelay, 1);
-                host_.say("  serial: connected");
+                _connecting = false;
+                _connected = true;
+                _net.setOption(_stream, net::Sockets::kNoDelay, 1);
+                _host.say("  serial: connected");
             }
         }
         // Not there yet: tried again every half second.
-        if (!connected_ && !connecting_ && target_.port &&
-            std::chrono::steady_clock::now() - lastDial_ > std::chrono::milliseconds(500))
+        if (!_connected && !_connecting && _target.port &&
+            std::chrono::steady_clock::now() - _lastDial > std::chrono::milliseconds(500))
             dial();
-        return connected_;
+        return _connected;
     }
 
     // ReadFile, as COMMTIMEOUTS has it: ReadIntervalTimeout MAXDWORD with
@@ -134,27 +134,27 @@ public:
     bool read(Cpu &c, uint32_t buffer, uint32_t size, bool overlapped, uint32_t &done, uint32_t &error) override {
         done = 0;
         error = 0;
-        const bool immediate = overlapped || (timeouts_[0] == kMaxDword && timeouts_[1] == 0 && timeouts_[2] == 0);
-        const bool forEver = timeouts_[0] == 0 && timeouts_[1] == 0 && timeouts_[2] == 0;
-        const uint32_t total = timeouts_[1] * size + timeouts_[2];
+        const bool immediate = overlapped || (timeouts[0] == kMaxDword && timeouts[1] == 0 && timeouts[2] == 0);
+        const bool forEver = timeouts[0] == 0 && timeouts[1] == 0 && timeouts[2] == 0;
+        const uint32_t total = timeouts[1] * size + timeouts[2];
         auto take = [&] {
             if (!connected() || done >= size)
                 return done >= size;
             size_t n = 0;
-            const Result r = net_.receive(stream_, c.memory().data() + buffer + done, size - done, n, false);
-            if (r == Result::Ok && n == 0) { // the other end went
-                connected_ = false;
+            const Result r = _net.receive(_stream, c.memory().data() + buffer + done, size - done, n, false);
+            if (r == Result::kOk && n == 0) { // the other end went
+                _connected = false;
                 return true;
             }
-            if (r == Result::Ok && n) {
-                host_.logTraffic(false, 0, target_, c.memory().data() + buffer + done, n);
+            if (r == Result::kOk && n) {
+                _host.logTraffic(false, 0, _target, c.memory().data() + buffer + done, n);
                 done += uint32_t(n);
             }
             return done >= size;
         };
         if (take() || immediate || size == 0)
             return true;
-        host_.process_->wait([&] { return take() || host_.process_->ending(); }, forEver ? kMaxDword : total);
+        _host._process->wait([&] { return take() || _host._process->ending(); }, forEver ? kMaxDword : total);
         return true;
     }
 
@@ -165,26 +165,26 @@ public:
             done = size;
             return true;
         }
-        if (size && host_.dropOutgoing()) { // lost on the line
-            host_.logTraffic(true, 0, target_, c.memory().data() + buffer, size, true);
+        if (size && _host.dropOutgoing()) { // lost on the line
+            _host.logTraffic(true, 0, _target, c.memory().data() + buffer, size, true);
             done = size;
             return true;
         }
         while (done < size) {
             size_t n = 0;
-            const Result r = net_.send(stream_, c.memory().data() + buffer + done, size - done, n);
-            if (r == Result::Ok) {
-                host_.logTraffic(true, 0, target_, c.memory().data() + buffer + done, n);
+            const Result r = _net.send(_stream, c.memory().data() + buffer + done, size - done, n);
+            if (r == Result::kOk) {
+                _host.logTraffic(true, 0, _target, c.memory().data() + buffer + done, n);
                 done += uint32_t(n);
                 continue;
             }
-            if (r != Result::WouldBlock) {
-                connected_ = false;
+            if (r != Result::kWouldBlock) {
+                _connected = false;
                 done = size;
                 return true;
             }
-            host_.process_->wait([&] { return net_.ready(stream_).write || host_.process_->ending(); }, 1000);
-            if (host_.process_->ending()) {
+            _host._process->wait([&] { return _net.ready(_stream).write || _host._process->ending(); }, 1000);
+            if (_host._process->ending()) {
                 error = kErrorGenFailure;
                 return false;
             }
@@ -196,14 +196,14 @@ public:
     bool readable() override {
         if (!connected())
             return false;
-        return net_.ready(stream_).read;
+        return _net.ready(_stream).read;
     }
 
     // Bytes waiting to be read.
     uint32_t waiting() {
         uint32_t bytes = 0;
         if (connected())
-            net_.pending(stream_, bytes);
+            _net.pending(_stream, bytes);
         return bytes;
     }
     // Throws away what's waiting (PurgeComm's PURGE_RXCLEAR).
@@ -211,18 +211,18 @@ public:
         uint8_t scrap[512];
         for (uint32_t n = waiting(); n > 0; n = waiting()) {
             size_t got = 0;
-            if (net_.receive(stream_, scrap, std::min<size_t>(n, sizeof scrap), got, false) != Result::Ok || !got)
+            if (_net.receive(_stream, scrap, std::min<size_t>(n, sizeof scrap), got, false) != Result::kOk || !got)
                 break;
         }
     }
 
 private:
-    GameHost &host_;
-    net::Sockets &net_;
-    int listener_ = -1, stream_ = -1;
-    bool connecting_ = false, connected_ = false;
-    net::Address target_; // where a connecting link connects to
-    std::chrono::steady_clock::time_point lastDial_;
+    GameHost &_host;
+    net::Sockets &_net;
+    int _listener = -1, _stream = -1;
+    bool _connecting = false, _connected = false;
+    net::Address _target; // where a connecting link connects to
+    std::chrono::steady_clock::time_point _lastDial;
 };
 
 // "listen:port" (or ":port") or "host:port" to an address; false if the
@@ -246,15 +246,15 @@ bool parseLink(net::Sockets &net, const std::string &option, uint32_t netAddress
 
 void GameHost::addSerial() {
     const char *k = "KERNEL32.dll";
-    net::Sockets *net = options_.sockets.get();
+    net::Sockets *net = _options.sockets.get();
     // "listen:port" (or ":port"), or "host:port": the link every COM port
     // is. Without a network or the option there are no ports.
-    if (net && !options_.serial.empty()) {
-        process_->openSerialPort = [this, net](int port) -> std::shared_ptr<x86::DeviceObject> {
+    if (net && !_options.serial.empty()) {
+        _process->openSerialPort = [this, net](int port) -> std::shared_ptr<x86::DeviceObject> {
             bool listen = false;
             net::Address at;
-            if (!parseLink(*net, options_.serial, options_.netAddress, listen, at)) {
-                say("  serial: can't find " + options_.serial);
+            if (!parseLink(*net, _options.serial, _options.netAddress, listen, at)) {
+                say("  serial: can't find " + _options.serial);
                 return nullptr;
             }
             auto link = std::make_shared<SerialLink>(*this, *net);
@@ -264,16 +264,16 @@ void GameHost::addSerial() {
             return link;
         };
     }
-    auto find = [this](uint32_t handle) { return process_->object<CommPort>(handle); };
+    auto find = [this](uint32_t handle) { return _process->object<CommPort>(handle); };
 
     // GetCommState(handle, DCB*): the DCB last set, else 9600 8N1, binary.
     provide(k, "GetCommState", 2, [find](Cpu &c) -> uint32_t {
         auto link = find(c.arg(0));
         if (!link)
             return 0;
-        if (link->dcbSet_) {
+        if (link->dcbSet) {
             for (uint32_t i = 0; i < 28; ++i)
-                c.write8(c.arg(1) + i, link->dcb_[i]);
+                c.write8(c.arg(1) + i, link->dcb[i]);
         } else {
             for (uint32_t i = 0; i < 28; ++i)
                 c.write8(c.arg(1) + i, 0);
@@ -289,8 +289,8 @@ void GameHost::addSerial() {
         if (!link)
             return 0;
         for (uint32_t i = 0; i < 28; ++i)
-            link->dcb_[i] = c.read8(c.arg(1) + i);
-        link->dcbSet_ = true;
+            link->dcb[i] = c.read8(c.arg(1) + i);
+        link->dcbSet = true;
         return 1;
     });
     // SetCommTimeouts(handle, COMMTIMEOUTS*): five DWORDs, kept for ReadFile.
@@ -299,7 +299,7 @@ void GameHost::addSerial() {
         if (!link)
             return 0;
         for (uint32_t i = 0; i < 5; ++i)
-            link->timeouts_[i] = c.read32(c.arg(1) + 4 * i);
+            link->timeouts[i] = c.read32(c.arg(1) + 4 * i);
         return 1;
     });
     // GetCommProperties(handle, COMMPROP*): an RS-232 port, any speed.
@@ -344,7 +344,7 @@ void GameHost::addSerial() {
     });
     // EscapeCommFunction(handle, function): DTR, RTS, breaks; nothing to do.
     provide(k, "EscapeCommFunction", 2, [find](Cpu &c) -> uint32_t { return find(c.arg(0)) ? 1u : 0u; });
-    if (net && !options_.modem.empty())
+    if (net && !_options.modem.empty())
         addModem();
 }
 
@@ -363,7 +363,7 @@ public:
         done = error = 0;
         if (!call)
             return true;
-        call->timeouts_ = timeouts_;
+        call->timeouts = timeouts;
         return call->read(c, buffer, size, overlapped, done, error);
     }
     bool write(Cpu &c, uint32_t buffer, uint32_t size, uint32_t &done, uint32_t &error) override {
@@ -375,7 +375,7 @@ public:
 
 void GameHost::addModem() {
     const char *t = "TAPI32.DLL";
-    net::Sockets *net = options_.sockets.get();
+    net::Sockets *net = _options.sockets.get();
     // the line's and the call's handles
     constexpr uint32_t kLine = 0x4c494e45;
     constexpr uint32_t kCall = 0x43414c4c;
@@ -400,7 +400,7 @@ void GameHost::addModem() {
     auto m = std::make_shared<Modem>();
     auto queue = [this, m](uint32_t device, uint32_t message, uint32_t p1, uint32_t p2 = 0, uint32_t p3 = 0) {
         m->events.push_back({device, message, p1, p2, p3});
-        post(m->thread, {0, 0, 0, 0, uint32_t(process_->now())}); // wakes GetMessage: WM_NULL
+        post(m->thread, {0, 0, 0, 0, uint32_t(_process->now())}); // wakes GetMessage: WM_NULL
     };
     // What's happened on the line since: a call coming in, a dial
     // answered or not; then the events, to the callback of the thread
@@ -437,10 +437,10 @@ void GameHost::addModem() {
         }
         return !m->events.empty() && m->callback;
     };
-    tapiNews_ = news;
-    tapiBusy_ = [m] { return m->call != nullptr || m->listener != nullptr; };
+    _tapiNews = news;
+    _tapiBusy = [m] { return m->call != nullptr || m->listener != nullptr; };
     auto deliver = [this, m, news](Cpu &c) {
-        if (process_->currentThread() && process_->currentThread()->id != m->thread)
+        if (_process->currentThread() && _process->currentThread()->id != m->thread)
             return;
         news();
         while (!m->events.empty() && m->callback) {
@@ -450,9 +450,9 @@ void GameHost::addModem() {
             c.call(m->callback, {e[0], e[1], m->instance, e[2], e[3], e[4]}, ignored);
         }
     };
-    tapiDeliver_ = deliver;
+    _tapiDeliver = deliver;
     // The game waits for a call by sleeping, not by asking for messages.
-    process_->beforeSleep = deliver;
+    _process->beforeSleep = deliver;
     auto request = [m, queue](uint32_t result = 0) {
         const uint32_t id = m->nextRequest++;
         queue(0, kLineReply, id, result);
@@ -475,8 +475,8 @@ void GameHost::addModem() {
     // lineInitialize(LPHLINEAPP, hInstance, callback, appName, LPDWORD devices)
     provide(t, "lineInitialize", 5, [this, m](Cpu &c) {
         m->callback = c.arg(2);
-        m->thread = process_->currentThread() ? process_->currentThread()->id : 0;
-        tapiThread_ = m->thread;
+        m->thread = _process->currentThread() ? _process->currentThread()->id : 0;
+        _tapiThread = m->thread;
         c.write32(c.arg(0), 1);
         c.write32(c.arg(4), 1);
         say("  modem: TAPI started, one line");
@@ -529,7 +529,7 @@ void GameHost::addModem() {
         if (m->answering && !m->listener) {
             bool listen = false;
             net::Address at;
-            if (parseLink(*net, options_.modem, options_.netAddress, listen, at) && listen) {
+            if (parseLink(*net, _options.modem, _options.netAddress, listen, at) && listen) {
                 m->listener = std::make_shared<SerialLink>(*this, *net);
                 if (!m->listener->start(true, at))
                     m->listener.reset();
@@ -556,7 +556,7 @@ void GameHost::addModem() {
         net::Address at;
         bool listen = false;
         if (!net::parseAddress(text, 2300, at) &&
-            (!parseLink(*net, options_.modem, options_.netAddress, listen, at) || listen)) {
+            (!parseLink(*net, _options.modem, _options.netAddress, listen, at) || listen)) {
             say("  modem: nowhere to dial for \"" + number + "\"");
             return kOperationUnavailable;
         }
@@ -597,7 +597,7 @@ void GameHost::addModem() {
         c.write32(at + 12, 4);  // dwStringFormat: STRINGFORMAT_BINARY
         c.write32(at + 16, 9);  // dwStringSize
         c.write32(at + 20, 24); // dwStringOffset
-        c.write32(at + 24, process_->addHandle(m->port));
+        c.write32(at + 24, _process->addHandle(m->port));
         c.writeString(at + 28, "COM1", 5);
         return 0u;
     });

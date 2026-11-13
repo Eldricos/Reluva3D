@@ -59,8 +59,8 @@ void testAnimator() {
     // (0.99 on the spine and what's under it, but not the jaw's master).
     auto idle = testTurn(10, 2, {{"Bip01", 0.01f}});
     auto gesture = testTurn(50, 1, {{"Bip01 Spine", 0.99f}});
-    CHECK(an.play("idle1", idle, Animator::Body, true, 0, 0));
-    CHECK(an.play("agree", gesture, Animator::Body, false, 1, 0.25f));
+    CHECK(an.play("idle1", idle, Animator::kBody, true, 0, 0));
+    CHECK(an.play("agree", gesture, Animator::kBody, false, 1, 0.25f));
     const Animator::Slot *g = an.find("agree");
     CHECK(g && std::abs(g->mask[1] - 0.99f) < 1e-6f && std::abs(g->mask[2] - 0.99f) < 1e-6f && g->mask[3] == 0);
     CHECK(std::abs(an.find("idle1")->mask[3] - 0.01f) < 1e-6f);
@@ -80,7 +80,7 @@ void testAnimator() {
     an.update(0.3f);
     CHECK(finished.size() == 1 && finished[0] == "agree" && !an.find("agree"));
     // A new base replaces the last, which stops without telling.
-    CHECK(an.play("walk", testTurn(0, 1, {{"Bip01", 0.01f}}), Animator::Body, true, 0, 0.3f));
+    CHECK(an.play("walk", testTurn(0, 1, {{"Bip01", 0.01f}}), Animator::kBody, true, 0, 0.3f));
     CHECK(!an.find("idle1") && an.base() && an.base()->name == "walk");
     an.update(1.0f);
     CHECK(an.slots().size() == 1 && finished.size() == 1);
@@ -90,20 +90,20 @@ void testAnimator() {
     std::vector<std::string> done;
     standing.onEnding = [&](const Animator::Slot &s) {
         if (s.base)
-            standing.play("idle1", idle, Animator::Body, true, 0, 0);
+            standing.play("idle1", idle, Animator::kBody, true, 0, 0);
     };
     standing.onFinished = [&](const Animator::Slot &s) { done.push_back(s.name); };
-    CHECK(standing.play("standup", testTurn(0, 1, {{"Bip01", 0.01f}}), Animator::Body, true, 1, 0.3f));
+    CHECK(standing.play("standup", testTurn(0, 1, {{"Bip01", 0.01f}}), Animator::kBody, true, 1, 0.3f));
     standing.update(0.8f);
     CHECK(standing.find("idle1") && done.empty());
     standing.update(0.3f);
     CHECK(done.size() == 1 && done[0] == "standup" && standing.base() && standing.base()->name == "idle1");
     // A weight replaces the mask's: a light gesture.
-    CHECK(an.play("fanger", gesture, Animator::Body, false, 1, 0, 0.02f));
+    CHECK(an.play("fanger", gesture, Animator::kBody, false, 1, 0, 0.02f));
     CHECK(std::abs(an.find("fanger")->mask[1] - 0.02f) < 1e-6f);
     // ... before the bones inherit: a base played at a weight leaves the
     // jaw's master out, as its parent's is no longer 0.01.
-    CHECK(an.play("walk", testTurn(0, 1, {{"Bip01", 0.01f}}), Animator::Body, true, 0, 0.3f, 0.5f));
+    CHECK(an.play("walk", testTurn(0, 1, {{"Bip01", 0.01f}}), Animator::kBody, true, 0, 0.3f, 0.5f));
     CHECK(an.find("walk")->mask[2] == 0.5f && an.find("walk")->mask[3] == 0);
     // The pose's mask: the model's, inherited down; it multiplies what
     // plays over the base, not the base.
@@ -114,22 +114,22 @@ void testAnimator() {
     CHECK(Animator::modelMask(seated, "head").empty());
     Animator sitting(seated);
     sitting.setPoseMask(sit);
-    CHECK(sitting.play("sitidle1", idle, Animator::Body, true, 0, 0));
-    CHECK(sitting.play("bow", testTurn(30, 1, {{"Bip01", 0.99f}}), Animator::Body, false, 1, 0));
+    CHECK(sitting.play("sitidle1", idle, Animator::kBody, true, 0, 0));
+    CHECK(sitting.play("bow", testTurn(30, 1, {{"Bip01", 0.99f}}), Animator::kBody, false, 1, 0));
     CHECK(sitting.find("sitidle1")->mask[0] == 0.01f);
     CHECK(sitting.find("bow")->mask[0] == 0 && std::abs(sitting.find("bow")->mask[1] - 0.99f) < 1e-6f);
     // The head's layer: pulled toward its pose by mask times ease.
     Animator head(m);
-    head.play("idle1", testTurn(0, 2, {{"Bip01", 0.01f}}), Animator::Body, true, 0, 0);
-    head.play("headleft", testTurn(90, 1, {{"Bip01 Head", 0.99f}}), Animator::Head, false, 0, 0.5f, 0.5f);
+    head.play("idle1", testTurn(0, 2, {{"Bip01", 0.01f}}), Animator::kBody, true, 0, 0);
+    head.play("headleft", testTurn(90, 1, {{"Bip01 Head", 0.99f}}), Animator::kHead, false, 0, 0.5f, 0.5f);
     head.update(1.0f);
     head.pose(p);
     CHECK(std::abs(boneTurn(p, 2) - 45) < 1.0f && std::abs(boneTurn(p, 1)) < 0.1f);
     // Ten at most.
     Animator full(m);
     for (int i = 0; i < Animator::kSlots; i++)
-        CHECK(full.play("g" + std::to_string(i), gesture, Animator::Body, false, 0, 0));
-    CHECK(!full.play("more", gesture, Animator::Body, false, 0, 0));
+        CHECK(full.play("g" + std::to_string(i), gesture, Animator::kBody, false, 0, 0));
+    CHECK(!full.play("more", gesture, Animator::kBody, false, 0, 0));
 }
 
 void testActor() {
@@ -155,18 +155,18 @@ void testActor() {
     Ac2Record npc{"NPCX", {}, {}};
     Ac2Record anim{"ANIM", {}, {}};
     Ac2Value named;
-    named.type = Ac2Value::Type::TextPairs;
+    named.type = Ac2Value::Type::kTextPairs;
     named.pairs.push_back({"", "worried01 / worried1"});
     anim.fields.push_back({"named", named});
     npc.parts.push_back(anim);
     Ac2Record modl{"MODL", {}, {}};
     Ac2Value sit;
-    sit.type = Ac2Value::Type::Text;
+    sit.type = Ac2Value::Type::kText;
     sit.text = "sit";
     modl.fields.push_back({"anim2", sit});
     modl.fields.push_back({"anim", sit});
     Ac2Value when;
-    when.type = Ac2Value::Type::Text;
+    when.type = Ac2Value::Type::kText;
     when.text = "seated";
     modl.fields.push_back({"condition", when});
     npc.parts.push_back(modl);
@@ -213,8 +213,8 @@ void testActor() {
 
 } // namespace
 
-static const reluva::test::Suite suite("awe.unit.characters",
-                                       {
-                                           {"animator", [](const std::filesystem::path &) { testAnimator(); }},
-                                           {"actor", [](const std::filesystem::path &) { testActor(); }},
-                                       });
+static const reluva::test::Suite kSuite("awe.unit.characters",
+                                        {
+                                            {"animator", [](const std::filesystem::path &) { testAnimator(); }},
+                                            {"actor", [](const std::filesystem::path &) { testActor(); }},
+                                        });

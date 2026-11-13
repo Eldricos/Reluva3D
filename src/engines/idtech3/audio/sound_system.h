@@ -28,7 +28,7 @@ namespace reluva::idtech3 {
 // re-adds each frame; the music.
 class SoundSystem {
 public:
-    SoundSystem(audio::Mixer &mixer, SoundLibrary &sounds) : mixer_(mixer), sounds_(sounds) {}
+    SoundSystem(audio::Mixer &mixer, SoundLibrary &sounds) : _mixer(mixer), _sounds(sounds) {}
     ~SoundSystem() { stopAll(); }
     SoundSystem(const SoundSystem &) = delete;
     SoundSystem &operator=(const SoundSystem &) = delete;
@@ -40,7 +40,7 @@ public:
     // is the original's "any channel".
     static constexpr int kAutoChannel = 0;
     // The time now, for telling repeats; each frame before the client game.
-    void setTime(uint64_t ms) { nowMs_ = ms; }
+    void setTime(uint64_t ms) { _nowMs = ms; }
 
     // A sound at `origin`, or (without one) following entity `entity`.
     void startSound(const std::optional<Vec3f> &origin, int entity, int channel, const std::string &name);
@@ -72,9 +72,9 @@ public:
     void stopAll();
     // Every sound but the music (S_StopSounds).
     void stopSounds();
-    size_t playingCount() const { return playing_.size(); }
+    size_t playingCount() const { return _playing.size(); }
     // Sounds asked for that couldn't be found or read.
-    const std::set<std::string> &missing() const { return missing_; }
+    const std::set<std::string> &missing() const { return _missing; }
     // The sounds asked for in the last two seconds, by name and entity
     // (the latest six): how many times, and what became of the last.
     std::vector<std::string> recent() const;
@@ -105,16 +105,16 @@ private:
     float place(audio::SoundHandle handle, const std::optional<Vec3f> &origin, int entity,
                 std::optional<float> volume = std::nullopt);
 
-    audio::Mixer &mixer_;
-    SoundLibrary &sounds_;
-    std::vector<Playing> playing_;
-    std::map<int, Vec3f> entities_;
+    audio::Mixer &_mixer;
+    SoundLibrary &_sounds;
+    std::vector<Playing> _playing;
+    std::map<int, Vec3f> _entities;
     // Looping sounds by (entity, name): playing, and added this frame.
-    std::map<std::pair<int, std::string>, audio::SoundHandle> loops_;
-    std::map<std::pair<int, std::string>, Vec3f> loopsAdded_;
+    std::map<std::pair<int, std::string>, audio::SoundHandle> _loops;
+    std::map<std::pair<int, std::string>, Vec3f> _loopsAdded;
     // Ambient loops, the same way, with their volumes.
-    std::map<std::pair<int, std::string>, audio::SoundHandle> ambientLoops_;
-    std::map<std::pair<int, std::string>, std::pair<Vec3f, float>> ambientAdded_;
+    std::map<std::pair<int, std::string>, audio::SoundHandle> _ambientLoops;
+    std::map<std::pair<int, std::string>, std::pair<Vec3f, float>> _ambientAdded;
     void note(const std::string &name, int entity, std::string line);
     struct Start {
         uint64_t ms = 0;
@@ -122,15 +122,15 @@ private:
         int entity = 0;
         std::string line;
     };
-    std::deque<Start> starts_;
-    std::set<std::string> missing_;
-    int listener_ = -1;
-    uint64_t nowMs_ = 0;
-    Vec3f listenerOrigin_{};
-    std::array<Vec3f, 3> listenerAxes_{{{1, 0, 0}, {0, 1, 0}, {0, 0, 1}}};
-    audio::SoundHandle music_ = audio::kNoSound;
-    std::shared_ptr<const audio::Sound> musicLoop_;
-    bool musicIntro_ = false;
+    std::deque<Start> _starts;
+    std::set<std::string> _missing;
+    int _listener = -1;
+    uint64_t _nowMs = 0;
+    Vec3f _listenerOrigin{};
+    std::array<Vec3f, 3> _listenerAxes{{{1, 0, 0}, {0, 1, 0}, {0, 0, 1}}};
+    audio::SoundHandle _music = audio::kNoSound;
+    std::shared_ptr<const audio::Sound> _musicLoop;
+    bool _musicIntro = false;
 };
 
 } // namespace reluva::idtech3

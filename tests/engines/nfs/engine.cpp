@@ -73,8 +73,8 @@ public:
             titles.push_back(t);
     }
     bool pollEvent(Event &ev) override {
-        if (next_ < inputs.size() && inputs[next_].at <= getMillis()) {
-            ev = inputs[next_++].event;
+        if (_next < inputs.size() && inputs[_next].at <= getMillis()) {
+            ev = inputs[_next++].event;
             return true;
         }
         HeadlessSystem::delayMillis(1);
@@ -82,12 +82,12 @@ public:
     }
 
 private:
-    size_t next_ = 0;
+    size_t _next = 0;
 };
 
 Event keyDown(uint32_t k) {
     Event e;
-    e.type = EventType::KeyDown;
+    e.type = EventType::kKeyDown;
     e.key = k;
     return e;
 }
@@ -304,11 +304,11 @@ void engineTest(const stdfs::path &tmp) {
     PlayingSystem sys;
     uint64_t at = 200;
     for (int page = 0; page < 12; ++page) {
-        for (uint32_t k : {key::Down, key::Right, key::Space})
+        for (uint32_t k : {key::kDown, key::kRight, key::kSpace})
             sys.inputs.push_back({at += 50, keyDown(k)});
-        sys.inputs.push_back({at += 200, keyDown(key::Tab)});
+        sys.inputs.push_back({at += 200, keyDown(key::kTab)});
     }
-    sys.inputs.push_back({at + 200, Event{EventType::ReturnToLauncher}});
+    sys.inputs.push_back({at + 200, Event{EventType::kReturnToLauncher}});
     auto game = engine->create(sys, target);
     const Error err = game->run();
     rec.add("run.result", err ? "error: " + err.message : std::string("ok"));

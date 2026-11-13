@@ -59,7 +59,7 @@ Campaign::Action::Type next(Campaign &c, int *number = nullptr) {
 
 } // namespace
 
-static void campaign_runs_the_script() {
+static void campaignRunsTheScript() {
     typedef Campaign::Action A;
     Campaign c;
     CHECK(!c.load("[Other]\nIntro\n"));
@@ -116,7 +116,7 @@ static void campaign_runs_the_script() {
     CHECK(!c.isRunning());
 }
 
-static void options_menu_panels() {
+static void optionsMenuPanels() {
     typedef OptionsMenu M;
     ResourceManager resources;
     M menu(resources); // no pictures: the logic works without them
@@ -163,11 +163,11 @@ static void options_menu_panels() {
     // Quit asks first; Cancel goes back.
     click(150, 130);
     CHECK_EQUAL(menu.getPanel(), M::kPanelQuit);
-    menu.keyDown(KeyState(key::Escape));
+    menu.keyDown(KeyState(key::kEscape));
     CHECK_EQUAL(sounds.back(), 2000);
     CHECK_EQUAL(menu.takeResult(), M::kNone);
     click(150, 100);
-    menu.keyDown(KeyState(key::Return));
+    menu.keyDown(KeyState(key::kReturn));
     CHECK_EQUAL(menu.takeResult(), M::kNewGame);
 
     // In a game: Return, and Save with a name typed in.
@@ -176,7 +176,7 @@ static void options_menu_panels() {
     click(300, 29 + 33 + 10);
     menu.keyDown(KeyState('a', 'a'));
     menu.keyDown(KeyState('b', 'b'));
-    menu.keyDown(KeyState(key::Backspace));
+    menu.keyDown(KeyState(key::kBackspace));
     click(400, 400);
     CHECK_EQUAL(menu.takeResult(), M::kSave);
     CHECK_EQUAL(menu.getSlot(), 0);
@@ -185,7 +185,7 @@ static void options_menu_panels() {
     CHECK_EQUAL(menu.takeResult(), M::kReturn);
 }
 
-static void key_maps() {
+static void keyMaps() {
     KeyMap away = KeyMap::awayDefaults();
     CHECK_EQUAL(away.get(0x26), (int)KeyMap::kAwayForward);
     CHECK_EQUAL(away.get(0x02), (int)KeyMap::kAwayMouseLook);
@@ -213,8 +213,8 @@ static void key_maps() {
     CHECK_EQUAL(read.get(0x26), (int)KeyMap::kNone);
 
     CHECK_EQUAL(KeyMap::virtualKey('w'), 'W');
-    CHECK_EQUAL(KeyMap::virtualKey(reluva::key::KpPlus), 0x6B);
-    CHECK_EQUAL(KeyMap::virtualKey(reluva::key::RCtrl), 0x11);
+    CHECK_EQUAL(KeyMap::virtualKey(reluva::key::kKpPlus), 0x6B);
+    CHECK_EQUAL(KeyMap::virtualKey(reluva::key::kRCtrl), 0x11);
     CHECK_EQUAL(KeyMap::keyName('W'), std::string("W"));
     CHECK_EQUAL(KeyMap::keyName(0x64), std::string("num 4"));
     CHECK_EQUAL(KeyMap::keyName(0x7A), std::string("F11"));
@@ -222,7 +222,7 @@ static void key_maps() {
     CHECK_EQUAL(KeyMap::keyName(0x1B), std::string("?!?"));
 }
 
-static void options_menu_controls() {
+static void optionsMenuControls() {
     typedef OptionsMenu M;
     ResourceManager resources;
     M menu(resources);
@@ -247,13 +247,13 @@ static void options_menu_controls() {
     press('w');
     // Then W for Jump: it leaves Forward.
     cell(7, 1);
-    press((reluva::key::F1 + 4)); // not the function keys
+    press((reluva::key::kF1 + 4)); // not the function keys
     press('w');
     // Mouse Look takes only the left and right buttons; Escape gives up.
     cell(13, 0);
     press('k');
     menu.mouseDown(10, 10, 4);
-    press(reluva::key::Escape);
+    press(reluva::key::kEscape);
     CHECK_EQUAL(menu.getPanel(), M::kPanelControls);
     click(400, 400);
     CHECK(menu.takeSettingsChanged());
@@ -269,7 +269,7 @@ static void options_menu_controls() {
     click(227 + 200, 29 + 10);
     cell(0, 0);
     press('f');
-    menu.keyDown(KeyState(reluva::key::Escape));
+    menu.keyDown(KeyState(reluva::key::kEscape));
     CHECK_EQUAL(menu.getPanel(), M::kPanelMain);
     CHECK(!menu.takeSettingsChanged());
     CHECK_EQUAL(menu.getSettings().starshipKeys.get('F'), (int)KeyMap::kNone);
@@ -299,7 +299,7 @@ struct HiddenBridge : CampaignWorld {
 
 } // namespace
 
-static void campaign_saved_in_a_combat_starts_it_again() {
+static void campaignSavedInACombatStartsItAgain() {
     typedef Campaign::Action A;
     HiddenBridge bridge;
     Campaign c;
@@ -333,12 +333,12 @@ static void campaign_saved_in_a_combat_starts_it_again() {
 }
 
 static const reluva::test::Suite
-    suite("stgenerations.unit.campaign",
-          {
-              {"campaign runs the script", [](const std::filesystem::path &) { campaign_runs_the_script(); }},
-              {"options menu panels", [](const std::filesystem::path &) { options_menu_panels(); }},
-              {"key maps", [](const std::filesystem::path &) { key_maps(); }},
-              {"options menu controls", [](const std::filesystem::path &) { options_menu_controls(); }},
-              {"campaign saved in a combat starts it again",
-               [](const std::filesystem::path &) { campaign_saved_in_a_combat_starts_it_again(); }},
-          });
+    kSuite("stgenerations.unit.campaign",
+           {
+               {"campaign runs the script", [](const std::filesystem::path &) { campaignRunsTheScript(); }},
+               {"options menu panels", [](const std::filesystem::path &) { optionsMenuPanels(); }},
+               {"key maps", [](const std::filesystem::path &) { keyMaps(); }},
+               {"options menu controls", [](const std::filesystem::path &) { optionsMenuControls(); }},
+               {"campaign saved in a combat starts it again",
+                [](const std::filesystem::path &) { campaignSavedInACombatStartsItAgain(); }},
+           });

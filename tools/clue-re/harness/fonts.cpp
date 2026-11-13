@@ -5,11 +5,11 @@
 #include <fstream>
 using namespace reluva; using namespace reluva::clue;
 int main(int argc, char** argv) {
-    GameData data; data.open(argv[1], Language::US);
+    GameData data; data.open(argv[1], Language::kUS);
     Resi resi; std::ifstream in(*data.find("dialogInfo.res"), std::ios::binary);
     std::vector<uint8_t> b((std::istreambuf_iterator<char>(in)), {}); parseResi(b, resi);
     Fonts fonts(data, resi);
-    Surface s; s.create(640, 400, PixelFormat::RGBA32);
+    Surface s; s.create(640, 400, PixelFormat::kRGBA32);
     for (int y = 0; y < 400; ++y) for (int x = 0; x < 640; ++x) { uint8_t* q = s.row(y) + x * 4; q[0] = q[1] = q[2] = x < 320 ? 230 : 40; q[3] = 255; }
     int y = 0;
     for (auto& f : resi.fonts) { const BitmapFont* bf = fonts.get(int(f.id)); if (!bf) continue;

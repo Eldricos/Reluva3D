@@ -214,7 +214,7 @@ int cmdX86Run(int argc, char **argv) {
     return 0;
 }
 
-const Commands commands(
+const Commands kCommands(
     "",
     {
         {"pe-info", "<file.dll|file.exe>",

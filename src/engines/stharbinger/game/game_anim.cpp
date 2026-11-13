@@ -35,24 +35,24 @@ bool isSymbol(const Argument *a) {
 void Game::setupAnims() {
     // The ANIMDEF prepass (0x10AC4): onthefly and flyclear animations are loaded
     // on first use, the others when the scene loads.
-    anims_.assign(scene_->lists[kListAnims].size(), Anim());
-    for (const Directive &d : scene_->script) {
+    _anims.assign(_scene->lists[kListAnims].size(), Anim());
+    for (const Directive &d : _scene->script) {
         const Argument *a0 = d.getArg(0);
         const Argument *a1 = d.getArg(1);
-        if (d.command != kCmdAnimDef || !a0 || a0->value >= anims_.size())
+        if (d.command != kCmdAnimDef || !a0 || a0->value >= _anims.size())
             continue;
-        Anim &a = anims_[a0->value];
+        Anim &a = _anims[a0->value];
         int mode = a1 ? int(a1->value) : -1;
         a.lazy = mode == kAnimModeOnTheFly || mode == kAnimModeFlyClear;
         a.clear = mode == kAnimModeFlyClear || mode == kAnimModeClear;
     }
-    for (int i = 0; i < int(anims_.size()); i++)
-        if (!anims_[i].lazy)
+    for (int i = 0; i < int(_anims.size()); i++)
+        if (!_anims[i].lazy)
             loadAnim(i, false);
 }
 
 void Game::loadAnim(int index, bool lazy) {
-    Anim &a = anims_[index];
+    Anim &a = _anims[index];
     if (a.loaded)
         return;
     a.loaded = true;
@@ -60,12 +60,12 @@ void Game::loadAnim(int index, bool lazy) {
     a.rate = 0;
     a.priority = lazy ? kLazyPriority : 0;
     a.frame = 0;
-    if (!resources_.loadAnimation(listName(kListAnims, index), a.rle))
+    if (!_resources.loadAnimation(listName(kListAnims, index), a.rle))
         log::debug(1, "Animation %s not found", listName(kListAnims, index).c_str());
 }
 
 void Game::unloadAnim(int index) {
-    Anim &a = anims_[index];
+    Anim &a = _anims[index];
     a.loaded = false;
     a.rle = RleAnimation();
     a.flags = kAnimFlagOff;
@@ -75,11 +75,11 @@ void Game::unloadAnim(int index) {
 
 // Any animation command loads an on-the-fly animation first.
 Game::Anim *Game::useAnim(const Argument *arg) {
-    if (!arg || arg->value >= anims_.size())
+    if (!arg || arg->value >= _anims.size())
         return nullptr;
-    if (!anims_[arg->value].loaded)
+    if (!_anims[arg->value].loaded)
         loadAnim(int(arg->value), true);
-    return &anims_[arg->value];
+    return &_anims[arg->value];
 }
 
 void Game::applyAnimKeyword(Anim &a, uint16_t keyword) {
@@ -105,9 +105,9 @@ bool Game::executeAnimCommand(const Directive &d) {
     case kCmdAnimDef: {
         // Only animations that are already loaded get the defaults; on-the-fly
         // ones keep the loader's (0x11719).
-        if (!a0 || a0->value >= anims_.size())
+        if (!a0 || a0->value >= _anims.size())
             return true;
-        Anim &a = anims_[a0->value];
+        Anim &a = _anims[a0->value];
         if (a.defined || !a.loaded)
             return true;
         a.defined = true;
@@ -184,8 +184,8 @@ bool Game::executeAnimCommand(const Directive &d) {
         if ((a->flags & kAnimFlagOneFrame) || (off && a->drawnFrame >= 0) ||
             (!(a->flags & kAnimFlagStop) && (a->flags & kAnimFlagToEnd))) {
             a->suspended = true;
-            thread_.wait = kWaitAnim;
-            thread_.waitArg = int(a0->value);
+            _thread.wait = kWaitAnim;
+            _thread.waitArg = int(a0->value);
         }
         return true;
     }
@@ -196,16 +196,16 @@ bool Game::executeAnimCommand(const Directive &d) {
     case kCmdAnimsOff:
         // Everything off, on-the-fly animations unloaded, and the screen is not
         // updated until the next BACKGRND (0x114D5).
-        for (int i = 0; i < int(anims_.size()); i++) {
-            if (anims_[i].lazy)
+        for (int i = 0; i < int(_anims.size()); i++) {
+            if (_anims[i].lazy)
                 unloadAnim(i);
-            anims_[i].flags |= kAnimFlagOff;
+            _anims[i].flags |= kAnimFlagOff;
         }
-        screenFrozen_ = true;
+        _screenFrozen = true;
         return true;
     case kCmdAnimDump:
         for (const Argument &arg : d.args)
-            if (arg.type == kArgSymbol && arg.value < anims_.size())
+            if (arg.type == kArgSymbol && arg.value < _anims.size())
                 unloadAnim(int(arg.value));
         return true;
     case kCmdAnimComposit:
@@ -213,25 +213,25 @@ bool Game::executeAnimCommand(const Directive &d) {
         // background with every animation as last drawn) into the background
         // (0x1429D).
         if (Anim *a = useAnim(a0)) {
-            if (a->rle.frameCount() && !draw::empty(background_)) {
+            if (a->rle.frameCount() && !draw::empty(_background)) {
                 const RleAnimation::Frame &f = a->rle.getFrame(0);
-                bool current = !draw::empty(workBuffer_) && !workBufferStale_;
-                const Surface &src = current ? workBuffer_ : background_;
+                bool current = !draw::empty(_workBuffer) && !_workBufferStale;
+                const Surface &src = current ? _workBuffer : _background;
                 int x0 = std::max(0, a->x + f.x);
                 int y0 = std::max(0, a->y + f.y);
-                int x1 = std::min(background_.w, a->x + f.x + f.w);
-                int y1 = std::min(background_.h, a->y + f.y + f.h);
+                int x1 = std::min(_background.w, a->x + f.x + f.w);
+                int y1 = std::min(_background.h, a->y + f.y + f.h);
                 for (int y = y0; y < y1; y++)
                     for (int x = x0; x < x1; x++)
-                        *draw::at(background_, x, y) = *draw::at(src, x, y);
+                        *draw::at(_background, x, y) = *draw::at(src, x, y);
             }
         }
         return true;
     case kCmdAnimPristine:
         // Draws the animation's current frame into the background (0x1432F).
         if (Anim *a = useAnim(a0)) {
-            if (a->rle.frameCount() && !draw::empty(background_))
-                a->rle.drawFrame(std::max(a->frame, 0), background_, a->x, a->y);
+            if (a->rle.frameCount() && !draw::empty(_background))
+                a->rle.drawFrame(std::max(a->frame, 0), _background, a->x, a->y);
         }
         return true;
     case kCmdAnimSpd:
@@ -273,25 +273,25 @@ void Game::advanceAnim(Anim &a) {
 void Game::restoreRect(int x, int y, int w, int h) {
     int x0 = std::max(0, x);
     int y0 = std::max(0, y);
-    int x1 = std::min({workBuffer_.w, background_.w, x + w});
-    int y1 = std::min({workBuffer_.h, background_.h, y + h});
+    int x1 = std::min({_workBuffer.w, _background.w, x + w});
+    int y1 = std::min({_workBuffer.h, _background.h, y + h});
     for (int py = y0; py < y1; py++)
         for (int px = x0; px < x1; px++)
-            *draw::at(workBuffer_, px, py) = *draw::at(background_, px, py);
+            *draw::at(_workBuffer, px, py) = *draw::at(_background, px, py);
 }
 
 void Game::renderAnims(bool advance) {
-    if (draw::empty(workBuffer_) || workBufferStale_) {
-        draw::create(workBuffer_, kScreenWidth, kScreenHeight);
-        draw::blit(workBuffer_, background_, 0, 0);
-        workBufferStale_ = false;
+    if (draw::empty(_workBuffer) || _workBufferStale) {
+        draw::create(_workBuffer, kScreenWidth, kScreenHeight);
+        draw::blit(_workBuffer, _background, 0, 0);
+        _workBufferStale = false;
     }
     // Beams last three renders, BACKGRND's included: redrawn on the first, left
     // on the second and wiped with the background on the third (0x22BD4).
-    if (beamLife_ > 0 && --beamLife_ == 0) {
-        for (const Beam &b : beams_)
+    if (_beamLife > 0 && --_beamLife == 0) {
+        for (const Beam &b : _beams)
             restoreRect(b.left - 3, b.top, b.w + 6, b.h);
-        beams_.clear();
+        _beams.clear();
     }
 
     // Erase: an animation that is off, or a clear one that is not stopped, gives
@@ -300,9 +300,9 @@ void Game::renderAnims(bool advance) {
     // talker's line plays the game renders from the lip-sync loop (dl = 2),
     // which erases stopped clear animations too: the mouth changes shape
     // without moving its frames on.
-    bool lipSync = conv_.active && conv_.speaking && conv_.mouth >= 0;
-    for (int i = int(anims_.size()) - 1; i >= 0; i--) {
-        Anim &a = anims_[i];
+    bool lipSync = _conv.active && _conv.speaking && _conv.mouth >= 0;
+    for (int i = int(_anims.size()) - 1; i >= 0; i--) {
+        Anim &a = _anims[i];
         if (!a.rle.frameCount())
             continue;
         bool off = (a.flags & kAnimFlagOff) != 0;
@@ -322,14 +322,14 @@ void Game::renderAnims(bool advance) {
     // Draw: priority 0 first, 4 on top; within a priority the lowest index is
     // on top. Beams from ACTIONSEQ 0xC0..0xC2 go under priority 4.
     for (int prio = 0; prio < kNumPriorities; prio++) {
-        if (prio == 4 && beamLife_ > 1)
-            drawBeams(workBuffer_);
-        for (int i = int(anims_.size()) - 1; i >= 0; i--) {
-            Anim &a = anims_[i];
+        if (prio == 4 && _beamLife > 1)
+            drawBeams(_workBuffer);
+        for (int i = int(_anims.size()) - 1; i >= 0; i--) {
+            Anim &a = _anims[i];
             if (a.priority != prio || !a.rle.frameCount() || a.frame < 0 || (a.flags & kAnimFlagOff))
                 continue;
             int frame = std::min(a.frame, a.rle.frameCount() - 1);
-            a.rle.drawFrame(frame, workBuffer_, a.x, a.y);
+            a.rle.drawFrame(frame, _workBuffer, a.x, a.y);
             a.drawnFrame = frame;
             a.drawnX = a.x;
             a.drawnY = a.y;
@@ -347,7 +347,7 @@ void Game::renderAnims(bool advance) {
                 continue;
             if (a.countdown > 0) {
                 // Faster while a talker's lips move (speedstep 3, 0x71518).
-                a.countdown = std::max(0, a.countdown - speedStep_);
+                a.countdown = std::max(0, a.countdown - _speedStep);
                 continue;
             }
             a.countdown = a.rate;
@@ -357,18 +357,18 @@ void Game::renderAnims(bool advance) {
 }
 
 bool Game::isAnimVisible(const std::string &name) const {
-    const auto &list = scene_->lists[kListAnims];
-    for (size_t i = 0; i < list.size() && i < anims_.size(); i++)
+    const auto &list = _scene->lists[kListAnims];
+    for (size_t i = 0; i < list.size() && i < _anims.size(); i++)
         if (text::equalsIgnoreCase(list[i].name, name))
-            return !(anims_[i].flags & kAnimFlagOff);
+            return !(_anims[i].flags & kAnimFlagOff);
     return false;
 }
 
 int Game::getAnimFrame(const std::string &name) const {
-    const auto &list = scene_->lists[kListAnims];
-    for (size_t i = 0; i < list.size() && i < anims_.size(); i++)
+    const auto &list = _scene->lists[kListAnims];
+    for (size_t i = 0; i < list.size() && i < _anims.size(); i++)
         if (text::equalsIgnoreCase(list[i].name, name))
-            return anims_[i].frame;
+            return _anims[i].frame;
     return -1;
 }
 

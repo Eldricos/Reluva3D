@@ -36,27 +36,27 @@ public:
 class RawStream : public Stream {
 public:
     enum class Format {
-        U8,    // unsigned 8-bit
-        S8,    // signed 8-bit
-        S16LE, // signed 16-bit, little-endian
-        S16BE, // signed 16-bit, big-endian
+        kU8,    // unsigned 8-bit
+        kS8,    // signed 8-bit
+        kS16LE, // signed 16-bit, little-endian
+        kS16BE, // signed 16-bit, big-endian
     };
     RawStream(std::vector<uint8_t> data, Format format, int rate, bool stereo = false, int loops = 1);
 
     int read(int16_t *out, int samples) override;
-    bool stereo() const override { return stereo_; }
-    int rate() const override { return rate_; }
-    bool ended() const override { return pos_ >= count_ && loopsLeft_ == 1; }
+    bool stereo() const override { return _stereo; }
+    int rate() const override { return _rate; }
+    bool ended() const override { return _pos >= _count && _loopsLeft == 1; }
 
 private:
     int16_t sampleAt(size_t i) const;
 
-    std::vector<uint8_t> data_;
-    Format format_;
-    int rate_;
-    bool stereo_;
-    size_t count_, pos_ = 0;
-    int loopsLeft_;
+    std::vector<uint8_t> _data;
+    Format _format;
+    int _rate;
+    bool _stereo;
+    size_t _count, _pos = 0;
+    int _loopsLeft;
 };
 
 // A stream fed while it plays (a video decoder's sound, say). Until
@@ -65,7 +65,7 @@ private:
 // the engine's thread while the mixer reads it.
 class QueuingStream : public Stream {
 public:
-    QueuingStream(int rate, bool stereo) : rate_(rate), stereo_(stereo) {}
+    QueuingStream(int rate, bool stereo) : _rate(rate), _stereo(stereo) {}
 
     // Adds samples (interleaved when stereo).
     void queue(const std::vector<int16_t> &samples);
@@ -75,16 +75,16 @@ public:
     size_t queued() const;
 
     int read(int16_t *out, int samples) override;
-    bool stereo() const override { return stereo_; }
-    int rate() const override { return rate_; }
+    bool stereo() const override { return _stereo; }
+    int rate() const override { return _rate; }
     bool ended() const override;
 
 private:
-    int rate_;
-    bool stereo_;
-    bool finished_ = false;
-    mutable std::mutex mutex_;
-    std::deque<int16_t> queue_;
+    int _rate;
+    bool _stereo;
+    bool _finished = false;
+    mutable std::mutex _mutex;
+    std::deque<int16_t> _queue;
 };
 
 // A whole stream read into samples (interleaved when stereo); a stream

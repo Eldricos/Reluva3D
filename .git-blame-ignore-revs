@@ -18,3 +18,16 @@ d258d6d2dcf2ec9ad269a00b2dbbed8a75d14fcc # Format: the testbed engine
 c9ffc94899f64a390a73499774f0e2809817420d # Format: the newworlds engine
 6db3e921978f4723971a869843d7e15fa55fbdbf # Format: the idtech3 engine
 53d91d0401769112807413f631494296fd845e9f # Format: tests
+
+# Phase 4: the identifier renames (tools/tidy.py --rename-declared-in, one commit per area)
+83ce2b8897b31d74542bc85b5e1eb4e4be2faa2f # Rename: the testbed engine, to the coding guide's names
+71bbb711fa5ee71a1ca94ac3d88e379d17d39bfd # Rename: the netimmerse engine, to the coding guide's names
+3a6e46f9783bb8b0f985f28892bdc8797c090109 # Rename: the stharbinger engine, to the coding guide's names
+b772df38598f1512b6caa07d6626c0db34a25890 # Rename: the stgenerations engine, to the coding guide's names
+db677d5868eefb54d937a65b77e2fbdd377a2ecf # Rename: the clue engine, to the coding guide's names
+56643aae787e5c6fb89794e20ac534e4e88c67e9 # Rename: the awe engine, to the coding guide's names
+245bde199a532c7602befd9a03aaf1b989e8525e # Rename: the newworlds engine, to the coding guide's names
+c3ca641918d6b8665a5e89147129e22672354f26 # Rename: the nfs engine, to the coding guide's names
+006ffdaf2aeee4fbe01624f459cf9d709a7bad73 # Rename: the idtech3 engine, to the coding guide's names
+b3e7e42beb271d48a89ad68b1a1901d0f36bd7e2 # Rename: the shared code, to the coding guide's names
+afc8e38de6b72718e83f50e617e2a534933fdfa2 # Rename: the shared tests, to the coding guide's names

@@ -115,7 +115,7 @@ constexpr const char *kGlyphs[95] = {
 // The glyphs as bits, one u8 per row (bit 4 the left column).
 using Bitmap = std::array<uint8_t, kH>;
 const std::array<Bitmap, 95> &bitmaps() {
-    static const std::array<Bitmap, 95> table = [] {
+    static const std::array<Bitmap, 95> kTable = [] {
         std::array<Bitmap, 95> t{};
         for (size_t g = 0; g < 95; ++g) {
             int row = 0;
@@ -132,7 +132,7 @@ const std::array<Bitmap, 95> &bitmaps() {
         }
         return t;
     }();
-    return table;
+    return kTable;
 }
 
 // The ASCII character a code point is drawn as.
@@ -170,7 +170,7 @@ size_t length(std::string_view utf8) {
 }
 
 int drawText(Surface &surface, int x, int y, std::string_view utf8, Color color, int scale) {
-    if (surface.format != PixelFormat::RGBA32)
+    if (surface.format != PixelFormat::kRGBA32)
         return x;
     for (size_t i = 0; i < utf8.size();) {
         const char c = asAscii(text::nextUtf8(utf8, i));

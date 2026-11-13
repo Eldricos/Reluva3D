@@ -11,24 +11,24 @@
 namespace reluva::clue {
 
 Error Movie::open(std::vector<uint8_t> data) {
-    data_ = std::move(data);
-    shown_ = 0;
-    picture_ = {};
+    _data = std::move(data);
+    _shown = 0;
+    _picture = {};
     if (Error err = restart())
         return err;
-    if (!decoder_.canDecode())
+    if (!_decoder.canDecode())
         return Error::fail("AVI video in " + videoCodec() + ", not Cinepak");
     return seek(0);
 }
 
 Error Movie::restart() {
-    if (!decoder_.load(std::make_unique<MemoryReadStream>(data_)))
+    if (!_decoder.load(std::make_unique<MemoryReadStream>(_data)))
         return Error::fail("not an AVI file with a video stream");
     return Error::success();
 }
 
 std::string Movie::videoCodec() const {
-    const uint32_t c = decoder_.videoCodec();
+    const uint32_t c = _decoder.videoCodec();
     std::string s;
     for (int i = 0; i < 4; i++)
         s += char(c >> (8 * i));
@@ -36,7 +36,7 @@ std::string Movie::videoCodec() const {
 }
 
 double Movie::framesPerSecond() const {
-    return decoder_.frameMicros() ? 1e6 / decoder_.frameMicros() : 0;
+    return _decoder.frameMicros() ? 1e6 / _decoder.frameMicros() : 0;
 }
 
 double Movie::durationSeconds() const {
@@ -48,14 +48,14 @@ Error Movie::audio(audio::Sound &out) const {
     out = {};
     if (!hasAudio())
         return Error::fail("AVI file without sound");
-    const int bits = decoder_.audioBits();
-    const int channels = decoder_.audioChannels();
+    const int bits = _decoder.audioBits();
+    const int channels = _decoder.audioChannels();
     if ((bits != 8 && bits != 16) || channels < 1 || channels > 2)
         return Error::fail("AVI sound isn't 8- or 16-bit PCM");
-    out.rate = decoder_.audioRate();
+    out.rate = _decoder.audioRate();
     out.channels = channels;
     out.format = 1;
-    const std::vector<uint8_t> &p = decoder_.audio();
+    const std::vector<uint8_t> &p = _decoder.audio();
     if (bits == 16)
         for (size_t i = 0; i + 1 < p.size(); i += 2)
             out.samples.push_back(int16_t(p[i] | p[i + 1] << 8));
@@ -72,21 +72,21 @@ Error Movie::seek(double seconds) {
         return Error::success();
     const int target = int(std::min(frameCount() - 1, size_t(std::max(0.0, std::floor(seconds * framesPerSecond())))));
     // Frames build on the ones before: going back starts again.
-    if (target < decoder_.currentFrame())
+    if (target < _decoder.currentFrame())
         if (Error err = restart())
             return err;
-    if (target == decoder_.currentFrame() && !picture_.rgba.empty())
+    if (target == _decoder.currentFrame() && !_picture.rgba.empty())
         return Error::success();
-    while (decoder_.currentFrame() < target)
-        if (!decoder_.decodeNextFrame())
-            return Error::fail("frame " + std::to_string(decoder_.currentFrame() + 1) + " can't be read");
-    shown_ = size_t(target);
-    const Surface &s = decoder_.surface();
-    picture_.w = s.w;
-    picture_.h = s.h;
-    picture_.rgba.resize(size_t(s.w) * size_t(s.h) * 4);
+    while (_decoder.currentFrame() < target)
+        if (!_decoder.decodeNextFrame())
+            return Error::fail("frame " + std::to_string(_decoder.currentFrame() + 1) + " can't be read");
+    _shown = size_t(target);
+    const Surface &s = _decoder.surface();
+    _picture.w = s.w;
+    _picture.h = s.h;
+    _picture.rgba.resize(size_t(s.w) * size_t(s.h) * 4);
     for (int y = 0; y < s.h; y++)
-        std::copy_n(s.row(y), size_t(s.w) * 4, picture_.rgba.data() + size_t(y) * size_t(s.w) * 4);
+        std::copy_n(s.row(y), size_t(s.w) * 4, _picture.rgba.data() + size_t(y) * size_t(s.w) * 4);
     return Error::success();
 }
 

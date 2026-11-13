@@ -68,16 +68,16 @@ std::vector<Entry> collect(const ViewerContext &ctx, std::initializer_list<const
 // --- Page ---------------------------------------------------------------------
 
 void Page::setTitle(const std::string &what) {
-    ctx_.sys.setWindowTitle("Reluva - " + ctx_.title + " - " + what);
+    _ctx.sys.setWindowTitle("Reluva - " + _ctx.title + " - " + what);
 }
 
 void Page::use2D() {
-    ctx_.sys.initGraphics(kScreenW, kScreenH, PixelFormat::RGBA32);
+    _ctx.sys.initGraphics(kScreenW, kScreenH, PixelFormat::kRGBA32);
 }
 
 void Page::clear(uint8_t r, uint8_t g, uint8_t b) {
-    uint8_t *p = ctx_.screen.pixels.data();
-    for (size_t i = 0; i + 3 < ctx_.screen.pixels.size(); i += 4) {
+    uint8_t *p = _ctx.screen.pixels.data();
+    for (size_t i = 0; i + 3 < _ctx.screen.pixels.size(); i += 4) {
         p[i] = r;
         p[i + 1] = g;
         p[i + 2] = b;
@@ -86,14 +86,14 @@ void Page::clear(uint8_t r, uint8_t g, uint8_t b) {
 }
 
 void Page::text(int x, int y, const std::string &s, Color c, int scale) {
-    font::drawText(ctx_.screen, x, y, s, c, scale);
+    font::drawText(_ctx.screen, x, y, s, c, scale);
 }
 
 // --- Archives -----------------------------------------------------------------
 
 ArchivesPage::ArchivesPage(ViewerContext &ctx, std::vector<std::pair<std::string, std::string>> lines,
                            std::vector<std::string> errors)
-    : Page(ctx), lines_(std::move(lines)), errors_(std::move(errors)) {
+    : Page(ctx), _lines(std::move(lines)), _errors(std::move(errors)) {
 }
 
 void ArchivesPage::activate() {
@@ -107,16 +107,16 @@ void ArchivesPage::update(uint64_t) {
     const Color green{120, 220, 120};
     const Color red{240, 110, 110};
     int y = 24;
-    text(24, y, ctx_.title, {255, 255, 255}, 2);
+    text(24, y, _ctx.title, {255, 255, 255}, 2);
     y += font::kLineHeight * 2 + 8;
     text(24, y, "Not playable yet. Tab: models, textures, sounds, text.", grey);
     y += font::kLineHeight * 2;
-    for (const auto &[name, holds] : lines_) {
+    for (const auto &[name, holds] : _lines) {
         text(24, y, name, green);
         text(180, y, holds);
         y += font::kLineHeight + 9;
     }
-    for (const std::string &e : errors_) {
+    for (const std::string &e : _errors) {
         // Long messages wrap.
         const size_t perLine = size_t((kScreenW - 48) / font::kAdvance);
         for (size_t at = 0; at < e.size(); at += perLine, y += font::kLineHeight + 3)
@@ -124,47 +124,47 @@ void ArchivesPage::update(uint64_t) {
         y += 6;
     }
     text(24, kScreenH - 32, "Tab: next page   Esc: back to the launcher", grey);
-    ctx_.sys.updateScreen(ctx_.screen);
+    _ctx.sys.updateScreen(_ctx.screen);
 }
 
 // --- Textures -----------------------------------------------------------------
 
-TexturePage::TexturePage(ViewerContext &ctx) : Page(ctx), entries_(collect<Entry>(ctx, {"tga"})) {
+TexturePage::TexturePage(ViewerContext &ctx) : Page(ctx), _entries(collect<Entry>(ctx, {"tga"})) {
 }
 
 void TexturePage::show(int index) {
-    index_ = std::clamp(index, 0, int(entries_.size()) - 1);
+    _index = std::clamp(index, 0, int(_entries.size()) - 1);
     use2D();
     setTitle("Textures");
 }
 
 void TexturePage::handleEvent(const Event &ev) {
-    if (ev.type != EventType::KeyDown)
+    if (ev.type != EventType::kKeyDown)
         return;
-    const int n = int(entries_.size());
+    const int n = int(_entries.size());
     switch (ev.key) {
-    case key::Left:
-        show((index_ + n - 1) % n);
+    case key::kLeft:
+        show((_index + n - 1) % n);
         break;
-    case key::Right:
-        show((index_ + 1) % n);
+    case key::kRight:
+        show((_index + 1) % n);
         break;
-    case key::PageUp:
-        show(index_ - 10);
+    case key::kPageUp:
+        show(_index - 10);
         break;
-    case key::PageDown:
-        show(index_ + 10);
+    case key::kPageDown:
+        show(_index + 10);
         break;
-    case key::Home:
+    case key::kHome:
         show(0);
         break;
-    case key::End:
+    case key::kEnd:
         show(n - 1);
         break;
     case 'f': {
         // The next archive's first image.
-        int i = index_;
-        while (i < n && entries_[size_t(i)].archive == entries_[size_t(index_)].archive)
+        int i = _index;
+        while (i < n && _entries[size_t(i)].archive == _entries[size_t(_index)].archive)
             ++i;
         show(i % n);
         break;
@@ -176,12 +176,12 @@ void TexturePage::handleEvent(const Event &ev) {
 
 void TexturePage::update(uint64_t) {
     clear(24, 26, 32);
-    const Entry &e = entries_[size_t(index_)];
+    const Entry &e = _entries[size_t(_index)];
     std::string line =
-        e.archive + "/" + e.name + "  (" + std::to_string(index_ + 1) + "/" + std::to_string(entries_.size()) + ")";
+        e.archive + "/" + e.name + "  (" + std::to_string(_index + 1) + "/" + std::to_string(_entries.size()) + ")";
     std::vector<uint8_t> data;
     image::Image img;
-    Error err = ctx_.archives.at(e.archive)->read(e.name, data);
+    Error err = _ctx.archives.at(e.archive)->read(e.name, data);
     if (!err)
         err = image::decode(data, img);
     if (err) {
@@ -206,7 +206,7 @@ void TexturePage::update(uint64_t) {
         const int x0 = (kScreenW - w) / 2;
         const int y0 = top + (availH - h) / 2;
         for (int y = 0; y < h; ++y) {
-            uint8_t *row = ctx_.screen.row(y0 + y);
+            uint8_t *row = _ctx.screen.row(y0 + y);
             const int sy = std::min(img.h - 1, int(float(y) / scale));
             for (int x = 0; x < w; ++x) {
                 const uint8_t *s = img.pixel(std::min(img.w - 1, int(float(x) / scale)), sy);
@@ -218,47 +218,47 @@ void TexturePage::update(uint64_t) {
         }
     }
     text(8, kScreenH - 14, "Left/Right, PageUp/PageDown, Home/End: step   F: next archive", {150, 150, 150});
-    ctx_.sys.updateScreen(ctx_.screen);
+    _ctx.sys.updateScreen(_ctx.screen);
 }
 
 // --- Fonts --------------------------------------------------------------------
 
-FontPage::FontPage(ViewerContext &ctx) : Page(ctx), entries_(collect<Entry>(ctx, {"ddf"})) {
+FontPage::FontPage(ViewerContext &ctx) : Page(ctx), _entries(collect<Entry>(ctx, {"ddf"})) {
 }
 
 void FontPage::show(int index) {
-    index_ = std::clamp(index, 0, int(entries_.size()) - 1);
+    _index = std::clamp(index, 0, int(_entries.size()) - 1);
     use2D();
     setTitle("Fonts");
-    const Entry &e = entries_[size_t(index_)];
-    const PacArchive &pac = *ctx_.archives.at(e.archive);
-    pages_.clear();
+    const Entry &e = _entries[size_t(_index)];
+    const PacArchive &pac = *_ctx.archives.at(e.archive);
+    _pages.clear();
     std::vector<uint8_t> data;
     Error err = pac.read(e.name, data);
     if (!err)
-        err = font_.parse(data);
-    for (int i = 0; !err && i < font_.pages; ++i) {
-        pages_.emplace_back();
+        err = _font.parse(data);
+    for (int i = 0; !err && i < _font.pages; ++i) {
+        _pages.emplace_back();
         err = pac.read(DdfFont::pageName(e.name, i), data);
         if (!err)
-            err = image::decode(data, pages_.back());
+            err = image::decode(data, _pages.back());
     }
-    error_ = err ? err.message : std::string();
+    _error = err ? err.message : std::string();
 }
 
 void FontPage::handleEvent(const Event &ev) {
-    if (ev.type != EventType::KeyDown)
+    if (ev.type != EventType::kKeyDown)
         return;
-    const int n = int(entries_.size());
+    const int n = int(_entries.size());
     switch (ev.key) {
-    case key::Left:
-        show((index_ + n - 1) % n);
+    case key::kLeft:
+        show((_index + n - 1) % n);
         break;
-    case key::Right:
-        show((index_ + 1) % n);
+    case key::kRight:
+        show((_index + 1) % n);
         break;
     case 'p':
-        showPages_ = !showPages_;
+        _showPages = !_showPages;
         break;
     default:
         break;
@@ -267,28 +267,28 @@ void FontPage::handleEvent(const Event &ev) {
 
 void FontPage::update(uint64_t) {
     clear(24, 26, 32);
-    const Entry &e = entries_[size_t(index_)];
+    const Entry &e = _entries[size_t(_index)];
     text(8, 8,
-         e.archive + "/" + e.name + "  (" + std::to_string(index_ + 1) + "/" + std::to_string(entries_.size()) + ")");
-    if (!error_.empty()) {
-        text(8, 8 + font::kLineHeight, error_, {255, 120, 120});
+         e.archive + "/" + e.name + "  (" + std::to_string(_index + 1) + "/" + std::to_string(_entries.size()) + ")");
+    if (!_error.empty()) {
+        text(8, 8 + font::kLineHeight, _error, {255, 120, 120});
     } else {
         text(8, 8 + font::kLineHeight,
-             "\"" + font_.name + "\"  line " + std::to_string(font_.lineHeight) + ", descent " +
-                 std::to_string(font_.descent) + ", space " + std::to_string(font_.spaceAdvance) + ", chars " +
-                 std::to_string(font_.first) + "-" + std::to_string(font_.last) + ", " + std::to_string(font_.pages) +
-                 " pages of " + std::to_string(font_.pageWidth) + "x" + std::to_string(font_.pageHeight),
+             "\"" + _font.name + "\"  line " + std::to_string(_font.lineHeight) + ", descent " +
+                 std::to_string(_font.descent) + ", space " + std::to_string(_font.spaceAdvance) + ", chars " +
+                 std::to_string(_font.first) + "-" + std::to_string(_font.last) + ", " + std::to_string(_font.pages) +
+                 " pages of " + std::to_string(_font.pageWidth) + "x" + std::to_string(_font.pageHeight),
              {170, 170, 170});
         const int top = 8 + font::kLineHeight * 3;
-        if (showPages_) {
+        if (_showPages) {
             // The pages side by side, over a checkerboard.
             int x0 = 8;
-            for (const image::Image &img : pages_) {
+            for (const image::Image &img : _pages) {
                 for (int y = 0; y < img.h && top + y < kScreenH - 20; ++y)
                     for (int x = 0; x < img.w && x0 + x < kScreenW; ++x) {
                         const uint8_t *s = img.pixel(x, y);
                         const int check = ((x / 8 + y / 8) & 1) ? 90 : 60;
-                        uint8_t *d = ctx_.screen.row(top + y) + (x0 + x) * 4;
+                        uint8_t *d = _ctx.screen.row(top + y) + (x0 + x) * 4;
                         for (int c = 0; c < 3; ++c)
                             d[c] = uint8_t((s[c] * s[3] + check * (255 - s[3])) / 255);
                     }
@@ -299,116 +299,116 @@ void FontPage::update(uint64_t) {
             int y = top;
             const Color white{255, 255, 255};
             const Color gold{250, 210, 90};
-            font_.draw(ctx_.screen, pages_, 8, y, "The quick brown fox jumps over the lazy dog.", white);
-            y += font_.lineHeight;
-            font_.draw(ctx_.screen, pages_, 8, y, "LEGO ALPHA TEAM 0123456789 !?&", gold);
-            y += font_.lineHeight + 4;
+            _font.draw(_ctx.screen, _pages, 8, y, "The quick brown fox jumps over the lazy dog.", white);
+            y += _font.lineHeight;
+            _font.draw(_ctx.screen, _pages, 8, y, "LEGO ALPHA TEAM 0123456789 !?&", gold);
+            y += _font.lineHeight + 4;
             std::string line;
-            for (int c = font_.first; c <= font_.last && y + font_.lineHeight < kScreenH - 20; ++c) {
+            for (int c = _font.first; c <= _font.last && y + _font.lineHeight < kScreenH - 20; ++c) {
                 std::string next = line + char(c);
-                if (font_.measure(next) > kScreenW - 16) {
-                    font_.draw(ctx_.screen, pages_, 8, y, line, white);
-                    y += font_.lineHeight;
+                if (_font.measure(next) > kScreenW - 16) {
+                    _font.draw(_ctx.screen, _pages, 8, y, line, white);
+                    y += _font.lineHeight;
                     next = std::string(1, char(c));
                 }
                 line = next;
             }
-            if (y + font_.lineHeight < kScreenH - 20)
-                font_.draw(ctx_.screen, pages_, 8, y, line, white);
+            if (y + _font.lineHeight < kScreenH - 20)
+                _font.draw(_ctx.screen, _pages, 8, y, line, white);
         }
     }
     text(8, kScreenH - 14, "Left/Right: step   P: pages or sample", {150, 150, 150});
-    ctx_.sys.updateScreen(ctx_.screen);
+    _ctx.sys.updateScreen(_ctx.screen);
 }
 
 // --- Sounds -------------------------------------------------------------------
 
-SoundPage::SoundPage(ViewerContext &ctx) : Page(ctx), entries_(collect<Entry>(ctx, {"dds"})) {
+SoundPage::SoundPage(ViewerContext &ctx) : Page(ctx), _entries(collect<Entry>(ctx, {"dds"})) {
 }
 
 void SoundPage::activate() {
     use2D();
     setTitle("Sounds");
-    select(index_);
+    select(_index);
 }
 
 void SoundPage::deactivate() {
-    if (ctx_.mixer && playing_ != audio::kNoSound)
-        ctx_.mixer->stop(playing_);
-    playing_ = audio::kNoSound;
+    if (_ctx.mixer && _playing != audio::kNoSound)
+        _ctx.mixer->stop(_playing);
+    _playing = audio::kNoSound;
 }
 
 void SoundPage::select(int index) {
     deactivate();
-    index_ = std::clamp(index, 0, int(entries_.size()) - 1);
-    const Entry &e = entries_[size_t(index_)];
+    _index = std::clamp(index, 0, int(_entries.size()) - 1);
+    const Entry &e = _entries[size_t(_index)];
     auto sound = std::make_shared<audio::Sound>();
     std::vector<uint8_t> data;
-    Error err = ctx_.archives.at(e.archive)->read(e.name, data);
+    Error err = _ctx.archives.at(e.archive)->read(e.name, data);
     if (!err)
         err = decodeDds(data, *sound);
     if (err) {
-        sound_.reset();
-        info_ = err.message;
+        _sound.reset();
+        _info = err.message;
         return;
     }
-    sound_ = sound;
+    _sound = sound;
     char buf[96];
     std::snprintf(buf, sizeof buf, "%d Hz, %s, %.2f s", sound->rate, sound->channels == 2 ? "stereo" : "mono",
                   double(sound->frames()) / sound->rate);
-    info_ = buf;
-    if (autoPlay_)
+    _info = buf;
+    if (_autoPlay)
         play();
 }
 
 void SoundPage::play() {
-    if (!ctx_.mixer || !sound_)
+    if (!_ctx.mixer || !_sound)
         return;
-    if (playing_ != audio::kNoSound && ctx_.mixer->isPlaying(playing_)) {
-        ctx_.mixer->stop(playing_);
-        playing_ = audio::kNoSound;
+    if (_playing != audio::kNoSound && _ctx.mixer->isPlaying(_playing)) {
+        _ctx.mixer->stop(_playing);
+        _playing = audio::kNoSound;
         return;
     }
-    playing_ = ctx_.mixer->play(sound_, audio::SoundType::Effects);
+    _playing = _ctx.mixer->play(_sound, audio::SoundType::kEffects);
 }
 
 void SoundPage::handleEvent(const Event &ev) {
-    if (ev.type != EventType::KeyDown)
+    if (ev.type != EventType::kKeyDown)
         return;
-    const int n = int(entries_.size());
+    const int n = int(_entries.size());
     switch (ev.key) {
-    case key::Left:
-    case key::Up:
-        select((index_ + n - 1) % n);
+    case key::kLeft:
+    case key::kUp:
+        select((_index + n - 1) % n);
         break;
-    case key::Right:
-    case key::Down:
-        select((index_ + 1) % n);
+    case key::kRight:
+    case key::kDown:
+        select((_index + 1) % n);
         break;
-    case key::PageUp:
-        select(index_ - 10);
+    case key::kPageUp:
+        select(_index - 10);
         break;
-    case key::PageDown:
-        select(index_ + 10);
+    case key::kPageDown:
+        select(_index + 10);
         break;
-    case key::Home:
+    case key::kHome:
         select(0);
         break;
-    case key::End:
+    case key::kEnd:
         select(n - 1);
         break;
-    case key::Space:
-    case key::Return:
+    case key::kSpace:
+    case key::kReturn:
         play();
         break;
     case 'a':
-        autoPlay_ = !autoPlay_;
-        if (autoPlay_)
+        _autoPlay = !_autoPlay;
+        if (_autoPlay)
             play();
         break;
     case 'f': {
-        int i = index_;
-        while (i < n && entries_[size_t(i)].archive == entries_[size_t(index_)].archive)
+        int i = _index;
+        while (i < n && _entries[size_t(i)].archive == _entries[size_t(_index)].archive)
             ++i;
         select(i % n);
         break;
@@ -422,47 +422,47 @@ void SoundPage::update(uint64_t) {
     clear(20, 22, 30);
     const int lh = font::kLineHeight + 2;
     const int rows = (kScreenH - 80) / lh;
-    const int first = std::clamp(index_ - rows / 2, 0, std::max(0, int(entries_.size()) - rows));
-    for (int r = 0; r < rows && first + r < int(entries_.size()); ++r) {
-        const Entry &e = entries_[size_t(first + r)];
-        const bool sel = first + r == index_;
+    const int first = std::clamp(_index - rows / 2, 0, std::max(0, int(_entries.size()) - rows));
+    for (int r = 0; r < rows && first + r < int(_entries.size()); ++r) {
+        const Entry &e = _entries[size_t(first + r)];
+        const bool sel = first + r == _index;
         if (sel)
             for (int y = 0; y < lh; ++y)
                 for (int x = 4; x < kScreenW - 4; ++x) {
-                    uint8_t *p = ctx_.screen.row(8 + r * lh + y) + x * 4;
+                    uint8_t *p = _ctx.screen.row(8 + r * lh + y) + x * 4;
                     p[0] = 50, p[1] = 70, p[2] = 110;
                 }
         text(12, 9 + r * lh, e.archive + "/" + e.name, sel ? Color{255, 255, 255} : Color{180, 180, 180});
     }
-    const bool playing = ctx_.mixer && playing_ != audio::kNoSound && ctx_.mixer->isPlaying(playing_);
+    const bool playing = _ctx.mixer && _playing != audio::kNoSound && _ctx.mixer->isPlaying(_playing);
     text(8, kScreenH - 58,
-         std::to_string(index_ + 1) + "/" + std::to_string(entries_.size()) + "  " + info_ +
+         std::to_string(_index + 1) + "/" + std::to_string(_entries.size()) + "  " + _info +
              (playing ? "  (playing)" : ""),
          {230, 230, 140});
-    if (!ctx_.mixer)
+    if (!_ctx.mixer)
         text(8, kScreenH - 44, "No audio device: sounds can't be played.", {255, 120, 120});
     text(8, kScreenH - 30, "Up/Down, PageUp/PageDown: step   Space/Enter: play or stop", {150, 150, 150});
     text(8, kScreenH - 16,
-         std::string("A: play each when selected (") + (autoPlay_ ? "on" : "off") + ")   F: next archive",
+         std::string("A: play each when selected (") + (_autoPlay ? "on" : "off") + ")   F: next archive",
          {150, 150, 150});
-    ctx_.sys.updateScreen(ctx_.screen);
+    _ctx.sys.updateScreen(_ctx.screen);
 }
 
 // --- Text ---------------------------------------------------------------------
 
-TextPage::TextPage(ViewerContext &ctx) : Page(ctx), files_(collect<File>(ctx, {"txt", "puz"})) {
+TextPage::TextPage(ViewerContext &ctx) : Page(ctx), _files(collect<File>(ctx, {"txt", "puz"})) {
 }
 
 void TextPage::show(int index) {
-    index_ = (index + int(files_.size())) % int(files_.size());
-    scroll_ = 0;
-    lines_.clear();
+    _index = (index + int(_files.size())) % int(_files.size());
+    _scroll = 0;
+    _lines.clear();
     use2D();
-    const File &f = files_[size_t(index_)];
+    const File &f = _files[size_t(_index)];
     setTitle("Text: " + f.name);
     std::vector<uint8_t> data;
-    if (Error err = ctx_.archives.at(f.archive)->read(f.name, data)) {
-        lines_.push_back(err.message);
+    if (Error err = _ctx.archives.at(f.archive)->read(f.name, data)) {
+        _lines.push_back(err.message);
         return;
     }
     // Lines wrapped to the screen's width.
@@ -485,10 +485,10 @@ void TextPage::show(int index) {
                 while (cut < line.size() && (uint8_t(line[cut]) & 0xc0) == 0x80)
                     ++cut;
             }
-            lines_.push_back(line.substr(0, cut));
+            _lines.push_back(line.substr(0, cut));
             line.erase(0, cut);
         }
-        lines_.push_back(line);
+        _lines.push_back(line);
         if (end == text.size())
             break;
         pos = end + 1;
@@ -497,54 +497,54 @@ void TextPage::show(int index) {
 
 void TextPage::handleEvent(const Event &ev) {
     const int page = (kScreenH - 40) / (font::kLineHeight + 1);
-    if (ev.type == EventType::MouseWheel) {
-        scroll_ -= ev.wheelY * 3;
-    } else if (ev.type == EventType::KeyDown) {
+    if (ev.type == EventType::kMouseWheel) {
+        _scroll -= ev.wheelY * 3;
+    } else if (ev.type == EventType::kKeyDown) {
         switch (ev.key) {
-        case key::Left:
-            show(index_ - 1);
+        case key::kLeft:
+            show(_index - 1);
             return;
-        case key::Right:
-            show(index_ + 1);
+        case key::kRight:
+            show(_index + 1);
             return;
-        case key::Up:
-            --scroll_;
+        case key::kUp:
+            --_scroll;
             break;
-        case key::Down:
-            ++scroll_;
+        case key::kDown:
+            ++_scroll;
             break;
-        case key::PageUp:
-            scroll_ -= page;
+        case key::kPageUp:
+            _scroll -= page;
             break;
-        case key::PageDown:
-            scroll_ += page;
+        case key::kPageDown:
+            _scroll += page;
             break;
-        case key::Home:
-            scroll_ = 0;
+        case key::kHome:
+            _scroll = 0;
             break;
-        case key::End:
-            scroll_ = int(lines_.size());
+        case key::kEnd:
+            _scroll = int(_lines.size());
             break;
         default:
             break;
         }
     }
-    scroll_ = std::clamp(scroll_, 0, std::max(0, int(lines_.size()) - page));
+    _scroll = std::clamp(_scroll, 0, std::max(0, int(_lines.size()) - page));
 }
 
 void TextPage::update(uint64_t) {
     clear(18, 20, 26);
-    const File &f = files_[size_t(index_)];
+    const File &f = _files[size_t(_index)];
     text(8, 6,
-         f.archive + "/" + f.name + "  (" + std::to_string(index_ + 1) + "/" + std::to_string(files_.size()) + ", " +
-             std::to_string(lines_.size()) + " lines)",
+         f.archive + "/" + f.name + "  (" + std::to_string(_index + 1) + "/" + std::to_string(_files.size()) + ", " +
+             std::to_string(_lines.size()) + " lines)",
          {230, 230, 140});
     const int lh = font::kLineHeight + 1;
     const int rows = (kScreenH - 40) / lh;
-    for (int r = 0; r < rows && scroll_ + r < int(lines_.size()); ++r)
-        text(8, 22 + r * lh, lines_[size_t(scroll_ + r)]);
+    for (int r = 0; r < rows && _scroll + r < int(_lines.size()); ++r)
+        text(8, 22 + r * lh, _lines[size_t(_scroll + r)]);
     text(8, kScreenH - 14, "Left/Right: file   Up/Down, PageUp/PageDown, Home/End: scroll", {150, 150, 150});
-    ctx_.sys.updateScreen(ctx_.screen);
+    _ctx.sys.updateScreen(_ctx.screen);
 }
 
 } // namespace reluva::netimmerse

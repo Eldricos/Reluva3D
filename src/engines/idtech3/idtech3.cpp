@@ -48,42 +48,42 @@ constexpr int kScreenH = 480;
 class IdTech3Engine : public Engine {
 public:
     IdTech3Engine(System &system, GameTarget target, const GameInfo &game)
-        : sys_(system), target_(std::move(target)), game_(game) {}
+        : _sys(system), _target(std::move(target)), _game(game) {}
 
     Error run() override {
         std::vector<std::string> warnings;
         // The Expansion Pack, unless this game's entry says to leave it out.
-        const auto setting = target_.settings.find("expansion");
-        const bool expansion = setting == target_.settings.end() || setting->second != "0";
+        const auto setting = _target.settings.find("expansion");
+        const bool expansion = setting == _target.settings.end() || setting->second != "0";
         const std::vector<std::string> skip =
             expansion ? std::vector<std::string>{} : std::vector<std::string>{kExpansionPak};
         // The mod the entry plays (as the original's +set fs_game), if any.
-        const auto modSetting = target_.settings.find("mod");
+        const auto modSetting = _target.settings.find("mod");
         std::string mod =
-            modSetting == target_.settings.end() ? std::string() : modFolderName(modSetting->second, game_.baseDir);
+            modSetting == _target.settings.end() ? std::string() : modFolderName(modSetting->second, _game.baseDir);
         if (Error err = mountFiles(mod, skip, warnings))
             return err;
 
-        if (Error err = sys_.initGraphics(kScreenW, kScreenH, PixelFormat::RGBA32))
+        if (Error err = _sys.initGraphics(kScreenW, kScreenH, PixelFormat::kRGBA32))
             return err;
-        screen_.create(kScreenW, kScreenH, PixelFormat::RGBA32);
+        _screen.create(kScreenW, kScreenH, PixelFormat::kRGBA32);
 
         // One mixer for every page's sounds; without audio output, none.
-        audio::Mixer mixer(sys_.audioRate());
-        mixer.setMasterVolume(settings::volume(target_.settings, settings::kMasterVolume));
-        const bool audioOut = !audio::startMixerOutput(sys_, mixer);
+        audio::Mixer mixer(_sys.audioRate());
+        mixer.setMasterVolume(settings::volume(_target.settings, settings::kMasterVolume));
+        const bool audioOut = !audio::startMixerOutput(_sys, mixer);
         struct AudioOff { // stops the output before the mixer goes
             System &sys;
             ~AudioOff() { sys.stopAudio(); }
-        } audioOff{sys_};
+        } audioOff{_sys};
 
-        ViewerContext ctx{sys_,
-                          screen_,
-                          files_,
-                          shaders_,
-                          game_,
+        ViewerContext ctx{_sys,
+                          _screen,
+                          _files,
+                          _shaders,
+                          _game,
                           warnings,
-                          modSavePath(target_.savePath, mod),
+                          modSavePath(_target.savePath, mod),
                           audioOut ? &mixer : nullptr,
                           {},
                           {},
@@ -92,12 +92,12 @@ public:
                           {},
                           {},
                           {},
-                          target_.path,
+                          _target.path,
                           false,
                           {},
-                          singlePlayerDir(target_.path, game_, expansion),
+                          singlePlayerDir(_target.path, _game, expansion),
                           mod,
-                          target_.savePath};
+                          _target.savePath};
         // A pak just downloaded: in the search path at once, above the
         // rest, and the shader scripts read again (it may bring its own).
         int added = 0;
@@ -105,8 +105,8 @@ public:
             auto zip = std::make_unique<ZipArchive>();
             if (Error err = zip->open(path))
                 return err;
-            files_.add(std::move(zip), kDownloadPriority + ++added);
-            shaders_.load(files_, nullptr);
+            _files.add(std::move(zip), kDownloadPriority + ++added);
+            _shaders.load(_files, nullptr);
             return Error::success();
         };
         startSettings(ctx);
@@ -127,14 +127,14 @@ public:
                 return Error::success();
             // fs_game changed and vid_restart run: the files mounted again
             // for the mod (or none), its own settings, and the menus over.
-            const std::string next = modFolderName(ctx.cvars.string("fs_game"), game_.baseDir);
+            const std::string next = modFolderName(ctx.cvars.string("fs_game"), _game.baseDir);
             saveConfig(ctx);
             warnings.clear();
             if (Error err = mountFiles(next, skip, warnings))
                 return err;
             added = 0;
             ctx.gameDir = next;
-            ctx.savePath = modSavePath(target_.savePath, next);
+            ctx.savePath = modSavePath(_target.savePath, next);
             ctx.cvars = CvarStore();
             ctx.bindings = KeyBindings();
             startSettings(ctx);
@@ -147,10 +147,10 @@ private:
     // Damaged archives or scripts don't stop the viewer; the Files page
     // lists what went wrong.
     Error mountFiles(const std::string &mod, const std::vector<std::string> &skip, std::vector<std::string> &warnings) {
-        if (Error err = mountGame(files_, target_.path, target_.savePath, game_.baseDir, mod, warnings, skip))
+        if (Error err = mountGame(_files, _target.path, _target.savePath, _game.baseDir, mod, warnings, skip))
             return err;
-        std::printf("Game files: %s%s\n", game_.baseDir.c_str(), mod.empty() ? "" : (" and the mod " + mod).c_str());
-        shaders_.load(files_, &warnings);
+        std::printf("Game files: %s%s\n", _game.baseDir.c_str(), mod.empty() ? "" : (" and the mod " + mod).c_str());
+        _shaders.load(_files, &warnings);
         return Error::success();
     }
 
@@ -163,7 +163,7 @@ private:
             ctx.savePath = ctx.homePath;
         loadConfig(ctx);
         ctx.savePath = own;
-        ctx.cvars.create("fs_game", ctx.gameDir, CvarStore::SystemInfo | CvarStore::Init);
+        ctx.cvars.create("fs_game", ctx.gameDir, CvarStore::kSystemInfo | CvarStore::kInit);
         ctx.cvars.set("fs_game", ctx.gameDir, true);
     }
 
@@ -198,7 +198,7 @@ private:
                 break;
             }
         if (choices.empty())
-            return Error::fail("No files found in " + target_.path.string() + "/" + game_.baseDir);
+            return Error::fail("No files found in " + _target.path.string() + "/" + _game.baseDir);
         pages[0] = std::make_unique<StartPage>(ctx, std::move(choices));
         size_t page = 0;
         for (size_t i = 1; i < firstTool; ++i)
@@ -211,7 +211,7 @@ private:
             const bool was3D = pages[page]->uses3D();
             pages[page]->deactivate();
             if (was3D)
-                if (Error err = sys_.initGraphics(kScreenW, kScreenH, PixelFormat::RGBA32))
+                if (Error err = _sys.initGraphics(kScreenW, kScreenH, PixelFormat::kRGBA32))
                     return err;
             page = next;
             pages[page]->activate();
@@ -222,17 +222,17 @@ private:
             const bool was3D = pages[page]->uses3D();
             pages[page]->deactivate();
             if (was3D)
-                return sys_.initGraphics(kScreenW, kScreenH, PixelFormat::RGBA32);
+                return _sys.initGraphics(kScreenW, kScreenH, PixelFormat::kRGBA32);
             return Error::success();
         };
 
         while (true) {
             Event ev;
-            while (sys_.pollEvent(ev)) {
-                if (ev.type == EventType::Quit || ev.type == EventType::ReturnToLauncher)
+            while (_sys.pollEvent(ev)) {
+                if (ev.type == EventType::kQuit || ev.type == EventType::kReturnToLauncher)
                     return Error::success();
                 const bool pageKey = pages[page]->takesKey(ev);
-                if (ev.type == EventType::KeyDown && ev.key == key::Escape && !pageKey) {
+                if (ev.type == EventType::kKeyDown && ev.key == key::kEscape && !pageKey) {
                     // Back to the start; from there, to the launcher.
                     if (page == 0)
                         return Error::success();
@@ -241,7 +241,7 @@ private:
                         return err;
                     continue;
                 }
-                if (tools && ev.type == EventType::KeyDown && ev.key == key::Tab && (ev.mods & keymod::Ctrl)) {
+                if (tools && ev.type == EventType::kKeyDown && ev.key == key::kTab && (ev.mods & keymod::kCtrl)) {
                     size_t next = page;
                     do
                         next = next + 1 < pages.size() ? next + 1 : 1;
@@ -265,30 +265,30 @@ private:
                         break;
                     }
             }
-            pages[page]->update(sys_.getMillis());
+            pages[page]->update(_sys.getMillis());
             // vid_restart with a different fs_game: the files start again
             // (FS_ConditionalRestart in the original's).
             if (ctx.requestRestart) {
                 ctx.requestRestart = false;
-                if (modFolderName(ctx.cvars.string("fs_game"), game_.baseDir) != ctx.gameDir) {
+                if (modFolderName(ctx.cvars.string("fs_game"), _game.baseDir) != ctx.gameDir) {
                     switchedFrom = pages[page]->name();
                     return leave();
                 }
             }
-            sys_.updateScreen(screen_);
+            _sys.updateScreen(_screen);
             // 3D pages are paced by presenting (vsync); the rest needn't spin.
             if (!pages[page]->uses3D())
-                sys_.delayMillis(10);
+                _sys.delayMillis(10);
         }
     }
 
 private:
-    System &sys_;
-    GameTarget target_;
-    const GameInfo &game_;
-    SearchSet files_;
-    ShaderLibrary shaders_;
-    Surface screen_;
+    System &_sys;
+    GameTarget _target;
+    const GameInfo &_game;
+    SearchSet _files;
+    ShaderLibrary _shaders;
+    Surface _screen;
 };
 
 // How many paks and saved games an import brings.
@@ -559,8 +559,8 @@ public:
 } // namespace
 
 const MetaEngine &idTech3MetaEngine() {
-    static const IdTech3MetaEngine instance;
-    return instance;
+    static const IdTech3MetaEngine kInstance;
+    return kInstance;
 }
 
 } // namespace reluva

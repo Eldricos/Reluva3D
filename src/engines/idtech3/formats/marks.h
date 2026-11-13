@@ -16,7 +16,7 @@ namespace reluva::idtech3 {
 // Surface flags (the shaders' surfaceparms, as compiled into the map)
 // that keep marks off a surface.
 namespace surfaceflags {
-constexpr int32_t Sky = 0x4, NoImpact = 0x10, NoMarks = 0x20;
+constexpr int32_t kSky = 0x4, kNoImpact = 0x10, kNoMarks = 0x20;
 } // namespace surfaceflags
 
 // Where a mark (a scorch, a bullet hole) lands on the level: the client
@@ -42,7 +42,7 @@ public:
     void mark(const std::vector<Vec3f> &polygon, const Vec3f &projection, size_t maxPoints, size_t maxFragments,
               std::vector<Vec3f> &points, std::vector<Fragment> &fragments) const;
 
-    size_t triangleCount() const { return triangles_.size(); }
+    size_t triangleCount() const { return _triangles.size(); }
 
 private:
     struct Triangle {
@@ -53,8 +53,8 @@ private:
         Vec3f mins, maxs;
         size_t first = 0, count = 0; // in triangles_
     };
-    std::vector<Triangle> triangles_;
-    std::vector<Surface> surfaces_;
+    std::vector<Triangle> _triangles;
+    std::vector<Surface> _surfaces;
 };
 
 } // namespace reluva::idtech3

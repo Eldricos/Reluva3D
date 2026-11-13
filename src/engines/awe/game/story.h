@@ -49,10 +49,10 @@ public:
     Story(GameState &state, ScriptRunner &main);
 
     void setActs(std::vector<ActRow> acts) {
-        acts_ = std::move(acts);
-        row_.reset();
+        _acts = std::move(acts);
+        _row.reset();
     }
-    const ActRow *row() const { return row_ ? &*row_ : nullptr; }
+    const ActRow *row() const { return _row ? &*_row : nullptr; }
     // A saved game's act (0x422470): its row as saved (acts.txt isn't read
     // again), its location loaded through onLoadLocation, but neither
     // PreLoad nor Post Load run; done() once loaded.
@@ -71,7 +71,7 @@ public:
     // and moving take effect.
     void leavingScene();
     // Whether an act's location is still to be loaded.
-    bool loading() const { return loading_; }
+    bool loading() const { return _loading; }
 
     // The act's dialogue tables are to be loaded (on every act change).
     std::function<void(const std::string &act)> onActTables;
@@ -81,7 +81,7 @@ public:
     // runs once locationLoaded() is called (at once without a handler).
     std::function<void(const std::string &location, bool flush)> onLoadLocation;
     void locationLoaded();
-    const std::string &location() const { return location_; }
+    const std::string &location() const { return _location; }
     // A scene in another place is loaded (0x422640: its name up to the
     // '_' becomes the location, the last one kept as before): true if
     // the scenes kept so far are dropped, as for an act's location
@@ -92,14 +92,14 @@ public:
 private:
     void runnerEmpty();
 
-    GameState &state_;
-    ScriptRunner &main_;
-    std::vector<ActRow> acts_;
-    std::optional<ActRow> row_; // the act's row, as it was read (or saved)
-    bool restoring_ = false;
-    std::string location_, previousLocation_;
-    bool loading_ = false, waitingLoad_ = false;
-    float second_ = 0;
+    GameState &_state;
+    ScriptRunner &_main;
+    std::vector<ActRow> _acts;
+    std::optional<ActRow> _row; // the act's row, as it was read (or saved)
+    bool _restoring = false;
+    std::string _location, _previousLocation;
+    bool _loading = false, _waitingLoad = false;
+    float _second = 0;
 };
 
 } // namespace reluva::awe

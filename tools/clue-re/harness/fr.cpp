@@ -2,7 +2,7 @@
 #include <cstdio>
 using namespace reluva; using namespace reluva::clue;
 int main(int argc, char** argv) {
-    GameData data; data.open(argv[1], Language::US);
+    GameData data; data.open(argv[1], Language::kUS);
     for (int i = 2; i < argc; ++i) {
         const ObjectDef* o = data.object(argv[i]); if (!o) { std::printf("no %s\n", argv[i]); continue; }
         const Animation* a = data.animation(o->states[0].animation);

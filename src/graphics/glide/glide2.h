@@ -68,7 +68,7 @@ class Glide2 {
 public:
     explicit Glide2(Board board = {});
 
-    Pipeline &pipeline() { return pipeline_; }
+    Pipeline &pipeline() { return _pipeline; }
     // Lines for a log: each function not stood in for, the first time.
     std::function<void(const std::string &line)> log;
     std::string logName = "glide2x"; // the library its lines are from
@@ -82,8 +82,8 @@ public:
     // written through a lock since the last call: a host shows it again
     // then, as the monitor would (a program can draw straight to it).
     bool takeFrontChanged() {
-        const bool changed = frontChanged_;
-        frontChanged_ = false;
+        const bool changed = _frontChanged;
+        _frontChanged = false;
         return changed;
     }
     // Notes, once, that `function` was called but isn't (fully) carried out.
@@ -103,8 +103,8 @@ public:
     // RESIZE (a windowed Rush's buffers to its window's size, by
     // windowSize), MOVE.
     bool sstControl(uint32_t code);
-    bool sstIsOpen() const { return pipeline_.isOpen(); }
-    bool active() const { return active_; } // GR_CONTROL_ACTIVATE (the default) or DEACTIVATE
+    bool sstIsOpen() const { return _pipeline.isOpen(); }
+    bool active() const { return _active; } // GR_CONTROL_ACTIVATE (the default) or DEACTIVATE
     uint32_t sstScreenWidth() const;
     uint32_t sstScreenHeight() const;
     uint32_t sstStatus() const;
@@ -167,7 +167,7 @@ public:
     void depthBiasLevel(int level);
     void depthBufferFunction(int function);
     void depthBufferMode(int mode);
-    const Board &board() const { return board_; }
+    const Board &board() const { return _board; }
     void depthMask(bool enable);
     void disableAllEffects();
     void ditherMode(int mode);
@@ -269,8 +269,8 @@ public:
     // swapped (swapWords; not for the 888 and 8888 modes), as the Voodoo2
     // specification's lfbMode bits 12 and 11 do.
     void lfbWriteColorSwizzle(bool swizzleBytes, bool swapWords);
-    bool lfbSwizzleBytes() const { return lfbSwizzleBytes_; }
-    bool lfbSwapWords() const { return lfbSwapWords_; }
+    bool lfbSwizzleBytes() const { return _lfbSwizzleBytes; }
+    bool lfbSwapWords() const { return _lfbSwapWords; }
     // A 32-bit word written through a lock in `mode`, swizzled and swapped
     // as grLfbWriteColorSwizzle asks (for the 16-bit modes the word holds
     // two pixels, the left one in the low half).
@@ -299,31 +299,31 @@ public:
 
 private:
     Vertex convert(const Glide2Vertex &v) const;
-    uint32_t toArgb(uint32_t color) const { return toArgb(color, colorFormat_); } // the window's colour format
+    uint32_t toArgb(uint32_t color) const { return toArgb(color, _colorFormat); } // the window's colour format
     static uint32_t toArgb(uint32_t color, int format); // a GR_COLORFORMAT_* colour to 0xAARRGGBB
     static TextureInfo textureInfo(int smallLod, int largeLod, int aspect, int format);
     static int lodToLog2(int lod) { return 8 - lod; }
     static int aspectToLog2(int aspect) { return 3 - aspect; }
 
-    Board board_;
-    Pipeline pipeline_;
-    int colorFormat_ = kColorArgb;
-    int lfbColorFormat_ = -1; // grLfbWriteColorFormat's, -1 the window's
-    bool lfbSwizzleBytes_ = false, lfbSwapWords_ = false;
-    bool active_ = true;
-    uint32_t window_ = 0; // grSstWinOpen's window
-    uint32_t retraceCalls_ = 0;
-    int locks_ = 0;
-    bool frontChanged_ = false;
-    void drawn() { frontChanged_ |= pipeline_.state().renderBuffer == kBufferFront; }
-    std::set<std::string> noted_;
-    std::map<uint32_t, State> savedStates_;
-    std::vector<MipMap> mipmaps_;
-    std::array<uint32_t, kMaxTmus> texNext_{}; // the texture manager's next free address
-    std::array<uint32_t, kMaxTmus> texCurrent_{kNullMipMap, kNullMipMap, kNullMipMap};
-    uint32_t nextStateToken_ = 1;
-    uint64_t statsBase_[5] = {};
-    uint64_t triBase_[2] = {};
+    Board _board;
+    Pipeline _pipeline;
+    int _colorFormat = kColorArgb;
+    int _lfbColorFormat = -1; // grLfbWriteColorFormat's, -1 the window's
+    bool _lfbSwizzleBytes = false, _lfbSwapWords = false;
+    bool _active = true;
+    uint32_t _window = 0; // grSstWinOpen's window
+    uint32_t _retraceCalls = 0;
+    int _locks = 0;
+    bool _frontChanged = false;
+    void drawn() { _frontChanged |= _pipeline.state().renderBuffer == kBufferFront; }
+    std::set<std::string> _noted;
+    std::map<uint32_t, State> _savedStates;
+    std::vector<MipMap> _mipmaps;
+    std::array<uint32_t, kMaxTmus> _texNext{}; // the texture manager's next free address
+    std::array<uint32_t, kMaxTmus> _texCurrent{kNullMipMap, kNullMipMap, kNullMipMap};
+    uint32_t _nextStateToken = 1;
+    uint64_t _statsBase[5] = {};
+    uint64_t _triBase[2] = {};
 };
 
 } // namespace reluva::glide

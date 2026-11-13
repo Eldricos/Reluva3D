@@ -123,8 +123,8 @@ static void testSaveKind() {
         w.add(chunkId("GCLI"), client.data(), 4);
         return w.bytes();
     };
-    CHECK(saveKind(save(2720)) == SaveKind::Original);
-    CHECK(saveKind(save(3364)) == SaveKind::Expansion);
+    CHECK(saveKind(save(2720)) == SaveKind::kOriginal);
+    CHECK(saveKind(save(3364)) == SaveKind::kExpansion);
     CHECK(!saveKind(save(100)));
     std::vector<uint8_t> noClient = save(2720);
     noClient.resize(16 + 128);
@@ -190,7 +190,7 @@ static void testGameHost(const std::filesystem::path &tmp) {
     CHECK(!game.call(24, {0, 0, 100, 16, -1}, r) && !game.call(25, {}, r) && r == 16 * 8 + 1); // a box
     CHECK(!game.call(24, {0, 0, -10, 0, -1}, r) && !game.call(26, {}, r) && r == 101);         // starting in the floor
     CHECK(!game.call(24, {1000, 0, 100, 0, -1}, r) && r == 1023);                              // nothing there
-    CHECK(!game.call(28, {0, 0, -32}, r) && r == contents::Solid);
+    CHECK(!game.call(28, {0, 0, -32}, r) && r == contents::kSolid);
     CHECK(!game.call(28, {200, 0, 64}, r) && r == -1); // inside the door
     CHECK(!game.call(28, {0, 0, 64}, r) && r == 0);
     CHECK(!game.call(29, {-200, 0, 16}, r) && r == 102);
@@ -269,7 +269,7 @@ static void testCgameHost(const std::filesystem::path &tmp) {
     CHECK(!cgame.load());
     cgame.setConfigstrings({{12, "baseef-1"}, {289, "sound/player/fry.wav"}, {544, "n\\Reluva\\t\\0"}, {5, ""}});
     int32_t r = 0;
-    CHECK(!cgame.call(ef::CgameHost::Init, {0, 0, 3}, r) && r == 3);
+    CHECK(!cgame.call(ef::CgameHost::kInit, {0, 0, 3}, r) && r == 3);
     CHECK(cgame.log() == "fake cgame\n");
     CHECK(!cgame.call(20, {12}, r) && r == 'b' * 1000 + 'a');
     CHECK(!cgame.call(21, {289}, r) && r == 20);
@@ -363,9 +363,9 @@ static void testUiHost(const std::filesystem::path &tmp) {
         return;
     }
     int32_t r = 0;
-    CHECK(!ui.call(ef::UiHost::Init, {}, r) && r == 1202); // 12 bytes, 2 .txt files directly in scripts/
+    CHECK(!ui.call(ef::UiHost::kInit, {}, r) && r == 1202); // 12 bytes, 2 .txt files directly in scripts/
     CHECK(ui.log() == "fake ui\n");
-    CHECK(cvars.string("ui_test") == "7" && cvars.find("ui_test")->flags == CvarStore::Archive);
+    CHECK(cvars.string("ui_test") == "7" && cvars.find("ui_test")->flags == CvarStore::kArchive);
     CHECK(!ui.call(20, {}, r) && r == 7);
     cvars.set("ui_test", "9");
     CHECK(!ui.call(20, {}, r) && r == 7); // the program's copy changes on Cvar_Update
@@ -373,8 +373,8 @@ static void testUiHost(const std::filesystem::path &tmp) {
     CHECK(!ui.call(25, {}, r) && r == 2);
     CHECK(!ui.call(22, {}, r) && r == 640480);
 
-    CHECK(!ui.call(ef::UiHost::SetActiveMenu, {1}));
-    CHECK(!ui.call(ef::UiHost::Refresh, {1234}, r) && r == 1234);
+    CHECK(!ui.call(ef::UiHost::kSetActiveMenu, {1}));
+    CHECK(!ui.call(ef::UiHost::kRefresh, {1234}, r) && r == 1234);
     CHECK(ui.pictures().size() == 3); // two, then the pointer
     if (ui.pictures().size() == 3) {
         const auto &p = ui.pictures()[0];
@@ -391,8 +391,8 @@ static void testUiHost(const std::filesystem::path &tmp) {
     CHECK(err && err.message.find("boom") != std::string::npos);
     CHECK(!ui.call(20, {}, r) && r == 9); // usable again after the program's error
     // Typed characters come as keys with 1024 added; plain keys don't type.
-    CHECK(!ui.call(ef::UiHost::KeyEvent, {'q', 1}));
-    CHECK(!ui.call(ef::UiHost::KeyEvent, {'Q' | 1024, 1}));
+    CHECK(!ui.call(ef::UiHost::kKeyEvent, {'q', 1}));
+    CHECK(!ui.call(ef::UiHost::kKeyEvent, {'Q' | 1024, 1}));
     CHECK(!ui.call(27, {}, r) && r == 'Q' * 1000 + 1);
 
     // The CD key: taken if it has 18 letters and digits, kept in the key
@@ -412,7 +412,7 @@ static void testUiHost(const std::filesystem::path &tmp) {
     CvarStore fresh;
     ef::UiHost again(set, fresh);
     again.setKeyFile(tmp / "save" / "cdkey.txt");
-    CHECK(!again.load() && !again.call(ef::UiHost::Init) && fresh.string("ui_cdkeychecked") == "1");
+    CHECK(!again.load() && !again.call(ef::UiHost::kInit) && fresh.string("ui_cdkeychecked") == "1");
 
     // A frame with no menu open opens the main one, as the original
     // engine does while not connected; with one open, it's left alone.
@@ -434,11 +434,11 @@ static void testUiHost(const std::filesystem::path &tmp) {
 }
 
 static const reluva::test::Suite
-    suite("idtech3.unit.game-code",
-          {
-              {"server game", [](const std::filesystem::path &tmp) { testGameHost(tmp / "game"); }},
-              {"client game", [](const std::filesystem::path &tmp) { testCgameHost(tmp / "cgame"); }},
-              {"menus", [](const std::filesystem::path &tmp) { testUiHost(tmp / "ui"); }},
-              {"save chunks", [](const std::filesystem::path &) { testSaveChunks(); }},
-              {"save kind", [](const std::filesystem::path &) { testSaveKind(); }},
-          });
+    kSuite("idtech3.unit.game-code",
+           {
+               {"server game", [](const std::filesystem::path &tmp) { testGameHost(tmp / "game"); }},
+               {"client game", [](const std::filesystem::path &tmp) { testCgameHost(tmp / "cgame"); }},
+               {"menus", [](const std::filesystem::path &tmp) { testUiHost(tmp / "ui"); }},
+               {"save chunks", [](const std::filesystem::path &) { testSaveChunks(); }},
+               {"save kind", [](const std::filesystem::path &) { testSaveKind(); }},
+           });

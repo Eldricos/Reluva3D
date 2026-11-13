@@ -287,8 +287,8 @@ uint32_t GameRandom::next() {
 }
 
 std::array<uint8_t, kCloudPoints * kCloudPoints> cloudBrightness(const Horizon &h, uint32_t seed) {
-    constexpr int n = kCloudPoints;
-    std::array<float, n * n> b{};
+    constexpr int kN = kCloudPoints;
+    std::array<float, kN * kN> b{};
     // Along x, then the next row along z (0x47ae10's loops); the amount is
     // the generator's number modulo the variance, unsigned (0x47af0b).
     GameRandom random(seed);
@@ -305,30 +305,30 @@ std::array<uint8_t, kCloudPoints * kCloudPoints> cloudBrightness(const Horizon &
     }
     const float bright = static_cast<float>(h.cloudBright);
     for (int pass = 0; pass < 20; ++pass)
-        for (int row = 0; row < n; ++row)
-            for (int col = 0; col < n; ++col) {
-                const float here = b[size_t(row * n + col)];
+        for (int row = 0; row < kN; ++row)
+            for (int col = 0; col < kN; ++col) {
+                const float here = b[size_t(row * kN + col)];
                 float sum = 0;
                 float count = 0;
                 for (int dr = -2; dr <= 2; ++dr)
                     for (int dc = -2; dc <= 2; ++dc) {
                         const int r = row + dr;
                         const int c = col + dc;
-                        if ((dr == 0 && dc == 0) || r < 0 || r >= n || c < 0 || c >= n)
+                        if ((dr == 0 && dc == 0) || r < 0 || r >= kN || c < 0 || c >= kN)
                             continue;
                         // Weighted by the square of how far the neighbour
                         // is from the middle (0x47b0a4-0x47b0e1: |n - 128| / 128,
                         // twice).
-                        const float other = b[size_t(r * n + c)];
+                        const float other = b[size_t(r * kN + c)];
                         const float weight = (other - 128.0f) / 128.0f;
                         sum += (other - here) * weight * weight;
                         count += 1;
                     }
                 const float mean = count > 0 ? sum / count : 0;
                 if (mean != 0)
-                    b[size_t(row * n + col)] = std::clamp(here + mean * 0.5f, 0.0f, bright);
+                    b[size_t(row * kN + col)] = std::clamp(here + mean * 0.5f, 0.0f, bright);
             }
-    std::array<uint8_t, n * n> out{};
+    std::array<uint8_t, kN * kN> out{};
     for (size_t i = 0; i < out.size(); ++i)
         out[i] = static_cast<uint8_t>(std::clamp(b[i], 0.0f, 255.0f)); // truncated (0x4dfd56 chops)
     return out;

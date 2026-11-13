@@ -26,14 +26,14 @@ public:
     };
 
     Error open(std::vector<uint8_t> data);
-    const std::vector<Segment> &segments() const { return segments_; }
+    const std::vector<Segment> &segments() const { return _segments; }
     // The segment starting at a file offset (as a map gives them), or -1.
     int segmentAt(uint32_t offset) const;
     Error decode(size_t segment, audio::Sound &out) const;
 
 private:
-    std::vector<uint8_t> data_;
-    std::vector<Segment> segments_;
+    std::vector<uint8_t> _data;
+    std::vector<Segment> _segments;
 };
 
 // A Pathfinder map (.map, and .lin for a linear order): for each segment,

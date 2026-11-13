@@ -37,7 +37,7 @@ public:
     // to the goal; empty if there's none (or the goal is under 3 cells
     // away). `allowTwos` when walking to a walk point.
     std::vector<WalkGrid::Cell> findPath(const WalkGrid &grid, WalkGrid::Cell from, WalkGrid::Cell to, bool allowTwos);
-    bool loaded() const { return object_ != 0; }
+    bool loaded() const { return _object != 0; }
     // The x87's precision control while the game's code runs: 53 bits
     // (Windows' default for a program), or 24 bits, as Direct3D 8 leaves
     // it after the game's CreateDevice (no D3DCREATE_FPU_PRESERVE:
@@ -45,9 +45,9 @@ public:
     void setSinglePrecision(bool on);
 
 private:
-    std::unique_ptr<x86::Cpu> cpu_;
-    std::unique_ptr<x86::Win32Process> process_;
-    uint32_t object_ = 0;
+    std::unique_ptr<x86::Cpu> _cpu;
+    std::unique_ptr<x86::Win32Process> _process;
+    uint32_t _object = 0;
 };
 
 } // namespace reluva::awe

@@ -48,9 +48,9 @@ std::vector<PlayerAnimation> parseAnimationConfig(std::string_view text) {
             continue; // sex, soundpath, blank lines
         PlayerAnimation a;
         a.name = name;
-        a.part = name.rfind("TORSO_", 0) == 0  ? PlayerAnimation::Part::Torso
-                 : name.rfind("LEGS_", 0) == 0 ? PlayerAnimation::Part::Legs
-                                               : PlayerAnimation::Part::Both;
+        a.part = name.rfind("TORSO_", 0) == 0  ? PlayerAnimation::Part::kTorso
+                 : name.rfind("LEGS_", 0) == 0 ? PlayerAnimation::Part::kLegs
+                                               : PlayerAnimation::Part::kBoth;
         a.first = first;
         a.count = std::max(count, 1);
         a.loop = loop;
@@ -61,14 +61,14 @@ std::vector<PlayerAnimation> parseAnimationConfig(std::string_view text) {
     int firstTorso = -1;
     int firstLegs = -1;
     for (const PlayerAnimation &a : out) {
-        if (a.part == PlayerAnimation::Part::Torso && firstTorso < 0)
+        if (a.part == PlayerAnimation::Part::kTorso && firstTorso < 0)
             firstTorso = a.first;
-        if (a.part == PlayerAnimation::Part::Legs && firstLegs < 0)
+        if (a.part == PlayerAnimation::Part::kLegs && firstLegs < 0)
             firstLegs = a.first;
     }
     if (firstTorso >= 0 && firstLegs > firstTorso)
         for (PlayerAnimation &a : out)
-            if (a.part == PlayerAnimation::Part::Legs)
+            if (a.part == PlayerAnimation::Part::kLegs)
                 a.first -= firstLegs - firstTorso;
     return out;
 }

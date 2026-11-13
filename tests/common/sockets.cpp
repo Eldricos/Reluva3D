@@ -23,51 +23,51 @@ namespace {
 constexpr uint32_t kLoopback = 0x7f000001;
 
 void testStream(net::Sockets &s) {
-    const int listener = s.open(net::Sockets::Stream);
+    const int listener = s.open(net::Sockets::kStream);
     CHECK(listener >= 0);
-    CHECK(s.bind(listener, {kLoopback, 0}) == Result::Ok);
-    CHECK(s.listen(listener, 5) == Result::Ok);
+    CHECK(s.bind(listener, {kLoopback, 0}) == Result::kOk);
+    CHECK(s.listen(listener, 5) == Result::kOk);
     net::Address at;
-    CHECK(s.localAddress(listener, at) == Result::Ok && at.ip == kLoopback && at.port != 0);
+    CHECK(s.localAddress(listener, at) == Result::kOk && at.ip == kLoopback && at.port != 0);
     int accepted = -1;
     net::Address from;
-    CHECK(s.accept(listener, accepted, from) == Result::WouldBlock); // nobody yet
+    CHECK(s.accept(listener, accepted, from) == Result::kWouldBlock); // nobody yet
 
     // A connection, under way until the socket's writable.
-    const int client = s.open(net::Sockets::Stream);
+    const int client = s.open(net::Sockets::kStream);
     const Result r = s.connect(client, at);
-    CHECK(r == Result::Ok || r == Result::InProgress);
+    CHECK(r == Result::kOk || r == Result::kInProgress);
     CHECK(s.ready(client, 2000).write);
     CHECK(s.ready(listener, 2000).read);
-    CHECK(s.accept(listener, accepted, from) == Result::Ok && accepted >= 0 && from.ip == kLoopback);
+    CHECK(s.accept(listener, accepted, from) == Result::kOk && accepted >= 0 && from.ip == kLoopback);
     net::Address peer;
-    CHECK(s.peerAddress(client, peer) == Result::Ok && peer == at);
+    CHECK(s.peerAddress(client, peer) == Result::kOk && peer == at);
 
     // Bytes one way: peeked, then read; nothing more until more come.
     const uint8_t hello[5] = {'h', 'e', 'l', 'l', 'o'};
     size_t done = 0;
-    CHECK(s.send(client, hello, 5, done) == Result::Ok && done == 5);
+    CHECK(s.send(client, hello, 5, done) == Result::kOk && done == 5);
     CHECK(s.ready(accepted, 2000).read);
     uint32_t pending = 0;
-    CHECK(s.pending(accepted, pending) == Result::Ok && pending == 5);
+    CHECK(s.pending(accepted, pending) == Result::kOk && pending == 5);
     uint8_t got[16] = {};
-    CHECK(s.receive(accepted, got, 2, done, true) == Result::Ok && done == 2 && got[0] == 'h');
-    CHECK(s.receive(accepted, got, sizeof got, done, false) == Result::Ok && done == 5 &&
+    CHECK(s.receive(accepted, got, 2, done, true) == Result::kOk && done == 2 && got[0] == 'h');
+    CHECK(s.receive(accepted, got, sizeof got, done, false) == Result::kOk && done == 5 &&
           std::memcmp(got, hello, 5) == 0);
-    CHECK(s.receive(accepted, got, sizeof got, done, false) == Result::WouldBlock);
+    CHECK(s.receive(accepted, got, sizeof got, done, false) == Result::kWouldBlock);
 
     // The client goes: the other end reads 0 bytes, the end.
     s.close(client);
     CHECK(s.ready(accepted, 2000).read);
-    CHECK(s.receive(accepted, got, sizeof got, done, false) == Result::Ok && done == 0);
+    CHECK(s.receive(accepted, got, sizeof got, done, false) == Result::kOk && done == 0);
     s.close(accepted);
     s.close(listener);
-    CHECK(s.send(listener, hello, 5, done) == Result::Invalid); // closed: no longer a socket
+    CHECK(s.send(listener, hello, 5, done) == Result::kInvalid); // closed: no longer a socket
 
     // Nothing listening: refused, as ready() shows.
-    const int lonely = s.open(net::Sockets::Stream);
+    const int lonely = s.open(net::Sockets::kStream);
     const Result c = s.connect(lonely, at);
-    if (c == Result::InProgress) {
+    if (c == Result::kInProgress) {
         // Windows tries a refused connect again before giving up, about two
         // seconds in all, so this waits longer than that.
         bool failed = false;
@@ -75,29 +75,29 @@ void testStream(net::Sockets &s) {
             failed = s.ready(lonely, 1000).failed;
         CHECK(failed);
     } else {
-        CHECK(c == Result::Refused);
+        CHECK(c == Result::kRefused);
     }
     s.close(lonely);
 }
 
 void testDatagrams(net::Sockets &s) {
-    const int a = s.open(net::Sockets::Datagram);
-    const int b = s.open(net::Sockets::Datagram);
-    CHECK(s.bind(a, {kLoopback, 0}) == Result::Ok && s.bind(b, {kLoopback, 0}) == Result::Ok);
-    CHECK(s.setOption(a, net::Sockets::Broadcast, 1) == Result::Ok);
+    const int a = s.open(net::Sockets::kDatagram);
+    const int b = s.open(net::Sockets::kDatagram);
+    CHECK(s.bind(a, {kLoopback, 0}) == Result::kOk && s.bind(b, {kLoopback, 0}) == Result::kOk);
+    CHECK(s.setOption(a, net::Sockets::kBroadcast, 1) == Result::kOk);
     net::Address atB;
     s.localAddress(b, atB);
     const uint8_t data[3] = {1, 2, 3};
-    CHECK(s.sendTo(a, atB, data, 3) == Result::Ok);
+    CHECK(s.sendTo(a, atB, data, 3) == Result::kOk);
     CHECK(s.ready(b, 2000).read);
     uint8_t got[8] = {};
     size_t done = 0;
     net::Address from;
     net::Address atA;
     s.localAddress(a, atA);
-    CHECK(s.receiveFrom(b, got, sizeof got, done, from, false) == Result::Ok && done == 3 && got[2] == 3 &&
+    CHECK(s.receiveFrom(b, got, sizeof got, done, from, false) == Result::kOk && done == 3 && got[2] == 3 &&
           from == atA);
-    CHECK(s.receiveFrom(b, got, sizeof got, done, from, false) == Result::WouldBlock);
+    CHECK(s.receiveFrom(b, got, sizeof got, done, from, false) == Result::kWouldBlock);
     s.close(a);
     s.close(b);
 }

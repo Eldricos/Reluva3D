@@ -50,7 +50,7 @@ constexpr int kClueSoundVolume = audio::kMaxVolume * 100 / 127;
 
 // Who plays a suspect, as the set-up screens choose.
 struct Player {
-    enum Kind { None, Human, Computer } kind = None;
+    enum Kind { kNone, kHuman, kComputer } kind = kNone;
     std::string name;
     int level = 1; // 0 novice, 1 normal, 2 expert
 };
@@ -75,33 +75,33 @@ public:
     bool canSave() const;
     // What the music is to do, once: -1 stop, 2-4 that track; 0 nothing.
     int takeMusicCue() {
-        const int cue = musicCue_;
-        musicCue_ = 0;
+        const int cue = _musicCue;
+        _musicCue = 0;
         return cue;
     }
     void save(std::ostream &out) const;
     Error load(std::istream &in); // in place of start()
-    void setLook(const PlayLook &look) { look_ = look; }
+    void setLook(const PlayLook &look) { _look = look; }
 
     void handleEvent(const Event &ev);
     void update(uint64_t nowMs);
     void draw();
     void stopSounds();
 
-    bool finished() const { return finished_; } // the end's Continue clicked
-    int turn() const { return game_.turn(); }
-    const Game &game() const { return game_; }
+    bool finished() const { return _finished; } // the end's Continue clicked
+    int turn() const { return _game.turn(); }
+    const Game &game() const { return _game; }
 
 private:
-    enum class Panel { None, Cards, Notepad };
+    enum class Panel { kNone, kCards, kNotepad };
     // A window of the game's over the view, waiting on a human.
     enum class Window {
-        None,
-        Choose,   // dialog 30: suggesting or accusing
-        Pick,     // dialog 32: a human disproving picks a card
-        Shown,    // dialog 33: the card shown to a human
-        Solution, // dialog 34: the case file's three cards
-        Loser,    // dialog 40: out; disproving by hand or not
+        kNone,
+        kChoose,   // dialog 30: suggesting or accusing
+        kPick,     // dialog 32: a human disproving picks a card
+        kShown,    // dialog 33: the card shown to a human
+        kSolution, // dialog 34: the case file's three cards
+        kLoser,    // dialog 40: out; disproving by hand or not
     };
     struct Walker {
         int x = 0, y = 0;                      // in the world
@@ -114,7 +114,7 @@ private:
 
     // The queue of what happens next, one step at a time, each when the
     // one before is over (a walk, a video, a window, a pause).
-    void then(std::function<void()> step) { steps_.push_back(std::move(step)); }
+    void then(std::function<void()> step) { _steps.push_back(std::move(step)); }
     void pause(int ms);
     bool busy() const;
     void runSteps();
@@ -191,65 +191,65 @@ private:
     void drawAnimation(const std::string &name, int x, int y, int frame = 0);
     std::vector<Mansion::Actor> actors();
 
-    System &sys_;
-    Surface &screen_;
-    const GameData &data_;
-    audio::Mixer *mixer_;
-    const Resi &resi_;
-    const Fonts &fonts_;
-    Mansion &mansion_;
-    const Level &level_;
-    PlayLook look_;
+    System &_sys;
+    Surface &_screen;
+    const GameData &_data;
+    audio::Mixer *_mixer;
+    const Resi &_resi;
+    const Fonts &_fonts;
+    Mansion &_mansion;
+    const Level &_level;
+    PlayLook _look;
 
-    Board board_;
-    Game game_;
-    std::array<Player, kSuspectCount> players_;
-    std::array<ComputerPlayer, kSuspectCount> ai_;
-    std::array<bool, kSuspectCount> autoDisprove_{}; // humans out who chose Automatically
+    Board _board;
+    Game _game;
+    std::array<Player, kSuspectCount> _players;
+    std::array<ComputerPlayer, kSuspectCount> _ai;
+    std::array<bool, kSuspectCount> _autoDisprove{}; // humans out who chose Automatically
     // Over a network: the session, each human's machine, the actions to
     // play out, and whether this machine's is on its way.
-    netplay::Session *net_ = nullptr;
-    std::array<int, kSuspectCount> owner_{};
-    std::deque<netplay::Command> incoming_;
-    bool pending_ = false;
-    bool awaitingShow_ = false; // a human's card to show, waited for
-    uint32_t seed_ = 0;
+    netplay::Session *_net = nullptr;
+    std::array<int, kSuspectCount> _owner{};
+    std::deque<netplay::Command> _incoming;
+    bool _pending = false;
+    bool _awaitingShow = false; // a human's card to show, waited for
+    uint32_t _seed = 0;
 
-    std::deque<std::function<void()>> steps_;
-    uint64_t now_ = 0, waitUntil_ = 0;
-    bool finished_ = false;
+    std::deque<std::function<void()>> _steps;
+    uint64_t _now = 0, _waitUntil = 0;
+    bool _finished = false;
 
     // The view.
-    int camX_ = 0, camY_ = 0;
-    int mouseX_ = 320, mouseY_ = 200;
-    int follow_ = -1; // the suspect the camera follows while walking
-    std::array<Walker, kSuspectCount> walkers_;
+    int _camX = 0, _camY = 0;
+    int _mouseX = 320, _mouseY = 200;
+    int _follow = -1; // the suspect the camera follows while walking
+    std::array<Walker, kSuspectCount> _walkers;
     // A computer player's next step, decided, and the waits made for it.
-    bool cpuPending_ = false;
-    ComputerPlayer::Action pendingAction_ = ComputerPlayer::Action::EndTurn;
-    int waits_ = 0;
+    bool _cpuPending = false;
+    ComputerPlayer::Action _pendingAction = ComputerPlayer::Action::kEndTurn;
+    int _waits = 0;
     // Clue.exe's walk grid: 32-unit cells, those under furniture, hot
     // spots, passages and walls blocked; and the secret passages (their
     // room, place and the way they face, 0 north ... 6 west).
-    std::set<std::pair<int, int>> blocked_;
+    std::set<std::pair<int, int>> _blocked;
     struct Passage {
         int room = kNoRoom, x = 0, y = 0, facing = 0;
     };
-    std::vector<Passage> passages_;
-    std::vector<Place> plan_; // a human's move being planned
-    uint64_t rollStart_ = 0;  // the die rolling, for its animation
+    std::vector<Passage> _passages;
+    std::vector<Place> _plan; // a human's move being planned
+    uint64_t _rollStart = 0;  // the die rolling, for its animation
 
     // The bar, the panels and the windows.
-    std::string ticker_;
-    uint64_t tickerSince_ = 0;
-    Surface tickerStrip_;
-    std::unique_ptr<BitmapFont> tickerFont_;
-    std::vector<std::string> tickerLines_;
-    std::vector<std::string> cardNames_;   // Notepad.txt's, in card order
-    std::array<std::string, 3> kindNames_; // its headings
-    Panel panel_ = Panel::None;
-    bool map_ = false; // the board seen from above, over the view
-    int panelOwner_ = -1;
+    std::string _ticker;
+    uint64_t _tickerSince = 0;
+    Surface _tickerStrip;
+    std::unique_ptr<BitmapFont> _tickerFont;
+    std::vector<std::string> _tickerLines;
+    std::vector<std::string> _cardNames;   // Notepad.txt's, in card order
+    std::array<std::string, 3> _kindNames; // its headings
+    Panel _panel = Panel::kNone;
+    bool _map = false; // the board seen from above, over the view
+    int _panelOwner = -1;
     // Each player's notepad: a row's colour (a suspect's, or -1), its two
     // marks (0 none, then tick, X, O, tick in O, X in O) and its note.
     struct NoteRow {
@@ -257,39 +257,39 @@ private:
         std::array<int, 2> marks{};
         std::string text;
     };
-    std::array<std::array<NoteRow, kCardCount>, kSuspectCount> notes_;
-    int editing_ = -1; // the card whose note is being typed
+    std::array<std::array<NoteRow, kCardCount>, kSuspectCount> _notes;
+    int _editing = -1; // the card whose note is being typed
     // What each human was shown, and by whom (for the notepad).
-    std::array<std::array<int, kCardCount>, kSuspectCount> shownBy_{};
-    Window window_ = Window::None;
-    std::unique_ptr<DialogView> dialog_;
-    std::unique_ptr<DialogView> told_; // dialog 31: who can or can't disprove
-    ResiDialog toldInfo_;              // its copy, with the suspect's background
-    bool chooseAccuse_ = false;
-    int choosePage_ = 0; // 0 suspect, 1 weapon, 2 room, 3 the summary
-    Accusation chosen_;
-    std::array<bool, 3> chosenSet_{};
-    std::vector<int> pickCards_;
-    int viewerOut_ = 0; // the human out, whom the loser's window asks
-    int solutionText_ = 3;
-    int pressedAction_ = -1;
+    std::array<std::array<int, kCardCount>, kSuspectCount> _shownBy{};
+    Window _window = Window::kNone;
+    std::unique_ptr<DialogView> _dialog;
+    std::unique_ptr<DialogView> _told; // dialog 31: who can or can't disprove
+    ResiDialog _toldInfo;              // its copy, with the suspect's background
+    bool _chooseAccuse = false;
+    int _choosePage = 0; // 0 suspect, 1 weapon, 2 room, 3 the summary
+    Accusation _chosen;
+    std::array<bool, 3> _chosenSet{};
+    std::vector<int> _pickCards;
+    int _viewerOut = 0; // the human out, whom the loser's window asks
+    int _solutionText = 3;
+    int _pressedAction = -1;
 
     // A suggestion's video, in the right column.
-    std::unique_ptr<Movie> video_;
-    audio::SoundHandle videoSound_ = audio::kNoSound;
-    uint64_t videoStart_ = 0;
+    std::unique_ptr<Movie> _video;
+    audio::SoundHandle _videoSound = audio::kNoSound;
+    uint64_t _videoStart = 0;
 
-    std::map<std::string, std::shared_ptr<audio::Sound>> sounds_;
+    std::map<std::string, std::shared_ptr<audio::Sound>> _sounds;
     // The weather and the sounds of things in the house.
-    int musicCue_ = 0; // for the front end: -1 stop the music, 2-4 play that track
-    std::mt19937 ambientRng_{12345};
+    int _musicCue = 0; // for the front end: -1 stop the music, 2-4 play that track
+    std::mt19937 _ambientRng{12345};
     // The weather's cycle (Clue.exe's 0x41C690): where in it, its step, the
     // ticks not yet run, the gust looping.
-    uint64_t lastAmbience_ = 0, weatherTickMs_ = 0;
-    int weatherMs_ = 0, weatherStep_ = 0;
-    audio::SoundHandle gust_ = audio::kNoSound;
-    std::array<audio::SoundHandle, 2> ambient_{audio::kNoSound, audio::kNoSound};
-    audio::SoundHandle voice_ = audio::kNoSound;
+    uint64_t _lastAmbience = 0, _weatherTickMs = 0;
+    int _weatherMs = 0, _weatherStep = 0;
+    audio::SoundHandle _gust = audio::kNoSound;
+    std::array<audio::SoundHandle, 2> _ambient{audio::kNoSound, audio::kNoSound};
+    audio::SoundHandle _voice = audio::kNoSound;
 };
 
 } // namespace reluva::clue

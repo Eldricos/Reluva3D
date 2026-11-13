@@ -40,10 +40,10 @@ public:
     Frame frame(const CvarStore &cvars);
 
 private:
-    uint32_t buttons_ = 0, lastButtons_ = 0; // JOY1 to JOY32 held
-    std::array<int32_t, 4> axes_{};          // -32768 to 32767
-    uint8_t hat_ = 0;
-    uint32_t lastWays_ = 0; // the axes' and hat's keys held (the original's bits)
+    uint32_t _buttons = 0, _lastButtons = 0; // JOY1 to JOY32 held
+    std::array<int32_t, 4> _axes{};          // -32768 to 32767
+    uint8_t _hat = 0;
+    uint32_t _lastWays = 0; // the axes' and hat's keys held (the original's bits)
 };
 
 } // namespace reluva::idtech3

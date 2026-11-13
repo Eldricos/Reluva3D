@@ -22,7 +22,7 @@ public:
     // Reads up to `size` bytes; returns how many were read.
     virtual uint32_t read(void *data, uint32_t size) = 0;
     virtual bool eos() const = 0;
-    bool err() const { return err_; }
+    bool err() const { return _err; }
 
     uint8_t readByte();
     uint16_t readUint16LE();
@@ -37,7 +37,7 @@ public:
     std::string readCString();
 
 protected:
-    bool err_ = false;
+    bool _err = false;
 };
 
 class SeekableReadStream : public ReadStream {
@@ -62,23 +62,23 @@ public:
     MemoryReadStream(std::shared_ptr<const std::vector<uint8_t>> buffer, uint32_t offset, uint32_t size);
 
     uint32_t read(void *data, uint32_t size) override;
-    bool eos() const override { return eos_; }
-    int64_t pos() const override { return pos_; }
-    int64_t size() const override { return size_; }
+    bool eos() const override { return _eos; }
+    int64_t pos() const override { return _pos; }
+    int64_t size() const override { return _size; }
     bool seek(int64_t offset, int whence = SEEK_SET) override;
-    const uint8_t *data() const { return buffer_->data() + offset_; }
+    const uint8_t *data() const { return _buffer->data() + _offset; }
 
 private:
-    std::shared_ptr<const std::vector<uint8_t>> buffer_;
-    uint32_t offset_, size_, pos_ = 0;
-    bool eos_ = false;
+    std::shared_ptr<const std::vector<uint8_t>> _buffer;
+    uint32_t _offset, _size, _pos = 0;
+    bool _eos = false;
 };
 
 // Bytes written in order, with little-endian values.
 class MemoryWriteStream {
 public:
     void write(const void *data, uint32_t size);
-    void writeByte(uint8_t v) { data_.push_back(v); }
+    void writeByte(uint8_t v) { _data.push_back(v); }
     void writeUint16LE(uint16_t v);
     void writeUint32LE(uint32_t v);
     void writeUint16BE(uint16_t v);
@@ -87,11 +87,11 @@ public:
     void writeString(const std::string &s) { write(s.data(), uint32_t(s.size())); }
     // A string in a field of `size` bytes, padded with NULs (cut if longer).
     void writeFixedString(const std::string &s, uint32_t size);
-    const std::vector<uint8_t> &data() const { return data_; }
-    uint32_t size() const { return uint32_t(data_.size()); }
+    const std::vector<uint8_t> &data() const { return _data; }
+    uint32_t size() const { return uint32_t(_data.size()); }
 
 private:
-    std::vector<uint8_t> data_;
+    std::vector<uint8_t> _data;
 };
 
 // A whole file into memory, and back; false if it can't be read (written).

@@ -36,10 +36,10 @@ std::vector<std::string> names(const std::string &list) {
 } // namespace
 
 const Table &ScenePage::itemTable(const char *file) const {
-    Table &t = itemTables_[file];
+    Table &t = _itemTables[file];
     if (t.headings.empty()) {
         std::vector<uint8_t> data;
-        if (!ctx_.files.read(std::string("text/") + file, data))
+        if (!_ctx.files.read(std::string("text/") + file, data))
             t = parseTable(decodeText(data));
     }
     return t;
@@ -49,26 +49,26 @@ bool ScenePage::useItem(const std::string &item, const Ac2Record &target) {
     // In hand (state 3) while the target's scripts are looked at; what
     // matches runs as the inventory's scripts do (0x419f20).
     const std::string name = fs::toLower(item);
-    if (state_.held != name) {
-        if (!state_.itemAvailable(name))
+    if (_state.held != name) {
+        if (!_state.itemAvailable(name))
             return false;
         holdItem(name);
     }
     auto release = [&](int to) {
         // The one in hand.
-        if (GameState::Item *i = state_.findItem(name, {3}))
+        if (GameState::Item *i = _state.findItem(name, {3}))
             i->state = to;
-        state_.held.clear();
+        _state.held.clear();
     };
     // The first of its conditional scripts whose condition has "use" in it
     // and holds (0x40e7e0 in use mode): the item is used up, unless the
     // script has "restore this".
     if (const Ac2Value *alternatives = target.field("listB"))
         for (const auto &[condition, run] : alternatives->pairs)
-            if (fs::toLower(condition).find("use") != std::string::npos && testCondition(condition, state_)) {
+            if (fs::toLower(condition).find("use") != std::string::npos && testCondition(condition, _state)) {
                 release(fs::toLower(run).find("restore this") != std::string::npos ? 2 : 4);
                 logScript("use " + name + ": " + run);
-                scriptObject_ = &target;
+                _scriptObject = &target;
                 runFromInventory(run, false);
                 return true;
             }
@@ -81,7 +81,7 @@ bool ScenePage::useItem(const std::string &item, const Ac2Record &target) {
         for (size_t r = 0; r < t.rows.size(); r++) {
             if (fs::toLower(unquoted(t.cell(r, 0))) != name ||
                 model.find(fs::toLower(unquoted(t.cell(r, 1))) + "_model") == std::string::npos ||
-                !testCondition(unquoted(t.cell(r, 2)), state_))
+                !testCondition(unquoted(t.cell(r, 2)), _state))
                 continue;
             release(4);
             logScript("use " + name + ": " + unquoted(t.cell(r, 3)));
@@ -97,10 +97,10 @@ bool ScenePage::useItem(const std::string &item, const Ac2Record &target) {
 
 bool ScenePage::combineItems(const std::vector<std::string> &parts) {
     // As the combine page does with the parts in its boxes (0x418a50).
-    for (std::string &box : ui_.boxes)
+    for (std::string &box : _ui.boxes)
         box.clear();
     for (size_t i = 0; i < parts.size() && i < 4; i++)
-        ui_.boxes[i] = fs::toLower(parts[i]);
+        _ui.boxes[i] = fs::toLower(parts[i]);
     return combine();
 }
 
@@ -112,9 +112,9 @@ std::vector<std::vector<std::string>> ScenePage::combinations() {
     for (size_t r = 0; r < t.rows.size(); r++) {
         const std::vector<std::string> want = names(t.cell(r, 0));
         if (want.size() < 2 || want.size() > 4 || std::atoi(unquoted(t.cell(r, 3)).c_str()) == 0 ||
-            !testCondition(unquoted(t.cell(r, 4)), state_))
+            !testCondition(unquoted(t.cell(r, 4)), _state))
             continue;
-        if (std::all_of(want.begin(), want.end(), [&](const std::string &p) { return state_.itemAvailable(p); }))
+        if (std::all_of(want.begin(), want.end(), [&](const std::string &p) { return _state.itemAvailable(p); }))
             out.push_back(want);
     }
     return out;
@@ -127,17 +127,17 @@ std::vector<std::string> ScenePage::decombinable() {
     const Table &t = itemTable("combinelist.txt");
     for (size_t r = 0; r < t.rows.size(); r++) {
         const std::string result = fs::toLower(unquoted(t.cell(r, 1)));
-        if (std::atoi(unquoted(t.cell(r, 2)).c_str()) != 0 && state_.itemAvailable(result) &&
-            testCondition(unquoted(t.cell(r, 4)), state_) && std::find(out.begin(), out.end(), result) == out.end())
+        if (std::atoi(unquoted(t.cell(r, 2)).c_str()) != 0 && _state.itemAvailable(result) &&
+            testCondition(unquoted(t.cell(r, 4)), _state) && std::find(out.begin(), out.end(), result) == out.end())
             out.push_back(result);
     }
     return out;
 }
 
 bool ScenePage::decombineItem(const std::string &item) {
-    for (std::string &box : ui_.boxes)
+    for (std::string &box : _ui.boxes)
         box.clear();
-    ui_.boxes[4] = fs::toLower(item);
+    _ui.boxes[4] = fs::toLower(item);
     return combine();
 }
 
@@ -156,7 +156,7 @@ std::vector<std::string> ScenePage::itemsFor(size_t i) {
                     continue;
                 std::string item = c.substr(at + 4);
                 item = item.substr(0, item.find_first_of(" ,|)"));
-                if (state_.itemAvailable(item) && std::find(out.begin(), out.end(), item) == out.end())
+                if (_state.itemAvailable(item) && std::find(out.begin(), out.end(), item) == out.end())
                     out.push_back(item);
             }
         }
@@ -166,7 +166,7 @@ std::vector<std::string> ScenePage::itemsFor(size_t i) {
         for (size_t r = 0; r < t.rows.size(); r++) {
             const std::string item = fs::toLower(unquoted(t.cell(r, 0)));
             if (model.find(fs::toLower(unquoted(t.cell(r, 1))) + "_model") != std::string::npos &&
-                state_.itemAvailable(item) && std::find(out.begin(), out.end(), item) == out.end())
+                _state.itemAvailable(item) && std::find(out.begin(), out.end(), item) == out.end())
                 out.push_back(item);
         }
     }
@@ -189,10 +189,10 @@ bool ScenePage::useOn(const std::string &item, size_t i) {
     const std::vector<const Ac2Record *> objects = clickableObjects();
     if (i >= objects.size())
         return false;
-    if (!runner_->idle())
-        runner_->clear();
+    if (!_runner->idle())
+        _runner->clear();
     releaseHeld();
-    runner_->setFromCharacter(objects[i]->tag == "NPCX");
+    _runner->setFromCharacter(objects[i]->tag == "NPCX");
     return useItem(item, *objects[i]);
 }
 

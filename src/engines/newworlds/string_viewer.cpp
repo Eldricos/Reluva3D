@@ -89,37 +89,37 @@ std::vector<Piece> piecesOf(const std::string &text) {
 } // namespace
 
 StringViewer::StringViewer(System &sys, Surface &screen, const Archives &archives)
-    : sys_(sys), screen_(screen), archives_(archives) {
+    : _sys(sys), _screen(screen), _archives(archives) {
     // misc.cat stores one table (str/eng/frend.stb) with the texture tag, so
     // go by name as well as tag.
-    for (size_t a = 0; a < archives_.size(); ++a) {
-        const auto &entries = archives_[a]->entries();
+    for (size_t a = 0; a < _archives.size(); ++a) {
+        const auto &entries = _archives[a]->entries();
         for (size_t i = 0; i < entries.size(); ++i)
-            if (!entries[i].container && (entries[i].tag == cattag::Strings || endsWith(entries[i].name, ".stb")))
-                tables_.push_back({a, i});
+            if (!entries[i].container && (entries[i].tag == cattag::kStrings || endsWith(entries[i].name, ".stb")))
+                _tables.push_back({a, i});
     }
-    fonts_ = loadGameFonts(archives_);
+    _fonts = loadGameFonts(_archives);
 }
 
 int StringViewer::measure(std::string_view text) const {
-    if (font_ < 0)
-        return int(font::length(text)) * font::kAdvance * scale_;
-    return fonts_[size_t(font_)].textWidth(text) * scale_;
+    if (_font < 0)
+        return int(font::length(text)) * font::kAdvance * _scale;
+    return _fonts[size_t(_font)].textWidth(text) * _scale;
 }
 
 int StringViewer::lineHeight() const {
-    return (font_ < 0 ? font::kLineHeight : fonts_[size_t(font_)].lineHeight) * scale_;
+    return (_font < 0 ? font::kLineHeight : _fonts[size_t(_font)].lineHeight) * _scale;
 }
 
 int StringViewer::drawSpan(int x, int y, std::string_view text, Color color) {
-    if (font_ < 0)
-        return font::drawText(screen_, x, y, text, color, scale_);
-    return fonts_[size_t(font_)].drawText(screen_, x, y, text, color, scale_);
+    if (_font < 0)
+        return font::drawText(_screen, x, y, text, color, _scale);
+    return _fonts[size_t(_font)].drawText(_screen, x, y, text, color, _scale);
 }
 
 void StringViewer::activate() {
-    if (!shown_) {
-        shown_ = true;
+    if (!_shown) {
+        _shown = true;
         show(0);
         return;
     }
@@ -128,51 +128,51 @@ void StringViewer::activate() {
 }
 
 int StringViewer::rows() const {
-    return std::max(1, (screen_.h - 2 * kMargin) / lineHeight());
+    return std::max(1, (_screen.h - 2 * kMargin) / lineHeight());
 }
 
 void StringViewer::handleKey(uint32_t k) {
-    const int n = int(tables_.size());
+    const int n = int(_tables.size());
     if (n == 0)
         return;
-    const int last = std::max(0, int(lines_.size()) - rows());
+    const int last = std::max(0, int(_lines.size()) - rows());
     switch (k) {
-    case key::Right:
-        show((current_ + 1) % n);
+    case key::kRight:
+        show((_current + 1) % n);
         return;
-    case key::Left:
-        show((current_ + n - 1) % n);
+    case key::kLeft:
+        show((_current + n - 1) % n);
         return;
-    case key::Down:
-        top_ = std::min(top_ + 1, last);
+    case key::kDown:
+        _top = std::min(_top + 1, last);
         break;
-    case key::Up:
-        top_ = std::max(top_ - 1, 0);
+    case key::kUp:
+        _top = std::max(_top - 1, 0);
         break;
-    case key::PageDown:
-        top_ = std::min(top_ + rows() - 1, last);
+    case key::kPageDown:
+        _top = std::min(_top + rows() - 1, last);
         break;
-    case key::PageUp:
-        top_ = std::max(top_ - (rows() - 1), 0);
+    case key::kPageUp:
+        _top = std::max(_top - (rows() - 1), 0);
         break;
-    case key::Home:
-        top_ = 0;
+    case key::kHome:
+        _top = 0;
         break;
-    case key::End:
-        top_ = last;
+    case key::kEnd:
+        _top = last;
         break;
     case '+':
     case '=':
-        scale_ = std::min(scale_ + 1, 3);
+        _scale = std::min(_scale + 1, 3);
         layout();
         break;
     case '-':
-        scale_ = std::max(scale_ - 1, 1);
+        _scale = std::max(_scale - 1, 1);
         layout();
         break;
     case 'f':
         // The next font: the built-in one, then each of the game's.
-        font_ = font_ + 1 < int(fonts_.size()) ? font_ + 1 : -1;
+        _font = _font + 1 < int(_fonts.size()) ? _font + 1 : -1;
         layout();
         break;
     default:
@@ -183,32 +183,32 @@ void StringViewer::handleKey(uint32_t k) {
 }
 
 void StringViewer::show(int index) {
-    current_ = index;
-    top_ = 0;
-    status_.clear();
-    const EntryRef &ref = tables_[size_t(index)];
-    CatArchive &cat = *archives_[ref.archive];
+    _current = index;
+    _top = 0;
+    _status.clear();
+    const EntryRef &ref = _tables[size_t(index)];
+    CatArchive &cat = *_archives[ref.archive];
     std::vector<uint8_t> data;
     if (Error err = cat.read(cat.entries()[ref.entry], data))
-        status_ = err.message;
-    else if (Error err2 = table_.parse(data))
-        status_ = err2.message;
-    if (!status_.empty())
-        table_ = StringTable{};
+        _status = err.message;
+    else if (Error err2 = _table.parse(data))
+        _status = err2.message;
+    if (!_status.empty())
+        _table = StringTable{};
     layout();
     draw();
     updateTitle();
 }
 
 void StringViewer::layout() {
-    lines_.clear();
+    _lines.clear();
     const int idWidth = measure("9999 ");
-    const int width = std::max(measure("MMMMMMMMMM"), screen_.w - 2 * kMargin - idWidth);
-    for (const StringTable::String &s : table_.strings()) {
+    const int width = std::max(measure("MMMMMMMMMM"), _screen.w - 2 * kMargin - idWidth);
+    for (const StringTable::String &s : _table.strings()) {
         Line line{std::to_string(s.id), {}};
         int used = 0; // pixels on this line after the id column
         auto newLine = [&] {
-            lines_.push_back(std::move(line));
+            _lines.push_back(std::move(line));
             line = Line{};
             used = 0;
         };
@@ -242,24 +242,24 @@ void StringViewer::layout() {
             used += measure(part);
             line.spans.push_back({std::move(part), p.color});
         }
-        lines_.push_back(std::move(line));
+        _lines.push_back(std::move(line));
     }
-    top_ = std::min(top_, std::max(0, int(lines_.size()) - rows()));
+    _top = std::min(_top, std::max(0, int(_lines.size()) - rows()));
 }
 
 void StringViewer::draw() {
-    for (int y = 0; y < screen_.h; ++y) {
-        uint8_t *row = screen_.row(y);
-        for (int x = 0; x < screen_.w; ++x, row += 4)
+    for (int y = 0; y < _screen.h; ++y) {
+        uint8_t *row = _screen.row(y);
+        for (int x = 0; x < _screen.w; ++x, row += 4)
             row[0] = kBackground.r, row[1] = kBackground.g, row[2] = kBackground.b, row[3] = 255;
     }
-    if (!status_.empty()) {
-        font::drawText(screen_, kMargin, kMargin, status_, kHeadingColor, scale_);
+    if (!_status.empty()) {
+        font::drawText(_screen, kMargin, kMargin, _status, kHeadingColor, _scale);
         return;
     }
     const int idWidth = measure("9999 ");
-    for (int r = 0; r < rows() && top_ + r < int(lines_.size()); ++r) {
-        const Line &line = lines_[size_t(top_ + r)];
+    for (int r = 0; r < rows() && _top + r < int(_lines.size()); ++r) {
+        const Line &line = _lines[size_t(_top + r)];
         const int y = kMargin + r * lineHeight();
         // Ids right-aligned in their column.
         drawSpan(kMargin + idWidth - measure(line.id + " "), y, line.id, kIdColor);
@@ -270,23 +270,23 @@ void StringViewer::draw() {
 }
 
 void StringViewer::updateTitle() {
-    if (tables_.empty())
+    if (_tables.empty())
         return;
-    const EntryRef &ref = tables_[size_t(current_)];
-    std::string title = "New Worlds strings " + std::to_string(current_ + 1) + "/" + std::to_string(tables_.size()) +
-                        ": " + archives_[ref.archive]->entries()[ref.entry].name + " in " +
-                        archives_[ref.archive]->path().filename().string() + " (";
-    if (!status_.empty()) {
-        title += status_ + ")";
+    const EntryRef &ref = _tables[size_t(_current)];
+    std::string title = "New Worlds strings " + std::to_string(_current + 1) + "/" + std::to_string(_tables.size()) +
+                        ": " + _archives[ref.archive]->entries()[ref.entry].name + " in " +
+                        _archives[ref.archive]->path().filename().string() + " (";
+    if (!_status.empty()) {
+        title += _status + ")";
     } else {
-        title += std::to_string(table_.strings().size()) + " strings)";
-        title += font_ < 0 ? " [built-in font]" : " [font " + fonts_[size_t(font_)].name + "]";
-        if (int(lines_.size()) > rows())
-            title += " lines " + std::to_string(top_ + 1) + "-" +
-                     std::to_string(std::min(top_ + rows(), int(lines_.size()))) + " of " +
-                     std::to_string(lines_.size());
+        title += std::to_string(_table.strings().size()) + " strings)";
+        title += _font < 0 ? " [built-in font]" : " [font " + _fonts[size_t(_font)].name + "]";
+        if (int(_lines.size()) > rows())
+            title += " lines " + std::to_string(_top + 1) + "-" +
+                     std::to_string(std::min(_top + rows(), int(_lines.size()))) + " of " +
+                     std::to_string(_lines.size());
     }
-    sys_.setWindowTitle(title);
+    _sys.setWindowTitle(title);
 }
 
 } // namespace reluva::newworlds

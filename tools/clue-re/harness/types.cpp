@@ -4,7 +4,7 @@
 #include <map>
 using namespace reluva; using namespace reluva::clue;
 int main(int argc, char** argv) {
-    GameData data; data.open(argv[1], Language::US);
+    GameData data; data.open(argv[1], Language::kUS);
     DataDrive f; f.open(*data.find("clue.lvl")); Level lvl; parseLevel(f, lvl);
     std::map<int, std::map<std::string,int>> t;
     for (auto& p : lvl.placements) { const ObjectDef* o = data.object(lvl.objects[p.object]); if (o) t[o->type][lvl.objects[p.object].substr(0, lvl.objects[p.object].find(':'))]++; }

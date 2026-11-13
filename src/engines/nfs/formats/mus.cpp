@@ -26,24 +26,24 @@ constexpr size_t kMapHeader = 12, kSectionSize = 28, kEventSize = 16;
 } // namespace
 
 Error MusicStream::open(std::vector<uint8_t> data) {
-    data_ = std::move(data);
-    segments_.clear();
+    _data = std::move(data);
+    _segments.clear();
     auto bad = [](const std::string &why) { return Error::fail("Not a valid .mus file: " + why); };
     // Chunks: 4-character tag, u32 size (the 8 bytes included).
     size_t at = 0;
     Segment *current = nullptr;
-    while (at + 8 <= data_.size()) {
-        const uint32_t size = le32(&data_[at + 4]);
-        if (size < 8 || at + size > data_.size())
+    while (at + 8 <= _data.size()) {
+        const uint32_t size = le32(&_data[at + 4]);
+        if (size < 8 || at + size > _data.size())
             return bad("a chunk runs past the end");
-        const char *tag = reinterpret_cast<const char *>(&data_[at]);
+        const char *tag = reinterpret_cast<const char *>(&_data[at]);
         if (std::memcmp(tag, "SCHl", 4) == 0) {
             Segment s;
             s.offset = static_cast<uint32_t>(at);
-            if (Error err = parseSoundHeader(data_.data(), at + size, at + 8, s.header))
+            if (Error err = parseSoundHeader(_data.data(), at + size, at + 8, s.header))
                 return bad(err.message);
-            segments_.push_back(std::move(s));
-            current = &segments_.back();
+            _segments.push_back(std::move(s));
+            current = &_segments.back();
         } else if (std::memcmp(tag, "SCDl", 4) == 0) {
             if (!current)
                 return bad("data before a header");
@@ -54,30 +54,30 @@ Error MusicStream::open(std::vector<uint8_t> data) {
         // SCCl (the block count) and anything else: nothing to keep.
         at += size;
     }
-    if (at != data_.size())
+    if (at != _data.size())
         return bad("it ends inside a chunk");
     return Error::success();
 }
 
 int MusicStream::segmentAt(uint32_t offset) const {
-    for (size_t i = 0; i < segments_.size(); ++i)
-        if (segments_[i].offset == offset)
+    for (size_t i = 0; i < _segments.size(); ++i)
+        if (_segments[i].offset == offset)
             return static_cast<int>(i);
     return -1;
 }
 
 Error MusicStream::decode(size_t index, audio::Sound &out) const {
     out = {};
-    if (index >= segments_.size())
+    if (index >= _segments.size())
         return Error::fail("no segment " + std::to_string(index));
-    const Segment &s = segments_[index];
+    const Segment &s = _segments[index];
     out.rate = s.header.rate;
     out.channels = s.header.channels;
     if (s.header.channels != 2)
         return Error::fail("only stereo music is known");
     out.samples.reserve(size_t(s.header.samples) * 2);
     for (const auto &[offset, size] : s.blocks) {
-        const uint8_t *p = data_.data() + offset;
+        const uint8_t *p = _data.data() + offset;
         if (s.header.compression == SoundHeader::kEaXa) {
             out.format = audio::kFormatEaXa;
             if (Error err = audio::decodeEaXaStereoBlock(p, size, out.samples))

@@ -46,15 +46,15 @@ float num(const std::vector<std::string> &args, size_t i, float fallback = 0) {
 }
 
 bool waveFunc(const std::string &name, gfx::WaveFunc &out) {
-    static const std::pair<const char *, gfx::WaveFunc> funcs[] = {
-        {"sin", gfx::WaveFunc::Sin},
-        {"triangle", gfx::WaveFunc::Triangle},
-        {"square", gfx::WaveFunc::Square},
-        {"sawtooth", gfx::WaveFunc::Sawtooth},
-        {"inversesawtooth", gfx::WaveFunc::InverseSawtooth},
-        {"noise", gfx::WaveFunc::Noise},
+    static const std::pair<const char *, gfx::WaveFunc> kFuncs[] = {
+        {"sin", gfx::WaveFunc::kSin},
+        {"triangle", gfx::WaveFunc::kTriangle},
+        {"square", gfx::WaveFunc::kSquare},
+        {"sawtooth", gfx::WaveFunc::kSawtooth},
+        {"inversesawtooth", gfx::WaveFunc::kInverseSawtooth},
+        {"noise", gfx::WaveFunc::kNoise},
     };
-    for (const auto &[n, f] : funcs)
+    for (const auto &[n, f] : kFuncs)
         if (lower(name) == n) {
             out = f;
             return true;
@@ -107,80 +107,81 @@ bool applyStageDirective(ShaderStage &stage, const Directive &d) {
         }
     } else if (d.keyword == "rgbgen") {
         using R = ShaderStage::RgbGen;
-        static const std::pair<const char *, R> gens[] = {
-            {"identity", R::Identity},
-            {"identitylighting", R::IdentityLighting},
-            {"vertex", R::Vertex},
-            {"exactvertex", R::ExactVertex},
-            {"oneminusvertex", R::OneMinusVertex},
-            {"lightingdiffuse", R::LightingDiffuse},
-            {"wave", R::Wave},
-            {"const", R::Const},
-            {"entity", R::Entity},
-            {"oneminusentity", R::OneMinusEntity},
+        static const std::pair<const char *, R> kGens[] = {
+            {"identity", R::kIdentity},
+            {"identitylighting", R::kIdentityLighting},
+            {"vertex", R::kVertex},
+            {"exactvertex", R::kExactVertex},
+            {"oneminusvertex", R::kOneMinusVertex},
+            {"lightingdiffuse", R::kLightingDiffuse},
+            {"wave", R::kWave},
+            {"const", R::kConst},
+            {"entity", R::kEntity},
+            {"oneminusentity", R::kOneMinusEntity},
         };
-        for (const auto &[n, g] : gens)
+        for (const auto &[n, g] : kGens)
             if (a0 == n)
                 stage.rgbGen = g;
-        if (stage.rgbGen == R::Wave)
+        if (stage.rgbGen == R::kWave)
             stage.rgbWave = readWave(args, 1);
-        else if (stage.rgbGen == R::Const)
+        else if (stage.rgbGen == R::kConst)
             stage.rgbConst = {num(args, 1), num(args, 2), num(args, 3)};
     } else if (d.keyword == "alphagen") {
         using A = ShaderStage::AlphaGen;
-        static const std::pair<const char *, A> gens[] = {
-            {"identity", A::Identity},
-            {"vertex", A::Vertex},
-            {"oneminusvertex", A::OneMinusVertex},
-            {"wave", A::Wave},
-            {"const", A::Const},
-            {"entity", A::Entity},
-            {"oneminusentity", A::OneMinusEntity},
-            {"lightingspecular", A::LightingSpecular},
-            {"portal", A::Portal},
+        static const std::pair<const char *, A> kGens[] = {
+            {"identity", A::kIdentity},
+            {"vertex", A::kVertex},
+            {"oneminusvertex", A::kOneMinusVertex},
+            {"wave", A::kWave},
+            {"const", A::kConst},
+            {"entity", A::kEntity},
+            {"oneminusentity", A::kOneMinusEntity},
+            {"lightingspecular", A::kLightingSpecular},
+            {"portal", A::kPortal},
         };
-        for (const auto &[n, g] : gens)
+        for (const auto &[n, g] : kGens)
             if (a0 == n)
                 stage.alphaGen = g;
-        if (stage.alphaGen == A::Wave)
+        if (stage.alphaGen == A::kWave)
             stage.alphaWave = readWave(args, 1);
-        else if (stage.alphaGen == A::Const)
+        else if (stage.alphaGen == A::kConst)
             stage.alphaConst = num(args, 1, 1);
-        else if (stage.alphaGen == A::Portal)
+        else if (stage.alphaGen == A::kPortal)
             stage.portalRange = num(args, 1, 256);
     } else if (d.keyword == "tcgen" || d.keyword == "texgen") {
         using T = ShaderStage::TcGen;
         if (a0 == "base" || a0 == "texture")
-            stage.tcGen = T::Base;
+            stage.tcGen = T::kBase;
         else if (a0 == "lightmap")
-            stage.tcGen = T::Lightmap;
+            stage.tcGen = T::kLightmap;
         else if (a0 == "environment")
-            stage.tcGen = T::Environment;
+            stage.tcGen = T::kEnvironment;
         else if (a0 == "vector") {
-            stage.tcGen = T::Vector;
+            stage.tcGen = T::kVector;
             stage.tcVectors = {
                 {{num(args, 1), num(args, 2), num(args, 3)}, {num(args, 4), num(args, 5), num(args, 6)}}};
         }
     } else if (d.keyword == "tcmod") {
         using M = ShaderStage::TcMod::Type;
-        ShaderStage::TcMod m{M::EntityTranslate, {}, {}};
+        ShaderStage::TcMod m{M::kEntityTranslate, {}, {}};
         if (a0 == "rotate")
-            m = {M::Rotate, {num(args, 1)}, {}};
+            m = {M::kRotate, {num(args, 1)}, {}};
         else if (a0 == "scale")
-            m = {M::Scale, {num(args, 1), num(args, 2)}, {}};
+            m = {M::kScale, {num(args, 1), num(args, 2)}, {}};
         else if (a0 == "scroll")
-            m = {M::Scroll, {num(args, 1), num(args, 2)}, {}};
+            m = {M::kScroll, {num(args, 1), num(args, 2)}, {}};
         else if (a0 == "stretch")
-            m = {M::Stretch, {}, readWave(args, 1)};
+            m = {M::kStretch, {}, readWave(args, 1)};
         else if (a0 == "transform")
-            m = {
-                M::Transform, {num(args, 1), num(args, 2), num(args, 3), num(args, 4), num(args, 5), num(args, 6)}, {}};
+            m = {M::kTransform,
+                 {num(args, 1), num(args, 2), num(args, 3), num(args, 4), num(args, 5), num(args, 6)},
+                 {}};
         else if (a0 == "turb") {
             // "turb [sin] <base> <amplitude> <phase> <frequency>": the
             // function name is optional.
             gfx::WaveFunc f;
             const size_t at = args.size() > 1 && waveFunc(args[1], f) ? 2 : 1;
-            m = {M::Turb, {}, {}};
+            m = {M::kTurb, {}, {}};
             m.wave.base = num(args, at);
             m.wave.amplitude = num(args, at + 1);
             m.wave.phase = num(args, at + 2);
@@ -189,10 +190,10 @@ bool applyStageDirective(ShaderStage &stage, const Directive &d) {
             return false;
         stage.tcMods.push_back(m);
     } else if (d.keyword == "alphafunc") {
-        stage.alphaFunc = a0 == "gt0"     ? gfx::AlphaTest::Gt0
-                          : a0 == "lt128" ? gfx::AlphaTest::Lt128
-                          : a0 == "ge128" ? gfx::AlphaTest::Ge128
-                                          : gfx::AlphaTest::None;
+        stage.alphaFunc = a0 == "gt0"     ? gfx::AlphaTest::kGt0
+                          : a0 == "lt128" ? gfx::AlphaTest::kLt128
+                          : a0 == "ge128" ? gfx::AlphaTest::kGe128
+                                          : gfx::AlphaTest::kNone;
     } else if (d.keyword == "depthfunc") {
         stage.depthEqual = a0 == "equal";
     } else if (d.keyword == "depthwrite") {
@@ -223,49 +224,49 @@ bool applyShaderDirective(ShaderDef &def, const Directive &d) {
         def.fogDistance = num(args, 3);
     } else if (d.keyword == "cull") {
         if (a0 == "none" || a0 == "disable" || a0 == "twosided")
-            def.cull = ShaderDef::Cull::None;
+            def.cull = ShaderDef::Cull::kNone;
         else if (a0 == "back" || a0 == "backside" || a0 == "backsided")
-            def.cull = ShaderDef::Cull::Back;
+            def.cull = ShaderDef::Cull::kBack;
         else
-            def.cull = ShaderDef::Cull::Front;
+            def.cull = ShaderDef::Cull::kFront;
     } else if (d.keyword == "deformvertexes") {
         using T = ShaderDeform::Type;
         ShaderDeform df;
         if (a0 == "wave") {
-            df.type = T::Wave;
+            df.type = T::kWave;
             const float div = num(args, 1);
             df.spread = div == 0 ? 100.0f : 1.0f / div; // as the original treats a 0
             df.wave = readWave(args, 2);
         } else if (a0 == "normal") {
-            df.type = T::Normal;
+            df.type = T::kNormal;
             df.wave.amplitude = num(args, 1);
             df.wave.frequency = num(args, 2);
         } else if (a0 == "bulge") {
-            df.type = T::Bulge;
+            df.type = T::kBulge;
             df.width = num(args, 1);
             df.height = num(args, 2);
             df.speed = num(args, 3);
         } else if (a0 == "move") {
-            df.type = T::Move;
+            df.type = T::kMove;
             df.vector = {num(args, 1), num(args, 2), num(args, 3)};
             df.wave = readWave(args, 4);
         } else if (a0 == "autosprite") {
-            df.type = T::Autosprite;
+            df.type = T::kAutosprite;
         } else if (a0 == "autosprite2") {
-            df.type = T::Autosprite2;
+            df.type = T::kAutosprite2;
         } else if (a0.rfind("text", 0) == 0) {
-            df.type = T::Text;
+            df.type = T::kText;
         } else if (a0 == "projectionshadow") {
-            df.type = T::ProjectionShadow;
+            df.type = T::kProjectionShadow;
         }
         def.deforms.push_back(df);
     } else if (d.keyword == "sort") {
-        static const std::pair<const char *, float> keys[] = {
+        static const std::pair<const char *, float> kEys[] = {
             {"portal", 1}, {"sky", 2},       {"opaque", 3},   {"decal", 4},      {"seethrough", 5},
             {"banner", 6}, {"additive", 10}, {"nearest", 16}, {"underwater", 8},
         };
         def.sort = num(args, 0);
-        for (const auto &[n, k] : keys)
+        for (const auto &[n, k] : kEys)
             if (a0 == n)
                 def.sort = k;
     } else if (d.keyword == "polygonoffset") {
@@ -355,8 +356,8 @@ std::string findImage(const SearchSet &files, std::string_view name) {
 }
 
 void ShaderLibrary::add(ShaderDef def) {
-    if (byName_.try_emplace(normalizeArchiveName(def.name), shaders_.size()).second)
-        shaders_.push_back(std::move(def));
+    if (_byName.try_emplace(normalizeArchiveName(def.name), _shaders.size()).second)
+        _shaders.push_back(std::move(def));
 }
 
 const ShaderDef *ShaderLibrary::find(std::string_view name) const {
@@ -367,13 +368,13 @@ const ShaderDef *ShaderLibrary::find(std::string_view name) const {
     const size_t slash = key.find_last_of('/');
     if (dot != std::string::npos && (slash == std::string::npos || dot > slash))
         key.resize(dot);
-    auto it = byName_.find(key);
-    return it == byName_.end() ? nullptr : &shaders_[it->second];
+    auto it = _byName.find(key);
+    return it == _byName.end() ? nullptr : &_shaders[it->second];
 }
 
 void ShaderLibrary::load(const SearchSet &files, std::vector<std::string> *warnings) {
-    shaders_.clear();
-    byName_.clear();
+    _shaders.clear();
+    _byName.clear();
     std::vector<uint8_t> data;
     for (const std::string &name : files.list()) {
         const std::string key = normalizeArchiveName(name);

@@ -34,29 +34,29 @@ int32_t le32(const uint8_t *p) {
 
 int qvmop::operandSize(uint8_t op) {
     switch (op) {
-    case Enter:
-    case Leave:
-    case Const:
-    case Local:
-    case BlockCopy:
-    case Eq:
-    case Ne:
-    case Lti:
-    case Lei:
-    case Gti:
-    case Gei:
-    case Ltu:
-    case Leu:
-    case Gtu:
-    case Geu:
-    case Eqf:
-    case Nef:
-    case Ltf:
-    case Lef:
-    case Gtf:
-    case Gef:
+    case kEnter:
+    case kLeave:
+    case kConst:
+    case kLocal:
+    case kBlockCopy:
+    case kEq:
+    case kNe:
+    case kLti:
+    case kLei:
+    case kGti:
+    case kGei:
+    case kLtu:
+    case kLeu:
+    case kGtu:
+    case kGeu:
+    case kEqf:
+    case kNef:
+    case kLtf:
+    case kLef:
+    case kGtf:
+    case kGef:
         return 4;
-    case Arg:
+    case kArg:
         return 1;
     default:
         return 0;
@@ -64,7 +64,7 @@ int qvmop::operandSize(uint8_t op) {
 }
 
 const char *qvmop::name(uint8_t op) {
-    static const char *const names[] = {
+    static const char *const kNames[] = {
         "UNDEF",  "IGNORE", "BREAK",  "ENTER", "LEAVE",      "CALL", "PUSH",  "POP",   "CONST", "LOCAL",
         "JUMP",   "EQ",     "NE",     "LTI",   "LEI",        "GTI",  "GEI",   "LTU",   "LEU",   "GTU",
         "GEU",    "EQF",    "NEF",    "LTF",   "LEF",        "GTF",  "GEF",   "LOAD1", "LOAD2", "LOAD4",
@@ -72,7 +72,7 @@ const char *qvmop::name(uint8_t op) {
         "DIVI",   "DIVU",   "MODI",   "MODU",  "MULI",       "MULU", "BAND",  "BOR",   "BXOR",  "BCOM",
         "LSH",    "RSHI",   "RSHU",   "NEGF",  "ADDF",       "SUBF", "DIVF",  "MULF",  "CVIF",  "CVFI",
     };
-    return op < Count ? names[op] : "?";
+    return op < kCount ? kNames[op] : "?";
 }
 
 float Qvm::asFloat(int32_t word) {
@@ -86,8 +86,8 @@ std::string Qvm::string(int32_t address, size_t max) const {
     std::string s;
     if (!valid(address, 0))
         return s;
-    for (size_t i = size_t(address); i < data_.size() && s.size() < max && data_[i]; ++i)
-        s += char(data_[i]);
+    for (size_t i = size_t(address); i < _data.size() && s.size() < max && _data[i]; ++i)
+        s += char(_data[i]);
     return s;
 }
 
@@ -95,26 +95,26 @@ int32_t Qvm::readInt(int32_t address) const {
     if (!valid(address, 4))
         return 0;
     int32_t v;
-    std::memcpy(&v, &data_[size_t(address)], 4);
+    std::memcpy(&v, &_data[size_t(address)], 4);
     return v;
 }
 
 void Qvm::writeInt(int32_t address, int32_t value) {
-    if (valid(address, 4) && (uint32_t(address) >= protectedEnd_ || checkWrite(address, 4)))
-        std::memcpy(&data_[size_t(address)], &value, 4);
+    if (valid(address, 4) && (uint32_t(address) >= _protectedEnd || checkWrite(address, 4)))
+        std::memcpy(&_data[size_t(address)], &value, 4);
 }
 
 const std::pair<uint32_t, uint32_t> *Qvm::protectedOverlap(int64_t address, int64_t size) const {
-    if (address >= int64_t(protectedEnd_) || size <= 0)
+    if (address >= int64_t(_protectedEnd) || size <= 0)
         return nullptr;
     // The first range ending after address, if it starts before the write ends.
-    auto it = std::upper_bound(protected_.begin(), protected_.end(), uint32_t(std::max<int64_t>(address, 0)),
+    auto it = std::upper_bound(_protected.begin(), _protected.end(), uint32_t(std::max<int64_t>(address, 0)),
                                [](uint32_t a, const std::pair<uint32_t, uint32_t> &r) { return a < r.second; });
-    return it != protected_.end() && int64_t(it->first) < address + size ? &*it : nullptr;
+    return it != _protected.end() && int64_t(it->first) < address + size ? &*it : nullptr;
 }
 
 bool Qvm::checkWrite(int64_t address, int64_t size) {
-    const std::string who = currentSyscall_ >= 0 ? "system call " + std::to_string(currentSyscall_) : "the engine";
+    const std::string who = _currentSyscall >= 0 ? "system call " + std::to_string(_currentSyscall) : "the engine";
     if (!valid(address, size)) {
         abort(who + " wrote outside the program's memory, at " + std::to_string(address));
         return false;
@@ -134,29 +134,29 @@ void Qvm::findJumpTables() {
     // lo), so the table, instruction numbers for lo..hi, starts at base +
     // 4 * lo.
     using namespace qvmop;
-    protected_.clear();
-    const auto count = int32_t(code_.size());
-    for (size_t i = 0; i + 3 < code_.size(); ++i) {
-        if (code_[i].op != Const || code_[i + 1].op != Add || code_[i + 2].op != Load4 || code_[i + 3].op != Jump)
+    _protected.clear();
+    const auto count = int32_t(_code.size());
+    for (size_t i = 0; i + 3 < _code.size(); ++i) {
+        if (_code[i].op != kConst || _code[i + 1].op != kAdd || _code[i + 2].op != kLoad4 || _code[i + 3].op != kJump)
             continue;
         int64_t lo = 0;
         int64_t hi = -1;
         bool haveLo = false;
         bool haveHi = false;
         for (size_t j = i > 16 ? i - 16 : 0; j < i; ++j) {
-            if (code_[j].op == Const && j + 1 < i && code_[j + 1].op == Lti) {
-                lo = code_[j].operand;
+            if (_code[j].op == kConst && j + 1 < i && _code[j + 1].op == kLti) {
+                lo = _code[j].operand;
                 haveLo = true;
             }
-            if (code_[j].op == Const && j + 1 < i && code_[j + 1].op == Gti) {
-                hi = code_[j].operand;
+            if (_code[j].op == kConst && j + 1 < i && _code[j + 1].op == kGti) {
+                hi = _code[j].operand;
                 haveHi = true;
             }
         }
-        const int64_t table = int64_t(code_[i].operand) + 4 * lo;
+        const int64_t table = int64_t(_code[i].operand) + 4 * lo;
         const int64_t entries = hi - lo + 1;
         // Anything unexpected: leave it unprotected rather than guess.
-        if (!haveLo || !haveHi || entries <= 0 || entries > 4096 || table < 0 || table + 4 * entries > int64_t(litEnd_))
+        if (!haveLo || !haveHi || entries <= 0 || entries > 4096 || table < 0 || table + 4 * entries > int64_t(_litEnd))
             continue;
         bool plausible = true;
         for (int64_t e = 0; e < entries && plausible; ++e) {
@@ -164,18 +164,18 @@ void Qvm::findJumpTables() {
             plausible = target >= 0 && target < count;
         }
         if (plausible)
-            protected_.emplace_back(uint32_t(table), uint32_t(table + 4 * entries));
+            _protected.emplace_back(uint32_t(table), uint32_t(table + 4 * entries));
     }
-    std::sort(protected_.begin(), protected_.end());
+    std::sort(_protected.begin(), _protected.end());
     std::vector<std::pair<uint32_t, uint32_t>> merged;
-    for (const auto &r : protected_) {
+    for (const auto &r : _protected) {
         if (!merged.empty() && r.first <= merged.back().second)
             merged.back().second = std::max(merged.back().second, r.second);
         else
             merged.push_back(r);
     }
-    protected_ = std::move(merged);
-    protectedEnd_ = protected_.empty() ? 0 : protected_.back().second;
+    _protected = std::move(merged);
+    _protectedEnd = _protected.empty() ? 0 : _protected.back().second;
 }
 
 bool Qvm::writeString(int32_t address, std::string_view text, int32_t size) {
@@ -184,14 +184,14 @@ bool Qvm::writeString(int32_t address, std::string_view text, int32_t size) {
     if (!checkWrite(address, int64_t(std::min(text.size() + 1, size_t(size)))))
         return false;
     const size_t n = std::min(text.size(), size_t(size) - 1);
-    std::memcpy(&data_[size_t(address)], text.data(), n);
-    data_[size_t(address) + n] = 0;
+    std::memcpy(&_data[size_t(address)], text.data(), n);
+    _data[size_t(address) + n] = 0;
     return true;
 }
 
 Error Qvm::load(const std::vector<uint8_t> &file) {
-    code_.clear();
-    data_.clear();
+    _code.clear();
+    _data.clear();
     if (file.size() < 32)
         return Error::fail("Not a QVM (too small)");
     const int32_t magic = le32(&file[0]);
@@ -214,13 +214,13 @@ Error Qvm::load(const std::vector<uint8_t> &file) {
     // Code: an opcode byte, then 4 or 1 operand bytes (little-endian).
     size_t at = size_t(codeOffset);
     const size_t end = at + size_t(codeLength);
-    code_.reserve(size_t(count));
+    _code.reserve(size_t(count));
     for (int32_t i = 0; i < count; ++i) {
         if (at >= end)
             return Error::fail("QVM code ends after " + std::to_string(i) + " of " + std::to_string(count) +
                                " instructions");
         const uint8_t op = file[at++];
-        if (op >= qvmop::Count)
+        if (op >= qvmop::kCount)
             return Error::fail("QVM instruction " + std::to_string(i) + " has unknown opcode " + std::to_string(op));
         int32_t operand = 0;
         const int size = qvmop::operandSize(op);
@@ -231,12 +231,12 @@ Error Qvm::load(const std::vector<uint8_t> &file) {
         else if (size == 1)
             operand = file[at];
         at += size_t(size);
-        code_.push_back({op, operand});
+        _code.push_back({op, operand});
     }
     // Branch targets are instruction numbers.
-    for (size_t i = 0; i < code_.size(); ++i) {
-        const Instruction &in = code_[i];
-        if (in.op >= qvmop::Eq && in.op <= qvmop::Gef && (in.operand < 0 || in.operand >= count))
+    for (size_t i = 0; i < _code.size(); ++i) {
+        const Instruction &in = _code[i];
+        if (in.op >= qvmop::kEq && in.op <= qvmop::kGef && (in.operand < 0 || in.operand >= count))
             return Error::fail("QVM instruction " + std::to_string(i) + " branches to " + std::to_string(in.operand) +
                                " (of " + std::to_string(count) + ")");
     }
@@ -249,18 +249,18 @@ Error Qvm::load(const std::vector<uint8_t> &file) {
         size <<= 1;
     if (size > (uint64_t(1) << 30))
         return Error::fail("QVM data too large");
-    data_.assign(size_t(size), 0);
-    std::memcpy(data_.data(), &file[size_t(dataOffset)], size_t(dataLength) + size_t(litLength));
+    _data.assign(size_t(size), 0);
+    std::memcpy(_data.data(), &file[size_t(dataOffset)], size_t(dataLength) + size_t(litLength));
     // Words are little-endian in the file; the interpreter uses the host's order.
     if constexpr (std::endian::native == std::endian::big)
         for (size_t i = 0; i + 3 < size_t(dataLength); i += 4)
-            std::swap(data_[i], data_[i + 3]), std::swap(data_[i + 1], data_[i + 2]);
-    dataLength_ = uint32_t(dataLength);
-    litStart_ = uint32_t(dataLength);
-    litEnd_ = uint32_t(dataLength + litLength);
+            std::swap(_data[i], _data[i + 3]), std::swap(_data[i + 1], _data[i + 2]);
+    _dataLength = uint32_t(dataLength);
+    _litStart = uint32_t(dataLength);
+    _litEnd = uint32_t(dataLength + litLength);
     findJumpTables();
-    programStack_ = int32_t(size);
-    stackBottom_ = programStack_ - kStackSize;
+    _programStack = int32_t(size);
+    _stackBottom = _programStack - kStackSize;
     return Error::success();
 }
 
@@ -272,32 +272,32 @@ Error Qvm::call(int32_t command, const std::vector<int32_t> &args, int32_t &resu
 
 Error Qvm::callAt(int32_t instruction, const std::vector<int32_t> &args, int32_t &result) {
     result = 0;
-    if (code_.empty())
+    if (_code.empty())
         return Error::fail("No QVM loaded");
-    if (depth_ >= kMaxDepth)
+    if (_depth >= kMaxDepth)
         return Error::fail("QVM calls nested too deeply");
-    if (depth_ == 0) {
-        executed_ = 0;
-        abort_.clear();
+    if (_depth == 0) {
+        _executed = 0;
+        _abort.clear();
     }
-    if (!abort_.empty())
-        return Error::fail(abort_);
-    const int32_t saved = programStack_;
+    if (!_abort.empty())
+        return Error::fail(_abort);
+    const int32_t saved = _programStack;
     // vmMain's arguments, with -1 as the return address that ends the run.
-    int32_t sp = programStack_ - (8 + 4 * kMainArgs);
-    if (sp < stackBottom_)
+    int32_t sp = _programStack - (8 + 4 * kMainArgs);
+    if (sp < _stackBottom)
         return Error::fail("QVM stack overflow on entry");
     for (int i = 0; i < kMainArgs; ++i)
         writeInt(sp + 8 + 4 * i, i < int(args.size()) ? args[size_t(i)] : 0);
     writeInt(sp + 4, 0);
     writeInt(sp, -1);
-    programStack_ = sp;
-    if (instruction < 0 || instruction >= int32_t(code_.size()))
+    _programStack = sp;
+    if (instruction < 0 || instruction >= int32_t(_code.size()))
         return Error::fail("No instruction " + std::to_string(instruction));
-    ++depth_;
+    ++_depth;
     Error err = run(result, instruction);
-    --depth_;
-    programStack_ = saved;
+    --_depth;
+    _programStack = saved;
     return err;
 }
 
@@ -305,21 +305,21 @@ Error Qvm::run(int32_t &result, int32_t entry) {
     using namespace qvmop;
     std::array<int32_t, kOpStackSize> stack{};
     int top = 0; // stack[top - 1] is the top; stack[0] is never used
-    int32_t sp = programStack_;
+    int32_t sp = _programStack;
     int32_t pc = entry;
-    const int32_t count = int32_t(code_.size());
+    const int32_t count = int32_t(_code.size());
     auto fail = [&](int32_t at, const std::string &what) {
-        return Error::fail("QVM instruction " + std::to_string(at) + " (" + name(code_[size_t(at)].op) + "): " + what);
+        return Error::fail("QVM instruction " + std::to_string(at) + " (" + name(_code[size_t(at)].op) + "): " + what);
     };
 
     while (true) {
         if (pc < 0 || pc >= count)
             return Error::fail("QVM jumped to " + std::to_string(pc) + " (of " + std::to_string(count) + ")");
-        if (limit_ && ++executed_ > limit_)
+        if (_limit && ++_executed > _limit)
             return fail(pc, "instruction limit reached");
-        if (!limit_)
-            ++executed_;
-        const Instruction in = code_[size_t(pc)];
+        if (!_limit)
+            ++_executed;
+        const Instruction in = _code[size_t(pc)];
         const int32_t at = pc++;
         auto need = [&](int n) { return top >= n; };
         auto push = [&](int32_t v) {
@@ -350,18 +350,18 @@ Error Qvm::run(int32_t &result, int32_t entry) {
         };
         bool ok = true;
         switch (in.op) {
-        case Undef:
+        case kUndef:
             return fail(at, "undefined instruction");
-        case Break:
+        case kBreak:
             return fail(at, "breakpoint");
-        case Ignore:
+        case kIgnore:
             break;
-        case Enter:
+        case kEnter:
             sp -= in.operand;
-            if (sp < stackBottom_ || (sp & 3))
+            if (sp < _stackBottom || (sp & 3))
                 return fail(at, "stack overflow");
             break;
-        case Leave: {
+        case kLeave: {
             sp += in.operand;
             if (!valid(sp, 4))
                 return fail(at, "stack underflow");
@@ -372,7 +372,7 @@ Error Qvm::run(int32_t &result, int32_t entry) {
             }
             break;
         }
-        case Call: {
+        case kCall: {
             if (!need(1))
                 return fail(at, "operand stack underflow");
             const int32_t target = stack[size_t(top--)];
@@ -392,37 +392,37 @@ Error Qvm::run(int32_t &result, int32_t entry) {
                 args[size_t(i)] = readInt(sp + 8 + 4 * i);
             writeInt(sp + 4, number);
             int32_t r = 0;
-            if (syscall_) {
-                const int32_t savedStack = programStack_;
-                programStack_ = sp - 4; // nested calls run below this frame
-                const int savedSyscall = currentSyscall_;
-                currentSyscall_ = number;
-                r = syscall_(*this, number, args.data());
-                currentSyscall_ = savedSyscall;
-                programStack_ = savedStack;
-                if (!abort_.empty())
-                    return Error::fail(abort_);
+            if (_syscall) {
+                const int32_t savedStack = _programStack;
+                _programStack = sp - 4; // nested calls run below this frame
+                const int savedSyscall = _currentSyscall;
+                _currentSyscall = number;
+                r = _syscall(*this, number, args.data());
+                _currentSyscall = savedSyscall;
+                _programStack = savedStack;
+                if (!_abort.empty())
+                    return Error::fail(_abort);
             }
             if (!push(r))
                 return fail(at, "operand stack overflow");
             pc = readInt(sp);
             break;
         }
-        case Push:
+        case kPush:
             ok = push(0);
             break;
-        case Pop:
+        case kPop:
             ok = need(1);
             if (ok)
                 --top;
             break;
-        case Const:
+        case kConst:
             ok = push(in.operand);
             break;
-        case Local:
+        case kLocal:
             ok = push(sp + in.operand);
             break;
-        case Jump: {
+        case kJump: {
             if (!need(1))
                 return fail(at, "operand stack underflow");
             const int32_t target = stack[size_t(top--)];
@@ -431,64 +431,64 @@ Error Qvm::run(int32_t &result, int32_t entry) {
             pc = target;
             break;
         }
-        case Eq:
+        case kEq:
             ok = branch([](int32_t a, int32_t b) { return a == b; });
             break;
-        case Ne:
+        case kNe:
             ok = branch([](int32_t a, int32_t b) { return a != b; });
             break;
-        case Lti:
+        case kLti:
             ok = branch([](int32_t a, int32_t b) { return a < b; });
             break;
-        case Lei:
+        case kLei:
             ok = branch([](int32_t a, int32_t b) { return a <= b; });
             break;
-        case Gti:
+        case kGti:
             ok = branch([](int32_t a, int32_t b) { return a > b; });
             break;
-        case Gei:
+        case kGei:
             ok = branch([](int32_t a, int32_t b) { return a >= b; });
             break;
-        case Ltu:
+        case kLtu:
             ok = branch([](int32_t a, int32_t b) { return uint32_t(a) < uint32_t(b); });
             break;
-        case Leu:
+        case kLeu:
             ok = branch([](int32_t a, int32_t b) { return uint32_t(a) <= uint32_t(b); });
             break;
-        case Gtu:
+        case kGtu:
             ok = branch([](int32_t a, int32_t b) { return uint32_t(a) > uint32_t(b); });
             break;
-        case Geu:
+        case kGeu:
             ok = branch([](int32_t a, int32_t b) { return uint32_t(a) >= uint32_t(b); });
             break;
-        case Eqf:
+        case kEqf:
             ok = branch([](int32_t a, int32_t b) { return asFloat(a) == asFloat(b); });
             break;
-        case Nef:
+        case kNef:
             ok = branch([](int32_t a, int32_t b) { return asFloat(a) != asFloat(b); });
             break;
-        case Ltf:
+        case kLtf:
             ok = branch([](int32_t a, int32_t b) { return asFloat(a) < asFloat(b); });
             break;
-        case Lef:
+        case kLef:
             ok = branch([](int32_t a, int32_t b) { return asFloat(a) <= asFloat(b); });
             break;
-        case Gtf:
+        case kGtf:
             ok = branch([](int32_t a, int32_t b) { return asFloat(a) > asFloat(b); });
             break;
-        case Gef:
+        case kGef:
             ok = branch([](int32_t a, int32_t b) { return asFloat(a) >= asFloat(b); });
             break;
-        case Load1:
-        case Load2:
-        case Load4: {
+        case kLoad1:
+        case kLoad2:
+        case kLoad4: {
             if (!need(1))
                 return fail(at, "operand stack underflow");
             const int32_t address = stack[size_t(top)];
-            const int size = in.op == Load1 ? 1 : in.op == Load2 ? 2 : 4;
+            const int size = in.op == kLoad1 ? 1 : in.op == kLoad2 ? 2 : 4;
             if (!valid(address, size))
                 return fail(at, "reads outside memory at " + std::to_string(address));
-            const uint8_t *p = &data_[size_t(address)];
+            const uint8_t *p = &_data[size_t(address)];
             if (size == 1)
                 stack[size_t(top)] = p[0];
             else if (size == 2) {
@@ -500,20 +500,20 @@ Error Qvm::run(int32_t &result, int32_t entry) {
             }
             break;
         }
-        case Store1:
-        case Store2:
-        case Store4: {
+        case kStore1:
+        case kStore2:
+        case kStore4: {
             if (!need(2))
                 return fail(at, "operand stack underflow");
             const int32_t value = stack[size_t(top--)];
             const int32_t address = stack[size_t(top--)];
-            const int size = in.op == Store1 ? 1 : in.op == Store2 ? 2 : 4;
+            const int size = in.op == kStore1 ? 1 : in.op == kStore2 ? 2 : 4;
             if (!valid(address, size))
                 return fail(at, "writes outside memory at " + std::to_string(address));
             if (const auto *r = protectedOverlap(address, size))
                 return fail(at, "writes at " + std::to_string(address) + ", over the jump table at " +
                                     std::to_string(r->first) + "-" + std::to_string(r->second));
-            uint8_t *p = &data_[size_t(address)];
+            uint8_t *p = &_data[size_t(address)];
             if (size == 1)
                 p[0] = uint8_t(value);
             else if (size == 2) {
@@ -524,7 +524,7 @@ Error Qvm::run(int32_t &result, int32_t entry) {
             }
             break;
         }
-        case Arg: {
+        case kArg: {
             if (!need(1))
                 return fail(at, "operand stack underflow");
             const int32_t address = sp + in.operand;
@@ -533,7 +533,7 @@ Error Qvm::run(int32_t &result, int32_t entry) {
             writeInt(address, stack[size_t(top--)]);
             break;
         }
-        case BlockCopy: {
+        case kBlockCopy: {
             if (!need(2))
                 return fail(at, "operand stack underflow");
             const int32_t src = stack[size_t(top--)];
@@ -542,49 +542,49 @@ Error Qvm::run(int32_t &result, int32_t entry) {
                 return fail(at, "copies outside memory");
             if (protectedOverlap(dest, in.operand))
                 return fail(at, "copies over a jump table, at " + std::to_string(dest));
-            std::memmove(&data_[size_t(dest)], &data_[size_t(src)], size_t(in.operand));
+            std::memmove(&_data[size_t(dest)], &_data[size_t(src)], size_t(in.operand));
             break;
         }
-        case Sex8:
+        case kSex8:
             ok = need(1);
             if (ok)
                 stack[size_t(top)] = int8_t(stack[size_t(top)]);
             break;
-        case Sex16:
+        case kSex16:
             ok = need(1);
             if (ok)
                 stack[size_t(top)] = int16_t(stack[size_t(top)]);
             break;
-        case Negi:
+        case kNegi:
             ok = need(1);
             if (ok)
                 stack[size_t(top)] = int32_t(0u - uint32_t(stack[size_t(top)]));
             break;
-        case Bcom:
+        case kBcom:
             ok = need(1);
             if (ok)
                 stack[size_t(top)] = ~stack[size_t(top)];
             break;
-        case Add:
+        case kAdd:
             ok = binary([](int32_t a, int32_t b) { return int32_t(uint32_t(a) + uint32_t(b)); });
             break;
-        case Sub:
+        case kSub:
             ok = binary([](int32_t a, int32_t b) { return int32_t(uint32_t(a) - uint32_t(b)); });
             break;
-        case Muli:
-        case Mulu:
+        case kMuli:
+        case kMulu:
             ok = binary([](int32_t a, int32_t b) { return int32_t(uint32_t(a) * uint32_t(b)); });
             break;
-        case Divi:
-        case Divu:
-        case Modi:
-        case Modu: {
+        case kDivi:
+        case kDivu:
+        case kModi:
+        case kModu: {
             if (!need(2))
                 return fail(at, "operand stack underflow");
             if (stack[size_t(top)] == 0)
                 return fail(at, "division by zero");
-            const bool div = in.op == Divi || in.op == Divu;
-            if (in.op == Divi || in.op == Modi)
+            const bool div = in.op == kDivi || in.op == kDivu;
+            if (in.op == kDivi || in.op == kModi)
                 binary([div](int32_t a, int32_t b) {
                     if (a == INT32_MIN && b == -1) // overflows: wraps, as hardware does
                         return div ? a : 0;
@@ -596,47 +596,47 @@ Error Qvm::run(int32_t &result, int32_t entry) {
                 });
             break;
         }
-        case Band:
+        case kBand:
             ok = binary([](int32_t a, int32_t b) { return a & b; });
             break;
-        case Bor:
+        case kBor:
             ok = binary([](int32_t a, int32_t b) { return a | b; });
             break;
-        case Bxor:
+        case kBxor:
             ok = binary([](int32_t a, int32_t b) { return a ^ b; });
             break;
-        case Lsh:
+        case kLsh:
             ok = binary([](int32_t a, int32_t b) { return int32_t(uint32_t(a) << (b & 31)); });
             break;
-        case Rshi:
+        case kRshi:
             ok = binary([](int32_t a, int32_t b) { return a >> (b & 31); });
             break;
-        case Rshu:
+        case kRshu:
             ok = binary([](int32_t a, int32_t b) { return int32_t(uint32_t(a) >> (b & 31)); });
             break;
-        case Negf:
+        case kNegf:
             ok = need(1);
             if (ok)
                 stack[size_t(top)] = fromFloat(-asFloat(stack[size_t(top)]));
             break;
-        case Addf:
+        case kAddf:
             ok = fbinary([](float a, float b) { return a + b; });
             break;
-        case Subf:
+        case kSubf:
             ok = fbinary([](float a, float b) { return a - b; });
             break;
-        case Mulf:
+        case kMulf:
             ok = fbinary([](float a, float b) { return a * b; });
             break;
-        case Divf:
+        case kDivf:
             ok = fbinary([](float a, float b) { return a / b; });
             break;
-        case Cvif:
+        case kCvif:
             ok = need(1);
             if (ok)
                 stack[size_t(top)] = fromFloat(float(stack[size_t(top)]));
             break;
-        case Cvfi: {
+        case kCvfi: {
             ok = need(1);
             if (ok) {
                 // Towards zero; out-of-range values and NaN saturate instead

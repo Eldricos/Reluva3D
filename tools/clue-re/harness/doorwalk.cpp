@@ -29,14 +29,14 @@ struct Null : System {
 static int cell(int v) { return (v + (v < 0 ? 31 : 0)) >> 5; }
 int main(int argc, char** argv) {
     if (argc < 2) { std::fprintf(stderr, "usage: doorwalk <game folder>\n"); return 2; }
-    GameData data; data.open(argv[1], Language::US);
+    GameData data; data.open(argv[1], Language::kUS);
     Resi resi; { std::ifstream in(*data.find("dialogInfo.res"), std::ios::binary); std::vector<uint8_t> b((std::istreambuf_iterator<char>(in)), {}); parseResi(b, resi); }
     Fonts fonts(data, resi);
     DataDrive f; f.open(*data.find("clue.lvl")); Level lvl; parseLevel(f, lvl);
     Mansion m; m.build(data, lvl);
-    Null sys; Surface s; s.create(640, 480, PixelFormat::RGBA32);
+    Null sys; Surface s; s.create(640, 480, PixelFormat::kRGBA32);
     Play p(sys, s, data, nullptr, resi, fonts, m, lvl);
-    std::array<Player, 6> pl; pl[0].kind = Player::Human; pl[1].kind = Player::Computer; pl[2].kind = Player::Computer;
+    std::array<Player, 6> pl; pl[0].kind = Player::kHuman; pl[1].kind = Player::kComputer; pl[2].kind = Player::kComputer;
     p.start(pl, false, 3); uint64_t t = 1000; for (int i = 0; i < 50; ++i) p.update(t += 16);
     int ways = 0, bad = 0, straightThrough = 0, none = 0;
     // A route's check: each step to a free cell, in the room, one cell away;
@@ -46,10 +46,10 @@ int main(int argc, char** argv) {
         for (auto& q : r) {
             const int nx = cell(q.first), ny = cell(q.second);
             const int dx = nx - cx, dy = ny - cy;
-            if (std::abs(dx) > 1 || std::abs(dy) > 1 || p.blocked_.count({nx, ny}) ||
-                p.board_.roomAt(Board::squareAt(nx * 32 + 16, ny * 32 + 16)) != room)
+            if (std::abs(dx) > 1 || std::abs(dy) > 1 || p._blocked.count({nx, ny}) ||
+                p._board.roomAt(Board::squareAt(nx * 32 + 16, ny * 32 + 16)) != room)
                 ok = false;
-            if (dx && dy && (p.blocked_.count({cx + dx, cy}) || p.blocked_.count({cx, cy + dy})))
+            if (dx && dy && (p._blocked.count({cx + dx, cy}) || p._blocked.count({cx, cy + dy})))
                 ok = false;
             cx = nx; cy = ny;
         }
@@ -59,17 +59,17 @@ int main(int argc, char** argv) {
     auto throughThings = [&](int ax, int ay, int bx, int by) {
         for (int k = 1; k < 64; ++k) {
             const int x = ax + (bx - ax) * k / 64, y = ay + (by - ay) * k / 64;
-            if (p.blocked_.count({cell(x), cell(y)})) return true;
+            if (p._blocked.count({cell(x), cell(y)})) return true;
         }
         return false;
     };
-    for (const Board::Door& d : p.board_.doors()) {
+    for (const Board::Door& d : p._board.doors()) {
         // Miss Scarlet on the square outside, then into the room.
-        auto& w = p.walkers_[0];
-        p.game_.places_[0] = Place{d.outside, kNoRoom};
+        auto& w = p._walkers[0];
+        p._game._places[0] = Place{d.outside, kNoRoom};
         Board::standingPoint(d.outside, w.x, w.y);
         w.route.clear(); w.walking = false;
-        p.game_.places_[0] = Place{{}, d.room};
+        p._game._places[0] = Place{{}, d.room};
         p.startWalk({Place{d.outside, kNoRoom}, Place{{}, d.room}});
         const auto route = w.route;
         // route[0] is the square outside, route[1] the door's inside square;
@@ -84,9 +84,9 @@ int main(int argc, char** argv) {
         if (getenv("DIAG")) {
             const auto sp = way.empty() ? std::pair<int,int>{0,0} : way.back();
             const int tx = cell(sp.first), ty = cell(sp.second), fx = cell(x0), fy = cell(y0);
-            auto rm = [&](int cx, int cy, int off) { return p.board_.roomAt(Board::squareAt(cx * 32 + off, cy * 32 + off)); };
-            std::printf("  from cell %d,%d room16 %d blocked %d; to cell %d,%d room16 %d room32 %d blocked %d\n", fx, fy, rm(fx, fy, 16), int(p.blocked_.count({fx, fy})), tx, ty, rm(tx, ty, 16), rm(tx, ty, 32), int(p.blocked_.count({tx, ty})));
-            for (int dy = -1; dy <= 2; ++dy) { std::printf("   "); for (int dx = -1; dx <= 2; ++dx) std::printf(" %c%d", p.blocked_.count({fx+dx, fy+dy}) ? '#' : '.', rm(fx+dx, fy+dy, 16)); std::printf("\n"); }
+            auto rm = [&](int cx, int cy, int off) { return p._board.roomAt(Board::squareAt(cx * 32 + off, cy * 32 + off)); };
+            std::printf("  from cell %d,%d room16 %d blocked %d; to cell %d,%d room16 %d room32 %d blocked %d\n", fx, fy, rm(fx, fy, 16), int(p._blocked.count({fx, fy})), tx, ty, rm(tx, ty, 16), rm(tx, ty, 32), int(p._blocked.count({tx, ty})));
+            for (int dy = -1; dy <= 2; ++dy) { std::printf("   "); for (int dx = -1; dx <= 2; ++dx) std::printf(" %c%d", p._blocked.count({fx+dx, fy+dy}) ? '#' : '.', rm(fx+dx, fy+dy, 16)); std::printf("\n"); }
         }
         std::printf("room %d door (%d,%d): %zu steps%s:", d.room, d.inside.x, d.inside.y, way.size(), ok ? "" : " BAD");
         for (auto& q : way) std::printf(" (%d,%d)", q.first, q.second);
@@ -95,11 +95,11 @@ int main(int argc, char** argv) {
         for (int i = 0; i < 600; ++i) p.update(t += 16);
     }
     // Out of each passage.
-    for (const auto& ps : p.passages_) {
-        auto& w = p.walkers_[0];
+    for (const auto& ps : p._passages) {
+        auto& w = p._walkers[0];
         w.x = w.y = -100000; w.route.clear(); w.walking = false;
-        p.game_.places_[0] = Place{{}, ps.room};
-        p.game_.turn_ = 0;
+        p._game._places[0] = Place{{}, ps.room};
+        p._game._turn = 0;
         p.placeWalkers(true);
         std::printf("passage into room %d: %s, %zu steps, ends at %d,%d\n", ps.room, w.walking ? "walks" : "at once",
                     w.route.size(), w.route.empty() ? w.x : w.route.back().first, w.route.empty() ? w.y : w.route.back().second);

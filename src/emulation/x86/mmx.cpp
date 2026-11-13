@@ -57,18 +57,18 @@ uint64_t mantissaOf(int64_t v) {
 }
 
 // Lanes of `bits` bits (8, 16, 32): f applied to each pair.
-template<int bits, typename F>
+template<int Bits, typename F>
 uint64_t lanes(uint64_t a, uint64_t b, F f) {
-    constexpr uint64_t m = bits == 64 ? ~0ull : (uint64_t(1) << bits) - 1;
+    constexpr uint64_t kM = Bits == 64 ? ~0ull : (uint64_t(1) << Bits) - 1;
     uint64_t r = 0;
-    for (int i = 0; i < 64; i += bits)
-        r |= (uint64_t(f((a >> i) & m, (b >> i) & m)) & m) << i;
+    for (int i = 0; i < 64; i += Bits)
+        r |= (uint64_t(f((a >> i) & kM, (b >> i) & kM)) & kM) << i;
     return r;
 }
 
-template<int bits>
+template<int Bits>
 int64_t sx(uint64_t v) {
-    return int64_t(v << (64 - bits)) >> (64 - bits);
+    return int64_t(v << (64 - Bits)) >> (64 - Bits);
 }
 
 int64_t clampTo(int64_t v, int64_t lo, int64_t hi) {
@@ -90,20 +90,20 @@ uint64_t unpack(uint64_t a, uint64_t b, int bits, bool high) {
 
 // Each lane shifted by `count` (the whole 64-bit count: past the lane's
 // width a logical shift gives 0, an arithmetic one the sign).
-template<int bits>
+template<int Bits>
 uint64_t shiftLanes(uint64_t v, uint64_t count, int kind) { // kind 0 left, 1 logical right, 2 arithmetic right
-    if (count >= uint64_t(bits)) {
+    if (count >= uint64_t(Bits)) {
         if (kind != 2)
             return 0;
-        count = bits - 1;
+        count = Bits - 1;
     }
     const int c = int(count);
-    return lanes<bits>(v, 0, [&](uint64_t x, uint64_t) -> uint64_t {
+    return lanes<Bits>(v, 0, [&](uint64_t x, uint64_t) -> uint64_t {
         if (kind == 0)
             return x << c;
         if (kind == 1)
             return x >> c;
-        return uint64_t(sx<bits>(x) >> c);
+        return uint64_t(sx<Bits>(x) >> c);
     });
 }
 
@@ -143,20 +143,20 @@ void Cpu::mmx(uint8_t op) {
         fpu.tags = 0xff;
         return;
     }
-    if (d_.opSize16 || d_.rep || d_.repne) // the SSE forms
+    if (_d.opSize16 || _d.rep || _d.repne) // the SSE forms
         fault("instruction " +
-              std::string(d_.opSize16 ? "66"
-                          : d_.rep    ? "f3"
+              std::string(_d.opSize16 ? "66"
+                          : _d.rep    ? "f3"
                                       : "f2") +
               " 0f " + std::to_string(op) + " (SSE) not implemented");
     decodeModrm();
     fpu.top = 0;
     fpu.tags = 0;
-    const int r = d_.regField;
+    const int r = _d.regField;
     // The source operand: an MMX register or 64 bits of memory.
-    auto source = [&]() { return d_.memoryOperand ? loadQword(d_.address) : mmRead(d_.rm); };
+    auto source = [&]() { return _d.memoryOperand ? loadQword(_d.address) : mmRead(_d.rm); };
     // The low unpacks read 32 bits of memory.
-    auto sourceLow = [&]() { return d_.memoryOperand ? uint64_t(load(d_.address, 4)) : mmRead(d_.rm); };
+    auto sourceLow = [&]() { return _d.memoryOperand ? uint64_t(load(_d.address, 4)) : mmRead(_d.rm); };
     const uint64_t dst = mmRead(r);
     uint64_t result;
     switch (op) {
@@ -215,33 +215,33 @@ void Cpu::mmx(uint8_t op) {
         result = lanes<32>(dst, source(), [](uint64_t a, uint64_t b) { return a == b ? ~0ull : 0; });
         break; // PCMPEQD
     case 0x6e: // MOVD mm, r/m32
-        result = d_.memoryOperand ? load(d_.address, 4) : reg[d_.rm];
+        result = _d.memoryOperand ? load(_d.address, 4) : reg[_d.rm];
         break;
     case 0x6f:
         result = source();
         break; // MOVQ mm, mm/m64
     case 0x7e: // MOVD r/m32, mm
-        if (d_.memoryOperand)
-            store(d_.address, uint32_t(dst), 4);
+        if (_d.memoryOperand)
+            store(_d.address, uint32_t(dst), 4);
         else
-            reg[d_.rm] = uint32_t(dst);
+            reg[_d.rm] = uint32_t(dst);
         return;
     case 0x7f: // MOVQ mm/m64, mm
-        if (d_.memoryOperand)
-            storeQword(d_.address, dst);
+        if (_d.memoryOperand)
+            storeQword(_d.address, dst);
         else
-            mmWrite(d_.rm, dst);
+            mmWrite(_d.rm, dst);
         return;
     case 0x71:   // PSRLW/PSRAW/PSLLW mm, imm8
     case 0x72:   // PSRLD/PSRAD/PSLLD mm, imm8
     case 0x73: { // PSRLQ/PSLLQ mm, imm8
-        if (d_.memoryOperand)
+        if (_d.memoryOperand)
             fault("undefined instruction 0f " + std::to_string(op) + " with a memory operand");
         const uint64_t count = fetch8();
         const int kind = r == 6 ? 0 : r == 2 ? 1 : r == 4 && op != 0x73 ? 2 : -1;
         if (kind < 0)
             fault("undefined instruction 0f " + std::to_string(op) + " /" + std::to_string(r));
-        mmWrite(d_.rm, shiftBy(mmRead(d_.rm), count, op == 0x71 ? 16 : op == 0x72 ? 32 : 64, kind));
+        mmWrite(_d.rm, shiftBy(mmRead(_d.rm), count, op == 0x71 ? 16 : op == 0x72 ? 32 : 64, kind));
         return;
     }
     case 0xd1:

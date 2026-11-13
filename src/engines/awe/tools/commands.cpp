@@ -361,7 +361,7 @@ int cmdAweShot(int argc, char **argv) {
     }
     HeadlessSystem sys;
     reluva::Surface screen;
-    screen.create(awe::kScreenW, awe::kScreenH, reluva::PixelFormat::RGBA32);
+    screen.create(awe::kScreenW, awe::kScreenH, reluva::PixelFormat::kRGBA32);
     awe::GameFonts fonts;
     const bool haveFonts = !fonts.load(files);
     // "savedir:<folder>" among the keys: where the game's saves go.
@@ -434,29 +434,29 @@ int cmdAweShot(int argc, char **argv) {
             char *end = nullptr;
             ev.mouseX = int(std::strtol(at, &end, 10));
             ev.mouseY = end && *end == ',' ? int(std::strtol(end + 1, nullptr, 10)) : 0;
-            ev.type = click     ? reluva::EventType::MouseDown
-                      : release ? reluva::EventType::MouseUp
-                                : reluva::EventType::MouseMove;
-            ev.button = right              ? reluva::MouseButton::Right
-                        : click || release ? reluva::MouseButton::Left
-                                           : reluva::MouseButton::None;
+            ev.type = click     ? reluva::EventType::kMouseDown
+                      : release ? reluva::EventType::kMouseUp
+                                : reluva::EventType::kMouseMove;
+            ev.button = right              ? reluva::MouseButton::kRight
+                        : click || release ? reluva::MouseButton::kLeft
+                                           : reluva::MouseButton::kNone;
             ev.clicks = click ? 1 : 0;
             page->handleEvent(ev);
             continue;
         }
-        ev.type = reluva::EventType::KeyDown;
+        ev.type = reluva::EventType::kKeyDown;
         namespace key = reluva::key;
-        ev.key = k == "left"                   ? key::Left
-                 : k == "right"                ? key::Right
-                 : k == "up"                   ? key::Up
-                 : k == "down"                 ? key::Down
-                 : k == "pgup"                 ? key::PageUp
-                 : k == "pgdn"                 ? key::PageDown
-                 : k == "home"                 ? key::Home
-                 : k == "end"                  ? key::End
-                 : k == "esc"                  ? key::Escape
-                 : k == "enter"                ? key::Return
-                 : k.size() > 1 && k[0] == 'f' ? key::F1 + uint32_t(std::atoi(k.c_str() + 1) - 1)
+        ev.key = k == "left"                   ? key::kLeft
+                 : k == "right"                ? key::kRight
+                 : k == "up"                   ? key::kUp
+                 : k == "down"                 ? key::kDown
+                 : k == "pgup"                 ? key::kPageUp
+                 : k == "pgdn"                 ? key::kPageDown
+                 : k == "home"                 ? key::kHome
+                 : k == "end"                  ? key::kEnd
+                 : k == "esc"                  ? key::kEscape
+                 : k == "enter"                ? key::kReturn
+                 : k.size() > 1 && k[0] == 'f' ? key::kF1 + uint32_t(std::atoi(k.c_str() + 1) - 1)
                                                : uint32_t(uint8_t(k[0]));
         page->handleEvent(ev);
     }
@@ -636,7 +636,7 @@ int cmdAweBink(int argc, char **argv) {
                     }
                 ours.clear();
             } else {
-                dec.toRgba(ours, reluva::bink::Movie::Rgb::Binkw32);
+                dec.toRgba(ours, reluva::bink::Movie::Rgb::kBinkw32);
             }
             for (size_t p = 0; p + 3 < ours.size() && p + 3 < theirs.size(); p += 4) {
                 // Theirs is B, G, R, X (A with alpha).
@@ -791,7 +791,7 @@ int cmdAweActs(int argc, char **argv) {
     }
     HeadlessSystem sys;
     reluva::Surface screen;
-    screen.create(awe::kScreenW, awe::kScreenH, reluva::PixelFormat::RGBA32);
+    screen.create(awe::kScreenW, awe::kScreenH, reluva::PixelFormat::kRGBA32);
     awe::ViewerContext ctx{
         sys, files, nullptr, screen, std::filesystem::temp_directory_path() / "reluva-awe game-run", nullptr, {}, -1};
     int problems = 0;
@@ -1113,7 +1113,7 @@ int cmdBinkInfo(int argc, char **argv) {
                 reluva::image::Image img;
                 img.w = bink.width();
                 img.h = bink.height();
-                bink.toRgba(img.rgba, reluva::bink::Movie::Rgb::Binkw32);
+                bink.toRgba(img.rgba, reluva::bink::Movie::Rgb::kBinkw32);
                 const std::vector<uint8_t> tga = reluva::image::encodeTga(img);
                 const std::string name = tgaPrefix + std::to_string(i) + ".tga";
                 std::ofstream(name, std::ios::binary)
@@ -1196,7 +1196,7 @@ int cmdAweSave(int argc, char **argv) {
 } // namespace
 
 // The engine's reluva-tool commands (reluva-tool help awe lists them).
-const reluva::tool::Commands commands(
+const reluva::tool::Commands kCommands(
     "awe",
     {
         {"files-check",

@@ -102,7 +102,7 @@ uint32_t resample(Cpu &c, const Resampler &r, bool stereo) {
 // mix, each side the source's (mono: the one sample; stereo: its side)
 // times that side's gain (gains[0] left, gains[1] right), or as it is
 // (full volume), or not at all (silent).
-enum class Side { Off, Full, Scaled };
+enum class Side { kOff, kFull, kScaled };
 // What a call added, for GameHost::logVoices: the energy to L+R and L-R,
 // and whether its two gains have opposite signs.
 struct Added {
@@ -123,14 +123,14 @@ uint32_t mix(Cpu &c, bool stereoSource, Side left, Side right, Added *added = nu
         const uint32_t to = dst + uint32_t(i) * 8;
         double l = 0;
         double r = 0;
-        if (left != Side::Off) {
+        if (left != Side::kOff) {
             const double s = loadFloat(c, from);
-            l = left == Side::Scaled ? s * gainLeft : s;
+            l = left == Side::kScaled ? s * gainLeft : s;
             storeFloat(c, to, l + double(loadFloat(c, to)));
         }
-        if (right != Side::Off) {
+        if (right != Side::kOff) {
             const double s = loadFloat(c, from + rightOffset);
-            r = right == Side::Scaled ? s * gainRight : s;
+            r = right == Side::kScaled ? s * gainRight : s;
             storeFloat(c, to + 4, r + double(loadFloat(c, to + 4)));
         }
         if (added) {
@@ -139,8 +139,8 @@ uint32_t mix(Cpu &c, bool stereoSource, Side left, Side right, Added *added = nu
         }
     }
     if (added)
-        added->rear = (left == Side::Scaled && gainLeft < 0) != (right == Side::Scaled && gainRight < 0) &&
-                      left != Side::Off && right != Side::Off;
+        added->rear = (left == Side::kScaled && gainLeft < 0) != (right == Side::kScaled && gainRight < 0) &&
+                      left != Side::kOff && right != Side::kOff;
     return 0;
 }
 
@@ -179,12 +179,12 @@ uint32_t toInt16(Cpu &c, uint32_t magicAt) {
 
 void GameHost::addNativeSound() {
     // The resamplers (float, linear between samples): stereo and mono.
-    static const Resampler stereo{0x56b138, 0x56b130, 0x56b134, 8};
-    static const Resampler mono{0x56b148, 0x56b140, 0x56b144, 4};
+    static const Resampler kStereo{0x56b138, 0x56b130, 0x56b134, 8};
+    static const Resampler kMono{0x56b148, 0x56b140, 0x56b144, 4};
     replaceRoutine(0x527330, 142, 0x3c2833f2244228b1ull, "nfs3.exe resample stereo",
-                   [](Cpu &c) { return resample(c, stereo, true); });
+                   [](Cpu &c) { return resample(c, kStereo, true); });
     replaceRoutine(0x5273c0, 239, 0x274025e0e91db35full, "nfs3.exe resample mono",
-                   [](Cpu &c) { return resample(c, mono, false); });
+                   [](Cpu &c) { return resample(c, kMono, false); });
 
     // The mixers, one for each pair of levels (0, 127 or between), for mono
     // sources and for stereo ones; each set chosen as a voice's levels
@@ -197,26 +197,26 @@ void GameHost::addNativeSound() {
         bool stereoSource;
         Side left, right;
     };
-    static const Mixer mixers[] = {
-        {0x520aee, 144, 0x5379f527a623ac77ull, "nfs3.exe mix mono", false, Side::Scaled, Side::Scaled},
-        {0x520b7e, 111, 0x694a4624bd0854e9ull, "nfs3.exe mix mono full", false, Side::Full, Side::Full},
-        {0x520bed, 124, 0xef4603cd37825d83ull, "nfs3.exe mix mono left", false, Side::Scaled, Side::Off},
-        {0x520c69, 125, 0x4ddd4f39984ea84full, "nfs3.exe mix mono right", false, Side::Off, Side::Scaled},
-        {0x520ce6, 133, 0x42dea07e5a23af60ull, "nfs3.exe mix mono, right full", false, Side::Scaled, Side::Full},
-        {0x520d6b, 134, 0x1aa08d1458d01e13ull, "nfs3.exe mix mono, left full", false, Side::Full, Side::Scaled},
-        {0x520eae, 146, 0x508f42791fb53867ull, "nfs3.exe mix stereo", true, Side::Scaled, Side::Scaled},
-        {0x520f40, 113, 0x09c53eab834a798dull, "nfs3.exe mix stereo full", true, Side::Full, Side::Full},
-        {0x520fb1, 124, 0x2a4f0816567258afull, "nfs3.exe mix stereo left", true, Side::Scaled, Side::Off},
-        {0x52102d, 127, 0x3131c83dfd33bbb3ull, "nfs3.exe mix stereo right", true, Side::Off, Side::Scaled},
-        {0x5210ac, 135, 0xc7c1113b379b9734ull, "nfs3.exe mix stereo, right full", true, Side::Scaled, Side::Full},
-        {0x521133, 136, 0x6a5f84d912e41e83ull, "nfs3.exe mix stereo, left full", true, Side::Full, Side::Scaled},
+    static const Mixer kMixers[] = {
+        {0x520aee, 144, 0x5379f527a623ac77ull, "nfs3.exe mix mono", false, Side::kScaled, Side::kScaled},
+        {0x520b7e, 111, 0x694a4624bd0854e9ull, "nfs3.exe mix mono full", false, Side::kFull, Side::kFull},
+        {0x520bed, 124, 0xef4603cd37825d83ull, "nfs3.exe mix mono left", false, Side::kScaled, Side::kOff},
+        {0x520c69, 125, 0x4ddd4f39984ea84full, "nfs3.exe mix mono right", false, Side::kOff, Side::kScaled},
+        {0x520ce6, 133, 0x42dea07e5a23af60ull, "nfs3.exe mix mono, right full", false, Side::kScaled, Side::kFull},
+        {0x520d6b, 134, 0x1aa08d1458d01e13ull, "nfs3.exe mix mono, left full", false, Side::kFull, Side::kScaled},
+        {0x520eae, 146, 0x508f42791fb53867ull, "nfs3.exe mix stereo", true, Side::kScaled, Side::kScaled},
+        {0x520f40, 113, 0x09c53eab834a798dull, "nfs3.exe mix stereo full", true, Side::kFull, Side::kFull},
+        {0x520fb1, 124, 0x2a4f0816567258afull, "nfs3.exe mix stereo left", true, Side::kScaled, Side::kOff},
+        {0x52102d, 127, 0x3131c83dfd33bbb3ull, "nfs3.exe mix stereo right", true, Side::kOff, Side::kScaled},
+        {0x5210ac, 135, 0xc7c1113b379b9734ull, "nfs3.exe mix stereo, right full", true, Side::kScaled, Side::kFull},
+        {0x521133, 136, 0x6a5f84d912e41e83ull, "nfs3.exe mix stereo, left full", true, Side::kFull, Side::kScaled},
     };
-    for (const Mixer &m : mixers) {
+    for (const Mixer &m : kMixers) {
         const bool stereoSource = m.stereoSource;
         const Side left = m.left;
         const Side right = m.right;
         replaceRoutine(m.address, m.size, m.hash, m.name, [this, stereoSource, left, right](Cpu &c) {
-            if (!voiceLog_)
+            if (!_voiceLog)
                 return mix(c, stereoSource, left, right);
             Added added;
             const uint32_t pop = mix(c, stereoSource, left, right, &added);
@@ -231,9 +231,9 @@ void GameHost::addNativeSound() {
 }
 
 void GameHost::logVoices(std::vector<VoiceEnergy> *to, uint32_t windowMs) {
-    voiceLog_ = to;
-    voiceWindowMs_ = windowMs ? windowMs : 100;
-    if (to && options_.mmx && !mmxVoicesHooked_)
+    _voiceLog = to;
+    _voiceWindowMs = windowMs ? windowMs : 100;
+    if (to && _options.mmx && !_mmxVoicesHooked)
         hookMmxMixers();
 }
 
@@ -254,24 +254,24 @@ void GameHost::logVoices(std::vector<VoiceEnergy> *to, uint32_t windowMs) {
 // taken as pmulhw gives it, (L x 256 x s) >> 16, doubled, so in the same
 // units as the float path's; the bus's saturation is left out.
 void GameHost::hookMmxMixers() {
-    static const uint8_t prologue[7] = {0x55, 0x8b, 0xec, 0x60, 0x8b, 0x75, 0x08};
+    static const uint8_t kPrologue[7] = {0x55, 0x8b, 0xec, 0x60, 0x8b, 0x75, 0x08};
     struct Mixer {
         uint32_t address;
         const char *name;
         bool stereoSource;
     };
-    static const Mixer mixers[] = {{0x51f7ad, "nfs3.exe MMX mix mono (voices)", false},
-                                   {0x51f897, "nfs3.exe MMX mix stereo (voices)", true}};
-    for (const Mixer &m : mixers) {
+    static const Mixer kMixers[] = {{0x51f7ad, "nfs3.exe MMX mix mono (voices)", false},
+                                    {0x51f897, "nfs3.exe MMX mix stereo (voices)", true}};
+    for (const Mixer &m : kMixers) {
         bool same = true;
-        for (uint32_t i = 0; i < sizeof prologue; ++i)
-            same = same && cpu_->read8(m.address + i) == prologue[i];
+        for (uint32_t i = 0; i < sizeof kPrologue; ++i)
+            same = same && _cpu->read8(m.address + i) == kPrologue[i];
         if (!same)
             continue;
         const uint32_t address = m.address;
         const bool stereoSource = m.stereoSource;
-        const uint32_t native = cpu_->addNative(m.name, [this, address, stereoSource](Cpu &c) {
-            if (voiceLog_) {
+        const uint32_t native = _cpu->addNative(m.name, [this, address, stereoSource](Cpu &c) {
+            if (_voiceLog) {
                 const uint32_t levels = arg(c, 0);
                 const uint32_t src = arg(c, 2);
                 const int32_t count = int32_t(arg(c, 1));
@@ -303,22 +303,22 @@ void GameHost::hookMmxMixers() {
             for (int r : {Cpu::EBP, Cpu::ESI, Cpu::EDI})
                 push(c.reg[r]);
             c.reg[Cpu::ESI] = c.read32(c.reg[Cpu::EBP] + 8);
-            push(address + sizeof prologue); // where the native's return goes
+            push(address + sizeof kPrologue); // where the native's return goes
             return 0u;
         });
-        cpu_->write8(address, 0xe9); // JMP rel32
-        cpu_->write32(address + 1, native - (address + 5));
-        cpu_->write8(address + 5, 0x90);
-        cpu_->write8(address + 6, 0x90);
-        mmxVoicesHooked_ = true;
+        _cpu->write8(address, 0xe9); // JMP rel32
+        _cpu->write32(address + 1, native - (address + 5));
+        _cpu->write8(address + 5, 0x90);
+        _cpu->write8(address + 6, 0x90);
+        _mmxVoicesHooked = true;
     }
 }
 
 void GameHost::voiceMixed(bool rear, double c, double s, uint32_t calls) {
-    const uint64_t window = process_->now() / voiceWindowMs_ * voiceWindowMs_;
-    if (voiceLog_->empty() || voiceLog_->back().ms != window)
-        voiceLog_->push_back({window});
-    VoiceEnergy &e = voiceLog_->back();
+    const uint64_t window = _process->now() / _voiceWindowMs * _voiceWindowMs;
+    if (_voiceLog->empty() || _voiceLog->back().ms != window)
+        _voiceLog->push_back({window});
+    VoiceEnergy &e = _voiceLog->back();
     e.calls += calls;
     if (rear) {
         e.rearCalls += calls;

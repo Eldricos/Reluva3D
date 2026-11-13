@@ -25,9 +25,9 @@ bool endsWith(const std::string &lower, const char *ext) {
 } // namespace
 
 void GameFiles::scan(const GameFolders &folders) {
-    files_.clear();
-    cached_.reset();
-    cachedPath_.clear();
+    _files.clear();
+    _cached.reset();
+    _cachedPath.clear();
     std::set<std::string> seen; // normalized relative paths
     std::vector<stdfs::path> roots = {folders.install};
     if (!folders.cd.empty() && folders.cd != folders.install)
@@ -47,21 +47,21 @@ void GameFiles::scan(const GameFolders &folders) {
         for (const auto &[rel, path] : found) {
             if (!seen.insert(normalizeArchiveName(rel)).second)
                 continue;
-            files_.push_back({rel, path, {}});
+            _files.push_back({rel, path, {}});
             if (!endsWith(fs::toLower(rel), ".viv"))
                 continue;
             VivArchive viv;
             if (viv.open(path))
                 continue; // a broken archive just adds nothing
             for (const auto &e : viv.entries())
-                files_.push_back({rel + "/" + e.name, path, e.name});
+                _files.push_back({rel + "/" + e.name, path, e.name});
         }
     }
 }
 
 std::vector<FileRef> GameFiles::withExtensions(std::initializer_list<const char *> extensions) const {
     std::vector<FileRef> out;
-    for (const FileRef &f : files_) {
+    for (const FileRef &f : _files) {
         const std::string lower = fs::toLower(f.name);
         for (const char *ext : extensions)
             if (endsWith(lower, ext)) {
@@ -74,7 +74,7 @@ std::vector<FileRef> GameFiles::withExtensions(std::initializer_list<const char 
 
 std::vector<FileRef> GameFiles::textTables() const {
     std::vector<FileRef> out;
-    for (const FileRef &f : files_) {
+    for (const FileRef &f : _files) {
         const std::string lower = fs::toLower(f.name);
         if (f.inner.empty() && lower.rfind("fedata/text/text.", 0) == 0)
             out.push_back(f);
@@ -90,14 +90,14 @@ Error GameFiles::read(const FileRef &ref, std::vector<uint8_t> &out) const {
         out.assign(std::istreambuf_iterator<char>(in), std::istreambuf_iterator<char>());
         return Error::success();
     }
-    if (!cached_ || cachedPath_ != ref.file) {
+    if (!_cached || _cachedPath != ref.file) {
         auto viv = std::make_unique<VivArchive>();
         if (Error err = viv->open(ref.file))
             return err;
-        cached_ = std::move(viv);
-        cachedPath_ = ref.file;
+        _cached = std::move(viv);
+        _cachedPath = ref.file;
     }
-    return cached_->read(ref.inner, out);
+    return _cached->read(ref.inner, out);
 }
 
 } // namespace reluva::nfs

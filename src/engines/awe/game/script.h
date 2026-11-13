@@ -57,7 +57,7 @@ public:
 
 class ScriptRunner {
 public:
-    ScriptRunner(GameState &state, ScriptHost &host) : state_(state), host_(host) {}
+    ScriptRunner(GameState &state, ScriptHost &host) : _state(state), _host(host) {}
 
     // Queues commands: a script cell's ("walk 31 0, scene salon_02 1") or
     // an event file's, one a line. As the game adds them (0x409024), two
@@ -74,37 +74,37 @@ public:
     void fastForward();
     // Whether the commands came from clicking a character (the game's
     // runner +0xf4, set by 0x408c80): "talk" offers its generic lines then.
-    void setFromCharacter(bool from) { fromCharacter_ = from; }
-    bool fromCharacter() const { return fromCharacter_; }
+    void setFromCharacter(bool from) { _fromCharacter = from; }
+    bool fromCharacter() const { return _fromCharacter; }
     // Runs the next event if none is under way, and counts down a wait.
     void update(float seconds);
     // What the event under way started is over (its verb, as start() had
     // it). Anything else is ignored, as the game ignores it.
     void finished(std::string_view verb);
-    bool idle() const { return queue_.empty() && !running_; }
+    bool idle() const { return _queue.empty() && !_running; }
     // The event at the front, its words joined; "" if none.
     std::string current() const;
     // Whether clicks are refused (the runner's +8): from an event's start
     // (but a walk's, a run's or a turn's, or the one after an "unlock")
     // until the queue is empty or an "unlock". A click taken while
     // something runs replaces it (0x409760).
-    bool locked() const { return locked_; }
+    bool locked() const { return _locked; }
     // The event under way is dropped from being under way, kept at the
     // front: the next update starts it again ("pause" of a character's
     // routine: 0x4057f0).
     void restart() {
-        running_ = false;
-        waitingFor_.clear();
-        waitLeft_ = -1;
+        _running = false;
+        _waitingFor.clear();
+        _waitLeft = -1;
     }
     void clear();
 
     // The character the events act on (setchar), "" for the player's.
-    const std::string &character() const { return character_; }
+    const std::string &character() const { return _character; }
     // Whose runner this is (a routine's character, a line's speaker): the
     // character each script given to it starts with (0x40598f), "" for
     // the player's.
-    void setCharacter(const std::string &who) { owner_ = character_ = who; }
+    void setCharacter(const std::string &who) { _owner = _character = who; }
     // When an event ends and leaves nothing queued (the main runner's
     // acts check their completion then: 0x409a80).
     std::function<void()> onEmpty;
@@ -122,16 +122,16 @@ private:
     // `e` isn't one.
     bool runOwn(const ScriptEvent &e);
 
-    GameState &state_;
-    ScriptHost &host_;
-    std::deque<ScriptEvent> queue_;
-    bool running_ = false;   // the front event is under way
-    std::string waitingFor_; // the verb it waits on
-    float waitLeft_ = -1;    // a "wait"'s seconds left
-    std::string character_, owner_;
-    bool fromCharacter_ = false;
-    bool locked_ = false;
-    std::string lastDone_; // the verb of the event done last
+    GameState &_state;
+    ScriptHost &_host;
+    std::deque<ScriptEvent> _queue;
+    bool _running = false;   // the front event is under way
+    std::string _waitingFor; // the verb it waits on
+    float _waitLeft = -1;    // a "wait"'s seconds left
+    std::string _character, _owner;
+    bool _fromCharacter = false;
+    bool _locked = false;
+    std::string _lastDone; // the verb of the event done last
 };
 
 } // namespace reluva::awe

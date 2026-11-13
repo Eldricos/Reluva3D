@@ -113,7 +113,7 @@ static void testAmbientSets() {
     CHECK(hum->subWaves.size() == 2 && hum->subWaves[1] == "sound/borg/clank2.wav");
     CHECK(hum->loopedWave == "sound/ambience/borg/hum.wav");
     const auto *drip = sets.find("drip");
-    CHECK(drip && drip->kind == raven::AmbientSets::Kind::Local && drip->radius == 200 && drip->timeStart == 10);
+    CHECK(drip && drip->kind == raven::AmbientSets::Kind::kLocal && drip->radius == 200 && drip->timeStart == 10);
     CHECK(sets.bmodelSound("door", 2) == "sound/doors/stop.wav" && sets.bmodelSound("door", 3).empty());
 
     // The general set: its loop fades in over a second; a sound at once,
@@ -236,22 +236,22 @@ static void testSoundSystem(const std::filesystem::path &tmp) {
 
     // Music: the intro, then the loop (names without an extension found).
     sounds.startBackgroundTrack("music/intro", "music/loop");
-    CHECK(mixer.isTypePlaying(audio::SoundType::Music));
+    CHECK(mixer.isTypePlaying(audio::SoundType::kMusic));
     std::vector<int16_t> lots(2 * 4000);
     mixer.mix(lots.data(), 4000); // past the intro's end
     sounds.endFrame();
-    CHECK(mixer.isTypePlaying(audio::SoundType::Music));
+    CHECK(mixer.isTypePlaying(audio::SoundType::kMusic));
     mixer.mix(lots.data(), 4000);
-    CHECK(mixer.isTypePlaying(audio::SoundType::Music)); // looping
+    CHECK(mixer.isTypePlaying(audio::SoundType::kMusic)); // looping
     sounds.stopAll();
-    CHECK(!mixer.isTypePlaying(audio::SoundType::Music));
+    CHECK(!mixer.isTypePlaying(audio::SoundType::kMusic));
     std::filesystem::remove_all(tmp);
 }
 
 static const reluva::test::Suite
-    suite("idtech3.unit.sound",
-          {
-              {"sound library", [](const std::filesystem::path &tmp) { testSoundLibrary(tmp / "sounds"); }},
-              {"sound system", [](const std::filesystem::path &tmp) { testSoundSystem(tmp / "soundsystem"); }},
-              {"ambient sets", [](const std::filesystem::path &) { testAmbientSets(); }},
-          });
+    kSuite("idtech3.unit.sound",
+           {
+               {"sound library", [](const std::filesystem::path &tmp) { testSoundLibrary(tmp / "sounds"); }},
+               {"sound system", [](const std::filesystem::path &tmp) { testSoundSystem(tmp / "soundsystem"); }},
+               {"ambient sets", [](const std::filesystem::path &) { testAmbientSets(); }},
+           });

@@ -122,7 +122,7 @@ int16_t ScriptVM::pop() {
 
 uint16_t ScriptVM::word(uint32_t ip) const {
     const std::vector<uint16_t> &code = _script.getCode();
-    return ip < code.size() ? code[ip] : (uint16_t)OP_END;
+    return ip < code.size() ? code[ip] : (uint16_t)kOpEnd;
 }
 
 int16_t ScriptVM::sendEvent(ScriptInstance &self, uint16_t event, const std::vector<int16_t> &args) {
@@ -171,18 +171,18 @@ uint32_t ScriptVM::skipConditional(uint32_t ip) const {
     int depth = 1;
     while (true) {
         uint16_t op = word(ip);
-        if (op >= OP_IF_EQ && op <= OP_IF_LE) {
+        if (op >= kOpIfEq && op <= kOpIfLe) {
             depth++;
             ip++;
-        } else if (op == OP_ENDIF) {
+        } else if (op == kOpEndif) {
             ip++;
             if (--depth <= 0)
                 return ip;
-        } else if (op == OP_ELSE) {
+        } else if (op == kOpElse) {
             ip++;
             if (depth <= 1)
                 return ip;
-        } else if (op == OP_END) {
+        } else if (op == kOpEnd) {
             return ip;
         } else {
             ip += getInstructionLength(op);
@@ -229,36 +229,36 @@ int16_t ScriptVM::execute(ScriptInstance &self, uint32_t ip, const std::vector<i
 
         uint16_t op = word(ip++);
         switch (op) {
-        case OP_END:
+        case kOpEnd:
             running = false;
             break;
-        case OP_NOP:
-        case OP_ENDIF:
+        case kOpNop:
+        case kOpEndif:
             break;
-        case OP_PUSH:
+        case kOpPush:
             push((int16_t)word(ip++));
             break;
-        case OP_POP:
+        case kOpPop:
             pop();
             break;
-        case OP_PUSH_SELF:
+        case kOpPushSelf:
             push((int16_t)self.object->id);
             break;
-        case OP_PUSH_BLOCK:
+        case kOpPushBlock:
             for (int i = 0; i < 7; i++)
                 push((int16_t)word(ip++));
             break;
-        case OP_PUSH32:
+        case kOpPush32:
             push((int16_t)word(ip++));
             push((int16_t)word(ip++));
             break;
-        case OP_SET_RESULT:
+        case kOpSetResult:
             result = pop();
             break;
-        case OP_GOTO_STATE:
+        case kOpGotoState:
             self.pendingState = pop();
             break;
-        case OP_CASE: {
+        case kOpCase: {
             int16_t c = pop();
             int16_t b = pop();
             int16_t a = pop();
@@ -269,43 +269,43 @@ int16_t ScriptVM::execute(ScriptInstance &self, uint32_t ip, const std::vector<i
             }
             break;
         }
-        case OP_IF_EQ:
-        case OP_IF_NE:
-        case OP_IF_GT:
-        case OP_IF_GE:
-        case OP_IF_LT:
-        case OP_IF_LE: {
+        case kOpIfEq:
+        case kOpIfNe:
+        case kOpIfGt:
+        case kOpIfGe:
+        case kOpIfLt:
+        case kOpIfLe: {
             int16_t b = pop();
             int16_t a = pop();
             push(a);
-            bool pass = op == OP_IF_EQ   ? a == b
-                        : op == OP_IF_NE ? a != b
-                        : op == OP_IF_GT ? a > b
-                        : op == OP_IF_GE ? a >= b
-                        : op == OP_IF_LT ? a < b
-                                         : a <= b;
+            bool pass = op == kOpIfEq   ? a == b
+                        : op == kOpIfNe ? a != b
+                        : op == kOpIfGt ? a > b
+                        : op == kOpIfGe ? a >= b
+                        : op == kOpIfLt ? a < b
+                                        : a <= b;
             if (!pass)
                 ip = skipConditional(ip);
             break;
         }
-        case OP_ELSE:
+        case kOpElse:
             ip = skipConditional(ip);
             break;
-        case OP_RETURN:
+        case kOpReturn:
             running = false;
             break;
-        case OP_ALLOC_LOCALS: {
+        case kOpAllocLocals: {
             int16_t count = pop();
             if (count > 0 && (size_t)count > self.locals.size())
                 self.locals.resize(count, 0);
             break;
         }
-        case OP_GET_LOCAL: {
+        case kOpGetLocal: {
             int16_t index = pop();
             push(index >= 0 && (size_t)index < self.locals.size() ? self.locals[index] : 0);
             break;
         }
-        case OP_SET_LOCAL: {
+        case kOpSetLocal: {
             int16_t index = pop();
             int16_t value = pop();
             if (index >= 0 && (size_t)index < self.locals.size())
@@ -314,44 +314,44 @@ int16_t ScriptVM::execute(ScriptInstance &self, uint32_t ip, const std::vector<i
                 log::warning("Script: object %u local %d out of range", self.object->id, index);
             break;
         }
-        case OP_GET_GLOBAL:
+        case kOpGetGlobal:
             push(getGlobal(pop()));
             break;
-        case OP_SET_GLOBAL: {
+        case kOpSetGlobal: {
             int16_t index = pop();
             int16_t value = pop();
             setGlobal(index, value);
             break;
         }
-        case OP_INC:
+        case kOpInc:
             push((int16_t)(pop() + 1));
             break;
-        case OP_DEC:
+        case kOpDec:
             push((int16_t)(pop() - 1));
             break;
-        case OP_ADD:
-        case OP_SUB:
-        case OP_MUL:
-        case OP_DIV:
-        case OP_SIGN_DIFF:
-        case OP_AND:
-        case OP_OR:
-        case OP_XOR: {
+        case kOpAdd:
+        case kOpSub:
+        case kOpMul:
+        case kOpDiv:
+        case kOpSignDiff:
+        case kOpAnd:
+        case kOpOr:
+        case kOpXor: {
             // The original computes "top op below".
             int top = pop();
             int below = pop();
             int value = 0;
             switch (op) {
-            case OP_ADD:
+            case kOpAdd:
                 value = top + below;
                 break;
-            case OP_SUB:
+            case kOpSub:
                 value = top - below;
                 break;
-            case OP_MUL:
+            case kOpMul:
                 value = top * below;
                 break;
-            case OP_DIV:
+            case kOpDiv:
                 if (below == 0) {
                     log::warning("Script: object %u divides by zero", self.object->id);
                     value = 0;
@@ -359,13 +359,13 @@ int16_t ScriptVM::execute(ScriptInstance &self, uint32_t ip, const std::vector<i
                     value = top / below;
                 }
                 break;
-            case OP_SIGN_DIFF:
+            case kOpSignDiff:
                 value = top > below ? 1 : top < below ? -1 : 0;
                 break;
-            case OP_AND:
+            case kOpAnd:
                 value = top & below;
                 break;
-            case OP_OR:
+            case kOpOr:
                 value = top | below;
                 break;
             default:
@@ -375,13 +375,13 @@ int16_t ScriptVM::execute(ScriptInstance &self, uint32_t ip, const std::vector<i
             push((int16_t)value);
             break;
         }
-        case OP_NOT:
+        case kOpNot:
             push((int16_t)~pop());
             break;
-        case OP_HIGH_BITS:
+        case kOpHighBits:
             push((int16_t)(pop() & 0xE000));
             break;
-        case OP_LOW_BITS:
+        case kOpLowBits:
             push((int16_t)(pop() & 0x1FFF));
             break;
         default:

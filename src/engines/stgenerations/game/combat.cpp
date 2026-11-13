@@ -1184,20 +1184,20 @@ void SpaceCombat::playMusic(const std::string &name, bool loop) {
 
 void SpaceCombat::keyDown(const KeyState &key) {
     if (_phase == kBriefing) {
-        if (key.keycode == reluva::key::Return || key.keycode == reluva::key::Space ||
-            key.keycode == reluva::key::Escape)
+        if (key.keycode == reluva::key::kReturn || key.keycode == reluva::key::kSpace ||
+            key.keycode == reluva::key::kEscape)
             mouseUp(_proceedX + 10, _proceedY + 10);
         return;
     }
     if (_phase == kEnding) {
-        if (key.keycode == reluva::key::Escape || key.keycode == reluva::key::Space ||
-            key.keycode == reluva::key::Return)
+        if (key.keycode == reluva::key::kEscape || key.keycode == reluva::key::kSpace ||
+            key.keycode == reluva::key::kReturn)
             _finished = true;
         return;
     }
     Helm before = _helm;
     // Esc is the menu whatever the map says (0x47AF5B).
-    if (key.keycode == reluva::key::Escape) {
+    if (key.keycode == reluva::key::kEscape) {
         _optionsRequest = true;
         return;
     }
@@ -1206,7 +1206,7 @@ void SpaceCombat::keyDown(const KeyState &key) {
         shipAction(action, true);
     } else {
         switch (key.keycode) {
-        case reluva::key::Tab:
+        case reluva::key::kTab:
         case 't':
             nextTarget(true);
             break;
@@ -1390,7 +1390,7 @@ void SpaceCombat::mouseDown(int x, int y) {
     }
     // The display buttons at the panels' feet (hotspots 15, 16, 0x4AEC22).
     for (int panel = 0; panel < 2; panel++) {
-        if (_phase == kFight && kViewButton[panel].contains(x, y)) {
+        if (_phase == kFight && _kViewButton[panel].contains(x, y)) {
             _shieldView[panel] = !_shieldView[panel];
             speak(_shieldView[panel] ? 0x12C : 0x12B, true);
             return;
@@ -1407,7 +1407,7 @@ void SpaceCombat::mouseDown(int x, int y) {
         _pressed = 0;
     else if (_phase == kFight && Rect(320, 380, 425, 400).contains(x, y))
         _pressed = 1;
-    else if (_phase == kFight && kConnLine.contains(x, y))
+    else if (_phase == kFight && _kConnLine.contains(x, y))
         _helmMenu = !_helmMenu;
 }
 
@@ -1449,7 +1449,7 @@ void SpaceCombat::mouseUp(int x, int y) {
         nextTarget(true);
     } else if (Rect(177, 344, 190, 372).contains(x, y)) {
         toggleEnemyView();
-    } else if (_helmMenu && !kConnLine.contains(x, y)) {
+    } else if (_helmMenu && !_kConnLine.contains(x, y)) {
         // The helm menu (CONNMNU0), a row each 20 pixels: let go over one to
         // give the order, anywhere else to put it away.
         _helmMenu = false;

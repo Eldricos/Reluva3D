@@ -14,7 +14,7 @@ public:
     explicit RandomSource(uint32_t seed = 0);
 
     void setSeed(uint32_t seed);
-    uint32_t getSeed() const { return seed_; }
+    uint32_t getSeed() const { return _seed; }
     // 0 .. max, both included.
     uint32_t getRandomNumber(uint32_t max);
     uint32_t getRandomNumberRng(uint32_t min, uint32_t max) { return getRandomNumber(max - min) + min; }
@@ -25,8 +25,8 @@ public:
     static void setFixedSeed(uint32_t seed);
 
 private:
-    uint32_t seed_ = 0;
-    uint32_t state_ = 0;
+    uint32_t _seed = 0;
+    uint32_t _state = 0;
 };
 
 } // namespace reluva::stgenerations

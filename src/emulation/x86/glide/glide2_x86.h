@@ -32,7 +32,7 @@ public:
     // are allocated.
     Glide2Dll(x86::Cpu &cpu, x86::Arena &memory, Board board = {});
 
-    Glide2 &glide() { return glide_; }
+    Glide2 &glide() { return _glide; }
 
 private:
     void addAll();
@@ -41,8 +41,8 @@ private:
     // guTexGetMipMapInfo's GrMipMapInfo in guest memory, filled in now.
     uint32_t mipMapInfo(const Glide2 &g, uint32_t id);
 
-    Glide2 glide_;
-    std::map<uint32_t, uint32_t> mipMapInfos_; // by handle
+    Glide2 _glide;
+    std::map<uint32_t, uint32_t> _mipMapInfos; // by handle
 };
 
 } // namespace reluva::glide

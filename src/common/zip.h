@@ -33,9 +33,9 @@ public:
     std::vector<std::string> list() const override;
     bool has(std::string_view name) const override;
     Error read(std::string_view name, std::vector<uint8_t> &out) const override;
-    std::string describe() const override { return path_.string(); }
+    std::string describe() const override { return _path.string(); }
 
-    const std::vector<Entry> &entries() const { return entries_; }
+    const std::vector<Entry> &entries() const { return _entries; }
     const Entry *entry(std::string_view name) const;
     Error read(const Entry &entry, std::vector<uint8_t> &out) const;
     // The same, but a stored (uncompressed) entry whose CRC-32 doesn't
@@ -44,9 +44,9 @@ public:
     Error readUnchecked(const Entry &entry, std::vector<uint8_t> &out, bool &crcOk) const;
 
 private:
-    std::filesystem::path path_;
-    std::vector<Entry> entries_;
-    std::unordered_map<std::string, size_t> byName_; // normalized name -> entries_ index
+    std::filesystem::path _path;
+    std::vector<Entry> _entries;
+    std::unordered_map<std::string, size_t> _byName; // normalized name -> entries_ index
 };
 
 // CRC-32 as zip uses it (polynomial 0xedb88320), continuing from `crc`.

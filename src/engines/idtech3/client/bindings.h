@@ -20,16 +20,16 @@ namespace reluva::idtech3 {
 // Elite Force's taken to be the same: ASCII for printable keys, then its
 // own list from 128.
 namespace q3key {
-constexpr int32_t Tab = 9, Enter = 13, Escape = 27, Space = 32, Backspace = 127;
-constexpr int32_t Pause = 131, Up = 132, Down = 133, Left = 134, Right = 135;
-constexpr int32_t Alt = 136, Ctrl = 137, Shift = 138, Insert = 139, Delete = 140;
-constexpr int32_t PageDown = 141, PageUp = 142, Home = 143, End = 144, F1 = 145;
-constexpr int32_t KpEnter = 169;
+constexpr int32_t kTab = 9, kEnter = 13, kEscape = 27, kSpace = 32, kBackspace = 127;
+constexpr int32_t kPause = 131, kUp = 132, kDown = 133, kLeft = 134, kRight = 135;
+constexpr int32_t kAlt = 136, kCtrl = 137, kShift = 138, kInsert = 139, kDelete = 140;
+constexpr int32_t kPageDown = 141, kPageUp = 142, kHome = 143, kEnd = 144, kF1 = 145;
+constexpr int32_t kKpEnter = 169;
 // Added to a character's code for typed text, as against keys.
-constexpr int32_t CharFlag = 1024;
-constexpr int32_t Mouse1 = 178, Mouse2 = 179, Mouse3 = 180, Mouse4 = 181, Mouse5 = 182;
-constexpr int32_t WheelDown = 183, WheelUp = 184;
-constexpr int32_t Count = 256;
+constexpr int32_t kCharFlag = 1024;
+constexpr int32_t kMouse1 = 178, kMouse2 = 179, kMouse3 = 180, kMouse4 = 181, kMouse5 = 182;
+constexpr int32_t kWheelDown = 183, kWheelUp = 184;
+constexpr int32_t kCount = 256;
 } // namespace q3key
 
 // The game's number for a key or mouse button (0 for none).
@@ -63,7 +63,7 @@ public:
     bool changed = false;
 
 private:
-    std::array<std::string, q3key::Count> commands_;
+    std::array<std::string, q3key::kCount> _commands;
 };
 
 // A command line split into words as the original's console does: at

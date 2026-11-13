@@ -19,13 +19,13 @@ class MadDecoder {
 public:
     // The arithmetic: the reference one FFmpeg's decoder shares, at 8 bits
     // (the default), or nfs3.exe's own (mad.md, The game's decoder).
-    enum class Arithmetic { Game, Reference };
-    void setArithmetic(Arithmetic a) { arithmetic_ = a; }
+    enum class Arithmetic { kGame, kReference };
+    void setArithmetic(Arithmetic a) { _arithmetic = a; }
     // Decodes one frame chunk (MADk, MADm or MADe, its 8-byte chunk header
     // included). The picture is kept until the next.
     Error decode(const uint8_t *chunk, size_t size);
-    int width() const { return width_; }
-    int height() const { return height_; }
+    int width() const { return _width; }
+    int height() const { return _height; }
     // The picture as RGBA8888.
     void toSurface(Surface &out) const;
     // The picture at twice its size as nfs3.exe shows it on a 16-bit
@@ -33,13 +33,13 @@ public:
     // two-pixel dither, then one of its three ways of doubling, chosen by
     // the processor's clock. Lines the mode doesn't write stay black. The
     // 5:6:5 result is widened to RGBA8888 by repeating its top bits.
-    enum class Display { Repeat = 1, Average = 2, Interpolate = 3 };
+    enum class Display { kRepeat = 1, kAverage = 2, kInterpolate = 3 };
     void toGameSurface(Surface &out, Display mode) const;
     // Plane access, for tests and tools: stride, then the planes (0 Y, 1 U,
     // 2 V); chroma is half size each way. With the game's arithmetic the
     // samples are its 7-bit ones (0-127), 64 the middle.
-    int stride(int plane) const { return plane ? stride_ / 2 : stride_; }
-    const uint8_t *plane(int plane) const { return current_[plane].data(); }
+    int stride(int plane) const { return plane ? _stride / 2 : _stride; }
+    const uint8_t *plane(int plane) const { return _current[plane].data(); }
 
 private:
     void decodeMacroblock(bool inter, int mbX, int mbY);
@@ -47,18 +47,18 @@ private:
     void copyBlock(int index, int mbX, int mbY, int mvX, int mvY, int add);
     void putBlock(int index, int mbX, int mbY, int16_t block[64]);
 
-    Arithmetic arithmetic_ = Arithmetic::Reference;
+    Arithmetic _arithmetic = Arithmetic::kReference;
     bool gameIntraBlock(int32_t block[64]);
     void gamePutBlock(int index, int mbX, int mbY, int32_t block[64]);
-    int64_t gameQuant_[64] = {};
-    int width_ = 0, height_ = 0, stride_ = 0, rows_ = 0; // rows_: luma rows held, a multiple of 16
-    std::vector<uint8_t> current_[3], previous_[3];
-    bool havePrevious_ = false;
-    int quant_[64] = {};
+    int64_t _gameQuant[64] = {};
+    int _width = 0, _height = 0, _stride = 0, _rows = 0; // rows_: luma rows held, a multiple of 16
+    std::vector<uint8_t> _current[3], _previous[3];
+    bool _havePrevious = false;
+    int _quant[64] = {};
     // The bitstream: 16-bit little-endian words, each read from its top bit.
-    const uint8_t *bits_ = nullptr;
-    size_t bitCount_ = 0, bitPos_ = 0;
-    bool damaged_ = false;
+    const uint8_t *_bits = nullptr;
+    size_t _bitCount = 0, _bitPos = 0;
+    bool _damaged = false;
     uint32_t peek(int n) const;
     uint32_t read(int n);
     int readSigned(int n);
@@ -74,24 +74,24 @@ public:
     };
 
     Error open(std::vector<uint8_t> data);
-    const std::vector<Frame> &frames() const { return frames_; }
+    const std::vector<Frame> &frames() const { return _frames; }
     // The first frame's size and frame duration (1/65536 milliseconds).
-    int width() const { return width_; }
-    int height() const { return height_; }
-    uint32_t frameDuration() const { return duration_; }
-    bool hasAudio() const { return haveAudio_; }
-    const SoundHeader &audioHeader() const { return audio_; }
+    int width() const { return _width; }
+    int height() const { return _height; }
+    uint32_t frameDuration() const { return _duration; }
+    bool hasAudio() const { return _haveAudio; }
+    const SoundHeader &audioHeader() const { return _audio; }
     Error decodeAudio(audio::Sound &out) const;
     Error decodeFrame(MadDecoder &decoder, size_t index) const;
 
 private:
-    std::vector<uint8_t> data_;
-    std::vector<Frame> frames_;
-    std::vector<std::pair<uint32_t, uint32_t>> audioBlocks_; // each SCDl's payload: offset, size
-    SoundHeader audio_;
-    bool haveAudio_ = false;
-    int width_ = 0, height_ = 0;
-    uint32_t duration_ = 0;
+    std::vector<uint8_t> _data;
+    std::vector<Frame> _frames;
+    std::vector<std::pair<uint32_t, uint32_t>> _audioBlocks; // each SCDl's payload: offset, size
+    SoundHeader _audio;
+    bool _haveAudio = false;
+    int _width = 0, _height = 0;
+    uint32_t _duration = 0;
 };
 
 } // namespace reluva::nfs

@@ -157,34 +157,34 @@ env/sky
     if (defs.size() != 2 || defs[0].stages.size() != 2)
         return;
     const ShaderDef &d = defs[0];
-    CHECK(d.cull == ShaderDef::Cull::None && d.sort == 10 && d.polygonOffset && d.noMipmaps);
+    CHECK(d.cull == ShaderDef::Cull::kNone && d.sort == 10 && d.polygonOffset && d.noMipmaps);
     CHECK(d.deforms.size() == 3);
-    CHECK(d.deforms[0].type == ShaderDeform::Type::Wave && d.deforms[0].spread == 1.0f / 64);
+    CHECK(d.deforms[0].type == ShaderDeform::Type::kWave && d.deforms[0].spread == 1.0f / 64);
     CHECK(d.deforms[0].wave.amplitude == 3 && d.deforms[0].wave.frequency == 0.5f);
-    CHECK(d.deforms[1].type == ShaderDeform::Type::Move && d.deforms[1].vector[2] == 1 &&
-          d.deforms[1].wave.func == gfx::WaveFunc::Sawtooth && d.deforms[1].wave.amplitude == 8);
-    CHECK(d.deforms[2].type == ShaderDeform::Type::Autosprite);
+    CHECK(d.deforms[1].type == ShaderDeform::Type::kMove && d.deforms[1].vector[2] == 1 &&
+          d.deforms[1].wave.func == gfx::WaveFunc::kSawtooth && d.deforms[1].wave.amplitude == 8);
+    CHECK(d.deforms[2].type == ShaderDeform::Type::kAutosprite);
     CHECK((d.unknown == std::vector<std::string>{"efmadeupdirective", "efstagething"}));
 
     const ShaderStage &a = d.stages[0];
-    CHECK(a.rgbGen == ShaderStage::RgbGen::Wave && a.rgbWave.func == gfx::WaveFunc::Triangle &&
+    CHECK(a.rgbGen == ShaderStage::RgbGen::kWave && a.rgbWave.func == gfx::WaveFunc::kTriangle &&
           a.rgbWave.phase == 0.25f && a.rgbWave.frequency == 2);
-    CHECK(a.alphaGen == ShaderStage::AlphaGen::Const && a.alphaConst == 0.4f);
-    CHECK(a.tcGen == ShaderStage::TcGen::Vector && a.tcVectors[0][0] == 0.01f && a.tcVectors[1][1] == 0.01f);
+    CHECK(a.alphaGen == ShaderStage::AlphaGen::kConst && a.alphaConst == 0.4f);
+    CHECK(a.tcGen == ShaderStage::TcGen::kVector && a.tcVectors[0][0] == 0.01f && a.tcVectors[1][1] == 0.01f);
     CHECK(a.tcMods.size() == 5);
     if (a.tcMods.size() == 5) {
         using M = ShaderStage::TcMod::Type;
-        CHECK(a.tcMods[0].type == M::Scroll && a.tcMods[0].v[0] == 0.5f && a.tcMods[0].v[1] == -1);
-        CHECK(a.tcMods[1].type == M::Turb && a.tcMods[1].wave.amplitude == 0.1f && a.tcMods[1].wave.frequency == 0.3f);
-        CHECK(a.tcMods[2].type == M::Rotate && a.tcMods[2].v[0] == 90);
-        CHECK(a.tcMods[3].type == M::Stretch && a.tcMods[3].wave.base == 1 && a.tcMods[3].wave.amplitude == 0.2f);
-        CHECK(a.tcMods[4].type == M::Transform && a.tcMods[4].v[4] == 0.5f && a.tcMods[4].v[5] == 0.25f);
+        CHECK(a.tcMods[0].type == M::kScroll && a.tcMods[0].v[0] == 0.5f && a.tcMods[0].v[1] == -1);
+        CHECK(a.tcMods[1].type == M::kTurb && a.tcMods[1].wave.amplitude == 0.1f && a.tcMods[1].wave.frequency == 0.3f);
+        CHECK(a.tcMods[2].type == M::kRotate && a.tcMods[2].v[0] == 90);
+        CHECK(a.tcMods[3].type == M::kStretch && a.tcMods[3].wave.base == 1 && a.tcMods[3].wave.amplitude == 0.2f);
+        CHECK(a.tcMods[4].type == M::kTransform && a.tcMods[4].v[4] == 0.5f && a.tcMods[4].v[5] == 0.25f);
     }
-    CHECK(a.depthEqual && a.depthWrite && a.alphaFunc == gfx::AlphaTest::Ge128);
+    CHECK(a.depthEqual && a.depthWrite && a.alphaFunc == gfx::AlphaTest::kGe128);
 
     const ShaderStage &b = d.stages[1];
-    CHECK(b.whiteImage && b.rgbGen == ShaderStage::RgbGen::Const && b.rgbConst[1] == 0.5f && b.rgbConst[2] == 1);
-    CHECK(b.alphaGen == ShaderStage::AlphaGen::OneMinusVertex && b.tcGen == ShaderStage::TcGen::Environment);
+    CHECK(b.whiteImage && b.rgbGen == ShaderStage::RgbGen::kConst && b.rgbConst[1] == 0.5f && b.rgbConst[2] == 1);
+    CHECK(b.alphaGen == ShaderStage::AlphaGen::kOneMinusVertex && b.tcGen == ShaderStage::TcGen::kEnvironment);
     // turb with the (ignored) function name written
     CHECK(b.tcMods.size() == 1 && b.tcMods[0].wave.amplitude == 0.2f && b.tcMods[0].wave.phase == 0.5f);
 
@@ -195,20 +195,20 @@ env/sky
 
 static void testWaves() {
     auto approx = [](float a, float b) { return std::fabs(a - b) < 1e-4f; };
-    gfx::Wave w{gfx::WaveFunc::Sin, 1, 2, 0, 1};
+    gfx::Wave w{gfx::WaveFunc::kSin, 1, 2, 0, 1};
     CHECK(approx(gfx::evaluate(w, 0), 1) && approx(gfx::evaluate(w, 0.25f), 3) && approx(gfx::evaluate(w, 0.75f), -1));
-    w.func = gfx::WaveFunc::Triangle;
+    w.func = gfx::WaveFunc::kTriangle;
     CHECK(approx(gfx::evaluate(w, 0.25f), 3) && approx(gfx::evaluate(w, 0.5f), 1) &&
           approx(gfx::evaluate(w, 0.75f), -1));
-    w.func = gfx::WaveFunc::Square;
+    w.func = gfx::WaveFunc::kSquare;
     CHECK(approx(gfx::evaluate(w, 0.1f), 3) && approx(gfx::evaluate(w, 0.6f), -1));
-    w.func = gfx::WaveFunc::Sawtooth;
+    w.func = gfx::WaveFunc::kSawtooth;
     CHECK(approx(gfx::evaluate(w, 0.25f), 1.5f) && approx(gfx::evaluate(w, 1.25f), 1.5f));
-    w.func = gfx::WaveFunc::InverseSawtooth;
+    w.func = gfx::WaveFunc::kInverseSawtooth;
     CHECK(approx(gfx::evaluate(w, 0.25f), 2.5f));
-    w = {gfx::WaveFunc::Sin, 0, 1, 0.25f, 0}; // no frequency: constant, set by the phase
+    w = {gfx::WaveFunc::kSin, 0, 1, 0.25f, 0}; // no frequency: constant, set by the phase
     CHECK(approx(gfx::evaluate(w, 0), 1) && approx(gfx::evaluate(w, 100), 1));
-    w.func = gfx::WaveFunc::Noise;
+    w.func = gfx::WaveFunc::kNoise;
     w.frequency = 1;
     for (float t = 0; t < 5; t += 0.37f)
         CHECK(gfx::evaluate(w, t) >= -1 && gfx::evaluate(w, t) <= 1);
@@ -284,7 +284,7 @@ static void testBsp() {
     CHECK(bsp.models.size() == 1 && bsp.models[0].maxs[0] == 64 && bsp.models[0].numSurfaces == 1);
     CHECK(bsp.vertices.size() == 3 && bsp.vertices[1].pos[0] == 32 && bsp.vertices[0].color[1] == 128);
     CHECK(bsp.indices.size() == 3 && bsp.surfaces.size() == 1);
-    CHECK(bsp.surfaces[0].type == SurfaceType::Planar && bsp.surfaces[0].fog == -1);
+    CHECK(bsp.surfaces[0].type == SurfaceType::kPlanar && bsp.surfaces[0].fog == -1);
     CHECK(bsp.surfaces[0].lightmapSize[0] == 16 && bsp.surfaces[0].lightmapVecs[2][2] == 1);
     CHECK(bsp.lightmapCount() == 1 && bsp.visClusters == 2);
     CHECK(bsp.clusterVisible(0, 0) && !bsp.clusterVisible(0, 1) && bsp.clusterVisible(1, 0));
@@ -303,9 +303,9 @@ static void testBsp() {
     CHECK(bsp.surfaces[0].lightmap == -1 && bsp.surfaces[0].fog == -1);
     CHECK(bsp.fixes.lightmaps == 1 && bsp.fixes.fogs == 1 && bsp.fixes.total() == 2);
     CHECK(!parseBsp(buildBsp(46, 7, 0, -1, 4), bsp)); // a flare's bad index doesn't matter
-    CHECK(bsp.surfaces[0].type == SurfaceType::Flare && bsp.surfaces[0].numVertices == 0 && bsp.fixes.flares == 1);
+    CHECK(bsp.surfaces[0].type == SurfaceType::kFlare && bsp.surfaces[0].numVertices == 0 && bsp.fixes.flares == 1);
     CHECK(!parseBsp(buildBsp(46, -1, 0, -1, 9), bsp));
-    CHECK(bsp.surfaces[0].type == SurfaceType::Bad && bsp.fixes.types == 1);
+    CHECK(bsp.surfaces[0].type == SurfaceType::kBad && bsp.fixes.types == 1);
     auto truncated = buildBsp();
     truncated.resize(truncated.size() - 1);
     CHECK(parseBsp(truncated, bsp));
@@ -635,10 +635,10 @@ static void testPlayerAnimation() {
                                             "208 10 10 15 // LEGS_IDLE\n"
                                             "186 6 0 10 // LEGS_JUMP\n");
     CHECK(anims.size() == 6);
-    CHECK(anims[0].name == "BOTH_DEATH1" && anims[0].part == PlayerAnimation::Part::Both && anims[0].first == 0);
-    CHECK(anims[2].part == PlayerAnimation::Part::Torso && anims[2].first == 134);
+    CHECK(anims[0].name == "BOTH_DEATH1" && anims[0].part == PlayerAnimation::Part::kBoth && anims[0].first == 0);
+    CHECK(anims[2].part == PlayerAnimation::Part::kTorso && anims[2].first == 134);
     // Legs moved back by 138 - 95 into the legs model.
-    CHECK(anims[3].part == PlayerAnimation::Part::Legs && anims[3].first == 95);
+    CHECK(anims[3].part == PlayerAnimation::Part::kLegs && anims[3].first == 95);
     CHECK(anims[4].name == "LEGS_IDLE" && anims[4].first == 165 && anims[4].loop == 10 && anims[4].fps == 15);
     int frame = 0;
     int next = 0;
@@ -686,19 +686,19 @@ static void testMdr() {
 }
 
 static const reluva::test::Suite
-    suite("idtech3.unit.formats",
-          {
-              {"lexer", [](const std::filesystem::path &) { testLexer(); }},
-              {"entities", [](const std::filesystem::path &) { testEntities(); }},
-              {"shaders", [](const std::filesystem::path &) { testShaders(); }},
-              {"shader stages", [](const std::filesystem::path &) { testShaderStages(); }},
-              {"waves", [](const std::filesystem::path &) { testWaves(); }},
-              {"bsp", [](const std::filesystem::path &) { testBsp(); }},
-              {"patches", [](const std::filesystem::path &) { testPatch(); }},
-              {"patch grids", [](const std::filesystem::path &) { testPatchGrids(); }},
-              {"md3", [](const std::filesystem::path &) { testMd3(); }},
-              {"skins and placement", [](const std::filesystem::path &) { testSkinAndPlacement(); }},
-              {"light grid", [](const std::filesystem::path &) { testLightGrid(); }},
-              {"mdr", [](const std::filesystem::path &) { testMdr(); }},
-              {"player animation", [](const std::filesystem::path &) { testPlayerAnimation(); }},
-          });
+    kSuite("idtech3.unit.formats",
+           {
+               {"lexer", [](const std::filesystem::path &) { testLexer(); }},
+               {"entities", [](const std::filesystem::path &) { testEntities(); }},
+               {"shaders", [](const std::filesystem::path &) { testShaders(); }},
+               {"shader stages", [](const std::filesystem::path &) { testShaderStages(); }},
+               {"waves", [](const std::filesystem::path &) { testWaves(); }},
+               {"bsp", [](const std::filesystem::path &) { testBsp(); }},
+               {"patches", [](const std::filesystem::path &) { testPatch(); }},
+               {"patch grids", [](const std::filesystem::path &) { testPatchGrids(); }},
+               {"md3", [](const std::filesystem::path &) { testMd3(); }},
+               {"skins and placement", [](const std::filesystem::path &) { testSkinAndPlacement(); }},
+               {"light grid", [](const std::filesystem::path &) { testLightGrid(); }},
+               {"mdr", [](const std::filesystem::path &) { testMdr(); }},
+               {"player animation", [](const std::filesystem::path &) { testPlayerAnimation(); }},
+           });

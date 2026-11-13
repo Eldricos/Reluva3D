@@ -11,92 +11,92 @@
 namespace reluva::idtech3::botlib {
 
 int BotLibrary::setup() {
-    setup_ = true;
+    _setup = true;
     if (print)
         print("------- BotLib Initialization -------\n");
-    chat.time = [this] { return time_; };
+    chat.time = [this] { return _time; };
     chat.command = [this](int client, const std::string &text) { command(client, text); };
     std::string log;
     chat.setup(scriptLoader(), [this](const std::string &name) { return libVar(name); }, &log);
     if (print)
         print(log);
-    return blerr::None;
+    return blerr::kNone;
 }
 
 int BotLibrary::shutdown() {
-    setup_ = false;
-    aas_ = AasWorld{};
-    entities_.assign(size_t(kMaxEntities), {});
-    levelItems_.clear();
-    goalStates_.clear();
-    weaponStates_.clear();
-    moveStates_.clear();
-    return blerr::None;
+    _setup = false;
+    _aas = AasWorld{};
+    _entities.assign(size_t(kMaxEntities), {});
+    _levelItems.clear();
+    _goalStates.clear();
+    _weaponStates.clear();
+    _moveStates.clear();
+    return blerr::kNone;
 }
 
 std::string BotLibrary::libVar(const std::string &name) const {
-    const auto it = libVars_.find(name);
-    return it == libVars_.end() ? std::string() : it->second;
+    const auto it = _libVars.find(name);
+    return it == _libVars.end() ? std::string() : it->second;
 }
 
 int BotLibrary::loadMap(const std::string &mapName) {
-    if (!setup_)
-        return blerr::LibraryNotSetup;
+    if (!_setup)
+        return blerr::kLibraryNotSetup;
     const std::string path = "maps/" + mapName + ".aas";
     std::vector<uint8_t> data;
     if (!readFile || !readFile(path, data)) {
         if (print)
             print("can't open " + path + "\n");
-        aas_ = AasWorld{};
-        return blerr::CannotOpenAasFile;
+        _aas = AasWorld{};
+        return blerr::kCannotOpenAasFile;
     }
-    if (Error err = aas_.load(data)) {
+    if (Error err = _aas.load(data)) {
         if (print)
             print(path + ": " + err.message + "\n");
-        return blerr::WrongAasFileVersion;
+        return blerr::kWrongAasFileVersion;
     }
     if (print)
-        print("loaded " + path + ": " + std::to_string(aas_.areaCount()) + " areas, " +
-              std::to_string(aas_.reachabilities().size()) + " reachabilities\n");
-    entities_.assign(size_t(kMaxEntities), {});
-    frames_ = 0;
+        print("loaded " + path + ": " + std::to_string(_aas.areaCount()) + " areas, " +
+              std::to_string(_aas.reachabilities().size()) + " reachabilities\n");
+    _entities.assign(size_t(kMaxEntities), {});
+    _frames = 0;
     // The brush models' kinds (elevators, doors...), for movement; the
     // item and weapon descriptions; the level's items.
-    modelTypes_.clear();
+    _modelTypes.clear();
     for (int e = 1; entityKey && e <= entityCount; ++e) {
         std::string model;
         std::string classname;
         if (entityKey(e, "model", model) && model.size() > 1 && model[0] == '*' && entityKey(e, "classname", classname))
-            modelTypes_[std::atoi(model.c_str() + 1)] = classname;
+            _modelTypes[std::atoi(model.c_str() + 1)] = classname;
     }
     loadConfigs();
     initLevelItems();
-    return blerr::None;
+    return blerr::kNone;
 }
 
 int BotLibrary::startFrame(float time) {
-    if (!setup_)
-        return blerr::LibraryNotSetup;
-    time_ = time;
+    if (!_setup)
+        return blerr::kLibraryNotSetup;
+    _time = time;
     // Entities not updated since the last frame count as gone.
-    for (BotEntityInfo &e : entities_)
+    for (BotEntityInfo &e : _entities)
         e.valid = false;
-    ++frames_;
-    return blerr::None;
+    ++_frames;
+    return blerr::kNone;
 }
 
 int BotLibrary::updateEntity(int number, const BotEntityState *state) {
-    if (!setup_)
-        return blerr::LibraryNotSetup;
+    if (!_setup)
+        return blerr::kLibraryNotSetup;
     if (number < 0 || number >= kMaxEntities)
-        return blerr::InvalidEntityNumber;
-    if (!aas_.loaded())
-        return blerr::NoAasFile;
-    BotEntityInfo &e = entities_[size_t(number)];
+        return blerr::kInvalidEntityNumber;
+    if (!_aas.loaded())
+        return blerr::kNoAasFile;
+    BotEntityInfo &e = _entities[size_t(number)];
     if (!state)
-        return blerr::None;
-    e.updateTime = time_ - e.lastTime;
-    e.lastTime = time_;
+        return blerr::kNone;
+    e.updateTime = _time - e.lastTime;
+    e.lastTime = _time;
     e.lastVisOrigin = e.origin;
     e.type = state->type;
     e.flags = state->flags;
@@ -118,12 +118,12 @@ int BotLibrary::updateEntity(int number, const BotEntityState *state) {
     e.torsoAnim = state->torsoAnim;
     e.number = number;
     e.valid = true;
-    return blerr::None;
+    return blerr::kNone;
 }
 
 const BotEntityInfo &BotLibrary::entityInfo(int number) const {
-    static const BotEntityInfo none;
-    return number >= 0 && number < kMaxEntities ? entities_[size_t(number)] : none;
+    static const BotEntityInfo kNone;
+    return number >= 0 && number < kMaxEntities ? _entities[size_t(number)] : kNone;
 }
 
 BotScript::Loader BotLibrary::scriptLoader() const {
@@ -145,18 +145,18 @@ void BotLibrary::command(int client, const std::string &text) {
 void BotLibrary::jump(int client) {
     // A jump only every other frame, so the game sees the key let go.
     BotInput &in = input(client);
-    if (in.actionFlags & action::JumpedLastFrame)
-        in.actionFlags &= ~action::Jump;
+    if (in.actionFlags & action::kJumpedLastFrame)
+        in.actionFlags &= ~action::kJump;
     else
-        in.actionFlags |= action::Jump;
+        in.actionFlags |= action::kJump;
 }
 
 void BotLibrary::delayedJump(int client) {
     BotInput &in = input(client);
-    if (in.actionFlags & action::JumpedLastFrame)
-        in.actionFlags &= ~action::DelayedJump;
+    if (in.actionFlags & action::kJumpedLastFrame)
+        in.actionFlags &= ~action::kDelayedJump;
     else
-        in.actionFlags |= action::DelayedJump;
+        in.actionFlags |= action::kDelayedJump;
 }
 
 void BotLibrary::move(int client, const Vec3f &dir, float speed) {
@@ -173,11 +173,11 @@ BotInput BotLibrary::getInput(int client, float thinkTime) {
 
 void BotLibrary::resetInput(int client) {
     BotInput &in = input(client);
-    const bool jumped = in.actionFlags & action::Jump;
+    const bool jumped = in.actionFlags & action::kJump;
     in.thinkTime = 0;
     in.dir = {};
     in.speed = 0;
-    in.actionFlags = jumped ? action::JumpedLastFrame : 0;
+    in.actionFlags = jumped ? action::kJumpedLastFrame : 0;
 }
 
 } // namespace reluva::idtech3::botlib

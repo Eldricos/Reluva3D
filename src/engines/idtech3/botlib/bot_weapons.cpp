@@ -10,38 +10,38 @@
 namespace reluva::idtech3::botlib {
 
 int BotLibrary::allocWeaponState() {
-    return alloc(weaponStates_);
+    return alloc(_weaponStates);
 }
 
 void BotLibrary::freeWeaponState(int handle) {
-    if (state(weaponStates_, handle))
-        weaponStates_[size_t(handle) - 1].reset();
+    if (state(_weaponStates, handle))
+        _weaponStates[size_t(handle) - 1].reset();
 }
 
 int BotLibrary::loadWeaponWeights(int handle, const std::string &file) {
-    WeaponState *ws = state(weaponStates_, handle);
+    WeaponState *ws = state(_weaponStates, handle);
     if (!ws)
-        return blerr::CannotLoadWeaponWeights;
+        return blerr::kCannotLoadWeaponWeights;
     loadConfigs();
     ws->weights = weights(file);
     if (!ws->weights)
-        return blerr::CannotLoadWeaponWeights;
-    if (weapons_.empty())
-        return blerr::CannotLoadWeaponConfig;
+        return blerr::kCannotLoadWeaponWeights;
+    if (_weapons.empty())
+        return blerr::kCannotLoadWeaponConfig;
     ws->weightIndex.clear();
-    for (const WeaponInfo &w : weapons_)
+    for (const WeaponInfo &w : _weapons)
         ws->weightIndex.push_back(w.valid ? ws->weights->find(w.name) : -1);
-    return blerr::None;
+    return blerr::kNone;
 }
 
 int BotLibrary::chooseBestFightWeapon(int handle, const std::vector<int> &inventory) const {
-    const WeaponState *ws = state(weaponStates_, handle);
+    const WeaponState *ws = state(_weaponStates, handle);
     if (!ws || !ws->weights)
         return 0;
     int best = 0;
     float bestWeight = 0;
-    for (size_t i = 0; i < weapons_.size() && i < ws->weightIndex.size(); ++i) {
-        if (!weapons_[i].valid || ws->weightIndex[i] < 0)
+    for (size_t i = 0; i < _weapons.size() && i < ws->weightIndex.size(); ++i) {
+        if (!_weapons[i].valid || ws->weightIndex[i] < 0)
             continue;
         const float w = ws->weights->evaluate(ws->weightIndex[i], inventory);
         if (w > bestWeight) {
@@ -53,9 +53,9 @@ int BotLibrary::chooseBestFightWeapon(int handle, const std::vector<int> &invent
 }
 
 const WeaponInfo *BotLibrary::weaponInfo(int weapon) const {
-    if (weapon <= 0 || size_t(weapon) >= weapons_.size())
+    if (weapon <= 0 || size_t(weapon) >= _weapons.size())
         return nullptr;
-    return &weapons_[size_t(weapon)];
+    return &_weapons[size_t(weapon)];
 }
 
 } // namespace reluva::idtech3::botlib

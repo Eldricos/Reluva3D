@@ -11,76 +11,76 @@
 namespace reluva::netimmerse::alphateam {
 
 Player::Player(std::filesystem::path gameDir, std::filesystem::path saveDir, audio::Mixer *mixer)
-    : dir_(std::move(gameDir)), saveDir_(std::move(saveDir)), mixer_(mixer) {
+    : _dir(std::move(gameDir)), _saveDir(std::move(saveDir)), _mixer(mixer) {
 }
 
 Player::~Player() {
     {
-        std::lock_guard<std::mutex> lock(mutex_);
-        stopping_ = true;
-        if (game_)
-            game_->cpu().requestStop();
+        std::lock_guard<std::mutex> lock(_mutex);
+        _stopping = true;
+        if (_game)
+            _game->cpu().requestStop();
     }
-    resume_.notify_all();
-    if (thread_.joinable())
-        thread_.join();
+    _resume.notify_all();
+    if (_thread.joinable())
+        _thread.join();
 }
 
 void Player::start() {
-    thread_ = std::thread([this] { work(); });
+    _thread = std::thread([this] { work(); });
 }
 
 void Player::input(const Event &event) {
-    std::lock_guard<std::mutex> lock(mutex_);
-    events_.push_back(event);
+    std::lock_guard<std::mutex> lock(_mutex);
+    _events.push_back(event);
 }
 
 bool Player::frame(std::vector<uint32_t> &pixels, int &width, int &height) {
-    std::lock_guard<std::mutex> lock(mutex_);
-    if (frameNumber_ == frameTaken_)
+    std::lock_guard<std::mutex> lock(_mutex);
+    if (_frameNumber == _frameTaken)
         return false;
-    frameTaken_ = frameNumber_;
-    pixels = frame_;
-    width = width_, height = height_;
+    _frameTaken = _frameNumber;
+    pixels = _frame;
+    width = _width, height = _height;
     return true;
 }
 
 uint64_t Player::framesShown() {
-    std::lock_guard<std::mutex> lock(mutex_);
-    return frameNumber_;
+    std::lock_guard<std::mutex> lock(_mutex);
+    return _frameNumber;
 }
 
 void Player::pause(bool paused) {
     {
-        std::lock_guard<std::mutex> lock(mutex_);
-        paused_ = paused;
+        std::lock_guard<std::mutex> lock(_mutex);
+        _paused = paused;
     }
-    resume_.notify_all();
+    _resume.notify_all();
 }
 
 bool Player::finished(bool &ended, std::string &error) {
-    std::lock_guard<std::mutex> lock(mutex_);
-    ended = ended_;
-    error = error_;
-    return finished_;
+    std::lock_guard<std::mutex> lock(_mutex);
+    ended = _ended;
+    error = _error;
+    return _finished;
 }
 
 std::string Player::takeOutput() {
-    std::lock_guard<std::mutex> lock(mutex_);
+    std::lock_guard<std::mutex> lock(_mutex);
     std::string out;
-    out.swap(output_);
+    out.swap(_output);
     return out;
 }
 
 void Player::work() {
-    GameProcess game(dir_);
-    game.setSaveFolder(saveDir_);
-    game.a3d().mixer = mixer_;
+    GameProcess game(_dir);
+    game.setSaveFolder(_saveDir);
+    game.a3d().mixer = _mixer;
     x86::Win32Process &process = game.process();
     process.output = [this](const std::string &text) {
-        std::lock_guard<std::mutex> lock(mutex_);
-        if (output_.size() < (1u << 20))
-            output_ += text + (text.empty() || text.back() != '\n' ? "\n" : "");
+        std::lock_guard<std::mutex> lock(_mutex);
+        if (_output.size() < (1u << 20))
+            _output += text + (text.empty() || text.back() != '\n' ? "\n" : "");
     };
     // Each frame shown: kept for the engine; then the input waiting, and
     // a pause if one's asked for. The input is also taken whenever the
@@ -97,24 +97,24 @@ void Player::work() {
             using namespace std::chrono;
             constexpr auto kFrame = duration_cast<steady_clock::duration>(duration<double>(1.0 / 60));
             const auto now = steady_clock::now();
-            if (nextFlip_ > now)
-                std::this_thread::sleep_until(nextFlip_);
-            nextFlip_ = std::max(nextFlip_, now) + kFrame;
+            if (_nextFlip > now)
+                std::this_thread::sleep_until(_nextFlip);
+            _nextFlip = std::max(_nextFlip, now) + kFrame;
         }
         {
-            std::unique_lock<std::mutex> lock(mutex_);
-            frame_ = f.pixels;
-            width_ = f.width, height_ = f.height;
-            ++frameNumber_;
-            resume_.wait(lock, [this] { return !paused_ || stopping_; });
+            std::unique_lock<std::mutex> lock(_mutex);
+            _frame = f.pixels;
+            _width = f.width, _height = f.height;
+            ++_frameNumber;
+            _resume.wait(lock, [this] { return !_paused || _stopping; });
         }
         drain();
     };
     process.idle = [this] { drain(); };
     {
-        std::lock_guard<std::mutex> lock(mutex_);
-        game_ = &game;
-        if (stopping_)
+        std::lock_guard<std::mutex> lock(_mutex);
+        _game = &game;
+        if (_stopping)
             game.cpu().requestStop();
     }
     Error e = game.load();
@@ -123,57 +123,57 @@ void Player::work() {
     uint32_t exitCode = 0;
     if (!e)
         e = game.run(exitCode);
-    std::lock_guard<std::mutex> lock(mutex_);
-    game_ = nullptr;
-    finished_ = true;
-    ended_ = !e || process.exited.has_value();
-    if (e && !ended_ && !stopping_)
-        error_ = e.message;
+    std::lock_guard<std::mutex> lock(_mutex);
+    _game = nullptr;
+    _finished = true;
+    _ended = !e || process.exited.has_value();
+    if (e && !_ended && !_stopping)
+        _error = e.message;
 }
 
 void Player::drain() {
     std::deque<Event> events;
     {
-        std::lock_guard<std::mutex> lock(mutex_);
-        events.swap(events_);
+        std::lock_guard<std::mutex> lock(_mutex);
+        events.swap(_events);
     }
-    if (!game_ || events.empty())
+    if (!_game || events.empty())
         return;
-    x86::Win32Process &p = game_->process();
+    x86::Win32Process &p = _game->process();
     for (const Event &ev : events) {
         switch (ev.type) {
-        case EventType::MouseMove: {
+        case EventType::kMouseMove: {
             // The game reads the pointer's movement, so that's what's
             // passed on: whole pixels, keeping the fractions for later.
-            pendingX_ += ev.moveX;
-            pendingY_ += ev.moveY;
-            const int dx = int(std::trunc(pendingX_));
-            const int dy = int(std::trunc(pendingY_));
-            pendingX_ -= float(dx);
-            pendingY_ -= float(dy);
+            _pendingX += ev.moveX;
+            _pendingY += ev.moveY;
+            const int dx = int(std::trunc(_pendingX));
+            const int dy = int(std::trunc(_pendingY));
+            _pendingX -= float(dx);
+            _pendingY -= float(dy);
             if (dx || dy)
                 p.mouseMoveTo(p.cursorX + dx, p.cursorY + dy);
             break;
         }
-        case EventType::MouseDown:
-        case EventType::MouseUp: {
-            const int button = ev.button == MouseButton::Left     ? 0
-                               : ev.button == MouseButton::Right  ? 1
-                               : ev.button == MouseButton::Middle ? 2
-                                                                  : -1;
+        case EventType::kMouseDown:
+        case EventType::kMouseUp: {
+            const int button = ev.button == MouseButton::kLeft     ? 0
+                               : ev.button == MouseButton::kRight  ? 1
+                               : ev.button == MouseButton::kMiddle ? 2
+                                                                   : -1;
             if (button >= 0)
-                p.mouseButton(button, ev.type == EventType::MouseDown);
+                p.mouseButton(button, ev.type == EventType::kMouseDown);
             break;
         }
-        case EventType::MouseWheel:
+        case EventType::kMouseWheel:
             p.mouseWheel(ev.wheelY * 120);
             break;
-        case EventType::KeyDown:
-        case EventType::KeyUp: {
+        case EventType::kKeyDown:
+        case EventType::kKeyUp: {
             uint32_t vk = 0;
             uint32_t scan = 0;
             if (x86::windowsKey(ev.key, vk, scan))
-                p.key(vk, scan, ev.type == EventType::KeyDown);
+                p.key(vk, scan, ev.type == EventType::kKeyDown);
             break;
         }
         default:

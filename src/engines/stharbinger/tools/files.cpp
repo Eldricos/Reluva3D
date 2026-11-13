@@ -143,7 +143,7 @@ int cmdConversations(int argc, char **argv) {
     });
 }
 
-const Commands commands(
+const Commands kCommands(
     "stharbinger",
     {
         {"files", "<game folder>",

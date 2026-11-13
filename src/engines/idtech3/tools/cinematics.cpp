@@ -132,12 +132,12 @@ int cmdBinkDecode(int argc, char **argv) {
 }
 
 const Commands
-    commands("idtech3",
-             {
-                 {"bink-decode", "<file.bik, or game folder [video/name]> [-frames N] [-yuv out] [-pcm out]",
-                  "decode a Bink movie: its frames as raw YUV 4:2:0, its first audio track as 16-bit PCM, for "
-                  "comparing with another decoder; a game folder alone lists its movies",
-                  cmdBinkDecode},
-             });
+    kCommands("idtech3",
+              {
+                  {"bink-decode", "<file.bik, or game folder [video/name]> [-frames N] [-yuv out] [-pcm out]",
+                   "decode a Bink movie: its frames as raw YUV 4:2:0, its first audio track as 16-bit PCM, for "
+                   "comparing with another decoder; a game folder alone lists its movies",
+                   cmdBinkDecode},
+              });
 
 } // namespace

@@ -18,9 +18,22 @@ namespace reluva::nfs {
 struct DiEffect {
     // Its kind, from the first part of its GUID (GUID_ConstantForce...,
     // 13541C2x-8E33-11D0-9AD0-00A0C9A06E35).
-    enum Kind { Constant, Ramp, Square, Sine, Triangle, SawUp, SawDown, Spring, Damper, Inertia, Friction, Custom };
+    enum Kind {
+        kConstant,
+        kRamp,
+        kSquare,
+        kSine,
+        kTriangle,
+        kSawUp,
+        kSawDown,
+        kSpring,
+        kDamper,
+        kInertia,
+        kFriction,
+        kCustom
+    };
     static bool kindOf(uint32_t guidData1, Kind &kind);
-    Kind kind = Constant;
+    Kind kind = kConstant;
 
     static constexpr uint32_t kInfinite = 0xffffffffu;
     uint32_t durationUs = kInfinite, gain = 10000, startDelayUs = 0;

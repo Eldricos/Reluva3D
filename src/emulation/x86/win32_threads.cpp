@@ -39,25 +39,25 @@ uint64_t Win32Process::now() const {
 }
 
 void Win32Process::useHostThreads() {
-    if (hostThreads_)
+    if (_hostThreads)
         return;
-    hostThreads_ = true;
-    cpu_.write32(tib_ + 0x2c, tib_ + 0xe10); // the TLS array (as Windows 95's)
+    _hostThreads = true;
+    _cpu.write32(_tib + 0x2c, _tib + 0xe10); // the TLS array (as Windows 95's)
     addThreadStandIns();
 }
 
 uint32_t Win32Process::allocTib(uint32_t stackTop, uint32_t stackBottom, uint32_t id) {
     // The exception handler chain's head, the stack's bounds, its own
     // address, the ids, the process's block; TLS slots at 0xE10.
-    const uint32_t tib = arena_->alloc(Cpu::kPageSize, Cpu::kPageSize);
-    cpu_.write32(tib + 0x00, 0xffffffffu);
-    cpu_.write32(tib + 0x04, stackTop);
-    cpu_.write32(tib + 0x08, stackBottom);
-    cpu_.write32(tib + 0x18, tib);
-    cpu_.write32(tib + 0x20, 0x100); // process id
-    cpu_.write32(tib + 0x24, id);
-    cpu_.write32(tib + 0x2c, tib + 0xe10); // the TLS array (as Windows 95's)
-    cpu_.write32(tib + 0x30, peb_);
+    const uint32_t tib = _arena->alloc(Cpu::kPageSize, Cpu::kPageSize);
+    _cpu.write32(tib + 0x00, 0xffffffffu);
+    _cpu.write32(tib + 0x04, stackTop);
+    _cpu.write32(tib + 0x08, stackBottom);
+    _cpu.write32(tib + 0x18, tib);
+    _cpu.write32(tib + 0x20, 0x100); // process id
+    _cpu.write32(tib + 0x24, id);
+    _cpu.write32(tib + 0x2c, tib + 0xe10); // the TLS array (as Windows 95's)
+    _cpu.write32(tib + 0x30, _peb);
     return tib;
 }
 
@@ -81,29 +81,29 @@ bool Win32Process::setHostEvent(uint32_t handle) {
 std::shared_ptr<Win32Process::Thread> Win32Process::createThread(std::function<uint32_t()> body, bool suspended,
                                                                  std::string name) {
     // Threads that have ended give back their host thread and memory.
-    for (auto it = threads_.begin(); it != threads_.end();) {
+    for (auto it = _threads.begin(); it != _threads.end();) {
         Thread &old = **it;
         if (old.finished && old.host.joinable()) {
             old.host.join();
-            arena_->free(old.stackTop - kThreadStack);
-            arena_->free(old.tib);
-            it = threads_.erase(it);
+            _arena->free(old.stackTop - kThreadStack);
+            _arena->free(old.tib);
+            it = _threads.erase(it);
         } else {
             ++it;
         }
     }
     auto t = std::make_shared<Thread>();
-    t->id = (nextThreadId_ += 4);
+    t->id = (_nextThreadId += 4);
     t->name = std::move(name);
     t->body = std::move(body);
     t->suspendCount = suspended ? 1 : 0;
-    const uint32_t stack = arena_->alloc(kThreadStack, 0x10000);
+    const uint32_t stack = _arena->alloc(kThreadStack, 0x10000);
     t->stackTop = stack + kThreadStack;
     t->tib = allocTib(t->stackTop, stack, t->id);
     t->context.reg[Cpu::ESP] = t->stackTop - 16;
     t->context.fsBase = t->tib;
-    t->context.sreg = cpu_.sreg;
-    threads_.push_back(t);
+    t->context.sreg = _cpu.sreg;
+    _threads.push_back(t);
     t->host = std::thread([this, t] { runThread(t); });
     return t;
 }
@@ -114,12 +114,12 @@ void Win32Process::resumeThread(Thread &t) {
 }
 
 void Win32Process::runThread(std::shared_ptr<Thread> t) {
-    std::unique_lock<std::mutex> lock(mutex_);
-    t->turn.wait(lock, [&] { return running_ == t.get(); });
-    cpu_.loadContext(t->context);
+    std::unique_lock<std::mutex> lock(_mutex);
+    t->turn.wait(lock, [&] { return _running == t.get(); });
+    _cpu.loadContext(t->context);
     t->started = true;
     uint32_t code = 0;
-    if (!exiting_ && !t->terminate) {
+    if (!_exiting && !t->terminate) {
         lock.unlock();
         code = t->body();
         lock.lock();
@@ -131,11 +131,11 @@ void Win32Process::runThread(std::shared_ptr<Thread> t) {
 }
 
 bool Win32Process::schedule(std::unique_lock<std::mutex> &lock) {
-    Thread *self = running_;
+    Thread *self = _running;
     auto runnable = [this](const Thread &t) {
         if (t.finished || t.suspendCount > 0)
             return false;
-        if (exiting_ || t.terminate || !t.waitFor)
+        if (_exiting || t.terminate || !t.waitFor)
             return true;
         if (t.waitUntil && now() >= t.waitUntil)
             return true;
@@ -145,19 +145,19 @@ bool Win32Process::schedule(std::unique_lock<std::mutex> &lock) {
     // with those of the same priority (from the one after this, this one
     // last); one of lower priority runs only while those wait.
     size_t at = 0;
-    for (size_t i = 0; i < threads_.size(); ++i)
-        if (threads_[i].get() == self)
+    for (size_t i = 0; i < _threads.size(); ++i)
+        if (_threads[i].get() == self)
             at = i;
     Thread *next = nullptr;
     while (!next) {
-        for (size_t i = 1; i <= threads_.size(); ++i) {
-            Thread *t = threads_[(at + i) % threads_.size()].get();
+        for (size_t i = 1; i <= _threads.size(); ++i) {
+            Thread *t = _threads[(at + i) % _threads.size()].get();
             if (runnable(*t) && (!next || t->priority > next->priority))
                 next = t;
         }
         if (!next) {
             if (self->finished &&
-                std::none_of(threads_.begin(), threads_.end(), [](const auto &t) { return !t->finished; }))
+                std::none_of(_threads.begin(), _threads.end(), [](const auto &t) { return !t->finished; }))
                 return false; // nothing left at all
             // Everyone waits: for time to pass.
             lock.unlock();
@@ -175,15 +175,15 @@ bool Win32Process::schedule(std::unique_lock<std::mutex> &lock) {
     if (next == self)
         return true;
     if (!self->finished)
-        self->context = cpu_.saveContext();
-    self->instructions += cpu_.executed() - turnStart_;
-    turnStart_ = cpu_.executed();
-    running_ = next;
+        self->context = _cpu.saveContext();
+    self->instructions += _cpu.executed() - _turnStart;
+    _turnStart = _cpu.executed();
+    _running = next;
     next->turn.notify_one();
     if (self->finished)
         return false;
-    self->turn.wait(lock, [&] { return running_ == self; });
-    cpu_.loadContext(self->context);
+    self->turn.wait(lock, [&] { return _running == self; });
+    _cpu.loadContext(self->context);
     return true;
 }
 
@@ -192,11 +192,11 @@ bool Win32Process::wait(const std::function<bool()> &ready, uint32_t timeoutMs) 
         return true;
     if (timeoutMs == 0)
         return false;
-    Thread *self = running_;
+    Thread *self = _running;
     if (!self) // no threads: nothing else could make it ready
         return false;
     const uint64_t until = timeoutMs == kInfinite ? 0 : now() + timeoutMs;
-    std::unique_lock<std::mutex> lock(mutex_);
+    std::unique_lock<std::mutex> lock(_mutex);
     while (true) {
         self->waitFor = ready;
         self->waitUntil = until;
@@ -213,17 +213,17 @@ bool Win32Process::wait(const std::function<bool()> &ready, uint32_t timeoutMs) 
 }
 
 void Win32Process::yield() {
-    if (!running_)
+    if (!_running)
         return;
-    std::unique_lock<std::mutex> lock(mutex_);
+    std::unique_lock<std::mutex> lock(_mutex);
     schedule(lock);
 }
 
 void Win32Process::preempt() {
-    if (!running_)
+    if (!_running)
         return;
-    for (const auto &t : threads_)
-        if (t.get() != running_ && !t->finished && t->suspendCount == 0 && t->priority > running_->priority &&
+    for (const auto &t : _threads)
+        if (t.get() != _running && !t->finished && t->suspendCount == 0 && t->priority > _running->priority &&
             (!t->waitFor || t->waitFor() || (t->waitUntil && now() >= t->waitUntil))) {
             yield();
             return;
@@ -231,22 +231,22 @@ void Win32Process::preempt() {
 }
 
 bool Win32Process::ending() const {
-    return exiting_ || (running_ && running_->terminate);
+    return _exiting || (_running && _running->terminate);
 }
 
 void Win32Process::exitAll(std::unique_lock<std::mutex> &lock) {
     // Each thread still running unwinds in turn: its waits fail, its slices stop.
-    exiting_ = true;
-    for (auto &t : threads_) {
-        if (t->finished || t.get() == running_)
+    _exiting = true;
+    for (auto &t : _threads) {
+        if (t->finished || t.get() == _running)
             continue;
         t->suspendCount = 0;
-        Thread *self = running_;
-        self->context = cpu_.saveContext();
-        running_ = t.get();
+        Thread *self = _running;
+        self->context = _cpu.saveContext();
+        _running = t.get();
         t->turn.notify_one();
-        self->turn.wait(lock, [&] { return running_ == self; });
-        cpu_.loadContext(self->context);
+        self->turn.wait(lock, [&] { return _running == self; });
+        _cpu.loadContext(self->context);
     }
 }
 
@@ -257,39 +257,39 @@ Error Win32Process::run(const Module &exe, uint32_t &exitCode) {
     // The main thread is the caller's.
     auto main = std::make_shared<Thread>();
     main->id = 0x104;
-    main->stackTop = stackTop_;
-    main->tib = tib_;
+    main->stackTop = _stackTop;
+    main->tib = _tib;
     main->started = true;
     main->name = "main";
-    threads_.insert(threads_.begin(), main);
-    running_ = main.get();
-    cpu_.setSlice(slice, [this](Cpu &c) {
+    _threads.insert(_threads.begin(), main);
+    _running = main.get();
+    _cpu.setSlice(slice, [this](Cpu &c) {
         if (onSlice)
             onSlice(c);
         yield();
         return !ending();
     });
-    cpu_.stopMessage = "the process is ending";
+    _cpu.stopMessage = "the process is ending";
     uint32_t result = 0;
-    Error e = cpu_.call(exe.entry, {}, result);
+    Error e = _cpu.call(exe.entry, {}, result);
     {
-        std::unique_lock<std::mutex> lock(mutex_);
-        const bool ended = exiting_;
+        std::unique_lock<std::mutex> lock(_mutex);
+        const bool ended = _exiting;
         if (!ended)
-            exitCode_ = result; // its start-up returned: the process ends
+            _exitCode = result; // its start-up returned: the process ends
         exitAll(lock);
         main->finished = true;
-        if (ended && failure_.empty())
+        if (ended && _failure.empty())
             e = Error::success();
-        if (!failure_.empty())
-            e = Error::fail(failure_);
+        if (!_failure.empty())
+            e = Error::fail(_failure);
     }
-    for (auto &t : threads_)
+    for (auto &t : _threads)
         if (t->host.joinable())
             t->host.join();
-    cpu_.setSlice(0, nullptr);
-    running_ = nullptr;
-    exitCode = exitCode_;
+    _cpu.setSlice(0, nullptr);
+    _running = nullptr;
+    exitCode = _exitCode;
     return e;
 }
 
@@ -297,21 +297,21 @@ uint32_t Win32Process::runTimers() {
     while (!ending()) {
         // The next due, if any; else wait for one to be set.
         uint64_t due = 0;
-        for (const auto &[id, t] : timers_)
+        for (const auto &[id, t] : _timers)
             if (!due || t.due < due)
                 due = t.due;
         if (!due) {
-            wait([this] { return !timers_.empty() || ending(); }, kInfinite);
+            wait([this] { return !_timers.empty() || ending(); }, kInfinite);
             continue;
         }
         const uint64_t t = now();
         if (t < due) {
-            const size_t count = timers_.size();
+            const size_t count = _timers.size();
             // Woken early if timers come or go.
-            wait([this, count] { return timers_.size() != count; }, uint32_t(due - t));
+            wait([this, count] { return _timers.size() != count; }, uint32_t(due - t));
             continue;
         }
-        for (auto it = timers_.begin(); it != timers_.end();) {
+        for (auto it = _timers.begin(); it != _timers.end();) {
             if (it->second.due > now()) {
                 ++it;
                 continue;
@@ -321,16 +321,16 @@ uint32_t Win32Process::runTimers() {
             if (timer.periodic)
                 it->second.due = std::max(timer.due + timer.delay, now()); // no bursts to catch up
             else
-                timers_.erase(it);
+                _timers.erase(it);
             uint32_t result = 0;
-            if (Error e = cpu_.call(timer.callback, {id, 0, timer.user, 0, 0}, result)) {
+            if (Error e = _cpu.call(timer.callback, {id, 0, timer.user, 0, 0}, result)) {
                 if (!ending()) {
-                    failure_ = "timer callback: " + e.message;
-                    exiting_ = true;
+                    _failure = "timer callback: " + e.message;
+                    _exiting = true;
                 }
                 return 0;
             }
-            it = timers_.upper_bound(id); // the callback may have changed them
+            it = _timers.upper_bound(id); // the callback may have changed them
         }
     }
     return 0;
@@ -338,12 +338,12 @@ uint32_t Win32Process::runTimers() {
 
 void Win32Process::addThreadStandIns() {
     const char *k = "KERNEL32.dll";
-    auto selfId = [this]() { return running_ ? running_->id : 0x104u; };
+    auto selfId = [this]() { return _running ? _running->id : 0x104u; };
     // A thread from a handle, the current thread's pseudo handle included.
     auto thread = [this](uint32_t h) -> std::shared_ptr<Thread> {
-        if (h == kCurrentThread && running_)
-            for (auto &t : threads_)
-                if (t.get() == running_)
+        if (h == kCurrentThread && _running)
+            for (auto &t : _threads)
+                if (t.get() == _running)
                     return t;
         return object<Thread>(h);
     };
@@ -353,8 +353,8 @@ void Win32Process::addThreadStandIns() {
     };
 
     stdcall(k, "ExitProcess", 1, [this](Cpu &c) {
-        exiting_ = true;
-        exitCode_ = c.arg(0);
+        _exiting = true;
+        _exitCode = c.arg(0);
         c.abort("the program ended the process (exit code " + std::to_string(c.arg(0)) + ")");
         return 0u;
     });
@@ -370,12 +370,12 @@ void Win32Process::addThreadStandIns() {
         t = createThread(
             [this, start, parameter]() -> uint32_t {
                 uint32_t result = 0;
-                Error e = cpu_.call(start, {parameter}, result);
-                Thread *self = running_;
-                if (e && !self->exitRequested && !exiting_ && !self->terminate) {
+                Error e = _cpu.call(start, {parameter}, result);
+                Thread *self = _running;
+                if (e && !self->exitRequested && !_exiting && !self->terminate) {
                     // A fault in a thread ends the process, as on Windows.
-                    failure_ = "thread " + std::to_string(self->id) + ": " + e.message;
-                    exiting_ = true;
+                    _failure = "thread " + std::to_string(self->id) + ": " + e.message;
+                    _exiting = true;
                 }
                 return result;
             },
@@ -385,8 +385,8 @@ void Win32Process::addThreadStandIns() {
         return addHandle(t);
     });
     stdcall(k, "ExitThread", 1, [this](Cpu &c) {
-        running_->exitRequested = true;
-        running_->exitCode = c.arg(0);
+        _running->exitRequested = true;
+        _running->exitCode = c.arg(0);
         c.abort("the thread ended");
         return 0u;
     });
@@ -397,7 +397,7 @@ void Win32Process::addThreadStandIns() {
         t->terminate = true;
         t->exitRequested = true;
         t->exitCode = c.arg(1);
-        if (t.get() == running_)
+        if (t.get() == _running)
             c.abort("the thread was terminated");
         return 1u;
     });
@@ -415,7 +415,7 @@ void Win32Process::addThreadStandIns() {
         if (!t)
             return 0xffffffffu;
         const uint32_t before = uint32_t(t->suspendCount++);
-        if (t.get() == running_)
+        if (t.get() == _running)
             yield();
         return before;
     });
@@ -441,8 +441,8 @@ void Win32Process::addThreadStandIns() {
     stdcall(k, "DuplicateHandle", 7, [this, thread](Cpu &c) {
         std::shared_ptr<KernelObject> o = thread(c.arg(1));
         if (!o) {
-            auto it = handles_.find(c.arg(1));
-            if (it != handles_.end())
+            auto it = _handles.find(c.arg(1));
+            if (it != _handles.end())
                 o = it->second;
         }
         if (!o)
@@ -480,7 +480,7 @@ void Win32Process::addThreadStandIns() {
         auto e = std::make_shared<EventObject>();
         e->manualReset = c.arg(1) != 0;
         e->signaled = c.arg(2) != 0;
-        lastError_ = 0;
+        _lastError = 0;
         return addHandle(e);
     });
     stdcall(k, "SetEvent", 1, [this](Cpu &c) {
@@ -513,7 +513,7 @@ void Win32Process::addThreadStandIns() {
             m->owner = selfId();
             m->count = 1;
         }
-        lastError_ = 0; // a new one (no other copy of the program runs)
+        _lastError = 0; // a new one (no other copy of the program runs)
         return addHandle(m);
     });
     stdcall(k, "ReleaseMutex", 1, [this, selfId](Cpu &c) {
@@ -553,7 +553,7 @@ void Win32Process::addThreadStandIns() {
     stdcall(k, "WaitForSingleObject", 2, [this, isSignaled, take, endIfEnding](Cpu &c) {
         const uint32_t h = c.arg(0);
         if (!object<KernelObject>(h) && h != kCurrentThread) {
-            lastError_ = 6;
+            _lastError = 6;
             return kWaitFailed;
         }
         const bool ok = wait([&] { return isSignaled(h); }, c.arg(1));
@@ -644,25 +644,25 @@ void Win32Process::addThreadStandIns() {
     });
 
     // Thread-local storage: 64 slots in each thread's information block.
-    auto tib = [this]() { return running_ ? running_->tib : tib_; };
+    auto tib = [this]() { return _running ? _running->tib : _tib; };
     stdcall(k, "TlsAlloc", 0, [this](Cpu &) {
-        for (size_t i = 0; i < tlsUsed_.size(); ++i)
-            if (!tlsUsed_[i]) {
-                tlsUsed_[i] = true;
+        for (size_t i = 0; i < _tlsUsed.size(); ++i)
+            if (!_tlsUsed[i]) {
+                _tlsUsed[i] = true;
                 return uint32_t(i);
             }
         return 0xffffffffu;
     });
     stdcall(k, "TlsFree", 1, [this](Cpu &c) {
-        if (c.arg(0) >= tlsUsed_.size())
+        if (c.arg(0) >= _tlsUsed.size())
             return 0u;
-        tlsUsed_[c.arg(0)] = false;
+        _tlsUsed[c.arg(0)] = false;
         return 1u;
     });
     stdcall(k, "TlsGetValue", 1, [this, tib](Cpu &c) {
         if (c.arg(0) >= 64)
             return 0u;
-        lastError_ = 0;
+        _lastError = 0;
         return c.read32(tib() + 0xe10 + 4 * c.arg(0));
     });
     stdcall(k, "TlsSetValue", 2, [tib](Cpu &c) {
@@ -683,15 +683,15 @@ void Win32Process::addThreadStandIns() {
         t.user = c.arg(3);
         t.periodic = c.arg(4) & 1;
         t.due = now() + t.delay;
-        const uint32_t id = nextTimer_++;
-        timers_[id] = t;
-        if (!timerThread_) {
-            timerThread_ = createThread([this] { return runTimers(); }, false, "timer");
-            timerThread_->priority = 15; // THREAD_PRIORITY_TIME_CRITICAL
+        const uint32_t id = _nextTimer++;
+        _timers[id] = t;
+        if (!_timerThread) {
+            _timerThread = createThread([this] { return runTimers(); }, false, "timer");
+            _timerThread->priority = 15; // THREAD_PRIORITY_TIME_CRITICAL
         }
         return id;
     });
-    stdcall(w, "timeKillEvent", 1, [this](Cpu &c) { return timers_.erase(c.arg(0)) ? 0u : 97u; }); // TIMERR_NOCANDO
+    stdcall(w, "timeKillEvent", 1, [this](Cpu &c) { return _timers.erase(c.arg(0)) ? 0u : 97u; }); // TIMERR_NOCANDO
     stdcall(w, "timeBeginPeriod", 1, [](Cpu &) { return 0u; });
     stdcall(w, "timeEndPeriod", 1, [](Cpu &) { return 0u; });
     stdcall(w, "timeGetDevCaps", 2, [](Cpu &c) {

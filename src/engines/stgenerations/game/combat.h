@@ -204,7 +204,7 @@ private:
     // at its foot); off, the system display. 0 the Enterprise, 1 the target.
     bool _shieldView[2] = {};
     // Their buttons: the Enterprise's at the right panel's foot, the target's at the left's.
-    const Rect kViewButton[2] = {Rect(449, 435, 468, 462), Rect(174, 435, 192, 462)};
+    const Rect _kViewButton[2] = {Rect(449, 435, 468, 462), Rect(174, 435, 192, 462)};
     // Held on the viewscreen: steering towards the mouse (0x4AEFD4), -1..1.
     bool _steering = false;
     double _mouseTurn[2] = {};
@@ -230,7 +230,7 @@ private:
     int _aimedSystem = -1;
     Helm _helm = kStandBy;
     // The CONN line (hotspot 2), which calls up the helm menu over the Enterprise's panel.
-    const Rect kConnLine = Rect(262, 440, 439, 461);
+    const Rect _kConnLine = Rect(262, 440, 439, 461);
     bool _helmMenu = false;
     // The console's sliders (0x495B49): a slot the knob follows the mouse
     // down, 18 steps from top to bottom, drawn unlit (the N picture) above

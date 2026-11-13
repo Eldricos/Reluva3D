@@ -92,7 +92,7 @@ private:
         // texture times the local (iterated or constant) colour, or as the
         // local colour alone.
         bool decal0 = false;
-        enum class Fast { None, Modulate, Local } fast = Fast::None;
+        enum class Fast { kNone, kModulate, kLocal } fast = Fast::kNone;
         Rgba constant, fogColor;
         // Screen-space gradients of each value (for the LOD).
         float dx[kParams] = {}, dy[kParams] = {};
@@ -168,9 +168,9 @@ bool SoftwareRenderer::prepare(Pipeline &p, Setup &su) {
         if (plain && c.settings.function == kFuncScaleOther && c.settings.factor == kFactorLocal &&
             c.other == kOtherTexture && a.settings.function == kFuncScaleOther && a.settings.factor == kFactorLocal &&
             a.other == kOtherTexture)
-            su.fast = Setup::Fast::Modulate;
+            su.fast = Setup::Fast::kModulate;
         else if (plain && c.settings.function == kFuncLocal && a.settings.function == kFuncLocal && !su.texture)
-            su.fast = Setup::Fast::Local;
+            su.fast = Setup::Fast::kLocal;
     }
     su.params = kS0 + 3 * su.tmusUsed;
     for (int i = 0; i < su.tmusUsed; ++i) {
@@ -326,11 +326,11 @@ void SoftwareRenderer::shade(Setup &su, int x, int row, const Values &v) {
     }
     Rgba chromaOther;
     Rgba c;
-    if (su.fast == Setup::Fast::Modulate) {
+    if (su.fast == Setup::Fast::kModulate) {
         const Rgba &l = su.combine.colorLocal == kLocalConstant ? su.constant : iterated;
         c = {scaleBy(texture.r, l.r), scaleBy(texture.g, l.g), scaleBy(texture.b, l.b), scaleBy(texture.a, l.a)};
         chromaOther = texture;
-    } else if (su.fast == Setup::Fast::Local) {
+    } else if (su.fast == Setup::Fast::kLocal) {
         c = su.combine.colorLocal == kLocalConstant ? su.constant : iterated;
         chromaOther = su.combine.colorOther == kOtherConstant ? su.constant : iterated;
     } else {

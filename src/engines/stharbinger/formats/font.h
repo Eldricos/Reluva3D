@@ -18,10 +18,10 @@ namespace reluva::stharbinger {
 class Font {
 public:
     bool load(SeekableReadStream &stream);
-    bool empty() const { return glyphs_.empty(); }
+    bool empty() const { return _glyphs.empty(); }
 
     // The height of the space character.
-    int getLineHeight() const { return glyphs_.empty() ? 0 : glyphs_[0].height; }
+    int getLineHeight() const { return _glyphs.empty() ? 0 : _glyphs[0].height; }
     int getStringWidth(const std::string &text) const;
 
     // Draws `text` with a drop shadow one pixel right and down, as DEEP.EXE does.
@@ -36,7 +36,7 @@ private:
     const Glyph *getGlyph(char c) const;
     void drawGlyph(Surface &dst, int x, int y, const Glyph &g, uint8_t color, bool shadow) const;
 
-    std::vector<Glyph> glyphs_;
+    std::vector<Glyph> _glyphs;
 };
 
 } // namespace reluva::stharbinger

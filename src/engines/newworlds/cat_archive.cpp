@@ -34,7 +34,7 @@ std::string hex(uint64_t v) {
 } // namespace
 
 bool isContainerTag(uint16_t tag) {
-    return tag == cattag::Group || tag == cattag::FontPart || tag == cattag::FontSet || tag == cattag::TextureSet;
+    return tag == cattag::kGroup || tag == cattag::kFontPart || tag == cattag::kFontSet || tag == cattag::kTextureSet;
 }
 
 std::string CatArchive::normalizeName(std::string_view originalPath) {
@@ -50,13 +50,13 @@ std::string CatArchive::normalizeName(std::string_view originalPath) {
 }
 
 Error CatArchive::open(const std::filesystem::path &path) {
-    path_ = path;
-    entries_.clear();
-    byName_.clear();
-    file_.close();
-    file_.clear();
-    file_.open(path, std::ios::binary);
-    if (!file_)
+    _path = path;
+    _entries.clear();
+    _byName.clear();
+    _file.close();
+    _file.clear();
+    _file.open(path, std::ios::binary);
+    if (!_file)
         return Error::fail("Cannot open " + path.string());
 
     const std::string where = path.filename().string() + ": ";
@@ -66,17 +66,17 @@ Error CatArchive::open(const std::filesystem::path &path) {
         return Error::fail(where + "too small to be an archive");
 
     uint8_t header[kHeaderSize];
-    file_.read(reinterpret_cast<char *>(header), kHeaderSize);
-    if (!file_ || rd16(header) != cattag::Root || rd32(header + 2) + 6ULL != fileSize ||
-        rd16(header + 6) != cattag::Table)
+    _file.read(reinterpret_cast<char *>(header), kHeaderSize);
+    if (!_file || rd16(header) != cattag::kRoot || rd32(header + 2) + 6ULL != fileSize ||
+        rd16(header + 6) != cattag::kTable)
         return Error::fail(where + "not a New Worlds archive");
 
     const uint32_t tableSize = rd32(header + 8);
     if (kHeaderSize + uint64_t(tableSize) > fileSize || tableSize < 4)
         return Error::fail(where + "table size out of range");
     std::vector<uint8_t> table(tableSize);
-    file_.read(reinterpret_cast<char *>(table.data()), tableSize);
-    if (!file_)
+    _file.read(reinterpret_cast<char *>(table.data()), tableSize);
+    if (!_file)
         return Error::fail(where + "cannot read table");
 
     const uint32_t count = rd32(table.data());
@@ -95,9 +95,9 @@ Error CatArchive::open(const std::filesystem::path &path) {
                                hex(expectedChunk));
 
         uint8_t chunkHeader[6];
-        file_.seekg(std::streamoff(chunk));
-        file_.read(reinterpret_cast<char *>(chunkHeader), 6);
-        if (!file_)
+        _file.seekg(std::streamoff(chunk));
+        _file.read(reinterpret_cast<char *>(chunkHeader), 6);
+        if (!_file)
             return Error::fail(where + "cannot read chunk of entry " + std::to_string(i));
 
         CatEntry entry;
@@ -116,7 +116,7 @@ Error CatArchive::open(const std::filesystem::path &path) {
         if (pos + entrySize > tableSize)
             return Error::fail(where + "table ends inside entry " + std::to_string(i));
         if (entry.container) {
-            open.push_back({int(entries_.size()), entry.offset + entry.size});
+            open.push_back({int(_entries.size()), entry.offset + entry.size});
             expectedChunk = entry.offset;
         } else {
             const char *name = reinterpret_cast<const char *>(e + 8);
@@ -125,9 +125,9 @@ Error CatArchive::open(const std::filesystem::path &path) {
             entry.modified = rd32(e + kModifiedOffset);
             expectedChunk = entry.offset + entry.size;
             if (!entry.name.empty())
-                byName_.emplace(entry.name, entries_.size());
+                _byName.emplace(entry.name, _entries.size());
         }
-        entries_.push_back(std::move(entry));
+        _entries.push_back(std::move(entry));
         pos += entrySize;
     }
 
@@ -139,17 +139,17 @@ Error CatArchive::open(const std::filesystem::path &path) {
 const CatEntry *CatArchive::find(std::string_view name) const {
     std::string key = fs::toLower(name);
     std::replace(key.begin(), key.end(), '\\', '/');
-    auto it = byName_.find(key);
-    return it == byName_.end() ? nullptr : &entries_[it->second];
+    auto it = _byName.find(key);
+    return it == _byName.end() ? nullptr : &_entries[it->second];
 }
 
 Error CatArchive::read(const CatEntry &entry, std::vector<uint8_t> &out) {
     out.resize(entry.size);
-    file_.clear();
-    file_.seekg(std::streamoff(entry.offset));
-    file_.read(reinterpret_cast<char *>(out.data()), std::streamsize(entry.size));
-    if (!file_)
-        return Error::fail("Cannot read " + entry.name + " from " + path_.filename().string());
+    _file.clear();
+    _file.seekg(std::streamoff(entry.offset));
+    _file.read(reinterpret_cast<char *>(out.data()), std::streamsize(entry.size));
+    if (!_file)
+        return Error::fail("Cannot read " + entry.name + " from " + _path.filename().string());
     return Error::success();
 }
 

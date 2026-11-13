@@ -1314,25 +1314,25 @@ void Bridge::mouseUp(int x, int y) {
 
 void Bridge::keyDown(const KeyState &key) {
     switch (key.keycode) {
-    case reluva::key::Space:
+    case reluva::key::kSpace:
         // Skip what's playing (0x479AD7).
         if (_queuePlaying && _mixer)
             _mixer->stopHandle(_queueHandle);
         break;
-    case reluva::key::Up:
+    case reluva::key::kUp:
         _textScroll = std::max(0, _textScroll - 1);
         break;
-    case reluva::key::Down:
+    case reluva::key::kDown:
         if (_textScroll + 6 < (int)_textLines.size())
             _textScroll++;
         break;
-    case reluva::key::PageUp:
+    case reluva::key::kPageUp:
         _textScroll = std::max(0, _textScroll - 6);
         break;
-    case reluva::key::PageDown:
+    case reluva::key::kPageDown:
         _textScroll = std::max(0, std::min((int)_textLines.size() - 6, _textScroll + 6));
         break;
-    case reluva::key::Escape:
+    case reluva::key::kEscape:
         if (!_busy) {
             Event event;
             event.type = Event::kOptions;

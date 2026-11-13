@@ -15,7 +15,7 @@ static std::vector<uint8_t> readPpm(const char* f, int& w, int& h) {
     std::vector<uint8_t> d(size_t(w) * h * 3); in.read((char*)d.data(), d.size()); return d;
 }
 int main(int argc, char** argv) {
-    GameData data; data.open(argv[1], Language::US);
+    GameData data; data.open(argv[1], Language::kUS);
     DataDrive f; f.open(*data.find("clue.lvl")); Level lvl; parseLevel(f, lvl);
     Mansion m; m.build(data, lvl);
     int w, h; auto target = readPpm(argv[2], w, h);
@@ -26,7 +26,7 @@ int main(int argc, char** argv) {
         std::fill(id.begin(), id.end(), -1); std::fill(img.begin(), img.end(), 0);
         for (size_t i : m.drawOrder()) {
             const auto& it = m.items()[i];
-            if (it.object->type == ObjectDef::TileNumber) continue;
+            if (it.object->type == ObjectDef::kTileNumber) continue;
             const int op = it.layer == 4 ? std::atoi(std::getenv("OP") ? std::getenv("OP") : "128") : 255;
             for (const auto& p : (*it.frames)[0]) {
                 const auto& px = p.image->pixels;

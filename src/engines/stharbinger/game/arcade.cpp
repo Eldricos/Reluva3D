@@ -81,100 +81,100 @@ std::vector<int16_t> decodeRaw(std::vector<uint8_t> data) {
 class Arcade::MusicStream : public audio::Stream {
 public:
     MusicStream(std::vector<std::vector<int16_t>> segments, std::vector<int> order, int tag)
-        : segments_(std::move(segments)), order_(std::move(order)), tag_(tag) {}
+        : _segments(std::move(segments)), _order(std::move(order)), _tag(tag) {}
 
     void playTag() {
-        std::lock_guard<std::mutex> lock(mutex_);
-        index_ = tag_;
-        pos_ = 0;
-        tagPlaying_ = true;
-        ended_ = tag_ < 0;
+        std::lock_guard<std::mutex> lock(_mutex);
+        _index = _tag;
+        _pos = 0;
+        _tagPlaying = true;
+        _ended = _tag < 0;
     }
     void stop() {
-        std::lock_guard<std::mutex> lock(mutex_);
-        ended_ = true;
+        std::lock_guard<std::mutex> lock(_mutex);
+        _ended = true;
     }
 
     int read(int16_t *buffer, int numSamples) override {
-        std::lock_guard<std::mutex> lock(mutex_);
+        std::lock_guard<std::mutex> lock(_mutex);
         int n = 0;
-        while (n < numSamples && !ended_) {
-            if (index_ < 0 || index_ >= int(order_.size())) {
-                ended_ = true;
+        while (n < numSamples && !_ended) {
+            if (_index < 0 || _index >= int(_order.size())) {
+                _ended = true;
                 break;
             }
-            const std::vector<int16_t> &seg = segments_[order_[index_]];
-            if (pos_ >= seg.size()) {
-                pos_ = 0;
-                if (tagPlaying_) {
-                    ended_ = true;
+            const std::vector<int16_t> &seg = _segments[_order[_index]];
+            if (_pos >= seg.size()) {
+                _pos = 0;
+                if (_tagPlaying) {
+                    _ended = true;
                     break;
                 }
                 // The next segment; wrap at the end or at the tag.
-                index_++;
-                if (index_ >= int(order_.size()) || index_ == tag_)
-                    index_ = 0;
-                if (segments_[order_[index_]].empty()) {
-                    ended_ = true;
+                _index++;
+                if (_index >= int(_order.size()) || _index == _tag)
+                    _index = 0;
+                if (_segments[_order[_index]].empty()) {
+                    _ended = true;
                     break;
                 }
                 continue;
             }
-            buffer[n++] = seg[pos_++];
+            buffer[n++] = seg[_pos++];
         }
         return n;
     }
     bool stereo() const override { return false; }
     int rate() const override { return kSampleRate; }
-    bool ended() const override { return ended_; }
+    bool ended() const override { return _ended; }
 
 private:
-    std::mutex mutex_;
-    std::vector<std::vector<int16_t>> segments_;
-    std::vector<int> order_;
-    int tag_;
-    int index_ = 0;
-    size_t pos_ = 0;
-    bool tagPlaying_ = false;
-    bool ended_ = false;
+    std::mutex _mutex;
+    std::vector<std::vector<int16_t>> _segments;
+    std::vector<int> _order;
+    int _tag;
+    int _index = 0;
+    size_t _pos = 0;
+    bool _tagPlaying = false;
+    bool _ended = false;
 };
 
 Arcade::Arcade(Resources &resources, audio::Mixer *mixer, int type, int difficulty)
-    : resources_(resources), mixer_(mixer), type_(type), difficulty_(difficulty) {
+    : _resources(resources), _mixer(mixer), _type(type), _difficulty(difficulty) {
     const SequenceInfo *info = findSequence(type);
     if (info) {
-        name_ = info->name;
-        rect_ = Rect(info->x, info->y, info->x + info->w, info->y + info->h);
-        startFrame_ = info->startFrame;
-        endFrame_ = info->endFrame;
-        torpedoes_ = info->torpedoes;
-        shieldHud_ = info->shieldHud;
-        overlay_ = info->overlay;
+        _name = info->name;
+        _rect = Rect(info->x, info->y, info->x + info->w, info->y + info->h);
+        _startFrame = info->startFrame;
+        _endFrame = info->endFrame;
+        _torpedoes = info->torpedoes;
+        _shieldHud = info->shieldHud;
+        _overlay = info->overlay;
     }
 }
 
 Arcade::~Arcade() {
-    if (mixer_) {
-        mixer_->stop(musicHandle_);
-        mixer_->stop(videoAudioHandle_);
+    if (_mixer) {
+        _mixer->stop(_musicHandle);
+        _mixer->stop(_videoAudioHandle);
     }
 }
 
 const char *Arcade::getDeathVideo() const {
-    const SequenceInfo *info = findSequence(type_);
+    const SequenceInfo *info = findSequence(_type);
     return info ? info->deathVideo : "DEATHMIX";
 }
 
 int Arcade::random(int n) {
-    randSeed_ = randSeed_ * 1103515245u + 12345u;
-    int r = int((randSeed_ >> 16) & 0x7FFF);
+    _randSeed = _randSeed * 1103515245u + 12345u;
+    int r = int((_randSeed >> 16) & 0x7FFF);
     return n > 0 ? r % n : 0;
 }
 
 // ---- Loading ------------------------------------------------------------------------------
 
 bool Arcade::loadSound(const std::string &name, std::vector<uint8_t> &data) const {
-    auto s = resources_.openFile("SOUND/" + text::toUpper(name) + ".RAW");
+    auto s = _resources.openFile("SOUND/" + text::toUpper(name) + ".RAW");
     if (!s)
         return false;
     data = s->readAll();
@@ -182,13 +182,13 @@ bool Arcade::loadSound(const std::string &name, std::vector<uint8_t> &data) cons
 }
 
 void Arcade::playSound(const std::vector<uint8_t> &data, audio::SoundType type) {
-    if (mixer_ && !data.empty())
-        mixer_->play(makeRawStream(data), type);
+    if (_mixer && !data.empty())
+        _mixer->play(makeRawStream(data), type);
 }
 
 void Arcade::loadData() {
     std::vector<std::string> files;
-    for (const std::string &name : resources_.getSearchSet().list())
+    for (const std::string &name : _resources.getSearchSet().list())
         files.push_back(fs::normalizeDosPath(name));
     std::sort(files.begin(), files.end());
     files.erase(std::unique(files.begin(), files.end()), files.end());
@@ -205,27 +205,27 @@ void Arcade::loadData() {
         if (inDir(f, "EXPLODE/") && f.compare(8, 4, "EXPL") == 0 && endsWith(f, ".RLE")) {
             RleAnimation a;
             uint8_t header[8];
-            if (auto s = resources_.openFile(f))
+            if (auto s = _resources.openFile(f))
                 if (a.loadWithHeader(*s, header))
-                    explosions_.push_back(std::move(a));
+                    _explosions.push_back(std::move(a));
         }
     }
 
     static const char *const kTorpedoNames[6] = {"T29L", "T17L", "T09L", "T29R", "T17R", "T09R"};
     uint8_t header[8];
     for (int i = 0; i < 6; i++)
-        if (auto s = resources_.openFile(std::string("TORPEDOS/") + kTorpedoNames[i] + ".RLE"))
-            torpedoAnims_[i].loadWithHeader(*s, header);
-    if (auto s = resources_.openFile("TORPEDOS/T5ALL.RLE"))
-        torpedoEnd_.loadWithHeader(*s, header);
+        if (auto s = _resources.openFile(std::string("TORPEDOS/") + kTorpedoNames[i] + ".RLE"))
+            _torpedoAnims[i].loadWithHeader(*s, header);
+    if (auto s = _resources.openFile("TORPEDOS/T5ALL.RLE"))
+        _torpedoEnd.loadWithHeader(*s, header);
 
     // Targets: every RLE file of the sequence's sprite folder, in name order.
-    std::string dir = "SPRITES/" + name_ + "/";
+    std::string dir = "SPRITES/" + _name + "/";
     for (const std::string &f : files) {
-        if (!inDir(f, dir) || !endsWith(f, ".RLE") || int(targets_.size()) >= kMaxSprites)
+        if (!inDir(f, dir) || !endsWith(f, ".RLE") || int(_targets.size()) >= kMaxSprites)
             continue;
         Target t;
-        auto s = resources_.openFile(f);
+        auto s = _resources.openFile(f);
         if (!s || !t.rle.loadWithHeader(*s, header))
             continue;
         // The 8 header bytes: u16 start frame, hit points, damage per shot, fire
@@ -237,49 +237,49 @@ void Arcade::loadData() {
         t.gun = header[5];
         t.id = header[6] | (header[7] << 8);
         t.draw = &t.rle;
-        targets_.push_back(std::move(t));
+        _targets.push_back(std::move(t));
     }
-    for (Target &t : targets_)
+    for (Target &t : _targets)
         t.draw = &t.rle; // the vector has moved
 
-    if (auto s = resources_.openFile("PANEL/RUNSH.RLE"))
-        if (shieldHud_)
-            shield_.loadWithHeader(*s, header);
-    if (overlay_)
-        if (auto s = resources_.openFile("ART/" + name_ + "RUN.RLE"))
-            windshield_.loadWithHeader(*s, header);
-    if (type_ == 0x06) {
-        if (auto s = resources_.openFile("SPRITES/PDOOR.RLE")) {
-            door_.loadWithHeader(*s, header);
-            doorStart_ = header[0] | (header[1] << 8);
+    if (auto s = _resources.openFile("PANEL/RUNSH.RLE"))
+        if (_shieldHud)
+            _shield.loadWithHeader(*s, header);
+    if (_overlay)
+        if (auto s = _resources.openFile("ART/" + _name + "RUN.RLE"))
+            _windshield.loadWithHeader(*s, header);
+    if (_type == 0x06) {
+        if (auto s = _resources.openFile("SPRITES/PDOOR.RLE")) {
+            _door.loadWithHeader(*s, header);
+            _doorStart = header[0] | (header[1] << 8);
         }
     }
 
     for (int i = 0; i < 5; i++)
-        loadSound(text::format("BANG%02d", i + 1), bangs_[i]);
-    if (!loadSound("QUANT", quant_))
-        loadSound("QUANTUM", quant_);
-    loadSound("PHASOR", phasor_);
-    loadSound("SHAKE", shake_);
+        loadSound(text::format("BANG%02d", i + 1), _bangs[i]);
+    if (!loadSound("QUANT", _quant))
+        loadSound("QUANTUM", _quant);
+    loadSound("PHASOR", _phasor);
+    loadSound("SHAKE", _shake);
     loadMusic();
     loadVoice();
-    log::debug(1, "Arcade %s: %u targets, %u explosions, %u voice cues", name_.c_str(), unsigned(targets_.size()),
-               unsigned(explosions_.size()), unsigned(voice_.size()));
+    log::debug(1, "Arcade %s: %u targets, %u explosions, %u voice cues", _name.c_str(), unsigned(_targets.size()),
+               unsigned(_explosions.size()), unsigned(_voice.size()));
 }
 
 void Arcade::loadMusic() {
     // SOUND/<name>.MUS: a number, then segment suffixes (NAME + suffix + .RAW);
     // the "tag" segment ends the music.
-    auto s = resources_.openFile("SOUND/" + name_ + ".MUS");
+    auto s = _resources.openFile("SOUND/" + _name + ".MUS");
     if (!s)
         return;
     std::vector<uint8_t> data = s->readAll();
     std::vector<std::string> lines = text::split(std::string(data.begin(), data.end()), '\n');
     if (lines.empty())
         return;
-    musicValue_ = std::atoi(lines[0].c_str());
+    _musicValue = std::atoi(lines[0].c_str());
     std::map<std::string, int> loaded;
-    for (size_t i = 1; i < lines.size() && musicOrder_.size() < 20; i++) {
+    for (size_t i = 1; i < lines.size() && _musicOrder.size() < 20; i++) {
         std::string suffix;
         for (char c : lines[i]) {
             if (c < '0')
@@ -292,20 +292,20 @@ void Arcade::loadMusic() {
         auto it = loaded.find(suffix);
         if (it == loaded.end()) {
             std::vector<uint8_t> raw;
-            loadSound(name_ + suffix, raw);
-            musicSegments_.push_back(decodeRaw(std::move(raw)));
-            it = loaded.emplace(suffix, int(musicSegments_.size()) - 1).first;
+            loadSound(_name + suffix, raw);
+            _musicSegments.push_back(decodeRaw(std::move(raw)));
+            it = loaded.emplace(suffix, int(_musicSegments.size()) - 1).first;
         }
         if (suffix == "TAG")
-            musicTag_ = int(musicOrder_.size());
-        musicOrder_.push_back(it->second);
+            _musicTag = int(_musicOrder.size());
+        _musicOrder.push_back(it->second);
     }
 }
 
 void Arcade::loadVoice() {
     // VOICE/<name>.VCE: pairs of lines: a sound name, then a video frame or
     // d<n> (plays when damage first reaches 95 - 5 * (n / 5)).
-    auto s = resources_.openFile("VOICE/" + name_ + ".VCE");
+    auto s = _resources.openFile("VOICE/" + _name + ".VCE");
     if (!s)
         return;
     std::vector<uint8_t> data = s->readAll();
@@ -315,7 +315,7 @@ void Arcade::loadVoice() {
         if (!l.empty())
             lines.push_back(l);
     }
-    for (size_t i = 0; i + 1 < lines.size() && voice_.size() < 25; i += 2) {
+    for (size_t i = 0; i + 1 < lines.size() && _voice.size() < 25; i += 2) {
         VoiceCue cue;
         std::string name;
         for (char c : lines[i]) {
@@ -329,29 +329,29 @@ void Arcade::loadVoice() {
             cue.damageBand = std::atoi(trigger.c_str() + 1) / 5;
         else
             cue.frame = std::atoi(trigger.c_str());
-        voice_.push_back(std::move(cue));
+        _voice.push_back(std::move(cue));
     }
 }
 
 bool Arcade::start(const Surface &screen, int initialDamage, const std::map<int, ArcadeGroupState> &groups) {
-    auto stream = resources_.openFile("MOVIES/" + name_ + ".SMK");
-    video_ = std::make_unique<smacker::Decoder>();
-    if (!stream || !video_->load(std::move(stream))) {
-        log::warning("Action sequence video MOVIES/%s.SMK not found", name_.c_str());
-        result_ = kArcadeMissing;
-        done_ = true;
+    auto stream = _resources.openFile("MOVIES/" + _name + ".SMK");
+    _video = std::make_unique<smacker::Decoder>();
+    if (!stream || !_video->load(std::move(stream))) {
+        log::warning("Action sequence video MOVIES/%s.SMK not found", _name.c_str());
+        _result = kArcadeMissing;
+        _done = true;
         return false;
     }
     // The cockpit picture stays around the video.
-    draw::create(work_, 640, 480);
-    draw::blit(work_, screen, 0, 0);
-    draw::create(compose_, 640, 480);
-    draw::blit(compose_, screen, 0, 0);
+    draw::create(_work, 640, 480);
+    draw::blit(_work, screen, 0, 0);
+    draw::create(_compose, 640, 480);
+    draw::blit(_compose, screen, 0, 0);
     loadData();
-    damage_ = initialDamage;
+    _damage = initialDamage;
     // The Defiant's second sequence continues the first one's groups.
-    if (type_ == 0x1E) {
-        for (Target &t : targets_) {
+    if (_type == 0x1E) {
+        for (Target &t : _targets) {
             auto it = groups.find(t.id);
             if (t.id >= 100 && it != groups.end()) {
                 t.state = it->second.state;
@@ -359,21 +359,21 @@ bool Arcade::start(const Surface &screen, int initialDamage, const std::map<int,
             }
         }
     }
-    if (mixer_ && video_->hasAudio() && type_ == 0x1A) {
-        auto audio = std::make_shared<audio::QueuingStream>(video_->audioRate(), video_->audioStereo());
-        videoAudio_ = audio;
-        videoAudioHandle_ = mixer_->play(audio, audio::SoundType::Music);
+    if (_mixer && _video->hasAudio() && _type == 0x1A) {
+        auto audio = std::make_shared<audio::QueuingStream>(_video->audioRate(), _video->audioStereo());
+        _videoAudio = audio;
+        _videoAudioHandle = _mixer->play(audio, audio::SoundType::kMusic);
     }
-    if (mixer_ && !musicOrder_.empty()) {
-        auto music = std::make_shared<MusicStream>(musicSegments_, musicOrder_, musicTag_);
-        music_ = music;
-        musicHandle_ = mixer_->play(music, audio::SoundType::Music, mixerVolume(kVolumeArcadeMusic));
+    if (_mixer && !_musicOrder.empty()) {
+        auto music = std::make_shared<MusicStream>(_musicSegments, _musicOrder, _musicTag);
+        _music = music;
+        _musicHandle = _mixer->play(music, audio::SoundType::kMusic, mixerVolume(kVolumeArcadeMusic));
     }
     return true;
 }
 
 void Arcade::saveGroups(std::map<int, ArcadeGroupState> &out) const {
-    for (const Target &t : targets_) {
+    for (const Target &t : _targets) {
         if (t.id < 100)
             continue;
         ArcadeGroupState &g = out[t.id];
@@ -384,18 +384,18 @@ void Arcade::saveGroups(std::map<int, ArcadeGroupState> &out) const {
 }
 
 bool Arcade::takePaletteChanged() {
-    bool c = paletteChanged_;
-    paletteChanged_ = false;
+    bool c = _paletteChanged;
+    _paletteChanged = false;
     return c;
 }
 
 // ---- The frame loop -------------------------------------------------------------------------
 
 bool Arcade::update(uint32_t millis, Point aim, bool leftPressed, bool rightPressed) {
-    aim_ = aim;
+    _aim = aim;
     uint64_t elapsed = uint64_t(millis) * 1000;
     bool stepped = false;
-    while (!done_ && uint64_t(frame_ + 1) * video_->frameMicros() <= elapsed) {
+    while (!_done && uint64_t(_frame + 1) * _video->frameMicros() <= elapsed) {
         stepFrame(leftPressed, rightPressed);
         leftPressed = rightPressed = false;
         stepped = true;
@@ -404,47 +404,47 @@ bool Arcade::update(uint32_t millis, Point aim, bool leftPressed, bool rightPres
 }
 
 void Arcade::stepFrame(bool leftPressed, bool rightPressed) {
-    if (!video_->decodeNextFrame()) {
+    if (!_video->decodeNextFrame()) {
         finishFrame();
-        done_ = true;
+        _done = true;
         return;
     }
-    frame_++;
-    if (video_->paletteChanged()) {
-        std::memcpy(palette_, video_->palette(), 768);
-        paletteChanged_ = true;
+    _frame++;
+    if (_video->paletteChanged()) {
+        std::memcpy(_palette, _video->palette(), 768);
+        _paletteChanged = true;
     }
-    if (videoAudio_)
-        videoAudio_->queue(video_->takeAudio());
+    if (_videoAudio)
+        _videoAudio->queue(_video->takeAudio());
     else
-        video_->takeAudio();
-    draw::blit(work_, video_->surface(), rect_.left, rect_.top);
+        _video->takeAudio();
+    draw::blit(_work, _video->surface(), _rect.left, _rect.top);
 
     // The video into the picture, shifted by the shake (the uncovered strip keeps
     // the last frame).
-    for (int y = rect_.top; y < rect_.bottom; y++) {
-        int dy = y + shakeY_;
-        if (dy < rect_.top || dy >= rect_.bottom)
+    for (int y = _rect.top; y < _rect.bottom; y++) {
+        int dy = y + _shakeY;
+        if (dy < _rect.top || dy >= _rect.bottom)
             continue;
-        for (int x = rect_.left; x < rect_.right; x++) {
-            int dx = x + shakeX_;
-            if (dx >= rect_.left && dx < rect_.right)
-                *draw::at(compose_, dx, dy) = *draw::at(work_, x, y);
+        for (int x = _rect.left; x < _rect.right; x++) {
+            int dx = x + _shakeX;
+            if (dx >= _rect.left && dx < _rect.right)
+                *draw::at(_compose, dx, dy) = *draw::at(_work, x, y);
         }
     }
 
     // Shields recharge.
-    if (damage_ && frame_ % (difficulty_ == 0 ? 10 : 13) == 0)
-        damage_--;
+    if (_damage && _frame % (_difficulty == 0 ? 10 : 13) == 0)
+        _damage--;
 
-    torpedoFiredThisFrame_ = false;
-    if (type_ == 0x06)
+    _torpedoFiredThisFrame = false;
+    if (_type == 0x06)
         updateDoor(leftPressed);
     updateTargets();
-    if (rightPressed && torpedoes_ && rect_.contains(aim_.x, aim_.y))
+    if (rightPressed && _torpedoes && _rect.contains(_aim.x, _aim.y))
         fireTorpedo();
     updateTorpedoes();
-    if (leftPressed && !torpedoFiredThisFrame_ && rect_.contains(aim_.x, aim_.y))
+    if (leftPressed && !_torpedoFiredThisFrame && _rect.contains(_aim.x, _aim.y))
         firePhaser();
     drawHud();
     updateShake();
@@ -453,65 +453,65 @@ void Arcade::stepFrame(bool leftPressed, bool rightPressed) {
 
 void Arcade::finishFrame() {
     // After each frame: the music's tag, voice cues, death and victory.
-    if (frame_ == startFrame_) {
-        uint32_t elapsedMs = uint32_t(uint64_t(startFrame_) * video_->frameMicros() / 1000);
-        tagFrame_ = endFrame_ - int(int64_t(elapsedMs) * musicValue_ / 10000) + endFrame_ / 40;
+    if (_frame == _startFrame) {
+        uint32_t elapsedMs = uint32_t(uint64_t(_startFrame) * _video->frameMicros() / 1000);
+        _tagFrame = _endFrame - int(int64_t(elapsedMs) * _musicValue / 10000) + _endFrame / 40;
     }
-    if (frame_ == tagFrame_ && music_)
-        music_->playTag();
+    if (_frame == _tagFrame && _music)
+        _music->playTag();
 
-    for (VoiceCue &cue : voice_) {
-        if (cue.frame >= 0 && cue.frame == frame_)
-            playSound(cue.sound, audio::SoundType::Speech);
-        if (cue.damageBand >= 0 && cue.damageBand < 20 && voiceFlags_[cue.damageBand] == 1) {
-            voiceFlags_[cue.damageBand] = 2;
-            playSound(cue.sound, audio::SoundType::Speech);
+    for (VoiceCue &cue : _voice) {
+        if (cue.frame >= 0 && cue.frame == _frame)
+            playSound(cue.sound, audio::SoundType::kSpeech);
+        if (cue.damageBand >= 0 && cue.damageBand < 20 && _voiceFlags[cue.damageBand] == 1) {
+            _voiceFlags[cue.damageBand] = 2;
+            playSound(cue.sound, audio::SoundType::kSpeech);
         }
     }
 
-    if (damage_ >= 100) {
-        result_ = kArcadeKilled;
-    } else if (damage_ / 5 != prevDamage_ / 5 && damage_ > prevDamage_) {
-        int band = 19 - damage_ / 5;
-        if (band >= 0 && band < 20 && voiceFlags_[band] == 0)
-            voiceFlags_[band] = 1;
+    if (_damage >= 100) {
+        _result = kArcadeKilled;
+    } else if (_damage / 5 != _prevDamage / 5 && _damage > _prevDamage) {
+        int band = 19 - _damage / 5;
+        if (band >= 0 && band < 20 && _voiceFlags[band] == 0)
+            _voiceFlags[band] = 1;
     }
-    prevDamage_ = damage_;
-    if (winCountdown_ && --winCountdown_ == 1)
-        result_ = kArcadeWon;
+    _prevDamage = _damage;
+    if (_winCountdown && --_winCountdown == 1)
+        _result = kArcadeWon;
 
-    if (result_ != 0 || frame_ + 1 >= video_->frameCount() || done_) {
-        if (type_ == 0x06 && result_ == 0)
-            result_ = doorDestroyed_ ? kArcadeWon : kArcadeDoorIntact;
-        done_ = true;
-        if (music_)
-            music_->stop();
-        if (videoAudio_)
-            videoAudio_->finish();
-        log::debug(1, "Arcade %s ended at frame %d: result %u, damage %d", name_.c_str(), frame_, result_, damage_);
+    if (_result != 0 || _frame + 1 >= _video->frameCount() || _done) {
+        if (_type == 0x06 && _result == 0)
+            _result = _doorDestroyed ? kArcadeWon : kArcadeDoorIntact;
+        _done = true;
+        if (_music)
+            _music->stop();
+        if (_videoAudio)
+            _videoAudio->finish();
+        log::debug(1, "Arcade %s ended at frame %d: result %u, damage %d", _name.c_str(), _frame, _result, _damage);
     }
 }
 
 // ---- Targets --------------------------------------------------------------------------------
 
 void Arcade::updateTargets() {
-    targetUnderSight_ = -1;
-    for (int i = 0; i < int(targets_.size()); i++) {
-        Target &t = targets_[i];
-        if (t.state == 2 || t.start > frame_)
+    _targetUnderSight = -1;
+    for (int i = 0; i < int(_targets.size()); i++) {
+        Target &t = _targets[i];
+        if (t.state == 2 || t.start > _frame)
             continue;
         const RleAnimation::Frame &path = t.rle.getFrame(t.pathFrame);
         const RleAnimation::Frame &draw = t.draw->getFrame(t.drawFrame);
-        int x = path.x + rect_.left + shakeX_;
-        int y = path.y + rect_.top + shakeY_;
+        int x = path.x + _rect.left + _shakeX;
+        int y = path.y + _rect.top + _shakeY;
         if (t.state == 1) {
             // An explosion is centred on the target's path.
             x -= (draw.w - path.w) / 2;
             y -= (draw.h - path.h) / 2;
         }
-        if (t.state == 0 && aim_.x >= x && aim_.x < x + draw.w && aim_.y >= y && aim_.y < y + draw.h)
-            targetUnderSight_ = i;
-        t.draw->drawFrameAt(t.drawFrame, compose_, x, y, &rect_);
+        if (t.state == 0 && _aim.x >= x && _aim.x < x + draw.w && _aim.y >= y && _aim.y < y + draw.h)
+            _targetUnderSight = i;
+        t.draw->drawFrameAt(t.drawFrame, _compose, x, y, &_rect);
         enemyFire(t, x, y);
 
         // One sprite frame per video frame; the target is gone when either list ends.
@@ -524,9 +524,9 @@ void Arcade::updateTargets() {
 
 void Arcade::enemyFire(Target &t, int x, int y) {
     int delay = t.id >= 100 ? t.id - 100 : t.id;
-    int period = std::max(1, t.period + 1 - difficulty_);
-    if (t.state != 0 || doorDestroyed_ || winCountdown_ || t.start + delay >= frame_ || t.gun == 0xFF ||
-        (frame_ - t.start) % period != 0)
+    int period = std::max(1, t.period + 1 - _difficulty);
+    if (t.state != 0 || _doorDestroyed || _winCountdown || t.start + delay >= _frame || t.gun == 0xFF ||
+        (_frame - t.start) % period != 0)
         return;
     const RleAnimation::Frame &f = t.draw->getFrame(t.drawFrame);
     int mx = f.muzzleX[t.muzzle & 1];
@@ -535,22 +535,22 @@ void Arcade::enemyFire(Target &t, int x, int y) {
         return;
     int sx = x + mx;
     int sy = y + my;
-    if (!rect_.contains(sx, sy))
+    if (!_rect.contains(sx, sy))
         return;
-    if (shakeCount_ == 0)
-        playSound(shake_);
+    if (_shakeCount == 0)
+        playSound(_shake);
     // Enemy shots hit at once.
-    damage_ += t.damage;
-    int cx = std::clamp(sx, rect_.left + rect_.width() / 8, rect_.right - rect_.width() / 8);
-    drawEnemyBeam(sx, sy, cx, rect_.bottom - 6, t.damage > 10 ? 7 : 1);
-    shakeCount_ = 4;
-    shakeIntensity_ = (std::min(t.damage, 3) - 1) * 2;
+    _damage += t.damage;
+    int cx = std::clamp(sx, _rect.left + _rect.width() / 8, _rect.right - _rect.width() / 8);
+    drawEnemyBeam(sx, sy, cx, _rect.bottom - 6, t.damage > 10 ? 7 : 1);
+    _shakeCount = 4;
+    _shakeIntensity = (std::min(t.damage, 3) - 1) * 2;
     if (t.gun == 2)
         t.muzzle ^= 1;
 }
 
 void Arcade::hitTarget(int index, int amount, bool torpedo) {
-    Target &t = targets_[index];
+    Target &t = _targets[index];
     if (torpedo && t.id < 200) {
         destroyTarget(index); // a torpedo destroys anything but a boss
         return;
@@ -562,48 +562,48 @@ void Arcade::hitTarget(int index, int amount, bool torpedo) {
     }
     // Groups share their damage.
     if (t.id >= 100)
-        for (int i = 0; i < int(targets_.size()); i++)
-            if (i != index && targets_[i].id == t.id)
-                targets_[i].hits += amount;
+        for (int i = 0; i < int(_targets.size()); i++)
+            if (i != index && _targets[i].id == t.id)
+                _targets[i].hits += amount;
 }
 
 void Arcade::destroyTarget(int index) {
-    Target &t = targets_[index];
+    Target &t = _targets[index];
     t.state = 1;
-    int half = int(explosions_.size()) / 2;
+    int half = int(_explosions.size()) / 2;
     if (half > 0) {
         // A small explosion if it covers the target by its fifth frame, else a large one.
         int r = half + random(half);
         const RleAnimation::Frame &f = t.draw->getFrame(t.drawFrame < t.draw->frameCount() ? t.drawFrame : 0);
-        const RleAnimation &small = explosions_[r];
+        const RleAnimation &small = _explosions[r];
         int smallArea = small.frameCount() > 4 ? small.getFrame(4).w * small.getFrame(4).h : 0;
-        t.draw = smallArea >= f.w * f.h ? &small : &explosions_[r - half];
+        t.draw = smallArea >= f.w * f.h ? &small : &_explosions[r - half];
         t.drawFrame = 0;
-        playSound(bangs_[std::min(r - half, 4)]);
+        playSound(_bangs[std::min(r - half, 4)]);
     }
     if (t.id > 100) {
         // The rest of the group vanishes.
-        for (int i = 0; i < int(targets_.size()); i++) {
-            if (i != index && targets_[i].id == t.id) {
-                targets_[i].state = 2;
-                targets_[i].groupGone = true;
+        for (int i = 0; i < int(_targets.size()); i++) {
+            if (i != index && _targets[i].id == t.id) {
+                _targets[i].state = 2;
+                _targets[i].groupGone = true;
             }
         }
         t.groupGone = true;
     }
     if (t.id >= 200)
-        winCountdown_ = kWinCountdown;
+        _winCountdown = kWinCountdown;
 }
 
 // ---- The player's weapons ---------------------------------------------------------------------
 
 void Arcade::firePhaser() {
-    int launchY = rect_.top + rect_.height() * 3 / 4;
-    drawPhaserBeam(rect_.left, launchY, aim_.x, aim_.y, kPhaserColor);
-    drawPhaserBeam(rect_.right - 1, launchY, aim_.x, aim_.y, kPhaserColor);
-    playSound(phasor_);
-    if (targetUnderSight_ >= 0 && targets_[targetUnderSight_].state == 0)
-        hitTarget(targetUnderSight_, 1, false);
+    int launchY = _rect.top + _rect.height() * 3 / 4;
+    drawPhaserBeam(_rect.left, launchY, _aim.x, _aim.y, kPhaserColor);
+    drawPhaserBeam(_rect.right - 1, launchY, _aim.x, _aim.y, kPhaserColor);
+    playSound(_phasor);
+    if (_targetUnderSight >= 0 && _targets[_targetUnderSight].state == 0)
+        hitTarget(_targetUnderSight, 1, false);
 }
 
 int Arcade::torpedoDirection(int dx, int dy) {
@@ -619,31 +619,31 @@ int Arcade::torpedoDirection(int dx, int dy) {
 
 void Arcade::fireTorpedo() {
     Torpedo *slot = nullptr;
-    for (Torpedo &t : torps_)
+    for (Torpedo &t : _torps)
         if (t.state < 0) {
             slot = &t;
             break;
         }
     if (!slot)
         return;
-    torpedoFiredThisFrame_ = true;
-    playSound(quant_);
+    _torpedoFiredThisFrame = true;
+    playSound(_quant);
     slot->state = 0;
-    slot->aimX = aim_.x;
-    slot->aimY = aim_.y;
-    int launchY = rect_.top + rect_.height() * 3 / 4;
-    int dy = aim_.y - launchY;
+    slot->aimX = _aim.x;
+    slot->aimY = _aim.y;
+    int launchY = _rect.top + _rect.height() * 3 / 4;
+    int dy = _aim.y - launchY;
     for (int side = 0; side < 2; side++) {
-        int dx = side == 0 ? aim_.x - rect_.left : aim_.x - (rect_.right - 1);
+        int dx = side == 0 ? _aim.x - _rect.left : _aim.x - (_rect.right - 1);
         int dir = torpedoDirection(dx, dy);
         for (int k = 0; k < 4; k++) {
-            const RleAnimation *anim = k < 3 ? &torpedoAnims_[side * 3 + k] : &torpedoEnd_;
+            const RleAnimation *anim = k < 3 ? &_torpedoAnims[side * 3 + k] : &_torpedoEnd;
             int frame = k < 3 ? dir : 0;
             if (frame >= anim->frameCount())
                 frame = 0;
             int ox = (dx * kTorpedoStep[k] + 8) / 16;
             int oy = (dy * kTorpedoStep[k] + 8) / 16;
-            int x = side == 0 ? ox + rect_.left : ox + rect_.right - (anim->frameCount() ? anim->getFrame(0).w : 0);
+            int x = side == 0 ? ox + _rect.left : ox + _rect.right - (anim->frameCount() ? anim->getFrame(0).w : 0);
             for (int pair = 0; pair < 2; pair++) {
                 Torpedo::Sprite &s = slot->sprites[k][side * 2 + pair];
                 s.anim = anim;
@@ -656,13 +656,13 @@ void Arcade::fireTorpedo() {
 }
 
 void Arcade::updateTorpedoes() {
-    for (Torpedo &t : torps_) {
+    for (Torpedo &t : _torps) {
         if (t.state < 0)
             continue;
         if (t.state < 4) {
             for (const Torpedo::Sprite &s : t.sprites[t.state])
                 if (s.anim && s.anim->frameCount())
-                    s.anim->drawFrameAt(s.frame, compose_, s.x + shakeX_, s.y + shakeY_, &rect_);
+                    s.anim->drawFrameAt(s.frame, _compose, s.x + _shakeX, s.y + _shakeY, &_rect);
             t.state++;
             continue;
         }
@@ -673,19 +673,19 @@ void Arcade::updateTorpedoes() {
 }
 
 void Arcade::torpedoImpact(int x, int y) {
-    if (type_ == 0x06 && !doorDestroyed_ && door_.frameCount()) {
-        const RleAnimation::Frame &d = door_.getFrame(doorFrame_);
-        Rect r(d.x + rect_.left, d.y + rect_.top, d.x + rect_.left + d.w, d.y + rect_.top + d.h);
+    if (_type == 0x06 && !_doorDestroyed && _door.frameCount()) {
+        const RleAnimation::Frame &d = _door.getFrame(_doorFrame);
+        Rect r(d.x + _rect.left, d.y + _rect.top, d.x + _rect.left + d.w, d.y + _rect.top + d.h);
         if (r.contains(x, y))
-            doorDamage_ += 6;
+            _doorDamage += 6;
     }
-    for (int i = 0; i < int(targets_.size()); i++) {
-        Target &t = targets_[i];
-        if (t.state != 0 || t.start >= frame_)
+    for (int i = 0; i < int(_targets.size()); i++) {
+        Target &t = _targets[i];
+        if (t.state != 0 || t.start >= _frame)
             continue;
         const RleAnimation::Frame &f = t.draw->getFrame(std::min(t.drawFrame, t.draw->frameCount() - 1));
-        int tx = f.x + rect_.left;
-        int ty = f.y + rect_.top;
+        int tx = f.x + _rect.left;
+        int ty = f.y + _rect.top;
         if (x >= tx && x <= tx + f.w && y >= ty && y <= ty + f.h) {
             hitTarget(i, 2, true);
             return;
@@ -696,48 +696,48 @@ void Arcade::torpedoImpact(int x, int y) {
 // ---- The plan door (type 6) -------------------------------------------------------------------
 
 void Arcade::updateDoor(bool leftPressed) {
-    if (!door_.frameCount())
+    if (!_door.frameCount())
         return;
-    if (frame_ > doorStart_ && doorFrame_ + 1 < door_.frameCount())
-        doorFrame_++;
-    const RleAnimation::Frame &d = door_.getFrame(doorFrame_);
-    Rect r(d.x + rect_.left, d.y + rect_.top, d.x + rect_.left + d.w, d.y + rect_.top + d.h);
-    if (!doorDestroyed_) {
-        if (leftPressed && r.contains(aim_.x, aim_.y))
-            doorDamage_ += 2;
-        if (doorDamage_ >= kDoorHealth) {
+    if (_frame > _doorStart && _doorFrame + 1 < _door.frameCount())
+        _doorFrame++;
+    const RleAnimation::Frame &d = _door.getFrame(_doorFrame);
+    Rect r(d.x + _rect.left, d.y + _rect.top, d.x + _rect.left + d.w, d.y + _rect.top + d.h);
+    if (!_doorDestroyed) {
+        if (leftPressed && r.contains(_aim.x, _aim.y))
+            _doorDamage += 2;
+        if (_doorDamage >= kDoorHealth) {
             // Nine large explosions on a 3x3 grid, a few frames apart.
-            doorDestroyed_ = true;
-            doorOverlayDelay_ = 2;
-            int half = int(explosions_.size()) / 2;
+            _doorDestroyed = true;
+            _doorOverlayDelay = 2;
+            int half = int(_explosions.size()) / 2;
             for (int i = 0; i < 9 && half > 0; i++) {
                 DoorExplosion e;
                 int index = random(half);
-                e.anim = &explosions_[index];
+                e.anim = &_explosions[index];
                 e.bang = std::min(index / 2, 4);
                 e.delay = random(5) + 1;
                 e.x = r.left + kDoorGridX[i] * r.width() / 4;
                 e.y = r.top + kDoorGridY[i] * r.height() / 4;
-                doorExplosions_.push_back(e);
+                _doorExplosions.push_back(e);
             }
         }
     } else {
         // The blown-open door follows the camera.
-        if (doorOverlayDelay_ > 0)
-            doorOverlayDelay_--;
+        if (_doorOverlayDelay > 0)
+            _doorOverlayDelay--;
         else
-            door_.drawFrameAt(doorFrame_, compose_, r.left, r.top, &rect_);
+            _door.drawFrameAt(_doorFrame, _compose, r.left, r.top, &_rect);
     }
-    for (DoorExplosion &e : doorExplosions_) {
+    for (DoorExplosion &e : _doorExplosions) {
         if (e.delay == 1)
-            playSound(bangs_[e.bang]);
+            playSound(_bangs[e.bang]);
         if (e.delay > 0) {
             e.delay--;
             continue;
         }
         if (e.frame < e.anim->frameCount()) {
             const RleAnimation::Frame &f = e.anim->getFrame(e.frame);
-            e.anim->drawFrameAt(e.frame, compose_, e.x - f.w / 2, e.y - f.h / 2, &rect_);
+            e.anim->drawFrameAt(e.frame, _compose, e.x - f.w / 2, e.y - f.h / 2, &_rect);
             e.frame++;
         }
     }
@@ -747,43 +747,43 @@ void Arcade::updateDoor(bool leftPressed) {
 
 void Arcade::drawHud() {
     // The shield indicator on the cockpit panel (blinking every tenth frame).
-    if (shieldHud_ && shield_.frameCount()) {
-        int n = shield_.frameCount();
-        int index = std::max(std::min(damage_ * n / 100, n), 1) - 1;
-        if (frame_ % 10 == 9)
+    if (_shieldHud && _shield.frameCount()) {
+        int n = _shield.frameCount();
+        int index = std::max(std::min(_damage * n / 100, n), 1) - 1;
+        if (_frame % 10 == 9)
             index = 0;
-        shield_.drawFrame(index, compose_);
+        _shield.drawFrame(index, _compose);
     }
     // The windshield frame over the video.
-    for (int i = 0; i < windshield_.frameCount(); i++) {
-        const RleAnimation::Frame &f = windshield_.getFrame(i);
-        windshield_.drawFrameAt(i, compose_, f.x, f.y, &rect_);
+    for (int i = 0; i < _windshield.frameCount(); i++) {
+        const RleAnimation::Frame &f = _windshield.getFrame(i);
+        _windshield.drawFrameAt(i, _compose, f.x, f.y, &_rect);
     }
 }
 
 void Arcade::updateShake() {
-    if (shakeCount_ > 0) {
-        int row = std::clamp(shakeIntensity_, 0, 5);
-        shakeX_ = kShakeX[row][shakeCount_];
-        shakeY_ = kShakeY[row][shakeCount_];
-        shakeCount_--;
+    if (_shakeCount > 0) {
+        int row = std::clamp(_shakeIntensity, 0, 5);
+        _shakeX = kShakeX[row][_shakeCount];
+        _shakeY = kShakeY[row][_shakeCount];
+        _shakeCount--;
         // Colour 12 flashes yellow and orange (0x27760).
         static const uint8_t kFlash[2][3] = {{58, 33, 5}, {63, 63, 0}};
-        const uint8_t *c = kFlash[shakeCount_ & 1];
+        const uint8_t *c = kFlash[_shakeCount & 1];
         for (int k = 0; k < 3; k++)
-            palette_[12 * 3 + k] = uint8_t((c[k] << 2) | (c[k] >> 4));
-        paletteChanged_ = true;
+            _palette[12 * 3 + k] = uint8_t((c[k] << 2) | (c[k] >> 4));
+        _paletteChanged = true;
     } else {
-        shakeX_ = shakeY_ = 0;
+        _shakeX = _shakeY = 0;
     }
 }
 
 void Arcade::drawPhaserBeam(int x0, int y0, int x1, int y1, uint8_t color) {
-    stharbinger::drawPhaserBeam(compose_, x0, y0, x1, y1, color);
+    stharbinger::drawPhaserBeam(_compose, x0, y0, x1, y1, color);
 }
 
 void Arcade::drawEnemyBeam(int x0, int y0, int x1, int y1, uint8_t color) {
-    stharbinger::drawEnemyBeam(compose_, x0, y0, x1, y1, color, 20, rect_.bottom, [this](int n) { return random(n); });
+    stharbinger::drawEnemyBeam(_compose, x0, y0, x1, y1, color, 20, _rect.bottom, [this](int n) { return random(n); });
 }
 
 } // namespace reluva::stharbinger

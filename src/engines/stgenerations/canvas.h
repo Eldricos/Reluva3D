@@ -29,17 +29,17 @@ public:
     // width x height pixels, all 0.
     void create(int width, int height, Format format);
     void free();
-    bool empty() const { return pixels_.empty(); }
+    bool empty() const { return _pixels.empty(); }
 
-    Format format() const { return format_; }
-    bool isClut8() const { return format_ == kClut8; }
-    int bytesPerPixel() const { return format_ == kClut8 ? 1 : 4; }
+    Format format() const { return _format; }
+    bool isClut8() const { return _format == kClut8; }
+    int bytesPerPixel() const { return _format == kClut8 ? 1 : 4; }
 
-    void *getPixels() { return pixels_.data(); }
-    const void *getPixels() const { return pixels_.data(); }
-    void *getBasePtr(int x, int y) { return pixels_.data() + size_t(y) * size_t(pitch) + size_t(x) * bytesPerPixel(); }
+    void *getPixels() { return _pixels.data(); }
+    const void *getPixels() const { return _pixels.data(); }
+    void *getBasePtr(int x, int y) { return _pixels.data() + size_t(y) * size_t(pitch) + size_t(x) * bytesPerPixel(); }
     const void *getBasePtr(int x, int y) const {
-        return pixels_.data() + size_t(y) * size_t(pitch) + size_t(x) * bytesPerPixel();
+        return _pixels.data() + size_t(y) * size_t(pitch) + size_t(x) * bytesPerPixel();
     }
 
     uint32_t getPixel(int x, int y) const;
@@ -58,8 +58,8 @@ public:
     void transBlitFrom(const Canvas &src, int destX, int destY, uint32_t transColor);
 
 private:
-    Format format_ = kClut8;
-    std::vector<uint8_t> pixels_;
+    Format _format = kClut8;
+    std::vector<uint8_t> _pixels;
 };
 
 // A true colour pixel: 0xAARRGGBB.

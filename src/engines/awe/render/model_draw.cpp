@@ -17,8 +17,8 @@ Error openGr2(const Archive &files, const std::string &name, Gr2File &out) {
     return out.open(data);
 }
 
-GpuModel::GpuModel(gfx::Renderer3D &renderer, Model model) : renderer_(renderer), model_(std::move(model)) {
-    for (const ModelTexture &t : model_.textures) {
+GpuModel::GpuModel(gfx::Renderer3D &renderer, Model model) : _renderer(renderer), _model(std::move(model)) {
+    for (const ModelTexture &t : _model.textures) {
         gfx::TextureId id = 0;
         // Filtered linearly, the MIP levels too (0x4273bb), but only those
         // the file has: with one, none (0x427de2 makes the texture with
@@ -27,15 +27,15 @@ GpuModel::GpuModel(gfx::Renderer3D &renderer, Model model) : renderer_(renderer)
         gfx::TextureParams params;
         params.mipmaps = t.levels > 1;
         if (!t.rgba.empty())
-            renderer_.createTexture(t.width, t.height, t.rgba.data(), params, id);
-        textures_.push_back(id);
+            _renderer.createTexture(t.width, t.height, t.rgba.data(), params, id);
+        _textures.push_back(id);
     }
 }
 
 GpuModel::~GpuModel() {
-    for (gfx::TextureId t : textures_)
+    for (gfx::TextureId t : _textures)
         if (t)
-            renderer_.destroyTexture(t);
+            _renderer.destroyTexture(t);
 }
 
 void GpuModel::skinAndLight(const Pose &pose, const gfx::Mat4 &placement, bool helpers, const SceneLighting *lighting,
@@ -47,9 +47,9 @@ void GpuModel::skinAndLight(const Pose &pose, const gfx::Mat4 &placement, bool h
         skinned.owner = this;
     }
     skinned.uploaded = false;
-    skinned.meshes.resize(model_.meshes.size());
-    for (size_t m = 0; m < model_.meshes.size(); m++) {
-        const ModelMesh &mesh = model_.meshes[m];
+    skinned.meshes.resize(_model.meshes.size());
+    for (size_t m = 0; m < _model.meshes.size(); m++) {
+        const ModelMesh &mesh = _model.meshes[m];
         SkinnedModel::Mesh &result = skinned.meshes[m];
         result.drawn = result.shiny = false;
         bool textured = false;
@@ -125,26 +125,26 @@ void SkinnedModel::release() {
 }
 
 void GpuModel::upload(SkinnedModel &skinned) {
-    if (skinned.owner != this || skinned.meshes.size() != model_.meshes.size())
+    if (skinned.owner != this || skinned.meshes.size() != _model.meshes.size())
         return;
-    if (skinned.renderer && skinned.renderer != &renderer_)
+    if (skinned.renderer && skinned.renderer != &_renderer)
         skinned.release();
-    skinned.renderer = &renderer_;
+    skinned.renderer = &_renderer;
     auto put = [&](gfx::MeshId &id, const std::vector<gfx::Vertex> &verts, const std::vector<uint32_t> &indices) {
-        if (id && renderer_.setMeshVertices(id, verts)) {
-            renderer_.destroyMesh(id);
+        if (id && _renderer.setMeshVertices(id, verts)) {
+            _renderer.destroyMesh(id);
             id = 0;
         }
-        if (!id && renderer_.createMesh(verts, indices, id))
+        if (!id && _renderer.createMesh(verts, indices, id))
             id = 0;
     };
-    for (size_t m = 0; m < model_.meshes.size(); m++) {
+    for (size_t m = 0; m < _model.meshes.size(); m++) {
         SkinnedModel::Mesh &made = skinned.meshes[m];
         if (!made.drawn || made.verts.empty())
             continue;
-        put(made.id, made.verts, model_.meshes[m].indices);
+        put(made.id, made.verts, _model.meshes[m].indices);
         if (made.shiny)
-            put(made.shineId, made.shine, model_.meshes[m].indices);
+            put(made.shineId, made.shine, _model.meshes[m].indices);
     }
     skinned.uploaded = true;
 }
@@ -153,17 +153,17 @@ size_t GpuModel::draw(const Pose &pose, const gfx::Mat4 &placement, bool helpers
                       float brightness, const SceneLighting *lighting, const Material &material,
                       const StencilShadow *shadow, const SkinnedModel *skinned) {
     SkinnedModel own;
-    if (!skinned || skinned->owner != this || skinned->meshes.size() != model_.meshes.size()) {
+    if (!skinned || skinned->owner != this || skinned->meshes.size() != _model.meshes.size()) {
         skinAndLight(pose, placement, helpers, lighting, material, own);
         skinned = &own;
     }
     // Uploaded already, into meshes kept: else made for this frame alone.
     const bool kept = skinned->uploaded;
     size_t triangles = 0;
-    const bool stencil = shadow && shadow->scene && renderer_.hasStencil();
+    const bool stencil = shadow && shadow->scene && _renderer.hasStencil();
     const std::array<float, 3> light = stencil ? shadowLight(*shadow->scene) : std::array<float, 3>{};
-    for (size_t m = 0; m < model_.meshes.size(); m++) {
-        const ModelMesh &mesh = model_.meshes[m];
+    for (size_t m = 0; m < _model.meshes.size(); m++) {
+        const ModelMesh &mesh = _model.meshes[m];
         const SkinnedModel::Mesh &made = skinned->meshes[m];
         if (!made.drawn)
             continue;
@@ -177,7 +177,7 @@ size_t GpuModel::draw(const Pose &pose, const gfx::Mat4 &placement, bool helpers
         if (kept && !id)
             continue;
         if (!kept) {
-            if (renderer_.createMesh(verts, mesh.indices, id))
+            if (_renderer.createMesh(verts, mesh.indices, id))
                 continue;
             frameMeshes.push_back(id);
         }
@@ -195,13 +195,13 @@ size_t GpuModel::draw(const Pose &pose, const gfx::Mat4 &placement, bool helpers
             }
         }
         if (stencil) {
-            renderer_.setStencilMode(gfx::Renderer3D::StencilMode::Mark);
-            renderer_.setStencilReference(shadow->ref);
+            _renderer.setStencilMode(gfx::Renderer3D::StencilMode::kMark);
+            _renderer.setStencilReference(shadow->ref);
         }
         // The specular, which Direct3D adds after the texture
         // (D3DRS_SPECULARENABLE, 0x427160): a pass adding it over the model.
         gfx::MeshId shineId = kept && shiny ? made.shineId : 0;
-        if (!kept && shiny && !renderer_.createMesh(shine, mesh.indices, shineId))
+        if (!kept && shiny && !_renderer.createMesh(shine, mesh.indices, shineId))
             frameMeshes.push_back(shineId);
         for (const auto &g : mesh.groups) {
             gfx::DrawCall call;
@@ -209,17 +209,17 @@ size_t GpuModel::draw(const Pose &pose, const gfx::Mat4 &placement, bool helpers
             call.model = placement;
             call.firstIndex = g.firstIndex;
             call.indexCount = g.indexCount;
-            call.texture = g.texture >= 0 && size_t(g.texture) < textures_.size() ? textures_[size_t(g.texture)] : 0;
+            call.texture = g.texture >= 0 && size_t(g.texture) < _textures.size() ? _textures[size_t(g.texture)] : 0;
             if (!call.texture)
                 call.color = {0.8f, 0.4f, 0.8f, 1};
             for (int k = 0; k < 3; k++)
                 call.color[size_t(k)] *= brightness;
             if (lighting) {
-                call.rgbSource = gfx::ColorSource::Vertex;
+                call.rgbSource = gfx::ColorSource::kVertex;
             } else {
                 // The light in model space, so it stays on the model's
                 // front as it turns.
-                call.rgbSource = gfx::ColorSource::Lighting;
+                call.rgbSource = gfx::ColorSource::kLighting;
                 call.ambientLight = {0.45f, 0.45f, 0.45f};
                 call.directedLight = {0.75f, 0.72f, 0.68f};
                 const gfx::Vec3 l = gfx::transformPoint(placement, {0.4f, -0.6f, 0.7f});
@@ -228,28 +228,28 @@ size_t GpuModel::draw(const Pose &pose, const gfx::Mat4 &placement, bool helpers
                 const float len = std::sqrt(dir[0] * dir[0] + dir[1] * dir[1] + dir[2] * dir[2]);
                 call.lightDirection = len > 0 ? gfx::Vec3{dir[0] / len, dir[1] / len, dir[2] / len} : dir;
             }
-            call.state.cull = gfx::Cull::None;
+            call.state.cull = gfx::Cull::kNone;
             if (material.blend) {
                 call.color[3] = std::clamp(material.alpha, 0.0f, 1.0f);
-                call.state.src = gfx::Blend::SrcAlpha;
-                call.state.dst = gfx::Blend::OneMinusSrcAlpha;
+                call.state.src = gfx::Blend::kSrcAlpha;
+                call.state.dst = gfx::Blend::kOneMinusSrcAlpha;
             }
-            renderer_.draw(call);
+            _renderer.draw(call);
             triangles += g.indexCount / 3;
             if (shineId) {
                 gfx::DrawCall add = call;
                 add.mesh = shineId;
                 add.texture = 0;
                 add.color = {brightness, brightness, brightness, call.color[3]};
-                add.state.src = material.blend ? gfx::Blend::SrcAlpha : gfx::Blend::One;
-                add.state.dst = gfx::Blend::One;
+                add.state.src = material.blend ? gfx::Blend::kSrcAlpha : gfx::Blend::kOne;
+                add.state.dst = gfx::Blend::kOne;
                 add.state.depthEqual = true;
                 add.state.depthWrite = false;
-                renderer_.draw(add);
+                _renderer.draw(add);
             }
         }
         if (stencil)
-            renderer_.setStencilMode(gfx::Renderer3D::StencilMode::None);
+            _renderer.setStencilMode(gfx::Renderer3D::StencilMode::kNone);
     }
     return triangles;
 }
@@ -275,7 +275,7 @@ void GpuModel::drawShadow(const ModelMesh &mesh, const Pose &pose, const gfx::Ma
         std::copy(f.begin(), f.end(), verts[v].pos);
     }
     gfx::MeshId id = 0;
-    if (renderer_.createMesh(verts, mesh.indices, id))
+    if (_renderer.createMesh(verts, mesh.indices, id))
         return;
     frameMeshes.push_back(id);
     shadowPass(id, uint32_t(mesh.indices.size()), gfx::identity());
@@ -284,18 +284,18 @@ void GpuModel::drawShadow(const ModelMesh &mesh, const Pose &pose, const gfx::Ma
 void GpuModel::shadowPass(gfx::MeshId mesh, uint32_t indexCount, const gfx::Mat4 &model) {
     // No colour (the frame kept, blend Zero/One) and no depth: the stencil
     // set to 1 where it passes the depth test (0x428250).
-    renderer_.setStencilMode(gfx::Renderer3D::StencilMode::Mark);
-    renderer_.setStencilReference(1);
+    _renderer.setStencilMode(gfx::Renderer3D::StencilMode::kMark);
+    _renderer.setStencilReference(1);
     gfx::DrawCall call;
     call.mesh = mesh;
     call.indexCount = indexCount;
     call.model = model;
-    call.state.src = gfx::Blend::Zero;
-    call.state.dst = gfx::Blend::One;
+    call.state.src = gfx::Blend::kZero;
+    call.state.dst = gfx::Blend::kOne;
     call.state.depthWrite = false;
-    call.state.cull = gfx::Cull::None;
-    renderer_.draw(call);
-    renderer_.setStencilMode(gfx::Renderer3D::StencilMode::None);
+    call.state.cull = gfx::Cull::kNone;
+    _renderer.draw(call);
+    _renderer.setStencilMode(gfx::Renderer3D::StencilMode::kNone);
 }
 
 Pose poseAt(const Model &model, const Animation *animation, float time) {

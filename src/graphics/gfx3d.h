@@ -55,38 +55,38 @@ struct TextureParams {
 
 // Blend factors for result = src * srcFactor + dst * dstFactor.
 enum class Blend : uint8_t {
-    Zero,
-    One,
-    SrcColor,
-    OneMinusSrcColor,
-    DstColor,
-    OneMinusDstColor,
-    SrcAlpha,
-    OneMinusSrcAlpha,
-    DstAlpha,
-    OneMinusDstAlpha,
+    kZero,
+    kOne,
+    kSrcColor,
+    kOneMinusSrcColor,
+    kDstColor,
+    kOneMinusDstColor,
+    kSrcAlpha,
+    kOneMinusSrcAlpha,
+    kDstAlpha,
+    kOneMinusDstAlpha,
 };
-enum class Cull : uint8_t { None, Back, Front };
+enum class Cull : uint8_t { kNone, kBack, kFront };
 // Discard fragments by their alpha: none, alpha > 0, alpha < 0.5, alpha >= 0.5.
-enum class AlphaTest : uint8_t { None, Gt0, Lt128, Ge128 };
+enum class AlphaTest : uint8_t { kNone, kGt0, kLt128, kGe128 };
 
 struct DrawState {
-    Blend src = Blend::One, dst = Blend::Zero; // One/Zero: opaque
-    bool depthTest = true;                     // passes when nearer or equal
+    Blend src = Blend::kOne, dst = Blend::kZero; // One/Zero: opaque
+    bool depthTest = true;                       // passes when nearer or equal
     bool depthEqual = false; // with depthTest: passes only when equal, for extra passes over drawn geometry
     bool depthWrite = true;
     bool depthBias = false; // pulled towards the camera, for decals on walls
-    Cull cull = Cull::Back;
-    AlphaTest alphaTest = AlphaTest::None;
+    Cull cull = Cull::kBack;
+    AlphaTest alphaTest = AlphaTest::kNone;
 
     bool operator==(const DrawState &) const = default;
 };
 
 // A periodic function of time: base + amplitude * f(phase + time * frequency),
 // f with period 1 and values in -1..1 (sawtooths 0..1).
-enum class WaveFunc : uint8_t { Sin, Triangle, Square, Sawtooth, InverseSawtooth, Noise };
+enum class WaveFunc : uint8_t { kSin, kTriangle, kSquare, kSawtooth, kInverseSawtooth, kNoise };
 struct Wave {
-    WaveFunc func = WaveFunc::Sin;
+    WaveFunc func = WaveFunc::kSin;
     float base = 0, amplitude = 0, phase = 0, frequency = 0;
 };
 // The wave's value at `time` seconds, as the GPU computes it too.
@@ -95,15 +95,15 @@ float evaluate(const Wave &wave, float time);
 // Where texture coordinates come from: the first or second set, a
 // reflection of the camera off the surface (environment mapping), or the
 // position's dot products with two vectors.
-enum class TexGen : uint8_t { Uv, Uv2, Environment, Vector };
+enum class TexGen : uint8_t { kUv, kUv2, kEnvironment, kVector };
 // Where colour and alpha come from (times DrawCall::color). Lighting: the
 // draw call's ambient light, plus its directed light times how much the
 // normal faces the light's direction (alpha 1).
-enum class ColorSource : uint8_t { Constant, Vertex, OneMinusVertex, Lighting };
+enum class ColorSource : uint8_t { kConstant, kVertex, kOneMinusVertex, kLighting };
 
 // Moves vertices on the GPU each frame.
 struct Deform {
-    enum class Type : uint8_t { None, Wave, Bulge, Move, Normal } type = Type::None;
+    enum class Type : uint8_t { kNone, kWave, kBulge, kMove, kNormal } type = Type::kNone;
     // Wave: along the normal by the wave's value, its phase offset by
     // (x + y + z) * spread. Move: by `vector` times the wave's value.
     // Normal: the positions stay; each normal is pushed along x, y and z
@@ -138,7 +138,7 @@ struct DrawCall {
     // positions (Vector, turbulence) use the mesh's own coordinates.
     Mat4 model = identity();
     TextureId texture = 0; // 0: white
-    TexGen texGen = TexGen::Uv;
+    TexGen texGen = TexGen::kUv;
     Vec3 texVector0{}, texVector1{}; // TexGen::Vector's two vectors
     // Texture coordinates go through rows (pre) then a turbulence, then
     // rows (post): each pair of rows maps (u, v) to (row0 . (u, v, 1),
@@ -151,7 +151,7 @@ struct DrawCall {
     // from the constant, the vertex colour, or one minus it, times the
     // constant. Components may exceed 1 (results are clamped).
     std::array<float, 4> color{1, 1, 1, 1};
-    ColorSource rgbSource = ColorSource::Constant, alphaSource = ColorSource::Constant;
+    ColorSource rgbSource = ColorSource::kConstant, alphaSource = ColorSource::kConstant;
     Vec3 ambientLight{}, directedLight{}; // for ColorSource::Lighting, 1 = full
     Vec3 lightDirection{0, 0, 1};         // towards the light, in world space
     // > 0: the fragment's alpha is instead clamp(distance from the camera
@@ -251,7 +251,7 @@ public:
     // marks. SkyMark and SkyInside do the same with marks of their own (the
     // sky, drawn only where the level's sky surfaces are seen), apart from
     // the others.
-    enum class StencilMode : uint8_t { None, Mark, Inside, SkyMark, SkyInside };
+    enum class StencilMode : uint8_t { kNone, kMark, kInside, kSkyMark, kSkyInside };
     virtual bool hasStencil() const = 0;
     virtual void setStencilMode(StencilMode mode) = 0;
     // A value of the engine's own for Mark to write (where a draw passes

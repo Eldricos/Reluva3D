@@ -57,7 +57,7 @@ int cmdWavInfo(int argc, char **argv) {
         std::vector<uint8_t> data;
         for (size_t i = 0; i < cat.entries().size(); ++i) {
             const auto &e = cat.entries()[i];
-            if (e.tag != nw::cattag::Wave)
+            if (e.tag != nw::cattag::kWave)
                 continue;
             ++count;
             if (cat.read(e, data)) {
@@ -134,7 +134,7 @@ int cmdFifInfo(int argc, char **argv) {
         }
         unsigned listed = 0;
         for (const auto &e : cat->entries())
-            listed += e.tag == nw::cattag::Fif;
+            listed += e.tag == nw::cattag::kFif;
         nw::Archives archives;
         archives.push_back(std::move(cat));
         const auto fonts = nw::loadGameFonts(archives);
@@ -161,13 +161,13 @@ int cmdFifInfo(int argc, char **argv) {
     return 0;
 }
 
-const Commands commands("newworlds",
-                        {
-                            {"wav-info", "<file.wav | file.mp3 | file.cat>",
-                             "show a sound's format and length, or survey an archive's", cmdWavInfo},
-                            {"wav-decode", "<in.wav | in.mp3> <out.wav>", "decode a sound to 16-bit PCM", cmdWavDecode},
-                            {"fif-info", "<file.fif | file.cat>",
-                             "show a font's glyph table, or list an archive's fonts", cmdFifInfo},
-                        });
+const Commands kCommands("newworlds", {
+                                          {"wav-info", "<file.wav | file.mp3 | file.cat>",
+                                           "show a sound's format and length, or survey an archive's", cmdWavInfo},
+                                          {"wav-decode", "<in.wav | in.mp3> <out.wav>", "decode a sound to 16-bit PCM",
+                                           cmdWavDecode},
+                                          {"fif-info", "<file.fif | file.cat>",
+                                           "show a font's glyph table, or list an archive's fonts", cmdFifInfo},
+                                      });
 
 } // namespace

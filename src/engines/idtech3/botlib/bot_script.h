@@ -15,7 +15,7 @@ namespace reluva::idtech3::botlib {
 // A token of a bot script (the files under botfiles/: characters, item
 // and weapon weights, chats), after the preprocessor.
 struct BotToken {
-    enum class Type { String, Literal, Number, Name, Punctuation } type = Type::Name;
+    enum class Type { kString, kLiteral, kNumber, kName, kPunctuation } type = Type::kName;
     std::string text; // a string's or literal's without its quotes
     double number = 0;
     bool isFloat = false; // a number with a point or exponent
@@ -23,7 +23,7 @@ struct BotToken {
     int line = 0;
     bool lineStart = false;   // the first on its line
     bool spaceBefore = false; // white space just before it
-    bool is(const char *t) const { return type != Type::String && text == t; }
+    bool is(const char *t) const { return type != Type::kString && text == t; }
 };
 
 // Reads the bot library's scripts the way its preprocessor does, a C-like
@@ -59,7 +59,7 @@ public:
     bool skipBlock();
 
     // The first error, with where it is ("file:line: ...").
-    const std::string &error() const { return error_; }
+    const std::string &error() const { return _error; }
     void fail(const std::string &message);
     std::string where() const;
 
@@ -74,18 +74,18 @@ private:
     void define(const std::string &line);
     bool skipping() const;
 
-    Loader load_;
-    std::vector<std::unique_ptr<Source>> sources_; // files and macro expansions, innermost last
-    std::vector<BotToken> pushed_;
-    std::map<std::string, std::shared_ptr<Macro>> macros_;
+    Loader _load;
+    std::vector<std::unique_ptr<Source>> _sources; // files and macro expansions, innermost last
+    std::vector<BotToken> _pushed;
+    std::map<std::string, std::shared_ptr<Macro>> _macros;
     struct Conditional {
         bool taking; // this branch's tokens are read
         bool taken;  // some branch was
         bool outer;  // the enclosing one is being read
     };
-    std::vector<Conditional> conditionals_;
-    std::string error_;
-    BotToken last_;
+    std::vector<Conditional> _conditionals;
+    std::string _error;
+    BotToken _last;
 };
 
 } // namespace reluva::idtech3::botlib

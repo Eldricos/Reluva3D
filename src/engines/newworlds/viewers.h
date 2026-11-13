@@ -51,7 +51,7 @@ namespace reluva::newworlds {
 class TextureViewer {
 public:
     TextureViewer(System &sys, Surface &screen, const Archives &archives);
-    size_t count() const { return textures_.size(); }
+    size_t count() const { return _textures.size(); }
     void activate(); // redraw and retitle after switching to this viewer
     void handleKey(uint32_t key);
 
@@ -68,14 +68,14 @@ private:
     void drawCheckerboard();
     void drawTexture(const Texture &tex);
 
-    System &sys_;
-    Surface &screen_;
-    const Archives &archives_;
-    std::vector<TextureRef> textures_;
-    std::vector<size_t> visible_; // indices into textures_ that pass the filter
-    bool classified_ = false;
-    int filter_ = 0;
-    int current_ = 0;
+    System &_sys;
+    Surface &_screen;
+    const Archives &_archives;
+    std::vector<TextureRef> _textures;
+    std::vector<size_t> _visible; // indices into textures_ that pass the filter
+    bool _classified = false;
+    int _filter = 0;
+    int _current = 0;
 };
 
 // Shows every model with its textures. A model's textures are the ones named
@@ -93,7 +93,7 @@ private:
 class ModelViewer {
 public:
     ModelViewer(System &sys, Surface &screen, const Archives &archives);
-    size_t count() const { return models_.size(); }
+    size_t count() const { return _models.size(); }
     void activate();
     void handleEvent(const Event &ev);
     void update(uint64_t nowMs); // redraws when something changed
@@ -109,42 +109,42 @@ private:
     void loadTextures(const std::string &modelName);
     void loadMetamodel(const std::string &modelName);
 
-    System &sys_;
-    Surface &screen_;
-    const Archives &archives_;
-    Rasterizer raster_;
-    std::vector<EntryRef> models_;
-    std::vector<uint32_t> partCounts_; // per model; 0 when it doesn't decode
-    std::vector<size_t> visible_;
-    std::vector<TextureFile> textureFiles_; // every full-size texture
-    std::vector<Texture> modelTextures_;    // the current model's, in face order
-    std::vector<std::string> modelTextureNames_;
-    bool classified_ = false;
-    int filter_ = 0;
-    int current_ = 0;
+    System &_sys;
+    Surface &_screen;
+    const Archives &_archives;
+    Rasterizer _raster;
+    std::vector<EntryRef> _models;
+    std::vector<uint32_t> _partCounts; // per model; 0 when it doesn't decode
+    std::vector<size_t> _visible;
+    std::vector<TextureFile> _textureFiles; // every full-size texture
+    std::vector<Texture> _modelTextures;    // the current model's, in face order
+    std::vector<std::string> _modelTextureNames;
+    bool _classified = false;
+    int _filter = 0;
+    int _current = 0;
 
-    GeoModel model_;
-    std::string status_; // decode error, if any
-    Metamodels metamodels_;
-    MdlModel mdl_;
-    bool hasMdl_ = false, markers_ = true, turret_ = false;
-    int selectedPoint_ = -1; // -1: none
-    std::vector<Animation> animations_;
-    int animation_ = -1, animFrame_ = 0; // -1: the stored pose; animations_.size(): the turret sweep
-    uint64_t animMs_ = 0;
+    GeoModel _model;
+    std::string _status; // decode error, if any
+    Metamodels _metamodels;
+    MdlModel _mdl;
+    bool _hasMdl = false, _markers = true, _turret = false;
+    int _selectedPoint = -1; // -1: none
+    std::vector<Animation> _animations;
+    int _animation = -1, _animFrame = 0; // -1: the stored pose; animations_.size(): the turret sweep
+    uint64_t _animMs = 0;
     static constexpr uint64_t kFrameMs = 100;
-    float centre_[3] = {0, 0, 0};
-    float size_ = 1; // distance from the centre to the farthest vertex
+    float _centre[3] = {0, 0, 0};
+    float _size = 1; // distance from the centre to the farthest vertex
 
-    float yaw_ = 0, pitch_ = 0, zoom_ = 1;
-    int soloPart_ = -1; // -1: all parts
-    bool spin_ = false, uvCheck_ = false, colourByTail_ = false, textured_ = true, smooth_ = true;
-    int outlines_ = 0, faces_ = 0; // faces_: 0 front only, 1 both sides, 2 back only
-    int alphaMode_ = 0;            // see kAlphaNames
-    bool dragging_ = false;
-    int dragX_ = 0, dragY_ = 0;
-    bool dirty_ = true;
-    uint64_t lastMs_ = 0;
+    float _yaw = 0, _pitch = 0, _zoom = 1;
+    int _soloPart = -1; // -1: all parts
+    bool _spin = false, _uvCheck = false, _colourByTail = false, _textured = true, _smooth = true;
+    int _outlines = 0, _faces = 0; // faces_: 0 front only, 1 both sides, 2 back only
+    int _alphaMode = 0;            // see kAlphaNames
+    bool _dragging = false;
+    int _dragX = 0, _dragY = 0;
+    bool _dirty = true;
+    uint64_t _lastMs = 0;
 };
 
 // Shows the planet maps (.gmf), built from their ground tiles: a map is a
@@ -159,8 +159,8 @@ class MapViewer {
 public:
     MapViewer(System &sys, Surface &screen, const Archives &archives);
     // level.dat's missions, to name each map's mission in the title.
-    void setLevels(std::vector<Level> levels) { levels_ = std::move(levels); }
-    size_t count() const { return maps_.size(); }
+    void setLevels(std::vector<Level> levels) { _levels = std::move(levels); }
+    size_t count() const { return _maps.size(); }
     void activate();
     void handleEvent(const Event &ev);
     void update(uint64_t nowMs); // redraws when something changed
@@ -172,20 +172,20 @@ public:
     // The archive the shown map is in ("icewrld.cat").
     std::string mapArchive() const;
     // Called after each redraw, to draw over the map.
-    void setOverlay(std::function<void()> overlay) { overlay_ = std::move(overlay); }
+    void setOverlay(std::function<void()> overlay) { _overlay = std::move(overlay); }
     // Given the title this viewer would set, returns the one to set instead.
-    void setTitleFilter(std::function<std::string(const std::string &)> filter) { titleFilter_ = std::move(filter); }
-    void redraw() { dirty_ = true; }
+    void setTitleFilter(std::function<std::string(const std::string &)> filter) { _titleFilter = std::move(filter); }
+    void redraw() { _dirty = true; }
     // How the ground is coloured (0 textures, 1 terrain codes, 2 deposits).
-    int colouring() const { return colouring_; }
+    int colouring() const { return _colouring; }
     // Points the camera at a map position as the game gives them (eighths
     // of a block, row first; see docs/engines/newworlds/gmf.md), close and
     // low for a ground view or high above for an overview; a < 0 for the
     // whole map. turn() turns it about its target.
     void lookAt(int a, int b, bool ground);
     void turn(float radians) {
-        yaw_ += radians;
-        dirty_ = true;
+        _yaw += radians;
+        _dirty = true;
     }
     void resetCamera() { resetView(); }
     // For the game interface: the map drawn small by its terrain codes'
@@ -198,8 +198,8 @@ public:
     void cameraPosition(int &a, int &b) const;
     float heading() const;
     void setColouring(int colouring) {
-        colouring_ = colouring;
-        dirty_ = true;
+        _colouring = colouring;
+        _dirty = true;
     }
     // Buildings to stand on the shown map (the missions page's starting
     // colony): a model by name ("geo/fed/fch.geo", in any archive) at a map
@@ -225,8 +225,8 @@ public:
     // The shown map's size in blocks, a block's resource deposit (0 for
     // none), and the ground's height at a map position (NaN off the map
     // or where no tile is).
-    int blocksWide() const { return map_.width; }
-    int blocksHigh() const { return map_.height; }
+    int blocksWide() const { return _map.width; }
+    int blocksHigh() const { return _map.height; }
     int depositAt(int bx, int by) const;
     // The cell value's low 12 bits at a block (50-300; how much a deposit
     // holds, presumably; gmf.md).
@@ -247,17 +247,17 @@ public:
         float turretYaw = 0, gunPitch = 0;
     };
     void setUnits(std::vector<UnitDraw> units) {
-        units_ = std::move(units);
-        dirty_ = true;
+        _units = std::move(units);
+        _dirty = true;
     }
     // The ground's height at a world point (0 off the map); the map's size
     // in world units.
     float groundAtWorld(float x, float y) { return groundHeight(x, y); }
-    float worldWidth() const { return float(map_.width) * kBlockUnits; }
+    float worldWidth() const { return float(_map.width) * kBlockUnits; }
     // The ground for units: each tile's movement class (its flags' bits
     // 16-17) and the ground's height (gmf.md); empty with no map shown.
     Terrain terrain();
-    float worldHeight() const { return float(map_.height) * kBlockUnits; }
+    float worldHeight() const { return float(_map.height) * kBlockUnits; }
     // The world point under a screen pixel (false if the ray misses the
     // map), and a world point's pixel (false if behind the camera).
     bool screenToGround(int sx, int sy, float &x, float &y);
@@ -267,10 +267,10 @@ public:
     // view, F1's first-person view; arrows move, numpad 4/6 turn, 8/2 zoom
     // towards the pointer, 7/1 raise and lower, 9/3 tilt. A key it doesn't
     // use returns false. mouseX/Y: where the pointer is, for the zoom.
-    enum class View { BirdsEye, Sky, FirstPerson };
+    enum class View { kBirdsEye, kSky, kFirstPerson };
     bool gameKey(uint32_t key, int mouseX, int mouseY);
     void setView(View v);
-    View view() const { return view_; }
+    View view() const { return _view; }
     // Ctrl+click: zoom in on the pointed spot, or out.
     void zoomAt(int sx, int sy, bool in);
     // Centres the view on a world point, keeping the view's height.
@@ -278,10 +278,10 @@ public:
     // Double-click on a building: the camera closes in and orbits it (4/6
     // turn about it) until unlocked.
     void lockOn(float x, float y);
-    void unlock() { locked_ = false; }
-    bool locked() const { return locked_; }
+    void unlock() { _locked = false; }
+    bool locked() const { return _locked; }
     static constexpr float kBlockUnits = 16384; // a block's size in model units
-    size_t buildingsShown() const { return buildings_.size(); }
+    size_t buildingsShown() const { return _buildings.size(); }
 
 private:
     using Vec3 = GeoModel::Vec3;
@@ -335,51 +335,51 @@ private:
     int tileAt(int tx, int ty) const; // tile record at a tile position, or -1
     static unsigned terrainCode(const GmfMap::Tile &tile, int cx, int cy);
 
-    System &sys_;
-    Surface &screen_;
-    const Archives &archives_;
-    Rasterizer raster_;
-    std::vector<EntryRef> maps_;
-    std::vector<Level> levels_;
-    std::vector<TextureFile> textureFiles_;
-    bool shown_ = false;
-    int current_ = 0;
+    System &_sys;
+    Surface &_screen;
+    const Archives &_archives;
+    Rasterizer _raster;
+    std::vector<EntryRef> _maps;
+    std::vector<Level> _levels;
+    std::vector<TextureFile> _textureFiles;
+    bool _shown = false;
+    int _current = 0;
 
-    GmfMap map_;
-    std::string status_;                // decode error, if any
-    std::vector<size_t> archiveModels_; // entry indices of the map archive's .geo files, by model number
-    std::map<uint32_t, TileModel> tileModels_;
-    std::map<uint32_t, TileEdges> tileEdges_;
-    Texture wallTexture_;                    // the map archive's last cliff texture, if any
-    std::map<int, TileModel> sceneryModels_; // by object type
-    std::vector<Placed> placed_;
-    std::map<std::string, TileModel> buildingModels_; // by name, across maps
-    std::vector<Placed> buildings_;
-    std::vector<bool> hidden_; // placed_ objects under a building or on paved_
-    std::vector<UnitDraw> units_;
-    Metamodels metamodels_;
-    std::map<std::string, Motion> motions_;
-    uint64_t animClockMs_ = 0;
-    std::optional<Placed> ghost_;
-    bool ghostValid_ = false;
-    View view_ = View::BirdsEye;
-    bool locked_ = false;
-    std::vector<std::array<float, 4>> buildingAreas_; // middle x, y and half sizes, in model units
+    GmfMap _map;
+    std::string _status;                // decode error, if any
+    std::vector<size_t> _archiveModels; // entry indices of the map archive's .geo files, by model number
+    std::map<uint32_t, TileModel> _tileModels;
+    std::map<uint32_t, TileEdges> _tileEdges;
+    Texture _wallTexture;                    // the map archive's last cliff texture, if any
+    std::map<int, TileModel> _sceneryModels; // by object type
+    std::vector<Placed> _placed;
+    std::map<std::string, TileModel> _buildingModels; // by name, across maps
+    std::vector<Placed> _buildings;
+    std::vector<bool> _hidden; // placed_ objects under a building or on paved_
+    std::vector<UnitDraw> _units;
+    Metamodels _metamodels;
+    std::map<std::string, Motion> _motions;
+    uint64_t _animClockMs = 0;
+    std::optional<Placed> _ghost;
+    bool _ghostValid = false;
+    View _view = View::kBirdsEye;
+    bool _locked = false;
+    std::vector<std::array<float, 4>> _buildingAreas; // middle x, y and half sizes, in model units
     void updateHidden();
-    std::set<std::pair<int, int>> paved_;
-    std::map<uint32_t, TileModel> pavedModels_; // tile models with the concrete texture throughout
+    std::set<std::pair<int, int>> _paved;
+    std::map<uint32_t, TileModel> _pavedModels; // tile models with the concrete texture throughout
     const TileModel &pavedModel(uint32_t index);
-    Texture underlay_; // ground showing through tiles with GmfMap::Tile::underlay
+    Texture _underlay; // ground showing through tiles with GmfMap::Tile::underlay
 
-    float targetX_ = 0, targetY_ = 0, targetZ_ = 0, yaw_ = 0, pitch_ = 0, distance_ = 1;
-    bool textured_ = true, outlines_ = false, walls_ = true, scenery_ = true, smooth_ = true;
-    int colouring_ = 0; // see kColouringNames
-    bool dragging_ = false;
-    int dragX_ = 0, dragY_ = 0;
-    bool dirty_ = true;
-    unsigned drawnTiles_ = 0, drawnFaces_ = 0, drawnObjects_ = 0;
-    std::function<void()> overlay_;
-    std::function<std::string(const std::string &)> titleFilter_;
+    float _targetX = 0, _targetY = 0, _targetZ = 0, _yaw = 0, _pitch = 0, _distance = 1;
+    bool _textured = true, _outlines = false, _walls = true, _scenery = true, _smooth = true;
+    int _colouring = 0; // see kColouringNames
+    bool _dragging = false;
+    int _dragX = 0, _dragY = 0;
+    bool _dirty = true;
+    unsigned _drawnTiles = 0, _drawnFaces = 0, _drawnObjects = 0;
+    std::function<void()> _overlay;
+    std::function<std::string(const std::string &)> _titleFilter;
 };
 
 // Plays the sounds (.wav) and shows their waveforms.
@@ -392,7 +392,7 @@ public:
     // playing into the System's output; nullptr when there's no output.
     SoundViewer(System &sys, Surface &screen, const Archives &archives, audio::Mixer *mixer,
                 const std::filesystem::path &gameDir = {});
-    size_t count() const { return sounds_.size(); }
+    size_t count() const { return _sounds.size(); }
     void activate();
     void deactivate(); // stops playing when switching to another viewer
     void handleKey(uint32_t key);
@@ -408,9 +408,9 @@ private:
     const std::string &nameOf(size_t sound) const;
     std::string archiveOf(size_t sound) const; // its archive's file name
 
-    System &sys_;
-    Surface &screen_;
-    const Archives &archives_;
+    System &_sys;
+    Surface &_screen;
+    const Archives &_archives;
     // A sound in an archive, or a loose file in the game folder.
     struct Item {
         EntryRef ref{0, 0};
@@ -418,27 +418,27 @@ private:
         std::string name;           // the archive's name for it, or the path in the game folder
     };
     Error read(size_t sound, std::vector<uint8_t> &data) const;
-    std::vector<Item> sounds_;
+    std::vector<Item> _sounds;
     // The archives store some sounds many times over (kliactor has kneg1.wav
     // 24 times, in 4 slots of each vehicle's set), sometimes under other
     // names: each sound's first copy, and the sounds listed (all, or only
     // the first of each set of copies).
-    std::vector<size_t> firstCopy_;
-    std::vector<size_t> shownSounds_;
-    bool showCopies_ = false;
-    bool shown_ = false, autoPlay_ = false, wasPlaying_ = false;
-    int current_ = 0;
-    std::string status_;
-    std::shared_ptr<const audio::Sound> sound_; // the one shown
-    audio::Mixer *mixer_;                       // one sound at a time here
-    audio::SoundHandle playing_ = audio::kNoSound;
+    std::vector<size_t> _firstCopy;
+    std::vector<size_t> _shownSounds;
+    bool _showCopies = false;
+    bool _shown = false, _autoPlay = false, _wasPlaying = false;
+    int _current = 0;
+    std::string _status;
+    std::shared_ptr<const audio::Sound> _sound; // the one shown
+    audio::Mixer *_mixer;                       // one sound at a time here
+    audio::SoundHandle _playing = audio::kNoSound;
 };
 
 // Shows the string tables (.stb), word-wrapped, with their ids.
 class StringViewer {
 public:
     StringViewer(System &sys, Surface &screen, const Archives &archives);
-    size_t count() const { return tables_.size(); }
+    size_t count() const { return _tables.size(); }
     void activate();
     void handleKey(uint32_t key);
 
@@ -462,24 +462,24 @@ private:
     int lineHeight() const;
     int drawSpan(int x, int y, std::string_view text, Color color);
 
-    System &sys_;
-    Surface &screen_;
-    const Archives &archives_;
-    std::vector<EntryRef> tables_;
-    std::vector<GameFont> fonts_;
-    int font_ = -1; // index in fonts_, -1 for the built-in font
-    bool shown_ = false;
-    int current_ = 0, top_ = 0, scale_ = 1;
-    StringTable table_;
-    std::string status_;
-    std::vector<Line> lines_;
+    System &_sys;
+    Surface &_screen;
+    const Archives &_archives;
+    std::vector<EntryRef> _tables;
+    std::vector<GameFont> _fonts;
+    int _font = -1; // index in fonts_, -1 for the built-in font
+    bool _shown = false;
+    int _current = 0, _top = 0, _scale = 1;
+    StringTable _table;
+    std::string _status;
+    std::vector<Line> _lines;
 };
 
 // Shows the game's fonts: each one's characters and some sample text.
 class FontViewer {
 public:
     FontViewer(System &sys, Surface &screen, const Archives &archives);
-    size_t count() const { return fonts_.size(); }
+    size_t count() const { return _fonts.size(); }
     void activate();
     void handleKey(uint32_t key);
 
@@ -487,11 +487,11 @@ private:
     void draw();
     void updateTitle();
 
-    System &sys_;
-    Surface &screen_;
-    std::vector<GameFont> fonts_;
-    int current_ = 0, scale_ = 2;
-    bool boxes_ = false; // outline each glyph's box
+    System &_sys;
+    Surface &_screen;
+    std::vector<GameFont> _fonts;
+    int _current = 0, _scale = 2;
+    bool _boxes = false; // outline each glyph's box
 };
 
 // Shows the missions level.dat lists: each one's map (through a MapViewer,
@@ -519,13 +519,13 @@ class MissionViewer {
 public:
     MissionViewer(System &sys, Surface &screen, const Archives &archives, std::vector<Level> levels,
                   audio::Mixer *mixer, const std::filesystem::path &gameDir);
-    size_t count() const { return missions_.size(); }
+    size_t count() const { return _missions.size(); }
     void activate();
     void deactivate(); // stops the sound when switching to another viewer
     void handleEvent(const Event &ev);
     void update(uint64_t nowMs);
     // Playing: Tab and Escape are the game's, not the data viewer's.
-    bool playing() const { return playing_; }
+    bool playing() const { return _playing; }
 
 private:
     struct Page {
@@ -582,8 +582,8 @@ private:
         TexturedModel model;
         bool ok = false;
     };
-    std::map<std::string, BriefingModel> models_;
-    std::vector<TextureFile> textureFiles_;
+    std::map<std::string, BriefingModel> _models;
+    std::vector<TextureFile> _textureFiles;
     void playClip(int index);
     void stopClip();
     void startMusic(); // the shown map's planet theme, looped
@@ -596,59 +596,59 @@ private:
     int lineHeight() const;
     void drawText(int x, int y, std::string_view text, Color color);
 
-    System &sys_;
-    Surface &screen_;
-    const Archives &archives_;
-    std::vector<Level> missions_;
-    audio::Mixer *mixer_;
-    MapViewer map_;
-    std::vector<GameFont> fonts_;
-    const GameFont *font_ = nullptr;
+    System &_sys;
+    Surface &_screen;
+    const Archives &_archives;
+    std::vector<Level> _missions;
+    audio::Mixer *_mixer;
+    MapViewer _map;
+    std::vector<GameFont> _fonts;
+    const GameFont *_font = nullptr;
     // The game folder's loose MP3s, by upper-case stem (F1005 -> its path).
-    std::map<std::string, std::filesystem::path> mediaFiles_;
+    std::map<std::string, std::filesystem::path> _mediaFiles;
 
-    bool shown_ = false, hasMap_ = false, dirty_ = true, briefing_ = true, music_ = false, wasPlaying_ = false;
-    int current_ = 0, side_ = 0, page_ = 0, clip_ = 0;
-    std::string mapName_, mapNote_, mapTitle_, tableName_, status_, soundStatus_;
-    std::vector<Page> pages_;
-    std::vector<std::string> clips_; // stems, in order
-    StringTable table_;
-    std::vector<BriefingStep> script_;
-    std::map<char, Texture> emblems_; // 640 x 480, by side
-    GeoModel galaxy_;
-    std::vector<Texture> galaxyTextures_;  // in the order its faces number them
-    std::vector<std::string> systemNames_; // geo/solsys/'s systems
-    std::string systemName_;
-    GeoModel system_;
-    StarSystemLayout systemLayout_;
-    std::vector<Texture> systemTextures_; // per texture number
-    Rasterizer raster_;
-    bool running_ = false, stepOnMap_ = false;
+    bool _shown = false, _hasMap = false, _dirty = true, _briefing = true, _music = false, _wasPlaying = false;
+    int _current = 0, _side = 0, _page = 0, _clip = 0;
+    std::string _mapName, _mapNote, _mapTitle, _tableName, _status, _soundStatus;
+    std::vector<Page> _pages;
+    std::vector<std::string> _clips; // stems, in order
+    StringTable _table;
+    std::vector<BriefingStep> _script;
+    std::map<char, Texture> _emblems; // 640 x 480, by side
+    GeoModel _galaxy;
+    std::vector<Texture> _galaxyTextures;  // in the order its faces number them
+    std::vector<std::string> _systemNames; // geo/solsys/'s systems
+    std::string _systemName;
+    GeoModel _system;
+    StarSystemLayout _systemLayout;
+    std::vector<Texture> _systemTextures; // per texture number
+    Rasterizer _raster;
+    bool _running = false, _stepOnMap = false;
     // The mission's script, being walked through.
-    std::unique_ptr<MissionRun> run_;
-    std::vector<ScriptEvent> walk_;
-    size_t walkPos_ = 0;
-    std::vector<std::pair<std::string, std::string>> log_; // sender, text
-    std::string walkNote_;
-    GameUi ui_;
-    char uiSide_ = 0;
-    std::unique_ptr<ColonyLayout> colony_;
-    std::unique_ptr<World> world_;
-    std::unique_ptr<Economy> economy_;
-    std::vector<int> structureIds_; // per colony building, its economy structure
-    bool buildMenu_ = false, ghostOk_ = false;
-    std::string placing_;           // the type being placed, or empty
-    int ghostA_ = -1, ghostB_ = -1; // where its hologram stands
-    bool playing_ = false, boxing_ = false, tricorderFull_ = false;
-    int mouseX_ = 0, mouseY_ = 0, boxX_ = 0, boxY_ = 0;
-    uint64_t lastTickMs_ = 0;
-    ColonySite colonySite_;
-    bool colonyShown_ = true;
-    bool interface_ = false;
-    int step_ = 0, savedColouring_ = 0;
-    uint64_t nowMs_ = 0, stepEndMs_ = 0, lastTurnMs_ = 0; // stepEndMs_: when a step without a playing clip ends
-    audio::SoundHandle clipHandle_ = audio::kNoSound, musicHandle_ = audio::kNoSound;
-    std::string musicName_;
+    std::unique_ptr<MissionRun> _run;
+    std::vector<ScriptEvent> _walk;
+    size_t _walkPos = 0;
+    std::vector<std::pair<std::string, std::string>> _log; // sender, text
+    std::string _walkNote;
+    GameUi _ui;
+    char _uiSide = 0;
+    std::unique_ptr<ColonyLayout> _colony;
+    std::unique_ptr<World> _world;
+    std::unique_ptr<Economy> _economy;
+    std::vector<int> _structureIds; // per colony building, its economy structure
+    bool _buildMenu = false, _ghostOk = false;
+    std::string _placing;           // the type being placed, or empty
+    int _ghostA = -1, _ghostB = -1; // where its hologram stands
+    bool _playing = false, _boxing = false, _tricorderFull = false;
+    int _mouseX = 0, _mouseY = 0, _boxX = 0, _boxY = 0;
+    uint64_t _lastTickMs = 0;
+    ColonySite _colonySite;
+    bool _colonyShown = true;
+    bool _interface = false;
+    int _step = 0, _savedColouring = 0;
+    uint64_t _nowMs = 0, _stepEndMs = 0, _lastTurnMs = 0; // stepEndMs_: when a step without a playing clip ends
+    audio::SoundHandle _clipHandle = audio::kNoSound, _musicHandle = audio::kNoSound;
+    std::string _musicName;
 };
 
 } // namespace reluva::newworlds

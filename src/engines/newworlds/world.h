@@ -61,7 +61,7 @@ class World {
 public:
     explicit World(Terrain terrain);
 
-    const Terrain &terrain() const { return terrain_; }
+    const Terrain &terrain() const { return _terrain; }
     bool passable(int tx, int ty) const;
     // Whether a unit can step from one tile to a neighbour (8 ways; a
     // diagonal needs both tiles beside it open).
@@ -72,7 +72,7 @@ public:
     std::vector<std::pair<float, float>> findPath(float x0, float y0, float x1, float y1) const;
 
     int addUnit(char side, const UnitKind &kind, float x, float y, float heading = 0);
-    const std::vector<Unit> &units() const { return units_; }
+    const std::vector<Unit> &units() const { return _units; }
     Unit *unit(int id);
 
     // Selection, as the game's: a click selects one unit (or none), a box
@@ -96,10 +96,10 @@ public:
 private:
     int tileOf(float v) const { return int(v / kTile); }
 
-    Terrain terrain_;
-    std::vector<Unit> units_;
-    std::array<std::vector<int>, 10> groups_;
-    int nextId_ = 1;
+    Terrain _terrain;
+    std::vector<Unit> _units;
+    std::array<std::vector<int>, 10> _groups;
+    int _nextId = 1;
 };
 
 } // namespace reluva::newworlds

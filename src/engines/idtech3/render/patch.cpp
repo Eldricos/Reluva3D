@@ -536,7 +536,7 @@ std::vector<PatchGrid> buildPatchGrids(const Bsp &bsp, float error) {
     std::vector<PatchGrid> grids(bsp.surfaces.size());
     for (size_t i = 0; i < bsp.surfaces.size(); ++i) {
         const BspSurface &s = bsp.surfaces[i];
-        if (s.type != SurfaceType::Patch || s.firstVertex < 0 ||
+        if (s.type != SurfaceType::kPatch || s.firstVertex < 0 ||
             size_t(s.firstVertex) + size_t(std::max(s.patchWidth, 0)) * size_t(std::max(s.patchHeight, 0)) >
                 bsp.vertices.size())
             continue;

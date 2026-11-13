@@ -363,19 +363,19 @@ int cmdShaderCheck(int argc, char **argv) {
         if (examples.size() < 3 && std::find(examples.begin(), examples.end(), d.name) == examples.end())
             examples.push_back(d.name);
     };
-    static const char *const deformNames[] = {"wave", "normal",           "bulge", "move", "autosprite", "autosprite2",
-                                              "text", "projectionShadow", "other"};
+    static const char *const kDeformNames[] = {"wave", "normal",           "bulge", "move", "autosprite", "autosprite2",
+                                               "text", "projectionShadow", "other"};
     for (const q3::ShaderDef &d : shaders.all()) {
         for (const std::string &u : d.unknown)
             add("unknown directive: " + u, d);
         for (const q3::ShaderDeform &df : d.deforms) {
             using T = q3::ShaderDeform::Type;
-            if (df.type == T::Autosprite || df.type == T::Autosprite2)
+            if (df.type == T::kAutosprite || df.type == T::kAutosprite2)
                 add(std::string("drawn on the level only, not on models: deformVertexes ") +
-                        deformNames[size_t(df.type)],
+                        kDeformNames[size_t(df.type)],
                     d);
-            else if (df.type != T::Wave && df.type != T::Bulge && df.type != T::Move && df.type != T::Normal)
-                add(std::string("not drawn: deformVertexes ") + deformNames[size_t(df.type)], d);
+            else if (df.type != T::kWave && df.type != T::kBulge && df.type != T::kMove && df.type != T::kNormal)
+                add(std::string("not drawn: deformVertexes ") + kDeformNames[size_t(df.type)], d);
         }
         if (d.deforms.size() > 2)
             add("not drawn: more than two deformVertexes", d);
@@ -393,7 +393,7 @@ int cmdShaderCheck(int argc, char **argv) {
     return 0;
 }
 
-const Commands commands(
+const Commands kCommands(
     "idtech3",
     {
         {"image-check", "<game folder> [map name filter]",

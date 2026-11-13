@@ -50,26 +50,26 @@ public:
 
 // Sockets as BSD sockets give them (TCP streams and UDP datagrams, IPv4),
 // for standing in for an old program's own socket calls (Winsock 1.1).
-// Each is a number; none of the calls waits: they say WouldBlock, and
+// Each is a number; none of the calls waits: they say kWouldBlock, and
 // ready() says when to try again.
 class Sockets {
 public:
     virtual ~Sockets() = default;
     enum Result {
-        Ok,
-        WouldBlock, // nothing yet (or, for connect, under way)
-        InProgress, // connect: started, ready() says when it's done
-        Refused,    // connect: nothing listening
-        Reset,      // the other end went
-        NotConnected,
-        AddressInUse,
-        AddressNotAvailable,
-        Unreachable,
-        Invalid, // not a socket, or not that kind of call for it
-        Failed,  // anything else
+        kOk,
+        kWouldBlock, // nothing yet (or, for connect, under way)
+        kInProgress, // connect: started, ready() says when it's done
+        kRefused,    // connect: nothing listening
+        kReset,      // the other end went
+        kNotConnected,
+        kAddressInUse,
+        kAddressNotAvailable,
+        kUnreachable,
+        kInvalid, // not a socket, or not that kind of call for it
+        kFailed,  // anything else
     };
-    enum Type { Stream, Datagram };
-    enum Option { Broadcast, NoDelay, ReuseAddress, KeepAlive, ReceiveBuffer, SendBuffer, Linger };
+    enum Type { kStream, kDatagram };
+    enum Option { kBroadcast, kNoDelay, kReuseAddress, kKeepAlive, kReceiveBuffer, kSendBuffer, kLinger };
     // A new socket, -1 if there can't be one.
     virtual int open(Type type) = 0;
     virtual void close(int s) = 0;
@@ -126,9 +126,9 @@ private:
         std::deque<std::pair<Address, std::vector<uint8_t>>> datagrams;
         bool open = false;
     };
-    std::vector<std::pair<uint16_t, std::shared_ptr<Queue>>> queues_;
-    bool (*drop_)(const Address &, const Address &, size_t) = nullptr;
-    size_t sent_ = 0;
+    std::vector<std::pair<uint16_t, std::shared_ptr<Queue>>> _queues;
+    bool (*_drop)(const Address &, const Address &, size_t) = nullptr;
+    size_t _sent = 0;
     bool deliver(const Address &from, const Address &to, const std::vector<uint8_t> &data);
 };
 

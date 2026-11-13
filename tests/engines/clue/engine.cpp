@@ -63,15 +63,15 @@ public:
             titles.push_back(t);
     }
     bool pollEvent(Event &ev) override {
-        if (next_ < inputs.size() && inputs[next_].at <= getMillis()) {
-            ev = inputs[next_++].event;
+        if (_next < inputs.size() && inputs[_next].at <= getMillis()) {
+            ev = inputs[_next++].event;
             return true;
         }
         return false;
     }
 
 private:
-    size_t next_ = 0;
+    size_t _next = 0;
 };
 
 // The dialogs the game goes through, by their numbers in dialogInfo.res
@@ -279,7 +279,7 @@ void makeInstall(const std::filesystem::path &dir) {
 
 Event key(uint32_t k) {
     Event e;
-    e.type = EventType::KeyDown;
+    e.type = EventType::kKeyDown;
     e.key = k;
     return e;
 }
@@ -287,16 +287,16 @@ Event key(uint32_t k) {
 Event mouse(EventType type, int x, int y) {
     Event e;
     e.type = type;
-    e.button = MouseButton::Left;
+    e.button = MouseButton::kLeft;
     e.mouseX = x;
     e.mouseY = y;
-    e.clicks = type == EventType::MouseDown ? 1 : 0;
+    e.clicks = type == EventType::kMouseDown ? 1 : 0;
     return e;
 }
 
 Event typed(const char *text) {
     Event e;
-    e.type = EventType::TextInput;
+    e.type = EventType::kTextInput;
     std::snprintf(e.text, sizeof e.text, "%s", text);
     return e;
 }
@@ -347,9 +347,9 @@ void engineTest(const std::filesystem::path &tmp) {
     const auto click = [&](int dialog, int id, int dx = 0, int dy = 0) {
         const int x = dx + 140;
         const int y = dy + 55 + 36 * buttonRow(dialog, id);
-        sys.inputs.push_back({t, mouse(EventType::MouseMove, x, y)});
-        sys.inputs.push_back({t + 20, mouse(EventType::MouseDown, x, y)});
-        sys.inputs.push_back({t + 40, mouse(EventType::MouseUp, x, y)});
+        sys.inputs.push_back({t, mouse(EventType::kMouseMove, x, y)});
+        sys.inputs.push_back({t + 20, mouse(EventType::kMouseDown, x, y)});
+        sys.inputs.push_back({t + 40, mouse(EventType::kMouseUp, x, y)});
         t += 1500;
     };
     // the Esc menu's windows, over the game
@@ -368,21 +368,21 @@ void engineTest(const std::filesystem::path &tmp) {
     click(20, kOk);
     click(17, 29); // Start
     t += 3000;     // loading, the deal
-    sys.inputs.push_back({t, key(key::Escape)});
+    sys.inputs.push_back({t, key(key::kEscape)});
     t += 1000;
     click(35, 0, kOverX, kOverY); // Save
     click(36, 2, kOverX, kOverY); // the first slot
     sys.inputs.push_back({t, typed("Test")});
     t += 500;
     click(36, 1, kOverX, kOverY); // Save
-    sys.inputs.push_back({t, key(key::Escape)});
+    sys.inputs.push_back({t, key(key::kEscape)});
     t += 1000;
     click(35, 3, kOverX, kOverY); // Exit
     click(44, kOk, kOverX, kOverY);
     click(1, 3); // Load Game
     click(3, 0); // the first slot
     t += 3000;
-    sys.inputs.push_back({t, Event{EventType::ReturnToLauncher}});
+    sys.inputs.push_back({t, Event{EventType::kReturnToLauncher}});
 
     auto game = engine->create(sys, target);
     const Error err = game->run();
@@ -401,7 +401,7 @@ void engineTest(const std::filesystem::path &tmp) {
 
 } // namespace
 
-static const reluva::test::Suite suite("clue.engine",
-                                       {
-                                           {"play through", [](const std::filesystem::path &tmp) { engineTest(tmp); }},
-                                       });
+static const reluva::test::Suite kSuite("clue.engine",
+                                        {
+                                            {"play through", [](const std::filesystem::path &tmp) { engineTest(tmp); }},
+                                        });

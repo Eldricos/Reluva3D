@@ -157,7 +157,7 @@ struct AcEntry {
     int8_t level = 0;
 };
 const std::vector<AcEntry> &acTable() {
-    static const std::vector<AcEntry> table = [] {
+    static const std::vector<AcEntry> kTable = [] {
         std::vector<AcEntry> t(1 << 16);
         auto add = [&](const char *bits, uint8_t run, int8_t level) {
             const size_t n = std::strlen(bits);
@@ -173,7 +173,7 @@ const std::vector<AcEntry> &acTable() {
         add(kEndOfBlock, 0xff, 0);
         return t;
     }();
-    return table;
+    return kTable;
 }
 
 // The default intra quantiser matrix of MPEG-1 (ISO/IEC 11172-2), in
@@ -186,7 +186,7 @@ constexpr uint8_t kIntraMatrix[64] = {
 
 // The zigzag scan: position in the scan to raster index.
 const std::array<uint8_t, 64> &zigzag() {
-    static const std::array<uint8_t, 64> order = [] {
+    static const std::array<uint8_t, 64> kOrder = [] {
         std::array<uint8_t, 64> z{};
         int n = 0;
         for (int s = 0; s < 15; ++s) {
@@ -200,13 +200,13 @@ const std::array<uint8_t, 64> &zigzag() {
         }
         return z;
     }();
-    return order;
+    return kOrder;
 }
 
 // The inverse of the AAN transform's scale factors, times 4096: the
 // quantiser folds them in, as the transform below leaves them out.
 const std::array<int, 64> &inverseAanScales() {
-    static const std::array<int, 64> scales = [] {
+    static const std::array<int, 64> kScales = [] {
         std::array<int, 64> s{};
         const double pi = std::acos(-1.0);
         auto a = [&](int k) { return k ? std::sqrt(2.0) * std::cos(k * pi / 16) : 1.0; };
@@ -215,7 +215,7 @@ const std::array<int, 64> &inverseAanScales() {
                 s[u * 8 + v] = static_cast<int>(std::lround(4096 / (a(u) * a(v))));
         return s;
     }();
-    return scales;
+    return kScales;
 }
 
 // EA's 8-point inverse transform (shared with their TGQ and TQI video),
@@ -263,7 +263,7 @@ void inverseTransform(int16_t block[64], uint8_t *dst, int stride) {
 
 // nfs3.exe's quantiser scales (0x56d02c): 8192 / (a(u) a(v)), rounded.
 const std::array<int64_t, 64> &gameScales() {
-    static const std::array<int64_t, 64> scales = [] {
+    static const std::array<int64_t, 64> kScales = [] {
         std::array<int64_t, 64> s{};
         const double pi = std::acos(-1.0);
         auto a = [&](int k) { return k ? std::sqrt(2.0) * std::cos(k * pi / 16) : 1.0; };
@@ -272,7 +272,7 @@ const std::array<int64_t, 64> &gameScales() {
                 s[u * 8 + v] = std::llround(8192 / (a(u) * a(v)));
         return s;
     }();
-    return scales;
+    return kScales;
 }
 
 // A 16.16 product rounded as the game rounds it (the carry out of bit 15),
@@ -338,15 +338,15 @@ void gamePass(const int32_t *in, int32_t *out, int step) {
 
 uint32_t MadDecoder::peek(int n) const {
     // Two words from the one holding the next bit.
-    const size_t word = bitPos_ >> 4;
-    auto get = [&](size_t w) -> uint32_t { return 2 * w + 1 < bitCount_ / 8 ? le16(bits_ + 2 * w) : 0; };
+    const size_t word = _bitPos >> 4;
+    auto get = [&](size_t w) -> uint32_t { return 2 * w + 1 < _bitCount / 8 ? le16(_bits + 2 * w) : 0; };
     const uint32_t window = get(word) << 16 | get(word + 1);
-    return (window << (bitPos_ & 15)) >> (32 - n);
+    return (window << (_bitPos & 15)) >> (32 - n);
 }
 
 uint32_t MadDecoder::read(int n) {
     const uint32_t v = peek(n);
-    bitPos_ += n;
+    _bitPos += n;
     return v;
 }
 
@@ -366,13 +366,13 @@ int MadDecoder::readMotion() {
 bool MadDecoder::decodeIntraBlock(int16_t block[64]) {
     const auto &table = acTable();
     const auto &scan = zigzag();
-    block[0] = static_cast<int16_t>((128 + readSigned(8)) * quant_[0]);
+    block[0] = static_cast<int16_t>((128 + readSigned(8)) * _quant[0]);
     int i = 0;
     while (true) {
         const AcEntry e = table[peek(16)];
         if (e.length == 0)
             return false;
-        bitPos_ += e.length;
+        _bitPos += e.length;
         if (e.run == 0xff)
             return true;
         int level;
@@ -393,7 +393,7 @@ bool MadDecoder::decodeIntraBlock(int16_t block[64]) {
             return false;
         const int j = scan[i];
         // Scaled and forced odd, as MPEG-1 does against mismatch.
-        int value = (((level * quant_[j]) >> 4) - 1) | 1;
+        int value = (((level * _quant[j]) >> 4) - 1) | 1;
         if (negative)
             value = -value;
         block[j] = static_cast<int16_t>(value);
@@ -407,13 +407,13 @@ bool MadDecoder::decodeIntraBlock(int16_t block[64]) {
 bool MadDecoder::gameIntraBlock(int32_t block[64]) {
     const auto &table = acTable();
     const auto &scan = zigzag();
-    block[0] = static_cast<int32_t>(static_cast<uint32_t>(readSigned(8)) * static_cast<uint32_t>(gameQuant_[0]));
+    block[0] = static_cast<int32_t>(static_cast<uint32_t>(readSigned(8)) * static_cast<uint32_t>(_gameQuant[0]));
     int i = 0;
     while (true) {
         const AcEntry e = table[peek(16)];
         if (e.length == 0)
             return false;
-        bitPos_ += e.length;
+        _bitPos += e.length;
         if (e.run == 0xff)
             return true;
         int level;
@@ -431,7 +431,7 @@ bool MadDecoder::gameIntraBlock(int32_t block[64]) {
         if (i > 63)
             return false;
         block[scan[i]] =
-            static_cast<int32_t>(static_cast<uint32_t>(level) * static_cast<uint32_t>(gameQuant_[scan[i]]));
+            static_cast<int32_t>(static_cast<uint32_t>(level) * static_cast<uint32_t>(_gameQuant[scan[i]]));
     }
 }
 
@@ -442,11 +442,11 @@ void MadDecoder::gamePutBlock(int index, int mbX, int mbY, int32_t block[64]) {
     uint8_t *dst;
     int s;
     if (index < 4) {
-        s = stride_;
-        dst = current_[0].data() + static_cast<size_t>(mbY * 16 + (index & 2) * 4) * s + mbX * 16 + (index & 1) * 8;
+        s = _stride;
+        dst = _current[0].data() + static_cast<size_t>(mbY * 16 + (index & 2) * 4) * s + mbX * 16 + (index & 1) * 8;
     } else {
-        s = stride_ / 2;
-        dst = current_[index - 3].data() + static_cast<size_t>(mbY * 8) * s + mbX * 8;
+        s = _stride / 2;
+        dst = _current[index - 3].data() + static_cast<size_t>(mbY * 8) * s + mbX * 8;
     }
     int32_t temp[64];
     int32_t column[8];
@@ -470,7 +470,7 @@ void MadDecoder::copyBlock(int index, int mbX, int mbY, int mvX, int mvY, int ad
     // for chroma: toward zero, or in the game rounded down), plus a
     // brightness change. A source outside the picture leaves the block as
     // it was.
-    const bool game = arithmetic_ == Arithmetic::Game;
+    const bool game = _arithmetic == Arithmetic::kGame;
     int plane;
     int x;
     int y;
@@ -480,8 +480,8 @@ void MadDecoder::copyBlock(int index, int mbX, int mbY, int mvX, int mvY, int ad
         plane = 0;
         x = mbX * 16 + (index & 1) * 8;
         y = mbY * 16 + (index & 2) * 4;
-        rows = height_;
-        s = stride_;
+        rows = _height;
+        s = _stride;
     } else {
         plane = index - 3;
         x = mbX * 8;
@@ -490,14 +490,14 @@ void MadDecoder::copyBlock(int index, int mbX, int mbY, int mvX, int mvY, int ad
         // vector's pixel pair and line (0x4f34f0): the vector shifted right.
         mvX = game ? mvX >> 1 : mvX / 2;
         mvY = game ? mvY >> 1 : mvY / 2;
-        rows = height_ / 2;
-        s = stride_ / 2;
+        rows = _height / 2;
+        s = _stride / 2;
     }
     const long from = static_cast<long>(y + mvY) * s + x + mvX;
     if (from < 0 || from >= static_cast<long>(rows - 7) * s - 7)
         return;
-    const uint8_t *src = previous_[plane].data() + from;
-    uint8_t *dst = current_[plane].data() + static_cast<size_t>(y) * s + x;
+    const uint8_t *src = _previous[plane].data() + from;
+    uint8_t *dst = _current[plane].data() + static_cast<size_t>(y) * s + x;
     for (int r = 0; r < 8; ++r)
         for (int c = 0; c < 8; ++c)
             // The game adds d - 64 to its 7-bit samples (0x4f3420, 0x4f34f0),
@@ -509,12 +509,12 @@ void MadDecoder::copyBlock(int index, int mbX, int mbY, int mvX, int mvY, int ad
 void MadDecoder::putBlock(int index, int mbX, int mbY, int16_t block[64]) {
     if (index < 4)
         inverseTransform(block,
-                         current_[0].data() + static_cast<size_t>(mbY * 16 + (index & 2) * 4) * stride_ + mbX * 16 +
+                         _current[0].data() + static_cast<size_t>(mbY * 16 + (index & 2) * 4) * _stride + mbX * 16 +
                              (index & 1) * 8,
-                         stride_);
+                         _stride);
     else
-        inverseTransform(block, current_[index - 3].data() + static_cast<size_t>(mbY * 8) * (stride_ / 2) + mbX * 8,
-                         stride_ / 2);
+        inverseTransform(block, _current[index - 3].data() + static_cast<size_t>(mbY * 8) * (_stride / 2) + mbX * 8,
+                         _stride / 2);
 }
 
 void MadDecoder::decodeMacroblock(bool inter, int mbX, int mbY) {
@@ -537,18 +537,18 @@ void MadDecoder::decodeMacroblock(bool inter, int mbX, int mbY) {
             // A change of brightness: in the game's 7-bit samples, d; in 8
             // bits, 2d.
             const int d = readMotion();
-            copyBlock(j, mbX, mbY, mvX, mvY, arithmetic_ == Arithmetic::Game ? d : 2 * d);
-        } else if (arithmetic_ == Arithmetic::Game) {
+            copyBlock(j, mbX, mbY, mvX, mvY, _arithmetic == Arithmetic::kGame ? d : 2 * d);
+        } else if (_arithmetic == Arithmetic::kGame) {
             int32_t block[64] = {};
             if (!gameIntraBlock(block)) {
-                damaged_ = true;
+                _damaged = true;
                 return;
             }
             gamePutBlock(j, mbX, mbY, block);
         } else {
             int16_t block[64] = {};
             if (!decodeIntraBlock(block)) {
-                damaged_ = true;
+                _damaged = true;
                 return;
             }
             putBlock(j, mbX, mbY, block);
@@ -567,73 +567,73 @@ Error MadDecoder::decode(const uint8_t *chunk, size_t size) {
     const int h = le16(chunk + 18);
     if (w < 16 || h < 16 || w > 4096 || h > 4096)
         return Error::fail("a video frame of " + std::to_string(w) + "x" + std::to_string(h));
-    if (w != width_ || h != height_) {
-        width_ = w;
-        height_ = h;
-        stride_ = (w + 15) & ~15;
-        rows_ = (h + 15) & ~15;
-        const size_t luma = static_cast<size_t>(stride_) * rows_;
+    if (w != _width || h != _height) {
+        _width = w;
+        _height = h;
+        _stride = (w + 15) & ~15;
+        _rows = (h + 15) & ~15;
+        const size_t luma = static_cast<size_t>(_stride) * _rows;
         for (int p = 0; p < 3; ++p) {
-            current_[p].assign(p ? luma / 4 : luma, p ? 0x80 : 0);
-            previous_[p] = current_[p];
+            _current[p].assign(p ? luma / 4 : luma, p ? 0x80 : 0);
+            _previous[p] = _current[p];
         }
-        havePrevious_ = false;
+        _havePrevious = false;
     }
     // With no picture to refer to, an inter frame works from black.
-    const uint8_t middle = arithmetic_ == Arithmetic::Game ? 64 : 128;
-    if (inter && !havePrevious_)
+    const uint8_t middle = _arithmetic == Arithmetic::kGame ? 64 : 128;
+    if (inter && !_havePrevious)
         for (int p = 0; p < 3; ++p)
-            std::fill(previous_[p].begin(), previous_[p].end(), p ? middle : 0);
+            std::fill(_previous[p].begin(), _previous[p].end(), p ? middle : 0);
     if (inter)
         for (int p = 0; p < 3; ++p)
-            current_[p] = previous_[p];
+            _current[p] = _previous[p];
 
     const int qscale = chunk[21];
     const auto &scales = inverseAanScales();
-    quant_[0] = (scales[0] * kIntraMatrix[0]) >> 11;
+    _quant[0] = (scales[0] * kIntraMatrix[0]) >> 11;
     for (int i = 1; i < 64; ++i)
-        quant_[i] = (scales[i] * kIntraMatrix[i] * qscale + 32) >> 10;
+        _quant[i] = (scales[i] * kIntraMatrix[i] * qscale + 32) >> 10;
     // The game's, in 16.16 with 7 more fraction bits and kept whole (0x4f3560).
     // Its scan (0x5688cc) is the zigzag transposed, and it looks Q up by the
     // transposed place too, so a coefficient at row u, column v takes the
     // matrix's W[v][u]: the matrix applied transposed.
     const auto &game = gameScales();
-    gameQuant_[0] = gameProduct(static_cast<int64_t>(kIntraMatrix[0]) << 15, game[0]);
+    _gameQuant[0] = gameProduct(static_cast<int64_t>(kIntraMatrix[0]) << 15, game[0]);
     for (int i = 1; i < 64; ++i)
-        gameQuant_[i] = gameProduct(static_cast<int64_t>(kIntraMatrix[(i & 7) * 8 + (i >> 3)] * qscale) << 12, game[i]);
+        _gameQuant[i] = gameProduct(static_cast<int64_t>(kIntraMatrix[(i & 7) * 8 + (i >> 3)] * qscale) << 12, game[i]);
 
-    bits_ = chunk + kFrameHeader;
-    bitCount_ = (size - kFrameHeader) * 8;
-    bitPos_ = 0;
-    damaged_ = false;
-    for (int mbY = 0; mbY < rows_ / 16 && !damaged_; ++mbY)
-        for (int mbX = 0; mbX < stride_ / 16 && !damaged_; ++mbX)
+    _bits = chunk + kFrameHeader;
+    _bitCount = (size - kFrameHeader) * 8;
+    _bitPos = 0;
+    _damaged = false;
+    for (int mbY = 0; mbY < _rows / 16 && !_damaged; ++mbY)
+        for (int mbX = 0; mbX < _stride / 16 && !_damaged; ++mbX)
             decodeMacroblock(inter, mbX, mbY);
-    bits_ = nullptr;
-    if (damaged_)
+    _bits = nullptr;
+    if (_damaged)
         return Error::fail("a video frame's blocks are damaged");
-    if (bitPos_ > bitCount_)
+    if (_bitPos > _bitCount)
         return Error::fail("a video frame's data ends early");
     if (kind != 'e') {
         for (int p = 0; p < 3; ++p)
-            previous_[p] = current_[p];
-        havePrevious_ = true;
+            _previous[p] = _current[p];
+        _havePrevious = true;
     }
     return Error::success();
 }
 
 void MadDecoder::toSurface(Surface &out) const {
     // Full-range YCbCr (the DC term is centred on 128), BT.601 weights.
-    out.create(width_, height_, PixelFormat::RGBA32);
-    const int cs = stride_ / 2;
-    for (int y = 0; y < height_; ++y) {
+    out.create(_width, _height, PixelFormat::kRGBA32);
+    const int cs = _stride / 2;
+    for (int y = 0; y < _height; ++y) {
         uint8_t *dst = out.row(y);
-        const uint8_t *yr = current_[0].data() + static_cast<size_t>(y) * stride_;
-        const uint8_t *ur = current_[1].data() + static_cast<size_t>(y / 2) * cs;
-        const uint8_t *vr = current_[2].data() + static_cast<size_t>(y / 2) * cs;
-        for (int x = 0; x < width_; ++x) {
+        const uint8_t *yr = _current[0].data() + static_cast<size_t>(y) * _stride;
+        const uint8_t *ur = _current[1].data() + static_cast<size_t>(y / 2) * cs;
+        const uint8_t *vr = _current[2].data() + static_cast<size_t>(y / 2) * cs;
+        for (int x = 0; x < _width; ++x) {
             // The game's 7-bit samples as 8-bit ones (twice, at most 127).
-            auto at8 = [&](uint8_t s) { return arithmetic_ == Arithmetic::Game ? std::min<int>(s, 127) * 2 : s; };
+            auto at8 = [&](uint8_t s) { return _arithmetic == Arithmetic::kGame ? std::min<int>(s, 127) * 2 : s; };
             const int l = at8(yr[x]) << 16;
             const int u = at8(ur[x / 2]) - 128;
             const int v = at8(vr[x / 2]) - 128;
@@ -669,10 +669,10 @@ struct DisplayTables {
 // A pixel of 7-bit samples to RGBA8888 by way of 5:6:5: rounded in the
 // left pixel of each output pair, truncated in the right.
 void putGamePixel(uint8_t *dst, int y, int u, int v, bool rounded) {
-    static const DisplayTables t;
+    static const DisplayTables kT;
     const int l = 2 * y + 1;
-    const int c[3] = {std::clamp(l + t.rv[v], 0, 255), std::clamp(l + t.gu[u] + t.gv[v], 0, 255),
-                      std::clamp(l + t.bu[u], 0, 255)};
+    const int c[3] = {std::clamp(l + kT.rv[v], 0, 255), std::clamp(l + kT.gu[u] + kT.gv[v], 0, 255),
+                      std::clamp(l + kT.bu[u], 0, 255)};
     for (int k = 0; k < 3; ++k) {
         const int bits = k == 1 ? 6 : 5;
         const int top = (1 << bits) - 1;
@@ -685,7 +685,7 @@ void putGamePixel(uint8_t *dst, int y, int u, int v, bool rounded) {
 } // namespace
 
 void MadDecoder::toGameSurface(Surface &out, Display mode) const {
-    out.create(width_ * 2, height_ * 2, PixelFormat::RGBA32);
+    out.create(_width * 2, _height * 2, PixelFormat::kRGBA32);
     for (int y = 0; y < out.h; ++y) {
         uint8_t *row = out.row(y);
         for (int x = 0; x < out.w; ++x)
@@ -694,18 +694,18 @@ void MadDecoder::toGameSurface(Surface &out, Display mode) const {
     // Each source line as the game's 4:2:2 line: Y for every pixel, U and V
     // for each pair (the 4:2:0 chroma line serving two luma lines), in
     // 7-bit samples.
-    const int pairs = width_ / 2;
-    const int cs = stride_ / 2;
-    auto sample = [&](uint8_t s) { return arithmetic_ == Arithmetic::Game ? s & 0xff : s >> 1; };
+    const int pairs = _width / 2;
+    const int cs = _stride / 2;
+    auto sample = [&](uint8_t s) { return _arithmetic == Arithmetic::kGame ? s & 0xff : s >> 1; };
     auto line = [&](int j, std::vector<int> &ys, std::vector<int> &us, std::vector<int> &vs) {
-        ys.resize(width_);
+        ys.resize(_width);
         us.resize(pairs);
         vs.resize(pairs);
-        for (int x = 0; x < width_; ++x)
-            ys[x] = sample(current_[0][static_cast<size_t>(j) * stride_ + x]);
+        for (int x = 0; x < _width; ++x)
+            ys[x] = sample(_current[0][static_cast<size_t>(j) * _stride + x]);
         for (int p = 0; p < pairs; ++p) {
-            us[p] = sample(current_[1][static_cast<size_t>(j / 2) * cs + p]);
-            vs[p] = sample(current_[2][static_cast<size_t>(j / 2) * cs + p]);
+            us[p] = sample(_current[1][static_cast<size_t>(j / 2) * cs + p]);
+            vs[p] = sample(_current[2][static_cast<size_t>(j / 2) * cs + p]);
         }
     };
     // Two lines averaged per sample, rounded down (the packed words'
@@ -716,8 +716,8 @@ void MadDecoder::toGameSurface(Surface &out, Display mode) const {
     };
     auto put = [&](int outY, const std::vector<int> &ys, const std::vector<int> &us, const std::vector<int> &vs) {
         uint8_t *row = out.row(outY);
-        if (mode != Display::Interpolate) {
-            for (int x = 0; x < width_; ++x) {
+        if (mode != Display::kInterpolate) {
+            for (int x = 0; x < _width; ++x) {
                 putGamePixel(row + 8 * x, ys[x], us[x / 2], vs[x / 2], true);
                 putGamePixel(row + 8 * x + 4, ys[x], us[x / 2], vs[x / 2], false);
             }
@@ -746,12 +746,12 @@ void MadDecoder::toGameSurface(Surface &out, Display mode) const {
     std::vector<int> ys2;
     std::vector<int> us2;
     std::vector<int> vs2;
-    for (int j = 0; j < height_; ++j) {
+    for (int j = 0; j < _height; ++j) {
         line(j, ys, us, vs);
         put(2 * j, ys, us, vs);
         // The odd line below, from this source line and the next; the
         // last isn't written, nor any in mode 1.
-        if (mode == Display::Repeat || j + 1 >= height_)
+        if (mode == Display::kRepeat || j + 1 >= _height)
             continue;
         line(j + 1, ys2, us2, vs2);
         average(ys, ys2);
@@ -762,70 +762,70 @@ void MadDecoder::toGameSurface(Surface &out, Display mode) const {
 }
 
 Error MadMovie::open(std::vector<uint8_t> data) {
-    data_ = std::move(data);
-    frames_.clear();
-    audioBlocks_.clear();
-    haveAudio_ = false;
-    width_ = height_ = 0;
-    duration_ = 0;
+    _data = std::move(data);
+    _frames.clear();
+    _audioBlocks.clear();
+    _haveAudio = false;
+    _width = _height = 0;
+    _duration = 0;
     auto bad = [](const std::string &why) { return Error::fail("Not a valid .mad file: " + why); };
     // Chunks as in a .mus: a tag, a u32 size with the 8 bytes included.
     size_t at = 0;
-    while (at + 8 <= data_.size()) {
-        const uint32_t size = le32(&data_[at + 4]);
-        if (size < 8 || at + size > data_.size())
+    while (at + 8 <= _data.size()) {
+        const uint32_t size = le32(&_data[at + 4]);
+        if (size < 8 || at + size > _data.size())
             return bad("a chunk runs past the end");
-        const uint8_t *c = &data_[at];
+        const uint8_t *c = &_data[at];
         if (std::memcmp(c, "MAD", 3) == 0 && (c[3] == 'k' || c[3] == 'm' || c[3] == 'e')) {
             if (size < kFrameHeader)
                 return bad("a frame too short for its header");
-            if (frames_.empty()) {
-                duration_ = le32(c + 12);
-                width_ = le16(c + 16);
-                height_ = le16(c + 18);
+            if (_frames.empty()) {
+                _duration = le32(c + 12);
+                _width = le16(c + 16);
+                _height = le16(c + 18);
             }
-            frames_.push_back({static_cast<uint32_t>(at), size, static_cast<char>(c[3])});
+            _frames.push_back({static_cast<uint32_t>(at), size, static_cast<char>(c[3])});
         } else if (std::memcmp(c, "SCHl", 4) == 0) {
-            if (haveAudio_)
+            if (_haveAudio)
                 return bad("a second audio header");
-            if (Error err = parseSoundHeader(data_.data(), at + size, at + 8, audio_))
+            if (Error err = parseSoundHeader(_data.data(), at + size, at + 8, _audio))
                 return bad(err.message);
-            haveAudio_ = true;
+            _haveAudio = true;
         } else if (std::memcmp(c, "SCDl", 4) == 0) {
-            if (!haveAudio_)
+            if (!_haveAudio)
                 return bad("audio data before its header");
-            audioBlocks_.push_back({static_cast<uint32_t>(at + 8), size - 8});
+            _audioBlocks.push_back({static_cast<uint32_t>(at + 8), size - 8});
         }
         // SCCl (the block count), SCEl and anything else: nothing to keep.
         at += size;
     }
-    if (at != data_.size())
+    if (at != _data.size())
         return bad("it ends inside a chunk");
-    if (frames_.empty())
+    if (_frames.empty())
         return bad("no video frames");
     return Error::success();
 }
 
 Error MadMovie::decodeAudio(audio::Sound &out) const {
     out = {};
-    if (!haveAudio_)
+    if (!_haveAudio)
         return Error::fail("the movie has no audio");
-    if (audio_.compression != SoundHeader::kEaXa || audio_.channels != 2)
+    if (_audio.compression != SoundHeader::kEaXa || _audio.channels != 2)
         return Error::fail("only stereo EA-XA movie audio is known");
-    out.rate = audio_.rate;
+    out.rate = _audio.rate;
     out.channels = 2;
     out.format = audio::kFormatEaXa;
-    out.samples.reserve(size_t(audio_.samples) * 2);
-    for (const auto &[offset, size] : audioBlocks_)
-        if (Error err = audio::decodeEaXaStereoBlock(data_.data() + offset, size, out.samples))
+    out.samples.reserve(size_t(_audio.samples) * 2);
+    for (const auto &[offset, size] : _audioBlocks)
+        if (Error err = audio::decodeEaXaStereoBlock(_data.data() + offset, size, out.samples))
             return err;
     return Error::success();
 }
 
 Error MadMovie::decodeFrame(MadDecoder &decoder, size_t index) const {
-    if (index >= frames_.size())
+    if (index >= _frames.size())
         return Error::fail("no frame " + std::to_string(index));
-    return decoder.decode(data_.data() + frames_[index].offset, frames_[index].size);
+    return decoder.decode(_data.data() + _frames[index].offset, _frames[index].size);
 }
 
 } // namespace reluva::nfs

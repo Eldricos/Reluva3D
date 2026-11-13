@@ -25,7 +25,7 @@ struct Headless : System {
     Error openUdp(uint16_t port, std::unique_ptr<net::UdpSocket>& out) override { std::string e; out = net::openSystemUdp(port, e); return out ? Error::success() : Error::fail(e); }
     bool resolveHost(const std::string& h, uint32_t& ip) override { return net::resolveSystemHost(h, ip); }
     std::vector<uint32_t> broadcastAddresses() override { return net::systemBroadcastAddresses(); }
-    void key(uint32_t k) { Event e; e.type = EventType::KeyDown; e.key = k; q.push_back(e); }
+    void key(uint32_t k) { Event e; e.type = EventType::kKeyDown; e.key = k; q.push_back(e); }
     void updateScreen(const Surface& s) override {
         if (wait > 0) { --wait; return; }
         while (pc < script.size() && wait == 0) {
@@ -36,23 +36,23 @@ struct Headless : System {
                 f << "P6\n" << s.w << " " << s.h << "\n255\n";
                 for (int y = 0; y < s.h; ++y) for (int x = 0; x < s.w; ++x) f.write((const char*)s.pixels.data() + (y * s.pitch + x * 4), 3);
                 std::printf("shot %s  [%s]\n", c.substr(5).c_str(), title.c_str());
-            } else if (c == "right") key(key::Right); else if (c == "left") key(key::Left);
-            else if (c == "up") key(key::Up); else if (c == "down") key(key::Down);
-            else if (c == "tab") key(key::Tab); else if (c == "space") key(key::Space);
-            else if (c == "pgdn") key(key::PageDown);
-            else if (c == "esc") key(key::Escape);
-            else if (c == "enter") key(key::Return);
-            else if (c == "f9") key(key::F1 + 8);
-            else if (c.rfind("type:", 0) == 0) { Event e; e.type = EventType::TextInput; std::snprintf(e.text, sizeof e.text, "%s", c.substr(5).c_str()); q.push_back(e); } else if (c == "end") key(key::End);
+            } else if (c == "right") key(key::kRight); else if (c == "left") key(key::kLeft);
+            else if (c == "up") key(key::kUp); else if (c == "down") key(key::kDown);
+            else if (c == "tab") key(key::kTab); else if (c == "space") key(key::kSpace);
+            else if (c == "pgdn") key(key::kPageDown);
+            else if (c == "esc") key(key::kEscape);
+            else if (c == "enter") key(key::kReturn);
+            else if (c == "f9") key(key::kF1 + 8);
+            else if (c.rfind("type:", 0) == 0) { Event e; e.type = EventType::kTextInput; std::snprintf(e.text, sizeof e.text, "%s", c.substr(5).c_str()); q.push_back(e); } else if (c == "end") key(key::kEnd);
             else if (c.rfind("key:", 0) == 0) key(uint32_t(c[4]));
             else if (c.rfind("mouse:", 0) == 0 || c.rfind("click:", 0) == 0) {
                 const size_t comma = c.find(','); Event e; e.mouseX = std::stoi(c.substr(6, comma - 6)); e.mouseY = std::stoi(c.substr(comma + 1));
-                e.type = EventType::MouseMove; q.push_back(e);
-                if (c[0] == 'c') { e.type = EventType::MouseDown; e.button = MouseButton::Left; q.push_back(e); e.type = EventType::MouseUp; q.push_back(e); }
+                e.type = EventType::kMouseMove; q.push_back(e);
+                if (c[0] == 'c') { e.type = EventType::kMouseDown; e.button = MouseButton::kLeft; q.push_back(e); e.type = EventType::kMouseUp; q.push_back(e); }
             }
             else std::printf("unknown step %s\n", c.c_str());
         }
-        if (pc >= script.size() && wait == 0) { Event e; e.type = EventType::Quit; q.push_back(e); }
+        if (pc >= script.size() && wait == 0) { Event e; e.type = EventType::kQuit; q.push_back(e); }
     }
 };
 int main(int argc, char** argv) {

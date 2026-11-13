@@ -15,7 +15,7 @@ using namespace reluva::stgenerations;
 
 // True colour pixels are 0xAARRGGBB (STG-Engine's PixelFormat test, for the
 // formats the game uses).
-static void pixelformat_conversion() {
+static void pixelformatConversion() {
     CHECK_EQUAL(argb(0x12, 0x34, 0x56), 0xFF123456u);
     uint8_t r;
     uint8_t g;
@@ -31,7 +31,7 @@ static void pixelformat_conversion() {
     CHECK_EQUAL(c.getPixel(0, 0), 0xFF090909u);
 }
 
-static void surface_drawing() {
+static void surfaceDrawing() {
     Canvas s;
     s.create(8, 4, Canvas::kClut8);
     s.fillRect(Rect(-2, -2, 3, 2), 5);
@@ -53,7 +53,7 @@ static void surface_drawing() {
     CHECK_EQUAL(moved.getPixel(7, 0), 3u);
 }
 
-static void palette_helpers() {
+static void paletteHelpers() {
     Palette pal;
     pal.setColor(1, 255, 0, 0);
     pal.setColor(2, 0, 0, 250);
@@ -72,7 +72,7 @@ static void palette_helpers() {
     CHECK_EQUAL(b, 130);
 }
 
-static void bmp_uncompressed_8bit() {
+static void bmpUncompressed8bit() {
     std::vector<uint8_t> pixels = {0, 1, 1, 1, 0, 0}; // 3x2, top row first
     std::vector<uint8_t> file = stgtest::makeBMP8(3, 2, pixels, false);
     MemoryReadStream s(file);
@@ -95,7 +95,7 @@ static void bmp_uncompressed_8bit() {
     CHECK_EQUAL(b, 0);
 }
 
-static void bmp_rle8() {
+static void bmpRle8() {
     // Row 0 (bottom): run of 4 x colour 1. Row 1: absolute run 1,0,1 + pad.
     std::vector<uint8_t> rle = {4, 1, 0, 0, 0, 3, 1, 0, 1, 0, 0, 1};
     std::vector<uint8_t> file = stgtest::makeBMP8(4, 2, rle, true);
@@ -110,14 +110,14 @@ static void bmp_rle8() {
     CHECK_EQUAL(surf.getPixel(3, 0), 0u);
 }
 
-static void bmp_rejects_garbage() {
+static void bmpRejectsGarbage() {
     const uint8_t junk[] = "XX not a bitmap";
     MemoryReadStream s(std::vector<uint8_t>(junk, junk + sizeof(junk)));
     BitmapDecoder decoder;
     CHECK(!decoder.loadStream(s));
 }
 
-static void surface_fill_polygon() {
+static void surfaceFillPolygon() {
     Canvas s;
     s.create(10, 10, Canvas::kClut8);
 
@@ -145,13 +145,13 @@ static void surface_fill_polygon() {
 }
 
 static const reluva::test::Suite
-    suite("stgenerations.unit.canvas",
-          {
-              {"pixelformat conversion", [](const std::filesystem::path &) { pixelformat_conversion(); }},
-              {"surface drawing", [](const std::filesystem::path &) { surface_drawing(); }},
-              {"palette helpers", [](const std::filesystem::path &) { palette_helpers(); }},
-              {"bmp uncompressed 8bit", [](const std::filesystem::path &) { bmp_uncompressed_8bit(); }},
-              {"bmp rle8", [](const std::filesystem::path &) { bmp_rle8(); }},
-              {"bmp rejects garbage", [](const std::filesystem::path &) { bmp_rejects_garbage(); }},
-              {"surface fill polygon", [](const std::filesystem::path &) { surface_fill_polygon(); }},
-          });
+    kSuite("stgenerations.unit.canvas",
+           {
+               {"pixelformat conversion", [](const std::filesystem::path &) { pixelformatConversion(); }},
+               {"surface drawing", [](const std::filesystem::path &) { surfaceDrawing(); }},
+               {"palette helpers", [](const std::filesystem::path &) { paletteHelpers(); }},
+               {"bmp uncompressed 8bit", [](const std::filesystem::path &) { bmpUncompressed8bit(); }},
+               {"bmp rle8", [](const std::filesystem::path &) { bmpRle8(); }},
+               {"bmp rejects garbage", [](const std::filesystem::path &) { bmpRejectsGarbage(); }},
+               {"surface fill polygon", [](const std::filesystem::path &) { surfaceFillPolygon(); }},
+           });

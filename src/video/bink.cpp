@@ -19,7 +19,7 @@ namespace reluva::bink {
 
 namespace {
 
-enum BlockType { Skip, Scaled, Motion, RunBlock, Residue, Intra, Fill, Inter, PatternBlock, Raw };
+enum BlockType { kSkip, kScaled, kMotion, kRunBlock, kResidue, kIntra, kFill, kInter, kPatternBlock, kRaw };
 
 constexpr double kPi = 3.14159265358979323846; // not M_PI: MSVC only has it with _USE_MATH_DEFINES
 constexpr uint32_t kAlphaFlag = 0x00100000;
@@ -158,54 +158,54 @@ uint32_t Movie::Bits::get(int n) {
 // --- The container -------------------------------------------------------------
 
 Error Movie::open(std::vector<uint8_t> file) {
-    file_ = std::move(file);
-    const uint8_t *p = file_.data();
-    if (file_.size() < 44 || p[0] != 'B' || p[1] != 'I' || p[2] != 'K')
+    _file = std::move(file);
+    const uint8_t *p = _file.data();
+    if (_file.size() < 44 || p[0] != 'B' || p[1] != 'I' || p[2] != 'K')
         return Error::fail("Not a Bink movie");
-    revision_ = char(p[3]);
-    if (revision_ < 'f' || revision_ > 'i')
-        return Error::fail(std::string("Bink revision ") + revision_ + " isn't supported (f to i are)");
+    _revision = char(p[3]);
+    if (_revision < 'f' || _revision > 'i')
+        return Error::fail(std::string("Bink revision ") + _revision + " isn't supported (f to i are)");
     const uint32_t count = le32(p + 8);
-    width_ = int(le32(p + 20));
-    height_ = int(le32(p + 24));
-    rateNum_ = le32(p + 28);
-    rateDen_ = le32(p + 32);
+    _width = int(le32(p + 20));
+    _height = int(le32(p + 24));
+    _rateNum = le32(p + 28);
+    _rateDen = le32(p + 32);
     const uint32_t flags = le32(p + 36);
     const uint32_t tracks = le32(p + 40);
-    flags_ = flags;
-    if (width_ <= 0 || height_ <= 0 || width_ > 4096 || height_ > 4096 || !rateNum_ || !rateDen_ || tracks > 256)
+    _flags = flags;
+    if (_width <= 0 || _height <= 0 || _width > 4096 || _height > 4096 || !_rateNum || !_rateDen || tracks > 256)
         return Error::fail("The Bink header is damaged");
-    alpha_ = (flags & kAlphaFlag) != 0;
-    swapChroma_ = revision_ >= 'h';
+    _alpha = (flags & kAlphaFlag) != 0;
+    _swapChroma = _revision >= 'h';
     size_t at = 44 + 4 * size_t(tracks); // each track's largest decoded size, unused
-    if (file_.size() < at + 8 * size_t(tracks) + 4 * (size_t(count) + 1))
+    if (_file.size() < at + 8 * size_t(tracks) + 4 * (size_t(count) + 1))
         return Error::fail("The Bink header is cut short");
-    audio_.clear();
+    _audio.clear();
     for (uint32_t t = 0; t < tracks; ++t, at += 4) {
         Audio a;
         a.rate = p[at] | p[at + 1] << 8;
         const uint16_t f = uint16_t(p[at + 2] | p[at + 3] << 8);
         a.channels = a.outChannels = (f & kAudioStereo) ? 2 : 1;
         a.dct = (f & kAudioDct) != 0;
-        audio_.push_back(a);
+        _audio.push_back(a);
     }
     at += 4 * size_t(tracks); // track ids
-    frames_.assign(count, Frame{});
+    _frames.assign(count, Frame{});
     for (uint32_t i = 0; i <= count; ++i) {
-        const uint32_t v = i < count ? le32(p + at + 4 * i) : uint32_t(file_.size());
+        const uint32_t v = i < count ? le32(p + at + 4 * i) : uint32_t(_file.size());
         if (i < count) {
-            frames_[i].offset = v & ~1u;
-            frames_[i].key = v & 1;
+            _frames[i].offset = v & ~1u;
+            _frames[i].key = v & 1;
         }
         if (i > 0) {
-            const uint32_t end = std::min<uint32_t>(v & ~1u, uint32_t(file_.size()));
-            frames_[i - 1].size = end > frames_[i - 1].offset ? end - frames_[i - 1].offset : 0;
+            const uint32_t end = std::min<uint32_t>(v & ~1u, uint32_t(_file.size()));
+            _frames[i - 1].size = end > _frames[i - 1].offset ? end - _frames[i - 1].offset : 0;
         }
     }
 
     // The audio: blocks of 2^9 to 2^11 samples (by rate), overlapping by a
     // sixteenth; the spectrum in bands of the critical frequencies.
-    for (Audio &a : audio_) {
+    for (Audio &a : _audio) {
         int bits = a.rate < 22050 ? 9 : a.rate < 44100 ? 10 : 11;
         int rate = a.rate;
         a.frameLength = 1 << bits;
@@ -235,46 +235,46 @@ Error Movie::open(std::vector<uint8_t> file) {
     }
 
     // The planes, in whole 8x8 blocks (chroma at half size).
-    lumaPitch_ = ((width_ + 7) >> 3) * 8;
-    lumaRows_ = ((height_ + 7) >> 3) * 8;
-    chromaPitch_ = ((width_ + 15) >> 4) * 8;
-    chromaRows_ = ((height_ + 15) >> 4) * 8;
+    _lumaPitch = ((_width + 7) >> 3) * 8;
+    _lumaRows = ((_height + 7) >> 3) * 8;
+    _chromaPitch = ((_width + 15) >> 4) * 8;
+    _chromaRows = ((_height + 15) >> 4) * 8;
     clearPictures();
     // How many bits count each bundle's values for a row.
-    const size_t blocks = size_t((width_ + 7) >> 3) * size_t((height_ + 7) >> 3);
-    for (Bundle &b : bundles_)
+    const size_t blocks = size_t((_width + 7) >> 3) * size_t((_height + 7) >> 3);
+    for (Bundle &b : _bundles)
         b.data.assign(blocks * 64, 0);
-    const int cbw[2] = {(width_ + 7) >> 3, (width_ + 15) >> 4};
-    const int cw[2] = {width_, width_ >> 1};
+    const int cbw[2] = {(_width + 7) >> 3, (_width + 15) >> 4};
+    const int cw[2] = {_width, _width >> 1};
     for (int i = 0; i < 2; ++i) {
         const int w = std::max(cw[i], 8);
         auto bitsFor = [](int v) { return log2Floor(uint32_t(v + 511)) + 1; };
-        bundles_[BlockTypes].countBits[i] = bitsFor(w >> 3);
-        bundles_[SubBlockTypes].countBits[i] = bitsFor((w + 7) >> 4);
-        bundles_[Colors].countBits[i] = bitsFor(cbw[i] * 64);
-        bundles_[IntraDC].countBits[i] = bitsFor(w >> 3);
-        bundles_[InterDC].countBits[i] = bitsFor(w >> 3);
-        bundles_[XOff].countBits[i] = bitsFor(w >> 3);
-        bundles_[YOff].countBits[i] = bitsFor(w >> 3);
-        bundles_[Pattern].countBits[i] = bitsFor(cbw[i] << 3);
-        bundles_[Run].countBits[i] = bitsFor(cbw[i] * 48);
+        _bundles[kBlockTypes].countBits[i] = bitsFor(w >> 3);
+        _bundles[kSubBlockTypes].countBits[i] = bitsFor((w + 7) >> 4);
+        _bundles[kColors].countBits[i] = bitsFor(cbw[i] * 64);
+        _bundles[kIntraDC].countBits[i] = bitsFor(w >> 3);
+        _bundles[kInterDC].countBits[i] = bitsFor(w >> 3);
+        _bundles[kXOff].countBits[i] = bitsFor(w >> 3);
+        _bundles[kYOff].countBits[i] = bitsFor(w >> 3);
+        _bundles[kPattern].countBits[i] = bitsFor(cbw[i] << 3);
+        _bundles[kRun].countBits[i] = bitsFor(cbw[i] * 48);
     }
-    next_ = 0;
+    _next = 0;
     return Error::success();
 }
 
 Error Movie::nextFrame(bool &more, std::vector<int16_t> *sound) {
-    more = next_ < int(frames_.size());
+    more = _next < int(_frames.size());
     if (!more)
         return Error::success();
-    const Frame &f = frames_[size_t(next_++)];
-    if (size_t(f.offset) + f.size > file_.size())
+    const Frame &f = _frames[size_t(_next++)];
+    if (size_t(f.offset) + f.size > _file.size())
         return Error::fail("A Bink frame runs past the end of the file");
-    const uint8_t *p = file_.data() + f.offset;
+    const uint8_t *p = _file.data() + f.offset;
     size_t left = f.size;
     // Each audio track's packet: its length, then (if any) the decoded
     // size and the blocks.
-    for (size_t t = 0; t < audio_.size(); ++t) {
+    for (size_t t = 0; t < _audio.size(); ++t) {
         if (left < 4)
             return Error::fail("A Bink frame is cut short");
         const uint32_t length = le32(p);
@@ -283,73 +283,73 @@ Error Movie::nextFrame(bool &more, std::vector<int16_t> *sound) {
         if (length > left)
             return Error::fail("A Bink audio packet runs past its frame");
         if (length >= 4 && t == 0 && sound)
-            decodePacket(audio_[t], p, length, *sound);
+            decodePacket(_audio[t], p, length, *sound);
         p += length;
         left -= length;
     }
     // The video: alpha, then Y and the two chroma planes, each from a
     // 32-bit boundary.
     Bits b{p, left * 8, 0};
-    if (alpha_) {
-        if (revision_ == 'i')
+    if (_alpha) {
+        if (_revision == 'i')
             b.skip(32);
         decodePlane(b, 3, false);
     }
-    if (revision_ == 'i')
+    if (_revision == 'i')
         b.skip(32);
     for (int i = 0; i < 3; ++i) {
-        const int plane = i == 0 || !swapChroma_ ? i : (i ^ 3);
+        const int plane = i == 0 || !_swapChroma ? i : (i ^ 3);
         decodePlane(b, plane, i != 0);
         if (b.done())
             break;
     }
-    std::swap(cur_, old_);
+    std::swap(_cur, _old);
     return Error::success();
 }
 
 Error Movie::decodeAllAudio(std::vector<int16_t> &sound) {
-    if (audio_.empty())
+    if (_audio.empty())
         return Error::success();
-    for (const Frame &f : frames_) {
-        if (size_t(f.offset) + f.size > file_.size() || f.size < 4)
+    for (const Frame &f : _frames) {
+        if (size_t(f.offset) + f.size > _file.size() || f.size < 4)
             break;
-        const uint8_t *p = file_.data() + f.offset;
+        const uint8_t *p = _file.data() + f.offset;
         const uint32_t length = le32(p);
         if (length > f.size - 4)
             return Error::fail("A Bink audio packet runs past its frame");
         if (length >= 4)
-            decodePacket(audio_[0], p + 4, length, sound);
+            decodePacket(_audio[0], p + 4, length, sound);
     }
     return Error::success();
 }
 
 void Movie::clearPictures() {
     for (int i = 0; i < 4; ++i) {
-        const size_t pitch = size_t(i == 0 || i == 3 ? lumaPitch_ : chromaPitch_);
+        const size_t pitch = size_t(i == 0 || i == 3 ? _lumaPitch : _chromaPitch);
         // Room past the end for a scaled (16 x 16) block in the last row or
         // column of 8 x 8 ones, which reaches up to 8 rows and 8 bytes on.
-        const size_t size = pitch * size_t(i == 0 || i == 3 ? lumaRows_ : chromaRows_) + 8 * pitch + 8;
-        cur_[size_t(i)].assign(size, i == 3 ? 255 : 0);
-        old_[size_t(i)].assign(size, i == 3 ? 255 : 0);
+        const size_t size = pitch * size_t(i == 0 || i == 3 ? _lumaRows : _chromaRows) + 8 * pitch + 8;
+        _cur[size_t(i)].assign(size, i == 3 ? 255 : 0);
+        _old[size_t(i)].assign(size, i == 3 ? 255 : 0);
     }
 }
 
 void Movie::rewind() {
-    next_ = 0;
+    _next = 0;
     clearPictures();
-    lastColorHigh_ = 0;
+    _lastColorHigh = 0;
 }
 
 uint32_t Movie::largestFrame() const {
     uint32_t most = 0;
-    for (const Frame &f : frames_)
+    for (const Frame &f : _frames)
         most = std::max(most, f.size);
     return most;
 }
 
 std::vector<Movie::Track> Movie::audioTracks() const {
     std::vector<Track> out;
-    for (const Audio &a : audio_)
+    for (const Audio &a : _audio)
         out.push_back({a.rate, a.outChannels, a.dct});
     return out;
 }
@@ -368,12 +368,12 @@ void Movie::decodePacket(Audio &a, const uint8_t *packet, uint32_t length, std::
 
 void Movie::toRgba(std::vector<uint8_t> &out, Rgb how) const {
     // The newest frame is in old_ once swapped.
-    const auto &y = old_[0];
-    const auto &u = old_[1];
-    const auto &v = old_[2];
-    const auto &a = old_[3];
-    out.resize(size_t(width_) * size_t(height_) * 4);
-    if (how == Rgb::Binkw32) {
+    const auto &y = _old[0];
+    const auto &u = _old[1];
+    const auto &v = _old[2];
+    const auto &a = _old[3];
+    out.resize(size_t(_width) * size_t(_height) * 4);
+    if (how == Rgb::kBinkw32) {
         // As binkw32.dll converts (its MMX path, 0x30013d00 in the AWE
         // games' DLL, which any machine since the late 1990s takes):
         // each term in fixed point and truncated on its own, before they're
@@ -392,33 +392,33 @@ void Movie::toRgba(std::vector<uint8_t> &out, Rgb how) const {
                 }
             }
         };
-        static const Tables t;
-        for (int row = 0; row < height_; ++row)
-            for (int col = 0; col < width_; ++col) {
+        static const Tables kT;
+        for (int row = 0; row < _height; ++row)
+            for (int col = 0; col < _width; ++col) {
                 const int l =
-                    ((std::max(y[size_t(row) * size_t(lumaPitch_) + size_t(col)] - 16, 0) << 2) * 0x4a85) >> 16;
-                const size_t c = size_t(row / 2) * size_t(chromaPitch_) + size_t(col / 2);
+                    ((std::max(y[size_t(row) * size_t(_lumaPitch) + size_t(col)] - 16, 0) << 2) * 0x4a85) >> 16;
+                const size_t c = size_t(row / 2) * size_t(_chromaPitch) + size_t(col / 2);
                 const int U = u[c];
                 const int V = v[c];
-                uint8_t *o = &out[(size_t(row) * size_t(width_) + size_t(col)) * 4];
-                o[0] = clampByte(l + t.r[V]);
-                o[1] = clampByte(l + t.gu[U] + t.gv[V]);
-                o[2] = clampByte(l + t.b[U]);
-                o[3] = alpha_ ? a[size_t(row) * size_t(lumaPitch_) + size_t(col)] : 255;
+                uint8_t *o = &out[(size_t(row) * size_t(_width) + size_t(col)) * 4];
+                o[0] = clampByte(l + kT.r[V]);
+                o[1] = clampByte(l + kT.gu[U] + kT.gv[V]);
+                o[2] = clampByte(l + kT.b[U]);
+                o[3] = _alpha ? a[size_t(row) * size_t(_lumaPitch) + size_t(col)] : 255;
             }
         return;
     }
-    for (int row = 0; row < height_; ++row)
-        for (int col = 0; col < width_; ++col) {
-            const int Y = (y[size_t(row) * size_t(lumaPitch_) + size_t(col)] - 16) * 298;
-            const size_t c = size_t(row / 2) * size_t(chromaPitch_) + size_t(col / 2);
+    for (int row = 0; row < _height; ++row)
+        for (int col = 0; col < _width; ++col) {
+            const int Y = (y[size_t(row) * size_t(_lumaPitch) + size_t(col)] - 16) * 298;
+            const size_t c = size_t(row / 2) * size_t(_chromaPitch) + size_t(col / 2);
             const int U = u[c] - 128;
             const int V = v[c] - 128;
-            uint8_t *o = &out[(size_t(row) * size_t(width_) + size_t(col)) * 4];
+            uint8_t *o = &out[(size_t(row) * size_t(_width) + size_t(col)) * 4];
             o[0] = clampByte((Y + 409 * V + 128) >> 8);
             o[1] = clampByte((Y - 100 * U - 208 * V + 128) >> 8);
             o[2] = clampByte((Y + 516 * U + 128) >> 8);
-            o[3] = alpha_ ? a[size_t(row) * size_t(lumaPitch_) + size_t(col)] : 255;
+            o[3] = _alpha ? a[size_t(row) * size_t(_lumaPitch) + size_t(col)] : 255;
         }
 }
 
@@ -488,15 +488,15 @@ int Movie::symbol(Bits &b, const Tree &t) {
 }
 
 void Movie::readBundle(Bits &b, Source s) {
-    if (s == Colors) {
-        for (Tree &t : colorHigh_)
+    if (s == kColors) {
+        for (Tree &t : _colorHigh)
             readTree(b, t);
-        lastColorHigh_ = 0;
+        _lastColorHigh = 0;
     }
-    if (s != IntraDC && s != InterDC)
-        readTree(b, bundles_[s].tree);
-    bundles_[s].decoded = bundles_[s].read = 0;
-    bundles_[s].finished = false;
+    if (s != kIntraDC && s != kInterDC)
+        readTree(b, _bundles[s].tree);
+    _bundles[s].decoded = _bundles[s].read = 0;
+    _bundles[s].finished = false;
 }
 
 uint32_t Movie::bundleCount(Bits &b, Bundle &bundle) {
@@ -510,19 +510,19 @@ uint32_t Movie::bundleCount(Bits &b, Bundle &bundle) {
 }
 
 int Movie::value(Source s) {
-    Bundle &b = bundles_[s];
+    Bundle &b = _bundles[s];
     return b.read < b.data.size() ? b.data[b.read++] : 0;
 }
 
 void Movie::decodePlane(Bits &b, int planeIndex, bool chroma) {
-    const int blocksW = chroma ? (width_ + 15) >> 4 : (width_ + 7) >> 3;
-    const int blocksH = chroma ? (height_ + 15) >> 4 : (height_ + 7) >> 3;
+    const int blocksW = chroma ? (_width + 15) >> 4 : (_width + 7) >> 3;
+    const int blocksH = chroma ? (_height + 15) >> 4 : (_height + 7) >> 3;
     const int pitch = blocksW * 8;
-    uint8_t *const dst = cur_[size_t(planeIndex)].data();
-    const uint8_t *const prev = old_[size_t(planeIndex)].data();
+    uint8_t *const dst = _cur[size_t(planeIndex)].data();
+    const uint8_t *const prev = _old[size_t(planeIndex)].data();
     const int size = pitch * blocksH * 8;
-    for (int s = 0; s < SourceCount; ++s) {
-        bundles_[size_t(s)].bits = bundles_[size_t(s)].countBits[chroma ? 1 : 0];
+    for (int s = 0; s < kSourceCount; ++s) {
+        _bundles[size_t(s)].bits = _bundles[size_t(s)].countBits[chroma ? 1 : 0];
         readBundle(b, Source(s));
     }
     auto push = [](Bundle &bundle, int v) {
@@ -533,8 +533,8 @@ void Movie::decodePlane(Bits &b, int planeIndex, bool chroma) {
 
     for (int by = 0; by < blocksH; ++by) {
         // This row's values, for those bundles that need more.
-        for (Source s : {BlockTypes, SubBlockTypes}) {
-            Bundle &bundle = bundles_[s];
+        for (Source s : {kBlockTypes, kSubBlockTypes}) {
+            Bundle &bundle = _bundles[s];
             if (const uint32_t n = bundleCount(b, bundle)) {
                 const size_t end = bundle.decoded + n;
                 if (b.bit()) {
@@ -560,13 +560,13 @@ void Movie::decodePlane(Bits &b, int planeIndex, bool chroma) {
         {
             // Colours: a high nibble from a tree chosen by the last one,
             // then a low nibble (before revision i, signed around 128).
-            Bundle &bundle = bundles_[Colors];
+            Bundle &bundle = _bundles[kColors];
             if (const uint32_t n = bundleCount(b, bundle)) {
                 const size_t end = bundle.decoded + n;
                 auto colour = [&]() {
-                    lastColorHigh_ = symbol(b, colorHigh_[size_t(lastColorHigh_)]);
-                    int v = (lastColorHigh_ << 4) | symbol(b, bundle.tree);
-                    if (revision_ != 'i') {
+                    _lastColorHigh = symbol(b, _colorHigh[size_t(_lastColorHigh)]);
+                    int v = (_lastColorHigh << 4) | symbol(b, bundle.tree);
+                    if (_revision != 'i') {
                         const int sign = (v & 0x80) ? -1 : 0;
                         v = (((v & 0x7f) ^ sign) - sign + 0x80) & 0xff;
                     }
@@ -583,7 +583,7 @@ void Movie::decodePlane(Bits &b, int planeIndex, bool chroma) {
             }
         }
         {
-            Bundle &bundle = bundles_[Pattern];
+            Bundle &bundle = _bundles[kPattern];
             if (const uint32_t n = bundleCount(b, bundle)) {
                 const size_t end = bundle.decoded + n;
                 while (bundle.decoded < end) {
@@ -592,8 +592,8 @@ void Movie::decodePlane(Bits &b, int planeIndex, bool chroma) {
                 }
             }
         }
-        for (Source s : {XOff, YOff}) {
-            Bundle &bundle = bundles_[s];
+        for (Source s : {kXOff, kYOff}) {
+            Bundle &bundle = _bundles[s];
             if (const uint32_t n = bundleCount(b, bundle)) {
                 const size_t end = bundle.decoded + n;
                 if (b.bit()) {
@@ -606,14 +606,14 @@ void Movie::decodePlane(Bits &b, int planeIndex, bool chroma) {
                 }
             }
         }
-        for (Source s : {IntraDC, InterDC}) {
+        for (Source s : {kIntraDC, kInterDC}) {
             // The first in 11 bits (inter: 10 and a sign), then deltas in
             // groups of 8, each group's width in 4 bits.
-            Bundle &bundle = bundles_[s];
+            Bundle &bundle = _bundles[s];
             uint32_t n = bundleCount(b, bundle);
             if (!n)
                 continue;
-            int v = s == IntraDC ? int(b.get(11)) : signedValue(int(b.get(10)));
+            int v = s == kIntraDC ? int(b.get(11)) : signedValue(int(b.get(10)));
             push(bundle, v);
             --n;
             for (uint32_t i = 0; i < n; i += 8) {
@@ -627,7 +627,7 @@ void Movie::decodePlane(Bits &b, int planeIndex, bool chroma) {
             }
         }
         {
-            Bundle &bundle = bundles_[Run];
+            Bundle &bundle = _bundles[kRun];
             if (const uint32_t n = bundleCount(b, bundle)) {
                 const size_t end = bundle.decoded + n;
                 if (b.bit()) {
@@ -645,9 +645,9 @@ void Movie::decodePlane(Bits &b, int planeIndex, bool chroma) {
             const int at = by * 8 * pitch + bx * 8;
             uint8_t *d = dst + at;
             const uint8_t *old = prev + at;
-            int type = value(BlockTypes);
+            int type = value(kBlockTypes);
             // A 16x16 block's second row of 8x8 blocks: done already.
-            if ((by & 1) && type == Scaled) {
+            if ((by & 1) && type == kScaled) {
                 ++bx;
                 continue;
             }
@@ -656,8 +656,8 @@ void Movie::decodePlane(Bits &b, int planeIndex, bool chroma) {
                     std::memcpy(d + r * pitch, src + r * pitch, size_t(n));
             };
             auto motion = [&]() {
-                const int dx = int8_t(value(XOff));
-                const int dy = int8_t(value(YOff));
+                const int dx = int8_t(value(kXOff));
+                const int dy = int8_t(value(kYOff));
                 const int from = at + dy * pitch + dx;
                 if (from >= 0 && from + 7 * pitch + 8 <= size)
                     copyFrom(prev + from, 8);
@@ -679,39 +679,39 @@ void Movie::decodePlane(Bits &b, int planeIndex, bool chroma) {
                 const uint8_t *scan = kPatterns[b.get(4)];
                 int i = 0;
                 do {
-                    const int run = value(Run) + 1;
+                    const int run = value(kRun) + 1;
                     i += run;
                     if (i > 64)
                         break;
                     if (b.bit()) {
-                        const int v = value(Colors);
+                        const int v = value(kColors);
                         for (int j = 0; j < run; ++j)
                             put(*scan++, v, scaled);
                     } else {
                         for (int j = 0; j < run; ++j)
-                            put(*scan++, value(Colors), scaled);
+                            put(*scan++, value(kColors), scaled);
                     }
                 } while (i < 63);
                 if (i == 63)
-                    put(*scan, value(Colors), scaled);
+                    put(*scan, value(kColors), scaled);
             };
             auto pattern = [&](bool scaled) {
-                const int c0 = value(Colors);
-                const int c1 = value(Colors);
+                const int c0 = value(kColors);
+                const int c1 = value(kColors);
                 for (int y = 0; y < 8; ++y) {
-                    int v = value(Pattern);
+                    int v = value(kPattern);
                     for (int x = 0; x < 8; ++x, v >>= 1)
                         put(y * 8 + x, (v & 1) ? c1 : c0, scaled);
                 }
             };
             auto raw = [&](bool scaled) {
                 for (int i = 0; i < 64; ++i)
-                    put(i, value(Colors), scaled);
+                    put(i, value(kColors), scaled);
             };
             auto intra = [&](bool scaled) {
                 int32_t block[64] = {};
                 int32_t out[64];
-                block[0] = value(IntraDC);
+                block[0] = value(kIntraDC);
                 readDCTCoefficients(b, block, true);
                 idct(block, out);
                 for (int i = 0; i < 64; ++i)
@@ -719,28 +719,28 @@ void Movie::decodePlane(Bits &b, int planeIndex, bool chroma) {
             };
 
             switch (type) {
-            case Skip:
+            case kSkip:
                 copyFrom(old, 8);
                 break;
-            case Scaled: {
-                const int sub = value(SubBlockTypes);
+            case kScaled: {
+                const int sub = value(kSubBlockTypes);
                 switch (sub) {
-                case RunBlock:
+                case kRunBlock:
                     runs(true);
                     break;
-                case Intra:
+                case kIntra:
                     intra(true);
                     break;
-                case Fill: {
-                    const int v = value(Colors);
+                case kFill: {
+                    const int v = value(kColors);
                     for (int r = 0; r < 16; ++r)
                         std::memset(d + r * pitch, v, 16);
                     break;
                 }
-                case PatternBlock:
+                case kPatternBlock:
                     pattern(true);
                     break;
-                case Raw:
+                case kRaw:
                     raw(true);
                     break;
                 default:
@@ -749,13 +749,13 @@ void Movie::decodePlane(Bits &b, int planeIndex, bool chroma) {
                 ++bx;
                 break;
             }
-            case Motion:
+            case kMotion:
                 motion();
                 break;
-            case RunBlock:
+            case kRunBlock:
                 runs(false);
                 break;
-            case Residue: {
+            case kResidue: {
                 motion();
                 const int masks = int(b.get(7));
                 int32_t block[64] = {};
@@ -764,30 +764,30 @@ void Movie::decodePlane(Bits &b, int planeIndex, bool chroma) {
                     d[(i >> 3) * pitch + (i & 7)] = uint8_t(d[(i >> 3) * pitch + (i & 7)] + block[i]);
                 break;
             }
-            case Intra:
+            case kIntra:
                 intra(false);
                 break;
-            case Fill: {
-                const int v = value(Colors);
+            case kFill: {
+                const int v = value(kColors);
                 for (int r = 0; r < 8; ++r)
                     std::memset(d + r * pitch, v, 8);
                 break;
             }
-            case Inter: {
+            case kInter: {
                 motion();
                 int32_t block[64] = {};
                 int32_t out[64];
-                block[0] = value(InterDC);
+                block[0] = value(kInterDC);
                 readDCTCoefficients(b, block, false);
                 idct(block, out);
                 for (int i = 0; i < 64; ++i)
                     d[(i >> 3) * pitch + (i & 7)] = uint8_t(d[(i >> 3) * pitch + (i & 7)] + out[i]);
                 break;
             }
-            case PatternBlock:
+            case kPatternBlock:
                 pattern(false);
                 break;
-            case Raw:
+            case kRaw:
                 raw(false);
                 break;
             default:

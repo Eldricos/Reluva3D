@@ -17,13 +17,13 @@ std::string disassembleInstruction(const std::vector<uint16_t> &code, uint32_t i
 
     std::string text = info->name;
     switch (op) {
-    case OP_PUSH:
+    case kOpPush:
         text += text::format(" %d", (int16_t)word(ip + 1));
         break;
-    case OP_PUSH32:
+    case kOpPush32:
         text += text::format(" 0x%04x%04x", word(ip + 2), word(ip + 1));
         break;
-    case OP_PUSH_BLOCK:
+    case kOpPushBlock:
         for (int i = 1; i < 8; i++)
             text += text::format(" %04x", word(ip + i));
         break;
@@ -53,17 +53,17 @@ std::string disassembleScript(const ScriptFile &script) {
                 out += "\n";
 
                 int depth = 3;
-                for (uint32_t ip = block.codeStart; ip < code.size() && code[ip] != OP_END;
+                for (uint32_t ip = block.codeStart; ip < code.size() && code[ip] != kOpEnd;
                      ip += getInstructionLength(code[ip])) {
                     uint16_t op = code[ip];
-                    if (op == OP_ENDIF || op == OP_ELSE)
+                    if (op == kOpEndif || op == kOpElse)
                         depth--;
                     const OpcodeInfo *info = getOpcodeInfo(op);
                     std::string line = std::string(depth * 2, ' ') + disassembleInstruction(code, ip);
-                    if (info && op >= OP_FIRST_NATIVE && info->note && *info->note)
+                    if (info && op >= kOpFirstNative && info->note && *info->note)
                         line += std::string(std::max<int>(1, 40 - (int)line.size()), ' ') + "; " + info->note;
                     out += text::format("%5u %s\n", ip, line.c_str());
-                    if ((op >= OP_IF_EQ && op <= OP_IF_LE) || op == OP_ELSE)
+                    if ((op >= kOpIfEq && op <= kOpIfLe) || op == kOpElse)
                         depth++;
                 }
             }

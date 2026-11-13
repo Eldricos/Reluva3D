@@ -75,7 +75,7 @@ bool lex(const std::string &name, const std::string &s, std::vector<BotToken> &o
         if (c == '"' || c == '\'') {
             // A string (strings with only white space between joined) or a
             // literal character, with C's escapes.
-            t.type = c == '"' ? BotToken::Type::String : BotToken::Type::Literal;
+            t.type = c == '"' ? BotToken::Type::kString : BotToken::Type::kLiteral;
             while (true) {
                 ++i;
                 while (i < s.size() && s[i] != c) {
@@ -152,7 +152,7 @@ bool lex(const std::string &name, const std::string &s, std::vector<BotToken> &o
         }
         if (std::isdigit(static_cast<unsigned char>(c)) ||
             (c == '.' && i + 1 < s.size() && std::isdigit(static_cast<unsigned char>(s[i + 1])))) {
-            t.type = BotToken::Type::Number;
+            t.type = BotToken::Type::kNumber;
             const size_t start = i;
             if (c == '0' && i + 1 < s.size() && (s[i + 1] == 'x' || s[i + 1] == 'X')) {
                 i += 2;
@@ -187,13 +187,13 @@ bool lex(const std::string &name, const std::string &s, std::vector<BotToken> &o
             continue;
         }
         if (isNameChar(c)) {
-            t.type = BotToken::Type::Name;
+            t.type = BotToken::Type::kName;
             while (i < s.size() && isNameChar(s[i]))
                 t.text += s[i++];
             out.push_back(std::move(t));
             continue;
         }
-        t.type = BotToken::Type::Punctuation;
+        t.type = BotToken::Type::kPunctuation;
         for (const char *p : kPunctuation)
             if (s.compare(i, std::char_traits<char>::length(p), p) == 0) {
                 t.text = p;
@@ -222,7 +222,7 @@ struct BotScript::Macro {
     std::vector<BotToken> body;
 };
 
-BotScript::BotScript(Loader load, const std::vector<std::string> &defines) : load_(std::move(load)) {
+BotScript::BotScript(Loader load, const std::vector<std::string> &defines) : _load(std::move(load)) {
     for (const std::string &d : defines)
         define(d);
 }
@@ -232,82 +232,82 @@ BotScript::~BotScript() = default;
 void BotScript::define(const std::string &line) {
     std::vector<BotToken> tokens;
     std::string error;
-    if (!lex("(define)", line, tokens, error) || tokens.empty() || tokens[0].type != BotToken::Type::Name)
+    if (!lex("(define)", line, tokens, error) || tokens.empty() || tokens[0].type != BotToken::Type::kName)
         return;
     auto m = std::make_shared<Macro>();
     m->body.assign(tokens.begin() + 1, tokens.end());
-    macros_[tokens[0].text] = m;
+    _macros[tokens[0].text] = m;
 }
 
 bool BotScript::open(const std::string &path) {
     std::string text;
-    if (!load_ || !load_(path, text)) {
+    if (!_load || !_load(path, text)) {
         fail("couldn't load " + path);
         return false;
     }
     openText(path, text);
-    return error_.empty();
+    return _error.empty();
 }
 
 void BotScript::openText(const std::string &name, const std::string &text) {
     auto source = std::make_unique<Source>();
     std::string error;
     if (!lex(name, text, source->tokens, error)) {
-        if (error_.empty())
-            error_ = error;
+        if (_error.empty())
+            _error = error;
         return;
     }
-    sources_.push_back(std::move(source));
+    _sources.push_back(std::move(source));
 }
 
 void BotScript::fail(const std::string &message) {
-    if (error_.empty())
-        error_ = where() + ": " + message;
+    if (_error.empty())
+        _error = where() + ": " + message;
 }
 
 std::string BotScript::where() const {
-    return last_.file + ":" + std::to_string(last_.line);
+    return _last.file + ":" + std::to_string(_last.line);
 }
 
 bool BotScript::raw(BotToken &token) {
-    if (!pushed_.empty()) {
-        token = pushed_.back();
-        pushed_.pop_back();
+    if (!_pushed.empty()) {
+        token = _pushed.back();
+        _pushed.pop_back();
         return true;
     }
-    while (!sources_.empty()) {
-        Source &s = *sources_.back();
+    while (!_sources.empty()) {
+        Source &s = *_sources.back();
         if (s.pos < s.tokens.size()) {
             token = s.tokens[s.pos++];
             if (!s.file)
                 token.lineStart = false;
-            last_ = token;
+            _last = token;
             return true;
         }
-        sources_.pop_back();
+        _sources.pop_back();
     }
     return false;
 }
 
 bool BotScript::skipping() const {
-    return !conditionals_.empty() && !conditionals_.back().taking;
+    return !_conditionals.empty() && !_conditionals.back().taking;
 }
 
 void BotScript::unread(const BotToken &token) {
-    pushed_.push_back(token);
+    _pushed.push_back(token);
 }
 
 bool BotScript::readLine(std::vector<BotToken> &out) {
     // The rest of a directive's line: up to a token starting a line, or
     // the end of the file it's in.
     while (true) {
-        if (!pushed_.empty()) {
-            if (pushed_.back().lineStart)
+        if (!_pushed.empty()) {
+            if (_pushed.back().lineStart)
                 break;
         } else {
-            if (sources_.empty())
+            if (_sources.empty())
                 break;
-            const Source &s = *sources_.back();
+            const Source &s = *_sources.back();
             if (s.pos >= s.tokens.size() || (s.file && s.tokens[s.pos].lineStart))
                 break;
         }
@@ -320,7 +320,7 @@ bool BotScript::readLine(std::vector<BotToken> &out) {
 }
 
 bool BotScript::next(BotToken &token) {
-    while (error_.empty()) {
+    while (_error.empty()) {
         if (!raw(token))
             return false;
         if (token.is("#") && token.lineStart) {
@@ -332,7 +332,7 @@ bool BotScript::next(BotToken &token) {
             continue;
         if (token.is("$")) {
             BotToken name;
-            if (raw(name) && name.type == BotToken::Type::Name &&
+            if (raw(name) && name.type == BotToken::Type::kName &&
                 (name.text == "evalint" || name.text == "evalfloat")) {
                 // $evalint(expression), $evalfloat(expression): the value.
                 BotToken t;
@@ -353,7 +353,7 @@ bool BotScript::next(BotToken &token) {
                 bool isFloat = false;
                 if (!evaluate(expr, v, isFloat))
                     return false;
-                token.type = BotToken::Type::Number;
+                token.type = BotToken::Type::kNumber;
                 token.isFloat = name.text == "evalfloat";
                 token.number = token.isFloat ? v : std::trunc(v);
                 token.text = std::to_string(token.number);
@@ -363,10 +363,10 @@ bool BotScript::next(BotToken &token) {
                 unread(name);
             return true;
         }
-        if (token.type == BotToken::Type::Name) {
-            if (const auto it = macros_.find(token.text); it != macros_.end()) {
+        if (token.type == BotToken::Type::kName) {
+            if (const auto it = _macros.find(token.text); it != _macros.end()) {
                 bool active = false;
-                for (const auto &s : sources_)
+                for (const auto &s : _sources)
                     active |= !s->file && s->macro == token.text && s->pos <= s->tokens.size();
                 if (!active) {
                     if (!expand(token, *it->second))
@@ -392,7 +392,7 @@ bool BotScript::expand(const BotToken &name, const Macro &m) {
             source->file = false;
             source->macro = name.text;
             source->tokens.push_back(name);
-            sources_.push_back(std::move(source));
+            _sources.push_back(std::move(source));
             return true;
         }
         args.emplace_back();
@@ -431,7 +431,7 @@ bool BotScript::expand(const BotToken &name, const Macro &m) {
         if (m.function && t.is("#") && i + 1 < m.body.size() && param(m.body[i + 1].text) >= 0) {
             // #param: the argument as a string.
             BotToken s = t;
-            s.type = BotToken::Type::String;
+            s.type = BotToken::Type::kString;
             s.text.clear();
             for (const BotToken &a : args[size_t(param(m.body[++i].text))])
                 s.text += (s.text.empty() || !a.spaceBefore ? "" : " ") + a.text;
@@ -450,12 +450,12 @@ bool BotScript::expand(const BotToken &name, const Macro &m) {
             BotToken &l = out.back();
             l.text += text;
             const bool digits = !l.text.empty() && std::isdigit(static_cast<unsigned char>(l.text[0]));
-            l.type = digits ? BotToken::Type::Number : BotToken::Type::Name;
+            l.type = digits ? BotToken::Type::kNumber : BotToken::Type::kName;
             if (digits)
                 l.number = std::strtod(l.text.c_str(), nullptr);
             continue;
         }
-        if (m.function && t.type == BotToken::Type::Name)
+        if (m.function && t.type == BotToken::Type::kName)
             if (const int p = param(t.text); p >= 0) {
                 for (BotToken a : args[size_t(p)]) {
                     a.lineStart = false;
@@ -474,7 +474,7 @@ bool BotScript::expand(const BotToken &name, const Macro &m) {
     source->file = false;
     source->macro = name.text;
     source->tokens = std::move(out);
-    sources_.push_back(std::move(source));
+    _sources.push_back(std::move(source));
     return true;
 }
 
@@ -491,7 +491,7 @@ bool BotScript::directive() {
         // are expanded, then the line evaluated.
         std::vector<BotToken> tokens;
         for (size_t i = 0; i < line.size(); ++i) {
-            if (line[i].type == BotToken::Type::Name && line[i].text == "defined") {
+            if (line[i].type == BotToken::Type::kName && line[i].text == "defined") {
                 size_t j = i + 1;
                 const bool paren = j < line.size() && line[j].is("(");
                 if (paren)
@@ -501,8 +501,8 @@ bool BotScript::directive() {
                     return false;
                 }
                 BotToken v = line[j];
-                v.type = BotToken::Type::Number;
-                v.number = macros_.count(line[j].text) ? 1 : 0;
+                v.type = BotToken::Type::kNumber;
+                v.number = _macros.count(line[j].text) ? 1 : 0;
                 v.isFloat = false;
                 v.text = v.number ? "1" : "0";
                 tokens.push_back(v);
@@ -513,21 +513,21 @@ bool BotScript::directive() {
         }
         // The macros in it expanded through the token stream, up to a mark.
         BotToken end;
-        end.type = BotToken::Type::Punctuation;
+        end.type = BotToken::Type::kPunctuation;
         end.text = kEndOfLine;
         tokens.push_back(end);
         auto source = std::make_unique<Source>();
         source->file = false;
         source->tokens = std::move(tokens);
-        sources_.push_back(std::move(source));
+        _sources.push_back(std::move(source));
         std::vector<BotToken> expanded;
         // Read without the directive and skipping machinery.
-        auto saved = conditionals_;
-        conditionals_.clear();
+        auto saved = _conditionals;
+        _conditionals.clear();
         BotToken t;
         while (next(t) && t.text != kEndOfLine)
             expanded.push_back(t);
-        conditionals_ = saved;
+        _conditionals = saved;
         double v = 0;
         bool isFloat = false;
         if (!evaluate(expanded, v, isFloat))
@@ -543,41 +543,41 @@ bool BotScript::directive() {
                 if (!condition(value))
                     return false;
             } else {
-                if (line.empty() || line[0].type != BotToken::Type::Name) {
+                if (line.empty() || line[0].type != BotToken::Type::kName) {
                     fail("#" + d + " without a name");
                     return false;
                 }
-                value = macros_.count(line[0].text) == (d == "ifdef" ? 1u : 0u);
+                value = _macros.count(line[0].text) == (d == "ifdef" ? 1u : 0u);
             }
         }
-        conditionals_.push_back({outer && value, outer && value, outer});
+        _conditionals.push_back({outer && value, outer && value, outer});
         return true;
     }
     if (d == "elif" || d == "else" || d == "endif") {
-        if (conditionals_.empty()) {
+        if (_conditionals.empty()) {
             fail("#" + d + " without #if");
             return false;
         }
         if (d == "endif") {
-            conditionals_.pop_back();
+            _conditionals.pop_back();
             return true;
         }
-        const size_t at = conditionals_.size() - 1;
-        if (!conditionals_[at].outer || conditionals_[at].taken) {
-            conditionals_[at].taking = false;
+        const size_t at = _conditionals.size() - 1;
+        if (!_conditionals[at].outer || _conditionals[at].taken) {
+            _conditionals[at].taking = false;
             return true;
         }
         bool value = true;
         if (d == "elif" && !condition(value))
             return false;
-        conditionals_[at].taking = conditionals_[at].taken = value;
+        _conditionals[at].taking = _conditionals[at].taken = value;
         return true;
     }
     if (!outer)
         return true;
     if (d == "include") {
         std::string path;
-        if (!line.empty() && line[0].type == BotToken::Type::String)
+        if (!line.empty() && line[0].type == BotToken::Type::kString)
             path = line[0].text;
         else if (!line.empty() && line[0].is("<"))
             for (size_t i = 1; i < line.size() && !line[i].is(">"); ++i)
@@ -592,7 +592,7 @@ bool BotScript::directive() {
         return open(path);
     }
     if (d == "define") {
-        if (line.empty() || line[0].type != BotToken::Type::Name) {
+        if (line.empty() || line[0].type != BotToken::Type::kName) {
             fail("#define without a name");
             return false;
         }
@@ -607,12 +607,12 @@ bool BotScript::directive() {
         }
         if (i < line.size())
             m->body.assign(line.begin() + long(i), line.end());
-        macros_[line[0].text] = m;
+        _macros[line[0].text] = m;
         return true;
     }
     if (d == "undef") {
         if (!line.empty())
-            macros_.erase(line[0].text);
+            _macros.erase(line[0].text);
         return true;
     }
     if (d == "error") {
@@ -654,13 +654,13 @@ bool BotScript::evaluate(const std::vector<BotToken> &tokens, double &value, boo
                 ok = false;
             return v;
         }
-        if (t.type == BotToken::Type::Number) {
+        if (t.type == BotToken::Type::kNumber) {
             isFloat |= t.isFloat;
             return t.number;
         }
-        if (t.type == BotToken::Type::Literal)
+        if (t.type == BotToken::Type::kLiteral)
             return t.text.empty() ? 0 : double(static_cast<unsigned char>(t.text[0]));
-        if (t.type == BotToken::Type::Name)
+        if (t.type == BotToken::Type::kName)
             return 0; // not defined
         ok = false;
         return 0;
@@ -669,9 +669,9 @@ bool BotScript::evaluate(const std::vector<BotToken> &tokens, double &value, boo
         const char *text;
         int precedence;
     };
-    static const Op ops[] = {{"||", 1}, {"&&", 2}, {"|", 3},  {"^", 4},  {"&", 5},  {"==", 6},
-                             {"!=", 6}, {"<", 7},  {"<=", 7}, {">", 7},  {">=", 7}, {"<<", 8},
-                             {">>", 8}, {"+", 9},  {"-", 9},  {"*", 10}, {"/", 10}, {"%", 10}};
+    static const Op kOps[] = {{"||", 1}, {"&&", 2}, {"|", 3},  {"^", 4},  {"&", 5},  {"==", 6},
+                              {"!=", 6}, {"<", 7},  {"<=", 7}, {">", 7},  {">=", 7}, {"<<", 8},
+                              {">>", 8}, {"+", 9},  {"-", 9},  {"*", 10}, {"/", 10}, {"%", 10}};
     binary = [&](int minimum) -> double {
         double left = unary();
         while (ok && i < tokens.size()) {
@@ -686,7 +686,7 @@ bool BotScript::evaluate(const std::vector<BotToken> &tokens, double &value, boo
                 continue;
             }
             const Op *op = nullptr;
-            for (const Op &o : ops)
+            for (const Op &o : kOps)
                 if (t.is(o.text))
                     op = &o;
             if (!op || op->precedence <= minimum)
@@ -780,7 +780,7 @@ bool BotScript::readNumber(double &value, bool *isFloat) {
             return false;
         }
     }
-    if (t.type != BotToken::Type::Number) {
+    if (t.type != BotToken::Type::kNumber) {
         fail("expected a number, found " + t.text);
         return false;
     }
@@ -792,7 +792,7 @@ bool BotScript::readNumber(double &value, bool *isFloat) {
 
 bool BotScript::readString(std::string &value) {
     BotToken t;
-    if (!next(t) || t.type != BotToken::Type::String) {
+    if (!next(t) || t.type != BotToken::Type::kString) {
         fail("expected a string" + (t.text.empty() ? std::string() : ", found " + t.text));
         return false;
     }

@@ -50,7 +50,7 @@ public:
                         gfx::TextureId &out) override {
         textures.i32(width).i32(height).bytes(rgba, size_t(width) * size_t(height) * 4).i32(params.clamp);
         ++textureCount;
-        out = gfx::TextureId(++next_);
+        out = gfx::TextureId(++_next);
         return Error::success();
     }
     void destroyTexture(gfx::TextureId) override {}
@@ -59,12 +59,12 @@ public:
         mesh(vertices);
         meshes.bytes(indices.data(), indices.size() * 4);
         ++meshCount;
-        out = gfx::MeshId(++next_);
+        out = gfx::MeshId(++_next);
         return Error::success();
     }
     Error createIndexedMesh(gfx::MeshId, const std::vector<uint32_t> &indices, gfx::MeshId &out) override {
         meshes.bytes(indices.data(), indices.size() * 4);
-        out = gfx::MeshId(++next_);
+        out = gfx::MeshId(++_next);
         return Error::success();
     }
     Error setMeshIndices(gfx::MeshId, const std::vector<uint32_t> &indices) override {
@@ -107,7 +107,7 @@ public:
     bool takeCapture(std::vector<uint8_t> &) override { return false; }
 
 private:
-    uint32_t next_ = 0;
+    uint32_t _next = 0;
     static int32_t rounded(float v) { return int32_t(std::lround(double(v) * 1000)); }
     void matrix(const gfx::Mat4 &m) {
         for (float v : m)
@@ -150,21 +150,21 @@ public:
             titles.push_back(t);
     }
     bool pollEvent(Event &ev) override {
-        if (next_ < inputs.size() && inputs[next_].at <= getMillis()) {
-            ev = inputs[next_++].event;
+        if (_next < inputs.size() && inputs[_next].at <= getMillis()) {
+            ev = inputs[_next++].event;
             return true;
         }
         return false;
     }
     void delayMillis(uint32_t ms) override {
         HeadlessSystem::delayMillis(ms);
-        if (!audio_)
+        if (!_audio)
             return;
-        pending_ += int64_t(ms) * audioRate();
-        const int frames = int(pending_ / 1000);
-        pending_ %= 1000;
+        _pending += int64_t(ms) * audioRate();
+        const int frames = int(_pending / 1000);
+        _pending %= 1000;
         std::vector<int16_t> buf(size_t(frames) * 2);
-        audio_(buf.data(), frames);
+        _audio(buf.data(), frames);
         sound.bytes(buf.data(), buf.size() * 2);
         soundFrames += frames;
         for (int16_t v : buf)
@@ -177,20 +177,20 @@ public:
         return Error::success();
     }
     Error startAudio(AudioCallback cb) override {
-        audio_ = std::move(cb);
+        _audio = std::move(cb);
         return Error::success();
     }
-    void stopAudio() override { audio_ = nullptr; }
+    void stopAudio() override { _audio = nullptr; }
 
 private:
-    size_t next_ = 0;
-    AudioCallback audio_;
-    int64_t pending_ = 0;
+    size_t _next = 0;
+    AudioCallback _audio;
+    int64_t _pending = 0;
 };
 
 Event keyDown(int key) {
     Event e;
-    e.type = EventType::KeyDown;
+    e.type = EventType::kKeyDown;
     e.key = key;
     return e;
 }
@@ -285,20 +285,20 @@ void engineTest(const std::filesystem::path &tmp) {
     GameTarget target{"legoalphateam", "netimmerse", "legoalphateam", "LEGO Alpha Team", install, tmp / "saves", {}};
     PlayingSystem sys;
     sys.inputs = {
-        {100, keyDown(key::Tab)},    // models
-        {150, keyDown('h')},         // its hidden parts shown
-        {200, keyDown(key::Right)},  // the next model
-        {250, keyDown(' ')},         // its animation paused
-        {300, keyDown(key::Tab)},    // textures
-        {400, keyDown(key::Tab)},    // fonts
-        {450, keyDown('p')},         // its pages
-        {500, keyDown(key::Tab)},    // sounds
-        {550, keyDown(key::Space)},  // played
-        {800, keyDown(key::Tab)},    // text
-        {850, keyDown(key::Right)},  // the next file
-        {900, keyDown(key::Down)},   // scrolled
-        {1000, keyDown(key::Tab)},   // back to the archives
-        {1100, keyDown(key::Escape)} // to the launcher
+        {100, keyDown(key::kTab)},    // models
+        {150, keyDown('h')},          // its hidden parts shown
+        {200, keyDown(key::kRight)},  // the next model
+        {250, keyDown(' ')},          // its animation paused
+        {300, keyDown(key::kTab)},    // textures
+        {400, keyDown(key::kTab)},    // fonts
+        {450, keyDown('p')},          // its pages
+        {500, keyDown(key::kTab)},    // sounds
+        {550, keyDown(key::kSpace)},  // played
+        {800, keyDown(key::kTab)},    // text
+        {850, keyDown(key::kRight)},  // the next file
+        {900, keyDown(key::kDown)},   // scrolled
+        {1000, keyDown(key::kTab)},   // back to the archives
+        {1100, keyDown(key::kEscape)} // to the launcher
     };
     auto game = engine->create(sys, target);
     const Error err = game->run();
@@ -316,9 +316,9 @@ void engineTest(const std::filesystem::path &tmp) {
     finish();
 }
 
-const test::Suite suite("netimmerse.engine", {
-                                                 {"the data viewer on an install of its own",
-                                                  [](const std::filesystem::path &tmp) { engineTest(tmp); }},
-                                             });
+const test::Suite kSuite("netimmerse.engine", {
+                                                  {"the data viewer on an install of its own",
+                                                   [](const std::filesystem::path &tmp) { engineTest(tmp); }},
+                                              });
 
 } // namespace

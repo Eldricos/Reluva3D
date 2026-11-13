@@ -47,15 +47,15 @@ const std::vector<GameVariant> kFallback = {
 
 class AweEngine : public Engine {
 public:
-    AweEngine(System &system, GameTarget target) : sys_(system), target_(std::move(target)) {}
+    AweEngine(System &system, GameTarget target) : _sys(system), _target(std::move(target)) {}
 
     Error run() override {
-        if (Error err = files_.open(target_.path))
+        if (Error err = _files.open(_target.path))
             return err;
-        screen_.create(awe::kScreenW, awe::kScreenH, PixelFormat::RGBA32);
-        audio::Mixer mixer(sys_.audioRate());
-        mixer.setMasterVolume(settings::volume(target_.settings, settings::kMasterVolume));
-        const bool audioOut = !audio::startMixerOutput(sys_, mixer);
+        _screen.create(awe::kScreenW, awe::kScreenH, PixelFormat::kRGBA32);
+        audio::Mixer mixer(_sys.audioRate());
+        mixer.setMasterVolume(settings::volume(_target.settings, settings::kMasterVolume));
+        const bool audioOut = !audio::startMixerOutput(_sys, mixer);
         struct AudioStop {
             System &sys;
             bool on;
@@ -63,11 +63,11 @@ public:
                 if (on)
                     sys.stopAudio();
             }
-        } audioStop{sys_, audioOut};
+        } audioStop{_sys, audioOut};
         awe::GameFonts fonts;
-        const bool haveFonts = !fonts.load(files_);
+        const bool haveFonts = !fonts.load(_files);
         awe::ViewerContext ctx{
-            sys_, files_, audioOut ? &mixer : nullptr, screen_, target_.savePath, haveFonts ? &fonts : nullptr, {}, -1};
+            _sys, _files, audioOut ? &mixer : nullptr, _screen, _target.savePath, haveFonts ? &fonts : nullptr, {}, -1};
         int shots = 0;
 
         std::vector<std::unique_ptr<awe::Page>> pages;
@@ -81,34 +81,34 @@ public:
         while (page < pages.size() && pages[page]->count() == 0)
             page++;
         if (page == pages.size())
-            return Error::fail("No scenes, models, pictures, text or sounds found in " + target_.path.string());
+            return Error::fail("No scenes, models, pictures, text or sounds found in " + _target.path.string());
         pages[page]->activate();
 
         // Frames shown in the last second, after the title.
-        uint64_t second = sys_.getMillis();
+        uint64_t second = _sys.getMillis();
         int frames = 0;
         while (true) {
-            if (const uint64_t now = sys_.getMillis(); now - second >= 1000) {
+            if (const uint64_t now = _sys.getMillis(); now - second >= 1000) {
                 ctx.fps = int(frames * 1000 / (now - second));
                 ctx.setTitle(ctx.title);
                 second = now, frames = 0;
             }
             frames++;
             Event ev;
-            while (sys_.pollEvent(ev)) {
-                if (ev.type == EventType::Quit || ev.type == EventType::ReturnToLauncher ||
-                    (ev.type == EventType::KeyDown && ev.key == key::Escape && !pages[page]->wantsEscape())) {
+            while (_sys.pollEvent(ev)) {
+                if (ev.type == EventType::kQuit || ev.type == EventType::kReturnToLauncher ||
+                    (ev.type == EventType::kKeyDown && ev.key == key::kEscape && !pages[page]->wantsEscape())) {
                     pages[page]->deactivate();
                     return Error::success();
                 }
                 // F12: a screenshot, into the game's own folder.
-                if (ev.type == EventType::KeyDown && ev.key == key::F1 + 11) {
+                if (ev.type == EventType::kKeyDown && ev.key == key::kF1 + 11) {
                     char name[48];
                     std::snprintf(name, sizeof name, "screenshots/%s_%03d.tga", pages[page]->name(), ++shots);
-                    pages[page]->requestScreenshot(target_.savePath / name);
+                    pages[page]->requestScreenshot(_target.savePath / name);
                     continue;
                 }
-                if (ev.type == EventType::KeyDown && ev.key == key::Tab) {
+                if (ev.type == EventType::kKeyDown && ev.key == key::kTab) {
                     pages[page]->deactivate();
                     do
                         page = (page + 1) % pages.size();
@@ -122,18 +122,18 @@ public:
                     return Error::success();
                 }
             }
-            pages[page]->update(sys_.getMillis());
+            pages[page]->update(_sys.getMillis());
             // 3D pages are paced by presenting (vsync); the rest needn't spin.
             if (!pages[page]->uses3D())
-                sys_.delayMillis(10);
+                _sys.delayMillis(10);
         }
     }
 
 private:
-    System &sys_;
-    GameTarget target_;
-    DirectoryArchive files_;
-    Surface screen_;
+    System &_sys;
+    GameTarget _target;
+    DirectoryArchive _files;
+    Surface _screen;
 };
 
 class AweMetaEngine : public MetaEngine {
@@ -156,8 +156,8 @@ public:
 } // namespace
 
 const MetaEngine &aweMetaEngine() {
-    static const AweMetaEngine instance;
-    return instance;
+    static const AweMetaEngine kInstance;
+    return kInstance;
 }
 
 } // namespace reluva

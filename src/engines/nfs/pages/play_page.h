@@ -59,14 +59,14 @@ public:
     // Network races with positional updates (reluva.ini's
     // positionalupdates=on; GameHost::Options::positionalUpdates). Set
     // before the page is first shown; every player needs the same.
-    void setPositionalUpdates(bool on) { positionalUpdates_ = on; }
+    void setPositionalUpdates(bool on) { _positionalUpdates = on; }
     ~PlayPage() override;
     const char *name() const override { return "Play"; }
     bool capturesEscape() const override { return true; }
-    bool finished() const override { return exited_; }
+    bool finished() const override { return _exited; }
     void activate(System &sys) override;
     void deactivate() override;
-    bool uses3D() const override { return gpu_; }
+    bool uses3D() const override { return _gpu; }
     void update(uint64_t nowMs) override;
     void handleEvent(const Event &ev) override;
     void draw(Surface &screen) override;
@@ -85,70 +85,70 @@ private:
     // The title, how the run is going and the log's last lines (mutex_ held).
     void drawStatus(Surface &screen);
 
-    GameFolders folders_;
-    std::filesystem::path saveFolder_;
-    audio::Mixer *mixer_;
-    std::unique_ptr<GameHost> host_;
-    std::thread thread_;
-    audio::SoundHandle sound_ = audio::kNoSound;
-    System *sys_ = nullptr;
-    GamepadState pad_; // as last passed on
-    bool offerJoystick_ = true;
-    bool forceFeedback_ = true;
-    bool smoothTextures_ = true;
-    bool positionalUpdates_ = false;
-    bool network_ = true;        // the game's sockets on the machine's (System::sockets)
-    std::string serial_, modem_; // its COM ports' and modem's links (GameHost::Options)
-    bool fillMovies_ = true;     // the black lines between a movie's filled in
-    std::string wheelPedals_;
-    GamepadForce force_; // as last passed on
-    bool forceShown_ = false;
-    bool padOffered_ = false;               // a joystick offered to the game at its start
-    float mouseLeftX_ = 0, mouseLeftY_ = 0; // the mouse's moves not yet passed on (fractions)
+    GameFolders _folders;
+    std::filesystem::path _saveFolder;
+    audio::Mixer *_mixer;
+    std::unique_ptr<GameHost> _host;
+    std::thread _thread;
+    audio::SoundHandle _sound = audio::kNoSound;
+    System *_sys = nullptr;
+    GamepadState _pad; // as last passed on
+    bool _offerJoystick = true;
+    bool _forceFeedback = true;
+    bool _smoothTextures = true;
+    bool _positionalUpdates = false;
+    bool _network = true;        // the game's sockets on the machine's (System::sockets)
+    std::string _serial, _modem; // its COM ports' and modem's links (GameHost::Options)
+    bool _fillMovies = true;     // the black lines between a movie's filled in
+    std::string _wheelPedals;
+    GamepadForce _force; // as last passed on
+    bool _forceShown = false;
+    bool _padOffered = false;               // a joystick offered to the game at its start
+    float _mouseLeftX = 0, _mouseLeftY = 0; // the mouse's moves not yet passed on (fractions)
 
     // Shared with the game's thread.
-    std::mutex mutex_;
-    Surface frame_; // the last frame the game flipped
-    bool newFrame_ = false;
-    std::deque<std::string> lines_; // the log's last lines, shown until the first frame
-    std::atomic<bool> running_{false};
-    std::atomic<bool> exited_{false}; // the game ended itself (not failed)
-    int renderScale_ = 2;
-    bool gpu_ = false;           // drawing with the GPU: decided when the game starts
-    bool glide_ = false;         // voodoo2a.dll on the Glide stand-in (not THRASH's GPU drawing)
-    bool glideSoftware_ = false; // ... in its software rasterizer rather than its GPU backend
-    std::string glideDll_;       // ... with this THRASH DLL file instead of the install's
-    std::string glideBoard_;     // ... on this board
-    bool direct3d_ = false;      // the game told of d3da.dll (its Direct3D look)
-    ThrashGpu gpuDraw_;          // on the engine's thread
+    std::mutex _mutex;
+    Surface _frame; // the last frame the game flipped
+    bool _newFrame = false;
+    std::deque<std::string> _lines; // the log's last lines, shown until the first frame
+    std::atomic<bool> _running{false};
+    std::atomic<bool> _exited{false}; // the game ended itself (not failed)
+    int _renderScale = 2;
+    bool _gpu = false;           // drawing with the GPU: decided when the game starts
+    bool _glide = false;         // voodoo2a.dll on the Glide stand-in (not THRASH's GPU drawing)
+    bool _glideSoftware = false; // ... in its software rasterizer rather than its GPU backend
+    std::string _glideDll;       // ... with this THRASH DLL file instead of the install's
+    std::string _glideBoard;     // ... on this board
+    bool _direct3d = false;      // the game told of d3da.dll (its Direct3D look)
+    ThrashGpu _gpuDraw;          // on the engine's thread
     // THRASH's frames not drawn yet, in order: each is drawn (some add to
     // what the one before left), with the textures it brought, then kept.
     struct Pending {
         ThrashFrame frame;
         std::shared_ptr<const Surface> software; // comparing: the software rasterizer's of the same flip
     };
-    std::deque<Pending> pending_;
-    bool thrashLatest_ = false; // whether the last frame was THRASH's (else frame_)
+    std::deque<Pending> _pending;
+    bool _thrashLatest = false; // whether the last frame was THRASH's (else frame_)
     // The screen as DirectDraw last left it (a loading screen's picture),
     // shown over THRASH's frames until a page flip covers all of it: clear
     // (alpha 0) where flips have shown THRASH's frame since.
-    Surface primary_;
-    bool primaryShown_ = false;
+    Surface _primary;
+    bool _primaryShown = false;
     // Comparing the GPU's frames with the software rasterizer's (the
     // folder in RELUVA_NFS_COMPARE): the software frame of the last list.
-    std::filesystem::path compareFolder_;
-    int compared_ = 0, newFrames_ = 0;
-    std::string result_; // how the run ended
+    std::filesystem::path _compareFolder;
+    int _compared = 0, _newFrames = 0;
+    std::string _result; // how the run ended
     // How fast it goes (reportSpeed): frames the game made and the
     // instructions run (counted on its thread), frames drawn, not needed
     // (a later one covered them), dropped (too many waiting) and shown.
     void reportSpeed(uint64_t nowMs);
-    std::atomic<uint64_t> statGameFrames_{0}, statDropped_{0}, statInstructions_{0};
+    std::atomic<uint64_t> _statGameFrames{0}, _statDropped{0}, _statInstructions{0};
     // Of the instructions, those on the game's main thread and on its timer
     // thread, as of the last frame.
-    std::atomic<uint64_t> statOwn_{0}, statTimer_{0};
-    uint64_t statLastOwn_ = 0, statLastTimer_ = 0;
-    uint64_t statFrom_ = 0, statLastInstructions_ = 0, statDrawn_ = 0, statSkipped_ = 0, statShown_ = 0;
+    std::atomic<uint64_t> _statOwn{0}, _statTimer{0};
+    uint64_t _statLastOwn = 0, _statLastTimer = 0;
+    uint64_t _statFrom = 0, _statLastInstructions = 0, _statDrawn = 0, _statSkipped = 0, _statShown = 0;
 };
 
 } // namespace reluva::nfs

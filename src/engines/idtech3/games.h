@@ -23,7 +23,7 @@ namespace reluva::idtech3 {
 // Whose game code it is: which of Reluva's hosts can run the game's own
 // programs (its QVMs and DLLs, whose engine calls are numbered and laid
 // out per game). None: its files can be looked at, but not played.
-enum class GameCode { None, EliteForce };
+enum class GameCode { kNone, kEliteForce };
 
 // A player model's three parts ("model/skin").
 struct PlayerModels {
@@ -34,7 +34,7 @@ struct GameInfo {
     std::string gameId;  // stable id stored in the config, e.g. "stvef"
     std::string name;    // shown to the user
     std::string baseDir; // the folder holding the game's own .pk3 files
-    GameCode code = GameCode::None;
+    GameCode code = GameCode::kNone;
     // How its client game lays out what it adds to the scene; single
     // player's, where it differs.
     RefEntityLayout refEntity, spRefEntity;

@@ -202,7 +202,7 @@ void Win32Process::addSystemStandIns() {
         if (inThread()) {
             threadSleep(c.arg(0));
         } else {
-            slept_ += c.arg(0);
+            _slept += c.arg(0);
             runThreads();
         }
         return 0u;
@@ -218,8 +218,8 @@ void Win32Process::addSystemStandIns() {
         stdcall(k, name, 1, [](Cpu &) { return 0u; });
     // CreateEventA(attributes, manual reset, initially set, name).
     stdcall(k, "CreateEventA", 4, [this](Cpu &c) {
-        const uint32_t handle = kEventHandles + nextEvent_++;
-        events_[handle] = {c.arg(1) != 0, c.arg(2) != 0, false};
+        const uint32_t handle = kEventHandles + _nextEvent++;
+        _events[handle] = {c.arg(1) != 0, c.arg(2) != 0, false};
         return handle;
     });
     stdcall(k, "SetEvent", 1, [this](Cpu &c) {
@@ -227,13 +227,13 @@ void Win32Process::addSystemStandIns() {
         return 1u;
     });
     stdcall(k, "ResetEvent", 1, [this](Cpu &c) {
-        if (auto it = events_.find(c.arg(0)); it != events_.end())
+        if (auto it = _events.find(c.arg(0)); it != _events.end())
             it->second.set = false;
         return 1u;
     });
     stdcall(k, "WaitForSingleObject", 2, [this](Cpu &c) {
-        auto it = events_.find(c.arg(0));
-        if (it == events_.end() || !it->second.tracked)
+        auto it = _events.find(c.arg(0));
+        if (it == _events.end() || !it->second.tracked)
             return 0u; // WAIT_OBJECT_0
         if (!it->second.set)
             return 0x102u; // WAIT_TIMEOUT
@@ -284,12 +284,12 @@ void Win32Process::addSystemStandIns() {
 }
 
 void Win32Process::trackEvent(uint32_t handle) {
-    if (auto it = events_.find(handle); it != events_.end())
+    if (auto it = _events.find(handle); it != _events.end())
         it->second.tracked = true;
 }
 
 bool Win32Process::setEvent(uint32_t handle) {
-    if (auto it = events_.find(handle); it != events_.end()) {
+    if (auto it = _events.find(handle); it != _events.end()) {
         it->second.set = true;
         return true;
     }

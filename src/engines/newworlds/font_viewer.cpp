@@ -26,7 +26,7 @@ const char *const kSamples[] = {
 } // namespace
 
 FontViewer::FontViewer(System &sys, Surface &screen, const Archives &archives)
-    : sys_(sys), screen_(screen), fonts_(loadGameFonts(archives)) {
+    : _sys(sys), _screen(screen), _fonts(loadGameFonts(archives)) {
 }
 
 void FontViewer::activate() {
@@ -35,25 +35,25 @@ void FontViewer::activate() {
 }
 
 void FontViewer::handleKey(uint32_t k) {
-    const int n = int(fonts_.size());
+    const int n = int(_fonts.size());
     if (n == 0)
         return;
     switch (k) {
-    case key::Right:
-        current_ = (current_ + 1) % n;
+    case key::kRight:
+        _current = (_current + 1) % n;
         break;
-    case key::Left:
-        current_ = (current_ + n - 1) % n;
+    case key::kLeft:
+        _current = (_current + n - 1) % n;
         break;
     case '+':
     case '=':
-        scale_ = std::min(scale_ + 1, 4);
+        _scale = std::min(_scale + 1, 4);
         break;
     case '-':
-        scale_ = std::max(scale_ - 1, 1);
+        _scale = std::max(_scale - 1, 1);
         break;
     case 'b':
-        boxes_ = !boxes_;
+        _boxes = !_boxes;
         break;
     default:
         return;
@@ -63,18 +63,18 @@ void FontViewer::handleKey(uint32_t k) {
 }
 
 void FontViewer::draw() {
-    for (int y = 0; y < screen_.h; ++y) {
-        uint8_t *row = screen_.row(y);
-        for (int x = 0; x < screen_.w; ++x, row += 4)
+    for (int y = 0; y < _screen.h; ++y) {
+        uint8_t *row = _screen.row(y);
+        for (int x = 0; x < _screen.w; ++x, row += 4)
             row[0] = kBackground.r, row[1] = kBackground.g, row[2] = kBackground.b, row[3] = 255;
     }
-    if (fonts_.empty())
+    if (_fonts.empty())
         return;
-    const GameFont &f = fonts_[size_t(current_)];
-    const int line = f.lineHeight * scale_ + 2;
+    const GameFont &f = _fonts[size_t(_current)];
+    const int line = f.lineHeight * _scale + 2;
     int y = kMargin;
     // Every glyph, in code order, wrapped at the screen's edge.
-    font::drawText(screen_, kMargin, y,
+    font::drawText(_screen, kMargin, y,
                    "Characters " + std::to_string(f.first) + "-" + std::to_string(f.first + f.glyphs.size() - 1) + ":",
                    kLabelColor);
     y += font::kLineHeight + 2;
@@ -83,15 +83,15 @@ void FontViewer::draw() {
         const GameFont::Glyph &g = f.glyphs[i];
         if (g.height == 0)
             continue;
-        if (x + g.width * scale_ > screen_.w - kMargin)
+        if (x + g.width * _scale > _screen.w - kMargin)
             x = kMargin, y += line;
-        if (boxes_)
-            for (int by = 0; by < g.height * scale_; ++by)
-                for (int bx = 0; bx < g.width * scale_; ++bx)
-                    if (y + by < screen_.h && x + bx < screen_.w) {
-                        uint8_t *p = screen_.row(y + by) + (x + bx) * 4;
+        if (_boxes)
+            for (int by = 0; by < g.height * _scale; ++by)
+                for (int bx = 0; bx < g.width * _scale; ++bx)
+                    if (y + by < _screen.h && x + bx < _screen.w) {
+                        uint8_t *p = _screen.row(y + by) + (x + bx) * 4;
                         if ((bx + by) % 2 == 0 &&
-                            (bx == 0 || by == 0 || bx == g.width * scale_ - 1 || by == g.height * scale_ - 1))
+                            (bx == 0 || by == 0 || bx == g.width * _scale - 1 || by == g.height * _scale - 1))
                             p[0] = kBoxColor.r, p[1] = kBoxColor.g, p[2] = kBoxColor.b;
                     }
         // Latin-1 codes are their own UTF-8 code points.
@@ -101,25 +101,25 @@ void FontViewer::draw() {
             ch = char(cp);
         else
             ch = {char(0xc0 | (cp >> 6)), char(0x80 | (cp & 0x3f))};
-        x = f.drawText(screen_, x, y, ch, kTextColor, scale_);
+        x = f.drawText(_screen, x, y, ch, kTextColor, _scale);
     }
     y += line + 8;
-    font::drawText(screen_, kMargin, y, "Sample:", kLabelColor);
+    font::drawText(_screen, kMargin, y, "Sample:", kLabelColor);
     y += font::kLineHeight + 2;
     for (const char *sample : kSamples) {
-        f.drawText(screen_, kMargin, y, sample, kTextColor, scale_);
+        f.drawText(_screen, kMargin, y, sample, kTextColor, _scale);
         y += line;
     }
 }
 
 void FontViewer::updateTitle() {
-    if (fonts_.empty())
+    if (_fonts.empty())
         return;
-    const GameFont &f = fonts_[size_t(current_)];
+    const GameFont &f = _fonts[size_t(_current)];
     size_t drawn = 0;
     for (const auto &g : f.glyphs)
         drawn += g.height > 0;
-    sys_.setWindowTitle("New Worlds fonts " + std::to_string(current_ + 1) + "/" + std::to_string(fonts_.size()) +
+    _sys.setWindowTitle("New Worlds fonts " + std::to_string(_current + 1) + "/" + std::to_string(_fonts.size()) +
                         ": " + f.name + " in " + f.archive + " (" + std::to_string(drawn) + " characters, " +
                         std::to_string(f.lineHeight) + " pixels high, image " + std::to_string(f.imageWidth) + "x" +
                         std::to_string(f.imageHeight) + ")");

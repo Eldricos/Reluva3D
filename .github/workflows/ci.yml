@@ -19,13 +19,12 @@
 # with the code it uses (src/engines/engine.h, the tests' and tools'
 # frameworks).
 #
-# The "style" job checks the code against docs/CODING_GUIDE.md:
-# formatting (tools/format.py, clang-format 18) on every file, which fails
-# the run if any file isn't formatted (run python3 tools/format.py
-# --changed, and commit), and clang-tidy 18 (tools/tidy.py) on the files
-# the push or pull request changes, which for now only reports until the
-# names are brought in line (docs/code-style-migration.md). The counts are
-# in the run's summary.
+# The "style" job checks the code against docs/CODING_GUIDE.md and fails
+# the run on anything that isn't: formatting (tools/format.py, clang-format
+# 18) on every file (fix: python3 tools/format.py --changed, and commit),
+# and clang-tidy 18 (tools/tidy.py: names, nullptr, const...) on the files
+# the push or pull request changes (python3 tools/tidy.py --changed shows
+# the same). The counts are in the run's summary.
 #
 # The "docs" job checks the documentation against
 # docs/DOCUMENTATION_STANDARD.md: tools/check-docs.py (links, each engine's
@@ -197,7 +196,9 @@ jobs:
       - name: Configure
         run: cmake -S . -B build -G Ninja -DCMAKE_BUILD_TYPE=Release -DRELUVA_ENGINES_FILE=$PWD/engines-ci.cfg
       - name: Build
-        # Warnings fail it: a new engine should start clean.
+        # Warnings fail it: a new engine should start clean. bash with
+        # pipefail, so a failed build fails here and not at the tests.
+        shell: bash
         run: |
           cmake --build build 2>&1 | tee build.log
           if grep -E "src/engines/template_check|tests/engines/template_check" build.log | grep -q "warning:"; then
@@ -239,8 +240,6 @@ jobs:
         shell: bash
         run: python3 tools/format.py --check | tee format.txt
       - name: clang-tidy (changed files)
-        # Report only until the names are brought in line (Phase 4).
-        continue-on-error: true
         shell: bash
         env:
           BASE: ${{ github.event_name == 'pull_request' && format('origin/{0}', github.base_ref) || github.event.before }}

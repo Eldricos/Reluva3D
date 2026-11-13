@@ -203,7 +203,7 @@ void testRushDesktop() {
 
 void testBanshee() {
     const Board b = bansheeBoard();
-    CHECK(b.generation == Generation::Banshee && b.tmus == 1 && b.uma && b.frameBufferMemory == 16u << 20);
+    CHECK(b.generation == Generation::kBanshee && b.tmus == 1 && b.uma && b.frameBufferMemory == 16u << 20);
     CHECK(b.textureAlign == 16 && b.fogTableEntries == 64 && b.gammaTableEntries == 256 && b.palette);
     CHECK(b.extensions == (kExtChromaRange | kExtTexMirror | kExtPalette6666));
     // Up to 1600x1200 (its RAMDAC's): GR_RESOLUTION_1600x1200 (14) opens,

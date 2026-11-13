@@ -47,13 +47,13 @@ void Board::standingPoint(const Square &s, int &worldX, int &worldY) {
 }
 
 int Board::roomAt(const Square &s) const {
-    auto it = rooms_.find(s);
-    return it == rooms_.end() ? kNoRoom : it->second;
+    auto it = _rooms.find(s);
+    return it == _rooms.end() ? kNoRoom : it->second;
 }
 
 Error Board::build(const Level &level) {
     *this = {};
-    passage_.fill(kNoRoom);
+    _passage.fill(kNoRoom);
     // The corridors: the hallway's floor blocks on layer 0. The rooms'
     // floors: every other floor block (r_...), joined where they touch.
     std::set<Square> floors;
@@ -63,11 +63,11 @@ Error Board::build(const Level &level) {
             continue;
         const Square s = squareAt(p.x, p.y);
         if (name.rfind("r_hwfloor:", 0) == 0 && p.layer == 0)
-            corridor_.insert(s);
+            _corridor.insert(s);
         else
             floors.insert(s);
     }
-    for (const Square &s : corridor_)
+    for (const Square &s : _corridor)
         floors.erase(s);
     std::map<Square, int> part;
     std::vector<std::vector<Square>> parts;
@@ -111,7 +111,7 @@ Error Board::build(const Level &level) {
         int bestRoom = kNoRoom;
         for (size_t k = 0; k < parts.size(); ++k)
             for (int r = 0; r < kRoomCount; ++r)
-                if (!partTaken[k] && roomSquares_[size_t(r)].empty() && votes[k][size_t(r)] > best) {
+                if (!partTaken[k] && _roomSquares[size_t(r)].empty() && votes[k][size_t(r)] > best) {
                     best = votes[k][size_t(r)];
                     bestPart = int(k);
                     bestRoom = r;
@@ -119,12 +119,12 @@ Error Board::build(const Level &level) {
         if (bestPart < 0)
             break;
         partTaken[size_t(bestPart)] = true;
-        roomSquares_[size_t(bestRoom)] = parts[size_t(bestPart)];
+        _roomSquares[size_t(bestRoom)] = parts[size_t(bestPart)];
         for (const Square &sq : parts[size_t(bestPart)])
-            rooms_[sq] = bestRoom;
+            _rooms[sq] = bestRoom;
     }
     for (int r = 0; r < kRoomCount; ++r)
-        if (roomSquares_[size_t(r)].empty())
+        if (_roomSquares[size_t(r)].empty())
             return Error::fail("room " + std::to_string(r) + " not found in the level");
 
     // Doors: the lintels over them ("...drtop..."), on the line between a
@@ -154,7 +154,7 @@ Error Board::build(const Level &level) {
         for (const auto &[a, b] : pairs)
             for (const auto &[in, out] : {std::pair{a, b}, std::pair{b, a}})
                 if (!found && roomAt(in) != kNoRoom && isCorridor(out)) {
-                    doors_.push_back({roomAt(in), in, out});
+                    _doors.push_back({roomAt(in), in, out});
                     found = true;
                 }
         if (!found)
@@ -166,7 +166,7 @@ Error Board::build(const Level &level) {
     for (const Placement &p : level.placements) {
         const int s = suspectOfCharacter(level.objects[p.object]);
         if (s >= 0) {
-            start_[size_t(s)] = squareAt(p.x, p.y);
+            _start[size_t(s)] = squareAt(p.x, p.y);
             started[size_t(s)] = true;
         }
     }
@@ -185,12 +185,12 @@ Error Board::build(const Level &level) {
         }
     const auto centre = [&](int r, double &x, double &y) {
         x = y = 0;
-        for (const Square &s : roomSquares_[size_t(r)]) {
+        for (const Square &s : _roomSquares[size_t(r)]) {
             x += s.x;
             y += s.y;
         }
-        x /= double(roomSquares_[size_t(r)].size());
-        y /= double(roomSquares_[size_t(r)].size());
+        x /= double(_roomSquares[size_t(r)].size());
+        y /= double(_roomSquares[size_t(r)].size());
     };
     for (int a : withPassage) {
         double ax;
@@ -204,7 +204,7 @@ Error Board::build(const Level &level) {
             const double d = (ax - bx) * (ax - bx) + (ay - by) * (ay - by);
             if (b != a && d > best) {
                 best = d;
-                passage_[size_t(a)] = b;
+                _passage[size_t(a)] = b;
             }
         }
     }
@@ -231,7 +231,7 @@ Error Board::build(const Level &level) {
         if (p.layer == 5)
             furnished.insert(squareAt(p.x, p.y));
     for (int r = 0; r < kRoomCount; ++r) {
-        const std::vector<Square> &squares = roomSquares_[size_t(r)];
+        const std::vector<Square> &squares = _roomSquares[size_t(r)];
         std::vector<Square> sq;
         for (const Square &k : kRecorded[r])
             if (roomAt(k) == r)
@@ -254,7 +254,7 @@ Error Board::build(const Level &level) {
         };
         std::stable_sort(rest.begin(), rest.end(), [&](const Square &a, const Square &b) { return rank(a) < rank(b); });
         sq.insert(sq.end(), rest.begin(), rest.end());
-        standing_[size_t(r)] = sq;
+        _standing[size_t(r)] = sq;
     }
     return Error::success();
 }
@@ -262,7 +262,7 @@ Error Board::build(const Level &level) {
 std::vector<Place> Board::neighbours(const Place &p) const {
     std::vector<Place> out;
     if (p.inRoom()) {
-        for (const Door &d : doors_)
+        for (const Door &d : _doors)
             if (d.room == p.room)
                 out.push_back({d.outside, kNoRoom});
         return out;
@@ -271,7 +271,7 @@ std::vector<Place> Board::neighbours(const Place &p) const {
     for (const Square &n : {Square{s.x + 1, s.y}, Square{s.x - 1, s.y}, Square{s.x, s.y + 1}, Square{s.x, s.y - 1}})
         if (isCorridor(n))
             out.push_back({n, kNoRoom});
-    for (const Door &d : doors_)
+    for (const Door &d : _doors)
         if (d.outside == s)
             out.push_back({{}, d.room});
     return out;

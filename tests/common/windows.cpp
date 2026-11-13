@@ -38,7 +38,7 @@ static void testMixerStream() {
     std::vector<int16_t> out(40);
     Mixer m(22050);
     auto stream = std::make_shared<SoundStream>(22050, 1);
-    const SoundHandle a = m.playStream(stream, SoundType::Effects, kMaxVolume, 0, 0);
+    const SoundHandle a = m.playStream(stream, SoundType::kEffects, kMaxVolume, 0, 0);
     CHECK(a != kNoSound && m.isPlaying(a));
     m.mix(out.data(), 4);
     CHECK(out[0] == 0 && m.isPlaying(a)); // nothing yet: it waits
@@ -51,7 +51,7 @@ static void testMixerStream() {
     stream->end();
     m.mix(out.data(), 20);
     CHECK(out[0] == 500 && out[21] == 500 && out[22] == 0 && !m.isPlaying(a));
-    CHECK(m.playStream(nullptr, SoundType::Effects) == kNoSound);
+    CHECK(m.playStream(nullptr, SoundType::kEffects) == kNoSound);
 }
 
 static void testThreads() {
@@ -333,13 +333,13 @@ static void testMsvcp60(const std::filesystem::path &tmp) {
     cpu.write32(vft + 4 * 9, fn("?seekpos@strstreambuf@std@@MAE?AV?$fpos@H@2@V32@H@Z"));
     cpu.write32(sb, vft);
     method(sb, "?_Init@strstreambuf@std@@IAEXHPAD0H@Z", {0, 0, 0, 0});
-    const std::string long_ = "0123456789abcdefghijklmnopqrstuvwxyz0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZ";
+    const std::string longText = "0123456789abcdefghijklmnopqrstuvwxyz0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZ";
     CHECK(method(sb, "?xsputn@?$basic_streambuf@DU?$char_traits@D@std@@@std@@MAEHPBDH@Z",
-                 {text(long_), uint32_t(long_.size())}) == long_.size());
+                 {text(longText), uint32_t(longText.size())}) == longText.size());
     const uint32_t back = process.memory().alloc(128);
     CHECK(method(sb, "?xsgetn@?$basic_streambuf@DU?$char_traits@D@std@@@std@@MAEHPADH@Z", {back, 128}) ==
-              long_.size() &&
-          cpu.string(back, uint32_t(long_.size())) == long_);
+              longText.size() &&
+          cpu.string(back, uint32_t(longText.size())) == longText);
     const uint32_t pos = process.memory().alloc(24);
     method(sb, "?seekoff@strstreambuf@std@@MAE?AV?$fpos@H@2@JW4seekdir@ios_base@2@H@Z", {pos, 10, 0, 1});
     CHECK(cpu.read32(pos) == 10);
@@ -665,8 +665,8 @@ static void testDirectX() {
         CHECK(call(back, 32, {0}) == 0);
         return image;
     };
-    const std::vector<uint8_t> one = scene(x86::DirectX::DrawThreads::One);
-    CHECK(scene(x86::DirectX::DrawThreads::Always) == one);
+    const std::vector<uint8_t> one = scene(x86::DirectX::DrawThreads::kOne);
+    CHECK(scene(x86::DirectX::DrawThreads::kAlways) == one);
     CHECK(std::adjacent_find(one.begin(), one.end(), std::not_equal_to<>()) != one.end()); // something was drawn
     // Release the device and the DirectDraw object's.
     CHECK(call(device, 2, {}) == 0);
@@ -985,15 +985,15 @@ static void testArgbConverter() {
 }
 
 static const test::Suite
-    suite("common.unit.windows",
-          {
-              {"sound streams", [](const std::filesystem::path &) { testMixerStream(); }},
-              {"threads", [](const std::filesystem::path &) { testThreads(); }},
-              {"msvcrt and files", [](const std::filesystem::path &tmp) { testMsvcrtAndFiles(tmp / "msvcrt"); }},
-              {"msvcp60", [](const std::filesystem::path &tmp) { testMsvcp60(tmp / "msvcp60"); }},
-              {"windows and registry", [](const std::filesystem::path &) { testWindowsAndRegistry(); }},
-              {"directx", [](const std::filesystem::path &) { testDirectX(); }},
-              {"input", [](const std::filesystem::path &) { testInput(); }},
-              {"a3d", [](const std::filesystem::path &) { testA3d(); }},
-              {"pixel conversion", [](const std::filesystem::path &) { testArgbConverter(); }},
-          });
+    kSuite("common.unit.windows",
+           {
+               {"sound streams", [](const std::filesystem::path &) { testMixerStream(); }},
+               {"threads", [](const std::filesystem::path &) { testThreads(); }},
+               {"msvcrt and files", [](const std::filesystem::path &tmp) { testMsvcrtAndFiles(tmp / "msvcrt"); }},
+               {"msvcp60", [](const std::filesystem::path &tmp) { testMsvcp60(tmp / "msvcp60"); }},
+               {"windows and registry", [](const std::filesystem::path &) { testWindowsAndRegistry(); }},
+               {"directx", [](const std::filesystem::path &) { testDirectX(); }},
+               {"input", [](const std::filesystem::path &) { testInput(); }},
+               {"a3d", [](const std::filesystem::path &) { testA3d(); }},
+               {"pixel conversion", [](const std::filesystem::path &) { testArgbConverter(); }},
+           });

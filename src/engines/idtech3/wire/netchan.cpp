@@ -71,12 +71,12 @@ void Netchan::unscramble(std::vector<uint8_t> &d) {
 
 std::vector<std::vector<uint8_t>> Netchan::transmit(const std::vector<uint8_t> &message) {
     std::vector<std::vector<uint8_t>> out;
-    const auto sequence = uint32_t(outgoing_++);
+    const auto sequence = uint32_t(_outgoing++);
     auto header = [&](uint32_t seq) {
         std::vector<uint8_t> d;
         putLong(d, seq);
-        if (fromClient_)
-            putShort(d, qport_);
+        if (_fromClient)
+            putShort(d, _qport);
         return d;
     };
     if (message.size() < kFragmentSize) {
@@ -119,7 +119,7 @@ bool Netchan::process(std::vector<uint8_t> d, std::vector<uint8_t> &message) {
     const bool fragment = (word & kFragmentBit) != 0;
     const auto sequence = int32_t(word & ~kFragmentBit);
     size_t at = 4;
-    if (!fromClient_)
+    if (!_fromClient)
         at += 2; // what a client sends has its qport; this end reads from one
     uint16_t fragmentStart = 0;
     uint16_t fragmentLength = 0;
@@ -133,27 +133,27 @@ bool Netchan::process(std::vector<uint8_t> d, std::vector<uint8_t> &message) {
     if (d.size() < at)
         return false;
     // Late or repeated: dropped.
-    if (sequence <= incoming_)
+    if (sequence <= _incoming)
         return false;
-    dropped_ = sequence - (incoming_ + 1);
+    _dropped = sequence - (_incoming + 1);
     if (fragment) {
-        if (sequence != fragmentSequence_) {
-            fragmentSequence_ = sequence;
-            fragments_.clear();
+        if (sequence != _fragmentSequence) {
+            _fragmentSequence = sequence;
+            _fragments.clear();
         }
         // A piece out of order loses the message.
-        if (fragmentStart != fragments_.size() || d.size() - at != fragmentLength ||
-            fragments_.size() + fragmentLength > kMaxMessage)
+        if (fragmentStart != _fragments.size() || d.size() - at != fragmentLength ||
+            _fragments.size() + fragmentLength > kMaxMessage)
             return false;
-        fragments_.insert(fragments_.end(), d.begin() + std::ptrdiff_t(at), d.end());
+        _fragments.insert(_fragments.end(), d.begin() + std::ptrdiff_t(at), d.end());
         if (fragmentLength == kFragmentSize)
             return false; // more to come
-        message = std::move(fragments_);
-        fragments_.clear();
-        incoming_ = sequence;
+        message = std::move(_fragments);
+        _fragments.clear();
+        _incoming = sequence;
         return true;
     }
-    incoming_ = sequence;
+    _incoming = sequence;
     message.assign(d.begin() + std::ptrdiff_t(at), d.end());
     return true;
 }

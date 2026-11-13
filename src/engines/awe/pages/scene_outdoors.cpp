@@ -78,7 +78,7 @@ void ScenePage::updateOutdoors(Character &c, float dt, bool walking) {
     };
     // Footprints, only in a scene marked outdoors (OUTD, 0x43ffcd).
     bool outdoors = false;
-    for (const Ac2Record &r : scene_.records)
+    for (const Ac2Record &r : _scene.records)
         if (r.tag == "OUTD")
             outdoors = r.i("value") != 0;
     if (modl->i("footprints") && outdoors) {
@@ -99,10 +99,10 @@ void ScenePage::updateOutdoors(Character &c, float dt, bool walking) {
             if (down && bonePosition(c.model->model(), posedNow(), c.placement,
                                      c.foot == 0 ? "Bip01 R Foot" : "Bip01 L Foot", at)) {
                 Character::Footprint f;
-                f.model = propModel(state_.tags.count("snowshoeson") ? "models/footprint/snowprint_model.gr2"
+                f.model = propModel(_state.tags.count("snowshoeson") ? "models/footprint/snowprint_model.gr2"
                                                                      : "models/footprint/footprint_model.gr2");
                 f.x = at[0], f.z = at[2], f.rotY = c.rotY;
-                f.serial = footprintSerial_++;
+                f.serial = _footprintSerial++;
                 if (f.model)
                     c.footprints.push_back(std::move(f));
             }
@@ -136,7 +136,7 @@ void ScenePage::drawFootprint(const Character::Footprint &f, const SceneLighting
     m.blend = true;
     m.alpha = f.age <= 0.5f ? f.age * 2 : (kFootprintLife - f.age) * 0.2222222f;
     const Pose pose = poseAt(f.model->model(), nullptr, 0);
-    f.model->draw(pose, characterMatrix(f.x, 0, f.z, f.rotY), false, frameMeshes_, brightness, &lighting, m);
+    f.model->draw(pose, characterMatrix(f.x, 0, f.z, f.rotY), false, _frameMeshes, brightness, &lighting, m);
 }
 
 } // namespace reluva::awe

@@ -42,7 +42,7 @@ bool readAt(std::ifstream &in, uint64_t offset, uint8_t *out, size_t size) {
 } // namespace
 
 uint32_t crc32(const uint8_t *data, size_t size, uint32_t crc) {
-    static const std::array<uint32_t, 256> table = [] {
+    static const std::array<uint32_t, 256> kTable = [] {
         std::array<uint32_t, 256> t{};
         for (uint32_t i = 0; i < 256; ++i) {
             uint32_t c = i;
@@ -54,7 +54,7 @@ uint32_t crc32(const uint8_t *data, size_t size, uint32_t crc) {
     }();
     crc = ~crc;
     for (size_t i = 0; i < size; ++i)
-        crc = table[(crc ^ data[i]) & 0xff] ^ (crc >> 8);
+        crc = kTable[(crc ^ data[i]) & 0xff] ^ (crc >> 8);
     return ~crc;
 }
 
@@ -94,9 +94,9 @@ Error inflateZlib(const uint8_t *data, size_t dataSize, size_t size, std::vector
 }
 
 Error ZipArchive::open(const std::filesystem::path &path) {
-    path_ = path;
-    entries_.clear();
-    byName_.clear();
+    _path = path;
+    _entries.clear();
+    _byName.clear();
     const std::string where = path.string();
 
     std::ifstream in(path, std::ios::binary | std::ios::ate);
@@ -161,23 +161,23 @@ Error ZipArchive::open(const std::filesystem::path &path) {
         if (uint64_t(e.localHeader) + kLocalSize + e.compressedSize > fileSize)
             return Error::fail(where + ": " + e.name + " runs past the end of the file");
         // The first entry of a name wins, as zip tools disagree otherwise.
-        if (byName_.try_emplace(normalizeArchiveName(e.name), entries_.size()).second)
-            entries_.push_back(std::move(e));
+        if (_byName.try_emplace(normalizeArchiveName(e.name), _entries.size()).second)
+            _entries.push_back(std::move(e));
     }
     return Error::success();
 }
 
 std::vector<std::string> ZipArchive::list() const {
     std::vector<std::string> names;
-    names.reserve(entries_.size());
-    for (const Entry &e : entries_)
+    names.reserve(_entries.size());
+    for (const Entry &e : _entries)
         names.push_back(e.name);
     return names;
 }
 
 const ZipArchive::Entry *ZipArchive::entry(std::string_view name) const {
-    auto it = byName_.find(normalizeArchiveName(name));
-    return it == byName_.end() ? nullptr : &entries_[it->second];
+    auto it = _byName.find(normalizeArchiveName(name));
+    return it == _byName.end() ? nullptr : &_entries[it->second];
 }
 
 bool ZipArchive::has(std::string_view name) const {
@@ -187,7 +187,7 @@ bool ZipArchive::has(std::string_view name) const {
 Error ZipArchive::read(std::string_view name, std::vector<uint8_t> &out) const {
     const Entry *e = entry(name);
     if (!e)
-        return Error::fail(std::string(name) + " not found in " + path_.string());
+        return Error::fail(std::string(name) + " not found in " + _path.string());
     return read(*e, out);
 }
 
@@ -196,15 +196,15 @@ Error ZipArchive::read(const Entry &e, std::vector<uint8_t> &out) const {
     if (Error err = readUnchecked(e, out, crcOk))
         return err;
     if (!crcOk)
-        return Error::fail(path_.string() + ": " + e.name + ": CRC mismatch");
+        return Error::fail(_path.string() + ": " + e.name + ": CRC mismatch");
     return Error::success();
 }
 
 Error ZipArchive::readUnchecked(const Entry &e, std::vector<uint8_t> &out, bool &crcOk) const {
     crcOk = true;
-    const std::string where = path_.string() + ": " + e.name;
+    const std::string where = _path.string() + ": " + e.name;
     // Opened per read so a const archive can be read from several threads.
-    std::ifstream in(path_, std::ios::binary);
+    std::ifstream in(_path, std::ios::binary);
     uint8_t local[kLocalSize];
     if (!in || !readAt(in, e.localHeader, local, kLocalSize) || le32(local) != kLocalSig)
         return Error::fail(where + ": damaged local header");

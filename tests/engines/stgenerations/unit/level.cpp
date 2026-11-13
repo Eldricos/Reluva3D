@@ -104,7 +104,7 @@ bool loadLevel(LevelFile &level, const std::vector<uint8_t> &bytes) {
 
 } // namespace
 
-static void level_tables() {
+static void levelTables() {
     LevelFile level;
     CHECK(loadLevel(level, makeLevelFile(makeSquareLevel())));
 
@@ -138,7 +138,7 @@ static void level_tables() {
     CHECK(level.getChunkData(LevelFile::kChunkWalls, 2).empty());
 }
 
-static void level_texture_is_column_major() {
+static void levelTextureIsColumnMajor() {
     LevelFile level;
     CHECK(loadLevel(level, makeLevelFile(makeSquareLevel())));
 
@@ -158,7 +158,7 @@ static void level_texture_is_column_major() {
     CHECK(!level.loadTexture(8, texture));
 }
 
-static void level_rejects_bad_files() {
+static void levelRejectsBadFiles() {
     LevelFile level;
 
     std::vector<uint8_t> bytes = makeLevelFile(makeSquareLevel());
@@ -176,7 +176,7 @@ static void level_rejects_bad_files() {
     CHECK(!loadLevel(level, std::vector<uint8_t>(20)));
 }
 
-static void level_map_draws_sectors() {
+static void levelMapDrawsSectors() {
     LevelFile level;
     CHECK(loadLevel(level, makeLevelFile(makeSquareLevel())));
 
@@ -234,7 +234,7 @@ std::vector<Chunk> makeRenderableLevel() {
 
 } // namespace
 
-static void level_surfaces_billboards_and_sky() {
+static void levelSurfacesBillboardsAndSky() {
     LevelFile level;
     CHECK(loadLevel(level, makeLevelFile(makeRenderableLevel())));
 
@@ -260,7 +260,7 @@ static void level_surfaces_billboards_and_sky() {
     CHECK_EQUAL(sky.getPixel(3, 1), 0x77u);
 }
 
-static void level_sky_size_when_the_header_does_not_fit() {
+static void levelSkySizeWhenTheHeaderDoesNotFit() {
     // A 128 x 32 sky whose header claims 252 rows, as in halee1.
     std::vector<Chunk> chunks = makeRenderableLevel();
     for (int i = 0; i < 256; i++) {
@@ -284,7 +284,7 @@ static void level_sky_size_when_the_header_does_not_fit() {
     CHECK_EQUAL(image.h, 32);
 }
 
-static void level_renderer_draws_floor_wall_and_sky() {
+static void levelRendererDrawsFloorWallAndSky() {
     LevelFile level;
     CHECK(loadLevel(level, makeLevelFile(makeRenderableLevel())));
     LevelRenderer renderer(level);
@@ -307,7 +307,7 @@ static void level_renderer_draws_floor_wall_and_sky() {
     CHECK_EQUAL(view.getPixel(32, 0), 0x77u); // sky above the wall
 }
 
-static void level_renderer_wall_sides_and_mirroring() {
+static void levelRendererWallSidesAndMirroring() {
     auto render = [](uint32_t wallFlags, double x, double yaw, int px, int py) {
         std::vector<Chunk> chunks = makeRenderableLevel();
         writeLE32(&chunks[3].data[0x6C], LevelFile::kFlagVisible | wallFlags);
@@ -339,7 +339,7 @@ static void level_renderer_wall_sides_and_mirroring() {
     CHECK(render(LevelFile::kWallTwoSided, 3.8, kPi, 32, 12) != 0x77u);
 }
 
-static void level_light_levels() {
+static void levelLightLevels() {
     LevelFile::LightInfo fixed = {0, 0, 3};
     CHECK_EQUAL(fixed.getLevel(100), 3);
     CHECK_EQUAL(fixed.getLevel(0), 3);
@@ -353,7 +353,7 @@ static void level_light_levels() {
     CHECK_EQUAL(grouped.getLevel(100), 0);
 }
 
-static void level_shade_tables() {
+static void levelShadeTables() {
     Palette palette;
     palette.setColor(0, 0, 0, 0);
     palette.setColor(1, 128, 128, 128);
@@ -369,7 +369,7 @@ static void level_shade_tables() {
     CHECK_EQUAL(tables[7][0], 0);
 }
 
-static void level_blend_table() {
+static void levelBlendTable() {
     Palette palette;
     for (int i = 0; i < 256; i++)
         palette.setColor(i, 0, 255, 0);
@@ -384,7 +384,7 @@ static void level_blend_table() {
     CHECK_EQUAL(table[0][3], 3); // red over red: the first red
 }
 
-static void level_renderer_lighting() {
+static void levelRendererLighting() {
     // Put the wall in light group 1 at full brightness. Switching the group
     // off gives light level 7, and with the test palette (black apart from
     // one red entry) every texel then shades to index 0.
@@ -416,7 +416,7 @@ static void level_renderer_lighting() {
     CHECK(view.getPixel(28, 17) >= 10);
 }
 
-static void level_renderer_draws_only_visible_zones() {
+static void levelRendererDrawsOnlyVisibleZones() {
     LevelFile level;
     CHECK(loadLevel(level, makeLevelFile(makeRenderableLevel())));
     LevelRenderer renderer(level);
@@ -565,7 +565,7 @@ LevelBuilder makeRoom(double wallTop = 12, uint32_t wallFlags = 0, uint32_t wall
 
 } // namespace
 
-static void walker_stops_at_walls() {
+static void walkerStopsAtWalls() {
     LevelFile level;
     CHECK(loadLevel(level, makeRoom().build()));
     Walker walker(level);
@@ -592,7 +592,7 @@ static void walker_stops_at_walls() {
     CHECK(walker.getX() > 15);
 }
 
-static void walker_wall_sides_heights_and_zones() {
+static void walkerWallSidesHeightsAndZones() {
     // From behind, a one-sided wall lets the player through...
     {
         LevelFile level;
@@ -632,7 +632,7 @@ static void walker_wall_sides_heights_and_zones() {
     }
 }
 
-static void walker_steps_up_and_falls() {
+static void walkerStepsUpAndFalls() {
     LevelBuilder builder;
     builder.addFloor(0, 0, 10, 10, 0);
     builder.addFloor(10, 0, 20, 10, 1.5); // a step up
@@ -664,7 +664,7 @@ static void walker_steps_up_and_falls() {
     CHECK(walker.getFeet() == -10);
 }
 
-static void walker_steps_down_jumps_and_passes_through() {
+static void walkerStepsDownJumpsAndPassesThrough() {
     LevelBuilder builder;
     builder.addFloor(0, 0, 10, 10, 0);
     builder.addFloor(10, 0, 20, 10, -0.25); // small enough to step down
@@ -723,21 +723,21 @@ std::vector<uint8_t> makeScriptFile(const std::vector<uint16_t> &program) {
 
 } // namespace
 
-static void mission_runs_level_scripts() {
-    const uint16_t P = OP_PUSH;
+static void missionRunsLevelScripts() {
+    const uint16_t P = kOpPush;
     std::vector<uint16_t> program = {// A logic object: subscribes to broadcasts and starts a 100 ms timer
                                      // on entering state 0, counts timer ticks in global 0, stores signals
                                      // in global 1, and puts the player at (5, 10) facing +x on the start
                                      // broadcast.
-                                     1, 0xE001, 0x8000, kEventEnterState, 0xFFFF, OP_PUSH_SELF, 0x31, P, 100,
-                                     OP_PUSH_SELF, 0x32, OP_END, Mission::kEventStart, 0xFFFF, OP_PUSH_BLOCK, 90, 0, 0,
-                                     0, 10, 0, 5, 0x75, OP_END, Mission::kEventTimer, 0xFFFF, P, 0, OP_GET_GLOBAL,
-                                     OP_INC, P, 0, OP_SET_GLOBAL, OP_END, Mission::kEventSignal, 0xFFFF, P, 1,
-                                     OP_SET_GLOBAL, OP_END, 0x3000, 0x2000,
+                                     1, 0xE001, 0x8000, kEventEnterState, 0xFFFF, kOpPushSelf, 0x31, P, 100,
+                                     kOpPushSelf, 0x32, kOpEnd, Mission::kEventStart, 0xFFFF, kOpPushBlock, 90, 0, 0, 0,
+                                     10, 0, 5, 0x75, kOpEnd, Mission::kEventTimer, 0xFFFF, P, 0, kOpGetGlobal, kOpInc,
+                                     P, 0, kOpSetGlobal, kOpEnd, Mission::kEventSignal, 0xFFFF, P, 1, kOpSetGlobal,
+                                     kOpEnd, 0x3000, 0x2000,
                                      // The wall with id 5: when touched, sets global 2, signals 77 to the
                                      // logic object and hides itself.
-                                     2, 0x4005, 0x8000, Mission::kEventTouch, 0xFFFF, P, 1, P, 2, OP_SET_GLOBAL, P, 77,
-                                     P, 0xE001, OP_SEND_SIGNAL, OP_PUSH_SELF, 0x46, OP_END, 0x3000, 0x2000, 0x1000};
+                                     2, 0x4005, 0x8000, Mission::kEventTouch, 0xFFFF, P, 1, P, 2, kOpSetGlobal, P, 77,
+                                     P, 0xE001, kOpSendSignal, kOpPushSelf, 0x46, kOpEnd, 0x3000, 0x2000, 0x1000};
     std::vector<uint8_t> scriptBytes = makeScriptFile(program);
     MemoryReadStream scriptStream(scriptBytes);
     ScriptFile script;
@@ -777,8 +777,8 @@ static void mission_runs_level_scripts() {
     CHECK(mission.getMissingNatives().empty());
 }
 
-static void mission_items_rest_on_floors() {
-    const uint16_t P = OP_PUSH;
+static void missionItemsRestOnFloors() {
+    const uint16_t P = kOpPush;
     // On the start broadcast: item 8 is dropped at the player, and item 7
     // is told to move, which items ignore.
     std::vector<uint16_t> program = {1,
@@ -786,9 +786,9 @@ static void mission_items_rest_on_floors() {
                                      0x8000,
                                      kEventEnterState,
                                      0xFFFF,
-                                     OP_PUSH_SELF,
+                                     kOpPushSelf,
                                      0x31,
-                                     OP_END,
+                                     kOpEnd,
                                      Mission::kEventStart,
                                      0xFFFF,
                                      P,
@@ -796,7 +796,7 @@ static void mission_items_rest_on_floors() {
                                      P,
                                      0x2008,
                                      0x71,
-                                     OP_PUSH_BLOCK,
+                                     kOpPushBlock,
                                      0,
                                      0,
                                      0,
@@ -806,7 +806,7 @@ static void mission_items_rest_on_floors() {
                                      P,
                                      0x2007,
                                      0x4D,
-                                     OP_END,
+                                     kOpEnd,
                                      0x3000,
                                      0x2000,
                                      0x1000};
@@ -877,7 +877,7 @@ bool loadTestSprites(uint16_t /*number*/, SpriteSet &set) {
 
 } // namespace
 
-static void actors_headings_and_view_directions() {
+static void actorsHeadingsAndViewDirections() {
     CHECK_EQUAL(Actors::headingTowards(0, 1), 0);
     CHECK_EQUAL(Actors::headingTowards(-1, 0), 16384);
     CHECK_EQUAL(Actors::headingTowards(1, 0), 49152);
@@ -912,66 +912,38 @@ static void actors_headings_and_view_directions() {
     CHECK(sprites.empty());
 }
 
-static void actors_take_hits() {
-    const uint16_t P = OP_PUSH;
+static void actorsTakeHits() {
+    const uint16_t P = kOpPush;
     // Actor 1: hit points 10, stun 10; hits above power 11 hurt, above 6
     // stun. Global 0 counts "hurt", global 1 "stunned", global 2 "killed".
-    std::vector<uint16_t> program = {1,
-                                     0xA001,
-                                     0x8000,
-                                     kEventEnterState,
-                                     0xFFFF,
-                                     P,
-                                     10,
-                                     P,
-                                     10,
-                                     P,
-                                     10,
-                                     P,
-                                     10,
-                                     P,
-                                     0,
-                                     P,
-                                     6,
-                                     P,
-                                     11,
-                                     0x41,
-                                     P,
-                                     5,
-                                     OP_PUSH_SELF,
-                                     0xF1,
-                                     OP_END,
-                                     Actors::kEventHurt,
-                                     0xFFFF,
-                                     P,
-                                     0,
-                                     OP_GET_GLOBAL,
-                                     OP_INC,
-                                     P,
-                                     0,
-                                     OP_SET_GLOBAL,
-                                     OP_END,
-                                     Actors::kEventStunned,
-                                     0xFFFF,
-                                     P,
-                                     1,
-                                     OP_GET_GLOBAL,
-                                     OP_INC,
-                                     P,
-                                     1,
-                                     OP_SET_GLOBAL,
-                                     OP_END,
-                                     Actors::kEventKilled,
-                                     0xFFFF,
-                                     P,
-                                     1,
-                                     P,
-                                     2,
-                                     OP_SET_GLOBAL,
-                                     OP_END,
-                                     0x3000,
-                                     0x2000,
-                                     0x1000};
+    std::vector<uint16_t> program = {1,           0xA001,
+                                     0x8000,      kEventEnterState,
+                                     0xFFFF,      P,
+                                     10,          P,
+                                     10,          P,
+                                     10,          P,
+                                     10,          P,
+                                     0,           P,
+                                     6,           P,
+                                     11,          0x41,
+                                     P,           5,
+                                     kOpPushSelf, 0xF1,
+                                     kOpEnd,      Actors::kEventHurt,
+                                     0xFFFF,      P,
+                                     0,           kOpGetGlobal,
+                                     kOpInc,      P,
+                                     0,           kOpSetGlobal,
+                                     kOpEnd,      Actors::kEventStunned,
+                                     0xFFFF,      P,
+                                     1,           kOpGetGlobal,
+                                     kOpInc,      P,
+                                     1,           kOpSetGlobal,
+                                     kOpEnd,      Actors::kEventKilled,
+                                     0xFFFF,      P,
+                                     1,           P,
+                                     2,           kOpSetGlobal,
+                                     kOpEnd,      0x3000,
+                                     0x2000,      0x1000};
     std::vector<uint8_t> scriptBytes = makeScriptFile(program);
     MemoryReadStream scriptStream(scriptBytes);
     ScriptFile script;
@@ -1028,7 +1000,7 @@ std::vector<uint8_t> projectileType(int kind, double unitsPerSecond, int damage,
 
 } // namespace
 
-static void projectiles_fly_and_hit() {
+static void projectilesFlyAndHit() {
     // Type 0: a bolt at 50 units/s; 1: a beam with a 10-sprite trail 0.5
     // apart that throws type 2, a burst of 8 sparks lasting 300 ms, where
     // it hits.
@@ -1092,8 +1064,8 @@ static void projectiles_fly_and_hit() {
     CHECK_EQUAL(reports[0].hit.index, 0xA001);
 }
 
-static void mission_punch() {
-    const uint16_t P = OP_PUSH;
+static void missionPunch() {
+    const uint16_t P = kOpPush;
     // A logic object sets the punch (damage 3, power 9) and counts hit
     // reports for actor 1 (global 0) and misses (global 1); actor 1 stuns
     // above power 6 and records being stunned in global 2.
@@ -1102,7 +1074,7 @@ static void mission_punch() {
                                      0x8000,
                                      kEventEnterState,
                                      0xFFFF,
-                                     OP_PUSH_SELF,
+                                     kOpPushSelf,
                                      0x31,
                                      P,
                                      0,
@@ -1123,29 +1095,29 @@ static void mission_punch() {
                                      P,
                                      0xFFFF,
                                      0xC4,
-                                     OP_END,
+                                     kOpEnd,
                                      Mission::kEventHitReport,
                                      0xFFFF,
                                      P,
                                      0xA001,
-                                     OP_IF_EQ,
+                                     kOpIfEq,
                                      P,
                                      0,
-                                     OP_GET_GLOBAL,
-                                     OP_INC,
+                                     kOpGetGlobal,
+                                     kOpInc,
                                      P,
                                      0,
-                                     OP_SET_GLOBAL,
-                                     OP_ELSE,
+                                     kOpSetGlobal,
+                                     kOpElse,
                                      P,
                                      1,
-                                     OP_GET_GLOBAL,
-                                     OP_INC,
+                                     kOpGetGlobal,
+                                     kOpInc,
                                      P,
                                      1,
-                                     OP_SET_GLOBAL,
-                                     OP_ENDIF,
-                                     OP_END,
+                                     kOpSetGlobal,
+                                     kOpEndif,
+                                     kOpEnd,
                                      0x3000,
                                      0x2000,
                                      1,
@@ -1168,15 +1140,15 @@ static void mission_punch() {
                                      P,
                                      11,
                                      0x41,
-                                     OP_END,
+                                     kOpEnd,
                                      Actors::kEventStunned,
                                      0xFFFF,
                                      P,
                                      1,
                                      P,
                                      2,
-                                     OP_SET_GLOBAL,
-                                     OP_END,
+                                     kOpSetGlobal,
+                                     kOpEnd,
                                      0x3000,
                                      0x2000,
                                      0x1000};
@@ -1216,8 +1188,8 @@ static void mission_punch() {
     CHECK(mission.getMissingNatives().empty());
 }
 
-static void mission_flow() {
-    const uint16_t P = OP_PUSH;
+static void missionFlow() {
+    const uint16_t P = kOpPush;
     // A logic object as verid1's e001: on the start (event 6) it sets two
     // objectives (bits 2 and 4) and runs the briefing transition, 100 ms a
     // phase; when that ends (event 7) it marks global 0. Event 8 (all done)
@@ -1228,68 +1200,68 @@ static void mission_flow() {
                                      0x8000,
                                      kEventEnterState,
                                      0xFFFF,
-                                     OP_PUSH_SELF,
+                                     kOpPushSelf,
                                      0x31,
-                                     OP_END,
+                                     kOpEnd,
                                      Mission::kEventStart,
                                      0xFFFF,
-                                     OP_PUSH32,
+                                     kOpPush32,
                                      6,
                                      0,
                                      0x99,
-                                     OP_PUSH32,
+                                     kOpPush32,
                                      100,
                                      0,
-                                     OP_PUSH32,
+                                     kOpPush32,
                                      100,
                                      0,
-                                     OP_PUSH32,
+                                     kOpPush32,
                                      100,
                                      0,
                                      0x91,
-                                     OP_END,
+                                     kOpEnd,
                                      Mission::kEventBriefingDone,
                                      0xFFFF,
                                      P,
                                      1,
                                      P,
                                      0,
-                                     OP_SET_GLOBAL,
-                                     OP_END,
+                                     kOpSetGlobal,
+                                     kOpEnd,
                                      Mission::kEventObjectivesDone,
                                      0xFFFF,
                                      P,
                                      1,
                                      P,
                                      1,
-                                     OP_SET_GLOBAL,
-                                     OP_PUSH32,
+                                     kOpSetGlobal,
+                                     kOpPush32,
                                      100,
                                      0,
-                                     OP_PUSH32,
+                                     kOpPush32,
                                      100,
                                      0,
-                                     OP_PUSH32,
+                                     kOpPush32,
                                      100,
                                      0,
                                      0x92,
-                                     OP_END,
+                                     kOpEnd,
                                      Mission::kEventSignal,
                                      0xFFFF,
                                      P,
                                      1,
-                                     OP_IF_EQ,
-                                     OP_PUSH32,
+                                     kOpIfEq,
+                                     kOpPush32,
                                      4,
                                      0,
                                      0x9A,
-                                     OP_ELSE,
-                                     OP_PUSH32,
+                                     kOpElse,
+                                     kOpPush32,
                                      2,
                                      0,
                                      0x9A,
-                                     OP_ENDIF,
-                                     OP_END,
+                                     kOpEndif,
+                                     kOpEnd,
                                      0x3000,
                                      0x2000,
                                      0x1000};
@@ -1376,77 +1348,28 @@ static void mission_flow() {
     CHECK(mission.getMissingNatives().empty());
 }
 
-static void mission_player_settings() {
-    const uint16_t P = OP_PUSH;
+static void missionPlayerSettings() {
+    const uint16_t P = kOpPush;
     // verid1's start-up settings: a cutscene freeze (speed 0, the rest
     // kept), gravity 80 with the third value kept, map zooms of 1, 2 and
     // 4 pixels a unit, and an item that is greyed out and given icon 8.
-    std::vector<uint16_t> program = {1,
-                                     0xE001,
-                                     0x8000,
-                                     kEventEnterState,
-                                     0xFFFF,
-                                     OP_PUSH32,
-                                     1,
-                                     0x8000,
-                                     P,
-                                     0x8000,
-                                     P,
-                                     0x8000,
-                                     OP_PUSH32,
-                                     0,
-                                     0x8000,
-                                     P,
-                                     0x8000,
-                                     P,
-                                     0x8000,
-                                     OP_PUSH32,
-                                     0,
-                                     0,
-                                     0xB2,
-                                     OP_PUSH32,
-                                     0,
-                                     0x8000,
-                                     OP_PUSH32,
-                                     0,
-                                     0x8000,
-                                     OP_PUSH32,
-                                     0,
-                                     80,
-                                     0xA3,
-                                     P,
-                                     15,
-                                     P,
-                                     2,
-                                     P,
-                                     15,
-                                     P,
-                                     1,
-                                     P,
-                                     16,
-                                     P,
-                                     1,
-                                     0xC8,
-                                     P,
-                                     0,
-                                     P,
-                                     0xE001,
-                                     0xD7,
-                                     P,
-                                     0,
-                                     P,
-                                     1,
-                                     P,
-                                     0xE001,
-                                     0x82,
-                                     P,
-                                     8,
-                                     OP_PUSH_SELF,
-                                     0x83,
-                                     OP_END,
-                                     0x3000,
-                                     0x2000,
-                                     0x1000};
+    std::vector<uint16_t> program = {1,           0xE001,    0x8000,    kEventEnterState,
+                                     0xFFFF,      kOpPush32, 1,         0x8000,
+                                     P,           0x8000,    P,         0x8000,
+                                     kOpPush32,   0,         0x8000,    P,
+                                     0x8000,      P,         0x8000,    kOpPush32,
+                                     0,           0,         0xB2,      kOpPush32,
+                                     0,           0x8000,    kOpPush32, 0,
+                                     0x8000,      kOpPush32, 0,         80,
+                                     0xA3,        P,         15,        P,
+                                     2,           P,         15,        P,
+                                     1,           P,         16,        P,
+                                     1,           0xC8,      P,         0,
+                                     P,           0xE001,    0xD7,      P,
+                                     0,           P,         1,         P,
+                                     0xE001,      0x82,      P,         8,
+                                     kOpPushSelf, 0x83,      kOpEnd,    0x3000,
+                                     0x2000,      0x1000};
     std::vector<uint8_t> scriptBytes = makeScriptFile(program);
     MemoryReadStream scriptStream(scriptBytes);
     ScriptFile script;
@@ -1472,7 +1395,7 @@ static void mission_player_settings() {
     CHECK(mission.getMissingNatives().empty());
 }
 
-static void movers_open_and_close() {
+static void moversOpenAndClose() {
     // A door across a room, sliding up (mode 6): mover 5, opening in about
     // a second (speed 25600), closing after about one (wait 256), the door
     // its own button, and reversing when it meets the player.
@@ -1532,7 +1455,7 @@ static void movers_open_and_close() {
     CHECK(notices.empty());
 }
 
-static void walker_fits_a_gap_its_width() {
+static void walkerFitsAGapItsWidth() {
     // enterp's archways are exactly as wide as its player (width 3): two
     // walls across a corridor with a 3-unit gap between their ends.
     LevelBuilder builder;
@@ -1562,7 +1485,7 @@ static void walker_fits_a_gap_its_width() {
     CHECK(walker2.getY() < 20);
 }
 
-static void walker_line_of_sight() {
+static void walkerLineOfSight() {
     LevelFile level;
     CHECK(loadLevel(level, makeRoom(12).build()));
     Walker walker(level);
@@ -1574,7 +1497,7 @@ static void walker_line_of_sight() {
     CHECK(!walker.lineOfSight(5, 5, 0, 6, 5, 6, ~0ull));   // too steep
 }
 
-static void actors_walk_and_block() {
+static void actorsWalkAndBlock() {
     LevelBuilder builder;
     builder.addFloor(0, 0, 40, 40, 0);
     builder.addActor(1, 10, 10, 0, Actors::kModeWalkTo, 49152); // facing +x
@@ -1624,7 +1547,7 @@ static void actors_walk_and_block() {
     CHECK_EQUAL(actors.getObstacleObject(player.getContactObstacle()), 0xA002);
 }
 
-static void actors_wander_about_what_they_guard() {
+static void actorsWanderAboutWhatTheyGuard() {
     LevelBuilder builder;
     builder.addFloor(-40, -40, 80, 80, 0);
     builder.addActor(1, 10, 10, 0, Actors::kModeWander, 0);
@@ -1680,46 +1603,45 @@ static void actors_wander_about_what_they_guard() {
     CHECK(closest(10, 10) < 4);
 }
 
-static const reluva::test::Suite
-    suite("stgenerations.unit.level",
-          {
-              {"level tables", [](const std::filesystem::path &) { level_tables(); }},
-              {"level texture is column major", [](const std::filesystem::path &) { level_texture_is_column_major(); }},
-              {"level rejects bad files", [](const std::filesystem::path &) { level_rejects_bad_files(); }},
-              {"level map draws sectors", [](const std::filesystem::path &) { level_map_draws_sectors(); }},
-              {"level surfaces billboards and sky",
-               [](const std::filesystem::path &) { level_surfaces_billboards_and_sky(); }},
-              {"level sky size when the header does not fit",
-               [](const std::filesystem::path &) { level_sky_size_when_the_header_does_not_fit(); }},
-              {"level renderer draws floor wall and sky",
-               [](const std::filesystem::path &) { level_renderer_draws_floor_wall_and_sky(); }},
-              {"level renderer wall sides and mirroring",
-               [](const std::filesystem::path &) { level_renderer_wall_sides_and_mirroring(); }},
-              {"level light levels", [](const std::filesystem::path &) { level_light_levels(); }},
-              {"level shade tables", [](const std::filesystem::path &) { level_shade_tables(); }},
-              {"level blend table", [](const std::filesystem::path &) { level_blend_table(); }},
-              {"level renderer lighting", [](const std::filesystem::path &) { level_renderer_lighting(); }},
-              {"level renderer draws only visible zones",
-               [](const std::filesystem::path &) { level_renderer_draws_only_visible_zones(); }},
-              {"walker stops at walls", [](const std::filesystem::path &) { walker_stops_at_walls(); }},
-              {"walker wall sides heights and zones",
-               [](const std::filesystem::path &) { walker_wall_sides_heights_and_zones(); }},
-              {"walker steps up and falls", [](const std::filesystem::path &) { walker_steps_up_and_falls(); }},
-              {"walker steps down jumps and passes through",
-               [](const std::filesystem::path &) { walker_steps_down_jumps_and_passes_through(); }},
-              {"mission runs level scripts", [](const std::filesystem::path &) { mission_runs_level_scripts(); }},
-              {"mission items rest on floors", [](const std::filesystem::path &) { mission_items_rest_on_floors(); }},
-              {"actors headings and view directions",
-               [](const std::filesystem::path &) { actors_headings_and_view_directions(); }},
-              {"actors take hits", [](const std::filesystem::path &) { actors_take_hits(); }},
-              {"projectiles fly and hit", [](const std::filesystem::path &) { projectiles_fly_and_hit(); }},
-              {"mission punch", [](const std::filesystem::path &) { mission_punch(); }},
-              {"mission flow", [](const std::filesystem::path &) { mission_flow(); }},
-              {"mission player settings", [](const std::filesystem::path &) { mission_player_settings(); }},
-              {"movers open and close", [](const std::filesystem::path &) { movers_open_and_close(); }},
-              {"walker fits a gap its width", [](const std::filesystem::path &) { walker_fits_a_gap_its_width(); }},
-              {"walker line of sight", [](const std::filesystem::path &) { walker_line_of_sight(); }},
-              {"actors walk and block", [](const std::filesystem::path &) { actors_walk_and_block(); }},
-              {"actors wander about what they guard",
-               [](const std::filesystem::path &) { actors_wander_about_what_they_guard(); }},
-          });
+static const reluva::test::Suite kSuite(
+    "stgenerations.unit.level",
+    {
+        {"level tables", [](const std::filesystem::path &) { levelTables(); }},
+        {"level texture is column major", [](const std::filesystem::path &) { levelTextureIsColumnMajor(); }},
+        {"level rejects bad files", [](const std::filesystem::path &) { levelRejectsBadFiles(); }},
+        {"level map draws sectors", [](const std::filesystem::path &) { levelMapDrawsSectors(); }},
+        {"level surfaces billboards and sky", [](const std::filesystem::path &) { levelSurfacesBillboardsAndSky(); }},
+        {"level sky size when the header does not fit",
+         [](const std::filesystem::path &) { levelSkySizeWhenTheHeaderDoesNotFit(); }},
+        {"level renderer draws floor wall and sky",
+         [](const std::filesystem::path &) { levelRendererDrawsFloorWallAndSky(); }},
+        {"level renderer wall sides and mirroring",
+         [](const std::filesystem::path &) { levelRendererWallSidesAndMirroring(); }},
+        {"level light levels", [](const std::filesystem::path &) { levelLightLevels(); }},
+        {"level shade tables", [](const std::filesystem::path &) { levelShadeTables(); }},
+        {"level blend table", [](const std::filesystem::path &) { levelBlendTable(); }},
+        {"level renderer lighting", [](const std::filesystem::path &) { levelRendererLighting(); }},
+        {"level renderer draws only visible zones",
+         [](const std::filesystem::path &) { levelRendererDrawsOnlyVisibleZones(); }},
+        {"walker stops at walls", [](const std::filesystem::path &) { walkerStopsAtWalls(); }},
+        {"walker wall sides heights and zones",
+         [](const std::filesystem::path &) { walkerWallSidesHeightsAndZones(); }},
+        {"walker steps up and falls", [](const std::filesystem::path &) { walkerStepsUpAndFalls(); }},
+        {"walker steps down jumps and passes through",
+         [](const std::filesystem::path &) { walkerStepsDownJumpsAndPassesThrough(); }},
+        {"mission runs level scripts", [](const std::filesystem::path &) { missionRunsLevelScripts(); }},
+        {"mission items rest on floors", [](const std::filesystem::path &) { missionItemsRestOnFloors(); }},
+        {"actors headings and view directions",
+         [](const std::filesystem::path &) { actorsHeadingsAndViewDirections(); }},
+        {"actors take hits", [](const std::filesystem::path &) { actorsTakeHits(); }},
+        {"projectiles fly and hit", [](const std::filesystem::path &) { projectilesFlyAndHit(); }},
+        {"mission punch", [](const std::filesystem::path &) { missionPunch(); }},
+        {"mission flow", [](const std::filesystem::path &) { missionFlow(); }},
+        {"mission player settings", [](const std::filesystem::path &) { missionPlayerSettings(); }},
+        {"movers open and close", [](const std::filesystem::path &) { moversOpenAndClose(); }},
+        {"walker fits a gap its width", [](const std::filesystem::path &) { walkerFitsAGapItsWidth(); }},
+        {"walker line of sight", [](const std::filesystem::path &) { walkerLineOfSight(); }},
+        {"actors walk and block", [](const std::filesystem::path &) { actorsWalkAndBlock(); }},
+        {"actors wander about what they guard",
+         [](const std::filesystem::path &) { actorsWanderAboutWhatTheyGuard(); }},
+    });

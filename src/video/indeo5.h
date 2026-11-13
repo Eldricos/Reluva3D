@@ -22,8 +22,8 @@ public:
     Indeo5Decoder();
     // Decodes a frame. An empty one (a dropped frame) keeps the picture.
     Error decode(const uint8_t *data, size_t size);
-    int width() const { return planes_[0].width; }
-    int height() const { return planes_[0].height; }
+    int width() const { return _planes[0].width; }
+    int height() const { return _planes[0].height; }
     // The picture: luma, then the two chroma planes (Cb, Cr), each
     // width × height bytes, 0..255.
     void yuv(std::vector<uint8_t> &y, std::vector<uint8_t> &cb, std::vector<uint8_t> &cr) const;
@@ -41,7 +41,7 @@ private:
         std::vector<Macroblock> mbs;
         const std::vector<Macroblock> *ref = nullptr; // the first luma band's, for inheriting
     };
-    enum class Transform : uint8_t { Slant8x8, RowSlant8, ColSlant8, Put8x8, Slant4x4 };
+    enum class Transform : uint8_t { kSlant8x8, kRowSlant8, kColSlant8, kPut8x8, kSlant4x4 };
     struct Band {
         int plane = 0, number = 0;
         int width = 0, height = 0, pitch = 0, alignedHeight = 0;
@@ -51,7 +51,7 @@ private:
         int mbSize = 16, blkSize = 8;
         bool halfPel = false, inheritMv = false, inheritQDelta = false, qDeltaPresent = false;
         int globalQuant = 0;
-        Transform transform = Transform::Slant8x8;
+        Transform transform = Transform::kSlant8x8;
         const uint8_t *scan = nullptr;
         const uint16_t *intraBase = nullptr, *interBase = nullptr;
         const uint8_t *intraScale = nullptr, *interScale = nullptr;
@@ -79,16 +79,16 @@ private:
     void output(int plane, std::vector<uint8_t> &out) const;
     void recompose53(std::vector<uint8_t> &out) const;
 
-    std::array<Plane, 3> planes_;
-    int frameType_ = 0, prevFrameType_ = 0;
-    int frameFlags_ = 0, gopFlags_ = 0;
-    bool gopValid_ = false, scalable_ = false, interScalable_ = false;
-    int lumaBands_ = 1, chromaBands_ = 1, tileSize_ = 0;
-    int bufSwitch_ = 0, dstBuf_ = 0, refBuf_ = 1, ref2Buf_ = 2;
-    bool decoded_ = false; // a picture is ready
-    int mbCodebook_ = 7;   // as Band::codebook, for macroblock signals
-    std::array<uint8_t, 16> mbOwnCodebook_{};
-    int mbOwnRows_ = 0;
+    std::array<Plane, 3> _planes;
+    int _frameType = 0, _prevFrameType = 0;
+    int _frameFlags = 0, _gopFlags = 0;
+    bool _gopValid = false, _scalable = false, _interScalable = false;
+    int _lumaBands = 1, _chromaBands = 1, _tileSize = 0;
+    int _bufSwitch = 0, _dstBuf = 0, _refBuf = 1, _ref2Buf = 2;
+    bool _decoded = false; // a picture is ready
+    int _mbCodebook = 7;   // as Band::codebook, for macroblock signals
+    std::array<uint8_t, 16> _mbOwnCodebook{};
+    int _mbOwnRows = 0;
 };
 
 } // namespace reluva::video

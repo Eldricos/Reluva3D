@@ -15,12 +15,12 @@ namespace reluva::newworlds {
 // What a briefing step shows behind its page (see
 // docs/engines/newworlds/play.md).
 enum class BriefingView {
-    Galaxy,     // the Tabula Rasa galaxy
-    StarSystem, // the mission's star system
-    Ground,     // the map, from the ground
-    Relief,     // the map as the relief grid
-    Model,      // a building or ship turning on a grid
-    Emblem,     // the side's emblem
+    kGalaxy,     // the Tabula Rasa galaxy
+    kStarSystem, // the mission's star system
+    kGround,     // the map, from the ground
+    kRelief,     // the map as the relief grid
+    kModel,      // a building or ship turning on a grid
+    kEmblem,     // the side's emblem
 };
 
 // One step of a mission's briefing: a voice clip (its stem, e.g. "K1005";
@@ -29,7 +29,7 @@ enum class BriefingView {
 struct BriefingStep {
     std::string clip;
     uint32_t page = 0;
-    BriefingView view = BriefingView::Emblem;
+    BriefingView view = BriefingView::kEmblem;
     // For a map view, the place it looks at: a map position as the game
     // gives them (eighths of a block, row first), or -1 for the whole map.
     int siteA = -1, siteB = -1;

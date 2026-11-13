@@ -212,20 +212,20 @@ void OptionsMenu::mouseUp(int x, int y) {
 void OptionsMenu::keyDown(const KeyState &key) {
     if (_captureCell >= 0) {
         // The original takes Escape as a key here too; this lets it cancel.
-        if (key.keycode == reluva::key::Escape)
+        if (key.keycode == reluva::key::kEscape)
             _captureCell = -1;
         else
             assignKey(KeyMap::virtualKey(key.keycode));
         return;
     }
-    if (key.keycode == reluva::key::Escape) {
+    if (key.keycode == reluva::key::kEscape) {
         if (_panel != kPanelMain)
             cancel();
         else if (_canReturn)
             click(kReturnButton);
         return;
     }
-    if (key.keycode == reluva::key::Return) {
+    if (key.keycode == reluva::key::kReturn) {
         if (_panel != kPanelMain)
             accept();
         else if (_canReturn)
@@ -233,7 +233,7 @@ void OptionsMenu::keyDown(const KeyState &key) {
         return;
     }
     if (_panel == kPanelSave && _selected >= 0) {
-        if (key.keycode == reluva::key::Backspace) {
+        if (key.keycode == reluva::key::kBackspace) {
             if (!_editName.empty())
                 _editName.pop_back();
         } else if (key.ascii >= 32 && key.ascii < 127 && (int)_editName.size() < kMaxNameLength &&

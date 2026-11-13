@@ -71,19 +71,19 @@ struct Probe {
 
 class Scene {
 public:
-    explicit Scene(gfx::Renderer3D &r) : r_(r) {}
+    explicit Scene(gfx::Renderer3D &r) : _r(r) {}
     ~Scene() {
-        for (gfx::MeshId m : meshes_)
-            r_.destroyMesh(m);
-        for (gfx::TextureId t : textures_)
-            r_.destroyTexture(t);
+        for (gfx::MeshId m : _meshes)
+            _r.destroyMesh(m);
+        for (gfx::TextureId t : _textures)
+            _r.destroyTexture(t);
     }
 
     gfx::TextureId texture(int w, int h, const std::vector<Rgba> &pixels, gfx::TextureParams params) {
         gfx::TextureId id = 0;
-        if (Error err = r_.createTexture(w, h, reinterpret_cast<const uint8_t *>(pixels.data()), params, id))
+        if (Error err = _r.createTexture(w, h, reinterpret_cast<const uint8_t *>(pixels.data()), params, id))
             std::fprintf(stderr, "createTexture: %s\n", err.message.c_str());
-        textures_.push_back(id);
+        _textures.push_back(id);
         return id;
     }
 
@@ -122,9 +122,9 @@ public:
 
     gfx::MeshId mesh(const std::vector<gfx::Vertex> &v, const std::vector<uint32_t> &idx) {
         gfx::MeshId id = 0;
-        if (Error err = r_.createMesh(v, idx, id))
+        if (Error err = _r.createMesh(v, idx, id))
             std::fprintf(stderr, "createMesh: %s\n", err.message.c_str());
-        meshes_.push_back(id);
+        _meshes.push_back(id);
         return id;
     }
 
@@ -134,15 +134,15 @@ public:
         gfx::DrawCall c;
         c.mesh = mesh;
         c.indexCount = indices;
-        c.rgbSource = c.alphaSource = gfx::ColorSource::Vertex;
-        c.state.cull = gfx::Cull::None;
+        c.rgbSource = c.alphaSource = gfx::ColorSource::kVertex;
+        c.state.cull = gfx::Cull::kNone;
         return c;
     }
 
 private:
-    gfx::Renderer3D &r_;
-    std::vector<gfx::MeshId> meshes_;
-    std::vector<gfx::TextureId> textures_;
+    gfx::Renderer3D &_r;
+    std::vector<gfx::MeshId> _meshes;
+    std::vector<gfx::TextureId> _textures;
 };
 
 constexpr Rgba kRed{255, 0, 0, 255}, kGreen{0, 255, 0, 255}, kBlue{0, 0, 255, 255}, kWhite{255, 255, 255, 255},
@@ -204,7 +204,7 @@ void drawFrame(gfx::Renderer3D &r, Scene &s) {
         const gfx::TextureId t = s.texture(2, 2, {kRed, kGreen, kBlue, kWhite}, p);
         gfx::DrawCall c = Scene::call(s.quad(cx(0), cy(0), cx(1), cy(1), 0.5f, kWhite));
         c.texture = t;
-        c.rgbSource = c.alphaSource = gfx::ColorSource::Constant;
+        c.rgbSource = c.alphaSource = gfx::ColorSource::kConstant;
         r.draw(c);
     }
     // (1,0) Vertex colours, blended across.
@@ -213,8 +213,8 @@ void drawFrame(gfx::Renderer3D &r, Scene &s) {
     {
         r.draw(Scene::call(s.quad(cx(2), cy(0), cx(3), cy(1), 0.5f, kGrey)));
         gfx::DrawCall c = Scene::call(s.quad(cx(2), cy(0), cx(2) + 40, cy(1), 0.4f, Rgba{128, 64, 0, 255}));
-        c.state.src = Blend::One;
-        c.state.dst = Blend::One;
+        c.state.src = Blend::kOne;
+        c.state.dst = Blend::kOne;
         c.state.depthWrite = false;
         r.draw(c);
     }
@@ -222,10 +222,10 @@ void drawFrame(gfx::Renderer3D &r, Scene &s) {
     {
         r.draw(Scene::call(s.quad(cx(3), cy(0), cx(4), cy(1), 0.5f, kBlue)));
         gfx::DrawCall c = Scene::call(s.quad(cx(3), cy(0), cx(4), cy(1), 0.4f, kWhite));
-        c.rgbSource = c.alphaSource = gfx::ColorSource::Constant;
+        c.rgbSource = c.alphaSource = gfx::ColorSource::kConstant;
         c.color = {1, 1, 1, 0.5f};
-        c.state.src = Blend::SrcAlpha;
-        c.state.dst = Blend::OneMinusSrcAlpha;
+        c.state.src = Blend::kSrcAlpha;
+        c.state.dst = Blend::kOneMinusSrcAlpha;
         c.state.depthWrite = false;
         r.draw(c);
     }
@@ -240,8 +240,8 @@ void drawFrame(gfx::Renderer3D &r, Scene &s) {
         const gfx::TextureId t = s.texture(2, 1, {Rgba{255, 255, 0, 255}, Rgba{0, 255, 255, 0}}, p);
         gfx::DrawCall c = Scene::call(s.quad(cx(0), cy(1), cx(1), cy(2), 0.4f, kWhite));
         c.texture = t;
-        c.rgbSource = c.alphaSource = gfx::ColorSource::Constant;
-        c.state.alphaTest = gfx::AlphaTest::Ge128;
+        c.rgbSource = c.alphaSource = gfx::ColorSource::kConstant;
+        c.state.alphaTest = gfx::AlphaTest::kGe128;
         r.draw(c);
     }
     // (1,1) Depth: a nearer red left half drawn first, then a farther green
@@ -252,8 +252,8 @@ void drawFrame(gfx::Renderer3D &r, Scene &s) {
         gfx::DrawCall c = Scene::call(s.quad(cx(1), cy(1) + 40, cx(2), cy(2), 0.2f, kBlue));
         c.state.depthEqual = true;
         c.state.depthWrite = false;
-        c.state.src = Blend::One;
-        c.state.dst = Blend::One;
+        c.state.src = Blend::kOne;
+        c.state.dst = Blend::kOne;
         r.draw(c);
     }
     // (2,1) Culling of back faces: the same triangles wound both ways.
@@ -264,7 +264,7 @@ void drawFrame(gfx::Renderer3D &r, Scene &s) {
             Scene::call(s.triangle({x + 4, y + 10, 0.5f}, {x + 36, y + 10, 0.5f}, {x + 4, y + 70, 0.5f}, kGreen), 3);
         gfx::DrawCall b =
             Scene::call(s.triangle({x + 44, y + 10, 0.5f}, {x + 44, y + 70, 0.5f}, {x + 76, y + 10, 0.5f}, kRed), 3);
-        a.state.cull = b.state.cull = gfx::Cull::Back;
+        a.state.cull = b.state.cull = gfx::Cull::kBack;
         r.draw(a);
         r.draw(b);
     }
@@ -276,8 +276,8 @@ void drawFrame(gfx::Renderer3D &r, Scene &s) {
             gfx::DrawCall c =
                 Scene::call(s.quad(cx(3) + 40.0f * float(half), cy(1), cx(3) + 40.0f * float(half + 1), cy(2), 0.5f,
                                    {kWhite, kWhite, kWhite, kWhite}, 0, 0, 1, 1, false, normal));
-            c.rgbSource = gfx::ColorSource::Lighting;
-            c.alphaSource = gfx::ColorSource::Constant;
+            c.rgbSource = gfx::ColorSource::kLighting;
+            c.alphaSource = gfx::ColorSource::kConstant;
             c.ambientLight = {0.2f, 0.2f, 0.2f};
             c.directedLight = {0.6f, 0.6f, 0.6f};
             c.lightDirection = {0, 0, 1};
@@ -295,7 +295,7 @@ void drawFrame(gfx::Renderer3D &r, Scene &s) {
         gfx::DrawCall c =
             Scene::call(s.quad(cx(0), cy(2), cx(1), cy(3), 0.5f, {kWhite, kWhite, kWhite, kWhite}, 0, 0, 8, 8));
         c.texture = t;
-        c.rgbSource = c.alphaSource = gfx::ColorSource::Constant;
+        c.rgbSource = c.alphaSource = gfx::ColorSource::kConstant;
         r.draw(c);
     }
     // (1,2) Texture coordinate rows: the four-colour texture shifted half
@@ -308,27 +308,27 @@ void drawFrame(gfx::Renderer3D &r, Scene &s) {
         const gfx::TextureId t = s.texture(2, 2, {kRed, kGreen, kBlue, kWhite}, p);
         gfx::DrawCall c = Scene::call(s.quad(cx(1), cy(2), cx(2), cy(3), 0.5f, kWhite));
         c.texture = t;
-        c.rgbSource = c.alphaSource = gfx::ColorSource::Constant;
+        c.rgbSource = c.alphaSource = gfx::ColorSource::kConstant;
         c.postRow0 = {1, 0, 0.5f};
         r.draw(c);
     }
     // (2,2) The stencil: the middle marked (drawn red), then green drawn
     // over the whole cell only inside the mark.
     if (r.hasStencil()) {
-        r.setStencilMode(gfx::Renderer3D::StencilMode::Mark);
+        r.setStencilMode(gfx::Renderer3D::StencilMode::kMark);
         r.draw(Scene::call(s.quad(cx(2) + 20, cy(2) + 20, cx(2) + 60, cy(2) + 60, 0.5f, kRed)));
-        r.setStencilMode(gfx::Renderer3D::StencilMode::Inside);
+        r.setStencilMode(gfx::Renderer3D::StencilMode::kInside);
         gfx::DrawCall c = Scene::call(s.quad(cx(2), cy(2), cx(3), cy(3), 0.1f, kGreen));
         r.draw(c);
-        r.setStencilMode(gfx::Renderer3D::StencilMode::None);
+        r.setStencilMode(gfx::Renderer3D::StencilMode::kNone);
     }
     // (3,2) A vertex deform: a quad over the left 30 pixels moved 30 to the
     // right (by a constant wave).
     {
         gfx::DrawCall c = Scene::call(s.quad(cx(3), cy(2), cx(3) + 30, cy(3), 0.5f, kBlue));
-        c.deforms[0].type = gfx::Deform::Type::Move;
+        c.deforms[0].type = gfx::Deform::Type::kMove;
         c.deforms[0].vector = {30, 0, 0};
-        c.deforms[0].wave = {gfx::WaveFunc::Sin, 1, 0, 0, 0};
+        c.deforms[0].wave = {gfx::WaveFunc::kSin, 1, 0, 0, 0};
         r.draw(c);
     }
 }

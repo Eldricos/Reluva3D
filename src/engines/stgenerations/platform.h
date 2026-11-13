@@ -46,7 +46,7 @@ enum EventType {
 enum { kKbdCtrl = 1 << 0, kKbdAlt = 1 << 1, kKbdShift = 1 << 2 };
 
 struct KeyState {
-    uint32_t keycode = key::Unknown; // common/events.h codes
+    uint32_t keycode = key::kUnknown; // common/events.h codes
     // The character typed, while text input is on (Platform::setTextInput),
     // for printable keys; Backspace, Tab, Return and Escape always.
     uint16_t ascii = 0;
@@ -74,15 +74,15 @@ public:
     // (GameTarget::savePath).
     Platform(System &system, audio::Mixer *mixer, std::filesystem::path saveDir);
 
-    System &system() { return system_; }
+    System &system() { return _system; }
 
     // --- The screen -------------------------------------------------------
     // The screen's size and colours: 8-bit with a palette, or true colour
     // (0xAARRGGBB). Its pixels are kept until the next updateScreen().
     void initSize(int width, int height, Canvas::Format format = Canvas::kClut8);
-    int getWidth() const { return screen_.w; }
-    int getHeight() const { return screen_.h; }
-    bool isTrueColour() const { return !screen_.isClut8(); }
+    int getWidth() const { return _screen.w; }
+    int getHeight() const { return _screen.h; }
+    bool isTrueColour() const { return !_screen.isClut8(); }
     // `num` RGB triplets from `start`, 8 bits per channel.
     void setPalette(const uint8_t *colors, unsigned start, unsigned num);
     void grabPalette(uint8_t *colors, unsigned start, unsigned num) const;
@@ -91,7 +91,7 @@ public:
     void updateScreen();
     void setWindowCaption(const std::string &caption);
     // The frames shown, for tests.
-    const Canvas &screen() const { return screen_; }
+    const Canvas &screen() const { return _screen; }
 
     // --- The mouse pointer ------------------------------------------------
     // Returns whether it was shown.
@@ -104,31 +104,31 @@ public:
     // --- Input ------------------------------------------------------------
     // The next event; false when none is pending.
     bool pollEvent(Event &event);
-    void pushEvent(const Event &event) { queue_.push_back(event); }
-    Point getMousePos() const { return mouse_; }
+    void pushEvent(const Event &event) { _queue.push_back(event); }
+    Point getMousePos() const { return _mouse; }
     // Bit 0: left, bit 1: right, bit 2: middle.
-    int getButtonState() const { return buttons_; }
-    int getModifierState() const { return modifiers_; }
+    int getButtonState() const { return _buttons; }
+    int getModifierState() const { return _modifiers; }
     // Typed characters arrive in KeyState::ascii (for names typed in).
     void setTextInput(bool on);
     // The player closed the window or went back to the launcher.
-    bool shouldQuit() const { return quit_; }
-    void quitGame() { quit_ = true; }
+    bool shouldQuit() const { return _quit; }
+    void quitGame() { _quit = true; }
 
     // --- Time -------------------------------------------------------------
     uint32_t getMillis() const;
     void delayMillis(uint32_t ms);
 
     // --- Sound ------------------------------------------------------------
-    audio::Mixer *getMixer() { return mixer_; }
+    audio::Mixer *getMixer() { return _mixer; }
     // Whether the mixer is heard: without a sound device nothing pulls it,
     // so the game plays nothing (as STG-Engine's mixer, not ready, did).
-    void setSoundOutput(bool on) { soundOutput_ = on; }
-    bool hasSoundOutput() const { return soundOutput_; }
+    void setSoundOutput(bool on) { _soundOutput = on; }
+    bool hasSoundOutput() const { return _soundOutput; }
 
     // --- Saves and settings -----------------------------------------------
     // The game's own folder for its files (made when written to).
-    const std::filesystem::path &saveDir() const { return saveDir_; }
+    const std::filesystem::path &saveDir() const { return _saveDir; }
     // A file of it read whole into a stream; nullptr if it isn't there.
     std::unique_ptr<SeekableReadStream> openForLoading(const std::string &name) const;
     // Written whole, made with the folder if needed; false if it can't be.
@@ -143,28 +143,28 @@ private:
     Point clampToScreen(int x, int y) const;
     bool translate(const reluva::Event &in, Event &out);
 
-    System &system_;
-    audio::Mixer *mixer_;
-    std::filesystem::path saveDir_;
-    Canvas screen_;
-    Surface frame_; // screen_ as the System takes it
-    Palette palette_;
-    bool graphics_ = false;
+    System &_system;
+    audio::Mixer *_mixer;
+    std::filesystem::path _saveDir;
+    Canvas _screen;
+    Surface _frame; // screen_ as the System takes it
+    Palette _palette;
+    bool _graphics = false;
 
     // The game's pointer, as it gave it, and shown or not.
-    Canvas cursorImage_;
-    int cursorHotX_ = 0, cursorHotY_ = 0;
-    uint32_t cursorKey_ = 0;
-    bool cursorSet_ = false;
-    bool mouseVisible_ = true;
+    Canvas _cursorImage;
+    int _cursorHotX = 0, _cursorHotY = 0;
+    uint32_t _cursorKey = 0;
+    bool _cursorSet = false;
+    bool _mouseVisible = true;
 
-    std::deque<Event> queue_;
-    Point mouse_;
-    int buttons_ = 0;
-    int modifiers_ = 0;
-    bool textInput_ = false;
-    bool soundOutput_ = true;
-    bool quit_ = false;
+    std::deque<Event> _queue;
+    Point _mouse;
+    int _buttons = 0;
+    int _modifiers = 0;
+    bool _textInput = false;
+    bool _soundOutput = true;
+    bool _quit = false;
 };
 
 } // namespace reluva::stgenerations

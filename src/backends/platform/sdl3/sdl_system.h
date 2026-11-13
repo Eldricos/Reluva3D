@@ -25,12 +25,12 @@ public:
     Error init();
 
     // Used by the launcher, which draws with ImGui directly on SDL.
-    SDL_Window *window() const { return window_; }
-    SDL_Renderer *renderer() const { return renderer_; }
+    SDL_Window *window() const { return _window; }
+    SDL_Renderer *renderer() const { return _renderer; }
     // Drop the game framebuffer and return the window to launcher mode.
     void resetForLauncher();
     // True once the user closed the window during a game.
-    bool quitRequested() const { return quitRequested_; }
+    bool quitRequested() const { return _quitRequested; }
 
     // System
     Error initGraphics(int width, int height, PixelFormat format) override;
@@ -76,41 +76,41 @@ private:
     // The software cursor drawn at the mouse, in the picture's coordinates.
     void drawSoftwareCursor();
 
-    SDL_Window *window_ = nullptr;
+    SDL_Window *_window = nullptr;
     // The controller (sdl_controller.cpp): the first pad connected, or else
     // the first wheel, opened when asked for; its forces.
     struct Controller;
-    std::unique_ptr<Controller> controller_;
+    std::unique_ptr<Controller> _controller;
     void closeController();
-    SDL_Joystick *joystick_ = nullptr; // the first connected, whose events are passed on
-    SDL_JoystickID joystickId_ = 0;
-    bool relativeMouse_ = false; // held by setRelativeMouse, held again when the window changes
-    SDL_Renderer *renderer_ = nullptr;
-    SDL_GPUDevice *gpu_ = nullptr; // set when renderer_ runs on SDL's GPU API, which 3D needs
-    std::unique_ptr<SdlGpuRenderer> renderer3d_;
-    SDL_Texture *gameTexture_ = nullptr;
-    int gameW_ = 0, gameH_ = 0;
-    PixelFormat gameFormat_ = PixelFormat::CLUT8;
-    uint32_t palette_[256] = {};          // RGBA32, byte order R,G,B,A
-    std::vector<uint32_t> convertBuffer_; // CLUT8 -> RGBA32 staging
-    bool quitRequested_ = false;
+    SDL_Joystick *_joystick = nullptr; // the first connected, whose events are passed on
+    SDL_JoystickID _joystickId = 0;
+    bool _relativeMouse = false; // held by setRelativeMouse, held again when the window changes
+    SDL_Renderer *_renderer = nullptr;
+    SDL_GPUDevice *_gpu = nullptr; // set when renderer_ runs on SDL's GPU API, which 3D needs
+    std::unique_ptr<SdlGpuRenderer> _renderer3d;
+    SDL_Texture *_gameTexture = nullptr;
+    int _gameW = 0, _gameH = 0;
+    PixelFormat _gameFormat = PixelFormat::kCLUT8;
+    uint32_t _palette[256] = {};          // RGBA32, byte order R,G,B,A
+    std::vector<uint32_t> _convertBuffer; // CLUT8 -> RGBA32 staging
+    bool _quitRequested = false;
 
-    std::optional<Cursor> cursor_;    // the game's, as it gave it
-    SDL_Cursor *sdlCursor_ = nullptr; // it as the system's pointer
-    float sdlCursorScale_ = 0;        // the scale sdlCursor_ was made at
-    bool softwareCursor_ = false;     // drawn by us instead (cursorTexture_)
-    SDL_Texture *cursorTexture_ = nullptr;
-    bool cursorVisible_ = true;         // setMouseCursorVisible
-    bool mouseInside_ = false;          // the mouse is over the window
-    float mouseX_ = 0, mouseY_ = 0;     // in the picture's coordinates
-    uint64_t lastPresent_ = 0;          // when the 2D picture was last shown (ms)
-    DisplayOptions display_;            // the game's; the launcher's are the defaults
-    int launcherW_ = 0, launcherH_ = 0; // the window's size before a game resized it
+    std::optional<Cursor> _cursor;    // the game's, as it gave it
+    SDL_Cursor *_sdlCursor = nullptr; // it as the system's pointer
+    float _sdlCursorScale = 0;        // the scale sdlCursor_ was made at
+    bool _softwareCursor = false;     // drawn by us instead (cursorTexture_)
+    SDL_Texture *_cursorTexture = nullptr;
+    bool _cursorVisible = true;         // setMouseCursorVisible
+    bool _mouseInside = false;          // the mouse is over the window
+    float _mouseX = 0, _mouseY = 0;     // in the picture's coordinates
+    uint64_t _lastPresent = 0;          // when the 2D picture was last shown (ms)
+    DisplayOptions _display;            // the game's; the launcher's are the defaults
+    int _launcherW = 0, _launcherH = 0; // the window's size before a game resized it
 
-    SDL_AudioStream *audioStream_ = nullptr;
-    AudioCallback audioCallback_;
-    int audioChannels_ = 2;
-    std::vector<int16_t> audioBuffer_; // audio thread only
+    SDL_AudioStream *_audioStream = nullptr;
+    AudioCallback _audioCallback;
+    int _audioChannels = 2;
+    std::vector<int16_t> _audioBuffer; // audio thread only
 };
 
 } // namespace reluva

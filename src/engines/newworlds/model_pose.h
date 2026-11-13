@@ -59,8 +59,8 @@ public:
     std::vector<Animation> animations(const std::string &modelName, const MdlModel &mdl) const;
 
 private:
-    const Archives &archives_;
-    std::map<std::string, EntryRef> metamodels_; // by "folder/stem"
+    const Archives &_archives;
+    std::map<std::string, EntryRef> _metamodels; // by "folder/stem"
 };
 
 // An animation frame's pose: each part moved by the animated part of its

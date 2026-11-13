@@ -81,10 +81,10 @@ long long findMzBefore(const Bytes &d, long long end) {
 bool loadLe(const Bytes &d, LeFile &le, std::string &error) {
     // The LE header: "LE", byte and word order 0, format level 0, a CPU
     // type 1..4; then the MZ stub whose e_lfanew points to it.
-    static const uint8_t sig[8] = {'L', 'E', 0, 0, 0, 0, 0, 0};
+    static const uint8_t kSig[8] = {'L', 'E', 0, 0, 0, 0, 0, 0};
     bool found = false;
     for (size_t i = 0; i + 8 <= d.size() && !found; ++i) {
-        if (std::memcmp(&d[i], sig, 8) != 0)
+        if (std::memcmp(&d[i], kSig, 8) != 0)
             continue;
         const uint16_t cpu = u16(d, i + 8);
         if (cpu >= 1 && cpu <= 4) {
@@ -248,21 +248,21 @@ std::vector<FoundString> findStrings(const LeObject &obj, size_t minLength = 4) 
 
 // What the debug messages say of the function they come from.
 std::optional<std::string> functionName(const std::string &s) {
-    static const std::regex func(R"(^\s*([A-Za-z_][A-Za-z0-9_]{2,}):\s)");
-    static const std::regex in(R"(^\s*In ([A-Z][A-Za-z0-9]*(?:_[A-Za-z0-9]+)+)\b)"); // "In Load_Dialogues: ..."
-    static const std::regex directive(R"(^\s*([A-Z][a-z]+(?: [A-Z][a-z]+)+) / (cc[A-Za-z]+))"); // ".../ ccSUB"
-    static const std::regex bare(R"(^\s*([A-Z][A-Za-z0-9]*(?:_[A-Za-z0-9]+)+)$)");              // "Load_Directive_List"
+    static const std::regex kFunc(R"(^\s*([A-Za-z_][A-Za-z0-9_]{2,}):\s)");
+    static const std::regex kIn(R"(^\s*In ([A-Z][A-Za-z0-9]*(?:_[A-Za-z0-9]+)+)\b)"); // "In Load_Dialogues: ..."
+    static const std::regex kDirective(R"(^\s*([A-Z][a-z]+(?: [A-Z][a-z]+)+) / (cc[A-Za-z]+))"); // ".../ ccSUB"
+    static const std::regex kBare(R"(^\s*([A-Z][A-Za-z0-9]*(?:_[A-Za-z0-9]+)+)$)"); // "Load_Directive_List"
     std::smatch m;
-    if (std::regex_search(s, m, func) || std::regex_search(s, m, in))
+    if (std::regex_search(s, m, kFunc) || std::regex_search(s, m, kIn))
         return m[1].str();
-    if (std::regex_search(s, m, directive)) {
+    if (std::regex_search(s, m, kDirective)) {
         std::string name = m[1].str();
         std::replace(name.begin(), name.end(), ' ', '_');
         return name + "/" + m[2].str();
     }
     // (Python's "$" also takes a line end before the end.)
     const std::string trimmed = !s.empty() && s.back() == '\n' ? s.substr(0, s.size() - 1) : s;
-    if (std::regex_search(trimmed, m, bare))
+    if (std::regex_search(trimmed, m, kBare))
         return m[1].str();
     return std::nullopt;
 }
@@ -276,18 +276,18 @@ std::string strip(const std::string &s) {
 }
 
 std::string category(const std::string &s) {
-    static const std::regex file(
+    static const std::regex kFile(
         R"((^|[\\/])[\w\-]+\.(cmp|rle|raw|pal|smk|dat|all|lst|cat|mus|vce|ini|dig|mgd|sav|cfg|txt|ani|pcx|fnt|exe)$|^\.\w{2,3}$|\\)",
         std::regex::icase);
-    static const std::regex format(R"(%[-0-9.]*[dsxufcl])");
-    static const std::regex runtime(R"(watcom|copyright|dos/4g|run-time|stack overflow|floating)", std::regex::icase);
-    if (std::regex_search(strip(s), file))
+    static const std::regex kFormat(R"(%[-0-9.]*[dsxufcl])");
+    static const std::regex kRuntime(R"(watcom|copyright|dos/4g|run-time|stack overflow|floating)", std::regex::icase);
+    if (std::regex_search(strip(s), kFile))
         return "file";
     if (functionName(s))
         return "debug";
-    if (s.find('%') != std::string::npos && std::regex_search(s, format))
+    if (s.find('%') != std::string::npos && std::regex_search(s, kFormat))
         return "format";
-    if (std::regex_search(s, runtime))
+    if (std::regex_search(s, kRuntime))
         return "runtime";
     return "text";
 }
@@ -604,7 +604,7 @@ int cmdExeDisasm(int argc, char **argv) {
     return 0;
 }
 
-const reluva::tool::Commands commands(
+const reluva::tool::Commands kCommands(
     "stharbinger",
     {
         {"exe-strings", "<DEEP.EXE> <out folder>",

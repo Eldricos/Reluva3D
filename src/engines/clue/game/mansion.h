@@ -68,11 +68,11 @@ std::vector<size_t> exeDepthOrder(const std::vector<WorldBox> &boxes, const std:
 struct MansionLook {
     // What stands in front of a revealing actor (Mansion::Actor::reveal):
     // drawn see-through ("Translucency" on), left out (off), or left be.
-    enum class InFront { SeeThrough, Hidden, Solid } inFront = InFront::SeeThrough;
+    enum class InFront { kSeeThrough, kHidden, kSolid } inFront = InFront::kSeeThrough;
     bool walls = true; // off: no walls, nor the lamps on them ("Mansion Walls" off)
     // Reluva's own, for its mansion page: the walls nearest the camera
     // (layer 4) as they are, see-through or left out.
-    enum class NearWalls { Solid, SeeThrough, Hidden } nearWalls = NearWalls::Solid;
+    enum class NearWalls { kSolid, kSeeThrough, kHidden } nearWalls = NearWalls::kSolid;
     bool outside = true;
     bool tileNumbers = false;
     bool animate = true;
@@ -147,7 +147,7 @@ public:
     // reaction, the drapes in a gust) from startMs: once, then back to
     // state 0, or looping until stopped. False if it has no such state.
     bool playState(const GameData &data, size_t item, uint16_t state, uint64_t startMs, bool loop = false);
-    void stopState(size_t item) { states_.erase(item); }
+    void stopState(size_t item) { _states.erase(item); }
     bool playingState(size_t item, uint64_t nowMs) const;
     // The item drawn uppermost at a point of the view (in the mansion's
     // screen space: the camera added), by its pixels; -1 for none.
@@ -157,11 +157,11 @@ public:
     // found or read are left out and counted in problems().
     Error build(const GameData &data, const Level &level);
 
-    const Level *level() const { return level_; }
-    const std::vector<Item> &items() const { return items_; }
-    const std::vector<size_t> &drawOrder() const { return order_; } // into items()
-    const ScreenRect &bounds() const { return bounds_; }
-    const std::vector<std::string> &problems() const { return problems_; }
+    const Level *level() const { return _level; }
+    const std::vector<Item> &items() const { return _items; }
+    const std::vector<size_t> &drawOrder() const { return _order; } // into items()
+    const ScreenRect &bounds() const { return _bounds; }
+    const std::vector<std::string> &problems() const { return _problems; }
 
     // Whether the look shows an item; and the view from (camX, camY) drawn
     // into the target, the animations at the time given.
@@ -182,15 +182,15 @@ private:
     };
     const std::vector<Frame> &framesAt(size_t item, uint64_t nowMs, const MansionLook &look, size_t &frame) const;
 
-    const Level *level_ = nullptr;
-    std::map<size_t, Playing> states_;
-    std::vector<Item> items_;
-    std::vector<size_t> order_;
-    size_t flatCount_ = 0;        // order_'s first entries, the flat items
-    std::vector<size_t> orderOf_; // each item's place in order_
-    ScreenRect bounds_;
-    std::vector<std::string> problems_;
-    std::map<const Animation *, std::vector<Frame>> frames_;
+    const Level *_level = nullptr;
+    std::map<size_t, Playing> _states;
+    std::vector<Item> _items;
+    std::vector<size_t> _order;
+    size_t _flatCount = 0;        // order_'s first entries, the flat items
+    std::vector<size_t> _orderOf; // each item's place in order_
+    ScreenRect _bounds;
+    std::vector<std::string> _problems;
+    std::map<const Animation *, std::vector<Frame>> _frames;
 };
 
 } // namespace reluva::clue

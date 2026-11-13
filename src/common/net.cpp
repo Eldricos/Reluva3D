@@ -63,33 +63,33 @@ bool parseAddress(const std::string &text, uint16_t defaultPort, Address &out) {
 class LoopbackNetwork::Socket : public UdpSocket {
 public:
     Socket(std::shared_ptr<LoopbackNetwork> network, uint16_t port, std::shared_ptr<Queue> queue)
-        : network_(std::move(network)), port_(port), queue_(std::move(queue)) {}
+        : _network(std::move(network)), _port(port), _queue(std::move(queue)) {}
     ~Socket() override {
-        queue_->open = false;
-        queue_->datagrams.clear();
+        _queue->open = false;
+        _queue->datagrams.clear();
     }
-    uint16_t port() const override { return port_; }
+    uint16_t port() const override { return _port; }
     bool send(const Address &to, const std::vector<uint8_t> &data) override {
-        return network_->deliver({0x7f000001u, port_}, to, data);
+        return _network->deliver({0x7f000001u, _port}, to, data);
     }
     bool receive(Address &from, std::vector<uint8_t> &data) override {
-        if (queue_->datagrams.empty())
+        if (_queue->datagrams.empty())
             return false;
-        from = queue_->datagrams.front().first;
-        data = std::move(queue_->datagrams.front().second);
-        queue_->datagrams.pop_front();
+        from = _queue->datagrams.front().first;
+        data = std::move(_queue->datagrams.front().second);
+        _queue->datagrams.pop_front();
         return true;
     }
 
 private:
-    std::shared_ptr<LoopbackNetwork> network_;
-    uint16_t port_;
-    std::shared_ptr<Queue> queue_;
+    std::shared_ptr<LoopbackNetwork> _network;
+    uint16_t _port;
+    std::shared_ptr<Queue> _queue;
 };
 
 std::unique_ptr<UdpSocket> LoopbackNetwork::open(uint16_t port) {
     auto taken = [&](uint16_t p) {
-        return std::any_of(queues_.begin(), queues_.end(),
+        return std::any_of(_queues.begin(), _queues.end(),
                            [&](const auto &q) { return q.first == p && q.second->open; });
     };
     if (port == 0) {
@@ -100,28 +100,28 @@ std::unique_ptr<UdpSocket> LoopbackNetwork::open(uint16_t port) {
         return nullptr;
     }
     std::shared_ptr<Queue> queue;
-    for (auto &[p, q] : queues_)
+    for (auto &[p, q] : _queues)
         if (p == port)
             queue = q;
     if (!queue) {
         queue = std::make_shared<Queue>();
-        queues_.emplace_back(port, queue);
+        _queues.emplace_back(port, queue);
     }
     queue->open = true;
     return std::make_unique<Socket>(shared_from_this(), port, queue);
 }
 
 void LoopbackNetwork::setDropFilter(bool (*drop)(const Address &, const Address &, size_t)) {
-    drop_ = drop;
+    _drop = drop;
 }
 
 bool LoopbackNetwork::deliver(const Address &from, const Address &to, const std::vector<uint8_t> &data) {
-    const size_t index = sent_++;
+    const size_t index = _sent++;
     if (to.ip != 0xffffffffu && !to.isLoopback())
         return true; // nowhere to go, as a datagram to nobody
-    if (drop_ && drop_(from, to, index))
+    if (_drop && _drop(from, to, index))
         return true;
-    for (auto &[port, queue] : queues_)
+    for (auto &[port, queue] : _queues)
         if (port == to.port && queue->open && !(to.ip == 0xffffffffu && port == from.port))
             queue->datagrams.emplace_back(from, data);
     return true;

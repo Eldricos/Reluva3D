@@ -12,7 +12,8 @@ namespace reluva::stgenerations {
 
 namespace {
 
-std::mutex channelsMutex;
+// NOLINTNEXTLINE(cppcoreguidelines-avoid-non-const-global-variables): guards the debug channels, from any thread
+std::mutex g_channelsMutex;
 std::set<std::string> &channels() {
     static std::set<std::string> c;
     return c;
@@ -21,12 +22,12 @@ std::set<std::string> &channels() {
 } // namespace
 
 void enableDebugChannel(const std::string &name) {
-    std::lock_guard<std::mutex> lock(channelsMutex);
+    std::lock_guard<std::mutex> lock(g_channelsMutex);
     channels().insert(name);
 }
 
 bool isDebugChannelEnabled(const char *name) {
-    std::lock_guard<std::mutex> lock(channelsMutex);
+    std::lock_guard<std::mutex> lock(g_channelsMutex);
     return channels().count(name) || channels().count("all");
 }
 

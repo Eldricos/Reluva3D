@@ -109,7 +109,7 @@ bool readStructure(BotScript &s, std::map<std::string, Field> &out) {
         return false;
     BotToken t;
     while (s.next(t) && !t.is("}")) {
-        if (t.type != BotToken::Type::Name) {
+        if (t.type != BotToken::Type::kName) {
             s.fail("expected a field name, found " + t.text);
             return false;
         }
@@ -130,7 +130,7 @@ bool readStructure(BotScript &s, std::map<std::string, Field> &out) {
             s.fail("field " + t.text + " without a value");
             return false;
         }
-        if (v.type == BotToken::Type::String) {
+        if (v.type == BotToken::Type::kString) {
             f.text = v.text;
         } else {
             s.unread(v);

@@ -39,34 +39,34 @@ using Gr2Decompressor = std::function<Error(uint32_t format, const std::vector<u
 
 // A member's type (Granny's granny_member_type).
 enum class Gr2Type : uint32_t {
-    End = 0,
-    Inline = 1,            // the referenced type's members, in place
-    Reference = 2,         // pointer to one object
-    ReferenceToArray = 3,  // count, pointer to that many objects
-    ArrayOfReferences = 4, // count, pointer to that many pointers
-    VariantReference = 5,  // type pointer, object pointer
-    Unsupported = 6,
-    ReferenceToVariantArray = 7, // type pointer, count, pointer
-    String = 8,                  // pointer to a NUL-terminated string
-    Transform = 9,               // flags, position, orientation, scale/shear
-    Real32 = 10,
-    Int8 = 11,
-    UInt8 = 12,
-    BinormalInt8 = 13,
-    NormalUInt8 = 14,
-    Int16 = 15,
-    UInt16 = 16,
-    BinormalInt16 = 17,
-    NormalUInt16 = 18,
-    Int32 = 19,
-    UInt32 = 20,
-    Real16 = 21,
-    EmptyReference = 22,
+    kEnd = 0,
+    kInline = 1,            // the referenced type's members, in place
+    kReference = 2,         // pointer to one object
+    kReferenceToArray = 3,  // count, pointer to that many objects
+    kArrayOfReferences = 4, // count, pointer to that many pointers
+    kVariantReference = 5,  // type pointer, object pointer
+    kUnsupported = 6,
+    kReferenceToVariantArray = 7, // type pointer, count, pointer
+    kString = 8,                  // pointer to a NUL-terminated string
+    kTransform = 9,               // flags, position, orientation, scale/shear
+    kReal32 = 10,
+    kInt8 = 11,
+    kUInt8 = 12,
+    kBinormalInt8 = 13,
+    kNormalUInt8 = 14,
+    kInt16 = 15,
+    kUInt16 = 16,
+    kBinormalInt16 = 17,
+    kNormalUInt16 = 18,
+    kInt32 = 19,
+    kUInt32 = 20,
+    kReal16 = 21,
+    kEmptyReference = 22,
 };
 const char *gr2TypeName(Gr2Type type);
 
 struct Gr2Member {
-    Gr2Type type = Gr2Type::End;
+    Gr2Type type = Gr2Type::kEnd;
     std::string name;
     uint32_t refType = 0;    // address of the referenced type's members, 0 if none
     uint32_t arrayWidth = 0; // 0 or 1: one value
@@ -90,11 +90,11 @@ class Gr2File;
 class Gr2Object {
 public:
     Gr2Object() = default;
-    Gr2Object(const Gr2File *file, uint32_t type, uint32_t address) : file_(file), type_(type), address_(address) {}
+    Gr2Object(const Gr2File *file, uint32_t type, uint32_t address) : _file(file), _type(type), _address(address) {}
 
-    bool valid() const { return file_ && type_ && address_; }
-    uint32_t address() const { return address_; }
-    uint32_t type() const { return type_; }
+    bool valid() const { return _file && _type && _address; }
+    uint32_t address() const { return _address; }
+    uint32_t type() const { return _type; }
     const std::vector<Gr2Member> &members() const;
     const Gr2Member *member(std::string_view name) const;
 
@@ -118,8 +118,8 @@ public:
     Array array(std::string_view name) const;
 
 private:
-    const Gr2File *file_ = nullptr;
-    uint32_t type_ = 0, address_ = 0;
+    const Gr2File *_file = nullptr;
+    uint32_t _type = 0, _address = 0;
 };
 
 class Gr2File {
@@ -128,22 +128,22 @@ public:
     // decompressor, sections are decompressed natively (gr2Decompress).
     Error open(const std::vector<uint8_t> &file, const Gr2Decompressor &decompress = {});
 
-    uint32_t version() const { return version_; }
+    uint32_t version() const { return _version; }
     // The file as it was given to open().
-    const std::vector<uint8_t> &bytes() const { return bytes_; }
-    uint32_t typeTag() const { return typeTag_; }
-    const std::vector<Gr2Section> &sections() const { return sections_; }
-    Gr2Object root() const { return Gr2Object(this, rootType_, rootObject_); }
+    const std::vector<uint8_t> &bytes() const { return _bytes; }
+    uint32_t typeTag() const { return _typeTag; }
+    const std::vector<Gr2Section> &sections() const { return _sections; }
+    Gr2Object root() const { return Gr2Object(this, _rootType, _rootObject); }
 
     // The sections are laid out one after another in one block of memory,
     // from address 16 on so that 0 is a null pointer; fixed-up pointers
     // are addresses in it.
-    const std::vector<uint8_t> &memory() const { return memory_; }
-    uint32_t sectionAddress(size_t section) const { return sectionBase_[section]; }
+    const std::vector<uint8_t> &memory() const { return _memory; }
+    uint32_t sectionAddress(size_t section) const { return _sectionBase[section]; }
     bool valid(uint32_t address, uint32_t size) const {
-        return address != 0 && address <= memory_.size() && size <= memory_.size() - address;
+        return address != 0 && address <= _memory.size() && size <= _memory.size() - address;
     }
-    uint8_t read8(uint32_t a) const { return valid(a, 1) ? memory_[a] : 0; }
+    uint8_t read8(uint32_t a) const { return valid(a, 1) ? _memory[a] : 0; }
     uint16_t read16(uint32_t a) const;
     uint32_t read32(uint32_t a) const;
     float readFloat(uint32_t a) const;
@@ -159,13 +159,13 @@ public:
     std::string dump(uint32_t maxElements = 4, int maxDepth = 12) const;
 
 private:
-    uint32_t version_ = 0, typeTag_ = 0;
-    uint32_t rootType_ = 0, rootObject_ = 0;
-    std::vector<Gr2Section> sections_;
-    std::vector<uint32_t> sectionBase_;
-    std::vector<uint8_t> memory_;
-    std::vector<uint8_t> bytes_;
-    mutable std::map<uint32_t, std::vector<Gr2Member>> typeCache_;
+    uint32_t _version = 0, _typeTag = 0;
+    uint32_t _rootType = 0, _rootObject = 0;
+    std::vector<Gr2Section> _sections;
+    std::vector<uint32_t> _sectionBase;
+    std::vector<uint8_t> _memory;
+    std::vector<uint8_t> _bytes;
+    mutable std::map<uint32_t, std::vector<Gr2Member>> _typeCache;
 };
 
 // The size of one value of a member type (with 32-bit pointers); 0 for

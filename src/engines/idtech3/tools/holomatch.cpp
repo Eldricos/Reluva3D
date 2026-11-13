@@ -100,7 +100,7 @@ int cmdUiRun(int argc, char **argv) {
     // As after a match: the server game registered these as Latch
     // variables (g_gametype, the Holomatch modes...).
     for (const std::string &name : latched)
-        cvars.create(name, "0", q3::CvarStore::ServerInfo | q3::CvarStore::Latch);
+        cvars.create(name, "0", q3::CvarStore::kServerInfo | q3::CvarStore::kLatch);
     ef::UiHost ui(set, cvars);
     ui.setModRoot(idTech3Folders(argv[2]).first, idTech3Folders(argv[2]).second);
     if (ingameType >= 0) {
@@ -130,9 +130,9 @@ int cmdUiRun(int argc, char **argv) {
     };
     if (!step("load and GetApiVersion", ui.load()))
         return 1;
-    bool ok = step("Init", ui.call(ef::UiHost::Init));
+    bool ok = step("Init", ui.call(ef::UiHost::kInit));
     if (ok)
-        ok = step("SetActiveMenu", ui.call(ef::UiHost::SetActiveMenu, {menu}));
+        ok = step("SetActiveMenu", ui.call(ef::UiHost::kSetActiveMenu, {menu}));
     std::printf("menu %d; key catcher %d (2: the menus take the keys)\n", menu, ui.catcher());
     for (const int32_t at : vmCalls) {
         int32_t result = 0;
@@ -150,10 +150,10 @@ int cmdUiRun(int argc, char **argv) {
             ok = step("Refresh", ui.refresh(time));
         }
         if (c < clicks.size() && ok) {
-            ok = step("MouseEvent", ui.call(ef::UiHost::MouseEvent, {-100000, -100000})) &&
-                 step("MouseEvent", ui.call(ef::UiHost::MouseEvent,
+            ok = step("MouseEvent", ui.call(ef::UiHost::kMouseEvent, {-100000, -100000})) &&
+                 step("MouseEvent", ui.call(ef::UiHost::kMouseEvent,
                                             {clicks[c].first * width / 640, clicks[c].second * height / 480})) &&
-                 step("KeyEvent", ui.call(ef::UiHost::KeyEvent, {178, 1})); // K_MOUSE1
+                 step("KeyEvent", ui.call(ef::UiHost::kKeyEvent, {178, 1})); // K_MOUSE1
             std::printf("clicked %d %d\n", clicks[c].first, clicks[c].second);
         }
     }
@@ -483,7 +483,7 @@ int cmdGameRun(int argc, char **argv) {
         const q3::Vec3f mins{-15, -15, -24};
         const q3::Vec3f maxs{15, 15, 32};
         const q3::Vec3f end{o[0], o[1], o[2] - 64};
-        const int32_t mask = q3::contents::Solid | q3::contents::PlayerClip | q3::contents::Body;
+        const int32_t mask = q3::contents::kSolid | q3::contents::kPlayerClip | q3::contents::kBody;
         // And sideways: how far a player's box could go along each axis.
         for (int axis = 0; axis < 2; ++axis)
             for (float sign : {1.0f, -1.0f}) {
@@ -592,7 +592,7 @@ int cmdGameRun(int argc, char **argv) {
             const q3::Vec3f start{o[0], o[1], o[2] + 9};
             const q3::Vec3f end{o[0], o[1], o[2] - 4096};
             const q3::TraceResult t =
-                world.trace(start, end, mins, maxs, 0, q3::contents::Solid | q3::contents::PlayerClip);
+                world.trace(start, end, mins, maxs, 0, q3::contents::kSolid | q3::contents::kPlayerClip);
             if (t.startSolid)
                 ++stuck;
             else if (t.fraction == 1)
@@ -694,7 +694,7 @@ int cmdGameRun(int argc, char **argv) {
                     cgame.clearScene();
                     cgame.clearPictures();
                     int32_t ignored = 0;
-                    if (reluva::Error e = cgame.call(ef::CgameHost::DrawActiveFrame, {clientTime, 0, 0}, ignored)) {
+                    if (reluva::Error e = cgame.call(ef::CgameHost::kDrawActiveFrame, {clientTime, 0, 0}, ignored)) {
                         std::printf("cgame: %s\n", e.message.c_str());
                         return;
                     }
@@ -804,7 +804,7 @@ int cmdGameRun(int argc, char **argv) {
                 cgame.newSnapshot(std::move(snap));
                 int32_t ignored = 0;
                 const reluva::Error frame =
-                    cgame.call(ef::CgameHost::DrawActiveFrame, {game.levelTime(), 0, 0}, ignored);
+                    cgame.call(ef::CgameHost::kDrawActiveFrame, {game.levelTime(), 0, 0}, ignored);
                 if (verbose || frame)
                     std::printf("cgame DrawActiveFrame(%d): %s after %llu instructions, %zu pictures\n",
                                 game.levelTime(), frame ? frame.message.c_str() : "ok",
@@ -1178,7 +1178,7 @@ int cmdDemoRun(int argc, char **argv) {
             cgame->clearScene();
             cgame->clearPictures();
             int32_t ignored = 0;
-            if (reluva::Error e = cgame->call(ef::CgameHost::DrawActiveFrame, {client.serverTime(), 0, 1}, ignored)) {
+            if (reluva::Error e = cgame->call(ef::CgameHost::kDrawActiveFrame, {client.serverTime(), 0, 1}, ignored)) {
                 std::fprintf(stderr, "cgame DrawActiveFrame(%d): %s\n", client.serverTime(), e.message.c_str());
                 return 1;
             }
@@ -1204,7 +1204,7 @@ int cmdDemoRun(int argc, char **argv) {
     return snapshots ? 0 : 1;
 }
 
-const Commands commands(
+const Commands kCommands(
     "idtech3",
     {
         {"ui-run", "<game folder> [-frames N] [-menu M] [-ingame gametype] [-size WxH] [-glwords N] [-trace] [-v]",

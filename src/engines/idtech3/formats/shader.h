@@ -35,46 +35,46 @@ struct ShaderStage {
     std::string blendSrc, blendDst; // GL_* names, lower case; empty = opaque
 
     enum class RgbGen : uint8_t {
-        Default,
-        Identity,
-        IdentityLighting,
-        Vertex,
-        ExactVertex,
-        OneMinusVertex,
-        LightingDiffuse,
-        Wave,
-        Const,
-        Entity,
-        OneMinusEntity,
-    } rgbGen = RgbGen::Default;
+        kDefault,
+        kIdentity,
+        kIdentityLighting,
+        kVertex,
+        kExactVertex,
+        kOneMinusVertex,
+        kLightingDiffuse,
+        kWave,
+        kConst,
+        kEntity,
+        kOneMinusEntity,
+    } rgbGen = RgbGen::kDefault;
     gfx::Wave rgbWave;
     std::array<float, 3> rgbConst{1, 1, 1};
     enum class AlphaGen : uint8_t {
-        Default,
-        Identity,
-        Vertex,
-        OneMinusVertex,
-        Wave,
-        Const,
-        Entity,
-        OneMinusEntity,
-        LightingSpecular,
-        Portal,
-    } alphaGen = AlphaGen::Default;
+        kDefault,
+        kIdentity,
+        kVertex,
+        kOneMinusVertex,
+        kWave,
+        kConst,
+        kEntity,
+        kOneMinusEntity,
+        kLightingSpecular,
+        kPortal,
+    } alphaGen = AlphaGen::kDefault;
     gfx::Wave alphaWave;
     float alphaConst = 1;
     float portalRange = 256; // alphaGen portal's distance
 
-    enum class TcGen : uint8_t { Default, Base, Lightmap, Environment, Vector } tcGen = TcGen::Default;
+    enum class TcGen : uint8_t { kDefault, kBase, kLightmap, kEnvironment, kVector } tcGen = TcGen::kDefault;
     std::array<std::array<float, 3>, 2> tcVectors{};
     struct TcMod {
-        enum class Type : uint8_t { Rotate, Scale, Scroll, Stretch, Transform, Turb, EntityTranslate } type;
+        enum class Type : uint8_t { kRotate, kScale, kScroll, kStretch, kTransform, kTurb, kEntityTranslate } type;
         std::array<float, 6> v{}; // rotate: degrees/s; scale, scroll: s t; transform: m00 m01 m10 m11 t0 t1
         gfx::Wave wave;           // stretch, turb (turb ignores func)
     };
     std::vector<TcMod> tcMods; // in order
 
-    gfx::AlphaTest alphaFunc = gfx::AlphaTest::None;
+    gfx::AlphaTest alphaFunc = gfx::AlphaTest::kNone;
     bool depthEqual = false; // depthFunc equal
     bool depthWrite = false; // depthWrite (opaque stages write depth anyway)
     bool detail = false;
@@ -84,16 +84,16 @@ struct ShaderStage {
 
 struct ShaderDeform {
     enum class Type : uint8_t {
-        Wave,
-        Normal,
-        Bulge,
-        Move,
-        Autosprite,
-        Autosprite2,
-        Text,
-        ProjectionShadow,
-        Other,
-    } type = Type::Other;
+        kWave,
+        kNormal,
+        kBulge,
+        kMove,
+        kAutosprite,
+        kAutosprite2,
+        kText,
+        kProjectionShadow,
+        kOther,
+    } type = Type::kOther;
     float spread = 0;                       // wave: 1 / div
     gfx::Wave wave;                         // wave, normal (amplitude, frequency), move
     std::array<float, 3> vector{};          // move
@@ -107,7 +107,7 @@ struct ShaderDef {
     std::vector<ShaderStage> stages;
     std::vector<Directive> directives; // the shader-level ones
 
-    enum class Cull : uint8_t { Front, Back, None } cull = Cull::Front; // the side that's hidden
+    enum class Cull : uint8_t { kFront, kBack, kNone } cull = Cull::kFront; // the side that's hidden
     std::vector<ShaderDeform> deforms;
     float sort = 0; // 0 = not given; see sortKey() in world_renderer.cpp
     bool polygonOffset = false;
@@ -150,12 +150,12 @@ public:
     // nullptr if undefined (then the engine uses the image of that name,
     // see shader.md).
     const ShaderDef *find(std::string_view name) const;
-    size_t size() const { return shaders_.size(); }
-    const std::vector<ShaderDef> &all() const { return shaders_; }
+    size_t size() const { return _shaders.size(); }
+    const std::vector<ShaderDef> &all() const { return _shaders; }
 
 private:
-    std::vector<ShaderDef> shaders_;
-    std::unordered_map<std::string, size_t> byName_;
+    std::vector<ShaderDef> _shaders;
+    std::unordered_map<std::string, size_t> _byName;
 };
 
 } // namespace reluva::idtech3

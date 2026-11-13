@@ -418,7 +418,7 @@ void testUtilities() {
 
 void testBoards() {
     Board b;
-    CHECK(boardByName("voodoo1", b) && b.generation == Generation::Voodoo1 && b.tmus == 1);
+    CHECK(boardByName("voodoo1", b) && b.generation == Generation::kVoodoo1 && b.tmus == 1);
     CHECK(boardByName("rush", b) && b.windowed && !b.palette);
     CHECK(boardByName("voodoo3", b) && b.uma && b.tmus == 2);
     CHECK(!boardByName("voodoo5", b) && !boardByName("voodoo1,x=1", b));

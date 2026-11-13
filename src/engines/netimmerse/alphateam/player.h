@@ -55,21 +55,21 @@ private:
     void work();
     void drain(); // on the game's thread: applies the queued input
 
-    std::filesystem::path dir_;
-    std::filesystem::path saveDir_;
-    audio::Mixer *mixer_;
-    GameProcess *game_ = nullptr; // the game thread's, while it runs
-    std::thread thread_;
-    std::mutex mutex_;
-    std::condition_variable resume_;
-    std::deque<Event> events_;
-    std::vector<uint32_t> frame_;
-    int width_ = 0, height_ = 0;
-    uint64_t frameNumber_ = 0, frameTaken_ = 0;
-    std::chrono::steady_clock::time_point nextFlip_{}; // the next vertical blank a flip may show at
-    bool paused_ = false, stopping_ = false, finished_ = false, ended_ = false;
-    std::string error_, output_;
-    float pendingX_ = 0, pendingY_ = 0; // fractions of a pixel of movement not passed on yet
+    std::filesystem::path _dir;
+    std::filesystem::path _saveDir;
+    audio::Mixer *_mixer;
+    GameProcess *_game = nullptr; // the game thread's, while it runs
+    std::thread _thread;
+    std::mutex _mutex;
+    std::condition_variable _resume;
+    std::deque<Event> _events;
+    std::vector<uint32_t> _frame;
+    int _width = 0, _height = 0;
+    uint64_t _frameNumber = 0, _frameTaken = 0;
+    std::chrono::steady_clock::time_point _nextFlip{}; // the next vertical blank a flip may show at
+    bool _paused = false, _stopping = false, _finished = false, _ended = false;
+    std::string _error, _output;
+    float _pendingX = 0, _pendingY = 0; // fractions of a pixel of movement not passed on yet
 };
 
 } // namespace reluva::netimmerse::alphateam

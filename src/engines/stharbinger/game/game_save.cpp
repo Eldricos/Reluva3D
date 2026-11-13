@@ -87,7 +87,7 @@ static std::string settingsDirectory(Platform *system) {
 }
 
 std::string Game::getSaveDirectory() const {
-    std::string base = settingsDirectory(system_);
+    std::string base = settingsDirectory(_system);
     if (base.empty())
         return base;
     const std::filesystem::path dir = std::filesystem::path(base) / "savegame";
@@ -98,31 +98,31 @@ std::string Game::getSaveDirectory() const {
 
 uint32_t Game::getResumePc() const {
     // Idle on a RETURN, or the directive the script stopped at.
-    return thread_.active ? thread_.pc : idlePc_;
+    return _thread.active ? _thread.pc : _idlePc;
 }
 
 // ---- Settings (dlas.ds9: difficulty, autosave, last save shown) --------------
 
 void Game::loadSettings() {
     std::vector<uint8_t> d;
-    std::string dir = settingsDirectory(system_);
+    std::string dir = settingsDirectory(_system);
     if (dir.empty() || !readFile((std::filesystem::path(dir) / kSettingsFile), d) || d.size() < 12)
         return;
     SaveReader r(d);
     uint32_t difficulty = r.u32();
-    arcadeDifficulty_ = difficulty <= 2 ? int(difficulty) : 1;
-    autosave_ = r.u32() != 0;
-    lastSave_ = int(r.u32());
+    _arcadeDifficulty = difficulty <= 2 ? int(difficulty) : 1;
+    _autosave = r.u32() != 0;
+    _lastSave = int(r.u32());
 }
 
 void Game::saveSettings() {
-    std::string dir = settingsDirectory(system_);
+    std::string dir = settingsDirectory(_system);
     if (dir.empty())
         return;
     MemoryWriteStream w;
-    w.writeUint32LE(uint32_t(arcadeDifficulty_));
-    w.writeUint32LE(autosave_ ? 1 : 0);
-    w.writeUint32LE(uint32_t(lastSave_));
+    w.writeUint32LE(uint32_t(_arcadeDifficulty));
+    w.writeUint32LE(_autosave ? 1 : 0);
+    w.writeUint32LE(uint32_t(_lastSave));
     writeFile((std::filesystem::path(dir) / kSettingsFile), w.data());
 }
 
@@ -130,44 +130,44 @@ void Game::saveSettings() {
 
 bool Game::saveGame(const std::string &fileName, const std::string &description, uint32_t resumePc) {
     std::string dir = getSaveDirectory();
-    if (dir.empty() || !scene_)
+    if (dir.empty() || !_scene)
         return false;
-    const auto &linkScenes = resources_.getLinkScenes();
-    const auto &linkVars = resources_.getLinkVariables();
-    const auto &linkDialogues = resources_.getLinkDialogues();
-    int linkScene = findName(linkScenes, scene_->name);
+    const auto &linkScenes = _resources.getLinkScenes();
+    const auto &linkVars = _resources.getLinkVariables();
+    const auto &linkDialogues = _resources.getLinkDialogues();
+    int linkScene = findName(linkScenes, _scene->name);
     if (linkScene < 0) {
-        log::warning("Cannot save: scene %s is not in DS9.LCC", scene_->name.c_str());
+        log::warning("Cannot save: scene %s is not in DS9.LCC", _scene->name.c_str());
         return false;
     }
     auto labelTarget = [&](int label) -> uint32_t {
-        auto it = labels_.find(uint32_t(label));
-        return label < 0 || it == labels_.end() ? kNone32 : it->second;
+        auto it = _labels.find(uint32_t(label));
+        return label < 0 || it == _labels.end() ? kNone32 : it->second;
     };
 
     MemoryWriteStream w;
-    w.writeUint16LE(uint16_t(disc_));
-    w.writeUint32LE(tricorderIcon_ ? 1 : 0);
-    w.writeUint32LE(uint32_t(mapLocation_));
-    w.writeUint32LE(tickPeriod_);
-    w.writeUint32LE(tickPhase_);
+    w.writeUint16LE(uint16_t(_disc));
+    w.writeUint32LE(_tricorderIcon ? 1 : 0);
+    w.writeUint32LE(uint32_t(_mapLocation));
+    w.writeUint32LE(_tickPeriod);
+    w.writeUint32LE(_tickPhase);
     w.write("ds9", 4);
     w.write(description.c_str(), uint32_t(description.size() + 1));
     // The picture without cursor or menu, and the palette (6-bit).
-    if (menuGameScreen_.w != 640 || menuGameScreen_.h != 480)
-        draw::create(menuGameScreen_, 640, 480);
-    w.write(menuGameScreen_.pixels.data(), 640 * 480);
+    if (_menuGameScreen.w != 640 || _menuGameScreen.h != 480)
+        draw::create(_menuGameScreen, 640, 480);
+    w.write(_menuGameScreen.pixels.data(), 640 * 480);
     for (int i = 0; i < 768; i++)
-        w.writeByte(uint8_t(menuGamePalette_.data()[i] >> 2));
-    w.writeUint32LE(uint32_t(paletteBackground_));
+        w.writeByte(uint8_t(_menuGamePalette.data()[i] >> 2));
+    w.writeUint32LE(uint32_t(_paletteBackground));
     w.writeUint16LE(uint16_t(linkScene));
-    w.writeUint32LE(uint32_t(thread_.callStack.size()));
-    for (uint32_t pc : thread_.callStack)
+    w.writeUint32LE(uint32_t(_thread.callStack.size()));
+    for (uint32_t pc : _thread.callStack)
         w.writeUint32LE(pc);
 
     // Dialogue slots, by DS9.LDM index.
     std::vector<int> slotDialogue(kSlots, -1);
-    for (const auto &d : dialogues_) {
+    for (const auto &d : _dialogues) {
         int slot = findName(linkDialogues, getDialogueName(d.first));
         if (slot >= 0 && slot < kSlots)
             slotDialogue[slot] = d.first;
@@ -177,7 +177,7 @@ bool Game::saveGame(const std::string &fileName, const std::string &description,
             w.writeByte(0xFF);
             continue;
         }
-        const DialogueState &st = dialogues_[slotDialogue[slot]];
+        const DialogueState &st = _dialogues[slotDialogue[slot]];
         w.writeByte(0);
         w.write(linkDialogues[slot].c_str(), uint32_t(linkDialogues[slot].size() + 1));
         w.writeUint16LE(uint16_t(st.cur));
@@ -232,22 +232,22 @@ bool Game::saveGame(const std::string &fileName, const std::string &description,
 
     // Global variables by DS9.LVM index.
     std::vector<uint16_t> globals(kNumGlobals, 0);
-    for (const auto &v : variables_) {
+    for (const auto &v : _variables) {
         int i = findName(linkVars, v.first);
         if (i >= 0 && i < kNumGlobals)
             globals[i] = v.second;
     }
     for (uint16_t g : globals)
         w.writeUint16LE(g);
-    w.writeUint16LE(uint16_t(backgroundIndex_ < 0 ? kNone16 : backgroundIndex_));
+    w.writeUint16LE(uint16_t(_backgroundIndex < 0 ? kNone16 : _backgroundIndex));
 
     // Animations: a 0x34-byte record as in memory, then frame positions.
     for (int i = 0; i < kSlots; i++) {
-        if (i >= int(anims_.size()) || !anims_[i].loaded) {
+        if (i >= int(_anims.size()) || !_anims[i].loaded) {
             w.writeByte(0xFF);
             continue;
         }
-        const Anim &a = anims_[i];
+        const Anim &a = _anims[i];
         w.writeByte(a.lazy ? 1 : 0);
         uint8_t rec[0x34] = {};
         auto put16 = [&](int off, int v) {
@@ -272,11 +272,11 @@ bool Game::saveGame(const std::string &fileName, const std::string &description,
     }
 
     for (int i = 0; i < kSlots; i++) {
-        if (i >= int(hotspots_.size()) || !hotspots_[i].defined) {
+        if (i >= int(_hotspots.size()) || !_hotspots[i].defined) {
             w.writeByte(0xFF);
             continue;
         }
-        const Hotspot &h = hotspots_[i];
+        const Hotspot &h = _hotspots[i];
         w.writeByte(0);
         w.writeUint16LE(uint16_t(h.x));
         w.writeUint16LE(uint16_t(h.y));
@@ -288,13 +288,13 @@ bool Game::saveGame(const std::string &fileName, const std::string &description,
     }
     w.writeUint32LE(resumePc);
     for (int i = 0; i < 2; i++)
-        w.writeUint32LE(i < int(ambientSounds_.size()) ? uint32_t(ambientSounds_[i]) : kNone32);
+        w.writeUint32LE(i < int(_ambientSounds.size()) ? uint32_t(_ambientSounds[i]) : kNone32);
     for (int i = 0; i < kSlots; i++) {
-        if (i >= int(timers_.size()) || !timers_[i].defined) {
+        if (i >= int(_timers.size()) || !_timers[i].defined) {
             w.writeByte(0xFF);
             continue;
         }
-        const Timer &t = timers_[i];
+        const Timer &t = _timers[i];
         w.writeByte(0);
         w.writeUint16LE(t.reload);
         w.writeUint16LE(t.count);
@@ -308,7 +308,7 @@ bool Game::saveGame(const std::string &fileName, const std::string &description,
         log::warning("Cannot write %s", path.c_str());
         return false;
     }
-    log::debug(1, "Saved %s (%s) at %s, directive %u", fileName.c_str(), description.c_str(), scene_->name.c_str(),
+    log::debug(1, "Saved %s (%s) at %s, directive %u", fileName.c_str(), description.c_str(), _scene->name.c_str(),
                resumePc);
     return true;
 }
@@ -344,8 +344,8 @@ bool Game::loadGame(const std::string &fileName) {
         log::warning("Cannot read saved game %s", fileName.c_str());
         return false;
     }
-    const auto &linkScenes = resources_.getLinkScenes();
-    const auto &linkVars = resources_.getLinkVariables();
+    const auto &linkScenes = _resources.getLinkScenes();
+    const auto &linkVars = _resources.getLinkVariables();
     SaveReader r(d);
     int disc = r.u16();
     bool tricorder = r.u32() != 0;
@@ -362,39 +362,39 @@ bool Game::loadGame(const std::string &fileName) {
         log::warning("%s is not a saved game of this game", fileName.c_str());
         return false;
     }
-    int sceneIndex = vm_->findScene(linkScenes[linkScene]);
+    int sceneIndex = _vm->findScene(linkScenes[linkScene]);
     if (sceneIndex < 0) {
         log::warning("%s: unknown scene %s", fileName.c_str(), linkScenes[linkScene].c_str());
         return false;
     }
 
     // Leave whatever runs now and set the scene up as on entry, without its script.
-    if (conv_.active) {
-        conv_.ops.clear();
-        conv_.result = -1;
+    if (_conv.active) {
+        _conv.ops.clear();
+        _conv.result = -1;
         finishConversation();
     }
-    video_ = VideoPlayback();
-    arcade_.reset();
-    if (scene_)
+    _video = VideoPlayback();
+    _arcade.reset();
+    if (_scene)
         leaveScene();
-    if (audio::Mixer *mixer = system_->getMixer())
+    if (audio::Mixer *mixer = _system->getMixer())
         mixer->stopAll();
-    sceneIndex_ = sceneIndex;
-    scene_ = &scenes_[sceneIndex];
+    _sceneIndex = sceneIndex;
+    _scene = &_scenes[sceneIndex];
     buildLabels();
-    hotspots_.assign(scene_->lists[kListHotspots].size(), Hotspot());
-    timers_.assign(scene_->lists[kListTimers].size(), Timer());
+    _hotspots.assign(_scene->lists[kListHotspots].size(), Hotspot());
+    _timers.assign(_scene->lists[kListTimers].size(), Timer());
     setupAnims();
-    thread_ = Thread();
-    pendingScene_ = -1;
+    _thread = Thread();
+    _pendingScene = -1;
 
     uint32_t depth = r.u32();
     for (uint32_t i = 0; i < depth && i < 24 && !r.bad; i++)
-        thread_.callStack.push_back(r.u32()); // (the original misreads these)
+        _thread.callStack.push_back(r.u32()); // (the original misreads these)
 
     // Dialogues: reloaded by name, then their state.
-    dialogues_.clear();
+    _dialogues.clear();
     for (int slot = 0; slot < kSlots && !r.bad; slot++) {
         if (r.u8() == 0xFF)
             continue;
@@ -456,16 +456,16 @@ bool Game::loadGame(const std::string &fileName) {
         }
     }
 
-    variables_.clear();
+    _variables.clear();
     for (int i = 0; i < kNumGlobals && !r.bad; i++) {
         uint16_t v = r.u16();
         if (v && i < int(linkVars.size()))
-            variables_[fs::toLower(linkVars[i])] = v;
+            _variables[fs::toLower(linkVars[i])] = v;
     }
     int background = r.u16();
 
     auto labelAt = [&](uint32_t pc) {
-        for (const auto &l : labels_)
+        for (const auto &l : _labels)
             if (l.second == pc)
                 return int(l.first);
         return -1;
@@ -482,11 +482,11 @@ bool Game::loadGame(const std::string &fileName) {
         uint8_t nodes = r.u8();
         for (int k = 0; k < nodes; k++)
             r.bytes(8);
-        if (!rec || i >= int(anims_.size()))
+        if (!rec || i >= int(_anims.size()))
             continue;
-        if (!anims_[i].loaded)
+        if (!_anims[i].loaded)
             loadAnim(i, kind == 1);
-        Anim &a = anims_[i];
+        Anim &a = _anims[i];
         a.x = int16_t(rec[0] | (rec[1] << 8));
         a.y = int16_t(rec[2] | (rec[3] << 8));
         a.rate = rec[4] | (rec[5] << 8);
@@ -513,8 +513,8 @@ bool Game::loadGame(const std::string &fileName) {
         h.enabled = r.u8() != 0;
         h.label = r.u16();
         h.cursor = r.u8();
-        if (i < int(hotspots_.size()))
-            hotspots_[i] = h;
+        if (i < int(_hotspots.size()))
+            _hotspots[i] = h;
     }
     uint32_t resume = r.u32();
     int ambients[2] = {int(r.u32()), int(r.u32())};
@@ -528,38 +528,38 @@ bool Game::loadGame(const std::string &fileName) {
         t.label = r.u16();
         t.active = r.u8() != 0;
         t.kind = r.u8();
-        if (i < int(timers_.size()))
-            timers_[i] = t;
+        if (i < int(_timers.size()))
+            _timers[i] = t;
     }
     if (r.bad)
         log::warning("%s is truncated; loaded what was there", fileName.c_str());
 
     // The picture, the palette and the sounds.
-    disc_ = disc;
-    tricorderIcon_ = tricorder;
-    tickPeriod_ = tickPeriod;
-    tickPhase_ = tickPhase;
-    beams_.clear();
-    beamLife_ = 0;
-    if (tickPeriod_ != 0xFFFF && tickSound_.empty())
-        if (auto s = resources_.openFile("SOUND/TICK.RAW"))
-            tickSound_ = s->readAll();
-    mapLocation_ = disc == 1 ? 0xFF : mapLocation;
-    mapEnabled_ = true;
-    dead_ = false;
+    _disc = disc;
+    _tricorderIcon = tricorder;
+    _tickPeriod = tickPeriod;
+    _tickPhase = tickPhase;
+    _beams.clear();
+    _beamLife = 0;
+    if (_tickPeriod != 0xFFFF && _tickSound.empty())
+        if (auto s = _resources.openFile("SOUND/TICK.RAW"))
+            _tickSound = s->readAll();
+    _mapLocation = disc == 1 ? 0xFF : mapLocation;
+    _mapEnabled = true;
+    _dead = false;
     if (background != kNone16)
         setBackground(background, false);
     if (pal) {
         for (int i = 0; i < 256; i++)
-            palette_.setColor(i, uint8_t((pal[i * 3] & 0x3F) << 2 | (pal[i * 3] & 0x3F) >> 4),
+            _palette.setColor(i, uint8_t((pal[i * 3] & 0x3F) << 2 | (pal[i * 3] & 0x3F) >> 4),
                               uint8_t((pal[i * 3 + 1] & 0x3F) << 2 | (pal[i * 3 + 1] & 0x3F) >> 4),
                               uint8_t((pal[i * 3 + 2] & 0x3F) << 2 | (pal[i * 3 + 2] & 0x3F) >> 4));
-        fadeLevel_ = 256;
+        _fadeLevel = 256;
         applyPalette();
     }
-    paletteBackground_ = paletteBackground;
+    _paletteBackground = paletteBackground;
     for (int sound : ambients) {
-        if (sound != int(kNone32) && sound < int(scene_->lists[kListSounds].size())) {
+        if (sound != int(kNone32) && sound < int(_scene->lists[kListSounds].size())) {
             Argument ambient;
             ambient.type = kArgSymbol;
             ambient.value = 0;
@@ -569,45 +569,45 @@ bool Game::loadGame(const std::string &fileName) {
 
     // The script carries on where it was: idle on a RETURN, or at the
     // directive (an autosave restarts its action sequence).
-    thread_.pc = resume;
-    uint8_t cmd = resume < scene_->script.size() ? scene_->script[resume].command : 0;
+    _thread.pc = resume;
+    uint8_t cmd = resume < _scene->script.size() ? _scene->script[resume].command : 0;
     if (cmd == kCmdReturn || cmd == kCmdReturnVal) {
-        idlePc_ = resume;
-        thread_.active = false;
-        thread_.pc = resume + 1;
+        _idlePc = resume;
+        _thread.active = false;
+        _thread.pc = resume + 1;
     } else {
-        thread_.active = resume < scene_->script.size();
+        _thread.active = resume < _scene->script.size();
     }
-    status_.clear();
+    _status.clear();
     updateCaption();
-    log::debug(1, "Loaded %s: scene %s, directive %u", fileName.c_str(), scene_->name.c_str(), resume);
+    log::debug(1, "Loaded %s: scene %s, directive %u", fileName.c_str(), _scene->name.c_str(), resume);
     return true;
 }
 
 void Game::startNewGame() {
     // Everything zero, then OPENING (the first scene in DS9.LCC).
-    variables_.clear();
-    dialogues_.clear();
-    arcadeGroups_.clear();
-    lastArcadeDamage_ = 0;
-    tricorderIcon_ = false;
-    tickPeriod_ = 0xFFFF;
-    tickPhase_ = 0;
-    beams_.clear();
-    beamLife_ = 0;
-    mapLocation_ = 0xFF;
-    dead_ = false;
-    paletteBackground_ = 299;
-    palette_ = Palette();
-    fadeLevel_ = 256;
+    _variables.clear();
+    _dialogues.clear();
+    _arcadeGroups.clear();
+    _lastArcadeDamage = 0;
+    _tricorderIcon = false;
+    _tickPeriod = 0xFFFF;
+    _tickPhase = 0;
+    _beams.clear();
+    _beamLife = 0;
+    _mapLocation = 0xFF;
+    _dead = false;
+    _paletteBackground = 299;
+    _palette = Palette();
+    _fadeLevel = 256;
     applyPalette();
-    draw::create(background_, kScreenWidth, kScreenHeight);
-    workBufferStale_ = true;
-    draw::fill(screen_, 0);
-    if (scene_)
+    draw::create(_background, kScreenWidth, kScreenHeight);
+    _workBufferStale = true;
+    draw::fill(_screen, 0);
+    if (_scene)
         leaveScene();
-    int start = vm_->findScene("OPENING");
-    pendingScene_ = start < 0 ? 0 : start;
+    int start = _vm->findScene("OPENING");
+    _pendingScene = start < 0 ? 0 : start;
     switchScenes();
 }
 
@@ -624,15 +624,15 @@ void Game::autosave(int type) {
         {0x19, "cannsave.ds9", "Harbinger menaces Deep Space Nine"},
         {0x1B, "defisave.ds9", "Nemesis assails Deep Space Nine"},
     };
-    if (!autosave_)
+    if (!_autosave)
         return;
     for (const auto &a : kAutosaves) {
         if (a.type != type)
             continue;
-        draw::create(menuGameScreen_, kScreenWidth, kScreenHeight);
-        draw::blit(menuGameScreen_, screen_, 0, 0);
-        menuGamePalette_ = palette_;
-        saveGame(a.file, a.title, actionSeqPc_);
+        draw::create(_menuGameScreen, kScreenWidth, kScreenHeight);
+        draw::blit(_menuGameScreen, _screen, 0, 0);
+        _menuGamePalette = _palette;
+        saveGame(a.file, a.title, _actionSeqPc);
     }
 }
 

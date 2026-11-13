@@ -30,7 +30,7 @@ using namespace reluva;
 using namespace reluva::stharbinger;
 using namespace reluva::stharbinger::testing;
 
-static void test_script_interpreter(const std::filesystem::path &tmp) {
+static void testScriptInterpreter(const std::filesystem::path &tmp) {
     namespace fs = std::filesystem;
     fs::path dir = tmp / "scripts";
 
@@ -116,7 +116,7 @@ static void test_script_interpreter(const std::filesystem::path &tmp) {
 // Dialogue command numbers used by the test.
 const uint8_t kDlgGotoCmd = 0x32, kDlgExitCmd = 0x39, kDlgBackCmd = 0x40;
 
-static void test_conversation(const std::filesystem::path &tmp) {
+static void testConversation(const std::filesystem::path &tmp) {
     namespace fs = std::filesystem;
     fs::path dir = tmp / "conversation";
 
@@ -236,7 +236,7 @@ static void test_conversation(const std::filesystem::path &tmp) {
     CHECK((game.getVariable("d")) == (6));
 }
 
-static void test_videos_and_cursors(const std::filesystem::path &tmp) {
+static void testVideosAndCursors(const std::filesystem::path &tmp) {
     namespace fs = std::filesystem;
     fs::path dir = tmp / "video";
 
@@ -383,7 +383,7 @@ int runArcade(const std::filesystem::path &tmp, int type, const char *name,
 
 } // namespace
 
-static void test_arcade_sequences(const std::filesystem::path &tmp) {
+static void testArcadeSequences(const std::filesystem::path &tmp) {
     // LAND (type 2): video rectangle at (120, 12); 100 ms per frame = 5 steps.
     // A boss (id 200, 2 hits) shot twice with the phaser: won 11 frames later.
     int r = runArcade(tmp, 2, "LAND", {makeSprite(0, 2, 0, 0, 0xFF, 200, 40, 10, 10)}, [](Game &g) {
@@ -459,7 +459,7 @@ static void test_arcade_sequences(const std::filesystem::path &tmp) {
     CHECK((r) == (0xFFFD));
 }
 
-static void test_menu_save_and_load(const std::filesystem::path &tmp) {
+static void testMenuSaveAndLoad(const std::filesystem::path &tmp) {
     namespace fs = std::filesystem;
     fs::path dir = tmp / "save";
     fs::path saves = tmp / "saves";
@@ -606,7 +606,7 @@ std::vector<uint8_t> makeExe(const std::vector<std::string> &lines) {
 
 } // namespace
 
-static void test_credits_and_deck_map(const std::filesystem::path &tmp) {
+static void testCreditsAndDeckMap(const std::filesystem::path &tmp) {
     namespace fs = std::filesystem;
     fs::path dir = tmp / "extras";
     ScriptBuilder s0;
@@ -633,7 +633,7 @@ static void test_credits_and_deck_map(const std::filesystem::path &tmp) {
     game.pressKey('m');
     CHECK(game.isDeckMapOpen());
     game.runSteps(3);
-    game.pressKey(key::Escape);
+    game.pressKey(key::kEscape);
     CHECK(!game.isDeckMapOpen());
 
     // Credits from the menu: they scroll to the end, or Esc ends them.
@@ -643,7 +643,7 @@ static void test_credits_and_deck_map(const std::filesystem::path &tmp) {
     CHECK(game.isCreditsActive());
     game.runSteps(100);
     CHECK(game.isCreditsActive());
-    game.pressKey(key::Escape);
+    game.pressKey(key::kEscape);
     game.runSteps(30);
     CHECK(!game.isCreditsActive());
     CHECK(game.isMenuActive()); // back in the menu
@@ -652,7 +652,7 @@ static void test_credits_and_deck_map(const std::filesystem::path &tmp) {
     CHECK(!game.isCreditsActive());
 }
 
-static void test_original_mode(const std::filesystem::path &tmp) {
+static void testOriginalMode(const std::filesystem::path &tmp) {
     namespace fs = std::filesystem;
     fs::path dir = tmp / "original";
     ScriptBuilder s0;
@@ -672,7 +672,7 @@ static void test_original_mode(const std::filesystem::path &tmp) {
         game.start(0);
 
         // Esc opens the menu only with the conveniences; right click always.
-        game.pressKey(key::Escape);
+        game.pressKey(key::kEscape);
         CHECK(game.isMenuActive() == !original);
         if (!game.isMenuActive())
             game.rightClick(300, 300);
@@ -684,7 +684,7 @@ static void test_original_mode(const std::filesystem::path &tmp) {
         CHECK(game.isMenuActive() == !original); // "n" said no; else quit was confirmed
         if (game.isMenuActive()) {
             // Esc resumes only with the conveniences.
-            game.pressKey(key::Escape);
+            game.pressKey(key::kEscape);
             CHECK(!game.isMenuActive());
         }
 
@@ -695,12 +695,12 @@ static void test_original_mode(const std::filesystem::path &tmp) {
         CHECK(game2.isDeckMapOpen());
         game2.pressKey('m');
         CHECK(game2.isDeckMapOpen() == original);
-        game2.pressKey(key::Escape);
+        game2.pressKey(key::kEscape);
         CHECK(!game2.isDeckMapOpen());
     }
 }
 
-static void test_special_functions(const std::filesystem::path &tmp) {
+static void testSpecialFunctions(const std::filesystem::path &tmp) {
     namespace fs = std::filesystem;
     fs::path dir = tmp / "special";
     // Countdown: stage 1 at location 0 (25 s + 1 + 2 for normal difficulty = 28 s,
@@ -747,7 +747,7 @@ static void test_special_functions(const std::filesystem::path &tmp) {
     game.runSteps(10);
 }
 
-static void test_anim_composit(const std::filesystem::path &tmp) {
+static void testAnimComposit(const std::filesystem::path &tmp) {
     namespace fs = std::filesystem;
     fs::path dir = tmp / "composit";
     // A: 4x4 colour 5 at (0, 0). B: 4x4 colour 7 at (2, 2), drawn on top. After
@@ -789,7 +789,7 @@ static void test_anim_composit(const std::filesystem::path &tmp) {
     CHECK((p[5 * 640 + 5]) == (0)); // B outside A's rectangle: gone
 }
 
-static void test_anim_leftovers(const std::filesystem::path &tmp) {
+static void testAnimLeftovers(const std::filesystem::path &tmp) {
     namespace fs = std::filesystem;
     fs::path dir = tmp / "leftovers";
     // The renderer only erases clear animations and ones turned off. A (not
@@ -846,7 +846,7 @@ static void test_anim_leftovers(const std::filesystem::path &tmp) {
     CHECK((p[61 * 640 + 1]) == (0));  // D erased when turned off
 }
 
-static void test_beam_timing(const std::filesystem::path &tmp) {
+static void testBeamTiming(const std::filesystem::path &tmp) {
     namespace fs = std::filesystem;
     fs::path dir = tmp / "beams";
     // One enemy shot (colours 1..3) from hotspot 0. As in the original (0x22BD4):
@@ -889,17 +889,17 @@ static void test_beam_timing(const std::filesystem::path &tmp) {
 }
 
 static const reluva::test::Suite
-    suite("stharbinger.unit.game",
-          {
-              {"script interpreter", [](const std::filesystem::path &tmp) { test_script_interpreter(tmp); }},
-              {"conversation", [](const std::filesystem::path &tmp) { test_conversation(tmp); }},
-              {"videos and cursors", [](const std::filesystem::path &tmp) { test_videos_and_cursors(tmp); }},
-              {"arcade sequences", [](const std::filesystem::path &tmp) { test_arcade_sequences(tmp); }},
-              {"menu save and load", [](const std::filesystem::path &tmp) { test_menu_save_and_load(tmp); }},
-              {"credits and deck map", [](const std::filesystem::path &tmp) { test_credits_and_deck_map(tmp); }},
-              {"original mode", [](const std::filesystem::path &tmp) { test_original_mode(tmp); }},
-              {"special functions", [](const std::filesystem::path &tmp) { test_special_functions(tmp); }},
-              {"anim composit", [](const std::filesystem::path &tmp) { test_anim_composit(tmp); }},
-              {"anim leftovers", [](const std::filesystem::path &tmp) { test_anim_leftovers(tmp); }},
-              {"beam timing", [](const std::filesystem::path &tmp) { test_beam_timing(tmp); }},
-          });
+    kSuite("stharbinger.unit.game",
+           {
+               {"script interpreter", [](const std::filesystem::path &tmp) { testScriptInterpreter(tmp); }},
+               {"conversation", [](const std::filesystem::path &tmp) { testConversation(tmp); }},
+               {"videos and cursors", [](const std::filesystem::path &tmp) { testVideosAndCursors(tmp); }},
+               {"arcade sequences", [](const std::filesystem::path &tmp) { testArcadeSequences(tmp); }},
+               {"menu save and load", [](const std::filesystem::path &tmp) { testMenuSaveAndLoad(tmp); }},
+               {"credits and deck map", [](const std::filesystem::path &tmp) { testCreditsAndDeckMap(tmp); }},
+               {"original mode", [](const std::filesystem::path &tmp) { testOriginalMode(tmp); }},
+               {"special functions", [](const std::filesystem::path &tmp) { testSpecialFunctions(tmp); }},
+               {"anim composit", [](const std::filesystem::path &tmp) { testAnimComposit(tmp); }},
+               {"anim leftovers", [](const std::filesystem::path &tmp) { testAnimLeftovers(tmp); }},
+               {"beam timing", [](const std::filesystem::path &tmp) { testBeamTiming(tmp); }},
+           });

@@ -24,7 +24,7 @@ public:
     // grGetString's strings) are allocated.
     Glide3Dll(x86::Cpu &cpu, x86::Arena &memory, Board board = voodoo3Board());
 
-    Glide3 &glide() { return glide_; }
+    Glide3 &glide() { return _glide; }
 
 private:
     void addAll();
@@ -33,10 +33,10 @@ private:
     Glide3TexInfo texInfo(uint32_t address) const;
     uint32_t guestString(const std::string &s);
 
-    Glide3 glide_;
-    std::map<std::string, uint32_t> strings_; // grGetString's, in guest memory
-    std::vector<Glide3::Layout> layouts_;     // grGlideGetVertexLayout's, by number
-    std::map<std::string, uint32_t> procs_;   // grGetProcAddress's procedures
+    Glide3 _glide;
+    std::map<std::string, uint32_t> _strings; // grGetString's, in guest memory
+    std::vector<Glide3::Layout> _layouts;     // grGlideGetVertexLayout's, by number
+    std::map<std::string, uint32_t> _procs;   // grGetProcAddress's procedures
 };
 
 } // namespace reluva::glide

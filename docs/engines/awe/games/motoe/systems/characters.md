@@ -35,7 +35,7 @@ only with `tag gretafollow`, and Michel in the corridors only until
 The game keeps every scene of the place it's in, so a scene's characters
 come back as they were left: where they stood, and as scripts left them.
 Reluva reads a scene again when it's shown, so it keeps those itself,
-by scene and model file (`npcPositions_`, `keptCharacters_`), until a
+by scene and model file (`_npcPositions`, `_keptCharacters`), until a
 new place is loaded (the game drops the last place's scenes then, before
 act 04A and from 08A on: `0x4229a5` calls `0x423430` when the location
 differs from the last). The place changes with an act's location and

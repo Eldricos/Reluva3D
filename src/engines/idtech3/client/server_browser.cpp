@@ -11,12 +11,12 @@ namespace reluva::idtech3 {
 void ServerBrowser::send(const net::Address &to, const std::string &text) {
     std::vector<uint8_t> data(4, 0xff);
     data.insert(data.end(), text.begin(), text.end());
-    socket_->send(to, data);
+    _socket->send(to, data);
 }
 
 void ServerBrowser::localServers(uint64_t now) {
-    local_.clear();
-    scanStart_ = now;
+    _local.clear();
+    _scanStart = now;
     // Twice, in case one is lost; the 'xxx' is a challenge servers echo.
     // To 255.255.255.255, as the original, which leaves by one network
     // only, and to each network's own broadcast address (a virtual
@@ -24,15 +24,15 @@ void ServerBrowser::localServers(uint64_t now) {
     for (int i = 0; i < 2; ++i)
         for (int p = 0; p < kServerPorts; ++p) {
             send(net::Address::broadcast(uint16_t(kServerPort + p)), "getinfo xxx");
-            for (uint32_t b : broadcasts_)
+            for (uint32_t b : _broadcasts)
                 send({b, uint16_t(kServerPort + p)}, "getinfo xxx");
         }
 }
 
 void ServerBrowser::globalServers(const std::vector<net::Address> &masters, int protocol, const std::string &keywords) {
-    global_.clear();
-    masters_ = masters;
-    globalWaiting_ = !masters.empty();
+    _global.clear();
+    _masters = masters;
+    _globalWaiting = !masters.empty();
     // Raven's master listed every server; the community's (dpmaster) leave
     // out empty and full ones unless asked for them, so they're asked.
     std::string words = keywords;
@@ -44,7 +44,7 @@ void ServerBrowser::globalServers(const std::vector<net::Address> &masters, int 
 }
 
 std::string ServerBrowser::globalServerAddress(int n) const {
-    return n >= 0 && n < int(global_.size()) ? global_[size_t(n)].toString() : std::string();
+    return n >= 0 && n < int(_global.size()) ? _global[size_t(n)].toString() : std::string();
 }
 
 std::vector<net::Address> ServerBrowser::serversFromResponse(const std::vector<uint8_t> &d) {
@@ -90,19 +90,19 @@ std::vector<net::Address> ServerBrowser::serversFromResponse(const std::vector<u
 void ServerBrowser::ping(const net::Address &address, uint64_t now) {
     // A free slot, else one answered or given up on, else the oldest.
     Ping *slot = nullptr;
-    for (Ping &p : pings_)
+    for (Ping &p : _pings)
         if (!p.used) {
             slot = &p;
             break;
         }
     if (!slot)
-        for (Ping &p : pings_)
+        for (Ping &p : _pings)
             if (p.time || now - p.start >= 500) {
                 slot = &p;
                 break;
             }
     if (!slot)
-        slot = &*std::min_element(std::begin(pings_), std::end(pings_),
+        slot = &*std::min_element(std::begin(_pings), std::end(_pings),
                                   [](const Ping &a, const Ping &b) { return a.start < b.start; });
     *slot = Ping{address, true, now, 0, {}};
     send(address, "getinfo xxx");
@@ -133,50 +133,50 @@ std::string ServerBrowser::infoFromResponse(const std::vector<uint8_t> &datagram
 void ServerBrowser::update(uint64_t now) {
     net::Address from;
     std::vector<uint8_t> data;
-    while (socket_->receive(from, data)) {
-        if (std::find(masters_.begin(), masters_.end(), from) != masters_.end()) {
+    while (_socket->receive(from, data)) {
+        if (std::find(_masters.begin(), _masters.end(), from) != _masters.end()) {
             if (std::string(data.begin(), data.end()).find("getserversResponse") != std::string::npos)
-                globalWaiting_ = false;
+                _globalWaiting = false;
             for (const net::Address &a : serversFromResponse(data))
-                if (std::find(global_.begin(), global_.end(), a) == global_.end() && global_.size() < kMaxGlobalServers)
-                    global_.push_back(a);
+                if (std::find(_global.begin(), _global.end(), a) == _global.end() && _global.size() < kMaxGlobalServers)
+                    _global.push_back(a);
             continue;
         }
         const std::string info = infoFromResponse(data);
         if (info.empty())
             continue;
-        for (Ping &p : pings_)
+        for (Ping &p : _pings)
             if (p.used && !p.time && p.address == from) {
                 p.time = std::max(1, int(now - p.start));
                 p.info = info;
             }
         // Answers while the local network is being asked make its list
         // (whatever their address: not every network uses the private ranges).
-        if (scanStart_ && now - scanStart_ < kScanMs && std::find(local_.begin(), local_.end(), from) == local_.end() &&
-            int(local_.size()) < kMaxLocalServers)
-            local_.push_back(from);
+        if (_scanStart && now - _scanStart < kScanMs && std::find(_local.begin(), _local.end(), from) == _local.end() &&
+            int(_local.size()) < kMaxLocalServers)
+            _local.push_back(from);
     }
 }
 
 std::string ServerBrowser::localServerAddress(int n) const {
-    return n >= 0 && n < int(local_.size()) ? local_[size_t(n)].toString() : std::string();
+    return n >= 0 && n < int(_local.size()) ? _local[size_t(n)].toString() : std::string();
 }
 
 int ServerBrowser::pingQueueCount() const {
-    return int(std::count_if(std::begin(pings_), std::end(pings_), [](const Ping &p) { return p.used; }));
+    return int(std::count_if(std::begin(_pings), std::end(_pings), [](const Ping &p) { return p.used; }));
 }
 
 void ServerBrowser::clearPing(int n) {
     if (n >= 0 && n < kMaxPings)
-        pings_[n].used = false;
+        _pings[n].used = false;
 }
 
 void ServerBrowser::getPing(int n, uint64_t now, int maxPing, std::string &address, int &time) const {
     address.clear();
     time = 0;
-    if (n < 0 || n >= kMaxPings || !pings_[n].used)
+    if (n < 0 || n >= kMaxPings || !_pings[n].used)
         return;
-    const Ping &p = pings_[n];
+    const Ping &p = _pings[n];
     address = p.address.toString();
     time = p.time;
     if (!time && int(now - p.start) >= std::max(maxPing, 100))
@@ -184,14 +184,14 @@ void ServerBrowser::getPing(int n, uint64_t now, int maxPing, std::string &addre
 }
 
 std::string ServerBrowser::pingInfo(int n) const {
-    return n >= 0 && n < kMaxPings && pings_[n].used ? pings_[n].info : std::string();
+    return n >= 0 && n < kMaxPings && _pings[n].used ? _pings[n].info : std::string();
 }
 
 std::vector<std::string> masterServerNames(CvarStore &cvars, const std::vector<std::string> &defaults) {
     // The game's own first, unchanged as the original; then others, kept
     // if the player changes them.
     for (size_t i = 0; i < defaults.size() && i < 5; ++i)
-        cvars.create("sv_master" + std::to_string(i + 1), defaults[i], i == 0 ? 0 : CvarStore::Archive);
+        cvars.create("sv_master" + std::to_string(i + 1), defaults[i], i == 0 ? 0 : CvarStore::kArchive);
     std::vector<std::string> out;
     for (int i = 1; i <= 5; ++i) {
         const std::string name = cvars.string("sv_master" + std::to_string(i));

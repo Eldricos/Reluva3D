@@ -14,8 +14,8 @@ breaking the build, the tests or anyone's work in progress.
 | Phase 1: tooling and CI | Done |
 | Phase 2: formatting | Done |
 | Phase 3: small clang-tidy fixes | Done |
-| Phase 4: identifier renames | Next |
-| Phase 5: hand work and enforcement | To do |
+| Phase 4: identifier renames | Done |
+| Phase 5: hand work | Next |
 
 ## Decisions
 
@@ -27,6 +27,7 @@ breaking the build, the tests or anyone's work in progress.
 | Fall through | `[[fallthrough]];`. A `// fall through` comment works only with GCC. |
 | Line length | 120 columns (`ColumnLimit: 120`). |
 | Short functions | Allowed on one line when defined inside their class (`int health() const { return _health; }`), and for short lambdas. |
+| Acronyms | Keep their capitals, as ScummVM: `kRGBA32`, `kCLUT8`, `HUDScreen`. |
 | Doxygen | New code uses it; existing `//` comments are converted as each file is worked on. |
 | Layout | ScummVM's subject folders under `src/` (Option C), the same layout inside every engine (A), a CMakeLists.txt per library (E). |
 
@@ -92,9 +93,9 @@ hand if they belong to a subject (graphics, here). Then build.
 branch (as `tools/check-docs.py` notes). When it's merged, sort its files
 into the folders above with a third list.
 
-## Where the code is today
+## Where the code was at the start
 
-The code follows one consistent style, not yet the guide's. Measured
+Before phase 1 the code followed one consistent style, not the guide's. Measured
 with clang-format and clang-tidy 18 on 665 source files; clang-tidy
 didn't see newworlds, which is disabled (expect about 10% more).
 
@@ -256,33 +257,82 @@ their own. Built with GCC and Clang and all 99 tests pass.
 - **Not covered:** about 780 class and struct members still declared
   several to a line (`int x, y;`, mostly in headers); no clang-tidy check
   splits members. Left for Phase 5. Code compiled only on Windows or
-  macOS (`#ifdef _WIN32`, 19 blocks) wasn't seen by the checks.
+  macOS (`#ifdef _WIN32`, 19 blocks) wasn't seen by the checks; Phase 4
+  renamed it by hand.
 
-### Phase 4: Identifier renames
+### Phase 4: Identifier renames (done)
 
-clang-tidy renames a declaration and every use it sees.
+5,131 names renamed to the guide's, in every engine and the shared code:
+private and protected members `_name`, enum values and constants
+`kName`, functions and variables camel case, globals `g_name`.
 
-| Risk | Handling |
-| --- | --- |
-| Code the compile doesn't see: disabled engines, `#ifdef _WIN32`/`__APPLE__` (19 blocks in 7 files) | Every engine enabled for the run; those files checked by hand; Windows CI |
-| A header fixed from many `.cpp` files | `run-clang-tidy -fix` applies each fix once |
-| A new name that clashes (`End` becomes `kEnd` beside an existing `kEnd`) | It doesn't compile, so it can't pass unnoticed; fixed by hand in the same PR |
-| Names that must match outside code: `msvcp60.cpp`'s exports, QVM system calls | Left out (`NOLINT`) before the run |
-| Names in strings (save files, settings keys) | Not changed by renaming code; the game-files tests (`ctest -L gamedata`) check, run by whoever has each game |
-| Macros pasting names (`RELUVA_BY_OP`, `CHECK`) | Search for `##` and `#x` by hand |
+**How.** `tools/tidy.py --rename-declared-in <folder>` renames only what
+a folder *declares*, with every use: clang-tidy can't limit its fixes
+that way, so the tool exports them and keeps those whose declaration is
+in the folder. One commit per area (the 9 engines, the shared code, the
+shared tests), each made by the command in its message, built and tested
+before it was committed. The commands are listed in
+`tools/renames/2026-11-identifiers.txt`.
 
-One engine per PR, smallest first: testbed, netimmerse, stharbinger,
-stgenerations, clue, awe, newworlds, idtech3; then the shared libraries,
-backends and programs, then `tests/`. Within a PR, a commit per kind
-(members, enum values, constants, functions). Then naming warnings fail
-CI for changed files.
+**By hand, before them** (so the renames themselves needed no hand fix):
+- the guide's exceptions, as ignored patterns in `.clang-tidy` (the
+  standard library's `value_type` and the like, the compiler runtime's
+  `__register_frame`, the x86 registers and flags, a formula's notation in
+  a local);
+- acronyms, which clang-tidy would mangle (`CLUT8` would be `kCluT8`):
+  `kCLUT8`, `kRGBA32`, `kS16LE`, `kS16BE`, `kInterDC`, `kIntraDC`, clue's
+  `kUK` and `kUS`, `kOpPush32`;
+- names whose new form would be a keyword (`short_`, `long_`), and three
+  whose new form would hide another name: two found by the compiler
+  (idtech3's `add`, Glide's `ncc`) and one that compiled but would have
+  changed which `kScripts` newworlds parses (found because the types
+  happened to differ).
 
-### Phase 5: Hand work and enforcement
+**Proof nothing changed.** The code before and after the renames, built
+the same way, compared object file by object file (machine code without
+symbol names, and data): every object of the program is identical (400
+of 456). The other 56 are tests, and every difference is accounted for:
+433 instructions that pass a test check's line number (lines moved), 238
+`CHECK` messages with the new names in them, and 299 compiler-made type
+names of lambdas, which include the renamed `suite` variable.
+
+**After them:** `tools/clue-re`'s harness (not built by CMake) renamed to
+match and building again (its README's build command was out of date
+since the library split); the 9 globals the code needs documented with a
+`NOLINT` each; 9 code names quoted in the docs updated. clang-tidy finds
+nothing anywhere, so CI's "Code style" job now fails on a clang-tidy
+finding in a changed file, as on an unformatted one. The rename commits
+are in `.git-blame-ignore-revs`.
+
+**A branch made before the renames** catches up as from the formatting,
+with the commits before (`18f1ed0`) and after (`afc8e38`) the renames:
+
+```text
+git merge 18f1ed0                     # main up to the renames: real conflicts only
+grep -v '^#' tools/renames/2026-11-identifiers.txt | while read -r args; do
+    python3 tools/tidy.py $args || break; done
+python3 tools/format.py --changed 18f1ed0
+cmake --build build && ctest --test-dir build    # fix what it finds in the branch's own code
+git commit -am "Rename: as main"
+git diff --stat afc8e38               # only files the branch changed may differ
+git merge -s ours afc8e38             # the renames: already done, keep ours
+git merge main                        # the rest, as usual
+```
+
+The renames include the branch's own uses of what they rename. A branch
+adding an engine also renames that engine's own names:
+`python3 tools/tidy.py --rename-declared-in src/engines/<it> --rename-declared-in tests/engines/<it> src/engines/<it> tests/engines/<it>`.
+
+clang-tidy runs on Linux, so it renames nothing Linux doesn't compile:
+code under `#ifdef _WIN32` or `__APPLE__`, without SSE2 (Apple Silicon),
+and the engine template in `cmake/engine-template/`. Those were done by
+hand on main (`42be944`); a branch with such code of its own renames it
+by hand too, and the Windows and macOS builds in CI find what's missed.
+
+### Phase 5: Hand work
 
 - Doxygen comments, as each file is worked on.
-- The 8 non-`const` globals: `g_` prefix, or gone.
 - Class and struct members declared several to a line (about 780):
   one per line, by a script reviewed like the others, or as files are
   worked on.
-- The "Code style" job's clang-tidy step fails the run too;
-  `CONTRIBUTING.md` points to the guide and the tools.
+- `CONTRIBUTING.md` points to the guide and the tools.

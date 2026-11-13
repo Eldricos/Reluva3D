@@ -19,26 +19,26 @@ struct KeyName {
     const char *name;
 };
 constexpr KeyName kKeyNames[] = {
-    {q3key::Tab, "TAB"},
-    {q3key::Enter, "ENTER"},
-    {q3key::Escape, "ESCAPE"},
-    {q3key::Space, "SPACE"},
-    {q3key::Backspace, "BACKSPACE"},
+    {q3key::kTab, "TAB"},
+    {q3key::kEnter, "ENTER"},
+    {q3key::kEscape, "ESCAPE"},
+    {q3key::kSpace, "SPACE"},
+    {q3key::kBackspace, "BACKSPACE"},
     {129, "CAPSLOCK"},
-    {q3key::Pause, "PAUSE"},
-    {q3key::Up, "UPARROW"},
-    {q3key::Down, "DOWNARROW"},
-    {q3key::Left, "LEFTARROW"},
-    {q3key::Right, "RIGHTARROW"},
-    {q3key::Alt, "ALT"},
-    {q3key::Ctrl, "CTRL"},
-    {q3key::Shift, "SHIFT"},
-    {q3key::Insert, "INS"},
-    {q3key::Delete, "DEL"},
-    {q3key::PageDown, "PGDN"},
-    {q3key::PageUp, "PGUP"},
-    {q3key::Home, "HOME"},
-    {q3key::End, "END"},
+    {q3key::kPause, "PAUSE"},
+    {q3key::kUp, "UPARROW"},
+    {q3key::kDown, "DOWNARROW"},
+    {q3key::kLeft, "LEFTARROW"},
+    {q3key::kRight, "RIGHTARROW"},
+    {q3key::kAlt, "ALT"},
+    {q3key::kCtrl, "CTRL"},
+    {q3key::kShift, "SHIFT"},
+    {q3key::kInsert, "INS"},
+    {q3key::kDelete, "DEL"},
+    {q3key::kPageDown, "PGDN"},
+    {q3key::kPageUp, "PGUP"},
+    {q3key::kHome, "HOME"},
+    {q3key::kEnd, "END"},
     {160, "KP_HOME"},
     {161, "KP_UPARROW"},
     {162, "KP_PGUP"},
@@ -48,7 +48,7 @@ constexpr KeyName kKeyNames[] = {
     {166, "KP_END"},
     {167, "KP_DOWNARROW"},
     {168, "KP_PGDN"},
-    {q3key::KpEnter, "KP_ENTER"},
+    {q3key::kKpEnter, "KP_ENTER"},
     {170, "KP_INS"},
     {171, "KP_DEL"},
     {172, "KP_SLASH"},
@@ -57,13 +57,13 @@ constexpr KeyName kKeyNames[] = {
     {175, "KP_NUMLOCK"},
     {176, "KP_STAR"},
     {177, "KP_EQUALS"},
-    {q3key::Mouse1, "MOUSE1"},
-    {q3key::Mouse2, "MOUSE2"},
-    {q3key::Mouse3, "MOUSE3"},
-    {q3key::Mouse4, "MOUSE4"},
-    {q3key::Mouse5, "MOUSE5"},
-    {q3key::WheelDown, "MWHEELDOWN"},
-    {q3key::WheelUp, "MWHEELUP"},
+    {q3key::kMouse1, "MOUSE1"},
+    {q3key::kMouse2, "MOUSE2"},
+    {q3key::kMouse3, "MOUSE3"},
+    {q3key::kMouse4, "MOUSE4"},
+    {q3key::kMouse5, "MOUSE5"},
+    {q3key::kWheelDown, "MWHEELDOWN"},
+    {q3key::kWheelUp, "MWHEELUP"},
     {';', "SEMICOLON"},
     // The joystick's buttons, and the original's names for 217 to 232
     // (nothing presses those).
@@ -121,52 +121,52 @@ constexpr KeyName kKeyNames[] = {
 
 int32_t toQ3Key(uint32_t k) {
     switch (k) {
-    case key::Tab:
-        return q3key::Tab;
-    case key::Return:
-        return q3key::Enter;
-    case key::KpEnter:
-        return q3key::KpEnter;
-    case key::Escape:
-        return q3key::Escape;
-    case key::Space:
-        return q3key::Space;
-    case key::Backspace:
-        return q3key::Backspace;
-    case key::Delete:
-        return q3key::Delete;
-    case key::Up:
-        return q3key::Up;
-    case key::Down:
-        return q3key::Down;
-    case key::Left:
-        return q3key::Left;
-    case key::Right:
-        return q3key::Right;
-    case key::Insert:
-        return q3key::Insert;
-    case key::Home:
-        return q3key::Home;
-    case key::End:
-        return q3key::End;
-    case key::PageUp:
-        return q3key::PageUp;
-    case key::PageDown:
-        return q3key::PageDown;
-    case key::LShift:
-    case key::RShift:
-        return q3key::Shift;
-    case key::LCtrl:
-    case key::RCtrl:
-        return q3key::Ctrl;
-    case key::LAlt:
-    case key::RAlt:
-        return q3key::Alt;
+    case key::kTab:
+        return q3key::kTab;
+    case key::kReturn:
+        return q3key::kEnter;
+    case key::kKpEnter:
+        return q3key::kKpEnter;
+    case key::kEscape:
+        return q3key::kEscape;
+    case key::kSpace:
+        return q3key::kSpace;
+    case key::kBackspace:
+        return q3key::kBackspace;
+    case key::kDelete:
+        return q3key::kDelete;
+    case key::kUp:
+        return q3key::kUp;
+    case key::kDown:
+        return q3key::kDown;
+    case key::kLeft:
+        return q3key::kLeft;
+    case key::kRight:
+        return q3key::kRight;
+    case key::kInsert:
+        return q3key::kInsert;
+    case key::kHome:
+        return q3key::kHome;
+    case key::kEnd:
+        return q3key::kEnd;
+    case key::kPageUp:
+        return q3key::kPageUp;
+    case key::kPageDown:
+        return q3key::kPageDown;
+    case key::kLShift:
+    case key::kRShift:
+        return q3key::kShift;
+    case key::kLCtrl:
+    case key::kRCtrl:
+        return q3key::kCtrl;
+    case key::kLAlt:
+    case key::kRAlt:
+        return q3key::kAlt;
     default:
         break;
     }
-    if (k >= key::F1 && k < key::F1 + 12)
-        return q3key::F1 + int32_t(k - key::F1);
+    if (k >= key::kF1 && k < key::kF1 + 12)
+        return q3key::kF1 + int32_t(k - key::kF1);
     if (k > 32 && k < 127)
         return int32_t(k);
     return 0;
@@ -174,12 +174,12 @@ int32_t toQ3Key(uint32_t k) {
 
 int32_t toQ3Button(MouseButton b) {
     switch (b) {
-    case MouseButton::Left:
-        return q3key::Mouse1;
-    case MouseButton::Right:
-        return q3key::Mouse2;
-    case MouseButton::Middle:
-        return q3key::Mouse3;
+    case MouseButton::kLeft:
+        return q3key::kMouse1;
+    case MouseButton::kRight:
+        return q3key::kMouse2;
+    case MouseButton::kMiddle:
+        return q3key::kMouse3;
     default:
         return 0;
     }
@@ -189,8 +189,8 @@ std::string KeyBindings::keyName(int32_t key) {
     for (const KeyName &n : kKeyNames)
         if (n.key == key)
             return n.name;
-    if (key >= q3key::F1 && key < q3key::F1 + 15)
-        return "F" + std::to_string(key - q3key::F1 + 1);
+    if (key >= q3key::kF1 && key < q3key::kF1 + 15)
+        return "F" + std::to_string(key - q3key::kF1 + 1);
     if (key > 32 && key < 127)
         return std::string(1, char(key));
     // Others by number, as the original writes them.
@@ -214,7 +214,7 @@ int32_t KeyBindings::keyNumber(std::string_view name) {
     if (lower.size() >= 2 && lower[0] == 'f') {
         const int f = std::atoi(lower.c_str() + 1);
         if (f >= 1 && f <= 15)
-            return q3key::F1 + f - 1;
+            return q3key::kF1 + f - 1;
     }
     if (lower.size() == 4 && lower[0] == '0' && lower[1] == 'x')
         return int32_t(std::strtol(lower.c_str() + 2, nullptr, 16));
@@ -222,19 +222,19 @@ int32_t KeyBindings::keyNumber(std::string_view name) {
 }
 
 const std::string &KeyBindings::get(int32_t key) const {
-    static const std::string none;
-    return key >= 0 && key < q3key::Count ? commands_[size_t(key)] : none;
+    static const std::string kNone;
+    return key >= 0 && key < q3key::kCount ? _commands[size_t(key)] : kNone;
 }
 
 void KeyBindings::set(int32_t key, std::string command) {
-    if (key < 0 || key >= q3key::Count || commands_[size_t(key)] == command)
+    if (key < 0 || key >= q3key::kCount || _commands[size_t(key)] == command)
         return;
-    commands_[size_t(key)] = std::move(command);
+    _commands[size_t(key)] = std::move(command);
     changed = true;
 }
 
 void KeyBindings::clear() {
-    for (std::string &c : commands_)
+    for (std::string &c : _commands)
         if (!c.empty()) {
             c.clear();
             changed = true;
@@ -242,7 +242,7 @@ void KeyBindings::clear() {
 }
 
 bool KeyBindings::empty() const {
-    for (const std::string &c : commands_)
+    for (const std::string &c : _commands)
         if (!c.empty())
             return false;
     return true;
@@ -322,9 +322,9 @@ void KeyBindings::execute(std::string_view text, CvarStore &cvars, int *ignored,
             clear();
             continue;
         } else if ((verb == "set" || verb == "seta" || verb == "sets" || verb == "setu") && w.size() >= 3) {
-            const int32_t flags = verb == "seta"   ? CvarStore::Archive
-                                  : verb == "sets" ? CvarStore::ServerInfo
-                                  : verb == "setu" ? CvarStore::UserInfo
+            const int32_t flags = verb == "seta"   ? CvarStore::kArchive
+                                  : verb == "sets" ? CvarStore::kServerInfo
+                                  : verb == "setu" ? CvarStore::kUserInfo
                                                    : 0;
             std::string value = w[2];
             for (size_t i = 3; i < w.size(); ++i)
@@ -348,8 +348,8 @@ void KeyBindings::execute(std::string_view text, CvarStore &cvars, int *ignored,
 
 std::string KeyBindings::write() const {
     std::string out = "unbindall\n";
-    for (int32_t key = 0; key < q3key::Count; ++key) {
-        const std::string &c = commands_[size_t(key)];
+    for (int32_t key = 0; key < q3key::kCount; ++key) {
+        const std::string &c = _commands[size_t(key)];
         if (c.empty())
             continue;
         // The quote mark by number, as it can't be written quoted.

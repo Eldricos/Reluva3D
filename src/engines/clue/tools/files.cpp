@@ -100,7 +100,7 @@ int cmdClueCheck(int argc, char **argv) {
     }
     const bool uk = argc > 3 && std::strcmp(argv[3], "-uk") == 0;
     reluva::clue::GameData data;
-    if (reluva::Error err = data.open(argv[2], uk ? reluva::clue::Language::UK : reluva::clue::Language::US)) {
+    if (reluva::Error err = data.open(argv[2], uk ? reluva::clue::Language::kUK : reluva::clue::Language::kUS)) {
         std::fprintf(stderr, "%s\n", err.message.c_str());
         return 1;
     }
@@ -226,10 +226,10 @@ int cmdClueCheck(int argc, char **argv) {
                 check(d.background, "dialog " + std::to_string(d.id));
                 for (const auto &c : d.controls) {
                     ++controls;
-                    const bool picture = c.type == reluva::clue::ResiControl::Image ||
-                                         c.type == reluva::clue::ResiControl::ImageButton ||
-                                         c.type == reluva::clue::ResiControl::Slider ||
-                                         c.type == reluva::clue::ResiControl::ScrollKnob;
+                    const bool picture = c.type == reluva::clue::ResiControl::kImage ||
+                                         c.type == reluva::clue::ResiControl::kImageButton ||
+                                         c.type == reluva::clue::ResiControl::kSlider ||
+                                         c.type == reluva::clue::ResiControl::kScrollKnob;
                     check(picture ? c.text : c.animation,
                           "dialog " + std::to_string(d.id) + " control " + std::to_string(c.id));
                 }
@@ -252,15 +252,15 @@ int cmdClueCheck(int argc, char **argv) {
 // A level's object names and placements: a summary, or each one with -v.
 
 const Commands
-    commands("clue",
-             {
-                 {"list", "<file.res | file.a | file.o | file.lvl>", "list a Clue .res, .a, .o or .lvl file's entries",
-                  cmdClueList},
-                 {"extract", "<file.res> <output dir> [name filter]",
-                  "write a Clue .res file's images as 32-bit TGA files", cmdClueExtract},
-                 {"check", "<game folder> [-uk]",
-                  "decode every image, animation, object and level of a Clue install or CD, and build its mansion",
-                  cmdClueCheck},
-             });
+    kCommands("clue",
+              {
+                  {"list", "<file.res | file.a | file.o | file.lvl>", "list a Clue .res, .a, .o or .lvl file's entries",
+                   cmdClueList},
+                  {"extract", "<file.res> <output dir> [name filter]",
+                   "write a Clue .res file's images as 32-bit TGA files", cmdClueExtract},
+                  {"check", "<game folder> [-uk]",
+                   "decode every image, animation, object and level of a Clue install or CD, and build its mansion",
+                   cmdClueCheck},
+              });
 
 } // namespace

@@ -49,144 +49,144 @@ void line(Surface &s, int x0, int y0, int x1, int y1, Color c) {
 } // namespace
 
 MansionViewer::MansionViewer(System &sys, Surface &screen, const GameData &data)
-    : sys_(sys), screen_(screen), data_(data) {
-    const std::filesystem::path *path = data_.find("clue.lvl");
+    : _sys(sys), _screen(screen), _data(data) {
+    const std::filesystem::path *path = _data.find("clue.lvl");
     if (!path) {
-        error_ = "no clue.lvl";
+        _error = "no clue.lvl";
         return;
     }
-    if (Error err = levelFile_.open(*path)) {
-        error_ = err.message;
+    if (Error err = _levelFile.open(*path)) {
+        _error = err.message;
         return;
     }
-    if (Error err = parseLevel(levelFile_, level_)) {
-        error_ = "clue.lvl: " + err.message;
+    if (Error err = parseLevel(_levelFile, _level)) {
+        _error = "clue.lvl: " + err.message;
         return;
     }
-    if (Error err = mansion_.build(data_, level_)) {
-        error_ = "clue.lvl: " + err.message;
+    if (Error err = _mansion.build(_data, _level)) {
+        _error = "clue.lvl: " + err.message;
         return;
     }
     centre();
 }
 
 void MansionViewer::activate() {
-    dirty_ = true;
-    sys_.setWindowTitle(std::string(gameName(data_.language())) + ": " + mansionName(data_.language()));
+    _dirty = true;
+    _sys.setWindowTitle(std::string(gameName(_data.language())) + ": " + mansionName(_data.language()));
 }
 
 void MansionViewer::centre() {
-    const ScreenRect &b = mansion_.bounds();
-    camX_ = b.x + b.w / 2 - kScreenW / 2;
-    camY_ = b.y + b.h / 2 - kAreaH / 2;
+    const ScreenRect &b = _mansion.bounds();
+    _camX = b.x + b.w / 2 - kScreenW / 2;
+    _camY = b.y + b.h / 2 - kAreaH / 2;
 }
 
 void MansionViewer::scroll(int dx, int dy) {
-    const ScreenRect &b = mansion_.bounds();
-    camX_ = std::clamp(camX_ + dx, b.x - kScreenW / 2, b.x + b.w - kScreenW / 2);
-    camY_ = std::clamp(camY_ + dy, b.y - kAreaH / 2, b.y + b.h - kAreaH / 2);
-    dirty_ = true;
+    const ScreenRect &b = _mansion.bounds();
+    _camX = std::clamp(_camX + dx, b.x - kScreenW / 2, b.x + b.w - kScreenW / 2);
+    _camY = std::clamp(_camY + dy, b.y - kAreaH / 2, b.y + b.h - kAreaH / 2);
+    _dirty = true;
 }
 
 bool MansionViewer::shown(const Mansion::Item &item) const {
-    return mansion_.shown(item, look_);
+    return _mansion.shown(item, _look);
 }
 
 void MansionViewer::handleEvent(const Event &ev) {
     if (!loaded())
         return;
-    if (overview_) {
-        if ((ev.type == EventType::KeyDown && (ev.key == 'm' || ev.key == key::Escape)) ||
-            (ev.type == EventType::MouseDown && ev.button != MouseButton::Left)) {
-            overview_ = false;
-            dirty_ = true;
-        } else if (ev.type == EventType::MouseDown && ev.button == MouseButton::Left && ev.mouseY < kAreaH) {
+    if (_overview) {
+        if ((ev.type == EventType::kKeyDown && (ev.key == 'm' || ev.key == key::kEscape)) ||
+            (ev.type == EventType::kMouseDown && ev.button != MouseButton::kLeft)) {
+            _overview = false;
+            _dirty = true;
+        } else if (ev.type == EventType::kMouseDown && ev.button == MouseButton::kLeft && ev.mouseY < kAreaH) {
             // Go to the place clicked.
-            const ScreenRect &b = mansion_.bounds();
+            const ScreenRect &b = _mansion.bounds();
             const double scale = std::max(double(b.w) / kScreenW, double(b.h) / kAreaH);
             const int ox = (kScreenW - int(b.w / scale)) / 2;
             const int oy = (kAreaH - int(b.h / scale)) / 2;
-            camX_ = b.x + int((ev.mouseX - ox) * scale) - kScreenW / 2;
-            camY_ = b.y + int((ev.mouseY - oy) * scale) - kAreaH / 2;
+            _camX = b.x + int((ev.mouseX - ox) * scale) - kScreenW / 2;
+            _camY = b.y + int((ev.mouseY - oy) * scale) - kAreaH / 2;
             scroll(0, 0);
-            overview_ = false;
-            dirty_ = true;
+            _overview = false;
+            _dirty = true;
         }
         return;
     }
-    const bool fast = ev.mods & keymod::Shift;
+    const bool fast = ev.mods & keymod::kShift;
     const int step = fast ? 128 : 32;
     switch (ev.type) {
-    case EventType::KeyDown:
+    case EventType::kKeyDown:
         switch (ev.key) {
-        case key::Left:
+        case key::kLeft:
             scroll(-step, 0);
             break;
-        case key::Right:
+        case key::kRight:
             scroll(step, 0);
             break;
-        case key::Up:
+        case key::kUp:
             scroll(0, -step);
             break;
-        case key::Down:
+        case key::kDown:
             scroll(0, step);
             break;
-        case key::Home:
+        case key::kHome:
             centre();
             break;
         case 'w':
             // See-through, solid, left out; then no walls at all.
-            if (!look_.walls) {
-                look_.walls = true;
-                look_.nearWalls = NearWalls::SeeThrough;
-            } else if (look_.nearWalls == NearWalls::SeeThrough)
-                look_.nearWalls = NearWalls::Solid;
-            else if (look_.nearWalls == NearWalls::Solid)
-                look_.nearWalls = NearWalls::Hidden;
+            if (!_look.walls) {
+                _look.walls = true;
+                _look.nearWalls = NearWalls::kSeeThrough;
+            } else if (_look.nearWalls == NearWalls::kSeeThrough)
+                _look.nearWalls = NearWalls::kSolid;
+            else if (_look.nearWalls == NearWalls::kSolid)
+                _look.nearWalls = NearWalls::kHidden;
             else
-                look_.walls = false;
+                _look.walls = false;
             break;
         case 'o':
-            look_.outside = !look_.outside;
+            _look.outside = !_look.outside;
             break;
         case 'n':
-            look_.tileNumbers = !look_.tileNumbers;
+            _look.tileNumbers = !_look.tileNumbers;
             break;
         case 'f':
-            footprints_ = !footprints_;
+            _footprints = !_footprints;
             break;
         case 'm':
-            overview_ = true;
-            whole_ = {};
+            _overview = true;
+            _whole = {};
             break;
-        case key::Space:
-            paused_ = !paused_;
+        case key::kSpace:
+            _paused = !_paused;
             break;
         default:
             return;
         }
-        dirty_ = true;
+        _dirty = true;
         break;
-    case EventType::MouseDown:
-        if (ev.button == MouseButton::Left) {
-            dragging_ = true;
-            dragX_ = ev.mouseX;
-            dragY_ = ev.mouseY;
+    case EventType::kMouseDown:
+        if (ev.button == MouseButton::kLeft) {
+            _dragging = true;
+            _dragX = ev.mouseX;
+            _dragY = ev.mouseY;
         }
         break;
-    case EventType::MouseUp:
-        if (ev.button == MouseButton::Left)
-            dragging_ = false;
+    case EventType::kMouseUp:
+        if (ev.button == MouseButton::kLeft)
+            _dragging = false;
         break;
-    case EventType::MouseMove:
-        if (dragging_) {
-            scroll(dragX_ - ev.mouseX, dragY_ - ev.mouseY);
-            dragX_ = ev.mouseX;
-            dragY_ = ev.mouseY;
+    case EventType::kMouseMove:
+        if (_dragging) {
+            scroll(_dragX - ev.mouseX, _dragY - ev.mouseY);
+            _dragX = ev.mouseX;
+            _dragY = ev.mouseY;
         }
-        mouseX_ = ev.mouseX;
-        mouseY_ = ev.mouseY;
-        dirty_ = true;
+        _mouseX = ev.mouseX;
+        _mouseY = ev.mouseY;
+        _dirty = true;
         break;
     default:
         break;
@@ -194,28 +194,28 @@ void MansionViewer::handleEvent(const Event &ev) {
 }
 
 void MansionViewer::update(uint64_t nowMs) {
-    now_ = nowMs;
+    _now = nowMs;
     // The animations run at 10 frames a second.
-    if (!paused_ && nowMs / 100 != tick_) {
-        tick_ = nowMs / 100;
-        if (!overview_)
-            dirty_ = true;
+    if (!_paused && nowMs / 100 != _tick) {
+        _tick = nowMs / 100;
+        if (!_overview)
+            _dirty = true;
     }
-    if (dirty_)
+    if (_dirty)
         draw();
 }
 
 void MansionViewer::drawScene(Surface &target, int camX, int camY) {
-    MansionLook look = look_;
-    look.animate = !paused_;
-    mansion_.draw(target, camX, camY, look, now_);
+    MansionLook look = _look;
+    look.animate = !_paused;
+    _mansion.draw(target, camX, camY, look, _now);
 }
 
 void MansionViewer::drawFootprint(const Mansion::Item &item) {
     const WorldBox &b = item.box;
     const auto toScreen = [&](int x, int y, int z, int &sx, int &sy) {
-        sx = x - y - camX_;
-        sy = (x + y) / 2 - z - camY_;
+        sx = x - y - _camX;
+        sy = (x + y) / 2 - z - _camY;
     };
     const int xs[4] = {b.x, b.x + b.sizeX, b.x + b.sizeX, b.x};
     const int ys[4] = {b.y, b.y, b.y + b.sizeY, b.y + b.sizeY};
@@ -227,7 +227,7 @@ void MansionViewer::drawFootprint(const Mansion::Item &item) {
             int y1;
             toScreen(xs[k], ys[k], z, x0, y0);
             toScreen(xs[(k + 1) % 4], ys[(k + 1) % 4], z, x1, y1);
-            line(screen_, x0, y0, x1, y1, z ? Color{255, 220, 60} : Color{255, 120, 40});
+            line(_screen, x0, y0, x1, y1, z ? Color{255, 220, 60} : Color{255, 120, 40});
         }
     for (int k = 0; k < 4; ++k) {
         int x0;
@@ -236,15 +236,15 @@ void MansionViewer::drawFootprint(const Mansion::Item &item) {
         int y1;
         toScreen(xs[k], ys[k], 0, x0, y0);
         toScreen(xs[k], ys[k], b.height, x1, y1);
-        line(screen_, x0, y0, x1, y1, {255, 170, 50});
+        line(_screen, x0, y0, x1, y1, {255, 170, 50});
     }
 }
 
 const Mansion::Item *MansionViewer::pick(int x, int y) const {
-    const auto &order = mansion_.drawOrder();
+    const auto &order = _mansion.drawOrder();
     for (auto it = order.rbegin(); it != order.rend(); ++it) {
-        const Mansion::Item &item = mansion_.items()[*it];
-        if (!shown(item) || !item.rect.contains(x, y) || (item.layer == 4 && look_.nearWalls == NearWalls::SeeThrough))
+        const Mansion::Item &item = _mansion.items()[*it];
+        if (!shown(item) || !item.rect.contains(x, y) || (item.layer == 4 && _look.nearWalls == NearWalls::kSeeThrough))
             continue;
         // Its frame 0's pieces, where they aren't transparent.
         for (const Mansion::Piece &p : (*item.frames)[0]) {
@@ -259,13 +259,13 @@ const Mansion::Item *MansionViewer::pick(int x, int y) const {
 }
 
 void MansionViewer::drawOverview() {
-    const ScreenRect &b = mansion_.bounds();
-    if (whole_.w == 0) {
-        whole_.create(b.w, b.h, PixelFormat::RGBA32);
-        fillRect(whole_, 0, 0, b.w, b.h, kBackground);
-        drawScene(whole_, b.x, b.y);
+    const ScreenRect &b = _mansion.bounds();
+    if (_whole.w == 0) {
+        _whole.create(b.w, b.h, PixelFormat::kRGBA32);
+        fillRect(_whole, 0, 0, b.w, b.h, kBackground);
+        drawScene(_whole, b.x, b.y);
     }
-    fillRect(screen_, 0, 0, kScreenW, kAreaH, kBackground);
+    fillRect(_screen, 0, 0, kScreenW, kAreaH, kBackground);
     // Shrink by averaging the pixels each screen pixel covers.
     const double scale = std::max(double(b.w) / kScreenW, double(b.h) / kAreaH);
     const int w = int(b.w / scale);
@@ -284,76 +284,76 @@ void MansionViewer::drawOverview() {
             unsigned n = 0;
             for (int sy = sy0; sy < sy1; ++sy)
                 for (int sx = sx0; sx < sx1; ++sx) {
-                    const uint8_t *p = whole_.row(sy) + sx * 4;
+                    const uint8_t *p = _whole.row(sy) + sx * 4;
                     r += p[0];
                     g += p[1];
                     bl += p[2];
                     ++n;
                 }
-            uint8_t *d = screen_.row(oy + y) + (ox + x) * 4;
+            uint8_t *d = _screen.row(oy + y) + (ox + x) * 4;
             d[0] = uint8_t(r / n);
             d[1] = uint8_t(g / n);
             d[2] = uint8_t(bl / n);
             d[3] = 255;
         }
     // Where the view is.
-    const int vx = ox + int((camX_ - b.x) / scale);
-    const int vy = oy + int((camY_ - b.y) / scale);
+    const int vx = ox + int((_camX - b.x) / scale);
+    const int vy = oy + int((_camY - b.y) / scale);
     const int vw = int(kScreenW / scale);
     const int vh = int(kAreaH / scale);
-    line(screen_, vx, vy, vx + vw, vy, {255, 255, 255});
-    line(screen_, vx + vw, vy, vx + vw, vy + vh, {255, 255, 255});
-    line(screen_, vx + vw, vy + vh, vx, vy + vh, {255, 255, 255});
-    line(screen_, vx, vy + vh, vx, vy, {255, 255, 255});
-    drawInfo(screen_,
+    line(_screen, vx, vy, vx + vw, vy, {255, 255, 255});
+    line(_screen, vx + vw, vy, vx + vw, vy + vh, {255, 255, 255});
+    line(_screen, vx + vw, vy + vh, vx, vy + vh, {255, 255, 255});
+    line(_screen, vx, vy + vh, vx, vy, {255, 255, 255});
+    drawInfo(_screen,
              "The whole house (" + std::to_string(b.w) + "x" + std::to_string(b.h) + ", shrunk " +
                  std::to_string(int(scale * 10) / 10) + "." + std::to_string(int(scale * 10) % 10) + "x)",
              "Click to go there; M or Esc to go back");
 }
 
 void MansionViewer::draw() {
-    dirty_ = false;
+    _dirty = false;
     if (!loaded()) {
-        fillRect(screen_, 0, 0, kScreenW, kAreaH, kBackground);
-        drawInfo(screen_, "The mansion can't be shown", error_);
+        fillRect(_screen, 0, 0, kScreenW, kAreaH, kBackground);
+        drawInfo(_screen, "The mansion can't be shown", _error);
         return;
     }
-    if (overview_) {
+    if (_overview) {
         drawOverview();
         return;
     }
-    fillRect(screen_, 0, 0, kScreenW, kAreaH, kBackground);
-    drawScene(screen_, camX_, camY_);
-    std::string line1 = std::to_string(mansion_.items().size()) + " objects";
-    if (!mansion_.problems().empty())
-        line1 += " (" + std::to_string(mansion_.problems().size()) +
-                 " couldn't be shown: " + mansion_.problems().front() + ")";
+    fillRect(_screen, 0, 0, kScreenW, kAreaH, kBackground);
+    drawScene(_screen, _camX, _camY);
+    std::string line1 = std::to_string(_mansion.items().size()) + " objects";
+    if (!_mansion.problems().empty())
+        line1 += " (" + std::to_string(_mansion.problems().size()) +
+                 " couldn't be shown: " + _mansion.problems().front() + ")";
     std::string line2 = std::string("near walls ") +
-                        (!look_.walls                               ? "none at all"
-                         : look_.nearWalls == NearWalls::SeeThrough ? "see-through"
-                         : look_.nearWalls == NearWalls::Solid      ? "solid"
-                                                                    : "hidden") +
-                        "  outside " + (look_.outside ? "on" : "off");
-    if (paused_)
+                        (!_look.walls                                ? "none at all"
+                         : _look.nearWalls == NearWalls::kSeeThrough ? "see-through"
+                         : _look.nearWalls == NearWalls::kSolid      ? "solid"
+                                                                     : "hidden") +
+                        "  outside " + (_look.outside ? "on" : "off");
+    if (_paused)
         line2 += "  paused";
-    const Mansion::Item *hit = mouseY_ >= 0 && mouseY_ < kAreaH ? pick(mouseX_ + camX_, mouseY_ + camY_) : nullptr;
-    if (footprints_) {
-        for (size_t i : mansion_.drawOrder()) {
-            const Mansion::Item &item = mansion_.items()[i];
-            if (shown(item) && !item.flat && item.rect.overlaps({camX_, camY_, kScreenW, kAreaH}))
+    const Mansion::Item *hit = _mouseY >= 0 && _mouseY < kAreaH ? pick(_mouseX + _camX, _mouseY + _camY) : nullptr;
+    if (_footprints) {
+        for (size_t i : _mansion.drawOrder()) {
+            const Mansion::Item &item = _mansion.items()[i];
+            if (shown(item) && !item.flat && item.rect.overlaps({_camX, _camY, kScreenW, kAreaH}))
                 drawFootprint(item);
         }
     }
     if (hit) {
-        const Placement &pl = level_.placements[hit->placement];
+        const Placement &pl = _level.placements[hit->placement];
         line1 = hit->object->name + "  layer " + std::to_string(pl.layer) + "  at " + std::to_string(hit->box.x) + "," +
                 std::to_string(hit->box.y) + "  box " + std::to_string(hit->box.sizeX) + "x" +
                 std::to_string(hit->box.sizeY) + "x" + std::to_string(hit->box.height) + "  z " + std::to_string(pl.z) +
                 "  type " + std::to_string(hit->object->type);
-        if (!footprints_ && !hit->flat)
+        if (!_footprints && !hit->flat)
             drawFootprint(*hit);
     }
-    drawInfo(screen_, line1, line2);
+    drawInfo(_screen, line1, line2);
 }
 
 } // namespace reluva::clue
