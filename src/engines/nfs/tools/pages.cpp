@@ -148,7 +148,7 @@ int cmdNfsPage(int argc, char **argv) {
         }
     }
     reluva::Surface screen;
-    screen.create(640, 480, reluva::PixelFormat::RGBA32);
+    screen.create(640, 480, reluva::PixelFormat::kRGBA32);
     page->draw(screen);
     reluva::image::Image img;
     img.w = screen.w;

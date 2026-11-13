@@ -330,7 +330,7 @@ void testFont() {
 
     // Drawn: 'A' at (0 + 1, 2 - 1), 'B' at (3, 2).
     Surface s;
-    s.create(6, 4, PixelFormat::RGBA32);
+    s.create(6, 4, PixelFormat::kRGBA32);
     CHECK(font.draw(s, 0, 2, "AB", {200, 100, 50}) == 5);
     CHECK(s.row(1)[4] == 200 && s.row(1)[5] == 100 && s.row(1)[6] == 50); // full coverage
     CHECK(s.row(1)[8] == 200 * 136 / 255);                                // partial
@@ -347,7 +347,7 @@ void testFont() {
     CHECK(!parseFont(moved, font));
     CHECK(font.penX == 1 && font.penY == -1 && font.lineGap == 2 && font.lineStep() == 11);
     Surface m;
-    m.create(6, 4, PixelFormat::RGBA32);
+    m.create(6, 4, PixelFormat::kRGBA32);
     CHECK(font.draw(m, 0, 3, "AB", {200, 100, 50}) == 5);
     CHECK(m.row(1)[2 * 4] == 200 && m.row(2)[4 * 4] == 200); // 'A' at (2, 1), 'B' at (4, 2)
 

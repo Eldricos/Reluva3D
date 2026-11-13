@@ -252,8 +252,8 @@ Error Movie::open(std::vector<uint8_t> file) {
         bundles_[BlockTypes].countBits[i] = bitsFor(w >> 3);
         bundles_[SubBlockTypes].countBits[i] = bitsFor((w + 7) >> 4);
         bundles_[Colors].countBits[i] = bitsFor(cbw[i] * 64);
-        bundles_[IntraDC].countBits[i] = bitsFor(w >> 3);
-        bundles_[InterDC].countBits[i] = bitsFor(w >> 3);
+        bundles_[kIntraDC].countBits[i] = bitsFor(w >> 3);
+        bundles_[kInterDC].countBits[i] = bitsFor(w >> 3);
         bundles_[XOff].countBits[i] = bitsFor(w >> 3);
         bundles_[YOff].countBits[i] = bitsFor(w >> 3);
         bundles_[Pattern].countBits[i] = bitsFor(cbw[i] << 3);
@@ -493,7 +493,7 @@ void Movie::readBundle(Bits &b, Source s) {
             readTree(b, t);
         lastColorHigh_ = 0;
     }
-    if (s != IntraDC && s != InterDC)
+    if (s != kIntraDC && s != kInterDC)
         readTree(b, bundles_[s].tree);
     bundles_[s].decoded = bundles_[s].read = 0;
     bundles_[s].finished = false;
@@ -606,14 +606,14 @@ void Movie::decodePlane(Bits &b, int planeIndex, bool chroma) {
                 }
             }
         }
-        for (Source s : {IntraDC, InterDC}) {
+        for (Source s : {kIntraDC, kInterDC}) {
             // The first in 11 bits (inter: 10 and a sign), then deltas in
             // groups of 8, each group's width in 4 bits.
             Bundle &bundle = bundles_[s];
             uint32_t n = bundleCount(b, bundle);
             if (!n)
                 continue;
-            int v = s == IntraDC ? int(b.get(11)) : signedValue(int(b.get(10)));
+            int v = s == kIntraDC ? int(b.get(11)) : signedValue(int(b.get(10)));
             push(bundle, v);
             --n;
             for (uint32_t i = 0; i < n; i += 8) {
@@ -711,7 +711,7 @@ void Movie::decodePlane(Bits &b, int planeIndex, bool chroma) {
             auto intra = [&](bool scaled) {
                 int32_t block[64] = {};
                 int32_t out[64];
-                block[0] = value(IntraDC);
+                block[0] = value(kIntraDC);
                 readDCTCoefficients(b, block, true);
                 idct(block, out);
                 for (int i = 0; i < 64; ++i)
@@ -777,7 +777,7 @@ void Movie::decodePlane(Bits &b, int planeIndex, bool chroma) {
                 motion();
                 int32_t block[64] = {};
                 int32_t out[64];
-                block[0] = value(InterDC);
+                block[0] = value(kInterDC);
                 readDCTCoefficients(b, block, false);
                 idct(block, out);
                 for (int i = 0; i < 64; ++i)

@@ -261,7 +261,7 @@ const Mansion::Item *MansionViewer::pick(int x, int y) const {
 void MansionViewer::drawOverview() {
     const ScreenRect &b = mansion_.bounds();
     if (whole_.w == 0) {
-        whole_.create(b.w, b.h, PixelFormat::RGBA32);
+        whole_.create(b.w, b.h, PixelFormat::kRGBA32);
         fillRect(whole_, 0, 0, b.w, b.h, kBackground);
         drawScene(whole_, b.x, b.y);
     }

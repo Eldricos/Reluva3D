@@ -189,7 +189,7 @@ void testSprite() {
     img.w = img.h = 2;
     img.rgba.assign(16, 255);
     Surface dst;
-    dst.create(8, 8, PixelFormat::RGBA32);
+    dst.create(8, 8, PixelFormat::kRGBA32);
     std::fill(dst.pixels.begin(), dst.pixels.end(), 0);
     SpriteTransform s2;
     s2.x = 1, s2.y = 1, s2.scaleX = 2, s2.scaleY = 2;

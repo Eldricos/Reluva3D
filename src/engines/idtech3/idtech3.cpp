@@ -64,9 +64,9 @@ public:
         if (Error err = mountFiles(mod, skip, warnings))
             return err;
 
-        if (Error err = sys_.initGraphics(kScreenW, kScreenH, PixelFormat::RGBA32))
+        if (Error err = sys_.initGraphics(kScreenW, kScreenH, PixelFormat::kRGBA32))
             return err;
-        screen_.create(kScreenW, kScreenH, PixelFormat::RGBA32);
+        screen_.create(kScreenW, kScreenH, PixelFormat::kRGBA32);
 
         // One mixer for every page's sounds; without audio output, none.
         audio::Mixer mixer(sys_.audioRate());
@@ -211,7 +211,7 @@ private:
             const bool was3D = pages[page]->uses3D();
             pages[page]->deactivate();
             if (was3D)
-                if (Error err = sys_.initGraphics(kScreenW, kScreenH, PixelFormat::RGBA32))
+                if (Error err = sys_.initGraphics(kScreenW, kScreenH, PixelFormat::kRGBA32))
                     return err;
             page = next;
             pages[page]->activate();
@@ -222,7 +222,7 @@ private:
             const bool was3D = pages[page]->uses3D();
             pages[page]->deactivate();
             if (was3D)
-                return sys_.initGraphics(kScreenW, kScreenH, PixelFormat::RGBA32);
+                return sys_.initGraphics(kScreenW, kScreenH, PixelFormat::kRGBA32);
             return Error::success();
         };
 

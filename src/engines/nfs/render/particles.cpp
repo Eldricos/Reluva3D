@@ -54,6 +54,7 @@ const ParticleTemplate kFireDirect3d = [] {
     t.fade = 0x7f003f7f;
     return t;
 }();
+// NOLINTNEXTLINE(readability-identifier-naming): a constant, by reference (one can't be const itself)
 const ParticleTemplate &kSparks = kTemplates[3];
 
 // The x87's rounding (fistp), to nearest, halves to even.

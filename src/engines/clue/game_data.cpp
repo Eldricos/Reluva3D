@@ -45,7 +45,7 @@ Error GameData::open(const std::filesystem::path &gameDir, Language language) {
     } else {
         // The CD: the language's own files first, then the shared ones.
         for (const char *name :
-             {language == Language::UK ? "Data/UK" : "Data/US", "Data/ClueSpecific", "Data/LangIndepend"})
+             {language == Language::kUK ? "Data/UK" : "Data/US", "Data/ClueSpecific", "Data/LangIndepend"})
             if (auto dir = fs::findDirectory(gameDir, name))
                 roots.push_back(*dir);
     }

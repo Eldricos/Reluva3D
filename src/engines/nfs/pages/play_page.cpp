@@ -489,7 +489,7 @@ void PlayPage::update(uint64_t nowMs) {
             if (!frame_.pixels.empty() && running_) {
                 overlay = frame_;
             } else {
-                overlay.create(640, 480, PixelFormat::RGBA32);
+                overlay.create(640, 480, PixelFormat::kRGBA32);
                 drawStatus(overlay);
             }
         }

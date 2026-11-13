@@ -63,7 +63,7 @@ public:
 
 static void script_program_structure() {
     // One object (type 1, id 7) with two states; state 0 has two blocks.
-    std::vector<uint16_t> program = {1, 7, 0x8000, 2,      0xFFFF, P, 5,      OP_END, 9,      1,      OP_PUSH32,
+    std::vector<uint16_t> program = {1, 7, 0x8000, 2,      0xFFFF, P, 5,      OP_END, 9,      1,      kOpPush32,
                                      1, 2, OP_END, 0x3000, 0x8001, 2, 0xFFFF, OP_END, 0x3000, 0x2000, 0x1000};
     ScriptFile script;
     CHECK(loadProgram(script, program));

@@ -327,9 +327,9 @@ int cmdGeoSheet(int argc, char **argv) {
     const int kViews = turntable ? 8 : large ? 4 : 2;
     const int rows = int((names.size() + size_t(kPerRow) - 1) / size_t(kPerRow));
     reluva::Surface sheet;
-    sheet.create(kPerRow * kViews * kCellW, rows * kCellH, reluva::PixelFormat::RGBA32);
+    sheet.create(kPerRow * kViews * kCellW, rows * kCellH, reluva::PixelFormat::kRGBA32);
     reluva::Surface cell;
-    cell.create(kCellW, kCellH, reluva::PixelFormat::RGBA32);
+    cell.create(kCellW, kCellH, reluva::PixelFormat::kRGBA32);
     nw::Rasterizer raster;
     for (size_t i = 0; i < names.size(); ++i) {
         nw::TexturedModel m;
@@ -386,7 +386,7 @@ int cmdGeoTextures(int argc, char **argv) {
     const std::vector<nw::TextureFile> textures = nw::listTextureFiles(archives);
     unsigned models = 0;
     unsigned without = 0;
-    unsigned short_ = 0;
+    unsigned shortOfTextures = 0;
     std::vector<uint8_t> data;
     for (const auto &cat : archives)
         for (const auto &e : cat->entries()) {
@@ -407,7 +407,7 @@ int cmdGeoTextures(int argc, char **argv) {
             if (found == 0)
                 ++without;
             else if (tooFew)
-                ++short_;
+                ++shortOfTextures;
             if (!all && !tooFew)
                 continue;
             std::printf("%s: needs %u, found", e.name.c_str(), needed);
@@ -432,7 +432,8 @@ int cmdGeoTextures(int argc, char **argv) {
             }
             std::printf("\n");
         }
-    std::printf("%u models: %u without textures, %u with fewer than their faces number\n", models, without, short_);
+    std::printf("%u models: %u without textures, %u with fewer than their faces number\n", models, without,
+                shortOfTextures);
     return 0;
 }
 

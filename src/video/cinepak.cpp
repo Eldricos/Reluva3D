@@ -27,7 +27,7 @@ uint8_t clip(int v) {
 } // namespace
 
 Decoder::Decoder(int width, int height) : width_(width), height_(height) {
-    picture_.create(std::max(0, width), std::max(0, height), PixelFormat::RGBA32);
+    picture_.create(std::max(0, width), std::max(0, height), PixelFormat::kRGBA32);
     for (size_t i = 3; i < picture_.pixels.size(); i += 4)
         picture_.pixels[i] = 255;
     strips_.resize(1);

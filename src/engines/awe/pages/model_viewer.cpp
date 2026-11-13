@@ -76,7 +76,7 @@ void ModelPage::activate() {
         present();
         return;
     }
-    overlay_.create(kScreenW, kScreenH, PixelFormat::RGBA32);
+    overlay_.create(kScreenW, kScreenH, PixelFormat::kRGBA32);
     load();
 }
 

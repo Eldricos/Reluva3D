@@ -100,7 +100,7 @@ int cmdClueCheck(int argc, char **argv) {
     }
     const bool uk = argc > 3 && std::strcmp(argv[3], "-uk") == 0;
     reluva::clue::GameData data;
-    if (reluva::Error err = data.open(argv[2], uk ? reluva::clue::Language::UK : reluva::clue::Language::US)) {
+    if (reluva::Error err = data.open(argv[2], uk ? reluva::clue::Language::kUK : reluva::clue::Language::kUS)) {
         std::fprintf(stderr, "%s\n", err.message.c_str());
         return 1;
     }

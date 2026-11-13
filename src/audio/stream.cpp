@@ -7,7 +7,7 @@ namespace reluva::audio {
 
 RawStream::RawStream(std::vector<uint8_t> data, Format format, int rate, bool stereo, int loops)
     : data_(std::move(data)), format_(format), rate_(rate), stereo_(stereo), loopsLeft_(loops) {
-    count_ = format == Format::S16LE || format == Format::S16BE ? data_.size() / 2 : data_.size();
+    count_ = format == Format::kS16LE || format == Format::kS16BE ? data_.size() / 2 : data_.size();
     if (stereo_)
         count_ &= ~size_t(1); // whole frames only
 }
@@ -18,9 +18,9 @@ int16_t RawStream::sampleAt(size_t i) const {
         return int16_t((int(data_[i]) - 128) * 256);
     case Format::S8:
         return int16_t(int(int8_t(data_[i])) * 256);
-    case Format::S16BE:
+    case Format::kS16BE:
         return int16_t((data_[i * 2] << 8) | data_[i * 2 + 1]);
-    case Format::S16LE:
+    case Format::kS16LE:
     default:
         return int16_t(data_[i * 2] | (data_[i * 2 + 1] << 8));
     }

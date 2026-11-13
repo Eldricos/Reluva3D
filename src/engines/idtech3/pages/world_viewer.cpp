@@ -57,7 +57,7 @@ void WorldViewer::activate() {
     if (Error err = ctx_.sys.init3D(kFrameW, kFrameH, renderer_)) {
         // No 3D here: say so on the 2D framebuffer.
         renderer_ = nullptr;
-        ctx_.sys.initGraphics(ctx_.screen.w, ctx_.screen.h, PixelFormat::RGBA32);
+        ctx_.sys.initGraphics(ctx_.screen.w, ctx_.screen.h, PixelFormat::kRGBA32);
         clear(16, 18, 24);
         text(4, 4, "The World page needs 3D rendering, which isn't available:", {255, 120, 120});
         text(4, 4 + font::kLineHeight, err.message);
@@ -65,7 +65,7 @@ void WorldViewer::activate() {
         setTitle("3D rendering not available");
         return;
     }
-    overlay_.create(kFrameW, kFrameH, PixelFormat::RGBA32);
+    overlay_.create(kFrameW, kFrameH, PixelFormat::kRGBA32);
     device_ = renderer_->deviceName();
     shaders_ = std::make_unique<ShaderCache>(*renderer_, ctx_.files, ctx_.shaders);
     world_ = std::make_unique<WorldRenderer>(*renderer_, *shaders_);

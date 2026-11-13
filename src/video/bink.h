@@ -116,7 +116,7 @@ private:
         int bits = 0;
         Tree tree;
     };
-    enum Source { BlockTypes, SubBlockTypes, Colors, Pattern, XOff, YOff, IntraDC, InterDC, Run, SourceCount };
+    enum Source { BlockTypes, SubBlockTypes, Colors, Pattern, XOff, YOff, kIntraDC, kInterDC, Run, SourceCount };
 
     void clearPictures();
     void decodePlane(Bits &b, int plane, bool chroma);

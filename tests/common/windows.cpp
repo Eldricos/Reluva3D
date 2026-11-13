@@ -333,13 +333,13 @@ static void testMsvcp60(const std::filesystem::path &tmp) {
     cpu.write32(vft + 4 * 9, fn("?seekpos@strstreambuf@std@@MAE?AV?$fpos@H@2@V32@H@Z"));
     cpu.write32(sb, vft);
     method(sb, "?_Init@strstreambuf@std@@IAEXHPAD0H@Z", {0, 0, 0, 0});
-    const std::string long_ = "0123456789abcdefghijklmnopqrstuvwxyz0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZ";
+    const std::string longText = "0123456789abcdefghijklmnopqrstuvwxyz0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZ";
     CHECK(method(sb, "?xsputn@?$basic_streambuf@DU?$char_traits@D@std@@@std@@MAEHPBDH@Z",
-                 {text(long_), uint32_t(long_.size())}) == long_.size());
+                 {text(longText), uint32_t(longText.size())}) == longText.size());
     const uint32_t back = process.memory().alloc(128);
     CHECK(method(sb, "?xsgetn@?$basic_streambuf@DU?$char_traits@D@std@@@std@@MAEHPADH@Z", {back, 128}) ==
-              long_.size() &&
-          cpu.string(back, uint32_t(long_.size())) == long_);
+              longText.size() &&
+          cpu.string(back, uint32_t(longText.size())) == longText);
     const uint32_t pos = process.memory().alloc(24);
     method(sb, "?seekoff@strstreambuf@std@@MAE?AV?$fpos@H@2@JW4seekdir@ios_base@2@H@Z", {pos, 10, 0, 1});
     CHECK(cpu.read32(pos) == 10);

@@ -221,7 +221,7 @@ void GameHost::mirrorNative(const std::string &name, const std::vector<uint32_t>
                 cpu_->write16(compareBuffer_ + uint32_t(y * 1280 + x * 2), uint16_t(v));
     } else if (name == "pageflip") {
         Surface native;
-        native.create(640, 480, PixelFormat::RGBA32);
+        native.create(640, 480, PixelFormat::kRGBA32);
         for (int y = 0; y < 480; ++y)
             for (int x = 0; x < 640; ++x) {
                 const uint16_t v = cpu_->read16(compareBuffer_ + uint32_t(y * 1280 + x * 2));
@@ -248,7 +248,7 @@ uint32_t GameHost::softtria(uint32_t address) const {
 
 void GameHost::presentBuffer(uint32_t buffer, int pitch, int x0, int y0, int width, int height) {
     if (frame_.w != modeWidth_ || frame_.h != modeHeight_)
-        frame_.create(modeWidth_, modeHeight_, PixelFormat::RGBA32);
+        frame_.create(modeWidth_, modeHeight_, PixelFormat::kRGBA32);
     x0 = std::max(x0, 0);
     y0 = std::max(y0, 0);
     width = std::min(width, frame_.w - x0);

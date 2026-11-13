@@ -624,7 +624,7 @@ Error MadDecoder::decode(const uint8_t *chunk, size_t size) {
 
 void MadDecoder::toSurface(Surface &out) const {
     // Full-range YCbCr (the DC term is centred on 128), BT.601 weights.
-    out.create(width_, height_, PixelFormat::RGBA32);
+    out.create(width_, height_, PixelFormat::kRGBA32);
     const int cs = stride_ / 2;
     for (int y = 0; y < height_; ++y) {
         uint8_t *dst = out.row(y);
@@ -685,7 +685,7 @@ void putGamePixel(uint8_t *dst, int y, int u, int v, bool rounded) {
 } // namespace
 
 void MadDecoder::toGameSurface(Surface &out, Display mode) const {
-    out.create(width_ * 2, height_ * 2, PixelFormat::RGBA32);
+    out.create(width_ * 2, height_ * 2, PixelFormat::kRGBA32);
     for (int y = 0; y < out.h; ++y) {
         uint8_t *row = out.row(y);
         for (int x = 0; x < out.w; ++x)

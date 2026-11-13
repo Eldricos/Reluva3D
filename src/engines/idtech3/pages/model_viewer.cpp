@@ -78,14 +78,14 @@ void ModelViewer::deactivate() {
 void ModelViewer::activate() {
     if (Error err = ctx_.sys.init3D(kFrameW, kFrameH, renderer_)) {
         renderer_ = nullptr;
-        ctx_.sys.initGraphics(ctx_.screen.w, ctx_.screen.h, PixelFormat::RGBA32);
+        ctx_.sys.initGraphics(ctx_.screen.w, ctx_.screen.h, PixelFormat::kRGBA32);
         clear(16, 18, 24);
         text(4, 4, "The Models page needs 3D rendering, which isn't available:", {255, 120, 120});
         text(4, 4 + font::kLineHeight, err.message);
         setTitle("3D rendering not available");
         return;
     }
-    overlay_.create(kFrameW, kFrameH, PixelFormat::RGBA32);
+    overlay_.create(kFrameW, kFrameH, PixelFormat::kRGBA32);
     shaders_ = std::make_unique<ShaderCache>(*renderer_, ctx_.files, ctx_.shaders);
     models_ = std::make_unique<ModelCache>(*renderer_, *shaders_, ctx_.files);
     applyVideoSettings(videoSettings(ctx_.cvars), *shaders_, nullptr, models_.get());

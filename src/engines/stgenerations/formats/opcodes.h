@@ -14,7 +14,7 @@ enum Opcode {
     OP_POP = 0x03,
     OP_PUSH_SELF = 0x04,
     OP_PUSH_BLOCK = 0x05,
-    OP_PUSH32 = 0x06,
+    kOpPush32 = 0x06,
     OP_SET_RESULT = 0x07,
     OP_GOTO_STATE = 0x08,
     OP_SEND_SIGNAL = 0x09,
@@ -69,7 +69,7 @@ const OpcodeInfo *getOpcodeInfo(uint16_t op);
 
 // Length of an instruction in words, as the original's scanner computes it.
 inline int getInstructionLength(uint16_t op) {
-    return op == OP_PUSH ? 2 : op == OP_PUSH_BLOCK ? 8 : op == OP_PUSH32 ? 3 : 1;
+    return op == OP_PUSH ? 2 : op == OP_PUSH_BLOCK ? 8 : op == kOpPush32 ? 3 : 1;
 }
 
 } // namespace reluva::stgenerations

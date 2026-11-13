@@ -86,7 +86,7 @@ int GameFont::textWidth(std::string_view utf8) const {
 }
 
 int GameFont::drawText(Surface &surface, int x, int y, std::string_view utf8, Color color, int scale) const {
-    if (surface.format != PixelFormat::RGBA32 || coverage.empty())
+    if (surface.format != PixelFormat::kRGBA32 || coverage.empty())
         return x;
     for (size_t i = 0; i < utf8.size();) {
         const Glyph *g = glyph(text::nextUtf8(utf8, i));

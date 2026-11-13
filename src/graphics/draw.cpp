@@ -9,7 +9,7 @@
 namespace reluva::draw {
 
 void create(Surface &s, int width, int height, uint8_t color) {
-    s.create(width, height, PixelFormat::CLUT8);
+    s.create(width, height, PixelFormat::kCLUT8);
     if (color)
         fill(s, color);
 }

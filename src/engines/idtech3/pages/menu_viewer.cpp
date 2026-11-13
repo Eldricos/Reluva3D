@@ -40,14 +40,14 @@ void MenuViewer::activate() {
     ctx_.sys.setVideoMode(frameW_, frameH_, video.fullscreen);
     if (Error err = ctx_.sys.init3D(frameW_, frameH_, renderer_)) {
         renderer_ = nullptr;
-        ctx_.sys.initGraphics(ctx_.screen.w, ctx_.screen.h, PixelFormat::RGBA32);
+        ctx_.sys.initGraphics(ctx_.screen.w, ctx_.screen.h, PixelFormat::kRGBA32);
         clear(16, 18, 24);
         text(4, 4, "The Menu page needs 3D rendering, which isn't available:", {255, 120, 120});
         text(4, 4 + font::kLineHeight, err.message);
         setTitle("3D rendering not available");
         return;
     }
-    overlay_.create(frameW_, frameH_, PixelFormat::RGBA32);
+    overlay_.create(frameW_, frameH_, PixelFormat::kRGBA32);
     menus_.attach(renderer_, frameW_, frameH_);
     shownMs_ = 0;
     // The menus draw their own pointer, and have text fields.

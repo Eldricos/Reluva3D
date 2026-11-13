@@ -53,12 +53,12 @@ public:
     ClueEngine(System &system, GameTarget target) : sys_(system), target_(std::move(target)) {}
 
     Error run() override {
-        const auto language = target_.gameId == "clue-uk" ? clue::Language::UK : clue::Language::US;
+        const auto language = target_.gameId == "clue-uk" ? clue::Language::kUK : clue::Language::kUS;
         if (Error err = data_.open(target_.path, language))
             return err;
-        if (Error err = sys_.initGraphics(clue::kScreenW, clue::kScreenH, PixelFormat::RGBA32))
+        if (Error err = sys_.initGraphics(clue::kScreenW, clue::kScreenH, PixelFormat::kRGBA32))
             return err;
-        screen_.create(clue::kScreenW, clue::kScreenH, PixelFormat::RGBA32);
+        screen_.create(clue::kScreenW, clue::kScreenH, PixelFormat::kRGBA32);
         audio::Mixer mixer(sys_.audioRate());
         // The launcher's master volume, over the game's own sliders.
         mixer.setMasterVolume(settings::volume(target_.settings, settings::kMasterVolume));
@@ -210,7 +210,7 @@ public:
             std::string what = version;
             if (cd && !exe.empty())
                 what += ", CD";
-            const clue::Language language = uk ? clue::Language::UK : clue::Language::US;
+            const clue::Language language = uk ? clue::Language::kUK : clue::Language::kUS;
             found.push_back({id(), uk ? "clue-uk" : "clue", std::string(clue::gameTitle(language)) + " (" + what + ")",
                              uk ? "en-gb" : "en", "windows"});
         };

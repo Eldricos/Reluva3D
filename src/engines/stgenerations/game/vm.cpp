@@ -248,7 +248,7 @@ int16_t ScriptVM::execute(ScriptInstance &self, uint32_t ip, const std::vector<i
             for (int i = 0; i < 7; i++)
                 push((int16_t)word(ip++));
             break;
-        case OP_PUSH32:
+        case kOpPush32:
             push((int16_t)word(ip++));
             push((int16_t)word(ip++));
             break;

@@ -93,7 +93,7 @@ int Font::width(std::string_view utf8, float pixels) {
 }
 
 int Font::draw(Surface &dst, int x, int y, std::string_view utf8, float pixels, Color color, uint8_t alpha) {
-    if (dst.format != PixelFormat::RGBA32)
+    if (dst.format != PixelFormat::kRGBA32)
         return x;
     const int baseline = y + ascent(pixels);
     float pen = float(x);

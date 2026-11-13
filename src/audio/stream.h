@@ -36,10 +36,10 @@ public:
 class RawStream : public Stream {
 public:
     enum class Format {
-        U8,    // unsigned 8-bit
-        S8,    // signed 8-bit
-        S16LE, // signed 16-bit, little-endian
-        S16BE, // signed 16-bit, big-endian
+        U8,     // unsigned 8-bit
+        S8,     // signed 8-bit
+        kS16LE, // signed 16-bit, little-endian
+        kS16BE, // signed 16-bit, big-endian
     };
     RawStream(std::vector<uint8_t> data, Format format, int rate, bool stereo = false, int loops = 1);
 

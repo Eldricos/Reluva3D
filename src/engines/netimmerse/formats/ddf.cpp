@@ -113,7 +113,7 @@ int DdfFont::draw(Surface &surface, const std::vector<image::Image> &pageImages,
         }
         // Scaled to the line, as the game scales each page (nearest texel).
         const double s = pageScale(g->page);
-        if (g->page < static_cast<int>(pageImages.size()) && surface.format == PixelFormat::RGBA32) {
+        if (g->page < static_cast<int>(pageImages.size()) && surface.format == PixelFormat::kRGBA32) {
             const image::Image &page = pageImages[g->page];
             const int top = baseline - int(std::lround(g->above * s));
             const int left = int(std::lround(g->left * s));

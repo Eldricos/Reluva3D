@@ -15,7 +15,7 @@ Platform::Platform(System &system, audio::Mixer *mixer, std::filesystem::path sa
 
 void Platform::initGraphics(int width, int height) {
     if (!graphics_ || screen_.w != width || screen_.h != height) {
-        system_.initGraphics(width, height, PixelFormat::CLUT8);
+        system_.initGraphics(width, height, PixelFormat::kCLUT8);
         draw::create(screen_, width, height);
         graphics_ = true;
     }

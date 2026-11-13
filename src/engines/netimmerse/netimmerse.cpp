@@ -110,8 +110,8 @@ private:
         int width = 640;
         int height = 480;
         auto screen = [&] {
-            sys_.initGraphics(width, height, PixelFormat::RGBA32);
-            screen_.create(width, height, PixelFormat::RGBA32);
+            sys_.initGraphics(width, height, PixelFormat::kRGBA32);
+            screen_.create(width, height, PixelFormat::kRGBA32);
             sys_.setMouseCursorVisible(false);
             sys_.setRelativeMouse(true);
         };
@@ -209,7 +209,7 @@ private:
         if (archives_.empty())
             errors.push_back("No .pac archives could be read in " + target_.path.string());
 
-        screen_.create(kScreenW, kScreenH, PixelFormat::RGBA32);
+        screen_.create(kScreenW, kScreenH, PixelFormat::kRGBA32);
         ViewerContext ctx{sys_, screen_, target_.description, {}, files_, audioOut_ ? mixer_.get() : nullptr};
         for (const auto &[name, pac] : archives_)
             ctx.archives[name] = pac;

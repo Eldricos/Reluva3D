@@ -141,7 +141,7 @@ uint32_t GameHost::newSurface(int width, int height, int bits, uint32_t caps) {
 void GameHost::present(const DdSurface &s) {
     if (!s.memory)
         return;
-    frame_.create(s.width, s.height, PixelFormat::RGBA32);
+    frame_.create(s.width, s.height, PixelFormat::kRGBA32);
     const std::array<uint32_t, 256> *palette = nullptr;
     if (auto it = palettes_.find(s.palette); it != palettes_.end())
         palette = &it->second;

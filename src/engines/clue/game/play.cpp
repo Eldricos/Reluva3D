@@ -2059,7 +2059,7 @@ void Play::drawTicker() {
     const int w = kTickerRight - kTickerLeft;
     const int h = 18;
     if (tickerStrip_.w != w)
-        tickerStrip_.create(w, h, PixelFormat::RGBA32);
+        tickerStrip_.create(w, h, PixelFormat::kRGBA32);
     std::fill(tickerStrip_.pixels.begin(), tickerStrip_.pixels.end(), 0);
     const int textW = f->width(ticker_);
     const uint64_t moving = now_ - tickerSince_ > uint64_t(kTickerStillMs) ? now_ - tickerSince_ - kTickerStillMs : 0;

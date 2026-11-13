@@ -90,7 +90,7 @@ private:
     std::unique_ptr<SdlGpuRenderer> renderer3d_;
     SDL_Texture *gameTexture_ = nullptr;
     int gameW_ = 0, gameH_ = 0;
-    PixelFormat gameFormat_ = PixelFormat::CLUT8;
+    PixelFormat gameFormat_ = PixelFormat::kCLUT8;
     uint32_t palette_[256] = {};          // RGBA32, byte order R,G,B,A
     std::vector<uint32_t> convertBuffer_; // CLUT8 -> RGBA32 staging
     bool quitRequested_ = false;

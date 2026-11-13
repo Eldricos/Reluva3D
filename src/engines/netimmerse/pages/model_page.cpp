@@ -409,7 +409,7 @@ void ModelPage::activate() {
         setTitle("Models: 3D rendering not available");
         return;
     }
-    overlay_.create(kFrameW, kFrameH, PixelFormat::RGBA32);
+    overlay_.create(kFrameW, kFrameH, PixelFormat::kRGBA32);
     show(index_);
 }
 

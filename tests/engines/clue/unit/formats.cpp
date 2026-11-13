@@ -133,7 +133,7 @@ static void testGameData(const std::filesystem::path &tmp) {
     test::writeFile(classic / "Text" / "Setup.txt", {'o', 'l', 'd'});
     test::writeFile(tmp / "install" / "setup.TXT", {'n', 'e', 'w'});
     GameData data;
-    CHECK(!data.open(tmp / "install", Language::US));
+    CHECK(!data.open(tmp / "install", Language::kUS));
     const std::filesystem::path *setup = data.find("SETUP.txt");
     CHECK(setup && setup->filename() == "setup.TXT");
     CHECK(data.withExtension(".res").size() == 1);
@@ -149,15 +149,15 @@ static void testGameData(const std::filesystem::path &tmp) {
     test::writeFile(cd / "US" / "Text" / "Setup.txt", {'U', 'S'});
     test::writeFile(cd / "UK" / "Text" / "Setup.txt", {'U', 'K'});
     test::writeFile(cd / "LangIndepend" / "Resource" / "test.res", pack(drive({{"Ia", image200()}})));
-    CHECK(!data.open(tmp / "cd", Language::UK));
+    CHECK(!data.open(tmp / "cd", Language::kUK));
     setup = data.find("setup.txt");
     CHECK(setup && setup->parent_path().parent_path().filename() == "UK");
     CHECK(data.image("test:Ia"));
-    CHECK(!data.open(tmp / "cd", Language::US));
+    CHECK(!data.open(tmp / "cd", Language::kUS));
     setup = data.find("setup.txt");
     CHECK(setup && setup->parent_path().parent_path().filename() == "US");
 
-    CHECK(data.open(tmp / "nothing", Language::US));
+    CHECK(data.open(tmp / "nothing", Language::kUS));
     std::filesystem::remove_all(tmp);
 }
 

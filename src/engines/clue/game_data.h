@@ -17,19 +17,19 @@ namespace reluva::clue {
 
 // Which of the CD's languages to use. An install has only the one it was
 // installed with, in Data/Classic.
-enum class Language { US, UK };
+enum class Language { kUS, kUK };
 
 // What each release calls the game: the UK's is Cluedo (its own files say
 // "exit Cluedo?"; Clue.exe names itself "Clue / Cluedo"), sold as Cluedo:
 // Murder at Blackwell Grange.
 inline const char *gameName(Language l) {
-    return l == Language::UK ? "Cluedo" : "Clue";
+    return l == Language::kUK ? "Cluedo" : "Clue";
 }
 inline const char *gameTitle(Language l) {
-    return l == Language::UK ? "Cluedo: Murder at Blackwell Grange" : "Clue: Murder at Boddy Mansion";
+    return l == Language::kUK ? "Cluedo: Murder at Blackwell Grange" : "Clue: Murder at Boddy Mansion";
 }
 inline const char *mansionName(Language l) {
-    return l == Language::UK ? "Blackwell Grange" : "Boddy Mansion";
+    return l == Language::kUK ? "Blackwell Grange" : "Boddy Mansion";
 }
 
 // The game's files, wherever they are: an install (Data/Classic/...) or the
@@ -60,7 +60,7 @@ public:
     const std::string &lastError() const { return lastError_; }
 
 private:
-    Language language_ = Language::US;
+    Language language_ = Language::kUS;
     std::vector<std::filesystem::path> folders_;
     std::map<std::string, std::filesystem::path> files_;
     mutable std::map<std::string, std::unique_ptr<DataDrive>> drives_; // by file name; null if it failed

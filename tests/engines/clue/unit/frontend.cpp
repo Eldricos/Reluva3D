@@ -35,7 +35,7 @@ static void testDialog(const std::filesystem::path &tmp) {
     std::filesystem::remove_all(tmp);
     std::filesystem::create_directories(tmp / "Data" / "Classic");
     GameData data;
-    CHECK(!data.open(tmp, Language::US));
+    CHECK(!data.open(tmp, Language::kUS));
     Resi resi;
     CHECK(!parseResi(resiFile(), resi));
     const Fonts fonts(data, resi); // its animation isn't there: a font without glyphs
@@ -72,7 +72,7 @@ static void testDialog(const std::filesystem::path &tmp) {
     view.handleEvent(back);
     CHECK(view.text(10) == "Jo");
     Surface s;
-    s.create(640, 480, PixelFormat::RGBA32);
+    s.create(640, 480, PixelFormat::kRGBA32);
     view.draw(s); // without its pictures: nothing to draw, nothing to fail
     std::filesystem::remove_all(tmp);
 }

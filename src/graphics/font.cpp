@@ -170,7 +170,7 @@ size_t length(std::string_view utf8) {
 }
 
 int drawText(Surface &surface, int x, int y, std::string_view utf8, Color color, int scale) {
-    if (surface.format != PixelFormat::RGBA32)
+    if (surface.format != PixelFormat::kRGBA32)
         return x;
     for (size_t i = 0; i < utf8.size();) {
         const char c = asAscii(text::nextUtf8(utf8, i));

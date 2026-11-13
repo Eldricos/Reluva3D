@@ -98,9 +98,9 @@ audio::RawStream::Format rawFormat(const std::string &name) {
     if (name == "s8")
         return audio::RawStream::Format::S8;
     if (name == "s16")
-        return audio::RawStream::Format::S16LE;
+        return audio::RawStream::Format::kS16LE;
     if (name == "s16be")
-        return audio::RawStream::Format::S16BE;
+        return audio::RawStream::Format::kS16BE;
     return audio::RawStream::Format::U8;
 }
 

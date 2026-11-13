@@ -158,7 +158,7 @@ static void testFont() {
     using namespace reluva;
     CHECK(font::length("Caf\xc3\xa9 \xe2\x80\x99") == 6); // é and ’ are one character each
     Surface s;
-    s.create(20, 12, PixelFormat::RGBA32);
+    s.create(20, 12, PixelFormat::kRGBA32);
     const int end = font::drawText(s, 1, 1, "I|", {255, 0, 0});
     CHECK(end == 1 + 2 * font::kAdvance);
     // 'I' has its middle column set from row 1 to 5 and a bar on row 0.
@@ -570,7 +570,7 @@ static void testImage() {
 
     // Blending half-transparent red over black.
     Surface s;
-    s.create(2, 1, PixelFormat::RGBA32);
+    s.create(2, 1, PixelFormat::kRGBA32);
     img.w = 1;
     img.h = 1;
     img.rgba = {255, 0, 0, 128};
@@ -578,7 +578,7 @@ static void testImage() {
     image::blit(s, img, 5, 5); // clipped away
     CHECK(s.row(0)[0] == 0 && s.row(0)[4] == 128 && s.row(0)[7] == 255);
     // And opaque red, half see-through, over black.
-    s.create(1, 1, PixelFormat::RGBA32);
+    s.create(1, 1, PixelFormat::kRGBA32);
     img.rgba = {255, 0, 0, 255};
     image::blit(s, img, 0, 0, 128);
     CHECK(s.row(0)[0] == 128 && s.row(0)[1] == 0);
@@ -833,9 +833,9 @@ static void testAudioStreams() {
     int16_t buf[5];
     RawStream u8(std::vector<uint8_t>{0x80, 0xff}, RawStream::Format::U8, 22050);
     CHECK(u8.read(buf, 4) == 2 && buf[0] == 0 && buf[1] == 127 << 8 && u8.ended());
-    RawStream s16(std::vector<uint8_t>{0x00, 0x80}, RawStream::Format::S16LE, 22050);
+    RawStream s16(std::vector<uint8_t>{0x00, 0x80}, RawStream::Format::kS16LE, 22050);
     CHECK(s16.read(buf, 4) == 1 && buf[0] == -32768);
-    RawStream be(std::vector<uint8_t>{0x12, 0x34}, RawStream::Format::S16BE, 22050);
+    RawStream be(std::vector<uint8_t>{0x12, 0x34}, RawStream::Format::kS16BE, 22050);
     CHECK(be.read(buf, 4) == 1 && buf[0] == 0x1234);
     RawStream s8(std::vector<uint8_t>{0xff}, RawStream::Format::S8, 22050, false, 3);
     CHECK(s8.read(buf, 5) == 3 && buf[2] == -256 && s8.ended());
@@ -1255,7 +1255,7 @@ static void testCursors() {
 
     // From a CLUT8 surface: the same.
     Surface s;
-    s.create(3, 2, PixelFormat::CLUT8);
+    s.create(3, 2, PixelFormat::kCLUT8);
     std::copy_n(pixels, 3, s.row(0));
     std::copy_n(pixels + 4, 3, s.row(1));
     Color colors[256] = {};
@@ -1264,7 +1264,7 @@ static void testCursors() {
     CHECK(cursor::fromSurface(s, colors, 0, 1, 1) == c);
     // From RGBA32: as it is.
     Surface rgba;
-    rgba.create(2, 1, PixelFormat::RGBA32);
+    rgba.create(2, 1, PixelFormat::kRGBA32);
     rgba.row(0)[0] = 9, rgba.row(0)[3] = 128;
     const Cursor r = cursor::fromSurface(rgba, nullptr, -1, 0, 0);
     CHECK(r.w == 2 && r.pixel(0, 0)[0] == 9 && r.pixel(0, 0)[3] == 128 && r.pixel(1, 0)[3] == 0);
@@ -1290,7 +1290,7 @@ static void testCursors() {
     // Drawn with the hotspot at (0, 0), so its top left is off the surface:
     // clipped, see-through pixels left as they were.
     Surface target;
-    target.create(4, 4, PixelFormat::RGBA32);
+    target.create(4, 4, PixelFormat::kRGBA32);
     for (auto &b : target.pixels)
         b = 50;
     cursor::draw(target, c, 0, 0);
@@ -1385,7 +1385,7 @@ static void testCinepak() {
     const Bytes f = firstFrame();
     CHECK(decoder.decode(f.data(), uint32_t(f.size())));
     const reluva::Surface &p = decoder.surface();
-    CHECK(p.w == 8 && p.h == 4 && p.format == reluva::PixelFormat::RGBA32);
+    CHECK(p.w == 8 && p.h == 4 && p.format == reluva::PixelFormat::kRGBA32);
     // V1: each luma sample covers 2 x 2 pixels.
     CHECK(grey(p, 0, 0, 10) && grey(p, 1, 1, 10) && grey(p, 2, 0, 20) && grey(p, 0, 2, 30) && grey(p, 3, 3, 40));
     // V4: four 2 x 2 cells, each pixel its own sample.

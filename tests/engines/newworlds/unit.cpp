@@ -130,7 +130,7 @@ std::filesystem::path writeArchive(const std::filesystem::path &dir, const std::
     return p;
 }
 
-const char *kPrefix = "c:\\prjs\\game\\stc\\bin\\rsc\\dat\\pc_win32\\";
+const char *const kPrefix = "c:\\prjs\\game\\stc\\bin\\rsc\\dat\\pc_win32\\";
 
 std::vector<Item> sampleItems() {
     return {
@@ -578,7 +578,7 @@ void testFif() {
     f.imageWidth = 3, f.imageHeight = 4;
     f.coverage = {0, 0, 255, 0, 0, 255, 0, 0, 128, 0, 0, 0};
     Surface s;
-    s.create(8, 4, PixelFormat::RGBA32);
+    s.create(8, 4, PixelFormat::kRGBA32);
     CHECK(f.drawText(s, 0, 0, " !", {200, 0, 0}) == 3);
     CHECK(s.row(0)[2 * 4] == 200 && s.row(2)[2 * 4] == 100 && s.row(3)[2 * 4] == 0 && s.row(0)[1 * 4] == 0);
     b.push_back(0);
@@ -1062,7 +1062,7 @@ void testModelTextures() {
 
 void testRasterizer() {
     Surface surf;
-    surf.create(16, 16, PixelFormat::RGBA32);
+    surf.create(16, 16, PixelFormat::kRGBA32);
     Rasterizer r;
     r.begin(surf);
     // Two triangles making the square 2..12; every pixel inside is drawn once.

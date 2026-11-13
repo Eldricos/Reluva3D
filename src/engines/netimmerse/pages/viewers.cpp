@@ -72,7 +72,7 @@ void Page::setTitle(const std::string &what) {
 }
 
 void Page::use2D() {
-    ctx_.sys.initGraphics(kScreenW, kScreenH, PixelFormat::RGBA32);
+    ctx_.sys.initGraphics(kScreenW, kScreenH, PixelFormat::kRGBA32);
 }
 
 void Page::clear(uint8_t r, uint8_t g, uint8_t b) {

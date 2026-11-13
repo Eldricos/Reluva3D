@@ -116,7 +116,7 @@ void TrackPage::activate(System &sys) {
         unavailable_ = err.message;
         return;
     }
-    overlay_.create(kFrameW, kFrameH, PixelFormat::RGBA32);
+    overlay_.create(kFrameW, kFrameH, PixelFormat::kRGBA32);
     load(index_);
 }
 

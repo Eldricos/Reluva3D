@@ -48,9 +48,9 @@ public:
         nfs::GameFiles files;
         files.scan(folders);
 
-        if (Error err = sys_.initGraphics(kScreenW, kScreenH, PixelFormat::RGBA32))
+        if (Error err = sys_.initGraphics(kScreenW, kScreenH, PixelFormat::kRGBA32))
             return err;
-        screen_.create(kScreenW, kScreenH, PixelFormat::RGBA32);
+        screen_.create(kScreenW, kScreenH, PixelFormat::kRGBA32);
 
         // One mixer for the pages' sounds; without audio output, none. The
         // pages go before it. surround= in reluva.ini sends it through the
@@ -75,7 +75,7 @@ public:
             const bool was3D = pages[page]->uses3D();
             pages[page]->deactivate();
             if (was3D)
-                if (Error err = sys_.initGraphics(kScreenW, kScreenH, PixelFormat::RGBA32))
+                if (Error err = sys_.initGraphics(kScreenW, kScreenH, PixelFormat::kRGBA32))
                     return err;
             page = next;
             sys_.setWindowTitle(std::string("Reluva - ") + game_.name + " - " + pages[page]->name());

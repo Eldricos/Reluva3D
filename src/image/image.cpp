@@ -110,7 +110,7 @@ std::vector<uint8_t> encodePng(const Image &img) {
 }
 
 void blit(Surface &dst, const Image &img, int x, int y, int opacity) {
-    if (dst.format != PixelFormat::RGBA32)
+    if (dst.format != PixelFormat::kRGBA32)
         return;
     for (int sy = 0; sy < img.h; ++sy) {
         const int dy = y + sy;
@@ -134,7 +134,7 @@ void blit(Surface &dst, const Image &img, int x, int y, int opacity) {
 }
 
 void blitOver(Surface &dst, const Image &img, int x, int y) {
-    if (dst.format != PixelFormat::RGBA32)
+    if (dst.format != PixelFormat::kRGBA32)
         return;
     for (int sy = std::max(0, -y); sy < img.h && y + sy < dst.h; sy++) {
         uint8_t *row = dst.row(y + sy);

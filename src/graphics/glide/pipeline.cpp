@@ -658,8 +658,8 @@ void Pipeline::present(Surface &out) {
         renderer_->syncBuffer(*this, kBufferFront);
     if (!open_)
         return;
-    if (out.w != width_ || out.h != height_ || out.format != PixelFormat::RGBA32)
-        out.create(width_, height_, PixelFormat::RGBA32);
+    if (out.w != width_ || out.h != height_ || out.format != PixelFormat::kRGBA32)
+        out.create(width_, height_, PixelFormat::kRGBA32);
     GammaTables gamma{};
     for (size_t ch = 0; ch < 3; ++ch) {
         const double g = state_.gamma[ch] > 0 ? state_.gamma[ch] : 1.0;

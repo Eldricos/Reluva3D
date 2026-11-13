@@ -52,7 +52,7 @@ public:
     Error run() override {
         if (Error err = files_.open(target_.path))
             return err;
-        screen_.create(awe::kScreenW, awe::kScreenH, PixelFormat::RGBA32);
+        screen_.create(awe::kScreenW, awe::kScreenH, PixelFormat::kRGBA32);
         audio::Mixer mixer(sys_.audioRate());
         mixer.setMasterVolume(settings::volume(target_.settings, settings::kMasterVolume));
         const bool audioOut = !audio::startMixerOutput(sys_, mixer);

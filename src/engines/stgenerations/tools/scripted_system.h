@@ -70,7 +70,7 @@ public:
 
     Error initGraphics(int width, int height, PixelFormat format) override {
         format_ = format;
-        rgba_.create(width, height, PixelFormat::RGBA32);
+        rgba_.create(width, height, PixelFormat::kRGBA32);
         return HeadlessSystem::initGraphics(width, height, format);
     }
     void setPalette(const Color *colors, int start, int count) override {
@@ -85,7 +85,7 @@ public:
             const uint8_t *src = s.row(y);
             uint8_t *dst = rgba_.row(y);
             for (int x = 0; x < s.w; x++) {
-                if (s.format == PixelFormat::CLUT8) {
+                if (s.format == PixelFormat::kCLUT8) {
                     const Color c = palette_[src[x]];
                     dst[x * 4] = c.r, dst[x * 4 + 1] = c.g, dst[x * 4 + 2] = c.b, dst[x * 4 + 3] = 255;
                 } else {
@@ -138,7 +138,7 @@ private:
     AudioCallback audio_;
     uint64_t pending_ = 0;
     std::vector<int16_t> scratch_;
-    PixelFormat format_ = PixelFormat::CLUT8;
+    PixelFormat format_ = PixelFormat::kCLUT8;
     Surface rgba_;
     Color palette_[256] = {};
 };

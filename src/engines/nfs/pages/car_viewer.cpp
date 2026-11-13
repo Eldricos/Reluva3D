@@ -61,7 +61,7 @@ void CarPage::activate(System &sys) {
         unavailable_ = err.message;
         return;
     }
-    overlay_.create(kFrameW, kFrameH, PixelFormat::RGBA32);
+    overlay_.create(kFrameW, kFrameH, PixelFormat::kRGBA32);
     loadSkies();
     // RELUVA_NFS_CARS_VIEW="model yaw pitch distance": the page opened on
     // that model (its number on the page less 1), seen from there

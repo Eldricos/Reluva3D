@@ -27,8 +27,8 @@ Error playMovie(System &sys, audio::Mixer *mixer, const std::filesystem::path &f
     const double framesPerSecond = 1e6 / double(avi.frameMicros());
 
     Surface screen;
-    screen.create(avi.width(), avi.height(), PixelFormat::RGBA32);
-    if (Error err = sys.initGraphics(avi.width(), avi.height(), PixelFormat::RGBA32))
+    screen.create(avi.width(), avi.height(), PixelFormat::kRGBA32);
+    if (Error err = sys.initGraphics(avi.width(), avi.height(), PixelFormat::kRGBA32))
         return err;
     sys.updateScreen(screen);
 

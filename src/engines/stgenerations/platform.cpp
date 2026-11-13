@@ -18,7 +18,7 @@ Platform::Platform(System &system, audio::Mixer *mixer, std::filesystem::path sa
 void Platform::initSize(int width, int height, Canvas::Format format) {
     if (graphics_ && screen_.w == width && screen_.h == height && screen_.format() == format)
         return;
-    const PixelFormat pf = format == Canvas::kClut8 ? PixelFormat::CLUT8 : PixelFormat::RGBA32;
+    const PixelFormat pf = format == Canvas::kClut8 ? PixelFormat::kCLUT8 : PixelFormat::kRGBA32;
     system_.initGraphics(width, height, pf);
     graphics_ = true;
     screen_.create(width, height, format);

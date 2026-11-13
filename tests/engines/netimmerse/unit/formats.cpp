@@ -260,7 +260,7 @@ void testDdf() {
         for (int x = 0; x < 4; ++x)
             page.pixel(x, y)[3] = (x < 2 && y < 2) ? 255 : 0;
     Surface screen;
-    screen.create(8, 8, PixelFormat::RGBA32);
+    screen.create(8, 8, PixelFormat::kRGBA32);
     CHECK(font.draw(screen, {page}, 0, 0, "A", {200, 0, 0}) == 3);
     // The baseline is 4 down, so "A" (2 above it) fills rows 2-3, columns 1-2.
     for (int y = 0; y < 8; ++y)

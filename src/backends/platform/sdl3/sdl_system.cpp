@@ -294,7 +294,7 @@ void SdlSystem::updateScreen(const Surface &surface) {
     if (!gameTexture_ || surface.w != gameW_ || surface.h != gameH_ || surface.format != gameFormat_)
         return;
 
-    if (surface.format == PixelFormat::CLUT8) {
+    if (surface.format == PixelFormat::kCLUT8) {
         for (int y = 0; y < surface.h; ++y) {
             const uint8_t *src = surface.row(y);
             uint32_t *dst = convertBuffer_.data() + static_cast<size_t>(y) * gameW_;

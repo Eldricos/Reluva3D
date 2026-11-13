@@ -20,7 +20,7 @@ std::string disassembleInstruction(const std::vector<uint16_t> &code, uint32_t i
     case OP_PUSH:
         text += text::format(" %d", (int16_t)word(ip + 1));
         break;
-    case OP_PUSH32:
+    case kOpPush32:
         text += text::format(" 0x%04x%04x", word(ip + 2), word(ip + 1));
         break;
     case OP_PUSH_BLOCK:

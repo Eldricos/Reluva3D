@@ -59,7 +59,7 @@ std::unique_ptr<audio::Stream> makeLooping(std::unique_ptr<SoundStream> stream, 
 std::unique_ptr<audio::Stream> makeRawStream(std::vector<uint8_t> data, int rate, uint8_t flags) {
     audio::RawStream::Format format = audio::RawStream::Format::U8;
     if (flags & kRaw16Bits)
-        format = (flags & kRawLittleEndian) ? audio::RawStream::Format::S16LE : audio::RawStream::Format::S16BE;
+        format = (flags & kRawLittleEndian) ? audio::RawStream::Format::kS16LE : audio::RawStream::Format::kS16BE;
     else if (!(flags & kRawUnsigned))
         format = audio::RawStream::Format::S8;
     return std::make_unique<audio::RawStream>(std::move(data), format, rate, (flags & kRawStereo) != 0);

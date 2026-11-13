@@ -167,7 +167,7 @@ int cmdGameRun(int argc, char **argv) {
 
     // Where the game's buttons are: its dialogs as the game shows them.
     clue::GameData data;
-    if (Error err = data.open(gameDir, found[0].gameId == "clue-uk" ? clue::Language::UK : clue::Language::US)) {
+    if (Error err = data.open(gameDir, found[0].gameId == "clue-uk" ? clue::Language::kUK : clue::Language::kUS)) {
         std::fprintf(stderr, "%s\n", err.message.c_str());
         return 1;
     }

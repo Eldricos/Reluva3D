@@ -26,10 +26,10 @@ public:
     explicit TestbedEngine(System &system) : sys_(system) {}
 
     Error run() override {
-        if (Error err = sys_.initGraphics(kWidth, kHeight, PixelFormat::CLUT8))
+        if (Error err = sys_.initGraphics(kWidth, kHeight, PixelFormat::kCLUT8))
             return err;
         sys_.setWindowTitle("Reluva - Testbed (Esc: back, Space: tone, C: cursor)");
-        screen_.create(kWidth, kHeight, PixelFormat::CLUT8);
+        screen_.create(kWidth, kHeight, PixelFormat::kCLUT8);
 
         const int rate = sys_.audioRate();
         // Audio failing is not fatal for the testbed; it just stays silent.
@@ -115,7 +115,7 @@ private:
         // Static plasma pattern in indices 0-254; animation comes purely from
         // palette cycling, the way many games of the era did it.
         if (plasma_.pixels.empty()) {
-            plasma_.create(kWidth, kHeight, PixelFormat::CLUT8);
+            plasma_.create(kWidth, kHeight, PixelFormat::kCLUT8);
             for (int y = 0; y < kHeight; ++y) {
                 uint8_t *row = plasma_.row(y);
                 for (int x = 0; x < kWidth; ++x) {

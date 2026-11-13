@@ -613,7 +613,7 @@ void FontPage::draw(Surface &s) {
     lines.push_back("Need For Speed III: Hot Pursuit");
     lines.push_back("0123456789 km/h MPH 1st 2nd 3rd");
     Surface layer;
-    layer.create(std::max(areaW, 1), std::max(areaH, 1), PixelFormat::RGBA32);
+    layer.create(std::max(areaW, 1), std::max(areaH, 1), PixelFormat::kRGBA32);
     clear(layer);
     const int lineHeight = std::max(loaded_.lineStep(), 1);
     for (size_t i = 0; i < lines.size(); ++i)

@@ -200,7 +200,7 @@ void ThrashGpu::draw(const std::vector<const ThrashFrame *> &frames, const Surfa
     // An overlay the game's size (a movie's frame), enlarged to the frame's.
     if (overlay && (overlay->w != renderer_->width() || overlay->h != renderer_->height()) && overlay->w > 0 &&
         overlay->h > 0) {
-        scaledOverlay_.create(renderer_->width(), renderer_->height(), PixelFormat::RGBA32);
+        scaledOverlay_.create(renderer_->width(), renderer_->height(), PixelFormat::kRGBA32);
         for (int y = 0; y < scaledOverlay_.h; ++y) {
             const uint32_t *src = reinterpret_cast<const uint32_t *>(overlay->row(y * overlay->h / scaledOverlay_.h));
             uint32_t *dst = reinterpret_cast<uint32_t *>(scaledOverlay_.row(y));

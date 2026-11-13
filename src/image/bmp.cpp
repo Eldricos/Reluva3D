@@ -145,9 +145,9 @@ Error decodeInfo(const uint8_t *data, size_t size, size_t info, const uint8_t *p
         }
         out.paletteColors = count;
         paletteAt += size_t(count) * 4;
-        out.surface.create(width, height, PixelFormat::CLUT8);
+        out.surface.create(width, height, PixelFormat::kCLUT8);
     } else if (bits == 16 || bits == 24 || bits == 32) {
-        out.surface.create(width, height, PixelFormat::RGBA32);
+        out.surface.create(width, height, PixelFormat::kRGBA32);
     } else {
         return Error::fail("BMP: " + std::to_string(bits) + " bits per pixel isn't read");
     }

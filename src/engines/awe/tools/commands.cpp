@@ -361,7 +361,7 @@ int cmdAweShot(int argc, char **argv) {
     }
     HeadlessSystem sys;
     reluva::Surface screen;
-    screen.create(awe::kScreenW, awe::kScreenH, reluva::PixelFormat::RGBA32);
+    screen.create(awe::kScreenW, awe::kScreenH, reluva::PixelFormat::kRGBA32);
     awe::GameFonts fonts;
     const bool haveFonts = !fonts.load(files);
     // "savedir:<folder>" among the keys: where the game's saves go.
@@ -791,7 +791,7 @@ int cmdAweActs(int argc, char **argv) {
     }
     HeadlessSystem sys;
     reluva::Surface screen;
-    screen.create(awe::kScreenW, awe::kScreenH, reluva::PixelFormat::RGBA32);
+    screen.create(awe::kScreenW, awe::kScreenH, reluva::PixelFormat::kRGBA32);
     awe::ViewerContext ctx{
         sys, files, nullptr, screen, std::filesystem::temp_directory_path() / "reluva-awe game-run", nullptr, {}, -1};
     int problems = 0;

@@ -37,7 +37,7 @@ Cursor fromIndexed(const uint8_t *pixels, int w, int h, int pitch, const uint8_t
 Cursor fromSurface(const Surface &surface, const Color *palette, int transparent, int hotX, int hotY) {
     if (surface.w <= 0 || surface.h <= 0 || surface.pixels.empty())
         return {};
-    if (surface.format == PixelFormat::CLUT8) {
+    if (surface.format == PixelFormat::kCLUT8) {
         if (!palette)
             return {};
         uint8_t rgb[768];
@@ -111,7 +111,7 @@ Cursor scaled(const Cursor &c, float factor, bool smooth) {
 }
 
 void draw(Surface &target, const Cursor &c, int x, int y) {
-    if (c.empty() || target.format != PixelFormat::RGBA32)
+    if (c.empty() || target.format != PixelFormat::kRGBA32)
         return;
     const int left = x - c.hotX;
     const int top = y - c.hotY;

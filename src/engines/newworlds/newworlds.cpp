@@ -58,9 +58,9 @@ public:
     Error run() override {
         if (Error err = openArchives())
             return err;
-        if (Error err = sys_.initGraphics(kScreenW, kScreenH, PixelFormat::RGBA32))
+        if (Error err = sys_.initGraphics(kScreenW, kScreenH, PixelFormat::kRGBA32))
             return err;
-        screen_.create(kScreenW, kScreenH, PixelFormat::RGBA32);
+        screen_.create(kScreenW, kScreenH, PixelFormat::kRGBA32);
         ModelViewer models(sys_, screen_, archives_);
         TextureViewer textures(sys_, screen_, archives_);
         MapViewer maps(sys_, screen_, archives_);

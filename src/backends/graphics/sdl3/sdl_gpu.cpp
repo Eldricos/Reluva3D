@@ -1037,7 +1037,7 @@ void SdlGpuRenderer::endFrame(const Surface *overlay) {
     SDL_SetRenderDrawColor(renderer_, 0, 0, 0, 255);
     SDL_RenderClear(renderer_);
     SDL_RenderTexture(renderer_, brighten ? gammaView_ : colorView_, nullptr, nullptr);
-    if (overlay && overlay->w == width_ && overlay->h == height_ && overlay->format == PixelFormat::RGBA32) {
+    if (overlay && overlay->w == width_ && overlay->h == height_ && overlay->format == PixelFormat::kRGBA32) {
         SDL_UpdateTexture(overlay_, nullptr, overlay->pixels.data(), overlay->pitch);
         SDL_RenderTexture(renderer_, overlay_, nullptr, nullptr);
     }

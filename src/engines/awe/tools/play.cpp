@@ -123,7 +123,7 @@ public:
         : limit_(limit) {
         sys_.threeD = threeD;
         sys_.characters = characters;
-        screen_.create(kScreenW, kScreenH, PixelFormat::RGBA32);
+        screen_.create(kScreenW, kScreenH, PixelFormat::kRGBA32);
         // With sound, a mixer the game's clock drives (no device): voices
         // and waited-for sounds take their own time, and lines play out.
         if (sound)

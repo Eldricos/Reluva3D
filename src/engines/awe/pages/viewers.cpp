@@ -93,7 +93,7 @@ std::string shorten(const std::string &s, size_t max) {
 // --- Page ---------------------------------------------------------------------
 
 void Page::begin2D() {
-    ctx_.sys.initGraphics(kScreenW, kScreenH, PixelFormat::RGBA32);
+    ctx_.sys.initGraphics(kScreenW, kScreenH, PixelFormat::kRGBA32);
     ctx_.sys.setMouseCursorVisible(true);
 }
 

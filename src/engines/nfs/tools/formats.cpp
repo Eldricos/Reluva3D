@@ -207,7 +207,7 @@ int cmdFfnRender(int argc, char **argv) {
     for (const auto &l : lines)
         width = std::max(width, font.measure(l));
     reluva::Surface surface;
-    surface.create(width + 16, font.lineStep() * int(lines.size()) + 16, reluva::PixelFormat::RGBA32);
+    surface.create(width + 16, font.lineStep() * int(lines.size()) + 16, reluva::PixelFormat::kRGBA32);
     for (size_t i = 0; i < surface.pixels.size(); i += 4) {
         surface.pixels[i] = surface.pixels[i + 1] = 40;
         surface.pixels[i + 2] = 60;
