@@ -179,11 +179,11 @@ void testReleaseTable(const std::filesystem::path &tmp) {
 } // namespace
 
 static const reluva::test::Suite
-    suite("stharbinger.unit.detection",
-          {
-              {"game parts", [](const std::filesystem::path &tmp) { testParts(tmp); }},
-              {"detect", [](const std::filesystem::path &tmp) { testDetect(tmp); }},
-              {"import both discs", [](const std::filesystem::path &tmp) { testImport(tmp); }},
-              {"cd versions", [](const std::filesystem::path &tmp) { testCdVersions(tmp); }},
-              {"release table per part", [](const std::filesystem::path &tmp) { testReleaseTable(tmp); }},
-          });
+    kSuite("stharbinger.unit.detection",
+           {
+               {"game parts", [](const std::filesystem::path &tmp) { testParts(tmp); }},
+               {"detect", [](const std::filesystem::path &tmp) { testDetect(tmp); }},
+               {"import both discs", [](const std::filesystem::path &tmp) { testImport(tmp); }},
+               {"cd versions", [](const std::filesystem::path &tmp) { testCdVersions(tmp); }},
+               {"release table per part", [](const std::filesystem::path &tmp) { testReleaseTable(tmp); }},
+           });

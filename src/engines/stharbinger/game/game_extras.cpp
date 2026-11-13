@@ -65,37 +65,37 @@ const MapLocation kMapLocations[] = {
 // ---- Credits ------------------------------------------------------------------
 
 void Game::startCredits(bool withBlank, bool fromMenu) {
-    if (!creditsLoaded_) {
-        creditsLoaded_ = true;
-        creditLines_ = resources_.loadCredits();
-        auto s = resources_.openFile("ART/HAN.FNT");
-        if (!s || !creditsFont_.load(*s))
+    if (!_creditsLoaded) {
+        _creditsLoaded = true;
+        _creditLines = _resources.loadCredits();
+        auto s = _resources.openFile("ART/HAN.FNT");
+        if (!s || !_creditsFont.load(*s))
             log::warning("art\\han.fnt not found: the credits have no text");
     }
-    credits_ = CreditsScreen();
-    credits_.active = true;
-    credits_.fromMenu = fromMenu;
+    _credits = CreditsScreen();
+    _credits.active = true;
+    _credits.fromMenu = fromMenu;
     bool loaded = false;
-    if (!resources_.loadBackground("CREDITS", credits_.background, credits_.palette, loaded))
-        draw::create(credits_.background, kScreenWidth, kScreenHeight, 0);
-    if (withBlank && resources_.loadBackground("BLANKCRD", credits_.blank, credits_.blankPalette, loaded))
-        credits_.phase = CreditsScreen::kBlank;
-    credits_.phaseStart = millis_;
+    if (!_resources.loadBackground("CREDITS", _credits.background, _credits.palette, loaded))
+        draw::create(_credits.background, kScreenWidth, kScreenHeight, 0);
+    if (withBlank && _resources.loadBackground("BLANKCRD", _credits.blank, _credits.blankPalette, loaded))
+        _credits.phase = CreditsScreen::kBlank;
+    _credits.phaseStart = _millis;
     if (!fromMenu)
-        thread_.wait = kWaitCredits;
-    if (system_->getMixer())
-        system_->getMixer()->stopAll();
+        _thread.wait = kWaitCredits;
+    if (_system->getMixer())
+        _system->getMixer()->stopAll();
     drawCredits();
 }
 
 void Game::drawCredits() {
-    Surface &dst = screen_;
-    if (credits_.phase == CreditsScreen::kBlank) {
-        draw::blit(dst, credits_.blank, 0, 0);
+    Surface &dst = _screen;
+    if (_credits.phase == CreditsScreen::kBlank) {
+        draw::blit(dst, _credits.blank, 0, 0);
         return;
     }
-    draw::blit(dst, credits_.background, 0, 0);
-    if (creditsFont_.empty())
+    draw::blit(dst, _credits.background, 0, 0);
+    if (_creditsFont.empty())
         return;
     // The lines come up from the bottom of the window, centred in it; headings
     // (marked *) in their own colour.
@@ -103,83 +103,83 @@ void Game::drawCredits() {
     draw::create(window, kCreditsWindow.width(), kCreditsWindow.height());
     for (int y = 0; y < window.h; y++)
         for (int x = 0; x < window.w; x++)
-            *draw::at(window, x, y) = *draw::at(credits_.background, kCreditsWindow.left + x, kCreditsWindow.top + y);
-    for (int i = 0; i < int(creditLines_.size()); i++) {
-        int y = kCreditsWindow.height() - credits_.offset + i * kCreditsLinePitch;
+            *draw::at(window, x, y) = *draw::at(_credits.background, kCreditsWindow.left + x, kCreditsWindow.top + y);
+    for (int i = 0; i < int(_creditLines.size()); i++) {
+        int y = kCreditsWindow.height() - _credits.offset + i * kCreditsLinePitch;
         if (y < -kCreditsLinePitch || y >= window.h)
             continue;
-        std::string text = creditLines_[i];
+        std::string text = _creditLines[i];
         bool heading = !text.empty() && text[0] == '*';
         if (heading)
             text.erase(0, 1);
-        int x = (640 - creditsFont_.getStringWidth(text)) / 2 + 128 - kCreditsWindow.left;
-        creditsFont_.drawString(window, x, y, text, heading ? kHeadingColor : kTextColor, kCreditsShadow);
+        int x = (640 - _creditsFont.getStringWidth(text)) / 2 + 128 - kCreditsWindow.left;
+        _creditsFont.drawString(window, x, y, text, heading ? kHeadingColor : kTextColor, kCreditsShadow);
     }
     draw::blit(dst, window, kCreditsWindow.left, kCreditsWindow.top);
 }
 
 void Game::updateCredits() {
-    uint32_t elapsed = millis_ - credits_.phaseStart;
+    uint32_t elapsed = _millis - _credits.phaseStart;
     int level = int(std::min<uint32_t>(elapsed, kCreditsFadeMillis) * 256 / kCreditsFadeMillis);
-    switch (credits_.phase) {
+    switch (_credits.phase) {
     case CreditsScreen::kBlank:
-        palette_ = credits_.blankPalette;
-        fadeLevel_ = 256 - level;
+        _palette = _credits.blankPalette;
+        _fadeLevel = 256 - level;
         applyPalette();
         if (elapsed >= kCreditsFadeMillis) {
-            credits_.phase = CreditsScreen::kFadeIn;
-            credits_.phaseStart = millis_;
+            _credits.phase = CreditsScreen::kFadeIn;
+            _credits.phaseStart = _millis;
         }
         break;
     case CreditsScreen::kFadeIn:
-        palette_ = credits_.palette;
-        fadeLevel_ = level;
+        _palette = _credits.palette;
+        _fadeLevel = level;
         applyPalette();
         if (elapsed >= kCreditsFadeMillis) {
-            credits_.phase = CreditsScreen::kScroll;
-            credits_.phaseStart = millis_;
+            _credits.phase = CreditsScreen::kScroll;
+            _credits.phaseStart = _millis;
         }
         break;
     case CreditsScreen::kScroll:
-        if (stepCount_ % kCreditsStepsPerScroll == 0)
-            credits_.offset += kCreditsStep;
+        if (_stepCount % kCreditsStepsPerScroll == 0)
+            _credits.offset += kCreditsStep;
         // Done when the last line has left the window.
-        if (credits_.offset > kCreditsWindow.height() + int(creditLines_.size()) * kCreditsLinePitch) {
-            credits_.phase = CreditsScreen::kFadeOut;
-            credits_.phaseStart = millis_;
+        if (_credits.offset > kCreditsWindow.height() + int(_creditLines.size()) * kCreditsLinePitch) {
+            _credits.phase = CreditsScreen::kFadeOut;
+            _credits.phaseStart = _millis;
         }
         break;
     case CreditsScreen::kFadeOut:
-        fadeLevel_ = 256 - level;
+        _fadeLevel = 256 - level;
         applyPalette();
         if (elapsed >= kCreditsFadeMillis)
             finishCredits();
         break;
     }
-    if (credits_.active)
+    if (_credits.active)
         drawCredits();
 }
 
 void Game::finishCredits() {
-    bool fromMenu = credits_.fromMenu;
-    credits_ = CreditsScreen();
-    fadeLevel_ = 256;
+    bool fromMenu = _credits.fromMenu;
+    _credits = CreditsScreen();
+    _fadeLevel = 256;
     if (fromMenu) {
         drawMenuScreen();
     } else {
-        palette_ = Palette();
+        _palette = Palette();
         applyPalette();
-        draw::fill(screen_, 0);
-        draw::create(background_, kScreenWidth, kScreenHeight);
-        workBufferStale_ = true;
-        thread_.wait = kWaitNone;
+        draw::fill(_screen, 0);
+        draw::create(_background, kScreenWidth, kScreenHeight);
+        _workBufferStale = true;
+        _thread.wait = kWaitNone;
     }
 }
 
 // ---- The deck map --------------------------------------------------------------
 
 bool Game::openDeckMap() {
-    int location = mapLocation_;
+    int location = _mapLocation;
     const MapLocation *where = nullptr;
     for (const MapLocation &l : kMapLocations)
         if (l.location == location)
@@ -187,7 +187,7 @@ bool Game::openDeckMap() {
     if (!where)
         return false;
     const DeckMap &map = kDeckMaps[location < 20 ? 0 : location < 65 ? 1 : location < 100 ? 2 : location < 150 ? 3 : 0];
-    auto s = resources_.openFile(map.file);
+    auto s = _resources.openFile(map.file);
     if (!s) {
         log::warning("%s not found", map.file);
         return false;
@@ -203,18 +203,18 @@ bool Game::openDeckMap() {
     int top = std::clamp(where->y - vh / 2, 0, map.h - vh);
     int sx = 0;
     int sy = kScreenHeight - vh;
-    uint8_t grey = uint8_t(palette_.findBestColor(162, 162, 162));
-    draw::create(deckMapFrame_, kScreenWidth, kScreenHeight);
-    draw::blit(deckMapFrame_, cleanScreen_, 0, 0);
+    uint8_t grey = uint8_t(_palette.findBestColor(162, 162, 162));
+    draw::create(_deckMapFrame, kScreenWidth, kScreenHeight);
+    draw::blit(_deckMapFrame, _cleanScreen, 0, 0);
     for (int y = 0; y < vh; y++) {
         for (int x = 0; x < vw; x++) {
             uint8_t p = pixels[size_t(top + y) * map.w + left + x];
-            *draw::at(deckMapFrame_, sx + x, sy + y) = p == 1 ? grey : p;
+            *draw::at(_deckMapFrame, sx + x, sy + y) = p == 1 ? grey : p;
         }
     }
     // A grey band at the top and the marker: an X of 4-pixel strokes in the
     // cycling colours 2 and 3.
-    draw::fillRect(deckMapFrame_, sx, sy, vw, 6, grey);
+    draw::fillRect(_deckMapFrame, sx, sy, vw, 6, grey);
     int mx = sx + where->x - left;
     int my = sy + where->y - top;
     for (int t = 0; t < 12; t++) {
@@ -223,10 +223,10 @@ bool Game::openDeckMap() {
             int px = mx - 6 + t;
             for (int py : {my - 6 + t + k - 1, my + 5 - t + k - 1})
                 if (px >= sx && px < sx + vw && py >= sy && py < sy + vh)
-                    *draw::at(deckMapFrame_, px, py) = c;
+                    *draw::at(_deckMapFrame, px, py) = c;
         }
     }
-    deckMap_ = true;
+    _deckMap = true;
     log::debug(1, "Deck map %s, location %d", map.file, location);
     return true;
 }

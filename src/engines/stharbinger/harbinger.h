@@ -57,11 +57,11 @@ public:
     // Writes what the game data holds (scenes, dialogues, credits) to stdout.
     void printInfo();
 
-    Platform *getSystem() const { return system_; }
-    const Options &getOptions() const { return options_; }
-    Resources &getResources() { return resources_; }
-    const std::vector<Scene> &getScenes() const { return scenes_; }
-    bool shouldQuit() const { return system_ && system_->quitRequested(); }
+    Platform *getSystem() const { return _system; }
+    const Options &getOptions() const { return _options; }
+    Resources &getResources() { return _resources; }
+    const std::vector<Scene> &getScenes() const { return _scenes; }
+    bool shouldQuit() const { return _system && _system->quitRequested(); }
 
     // Index into getScenes() of the scene with this name, SCENE number (as used
     // by NEWSCENE) or, for findScene(), CC.ALL slot number; -1 if none.
@@ -73,10 +73,10 @@ public:
     void initResources();
 
 private:
-    Platform *system_;
-    Options options_;
-    Resources resources_;
-    std::vector<Scene> scenes_;
+    Platform *_system;
+    Options _options;
+    Resources _resources;
+    std::vector<Scene> _scenes;
 };
 
 } // namespace reluva::stharbinger

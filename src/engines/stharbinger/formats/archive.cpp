@@ -41,7 +41,7 @@ std::shared_ptr<LstArchive> LstArchive::open(const void *source, Reader reader, 
     if (!archive)
         log::warning("%s.LST does not match %s.ALL", base.c_str(), base.c_str());
     else
-        archive->description_ = base + ".ALL";
+        archive->_description = base + ".ALL";
     return archive;
 }
 
@@ -50,14 +50,14 @@ std::shared_ptr<LstArchive> LstArchive::create(std::vector<uint8_t> all, const s
     std::shared_ptr<LstArchive> archive(new LstArchive());
     uint32_t total = uint32_t(all.size());
     for (size_t i = 0; i + 4 <= lst.size(); i += 4)
-        archive->offsets_.push_back(readLE32(&lst[i]));
+        archive->_offsets.push_back(readLE32(&lst[i]));
     // The last offset is normally the size of the .ALL; add it if it is not.
-    if (archive->offsets_.empty() || archive->offsets_.back() != total)
-        archive->offsets_.push_back(total);
-    for (size_t i = 1; i < archive->offsets_.size(); i++)
-        if (archive->offsets_[i] < archive->offsets_[i - 1] || archive->offsets_[i] > total)
+    if (archive->_offsets.empty() || archive->_offsets.back() != total)
+        archive->_offsets.push_back(total);
+    for (size_t i = 1; i < archive->_offsets.size(); i++)
+        if (archive->_offsets[i] < archive->_offsets[i - 1] || archive->_offsets[i] > total)
             return nullptr;
-    archive->data_ = std::make_shared<const std::vector<uint8_t>>(std::move(all));
+    archive->_data = std::make_shared<const std::vector<uint8_t>>(std::move(all));
 
     if (!cat.empty()) {
         // Text: the entry count, then one name per line (CRLF, maybe a ^Z at the end).
@@ -72,40 +72,40 @@ std::shared_ptr<LstArchive> LstArchive::create(std::vector<uint8_t> all, const s
             lines.erase(lines.begin());
         if (lines.size() != archive->size())
             log::warning("CAT lists %u names for %u entries", unsigned(lines.size()), archive->size());
-        archive->names_ = lines;
+        archive->_names = lines;
         for (uint32_t i = 0; i < lines.size() && i < archive->size(); i++)
-            archive->byName_.emplace(fs::normalizeDosPath(lines[i]), i);
+            archive->_byName.emplace(fs::normalizeDosPath(lines[i]), i);
     }
     return archive;
 }
 
 uint32_t LstArchive::entrySize(uint32_t index) const {
-    return index < size() ? offsets_[index + 1] - offsets_[index] : 0;
+    return index < size() ? _offsets[index + 1] - _offsets[index] : 0;
 }
 
 std::unique_ptr<MemoryReadStream> LstArchive::getEntry(uint32_t index) const {
     if (index >= size())
         return nullptr;
-    return std::make_unique<MemoryReadStream>(data_, offsets_[index], entrySize(index));
+    return std::make_unique<MemoryReadStream>(_data, _offsets[index], entrySize(index));
 }
 
 std::string LstArchive::getName(uint32_t index) const {
-    return index < names_.size() ? names_[index] : std::string();
+    return index < _names.size() ? _names[index] : std::string();
 }
 
 void LstArchive::setPrefix(const std::string &prefix) {
-    byName_.clear();
-    for (uint32_t i = 0; i < names_.size() && i < size(); i++)
-        byName_.emplace(fs::normalizeDosPath(prefix + names_[i]), i);
+    _byName.clear();
+    for (uint32_t i = 0; i < _names.size() && i < size(); i++)
+        _byName.emplace(fs::normalizeDosPath(prefix + _names[i]), i);
 }
 
 bool LstArchive::has(std::string_view name) const {
-    return byName_.count(fs::normalizeDosPath(name)) != 0;
+    return _byName.count(fs::normalizeDosPath(name)) != 0;
 }
 
 std::unique_ptr<MemoryReadStream> LstArchive::openMember(std::string_view name) const {
-    auto it = byName_.find(fs::normalizeDosPath(name));
-    if (it == byName_.end())
+    auto it = _byName.find(fs::normalizeDosPath(name));
+    if (it == _byName.end())
         return nullptr;
     return getEntry(it->second);
 }
@@ -113,14 +113,14 @@ std::unique_ptr<MemoryReadStream> LstArchive::openMember(std::string_view name) 
 Error LstArchive::read(std::string_view name, std::vector<uint8_t> &out) const {
     auto entry = openMember(name);
     if (!entry)
-        return Error::fail(std::string(name) + " not found in " + description_);
+        return Error::fail(std::string(name) + " not found in " + _description);
     out.assign(entry->data(), entry->data() + entry->size());
     return Error::success();
 }
 
 std::vector<std::string> LstArchive::list() const {
     std::vector<std::string> out;
-    for (const auto &entry : byName_)
+    for (const auto &entry : _byName)
         out.push_back(entry.first);
     return out;
 }

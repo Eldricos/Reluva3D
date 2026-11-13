@@ -483,16 +483,16 @@ struct Root {
 
 class Extractor {
 public:
-    Extractor(stdfs::path out, Options options) : out_(std::move(out)), options_(std::move(options)) {}
+    Extractor(stdfs::path out, Options options) : _out(std::move(out)), _options(std::move(options)) {}
 
     void run(const std::vector<stharbinger::GamePart> &parts) {
         for (size_t i = 0; i < parts.size(); i++) {
             const auto &p = parts[i];
             const std::string label = "disc" + std::to_string(p.disc >= 0 ? p.disc + 1 : int(i) + 1);
-            roots_.push_back({label, p.folder, out_ / label});
+            _roots.push_back({label, p.folder, _out / label});
         }
-        if (options_.wants("archive")) {
-            const std::vector<Root> discs = roots_;
+        if (_options.wants("archive")) {
+            const std::vector<Root> discs = _roots;
             for (const Root &r : discs)
                 unpackArchives(r.label, r.root, r.out, 0);
         }
@@ -563,7 +563,7 @@ private:
             std::vector<Entry> entries;
             if (!readArchive(lst, data, entries, info.issues)) {
                 info.issues.push_back("cannot be read");
-                archives_.push_back(info);
+                _archives.push_back(info);
                 continue;
             }
             info.entries = entries.size();
@@ -578,12 +578,12 @@ private:
                         info.emptyClips++;
                         continue;
                     }
-                    const std::string fmt = options_.rawFormat == "auto"
+                    const std::string fmt = _options.rawFormat == "auto"
                                                 ? formatName(stharbinger::detectRawFormat(clip))
-                                                : options_.rawFormat;
-                    saveWav(dest / text::format("clip_%03zu.wav", i), clip, options_.rawRate, fmt);
+                                                : _options.rawFormat;
+                    saveWav(dest / text::format("clip_%03zu.wav", i), clip, _options.rawRate, fmt);
                     if (i < 2)
-                        raws_.push_back({text::format("%s#%zu", info.file.c_str(), i), clip.size(), rawStats(clip)});
+                        _raws.push_back({text::format("%s#%zu", info.file.c_str(), i), clip.size(), rawStats(clip)});
                 }
             } else if (hasPart(rel, "PHONEMES")) {
                 std::string transcript;
@@ -600,14 +600,14 @@ private:
                     save(dest / e.name, d);
                     const std::string kind = identifyExe(d);
                     if (!kind.empty())
-                        exes_.push_back(
+                        _exes.push_back(
                             {label + ":" + (rel.parent_path() / rel.stem() / e.name).generic_string(), kind, d.size()});
                 }
-                roots_.push_back({label, dest, dest});
+                _roots.push_back({label, dest, dest});
                 if (depth < 3)
                     unpackArchives(label, dest, dest, depth + 1);
             }
-            archives_.push_back(info);
+            _archives.push_back(info);
             std::string issues;
             for (const std::string &s : info.issues)
                 issues += (issues.empty() ? "" : "; ") + s;
@@ -622,7 +622,7 @@ private:
             stdfs::path path;
         };
         std::vector<File> files;
-        for (const Root &r : roots_) {
+        for (const Root &r : _roots) {
             std::vector<stdfs::path> found;
             std::error_code ec;
             for (stdfs::recursive_directory_iterator it(r.root, ec), end; !ec && it != end; it.increment(ec))
@@ -654,13 +654,13 @@ private:
                                                : "";
             if (ext == ".DAT" && upper(f.path.parent_path().filename().string()) == "MAPS")
                 kind = "map";
-            if (kind.empty() || !options_.wants(kind))
+            if (kind.empty() || !_options.wants(kind))
                 continue;
             stdfs::path outbase = f.root->out / f.path.lexically_relative(f.root->root);
             outbase.replace_extension();
             if (!seen.insert(upper(outbase.string())).second)
                 continue;
-            if (options_.limit && counts[kind] >= options_.limit)
+            if (_options.limit && counts[kind] >= _options.limit)
                 continue;
             counts[kind]++;
             std::vector<uint8_t> d;
@@ -675,9 +675,9 @@ private:
                     convertRle(file, d, outbase, pal, name);
             } else if (kind == "raw") {
                 RawInfo r{file, d.size(), rawStats(d)};
-                saveWav(outbase.string() + ".wav", d, options_.rawRate,
-                        options_.rawFormat == "auto" ? r.stats.autoFormat : options_.rawFormat);
-                raws_.push_back(r);
+                saveWav(outbase.string() + ".wav", d, _options.rawRate,
+                        _options.rawFormat == "auto" ? r.stats.autoFormat : _options.rawFormat);
+                _raws.push_back(r);
             } else if (kind == "pal") {
                 bool six = false;
                 const Rgb pal = vgaPalette(d, &six);
@@ -686,10 +686,10 @@ private:
                     for (int x = 0; x < 256; x++)
                         img[size_t(y) * 256 + x] = uint8_t((y / 16) * 16 + x / 16);
                 savePng(outbase.string() + ".png", 256, 256, img.data(), pal);
-                pals_.push_back({file, six});
+                _pals.push_back({file, six});
             } else {
-                const auto it = options_.mapPalettes.find(upper(f.path.stem().string()));
-                const bool known = it != options_.mapPalettes.end() && palettes.count(it->second);
+                const auto it = _options.mapPalettes.find(upper(f.path.stem().string()));
+                const bool known = it != _options.mapPalettes.end() && palettes.count(it->second);
                 convertMap(file, d, outbase, known ? palettes[it->second] : falseColourPalette(),
                            known ? it->second : "false colour");
             }
@@ -710,7 +710,7 @@ private:
         c.palette = palName.empty() ? "grey" : palName;
         if (d.size() < 6) {
             c.error = "too short";
-            cmps_.push_back(c);
+            _cmps.push_back(c);
             return;
         }
         c.header = readLE32(d.data());
@@ -718,7 +718,7 @@ private:
         std::vector<uint8_t> pixels;
         if (!decompressDCL(d.data() + 4, uint32_t(d.size() - 4), pixels)) {
             c.error = "DCL: corrupt or truncated";
-            cmps_.push_back(c);
+            _cmps.push_back(c);
             return;
         }
         c.outSize = pixels.size();
@@ -743,7 +743,7 @@ private:
         if (!w) {
             save(outbase.string() + ".bin", pixels);
             c.error = "unknown dimensions; raw output written to .bin";
-            cmps_.push_back(c);
+            _cmps.push_back(c);
             return;
         }
         Rgb use = pal;
@@ -753,7 +753,7 @@ private:
         }
         savePng(outbase.string() + ".png", w, h, pixels.data(), use);
         c.dims = text::format("%dx%d", w, h);
-        cmps_.push_back(c);
+        _cmps.push_back(c);
     }
 
     void convertRle(const std::string &file, const std::vector<uint8_t> &d, const stdfs::path &outbase, const Rgb &pal,
@@ -764,7 +764,7 @@ private:
         r.palette = palName.empty() ? "grey" : palName;
         if (d.size() < 10) {
             r.error = "too short";
-            rles_.push_back(r);
+            _rles.push_back(r);
             return;
         }
         r.magic = hexBytes(d.data(), 8);
@@ -787,7 +787,7 @@ private:
         uint8_t header[8];
         if (!anim.loadWithHeader(stream, header)) {
             r.error = "cannot be decoded";
-            rles_.push_back(r);
+            _rles.push_back(r);
             return;
         }
         for (int i = 0; i < anim.frameCount(); i++) {
@@ -817,7 +817,7 @@ private:
                 anim.frameCount() == 1 ? outbase.string() + ".png" : outbase.string() + text::format("_%03d.png", i);
             save(name, image::encodePng(img));
         }
-        rles_.push_back(r);
+        _rles.push_back(r);
     }
 
     void convertMap(const std::string &file, const std::vector<uint8_t> &d, const stdfs::path &outbase, const Rgb &pal,
@@ -844,14 +844,14 @@ private:
             m.palette = palName;
             savePng(outbase.string() + ".png", m.width, m.height, d.data(), pal);
         }
-        maps_.push_back(m);
+        _maps.push_back(m);
     }
 
     void writeReport() {
         std::string r;
         auto add = [&](const std::string &s) { r += s + "\n"; };
         add("== Archives");
-        for (const ArchiveInfo &a : archives_) {
+        for (const ArchiveInfo &a : _archives) {
             std::string issues;
             for (const std::string &s : a.issues)
                 issues += (issues.empty() ? "" : "; ") + s;
@@ -860,21 +860,21 @@ private:
                              a.emptyClips ? text::format(", %zu empty clips", a.emptyClips).c_str() : ""));
         }
         add("\n== Executables found inside archives");
-        if (exes_.empty())
+        if (_exes.empty())
             add(text::format("  %-50s %8s  %s", "(none)", "", ""));
-        for (const ExeInfo &e : exes_)
+        for (const ExeInfo &e : _exes)
             add(text::format("  %-50s %8zu  %s", e.file.c_str(), e.size, e.type.c_str()));
 
         size_t ok = 0;
         size_t headerOk = 0;
         std::map<size_t, int> sizes;
-        for (const CmpInfo &c : cmps_) {
+        for (const CmpInfo &c : _cmps) {
             ok += !c.dims.empty();
             headerOk += c.headerMatches;
             sizes[c.outSize]++;
         }
-        add(text::format("\n== CMP backgrounds: %zu converted, %zu failed", ok, cmps_.size() - ok));
-        add(text::format("  header u32 == file size - 4: %zu of %zu", headerOk, cmps_.size()));
+        add(text::format("\n== CMP backgrounds: %zu converted, %zu failed", ok, _cmps.size() - ok));
+        add(text::format("  header u32 == file size - 4: %zu of %zu", headerOk, _cmps.size()));
         std::vector<std::pair<int, size_t>> bySize;
         for (const auto &[s, n] : sizes)
             bySize.push_back({n, s});
@@ -884,7 +884,7 @@ private:
             sizeList += text::format("%s%zu x%d", i ? ", " : "", bySize[i].second, bySize[i].first);
         add("  decompressed sizes: " + sizeList);
         int shown = 0;
-        for (const CmpInfo &c : cmps_)
+        for (const CmpInfo &c : _cmps)
             if (!c.error.empty() && shown++ < 15)
                 add("  FAIL " + c.file + ": " + c.error);
 
@@ -892,15 +892,15 @@ private:
         size_t chained = 0;
         size_t countOk = 0;
         std::map<std::string, int> magics;
-        for (const RleInfo &x : rles_) {
+        for (const RleInfo &x : _rles) {
             frames += x.frames.size();
             chained += x.trailing == 0;
             countOk += x.countField == x.framesFound;
             magics[x.magic]++;
         }
-        add(text::format("\n== RLE animations: %zu files, %zu frames", rles_.size(), frames));
-        add(text::format("  frames chain exactly to end of file: %zu of %zu", chained, rles_.size()));
-        add(text::format("  frame-count field matches frames found: %zu of %zu", countOk, rles_.size()));
+        add(text::format("\n== RLE animations: %zu files, %zu frames", _rles.size(), frames));
+        add(text::format("  frames chain exactly to end of file: %zu of %zu", chained, _rles.size()));
+        add(text::format("  frame-count field matches frames found: %zu of %zu", countOk, _rles.size()));
         std::vector<std::pair<int, std::string>> byMagic;
         for (const auto &[m, n] : magics)
             byMagic.push_back({n, m});
@@ -910,7 +910,7 @@ private:
             magicList += text::format("%s%s x%d", i ? "; " : "", byMagic[i].second.c_str(), byMagic[i].first);
         add("  distinct 8-byte magics: " + magicList);
         shown = 0;
-        for (const RleInfo &x : rles_) {
+        for (const RleInfo &x : _rles) {
             std::string issues = x.error;
             for (const std::string &s : x.issues)
                 issues += (issues.empty() ? "" : "; ") + s;
@@ -922,7 +922,7 @@ private:
         // Most common first (in the order first seen among equals).
         std::vector<std::pair<std::string, int>> formats;
         size_t odd16 = 0;
-        for (const RawInfo &x : raws_) {
+        for (const RawInfo &x : _raws) {
             auto it = std::find_if(formats.begin(), formats.end(),
                                    [&](const auto &f) { return f.first == x.stats.autoFormat; });
             if (it == formats.end())
@@ -938,8 +938,8 @@ private:
             formatList += text::format("%s%s x%d", formatList.empty() ? "" : ", ", f.c_str(), n);
         add("  auto-detected formats: " + formatList);
         add(text::format("  odd-sized files detected as 16-bit: %zu", odd16));
-        for (size_t i = 0; i < raws_.size() && i < 12; i++) {
-            const RawInfo &x = raws_[i];
+        for (size_t i = 0; i < _raws.size() && i < 12; i++) {
+            const RawInfo &x = _raws[i];
             add(text::format("  %-45s ent=%-5.2f mid=%-6.3f edge=%-6.3f odd16=%-6.3f %s | %s",
                              stdfs::path(x.file).filename().string().c_str(), x.stats.entropy, x.stats.nearMid,
                              x.stats.nearEdge, x.stats.oddNearZero, x.stats.autoFormat.c_str(),
@@ -947,28 +947,28 @@ private:
         }
 
         add("\n== Map grids");
-        for (const MapInfo &m : maps_) {
+        for (const MapInfo &m : _maps) {
             add(text::format("  %s: %zu bytes, width %d, height %d, remainder %ld; other candidates %s", m.file.c_str(),
                              m.size, m.width, m.height, m.remainder, m.topWidths.c_str()));
             add("     palette: " + m.palette);
             add("     most common values: " + m.values);
         }
         bool allSix = true;
-        for (const PalInfo &p : pals_)
+        for (const PalInfo &p : _pals)
             allSix = allSix && p.sixBit;
-        add(text::format("\n== Palettes: %zu, all 6-bit VGA: %s", pals_.size(), allSix ? "True" : "False"));
+        add(text::format("\n== Palettes: %zu, all 6-bit VGA: %s", _pals.size(), allSix ? "True" : "False"));
 
         std::vector<std::string> errors;
-        for (const CmpInfo &c : cmps_)
+        for (const CmpInfo &c : _cmps)
             if (!c.error.empty())
                 errors.push_back(c.file + ": " + c.error);
-        for (const RleInfo &x : rles_)
+        for (const RleInfo &x : _rles)
             if (!x.error.empty())
                 errors.push_back(x.file + ": " + x.error);
         add(text::format("\n== Errors: %zu", errors.size()));
         for (size_t i = 0; i < errors.size() && i < 40; i++)
             add("  " + errors[i]);
-        saveText(out_ / "report.txt", r);
+        saveText(_out / "report.txt", r);
 
         auto csv = [](std::string v) {
             if (v.find_first_of(",\"\n") == std::string::npos)
@@ -979,37 +979,37 @@ private:
             return out + "\"";
         };
         std::string cmp = "file,size,header_u32,out_size,dims,palette,first16,error\n";
-        for (const CmpInfo &c : cmps_)
+        for (const CmpInfo &c : _cmps)
             cmp += csv(c.file) + "," + std::to_string(c.size) + "," + std::to_string(c.header) + "," +
                    std::to_string(c.outSize) + "," + c.dims + "," + csv(c.palette) + "," + c.first16 + "," +
                    csv(c.error) + "\n";
-        saveText(out_ / "cmp.csv", cmp);
+        saveText(_out / "cmp.csv", cmp);
         std::string rle = "file,frame,key,w,h,x,y,data_bytes\n";
-        for (const RleInfo &x : rles_)
+        for (const RleInfo &x : _rles)
             for (const RleFrameInfo &f : x.frames)
                 rle +=
                     csv(x.file) + text::format(",%d,%d,%d,%d,%d,%d,%zu\n", f.frame, f.key, f.w, f.h, f.x, f.y, f.bytes);
-        saveText(out_ / "rle_frames.csv", rle);
+        saveText(_out / "rle_frames.csv", rle);
         std::string raw = "file,size,auto,entropy,near_0x80,near_0x00_0xFF,odd_bytes_near_0,first16\n";
-        for (const RawInfo &x : raws_)
+        for (const RawInfo &x : _raws)
             raw += csv(x.file) +
                    text::format(",%zu,%s,%.2f,%.3f,%.3f,%.3f,", x.size, x.stats.autoFormat.c_str(), x.stats.entropy,
                                 x.stats.nearMid, x.stats.nearEdge, x.stats.oddNearZero) +
                    x.stats.first16 + "\n";
-        saveText(out_ / "raw.csv", raw);
-        std::printf("\n%s\nFull report: %s\n", r.substr(0, 4000).c_str(), (out_ / "report.txt").string().c_str());
+        saveText(_out / "raw.csv", raw);
+        std::printf("\n%s\nFull report: %s\n", r.substr(0, 4000).c_str(), (_out / "report.txt").string().c_str());
     }
 
-    stdfs::path out_;
-    Options options_;
-    std::vector<Root> roots_;
-    std::vector<ArchiveInfo> archives_;
-    std::vector<ExeInfo> exes_;
-    std::vector<CmpInfo> cmps_;
-    std::vector<RleInfo> rles_;
-    std::vector<RawInfo> raws_;
-    std::vector<MapInfo> maps_;
-    std::vector<PalInfo> pals_;
+    stdfs::path _out;
+    Options _options;
+    std::vector<Root> _roots;
+    std::vector<ArchiveInfo> _archives;
+    std::vector<ExeInfo> _exes;
+    std::vector<CmpInfo> _cmps;
+    std::vector<RleInfo> _rles;
+    std::vector<RawInfo> _raws;
+    std::vector<MapInfo> _maps;
+    std::vector<PalInfo> _pals;
 };
 
 std::vector<stharbinger::GamePart> partsOf(const char *folder) {
@@ -1162,7 +1162,7 @@ int cmdMapPalettes(int argc, char **argv) {
     return 0;
 }
 
-const Commands commands(
+const Commands kCommands(
     "stharbinger",
     {
         {"extract", "<out folder> <game folder> [options]",

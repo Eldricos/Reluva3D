@@ -47,32 +47,32 @@ private:
 
     std::string listName(ListKind kind, int index) const;
 
-    Harbinger *vm_;
-    Platform *system_;
-    Resources &resources_;
-    const std::vector<Scene> &scenes_;
-    bool quit_ = false;
+    Harbinger *_vm;
+    Platform *_system;
+    Resources &_resources;
+    const std::vector<Scene> &_scenes;
+    bool _quit = false;
 
-    int sceneIndex_ = 0;
-    int backgroundIndex_ = 0;
-    bool backgroundMissing_ = false;
-    Surface background_;
-    Surface screen_;
-    Palette palette_;
+    int _sceneIndex = 0;
+    int _backgroundIndex = 0;
+    bool _backgroundMissing = false;
+    Surface _background;
+    Surface _screen;
+    Palette _palette;
 
-    std::vector<Hotspot> hotspots_;
-    bool showHotspots_ = false;
-    int hoverHotspot_ = -1;
+    std::vector<Hotspot> _hotspots;
+    bool _showHotspots = false;
+    int _hoverHotspot = -1;
 
-    RleAnimation anim_;
-    int animIndex_ = -1;
-    int animFrame_ = 0;
-    uint32_t nextFrameTime_ = 0;
+    RleAnimation _anim;
+    int _animIndex = -1;
+    int _animFrame = 0;
+    uint32_t _nextFrameTime = 0;
 
-    int soundIndex_ = -1;
-    audio::SoundHandle soundHandle_ = audio::kNoSound;
+    int _soundIndex = -1;
+    audio::SoundHandle _soundHandle = audio::kNoSound;
 
-    bool dirty_ = true;
+    bool _dirty = true;
 };
 
 } // namespace reluva::stharbinger

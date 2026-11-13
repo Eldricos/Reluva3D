@@ -130,33 +130,33 @@ void addNotes(ImportPlan &plan, const std::vector<GamePart> &parts) {
 
 class StharbingerEngine : public Engine {
 public:
-    StharbingerEngine(System &system, const GameTarget &target) : sys_(system), target_(target) {}
+    StharbingerEngine(System &system, const GameTarget &target) : _sys(system), _target(target) {}
 
     Error run() override {
         Options options;
-        for (const GamePart &part : findGameParts(target_.path))
+        for (const GamePart &part : findGameParts(_target.path))
             options.paths.push_back(part.folder.string());
         if (options.paths.empty())
-            return Error::fail("Harbinger isn't found in " + target_.path.string() + " any more");
-        options.original = flag(target_, kOriginal);
-        options.debug = flag(target_, kDebug);
-        options.mode = setting(target_, kStartMode);
-        options.startScene = setting(target_, kStartScene);
-        log::setDebugLevel(options.debug ? std::atoi(setting(target_, kDebugLevel).c_str()) : 0);
+            return Error::fail("Harbinger isn't found in " + _target.path.string() + " any more");
+        options.original = flag(_target, kOriginal);
+        options.debug = flag(_target, kDebug);
+        options.mode = setting(_target, kStartMode);
+        options.startScene = setting(_target, kStartScene);
+        log::setDebugLevel(options.debug ? std::atoi(setting(_target, kDebugLevel).c_str()) : 0);
 
         // The sound: the game's three kinds at the player's volumes.
-        audio::Mixer mixer(sys_.audioRate());
-        mixer.setMasterVolume(settings::volume(target_.settings, settings::kMasterVolume));
-        mixer.setTypeVolume(audio::SoundType::Music, settings::volume(target_.settings, kMusicVolume));
-        mixer.setTypeVolume(audio::SoundType::Speech, settings::volume(target_.settings, kSpeechVolume));
-        mixer.setTypeVolume(audio::SoundType::Effects, settings::volume(target_.settings, kEffectsVolume));
-        const bool audioOut = !audio::startMixerOutput(sys_, mixer);
+        audio::Mixer mixer(_sys.audioRate());
+        mixer.setMasterVolume(settings::volume(_target.settings, settings::kMasterVolume));
+        mixer.setTypeVolume(audio::SoundType::Music, settings::volume(_target.settings, kMusicVolume));
+        mixer.setTypeVolume(audio::SoundType::Speech, settings::volume(_target.settings, kSpeechVolume));
+        mixer.setTypeVolume(audio::SoundType::Effects, settings::volume(_target.settings, kEffectsVolume));
+        const bool audioOut = !audio::startMixerOutput(_sys, mixer);
         struct AudioOff { // stops the output before the mixer goes
             System &sys;
             ~AudioOff() { sys.stopAudio(); }
-        } audioOff{sys_};
+        } audioOff{_sys};
 
-        Platform platform(sys_, audioOut ? &mixer : nullptr, target_.savePath);
+        Platform platform(_sys, audioOut ? &mixer : nullptr, _target.savePath);
         try {
             Harbinger game(&platform, options);
             game.run();
@@ -169,8 +169,8 @@ public:
     }
 
 private:
-    System &sys_;
-    GameTarget target_;
+    System &_sys;
+    GameTarget _target;
 };
 
 class StharbingerMetaEngine : public MetaEngine {
@@ -290,8 +290,8 @@ public:
 namespace reluva {
 
 const MetaEngine &stharbingerMetaEngine() {
-    static const stharbinger::StharbingerMetaEngine instance;
-    return instance;
+    static const stharbinger::StharbingerMetaEngine kInstance;
+    return kInstance;
 }
 
 } // namespace reluva

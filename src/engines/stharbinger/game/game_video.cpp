@@ -77,7 +77,7 @@ const uint32_t kCycleMillis = 300;
 bool Game::startVideo(const std::string &dir, const std::string &name, int x, int y, bool keepScreen,
                       RleAnimation *staticNoise) {
     std::string path = dir + "/" + text::toUpper(name) + ".SMK";
-    auto stream = resources_.openFile(path);
+    auto stream = _resources.openFile(path);
     auto decoder = std::make_unique<smacker::Decoder>();
     if (!stream || !decoder->load(std::move(stream))) {
         log::warning("Video %s not found or unreadable", path.c_str());
@@ -85,98 +85,98 @@ bool Game::startVideo(const std::string &dir, const std::string &name, int x, in
     }
     log::debug(1, "Video %s (%dx%d, %d frames) at (%d, %d)", path.c_str(), decoder->width(), decoder->height(),
                decoder->frameCount(), x, y);
-    video_ = VideoPlayback();
-    video_.active = true;
-    video_.decoder = std::move(decoder);
-    video_.x = x;
-    video_.y = y;
-    video_.startMillis = millis_;
+    _video = VideoPlayback();
+    _video.active = true;
+    _video.decoder = std::move(decoder);
+    _video.x = x;
+    _video.y = y;
+    _video.startMillis = _millis;
 
     // The video is drawn over a black screen, or over the current picture.
     if (!keepScreen)
-        draw::fill(screen_, 0);
-    draw::create(background_, kScreenWidth, kScreenHeight);
-    draw::blit(background_, screen_, 0, 0);
-    workBufferStale_ = true;
+        draw::fill(_screen, 0);
+    draw::create(_background, kScreenWidth, kScreenHeight);
+    draw::blit(_background, _screen, 0, 0);
+    _workBufferStale = true;
     if (staticNoise && staticNoise->frameCount()) {
-        video_.staticNoise = std::move(*staticNoise);
-        video_.staticUntil = millis_ + kStaticMillis;
-        video_.startMillis = video_.staticUntil;
+        _video.staticNoise = std::move(*staticNoise);
+        _video.staticUntil = _millis + kStaticMillis;
+        _video.startMillis = _video.staticUntil;
     }
 
-    audio::Mixer *mixer = system_->getMixer();
-    if (mixer && video_.decoder->hasAudio()) {
-        auto audio = std::make_shared<audio::QueuingStream>(video_.decoder->audioRate(), video_.decoder->audioStereo());
-        video_.audio = audio;
-        video_.audioHandle = mixer->play(audio, audio::SoundType::Music);
+    audio::Mixer *mixer = _system->getMixer();
+    if (mixer && _video.decoder->hasAudio()) {
+        auto audio = std::make_shared<audio::QueuingStream>(_video.decoder->audioRate(), _video.decoder->audioStereo());
+        _video.audio = audio;
+        _video.audioHandle = mixer->play(audio, audio::SoundType::Music);
     }
-    thread_.wait = kWaitVideo;
+    _thread.wait = kWaitVideo;
     updateVideo();
     return true;
 }
 
 void Game::updateVideo() {
-    if (millis_ < video_.staticUntil) {
+    if (_millis < _video.staticUntil) {
         // The static, each frame at its own screen position.
-        const RleAnimation &noise = video_.staticNoise;
-        int frame = int((millis_ + kStaticMillis - video_.staticUntil) / kStaticFrameMillis) % noise.frameCount();
-        noise.drawFrame(frame, background_);
-        draw::blit(screen_, background_, 0, 0);
+        const RleAnimation &noise = _video.staticNoise;
+        int frame = int((_millis + kStaticMillis - _video.staticUntil) / kStaticFrameMillis) % noise.frameCount();
+        noise.drawFrame(frame, _background);
+        draw::blit(_screen, _background, 0, 0);
         return;
     }
-    smacker::Decoder &dec = *video_.decoder;
-    uint64_t elapsed = uint64_t(millis_ - video_.startMillis) * 1000;
+    smacker::Decoder &dec = *_video.decoder;
+    uint64_t elapsed = uint64_t(_millis - _video.startMillis) * 1000;
     // Show every frame whose time has come; the last one stays for its full time.
-    while (video_.framesShown < dec.frameCount() && uint64_t(video_.framesShown) * dec.frameMicros() <= elapsed) {
+    while (_video.framesShown < dec.frameCount() && uint64_t(_video.framesShown) * dec.frameMicros() <= elapsed) {
         if (!dec.decodeNextFrame()) {
-            video_.framesShown = dec.frameCount();
+            _video.framesShown = dec.frameCount();
             break;
         }
-        video_.framesShown++;
+        _video.framesShown++;
         if (dec.paletteChanged()) {
-            std::memcpy(videoPalette_, dec.palette(), 768);
-            palette_ = Palette();
+            std::memcpy(_videoPalette, dec.palette(), 768);
+            _palette = Palette();
             for (int i = 0; i < 256; i++)
-                palette_.setColor(i, videoPalette_[i * 3], videoPalette_[i * 3 + 1], videoPalette_[i * 3 + 2]);
-            fadeLevel_ = 256;
+                _palette.setColor(i, _videoPalette[i * 3], _videoPalette[i * 3 + 1], _videoPalette[i * 3 + 2]);
+            _fadeLevel = 256;
             applyPalette();
         }
-        draw::blit(background_, dec.surface(), video_.x, video_.y);
-        if (video_.audio)
-            video_.audio->queue(dec.takeAudio());
+        draw::blit(_background, dec.surface(), _video.x, _video.y);
+        if (_video.audio)
+            _video.audio->queue(dec.takeAudio());
     }
-    draw::blit(screen_, background_, 0, 0);
+    draw::blit(_screen, _background, 0, 0);
     if (uint64_t(dec.frameCount()) * dec.frameMicros() <= elapsed)
         finishVideo(false);
 }
 
 void Game::finishVideo(bool skipped) {
-    if (!video_.active)
+    if (!_video.active)
         return;
-    if (video_.audio) {
-        video_.audio->finish();
-        if (skipped && system_->getMixer())
-            system_->getMixer()->stop(video_.audioHandle);
+    if (_video.audio) {
+        _video.audio->finish();
+        if (skipped && _system->getMixer())
+            _system->getMixer()->stop(_video.audioHandle);
     }
-    if (!video_.resultVariable.empty()) {
-        variables_[video_.resultVariable] = skipped ? kVideoSkipped : video_.result;
-        log::debug(2, "  $%s = %u", video_.resultVariable.c_str(), variables_[video_.resultVariable]);
+    if (!_video.resultVariable.empty()) {
+        _variables[_video.resultVariable] = skipped ? kVideoSkipped : _video.result;
+        log::debug(2, "  $%s = %u", _video.resultVariable.c_str(), _variables[_video.resultVariable]);
     }
-    bool trans = video_.trans;
-    bool credits = video_.thenCredits;
-    video_ = VideoPlayback();
+    bool trans = _video.trans;
+    bool credits = _video.thenCredits;
+    _video = VideoPlayback();
     // The last frame and the video's palette stay until the script shows a
     // background (with its palette). After a TRANS video the scene's ambient
     // sounds start again.
     if (trans) {
-        for (int sound : ambientSounds_) {
+        for (int sound : _ambientSounds) {
             Argument ambient;
             ambient.type = kArgSymbol;
             ambient.value = 0;
             playSound(sound, &ambient);
         }
     }
-    thread_.wait = kWaitNone;
+    _thread.wait = kWaitNone;
     // The epilogue is followed by the credits.
     if (credits)
         startCredits(true, false);
@@ -189,12 +189,12 @@ bool Game::playActionSequenceVideo(int type, const Argument *resultVar) {
     bool trans = v.dir == kDirTrans;
     if (trans) {
         // TRANS videos stop the ambient sounds and start them again afterwards.
-        std::vector<int> ambients = ambientSounds_;
-        if (audio::Mixer *mixer = system_->getMixer())
-            for (audio::SoundHandle h : ambients_)
+        std::vector<int> ambients = _ambientSounds;
+        if (audio::Mixer *mixer = _system->getMixer())
+            for (audio::SoundHandle h : _ambients)
                 mixer->stop(h);
-        ambients_.clear();
-        ambientSounds_ = ambients;
+        _ambients.clear();
+        _ambientSounds = ambients;
     }
     if (v.kind == kArcade) {
         autosave(type);
@@ -205,18 +205,18 @@ bool Game::playActionSequenceVideo(int type, const Argument *resultVar) {
         setVariable(resultVar, kVideoMissing);
         return true;
     }
-    video_.trans = trans;
-    video_.resultVariable = variableName(resultVar);
-    video_.result = kVideoPlayed;
+    _video.trans = trans;
+    _video.resultVariable = variableName(resultVar);
+    _video.result = kVideoPlayed;
     if (type == 0x17)
-        video_.thenCredits = true;
+        _video.thenCredits = true;
     return true;
 }
 
 int Game::playVideoFile(const std::string &path) {
-    system_->initGraphics(kScreenWidth, kScreenHeight);
-    draw::create(screen_, kScreenWidth, kScreenHeight);
-    system_->setMouseCursorVisible(false);
+    _system->initGraphics(kScreenWidth, kScreenHeight);
+    draw::create(_screen, kScreenWidth, kScreenHeight);
+    _system->setMouseCursorVisible(false);
     size_t slash = path.find_last_of("/\\");
     std::string dir = slash == std::string::npos ? std::string() : path.substr(0, slash);
     std::string name = slash == std::string::npos ? path : path.substr(slash + 1);
@@ -225,26 +225,26 @@ int Game::playVideoFile(const std::string &path) {
     if (!startVideo(dir, name, 0, 0, false))
         return 1;
     // Centre it.
-    video_.x = (kScreenWidth - video_.decoder->width()) / 2;
-    video_.y = (kScreenHeight - video_.decoder->height()) / 2;
-    nextStepTime_ = system_->getMillis();
-    while (video_.active && !quit_ && !vm_->shouldQuit()) {
+    _video.x = (kScreenWidth - _video.decoder->width()) / 2;
+    _video.y = (kScreenHeight - _video.decoder->height()) / 2;
+    _nextStepTime = _system->getMillis();
+    while (_video.active && !_quit && !_vm->shouldQuit()) {
         InputEvent event;
-        while (system_->pollEvent(event)) {
+        while (_system->pollEvent(event)) {
             if (event.type == InputEvent::kQuit)
-                quit_ = true;
+                _quit = true;
             else if (event.type == InputEvent::kKeyDown && event.key == key::Escape)
                 finishVideo(true);
         }
-        uint32_t now = system_->getMillis();
-        while (video_.active && int32_t(now - nextStepTime_) >= 0) {
-            millis_ += 20;
+        uint32_t now = _system->getMillis();
+        while (_video.active && int32_t(now - _nextStepTime) >= 0) {
+            _millis += 20;
             updateVideo();
-            nextStepTime_ += 20;
+            _nextStepTime += 20;
         }
-        system_->copyRectToScreen(screen_);
-        system_->updateScreen();
-        system_->delayMillis(2);
+        _system->copyRectToScreen(_screen);
+        _system->updateScreen();
+        _system->delayMillis(2);
     }
     return 0;
 }
@@ -254,65 +254,65 @@ int Game::playVideoFile(const std::string &path) {
 void Game::startArcade(int type, const Argument *resultVar) {
     // The scene's sounds stop; the cockpit picture the script has shown stays
     // around the video.
-    if (audio::Mixer *mixer = system_->getMixer())
-        for (audio::SoundHandle h : ambients_)
+    if (audio::Mixer *mixer = _system->getMixer())
+        for (audio::SoundHandle h : _ambients)
             mixer->stop(h);
-    std::vector<int> ambients = ambientSounds_;
-    ambients_.clear();
-    ambientSounds_ = ambients;
+    std::vector<int> ambients = _ambientSounds;
+    _ambients.clear();
+    _ambientSounds = ambients;
 
-    arcade_ = std::make_unique<Arcade>(resources_, system_->getMixer(), type, arcadeDifficulty_);
+    _arcade = std::make_unique<Arcade>(_resources, _system->getMixer(), type, _arcadeDifficulty);
     // Some sequences continue from the previous one with a third of its damage.
-    int damage = (type == 0x1A || type == 0x1E || type == 0x1F) ? lastArcadeDamage_ / 3 : 0;
-    arcadeResultVariable_ = variableName(resultVar);
-    arcadeLeft_ = arcadeRight_ = false;
-    arcadeStartMillis_ = millis_;
-    thread_.wait = kWaitArcade;
-    if (!arcade_->start(screen_, damage, arcadeGroups_)) {
+    int damage = (type == 0x1A || type == 0x1E || type == 0x1F) ? _lastArcadeDamage / 3 : 0;
+    _arcadeResultVariable = variableName(resultVar);
+    _arcadeLeft = _arcadeRight = false;
+    _arcadeStartMillis = _millis;
+    _thread.wait = kWaitArcade;
+    if (!_arcade->start(_screen, damage, _arcadeGroups)) {
         finishArcade();
         return;
     }
-    status_.clear();
+    _status.clear();
     updateCaption();
 }
 
 void Game::updateArcade() {
     Point aim = cursorHitPoint(false);
     // Clicks wait for the next video frame.
-    if (arcade_->update(millis_ - arcadeStartMillis_, aim, arcadeLeft_, arcadeRight_))
-        arcadeLeft_ = arcadeRight_ = false;
-    if (arcade_->takePaletteChanged()) {
-        const uint8_t *p = arcade_->palette();
+    if (_arcade->update(_millis - _arcadeStartMillis, aim, _arcadeLeft, _arcadeRight))
+        _arcadeLeft = _arcadeRight = false;
+    if (_arcade->takePaletteChanged()) {
+        const uint8_t *p = _arcade->palette();
         for (int i = 0; i < 256; i++)
-            palette_.setColor(i, p[i * 3], p[i * 3 + 1], p[i * 3 + 2]);
-        fadeLevel_ = 256;
+            _palette.setColor(i, p[i * 3], p[i * 3 + 1], p[i * 3 + 2]);
+        _fadeLevel = 256;
         applyPalette();
     }
-    draw::blit(screen_, arcade_->getScreen(), 0, 0);
-    if (arcade_->isDone())
+    draw::blit(_screen, _arcade->getScreen(), 0, 0);
+    if (_arcade->isDone())
         finishArcade();
 }
 
 void Game::finishArcade() {
-    uint16_t result = arcade_->getResult();
+    uint16_t result = _arcade->getResult();
     if (result != kArcadeMissing) {
-        lastArcadeDamage_ = arcade_->getDamage();
-        arcade_->saveGroups(arcadeGroups_);
+        _lastArcadeDamage = _arcade->getDamage();
+        _arcade->saveGroups(_arcadeGroups);
     }
-    std::string death = arcade_->getDeathVideo();
-    std::string name = arcade_->getName();
-    arcade_.reset();
-    if (!arcadeResultVariable_.empty())
-        variables_[arcadeResultVariable_] = result;
+    std::string death = _arcade->getDeathVideo();
+    std::string name = _arcade->getName();
+    _arcade.reset();
+    if (!_arcadeResultVariable.empty())
+        _variables[_arcadeResultVariable] = result;
     log::debug(1, "Action sequence result %u", result);
-    draw::create(background_, kScreenWidth, kScreenHeight);
-    draw::blit(background_, screen_, 0, 0);
-    workBufferStale_ = true;
-    thread_.wait = kWaitNone;
+    draw::create(_background, kScreenWidth, kScreenHeight);
+    draw::blit(_background, _screen, 0, 0);
+    _workBufferStale = true;
+    _thread.wait = kWaitNone;
 
     // After the sequence the scene's ambient sounds start again.
-    std::vector<int> ambients = ambientSounds_;
-    ambientSounds_.clear();
+    std::vector<int> ambients = _ambientSounds;
+    _ambientSounds.clear();
     for (int sound : ambients) {
         Argument ambient;
         ambient.type = kArgSymbol;
@@ -323,7 +323,7 @@ void Game::finishArcade() {
     if (result == kArcadeKilled || result == kArcadeDoorIntact) {
         // TV static from the cockpit (PANEL/<NAME>STAT.RLE), then the death video.
         RleAnimation noise;
-        if (auto s = resources_.openFile("PANEL/" + name + "STAT.RLE")) {
+        if (auto s = _resources.openFile("PANEL/" + name + "STAT.RLE")) {
             uint8_t header[8];
             noise.loadWithHeader(*s, header);
         }
@@ -350,8 +350,8 @@ void Game::rightClick(int x, int y) {
 void Game::loadCursors() {
     // art\mouse.ani: u16 count (26), then per cursor a 12-byte header (byte 1:
     // transparent colour, u16 height, width, hotspot y, x) and raw pixels.
-    cursorsLoaded_ = true;
-    auto s = resources_.openFile("ART/MOUSE.ANI");
+    _cursorsLoaded = true;
+    auto s = _resources.openFile("ART/MOUSE.ANI");
     if (!s) {
         log::warning("art\\mouse.ani not found: using the system mouse pointer");
         return;
@@ -371,51 +371,51 @@ void Game::loadCursors() {
         c.pixels.resize(size_t(c.w) * c.h);
         if (s->read(c.pixels.data(), uint32_t(c.pixels.size())) != c.pixels.size())
             break;
-        cursors_.push_back(std::move(c));
+        _cursors.push_back(std::move(c));
     }
-    if (cursors_.empty()) {
+    if (_cursors.empty()) {
         log::warning("art\\mouse.ani could not be read: using the system mouse pointer");
         return;
     }
-    system_->setMouseCursorVisible(false);
+    _system->setMouseCursorVisible(false);
 }
 
 int Game::currentCursor() const {
-    if (menu_.active)
-        return menu_.mode == GameMenu::kMain && menu_.hover >= 0 ? 15 : kCursorNormal;
-    if (arcade_)
+    if (_menu.active)
+        return _menu.mode == GameMenu::kMain && _menu.hover >= 0 ? 15 : kCursorNormal;
+    if (_arcade)
         return kCursorGunsight;
-    if (conv_.active) {
-        if (conv_.speaking)
+    if (_conv.active) {
+        if (_conv.speaking)
             return kCursorReply;
-        if (conv_.menuWaiting && conv_.hover >= 0)
+        if (_conv.menuWaiting && _conv.hover >= 0)
             return kCursorReply;
-    } else if (thread_.active && thread_.wait == kWaitAnim) {
+    } else if (_thread.active && _thread.wait == kWaitAnim) {
         return kCursorNormal;
     }
-    int i = hoverHotspot_;
-    return i >= 0 && i < int(hotspots_.size()) ? hotspots_[i].cursor : kCursorNormal;
+    int i = _hoverHotspot;
+    return i >= 0 && i < int(_hotspots.size()) ? _hotspots[i].cursor : kCursorNormal;
 }
 
 Point Game::cursorHitPoint(bool menu) const {
     // Scenes test the centre of the cursor image, the reply menu its hotspot.
     int id = currentCursor();
-    if (id < 0 || id >= int(cursors_.size()))
-        return mouse_;
-    const CursorImage &c = cursors_[id];
+    if (id < 0 || id >= int(_cursors.size()))
+        return _mouse;
+    const CursorImage &c = _cursors[id];
     if (menu)
-        return Point{mouse_.x + c.hotX, mouse_.y + c.hotY};
-    return Point{mouse_.x + c.w / 2, mouse_.y + c.h / 2};
+        return Point{_mouse.x + c.hotX, _mouse.y + c.hotY};
+    return Point{_mouse.x + c.w / 2, _mouse.y + c.h / 2};
 }
 
 void Game::drawCursor(Surface &dst) {
     int id = currentCursor();
-    if (video_.active || id < 0 || id >= int(cursors_.size()))
+    if (_video.active || id < 0 || id >= int(_cursors.size()))
         return;
-    const CursorImage &c = cursors_[id];
+    const CursorImage &c = _cursors[id];
     // The game keeps the whole cursor on screen.
-    int x = std::min<int>(mouse_.x, kScreenWidth - c.w - 1);
-    int y = std::min<int>(mouse_.y, kScreenHeight - c.h - 1);
+    int x = std::min<int>(_mouse.x, kScreenWidth - c.w - 1);
+    int y = std::min<int>(_mouse.y, kScreenHeight - c.h - 1);
     for (int r = 0; r < c.h; r++) {
         for (int col = 0; col < c.w; col++) {
             uint8_t p = c.pixels[size_t(r) * c.w + col];
@@ -429,14 +429,14 @@ void Game::drawCursor(Surface &dst) {
 
 void Game::cyclePalette() {
     // Entries 1..5 rotate every 300 ms in scenes (the 250 Hz timer, 0x2B48B).
-    if (millis_ < nextCycleMillis_)
+    if (_millis < _nextCycleMillis)
         return;
-    nextCycleMillis_ = millis_ + kCycleMillis;
-    const uint8_t *p = palette_.data();
+    _nextCycleMillis = _millis + kCycleMillis;
+    const uint8_t *p = _palette.data();
     uint8_t last[3] = {p[15], p[16], p[17]};
     for (int i = 5; i > 1; i--)
-        palette_.setColor(i, p[(i - 1) * 3], p[(i - 1) * 3 + 1], p[(i - 1) * 3 + 2]);
-    palette_.setColor(1, last[0], last[1], last[2]);
+        _palette.setColor(i, p[(i - 1) * 3], p[(i - 1) * 3 + 1], p[(i - 1) * 3 + 2]);
+    _palette.setColor(1, last[0], last[1], last[2]);
     applyPalette();
 }
 

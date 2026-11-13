@@ -256,13 +256,13 @@ int cmdDialogue(int argc, char **argv) {
     return 0;
 }
 
-const reluva::tool::Commands
-    commands("stharbinger",
-             {
-                 {"dialogue", "<game folder> <out folder>",
-                  "write the game's dialogue (CCQ.ALL with CCF.ALL's clip names) as dialogue.txt, by conversation, and "
-                  "dialogue.csv: line, clip, conversation, speaker, menu label, text and recording notes",
-                  cmdDialogue},
-             });
+const reluva::tool::Commands kCommands(
+    "stharbinger",
+    {
+        {"dialogue", "<game folder> <out folder>",
+         "write the game's dialogue (CCQ.ALL with CCF.ALL's clip names) as dialogue.txt, by conversation, and "
+         "dialogue.csv: line, clip, conversation, speaker, menu label, text and recording notes",
+         cmdDialogue},
+    });
 
 } // namespace

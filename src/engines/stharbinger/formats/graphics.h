@@ -40,8 +40,8 @@ public:
     // Loads any RLE file and returns its 8 header bytes (arcade sprites).
     bool loadWithHeader(SeekableReadStream &stream, uint8_t header[8]);
 
-    int frameCount() const { return int(frames_.size()); }
-    const Frame &getFrame(int i) const { return frames_[i]; }
+    int frameCount() const { return int(_frames.size()); }
+    const Frame &getFrame(int i) const { return _frames[i]; }
 
     // Draws frame `i` at its own position plus (dx, dy), leaving skipped pixels alone.
     void drawFrame(int i, Surface &dst, int dx = 0, int dy = 0) const;
@@ -51,7 +51,7 @@ public:
 private:
     bool parse(const uint8_t *data, uint32_t size, bool checkHeader);
 
-    std::vector<Frame> frames_;
+    std::vector<Frame> _frames;
 };
 
 // A phaser beam (DEEP.EXE 0x27215): a line drawn as vertical runs that taper

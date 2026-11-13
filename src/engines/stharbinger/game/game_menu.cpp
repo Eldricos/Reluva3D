@@ -64,50 +64,50 @@ uint8_t nearest(const Palette &pal, int r, int g, int b) {
 
 void Game::requestMenu() {
     // Right click (or Esc) while the map is allowed and the script is idle.
-    if (mapEnabled_ && !thread_.active && pendingScene_ < 0)
+    if (_mapEnabled && !_thread.active && _pendingScene < 0)
         openMenu(false);
 }
 
 void Game::openMenu(bool first) {
-    draw::create(menuGameScreen_, kScreenWidth, kScreenHeight);
-    if (!draw::empty(cleanScreen_))
-        draw::blit(menuGameScreen_, cleanScreen_, 0, 0);
-    menuGamePalette_ = palette_;
-    menu_.active = true;
-    menu_.first = first;
+    draw::create(_menuGameScreen, kScreenWidth, kScreenHeight);
+    if (!draw::empty(_cleanScreen))
+        draw::blit(_menuGameScreen, _cleanScreen, 0, 0);
+    _menuGamePalette = _palette;
+    _menu.active = true;
+    _menu.first = first;
     loadFont(); // for the confirmations and the save name, before any conversation
-    menu_.mode = GameMenu::kMain;
-    system_->setTextInput(menu_.mode == GameMenu::kNameEntry); // typed names arrive as text
-    if (draw::empty(menu_.art)) {
+    _menu.mode = GameMenu::kMain;
+    _system->setTextInput(_menu.mode == GameMenu::kNameEntry); // typed names arrive as text
+    if (draw::empty(_menu.art)) {
         bool loaded = false;
-        if (!resources_.loadBackground("SETUP", menu_.art, menu_.artPalette, loaded)) {
+        if (!_resources.loadBackground("SETUP", _menu.art, _menu.artPalette, loaded)) {
             log::warning("art\\s\\e\\setup.cmp not found: the menu has no picture");
-            draw::create(menu_.art, kScreenWidth, kScreenHeight, 0);
+            draw::create(_menu.art, kScreenWidth, kScreenHeight, 0);
             for (int i = 0; i < 256; i++)
-                menu_.artPalette.setColor(i, uint8_t(i), uint8_t(i), uint8_t(i));
+                _menu.artPalette.setColor(i, uint8_t(i), uint8_t(i), uint8_t(i));
         }
-        if (auto s = resources_.openFile("ART/BUTTONS.RLE")) {
+        if (auto s = _resources.openFile("ART/BUTTONS.RLE")) {
             uint8_t header[8];
-            menu_.buttons.loadWithHeader(*s, header);
+            _menu.buttons.loadWithHeader(*s, header);
         }
     }
-    if (system_->getMixer() && conv_.speechHandle != audio::kNoSound)
-        system_->getMixer()->stop(conv_.speechHandle);
+    if (_system->getMixer() && _conv.speechHandle != audio::kNoSound)
+        _system->getMixer()->stop(_conv.speechHandle);
     scanSaves();
-    selectSave(lastSave_);
+    selectSave(_lastSave);
     drawMenuScreen();
     log::debug(1, "Game menu%s", first ? " (start)" : "");
 }
 
 void Game::closeMenu() {
-    menu_.active = false;
-    system_->setTextInput(false);
-    lastSave_ = menu_.selected;
+    _menu.active = false;
+    _system->setTextInput(false);
+    _lastSave = _menu.selected;
     saveSettings();
 }
 
 void Game::scanSaves() {
-    menu_.saves.clear();
+    _menu.saves.clear();
     std::string dir = getSaveDirectory();
     if (dir.empty())
         return;
@@ -115,31 +115,31 @@ void Game::scanSaves() {
     for (std::filesystem::directory_iterator it(dir, ec), end; !ec && it != end; it.increment(ec)) {
         const std::string f = it->path().filename().string();
         if (isSaveFile(f))
-            menu_.saves.push_back(f);
+            _menu.saves.push_back(f);
     }
-    std::sort(menu_.saves.begin(), menu_.saves.end());
+    std::sort(_menu.saves.begin(), _menu.saves.end());
 }
 
 void Game::selectSave(int index) {
-    int n = int(menu_.saves.size());
-    menu_.selected = n ? std::clamp(index, 0, n - 1) : 0;
-    menu_.infoValid = false;
+    int n = int(_menu.saves.size());
+    _menu.selected = n ? std::clamp(index, 0, n - 1) : 0;
+    _menu.infoValid = false;
     if (!n)
         return;
     SaveInfo info;
-    if (readSaveInfo((std::filesystem::path(getSaveDirectory()) / menu_.saves[menu_.selected]).string(), info)) {
-        menu_.infoValid = true;
-        menu_.description = info.description;
-        menu_.thumbnail.assign(320 * 240, 0);
+    if (readSaveInfo((std::filesystem::path(getSaveDirectory()) / _menu.saves[_menu.selected]).string(), info)) {
+        _menu.infoValid = true;
+        _menu.description = info.description;
+        _menu.thumbnail.assign(320 * 240, 0);
         for (int y = 0; y < 240; y++)
             for (int x = 0; x < 320; x++)
-                menu_.thumbnail[y * 320 + x] = info.screenshot[(y * 2) * 640 + x * 2];
+                _menu.thumbnail[y * 320 + x] = info.screenshot[(y * 2) * 640 + x * 2];
         for (int i = 0; i < 256; i++)
-            menu_.savePalette.setColor(i, info.palette[i * 3], info.palette[i * 3 + 1], info.palette[i * 3 + 2]);
+            _menu.savePalette.setColor(i, info.palette[i * 3], info.palette[i * 3 + 1], info.palette[i * 3 + 2]);
         // The thumbnail's colours in the menu's own palette (when it keeps it).
         for (int i = 0; i < 256; i++)
-            menu_.thumbnailMap[i] = uint8_t(
-                menu_.artPalette.findBestColor(info.palette[i * 3], info.palette[i * 3 + 1], info.palette[i * 3 + 2]));
+            _menu.thumbnailMap[i] = uint8_t(
+                _menu.artPalette.findBestColor(info.palette[i * 3], info.palette[i * 3 + 1], info.palette[i * 3 + 2]));
     }
 }
 
@@ -154,55 +154,55 @@ void Game::drawMenuScreen() {
     // The original shows the menu in the selected save's palette (setup.pal
     // without saves), so the menu art changes colour from save to save. As a
     // convenience the menu keeps setup.pal and the thumbnail is recoloured.
-    bool savePalette = menu_.infoValid && vm_->getOptions().original;
-    const Palette &pal = savePalette ? menu_.savePalette : menu_.artPalette;
-    palette_ = pal;
-    fadeLevel_ = 256;
+    bool savePalette = _menu.infoValid && _vm->getOptions().original;
+    const Palette &pal = savePalette ? _menu.savePalette : _menu.artPalette;
+    _palette = pal;
+    _fadeLevel = 256;
     applyPalette();
 
     // Drawn into its own surface; each step copies it to the screen under the cursor.
-    Surface &dst = menu_.frame;
+    Surface &dst = _menu.frame;
     draw::create(dst, kScreenWidth, kScreenHeight);
 
-    draw::blit(dst, menu_.art, 0, 0);
+    draw::blit(dst, _menu.art, 0, 0);
     auto lit = [&](int b) {
-        if (b >= 0 && b < menu_.buttons.frameCount())
-            menu_.buttons.drawFrame(b, dst);
+        if (b >= 0 && b < _menu.buttons.frameCount())
+            _menu.buttons.drawFrame(b, dst);
     };
-    lit(kButtonEasy + arcadeDifficulty_);
-    if (autosave_)
+    lit(kButtonEasy + _arcadeDifficulty);
+    if (_autosave)
         lit(kButtonAutosave);
-    if (menu_.hover >= 0)
-        lit(menu_.hover);
+    if (_menu.hover >= 0)
+        lit(_menu.hover);
 
     uint8_t grey = nearest(pal, 40, 40, 40);
     uint8_t white = nearest(pal, 63, 63, 63);
     uint8_t black = nearest(pal, 0, 0, 0);
-    if (menu_.infoValid) {
+    if (_menu.infoValid) {
         for (int y = 0; y < 240; y++)
             for (int x = 0; x < 320; x++) {
-                uint8_t c = menu_.thumbnail[y * 320 + x];
-                *draw::at(dst, kThumbX + x, kThumbY + y) = savePalette ? c : menu_.thumbnailMap[c];
+                uint8_t c = _menu.thumbnail[y * 320 + x];
+                *draw::at(dst, kThumbX + x, kThumbY + y) = savePalette ? c : _menu.thumbnailMap[c];
             }
     }
-    std::string text = menu_.infoValid ? menu_.description : std::string();
-    if (menu_.mode == GameMenu::kNameEntry) {
-        bool blinkOn = (millis_ / 200) % 2 == 0;
-        text = menu_.typed ? menu_.name + (blinkOn ? "_" : "") : (blinkOn ? "Type a name for your saved game!!!" : "");
+    std::string text = _menu.infoValid ? _menu.description : std::string();
+    if (_menu.mode == GameMenu::kNameEntry) {
+        bool blinkOn = (_millis / 200) % 2 == 0;
+        text = _menu.typed ? _menu.name + (blinkOn ? "_" : "") : (blinkOn ? "Type a name for your saved game!!!" : "");
     }
-    if (!text.empty() || menu_.mode == GameMenu::kNameEntry) {
+    if (!text.empty() || _menu.mode == GameMenu::kNameEntry) {
         draw::fillRect(dst, kTextBar.left, kTextBar.top, kTextBar.width(), kTextBar.height(), black);
-        if (!font_.empty())
-            font_.drawString(dst, kTextX, kTextY, text, grey, black);
+        if (!_font.empty())
+            _font.drawString(dst, kTextX, kTextY, text, grey, black);
     }
 
-    if (menu_.mode == GameMenu::kConfirm) {
+    if (_menu.mode == GameMenu::kConfirm) {
         draw::fillRect(dst, kConfirmBox.left, kConfirmBox.top, kConfirmBox.width(), kConfirmBox.height(), black);
         draw::frameRect(dst, kConfirmBox.left, kConfirmBox.top, kConfirmBox.width(), kConfirmBox.height(), grey);
-        if (!font_.empty()) {
-            font_.drawString(dst, 162, 220, menu_.confirmText, white, black);
-            if (!vm_->getOptions().original)
-                font_.drawString(dst, 162, 256, "Right button: yes     Left button: no", grey, black);
+        if (!_font.empty()) {
+            _font.drawString(dst, 162, 220, _menu.confirmText, white, black);
+            if (!_vm->getOptions().original)
+                _font.drawString(dst, 162, 256, "Right button: yes     Left button: no", grey, black);
         }
     }
 }
@@ -210,25 +210,25 @@ void Game::drawMenuScreen() {
 void Game::handleMenuEvent(const InputEvent &event) {
     switch (event.type) {
     case InputEvent::kQuit:
-        quit_ = true;
+        _quit = true;
         break;
     case InputEvent::kMouseMove: {
-        mouse_ = event.mouse;
+        _mouse = event.mouse;
         Point p = cursorHitPoint(false);
-        int hover = menu_.mode == GameMenu::kMain ? menuButtonAt(p.x, p.y) : -1;
-        if (hover != menu_.hover) {
-            menu_.hover = hover;
+        int hover = _menu.mode == GameMenu::kMain ? menuButtonAt(p.x, p.y) : -1;
+        if (hover != _menu.hover) {
+            _menu.hover = hover;
             drawMenuScreen();
         }
         break;
     }
     case InputEvent::kLeftDown:
     case InputEvent::kRightDown: {
-        mouse_ = event.mouse;
+        _mouse = event.mouse;
         bool right = event.type == InputEvent::kRightDown;
-        if (menu_.mode == GameMenu::kConfirm) {
+        if (_menu.mode == GameMenu::kConfirm) {
             menuConfirm(right); // right button: yes, left: no
-        } else if (menu_.mode == GameMenu::kMain && !right) {
+        } else if (_menu.mode == GameMenu::kMain && !right) {
             Point p = cursorHitPoint(false);
             int b = menuButtonAt(p.x, p.y);
             if (b >= 0)
@@ -238,29 +238,29 @@ void Game::handleMenuEvent(const InputEvent &event) {
     }
     case InputEvent::kKeyDown: {
         uint32_t k = event.key;
-        if (menu_.mode == GameMenu::kConfirm) {
+        if (_menu.mode == GameMenu::kConfirm) {
             // Keys are an added convenience: the original only takes the mouse.
-            if (vm_->getOptions().original)
+            if (_vm->getOptions().original)
                 break;
             if (k == 'y' || k == key::Return)
                 menuConfirm(true);
             else if (k == 'n' || k == key::Escape)
                 menuConfirm(false);
-        } else if (menu_.mode == GameMenu::kNameEntry) {
+        } else if (_menu.mode == GameMenu::kNameEntry) {
             if (k == key::Return || k == key::Escape) {
                 finishNameEntry();
             } else if (k == key::Backspace) {
-                if (!menu_.name.empty())
-                    menu_.name.pop_back();
-                menu_.typed = true;
+                if (!_menu.name.empty())
+                    _menu.name.pop_back();
+                _menu.typed = true;
             } else if (event.ascii >= 32 && event.ascii < 127) {
-                std::string next = menu_.name + char(event.ascii);
-                if (next.size() <= kMaxNameLength && (font_.empty() || font_.getStringWidth(next) < kMaxNameWidth))
-                    menu_.name = next;
-                menu_.typed = true;
+                std::string next = _menu.name + char(event.ascii);
+                if (next.size() <= kMaxNameLength && (_font.empty() || _font.getStringWidth(next) < kMaxNameWidth))
+                    _menu.name = next;
+                _menu.typed = true;
             }
             drawMenuScreen();
-        } else if (k == key::Escape && !menu_.first && !dead_ && !vm_->getOptions().original) {
+        } else if (k == key::Escape && !_menu.first && !_dead && !_vm->getOptions().original) {
             menuButton(kButtonResume);
         }
         break;
@@ -271,14 +271,14 @@ void Game::handleMenuEvent(const InputEvent &event) {
 }
 
 void Game::menuButton(int button) {
-    bool canResume = !menu_.first && !dead_;
+    bool canResume = !_menu.first && !_dead;
     auto confirm = [&](const char *text) {
-        menu_.mode = GameMenu::kConfirm;
-        menu_.confirmButton = button;
-        menu_.confirmText = text;
+        _menu.mode = GameMenu::kConfirm;
+        _menu.confirmButton = button;
+        _menu.confirmText = text;
         drawMenuScreen();
     };
-    int n = int(menu_.saves.size());
+    int n = int(_menu.saves.size());
     switch (button) {
     case kButtonNew:
         confirm("Start a new game?");
@@ -286,10 +286,10 @@ void Game::menuButton(int button) {
     case kButtonSave:
         if (!canResume)
             return;
-        menu_.mode = GameMenu::kNameEntry;
-        system_->setTextInput(menu_.mode == GameMenu::kNameEntry); // typed names arrive as text
-        menu_.name.clear();
-        menu_.typed = false;
+        _menu.mode = GameMenu::kNameEntry;
+        _system->setTextInput(_menu.mode == GameMenu::kNameEntry); // typed names arrive as text
+        _menu.name.clear();
+        _menu.typed = false;
         break;
     case kButtonLoad:
         if (n)
@@ -302,10 +302,10 @@ void Game::menuButton(int button) {
         if (!canResume)
             return;
         closeMenu();
-        palette_ = menuGamePalette_;
+        _palette = _menuGamePalette;
         applyPalette();
-        draw::blit(screen_, menuGameScreen_, 0, 0);
-        draw::blit(cleanScreen_, menuGameScreen_, 0, 0);
+        draw::blit(_screen, _menuGameScreen, 0, 0);
+        draw::blit(_cleanScreen, _menuGameScreen, 0, 0);
         return;
     case kButtonDelete:
         if (n)
@@ -314,25 +314,25 @@ void Game::menuButton(int button) {
     case kButtonEasy:
     case kButtonEasy + 1:
     case kButtonEasy + 2:
-        arcadeDifficulty_ = button - kButtonEasy;
+        _arcadeDifficulty = button - kButtonEasy;
         break;
     case kButtonAutosave:
-        autosave_ = !autosave_;
+        _autosave = !_autosave;
         break;
     case kButtonCredits:
         startCredits(false, true);
         return;
     case kButtonPrev:
-        selectSave(menu_.selected - 1);
+        selectSave(_menu.selected - 1);
         break;
     case kButtonNext:
-        selectSave(menu_.selected + 1);
+        selectSave(_menu.selected + 1);
         break;
     case kButtonPrev10:
-        selectSave(menu_.selected - 10);
+        selectSave(_menu.selected - 10);
         break;
     case kButtonNext10:
-        selectSave(menu_.selected + 10);
+        selectSave(_menu.selected + 10);
         break;
     default:
         break;
@@ -341,10 +341,10 @@ void Game::menuButton(int button) {
 }
 
 void Game::menuConfirm(bool yes) {
-    menu_.mode = GameMenu::kMain;
-    system_->setTextInput(menu_.mode == GameMenu::kNameEntry); // typed names arrive as text
-    int button = menu_.confirmButton;
-    menu_.confirmButton = -1;
+    _menu.mode = GameMenu::kMain;
+    _system->setTextInput(_menu.mode == GameMenu::kNameEntry); // typed names arrive as text
+    int button = _menu.confirmButton;
+    _menu.confirmButton = -1;
     if (!yes) {
         drawMenuScreen();
         return;
@@ -355,22 +355,22 @@ void Game::menuConfirm(bool yes) {
         startNewGame();
         return;
     case kButtonLoad: {
-        std::string file = menu_.saves.empty() ? std::string() : menu_.saves[menu_.selected];
+        std::string file = _menu.saves.empty() ? std::string() : _menu.saves[_menu.selected];
         closeMenu();
         if (!loadGame(file))
-            openMenu(menu_.first);
+            openMenu(_menu.first);
         return;
     }
     case kButtonQuit:
         closeMenu();
-        quit_ = true;
+        _quit = true;
         return;
     case kButtonDelete:
-        if (!menu_.saves.empty()) {
+        if (!_menu.saves.empty()) {
             std::error_code ec;
-            std::filesystem::remove(std::filesystem::path(getSaveDirectory()) / menu_.saves[menu_.selected], ec);
+            std::filesystem::remove(std::filesystem::path(getSaveDirectory()) / _menu.saves[_menu.selected], ec);
             scanSaves();
-            selectSave(menu_.selected);
+            selectSave(_menu.selected);
         }
         break;
     default:
@@ -381,8 +381,8 @@ void Game::menuConfirm(bool yes) {
 
 void Game::finishNameEntry() {
     // The file gets the first free number; Esc does not cancel (as in the game).
-    menu_.mode = GameMenu::kMain;
-    system_->setTextInput(menu_.mode == GameMenu::kNameEntry); // typed names arrive as text
+    _menu.mode = GameMenu::kMain;
+    _system->setTextInput(_menu.mode == GameMenu::kNameEntry); // typed names arrive as text
     std::string dir = getSaveDirectory();
     std::string file;
     for (int i = 0; i < 100000000; i++) {
@@ -391,21 +391,21 @@ void Game::finishNameEntry() {
         if (!std::filesystem::exists(std::filesystem::path(dir) / file, ec))
             break;
     }
-    Palette menuPalette = palette_;
-    palette_ = menuGamePalette_; // saved with the game's palette
-    bool ok = saveGame(file, menu_.name, getResumePc());
-    palette_ = menuPalette;
+    Palette menuPalette = _palette;
+    _palette = _menuGamePalette; // saved with the game's palette
+    bool ok = saveGame(file, _menu.name, getResumePc());
+    _palette = menuPalette;
     scanSaves();
     if (ok) {
-        auto it = std::find(menu_.saves.begin(), menu_.saves.end(), file);
-        selectSave(int(it - menu_.saves.begin()));
+        auto it = std::find(_menu.saves.begin(), _menu.saves.end(), file);
+        selectSave(int(it - _menu.saves.begin()));
     }
     drawMenuScreen();
 }
 
 void Game::typeSaveName(const std::string &name) {
-    menu_.name = name;
-    menu_.typed = true;
+    _menu.name = name;
+    _menu.typed = true;
     finishNameEntry();
 }
 

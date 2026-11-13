@@ -90,15 +90,15 @@ bool isSymbol(const Argument *a) {
 std::string Game::variableName(const Argument *arg) const {
     if (!arg)
         return std::string();
-    const auto &vars = scene_->lists[kListVariables];
+    const auto &vars = _scene->lists[kListVariables];
     if (arg->value < vars.size())
         return fs::toLower(vars[arg->value].name);
     return text::format("@%u", arg->value);
 }
 
 uint16_t Game::getVariable(const Argument *arg) const {
-    auto it = variables_.find(variableName(arg));
-    return it == variables_.end() ? 0 : it->second;
+    auto it = _variables.find(variableName(arg));
+    return it == _variables.end() ? 0 : it->second;
 }
 
 // A type-02 argument is a variable, anything else its own number (0x12E94).
@@ -113,66 +113,66 @@ void Game::setVariable(const Argument *arg, uint16_t value) {
     if (name.empty())
         return;
     log::debug(3, "  $%s = %u", name.c_str(), value);
-    variables_[name] = value;
+    _variables[name] = value;
 }
 
 // ---- Labels and control flow ---------------------------------------------
 
 void Game::buildLabels() {
     // LABEL n marks the directive after it as label n (0x10A36).
-    labels_.clear();
-    for (uint32_t i = 0; i < scene_->script.size(); i++) {
-        const Directive &d = scene_->script[i];
+    _labels.clear();
+    for (uint32_t i = 0; i < _scene->script.size(); i++) {
+        const Directive &d = _scene->script[i];
         const Argument *a = d.getArg(0);
         if (d.command == kCmdLabel && a)
-            labels_[a->value] = i + 1;
+            _labels[a->value] = i + 1;
     }
 }
 
 void Game::jumpToLabel(int label) {
-    auto it = labels_.find(uint32_t(label));
-    thread_.active = true;
-    thread_.wait = kWaitNone;
-    if (it == labels_.end()) {
+    auto it = _labels.find(uint32_t(label));
+    _thread.active = true;
+    _thread.wait = kWaitNone;
+    if (it == _labels.end()) {
         // The game ends up on a NULL directive and restarts the script.
-        log::warning("%s: label %d is not defined", scene_->name.c_str(), label);
-        thread_.wait = kWaitRestart;
+        log::warning("%s: label %d is not defined", _scene->name.c_str(), label);
+        _thread.wait = kWaitRestart;
         return;
     }
-    thread_.pc = it->second;
+    _thread.pc = it->second;
 }
 
 bool Game::jumpTo(const Argument *arg) {
     jumpToLabel(arg ? int(arg->value) : -1);
-    return thread_.wait == kWaitNone;
+    return _thread.wait == kWaitNone;
 }
 
 bool Game::gosub(const Argument *arg) {
     // A full stack is reported and the call becomes a jump (0x12E2D).
-    if (thread_.callStack.size() < kMaxCallDepth)
-        thread_.callStack.push_back(thread_.pc);
+    if (_thread.callStack.size() < kMaxCallDepth)
+        _thread.callStack.push_back(_thread.pc);
     else
-        log::warning("%s: subroutine nesting too deep", scene_->name.c_str());
+        log::warning("%s: subroutine nesting too deep", _scene->name.c_str());
     return jumpTo(arg);
 }
 
 bool Game::isWaitOver() {
-    switch (thread_.wait) {
+    switch (_thread.wait) {
     case kWaitAnim:
-        return thread_.waitArg < 0 || thread_.waitArg >= int(anims_.size()) || !anims_[thread_.waitArg].suspended;
+        return _thread.waitArg < 0 || _thread.waitArg >= int(_anims.size()) || !_anims[_thread.waitArg].suspended;
     case kWaitFade:
-        return !fade_.active;
+        return !_fade.active;
     case kWaitRestart:
-        thread_.pc = 0;
+        _thread.pc = 0;
         return true;
     case kWaitConversation:
-        return !conv_.active;
+        return !_conv.active;
     case kWaitVideo:
-        return !video_.active;
+        return !_video.active;
     case kWaitArcade:
-        return !arcade_;
+        return !_arcade;
     case kWaitCredits:
-        return !credits_.active;
+        return !_credits.active;
     default:
         return true;
     }
@@ -180,24 +180,24 @@ bool Game::isWaitOver() {
 
 void Game::runThread() {
     int count = 0;
-    while (thread_.active && pendingScene_ < 0) {
-        if (thread_.wait != kWaitNone) {
+    while (_thread.active && _pendingScene < 0) {
+        if (_thread.wait != kWaitNone) {
             if (!isWaitOver())
                 return;
-            thread_.wait = kWaitNone;
+            _thread.wait = kWaitNone;
         }
-        if (thread_.pc >= scene_->script.size()) {
+        if (_thread.pc >= _scene->script.size()) {
             // Running off the end restarts the script, without reloading (0x10901).
-            thread_.wait = kWaitRestart;
+            _thread.wait = kWaitRestart;
             return;
         }
         if (++count > kMaxDirectivesPerRun) {
-            log::warning("%s: script did not return after %d directives; stopped", scene_->name.c_str(), count);
-            thread_.active = false;
+            log::warning("%s: script did not return after %d directives; stopped", _scene->name.c_str(), count);
+            _thread.active = false;
             return;
         }
-        const Directive &d = scene_->script[thread_.pc++];
-        log::debug(4, "%s %04u: %s", scene_->name.c_str(), thread_.pc - 1, describe(d).c_str());
+        const Directive &d = _scene->script[_thread.pc++];
+        log::debug(4, "%s %04u: %s", _scene->name.c_str(), _thread.pc - 1, describe(d).c_str());
         if (!executeDirective(d))
             return;
     }
@@ -216,7 +216,7 @@ bool Game::executeDirective(const Directive &d) {
     const Argument *a0 = d.getArg(0);
     const Argument *a1 = d.getArg(1);
     const Argument *a2 = d.getArg(2);
-    Timer *timer = a0 && a0->value < timers_.size() ? &timers_[a0->value] : nullptr;
+    Timer *timer = a0 && a0->value < _timers.size() ? &_timers[a0->value] : nullptr;
 
     switch (d.command) {
     // Variables. The destination is always read as a variable.
@@ -230,7 +230,7 @@ bool Game::executeDirective(const Directive &d) {
         uint16_t v = getVariable(a1);
         uint16_t n = getValue(a0);
         if (n > v)
-            log::debug(1, "%s: result of subtraction negative", scene_->name.c_str());
+            log::debug(1, "%s: result of subtraction negative", _scene->name.c_str());
         else
             setVariable(a1, uint16_t(v - n));
         return true;
@@ -276,28 +276,28 @@ bool Game::executeDirective(const Directive &d) {
     }
     case kCmdReturn:
     case kCmdReturnVal:
-        if (!thread_.callStack.empty()) {
-            thread_.pc = thread_.callStack.back();
-            thread_.callStack.pop_back();
+        if (!_thread.callStack.empty()) {
+            _thread.pc = _thread.callStack.back();
+            _thread.callStack.pop_back();
             return true;
         }
-        if (thread_.nested && d.command == kCmdReturnVal)
-            thread_.returnValue = evalReturnValue(a0);
-        thread_.active = false; // idle: the player has control
-        if (!thread_.nested)
-            idlePc_ = thread_.pc - 1;
+        if (_thread.nested && d.command == kCmdReturnVal)
+            _thread.returnValue = evalReturnValue(a0);
+        _thread.active = false; // idle: the player has control
+        if (!_thread.nested)
+            _idlePc = _thread.pc - 1;
         return false;
 
     // Scenes.
     case kCmdNewScene: {
         // The argument is the scene's SCENE number. An unknown one does nothing.
-        int index = vm_->findSceneByNumber(a0 ? int(a0->value) : -1);
+        int index = _vm->findSceneByNumber(a0 ? int(a0->value) : -1);
         if (index < 0) {
             log::warning("NEWSCENE: no scene number %u", a0 ? a0->value : 0);
             return true;
         }
-        pendingScene_ = index;
-        thread_.active = false;
+        _pendingScene = index;
+        _thread.active = false;
         return false;
     }
     case kCmdBackground:
@@ -305,39 +305,39 @@ bool Game::executeDirective(const Directive &d) {
         return true;
     case kCmdFadeOut:
     case kCmdFadeIn:
-        fade_.active = true;
-        fade_.in = d.command == kCmdFadeIn;
-        fade_.steps = std::max<int>(1, getValue(a0));
-        fade_.startMillis = millis_;
-        fadeLevel_ = fade_.in ? 0 : 256;
+        _fade.active = true;
+        _fade.in = d.command == kCmdFadeIn;
+        _fade.steps = std::max<int>(1, getValue(a0));
+        _fade.startMillis = _millis;
+        _fadeLevel = _fade.in ? 0 : 256;
         applyPalette();
-        thread_.wait = kWaitFade;
+        _thread.wait = kWaitFade;
         return false;
     case kCmdMapOn:
-        mapEnabled_ = true;
+        _mapEnabled = true;
         return true;
     case kCmdMapOff:
-        mapEnabled_ = false;
+        _mapEnabled = false;
         return true;
     case kCmdDeath:
         // The game sets its "dead" flag and opens the game menu.
-        dead_ = true;
-        thread_.active = false;
-        idlePc_ = thread_.pc - 1;
+        _dead = true;
+        _thread.active = false;
+        _idlePc = _thread.pc - 1;
         openMenu(false);
         return false;
     case kCmdRequireDisc:
         // Asks for the other CD if needed; all the data is available here.
-        disc_ = getValue(a0);
+        _disc = getValue(a0);
         return true;
 
     // Hotspots.
     case kCmdHotspot: {
-        if (!a0 || a0->value >= hotspots_.size())
+        if (!a0 || a0->value >= _hotspots.size())
             return true;
-        Hotspot &h = hotspots_[a0->value];
+        Hotspot &h = _hotspots[a0->value];
         if (h.defined) {
-            log::debug(1, "%s: duplicate hotspot definition", scene_->name.c_str());
+            log::debug(1, "%s: duplicate hotspot definition", _scene->name.c_str());
             return true;
         }
         h.defined = true;
@@ -352,9 +352,9 @@ bool Game::executeDirective(const Directive &d) {
     }
     case kCmdSetRect:
         if (a0)
-            setRectHotspot_ = int(a0->value); // ACTIONSEQ 0xC2 fires from it
-        if (a0 && a0->value < hotspots_.size()) {
-            Hotspot &h = hotspots_[a0->value];
+            _setRectHotspot = int(a0->value); // ACTIONSEQ 0xC2 fires from it
+        if (a0 && a0->value < _hotspots.size()) {
+            Hotspot &h = _hotspots[a0->value];
             h.x = getValue(d.getArg(1));
             h.y = getValue(d.getArg(2));
             h.w = getValue(d.getArg(3));
@@ -364,12 +364,12 @@ bool Game::executeDirective(const Directive &d) {
     case kCmdHotOn:
     case kCmdHotOff:
         for (const Argument &a : d.args)
-            if (a.type == kArgSymbol && a.value < hotspots_.size())
-                hotspots_[a.value].enabled = d.command == kCmdHotOn;
+            if (a.type == kArgSymbol && a.value < _hotspots.size())
+                _hotspots[a.value].enabled = d.command == kCmdHotOn;
         return true;
     case kCmdHotType:
-        if (a0 && a0->value < hotspots_.size() && a1)
-            hotspots_[a0->value].cursor = int(a1->value);
+        if (a0 && a0->value < _hotspots.size() && a1)
+            _hotspots[a0->value].cursor = int(a1->value);
         return true;
 
     // Timers: one-shot, counted in 100 ms ticks.
@@ -417,18 +417,18 @@ bool Game::executeDirective(const Directive &d) {
     case kCmdConverse:
         // Blocks until the conversation ends; then the script continues, or jumps
         // to a hotspot the player clicked to end it.
-        actionSeqPc_ = thread_.pc - 1;
+        _actionSeqPc = _thread.pc - 1;
         startConversation(a0 ? int(a0->value) : -1, a1 ? int(a1->value) : -1);
-        return thread_.active && thread_.wait == kWaitNone;
+        return _thread.active && _thread.wait == kWaitNone;
     // Action sequences (Smacker videos with their arcade parts) are not
     // implemented yet; they return the default result.
     case kCmdActionSeq:
         actionSequence(d);
-        return thread_.wait == kWaitNone;
+        return _thread.wait == kWaitNone;
 
     default:
         if (executeAnimCommand(d))
-            return thread_.active && thread_.wait == kWaitNone;
+            return _thread.active && _thread.wait == kWaitNone;
         // SCENE, LABEL, NOP and the dialogue lip-sync commands do nothing here.
         return true;
     }
@@ -446,7 +446,7 @@ void Game::drawBeam(Surface &dst, const Beam &b) {
 }
 
 void Game::drawBeams(Surface &dst) {
-    for (const Beam &b : beams_)
+    for (const Beam &b : _beams)
         drawBeam(dst, b);
 }
 
@@ -467,23 +467,23 @@ void Game::addBeam(Beam b) {
     }
     b.w = right - b.left;
     b.h = bottom - b.top;
-    beams_.push_back(b);
+    _beams.push_back(b);
     // Shown at once; a second beam does not reset the renders left.
-    drawBeam(screen_, b);
-    if (beamLife_ == 0)
-        beamLife_ = 3;
+    drawBeam(_screen, b);
+    if (_beamLife == 0)
+        _beamLife = 3;
 }
 
 void Game::updateTick() {
     // The tick runs from the timer interrupt in the game: everywhere, menus too.
-    if (tickPeriod_ == 0xFFFF)
+    if (_tickPeriod == 0xFFFF)
         return;
-    tickPhase_ += 20;
-    if (tickPhase_ >= tickPeriod_) {
-        tickPhase_ = 0;
-        if (audio::Mixer *mixer = system_->getMixer())
-            if (!tickSound_.empty())
-                mixer->play(makeRawStream(tickSound_), audio::SoundType::Effects);
+    _tickPhase += 20;
+    if (_tickPhase >= _tickPeriod) {
+        _tickPhase = 0;
+        if (audio::Mixer *mixer = _system->getMixer())
+            if (!_tickSound.empty())
+                mixer->play(makeRawStream(_tickSound), audio::SoundType::Effects);
     }
 }
 
@@ -513,10 +513,10 @@ void Game::actionSequence(const Directive &d) {
     uint16_t id = getValue(d.getArg(0));
     int type = id >= 256 ? id >> 8 : id;
     uint16_t result = kActionSeqDefault;
-    actionSeqPc_ = thread_.pc - 1;
+    _actionSeqPc = _thread.pc - 1;
     if (type == 0xA0) {
         // Where the player is, for the deck map.
-        mapLocation_ = id & 0xFF;
+        _mapLocation = id & 0xFF;
         setVariable(d.getArg(1), result);
         return;
     }
@@ -527,7 +527,7 @@ void Game::actionSequence(const Directive &d) {
     case 0x80:
     case 0x81:
         // The tricorder icon drawn over each background.
-        tricorderIcon_ = type == 0x80;
+        _tricorderIcon = type == 0x80;
         break;
     case 0xC0:
     case 0xC1: {
@@ -539,7 +539,7 @@ void Game::actionSequence(const Directive &d) {
         b.y0 = 479;
         b.x1 = aim.x;
         b.y1 = aim.y;
-        b.color = uint8_t(palette_.findBestColor(255, 255, 255));
+        b.color = uint8_t(_palette.findBestColor(255, 255, 255));
         addBeam(b);
         break;
     }
@@ -548,8 +548,8 @@ void Game::actionSequence(const Directive &d) {
         // bottom: it hits the player if it lands in the middle third (0x25B0E).
         Beam b;
         b.enemy = true;
-        if (setRectHotspot_ >= 0 && setRectHotspot_ < int(hotspots_.size())) {
-            const Hotspot &h = hotspots_[setRectHotspot_];
+        if (_setRectHotspot >= 0 && _setRectHotspot < int(_hotspots.size())) {
+            const Hotspot &h = _hotspots[_setRectHotspot];
             b.x0 = h.x + h.w / 2;
             b.y0 = h.y + h.h - 5;
         }
@@ -564,7 +564,7 @@ void Game::actionSequence(const Directive &d) {
     case 0xC3:
         break;
     case 0xF0:
-        tickPeriod_ = 0xFFFF; // the countdown's tick stops
+        _tickPeriod = 0xFFFF; // the countdown's tick stops
         break;
     case 0xF1:
     case 0xF2:
@@ -577,12 +577,12 @@ void Game::actionSequence(const Directive &d) {
         int stage = type - 0xF0;
         int location = id & 0xFF;
         int t = location < 82 ? kCountdown[location][stage - 1] : 0;
-        int seconds = t + 1 + 2 * (2 - arcadeDifficulty_);
-        tickPeriod_ = uint32_t(64 * seconds);
+        int seconds = t + 1 + 2 * (2 - _arcadeDifficulty);
+        _tickPeriod = uint32_t(64 * seconds);
         result = uint16_t(10 * seconds);
-        if (tickSound_.empty())
-            if (auto s = resources_.openFile("SOUND/TICK.RAW"))
-                tickSound_ = s->readAll();
+        if (_tickSound.empty())
+            if (auto s = _resources.openFile("SOUND/TICK.RAW"))
+                _tickSound = s->readAll();
         break;
     }
     default:

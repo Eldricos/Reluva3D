@@ -49,22 +49,22 @@ public:
     bool isAnimVisible(const std::string &name) const;
     int getAnimFrame(const std::string &name) const;
     const std::string &getSceneName() const;
-    bool isScriptRunning() const { return thread_.active; }
+    bool isScriptRunning() const { return _thread.active; }
     // The conversation, for tests: whether one runs, and the menu labels when
     // the player is asked to choose.
-    bool isConversationActive() const { return conv_.active; }
-    bool isArcadeActive() const { return arcade_ != nullptr; }
-    bool isMenuActive() const { return menu_.active; }
-    bool hasMenuFont() const { return !font_.empty(); }
-    bool isCreditsActive() const { return credits_.active; }
-    bool isDeckMapOpen() const { return deckMap_; }
+    bool isConversationActive() const { return _conv.active; }
+    bool isArcadeActive() const { return _arcade != nullptr; }
+    bool isMenuActive() const { return _menu.active; }
+    bool hasMenuFont() const { return !_font.empty(); }
+    bool isCreditsActive() const { return _credits.active; }
+    bool isDeckMapOpen() const { return _deckMap; }
     void pressKey(uint32_t key);
     // For tests: press a menu button, answer a confirmation, type a save name.
     void pressMenuButton(int button) { menuButton(button); }
     void answerMenu(bool yes) { menuConfirm(yes); }
     void typeSaveName(const std::string &name);
-    int getSaveCount() const { return int(menu_.saves.size()); }
-    const Surface &getScreen() const { return screen_; }
+    int getSaveCount() const { return int(_menu.saves.size()); }
+    const Surface &getScreen() const { return _screen; }
     void moveMouse(int x, int y);
     // For tests: a right click (torpedo) at the given point.
     void rightClick(int x, int y);
@@ -478,94 +478,94 @@ private:
     // `advance`, step the animations.
     void renderAnims(bool advance);
 
-    Harbinger *vm_;
-    Platform *system_;
-    Resources &resources_;
-    const std::vector<Scene> &scenes_;
-    bool quit_ = false;
+    Harbinger *_vm;
+    Platform *_system;
+    Resources &_resources;
+    const std::vector<Scene> &_scenes;
+    bool _quit = false;
 
     // Variables are global: one 16-bit value per name, shared by all scenes
     // (DEEP.EXE maps each scene's variable list into one array by name).
-    std::map<std::string, uint16_t> variables_;
+    std::map<std::string, uint16_t> _variables;
 
-    int sceneIndex_ = -1;
-    int pendingScene_ = -1;
-    const Scene *scene_ = nullptr;
-    std::map<uint32_t, uint32_t> labels_; // label number -> directive index
+    int _sceneIndex = -1;
+    int _pendingScene = -1;
+    const Scene *_scene = nullptr;
+    std::map<uint32_t, uint32_t> _labels; // label number -> directive index
 
-    std::vector<Hotspot> hotspots_; // by CH index
-    std::vector<Timer> timers_;     // by CT index
-    std::vector<Anim> anims_;       // by CA index
+    std::vector<Hotspot> _hotspots; // by CH index
+    std::vector<Timer> _timers;     // by CT index
+    std::vector<Anim> _anims;       // by CA index
 
-    Thread thread_;
-    GameMenu menu_;
-    CreditsScreen credits_;
-    std::vector<std::string> creditLines_;
-    Font creditsFont_;
-    bool creditsLoaded_ = false;
-    bool deckMap_ = false;
-    Surface deckMapFrame_;
-    Surface menuGameScreen_; // the game's picture when the menu opened
-    Palette menuGamePalette_;
-    Surface cleanScreen_;         // the last frame without the cursor
-    Surface workBuffer_;          // the last drawn scene: background and animations
-    bool workBufferStale_ = true; // to be refilled from the background
-    VideoPlayback video_;
-    std::unique_ptr<Arcade> arcade_;
-    std::string arcadeResultVariable_;
-    uint32_t arcadeStartMillis_ = 0;
-    bool arcadeLeft_ = false, arcadeRight_ = false;
-    int arcadeDifficulty_ = 1; // 0..2; the game menu sets it (default 1)
-    int lastArcadeDamage_ = 0; // carried into some later sequences
-    std::map<int, ArcadeGroupState> arcadeGroups_;
-    std::vector<CursorImage> cursors_;
-    bool cursorsLoaded_ = false;
-    uint32_t nextCycleMillis_ = 0;
-    uint8_t videoPalette_[768] = {};
-    std::vector<int> ambientSounds_;
-    std::vector<Beam> beams_;
-    int beamLife_ = 0;
-    int setRectHotspot_ = 0; // the hotspot SETRECT set last
+    Thread _thread;
+    GameMenu _menu;
+    CreditsScreen _credits;
+    std::vector<std::string> _creditLines;
+    Font _creditsFont;
+    bool _creditsLoaded = false;
+    bool _deckMap = false;
+    Surface _deckMapFrame;
+    Surface _menuGameScreen; // the game's picture when the menu opened
+    Palette _menuGamePalette;
+    Surface _cleanScreen;         // the last frame without the cursor
+    Surface _workBuffer;          // the last drawn scene: background and animations
+    bool _workBufferStale = true; // to be refilled from the background
+    VideoPlayback _video;
+    std::unique_ptr<Arcade> _arcade;
+    std::string _arcadeResultVariable;
+    uint32_t _arcadeStartMillis = 0;
+    bool _arcadeLeft = false, _arcadeRight = false;
+    int _arcadeDifficulty = 1; // 0..2; the game menu sets it (default 1)
+    int _lastArcadeDamage = 0; // carried into some later sequences
+    std::map<int, ArcadeGroupState> _arcadeGroups;
+    std::vector<CursorImage> _cursors;
+    bool _cursorsLoaded = false;
+    uint32_t _nextCycleMillis = 0;
+    uint8_t _videoPalette[768] = {};
+    std::vector<int> _ambientSounds;
+    std::vector<Beam> _beams;
+    int _beamLife = 0;
+    int _setRectHotspot = 0; // the hotspot SETRECT set last
     // The countdown's tick (ACTIONSEQ 0xF0..0xF5): tick.raw every `period` ms.
-    uint32_t tickPeriod_ = 0xFFFF; // 0xFFFF: off
-    uint32_t tickPhase_ = 0;
-    std::vector<uint8_t> tickSound_;
+    uint32_t _tickPeriod = 0xFFFF; // 0xFFFF: off
+    uint32_t _tickPhase = 0;
+    std::vector<uint8_t> _tickSound;
     // State that saved games keep.
-    int disc_ = 0;                // CDCHANGE
-    int mapLocation_ = 0xFF;      // for the deck map (ACTIONSEQ 0xA0xx)
-    int paletteBackground_ = 299; // the background whose palette is set (299: none)
-    uint32_t idlePc_ = 0;         // the RETURN the script idles on
-    uint32_t actionSeqPc_ = 0;    // the ACTIONSEQ being run (for autosaves)
-    bool autosave_ = true;
-    int lastSave_ = 0; // the save the menu showed last         // sound indexes, to restart after TRANS videos
-    Conversation conv_;
-    std::map<int, DialogueState> dialogues_; // by CCB index, for the whole game
-    Font font_;
-    bool fontLoaded_ = false;
-    int speedStep_ = 1; // animation countdown step (3 while lips move)
-    uint32_t stepCount_ = 0;
-    uint32_t nextStepTime_ = 0;
-    uint32_t millis_ = 0; // game time, advanced by step()
+    int _disc = 0;                // CDCHANGE
+    int _mapLocation = 0xFF;      // for the deck map (ACTIONSEQ 0xA0xx)
+    int _paletteBackground = 299; // the background whose palette is set (299: none)
+    uint32_t _idlePc = 0;         // the RETURN the script idles on
+    uint32_t _actionSeqPc = 0;    // the ACTIONSEQ being run (for autosaves)
+    bool _autosave = true;
+    int _lastSave = 0; // the save the menu showed last         // sound indexes, to restart after TRANS videos
+    Conversation _conv;
+    std::map<int, DialogueState> _dialogues; // by CCB index, for the whole game
+    Font _font;
+    bool _fontLoaded = false;
+    int _speedStep = 1; // animation countdown step (3 while lips move)
+    uint32_t _stepCount = 0;
+    uint32_t _nextStepTime = 0;
+    uint32_t _millis = 0; // game time, advanced by step()
 
-    int backgroundIndex_ = -1;
-    Surface background_;
-    Surface screen_;
-    Palette palette_;
-    Fade fade_;
-    int fadeLevel_ = 256;       // 0 black .. 256 full palette
-    bool screenFrozen_ = false; // ANIMSOFF until the next BACKGRND
-    bool mapEnabled_ = true;
-    bool tricorderIcon_ = false;
-    bool dead_ = false;
-    RleAnimation tricorderRle_;
+    int _backgroundIndex = -1;
+    Surface _background;
+    Surface _screen;
+    Palette _palette;
+    Fade _fade;
+    int _fadeLevel = 256;       // 0 black .. 256 full palette
+    bool _screenFrozen = false; // ANIMSOFF until the next BACKGRND
+    bool _mapEnabled = true;
+    bool _tricorderIcon = false;
+    bool _dead = false;
+    RleAnimation _tricorderRle;
 
-    std::vector<audio::SoundHandle> ambients_; // looping, at most 2
-    std::vector<audio::SoundHandle> oneShots_;
+    std::vector<audio::SoundHandle> _ambients; // looping, at most 2
+    std::vector<audio::SoundHandle> _oneShots;
 
-    Point mouse_;
-    int hoverHotspot_ = -1;
-    bool showHotspots_ = false;
-    std::string status_; // shown in the caption
+    Point _mouse;
+    int _hoverHotspot = -1;
+    bool _showHotspots = false;
+    std::string _status; // shown in the caption
 };
 
 } // namespace reluva::stharbinger

@@ -35,59 +35,59 @@ const char *const kHelp = "Game keys:\n"
 } // namespace
 
 Game::Game(Harbinger *vm)
-    : vm_(vm), system_(vm->getSystem()), resources_(vm->getResources()), scenes_(vm->getScenes()) {
+    : _vm(vm), _system(vm->getSystem()), _resources(vm->getResources()), _scenes(vm->getScenes()) {
 }
 
 Game::~Game() {
-    if (system_->getMixer())
-        system_->getMixer()->stopAll();
+    if (_system->getMixer())
+        _system->getMixer()->stopAll();
 }
 
 int Game::run(int startScene) {
-    system_->initGraphics(kScreenWidth, kScreenHeight);
-    if (vm_->getOptions().debug)
+    _system->initGraphics(kScreenWidth, kScreenHeight);
+    if (_vm->getOptions().debug)
         std::printf("%s", kHelp);
     // The game starts with its menu unless a scene was asked for. The original
     // skips the menu on its very first run and goes straight to the intro; so
     // does "Play exactly as the original".
-    std::string base = system_->getSavePath();
+    std::string base = _system->getSavePath();
     std::error_code ec;
     bool firstRun = !base.empty() && !std::filesystem::exists(std::filesystem::path(base) / "dlas.ds9", ec);
     loadSettings();
-    if (startScene < 0 && firstRun && vm_->getOptions().original) {
-        int opening = vm_->findScene("OPENING");
+    if (startScene < 0 && firstRun && _vm->getOptions().original) {
+        int opening = _vm->findScene("OPENING");
         start(opening < 0 ? 0 : opening);
         saveSettings();
     } else if (startScene < 0) {
-        draw::create(screen_, kScreenWidth, kScreenHeight);
-        draw::create(cleanScreen_, kScreenWidth, kScreenHeight);
-        if (!cursorsLoaded_)
+        draw::create(_screen, kScreenWidth, kScreenHeight);
+        draw::create(_cleanScreen, kScreenWidth, kScreenHeight);
+        if (!_cursorsLoaded)
             loadCursors();
         openMenu(true);
     } else {
         start(startScene);
     }
 
-    nextStepTime_ = system_->getMillis();
-    while (!quit_ && !vm_->shouldQuit()) {
+    _nextStepTime = _system->getMillis();
+    while (!_quit && !_vm->shouldQuit()) {
         InputEvent event;
-        while (system_->pollEvent(event))
+        while (_system->pollEvent(event))
             handleEvent(event);
 
-        uint32_t now = system_->getMillis();
+        uint32_t now = _system->getMillis();
         int steps = 0;
-        while (int32_t(now - nextStepTime_) >= 0 && steps < 10) {
+        while (int32_t(now - _nextStepTime) >= 0 && steps < 10) {
             step();
-            nextStepTime_ += kStepMillis;
+            _nextStepTime += kStepMillis;
             steps++;
         }
         if (steps == 10)
-            nextStepTime_ = now; // fell behind (a slow load): don't race to catch up
-        if (steps && !screenFrozen_) {
-            system_->copyRectToScreen(screen_);
-            system_->updateScreen();
+            _nextStepTime = now; // fell behind (a slow load): don't race to catch up
+        if (steps && !_screenFrozen) {
+            _system->copyRectToScreen(_screen);
+            _system->updateScreen();
         }
-        system_->delayMillis(2);
+        _system->delayMillis(2);
     }
     return 0;
 }
@@ -95,9 +95,9 @@ int Game::run(int startScene) {
 // ---- Test and debugging hooks ---------------------------------------------
 
 void Game::start(int scene) {
-    draw::create(screen_, kScreenWidth, kScreenHeight);
-    draw::create(cleanScreen_, kScreenWidth, kScreenHeight);
-    if (!cursorsLoaded_)
+    draw::create(_screen, kScreenWidth, kScreenHeight);
+    draw::create(_cleanScreen, kScreenWidth, kScreenHeight);
+    if (!_cursorsLoaded)
         loadCursors();
     applyPalette();
     enterScene(scene);
@@ -118,111 +118,111 @@ void Game::click(int x, int y) {
 }
 
 int32_t Game::getVariable(const std::string &name) const {
-    auto it = variables_.find(fs::toLower(name));
-    return it == variables_.end() ? 0 : it->second;
+    auto it = _variables.find(fs::toLower(name));
+    return it == _variables.end() ? 0 : it->second;
 }
 
 const std::string &Game::getSceneName() const {
-    static const std::string none;
-    return scene_ ? scene_->name : none;
+    static const std::string kNone;
+    return _scene ? _scene->name : kNone;
 }
 
 // ---- Scenes ---------------------------------------------------------------
 
 void Game::enterScene(int index) {
-    sceneIndex_ = index;
-    scene_ = &scenes_[index];
-    log::debug(1, "Entering scene %s (slot %d)", scene_->name.c_str(), scene_->slot);
+    _sceneIndex = index;
+    _scene = &_scenes[index];
+    log::debug(1, "Entering scene %s (slot %d)", _scene->name.c_str(), _scene->slot);
 
     // Everything but the variables starts afresh: the game reloads the script and
     // frees the hotspots and timers of the previous scene.
     buildLabels();
-    hotspots_.assign(scene_->lists[kListHotspots].size(), Hotspot());
-    timers_.assign(scene_->lists[kListTimers].size(), Timer());
+    _hotspots.assign(_scene->lists[kListHotspots].size(), Hotspot());
+    _timers.assign(_scene->lists[kListTimers].size(), Timer());
     setupAnims();
-    if (draw::empty(background_))
-        draw::create(background_, kScreenWidth, kScreenHeight, 0); // the game's buffer always exists
-    hoverHotspot_ = -1;
-    status_.clear();
+    if (draw::empty(_background))
+        draw::create(_background, kScreenWidth, kScreenHeight, 0); // the game's buffer always exists
+    _hoverHotspot = -1;
+    _status.clear();
     updateCaption();
 
-    thread_ = Thread();
-    thread_.active = true;
+    _thread = Thread();
+    _thread.active = true;
     runThread();
 }
 
 void Game::leaveScene() {
-    thread_ = Thread();
-    hotspots_.clear();
-    timers_.clear();
-    anims_.clear();
-    if (audio::Mixer *mixer = system_->getMixer()) {
-        for (audio::SoundHandle h : ambients_)
+    _thread = Thread();
+    _hotspots.clear();
+    _timers.clear();
+    _anims.clear();
+    if (audio::Mixer *mixer = _system->getMixer()) {
+        for (audio::SoundHandle h : _ambients)
             mixer->stop(h);
     }
-    ambients_.clear();
-    ambientSounds_.clear();
+    _ambients.clear();
+    _ambientSounds.clear();
 }
 
 bool Game::soundsPlaying() {
-    audio::Mixer *mixer = system_->getMixer();
+    audio::Mixer *mixer = _system->getMixer();
     if (!mixer)
         return false;
-    oneShots_.erase(
-        std::remove_if(oneShots_.begin(), oneShots_.end(), [&](audio::SoundHandle h) { return !mixer->isPlaying(h); }),
-        oneShots_.end());
-    return !oneShots_.empty();
+    _oneShots.erase(
+        std::remove_if(_oneShots.begin(), _oneShots.end(), [&](audio::SoundHandle h) { return !mixer->isPlaying(h); }),
+        _oneShots.end());
+    return !_oneShots.empty();
 }
 
 void Game::switchScenes() {
     // A scene's entry script can itself switch scenes; follow the chain. Like the
     // game, wait for one-shot sounds (a door closing ...) to finish first.
-    for (int guard = 0; pendingScene_ >= 0 && guard < 100; guard++) {
+    for (int guard = 0; _pendingScene >= 0 && guard < 100; guard++) {
         if (soundsPlaying())
             return;
-        int next = pendingScene_;
-        pendingScene_ = -1;
+        int next = _pendingScene;
+        _pendingScene = -1;
         leaveScene();
         enterScene(next);
     }
 }
 
 void Game::setBackground(int index, bool loadPalette) {
-    const auto &list = scene_->lists[kListBackgrounds];
+    const auto &list = _scene->lists[kListBackgrounds];
     if (index < 0 || index >= int(list.size()))
         return;
-    backgroundIndex_ = index;
-    Palette palette = palette_;
+    _backgroundIndex = index;
+    Palette palette = _palette;
     bool paletteLoaded = false;
-    if (!resources_.loadBackground(list[index].name, background_, palette, paletteLoaded)) {
+    if (!_resources.loadBackground(list[index].name, _background, palette, paletteLoaded)) {
         log::warning("Background %s not found", list[index].name.c_str());
-        draw::create(background_, kScreenWidth, kScreenHeight, 0);
+        draw::create(_background, kScreenWidth, kScreenHeight, 0);
     }
-    if (tricorderIcon_) {
-        if (!tricorderRle_.frameCount())
-            if (auto s = resources_.openFile("ANIMS/TRSI/TRSICON.RLE"))
-                tricorderRle_.load(*s);
-        tricorderRle_.drawFrame(0, background_);
+    if (_tricorderIcon) {
+        if (!_tricorderRle.frameCount())
+            if (auto s = _resources.openFile("ANIMS/TRSI/TRSICON.RLE"))
+                _tricorderRle.load(*s);
+        _tricorderRle.drawFrame(0, _background);
     }
     // The palette changes only when the script asks for it.
     if (loadPalette && paletteLoaded) {
-        paletteBackground_ = index;
-        palette_ = palette;
-        fadeLevel_ = 256;
+        _paletteBackground = index;
+        _palette = palette;
+        _fadeLevel = 256;
         applyPalette();
     }
     // Shown at once, with the animations as they are, and screen updates resume.
-    workBufferStale_ = true;
+    _workBufferStale = true;
     renderAnims(false);
-    draw::blit(screen_, workBuffer_, 0, 0);
-    screenFrozen_ = false;
-    system_->copyRectToScreen(screen_);
+    draw::blit(_screen, _workBuffer, 0, 0);
+    _screenFrozen = false;
+    _system->copyRectToScreen(_screen);
     updateCaption();
 }
 
 void Game::playSound(int index, const Argument *mode) {
-    audio::Mixer *mixer = system_->getMixer();
-    const auto &list = scene_->lists[kListSounds];
+    audio::Mixer *mixer = _system->getMixer();
+    const auto &list = _scene->lists[kListSounds];
     if (!mixer || index < 0 || index >= int(list.size()))
         return;
     int kind = mode && mode->type == kArgSymbol ? int(mode->value & 0xFF) : -1;
@@ -230,29 +230,29 @@ void Game::playSound(int index, const Argument *mode) {
         return;
     if (kind == 0) {
         // AMBIENT: loops until the scene changes; at most two at a time.
-        ambients_.erase(std::remove_if(ambients_.begin(), ambients_.end(),
+        _ambients.erase(std::remove_if(_ambients.begin(), _ambients.end(),
                                        [&](audio::SoundHandle h) { return !mixer->isPlaying(h); }),
-                        ambients_.end());
-        if (ambients_.size() >= kMaxAmbients) {
+                        _ambients.end());
+        if (_ambients.size() >= kMaxAmbients) {
             log::debug(1, "Too many ambient sounds; %s not played", list[index].name.c_str());
             return;
         }
     }
     std::vector<uint8_t> data;
-    if (!resources_.loadSound(list[index].name, data)) {
+    if (!_resources.loadSound(list[index].name, data)) {
         log::debug(1, "Sound %s not found", list[index].name.c_str());
         return;
     }
     audio::SoundHandle h = mixer->play(makeRawStream(std::move(data), kind == 0 ? 0 : 1), audio::SoundType::Effects);
     if (kind == 0) {
-        ambients_.push_back(h);
-        ambientSounds_.push_back(index);
+        _ambients.push_back(h);
+        _ambientSounds.push_back(index);
     } else if (kind == 1)
-        oneShots_.push_back(h); // ASNEEDED sounds hold up the next scene change
+        _oneShots.push_back(h); // ASNEEDED sounds hold up the next scene change
 }
 
 std::string Game::listName(ListKind kind, int index) const {
-    const auto &list = scene_->lists[kind];
+    const auto &list = _scene->lists[kind];
     return index >= 0 && index < int(list.size()) ? list[index].name : std::string("?");
 }
 
@@ -260,8 +260,8 @@ std::string Game::listName(ListKind kind, int index) const {
 
 int Game::findHotspotAt(int x, int y) const {
     // The lowest enabled hotspot wins; edges are inclusive (0x18DAB).
-    for (int i = 0; i < int(hotspots_.size()); i++) {
-        const Hotspot &h = hotspots_[i];
+    for (int i = 0; i < int(_hotspots.size()); i++) {
+        const Hotspot &h = _hotspots[i];
         if (h.defined && h.enabled && x >= h.x && x <= h.x + h.w && y >= h.y && y <= h.y + h.h)
             return i;
     }
@@ -269,117 +269,117 @@ int Game::findHotspotAt(int x, int y) const {
 }
 
 void Game::handleEvent(const InputEvent &event) {
-    if (credits_.active) {
+    if (_credits.active) {
         // Esc ends the scroll.
         if (event.type == InputEvent::kQuit)
-            quit_ = true;
+            _quit = true;
         else if (event.type == InputEvent::kKeyDown && event.key == key::Escape &&
-                 credits_.phase != CreditsScreen::kFadeOut) {
-            credits_.phase = CreditsScreen::kFadeOut;
-            credits_.phaseStart = millis_;
+                 _credits.phase != CreditsScreen::kFadeOut) {
+            _credits.phase = CreditsScreen::kFadeOut;
+            _credits.phaseStart = _millis;
         }
         return;
     }
-    if (deckMap_) {
+    if (_deckMap) {
         if (event.type == InputEvent::kQuit)
-            quit_ = true;
+            _quit = true;
         else if (event.type == InputEvent::kKeyDown &&
-                 (event.key == key::Escape || (event.key == 'm' && !vm_->getOptions().original)))
-            deckMap_ = false;
+                 (event.key == key::Escape || (event.key == 'm' && !_vm->getOptions().original)))
+            _deckMap = false;
         return;
     }
-    if (menu_.active) {
+    if (_menu.active) {
         handleMenuEvent(event);
         return;
     }
     switch (event.type) {
     case InputEvent::kQuit:
-        quit_ = true;
+        _quit = true;
         break;
     case InputEvent::kKeyDown:
         if (event.key == key::Escape) {
             // Esc skips a video; in a scene it also opens the game menu (an added
             // convenience: the original only uses the right button).
-            if (video_.active) {
+            if (_video.active) {
                 finishVideo(true);
-                if (thread_.active)
+                if (_thread.active)
                     runThread();
                 switchScenes();
-            } else if (!arcade_ && !conv_.active && !vm_->getOptions().original) {
+            } else if (!_arcade && !_conv.active && !_vm->getOptions().original) {
                 requestMenu();
             }
         } else if (event.key == 'm') {
             // The deck map, where the game allows it.
-            if (mapEnabled_ && !thread_.active && !conv_.active && !arcade_ && !video_.active && mapLocation_ != 0xFF)
+            if (_mapEnabled && !_thread.active && !_conv.active && !_arcade && !_video.active && _mapLocation != 0xFF)
                 openDeckMap();
-        } else if (event.key == (key::F1 + 1) && vm_->getOptions().debug) {
-            showHotspots_ = !showHotspots_;
-        } else if (event.key == (key::F1 + 9) && vm_->getOptions().debug) {
-            std::printf("Variables set in %s:\n", scene_->name.c_str());
-            for (const auto &v : variables_)
+        } else if (event.key == (key::F1 + 1) && _vm->getOptions().debug) {
+            _showHotspots = !_showHotspots;
+        } else if (event.key == (key::F1 + 9) && _vm->getOptions().debug) {
+            std::printf("Variables set in %s:\n", _scene->name.c_str());
+            for (const auto &v : _variables)
                 if (v.second)
                     std::printf("  %-16s %u\n", v.first.c_str(), v.second);
         }
         break;
     case InputEvent::kMouseMove: {
-        mouse_ = event.mouse;
-        if (conv_.menuWaiting) {
+        _mouse = event.mouse;
+        if (_conv.menuWaiting) {
             Point m = cursorHitPoint(true);
-            conv_.hover = menuEntryAt(m.x, m.y);
+            _conv.hover = menuEntryAt(m.x, m.y);
         }
         Point p = cursorHitPoint(false);
-        if (findHotspotAt(p.x, p.y) != hoverHotspot_) {
-            hoverHotspot_ = findHotspotAt(p.x, p.y);
+        if (findHotspotAt(p.x, p.y) != _hoverHotspot) {
+            _hoverHotspot = findHotspotAt(p.x, p.y);
             updateCaption();
         }
         break;
     }
     case InputEvent::kLeftDown: {
-        mouse_ = event.mouse;
-        if (arcade_) {
-            arcadeLeft_ = true; // phaser
+        _mouse = event.mouse;
+        if (_arcade) {
+            _arcadeLeft = true; // phaser
             break;
         }
-        if (video_.active)
+        if (_video.active)
             break; // only Esc skips a video
-        if (conv_.active) {
-            handleConversationClick(mouse_.x, mouse_.y);
-            if (!conv_.active && thread_.active)
+        if (_conv.active) {
+            handleConversationClick(_mouse.x, _mouse.y);
+            if (!_conv.active && _thread.active)
                 runThread();
             break;
         }
         // Clicks count only while the script is idle; they are not queued.
-        if (thread_.active || pendingScene_ >= 0)
+        if (_thread.active || _pendingScene >= 0)
             break;
         Point p = cursorHitPoint(false);
         int i = findHotspotAt(p.x, p.y);
         if (i >= 0) {
             log::debug(1, "Hotspot %s", listName(kListHotspots, i).c_str());
-            status_.clear();
-            jumpToLabel(hotspots_[i].label);
+            _status.clear();
+            jumpToLabel(_hotspots[i].label);
             runThread();
-            hoverHotspot_ = findHotspotAt(mouse_.x, mouse_.y);
+            _hoverHotspot = findHotspotAt(_mouse.x, _mouse.y);
             updateCaption();
         }
         break;
     }
     case InputEvent::kRightDown:
-        mouse_ = event.mouse;
-        if (arcade_) {
-            arcadeRight_ = true; // torpedoes
-        } else if (conv_.active) {
+        _mouse = event.mouse;
+        if (_arcade) {
+            _arcadeRight = true; // torpedoes
+        } else if (_conv.active) {
             // In the reply menu: the conversation ends (rudely) and the menu opens;
             // resuming runs CONVERSE again.
-            if (conv_.menuWaiting && mapEnabled_) {
-                uint32_t converse = actionSeqPc_;
-                conv_.menuWaiting = false;
+            if (_conv.menuWaiting && _mapEnabled) {
+                uint32_t converse = _actionSeqPc;
+                _conv.menuWaiting = false;
                 abortConversation(true, -1);
-                thread_.active = true;
-                thread_.pc = converse;
-                thread_.wait = kWaitNone;
+                _thread.active = true;
+                _thread.pc = converse;
+                _thread.wait = kWaitNone;
                 openMenu(false);
             }
-        } else if (!video_.active) {
+        } else if (!_video.active) {
             requestMenu();
         }
         break;
@@ -391,43 +391,43 @@ void Game::handleEvent(const InputEvent &event) {
 // ---- Clock --------------------------------------------------------------------
 
 void Game::step() {
-    stepCount_++;
-    millis_ += kStepMillis;
+    _stepCount++;
+    _millis += kStepMillis;
     updateTick();
 
-    if (credits_.active) {
+    if (_credits.active) {
         updateCredits();
         return;
     }
-    if (deckMap_) {
+    if (_deckMap) {
         // The game waits while the map is up.
-        draw::blit(screen_, deckMapFrame_, 0, 0);
+        draw::blit(_screen, _deckMapFrame, 0, 0);
         return;
     }
-    if (menu_.active) {
+    if (_menu.active) {
         // The game waits; the menu redraws for the name entry's blinking. The
         // cursor goes over a fresh copy of the menu picture every step.
-        if (menu_.mode == GameMenu::kNameEntry && stepCount_ % 10 == 0)
+        if (_menu.mode == GameMenu::kNameEntry && _stepCount % 10 == 0)
             drawMenuScreen();
-        draw::blit(screen_, menu_.frame, 0, 0);
-        drawCursor(screen_);
+        draw::blit(_screen, _menu.frame, 0, 0);
+        drawCursor(_screen);
         return;
     }
 
-    if (arcade_) {
+    if (_arcade) {
         updateArcade();
-        if (!arcade_ && !video_.active && thread_.active)
+        if (!_arcade && !_video.active && _thread.active)
             runThread();
-        draw::blit(cleanScreen_, screen_, 0, 0);
-        if (arcade_)
-            drawCursor(screen_);
+        draw::blit(_cleanScreen, _screen, 0, 0);
+        if (_arcade)
+            drawCursor(_screen);
         switchScenes();
         return;
     }
-    if (video_.active) {
+    if (_video.active) {
         // Nothing else runs while a video plays.
         updateVideo();
-        if (!video_.active && thread_.active)
+        if (!_video.active && _thread.active)
             runThread();
         switchScenes();
         return;
@@ -435,44 +435,44 @@ void Game::step() {
 
     // Erase, draw and advance the animations in the work buffer.
     renderAnims(true);
-    draw::blit(screen_, workBuffer_, 0, 0);
-    if (showHotspots_) {
-        uint8_t on = uint8_t(palette_.findBestColor(0, 255, 0));
-        uint8_t off = uint8_t(palette_.findBestColor(255, 0, 0));
-        for (const Hotspot &h : hotspots_)
+    draw::blit(_screen, _workBuffer, 0, 0);
+    if (_showHotspots) {
+        uint8_t on = uint8_t(_palette.findBestColor(0, 255, 0));
+        uint8_t off = uint8_t(_palette.findBestColor(255, 0, 0));
+        for (const Hotspot &h : _hotspots)
             if (h.defined && h.w > 0 && h.h > 0)
-                draw::frameRect(screen_, h.x, h.y, h.w + 1, h.h + 1, h.enabled ? on : off);
+                draw::frameRect(_screen, h.x, h.y, h.w + 1, h.h + 1, h.enabled ? on : off);
     }
-    drawMenu(screen_);
+    drawMenu(_screen);
     updateFade();
     cyclePalette();
 
     // Timers tick while the script idles or waits for an animation.
-    bool idle = !thread_.active || thread_.wait == kWaitAnim;
-    if (stepCount_ % kStepsPerTimerTick == 0 && idle && pendingScene_ < 0)
+    bool idle = !_thread.active || _thread.wait == kWaitAnim;
+    if (_stepCount % kStepsPerTimerTick == 0 && idle && _pendingScene < 0)
         tickTimers();
 
-    if (conv_.active)
+    if (_conv.active)
         updateConversation();
-    if (thread_.active && !conv_.active && !video_.active)
+    if (_thread.active && !_conv.active && !_video.active)
         runThread();
     switchScenes();
 
     // The hotspot under the cursor may change without the mouse moving.
     Point p = cursorHitPoint(false);
     int hover = findHotspotAt(p.x, p.y);
-    if (hover != hoverHotspot_) {
-        hoverHotspot_ = hover;
+    if (hover != _hoverHotspot) {
+        _hoverHotspot = hover;
         updateCaption();
     }
-    draw::blit(cleanScreen_, screen_, 0, 0);
-    if (!video_.active)
-        drawCursor(screen_);
+    draw::blit(_cleanScreen, _screen, 0, 0);
+    if (!_video.active)
+        drawCursor(_screen);
 }
 
 void Game::tickTimers() {
     // One tick: count down until the first timer fires (0x23E40).
-    for (Timer &t : timers_) {
+    for (Timer &t : _timers) {
         if (!t.defined || !t.active || t.count == 0)
             continue;
         if (--t.count == 0) {
@@ -484,40 +484,40 @@ void Game::tickTimers() {
 }
 
 void Game::updateFade() {
-    if (!fade_.active)
+    if (!_fade.active)
         return;
-    int step = int((millis_ - fade_.startMillis) / kFadeStepMillis);
-    if (step >= fade_.steps) {
-        fade_.active = false;
-        fadeLevel_ = fade_.in ? 256 : 0;
+    int step = int((_millis - _fade.startMillis) / kFadeStepMillis);
+    if (step >= _fade.steps) {
+        _fade.active = false;
+        _fadeLevel = _fade.in ? 256 : 0;
     } else {
-        int level = step * 256 / fade_.steps;
-        fadeLevel_ = fade_.in ? level : 256 - level;
+        int level = step * 256 / _fade.steps;
+        _fadeLevel = _fade.in ? level : 256 - level;
     }
     applyPalette();
 }
 
 void Game::applyPalette() {
     uint8_t colors[768];
-    const uint8_t *src = palette_.data();
+    const uint8_t *src = _palette.data();
     for (int i = 0; i < 768; i++)
-        colors[i] = uint8_t(src[i] * fadeLevel_ / 256);
-    system_->setPalette(colors, 0, 256);
+        colors[i] = uint8_t(src[i] * _fadeLevel / 256);
+    _system->setPalette(colors, 0, 256);
 }
 
 void Game::updateCaption() {
     // The details are for debugging; the game itself only has its name.
-    if (!vm_->getOptions().debug) {
-        system_->setWindowTitle("Reluva - Star Trek: Deep Space Nine - Harbinger");
+    if (!_vm->getOptions().debug) {
+        _system->setWindowTitle("Reluva - Star Trek: Deep Space Nine - Harbinger");
         return;
     }
-    std::string caption = "Reluva - Harbinger | " + (scene_ ? scene_->name : std::string());
-    if (hoverHotspot_ >= 0 && hoverHotspot_ < int(hotspots_.size()))
-        caption += text::format(" | %s [%s]", listName(kListHotspots, hoverHotspot_).c_str(),
-                                getCursorName(hotspots_[hoverHotspot_].cursor));
-    if (!status_.empty())
-        caption += " | " + status_;
-    system_->setWindowTitle(caption);
+    std::string caption = "Reluva - Harbinger | " + (_scene ? _scene->name : std::string());
+    if (_hoverHotspot >= 0 && _hoverHotspot < int(_hotspots.size()))
+        caption += text::format(" | %s [%s]", listName(kListHotspots, _hoverHotspot).c_str(),
+                                getCursorName(_hotspots[_hoverHotspot].cursor));
+    if (!_status.empty())
+        caption += " | " + _status;
+    _system->setWindowTitle(caption);
 }
 
 } // namespace reluva::stharbinger

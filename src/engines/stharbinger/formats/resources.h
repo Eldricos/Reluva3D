@@ -37,8 +37,8 @@ public:
     // Adds a game directory; earlier directories take precedence.
     void addGamePath(const std::string &nativePath);
 
-    const SearchSet &getSearchSet() const { return search_; }
-    bool hasFile(const std::string &name) const { return search_.has(name); }
+    const SearchSet &getSearchSet() const { return _search; }
+    bool hasFile(const std::string &name) const { return _search.has(name); }
     std::unique_ptr<SeekableReadStream> openFile(const std::string &name) const;
 
     // NAME.ALL/.LST(/.CAT), cached; nullptr if missing.
@@ -77,14 +77,14 @@ public:
     bool loadScenes(std::vector<Scene> &scenes, std::string &error);
 
 private:
-    SearchSet search_;
-    int nextPriority_ = 0;
-    std::map<std::string, std::shared_ptr<LstArchive>> archives_;
+    SearchSet _search;
+    int _nextPriority = 0;
+    std::map<std::string, std::shared_ptr<LstArchive>> _archives;
     void loadLinkTables();
-    bool linkLoaded_ = false;
-    std::vector<std::string> linkScenes_, linkVariables_, linkDialogues_;
-    std::string speechName_;
-    std::shared_ptr<LstArchive> speechArchive_, phonemeArchive_;
+    bool _linkLoaded = false;
+    std::vector<std::string> _linkScenes, _linkVariables, _linkDialogues;
+    std::string _speechName;
+    std::shared_ptr<LstArchive> _speechArchive, _phonemeArchive;
 };
 
 } // namespace reluva::stharbinger
