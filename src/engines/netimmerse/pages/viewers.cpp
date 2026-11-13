@@ -42,7 +42,7 @@ std::string fromWindows1252(std::string_view s) {
     return out;
 }
 
-std::string extensionOf(const std::string& name) {
+std::string extensionOf(const std::string &name) {
     const size_t dot = name.rfind('.');
     return dot == std::string::npos ? std::string() : fs::toLower(name.substr(dot + 1));
 }
@@ -50,12 +50,12 @@ std::string extensionOf(const std::string& name) {
 // Every file with one of `extensions` in the archives, archive by archive
 // (in name order), each archive's files in its own order; not the empty
 // placeholders some archives list.
-template <typename Entry>
-std::vector<Entry> collect(const ViewerContext& ctx, std::initializer_list<const char*> extensions) {
+template<typename Entry>
+std::vector<Entry> collect(const ViewerContext &ctx, std::initializer_list<const char *> extensions) {
     std::vector<Entry> out;
-    for (const auto& [archiveName, archive] : ctx.archives)
-        for (const PacArchive::Entry& e : archive->entries())
-            for (const char* ext : extensions)
+    for (const auto &[archiveName, archive] : ctx.archives)
+        for (const PacArchive::Entry &e : archive->entries())
+            for (const char *ext : extensions)
                 if (e.size && extensionOf(e.name) == ext) {
                     out.push_back({archiveName, e.name});
                     break;
@@ -67,12 +67,16 @@ std::vector<Entry> collect(const ViewerContext& ctx, std::initializer_list<const
 
 // --- Page ---------------------------------------------------------------------
 
-void Page::setTitle(const std::string& what) { ctx_.sys.setWindowTitle("Reluva - " + ctx_.title + " - " + what); }
+void Page::setTitle(const std::string &what) {
+    ctx_.sys.setWindowTitle("Reluva - " + ctx_.title + " - " + what);
+}
 
-void Page::use2D() { ctx_.sys.initGraphics(kScreenW, kScreenH, PixelFormat::RGBA32); }
+void Page::use2D() {
+    ctx_.sys.initGraphics(kScreenW, kScreenH, PixelFormat::RGBA32);
+}
 
 void Page::clear(uint8_t r, uint8_t g, uint8_t b) {
-    uint8_t* p = ctx_.screen.pixels.data();
+    uint8_t *p = ctx_.screen.pixels.data();
     for (size_t i = 0; i + 3 < ctx_.screen.pixels.size(); i += 4) {
         p[i] = r;
         p[i + 1] = g;
@@ -81,15 +85,16 @@ void Page::clear(uint8_t r, uint8_t g, uint8_t b) {
     }
 }
 
-void Page::text(int x, int y, const std::string& s, Color c, int scale) {
+void Page::text(int x, int y, const std::string &s, Color c, int scale) {
     font::drawText(ctx_.screen, x, y, s, c, scale);
 }
 
 // --- Archives -----------------------------------------------------------------
 
-ArchivesPage::ArchivesPage(ViewerContext& ctx, std::vector<std::pair<std::string, std::string>> lines,
+ArchivesPage::ArchivesPage(ViewerContext &ctx, std::vector<std::pair<std::string, std::string>> lines,
                            std::vector<std::string> errors)
-    : Page(ctx), lines_(std::move(lines)), errors_(std::move(errors)) {}
+    : Page(ctx), lines_(std::move(lines)), errors_(std::move(errors)) {
+}
 
 void ArchivesPage::activate() {
     use2D();
@@ -104,12 +109,12 @@ void ArchivesPage::update(uint64_t) {
     y += font::kLineHeight * 2 + 8;
     text(24, y, "Not playable yet. Tab: models, textures, sounds, text.", grey);
     y += font::kLineHeight * 2;
-    for (const auto& [name, holds] : lines_) {
+    for (const auto &[name, holds] : lines_) {
         text(24, y, name, green);
         text(180, y, holds);
         y += font::kLineHeight + 9;
     }
-    for (const std::string& e : errors_) {
+    for (const std::string &e : errors_) {
         // Long messages wrap.
         const size_t perLine = size_t((kScreenW - 48) / font::kAdvance);
         for (size_t at = 0; at < e.size(); at += perLine, y += font::kLineHeight + 3)
@@ -122,7 +127,8 @@ void ArchivesPage::update(uint64_t) {
 
 // --- Textures -----------------------------------------------------------------
 
-TexturePage::TexturePage(ViewerContext& ctx) : Page(ctx), entries_(collect<Entry>(ctx, {"tga"})) {}
+TexturePage::TexturePage(ViewerContext &ctx) : Page(ctx), entries_(collect<Entry>(ctx, {"tga"})) {
+}
 
 void TexturePage::show(int index) {
     index_ = std::clamp(index, 0, int(entries_.size()) - 1);
@@ -130,17 +136,29 @@ void TexturePage::show(int index) {
     setTitle("Textures");
 }
 
-void TexturePage::handleEvent(const Event& ev) {
+void TexturePage::handleEvent(const Event &ev) {
     if (ev.type != EventType::KeyDown)
         return;
     const int n = int(entries_.size());
     switch (ev.key) {
-    case key::Left: show((index_ + n - 1) % n); break;
-    case key::Right: show((index_ + 1) % n); break;
-    case key::PageUp: show(index_ - 10); break;
-    case key::PageDown: show(index_ + 10); break;
-    case key::Home: show(0); break;
-    case key::End: show(n - 1); break;
+    case key::Left:
+        show((index_ + n - 1) % n);
+        break;
+    case key::Right:
+        show((index_ + 1) % n);
+        break;
+    case key::PageUp:
+        show(index_ - 10);
+        break;
+    case key::PageDown:
+        show(index_ + 10);
+        break;
+    case key::Home:
+        show(0);
+        break;
+    case key::End:
+        show(n - 1);
+        break;
     case 'f': {
         // The next archive's first image.
         int i = index_;
@@ -149,15 +167,16 @@ void TexturePage::handleEvent(const Event& ev) {
         show(i % n);
         break;
     }
-    default: break;
+    default:
+        break;
     }
 }
 
 void TexturePage::update(uint64_t) {
     clear(24, 26, 32);
-    const Entry& e = entries_[size_t(index_)];
-    std::string line = e.archive + "/" + e.name + "  (" + std::to_string(index_ + 1) + "/" +
-                       std::to_string(entries_.size()) + ")";
+    const Entry &e = entries_[size_t(index_)];
+    std::string line =
+        e.archive + "/" + e.name + "  (" + std::to_string(index_ + 1) + "/" + std::to_string(entries_.size()) + ")";
     std::vector<uint8_t> data;
     image::Image img;
     Error err = ctx_.archives.at(e.archive)->read(e.name, data);
@@ -181,12 +200,12 @@ void TexturePage::update(uint64_t) {
         const int w = std::max(1, int(float(img.w) * scale)), h = std::max(1, int(float(img.h) * scale));
         const int x0 = (kScreenW - w) / 2, y0 = top + (availH - h) / 2;
         for (int y = 0; y < h; ++y) {
-            uint8_t* row = ctx_.screen.row(y0 + y);
+            uint8_t *row = ctx_.screen.row(y0 + y);
             const int sy = std::min(img.h - 1, int(float(y) / scale));
             for (int x = 0; x < w; ++x) {
-                const uint8_t* s = img.pixel(std::min(img.w - 1, int(float(x) / scale)), sy);
+                const uint8_t *s = img.pixel(std::min(img.w - 1, int(float(x) / scale)), sy);
                 const int check = ((x / 8 + y / 8) & 1) ? 90 : 60;
-                uint8_t* d = row + (x0 + x) * 4;
+                uint8_t *d = row + (x0 + x) * 4;
                 for (int c = 0; c < 3; ++c)
                     d[c] = uint8_t((s[c] * s[3] + check * (255 - s[3])) / 255);
             }
@@ -198,14 +217,15 @@ void TexturePage::update(uint64_t) {
 
 // --- Fonts --------------------------------------------------------------------
 
-FontPage::FontPage(ViewerContext& ctx) : Page(ctx), entries_(collect<Entry>(ctx, {"ddf"})) {}
+FontPage::FontPage(ViewerContext &ctx) : Page(ctx), entries_(collect<Entry>(ctx, {"ddf"})) {
+}
 
 void FontPage::show(int index) {
     index_ = std::clamp(index, 0, int(entries_.size()) - 1);
     use2D();
     setTitle("Fonts");
-    const Entry& e = entries_[size_t(index_)];
-    const PacArchive& pac = *ctx_.archives.at(e.archive);
+    const Entry &e = entries_[size_t(index_)];
+    const PacArchive &pac = *ctx_.archives.at(e.archive);
     pages_.clear();
     std::vector<uint8_t> data;
     Error err = pac.read(e.name, data);
@@ -220,23 +240,30 @@ void FontPage::show(int index) {
     error_ = err ? err.message : std::string();
 }
 
-void FontPage::handleEvent(const Event& ev) {
+void FontPage::handleEvent(const Event &ev) {
     if (ev.type != EventType::KeyDown)
         return;
     const int n = int(entries_.size());
     switch (ev.key) {
-    case key::Left: show((index_ + n - 1) % n); break;
-    case key::Right: show((index_ + 1) % n); break;
-    case 'p': showPages_ = !showPages_; break;
-    default: break;
+    case key::Left:
+        show((index_ + n - 1) % n);
+        break;
+    case key::Right:
+        show((index_ + 1) % n);
+        break;
+    case 'p':
+        showPages_ = !showPages_;
+        break;
+    default:
+        break;
     }
 }
 
 void FontPage::update(uint64_t) {
     clear(24, 26, 32);
-    const Entry& e = entries_[size_t(index_)];
-    text(8, 8, e.archive + "/" + e.name + "  (" + std::to_string(index_ + 1) + "/" + std::to_string(entries_.size()) +
-                   ")");
+    const Entry &e = entries_[size_t(index_)];
+    text(8, 8,
+         e.archive + "/" + e.name + "  (" + std::to_string(index_ + 1) + "/" + std::to_string(entries_.size()) + ")");
     if (!error_.empty()) {
         text(8, 8 + font::kLineHeight, error_, {255, 120, 120});
     } else {
@@ -250,12 +277,12 @@ void FontPage::update(uint64_t) {
         if (showPages_) {
             // The pages side by side, over a checkerboard.
             int x0 = 8;
-            for (const image::Image& img : pages_) {
+            for (const image::Image &img : pages_) {
                 for (int y = 0; y < img.h && top + y < kScreenH - 20; ++y)
                     for (int x = 0; x < img.w && x0 + x < kScreenW; ++x) {
-                        const uint8_t* s = img.pixel(x, y);
+                        const uint8_t *s = img.pixel(x, y);
                         const int check = ((x / 8 + y / 8) & 1) ? 90 : 60;
-                        uint8_t* d = ctx_.screen.row(top + y) + (x0 + x) * 4;
+                        uint8_t *d = ctx_.screen.row(top + y) + (x0 + x) * 4;
                         for (int c = 0; c < 3; ++c)
                             d[c] = uint8_t((s[c] * s[3] + check * (255 - s[3])) / 255);
                     }
@@ -289,7 +316,8 @@ void FontPage::update(uint64_t) {
 
 // --- Sounds -------------------------------------------------------------------
 
-SoundPage::SoundPage(ViewerContext& ctx) : Page(ctx), entries_(collect<Entry>(ctx, {"dds"})) {}
+SoundPage::SoundPage(ViewerContext &ctx) : Page(ctx), entries_(collect<Entry>(ctx, {"dds"})) {
+}
 
 void SoundPage::activate() {
     use2D();
@@ -306,7 +334,7 @@ void SoundPage::deactivate() {
 void SoundPage::select(int index) {
     deactivate();
     index_ = std::clamp(index, 0, int(entries_.size()) - 1);
-    const Entry& e = entries_[size_t(index_)];
+    const Entry &e = entries_[size_t(index_)];
     auto sound = std::make_shared<audio::Sound>();
     std::vector<uint8_t> data;
     Error err = ctx_.archives.at(e.archive)->read(e.name, data);
@@ -337,21 +365,35 @@ void SoundPage::play() {
     playing_ = ctx_.mixer->play(sound_, audio::SoundType::Effects);
 }
 
-void SoundPage::handleEvent(const Event& ev) {
+void SoundPage::handleEvent(const Event &ev) {
     if (ev.type != EventType::KeyDown)
         return;
     const int n = int(entries_.size());
     switch (ev.key) {
     case key::Left:
-    case key::Up: select((index_ + n - 1) % n); break;
+    case key::Up:
+        select((index_ + n - 1) % n);
+        break;
     case key::Right:
-    case key::Down: select((index_ + 1) % n); break;
-    case key::PageUp: select(index_ - 10); break;
-    case key::PageDown: select(index_ + 10); break;
-    case key::Home: select(0); break;
-    case key::End: select(n - 1); break;
+    case key::Down:
+        select((index_ + 1) % n);
+        break;
+    case key::PageUp:
+        select(index_ - 10);
+        break;
+    case key::PageDown:
+        select(index_ + 10);
+        break;
+    case key::Home:
+        select(0);
+        break;
+    case key::End:
+        select(n - 1);
+        break;
     case key::Space:
-    case key::Return: play(); break;
+    case key::Return:
+        play();
+        break;
     case 'a':
         autoPlay_ = !autoPlay_;
         if (autoPlay_)
@@ -364,7 +406,8 @@ void SoundPage::handleEvent(const Event& ev) {
         select(i % n);
         break;
     }
-    default: break;
+    default:
+        break;
     }
 }
 
@@ -373,12 +416,12 @@ void SoundPage::update(uint64_t) {
     const int lh = font::kLineHeight + 2, rows = (kScreenH - 80) / lh;
     const int first = std::clamp(index_ - rows / 2, 0, std::max(0, int(entries_.size()) - rows));
     for (int r = 0; r < rows && first + r < int(entries_.size()); ++r) {
-        const Entry& e = entries_[size_t(first + r)];
+        const Entry &e = entries_[size_t(first + r)];
         const bool sel = first + r == index_;
         if (sel)
             for (int y = 0; y < lh; ++y)
                 for (int x = 4; x < kScreenW - 4; ++x) {
-                    uint8_t* p = ctx_.screen.row(8 + r * lh + y) + x * 4;
+                    uint8_t *p = ctx_.screen.row(8 + r * lh + y) + x * 4;
                     p[0] = 50, p[1] = 70, p[2] = 110;
                 }
         text(12, 9 + r * lh, e.archive + "/" + e.name, sel ? Color{255, 255, 255} : Color{180, 180, 180});
@@ -399,14 +442,15 @@ void SoundPage::update(uint64_t) {
 
 // --- Text ---------------------------------------------------------------------
 
-TextPage::TextPage(ViewerContext& ctx) : Page(ctx), files_(collect<File>(ctx, {"txt", "puz"})) {}
+TextPage::TextPage(ViewerContext &ctx) : Page(ctx), files_(collect<File>(ctx, {"txt", "puz"})) {
+}
 
 void TextPage::show(int index) {
     index_ = (index + int(files_.size())) % int(files_.size());
     scroll_ = 0;
     lines_.clear();
     use2D();
-    const File& f = files_[size_t(index_)];
+    const File &f = files_[size_t(index_)];
     setTitle("Text: " + f.name);
     std::vector<uint8_t> data;
     if (Error err = ctx_.archives.at(f.archive)->read(f.name, data)) {
@@ -415,7 +459,8 @@ void TextPage::show(int index) {
     }
     // Lines wrapped to the screen's width.
     const size_t width = size_t((kScreenW - 16) / font::kAdvance);
-    const std::string text = fromWindows1252(std::string_view(reinterpret_cast<const char*>(data.data()), data.size()));
+    const std::string text =
+        fromWindows1252(std::string_view(reinterpret_cast<const char *>(data.data()), data.size()));
     size_t pos = 0;
     while (pos <= text.size()) {
         size_t end = text.find('\n', pos);
@@ -442,21 +487,38 @@ void TextPage::show(int index) {
     }
 }
 
-void TextPage::handleEvent(const Event& ev) {
+void TextPage::handleEvent(const Event &ev) {
     const int page = (kScreenH - 40) / (font::kLineHeight + 1);
     if (ev.type == EventType::MouseWheel) {
         scroll_ -= ev.wheelY * 3;
     } else if (ev.type == EventType::KeyDown) {
         switch (ev.key) {
-        case key::Left: show(index_ - 1); return;
-        case key::Right: show(index_ + 1); return;
-        case key::Up: --scroll_; break;
-        case key::Down: ++scroll_; break;
-        case key::PageUp: scroll_ -= page; break;
-        case key::PageDown: scroll_ += page; break;
-        case key::Home: scroll_ = 0; break;
-        case key::End: scroll_ = int(lines_.size()); break;
-        default: break;
+        case key::Left:
+            show(index_ - 1);
+            return;
+        case key::Right:
+            show(index_ + 1);
+            return;
+        case key::Up:
+            --scroll_;
+            break;
+        case key::Down:
+            ++scroll_;
+            break;
+        case key::PageUp:
+            scroll_ -= page;
+            break;
+        case key::PageDown:
+            scroll_ += page;
+            break;
+        case key::Home:
+            scroll_ = 0;
+            break;
+        case key::End:
+            scroll_ = int(lines_.size());
+            break;
+        default:
+            break;
         }
     }
     scroll_ = std::clamp(scroll_, 0, std::max(0, int(lines_.size()) - page));
@@ -464,9 +526,10 @@ void TextPage::handleEvent(const Event& ev) {
 
 void TextPage::update(uint64_t) {
     clear(18, 20, 26);
-    const File& f = files_[size_t(index_)];
-    text(8, 6, f.archive + "/" + f.name + "  (" + std::to_string(index_ + 1) + "/" + std::to_string(files_.size()) +
-                   ", " + std::to_string(lines_.size()) + " lines)",
+    const File &f = files_[size_t(index_)];
+    text(8, 6,
+         f.archive + "/" + f.name + "  (" + std::to_string(index_ + 1) + "/" + std::to_string(files_.size()) + ", " +
+             std::to_string(lines_.size()) + " lines)",
          {230, 230, 140});
     const int lh = font::kLineHeight + 1, rows = (kScreenH - 40) / lh;
     for (int r = 0; r < rows && scroll_ + r < int(lines_.size()); ++r)

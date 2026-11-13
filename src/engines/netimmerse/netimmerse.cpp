@@ -44,7 +44,10 @@ using netimmerse::PacArchive;
 // exist. See docs/engines/netimmerse/games/legoalphateam/formats/install.md.
 const std::vector<GameVariant> kVariants = {
     // English Windows retail CD, volume LEGOATEN (October 2026).
-    {"legoalphateam", "LEGO Alpha Team", "en", "windows",
+    {"legoalphateam",
+     "LEGO Alpha Team",
+     "en",
+     "windows",
      {{"Locale_en.pac", "333f2476ec15acf658af87f09dcbca43", 82323720}, {"LEGOATeam.exe", "", -1}}},
 };
 
@@ -52,13 +55,16 @@ const std::vector<GameVariant> kVariants = {
 // kVariants yet (other languages, patches). Used only when nothing there
 // matches.
 const std::vector<GameVariant> kFallback = {
-    {"legoalphateam", "LEGO Alpha Team (unknown release)", "", "windows",
+    {"legoalphateam",
+     "LEGO Alpha Team (unknown release)",
+     "",
+     "windows",
      {{"LEGOATeam.exe", "", -1}, {"Bhvr.pac", "", -1}}},
 };
 
 class NetImmerseEngine : public Engine {
 public:
-    NetImmerseEngine(System& system, GameTarget target) : sys_(system), target_(std::move(target)) {}
+    NetImmerseEngine(System &system, GameTarget target) : sys_(system), target_(std::move(target)) {}
 
     Error run() override {
         // One mixer for the game and the viewer's pages, for as long as the
@@ -67,7 +73,7 @@ public:
         mixer_->setMasterVolume(settings::volume(target_.settings, settings::kMasterVolume));
         audioOut_ = !audio::startMixerOutput(sys_, *mixer_);
         struct AudioStop {
-            System& sys;
+            System &sys;
             bool on;
             ~AudioStop() {
                 if (on)
@@ -98,7 +104,7 @@ private:
         player.start();
         playing_ = true;
         struct Stopped {
-            bool& playing;
+            bool &playing;
             ~Stopped() { playing = false; }
         } stopped{playing_};
         int width = 640, height = 480;
@@ -114,7 +120,7 @@ private:
         // The game's frames a second, in the window's title: those it
         // shows (flips), counted over each second.
         uint64_t rateFrom = sys_.getMillis(), rateFrames = player.framesShown();
-        auto showRate = [&](const std::string& rate) {
+        auto showRate = [&](const std::string &rate) {
             sys_.setWindowTitle("Reluva - " + target_.description + (rate.empty() ? "" : " - " + rate));
         };
         showRate("");
@@ -157,7 +163,7 @@ private:
                 }
                 // 0xAARRGGBB to R, G, B, A in memory.
                 for (int y = 0; y < height; ++y) {
-                    uint8_t* row = screen_.row(y);
+                    uint8_t *row = screen_.row(y);
                     for (int x = 0; x < width; ++x, row += 4) {
                         const uint32_t v = pixels[size_t(y) * size_t(width) + size_t(x)];
                         row[0] = uint8_t(v >> 16), row[1] = uint8_t(v >> 8), row[2] = uint8_t(v), row[3] = 255;
@@ -188,21 +194,21 @@ private:
     }
 
     // The data viewer's pages, until Esc (or the player quits: `quit`).
-    Error viewer(bool& quit) {
+    Error viewer(bool &quit) {
         using namespace netimmerse;
         std::vector<std::pair<std::string, std::string>> lines;
         std::vector<std::string> errors;
         if (archives_.empty())
             openArchives(lines, errors);
         else
-            for (const auto& [name, pac] : archives_)
+            for (const auto &[name, pac] : archives_)
                 lines.emplace_back(name, std::to_string(pac->entries().size()) + " entries");
         if (archives_.empty())
             errors.push_back("No .pac archives could be read in " + target_.path.string());
 
         screen_.create(kScreenW, kScreenH, PixelFormat::RGBA32);
         ViewerContext ctx{sys_, screen_, target_.description, {}, files_, audioOut_ ? mixer_.get() : nullptr};
-        for (const auto& [name, pac] : archives_)
+        for (const auto &[name, pac] : archives_)
             ctx.archives[name] = pac;
         std::vector<std::unique_ptr<Page>> pages;
         pages.push_back(std::make_unique<ArchivesPage>(ctx, std::move(lines), std::move(errors)));
@@ -243,7 +249,7 @@ private:
 
     // Every .pac in the game folder, opened and joined in one search set;
     // with what each holds, counted by extension.
-    void openArchives(std::vector<std::pair<std::string, std::string>>& lines, std::vector<std::string>& errors) {
+    void openArchives(std::vector<std::pair<std::string, std::string>> &lines, std::vector<std::string> &errors) {
         std::vector<std::filesystem::path> paths;
         std::error_code ec;
         for (std::filesystem::directory_iterator it(target_.path, ec), end; !ec && it != end; it.increment(ec))
@@ -251,21 +257,21 @@ private:
                 paths.push_back(it->path());
         std::sort(paths.begin(), paths.end());
 
-        for (const auto& path : paths) {
+        for (const auto &path : paths) {
             auto pac = std::make_unique<PacArchive>();
             if (Error err = pac->open(path)) {
                 errors.push_back(err.message);
                 continue;
             }
             std::map<std::string, size_t> byExtension;
-            for (const auto& e : pac->entries()) {
+            for (const auto &e : pac->entries()) {
                 if (e.size == 0)
                     continue; // the placeholders some archives list for themselves
                 const size_t dot = e.name.rfind('.');
                 ++byExtension[dot == std::string::npos ? std::string("(none)") : e.name.substr(dot + 1)];
             }
             std::string holds;
-            for (const auto& [ext, count] : byExtension)
+            for (const auto &[ext, count] : byExtension)
                 holds += (holds.empty() ? "" : ", ") + std::to_string(count) + " " + ext;
             const std::string name = path.filename().string();
             lines.emplace_back(name, holds);
@@ -274,34 +280,34 @@ private:
         }
     }
 
-    System& sys_;
+    System &sys_;
     GameTarget target_;
     bool playing_ = false; // the game is running (play())
     Surface screen_;
     SearchSet files_;
     std::unique_ptr<audio::Mixer> mixer_;
     bool audioOut_ = false;
-    std::map<std::string, const PacArchive*> archives_; // owned by files_
+    std::map<std::string, const PacArchive *> archives_; // owned by files_
 };
 
 class NetImmerseMetaEngine : public MetaEngine {
 public:
-    const char* id() const override { return "netimmerse"; }
-    const char* name() const override { return "NetImmerse"; }
+    const char *id() const override { return "netimmerse"; }
+    const char *name() const override { return "NetImmerse"; }
 
-    std::vector<DetectedGame> detect(const std::filesystem::path& dir) const override {
+    std::vector<DetectedGame> detect(const std::filesystem::path &dir) const override {
         auto found = detectFromTable(id(), kVariants, dir);
         return found.empty() ? detectFromTable(id(), kFallback, dir) : found;
     }
 
-    std::unique_ptr<Engine> create(System& system, const GameTarget& target) const override {
+    std::unique_ptr<Engine> create(System &system, const GameTarget &target) const override {
         return std::make_unique<NetImmerseEngine>(system, target);
     }
 };
 
 } // namespace
 
-const MetaEngine& netImmerseMetaEngine() {
+const MetaEngine &netImmerseMetaEngine() {
     static const NetImmerseMetaEngine instance;
     return instance;
 }
