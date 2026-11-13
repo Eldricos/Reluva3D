@@ -1,4 +1,4 @@
-# Saved games (SAVEGAME\*.DS9)
+# Star Trek: Deep Space Nine - Harbinger: saved games (`SAVEGAME\*.DS9`)
 
 > **Status:** decoded · **Code:** `src/engines/stharbinger/game/game_save.cpp` · **Checked on:** saves written by STDS9H and loaded again, in play (October 2026); not yet on a save made by the original · **Confidence:** from the code unless marked
 

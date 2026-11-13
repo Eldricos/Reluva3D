@@ -1,4 +1,4 @@
-# The captain's menu (OPTIONS.DAT)
+# Star Trek: Generations: the captain's menu (`OPTIONS.DAT`)
 
 > **Status:** decoded · **Code:** `src/engines/stgenerations/game/optionsmenu.h`, `src/engines/stgenerations/game/keymap.h` · **Checked on:** the 2 CD Windows release: `OPTIONS.DAT` read whole (68 files, 45 of them bitmaps); the captain's menu played · **Confidence:** layout confirmed; behaviour from the code unless marked
 

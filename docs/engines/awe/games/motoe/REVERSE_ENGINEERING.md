@@ -1,4 +1,4 @@
-# How the AWE engine was worked out (Murder on the Orient Express)
+# Murder on the Orient Express: how it was worked out
 
 How Reluva's knowledge of *Murder on the Orient Express* was gathered,
 and how each piece was checked. It's the record CONTRIBUTING.md asks for:

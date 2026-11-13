@@ -1,4 +1,4 @@
-# Dialogue
+# Murder on the Orient Express: dialogue
 
 > **Status:** done · **Code:** `src/engines/awe/dialogue.cpp`, `dialogue_box.cpp` · **Checked against:** the code (`motoe.exe`) and the dialogue tables · **Confidence:** from the code unless marked
 

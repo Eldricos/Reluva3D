@@ -1,4 +1,4 @@
-# The script runner
+# Murder on the Orient Express: the script runner
 
 > **Status:** done · **Code:** `src/engines/awe/script.cpp` · **Checked against:** the code (`motoe.exe`); `awe script-check` over the English 1.0 install's 9,797 commands · **Confidence:** from the code unless marked
 

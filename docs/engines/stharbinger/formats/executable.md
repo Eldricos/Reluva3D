@@ -1,4 +1,4 @@
-# The executable (DEEP.EXE)
+# Star Trek: Deep Space Nine - Harbinger: the executable (`DEEP.EXE`)
 
 > **Status:** decoded · **Code:** `src/engines/stharbinger/tools/exe.cpp` · **Checked on:** the English (DOS) release's `DEEP.EXE` (564,497 bytes, SHA-256 `a3735701…a9683c1`): both LE objects, all 8,431 fixups and 956 strings read (`reluva-tool stharbinger exe-strings`, November 2026) · **Confidence:** from the code unless marked
 

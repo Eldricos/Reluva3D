@@ -1,4 +1,4 @@
-# Scene files (.ac2)
+# Murder on the Orient Express: scene files (`.ac2`)
 
 > **Status:** decoded · **Code:** `src/engines/awe/ac2.cpp` · **Checked on:** English 1.0: three files record by record, then all 394 scenes (`awe ac2-dump`) · **Confidence:** confirmed unless marked
 

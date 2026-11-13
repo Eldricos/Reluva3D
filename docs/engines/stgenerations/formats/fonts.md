@@ -1,4 +1,4 @@
-# Fonts (.FNT)
+# Star Trek: Generations: fonts (`.FNT`)
 
 > **Status:** decoded · **Code:** `src/engines/stgenerations/formats/font.h` · **Checked on:** the 2 CD Windows release, all 5 fonts · **Confidence:** confirmed unless marked
 

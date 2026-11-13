@@ -1,4 +1,4 @@
-# The id Tech 3 engine: plan
+# id Tech 3: plan
 
 ## Goal
 

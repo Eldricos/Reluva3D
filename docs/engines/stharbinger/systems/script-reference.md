@@ -1,4 +1,4 @@
-# Harbinger script reference
+# Star Trek: Deep Space Nine - Harbinger: the script reference
 
 > **Status:** done · **Code:** `src/engines/stharbinger/game/`, `src/engines/stharbinger/formats/script.cpp` · **Checked against:** the code only · **Confidence:** from the code unless marked
 

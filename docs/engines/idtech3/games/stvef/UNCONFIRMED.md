@@ -1,4 +1,4 @@
-# Star Trek: Voyager - Elite Force: unconfirmed items
+# Elite Force: unconfirmed items
 
 Points in Reluva's Elite Force support that are assumed, inferred or
 unknown rather than confirmed against the original game. Each says what's

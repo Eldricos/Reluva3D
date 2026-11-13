@@ -1,4 +1,4 @@
-# Testing (Murder on the Orient Express)
+# Murder on the Orient Express: testing
 
 How Reluva's AWE engine is checked: the automated checks, what they
 cover and don't, and a list of things to try in a playthrough by hand.
