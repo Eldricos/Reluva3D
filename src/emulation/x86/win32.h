@@ -312,7 +312,7 @@ public:
     // From the running thread: waits until `ready` is true or `timeoutMs`
     // passes (0xffffffff: never), letting the others run. False if it timed
     // out; ends the run (with abort()) if the process is ending.
-    bool wait(std::function<bool()> ready, uint32_t timeoutMs);
+    bool wait(const std::function<bool()> &ready, uint32_t timeoutMs);
     // From the running thread: lets the others run, if any can.
     void yield();
     // From the running thread, after it may have woken another: switches

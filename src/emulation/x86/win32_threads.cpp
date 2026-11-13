@@ -187,7 +187,7 @@ bool Win32Process::schedule(std::unique_lock<std::mutex> &lock) {
     return true;
 }
 
-bool Win32Process::wait(std::function<bool()> ready, uint32_t timeoutMs) {
+bool Win32Process::wait(const std::function<bool()> &ready, uint32_t timeoutMs) {
     if (ready())
         return true;
     if (timeoutMs == 0)

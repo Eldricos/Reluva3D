@@ -369,7 +369,7 @@ void testUtilities() {
         return true;
     };
     uint32_t r = 0;
-    auto call = [&](const char *name, std::vector<uint32_t> args) {
+    auto call = [&](const char *name, const std::vector<uint32_t> &args) {
         r = 0xdeadbeef;
         CHECK(!cpu.call(dll.exports().at(name), args, r));
         return r;

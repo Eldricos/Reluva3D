@@ -20,6 +20,7 @@
 #include <algorithm>
 #include <cmath>
 #include <cstring>
+#include <utility>
 
 namespace reluva::nfs {
 
@@ -185,7 +186,7 @@ void GameHost::addDirectX() {
 
     // QueryInterface, AddRef, Release; QueryInterface giving the object
     // itself unless `refuse` says no to the interface.
-    auto unknown = [this](const std::string &name, std::function<bool(uint32_t data1)> refuse = {}) {
+    auto unknown = [this](const std::string &name, const std::function<bool(uint32_t data1)> &refuse = {}) {
         return std::vector<Method>{
             {"QueryInterface", 3,
              [this, name, refuse](Cpu &c) {
@@ -207,7 +208,9 @@ void GameHost::addDirectX() {
     // Surfaces.
     {
         std::vector<Method> m = unknown("IDirectDrawSurface3");
-        auto add = [&](const char *n, int args, std::function<uint32_t(Cpu &)> fn = {}) { m.push_back({n, args, fn}); };
+        auto add = [&](const char *n, int args, std::function<uint32_t(Cpu &)> fn = {}) {
+            m.push_back({n, args, std::move(fn)});
+        };
         auto surface = [this](Cpu &c, uint32_t object) -> DdSurface * {
             auto it = surfaces_.find(object);
             if (it == surfaces_.end()) {
@@ -463,7 +466,9 @@ void GameHost::addDirectX() {
     std::vector<Method> dd = unknown("IDirectDraw2", [](uint32_t data1) {
         return data1 == 0x3bba0080 || data1 == 0x6aae1ec1 || data1 == 0xbb223240; // IDirect3D, 2, 3
     });
-    auto add = [&](const char *n, int args, std::function<uint32_t(Cpu &)> fn = {}) { dd.push_back({n, args, fn}); };
+    auto add = [&](const char *n, int args, std::function<uint32_t(Cpu &)> fn = {}) {
+        dd.push_back({n, args, std::move(fn)});
+    };
     add("Compact", 1, ok);
     add("CreateClipper", 4, [this](Cpu &c) {
         c.write32(c.arg(2), newObject(clipperVtable_));
@@ -584,7 +589,9 @@ void GameHost::addDirectX() {
     // DirectInput: the keyboard and mouse, by their GUIDs.
     auto makeDevice = [this, unknown, ok](const std::string &kind) {
         std::vector<Method> m = unknown("IDirectInputDevice(" + kind + ")");
-        auto add = [&](const char *n, int args, std::function<uint32_t(Cpu &)> fn = {}) { m.push_back({n, args, fn}); };
+        auto add = [&](const char *n, int args, std::function<uint32_t(Cpu &)> fn = {}) {
+            m.push_back({n, args, std::move(fn)});
+        };
         // DIDEVCAPS: attached, a gamepad, its axes, buttons and hats.
         // With force feedback (DIDC_FORCEFEEDBACK), its timings in
         // microseconds: samples every millisecond.

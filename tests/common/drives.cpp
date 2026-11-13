@@ -44,7 +44,7 @@ void testWin32Files() {
     CHECK(process.hostPath("D:\\x", false).empty());
     // A new file goes into a folder only if the folder is there, in the
     // game's files or in the writes (NFS III tests folders so).
-    auto call = [&](const char *name, std::vector<uint32_t> args) {
+    auto call = [&](const char *name, const std::vector<uint32_t> &args) {
         uint32_t r = 0;
         CHECK(!cpu.call(process.standIn("KERNEL32.dll", name), args, r));
         return r;
@@ -94,7 +94,7 @@ void testWin32SerialPort() {
         opened = n;
         return n == 2 ? port : nullptr;
     };
-    auto call = [&](const char *name, std::vector<uint32_t> args) {
+    auto call = [&](const char *name, const std::vector<uint32_t> &args) {
         uint32_t r = 0;
         CHECK(!cpu.call(process.standIn("KERNEL32.dll", name), args, r));
         return r;
