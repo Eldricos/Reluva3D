@@ -256,7 +256,7 @@ their own. Built with GCC and Clang and all 99 tests pass.
   can't fix inside a macro). The three checks now find nothing anywhere.
 - **Not covered:** about 780 class and struct members still declared
   several to a line (`int x, y;`, mostly in headers); no clang-tidy check
-  splits members. Left for Phase 5. Code compiled only on Windows or
+  splits members. Phase 5 split them. Code compiled only on Windows or
   macOS (`#ifdef _WIN32`, 19 blocks) wasn't seen by the checks; Phase 4
   renamed it by hand.
 
@@ -329,10 +329,40 @@ and the engine template in `cmake/engine-template/`. Those were done by
 hand on main (`42be944`); a branch with such code of its own renames it
 by hand too, and the Windows and macOS builds in CI find what's missed.
 
-### Phase 5: Hand work
+### Phase 5: Members, Doxygen, CONTRIBUTING.md
 
-- Doxygen comments, as each file is worked on.
-- Class and struct members declared several to a line (about 780):
-  one per line, by a script reviewed like the others, or as files are
-  worked on.
-- `CONTRIBUTING.md` points to the guide and the tools.
+- **Members one to a declaration (done).** `tools/split_members.py`
+  finds class and struct members, and namespace-scope variables, declared
+  several to a line (clang-tidy's readability-isolate-declaration does only
+  local variables) and splits them: 1,596 declarations in 321 files
+  (`ef4b761`; more than the 780 estimated, which counted headers only). A
+  comment after one is about all its names, so it went on a line of its
+  own above them. Generated files are left to their scripts; the Windows-
+  and macOS-only code had none. Every non-test object file is
+  byte-identical before and after (GCC Release, every engine); the 17
+  test objects that differ do so only in line numbers (`__LINE__` in the
+  checks, 1,336 instructions). CI's "Code style" job now also fails on
+  members declared together in a changed file.
+- **`CONTRIBUTING.md` (done)** points to the guide and the three tools.
+- **Doxygen comments: as each file is worked on**, as decided. New code
+  has them from the start; a file's plain `//` comments on its public
+  classes, methods and structures become Doxygen blocks when someone
+  works on that file. Nothing checks this: no tool can tell a comment
+  that should be Doxygen from one that shouldn't.
+
+**A branch made before the split** catches up as from the renames, with
+the commits before (`ccd6d12`) and after (`ef4b761`) it:
+
+```text
+git merge ccd6d12                     # main up to the split: real conflicts only
+python3 tools/tidy.py --changed ccd6d12   # (only for its compile database)
+python3 tools/split_members.py --fix
+cmake --build build && ctest --test-dir build
+git commit -am "Split: as main"
+git merge -s ours ef4b761             # the split: already done, keep ours
+git merge main                        # the rest, as usual
+```
+
+After that the migration is done: what's left is keeping to the guide,
+which CI checks for formatting, clang-tidy and members, and Doxygen as
+files are worked on.

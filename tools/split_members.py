@@ -12,6 +12,11 @@ variables, which it doesn't do either).
     python3 tools/split_members.py --fix           split them
     python3 tools/split_members.py --fix src/engines/clue tests/engines/clue
                                                    only those declared there
+    python3 tools/split_members.py --changed       only in files changed since
+                                                   they left main (or --changed
+                                                   <base>), as CI checks
+
+Without --fix, exits 1 if there is any to split.
 
     int x = 0, y = 0; // where it is     becomes     // where it is
     const char *a, *b;                               int x = 0;
@@ -27,8 +32,9 @@ are left: their scripts write them. Formats the files it changed.
 
 Reads the compile database tools/tidy.py makes (build-tidy/, or --build
 <folder>; run tidy.py once first), so every engine's code is seen. Needs
-the Python bindings of libclang 18 (pip install clang==18.1.8) and
-libclang 18 itself: set LIBCLANG to it if it isn't found.
+libclang 18 and its Python bindings (Ubuntu: apt install python3-clang-18;
+else pip install clang==18.1.8): set LIBCLANG to the library if it isn't
+found.
 """
 
 import concurrent.futures
@@ -42,7 +48,7 @@ import subprocess
 import sys
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
-from format import git  # noqa: E402
+from format import changed_since, git  # noqa: E402
 
 FILES = re.compile(r"^(src|tests)/(?!third_party/).*\.(h|cpp)$")
 
@@ -198,16 +204,43 @@ def main():
         i = args.index("--build")
         build = args[i + 1]
         del args[i:i + 2]
-    only = [os.path.relpath(os.path.abspath(a)).replace(os.sep, "/").rstrip("/") for a in args if a != "--fix"]
+    args = [a for a in args if a != "--fix"]
+    changed = None
+    if "--changed" in args:
+        i = args.index("--changed")
+        base = args[i + 1] if i + 1 < len(args) and not args[i + 1].startswith("-") else None
+        changed = [p for p in changed_since(base) if FILES.match(p) and os.path.isfile(p)]
+        del args[i:i + (2 if base else 1)]
+        if not changed:
+            print("No C++ files changed")
+            return 0
+    only = [os.path.relpath(os.path.abspath(a)).replace(os.sep, "/").rstrip("/") for a in args]
+    if changed is not None:
+        only = [p for p in changed if not only or any(p == o or p.startswith(o + "/") for o in only)]
+        if not only:
+            print("No C++ files changed")
+            return 0
     database = os.path.join(build, "compile_commands.json")
     if not os.path.isfile(database):
         sys.exit(f"{database} not found: run tools/tidy.py once (or --build <folder>)")
     try:
         libclang()
     except ImportError:
-        sys.exit("libclang's Python bindings not found: pip install clang==18.1.8")
+        sys.exit("libclang's Python bindings not found: apt install python3-clang-18, or pip install clang==18.1.8")
     entries = [e for e in json.load(open(database, encoding="utf-8"))
                if FILES.match(os.path.relpath(e["file"], root).replace(os.sep, "/"))]
+    if changed is not None:
+        # Only the files that compile what changed: a changed .cpp, and
+        # for a header its own .cpp, else every file including it.
+        sources = {p for p in only if p.endswith(".cpp")}
+        for h in (p for p in only if p.endswith(".h")):
+            own = h[:-2] + ".cpp"
+            if os.path.isfile(own):
+                sources.add(own)
+            else:
+                inc = h.split("/", 1)[1] if h.startswith("src/") else h
+                sources.update(git("grep", "-l", f'#include "{inc}"', "--", "src", "tests").splitlines())
+        entries = [e for e in entries if os.path.relpath(e["file"], root).replace(os.sep, "/") in sources]
 
     groups = {}
     with concurrent.futures.ProcessPoolExecutor() as pool:
@@ -228,7 +261,7 @@ def main():
             by_file.setdefault(path, []).append((start, names))
 
     split = left = 0
-    changed = []
+    written = []
     for path in sorted(by_file):
         # Latin-1: one character per byte, as libclang's offsets count;
         # UTF-8 text goes back out as it came in.
@@ -250,11 +283,11 @@ def main():
             for start, end, new in sorted(edits, reverse=True):
                 source = source[:start] + new + source[end:]
             open(path, "wb").write(source.encode("latin-1"))
-            changed.append(path)
+            written.append(path)
     print(f"{split} declarations {'split' if fix else 'to split'}, {left} left for a person")
-    if changed:
-        subprocess.run([sys.executable, "tools/format.py", *changed], check=True)
-    return 0
+    if written:
+        subprocess.run([sys.executable, "tools/format.py", *written], check=True)
+    return 1 if (split or left) and not fix else 0
 
 
 if __name__ == "__main__":
