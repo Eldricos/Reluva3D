@@ -39,8 +39,8 @@
 #include <string_view>
 #include <vector>
 
-// Data viewers used by the New Worlds engine until the game itself runs.
-// Each draws into the engine's 640x480 RGBA32 screen and reports its state in
+// The pages of the New Worlds data viewer (viewer.cpp, in reluva-viewer).
+// Each draws into the viewer's 640x480 RGBA32 screen and reports its state in
 // the window title.
 
 namespace reluva::newworlds {
@@ -420,7 +420,7 @@ private:
 class SoundViewer {
 public:
     // gameDir: the game folder, whose loose .mp3 and .wav files (Media/) are
-    // listed after the archives' sounds; empty for none. mixer: the engine's,
+    // listed after the archives' sounds; empty for none. mixer: the viewer's,
     // playing into the System's output; nullptr when there's no output.
     SoundViewer(System &sys, Surface &screen, const Archives &archives, audio::Mixer *mixer,
                 const std::filesystem::path &gameDir = {});

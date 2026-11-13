@@ -2,7 +2,7 @@
 // Copyright (C) 2026 The Reluva contributors
 
 #include "engines/newworlds/soft3d.h"
-#include "engines/newworlds/viewers.h"
+#include "engines/newworlds/pages/viewers.h"
 
 #include <algorithm>
 #include <cctype>

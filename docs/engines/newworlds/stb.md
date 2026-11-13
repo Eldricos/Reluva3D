@@ -67,7 +67,7 @@ mission tables seem to be those missions' voice-over slots; see
 
 ## In Reluva
 
-The data viewer's strings page (**Tab**) shows each table word-wrapped
+The data viewer's strings page (`reluva-viewer`, **Tab**) shows each table word-wrapped
 with its ids, headings in yellow and printf codes in blue, in Reluva's own
 built-in font (`src/graphics/font.cpp`). **Left/Right** picks a table,
 **Up/Down**, **PageUp/PageDown** and **Home/End** scroll, **+/-** change

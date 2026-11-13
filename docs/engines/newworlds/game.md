@@ -1,7 +1,7 @@
 # Star Trek: New Worlds: playing on the map
 
-Reluva's first playable layer: the missions page's play mode (**F3**), with
-the game's camera and controls, the colony's starting units to select and
+Reluva's first playable layer: the data viewer's missions page's play mode
+(`reluva-viewer`, **F3**), with the game's camera and controls, the colony's starting units to select and
 move, buildings to place and build, the colony's economy, and the
 mission's script running on what happens. It is built from what recordings of play show
 ([play-tutorials.md](play-tutorials.md) for the controls,
@@ -128,5 +128,5 @@ goes up by itself once placed).
 
 The code: `src/engines/newworlds/world.h` (units, passability, paths,
 groups), `economy.h` (stock, construction, power, mining, crew),
-`colony.h` (`ColonyLayout::spotAt`, where a building fits), the map view's game camera and picking (`viewers.h`,
+`colony.h` (`ColonyLayout::spotAt`, where a building fits), the map view's game camera and picking (`pages/viewers.h`,
 `MapViewer::gameKey`), and the missions page's play mode.

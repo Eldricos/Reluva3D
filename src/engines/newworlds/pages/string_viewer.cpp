@@ -3,7 +3,7 @@
 
 #include "graphics/font.h"
 #include "common/text.h"
-#include "engines/newworlds/viewers.h"
+#include "engines/newworlds/pages/viewers.h"
 
 #include <algorithm>
 #include <cctype>

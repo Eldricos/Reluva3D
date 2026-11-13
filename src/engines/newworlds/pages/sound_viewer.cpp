@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 // Copyright (C) 2026 The Reluva contributors
 
-#include "engines/newworlds/viewers.h"
+#include "engines/newworlds/pages/viewers.h"
 
 #include "audio/decode.h"
 #include "common/fs.h"

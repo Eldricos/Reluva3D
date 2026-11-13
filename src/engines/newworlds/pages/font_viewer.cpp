@@ -2,7 +2,7 @@
 // Copyright (C) 2026 The Reluva contributors
 
 #include "graphics/font.h"
-#include "engines/newworlds/viewers.h"
+#include "engines/newworlds/pages/viewers.h"
 
 #include <algorithm>
 

@@ -4,7 +4,7 @@
 #include "engines/newworlds/model_render.h"
 #include "engines/newworlds/star_system.h"
 #include "engines/newworlds/soft3d.h"
-#include "engines/newworlds/viewers.h"
+#include "engines/newworlds/pages/viewers.h"
 
 #include "audio/decode.h"
 #include "graphics/font.h"

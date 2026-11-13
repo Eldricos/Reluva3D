@@ -96,7 +96,7 @@ repeats.
 
 The decoder is in `src/audio/wav.cpp`, shared by every engine, and
 so is the mixer that plays them (`src/audio/mixer.cpp`).
-The data viewer's sounds page (**Tab**) lists the sounds with their waveform
+The data viewer's sounds page (`reluva-viewer`, **Tab**) lists the sounds with their waveform
 (and the game folder's loose `.mp3`/`.wav` files after them, see
 [media.md](media.md));
 **Space** or **Enter** plays or stops one, **A** plays each as it's

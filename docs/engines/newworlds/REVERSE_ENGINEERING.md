@@ -41,7 +41,8 @@ extended. The facts themselves are in this folder's format and game pages
 `reluva-tool newworlds <command>`: `cat-list`, `cat-probe` and `cat-extract`
 for the archives, and `geo-*`, `gmf-*`, `tex-*`, `stb-dump`, `fif-info`,
 `mdl-info`, `lbp-info`, `ibi-dump` and `level-info` for what's in them. The
-engine's data viewer ([README](README.md#using-it)) shows the same files.
+engine's data viewer (`reluva-viewer`, [README](README.md#using-it)) shows
+the same files.
 
 ## Checking the work
 

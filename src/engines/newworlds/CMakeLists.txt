@@ -17,8 +17,6 @@ reluva_add_engine(newworlds
         ground_textures.cpp
         mdl.cpp
         arf.cpp
-        map_viewer.cpp
-        mission_viewer.cpp
         briefing.cpp
         mission_script.cpp
         mission_scripts.cpp
@@ -29,13 +27,22 @@ reluva_add_engine(newworlds
         world.cpp
         model_pose.cpp
         economy.cpp
-        model_viewer.cpp
-        texture_viewer.cpp
-        sound_viewer.cpp
-        string_viewer.cpp
         fif.cpp
-        font_viewer.cpp
         levels.cpp)
+
+# Its data viewer, in reluva-viewer: the game can't be played yet, so this
+# is where what the engine reads is looked at.
+reluva_add_engine_viewers(newworlds
+    ACCESSOR newWorldsMetaViewer
+    SOURCES
+        pages/viewer.cpp
+        pages/mission_viewer.cpp
+        pages/model_viewer.cpp
+        pages/texture_viewer.cpp
+        pages/map_viewer.cpp
+        pages/sound_viewer.cpp
+        pages/string_viewer.cpp
+        pages/font_viewer.cpp)
 
 # Its reluva-tool commands (reluva-tool lists them).
 reluva_add_engine_tools(newworlds
