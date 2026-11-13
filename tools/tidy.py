@@ -15,7 +15,7 @@ nullptr, override, const-correctness...).
     python3 tools/tidy.py --rename-declared-in src/engines/clue [--dry-run]
                                              rename to the coding guide's
                                              names the identifiers *declared*
-                                             in those folders (repeat the
+                                             in those folders or files (repeat the
                                              option for several), with every
                                              use in the files checked (all of
                                              Reluva's, or those named); names
@@ -84,7 +84,8 @@ def main():
         i = args.index("--rename-declared-in")
         if i + 1 >= len(args):
             sys.exit("--rename-declared-in <folder>")
-        declared_in.append(args[i + 1].rstrip("/") + "/")
+        given = args[i + 1].rstrip("/")
+        declared_in.append(given if os.path.isfile(given) else given + "/")
         del args[i:i + 2]
     if declared_in:
         checks = ["--checks=-*,readability-identifier-naming"]
