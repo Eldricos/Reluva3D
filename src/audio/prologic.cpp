@@ -44,7 +44,9 @@ ProLogicDecoder::ProLogicDecoder(int rate, const ProLogicOptions &options) : opt
     // form, Q = 1/sqrt 2).
     const double fc = std::min(options_.surroundCutoffHz, 0.45 * rate_);
     if (fc > 0) {
-        const double w = 2 * kPi * fc / rate_, cw = std::cos(w), alpha = std::sin(w) / (2 * kHalfRoot2);
+        const double w = 2 * kPi * fc / rate_;
+        const double cw = std::cos(w);
+        const double alpha = std::sin(w) / (2 * kHalfRoot2);
         const double a0 = 1 + alpha;
         b0_ = (1 - cw) / 2 / a0;
         b1_ = (1 - cw) / a0;
@@ -77,14 +79,17 @@ void ProLogicDecoder::process(const int16_t *in, float *out, int frames) {
 }
 
 void ProLogicDecoder::frame(float ltf, float rtf, float *out) {
-    const double lt = ltf, rt = rtf;
+    const double lt = ltf;
+    const double rt = rtf;
     double o[4];
     for (int s = 0; s < 4; ++s)
         o[s] = kSpeaker[s][0] * lt + kSpeaker[s][1] * rt;
 
     if (options_.active) {
         const double power[4] = {lt * lt, rt * rt, (lt + rt) * (lt + rt), (lt - rt) * (lt - rt)};
-        double x, y, m;
+        double x;
+        double y;
+        double m;
         for (int k = 0; k < 4; ++k)
             fast_[k] += fastCoef_ * (power[k] - fast_[k]);
         dominanceOf(fast_, x, y, m);
@@ -105,7 +110,8 @@ void ProLogicDecoder::frame(float ltf, float rtf, float *out) {
             if (theta < 0)
                 theta += kPi;
             direction_ = theta * 180 / kPi;
-            const double vx = std::cos(theta), vy = std::sin(theta);
+            const double vx = std::cos(theta);
+            const double vy = std::sin(theta);
             const double d = vx * lt + vy * rt; // the dominant sound
             // Panned between the two speakers beside it, at constant power.
             double pan[4] = {0, 0, 0, 0};
@@ -145,8 +151,10 @@ void layOutChannels(const float *lcrs, int frames, int channels, int16_t *out) {
         const float *f = lcrs + 4 * i;
         int16_t *o = out + size_t(i) * size_t(channels);
         std::fill(o, o + channels, int16_t(0));
-        const double l = f[ProLogicDecoder::L], c = f[ProLogicDecoder::C], r = f[ProLogicDecoder::R],
-                     s = f[ProLogicDecoder::S];
+        const double l = f[ProLogicDecoder::L];
+        const double c = f[ProLogicDecoder::C];
+        const double r = f[ProLogicDecoder::R];
+        const double s = f[ProLogicDecoder::S];
         if (channels == 2) {
             o[0] = put(l + kHalfRoot2 * c + 0.5 * s);
             o[1] = put(r + kHalfRoot2 * c + 0.5 * s);

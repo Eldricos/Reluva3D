@@ -191,7 +191,8 @@ std::array<Horizon::Rgb, 16> skyBaseColours(const Horizon &h) {
 // is the heading x 16 rounded (the FPU's rounding, to nearest).
 SkyRow skyRow(const Horizon &h, const std::array<float, 3> &forward, float bottom, float height) {
     constexpr double kTau = 6.283185307179586;
-    double fx = forward[0], fz = forward[2];
+    double fx = forward[0];
+    double fz = forward[2];
     const double length = std::sqrt(fx * fx + fz * fz);
     if (length > 0) {
         fx /= length;
@@ -307,10 +308,12 @@ std::array<uint8_t, kCloudPoints * kCloudPoints> cloudBrightness(const Horizon &
         for (int row = 0; row < n; ++row)
             for (int col = 0; col < n; ++col) {
                 const float here = b[size_t(row * n + col)];
-                float sum = 0, count = 0;
+                float sum = 0;
+                float count = 0;
                 for (int dr = -2; dr <= 2; ++dr)
                     for (int dc = -2; dc <= 2; ++dc) {
-                        const int r = row + dr, c = col + dc;
+                        const int r = row + dr;
+                        const int c = col + dc;
                         if ((dr == 0 && dc == 0) || r < 0 || r >= n || c < 0 || c >= n)
                             continue;
                         // Weighted by the square of how far the neighbour
@@ -403,7 +406,8 @@ LightningBolt makeBolt(const Horizon &h, SkyRandom &random) {
 // 0x494630: each point moves -1, 0 or 1 times its jitter on x and z.
 void tickBolt(LightningBolt &bolt, SkyRandom &random) {
     for (LightningBolt::Point &p : bolt.points) {
-        const int dx = random.next() % 3 - 1, dz = random.next() % 3 - 1;
+        const int dx = random.next() % 3 - 1;
+        const int dz = random.next() % 3 - 1;
         p.at[0] += static_cast<float>(dx) * p.jitter;
         p.at[2] += static_cast<float>(dz) * p.jitter;
     }

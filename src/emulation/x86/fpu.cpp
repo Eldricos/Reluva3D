@@ -93,18 +93,22 @@ void toExtended(double v, uint8_t *p) {
 } // namespace
 
 void Cpu::exchangeExtras(int i) {
-    const unsigned a = fpu.top & 7u, b = unsigned(fpu.top + i) & 7u;
+    const unsigned a = fpu.top & 7u;
+    const unsigned b = unsigned(fpu.top + i) & 7u;
     std::swap(fpu.exact[a], fpu.exact[b]);
-    const unsigned va = (fpu.exactValid >> a) & 1u, vb = (fpu.exactValid >> b) & 1u;
+    const unsigned va = (fpu.exactValid >> a) & 1u;
+    const unsigned vb = (fpu.exactValid >> b) & 1u;
     fpu.exactValid = uint8_t((fpu.exactValid & ~((1u << a) | (1u << b))) | (vb << a) | (va << b));
     std::swap(fpu.mm[a], fpu.mm[b]); // an MMX value moves with its register
     std::swap(fpu.mmDouble[a], fpu.mmDouble[b]);
-    const unsigned ma = (fpu.mmValid >> a) & 1u, mb = (fpu.mmValid >> b) & 1u;
+    const unsigned ma = (fpu.mmValid >> a) & 1u;
+    const unsigned mb = (fpu.mmValid >> b) & 1u;
     fpu.mmValid = uint8_t((fpu.mmValid & ~((1u << a) | (1u << b))) | (mb << a) | (ma << b));
 }
 
 void Cpu::copyExact(int to, int from) {
-    const unsigned t = unsigned(fpu.top + to) & 7, f = unsigned(fpu.top + from) & 7;
+    const unsigned t = unsigned(fpu.top + to) & 7;
+    const unsigned f = unsigned(fpu.top + from) & 7;
     fpu.exact[t] = fpu.exact[f];
     fpu.exactValid = uint8_t((fpu.exactValid & ~(1u << t)) | (((fpu.exactValid >> f) & 1u) << t));
 }

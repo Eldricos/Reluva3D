@@ -55,7 +55,8 @@ bool parse3dfHeader(const uint8_t *file, size_t size, File3df &out, std::string 
         return true;
     };
     std::string s;
-    int major = 0, minor = 0;
+    int major = 0;
+    int minor = 0;
     if (!line(s) || std::sscanf(s.c_str(), "3df v%d.%d", &major, &minor) != 2)
         return fail(error, "no \"3df v<major>.<minor>\" magic cookie");
     do {
@@ -75,7 +76,8 @@ bool parse3dfHeader(const uint8_t *file, size_t size, File3df &out, std::string 
         return fail(error, "an NCC format: the guide doesn't say how the file holds its table");
     // "lod range: %d %d", the minimum and maximum: Reluva reads them as
     // the smallest and largest levels' sizes in texels (1-256).
-    int lo = 0, hi = 0;
+    int lo = 0;
+    int hi = 0;
     if (!line(s) || std::sscanf(s.c_str(), "lod range: %d %d", &lo, &hi) != 2)
         return fail(error, "no LOD range line");
     if (lo > hi)
@@ -85,17 +87,20 @@ bool parse3dfHeader(const uint8_t *file, size_t size, File3df &out, std::string 
     if (out.smallLodLog2 < 0 || out.largeLodLog2 < 0 || out.largeLodLog2 > 8)
         return fail(error, "a LOD range that isn't powers of two up to 256");
     // "aspect ratio: %d %d": width to height.
-    int aw = 0, ah = 0;
+    int aw = 0;
+    int ah = 0;
     if (!line(s) || std::sscanf(s.c_str(), "aspect ratio: %d %d", &aw, &ah) != 2 || aw <= 0 || ah <= 0)
         return fail(error, "no aspect ratio line");
-    const int lw = log2Of(aw), lh = log2Of(ah);
+    const int lw = log2Of(aw);
+    const int lh = log2Of(ah);
     if (lw < 0 || lh < 0 || lw - lh > 3 || lh - lw > 3)
         return fail(error, "an aspect ratio Glide doesn't have");
     out.aspectLog2 = lw - lh;
     levelSize(out.largeLodLog2, out.aspectLog2, out.width, out.height);
     out.dataBytes = 0;
     for (int l = out.largeLodLog2; l >= out.smallLodLog2; --l) {
-        int w = 0, h = 0;
+        int w = 0;
+        int h = 0;
         levelSize(l, out.aspectLog2, w, h);
         out.dataBytes += uint32_t(w * h * texelBytes(out.format));
     }

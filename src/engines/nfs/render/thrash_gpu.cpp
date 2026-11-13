@@ -155,7 +155,8 @@ void ThrashGpu::draw(const std::vector<const ThrashFrame *> &frames, const Surfa
         if (!ok)
             continue;
         for (const ThrashFrame::Batch &b : frame.batches) {
-            const int w = b.clip[2] - b.clip[0], h = b.clip[3] - b.clip[1];
+            const int w = b.clip[2] - b.clip[0];
+            const int h = b.clip[3] - b.clip[1];
             if (!b.count || w <= 0 || h <= 0)
                 continue;
             renderer_->setViewport(b.clip[0] * scale, b.clip[1] * scale, w * scale, h * scale);

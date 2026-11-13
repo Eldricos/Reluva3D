@@ -834,7 +834,8 @@ void SdlGpuRenderer::draw(const gfx::DrawCall &call) {
     // switches a frame) then don't switch pipelines, each switch taking
     // SDL four new descriptor sets.
     gfx::DrawState state = call.state;
-    float blendSrc = 0, blendDst = 0; // FragmentUniforms::blend
+    float blendSrc = 0;
+    float blendDst = 0; // FragmentUniforms::blend
     if (frameAlphaUnused_ && !(state.src == gfx::Blend::One && state.dst == gfx::Blend::Zero)) {
         const int s = state.src == gfx::Blend::Zero       ? 0
                       : state.src == gfx::Blend::One      ? 1

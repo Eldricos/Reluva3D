@@ -272,7 +272,8 @@ void testCarEffects() {
     carHitParticles(sys, {0, 1, 0}, {1, 1, 0}, {0, 0, 10}, 5, 0, random);
     CHECK(sys.live() == 0);
     carHitParticles(sys, {0, 1, 0}, {1, 1, 0}, {0, 0, 10}, 10, 0, random);
-    int sparks = 0, dust = 0;
+    int sparks = 0;
+    int dust = 0;
     for (const Particle &q : sys.particles())
         if (q.life != 0)
             (q.kind == 3 ? sparks : dust) += q.kind == 3 || q.kind == 2 ? 1 : 0;
@@ -280,7 +281,9 @@ void testCarEffects() {
     // Its smoke: over 30, or over 5 for traffic, at |round(strength x 0.15)|,
     // the point in the car's frame x 0.6; not while one runs.
     CarSmoke smoke;
-    const ParticleVec right{1, 0, 0}, up{0, 1, 0}, forward{0, 0, 1};
+    const ParticleVec right{1, 0, 0};
+    const ParticleVec up{0, 1, 0};
+    const ParticleVec forward{0, 0, 1};
     CHECK(!startCarSmoke(smoke, 20, false, {1, 2, 3}, {}, right, up, forward));
     CHECK(startCarSmoke(smoke, 20, true, {1, 2, 3}, {}, right, up, forward) && smoke.timer == 3);
     CHECK(std::fabs(smoke.point[0] - 0.6f) < 1e-6f && std::fabs(smoke.point[2] - 1.8f) < 1e-6f);
@@ -515,7 +518,8 @@ void testParticles() {
     // streak from where the spark was drawn, the tail then halfway.
     Particle d;
     d.position = {5, 5, 5};
-    const ParticleVec right{1, 0, 0}, up{0, 1, 0};
+    const ParticleVec right{1, 0, 0};
+    const ParticleVec up{0, 1, 0};
     auto corners = pictureCorners(d, right, up, 2);
     CHECK(corners[0] == (ParticleVec{5, 3, 5}) && corners[1] == (ParticleVec{7, 5, 5}) &&
           corners[2] == (ParticleVec{5, 7, 5}) && corners[3] == (ParticleVec{3, 5, 5}));
@@ -662,8 +666,10 @@ void testTrack() {
     const Track::Vec3 &a = sign[polygonSlot(0, true)];
     const Track::Vec3 &b = sign[polygonSlot(1, true)];
     const Track::Vec3 &c = sign[polygonSlot(2, true)];
-    const float e1[3] = {b[0] - a[0], b[1] - a[1], b[2] - a[2]}, e2[3] = {c[0] - a[0], c[1] - a[1], c[2] - a[2]};
-    const float nx = e1[1] * e2[2] - e1[2] * e2[1], nz = e1[0] * e2[1] - e1[1] * e2[0];
+    const float e1[3] = {b[0] - a[0], b[1] - a[1], b[2] - a[2]};
+    const float e2[3] = {c[0] - a[0], c[1] - a[1], c[2] - a[2]};
+    const float nx = e1[1] * e2[2] - e1[2] * e2[1];
+    const float nz = e1[0] * e2[1] - e1[1] * e2[0];
     CHECK(nx < 0 && nz < 0 && &a == &sign[1]);
 
     // The blocks drawn (0x41cdc0, 0x41d620): within 500 by day, high detail
@@ -715,8 +721,10 @@ void testHeadlights() {
     CHECK(right.outside == 2 && right.colour == 0x58585858u);
     // Triangles: drawn unless all outside one side, one past the reach, or
     // all nearly transparent.
-    const HeadlightPoint a = headlightAt(low, along(low, 5)), b = headlightAt(low, along(low, 10, 2)),
-                         c = headlightAt(low, along(low, 12, -2)), far = headlightAt(low, along(low, 41));
+    const HeadlightPoint a = headlightAt(low, along(low, 5));
+    const HeadlightPoint b = headlightAt(low, along(low, 10, 2));
+    const HeadlightPoint c = headlightAt(low, along(low, 12, -2));
+    const HeadlightPoint far = headlightAt(low, along(low, 41));
     CHECK(headlightTriangle(a, b, c) && !headlightTriangle(a, b, far) && !headlightTriangle(right, right, right));
     CHECK(headlightTriangle(a, b, right));
     // High beams, and without projection; a later car's dimmer reach.
@@ -858,7 +866,8 @@ void testCarLighting() {
     CHECK(carVertexColour(s, 1) == 0xffffc060u);
     CHECK(carVertexColour(s, 0.5f) == ((0xffu << 24) | (151u << 16) | (112u << 8) | 60u));
     // The light's direction from the horizon's rotation (0x478340).
-    const auto north = carLightDirection(0), east = carLightDirection(90);
+    const auto north = carLightDirection(0);
+    const auto east = carLightDirection(90);
     CHECK(std::fabs(north[2] - 2 / std::sqrt(5.0f)) < 1e-5f && std::fabs(north[1] - 1 / std::sqrt(5.0f)) < 1e-5f);
     CHECK(std::fabs(east[0] - 2 / std::sqrt(5.0f)) < 1e-4f && std::fabs(east[2]) < 1e-4f);
     // The shading under the car (0x4206f0) and the ambient light (0x419660).
@@ -963,7 +972,9 @@ void testLightEffects() {
     }
     // 0x4b8740 and 0x492980: the beam's colour over 30 % fog, and its cone.
     CHECK(fogBeamColour(30, 2) == 0 && fogBeamColour(60, 2) == 0xe4ffffffu && fogBeamColour(45, 1) == 0x39ffffffu);
-    const std::array<float, 3> right{1, 0, 0}, up{0, 1, 0}, ahead{0, 0, 1};
+    const std::array<float, 3> right{1, 0, 0};
+    const std::array<float, 3> up{0, 1, 0};
+    const std::array<float, 3> ahead{0, 0, 1};
     FogBeam b = fogBeam({0, 0, 0}, right, up, ahead, {0, 0, -50}, 0x80ffffffu);
     CHECK(b.shown && b.nearRing.size() == 7 && b.farRing.size() == 7 && b.colour == 0x80ffffffu);
     CHECK(std::fabs(b.farRing[0][2] - 6) < 1e-5f &&
@@ -977,7 +988,8 @@ void testLightEffects() {
 void testSkinPaint() {
     // The loader's recolouring (0x49cd00, 0x49cc50): alpha under 128 the
     // paint, 128-254 its secondary colour, 255 kept, 0 transparent.
-    Model::Colour paint{{44, 12, 128, 128}}, second{{126, 48, 38, 128}};
+    Model::Colour paint{{44, 12, 128, 128}};
+    Model::Colour second{{126, 48, 38, 128}};
     const auto painted = skinTexel({105, 105, 106, 50}, &paint, &second);
     // t = 104 / 127, the value trunc(128 t) = 104, at hue 44 and saturation
     // 12, to 5 bits.

@@ -203,7 +203,8 @@ constexpr uint8_t kCodeTables[2][256] = {
 
 // The reflection coefficients as a 12th-order prediction filter.
 void reflectionToPrediction(const float *rc, float *lpc) {
-    float a[12], b[12];
+    float a[12];
+    float b[12];
     b[0] = 1.0f;
     for (int i = 10; i >= 0; --i)
         b[1 + i] = rc[i];

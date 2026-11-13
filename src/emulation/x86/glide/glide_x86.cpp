@@ -39,15 +39,19 @@ void GlideDll::addFogUtilities() {
     };
     // Normalized so the last entry is the most fog (Reference Manual).
     add("guFogGenerateExp", 8, [fogTable](Cpu &c) {
-        const double d = argFloat(c, 1), last = 1 - std::exp(-d * fogIndexToW(63));
+        const double d = argFloat(c, 1);
+        const double last = 1 - std::exp(-d * fogIndexToW(63));
         return fogTable(c, [d, last](double w) { return last > 0 ? (1 - std::exp(-d * w)) / last : 0.0; });
     });
     add("guFogGenerateExp2", 8, [fogTable](Cpu &c) {
-        const double d = argFloat(c, 1), l = d * fogIndexToW(63), last = 1 - std::exp(-l * l);
+        const double d = argFloat(c, 1);
+        const double l = d * fogIndexToW(63);
+        const double last = 1 - std::exp(-l * l);
         return fogTable(c, [d, last](double w) { return last > 0 ? (1 - std::exp(-(d * w) * (d * w))) / last : 0.0; });
     });
     add("guFogGenerateLinear", 12, [fogTable](Cpu &c) {
-        const double nearW = argFloat(c, 1), farW = argFloat(c, 2);
+        const double nearW = argFloat(c, 1);
+        const double farW = argFloat(c, 2);
         return fogTable(c, [nearW, farW](double w) { return farW != nearW ? (w - nearW) / (farW - nearW) : 1.0; });
     });
 }
@@ -159,7 +163,8 @@ const uint8_t *GlideDll::guest(uint32_t address, uint32_t size) const {
 
 void GlideDll::fillMirror(Mirror &m) {
     const Pipeline &p = core_->pipeline();
-    const int w = p.width(), h = p.height();
+    const int w = p.width();
+    const int h = p.height();
     uint8_t *g = cpu_.memory().data() + m.address;
     for (int y = 0; y < h; ++y)
         for (int x = 0; x < w; ++x) {
@@ -196,7 +201,8 @@ void GlideDll::fillMirror(Mirror &m) {
 
 void GlideDll::flushMirror(Mirror &m) {
     const Pipeline &p = core_->pipeline();
-    const int w = p.width(), h = p.height();
+    const int w = p.width();
+    const int h = p.height();
     const uint8_t *g = cpu_.memory().data() + m.address;
     const int bpp = m.lock.bytesPerPixel;
     // grLfbWriteColorSwizzle works on the 32-bit words written: for the

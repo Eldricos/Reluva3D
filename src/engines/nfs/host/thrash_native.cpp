@@ -12,17 +12,24 @@ namespace reluva::nfs {
 namespace {
 
 uint32_t from1555(uint16_t v) {
-    const uint32_t r = (v >> 10) & 31, g = (v >> 5) & 31, b = v & 31;
+    const uint32_t r = (v >> 10) & 31;
+    const uint32_t g = (v >> 5) & 31;
+    const uint32_t b = v & 31;
     return ((v & 0x8000) ? 0xff000000u : 0u) | (r * 255 / 31) << 16 | (g * 255 / 31) << 8 | (b * 255 / 31);
 }
 
 uint32_t from4444(uint16_t v) {
-    const uint32_t a = (v >> 12) & 15, r = (v >> 8) & 15, g = (v >> 4) & 15, b = v & 15;
+    const uint32_t a = (v >> 12) & 15;
+    const uint32_t r = (v >> 8) & 15;
+    const uint32_t g = (v >> 4) & 15;
+    const uint32_t b = v & 15;
     return (a * 17) << 24 | (r * 17) << 16 | (g * 17) << 8 | (b * 17);
 }
 
 uint32_t from565(uint16_t v) {
-    const uint32_t r = (v >> 11) & 31, g = (v >> 5) & 63, b = v & 31;
+    const uint32_t r = (v >> 11) & 31;
+    const uint32_t g = (v >> 5) & 63;
+    const uint32_t b = v & 31;
     return 0xff000000u | (r * 255 / 31) << 16 | (g * 255 / 63) << 8 | (b * 255 / 31);
 }
 
@@ -56,7 +63,8 @@ int texelAt(int i, int size, bool wrap) {
 } // namespace
 
 uint32_t NativeThrash::samplePoint(const Texture &t, float fu, float fv, bool wrap) {
-    int tx = int(fu), ty = int(fv);
+    int tx = int(fu);
+    int ty = int(fv);
     tx -= fu < float(tx); // floor
     ty -= fv < float(ty);
     return t.rgba[size_t(texelAt(ty, t.height, wrap)) * size_t(t.width) + size_t(texelAt(tx, t.width, wrap))];
@@ -66,18 +74,28 @@ uint32_t NativeThrash::samplePoint(const Texture &t, float fu, float fv, bool wr
 // centres at half-integers, each channel weighted by distance (alpha too,
 // so a colour-keyed edge fades rather than stepping).
 uint32_t NativeThrash::sampleBilinear(const Texture &t, float fu, float fv, bool wrap) {
-    const float su = fu - 0.5f, sv = fv - 0.5f;
-    const float flu = std::floor(su), flv = std::floor(sv);
-    const float ax = su - flu, ay = sv - flv;
-    const int x0 = int(flu), y0 = int(flv);
-    const int xa = texelAt(x0, t.width, wrap), xb = texelAt(x0 + 1, t.width, wrap);
+    const float su = fu - 0.5f;
+    const float sv = fv - 0.5f;
+    const float flu = std::floor(su);
+    const float flv = std::floor(sv);
+    const float ax = su - flu;
+    const float ay = sv - flv;
+    const int x0 = int(flu);
+    const int y0 = int(flv);
+    const int xa = texelAt(x0, t.width, wrap);
+    const int xb = texelAt(x0 + 1, t.width, wrap);
     const size_t ra = size_t(texelAt(y0, t.height, wrap)) * size_t(t.width);
     const size_t rb = size_t(texelAt(y0 + 1, t.height, wrap)) * size_t(t.width);
-    const uint32_t c00 = t.rgba[ra + size_t(xa)], c10 = t.rgba[ra + size_t(xb)];
-    const uint32_t c01 = t.rgba[rb + size_t(xa)], c11 = t.rgba[rb + size_t(xb)];
+    const uint32_t c00 = t.rgba[ra + size_t(xa)];
+    const uint32_t c10 = t.rgba[ra + size_t(xb)];
+    const uint32_t c01 = t.rgba[rb + size_t(xa)];
+    const uint32_t c11 = t.rgba[rb + size_t(xb)];
     if (c00 == c10 && c00 == c01 && c00 == c11)
         return c00;
-    const float w00 = (1 - ax) * (1 - ay), w10 = ax * (1 - ay), w01 = (1 - ax) * ay, w11 = ax * ay;
+    const float w00 = (1 - ax) * (1 - ay);
+    const float w10 = ax * (1 - ay);
+    const float w01 = (1 - ax) * ay;
+    const float w11 = ax * ay;
     uint32_t out = 0;
     for (int shift = 0; shift < 32; shift += 8) {
         const float c = float((c00 >> shift) & 255) * w00 + float((c10 >> shift) & 255) * w10 +
@@ -260,7 +278,8 @@ float NativeThrash::fogAt(float w) const {
     static constexpr float at[5] = {1.0f, 8.0f / 7, 8.0f / 6, 8.0f / 5, 2.0f};
     const int j = s < at[1] ? 0 : s < at[2] ? 1 : s < at[3] ? 2 : 3;
     const int i = 4 * k + j;
-    const float lo = fogTable_[size_t(i)], hi = fogTable_[size_t(std::min(i + 1, 63))];
+    const float lo = fogTable_[size_t(i)];
+    const float hi = fogTable_[size_t(std::min(i + 1, 63))];
     return lo + (hi - lo) * (s - at[j]) / (at[j + 1] - at[j]);
 }
 
@@ -283,7 +302,9 @@ void NativeThrash::plot(int x, int y, uint32_t argb) {
 }
 
 void NativeThrash::put(uint8_t *p, uint32_t argb, int x, int y) {
-    uint32_t r = (argb >> 16) & 255, g = (argb >> 8) & 255, b = argb & 255;
+    uint32_t r = (argb >> 16) & 255;
+    uint32_t g = (argb >> 8) & 255;
+    uint32_t b = argb & 255;
     const uint32_t a = argb >> 24;
     // State 0x68's other modes apply while blending is on (state 0xa), to
     // opaque pixels too: an added pixel of alpha 255 is added in full, as
@@ -293,7 +314,9 @@ void NativeThrash::put(uint8_t *p, uint32_t argb, int x, int y) {
     const int mode = alphaBlend_ ? blend_ : 0;
     if (a < 255 || mode != 0) {
         const uint16_t d = uint16_t(p[0] | p[1] << 8);
-        const uint32_t dr = ((d >> 11) & 31) * 255 / 31, dg = ((d >> 5) & 63) * 255 / 63, db = (d & 31) * 255 / 31;
+        const uint32_t dr = ((d >> 11) & 31) * 255 / 31;
+        const uint32_t dg = ((d >> 5) & 63) * 255 / 63;
+        const uint32_t db = (d & 31) * 255 / 31;
         switch (mode) {
         case 1: // additive
             r = std::min(255u, dr + r * a / 255);
@@ -344,12 +367,16 @@ void NativeThrash::rasterize(const Vertex &a, const Vertex &b, const Vertex &c) 
     const float inv = 1.0f / area;
     // Barycentric weights l0 (a's), l1 (b's), l2 = 1 - l0 - l1, and how
     // they change a pixel across and down.
-    const float l0dx = (b.y - c.y) * inv, l0dy = (c.x - b.x) * inv;
-    const float l1dx = (c.y - a.y) * inv, l1dy = (a.x - c.x) * inv;
+    const float l0dx = (b.y - c.y) * inv;
+    const float l0dy = (c.x - b.x) * inv;
+    const float l1dx = (c.y - a.y) * inv;
+    const float l1dy = (a.x - c.x) * inv;
     // Values interpolated across the triangle (linear on screen): 1/w, u/w,
     // v/w, then the colour's channels.
     enum { W, U, V, R, G, B, A, kValues };
-    float at0[kValues], at1[kValues], at2[kValues];
+    float at0[kValues];
+    float at1[kValues];
+    float at2[kValues];
     auto load = [](float *to, const Vertex &v) {
         to[W] = v.rhw;
         to[U] = v.u * v.rhw;
@@ -365,28 +392,37 @@ void NativeThrash::rasterize(const Vertex &a, const Vertex &b, const Vertex &c) 
     if (!gouraud_) // flat: the first vertex's colour throughout
         for (int i = R; i < kValues; ++i)
             at1[i] = at2[i] = at0[i];
-    float dx[kValues], dy[kValues], base[kValues];
-    const float px0 = float(x0) + 0.5f, py0 = float(y0) + 0.5f;
+    float dx[kValues];
+    float dy[kValues];
+    float base[kValues];
+    const float px0 = float(x0) + 0.5f;
+    const float py0 = float(y0) + 0.5f;
     const float l0 = ((b.x - px0) * (c.y - py0) - (c.x - px0) * (b.y - py0)) * inv;
     const float l1 = ((c.x - px0) * (a.y - py0) - (a.x - px0) * (c.y - py0)) * inv;
     for (int i = 0; i < kValues; ++i) {
-        const float d0 = at0[i] - at2[i], d1 = at1[i] - at2[i];
+        const float d0 = at0[i] - at2[i];
+        const float d1 = at1[i] - at2[i];
         dx[i] = l0dx * d0 + l1dx * d1;
         dy[i] = l0dy * d0 + l1dy * d1;
         base[i] = at2[i] + l0 * d0 + l1 * d1;
     }
     const Texture *tex = texture_;
-    const int tw = tex ? tex->width : 1, th = tex ? tex->height : 1;
-    const float ftw = float(tw), fth = float(th);
+    const int tw = tex ? tex->width : 1;
+    const int th = tex ? tex->height : 1;
+    const float ftw = float(tw);
+    const float fth = float(th);
     const bool bilinear = bilinear_;
     const float l2dx = -l0dx - l1dx;
     uint8_t *const memory = cpu_.memory().data();
     for (int y = y0; y < y1; ++y) {
         const float rowOff = float(y - y0);
-        const float r0 = l0 + l0dy * rowOff, r1 = l1 + l1dy * rowOff, r2 = 1.0f - r0 - r1;
+        const float r0 = l0 + l0dy * rowOff;
+        const float r1 = l1 + l1dy * rowOff;
+        const float r2 = 1.0f - r0 - r1;
         // The span where all three weights are at least 0: each weight is
         // linear along the row.
-        float kmin = 0, kmax = float(x1 - x0 - 1);
+        float kmin = 0;
+        float kmax = float(x1 - x0 - 1);
         bool empty = false;
         auto bound = [&](float v, float slope) {
             if (slope > 0)
@@ -401,18 +437,23 @@ void NativeThrash::rasterize(const Vertex &a, const Vertex &b, const Vertex &c) 
         bound(r2, l2dx);
         if (empty || kmin > kmax)
             continue;
-        const int xs = x0 + int(kmin), xe = x0 + int(kmax);
+        const int xs = x0 + int(kmin);
+        const int xe = x0 + int(kmax);
         float v[kValues];
         const float colOff = float(xs - x0);
         for (int i = 0; i < kValues; ++i)
             v[i] = base[i] + dy[i] * rowOff + dx[i] * colOff;
         uint8_t *p = memory + target_ + size_t(y) * size_t(pitch_) + size_t(xs) * 2;
         for (int x = xs; x <= xe; ++x, p += 2) {
-            float r = v[R], g = v[G], bl = v[B], al = v[A];
+            float r = v[R];
+            float g = v[G];
+            float bl = v[B];
+            float al = v[A];
             bool draw = true;
             if (tex) {
                 const float w = 1.0f / v[W];
-                const float fu = v[U] * w * ftw, fv = v[V] * w * fth;
+                const float fu = v[U] * w * ftw;
+                const float fv = v[V] * w * fth;
                 const uint32_t t = bilinear ? sampleBilinear(*tex, fu, fv, wrap_) : samplePoint(*tex, fu, fv, wrap_);
                 const uint32_t ta = t >> 24;
                 if (ta == 0)
@@ -516,7 +557,10 @@ void NativeThrash::triangle(uint32_t a, uint32_t b, uint32_t c) {
 }
 
 void NativeThrash::quad(uint32_t a, uint32_t b, uint32_t c, uint32_t d) {
-    const Vertex va = vertex(a), vb = vertex(b), vc = vertex(c), vd = vertex(d);
+    const Vertex va = vertex(a);
+    const Vertex vb = vertex(b);
+    const Vertex vc = vertex(c);
+    const Vertex vd = vertex(d);
     if (recording_) {
         record(va, vb, vc);
         record(va, vc, vd);
@@ -528,13 +572,17 @@ void NativeThrash::quad(uint32_t a, uint32_t b, uint32_t c, uint32_t d) {
 }
 
 void NativeThrash::line(uint32_t a, uint32_t b) {
-    const Vertex va = vertex(a), vb = vertex(b);
+    const Vertex va = vertex(a);
+    const Vertex vb = vertex(b);
     if (recording_) {
         // A quad a pixel wide, across the line, in its first vertex's colour.
-        const float dx = vb.x - va.x, dy = vb.y - va.y, length = std::sqrt(dx * dx + dy * dy);
+        const float dx = vb.x - va.x;
+        const float dy = vb.y - va.y;
+        const float length = std::sqrt(dx * dx + dy * dy);
         if (length <= 0)
             return;
-        const float nx = -dy / length * 0.5f, ny = dx / length * 0.5f;
+        const float nx = -dy / length * 0.5f;
+        const float ny = dx / length * 0.5f;
         const Texture *texture = texture_;
         texture_ = nullptr;
         auto at = [&](const Vertex &v, float s) {
@@ -555,13 +603,15 @@ void NativeThrash::line(uint32_t a, uint32_t b) {
     }
     if (!target_)
         return;
-    const float dx = vb.x - va.x, dy = vb.y - va.y;
+    const float dx = vb.x - va.x;
+    const float dy = vb.y - va.y;
     const int steps = int(std::max(std::fabs(dx), std::fabs(dy))) + 1;
     if (steps > 4096)
         return;
     for (int i = 0; i <= steps; ++i) {
         const float t = float(i) / float(steps);
-        const int x = int(va.x + dx * t), y = int(va.y + dy * t);
+        const int x = int(va.x + dx * t);
+        const int y = int(va.y + dy * t);
         if (x >= std::max(clipX0_, 0) && x < std::min(clipX1_, width_) && y >= std::max(clipY0_, 0) &&
             y < std::min(clipY1_, height_))
             plot(x, y, va.diffuse | 0xff000000u);
@@ -571,14 +621,16 @@ void NativeThrash::line(uint32_t a, uint32_t b) {
 void NativeThrash::point(uint32_t a) {
     const Vertex v = vertex(a);
     if (recording_) {
-        const int x = int(v.x), y = int(v.y);
+        const int x = int(v.x);
+        const int y = int(v.y);
         fill(x, y, x + 1, y + 1, v.diffuse);
         if (!alsoRasterize_)
             return;
     }
     if (!target_)
         return;
-    const int x = int(v.x), y = int(v.y);
+    const int x = int(v.x);
+    const int y = int(v.y);
     if (x >= std::max(clipX0_, 0) && x < std::min(clipX1_, width_) && y >= std::max(clipY0_, 0) &&
         y < std::min(clipY1_, height_))
         plot(x, y, v.diffuse | 0xff000000u);

@@ -246,7 +246,8 @@ public:
         SocketHandle s;
         if (!find(n, s))
             return Invalid;
-        int level = SOL_SOCKET, name = 0;
+        int level = SOL_SOCKET;
+        int name = 0;
         switch (option) {
         case Broadcast:
             name = SO_BROADCAST;
@@ -312,7 +313,9 @@ public:
             r.failed = true;
             return r;
         }
-        fd_set read, write, failed;
+        fd_set read;
+        fd_set write;
+        fd_set failed;
         FD_ZERO(&read);
         FD_ZERO(&write);
         FD_ZERO(&failed);

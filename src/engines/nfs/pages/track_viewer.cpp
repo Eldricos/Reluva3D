@@ -69,7 +69,8 @@ void setColour(gfx::Vertex &v, const Horizon::Rgb &c) {
 // quaternion x, y, z, w in 2.14 fixed point) and position (16.16) in the
 // track's left-handed space, then z mirrored into the world's.
 gfx::Mat4 keyMatrix(const Track::ExtraObject::Key &a, const Track::ExtraObject::Key &b, float t) {
-    float q[4], p[3];
+    float q[4];
+    float p[3];
     for (int i = 0; i < 4; ++i)
         q[i] = (a.rotation[i] + (b.rotation[i] - a.rotation[i]) * t) / 16384.0f;
     for (int i = 0; i < 3; ++i)
@@ -78,7 +79,10 @@ gfx::Mat4 keyMatrix(const Track::ExtraObject::Key &a, const Track::ExtraObject::
     if (len > 0)
         for (float &c : q)
             c /= len;
-    const float x = q[0], y = q[1], z = q[2], w = q[3];
+    const float x = q[0];
+    const float y = q[1];
+    const float z = q[2];
+    const float w = q[3];
     gfx::Mat4 m = gfx::identity(); // column-major
     m[0] = 1 - 2 * (y * y + z * z);
     m[1] = 2 * (x * y + z * w);
@@ -406,7 +410,8 @@ void TrackPage::loadSky() {
             sunUp_[size_t(k)] = up[size_t(k)] * half;
         }
         for (int corner = 0; corner < 4; ++corner) {
-            const float x = corner == 1 || corner == 2 ? 1.0f : -1.0f, y = corner >= 2 ? 1.0f : -1.0f;
+            const float x = corner == 1 || corner == 2 ? 1.0f : -1.0f;
+            const float y = corner >= 2 ? 1.0f : -1.0f;
             gfx::Vertex v{};
             for (int k = 0; k < 3; ++k)
                 v.pos[k] = centre[k] + (right[k] * x + up[k] * y) * half;
@@ -452,7 +457,8 @@ void TrackPage::loadSky() {
             }
         for (int row = 0; row + 1 < kCloudPoints; ++row)
             for (int col = 0; col + 1 < kCloudPoints; ++col) {
-                const uint32_t p = first + uint32_t(row * kCloudPoints + col), q = p + kCloudPoints;
+                const uint32_t p = first + uint32_t(row * kCloudPoints + col);
+                const uint32_t q = p + kCloudPoints;
                 for (uint32_t k : {p, q, q + 1, p, q + 1, p + 1})
                     indices.push_back(k);
             }
@@ -529,10 +535,13 @@ void TrackPage::updateSky(const gfx::Vec3 &forward, const gfx::Vec3 &right) {
         const float x = sunCentre_[0] * right[0] + sunCentre_[1] * right[1] + sunCentre_[2] * right[2];
         const float z = sunCentre_[0] * forward[0] + sunCentre_[1] * forward[1] + sunCentre_[2] * forward[2];
         const float turn = z > 0 ? x / z * kTau : 0;
-        const float c = std::cos(turn), sn = std::sin(turn);
+        const float c = std::cos(turn);
+        const float sn = std::sin(turn);
         for (int corner = 0; corner < 4; ++corner) {
-            const float cx = corner == 1 || corner == 2 ? 1.0f : -1.0f, cy = corner >= 2 ? 1.0f : -1.0f;
-            const float rx = cx * c - cy * sn, ry = cx * sn + cy * c;
+            const float cx = corner == 1 || corner == 2 ? 1.0f : -1.0f;
+            const float cy = corner >= 2 ? 1.0f : -1.0f;
+            const float rx = cx * c - cy * sn;
+            const float ry = cx * sn + cy * c;
             gfx::Vertex &v = skyVertices_[sunVertex_ + uint32_t(corner)];
             for (int k = 0; k < 3; ++k)
                 v.pos[k] = sunCentre_[size_t(k)] + sunRight_[size_t(k)] * rx + sunUp_[size_t(k)] * ry;
@@ -551,10 +560,12 @@ void TrackPage::updateSky(const gfx::Vec3 &forward, const gfx::Vec3 &right) {
                 return std::clamp(static_cast<int>(std::floor((at - kCloudFirst) / kCloudStep + 0.5f)), 0,
                                   kCloudPoints - 1);
             };
-            const int cx = cell(bolt.points[0].at[0]), cz = cell(bolt.points[0].at[2]);
+            const int cx = cell(bolt.points[0].at[0]);
+            const int cz = cell(bolt.points[0].at[2]);
             for (int dx = -1; dx <= 1; ++dx)
                 for (int dz = -1; dz <= 1; ++dz) {
-                    const int x = cx + dx, z = cz + dz;
+                    const int x = cx + dx;
+                    const int z = cz + dz;
                     if (x < 0 || x >= kCloudPoints || z < 0 || z >= kCloudPoints)
                         continue;
                     const int value = static_cast<int>(static_cast<float>(flash) * (1 - 0.5f * std::abs(dx)));
@@ -600,7 +611,8 @@ void TrackPage::updateSky(const gfx::Vec3 &forward, const gfx::Vec3 &right) {
                 // line moved by a pixel right and down), across the line as
                 // seen.
                 const auto &a = bolt.points[size_t(p.parent)].at;
-                const gfx::Vec3 from{a[0], a[1], -a[2]}, to{p.at[0], p.at[1], -p.at[2]};
+                const gfx::Vec3 from{a[0], a[1], -a[2]};
+                const gfx::Vec3 to{p.at[0], p.at[1], -p.at[2]};
                 const gfx::Vec3 along{to[0] - from[0], to[1] - from[1], to[2] - from[2]};
                 const gfx::Vec3 mid{(to[0] + from[0]) / 2, (to[1] + from[1]) / 2, (to[2] + from[2]) / 2};
                 gfx::Vec3 side{along[1] * mid[2] - along[2] * mid[1], along[2] * mid[0] - along[0] * mid[2],
@@ -643,7 +655,8 @@ void TrackPage::updateHorizon(const gfx::Vec3 &forward) {
     const Horizon &h = horizon_;
     const std::array<float, 3> ahead{forward[0], forward[1], -forward[2]};
     const float base = static_cast<float>(h.shadedBase) - eye_[1];
-    const float mid = static_cast<float>(h.shadedMidpoint), top = static_cast<float>(h.shadedHeight);
+    const float mid = static_cast<float>(h.shadedMidpoint);
+    const float top = static_cast<float>(h.shadedHeight);
     const std::array<Horizon::Rgb, 16> edge = skyBaseColours(h);
     const Horizon::Rgb white{255, 255, 255};
     std::vector<gfx::Vertex> quads(3 * 8 * 4);
@@ -672,7 +685,8 @@ void TrackPage::updateHorizon(const gfx::Vec3 &forward) {
     for (size_t i = 0; i < 8; ++i)
         put(8 + i, {earth.bottom[i], earth.top[i], earth.top[i + 1], earth.bottom[i + 1]},
             {&h.earthBase, &h.earthTop, &h.earthTop, &h.earthBase}, kNoUv);
-    const float bottom = static_cast<float>(h.pixmapBottom), height = static_cast<float>(h.pixmapTop - h.pixmapBottom);
+    const float bottom = static_cast<float>(h.pixmapBottom);
+    const float height = static_cast<float>(h.pixmapTop - h.pixmapBottom);
     const SkyRow picture = skyRow(h, ahead, base + bottom, height);
     for (size_t i = 0; i < 8; ++i) {
         const int slot = (picture.firstSlot + static_cast<int>(i)) % 16;
@@ -680,10 +694,12 @@ void TrackPage::updateHorizon(const gfx::Vec3 &forward) {
         const float tile = static_cast<float>(horizonTile(h, slot, &flipped));
         // The tile's top corners; the top left pushed out by a hundredth of
         // the tile's width (0x479b90).
-        std::array<float, 3> left = picture.top[i], right = picture.top[i + 1];
+        std::array<float, 3> left = picture.top[i];
+        std::array<float, 3> right = picture.top[i + 1];
         for (size_t k = 0; k < 3; ++k)
             left[k] += (left[k] - right[k]) * 0.01f;
-        const float u0 = (tile + (flipped ? 1 : 0)) / 8, u1 = (tile + (flipped ? 0 : 1)) / 8;
+        const float u0 = (tile + (flipped ? 1 : 0)) / 8;
+        const float u1 = (tile + (flipped ? 0 : 1)) / 8;
         put(16 + i, {picture.bottom[i], left, right, picture.bottom[i + 1]}, {&white, &white, &white, &white},
             {u0, 1, u0, 0, u1, 0, u1, 1});
     }
@@ -697,7 +713,9 @@ int TrackPage::roadSliceAt() const {
     float bestDistance = 1e30f;
     for (size_t i = 0; i < collision_.road.size(); ++i) {
         const auto &p = collision_.road[i].position;
-        const float dx = p[0] - eye_[0], dy = p[1] - eye_[1], dz = -p[2] - eye_[2];
+        const float dx = p[0] - eye_[0];
+        const float dy = p[1] - eye_[1];
+        const float dz = -p[2] - eye_[2];
         const float d = dx * dx + dy * dy + dz * dz;
         if (d < bestDistance) {
             bestDistance = d;
@@ -864,7 +882,8 @@ void TrackPage::load(int index) {
         const auto &a = road[i];
         const auto &b = road[i + 1];
         for (int side = 0; side < 4; ++side) {
-            const bool right = side % 2 != 0, edge = side >= 2;
+            const bool right = side % 2 != 0;
+            const bool edge = side >= 2;
             const float sa = edge ? (right ? a.rightEdge() : -a.leftEdge()) : (right ? a.rightWall : -a.leftWall);
             const float sb = edge ? (right ? b.rightEdge() : -b.leftEdge()) : (right ? b.rightWall : -b.leftWall);
             const float height = edge ? 0.4f : 1.5f;
@@ -907,7 +926,8 @@ void TrackPage::load(int index) {
                     seeThrough};
             // The box round the polygons' first corners (each polygon's
             // six indices start with its corner 0), for the cut-off.
-            std::array<float, 3> low{1e30f, 1e30f, 1e30f}, high{-1e30f, -1e30f, -1e30f};
+            std::array<float, 3> low{1e30f, 1e30f, 1e30f};
+            std::array<float, 3> high{-1e30f, -1e30f, -1e30f};
             for (size_t i = 0; i < g.indices.size(); i += 6)
                 for (int k = 0; k < 3; ++k) {
                     low[size_t(k)] = std::min(low[size_t(k)], vertices[g.indices[i]].pos[k]);
@@ -949,7 +969,11 @@ void TrackPage::load(int index) {
     // view of the game's (track coordinates; yaw atan2(x, z) of its forward,
     // pitch, in radians), for comparing with nfs host's frames.
     if (const char *camera = std::getenv("RELUVA_NFS_TRACK_CAMERA")) {
-        float x = 0, y = 0, z = 0, yaw = 0, pitch = 0;
+        float x = 0;
+        float y = 0;
+        float z = 0;
+        float yaw = 0;
+        float pitch = 0;
         if (std::sscanf(camera, "%f %f %f %f %f", &x, &y, &z, &yaw, &pitch) == 5) {
             eye_ = {x, y, -z};
             yaw_ = yaw;
@@ -1018,7 +1042,8 @@ std::vector<std::pair<int, int>> TrackPage::blocksInView(int here) const {
     const bool night = variant_ == 1 || variant_ == 3;
     auto add = [&](int block) {
         const Track::Vec3 &c = track_.blocks[size_t(block)].centre;
-        const float dx = c[0] - eye_[0], dz = -c[2] - eye_[2];
+        const float dx = c[0] - eye_[0];
+        const float dz = -c[2] - eye_[2];
         const int detail = blockDetailAt(std::sqrt(dx * dx + dz * dz), night);
         if (allBlocks_ || detail >= 0)
             out.push_back({block, std::max(detail, 0)});
@@ -1042,7 +1067,9 @@ int TrackPage::nearestBlock() const {
     float bestDistance = 1e30f;
     for (size_t i = 0; i < track_.blocks.size(); ++i) {
         const Track::Vec3 &c = track_.blocks[i].centre;
-        const float dx = c[0] - eye_[0], dy = c[1] - eye_[1], dz = -c[2] - eye_[2];
+        const float dx = c[0] - eye_[0];
+        const float dy = c[1] - eye_[1];
+        const float dz = -c[2] - eye_[2];
         const float d = dx * dx + dy * dy + dz * dz;
         if (d < bestDistance) {
             bestDistance = d;
@@ -1227,7 +1254,8 @@ void TrackPage::prepareHeadlights(int here, const gfx::Vec3 &eye, const gfx::Vec
             return true;
         };
         for (const Car &car : cars) {
-            const float dx = car.at[0] - b.centre[0], dz = car.at[2] - b.centre[2];
+            const float dx = car.at[0] - b.centre[0];
+            const float dz = car.at[2] - b.centre[2];
             if (dx * dx + dz * dz > 150.0f * 150.0f) // 0x41c6fe
                 continue;
             if (car.siren) // 0x41c7b6: the roof light first, at full strength
@@ -1260,7 +1288,8 @@ void TrackPage::prepareHeadlights(int here, const gfx::Vec3 &eye, const gfx::Vec
                     v.uv[0] = tex.corners[size_t(2 * k)];
                     v.uv[1] = tex.corners[size_t(2 * k + 1)];
                     if (raised[vertex]) {
-                        const uint32_t baked = b.colours[vertex], lit = raisedTo[vertex];
+                        const uint32_t baked = b.colours[vertex];
+                        const uint32_t lit = raisedTo[vertex];
                         for (int i = 0; i < 3; ++i) {
                             const int shift = 16 - 8 * i;
                             const float own =
@@ -1319,7 +1348,8 @@ void TrackPage::prepareHeadlights(int here, const gfx::Vec3 &eye, const gfx::Vec
             }
         };
         for (const Car &car : cars) {
-            const float dx = car.at[0] - centre[0], dz = car.at[2] - centre[2];
+            const float dx = car.at[0] - centre[0];
+            const float dz = car.at[2] - centre[2];
             if (dx * dx + dz * dz > 150.0f * 150.0f)
                 continue;
             if (car.siren)
@@ -1333,7 +1363,8 @@ void TrackPage::prepareHeadlights(int here, const gfx::Vec3 &eye, const gfx::Vec
         if (!anyRaised)
             return;
         for (const Track::Polygon &p : o.polygons) {
-            bool any = false, whole = true;
+            bool any = false;
+            bool whole = true;
             for (uint16_t vertex : p.vertices) {
                 whole = whole && vertex < o.vertices.size();
                 any = any || (vertex < raised.size() && raised[vertex]);
@@ -1359,7 +1390,8 @@ void TrackPage::prepareHeadlights(int here, const gfx::Vec3 &eye, const gfx::Vec
                 v.uv[0] = tex.corners[size_t(2 * k)];
                 v.uv[1] = tex.corners[size_t(2 * k + 1)];
                 if (raised[vertex]) {
-                    const uint32_t baked = o.colours[vertex], lit = raisedTo[vertex];
+                    const uint32_t baked = o.colours[vertex];
+                    const uint32_t lit = raisedTo[vertex];
                     for (int i = 0; i < 3; ++i) {
                         const int shift = 16 - 8 * i;
                         const float own = static_cast<float>((baked >> shift) & 0xff) * (vertexLight_ ? ambient[i] : 1);
@@ -1558,7 +1590,8 @@ int TrackPage::carModelForSerial(int serial) {
             return static_cast<int>(m);
     for (const FileRef &f : files_.files()) {
         const std::string name = lower(f.name);
-        const std::string head = "gamedata/carmodel/", tail = "/car.viv/carp.txt";
+        const std::string head = "gamedata/carmodel/";
+        const std::string tail = "/car.viv/carp.txt";
         if (name.rfind(head, 0) != 0 || name.size() <= head.size() + tail.size() ||
             name.compare(name.size() - tail.size(), tail.size(), tail) != 0)
             continue;
@@ -1644,7 +1677,8 @@ void TrackPage::loadOfficer() {
                       : track == 8               ? 4
                                                  : 1;
     const std::string stem = "gamedata/render/pc/cop" + std::to_string(which);
-    std::vector<uint8_t> fce, art;
+    std::vector<uint8_t> fce;
+    std::vector<uint8_t> art;
     for (const FileRef &f : files_.files()) {
         const std::string name = lower(f.name);
         if (name == stem + ".fce")
@@ -1784,8 +1818,8 @@ void TrackPage::drawOfficers(const gfx::DrawCall &base) {
     if (officerEnvMesh_ && envPicture_ && textured_) {
         const std::array<float, 3> camera{eye_[0], eye_[1], -eye_[2]};
         const auto frame = reflectionFrame({camera[0] - o.at[0], camera[1] - o.at[1], camera[2] - o.at[2]});
-        const uint32_t normal = dimLight(0x4f4f4f4fu, effectsIntensity()),
-                       strong = dimLight(0x7f7f7f7fu, effectsIntensity());
+        const uint32_t normal = dimLight(0x4f4f4f4fu, effectsIntensity());
+        const uint32_t strong = dimLight(0x7f7f7f7fu, effectsIntensity());
         std::vector<gfx::Vertex> env(officerEnvFrom_.size());
         for (size_t i = 0; i < env.size(); ++i) {
             env[i] = officerVertices_[officerEnvFrom_[i]];
@@ -1873,7 +1907,8 @@ void TrackPage::placeCars() {
     const auto &rp = road[size_t(here)];
     const float look = std::sin(yaw_) * rp.forward[0] + std::cos(yaw_) * rp.forward[2];
     const int way = look >= 0 ? 1 : -1;
-    const bool night = variant_ == 1 || variant_ == 3, weather = variant_ >= 2;
+    const bool night = variant_ == 1 || variant_ == 3;
+    const bool weather = variant_ >= 2;
     const int track = std::atoi(tracks_[index_].substr(3).c_str());
     aiTime_ = 0;
     auto put = [&](float distance, int heading, int nth, int model, bool siren, const AiDriver &driver) {
@@ -2179,14 +2214,20 @@ void TrackPage::carRows(ComputerCar &car) const {
     // The roll and pitch a hit left it (aiCollide, brought back by aiTilt):
     // the pitch about its right, then the roll about its forward.
     if (car.ai.roll != 0 || car.ai.pitch != 0) {
-        const float p = car.ai.pitch * 2 * kPi, r = car.ai.roll * 2 * kPi;
-        const float cp = std::cos(p), sp = std::sin(p), cr = std::cos(r), sr = std::sin(r);
-        std::array<float, 3> f{}, u{};
+        const float p = car.ai.pitch * 2 * kPi;
+        const float r = car.ai.roll * 2 * kPi;
+        const float cp = std::cos(p);
+        const float sp = std::sin(p);
+        const float cr = std::cos(r);
+        const float sr = std::sin(r);
+        std::array<float, 3> f{};
+        std::array<float, 3> u{};
         for (size_t k = 0; k < 3; ++k) {
             f[k] = car.forward[k] * cp + car.up[k] * sp;
             u[k] = car.up[k] * cp - car.forward[k] * sp;
         }
-        std::array<float, 3> rr{}, uu{};
+        std::array<float, 3> rr{};
+        std::array<float, 3> uu{};
         for (size_t k = 0; k < 3; ++k) {
             uu[k] = u[k] * cr + car.right[k] * sr;
             rr[k] = car.right[k] * cr - u[k] * sr;
@@ -2224,7 +2265,8 @@ void TrackPage::dispatchCop() {
                 d += n;
             return d;
         };
-        int racer = -1, best = n;
+        int racer = -1;
+        int best = n;
         for (size_t i = 0; i < cars_.size(); ++i)
             if (cars_[i].ai.racer && std::abs(sliceDiff(cars_[i].ai.slice, c.ai.slice)) < best) {
                 best = std::abs(sliceDiff(cars_[i].ai.slice, c.ai.slice));
@@ -2312,7 +2354,8 @@ void TrackPage::moveCars(float dt) {
         AiRace race;
         race.human = human >= 0;
         race.track = track;
-        std::vector<int> distance(cars_.size(), 0), racerDistances;
+        std::vector<int> distance(cars_.size(), 0);
+        std::vector<int> racerDistances;
         for (size_t i = 0; i < cars_.size(); ++i)
             if (ai[i].racer && human >= 0) {
                 distance[i] = sliceDiff(ai[i].slice, human) * ai[i].way;
@@ -2428,10 +2471,12 @@ bool TrackPage::roadPolygonAt(const std::array<float, 3> &at, int &block, size_t
         const Track::Block &b = track_.blocks[size_t(bi)];
         for (size_t pi = 0; pi < b.polygons[4].size(); ++pi) {
             const Track::Polygon &p = b.polygons[4][pi];
-            bool inside = true, any = false;
+            bool inside = true;
+            bool any = false;
             float sign = 0;
             for (int k = 0; k < 4 && inside; ++k) {
-                const uint16_t v0 = p.vertices[size_t(k)], v1 = p.vertices[size_t((k + 1) % 4)];
+                const uint16_t v0 = p.vertices[size_t(k)];
+                const uint16_t v1 = p.vertices[size_t((k + 1) % 4)];
                 if (v0 >= b.vertices.size() || v1 >= b.vertices.size()) {
                     inside = false;
                     break;
@@ -2464,11 +2509,12 @@ float TrackPage::roadHeightAt(int block, size_t index, float x, float z) const {
     const auto &v2 = b.vertices[p.vertices[2]];
     const auto &v3 = b.vertices[p.vertices[3]];
     // The plane through the corners' middle, across the diagonals.
-    const std::array<float, 3> a{v2[0] - v0[0], v2[1] - v0[1], v2[2] - v0[2]},
-        c{v3[0] - v1[0], v3[1] - v1[1], v3[2] - v1[2]};
+    const std::array<float, 3> a{v2[0] - v0[0], v2[1] - v0[1], v2[2] - v0[2]};
+    const std::array<float, 3> c{v3[0] - v1[0], v3[1] - v1[1], v3[2] - v1[2]};
     const std::array<float, 3> nrm{a[1] * c[2] - a[2] * c[1], a[2] * c[0] - a[0] * c[2], a[0] * c[1] - a[1] * c[0]};
-    const float mx = (v0[0] + v1[0] + v2[0] + v3[0]) / 4, my = (v0[1] + v1[1] + v2[1] + v3[1]) / 4,
-                mz = (v0[2] + v1[2] + v2[2] + v3[2]) / 4;
+    const float mx = (v0[0] + v1[0] + v2[0] + v3[0]) / 4;
+    const float my = (v0[1] + v1[1] + v2[1] + v3[1]) / 4;
+    const float mz = (v0[2] + v1[2] + v2[2] + v3[2]) / 4;
     if (std::fabs(nrm[1]) < 1e-6f)
         return my;
     return my - (nrm[0] * (x - mx) + nrm[2] * (z - mz)) / nrm[1];
@@ -2536,7 +2582,8 @@ void TrackPage::prepareCars(const gfx::Vec3 &eye, const gfx::Vec3 &forward, cons
     carSort_.clear();
     if (!computerCars_ || cars_.empty())
         return;
-    const bool night = variant_ == 1 || variant_ == 3, weather = variant_ >= 2;
+    const bool night = variant_ == 1 || variant_ == 3;
+    const bool weather = variant_ >= 2;
     const bool effects = sfxLevel_ != 2; // the Special Effects option not Off
     const std::array<float, 3> light = carLightDirection(skyError_.empty() ? horizon_.rotation : 0);
     // The race's lights, in the list's order: the camera's car's, then each car's.
@@ -2562,7 +2609,10 @@ void TrackPage::prepareCars(const gfx::Vec3 &eye, const gfx::Vec3 &forward, cons
         sky = horizon_.skyTop;
     const std::array<float, 3> camera{eye[0], eye[1], -eye[2]};
     const int n = static_cast<int>(collision_.road.size());
-    std::vector<gfx::Vertex> glows, flares, beams, shadows;
+    std::vector<gfx::Vertex> glows;
+    std::vector<gfx::Vertex> flares;
+    std::vector<gfx::Vertex> beams;
+    std::vector<gfx::Vertex> shadows;
     auto vertex = [](const std::array<float, 3> &track, float u, float v, uint32_t colour) {
         gfx::Vertex out{};
         out.pos[0] = track[0];
@@ -2601,7 +2651,8 @@ void TrackPage::prepareCars(const gfx::Vec3 &eye, const gfx::Vec3 &forward, cons
         const float angle = (x / z + 1) * 0.25f * 2 * kPi;
         for (int corner = 0; corner < 4; ++corner) {
             const float a = angle + static_cast<float>(corner) * kPi / 2;
-            const float cx = std::cos(a) * size * scale, cy = std::sin(a) * size * scale;
+            const float cx = std::cos(a) * size * scale;
+            const float cy = std::sin(a) * size * scale;
             gfx::Vertex v{};
             for (int k = 0; k < 3; ++k)
                 v.pos[k] = centre[size_t(k)] + right[size_t(k)] * cx + up[size_t(k)] * cy;
@@ -2637,7 +2688,9 @@ void TrackPage::prepareCars(const gfx::Vec3 &eye, const gfx::Vec3 &forward, cons
             sort.x1 = sort.y1 = -1e9f;
             bool behind = false;
             for (int k = 0; k < 8; ++k) {
-                const float sx = k & 1 ? 1.0f : -1.0f, sy = k & 2 ? 1.0f : -1.0f, sz = k & 4 ? 1.0f : -1.0f;
+                const float sx = k & 1 ? 1.0f : -1.0f;
+                const float sy = k & 2 ? 1.0f : -1.0f;
+                const float sz = k & 4 ? 1.0f : -1.0f;
                 float d[3];
                 for (size_t a = 0; a < 3; ++a) {
                     const float p = c.at[a] + c.right[a] * sx * cm.halfSize[0] + c.up[a] * sy * cm.halfSize[1] +
@@ -2650,8 +2703,8 @@ void TrackPage::prepareCars(const gfx::Vec3 &eye, const gfx::Vec3 &forward, cons
                     behind = true;
                     continue;
                 }
-                const float x = (d[0] * right[0] + d[1] * right[1] + d[2] * right[2]) / z,
-                            y = (d[0] * up[0] + d[1] * up[1] + d[2] * up[2]) / z;
+                const float x = (d[0] * right[0] + d[1] * right[1] + d[2] * right[2]) / z;
+                const float y = (d[0] * up[0] + d[1] * up[1] + d[2] * up[2]) / z;
                 sort.x0 = std::min(sort.x0, x);
                 sort.x1 = std::max(sort.x1, x);
                 sort.y0 = std::min(sort.y0, y);
@@ -2681,7 +2734,9 @@ void TrackPage::prepareCars(const gfx::Vec3 &eye, const gfx::Vec3 &forward, cons
             const bool onRoad = roadPolygonAt(c.at, block, index);
             const bool own = onRoad && polygonRoadFrame(track_.blocks[size_t(block)], index, frame);
             std::array<std::array<float, 3>, 4> corners{};
-            const float w = cm.halfSize[0], h = cm.halfSize[1], l = cm.halfSize[2];
+            const float w = cm.halfSize[0];
+            const float h = cm.halfSize[1];
+            const float l = cm.halfSize[2];
             const std::array<std::array<float, 2>, 4> box{{{-w, l}, {w, l}, {w, -l}, {-w, -l}}};
             for (size_t k = 0; k < 4; ++k) {
                 auto &p = corners[k];
@@ -2728,8 +2783,8 @@ void TrackPage::prepareCars(const gfx::Vec3 &eye, const gfx::Vec3 &forward, cons
             const int slice = n > 0 ? static_cast<int>(std::floor(c.slice)) % n : 0;
             const CarReflection refl = carReflection(c.colour, sky, c.paintValue >= 0 ? c.paintValue : cm.paintValue,
                                                      n > 0 ? coverDepth(collision_, slice, c.at) : 0);
-            const uint32_t normal = dimLight(refl.normal, effectsIntensity()),
-                           strong = dimLight(refl.strong, effectsIntensity());
+            const uint32_t normal = dimLight(refl.normal, effectsIntensity());
+            const uint32_t strong = dimLight(refl.strong, effectsIntensity());
             const auto frame = reflectionFrame({camera[0] - c.at[0], camera[1] - c.at[1], camera[2] - c.at[2]});
             std::vector<gfx::Vertex> env(cm.envFrom.size());
             for (size_t i = 0; i < env.size(); ++i) {
@@ -2788,8 +2843,8 @@ void TrackPage::prepareCars(const gfx::Vec3 &eye, const gfx::Vec3 &forward, cons
                 const float scroll = static_cast<float>(c.beamScroll) / 2048.0f;
                 const size_t segments = beam.shown ? beam.nearRing.size() - 1 : 0;
                 for (size_t i = 0; i < segments; ++i) {
-                    const float u0 = static_cast<float>(i) / static_cast<float>(segments),
-                                u1 = static_cast<float>(i + 1) / static_cast<float>(segments);
+                    const float u0 = static_cast<float>(i) / static_cast<float>(segments);
+                    const float u1 = static_cast<float>(i + 1) / static_cast<float>(segments);
                     beams.push_back(vertex(beam.farRing[i + 1], u1, -scroll, 0));
                     beams.push_back(vertex(beam.farRing[i], u0, -scroll, 0));
                     beams.push_back(vertex(beam.nearRing[i], u0, 1 - scroll, beam.colour));
@@ -2860,7 +2915,9 @@ void TrackPage::prepareCars(const gfx::Vec3 &eye, const gfx::Vec3 &forward, cons
     for (size_t ci = 0; ci < cars_.size() && officerMesh_ && n > 0; ++ci) {
         const ComputerCar &cop = cars_[ci];
         size_t ti = ci;
-        std::array<float, 3> at{}, f{0, 0, 1}, r{1, 0, 0};
+        std::array<float, 3> at{};
+        std::array<float, 3> f{0, 0, 1};
+        std::array<float, 3> r{1, 0, 0};
         if (cop.dumpedOfficer) {
             // A dump's officer: where the game put him (on the road), his
             // rows; draw_officer raises him by his half height.
@@ -2897,7 +2954,9 @@ void TrackPage::prepareCars(const gfx::Vec3 &eye, const gfx::Vec3 &forward, cons
         const ComputerCar &t = cars_[ti];
         const int slice = ((t.ai.slice % n) + n) % n;
         at[1] += officerHalfHeight_;
-        const float dx = at[0] - eye_[0], dy = at[1] - eye_[1], dz = -at[2] - eye_[2];
+        const float dx = at[0] - eye_[0];
+        const float dy = at[1] - eye_[1];
+        const float dz = -at[2] - eye_[2];
         if (dx * dx + dy * dy + dz * dz > 100.0f * 100.0f)
             continue;
         officer_.shown = true;
@@ -2945,7 +3004,8 @@ void TrackPage::prepareCars(const gfx::Vec3 &eye, const gfx::Vec3 &forward, cons
         if (!c.ai.stripOn || n < 2)
             continue;
         const auto &p = collision_.road[size_t(((c.ai.stripSlice % n) + n) % n)];
-        float from = 0, to = 0;
+        float from = 0;
+        float to = 0;
         aiStripSpan(p, c.ai.stripLane, from, to);
         for (const auto &[side, along] :
              {std::pair{from, -0.3f}, std::pair{to, -0.3f}, std::pair{to, 0.3f}, std::pair{from, 0.3f}}) {
@@ -3141,7 +3201,8 @@ void TrackPage::drawMarks(const gfx::Vec3 &eye, const gfx::Vec3 &forward, const 
         const Mark &m = marks_[mi];
         if (!m.light) {
             for (int corner = 0; corner < 4; ++corner) {
-                const float x = corner == 1 || corner == 2 ? 1.0f : -1.0f, y = corner >= 2 ? 1.0f : -1.0f;
+                const float x = corner == 1 || corner == 2 ? 1.0f : -1.0f;
+                const float y = corner >= 2 ? 1.0f : -1.0f;
                 gfx::Vertex &v = vertices[mi * 4 + size_t(corner)];
                 // The diamond: the quad's corners pulled in to its edges' middles.
                 for (int i = 0; i < 3; ++i)
@@ -3166,7 +3227,8 @@ void TrackPage::drawMarks(const gfx::Vec3 &eye, const gfx::Vec3 &forward, const 
             colour = dimLight(colour, effectsIntensity());
             for (int corner = 0; corner < 4; ++corner) {
                 const float a = angle + static_cast<float>(corner) * kPi / 2;
-                const float cx = std::cos(a) * half, cy = std::sin(a) * half;
+                const float cx = std::cos(a) * half;
+                const float cy = std::sin(a) * half;
                 gfx::Vertex &v = vertices[first + size_t(corner)];
                 for (int i = 0; i < 3; ++i)
                     v.pos[i] = m.at[size_t(i)] + right[size_t(i)] * cx + up[size_t(i)] * cy;
@@ -3192,7 +3254,8 @@ void TrackPage::drawMarks(const gfx::Vec3 &eye, const gfx::Vec3 &forward, const 
     call.state.cull = gfx::Cull::None;
     call.state.depthWrite = false;
     // The glows added, over everything drawn but not through it.
-    std::vector<std::pair<uint32_t, uint32_t>> lights, sounds; // ranges of marks
+    std::vector<std::pair<uint32_t, uint32_t>> lights;
+    std::vector<std::pair<uint32_t, uint32_t>> sounds; // ranges of marks
     for (size_t i = 0; i < marks_.size(); ++i) {
         auto &list = marks_[i].light ? lights : sounds;
         if (!list.empty() && list.back().second == i)
@@ -3311,12 +3374,15 @@ void TrackPage::updateSounds(const gfx::Vec3 &eye, const gfx::Vec3 &right) {
     };
     size_t loop = marks_.size();
     float loopDistance = kReach;
-    int loopVolume = 0, loopPan = 0;
+    int loopVolume = 0;
+    int loopPan = 0;
     for (size_t i = 0; i < marks_.size(); ++i) {
         const Mark &m = marks_[i];
         if (m.light || !m.heard)
             continue;
-        const float dx = m.at[0] - eye[0], dy = m.at[1] - eye[1], dz = m.at[2] - eye[2];
+        const float dx = m.at[0] - eye[0];
+        const float dy = m.at[1] - eye[1];
+        const float dz = m.at[2] - eye[2];
         const float d = std::sqrt(dx * dx + dy * dy + dz * dz);
         if (d > kReach)
             continue;
@@ -3408,7 +3474,9 @@ void TrackPage::hitWall(bool fast) {
     const char *what = kind == 3 ? "sparks" : kind == 2 ? "dust" : "none";
     const char *slow = hit.speed > 15 ? "smoke" : "nothing more";
     char text[200];
-    const float dx = hit.contact[0] - eye_[0], dy = hit.contact[1] - eye_[1], dz = -hit.contact[2] - eye_[2];
+    const float dx = hit.contact[0] - eye_[0];
+    const float dy = hit.contact[1] - eye_[1];
+    const float dz = -hit.contact[2] - eye_[2];
     std::snprintf(text, sizeof text, "wall hit: point %d, %s side, %.0f away, code %d (%s), speed %.0f: %s", best,
                   bestRight ? "right" : "left", std::sqrt(dx * dx + dy * dy + dz * dz), hit.code, what, hit.speed,
                   fast ? (kind == 3   ? "a burst of sparks"
@@ -3458,8 +3526,8 @@ void TrackPage::tickCarEffects(uint32_t tick) {
             const ParticleVec d{h.point[0] - eye_[0], h.point[1] - eye_[1], h.point[2] + eye_[2]};
             // Its azimuth from the camera (0x410d30: across its right, along
             // its forward; the track's z is the page's -z).
-            const float across = d[0] * std::cos(yaw_) - d[2] * std::sin(yaw_),
-                        ahead = d[0] * std::sin(yaw_) + d[2] * std::cos(yaw_);
+            const float across = d[0] * std::cos(yaw_) - d[2] * std::sin(yaw_);
+            const float ahead = d[0] * std::sin(yaw_) + d[2] * std::cos(yaw_);
             const uint32_t azimuth =
                 static_cast<uint32_t>(std::lround(std::atan2(across, ahead) / (2 * kPi) * 65536.0)) & 0xffff;
             playEffect(hitSounds_, slot, hitSoundVolume(soundDistance(d)), soundPan(azimuth));
@@ -3503,7 +3571,8 @@ void TrackPage::tickCarEffects(uint32_t tick) {
             int surface = c.wheelSurface[size_t(w)];
             float level = c.skid[size_t(w)];
             if (!dumped) {
-                const float x = (w == 0 || w == 3 ? -0.75f : 0.75f) * half[0], z = (w < 2 ? 0.5f : -0.5f) * half[2];
+                const float x = (w == 0 || w == 3 ? -0.75f : 0.75f) * half[0];
+                const float z = (w < 2 ? 0.5f : -0.5f) * half[2];
                 for (size_t k = 0; k < 3; ++k)
                     at[k] = c.at[k] + v[k] * 0.03125f + c.right[k] * x - c.up[k] * half[1] + c.forward[k] * z;
                 int block = -1;
@@ -3618,7 +3687,8 @@ void TrackPage::prepareParticles(const gfx::Vec3 &eye, const gfx::Vec3 &forward,
             return;
     }
     // In the track's coordinates (z mirrored).
-    const ParticleVec r{right[0], right[1], -right[2]}, u{up[0], up[1], -up[2]};
+    const ParticleVec r{right[0], right[1], -right[2]};
+    const ParticleVec u{up[0], up[1], -up[2]};
     const float focal = kScreen.sx; // pixels
     struct Shown {
         Particle *p;
@@ -3641,8 +3711,8 @@ void TrackPage::prepareParticles(const gfx::Vec3 &eye, const gfx::Vec3 &forward,
         // held particles.
         if (depth < 3.0f && !particlesHeld_) {
             const float d[3] = {p.position[0] - eye[0], p.position[1] - eye[1], -p.position[2] - eye[2]};
-            const float x = d[0] * right[0] + d[1] * right[1] + d[2] * right[2],
-                        y = d[0] * up[0] + d[1] * up[1] + d[2] * up[2];
+            const float x = d[0] * right[0] + d[1] * right[1] + d[2] * right[2];
+            const float y = d[0] * up[0] + d[1] * up[1] + d[2] * up[2];
             if (splats_.hit(p.kind, x, y, depth, false, particleRandom_)) {
                 p.life = 0;
                 continue;
@@ -3681,12 +3751,15 @@ void TrackPage::prepareParticles(const gfx::Vec3 &eye, const gfx::Vec3 &forward,
         if (!projected_) {
             const float depth = shown[q].depth;
             float to = depth;
-            float px0 = 1e9f, px1 = -1e9f, py0 = 1e9f, py1 = -1e9f;
+            float px0 = 1e9f;
+            float px1 = -1e9f;
+            float py0 = 1e9f;
+            float py1 = -1e9f;
             for (const ParticleVec &c : corners) {
                 const float d[3] = {c[0] - eye[0], c[1] - eye[1], -c[2] - eye[2]};
                 const float z = std::max(d[0] * forward[0] + d[1] * forward[1] + d[2] * forward[2], 0.1f);
-                const float x = (d[0] * right[0] + d[1] * right[1] + d[2] * right[2]) / z,
-                            y = (d[0] * up[0] + d[1] * up[1] + d[2] * up[2]) / z;
+                const float x = (d[0] * right[0] + d[1] * right[1] + d[2] * right[2]) / z;
+                const float y = (d[0] * up[0] + d[1] * up[1] + d[2] * up[2]) / z;
                 px0 = std::min(px0, x);
                 px1 = std::max(px1, x);
                 py0 = std::min(py0, y);
@@ -3929,18 +4002,23 @@ void TrackPage::prepareWeather(const gfx::Vec3 &eye, const gfx::Vec3 &forward, c
     // The pictures' corners (0, 0), (1, 0), (1, 1), (0, 1), at the texels'
     // centres as the particles' are (inferred: no weather in a list yet).
     const bool rain = weather_.setup().kind == 1;
-    const float dropW = 8, dropH = rain ? 32.0f : 8.0f; // DRP1 8 x 32, DRP2 8 x 8; SPLn 32 x 32
+    const float dropW = 8;
+    const float dropH = rain ? 32.0f : 8.0f; // DRP1 8 x 32, DRP2 8 x 8; SPLn 32 x 32
     size_t q = 0;
     for (const WeatherPoly &p : polys) {
         if (q >= kQuads)
             break;
-        const float tw = p.splash ? 32.0f : dropW, th = p.splash ? 32.0f : dropH;
-        const float u0 = 0.5f / tw, u1 = 1 - 0.5f / tw, v0 = 0.5f / th, v1 = 1 - 0.5f / th;
+        const float tw = p.splash ? 32.0f : dropW;
+        const float th = p.splash ? 32.0f : dropH;
+        const float u0 = 0.5f / tw;
+        const float u1 = 1 - 0.5f / tw;
+        const float v0 = 0.5f / th;
+        const float v1 = 1 - 0.5f / th;
         const float uv[4][2] = {{u0, v0}, {u1, v0}, {u1, v1}, {u0, v1}};
         for (int k = 0; k < 4; ++k) {
             const int c = k < p.corners ? k : p.corners - 1; // a triangle's last corner twice
-            const float a = (p.at[size_t(c)][0] - kScreen.cx) / kScreen.sx * p.depth,
-                        b = (p.at[size_t(c)][1] - kScreen.cy) / kScreen.sy * p.depth;
+            const float a = (p.at[size_t(c)][0] - kScreen.cx) / kScreen.sx * p.depth;
+            const float b = (p.at[size_t(c)][1] - kScreen.cy) / kScreen.sy * p.depth;
             gfx::Vertex &v = vertices[q * 4 + size_t(k)];
             for (int i = 0; i < 3; ++i)
                 v.pos[i] = eye[i] + forward[i] * p.depth + right[i] * a + up[i] * b;
@@ -4177,7 +4255,8 @@ void TrackPage::handleEvent(const Event &ev) {
             }
             if (renderer_) {
                 const auto eye = eye_;
-                const float yaw = yaw_, pitch = pitch_;
+                const float yaw = yaw_;
+                const float pitch = pitch_;
                 const int block = block_;
                 load(index_);
                 eye_ = eye;
@@ -4237,17 +4316,20 @@ void TrackPage::update(uint64_t nowMs) {
         const ComputerCar &c = cars_[size_t(followCop_)];
         const auto &rf = collision_.road[size_t(c.ai.slice) % collision_.road.size()].forward;
         const float flat = std::max(std::hypot(rf[0], rf[2]), 1e-3f);
-        const float fx = rf[0] * static_cast<float>(c.way) / flat, fz = rf[2] * static_cast<float>(c.way) / flat;
+        const float fx = rf[0] * static_cast<float>(c.way) / flat;
+        const float fz = rf[2] * static_cast<float>(c.way) / flat;
         // Stopping a racer: nearer, between the two, to see the officer.
         std::array<float, 3> at = c.at;
-        float back = 22, up = 11;
+        float back = 22;
+        float up = 11;
         if (c.ai.copState == 6 && c.ai.chasing >= 0 && static_cast<size_t>(c.ai.chasing) < cars_.size()) {
             for (size_t k = 0; k < 3; ++k)
                 at[k] = (at[k] + cars_[size_t(c.ai.chasing)].at[k]) * 0.5f;
             back = 11;
             up = 5;
         }
-        float dirX = fx, dirZ = fz;
+        float dirX = fx;
+        float dirZ = fz;
         // A strip out: past it, looking back at it the way its racer comes.
         if (c.ai.stripOn && c.ai.watching >= 0 && static_cast<size_t>(c.ai.watching) < cars_.size()) {
             const auto quad =
@@ -4315,7 +4397,8 @@ void TrackPage::update(uint64_t nowMs) {
     // detail (or the one chosen), lanes only at high detail (0x41cdc0);
     // objects of layer 3 and the fourth groups only by day without
     // weather. Those straddling the game's reach ahead are cut (cutFar).
-    std::vector<Batch> solid, lanes;
+    std::vector<Batch> solid;
+    std::vector<Batch> lanes;
     std::vector<bool> shown(track_.blocks.size() + 1, false);
     if (mesh_) {
         auto kind = [&](int slot, std::vector<Batch> &into) {
@@ -4329,7 +4412,8 @@ void TrackPage::update(uint64_t nowMs) {
         shown.back() = true;
         for (const auto &[block, blockDetail] : blocksInView(here)) {
             shown[size_t(block)] = true;
-            const int base = block * kKinds, level = detail_ < 3 ? detail_ : blockDetail;
+            const int base = block * kKinds;
+            const int level = detail_ < 3 ? detail_ : blockDetail;
             kind(base + kRoadLow + level, solid);
             if (objects_) {
                 kind(base + kObjects, solid);
@@ -4682,7 +4766,9 @@ void TrackPage::update(uint64_t nowMs) {
         const Mark *nearest = nullptr;
         float nearestDistance = 40 * 40;
         for (const Mark &m : marks_) {
-            const float dx = m.at[0] - eye_[0], dy = m.at[1] - eye_[1], dz = m.at[2] - eye_[2];
+            const float dx = m.at[0] - eye_[0];
+            const float dy = m.at[1] - eye_[1];
+            const float dz = m.at[2] - eye_[2];
             if (dx * dx + dy * dy + dz * dz < nearestDistance) {
                 nearestDistance = dx * dx + dy * dy + dz * dz;
                 nearest = &m;
@@ -4708,7 +4794,8 @@ void TrackPage::update(uint64_t nowMs) {
         if (mirrored_)
             line += "  mirrored";
         if (computerCars_) {
-            int braking = 0, flashing = 0;
+            int braking = 0;
+            int flashing = 0;
             for (const ComputerCar &c : cars_) {
                 braking += c.ai.braking ? 1 : 0;
                 flashing += c.ai.flashing ? 1 : 0;

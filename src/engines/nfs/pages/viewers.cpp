@@ -189,12 +189,16 @@ void TexturePage::draw(Surface &s) {
 
     // The picture, scaled to fit the space left: up to 4x larger for
     // small ones, nearest pixel.
-    const int areaW = s.w - 2 * kMargin, areaH = s.h - y - font::kLineHeight - 12;
-    const int w = std::max(image_.w, 1), h = std::max(image_.h, 1);
+    const int areaW = s.w - 2 * kMargin;
+    const int areaH = s.h - y - font::kLineHeight - 12;
+    const int w = std::max(image_.w, 1);
+    const int h = std::max(image_.h, 1);
     double scale = std::min(static_cast<double>(areaW) / w, static_cast<double>(areaH) / h);
     scale = scale >= 1 ? std::min(std::floor(scale), 4.0) : scale;
-    const int dw = std::max(1, static_cast<int>(w * scale)), dh = std::max(1, static_cast<int>(h * scale));
-    const int x0 = kMargin + (areaW - dw) / 2, y0 = y + (areaH - dh) / 2;
+    const int dw = std::max(1, static_cast<int>(w * scale));
+    const int dh = std::max(1, static_cast<int>(h * scale));
+    const int x0 = kMargin + (areaW - dw) / 2;
+    const int y0 = y + (areaH - dh) / 2;
     for (int dy = 0; dy < dh; ++dy) {
         uint8_t *row = s.row(y0 + dy);
         const int sy = std::min(static_cast<int>(dy / scale), h - 1);
@@ -217,12 +221,16 @@ namespace {
 
 // A convex quad, filled where a pixel's centre is inside all four edges.
 void fillQuad(Surface &s, const Needle &n, const uint8_t color[3]) {
-    const float x0 = std::min({n.x[0], n.x[1], n.x[2], n.x[3]}), x1 = std::max({n.x[0], n.x[1], n.x[2], n.x[3]});
-    const float y0 = std::min({n.y[0], n.y[1], n.y[2], n.y[3]}), y1 = std::max({n.y[0], n.y[1], n.y[2], n.y[3]});
+    const float x0 = std::min({n.x[0], n.x[1], n.x[2], n.x[3]});
+    const float x1 = std::max({n.x[0], n.x[1], n.x[2], n.x[3]});
+    const float y0 = std::min({n.y[0], n.y[1], n.y[2], n.y[3]});
+    const float y1 = std::max({n.y[0], n.y[1], n.y[2], n.y[3]});
     for (int y = std::max(0, int(std::floor(y0))); y <= std::min(s.h - 1, int(std::ceil(y1))); ++y)
         for (int x = std::max(0, int(std::floor(x0))); x <= std::min(s.w - 1, int(std::ceil(x1))); ++x) {
-            const float px = x + 0.5f, py = y + 0.5f;
-            bool positive = false, negative = false;
+            const float px = x + 0.5f;
+            const float py = y + 0.5f;
+            bool positive = false;
+            bool negative = false;
             for (int i = 0; i < 4; ++i) {
                 const int j = (i + 1) % 4;
                 const float c = (n.x[j] - n.x[i]) * (py - n.y[i]) - (n.y[j] - n.y[i]) * (px - n.x[i]);
@@ -241,13 +249,17 @@ void fillQuad(Surface &s, const Needle &n, const uint8_t color[3]) {
 // pivot put at (x, y) and pixels picked nearest, as the game turns the
 // wheel (fsh.md).
 void blitTurned(Surface &s, const image::Image &img, int px, int py, int x, int y, float turns) {
-    const float a = turns * 6.28318531f, c = std::cos(a), sn = std::sin(a);
+    const float a = turns * 6.28318531f;
+    const float c = std::cos(a);
+    const float sn = std::sin(a);
     const float reach = std::hypot(float(std::max(px, img.w - px)), float(std::max(py, img.h - py))) + 1;
     for (int dy = std::max(0, int(y - reach)); dy <= std::min(s.h - 1, int(y + reach)); ++dy)
         for (int dx = std::max(0, int(x - reach)); dx <= std::min(s.w - 1, int(x + reach)); ++dx) {
             // Back from the screen into the picture.
-            const float ox = dx + 0.5f - x, oy = dy + 0.5f - y;
-            const int sx = int(std::floor(px + ox * c + oy * sn)), sy = int(std::floor(py - ox * sn + oy * c));
+            const float ox = dx + 0.5f - x;
+            const float oy = dy + 0.5f - y;
+            const int sx = int(std::floor(px + ox * c + oy * sn));
+            const int sy = int(std::floor(py - ox * sn + oy * c));
             if (sx < 0 || sy < 0 || sx >= img.w || sy >= img.h)
                 continue;
             const uint8_t *src = img.pixel(sx, sy);
@@ -580,7 +592,8 @@ void FontPage::draw(Surface &s) {
 
     // Every character, 32 to a line (fewer if they don't fit), and a
     // sample, drawn at 1x then scaled up into the screen.
-    const int areaW = (s.w - 2 * kMargin) / scale_, areaH = (s.h - y - font::kLineHeight - 8) / scale_;
+    const int areaW = (s.w - 2 * kMargin) / scale_;
+    const int areaH = (s.h - y - font::kLineHeight - 8) / scale_;
     std::vector<std::string> lines;
     for (int perLine = 32; perLine >= 4; perLine /= 2) {
         lines.clear();

@@ -70,16 +70,19 @@ bool setupTriangle(const State &s, int width, int height, const Vertex &a, const
 // values.
 template<class F>
 void forLinePixels(const State &s, int width, int height, const Vertex &a, const Vertex &b, F &&pixel) {
-    Values va, vb;
+    Values va;
+    Values vb;
     load(s, a, va);
     load(s, b, vb);
-    const float dx = b.x - a.x, dy = b.y - a.y;
+    const float dx = b.x - a.x;
+    const float dy = b.y - a.y;
     if (!std::isfinite(dx) || !std::isfinite(dy))
         return;
     const bool xMajor = std::fabs(dx) >= std::fabs(dy);
     const float from = xMajor ? std::min(a.x, b.x) : std::min(a.y, b.y);
     const float to = xMajor ? std::max(a.x, b.x) : std::max(a.y, b.y);
-    const int first = int(std::ceil(from - 0.5f)), last = int(std::ceil(to - 0.5f)) - 1;
+    const int first = int(std::ceil(from - 0.5f));
+    const int last = int(std::ceil(to - 0.5f)) - 1;
     if (last - first > 4096)
         return;
     const float span = xMajor ? dx : dy;
@@ -87,7 +90,8 @@ void forLinePixels(const State &s, int width, int height, const Vertex &a, const
         const float c = float(i) + 0.5f;
         const float t = span != 0 ? (c - (xMajor ? a.x : a.y)) / span : 0.0f;
         const float other = xMajor ? a.y + dy * t : a.x + dx * t;
-        const int x = xMajor ? i : int(std::floor(other)), y = xMajor ? int(std::floor(other)) : i;
+        const int x = xMajor ? i : int(std::floor(other));
+        const int y = xMajor ? int(std::floor(other)) : i;
         if (x < std::max(s.clip[0], 0) || x >= std::min(s.clip[2], width) || y < std::max(s.clip[1], 0) ||
             y >= std::min(s.clip[3], height))
             continue;

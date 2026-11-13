@@ -221,7 +221,9 @@ void PlayPage::start() {
     // (glide::setDesktop; one the Rush couldn't have had is made one it
     // could, and said so).
     const std::string boardName = glideBoard_.substr(0, glideBoard_.find(','));
-    int desktopW = 0, desktopH = 0, desktopBits = 0;
+    int desktopW = 0;
+    int desktopH = 0;
+    int desktopBits = 0;
     if (glide_ && (boardName == "rush" || boardName == "sst96") && glideBoard_.find(",desktop=") == std::string::npos &&
         sys_ && sys_->desktopMode(desktopW, desktopH, desktopBits)) {
         const std::string spec = glideBoard_ + ",desktop=" + std::to_string(desktopW) + "x" + std::to_string(desktopH) +
@@ -248,7 +250,8 @@ void PlayPage::start() {
     // A wheel as one (its pedals together on Y), and its forces if it can
     // give them (force feedback, or a pad's rumble).
     if (offerJoystick_ && sys_) {
-        int accelerator = -1, brake = -1;
+        int accelerator = -1;
+        int brake = -1;
         if (std::sscanf(wheelPedals_.c_str(), "%d,%d", &accelerator, &brake) == 2)
             sys_->setWheelPedals(accelerator, brake);
         if (sys_->readGamepad(pad_)) {
@@ -283,8 +286,10 @@ void PlayPage::start() {
         // A flip copies its rectangle to the screen, leaving the rest: what
         // DirectDraw drew stays outside it until a flip covers everything.
         if (primaryShown_) {
-            const int x0 = std::max(frame.flip[0], 0), y0 = std::max(frame.flip[1], 0);
-            const int x1 = std::min(frame.flip[2], primary_.w), y1 = std::min(frame.flip[3], primary_.h);
+            const int x0 = std::max(frame.flip[0], 0);
+            const int y0 = std::max(frame.flip[1], 0);
+            const int x1 = std::min(frame.flip[2], primary_.w);
+            const int y1 = std::min(frame.flip[3], primary_.h);
             if (x0 <= 0 && y0 <= 0 && x1 >= primary_.w && y1 >= primary_.h)
                 primaryShown_ = false;
             else
@@ -359,7 +364,8 @@ void PlayPage::handleEvent(const Event &ev) {
         // drawing its own pointer. Fractions are kept for the next move.
         mouseLeftX_ += ev.moveX;
         mouseLeftY_ += ev.moveY;
-        const int dx = int(mouseLeftX_), dy = int(mouseLeftY_);
+        const int dx = int(mouseLeftX_);
+        const int dy = int(mouseLeftY_);
         mouseLeftX_ -= float(dx);
         mouseLeftY_ -= float(dy);
         if (dx || dy)
@@ -437,11 +443,15 @@ void PlayPage::reportSpeed(uint64_t nowMs) {
     if (nowMs - statFrom_ < 5000 || !running_)
         return;
     const double seconds = double(nowMs - statFrom_) / 1000.0;
-    const uint64_t instructions = statInstructions_, own = statOwn_, timer = statTimer_;
-    const uint64_t frames = statGameFrames_, run = instructions - statLastInstructions_;
+    const uint64_t instructions = statInstructions_;
+    const uint64_t own = statOwn_;
+    const uint64_t timer = statTimer_;
+    const uint64_t frames = statGameFrames_;
+    const uint64_t run = instructions - statLastInstructions_;
     // Where the instructions went: the game's main thread, its timer
     // thread, and the rest (its other threads).
-    const uint64_t ownRun = own - std::min(own, statLastOwn_), timerRun = timer - std::min(timer, statLastTimer_);
+    const uint64_t ownRun = own - std::min(own, statLastOwn_);
+    const uint64_t timerRun = timer - std::min(timer, statLastTimer_);
     auto share = [run](uint64_t n) { return run ? 100.0 * double(n) / double(run) : 0.0; };
     std::printf("Play: the game made %.1f frames a second at %.1f million instructions a second (%.2f million a "
                 "frame: main thread %.0f%%, timer %.0f%%, others %.0f%%); %s drew %.1f a second (%.1f not needed, "

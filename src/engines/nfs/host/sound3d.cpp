@@ -94,7 +94,8 @@ Ds3dResult spatialize(const Ds3dListener &listener, const Ds3dSource &source) {
     if (listener.dopplerFactor > 0 && d > 1e-9 && source.mode != 1) {
         const V u = unit(of(source.position) - of(listener.position), {0, 0, 1});
         const double scale = double(listener.dopplerFactor) * std::max<double>(listener.distanceFactor, 1e-6);
-        const double vl = dot(of(listener.velocity), u) * scale, vs = dot(of(source.velocity), u) * scale;
+        const double vl = dot(of(listener.velocity), u) * scale;
+        const double vs = dot(of(source.velocity), u) * scale;
         const double below = kSpeedOfSound + vs;
         if (below > 1e-6)
             r.doppler = std::clamp((kSpeedOfSound + vl) / below, 0.5, 2.0);

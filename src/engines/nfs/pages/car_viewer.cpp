@@ -69,7 +69,9 @@ void CarPage::activate(System &sys) {
     // screenshots that can be repeated.
     const char *view = std::getenv("RELUVA_NFS_CARS_VIEW");
     int wanted = index_;
-    float yaw = 0, pitch = 0, distance = 0;
+    float yaw = 0;
+    float pitch = 0;
+    float distance = 0;
     const int got = view ? std::sscanf(view, "%d %f %f %f", &wanted, &yaw, &pitch, &distance) : 0;
     if (got >= 1 && !models_.empty())
         index_ = std::clamp(wanted, 0, static_cast<int>(models_.size()) - 1);
@@ -186,7 +188,8 @@ void CarPage::load(int index) {
     // Each part's triangles are put in order of how they're drawn (page,
     // two-sided, unlit), so that each run is one range of indices.
     std::vector<gfx::Vertex> vertices;
-    std::vector<uint32_t> indices, envIndices;
+    std::vector<uint32_t> indices;
+    std::vector<uint32_t> envIndices;
     for (const Model::Part &part : model_.parts) {
         partLevels_.push_back(partLevel(partLevels_.size(), model_.parts.size()));
         std::vector<uint32_t> order(part.triangleCount);
@@ -198,7 +201,8 @@ void CarPage::load(int index) {
                                    (tri.flags & Model::Triangle::kUnlit) != 0);
         };
         std::stable_sort(order.begin(), order.end(), [&](uint32_t a, uint32_t b) { return drawnAs(a) < drawnAs(b); });
-        std::vector<Run> runs, envRuns;
+        std::vector<Run> runs;
+        std::vector<Run> envRuns;
         for (uint32_t t : order) {
             const Model::Triangle &tri = model_.triangles[t];
             const auto [page, twoSided, unlit] = drawnAs(t);

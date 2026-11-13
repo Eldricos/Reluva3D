@@ -188,9 +188,11 @@ int cmdProLogic(int argc, char **argv) {
     using reluva::audio::ProLogicDecoder;
     reluva::audio::ProLogicOptions passiveOptions = options;
     passiveOptions.active = false;
-    ProLogicDecoder dec(in.rate, options), passive(in.rate, passiveOptions);
+    ProLogicDecoder dec(in.rate, options);
+    ProLogicDecoder passive(in.rate, passiveOptions);
     const size_t frames = in.frames();
-    std::vector<float> out(4 * frames), outPassive(4);
+    std::vector<float> out(4 * frames);
+    std::vector<float> outPassive(4);
     const size_t window = std::max<size_t>(1, size_t(windowMs * in.rate / 1000));
     FILE *csv = csvPath ? std::fopen(csvPath, "w") : nullptr;
     if (csvPath && !csv) {
@@ -202,12 +204,18 @@ int cmdProLogic(int argc, char **argv) {
     auto db = [](double e, size_t n) { return n ? 10 * std::log10(e / double(n) + 1e-12) : -120.0; };
     // Energy over the whole file: L, C, R, S, passive S; mid, side.
     double total[7] = {};
-    size_t rearFrames = 0, steeredFrames = 0, loudRearWindows = 0, windows = 0;
+    size_t rearFrames = 0;
+    size_t steeredFrames = 0;
+    size_t loudRearWindows = 0;
+    size_t windows = 0;
     if (!quiet)
         std::printf("    time   mid  side |     L     C     R     S  S pass | steer   dir rear%%\n");
     for (size_t start = 0; start < frames; start += window) {
         const size_t n = std::min(window, frames - start);
-        double e[7] = {}, steer = 0, dirX = 0, dirY = 0; // the direction: a mean of 2 theta, by steering
+        double e[7] = {};
+        double steer = 0;
+        double dirX = 0;
+        double dirY = 0; // the direction: a mean of 2 theta, by steering
         size_t rear = 0;
         for (size_t i = start; i < start + n; ++i) {
             float *o = &out[4 * i];
@@ -216,7 +224,8 @@ int cmdProLogic(int argc, char **argv) {
             for (int c = 0; c < 4; ++c)
                 e[c] += double(o[c]) * o[c];
             e[4] += double(outPassive[3]) * outPassive[3];
-            const double l = in.samples[2 * i] / 32768.0, r = in.samples[2 * i + 1] / 32768.0;
+            const double l = in.samples[2 * i] / 32768.0;
+            const double r = in.samples[2 * i + 1] / 32768.0;
             e[5] += (l + r) * (l + r) / 2;
             e[6] += (l - r) * (l - r) / 2;
             steer += dec.steering();

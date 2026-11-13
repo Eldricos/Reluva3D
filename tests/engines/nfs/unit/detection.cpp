@@ -102,7 +102,8 @@ void testListings(const stdfs::path &tmp) {
 }
 
 void testGameFiles(const stdfs::path &tmp) {
-    const stdfs::path install = tmp / "files/install", cd = tmp / "files/cd";
+    const stdfs::path install = tmp / "files/install";
+    const stdfs::path cd = tmp / "files/cd";
     touch(install / "FeData/text/text.eng", "eng");
     touch(install / "FeData/art/title.qfs", "install's");
     const Bytes viv = makeViv({{"carp.txt", "Serial"}, {"dash.qfs", "dash"}});

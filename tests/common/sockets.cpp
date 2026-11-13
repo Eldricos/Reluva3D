@@ -81,7 +81,8 @@ void testStream(net::Sockets &s) {
 }
 
 void testDatagrams(net::Sockets &s) {
-    const int a = s.open(net::Sockets::Datagram), b = s.open(net::Sockets::Datagram);
+    const int a = s.open(net::Sockets::Datagram);
+    const int b = s.open(net::Sockets::Datagram);
     CHECK(s.bind(a, {kLoopback, 0}) == Result::Ok && s.bind(b, {kLoopback, 0}) == Result::Ok);
     CHECK(s.setOption(a, net::Sockets::Broadcast, 1) == Result::Ok);
     net::Address atB;
@@ -91,7 +92,8 @@ void testDatagrams(net::Sockets &s) {
     CHECK(s.ready(b, 2000).read);
     uint8_t got[8] = {};
     size_t done = 0;
-    net::Address from, atA;
+    net::Address from;
+    net::Address atA;
     s.localAddress(a, atA);
     CHECK(s.receiveFrom(b, got, sizeof got, done, from, false) == Result::Ok && done == 3 && got[2] == 3 &&
           from == atA);

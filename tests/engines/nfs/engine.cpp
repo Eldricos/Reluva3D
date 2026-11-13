@@ -161,7 +161,8 @@ Bytes movie() {
 // The install, and the CD's files beside it (NFS3-CD, as findFolders looks
 // for one).
 void makeGame(const stdfs::path &root) {
-    const stdfs::path install = root / "Need For Speed III", cd = root / "NFS3-CD";
+    const stdfs::path install = root / "Need For Speed III";
+    const stdfs::path cd = root / "NFS3-CD";
     write(install / "nfs3.exe", Bytes{'M', 'Z', 0, 0});
     write(install / "GameData/Tracks/trk000/tr00.frd", makeTrack());
     write(install / "GameData/CarModel/Diab/car.viv",
@@ -186,7 +187,8 @@ void readFormats(const stdfs::path &install, const stdfs::path &cd, test::Record
         rec.add("formats.frd", "error: " + err.message);
     else {
         Hash h;
-        size_t vertices = 0, polygons = 0;
+        size_t vertices = 0;
+        size_t polygons = 0;
         for (const auto &b : track.blocks) {
             for (const auto &v : b.vertices)
                 h.f32(v[0]).f32(v[1]).f32(v[2]);

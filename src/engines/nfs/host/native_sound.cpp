@@ -50,10 +50,17 @@ struct Resampler {
 // samples, stereo (two floats a frame) or mono.
 uint32_t resample(Cpu &c, const Resampler &r, bool stereo) {
     const int32_t count = int32_t(arg(c, 0));
-    const uint32_t src = arg(c, 1), posAt = arg(c, 3), fracAt = arg(c, 4), stepInt = arg(c, 5), stepFrac = arg(c, 6);
-    uint32_t dst = arg(c, 2), pos = c.read32(posAt), frac = c.read32(fracAt);
+    const uint32_t src = arg(c, 1);
+    const uint32_t posAt = arg(c, 3);
+    const uint32_t fracAt = arg(c, 4);
+    const uint32_t stepInt = arg(c, 5);
+    const uint32_t stepFrac = arg(c, 6);
+    uint32_t dst = arg(c, 2);
+    uint32_t pos = c.read32(posAt);
+    uint32_t frac = c.read32(fracAt);
     const uint32_t high = uint32_t(c.read16(r.scratch + 4)) << 16;
-    const double one = loadFloat(c, r.oneAt), scale = loadFloat(c, r.scaleAt);
+    const double one = loadFloat(c, r.oneAt);
+    const double scale = loadFloat(c, r.scaleAt);
     auto step = [&] {
         const uint64_t sum = uint64_t(frac) + stepFrac;
         frac = uint32_t(sum);
@@ -63,10 +70,13 @@ uint32_t resample(Cpu &c, const Resampler &r, bool stereo) {
         // At least one frame, as the code always makes its first.
         int32_t left = count;
         do {
-            const double t = double(int32_t(high | frac >> 16)) * scale, rest = one - t;
+            const double t = double(int32_t(high | frac >> 16)) * scale;
+            const double rest = one - t;
             const uint32_t at = src + pos * 8;
-            const double a0 = loadFloat(c, at), b0 = loadFloat(c, at + 4), a1 = loadFloat(c, at + 8),
-                         b1 = loadFloat(c, at + 12);
+            const double a0 = loadFloat(c, at);
+            const double b0 = loadFloat(c, at + 4);
+            const double a1 = loadFloat(c, at + 8);
+            const double b1 = loadFloat(c, at + 12);
             storeFloat(c, dst, a1 * t + a0 * rest);
             storeFloat(c, dst + 4, b0 * rest + b1 * t);
             dst += 8;
@@ -74,7 +84,8 @@ uint32_t resample(Cpu &c, const Resampler &r, bool stereo) {
         } while (--left > 0);
     } else {
         for (int32_t i = 0; i < count; ++i) {
-            const double t = double(int32_t(high | frac >> 16)) * scale, rest = one - t;
+            const double t = double(int32_t(high | frac >> 16)) * scale;
+            const double rest = one - t;
             const uint32_t at = src + pos * 4;
             storeFloat(c, dst, t * double(loadFloat(c, at + 4)) + rest * double(loadFloat(c, at)));
             dst += 4;
@@ -99,13 +110,19 @@ struct Added {
     bool rear = false;
 };
 uint32_t mix(Cpu &c, bool stereoSource, Side left, Side right, Added *added = nullptr) {
-    const uint32_t gains = arg(c, 0), src = arg(c, 2), dst = arg(c, 3);
+    const uint32_t gains = arg(c, 0);
+    const uint32_t src = arg(c, 2);
+    const uint32_t dst = arg(c, 3);
     const int32_t count = int32_t(arg(c, 1));
-    const double gainLeft = loadFloat(c, gains), gainRight = loadFloat(c, gains + 4);
-    const uint32_t stride = stereoSource ? 8 : 4, rightOffset = stereoSource ? 4 : 0;
+    const double gainLeft = loadFloat(c, gains);
+    const double gainRight = loadFloat(c, gains + 4);
+    const uint32_t stride = stereoSource ? 8 : 4;
+    const uint32_t rightOffset = stereoSource ? 4 : 0;
     for (int32_t i = 0; i < count; ++i) {
-        const uint32_t from = src + uint32_t(i) * stride, to = dst + uint32_t(i) * 8;
-        double l = 0, r = 0;
+        const uint32_t from = src + uint32_t(i) * stride;
+        const uint32_t to = dst + uint32_t(i) * 8;
+        double l = 0;
+        double r = 0;
         if (left != Side::Off) {
             const double s = loadFloat(c, from);
             l = left == Side::Scaled ? s * gainLeft : s;
@@ -134,7 +151,8 @@ uint32_t mix(Cpu &c, bool stereoSource, Side left, Side right, Added *added = nu
 uint32_t toInt16(Cpu &c, uint32_t magicAt) {
     uint64_t magicBits = c.read32(magicAt) | uint64_t(c.read32(magicAt + 4)) << 32;
     const double magic = std::bit_cast<double>(magicBits);
-    uint32_t p = arg(c, 1), dst = arg(c, 2);
+    uint32_t p = arg(c, 1);
+    uint32_t dst = arg(c, 2);
     const uint32_t end = arg(c, 0) * 8 + p;
     uint32_t low = p; // ECX as the loop leaves it
     while (p < end) {
@@ -161,7 +179,8 @@ uint32_t toInt16(Cpu &c, uint32_t magicAt) {
 
 void GameHost::addNativeSound() {
     // The resamplers (float, linear between samples): stereo and mono.
-    static const Resampler stereo{0x56b138, 0x56b130, 0x56b134, 8}, mono{0x56b148, 0x56b140, 0x56b144, 4};
+    static const Resampler stereo{0x56b138, 0x56b130, 0x56b134, 8};
+    static const Resampler mono{0x56b148, 0x56b140, 0x56b144, 4};
     replaceRoutine(0x527330, 142, 0x3c2833f2244228b1ull, "nfs3.exe resample stereo",
                    [](Cpu &c) { return resample(c, stereo, true); });
     replaceRoutine(0x5273c0, 239, 0x274025e0e91db35full, "nfs3.exe resample mono",
@@ -194,7 +213,8 @@ void GameHost::addNativeSound() {
     };
     for (const Mixer &m : mixers) {
         const bool stereoSource = m.stereoSource;
-        const Side left = m.left, right = m.right;
+        const Side left = m.left;
+        const Side right = m.right;
         replaceRoutine(m.address, m.size, m.hash, m.name, [this, stereoSource, left, right](Cpu &c) {
             if (!voiceLog_)
                 return mix(c, stereoSource, left, right);
@@ -252,15 +272,17 @@ void GameHost::hookMmxMixers() {
         const bool stereoSource = m.stereoSource;
         const uint32_t native = cpu_->addNative(m.name, [this, address, stereoSource](Cpu &c) {
             if (voiceLog_) {
-                const uint32_t levels = arg(c, 0), src = arg(c, 2);
+                const uint32_t levels = arg(c, 0);
+                const uint32_t src = arg(c, 2);
                 const int32_t count = int32_t(arg(c, 1));
-                const int32_t left = int16_t(c.read16(levels)),
-                              right = int16_t(c.read16(levels + (stereoSource ? 2 : 8)));
+                const int32_t left = int16_t(c.read16(levels));
+                const int32_t right = int16_t(c.read16(levels + (stereoSource ? 2 : 8)));
                 Added added;
                 for (int32_t i = 0; i < count; ++i) {
                     const int32_t sl = int16_t(c.read16(src + uint32_t(i) * (stereoSource ? 4 : 2)));
                     const int32_t sr = stereoSource ? int16_t(c.read16(src + uint32_t(i) * 4 + 2)) : sl;
-                    const double l = 2.0 * double((left * sl) >> 16), r = 2.0 * double((right * sr) >> 16);
+                    const double l = 2.0 * double((left * sl) >> 16);
+                    const double r = 2.0 * double((right * sr) >> 16);
                     added.c += (l + r) * (l + r);
                     added.s += (l - r) * (l - r);
                 }

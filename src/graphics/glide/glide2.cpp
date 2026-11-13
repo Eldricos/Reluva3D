@@ -92,7 +92,8 @@ bool Glide2::sstWinOpen(uint32_t hwnd, int resolution, int, int colorFormat, int
                         int auxBuffers) {
     if (pipeline_.isOpen())
         return false; // "If grSstWinOpen is called on an already open window, FXFALSE will be returned."
-    int w = 0, h = 0;
+    int w = 0;
+    int h = 0;
     // GR_RESOLUTION_NONE (a window's own size) is for the Voodoo Rush only;
     // elsewhere it fails (Glide 2.4 Reference Manual, grSstWinOpen: "This
     // signals Glide to use the user specified window"). In a window its
@@ -139,7 +140,8 @@ bool Glide2::sstControl(uint32_t code) {
         // resized buffers" (Glide 2.4 Reference Manual, grSstControlMode).
         if (!pipeline_.windowed())
             return true;
-        int w = pipeline_.width(), h = pipeline_.height();
+        int w = pipeline_.width();
+        int h = pipeline_.height();
         if (windowSize && !windowSize(window_, w, h))
             return false;
         if (w == pipeline_.width() && h == pipeline_.height())
@@ -377,10 +379,13 @@ void Glide2::chromaRange(uint32_t color0, uint32_t color1, int mode) {
     if (mode != 0)
         notImplemented("grChromaRangeExt mode " + std::to_string(mode), "only GR_CHROMARANGE_RGB_ALL_EXT: taken as it");
     // "order-insensitive packed RGB values" in the window's colour format.
-    const uint32_t a = toArgb(color0), b = toArgb(color1);
-    uint32_t lo = 0, hi = 0;
+    const uint32_t a = toArgb(color0);
+    const uint32_t b = toArgb(color1);
+    uint32_t lo = 0;
+    uint32_t hi = 0;
     for (int shift = 0; shift < 24; shift += 8) {
-        const uint32_t x = a >> shift & 0xff, y = b >> shift & 0xff;
+        const uint32_t x = a >> shift & 0xff;
+        const uint32_t y = b >> shift & 0xff;
         lo |= std::min(x, y) << shift;
         hi |= std::max(x, y) << shift;
     }
@@ -392,7 +397,8 @@ void Glide2::clipWindow(uint32_t minX, uint32_t minY, uint32_t maxX, uint32_t ma
     // Values past the screen are ignored (Programming Guide, Clipping):
     // here, held to it.
     State &s = pipeline_.state();
-    const uint32_t w = uint32_t(pipeline_.width()), h = uint32_t(pipeline_.height());
+    const uint32_t w = uint32_t(pipeline_.width());
+    const uint32_t h = uint32_t(pipeline_.height());
     s.clip[0] = int(std::min(minX, w));
     s.clip[1] = int(std::min(minY, h));
     s.clip[2] = int(std::min(maxX, w));
@@ -536,7 +542,8 @@ uint32_t Glide2::texTextureMemRequired(int evenOdd, const Glide2TexInfo &info) c
 }
 
 uint32_t Glide2::levelDataBytes(int lod, int aspect, int format) {
-    int w = 0, h = 0;
+    int w = 0;
+    int h = 0;
     levelSize(lodToLog2(std::clamp(lod, 0, 8)), aspectToLog2(std::clamp(aspect, 0, 6)), w, h);
     return uint32_t(w * h * texelBytes(format));
 }
@@ -545,7 +552,8 @@ uint32_t Glide2::mipmapDataBytes(const Glide2TexInfo &info) {
     const TextureInfo t = textureInfo(info.smallLod, info.largeLod, info.aspectRatio, info.format);
     uint32_t bytes = 0;
     for (int l = t.largeLod; l >= t.smallLod; --l) {
-        int w = 0, h = 0;
+        int w = 0;
+        int h = 0;
         levelSize(l, t.aspect, w, h);
         bytes += uint32_t(w * h * texelBytes(t.format));
     }
@@ -574,7 +582,8 @@ void Glide2::texDownloadMipMap(int tmu, uint32_t start, int evenOdd, const Glide
     const int eo = evenOdd & 3 ? evenOdd & 3 : kLevelsBoth;
     uint32_t at = 0;
     for (int l = t.largeLod; l >= t.smallLod; --l) {
-        int w = 0, h = 0;
+        int w = 0;
+        int h = 0;
         levelSize(l, t.aspect, w, h);
         if (levelIncluded(l, eo))
             pipeline_.downloadLevel(tmu, start, t, eo, l, data + at, 0, h - 1);
@@ -670,7 +679,9 @@ void Glide2::texCombine(int tmu, int rgbFunction, int rgbFactor, int alphaFuncti
 void Glide2::texCombineFunction(int tmu, int function) {
     // GR_TEXTURECOMBINE_*, as the Reference Manual's guTexCombineFunction
     // describes each, put as grTexCombine settings (Reluva's reading).
-    int fn = kFuncLocal, rgbFactor = kFactorZero, alphaFactor = kFactorZero;
+    int fn = kFuncLocal;
+    int rgbFactor = kFactorZero;
+    int alphaFactor = kFactorZero;
     bool invert = false;
     switch (function) {
     case 0x0:
@@ -1133,7 +1144,8 @@ bool Glide2::lfbWriteRegion(int buffer, uint32_t x, uint32_t y, int format, uint
         // A 16-bit count, then a 16-bit colour (Reference Manual,
         // grLfbWriteRegion): runs across the rows, stride ignored.
         notImplemented("grLfbWriteRegion RLE16", "runs read across rows as Reluva's reading");
-        uint32_t px = 0, py = 0;
+        uint32_t px = 0;
+        uint32_t py = 0;
         const uint8_t *p = data;
         const uint8_t *end = dataBytes == SIZE_MAX ? nullptr : data + dataBytes;
         while (py < height && (!end || end - p >= 4)) {

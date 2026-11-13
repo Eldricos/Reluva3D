@@ -41,7 +41,8 @@ void aaTriangleFringe(const State &s, int width, int height, const Vertex &va, c
     // Snapped to 1/16 pixel as the triangle itself is (setupTriangle).
     auto snap = [](float f) { return std::isfinite(f) ? int64_t(std::llround(double(f) * 16.0)) : int64_t(0); };
     const Vertex *v[3] = {&va, &vb, &vc};
-    int64_t X[3], Y[3];
+    int64_t X[3];
+    int64_t Y[3];
     for (int i = 0; i < 3; ++i) {
         X[i] = snap(v[i]->x);
         Y[i] = snap(v[i]->y);
@@ -58,7 +59,9 @@ void aaTriangleFringe(const State &s, int width, int height, const Vertex &va, c
         std::swap(v[1], v[2]);
         std::swap(X[1], X[2]);
         std::swap(Y[1], Y[2]);
-        const bool ab = aa[0], bc = aa[1], ca = aa[2];
+        const bool ab = aa[0];
+        const bool bc = aa[1];
+        const bool ca = aa[2];
         aa[0] = ca;
         aa[1] = bc;
         aa[2] = ab;
@@ -73,26 +76,33 @@ void aaTriangleFringe(const State &s, int width, int height, const Vertex &va, c
     } e[3];
     for (int i = 0; i < 3; ++i) {
         const int j = (i + 1) % 3;
-        const int64_t dx = X[j] - X[i], dy = Y[j] - Y[i];
+        const int64_t dx = X[j] - X[i];
+        const int64_t dy = Y[j] - Y[i];
         e[i] = {-dy, dx, dy * X[i] - dx * Y[i], dy < 0 || (dy == 0 && dx > 0), std::sqrt(double(dx * dx + dy * dy))};
     }
     // The planes, as setupTriangle makes them.
     Values at[3];
     for (int i = 0; i < 3; ++i)
         load(s, *v[i], at[i]);
-    const double fx0 = double(X[0]) / 16, fy0 = double(Y[0]) / 16;
-    const double ex1 = double(X[1] - X[0]) / 16, ey1 = double(Y[1] - Y[0]) / 16;
-    const double ex2 = double(X[2] - X[0]) / 16, ey2 = double(Y[2] - Y[0]) / 16;
+    const double fx0 = double(X[0]) / 16;
+    const double fy0 = double(Y[0]) / 16;
+    const double ex1 = double(X[1] - X[0]) / 16;
+    const double ey1 = double(Y[1] - Y[0]) / 16;
+    const double ex2 = double(X[2] - X[0]) / 16;
+    const double ey2 = double(Y[2] - Y[0]) / 16;
     const double det = ex1 * ey2 - ex2 * ey1;
     for (int k = 0; k < kParams; ++k) {
-        const double d1 = double(at[1].v[k]) - at[0].v[k], d2 = double(at[2].v[k]) - at[0].v[k];
+        const double d1 = double(at[1].v[k]) - at[0].v[k];
+        const double d2 = double(at[2].v[k]) - at[0].v[k];
         out.dx[k] = float((d1 * ey2 - d2 * ey1) / det);
         out.dy[k] = float((d2 * ex1 - d1 * ex2) / det);
     }
     out.derivatives = true;
     // The pixels round the triangle: its box and a pixel more.
-    const int64_t minX = std::min({X[0], X[1], X[2]}), maxX = std::max({X[0], X[1], X[2]});
-    const int64_t minY = std::min({Y[0], Y[1], Y[2]}), maxY = std::max({Y[0], Y[1], Y[2]});
+    const int64_t minX = std::min({X[0], X[1], X[2]});
+    const int64_t maxX = std::max({X[0], X[1], X[2]});
+    const int64_t minY = std::min({Y[0], Y[1], Y[2]});
+    const int64_t maxY = std::max({Y[0], Y[1], Y[2]});
     const int x0 = int(std::max<int64_t>({(minX >> 4) - 1, s.clip[0], 0}));
     const int x1 = int(std::min<int64_t>({(maxX >> 4) + 2, s.clip[2], width}));
     const int y0 = int(std::max<int64_t>({(minY >> 4) - 1, s.clip[1], 0}));
@@ -101,7 +111,8 @@ void aaTriangleFringe(const State &s, int width, int height, const Vertex &va, c
         return; // a runaway triangle: no fringe
     for (int y = y0; y < y1; ++y)
         for (int x = x0; x < x1; ++x) {
-            const int64_t Xc = int64_t(x) * 16 + 8, Yc = int64_t(y) * 16 + 8;
+            const int64_t Xc = int64_t(x) * 16 + 8;
+            const int64_t Yc = int64_t(y) * 16 + 8;
             bool inside = true;
             double coverage = 1;
             for (int i = 0; i < 3; ++i) {
@@ -123,7 +134,8 @@ void aaTriangleFringe(const State &s, int width, int height, const Vertex &va, c
             Fragment f;
             f.x = x;
             f.y = y;
-            const double px = x + 0.5 - fx0, py = y + 0.5 - fy0;
+            const double px = x + 0.5 - fx0;
+            const double py = y + 0.5 - fy0;
             for (int k = 0; k < kParams; ++k)
                 f.v.v[k] = float(at[0].v[k] + out.dx[k] * px + out.dy[k] * py);
             f.v.v[kA] = float(std::clamp(double(f.v.v[kA]), 0.0, 255.0) * coverage);
@@ -136,22 +148,27 @@ void aaTriangleFringe(const State &s, int width, int height, const Vertex &va, c
 void aaLinePixels(const State &s, int width, int height, const Vertex &a, const Vertex &b, Fragments &out) {
     out.list.clear();
     out.derivatives = false;
-    const double dx = double(b.x) - a.x, dy = double(b.y) - a.y;
+    const double dx = double(b.x) - a.x;
+    const double dy = double(b.y) - a.y;
     if (!std::isfinite(dx) || !std::isfinite(dy))
         return;
     const double len2 = dx * dx + dy * dy;
-    Values va, vb;
+    Values va;
+    Values vb;
     load(s, a, va);
     load(s, b, vb);
-    const int x0 = int(std::floor(std::min(a.x, b.x))) - 1, x1 = int(std::floor(std::max(a.x, b.x))) + 2;
-    const int y0 = int(std::floor(std::min(a.y, b.y))) - 1, y1 = int(std::floor(std::max(a.y, b.y))) + 2;
+    const int x0 = int(std::floor(std::min(a.x, b.x))) - 1;
+    const int x1 = int(std::floor(std::max(a.x, b.x))) + 2;
+    const int y0 = int(std::floor(std::min(a.y, b.y))) - 1;
+    const int y1 = int(std::floor(std::max(a.y, b.y))) + 2;
     if (int64_t(x1 - x0) * int64_t(y1 - y0) > (int64_t(1) << 22))
         return;
     for (int y = y0; y < y1; ++y)
         for (int x = x0; x < x1; ++x) {
             if (!inClip(s, width, height, x, y))
                 continue;
-            const double px = x + 0.5 - a.x, py = y + 0.5 - a.y;
+            const double px = x + 0.5 - a.x;
+            const double py = y + 0.5 - a.y;
             // Along the line (0 at a, 1 at b), and the distance across it.
             const double t = len2 > 0 ? (px * dx + py * dy) / len2 : 0.0;
             if (t < 0 || t > 1)
@@ -177,9 +194,12 @@ void aaPointPixels(const State &s, int width, int height, const Vertex &a, Fragm
         return;
     // A pixel-sized square centred on the point, over the four pixels it
     // touches: each pixel's share of it.
-    const double sx = double(a.x) - 0.5, sy = double(a.y) - 0.5;
-    const int x0 = int(std::floor(sx)), y0 = int(std::floor(sy));
-    const double fx = sx - x0, fy = sy - y0;
+    const double sx = double(a.x) - 0.5;
+    const double sy = double(a.y) - 0.5;
+    const int x0 = int(std::floor(sx));
+    const int y0 = int(std::floor(sy));
+    const double fx = sx - x0;
+    const double fy = sy - y0;
     Values v;
     load(s, a, v);
     const double alpha = std::clamp(double(v.v[kA]), 0.0, 255.0);

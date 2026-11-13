@@ -182,7 +182,8 @@ void Glide2Dll::addAll() {
         return 0u;
     });
     add("grTriStats", 8, [this, &g](Cpu &c) {
-        uint32_t processed = 0, drawn = 0;
+        uint32_t processed = 0;
+        uint32_t drawn = 0;
         g.triStats(processed, drawn);
         if (guest(c.arg(0), 4))
             c.write32(c.arg(0), processed);
@@ -423,9 +424,11 @@ void Glide2Dll::addAll() {
     });
     add("grTexDownloadMipMapLevelPartial", 40, [this, &g, n](Cpu &c) {
         // The data is the rows from the first asked for to the last.
-        const int first = n(c, 8), last = n(c, 9);
+        const int first = n(c, 8);
+        const int last = n(c, 9);
         const uint32_t level = Glide2::levelDataBytes(n(c, 2), n(c, 4), n(c, 5));
-        int w = 0, h = 0;
+        int w = 0;
+        int h = 0;
         levelSize(8 - std::clamp(n(c, 2), 0, 8), 3 - std::clamp(n(c, 4), 0, 6), w, h);
         const uint32_t rows = uint32_t(std::clamp(last, 0, h - 1) - std::clamp(first, 0, h - 1) + 1);
         if (const uint8_t *p = guest(c.arg(7), std::min(level, rows * (level / uint32_t(h)))))
@@ -495,8 +498,10 @@ void Glide2Dll::addAll() {
         [this](Cpu &c) { return lfbLock(c.arg(0), c.arg(1), c.arg(2), c.arg(3), c.arg(4) != 0, c.arg(5)); });
     add("grLfbUnlock", 8, [this](Cpu &c) { return lfbUnlock(c.arg(0), c.arg(1)); });
     add("grLfbWriteRegion", 32, [this, &g, n](Cpu &c) {
-        const uint32_t width = c.arg(4), height = c.arg(5);
-        const int stride = int(c.arg(6)), format = n(c, 3);
+        const uint32_t width = c.arg(4);
+        const uint32_t height = c.arg(5);
+        const int stride = int(c.arg(6));
+        const int format = n(c, 3);
         const uint32_t bpp = format == kLfb565 || format == kLfb555 || format == kLfb1555 || format == kLfbZA16 ? 2 : 4;
         // RLE16's length isn't known before it's read: as much as there is.
         const uint32_t bytes = format == kLfbRle16 ? 4u
@@ -511,7 +516,9 @@ void Glide2Dll::addAll() {
                    : 0u;
     });
     add("grLfbReadRegion", 28, [this, &g, n](Cpu &c) {
-        const uint32_t width = c.arg(3), height = c.arg(4), stride = c.arg(5);
+        const uint32_t width = c.arg(3);
+        const uint32_t height = c.arg(4);
+        const uint32_t stride = c.arg(5);
         if (!height || !guest(c.arg(6), stride * (height - 1) + width * 2))
             return 0u;
         return g.lfbReadRegion(n(c, 0), c.arg(1), c.arg(2), width, height, stride, cpu_.memory().data() + c.arg(6))
@@ -572,7 +579,8 @@ void Glide2Dll::addAll() {
     add("guEncodeRLE16", 16, [this](Cpu &c) {
         // guEncodeRLE16(dst, src, width, height): the bytes written (a null
         // dst only counts them).
-        const uint32_t w = std::min<uint32_t>(c.arg(2), 4096), h = std::min<uint32_t>(c.arg(3), 4096);
+        const uint32_t w = std::min<uint32_t>(c.arg(2), 4096);
+        const uint32_t h = std::min<uint32_t>(c.arg(3), 4096);
         const uint8_t *src = guest(c.arg(1), w * h * 2);
         if (!src || !w || !h)
             return 0u;

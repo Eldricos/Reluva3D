@@ -241,7 +241,8 @@ std::vector<Glide3Resolution> Glide3::queryResolutions(const Glide3Resolution &q
     std::vector<Glide3Resolution> out;
     auto matches = [](int want, int have) { return uint32_t(want) == g3::kQueryAny || want == have; };
     for (int res = 0; res < 24; ++res) {
-        int w = 0, h = 0;
+        int w = 0;
+        int h = 0;
         if (!Glide2::resolutionSize(res, w, h) || w > board_.maxWidth || h > board_.maxHeight ||
             !matches(q.resolution, res))
             continue;
@@ -372,10 +373,13 @@ Vertex Glide3::readVertex(const uint8_t *at) {
     // Texture coordinates: TMU n's own s and t, else TMU0's (Glide 2's
     // default, Reluva's reading for a layout that gives only ST0); its own
     // q, else the vertex's.
-    float s[kMaxTmus], t[kMaxTmus], q[kMaxTmus];
+    float s[kMaxTmus];
+    float t[kMaxTmus];
+    float q[kMaxTmus];
     bool hasQ[kMaxTmus];
     for (uint32_t i = 0; i < uint32_t(kMaxTmus); ++i) {
-        const uint32_t st = g3::kParamSt0 + i, qi = g3::kParamQ0 + i;
+        const uint32_t st = g3::kParamSt0 + i;
+        const uint32_t qi = g3::kParamQ0 + i;
         if (has(st)) {
             s[i] = f(st);
             t[i] = f(st, 1);
@@ -431,7 +435,8 @@ Vertex Glide3::project(const ClipVertex &c) const {
     // [-1, 1] to the depth range. A vertex with w of 0 (only reached when
     // the view volume's test can't apply) is left at the origin.
     const float oow = c.w != 0 ? 1.0f / c.w : 0.0f;
-    const float xs = c.x * oow, ys = c.y * oow;
+    const float xs = c.x * oow;
+    const float ys = c.y * oow;
     Vertex out = c.v;
     out.x = (xs + 1) * float(viewport_[2]) / 2 + float(viewport_[0]);
     out.y = (ys + 1) * float(viewport_[3]) / 2 + float(viewport_[1]);
@@ -529,7 +534,8 @@ void Glide3::clipTriangle(const ClipVertex &a, const ClipVertex &b, const ClipVe
         return;
     }
     // Sutherland-Hodgman against each plane, w > 0 first.
-    std::vector<ClipVertex> poly = {a, b, c}, next;
+    std::vector<ClipVertex> poly = {a, b, c};
+    std::vector<ClipVertex> next;
     const int n = planes(a);
     for (int k = -1; k < n && !poly.empty(); ++k) {
         next.clear();
@@ -614,8 +620,10 @@ void Glide3::clipAaPolygon(std::vector<ClipVertex> poly, std::vector<bool> edges
 }
 
 void Glide3::clipLine(const ClipVertex &a, const ClipVertex &b, bool aa) {
-    ClipVertex p = a, q = b;
-    float t0 = 0, t1 = 1;
+    ClipVertex p = a;
+    ClipVertex q = b;
+    float t0 = 0;
+    float t1 = 1;
     const int n = planes(a);
     for (int k = -1; k < n; ++k) {
         const float dp = k < 0 ? a.w - 1e-6f : planeDistance(a, k);
@@ -666,21 +674,26 @@ Glide3::ClipVertex Glide3::readClip(const uint8_t *at) {
 
 void Glide3::drawTriangle(const uint8_t *a, const uint8_t *b, const uint8_t *c) {
     pipeline().state().stwHints = kOwnStw;
-    const ClipVertex va = readClip(a), vb = readClip(b), vc = readClip(c);
+    const ClipVertex va = readClip(a);
+    const ClipVertex vb = readClip(b);
+    const ClipVertex vc = readClip(c);
     clipTriangle(va, vb, vc, enabled(g3::kAaOrdered));
     lastMode_ = 0xffffffffu;
 }
 
 void Glide3::aaDrawTriangle(const uint8_t *a, const uint8_t *b, const uint8_t *c, bool ab, bool bc, bool ca) {
     pipeline().state().stwHints = kOwnStw;
-    const ClipVertex va = readClip(a), vb = readClip(b), vc = readClip(c);
+    const ClipVertex va = readClip(a);
+    const ClipVertex vb = readClip(b);
+    const ClipVertex vc = readClip(c);
     clipAaPolygon({va, vb, vc}, {ab, bc, ca});
     lastMode_ = 0xffffffffu;
 }
 
 void Glide3::drawLine(const uint8_t *a, const uint8_t *b) {
     pipeline().state().stwHints = kOwnStw;
-    const ClipVertex va = readClip(a), vb = readClip(b);
+    const ClipVertex va = readClip(a);
+    const ClipVertex vb = readClip(b);
     clipLine(va, vb, enabled(g3::kAaOrdered));
     lastMode_ = 0xffffffffu;
 }

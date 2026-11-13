@@ -492,7 +492,8 @@ void GameHost::addNetwork() {
         WsSocket *s = find(c.arg(0));
         if (!s)
             return fail(kENOTSOCK);
-        const uint32_t level = c.arg(1), name = c.arg(2);
+        const uint32_t level = c.arg(1);
+        const uint32_t name = c.arg(2);
         const int value = c.arg(3) && c.arg(4) >= 4 ? int(c.read32(c.arg(3)))
                           : c.arg(3) && c.arg(4)    ? c.read8(c.arg(3))
                                                     : 0;
@@ -536,7 +537,8 @@ void GameHost::addNetwork() {
             return 0u;
         }
         if (c.arg(1) == 1000 && c.arg(2) == 0x4007) { // IPX_ADDRESS: IPX_ADDRESS_DATA, 24 bytes
-            const uint32_t at = c.arg(3), ip = ipxNode();
+            const uint32_t at = c.arg(3);
+            const uint32_t ip = ipxNode();
             if (c.read32(c.arg(4)) < 24)
                 return fail(kEFAULT);
             for (uint32_t i = 4; i < 24; ++i) // adapter number (in) kept
@@ -616,7 +618,8 @@ void GameHost::addNetwork() {
         return total;
     });
     provide(w, "#151", 2, [](Cpu &c) { // __WSAFDIsSet(s, fd_set)
-        const uint32_t at = c.arg(1), count = std::min<uint32_t>(c.read32(at), 64);
+        const uint32_t at = c.arg(1);
+        const uint32_t count = std::min<uint32_t>(c.read32(at), 64);
         for (uint32_t i = 0; i < count; ++i)
             if (c.read32(at + 4 + 4 * i) == c.arg(0))
                 return 1u;
@@ -631,7 +634,10 @@ void GameHost::addNetwork() {
     provide(w, "#8", 1, [swap32](Cpu &c) { return swap32(c.arg(0)); });  // htonl
     provide(w, "#14", 1, [swap32](Cpu &c) { return swap32(c.arg(0)); }); // ntohl
     provide(w, "#10", 1, [](Cpu &c) {                                    // inet_addr
-        unsigned a = 0, b = 0, d = 0, e = 0;
+        unsigned a = 0;
+        unsigned b = 0;
+        unsigned d = 0;
+        unsigned e = 0;
         char extra = 0;
         if (std::sscanf(c.string(c.arg(0), 32).c_str(), "%u.%u.%u.%u%c", &a, &b, &d, &e, &extra) != 4 || a > 255 ||
             b > 255 || d > 255 || e > 255)
@@ -647,7 +653,8 @@ void GameHost::addNetwork() {
         return wsBuffer_;
     };
     provide(w, "#11", 1, [buffer](Cpu &c) { // inet_ntoa
-        const uint32_t v = c.arg(0), at = buffer();
+        const uint32_t v = c.arg(0);
+        const uint32_t at = buffer();
         char text[16];
         std::snprintf(text, sizeof text, "%u.%u.%u.%u", v & 0xff, (v >> 8) & 0xff, (v >> 16) & 0xff, v >> 24);
         c.writeString(at, text, 16);
@@ -688,7 +695,8 @@ void GameHost::addNetwork() {
             log("gethostbyname " + name + ": not found");
             return 0;
         }
-        const uint32_t at = buffer(), h = at + 32;
+        const uint32_t at = buffer();
+        const uint32_t h = at + 32;
         c.writeString(at + 64, name, 256);
         c.write32(h, at + 64);     // h_name
         c.write32(h + 4, at + 60); // h_aliases: none

@@ -51,8 +51,10 @@ Error parseModel(const std::vector<uint8_t> &data, Model &out) {
     if (data.size() < kDataStart)
         return bad("too short");
     const uint8_t *d = data.data();
-    const uint32_t triangles = le32(d + kTriangles), vertices = le32(d + kVertices);
-    const uint32_t parts = le32(d + kPartCount), dummies = le32(d + kDummyCount);
+    const uint32_t triangles = le32(d + kTriangles);
+    const uint32_t vertices = le32(d + kVertices);
+    const uint32_t parts = le32(d + kPartCount);
+    const uint32_t dummies = le32(d + kDummyCount);
     if (parts > kMaxParts || dummies > kMaxDummies)
         return bad("too many parts or dummies");
     const uint64_t vertexTable = kDataStart + uint64_t(le32(d + kVertexTable));
@@ -127,7 +129,8 @@ Error parseArt(const std::vector<uint8_t> &data, std::vector<image::Image> &page
     while (at < data.size()) {
         if (data.size() - at < 8)
             return Error::fail(".art: a page header runs past the end");
-        uint32_t w, h;
+        uint32_t w;
+        uint32_t h;
         std::memcpy(&w, data.data() + at, 4);
         std::memcpy(&h, data.data() + at + 4, 4);
         at += 8;
@@ -152,8 +155,9 @@ Error parseArt(const std::vector<uint8_t> &data, std::vector<image::Image> &page
 
 CarShade carShade(uint32_t colour) {
     CarShade s;
-    const int r = static_cast<int>((colour >> 16) & 0xff), g = static_cast<int>((colour >> 8) & 0xff),
-              b = static_cast<int>(colour & 0xff);
+    const int r = static_cast<int>((colour >> 16) & 0xff);
+    const int g = static_cast<int>((colour >> 8) & 0xff);
+    const int b = static_cast<int>(colour & 0xff);
     s.base = {r / 3, g / 3, b >> 1};
     s.top = {std::min(2 * r, 255), std::min(2 * g, 255), std::min(2 * b, 255)};
     return s;
@@ -279,8 +283,12 @@ std::array<float, 2> reflectionUv(float x, float y, float z) {
 }
 
 std::array<int, 3> rgbToHsv(const std::array<int, 3> &rgb) {
-    const int r = rgb[0], g = rgb[1], b = rgb[2];
-    const int mx = std::max({r, g, b}), mn = std::min({r, g, b}), d = mx - mn;
+    const int r = rgb[0];
+    const int g = rgb[1];
+    const int b = rgb[2];
+    const int mx = std::max({r, g, b});
+    const int mn = std::min({r, g, b});
+    const int d = mx - mn;
     int64_t h = 0;
     int s = 0;
     // 16.16 sixths of a turn: (x % d << 16) / d + (x / d << 16).
@@ -303,7 +311,9 @@ std::array<int, 3> rgbToHsv(const std::array<int, 3> &rgb) {
 }
 
 std::array<int, 3> hsvToRgb(const std::array<int, 3> &hsv) {
-    const int h = hsv[0], s = hsv[1], v = hsv[2];
+    const int h = hsv[0];
+    const int s = hsv[1];
+    const int v = hsv[2];
     if (v < 1)
         return {0, 0, 0};
     if (s < 1)
@@ -410,7 +420,8 @@ CarReflection carReflection(uint32_t carColour, const std::array<int, 3> &sky, i
                                  static_cast<int>(carColour & 0xff)};
     const std::array<int, 3> carHsv = rgbToHsv(car);
     std::array<int, 3> mixed = sky;
-    int dim = 0x100, weight = 0x100;
+    int dim = 0x100;
+    int weight = 0x100;
     if (coverDepth > 0) {
         dim = 0x100 - 16 * coverDepth;
         weight = 0x100 - 32 * coverDepth;
@@ -439,7 +450,10 @@ std::array<std::array<float, 3>, 3> reflectionFrame(const std::array<float, 3> &
     constexpr float kTurn = 6.28318530718f;
     const float yaw = (std::atan2(d[0], d[2]) / kTurn - 0.5f) * kTurn;
     const float pitch = (std::atan2(std::sqrt(d[0] * d[0] + d[2] * d[2]), d[1]) / kTurn - 0.25f) * kTurn;
-    const float c = std::cos(yaw), s = std::sin(yaw), cp = std::cos(pitch), sp = std::sin(pitch);
+    const float c = std::cos(yaw);
+    const float s = std::sin(yaw);
+    const float cp = std::cos(pitch);
+    const float sp = std::sin(pitch);
     // The columns of Ry(yaw) Rx(pitch), rows of vectors on the left.
     return {{{c, 0, s}, {s * sp, cp, -c * sp}, {-s * cp, sp, c * cp}}};
 }
@@ -447,7 +461,8 @@ std::array<std::array<float, 3>, 3> reflectionFrame(const std::array<float, 3> &
 RainFlare rainFlare(const std::array<float, 3> &light, const std::array<float, 3> &camera,
                     const std::array<float, 3> &facing, float size, uint32_t glowColour) {
     RainFlare f;
-    float dx = light[0] - camera[0], dz = light[2] - camera[2];
+    float dx = light[0] - camera[0];
+    float dz = light[2] - camera[2];
     const float length = std::sqrt(dx * dx + dz * dz);
     if (length == 0)
         return f;
@@ -457,7 +472,10 @@ RainFlare rainFlare(const std::array<float, 3> &light, const std::array<float, 3
     const float half = size * 0.5f;
     const float streak = half <= seen * 0.75f ? std::min(seen * 0.75f, 30.0f) : half;
     // d x up (0x4e0160), and the streak back towards the camera.
-    const float sx = -dz * half, sz = dx * half, tx = -dx * streak, tz = -dz * streak;
+    const float sx = -dz * half;
+    const float sz = dx * half;
+    const float tx = -dx * streak;
+    const float tz = -dz * streak;
     f.corners = {{{light[0] - sx, light[2] - sz},
                   {light[0] + sx, light[2] + sz},
                   {light[0] + sx + tx, light[2] + sz + tz},
@@ -509,7 +527,9 @@ FogBeam fogBeam(const std::array<float, 3> &lamp, const std::array<float, 3> &ri
     auto dot = [](const std::array<float, 3> &a, const std::array<float, 3> &x) {
         return a[0] * x[0] + a[1] * x[1] + a[2] * x[2];
     };
-    const float f = dot(d, forward), r = dot(d, right), u = dot(d, up);
+    const float f = dot(d, forward);
+    const float r = dot(d, right);
+    const float u = dot(d, up);
     // Truncated (0x4dfd56), then 3-12.
     const int n = std::clamp(static_cast<int>((1 - distance * 0.01f) * 12), 3, 12);
     const float start = 0.5f * (-0.5f - (r + u) * 0.5f);
@@ -528,7 +548,8 @@ FogBeam fogBeam(const std::array<float, 3> &lamp, const std::array<float, 3> &ri
     for (int i = 0; i <= n; ++i) {
         const float a = (start + static_cast<float>(i) / static_cast<float>(n)) * kTurn;
         for (int ring = 0; ring < 2; ++ring) {
-            const float radius = ring ? 0.75f : 0.1f, ahead = ring ? 6.0f : 0.0f;
+            const float radius = ring ? 0.75f : 0.1f;
+            const float ahead = ring ? 6.0f : 0.0f;
             std::array<float, 3> p{};
             for (int k = 0; k < 3; ++k)
                 p[size_t(k)] = lamp[size_t(k)] + right[size_t(k)] * std::cos(a) * radius +

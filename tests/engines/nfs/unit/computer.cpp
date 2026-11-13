@@ -85,7 +85,8 @@ void testComputerAir() {
     // scale 0.5 + 0.1 x it, kept within 0.5 and 0.7: a stiffer car keeps
     // more of its speed into the road.
     {
-        AiCar soft = make(-0.02f, {0, -4, 20}), stiff = soft;
+        AiCar soft = make(-0.02f, {0, -4, 20});
+        AiCar stiff = soft;
         soft.suspStiffness = 0;
         stiff.suspStiffness = 5;
         aiSteerStep(soft, col, 2);
@@ -146,7 +147,9 @@ void testComputerAir() {
         const float k = dot3(fw, up);
         fw = unit3({fw[0] - k * up[0], fw[1] - k * up[1], fw[2] - k * up[2]});
         aiSetFrame(c, col, fw, up);
-        std::array<float, 3> f{}, r{}, u{};
+        std::array<float, 3> f{};
+        std::array<float, 3> r{};
+        std::array<float, 3> u{};
         aiTiltedAxes(col, c, f, r, u);
         for (size_t i = 0; i < 3; ++i) {
             CHECK(std::fabs(f[i] - fw[i]) < 1e-4f && std::fabs(u[i] - up[i]) < 1e-4f);
@@ -160,17 +163,22 @@ void testComputerAir() {
         AiCar c = make(3, {0, 0, 0});
         c.roll = 0.125f;
         c.spinX = 0.5f;
-        std::array<float, 3> f0{}, r0{}, u0{};
+        std::array<float, 3> f0{};
+        std::array<float, 3> r0{};
+        std::array<float, 3> u0{};
         aiTiltedAxes(col, c, f0, r0, u0);
         aiSteerStep(c, col, 2);
-        std::array<float, 3> f1{}, r1{}, u1{};
+        std::array<float, 3> f1{};
+        std::array<float, 3> r1{};
+        std::array<float, 3> u1{};
         aiTiltedAxes(col, c, f1, r1, u1);
         const float a = 0.5f * 2 * 3.14159265f / 32;
         auto turnX = [&](const std::array<float, 3> &v) {
             return std::array<float, 3>{v[0], v[1] * std::cos(a) - v[2] * std::sin(a),
                                         v[1] * std::sin(a) + v[2] * std::cos(a)};
         };
-        const std::array<float, 3> fw = turnX(f0), up = turnX(u0);
+        const std::array<float, 3> fw = turnX(f0);
+        const std::array<float, 3> up = turnX(u0);
         for (size_t i = 0; i < 3; ++i) {
             CHECK(std::fabs(f1[i] - fw[i]) < 1e-3f && std::fabs(u1[i] - up[i]) < 1e-3f);
         }
@@ -782,8 +790,10 @@ void testComputerCatchUpAndCops() {
     // Then it weaves about lane 7's middle as the game's cars do: the
     // controller overshoots past 2 m, the lane at the offset (rounded at
     // the lane's middle) flips to 8 and back, and the aim with it.
-    float lo = 100, hi = -100;
-    int flips = 0, last = lone[0].lane;
+    float lo = 100;
+    float hi = -100;
+    int flips = 0;
+    int last = lone[0].lane;
     for (int step = 3; step < 400; ++step) {
         aiStep(lone, 0, col, flat, data, step, 1, false);
         if (step > 100) {
@@ -866,13 +876,15 @@ void testCarHits() {
     using namespace reluva::nfs;
     // Side by side, 0.166 m into each other: b's left face centre is the
     // first point inside a's box; one round of 0.25 parts them, half each.
-    CarBox a, b;
+    CarBox a;
+    CarBox b;
     a.mass = b.mass = 1000;
     b.at = {2.2f, 0, 0};
     a.velocity = {1, 0, 0};
     b.velocity = {-1, 0, 0};
     std::array<float, 3> point{};
-    CarBox ta = a, tb = b;
+    CarBox ta = a;
+    CarBox tb = b;
     CHECK(carBoxTouch(ta, tb, point));
     CHECK(std::fabs(point[0] - (2.2f - 1.183f)) < 1e-5f && std::fabs(ta.at[0] + 0.125f) < 1e-6f &&
           std::fabs(tb.at[0] - 2.325f) < 1e-6f);
@@ -884,7 +896,8 @@ void testCarHits() {
     CHECK(std::fabs(a.velocity[0]) < 1e-5f && std::fabs(b.velocity[0]) < 1e-5f && std::fabs(a.strength - 1) < 1e-5f &&
           std::fabs(b.strength - 1) < 1e-5f && a.airTicks == 0 && a.spin == (std::array<float, 3>{0, 0, 0}));
     // Moving apart: no hit (J along the centre line is not closing).
-    CarBox c = a, d = b;
+    CarBox c = a;
+    CarBox d = b;
     c.at = {0, 0, 0};
     d.at = {2.2f, 0, 0};
     c.velocity = {-1, 0, 0};
@@ -893,7 +906,8 @@ void testCarHits() {
     CHECK(carBoxCollide(c, d) && c.velocity[0] == -1 && d.velocity[0] == 1 && c.strength == 0);
     // Hard, from behind and off the middle: J over 5 x the mass is cut to
     // 0.75; the strength over 5 puts both in the air (+0x164).
-    CarBox e, f;
+    CarBox e;
+    CarBox f;
     e.mass = f.mass = 1000;
     f.at = {1.0f, 0, 4.6f};
     e.velocity = {0, 0, 30};
@@ -911,7 +925,8 @@ void testCarHits() {
     // The computer's cars (aiCollide, the even steps): side by side on a
     // straight road, the right one moving across into the left one.
     const TrackCollision road = straightRoad(60);
-    AiCar left, right;
+    AiCar left;
+    AiCar right;
     for (AiCar *c : {&left, &right}) {
         c->slice = 20;
         c->along = 0.5f;
@@ -1098,7 +1113,8 @@ void testCarHits() {
     // with that right turned 10 degrees the push across the slice is
     // cos 10 of it and the rest goes along the road.
     {
-        AiCar a, b;
+        AiCar a;
+        AiCar b;
         for (AiCar *c : {&a, &b}) {
             c->slice = 20;
             c->speed = 30;
@@ -1115,7 +1131,8 @@ void testCarHits() {
         AiCarData d;
         d.accel.fill(0);
         std::vector<uint8_t> flat(100, 30);
-        std::vector<AiCar> va{a}, vb{b};
+        std::vector<AiCar> va{a};
+        std::vector<AiCar> vb{b};
         aiStep(va, 0, road, flat, d, 1, 1, false, AiPhase::Move); // odd: the side offset measured along each right
         aiStep(vb, 0, road, flat, d, 1, 1, false, AiPhase::Move);
         vb[0].side = va[0].side;
@@ -1128,7 +1145,8 @@ void testCarHits() {
     // still, a ghost to the hits for 64 ticks; with a car there the next
     // free lane middle out from the point, the right first (0x428d60).
     {
-        AiCar m, other;
+        AiCar m;
+        AiCar other;
         m.slice = m.roadSlice = 20;
         m.along = 0.4f;
         m.lateral = m.side = -9;
@@ -1207,7 +1225,8 @@ void testCarHits() {
     // them, from the cars' steps) for 200 steps; the same hit on a traffic
     // car smokes and stops once the car is down and still.
     {
-        AiCar racer, cop;
+        AiCar racer;
+        AiCar cop;
         for (AiCar *c : {&racer, &cop}) {
             c->slice = 20;
             c->along = 0.5f;
@@ -1305,7 +1324,8 @@ void testCarHits() {
         AiCar car;
         car.racer = true;
         car.distance = 3;
-        AiStartRandom r, copy;
+        AiStartRandom r;
+        AiStartRandom copy;
         r.seed(99);
         copy = r;
         int spins = 0;
@@ -1420,10 +1440,14 @@ void testCarHits() {
         car.offset = car.target = car.side = car.lateral = 2;
         car.sideKept = true;
         const float k = 0.99990f;
-        const std::array<float, 3> right{k, 0, 0.001f}, up{0, 0.9999f, 0}, forward{-0.001f, 0.003f, k};
+        const std::array<float, 3> right{k, 0, 0.001f};
+        const std::array<float, 3> up{0, 0.9999f, 0};
+        const std::array<float, 3> forward{-0.001f, 0.003f, k};
         aiSetRows(car, g, {0, 0, 20}, right, up, forward);
         CHECK(car.rowsShaped);
-        std::array<float, 3> f{}, r{}, u{};
+        std::array<float, 3> f{};
+        std::array<float, 3> r{};
+        std::array<float, 3> u{};
         aiTiltedAxes(g, car, f, r, u);
         for (size_t i = 0; i < 3; ++i)
             CHECK(std::fabs(f[i] - forward[i]) < 2e-6f && std::fabs(r[i] - right[i]) < 2e-6f &&
@@ -1515,7 +1539,8 @@ void testCarHits() {
         CHECK(one[0].speed == 0 && one[0].braking);
         AiCarData start = go;
         start.accel[0] = 6;
-        AiStartRandom saved = aiStartRandom(), probe = saved;
+        AiStartRandom saved = aiStartRandom();
+        AiStartRandom probe = saved;
         car.raceStartStep = 0;
         car.slot = probe.pick();
         one = {car};
@@ -1560,7 +1585,8 @@ void testComputerPursuits() {
           std::fabs(one[0].side - one[0].lateral - one[0].along * 0.5f) < 1e-4f); // the line's 0.5 x along
 
     // A strip (spike_lay 0x4c9dd0): across lane 7's middle, 1.5 lanes long.
-    float from = 0, to = 0;
+    float from = 0;
+    float to = 0;
     aiStripSpan(col.road[0], 7, from, to);
     CHECK(from == -1 && to == 5);
     aiStripSpan(col.road[0], 6, from, to);
@@ -1694,7 +1720,9 @@ void testCopCalls() {
     const auto quad = aiStripQuad(col.road[10], 7);
     CHECK(quad[0][0] == -1 && quad[1][0] == 5 && quad[0][2] == 40 && quad[2][1] == 0.5f && quad[3][0] == -1);
     // spike_hit_test (0x4ca160): the wheels within 0.5 m of it, a bit each.
-    const std::array<float, 3> right{1, 0, 0}, up{0, 1, 0}, forward{0, 0, 1};
+    const std::array<float, 3> right{1, 0, 0};
+    const std::array<float, 3> up{0, 1, 0};
+    const std::array<float, 3> forward{0, 0, 1};
     const std::array<std::array<float, 2>, 4> wheels{{{-0.8f, 1.3f}, {0.8f, 1.3f}, {-0.8f, -1.3f}, {0.8f, -1.3f}}};
     CHECK(aiStripWheels(quad, {2, 0, 39}, right, up, forward, wheels) == 3);       // the front ones 0.3 m past it
     CHECK(aiStripWheels(quad, {2, 0, 38.1f}, right, up, forward, wheels) == 0);    // 0.6 m short
@@ -1835,7 +1863,9 @@ void testCopCalls() {
         tilt.roll = 0.03f; // a twelfth of a radian or so, rolled on the flat road
         AiCar after = tilt;
         aiTilt(after, 0, col);
-        std::array<float, 3> f{}, r{}, u{};
+        std::array<float, 3> f{};
+        std::array<float, 3> r{};
+        std::array<float, 3> u{};
         aiTiltedAxes(col, after, f, r, u);
         CHECK(after.spinX != 0 || after.spinZ != 0);
         const float spinUp = after.spinX * u[0] + 0.1f * u[1] + after.spinZ * u[2];

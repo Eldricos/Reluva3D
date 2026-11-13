@@ -89,7 +89,8 @@ int cmdNfsPage(int argc, char **argv) {
                                                        {"pgup", reluva::key::PageUp},  {"pgdn", reluva::key::PageDown},
                                                        {"home", reluva::key::Home},    {"end", reluva::key::End},
                                                        {"enter", reluva::key::Return}, {"esc", reluva::key::Escape}};
-    int mouseX = 320, mouseY = 240;
+    int mouseX = 320;
+    int mouseY = 240;
     auto mouse = [&](reluva::EventType type) {
         reluva::Event ev;
         ev.type = type;
@@ -122,7 +123,8 @@ int cmdNfsPage(int argc, char **argv) {
             continue;
         }
         // +key and -key: pressed, let go; else both.
-        const bool press = arg[0] != '-', release = arg[0] != '+';
+        const bool press = arg[0] != '-';
+        const bool release = arg[0] != '+';
         const std::string keyArg = arg.size() > 1 && (arg[0] == '+' || arg[0] == '-') ? arg.substr(1) : arg;
         uint32_t key = 0;
         for (const auto &[name, code] : names)

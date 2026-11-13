@@ -111,7 +111,8 @@ void testRushDesktop() {
     // 1280x1024 desktop an 800x600 window fits without one, not with one.
     CHECK(boardByName("rush,desktop=1280x1024x16", b));
     Glide2 rush(b);
-    int winW = 800, winH = 600;
+    int winW = 800;
+    int winH = 600;
     rush.windowSize = [&](uint32_t, int &w, int &h) {
         w = winW;
         h = winH;
@@ -305,7 +306,9 @@ void testMirror() {
         for (int x = 0; x < 16; ++x)
             out[x] = red(g, x, 2);
     };
-    int wrap[16], mirror[16], v1[16];
+    int wrap[16];
+    int mirror[16];
+    int v1[16];
     row(voodoo2Board(), kClampWrap, wrap);
     row(voodoo2Board(), kClampMirror, mirror);
     row(voodoo1Board(), kClampMirror, v1); // no TEXMIRROR on the Voodoo Graphics: wrapped
@@ -358,7 +361,8 @@ void testChromaRange() {
     Glide3Dll dll(cpu, arena, bansheeBoard());
     const uint32_t name = arena.alloc(32);
     cpu.writeString(name, "grChromaRangeExt", 32);
-    uint32_t proc = 0, result = 0;
+    uint32_t proc = 0;
+    uint32_t result = 0;
     CHECK(!cpu.call(dll.exports().at("_grGetProcAddress@4"), {name}, proc) && proc != 0);
     CHECK(!cpu.call(proc, {0xff102030u, 0xff050505u, 0}, result));
     CHECK(dll.glide().pipeline().state().chromaRangeMin == 0x050505u);
@@ -405,7 +409,9 @@ void testClippedFringe() {
     // A triangle half through the far plane: (-0.5, -0.5) and (0.5, -0.5)
     // at z 0, (0, 0.5) at z 2. Clipped where z = w, half way up: rows 120
     // (a-b) to 240 (the plane's edge); x 160-480 at the top.
-    const ClipV a{-0.5f, -0.5f, 0, 1, 0xffffffffu}, b{0.5f, -0.5f, 0, 1, 0xffffffffu}, c{0, 0.5f, 2, 1, 0xffffffffu};
+    const ClipV a{-0.5f, -0.5f, 0, 1, 0xffffffffu};
+    const ClipV b{0.5f, -0.5f, 0, 1, 0xffffffffu};
+    const ClipV c{0, 0.5f, 2, 1, 0xffffffffu};
     Glide3 g = clipAa();
     g.aaDrawTriangle(at(a), at(b), at(c), true, true, true);
     const Glide2 &core = g.core();
@@ -445,7 +451,9 @@ void testClippedFringe() {
     // Wholly inside, as before: the same pixels as the window-coordinate
     // triangle's.
     Glide3 inside = clipAa();
-    const ClipV ia{-0.5f, -0.5f, 0, 1, 0xffffffffu}, ib{0.5f, -0.5f, 0, 1, 0xffffffffu}, ic{0, 0.5f, 0, 1, 0xffffffffu};
+    const ClipV ia{-0.5f, -0.5f, 0, 1, 0xffffffffu};
+    const ClipV ib{0.5f, -0.5f, 0, 1, 0xffffffffu};
+    const ClipV ic{0, 0.5f, 0, 1, 0xffffffffu};
     inside.aaDrawTriangle(at(ia), at(ib), at(ic), true, true, true);
     Glide2 window;
     window.sstWinOpen(0, 7, 0, kColorArgb, 0, 2, 1);
@@ -454,7 +462,9 @@ void testClippedFringe() {
     window.alphaCombine(kFuncLocal, kFactorZero, kLocalIterated, kOtherIterated, false);
     window.alphaBlendFunction(kBlendSrcAlpha, kBlendOneMinusSrcAlpha, kBlendZero, kBlendZero);
     window.bufferClear(0, 0, 0);
-    Glide2Vertex wa = vtx(160, 120), wb = vtx(480, 120), wc = vtx(320, 360);
+    Glide2Vertex wa = vtx(160, 120);
+    Glide2Vertex wb = vtx(480, 120);
+    Glide2Vertex wc = vtx(320, 360);
     window.aaDrawTriangle(wa, wb, wc, true, true, true);
     int same = 0;
     for (int y = 110; y < 370; ++y)
@@ -465,8 +475,10 @@ void testClippedFringe() {
     // edges with a fringe, the fan's inner edge without.
     Glide3 quad = clipAa();
     quad.enable(g3::kAaOrdered);
-    const ClipV q0{-0.5f, -0.5f, 0, 1, 0xffffffffu}, q1{0.5f, -0.5f, 0, 1, 0xffffffffu},
-        q2{0.5f, 0.5f, 2, 1, 0xffffffffu}, q3{-0.5f, 0.5f, 2, 1, 0xffffffffu};
+    const ClipV q0{-0.5f, -0.5f, 0, 1, 0xffffffffu};
+    const ClipV q1{0.5f, -0.5f, 0, 1, 0xffffffffu};
+    const ClipV q2{0.5f, 0.5f, 2, 1, 0xffffffffu};
+    const ClipV q3{-0.5f, 0.5f, 2, 1, 0xffffffffu};
     quad.drawVertexArray(g3::kPolygon, {at(q0), at(q1), at(q2), at(q3)});
     for (int y = 125; y < 235; y += 10)
         for (int x = 165; x < 475; x += 10)

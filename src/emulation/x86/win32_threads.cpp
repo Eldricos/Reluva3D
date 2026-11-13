@@ -362,7 +362,8 @@ void Win32Process::addThreadStandIns() {
     // CreateThread(security, stackSize, start, parameter, flags, id*): the
     // thread runs start(parameter); CREATE_SUSPENDED (4) holds it.
     stdcall(k, "CreateThread", 6, [this](Cpu &c) {
-        const uint32_t start = c.arg(2), parameter = c.arg(3);
+        const uint32_t start = c.arg(2);
+        const uint32_t parameter = c.arg(3);
         std::shared_ptr<Thread> t;
         t = createThread(
             [this, start, parameter]() -> uint32_t {
@@ -604,7 +605,8 @@ void Win32Process::addThreadStandIns() {
     });
     stdcall(k, "DeleteCriticalSection", 1, [](Cpu &) { return 0u; });
     stdcall(k, "EnterCriticalSection", 1, [this, selfId, endIfEnding](Cpu &c) {
-        const uint32_t cs = c.arg(0), self = selfId();
+        const uint32_t cs = c.arg(0);
+        const uint32_t self = selfId();
         const uint32_t owner = c.read32(cs + 12);
         if (owner != 0 && owner != self)
             wait([&] { return c.read32(cs + 12) == 0; }, kInfinite);
@@ -615,7 +617,9 @@ void Win32Process::addThreadStandIns() {
         return 0u;
     });
     stdcall(k, "TryEnterCriticalSection", 1, [selfId](Cpu &c) {
-        const uint32_t cs = c.arg(0), self = selfId(), owner = c.read32(cs + 12);
+        const uint32_t cs = c.arg(0);
+        const uint32_t self = selfId();
+        const uint32_t owner = c.read32(cs + 12);
         if (owner != 0 && owner != self)
             return 0u;
         c.write32(cs + 12, self);

@@ -162,7 +162,8 @@ const std::vector<AcEntry> &acTable() {
         auto add = [&](const char *bits, uint8_t run, int8_t level) {
             const size_t n = std::strlen(bits);
             const uint32_t code = static_cast<uint32_t>(std::strtoul(bits, nullptr, 2));
-            const uint32_t first = code << (16 - n), count = 1u << (16 - n);
+            const uint32_t first = code << (16 - n);
+            const uint32_t count = 1u << (16 - n);
             for (uint32_t i = 0; i < count; ++i)
                 t[first + i] = {static_cast<uint8_t>(n), run, level};
         };
@@ -191,7 +192,8 @@ const std::array<uint8_t, 64> &zigzag() {
         for (int s = 0; s < 15; ++s) {
             // Odd diagonals run down-left, even ones up-right.
             for (int k = 0; k < 8; ++k) {
-                const int row = (s & 1) ? k : s - k, col = s - row;
+                const int row = (s & 1) ? k : s - k;
+                const int col = s - row;
                 if (row >= 0 && row < 8 && col >= 0 && col < 8)
                     z[n++] = static_cast<uint8_t>(row * 8 + col);
             }
@@ -223,15 +225,25 @@ const std::array<int, 64> &inverseAanScales() {
 template<typename In, typename Out, typename Store>
 void inverse8(const In *in, int step, Out *out, Store store) {
     auto at = [&](int k) { return static_cast<int>(in[k * step]); };
-    const int sum17 = at(1) + at(7), diff17 = at(1) - at(7);
-    const int sum53 = at(5) + at(3), diff53 = at(5) - at(3);
-    const int sum26 = at(2) + at(6), diff26 = (181 * (at(2) - at(6))) >> 8;
-    const int sum04 = at(0) + at(4), diff04 = at(0) - at(4);
+    const int sum17 = at(1) + at(7);
+    const int diff17 = at(1) - at(7);
+    const int sum53 = at(5) + at(3);
+    const int diff53 = at(5) - at(3);
+    const int sum26 = at(2) + at(6);
+    const int diff26 = (181 * (at(2) - at(6))) >> 8;
+    const int sum04 = at(0) + at(4);
+    const int diff04 = at(0) - at(4);
     const int odd1 = ((669 - 196) * diff17 - 196 * diff53) >> 9;
     const int odd2 = ((277 + 196) * diff53 + 196 * diff17) >> 9;
     const int mid = (181 * (sum17 - sum53)) >> 8;
-    const int e0 = sum04 + sum26 + diff26, e1 = diff04 + diff26, e2 = diff04 - diff26, e3 = sum04 - sum26 - diff26;
-    const int o0 = odd1 + sum17 + sum53, o1 = odd1 + mid, o2 = odd2 + mid, o3 = odd2;
+    const int e0 = sum04 + sum26 + diff26;
+    const int e1 = diff04 + diff26;
+    const int e2 = diff04 - diff26;
+    const int e3 = sum04 - sum26 - diff26;
+    const int o0 = odd1 + sum17 + sum53;
+    const int o1 = odd1 + mid;
+    const int o2 = odd2 + mid;
+    const int o3 = odd2;
     const int v[8] = {e0 + o0, e1 + o1, e2 + o2, e3 + o3, e3 - o3, e2 - o2, e1 - o1, e0 - o0};
     for (int k = 0; k < 8; ++k)
         out[k * step] = store(v[k]);
@@ -288,16 +300,29 @@ void gamePass(const int32_t *in, int32_t *out, int step) {
         const int64_t v = static_cast<int64_t>(x) * 1518500250;
         return static_cast<int32_t>(static_cast<uint32_t>(static_cast<int32_t>(v >> 32)) << 1);
     };
-    const int32_t z13 = in[5] + in[3], z10 = in[5] - in[3], z11 = in[1] + in[7], z12 = in[1] - in[7];
-    const int32_t t7 = z11 + z13, t11 = overRoot2(z11 - z13);
-    const float k0 = 0.541196108f, k1 = 1.306563020f, k2 = 0.382683426f; // the game's floats
+    const int32_t z13 = in[5] + in[3];
+    const int32_t z10 = in[5] - in[3];
+    const int32_t z11 = in[1] + in[7];
+    const int32_t z12 = in[1] - in[7];
+    const int32_t t7 = z11 + z13;
+    const int32_t t11 = overRoot2(z11 - z13);
+    const float k0 = 0.541196108f;
+    const float k1 = 1.306563020f;
+    const float k2 = 0.382683426f; // the game's floats
     const double z5 = (static_cast<double>(z12) + z10) * k2;
     const int32_t a = gameRound(static_cast<double>(z10) * k0 + z5);
     const int32_t b = gameRound(static_cast<double>(z12) * k1 - z5);
-    const int32_t odd1 = a + t11, odd2 = t11 + b, odd3 = b + t7;
-    const int32_t s26 = in[2] + in[6], d26 = overRoot2(in[2] - in[6]);
-    const int32_t s04 = in[0] + in[4], d04 = in[0] - in[4];
-    const int32_t e1 = d04 + d26, e2 = d04 - d26, e0 = s04 + (s26 + d26), e3 = s04 - (s26 + d26);
+    const int32_t odd1 = a + t11;
+    const int32_t odd2 = t11 + b;
+    const int32_t odd3 = b + t7;
+    const int32_t s26 = in[2] + in[6];
+    const int32_t d26 = overRoot2(in[2] - in[6]);
+    const int32_t s04 = in[0] + in[4];
+    const int32_t d04 = in[0] - in[4];
+    const int32_t e1 = d04 + d26;
+    const int32_t e2 = d04 - d26;
+    const int32_t e0 = s04 + (s26 + d26);
+    const int32_t e3 = s04 - (s26 + d26);
     out[0 * step] = e0 + odd3;
     out[7 * step] = e0 - odd3;
     out[1 * step] = e1 + odd2;
@@ -349,7 +374,8 @@ bool MadDecoder::decodeIntraBlock(int16_t block[64]) {
         bitPos_ += e.length;
         if (e.run == 0xff)
             return true;
-        int level, run;
+        int level;
+        int run;
         bool negative;
         if (e.level == 0) {
             level = readSigned(10);
@@ -389,7 +415,8 @@ bool MadDecoder::gameIntraBlock(int32_t block[64]) {
         bitPos_ += e.length;
         if (e.run == 0xff)
             return true;
-        int level, run;
+        int level;
+        int run;
         if (e.level == 0) {
             level = readSigned(10);
             run = static_cast<int>(read(6));
@@ -420,7 +447,9 @@ void MadDecoder::gamePutBlock(int index, int mbX, int mbY, int32_t block[64]) {
         s = stride_ / 2;
         dst = current_[index - 3].data() + static_cast<size_t>(mbY * 8) * s + mbX * 8;
     }
-    int32_t temp[64], column[8], row[8];
+    int32_t temp[64];
+    int32_t column[8];
+    int32_t row[8];
     for (int u = 0; u < 8; ++u) {
         for (int v = 0; v < 8; ++v)
             column[v] = block[v * 8 + u];
@@ -441,7 +470,11 @@ void MadDecoder::copyBlock(int index, int mbX, int mbY, int mvX, int mvY, int ad
     // brightness change. A source outside the picture leaves the block as
     // it was.
     const bool game = arithmetic_ == Arithmetic::Game;
-    int plane, x, y, rows, s;
+    int plane;
+    int x;
+    int y;
+    int rows;
+    int s;
     if (index < 4) {
         plane = 0;
         x = mbX * 16 + (index & 1) * 8;
@@ -487,7 +520,9 @@ void MadDecoder::decodeMacroblock(bool inter, int mbX, int mbY) {
     // Six blocks: four luma, then U and V. In an inter frame a prefix says
     // which are copies: "1" all, "01" those set in a 6-bit map, "00" none;
     // the copies share one motion vector.
-    int map = 0, mvX = 0, mvY = 0;
+    int map = 0;
+    int mvX = 0;
+    int mvY = 0;
     if (inter) {
         const int kind = read(1) ? 0 : 2 - static_cast<int>(read(1));
         if (kind < 2) {
@@ -527,7 +562,8 @@ Error MadDecoder::decode(const uint8_t *chunk, size_t size) {
     if (std::memcmp(chunk, "MAD", 3) != 0 || (kind != 'k' && kind != 'm' && kind != 'e'))
         return Error::fail("not a MAD video frame");
     const bool inter = kind != 'k';
-    const int w = le16(chunk + 16), h = le16(chunk + 18);
+    const int w = le16(chunk + 16);
+    const int h = le16(chunk + 18);
     if (w < 16 || h < 16 || w > 4096 || h > 4096)
         return Error::fail("a video frame of " + std::to_string(w) + "x" + std::to_string(h));
     if (w != width_ || h != height_) {
@@ -597,7 +633,9 @@ void MadDecoder::toSurface(Surface &out) const {
         for (int x = 0; x < width_; ++x) {
             // The game's 7-bit samples as 8-bit ones (twice, at most 127).
             auto at8 = [&](uint8_t s) { return arithmetic_ == Arithmetic::Game ? std::min<int>(s, 127) * 2 : s; };
-            const int l = at8(yr[x]) << 16, u = at8(ur[x / 2]) - 128, v = at8(vr[x / 2]) - 128;
+            const int l = at8(yr[x]) << 16;
+            const int u = at8(ur[x / 2]) - 128;
+            const int v = at8(vr[x / 2]) - 128;
             // 1.402, 0.344136, 0.714136 and 1.772 in 16 fraction bits.
             const int r = (l + 91881 * v + 32768) >> 16;
             const int g = (l - 22554 * u - 46802 * v + 32768) >> 16;
@@ -635,7 +673,8 @@ void putGamePixel(uint8_t *dst, int y, int u, int v, bool rounded) {
     const int c[3] = {std::clamp(l + t.rv[v], 0, 255), std::clamp(l + t.gu[u] + t.gv[v], 0, 255),
                       std::clamp(l + t.bu[u], 0, 255)};
     for (int k = 0; k < 3; ++k) {
-        const int bits = k == 1 ? 6 : 5, top = (1 << bits) - 1;
+        const int bits = k == 1 ? 6 : 5;
+        const int top = (1 << bits) - 1;
         const int q = rounded ? std::min((c[k] + (1 << (7 - bits))) >> (8 - bits), top) : c[k] >> (8 - bits);
         dst[k] = static_cast<uint8_t>(q << (8 - bits) | q >> (2 * bits - 8));
     }
@@ -654,7 +693,8 @@ void MadDecoder::toGameSurface(Surface &out, Display mode) const {
     // Each source line as the game's 4:2:2 line: Y for every pixel, U and V
     // for each pair (the 4:2:0 chroma line serving two luma lines), in
     // 7-bit samples.
-    const int pairs = width_ / 2, cs = stride_ / 2;
+    const int pairs = width_ / 2;
+    const int cs = stride_ / 2;
     auto sample = [&](uint8_t s) { return arithmetic_ == Arithmetic::Game ? s & 0xff : s >> 1; };
     auto line = [&](int j, std::vector<int> &ys, std::vector<int> &us, std::vector<int> &vs) {
         ys.resize(width_);
@@ -685,8 +725,13 @@ void MadDecoder::toGameSurface(Surface &out, Display mode) const {
         // Four pixels from each pair and the next; the last pair isn't
         // interpolated, so the line stops 4 pixels short.
         for (int p = 0; p + 1 < pairs; ++p) {
-            const int y0 = ys[2 * p], y1 = ys[2 * p + 1], y2 = ys[2 * p + 2];
-            const int u = us[p], v = vs[p], u2 = (us[p] + us[p + 1]) >> 1, v2 = (vs[p] + vs[p + 1]) >> 1;
+            const int y0 = ys[2 * p];
+            const int y1 = ys[2 * p + 1];
+            const int y2 = ys[2 * p + 2];
+            const int u = us[p];
+            const int v = vs[p];
+            const int u2 = (us[p] + us[p + 1]) >> 1;
+            const int v2 = (vs[p] + vs[p + 1]) >> 1;
             uint8_t *d = row + 16 * p;
             putGamePixel(d, y0, u, v, true);
             putGamePixel(d + 4, (y0 + y1) >> 1, u, v, false);
@@ -694,7 +739,12 @@ void MadDecoder::toGameSurface(Surface &out, Display mode) const {
             putGamePixel(d + 12, (y1 + y2) >> 1, u2, v2, false);
         }
     };
-    std::vector<int> ys, us, vs, ys2, us2, vs2;
+    std::vector<int> ys;
+    std::vector<int> us;
+    std::vector<int> vs;
+    std::vector<int> ys2;
+    std::vector<int> us2;
+    std::vector<int> vs2;
     for (int j = 0; j < height_; ++j) {
         line(j, ys, us, vs);
         put(2 * j, ys, us, vs);

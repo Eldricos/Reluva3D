@@ -107,7 +107,9 @@ void testWin32SerialPort() {
     CHECK(call("CreateFileA", {mem, 0xc0000000u, 0, 0, 3, 0, 0}) == 0xffffffffu && opened == 1);
     // Written and read plainly.
     cpu.writeString(mem + 16, "hi", 3);
-    const uint32_t done = mem + 32, buffer = mem + 64, overlapped = mem + 128;
+    const uint32_t done = mem + 32;
+    const uint32_t buffer = mem + 64;
+    const uint32_t overlapped = mem + 128;
     CHECK(call("WriteFile", {h, mem + 16, 2, done, 0}) == 1 && port->written == "hi" && cpu.read32(done) == 2);
     port->incoming = "abc";
     CHECK(call("ReadFile", {h, buffer, 2, done, 0}) == 1 && cpu.read32(done) == 2 && cpu.read8(buffer + 1) == 'b');

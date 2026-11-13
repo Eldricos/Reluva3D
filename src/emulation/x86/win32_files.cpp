@@ -423,7 +423,9 @@ void Win32Process::addDriveStandIns() {
     stdcall(k, "_lclose", 1, [this](Cpu &c) { return closeHandle(c.arg(0)) ? 0u : kInvalidHandle; });
 
     stdcall(k, "ReadFile", 5, [this](Cpu &c) {
-        const uint32_t buffer = c.arg(1), size = c.arg(2), done = c.arg(3);
+        const uint32_t buffer = c.arg(1);
+        const uint32_t size = c.arg(2);
+        const uint32_t done = c.arg(3);
         if (done)
             c.write32(done, 0);
         if (!c.valid(buffer, size) && size) {
@@ -431,7 +433,8 @@ void Win32Process::addDriveStandIns() {
             return 0u;
         }
         if (auto device = object<DeviceObject>(c.arg(0))) {
-            uint32_t n = 0, error = 0;
+            uint32_t n = 0;
+            uint32_t error = 0;
             const uint32_t overlapped = c.arg(4);
             const bool ok = device->read(c, buffer, size, overlapped != 0, n, error);
             if (done)
@@ -490,7 +493,8 @@ void Win32Process::addDriveStandIns() {
             }
         }
         pendingReads_.erase(it);
-        uint32_t n = 0, error = 0;
+        uint32_t n = 0;
+        uint32_t error = 0;
         device->read(c, p.buffer, p.size, true, n, error);
         c.write32(overlapped, 0);
         c.write32(overlapped + 4, n);
@@ -499,7 +503,10 @@ void Win32Process::addDriveStandIns() {
         return 1u;
     });
     stdcall(k, "WriteFile", 5, [this](Cpu &c) {
-        const uint32_t handle = c.arg(0), buffer = c.arg(1), size = c.arg(2), done = c.arg(3);
+        const uint32_t handle = c.arg(0);
+        const uint32_t buffer = c.arg(1);
+        const uint32_t size = c.arg(2);
+        const uint32_t done = c.arg(3);
         if (!c.valid(buffer, size) && size)
             return 0u;
         if (done)
@@ -509,7 +516,8 @@ void Win32Process::addDriveStandIns() {
             if (output)
                 output(std::string(data, size));
         } else if (auto device = object<DeviceObject>(handle)) {
-            uint32_t n = 0, error = 0;
+            uint32_t n = 0;
+            uint32_t error = 0;
             const bool ok = device->write(c, buffer, size, n, error);
             if (done)
                 c.write32(done, n);
@@ -641,11 +649,13 @@ void Win32Process::addDriveStandIns() {
     stdcall(k, "FindFirstFileA", 2, [this, fillFind](Cpu &c) {
         const std::string full = drivePath(c.string(c.arg(0)));
         const size_t slash = full.rfind('\\');
-        const std::string folder = full.substr(0, slash), pattern = full.substr(slash + 1);
+        const std::string folder = full.substr(0, slash);
+        const std::string pattern = full.substr(slash + 1);
         auto find = std::make_shared<FindObject>();
         // The writable copies first, then the drive's, each name once.
         std::vector<stdfs::path> dirs;
-        const stdfs::path copy = hostPath(folder + "\\", true), own = hostPath(folder + "\\", false);
+        const stdfs::path copy = hostPath(folder + "\\", true);
+        const stdfs::path own = hostPath(folder + "\\", false);
         for (const stdfs::path &d : {copy, own})
             if (std::find(dirs.begin(), dirs.end(), d) == dirs.end() && !d.empty())
                 dirs.push_back(d);
@@ -728,12 +738,14 @@ void Win32Process::addDriveStandIns() {
     stdcall(k, "DeleteFileA", 1, [remove](Cpu &c) { return remove(c.string(c.arg(0))) ? 1u : 0u; });
     stdcall(k, "RemoveDirectoryA", 1, [remove](Cpu &c) { return remove(c.string(c.arg(0))) ? 1u : 0u; });
     stdcall(k, "MoveFileA", 2, [this, writable, writableCopy](Cpu &c) {
-        const std::string from = c.string(c.arg(0)), to = c.string(c.arg(1));
+        const std::string from = c.string(c.arg(0));
+        const std::string to = c.string(c.arg(1));
         if (!writable(drivePath(from)) || !writable(drivePath(to))) {
             lastError_ = kAccessDenied;
             return 0u;
         }
-        const stdfs::path source = writableCopy(from, true), target = hostPath(to, true);
+        const stdfs::path source = writableCopy(from, true);
+        const stdfs::path target = hostPath(to, true);
         std::error_code ec;
         stdfs::create_directories(target.parent_path(), ec);
         stdfs::rename(source, target, ec);

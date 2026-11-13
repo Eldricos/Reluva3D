@@ -278,7 +278,8 @@ void SoundPage::draw(Surface &s) {
         text(s, kMargin, y, line, selected ? kTitleColor : kTextColor);
     }
 
-    const int waveY = s.h - kWaveH - font::kLineHeight * 2 - 4, waveW = s.w - 2 * kMargin;
+    const int waveY = s.h - kWaveH - font::kLineHeight * 2 - 4;
+    const int waveW = s.w - 2 * kMargin;
     if (!soundError_.empty()) {
         text(s, kMargin, waveY, soundError_, kWarnColor);
         return;
@@ -290,8 +291,10 @@ void SoundPage::draw(Surface &s) {
     const size_t frames = snd.frames();
     fill(s, kMargin, waveY + kWaveH / 2, waveW, 1, kBarColor);
     for (int x = 0; x < waveW; ++x) {
-        const size_t a = frames * x / waveW, b = std::max(a + 1, frames * (x + 1) / waveW);
-        int lo = 0, hi = 0;
+        const size_t a = frames * x / waveW;
+        const size_t b = std::max(a + 1, frames * (x + 1) / waveW);
+        int lo = 0;
+        int hi = 0;
         for (size_t f = a; f < b && f < frames; ++f) {
             const int v = snd.samples[f * snd.channels];
             lo = std::min(lo, v);
@@ -825,10 +828,12 @@ void MoviePage::draw(Surface &s) {
     y += font::kLineHeight + 4;
 
     // The picture, as large as fits (nearest pixel), then the position.
-    const int areaW = s.w - 2 * kMargin, areaH = s.h - y - font::kLineHeight * 2 - 12;
+    const int areaW = s.w - 2 * kMargin;
+    const int areaH = s.h - y - font::kLineHeight * 2 - 12;
     if (picture_.w > 0 && picture_.h > 0) {
         const double scale = std::min(double(areaW) / picture_.w, double(areaH) / picture_.h);
-        const int w = static_cast<int>(picture_.w * scale), h = static_cast<int>(picture_.h * scale);
+        const int w = static_cast<int>(picture_.w * scale);
+        const int h = static_cast<int>(picture_.h * scale);
         const int x0 = kMargin + (areaW - w) / 2;
         for (int dy = 0; dy < h; ++dy) {
             const uint8_t *src = picture_.row(std::min(picture_.h - 1, static_cast<int>(dy / scale)));

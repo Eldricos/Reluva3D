@@ -110,7 +110,10 @@ bool boardByName(const std::string &spec, Board &out, bool *desktopClamped) {
     if (desktopClamped)
         *desktopClamped = false;
     const std::string name = spec.substr(0, spec.find(','));
-    int desktop = -1, desktopW = 0, desktopH = 0, desktopBits = 0; // -1: the board's own
+    int desktop = -1;
+    int desktopW = 0;
+    int desktopH = 0;
+    int desktopBits = 0; // -1: the board's own
     if (name == "voodoo1" || name == "voodoo" || name == "sst1")
         out = voodoo1Board();
     else if (name == "rush" || name == "sst96")
@@ -428,7 +431,8 @@ void Pipeline::downloadLevel(int tmu, uint32_t start, const TextureInfo &info, i
                              const uint8_t *data, int firstRow, int lastRow) {
     if (tmu < 0 || tmu >= board_.tmus || !data || !knownFormat(info.format))
         return;
-    int w = 0, h = 0;
+    int w = 0;
+    int h = 0;
     levelSize(lod, info.aspect, w, h);
     firstRow = std::max(firstRow, 0);
     lastRow = std::min(lastRow, h - 1);
@@ -525,7 +529,9 @@ void Pipeline::lfbWrite(int bufferId, int x, int y, int mode, uint32_t value, bo
     int depth = state_.lfbConstantDepth;
     bool hasColor = true;
     auto from555 = [](uint32_t v) {
-        const int r = int(v >> 10 & 31), g = int(v >> 5 & 31), b = int(v & 31);
+        const int r = int(v >> 10 & 31);
+        const int g = int(v >> 5 & 31);
+        const int b = int(v & 31);
         return Rgba{r << 3 | r >> 2, g << 3 | g >> 2, b << 3 | b >> 2, 255};
     };
     switch (mode) {
@@ -664,7 +670,8 @@ void Pipeline::present(Surface &out) {
             const int n = int(t.size());
             for (int i = 0; i < 256; ++i) {
                 const int pos = i * (n - 1); // in 255ths of an entry
-                const int k = std::min(pos / 255, n - 2), f = pos - k * 255;
+                const int k = std::min(pos / 255, n - 2);
+                const int f = pos - k * 255;
                 gamma[ch][size_t(i)] = uint8_t((t[size_t(k)] * (255 - f) + t[size_t(k + 1)] * f + 127) / 255);
             }
         }

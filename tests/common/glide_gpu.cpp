@@ -280,7 +280,8 @@ int differing(const std::vector<uint16_t> &a, const std::vector<uint16_t> &b, in
     for (size_t i = 0; i < a.size(); ++i)
         if (a[i] != b[i]) {
             ++n;
-            const Rgba x = from565(a[i]), y = from565(b[i]);
+            const Rgba x = from565(a[i]);
+            const Rgba y = from565(b[i]);
             maxChannel = std::max({maxChannel, std::abs(x.r - y.r), std::abs(x.g - y.g), std::abs(x.b - y.b)});
         }
     return n;
@@ -296,9 +297,13 @@ static void runAll() {
         std::printf("glide_gpu: no GPU here (%s); skipped\n", error.c_str());
         return;
     }
-    const Frames sw = draw(nullptr), hw = draw(std::move(renderer));
-    int maxFront = 0, maxBack = 0, maxAux = 0;
-    const int front = differing(sw.front, hw.front, maxFront), back = differing(sw.back, hw.back, maxBack);
+    const Frames sw = draw(nullptr);
+    const Frames hw = draw(std::move(renderer));
+    int maxFront = 0;
+    int maxBack = 0;
+    int maxAux = 0;
+    const int front = differing(sw.front, hw.front, maxFront);
+    const int back = differing(sw.back, hw.back, maxBack);
     const int aux = differing(sw.aux, hw.aux, maxAux);
     std::printf("glide_gpu: pixels differing from the software reference: frame 1 %d (at most %d a channel), frame "
                 "2 %d (%d), aux %d\n",
@@ -324,7 +329,8 @@ static void runAll() {
     }
     // The Voodoo3's 6666 palette, on both.
     auto gpu3 = reluva::makeSdlCompute(error);
-    const Frames sw3 = draw(nullptr, true), hw3 = draw(makeGpuRenderer(std::move(gpu3), error), true);
+    const Frames sw3 = draw(nullptr, true);
+    const Frames hw3 = draw(makeGpuRenderer(std::move(gpu3), error), true);
     int max3 = 0;
     const int diff3 = differing(sw3.front, hw3.front, max3);
     std::printf("glide_gpu: the 6666 palette's frame: %d pixels differing (at most %d a channel)\n", diff3, max3);
