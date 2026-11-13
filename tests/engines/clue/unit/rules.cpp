@@ -72,7 +72,7 @@ static void testRules() {
     CHECK((std::count(steps.begin(), steps.end(), Place{{}, Hall}) == (roll > 1 ? 1 : 0)));
     const auto all = game.destinations();
     CHECK(!all.empty());
-    for (const auto& d : all)
+    for (const auto &d : all)
         CHECK(game.canWalk(d));
     CHECK((!game.walk({{{0, 2}, kNoRoom}, {{}, Hall}}) == (roll > 1)));
     if (roll == 1)
@@ -112,9 +112,14 @@ static void testRules() {
     // A suspect blocking the only door traps the one inside.
     Game trap;
     trap.start(board, {true, true, true, false, false, false}, true, 5);
-    CHECK((!trap.walk({{{0, 2}, kNoRoom}, {{}, Hall}}) && !trap.endTurn()));     // Scarlet into the hall
-    CHECK((!trap.walk({{{4, 3}, kNoRoom}, {{3, 3}, kNoRoom}, {{2, 3}, kNoRoom}, {{1, 3}, kNoRoom},
-                      {{1, 2}, kNoRoom}, {{0, 2}, kNoRoom}}) && !trap.endTurn())); // Mustard before its door
+    CHECK((!trap.walk({{{0, 2}, kNoRoom}, {{}, Hall}}) && !trap.endTurn())); // Scarlet into the hall
+    CHECK((!trap.walk({{{4, 3}, kNoRoom},
+                       {{3, 3}, kNoRoom},
+                       {{2, 3}, kNoRoom},
+                       {{1, 3}, kNoRoom},
+                       {{1, 2}, kNoRoom},
+                       {{0, 2}, kNoRoom}}) &&
+           !trap.endTurn())); // Mustard before its door
     while (trap.turn() != Scarlet)
         CHECK(!trap.walk(trap.destinations().front()) && !trap.endTurn());
     CHECK(trap.trapped() && !trap.canMove() && trap.canEndTurn() && trap.destinations().empty());
@@ -128,7 +133,7 @@ static void testNotebook() {
     CHECK(!board.build(boardLevel()));
     Game game;
     CHECK(!game.start(board, {true, true, true, false, false, false}, false, 9));
-    const Accusation& answer = game.solution();
+    const Accusation &answer = game.solution();
     Notebook n;
     n.reset(game, Scarlet, true, true);
     // Its own cards; the seats not playing hold nothing.
@@ -212,11 +217,17 @@ static void testComputerPlayers() {
                 ai[size_t(s)].reset(game, s, seed * 7 + uint32_t(s));
         int actions = 0;
         while (game.phase() != Game::Phase::Over && actions++ < 20000) {
-            ComputerPlayer& me = ai[size_t(game.turn())];
+            ComputerPlayer &me = ai[size_t(game.turn())];
             switch (me.decide(game)) {
-            case ComputerPlayer::Action::Roll: CHECK(game.rollDie() > 0); break;
-            case ComputerPlayer::Action::Passage: CHECK(!game.takePassage()); break;
-            case ComputerPlayer::Action::Walk: CHECK(!game.walk(me.chooseWalk(game))); break;
+            case ComputerPlayer::Action::Roll:
+                CHECK(game.rollDie() > 0);
+                break;
+            case ComputerPlayer::Action::Passage:
+                CHECK(!game.takePassage());
+                break;
+            case ComputerPlayer::Action::Walk:
+                CHECK(!game.walk(me.chooseWalk(game)));
+                break;
             case ComputerPlayer::Action::Suggest: {
                 const Accusation a = me.chooseSuggestion(game);
                 CHECK(!game.suggest(a.suspect, a.weapon));
@@ -227,8 +238,12 @@ static void testComputerPlayers() {
                         ai[size_t(s)].observe(game);
                 break;
             }
-            case ComputerPlayer::Action::Accuse: CHECK(!game.accuse(me.chooseAccusation())); break;
-            case ComputerPlayer::Action::EndTurn: CHECK(!game.endTurn()); break;
+            case ComputerPlayer::Action::Accuse:
+                CHECK(!game.accuse(me.chooseAccusation()));
+                break;
+            case ComputerPlayer::Action::EndTurn:
+                CHECK(!game.endTurn());
+                break;
             }
         }
         CHECK(game.phase() == Game::Phase::Over && game.winner() >= 0);
@@ -237,8 +252,9 @@ static void testComputerPlayers() {
     }
 }
 
-static const reluva::test::Suite suite("clue.unit.rules", {
-    {"rules", [](const std::filesystem::path&) { testRules(); }},
-    {"notebook", [](const std::filesystem::path&) { testNotebook(); }},
-    {"computer players", [](const std::filesystem::path&) { testComputerPlayers(); }},
-});
+static const reluva::test::Suite
+    suite("clue.unit.rules", {
+                                 {"rules", [](const std::filesystem::path &) { testRules(); }},
+                                 {"notebook", [](const std::filesystem::path &) { testNotebook(); }},
+                                 {"computer players", [](const std::filesystem::path &) { testComputerPlayers(); }},
+                             });

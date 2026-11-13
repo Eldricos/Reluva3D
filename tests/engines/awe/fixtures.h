@@ -59,9 +59,9 @@ struct Bytes {
         std::memcpy(&v, &f, 4);
         u32(v);
     }
-    void tag(const char* t) { u32(uint32_t(t[0]) << 24 | uint32_t(t[1]) << 16 | uint32_t(t[2]) << 8 | uint32_t(t[3])); }
+    void tag(const char *t) { u32(uint32_t(t[0]) << 24 | uint32_t(t[1]) << 16 | uint32_t(t[2]) << 8 | uint32_t(t[3])); }
     // UTF-16 in a fixed buffer, the rest filled as the game's files are.
-    void text(const std::string& s, size_t chars) {
+    void text(const std::string &s, size_t chars) {
         for (char c : s)
             u16(uint8_t(c));
         u16(0);
@@ -74,7 +74,7 @@ struct Bytes {
     }
 };
 
-inline std::vector<uint8_t> utf16File(const std::string& s) {
+inline std::vector<uint8_t> utf16File(const std::string &s) {
     Bytes b;
     b.d = {0xff, 0xfe};
     for (char c : s)
@@ -85,7 +85,7 @@ inline std::vector<uint8_t> utf16File(const std::string& s) {
 // instant. It records what it was asked.
 struct FakeHost : ScriptHost {
     std::vector<std::string> started;
-    bool start(ScriptRunner&, const ScriptEvent& e, bool wait) override {
+    bool start(ScriptRunner &, const ScriptEvent &e, bool wait) override {
         std::string s = e.verb();
         for (size_t i = 1; i < e.words.size(); i++)
             s += " " + e.words[i];

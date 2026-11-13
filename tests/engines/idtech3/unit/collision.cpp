@@ -83,7 +83,7 @@ using namespace reluva::idtech3::fixtures;
 static void testServerWorld() {
     using namespace reluva::idtech3;
     std::map<int32_t, EntityShape> shapes;
-    ServerWorld world([&](int32_t n, EntityShape& out) {
+    ServerWorld world([&](int32_t n, EntityShape &out) {
         const auto it = shapes.find(n);
         if (it == shapes.end())
             return false;
@@ -114,8 +114,8 @@ static void testServerWorld() {
         world.unlink(n);
         shapes.erase(n);
     }
-    auto touches = [&](int32_t n, const Vec3f& lo, const Vec3f& hi) {
-        const ServerWorld::Placement* p = world.placement(n);
+    auto touches = [&](int32_t n, const Vec3f &lo, const Vec3f &hi) {
+        const ServerWorld::Placement *p = world.placement(n);
         for (int i = 0; i < 3; ++i)
             if (p->absMin[size_t(i)] > hi[size_t(i)] || p->absMax[size_t(i)] < lo[size_t(i)])
                 return false;
@@ -140,7 +140,7 @@ static void testServerWorld() {
         float bestFraction = 1;
         int32_t bestHit = ServerWorld::kNone;
         for (const int32_t n : world.linked()) {
-            const EntityShape& s = shapes[n];
+            const EntityShape &s = shapes[n];
             if (n == pass || s.owner == pass || (shapes.count(pass) && shapes[pass].owner == n) || !(s.contents & 1))
                 continue;
             Vec3f boxMin = s.mins, boxMax = s.maxs;
@@ -162,7 +162,7 @@ static void testServerWorld() {
         movesAgree &= t.fraction == bestFraction && hit == bestHit;
         int32_t contents = 0;
         for (const int32_t n : world.linked()) {
-            const EntityShape& s = shapes[n];
+            const EntityShape &s = shapes[n];
             bool inside = true;
             for (int i = 0; i < 3; ++i)
                 inside &= a[size_t(i)] >= s.origin[size_t(i)] + s.mins[size_t(i)] &&
@@ -316,16 +316,16 @@ void testMarks() {
     marks.mark(square, {0, 0, -20}, 384, 128, points, fragments);
     CHECK(!fragments.empty() && fragments.size() <= 2);
     float area = 0;
-    for (const auto& f : fragments) {
+    for (const auto &f : fragments) {
         CHECK(f.numPoints >= 3);
         for (int i = 1; i + 1 < f.numPoints; ++i) {
-            const Vec3f& a = points[size_t(f.firstPoint)];
-            const Vec3f& b = points[size_t(f.firstPoint + i)];
-            const Vec3f& c = points[size_t(f.firstPoint + i + 1)];
+            const Vec3f &a = points[size_t(f.firstPoint)];
+            const Vec3f &b = points[size_t(f.firstPoint + i)];
+            const Vec3f &c = points[size_t(f.firstPoint + i + 1)];
             area += std::fabs((b[0] - a[0]) * (c[1] - a[1]) - (b[1] - a[1]) * (c[0] - a[0])) / 2;
         }
     }
-    for (const Vec3f& p : points)
+    for (const Vec3f &p : points)
         CHECK(std::fabs(p[2]) < 1e-4f && std::fabs(p[0]) <= 8.001f && std::fabs(p[1]) <= 8.001f);
     CHECK(std::fabs(area - 256) < 0.1f); // the whole square, on the floor
     // From below, the floor faces away; too far above, it's out of reach.
@@ -365,10 +365,12 @@ void testAreaPortals() {
     CHECK(areas.connected(0, 2));
 }
 
-static const reluva::test::Suite suite("idtech3.unit.collision", {
-    {"traces", [](const std::filesystem::path&) { testCollision(); }},
-    {"patch collision", [](const std::filesystem::path&) { testPatchCollision(); }},
-    {"server world", [](const std::filesystem::path&) { testServerWorld(); }},
-    {"area portals", [](const std::filesystem::path&) { testAreaPortals(); }},
-    {"marks", [](const std::filesystem::path&) { testMarks(); }},
-});
+static const reluva::test::Suite
+    suite("idtech3.unit.collision",
+          {
+              {"traces", [](const std::filesystem::path &) { testCollision(); }},
+              {"patch collision", [](const std::filesystem::path &) { testPatchCollision(); }},
+              {"server world", [](const std::filesystem::path &) { testServerWorld(); }},
+              {"area portals", [](const std::filesystem::path &) { testAreaPortals(); }},
+              {"marks", [](const std::filesystem::path &) { testMarks(); }},
+          });

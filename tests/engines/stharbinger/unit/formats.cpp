@@ -28,7 +28,7 @@ using namespace reluva;
 using namespace reluva::stharbinger;
 using namespace reluva::stharbinger::testing;
 
-static void test_lst_archive_by_index_and_name(const std::filesystem::path& /*tmp*/) {
+static void test_lst_archive_by_index_and_name(const std::filesystem::path & /*tmp*/) {
     std::vector<uint8_t> all = {'a', 'b', 'c', 'd', 'e'};
     std::vector<uint8_t> lst;
     putU32(lst, 0);
@@ -56,7 +56,7 @@ static void test_lst_archive_by_index_and_name(const std::filesystem::path& /*tm
     CHECK(LstArchive::create(all, badLst) == nullptr);
 }
 
-static void test_directive_list(const std::filesystem::path& /*tmp*/) {
+static void test_directive_list(const std::filesystem::path & /*tmp*/) {
     // SCENE #7; BACKGRND @1, b0; LABEL @0; then an unused slot (type 00).
     const uint8_t data[] = {
         0x03, 0x00, 0x68, 0x40, 0x07, 0x00, 0x69, 0x02, 0x01, 0x00, 0x01, 0x00, 0xC8, 0x00,
@@ -80,20 +80,20 @@ static void test_directive_list(const std::filesystem::path& /*tmp*/) {
     CHECK(err.find("illegal command 10") != std::string::npos);
 }
 
-static void test_name_and_xref_lists(const std::filesystem::path& /*tmp*/) {
+static void test_name_and_xref_lists(const std::filesystem::path & /*tmp*/) {
     const char names[] = "TLBACK\0BRIDGE.CCG\0\x01"
                          "X\0Y.CCG\0\x00";
-    auto list = readNameList(reinterpret_cast<const uint8_t*>(names), sizeof(names) - 1);
+    auto list = readNameList(reinterpret_cast<const uint8_t *>(names), sizeof(names) - 1);
     CHECK((list.size()) == (size_t(2)));
     CHECK(list[0].name == "TLBACK" && list[0].source == "BRIDGE.CCG" && list[0].flag == 1);
     const char xref[] = "door\0\x72\x05";
-    auto x = readXrefList(reinterpret_cast<const uint8_t*>(xref), sizeof(xref) - 1);
+    auto x = readXrefList(reinterpret_cast<const uint8_t *>(xref), sizeof(xref) - 1);
     CHECK(x.size() == 1 && x[0].symbol == "door" && x[0].command == 0x72 && x[0].slot == 5);
     CHECK(getResourcePath(kListBackgrounds, "brdg0000") == "ART/B/R/BRDG0000.CMP");
     CHECK(getResourcePath(kListAnims, "chdrk1") == "ANIMS/CHDR/CHDRK1.RLE");
 }
 
-static void test_rle_decode(const std::filesystem::path& /*tmp*/) {
+static void test_rle_decode(const std::filesystem::path & /*tmp*/) {
     std::vector<uint8_t> file = {0x00, 0x00, 0x01, 0x01, 0x0A, 0xFF, 0x00, 0x00, 0x01, 0x00};
     // Frame 3x2 at (1, 1): row 0 = literal 5 6, row 1 = skip 1, run 2 x 9.
     std::vector<uint8_t> body = {0x40, 0x02, 5, 6, 0x41, 0x82, 9};
@@ -121,7 +121,7 @@ static void test_rle_decode(const std::filesystem::path& /*tmp*/) {
     CHECK((*draw::at(s, 4, 2)) == (1)); // past the frame width: clipped
 }
 
-static void test_raw_format_detection(const std::filesystem::path& /*tmp*/) {
+static void test_raw_format_detection(const std::filesystem::path & /*tmp*/) {
     std::vector<uint8_t> s16, u8, zeroLow;
     for (int i = 0; i < 20000; i++) {
         int v = int(8000 * std::sin(i * 0.05)) + (i * 7919 % 97);
@@ -140,7 +140,7 @@ static void test_raw_format_detection(const std::filesystem::path& /*tmp*/) {
     CHECK((detectRawFormat(be)) == (kRawS16BE));
 }
 
-static void test_resources_disc_layout(const std::filesystem::path& tmp) {
+static void test_resources_disc_layout(const std::filesystem::path &tmp) {
     // Disc 1 as on the real CD: ART/ART.ALL at the top (the installer's), the
     // data under DS9/, the scripts inside SSE/SSE.ALL. Lower-case names, as
     // some Linux CD mounts show them.
@@ -169,13 +169,13 @@ static void test_resources_disc_layout(const std::filesystem::path& tmp) {
     CHECK(ds9.hasFile("SOUND/BEEP.RAW"));
 }
 
-static void test_dialogue_record(const std::filesystem::path& /*tmp*/) {
+static void test_dialogue_record(const std::filesystem::path & /*tmp*/) {
     ScriptBuilder a, b, npc, pick, sub;
     a.cmd(kCmdNop);
     npc.cmd(kCmdLet, {num(1), var(0)});
     pick.cmd(0x39); // EXIT
     std::vector<uint8_t> data;
-    auto append = [&](const std::vector<uint8_t>& v) { data.insert(data.end(), v.begin(), v.end()); };
+    auto append = [&](const std::vector<uint8_t> &v) { data.insert(data.end(), v.begin(), v.end()); };
     auto u16 = [&](uint16_t v) {
         data.push_back(uint8_t(v));
         data.push_back(uint8_t(v >> 8));
@@ -219,20 +219,20 @@ static void test_dialogue_record(const std::filesystem::path& /*tmp*/) {
     CHECK(!readDialogue(data.data(), uint32_t(data.size()), d, &err));
 
     const char text[] = "Hello {note}there\0 [Ops] Go to {x}Ops.\0";
-    auto lines = splitStrings(reinterpret_cast<const uint8_t*>(text), sizeof(text) - 1, '\0');
+    auto lines = splitStrings(reinterpret_cast<const uint8_t *>(text), sizeof(text) - 1, '\0');
     CHECK((lines.size()) == (size_t(2)));
     d.text = lines;
     CHECK(d.getSpokenText(0) == "Hello there");
     CHECK(d.getMenuLabel(1) == "Ops");
     CHECK(d.getSpokenText(1) == "Go to Ops.");
     const char clips[] = "abcpro00\r\nabcdax01\r\n";
-    auto names = splitStrings(reinterpret_cast<const uint8_t*>(clips), sizeof(clips) - 1, '\n');
+    auto names = splitStrings(reinterpret_cast<const uint8_t *>(clips), sizeof(clips) - 1, '\n');
     CHECK(names.size() == 2 && names[1] == "abcdax01");
     CHECK((findDialogue("com010")) == (0));
     CHECK(std::string(getDialogueName(71)) == "YAR020");
 }
 
-static void test_font_and_phonemes(const std::filesystem::path& /*tmp*/) {
+static void test_font_and_phonemes(const std::filesystem::path & /*tmp*/) {
     // Two glyphs: space (3x2, blank, advance 3) and '!' (1 wide, 2 high, both rows set).
     std::vector<uint8_t> fnt = {2, 0, 2, 3, 2, 0, 0, 2, 1, 2, 0x80, 0x80};
     MemoryReadStream stream(fnt);
@@ -263,12 +263,12 @@ static const reluva::test::Suite
     suite("stharbinger.unit.formats",
           {
               {"lst archive by index and name",
-               [](const std::filesystem::path& tmp) { test_lst_archive_by_index_and_name(tmp); }},
-              {"directive list", [](const std::filesystem::path& tmp) { test_directive_list(tmp); }},
-              {"name and xref lists", [](const std::filesystem::path& tmp) { test_name_and_xref_lists(tmp); }},
-              {"rle decode", [](const std::filesystem::path& tmp) { test_rle_decode(tmp); }},
-              {"raw format detection", [](const std::filesystem::path& tmp) { test_raw_format_detection(tmp); }},
-              {"resources disc layout", [](const std::filesystem::path& tmp) { test_resources_disc_layout(tmp); }},
-              {"dialogue record", [](const std::filesystem::path& tmp) { test_dialogue_record(tmp); }},
-              {"font and phonemes", [](const std::filesystem::path& tmp) { test_font_and_phonemes(tmp); }},
+               [](const std::filesystem::path &tmp) { test_lst_archive_by_index_and_name(tmp); }},
+              {"directive list", [](const std::filesystem::path &tmp) { test_directive_list(tmp); }},
+              {"name and xref lists", [](const std::filesystem::path &tmp) { test_name_and_xref_lists(tmp); }},
+              {"rle decode", [](const std::filesystem::path &tmp) { test_rle_decode(tmp); }},
+              {"raw format detection", [](const std::filesystem::path &tmp) { test_raw_format_detection(tmp); }},
+              {"resources disc layout", [](const std::filesystem::path &tmp) { test_resources_disc_layout(tmp); }},
+              {"dialogue record", [](const std::filesystem::path &tmp) { test_dialogue_record(tmp); }},
+              {"font and phonemes", [](const std::filesystem::path &tmp) { test_font_and_phonemes(tmp); }},
           });

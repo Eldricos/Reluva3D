@@ -19,7 +19,6 @@
 
 using namespace reluva;
 
-
 // Bits written as Indeo 5 reads them: a field's lowest bit first, each
 // byte filled from its lowest bit.
 struct LeBits {
@@ -48,13 +47,13 @@ static std::vector<uint8_t> indeo5GreyFrame(int type) {
     b.put(uint32_t(type), 3);
     b.put(0, 8); // frame number
     if (type == 0) {
-        b.put(0, 8); // GOP flags
-        b.put(0, 2); // one luma band
-        b.put(0, 1); // one chroma band
-        b.put(15, 4); // size given:
+        b.put(0, 8);   // GOP flags
+        b.put(0, 2);   // one luma band
+        b.put(0, 1);   // one chroma band
+        b.put(15, 4);  // size given:
         b.put(16, 13); // height
         b.put(16, 13); // width
-        b.put(0, 1); // luma: full-pel, macroblocks twice the blocks, 8x8
+        b.put(0, 1);   // luma: full-pel, macroblocks twice the blocks, 8x8
         b.put(0, 1);
         b.put(0, 1);
         b.put(0, 1);
@@ -87,7 +86,7 @@ static std::vector<uint8_t> indeo5GreyFrame(int type) {
         b.align();
         b.put(0, 1); // the macroblock isn't empty
         if (type != 0)
-            b.put(0, 1); // intra
+            b.put(0, 1);        // intra
         b.put(0, band ? 1 : 4); // no blocks coded
         b.align();
     }
@@ -129,9 +128,9 @@ static void testVideo() {
         for (int i = 0; i < 4; ++i)
             a.push_back(uint8_t(v >> (8 * i)));
     };
-    auto id = [&](const char* s) { a.insert(a.end(), s, s + 4); };
+    auto id = [&](const char *s) { a.insert(a.end(), s, s + 4); };
     std::vector<size_t> sizes;
-    auto open = [&](const char* list, const char* type) {
+    auto open = [&](const char *list, const char *type) {
         id(list);
         sizes.push_back(a.size());
         u32(0);
@@ -216,7 +215,7 @@ static void testVideo() {
     CHECK(!damaged.load(std::make_unique<MemoryReadStream>(a)));
 }
 
-
-static const test::Suite suite("common.unit.indeo", {
-    {"indeo 5 and avi", [](const std::filesystem::path&) { testVideo(); }},
-});
+static const test::Suite suite("common.unit.indeo",
+                               {
+                                   {"indeo 5 and avi", [](const std::filesystem::path &) { testVideo(); }},
+                               });

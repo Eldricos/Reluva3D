@@ -15,43 +15,42 @@ using namespace reluva::stgenerations;
 namespace {
 
 // A made-up script in the shape of the game's.
-const char* const kScript =
-    "[Start]\r\n"
-    "Intro\r\n"
-    "Jump NewGame\r\n"
-    "\r\n"
-    "[NewGame]\r\n"
-    "Movie 1\r\n"
-    "SetFlag 3 TRUE\t\t\t;a comment\r\n"
-    "ShowStellar\r\n"
-    "Jump Planet\r\n"
-    "[Planet]\r\n"
-    "OnTransport PlanetPlay\r\n"
-    "Jump Missed\r\n"
-    "[PlanetPlay]\r\n"
-    "ActionGame 4 PlanetWon PlanetLost\r\n"
-    "[PlanetLost]\r\n"
-    "IfNotFlag 3 Jump Missed\r\n"
-    "IfFlag 3 IfActionGamePlayed 4 Movie 7\r\n"
-    "Destroy Planet\r\n"
-    "IfSunsDestroyed 1 Jump Fight\r\n"
-    "Jump Missed\r\n"
-    "[PlanetWon]\r\n"
-    "AutoSave\r\n"
-    "JumpRandom Missed Fight\r\n"
-    "[Fight]\r\n"
-    "OnTactical FightPlay\r\n"
-    "Jump Won\r\n"
-    "[FightPlay]\r\n"
-    "SpaceCombat 2 Won Missed\r\n"
-    "[Won]\r\n"
-    "Movie 15\r\n"
-    "EndGame\r\n"
-    "[Missed]\r\n"
-    "ScrollText 1\r\n"
-    "Options\r\n";
+const char *const kScript = "[Start]\r\n"
+                            "Intro\r\n"
+                            "Jump NewGame\r\n"
+                            "\r\n"
+                            "[NewGame]\r\n"
+                            "Movie 1\r\n"
+                            "SetFlag 3 TRUE\t\t\t;a comment\r\n"
+                            "ShowStellar\r\n"
+                            "Jump Planet\r\n"
+                            "[Planet]\r\n"
+                            "OnTransport PlanetPlay\r\n"
+                            "Jump Missed\r\n"
+                            "[PlanetPlay]\r\n"
+                            "ActionGame 4 PlanetWon PlanetLost\r\n"
+                            "[PlanetLost]\r\n"
+                            "IfNotFlag 3 Jump Missed\r\n"
+                            "IfFlag 3 IfActionGamePlayed 4 Movie 7\r\n"
+                            "Destroy Planet\r\n"
+                            "IfSunsDestroyed 1 Jump Fight\r\n"
+                            "Jump Missed\r\n"
+                            "[PlanetWon]\r\n"
+                            "AutoSave\r\n"
+                            "JumpRandom Missed Fight\r\n"
+                            "[Fight]\r\n"
+                            "OnTactical FightPlay\r\n"
+                            "Jump Won\r\n"
+                            "[FightPlay]\r\n"
+                            "SpaceCombat 2 Won Missed\r\n"
+                            "[Won]\r\n"
+                            "Movie 15\r\n"
+                            "EndGame\r\n"
+                            "[Missed]\r\n"
+                            "ScrollText 1\r\n"
+                            "Options\r\n";
 
-Campaign::Action::Type next(Campaign& c, int* number = nullptr) {
+Campaign::Action::Type next(Campaign &c, int *number = nullptr) {
     Campaign::Action a = c.next();
     if (number)
         *number = a.number;
@@ -151,7 +150,7 @@ static void options_menu_panels() {
 
     // Load: an empty slot can't be picked.
     std::vector<M::Slot> slots(M::kAutoSaveSlot + 1);
-    slots[1] = { true, "Before the door", "10/22 14:05" };
+    slots[1] = {true, "Before the door", "10/22 14:05"};
     menu.setSlots(slots);
     click(150, 40);
     click(300, 29 + 33 + 10);
@@ -256,7 +255,7 @@ static void options_menu_controls() {
     CHECK_EQUAL(menu.getPanel(), M::kPanelControls);
     click(400, 400);
     CHECK(menu.takeSettingsChanged());
-    const KeyMap& keys = menu.getSettings().awayKeys;
+    const KeyMap &keys = menu.getSettings().awayKeys;
     CHECK_EQUAL(keys.get('W'), (int)KeyMap::kAwayJump);
     CHECK_EQUAL(keys.get(0x26), (int)KeyMap::kNone);
     CHECK_EQUAL(keys.get(0x0D), (int)KeyMap::kAwayJump);
@@ -287,7 +286,7 @@ namespace {
 struct HiddenBridge : CampaignWorld {
     void bridgeCommand(const std::string &, const std::vector<std::string> &) override {}
     bool isBridgeShown() const override { return false; }
-    bool isEnterpriseAt(const std::string&) const override { return false; }
+    bool isEnterpriseAt(const std::string &) const override { return false; }
     bool getObjectFlag(const std::string &, int) const override { return false; }
     double getStardate() const override { return 0; }
     bool isAudioQueueEmpty() const override { return true; }
@@ -331,10 +330,13 @@ static void campaign_saved_in_a_combat_starts_it_again() {
     CHECK_EQUAL(n, 2);
 }
 
-static const reluva::test::Suite suite("stgenerations.unit.campaign", {
-    {"campaign runs the script", [](const std::filesystem::path&) { campaign_runs_the_script(); }},
-    {"options menu panels", [](const std::filesystem::path&) { options_menu_panels(); }},
-    {"key maps", [](const std::filesystem::path&) { key_maps(); }},
-    {"options menu controls", [](const std::filesystem::path&) { options_menu_controls(); }},
-    {"campaign saved in a combat starts it again", [](const std::filesystem::path&) { campaign_saved_in_a_combat_starts_it_again(); }},
-});
+static const reluva::test::Suite
+    suite("stgenerations.unit.campaign",
+          {
+              {"campaign runs the script", [](const std::filesystem::path &) { campaign_runs_the_script(); }},
+              {"options menu panels", [](const std::filesystem::path &) { options_menu_panels(); }},
+              {"key maps", [](const std::filesystem::path &) { key_maps(); }},
+              {"options menu controls", [](const std::filesystem::path &) { options_menu_controls(); }},
+              {"campaign saved in a combat starts it again",
+               [](const std::filesystem::path &) { campaign_saved_in_a_combat_starts_it_again(); }},
+          });

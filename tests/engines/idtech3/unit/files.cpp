@@ -78,15 +78,15 @@ using namespace reluva::idtech3;
 namespace q3 = reluva::idtech3;
 using namespace reluva::idtech3::fixtures;
 
-static void testFilesystemAndDetection(const std::filesystem::path& tmp) {
+static void testFilesystemAndDetection(const std::filesystem::path &tmp) {
     using test::toBytes;
     std::filesystem::remove_all(tmp);
     const auto base = tmp / "BaseEF";
     test::writeFile(base / "pak0.pk3", test::buildZip({{"a.txt", toBytes("pak0"), {}},
                                                        {"b.txt", toBytes("pak0"), {}},
                                                        {"scripts/x.shader", toBytes("textures/x\n{\n}\n"), {}}}));
-    test::writeFile(base / "PAK1.pk3", test::buildZip({{"a.txt", toBytes("pak1"), {}},
-                                                       {"b.txt", toBytes("pak1"), {}}}));
+    test::writeFile(base / "PAK1.pk3",
+                    test::buildZip({{"a.txt", toBytes("pak1"), {}}, {"b.txt", toBytes("pak1"), {}}}));
     test::writeFile(base / "zz_broken.pk3", toBytes("not a zip"));
     // In upper case '_' sorts after letters, so pak_c.pk3 beats pakb.pk3.
     test::writeFile(base / "pak_c.pk3", test::buildZip({{"c.txt", toBytes("underscore"), {}}}));
@@ -123,7 +123,7 @@ static void testFilesystemAndDetection(const std::filesystem::path& tmp) {
     // Elite Force by its pak0.pk3 alone (no Windows program needed). The
     // test's isn't a known release: found by name, and only once, with
     // the patch level and what's missing.
-    const MetaEngine* meta = findEngine("idtech3");
+    const MetaEngine *meta = findEngine("idtech3");
     auto found = meta ? meta->detect(tmp) : std::vector<DetectedGame>{};
     CHECK(found.size() == 1 && found[0].gameId == "stvef" && findGame(found[0].gameId));
     CHECK(found.size() == 1 && found[0].description.find("unknown release") != std::string::npos &&
@@ -142,7 +142,7 @@ static void testFilesystemAndDetection(const std::filesystem::path& tmp) {
         const auto plans = meta ? meta->planImport(cd) : std::vector<ImportPlan>{};
         CHECK(plans.size() == 1 && plans[0].files.size() == 5 && plans[0].totalBytes() == 13);
         std::set<std::string> to;
-        for (const ImportPlan::File& f : plans.empty() ? std::vector<ImportPlan::File>{} : plans[0].files)
+        for (const ImportPlan::File &f : plans.empty() ? std::vector<ImportPlan::File>{} : plans[0].files)
             to.insert(f.to);
         const std::set<std::string> expected{"baseEF/pak0.pk3", "baseEF/efq3.key", "baseEF/saves/s1.sav",
                                              "efgamex86.dll", "efuix86.dll"};
@@ -154,7 +154,7 @@ static void testFilesystemAndDetection(const std::filesystem::path& tmp) {
         CHECK(meta && meta->planImport(tmp / "nothing").empty());
     }
     // Every known release names pak0.pk3's size and hash.
-    for (const GameVariant& v : detectionTable())
+    for (const GameVariant &v : detectionTable())
         CHECK(!v.files.empty() && !v.files[0].md5.empty() && v.files[0].size > 0);
     CHECK(!findGame("nope"));
     std::filesystem::remove_all(tmp);
@@ -186,18 +186,17 @@ static void testVmFileList() {
 }
 
 // The Expansion Pack engine's file listing (FS_GetFileList).
-static void testExpansionFileList(const std::filesystem::path& tmp) {
+static void testExpansionFileList(const std::filesystem::path &tmp) {
     using reluva::idtech3::eliteforce::expansionFileList;
     using reluva::idtech3::eliteforce::packFileList;
     std::filesystem::remove_all(tmp);
     const std::vector<uint8_t> text = test::toBytes("x");
-    test::writeFile(tmp / "BaseEF" / "pak0.pk3",
-                    test::buildZip({{"ext_data/NPCs.cfg", text, {}},
-                                    {"ext_data/Addon.NPC", text, {}},
-                                    {"ext_data/sub/more.npc", text, {}},
-                                    {"ext_data/sub/deeper/no.npc", text, {}},
-                                    {"ext_dataX/odd.npc", text, {}},
-                                    {"other/no.npc", text, {}}}));
+    test::writeFile(tmp / "BaseEF" / "pak0.pk3", test::buildZip({{"ext_data/NPCs.cfg", text, {}},
+                                                                 {"ext_data/Addon.NPC", text, {}},
+                                                                 {"ext_data/sub/more.npc", text, {}},
+                                                                 {"ext_data/sub/deeper/no.npc", text, {}},
+                                                                 {"ext_dataX/odd.npc", text, {}},
+                                                                 {"other/no.npc", text, {}}}));
     test::writeFile(tmp / "BaseEF" / "ext_data" / "loose.npc", text);
     test::writeFile(tmp / "BaseEF" / "ext_data" / "addon.npc", text);
     test::writeFile(tmp / "BaseEF" / "ext_data" / "sub" / "notloose.npc", text);
@@ -220,7 +219,7 @@ static void testExpansionFileList(const std::filesystem::path& tmp) {
 }
 
 // Folder listings in Windows' order on every system, and the mods list.
-static void testModList(const std::filesystem::path& tmp) {
+static void testModList(const std::filesystem::path &tmp) {
     using reluva::fs::windowsNameLess;
     CHECK(windowsNameLess("aZ", "a_b") && !windowsNameLess("a_b", "aZ")); // '_' after the letters
     CHECK(windowsNameLess("abc", "ABD") && windowsNameLess("ab", "abc") && !windowsNameLess("abc", "abc"));
@@ -231,7 +230,8 @@ static void testModList(const std::filesystem::path& tmp) {
     test::writeFile(tmp / "BaseEF" / "pak0.pk3", text);
     test::writeFile(tmp / "zeta" / "z.PK3", text);
     test::writeFile(tmp / "mod_b" / "a.pk3", text);
-    test::writeFile(tmp / "mod_b" / "description.txt", test::toBytes("A mod with a long description, longer than 48 bytes"));
+    test::writeFile(tmp / "mod_b" / "description.txt",
+                    test::toBytes("A mod with a long description, longer than 48 bytes"));
     test::writeFile(tmp / "modA" / "a.pk3", text);
     test::writeFile(tmp / "modA" / "description.txt", {});
     test::writeFile(tmp / "nopaks" / "readme.txt", text);
@@ -247,7 +247,7 @@ static void testModList(const std::filesystem::path& tmp) {
     CHECK(packModList(mods, 4096, out) == 3 && out.size() == 5 + 5 + 6 + 49 + 5 + 5);
     CHECK(out[0] == 'm' && out[4] == 0 && out[9] == 0);
     CHECK(packModList(mods, 13, out) == 1 && out.size() == 10); // the second doesn't fit: it ends there
-    CHECK(packModList(mods, 12, out) == 0 && out.size() == 1);   // 2 bytes to spare, and then some
+    CHECK(packModList(mods, 12, out) == 0 && out.size() == 1);  // 2 bytes to spare, and then some
     CHECK(packModList({}, 8, out) == 0 && out == std::vector<uint8_t>{0});
 
     // A folder's loose files, in that order too.
@@ -260,10 +260,10 @@ static void testModList(const std::filesystem::path& tmp) {
 }
 
 // A mod's files over the game's: the install's, then the home folder's.
-static void testMountMod(const std::filesystem::path& tmp) {
+static void testMountMod(const std::filesystem::path &tmp) {
     std::filesystem::remove_all(tmp);
     const std::filesystem::path install = tmp / "install", home = tmp / "home";
-    auto zip = [](const char* name, const char* text) { return test::buildZip({{name, test::toBytes(text), {}}}); };
+    auto zip = [](const char *name, const char *text) { return test::buildZip({{name, test::toBytes(text), {}}}); };
     test::writeFile(install / "BaseEF" / "pak0.pk3", zip("a.txt", "base"));
     test::writeFile(install / "BaseEF" / "pak1.pk3", zip("b.txt", "base"));
     test::writeFile(install / "BaseEF" / "pak2.pk3", zip("c.txt", "base"));
@@ -271,7 +271,7 @@ static void testMountMod(const std::filesystem::path& tmp) {
     test::writeFile(install / "MyMod" / "zz.pk3", zip("a.txt", "mod"));
     test::writeFile(install / "MyMod" / "c.txt", test::toBytes("mod loose"));
     test::writeFile(home / "MyMod" / "dl.pk3", zip("c.txt", "home mod"));
-    auto text = [](const SearchSet& set, const char* name) {
+    auto text = [](const SearchSet &set, const char *name) {
         std::vector<uint8_t> data;
         return set.read(name, data) ? std::string() : std::string(data.begin(), data.end());
     };
@@ -292,10 +292,12 @@ static void testMountMod(const std::filesystem::path& tmp) {
     CHECK(modSavePath(home, "MyMod") == home / "mods" / "MyMod" && modSavePath(home, "") == home);
 }
 
-static const reluva::test::Suite suite("idtech3.unit.files", {
-    {"filesystem and detection", [](const std::filesystem::path& tmp) { testFilesystemAndDetection(tmp / "fs"); }},
-    {"vm file list", [](const std::filesystem::path&) { testVmFileList(); }},
-    {"expansion file list", [](const std::filesystem::path& tmp) { testExpansionFileList(tmp / "filelist"); }},
-    {"mod list", [](const std::filesystem::path& tmp) { testModList(tmp / "mods"); }},
-    {"mounting mods", [](const std::filesystem::path& tmp) { testMountMod(tmp / "mount"); }},
-});
+static const reluva::test::Suite suite(
+    "idtech3.unit.files",
+    {
+        {"filesystem and detection", [](const std::filesystem::path &tmp) { testFilesystemAndDetection(tmp / "fs"); }},
+        {"vm file list", [](const std::filesystem::path &) { testVmFileList(); }},
+        {"expansion file list", [](const std::filesystem::path &tmp) { testExpansionFileList(tmp / "filelist"); }},
+        {"mod list", [](const std::filesystem::path &tmp) { testModList(tmp / "mods"); }},
+        {"mounting mods", [](const std::filesystem::path &tmp) { testMountMod(tmp / "mount"); }},
+    });

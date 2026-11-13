@@ -21,8 +21,8 @@ void testCamera() {
                 off[3] = {-10, 276, 990};
     for (int k = 0; k < 3; k++)
         c.position[k] = pos[k], c.elevAzimRoll[k] = ear[k], c.offset[k] = off[k];
-    const float dllView[16] = {0.9998f, 0.0040f,   -0.0170f,   0, 0,       0.9732f, 0.2299f, 0,
-                               0.0175f, -0.2299f, 0.9731f,     0, 9.1433f, -275.9854f, -1519.7399f, 1};
+    const float dllView[16] = {0.9998f, 0.0040f,  -0.0170f, 0, 0,       0.9732f,    0.2299f,     0,
+                               0.0175f, -0.2299f, 0.9731f,  0, 9.1433f, -275.9854f, -1519.7399f, 1};
     const gfx::Mat4 v = c.view();
     for (int k = 0; k < 16; k++)
         CHECK(std::fabs(v[size_t(k)] - dllView[k]) < (k >= 12 ? 0.05f : 0.001f));
@@ -30,7 +30,7 @@ void testCamera() {
     const float points[3][5] = {{-51.637f, 0, -317.618f, 481.8f, 768 - 256.4f},
                                 {-51.637f, 170, -317.618f, 481.2f, 768 - 359.8f},
                                 {-325.8f, 0, 216.3f, 236.6f, 768 - 96.1f}};
-    for (const auto& p : points) {
+    for (const auto &p : points) {
         float x = 0, y = 0;
         CHECK(c.project(p, 1024, 768, x, y));
         CHECK(std::fabs(x - p[3]) < 0.5f && std::fabs(y - p[4]) < 0.5f);
@@ -43,7 +43,7 @@ void testCamera() {
     const gfx::Vec3 front = gfx::transformPoint(m, {0, -1, 0});
     CHECK(front[2] == 21);
     // A click finds the floor point that projects back to it.
-    for (const auto& p : points) {
+    for (const auto &p : points) {
         if (p[1] != 0)
             continue;
         float x = 0, z = 0;
@@ -90,7 +90,7 @@ void testWalkGrid() {
     for (size_t i = 0; i + 1 < path.size(); i++)
         through |= (path[i].a <= 32) != (path[i + 1].a <= 32) && path[i].b >= 48 && path[i + 1].b >= 48;
     CHECK(through);
-    for (const WalkGrid::Cell& p : path)
+    for (const WalkGrid::Cell &p : path)
         CHECK(!g.blocked(p, false));
     CHECK(g.findPath({20, 20}, {21, 21}).empty()); // too near to walk
     // Open ground: straight there.
@@ -137,7 +137,7 @@ void testConditions() {
 
     // As 0x407ae0 has it: a part in brackets first; a '|' anywhere makes
     // any clause do; words it doesn't know don't hold.
-    const char* eavesdrop = "tag eavesdrop04a, (use waterglass | tag bardraweropen nouse)";
+    const char *eavesdrop = "tag eavesdrop04a, (use waterglass | tag bardraweropen nouse)";
     CHECK(testCondition(eavesdrop, st)); // nothing in hand
     st.held = "waterglass";
     CHECK(testCondition(eavesdrop, st));
@@ -164,7 +164,7 @@ void testConditions() {
     CHECK(testCondition("location calais.hall", st) && !testCondition("location athens", st));
     // cantalk asks the dialogue.
     CHECK(!testCondition("cantalk dia_test a+", st));
-    st.canTalk = [](const std::vector<std::string>& w) { return w.size() == 2 && w[0] == "dia_test"; };
+    st.canTalk = [](const std::vector<std::string> &w) { return w.size() == 2 && w[0] == "dia_test"; };
     CHECK(testCondition("cantalk dia_test a+", st) && testCondition("!cantalk dia_other a", st));
 }
 
@@ -432,9 +432,18 @@ void testLighting() {
     // two that don't light: off, and only for the shadows.
     auto light = [&](uint32_t type, float y, float diffuse) {
         return Ac2Record{"LITE",
-                         {{"type", whole(type)}, {"y", num(y)}, {"dirX", num(0)}, {"dirY", num(-2)}, {"dirZ", num(0)},
-                          {"diffuseR", num(diffuse)}, {"diffuseG", num(diffuse)}, {"diffuseB", num(diffuse)},
-                          {"range", num(50)}, {"att0", num(1)}, {"att1", num(0)}, {"att2", num(0)}},
+                         {{"type", whole(type)},
+                          {"y", num(y)},
+                          {"dirX", num(0)},
+                          {"dirY", num(-2)},
+                          {"dirZ", num(0)},
+                          {"diffuseR", num(diffuse)},
+                          {"diffuseG", num(diffuse)},
+                          {"diffuseB", num(diffuse)},
+                          {"range", num(50)},
+                          {"att0", num(1)},
+                          {"att1", num(0)},
+                          {"att2", num(0)}},
                          {}};
     };
     scene.records.push_back(light(3, 0, 0.5f));
@@ -471,7 +480,7 @@ void testLighting() {
     // Conditions as they were on entering: a light whose condition didn't
     // hold then stays off.
     std::vector<bool> entered = lightConditions(scene, state);
-    const std::vector<const Ac2Record*> objects = scene.objects();
+    const std::vector<const Ac2Record *> objects = scene.objects();
     for (size_t i = 0; i < objects.size(); i++)
         if (objects[i]->tag == "LITE") {
             entered[i] = false;
@@ -493,13 +502,14 @@ void testLighting() {
 
 } // namespace
 
-static const reluva::test::Suite suite("awe.unit.scene", {
-    {"camera", [](const std::filesystem::path&) { testCamera(); }},
-    {"walk grid", [](const std::filesystem::path&) { testWalkGrid(); }},
-    {"conditions", [](const std::filesystem::path&) { testConditions(); }},
-    {"sprites", [](const std::filesystem::path&) { testSprite(); }},
-    {"particles", [](const std::filesystem::path&) { testParticles(); }},
-    {"picking", [](const std::filesystem::path&) { testPicking(); }},
-    {"shadows", [](const std::filesystem::path&) { testShadows(); }},
-    {"lighting", [](const std::filesystem::path&) { testLighting(); }},
-});
+static const reluva::test::Suite suite("awe.unit.scene",
+                                       {
+                                           {"camera", [](const std::filesystem::path &) { testCamera(); }},
+                                           {"walk grid", [](const std::filesystem::path &) { testWalkGrid(); }},
+                                           {"conditions", [](const std::filesystem::path &) { testConditions(); }},
+                                           {"sprites", [](const std::filesystem::path &) { testSprite(); }},
+                                           {"particles", [](const std::filesystem::path &) { testParticles(); }},
+                                           {"picking", [](const std::filesystem::path &) { testPicking(); }},
+                                           {"shadows", [](const std::filesystem::path &) { testShadows(); }},
+                                           {"lighting", [](const std::filesystem::path &) { testLighting(); }},
+                                       });

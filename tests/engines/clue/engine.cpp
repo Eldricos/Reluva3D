@@ -53,16 +53,16 @@ public:
     int shown = 0;
     std::vector<std::string> titles;
 
-    void updateScreen(const Surface& s) override {
+    void updateScreen(const Surface &s) override {
         HeadlessSystem::updateScreen(s);
         screens.bytes(s.pixels);
         shown++;
     }
-    void setWindowTitle(const std::string& t) override {
+    void setWindowTitle(const std::string &t) override {
         if (titles.empty() || titles.back() != t)
             titles.push_back(t);
     }
-    bool pollEvent(Event& ev) override {
+    bool pollEvent(Event &ev) override {
         if (next_ < inputs.size() && inputs[next_].at <= getMillis()) {
             ev = inputs[next_++].event;
             return true;
@@ -80,22 +80,22 @@ private:
 // box (10) and the save window's (10-17) are text boxes beside them.
 constexpr int kOk = 10001, kReturn = 10000;
 const std::map<int, std::vector<int>> kDialogs = {
-    {1, {0, 1, 2, 3, 5, 7}},                  // the main menu: New Game is 1, Load Game 3, Exit 7
-    {2, {0, 1, kReturn}},                     // a game here (0) or over a network (1)
-    {3, {0, 1, 2, 3, 4, 5, 6, 7, kReturn}},   // Load Game's slots
-    {7, {kOk, kReturn}},                      // Exit: Yes, No
-    {17, {5, 6, 7, 8, 9, 10, 29, 30}},         // the suspects, Start (29), Back (30)
+    {1, {0, 1, 2, 3, 5, 7}},                        // the main menu: New Game is 1, Load Game 3, Exit 7
+    {2, {0, 1, kReturn}},                           // a game here (0) or over a network (1)
+    {3, {0, 1, 2, 3, 4, 5, 6, 7, kReturn}},         // Load Game's slots
+    {7, {kOk, kReturn}},                            // Exit: Yes, No
+    {17, {5, 6, 7, 8, 9, 10, 29, 30}},              // the suspects, Start (29), Back (30)
     {18, {0, 1, 2, 5, 6, 7, 11, 12, kOk, kReturn}}, // Miss Scarlet's setup: Human 0, Computer 1, None 2
     {19, {0, 1, 2, 5, 6, 7, 11, 12, kOk, kReturn}}, // Colonel Mustard's
     {20, {0, 1, 2, 5, 6, 7, 11, 12, kOk, kReturn}}, // Mrs. White's
-    {26, {}},                                 // Loading
-    {35, {0, 1, 2, 3, 4}},                    // the Esc menu: Save 0, Exit 3, Continue 4
-    {36, {0, 1, 2, 3, 4, 5, 6, 7, 8, 9}},     // Save Game: Cancel 0, Save 1, the slots 2-9
-    {44, {kOk, kReturn}},                     // exit the game: Yes, No
+    {26, {}},                                       // Loading
+    {35, {0, 1, 2, 3, 4}},                          // the Esc menu: Save 0, Exit 3, Continue 4
+    {36, {0, 1, 2, 3, 4, 5, 6, 7, 8, 9}},           // Save Game: Cancel 0, Save 1, the slots 2-9
+    {44, {kOk, kReturn}},                           // exit the game: Yes, No
 };
 
 int buttonRow(int dialog, int id) {
-    const std::vector<int>& ids = kDialogs.at(dialog);
+    const std::vector<int> &ids = kDialogs.at(dialog);
     return int(std::find(ids.begin(), ids.end(), id) - ids.begin());
 }
 
@@ -105,7 +105,7 @@ Bytes dialogInfo() {
     putResiText(b, "menu:Afont");
     put32(b, 0);
     put32(b, 6);
-    for (const auto& [number, ids] : kDialogs) {
+    for (const auto &[number, ids] : kDialogs) {
         for (int i = 0; i < 9; ++i)
             put32(b, i == 0 ? uint32_t(number) : i == 6 ? 6 : 0);
         putResiText(b, "menu:Abackground");
@@ -126,11 +126,11 @@ Bytes dialogInfo() {
 }
 
 // Cinepak, big-endian.
-void putBe16(Bytes& b, uint32_t v) {
+void putBe16(Bytes &b, uint32_t v) {
     b.push_back(uint8_t(v >> 8));
     b.push_back(uint8_t(v));
 }
-void putBe24(Bytes& b, uint32_t v) {
+void putBe24(Bytes &b, uint32_t v) {
     b.push_back(uint8_t(v >> 16));
     putBe16(b, v & 0xffff);
 }
@@ -171,7 +171,7 @@ Bytes cinepakFrame(int n) {
     return f;
 }
 
-void putChunk(Bytes& b, const char* id, const Bytes& data) {
+void putChunk(Bytes &b, const char *id, const Bytes &data) {
     b.insert(b.end(), id, id + 4);
     put32(b, uint32_t(data.size()));
     b.insert(b.end(), data.begin(), data.end());
@@ -179,7 +179,7 @@ void putChunk(Bytes& b, const char* id, const Bytes& data) {
         b.push_back(0);
 }
 
-Bytes list(const char* type, const Bytes& body) {
+Bytes list(const char *type, const Bytes &body) {
     Bytes l(type, type + 4);
     l.insert(l.end(), body.begin(), body.end());
     return l;
@@ -238,16 +238,16 @@ Bytes movie(int frames) {
 // placements, in the order given.
 Bytes boardFile() {
     const Level level = boardLevel();
-    std::vector<const char*> names;
-    for (const std::string& n : level.objects)
+    std::vector<const char *> names;
+    for (const std::string &n : level.objects)
         names.push_back(n.c_str());
     std::vector<TestPlacement> placements;
-    for (const Placement& p : level.placements)
+    for (const Placement &p : level.placements)
         placements.push_back({0x40, 0, int(p.object), int(p.x), int(p.y), -1, int(p.layer), {}});
     return levelFile(names, placements);
 }
 
-void makeInstall(const std::filesystem::path& dir) {
+void makeInstall(const std::filesystem::path &dir) {
     std::filesystem::remove_all(dir);
     // Found by its files, whatever their contents: no release's
     // signatures match the stand-ins.
@@ -259,10 +259,9 @@ void makeInstall(const std::filesystem::path& dir) {
     // The menus' pictures: a background, a button and the font, all one
     // animation; the floors, two.
     test::writeFile(classic / "Resource" / "test.res", pack(drive({{"Ia", image200()}, {"Ib", image100()}})));
-    test::writeFile(classic / "Resource" / "menu.a",
-                    pack(drive({{"Abackground", animation(false, -1, 64, 64)},
-                                {"Abutton", animation(false)},
-                                {"Afont", animation(true)}})));
+    test::writeFile(classic / "Resource" / "menu.a", pack(drive({{"Abackground", animation(false, -1, 64, 64)},
+                                                                 {"Abutton", animation(false)},
+                                                                 {"Afont", animation(true)}})));
     test::writeFile(classic / "Resource" / "floors.a",
                     pack(drive({{"Ahw", animation(false, -1, 64, 64)}, {"Awood", animation(true, -1, 64, 64)}})));
     test::writeFile(classic / "Resource" / "r_hwfloor.o",
@@ -291,7 +290,7 @@ Event mouse(EventType type, int x, int y) {
     return e;
 }
 
-Event typed(const char* text) {
+Event typed(const char *text) {
     Event e;
     e.type = EventType::TextInput;
     std::snprintf(e.text, sizeof e.text, "%s", text);
@@ -299,7 +298,7 @@ Event typed(const char* text) {
 }
 
 // The saved games written: each slot's file and the name it holds.
-std::string listSaves(const std::filesystem::path& dir) {
+std::string listSaves(const std::filesystem::path &dir) {
     std::vector<std::string> names;
     std::error_code ec;
     for (std::filesystem::recursive_directory_iterator it(dir, ec), end; !ec && it != end; it.increment(ec))
@@ -317,14 +316,14 @@ std::string listSaves(const std::filesystem::path& dir) {
         }
     std::sort(names.begin(), names.end());
     std::string out;
-    for (const std::string& n : names)
+    for (const std::string &n : names)
         out += (out.empty() ? "" : ", ") + n;
     return out.empty() ? "(none)" : out;
 }
 
-void engineTest(const std::filesystem::path& tmp) {
+void engineTest(const std::filesystem::path &tmp) {
     test::Record rec;
-    const MetaEngine* engine = findEngine("clue");
+    const MetaEngine *engine = findEngine("clue");
     if (!engine)
         return test::fail("clue isn't registered");
     const std::filesystem::path install = tmp / "clue";
@@ -348,19 +347,19 @@ void engineTest(const std::filesystem::path& tmp) {
         t += 1500;
     };
     constexpr int kOverX = 205, kOverY = 11; // the Esc menu's windows, over the game
-    click(1, 1);           // New Game
-    click(2, 0);           // here
-    click(17, 5);          // Miss Scarlet
-    click(18, 0);          // a person
+    click(1, 1);                             // New Game
+    click(2, 0);                             // here
+    click(17, 5);                            // Miss Scarlet
+    click(18, 0);                            // a person
     click(18, kOk);
-    click(17, 6);          // Colonel Mustard
-    click(19, 1);          // a computer player
+    click(17, 6); // Colonel Mustard
+    click(19, 1); // a computer player
     click(19, kOk);
-    click(17, 7);          // Mrs. White
-    click(20, 1);          // a computer player
+    click(17, 7); // Mrs. White
+    click(20, 1); // a computer player
     click(20, kOk);
-    click(17, 29);         // Start
-    t += 3000;             // loading, the deal
+    click(17, 29); // Start
+    t += 3000;     // loading, the deal
     sys.inputs.push_back({t, key(key::Escape)});
     t += 1000;
     click(35, 0, kOverX, kOverY); // Save
@@ -372,8 +371,8 @@ void engineTest(const std::filesystem::path& tmp) {
     t += 1000;
     click(35, 3, kOverX, kOverY); // Exit
     click(44, kOk, kOverX, kOverY);
-    click(1, 3);           // Load Game
-    click(3, 0);           // the first slot
+    click(1, 3); // Load Game
+    click(3, 0); // the first slot
     t += 3000;
     sys.inputs.push_back({t, Event{EventType::ReturnToLauncher}});
 
@@ -383,7 +382,7 @@ void engineTest(const std::filesystem::path& tmp) {
     rec.add("run.size", std::to_string(sys.width()) + "x" + std::to_string(sys.height()));
     rec.add("run.screens", std::to_string(sys.shown) + " " + sys.screens.hex());
     std::string titles;
-    for (const std::string& title : sys.titles)
+    for (const std::string &title : sys.titles)
         titles += (titles.empty() ? "" : " / ") + title;
     rec.add("run.titles", titles);
     rec.add("run.files", listSaves(tmp / "save"));
@@ -394,6 +393,7 @@ void engineTest(const std::filesystem::path& tmp) {
 
 } // namespace
 
-static const reluva::test::Suite suite("clue.engine", {
-    {"play through", [](const std::filesystem::path& tmp) { engineTest(tmp); }},
-});
+static const reluva::test::Suite suite("clue.engine",
+                                       {
+                                           {"play through", [](const std::filesystem::path &tmp) { engineTest(tmp); }},
+                                       });

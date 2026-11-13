@@ -27,7 +27,7 @@ struct Sent {
 
 static void hud_inventory() {
     std::vector<Sent> sent;
-    Hud hud([&](uint16_t o, uint16_t e, const std::vector<int16_t>& a) { sent.push_back({ o, e, a }); });
+    Hud hud([&](uint16_t o, uint16_t e, const std::vector<int16_t> &a) { sent.push_back({o, e, a}); });
     CHECK_EQUAL(hud.addItem(0x2001, -1), 1); // the first free slot is 1, not 0
     CHECK_EQUAL(hud.addItem(0x2002, 0), 0);
     CHECK_EQUAL(sent.size(), (size_t)2);
@@ -44,7 +44,7 @@ static void hud_inventory() {
 
 static void hud_panels() {
     std::vector<Sent> sent;
-    Hud hud([&](uint16_t o, uint16_t e, const std::vector<int16_t>& a) { sent.push_back({ o, e, a }); });
+    Hud hud([&](uint16_t o, uint16_t e, const std::vector<int16_t> &a) { sent.push_back({o, e, a}); });
     hud.showPanel(0xA004, 12, 0, 10, 10);
     // Without buttons a click is event 45...
     hud.clickPanel(5, 5);
@@ -85,7 +85,7 @@ static void hud_panels() {
 
 static void hud_effects() {
     std::vector<Sent> sent;
-    Hud hud([&](uint16_t o, uint16_t e, const std::vector<int16_t>& a) { sent.push_back({ o, e, a }); });
+    Hud hud([&](uint16_t o, uint16_t e, const std::vector<int16_t> &a) { sent.push_back({o, e, a}); });
     // 50% red over 100 ms in, 100 held, 100 out, then event 55.
     hud.setEffect(0, 200, 0, 0, 50, 100, 100, 100, 0xE001);
     uint8_t r, g, b;
@@ -110,7 +110,7 @@ static void hud_effects() {
 }
 
 static void hud_drag_items() {
-    Hud hud([](uint16_t, uint16_t, const std::vector<int16_t>&) {});
+    Hud hud([](uint16_t, uint16_t, const std::vector<int16_t> &) {});
     hud.addItem(0x2001, -1); // slot 1
     hud.addItem(0x2002, -1); // slot 2
     hud.addItem(0x2004, 0);
@@ -131,7 +131,7 @@ static void hud_drag_items() {
 }
 
 static void held_item_follows_the_cursor() {
-    const HeldItem::Style* phaser = HeldItem::getStyle(2);
+    const HeldItem::Style *phaser = HeldItem::getStyle(2);
     CHECK(phaser != nullptr);
     CHECK(HeldItem::getStyle(1) == nullptr);
     // The original's numbers for the phaser in a 640 x 252 view: the gun's
@@ -178,11 +178,11 @@ static void level_unproject() {
 
 static void transition_dissolve() {
     RandomSource random(1);
-    auto count = [](const Canvas& s, uint8_t value) {
+    auto count = [](const Canvas &s, uint8_t value) {
         int n = 0;
         for (int y = 0; y < s.h; y++)
             for (int x = 0; x < s.w; x++)
-                n += *(const uint8_t*)s.getBasePtr(x, y) == value;
+                n += *(const uint8_t *)s.getBasePtr(x, y) == value;
         return n;
     };
     Canvas a, b, out;
@@ -218,12 +218,14 @@ static void transition_dissolve() {
     CHECK_EQUAL(count(out, 2), 64 * 16);
 }
 
-static const reluva::test::Suite suite("stgenerations.unit.hud", {
-    {"hud inventory", [](const std::filesystem::path&) { hud_inventory(); }},
-    {"hud panels", [](const std::filesystem::path&) { hud_panels(); }},
-    {"hud effects", [](const std::filesystem::path&) { hud_effects(); }},
-    {"hud drag items", [](const std::filesystem::path&) { hud_drag_items(); }},
-    {"held item follows the cursor", [](const std::filesystem::path&) { held_item_follows_the_cursor(); }},
-    {"level unproject", [](const std::filesystem::path&) { level_unproject(); }},
-    {"transition dissolve", [](const std::filesystem::path&) { transition_dissolve(); }},
-});
+static const reluva::test::Suite
+    suite("stgenerations.unit.hud",
+          {
+              {"hud inventory", [](const std::filesystem::path &) { hud_inventory(); }},
+              {"hud panels", [](const std::filesystem::path &) { hud_panels(); }},
+              {"hud effects", [](const std::filesystem::path &) { hud_effects(); }},
+              {"hud drag items", [](const std::filesystem::path &) { hud_drag_items(); }},
+              {"held item follows the cursor", [](const std::filesystem::path &) { held_item_follows_the_cursor(); }},
+              {"level unproject", [](const std::filesystem::path &) { level_unproject(); }},
+              {"transition dissolve", [](const std::filesystem::path &) { transition_dissolve(); }},
+          });

@@ -94,8 +94,9 @@ static void testLexer() {
 }
 
 static void testEntities() {
-    const std::string lump = "{\n\"classname\" \"worldspawn\"\n\"message\" \"Borg Cube\"\n}\n"
-                             "{\n\"classname\" \"info_player_start\"\n\"origin\" \"64 -32 24\"\n\"ORIGIN\" \"0 0 0\"\n}\n";
+    const std::string lump =
+        "{\n\"classname\" \"worldspawn\"\n\"message\" \"Borg Cube\"\n}\n"
+        "{\n\"classname\" \"info_player_start\"\n\"origin\" \"64 -32 24\"\n\"ORIGIN\" \"0 0 0\"\n}\n";
     std::vector<Entity> ents;
     CHECK(!parseEntities(lump + std::string(1, '\0') + "junk", ents));
     CHECK(ents.size() == 2);
@@ -155,7 +156,7 @@ env/sky
     CHECK(defs.size() == 2);
     if (defs.size() != 2 || defs[0].stages.size() != 2)
         return;
-    const ShaderDef& d = defs[0];
+    const ShaderDef &d = defs[0];
     CHECK(d.cull == ShaderDef::Cull::None && d.sort == 10 && d.polygonOffset && d.noMipmaps);
     CHECK(d.deforms.size() == 3);
     CHECK(d.deforms[0].type == ShaderDeform::Type::Wave && d.deforms[0].spread == 1.0f / 64);
@@ -165,7 +166,7 @@ env/sky
     CHECK(d.deforms[2].type == ShaderDeform::Type::Autosprite);
     CHECK((d.unknown == std::vector<std::string>{"efmadeupdirective", "efstagething"}));
 
-    const ShaderStage& a = d.stages[0];
+    const ShaderStage &a = d.stages[0];
     CHECK(a.rgbGen == ShaderStage::RgbGen::Wave && a.rgbWave.func == gfx::WaveFunc::Triangle &&
           a.rgbWave.phase == 0.25f && a.rgbWave.frequency == 2);
     CHECK(a.alphaGen == ShaderStage::AlphaGen::Const && a.alphaConst == 0.4f);
@@ -181,13 +182,13 @@ env/sky
     }
     CHECK(a.depthEqual && a.depthWrite && a.alphaFunc == gfx::AlphaTest::Ge128);
 
-    const ShaderStage& b = d.stages[1];
+    const ShaderStage &b = d.stages[1];
     CHECK(b.whiteImage && b.rgbGen == ShaderStage::RgbGen::Const && b.rgbConst[1] == 0.5f && b.rgbConst[2] == 1);
     CHECK(b.alphaGen == ShaderStage::AlphaGen::OneMinusVertex && b.tcGen == ShaderStage::TcGen::Environment);
     // turb with the (ignored) function name written
     CHECK(b.tcMods.size() == 1 && b.tcMods[0].wave.amplitude == 0.2f && b.tcMods[0].wave.phase == 0.5f);
 
-    const ShaderDef& sky = defs[1];
+    const ShaderDef &sky = defs[1];
     CHECK(sky.sky && sky.skyFarBox == "env/space" && sky.cloudHeight == 512 && sky.sort == 7);
     CHECK(sky.fog && sky.fogColor[0] == 0.5f && sky.fogColor[1] == 0.25f && sky.fogDistance == 300);
 }
@@ -197,7 +198,8 @@ static void testWaves() {
     gfx::Wave w{gfx::WaveFunc::Sin, 1, 2, 0, 1};
     CHECK(approx(gfx::evaluate(w, 0), 1) && approx(gfx::evaluate(w, 0.25f), 3) && approx(gfx::evaluate(w, 0.75f), -1));
     w.func = gfx::WaveFunc::Triangle;
-    CHECK(approx(gfx::evaluate(w, 0.25f), 3) && approx(gfx::evaluate(w, 0.5f), 1) && approx(gfx::evaluate(w, 0.75f), -1));
+    CHECK(approx(gfx::evaluate(w, 0.25f), 3) && approx(gfx::evaluate(w, 0.5f), 1) &&
+          approx(gfx::evaluate(w, 0.75f), -1));
     w.func = gfx::WaveFunc::Square;
     CHECK(approx(gfx::evaluate(w, 0.1f), 3) && approx(gfx::evaluate(w, 0.6f), -1));
     w.func = gfx::WaveFunc::Sawtooth;
@@ -241,7 +243,7 @@ textures/sky/stars
     CHECK(!parseShaderFile(text, "scripts/borg.shader", defs));
     CHECK(defs.size() == 2);
     if (defs.size() == 2) {
-        const ShaderDef& f = defs[0];
+        const ShaderDef &f = defs[0];
         CHECK(f.name == "textures/borg/floor" && f.file == "scripts/borg.shader");
         CHECK(f.hasSurfaceParm("MetalSteps") && f.directives.size() == 2 && !f.sky);
         CHECK(f.stages.size() == 3);
@@ -315,7 +317,7 @@ static void testPatch() {
     BspVertex control[9];
     for (int y = 0; y < 3; ++y)
         for (int x = 0; x < 3; ++x) {
-            BspVertex& v = control[y * 3 + x];
+            BspVertex &v = control[y * 3 + x];
             v.pos = {float(x) * 8, float(y) * 8, x == 1 && y == 1 ? 4.0f : 0.0f};
             v.st = {float(x) / 2, float(y) / 2};
             v.normal = {0, 0, 1};
@@ -327,7 +329,7 @@ static void testPatch() {
     CHECK(verts.size() == 1 + 25 && idx.size() == 16 * 6);
     // Corners stay put; the middle is the Bezier point: 4 * (2 * 0.5 * 0.5)^2 = 1.
     CHECK(verts[1].pos[0] == 0 && verts[1].pos[2] == 0 && verts[25].pos[0] == 16 && verts[25].pos[1] == 16);
-    const BspVertex& mid = verts[1 + 12];
+    const BspVertex &mid = verts[1 + 12];
     CHECK(std::fabs(mid.pos[0] - 8) < 1e-5f && std::fabs(mid.pos[2] - 1) < 1e-5f);
     CHECK(std::fabs(mid.st[0] - 0.5f) < 1e-5f && mid.color[0] == 200 && std::fabs(mid.normal[2] - 1) < 1e-5f);
     bool inRange = true, clockwise = true;
@@ -336,22 +338,22 @@ static void testPatch() {
             inRange = inRange && idx[i + k] >= 1 && idx[i + k] < verts.size();
         // Clockwise seen from above (where the normals point): the
         // geometric normal points down.
-        const auto& a = verts[idx[i]].pos;
-        const auto& b = verts[idx[i + 1]].pos;
-        const auto& c = verts[idx[i + 2]].pos;
+        const auto &a = verts[idx[i]].pos;
+        const auto &b = verts[idx[i + 1]].pos;
+        const auto &c = verts[idx[i + 2]].pos;
         const float nz = (b[0] - a[0]) * (c[1] - a[1]) - (b[1] - a[1]) * (c[0] - a[0]);
         clockwise = clockwise && nz < 0;
     }
     CHECK(inRange && clockwise);
     // Normals pointing down flip the winding.
-    for (BspVertex& v : control)
+    for (BspVertex &v : control)
         v.normal = {0, 0, -1};
     std::vector<BspVertex> down;
     std::vector<uint32_t> downIdx;
     tessellatePatch(control, 3, 3, 4, down, downIdx);
-    const auto& a = down[downIdx[0]].pos;
-    const auto& b = down[downIdx[1]].pos;
-    const auto& c = down[downIdx[2]].pos;
+    const auto &a = down[downIdx[0]].pos;
+    const auto &b = down[downIdx[1]].pos;
+    const auto &c = down[downIdx[2]].pos;
     CHECK((b[0] - a[0]) * (c[1] - a[1]) - (b[1] - a[1]) * (c[0] - a[0]) > 0);
     // Two blocks side by side share their edge: 5x3 control points.
     std::vector<BspVertex> wide(15, control[0]), out;
@@ -370,9 +372,9 @@ static void testMd3() {
     }
     CHECK(m.name == "models/test/box.md3" && m.frames.size() == 2 && m.tagCount == 1 && m.surfaces.size() == 1);
     CHECK(m.frames[1].name == "up" && m.frames[1].maxs[2] == 80 && m.frames[0].radius == 12);
-    const Md3Tag* top = m.tag(1, "tag_top");
+    const Md3Tag *top = m.tag(1, "tag_top");
     CHECK(top && top->origin[2] == 80 && top->axis[2][2] == 1 && !m.tag(0, "tag_head") && !m.tag(5, "tag_top"));
-    const Md3Surface& s = m.surfaces[0];
+    const Md3Surface &s = m.surfaces[0];
     CHECK(s.name == "box" && s.shaders.size() == 1 && s.shaders[0] == "models/test/box");
     CHECK((s.indices == std::vector<uint32_t>{0, 1, 2}) && s.vertexCount == 3 && s.vertices.size() == 6);
     CHECK(s.st[1][0] == 1 && s.st[2][1] == 1);
@@ -407,8 +409,10 @@ static void testMd3() {
 }
 
 static void testSkinAndPlacement() {
-    const Skin skin = parseSkin("h_Head,models/players2/munro/head.tga\r\ntag_head,\n\nbody , models/x/body \nempty,\n");
-    CHECK(skin.size() == 2 && skin.at("h_head") == "models/players2/munro/head.tga" && skin.at("body") == "models/x/body");
+    const Skin skin =
+        parseSkin("h_Head,models/players2/munro/head.tga\r\ntag_head,\n\nbody , models/x/body \nempty,\n");
+    CHECK(skin.size() == 2 && skin.at("h_head") == "models/players2/munro/head.tga" &&
+          skin.at("body") == "models/x/body");
 
     auto approx = [](float a, float b) { return std::fabs(a - b) < 1e-4f; };
     // Yaw 90: forward is +y, left is -x.
@@ -439,10 +443,10 @@ static void testLightGrid() {
     for (int z = 0; z < 2; ++z)
         for (int y = 0; y < 2; ++y)
             for (int x = 0; x < 3; ++x) {
-                uint8_t* p = point(x, y, z);
+                uint8_t *p = point(x, y, z);
                 p[0] = p[1] = p[2] = uint8_t(x == 0 ? 40 : 80); // ambient, doubled on loading
                 p[3] = p[4] = p[5] = 50;                        // directed
-                p[6] = 0;                                      // from straight above
+                p[6] = 0;                                       // from straight above
             }
     point(2, 0, 0)[0] = point(2, 0, 0)[1] = point(2, 0, 0)[2] = 0; // inside a wall
     LightGrid grid;
@@ -483,7 +487,7 @@ static std::vector<uint8_t> buildMdr(bool packed) {
         d.push_back(uint8_t(v));
         d.push_back(uint8_t(v >> 8));
     };
-    auto text = [&](const char* t, size_t size) {
+    auto text = [&](const char *t, size_t size) {
         for (size_t k = 0; k < size; ++k)
             d.push_back(k < std::strlen(t) ? uint8_t(t[k]) : 0);
     };
@@ -500,20 +504,20 @@ static std::vector<uint8_t> buildMdr(bool packed) {
     text("RDM5", 4);
     i32(2);
     text("test", 64);
-    i32(2);                              // frames
-    i32(2);                              // bones
+    i32(2);                             // frames
+    i32(2);                             // bones
     i32(packed ? -framesAt : framesAt); // negative: packed
-    i32(1);                              // levels of detail
+    i32(1);                             // levels of detail
     i32(lodAt);
     i32(1); // tags
     i32(tagsAt);
     i32(tagsAt + 36);
-    for (const auto& frame : frames) {
+    for (const auto &frame : frames) {
         for (int k = 0; k < 10; ++k)
             f32(0); // bounds, origin, radius
         if (!packed)
             text("frame", 16);
-        for (const Bone& b : frame) {
+        for (const Bone &b : frame) {
             if (packed) {
                 for (int r = 0; r < 3; ++r)
                     u16(int(std::lround(b[size_t(r * 4 + 3)] * 64)) + 32768);
@@ -575,7 +579,7 @@ static void testPatchGrids() {
     control[4].pos[2] = 64;
     PatchGrid bulge = subdividePatch(control, 3, 3, 4);
     CHECK(bulge.width == 9 && bulge.height == 5);
-    const BspVertex& mid = bulge.points[2 * 9 + 4];
+    const BspVertex &mid = bulge.points[2 * 9 + 4];
     CHECK(std::fabs(mid.pos[0] - 64) < 1e-4f && std::fabs(mid.pos[2] - 16) < 1e-4f);
     CHECK(std::fabs(mid.normal[2] - 1) < 1e-4f);
     // A quarter of the way across the middle row: 64 * (2 * 0.25 * 0.75) *
@@ -605,10 +609,10 @@ static void testPatchGrids() {
     CHECK(grids[1].height == grids[0].height);
     bool matched = true;
     for (int y = 0; y < grids[0].height; ++y) {
-        const auto& a = grids[0].points[size_t(y * grids[0].width + grids[0].width - 1)].pos;
-        const auto& b = grids[1].points[size_t(y * grids[1].width)].pos;
-        matched = matched && std::fabs(a[0] - b[0]) < 0.1f && std::fabs(a[1] - b[1]) < 0.1f &&
-                  std::fabs(a[2] - b[2]) < 0.1f;
+        const auto &a = grids[0].points[size_t(y * grids[0].width + grids[0].width - 1)].pos;
+        const auto &b = grids[1].points[size_t(y * grids[1].width)].pos;
+        matched =
+            matched && std::fabs(a[0] - b[0]) < 0.1f && std::fabs(a[1] - b[1]) < 0.1f && std::fabs(a[2] - b[2]) < 0.1f;
     }
     CHECK(matched);
     // Not in the same group: left alone.
@@ -648,10 +652,10 @@ static void testMdr() {
         Md3Model m;
         CHECK(!parseModel(buildMdr(packed), m));
         CHECK(m.frames.size() == 2 && m.surfaces.size() == 1 && m.tagCount == 1);
-        const Md3Surface& s = m.surfaces[0];
+        const Md3Surface &s = m.surfaces[0];
         CHECK(s.name == "body" && s.shaders[0] == "models/test/body" && s.vertexCount == 3);
         CHECK(s.indices == std::vector<uint32_t>({0, 1, 2}) && s.st[0][0] == 0.25f && s.st[0][1] == 0.5f);
-        auto near = [](const Vec3& a, Vec3 b) {
+        auto near = [](const Vec3 &a, Vec3 b) {
             return std::fabs(a[0] - b[0]) < 0.02f && std::fabs(a[1] - b[1]) < 0.02f && std::fabs(a[2] - b[2]) < 0.02f;
         };
         // Frame 0: vertex 0 between (0,1,0) and (10,1,0); vertex 1 at 10 + 1.
@@ -661,7 +665,7 @@ static void testMdr() {
         CHECK(near(s.vertices[3 + 1].pos, {10, 1, 0}) && near(s.vertices[3 + 2].pos, {10, 2, 0}));
         CHECK(near(s.vertices[3 + 0].pos, {4.5f, 0.5f, 0}) && near(s.vertices[3 + 1].normal, {0, 1, 0}));
         // The tag follows bone 1: its x axis is the matrix's first column.
-        const Md3Tag* tag = m.tag(1, "tag_weapon");
+        const Md3Tag *tag = m.tag(1, "tag_weapon");
         CHECK(tag && near(tag->origin, {10, 0, 0}) && near(tag->axis[0], {0, 1, 0}) && near(tag->axis[1], {-1, 0, 0}));
         // A level of detail past its only one: that one.
         Md3Model low;
@@ -675,18 +679,20 @@ static void testMdr() {
     CHECK(parseModel(broken, m));
 }
 
-static const reluva::test::Suite suite("idtech3.unit.formats", {
-    {"lexer", [](const std::filesystem::path&) { testLexer(); }},
-    {"entities", [](const std::filesystem::path&) { testEntities(); }},
-    {"shaders", [](const std::filesystem::path&) { testShaders(); }},
-    {"shader stages", [](const std::filesystem::path&) { testShaderStages(); }},
-    {"waves", [](const std::filesystem::path&) { testWaves(); }},
-    {"bsp", [](const std::filesystem::path&) { testBsp(); }},
-    {"patches", [](const std::filesystem::path&) { testPatch(); }},
-    {"patch grids", [](const std::filesystem::path&) { testPatchGrids(); }},
-    {"md3", [](const std::filesystem::path&) { testMd3(); }},
-    {"skins and placement", [](const std::filesystem::path&) { testSkinAndPlacement(); }},
-    {"light grid", [](const std::filesystem::path&) { testLightGrid(); }},
-    {"mdr", [](const std::filesystem::path&) { testMdr(); }},
-    {"player animation", [](const std::filesystem::path&) { testPlayerAnimation(); }},
-});
+static const reluva::test::Suite
+    suite("idtech3.unit.formats",
+          {
+              {"lexer", [](const std::filesystem::path &) { testLexer(); }},
+              {"entities", [](const std::filesystem::path &) { testEntities(); }},
+              {"shaders", [](const std::filesystem::path &) { testShaders(); }},
+              {"shader stages", [](const std::filesystem::path &) { testShaderStages(); }},
+              {"waves", [](const std::filesystem::path &) { testWaves(); }},
+              {"bsp", [](const std::filesystem::path &) { testBsp(); }},
+              {"patches", [](const std::filesystem::path &) { testPatch(); }},
+              {"patch grids", [](const std::filesystem::path &) { testPatchGrids(); }},
+              {"md3", [](const std::filesystem::path &) { testMd3(); }},
+              {"skins and placement", [](const std::filesystem::path &) { testSkinAndPlacement(); }},
+              {"light grid", [](const std::filesystem::path &) { testLightGrid(); }},
+              {"mdr", [](const std::filesystem::path &) { testMdr(); }},
+              {"player animation", [](const std::filesystem::path &) { testPlayerAnimation(); }},
+          });

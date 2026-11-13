@@ -46,19 +46,19 @@ public:
     int shown = 0;
     std::vector<std::string> titles;
 
-    void updateScreen(const Surface& s) override {
+    void updateScreen(const Surface &s) override {
         HeadlessSystem::updateScreen(s);
         screens.bytes(s.pixels);
         shown++;
     }
-    void setWindowTitle(const std::string& t) override {
+    void setWindowTitle(const std::string &t) override {
         // The frames a second after the title go with the clock: the
         // titles themselves are what's kept.
         const std::string title = t.substr(0, t.find("  -  "));
         if (titles.empty() || titles.back() != title)
             titles.push_back(title);
     }
-    bool pollEvent(Event& ev) override {
+    bool pollEvent(Event &ev) override {
         if (next_ < inputs.size() && inputs[next_].at <= getMillis()) {
             ev = inputs[next_++].event;
             return true;
@@ -87,9 +87,9 @@ Event mouse(EventType type, int x, int y) {
     return e;
 }
 
-void putFile(const std::filesystem::path& p, const std::vector<uint8_t>& data) {
+void putFile(const std::filesystem::path &p, const std::vector<uint8_t> &data) {
     std::filesystem::create_directories(p.parent_path());
-    std::ofstream(p, std::ios::binary).write(reinterpret_cast<const char*>(data.data()), std::streamsize(data.size()));
+    std::ofstream(p, std::ios::binary).write(reinterpret_cast<const char *>(data.data()), std::streamsize(data.size()));
 }
 
 // A picture of its own: stripes of `colour`, `w` by `h`.
@@ -99,7 +99,7 @@ std::vector<uint8_t> picture(int w, int h, Color colour) {
     img.rgba.resize(size_t(w) * size_t(h) * 4);
     for (int y = 0; y < h; y++)
         for (int x = 0; x < w; x++) {
-            uint8_t* p = &img.rgba[(size_t(y) * size_t(w) + size_t(x)) * 4];
+            uint8_t *p = &img.rgba[(size_t(y) * size_t(w) + size_t(x)) * 4];
             const bool stripe = (x / 16 + y / 16) % 2;
             p[0] = stripe ? colour.r : uint8_t(colour.r / 2);
             p[1] = stripe ? colour.g : uint8_t(colour.g / 2);
@@ -111,8 +111,8 @@ std::vector<uint8_t> picture(int w, int h, Color colour) {
 
 // A scene: its picture at the top left, and a hotspot over most of the
 // screen running `script` (named `name`, as the menu's Play is).
-std::vector<uint8_t> scene(const std::string& path, const std::string& picture, const std::string& name,
-                           const std::string& script) {
+std::vector<uint8_t> scene(const std::string &path, const std::string &picture, const std::string &name,
+                           const std::string &script) {
     Bytes b;
     b.tag("SCEN");
     b.text(path, 256);
@@ -146,7 +146,7 @@ std::vector<uint8_t> scene(const std::string& path, const std::string& picture, 
     return b.d;
 }
 
-void makeInstall(const std::filesystem::path& dir) {
+void makeInstall(const std::filesystem::path &dir) {
     putFile(dir / "motoe.exe", {'M', 'Z', 0, 0});
     putFile(dir / "granny2.dll", {'M', 'Z', 0, 0});
     putFile(dir / "Text" / "itemlist.txt", utf16File("Item Name\tIn-game Item Description\n"));
@@ -158,8 +158,9 @@ void makeInstall(const std::filesystem::path& dir) {
     putFile(dir / "Locations" / "Menu.Main" / "menu.main_01.ac2",
             scene("Locations\\Menu.Main\\menu.main_01.ac2", "locations\\menu.main\\menu.tga", "playover", "act 01a"));
     putFile(dir / "Locations" / "Menu.Main" / "menu.tga", picture(320, 240, {200, 160, 60}));
-    putFile(dir / "Locations" / "Test" / "test_01.ac2",
-            scene("Locations\\Test\\test_01.ac2", "locations\\test\\one.tga", "door", "tag opened 1, scene test_02 1 0"));
+    putFile(
+        dir / "Locations" / "Test" / "test_01.ac2",
+        scene("Locations\\Test\\test_01.ac2", "locations\\test\\one.tga", "door", "tag opened 1, scene test_02 1 0"));
     putFile(dir / "Locations" / "Test" / "test_02.ac2",
             scene("Locations\\Test\\test_02.ac2", "locations\\test\\two.tga", "", ""));
     putFile(dir / "Locations" / "Test" / "one.tga", picture(320, 240, {60, 160, 200}));
@@ -168,7 +169,7 @@ void makeInstall(const std::filesystem::path& dir) {
 
 // Every file under `dir`, and for a saved game what it holds (not its
 // bytes: it keeps the date and time it was made).
-std::string listFiles(const std::filesystem::path& dir) {
+std::string listFiles(const std::filesystem::path &dir) {
     std::vector<std::string> names;
     std::error_code ec;
     for (std::filesystem::recursive_directory_iterator it(dir, ec), end; !ec && it != end; it.increment(ec))
@@ -179,7 +180,7 @@ std::string listFiles(const std::filesystem::path& dir) {
             awe::SaveGame save;
             if (it->path().extension() == ".ac2" && !awe::readSaveGame(data, save)) {
                 what += " (" + save.location + ", " + save.scene + "; tags";
-                for (const auto& [tag, value] : save.tags)
+                for (const auto &[tag, value] : save.tags)
                     what += " " + tag + "=" + std::to_string(value);
                 what += ")";
             }
@@ -187,14 +188,14 @@ std::string listFiles(const std::filesystem::path& dir) {
         }
     std::sort(names.begin(), names.end());
     std::string out;
-    for (const std::string& n : names)
+    for (const std::string &n : names)
         out += (out.empty() ? "" : ", ") + n;
     return out.empty() ? "(none)" : out;
 }
 
-void engineTest(const std::filesystem::path& tmp) {
+void engineTest(const std::filesystem::path &tmp) {
     test::Record rec;
-    const MetaEngine* engine = findEngine("awe");
+    const MetaEngine *engine = findEngine("awe");
     if (!engine)
         return test::fail("awe isn't registered");
     const std::filesystem::path install = tmp / "motoe";
@@ -225,7 +226,7 @@ void engineTest(const std::filesystem::path& tmp) {
     rec.add("run.size", std::to_string(sys.width()) + "x" + std::to_string(sys.height()));
     rec.add("run.screens", std::to_string(sys.shown) + " " + sys.screens.hex());
     std::string titles;
-    for (const std::string& t : sys.titles)
+    for (const std::string &t : sys.titles)
         titles += (titles.empty() ? "" : " / ") + t;
     rec.add("run.titles", titles);
     rec.add("run.files", listFiles(tmp / "saves"));
@@ -236,6 +237,7 @@ void engineTest(const std::filesystem::path& tmp) {
 
 } // namespace
 
-static const reluva::test::Suite suite("awe.engine", {
-    {"play through", [](const std::filesystem::path& tmp) { engineTest(tmp); }},
-});
+static const reluva::test::Suite suite("awe.engine",
+                                       {
+                                           {"play through", [](const std::filesystem::path &tmp) { engineTest(tmp); }},
+                                       });
