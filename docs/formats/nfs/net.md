@@ -135,6 +135,17 @@ System\DLL` key. So the online service's client DLL isn't on the CD in
 this form either, and the patched copy below is a byte patch made for
 these captures, not EA's.
 
+**Chosen without a patched copy** (November 2026, `c7-pos1`). Reluva's
+`positionalupdates=on` (`nfs-host -positional`, `GameHost::
+choosePositionalUpdates`) makes the dialog's two stores at `0x43f43e`
+and `0x43f451` write 1 in memory, after checking their bytes; the file
+is unchanged. Two copies with it (and `-deterministic 50000`), the
+lobby by `c7-runs/net.sh`'s clicks, Hometown over TCP: once the race
+began (96.5 s by the host's clock, 97.3 s by the joiner's) no 06 went
+either way, only 0b: 92 from the host and 93 from the joiner to the
+run's end at about 120 s. Before it, the lobby's messages as without
+the option (00-05).
+
 **Captured with positional updates.** In a copy of the game (`nfs3.exe`
 patched: `0x43f43e` and `0x43f451` store 1, so Connect Players turns
 `0x6fd50c` on), two copies raced Hometown over TCP as before. No 06 went
@@ -918,7 +929,8 @@ was the lower.
 - 0b, 0c and 0d were captured only from a patched copy: the unpatched
   game sends them only when launched by EA's online service, whose NPS
   DLL isn't on the CD. The patched copy is a byte patch of these
-  captures (Positional updates), not EA's: the CD's
+  captures (Positional updates), not EA's (Reluva's
+  `positionalupdates=on` now chooses the mode in memory, `c7-pos1`): the CD's
   `Patch/npspatchnfs3.exe`, checked November 2026, is the installer
   of EA's auto-updater and holds no game code, no patch of `nfs3.exe`
   and no NPS client DLL (Positional updates). The

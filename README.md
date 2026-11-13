@@ -139,7 +139,9 @@ Network (TCP)) uses the machine's network, other players joining on TCP port 103
 (`network=off` leaves it out); Network (IPX) works on the local network too.
 `serial=listen:2300` on one machine and `serial=host:2300` on the other make
 Serial a link between them, and `modem=listen:2400` / `modem=host:2400` do the
-same for Modem (Answer and Dial). The game's Dolby Surround sound mode
+same for Modem (Answer and Dial). `positionalupdates=on` has network races use the
+game's positional updates, meant for slow links and the internet (each copy runs its
+own car and places the others from their reports); every player needs it alike. The game's Dolby Surround sound mode
 encodes sounds behind into the stereo; `surround=prologic` decodes it with a model
 of a Pro Logic decoder, written from the public description, and plays it on a 4.0
 or 5.1 device when the default one has that many channels (stereo, unchanged,
