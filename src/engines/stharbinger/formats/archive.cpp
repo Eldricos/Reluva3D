@@ -31,7 +31,9 @@ std::shared_ptr<LstArchive> LstArchive::open(const SearchSet &source, const std:
 }
 
 std::shared_ptr<LstArchive> LstArchive::open(const void *source, Reader reader, const std::string &base) {
-    std::vector<uint8_t> all, lst, cat;
+    std::vector<uint8_t> all;
+    std::vector<uint8_t> lst;
+    std::vector<uint8_t> cat;
     if (!reader(source, base + ".LST", lst) || !reader(source, base + ".ALL", all))
         return nullptr;
     reader(source, base + ".CAT", cat);

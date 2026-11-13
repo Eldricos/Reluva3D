@@ -152,7 +152,8 @@ static void testX86Instructions(bool cached) {
 static void testX86CacheAgreement() {
     std::mt19937 random(1234);
     auto pick = [&](uint32_t n) { return uint32_t(random() % n); };
-    const uint32_t kData = 0x10000, kFs = 0x100;
+    const uint32_t kData = 0x10000;
+    const uint32_t kFs = 0x100;
     // Registers written as 16 or 32 bits: not ESP or EBP (the stack and the data's base).
     auto reg32 = [&] {
         static const uint8_t kRegs[6] = {0, 1, 2, 3, 6, 7};
@@ -376,7 +377,8 @@ static void testX86CacheAgreement() {
         for (double &f : fpu)
             f = double(int32_t(random())) / 1024.0;
         std::array<uint32_t, 8> after[2];
-        uint32_t flagsAfter[2], result[2];
+        uint32_t flagsAfter[2];
+        uint32_t result[2];
         std::array<double, 8> fpuAfter[2];
         std::vector<uint8_t> dataAfter[2];
         bool ok[2];

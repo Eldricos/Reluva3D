@@ -73,8 +73,12 @@ bool compare(GamePathFinder &game, const WalkGrid &grid, WalkGrid::Cell from, Wa
 // -all: from cells of each scene's grid to others, every way the game
 // searches; `perScene` pairs each (all pairs of open cells if 0).
 int compareAll(GamePathFinder &game, const std::string &folder, int perScene) {
-    size_t scenes = 0, searches = 0, mismatches = 0, found = 0;
-    double gameMs = 0, oursMs = 0;
+    size_t scenes = 0;
+    size_t searches = 0;
+    size_t mismatches = 0;
+    size_t found = 0;
+    double gameMs = 0;
+    double oursMs = 0;
     std::mt19937 random(1);
     const auto locations = fs::findDirectory(folder, "Locations");
     if (!locations) {
@@ -103,9 +107,11 @@ int compareAll(GamePathFinder &game, const std::string &folder, int perScene) {
             continue;
         scenes++;
         for (int k = 0; k < perScene; k++) {
-            const WalkGrid::Cell from = open[random() % open.size()], to = open[random() % open.size()];
+            const WalkGrid::Cell from = open[random() % open.size()];
+            const WalkGrid::Cell to = open[random() % open.size()];
             for (int way = 0; way < 4; way++) {
-                const bool openThrees = way & 1, allowTwos = way & 2;
+                const bool openThrees = way & 1;
+                const bool allowTwos = way & 2;
                 std::string why;
                 searches++;
                 if (!compare(game, grid, from, to, openThrees, allowTwos, gameMs, oursMs, why)) {
@@ -161,7 +167,8 @@ int aweCommandPath(int argc, char **argv) {
         std::fprintf(stderr, "no walk grid in %s\n", argv[3]);
         return 1;
     }
-    const WalkGrid::Cell from{std::atoi(argv[4]), std::atoi(argv[5])}, to{std::atoi(argv[6]), std::atoi(argv[7])};
+    const WalkGrid::Cell from{std::atoi(argv[4]), std::atoi(argv[5])};
+    const WalkGrid::Cell to{std::atoi(argv[6]), std::atoi(argv[7])};
     std::vector<GamePathFinder::Point> theirs;
     auto t = std::chrono::steady_clock::now();
     if (Error e = game.search(grid, false, from, to, false, theirs)) {

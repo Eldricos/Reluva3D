@@ -56,7 +56,8 @@ void printChunks(const Bytes &d, size_t begin, size_t end, int depth) {
     while (p < end) {
         const uint16_t tag = rd16(d, p);
         const uint32_t size = rd32(d, p + 2);
-        const size_t payload = p + 6, payloadEnd = payload + size;
+        const size_t payload = p + 6;
+        const size_t payloadEnd = payload + size;
         const bool container = tilesIntoChunks(d, payload, payloadEnd);
         std::printf("%*s%06zx tag 0x%04x size %u%s", depth * 2, "", p, tag, size, container ? "  {" : "");
         if (!container)

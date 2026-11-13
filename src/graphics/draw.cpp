@@ -19,8 +19,10 @@ void fill(Surface &s, uint8_t color) {
 }
 
 void fillRect(Surface &s, int x, int y, int w, int h, uint8_t color) {
-    const int x0 = std::max(x, 0), y0 = std::max(y, 0);
-    const int x1 = std::min(x + w, s.w), y1 = std::min(y + h, s.h);
+    const int x0 = std::max(x, 0);
+    const int y0 = std::max(y, 0);
+    const int x1 = std::min(x + w, s.w);
+    const int y1 = std::min(y + h, s.h);
     if (x1 <= x0)
         return;
     for (int yy = y0; yy < y1; yy++)
@@ -35,8 +37,10 @@ void frameRect(Surface &s, int x, int y, int w, int h, uint8_t color) {
 }
 
 void blit(Surface &dst, const Surface &src, int x, int y, int transparent) {
-    const int sx0 = std::max(0, -x), sy0 = std::max(0, -y);
-    const int sx1 = std::min(src.w, dst.w - x), sy1 = std::min(src.h, dst.h - y);
+    const int sx0 = std::max(0, -x);
+    const int sy0 = std::max(0, -y);
+    const int sx1 = std::min(src.w, dst.w - x);
+    const int sy1 = std::min(src.h, dst.h - y);
     if (sx0 >= sx1 || sy0 >= sy1)
         return;
     for (int sy = sy0; sy < sy1; sy++) {

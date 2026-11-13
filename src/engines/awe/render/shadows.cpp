@@ -12,7 +12,8 @@ std::array<float, 3> shadowLight(const Ac2Scene &scene, const float origin[3]) {
     // 0x428250: D3DLIGHT8.Position (x, y, z) of each light; only those
     // with shadowOnly set if any are. Type, direction and colour don't
     // count. The sum starts from the mesh's world translation.
-    std::vector<const Ac2Record *> lights, marked;
+    std::vector<const Ac2Record *> lights;
+    std::vector<const Ac2Record *> marked;
     for (const Ac2Record *o : scene.objects())
         if (o->tag == "LITE") {
             lights.push_back(o);
@@ -138,14 +139,16 @@ void ShadowStencil::fillTriangle(const float a[3], const float b[3], const float
         const size_t row = size_t(y) * size_t(w_);
         // The edges' parts that don't change along the row, worked out
         // once: the same sums as edge() per pixel.
-        const float ra = (c[0] - b[0]) * (py - b[1]), rb = (a[0] - c[0]) * (py - c[1]),
-                    rc = (b[0] - a[0]) * (py - a[1]);
+        const float ra = (c[0] - b[0]) * (py - b[1]);
+        const float rb = (a[0] - c[0]) * (py - c[1]);
+        const float rc = (b[0] - a[0]) * (py - a[1]);
         bool in = false;
         for (int x = x0; x <= x1; x++) {
             const float px = float(x) + 0.5f;
             // Each corner's weight: the opposite edge's share of the area.
-            const float wa = (ra - (c[1] - b[1]) * (px - b[0])) * inv, wb = (rb - (a[1] - c[1]) * (px - c[0])) * inv,
-                        wc = (rc - (b[1] - a[1]) * (px - a[0])) * inv;
+            const float wa = (ra - (c[1] - b[1]) * (px - b[0])) * inv;
+            const float wb = (rb - (a[1] - c[1]) * (px - c[0])) * inv;
+            const float wc = (rc - (b[1] - a[1]) * (px - a[0])) * inv;
             if (wa < 0 || wb < 0 || wc < 0) {
                 // Each weight only changes sign once along a row, so the
                 // pixels inside are one run: done once it's left.

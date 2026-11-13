@@ -179,15 +179,21 @@ public:
     uint32_t setFormat(Cpu &c, uint32_t p) {
         if (!c.valid(p, 24))
             return kErrInvalidParam;
-        const uint32_t objSize = c.read32(p + 4), flags = c.read32(p + 8), count = c.read32(p + 16),
-                       list = c.read32(p + 20);
+        const uint32_t objSize = c.read32(p + 4);
+        const uint32_t flags = c.read32(p + 8);
+        const uint32_t count = c.read32(p + 16);
+        const uint32_t list = c.read32(p + 20);
         if (!c.valid(list, objSize * count))
             return kErrInvalidParam;
         std::vector<Object> found;
-        bool usedAxes[3]{}, usedButtons[8]{}, usedKeys[256]{};
+        bool usedAxes[3]{};
+        bool usedButtons[8]{};
+        bool usedKeys[256]{};
         for (uint32_t i = 0; i < count; ++i) {
             const uint32_t o = list + i * objSize;
-            const uint32_t guidPtr = c.read32(o), offset = c.read32(o + 4), type = c.read32(o + 8);
+            const uint32_t guidPtr = c.read32(o);
+            const uint32_t offset = c.read32(o + 4);
+            const uint32_t type = c.read32(o + 8);
             const std::string guid = guidPtr ? ComHost::guid(c, guidPtr) : std::string();
             const uint32_t instance = (type >> 8) & 0xffff;
             const bool any = instance == kTypeAnyInstance;
@@ -287,7 +293,8 @@ public:
         // GetDeviceState(size, data): the objects' state at their offsets;
         // relative axes give the movement since the last read.
         if (m == "GetDeviceState") {
-            const uint32_t size = c.arg(1), p = c.arg(2);
+            const uint32_t size = c.arg(1);
+            const uint32_t p = c.arg(2);
             if (!acquired)
                 return kErrNotAcquired;
             if (!c.valid(p, size) || size < dataSize)
@@ -313,7 +320,10 @@ public:
         // oldest changes, removed unless DIGDD_PEEK (1); with no data, as
         // many as the count says are dropped.
         if (m == "GetDeviceData") {
-            const uint32_t objSize = c.arg(1), p = c.arg(2), countAt = c.arg(3), flags = c.arg(4);
+            const uint32_t objSize = c.arg(1);
+            const uint32_t p = c.arg(2);
+            const uint32_t countAt = c.arg(3);
+            const uint32_t flags = c.arg(4);
             if (!acquired)
                 return kErrNotAcquired;
             if (!c.valid(countAt, 4) || (p && objSize < 16))
@@ -341,7 +351,8 @@ public:
         }
         // Properties: the buffer's size (1) and the axes' mode (2).
         if (m == "SetProperty" || m == "GetProperty") {
-            const uint32_t which = c.arg(1), p = c.arg(2);
+            const uint32_t which = c.arg(1);
+            const uint32_t p = c.arg(2);
             if (!c.valid(p, 20))
                 return kErrInvalidParam;
             const bool set = m == "SetProperty";
@@ -378,6 +389,7 @@ public:
                 return f;
         return nullptr;
     }
+    // NOLINTNEXTLINE(readability-make-member-function-const): creates a device and registers it
     std::shared_ptr<Device> make(const std::string &guid) {
         if (guid != kSysMouse && guid != kSysKeyboard)
             return nullptr;
@@ -415,7 +427,9 @@ public:
         }
         // EnumDevices(type, callback(DIDEVICEINSTANCEA*, context), context, flags)
         if (m == "EnumDevices") {
-            const uint32_t type = c.arg(1) & 0xff, callback = c.arg(2), context = c.arg(3);
+            const uint32_t type = c.arg(1) & 0xff;
+            const uint32_t callback = c.arg(2);
+            const uint32_t context = c.arg(3);
             const uint32_t desc = s->process.memory().alloc(580);
             for (bool isMouse : {true, false}) {
                 const uint32_t devType = isMouse ? kDevTypeMouse : kDevTypeKeyboard;

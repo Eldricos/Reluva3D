@@ -126,7 +126,8 @@ int BotCharacters::load(const BotScript::Loader &load, const std::string &file, 
     if (skill == 1 || skill == 4 || skill == 5) {
         result = loadSkill(load, file, int(skill), log);
     } else {
-        const int lo = skill < 4 ? 1 : 4, hi = skill < 4 ? 4 : 5;
+        const int lo = skill < 4 ? 1 : 4;
+        const int hi = skill < 4 ? 4 : 5;
         auto a = loadSkill(load, file, lo, log);
         if (!a)
             return 0;

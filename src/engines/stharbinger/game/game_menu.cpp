@@ -175,7 +175,9 @@ void Game::drawMenuScreen() {
     if (menu_.hover >= 0)
         lit(menu_.hover);
 
-    uint8_t grey = nearest(pal, 40, 40, 40), white = nearest(pal, 63, 63, 63), black = nearest(pal, 0, 0, 0);
+    uint8_t grey = nearest(pal, 40, 40, 40);
+    uint8_t white = nearest(pal, 63, 63, 63);
+    uint8_t black = nearest(pal, 0, 0, 0);
     if (menu_.infoValid) {
         for (int y = 0; y < 240; y++)
             for (int x = 0; x < 320; x++) {

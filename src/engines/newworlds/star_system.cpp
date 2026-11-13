@@ -59,7 +59,9 @@ StarSystemLayout readStarSystem(const GeoModel &model) {
         if (f.corners.empty() || f.part >= model.parts.size())
             continue;
         const auto &verts = model.parts[f.part].vertices;
-        float lo[3] = {1e30f, 1e30f, 1e30f}, hi[3] = {-1e30f, -1e30f, -1e30f}, sum[3] = {0, 0, 0};
+        float lo[3] = {1e30f, 1e30f, 1e30f};
+        float hi[3] = {-1e30f, -1e30f, -1e30f};
+        float sum[3] = {0, 0, 0};
         for (const GeoModel::Corner &c : f.corners) {
             if (c.vertex >= verts.size())
                 continue;
@@ -116,7 +118,8 @@ StarSystemLayout readStarSystem(const GeoModel &model) {
     for (const Cluster &k : clusters) {
         StarSystemLayout::Body b;
         // Its middle: the middle of all its faces.
-        GeoModel::Vec3 lo{1e30f, 1e30f, 1e30f}, hi{-1e30f, -1e30f, -1e30f};
+        GeoModel::Vec3 lo{1e30f, 1e30f, 1e30f};
+        GeoModel::Vec3 hi{-1e30f, -1e30f, -1e30f};
         for (const size_t i : k.faces) {
             lo = {std::min(lo.x, info[i].lo.x), std::min(lo.y, info[i].lo.y), std::min(lo.z, info[i].lo.z)};
             hi = {std::max(hi.x, info[i].hi.x), std::max(hi.y, info[i].hi.y), std::max(hi.z, info[i].hi.z)};
@@ -217,7 +220,8 @@ std::string planetPicture(std::string_view archiveName) {
 }
 
 int missionBody(const StarSystemLayout &layout) {
-    int best = -1, star = -1;
+    int best = -1;
+    int star = -1;
     for (size_t i = 0; i < layout.bodies.size(); ++i) {
         const auto &b = layout.bodies[i];
         if (b.star)

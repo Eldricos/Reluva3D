@@ -63,11 +63,14 @@ void drawPhaserBeam(Surface &dst, int x0, int y0, int x1, int y1, uint8_t color)
 // downward, stopping at `bottom`. `random(n)` gives 0..n-1.
 template<class Random>
 void drawEnemyBeam(Surface &dst, int x0, int y0, int x1, int y1, uint8_t color, int streak, int bottom, Random random) {
-    int dx = std::abs(x1 - x0), dy = std::abs(y1 - y0);
-    int sx = x0 < x1 ? 1 : -1, sy = y0 < y1 ? 1 : -1;
+    int dx = std::abs(x1 - x0);
+    int dy = std::abs(y1 - y0);
+    int sx = x0 < x1 ? 1 : -1;
+    int sy = y0 < y1 ? 1 : -1;
     int len = std::max(1, std::max(dx, dy));
     int err = dx - dy;
-    int x = x0, y = y0;
+    int x = x0;
+    int y = y0;
     for (int i = 0; i <= len; i++) {
         int band = i < len / 3 ? 0 : (i < 2 * len / 3 ? 1 : 2);
         int width = 1 + band * 2;

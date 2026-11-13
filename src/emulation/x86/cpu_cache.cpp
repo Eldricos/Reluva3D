@@ -858,7 +858,8 @@ void Cpu::build(Block &b, uint32_t at) {
         b.next[0] = at + bytes; // full: straight on
     } else if (last.length) {
         using O = CachedOps;
-        const uint32_t after = at + bytes, target = after + last.imm;
+        const uint32_t after = at + bytes;
+        const uint32_t target = after + last.imm;
         if (last.run == &O::jmp || last.run == &O::call)
             b.next[0] = target;
         else if (last.run != &O::ret && last.run != &O::jmpRm && last.run != &O::callRm)
@@ -993,7 +994,8 @@ void Cpu::decode(Cached &e, uint32_t at) {
     // displacement).
     auto modrm = [&] {
         const uint8_t m = p[i++];
-        const uint8_t mod = m >> 6, rm = m & 7;
+        const uint8_t mod = m >> 6;
+        const uint8_t rm = m & 7;
         e.reg = (m >> 3) & 7;
         if (mod == 3) {
             e.rm = rm;
@@ -1002,7 +1004,9 @@ void Cpu::decode(Cached &e, uint32_t at) {
         e.mem = true;
         if (rm == 4) {
             const uint8_t sib = p[i++];
-            const uint8_t scale = sib >> 6, index = (sib >> 3) & 7, base = sib & 7;
+            const uint8_t scale = sib >> 6;
+            const uint8_t index = (sib >> 3) & 7;
+            const uint8_t base = sib & 7;
             if (index != 4) {
                 e.index = int8_t(index);
                 e.scale = scale;

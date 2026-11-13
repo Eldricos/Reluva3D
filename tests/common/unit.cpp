@@ -118,7 +118,8 @@ static void testConfig(const std::filesystem::path &tmp) {
     c.set(Config::engineSection("eng"), settings::kWindowScale, "auto");
     c.set("foo", settings::kWindowScale, "3");
     CHECK(c.targets().size() == 2 && Config::isEngineSection(Config::engineSection("eng")));
-    auto foo = c.settingsFor("foo"), bar = c.settingsFor("bar");
+    auto foo = c.settingsFor("foo");
+    auto bar = c.settingsFor("bar");
     CHECK(foo[settings::kVsync] == "0" && foo[settings::kSmooth] == "0" && foo[settings::kWindowScale] == "3");
     CHECK(bar[settings::kSmooth] == "1" && bar.count(settings::kWindowScale) == 0);
     c.unset("foo", settings::kWindowScale);
@@ -519,7 +520,9 @@ static void testNet() {
 
     // Two sockets in memory: one to the other, and a broadcast.
     auto network = net::LoopbackNetwork::create();
-    auto server = network->open(27960), other = network->open(27961), client = network->open(0);
+    auto server = network->open(27960);
+    auto other = network->open(27961);
+    auto client = network->open(0);
     CHECK(server && client && other && client->port() == 27962 && !network->open(27960));
     CHECK(client->send({0x7f000001u, 27960}, {1, 2, 3}));
     net::Address from;
@@ -801,7 +804,8 @@ static void testDcl() {
 }
 
 static void testDrawAndPalette() {
-    Surface dst, src;
+    Surface dst;
+    Surface src;
     draw::create(dst, 4, 4);
     draw::create(src, 3, 3, 7);
     *draw::at(src, 1, 1) = 0;
@@ -1019,8 +1023,9 @@ static void testX86Disassembler() {
     CHECK(c.hasTarget && c.target == 0x10000 && !x86::disassemble(cases[0].bytes.data(), 1, 0).hasTarget);
     // Not instructions: one byte, to show as data; cut short too.
     const uint8_t bad[] = {0x0f, 0xff, 0x8f, 0xc8, 0xe8, 0x00};
-    const x86::Instruction b0 = x86::disassemble(bad, 2, 0), b1 = x86::disassemble(bad + 2, 2, 0),
-                           b2 = x86::disassemble(bad + 4, 2, 0);
+    const x86::Instruction b0 = x86::disassemble(bad, 2, 0);
+    const x86::Instruction b1 = x86::disassemble(bad + 2, 2, 0);
+    const x86::Instruction b2 = x86::disassemble(bad + 4, 2, 0);
     CHECK(!b0.valid && b0.size == 1 && b0.mnemonic == "db" && b0.operands == "0xf");
     CHECK(!b1.valid && b1.size == 1 && !b2.valid && b2.size == 1);
 }
@@ -1398,7 +1403,8 @@ static void testCinepak() {
 
 static void testAvi() {
     using namespace cinepak_test;
-    const Bytes video1 = firstFrame(), video2 = secondFrame();
+    const Bytes video1 = firstFrame();
+    const Bytes video2 = secondFrame();
     auto tag = [](Bytes &b, const char *t) { b.insert(b.end(), t, t + 4); };
     auto riff = [&](Bytes &b, const char *t, const Bytes &body) {
         tag(b, t);
@@ -1413,7 +1419,16 @@ static void testAvi() {
         b.insert(b.end(), body.begin(), body.end());
         return b;
     };
-    Bytes avih, vstrh, vstrf, astrh, astrf, hdrl, vstrl, astrl, movi, avi;
+    Bytes avih;
+    Bytes vstrh;
+    Bytes vstrf;
+    Bytes astrh;
+    Bytes astrf;
+    Bytes hdrl;
+    Bytes vstrl;
+    Bytes astrl;
+    Bytes movi;
+    Bytes avi;
     le(avih, 50000, 4);
     avih.resize(56);
     tag(vstrh, "vids");

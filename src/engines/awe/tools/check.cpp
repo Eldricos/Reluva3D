@@ -146,7 +146,8 @@ void checkCompressedCurves(const awe::Gr2File &file, awe::GrannyDll &dll, const 
         return;
     }
     for (const auto &[t, c] : compressed) {
-        const awe::AnimationTrack &mine = anim.tracks[t], &dlls = reference.tracks[t];
+        const awe::AnimationTrack &mine = anim.tracks[t];
+        const awe::AnimationTrack &dlls = reference.tracks[t];
         const awe::Curve *a[3] = {&mine.position, &mine.orientation, &mine.scaleShear};
         const awe::Curve *b[3] = {&dlls.position, &dlls.orientation, &dlls.scaleShear};
         r.curves++;
@@ -180,7 +181,8 @@ void checkCurveEvaluation(const awe::Gr2File &file, awe::GrannyDll &dll, const a
         return;
     }
     const float d = anim.duration;
-    std::vector<float> theirs, mine(16);
+    std::vector<float> theirs;
+    std::vector<float> mine(16);
     for (size_t t = 0; t < addresses.size() && t < anim.tracks.size(); t++) {
         const awe::AnimationTrack &track = anim.tracks[t];
         const awe::Curve *curves[3] = {&track.position, &track.orientation, &track.scaleShear};
@@ -195,7 +197,8 @@ void checkCurveEvaluation(const awe::Gr2File &file, awe::GrannyDll &dll, const a
             double scale = 1;
             for (float v : curve.controls)
                 scale = std::max(scale, double(std::abs(v)));
-            const size_t n = curve.knots.size(), step = std::max<size_t>(1, n / 32);
+            const size_t n = curve.knots.size();
+            const size_t step = std::max<size_t>(1, n / 32);
             for (size_t k = 0; k < n; k += step)
                 if (curve.knots[k] >= 0 && curve.knots[k] <= d)
                     times.push_back(curve.knots[k]);
@@ -226,9 +229,12 @@ void checkCurveEvaluation(const awe::Gr2File &file, awe::GrannyDll &dll, const a
                                 v[k] /= len;
                         }
                     r.curveSamples++;
-                    double most = 0, epsilons = 0;
+                    double most = 0;
+                    double epsilons = 0;
                     for (int k = 0; k < dim; k++) {
-                        const double a = mine[size_t(k)], b = theirs[size_t(k)], diff = std::abs(a - b);
+                        const double a = mine[size_t(k)];
+                        const double b = theirs[size_t(k)];
+                        const double diff = std::abs(a - b);
                         most = std::max(most, diff);
                         epsilons = std::max(epsilons, diff / (FLT_EPSILON * scale));
                         if (!std::isfinite(diff))
@@ -337,11 +343,13 @@ Gr2Result checkGr2(const reluva::Archive &files, const std::string &name, awe::G
         const awe::Gr2Object t = root.element("Textures", i);
         if (t.number("Encoding") != 3)
             continue;
-        const int w = int(t.number("Width")), h = int(t.number("Height"));
+        const int w = int(t.number("Width"));
+        const int h = int(t.number("Height"));
         const uint32_t flags = awe::binkTextureFlags(t);
         const std::vector<uint8_t> bytes = awe::textureBytes(file, t);
         r.binkTextures[flags]++;
-        std::vector<uint8_t> native, theirs;
+        std::vector<uint8_t> native;
+        std::vector<uint8_t> theirs;
         const auto t0 = std::chrono::steady_clock::now();
         const reluva::Error e = awe::decodeBinkTexture(w, h, flags, bytes, native);
         const auto t1 = std::chrono::steady_clock::now();
@@ -433,7 +441,8 @@ int checkGr2Files(const reluva::Archive &files, const std::filesystem::path &fol
     }
 
     std::vector<Gr2Result> results(names.size());
-    std::atomic<size_t> next{0}, done{0};
+    std::atomic<size_t> next{0};
+    std::atomic<size_t> done{0};
     std::mutex mutex;
     std::string startError;
     const auto start = std::chrono::steady_clock::now();
@@ -463,14 +472,24 @@ int checkGr2Files(const reluva::Archive &files, const std::filesystem::path &fol
         return 1;
     }
 
-    size_t failed = 0, warned = 0, models = 0, animations = 0, compressed = 0, withVectors = 0;
-    size_t curves = 0, curvesDiffering = 0;
+    size_t failed = 0;
+    size_t warned = 0;
+    size_t models = 0;
+    size_t animations = 0;
+    size_t compressed = 0;
+    size_t withVectors = 0;
+    size_t curves = 0;
+    size_t curvesDiffering = 0;
     size_t binkMismatches = 0;
-    double nativeSeconds = 0, dllSeconds = 0;
+    double nativeSeconds = 0;
+    double dllSeconds = 0;
     std::map<uint32_t, size_t> binkTextures;
-    std::map<std::string, size_t> layouts, compressions, curveFormats;
+    std::map<std::string, size_t> layouts;
+    std::map<std::string, size_t> compressions;
+    std::map<std::string, size_t> curveFormats;
     std::map<int, size_t> degrees;
-    size_t curvesEvaluated = 0, curveSamples = 0;
+    size_t curvesEvaluated = 0;
+    size_t curveSamples = 0;
     Gr2Result::CurveDifference curveDifferences[Gr2Result::kLoopModes][3];
     for (size_t i = 0; i < names.size(); i++) {
         const Gr2Result &r = results[i];
@@ -590,7 +609,9 @@ int checkOodle(const reluva::Archive &files, const std::string &filter, unsigned
     };
     std::vector<Result> results(names.size());
     std::atomic<size_t> next{0};
-    std::atomic<int64_t> nativeTime{0}, dllTime{0}; // nanoseconds, summed over the threads
+    // nanoseconds, summed over the threads
+    std::atomic<int64_t> nativeTime{0};
+    std::atomic<int64_t> dllTime{0};
     std::mutex mutex;
     std::string startError;
     auto worker = [&] {
@@ -648,7 +669,9 @@ int checkOodle(const reluva::Archive &files, const std::string &filter, unsigned
         std::printf("FAIL granny2.dll: %s\n", startError.c_str());
         return 1;
     }
-    size_t sections = 0, bytes = 0, failures = 0;
+    size_t sections = 0;
+    size_t bytes = 0;
+    size_t failures = 0;
     for (size_t i = 0; i < names.size(); i++) {
         const Result &r = results[i];
         sections += r.sections;
@@ -659,7 +682,8 @@ int checkOodle(const reluva::Archive &files, const std::string &filter, unsigned
         if (verbose && r.failures.empty())
             std::printf("ok   %s: %zu sections\n", names[i].c_str(), r.sections);
     }
-    const double dllSeconds = double(dllTime) / 1e9, nativeSeconds = double(nativeTime) / 1e9;
+    const double dllSeconds = double(dllTime) / 1e9;
+    const double nativeSeconds = double(nativeTime) / 1e9;
     std::printf("Oodle1: %zu files, %zu compressed sections (%.1f MB), %zu failures; granny2.dll %.2f s, native "
                 "%.2f s (%.0f times faster)\n",
                 names.size(), sections, double(bytes) / 1e6, failures, dllSeconds, nativeSeconds,
@@ -675,7 +699,8 @@ float cameraDifference(const awe::Ac2Record &camr, awe::GrannyDll &dll, std::str
     c.fovY = native.fovY, c.nearPlane = native.nearPlane, c.farPlane = native.farPlane;
     for (int k = 0; k < 3; k++)
         c.position[k] = native.position[k], c.elevAzimRoll[k] = native.elevAzimRoll[k], c.offset[k] = native.offset[k];
-    float view[16], projection[16];
+    float view[16];
+    float projection[16];
     if (reluva::Error e = dll.camera(c, 1024, 768, view, projection)) {
         error = e.message;
         return 0;
@@ -689,19 +714,32 @@ float cameraDifference(const awe::Ac2Record &camr, awe::GrannyDll &dll, std::str
 
 int checkScenes(const reluva::Archive &files, bool verbose) {
     const std::vector<std::string> names = filesEndingWith(files, ".ac2");
-    size_t failed = 0, scenes = 0, saves = 0, cameras = 0, cameraMismatches = 0;
+    size_t failed = 0;
+    size_t scenes = 0;
+    size_t saves = 0;
+    size_t cameras = 0;
+    size_t cameraMismatches = 0;
     awe::GrannyDll dll;
     std::vector<uint8_t> dllData;
     const bool haveDll = !files.read("granny2.dll", dllData) && !dll.load(dllData);
-    std::map<std::string, size_t> tags, parts;
+    std::map<std::string, size_t> tags;
+    std::map<std::string, size_t> parts;
     // The cameras' walk grids: their cell sizes and values, and the cells
     // that characters, their walk points and "walk a b" commands land on.
     struct Landing {
         size_t open = 0, blocked = 0, off = 0;
     };
-    std::map<int, size_t> cellSizes, cellValues, gridSizes;
-    Landing standing, points, walks;
-    size_t grids = 0, reachable = 0, unreachable = 0, planned = 0, unplanned = 0;
+    std::map<int, size_t> cellSizes;
+    std::map<int, size_t> cellValues;
+    std::map<int, size_t> gridSizes;
+    Landing standing;
+    Landing points;
+    Landing walks;
+    size_t grids = 0;
+    size_t reachable = 0;
+    size_t unreachable = 0;
+    size_t planned = 0;
+    size_t unplanned = 0;
     for (const std::string &n : names) {
         // Text/Scripts' slots are saves, with records of their own.
         if (reluva::fs::toLower(n).rfind("text/scripts/", 0) == 0) {
@@ -737,7 +775,8 @@ int checkScenes(const reluva::Archive &files, bool verbose) {
         const awe::Ac2Record *camr = scene.camera();
         awe::Ac2Scene base;
         if (!camr) {
-            const size_t u = n.rfind('_'), dot = n.rfind('.');
+            const size_t u = n.rfind('_');
+            const size_t dot = n.rfind('.');
             std::vector<uint8_t> baseData;
             if (u != std::string::npos && dot == u + 4 && !files.read(n.substr(0, u) + n.substr(dot), baseData) &&
                 !awe::parseAc2(baseData, base))
@@ -810,8 +849,8 @@ int checkScenes(const reluva::Archive &files, bool verbose) {
                         continue;
                     char *e1 = nullptr;
                     char *e2 = nullptr;
-                    const long a = std::strtol(c.words[1].c_str(), &e1, 10),
-                               b = std::strtol(c.words[2].c_str(), &e2, 10);
+                    const long a = std::strtol(c.words[1].c_str(), &e1, 10);
+                    const long b = std::strtol(c.words[2].c_str(), &e2, 10);
                     if (*e1 || *e2)
                         continue;
                     const awe::WalkGrid::Cell cell{int(a), int(b)};
@@ -886,7 +925,8 @@ int checkScenes(const reluva::Archive &files, bool verbose) {
 }
 
 int checkText(const reluva::Archive &files, bool verbose) {
-    size_t count = 0, failed = 0;
+    size_t count = 0;
+    size_t failed = 0;
     for (const std::string &n : filesEndingWith(files, ".txt")) {
         if (reluva::fs::toLower(n).rfind("text/", 0) != 0)
             continue;
@@ -1020,9 +1060,16 @@ int checkSound(const reluva::Archive &files, unsigned jobs, bool verbose) {
 } // namespace
 
 int aweCheckCommand(int argc, char **argv) {
-    std::string folder, filter;
-    bool gr2 = true, scenes = true, text = true, bink = true, sound = true, oodle = false, textures = false,
-         verbose = false;
+    std::string folder;
+    std::string filter;
+    bool gr2 = true;
+    bool scenes = true;
+    bool text = true;
+    bool bink = true;
+    bool sound = true;
+    bool oodle = false;
+    bool textures = false;
+    bool verbose = false;
     bool curveValues = false;
     unsigned jobs = std::max(1u, std::thread::hardware_concurrency());
     for (int i = 2; i < argc; i++) {

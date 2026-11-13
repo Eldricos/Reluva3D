@@ -89,7 +89,16 @@ Bytes makeMovie(int frames) {
         b.insert(b.end(), body.begin(), body.end());
         return b;
     };
-    Bytes avih, vstrh, vstrf, astrh, astrf, hdrl, vstrl, astrl, movi, avi;
+    Bytes avih;
+    Bytes vstrh;
+    Bytes vstrf;
+    Bytes astrh;
+    Bytes astrf;
+    Bytes hdrl;
+    Bytes vstrl;
+    Bytes astrl;
+    Bytes movi;
+    Bytes avi;
     le(avih, 100000, 4);
     avih.resize(56);
     tag(vstrh, "vids");
@@ -289,7 +298,8 @@ void engineTest(const std::filesystem::path &tmp) {
     std::map<uint64_t, std::string> marks; // what each moment shows
     std::vector<std::pair<uint64_t, std::string>> seen;
     int frames = 0;
-    std::string last, cursorSeen = "never shown";
+    std::string last;
+    std::string cursorSeen = "never shown";
     sys.onFrame = [&](const Surface &s, uint64_t ms) {
         ++frames;
         last = hashOf(s);

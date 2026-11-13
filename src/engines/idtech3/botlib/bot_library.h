@@ -220,7 +220,7 @@ public:
     bool chooseNbgItem(int handle, const Vec3f &origin, const std::vector<int> &inventory, int travelFlags,
                        const BotGoal *ltg, float maxTime);
     static bool touchingGoal(const Vec3f &origin, const BotGoal &goal);
-    bool itemGoalInVisButNotVisible(int viewer, const Vec3f &eye, const BotGoal &goal);
+    bool itemGoalInVisButNotVisible(int viewer, const Vec3f &eye, const BotGoal &goal) const;
     int levelItemGoal(int index, const std::string &name, BotGoal &goal) const;
     float avoidGoalTime(int handle, int number) const;
     void removeFromAvoidGoals(int handle, int number);

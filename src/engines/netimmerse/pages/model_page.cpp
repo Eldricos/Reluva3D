@@ -52,8 +52,12 @@ std::array<float, 9> rotationOf(const std::array<float, 4> &q) {
 // Angles about X, Y and Z as one rotation, row by row: Z × Y × X, as the
 // game turns the Hand Cart Worker's head (checked in its memory).
 std::array<float, 9> rotationOf(float ax, float ay, float az) {
-    const float cx = std::cos(ax), sx = std::sin(ax), cy = std::cos(ay), sy = std::sin(ay), cz = std::cos(az),
-                sz = std::sin(az);
+    const float cx = std::cos(ax);
+    const float sx = std::sin(ax);
+    const float cy = std::cos(ay);
+    const float sy = std::sin(ay);
+    const float cz = std::cos(az);
+    const float sz = std::sin(az);
     return {cz * cy,
             cz * sy * sx - sz * cx,
             cz * sy * cx + sz * sx,
@@ -75,9 +79,11 @@ std::array<float, 4> slerp(const std::array<float, 4> &a, std::array<float, 4> b
             c = -c;
     }
     dot = std::max(dot, -0.9995f);
-    float wa = 1 - f, wb = f;
+    float wa = 1 - f;
+    float wb = f;
     if (dot < 0.9995f) {
-        const float angle = std::acos(dot), sinAngle = std::sin(angle);
+        const float angle = std::acos(dot);
+        const float sinAngle = std::sin(angle);
         wa = std::sin((1 - f) * angle) / sinAngle;
         wb = std::sin(f * angle) / sinAngle;
     }
@@ -138,7 +144,8 @@ std::array<float, 4> rotationCurve(const FinActor::RotationKey &a, const FinActo
 float numberCurve(const FinActor::FloatKey &a, const FinActor::FloatKey &b, float u) {
     if (!a.curve || !b.curve)
         return mixFloat(a.value, b.value, u);
-    const float u2 = u * u, u3 = u2 * u;
+    const float u2 = u * u;
+    const float u3 = u2 * u;
     return (2 * u3 - 3 * u2 + 1) * a.value + (u3 - 2 * u2 + u) * a.out + (-2 * u3 + 3 * u2) * b.value +
            (u3 - u2) * b.in;
 }
@@ -200,7 +207,8 @@ std::vector<float> normalsOf(const std::vector<float> &pos, const std::vector<ui
         const float *a = &pos[size_t(triangles[t]) * 3];
         const float *b = &pos[size_t(triangles[t + 1]) * 3];
         const float *c = &pos[size_t(triangles[t + 2]) * 3];
-        const float e1[3] = {b[0] - a[0], b[1] - a[1], b[2] - a[2]}, e2[3] = {c[0] - a[0], c[1] - a[1], c[2] - a[2]};
+        const float e1[3] = {b[0] - a[0], b[1] - a[1], b[2] - a[2]};
+        const float e2[3] = {c[0] - a[0], c[1] - a[1], c[2] - a[2]};
         const float n[3] = {e1[1] * e2[2] - e1[2] * e2[1], e1[2] * e2[0] - e1[0] * e2[2],
                             e1[0] * e2[1] - e1[1] * e2[0]};
         for (size_t j = 0; j < 3; ++j)
@@ -430,7 +438,8 @@ gfx::TextureId ModelPage::glowTexture() {
     std::vector<uint8_t> rgba(kSize * kSize * 4, 255);
     for (int y = 0; y < kSize; ++y)
         for (int x = 0; x < kSize; ++x) {
-            const float dx = (float(x) + 0.5f) / kSize * 2 - 1, dy = (float(y) + 0.5f) / kSize * 2 - 1;
+            const float dx = (float(x) + 0.5f) / kSize * 2 - 1;
+            const float dy = (float(y) + 0.5f) / kSize * 2 - 1;
             const float a = std::clamp(1 - std::sqrt(dx * dx + dy * dy), 0.0f, 1.0f);
             rgba[size_t(y * kSize + x) * 4 + 3] = uint8_t(a * a * 255);
         }
@@ -559,7 +568,10 @@ void ModelPage::show(int index) {
             footprint_ = 0;
     }
 
-    unsigned shapes = 0, triangles = 0, glows = 0, missing = 0;
+    unsigned shapes = 0;
+    unsigned triangles = 0;
+    unsigned glows = 0;
+    unsigned missing = 0;
     std::vector<std::string> missingNames;
     for (const Item &item : items_) {
         if (item.kind == Item::Kind::Glow)
@@ -870,7 +882,8 @@ void ModelPage::walk(float ticks, bool create) {
                             w.resize(p.weights.size());
                             for (size_t i = 0; i < w.size(); ++i) {
                                 const float d = q.weights[i] - p.weights[i];
-                                const float ca = 3 * d - 2 * p.out[i] - q.in[i], cb = p.out[i] + q.in[i] - 2 * d;
+                                const float ca = 3 * d - 2 * p.out[i] - q.in[i];
+                                const float cb = p.out[i] + q.in[i] - 2 * d;
                                 w[i] = p.weights[i] + u * (p.out[i] + u * (ca + u * cb));
                             }
                         }
@@ -1037,7 +1050,10 @@ void ModelPage::handleEvent(const Event &ev) {
             showHidden_ = !showHidden_;
             // Keep the view and the clip.
             const gfx::Vec3 centre = centre_;
-            const float yaw = yaw_, pitch = pitch_, distance = distance_, time = clipTime_;
+            const float yaw = yaw_;
+            const float pitch = pitch_;
+            const float distance = distance_;
+            const float time = clipTime_;
             const int clip = clip_;
             show(index_);
             centre_ = centre;
@@ -1057,7 +1073,8 @@ void ModelPage::handleEvent(const Event &ev) {
             // Move the centre along the view's directions, a tenth of the
             // distance a press.
             const float step = distance_ * 0.1f;
-            const gfx::Vec3 fwd{-std::cos(yaw_), -std::sin(yaw_), 0}, right{std::sin(yaw_), -std::cos(yaw_), 0};
+            const gfx::Vec3 fwd{-std::cos(yaw_), -std::sin(yaw_), 0};
+            const gfx::Vec3 right{std::sin(yaw_), -std::cos(yaw_), 0};
             const float f = ev.key == 'w' ? step : ev.key == 's' ? -step : 0;
             const float r = ev.key == 'd' ? step : ev.key == 'a' ? -step : 0;
             const float u = ev.key == 'e' ? step : ev.key == 'q' ? -step : 0;
@@ -1109,7 +1126,8 @@ void ModelPage::update(uint64_t nowMs) {
     const gfx::Vec3 offset{std::cos(pitch_) * std::cos(yaw_), std::cos(pitch_) * std::sin(yaw_), std::sin(pitch_)};
     const gfx::Vec3 eye{centre_[0] + offset[0] * distance_, centre_[1] + offset[1] * distance_,
                         centre_[2] + offset[2] * distance_};
-    const float zNear = std::max(0.5f, distance_ / 1000), zFar = distance_ + radius_ * 4;
+    const float zNear = std::max(0.5f, distance_ / 1000);
+    const float zFar = distance_ + radius_ * 4;
     const gfx::Mat4 viewProj = gfx::multiply(gfx::perspective(0.9f, float(kFrameW) / float(kFrameH), zNear, zFar),
                                              gfx::lookAlong(eye, {-offset[0], -offset[1], -offset[2]}, {0, 0, 1}));
     renderer_->beginFrame(viewProj, eye, {60, 64, 74});
@@ -1374,7 +1392,8 @@ void ModelPage::update(uint64_t nowMs) {
         size_t widest = 0;
         for (const std::string &l : lines)
             widest = std::max(widest, font::length(l));
-        const int boxW = std::min(kFrameW, int(widest) * font::kAdvance + 8), boxH = int(lines.size()) * lh + 6;
+        const int boxW = std::min(kFrameW, int(widest) * font::kAdvance + 8);
+        const int boxH = int(lines.size()) * lh + 6;
         for (int y = 0; y < boxH; ++y)
             for (int x = 0; x < boxW; ++x)
                 overlay_.row(y)[x * 4 + 3] = 150;

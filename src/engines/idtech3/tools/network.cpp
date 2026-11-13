@@ -55,7 +55,8 @@ int cmdNetRun(int argc, char **argv) {
         std::fprintf(stderr, "net-run: -join needs an address\n");
         return 1;
     }
-    int seconds = 60, port = 27960;
+    int seconds = 60;
+    int port = 27960;
     std::string name = "ReluvaTool";
     std::vector<std::string> bots;
     bool publicServer = false; // dedicated 2: listed with the master servers
@@ -101,7 +102,9 @@ int cmdNetRun(int argc, char **argv) {
         ef::NetClient client(std::move(socket), server,
                              "\\name\\" + name + "\\model\\munro\\handicap\\100\\snaps\\20\\rate\\25000", 4321);
         auto state = client.state();
-        size_t snapshots = 0, entities = 0, commandsSeen = 0;
+        size_t snapshots = 0;
+        size_t entities = 0;
+        size_t commandsSeen = 0;
         int32_t lastTime = 0;
         while (nowMs() < uint64_t(seconds) * 1000) {
             const uint64_t now = nowMs();

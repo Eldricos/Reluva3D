@@ -24,8 +24,10 @@ bool insideFlat(const std::vector<LevelFile::Vertex> &vertices, const LevelFile:
     bool inside = false;
     size_t n = flat.vertices.size();
     for (size_t i = 0, j = n - 1; i < n; j = i++) {
-        double xi = fromFixed(vertices[flat.vertices[i]].x), yi = fromFixed(vertices[flat.vertices[i]].y);
-        double xj = fromFixed(vertices[flat.vertices[j]].x), yj = fromFixed(vertices[flat.vertices[j]].y);
+        double xi = fromFixed(vertices[flat.vertices[i]].x);
+        double yi = fromFixed(vertices[flat.vertices[i]].y);
+        double xj = fromFixed(vertices[flat.vertices[j]].x);
+        double yj = fromFixed(vertices[flat.vertices[j]].y);
         if ((yi > y) != (yj > y) && x < (xj - xi) * (y - yi) / (yj - yi) + xi)
             inside = !inside;
     }
@@ -35,7 +37,8 @@ bool insideFlat(const std::vector<LevelFile::Vertex> &vertices, const LevelFile:
 // Where along (x0, y0) + t (dx, dy), t in [0, 1], the point first comes
 // within radius of (cx, cy); 0 if it starts there, or -1 if never.
 double circleHit(double x0, double y0, double dx, double dy, double cx, double cy, double radius) {
-    double fx = x0 - cx, fy = y0 - cy;
+    double fx = x0 - cx;
+    double fy = y0 - cy;
     double c = fx * fx + fy * fy - radius * radius;
     if (c <= 0)
         return 0;
@@ -146,7 +149,8 @@ void Projectiles::spawnBurst(const Type &type, double x, double y, double z, dou
     for (int i = 0; i < type.count; i++) {
         double spread = type.spacing * _random.getRandomNumber(0xFFFF) / 65536.0;
         double angle = 2 * kPi * _random.getRandomNumber(0xFFFF) / 65536.0;
-        double h = yaw + spread * std::sin(angle), p = pitch + spread * std::cos(angle);
+        double h = yaw + spread * std::sin(angle);
+        double p = pitch + spread * std::cos(angle);
         double speed = type.speed + base * (1 + 2 * _random.getRandomNumber(0xFFFF) / 65536.0);
         Shot shot;
         shot.type = typeIndex;
@@ -168,7 +172,9 @@ Projectiles::Hit Projectiles::sweep(const Shot &shot, double x0, double y0, doub
                                     double &normalY) const {
     const Type &type = _types[shot.type];
     double r = type.halfWidth;
-    double dx = x1 - x0, dy = y1 - y0, dz = z1 - z0;
+    double dx = x1 - x0;
+    double dy = y1 - y0;
+    double dz = z1 - z0;
     Hit hit;
     best = 2;
     auto take = [&](double t, Hit::Target target, int index, double nx, double ny) {
@@ -190,13 +196,18 @@ Projectiles::Hit Projectiles::sweep(const Shot &shot, double x0, double y0, doub
             !(wall.zones & zones))
             continue;
         const Line &w = _walls[i];
-        double s0 = w.nx * x0 + w.ny * y0 + w.d, s1 = w.nx * x1 + w.ny * y1 + w.d;
+        double s0 = w.nx * x0 + w.ny * y0 + w.d;
+        double s1 = w.nx * x1 + w.ny * y1 + w.d;
         bool crosses = (s0 >= 0 && s1 < 0) || ((wall.flags & LevelFile::kWallSolidBothSides) && s0 < 0 && s1 >= 0);
         if (!crosses)
             continue;
         double t = s0 / (s0 - s1);
-        double px = x0 + dx * t, py = y0 + dy * t, pz = z0 + dz * t;
-        double ex = w.x2 - w.x1, ey = w.y2 - w.y1, length2 = ex * ex + ey * ey;
+        double px = x0 + dx * t;
+        double py = y0 + dy * t;
+        double pz = z0 + dz * t;
+        double ex = w.x2 - w.x1;
+        double ey = w.y2 - w.y1;
+        double length2 = ex * ex + ey * ey;
         double along = length2 > 0 ? ((px - w.x1) * ex + (py - w.y1) * ey) / length2 : -1;
         if (along < 0 || along > 1)
             continue;
@@ -294,7 +305,8 @@ void Projectiles::update(uint32_t ms, uint64_t zones, const std::vector<Target> 
         Shot shot = _shots[i];
         const Type &type = _types[shot.type];
         double speed = std::sqrt(shot.vx * shot.vx + shot.vy * shot.vy + shot.vz * shot.vz);
-        double yaw = std::atan2(shot.vy, shot.vx), pitch = speed > 0 ? std::asin(shot.vz / speed) : 0;
+        double yaw = std::atan2(shot.vy, shot.vx);
+        double pitch = speed > 0 ? std::asin(shot.vz / speed) : 0;
         shot.age += ms;
 
         if (type.kind == kKindBeam && shot.hitAt >= 0) {
@@ -314,8 +326,12 @@ void Projectiles::update(uint32_t ms, uint64_t zones, const std::vector<Target> 
             continue;
         }
 
-        double x1 = shot.x + shot.vx * ms, y1 = shot.y + shot.vy * ms, z1 = shot.z + shot.vz * ms;
-        double t, nx = 0, ny = 0;
+        double x1 = shot.x + shot.vx * ms;
+        double y1 = shot.y + shot.vy * ms;
+        double z1 = shot.z + shot.vz * ms;
+        double t;
+        double nx = 0;
+        double ny = 0;
         Hit hit = sweep(shot, shot.x, shot.y, shot.z, x1, y1, z1, zones, targets, playerX, playerY, playerEye,
                         playerRadius, t, nx, ny);
         if (hit.target == Hit::kNothing) {
@@ -397,7 +413,9 @@ void Projectiles::getSprites(std::vector<SpriteDraw> &sprites) {
         double speed = std::sqrt(shot.vx * shot.vx + shot.vy * shot.vy + shot.vz * shot.vz);
         if (speed == 0)
             continue;
-        double ux = shot.vx / speed, uy = shot.vy / speed, uz = shot.vz / speed;
+        double ux = shot.vx / speed;
+        double uy = shot.vy / speed;
+        double uz = shot.vz / speed;
         double limit = shot.hitAt >= 0 ? shot.hitAt : shot.travelled;
         for (int k = 0; k <= type.count; k++) {
             double s = shot.travelled - k * type.spacing;

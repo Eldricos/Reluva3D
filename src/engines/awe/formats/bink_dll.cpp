@@ -39,7 +39,10 @@ Error BinkDll::load(const std::vector<uint8_t> &dll) {
         return kFileHandle;
     });
     give("KERNEL32.dll", "ReadFile", 5, [this](x86::Cpu &c) -> uint32_t {
-        const uint32_t handle = c.arg(0), buffer = c.arg(1), size = c.arg(2), read = c.arg(3);
+        const uint32_t handle = c.arg(0);
+        const uint32_t buffer = c.arg(1);
+        const uint32_t size = c.arg(2);
+        const uint32_t read = c.arg(3);
         if (handle != kFileHandle || !c.valid(buffer, size))
             return 0;
         const uint32_t n =

@@ -25,7 +25,9 @@ uint32_t rd32(const std::vector<uint8_t> &d, size_t o) {
 }
 
 float halfToFloat(uint16_t h) {
-    const int sign = h >> 15, exp = (h >> 10) & 31, man = h & 1023;
+    const int sign = h >> 15;
+    const int exp = (h >> 10) & 31;
+    const int man = h & 1023;
     float v;
     if (exp == 0)
         v = std::ldexp(float(man), -24);
@@ -108,8 +110,10 @@ Error Gr2File::open(const std::vector<uint8_t> &file, const Gr2Decompressor &dec
     const uint32_t totalSize = rd32(file, 0x24);
     const uint32_t sectionTable = 0x20 + rd32(file, 0x2c);
     const uint32_t sectionCount = rd32(file, 0x30);
-    const uint32_t rootTypeSection = rd32(file, 0x34), rootTypeOffset = rd32(file, 0x38);
-    const uint32_t rootSection = rd32(file, 0x3c), rootOffset = rd32(file, 0x40);
+    const uint32_t rootTypeSection = rd32(file, 0x34);
+    const uint32_t rootTypeOffset = rd32(file, 0x38);
+    const uint32_t rootSection = rd32(file, 0x3c);
+    const uint32_t rootOffset = rd32(file, 0x40);
     typeTag_ = rd32(file, 0x44);
     if (version_ != 6)
         return Error::fail("Granny file format " + std::to_string(version_) + ", only 6 is known");
@@ -162,7 +166,9 @@ Error Gr2File::open(const std::vector<uint8_t> &file, const Gr2Decompressor &dec
         const Gr2Section &s = sections_[i];
         for (uint32_t k = 0; k < s.fixupCount; k++) {
             const uint32_t o = s.fixupOffset + k * kFixupBytes;
-            const uint32_t at = rd32(file, o), target = rd32(file, o + 4), targetOffset = rd32(file, o + 8);
+            const uint32_t at = rd32(file, o);
+            const uint32_t target = rd32(file, o + 4);
+            const uint32_t targetOffset = rd32(file, o + 8);
             if (target >= sections_.size() || uint64_t(at) + 4 > s.size || targetOffset > sections_[target].size)
                 return Error::fail("Granny section " + std::to_string(i) + " has a bad fixup");
             const uint32_t value = sectionBase_[target] + targetOffset;

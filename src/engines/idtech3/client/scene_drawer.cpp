@@ -72,8 +72,10 @@ void SceneDrawer::drawImage(const uint8_t *rgba, int cols, int rows, float x, fl
         return;
     images_[0].push_back(texture);
     std::vector<gfx::Vertex> vertices(4);
-    const float xs[4] = {x, x + w, x + w, x}, ys[4] = {y, y, y + h, y + h};
-    const float us[4] = {0, 1, 1, 0}, vs[4] = {0, 0, 1, 1};
+    const float xs[4] = {x, x + w, x + w, x};
+    const float ys[4] = {y, y, y + h, y + h};
+    const float us[4] = {0, 1, 1, 0};
+    const float vs[4] = {0, 0, 1, 1};
     for (int i = 0; i < 4; ++i) {
         vertices[size_t(i)].pos[0] = xs[i];
         vertices[size_t(i)].pos[1] = ys[i];
@@ -171,10 +173,14 @@ void SceneDrawer::drawPictures(const std::vector<Picture> &pictures, size_t firs
         if (p.angle != 0) {
             // Turned about the top-right corner: the corners' offsets from
             // it, rotated.
-            const float a = p.angle * 3.14159265358979f / 180.0f, c = std::cos(a), s = std::sin(a);
-            const float px = p.x + p.w, py = p.y;
+            const float a = p.angle * 3.14159265358979f / 180.0f;
+            const float c = std::cos(a);
+            const float s = std::sin(a);
+            const float px = p.x + p.w;
+            const float py = p.y;
             for (int i = 0; i < 4; ++i) {
-                const float dx = xs[i] - px, dy = ys[i] - py;
+                const float dx = xs[i] - px;
+                const float dy = ys[i] - py;
                 xs[i] = px + c * dx - s * dy;
                 ys[i] = py + s * dx + c * dy;
             }
@@ -229,12 +235,17 @@ void SceneDrawer::drawView(const Scene &scene, const View &view, int screenW, in
     // refdef_t: fov y at 20, the eye at 24, the axes from 36: forward,
     // left, up.
     eye_ = readVec(refdef, 24);
-    const gfx::Vec3 forward = readVec(refdef, 36), up = readVec(refdef, 60);
+    const gfx::Vec3 forward = readVec(refdef, 36);
+    const gfx::Vec3 up = readVec(refdef, 60);
     const float fovY = std::clamp(readFloat(refdef, 20), 1.0f, 170.0f) * kPi / 180.0f;
     // Where on the screen (x, y, width, height in the program's screen):
     // smaller with a smaller screen size setting, or a box in a menu.
-    const int frameW = r_.width(), frameH = r_.height();
-    int vx = 0, vy = 0, vw = frameW, vh = frameH;
+    const int frameW = r_.width();
+    const int frameH = r_.height();
+    int vx = 0;
+    int vy = 0;
+    int vw = frameW;
+    int vh = frameH;
     if (const int32_t w = readInt(refdef, 8), h = readInt(refdef, 12); w > 0 && h > 0 && w <= screenW && h <= screenH) {
         vx = readInt(refdef, 0) * frameW / screenW;
         vy = readInt(refdef, 4) * frameH / screenH;
@@ -379,7 +390,9 @@ V3 add3(const V3 &a, const V3 &b) {
 
 // `v` turned `degrees` about the unit axis `axis`.
 V3 rotateAbout(const V3 &v, const V3 &axis, float degrees) {
-    const float r = degrees * kPi / 180, c = std::cos(r), s = std::sin(r);
+    const float r = degrees * kPi / 180;
+    const float c = std::cos(r);
+    const float s = std::sin(r);
     return add3(add3(scale3(v, c), scale3(cross3(axis, v), s)), scale3(axis, dot3(axis, v) * (1 - c)));
 }
 
@@ -490,9 +503,12 @@ void SceneDrawer::drawPortalView(WorldRenderer &world, const std::array<uint8_t,
     };
     auto mirrorPoint = [&](const V3 &p) { return add3(mirrorVector(sub3(p, sOrigin)), cOrigin); };
     // The main view's placement taken through it.
-    const V3 forward = readVec(mainRefdef_, 36), up = readVec(mainRefdef_, 60);
+    const V3 forward = readVec(mainRefdef_, 36);
+    const V3 up = readVec(mainRefdef_, 60);
     const V3 eye = mirrorPoint(eye_);
-    const V3 f2 = mirrorVector(forward), l2 = mirrorVector(left), u2 = mirrorVector(up);
+    const V3 f2 = mirrorVector(forward);
+    const V3 l2 = mirrorVector(left);
+    const V3 u2 = mirrorVector(up);
     const bool mirrored = dot3(cross3(f2, l2), u2) < 0; // turned inside out: drawn flipped
     const gfx::Mat4 view = gfx::lookAlong(eye, f2, u2);
     gfx::Mat4 proj = gfx::perspective(fovY, aspect, 4, 32768);
@@ -613,7 +629,8 @@ void SceneDrawer::addEffect(const std::vector<uint8_t> &e, const gfx::Vec3 &left
     // in s and along it in t, to `repeat` at the end.
     auto ribbon = [&](const std::vector<V> &points, const std::vector<float> &widths, float repeat,
                       const V *across = nullptr) {
-        uint32_t prevA = 0, prevB = 0;
+        uint32_t prevA = 0;
+        uint32_t prevB = 0;
         for (size_t i = 0; i < points.size(); ++i) {
             const V along = sub(points[std::min(i + 1, points.size() - 1)], points[i ? i - 1 : 0]);
             const V side = across ? *across : normalized(cross(along, sub(eye_, points[i])));
@@ -629,12 +646,14 @@ void SceneDrawer::addEffect(const std::vector<uint8_t> &e, const gfx::Vec3 &left
     const V origin = readVec(e, layout_.origin);
     if (type == layout_.typeSprite || type == layout_.typeQuad) {
         const float r = readFloat(e, layout_.radius);
-        V l = left, u = up;
+        V l = left;
+        V u = up;
         if (type == layout_.typeQuad) {
             l = readVec(e, layout_.axes + 12);
             u = readVec(e, layout_.axes + 24);
         } else if (const float deg = readFloat(e, layout_.rotation); deg != 0) {
-            const float c = std::cos(deg * kPi / 180), sn = std::sin(deg * kPi / 180);
+            const float c = std::cos(deg * kPi / 180);
+            const float sn = std::sin(deg * kPi / 180);
             for (size_t i = 0; i < 3; ++i) {
                 l[i] = left[i] * c + up[i] * sn;
                 u[i] = up[i] * c - left[i] * sn;
@@ -659,12 +678,14 @@ void SceneDrawer::addEffect(const std::vector<uint8_t> &e, const gfx::Vec3 &left
         V perp = normalized(cross(dir, std::fabs(dir[2]) < 0.9f ? V{0, 0, 1} : V{1, 0, 0}));
         const V perp2 = cross(dir, perp);
         constexpr int kSides = 6;
-        uint32_t prevA = 0, prevB = 0;
+        uint32_t prevA = 0;
+        uint32_t prevB = 0;
         for (int i = 0; i <= kSides; ++i) {
             const float ang = 2 * kPi * float(i % kSides) / kSides;
             const V radial =
                 add(V{perp[0] * std::cos(ang), perp[1] * std::cos(ang), perp[2] * std::cos(ang)}, perp2, std::sin(ang));
-            const uint32_t a = vertex(add(origin, radial, 4), 0, 0), b = vertex(add(end, radial, 4), 0, 0);
+            const uint32_t a = vertex(add(origin, radial, 4), 0, 0);
+            const uint32_t b = vertex(add(end, radial, 4), 0, 0);
             if (i)
                 quad(prevA, a, b, prevB);
             prevA = a;
@@ -673,12 +694,15 @@ void SceneDrawer::addEffect(const std::vector<uint8_t> &e, const gfx::Vec3 &left
     } else if (type == layout_.typeCurve) {
         // A cubic Bezier curve from the origin through two control points
         // to the old origin.
-        const V p0 = origin, p1 = readVec(e, layout_.control1), p2 = readVec(e, layout_.control2),
-                p3 = readVec(e, layout_.oldOrigin);
+        const V p0 = origin;
+        const V p1 = readVec(e, layout_.control1);
+        const V p2 = readVec(e, layout_.control2);
+        const V p3 = readVec(e, layout_.oldOrigin);
         std::vector<V> points;
         constexpr int kSteps = 16;
         for (int i = 0; i <= kSteps; ++i) {
-            const float t = float(i) / kSteps, m = 1 - t;
+            const float t = float(i) / kSteps;
+            const float m = 1 - t;
             V p{};
             for (size_t k = 0; k < 3; ++k)
                 p[k] = m * m * m * p0[k] + 3 * m * m * t * p1[k] + 3 * m * t * t * p2[k] + t * t * t * p3[k];
@@ -716,19 +740,23 @@ void SceneDrawer::addEffect(const std::vector<uint8_t> &e, const gfx::Vec3 &left
         // origin, the one at 136 a height (140) along the axis; the texture
         // round it (repeated as 144 says) and up it.
         const V axis = normalized(readVec(e, layout_.axes));
-        const V a1 = normalized(readVec(e, layout_.axes + 12)), a2 = normalized(cross(axis, a1));
-        const float r0 = readFloat(e, layout_.width), r1 = readFloat(e, layout_.endWidth);
+        const V a1 = normalized(readVec(e, layout_.axes + 12));
+        const V a2 = normalized(cross(axis, a1));
+        const float r0 = readFloat(e, layout_.width);
+        const float r1 = readFloat(e, layout_.endWidth);
         const float height = readFloat(e, layout_.repeat);
         const float around = readFloat(e, layout_.cylinderRepeat) > 0 ? readFloat(e, layout_.cylinderRepeat) : 1.0f;
         const V top = add(origin, axis, height);
         constexpr int kSides = 24;
-        uint32_t prevA = 0, prevB = 0;
+        uint32_t prevA = 0;
+        uint32_t prevB = 0;
         for (int i = 0; i <= kSides; ++i) {
             const float ang = 2 * kPi * float(i) / kSides;
             const V radial =
                 add(V{a1[0] * std::cos(ang), a1[1] * std::cos(ang), a1[2] * std::cos(ang)}, a2, std::sin(ang));
             const float s = around * float(i) / kSides;
-            const uint32_t a = vertex(add(origin, radial, r0), s, 1), b = vertex(add(top, radial, r1), s, 0);
+            const uint32_t a = vertex(add(origin, radial, r0), s, 1);
+            const uint32_t b = vertex(add(top, radial, r1), s, 0);
             if (i)
                 quad(prevA, a, b, prevB);
             prevA = a;
@@ -798,7 +826,8 @@ void SceneDrawer::placeEntities(const Scene &scene, const View &view, const Ligh
     effectIndices_.clear();
     otherEntities_ = 0;
     unloadable_.clear();
-    const gfx::Vec3 left = readVec(view.refdef, 48), up = readVec(view.refdef, 60);
+    const gfx::Vec3 left = readVec(view.refdef, 48);
+    const gfx::Vec3 up = readVec(view.refdef, 60);
     forward_ = readVec(view.refdef, 36);
     focal_ = 1 / std::tan(std::clamp(readFloat(view.refdef, 20), 1.0f, 170.0f) * kPi / 360.0f);
     // Polygons (marks: scorches, holes, shadows): each vertex a position,
@@ -809,7 +838,8 @@ void SceneDrawer::placeEntities(const Scene &scene, const View &view, const Ligh
         const size_t n = std::min(size_t(std::max(poly.vertexCount, 0)), poly.vertices.size() / 24);
         if (n < 3 || poly.shader <= 0)
             continue;
-        const auto base = uint32_t(effectVertices_.size()), first = uint32_t(effectIndices_.size());
+        const auto base = uint32_t(effectVertices_.size());
+        const auto first = uint32_t(effectIndices_.size());
         for (size_t k = 0; k < n; ++k) {
             gfx::Vertex v{};
             std::memcpy(v.pos, &poly.vertices[k * 24], 12);

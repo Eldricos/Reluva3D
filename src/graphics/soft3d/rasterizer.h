@@ -47,12 +47,15 @@ public:
             std::swap(v1, v2);
             area = -area;
         }
-        const int w = target_->w, h = target_->h;
+        const int w = target_->w;
+        const int h = target_->h;
         const int x0 = std::max(0, int(std::floor(std::min({v0->x, v1->x, v2->x}))));
         const int x1 = std::min(w - 1, int(std::ceil(std::max({v0->x, v1->x, v2->x}))));
         const int y0 = std::max(0, int(std::floor(std::min({v0->y, v1->y, v2->y}))));
         const int y1 = std::min(h - 1, int(std::ceil(std::max({v0->y, v1->y, v2->y}))));
-        const bool tl0 = topLeft(*v1, *v2), tl1 = topLeft(*v2, *v0), tl2 = topLeft(*v0, *v1);
+        const bool tl0 = topLeft(*v1, *v2);
+        const bool tl1 = topLeft(*v2, *v0);
+        const bool tl2 = topLeft(*v0, *v1);
         const float inv = 1.0f / area;
         for (int y = y0; y <= y1; ++y) {
             const float py = float(y) + 0.5f;
@@ -65,7 +68,9 @@ public:
                 const float w2 = edge(*v0, *v1, px, py);
                 if (w0 < 0 || w1 < 0 || w2 < 0 || (w0 == 0 && !tl0) || (w1 == 0 && !tl1) || (w2 == 0 && !tl2))
                     continue;
-                const float b0 = w0 * inv, b1 = w1 * inv, b2 = w2 * inv;
+                const float b0 = w0 * inv;
+                const float b1 = w1 * inv;
+                const float b2 = w2 * inv;
                 const float invZ = b0 * v0->invZ + b1 * v1->invZ + b2 * v2->invZ;
                 if (invZ <= depthRow[x])
                     continue;
@@ -93,7 +98,8 @@ private:
     // With y pointing down: a top edge is horizontal with the inside below it,
     // a left edge has the inside to its right.
     static bool topLeft(const ScreenVertex &p, const ScreenVertex &q) {
-        const float dx = q.x - p.x, dy = q.y - p.y;
+        const float dx = q.x - p.x;
+        const float dy = q.y - p.y;
         return dy < 0 || (dy == 0 && dx > 0);
     }
 

@@ -73,7 +73,9 @@ bool OptionsMenu::load() {
         return false;
     _palette = decoder.getPalette();
     for (int i = 0; i < 256; i++) {
-        uint8_t r, g, b;
+        uint8_t r;
+        uint8_t g;
+        uint8_t b;
         _palette.getColor(i, r, g, b);
         _dim[i] = _palette.findBestColor(r * 2 / 5, g * 2 / 5, b * 2 / 5);
     }
@@ -255,7 +257,8 @@ void OptionsMenu::openPanel(Panel panel) {
 
 Rect OptionsMenu::cellRect(int cell) {
     int action = cell / 2;
-    int x = (action < 10 ? 84 : 252) + 34 * (cell % 2), y = 37 + 30 * (action % 10);
+    int x = (action < 10 ? 84 : 252) + 34 * (cell % 2);
+    int y = 37 + 30 * (action % 10);
     return Rect(x, y, x + 32, y + 26);
 }
 
@@ -420,7 +423,8 @@ void OptionsMenu::cancel() {
 }
 
 bool OptionsMenu::clickPanel(int x, int y, bool drag) {
-    int px = x - kPanelX, py = y - kPanelY;
+    int px = x - kPanelX;
+    int py = y - kPanelY;
     if (_panel == kPanelSettings) {
         for (int i = 0; i < 2; i++) {
             const Rect &slider = i == 0 ? kEffectsSlider : kMusicSlider;

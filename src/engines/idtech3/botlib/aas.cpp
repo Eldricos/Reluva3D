@@ -69,7 +69,8 @@ Error AasWorld::load(const std::vector<uint8_t> &data) {
     bspChecksum_ = i32(&header[8]);
     // Each lump: where it is, its length, and how many records of a size.
     auto lump = [&](int n, size_t recordSize, size_t &count) -> const uint8_t * {
-        const int32_t at = i32(&header[12 + size_t(n) * 8]), len = i32(&header[16 + size_t(n) * 8]);
+        const int32_t at = i32(&header[12 + size_t(n) * 8]);
+        const int32_t len = i32(&header[16 + size_t(n) * 8]);
         count = 0;
         if (at < 0 || len < 0 || size_t(at) + size_t(len) > data.size())
             return nullptr;
@@ -315,7 +316,8 @@ bool AasWorld::route(int a, const Vec3f *origin, int goalArea, int travelFlags, 
 }
 
 int AasWorld::travelTime(int a, const Vec3f &origin, int goalArea, int travelFlags) {
-    int time = 0, reach = 0;
+    int time = 0;
+    int reach = 0;
     return route(a, &origin, goalArea, travelFlags, time, reach) ? time : 0;
 }
 

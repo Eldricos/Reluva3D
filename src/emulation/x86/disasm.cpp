@@ -568,7 +568,8 @@ struct Decoder {
             bool noBase = false;
             if (rm() == 4) {
                 const uint8_t sib = uint8_t(in.get(1));
-                const int scale = 1 << (sib >> 6), index = (sib >> 3) & 7;
+                const int scale = 1 << (sib >> 6);
+                const int index = (sib >> 3) & 7;
                 base = sib & 7;
                 noBase = base == 5 && mod() == 0;
                 if (!noBase)
@@ -714,7 +715,8 @@ struct Decoder {
     bool stringInstruction(uint8_t op) {
         const int bytes = (op & 1) ? (opsize16 ? 2 : 4) : 1;
         const std::string size = sizeName(bytes);
-        const std::string di = addrsize16 ? "di" : "edi", si = addrsize16 ? "si" : "esi";
+        const std::string di = addrsize16 ? "di" : "edi";
+        const std::string si = addrsize16 ? "si" : "esi";
         const std::string dst = size + "es:[" + di + "]";
         const std::string src = size + (segment >= 0 ? segmentPrefix() : "") + "[" + si + "]";
         const char *acc = bytes == 1 ? "al" : bytes == 2 ? "ax" : "eax";

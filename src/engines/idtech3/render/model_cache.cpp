@@ -18,9 +18,15 @@ constexpr float kPi = 3.14159265358979f;
 } // namespace
 
 std::array<Vec3, 3> anglesToAxes(const Vec3 &angles) {
-    const float p = angles[0] * kPi / 180, y = angles[1] * kPi / 180, r = angles[2] * kPi / 180;
-    const float sp = std::sin(p), cp = std::cos(p), sy = std::sin(y), cy = std::cos(y), sr = std::sin(r),
-                cr = std::cos(r);
+    const float p = angles[0] * kPi / 180;
+    const float y = angles[1] * kPi / 180;
+    const float r = angles[2] * kPi / 180;
+    const float sp = std::sin(p);
+    const float cp = std::cos(p);
+    const float sy = std::sin(y);
+    const float cy = std::cos(y);
+    const float sr = std::sin(r);
+    const float cr = std::cos(r);
     const Vec3 forward{cp * cy, cp * sy, -sp};
     const Vec3 right{-sr * sp * cy + cr * sy, -sr * sp * sy - cr * cy, -sr * cp};
     const Vec3 up{cr * sp * cy + sr * sy, cr * sp * sy - sr * cy, cr * cp};

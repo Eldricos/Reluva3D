@@ -604,7 +604,9 @@ inline void Cpu::decodeModrm() {
     uint32_t a = 0;
     if (d_.rm == 4) {
         const uint32_t sib = fetch8();
-        const uint32_t scale = sib >> 6, index = (sib >> 3) & 7, base = sib & 7;
+        const uint32_t scale = sib >> 6;
+        const uint32_t index = (sib >> 3) & 7;
+        const uint32_t base = sib & 7;
         if (index != 4)
             a += reg[index] << scale;
         if (base == 5 && d_.mod == 0)

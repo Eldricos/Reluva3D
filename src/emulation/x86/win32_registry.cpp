@@ -200,7 +200,9 @@ void Win32Process::addRegistryStandIns() {
         auto value = registryValue(k->path, name, &type);
         if (!value)
             return kErrorFileNotFound;
-        const uint32_t typeOut = c.arg(3), data = c.arg(4), size = c.arg(5);
+        const uint32_t typeOut = c.arg(3);
+        const uint32_t data = c.arg(4);
+        const uint32_t size = c.arg(5);
         if (typeOut)
             c.write32(typeOut, type);
         const uint32_t n = uint32_t(value->size());
@@ -225,8 +227,11 @@ void Win32Process::addRegistryStandIns() {
         if (index >= k->values.size())
             return kErrorNoMoreItems;
         const auto &[name, value] = k->values[index];
-        const uint32_t nameOut = c.arg(2), nameSize = c.arg(3), typeOut = c.arg(5), data = c.arg(6),
-                       dataSize = c.arg(7);
+        const uint32_t nameOut = c.arg(2);
+        const uint32_t nameSize = c.arg(3);
+        const uint32_t typeOut = c.arg(5);
+        const uint32_t data = c.arg(6);
+        const uint32_t dataSize = c.arg(7);
         if (!c.valid(nameSize, 4) || c.read32(nameSize) < name.size() + 1 ||
             !c.valid(nameOut, uint32_t(name.size() + 1)))
             return kErrorMoreData;

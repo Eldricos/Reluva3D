@@ -89,8 +89,9 @@ double clamp1(double v) {
 }
 
 uint32_t darken(uint32_t c, double f) {
-    uint32_t r = (uint32_t)(((c >> 16) & 0xFF) * f), g = (uint32_t)(((c >> 8) & 0xFF) * f),
-             b = (uint32_t)((c & 0xFF) * f);
+    uint32_t r = (uint32_t)(((c >> 16) & 0xFF) * f);
+    uint32_t g = (uint32_t)(((c >> 8) & 0xFF) * f);
+    uint32_t b = (uint32_t)((c & 0xFF) * f);
     return 0xFF000000u | r << 16 | g << 8 | b;
 }
 
@@ -538,7 +539,8 @@ void SpaceCombat::steer(Ship &ship, const Vec3 &point, double dt, bool away) {
     Vec3 local = ship.orientation.inverse(point - ship.position);
     if (away)
         local = local * -1;
-    double yaw = std::atan2(local.x, local.z), pitch = std::atan2(local.y, std::hypot(local.x, local.z));
+    double yaw = std::atan2(local.x, local.z);
+    double pitch = std::atan2(local.y, std::hypot(local.x, local.z));
     ship.yawIn = clamp1(yaw * 2);
     ship.pitchIn = clamp1(pitch * 2);
     // Keep the wings level.
@@ -623,7 +625,8 @@ bool SpaceCombat::isCollisionImminent(const Ship &a, const Ship &b) const {
     double distance = (a.position - b.position).length();
     if (distance > 1000)
         return false;
-    Vec3 va = a.orientation.forward * a.speed, vb = b.orientation.forward * b.speed;
+    Vec3 va = a.orientation.forward * a.speed;
+    Vec3 vb = b.orientation.forward * b.speed;
     if (std::fabs(a.speed) < 2 && std::fabs(b.speed) < 2 && distance > a.radius + b.radius + 500)
         return false;
     double clearance = std::max(a.radius, b.radius) + std::max(va.length(), vb.length()) * 8;
@@ -904,8 +907,8 @@ void SpaceCombat::drawJolt(Canvas &screen) {
     // down by up to three pixels (0x4995D8's random 0..n).
     if (_time < _shakeUntil) {
         _shakeFrame = !_shakeFrame;
-        int dx = _shakeFrame ? 0 : (int)_random.getRandomNumber(5),
-            dy = _shakeFrame ? 0 : (int)_random.getRandomNumber(3);
+        int dx = _shakeFrame ? 0 : (int)_random.getRandomNumber(5);
+        int dy = _shakeFrame ? 0 : (int)_random.getRandomNumber(3);
         if (dx || dy) {
             for (int y = screen.h - 1; y >= 0; y--) {
                 uint32_t *row = (uint32_t *)screen.getBasePtr(0, y);
@@ -964,7 +967,8 @@ void SpaceCombat::hit(int index, int shield, double amount, int aimed, const Vec
         if (down)
             ship.energy[shield] = 0;
         if (index == 0) {
-            static const int kHalf[5] = {0, 0xBA, 0xBE, 0xC0, 0xBC}, kGone[5] = {0, 0xBB, 0xBF, 0xC1, 0xBD};
+            static const int kHalf[5] = {0, 0xBA, 0xBE, 0xC0, 0xBC};
+            static const int kGone[5] = {0, 0xBB, 0xBF, 0xC1, 0xBD};
             if (down)
                 speak(kGone[shield]);
             else if (wasUp && ship.damage[shield] >= cls.systems[shield].max * 0.5)
@@ -1280,7 +1284,8 @@ void SpaceCombat::shipAction(int action, bool down) {
     }
     // The flight keys hold a rate while down; any of them takes the helm
     // to Stand By (0x49557B).
-    int axis = -1, direction = 0;
+    int axis = -1;
+    int direction = 0;
     switch (action) {
     case KeyMap::kShipPhasers:
         if (down && _phasersOnline && !_phaserLockout) {
@@ -1345,7 +1350,8 @@ void SpaceCombat::moveSlider(Slider &slider, int y) {
 void SpaceCombat::drawSlider(Canvas &screen, const Slider &slider) {
     const Rect &slot = slider.slot;
     int split = slot.top + slider.row;
-    Rect above(slot.left, slot.top, slot.right, split), below(slot.left, split, slot.right, slot.bottom);
+    Rect above(slot.left, slot.top, slot.right, split);
+    Rect below(slot.left, split, slot.right, slot.bottom);
     drawImage(screen, image(slider.unlit), slot.left, slot.top, &above);
     drawImage(screen, image(slider.lit), slot.left, slot.top, &below);
 }
@@ -1500,7 +1506,10 @@ void SpaceCombat::drawText(Canvas &screen, const std::string &text, int x, int y
         const MetFont::Cell &cell = font.cells[c - 32];
         for (int gy = 0; gy < cell.h; gy++) {
             for (int gx = 0; gx < cell.w; gx++) {
-                int sx = cell.x + gx, sy = cell.y + gy, dx = x + gx, dy = y + gy;
+                int sx = cell.x + gx;
+                int sy = cell.y + gy;
+                int dx = x + gx;
+                int dy = y + gy;
                 if (sx >= strip->w || sy >= strip->h || dx < 0 || dy < 0 || dx >= screen.w || dy >= screen.h)
                     continue;
                 uint32_t p = strip->get(sx, sy);
@@ -1526,7 +1535,9 @@ void SpaceCombat::drawBars(Canvas &screen, const Ship &ship, int x, int y) {
             continue;
         double level = s <= 4 ? ship.energy[s] / max : systemFraction(ship, s);
         level = std::max(0.0, std::min(1.0, level));
-        int left = x + 1 + 14 * (s - 1), top = y + 9, height = 41;
+        int left = x + 1 + 14 * (s - 1);
+        int top = y + 9;
+        int height = 41;
         int dark = (int)(height * (1 - level));
         for (int dy = 0; dy < dark; dy++) {
             uint32_t *row = (uint32_t *)screen.getBasePtr(0, top + dy);
@@ -1588,7 +1599,10 @@ void SpaceCombat::drawShieldView(Canvas &screen, const Ship &ship, const Ship &o
     // 0x49F302 / 0x49F88F: below the bars (57 rows down) to row 461, a
     // width a multiple of four; black, with the ship seen from three times
     // its largest extent out towards the other, 60 degrees across.
-    int left = panel.left, top = panel.top + 57, w = panel.width() & ~3, h = 461 - top;
+    int left = panel.left;
+    int top = panel.top + 57;
+    int w = panel.width() & ~3;
+    int h = 461 - top;
     Rect area(left, top, left + w, top + h);
     for (int y = area.top; y < area.bottom; y++) {
         uint32_t *row = (uint32_t *)screen.getBasePtr(0, y);
@@ -1658,7 +1672,8 @@ void SpaceCombat::drawRadar(Canvas &screen) {
     // 24 pixels to the range) on a stalk as tall as its height (24 pixels
     // to the range): white with the marker on top if level or above, red
     // with it at the foot if below.
-    const int cx = 321, cy = 320;
+    const int cx = 321;
+    const int cy = 320;
     // Half the plane's width, a row at a time out from the middle (0x54F750).
     static const int kHalfWidth[19] = {102, 102, 102, 102, 101, 101, 100, 99, 98, 97,
                                        96,  94,  92,  90,  87,  85,  81,  78, 75};
@@ -1672,10 +1687,14 @@ void SpaceCombat::drawRadar(Canvas &screen) {
         Vec3 local = e.orientation.inverse(s.position - e.position);
         if (std::fabs(local.x) > range || std::fabs(local.y) > range || std::fabs(local.z) > range)
             continue;
-        int across = (int)(local.x * 102 / range), ahead = (int)(local.z * 24 / range);
+        int across = (int)(local.x * 102 / range);
+        int ahead = (int)(local.z * 24 / range);
         int height = (int)(local.y * 24 / range);
-        int x = cx + across, foot = cy - ahead, tip = foot - height;
-        int top = std::min(foot, tip), bottom = std::max(foot, tip);
+        int x = cx + across;
+        int foot = cy - ahead;
+        int tip = foot - height;
+        int top = std::min(foot, tip);
+        int bottom = std::max(foot, tip);
         if (std::abs(across) > 96 || std::abs(ahead) > 18 || top < 280 || bottom > 360 ||
             across < -kHalfWidth[std::abs(ahead)] || across > kHalfWidth[std::abs(ahead)] - 5)
             continue;
@@ -1697,7 +1716,8 @@ void SpaceCombat::drawRadar(Canvas &screen) {
         Vec3 local = e.orientation.inverse(boom.position - e.position);
         if (std::fabs(local.x) > range || std::fabs(local.y) > range || std::fabs(local.z) > range)
             continue;
-        int x = cx + (int)(local.x * 102 / range), y = cy - (int)(local.z * 24 / range) - (int)(local.y * 24 / range);
+        int x = cx + (int)(local.x * 102 / range);
+        int y = cy - (int)(local.z * 24 / range) - (int)(local.y * 24 / range);
         if (x < 219 || x > 423 || y < 280 || y > 360)
             continue;
         drawImage(screen, image(_frames & 1 ? "SEXP2.RAS" : "SEXP1.RAS"), x - 4, y - 5);
@@ -1771,13 +1791,17 @@ void SpaceCombat::drawView(Canvas &screen) {
         if (m && mats) {
             _renderer.drawModel(*m, *mats, lookup, s.position, s.orientation);
         } else {
-            double sx, sy, depth;
+            double sx;
+            double sy;
+            double depth;
             if (_renderer.project(s.position, sx, sy, depth))
                 _renderer.plot((int)sx, (int)sy, 0xFFFFFFFFu);
         }
         // The target's box (0x4A2AD2).
         if ((int)i == _target) {
-            double sx, sy, depth;
+            double sx;
+            double sy;
+            double depth;
             if (_renderer.project(s.position, sx, sy, depth)) {
                 int r = std::max(6, (int)(s.radius * _renderer.getFocal() / depth));
                 for (int k = -r; k <= r; k++) {
@@ -1873,7 +1897,8 @@ void SpaceCombat::drawConsole(Canvas &screen) {
     drawImage(screen, image(_shieldView[1] ? "BSCANLF.RAS" : "BSCANLN.RAS"), 174, 435);
     drawImage(screen, image(_shieldView[0] ? "BSCANRF.RAS" : "BSCANRN.RAS"), 449, 435);
     // The helm menu, while it is called up from the CONN line (0x4AECC6).
-    const CombatImage *menu = image("CONNMNU0.RAS"), *lit = image("CONNMNU1.RAS");
+    const CombatImage *menu = image("CONNMNU0.RAS");
+    const CombatImage *lit = image("CONNMNU1.RAS");
     if (_helmMenu) {
         drawImage(screen, menu, 472, 310);
         if (lit && _helm <= kMaintainStatus) {
@@ -1926,7 +1951,8 @@ void SpaceCombat::drawConsole(Canvas &screen) {
         for (size_t c = 0; digits && c < count.size(); c++) {
             if (count[c] < '0' || count[c] > '9')
                 continue;
-            int digit = count[c] - '0', x = 369 + 8 * (int)c;
+            int digit = count[c] - '0';
+            int x = 369 + 8 * (int)c;
             Rect cell(x, 408, x + 6, 428);
             drawImage(screen, digits, x, 408 - 20 * digit, &cell);
         }
@@ -1934,7 +1960,8 @@ void SpaceCombat::drawConsole(Canvas &screen) {
         const CombatImage *meter = image("PHASERPW.RAS");
         if (meter) {
             drawImage(screen, meter, 203, 402);
-            double charge = 0, max = 0;
+            double charge = 0;
+            double max = 0;
             for (int s = ShipClass::kPhaser0; s < ShipClass::kPhoton0; s++) {
                 if (e.cls->systems[s].max > 0) {
                     charge += e.energy[s];

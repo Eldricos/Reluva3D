@@ -37,7 +37,8 @@ void Game::setupAnims() {
     // on first use, the others when the scene loads.
     anims_.assign(scene_->lists[kListAnims].size(), Anim());
     for (const Directive &d : scene_->script) {
-        const Argument *a0 = d.getArg(0), *a1 = d.getArg(1);
+        const Argument *a0 = d.getArg(0);
+        const Argument *a1 = d.getArg(1);
         if (d.command != kCmdAnimDef || !a0 || a0->value >= anims_.size())
             continue;
         Anim &a = anims_[a0->value];
@@ -216,7 +217,8 @@ bool Game::executeAnimCommand(const Directive &d) {
                 const RleAnimation::Frame &f = a->rle.getFrame(0);
                 bool current = !draw::empty(workBuffer_) && !workBufferStale_;
                 const Surface &src = current ? workBuffer_ : background_;
-                int x0 = std::max(0, a->x + f.x), y0 = std::max(0, a->y + f.y);
+                int x0 = std::max(0, a->x + f.x);
+                int y0 = std::max(0, a->y + f.y);
                 int x1 = std::min(background_.w, a->x + f.x + f.w);
                 int y1 = std::min(background_.h, a->y + f.y + f.h);
                 for (int y = y0; y < y1; y++)
@@ -269,7 +271,8 @@ void Game::advanceAnim(Anim &a) {
 }
 
 void Game::restoreRect(int x, int y, int w, int h) {
-    int x0 = std::max(0, x), y0 = std::max(0, y);
+    int x0 = std::max(0, x);
+    int y0 = std::max(0, y);
     int x1 = std::min({workBuffer_.w, background_.w, x + w});
     int y1 = std::min({workBuffer_.h, background_.h, y + h});
     for (int py = y0; py < y1; py++)

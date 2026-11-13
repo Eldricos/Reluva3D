@@ -254,7 +254,8 @@ void MissionViewer::startPlay() {
     // recording started with (the Romulans a little less).
     colonyShown_ = true;
     startColony();
-    static constexpr Stock kStart{500, 1000, 2300, 500, 4000, 5000}, kRomulan{500, 988, 2211, 497, 3500, 5000};
+    static constexpr Stock kStart{500, 1000, 2300, 500, 4000, 5000};
+    static constexpr Stock kRomulan{500, 988, 2211, 497, 3500, 5000};
     ColonyMap ground{[this](int tx, int ty) { return map_.depositAt(tx / 2, ty / 2); },
                      [this](int tx, int ty) { return map_.depositAmount(tx / 2, ty / 2); }};
     economy_ = std::make_unique<Economy>(side, side == 'R' ? kRomulan : kStart, 20, 50, std::move(ground));
@@ -275,13 +276,16 @@ void MissionViewer::startPlay() {
     }
     buildMenu_ = false;
     placing_.clear();
-    float hx = map_.worldWidth() / 2, hy = map_.worldHeight() / 2;
+    float hx = map_.worldWidth() / 2;
+    float hy = map_.worldHeight() / 2;
     hubPosition(hx, hy);
     // In a row south of the hub, each on the nearest open tile.
     for (int i = 0; i < 4; ++i) {
-        const float x = hx + (float(i) - 1.5f) * 2500, y = hy - 1.4f * kTile;
+        const float x = hx + (float(i) - 1.5f) * 2500;
+        const float y = hy - 1.4f * kTile;
         const auto path = world_->findPath(x, y, x, y);
-        const float px = path.empty() ? x : path.back().first, py = path.empty() ? y : path.back().second;
+        const float px = path.empty() ? x : path.back().first;
+        const float py = path.empty() ? y : path.back().second;
         world_->addUnit(side, groundScout(side), px, py, 3.1416f / 2);
     }
     playing_ = true;
@@ -348,11 +352,14 @@ void MissionViewer::choose(const BuildingType &t) {
 void MissionViewer::updateGhost() {
     if (placing_.empty() || !colony_)
         return;
-    float x = 0, y = 0;
-    int a = -1, b = -1;
+    float x = 0;
+    float y = 0;
+    int a = -1;
+    int b = -1;
     bool ok = false;
     if (map_.screenToGround(mouseX_, mouseY_, x, y)) {
-        const int pa = int(y / MapViewer::kBlockUnits * 8), pb = int(x / MapViewer::kBlockUnits * 8);
+        const int pa = int(y / MapViewer::kBlockUnits * 8);
+        const int pb = int(x / MapViewer::kBlockUnits * 8);
         if (!colony_->spotAt(placing_, pa, pb, a, b, ok))
             a = b = -1;
     }
@@ -366,7 +373,8 @@ void MissionViewer::updateGhost() {
 void MissionViewer::placeBuilding() {
     if (placing_.empty() || !colony_ || !economy_ || !ghostOk_ || ghostA_ < 0)
         return;
-    const float x = float(ghostB_) / 8 * MapViewer::kBlockUnits, y = float(ghostA_) / 8 * MapViewer::kBlockUnits;
+    const float x = float(ghostB_) / 8 * MapViewer::kBlockUnits;
+    const float y = float(ghostA_) / 8 * MapViewer::kBlockUnits;
     const int id = economy_->order(placing_, x, y, int(x / kTile), int(y / kTile));
     if (id == 0 || !colony_->addAt(placing_, ghostA_, ghostB_))
         return;
@@ -389,7 +397,8 @@ void MissionViewer::showProgress() {
 bool MissionViewer::playEvent(const Event &ev) {
     if (ev.type == EventType::MouseMove || ev.type == EventType::MouseDown || ev.type == EventType::MouseUp)
         mouseX_ = ev.mouseX, mouseY_ = ev.mouseY;
-    const bool ctrl = (ev.mods & keymod::Ctrl) != 0, shift = (ev.mods & keymod::Shift) != 0;
+    const bool ctrl = (ev.mods & keymod::Ctrl) != 0;
+    const bool shift = (ev.mods & keymod::Shift) != 0;
     switch (ev.type) {
     case EventType::KeyDown:
         if (ev.key == key::Escape && (buildMenu_ || !placing_.empty())) {
@@ -421,14 +430,16 @@ bool MissionViewer::playEvent(const Event &ev) {
             break;
         }
         if (ev.key == key::Home) {
-            float x = 0, y = 0;
+            float x = 0;
+            float y = 0;
             if (hubPosition(x, y))
                 map_.centreOn(x, y);
             break;
         }
         if (ev.key == 'v' && shift) {
             // To the selected vehicles, or the first one.
-            float x = 0, y = 0;
+            float x = 0;
+            float y = 0;
             if (world_->groupCentre(0, x, y))
                 map_.centreOn(x, y);
             else if (!world_->units().empty())
@@ -437,7 +448,8 @@ bool MissionViewer::playEvent(const Event &ev) {
         }
         if (ev.key >= '1' && ev.key <= '9') {
             const int n = int(ev.key - '0');
-            float x = 0, y = 0;
+            float x = 0;
+            float y = 0;
             if (ctrl)
                 world_->setGroup(n);
             else if (shift && world_->groupCentre(n, x, y))
@@ -497,13 +509,16 @@ bool MissionViewer::playEvent(const Event &ev) {
         boxing_ = false;
         const Level &level = missions_[size_t(current_)];
         const char side = missionSides(level.shortName)[size_t(side_)];
-        const int x0 = std::min(boxX_, ev.mouseX), x1 = std::max(boxX_, ev.mouseX);
-        const int y0 = std::min(boxY_, ev.mouseY), y1 = std::max(boxY_, ev.mouseY);
+        const int x0 = std::min(boxX_, ev.mouseX);
+        const int x1 = std::max(boxX_, ev.mouseX);
+        const int y0 = std::min(boxY_, ev.mouseY);
+        const int y1 = std::max(boxY_, ev.mouseY);
         std::vector<int> picked;
         if (x1 - x0 > 6 || y1 - y0 > 6) {
             // A box: the side's units inside it.
             for (const Unit &u : world_->units()) {
-                int sx = 0, sy = 0;
+                int sx = 0;
+                int sy = 0;
                 if (u.side == side && map_.worldToScreen(u.x, u.y, map_.groundAtWorld(u.x, u.y), sx, sy) && sx >= x0 &&
                     sx <= x1 && sy >= y0 && sy <= y1)
                     picked.push_back(u.id);
@@ -513,16 +528,19 @@ bool MissionViewer::playEvent(const Event &ev) {
             // A click: the nearest unit to it, if close; else, with units
             // selected, they go there; a double click on the ground locks
             // the camera on it.
-            int best = -1, bestD = 18 * 18;
+            int best = -1;
+            int bestD = 18 * 18;
             for (const Unit &u : world_->units()) {
-                int sx = 0, sy = 0;
+                int sx = 0;
+                int sy = 0;
                 if (!map_.worldToScreen(u.x, u.y, map_.groundAtWorld(u.x, u.y) + 300, sx, sy))
                     continue;
                 const int d = (sx - ev.mouseX) * (sx - ev.mouseX) + (sy - ev.mouseY) * (sy - ev.mouseY);
                 if (d < bestD && u.side == side)
                     best = u.id, bestD = d;
             }
-            float gx = 0, gy = 0;
+            float gx = 0;
+            float gy = 0;
             if (best >= 0)
                 world_->select({best});
             else if (map_.screenToGround(ev.mouseX, ev.mouseY, gx, gy)) {
@@ -914,7 +932,8 @@ std::shared_ptr<const audio::Sound> MissionViewer::loadSound(const std::string &
 void MissionViewer::drawPlay() {
     if (tricorderFull_ && hasMap_) {
         const int size = std::min(screen_.w, screen_.h) - 40;
-        const int x0 = (screen_.w - size) / 2, y0 = (screen_.h - size) / 2;
+        const int x0 = (screen_.w - size) / 2;
+        const int y0 = (screen_.h - size) / 2;
         for (int y = 0; y < screen_.h; ++y) {
             uint8_t *row = screen_.row(y);
             for (int x = 0; x < screen_.w; ++x, row += 4)
@@ -923,7 +942,8 @@ void MissionViewer::drawPlay() {
         map_.drawMinimap(screen_, x0, y0, size, size);
         if (world_)
             for (const Unit &u : world_->units()) {
-                int px = 0, py = 0;
+                int px = 0;
+                int py = 0;
                 map_.minimapPoint(u.x, u.y, x0, y0, size, size, px, py);
                 for (int dy = -2; dy <= 2; ++dy)
                     for (int dx = -2; dx <= 2; ++dx)
@@ -934,8 +954,10 @@ void MissionViewer::drawPlay() {
             }
     }
     if (boxing_ && (std::abs(mouseX_ - boxX_) > 6 || std::abs(mouseY_ - boxY_) > 6)) {
-        const int x0 = std::min(boxX_, mouseX_), x1 = std::max(boxX_, mouseX_);
-        const int y0 = std::min(boxY_, mouseY_), y1 = std::max(boxY_, mouseY_);
+        const int x0 = std::min(boxX_, mouseX_);
+        const int x1 = std::max(boxX_, mouseX_);
+        const int y0 = std::min(boxY_, mouseY_);
+        const int y1 = std::max(boxY_, mouseY_);
         auto put = [&](int x, int y) {
             if (x >= 0 && y >= 0 && x < screen_.w && y < screen_.h) {
                 uint8_t *p = screen_.row(y) + x * 4;
@@ -964,7 +986,8 @@ void MissionViewer::drawInterface() {
         return;
     }
     const int lh = ui_.smallHeight();
-    const Color text = ui_.textColor(), bright = ui_.brightColor();
+    const Color text = ui_.textColor();
+    const Color bright = ui_.brightColor();
     // The right-hand panels are about 100 pixels wide in the recordings;
     // wide enough here for their longest lines in the font we have.
     const int sideW = std::max({100, ui_.smallWidth("COLONY SIZE = 20/50"), ui_.smallWidth("TRANSALUMIN = 5000"),
@@ -975,7 +998,9 @@ void MissionViewer::drawInterface() {
     // every 10, N E S W at the quarters, centred on the camera's heading.
     if (hasMap_) {
         const float heading = map_.heading();
-        const int cx = screen_.w / 2, span = 120, pxPerDeg = 2;
+        const int cx = screen_.w / 2;
+        const int span = 120;
+        const int pxPerDeg = 2;
         for (int d = -span / 2; d <= span / 2; ++d) {
             int deg = int(std::lround(heading)) + d;
             deg = ((deg % 360) + 360) % 360;
@@ -997,13 +1022,16 @@ void MissionViewer::drawInterface() {
     {
         const auto menu = buildMenu_ ? buildMenu() : std::vector<const BuildingType *>{};
         const int lines = buildMenu_ ? int(menu.size()) + 1 : 7;
-        const int x = screen_.w - sideW, y = 0, w = sideW, h = 24 + lines * lh + 8;
+        const int x = screen_.w - sideW;
+        const int y = 0;
+        const int w = sideW;
+        const int h = 24 + lines * lh + 8;
         ui_.drawPanel(screen_, x, y, w, h, "NEW WORLDS");
         // The Romulans start with a little less (most of their recordings).
         static const char *const kNames[] = {"DILITHIUM",   "POLYCOMP", "THERMOCONC",
                                              "TRANSALUMIN", "NITRIUM",  "DURANIUM"};
-        static constexpr int kStart[] = {500, 1000, 2300, 500, 4000, 5000},
-                             kRomulan[] = {500, 988, 2211, 497, 3500, 5000};
+        static constexpr int kStart[] = {500, 1000, 2300, 500, 4000, 5000};
+        static constexpr int kRomulan[] = {500, 988, 2211, 497, 3500, 5000};
         std::pair<const char *, int> kStock[6];
         for (int i = 0; i < 6; ++i)
             kStock[i] = {kNames[i], side == 'R' ? kRomulan[i] : kStart[i]};
@@ -1058,13 +1086,17 @@ void MissionViewer::drawInterface() {
 
     // TRICORDER: the map small, and the camera's position.
     {
-        const int x = screen_.w - sideW, w = sideW, h = 102, y = screen_.h - h;
+        const int x = screen_.w - sideW;
+        const int w = sideW;
+        const int h = 102;
+        const int y = screen_.h - h;
         ui_.drawPanel(screen_, x, y, w, h, "TRICORDER");
         if (hasMap_) {
             map_.drawMinimap(screen_, x + 12, y + 14, w - 24, h - 30 - lh);
             if (world_)
                 for (const Unit &u : world_->units()) {
-                    int px = 0, py = 0;
+                    int px = 0;
+                    int py = 0;
                     map_.minimapPoint(u.x, u.y, x + 12, y + 14, w - 24, h - 30 - lh, px, py);
                     for (int dy = 0; dy < 2; ++dy)
                         for (int dx = 0; dx < 2; ++dx)
@@ -1073,7 +1105,8 @@ void MissionViewer::drawInterface() {
                                 p[0] = 120, p[1] = 255, p[2] = 120;
                             }
                 }
-            int a = 0, b = 0;
+            int a = 0;
+            int b = 0;
             map_.cameraPosition(a, b);
             auto pad = [](int v) {
                 std::string s = std::to_string(v);
@@ -1085,7 +1118,10 @@ void MissionViewer::drawInterface() {
 
     // COMMUNICATIONS: the script's latest message, with its sender's portrait.
     {
-        const int w = 220, h = 70, x = (screen_.w - sideW - w) / 2 + 10, y = screen_.h - h;
+        const int w = 220;
+        const int h = 70;
+        const int x = (screen_.w - sideW - w) / 2 + 10;
+        const int y = screen_.h - h;
         ui_.drawPanel(screen_, x, y, w, h, "COMMUNICATIONS");
         if (log_.empty()) {
             ui_.drawSmall(screen_, x + 60, y + 16, "NO MESSAGES ON FILE.", text);
@@ -1297,7 +1333,8 @@ void MissionViewer::loadBriefingArt() {
         for (int t = 0; t < 6 && ok; ++t) {
             Texture tile;
             ok = loadTexture(archives_, prefix + std::to_string(t + 1) + ".lbp", tile);
-            const int x0 = (t % 3) * 256, y0 = (t / 3) * 256;
+            const int x0 = (t % 3) * 256;
+            const int y0 = (t / 3) * 256;
             for (int y = 0; ok && y < tile.height && y0 + y < 480; ++y)
                 for (int x = 0; x < tile.width && x0 + x < 640; ++x)
                     std::copy_n(&tile.rgba[(size_t(y) * size_t(tile.width) + size_t(x)) * 4], 4,
@@ -1323,7 +1360,9 @@ void MissionViewer::loadBriefingArt() {
     // The star systems' models, by name (the galaxy isn't one).
     for (const auto &a : archives_)
         for (const CatEntry &e : a->entries()) {
-            std::string folder, stem, ext;
+            std::string folder;
+            std::string stem;
+            std::string ext;
             splitName(e.name, folder, stem, ext);
             if (folder == "solsys" && ext == "geo" && stem != "tabras" &&
                 std::find(systemNames_.begin(), systemNames_.end(), stem) == systemNames_.end())
@@ -1523,7 +1562,8 @@ bool MissionViewer::drawModel(const std::string &name) {
                              uint8_t(side == 'F'   ? 60
                                      : side == 'R' ? 25
                                                    : 14)};
-    const int w = screen_.w, h = screen_.h;
+    const int w = screen_.w;
+    const int h = screen_.h;
     for (int y = 0; y < h; ++y) {
         uint8_t *row = screen_.row(y);
         for (int x = 0; x < w; ++x, row += 4) {
@@ -1546,7 +1586,8 @@ void MissionViewer::drawBackdrop(BriefingView view) {
         (view == BriefingView::StarSystem && drawStarSystem()) ||
         (view == BriefingView::Model && drawModel(script_[size_t(step_)].model)))
         return;
-    const int w = screen_.w, h = screen_.h;
+    const int w = screen_.w;
+    const int h = screen_.h;
     for (int y = 0; y < h; ++y) {
         uint8_t *row = screen_.row(y);
         for (int x = 0; x < w; ++x, row += 4)
@@ -1564,14 +1605,16 @@ void MissionViewer::drawBackdrop(BriefingView view) {
     case BriefingView::Galaxy:
         for (int i = 0; i < 900; ++i) {
             // A flattened disc of stars with a red and a blue arm.
-            const float t = float(rnd() % 1000) / 1000.0f * 6.283f, rr = float(rnd() % 1000) / 1000.0f;
+            const float t = float(rnd() % 1000) / 1000.0f * 6.283f;
+            const float rr = float(rnd() % 1000) / 1000.0f;
             const int x = w / 2 + int(std::cos(t) * rr * float(w) * 0.32f);
             const int y = h / 2 + int(std::sin(t) * rr * float(h) * 0.16f);
             const uint8_t v = uint8_t(120 + rnd() % 136);
             plot(x, y, v, v, v);
         }
         for (int i = 0; i < 300; ++i) {
-            const int x = int(rnd() % unsigned(w / 3)), d = int(rnd() % 9) - 4;
+            const int x = int(rnd() % unsigned(w / 3));
+            const int d = int(rnd() % 9) - 4;
             plot(w / 3 + x, h / 2 - 30 + x / 4 + d, 200, 40, 40);
             plot(w / 3 + x, h / 2 + 20 - x / 5 + d, 60, 80, 220);
         }
@@ -1580,8 +1623,12 @@ void MissionViewer::drawBackdrop(BriefingView view) {
         for (int i = 0; i < 400; ++i)
             plot(int(rnd() % unsigned(w)), int(rnd() % unsigned(h)), 90, 90, 110);
         for (int i = 0; i < 7; ++i) {
-            const int cx = int(rnd() % unsigned(w)), cy = int(rnd() % unsigned(h)), r = 2 + int(rnd() % 5);
-            const uint8_t cr = uint8_t(rnd() % 256), cg = uint8_t(rnd() % 256), cb = uint8_t(rnd() % 256);
+            const int cx = int(rnd() % unsigned(w));
+            const int cy = int(rnd() % unsigned(h));
+            const int r = 2 + int(rnd() % 5);
+            const uint8_t cr = uint8_t(rnd() % 256);
+            const uint8_t cg = uint8_t(rnd() % 256);
+            const uint8_t cb = uint8_t(rnd() % 256);
             for (int y = -r; y <= r; ++y)
                 for (int x = -r; x <= r; ++x)
                     if (x * x + y * y <= r * r)
@@ -1606,7 +1653,8 @@ void MissionViewer::drawBackdrop(BriefingView view) {
                            : side == 'R' ? "ROMULAN STAR EMPIRE"
                                          : "UNITED FEDERATION OF PLANETS";
         const Color c = side == 'K' ? Color{200, 60, 40} : side == 'R' ? Color{60, 170, 90} : Color{90, 140, 230};
-        const int scale = 3, tw = int(font::length(name)) * font::kAdvance * scale;
+        const int scale = 3;
+        const int tw = int(font::length(name)) * font::kAdvance * scale;
         font::drawText(screen_, (w - tw) / 2, h / 3, name, c, scale);
         break;
     }

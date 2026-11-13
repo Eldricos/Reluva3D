@@ -529,10 +529,12 @@ void Arcade::enemyFire(Target &t, int x, int y) {
         (frame_ - t.start) % period != 0)
         return;
     const RleAnimation::Frame &f = t.draw->getFrame(t.drawFrame);
-    int mx = f.muzzleX[t.muzzle & 1], my = f.muzzleY[t.muzzle & 1];
+    int mx = f.muzzleX[t.muzzle & 1];
+    int my = f.muzzleY[t.muzzle & 1];
     if (mx == 0 && my == 0)
         return;
-    int sx = x + mx, sy = y + my;
+    int sx = x + mx;
+    int sy = y + my;
     if (!rect_.contains(sx, sy))
         return;
     if (shakeCount_ == 0)
@@ -682,7 +684,8 @@ void Arcade::torpedoImpact(int x, int y) {
         if (t.state != 0 || t.start >= frame_)
             continue;
         const RleAnimation::Frame &f = t.draw->getFrame(std::min(t.drawFrame, t.draw->frameCount() - 1));
-        int tx = f.x + rect_.left, ty = f.y + rect_.top;
+        int tx = f.x + rect_.left;
+        int ty = f.y + rect_.top;
         if (x >= tx && x <= tx + f.w && y >= ty && y <= ty + f.h) {
             hitTarget(i, 2, true);
             return;

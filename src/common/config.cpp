@@ -24,7 +24,8 @@ Error Config::load(const std::filesystem::path &path) {
     if (!in)
         return Error::success(); // a missing file just means a fresh config
 
-    std::string line, section;
+    std::string line;
+    std::string section;
     while (std::getline(in, line)) {
         line = trim(line);
         if (line.empty() || line[0] == '#' || line[0] == ';')

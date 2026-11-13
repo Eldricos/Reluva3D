@@ -81,8 +81,10 @@ std::vector<int> Mission::getStartOrder() const {
     for (int i = 0; i < _vm->getInstanceCount(); i++)
         order.push_back(i);
     std::stable_sort(order.begin(), order.end(), [this](int a, int b) {
-        uint16_t ida = _vm->getInstance(a).object->id, idb = _vm->getInstance(b).object->id;
-        int ba = (ida >> 4) % 17, bb = (idb >> 4) % 17;
+        uint16_t ida = _vm->getInstance(a).object->id;
+        uint16_t idb = _vm->getInstance(b).object->id;
+        int ba = (ida >> 4) % 17;
+        int bb = (idb >> 4) % 17;
         return ba != bb ? ba < bb : a > b;
     });
     return order;
@@ -102,7 +104,10 @@ Mission::TransitionView Mission::getTransitionView() const {
     view.b = _transitionColour[2];
     // 0x43E13A: each phase ends at the sum of the times before it.
     const uint32_t *t = _transition.phase;
-    uint32_t e = _transition.elapsed, end1 = t[0], end2 = end1 + t[1], end3 = end2 + t[2];
+    uint32_t e = _transition.elapsed;
+    uint32_t end1 = t[0];
+    uint32_t end2 = end1 + t[1];
+    uint32_t end3 = end2 + t[2];
     if (e < end1) {
         view.phase = 1;
         view.amount = (int)((uint64_t)e * 256 / t[0]);
@@ -165,7 +170,8 @@ void Mission::runPush(uint32_t ms) {
     double envelope = t < _push.ramp   ? (double)t / std::max<uint32_t>(1, _push.ramp)
                       : t < _push.hold ? 1.0
                                        : (double)(_push.end - t) / std::max<uint32_t>(1, _push.end - _push.hold);
-    double dx = _push.x - _walker.getX(), dy = _push.y - _walker.getY();
+    double dx = _push.x - _walker.getX();
+    double dy = _push.y - _walker.getY();
     double length = std::sqrt(dx * dx + dy * dy);
     if (length < 1e-6)
         return;
@@ -449,7 +455,8 @@ void Mission::update(uint32_t ms) {
     if (_push.active)
         runPush(ms);
     if (_engaged) {
-        double dx = _walker.getX() - _engagedX, dy = _walker.getY() - _engagedY;
+        double dx = _walker.getX() - _engagedX;
+        double dy = _walker.getY() - _engagedY;
         if (dx * dx + dy * dy > 3.0 * 3.0) {
             uint16_t engaged = _engaged;
             _engaged = 0;
@@ -624,11 +631,17 @@ Mission::FireResult Mission::fireWeapon(const Camera &camera, const LevelRendere
     double depth = pick.kind != LevelRenderer::Pick::kNone ? pick.depth : 0;
     if (depth <= _walker.getRadius())
         depth = w / 2.0;
-    double tx, ty, tz;
+    double tx;
+    double ty;
+    double tz;
     LevelRenderer::unproject(camera, w, h, x, y, depth, tx, ty, tz);
-    double c = std::cos(camera.yaw), s = std::sin(camera.yaw);
-    double ox = camera.x + c * ahead - s * left, oy = camera.y + s * ahead + c * left, oz = camera.z + up;
-    double dx = tx - ox, dy = ty - oy;
+    double c = std::cos(camera.yaw);
+    double s = std::sin(camera.yaw);
+    double ox = camera.x + c * ahead - s * left;
+    double oy = camera.y + s * ahead + c * left;
+    double oz = camera.z + up;
+    double dx = tx - ox;
+    double dy = ty - oy;
     fire(item.c, ox, oy, oz, std::atan2(dy, dx), std::atan2(tz - oz, std::sqrt(dx * dx + dy * dy)),
          Projectiles::kShooterPlayer);
     return kFired;
@@ -827,12 +840,14 @@ void Mission::checkPlayerContacts() {
     // Billboards fire when the player enters the box around them (0x4B9940).
     int inside = -1;
     const std::vector<LevelFile::Billboard> &billboards = _level.getBillboards();
-    double feet = _walker.getFeet(), head = _walker.getEye() + Walker::kHeadroom;
+    double feet = _walker.getFeet();
+    double head = _walker.getEye() + Walker::kHeadroom;
     for (size_t i = 0; i < billboards.size() && inside < 0; i++) {
         const LevelFile::Billboard &b = billboards[i];
         if (b.radius <= 0 || b.hidden || !(b.zones & _walker.getActiveZones()))
             continue;
-        double r = fromFixed(b.radius), z = fromFixed(b.z);
+        double r = fromFixed(b.radius);
+        double z = fromFixed(b.z);
         if (std::fabs(_walker.getX() - fromFixed(b.x)) <= r && std::fabs(_walker.getY() - fromFixed(b.y)) <= r &&
             z <= head && z + fromFixed(b.boxHeight) >= feet + Walker::kStepHeight)
             inside = (int)i;
@@ -930,7 +945,8 @@ void Mission::dropAt(uint16_t id, const Position &position) {
 int Mission::findPassThroughFloor() const {
     // The highest one over the player, between the feet and a step above.
     const std::vector<LevelFile::Sector> &flats = _level.getSectors();
-    double feet = _walker.getFeet(), top = feet + _walker.getStepHeight();
+    double feet = _walker.getFeet();
+    double top = feet + _walker.getStepHeight();
     int best = -1;
     for (size_t i = 0; i < flats.size(); i++) {
         const LevelFile::Sector &flat = flats[i];
@@ -1007,7 +1023,8 @@ void Mission::updateWater() {
     if (state == 0 && _waterState == 0)
         return;
 
-    double gravity = Walker::kGravity, maxFall = _walker.getMaxFallSpeed();
+    double gravity = Walker::kGravity;
+    double maxFall = _walker.getMaxFallSpeed();
     if (!(_controls & kControlSwim)) {
         if (state == 2) {
             gravity *= 0.5;
@@ -1210,7 +1227,8 @@ void Mission::callNative(ScriptVM &vm, ScriptInstance &self, uint16_t op) {
     }
     case 0x34: { // SET_TIMER_RANDOM
         uint16_t id = (uint16_t)vm.pop();
-        int min = vm.pop(), max = vm.pop();
+        int min = vm.pop();
+        int max = vm.pop();
         int span = std::max(1, max - min + 1);
         setTimer(id, (uint32_t)std::max(0, min + (int)_random.getRandomNumber((uint32_t)span - 1)) * 100);
         break;
@@ -1499,20 +1517,28 @@ void Mission::callNative(ScriptVM &vm, ScriptInstance &self, uint16_t op) {
     case 0xBA:   // SCREEN_FLASH_NOTIFY
     case 0xBB: { // SCREEN_FLASH
         uint16_t notify = op == 0xBA ? (uint16_t)vm.pop() : 0;
-        uint8_t r = (uint8_t)vm.pop(), g = (uint8_t)vm.pop(), b = (uint8_t)vm.pop();
+        uint8_t r = (uint8_t)vm.pop();
+        uint8_t g = (uint8_t)vm.pop();
+        uint8_t b = (uint8_t)vm.pop();
         int percent = vm.pop();
-        uint32_t fadeIn = popRaw32(vm), hold = popRaw32(vm), fadeOut = popRaw32(vm);
+        uint32_t fadeIn = popRaw32(vm);
+        uint32_t hold = popRaw32(vm);
+        uint32_t fadeOut = popRaw32(vm);
         _hud.setEffect(op == 0xBA ? 0 : 1, r, g, b, percent, fadeIn, hold, fadeOut, notify);
         break;
     }
     case 0xBC: { // SCREEN_TINT
-        uint8_t r = (uint8_t)vm.pop(), g = (uint8_t)vm.pop(), b = (uint8_t)vm.pop();
+        uint8_t r = (uint8_t)vm.pop();
+        uint8_t g = (uint8_t)vm.pop();
+        uint8_t b = (uint8_t)vm.pop();
         _hud.setEffect(3, r, g, b, vm.pop(), 0, 0, 0, 0);
         break;
     }
     case 0xBD: { // fade in and out over the time given
         uint16_t notify = (uint16_t)vm.pop();
-        uint8_t r = (uint8_t)vm.pop(), g = (uint8_t)vm.pop(), b = (uint8_t)vm.pop();
+        uint8_t r = (uint8_t)vm.pop();
+        uint8_t g = (uint8_t)vm.pop();
+        uint8_t b = (uint8_t)vm.pop();
         int percent = vm.pop();
         uint32_t total = (uint16_t)vm.pop();
         _hud.setEffect(2, r, g, b, percent, total / 2, 0, total - total / 2, notify);
@@ -1533,7 +1559,9 @@ void Mission::callNative(ScriptVM &vm, ScriptInstance &self, uint16_t op) {
     }
     case 0x6D: { // animate a panel's image
         uint16_t id = (uint16_t)vm.pop();
-        int16_t first = vm.pop(), last = vm.pop(), loops = vm.pop();
+        int16_t first = vm.pop();
+        int16_t last = vm.pop();
+        int16_t loops = vm.pop();
         uint16_t ms = (uint16_t)vm.pop();
         _hud.animatePanel(id ? id : self.object->id, first, last, loops, ms);
         break;
@@ -1547,12 +1575,21 @@ void Mission::callNative(ScriptVM &vm, ScriptInstance &self, uint16_t op) {
         vm.push((int16_t)_hud.getFirstPanelOwner());
         break;
     case 0x9D: { // PANEL_ADD_BUTTON
-        int16_t button = vm.pop(), image = vm.pop(), x = vm.pop(), y = vm.pop(), w = vm.pop(), h = vm.pop();
+        int16_t button = vm.pop();
+        int16_t image = vm.pop();
+        int16_t x = vm.pop();
+        int16_t y = vm.pop();
+        int16_t w = vm.pop();
+        int16_t h = vm.pop();
         _hud.addButton(self.object->id, button, image, Rect(x, y, x + w, y + h), false);
         break;
     }
     case 0x8F: { // add a hotspot
-        int16_t button = vm.pop(), x = vm.pop(), y = vm.pop(), w = vm.pop(), h = vm.pop();
+        int16_t button = vm.pop();
+        int16_t x = vm.pop();
+        int16_t y = vm.pop();
+        int16_t w = vm.pop();
+        int16_t h = vm.pop();
         _hud.addButton(self.object->id, button, -1, Rect(x, y, x + w, y + h), true);
         break;
     }
@@ -1561,12 +1598,17 @@ void Mission::callNative(ScriptVM &vm, ScriptInstance &self, uint16_t op) {
         _hud.removeButton(self.object->id, vm.pop());
         break;
     case 0x9E: { // SET_PANEL_BUTTON
-        int16_t button = vm.pop(), image = vm.pop(), frame = vm.pop();
+        int16_t button = vm.pop();
+        int16_t image = vm.pop();
+        int16_t frame = vm.pop();
         _hud.setButton(self.object->id, button, image, frame);
         break;
     }
     case 0x9F: { // PANEL_ANIMATE_BUTTON
-        int16_t button = vm.pop(), first = vm.pop(), last = vm.pop(), loops = vm.pop();
+        int16_t button = vm.pop();
+        int16_t first = vm.pop();
+        int16_t last = vm.pop();
+        int16_t loops = vm.pop();
         uint16_t ms = (uint16_t)vm.pop();
         _hud.animateButton(self.object->id, button, first, last, loops, ms);
         break;
@@ -1674,7 +1716,9 @@ void Mission::callNative(ScriptVM &vm, ScriptInstance &self, uint16_t op) {
     }
     case 0xD3: { // SET_SOUND_POSITION
         uint32_t reference = popRaw32(vm);
-        double x = pop32(vm), y = pop32(vm), z = pop32(vm);
+        double x = pop32(vm);
+        double y = pop32(vm);
+        double z = pop32(vm);
         _sound->setPosition(reference, x, y, z);
         break;
     }
@@ -1709,7 +1753,8 @@ void Mission::callNative(ScriptVM &vm, ScriptInstance &self, uint16_t op) {
         Position position;
         int16_t distance = 0;
         if (getPosition((uint16_t)vm.pop(), position)) {
-            double dx = position.x - _walker.getX(), dy = position.y - _walker.getY();
+            double dx = position.x - _walker.getX();
+            double dy = position.y - _walker.getY();
             double dz = position.z - _walker.getFeet();
             distance = (int16_t)std::min<long>(32767, std::lround(std::sqrt(dx * dx + dy * dy + dz * dz)));
         }
@@ -1831,7 +1876,8 @@ void Mission::callNative(ScriptVM &vm, ScriptInstance &self, uint16_t op) {
     }
     case 0x76: { // TELEPORT_PLAYER_RELATIVE
         // 0x452703: by the difference between two places, turning by theirs.
-        Position from = popPosition(vm), to = popPosition(vm);
+        Position from = popPosition(vm);
+        Position to = popPosition(vm);
         _walker.place(_walker.getX() + to.x - from.x, _walker.getY() + to.y - from.y,
                       _walker.getFeet() + to.z - from.z);
         int degrees = (int)std::lround((kPi / 2 - _currentYaw) * 180 / kPi);
@@ -1865,7 +1911,8 @@ void Mission::callNative(ScriptVM &vm, ScriptInstance &self, uint16_t op) {
     case 0xE6: {
         // 0x44EACC: the most it holds, then the charge, each kept for 0x8000.
         uint16_t id = (uint16_t)vm.pop();
-        uint16_t charge = (uint16_t)vm.pop(), most = (uint16_t)vm.pop();
+        uint16_t charge = (uint16_t)vm.pop();
+        uint16_t most = (uint16_t)vm.pop();
         auto it = _items.find(id ? id : self.object->id);
         if (it == _items.end())
             break;
@@ -1917,7 +1964,9 @@ void Mission::callNative(ScriptVM &vm, ScriptInstance &self, uint16_t op) {
     case 0x93: { // TRANSITION_TELEPORT
         // 0x43DE6F: out to the colour, the player moved, back in; event 7.
         Position to = popPosition(vm);
-        uint32_t t1 = popRaw32(vm), t2 = popRaw32(vm), t3 = popRaw32(vm);
+        uint32_t t1 = popRaw32(vm);
+        uint32_t t2 = popRaw32(vm);
+        uint32_t t3 = popRaw32(vm);
         if (_transition.active)
             break;
         _transition = Transition();
@@ -1953,7 +2002,8 @@ void Mission::callNative(ScriptVM &vm, ScriptInstance &self, uint16_t op) {
         break;
     case 0xAB: { // SET_TEXTURE_SCROLL
         uint16_t id = (uint16_t)vm.pop();
-        int16_t u = vm.pop(), v = vm.pop();
+        int16_t u = vm.pop();
+        int16_t v = vm.pop();
         setTextureScroll(id ? id : self.object->id, u, v);
         break;
     }
@@ -1983,7 +2033,8 @@ void Mission::callNative(ScriptVM &vm, ScriptInstance &self, uint16_t op) {
     }
     case 0xC0: { // SET_FLAT_ZONES
         uint16_t id = (uint16_t)vm.pop();
-        uint64_t low = popRaw32(vm), high = popRaw32(vm);
+        uint64_t low = popRaw32(vm);
+        uint64_t high = popRaw32(vm);
         for (LevelFile::Sector &flat : _level.getSectors()) {
             if (isObject(flat.objectId, kTypeFlat, id ? id : self.object->id))
                 flat.activeZones = high << 32 | low;
@@ -1994,7 +2045,8 @@ void Mission::callNative(ScriptVM &vm, ScriptInstance &self, uint16_t op) {
         // 0x4590D9: zones in play by height, the flat's own below them all.
         uint16_t id = (uint16_t)vm.pop();
         int32_t height = (int32_t)popRaw32(vm);
-        uint64_t low = popRaw32(vm), high = popRaw32(vm);
+        uint64_t low = popRaw32(vm);
+        uint64_t high = popRaw32(vm);
         for (LevelFile::Sector &flat : _level.getSectors()) {
             if (!isObject(flat.objectId, kTypeFlat, id ? id : self.object->id))
                 continue;
@@ -2013,7 +2065,8 @@ void Mission::callNative(ScriptVM &vm, ScriptInstance &self, uint16_t op) {
     }
     case 0xC9: { // MAP_HEIGHT_BAND
         // 0x4442DF: the heights the map shows, below and above the player.
-        uint32_t below = popRaw32(vm), above = popRaw32(vm);
+        uint32_t below = popRaw32(vm);
+        uint32_t above = popRaw32(vm);
         double levels[6];
         for (int i = 0; i < 6; i++)
             levels[i] = _hud.getMapLevels()[i];
@@ -2027,11 +2080,14 @@ void Mission::callNative(ScriptVM &vm, ScriptInstance &self, uint16_t op) {
     }
     case 0xE3: { // FIRE_PROJECTILE_AT_OBJECT
         int type = vm.pop();
-        double fromX = pop32(vm), fromY = pop32(vm), fromZ = pop32(vm);
+        double fromX = pop32(vm);
+        double fromY = pop32(vm);
+        double fromZ = pop32(vm);
         uint16_t target = (uint16_t)vm.pop();
         Position to;
         if (getPosition(target, to) && type >= 0 && type < _projectiles->getTypeCount()) {
-            double dx = to.x - fromX, dy = to.y - fromY;
+            double dx = to.x - fromX;
+            double dy = to.y - fromY;
             fire(type, fromX, fromY, fromZ, std::atan2(dy, dx), std::atan2(to.z - fromZ, std::sqrt(dx * dx + dy * dy)),
                  Projectiles::kShooterNone);
         }
@@ -2079,7 +2135,9 @@ void Mission::callNative(ScriptVM &vm, ScriptInstance &self, uint16_t op) {
     }
     case 0x4C: { // ACTOR_GO_TO
         uint16_t id = (uint16_t)vm.pop();
-        double x = pop32(vm), y = pop32(vm), z = pop32(vm);
+        double x = pop32(vm);
+        double y = pop32(vm);
+        double z = pop32(vm);
         if (_actors)
             _actors->goTo(id ? id : self.object->id, x, y, z);
         break;
@@ -2132,7 +2190,9 @@ void Mission::callNative(ScriptVM &vm, ScriptInstance &self, uint16_t op) {
         // 0x441257: gravity, the fastest fall and the step down; 0x80000000
         // keeps a value, 0x80000001 restores its default. The step down is
         // set only when the fastest fall is, as the original does.
-        uint32_t gravity = popRaw32(vm), maxFall = popRaw32(vm), stepDown = popRaw32(vm);
+        uint32_t gravity = popRaw32(vm);
+        uint32_t maxFall = popRaw32(vm);
+        uint32_t stepDown = popRaw32(vm);
         auto pick = [](uint32_t raw, double current, double fallback) {
             return raw == 0x80000000 ? current : raw == 0x80000001 ? fallback : fromFixed((int32_t)raw);
         };
@@ -2158,7 +2218,8 @@ void Mission::callNative(ScriptVM &vm, ScriptInstance &self, uint16_t op) {
         // 0x436F35: a landing at fall speed v hurts v * multiplier / divisor
         // (kind 1, 0x43A662). 0x80000000 keeps a value, 0x80000001 restores
         // its default: 1 and 32.
-        uint32_t multiplier = popRaw32(vm), divisor = popRaw32(vm);
+        uint32_t multiplier = popRaw32(vm);
+        uint32_t divisor = popRaw32(vm);
         if (multiplier != 0x80000000)
             _fallMultiplier = multiplier == 0x80000001 ? 1.0 : (double)(int32_t)multiplier;
         if (divisor != 0x80000000)
@@ -2192,7 +2253,8 @@ void Mission::callNative(ScriptVM &vm, ScriptInstance &self, uint16_t op) {
     case 0xC8: { // MAP_ZOOM_LEVELS
         // 0x44555F: per level a scale and a shift: pixels = units * 65536 * scale >> shift.
         for (int level = 0; level < 3; level++) {
-            uint16_t scale = (uint16_t)vm.pop(), shift = (uint16_t)vm.pop();
+            uint16_t scale = (uint16_t)vm.pop();
+            uint16_t shift = (uint16_t)vm.pop();
             if (scale == 0x8000 || shift == 0x8000)
                 continue;
             static const double kDefault[3] = {0.5, 1.0, 2.0};
@@ -2202,7 +2264,9 @@ void Mission::callNative(ScriptVM &vm, ScriptInstance &self, uint16_t op) {
         break;
     }
     case 0xCD: { // SET_FLAT_GROUPS
-        uint16_t below = (uint16_t)vm.pop(), above = (uint16_t)vm.pop(), bottom = (uint16_t)vm.pop();
+        uint16_t below = (uint16_t)vm.pop();
+        uint16_t above = (uint16_t)vm.pop();
+        uint16_t bottom = (uint16_t)vm.pop();
         setPool(below, above, bottom);
         _pools.push_back({below, above, bottom});
         break;
@@ -2223,9 +2287,14 @@ void Mission::callNative(ScriptVM &vm, ScriptInstance &self, uint16_t op) {
     case 0xE2: { // FIRE_PROJECTILE_AT
         // 0x4403DE: a shot of the given type from one point at another, from no one.
         int type = vm.pop();
-        double fromX = pop32(vm), fromY = pop32(vm), fromZ = pop32(vm);
-        double toX = pop32(vm), toY = pop32(vm), toZ = pop32(vm);
-        double dx = toX - fromX, dy = toY - fromY;
+        double fromX = pop32(vm);
+        double fromY = pop32(vm);
+        double fromZ = pop32(vm);
+        double toX = pop32(vm);
+        double toY = pop32(vm);
+        double toZ = pop32(vm);
+        double dx = toX - fromX;
+        double dy = toY - fromY;
         if (type >= 0 && type < _projectiles->getTypeCount())
             fire(type, fromX, fromY, fromZ, std::atan2(dy, dx), std::atan2(toZ - fromZ, std::sqrt(dx * dx + dy * dy)),
                  Projectiles::kShooterNone);
@@ -2244,7 +2313,9 @@ void Mission::callNative(ScriptVM &vm, ScriptInstance &self, uint16_t op) {
     case 0x91:   // BRIEFING_TRANSITION
     case 0x92: { // END_TRANSITION
         // 0x43D8FF / 0x43DC37: three phases, t1 then t2 then t3 ms.
-        uint32_t t1 = popRaw32(vm), t2 = popRaw32(vm), t3 = popRaw32(vm);
+        uint32_t t1 = popRaw32(vm);
+        uint32_t t2 = popRaw32(vm);
+        uint32_t t3 = popRaw32(vm);
         bool ending = op == 0x92;
         // The ending one waits for nothing; it is dropped while another runs.
         if (ending && _transition.active)

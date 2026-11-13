@@ -121,7 +121,13 @@ static void test_conversation(const std::filesystem::path &tmp) {
     fs::path dir = tmp / "conversation";
 
     // Dialogue COM010 (CCB entry 0).
-    ScriptBuilder listA, listB, npc0, npc1, pickYes, pickNo, none;
+    ScriptBuilder listA;
+    ScriptBuilder listB;
+    ScriptBuilder npc0;
+    ScriptBuilder npc1;
+    ScriptBuilder pickYes;
+    ScriptBuilder pickNo;
+    ScriptBuilder none;
     listB.cmd(kDlgBackCmd, {{kArgByte, 0}});
     pickYes.cmd(kCmdLet, {num(1), var(0)}).cmd(kDlgGotoCmd, {{kArgByte, 1}});
     pickNo.cmd(kDlgExitCmd);
@@ -461,7 +467,8 @@ static void test_menu_save_and_load(const std::filesystem::path &tmp) {
 
     // Two scenes; S0 sets a variable, defines hotspots and a timer; clicking
     // "go" adds 1 to $count, clicking "away" moves to S1.
-    ScriptBuilder s0, s1;
+    ScriptBuilder s0;
+    ScriptBuilder s1;
     s0.cmd(kCmdScene, {sym(0)})
         .cmd(kCmdLet, {num(7), var(0)})
         .cmd(kCmdHotspot, {sym(0), num(0), num(0), num(10), num(10), sym(1), sym(kCursorTouch)})

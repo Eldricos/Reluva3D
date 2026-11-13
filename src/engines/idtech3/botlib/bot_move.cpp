@@ -128,7 +128,8 @@ bool BotLibrary::onGround(const MoveState &ms) const {
         return true;
     if (!trace)
         return false;
-    Vec3f mins{}, maxs{};
+    Vec3f mins{};
+    Vec3f maxs{};
     AasWorld::presenceBox(ms.presence ? ms.presence : presence::Normal, mins, maxs);
     const Trace t = trace(ms.origin, mins, maxs, {ms.origin[0], ms.origin[1], ms.origin[2] - 10}, ms.entity,
                           contents::Solid | contents::PlayerClip);
@@ -136,7 +137,9 @@ bool BotLibrary::onGround(const MoveState &ms) const {
 }
 
 bool BotLibrary::moverDown(const AasReach &reach) const {
-    Vec3f mins{}, maxs{}, origin{};
+    Vec3f mins{};
+    Vec3f maxs{};
+    Vec3f origin{};
     const int model = reach.face & 0xffff;
     if (!modelBounds || !moverOrigin || !modelBounds(model, mins, maxs) || !moverOrigin(model, origin))
         return false;
@@ -144,7 +147,9 @@ bool BotLibrary::moverDown(const AasReach &reach) const {
 }
 
 Vec3f BotLibrary::moverBottomCenter(const AasReach &reach) const {
-    Vec3f mins{}, maxs{}, origin{};
+    Vec3f mins{};
+    Vec3f maxs{};
+    Vec3f origin{};
     const int model = reach.face & 0xffff;
     if (modelBounds)
         modelBounds(model, mins, maxs);
@@ -156,7 +161,9 @@ Vec3f BotLibrary::moverBottomCenter(const AasReach &reach) const {
 bool BotLibrary::onMover(const Vec3f &origin, int entity, const AasReach &reach) const {
     // Within its box (and 16 units) across, and a short box dropped from
     // above the bot lands on it.
-    Vec3f mins{}, maxs{}, at{};
+    Vec3f mins{};
+    Vec3f maxs{};
+    Vec3f at{};
     const int model = reach.face & 0xffff;
     if (!trace || !modelBounds || !moverOrigin || !modelBounds(model, mins, maxs) || !moverOrigin(model, at))
         return false;
@@ -172,7 +179,8 @@ bool BotLibrary::onMover(const Vec3f &origin, int entity, const AasReach &reach)
 int BotLibrary::entityOnTopOf(const MoveState &ms) const {
     if (!trace)
         return -1;
-    Vec3f mins{}, maxs{};
+    Vec3f mins{};
+    Vec3f maxs{};
     AasWorld::presenceBox(ms.presence ? ms.presence : presence::Normal, mins, maxs);
     const Trace t = trace(ms.origin, mins, maxs, {ms.origin[0], ms.origin[1], ms.origin[2] - 10}, ms.entity,
                           contents::Solid | contents::PlayerClip);
@@ -186,7 +194,8 @@ void BotLibrary::checkBlocked(const MoveState &ms, const Vec3f &dir, bool checkB
     // door, another player), for the game to deal with.
     if (!trace)
         return;
-    Vec3f mins{}, maxs{};
+    Vec3f mins{};
+    Vec3f maxs{};
     AasWorld::presenceBox(ms.presence ? ms.presence : presence::Normal, mins, maxs);
     if (std::fabs(dir[2]) < 0.7f) {
         mins[2] += kMaxStep;
@@ -214,7 +223,8 @@ float BotLibrary::gapDistance(const MoveState &ms, const Vec3f &hordir) const {
     // to slow down before it.
     if (!trace)
         return 0;
-    Vec3f mins{}, maxs{};
+    Vec3f mins{};
+    Vec3f maxs{};
     AasWorld::presenceBox(presence::Crouch, mins, maxs);
     Trace t = trace(ms.origin, mins, maxs, {ms.origin[0], ms.origin[1], ms.origin[2] - 60}, ms.entity,
                     contents::Solid | contents::PlayerClip);
@@ -248,7 +258,8 @@ int BotLibrary::reachabilityToGoal(const Vec3f &origin, int area, int lastGoalAr
     if ((aas_.settings(area).contents | (aas_.validArea(goal.area) ? aas_.settings(goal.area).contents : 0)) &
         areacontents::DoNotEnter)
         travelFlags |= tfl::DoNotEnter;
-    int best = 0, bestTime = 0;
+    int best = 0;
+    int bestTime = 0;
     for (int r = aas_.nextReachability(area, 0); r; r = aas_.nextReachability(area, r)) {
         if (ms) {
             const auto it = ms->avoidReach.find(r);
@@ -417,7 +428,8 @@ BotMoveResult BotLibrary::travel(MoveState &ms, const AasReach &reach, bool fini
     auto airControl = [&](const Vec3f &goal, Vec3f &out, float &speed) {
         // Where the bot comes down, falling as it goes, and the way from
         // there to the goal: to steer while in the air.
-        Vec3f org = ms.origin, vel = scale(ms.velocity, 0.1f);
+        Vec3f org = ms.origin;
+        Vec3f vel = scale(ms.velocity, 0.1f);
         for (int i = 0; i < 50; ++i) {
             vel[2] -= kGravity * 0.01f;
             if (vel[2] < 0 && org[2] + vel[2] < goal[2]) {
@@ -530,7 +542,8 @@ BotMoveResult BotLibrary::travel(MoveState &ms, const AasReach &reach, bool fini
                 break;
             }
         }
-        Vec3f toStart{}, toRun{};
+        Vec3f toStart{};
+        Vec3f toRun{};
         const float dist1 = horizontal(reach.start, ms.origin, toStart);
         const float dist2 = horizontal(runStart, ms.origin, toRun);
         if (dot(toStart, toRun) < -0.8f || dist2 < 5) {
@@ -723,7 +736,8 @@ bool BotLibrary::moveInDirection(int handle, const Vec3f &dirIn, float speed, in
     // Not off a ledge nor into slime or lava: where the floor is a little
     // way ahead must be somewhere the bot can go on from.
     if (trace) {
-        Vec3f mins{}, maxs{};
+        Vec3f mins{};
+        Vec3f maxs{};
         AasWorld::presenceBox(presence::Crouch, mins, maxs);
         const Vec3f ahead = add_(ms->origin, scale(dir, 32));
         const Trace t =
@@ -765,7 +779,8 @@ bool BotLibrary::movementViewTarget(int handle, const BotGoal &goal, int travelF
     MoveState *ms = state(moveStates_, handle);
     if (!ms || !ms->lastReach)
         return false;
-    int reach = ms->lastReach, lastArea = ms->lastArea;
+    int reach = ms->lastReach;
+    int lastArea = ms->lastArea;
     Vec3f end = ms->origin;
     float dist = 0;
     for (int steps = 0; reach && dist < lookahead && steps < 32; ++steps) {
@@ -838,22 +853,29 @@ bool BotLibrary::predictClientMovement(BotClientMove &move, int entity, const Ve
         const std::string v = libVar(name);
         return v.empty() ? fallback : float(std::atof(v.c_str()));
     };
-    const float friction = setting("phys_friction", 6), stopSpeed = setting("phys_stopspeed", 100);
-    const float gravity = setting("phys_gravity", 800), waterFriction = setting("phys_waterfriction", 1);
+    const float friction = setting("phys_friction", 6);
+    const float stopSpeed = setting("phys_stopspeed", 100);
+    const float gravity = setting("phys_gravity", 800);
+    const float waterFriction = setting("phys_waterfriction", 1);
     const float waterGravity = setting("phys_watergravity", 400);
-    const float maxWalk = setting("phys_maxwalkvelocity", 320), maxCrouch = setting("phys_maxcrouchvelocity", 100);
+    const float maxWalk = setting("phys_maxwalkvelocity", 320);
+    const float maxCrouch = setting("phys_maxcrouchvelocity", 100);
     const float maxSwim = setting("phys_maxswimvelocity", 150);
-    const float walkAccel = setting("phys_walkaccelerate", 10), airAccel = setting("phys_airaccelerate", 1);
+    const float walkAccel = setting("phys_walkaccelerate", 10);
+    const float airAccel = setting("phys_airaccelerate", 1);
     const float swimAccel = setting("phys_swimaccelerate", 4);
-    const float maxStep = setting("phys_maxstep", 19), maxSteepness = setting("phys_maxsteepness", 0.7f);
-    const float jumpVel = setting("phys_jumpvel", 270), maxBarrier = setting("phys_maxbarrier", 33);
+    const float maxStep = setting("phys_maxstep", 19);
+    const float maxSteepness = setting("phys_maxsteepness", 0.7f);
+    const float jumpVel = setting("phys_jumpvel", 270);
+    const float maxBarrier = setting("phys_maxbarrier", 33);
     constexpr int solid = contents::Solid | contents::PlayerClip | contents::Body;
 
     auto box = [&](int presenceType, Vec3f &mins, Vec3f &maxs) {
         AasWorld::presenceBox(presenceType == presence::Crouch ? presence::Crouch : presence::Normal, mins, maxs);
     };
     auto traceBox = [&](const Vec3f &from, const Vec3f &to, int presenceType, int pass) {
-        Vec3f mins{}, maxs{};
+        Vec3f mins{};
+        Vec3f maxs{};
         box(presenceType, mins, maxs);
         return trace(from, mins, maxs, to, pass, solid);
     };
@@ -885,7 +907,8 @@ bool BotLibrary::predictClientMovement(BotClientMove &move, int entity, const Ve
         return true;
     };
 
-    Vec3f org = origin, vel = velocityIn;
+    Vec3f org = origin;
+    Vec3f vel = velocityIn;
     org[2] += 0.25f;
     int jumpFrame = -1;
     Trace t;
@@ -907,7 +930,8 @@ bool BotLibrary::predictClientMovement(BotClientMove &move, int entity, const Ve
         if (n < cmdFrames) {
             // The command: walking, crouching (down a lot), jumping (up)
             // or swimming, accelerating on the ground faster than in the air.
-            float maxVel = maxWalk, accel = airAccel;
+            float maxVel = maxWalk;
+            float accel = airAccel;
             Vec3f dir = cmdMove;
             if (onGround) {
                 if (cmdMove[2] < -300) {

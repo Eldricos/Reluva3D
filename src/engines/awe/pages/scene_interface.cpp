@@ -67,13 +67,16 @@ bool inside(int x, int y, int l, int t, int r, int b) {
 void blend(Surface &dst, const image::Image &img, int x, int y, int alpha, int clipL = 0, int clipR = kScreenW) {
     if (img.w <= 0 || alpha <= 0)
         return;
-    const int x0 = std::max({0, clipL - x}), x1 = std::min({img.w, clipR - x, dst.w - x});
+    const int x0 = std::max({0, clipL - x});
+    const int x1 = std::min({img.w, clipR - x, dst.w - x});
     for (int sy = std::max(0, -y); sy < img.h && y + sy < dst.h; sy++) {
         uint8_t *row = dst.row(y + sy);
         for (int sx = x0; sx < x1; sx++) {
             const uint8_t *s = img.pixel(sx, sy);
             uint8_t *d = row + (x + sx) * 4;
-            const int a = s[3] * std::min(alpha, 255) / 255, da = d[3] * (255 - a) / 255, out = a + da;
+            const int a = s[3] * std::min(alpha, 255) / 255;
+            const int da = d[3] * (255 - a) / 255;
+            const int out = a + da;
             if (out == 0)
                 continue;
             for (int c = 0; c < 3; c++)
@@ -142,7 +145,7 @@ ScenePage::ItemInfo ScenePage::itemInfo(const std::string &item) const {
     const Table &t = itemTable("itemlist.txt");
     for (size_t r = 0; r < t.rows.size(); r++)
         if (fs::toLower(unquoted(t.cell(r, 0))) == item) {
-            auto none = [](std::string s) { return s == "0" ? std::string() : s; };
+            auto none = [](const std::string &s) { return s == "0" ? std::string() : s; };
             info.description = none(translated(t, r, 1));
             info.event = none(unquoted(t.cell(r, 3)));
             info.examine = none(translated(t, r, 4));
@@ -343,7 +346,8 @@ void ScenePage::showPage(int page) {
 
 bool ScenePage::interfaceUpdate(float dt) {
     bool changed = false;
-    const int mx = lastMouseX_, my = lastMouseY_;
+    const int mx = lastMouseX_;
+    const int my = lastMouseY_;
     // The window's fade (0x419990): 1000 alpha a second.
     if (ui_.fade == 1 || ui_.fade == 3) {
         ui_.alpha += dt * 1000;
@@ -566,7 +570,11 @@ int ScenePage::pageButton(int x, int y, int *bx, int *by) {
                 *bx = wx + 511, *by = ty;
             return i;
         }
-    int button = -1, l = 0, t = 0, r = 0, b = 0;
+    int button = -1;
+    int l = 0;
+    int t = 0;
+    int r = 0;
+    int b = 0;
     if (ui_.page == 1)
         button = 7, l = 220, t = 411, r = 292, b = 476;
     else if (ui_.page == 2)
@@ -607,7 +615,8 @@ bool ScenePage::blipClick(int x, int y, int row, int count, int &at) {
 }
 
 bool ScenePage::interfaceEvent(const Event &ev) {
-    const int x = ev.mouseX, y = ev.mouseY;
+    const int x = ev.mouseX;
+    const int y = ev.mouseY;
     if (ev.type == EventType::MouseMove) {
         if (ui_.dragging) {
             // The blip follows the mouse to the nearest place (0x41afd0).
@@ -616,7 +625,8 @@ bool ScenePage::interfaceEvent(const Event &ev) {
             auto nearest = [&](int count) {
                 if (count <= 1)
                     return 0;
-                const float step = float(kBlipSpan) / float(count - 1), at = float(x - bw / 2 - wx - kBlipLeft);
+                const float step = float(kBlipSpan) / float(count - 1);
+                const float at = float(x - bw / 2 - wx - kBlipLeft);
                 int i = 0;
                 while (i < count - 1 && at > float(i) * step + step * 0.5f)
                     i++;
@@ -831,7 +841,8 @@ bool ScenePage::pageClick(int x, int y) {
             return true;
         }
         for (int box = 0; box < 16; box++) {
-            const int bx = wx + 38 + 112 * (box % 4), by = kTop + 54 + 112 * (box / 4);
+            const int bx = wx + 38 + 112 * (box % 4);
+            const int by = kTop + 54 + 112 * (box / 4);
             if (!inside(x, y, bx, by, bx + 96, by + 96))
                 continue;
             const int slot = state_.itemPage * 16 + box;
@@ -914,8 +925,10 @@ bool ScenePage::pageClick(int x, int y) {
             return true;
         }
         for (int i = 0; i < 5; i++) {
-            const int l = i < 4 ? 56 : 360, t = i < 4 ? 56 + 112 * i : 224, r = i < 4 ? 151 : 454,
-                      b = i < 4 ? 151 + 112 * i : 319;
+            const int l = i < 4 ? 56 : 360;
+            const int t = i < 4 ? 56 + 112 * i : 224;
+            const int r = i < 4 ? 151 : 454;
+            const int b = i < 4 ? 151 + 112 * i : 319;
             if (!inside(x, y, wx + l, kTop + t, wx + r, kTop + b))
                 continue;
             std::string &box = ui_.boxes[i];
@@ -947,7 +960,8 @@ bool ScenePage::pageClick(int x, int y) {
             if (i.state == 5)
                 passes.push_back(i.name);
         for (int c = 0; c < 12; c++) {
-            const int px = wx + 45 + 72 * (c % 6), py = kTop + 61 + 70 * (c / 6);
+            const int px = wx + 45 + 72 * (c % 6);
+            const int py = kTop + 61 + 70 * (c / 6);
             const int n = ui_.passPage * 12 + c;
             if (inside(x, y, px, py, px + 62, py + 62) && n < int(passes.size())) {
                 playItemSound(passes[size_t(n)]);
@@ -1113,7 +1127,8 @@ void ScenePage::drawInterface() {
     if (!ui_.open)
         return;
     const image::Image &frame = picture("inventory/interface/windowblank.png");
-    const int wx = (kScreenW - frame.w) / 2, a = int(ui_.alpha);
+    const int wx = (kScreenW - frame.w) / 2;
+    const int a = int(ui_.alpha);
     if (ui_.fade == 3) {
         blend(ctx_.screen, frame, wx, kTop, 255);
         drawPage(ui_.fromPage, 255 - a);
@@ -1122,7 +1137,8 @@ void ScenePage::drawInterface() {
     }
     drawPage(ui_.page, a);
     if (ui_.zoom.empty()) {
-        int bx = 0, by = 0;
+        int bx = 0;
+        int by = 0;
         const int b = pageButton(lastMouseX_, lastMouseY_, &bx, &by);
         if (b == 7)
             blend(ctx_.screen, picture("inventory/interface/largehighlight.png"), bx, by, a);
@@ -1165,7 +1181,9 @@ void ScenePage::drawPage(int page, int alpha) {
         for (const GameState::Item &i : state_.items) {
             if ((i.state != 1 && i.state != 2) || i.slot / 16 != state_.itemPage)
                 continue;
-            const int box = i.slot % 16, bx = wx + 38 + 112 * (box % 4), by = kTop + 54 + 112 * (box / 4);
+            const int box = i.slot % 16;
+            const int bx = wx + 38 + 112 * (box % 4);
+            const int by = kTop + 54 + 112 * (box / 4);
             if (state_.held.empty() && inside(lastMouseX_, lastMouseY_, bx, by, bx + 96, by + 96))
                 hovered = i.name;
             if (i.state == 1 && !caretOn_)
@@ -1198,8 +1216,10 @@ void ScenePage::drawPage(int page, int alpha) {
         const image::Image &x = picture("inventory/interface/x.jpg");
         std::string hovered;
         for (int i = 0; i < 5; i++) {
-            const int l = wx + (i < 4 ? 56 : 360), t = kTop + (i < 4 ? 56 + 112 * i : 224),
-                      r = wx + (i < 4 ? 151 : 454), b = kTop + (i < 4 ? 151 + 112 * i : 319);
+            const int l = wx + (i < 4 ? 56 : 360);
+            const int t = kTop + (i < 4 ? 56 + 112 * i : 224);
+            const int r = wx + (i < 4 ? 151 : 454);
+            const int b = kTop + (i < 4 ? 151 + 112 * i : 319);
             if (ui_.boxes[i].empty())
                 continue;
             if (state_.held.empty() && inside(lastMouseX_, lastMouseY_, l, t, r, b))
@@ -1249,8 +1269,9 @@ void ScenePage::drawPage(int page, int alpha) {
             if (i.state == 6)
                 rows[printRow(i.name)].push_back(i.name);
         for (int r = 0; r < 2; r++) {
-            const int n = int(rows[r].size()), at = std::min(ui_.printAt[r], std::max(0, n - 1)),
-                      y = kTop + (r == 0 ? 56 : 320);
+            const int n = int(rows[r].size());
+            const int at = std::min(ui_.printAt[r], std::max(0, n - 1));
+            const int y = kTop + (r == 0 ? 56 : 320);
             auto card = [&](int i, int x) {
                 const std::string &item = rows[r][size_t(i)];
                 blend(ctx_.screen, picture(itemPicture(item, "inv")), x, y, alpha);
@@ -1349,12 +1370,15 @@ int ScenePage::drawScrapbook(int alpha, bool drawIt, int clickX, int clickY, std
     // The page shown (0x41e860) or clicked (0x41e940). Text from (x + 50,
     // y + 60), font 4 (journal text), colour 13, rows 5 apart, a new page
     // where a row would end past y 525.
-    const int wx = (kScreenW - picture("inventory/interface/windowscrapbook.png").w) / 2, left = wx + 50,
-              top = kTop + 60, right = wx + 460;
+    const int wx = (kScreenW - picture("inventory/interface/windowscrapbook.png").w) / 2;
+    const int left = wx + 50;
+    const int top = kTop + 60;
+    const int right = wx + 460;
     const std::vector<ScrapRow> rows = scrapRows();
     auto holds = [&](const std::string &c) { return testCondition(c, state_); };
     const int shownPage = ui_.at[ui_.level];
-    int page = 0, y = top;
+    int page = 0;
+    int y = top;
     auto place = [&](int h) {
         if (y + h >= 525)
             y = top, page++;
@@ -1375,7 +1399,8 @@ int ScenePage::drawScrapbook(int alpha, bool drawIt, int clickX, int clickY, std
         for (size_t i = 0; i < rows.size(); i++) {
             if (!holds(rows[i].condition))
                 continue;
-            int w, h;
+            int w;
+            int h;
             lineSize(rows[i].heading, w, h);
             place(h);
             if (page == shownPage) {
@@ -1395,7 +1420,8 @@ int ScenePage::drawScrapbook(int alpha, bool drawIt, int clickX, int clickY, std
             if (!holds(r.condition) || std::find(seen.begin(), seen.end(), r.heading) != seen.end())
                 continue;
             seen.push_back(r.heading);
-            int w, h;
+            int w;
+            int h;
             lineSize(r.heading, w, h);
             place(h);
             if (page == shownPage) {
@@ -1420,7 +1446,8 @@ int ScenePage::drawScrapbook(int alpha, bool drawIt, int clickX, int clickY, std
         // A clipping on the newspaper (0x41f8d0, 0x41fbc0): the date, the
         // headline, the sub-headline, the photograph, its caption.
         const image::Image &paper = picture("inventory/scrapbook/newspaperbase.png");
-        const int nx = wx + 41, ny = kTop + 56;
+        const int nx = wx + 41;
+        const int ny = kTop + 56;
         std::vector<std::string> parts;
         for (const ScrapRow &r : rows)
             if (r.heading == ui_.entry && parts.size() < 5)
@@ -1445,14 +1472,16 @@ int ScenePage::drawScrapbook(int alpha, bool drawIt, int clickX, int clickY, std
         if (ui_.section == 3) {
             for (const ScrapRow &r : rows)
                 if (r.heading == ui_.entry) {
-                    int w, h;
+                    int w;
+                    int h;
                     lineSize(r.entry, w, h);
                     column = std::max(column, w + 25);
                 }
         } else if (ui_.section == 4) {
             for (const ScrapRow &r : rows)
                 if (holds(r.condition)) {
-                    int w, h;
+                    int w;
+                    int h;
                     lineSize(r.heading, w, h);
                     column = 2 * w;
                     break;
@@ -1466,7 +1495,8 @@ int ScenePage::drawScrapbook(int alpha, bool drawIt, int clickX, int clickY, std
             place(h);
             if (page == shownPage && drawIt) {
                 if (ui_.section == 3 || ui_.section == 4) {
-                    int w, lh;
+                    int w;
+                    int lh;
                     lineSize(ui_.section == 3 ? r.entry : r.heading, w, lh);
                     uiText(4, 13, left, y, left + 2000, y + lh, 0, ui_.section == 3 ? r.entry : r.heading, alpha);
                 }
@@ -1483,10 +1513,13 @@ int ScenePage::drawScrapbook(int alpha, bool drawIt, int clickX, int clickY, std
         ui_.at[ui_.level] = pages - 1;
     // The arrows: back while there's a page or a level to go back to,
     // on while there's a page after (0x41f100, 0x41f0b0).
-    const bool back = ui_.section > 0 || ui_.at[ui_.level] > 0, on = ui_.at[ui_.level] < pages - 1;
+    const bool back = ui_.section > 0 || ui_.at[ui_.level] > 0;
+    const bool on = ui_.at[ui_.level] < pages - 1;
     const image::Image &backArrow = picture("inventory/interface/scraparrowbackward.png");
     const image::Image &onArrow = picture("inventory/interface/scraparrowforward.png");
-    const int ax = wx + 41, ox = wx + 440, ay = kTop + 520;
+    const int ax = wx + 41;
+    const int ox = wx + 440;
+    const int ay = kTop + 520;
     if (drawIt) {
         if (back)
             blend(ctx_.screen, backArrow, ax, ay, alpha);
@@ -1589,7 +1622,8 @@ ScenePage::HandInput ScenePage::handStep(HandGoal &goal) {
         // game's pick finds it.
         if (ui_.open || !state_.held.empty())
             return rightClick(lastMouseX_, lastMouseY_);
-        int x, y;
+        int x;
+        int y;
         if (!pointFor(goal.target, x, y)) {
             goal.failed = true;
             return none();
@@ -1610,7 +1644,8 @@ ScenePage::HandInput ScenePage::handStep(HandGoal &goal) {
         }
         if (ui_.open)
             return rightClick(lastMouseX_, lastMouseY_); // put away, the item kept in hand
-        int x, y;
+        int x;
+        int y;
         if (!pointFor(goal.target, x, y, item)) {
             goal.failed = true;
             return none();
@@ -1643,7 +1678,8 @@ ScenePage::HandInput ScenePage::handStep(HandGoal &goal) {
         // and the last result's box, emptied by their Xs (the gears won't
         // turn with the result's box full: 0x418af0).
         std::vector<std::string> missing = goal.items;
-        int stray = -1, empty = -1;
+        int stray = -1;
+        int empty = -1;
         for (int i = 0; i < 4; i++) {
             const auto it = std::find(missing.begin(), missing.end(), ui_.boxes[i]);
             if (ui_.boxes[i].empty())

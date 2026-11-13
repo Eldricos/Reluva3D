@@ -135,7 +135,8 @@ void MapViewer::load(int index) {
             const int32_t *idx = &bsp_.indices[size_t(s.firstIndex)];
             for (int t = 0; t + 2 < s.numIndices; t += 3)
                 for (int k = 0; k < 3; ++k) {
-                    int a = idx[t + k], b = idx[t + (k + 1) % 3];
+                    int a = idx[t + k];
+                    int b = idx[t + (k + 1) % 3];
                     if (a > b)
                         std::swap(a, b);
                     if (seen.insert({a, b}).second)
@@ -143,7 +144,8 @@ void MapViewer::load(int index) {
                 }
         } else if (s.type == SurfaceType::Patch) {
             const Color c{255, 170, 60};
-            const int w = s.patchWidth, h = s.patchHeight;
+            const int w = s.patchWidth;
+            const int h = s.patchHeight;
             for (int y = 0; y < h; ++y)
                 for (int x = 0; x < w; ++x) {
                     if (x + 1 < w)
@@ -188,7 +190,8 @@ void MapViewer::handleEvent(const Event &ev) {
         const bool shift = ev.mods & keymod::Shift;
         // Moves along the ground, relative to where the camera looks.
         const float step = distance_ * 0.05f;
-        const Vec3 fwd{-std::cos(yaw_), -std::sin(yaw_), 0}, side{std::sin(yaw_), -std::cos(yaw_), 0};
+        const Vec3 fwd{-std::cos(yaw_), -std::sin(yaw_), 0};
+        const Vec3 side{std::sin(yaw_), -std::cos(yaw_), 0};
         auto move = [&](const Vec3 &dir, float amount) {
             for (int i = 0; i < 3; ++i)
                 target_[size_t(i)] += dir[size_t(i)] * amount;
@@ -273,7 +276,8 @@ void MapViewer::render() {
 }
 
 void MapViewer::drawLine3d(const Vec3 &a, const Vec3 &b, Color c) {
-    const Vec3 ra = sub(a, cam_.pos), rb = sub(b, cam_.pos);
+    const Vec3 ra = sub(a, cam_.pos);
+    const Vec3 rb = sub(b, cam_.pos);
     Vec3 pa{dot(ra, cam_.right), dot(ra, cam_.up), dot(ra, cam_.forward)};
     Vec3 pb{dot(rb, cam_.right), dot(rb, cam_.up), dot(rb, cam_.forward)};
     // Clip against the near plane.
@@ -291,8 +295,10 @@ void MapViewer::drawLine3d(const Vec3 &a, const Vec3 &b, Color c) {
 void MapViewer::drawLine2d(float x0, float y0, float x1, float y1, Color c) {
     Surface &s = ctx_.screen;
     // Liang-Barsky clip to the screen, then step one pixel at a time.
-    float t0 = 0, t1 = 1;
-    const float dx = x1 - x0, dy = y1 - y0;
+    float t0 = 0;
+    float t1 = 1;
+    const float dx = x1 - x0;
+    const float dy = y1 - y0;
     const float p[4] = {-dx, dx, -dy, dy};
     const float q[4] = {x0, float(s.w - 1) - x0, y0, float(s.h - 1) - y0};
     for (int i = 0; i < 4; ++i) {
@@ -309,8 +315,10 @@ void MapViewer::drawLine2d(float x0, float y0, float x1, float y1, Color c) {
     }
     if (t0 > t1)
         return;
-    const float sx = x0 + dx * t0, sy = y0 + dy * t0;
-    const float ex = x0 + dx * t1, ey = y0 + dy * t1;
+    const float sx = x0 + dx * t0;
+    const float sy = y0 + dy * t0;
+    const float ex = x0 + dx * t1;
+    const float ey = y0 + dy * t1;
     const int steps = std::max(1, int(std::max(std::fabs(ex - sx), std::fabs(ey - sy))));
     for (int i = 0; i <= steps; ++i) {
         const int x = int(sx + (ex - sx) * float(i) / float(steps) + 0.5f);

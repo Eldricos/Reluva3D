@@ -79,7 +79,8 @@ Error inflateZlib(const uint8_t *data, size_t dataSize, size_t size, std::vector
         return Error::fail("Not a zlib stream");
     if (Error err = inflateRaw(data + 2, dataSize - 2, size, out))
         return err;
-    uint32_t a = 1, b = 0;
+    uint32_t a = 1;
+    uint32_t b = 0;
     for (uint8_t v : out) {
         a = (a + v) % 65521;
         b = (b + a) % 65521;
@@ -139,7 +140,9 @@ Error ZipArchive::open(const std::filesystem::path &path) {
             return Error::fail(where + ": damaged central directory");
         const uint8_t *h = &dir[at];
         const uint16_t flags = le16(h + 8);
-        const size_t nameLen = le16(h + 28), extraLen = le16(h + 30), commentLen = le16(h + 32);
+        const size_t nameLen = le16(h + 28);
+        const size_t extraLen = le16(h + 30);
+        const size_t commentLen = le16(h + 32);
         if (at + kCentralSize + nameLen + extraLen + commentLen > dir.size())
             return Error::fail(where + ": damaged central directory");
         Entry e;

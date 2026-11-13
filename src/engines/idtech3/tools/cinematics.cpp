@@ -39,7 +39,8 @@ int cmdBinkDecode(int argc, char **argv) {
     const bool folder = std::filesystem::is_directory(argv[2]);
     const int first = folder && argc >= 4 && argv[3][0] != '-' ? 4 : 3;
     int frames = -1;
-    std::string yuvPath, pcmPath;
+    std::string yuvPath;
+    std::string pcmPath;
     for (int i = first; i < argc; ++i) {
         if (std::strcmp(argv[i], "-frames") == 0 && i + 1 < argc)
             frames = std::atoi(argv[++i]);
@@ -110,7 +111,8 @@ int cmdBinkDecode(int argc, char **argv) {
         // The newest frame's planes (after the swap, the "old" ones).
         reluva::bink::Movie &m = movie;
         for (int p = 0; p < 3; ++p) {
-            const int w = p ? (m.width() + 1) / 2 : m.width(), h = p ? (m.height() + 1) / 2 : m.height();
+            const int w = p ? (m.width() + 1) / 2 : m.width();
+            const int h = p ? (m.height() + 1) / 2 : m.height();
             std::vector<uint8_t> rgbaUnused;
             const auto &plane = m.decodedPlane(p);
             for (int y = 0; y < h; ++y)

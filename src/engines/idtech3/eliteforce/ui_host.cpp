@@ -109,7 +109,8 @@ Error UiHost::load() {
     // (efq3.key). Reluva shows them anyway unless reluva_modeButtons is 0:
     // the modes are in the 1.2 game code, which is all they need.
     {
-        std::vector<uint8_t> expansion, base;
+        std::vector<uint8_t> expansion;
+        std::vector<uint8_t> base;
         const bool hasExpansionKey = !files_.read("expefq3.key", expansion) && !expansion.empty() &&
                                      (files_.read("efq3.key", base) || base != expansion);
         cvars_.create("reluva_modeButtons", "1", CvarStore::Archive);

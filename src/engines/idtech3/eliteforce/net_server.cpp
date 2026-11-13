@@ -166,7 +166,10 @@ void NetServer::levelStarted() {
         for (const std::string &name : game_.filesRead())
             if (referencesPak(name))
                 note(name);
-        std::string sums, names, allSums, allNames;
+        std::string sums;
+        std::string names;
+        std::string allSums;
+        std::string allNames;
         referencedNames_.clear();
         for (const Archive *a : files_->archives()) {
             const auto *pak = dynamic_cast<const ZipArchive *>(a);
@@ -254,7 +257,8 @@ std::string NetServer::infoString(const std::string &challenge) const {
     // What the server list shows (docs/engines/idtech3/games/stvef/systems/network.md): Elite Force's
     // servers send it quoted on one line.
     const int maxClients = std::clamp(cvars_.integer("sv_maxclients"), 1, 64);
-    int clients = 0, humans = 0;
+    int clients = 0;
+    int humans = 0;
     for (int32_t n = 0; n < maxClients; ++n)
         if (!game_.clientSlotFree(n)) {
             ++clients;

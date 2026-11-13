@@ -139,8 +139,10 @@ void Qvm::findJumpTables() {
     for (size_t i = 0; i + 3 < code_.size(); ++i) {
         if (code_[i].op != Const || code_[i + 1].op != Add || code_[i + 2].op != Load4 || code_[i + 3].op != Jump)
             continue;
-        int64_t lo = 0, hi = -1;
-        bool haveLo = false, haveHi = false;
+        int64_t lo = 0;
+        int64_t hi = -1;
+        bool haveLo = false;
+        bool haveHi = false;
         for (size_t j = i > 16 ? i - 16 : 0; j < i; ++j) {
             if (code_[j].op == Const && j + 1 < i && code_[j + 1].op == Lti) {
                 lo = code_[j].operand;
@@ -195,9 +197,13 @@ Error Qvm::load(const std::vector<uint8_t> &file) {
     const int32_t magic = le32(&file[0]);
     if (magic != kMagic && magic != kMagic2)
         return Error::fail("Not a QVM (wrong magic number)");
-    const int32_t count = le32(&file[4]), codeOffset = le32(&file[8]), codeLength = le32(&file[12]);
-    const int32_t dataOffset = le32(&file[16]), dataLength = le32(&file[20]), litLength = le32(&file[24]),
-                  bssLength = le32(&file[28]);
+    const int32_t count = le32(&file[4]);
+    const int32_t codeOffset = le32(&file[8]);
+    const int32_t codeLength = le32(&file[12]);
+    const int32_t dataOffset = le32(&file[16]);
+    const int32_t dataLength = le32(&file[20]);
+    const int32_t litLength = le32(&file[24]);
+    const int32_t bssLength = le32(&file[28]);
     auto inFile = [&](int64_t offset, int64_t size) {
         return offset >= 0 && size >= 0 && uint64_t(offset + size) <= file.size();
     };
@@ -336,7 +342,8 @@ Error Qvm::run(int32_t &result, int32_t entry) {
         auto branch = [&](auto f) -> bool {
             if (!need(2))
                 return false;
-            const int32_t b = stack[size_t(top--)], a = stack[size_t(top--)];
+            const int32_t b = stack[size_t(top--)];
+            const int32_t a = stack[size_t(top--)];
             if (f(a, b))
                 pc = in.operand;
             return true;
@@ -498,7 +505,8 @@ Error Qvm::run(int32_t &result, int32_t entry) {
         case Store4: {
             if (!need(2))
                 return fail(at, "operand stack underflow");
-            const int32_t value = stack[size_t(top--)], address = stack[size_t(top--)];
+            const int32_t value = stack[size_t(top--)];
+            const int32_t address = stack[size_t(top--)];
             const int size = in.op == Store1 ? 1 : in.op == Store2 ? 2 : 4;
             if (!valid(address, size))
                 return fail(at, "writes outside memory at " + std::to_string(address));
@@ -528,7 +536,8 @@ Error Qvm::run(int32_t &result, int32_t entry) {
         case BlockCopy: {
             if (!need(2))
                 return fail(at, "operand stack underflow");
-            const int32_t src = stack[size_t(top--)], dest = stack[size_t(top--)];
+            const int32_t src = stack[size_t(top--)];
+            const int32_t dest = stack[size_t(top--)];
             if (!valid(src, in.operand) || !valid(dest, in.operand))
                 return fail(at, "copies outside memory");
             if (protectedOverlap(dest, in.operand))

@@ -258,7 +258,8 @@ textures/sky/stars
     CHECK(parseShaderFile("nobrace map", "x.shader", defs));
 
     ShaderLibrary lib;
-    ShaderDef first, second;
+    ShaderDef first;
+    ShaderDef second;
     first.name = "Textures/A";
     first.file = "first.shader";
     second.name = "textures/a";
@@ -332,7 +333,8 @@ static void testPatch() {
     const BspVertex &mid = verts[1 + 12];
     CHECK(std::fabs(mid.pos[0] - 8) < 1e-5f && std::fabs(mid.pos[2] - 1) < 1e-5f);
     CHECK(std::fabs(mid.st[0] - 0.5f) < 1e-5f && mid.color[0] == 200 && std::fabs(mid.normal[2] - 1) < 1e-5f);
-    bool inRange = true, clockwise = true;
+    bool inRange = true;
+    bool clockwise = true;
     for (size_t i = 0; i + 2 < idx.size(); i += 3) {
         for (int k = 0; k < 3; ++k)
             inRange = inRange && idx[i + k] >= 1 && idx[i + k] < verts.size();
@@ -356,7 +358,8 @@ static void testPatch() {
     const auto &c = down[downIdx[2]].pos;
     CHECK((b[0] - a[0]) * (c[1] - a[1]) - (b[1] - a[1]) * (c[0] - a[0]) > 0);
     // Two blocks side by side share their edge: 5x3 control points.
-    std::vector<BspVertex> wide(15, control[0]), out;
+    std::vector<BspVertex> wide(15, control[0]);
+    std::vector<BspVertex> out;
     std::vector<uint32_t> outIdx;
     tessellatePatch(wide.data(), 5, 3, 2, out, outIdx);
     CHECK(out.size() == 5 * 3 && outIdx.size() == 4 * 2 * 6);
@@ -497,7 +500,8 @@ static std::vector<uint8_t> buildMdr(bool packed) {
     const Bone turned{0, -1, 0, 10, 1, 0, 0, 0, 0, 0, 1, 0};
     const std::array<std::array<Bone, 2>, 2> frames{{{still, moved}, {still, turned}}};
     const size_t frameSize = packed ? 40 + 2 * 24 : 56 + 2 * 48;
-    const int32_t framesAt = 104, lodAt = framesAt + 2 * int32_t(frameSize);
+    const int32_t framesAt = 104;
+    const int32_t lodAt = framesAt + 2 * int32_t(frameSize);
     // One vertex: normal, st, one or two weights.
     const size_t surfaceSize = 168 + (24 + 2 * 20) + 2 * (24 + 20) + 12;
     const int32_t tagsAt = lodAt + 12 + int32_t(surfaceSize);
@@ -596,7 +600,8 @@ static void testPatchGrids() {
     // left one bends along y, so it's cut into rows; the right one is flat,
     // two rows. Stitched, the right one gets the left one's points on the
     // shared edge.
-    BspVertex left[9], right[9];
+    BspVertex left[9];
+    BspVertex right[9];
     for (int i = 0; i < 9; ++i) {
         left[i].pos = {float(i % 3) * 64, float(i / 3) * 64, 0};
         right[i].pos = {128 + float(i % 3) * 64, float(i / 3) * 64, 0};
@@ -635,7 +640,8 @@ static void testPlayerAnimation() {
     // Legs moved back by 138 - 95 into the legs model.
     CHECK(anims[3].part == PlayerAnimation::Part::Legs && anims[3].first == 95);
     CHECK(anims[4].name == "LEGS_IDLE" && anims[4].first == 165 && anims[4].loop == 10 && anims[4].fps == 15);
-    int frame = 0, next = 0;
+    int frame = 0;
+    int next = 0;
     float f = 0;
     anims[4].frameAt(0.5f / 15, frame, next, f); // halfway through the first frame
     CHECK(frame == 165 && next == 166 && std::fabs(f - 0.5f) < 1e-4f);

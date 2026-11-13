@@ -17,7 +17,9 @@ using namespace reluva::stgenerations;
 // formats the game uses).
 static void pixelformat_conversion() {
     CHECK_EQUAL(argb(0x12, 0x34, 0x56), 0xFF123456u);
-    uint8_t r, g, b;
+    uint8_t r;
+    uint8_t g;
+    uint8_t b;
     argbToRgb(0xFF123456u, r, g, b);
     CHECK(r == 0x12 && g == 0x34 && b == 0x56);
     Canvas c;
@@ -61,7 +63,9 @@ static void palette_helpers() {
     uint8_t vga[768] = {};
     vga[9] = 63, vga[10] = 0, vga[11] = 32;
     pal.loadVga(vga);
-    uint8_t r, g, b;
+    uint8_t r;
+    uint8_t g;
+    uint8_t b;
     pal.getColor(3, r, g, b);
     CHECK_EQUAL(r, 255);
     CHECK_EQUAL(g, 0);
@@ -82,7 +86,9 @@ static void bmp_uncompressed_8bit() {
     CHECK_EQUAL(surf.getPixel(1, 0), 1u);
     CHECK_EQUAL(surf.getPixel(0, 1), 1u);
     CHECK_EQUAL(surf.getPixel(2, 1), 0u);
-    uint8_t r, g, b;
+    uint8_t r;
+    uint8_t g;
+    uint8_t b;
     decoder.getPalette().getColor(1, r, g, b);
     CHECK_EQUAL(r, 255);
     CHECK_EQUAL(g, 128);

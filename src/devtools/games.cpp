@@ -40,7 +40,8 @@ int cmdImport(int argc, char **argv) {
         std::fprintf(stderr, "usage: reluva-tool import <source folder> [destination folder] [-patch file]...\n");
         return 1;
     }
-    std::vector<std::string> patches, positional;
+    std::vector<std::string> patches;
+    std::vector<std::string> positional;
     for (int i = 3; i < argc; ++i) {
         if (std::strcmp(argv[i], "-patch") == 0 && i + 1 < argc)
             patches.emplace_back(argv[++i]);

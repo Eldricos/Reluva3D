@@ -537,9 +537,11 @@ std::pair<int, int> GameHost::svFlagsEvidence() {
     // svFlags holds small flag bits (Quake III's SVF_NOCLIENT is 1, for
     // triggers and other entities the client never sees); the other word
     // (linkcount or singleClient, never written by Reluva) stays 0.
-    int at208 = 0, at212 = 0;
+    int at208 = 0;
+    int at212 = 0;
     for (int32_t n : serverWorld_.linked()) {
-        const int32_t v208 = entityInt(n, 208), v212 = entityInt(n, 212);
+        const int32_t v208 = entityInt(n, 208);
+        const int32_t v212 = entityInt(n, 212);
         at208 += v208 > 0 && v208 < 0x10000;
         at212 += v212 > 0 && v212 < 0x10000;
     }
@@ -609,7 +611,8 @@ void GameHost::linkEntity(int32_t address) {
         serverWorld_.linkUnplaced(n); // only recorded
         return;
     }
-    Vec3f absMin{}, absMax{};
+    Vec3f absMin{};
+    Vec3f absMax{};
     serverWorld_.link(n, shape, absMin, absMax);
     writeVec(address + layout_.absMin, absMin);
     writeVec(address + layout_.absMax, absMax);
@@ -724,7 +727,8 @@ void GameHost::clipMove(int32_t results, const Vec3f &start, const Vec3f &mins, 
     writeVec(results + 12, best.endPos);
     writeVec(results + 24, best.normal);
     vm_.writeInt(results + 36, Qvm::fromFloat(best.dist));
-    int type = 3, signs = 0;
+    int type = 3;
+    int signs = 0;
     for (int i = 0; i < 3; ++i) {
         if (best.normal[size_t(i)] == 1 || best.normal[size_t(i)] == -1)
             type = i;
@@ -865,7 +869,8 @@ int32_t GameHost::systemCall(Qvm &vm, int number, const int32_t *a) {
             return 0;
         }
         const int model = std::atoi(name.c_str() + 1);
-        Vec3f mins{}, maxs{};
+        Vec3f mins{};
+        Vec3f maxs{};
         if (!world_ || model <= 0 || !world_->modelBounds(model, mins, maxs)) {
             vm.abort("SetBrushModel: the map has no model " + name);
             return 0;
@@ -892,7 +897,8 @@ int32_t GameHost::systemCall(Qvm &vm, int number, const int32_t *a) {
     case InPvsIgnorePortals: {
         if (!world_)
             return 1;
-        const int l1 = world_->leafAt(readVec(a[0])), l2 = world_->leafAt(readVec(a[1]));
+        const int l1 = world_->leafAt(readVec(a[0]));
+        const int l2 = world_->leafAt(readVec(a[1]));
         if (l1 < 0 || l2 < 0)
             return 0;
         if (!map_->clusterVisible(map_->leafs[size_t(l1)].cluster, map_->leafs[size_t(l2)].cluster))
@@ -913,7 +919,8 @@ int32_t GameHost::systemCall(Qvm &vm, int number, const int32_t *a) {
     case AreasConnected:
         return areasConnected(a[0], a[1]);
     case EntitiesInBox: { // (mins, maxs, list, max) -> how many
-        const Vec3f mins = readVec(a[0]), maxs = readVec(a[1]);
+        const Vec3f mins = readVec(a[0]);
+        const Vec3f maxs = readVec(a[1]);
         std::vector<int32_t> found;
         serverWorld_.entitiesInBox(mins, maxs, found);
         int32_t count = 0;
@@ -925,7 +932,8 @@ int32_t GameHost::systemCall(Qvm &vm, int number, const int32_t *a) {
         return count;
     }
     case EntityContact: { // (mins, maxs, ent): whether the box touches it
-        const Vec3f mins = readVec(a[0]), maxs = readVec(a[1]);
+        const Vec3f mins = readVec(a[0]);
+        const Vec3f maxs = readVec(a[1]);
         const int32_t n = entityNumber(a[2]);
         if (n < 0)
             return 0;
@@ -938,7 +946,8 @@ int32_t GameHost::systemCall(Qvm &vm, int number, const int32_t *a) {
                                    entityVec(n, layout_.currentAngles))
                 .startSolid;
         }
-        const Vec3f absMin = entityVec(n, layout_.absMin), absMax = entityVec(n, layout_.absMax);
+        const Vec3f absMin = entityVec(n, layout_.absMin);
+        const Vec3f absMax = entityVec(n, layout_.absMax);
         for (int i = 0; i < 3; ++i)
             if (absMin[size_t(i)] > maxs[size_t(i)] || absMax[size_t(i)] < mins[size_t(i)])
                 return 0;

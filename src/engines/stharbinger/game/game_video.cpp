@@ -419,7 +419,8 @@ void Game::drawCursor(Surface &dst) {
     for (int r = 0; r < c.h; r++) {
         for (int col = 0; col < c.w; col++) {
             uint8_t p = c.pixels[size_t(r) * c.w + col];
-            int px = x + col, py = y + r;
+            int px = x + col;
+            int py = y + r;
             if (p != c.transparent && px >= 0 && py >= 0 && px < dst.w && py < dst.h)
                 *draw::at(dst, px, py) = p;
         }

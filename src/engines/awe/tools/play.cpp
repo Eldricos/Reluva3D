@@ -233,7 +233,8 @@ public:
     // limit.
     bool settle() {
         const uint64_t start = sys_.now;
-        uint64_t quietSince = 0, eventSince = sys_.now;
+        uint64_t quietSince = 0;
+        uint64_t eventSince = sys_.now;
         std::string lastEvent;
         size_t lastLog = log_.size();
         while (sys_.now - start < uint64_t(limit_ * 1000)) {
@@ -261,7 +262,8 @@ public:
                     const std::string id = names[i] + "#" + std::to_string(seen[names[i]]++);
                     if (id == then_) {
                         then_.clear();
-                        int x, y;
+                        int x;
+                        int y;
                         if (hand && page_->pointFor(i, x, y))
                             deliver({ScenePage::HandInput::Kind::Click, x, y, 0});
                         else
@@ -316,7 +318,8 @@ public:
             // With -mouse, only what the game's pick finds somewhere (an
             // act's door over its base's hides the base's), with the item
             // in hand for a use (Antoinette in the forest, by her bones).
-            int x, y;
+            int x;
+            int y;
             if (p.clickRuns(i) && (!mouse || p.pointFor(i, x, y, std::string())))
                 out.push_back(a);
             // (The items the cursor shows it would take: the others are
@@ -399,7 +402,8 @@ public:
                     index = i;
                     break;
                 }
-            int x = 0, y = 0;
+            int x = 0;
+            int y = 0;
             if (index < 0) {
                 ok = false, problem = "no " + a.target + " to click in " + p.status().scene;
             } else if (mouse && p.pointFor(size_t(index), x, y, a.kind == "use" ? a.item : std::string())) {
@@ -703,7 +707,8 @@ int progressOf(const std::set<std::string> &f) {
 }
 
 int actRank(const std::string &act) {
-    int major = 0, minor = 0;
+    int major = 0;
+    int minor = 0;
     return parseActName(act, major, minor) ? major * 10 + minor : 0;
 }
 
@@ -900,21 +905,31 @@ int aweCommandSolve(int argc, char **argv) {
         std::fprintf(stderr, "%s\n", e.message.c_str());
         return 1;
     }
-    std::string solveTo, playFile, fromFile, goal;
-    int budget = 1000000, levelBudget = 5000;
+    std::string solveTo;
+    std::string playFile;
+    std::string fromFile;
+    std::string goal;
+    int budget = 1000000;
+    int levelBudget = 5000;
     bool climb = true;
     double limit = 900;
     bool reloadEach = false;
     Wander wanderer;
-    bool verbose = false, list = false, reload = false, mouse = false, hand = false, threeD = false, characters = false;
+    bool verbose = false;
+    bool list = false;
+    bool reload = false;
+    bool mouse = false;
+    bool hand = false;
+    bool threeD = false;
+    bool characters = false;
     bool draw = false;
     bool sound = false;
     std::string wavFile;
     std::map<size_t, std::string> shots;
     std::string shotsDir; // -shots: a frame before every action
-    std::map<std::pair<size_t, size_t>, std::string> choiceShots,
-        lineShots;             // -shot: before which action or choice, to which file
-    size_t logFrom = SIZE_MAX; // -log n: the script log from the n-th action on
+    std::map<std::pair<size_t, size_t>, std::string> choiceShots;
+    std::map<std::pair<size_t, size_t>, std::string> lineShots; // -shot: before which action or choice, to which file
+    size_t logFrom = SIZE_MAX;                                  // -log n: the script log from the n-th action on
     for (int i = 3; i < argc; i++) {
         const std::string a = argv[i];
         if (a == "-solve" && i + 1 < argc)
@@ -1128,7 +1143,10 @@ int aweCommandSolve(int argc, char **argv) {
         return a.progress != b.progress ? a.progress < b.progress : a.depth > b.depth;
     };
     std::priority_queue<Node, std::vector<Node>, decltype(cmp)> frontier(cmp);
-    std::set<std::string> seenKeys, seenFeatures, triedOnce, seenHere;
+    std::set<std::string> seenKeys;
+    std::set<std::string> seenFeatures;
+    std::set<std::string> triedOnce;
+    std::set<std::string> seenHere;
     std::map<std::string, std::map<std::string, bool>> deadRuns; // by scene and action
     Node best;
     // The climb: each state with something new to the act's story (a story
@@ -1159,7 +1177,8 @@ int aweCommandSolve(int argc, char **argv) {
     auto storyOf = [&](const std::string &x) {
         if (!storyTag(x))
             return x;
-        const size_t name = x.find(' ') + 1, value = x.find(' ', name);
+        const size_t name = x.find(' ') + 1;
+        const size_t value = x.find(' ', name);
         const auto it = valued.find(x.substr(name, value - name));
         if (it == valued.end())
             return x.substr(0, value);
@@ -1180,7 +1199,8 @@ int aweCommandSolve(int argc, char **argv) {
         }
     };
     std::vector<uint8_t> rootSave;
-    int rootProgress = 0, levelExpansions = 0;
+    int rootProgress = 0;
+    int levelExpansions = 0;
     auto reset = [&]() {
         frontier = decltype(frontier)(cmp);
         seenKeys.clear();
@@ -1212,8 +1232,12 @@ int aweCommandSolve(int argc, char **argv) {
     };
     reset();
     const auto began = std::chrono::steady_clock::now();
-    int expansions = 0, runs = 0, skipped = 0, deadCount = 0;
-    double restoreTime = 0, actTime = 0;
+    int expansions = 0;
+    int runs = 0;
+    int skipped = 0;
+    int deadCount = 0;
+    double restoreTime = 0;
+    double actTime = 0;
     while (expansions < budget) {
         if ((frontier.empty() || (climb && levelExpansions >= levelBudget)) && !levels.empty()) {
             // A dead end: back to the root before.
@@ -1251,7 +1275,8 @@ int aweCommandSolve(int argc, char **argv) {
                 story += f + "\n";
         const std::string here = player.page().status().scene;
         const std::string car = here.substr(0, here.find_first_of("_."));
-        bool fresh = true, advanced = false;
+        bool fresh = true;
+        bool advanced = false;
         for (size_t k = 0; k < todo.size() && !advanced; k++) {
             Action a = todo[k];
             if (a.kind == "flip" || a.kind == "combine" || a.kind == "decombine" || a.kind == "compare" ||
@@ -1329,7 +1354,8 @@ int aweCommandSolve(int argc, char **argv) {
             const std::string key = joinFeatures(f);
             if (verbose && key != node.key) {
                 // What it changed.
-                const std::vector<std::string> before = split(node.key, '\n'), after = split(key, '\n');
+                const std::vector<std::string> before = split(node.key, '\n');
+                const std::vector<std::string> after = split(key, '\n');
                 std::string d;
                 for (const std::string &x : before)
                     if (std::find(after.begin(), after.end(), x) == after.end())

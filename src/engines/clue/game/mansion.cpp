@@ -102,7 +102,8 @@ bool onBox(const WorldBox &box, int x, int y) {
     std::vector<std::array<long, 2>> p;
     const int z0 = box.z + box.zOff;
     for (int c = 0; c < 8; ++c) {
-        const int wx = box.x + (c & 1 ? box.sizeX : 0), wy = box.y + (c & 2 ? box.sizeY : 0);
+        const int wx = box.x + (c & 1 ? box.sizeX : 0);
+        const int wy = box.y + (c & 2 ? box.sizeY : 0);
         const int wz = z0 + (c & 4 ? box.height : 0);
         p.push_back({wx - wy, floorDiv(wx + wy, 2) - wz});
     }
@@ -143,16 +144,19 @@ std::vector<size_t> exeDepthOrder(const std::vector<WorldBox> &boxes, const std:
     });
     // Screen rectangles touching count as overlapping (Clue.exe's <= and >=).
     const auto touch = [&](size_t a, size_t b) {
-        const ScreenRect &p = rects[a], &q = rects[b];
+        const ScreenRect &p = rects[a];
+        const ScreenRect &q = rects[b];
         return p.x + p.w >= q.x && p.y + p.h >= q.y && p.x <= q.x + q.w && p.y <= q.y + q.h;
     };
-    constexpr long kHead = -2, kUnset = -1;
+    constexpr long kHead = -2;
+    constexpr long kUnset = -1;
     std::vector<long> lastPrev(n, kUnset); // the guard: where each was moved from
     for (int pass = 0; pass < maxPasses; ++pass) {
         bool moved = false;
         for (size_t i = 0; i < list.size(); ++i) {
             for (size_t j = i + 1; j < list.size(); ++j) {
-                const size_t a = list[i], b = list[j];
+                const size_t a = list[i];
+                const size_t b = list[j];
                 if (!touch(a, b) || !behind(boxes[b], boxes[a]))
                     continue;
                 const long prevA = i == 0 ? kHead : long(list[i - 1]);
@@ -179,7 +183,8 @@ const std::vector<Mansion::Frame> *Mansion::resolve(const GameData &data, const 
     std::vector<Frame> frames(anim.frameCount());
     for (size_t f = 0; f < anim.frameCount(); ++f) {
         // Animations without an ISOA block stand centred on their anchor.
-        int ax = -anim.width / 2, ay = -anim.height;
+        int ax = -anim.width / 2;
+        int ay = -anim.height;
         if (anim.isometric) {
             ax = anim.frames[f].anchorX;
             ay = anim.frames[f].anchorY;
@@ -262,10 +267,14 @@ Error Mansion::build(const GameData &data, const Level &level) {
         item.anchorY = floorDiv(pl.x + pl.y, 2) - item.box.z;
         // The rectangle every frame's pieces fall in.
         bool any = false;
-        int x0 = 0, y0 = 0, x1 = 0, y1 = 0;
+        int x0 = 0;
+        int y0 = 0;
+        int x1 = 0;
+        int y1 = 0;
         for (const Frame &frame : *item.frames)
             for (const Piece &p : frame) {
-                const int px = item.anchorX + p.dx, py = item.anchorY + p.dy;
+                const int px = item.anchorX + p.dx;
+                const int py = item.anchorY + p.dy;
                 x0 = any ? std::min(x0, px) : px;
                 y0 = any ? std::min(y0, py) : py;
                 x1 = any ? std::max(x1, px + p.image->pixels.w) : px + p.image->pixels.w;
@@ -281,7 +290,8 @@ Error Mansion::build(const GameData &data, const Level &level) {
     // Flat things first: the black outside (layer 6), under the floors'
     // front edges, then the floors by layer, each from the back. Then the
     // rest, sorted by their boxes.
-    std::vector<size_t> flat, solid;
+    std::vector<size_t> flat;
+    std::vector<size_t> solid;
     for (size_t i = 0; i < items_.size(); ++i)
         (items_[i].flat ? flat : solid).push_back(i);
     const auto flatRank = [](int layer) { return layer == 6 ? -1 : layer; };
@@ -376,7 +386,8 @@ uint8_t shade(uint8_t c8, int level) {
 }
 
 int lightShade(int lx, int ly, int x, int y) {
-    const int dx = std::abs(lx - x), dy = std::abs(ly - y);
+    const int dx = std::abs(lx - x);
+    const int dy = std::abs(ly - y);
     const int d = dx > dy ? dx + dy / 2 : dy + dx / 2;
     const int step = std::clamp(d / 16 - 4, 0, 11);
     return step == 0 ? kShadeNone : 5 + step;
@@ -409,7 +420,8 @@ void blitShaded(Surface &dst, const image::Image &img, int x, int y, int level) 
             for (int c = 0; c < 3; ++c) {
                 int v;
                 if (level >= 2 && level <= 4) {
-                    const int s5 = s[c] >> 3, d5 = d[c] >> 3;
+                    const int s5 = s[c] >> 3;
+                    const int d5 = d[c] >> 3;
                     const int r = level == 2   ? (d5 >> 1) + (d5 >> 2) + (s5 >> 2)
                                   : level == 3 ? (s5 >> 1) + (d5 >> 1)
                                                : (s5 >> 1) + (s5 >> 2) + (d5 >> 2);
@@ -444,7 +456,8 @@ bool Mansion::playState(const GameData &data, size_t item, uint16_t state, uint6
         for (const Piece &piece : frame) {
             const ScreenRect r{it.anchorX + piece.dx, it.anchorY + piece.dy, piece.image->pixels.w,
                                piece.image->pixels.h};
-            const int x1 = std::max(it.rect.x + it.rect.w, r.x + r.w), y1 = std::max(it.rect.y + it.rect.h, r.y + r.h);
+            const int x1 = std::max(it.rect.x + it.rect.w, r.x + r.w);
+            const int y1 = std::max(it.rect.y + it.rect.h, r.y + r.h);
             it.rect.x = std::min(it.rect.x, r.x);
             it.rect.y = std::min(it.rect.y, r.y);
             it.rect.w = x1 - it.rect.x;
@@ -493,7 +506,8 @@ int Mansion::itemAt(int x, int y, const MansionLook &look, uint64_t nowMs) const
         size_t f = 0;
         const auto &frames = framesAt(i, nowMs, look, f);
         for (const Piece &p : frames[f]) {
-            const int px = x - item.anchorX - p.dx, py = y - item.anchorY - p.dy;
+            const int px = x - item.anchorX - p.dx;
+            const int py = y - item.anchorY - p.dy;
             if (px >= 0 && py >= 0 && px < p.image->pixels.w && py < p.image->pixels.h &&
                 p.image->pixels.pixel(px, py)[3] > 0)
                 return int(i);
@@ -521,7 +535,8 @@ bool Mansion::shown(const Item &item, const MansionLook &look) const {
 namespace {
 
 ScreenRect actorRect(const Mansion::Actor &a) {
-    const int ax = a.box.x - a.box.y, ay = floorDiv(a.box.x + a.box.y, 2);
+    const int ax = a.box.x - a.box.y;
+    const int ay = floorDiv(a.box.x + a.box.y, 2);
     ScreenRect r{ax, ay, 0, 0};
     bool any = false;
     for (const Mansion::Piece &p : *a.frame) {
@@ -529,7 +544,8 @@ ScreenRect actorRect(const Mansion::Actor &a) {
         if (!any)
             r = q;
         else {
-            const int x1 = std::max(r.x + r.w, q.x + q.w), y1 = std::max(r.y + r.h, q.y + q.h);
+            const int x1 = std::max(r.x + r.w, q.x + q.w);
+            const int y1 = std::max(r.y + r.h, q.y + q.h);
             r.x = std::min(r.x, q.x);
             r.y = std::min(r.y, q.y);
             r.w = x1 - r.x;
@@ -587,14 +603,16 @@ size_t Mansion::insertionPoint(const Actor &actor) const {
     // (of what it overlaps on screen); when the two can't both be had, the
     // things in front of it win.
     const ScreenRect rect = actorRect(actor);
-    size_t after = flatCount_, before = order_.size();
+    size_t after = flatCount_;
+    size_t before = order_.size();
     for (size_t n = flatCount_; n < order_.size(); ++n) {
         const Item &item = items_[order_[n]];
         if (!item.rect.overlaps(rect) || item.object->type == ObjectDef::Character)
             continue;
         // Clue.exe's test both ways; where it can't tell (or both hold),
         // its first order: by y, then x.
-        const bool itemBehind = behind(item.box, actor.box), actorBehind = behind(actor.box, item.box);
+        const bool itemBehind = behind(item.box, actor.box);
+        const bool actorBehind = behind(actor.box, item.box);
         int c = itemBehind && !actorBehind ? 1 : actorBehind && !itemBehind ? -1 : 0;
         if (c == 0)
             c = std::make_pair(actor.box.y, actor.box.x) < std::make_pair(item.worldY, item.worldX) ? -1 : 1;
@@ -669,10 +687,12 @@ void Mansion::draw(Surface &target, int camX, int camY, const MansionLook &look,
     const auto drawActors = [&](size_t upTo) {
         for (; next < placed.size() && placed[next].first <= upTo; ++next) {
             const Actor &a = *placed[next].second;
-            const int ax = a.box.x - a.box.y - camX, ay = floorDiv(a.box.x + a.box.y, 2) - camY;
+            const int ax = a.box.x - a.box.y - camX;
+            const int ay = floorDiv(a.box.x + a.box.y, 2) - camY;
             int level = kShadeNone;
             if (look.lighting) {
-                const int px = a.box.x + a.box.sizeX / 2, py = a.box.y + a.box.sizeY / 2;
+                const int px = a.box.x + a.box.sizeX / 2;
+                const int py = a.box.y + a.box.sizeY / 2;
                 level = lightFor(a.box.x, a.box.y, px, py, nullptr).at(px, py);
             }
             for (const Piece &p : *a.frame)
@@ -700,7 +720,8 @@ void Mansion::draw(Surface &target, int camX, int camY, const MansionLook &look,
         }
         if (item.layer == 4 && look.nearWalls == MansionLook::NearWalls::SeeThrough)
             seeThrough = true;
-        const int x0 = item.anchorX - camX, y0 = item.anchorY - camY;
+        const int x0 = item.anchorX - camX;
+        const int y0 = item.anchorY - camY;
         if (seeThrough || !look.lighting) {
             for (const Piece &p : frames[f])
                 blitShaded(target, p.image->pixels, x0 + p.dx, y0 + p.dy,
@@ -713,13 +734,17 @@ void Mansion::draw(Surface &target, int camX, int camY, const MansionLook &look,
         // Clue.exe measures it, 0x428980); lit walls a shade for each
         // 16-unit slice (0x42B5D0), lit floors of 4 x 4 tiles one a tile
         // (0x42AF70; lit floors of other sizes it doesn't draw).
-        const int wx = item.worldX, wy = item.worldY, sx = item.box.sizeX, sy = item.box.sizeY;
+        const int wx = item.worldX;
+        const int wy = item.worldY;
+        const int sx = item.box.sizeX;
+        const int sy = item.box.sizeY;
         const Lit lit = lightFor(wx, wy, wx + sx / 2, wy + sy / 2, &item);
         const bool sliced = lit.any && item.layers != 1;
         if (sliced && item.kind == 1 && item.layers != 16)
             continue;
         for (const Piece &p : frames[f]) {
-            int px = wx + sx / 2, py = wy + sy / 2;
+            int px = wx + sx / 2;
+            int py = wy + sy / 2;
             if (sliced && item.kind == 0) {
                 if (sx >= sy) {
                     px = wx + 16 * p.layer + 8;

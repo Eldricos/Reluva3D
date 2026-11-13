@@ -538,7 +538,8 @@ static void testNetMessages() {
     CHECK(scrambled != d && std::equal(d.begin(), d.begin() + 6, scrambled.begin()));
     reluva::idtech3::wire::Netchan::unscramble(scrambled);
     CHECK(scrambled == d);
-    reluva::idtech3::wire::Netchan client(true, 1234), server(false, 0);
+    reluva::idtech3::wire::Netchan client(true, 1234);
+    reluva::idtech3::wire::Netchan server(false, 0);
     std::vector<uint8_t> big(2700);
     for (size_t i = 0; i < big.size(); ++i)
         big[i] = uint8_t(i * 31);
@@ -566,7 +567,8 @@ static void testNetDeltas() {
         std::memcpy(&i, &v, 4);
         put(s, at, i);
     };
-    std::vector<uint8_t> a(kNetEntityStateSize, 0), b;
+    std::vector<uint8_t> a(kNetEntityStateSize, 0);
+    std::vector<uint8_t> b;
     put(a, 0, 17);
     put(a, 4, 1);
     putF(a, 24, 100.25f);
@@ -590,7 +592,8 @@ static void testNetDeltas() {
     CHECK(r.bits(10) == 17 && !readEntityDelta(r, 17, zero, out) && out == a);
     CHECK(r.bits(10) == 17 && readEntityDelta(r, 17, a, out) && out.empty());
 
-    std::vector<uint8_t> p(kNetPlayerStateSize, 0), q;
+    std::vector<uint8_t> p(kNetPlayerStateSize, 0);
+    std::vector<uint8_t> q;
     put(p, 0, 123456);
     putF(p, 20, 12.5f);
     put(p, 16, -5);         // pm_time, signed
@@ -608,7 +611,8 @@ static void testNetDeltas() {
     put(p, 48, 0);
     CHECK(q == p && !pr.overflowed());
 
-    GameHost::UserCommand c0, c1;
+    GameHost::UserCommand c0;
+    GameHost::UserCommand c1;
     c1.serverTime = 5000;
     c1.angles = {-1000, 16384, 0};
     c1.forward = 127;
@@ -622,7 +626,8 @@ static void testNetDeltas() {
     writeUserCommand(cw, c0, c1);
     writeUserCommand(cw, c1, c2);
     MessageReader cr(cw.bytes());
-    const GameHost::UserCommand r1 = readUserCommand(cr, c0), r2 = readUserCommand(cr, r1);
+    const GameHost::UserCommand r1 = readUserCommand(cr, c0);
+    const GameHost::UserCommand r2 = readUserCommand(cr, r1);
     CHECK(r1.serverTime == 5000 && r1.angles[0] == (-1000 & 0xffff) && r1.angles[1] == 16384 && r1.forward == 127 &&
           r1.right == -127 && r1.buttons == 33 && r1.weapon == 4);
     CHECK(r2.serverTime == 5016 && r2.forward == -127 && r2.right == -127);
@@ -668,7 +673,8 @@ static void testPureCheck(const std::filesystem::path &tmp) {
     CHECK(w.size() == 7 && w[0] == "cp" && w[3] == "@");
     if (w.size() == 7) {
         CHECK(std::atoi(w[1].c_str()) == pakChecksum(*code, feed) && w[1] == w[2]);
-        const int32_t a = std::atoi(w[4].c_str()), b = std::atoi(w[5].c_str());
+        const int32_t a = std::atoi(w[4].c_str());
+        const int32_t b = std::atoi(w[5].c_str());
         CHECK(std::atoi(w[6].c_str()) == (feed ^ a ^ b ^ 2));
     }
     // Only the paks the server says it has.

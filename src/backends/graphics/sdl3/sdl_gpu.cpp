@@ -254,7 +254,11 @@ Error SdlGpuRenderer::init(int width, int height) {
         return sdlError("Cannot create the 3D shaders");
 
     for (int i = 0; i < 32; ++i) {
-        const bool clamp = i & 1, mipmaps = i & 2, nearest = i & 4, mipNearest = i & 8, anisotropic = i & 16;
+        const bool clamp = i & 1;
+        const bool mipmaps = i & 2;
+        const bool nearest = i & 4;
+        const bool mipNearest = i & 8;
+        const bool anisotropic = i & 16;
         SDL_GPUSamplerCreateInfo info{};
         info.min_filter = info.mag_filter = nearest ? SDL_GPU_FILTER_NEAREST : SDL_GPU_FILTER_LINEAR;
         info.mipmap_mode = nearest || mipNearest ? SDL_GPU_SAMPLERMIPMAPMODE_NEAREST : SDL_GPU_SAMPLERMIPMAPMODE_LINEAR;
@@ -517,7 +521,9 @@ Error SdlGpuRenderer::createTexture(int width, int height, const uint8_t *rgba, 
         const Level &lv = chain[l];
         const uint8_t *in = mapped + up.offset;
         uint8_t *px = mapped + lv.offset;
-        const int sx = up.w > 1 ? 2 : 1, sy = up.h > 1 ? 2 : 1, n = sx * sy;
+        const int sx = up.w > 1 ? 2 : 1;
+        const int sy = up.h > 1 ? 2 : 1;
+        const int n = sx * sy;
         for (int y = 0; y < lv.h; ++y)
             for (int x = 0; x < lv.w; ++x)
                 for (int c = 0; c < 4; ++c) {

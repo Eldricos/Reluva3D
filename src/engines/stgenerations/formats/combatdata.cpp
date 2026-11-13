@@ -59,8 +59,12 @@ bool Model3D::load(SeekableReadStream &stream) {
         return false;
     for (int p = 0; p < count; p++) {
         const uint8_t *r = block + records + 44 * p;
-        int verts = std::abs((int32_t)le32(r)), faces = (int32_t)le32(r + 4);
-        uint32_t vertOff = le32(r + 0x0C), uvOff = le32(r + 0x10), faceOff = le32(r + 0x1C), normOff = le32(r + 0x24);
+        int verts = std::abs((int32_t)le32(r));
+        int faces = (int32_t)le32(r + 4);
+        uint32_t vertOff = le32(r + 0x0C);
+        uint32_t uvOff = le32(r + 0x10);
+        uint32_t faceOff = le32(r + 0x1C);
+        uint32_t normOff = le32(r + 0x24);
         if (verts > 5000 || faces < 0 || faces > 5000 || !ok(vertOff, (size_t)verts * 12) ||
             (uvOff && !ok(uvOff, (size_t)verts * 8)) || !ok(faceOff, (size_t)faces * 8) ||
             (normOff && !ok(normOff, (size_t)faces * 12)))
@@ -181,9 +185,13 @@ bool CombatImage::loadGif(SeekableReadStream &stream) {
         // LZW.
         std::vector<uint8_t> out;
         out.reserve((size_t)w * h);
-        int clear = 1 << minCode, end = clear + 1, size = minCode + 1, next = end + 1;
+        int clear = 1 << minCode;
+        int end = clear + 1;
+        int size = minCode + 1;
+        int next = end + 1;
         std::vector<int> prefix(4096, -1);
-        std::vector<uint8_t> suffix(4096), first(4096);
+        std::vector<uint8_t> suffix(4096);
+        std::vector<uint8_t> first(4096);
         for (int i = 0; i < clear; i++)
             suffix[i] = first[i] = (uint8_t)i;
         int previous = -1;
@@ -238,7 +246,8 @@ bool CombatImage::loadGif(SeekableReadStream &stream) {
         bool interlaced = (imageFlags & 0x40) != 0;
         int row = 0;
         for (int pass = 0; pass < (interlaced ? 4 : 1); pass++) {
-            static const int start[4] = {0, 4, 2, 1}, step[4] = {8, 8, 4, 2};
+            static const int start[4] = {0, 4, 2, 1};
+            static const int step[4] = {8, 8, 4, 2};
             for (int y = interlaced ? start[pass] : 0; y < h; y += interlaced ? step[pass] : 1, row++) {
                 for (int x = 0; x < w; x++)
                     pixels[(size_t)y * w + x] = palette[out[(size_t)row * w + x]];
@@ -303,13 +312,16 @@ bool CombatImage::loadRas(SeekableReadStream &stream) {
         return false;
     w = (int)be32(&d[4]);
     h = (int)be32(&d[8]);
-    uint32_t depth = be32(&d[12]), mapLength = be32(&d[28]);
+    uint32_t depth = be32(&d[12]);
+    uint32_t mapLength = be32(&d[28]);
     if (depth != 8 || w <= 0 || h <= 0 || w > 4096 || h > 4096 || 32 + mapLength > d.size())
         return false;
     uint32_t n = mapLength / 3;
     uint32_t palette[256] = {};
     for (uint32_t i = 0; i < n && i < 256; i++) {
-        uint8_t r = d[32 + i], g = d[32 + n + i], b = d[32 + 2 * n + i];
+        uint8_t r = d[32 + i];
+        uint8_t g = d[32 + n + i];
+        uint8_t b = d[32 + 2 * n + i];
         palette[i] = r == 255 && g == 0 && b == 163 ? 0 : argb(r, g, b);
     }
     size_t stride = ((size_t)w + 1) & ~(size_t)1;
@@ -410,7 +422,8 @@ void decodeSprFrame(const std::vector<uint8_t> &d, size_t q, int w, int h, int m
         // Mode 1: each value predicted from the last (0x498050).
         int prev = -1;
         while (out.size() < total) {
-            uint32_t x = bits.peek(), t = x >> 26;
+            uint32_t x = bits.peek();
+            uint32_t t = x >> 26;
             if (t >= 0x20 && t <= 0x2F) {
                 int n = (int)((x >> 25) & 7) + 1;
                 int u = (int)((x >> 28) & 3);

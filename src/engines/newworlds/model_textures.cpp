@@ -80,7 +80,9 @@ bool abbreviates(const std::string &shortName, const std::string &full) {
 // (doors: see addDoorTextures).
 std::vector<const TextureFile *> findModelTextures(const std::string &modelName,
                                                    const std::vector<TextureFile> &textures, size_t needed) {
-    std::string folder, base, ext;
+    std::string folder;
+    std::string base;
+    std::string ext;
     splitName(modelName, folder, base, ext);
     const bool outline = endsWith(base, "_s");
     const bool lowDetail = endsWith(base, "_l");
@@ -124,7 +126,8 @@ std::vector<const TextureFile *> findModelTextures(const std::string &modelName,
             std::string name = t.stem;
             if (const size_t us = name.rfind('_'); us != std::string::npos && us + 3 >= name.size() && us > 0)
                 name.resize(us);
-            const std::string a = stripDigits(base), b = stripDigits(name);
+            const std::string a = stripDigits(base);
+            const std::string b = stripDigits(name);
             return !b.empty() && (a == b || (b.size() >= 4 && a.size() > b.size() && a.compare(0, b.size(), b) == 0));
         });
 
@@ -183,7 +186,13 @@ bool isDoorSlot(const GeoModel &geo, uint32_t slot) {
             return false;
         // Upright, and showing (nearly) the whole texture.
         const auto &vs = geo.parts[f.part].vertices;
-        float nx = 0, ny = 0, nz = 0, u0 = 1, u1 = 0, v0 = 1, v1 = 0;
+        float nx = 0;
+        float ny = 0;
+        float nz = 0;
+        float u0 = 1;
+        float u1 = 0;
+        float v0 = 1;
+        float v1 = 0;
         for (size_t i = 0; i < f.corners.size(); ++i) {
             const auto &p = vs[f.corners[i].vertex];
             const auto &q = vs[f.corners[(i + 1) % f.corners.size()].vertex];
@@ -205,7 +214,9 @@ bool isDoorSlot(const GeoModel &geo, uint32_t slot) {
 
 void addDoorTextures(const GeoModel &geo, const std::string &modelName, const std::vector<TextureFile> &textures,
                      std::vector<const TextureFile *> &slots) {
-    std::string folder, base, ext;
+    std::string folder;
+    std::string base;
+    std::string ext;
     splitName(modelName, folder, base, ext);
     // The model's own door (mch_door), else its side's single closed door
     // (the Federation's and Klingons'; the other door textures are 4 x 4
@@ -233,7 +244,9 @@ bool isPadSlot(const GeoModel &geo, uint32_t slot) {
         if (++faces > 2)
             return false;
         const auto &vs = geo.parts[f.part].vertices;
-        float nx = 0, ny = 0, nz = 0;
+        float nx = 0;
+        float ny = 0;
+        float nz = 0;
         for (size_t i = 0; i < f.corners.size(); ++i) {
             const auto &p = vs[f.corners[i].vertex];
             const auto &q = vs[f.corners[(i + 1) % f.corners.size()].vertex];
@@ -252,7 +265,9 @@ bool isPadSlot(const GeoModel &geo, uint32_t slot) {
 
 void addPadTextures(const GeoModel &geo, const std::string &modelName, const std::vector<TextureFile> &textures,
                     std::vector<const TextureFile *> &slots) {
-    std::string folder, base, ext;
+    std::string folder;
+    std::string base;
+    std::string ext;
     splitName(modelName, folder, base, ext);
     const TextureFile *pad = nullptr;
     for (const TextureFile &t : textures)

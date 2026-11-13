@@ -55,7 +55,8 @@ std::vector<ActRow> readActs(const Table &table) {
     std::vector<ActRow> out;
     for (size_t i = 0; i < table.rows.size(); i++) {
         auto cell = [&](int column) { return unquote(table.cell(i, column)); };
-        int major, minor;
+        int major;
+        int minor;
         if (!parseActName(cell(0), major, minor))
             continue;
         ActRow r;
@@ -84,7 +85,8 @@ Story::Story(GameState &state, ScriptRunner &main) : state_(state), main_(main) 
 
 bool Story::startAct(std::string_view arg) {
     // A bare "act" (the main menu's Play) starts the act there is.
-    int major, minor;
+    int major;
+    int minor;
     if (parseActName(arg, major, minor))
         state_.act = actName(major, minor);
     if (onActTables)

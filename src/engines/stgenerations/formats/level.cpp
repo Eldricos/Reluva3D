@@ -35,12 +35,17 @@ LevelFile::LightInfo readLight(const uint8_t *record) {
 
 void LevelFile::updateWallGeometry(int index) {
     Wall &wall = _walls[index];
-    double x1 = _vertices[wall.vertex1].x / 65536.0, y1 = _vertices[wall.vertex1].y / 65536.0;
-    double x2 = _vertices[wall.vertex2].x / 65536.0, y2 = _vertices[wall.vertex2].y / 65536.0;
-    double dx = x2 - x1, dy = y2 - y1, length = std::sqrt(dx * dx + dy * dy);
+    double x1 = _vertices[wall.vertex1].x / 65536.0;
+    double y1 = _vertices[wall.vertex1].y / 65536.0;
+    double x2 = _vertices[wall.vertex2].x / 65536.0;
+    double y2 = _vertices[wall.vertex2].y / 65536.0;
+    double dx = x2 - x1;
+    double dy = y2 - y1;
+    double length = std::sqrt(dx * dx + dy * dy);
     if (length <= 0)
         return;
-    double nx = dy / length, ny = -dx / length;
+    double nx = dy / length;
+    double ny = -dx / length;
     wall.normalX = (int32_t)std::lround(nx * 65536);
     wall.normalY = (int32_t)std::lround(ny * 65536);
     wall.distance = (int32_t)std::lround(-(nx * x2 + ny * y2) * 65536);
@@ -365,7 +370,12 @@ uint32_t LevelFile::guessSkyHeight(const uint8_t *pixels, uint32_t size) const {
         int samples = 0;
         for (uint32_t y = 0; y + 1 < height; y += std::max<uint32_t>(1, height / 32)) {
             for (uint32_t x = 0; x < width; x += std::max<uint32_t>(1, width / 64)) {
-                uint8_t r1, g1, b1, r2, g2, b2;
+                uint8_t r1;
+                uint8_t g1;
+                uint8_t b1;
+                uint8_t r2;
+                uint8_t g2;
+                uint8_t b2;
                 _palette.getColor(pixels[y * width + x], r1, g1, b1);
                 _palette.getColor(pixels[(y + 1) * width + x], r2, g2, b2);
                 cost += std::abs(r1 - r2) + std::abs(g1 - g2) + std::abs(b1 - b2);
@@ -459,7 +469,10 @@ void drawLevelMap(const LevelFile &level, Canvas &dst) {
     if (vertices.empty())
         return;
 
-    int64_t minX = INT32_MAX, minY = INT32_MAX, maxX = INT32_MIN, maxY = INT32_MIN;
+    int64_t minX = INT32_MAX;
+    int64_t minY = INT32_MAX;
+    int64_t maxX = INT32_MIN;
+    int64_t maxY = INT32_MIN;
     for (const LevelFile::Vertex &v : vertices) {
         minX = std::min<int64_t>(minX, v.x);
         maxX = std::max<int64_t>(maxX, v.x);
@@ -467,7 +480,8 @@ void drawLevelMap(const LevelFile &level, Canvas &dst) {
         maxY = std::max<int64_t>(maxY, v.y);
     }
     const int margin = 4;
-    double spanX = (double)std::max<int64_t>(1, maxX - minX), spanY = (double)std::max<int64_t>(1, maxY - minY);
+    double spanX = (double)std::max<int64_t>(1, maxX - minX);
+    double spanY = (double)std::max<int64_t>(1, maxY - minY);
     // Screen pixels per map unit, preserving aspect. Maps span tens of
     // millions of 16.16 units, so integer maths would round this to 0.
     double scale = std::min((dst.w - 2 * margin) / spanX, (dst.h - 2 * margin) / spanY);
@@ -488,17 +502,20 @@ void drawLevelMap(const LevelFile &level, Canvas &dst) {
         std::vector<Point> points;
         for (uint16_t index : sectors[i].vertices)
             points.push_back(project(vertices[index]));
-        uint8_t r = (uint8_t)(40 + (i * 53) % 100), g = (uint8_t)(60 + (i * 97) % 120),
-                b = (uint8_t)(120 + (i * 31) % 120);
+        uint8_t r = (uint8_t)(40 + (i * 53) % 100);
+        uint8_t g = (uint8_t)(60 + (i * 97) % 120);
+        uint8_t b = (uint8_t)(120 + (i * 31) % 120);
         dst.fillPolygon(points.data(), (int)points.size(), palette.findBestColor(r, g, b));
         for (size_t k = 0; k < points.size(); k++) {
-            const Point &a = points[k], &b2 = points[(k + 1) % points.size()];
+            const Point &a = points[k];
+            const Point &b2 = points[(k + 1) % points.size()];
             dst.drawLine(a.x, a.y, b2.x, b2.y, outline);
         }
     }
 
     for (const LevelFile::Wall &wall : level.getWalls()) {
-        Point a = project(vertices[wall.vertex1]), b = project(vertices[wall.vertex2]);
+        Point a = project(vertices[wall.vertex1]);
+        Point b = project(vertices[wall.vertex2]);
         dst.drawLine(a.x, a.y, b.x, b.y, wallColor);
     }
 }

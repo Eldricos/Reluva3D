@@ -45,8 +45,11 @@ std::vector<std::string> words(std::string_view line) {
 }
 
 bool parseMsf(const std::string &s, int64_t &frames) {
-    int m = 0, sec = 0, f = 0;
-    char c1 = 0, c2 = 0;
+    int m = 0;
+    int sec = 0;
+    int f = 0;
+    char c1 = 0;
+    char c2 = 0;
     std::istringstream in(s);
     if (!(in >> m >> c1 >> sec >> c2 >> f) || c1 != ':' || c2 != ':' || sec >= 60 || f >= kFramesPerSecond)
         return false;

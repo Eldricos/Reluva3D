@@ -38,7 +38,8 @@ void ServerWorld::clear() {
     nodes_.clear();
     // The tree over the level's bounds (its first model's), each node
     // split across its longer side.
-    Vec3f mins{-65536, -65536, -65536}, maxs{65536, 65536, 65536};
+    Vec3f mins{-65536, -65536, -65536};
+    Vec3f maxs{65536, 65536, 65536};
     if (map_ && !map_->models.empty())
         for (int i = 0; i < 3; ++i) {
             mins[size_t(i)] = map_->models[0].mins[size_t(i)];
@@ -56,7 +57,8 @@ void ServerWorld::build(int depth, const Vec3f &mins, const Vec3f &maxs) {
     const float dist = 0.5f * (maxs[size_t(axis)] + mins[size_t(axis)]);
     nodes_[size_t(index)].axis = axis;
     nodes_[size_t(index)].dist = dist;
-    Vec3f upperMin = mins, lowerMax = maxs;
+    Vec3f upperMin = mins;
+    Vec3f lowerMax = maxs;
     upperMin[size_t(axis)] = dist;
     lowerMax[size_t(axis)] = dist;
     nodes_[size_t(index)].children[0] = int(nodes_.size());
@@ -206,7 +208,8 @@ TraceResult ServerWorld::trace(const Vec3f &start, const Vec3f &mins, const Vec3
         hit = best.fraction < 1 ? kWorld : kNone;
     }
     // The bounds of the whole move, for the entities near it.
-    Vec3f moveMin{}, moveMax{};
+    Vec3f moveMin{};
+    Vec3f moveMax{};
     for (int i = 0; i < 3; ++i) {
         moveMin[size_t(i)] = std::min(start[size_t(i)], end[size_t(i)]) + mins[size_t(i)] - 1;
         moveMax[size_t(i)] = std::max(start[size_t(i)], end[size_t(i)]) + maxs[size_t(i)] + 1;
@@ -232,7 +235,8 @@ TraceResult ServerWorld::trace(const Vec3f &start, const Vec3f &mins, const Vec3
             // Its brushes, where it stands now and turned as it is.
             t = world_->transformedTrace(start, end, mins, maxs, s.modelIndex, mask, s.origin, s.angles);
         } else {
-            Vec3f boxMin = s.mins, boxMax = s.maxs;
+            Vec3f boxMin = s.mins;
+            Vec3f boxMax = s.maxs;
             for (int i = 0; i < 3; ++i) {
                 boxMin[size_t(i)] += s.origin[size_t(i)];
                 boxMax[size_t(i)] += s.origin[size_t(i)];

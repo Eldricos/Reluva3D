@@ -19,9 +19,12 @@ void Palette::setColor(int index, uint8_t r, uint8_t g, uint8_t b) {
 }
 
 int Palette::findBestColor(uint8_t r, uint8_t g, uint8_t b) const {
-    int best = 0, bestDist = 1 << 30;
+    int best = 0;
+    int bestDist = 1 << 30;
     for (int i = 0; i < 256; i++) {
-        const int dr = data_[size_t(i) * 3] - r, dg = data_[size_t(i) * 3 + 1] - g, db = data_[size_t(i) * 3 + 2] - b;
+        const int dr = data_[size_t(i) * 3] - r;
+        const int dg = data_[size_t(i) * 3 + 1] - g;
+        const int db = data_[size_t(i) * 3 + 2] - b;
         const int dist = dr * dr * 3 + dg * dg * 4 + db * db * 2;
         if (dist < bestDist) {
             bestDist = dist;

@@ -64,7 +64,8 @@ void testAnimator() {
     const Animator::Slot *g = an.find("agree");
     CHECK(g && std::abs(g->mask[1] - 0.99f) < 1e-6f && std::abs(g->mask[2] - 0.99f) < 1e-6f && g->mask[3] == 0);
     CHECK(std::abs(an.find("idle1")->mask[3] - 0.01f) < 1e-6f);
-    std::vector<std::string> ended, finished;
+    std::vector<std::string> ended;
+    std::vector<std::string> finished;
     an.onEnding = [&](const Animator::Slot &s) { ended.push_back(s.name); };
     an.onFinished = [&](const Animator::Slot &s) { finished.push_back(s.name); };
     an.update(0.5f);

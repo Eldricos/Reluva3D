@@ -113,7 +113,8 @@ struct SnapshotLayout {
     int32_t numEntities, entities, numServerCommands, serverCommandSequence, size;
 };
 SnapshotLayout snapshotLayout(int32_t playerStateSize) {
-    const int32_t numEntities = kSnapPlayerState + playerStateSize, entities = numEntities + 4;
+    const int32_t numEntities = kSnapPlayerState + playerStateSize;
+    const int32_t entities = numEntities + 4;
     const int32_t numServerCommands = entities + kMaxSnapshotEntities * GameHost::kEntityStateSize;
     return {numEntities, entities, numServerCommands, numServerCommands + 4, numServerCommands + 8};
 }
@@ -132,7 +133,8 @@ void writeTrace(Qvm &vm, int32_t address, const TraceResult &t, int32_t entityNu
         vm.writeInt(address + 24 + 4 * i, Qvm::fromFloat(t.normal[size_t(i)]));
     }
     vm.writeInt(address + 36, Qvm::fromFloat(t.dist));
-    int type = 3, signs = 0;
+    int type = 3;
+    int signs = 0;
     for (int i = 0; i < 3; ++i) {
         if (t.normal[size_t(i)] == 1 || t.normal[size_t(i)] == -1)
             type = i;
@@ -401,7 +403,8 @@ int32_t CgameHost::systemCall(Qvm &vm, int number, const int32_t *a) {
         return 0;
     }
     case RModelBounds: { // (model, mins[3], maxs[3])
-        std::array<float, 3> mins{}, maxs{};
+        std::array<float, 3> mins{};
+        std::array<float, 3> maxs{};
         const std::string &name = models_.name(a[0]);
         if (!name.empty() && name[0] == '*') { // one of the map's brush models
             const int n = std::atoi(name.c_str() + 1);
@@ -472,8 +475,9 @@ int32_t CgameHost::systemCall(Qvm &vm, int number, const int32_t *a) {
             return v;
         };
         const bool transformed = number == CmTransformedPointContents;
-        const Vec3f point = vec(a[0]), origin = transformed ? vec(a[2]) : Vec3f{},
-                    angles = transformed ? vec(a[3]) : Vec3f{};
+        const Vec3f point = vec(a[0]);
+        const Vec3f origin = transformed ? vec(a[2]) : Vec3f{};
+        const Vec3f angles = transformed ? vec(a[3]) : Vec3f{};
         if (a[1] == kTempBoxModel) {
             for (int i = 0; i < 3; ++i) {
                 const float p = point[size_t(i)] - origin[size_t(i)];
@@ -498,12 +502,17 @@ int32_t CgameHost::systemCall(Qvm &vm, int number, const int32_t *a) {
             return v;
         };
         const bool transformed = number == CmTransformedBoxTrace;
-        const Vec3f start = vec(a[1]), end = vec(a[2]), mins = vec(a[3]), maxs = vec(a[4]);
-        const Vec3f origin = transformed ? vec(a[7]) : Vec3f{}, angles = transformed ? vec(a[8]) : Vec3f{};
+        const Vec3f start = vec(a[1]);
+        const Vec3f end = vec(a[2]);
+        const Vec3f mins = vec(a[3]);
+        const Vec3f maxs = vec(a[4]);
+        const Vec3f origin = transformed ? vec(a[7]) : Vec3f{};
+        const Vec3f angles = transformed ? vec(a[8]) : Vec3f{};
         TraceResult t;
         if (a[5] == kTempBoxModel) {
             // A box isn't turned, as the original's.
-            Vec3f s = start, e = end;
+            Vec3f s = start;
+            Vec3f e = end;
             for (int i = 0; i < 3; ++i) {
                 s[size_t(i)] -= origin[size_t(i)];
                 e[size_t(i)] -= origin[size_t(i)];

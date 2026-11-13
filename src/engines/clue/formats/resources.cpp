@@ -39,7 +39,8 @@ Error unpack(const std::vector<uint8_t> &data, std::vector<uint8_t> &out) {
     }
     if (data.size() < kPackHeader)
         return Error::fail("PACK header cut short");
-    const uint32_t packed = u32(data, 4), size = u32(data, 8);
+    const uint32_t packed = u32(data, 4);
+    const uint32_t size = u32(data, 8);
     if (packed > data.size() - kPackHeader)
         return Error::fail("PACK data cut short");
     return inflateZlib(data.data() + kPackHeader, packed, size, out);
@@ -66,7 +67,8 @@ Error DataDrive::load(std::vector<uint8_t> data) {
         return Error::fail("a RESI file (the menus' and dialogs' layout), not a DDRV archive");
     if (data_.size() < kDriveHeader + 4 || std::memcmp(data_.data(), "DDRV", 4) != 0)
         return Error::fail("not a DDRV archive");
-    const uint32_t directory = u32(data_, 4), count = u32(data_, 8);
+    const uint32_t directory = u32(data_, 4);
+    const uint32_t count = u32(data_, 8);
     if (directory > data_.size() - 4 || (data_.size() - directory - 4) / kDriveEntry < count)
         return Error::fail("DDRV directory cut short");
     entries_.reserve(count);
@@ -103,8 +105,10 @@ Error decodeImage(const std::vector<uint8_t> &r, Image &out) {
         return Error::fail("not an EIMG record");
     out = {};
     out.version = int(u32(r, 4));
-    int w = 0, h = 0;
-    size_t dataAt = 0, dataSize = 0;
+    int w = 0;
+    int h = 0;
+    size_t dataAt = 0;
+    size_t dataSize = 0;
     uint8_t rowEnd = 0;
     if (out.version == 0x200) {
         if (r.size() < 57)
@@ -214,7 +218,8 @@ Error parseAnimation(const std::vector<uint8_t> &r, Animation &out) {
     out.framesPerSecond = r[p];
     out.flags = r[p + 1];
     const int layerCount = r[p + 2];
-    const int frameCount = u16(r, p + 3), imageCount = u16(r, p + 5);
+    const int frameCount = u16(r, p + 3);
+    const int imageCount = u16(r, p + 5);
     out.width = u16(r, p + 7);
     out.height = u16(r, p + 9);
     // A part's size in bytes (EagleM.dll reads each with it): 10 in every

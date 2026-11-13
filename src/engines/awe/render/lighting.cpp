@@ -160,7 +160,8 @@ Rgb lightVertex(const SceneLighting &lighting, const Material &material, const f
             if (dl <= 0)
                 continue;
             const float rho = -(to[0] * l.direction[0] + to[1] * l.direction[1] + to[2] * l.direction[2]) / dl;
-            const float inner = std::cos(l.theta / 2), outer = std::cos(l.phi / 2);
+            const float inner = std::cos(l.theta / 2);
+            const float outer = std::cos(l.phi / 2);
             if (rho <= outer)
                 continue;
             if (rho <= inner && inner > outer)

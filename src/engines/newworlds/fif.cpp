@@ -99,7 +99,8 @@ int GameFont::drawText(Surface &surface, int x, int y, std::string_view utf8, Co
                     continue;
                 for (int dy = 0; dy < scale; ++dy)
                     for (int dx = 0; dx < scale; ++dx) {
-                        const int px = x + gx * scale + dx, py = y + gy * scale + dy;
+                        const int px = x + gx * scale + dx;
+                        const int py = y + gy * scale + dy;
                         if (px < 0 || py < 0 || px >= surface.w || py >= surface.h)
                             continue;
                         uint8_t *p = surface.row(py) + px * 4;
@@ -123,7 +124,8 @@ std::vector<GameFont> loadGameFonts(const Archives &archives) {
             if (std::any_of(fonts.begin(), fonts.end(), [&](const GameFont &f) { return f.name == stem; }))
                 continue;
             const CatEntry *image = cat->find(stem + ".fbp");
-            std::vector<uint8_t> fif, fbp;
+            std::vector<uint8_t> fif;
+            std::vector<uint8_t> fbp;
             GameFont font;
             if (!image || cat->read(e, fif) || cat->read(*image, fbp) || parseFif(fif, font) || setFontImage(fbp, font))
                 continue;

@@ -78,7 +78,7 @@ public:
     void setGroupVisible(int group, bool visible); // every control of that group
     bool visible(int id) const;
     void setEnabled(int id, bool enabled);
-    void setText(int id, std::string text); // a Text's, a TextButton's or an Edit's
+    void setText(int id, const std::string &text); // a Text's, a TextButton's or an Edit's
     // By its place in the dialog, for controls without an id of their own (9999).
     void setTextAt(size_t index, std::string text);
     void setVisibleAt(size_t index, bool visible);

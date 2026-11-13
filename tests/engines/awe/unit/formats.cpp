@@ -140,7 +140,8 @@ std::vector<uint8_t> makeGr2() {
         s.d.insert(s.d.end(), str, str + std::strlen(str) + 1);
     while (s.d.size() % 8)
         s.d.push_back(0);
-    const size_t type = s.d.size(), floatType = type + 4 * 32;
+    const size_t type = s.d.size();
+    const size_t floatType = type + 4 * 32;
     auto member = [&](uint32_t t) {
         s.u32(t);
         for (int i = 0; i < 7; i++)
@@ -176,7 +177,8 @@ std::vector<uint8_t> makeGr2() {
     f.u32(0), f.u32(0);              // root object
     f.u32(0x80000013);
     f.u32(0), f.u32(0), f.u32(0), f.u32(0);
-    const uint32_t fixupAt = headerSize, dataAt = fixupAt + uint32_t(fixups.size()) * 12;
+    const uint32_t fixupAt = headerSize;
+    const uint32_t dataAt = fixupAt + uint32_t(fixups.size()) * 12;
     for (uint32_t v : {0u, dataAt, uint32_t(s.d.size()), uint32_t(s.d.size()), 4u, 0u, 0u, fixupAt,
                        uint32_t(fixups.size()), dataAt, 0u})
         f.u32(v);
@@ -334,7 +336,8 @@ void testCurves() {
     periodic.knots = {0, 1, 2, 3, 4};
     periodic.controls = {0, 5, 2, 7, 9};
     loop.duration = 4;
-    float start = 0, end = 0;
+    float start = 0;
+    float end = 0;
     periodic.evaluate(0, 1, &start, loop);
     periodic.evaluate(4, 1, &end, loop);
     CHECK(std::fabs(start - end) < 1e-5f && std::fabs(end - 9) > 1);
@@ -413,7 +416,8 @@ void testCompressedCurves() {
         d.format = uint8_t(f);
         d.degree = 1;
         d.packed = 0x4200;
-        const float scales[3] = {0.5f, 1, 2}, offsets[3] = {-1, 0, 10};
+        const float scales[3] = {0.5f, 1, 2};
+        const float offsets[3] = {-1, 0, 10};
         std::copy(scales, scales + 3, d.controlScales);
         std::copy(offsets, offsets + 3, d.controlOffsets);
         const uint16_t big = f == CurveFormat::D3K16uC16u ? 1000 : 200;
@@ -429,7 +433,8 @@ void testCompressedCurves() {
     // for x, y and w, entry 0 (2√½ over the steps, from -√½) for z.
     for (CurveFormat f : {CurveFormat::D4nK8uC7u, CurveFormat::D4nK16uC15u}) {
         const bool wide = f == CurveFormat::D4nK16uC15u;
-        const uint16_t top = wide ? 0x8000 : 0x80, most = wide ? 0x7fff : 0x7f;
+        const uint16_t top = wide ? 0x8000 : 0x80;
+        const uint16_t most = wide ? 0x7fff : 0x7f;
         d = CurveData();
         d.format = uint8_t(f);
         d.degree = 2;

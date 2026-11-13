@@ -209,7 +209,8 @@ int Mixer::masterVolume() const {
 
 void Mixer::mixSound(Channel &c, int frames, int64_t gain) {
     const Sound &s = *c.sound;
-    const size_t n = s.frames(), ch = size_t(s.channels);
+    const size_t n = s.frames();
+    const size_t ch = size_t(s.channels);
     const double step = double(s.rate) * c.rate / double(outputRate_);
     // Looping: the sound's loop, or all of it.
     const size_t loopEnd = s.loopEnd && s.loopEnd < n ? s.loopEnd : n;
@@ -219,7 +220,8 @@ void Mixer::mixSound(Channel &c, int frames, int64_t gain) {
     const int64_t gainL = c.pan > 0 ? gain * (kMaxPan - c.pan) / kMaxPan : gain;
     const int64_t gainR = c.pan < 0 ? gain * (kMaxPan + c.pan) / kMaxPan : gain;
     // (Scaling by 1/65536 first gives the same products: a power of two.)
-    const double scaleL = double(gainL) / 65536.0, scaleR = double(gainR) / 65536.0;
+    const double scaleL = double(gainL) / 65536.0;
+    const double scaleR = double(gainR) / 65536.0;
     auto sample = [&](size_t frame, size_t channel) { return double(s.samples[frame * ch + channel]); };
     for (int i = 0; i < frames; ++i) {
         if (c.position >= double(end)) {

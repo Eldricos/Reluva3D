@@ -27,7 +27,8 @@ bool readValue(BotScript &s, float &value) {
 // "return w;" or "return balance(w, min, max);" (the middle value used).
 bool readReturn(BotScript &s, FuzzySwitch &f) {
     if (s.check("balance")) {
-        float lo = 0, hi = 0;
+        float lo = 0;
+        float hi = 0;
         if (!s.expect("(") || !readValue(s, f.weight) || !s.expect(",") || !readValue(s, lo) || !s.expect(",") ||
             !readValue(s, hi) || !s.expect(")"))
             return false;

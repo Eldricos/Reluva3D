@@ -44,7 +44,8 @@ std::string pureCommand(const SearchSet &files, int32_t feed, const std::string 
         theirs.insert(int32_t(std::strtoll(word.c_str(), nullptr, 10)));
     std::string out =
         "cp " + std::to_string(pakChecksum(*cgame, feed)) + " " + std::to_string(pakChecksum(*ui, feed)) + " @";
-    int32_t check = feed, count = 0;
+    int32_t check = feed;
+    int32_t count = 0;
     std::set<int32_t> listed;
     for (const Archive *a : files.archives()) {
         const auto *pak = dynamic_cast<const ZipArchive *>(a);
@@ -76,7 +77,8 @@ bool pureAnswerValid(const std::vector<std::string> &words, int32_t cgame, int32
         out = int32_t(v);
         return !w.empty() && end && *end == 0;
     };
-    int32_t theirCgame = 0, theirUi = 0;
+    int32_t theirCgame = 0;
+    int32_t theirUi = 0;
     if (!number(words[at], theirCgame) || !number(words[at + 1], theirUi) || theirCgame != cgame || theirUi != ui)
         return false;
     std::set<int32_t> paks;

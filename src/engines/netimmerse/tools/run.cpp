@@ -50,7 +50,8 @@ void printButtons(reluva::x86::Win32Process &p, int width, int height) {
         std::printf("-buttons: no DDUIManager::Buttons\n");
         return;
     }
-    const uint32_t items = cpu.read32(array + 4), count = cpu.read32(array + 0xc);
+    const uint32_t items = cpu.read32(array + 4);
+    const uint32_t count = cpu.read32(array + 0xc);
     auto f32 = [&](uint32_t a) {
         float v;
         const uint32_t w = cpu.read32(a);
@@ -62,7 +63,10 @@ void printButtons(reluva::x86::Win32Process &p, int width, int height) {
         if (!b || !cpu.valid(b, 0x54))
             continue;
         const uint32_t name = cpu.read32(b + 8);
-        const float x0 = f32(b + 0x40), y0 = f32(b + 0x44), x1 = f32(b + 0x48), y1 = f32(b + 0x4c);
+        const float x0 = f32(b + 0x40);
+        const float y0 = f32(b + 0x44);
+        const float x1 = f32(b + 0x48);
+        const float y1 = f32(b + 0x4c);
         std::printf("button %08x %-28s %s%s at %d,%d (%d..%d x %d..%d)\n", b,
                     name && cpu.valid(name, 1) ? cpu.string(name).c_str() : "?",
                     cpu.read8(b + 0x50) ? "enabled" : "disabled", cpu.read8(b + 0x51) ? " clickable" : "",
@@ -82,7 +86,7 @@ void printButtons(reluva::x86::Win32Process &p, int width, int height) {
 void printGraph(reluva::x86::Cpu &cpu, const std::vector<uint32_t> &roots,
                 const std::vector<std::pair<uint32_t, uint32_t>> &scans) {
     using reluva::x86::Cpu;
-    auto vcall = [&](uint32_t object, int slot, std::vector<uint32_t> args = {}) -> uint32_t {
+    auto vcall = [&](uint32_t object, int slot, const std::vector<uint32_t> &args = {}) -> uint32_t {
         if (!object || !cpu.valid(object, 4) || !cpu.valid(cpu.read32(object) + 4 * uint32_t(slot), 4))
             return 0;
         const auto saved = cpu.reg;
@@ -117,7 +121,9 @@ void printGraph(reluva::x86::Cpu &cpu, const std::vector<uint32_t> &roots,
         todo.pop_back();
         if (!node || !seen.insert(node).second || !cpu.valid(node, 4))
             continue;
-        const bool port = vcall(node, 3) & 0xff, state = vcall(node, 4) & 0xff, machine = vcall(node, 5) & 0xff;
+        const bool port = vcall(node, 3) & 0xff;
+        const bool state = vcall(node, 4) & 0xff;
+        const bool machine = vcall(node, 5) & 0xff;
         const uint32_t parent = vcall(node, 6);
         std::printf("node %08x vt %08x %s parent %08x\n", node, cpu.read32(node),
                     machine ? "machine"
@@ -138,7 +144,8 @@ void printGraph(reluva::x86::Cpu &cpu, const std::vector<uint32_t> &roots,
             if (!t)
                 continue;
             // The target (getToObj) is a node itself, in its parent's machine.
-            const uint32_t to = vcall(t, 8), triggers = vcall(t, 9);
+            const uint32_t to = vcall(t, 8);
+            const uint32_t triggers = vcall(t, 9);
             std::printf("  trans %08x vt %08x type %u -> %08x, on", t, cpu.read32(t), vcall(t, 13), to);
             for (uint32_t i = 0; i < triggers && i < 32; ++i)
                 std::printf(" %x", vcall(t, 11, {i}));
@@ -155,7 +162,8 @@ std::string savedSpace(const std::filesystem::path &gameTxt) {
     std::string line;
     while (std::getline(in, line)) {
         std::istringstream words(line);
-        std::string key, value;
+        std::string key;
+        std::string value;
         if (words >> key >> value && key == "P0Space")
             return value;
     }
@@ -177,13 +185,17 @@ reluva::Error writeSolvedEtcPac(const std::filesystem::path &game, const std::st
     auto le32 = [&](size_t at) {
         return uint32_t(d[at]) | uint32_t(d[at + 1]) << 8 | uint32_t(d[at + 2]) << 16 | uint32_t(d[at + 3]) << 24;
     };
-    const uint32_t count = le32(16), dataStart = le32(12);
+    const uint32_t count = le32(16);
+    const uint32_t dataStart = le32(12);
     std::string upper = space;
     for (char &c : upper)
         c = char(std::toupper(static_cast<unsigned char>(c)));
-    const std::string puzzle = upper + ".PUZ", solved = upper + "_SOLVED.PUZ";
-    size_t puzzleAt = 0, at = 20;
-    uint32_t solvedOffset = 0, solvedSize = 0;
+    const std::string puzzle = upper + ".PUZ";
+    const std::string solved = upper + "_SOLVED.PUZ";
+    size_t puzzleAt = 0;
+    size_t at = 20;
+    uint32_t solvedOffset = 0;
+    uint32_t solvedSize = 0;
     for (uint32_t i = 0; i < count && at < dataStart; ++i) {
         const size_t end = std::find(d.begin() + std::ptrdiff_t(at), d.begin() + dataStart, 0) - d.begin();
         const std::string name(d.begin() + std::ptrdiff_t(at), d.begin() + std::ptrdiff_t(end));
@@ -223,10 +235,12 @@ int cmdAtSweep(int argc, char **argv) {
             "[-solved] [mission...]\n");
         return 2;
     }
-    const std::filesystem::path game = argv[2], out = argv[3];
+    const std::filesystem::path game = argv[2];
+    const std::filesystem::path out = argv[3];
     unsigned jobs = std::max(1u, std::thread::hardware_concurrency());
     int quit = 0;
-    bool shots = false, solved = false;
+    bool shots = false;
+    bool solved = false;
     std::vector<std::string> missions;
     for (int a = 4; a < argc; ++a) {
         const std::string arg = argv[a];
@@ -290,7 +304,8 @@ int cmdAtSweep(int argc, char **argv) {
                 std::fprintf(stderr, "%s: couldn't start at-run\n", m.c_str());
             seconds[i] = std::chrono::duration<double>(std::chrono::steady_clock::now() - t0).count();
             std::ifstream log(dir / "log.txt");
-            std::string line, last;
+            std::string line;
+            std::string last;
             bool advanced = false; // with -solved, that line is the result whatever follows
             while (std::getline(log, line))
                 if (solved && line.rfind("advanced from", 0) == 0) {
@@ -346,7 +361,8 @@ int cmdAtRun(int argc, char **argv) {
     // -clock-rate frame@n: from that frame on, the fixed clock counts n
     // instructions a millisecond instead of 40,000 (the time it has
     // reached carries on).
-    uint64_t clockFrom = 0, clockRate = 40000;
+    uint64_t clockFrom = 0;
+    uint64_t clockRate = 40000;
     bool files = false;  // -files: each path the program asks for, and where it was found
     std::string saveDir; // -save: where what the program writes goes (else it may write nothing)
     // -solved <space>: the game reads <space>_SOLVED.PUZ (the puzzle with
@@ -387,9 +403,11 @@ int cmdAtRun(int argc, char **argv) {
     std::string shots;
     // -profile from-to: where the program is, sampled every millisecond
     // between those frames.
-    uint64_t profileFrom = 0, profileTo = 0;
+    uint64_t profileFrom = 0;
+    uint64_t profileTo = 0;
     bool presentLate = false; // -present-late: DirectX::presentLate, as the player has it
-    std::atomic<bool> profiling{false}, profileDone{false};
+    std::atomic<bool> profiling{false};
+    std::atomic<bool> profileDone{false};
     std::vector<uint32_t> profileSamples;
     bool profileAddresses = false; // -profile-addresses: also by 64-byte stretch of code
     std::thread profiler;
@@ -605,7 +623,9 @@ int cmdAtRun(int argc, char **argv) {
     // -fixed-clock: the clock follows the instructions run (40,000 to a
     // millisecond, or -clock-rate's) and the main thread's sleeps, not the
     // time, so a run with the same input repeats exactly.
-    uint64_t clockBaseInstructions = 0, clockBaseMs = 0, clockPerMs = 40000;
+    uint64_t clockBaseInstructions = 0;
+    uint64_t clockBaseMs = 0;
+    uint64_t clockPerMs = 40000;
     if (fixedClock)
         game.process().milliseconds = [&cpu, &game, &clockBaseInstructions, &clockBaseMs, &clockPerMs] {
             return uint32_t(clockBaseMs + (cpu.executed() - clockBaseInstructions) / clockPerMs +
@@ -805,7 +825,8 @@ int cmdAtRun(int argc, char **argv) {
     // and the last calls to stood-in functions.
     std::vector<uint32_t> recent(size_t(std::max(traceCount, 1)));
     std::vector<std::string> calls(16);
-    size_t recentAt = 0, callsAt = 0;
+    size_t recentAt = 0;
+    size_t callsAt = 0;
     // -log: every stand-in called, in order, repeats counted.
     std::string lastLogged;
     unsigned repeats = 0;
@@ -848,7 +869,8 @@ int cmdAtRun(int argc, char **argv) {
             const uint32_t pe = base + cpu.read32(base + 0x3c);
             if (!cpu.valid(pe, 0x100) || cpu.read32(pe) != 0x4550)
                 continue;
-            const uint32_t size = cpu.read32(pe + 0x50), exportRva = cpu.read32(pe + 0x78);
+            const uint32_t size = cpu.read32(pe + 0x50);
+            const uint32_t exportRva = cpu.read32(pe + 0x78);
             if (a >= base + size)
                 break;
             std::string name = "image@" + std::to_string(base);
@@ -860,8 +882,10 @@ int cmdAtRun(int argc, char **argv) {
                     if (!(n[i] = char(cpu.read8(base + cpu.read32(dir + 12) + uint32_t(i)))))
                         break;
                 list.push_back({0, n}); // the DLL's own name first
-                const uint32_t count = cpu.read32(dir + 24), functions = base + cpu.read32(dir + 28);
-                const uint32_t names = base + cpu.read32(dir + 32), ordinals = base + cpu.read32(dir + 36);
+                const uint32_t count = cpu.read32(dir + 24);
+                const uint32_t functions = base + cpu.read32(dir + 28);
+                const uint32_t names = base + cpu.read32(dir + 32);
+                const uint32_t ordinals = base + cpu.read32(dir + 36);
                 for (uint32_t i = 0; i < count && i < 4096; ++i) {
                     std::string e;
                     for (uint32_t at = base + cpu.read32(names + 4 * i); cpu.valid(at, 1) && cpu.read8(at); ++at)
@@ -900,9 +924,11 @@ int cmdAtRun(int argc, char **argv) {
     // holding its return address (it's over when the stack is above that).
     std::vector<uint32_t> openCalls;
     bool treeDone = false;
-    uint32_t lastEip = 0, lastEsp = 0;
+    uint32_t lastEip = 0;
+    uint32_t lastEsp = 0;
     std::string lastLine;
-    unsigned lineRepeats = 0, linesPrinted = 0;
+    unsigned lineRepeats = 0;
+    unsigned linesPrinted = 0;
     auto treeLine = [&](const std::string &line) {
         if (line == lastLine) {
             ++lineRepeats;
@@ -958,10 +984,10 @@ int cmdAtRun(int argc, char **argv) {
                         // moving with the button down) and puts the pointer
                         // where it should be by then.
                         for (int i = 1; i <= kSteps; ++i) {
-                            const int x = it->x + (it->x2 - it->x) * i / kSteps,
-                                      y = it->y + (it->y2 - it->y) * i / kSteps;
-                            const int px = it->x + (it->x2 - it->x) * (i - 1) / kSteps,
-                                      py = it->y + (it->y2 - it->y) * (i - 1) / kSteps;
+                            const int x = it->x + (it->x2 - it->x) * i / kSteps;
+                            const int y = it->y + (it->y2 - it->y) * i / kSteps;
+                            const int px = it->x + (it->x2 - it->x) * (i - 1) / kSteps;
+                            const int py = it->y + (it->y2 - it->y) * (i - 1) / kSteps;
                             moves.push_back({at + 2 + uint64_t(i), x - px, y - py});
                             points.push_back({at + 2 + uint64_t(i), x, y});
                         }

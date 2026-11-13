@@ -92,8 +92,10 @@ public:
     // to (u1, v1); `flip` winds it the other way round.
     gfx::MeshId quad(float x0, float y0, float x1, float y1, float z, const std::array<Rgba, 4> &colors, float u0 = 0,
                      float v0 = 0, float u1 = 1, float v1 = 1, bool flip = false, gfx::Vec3 normal = {0, 0, 1}) {
-        const float xs[4] = {x0, x1, x1, x0}, ys[4] = {y0, y0, y1, y1};
-        const float us[4] = {u0, u1, u1, u0}, vs[4] = {v0, v0, v1, v1};
+        const float xs[4] = {x0, x1, x1, x0};
+        const float ys[4] = {y0, y0, y1, y1};
+        const float us[4] = {u0, u1, u1, u0};
+        const float vs[4] = {v0, v0, v1, v1};
         std::vector<gfx::Vertex> v(4);
         for (int i = 0; i < 4; ++i) {
             v[size_t(i)] = {{xs[i], ys[i], z},
@@ -256,7 +258,8 @@ void drawFrame(gfx::Renderer3D &r, Scene &s) {
     }
     // (2,1) Culling of back faces: the same triangles wound both ways.
     {
-        const float x = cx(2), y = cy(1);
+        const float x = cx(2);
+        const float y = cy(1);
         gfx::DrawCall a =
             Scene::call(s.triangle({x + 4, y + 10, 0.5f}, {x + 36, y + 10, 0.5f}, {x + 4, y + 70, 0.5f}, kGreen), 3);
         gfx::DrawCall b =
@@ -364,7 +367,8 @@ std::array<int, 3> average(const Image &img, int x, int y) {
     int n = 0;
     for (int dy = -3; dy < 3; ++dy)
         for (int dx = -3; dx < 3; ++dx) {
-            const int px = std::clamp(x + dx, 0, img.w - 1), py = std::clamp(y + dy, 0, img.h - 1);
+            const int px = std::clamp(x + dx, 0, img.w - 1);
+            const int py = std::clamp(y + dy, 0, img.h - 1);
             const uint8_t *p = img.pixel(px, py);
             for (int c = 0; c < 3; ++c)
                 sum[size_t(c)] += p[c];
@@ -399,7 +403,8 @@ bool compare(const char *name, const Image &got, const Image &want, const std::v
             std::printf("  skip  %-48s (no stencil buffer)\n", p.what);
             continue;
         }
-        const auto g = average(got, p.x, p.y), w = average(want, p.x, p.y);
+        const auto g = average(got, p.x, p.y);
+        const auto w = average(want, p.x, p.y);
         int worst = 0;
         for (int c = 0; c < 3; ++c)
             worst = std::max(worst, std::abs(g[size_t(c)] - w[size_t(c)]));
@@ -418,7 +423,8 @@ bool compare(const char *name, const Image &got, const Image &want, const std::v
     diff.rgba.assign(got.rgba.size(), 0);
     for (int y = 0; y < kHeight; ++y)
         for (int x = 0; x < kWidth; ++x) {
-            const uint8_t *g = got.pixel(x, y), *w = want.pixel(x, y);
+            const uint8_t *g = got.pixel(x, y);
+            const uint8_t *w = want.pixel(x, y);
             int worst = 0;
             for (int c = 0; c < 3; ++c)
                 worst = std::max(worst, std::abs(int(g[c]) - int(w[c])));
@@ -427,12 +433,14 @@ bool compare(const char *name, const Image &got, const Image &want, const std::v
             d[3] = 255;
         }
     constexpr int kBlock = 4;
-    int off = 0, blocks = 0;
+    int off = 0;
+    int blocks = 0;
     for (int by = 0; by < kHeight; by += kBlock)
         for (int bx = 0; bx < kWidth; bx += kBlock) {
             int worst = 0;
             for (int c = 0; c < 3; ++c) {
-                int sg = 0, sw = 0;
+                int sg = 0;
+                int sw = 0;
                 for (int y = by; y < by + kBlock; ++y)
                     for (int x = bx; x < bx + kBlock; ++x) {
                         sg += got.pixel(x, y)[c];
@@ -456,7 +464,8 @@ bool compare(const char *name, const Image &got, const Image &want, const std::v
 } // namespace
 
 int main(int argc, char **argv) {
-    std::filesystem::path refDir, outDir;
+    std::filesystem::path refDir;
+    std::filesystem::path outDir;
     bool update = false;
     for (int i = 1; i < argc; ++i) {
         const std::string a = argv[i];

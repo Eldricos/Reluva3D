@@ -42,8 +42,12 @@ std::string upper(std::string s) {
 bool wildcard(const std::string &pattern, const std::string &name) {
     if (pattern == "*.*" || pattern == "*")
         return true;
-    const std::string p = upper(pattern), n = upper(name);
-    size_t pi = 0, ni = 0, star = std::string::npos, mark = 0;
+    const std::string p = upper(pattern);
+    const std::string n = upper(name);
+    size_t pi = 0;
+    size_t ni = 0;
+    size_t star = std::string::npos;
+    size_t mark = 0;
     while (ni < n.size()) {
         if (pi < p.size() && (p[pi] == '?' || p[pi] == n[ni])) {
             ++pi, ++ni;
@@ -959,7 +963,8 @@ void Win32Process::addFileStandIns() {
     // CreateFileA(name, access, share, security, disposition, flags, template)
     stdcall(k, "CreateFileA", 7, [this](Cpu &c) {
         const std::string name = c.string(c.arg(0));
-        const uint32_t access = c.arg(1), disposition = c.arg(4);
+        const uint32_t access = c.arg(1);
+        const uint32_t disposition = c.arg(4);
         const bool write = (access & 0x40000000u) != 0; // GENERIC_WRITE
         const char *mode = "rb";
         switch (disposition) {
@@ -982,7 +987,8 @@ void Win32Process::addFileStandIns() {
     // ReadFile(handle, buffer, size, read, overlapped)
     stdcall(k, "ReadFile", 5, [this](Cpu &c) {
         OpenFile *f = file(c.arg(0));
-        const uint32_t buffer = c.arg(1), size = c.arg(2);
+        const uint32_t buffer = c.arg(1);
+        const uint32_t size = c.arg(2);
         if (c.arg(3))
             c.write32(c.arg(3), 0);
         if (!f || !c.valid(buffer, size)) {
@@ -1130,7 +1136,8 @@ void Win32Process::addFileStandIns() {
     stdcall(k, "FindFirstFileA", 2, [this, fill](Cpu &c) {
         const std::string full = fullPath(c.string(c.arg(0)));
         const size_t slash = full.rfind('\\');
-        const std::string folder = full.substr(0, slash + 1), pattern = full.substr(slash + 1);
+        const std::string folder = full.substr(0, slash + 1);
+        const std::string pattern = full.substr(slash + 1);
         const auto host = mapPath ? mapPath(folder, false) : std::nullopt;
         Search s;
         std::error_code ec;

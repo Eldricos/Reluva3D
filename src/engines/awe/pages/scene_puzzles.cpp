@@ -47,8 +47,10 @@ int tagOr0(const GameState &state, const std::string &name) {
 bool insidePolygon(const std::vector<std::pair<uint32_t, uint32_t>> &pts, float x, float y) {
     bool inside = false;
     for (size_t i = 0, j = pts.size() - 1; i < pts.size(); j = i++) {
-        const float xi = float(int32_t(pts[i].first)), yi = float(int32_t(pts[i].second));
-        const float xj = float(int32_t(pts[j].first)), yj = float(int32_t(pts[j].second));
+        const float xi = float(int32_t(pts[i].first));
+        const float yi = float(int32_t(pts[i].second));
+        const float xj = float(int32_t(pts[j].first));
+        const float yj = float(int32_t(pts[j].second));
         if ((yi > y) != (yj > y) && x < (xj - xi) * (y - yi) / (yj - yi) + xi)
             inside = !inside;
     }
@@ -85,7 +87,8 @@ bool ScenePage::hitPicture(const Ac2Record *o, float x, float y, int px, int py)
     if (!o)
         return false;
     const image::Image &img = const_cast<ScenePage *>(this)->picture(o->text("file"));
-    const int u = int(std::floor(x)) - px, v = int(std::floor(y)) - py;
+    const int u = int(std::floor(x)) - px;
+    const int v = int(std::floor(y)) - py;
     return img.w > 0 && u >= 0 && v >= 0 && u < img.w && v < img.h && img.pixel(u, v)[3] != 0;
 }
 
@@ -216,9 +219,11 @@ void ScenePage::snapTornPiece(int i) {
     // 0x43f210: dropped inside the frame, to the nearest cell; else kept
     // on the screen.
     PictureOverride &p = overrides_[torn_->pieces[size_t(i)]];
-    const int cx = int(p.x + p.cx), cy = int(p.y + p.cy);
+    const int cx = int(p.x + p.cx);
+    const int cy = int(p.y + p.cy);
     if (cx >= 491 && cx < 992 && cy >= 18 && cy < 648) {
-        int col = 0, row = 0;
+        int col = 0;
+        int row = 0;
         for (int e : kColEdge)
             col += cx > e;
         for (int e : kRowEdge)
@@ -290,7 +295,8 @@ void ScenePage::writeSafeTags() {
 
 std::string ScenePage::boxEndPicture() const {
     // 0x433f80: the near end as its two halves stand.
-    const int u = box_->state[1], l = box_->state[2];
+    const int u = box_->state[1];
+    const int l = box_->state[2];
     if (u == 4 || l == 4)
         return "endtlbrdown.png";
     static const struct {
@@ -340,7 +346,8 @@ bool ScenePage::boxMovePossible(int piece, int arrow) const {
 bool ScenePage::boxMoveCorrect(int piece, int arrow) const {
     // 0x433950: the solution, step by step (pairs either way round).
     const PuzzleBox &b = *box_;
-    const int u = b.state[1], l = b.state[2];
+    const int u = b.state[1];
+    const int l = b.state[2];
     switch (b.step) {
     case 0:
     case 1:
@@ -395,7 +402,8 @@ void ScenePage::drawPuzzleBox() {
             const Ac2Record *o = puzzleObject(std::string(names[a]) + ".png");
             if (!o)
                 continue;
-            const int x = int(o->f("x")), y = int(o->f("y")) + dy;
+            const int x = int(o->f("x"));
+            const int y = int(o->f("y")) + dy;
             image::blitOver(ctx_.screen, picture(o->text("file")), x, y);
             if (over == a + 1 && boxMovePossible(piece, a + 1))
                 at(std::string(names[a]) + "o.png", x, y);
@@ -426,7 +434,8 @@ void ScenePage::drawPuzzleBox() {
             clip.rgba.assign(size_t(clip.w) * clip.h * 4, 0);
             for (int y = 0; y < clip.h; y++)
                 for (int x = 0; x < clip.w; x++) {
-                    const int u = 440 + x - kBoxX, v = y - kBoxY;
+                    const int u = 440 + x - kBoxX;
+                    const int v = y - kBoxY;
                     if (u >= 0 && v >= 0 && u < img.w && v < img.h)
                         std::copy_n(img.pixel(u, v), 4, clip.pixel(x, y));
                 }
@@ -475,7 +484,8 @@ void ScenePage::puzzleClick(int x, int y) {
             draw();
             return;
         }
-        const int piece = b.selected, arrow = boxArrowAt(x, y);
+        const int piece = b.selected;
+        const int arrow = boxArrowAt(x, y);
         if (arrow == 0) {
             b.selected = 0;
         } else if (!boxMovePossible(piece, arrow)) {
@@ -536,7 +546,12 @@ const Ac2Record *ScenePage::tornPick(int x, int y) const {
         const image::Image &img = const_cast<ScenePage *>(this)->picture(o->text("file"));
         if (img.w <= 0)
             continue;
-        float d, ox = o->f("x"), oy = o->f("y"), roll = 0, cx = 0, cy = 0;
+        float d;
+        float ox = o->f("x");
+        float oy = o->f("y");
+        float roll = 0;
+        float cx = 0;
+        float cy = 0;
         if (const auto ov = overrides_.find(o); ov != overrides_.end()) {
             d = ov->second.depth, ox = ov->second.x, oy = ov->second.y;
             roll = ov->second.roll, cx = ov->second.cx, cy = ov->second.cy;
@@ -546,13 +561,17 @@ const Ac2Record *ScenePage::tornPick(int x, int y) const {
         if (d <= bestDepth)
             continue;
         // The unrotated box, then the pixel turned back about the centre.
-        const float px = float(x), py = float(y);
+        const float px = float(x);
+        const float py = float(y);
         if (px < ox || py < oy || px >= ox + float(img.w) || py >= oy + float(img.h))
             continue;
         if (o->i("alpha") != 0) {
-            const float dx = px - (ox + cx), dy = py - (oy + cy);
-            const float c = std::cos(roll), s = std::sin(roll);
-            const int u = int(std::floor(dx * c + dy * s + cx)), v = int(std::floor(-dx * s + dy * c + cy));
+            const float dx = px - (ox + cx);
+            const float dy = py - (oy + cy);
+            const float c = std::cos(roll);
+            const float s = std::sin(roll);
+            const int u = int(std::floor(dx * c + dy * s + cx));
+            const int v = int(std::floor(-dx * s + dy * c + cy));
             if (u < 0 || v < 0 || u >= img.w || v >= img.h || img.pixel(u, v)[3] == 0)
                 continue;
         }
@@ -723,13 +742,15 @@ bool ScenePage::puzzleStep() {
         }
         return false;
     };
-    int x = 0, y = 0;
+    int x = 0;
+    int y = 0;
     if (box_) {
         // The move the solution asks for next.
         PuzzleBox &b = *box_;
         if (b.solved || !runner_->idle())
             return false;
-        int piece = 0, dir = 0;
+        int piece = 0;
+        int dir = 0;
         for (int p = 1; p <= 4 && !piece; p++)
             for (int a = 1; a <= 4 && !piece; a++)
                 if (boxMovePossible(p, a) && boxMoveCorrect(p, a))
@@ -784,7 +805,8 @@ bool ScenePage::puzzleStep() {
             }
             if (a > 15 && a < 345)
                 return arrow("left");
-            const int dx = kSnapX[i % 4] + 1 - int(p.x + p.cx), dy = kSnapY[i / 4] - int(p.y + p.cy);
+            const int dx = kSnapX[i % 4] + 1 - int(p.x + p.cx);
+            const int dy = kSnapY[i / 4] - int(p.y + p.cy);
             mouse(EventType::MouseDown, x, y);
             mouse(EventType::MouseMove, x + dx, y + dy);
             puzzleUpdate(0);

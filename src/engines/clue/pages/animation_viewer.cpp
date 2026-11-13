@@ -129,8 +129,10 @@ void AnimationViewer::draw() {
     // feet), put low in the middle; the others are centred, among them the
     // short ISOA form's (the interface's, fonts), whose anchors are mostly 0.
     const bool hangs = a.isometric && !a.shortForm && !a.frames.empty();
-    int ax = kScreenW / 2, ay = areaH / 2;
-    int left = ax - a.width * z / 2, top = ay - a.height * z / 2;
+    int ax = kScreenW / 2;
+    int ay = areaH / 2;
+    int left = ax - a.width * z / 2;
+    int top = ay - a.height * z / 2;
     if (hangs) {
         ay = std::min(areaH - 8, areaH / 2 + a.height * z / 2);
         left = ax + a.frames[frame_].anchorX * z;

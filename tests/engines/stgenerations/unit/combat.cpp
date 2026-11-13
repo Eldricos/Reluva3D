@@ -125,7 +125,10 @@ static void combat_ras_and_model() {
     uint32_t parts = (uint32_t)block.size();
     block[8] = (uint8_t)parts;
     Bytes part(44, 0);
-    Bytes verts, uvs, faces, normals;
+    Bytes verts;
+    Bytes uvs;
+    Bytes faces;
+    Bytes normals;
     const float v[3][3] = {{0, 0, 0}, {10, 0, 0}, {0, 20, 5}};
     for (int i = 0; i < 3; i++) {
         for (int k = 0; k < 3; k++)
@@ -221,7 +224,9 @@ static void combat_projection() {
     CombatRenderer r;
     r.setViewport(200, 100, 90);
     r.setCamera(Vec3(0, 0, 0), Mat3());
-    double x, y, depth;
+    double x;
+    double y;
+    double depth;
     CHECK(r.project(Vec3(0, 0, 100), x, y, depth));
     CHECK(x == 100 && y == 50);
     CHECK(r.project(Vec3(100, 50, 100), x, y, depth));

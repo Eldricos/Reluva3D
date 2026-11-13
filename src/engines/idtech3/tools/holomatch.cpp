@@ -46,12 +46,19 @@ int cmdUiRun(int argc, char **argv) {
     }
     namespace q3 = reluva::idtech3;
     namespace ef = reluva::idtech3::eliteforce;
-    int frames = 1, menu = 1, width = 640, height = 480, glwords = 5124;
+    int frames = 1;
+    int menu = 1;
+    int width = 640;
+    int height = 480;
+    int glwords = 5124;
     std::vector<std::pair<int, int>> clicks; // -click x y: in the menus' 640 x 480, one every 20 frames
-    std::vector<int32_t> vmCalls, peeks;     // -vmcall instruction: a function run; -peek address: a word shown
-    std::vector<std::string> shownCvars,
-        latched; // -cvar name: shown at the end; -latch name: made a Latch variable first
-    bool traceCalls = false, verbose = false;
+    // -vmcall instruction: a function run; -peek address: a word shown
+    std::vector<int32_t> vmCalls;
+    std::vector<int32_t> peeks;
+    std::vector<std::string> shownCvars;
+    std::vector<std::string> latched; // -cvar name: shown at the end; -latch name: made a Latch variable first
+    bool traceCalls = false;
+    bool verbose = false;
     int ingameType = -1; // -ingame: the in-game menu, over a match of this game type
     for (int i = 3; i < argc; ++i) {
         if (std::strcmp(argv[i], "-frames") == 0 && i + 1 < argc)
@@ -116,7 +123,7 @@ int cmdUiRun(int argc, char **argv) {
         ui.trace = [](int number, const int32_t *a) {
             std::printf("  syscall %3d (%d, %d, %d, %d)\n", number, a[0], a[1], a[2], a[3]);
         };
-    auto step = [&](const char *what, reluva::Error err) {
+    auto step = [&](const char *what, const reluva::Error &err) {
         std::printf("%s: %s after %llu instructions\n", what, err ? err.message.c_str() : "ok",
                     static_cast<unsigned long long>(ui.vm().executed()));
         return !err;
@@ -197,14 +204,19 @@ int cmdGameRun(int argc, char **argv) {
     namespace q3 = reluva::idtech3;
     namespace ef = reluva::idtech3::eliteforce;
     int frames = 10;
-    bool traceCalls = false, noClient = false, walk = false, runCgame = false;
+    bool traceCalls = false;
+    bool noClient = false;
+    bool walk = false;
+    bool runCgame = false;
     bool probeButtons = false; // -buttons: what holding each button bit does
     // With -cgame: how many client game frames (-cgameframes), and the
     // player holding fire or alt fire (-fire, -altfire) with a weapon
     // (-weapon, the phaser by default) from the second.
     // (-weapon all: each of weapons 1 to 10 in turn, two seconds each.)
     // -give: cheats on and every weapon given first.
-    int cgameFrames = 3, fireButtons = 0, fireWeapon = 1;
+    int cgameFrames = 3;
+    int fireButtons = 0;
+    int fireWeapon = 1;
     bool giveAll = false;
     std::string watchModel; // -watch: print the scene's entities with this model frame by frame
     constexpr int kFramesPerWeapon = 40;
@@ -287,7 +299,7 @@ int cmdGameRun(int argc, char **argv) {
         game.trace = [](int number, const int32_t *a) {
             std::printf("  syscall %3d (%d, %d, %d, %d)\n", number, a[0], a[1], a[2], a[3]);
         };
-    auto step = [&](const char *what, reluva::Error err) {
+    auto step = [&](const char *what, const reluva::Error &err) {
         std::printf("%s: %s after %llu instructions\n", what, err ? err.message.c_str() : "ok",
                     static_cast<unsigned long long>(game.vm().executed()));
         return !err;
@@ -390,7 +402,8 @@ int cmdGameRun(int argc, char **argv) {
             // it out (commandTime 0, origin 20, velocity 32, groundEntityNum
             // 68), to be checked against Elite Force's.
             const auto o = game.entityVec(0, game.layout().currentOrigin);
-            const auto po = game.clientVec(0, 20), pv = game.clientVec(0, 32);
+            const auto po = game.clientVec(0, 20);
+            const auto pv = game.clientVec(0, 32);
             std::printf("  client 0 at %.1f %.1f %.1f; player state: commandTime %d, origin %.1f %.1f %.1f, "
                         "velocity %.1f %.1f %.1f, ground %d; commands read so far %d\n",
                         o[0], o[1], o[2], game.clientInt(0, 0), po[0], po[1], po[2], pv[0], pv[1], pv[2],
@@ -400,8 +413,9 @@ int cmdGameRun(int argc, char **argv) {
             // pers.connected: client + 464 in 1.0, 472 in 1.2): its time and
             // its weapon (5) and moves (20-22).
             const int32_t cmd = game.layout().playerStateSize + 4;
-            const int32_t cmdTime = game.clientInt(0, cmd), cmdMoves = game.clientInt(0, cmd + 20),
-                          cmdWeapon = (game.clientInt(0, cmd + 4) >> 8) & 0xff;
+            const int32_t cmdTime = game.clientInt(0, cmd);
+            const int32_t cmdMoves = game.clientInt(0, cmd + 20);
+            const int32_t cmdWeapon = (game.clientInt(0, cmd + 4) >> 8) & 0xff;
             std::printf("    pm_type %d, pm_flags 0x%x, pm_time %d; the game's command: time %d, weapon %d, "
                         "forward %d, right %d, up %d\n",
                         game.clientInt(0, 4), unsigned(game.clientInt(0, 12)), game.clientInt(0, 16), cmdTime,
@@ -439,7 +453,8 @@ int cmdGameRun(int argc, char **argv) {
                         changed.insert(i * 4);
             }
         };
-        std::set<size_t> idle, ignored;
+        std::set<size_t> idle;
+        std::set<size_t> ignored;
         const int second = 1000 / ef::GameHost::kFrameMs;
         run(0, second, idle);
         for (int bit = 0; bit < 8 && ok; ++bit) { // the buttons are a byte
@@ -465,7 +480,9 @@ int cmdGameRun(int argc, char **argv) {
         // What the game's movement code meets: its trace down from where
         // the player is, with a player's box and mask, ignoring the player.
         const auto o = game.entityVec(0, game.layout().currentOrigin);
-        const q3::Vec3f mins{-15, -15, -24}, maxs{15, 15, 32}, end{o[0], o[1], o[2] - 64};
+        const q3::Vec3f mins{-15, -15, -24};
+        const q3::Vec3f maxs{15, 15, 32};
+        const q3::Vec3f end{o[0], o[1], o[2] - 64};
         const int32_t mask = q3::contents::Solid | q3::contents::PlayerClip | q3::contents::Body;
         // And sideways: how far a player's box could go along each axis.
         for (int axis = 0; axis < 2; ++axis)
@@ -488,9 +505,9 @@ int cmdGameRun(int argc, char **argv) {
                 withEntities ? "world and entities" : "world only", t.fraction, t.startSolid, t.allSolid, hit,
                 t.endPos[2]);
             if (withEntities && hit >= 0 && hit < 1022) {
-                const auto eo = game.entityVec(hit, game.layout().currentOrigin),
-                           emin = game.entityVec(hit, game.layout().mins),
-                           emax = game.entityVec(hit, game.layout().maxs);
+                const auto eo = game.entityVec(hit, game.layout().currentOrigin);
+                const auto emin = game.entityVec(hit, game.layout().mins);
+                const auto emax = game.entityVec(hit, game.layout().maxs);
                 std::printf("  entity %d: origin %.1f %.1f %.1f, box %.1f %.1f %.1f to %.1f %.1f %.1f, contents %d, "
                             "brush model %d (model %d), owner %d\n",
                             hit, eo[0], eo[1], eo[2], emin[0], emin[1], emin[2], emax[0], emax[1], emax[2],
@@ -560,15 +577,20 @@ int cmdGameRun(int argc, char **argv) {
     std::vector<q3::Entity> ents;
     if (!q3::parseEntities(bsp.entities, ents)) {
         const q3::CollisionWorld world(bsp);
-        const q3::Vec3f mins{-15, -15, -24}, maxs{15, 15, 32};
-        int spawns = 0, stuck = 0, falling = 0;
-        float shortest = 1e9f, longest = 0;
+        const q3::Vec3f mins{-15, -15, -24};
+        const q3::Vec3f maxs{15, 15, 32};
+        int spawns = 0;
+        int stuck = 0;
+        int falling = 0;
+        float shortest = 1e9f;
+        float longest = 0;
         for (const q3::Entity &e : ents) {
             float o[3];
             if (e.classname().rfind("info_player", 0) != 0 || !e.vector("origin", o))
                 continue;
             ++spawns;
-            const q3::Vec3f start{o[0], o[1], o[2] + 9}, end{o[0], o[1], o[2] - 4096};
+            const q3::Vec3f start{o[0], o[1], o[2] + 9};
+            const q3::Vec3f end{o[0], o[1], o[2] - 4096};
             const q3::TraceResult t =
                 world.trace(start, end, mins, maxs, 0, q3::contents::Solid | q3::contents::PlayerClip);
             if (t.startSolid)
@@ -702,7 +724,8 @@ int cmdGameRun(int argc, char **argv) {
             // shader, lights; a sample of each.
             // The entities of the last idle frame and the last firing one,
             // to dump those firing adds.
-            std::vector<std::vector<uint8_t>> lastIdleEntities, lastFiringEntities;
+            std::vector<std::vector<uint8_t>> lastIdleEntities;
+            std::vector<std::vector<uint8_t>> lastFiringEntities;
             // By the weapon fired (0 when not firing) and the type or shader.
             using Key = std::pair<int, int32_t>;
             std::map<Key, int> typeCounts;
@@ -718,7 +741,8 @@ int cmdGameRun(int argc, char **argv) {
             int weaponNow = 0;
             // With fire held, the first 10 frames are idle, to compare.
             constexpr int kIdleFrames = 10;
-            int idleFrames = 0, firingFrames = 0;
+            int idleFrames = 0;
+            int firingFrames = 0;
             for (int f = 0; f < cgameFrames; ++f) {
                 const bool verbose = f < 3 || f == cgameFrames - 1;
                 const bool firing = fireButtons && f >= kIdleFrames;
@@ -842,7 +866,8 @@ int cmdGameRun(int argc, char **argv) {
                         if (type != 0 && typeCounts[{weaponNow, type}]++ == 0)
                             typeSamples[{weaponNow, type}] = e.bytes;
                         if (type == 0 && e.bytes.size() >= 116) {
-                            int32_t model = 0, shader = 0;
+                            int32_t model = 0;
+                            int32_t shader = 0;
                             std::memcpy(&model, &e.bytes[8], 4);
                             std::memcpy(&shader, &e.bytes[112], 4);
                             if (!weaponNow)
@@ -1099,8 +1124,10 @@ int cmdDemoRun(int argc, char **argv) {
     q3::CvarStore cvars;
     ef::NetClient client(std::move(data));
     std::unique_ptr<ef::CgameHost> cgame;
-    size_t snapshots = 0, commandsSeen = 0;
-    int32_t firstTime = 0, lastTime = 0;
+    size_t snapshots = 0;
+    size_t commandsSeen = 0;
+    int32_t firstTime = 0;
+    int32_t lastTime = 0;
     uint64_t frames = 0;
     for (uint64_t now = 1000; !client.demoFinished(); now += 16, ++frames) {
         client.frame(now);

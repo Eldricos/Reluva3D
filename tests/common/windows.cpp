@@ -59,7 +59,8 @@ static void testThreads() {
     x86::Win32Process process(cpu);
     uint32_t now = 1000;
     process.milliseconds = [&] { return now; };
-    const uint32_t slot = process.memory().alloc(4), counter = process.memory().alloc(4);
+    const uint32_t slot = process.memory().alloc(4);
+    const uint32_t counter = process.memory().alloc(4);
     cpu.write32(slot, process.provided("KERNEL32.dll", "Sleep"));
     auto code = [&](std::vector<uint8_t> bytes) {
         const uint32_t at = process.memory().alloc(uint32_t(bytes.size()));
@@ -80,7 +81,9 @@ static void testThreads() {
     for (uint8_t b : le(slot))
         sleeping.push_back(b);
     sleeping.push_back(0xc3);
-    const uint32_t thread = code(counting), main = code(sleeping), returning = code({0xc3});
+    const uint32_t thread = code(counting);
+    const uint32_t main = code(sleeping);
+    const uint32_t returning = code({0xc3});
     process.startThread(thread, 7);
     process.startThread(returning, 0);
     CHECK(process.threadsStarted() == 2 && process.threadsRunning() == 2);
@@ -256,7 +259,7 @@ static void testMsvcp60(const std::filesystem::path &tmp) {
         return a;
     };
     uint32_t r = 0;
-    auto method = [&](uint32_t self, const char *name, std::vector<uint32_t> args) {
+    auto method = [&](uint32_t self, const char *name, const std::vector<uint32_t> &args) {
         cpu.reg[x86::Cpu::ECX] = self;
         const bool ok = !cpu.call(fn(name), args, r);
         CHECK(ok);
@@ -274,7 +277,8 @@ static void testMsvcp60(const std::filesystem::path &tmp) {
     const char *kDtor = "??1?$basic_string@DU?$char_traits@D@std@@V?$allocator@D@2@@std@@QAE@XZ";
     const char *kEq = "??8std@@YA_NABV?$basic_string@DU?$char_traits@D@std@@V?$allocator@D@2@@0@PBD@Z";
     const char *kRfind = "?rfind@?$basic_string@DU?$char_traits@D@std@@V?$allocator@D@2@@std@@QBEIPBDII@Z";
-    const uint32_t s1 = process.memory().alloc(16), s2 = process.memory().alloc(16);
+    const uint32_t s1 = process.memory().alloc(16);
+    const uint32_t s2 = process.memory().alloc(16);
     method(s1, kCtorChars, {text("hello world"), 0});
     auto chars = [&](uint32_t s) { return cpu.read32(s + 4) ? cpu.string(cpu.read32(s + 4)) : std::string(); };
     CHECK(chars(s1) == "hello world" && cpu.read32(s1 + 8) == 11 && cpu.read32(s1 + 12) >= 11 &&
@@ -318,7 +322,8 @@ static void testMsvcp60(const std::filesystem::path &tmp) {
     // it's written).
     const uint32_t sb = process.memory().alloc(0x50);
     method(sb, "??0?$basic_streambuf@DU?$char_traits@D@std@@@std@@IAE@XZ", {});
-    const uint32_t vft = process.memory().alloc(13 * 4), base = cpu.read32(sb);
+    const uint32_t vft = process.memory().alloc(13 * 4);
+    const uint32_t base = cpu.read32(sb);
     for (int i = 0; i < 13; ++i)
         cpu.write32(vft + 4 * i, cpu.read32(base + 4 * i));
     cpu.write32(vft + 4 * 1, fn("?overflow@strstreambuf@std@@MAEHH@Z"));
@@ -419,7 +424,8 @@ static void testWindowsAndRegistry() {
 
     // The registry: a key made, a value set and read back; Windows' own
     // locale list enumerated.
-    const uint32_t key = process.memory().alloc(4), disposition = process.memory().alloc(4);
+    const uint32_t key = process.memory().alloc(4);
+    const uint32_t disposition = process.memory().alloc(4);
     CHECK(!cpu.call(fn("ADVAPI32.dll", "RegCreateKeyExA"),
                     {0x80000002u, text("Software\\Test\\Game"), 0, 0, 0, 0, 0, key, disposition}, r) &&
           r == 0 && cpu.read32(disposition) == 1);
@@ -432,8 +438,9 @@ static void testWindowsAndRegistry() {
           r == 2);
     CHECK(!cpu.call(fn("ADVAPI32.dll", "RegOpenKeyExA"), {0x80000002u, text("Software\\Test\\Game"), 0, 1, key}, r) &&
           r == 0);
-    const uint32_t type = process.memory().alloc(4), data = process.memory().alloc(16),
-                   size = process.memory().alloc(4);
+    const uint32_t type = process.memory().alloc(4);
+    const uint32_t data = process.memory().alloc(16);
+    const uint32_t size = process.memory().alloc(4);
     cpu.write32(size, 2);
     CHECK(!cpu.call(fn("ADVAPI32.dll", "RegQueryValueExA"), {cpu.read32(key), text("path"), 0, type, data, size}, r) &&
           r == 234 && cpu.read32(size) == 4);
@@ -444,7 +451,8 @@ static void testWindowsAndRegistry() {
     CHECK(!cpu.call(fn("ADVAPI32.dll", "RegOpenKeyExA"),
                     {0x80000002u, text("System\\CurrentControlSet\\Control\\Nls\\Locale"), 0, 1, key}, r) &&
           r == 0);
-    const uint32_t name = process.memory().alloc(32), nameSize = process.memory().alloc(4);
+    const uint32_t name = process.memory().alloc(32);
+    const uint32_t nameSize = process.memory().alloc(4);
     cpu.write32(nameSize, 32);
     cpu.write32(size, 16);
     CHECK(
@@ -455,7 +463,8 @@ static void testWindowsAndRegistry() {
         r == 259);
 
     // COM: no class without the engine's; with it, the class asked for.
-    const uint32_t guids = process.memory().alloc(32), out = process.memory().alloc(4);
+    const uint32_t guids = process.memory().alloc(32);
+    const uint32_t out = process.memory().alloc(4);
     const uint8_t clsid[16] = {0xe0, 0xee, 0xf1, 0xd8, 0x34, 0xf6, 0xcf, 0x11,
                                0x87, 0,    0,    0xa0, 0x24, 0x5d, 0x91, 0x8b};
     for (uint32_t i = 0; i < 16; ++i)
@@ -578,7 +587,8 @@ static void testDirectX() {
     CHECK(call(dd, 6, {desc, out, 0}) == 0);
     const uint32_t texture = cpu.read32(out);
     CHECK(call(texture, 25, {0, desc, 1, 0}) == 0); // Lock
-    const uint32_t texels = cpu.read32(desc + 36), pitch = cpu.read32(desc + 16);
+    const uint32_t texels = cpu.read32(desc + 36);
+    const uint32_t pitch = cpu.read32(desc + 16);
     cpu.write16(texels, 0xffff);                // white
     cpu.write16(texels + 2, 0xf800);            // red
     cpu.write16(texels + pitch, 0x07e0);        // green
@@ -649,7 +659,8 @@ static void testDirectX() {
             CHECK(call(device, 25, {4, fvf, verts, 3, 0}) == 0);
         }
         CHECK(call(back, 25, {0, desc, 1, 0}) == 0); // Lock
-        const uint32_t pixels = cpu.read32(desc + 36), rowBytes = cpu.read32(desc + 16);
+        const uint32_t pixels = cpu.read32(desc + 36);
+        const uint32_t rowBytes = cpu.read32(desc + 16);
         std::vector<uint8_t> image(cpu.memory().begin() + pixels, cpu.memory().begin() + pixels + rowBytes * 48);
         CHECK(call(back, 32, {0}) == 0);
         return image;
@@ -750,7 +761,8 @@ static void testInput() {
     CHECK(call(di, 3, {guid("{6f1d2b60-d5a0-11cf-bfc7-444553540000}"), out, 0}) == 0); // CreateDevice: the mouse
     const uint32_t mouse = cpu.read32(out);
     // A mouse format as c_dfDIMouse is: X, Y, Z (LONGs), four buttons (BYTEs).
-    const uint32_t objects = process.memory().alloc(7 * 16), format = process.memory().alloc(24);
+    const uint32_t objects = process.memory().alloc(7 * 16);
+    const uint32_t format = process.memory().alloc(24);
     const uint32_t axisGuids[3] = {guid("{a36d02e0-c9f3-11cf-bfc7-444553540000}"),
                                    guid("{a36d02e1-c9f3-11cf-bfc7-444553540000}"),
                                    guid("{a36d02e2-c9f3-11cf-bfc7-444553540000}")};
@@ -779,7 +791,8 @@ static void testInput() {
           cpu.read8(state + 12) == 0 && cpu.read8(state + 13) == 0x80);
     CHECK(call(mouse, 9, {16, state}) == 0 && cpu.read32(state) == 0); // the movement was read
     // The buffer: X moved, Y moved, button 1 pressed.
-    const uint32_t data = process.memory().alloc(8 * 16), count = process.memory().alloc(4);
+    const uint32_t data = process.memory().alloc(8 * 16);
+    const uint32_t count = process.memory().alloc(4);
     cpu.write32(count, 8);
     CHECK(call(mouse, 10, {16, data, count, 0}) == 0 && cpu.read32(count) == 3);
     CHECK(cpu.read32(data) == 0 && cpu.read32(data + 4) == 10 && cpu.read32(data + 16) == 4 &&
@@ -789,7 +802,8 @@ static void testInput() {
     // The keyboard, with a format of 256 keys by scan code.
     CHECK(call(di, 3, {guid("{6f1d2b61-d5a0-11cf-bfc7-444553540000}"), out, 0}) == 0);
     const uint32_t keyboard = cpu.read32(out);
-    const uint32_t keys = process.memory().alloc(256 * 16), keyGuid = guid("{55728220-d33c-11cf-bfc7-444553540000}");
+    const uint32_t keys = process.memory().alloc(256 * 16);
+    const uint32_t keyGuid = guid("{55728220-d33c-11cf-bfc7-444553540000}");
     for (uint32_t i = 0; i < 256; ++i) {
         cpu.write32(keys + 16 * i, keyGuid);
         cpu.write32(keys + 16 * i + 4, i);
@@ -828,7 +842,10 @@ static void testA3d() {
         CHECK(!cpu.call(cpu.read32(cpu.read32(self) + 4 * uint32_t(index)), args, r));
         return r;
     };
-    const uint32_t out = mem(4), out2 = mem(4), out3 = mem(4), out4 = mem(4);
+    const uint32_t out = mem(4);
+    const uint32_t out2 = mem(4);
+    const uint32_t out3 = mem(4);
+    const uint32_t out4 = mem(4);
     CHECK(!cpu.call(process.provided("ole32.dll", "CoCreateInstance"),
                     {guid("{92fa2c24-253c-11d2-90fb-006008a1f441}"), 0, 1,
                      guid("{9ae07221-8ac4-11d3-b6aa-00600879f3ee}"), out},
@@ -922,7 +939,8 @@ static void testA3d() {
         CHECK(call(positioned, 56, {out}) == 0);
         std::vector<int16_t> both(2 * 22050);
         mixer.mix(both.data(), 22050);
-        int left = 0, right = 0;
+        int left = 0;
+        int right = 0;
         for (size_t i = 0; i < both.size(); i += 2)
             left = std::max(left, std::abs(int(both[i]))), right = std::max(right, std::abs(int(both[i + 1])));
         clock += 600;

@@ -120,7 +120,9 @@ int cmdModelCheck(int argc, char **argv) {
     Bytes data;
     std::multimap<std::string, std::string> imagesByStem;
     std::vector<std::string> models;
-    std::set<std::string> mapShadersBare, mapModels; // what the maps use: shader names without extension, models
+    // what the maps use: shader names without extension, models
+    std::set<std::string> mapShadersBare;
+    std::set<std::string> mapModels;
     std::vector<std::string> maps;
     for (const std::string &n : set.list()) {
         const std::string key = reluva::normalizeArchiveName(n);
@@ -137,7 +139,8 @@ int cmdModelCheck(int argc, char **argv) {
     // A shader name as maps store it: without an extension.
     auto bare = [](const std::string &name) {
         std::string s = reluva::normalizeArchiveName(name);
-        const size_t dot = s.find_last_of('.'), slash = s.find_last_of('/');
+        const size_t dot = s.find_last_of('.');
+        const size_t slash = s.find_last_of('/');
         if (dot != std::string::npos && (slash == std::string::npos || dot > slash))
             s.resize(dot);
         return s;
@@ -164,7 +167,8 @@ int cmdModelCheck(int argc, char **argv) {
         if (ex.size() < 3)
             ex.push_back(example);
     };
-    int surfaces = 0, unreadable = 0;
+    int surfaces = 0;
+    int unreadable = 0;
     for (const std::string &path : models) {
         q3::Md3Model m;
         if (set.read(path, data) || q3::parseModel(data, m)) {
