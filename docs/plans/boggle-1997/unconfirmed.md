@@ -339,3 +339,14 @@ normals and picking. External read-only checks match all 96 settled-pose cases
 and all six face-input bindings. Original seeded shuffle, exact side bitmap UV
 orientation and original full/one-sided switching remain unverified. This stage
 preserves native board generation and introduces no retail data into Git.
+
+### Cube texture mapping
+
+The owner confirmed physical side letters and full cube rotation work. The next
+[texture mapping correction](../../engines/boggle/cube-textures.md) applies the
+original loader's horizontal U mirrors on rounded input faces 1, 2, 4 and 5.
+An external read-only probe checks all six faces of both supported styles with
+three asymmetric invented vertices each (36 checks). Angular previews remain
+unchanged; rounded previews change side lettering while top alignment and picking
+remain covered. Native texture filtering and exact whole-screen matching remain
+comparison work, along with full/one-sided switching and the cube-style UI/default.

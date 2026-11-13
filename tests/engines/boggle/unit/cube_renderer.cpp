@@ -111,6 +111,30 @@ void physicalDice() {
         }
     }
 }
+void sideTexture() {
+    // Both styles share an invented geometric cube. An asymmetric atlas makes
+    // a horizontal mirror visible independently of letter shape and material.
+    auto gradient=atlas(0,100,50);
+    for(int y=0;y<512;++y)for(int x=0;x<512;++x)gradient.rgba[(y*512+x)*4]=uint8_t((x-(x*6/512)*512/6)*2);
+    DiceSet dice;dice.side=4;std::array<std::string,6> faces;faces.fill("A");dice.dice.resize(16,faces);
+    Board board;uint32_t seed=0;
+    do {CHECK(!Board::generate(dice,seed++,board));}while(board.rolledDice()[12].upward!=5 && seed<100);
+    CHECK(board.rolledDice()[12].upward==5);
+    CameraProjection camera(classicLidView(false,43).camera);
+    std::array<std::array<int,2>,2> red{};
+    for(size_t style=0;style<2;++style) {
+        auto g=geometry();if(style)g.appliedScale=classicCubeMeshScale(classicCubeMeshPaths[0]);
+        CubeRenderer renderer;CHECK(!renderer.prepare(g));Surface screen;screen.create(800,600,PixelFormat::RGBA32);
+        renderer.draw(screen,board,camera,gradient,gradient,{},seed-1,true);
+        for(size_t k=0;k<2;++k) {
+            // Bottom-row cell 12: its visible front is source +Z (input 2).
+            const auto p=camera.project(-165000+(k?20000:-20000),-215000,0,100000,5,4);
+            CHECK(renderer.cellAt(camera,board,p.x,p.y,seed-1,true)==12);
+            red[style][k]=screen.row(p.y)[p.x*4];
+        }
+    }
+    CHECK(red[0][0]>red[0][1]);CHECK(red[1][0]<red[1][1]);
+}
 void layout(const std::filesystem::path& tmp) {
     for(bool master:{false,true})for(bool rounded:{false,true}) {
         const auto root=tmp/(std::to_string(master)+std::to_string(rounded));fixtures::artworkInstall(root);
@@ -154,5 +178,6 @@ static const test::Suite suite("boggle.unit.cube_renderer",{
     {"convex/concave/folded polygons, collinear corners and invalid input",[](const auto&){topology();}},
     {"depth, Gouraud materials, Qu, rotation, centers, hit testing and clipping",[](const auto&){raster();}},
     {"physical die faces, rigid poses, side lettering and rotated picking",[](const auto&){physicalDice();}},
+    {"rounded side bitmap mirror differs from angular template",[](const auto&){sideTexture();}},
     {"both meshes and variants, lid masks, word entry, scoring and opt-out",layout},
 });

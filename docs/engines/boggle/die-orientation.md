@@ -48,8 +48,9 @@ The original random turn assignment and shuffle are not being emulated.
 
 Each letter surface receives its corresponding retained face, with the distinct
 Qu atlas wherever needed. Upward UV axes are aligned from the mesh's UV tangents
-before the optional whole-cube spin. Other sides retain source-template UVs;
-matching the original side bitmap orientation remains unverified. Normals rotate
+before the optional whole-cube spin. Other sides use the measured [template texture mapping](cube-textures.md),
+including the four rounded-face U mirrors. Whole-screen raster matching remains
+unverified. Normals rotate
 with the body before native diffuse lighting. Picking projects the same rotated
 triangles, and human input, computer cursor targets and review markers use the
 same upward-face centers. Centers refresh on New Board and remain stable on Replay.
@@ -64,4 +65,5 @@ previous random-draw contract across 256 Original/Master seeded boards. Existing
 mouse-entry/scoring, animation masks and prototype compatibility remain covered.
 External supplied-resource previews check both meshes and variants without
 adding assets to Git. The artwork digest becomes
-`def67430fb55182fb2d3fc6f5c6aa3b2`; geometry and import contents are unchanged.
+`ff08f12fd6fbda7487ff2e8702b60178` after the template texture correction;
+geometry and import contents are unchanged.

@@ -33,8 +33,8 @@ Auto-orient keeps the upward glyph upright. Disabling it rotates the complete
 cube, normals and lettering by a stable native quarter turn. Drawing, picking,
 review markers and computer destinations share that physical pose. Replay
 retains it; New Board refreshes it. The native shuffle and top-letter draws are
-unchanged. Side glyph UVs use the source template; exact original side bitmap
-orientation is still unverified.
+unchanged. Side glyph UVs use the measured [template mapping](cube-textures.md),
+including the rounded-face U mirrors. Exact original rasterization remains unverified.
 
 Planar polygons use independently written ear clipping, including concave
 polygons and collinear corners. Some supplied shoulder quads are folded in 3D;
@@ -89,7 +89,7 @@ masks, and enter a word by mouse through the game loop with the same score.
 Existing legacy rendering/gameplay records remain unchanged.
 
 The supplied artwork checker renders 26 states and now reports
-`def67430fb55182fb2d3fc6f5c6aa3b2`; install, CD and fresh-import checks agree.
+`ff08f12fd6fbda7487ff2e8702b60178`; install, CD and fresh-import checks agree.
 `cube-check` also validates tessellation of both resources and reports the 350
 triangles. Its geometry digest stays `e985c393b66b88890345759e0ab219fc` because
 resource data and normalization did not change. Previews of both styles and
@@ -97,13 +97,13 @@ variants were inspected outside Git; no retail images or vertices are fixtures.
 
 The full normal run passes 64 checks, including all 41 Boggle checks, and skips
 ten optional id Tech 3 data checks. All 737 supplied installed files retain their
-manifest hashes. The owner confirmed the preceding body/upward-letter renderer works. Windows
-owner testing of the physical side-letter update is pending. Exact
-whole-screen original matching, side bitmap orientation, original
+manifest hashes. The owner confirmed body/upward lettering, physical side letters
+and full cube rotation work. Windows testing of the subsequent template UV
+correction is pending. Exact whole-screen original matching, original
 full/one-sided switching, specular lighting and dialog/pause appearance remain
 unfinished; this pass does not claim complete Classic visual parity.
 
-The synthetic Boggle suites and both supplied-data artwork/cube checkers also
-pass ASan/UBSan, with leak detection disabled for the execution tracer. A dummy
+The focused cube suite and both supplied-data artwork/cube checkers also
+pass ASan/UBSan, with leak detection disabled for the execution tracer. The preceding dummy
 SDL software-backend run loads the complete installed board in both variants
 and exercises the hand cursor, press/release, focus/leave and cursor cleanup.

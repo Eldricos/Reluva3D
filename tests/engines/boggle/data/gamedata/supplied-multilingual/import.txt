@@ -6,7 +6,7 @@ cursor: 44f231ee15b419f3 | decoded cursors: 286d1fe04293a3f50eadc1a22262ba65
 music: 46634e85e46a3e66 | decoded music: f0a87351902d54d16a2da6a9b64dcb63
 frontend: bacd3a2710729580 | decoded frontend: 60afd78d7288730155ffff7dda912a9b
 movies: 1c9b68f1f59fa1aa | decoded movies: abb22635617408befee5004becc849cc
-artwork: b2225fbe73230a65 | decoded artwork: def67430fb55182fb2d3fc6f5c6aa3b2
+artwork: d6763db2617bfaf8 | decoded artwork: ff08f12fd6fbda7487ff2e8702b60178
 cubes: 4c1201c34ced1024 | decoded cubes: e985c393b66b88890345759e0ab219fc
 font: d95aa010cbe9a291 | decoded font: c17da155d78f17e71d32137d3f5b1521
 allwords: 58f65b9a3d851c1a | decoded all words: 8422ca959f8ecd50164ea97972c4c274

@@ -116,7 +116,11 @@ Error CubeRenderer::prepare(const CubeGeometry& geometry) {
                 // Canonical settled orientation: source +Y is the upward face
                 // toward the camera (-Z), source +Z is the back of the tray.
                 out.position={int(std::lround(p[0]*100000)),int(std::lround(p[2]*100000)),int(std::lround(-p[1]*100000))};
-                out.u=int(std::lround(mesh.texcoords[i][0]*65536));out.v=65536-int(std::lround(mesh.texcoords[i][1]*65536));
+                // Rounded template faces +X,+Z,-X,+Y use mirrored U in the
+                // measured loader contract. Apply it before deriving top axes.
+                double u=mesh.texcoords[i][0];
+                if(prepared.rounded_ && (sideFace==1 || sideFace==2 || sideFace==4 || sideFace==5))u=1-u;
+                out.u=int(std::lround(u*65536));out.v=65536-int(std::lround(mesh.texcoords[i][1]*65536));
                 out.normal={n[0],n[2],-n[1]};
             }
             if(sideFace>=0) {

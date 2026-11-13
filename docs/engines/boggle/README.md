@@ -221,5 +221,6 @@ inside a Git worktree is rejected. Record updates use the shared
 
 The [complete cube geometry preparation](cube-geometry.md) adds optional script
 imports and `cube-check` for the next rendering stage. The subsequent [complete cube renderer](cube-renderer.md) now draws body and
-lettering together with native Gouraud shading. Exact original lighting and
-full die orientation remain comparison work.
+lettering together with native Gouraud shading. Generated dice retain their [six faces and settled poses](die-orientation.md),
+with the measured [rounded-face texture corrections](cube-textures.md). Exact
+original lighting, seeded shuffle and whole-screen parity remain comparison work.
