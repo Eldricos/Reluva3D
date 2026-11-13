@@ -6,7 +6,7 @@
 // 0x413f00), and the hotspots that keys press (0x436110). See
 // docs/engines/awe/games/motoe/formats/ac2.md.
 
-#include "engines/awe/pages/viewers.h"
+#include "engines/awe/game/scene_page.h"
 
 #include "common/fs.h"
 #include "engines/awe/game/picking.h"

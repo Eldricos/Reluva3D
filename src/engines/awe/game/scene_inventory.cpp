@@ -5,7 +5,7 @@
 // character (0x41c050, Text\uselist.txt), and items combined
 // (Text\combinelist.txt, 0x418cf0). See docs/engines/awe/games/motoe/systems/script.md.
 
-#include "engines/awe/pages/viewers.h"
+#include "engines/awe/game/scene_page.h"
 
 #include "common/fs.h"
 #include "engines/awe/formats/tables.h"

@@ -34,7 +34,7 @@
 #include "common/archive.h"
 #include "audio/mixer.h"
 #include "engines/awe/game/story.h"
-#include "engines/awe/pages/viewers.h"
+#include "engines/awe/game/scene_page.h"
 
 #include <algorithm>
 #include <cctype>
@@ -142,7 +142,7 @@ public:
                                                           haveFonts ? &_fonts : nullptr,
                                                           {},
                                                           -1});
-        _page = std::make_unique<ScenePage>(*_ctx);
+        _page = std::make_unique<ScenePage>(*_ctx, ScenePage::Browser::kOn);
         _page->cutLines = !sound;
         _page->onLog = [this](const std::string &l) {
             _log.push_back(l);

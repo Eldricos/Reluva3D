@@ -1,6 +1,6 @@
 # Murder on the Orient Express: puzzle screens
 
-> **Status:** done · **Code:** `src/engines/awe/pages/scene_puzzles.cpp` · **Checked against:** the code (`motoe.exe`, English 1.0); the torn letter's solution by compositing its pieces, its arrows against a recording · **Confidence:** from the code unless marked
+> **Status:** done · **Code:** `src/engines/awe/game/scene_puzzles.cpp` · **Checked against:** the code (`motoe.exe`, English 1.0); the torn letter's solution by compositing its pieces, its arrows against a recording · **Confidence:** from the code unless marked
 
 ## Overview
 

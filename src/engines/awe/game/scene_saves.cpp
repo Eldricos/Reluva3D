@@ -6,7 +6,7 @@
 // screens, quick saves, and restoring a save. See
 // docs/engines/awe/games/motoe/systems/saves.md.
 
-#include "engines/awe/pages/viewers.h"
+#include "engines/awe/game/scene_page.h"
 
 #include "common/fs.h"
 #include "common/text.h"

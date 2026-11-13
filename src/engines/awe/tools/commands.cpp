@@ -15,6 +15,7 @@
 #include "engines/awe/formats/savegame.h"
 #include "engines/awe/game/story.h"
 #include "engines/awe/formats/tables.h"
+#include "engines/awe/game/scene_page.h"
 #include "engines/awe/pages/viewers.h"
 #include "common/archive.h"
 #include "image/image.h"
@@ -373,7 +374,7 @@ int cmdAweShot(int argc, char **argv) {
     std::unique_ptr<awe::Page> page;
     const std::string which = argv[3];
     if (which == "scenes")
-        page = std::make_unique<awe::ScenePage>(ctx);
+        page = std::make_unique<awe::ScenePage>(ctx, awe::ScenePage::Browser::kOn);
     else if (which == "pictures")
         page = std::make_unique<awe::PicturePage>(ctx);
     else if (which == "text")
@@ -846,7 +847,7 @@ int cmdAweActs(int argc, char **argv) {
         problems += n;
     };
     for (const std::string &target : targets) {
-        awe::ScenePage page(ctx);
+        awe::ScenePage page(ctx, awe::ScenePage::Browser::kOn);
         std::vector<std::string> log;
         page.onLog = [&](const std::string &l) { log.push_back(l); };
         page.setDrawing(false);
@@ -936,7 +937,7 @@ int cmdAweActs(int argc, char **argv) {
                 tries.emplace_back(i, item);
         }
         for (const auto &[i, item] : tries) {
-            awe::ScenePage again(ctx);
+            awe::ScenePage again(ctx, awe::ScenePage::Browser::kOn);
             std::vector<std::string> log2;
             again.onLog = [&](const std::string &l) { log2.push_back(l); };
             again.setDrawing(false);

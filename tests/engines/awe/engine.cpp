@@ -6,8 +6,9 @@
 // for motoe.exe and granny2.dll, an acts.txt of one act, the main menu's
 // scene with its Play hotspot, two scenes of a place of its own and their
 // pictures), finds it as the launcher does, and plays it through the
-// engine: a new game, Play, a click on a hotspot that sets a tag and goes
-// to the next scene, a quick save, then back to the launcher. What happens
+// engine: the main menu, Play, a click on a hotspot that sets a tag and
+// goes to the next scene, a quick save, then back to the launcher. Then
+// the same in the data viewer, from its Scenes page with N. What happens
 // goes into a record (counts and checksums of the screens, the titles and
 // the files written), compared with tests/engines/awe/data/engine-record.txt.
 //
@@ -17,6 +18,7 @@
 #include "image/image.h"
 #include "engines/awe/formats/savegame.h"
 #include "engines/registry.h"
+#include "engines/viewer_registry.h"
 #include "tests/engines/awe/fixtures.h"
 #include "tests/support/record.h"
 #include "tests/support/test.h"
@@ -206,30 +208,42 @@ void engineTest(const std::filesystem::path &tmp) {
     const auto found = engine->detect(install);
     rec.add("detect", found.empty() ? "(none)" : found[0].gameId + " " + found[0].description);
 
-    // Played: a new game (N) and its main menu; Play; the act's place and
-    // its first scene; a click on the door, which sets a tag and goes to
-    // the next scene; a quick save (F2); back to the launcher.
-    GameTarget target{"motoe", "awe", "motoe", "Murder on the Orient Express", install, tmp / "saves", {}};
-    PlayingSystem sys;
-    sys.inputs = {{500, key('n')},
-                  {3000, mouse(EventType::kMouseMove, 500, 400)},
-                  {3020, mouse(EventType::kMouseDown, 500, 400)},
-                  {3040, mouse(EventType::kMouseUp, 500, 400)},
-                  {6000, mouse(EventType::kMouseMove, 510, 410)},
-                  {6020, mouse(EventType::kMouseDown, 510, 410)},
-                  {6040, mouse(EventType::kMouseUp, 510, 410)},
-                  {9000, key(key::kF1 + 1)},
-                  {10000, Event{EventType::kReturnToLauncher}}};
-    auto game = engine->create(sys, target);
-    const Error err = game->run();
-    rec.add("run.result", err ? "error: " + err.message : std::string("ok"));
-    rec.add("run.size", std::to_string(sys.width()) + "x" + std::to_string(sys.height()));
-    rec.add("run.screens", std::to_string(sys.shown) + " " + sys.screens.hex());
-    std::string titles;
-    for (const std::string &t : sys.titles)
-        titles += (titles.empty() ? "" : " / ") + t;
-    rec.add("run.titles", titles);
-    rec.add("run.files", listFiles(tmp / "saves"));
+    // Played: the main menu; Play; the act's place and its first scene;
+    // a click on the door, which sets a tag and goes to the next scene; a
+    // quick save (F2); back to the launcher.
+    const std::vector<PlayingSystem::Input> inputs = {{3000, mouse(EventType::kMouseMove, 500, 400)},
+                                                      {3020, mouse(EventType::kMouseDown, 500, 400)},
+                                                      {3040, mouse(EventType::kMouseUp, 500, 400)},
+                                                      {6000, mouse(EventType::kMouseMove, 510, 410)},
+                                                      {6020, mouse(EventType::kMouseDown, 510, 410)},
+                                                      {6040, mouse(EventType::kMouseUp, 510, 410)},
+                                                      {9000, key(key::kF1 + 1)},
+                                                      {10000, Event{EventType::kReturnToLauncher}}};
+    auto play = [&](const std::string &what, auto &&create, std::vector<PlayingSystem::Input> events) {
+        GameTarget target{"motoe", "awe", "motoe", "Murder on the Orient Express", install, tmp / what, {}};
+        PlayingSystem sys;
+        sys.inputs = std::move(events);
+        auto game = create(sys, target);
+        const Error err = game->run();
+        rec.add(what + ".result", err ? "error: " + err.message : std::string("ok"));
+        rec.add(what + ".size", std::to_string(sys.width()) + "x" + std::to_string(sys.height()));
+        rec.add(what + ".screens", std::to_string(sys.shown) + " " + sys.screens.hex());
+        std::string titles;
+        for (const std::string &t : sys.titles)
+            titles += (titles.empty() ? "" : " / ") + t;
+        rec.add(what + ".titles", titles);
+        rec.add(what + ".files", listFiles(tmp / what));
+    };
+    play("run", [&](System &sys, const GameTarget &t) { return engine->create(sys, t); }, inputs);
+
+    // The viewer: its Scenes page, a new game there (N), then the same.
+    if (const MetaViewer *viewer = findViewer("awe")) {
+        std::vector<PlayingSystem::Input> withN = {{500, key('n')}};
+        withN.insert(withN.end(), inputs.begin(), inputs.end());
+        play("viewer", [&](System &sys, const GameTarget &t) { return viewer->create(sys, t); }, withN);
+    } else {
+        test::fail("awe has no viewer");
+    }
 
     rec.check(RELUVA_SOURCE_DIR "/tests/engines/awe/data/engine-record.txt", "awe.engine",
               "tests/engines/awe/engine.cpp");

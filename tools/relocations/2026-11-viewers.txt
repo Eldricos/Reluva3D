@@ -34,3 +34,13 @@ src/engines/newworlds/viewers.h                 src/engines/newworlds/pages/view
 src/engines/nfs/pages/page_draw.h               src/engines/nfs/ui/page_draw.h
 src/engines/nfs/pages/play_page.cpp             src/engines/nfs/ui/play_page.cpp
 src/engines/nfs/pages/play_page.h               src/engines/nfs/ui/play_page.h
+
+# awe: the game's scene page and the page base, out of pages/
+src/engines/awe/pages/scene_autoplay.cpp        src/engines/awe/game/scene_autoplay.cpp
+src/engines/awe/pages/scene_cursor.cpp          src/engines/awe/game/scene_cursor.cpp
+src/engines/awe/pages/scene_interface.cpp       src/engines/awe/game/scene_interface.cpp
+src/engines/awe/pages/scene_inventory.cpp       src/engines/awe/game/scene_inventory.cpp
+src/engines/awe/pages/scene_options.cpp         src/engines/awe/game/scene_options.cpp
+src/engines/awe/pages/scene_outdoors.cpp        src/engines/awe/game/scene_outdoors.cpp
+src/engines/awe/pages/scene_puzzles.cpp         src/engines/awe/game/scene_puzzles.cpp
+src/engines/awe/pages/scene_saves.cpp           src/engines/awe/game/scene_saves.cpp

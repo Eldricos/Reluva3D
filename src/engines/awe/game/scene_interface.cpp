@@ -7,7 +7,7 @@
 // (0x415650), and the passport or fingerprint card a script holds up
 // (0x417ba0).
 
-#include "engines/awe/pages/viewers.h"
+#include "engines/awe/game/scene_page.h"
 
 #include "common/fs.h"
 #include "engines/awe/formats/tables.h"

@@ -7,7 +7,7 @@
 // button release, the scene's "action" verbs and conditions. See
 // docs/engines/awe/games/motoe/systems/puzzles.md.
 
-#include "engines/awe/pages/viewers.h"
+#include "engines/awe/game/scene_page.h"
 
 #include "common/fs.h"
 

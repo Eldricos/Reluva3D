@@ -7,7 +7,7 @@
 // the scene's hotspots tried one by one. What it logs is how the acts are
 // checked; see docs/engines/awe/games/motoe/systems/acts.md.
 
-#include "engines/awe/pages/viewers.h"
+#include "engines/awe/game/scene_page.h"
 
 #include "common/fs.h"
 #include "engines/awe/formats/savegame.h"

@@ -8,16 +8,15 @@
 // behaviour of the original, or documented reverse engineering of a legally
 // owned copy. Never from leaked source code. See CONTRIBUTING.md.
 //
-// For now the engine is a data viewer (viewers.h): scenes, pictures,
-// models with their animations, text and sounds. Tab moves between them;
-// Esc goes back to the launcher.
+// The game is ScenePage (game/scene_page.h), started at its main menu.
+// Its data viewer is in pages/, built into reluva-viewer only.
 
 #include "engines/engine.h"
 
 #include "common/archive.h"
 #include "audio/mixer.h"
 #include "common/settings.h"
-#include "engines/awe/pages/viewers.h"
+#include "engines/awe/game/scene_page.h"
 
 #include <cstdio>
 
@@ -70,19 +69,10 @@ public:
             _sys, _files, audioOut ? &mixer : nullptr, _screen, _target.savePath, haveFonts ? &fonts : nullptr, {}, -1};
         int shots = 0;
 
-        std::vector<std::unique_ptr<awe::Page>> pages;
-        pages.push_back(std::make_unique<awe::ScenePage>(ctx));
-        pages.push_back(std::make_unique<awe::ModelPage>(ctx));
-        pages.push_back(std::make_unique<awe::MoviePage>(ctx));
-        pages.push_back(std::make_unique<awe::PicturePage>(ctx));
-        pages.push_back(std::make_unique<awe::TextPage>(ctx));
-        pages.push_back(std::make_unique<awe::SoundPage>(ctx));
-        size_t page = 0;
-        while (page < pages.size() && pages[page]->count() == 0)
-            page++;
-        if (page == pages.size())
-            return Error::fail("No scenes, models, pictures, text or sounds found in " + _target.path.string());
-        pages[page]->activate();
+        awe::ScenePage game(ctx, awe::ScenePage::Browser::kOff);
+        if (game.count() == 0)
+            return Error::fail("No scenes (Locations/**/*.ac2) found in " + _target.path.string());
+        game.activate();
 
         // Frames shown in the last second, after the title.
         uint64_t second = _sys.getMillis();
@@ -97,34 +87,27 @@ public:
             Event ev;
             while (_sys.pollEvent(ev)) {
                 if (ev.type == EventType::kQuit || ev.type == EventType::kReturnToLauncher ||
-                    (ev.type == EventType::kKeyDown && ev.key == key::kEscape && !pages[page]->wantsEscape())) {
-                    pages[page]->deactivate();
+                    (ev.type == EventType::kKeyDown && ev.key == key::kEscape && !game.wantsEscape())) {
+                    game.deactivate();
                     return Error::success();
                 }
                 // F12: a screenshot, into the game's own folder.
                 if (ev.type == EventType::kKeyDown && ev.key == key::kF1 + 11) {
                     char name[48];
-                    std::snprintf(name, sizeof name, "screenshots/%s_%03d.tga", pages[page]->name(), ++shots);
-                    pages[page]->requestScreenshot(_target.savePath / name);
+                    std::snprintf(name, sizeof name, "screenshots/%s_%03d.tga", game.name(), ++shots);
+                    game.requestScreenshot(_target.savePath / name);
                     continue;
                 }
-                if (ev.type == EventType::kKeyDown && ev.key == key::kTab) {
-                    pages[page]->deactivate();
-                    do
-                        page = (page + 1) % pages.size();
-                    while (pages[page]->count() == 0);
-                    pages[page]->activate();
-                    continue;
-                }
-                pages[page]->handleEvent(ev);
-                if (pages[page]->quitRequested()) {
-                    pages[page]->deactivate();
+                game.handleEvent(ev);
+                if (game.quitRequested()) {
+                    game.deactivate();
                     return Error::success();
                 }
             }
-            pages[page]->update(_sys.getMillis());
-            // 3D pages are paced by presenting (vsync); the rest needn't spin.
-            if (!pages[page]->uses3D())
+            game.update(_sys.getMillis());
+            // Drawn in 3D, it's paced by presenting (vsync); in 2D it needn't
+            // spin.
+            if (!game.uses3D())
                 _sys.delayMillis(10);
         }
     }

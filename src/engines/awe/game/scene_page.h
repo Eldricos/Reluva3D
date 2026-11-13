@@ -1,0 +1,927 @@
+// SPDX-License-Identifier: GPL-3.0-or-later
+// Copyright (C) 2026 The Reluva contributors
+
+#pragma once
+
+#include "audio/mixer.h"
+#include "common/events.h"
+#include "graphics/gfx3d.h"
+#include "image/image.h"
+#include "common/types.h"
+#include "video/bink.h"
+#include "engines/awe/formats/ac2.h"
+#include "engines/awe/game/actor.h"
+#include "engines/awe/game/conditions.h"
+#include "engines/awe/game/dialogue.h"
+#include "engines/awe/render/particles.h"
+#include "engines/awe/game/script.h"
+#include "engines/awe/game/story.h"
+#include "engines/awe/game/walk_grid.h"
+#include "engines/awe/ui/game_text.h"
+#include "engines/awe/ui/page.h"
+#include "engines/awe/formats/gr2.h"
+#include "engines/awe/formats/model.h"
+#include "engines/awe/render/model_draw.h"
+#include "engines/awe/render/movie_player.h"
+#include "engines/awe/formats/savegame.h"
+#include "engines/awe/render/shadows.h"
+#include "engines/awe/render/sprite.h"
+#include "engines/awe/game/camera.h"
+
+#include <array>
+#include <deque>
+#include <filesystem>
+#include <functional>
+#include <map>
+#include <memory>
+#include <set>
+#include <string>
+#include <utility>
+#include <vector>
+
+namespace reluva::awe {
+
+// The game's settings, as its options screen sets them (0x490048..):
+// volumes and brightness 0..10, the rest on (1) or off.
+struct GameOptions {
+    enum { kMusic, kSound, kGamma, kCaptions, kShadows, kWater, kFog, kRain, kAntiAlias, kCount };
+    int values[kCount];
+    GameOptions();
+    int get(int i) const { return values[i]; }
+};
+
+/**
+ * The game: its scenes (Locations/<location>/<scene>.ac2) shown and
+ * played, with the scripts, the characters, the conversations and the
+ * game's screens.
+ *
+ * With the scene browser on (the data viewer's Scenes page, and the
+ * tools'), it opens on the scenes' files, each shown with its hotspots and
+ * what it holds; Left/Right and the browser's other keys step through them
+ * and show more, and N starts a game, where the keys the game doesn't take
+ * still go to the browser. With it off (reluva's), a game starts when the
+ * page is shown, and nothing reaches the browser.
+ */
+class ScenePage : public Page, public ScriptHost, public DialogueHost {
+public:
+    /** Whether the scene browser, a part of the data viewer, is reachable. */
+    enum class Browser { kOn, kOff };
+
+    ScenePage(ViewerContext &ctx, Browser browser);
+    ~ScenePage() override;
+    const char *name() const override { return "Scenes"; }
+    size_t count() const override { return _names.size(); }
+    void activate() override;
+    void deactivate() override;
+    void handleEvent(const Event &ev) override;
+    void update(uint64_t nowMs) override;
+    bool uses3D() const override { return _renderer != nullptr && _drawing; }
+    bool wantsEscape() const override { return _movie != nullptr || _playing; }
+    bool quitRequested() const override { return _quit; }
+
+    // For tools (reluva-tool awe game-run; scene_autoplay.cpp): a game started
+    // without the menus at an act ("04a": its PreLoad, location and Post
+    // Load) or from a developer's save ("slot7"); every line of the script
+    // log passed on; and a player who only waits: movies skipped, the
+    // first choice taken, lines cut short (what it did, "" if nothing).
+    void startAt(const std::string &where);
+    // A script run as the scenes' are (a tool's: "startpass michel").
+    void runCommands(const std::string &script) { _runner->run(script); }
+    std::function<void(const std::string &line)> onLog;
+    std::string autoplay();
+    // Whether autoplay cuts each line short (a tool in a hurry), or lets it
+    // play out, its voice too.
+    bool cutLines = true;
+    // Nothing drawn (a tool that only follows the scripts). Drawing again,
+    // the page is drawn at once, as it is now (the scene may have changed
+    // meanwhile).
+    void setDrawing(bool on) {
+        const bool was = std::exchange(_drawing, on);
+        if (on && !was)
+            draw();
+    }
+    struct GameStatus {
+        std::string scene;
+        std::string act;
+        std::string event;
+        bool idle = true;
+        bool talking = false;
+        bool movie = false;
+        bool loading = false;
+        bool puzzle = false;
+        bool fading = false;
+    };
+    GameStatus status() const;
+    // The hotspots and characters that could be clicked now, and a click
+    // on one (its script run, as a click runs it).
+    std::vector<std::string> clickables() const;
+    bool click(size_t i);
+    // Where a player's mouse would click the clickable i: a point where
+    // the game's pick finds it (0x435eb0) and clicks are taken, its
+    // rectangle tried first; false if there's none on the screen.
+    bool pointFor(size_t i, int &x, int &y) const;
+    // The same with an item in hand (a use's point): the pick tries more.
+    bool pointFor(size_t i, int &x, int &y, const std::string &holding);
+    // An item taken up into the hand, as the inventory's click takes it.
+    void takeUp(const std::string &item) { holdItem(item); }
+    bool clickRuns(size_t i) const; // whether it has a script (Antoinette may not)
+    // The inventory (scene_inventory.cpp): an item used on an object, as
+    // the game does when one in hand is clicked on it (0x41c050: its
+    // conditional scripts asking for it, else uselist.txt for a
+    // character, else "can't"); items combined (combinelist.txt). The
+    // items the clickable i asks for, that Poirot has, and one used on it.
+    bool useItem(const std::string &item, const Ac2Record &target);
+    bool combineItems(const std::vector<std::string> &parts);
+    std::vector<std::string> itemsFor(size_t i);
+    // Of those, the ones the cursor shows would be taken (0x419e90).
+    std::vector<std::string> usableItems(size_t i);
+    bool useOn(const std::string &item, size_t i);
+    // The parts of each combinelist.txt row that could be combined now.
+    std::vector<std::vector<std::string>> combinations();
+    // The items a combinelist.txt row lets be taken apart now, and one
+    // taken apart (the combine page's right-hand box, then the gears).
+    std::vector<std::string> decombinable();
+    bool decombineItem(const std::string &item);
+    // For a player that searches (reluva-tool awe game-run -solve): the story
+    // state; the game saved to memory and loaded from it as the save and
+    // load screens do; who picks the dialogue's choices (the index, or -1
+    // for the tool's own: the one taken least); the items whose back has
+    // an Examine Event and that back looked at; the bar's cars that can
+    // be travelled to now and the travel; whether clicks are taken now
+    // (nothing runs, or the runner is unlocked).
+    const GameState &gameState() const { return _state; }
+    // Every clause of a condition the game tests is told (GameState::onTest);
+    // and whether a condition holds now, untold.
+    void watchConditions(std::function<void(std::string_view, bool)> f) { _state.onTest = std::move(f); }
+    bool holds(const std::string &condition) {
+        auto watch = std::move(_state.onTest);
+        _state.onTest = nullptr;
+        const bool h = testCondition(condition, _state);
+        _state.onTest = std::move(watch);
+        return h;
+    }
+    std::vector<uint8_t> saveToMemory() const;
+    bool loadFromMemory(const std::vector<uint8_t> &data);
+    // (For the tools' save and load: as if the scene had been entered with
+    // that scene left last, its objects tested again for "lastscene".)
+    void setLastScene(const std::string &scene) {
+        _state.lastScene = scene;
+        retestObjects();
+    }
+    std::function<int(const std::vector<std::string> &choices)> chooser;
+    std::vector<std::string> flippableItems();
+    bool flipItem(const std::string &item);
+    std::vector<int> travelCars();
+    bool travel(int car);
+    // The fingerprint cards the magnifier would match (a person's print
+    // and a thing's whose Flipped Description names it), not compared yet;
+    // a pair compared, as the cards page does with them shown.
+    std::vector<std::pair<std::string, std::string>> matchingPrints();
+    bool comparePrintCards(const std::string &person, const std::string &thing);
+    bool clickable() const { return !_runner->locked() && !_dialogue->active() && !_movie; }
+    // The puzzle screen open ("tornletter", "safe", "puzzlebox"; "" none),
+    // whether it's solved, and the next of a player's inputs that solve it,
+    // worked out from the puzzle's own checks and made as the mouse makes
+    // them (false if there's none to make now).
+    std::string puzzleOpen() const;
+    bool puzzleSolved() const;
+    bool puzzleStep();
+
+    // A player's hand (scene_interface.cpp): what the mouse or a key does
+    // next towards a goal, decided from what's on the screen now. An item
+    // is taken up from the inventory window's page and the window put
+    // away before it's used; a car is gone to by the bar, shown by the
+    // mouse at the top; combining puts the parts in the combine page's
+    // boxes and turns the gears; and so on. So a route can be played by
+    // the mouse and keys alone (awe game-run -hand).
+    struct HandGoal {
+        enum class Kind { kClick, kUse, kTravel, kCombine, kFlip, kCompare } kind = Kind::kClick;
+        size_t target = 0;              // Click, Use: the clickable
+        std::vector<std::string> items; // Use, Flip: the item; Combine: the parts; Compare: person, thing
+        int car = 0;                    // Travel
+        bool done = false;              // the last input made
+        bool failed = false;            // no way to do it from here
+    };
+    struct HandInput {
+        enum class Kind { kNone, kMove, kClick, kRightClick, kKey } kind = Kind::kNone;
+        int x = 0;
+        int y = 0;
+        uint32_t key = 0;
+    };
+    HandInput handStep(HandGoal &goal);
+    // The window and hand as words (for a tool's report).
+    std::string handState() const;
+    // What the game asks of a player while it runs: a movie skipped
+    // (Escape), the yes/no box's Yes, the choice `chooser` picks (else the
+    // one taken least) clicked in the box, and, when cutLines, each line
+    // clicked through once a click ends it.
+    HandInput handWhileRunning();
+
+private:
+    // A character placed in the scene, animated as the game animates
+    // them (Actor).
+    struct Character {
+        std::string name;
+        std::shared_ptr<GpuModel> model;
+        std::unique_ptr<Actor> actor;
+        gfx::Mat4 placement{};
+        // Its Bip01 bones' boxes as posed at pickFrame (the pick's, made
+        // again once the page has moved on).
+        struct PickBox {
+            gfx::Mat4 m;
+            const float *lo;
+            const float *hi;
+        };
+        mutable std::vector<PickBox> pickBoxes;
+        mutable uint64_t pickFrame = UINT64_MAX;
+        // Where it stands and faces; while walking, the points still to
+        // reach (world x, z).
+        float x = 0;
+        float y = 0;
+        float z = 0;
+        float rotY = 0;
+        // Its pitch, roll and scale (0x425e60): the dead lying, the taller.
+        float rotX = 0;
+        float rotZ = 0;
+        float scale[3] = {1, 1, 1};
+        float home = 0; // its heading when placed, in degrees ("rotate home")
+        bool player = false;
+        std::string who;                   // "antoinette": the model's folder
+        const Ac2Record *record = nullptr; // its object in the scene
+        std::vector<std::pair<float, float>> path;
+        float walkSpeed = 0; // world units a second, from the walk itself
+        // The walk along it (0x442780, 0x4422c0): the current leg's length
+        // still to walk (-1: the next leg to start), whether the first leg
+        // turns on the spot first and is turning now, and running.
+        float leg = -1;
+        bool turnFirst = false;
+        bool turningFirst = false;
+        bool running = false;
+        bool follower = false; // follows the player (FLLW, its COND holding)
+        bool shadow = true;    // casts a shadow (MODL shadow, hideshadow/showshadow)
+        float walkIn = 0;      // walking in: the distance left
+        // A script waiting on it (one at a time, as the game's +0xb5c):
+        // for "walk", "run", "rotate" or "anim" (that animation, by the
+        // name asked and the name played).
+        ScriptRunner *waiting = nullptr;
+        std::string waitVerb;
+        std::string waitAnim;
+        std::string waitAnimAs;
+        // Its own routine (the IDLE list), and whether "pause" stopped it.
+        std::unique_ptr<ScriptRunner> routine;
+        bool paused = false;
+        // Props attached ("attach clipboard"), posed by its animations.
+        std::vector<std::pair<std::string, std::shared_ptr<GpuModel>>> props;
+        // Its meshes and its props' as skinned for the last frame, kept on
+        // the GPU from frame to frame.
+        SkinnedModel skinned;
+        std::vector<SkinnedModel> propsSkinned;
+        // Outdoors (scene_outdoors.cpp): the footprints it has left, the
+        // time into its stride (+0x14f4) and the foot next down (+0x14f8),
+        // and its breath in the cold.
+        struct Footprint {
+            std::shared_ptr<GpuModel> model;
+            float x = 0;
+            float z = 0;
+            float rotY = 0;
+            float age = 0;
+            size_t serial = 0; // its place after the scene's objects
+        };
+        std::vector<Footprint> footprints;
+        float stride = 0;
+        int foot = 0;
+        std::unique_ptr<ParticleSystem> breath;
+    };
+    // What's drawn in 3D among the pictures, by depth: a character, or one
+    // of its footprints.
+    struct ModelSlot {
+        size_t character = 0;
+        int footprint = -1;
+    };
+    // A video loop the scene shows (the countryside going by a window),
+    // by the object that places it.
+    struct Loop {
+        std::unique_ptr<bink::Movie> movie;
+        image::Image frame;
+        size_t next = 0; // the frame to decode next
+        float start = 0; // when it started (shown), in the page's seconds
+    };
+    void load();
+    void loadLoops();
+    // Draws a particle system's particles through the scene's camera.
+    void drawParticles(const ParticleSystem &system, bool keepAlpha);
+    // Advances the loops to `time` seconds; whether any frame changed.
+    bool advanceLoops(float time);
+    void loadCharacters();
+    void draw();
+    void releaseGpu();
+    void line(int x0, int y0, int x1, int y1, Color c);
+    // A convex polygon (screen points), blended over the screen.
+    void fillPolygon(const std::vector<std::pair<float, float>> &points, Color c, uint8_t alpha);
+    void drawGrid();
+    // Walks the player's character to where the screen point is on the
+    // floor, along a path through the grid.
+    void walkTo(int sx, int sy);
+    // Scripts: a click on a hotspot runs its script (or the first of its
+    // conditional ones whose condition holds); the page does what they ask.
+    bool start(ScriptRunner &runner, const ScriptEvent &e, bool wait) override;
+    // The dialogue's host: voices, event files, the scene's name.
+    bool playVoice(const std::string &file) override;
+    bool voicePlaying() override;
+    void stopVoice() override;
+    std::string readText(const std::string &file) override;
+    std::string sceneName() override;
+    void turnHead(const std::string &speaker, const std::string &target) override;
+    void loadDialogue();
+    bool startTalk(ScriptRunner &runner, const ScriptEvent &e);
+    const Ac2Record *characterAt(int sx, int sy) const;
+    std::string scriptText(const std::string &name) override;
+    const Ac2Record *hotspotAt(int sx, int sy) const;
+    void runScript(const Ac2Record &object);
+    Character *scriptCharacter(const ScriptRunner &runner);
+    // Walks a character to a cell along a path; false if there's none.
+    bool walkCharacter(Character &c, WalkGrid::Cell goal, bool toPoint, bool run = false);
+    // "scene <name> [wp] [flag]": the act's variant of it, the player at
+    // walk point wp (-1: where they were when it was last left).
+    bool changeScene(const std::string &name, int entry, bool walkIn = false);
+    // A follower goes after the player (0x4400a0).
+    void follow(Character &f);
+    // A scene shown in a game (N): its visit noted, its music and its
+    // first event whose condition holds (0x4362b0).
+    void enterScene();
+    void playMusic();
+    void newGame();
+
+    // Saved games (scene_saves.cpp; docs/engines/awe/games/motoe/systems/saves.md). The
+    // game's own format: Saved.Games/slot<N>.ac2 and .bmp, quick.ac2,
+    // kept in Reluva's save folder for the game.
+    std::filesystem::path savesFolder() const;
+    SaveGame captureSave(const std::string &description) const;
+    // "preload": the story state from a save; "load" then goes there.
+    bool preload(const std::filesystem::path &file, bool fromGame);
+    bool preloadData(const std::vector<uint8_t> &data, const std::string &what);
+    void finishRestore();
+    // "menu <name>", "previous [scene]": the menus and back.
+    void openMenu(const std::string &name);
+    void previous(bool toScene);
+    // A game key: the in-game, save or load menu (the view kept for the
+    // thumbnail), F2 quick save, F3 quick load. False if it isn't one.
+    bool gameKey(uint32_t key);
+    bool quickSave();
+    // The screen's message (0x4168c0): "Save Game" on the placard for 1.5
+    // s after F2, put away early by a click or a key; and the caret's
+    // blink, on and off every 0.33 s (0x414400).
+    std::string _message;
+    float _messageTime = 0;
+    float _caretTime = 0.33f;
+    bool _caretOn = false;
+    void drawMessage();
+    // The save and load screens (a scene's PUZZ save/load: 0x4347a0,
+    // 0x424260).
+    struct SlotMenu {
+        bool save = false;
+        int count = 0; // slots there are
+        // first slot shown (a multiple of 3), the row picked
+        int page = 0;
+        int row = 0;
+        std::string name; // save: the name typed
+        struct Row {
+            bool exists = false;
+            std::string description;
+            std::string date;
+            std::string time;
+            image::Image thumbnail;
+        } rows[3];
+        int lastRow = -1;
+        float sinceClick = 10;
+    };
+    std::unique_ptr<SlotMenu> _slots;
+    // The options (scene_options.cpp): kept in Reluva's folder for the
+    // game; the screen's staged values (music, sound, brightness,
+    // captions) and the toggles as they were (Cancel), the slider dragged.
+    GameOptions _options;
+    struct OptionsMenu {
+        int staged[4] = {0, 0, 0, 0};
+        int original[5] = {0, 0, 0, 0, 0};
+        int dragging = 0; // 1..3
+    };
+    std::unique_ptr<OptionsMenu> _optionsMenu;
+    // The puzzles (scene_puzzles.cpp; docs/engines/awe/games/motoe/systems/puzzles.md): the
+    // torn letter, the baggage car's safe, the puzzle box. Pictures they
+    // move and turn are drawn by overrides.
+    struct PictureOverride {
+        float x = 0;
+        float y = 0;
+        float depth = 0;
+        float roll = 0;
+        float cx = 0;
+        float cy = 0;
+        bool tint = false; // picked: blue x 0.75
+    };
+    std::map<const Ac2Record *, PictureOverride> _overrides;
+    struct TornLetter {
+        std::vector<const Ac2Record *> pieces;
+        int selected = -1;
+        bool dragging = false;
+        bool solved = false;
+        float topz = 0;
+        int dragX = 0;
+        int dragY = 0;
+    };
+    struct Safe {
+        const Ac2Record *dial = nullptr;
+        int spinning = 0; // 1 right, 2 left
+        float timer = 0;
+        float interval = 0.25f;
+        int number = 0;
+        int entered = 0;
+        int expected = 2;
+        bool opening = false; // a tool's step has pulled the handle
+    };
+    struct PuzzleBox {
+        int step = 0;
+        int selected = 0;
+        int misses = 0;
+        int state[5] = {0, 0, 0, 0, 0}; // by piece: 1 upper end, 2 lower end, 3 side, 4 lid
+        bool solved = false;
+    };
+    std::unique_ptr<TornLetter> _torn;
+    std::unique_ptr<Safe> _safe;
+    std::unique_ptr<PuzzleBox> _box;
+    unsigned _puzzleSeed = 1; // the game's rand()
+    bool puzzleActive() const { return _torn || _safe || _box; }
+    void openPuzzle(const std::string &kind);
+    void closePuzzle();
+    void puzzleClick(int x, int y);
+    void puzzleRelease(int x, int y);
+    void puzzleUpdate(float seconds);
+    void puzzleAction(const std::string &word);
+    bool puzzleCondition(const std::string &word) const;
+    bool puzzleDraws(const Ac2Record &o) const;
+    void drawPuzzleBox();
+    // Torn letter.
+    void saveTornPiece(int i);
+    void snapTornPiece(int i);
+    bool checkTornLetter();
+    // Safe.
+    void turnDial(int direction);
+    void writeSafeTags();
+    // Puzzle box.
+    const Ac2Record *puzzleObject(const std::string &file, int n = 0) const;
+    std::string boxEndPicture() const;
+    std::string boxSidePicture() const;
+    bool hitPicture(const Ac2Record *o, float x, float y, int px, int py) const;
+    int boxArrowAt(int x, int y) const;
+    bool boxMovePossible(int piece, int arrow) const;
+    bool boxMoveCorrect(int piece, int arrow) const;
+    int boxPieceAt(int x, int y) const;            // 1 the end's upper half, 2 its lower, 3 the side, 4 the lid; 0 none
+    const Ac2Record *tornPick(int x, int y) const; // the letter's front-most picture there
+    void writeBoxTags();
+    int _lastMouseX = 0;
+    int _lastMouseY = 0;
+    std::filesystem::path optionsFile() const;
+    void loadOptions();
+    void saveOptions() const;
+    void applyVolumes(int music, int sound);
+    void applyBrightness();
+    void applyBrightness(std::vector<uint8_t> &rgba) const;
+    // Anti-Aliasing: the 3D drawn with 4x multisampling, else 2x, if on.
+    void applyAntiAliasing();
+    int brightnessLevel() const;
+    bool fogged(const Ac2Record &o) const;
+    bool frozen(const Ac2Record &o) const;
+    void openOptions();
+    int thumbX(int slider) const;
+    void optionsAction(const std::string &word);
+    void optionsRelease();
+    void drawOptions();
+    void openSlots(bool save);
+    void refreshSlots();
+    void slotAction(const std::string &word, const std::string &second);
+    bool slotCondition(const std::string &word) const;
+    bool slotClick(int x, int y);
+    void slotKey(uint32_t key);
+    void drawSlots();
+    // The yes/no box (0x432930): its question and its kind (0 quit the
+    // program, 1 quit the game, 2 overwrite a save); the choice's rows.
+    // The yes/no popup (0x432930): its question, what a yes does, Yes's
+    // and No's places as last drawn, and which the mouse is over.
+    struct YesNo {
+        std::string text;
+        int kind = 0;
+        int x[2] = {};
+        int w[2] = {};
+        int h[2] = {};
+        bool drawn = false;
+        int highlighted = -1;
+    };
+    std::unique_ptr<YesNo> _yesNo;
+    void answer(bool yes);
+    void drawYesNo();
+    int yesNoAt(int x, int y) const; // 0 Yes, 1 No, -1 neither (0x4330c0)
+    std::string interfaceText(const std::string &tag);
+    // "movie <name> [inscene] [silent]" (0x40a725); false if there's no
+    // such movie. endMovie: it's over (or skipped).
+    bool startMovie(ScriptRunner &runner, const ScriptEvent &e, bool wait);
+    void endMovie();
+    // "musica <name>": sound\music\<name>.mp3, looping.
+    void playLooping(const std::string &file, bool music);
+    void playSound(const std::string &name);
+    // A sound effect ("sound"), looping or not; kNoSound if there's none.
+    audio::SoundHandle startSound(const std::string &name, bool loop);
+    std::vector<std::pair<std::string, audio::SoundHandle>> _sounds; // by name, for "stop"
+    ScriptRunner *_soundRunner = nullptr;                            // waiting on a "sound"
+    audio::SoundHandle _soundWaited = audio::kNoSound;
+    bool _interfaceOff = false;
+    // The letterbox (0x416ef0): black bars along the top and the bottom,
+    // `height` pixels each; mode 0 off, 1 on, 2 sliding in, 3 sliding out
+    // (the runner waiting for those).
+    struct Letterbox {
+        int mode = 0;
+        float height = 0;
+        ScriptRunner *runner = nullptr;
+    } _letterbox;
+    bool _drawing = true;
+    // The interface (scene_interface.cpp; docs/engines/awe/games/motoe/systems/interface.md):
+    // the bar along the top, the inventory window and its pages, the item
+    // in hand, the passport or fingerprint card held up.
+    struct Interface {
+        // The bar: its alpha (0..255) and whether it's fully shown.
+        float barAlpha = 0;
+        bool barShown = false;
+        // The window: open; its page (0 items, 1 examine, 2 combine, 3 the
+        // scrapbook, 4 passports, 5 fingerprint cards) and the page it's
+        // fading from; the fade (0 none, 1 in, 2 out, 3 page to page) and
+        // its alpha; the button under the mouse (-1 none).
+        bool open = false;
+        int page = 0;
+        int fromPage = 0;
+        int fade = 0;
+        int hover = -1;
+        float alpha = 0;
+        bool fromInventory = false; // a script it started runs (its talks leave it open)
+        std::string freshItem;      // the item just taken, which blinks for 5 s of the window open
+        float freshTime = 0;
+        int dragging = 0;    // the blip dragged: 1 the top line's, 2 the second's
+        std::string hovered; // the item under the mouse
+        // Examine: the item, its back shown.
+        std::string examined;
+        int examinedAt = -1; // its place in the bag's list (bagItems)
+        bool back = false;
+        // Combine: the four boxes and the result's, the message.
+        std::string boxes[5];
+        std::string message;
+        // Passports: the page, how many, the one shown (by its place).
+        int passPage = 0;
+        int passPages = 1;
+        int passAt = 0;
+        // Fingerprint cards: the card shown in each row.
+        int printAt[2] = {0, 0};
+        // The scrapbook: the section (0 the contents), the level (0 the
+        // contents, 1 a section's list, 2 an entry), each level's pages and
+        // the page shown, the entry, the picture shown full screen.
+        int section = 0;
+        int level = 0;
+        int pages[3] = {1, 1, 1};
+        int at[3] = {0, 0, 0};
+        std::string entry;
+        std::string zoom;
+        // A card held up: the step (0 none, 1 the screen darkening, 2 the
+        // card fading in, 3 shown, 4 fading out, 5 the screen brightening),
+        // passport (1) or fingerprint card (2), whose; the darkness (0..128)
+        // and the pictures' alphas, their clocks; the runner waiting.
+        int card = 0;
+        int cardKind = 0;
+        std::string cardWho;
+        int cardRaise = 0; // 160 with the dialogue box up: the card 80 higher
+        float dim = 0;
+        float cardAlpha = 0;
+        float printAlpha = 0;
+        float dimClock = 0;
+        float cardClock = 0;
+        float printClock = 0;
+        // 1 out, 2 in
+        int cardFade = 0;
+        int printFade = 0;
+        ScriptRunner *cardRunner = nullptr;
+        std::string cardVerb;
+    } _ui;
+    bool interfaceOn() const;
+    int examinedAt(const std::vector<std::string> &items) const;
+    bool canAct() const;
+    bool interfaceEvent(const Event &ev);
+    bool interfaceUpdate(float dt);
+    void drawInterface();
+    int barSection(int x, int y);
+    bool carOn(int car);
+    bool inCar(int car) const;
+    std::string carScene(int car) const; // "salon_01 1": where the car's section goes
+    void drawCards();
+    void toggleInventory();
+    void closeInventory();
+    void showPage(int page);
+    // The screen's text (0x414720): font and colour by their place in
+    // fonts.txt, broken at spaces to the rectangle's width, placed by
+    // flags (1 centred, 2 right, 4 centred down, 8 at the foot, 0x1000
+    // struck through); returns its height.
+    int uiText(int font, int colour, int l, int t, int r, int b, int flags, const std::string &text, int alpha);
+    int textHeight(int font, int width, const std::string &text, int *lines = nullptr);
+    // Items: their itemlist.txt row's columns, pictures and places.
+    struct ItemInfo {
+        std::string description;
+        std::string event;
+        std::string examine;
+        std::string flipped;
+    };
+    ItemInfo itemInfo(const std::string &item) const;
+    std::string itemPicture(const std::string &item, const char *kind) const;
+    int printRow(const std::string &item) const;
+    std::vector<std::string> bagItems(); // in the bag, just taken or in hand, in slot order
+    std::string itemInSlot(int slot);
+    int itemPages();
+    void holdItem(const std::string &item, int slot = -1);
+    void releaseHeld();
+    void endFresh();
+    void playItemSound(const std::string &item);
+    void runFromInventory(const std::string &script, bool fromInventory);
+    // The pages' clicks and drawing.
+    bool pageClick(int x, int y);
+    int pageButton(int x, int y, int *bx = nullptr, int *by = nullptr);
+    void drawPage(int page, int alpha);
+    void drawBlip(int row, int count, int at, int alpha);
+    bool blipClick(int x, int y, int row, int count, int &at);
+    bool combine();
+    void comparePrints();
+    // The scrapbook (its texts read on each change).
+    struct ScrapRow {
+        std::string heading;
+        std::string condition;
+        std::string tick;
+        std::string entry;
+        std::string entry2;
+    };
+    std::vector<ScrapRow> scrapRows();
+    int drawScrapbook(int alpha, bool drawIt, int clickX = -1, int clickY = -1, std::string *clicked = nullptr);
+    void scrapbookBack();
+    // A card held up ("startpass", "startprint", their "end"s): false if
+    // the event is over at once.
+    bool startCard(ScriptRunner &runner, const ScriptEvent &e);
+    // A conversation starting (0x43a649): the window closed unless it
+    // started it, the item in hand put back unless it's a gen_ or com_.
+    void talkStarting(const std::string &name) override;
+    void logScript(const std::string &line);
+    std::string conditionOf(const Ac2Record &o) const;
+    void retestObjects();
+    void showObject(const std::string &name, bool show);
+    static std::vector<std::string> objectKeys(const Ac2Record &o);
+    // Starts the character's walk (or run) along its path: false if it
+    // has no such animation.
+    bool startWalk(Character &c, bool run = false);
+    void beginWalk(Character &c, bool run);
+    void stepWalk(Character &c, float dt);
+    void arrive(Character &c);
+    void placeCharacter(Character &c) const;
+    // Shadows (docs/engines/awe/games/motoe/systems/shadows.md): a model's meshes into the
+    // stencil, each its shadow (if it casts one) then its body (`ref`); a
+    // mask drawn as a coloured quad; the player's white-out in the snow.
+    void stencilModel(const gfx::Mat4 &viewProjection, const GpuModel &model, const Pose &pose,
+                      const gfx::Mat4 &placement, bool shadow, uint8_t ref, ShadowStencil &stencil) const;
+    void drawMask(const CoverageMask &mask, Color colour, uint8_t alpha);
+    void drawWhiteOut();
+    int whiteOut() const; // the player's white-out's alpha now, 0 none
+    void stencilQuad(gfx::TextureId mask, gfx::Renderer3D::StencilMode mode, uint8_t ref, Color colour, uint8_t alpha);
+    // Whether the characters are drawn now.
+    bool charactersShown() const {
+        return _renderer && _showCharacters && _scene.camera() && !_movie && _sceneShown && !_load.screen;
+    }
+    // The character verbs (turn, look, rotate, anim...): true if the
+    // script waits.
+    bool startCharacterVerb(ScriptRunner &runner, Character &c, const ScriptEvent &e, bool wait, bool &handled);
+    // Where a scene object or character is (x, z); false if there's none.
+    bool objectAt(const std::string &name, float &x, float &z) const;
+    Character *characterNamed(const std::string &who);
+    // A prop's model (models\objects\...), loaded once; null if none.
+    std::shared_ptr<GpuModel> propModel(const std::string &file);
+    // A character's routine: its first IDLE entry whose condition holds.
+    void queueRoutine(Character &c);
+    void lineStarted(const std::string &speaker) override;
+    void lineEnded(const std::string &speaker) override;
+    void mouth(const std::string &speaker, bool on) override;
+    int voiceLevel() override;
+
+    std::vector<std::string> _names;
+    int _index = 0;
+    Ac2Scene _scene;
+    std::vector<bool> _lightConditions; // the objects' conditions on entering (lighting.h)
+    std::string _base;                  // the base scene an act's variant is shown over
+    std::string _error;
+    int _selected = -1; // object highlighted, -1 none
+    bool _hotspots = true;
+    bool _info = true;
+    bool _showCharacters = true;
+    // What the scene's conditions test: the train moving or not (M), the
+    // weather (W), the act of the scene's variant.
+    GameState _state;
+    std::map<const Ac2Record *, Loop> _loops;
+    std::map<const Ac2Record *, ParticleSystem> _particles;
+    // Scrolling pictures (SPRT scroll): where each is now, and the part
+    // of a pixel it has gone beyond that.
+    struct Scroll {
+        float x = 0;
+        float y = 0;
+        float part = 0;
+    };
+    std::map<const Ac2Record *, Scroll> _scrolls;
+    bool scrollPictures(float dt); // whether any moved
+    // The camera's walk grid (G shows it), the cell under the mouse and
+    // the last path found.
+    WalkGrid _grid;
+    bool _showGrid = false;
+    WalkGrid::Cell _hover;
+    std::vector<WalkGrid::Cell> _path;
+    // The scripts' state: tags, items and the act are state_'s.
+    std::unique_ptr<ScriptRunner> _runner;
+    std::unique_ptr<DialogueManager> _dialogue;
+    std::map<std::string, int> _autoChoices; // how often the tool's player took each choice
+    std::vector<const Ac2Record *> clickableObjects() const;
+    static bool scripted(const Ac2Record &o);         // a script or conditional ones
+    mutable std::map<std::string, Table> _itemTables; // uselist.txt, combinelist.txt, itemlist.txt
+    const Table &itemTable(const char *file) const;
+    // A game played (N): the acts, the music playing (by file), where the
+    // player was in each scene left, the screen's fade (0 clear, 1 black)
+    // and the runner waiting on it.
+    std::unique_ptr<Story> _story;
+    bool _playing = false;
+    bool _browser = true; // Browser::kOn
+    std::map<std::string, audio::SoundHandle> _music;
+    std::map<std::string, std::array<float, 3>> _positions; // the player's x, z and heading, by scene file left
+    float _fade = 0;
+    float _fadeTarget = 0;
+    // "movie": the one playing over everything, its subtitles, the runner
+    // waiting on it; and whether a scene is shown (one not "inscene" is
+    // left for the movie: black until the next scene).
+    // The game's load state machine (0x422a90) for a location: an act's,
+    // or a scene's in another place (after a fade out). Its scene files
+    // are read one an update behind the loading screen; then the act's
+    // Post Load runs, or the scene is shown and fades in.
+    struct LocationLoad {
+        int state = 0; // 0 none, 1 fading out, 2 loading, 3 fading the loading screen out, 4 fading the scene in
+        bool forAct = false;
+        std::string location;
+        std::vector<std::string> files;
+        size_t next = 0;
+        // the loading screen shown; faded in (+0x10f0)
+        bool screen = false;
+        bool fadedIn = false;
+        int wheel = 0;
+        // a scene's: its name, and the verb waiting ("scene", "gotoscene")
+        std::string scene;
+        std::string verb;
+        int entry = 1;
+        ScriptRunner *runner = nullptr;
+        bool restore = false; // a saved game's
+        bool walkIn = true;   // a scene's: its flag
+    } _load;
+    std::string _location; // the current scene's folder ("sirkeci.market")
+    void beginLoad(const std::string &location, bool forAct);
+    void updateLoad();
+    // The location's scene files the game would load (0x423830): variants
+    // for the act in place of their base; LOAD 0 ones are read on demand.
+    std::vector<std::string> locationFiles(const std::string &location) const;
+    std::unique_ptr<MoviePlayer> _movie;
+    std::string _movieName;
+    std::vector<Subtitle> _movieSubtitles;
+    ScriptRunner *_movieRunner = nullptr;
+    bool _sceneShown = true;
+    // Saved games: the save being restored (between "preload" and "load"),
+    // NPCs' positions by scene file and model file (the game keeps its
+    // scenes, so they stay where they were), the game scene and the menu
+    // the menus return to, the view grabbed for a thumbnail.
+    std::unique_ptr<SaveGame> _restoring;
+    std::map<std::string, SaveGame::Placement> _npcPositions;
+    // The puzzle box opened: the game's box object (made when its place is
+    // loaded, 0x433290) keeps it, while its scenes are kept.
+    bool _boxOpenedHere = false;
+    // What else a character carried when its scene was left, by the same
+    // key as npcPositions_ (the game keeps the scene, and the character
+    // as scripts left it).
+    struct KeptCharacter {
+        bool paused = false;
+        bool shadow = true;
+        std::vector<std::string> props; // the models it holds
+        std::string endless;            // a base animation playing for ever, else empty
+    };
+    std::map<std::string, KeptCharacter> _keptCharacters;
+    std::string _gameScene;
+    std::string _previousMenu;
+    image::Image _grab;
+    bool _grabDue = false;
+    bool _quit = false;
+    std::map<std::string, std::string> _interfaceTexts;
+    ScriptRunner *_fadeRunner = nullptr;
+    std::string _dialogueAct = "-";               // the act whose table is loaded
+    std::map<std::string, Table> _dialogueTables; // by file, as read
+    audio::SoundHandle _voice = audio::kNoSound;
+    std::shared_ptr<audio::Sound> _voiceSound; // for its level: the lips move
+    const Ac2Record *_scriptObject = nullptr;  // the hotspot a script is "this" of
+    const Ac2Record *_resumeAfter = nullptr;   // the character clicked, its routine resumed after
+    int _entryPoint = -1;                      // the walk point the player arrives at, after "scene"
+    bool _entryWalk = false;                   // and whether they walk in
+    WalkGrid::Cell _leadGoal;                  // where the player last set off for (followers follow)
+    // Whether each of the scene's objects is shown (the game's +0xb04):
+    // set by its condition on entering the scene and by "update", and by
+    // "hide", "show" and "take" between.
+    std::map<const Ac2Record *, bool> _shownNow;
+    std::deque<std::string> _scriptLog;
+    std::map<std::string, std::string> _soundFiles; // sound name -> file
+    float _time = 0;
+    image::Image _dot; // stands in for a particle texture that's missing
+    uint64_t _lastMs = 0;
+    bool _charactersDue = false; // to load, once the page has stayed on the scene
+    uint64_t _charactersAt = 0;
+    // With 3D: the pictures behind the characters as one texture, the
+    // characters, and the models and animations loaded so far.
+    gfx::Renderer3D *_renderer = nullptr;
+    // The pictures in layers between the characters, back to front:
+    // layer k comes after the k-th character in depth order, layer 0
+    // (opaque) before them all. Each is a texture, and where its pictures
+    // take the shadows off (a byte a pixel; none for layer 0).
+    struct PictureLayer {
+        // Drawn in turn: pictures put together over the whole frame, or
+        // one drawn alone where it is (one that scrolls, a video loop).
+        struct Part {
+            gfx::TextureId texture = 0; // put together; 0 for one alone
+            const Ac2Record *alone = nullptr;
+            const ParticleSystem *particles = nullptr; // or particles, drawn by the GPU
+            int w = 0;
+            int h = 0;
+            SpriteTransform at;
+            SpriteTransform at2;
+            bool twice = false; // a scrolling one, at at2 as well
+        };
+        std::vector<Part> parts;
+        std::vector<uint8_t> resets;  // where its pictures take shadows off (a byte a pixel)
+        gfx::TextureId resetMask = 0; // the same as a texture's alpha, for the GPU's stencil
+        std::string key;              // what it was made from; empty: made every time
+    };
+    void dropLayer(PictureLayer &layer);
+    // The texture of a picture drawn alone, made when it changes.
+    struct AloneTexture {
+        gfx::TextureId texture = 0;
+        std::string key;
+    };
+    std::map<const Ac2Record *, AloneTexture> _aloneTextures;
+    void aloneTexture(const Ac2Record &o, const image::Image &img);
+    std::map<std::string, gfx::TextureId> _pointTextures; // particles' textures, by file
+    void drawPointSprites(const ParticleSystem &system);
+    uint64_t _layersMade = 0; // a new scene's layers are new
+    std::vector<PictureLayer> _layers;
+    std::vector<ModelSlot> _characterOrder; // characters_ and footprints in depth order, as draw() found it
+    gfx::MeshId _quad = 0;
+    std::vector<Character> _characters;
+    std::map<std::string, std::shared_ptr<GpuModel>> _models;
+    std::map<std::string, std::shared_ptr<Animation>> _animations;
+    std::vector<gfx::MeshId> _frameMeshes;
+    std::vector<gfx::TextureId> _frameTextures;
+    std::unique_ptr<CoverageMask> _shadowMask;
+    std::unique_ptr<ShadowStencil> _stencil;
+    uint64_t _startMs = 0;
+
+    // The mouse (scene_cursor.cpp): the game's pick of the object under a
+    // point (0x435eb0), and the cursor drawn there (0x415650).
+    bool objectShown(const Ac2Record &o) const;
+    bool clickable(const Ac2Record &o) const;
+    int cursorOf(const Ac2Record &o) const;
+    // Its rectangle on the screen now; false if it has none.
+    bool objectRect(const Ac2Record &o, int &left, int &top, int &right, int &bottom) const;
+    bool hitObject(const Ac2Record &o, int sx, int sy) const;
+    bool hitBones(const Ac2Record &o, int sx, int sy) const;
+    // Counts updates and events, after which characters may have moved.
+    uint64_t _frame = 0;
+    const Ac2Record *pickAt(int sx, int sy) const;
+    const std::string &itemInHand() const;
+    bool canUseOn(const std::string &item, const Ac2Record &o);
+    bool interfaceShown() const;
+    bool cursorShown() const;
+    bool pickAllowed(int sy) const;
+    int cursorUnder(int sx, int sy, const Ac2Record **under) const;
+    void drawCursor();
+    bool _cursorMoved = false; // to draw again
+    // The hotspots the mouse is over (their pictures shown, their sounds
+    // played), in the scene shown.
+    void updateHotspots();
+    void hotspotPressed(const Ac2Record &o);
+    void stopSound(const std::string &name);
+    std::set<const Ac2Record *> _over;
+    std::string _overScene;
+    bool _systemCursor = true; // the system's cursor shown (the game hides it)
+    // Footprints and breath (scene_outdoors.cpp): a character's, moved on
+    // by dt seconds, `walking` or not; a footprint drawn.
+    void updateOutdoors(Character &c, float dt, bool walking);
+    void drawFootprint(const Character::Footprint &f, const SceneLighting &lighting, float brightness);
+    size_t _footprintSerial = 0;
+    // Escape or Enter: the hotspot with that key pressed; false if none.
+    bool hotspotKey(uint32_t key);
+};
+
+} // namespace reluva::awe

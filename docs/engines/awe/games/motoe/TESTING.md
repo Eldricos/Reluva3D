@@ -16,7 +16,8 @@ on small made-up data. They need no game files and run in CI.
 ### The basic engine test: no game files
 
 `awe.engine` (`tests/engines/awe/engine.cpp`) makes a small install of its
-own and plays it through the engine as the launcher starts it, so a change
+own and plays it through the engine as the launcher starts it, then
+through the data viewer as reluva-viewer starts it, so a change
 anywhere (in `src/common/`, say) that alters what the engine does is caught.
 CI runs it on Linux and Windows with the rest.
 
@@ -25,12 +26,13 @@ CI runs it on Linux and Windows with the rest.
   contents), `Text/itemlist.txt`, an `acts.txt` of one act, the main
   menu's scene with its Play hotspot, and two scenes of a place of its own
   (`Locations/Test`), with pictures made in the test.
-- **The play:** a new game (N) and its main menu; Play (`act 01a`); the
-  act's place loaded and its first scene; a click on its hotspot, which
-  sets a tag and goes to the next scene; a quick save (F2); back to the
-  launcher.
+- **The play:** the main menu the game starts at (in the viewer, after
+  N in its Scenes page); Play (`act 01a`); the act's place loaded and its
+  first scene; a click on its hotspot, which sets a tag and goes to the
+  next scene; a quick save (F2); back to the launcher.
 - **The record** (`tests/engines/awe/data/engine-record.txt`): what's
-  detected, every screen shown (a checksum), the window's titles, and the
+  detected, then for the game (`run`) and the viewer (`viewer`) every
+  screen shown (a checksum), the window's titles, and the
   saved game's place, scene and tags (read back, as its bytes hold the date).
 - **When it fails:** it prints each line, with the old value beside any
   that changed. If the change is meant, `reluva-tests awe.engine --update`,

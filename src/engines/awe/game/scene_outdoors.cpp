@@ -6,7 +6,7 @@
 // breath in the cold (MODL breath: a BRTH particle system at the upper
 // lip, 0x425f50). See docs/engines/awe/games/motoe/systems/characters.md.
 
-#include "engines/awe/pages/viewers.h"
+#include "engines/awe/game/scene_page.h"
 
 #include "common/fs.h"
 

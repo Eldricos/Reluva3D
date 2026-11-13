@@ -77,9 +77,10 @@ scenes, two Granny files, the text tables, two backgrounds):
   the opening, the choices, each line's commands, recording and text in
   the game's dialogue box, progress kept for the conditions, the
   characters' generic lines and goodbyes.
-- **Acts: a new game plays.** N in the Scenes page starts one: the main
-  menu, Play, act 01A's scripts and location, and on through the scenes'
-  own events, as `acts.txt` and the game's act code say (see
+- **Acts: a new game plays.** The game starts at it (in the data
+  viewer, N in the Scenes page does): the main menu, Play, act 01A's
+  scripts and location, and on through the scenes' own events, as
+  `acts.txt` and the game's act code say (see
   [systems/acts.md](systems/acts.md)). Scene music, timers,
   completion conditions, `savescene`/`gotoscene`, fades and movies (with
   their subtitles; Escape skips them), loading screens, and saved games
@@ -194,11 +195,19 @@ from 5 to 2.3 ms a frame and the characters from 9 to 3.4 ms.
 
 ## Using it
 
-- **Pages.** A game is played from the Scenes page (N starts one). The
-  other pages are data viewers: Models (textured, animated, with the
-  mouse to turn and zoom), Movies, Pictures, Text and Sounds.
-  Tab moves between them. The window's title names the page and what it
-  shows, then the frames shown in the last second.
+- **The game.** `reluva` starts it at its logos and main menu, as the
+  original does. Escape is the game's (its menu, or a movie skipped); F12
+  saves a screenshot. The window's title names the scene's file, then the
+  frames shown in the last second.
+- **The data viewer** is `reluva-viewer` (`reluva-viewer motoe`, or
+  `reluva-viewer <game folder>`): the Scenes page, where the scenes'
+  files are browsed and a game started (N), then Models (textured,
+  animated, with the mouse to turn and zoom), Movies, Pictures, Text and
+  Sounds. Tab moves between them, and Esc leaves for reluva-viewer's
+  list. The Scenes page's own keys, at the foot of its screen (M, W and
+  T for the world's state, G for the walk grid, H for the hotspots, I or
+  F9 for the info panel, Up/Down for an object's fields), are the
+  viewer's only: in `reluva` the game has none of them.
 
 ## This folder
 

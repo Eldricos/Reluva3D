@@ -6,7 +6,7 @@
 // the options screen (Menu.Options's PUZZ options: 0x42bd40). See
 // docs/engines/awe/games/motoe/systems/options.md.
 
-#include "engines/awe/pages/viewers.h"
+#include "engines/awe/game/scene_page.h"
 
 #include "common/fs.h"
 
