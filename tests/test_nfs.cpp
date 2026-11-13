@@ -1884,6 +1884,22 @@ void testComputerAir() {
         }
         CHECK(parseCarpAi(carp, d) && d.suspStiffness == 1.5f);
     }
+    // Gravity's up row (+0x19C) is the road polygon's up as car_road_dots
+    // copied it at the last turn (0x4a2690, 0x4a0f30): a car whose last up
+    // was tilted 0.01 rad towards its forward gains g x cos x sin along it
+    // (the contact takes out only the part along the road's up now), and
+    // the turn copies the up now for the next tick.
+    {
+        AiCar a = make(0, {0, 0, 20});
+        a.airTicks = 0;
+        AiCar b = a;
+        b.gravityUp = {0, std::cos(0.01f), std::sin(0.01f)};
+        b.gravityUpSet = true;
+        aiSteerStep(a, col, 2);
+        aiSteerStep(b, col, 2);
+        CHECK(std::fabs((b.vel[2] - a.vel[2]) - (-0.30656251f * std::cos(0.01f) * std::sin(0.01f))) < 2e-5f);
+        CHECK(b.gravityUpSet && b.gravityUp == b.roadUp && a.gravityUpSet);
+    }
     // aiSetFrame: any forward and up come back from the yaw, roll and pitch.
     {
         AiCar c = make(0, {0, 0, 0});

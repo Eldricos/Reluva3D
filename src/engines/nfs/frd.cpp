@@ -2212,6 +2212,15 @@ AiDynamics aiModelSteer(AiCar& me, const TrackCollision& col, int step, int trac
         if (nu[1] < 0)
             nu = {-nu[0], -nu[1], -nu[2]};
     }
+    // Gravity's up row (+0x19C) is the road polygon's up +0x130 itself, as
+    // car_road_dots (0x4a2690, 0x4a0f30) copied it at the end of the last
+    // tick's turn: the polygon the car was on then, and the record's 16.16
+    // up, which isn't quite square to its forward (+0x13C), so g x its y x
+    // it has a part along the road (in i1's w2 run up to 0.001 m/s a call,
+    // which the contact, taking out the part along its own frame's up,
+    // leaves). +0x10C, which the downforce, car_flat_or_roof and gravity's
+    // forward part test, is the body's up . that up (car_road_dots).
+    const std::array<float, 3> gn = me.gravityUpSet ? me.gravityUp : (me.roadUpSet ? me.roadUp : nu);
     {
         std::array<float, 3> gf{}, gr{}, gu{};
         aiTiltedAxes(col, me, gf, gr, gu);
@@ -2227,7 +2236,7 @@ AiDynamics aiModelSteer(AiCar& me, const TrackCollision& col, int step, int trac
             if (me.groundSpeed < 0)
                 me.groundSpeed = std::max(ax, az) + std::min(ax, az) * 0.25f;
         }
-        if (me.downforce > 0 && dot3(gu, nu) > 0.75f && me.groundSpeed > 10.0f) {
+        if (me.downforce > 0 && dot3(gu, gn) > 0.75f && me.groundSpeed > 10.0f) {
             const float along = dot3(me.vel, gf);
             if (along > 0)
                 for (size_t k = 0; k < 3; ++k)
@@ -2241,7 +2250,7 @@ AiDynamics aiModelSteer(AiCar& me, const TrackCollision& col, int step, int trac
         // 1) when car_flat_or_roof (0x49fde0) finds it tipped (|+0x10C| at
         // most 0.9, 0x53c79c) or the road polygon's up y (+0x130) is under
         // 0.6 (0x53c8c4).
-        const float upright = dot3(gu, nu);
+        const float upright = dot3(gu, gn);
         const float roadUpY = me.roadUpSet ? me.roadUp[1] : nu[1];
         if ((!(std::fabs(upright) > 0.9f) || roadUpY < 0.6f) && me.airTicks == 0)
             me.airTicks = 1;
@@ -2256,8 +2265,8 @@ AiDynamics aiModelSteer(AiCar& me, const TrackCollision& col, int step, int trac
             // The up row's part always (0x4a2a4c-0x4a2aa5): into the road,
             // which the contact takes back out when the car is on it.
             for (size_t k = 0; k < 3; ++k)
-                me.vel[k] += -0.30656251f * nu[1] * nu[k];
-            if (nu[1] < 0.87f) {
+                me.vel[k] += -0.30656251f * gn[1] * gn[k];
+            if (roadUpY < 0.87f) { // +0x134 now (0x4a2aab), against 0x5efdd8
                 for (size_t k = 0; k < 3; ++k)
                     me.vel[k] += -0.30656251f * (gf[1] * gf[k] + gr[1] * gr[k]);
             } else if (upright > 0.9f) {
@@ -2628,6 +2637,14 @@ void aiAdvance(AiCar& me, const TrackCollision& col) {
     // +0x8C 32. The turn itself keeps P (AiCar::rowShape).
     if (me.turnDue) {
         me.turnDue = false;
+        // car_road_dots (0x4a2690, at the end of car_integrate_turn): +0x10C
+        // and gravity's rows (0x4a0f30: +0x19C the road polygon's up
+        // +0x130 as it is now, the one this tick's road contact task found),
+        // which the next tick's dynamics use.
+        if (me.roadUpSet) {
+            me.gravityUp = me.roadUp;
+            me.gravityUpSet = true;
+        }
         const float sx = std::fabs(me.spinX / 32.0f), sy = std::fabs(me.yawRate / 32.0f),
                     sz = std::fabs(me.spinZ / 32.0f);
         me.turnSum = sx + sy + sz + me.turnSum;

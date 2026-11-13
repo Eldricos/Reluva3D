@@ -705,6 +705,11 @@ struct AiCar {
     // the up row of aiContactFrame's rows); unset, the road polygon's.
     std::array<float, 3> contactUp{};
     bool contactUpSet = false;
+    // Gravity's up row (+0x19C): the road polygon's up (+0x130) as
+    // car_road_dots (0x4a2690, 0x4a0f30) copied it at the end of the last
+    // tick's turn; unset, the road polygon's up now.
+    std::array<float, 3> gravityUp{};
+    bool gravityUpSet = false;
     // Off the road's lanes (0x40f110: +0x638 not within one lane of them)
     // the ticks it has been under 3 m/s along its forward (+0x7D8,
     // ai_target_point 0x406e50): bit 0x40 steers it at its own slice's

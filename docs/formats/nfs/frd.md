@@ -2992,6 +2992,58 @@ changes, 895 decisions and 3.35 m/s; the boxes' height and tilt 125, 875
 and 3.30; the air's turn after the dynamics 125, 872 and 3.99. Each is
 the game's code, so all are kept.
 
+**Gravity's up row** (November 2026, `s7r-runs`; read with `asm` of
+`car_dynamics` `0x4a2a0c`-`0x4a2b22`, `car_road_dots` `0x4a2690`,
+`0x4a0f30` and `car_integrate_turn` `0x4a2e20`; checked against
+`i1-runs` `w2`, which reads +0x130 and the gravity rows +0x190-+0x1B0
+at `0x4a2a0c` and the velocity there and at `0x4a2b28`, cars 1-4, 42
+calls each, 51.4-52.7 s; `gup.py`, `gchk.py`). The speeds' drift of
+0.0003-0.0005 m/s a call (The road's vectors are byte / 128, above) was
+put down to gravity's forward part. The forward part is the page's to
+the bit; the up part is not:
+
+- +0x190-+0x1B0 are written only by `0x4a0f30`, from `car_road_dots`,
+  which `car_integrate_turn` calls at the end of the tick's turn. For a
+  computer car with +0x10C over 0.9 (`0x53c7f4`) they are the body's
+  rows with +0x19C = +0x130 **as it is then**. The next tick's road
+  contact task (Sc32 priority 6) may move +0x130 to another polygon
+  before `car_dynamics` (priority 30) adds g × +0x1A0 × +0x19C. In `w2`
+  on each of the 19 calls where +0x130 had changed since the last call,
+  +0x19C was the last call's +0x130 exactly, 0.0017-0.011 from the new.
+- +0x19C is the polygon record's 16.16 up, not square to the record's
+  forward (+0x13C): g × its y × it has a part along the road, which
+  `car_on_road` (taking out the part along its own frame's up) leaves.
+  The page took the unit cross product of +0x13C and +0x124, square to
+  the forward by construction, so it had no such part.
+- With +0x19C as the game's, gravity's change of the velocity along +0x13C
+  is the game's on all 168 calls to 2e-6 m/s. With the page's up it was
+  off by −0.0003 to −0.0011 m/s on every call between polygon changes
+  (the mean by car +0.00006, −0.00017, −0.00061, −0.00034, rms
+  0.0005-0.0009), and up to 0.0027 on a change.
+- +0x10C, which `car_downforce`, `car_flat_or_roof` and gravity's forward
+  part test, is also `car_road_dots`' (the body's up . that +0x130); the
+  test of the road's normal y against 0.87 (`0x5efdd8`) is the current
+  +0x134 (`0x4a2aab`, the copy made at `0x4a2894`).
+
+The page (`AiCar::gravityUp`, set where `aiAdvance` does the tick's turn;
+used in `aiModelSteer`) now does this. A put back or reset leaves it, as
+`car_place_on_slice` (`0x4a0aa0`) doesn't call `car_road_dots`.
+
+Over the fine dumps (`early`, 51.0 to 53.0 s, same dump phase) the
+page's +0x7C4 less the game's changed by −0.043, −0.080, −0.072,
+−0.057, −0.043, −0.006 and −0.039 m/s for cars 1-7 (−0.041, −0.095,
+−0.087, −0.071, −0.042, −0.029, −0.044 before): flatter for five cars,
+so most of the drift is elsewhere (the contact's frame, matched to about
+0.0003 m/s a call in `i1`, is the candidate left). Car 6 still reads
+22.35 m/s at 52.496 s on the page, 52.544 s in the game. The table
+(`all.sh`) is **worse**, kept as the code's: decisions to 56 s 320 of 338
+(324; car 1 picks differently at 55.85 s), to 78 s 906 of 1,568 (913),
+lane changes 126 (120), speeds 2.34 m/s rms over 50-64 s (0.44) and 3.10
+over the window (3.05): after car 1's other pick, cars 1 and 2 meet at
+60.4 s (no hit there in the game) and fall 5-12 m/s behind the game's
+by 62-64 s; hits 23 (38), the first now cars 1 and 2 at 60.38 s instead
+of cars 3 and 4 at 64.94 s (the game's 63.6 s).
+
 **A landing on a corner, the position and the turn** (November 2026,
 `s7r-runs`; read with `gdecomp` and `asm` of `car_landing` `0x4a1ce0`,
 `car_body_under_road` `0x4a1210`, `car_contact_impulse` `0x42ee10`,

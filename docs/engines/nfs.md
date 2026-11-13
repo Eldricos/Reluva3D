@@ -1834,8 +1834,25 @@ README.md.
   under the road where the game's was 1.1 cm over it. The comparison
   to 78 s went from 896 to 872 decisions, lane changes 121 to 125 and
   the whole window's speed rms 2.65 to 3.99 m/s, all of it after the
-  page's first hit (still at 64.9 s); the tipped car's reset
-  (`0x429260`, `0x428f90`) isn't ported. The tyres (`0x4aca4f`), the wheels' angle
+  page's first hit (still at 64.9 s). Since `s7r` the tipped car's
+  reset (`0x429260`, `0x428f90`) is ported and resets `u1-a1`'s cop
+  within a tick of the game (65.10-65.11 s against 65.132 s) from its
+  dumped timer, a car on its roof is held there (`car_on_road` takes the
+  body's up on the side it is on), and the put back is raised 1.5 m as
+  the code does; a landing's push moves the place in full, the air turn
+  turns the whole frame as `0x4a2cc0` does, and the hits' boxes sit on
+  the body's centre, so `u1-l5`'s landing on a corner now touches the
+  game's points to millimetres and its spins to 0.001 turn/s (frd.md, A
+  landing on a corner); to 78 s 913 decisions, speeds 3.05 m/s rms, hits
+  38. Gravity's up row is the road polygon's 16.16 up as `car_road_dots`
+  left it at the last turn (frd.md, Gravity's up row), exact per call in
+  `i1`'s recording; it removes up to 0.001 m/s a call of the page's error
+  but not the drift (a car still loses 0.04-0.08 m/s against the game in
+  2 s; the contact's frame is the candidate left), and the table is
+  worse with it (car 1 picks differently at 55.85 s, cars 1 and 2 meet
+  at 60.4 s; speeds 2.34 m/s rms over 50-64 s, decisions to 78 s 906).
+  The game's first hit (cars 3 and 4, 63.6-64.2 s) is still not
+  reproduced. The tyres (`0x4aca4f`), the wheels' angle
   (`0x4ad2e1`) and the automatic box (`0x4a90a0`) are the human car's
   (`0x4ae4c1`) and not on the computer cars' path.
 - How the wall hits' particles look in play (read from the code only;
