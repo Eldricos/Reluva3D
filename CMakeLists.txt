@@ -137,6 +137,10 @@ target_link_libraries(reluva_shared INTERFACE reluva_common reluva_audio reluva_
 reluva_configure_engines()
 
 # --- backends, launcher, programs ---------------------------------------------
+# Every program at the top of the build folder (build/reluva,
+# build/reluva-tool; build/Release/... with Visual Studio), wherever its
+# CMakeLists.txt is: the docs, CI and people's habits run them from there.
+set(CMAKE_RUNTIME_OUTPUT_DIRECTORY "${PROJECT_BINARY_DIR}")
 add_subdirectory(src/backends)
 add_subdirectory(src/gui)
 # reluva: the program (src/base/)
