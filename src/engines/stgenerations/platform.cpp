@@ -11,8 +11,9 @@
 
 namespace reluva::stgenerations {
 
-Platform::Platform(System& system, audio::Mixer* mixer, std::filesystem::path saveDir)
-    : system_(system), mixer_(mixer), saveDir_(std::move(saveDir)) {}
+Platform::Platform(System &system, audio::Mixer *mixer, std::filesystem::path saveDir)
+    : system_(system), mixer_(mixer), saveDir_(std::move(saveDir)) {
+}
 
 void Platform::initSize(int width, int height, Canvas::Format format) {
     if (graphics_ && screen_.w == width && screen_.h == height && screen_.format() == format)
@@ -29,7 +30,7 @@ void Platform::initSize(int width, int height, Canvas::Format format) {
     }
 }
 
-void Platform::setPalette(const uint8_t* colors, unsigned start, unsigned num) {
+void Platform::setPalette(const uint8_t *colors, unsigned start, unsigned num) {
     for (unsigned i = 0; i < num && start + i < 256; i++)
         palette_.setColor(int(start + i), colors[i * 3], colors[i * 3 + 1], colors[i * 3 + 2]);
     const auto all = palette_.colors();
@@ -40,12 +41,12 @@ void Platform::setPalette(const uint8_t* colors, unsigned start, unsigned num) {
         refreshCursor();
 }
 
-void Platform::grabPalette(uint8_t* colors, unsigned start, unsigned num) const {
+void Platform::grabPalette(uint8_t *colors, unsigned start, unsigned num) const {
     for (unsigned i = 0; i < num && start + i < 256; i++)
         palette_.getColor(int(start + i), colors[i * 3], colors[i * 3 + 1], colors[i * 3 + 2]);
 }
 
-void Platform::copyRectToScreen(const void* buf, int pitch, int x, int y, int w, int h) {
+void Platform::copyRectToScreen(const void *buf, int pitch, int x, int y, int w, int h) {
     screen_.copyRectToSurface(buf, pitch, x, y, w, h);
 }
 
@@ -54,12 +55,12 @@ void Platform::updateScreen() {
         return;
     if (screen_.isClut8()) {
         for (int y = 0; y < screen_.h; y++)
-            std::copy_n(static_cast<const uint8_t*>(screen_.getBasePtr(0, y)), screen_.w, frame_.row(y));
+            std::copy_n(static_cast<const uint8_t *>(screen_.getBasePtr(0, y)), screen_.w, frame_.row(y));
     } else {
         // 0xAARRGGBB to R, G, B, A bytes, shown opaque.
         for (int y = 0; y < screen_.h; y++) {
-            const uint8_t* src = static_cast<const uint8_t*>(screen_.getBasePtr(0, y));
-            uint8_t* dst = frame_.row(y);
+            const uint8_t *src = static_cast<const uint8_t *>(screen_.getBasePtr(0, y));
+            uint8_t *dst = frame_.row(y);
             for (int x = 0; x < screen_.w; x++) {
                 uint32_t c;
                 std::memcpy(&c, src + x * 4, 4);
@@ -73,7 +74,9 @@ void Platform::updateScreen() {
     system_.updateScreen(frame_);
 }
 
-void Platform::setWindowCaption(const std::string& caption) { system_.setWindowTitle(caption); }
+void Platform::setWindowCaption(const std::string &caption) {
+    system_.setWindowTitle(caption);
+}
 
 bool Platform::showMouse(bool visible) {
     const bool was = mouseVisible_;
@@ -82,7 +85,7 @@ bool Platform::showMouse(bool visible) {
     return was;
 }
 
-void Platform::setMouseCursor(const void* buf, unsigned w, unsigned h, int hotspotX, int hotspotY, uint32_t keycolor) {
+void Platform::setMouseCursor(const void *buf, unsigned w, unsigned h, int hotspotX, int hotspotY, uint32_t keycolor) {
     cursorImage_.create(int(w), int(h), Canvas::kClut8);
     cursorImage_.copyRectToSurface(buf, int(w), 0, 0, int(w), int(h));
     cursorHotX_ = hotspotX;
@@ -97,9 +100,9 @@ void Platform::refreshCursor() {
         system_.setMouseCursor(nullptr);
         return;
     }
-    const Cursor c = cursor::fromIndexed(static_cast<const uint8_t*>(cursorImage_.getPixels()), cursorImage_.w,
-                                         cursorImage_.h, cursorImage_.pitch, palette_.data(), int(cursorKey_ & 0xFF),
-                                         cursorHotX_, cursorHotY_);
+    const Cursor c =
+        cursor::fromIndexed(static_cast<const uint8_t *>(cursorImage_.getPixels()), cursorImage_.w, cursorImage_.h,
+                            cursorImage_.pitch, palette_.data(), int(cursorKey_ & 0xFF), cursorHotX_, cursorHotY_);
     system_.setMouseCursor(&c);
 }
 
@@ -117,7 +120,7 @@ Point Platform::clampToScreen(int x, int y) const {
     return Point(std::clamp(x, 0, w - 1), std::clamp(y, 0, h - 1));
 }
 
-bool Platform::translate(const reluva::Event& in, Event& out) {
+bool Platform::translate(const reluva::Event &in, Event &out) {
     out = Event{};
     out.mouse = mouse_;
     auto flags = [](uint16_t mods) {
@@ -142,12 +145,21 @@ bool Platform::translate(const reluva::Event& in, Event& out) {
         out.kbd.keycode = in.key;
         out.kbd.flags = flags(in.mods);
         switch (in.key) {
-        case key::Backspace: out.kbd.ascii = 8; break;
-        case key::Tab: out.kbd.ascii = 9; break;
+        case key::Backspace:
+            out.kbd.ascii = 8;
+            break;
+        case key::Tab:
+            out.kbd.ascii = 9;
+            break;
         case key::Return:
-        case key::KpEnter: out.kbd.ascii = 13; break;
-        case key::Escape: out.kbd.ascii = 27; break;
-        default: break;
+        case key::KpEnter:
+            out.kbd.ascii = 13;
+            break;
+        case key::Escape:
+            out.kbd.ascii = 27;
+            break;
+        default:
+            break;
         }
         modifiers_ = out.kbd.flags;
         return true;
@@ -185,7 +197,8 @@ bool Platform::translate(const reluva::Event& in, Event& out) {
             out.type = down ? kEventMbuttondown : kEventMbuttonup;
             bit = 4;
             break;
-        default: return false;
+        default:
+            return false;
         }
         buttons_ = down ? buttons_ | bit : buttons_ & ~bit;
         return true;
@@ -195,13 +208,18 @@ bool Platform::translate(const reluva::Event& in, Event& out) {
             return false;
         out.type = in.wheelY > 0 ? kEventWheelup : kEventWheeldown;
         return true;
-    case reluva::EventType::FocusGained: out.type = kEventFocusGained; return true;
-    case reluva::EventType::FocusLost: out.type = kEventFocusLost; return true;
-    default: return false;
+    case reluva::EventType::FocusGained:
+        out.type = kEventFocusGained;
+        return true;
+    case reluva::EventType::FocusLost:
+        out.type = kEventFocusLost;
+        return true;
+    default:
+        return false;
     }
 }
 
-bool Platform::pollEvent(Event& event) {
+bool Platform::pollEvent(Event &event) {
     if (!queue_.empty()) {
         event = queue_.front();
         queue_.pop_front();
@@ -214,18 +232,22 @@ bool Platform::pollEvent(Event& event) {
     return false;
 }
 
-uint32_t Platform::getMillis() const { return uint32_t(system_.getMillis()); }
+uint32_t Platform::getMillis() const {
+    return uint32_t(system_.getMillis());
+}
 
-void Platform::delayMillis(uint32_t ms) { system_.delayMillis(ms); }
+void Platform::delayMillis(uint32_t ms) {
+    system_.delayMillis(ms);
+}
 
-std::unique_ptr<SeekableReadStream> Platform::openForLoading(const std::string& name) const {
+std::unique_ptr<SeekableReadStream> Platform::openForLoading(const std::string &name) const {
     std::vector<uint8_t> data;
     if (saveDir_.empty() || !readFile(saveDir_ / name, data))
         return nullptr;
     return std::make_unique<MemoryReadStream>(std::move(data));
 }
 
-bool Platform::saveFile(const std::string& name, const std::vector<uint8_t>& data) {
+bool Platform::saveFile(const std::string &name, const std::vector<uint8_t> &data) {
     if (saveDir_.empty())
         return false;
     std::error_code ec;
@@ -238,22 +260,22 @@ bool Platform::saveFile(const std::string& name, const std::vector<uint8_t>& dat
     return !ec;
 }
 
-bool Platform::removeFile(const std::string& name) {
+bool Platform::removeFile(const std::string &name) {
     std::error_code ec;
     return !saveDir_.empty() && std::filesystem::remove(saveDir_ / name, ec);
 }
 
-bool Platform::fileExists(const std::string& name) const {
+bool Platform::fileExists(const std::string &name) const {
     std::error_code ec;
     return !saveDir_.empty() && std::filesystem::is_regular_file(saveDir_ / name, ec);
 }
 
-std::vector<std::string> Platform::listFiles(const std::string& pattern) const {
+std::vector<std::string> Platform::listFiles(const std::string &pattern) const {
     std::vector<std::string> out;
     std::error_code ec;
     if (saveDir_.empty() || !std::filesystem::is_directory(saveDir_, ec))
         return out;
-    for (const auto& entry : std::filesystem::directory_iterator(saveDir_, ec)) {
+    for (const auto &entry : std::filesystem::directory_iterator(saveDir_, ec)) {
         const std::string name = entry.path().filename().string();
         if (entry.is_regular_file(ec) && text::matchGlob(name, pattern))
             out.push_back(name);

@@ -15,17 +15,16 @@ namespace reluva::stgenerations {
 // and the rest.
 struct Location {
     // The folder, e.g. "VERID1".
-    const char* folder;
+    const char *folder;
     // The game class the original builds for it (0x4331FA).
     int type;
     // Where PROCEED.BMP goes on its BRIEFING.BMP (0x461F24): the top left.
     int proceedX, proceedY;
 };
 
-const std::vector<Location>& getLocations();
+const std::vector<Location> &getLocations();
 
 // Find a location's GAME.LV2 among the resources; false if it isn't installed.
-bool findLocationLevel(const ResourceManager& resources, const Location& location, ResourceRef& ref);
+bool findLocationLevel(const ResourceManager &resources, const Location &location, ResourceRef &ref);
 
 } // namespace reluva::stgenerations
-

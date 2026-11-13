@@ -26,7 +26,7 @@ namespace reluva::stgenerations {
 class Hud {
 public:
     // Sends an event to a script object.
-    typedef std::function<void(uint16_t object, uint16_t event, const std::vector<int16_t>& args)> EventSink;
+    typedef std::function<void(uint16_t object, uint16_t event, const std::vector<int16_t> &args)> EventSink;
 
     enum Event {
         kEventAdded = 43,      // an item went into the inventory
@@ -43,7 +43,7 @@ public:
     // only filled on purpose.
     static const int kSlots = 12;
 
-    explicit Hud(const EventSink& send);
+    explicit Hud(const EventSink &send);
 
     // Put an item in a slot, or the first free one of 1-11 for -1. Returns the slot, or -1 if full.
     int addItem(uint16_t id, int slot);
@@ -111,14 +111,14 @@ public:
     void animatePanel(uint16_t owner, int first, int last, int loops, uint32_t ms);
     void removePanel(uint16_t owner);
     // The visible panel, or null.
-    const Panel* getVisiblePanel() const;
+    const Panel *getVisiblePanel() const;
     // The first panel's owner (NATIVE_6F), or 0.
     uint16_t getFirstPanelOwner() const { return _panels.empty() ? 0 : _panels.front().owner; }
     int getPanelCount() const { return (int)_panels.size(); }
     // The cycle button: show the next panel.
     void nextPanel();
 
-    void addButton(uint16_t owner, int number, int16_t image, const Rect& rect, bool hotspot);
+    void addButton(uint16_t owner, int number, int16_t image, const Rect &rect, bool hotspot);
     void setButton(uint16_t owner, int number, int16_t image, int frame);
     void animateButton(uint16_t owner, int number, int first, int last, int loops, uint32_t ms);
     void setButtonKeyed(uint16_t owner, int number, bool keyed);
@@ -140,21 +140,17 @@ public:
     int getBodyFrame() const { return _bodyFrame; }
 
     // --- Automap.
-    enum MarkerKind {
-        kMarkerLife,
-        kMarkerEnergy,
-        kMarkerTrilithium
-    };
+    enum MarkerKind { kMarkerLife, kMarkerEnergy, kMarkerTrilithium };
     struct Marker {
         MarkerKind kind;
         int style;
     };
-    void setMarker(uint16_t id, MarkerKind kind, int style) { _markers[id] = { kind, style }; }
+    void setMarker(uint16_t id, MarkerKind kind, int style) { _markers[id] = {kind, style}; }
     void removeMarker(uint16_t id, MarkerKind kind);
-    const std::map<uint16_t, Marker>& getMarkers() const { return _markers; }
+    const std::map<uint16_t, Marker> &getMarkers() const { return _markers; }
     // Height bands relative to the player (MAP_SET_LEVELS): low/high pairs.
     void setMapLevels(const double levels[6]);
-    const double* getMapLevels() const { return _levels; }
+    const double *getMapLevels() const { return _levels; }
     // MAP_ZOOM_LEVELS (0xC8): the map's three scales, pixels per unit.
     void setMapZoom(int level, double scale) { _zoom[level] = scale; }
     double getMapZoom(int level) const { return _zoom[level]; }
@@ -169,32 +165,32 @@ public:
         uint32_t fadeIn = 0, hold = 0, fadeOut = 0, elapsed = 0;
         uint16_t notify = 0;
     };
-    void setEffect(int slot, uint8_t r, uint8_t g, uint8_t b, int percent, uint32_t fadeIn, uint32_t hold, uint32_t fadeOut,
-                   uint16_t notify);
+    void setEffect(int slot, uint8_t r, uint8_t g, uint8_t b, int percent, uint32_t fadeIn, uint32_t hold,
+                   uint32_t fadeOut, uint16_t notify);
     // A slot's colour and weight now, 0-128 (0 = no effect).
-    int getEffectWeight(int slot, uint8_t& r, uint8_t& g, uint8_t& b) const;
+    int getEffectWeight(int slot, uint8_t &r, uint8_t &g, uint8_t &b) const;
 
     // VIEW_SHAKE: 0 off, 1 and 2 jitter by 4 and 8 pixels, 4 a single jolt.
     void setShake(int mode);
     int getShakeMode() const { return _shake; }
     // The view's offset this frame, in pixels.
-    void getShakeOffset(int& dx, int& dy);
+    void getShakeOffset(int &dx, int &dy);
     // VIEW_OVERLAY: the underwater ripple.
     void setRipple(bool on) { _ripple = on; }
     bool hasRipple() const { return _ripple; }
 
     // Save or load everything above.
-    void sync(Serializer& s);
+    void sync(Serializer &s);
 
     // Advance by ms: animations, effects (event 55), and panels whose
     // object the player has walked away from (event 35, 2 units).
     void update(uint32_t ms, double playerX, double playerY);
 
 private:
-    Panel* findPanel(uint16_t owner);
-    Button* findButton(uint16_t owner, int number);
+    Panel *findPanel(uint16_t owner);
+    Button *findButton(uint16_t owner, int number);
     // Step an animation; returns true when it has just ended.
-    static bool runAnimation(Animation& animation, int& frame, uint32_t ms);
+    static bool runAnimation(Animation &animation, int &frame, uint32_t ms);
 
     EventSink _send;
     uint16_t _slots[kSlots] = {};
@@ -203,8 +199,8 @@ private:
     int16_t _bodyImage = -1;
     int _bodyFrame = 0;
     std::map<uint16_t, Marker> _markers;
-    double _levels[6] = { -1e9, -6, -6, 6, 6, 1e9 };
-    double _zoom[3] = { 0.5, 1.0, 2.0 };
+    double _levels[6] = {-1e9, -6, -6, 6, 6, 1e9};
+    double _zoom[3] = {0.5, 1.0, 2.0};
     bool _inventoryEnabled = true;
     std::set<uint16_t> _disabledItems;
     Effect _effects[kEffectSlots];
@@ -215,4 +211,3 @@ private:
 };
 
 } // namespace reluva::stgenerations
-

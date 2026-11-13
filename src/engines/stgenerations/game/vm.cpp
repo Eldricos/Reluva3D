@@ -25,7 +25,7 @@ const int kMaxEventDepth = 64;
 
 } // namespace
 
-ScriptVM::ScriptVM(const ScriptFile& script, ScriptHost* host) : _script(script), _host(host) {
+ScriptVM::ScriptVM(const ScriptFile &script, ScriptHost *host) : _script(script), _host(host) {
     reset();
 }
 
@@ -33,10 +33,10 @@ void ScriptVM::reset() {
     _instances.clear();
     _instances.resize(_script.getObjects().size());
     for (size_t i = 0; i < _instances.size(); i++) {
-        ScriptInstance& instance = _instances[i];
+        ScriptInstance &instance = _instances[i];
         instance.object = &_script.getObjects()[i];
-        for (const ScriptState& state : instance.object->states) {
-            for (const ScriptBlock& block : state.blocks)
+        for (const ScriptState &state : instance.object->states) {
+            for (const ScriptBlock &block : state.blocks)
                 instance.handlers[handlerKey(block.event, state.id)] = &block;
         }
     }
@@ -52,13 +52,13 @@ int ScriptVM::findInstance(uint16_t id) const {
     return -1;
 }
 
-void ScriptVM::sync(Serializer& s) {
+void ScriptVM::sync(Serializer &s) {
     s.syncCount((uint32_t)_instances.size());
-    for (ScriptInstance& instance : _instances) {
+    for (ScriptInstance &instance : _instances) {
         s.syncAsSint16(instance.state);
         s.syncAsBool(instance.enabled);
         s.syncAsSint16(instance.pendingState);
-        s.syncVector(instance.locals, [](Serializer& ser, int16_t& v) { ser.syncAsSint16(v); });
+        s.syncVector(instance.locals, [](Serializer &ser, int16_t &v) { ser.syncAsSint16(v); });
         int32_t parent = -1;
         if (instance.parent)
             parent = (int32_t)(instance.parent - _instances.data());
@@ -121,11 +121,11 @@ int16_t ScriptVM::pop() {
 }
 
 uint16_t ScriptVM::word(uint32_t ip) const {
-    const std::vector<uint16_t>& code = _script.getCode();
+    const std::vector<uint16_t> &code = _script.getCode();
     return ip < code.size() ? code[ip] : (uint16_t)OP_END;
 }
 
-int16_t ScriptVM::sendEvent(ScriptInstance& self, uint16_t event, const std::vector<int16_t>& args) {
+int16_t ScriptVM::sendEvent(ScriptInstance &self, uint16_t event, const std::vector<int16_t> &args) {
     if (!self.enabled)
         return 0;
     if (_depth >= kMaxEventDepth) {
@@ -134,12 +134,12 @@ int16_t ScriptVM::sendEvent(ScriptInstance& self, uint16_t event, const std::vec
     }
 
     if (self.state != -1) {
-        for (ScriptInstance* owner = &self; owner; owner = owner->parent) {
+        for (ScriptInstance *owner = &self; owner; owner = owner->parent) {
             auto it = owner->handlers.find(handlerKey(event, self.state));
             if (it == owner->handlers.end())
                 continue;
 
-            const ScriptBlock* block = it->second;
+            const ScriptBlock *block = it->second;
             _depth++;
             int16_t result = execute(self, block->codeStart, args);
             if (self.pendingState != -1) {
@@ -159,7 +159,7 @@ int16_t ScriptVM::sendEvent(ScriptInstance& self, uint16_t event, const std::vec
     return 0;
 }
 
-void ScriptVM::setState(ScriptInstance& self, int16_t state) {
+void ScriptVM::setState(ScriptInstance &self, int16_t state) {
     if (self.state == state)
         return;
     sendEvent(self, kEventLeaveState);
@@ -190,14 +190,14 @@ uint32_t ScriptVM::skipConditional(uint32_t ip) const {
     }
 }
 
-void ScriptVM::callNative(ScriptInstance& self, uint16_t op) {
+void ScriptVM::callNative(ScriptInstance &self, uint16_t op) {
     if (_host) {
         _host->callNative(*this, self, op);
         return;
     }
 
     // No host: keep the stack balanced so execution can continue.
-    const OpcodeInfo* info = getOpcodeInfo(op);
+    const OpcodeInfo *info = getOpcodeInfo(op);
     if (_stubbed.insert(op).second)
         debugC(1, "scripts", "Script: opcode %02x (%s) not implemented", op, info ? info->name : "?");
     if (info) {
@@ -208,7 +208,7 @@ void ScriptVM::callNative(ScriptInstance& self, uint16_t op) {
     }
 }
 
-int16_t ScriptVM::execute(ScriptInstance& self, uint32_t ip, const std::vector<int16_t>& args) {
+int16_t ScriptVM::execute(ScriptInstance &self, uint32_t ip, const std::vector<int16_t> &args) {
     // Each block runs on a fresh stack, with the event arguments pushed last
     // to first so the first argument is on top.
     std::vector<int16_t> savedStack;
@@ -278,8 +278,12 @@ int16_t ScriptVM::execute(ScriptInstance& self, uint32_t ip, const std::vector<i
             int16_t b = pop();
             int16_t a = pop();
             push(a);
-            bool pass = op == OP_IF_EQ ? a == b : op == OP_IF_NE ? a != b : op == OP_IF_GT ? a > b
-                      : op == OP_IF_GE ? a >= b : op == OP_IF_LT ? a < b : a <= b;
+            bool pass = op == OP_IF_EQ   ? a == b
+                        : op == OP_IF_NE ? a != b
+                        : op == OP_IF_GT ? a > b
+                        : op == OP_IF_GE ? a >= b
+                        : op == OP_IF_LT ? a < b
+                                         : a <= b;
             if (!pass)
                 ip = skipConditional(ip);
             break;
@@ -338,9 +342,15 @@ int16_t ScriptVM::execute(ScriptInstance& self, uint32_t ip, const std::vector<i
             int below = pop();
             int value = 0;
             switch (op) {
-            case OP_ADD: value = top + below; break;
-            case OP_SUB: value = top - below; break;
-            case OP_MUL: value = top * below; break;
+            case OP_ADD:
+                value = top + below;
+                break;
+            case OP_SUB:
+                value = top - below;
+                break;
+            case OP_MUL:
+                value = top * below;
+                break;
             case OP_DIV:
                 if (below == 0) {
                     log::warning("Script: object %u divides by zero", self.object->id);
@@ -349,10 +359,18 @@ int16_t ScriptVM::execute(ScriptInstance& self, uint32_t ip, const std::vector<i
                     value = top / below;
                 }
                 break;
-            case OP_SIGN_DIFF: value = top > below ? 1 : top < below ? -1 : 0; break;
-            case OP_AND: value = top & below; break;
-            case OP_OR: value = top | below; break;
-            default: value = top ^ below; break;
+            case OP_SIGN_DIFF:
+                value = top > below ? 1 : top < below ? -1 : 0;
+                break;
+            case OP_AND:
+                value = top & below;
+                break;
+            case OP_OR:
+                value = top | below;
+                break;
+            default:
+                value = top ^ below;
+                break;
             }
             push((int16_t)value);
             break;

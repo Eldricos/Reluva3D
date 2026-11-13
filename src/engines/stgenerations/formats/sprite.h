@@ -47,11 +47,11 @@ public:
         double halfWidth = 0;
     };
 
-    bool load(SeekableReadStream& stream);
+    bool load(SeekableReadStream &stream);
 
     int getFrameCount() const { return (int)_frames.size(); }
-    const Frame& getFrame(int index) const { return _frames[index]; }
-    const std::vector<std::vector<uint8_t>>& getSequences() const { return _sequences; }
+    const Frame &getFrame(int index) const { return _frames[index]; }
+    const std::vector<std::vector<uint8_t>> &getSequences() const { return _sequences; }
 
     // Largest frame size, for laying frames out on screen.
     int getMaxWidth() const;
@@ -63,4 +63,3 @@ private:
 };
 
 } // namespace reluva::stgenerations
-

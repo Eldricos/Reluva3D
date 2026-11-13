@@ -10,7 +10,7 @@
 
 namespace reluva::stgenerations {
 
-bool Font::load(SeekableReadStream& stream) {
+bool Font::load(SeekableReadStream &stream) {
     _glyphs.clear();
 
     if (stream.readUint32BE() != tagBE('F', 'O', 'N', 'T')) {
@@ -48,7 +48,7 @@ bool Font::load(SeekableReadStream& stream) {
     return !_glyphs.empty();
 }
 
-const Font::Glyph* Font::findGlyph(uint16_t c) const {
+const Font::Glyph *Font::findGlyph(uint16_t c) const {
     auto it = _glyphs.find(c);
     if (it == _glyphs.end() && c >= 'a' && c <= 'z')
         it = _glyphs.find((uint16_t)toupper(c)); // some fonts may be upper case only
@@ -56,19 +56,19 @@ const Font::Glyph* Font::findGlyph(uint16_t c) const {
 }
 
 int Font::getCharWidth(uint16_t c) const {
-    const Glyph* glyph = findGlyph(c);
+    const Glyph *glyph = findGlyph(c);
     return glyph ? glyph->width : 0;
 }
 
-int Font::getStringWidth(const std::string& str) const {
+int Font::getStringWidth(const std::string &str) const {
     int width = 0;
     for (char c : str)
         width += getCharWidth((uint8_t)c);
     return width;
 }
 
-void Font::drawChar(Canvas& dst, uint16_t c, int x, int y, const uint8_t* remap) const {
-    const Glyph* glyph = findGlyph(c);
+void Font::drawChar(Canvas &dst, uint16_t c, int x, int y, const uint8_t *remap) const {
+    const Glyph *glyph = findGlyph(c);
     if (!glyph)
         return;
     for (int gy = 0; gy < glyph->height; gy++) {
@@ -80,25 +80,25 @@ void Font::drawChar(Canvas& dst, uint16_t c, int x, int y, const uint8_t* remap)
     }
 }
 
-void Font::drawString(Canvas& dst, const std::string& str, int x, int y, const uint8_t* remap) const {
+void Font::drawString(Canvas &dst, const std::string &str, int x, int y, const uint8_t *remap) const {
     for (char c : str) {
         drawChar(dst, (uint8_t)c, x, y, remap);
         x += getCharWidth((uint8_t)c);
     }
 }
 
-void Font::drawStringRgb(Canvas& dst, const std::string& str, int x, int y, const uint32_t* palette,
-                         const Rect* clip) const {
+void Font::drawStringRgb(Canvas &dst, const std::string &str, int x, int y, const uint32_t *palette,
+                         const Rect *clip) const {
     Rect area(0, 0, dst.w, dst.h);
     if (clip)
         area.clip(*clip);
     for (char c : str) {
-        if (const Glyph* glyph = findGlyph((uint8_t)c)) {
+        if (const Glyph *glyph = findGlyph((uint8_t)c)) {
             for (int gy = 0; gy < glyph->height; gy++) {
                 for (int gx = 0; gx < glyph->width; gx++) {
                     uint8_t pixel = glyph->pixels[gy * glyph->width + gx];
                     if (pixel != _transparent && area.contains(x + gx, y + gy))
-                        *(uint32_t*)dst.getBasePtr(x + gx, y + gy) = palette[pixel];
+                        *(uint32_t *)dst.getBasePtr(x + gx, y + gy) = palette[pixel];
                 }
             }
         }
@@ -106,10 +106,10 @@ void Font::drawStringRgb(Canvas& dst, const std::string& str, int x, int y, cons
     }
 }
 
-std::vector<std::string> Font::wordWrap(const std::string& str, int maxWidth) const {
+std::vector<std::string> Font::wordWrap(const std::string &str, int maxWidth) const {
     std::vector<std::string> lines;
     std::string line;
-    for (const std::string& word : text::split(str, ' ')) {
+    for (const std::string &word : text::split(str, ' ')) {
         if (word.empty())
             continue;
         std::string candidate = line.empty() ? word : line + " " + word;

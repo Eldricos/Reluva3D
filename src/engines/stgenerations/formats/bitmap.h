@@ -17,17 +17,17 @@ namespace reluva::stgenerations {
 class BitmapDecoder {
 public:
     // A .bmp file; false (with a warning) if it isn't one.
-    bool loadStream(SeekableReadStream& stream);
+    bool loadStream(SeekableReadStream &stream);
     // From its BITMAPINFOHEADER on.
-    bool loadDIB(SeekableReadStream& stream);
+    bool loadDIB(SeekableReadStream &stream);
 
-    const Canvas& getSurface() const { return surface_; }
-    const Palette& getPalette() const { return palette_; }
+    const Canvas &getSurface() const { return surface_; }
+    const Palette &getPalette() const { return palette_; }
     bool hasPalette() const { return !surface_.empty() && surface_.isClut8(); }
     uint16_t getPaletteColorCount() const { return paletteColors_; }
 
 private:
-    bool load(SeekableReadStream& stream, bool file);
+    bool load(SeekableReadStream &stream, bool file);
 
     Canvas surface_;
     Palette palette_;

@@ -86,8 +86,8 @@ public:
 
     // actors may be null for a level without them, and mixer null to run
     // silently; soundFiles opens the sound files the scripts play.
-    Mission(LevelFile& level, const ScriptFile& script, LevelRenderer& renderer, Walker& walker, Actors* actors,
-            Mixer* mixer = nullptr, const MissionSound::FileOpener& soundFiles = nullptr);
+    Mission(LevelFile &level, const ScriptFile &script, LevelRenderer &renderer, Walker &walker, Actors *actors,
+            Mixer *mixer = nullptr, const MissionSound::FileOpener &soundFiles = nullptr);
     ~Mission() override;
 
     // Start the level: every object to state 0, then the start broadcast.
@@ -102,18 +102,18 @@ public:
     uint32_t getTime() const { return _time; }
 
     // If a script turned the player since the last call, the new yaw.
-    bool takePlayerYaw(double& yaw);
+    bool takePlayerYaw(double &yaw);
     // The camera's yaw, for scripts that ask which way the player faces.
     void setPlayerYaw(double yaw) { _currentYaw = yaw; }
 
-    ScriptVM& getVM() { return *_vm; }
-    MissionSound& getSound() { return *_sound; }
+    ScriptVM &getVM() { return *_vm; }
+    MissionSound &getSound() { return *_sound; }
 
     // A subtitle that started since the last call, and how long to show it.
-    bool takeSubtitle(std::string& text, uint32_t& durationMs) { return _sound->takeSubtitle(text, durationMs); }
+    bool takeSubtitle(std::string &text, uint32_t &durationMs) { return _sound->takeSubtitle(text, durationMs); }
 
     // Natives called that aren't implemented, by opcode, with call counts.
-    const std::map<uint16_t, int>& getMissingNatives() const { return _missing; }
+    const std::map<uint16_t, int> &getMissingNatives() const { return _missing; }
 
     int16_t getHealth() const { return _health; }
     // Hurt the player (game.vt34C): source object, damage, and a kind (a shot's team).
@@ -130,11 +130,11 @@ public:
         int swingSound = -1, swingVolume = -1;
         int hitSound = -1, hitVolume = -1;
     };
-    const Punch& getPunch() const { return _punch; }
+    const Punch &getPunch() const { return _punch; }
     // The punch starts: its swing sounds.
     void swing();
     // The punch lands on what the view shows at its centre (code 19, 0x4364B8).
-    void punch(const LevelRenderer::Pick& pick);
+    void punch(const LevelRenderer::Pick &pick);
 
     // An inventory item's behaviour (ATTACH_ITEM_BEHAVIOUR). Weapons and
     // the like hold a charge (0x449DCD); each use costs the power level,
@@ -147,7 +147,7 @@ public:
         int32_t setting = 0;
     };
     // An item's behaviour, or null.
-    const Item* getItem(uint16_t id) const {
+    const Item *getItem(uint16_t id) const {
         auto it = _items.find(id);
         return it == _items.end() ? nullptr : &it->second;
     }
@@ -163,11 +163,11 @@ public:
     // (ahead, up and to the left of the eye) at what the view shows at
     // (x, y): pick, the renderer's pick there, in a view w x h seen
     // through camera.
-    FireResult fireWeapon(const Camera& camera, const LevelRenderer::Pick& pick, int x, int y, int w, int h,
+    FireResult fireWeapon(const Camera &camera, const LevelRenderer::Pick &pick, int x, int y, int w, int h,
                           double ahead, double up, double left);
 
     // The console: inventory, panels, body picture, map markers, screen effects.
-    Hud& getHud() { return _hud; }
+    Hud &getHud() { return _hud; }
     // Use the item in an inventory slot, as clicking it does (event 45).
     void useItem(int slot);
     // Right click on an inventory slot (event 62).
@@ -182,7 +182,7 @@ public:
         return it == _items.end() ? 0 : it->second.kind;
     }
     // Where an object (the player for 0) is.
-    bool locate(uint16_t id, double& x, double& y, double& z) const {
+    bool locate(uint16_t id, double &x, double &y, double &z) const {
         Position position;
         if (!getPosition(id, position))
             return false;
@@ -202,7 +202,7 @@ public:
     // Save or load the mission: the scripts, the world they changed, the
     // player and the actors. Sounds playing aren't kept; shots in flight
     // are dropped.
-    void sync(Serializer& s);
+    void sync(Serializer &s);
 
     // END_MISSION (0xBF) or END_TRANSITION (0x92) has ended the location.
     bool isFinished() const { return _finished; }
@@ -242,7 +242,7 @@ public:
         int turnAccel = 10, lookAccel = 10;
         double jump = 13.9;
     };
-    const Motion& getMotion() const { return _motion; }
+    const Motion &getMotion() const { return _motion; }
     // SET_PLAYER_CONTROLS (0xAE): game+0x1E8, 0x5F by default. The bits
     // (tested in 0x43AD04): 1 walk and strafe, 2 turn, 4 look up and down,
     // 8 jump, 0x10 crouch, 0x20 the view bobs while walking (no script
@@ -262,8 +262,8 @@ public:
     uint64_t getExtraZones() const { return _waterZones; }
     // GET_ARRAY/SET_ARRAY's words, which outlive a mission (0x56F844):
     // verid1 leaves the player's health and phaser charge there.
-    const std::vector<int16_t>& getCarriedArray() const { return _array; }
-    void setCarriedArray(const std::vector<int16_t>& array) {
+    const std::vector<int16_t> &getCarriedArray() const { return _array; }
+    void setCarriedArray(const std::vector<int16_t> &array) {
         if (array.size() == _array.size())
             _array = array;
     }
@@ -278,9 +278,9 @@ public:
         // How it is drawn (0x409DDC): 1 or 2, centred (they differ only for a picture wider than the view); else not at all.
         int mode = 0;
     };
-    const ViewOverlay& getViewOverlay() const { return _viewOverlay; }
+    const ViewOverlay &getViewOverlay() const { return _viewOverlay; }
     // SET_MISSION_OUTCOME (0x97): codes left for the campaign.
-    const std::vector<int32_t>& getOutcomes() const { return _outcomes; }
+    const std::vector<int32_t> &getOutcomes() const { return _outcomes; }
     // The worn shield (SET_WORN_ITEM) and the script gauge (SET_WORN_GAUGE), or 0.
     uint16_t getWornItem() const { return _wornItem; }
     uint16_t getGaugeItem() const { return _gaugeItem; }
@@ -290,17 +290,17 @@ public:
 
     // Fire a projectile of the given type (see Projectiles::fire), sounding it.
     void fire(int type, double x, double y, double z, double yaw, double pitch, int shooter);
-    Projectiles& getProjectiles() { return *_projectiles; }
-    Movers& getMovers() { return *_movers; }
+    Projectiles &getProjectiles() { return *_projectiles; }
+    Movers &getMovers() { return *_movers; }
 
     // ScriptHost
-    void callNative(ScriptVM& vm, ScriptInstance& self, uint16_t op) override;
-    void unhandledEvent(ScriptVM& vm, ScriptInstance& self, uint16_t event, const std::vector<int16_t>& args) override;
+    void callNative(ScriptVM &vm, ScriptInstance &self, uint16_t op) override;
+    void unhandledEvent(ScriptVM &vm, ScriptInstance &self, uint16_t event, const std::vector<int16_t> &args) override;
 
     // Send an event to the object with the given id, if there is one.
-    int16_t send(uint16_t id, uint16_t event, const std::vector<int16_t>& args = {});
+    int16_t send(uint16_t id, uint16_t event, const std::vector<int16_t> &args = {});
     // Send an event to every object that subscribed to broadcasts.
-    void broadcast(uint16_t event, const std::vector<int16_t>& args = {});
+    void broadcast(uint16_t event, const std::vector<int16_t> &args = {});
 
 private:
     struct Timer {
@@ -327,40 +327,40 @@ private:
     void setTimer(uint16_t id, uint32_t ms);
 
     // Pop a 16.16 dword (high word on top).
-    static double pop32(ScriptVM& vm);
+    static double pop32(ScriptVM &vm);
     // Pop a 32-bit integer (high word on top).
-    static uint32_t popRaw32(ScriptVM& vm);
-    static void push32(ScriptVM& vm, double value);
-    static Position popPosition(ScriptVM& vm);
-    static void pushPosition(ScriptVM& vm, const Position& position);
+    static uint32_t popRaw32(ScriptVM &vm);
+    static void push32(ScriptVM &vm, double value);
+    static Position popPosition(ScriptVM &vm);
+    static void pushPosition(ScriptVM &vm, const Position &position);
 
-    bool getPosition(uint16_t id, Position& position) const;
+    bool getPosition(uint16_t id, Position &position) const;
     // SET_POSITION: actors move; billboards stay put (items settle onto the floor).
-    void setPosition(uint16_t id, const Position& position);
+    void setPosition(uint16_t id, const Position &position);
     // DROP_AT: move an actor or billboard to a position, billboards onto the floor there.
-    void dropAt(uint16_t id, const Position& position);
-    void dropBillboard(LevelFile::Billboard& billboard);
+    void dropAt(uint16_t id, const Position &position);
+    void dropBillboard(LevelFile::Billboard &billboard);
     void setVisible(uint16_t id, bool visible);
     void setTexture(uint16_t id, uint16_t texture, uint16_t frames, uint16_t speed);
     void restoreTexture(uint16_t id);
     void setFullbright(uint16_t id, bool on);
     void setPlayerHeading(int16_t degrees);
     // Set an actor's mode from a native that pops the actor's id.
-    void setActorMode(ScriptVM& vm, int mode, bool popTarget);
-    void skipNative(ScriptVM& vm, uint16_t op);
+    void setActorMode(ScriptVM &vm, int mode, bool popTarget);
+    void skipNative(ScriptVM &vm, uint16_t op);
     void runProjectiles(uint32_t ms);
     void runPush(uint32_t ms);
     void setTextureScroll(uint16_t id, int16_t u, int16_t v);
     // Walls that doors moved: collisions and shots follow them.
-    void refreshGeometry(const std::vector<int>& walls);
+    void refreshGeometry(const std::vector<int> &walls);
     // LIFT_GO_TO: a lift's flats to one of its heights (1-based).
     void moveLift(uint16_t id, int level);
     void playSoundAt(int sound, double x, double y, double z);
 
-    LevelFile& _level;
-    const ScriptFile& _script;
-    LevelRenderer& _renderer;
-    Walker& _walker;
+    LevelFile &_level;
+    const ScriptFile &_script;
+    LevelRenderer &_renderer;
+    Walker &_walker;
     std::unique_ptr<ScriptVM> _vm;
     RandomSource _random;
 
@@ -373,7 +373,7 @@ private:
 
     // Textures as loaded, for RESET_DEFAULT.
     std::vector<uint16_t> _wallTextures, _flatTextures, _billboardTextures;
-    Actors* _actors;
+    Actors *_actors;
     std::unique_ptr<MissionSound> _sound;
     std::unique_ptr<Projectiles> _projectiles;
     std::unique_ptr<Movers> _movers;
@@ -469,4 +469,3 @@ private:
 };
 
 } // namespace reluva::stgenerations
-

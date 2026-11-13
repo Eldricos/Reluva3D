@@ -31,16 +31,14 @@ struct FramedImage {
     };
 
     // Take a decoded bitmap; a negative frame height asks for that many frames.
-    void set(const BitmapDecoder& decoder, const Palette& palette, int frameHeight);
+    void set(const BitmapDecoder &decoder, const Palette &palette, int frameHeight);
 
     int getFrameCount() const;
     int getHeight() const { return frameHeight > 0 ? frameHeight : surface.h; }
 
     // Copy a frame to (x, y), skipping pixels equal to key (an index, or a
     // Key). Frames count up from the bottom of the strip.
-    void draw(Canvas& dst, int frame, int x, int y, int key = kOpaque,
-              const Rect* clip = nullptr) const;
+    void draw(Canvas &dst, int frame, int x, int y, int key = kOpaque, const Rect *clip = nullptr) const;
 };
 
 } // namespace reluva::stgenerations
-

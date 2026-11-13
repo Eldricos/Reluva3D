@@ -37,20 +37,20 @@ public:
     // Decode the rows; pixels of palette index key (if not -1) are
     // see-through too, as 255 is in the held weapons (NUPHASER.OVR,
     // NUKLIDIS.OVR), where the level palette may make it magenta.
-    bool load(SeekableReadStream& stream, int key = -1);
+    bool load(SeekableReadStream &stream, int key = -1);
 
     int getWidth() const { return _surface.w; }
     int getRowCount() const { return _surface.h; }
 
     // All rows decoded; transparent pixels hold 0 and are flagged in the mask.
-    const Canvas& getSurface() const { return _surface; }
+    const Canvas &getSurface() const { return _surface; }
     bool isOpaque(int x, int y) const { return _mask[y * _surface.w + x] != 0; }
 
     // Copy one frame of the given height into dst at (x, y), leaving
     // transparent pixels untouched. Frames are stacked top down, but each
     // one's rows are stored bottom up: the plant sampler's nozzle lands on
     // the hotspots sgens.exe gives its poses only that way up.
-    void drawFrame(Canvas& dst, int frame, int frameHeight, int x, int y) const;
+    void drawFrame(Canvas &dst, int frame, int frameHeight, int x, int y) const;
 
 private:
     Canvas _surface;
@@ -58,4 +58,3 @@ private:
 };
 
 } // namespace reluva::stgenerations
-

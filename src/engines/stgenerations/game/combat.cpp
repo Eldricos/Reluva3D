@@ -18,7 +18,7 @@ namespace {
 // Not M_PI: MSVC only has it with _USE_MATH_DEFINES.
 constexpr double kPi = 3.14159265358979323846;
 
-const char* const kArchive = "COMBAT.DAT";
+const char *const kArchive = "COMBAT.DAT";
 // The viewscreen: the console's hole (0x54F650).
 const int kViewX = 52, kViewY = 10, kViewW = 532, kViewH = 231;
 // Rotation at full deflection: 228 angle units a frame at about 15 frames a second.
@@ -39,20 +39,19 @@ const int kStars = 1500;
 const int kStreaks = 7;
 
 // PROCEED's place on each COMBATn.BMP (table 0x548618).
-const int kProceed[25][2] = {
-    { 535, 429 }, { 374, 436 }, { 372, 118 }, { 364, 432 }, { 532, 132 }, { 376, 438 }, { 516, 428 },
-    { 376, 434 }, { 527, 430 }, { 508, 421 }, { 375, 434 }, { 518, 430 }, { 380, 432 }, { 380, 432 },
-    { 370, 446 }, { 380, 432 }, { 380, 432 }, { 370, 446 }, { 370, 446 }, { 370, 446 }, { 370, 446 },
-    { 380, 432 }, { 380, 432 }, { 380, 432 }, { 373, 125 }
-};
+const int kProceed[25][2] = {{535, 429}, {374, 436}, {372, 118}, {364, 432}, {532, 132}, {376, 438}, {516, 428},
+                             {376, 434}, {527, 430}, {508, 421}, {375, 434}, {518, 430}, {380, 432}, {380, 432},
+                             {370, 446}, {380, 432}, {380, 432}, {370, 446}, {370, 446}, {370, 446}, {370, 446},
+                             {380, 432}, {380, 432}, {380, 432}, {373, 125}};
 
 // Which shield faces each octant, by the number of shields (0x54E278).
-const int kFacing[5][8] = {
-    { 0, 0, 0, 0, 0, 0, 0, 0 }, { 4, 4, 4, 4, 4, 4, 4, 4 }, { 3, 3, 4, 4, 3, 3, 4, 4 },
-    { 2, 2, 3, 3, 2, 2, 4, 4 }, { 1, 1, 2, 2, 3, 3, 4, 4 }
-};
+const int kFacing[5][8] = {{0, 0, 0, 0, 0, 0, 0, 0},
+                           {4, 4, 4, 4, 4, 4, 4, 4},
+                           {3, 3, 4, 4, 3, 3, 4, 4},
+                           {2, 2, 3, 3, 2, 2, 4, 4},
+                           {1, 1, 2, 2, 3, 3, 4, 4}};
 // The chance of blowing up for 4..8 systems destroyed (0x55009C).
-const int kExplodeChance[9] = { 0, 0, 0, 0, 10, 20, 40, 80, 85 };
+const int kExplodeChance[9] = {0, 0, 0, 0, 10, 20, 40, 80, 85};
 
 // The speech table's WAVs (0x54A980), by id.
 std::string speechFile(int id) {
@@ -90,7 +89,8 @@ double clamp1(double v) {
 }
 
 uint32_t darken(uint32_t c, double f) {
-    uint32_t r = (uint32_t)(((c >> 16) & 0xFF) * f), g = (uint32_t)(((c >> 8) & 0xFF) * f), b = (uint32_t)((c & 0xFF) * f);
+    uint32_t r = (uint32_t)(((c >> 16) & 0xFF) * f), g = (uint32_t)(((c >> 8) & 0xFF) * f),
+             b = (uint32_t)((c & 0xFF) * f);
     return 0xFF000000u | r << 16 | g << 8 | b;
 }
 
@@ -104,9 +104,9 @@ struct SpaceCombat::Ship {
     std::string name;
     // The effects' prefix: E, K, R, C, P or _.
     char effects = '_';
-    const ShipClass* cls = nullptr;
-    const Model3D* model = nullptr, *lowModel = nullptr;
-    const std::vector<CombatMaterial>* materials = nullptr, *lowMaterials = nullptr;
+    const ShipClass *cls = nullptr;
+    const Model3D *model = nullptr, *lowModel = nullptr;
+    const std::vector<CombatMaterial> *materials = nullptr, *lowMaterials = nullptr;
     double radius = 100;
     Vec3 position;
     Mat3 orientation;
@@ -133,15 +133,15 @@ struct SpaceCombat::Ship {
     // The model's largest extent (+0x30) and the mean of its three, which sizes the shields.
     double size = 0, meanSize = 0;
     // The shield hit's dome (+0xE60, SHIELD_c.3DV) and the shield facing sphere (+0x524, SHLD8k_c.3DV).
-    const Model3D* shieldModel = nullptr, *sphereModel = nullptr;
-    const std::vector<CombatMaterial>* shieldMaterials = nullptr, *sphereMaterials = nullptr;
+    const Model3D *shieldModel = nullptr, *sphereModel = nullptr;
+    const std::vector<CombatMaterial> *shieldMaterials = nullptr, *sphereMaterials = nullptr;
     // A shield hit showing (+0xE64): how long since, and towards what.
     bool flashing = false;
     uint32_t flashTime = 0;
     Vec3 flashFrom;
 };
 
-SpaceCombat::SpaceCombat(const ResourceManager& resources, Mixer* mixer, RandomSource& random)
+SpaceCombat::SpaceCombat(const ResourceManager &resources, Mixer *mixer, RandomSource &random)
     : _resources(resources), _mixer(mixer), _random(random) {
     _renderer.setViewport(kViewW, kViewH, 60);
 }
@@ -160,11 +160,11 @@ void SpaceCombat::silence() {
 
 // Data
 
-std::unique_ptr<SeekableReadStream> SpaceCombat::open(const std::string& name) const {
-    return _resources.open({ kArchive, name });
+std::unique_ptr<SeekableReadStream> SpaceCombat::open(const std::string &name) const {
+    return _resources.open({kArchive, name});
 }
 
-const CombatImage* SpaceCombat::image(const std::string& name) {
+const CombatImage *SpaceCombat::image(const std::string &name) {
     std::string key = text::toUpper(name);
     auto it = _images.find(key);
     if (it != _images.end())
@@ -173,12 +173,12 @@ const CombatImage* SpaceCombat::image(const std::string& name) {
     std::unique_ptr<SeekableReadStream> stream = open(key);
     if (!stream || !result->loadRas(*stream))
         result.reset();
-    const CombatImage* found = result.get();
+    const CombatImage *found = result.get();
     _images[key] = std::move(result);
     return found;
 }
 
-const CombatImage* SpaceCombat::texture(const std::string& name) {
+const CombatImage *SpaceCombat::texture(const std::string &name) {
     std::string key = "tex:" + text::toUpper(name);
     auto it = _images.find(key);
     if (it != _images.end())
@@ -188,12 +188,12 @@ const CombatImage* SpaceCombat::texture(const std::string& name) {
     bool ok = stream && (text::hasSuffixIgnoreCase(name, ".lbm") ? result->loadLbm(*stream) : result->loadGif(*stream));
     if (!ok)
         result.reset();
-    const CombatImage* found = result.get();
+    const CombatImage *found = result.get();
     _images[key] = std::move(result);
     return found;
 }
 
-const SprAnimation* SpaceCombat::sprite(const std::string& name) {
+const SprAnimation *SpaceCombat::sprite(const std::string &name) {
     std::string key = text::toUpper(name);
     auto it = _sprites.find(key);
     if (it != _sprites.end())
@@ -202,12 +202,12 @@ const SprAnimation* SpaceCombat::sprite(const std::string& name) {
     std::unique_ptr<SeekableReadStream> stream = open(key);
     if (!stream || !result->load(*stream))
         result.reset();
-    const SprAnimation* found = result.get();
+    const SprAnimation *found = result.get();
     _sprites[key] = std::move(result);
     return found;
 }
 
-const Model3D* SpaceCombat::model(const std::string& name) {
+const Model3D *SpaceCombat::model(const std::string &name) {
     std::string key = text::toUpper(name);
     auto it = _models.find(key);
     if (it != _models.end())
@@ -216,12 +216,12 @@ const Model3D* SpaceCombat::model(const std::string& name) {
     std::unique_ptr<SeekableReadStream> stream = open(key);
     if (!stream || !result->load(*stream))
         result.reset();
-    const Model3D* found = result.get();
+    const Model3D *found = result.get();
     _models[key] = std::move(result);
     return found;
 }
 
-const std::vector<CombatMaterial>* SpaceCombat::materials(const std::string& name) {
+const std::vector<CombatMaterial> *SpaceCombat::materials(const std::string &name) {
     std::string key = text::toUpper(name);
     auto it = _materials.find(key);
     if (it != _materials.end())
@@ -230,13 +230,13 @@ const std::vector<CombatMaterial>* SpaceCombat::materials(const std::string& nam
     std::unique_ptr<SeekableReadStream> stream = open(key);
     if (!stream || !CombatMaterial::loadList(*stream, *result))
         result.reset();
-    const std::vector<CombatMaterial>* found = result.get();
+    const std::vector<CombatMaterial> *found = result.get();
     _materials[key] = std::move(result);
     return found;
 }
 
-const ShipClass* SpaceCombat::findClass(const std::string& token) const {
-    for (const ShipClass& c : _classes) {
+const ShipClass *SpaceCombat::findClass(const std::string &token) const {
+    for (const ShipClass &c : _classes) {
         if (c.token == token)
             return &c;
     }
@@ -270,13 +270,13 @@ bool SpaceCombat::load(int mission) {
 
     // The Enterprise first.
     _ships.clear();
-    for (const MissionShip& line : lines) {
+    for (const MissionShip &line : lines) {
         if (line.type == "player")
             addShip(line);
     }
     if (_ships.empty())
         return false;
-    for (const MissionShip& line : lines) {
+    for (const MissionShip &line : lines) {
         if (line.type != "player")
             addShip(line);
     }
@@ -296,11 +296,10 @@ bool SpaceCombat::load(int mission) {
     }
     _phase = _briefing.isLoaded() ? kBriefing : kFight;
     if (_phase == kBriefing) {
-        ResourceRef ref = { "OPTIONS.DAT", text::format("CLOOP%d.WAV", 1 + (int)_random.getRandomNumber(3)) };
+        ResourceRef ref = {"OPTIONS.DAT", text::format("CLOOP%d.WAV", 1 + (int)_random.getRandomNumber(3))};
         std::unique_ptr<SoundStream> stream = _resources.loadSound(ref);
         if (stream && _mixer)
-            _mixer->playStream(Mixer::kMusicSoundType, &_music,
-                               makeLooping(std::move(stream), 0));
+            _mixer->playStream(Mixer::kMusicSoundType, &_music, makeLooping(std::move(stream), 0));
     } else {
         playMusic(text::format("SCLOOP%d.WAV", 1 + (int)_random.getRandomNumber(3)), true);
     }
@@ -315,7 +314,7 @@ bool SpaceCombat::load(int mission) {
         _streaks.push_back(newStreak());
     // 0x49461C: the nearest ship is the first target, and the Enterprise
     // starts facing it, level; the mission file's heading for it is unused.
-    Ship& e = _ships[0];
+    Ship &e = _ships[0];
     _target = -1;
     double nearest = 0;
     for (size_t i = 1; i < _ships.size(); i++) {
@@ -330,23 +329,22 @@ bool SpaceCombat::load(int mission) {
     return true;
 }
 
-void SpaceCombat::addShip(const MissionShip& line) {
+void SpaceCombat::addShip(const MissionShip &line) {
     // 0x4A4DA2: the types, their models and classes.
     // The console's names are the class names of 0x54E660; it has none of
     // its own for the Garidian ship and the starbase.
     struct Type {
-        const char* name, *model, *token;
+        const char *name, *model, *token;
         char effects;
-        const char* display;
+        const char *display;
     };
     static const Type kTypes[] = {
-        { "player", "ENTERPRS", "ent", 'E', "NCC-1701D" },  { "sm_klingon", "KLINGON", "bop", 'K', "BIRD OF PREY" },
-        { "klingon", "VORCHA", "vor", 'K', "VORCHA" },      { "romulan", "ROMULAN", "war", 'R', "WARBIRD" },
-        { "chodak", "CHODAK", "cho", 'C', "DREADNOUGHT" },  { "garidian", "GARIDIAN", "war", 'R', "WARBIRD" },
-        { "probe", "PROBE", "pro", 'P', "PROBE" },          { "starbase", "STARBASE", "pro", '_', "STARBASE" }
-    };
-    const Type* type = nullptr;
-    for (const Type& t : kTypes) {
+        {"player", "ENTERPRS", "ent", 'E', "NCC-1701D"}, {"sm_klingon", "KLINGON", "bop", 'K', "BIRD OF PREY"},
+        {"klingon", "VORCHA", "vor", 'K', "VORCHA"},     {"romulan", "ROMULAN", "war", 'R', "WARBIRD"},
+        {"chodak", "CHODAK", "cho", 'C', "DREADNOUGHT"}, {"garidian", "GARIDIAN", "war", 'R', "WARBIRD"},
+        {"probe", "PROBE", "pro", 'P', "PROBE"},         {"starbase", "STARBASE", "pro", '_', "STARBASE"}};
+    const Type *type = nullptr;
+    for (const Type &t : kTypes) {
         if (line.type == t.name)
             type = &t;
     }
@@ -366,7 +364,7 @@ void SpaceCombat::addShip(const MissionShip& line) {
     ship.lowMaterials = materials(std::string(type->model) + ".MTR");
     if (ship.model) {
         ship.radius = std::max(50.0f, ship.model->radius);
-        const float* e = ship.model->extent;
+        const float *e = ship.model->extent;
         ship.size = std::max(e[0], std::max(e[1], e[2]));
         ship.meanSize = (e[0] + e[1] + e[2]) / 3;
     }
@@ -400,7 +398,7 @@ void SpaceCombat::addShip(const MissionShip& line) {
         ship.stock = ship.cls->torpedoes;
     }
     ship.aiTimer = 2000 + _random.getRandomNumber(5000);
-    for (const Ship& other : _ships) {
+    for (const Ship &other : _ships) {
         if (other.type == ship.type)
             ship.number++;
     }
@@ -410,14 +408,14 @@ void SpaceCombat::addShip(const MissionShip& line) {
     _ships.push_back(ship);
 }
 
-double SpaceCombat::systemFraction(const Ship& ship, int system) const {
+double SpaceCombat::systemFraction(const Ship &ship, int system) const {
     if (!ship.cls || ship.cls->systems[system].max <= 0)
         return 0;
     double max = ship.cls->systems[system].max;
     return std::max(0.0, (max - ship.damage[system]) / max);
 }
 
-bool SpaceCombat::isEnemyAlive(const Ship& ship) const {
+bool SpaceCombat::isEnemyAlive(const Ship &ship) const {
     return ship.alive && !ship.hidden && !ship.gone;
 }
 
@@ -448,7 +446,7 @@ void SpaceCombat::update(uint32_t ms) {
     if (_phase == kFight)
         updateHelm(dt);
     for (int i = 0; i < (int)_ships.size(); i++) {
-        Ship& ship = _ships[i];
+        Ship &ship = _ships[i];
         if (!ship.alive || ship.hidden || ship.gone)
             continue;
         if (i > 0 && _phase == kFight)
@@ -456,29 +454,29 @@ void SpaceCombat::update(uint32_t ms) {
         updateShip(ship, dt);
     }
     updateWeapons(ms);
-    for (Explosion& e : _explosions)
+    for (Explosion &e : _explosions)
         e.time += ms;
     // Shield hits run their animation, then end (0x497D2E); the
     // Enterprise's at once, as it isn't seen.
     for (size_t i = 0; i < _ships.size(); i++) {
-        Ship& ship = _ships[i];
+        Ship &ship = _ships[i];
         if (!ship.flashing)
             continue;
         ship.flashTime += ms;
-        const SprAnimation* spr = sprite(text::format("%c_SHIELD.SPR", ship.effects == 'P' ? '_' : ship.effects));
+        const SprAnimation *spr = sprite(text::format("%c_SHIELD.SPR", ship.effects == 'P' ? '_' : ship.effects));
         if (i == 0 || !spr || ship.flashTime >= spr->frames.size() * spr->frameMillis)
             ship.flashing = false;
     }
     // The streaming stars grow out from the middle with the speed, at the
     // original's rate a frame taken as twenty frames a second.
-    const Ship& enterprise = _ships[0];
+    const Ship &enterprise = _ships[0];
     if (enterprise.cls && enterprise.cls->maxSpeed) {
         double growth = std::pow(1 + enterprise.speed / enterprise.cls->maxSpeed * 0.075, dt * 20);
-        for (Streak& streak : _streaks)
+        for (Streak &streak : _streaks)
             streak.scale *= growth;
     }
     _explosions.erase(std::remove_if(_explosions.begin(), _explosions.end(),
-                                     [](const Explosion& e) {
+                                     [](const Explosion &e) {
                                          return !e.sprite || e.time >= e.sprite->frames.size() * e.sprite->frameMillis;
                                      }),
                       _explosions.end());
@@ -486,8 +484,8 @@ void SpaceCombat::update(uint32_t ms) {
         checkEnd();
 }
 
-void SpaceCombat::updateShip(Ship& ship, double dt) {
-    const ShipClass* cls = ship.cls;
+void SpaceCombat::updateShip(Ship &ship, double dt) {
+    const ShipClass *cls = ship.cls;
     if (!cls)
         return;
     // Shields and phaser banks recharge; the tubes reload from the stock.
@@ -524,7 +522,7 @@ void SpaceCombat::updateShip(Ship& ship, double dt) {
     fly(ship, dt);
 }
 
-void SpaceCombat::fly(Ship& ship, double dt) {
+void SpaceCombat::fly(Ship &ship, double dt) {
     // Turning slows with speed (table 0x54F150: 1.0 at rest to 0.21 flat out).
     double maxSpeed = ship.cls ? ship.cls->maxSpeed : 500;
     double fraction = std::min(1.0, std::fabs(ship.speed) / std::max(1.0, maxSpeed));
@@ -536,7 +534,7 @@ void SpaceCombat::fly(Ship& ship, double dt) {
     ship.position = ship.position + ship.orientation.forward * (ship.speed * dt);
 }
 
-void SpaceCombat::steer(Ship& ship, const Vec3& point, double dt, bool away) {
+void SpaceCombat::steer(Ship &ship, const Vec3 &point, double dt, bool away) {
     Vec3 local = ship.orientation.inverse(point - ship.position);
     if (away)
         local = local * -1;
@@ -548,10 +546,10 @@ void SpaceCombat::steer(Ship& ship, const Vec3& point, double dt, bool away) {
     (void)dt;
 }
 
-void SpaceCombat::updateAi(Ship& ship, double dt) {
+void SpaceCombat::updateAi(Ship &ship, double dt) {
     // The enemies' own AI (0x4A7C91), with the steering of 0x4A53A1. The
     // TACTICS scripts (*.BIN) in COMBAT.DAT are never attached to a ship.
-    const Ship& enterprise = _ships[0];
+    const Ship &enterprise = _ships[0];
     if (!enterprise.alive || !ship.cls)
         return;
     double distance = (enterprise.position - ship.position).length();
@@ -585,7 +583,7 @@ void SpaceCombat::updateAi(Ship& ship, double dt) {
         // Soran keeps off while any other ship is left in the fight, or
         // still to come (the ship list, 0x4A2450).
         int others = 0;
-        for (const Ship& s : _ships)
+        for (const Ship &s : _ships)
             others += &s != &ship && &s != &enterprise && s.alive && !s.gone;
         bool keepsAway = ship.soran && others > 0;
         if (distance >= 0.75 * ship.cls->phaserRange) {
@@ -606,20 +604,20 @@ void SpaceCombat::updateAi(Ship& ship, double dt) {
         steer(ship, ship.waypoint, dt);
 }
 
-void SpaceCombat::runOff(Ship& ship) {
+void SpaceCombat::runOff(Ship &ship) {
     // 0x4AFF2A: two phaser ranges off the Enterprise to either side, and
     // below it.
     if (_time < ship.fleeAt)
         return;
-    const Ship& enterprise = _ships[0];
+    const Ship &enterprise = _ships[0];
     double r = 2.0 * enterprise.cls->phaserRange;
     ship.fleeAt = _time + kFleeMillis;
-    ship.waypoint = enterprise.position + Vec3(_random.getRandomNumber(1) ? r : -r, -r,
-                                               _random.getRandomNumber(1) ? r : -r);
+    ship.waypoint =
+        enterprise.position + Vec3(_random.getRandomNumber(1) ? r : -r, -r, _random.getRandomNumber(1) ? r : -r);
     ship.hasWaypoint = true;
 }
 
-bool SpaceCombat::isCollisionImminent(const Ship& a, const Ship& b) const {
+bool SpaceCombat::isCollisionImminent(const Ship &a, const Ship &b) const {
     // 0x4A7880: within 1000, moving or close, and too near now or a second
     // from now (speeds are per second).
     double distance = (a.position - b.position).length();
@@ -635,15 +633,16 @@ bool SpaceCombat::isCollisionImminent(const Ship& a, const Ship& b) const {
 }
 
 void SpaceCombat::updateHelm(double dt) {
-    Ship& e = _ships[0];
+    Ship &e = _ships[0];
     if (!e.alive)
         return;
-    const Ship* target = _target >= 0 && _target < (int)_ships.size() && isEnemyAlive(_ships[_target]) ? &_ships[_target] : nullptr;
+    const Ship *target =
+        _target >= 0 && _target < (int)_ships.size() && isEnemyAlive(_ships[_target]) ? &_ships[_target] : nullptr;
     switch (_helm) {
     case kStandBy:
     case kMaintainStatus: {
         // By hand: the inputs follow the keys, and fall back when let go.
-        double* inputs[3] = { &e.yawIn, &e.pitchIn, &e.rollIn };
+        double *inputs[3] = {&e.yawIn, &e.pitchIn, &e.rollIn};
         for (int i = 0; i < 3; i++) {
             double want = _steering && i < 2 ? _mouseTurn[i] : _turnKeys[i];
             double step = dt * (want != 0 ? 2.0 : 3.0);
@@ -691,23 +690,23 @@ void SpaceCombat::updateHelm(double dt) {
     }
 }
 
-int SpaceCombat::octant(const Ship& ship, const Vec3& point) const {
+int SpaceCombat::octant(const Ship &ship, const Vec3 &point) const {
     Vec3 local = ship.orientation.inverse(point - ship.position);
     return (local.x > 0 ? 4 : 0) | (local.z < 0 ? 2 : 0) | (local.y > 0 ? 1 : 0);
 }
 
-int SpaceCombat::facing(const Ship& target, const Vec3& from) const {
+int SpaceCombat::facing(const Ship &target, const Vec3 &from) const {
     int shields = target.cls ? std::max(0, std::min(4, target.cls->shields)) : 0;
     return kFacing[shields][octant(target, from)];
 }
 
 void SpaceCombat::firePhasers(int shooter) {
-    Ship& ship = _ships[shooter];
+    Ship &ship = _ships[shooter];
     int targetIndex = shooter == 0 ? _target : 0;
     if (!ship.cls || targetIndex < 0 || targetIndex >= (int)_ships.size() || !isEnemyAlive(_ships[targetIndex]) ||
         !_ships[targetIndex].alive)
         return;
-    const Ship& target = _ships[targetIndex];
+    const Ship &target = _ships[targetIndex];
     double distance = (target.position - ship.position).length();
     if (distance > ship.cls->phaserRange) {
         if (shooter == 0)
@@ -718,7 +717,7 @@ void SpaceCombat::firePhasers(int shooter) {
     double computer = std::max(0.5, systemFraction(ship, ShipClass::kComputer));
     bool fired = false;
     for (int s = ShipClass::kPhaser0; s < ShipClass::kPhoton0; s++) {
-        const ShipClass::SystemInfo& bank = ship.cls->systems[s];
+        const ShipClass::SystemInfo &bank = ship.cls->systems[s];
         if (bank.max <= 0 || !(bank.arcs & (1 << arc)) || ship.energy[s] < 1)
             continue;
         // The hit roll (0x49BE85).
@@ -735,7 +734,10 @@ void SpaceCombat::firePhasers(int shooter) {
             beam.end = target.position + off.normalized() * (distance * 0.3 + target.radius * 2);
         }
         beam.time = 0;
-        beam.colour = ship.effects == 'E' ? 0xFFFF7020u : ship.effects == 'R' ? 0xFF40FF60u : ship.effects == 'C' ? 0xFF60A0FFu : 0xFFFF3030u;
+        beam.colour = ship.effects == 'E'   ? 0xFFFF7020u
+                      : ship.effects == 'R' ? 0xFF40FF60u
+                      : ship.effects == 'C' ? 0xFF60A0FFu
+                                            : 0xFFFF3030u;
         beam.damage = (int)ship.energy[s];
         beam.hit = hit;
         beam.applied = false;
@@ -745,17 +747,18 @@ void SpaceCombat::firePhasers(int shooter) {
         fired = true;
     }
     if (fired) {
-        playEffect(text::format("%c_PHASER.WAV", ship.effects == 'P' ? '_' : ship.effects),
-                   (int)std::max(40.0, 255 * (1 - std::min(1.0, (ship.position - _ships[0].position).length() / 8500))));
+        playEffect(
+            text::format("%c_PHASER.WAV", ship.effects == 'P' ? '_' : ship.effects),
+            (int)std::max(40.0, 255 * (1 - std::min(1.0, (ship.position - _ships[0].position).length() / 8500))));
     }
 }
 
 void SpaceCombat::firePhotons(int shooter) {
-    Ship& ship = _ships[shooter];
+    Ship &ship = _ships[shooter];
     int targetIndex = shooter == 0 ? _target : 0;
     if (!ship.cls || targetIndex < 0 || targetIndex >= (int)_ships.size() || !isEnemyAlive(_ships[targetIndex]))
         return;
-    const Ship& target = _ships[targetIndex];
+    const Ship &target = _ships[targetIndex];
     if ((target.position - ship.position).length() > ship.cls->photonRange) {
         if (shooter == 0)
             speak(0x112);
@@ -765,7 +768,7 @@ void SpaceCombat::firePhotons(int shooter) {
     // The tube facing the target fires all it holds (0x4999AB).
     for (int t = 0; t < 4; t++) {
         int s = ShipClass::kPhoton0 + t;
-        const ShipClass::SystemInfo& tube = ship.cls->systems[s];
+        const ShipClass::SystemInfo &tube = ship.cls->systems[s];
         if (tube.max <= 0 || !(tube.arcs & (1 << arc)) || ship.damage[s] >= tube.max)
             continue;
         if (ship.loaded[t] <= 0) {
@@ -798,25 +801,25 @@ void SpaceCombat::firePhotons(int shooter) {
 
 void SpaceCombat::updateWeapons(uint32_t ms) {
     // Beams hurt as their animation reaches its fourth frame.
-    for (Beam& beam : _beams) {
+    for (Beam &beam : _beams) {
         beam.time += ms;
         if (!beam.applied && beam.time >= 300) {
             beam.applied = true;
             if (beam.hit && beam.to < (int)_ships.size() && _ships[beam.to].alive && !_ships[beam.to].gone) {
-                const Ship& from = _ships[beam.from];
+                const Ship &from = _ships[beam.from];
                 int aimed = beam.from == 0 ? _aimedSystem : from.aimed;
                 hit(beam.to, facing(_ships[beam.to], from.position), beam.damage, aimed, from.position);
             }
         }
     }
-    _beams.erase(std::remove_if(_beams.begin(), _beams.end(), [](const Beam& b) { return b.time >= 600; }),
+    _beams.erase(std::remove_if(_beams.begin(), _beams.end(), [](const Beam &b) { return b.time >= 600; }),
                  _beams.end());
 
     double dt = ms / 1000.0;
-    for (Torpedo& t : _torpedoes) {
+    for (Torpedo &t : _torpedoes) {
         t.life = t.life > ms ? t.life - ms : 0;
         if (t.target >= 0 && t.target < (int)_ships.size() && _ships[t.target].alive && !_ships[t.target].gone) {
-            const Ship& target = _ships[t.target];
+            const Ship &target = _ships[t.target];
             Vec3 to = target.position - t.position;
             double speed = std::max(1750.0, t.velocity.length());
             // Homing, with a limited turn.
@@ -833,14 +836,14 @@ void SpaceCombat::updateWeapons(uint32_t ms) {
         }
         t.position = t.position + t.velocity * dt;
     }
-    _torpedoes.erase(std::remove_if(_torpedoes.begin(), _torpedoes.end(), [](const Torpedo& t) { return t.life == 0; }),
+    _torpedoes.erase(std::remove_if(_torpedoes.begin(), _torpedoes.end(), [](const Torpedo &t) { return t.life == 0; }),
                      _torpedoes.end());
 }
 
-void SpaceCombat::shieldHit(int index, const Vec3& from, int shield) {
+void SpaceCombat::shieldHit(int index, const Vec3 &from, int shield) {
     // 0x497B99: the shield's dome takes the ship's ?_SHIELD.SPR as its
     // texture and shows towards what hit it until the animation ends.
-    Ship& ship = _ships[index];
+    Ship &ship = _ships[index];
     if (!ship.shieldModel)
         return;
     ship.flashing = true;
@@ -860,7 +863,7 @@ void SpaceCombat::jolt(int index, int shield) {
     // worse it is (0x47BC14).
     if (index != 0 || shield < 1 || shield > 4)
         return;
-    const Ship& ship = _ships[0];
+    const Ship &ship = _ships[0];
     _shakeUntil = _time + kShakeTicks * 1000 / kTicksPerSecond;
     int max = ship.cls ? ship.cls->systems[shield].max : 0;
     if (max <= 0)
@@ -874,7 +877,7 @@ void SpaceCombat::jolt(int index, int shield) {
     }
 }
 
-void SpaceCombat::drawJolt(Canvas& screen) {
+void SpaceCombat::drawJolt(Canvas &screen) {
     // Dimming: a level running from -127 to 127 over its time; the screen
     // is a quarter as bright in the middle half of it, half at the ends.
     if (_dimLevel) {
@@ -890,7 +893,7 @@ void SpaceCombat::drawJolt(Canvas& screen) {
             if (shift > 0) {
                 uint32_t mask = (0xFFu >> shift) * 0x010101u;
                 for (int y = 0; y < screen.h; y++) {
-                    uint32_t* row = (uint32_t*)screen.getBasePtr(0, y);
+                    uint32_t *row = (uint32_t *)screen.getBasePtr(0, y);
                     for (int x = 0; x < screen.w; x++)
                         row[x] = 0xFF000000u | ((row[x] >> shift) & mask);
                 }
@@ -901,15 +904,16 @@ void SpaceCombat::drawJolt(Canvas& screen) {
     // down by up to three pixels (0x4995D8's random 0..n).
     if (_time < _shakeUntil) {
         _shakeFrame = !_shakeFrame;
-        int dx = _shakeFrame ? 0 : (int)_random.getRandomNumber(5), dy = _shakeFrame ? 0 : (int)_random.getRandomNumber(3);
+        int dx = _shakeFrame ? 0 : (int)_random.getRandomNumber(5),
+            dy = _shakeFrame ? 0 : (int)_random.getRandomNumber(3);
         if (dx || dy) {
             for (int y = screen.h - 1; y >= 0; y--) {
-                uint32_t* row = (uint32_t*)screen.getBasePtr(0, y);
+                uint32_t *row = (uint32_t *)screen.getBasePtr(0, y);
                 if (y < dy) {
                     std::fill(row, row + screen.w, 0xFF000000u);
                     continue;
                 }
-                const uint32_t* src = (const uint32_t*)screen.getBasePtr(0, y - dy);
+                const uint32_t *src = (const uint32_t *)screen.getBasePtr(0, y - dy);
                 memmove(row + dx, src, (screen.w - dx) * sizeof(uint32_t));
                 std::fill(row, row + dx, 0xFF000000u);
             }
@@ -917,11 +921,11 @@ void SpaceCombat::drawJolt(Canvas& screen) {
     }
 }
 
-void SpaceCombat::hit(int index, int shield, double amount, int aimed, const Vec3& from) {
-    Ship& ship = _ships[index];
+void SpaceCombat::hit(int index, int shield, double amount, int aimed, const Vec3 &from) {
+    Ship &ship = _ships[index];
     if (!ship.alive || !ship.cls || _phase != kFight)
         return;
-    const ShipClass& cls = *ship.cls;
+    const ShipClass &cls = *ship.cls;
     // Before the damage (0x49A3D1, 0x49B6C5): a shield still up flashes,
     // unless it is already; otherwise the Enterprise only shakes.
     bool up = shield >= 1 && shield <= 4 && ship.damage[shield] != cls.systems[shield].max;
@@ -960,13 +964,13 @@ void SpaceCombat::hit(int index, int shield, double amount, int aimed, const Vec
         if (down)
             ship.energy[shield] = 0;
         if (index == 0) {
-            static const int kHalf[5] = { 0, 0xBA, 0xBE, 0xC0, 0xBC }, kGone[5] = { 0, 0xBB, 0xBF, 0xC1, 0xBD };
+            static const int kHalf[5] = {0, 0xBA, 0xBE, 0xC0, 0xBC}, kGone[5] = {0, 0xBB, 0xBF, 0xC1, 0xBD};
             if (down)
                 speak(kGone[shield]);
             else if (wasUp && ship.damage[shield] >= cls.systems[shield].max * 0.5)
                 speak(kHalf[shield]);
         } else if (down) {
-            static const int kTheirs[5] = { 0, 0xFD, 0x100, 0xFF, 0xFE };
+            static const int kTheirs[5] = {0, 0xFD, 0x100, 0xFF, 0xFE};
             speak(kTheirs[shield]);
         }
     }
@@ -1000,7 +1004,7 @@ void SpaceCombat::hit(int index, int shield, double amount, int aimed, const Vec
         bool now = ship.damage[system] >= cls.systems[system].max;
         if (now && !before) {
             if (index == 0) {
-                static const int kLines[13] = { 0, 0, 0, 0, 0, 0xD2, 0x84, 0x9F, 0xAB, 0x91, 0x8B, 0xC7, 0 };
+                static const int kLines[13] = {0, 0, 0, 0, 0, 0xD2, 0x84, 0x9F, 0xAB, 0x91, 0x8B, 0xC7, 0};
                 speak(kLines[system]);
                 if (system == ShipClass::kLifeSupport)
                     _lifeSupportOut = 1;
@@ -1036,7 +1040,7 @@ void SpaceCombat::hit(int index, int shield, double amount, int aimed, const Vec
 }
 
 void SpaceCombat::destroy(int index) {
-    Ship& ship = _ships[index];
+    Ship &ship = _ships[index];
     ship.alive = false;
     Explosion e;
     e.position = ship.position;
@@ -1065,8 +1069,12 @@ void SpaceCombat::nextTarget(bool announce) {
             continue;
         _target = i;
         if (announce) {
-            const Ship& t = _ships[i];
-            int base = t.token == "war" ? 0xEA : t.token == "bop" ? 0xEF : t.token == "cho" ? 0xF5 : t.token == "vor" ? 0xFB : 0xFA;
+            const Ship &t = _ships[i];
+            int base = t.token == "war"   ? 0xEA
+                       : t.token == "bop" ? 0xEF
+                       : t.token == "cho" ? 0xF5
+                       : t.token == "vor" ? 0xFB
+                                          : 0xFA;
             int soranLine = t.token == "war" ? 0xEE : t.token == "bop" ? 0xF4 : t.token == "cho" ? 0xF9 : 0x110;
             speak(t.soran ? soranLine : base + std::min(t.number - 1, t.token == "bop" ? 4 : 3));
         }
@@ -1076,7 +1084,7 @@ void SpaceCombat::nextTarget(bool announce) {
 }
 
 void SpaceCombat::checkEnd() {
-    Ship& e = _ships[0];
+    Ship &e = _ships[0];
     if (_lifeSupportOut) {
         _lifeSupportOut += 16;
         if (_lifeSupportOut >= kLifeSupportMillis) {
@@ -1100,7 +1108,7 @@ void SpaceCombat::checkEnd() {
     }
     if (next) {
         for (size_t i = 1; i < _ships.size(); i++) {
-            Ship& s = _ships[i];
+            Ship &s = _ships[i];
             if (s.hidden && s.wave == next) {
                 s.hidden = false;
                 s.position = s.position + e.position;
@@ -1134,31 +1142,32 @@ void SpaceCombat::speak(int id, bool force) {
         return;
     if (!force && _mixer->isSoundHandleActive(_speech))
         return;
-    std::unique_ptr<SoundStream> stream = _resources.loadSound({ kArchive, file });
+    std::unique_ptr<SoundStream> stream = _resources.loadSound({kArchive, file});
     if (!stream)
         return;
     _spoken[id] = _time;
     _mixer->stopHandle(_speech);
     _mixer->playStream(Mixer::kSpeechSoundType, &_speech, std::move(stream));
-    _subtitle = _resources.loadSubtitle({ kArchive, file });
+    _subtitle = _resources.loadSubtitle({kArchive, file});
     _subtitleLeft = 2500;
     if (!_subtitle.empty())
         log::debug(1, "%s", _subtitle.c_str());
 }
 
-void SpaceCombat::playEffect(const std::string& name, int volume) {
+void SpaceCombat::playEffect(const std::string &name, int volume) {
     if (!_mixer)
         return;
-    std::unique_ptr<SoundStream> stream = _resources.loadSound({ kArchive, name });
+    std::unique_ptr<SoundStream> stream = _resources.loadSound({kArchive, name});
     if (stream)
-        _mixer->playStream(Mixer::kSFXSoundType, &_effect, std::move(stream), -1, (uint8_t)std::max(0, std::min(255, volume)));
+        _mixer->playStream(Mixer::kSFXSoundType, &_effect, std::move(stream), -1,
+                           (uint8_t)std::max(0, std::min(255, volume)));
 }
 
-void SpaceCombat::playMusic(const std::string& name, bool loop) {
+void SpaceCombat::playMusic(const std::string &name, bool loop) {
     if (!_mixer)
         return;
     _mixer->stopHandle(_music);
-    std::unique_ptr<SoundStream> stream = _resources.loadSound({ kArchive, name });
+    std::unique_ptr<SoundStream> stream = _resources.loadSound({kArchive, name});
     if (!stream)
         return;
     if (loop)
@@ -1169,7 +1178,7 @@ void SpaceCombat::playMusic(const std::string& name, bool loop) {
 
 // Input
 
-void SpaceCombat::keyDown(const KeyState& key) {
+void SpaceCombat::keyDown(const KeyState &key) {
     if (_phase == kBriefing) {
         if (key.keycode == reluva::key::Return || key.keycode == reluva::key::Space ||
             key.keycode == reluva::key::Escape)
@@ -1226,7 +1235,7 @@ void SpaceCombat::helmChanged(Helm before) {
     }
 }
 
-void SpaceCombat::keyUp(const KeyState& key) {
+void SpaceCombat::keyUp(const KeyState &key) {
     uint8_t action = _keys.get(KeyMap::virtualKey(key.keycode));
     if (action != KeyMap::kNone)
         shipAction(action, false);
@@ -1329,12 +1338,12 @@ bool SpaceCombat::takeOptionsRequest() {
     return request;
 }
 
-void SpaceCombat::moveSlider(Slider& slider, int y) {
+void SpaceCombat::moveSlider(Slider &slider, int y) {
     slider.row = std::max(0, std::min(y - slider.slot.top, slider.slot.height() - 1));
 }
 
-void SpaceCombat::drawSlider(Canvas& screen, const Slider& slider) {
-    const Rect& slot = slider.slot;
+void SpaceCombat::drawSlider(Canvas &screen, const Slider &slider) {
+    const Rect &slot = slider.slot;
     int split = slot.top + slider.row;
     Rect above(slot.left, slot.top, slot.right, split), below(slot.left, split, slot.right, slot.bottom);
     drawImage(screen, image(slider.unlit), slot.left, slot.top, &above);
@@ -1366,7 +1375,7 @@ void SpaceCombat::steerByMouse(int x, int y) {
 
 void SpaceCombat::mouseDown(int x, int y) {
     _pressed = -1;
-    for (Slider* slider : { &_viewSlider, &_radarSlider }) {
+    for (Slider *slider : {&_viewSlider, &_radarSlider}) {
         if (_phase == kFight && slider->slot.contains(x, y)) {
             _dragging = slider;
             moveSlider(*slider, y);
@@ -1446,7 +1455,7 @@ void SpaceCombat::mouseUp(int x, int y) {
         }
     } else if (Rect(1, 252, 175, 462).contains(x, y) && _target >= 0) {
         // The enemy's systems: aim at the next one (weapons .. cloak).
-        const ShipClass* cls = _ships[_target].cls;
+        const ShipClass *cls = _ships[_target].cls;
         for (int k = 0; k < 8; k++) {
             _aimedSystem = _aimedSystem < 5 || _aimedSystem >= 12 ? 5 : _aimedSystem + 1;
             if (cls && cls->systems[_aimedSystem].max > 0)
@@ -1458,7 +1467,7 @@ void SpaceCombat::mouseUp(int x, int y) {
 
 // Drawing
 
-void SpaceCombat::drawImage(Canvas& screen, const CombatImage* img, int x, int y, const Rect* clip) {
+void SpaceCombat::drawImage(Canvas &screen, const CombatImage *img, int x, int y, const Rect *clip) {
     if (!img)
         return;
     Rect area(0, 0, screen.w, screen.h);
@@ -1468,7 +1477,7 @@ void SpaceCombat::drawImage(Canvas& screen, const CombatImage* img, int x, int y
         int dy = y + sy;
         if (dy < area.top || dy >= area.bottom)
             continue;
-        uint32_t* row = (uint32_t*)screen.getBasePtr(0, dy);
+        uint32_t *row = (uint32_t *)screen.getBasePtr(0, dy);
         for (int sx = 0; sx < img->w; sx++) {
             int dx = x + sx;
             uint32_t c = img->get(sx, sy);
@@ -1478,17 +1487,17 @@ void SpaceCombat::drawImage(Canvas& screen, const CombatImage* img, int x, int y
     }
 }
 
-void SpaceCombat::drawText(Canvas& screen, const std::string& text, int x, int y, bool small) {
+void SpaceCombat::drawText(Canvas &screen, const std::string &text, int x, int y, bool small) {
     // FONTSCAN for messages, FONTLIT (capitals and digits) for the readouts.
-    const CombatImage* strip = image(small ? "A-Z_0-9.RAS" : "SCANNER.RAS");
+    const CombatImage *strip = image(small ? "A-Z_0-9.RAS" : "SCANNER.RAS");
     if (!strip)
         return;
-    const MetFont& font = small ? _smallFont : _font;
+    const MetFont &font = small ? _smallFont : _font;
     for (char ch : text) {
         int c = (uint8_t)ch;
         if (c < 32 || c > 127)
             c = 32;
-        const MetFont::Cell& cell = font.cells[c - 32];
+        const MetFont::Cell &cell = font.cells[c - 32];
         for (int gy = 0; gy < cell.h; gy++) {
             for (int gx = 0; gx < cell.w; gx++) {
                 int sx = cell.x + gx, sy = cell.y + gy, dx = x + gx, dy = y + gy;
@@ -1497,7 +1506,7 @@ void SpaceCombat::drawText(Canvas& screen, const std::string& text, int x, int y
                 uint32_t p = strip->get(sx, sy);
                 // The strip's glyphs are light on dark.
                 if ((p >> 24) && ((p >> 16 & 0xFF) + (p >> 8 & 0xFF) + (p & 0xFF)) > 150)
-                    *(uint32_t*)screen.getBasePtr(dx, dy) = p;
+                    *(uint32_t *)screen.getBasePtr(dx, dy) = p;
             }
         }
         // FONTLIT's cells hold their own spacing.
@@ -1507,7 +1516,7 @@ void SpaceCombat::drawText(Canvas& screen, const std::string& text, int x, int y
     }
 }
 
-void SpaceCombat::drawBars(Canvas& screen, const Ship& ship, int x, int y) {
+void SpaceCombat::drawBars(Canvas &screen, const Ship &ship, int x, int y) {
     // Twelve columns, shields to cloak: the dark covers what's lost.
     if (!ship.cls)
         return;
@@ -1520,14 +1529,14 @@ void SpaceCombat::drawBars(Canvas& screen, const Ship& ship, int x, int y) {
         int left = x + 1 + 14 * (s - 1), top = y + 9, height = 41;
         int dark = (int)(height * (1 - level));
         for (int dy = 0; dy < dark; dy++) {
-            uint32_t* row = (uint32_t*)screen.getBasePtr(0, top + dy);
+            uint32_t *row = (uint32_t *)screen.getBasePtr(0, top + dy);
             for (int dx = 1; dx < 12; dx++)
                 row[left + dx] = darken(row[left + dx], 0.25);
         }
     }
 }
 
-int SpaceCombat::systemLook(const Ship& ship, int system) const {
+int SpaceCombat::systemLook(const Ship &ship, int system) const {
     // 0x49E232: the bright picture for a system that works, the dim one
     // for one that is down or damaged, the red one for one destroyed.
     if (!ship.cls || ship.cls->systems[system].max <= 0)
@@ -1540,12 +1549,12 @@ int SpaceCombat::systemLook(const Ship& ship, int system) const {
     return ship.damage[system] > 0 ? 1 : 0;
 }
 
-void SpaceCombat::drawSchematic(Canvas& screen, const Ship& ship, int x, int y) {
+void SpaceCombat::drawSchematic(Canvas &screen, const Ship &ship, int x, int y) {
     // 0x49EAF6: S???_STR numbers each pixel with its system, 1-12; those
     // take S???_0, _1 or _2 by that system's look, the rest S???_1.
     std::string token = text::toUpper(ship.token);
-    const CombatImage* map = image(text::format("S%s_STR.RAS", token.c_str()));
-    const CombatImage* looks[3];
+    const CombatImage *map = image(text::format("S%s_STR.RAS", token.c_str()));
+    const CombatImage *looks[3];
     for (int k = 0; k < 3; k++)
         looks[k] = image(text::format("S%s_%d.RAS", token.c_str(), k));
     if (!map || !looks[0] || !looks[1] || !looks[2] || map->indices.size() != (size_t)map->w * map->h) {
@@ -1559,13 +1568,13 @@ void SpaceCombat::drawSchematic(Canvas& screen, const Ship& ship, int x, int y) 
         int dy = y + sy;
         if (dy < 0 || dy >= screen.h)
             continue;
-        uint32_t* row = (uint32_t*)screen.getBasePtr(0, dy);
+        uint32_t *row = (uint32_t *)screen.getBasePtr(0, dy);
         for (int sx = 0; sx < map->w; sx++) {
             int dx = x + sx;
             if (dx < 0 || dx >= screen.w)
                 continue;
             uint8_t system = map->indices[(size_t)sy * map->w + sx];
-            const CombatImage* from = looks[system >= 1 && system <= 12 ? look[system] : 1];
+            const CombatImage *from = looks[system >= 1 && system <= 12 ? look[system] : 1];
             if (sx >= from->w || sy >= from->h)
                 continue;
             uint32_t c = from->get(sx, sy);
@@ -1575,18 +1584,17 @@ void SpaceCombat::drawSchematic(Canvas& screen, const Ship& ship, int x, int y) 
     }
 }
 
-void SpaceCombat::drawShieldView(Canvas& screen, const Ship& ship, const Ship& other,
-                                 const Rect& panel) {
+void SpaceCombat::drawShieldView(Canvas &screen, const Ship &ship, const Ship &other, const Rect &panel) {
     // 0x49F302 / 0x49F88F: below the bars (57 rows down) to row 461, a
     // width a multiple of four; black, with the ship seen from three times
     // its largest extent out towards the other, 60 degrees across.
     int left = panel.left, top = panel.top + 57, w = panel.width() & ~3, h = 461 - top;
     Rect area(left, top, left + w, top + h);
     for (int y = area.top; y < area.bottom; y++) {
-        uint32_t* row = (uint32_t*)screen.getBasePtr(0, y);
+        uint32_t *row = (uint32_t *)screen.getBasePtr(0, y);
         std::fill(row + area.left, row + area.right, 0xFF000000u);
     }
-    const Model3D* m = ship.model;
+    const Model3D *m = ship.model;
     if (!m || !ship.materials)
         return;
     Vec3 towards = other.position - ship.position;
@@ -1597,14 +1605,15 @@ void SpaceCombat::drawShieldView(Canvas& screen, const Ship& ship, const Ship& o
     _panelRenderer.setViewport(w, h, 60);
     _panelRenderer.setCamera(camPos, Mat3::lookAlong(dir * -1.0, ship.orientation.up));
     _panelRenderer.begin(screen, left, top);
-    _panelRenderer.drawModel(*m, *ship.materials, [this](const std::string& name) { return texture(name); },
-                             ship.position, ship.orientation);
+    _panelRenderer.drawModel(
+        *m, *ship.materials, [this](const std::string &name) { return texture(name); }, ship.position,
+        ship.orientation);
     // Round it the shield sphere (0x49FC1E), a colour to each facing,
     // sized 0.8 of the ship's largest extent per 100 units (0x4A3BB4).
     if (ship.sphereModel && ship.sphereMaterials)
-        _panelRenderer.drawModel(*ship.sphereModel, *ship.sphereMaterials,
-                                 [](const std::string&) { return (const CombatImage*)nullptr; }, ship.position,
-                                 ship.orientation, ship.size * 0.8 / 100);
+        _panelRenderer.drawModel(
+            *ship.sphereModel, *ship.sphereMaterials, [](const std::string &) { return (const CombatImage *)nullptr; },
+            ship.position, ship.orientation, ship.size * 0.8 / 100);
 }
 
 void SpaceCombat::drawStar(int x, int y, int type) {
@@ -1616,16 +1625,15 @@ void SpaceCombat::drawStar(int x, int y, int type) {
     };
     static const std::vector<Dot> kShapes[8] = {
         {},
-        { { 0, 0, 0x87 }, { -1, 0, 0x84 }, { 1, 0, 0x84 }, { -2, 0, 0x82 }, { 2, 0, 0x82 }, { 0, 1, 0x82 }, { 0, -1, 0x82 } },
+        {{0, 0, 0x87}, {-1, 0, 0x84}, {1, 0, 0x84}, {-2, 0, 0x82}, {2, 0, 0x82}, {0, 1, 0x82}, {0, -1, 0x82}},
         {},
-        { { 0, 0, 0xA9 } },
-        { { 0, 0, 0x84 }, { -1, -1, 0x82 }, { 1, -1, 0x82 }, { -1, 1, 0x82 }, { 1, 1, 0x82 } },
-        { { 0, 0, 0x84 }, { -1, 0, 0x82 }, { 1, 0, 0x82 }, { 0, 1, 0x82 }, { 0, -1, 0x82 } },
-        { { 0, 0, 0x84 }, { -1, 0, 0x82 }, { 1, 0, 0x82 } },
-        { { 0, 0, 0x84 }, { -1, 0, 0x87 }, { 1, 0, 0x87 } }
-    };
+        {{0, 0, 0xA9}},
+        {{0, 0, 0x84}, {-1, -1, 0x82}, {1, -1, 0x82}, {-1, 1, 0x82}, {1, 1, 0x82}},
+        {{0, 0, 0x84}, {-1, 0, 0x82}, {1, 0, 0x82}, {0, 1, 0x82}, {0, -1, 0x82}},
+        {{0, 0, 0x84}, {-1, 0, 0x82}, {1, 0, 0x82}},
+        {{0, 0, 0x84}, {-1, 0, 0x87}, {1, 0, 0x87}}};
     if (type >= 1 && type <= 7 && type != 2) {
-        for (const Dot& dot : kShapes[type])
+        for (const Dot &dot : kShapes[type])
             _renderer.plot(x + dot.dx, y + dot.dy, _palette[dot.colour]);
         return;
     }
@@ -1644,7 +1652,7 @@ SpaceCombat::Streak SpaceCombat::newStreak() {
     return streak;
 }
 
-void SpaceCombat::drawRadar(Canvas& screen) {
+void SpaceCombat::drawRadar(Canvas &screen) {
     // 0x4AB102 / 0x4AB5C1: round the Enterprise, which faces up the
     // screen. Each ship sits on the plane (sideways 102 pixels and ahead
     // 24 pixels to the range) on a stalk as tall as its height (24 pixels
@@ -1652,13 +1660,13 @@ void SpaceCombat::drawRadar(Canvas& screen) {
     // with it at the foot if below.
     const int cx = 321, cy = 320;
     // Half the plane's width, a row at a time out from the middle (0x54F750).
-    static const int kHalfWidth[19] = { 102, 102, 102, 102, 101, 101, 100, 99, 98, 97,
-                                        96, 94, 92, 90, 87, 85, 81, 78, 75 };
+    static const int kHalfWidth[19] = {102, 102, 102, 102, 101, 101, 100, 99, 98, 97,
+                                       96,  94,  92,  90,  87,  85,  81,  78, 75};
     drawImage(screen, image("RADARM.RAS"), cx - 102, 323 - 48);
-    const Ship& e = _ships[0];
+    const Ship &e = _ships[0];
     double range = getRadarRange();
     for (size_t i = 0; i < _ships.size(); i++) {
-        const Ship& s = _ships[i];
+        const Ship &s = _ships[i];
         if (!isEnemyAlive(s) && i != 0)
             continue;
         Vec3 local = e.orientation.inverse(s.position - e.position);
@@ -1673,9 +1681,9 @@ void SpaceCombat::drawRadar(Canvas& screen) {
             continue;
         uint32_t stalk = height < 0 ? 0xFFFF0000u : 0xFFFFFFFFu;
         for (int y = top; y <= bottom; y++)
-            *(uint32_t*)screen.getBasePtr(x, y) = stalk;
+            *(uint32_t *)screen.getBasePtr(x, y) = stalk;
         std::string token = text::toUpper(s.token);
-        const CombatImage* blip = image(text::format("S%sMAP%s.RAS", token.c_str(), (int)i == _target ? "H" : ""));
+        const CombatImage *blip = image(text::format("S%sMAP%s.RAS", token.c_str(), (int)i == _target ? "H" : ""));
         if (!blip)
             blip = image(text::format("S%sMAP.RAS", token.c_str()));
         if (blip)
@@ -1683,7 +1691,7 @@ void SpaceCombat::drawRadar(Canvas& screen) {
     }
     // A ship blowing up shows as an explosion, flashing (0x4AB6DA: SEXP1
     // and SEXP2 by turns, a pixel further right as they are 9 wide).
-    for (const Explosion& boom : _explosions) {
+    for (const Explosion &boom : _explosions) {
         if (!boom.ship)
             continue;
         Vec3 local = e.orientation.inverse(boom.position - e.position);
@@ -1695,11 +1703,12 @@ void SpaceCombat::drawRadar(Canvas& screen) {
         drawImage(screen, image(_frames & 1 ? "SEXP2.RAS" : "SEXP1.RAS"), x - 4, y - 5);
     }
     if (_target >= 0 && _target < (int)_ships.size())
-        drawText(screen, text::format("RANGE: %6.0f", (_ships[_target].position - e.position).length()), 209, 365, true);
+        drawText(screen, text::format("RANGE: %6.0f", (_ships[_target].position - e.position).length()), 209, 365,
+                 true);
 }
 
-void SpaceCombat::drawView(Canvas& screen) {
-    const Ship& e = _ships[0];
+void SpaceCombat::drawView(Canvas &screen) {
+    const Ship &e = _ships[0];
     // The camera sits out along its own line of sight from the Enterprise,
     // so the Enterprise itself is never in view.
     Vec3 camPos;
@@ -1719,7 +1728,7 @@ void SpaceCombat::drawView(Canvas& screen) {
     _renderer.setCamera(camPos, camRot);
     Rect view(kViewX, kViewY, kViewX + kViewW, kViewY + kViewH);
     for (int y = view.top; y < view.bottom; y++) {
-        uint32_t* row = (uint32_t*)screen.getBasePtr(0, y);
+        uint32_t *row = (uint32_t *)screen.getBasePtr(0, y);
         std::fill(row + view.left, row + view.right, 0xFF000000u);
     }
     _renderer.begin(screen, kViewX, kViewY);
@@ -1727,7 +1736,7 @@ void SpaceCombat::drawView(Canvas& screen) {
     // The stars, far away: only the camera's turn moves them, and the
     // zoom spreads them from the centre (0x4ADC6A).
     double spread = _renderer.getFocal() * (1 + getViewZoom() / 30.0);
-    for (const Vec3& star : _stars) {
+    for (const Vec3 &star : _stars) {
         Vec3 local = camRot.inverse(star);
         if (local.z <= 0.05)
             continue;
@@ -1737,7 +1746,7 @@ void SpaceCombat::drawView(Canvas& screen) {
     }
     // The streaming stars, started again once out of the view, or back in
     // the middle when going astern.
-    for (Streak& streak : _streaks) {
+    for (Streak &streak : _streaks) {
         int x = (int)(kViewW / 2.0 + streak.x * streak.scale * (1 + getViewZoom() / 30.0));
         int y = (int)(kViewH / 2.0 + streak.y * streak.scale * (1 + getViewZoom() / 30.0));
         bool middle = streak.scale < 1 && std::abs(x - kViewW / 2) < 30 && std::abs(y - kViewH / 2) < 30;
@@ -1749,16 +1758,16 @@ void SpaceCombat::drawView(Canvas& screen) {
     }
     _frames++;
 
-    auto lookup = [this](const std::string& name) { return texture(name); };
+    auto lookup = [this](const std::string &name) { return texture(name); };
     for (size_t i = 0; i < _ships.size(); i++) {
-        const Ship& s = _ships[i];
+        const Ship &s = _ships[i];
         if (!s.alive || s.hidden || s.gone || i == 0)
             continue;
         double distance = (s.position - camPos).length();
         // The detailed model near, the rough one further off (0x54E5D8).
         bool near = distance < std::max(6000.0, s.radius * 40);
-        const Model3D* m = near || !s.lowModel ? s.model : s.lowModel;
-        const std::vector<CombatMaterial>* mats = near || !s.lowModel ? s.materials : s.lowMaterials;
+        const Model3D *m = near || !s.lowModel ? s.model : s.lowModel;
+        const std::vector<CombatMaterial> *mats = near || !s.lowModel ? s.materials : s.lowMaterials;
         if (m && mats) {
             _renderer.drawModel(*m, *mats, lookup, s.position, s.orientation);
         } else {
@@ -1782,69 +1791,72 @@ void SpaceCombat::drawView(Canvas& screen) {
             }
         }
     }
-    for (const Beam& b : _beams) {
+    for (const Beam &b : _beams) {
         Vec3 from = _ships[b.from].position;
         _renderer.drawLine(from, b.end, b.colour, 2);
     }
-    for (const Torpedo& t : _torpedoes) {
-        const SprAnimation* spr = t.sprite;
+    for (const Torpedo &t : _torpedoes) {
+        const SprAnimation *spr = t.sprite;
         if (!spr || spr->frames.empty())
             continue;
-        const std::vector<uint8_t>& frame = spr->frames[(_time / spr->frameMillis) % spr->frames.size()];
-        _renderer.drawBillboard(t.position, 220, spr->w, spr->h,
-                                [&](int x, int y) {
-                                    uint8_t v = frame[(size_t)y * spr->w + x];
-                                    return v ? _palette[v] : 0u;
-                                },
-                                true);
+        const std::vector<uint8_t> &frame = spr->frames[(_time / spr->frameMillis) % spr->frames.size()];
+        _renderer.drawBillboard(
+            t.position, 220, spr->w, spr->h,
+            [&](int x, int y) {
+                uint8_t v = frame[(size_t)y * spr->w + x];
+                return v ? _palette[v] : 0u;
+            },
+            true);
     }
     // Shield hits (0x497D2E): the dome twice the ship's size out from its
     // middle towards what hit it, facing that way, sized by the ship (the
     // model fits the Enterprise, whose sizes average 412.667) and textured
     // with the ship's shield animation.
     for (size_t i = 1; i < _ships.size(); i++) {
-        const Ship& s = _ships[i];
+        const Ship &s = _ships[i];
         if (!s.flashing || !s.alive || s.hidden || s.gone || !s.shieldModel || !s.shieldMaterials)
             continue;
-        const SprAnimation* spr = sprite(text::format("%c_SHIELD.SPR", s.effects == 'P' ? '_' : s.effects));
+        const SprAnimation *spr = sprite(text::format("%c_SHIELD.SPR", s.effects == 'P' ? '_' : s.effects));
         if (!spr || spr->frames.empty())
             continue;
-        const std::vector<uint8_t>& frame = spr->frames[std::min(spr->frames.size() - 1, (size_t)(s.flashTime / spr->frameMillis))];
+        const std::vector<uint8_t> &frame =
+            spr->frames[std::min(spr->frames.size() - 1, (size_t)(s.flashTime / spr->frameMillis))];
         _flashImage.w = spr->w;
         _flashImage.h = spr->h;
         _flashImage.pixels.resize(frame.size());
         for (size_t p = 0; p < frame.size(); p++)
             _flashImage.pixels[p] = frame[p] ? _palette[frame[p]] : 0xFF000000u;
         Vec3 towards = (s.flashFrom - s.position).normalized();
-        _renderer.drawModel(*s.shieldModel, *s.shieldMaterials,
-                            [this](const std::string&) { return &_flashImage; }, s.position + towards * (s.size * 2),
-                            Mat3::lookAlong(towards), s.meanSize / 412.667);
+        _renderer.drawModel(
+            *s.shieldModel, *s.shieldMaterials, [this](const std::string &) { return &_flashImage; },
+            s.position + towards * (s.size * 2), Mat3::lookAlong(towards), s.meanSize / 412.667);
     }
-    for (const Explosion& e2 : _explosions) {
-        const SprAnimation* spr = e2.sprite;
+    for (const Explosion &e2 : _explosions) {
+        const SprAnimation *spr = e2.sprite;
         if (!spr || spr->frames.empty())
             continue;
         size_t index = std::min(spr->frames.size() - 1, (size_t)(e2.time / spr->frameMillis));
-        const std::vector<uint8_t>& frame = spr->frames[index];
-        _renderer.drawBillboard(e2.position, e2.size, spr->w, spr->h,
-                                [&](int x, int y) {
-                                    uint8_t v = frame[(size_t)y * spr->w + x];
-                                    return v ? _palette[v] : 0u;
-                                },
-                                true);
+        const std::vector<uint8_t> &frame = spr->frames[index];
+        _renderer.drawBillboard(
+            e2.position, e2.size, spr->w, spr->h,
+            [&](int x, int y) {
+                uint8_t v = frame[(size_t)y * spr->w + x];
+                return v ? _palette[v] : 0u;
+            },
+            true);
     }
 }
 
-void SpaceCombat::drawConsole(Canvas& screen) {
+void SpaceCombat::drawConsole(Canvas &screen) {
     drawImage(screen, image("COMBAT.RAS"), 0, 0);
-    const Ship& e = _ships[0];
+    const Ship &e = _ships[0];
 
     // Left, the target; right, the Enterprise and the helm menu. Each
     // shows its system display, or its shield facing display below the
     // bars (hotspots 1 and 0).
-    const Rect kPanel[2] = { Rect(472, 252, 629, 462), Rect(1, 252, 175, 462) };
+    const Rect kPanel[2] = {Rect(472, 252, 629, 462), Rect(1, 252, 175, 462)};
     if (_target >= 0 && _target < (int)_ships.size() && isEnemyAlive(_ships[_target])) {
-        const Ship& t = _ships[_target];
+        const Ship &t = _ships[_target];
         if (systemFraction(e, ShipClass::kSensors) <= 0) {
             drawImage(screen, image(text::format("STATIC%d.RAS", 1 + (int)(_time / 100) % 3)), 0, 252);
         } else {
@@ -1861,7 +1873,7 @@ void SpaceCombat::drawConsole(Canvas& screen) {
     drawImage(screen, image(_shieldView[1] ? "BSCANLF.RAS" : "BSCANLN.RAS"), 174, 435);
     drawImage(screen, image(_shieldView[0] ? "BSCANRF.RAS" : "BSCANRN.RAS"), 449, 435);
     // The helm menu, while it is called up from the CONN line (0x4AECC6).
-    const CombatImage* menu = image("CONNMNU0.RAS"), *lit = image("CONNMNU1.RAS");
+    const CombatImage *menu = image("CONNMNU0.RAS"), *lit = image("CONNMNU1.RAS");
     if (_helmMenu) {
         drawImage(screen, menu, 472, 310);
         if (lit && _helm <= kMaintainStatus) {
@@ -1870,13 +1882,13 @@ void SpaceCombat::drawConsole(Canvas& screen) {
         }
     }
     // The CONN line: the order in hand, a row of CONNBUTT each (0x49FD41).
-    const CombatImage* conn = image("CONNBUTT.RAS");
+    const CombatImage *conn = image("CONNBUTT.RAS");
     if (conn && _helm < kMaintainStatus) {
         Rect clip(262, 442, 262 + 176, 442 + 17);
         drawImage(screen, conn, 262, 442 - _helm * 19, &clip);
     }
     // Names and speeds (0x49F302), as a share of the ship's top speed.
-    auto speedOf = [](const Ship& s) { return s.cls && s.cls->maxSpeed ? s.speed / s.cls->maxSpeed : 0.0; };
+    auto speedOf = [](const Ship &s) { return s.cls && s.cls->maxSpeed ? s.speed / s.cls->maxSpeed : 0.0; };
     drawText(screen, e.name, 604, 310, true);
     drawText(screen, text::format("SPEED: %.3f", speedOf(e)), 470, 449, true);
     if (_target >= 0 && _target < (int)_ships.size() && isEnemyAlive(_ships[_target])) {
@@ -1886,8 +1898,16 @@ void SpaceCombat::drawConsole(Canvas& screen) {
 
     // The fire buttons: 0 dim, 1 lit, 2 normal.
     bool target = _target >= 0;
-    drawImage(screen, image(!_phasersOnline || !target ? "BPHASER0.RAS" : _pressed == 0 ? "BPHASER1.RAS" : "BPHASER2.RAS"), 202, 379);
-    drawImage(screen, image(!_photonsOnline || !target ? "BPHOTON0.RAS" : _pressed == 1 ? "BPHOTON1.RAS" : "BPHOTON2.RAS"), 320, 379);
+    drawImage(screen,
+              image(!_phasersOnline || !target ? "BPHASER0.RAS"
+                    : _pressed == 0            ? "BPHASER1.RAS"
+                                               : "BPHASER2.RAS"),
+              202, 379);
+    drawImage(screen,
+              image(!_photonsOnline || !target ? "BPHOTON0.RAS"
+                    : _pressed == 1            ? "BPHOTON1.RAS"
+                                               : "BPHOTON2.RAS"),
+              320, 379);
     drawImage(screen, image(_phasersOnline ? "BPHASERN.RAS" : "BPHASERF.RAS"), 307, 380);
     drawImage(screen, image(_photonsOnline ? "BPHOTONN.RAS" : "BPHOTONF.RAS"), 425, 380);
     drawImage(screen, image(_enemyView ? "BENEMYN.RAS" : "BENEMYF.RAS"), 174, 344);
@@ -1901,7 +1921,7 @@ void SpaceCombat::drawConsole(Canvas& screen) {
             drawImage(screen, image(loaded ? "TUBEBLUE.RAS" : "TUBERED.RAS"), t == 0 ? 321 : 399, 402);
         }
         // In 0-9BIG's digits, 6 x 20 a cell, 8 apart (font 1, 0x49E01B).
-        const CombatImage* digits = image("0-9BIG.RAS");
+        const CombatImage *digits = image("0-9BIG.RAS");
         std::string count = text::format("%3d", e.stock + e.loaded[0] + e.loaded[1]);
         for (size_t c = 0; digits && c < count.size(); c++) {
             if (count[c] < '0' || count[c] > '9')
@@ -1911,7 +1931,7 @@ void SpaceCombat::drawConsole(Canvas& screen) {
             drawImage(screen, digits, x, 408 - 20 * digit, &cell);
         }
         // The phasers' charge.
-        const CombatImage* meter = image("PHASERPW.RAS");
+        const CombatImage *meter = image("PHASERPW.RAS");
         if (meter) {
             drawImage(screen, meter, 203, 402);
             double charge = 0, max = 0;
@@ -1923,7 +1943,7 @@ void SpaceCombat::drawConsole(Canvas& screen) {
             }
             int cover = max > 0 ? (int)(meter->w * (1 - charge / max)) : meter->w;
             for (int y = 402; y < 402 + meter->h; y++) {
-                uint32_t* row = (uint32_t*)screen.getBasePtr(0, y);
+                uint32_t *row = (uint32_t *)screen.getBasePtr(0, y);
                 for (int x = 203 + meter->w - cover; x < 203 + meter->w; x++)
                     row[x] = darken(row[x], 0.3);
             }
@@ -1940,10 +1960,10 @@ void SpaceCombat::drawConsole(Canvas& screen) {
     drawText(screen, line.substr(0, 110), 4, 462);
 }
 
-void SpaceCombat::draw(Canvas& screen) {
+void SpaceCombat::draw(Canvas &screen) {
     if (_phase == kBriefing) {
         for (int y = 0; y < screen.h; y++) {
-            uint32_t* row = (uint32_t*)screen.getBasePtr(0, y);
+            uint32_t *row = (uint32_t *)screen.getBasePtr(0, y);
             std::fill(row, row + screen.w, 0xFF000000u);
         }
         _briefing.draw(screen, 0, (screen.w - _briefing.getWidth()) / 2, (screen.h - _briefing.getFrameHeight()) / 2);

@@ -9,12 +9,12 @@
 
 namespace reluva::stgenerations {
 
-void FramedImage::set(const BitmapDecoder& decoder, const Palette& palette, int height) {
-    const Canvas& s = decoder.getSurface();
+void FramedImage::set(const BitmapDecoder &decoder, const Palette &palette, int height) {
+    const Canvas &s = decoder.getSurface();
     surface.create(s.w, s.h, Canvas::kClut8);
     surface.copyRectToSurface(s, 0, 0, Rect(0, 0, s.w, s.h));
-    firstPixel = *(const uint8_t*)s.getBasePtr(0, s.h - 1);
-    const Palette& own = decoder.getPalette();
+    firstPixel = *(const uint8_t *)s.getBasePtr(0, s.h - 1);
+    const Palette &own = decoder.getPalette();
     for (int i = 0; i < 256; i++) {
         uint8_t r, g, b;
         own.getColor(i, r, g, b);
@@ -27,7 +27,7 @@ int FramedImage::getFrameCount() const {
     return frameHeight > 0 ? std::max(1, (int)surface.h / frameHeight) : 1;
 }
 
-void FramedImage::draw(Canvas& dst, int frame, int x, int y, int key, const Rect* clip) const {
+void FramedImage::draw(Canvas &dst, int frame, int x, int y, int key, const Rect *clip) const {
     if (key == kFirstPixel)
         key = firstPixel;
     int height = getHeight();
@@ -41,8 +41,8 @@ void FramedImage::draw(Canvas& dst, int frame, int x, int y, int key, const Rect
         int sy = y + row;
         if (sy < area.top || sy >= area.bottom)
             continue;
-        const uint8_t* src = (const uint8_t*)surface.getBasePtr(0, frame * height + row);
-        uint8_t* out = (uint8_t*)dst.getBasePtr(0, sy);
+        const uint8_t *src = (const uint8_t *)surface.getBasePtr(0, frame * height + row);
+        uint8_t *out = (uint8_t *)dst.getBasePtr(0, sy);
         for (int col = 0; col < surface.w; col++) {
             int sx = x + col;
             if (sx < area.left || sx >= area.right || src[col] == key)

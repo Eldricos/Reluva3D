@@ -10,11 +10,15 @@
 
 namespace reluva::stgenerations {
 
-bool BitmapDecoder::loadStream(SeekableReadStream& stream) { return load(stream, true); }
+bool BitmapDecoder::loadStream(SeekableReadStream &stream) {
+    return load(stream, true);
+}
 
-bool BitmapDecoder::loadDIB(SeekableReadStream& stream) { return load(stream, false); }
+bool BitmapDecoder::loadDIB(SeekableReadStream &stream) {
+    return load(stream, false);
+}
 
-bool BitmapDecoder::load(SeekableReadStream& stream, bool file) {
+bool BitmapDecoder::load(SeekableReadStream &stream, bool file) {
     surface_.free();
     paletteColors_ = 0;
     palette_ = Palette();
@@ -25,7 +29,7 @@ bool BitmapDecoder::load(SeekableReadStream& stream, bool file) {
         log::warning("%s", err.message.c_str());
         return false;
     }
-    const Surface& s = bmp.surface;
+    const Surface &s = bmp.surface;
     if (bmp.indexed()) {
         surface_.create(s.w, s.h, Canvas::kClut8);
         for (int y = 0; y < s.h; y++)
@@ -35,7 +39,7 @@ bool BitmapDecoder::load(SeekableReadStream& stream, bool file) {
     } else {
         surface_.create(s.w, s.h, Canvas::kArgb32);
         for (int y = 0; y < s.h; y++) {
-            const uint8_t* p = s.row(y);
+            const uint8_t *p = s.row(y);
             for (int x = 0; x < s.w; x++)
                 surface_.setPixel(x, y, argb(p[x * 4], p[x * 4 + 1], p[x * 4 + 2]));
         }

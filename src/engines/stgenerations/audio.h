@@ -27,12 +27,12 @@ struct SoundHandle {
 class SoundStream : public audio::Stream {
 public:
     SoundStream(std::shared_ptr<const audio::Sound> sound, int loops = 1);
-    int read(int16_t* out, int samples) override;
+    int read(int16_t *out, int samples) override;
     bool stereo() const override { return sound_->channels == 2; }
     int rate() const override { return sound_->rate; }
     bool ended() const override;
     void setLoops(int loops) { loops_ = loops; }
-    const audio::Sound& sound() const { return *sound_; }
+    const audio::Sound &sound() const { return *sound_; }
     // Its length in milliseconds, once through.
     uint32_t lengthMs() const;
 
@@ -44,7 +44,7 @@ private:
 };
 
 // A WAV file as a stream; nullptr if it isn't one Reluva reads.
-std::unique_ptr<SoundStream> makeWavStream(SeekableReadStream& file);
+std::unique_ptr<SoundStream> makeWavStream(SeekableReadStream &file);
 // The same stream, played `loops` times (0: until stopped).
 std::unique_ptr<audio::Stream> makeLooping(std::unique_ptr<SoundStream> stream, int loops);
 
@@ -57,7 +57,7 @@ struct WavInfo {
     int sampleRate = 0, channels = 0, bitsPerSample = 0;
     uint32_t dataSize = 0;
 };
-bool readWavInfo(SeekableReadStream& file, WavInfo& info);
+bool readWavInfo(SeekableReadStream &file, WavInfo &info);
 
 class Mixer {
 public:
@@ -65,10 +65,10 @@ public:
     static constexpr int kMaxChannelVolume = 255;
     static constexpr int kMaxMixerVolume = 256;
 
-    explicit Mixer(audio::Mixer& mixer) : mixer_(mixer) {}
+    explicit Mixer(audio::Mixer &mixer) : mixer_(mixer) {}
 
     // `volume` 0..255, `balance` -127 (left) .. 127 (right).
-    void playStream(SoundType type, SoundHandle* handle, std::unique_ptr<audio::Stream> stream, int id = -1,
+    void playStream(SoundType type, SoundHandle *handle, std::unique_ptr<audio::Stream> stream, int id = -1,
                     uint8_t volume = kMaxChannelVolume, int8_t balance = 0);
     void stopAll() { mixer_.stopAll(); }
     void stopHandle(SoundHandle handle) { mixer_.stop(handle.val); }
@@ -81,7 +81,7 @@ public:
     void setVolumeForSoundType(SoundType type, int volume);
     int getVolumeForSoundType(SoundType type) const;
 
-    audio::Mixer& mixer() { return mixer_; }
+    audio::Mixer &mixer() { return mixer_; }
     // Off: nothing is played (no sound device to pull the mixer).
     void setEnabled(bool on) { enabled_ = on; }
 
@@ -89,7 +89,7 @@ private:
     static audio::SoundType toType(SoundType type);
     static int toVolume(int volume) { return (volume < 0 ? 0 : volume > 255 ? 255 : volume) * audio::kMaxVolume / 255; }
 
-    audio::Mixer& mixer_;
+    audio::Mixer &mixer_;
     bool enabled_ = true;
     int typeVolume_[4] = {kMaxMixerVolume, kMaxMixerVolume, kMaxMixerVolume, kMaxMixerVolume};
 };

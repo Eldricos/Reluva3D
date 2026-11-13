@@ -55,17 +55,17 @@ enum Opcode {
 };
 
 struct OpcodeInfo {
-    const char* name;
+    const char *name;
     // Values popped and pushed, in 16-bit stack slots.
     uint8_t pops;
     uint8_t pushes;
     // Length in words, including the opcode.
     uint8_t length;
-    const char* note;
+    const char *note;
 };
 
 // Information about an opcode, or nullptr if the interpreter has no case for it.
-const OpcodeInfo* getOpcodeInfo(uint16_t op);
+const OpcodeInfo *getOpcodeInfo(uint16_t op);
 
 // Length of an instruction in words, as the original's scanner computes it.
 inline int getInstructionLength(uint16_t op) {
@@ -73,4 +73,3 @@ inline int getInstructionLength(uint16_t op) {
 }
 
 } // namespace reluva::stgenerations
-
