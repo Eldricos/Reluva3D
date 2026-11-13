@@ -61,6 +61,7 @@ uint32_t Win32Process::allocTib(uint32_t stackTop, uint32_t stackBottom, uint32_
     return tib;
 }
 
+// NOLINTNEXTLINE(readability-make-member-function-const): changes one of its event objects
 void Win32Process::signalEventWhen(uint32_t handle, std::function<bool()> condition) {
     if (auto e = object<EventObject>(handle)) {
         e->signaled = false;
@@ -68,6 +69,7 @@ void Win32Process::signalEventWhen(uint32_t handle, std::function<bool()> condit
     }
 }
 
+// NOLINTNEXTLINE(readability-make-member-function-const): changes one of its event objects
 bool Win32Process::setHostEvent(uint32_t handle) {
     auto e = object<EventObject>(handle);
     if (!e)

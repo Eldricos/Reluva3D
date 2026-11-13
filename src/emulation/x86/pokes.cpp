@@ -151,6 +151,7 @@ void Pokes::time(Cpu &cpu, uint64_t nowMs) {
             apply(p, cpu, nowMs);
 }
 
+// NOLINTNEXTLINE(readability-make-member-function-const): updates one of its own pokes, passed in
 void Pokes::apply(Poke &p, Cpu &cpu, uint64_t nowMs) {
     ++p.applied;
     char line[256];
