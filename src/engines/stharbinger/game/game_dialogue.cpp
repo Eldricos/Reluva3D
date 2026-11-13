@@ -126,7 +126,8 @@ uint8_t byteArg(const Argument *a) {
 
 // The palette entry nearest to a 6-bit grey, skipping the reserved 1..5 (0x19720).
 uint8_t nearestColor(const Palette &palette, int r, int g, int b) {
-    int best = 0, bestDist = 1 << 30;
+    int best = 0;
+    int bestDist = 1 << 30;
     for (int i = 0; i < 255; i++) {
         if (i >= 1 && i <= 5)
             continue;
@@ -539,7 +540,9 @@ void Game::pickChoice(int entry) {
     if (it == conv_.ops.end())
         return;
     it = conv_.ops.erase(it);
-    ConversationOp speak, list, after;
+    ConversationOp speak;
+    ConversationOp list;
+    ConversationOp after;
     speak.type = ConversationOp::kSpeak;
     speak.line = item.line;
     list.type = ConversationOp::kRunList;
@@ -620,7 +623,9 @@ void Game::registerTalker(int slot, const std::string &code, int mouth, int head
 
 bool Game::executeDialogueDirective(const Directive &d) {
     DialogueState &st = dialogues_[conv_.dialogue];
-    const Argument *a0 = d.getArg(0), *a1 = d.getArg(1), *a2 = d.getArg(2);
+    const Argument *a0 = d.getArg(0);
+    const Argument *a1 = d.getArg(1);
+    const Argument *a2 = d.getArg(2);
     auto test = [&]() { return getValue(a0) == getValue(a1); };
     auto speak = [&](int line) {
         ConversationOp op;
@@ -652,7 +657,8 @@ bool Game::executeDialogueDirective(const Directive &d) {
         return true;
     case kDlgHook:
     case kDlgTHook: {
-        int g = byteArg(a0), t = byteArg(a1);
+        int g = byteArg(a0);
+        int t = byteArg(a1);
         if (t >= kMaxGroups)
             return true;
         auto &chain = st.hooks[t];
@@ -745,7 +751,8 @@ bool Game::executeDialogueDirective(const Directive &d) {
     }
     case kDlgTalkHead: {
         conv_.talkers.clear();
-        const Argument *mouth = d.getArg(4), *head = d.getArg(5);
+        const Argument *mouth = d.getArg(4);
+        const Argument *head = d.getArg(5);
         if (mouth && head && mouth->type == kArgSymbol && head->type == kArgSymbol)
             registerTalker(0, xrefSymbol(d.getArg(3)), int(mouth->value), int(head->value));
         return true;
@@ -891,7 +898,9 @@ void Game::layoutMenu(DialogueState &st) {
     for (const ItemRef &ref : conv_.menu)
         conv_.menuWidths.push_back(width(label(ref)));
 
-    int hx = 0, hy = 0, hw = 0;
+    int hx = 0;
+    int hy = 0;
+    int hw = 0;
     if (conv_.hotspot >= 0 && conv_.hotspot < int(hotspots_.size())) {
         hx = hotspots_[conv_.hotspot].x;
         hy = hotspots_[conv_.hotspot].y;

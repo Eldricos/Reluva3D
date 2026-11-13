@@ -88,7 +88,9 @@ static void hud_effects() {
     Hud hud([&](uint16_t o, uint16_t e, const std::vector<int16_t> &a) { sent.push_back({o, e, a}); });
     // 50% red over 100 ms in, 100 held, 100 out, then event 55.
     hud.setEffect(0, 200, 0, 0, 50, 100, 100, 100, 0xE001);
-    uint8_t r, g, b;
+    uint8_t r;
+    uint8_t g;
+    uint8_t b;
     CHECK_EQUAL(hud.getEffectWeight(0, r, g, b), 0);
     hud.update(50, 0, 0);
     CHECK_EQUAL(hud.getEffectWeight(0, r, g, b), 32);
@@ -150,7 +152,9 @@ static void held_item_follows_the_cursor() {
     CHECK_EQUAL(p.x, 320 + 140 * (20 - 320) / 320 - 35);
 
     // The muzzle moves with it: to the left for a cursor on the left.
-    double ahead, up, left;
+    double ahead;
+    double up;
+    double left;
     HeldItem::getMuzzle(*phaser, 0, 126, 640, 252, ahead, up, left);
     CHECK(std::fabs(ahead - 1.5) < 1e-9);
     CHECK(std::fabs(left - 1.0) < 1e-9);
@@ -163,7 +167,9 @@ static void level_unproject() {
     camera.y = 20;
     camera.z = 5;
     camera.yaw = 3.14159265358979 / 2; // along +y
-    double x, y, z;
+    double x;
+    double y;
+    double z;
     // The middle of the view is straight ahead...
     LevelRenderer::unproject(camera, 640, 252, 319.5, 125.5, 8, x, y, z);
     CHECK(std::fabs(x - 10) < 1e-9 && std::fabs(y - 28) < 1e-9 && std::fabs(z - 5) < 1e-9);
@@ -185,7 +191,9 @@ static void transition_dissolve() {
                 n += *(const uint8_t *)s.getBasePtr(x, y) == value;
         return n;
     };
-    Canvas a, b, out;
+    Canvas a;
+    Canvas b;
+    Canvas out;
     a.create(64, 16, Canvas::kClut8);
     b.create(64, 16, Canvas::kClut8);
     out.create(64, 16, Canvas::kClut8);

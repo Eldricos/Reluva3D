@@ -28,9 +28,12 @@ int32_t toFixed(double v) {
 
 // From (px, py) to the segment, in the plane.
 double distanceToSegment(double px, double py, double x1, double y1, double x2, double y2) {
-    double dx = x2 - x1, dy = y2 - y1, length2 = dx * dx + dy * dy;
+    double dx = x2 - x1;
+    double dy = y2 - y1;
+    double length2 = dx * dx + dy * dy;
     double t = length2 > 0 ? std::max(0.0, std::min(1.0, ((px - x1) * dx + (py - y1) * dy) / length2)) : 0;
-    double cx = x1 + t * dx - px, cy = y1 + t * dy - py;
+    double cx = x1 + t * dx - px;
+    double cy = y1 + t * dy - py;
     return std::sqrt(cx * cx + cy * cy);
 }
 
@@ -39,8 +42,10 @@ bool insidePolygon(const LevelFile &level, const LevelFile::Sector &flat, double
     bool inside = false;
     size_t n = flat.vertices.size();
     for (size_t i = 0, j = n - 1; i < n; j = i++) {
-        double xi = fromFixed(vertices[flat.vertices[i]].x), yi = fromFixed(vertices[flat.vertices[i]].y);
-        double xj = fromFixed(vertices[flat.vertices[j]].x), yj = fromFixed(vertices[flat.vertices[j]].y);
+        double xi = fromFixed(vertices[flat.vertices[i]].x);
+        double yi = fromFixed(vertices[flat.vertices[i]].y);
+        double xj = fromFixed(vertices[flat.vertices[j]].x);
+        double yj = fromFixed(vertices[flat.vertices[j]].y);
         if ((yi > y) != (yj > y) && x < (xj - xi) * (y - yi) / (yj - yi) + xi)
             inside = !inside;
     }
@@ -161,7 +166,10 @@ bool Movers::apply(Mover &mover, int position, Walker &player, std::vector<int> 
 
     for (const Leader &leader : mover.leaders) {
         const Part &l = leader.part;
-        double ax = fromFixed(l.x1), ay = fromFixed(l.y1), bx = fromFixed(l.x2), by = fromFixed(l.y2);
+        double ax = fromFixed(l.x1);
+        double ay = fromFixed(l.y1);
+        double bx = fromFixed(l.x2);
+        double by = fromFixed(l.y2);
         double h = fromFixed(l.top) - fromFixed(l.bottom);
         double theta = f * kPi / 2;
         auto place = [&](const Part &p, bool isLeader) {
@@ -179,8 +187,12 @@ bool Movers::apply(Mover &mover, int position, Walker &player, std::vector<int> 
             WallPlace w = {p.index, fromFixed(p.x1), fromFixed(p.y1), fromFixed(p.x2), fromFixed(p.y2),
                            p.top,   p.bottom,        p.vStart,        p.vLength,       false};
             auto rotate = [&](double cx, double cy, double angle) {
-                double c = std::cos(angle), s = std::sin(angle);
-                double x1 = w.x1 - cx, y1 = w.y1 - cy, x2 = w.x2 - cx, y2 = w.y2 - cy;
+                double c = std::cos(angle);
+                double s = std::sin(angle);
+                double x1 = w.x1 - cx;
+                double y1 = w.y1 - cy;
+                double x2 = w.x2 - cx;
+                double y2 = w.y2 - cy;
                 w.x1 = cx + x1 * c - y1 * s;
                 w.y1 = cy + x1 * s + y1 * c;
                 w.x2 = cx + x2 * c - y2 * s;
@@ -244,7 +256,10 @@ bool Movers::apply(Mover &mover, int position, Walker &player, std::vector<int> 
     if (check) {
         // 0x4B9180: no part may come nearer the player once within 1 unit;
         // 0x4B8760: no ceiling may come down on the player's head.
-        double px = player.getX(), py = player.getY(), feet = player.getFeet(), head = player.getEye();
+        double px = player.getX();
+        double py = player.getY();
+        double feet = player.getFeet();
+        double head = player.getEye();
         const std::vector<LevelFile::Vertex> &vertices = _level.getVertices();
         auto distance = [&](double x1, double y1, double x2, double y2, int32_t top, int32_t bottom) {
             double planar = distanceToSegment(px, py, x1, y1, x2, y2);
@@ -330,7 +345,8 @@ void Movers::update(uint32_t ms, Walker &player, std::vector<int> &moved, std::v
     for (Mover &mover : _movers) {
         if (mover.state == kIdle)
             continue;
-        int oldPosition = mover.position, oldState = mover.state;
+        int oldPosition = mover.position;
+        int oldState = mover.state;
         int step = (int)((uint32_t)mover.rate * ms >> 10);
         // Moves and, if that runs into the player, takes it back.
         auto move = [&](int position, int stateOnBlock) {

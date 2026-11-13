@@ -138,7 +138,8 @@ void Win32Process::addSystemStandIns() {
         const uint32_t p = c.arg(0);
         if (!c.valid(p, 32))
             return 0u;
-        const uint32_t total = 256u << 20, free = std::min(memory().freeBytes(), total);
+        const uint32_t total = 256u << 20;
+        const uint32_t free = std::min(memory().freeBytes(), total);
         c.write32(p, 32);
         c.write32(p + 4, uint32_t(100 - uint64_t(free) * 100 / total)); // dwMemoryLoad
         c.write32(p + 8, total);
@@ -151,7 +152,8 @@ void Win32Process::addSystemStandIns() {
     });
     stdcall(k, "GetComputerNameA", 2, [this](Cpu &c) {
         static const std::string kName = "RELUVA";
-        const uint32_t buffer = c.arg(0), size = c.arg(1);
+        const uint32_t buffer = c.arg(0);
+        const uint32_t size = c.arg(1);
         if (!c.valid(size, 4))
             return 0u;
         if (c.read32(size) < kName.size() + 1 || !c.valid(buffer, uint32_t(kName.size() + 1))) {
@@ -166,7 +168,9 @@ void Win32Process::addSystemStandIns() {
     // a × b ÷ c with a 64-bit product, rounded half away from zero; -1 if c
     // is 0 or the result doesn't fit.
     stdcall(k, "MulDiv", 3, [](Cpu &c) {
-        const int64_t a = int32_t(c.arg(0)), b = int32_t(c.arg(1)), d = int32_t(c.arg(2));
+        const int64_t a = int32_t(c.arg(0));
+        const int64_t b = int32_t(c.arg(1));
+        const int64_t d = int32_t(c.arg(2));
         if (d == 0)
             return 0xffffffffu;
         const int64_t p = a * b;
@@ -242,7 +246,8 @@ void Win32Process::addSystemStandIns() {
     // picture or 0 for the default, buffer, its size): the characters
     // written with the terminator, or with a size of 0 those needed.
     auto formatted = [this](Cpu &c, const std::string &text) {
-        const uint32_t buffer = c.arg(4), size = c.arg(5);
+        const uint32_t buffer = c.arg(4);
+        const uint32_t size = c.arg(5);
         const uint32_t n = uint32_t(text.size() + 1);
         if (size == 0)
             return n;

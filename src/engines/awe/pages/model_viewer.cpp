@@ -39,7 +39,8 @@ ModelPage::ModelPage(ViewerContext &ctx) : Page(ctx) {
     for (auto &[folder, files] : folders) {
         std::sort(files.begin(), files.end(),
                   [](const std::string &a, const std::string &b) { return fs::toLower(a) < fs::toLower(b); });
-        std::vector<std::string> models, animations;
+        std::vector<std::string> models;
+        std::vector<std::string> animations;
         for (const std::string &f : files)
             (fs::toLower(fileOf(f)).find("_model") != std::string::npos ? models : animations).push_back(f);
         for (const std::string &m : models)
@@ -107,7 +108,8 @@ void ModelPage::load() {
     gpu_ = std::make_unique<GpuModel>(*renderer_, std::move(loaded));
     const Model &model = gpu_->model();
     // Look at the middle of the model at rest, from far enough to see it all.
-    float lo[3] = {1e30f, 1e30f, 1e30f}, hi[3] = {-1e30f, -1e30f, -1e30f};
+    float lo[3] = {1e30f, 1e30f, 1e30f};
+    float hi[3] = {-1e30f, -1e30f, -1e30f};
     for (const ModelMesh &m : model.meshes)
         for (const ModelVertex &v : m.vertices)
             for (int k = 0; k < 3; k++)

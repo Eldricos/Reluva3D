@@ -98,7 +98,8 @@ private:
             "XOOOOOX...", "XOOOOOOX..", "XOOOOOOOX.", "XOOOOOXXXX", "XOOXOOX...", "XOX.XOOX..",
             "XX..XOOX..", "X....XOOX.", ".....XOOX.", "......XX..",
         };
-        constexpr int w = 10, h = 16;
+        constexpr int w = 10;
+        constexpr int h = 16;
         uint8_t pixels[w * h];
         for (int y = 0; y < h; ++y)
             for (int x = 0; x < w; ++x)

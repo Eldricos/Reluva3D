@@ -13,7 +13,9 @@ namespace reluva::stgenerations {
 namespace {
 
 uint32_t toRgb(const Palette &palette, uint8_t index) {
-    uint8_t r, g, b;
+    uint8_t r;
+    uint8_t g;
+    uint8_t b;
     palette.getColor(index, r, g, b);
     return 0xFF000000u | (uint32_t)r << 16 | (uint32_t)g << 8 | b;
 }
@@ -49,7 +51,8 @@ void RgbImage::load(const Overlay &overlay, const Palette &palette, int frameHei
     _pixels.assign((size_t)_w * _frames * _frameHeight, 0);
     // Each frame's rows are stored bottom up.
     for (int f = 0; f < _frames; f++) {
-        int top = f * _frameHeight, height = std::min(_frameHeight, _h - top);
+        int top = f * _frameHeight;
+        int height = std::min(_frameHeight, _h - top);
         for (int y = 0; y < height; y++) {
             int srcY = top + height - 1 - y;
             const uint8_t *src = (const uint8_t *)s.getBasePtr(0, srcY);
@@ -84,8 +87,10 @@ void RgbImage::drawScaled(Canvas &dst, int frame, int x, int y, int w, int h, co
     Rect area(0, 0, dst.w, dst.h);
     if (clip)
         area.clip(*clip);
-    int x0 = std::max<int>(x, area.left), x1 = std::min<int>(x + w, area.right);
-    int y0 = std::max<int>(y, area.top), y1 = std::min<int>(y + h, area.bottom);
+    int x0 = std::max<int>(x, area.left);
+    int x1 = std::min<int>(x + w, area.right);
+    int y0 = std::max<int>(y, area.top);
+    int y1 = std::min<int>(y + h, area.bottom);
     for (int dy = y0; dy < y1; dy++) {
         const uint32_t *src = row(frame, (dy - y) * _frameHeight / h);
         uint32_t *out = (uint32_t *)dst.getBasePtr(0, dy);

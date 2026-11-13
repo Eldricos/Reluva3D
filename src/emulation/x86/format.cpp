@@ -65,7 +65,8 @@ std::string formatPrintf(const Cpu &cpu, uint32_t format, uint32_t args) {
         case 'd':
         case 'i':
             if (wide) {
-                const uint64_t lo = word(), hi = word();
+                const uint64_t lo = word();
+                const uint64_t hi = word();
                 std::snprintf(buf, sizeof buf, (spec + "lld").c_str(), (long long)(int64_t(hi << 32 | lo)));
             } else {
                 std::snprintf(buf, sizeof buf, (spec + "d").c_str(), int(int32_t(word())));
@@ -76,7 +77,8 @@ std::string formatPrintf(const Cpu &cpu, uint32_t format, uint32_t args) {
         case 'X':
         case 'o':
             if (wide) {
-                const uint64_t lo = word(), hi = word();
+                const uint64_t lo = word();
+                const uint64_t hi = word();
                 std::snprintf(buf, sizeof buf, (spec + "ll" + c).c_str(), (unsigned long long)(hi << 32 | lo));
             } else {
                 std::snprintf(buf, sizeof buf, (spec + c).c_str(), unsigned(word()));
@@ -107,7 +109,8 @@ std::string formatPrintf(const Cpu &cpu, uint32_t format, uint32_t args) {
         case 'E':
         case 'g':
         case 'G': {
-            const uint64_t lo = word(), hi = word();
+            const uint64_t lo = word();
+            const uint64_t hi = word();
             const uint64_t bits = hi << 32 | lo;
             double d;
             std::memcpy(&d, &bits, 8);

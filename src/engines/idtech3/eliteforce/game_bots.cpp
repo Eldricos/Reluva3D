@@ -497,7 +497,8 @@ int32_t GameHost::botCall(Qvm &vm, int number, const int32_t *a) {
     case AasInitialized:
         return b.aasInitialized();
     case AasPresenceTypeBoundingBox: {
-        Vec3f mins{}, maxs{};
+        Vec3f mins{};
+        Vec3f maxs{};
         botlib::AasWorld::presenceBox(a[0], mins, maxs);
         if (vm.checkWrite(a[1], 12) && vm.checkWrite(a[2], 12)) {
             writeVec(a[1], mins);

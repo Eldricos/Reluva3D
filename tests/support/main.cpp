@@ -58,7 +58,8 @@ bool option(const std::string &name) {
 int main(int argc, char **argv) {
     using namespace reluva::test;
     std::vector<std::string> filters;
-    bool list = false, coveredBy = false;
+    bool list = false;
+    bool coveredBy = false;
     for (int i = 1; i < argc; ++i) {
         const std::string a = argv[i];
         if (a == "--list")

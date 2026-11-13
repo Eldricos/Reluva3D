@@ -116,7 +116,8 @@ void Page::fill(int x, int y, int w, int h, Color c, uint8_t alpha) {
             // where nothing is drawn, the colour isn't darkened by the
             // emptiness under it.
             uint8_t *p = s.row(yy) + xx * 4;
-            const int under = p[3] * (255 - alpha) / 255, out = alpha + under;
+            const int under = p[3] * (255 - alpha) / 255;
+            const int out = alpha + under;
             if (out == 0)
                 continue;
             p[0] = uint8_t((c.r * alpha + p[0] * under) / out);
@@ -136,7 +137,8 @@ void Page::drawSubtitles(const std::vector<Subtitle> &subtitles, double seconds)
     if (!style || !style->font)
         return;
     const Subtitle *due = nullptr;
-    int colour = 8, dueColour = 8;
+    int colour = 8;
+    int dueColour = 8;
     std::string lastSpeaker;
     for (const Subtitle &sub : subtitles) {
         const std::string speaker = fs::toLower(sub.speaker);
@@ -275,8 +277,10 @@ void PicturePage::show() {
         // Scaled down (nearest) to fit, over a checkerboard that shows alpha.
         const int areaH = kScreenH - 2 * font::kLineHeight - 8;
         const float scale = std::min({1.0f, float(kScreenW) / float(img.w), float(areaH) / float(img.h)});
-        const int w = std::max(1, int(float(img.w) * scale)), h = std::max(1, int(float(img.h) * scale));
-        const int x0 = (kScreenW - w) / 2, y0 = font::kLineHeight + 4 + (areaH - h) / 2;
+        const int w = std::max(1, int(float(img.w) * scale));
+        const int h = std::max(1, int(float(img.h) * scale));
+        const int x0 = (kScreenW - w) / 2;
+        const int y0 = font::kLineHeight + 4 + (areaH - h) / 2;
         for (int y = 0; y < h; y++)
             for (int x = 0; x < w; x++) {
                 const uint8_t *src =
@@ -708,7 +712,8 @@ std::vector<std::string> ScenePage::locationFiles(const std::string &location) c
     // the act's, or night, snow or moving when those hold; a base with a
     // variant that applies is loaded with it (0x43e3d0..0x43e520).
     auto suffix = [](const std::string &stem) {
-        const size_t first = stem.find('_'), last = stem.rfind('_');
+        const size_t first = stem.find('_');
+        const size_t last = stem.rfind('_');
         return first != last && last != std::string::npos ? stem.substr(last + 1) : std::string();
     };
     auto value = [&](const char *name) {
@@ -719,7 +724,8 @@ std::vector<std::string> ScenePage::locationFiles(const std::string &location) c
         return sfx == state_.act || (sfx == "night" && value("time")) || (sfx == "snow" && value("weather")) ||
                (sfx == "moving" && value("moving"));
     };
-    std::vector<std::string> stems, files;
+    std::vector<std::string> stems;
+    std::vector<std::string> files;
     const std::string folder = "locations/" + location + "/";
     for (const std::string &n : names_) {
         const std::string lower = fs::toLower(n);
@@ -904,7 +910,8 @@ void ScenePage::drawParticles(const ParticleSystem &system, bool keepAlpha) {
             dot_.rgba.resize(16 * 16 * 4);
             for (int y = 0; y < 16; y++)
                 for (int x = 0; x < 16; x++) {
-                    const float dx = (float(x) - 7.5f) / 8, dy = (float(y) - 7.5f) / 8;
+                    const float dx = (float(x) - 7.5f) / 8;
+                    const float dy = (float(y) - 7.5f) / 8;
                     uint8_t *p = dot_.pixel(x, y);
                     p[0] = p[1] = p[2] = 255;
                     p[3] = uint8_t(255 * std::clamp(1 - std::sqrt(dx * dx + dy * dy), 0.0f, 1.0f));
@@ -917,7 +924,9 @@ void ScenePage::drawParticles(const ParticleSystem &system, bool keepAlpha) {
     std::vector<ParticleSystem::Point> points;
     system.points(points);
     for (const ParticleSystem::Point &p : points) {
-        float x, y, distance;
+        float x;
+        float y;
+        float distance;
         if (s.screenSpace) {
             // An orthographic 1024x768 view about the screen's centre, y up.
             x = float(kScreenW) / 2 + p.position[0];
@@ -952,7 +961,9 @@ void ScenePage::drawPointSprites(const ParticleSystem &system) {
     std::vector<gfx::Vertex> verts;
     std::vector<uint32_t> indices;
     for (const ParticleSystem::Point &p : points) {
-        float x, y, distance;
+        float x;
+        float y;
+        float distance;
         if (s.screenSpace) {
             x = float(kScreenW) / 2 + p.position[0];
             y = float(kScreenH) / 2 - p.position[1];
@@ -967,8 +978,10 @@ void ScenePage::drawPointSprites(const ParticleSystem &system) {
         const float size = std::min(64.0f, distance > 0 ? s.size * float(kScreenH) / distance : 64.0f);
         if (size <= 0)
             continue;
-        const float l = 2 * (x - size / 2) / kScreenW - 1, r = 2 * (x + size / 2) / kScreenW - 1;
-        const float t = 1 - 2 * (y - size / 2) / kScreenH, b = 1 - 2 * (y + size / 2) / kScreenH;
+        const float l = 2 * (x - size / 2) / kScreenW - 1;
+        const float r = 2 * (x + size / 2) / kScreenW - 1;
+        const float t = 1 - 2 * (y - size / 2) / kScreenH;
+        const float b = 1 - 2 * (y + size / 2) / kScreenH;
         const float corners[4][4] = {{l, t, 0, 0}, {r, t, 1, 0}, {r, b, 1, 1}, {l, b, 0, 1}};
         const uint32_t base = uint32_t(verts.size());
         for (const auto &c : corners) {
@@ -992,7 +1005,8 @@ void ScenePage::drawPointSprites(const ParticleSystem &system) {
             img.rgba.assign(16 * 16 * 4, 255);
             for (int y = 0; y < 16; y++)
                 for (int x = 0; x < 16; x++) {
-                    const float dx = (float(x) - 7.5f) / 8, dy = (float(y) - 7.5f) / 8;
+                    const float dx = (float(x) - 7.5f) / 8;
+                    const float dy = (float(y) - 7.5f) / 8;
                     img.rgba[size_t(y * 16 + x) * 4 + 3] =
                         uint8_t(255 * std::clamp(1 - std::sqrt(dx * dx + dy * dy), 0.0f, 1.0f));
                 }
@@ -1303,7 +1317,8 @@ void ScenePage::draw() {
             // Moved and turned by a puzzle: about its centre, tinted if
             // picked.
             const PictureOverride &p = ov->second;
-            const float c = std::cos(p.roll), sn = std::sin(p.roll);
+            const float c = std::cos(p.roll);
+            const float sn = std::sin(p.roll);
             t.roll = p.roll;
             t.x = p.x + p.cx - (p.cx * c - p.cy * sn);
             t.y = p.y + p.cy - (p.cx * sn + p.cy * c);
@@ -1392,7 +1407,8 @@ void ScenePage::draw() {
             return s.footprint < 0 ? objectIndex(c.record) : objects.size() + c.footprints[size_t(s.footprint)].serial;
         };
         std::stable_sort(characterOrder_.begin(), characterOrder_.end(), [&](const ModelSlot &a, const ModelSlot &b) {
-            const float za = slotZ(a), zb = slotZ(b);
+            const float za = slotZ(a);
+            const float zb = slotZ(b);
             return za != zb ? za < zb : slotIndex(a) < slotIndex(b);
         });
         auto layerOf = [&](const Ac2Record *o) {
@@ -1433,7 +1449,8 @@ void ScenePage::draw() {
         for (size_t k = 0; k < layers_.size(); k++) {
             PictureLayer &layer = layers_[k];
             std::vector<const Ac2Record *> in;
-            bool allReset = true, anyAlone = false;
+            bool allReset = true;
+            bool anyAlone = false;
             // Particles are drawn by the GPU as the game's point sprites,
             // between the pictures put together, as they move every frame.
             auto separate = [&](const Ac2Record *o) { return alone(o) || particles_.count(o) != 0; };
@@ -1591,7 +1608,10 @@ void ScenePage::draw() {
         drawGrid();
     if (hotspots_)
         for (const Ac2Record *o : objects) {
-            const int l = o->i("left"), t = o->i("top"), r = o->i("right"), b = o->i("bottom");
+            const int l = o->i("left");
+            const int t = o->i("top");
+            const int r = o->i("right");
+            const int b = o->i("bottom");
             if (o->tag != "SPOT" || r <= l || b <= t || !objectShown(*o))
                 continue;
             // Its outline where it has one (listD), else its rectangle.
@@ -1697,7 +1717,10 @@ void ScenePage::draw() {
                 char buf[200];
                 std::string anim;
                 // Where it is now, else where the scene puts it.
-                float x = o->f("x"), y = o->f("y"), z = o->f("z"), rotY = o->f("rotY");
+                float x = o->f("x");
+                float y = o->f("y");
+                float z = o->f("z");
+                float rotY = o->f("rotY");
                 for (const Character &c : characters_)
                     if (c.record == o && c.actor) {
                         x = c.x, y = c.y, z = c.z, rotY = c.rotY;
@@ -2021,13 +2044,19 @@ void ScenePage::update(uint64_t nowMs) {
             call.texture = t->second.texture;
             for (int n = 0; n < (part.twice ? 2 : 1); n++) {
                 const SpriteTransform &at = n ? part.at2 : part.at;
-                float x0, y0, xu, yu, xv, yv;
+                float x0;
+                float y0;
+                float xu;
+                float yu;
+                float xv;
+                float yv;
                 at.apply(0, 0, x0, y0);
                 at.apply(float(part.w), 0, xu, yu);
                 at.apply(0, float(part.h), xv, yv);
                 // The quad's (X, Y) is the picture's ((X + 1) / 2, (1 - Y) / 2)
                 // of the way across and down; then pixels to clip space.
-                const float sx = 2.0f / kScreenW, sy = -2.0f / kScreenH;
+                const float sx = 2.0f / kScreenW;
+                const float sy = -2.0f / kScreenH;
                 gfx::Mat4 m = gfx::identity();
                 m[0] = sx * (xu - x0) / 2, m[1] = sy * (yu - y0) / 2;
                 m[4] = -sx * (xv - x0) / 2, m[5] = -sy * (yv - y0) / 2;
@@ -2228,7 +2257,9 @@ void ScenePage::stencilModel(const gfx::Mat4 &viewProjection, const GpuModel &mo
     // shadow and all), its shadow first if the character casts one, then
     // its body. A shadow sets the stencil to 1 where it passes the depth
     // test, writing no depth; a body sets it to `ref`, and its depth.
-    std::vector<std::array<float, 3>> positions, normals, screen;
+    std::vector<std::array<float, 3>> positions;
+    std::vector<std::array<float, 3>> normals;
+    std::vector<std::array<float, 3>> screen;
     std::vector<uint8_t> ok;
     auto toScreen = [&](const float p[3], std::array<float, 3> &out) {
         const gfx::Mat4 &m = viewProjection;
@@ -2243,7 +2274,9 @@ void ScenePage::stencilModel(const gfx::Mat4 &viewProjection, const GpuModel &mo
     };
     auto fill = [&](const ModelMesh &mesh, uint8_t value, bool writeDepth) {
         for (size_t i = 0; i + 2 < mesh.indices.size(); i += 3) {
-            const uint32_t a = mesh.indices[i], b = mesh.indices[i + 1], c = mesh.indices[i + 2];
+            const uint32_t a = mesh.indices[i];
+            const uint32_t b = mesh.indices[i + 1];
+            const uint32_t c = mesh.indices[i + 2];
             if (a < ok.size() && b < ok.size() && c < ok.size() && ok[a] && ok[b] && ok[c])
                 stencil.fillTriangle(screen[a].data(), screen[b].data(), screen[c].data(), value, writeDepth);
         }
@@ -2299,7 +2332,10 @@ void ScenePage::drawMask(const CoverageMask &mask, Color colour, uint8_t alpha) 
     // A quad over the mask's box, its texture the colour where covered.
     if (mask.empty())
         return;
-    const int x0 = mask.minX(), y0 = mask.minY(), w = mask.maxX() - x0 + 1, h = mask.maxY() - y0 + 1;
+    const int x0 = mask.minX();
+    const int y0 = mask.minY();
+    const int w = mask.maxX() - x0 + 1;
+    const int h = mask.maxY() - y0 + 1;
     std::vector<uint8_t> rgba(size_t(w) * size_t(h) * 4, 0);
     for (int y = 0; y < h; y++)
         for (int x = 0; x < w; x++)
@@ -2315,8 +2351,10 @@ void ScenePage::drawMask(const CoverageMask &mask, Color colour, uint8_t alpha) 
     if (renderer_->createTexture(w, h, rgba.data(), params, tex))
         return;
     frameTextures_.push_back(tex);
-    const float l = 2.0f * float(x0) / kScreenW - 1, r = 2.0f * float(x0 + w) / kScreenW - 1;
-    const float t = 1 - 2.0f * float(y0) / kScreenH, b = 1 - 2.0f * float(y0 + h) / kScreenH;
+    const float l = 2.0f * float(x0) / kScreenW - 1;
+    const float r = 2.0f * float(x0 + w) / kScreenW - 1;
+    const float t = 1 - 2.0f * float(y0) / kScreenH;
+    const float b = 1 - 2.0f * float(y0 + h) / kScreenH;
     std::vector<gfx::Vertex> v(4);
     const float corners[4][4] = {{l, t, 0, 0}, {r, t, 1, 0}, {r, b, 1, 1}, {l, b, 0, 1}};
     for (size_t i = 0; i < 4; i++) {
@@ -2346,7 +2384,8 @@ int ScenePage::whiteOut() const {
     // still showing), more opaque the further it has walked past A, fully
     // at B.
     const Ac2Record *camr = scene_.camera();
-    const float a = camr->f("whiteoutStart"), b = camr->f("whiteoutEnd");
+    const float a = camr->f("whiteoutStart");
+    const float b = camr->f("whiteoutEnd");
     if (a == b)
         return 0;
     for (const Character &c : characters_) {
@@ -2392,17 +2431,23 @@ void ScenePage::stencilQuad(gfx::TextureId mask, gfx::Renderer3D::StencilMode mo
 void ScenePage::fillPolygon(const std::vector<std::pair<float, float>> &points, Color c, uint8_t alpha) {
     if (points.size() < 3)
         return;
-    float minX = 1e9f, minY = 1e9f, maxX = -1e9f, maxY = -1e9f;
+    float minX = 1e9f;
+    float minY = 1e9f;
+    float maxX = -1e9f;
+    float maxY = -1e9f;
     for (const auto &[x, y] : points) {
         minX = std::min(minX, x), maxX = std::max(maxX, x);
         minY = std::min(minY, y), maxY = std::max(maxY, y);
     }
-    const int x0 = std::max(0, int(std::floor(minX))), x1 = std::min(kScreenW - 1, int(std::ceil(maxX)));
-    const int y0 = std::max(0, int(std::floor(minY))), y1 = std::min(kScreenH - 1, int(std::ceil(maxY)));
+    const int x0 = std::max(0, int(std::floor(minX)));
+    const int x1 = std::min(kScreenW - 1, int(std::ceil(maxX)));
+    const int y0 = std::max(0, int(std::floor(minY)));
+    const int y1 = std::min(kScreenH - 1, int(std::ceil(maxY)));
     for (int y = y0; y <= y1; y++)
         for (int x = x0; x <= x1; x++) {
             // Inside if on the same side of every edge.
-            const float px = float(x) + 0.5f, py = float(y) + 0.5f;
+            const float px = float(x) + 0.5f;
+            const float py = float(y) + 0.5f;
             int sign = 0;
             bool inside = true;
             for (size_t i = 0; i < points.size() && inside; i++) {
@@ -2433,7 +2478,8 @@ void ScenePage::drawGrid() {
     };
     // A cell's square on the floor, on the screen.
     auto square = [&](WalkGrid::Cell cell, std::vector<std::pair<float, float>> &pts) {
-        const float x0 = float(cell.a - 32) * size, z1 = float(32 - cell.b) * size;
+        const float x0 = float(cell.a - 32) * size;
+        const float z1 = float(32 - cell.b) * size;
         pts.assign(4, {});
         return corner(x0, z1 - size, pts[0]) && corner(x0 + size, z1 - size, pts[1]) && corner(x0 + size, z1, pts[2]) &&
                corner(x0, z1, pts[3]);
@@ -2453,10 +2499,14 @@ void ScenePage::drawGrid() {
             line(int(pts[i].first), int(pts[i].second), int(pts[(i + 1) % 4].first), int(pts[(i + 1) % 4].second),
                  grid_.blocked(hover_, true) ? Color{255, 80, 80} : Color{80, 255, 255});
     for (size_t i = 0; i + 1 < path_.size(); i++) {
-        float x0, z0, x1, z1;
+        float x0;
+        float z0;
+        float x1;
+        float z1;
         grid_.centre(path_[i], x0, z0);
         grid_.centre(path_[i + 1], x1, z1);
-        std::pair<float, float> p0, p1;
+        std::pair<float, float> p0;
+        std::pair<float, float> p1;
         if (corner(x0, z0, p0) && corner(x1, z1, p1))
             line(int(p0.first), int(p0.second), int(p1.first), int(p1.second), {90, 255, 120});
     }
@@ -2477,7 +2527,8 @@ void ScenePage::beginWalk(Character &c, bool run) {
 }
 
 void ScenePage::stepWalk(Character &c, float dt) {
-    constexpr float kTwoPi = 6.2831853f, kDegrees = 57.29578f;
+    constexpr float kTwoPi = 6.2831853f;
+    constexpr float kDegrees = 57.29578f;
     auto headingTo = [&](const std::pair<float, float> &p) { return std::atan2(p.first - c.x, p.second - c.z); };
     if (c.leg < 0) {
         // A leg starts (0x442780): as long as the way to its point, if
@@ -2578,7 +2629,8 @@ void ScenePage::follow(Character &f) {
             p = &c;
     if (!p || p->path.empty() || !leadGoal_.valid())
         return;
-    float gx, gz;
+    float gx;
+    float gz;
     grid_.centre(leadGoal_, gx, gz);
     auto dist = [](float ax, float az, float bx, float bz) { return std::hypot(ax - bx, az - bz); };
     if (dist(p->x, p->z, f.x, f.z) < 250 || dist(p->x, p->z, gx, gz) >= dist(f.x, f.z, gx, gz))
@@ -2636,7 +2688,8 @@ bool ScenePage::scrollPictures(float dt) {
         const int n = int(sum);
         if (n <= 0 || img.w <= 0 || img.h <= 0)
             continue;
-        const float w = float(img.w), h = float(img.h);
+        const float w = float(img.w);
+        const float h = float(img.h);
         if (way == 1) {
             s.x -= float(n);
             while (s.x <= -w)
@@ -2662,7 +2715,8 @@ bool ScenePage::scrollPictures(float dt) {
 
 void ScenePage::walkTo(int sx, int sy) {
     const Ac2Record *camr = scene_.camera();
-    float x, z;
+    float x;
+    float z;
     if (!camr || grid_.empty() ||
         !SceneCamera::fromRecord(*camr).floorAt(float(sx), float(sy), kScreenW, kScreenH, x, z))
         return;
@@ -2691,7 +2745,8 @@ void ScenePage::walkTo(int sx, int sy) {
     if (who && who->actor && path_.size() > 1) {
         who->path.clear();
         for (size_t i = 1; i < path_.size(); i++) {
-            float px, pz;
+            float px;
+            float pz;
             grid_.centre(path_[i], px, pz);
             who->path.push_back({px, pz});
         }
@@ -2790,8 +2845,10 @@ bool inOutline(const Ac2Record &o, int sx, int sy) {
     bool inside = false;
     const auto &pts = outline->numbers;
     for (size_t i = 0, j = pts.size() - 1; i < pts.size(); j = i++) {
-        const float xi = float(pts[i].first), yi = float(pts[i].second);
-        const float xj = float(pts[j].first), yj = float(pts[j].second);
+        const float xi = float(pts[i].first);
+        const float yi = float(pts[i].second);
+        const float xj = float(pts[j].first);
+        const float yj = float(pts[j].second);
         if ((yi > float(sy)) != (yj > float(sy)) && float(sx) < (xj - xi) * (float(sy) - yi) / (yj - yi) + xi)
             inside = !inside;
     }
@@ -2903,7 +2960,8 @@ bool ScenePage::walkCharacter(Character &c, WalkGrid::Cell goal, bool toPoint, b
         return false;
     c.path.clear();
     for (size_t i = 1; i < path_.size(); i++) {
-        float px, pz;
+        float px;
+        float pz;
         grid_.centre(path_[i], px, pz);
         c.path.push_back({px, pz});
     }
@@ -3025,12 +3083,15 @@ std::shared_ptr<GpuModel> ScenePage::propModel(const std::string &file) {
 bool ScenePage::startCharacterVerb(ScriptRunner &runner, Character &c, const ScriptEvent &e, bool wait, bool &handled) {
     const std::string v = e.verb();
     auto lower = [](const std::string &t) { return fs::toLower(t); };
-    const std::string a1 = lower(e.arg(1)), a2 = lower(e.arg(2)), a3 = lower(e.arg(3));
+    const std::string a1 = lower(e.arg(1));
+    const std::string a2 = lower(e.arg(2));
+    const std::string a3 = lower(e.arg(3));
     const float body = normalizeDegrees(c.rotY * 57.29578f);
     // The heading from the character to a point (0x425b10): 0 faces +Z.
     auto headingTo = [&](float x, float z) { return normalizeDegrees(std::atan2(x - c.x, z - c.z) * 57.29578f); };
     auto cellHeading = [&](const std::string &a, const std::string &b) {
-        float x, z;
+        float x;
+        float z;
         grid_.centre({std::atoi(a.c_str()), std::atoi(b.c_str())}, x, z);
         return headingTo(x, z);
     };
@@ -3051,7 +3112,8 @@ bool ScenePage::startCharacterVerb(ScriptRunner &runner, Character &c, const Scr
         } else {
             // Toward an object, else so many degrees from the body (more
             // to its left).
-            float x, z;
+            float x;
+            float z;
             const float heading =
                 objectAt(a1, x, z) ? headingTo(x, z) : normalizeDegrees(float(std::atof(a1.c_str())) + body);
             c.actor->turnHead(heading, body, upDown(a2));
@@ -3090,7 +3152,8 @@ bool ScenePage::startCharacterVerb(ScriptRunner &runner, Character &c, const Scr
                 // +0x68), never turned round.
                 heading = normalizeDegrees(scene_.camera()->f("yaw") * 57.29578f), have = true;
             } else {
-                float x, z;
+                float x;
+                float z;
                 if (objectAt(name, x, z))
                     heading = headingTo(x, z), have = true;
             }
@@ -3285,7 +3348,8 @@ int ScenePage::voiceLevel() {
     if (!ctx_.mixer || !voiceSound_ || voice_ == audio::kNoSound || voiceSound_->channels <= 0)
         return -1;
     const size_t at = size_t(ctx_.mixer->position(voice_));
-    const size_t ch = size_t(voiceSound_->channels), frames = voiceSound_->frames();
+    const size_t ch = size_t(voiceSound_->channels);
+    const size_t frames = voiceSound_->frames();
     const size_t span = size_t(std::max(1, voiceSound_->rate / 30));
     double sum = 0;
     size_t n = 0;
@@ -3311,15 +3375,21 @@ const Ac2Record *ScenePage::characterAt(int sx, int sy) const {
         }
         // Else where it stands: from its feet to a head's height, about a
         // third as wide.
-        float x = o->f("x"), z = o->f("z");
+        float x = o->f("x");
+        float z = o->f("z");
         for (const Character &c : characters_)
             if (c.record == o)
                 x = c.x, z = c.z;
-        const float feet[3] = {x, o->f("y"), z}, head[3] = {x, o->f("y") + 170, z};
-        float fx, fy, hx, hy;
+        const float feet[3] = {x, o->f("y"), z};
+        const float head[3] = {x, o->f("y") + 170, z};
+        float fx;
+        float fy;
+        float hx;
+        float hy;
         if (!cam.project(feet, kScreenW, kScreenH, fx, fy) || !cam.project(head, kScreenW, kScreenH, hx, hy))
             continue;
-        const float h = fy - hy, half = h * 0.18f;
+        const float h = fy - hy;
+        const float half = h * 0.18f;
         if (float(sy) >= hy && float(sy) <= fy && std::abs(float(sx) - fx) <= half)
             hit = o;
     }
@@ -3360,7 +3430,8 @@ bool ScenePage::start(ScriptRunner &runner, const ScriptEvent &e, bool wait) {
         const std::string target = lower(e.arg(1));
         if (!target.empty() && e.arg(2).empty() && !std::isdigit(uint8_t(target[0]))) {
             // "walk sp3": the character's walk point 3; else an object.
-            float x = 0, z = 0;
+            float x = 0;
+            float z = 0;
             bool have = false;
             if (target.size() > 2 && target.compare(0, 2, "sp") == 0 && c->record) {
                 if (const Ac2Record *w = c->record->part("WALK"))
@@ -3616,7 +3687,10 @@ bool ScenePage::start(ScriptRunner &runner, const ScriptEvent &e, bool wait) {
 }
 
 void ScenePage::line(int x0, int y0, int x1, int y1, Color c) {
-    const int dx = std::abs(x1 - x0), dy = -std::abs(y1 - y0), sx = x0 < x1 ? 1 : -1, sy = y0 < y1 ? 1 : -1;
+    const int dx = std::abs(x1 - x0);
+    const int dy = -std::abs(y1 - y0);
+    const int sx = x0 < x1 ? 1 : -1;
+    const int sy = y0 < y1 ? 1 : -1;
     for (int err = dx + dy;;) {
         fill(x0, y0, 1, 1, c);
         if (x0 == x1 && y0 == y1)
@@ -3709,7 +3783,8 @@ void ScenePage::handleEvent(const Event &event) {
     if (interfaceEvent(ev))
         return;
     if (ev.type == EventType::MouseMove && showGrid_) {
-        float x, z;
+        float x;
+        float z;
         WalkGrid::Cell cell;
         if (const Ac2Record *cam = scene_.camera();
             cam && SceneCamera::fromRecord(*cam).floorAt(float(ev.mouseX), float(ev.mouseY), kScreenW, kScreenH, x, z))

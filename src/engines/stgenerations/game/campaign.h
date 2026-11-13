@@ -6,6 +6,7 @@
 #include <functional>
 #include <map>
 #include <set>
+#include <utility>
 #include <vector>
 
 #include "common/text.h"
@@ -110,7 +111,7 @@ public:
     void setFlag(int flag, bool value);
 
     // Random choices (JumpRandom); returns 0..count-1. Defaults to the first.
-    void setRandom(std::function<int(int count)> random) { _random = random; }
+    void setRandom(std::function<int(int count)> random) { _random = std::move(random); }
 
     void sync(Serializer &s);
 

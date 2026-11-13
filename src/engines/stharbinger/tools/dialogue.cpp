@@ -68,7 +68,8 @@ bool isSpace(unsigned char c) {
 
 std::string strip(const std::string &s, bool asciiOnly = false) {
     auto space = [&](unsigned char c) { return asciiOnly ? (c == ' ' || (c >= 0x09 && c <= 0x0D)) : isSpace(c); };
-    size_t b = 0, e = s.size();
+    size_t b = 0;
+    size_t e = s.size();
     while (b < e && space(static_cast<unsigned char>(s[b])))
         b++;
     while (e > b && space(static_cast<unsigned char>(s[e - 1])))
@@ -164,7 +165,8 @@ int cmdDialogue(int argc, char **argv) {
     Resources res;
     for (const GamePart &p : parts)
         res.addGamePath(p.folder.string());
-    std::string ccq, ccf;
+    std::string ccq;
+    std::string ccf;
     if (!wholeArchive(res, "CCQ", ccq) || !wholeArchive(res, "CCF", ccf)) {
         std::fprintf(stderr, "%s: CCQ.ALL and CCF.ALL (disc 1's SSE/SSE.ALL, or an install) not found\n", argv[2]);
         return 1;
@@ -221,7 +223,7 @@ int cmdDialogue(int argc, char **argv) {
         const std::string choice = line.label.empty() ? "" : "  [choice: " + line.label + "]";
         const std::string whoColon = who + ":";
         // "%5d %-9s %-8s %s%s" (widths in characters)
-        auto pad = [](std::string s, size_t w) {
+        auto pad = [](const std::string &s, size_t w) {
             size_t chars = 0;
             for (unsigned char ch : s)
                 chars += (ch & 0xC0) != 0x80;

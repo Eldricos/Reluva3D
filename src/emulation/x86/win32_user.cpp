@@ -179,7 +179,8 @@ void Win32Process::mouseMoveTo(int x, int y) {
         x = std::clamp(x, (*clip_)[0], std::max((*clip_)[0], (*clip_)[2] - 1));
         y = std::clamp(y, (*clip_)[1], std::max((*clip_)[1], (*clip_)[3] - 1));
     }
-    const int dx = x - cursorX, dy = y - cursorY;
+    const int dx = x - cursorX;
+    const int dy = y - cursorY;
     cursorX = x, cursorY = y;
     if (dx || dy)
         notify({RawInput::Kind::Motion, dx, dy});
@@ -299,9 +300,18 @@ void Win32Process::addUserStandIns() {
     // CreateWindowExA: WM_NCCREATE then WM_CREATE go to the procedure, with
     // a CREATESTRUCTA; either saying no destroys the window again.
     stdcall(u, "CreateWindowExA", 12, [this](Cpu &c) {
-        const uint32_t exStyle = c.arg(0), className = c.arg(1), title = c.arg(2), style = c.arg(3);
-        const uint32_t param = c.arg(11), instance = c.arg(10), menu = c.arg(9), parent = c.arg(8);
-        int x = int32_t(c.arg(4)), y = int32_t(c.arg(5)), w = int32_t(c.arg(6)), h = int32_t(c.arg(7));
+        const uint32_t exStyle = c.arg(0);
+        const uint32_t className = c.arg(1);
+        const uint32_t title = c.arg(2);
+        const uint32_t style = c.arg(3);
+        const uint32_t param = c.arg(11);
+        const uint32_t instance = c.arg(10);
+        const uint32_t menu = c.arg(9);
+        const uint32_t parent = c.arg(8);
+        int x = int32_t(c.arg(4));
+        int y = int32_t(c.arg(5));
+        int w = int32_t(c.arg(6));
+        int h = int32_t(c.arg(7));
         auto cls = classes_.find(lower(className < 0x10000 ? "" : c.string(className)));
         if (cls == classes_.end()) {
             setLastError(1407); // ERROR_CANNOT_FIND_WND_CLASS
@@ -366,7 +376,8 @@ void Win32Process::addUserStandIns() {
         if (it == windows_.end())
             return 0u;
         const uint32_t handle = it->first;
-        const bool was = it->second.visible, show = c.arg(1) != 0; // SW_HIDE is 0
+        const bool was = it->second.visible;
+        const bool show = c.arg(1) != 0; // SW_HIDE is 0
         it->second.visible = show;
         if (show != was)
             sendMessage(handle, kWmShowWindow, show, 0);
@@ -476,7 +487,11 @@ void Win32Process::addUserStandIns() {
     // PeekMessageA(msg, window, first, last, remove): the oldest message for
     // the window (0: any) in the range (0, 0: any). WM_QUIT is for any window.
     stdcall(u, "PeekMessageA", 5, [this](Cpu &c) {
-        const uint32_t out = c.arg(0), hwnd = c.arg(1), first = c.arg(2), last = c.arg(3), remove = c.arg(4);
+        const uint32_t out = c.arg(0);
+        const uint32_t hwnd = c.arg(1);
+        const uint32_t first = c.arg(2);
+        const uint32_t last = c.arg(3);
+        const uint32_t remove = c.arg(4);
         auto matches = [&](const Message &m) {
             return (hwnd == 0 || m.window == hwnd || m.message == kWmQuit) &&
                    ((first == 0 && last == 0) || (m.message >= first && m.message <= last));
@@ -524,7 +539,9 @@ void Win32Process::addUserStandIns() {
     // DefWindowProcA: closing destroys the window (WM_CLOSE, and the close
     // command); WM_NCCREATE goes on; everything else needs nothing.
     stdcall(u, "DefWindowProcA", 4, [this](Cpu &c) {
-        const uint32_t handle = c.arg(0), message = c.arg(1), wParam = c.arg(2);
+        const uint32_t handle = c.arg(0);
+        const uint32_t message = c.arg(1);
+        const uint32_t wParam = c.arg(2);
         if (message == kWmNcCreate)
             return 1u;
         if (message == kWmSysCommand && (wParam & 0xfff0) == kScClose)
@@ -629,7 +646,9 @@ void Win32Process::addUserStandIns() {
     // GetSystemPaletteEntries: none unless the desktop has a palette, when
     // they're greys.
     stdcall(g, "GetSystemPaletteEntries", 4, [this](Cpu &c) {
-        const uint32_t start = c.arg(1), count = c.arg(2), out = c.arg(3);
+        const uint32_t start = c.arg(1);
+        const uint32_t count = c.arg(2);
+        const uint32_t out = c.arg(3);
         if (screenBits > 8)
             return 0u;
         if (!out)

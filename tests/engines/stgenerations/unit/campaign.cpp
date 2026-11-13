@@ -191,7 +191,8 @@ static void key_maps() {
     CHECK_EQUAL(away.get(0x02), (int)KeyMap::kAwayMouseLook);
     CHECK_EQUAL(away.get('W'), (int)KeyMap::kNone);
     // Two keys: the panel shows the higher one first.
-    int first, second;
+    int first;
+    int second;
     away.findKeys(KeyMap::kAwayAttack, first, second);
     CHECK_EQUAL(first, 0x2D);
     CHECK_EQUAL(second, 0x01);
@@ -233,7 +234,8 @@ static void options_menu_controls() {
     };
     // The middle of a key cell: two to an action, down two columns.
     auto cell = [&](int action, int which) {
-        int x = 227 + (action < 10 ? 84 : 252) + 34 * which + 16, y = 29 + 37 + 30 * (action % 10) + 13;
+        int x = 227 + (action < 10 ? 84 : 252) + 34 * which + 16;
+        int y = 29 + 37 + 30 * (action % 10) + 13;
         click(x, y);
     };
     auto press = [&](uint32_t key) { menu.keyDown(KeyState(key)); };

@@ -101,7 +101,9 @@ static void testVideo() {
     std::vector<uint8_t> frame = indeo5GreyFrame(0);
     CHECK(!dec.decode(frame.data(), frame.size()));
     CHECK(dec.width() == 16 && dec.height() == 16);
-    std::vector<uint8_t> y, cb, cr;
+    std::vector<uint8_t> y;
+    std::vector<uint8_t> cb;
+    std::vector<uint8_t> cr;
     dec.yuv(y, cb, cr);
     CHECK(y.size() == 256 && cb.size() == 16 && cr.size() == 16);
     CHECK(std::all_of(y.begin(), y.end(), [](uint8_t v) { return v == 128; }));
@@ -203,7 +205,8 @@ static void testVideo() {
     CHECK(avi.load(std::make_unique<MemoryReadStream>(a)));
     CHECK(avi.width() == 16 && avi.height() == 16 && avi.videoCodec() == avi::fourcc("IV50"));
     CHECK(avi.frameMicros() > 66000 && avi.frameMicros() < 67000); // 15 a second
-    std::vector<uint8_t> first, second;
+    std::vector<uint8_t> first;
+    std::vector<uint8_t> second;
     CHECK(avi.frameCount() == 2 && avi.readFrame(0, first) && first.size() == key.size());
     CHECK(avi.readFrame(1, second) && second.empty());
     CHECK(avi.audioChannels() == 2 && avi.audioRate() == 22050 && avi.audioBits() == 16);

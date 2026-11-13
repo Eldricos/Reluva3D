@@ -103,7 +103,9 @@ void ArchivesPage::activate() {
 
 void ArchivesPage::update(uint64_t) {
     clear(0, 0, 0);
-    const Color grey{170, 170, 170}, green{120, 220, 120}, red{240, 110, 110};
+    const Color grey{170, 170, 170};
+    const Color green{120, 220, 120};
+    const Color red{240, 110, 110};
     int y = 24;
     text(24, y, ctx_.title, {255, 255, 255}, 2);
     y += font::kLineHeight * 2 + 8;
@@ -193,12 +195,16 @@ void TexturePage::update(uint64_t) {
         text(8, 8, line);
         // Scaled to fit below the line: up by whole steps, down as needed;
         // nearest pixel, over a checkerboard so transparency shows.
-        const int top = 8 + font::kLineHeight * 2, availW = kScreenW - 16, availH = kScreenH - top - 8;
+        const int top = 8 + font::kLineHeight * 2;
+        const int availW = kScreenW - 16;
+        const int availH = kScreenH - top - 8;
         float scale = std::min(float(availW) / float(img.w), float(availH) / float(img.h));
         if (scale >= 1)
             scale = std::floor(scale);
-        const int w = std::max(1, int(float(img.w) * scale)), h = std::max(1, int(float(img.h) * scale));
-        const int x0 = (kScreenW - w) / 2, y0 = top + (availH - h) / 2;
+        const int w = std::max(1, int(float(img.w) * scale));
+        const int h = std::max(1, int(float(img.h) * scale));
+        const int x0 = (kScreenW - w) / 2;
+        const int y0 = top + (availH - h) / 2;
         for (int y = 0; y < h; ++y) {
             uint8_t *row = ctx_.screen.row(y0 + y);
             const int sy = std::min(img.h - 1, int(float(y) / scale));
@@ -291,7 +297,8 @@ void FontPage::update(uint64_t) {
         } else {
             // A sample, then every character the font draws, a line at a time.
             int y = top;
-            const Color white{255, 255, 255}, gold{250, 210, 90};
+            const Color white{255, 255, 255};
+            const Color gold{250, 210, 90};
             font_.draw(ctx_.screen, pages_, 8, y, "The quick brown fox jumps over the lazy dog.", white);
             y += font_.lineHeight;
             font_.draw(ctx_.screen, pages_, 8, y, "LEGO ALPHA TEAM 0123456789 !?&", gold);
@@ -413,7 +420,8 @@ void SoundPage::handleEvent(const Event &ev) {
 
 void SoundPage::update(uint64_t) {
     clear(20, 22, 30);
-    const int lh = font::kLineHeight + 2, rows = (kScreenH - 80) / lh;
+    const int lh = font::kLineHeight + 2;
+    const int rows = (kScreenH - 80) / lh;
     const int first = std::clamp(index_ - rows / 2, 0, std::max(0, int(entries_.size()) - rows));
     for (int r = 0; r < rows && first + r < int(entries_.size()); ++r) {
         const Entry &e = entries_[size_t(first + r)];
@@ -531,7 +539,8 @@ void TextPage::update(uint64_t) {
          f.archive + "/" + f.name + "  (" + std::to_string(index_ + 1) + "/" + std::to_string(files_.size()) + ", " +
              std::to_string(lines_.size()) + " lines)",
          {230, 230, 140});
-    const int lh = font::kLineHeight + 1, rows = (kScreenH - 40) / lh;
+    const int lh = font::kLineHeight + 1;
+    const int rows = (kScreenH - 40) / lh;
     for (int r = 0; r < rows && scroll_ + r < int(lines_.size()); ++r)
         text(8, 22 + r * lh, lines_[size_t(scroll_ + r)]);
     text(8, kScreenH - 14, "Left/Right: file   Up/Down, PageUp/PageDown, Home/End: scroll", {150, 150, 150});

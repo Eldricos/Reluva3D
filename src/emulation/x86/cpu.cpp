@@ -174,7 +174,8 @@ void Cpu::setLogicFlags(uint32_t r, int size) {
 }
 
 uint32_t Cpu::alu(int op, uint32_t a, uint32_t b, int size) {
-    const uint32_t m = mask(size), sign = signBit(size);
+    const uint32_t m = mask(size);
+    const uint32_t sign = signBit(size);
     a &= m;
     b &= m;
     uint32_t r = 0;
@@ -228,7 +229,8 @@ uint32_t Cpu::alu(int op, uint32_t a, uint32_t b, int size) {
 
 uint32_t Cpu::shift(int op, uint32_t v, uint32_t count, int size) {
     const int bits = size * 8;
-    const uint32_t m = mask(size), sign = signBit(size);
+    const uint32_t m = mask(size);
+    const uint32_t sign = signBit(size);
     v &= m;
     count &= 31;
     if (!count)
@@ -309,7 +311,11 @@ uint32_t Cpu::shift(int op, uint32_t v, uint32_t count, int size) {
 }
 
 bool Cpu::condition(int cc) const {
-    const bool cf = eflags & CF, zf = eflags & ZF, sf = eflags & SF, of = eflags & OF, pf = eflags & PF;
+    const bool cf = eflags & CF;
+    const bool zf = eflags & ZF;
+    const bool sf = eflags & SF;
+    const bool of = eflags & OF;
+    const bool pf = eflags & PF;
     bool r = false;
     switch (cc >> 1) {
     case 0:
@@ -395,13 +401,16 @@ void Cpu::group3(int size) {
         if (size == 1) {
             const uint32_t ax = reg[EAX] & 0xffff;
             if (d_.regField == 6) {
-                const uint32_t q = ax / v, rem = ax % v;
+                const uint32_t q = ax / v;
+                const uint32_t rem = ax % v;
                 if (q > 0xff)
                     fault("division overflow");
                 writeReg(2, EAX, (rem << 8) | q);
             } else {
-                const int32_t n = int16_t(ax), dv = int8_t(v);
-                const int32_t q = n / dv, rem = n % dv;
+                const int32_t n = int16_t(ax);
+                const int32_t dv = int8_t(v);
+                const int32_t q = n / dv;
+                const int32_t rem = n % dv;
                 if (q < -128 || q > 127)
                     fault("division overflow");
                 writeReg(2, EAX, (uint32_t(rem & 0xff) << 8) | uint32_t(q & 0xff));
@@ -409,14 +418,17 @@ void Cpu::group3(int size) {
         } else if (size == 2) {
             const uint32_t n = (reg[EDX] & 0xffff) << 16 | (reg[EAX] & 0xffff);
             if (d_.regField == 6) {
-                const uint32_t q = n / v, rem = n % v;
+                const uint32_t q = n / v;
+                const uint32_t rem = n % v;
                 if (q > 0xffff)
                     fault("division overflow");
                 writeReg(2, EAX, q);
                 writeReg(2, EDX, rem);
             } else {
-                const int32_t sn = int32_t(n), dv = int16_t(v);
-                const int32_t q = sn / dv, rem = sn % dv;
+                const int32_t sn = int32_t(n);
+                const int32_t dv = int16_t(v);
+                const int32_t q = sn / dv;
+                const int32_t rem = sn % dv;
                 if (q < -32768 || q > 32767)
                     fault("division overflow");
                 writeReg(2, EAX, uint32_t(q));
@@ -425,16 +437,19 @@ void Cpu::group3(int size) {
         } else {
             const uint64_t n = uint64_t(reg[EDX]) << 32 | reg[EAX];
             if (d_.regField == 6) {
-                const uint64_t q = n / v, rem = n % v;
+                const uint64_t q = n / v;
+                const uint64_t rem = n % v;
                 if (q > 0xffffffffu)
                     fault("division overflow");
                 reg[EAX] = uint32_t(q);
                 reg[EDX] = uint32_t(rem);
             } else {
-                const int64_t sn = int64_t(n), dv = int32_t(v);
+                const int64_t sn = int64_t(n);
+                const int64_t dv = int32_t(v);
                 if (dv == -1 && sn == INT64_MIN)
                     fault("division overflow");
-                const int64_t q = sn / dv, rem = sn % dv;
+                const int64_t q = sn / dv;
+                const int64_t rem = sn % dv;
                 if (q < INT32_MIN || q > INT32_MAX)
                     fault("division overflow");
                 reg[EAX] = uint32_t(q);
@@ -454,7 +469,8 @@ void Cpu::stringOp(uint8_t op) {
     // rep movs and rep stos forward, a run at a time.
     if (repeat && !(eflags & DF) && (op == 0xa4 || op == 0xa5) && reg[ECX]) {
         const uint64_t bytes = uint64_t(reg[ECX]) * uint32_t(size);
-        const uint32_t src = reg[ESI] + d_.segment, dst = reg[EDI];
+        const uint32_t src = reg[ESI] + d_.segment;
+        const uint32_t dst = reg[EDI];
         if (bytes <= 0xffffffffu && (uint64_t(dst) + bytes <= src || dst < src)) {
             uint8_t *to = atWrite(dst, uint32_t(bytes));
             const uint8_t *from = at(src, uint32_t(bytes));
@@ -609,7 +625,8 @@ void Cpu::twoByte() {
         const uint32_t count = ((op & 1) ? reg[ECX] : fetch8()) & 31;
         if (!count)
             return;
-        const uint32_t dst = readRm(osz), src = readReg(osz, d_.regField);
+        const uint32_t dst = readRm(osz);
+        const uint32_t src = readReg(osz, d_.regField);
         const int bits = osz * 8;
         uint64_t r;
         bool cf;
@@ -644,7 +661,8 @@ void Cpu::twoByte() {
     case 0xb1: { // CMPXCHG r/m, r
         const int size = op == 0xb0 ? 1 : osz;
         decodeModrm();
-        const uint32_t dst = readRm(size), acc = readReg(size, EAX);
+        const uint32_t dst = readRm(size);
+        const uint32_t acc = readReg(size, EAX);
         alu(7, acc, dst, size);
         if (eflags & ZF)
             writeRm(size, readReg(size, d_.regField));
@@ -685,7 +703,8 @@ void Cpu::twoByte() {
     case 0xc1: { // XADD r/m, r
         const int size = op == 0xc0 ? 1 : osz;
         decodeModrm();
-        const uint32_t dst = readRm(size), src = readReg(size, d_.regField);
+        const uint32_t dst = readRm(size);
+        const uint32_t src = readReg(size, d_.regField);
         const uint32_t sum = alu(0, dst, src, size);
         writeReg(size, d_.regField, dst);
         writeRm(size, sum);
@@ -743,7 +762,8 @@ void Cpu::execute() {
     if (op < 0x40 && (op & 7) < 6) {
         const int aluOp = op >> 3;
         int size = (op & 1) ? osz : 1;
-        uint32_t a, b;
+        uint32_t a;
+        uint32_t b;
         switch (op & 7) {
         case 0:
         case 1: // r/m, r
@@ -818,7 +838,8 @@ void Cpu::execute() {
         twoByte();
         return;
     case 0x27: { // DAA
-        const uint32_t al = reg[EAX] & 0xff, cf = eflags & CF;
+        const uint32_t al = reg[EAX] & 0xff;
+        const uint32_t cf = eflags & CF;
         uint32_t r = al;
         bool newCf = false;
         if ((al & 0xf) > 9 || (eflags & AF)) {
@@ -1014,7 +1035,8 @@ void Cpu::execute() {
         writeRm(osz, osz == 2 ? fetch16() : fetch32());
         return;
     case 0xc8: { // ENTER (nesting level 0)
-        const uint32_t size = fetch16(), level = fetch8();
+        const uint32_t size = fetch16();
+        const uint32_t level = fetch8();
         if (level)
             fault("ENTER with a nesting level");
         push(reg[EBP]);
@@ -1167,7 +1189,8 @@ void Cpu::runUntil(uint32_t returnAddress) {
 
 Error Cpu::call(uint32_t address, const std::vector<uint32_t> &args, uint32_t &result) {
     const uint32_t returnAddress = nativeBase_ - kNativeStride; // a HLT that's never run
-    const uint32_t savedEsp = reg[ESP], savedEip = eip;
+    const uint32_t savedEsp = reg[ESP];
+    const uint32_t savedEip = eip;
     if (depth_ == 0) {
         limitAt_ = executed_ + limit_;
         faultEip = 0;

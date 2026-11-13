@@ -290,7 +290,7 @@ private:
     uint32_t fsOpen(x86::Cpu &c, uint32_t path, uint32_t handleAddress, uint32_t mode);
     uint32_t fsRead(x86::Cpu &c, uint32_t buffer, uint32_t length, uint32_t handle);
     uint32_t fsWrite(x86::Cpu &c, uint32_t buffer, uint32_t length, uint32_t handle);
-    void import(int slot, std::function<uint32_t(x86::Cpu &)> fn);
+    void import(int slot, const std::function<uint32_t(x86::Cpu &)> &fn);
     // Text into emulated memory (freed when the level ends).
     uint32_t text(const std::string &s);
     // The engine's cvar structures the game holds pointers to, kept up to

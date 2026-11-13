@@ -210,7 +210,7 @@ public:
 private:
     uint32_t createSurface(Cpu &c, const ComInterface &iface);
     uint32_t enumModes(Cpu &c, const ComInterface &iface);
-    void writeCaps(Cpu &c, uint32_t p, bool hardware);
+    void writeCaps(Cpu &c, uint32_t p, bool hardware) const;
 };
 
 // --- Interfaces ------------------------------------------------------------------------------

@@ -54,7 +54,8 @@ ModelViewStyle briefingModelStyle(char side) {
 
 bool drawModelView(Surface &target, Rasterizer &raster, const TexturedModel &m, float yaw, float pitch,
                    const ModelViewStyle &style) {
-    Vec lo{1e30f, 1e30f, 1e30f}, hi{-1e30f, -1e30f, -1e30f};
+    Vec lo{1e30f, 1e30f, 1e30f};
+    Vec hi{-1e30f, -1e30f, -1e30f};
     for (const auto &part : m.geo.parts)
         for (const auto &v : part.vertices) {
             lo = {std::min(lo.x, v.x), std::min(lo.y, v.y), std::min(lo.z, v.z)};

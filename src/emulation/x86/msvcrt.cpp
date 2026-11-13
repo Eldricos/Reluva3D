@@ -72,8 +72,10 @@ int lowerAscii(int ch) {
 } // namespace
 
 int scanFormat(Cpu &cpu, const std::string &in, const std::string &f, uint32_t args) {
-    size_t i = 0, fi = 0;
-    int stored = 0, argIndex = 0;
+    size_t i = 0;
+    size_t fi = 0;
+    int stored = 0;
+    int argIndex = 0;
     bool anyInput = false;
     auto nextPointer = [&] { return cpu.read32(args + 4 * uint32_t(argIndex++)); };
     auto skipSpace = [&] {
@@ -469,7 +471,8 @@ void addMsvcrt(Win32Process &process) {
     provideCdecl("free", free);
     provideCdecl("??3@YAXPAX@Z", free); // operator delete
     provideCdecl("realloc", [s](Cpu &c) {
-        const uint32_t old = c.arg(0), size = c.arg(1);
+        const uint32_t old = c.arg(0);
+        const uint32_t size = c.arg(1);
         Arena &m = s->p.memory();
         if (!old)
             return m.alloc(std::max(size, 1u));
@@ -532,7 +535,8 @@ void addMsvcrt(Win32Process &process) {
         return c.arg(0);
     });
     provideCdecl("strcat", [s](Cpu &c) {
-        const size_t at = s->length(c.arg(0)), n = s->length(c.arg(1));
+        const size_t at = s->length(c.arg(0));
+        const size_t n = s->length(c.arg(1));
         if (c.valid(c.arg(0), uint32_t(at + n + 1)))
             std::memmove(s->ptr(c.arg(0)) + at, s->ptr(c.arg(1)), n + 1);
         return c.arg(0);
@@ -548,7 +552,8 @@ void addMsvcrt(Win32Process &process) {
         return c.arg(0);
     });
     provideCdecl("strncat", [s](Cpu &c) {
-        const size_t at = s->length(c.arg(0)), n = std::min<size_t>(s->length(c.arg(1)), c.arg(2));
+        const size_t at = s->length(c.arg(0));
+        const size_t n = std::min<size_t>(s->length(c.arg(1)), c.arg(2));
         if (c.valid(c.arg(0), uint32_t(at + n + 1))) {
             std::memmove(s->ptr(c.arg(0)) + at, s->ptr(c.arg(1)), n);
             s->ptr(c.arg(0))[at + n] = 0;
@@ -557,7 +562,8 @@ void addMsvcrt(Win32Process &process) {
     });
     auto compare = [s](uint32_t a, uint32_t b, size_t n, bool fold) -> uint32_t {
         for (size_t i = 0; i < n; ++i) {
-            int x = s->c.read8(a + uint32_t(i)), y = s->c.read8(b + uint32_t(i));
+            int x = s->c.read8(a + uint32_t(i));
+            int y = s->c.read8(b + uint32_t(i));
             if (fold)
                 x = lowerAscii(x), y = lowerAscii(y);
             if (x != y)
@@ -589,7 +595,8 @@ void addMsvcrt(Win32Process &process) {
         return 0u;
     });
     provideCdecl("strstr", [s](Cpu &c) -> uint32_t {
-        const std::string hay = s->str(c.arg(0)), needle = s->str(c.arg(1));
+        const std::string hay = s->str(c.arg(0));
+        const std::string needle = s->str(c.arg(1));
         const size_t at = hay.find(needle);
         return at == std::string::npos ? 0u : c.arg(0) + uint32_t(at);
     });
@@ -729,7 +736,10 @@ void addMsvcrt(Win32Process &process) {
     // qsort(base, count, size, compare): a merge sort, which needs only
     // the comparison to order consistently, calling the program's.
     provideCdecl("qsort", [s](Cpu &c) {
-        const uint32_t base = c.arg(0), count = c.arg(1), size = c.arg(2), fn = c.arg(3);
+        const uint32_t base = c.arg(0);
+        const uint32_t count = c.arg(1);
+        const uint32_t size = c.arg(2);
+        const uint32_t fn = c.arg(3);
         if (count < 2 || !size || !c.valid(base, count * size))
             return 0u;
         std::vector<uint32_t> order(count);
@@ -743,8 +753,11 @@ void addMsvcrt(Win32Process &process) {
         std::vector<uint32_t> tmp(count);
         for (uint32_t width = 1; width < count && !failed; width *= 2)
             for (uint32_t lo = 0; lo < count && !failed; lo += 2 * width) {
-                const uint32_t mid = std::min(lo + width, count), hi = std::min(lo + 2 * width, count);
-                uint32_t a = lo, b = mid, out = lo;
+                const uint32_t mid = std::min(lo + width, count);
+                const uint32_t hi = std::min(lo + 2 * width, count);
+                uint32_t a = lo;
+                uint32_t b = mid;
+                uint32_t out = lo;
                 while (a < mid && b < hi) {
                     uint32_t r = 0;
                     if (Error e = c.call(fn, {copy + order[b] * size, copy + order[a] * size}, r)) {
@@ -801,7 +814,8 @@ void addMsvcrt(Win32Process &process) {
     };
     auto fpu2 = [&process](const char *name, double (*fn)(double, double)) {
         process.provide(kDll, name, [fn](Cpu &c) {
-            const double y = c.fpuPop(), x = c.fpuPop();
+            const double y = c.fpuPop();
+            const double x = c.fpuPop();
             c.fpuPush(fn(x, y));
             return 0u;
         });
@@ -851,7 +865,8 @@ void addMsvcrt(Win32Process &process) {
             return v;
         };
         const uint32_t current = toPortable(c.fpu.control);
-        const uint32_t mask = c.arg(1), wanted = (current & ~mask) | (c.arg(0) & mask);
+        const uint32_t mask = c.arg(1);
+        const uint32_t wanted = (current & ~mask) | (c.arg(0) & mask);
         uint16_t cw = uint16_t(c.fpu.control & ~0x0f3fu);
         if (wanted & 0x10)
             cw |= 0x01;
@@ -1002,7 +1017,8 @@ void addMsvcrt(Win32Process &process) {
     });
     provideCdecl("fread", [s, hostFile, getChar](Cpu &c) {
         std::FILE *f = hostFile(c.arg(3));
-        const uint32_t size = c.arg(1), bytes = c.arg(1) * c.arg(2);
+        const uint32_t size = c.arg(1);
+        const uint32_t bytes = c.arg(1) * c.arg(2);
         if (!f || !size || !c.valid(c.arg(0), bytes))
             return 0u;
         if (s->text.count(c.arg(3))) {
@@ -1143,7 +1159,10 @@ void addMsvcrt(Win32Process &process) {
     // dir, name, ext), as documented.
     provideCdecl("_splitpath", [s](Cpu &c) {
         std::string p = s->str(c.arg(0));
-        std::string drive, dir, name, ext;
+        std::string drive;
+        std::string dir;
+        std::string name;
+        std::string ext;
         if (p.size() >= 2 && p[1] == ':')
             drive = p.substr(0, 2), p = p.substr(2);
         const size_t slash = p.find_last_of("\\/");

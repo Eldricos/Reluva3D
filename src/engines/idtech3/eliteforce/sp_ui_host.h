@@ -141,7 +141,7 @@ public:
 
 private:
     Error callUi(int index, const std::vector<uint32_t> &args, uint32_t *result = nullptr);
-    void import(int slot, std::function<uint32_t(x86::Cpu &)> fn);
+    void import(int slot, const std::function<uint32_t(x86::Cpu &)> &fn);
     void addImports();
     uint32_t text(const std::string &s);
     std::string str(x86::Cpu &c, int n, size_t max = 1024) const { return c.string(c.arg(n), max); }

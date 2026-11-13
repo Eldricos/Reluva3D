@@ -25,7 +25,9 @@ void wrap(const std::string &line, std::vector<std::string> &out) {
     std::string rest = line;
     while (font::length(rest) > size_t(kColumns)) {
         // The byte offset of character kColumns, and the last space before it.
-        size_t i = 0, cut = 0, space = std::string::npos;
+        size_t i = 0;
+        size_t cut = 0;
+        size_t space = std::string::npos;
         for (int c = 0; c < kColumns && i < rest.size(); ++c) {
             if (rest[i] == ' ')
                 space = i;

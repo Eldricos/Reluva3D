@@ -227,7 +227,8 @@ bool Game::executeDirective(const Directive &d) {
         setVariable(a1, uint16_t(getVariable(a1) + getValue(a0)));
         return true;
     case kCmdSub: {
-        uint16_t v = getVariable(a1), n = getValue(a0);
+        uint16_t v = getVariable(a1);
+        uint16_t n = getValue(a0);
         if (n > v)
             log::debug(1, "%s: result of subtraction negative", scene_->name.c_str());
         else
@@ -452,7 +453,8 @@ void Game::drawBeams(Surface &dst) {
 void Game::addBeam(Beam b) {
     // The box between the end points, at least 2 pixels each way; the renderer
     // later wipes it 3 pixels wider on each side.
-    int right = std::max(b.x0, b.x1), bottom = std::max(b.y0, b.y1);
+    int right = std::max(b.x0, b.x1);
+    int bottom = std::max(b.y0, b.y1);
     b.left = std::min(b.x0, b.x1);
     b.top = std::min(b.y0, b.y1);
     if (right - b.left < 2) {
@@ -572,7 +574,8 @@ void Game::actionSequence(const Directive &d) {
         // The countdown: a tick sound, faster nearer the goal. The script uses
         // the result (in 100 ms ticks) for its own timer; easier difficulties get
         // up to 4 more seconds.
-        int stage = type - 0xF0, location = id & 0xFF;
+        int stage = type - 0xF0;
+        int location = id & 0xFF;
         int t = location < 82 ? kCountdown[location][stage - 1] : 0;
         int seconds = t + 1 + 2 * (2 - arcadeDifficulty_);
         tickPeriod_ = uint32_t(64 * seconds);

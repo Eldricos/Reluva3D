@@ -153,7 +153,8 @@ void Animator::stop(const std::function<bool(const Slot &)> &which, float second
 }
 
 void Animator::update(float seconds) {
-    std::vector<Slot> ending, finished;
+    std::vector<Slot> ending;
+    std::vector<Slot> finished;
     for (Slot &s : slots_) {
         s.clock += seconds;
         const float d = s.animation->duration;
@@ -286,7 +287,8 @@ void Animator::blend(const Model &model, int layer, std::vector<BoneTransform> &
 }
 
 void Animator::pose(Pose &out, const std::vector<BoneTurn> *turns) const {
-    std::vector<BoneTransform> body, layer;
+    std::vector<BoneTransform> body;
+    std::vector<BoneTransform> layer;
     std::vector<float> total;
     blend(*model_, Body, body, total, nullptr);
     // The head and eyes over it (GrannyModulationCompositeLocalPose): each

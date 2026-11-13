@@ -33,7 +33,9 @@ using namespace reluva::clue::testing;
 
 static void testDepth() {
     // Separate in x or y: the further on is in front.
-    const WorldBox a{0, 0, 16, 16, 50}, beyondX{16, 0, 16, 16, 50}, beyondY{0, 20, 16, 16, 50};
+    const WorldBox a{0, 0, 16, 16, 50};
+    const WorldBox beyondX{16, 0, 16, 16, 50};
+    const WorldBox beyondY{0, 20, 16, 16, 50};
     CHECK(compareDepth(beyondX, a) == 1 && compareDepth(a, beyondX) == -1);
     CHECK(compareDepth(beyondY, a) == 1 && compareDepth(a, beyondY) == -1);
     CHECK(compareDepth(a, WorldBox{8, 8, 16, 16, 50}) == 0);
@@ -46,8 +48,11 @@ static void testDepth() {
 
     // A long wall in front of a small object whose centre is nearer the
     // camera than the wall's: the boxes say the wall goes last.
-    const WorldBox wall{0, 48, 128, 16, 100}, thing{100, 20, 16, 16, 50}, far{1000, 1000, 16, 16, 50};
-    const ScreenRect over{0, 0, 100, 100}, away{5000, 5000, 10, 10};
+    const WorldBox wall{0, 48, 128, 16, 100};
+    const WorldBox thing{100, 20, 16, 16, 50};
+    const WorldBox far{1000, 1000, 16, 16, 50};
+    const ScreenRect over{0, 0, 100, 100};
+    const ScreenRect away{5000, 5000, 10, 10};
     std::vector<size_t> order = depthOrder({wall, thing, far}, {over, over, away});
     CHECK(order.size() == 3);
     const auto pos = [&](size_t i) { return std::find(order.begin(), order.end(), i) - order.begin(); };

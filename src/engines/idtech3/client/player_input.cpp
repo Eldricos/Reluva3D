@@ -72,10 +72,12 @@ bool PlayerInput::held(const char *button) const {
 }
 
 void PlayerInput::turn(const CvarStore &cvars, int32_t dtMs) {
-    float mx = mouseX_, my = mouseY_;
+    float mx = mouseX_;
+    float my = mouseY_;
     mouseX_ = mouseY_ = 0;
     if (setting(cvars, "m_filter", 0) != 0) {
-        const float px = mx, py = my;
+        const float px = mx;
+        const float py = my;
         mx = (mx + lastMouseX_) / 2;
         my = (my + lastMouseY_) / 2;
         lastMouseX_ = px;

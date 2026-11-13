@@ -293,7 +293,8 @@ private:
 
 // How many paks and saved games an import brings.
 std::string countNote(const ImportPlan &plan) {
-    size_t paks = 0, saves = 0;
+    size_t paks = 0;
+    size_t saves = 0;
     for (const ImportPlan::File &f : plan.files) {
         const std::string to = fs::toLower(f.to);
         paks += to.size() > 4 && to.compare(to.size() - 4, 4, ".pk3") == 0;

@@ -418,7 +418,8 @@ bool Game::loadGame(const std::string &fileName) {
                 if (n == 0xFF)
                     continue;
                 for (int i = 0; i < n; i++) {
-                    bool on = r.u8() != 0, said = r.u8() != 0;
+                    bool on = r.u8() != 0;
+                    bool said = r.u8() != 0;
                     if (g < int(flags->size()) && i < int((*flags)[g].size()))
                         (*flags)[g][i] = {on, said};
                 }
@@ -438,7 +439,8 @@ bool Game::loadGame(const std::string &fileName) {
             }
         }
         for (int g = 0; g < kMaxGroups; g++) {
-            uint8_t group = r.u8(), index = r.u8();
+            uint8_t group = r.u8();
+            uint8_t index = r.u8();
             if (group != 0xFF && group < st->current.size())
                 st->current[group] = std::min<int>(index, int(st->data.npcLines[group].size()) - 1);
         }
@@ -447,7 +449,8 @@ bool Game::loadGame(const std::string &fileName) {
             st->hooks[g].clear();
             uint8_t n = r.u8();
             for (int i = 0; i < n; i++) {
-                uint8_t state = r.u8(), group = r.u8();
+                uint8_t state = r.u8();
+                uint8_t group = r.u8();
                 st->hooks[g].push_back({group, state == 0xFF ? 2 : state});
             }
         }
@@ -472,7 +475,9 @@ bool Game::loadGame(const std::string &fileName) {
         if (kind == 0xFF)
             continue;
         const uint8_t *rec = r.bytes(0x34);
-        uint32_t frame = r.u32(), drawn = r.u32(), endPc = r.u32();
+        uint32_t frame = r.u32();
+        uint32_t drawn = r.u32();
+        uint32_t endPc = r.u32();
         r.u32();
         uint8_t nodes = r.u8();
         for (int k = 0; k < nodes; k++)

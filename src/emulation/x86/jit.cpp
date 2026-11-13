@@ -151,7 +151,10 @@ bool Jit::flagsOps() {
     __cpuid(r, int(0x80000001));
     return r[2] & 1;
 #elif defined(RELUVA_JIT_LINUX)
-    unsigned a, b, c, d;
+    unsigned a;
+    unsigned b;
+    unsigned c;
+    unsigned d;
     if (!__get_cpuid(0x80000001u, &a, &b, &c, &d))
         return false;
     return c & 1;
@@ -387,7 +390,8 @@ const uint8_t *Jit::compile(const Op *ops, int count, uint32_t end, const void *
     };
     Fault faults[64];
     Mark marks[64];
-    int nFaults = 0, nMarks = 0;
+    int nFaults = 0;
+    int nMarks = 0;
     // Cpu::valid(eax, size), else the fault: lea ecx, [rax - 4096];
     // cmp ecx, span - size; ja fault.
     auto check = [&](const Op &o, int size) {
@@ -554,7 +558,8 @@ const uint8_t *Jit::compile(const Op *ops, int count, uint32_t end, const void *
         switch (o.kind) {
         case Kind::Alu: {
             const int size = o.size;
-            const bool test = o.alu == 8, incDec = o.alu >= 9;
+            const bool test = o.alu == 8;
+            const bool incDec = o.alu >= 9;
             const bool writes = o.alu != 7 && !test;
             const bool memA = o.mem && (o.form == 0 || o.form == 3);
             // The first operand into edx (its address kept in r10d), the
@@ -912,7 +917,8 @@ const uint8_t *Jit::compile(const Op *ops, int count, uint32_t end, const void *
     } else if (last.kind == Kind::Jmp || last.kind == Kind::CallRel) {
         link(&links[0], last.start + last.length + last.imm);
     } else if (last.kind == Kind::Jcc) {
-        const uint32_t after = last.start + last.length, taken = after + last.imm;
+        const uint32_t after = last.start + last.length;
+        const uint32_t taken = after + last.imm;
         w.u8(0x81), w.u8(0xfa), w.u32(taken); // cmp edx, taken (eip, as the condition made it)
         w.u8(0x0f), w.u8(0x84);
         uint8_t *toTaken = w.rel32(); // je taken

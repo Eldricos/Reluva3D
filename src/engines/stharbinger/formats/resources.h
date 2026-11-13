@@ -48,9 +48,9 @@ public:
 
     // Loads a background. If PALETTES/NAME.PAL exists it is loaded into `palette`
     // and `paletteLoaded` is set; otherwise the current palette stays, as in the game.
-    bool loadBackground(const std::string &name, Surface &surface, Palette &palette, bool &paletteLoaded);
-    bool loadAnimation(const std::string &name, RleAnimation &anim);
-    bool loadSound(const std::string &name, std::vector<uint8_t> &data);
+    bool loadBackground(const std::string &name, Surface &surface, Palette &palette, bool &paletteLoaded) const;
+    bool loadAnimation(const std::string &name, RleAnimation &anim) const;
+    bool loadSound(const std::string &name, std::vector<uint8_t> &data) const;
 
     // Loads dialogue `index` (CCB.ALL order) with its text (CCQ, CCF, CCR).
     bool loadDialogue(int index, Dialogue &dialogue, std::string &error);
@@ -70,7 +70,7 @@ public:
 
     // The 269 credits lines, read from DEEP.EXE (pointer table at 0x55464 in its
     // data object). Empty if the executable is not found.
-    std::vector<std::string> loadCredits();
+    std::vector<std::string> loadCredits() const;
 
     // Reads every scene slot that has a script. Returns false (with `error`) if the
     // script archives cannot be found.

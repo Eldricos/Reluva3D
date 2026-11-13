@@ -10,6 +10,7 @@
 #include "engines/clue/ui/frontend.h"
 
 #include <algorithm>
+#include <utility>
 
 namespace reluva::clue {
 
@@ -305,7 +306,7 @@ void FrontEnd::netLost(std::string message) {
         play_->stopSounds();
     play_.reset();
     net_.reset();
-    netMessage_ = message;
+    netMessage_ = std::move(message);
     go(Screen::NetMessage);
 }
 

@@ -125,7 +125,8 @@ std::string savesIn(const std::filesystem::path &dir) {
     std::sort(files.begin(), files.end());
     for (const auto &f : files) {
         std::ifstream in(f, std::ios::binary);
-        std::string tag, name;
+        std::string tag;
+        std::string name;
         std::getline(in, tag);
         clue::saveio::getString(in, name);
         const std::vector<uint8_t> rest((std::istreambuf_iterator<char>(in)), {});
@@ -205,7 +206,8 @@ int cmdGameRun(int argc, char **argv) {
             missing = true;
             return;
         }
-        const int x = r.x + r.w / 2, y = r.y + r.h / 2;
+        const int x = r.x + r.w / 2;
+        const int y = r.y + r.h / 2;
         at(mouse(EventType::MouseMove, x, y), 20);
         at(mouse(EventType::MouseDown, x, y), 20);
         at(mouse(EventType::MouseUp, x, y), 2500);

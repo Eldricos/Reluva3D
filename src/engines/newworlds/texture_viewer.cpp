@@ -159,14 +159,18 @@ void TextureViewer::drawCheckerboard() {
 // Draw centred, scaled up by the largest whole factor that fits (or down by
 // halves), blended over the checkerboard using the alpha layer.
 void TextureViewer::drawTexture(const Texture &tex) {
-    const int sw = screen_.w, sh = screen_.h;
-    int up = 1, down = 1;
+    const int sw = screen_.w;
+    const int sh = screen_.h;
+    int up = 1;
+    int down = 1;
     while (tex.width * (up + 1) <= sw - 20 && tex.height * (up + 1) <= sh - 20)
         ++up;
     while (tex.width / down > sw || tex.height / down > sh)
         down *= 2;
-    const int w = tex.width * up / down, h = tex.height * up / down;
-    const int x0 = (sw - w) / 2, y0 = (sh - h) / 2;
+    const int w = tex.width * up / down;
+    const int h = tex.height * up / down;
+    const int x0 = (sw - w) / 2;
+    const int y0 = (sh - h) / 2;
     for (int y = 0; y < h; ++y) {
         const int sy = y * down / up;
         uint8_t *dst = screen_.row(y0 + y) + x0 * 4;

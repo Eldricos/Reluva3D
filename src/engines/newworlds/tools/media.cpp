@@ -51,7 +51,8 @@ int cmdWavInfo(int argc, char **argv) {
         }
         // Some sounds are stored many times over, under the same or other
         // names: note each copy's first.
-        unsigned count = 0, good = 0;
+        unsigned count = 0;
+        unsigned good = 0;
         std::map<std::string, unsigned> first; // bytes -> entry number
         std::vector<uint8_t> data;
         for (size_t i = 0; i < cat.entries().size(); ++i) {

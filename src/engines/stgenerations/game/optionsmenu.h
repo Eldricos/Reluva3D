@@ -6,6 +6,7 @@
 #include <functional>
 #include <map>
 #include <memory>
+#include <utility>
 #include <vector>
 
 #include "engines/stgenerations/platform.h"
@@ -93,7 +94,7 @@ public:
     void setEncounter(bool encounter) { _encounter = encounter; }
     // The saved games, kSlots of them and then the automatic one.
     void setSlots(const std::vector<Slot> &slots) { _slots = slots; }
-    void setSoundCallback(SoundCallback callback) { _sound = callback; }
+    void setSoundCallback(SoundCallback callback) { _sound = std::move(callback); }
 
     // button: the virtual key of the mouse button, 1 left, 2 right, 4 middle.
     void mouseDown(int x, int y, int button = 1);

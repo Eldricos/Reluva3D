@@ -57,7 +57,8 @@ void testRead(const std::filesystem::path &tmp) {
 }
 
 void testSearchSet(const std::filesystem::path &tmp) {
-    auto low = std::make_unique<PacArchive>(), high = std::make_unique<PacArchive>();
+    auto low = std::make_unique<PacArchive>();
+    auto high = std::make_unique<PacArchive>();
     CHECK(!low->open(writeFile(tmp / "low.pac", buildPac({{"A.TXT", "low"}, {"B.TXT", "only low"}}))));
     CHECK(!high->open(writeFile(tmp / "high.pac", buildPac({{"A.TXT", "high"}}))));
     SearchSet set;
@@ -99,7 +100,7 @@ void testOffsetHighAndSubdirectories(const std::filesystem::path &tmp) {
 
 void testRejectsDamage(const std::filesystem::path &tmp) {
     const std::vector<uint8_t> good = buildPac(kFiles);
-    auto fails = [&](std::vector<uint8_t> bytes) {
+    auto fails = [&](const std::vector<uint8_t> &bytes) {
         PacArchive pac;
         return bool(pac.open(writeFile(tmp / "bad.pac", bytes)));
     };
@@ -217,7 +218,8 @@ void testFin() {
     bad.resize(bad.size() - 3);
     CHECK(f.parse(bad));
     bad = data;
-    const std::string first = "NiImage", second = "NiTextureProperty";
+    const std::string first = "NiImage";
+    const std::string second = "NiTextureProperty";
     const size_t id1 = std::string("Dweezil 23\n").size() + 4 + first.size();
     const size_t id2 = std::string(data.begin(), data.end()).find(second) + second.size();
     std::memcpy(&bad[id2], &bad[id1], 4);

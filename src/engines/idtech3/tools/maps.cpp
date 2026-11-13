@@ -35,7 +35,9 @@ int cmdBspCheck(int argc, char **argv) {
     reluva::SearchSet set;
     if (!mountIdTech3(argv[2], set))
         return 1;
-    int maps = 0, failed = 0, corrected = 0;
+    int maps = 0;
+    int failed = 0;
+    int corrected = 0;
     Bytes data;
     for (const std::string &name : set.list()) {
         const std::string key = reluva::normalizeArchiveName(name);
@@ -159,7 +161,7 @@ int cmdEntitySurvey(int argc, char **argv) {
     std::vector<std::pair<std::string, size_t>> mapCounts;
     std::vector<std::string> failures;
     size_t total = 0;
-    auto lower = [](std::string t) { return reluva::fs::toLower(t); };
+    auto lower = [](const std::string &t) { return reluva::fs::toLower(t); };
     Bytes data;
     for (const std::string &name : set.list()) {
         const std::string file = reluva::normalizeArchiveName(name);

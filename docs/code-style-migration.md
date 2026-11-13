@@ -13,8 +13,8 @@ breaking the build, the tests or anyone's work in progress.
 | Source layout: shared code by subject, a CMakeLists.txt per library, the same layout inside each engine | Done (newworlds' inside waits; see below) |
 | Phase 1: tooling and CI | Done |
 | Phase 2: formatting | Done |
-| Phase 3: small clang-tidy fixes | Next |
-| Phase 4: identifier renames | To do |
+| Phase 3: small clang-tidy fixes | Done |
+| Phase 4: identifier renames | Next |
 | Phase 5: hand work and enforcement | To do |
 
 ## Decisions
@@ -225,13 +225,29 @@ only in the first merge (8 and 2, real ones), none after, and every file
 formatted. Merging `main` in one go instead, or formatting before the
 first merge, gives far more conflicts (47 and 118 on the nfs branch).
 
-### Phase 3: Small clang-tidy fixes
+### Phase 3: Small clang-tidy fixes (done)
 
-`readability-isolate-declaration` (1,474), `performance-unnecessary-value-param`
-(19), `readability-make-member-function-const` (16): each applied with
-`run-clang-tidy -fix` for that check alone, one check per commit, built
-and tested after each. `int a, *b;` must become `int a;` and `int *b;`:
-check those by eye.
+Each made by `python3 tools/tidy.py --fix --checks=-*,<check>` and
+`tools/format.py`, a commit per check, with hand changes in commits of
+their own. Built with GCC and Clang and all 99 tests pass.
+
+- **One variable per declaration** (`readability-isolate-declaration`):
+  1,678 statements in 281 files (newworlds included this time). Pointers,
+  references and arrays split correctly; initializers run in the same
+  order. By hand after: 11 comments that described a whole group, left on
+  its last variable, moved above the group.
+- **`const` methods** (`readability-make-member-function-const`): 9 of 16.
+  The check only sees an object's own fields, so the other 7 would have
+  been `const` while changing what the object manages through pointers
+  (`Surface::setPixel` writes the surface's pixels); they stay non-`const`
+  with a `NOLINTNEXTLINE` saying why.
+- **`const &` parameters** (`performance-unnecessary-value-param`): 16
+  now take a `const` reference, 3 that are stored are moved. Checked for
+  aliasing (a caller passing what the function changes): none.
+- **Not covered:** about 780 class and struct members still declared
+  several to a line (`int x, y;`, mostly in headers); no clang-tidy check
+  splits members. Left for Phase 5. Code compiled only on Windows or
+  macOS (`#ifdef _WIN32`, 19 blocks) wasn't seen by the checks.
 
 ### Phase 4: Identifier renames
 
@@ -256,5 +272,8 @@ CI for changed files.
 
 - Doxygen comments, as each file is worked on.
 - The 8 non-`const` globals: `g_` prefix, or gone.
+- Class and struct members declared several to a line (about 780):
+  one per line, by a script reviewed like the others, or as files are
+  worked on.
 - The "Code style" job's clang-tidy step fails the run too;
   `CONTRIBUTING.md` points to the guide and the tools.

@@ -285,7 +285,8 @@ void decodeLowest(Streams &s, int16_t *p, size_t stride, uint32_t w, uint32_t h)
         fill(p, stride, w, h, s.bits.bits(16));
         return;
     }
-    const uint32_t largest = s.bits.bits(16), symbols = largest + 1;
+    const uint32_t largest = s.bits.bits(16);
+    const uint32_t symbols = largest + 1;
     Model model(largest, symbols);
     int32_t left = int32_t(s.bits.bits(16));
     p[0] = int16_t(left);
@@ -316,9 +317,11 @@ void decodeBand(Streams &s, int16_t *p, size_t stride, uint32_t w, uint32_t h) {
         fill(p, stride, w, h, s.bits.bits(16) * uint32_t(quant));
         return;
     }
-    const uint32_t largest = s.bits.bits(16), symbols = largest + 1;
+    const uint32_t largest = s.bits.bits(16);
+    const uint32_t symbols = largest + 1;
     std::vector<Model> models(size_t(bitLength(largest * uint32_t(quant))) + 1, Model(largest, symbols));
-    Model runs(63, 64), zeroRuns(255, 256);
+    Model runs(63, 64);
+    Model zeroRuns(255, 256);
     auto value = [&](uint32_t context) {
         Model &model = models[std::min(size_t(bitLength(context)), models.size() - 1)];
         const int32_t v = signedValue(s, model, symbols);
@@ -335,8 +338,13 @@ void decodeBand(Streams &s, int16_t *p, size_t stride, uint32_t w, uint32_t h) {
     first = int32_t(uint32_t(first) * uint32_t(quant));
     *out = int16_t(first);
     const int16_t *up = out++;
-    int32_t a = first, b = first, c = first;
-    uint32_t rows = h, left = w - 1, coded = 0, zeros = 0;
+    int32_t a = first;
+    int32_t b = first;
+    int32_t c = first;
+    uint32_t rows = h;
+    uint32_t left = w - 1;
+    uint32_t coded = 0;
+    uint32_t zeros = 0;
     bool rowDone = w == 1;
     for (;;) {
         if (rowDone) {
@@ -430,14 +438,17 @@ size_t decodePlane(const std::vector<uint8_t> &in, size_t at, int16_t *p, uint32
                 v |= uint32_t(in[i + size_t(k)]) << (8 * k);
         return v;
     };
-    const uint32_t rangeBytes = u32(at), bitBytes = u32(at + 4);
+    const uint32_t rangeBytes = u32(at);
+    const uint32_t bitBytes = u32(at + 4);
     RangeDecoder rc(in, at + 8);
     BitReader bits(in, at + 8 + rangeBytes);
     Streams s{rc, bits};
     decodeLowest(s, p, size_t(w) * 16, w >> 4, h >> 4);
     for (uint32_t scale = 16; scale >= 2; scale /= 2) {
-        const size_t stride = size_t(w) * scale, below = stride / 2;
-        const uint32_t bw = w / scale, bh = h / scale;
+        const size_t stride = size_t(w) * scale;
+        const size_t below = stride / 2;
+        const uint32_t bw = w / scale;
+        const uint32_t bh = h / scale;
         decodeBand(s, p + bw, stride, bw, bh);
         decodeBand(s, p + below, stride, bw, bh);
         decodeBand(s, p + below + bw, stride, bw, bh);
@@ -546,7 +557,8 @@ Error decodeBinkTexture(int width, int height, uint32_t flags, const std::vector
         return Error::fail("Bink texture kind " + std::to_string(flags) + " isn't supported");
     if (width * height <= 256)
         return Error::fail("Small Bink textures (stored raw) aren't supported");
-    const uint32_t w = (uint32_t(width) + 15) & ~15u, h = (uint32_t(height) + 15) & ~15u;
+    const uint32_t w = (uint32_t(width) + 15) & ~15u;
+    const uint32_t h = (uint32_t(height) + 15) & ~15u;
     const int planes = flags & 1 ? 4 : 3;
     std::vector<int16_t> plane[4];
     std::vector<uint8_t> rowFlags(h);
@@ -569,7 +581,9 @@ Error decodeBinkTexture(int width, int height, uint32_t flags, const std::vector
     for (uint32_t y = 0; y < uint32_t(height); y++)
         for (uint32_t x = 0; x < uint32_t(width); x++) {
             const size_t i = size_t(y) * w + x;
-            const int32_t luma = plane[0][i], co = plane[1][i], cg = plane[2][i];
+            const int32_t luma = plane[0][i];
+            const int32_t co = plane[1][i];
+            const int32_t cg = plane[2][i];
             const int32_t g = luma - (co + cg) / 4;
             uint8_t *px = &rgba[(size_t(y) * size_t(width) + x) * 4];
             px[0] = clampByte(co + g);

@@ -104,8 +104,12 @@ Error parsePe(const std::vector<uint8_t> &file, PeImage &out) {
         const auto e = size_t(at(rva));
         if (const int64_t n = at(r.u32(e + 12)); n >= 0)
             out.exportName = r.str(size_t(n));
-        const uint32_t base = r.u32(e + 16), count = r.u32(e + 20), named = r.u32(e + 24);
-        const int64_t functions = at(r.u32(e + 28)), names = at(r.u32(e + 32)), ordinals = at(r.u32(e + 36));
+        const uint32_t base = r.u32(e + 16);
+        const uint32_t count = r.u32(e + 20);
+        const uint32_t named = r.u32(e + 24);
+        const int64_t functions = at(r.u32(e + 28));
+        const int64_t names = at(r.u32(e + 32));
+        const int64_t ordinals = at(r.u32(e + 36));
         if (functions >= 0 && count < 65536) {
             for (uint32_t i = 0; i < count; ++i) {
                 PeImage::Export x;
@@ -134,7 +138,9 @@ Error parsePe(const std::vector<uint8_t> &file, PeImage &out) {
     if (const auto [rva, size] = dir(1); rva && at(rva) >= 0) {
         (void)size;
         for (size_t d = size_t(at(rva)); r.ok(d, 20) && out.imports.size() < 256; d += 20) {
-            const uint32_t lookup = r.u32(d), nameRva = r.u32(d + 12), iat = r.u32(d + 16);
+            const uint32_t lookup = r.u32(d);
+            const uint32_t nameRva = r.u32(d + 12);
+            const uint32_t iat = r.u32(d + 16);
             if (!lookup && !nameRva && !iat)
                 break;
             PeImage::ImportedDll dll;
@@ -165,7 +171,8 @@ Error parsePe(const std::vector<uint8_t> &file, PeImage &out) {
     // Base relocations: blocks of a page's RVA, the block's size, then
     // 16-bit entries (type in the top 4 bits; type 0 pads).
     if (const auto [rva, size] = dir(5); rva && at(rva) >= 0) {
-        size_t b = size_t(at(rva)), end = b + size;
+        size_t b = size_t(at(rva));
+        size_t end = b + size;
         while (b + 8 <= end && r.ok(b, 8)) {
             const uint32_t blockSize = r.u32(b + 4);
             if (blockSize < 8)

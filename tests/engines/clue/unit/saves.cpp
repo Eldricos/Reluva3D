@@ -124,7 +124,8 @@ static void testRandomNumbers() {
     CHECK(b.load(saved));
     bool same = true;
     for (int i = 0; i < 100; ++i) {
-        const uint32_t x = a(), y = b();
+        const uint32_t x = a();
+        const uint32_t y = b();
         same = same && x == y && x == uint32_t(reference());
     }
     CHECK(same);

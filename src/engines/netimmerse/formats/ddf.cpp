@@ -115,14 +115,18 @@ int DdfFont::draw(Surface &surface, const std::vector<image::Image> &pageImages,
         const double s = pageScale(g->page);
         if (g->page < static_cast<int>(pageImages.size()) && surface.format == PixelFormat::RGBA32) {
             const image::Image &page = pageImages[g->page];
-            const int top = baseline - int(std::lround(g->above * s)), left = int(std::lround(g->left * s));
-            const int rows = int(std::lround(g->height() * s)), cols = int(std::lround(g->width() * s));
+            const int top = baseline - int(std::lround(g->above * s));
+            const int left = int(std::lround(g->left * s));
+            const int rows = int(std::lround(g->height() * s));
+            const int cols = int(std::lround(g->width() * s));
             for (int row = 0; row < rows; row++) {
-                int sy = g->y + int(row / s), dy = top + row;
+                int sy = g->y + int(row / s);
+                int dy = top + row;
                 if (sy < 0 || sy >= page.h || dy < 0 || dy >= surface.h)
                     continue;
                 for (int col = 0; col < cols; col++) {
-                    int sx = g->x + int(col / s), dx = x + left + col;
+                    int sx = g->x + int(col / s);
+                    int dx = x + left + col;
                     if (sx < 0 || sx >= page.w || dx < 0 || dx >= surface.w)
                         continue;
                     int a = page.pixel(sx, sy)[3];

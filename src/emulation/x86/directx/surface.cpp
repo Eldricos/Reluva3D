@@ -250,6 +250,7 @@ uint32_t Surface::pixel(int x, int y) const {
     }
 }
 
+// NOLINTNEXTLINE(readability-make-member-function-const): writes the surface's pixels
 void Surface::setPixel(int x, int y, uint32_t v) {
     const uint32_t at = d.memory + uint32_t(y * d.pitch) + uint32_t(x) * d.format.bytes();
     switch (d.format.bytes()) {
@@ -369,7 +370,8 @@ std::optional<uint32_t> Surface::invoke(const ComInterface &iface, int index, Cp
     // Lock(rect, desc, flags, event): the pixels' address (at the rectangle's
     // corner) and pitch in the description.
     if (m == "Lock") {
-        const uint32_t rect = c.arg(1), desc = c.arg(2);
+        const uint32_t rect = c.arg(1);
+        const uint32_t desc = c.arg(2);
         if (!c.valid(desc, 108))
             return kDDErrInvalidParams;
         uint32_t at = d.memory;
@@ -395,7 +397,8 @@ std::optional<uint32_t> Surface::invoke(const ComInterface &iface, int index, Cp
     if (m == "IsLost" || m == "Restore" || m == "PageLock" || m == "PageUnlock")
         return kDDOk;
     if (m == "GetAttachedSurface") {
-        const uint32_t caps = c.read32(c.arg(1)), out = c.arg(2);
+        const uint32_t caps = c.read32(c.arg(1));
+        const uint32_t out = c.arg(2);
         for (const auto &a : attached)
             if ((a->d.caps[0] & caps) == caps) {
                 ++a->refs;
@@ -423,9 +426,11 @@ std::optional<uint32_t> Surface::invoke(const ComInterface &iface, int index, Cp
         return kDDOk;
     }
     if (m == "SetColorKey") {
-        const uint32_t flags = c.arg(1), key = c.arg(2);
+        const uint32_t flags = c.arg(1);
+        const uint32_t key = c.arg(2);
         const bool on = key != 0;
-        const uint32_t lo = on ? c.read32(key) : 0, hi = on ? c.read32(key + 4) : 0;
+        const uint32_t lo = on ? c.read32(key) : 0;
+        const uint32_t hi = on ? c.read32(key + 4) : 0;
         if (flags & kCkeySrcBlt) {
             hasSrcKey = on;
             srcKeyLow = lo, srcKeyHigh = hi;
@@ -438,7 +443,8 @@ std::optional<uint32_t> Surface::invoke(const ComInterface &iface, int index, Cp
         return kDDOk;
     }
     if (m == "GetColorKey") {
-        const uint32_t flags = c.arg(1), key = c.arg(2);
+        const uint32_t flags = c.arg(1);
+        const uint32_t key = c.arg(2);
         if ((flags & kCkeySrcBlt) && hasSrcKey) {
             c.write32(key, srcKeyLow);
             c.write32(key + 4, srcKeyHigh);
@@ -533,13 +539,19 @@ void Surface::copy(const Surface &src, Rect from, Rect to, bool keyed, uint32_t 
     uint8_t *mem = s->cpu.memory().data();
     const uint32_t bytes = d.format.bytes();
     // Clipped to both surfaces, keeping the scale.
-    const double sx = double(from.width()) / to.width(), sy = double(from.height()) / to.height();
-    const int x0 = std::max(to.left, 0), x1 = std::min(to.right, d.width);
-    const int y0 = std::max(to.top, 0), y1 = std::min(to.bottom, d.height);
+    const double sx = double(from.width()) / to.width();
+    const double sy = double(from.height()) / to.height();
+    const int x0 = std::max(to.left, 0);
+    const int x1 = std::min(to.right, d.width);
+    const int y0 = std::max(to.top, 0);
+    const int y1 = std::min(to.bottom, d.height);
     if (same && sx == 1 && sy == 1) {
-        const int dx = from.left - to.left, dy = from.top - to.top;
-        const int cx0 = std::max(x0, -dx), cx1 = std::min(x1, src.d.width - dx);
-        const int cy0 = std::max(y0, -dy), cy1 = std::min(y1, src.d.height - dy);
+        const int dx = from.left - to.left;
+        const int dy = from.top - to.top;
+        const int cx0 = std::max(x0, -dx);
+        const int cx1 = std::min(x1, src.d.width - dx);
+        const int cy0 = std::max(y0, -dy);
+        const int cy1 = std::min(y1, src.d.height - dy);
         if (cx0 >= cx1)
             return;
         // Rows in the order that copies a surface onto itself correctly.
@@ -575,7 +587,11 @@ void Surface::copy(const Surface &src, Rect from, Rect to, bool keyed, uint32_t 
 // or a copy, stretched to fit and keyed by the source's colour key if
 // asked.
 uint32_t Surface::blt(Cpu &c) {
-    const uint32_t destRect = c.arg(1), srcPtr = c.arg(2), srcRect = c.arg(3), flags = c.arg(4), fx = c.arg(5);
+    const uint32_t destRect = c.arg(1);
+    const uint32_t srcPtr = c.arg(2);
+    const uint32_t srcRect = c.arg(3);
+    const uint32_t flags = c.arg(4);
+    const uint32_t fx = c.arg(5);
     const Rect to = destRect ? Rect::read(c, destRect) : bounds();
     if (flags & (kBltColorFill | kBltDepthFill)) {
         if (!c.valid(fx, 84))
@@ -587,7 +603,8 @@ uint32_t Surface::blt(Cpu &c) {
             return kDDErrInvalidObject;
         const Rect from = srcRect ? Rect::read(c, srcRect) : src->bounds();
         bool keyed = false;
-        uint32_t lo = 0, hi = 0;
+        uint32_t lo = 0;
+        uint32_t hi = 0;
         if (flags & kBltKeySrcOverride) {
             keyed = true;
             lo = c.read32(fx + 92), hi = c.read32(fx + 96);
@@ -605,7 +622,8 @@ uint32_t Surface::blt(Cpu &c) {
 // BltFast(x, y, src, srcRect, flags): an unstretched copy; flag 1 keys it
 // by the source's colour key.
 uint32_t Surface::bltFast(Cpu &c) {
-    const int x = int32_t(c.arg(1)), y = int32_t(c.arg(2));
+    const int x = int32_t(c.arg(1));
+    const int y = int32_t(c.arg(2));
     Surface *src = s->com.as<Surface>(c.arg(3));
     if (!src)
         return kDDErrInvalidObject;
@@ -667,7 +685,9 @@ std::optional<uint32_t> Palette::invoke(const ComInterface &iface, int index, Cp
     }
     // GetEntries/SetEntries(flags, start, count, PALETTEENTRY*): r, g, b, flags.
     if (m == "GetEntries" || m == "SetEntries") {
-        const uint32_t start = c.arg(2), count = c.arg(3), p = c.arg(4);
+        const uint32_t start = c.arg(2);
+        const uint32_t count = c.arg(3);
+        const uint32_t p = c.arg(4);
         if (start + count > 256 || !c.valid(p, count * 4))
             return kDDErrInvalidParams;
         for (uint32_t i = 0; i < count; ++i) {
@@ -748,7 +768,10 @@ void DirectX::State::presentShown() {
     auto p = primary.lock();
     if (!p)
         return;
-    int x0 = 0, y0 = 0, w = p->d.width, h = p->d.height;
+    int x0 = 0;
+    int y0 = 0;
+    int w = p->d.width;
+    int h = p->d.height;
     if (!exclusive && window)
         if (auto area = process.clientArea(window)) {
             x0 = (*area)[0], y0 = (*area)[1];
@@ -757,7 +780,8 @@ void DirectX::State::presentShown() {
     frame.width = w, frame.height = h;
     frame.pixels.assign(size_t(w) * size_t(h), 0xff000000u);
     // The part of the window on the surface, a row at a time.
-    const int from = std::max(0, -x0), to = std::min(w, p->d.width - x0);
+    const int from = std::max(0, -x0);
+    const int to = std::min(w, p->d.width - x0);
     const dx::ArgbConverter convert(p->d.format, p->paletteArgb());
     const uint32_t bytes = p->d.format.bytes();
     for (int y = std::max(0, -y0); y < std::min(h, p->d.height - y0) && from < to; ++y) {

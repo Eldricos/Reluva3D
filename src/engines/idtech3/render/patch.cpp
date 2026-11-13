@@ -52,7 +52,9 @@ BspVertex toVertex(const Point &p) {
 
 // Quadratic Bezier: (1-t)^2 a + 2t(1-t) b + t^2 c.
 Point bezier(const Point &a, const Point &b, const Point &c, float t) {
-    const float wa = (1 - t) * (1 - t), wb = 2 * t * (1 - t), wc = t * t;
+    const float wa = (1 - t) * (1 - t);
+    const float wb = 2 * t * (1 - t);
+    const float wc = t * t;
     Point r;
     for (int i = 0; i < 15; ++i)
         r.v[i] = wa * a.v[i] + wb * b.v[i] + wc * c.v[i];
@@ -89,7 +91,10 @@ void appendTriangles(uint32_t base, int cols, int rows, const std::vector<BspVer
     }
     for (int r = 0; r + 1 < rows; ++r)
         for (int c = 0; c + 1 < cols; ++c) {
-            const uint32_t a = at(r, c), b = at(r + 1, c), d = at(r, c + 1), e = at(r + 1, c + 1);
+            const uint32_t a = at(r, c);
+            const uint32_t b = at(r + 1, c);
+            const uint32_t d = at(r, c + 1);
+            const uint32_t e = at(r + 1, c + 1);
             if (flip)
                 indices.insert(indices.end(), {a, d, b, b, d, e});
             else
@@ -103,8 +108,10 @@ void tessellatePatch(const BspVertex *control, int width, int height, int level,
                      std::vector<uint32_t> &indices) {
     if (width < 3 || height < 3 || level < 1)
         return;
-    const int blocksX = (width - 1) / 2, blocksY = (height - 1) / 2;
-    const int cols = blocksX * level + 1, rows = blocksY * level + 1;
+    const int blocksX = (width - 1) / 2;
+    const int blocksY = (height - 1) / 2;
+    const int cols = blocksX * level + 1;
+    const int rows = blocksY * level + 1;
     const uint32_t base = static_cast<uint32_t>(vertices.size());
 
     for (int row = 0; row < rows; ++row) {
@@ -180,7 +187,9 @@ Point halfway(const Point &a, const Point &b) {
 // How far `m` is from the line through `a` and `c` (from `a` itself if
 // they're the same point).
 float offLine(const Point &a, const Point &m, const Point &c) {
-    float d[3], v[3], len2 = 0;
+    float d[3];
+    float v[3];
+    float len2 = 0;
     for (int k = 0; k < 3; ++k) {
         d[k] = c.v[k] - a.v[k];
         v[k] = m.v[k] - a.v[k];
@@ -213,7 +222,9 @@ void subdivideColumns(Mesh &m, float error, std::vector<bool> &straight) {
     for (int x = 0; x + 2 < m.w;) {
         float worst = 0;
         for (int y = 0; y < m.h; ++y) {
-            const Point &a = m.at(x, y), &b = m.at(x + 1, y), &c = m.at(x + 2, y);
+            const Point &a = m.at(x, y);
+            const Point &b = m.at(x + 1, y);
+            const Point &c = m.at(x + 2, y);
             Point onCurve;
             for (int k = 0; k < 3; ++k)
                 onCurve.v[k] = (a.v[k] + 2 * b.v[k] + c.v[k]) * 0.25f;
@@ -237,7 +248,8 @@ void subdivideColumns(Mesh &m, float error, std::vector<bool> &straight) {
         for (int y = 0; y < m.h; ++y) {
             for (int i = 0; i <= x; ++i)
                 out.at(i, y) = m.at(i, y);
-            const Point ab = halfway(m.at(x, y), m.at(x + 1, y)), bc = halfway(m.at(x + 1, y), m.at(x + 2, y));
+            const Point ab = halfway(m.at(x, y), m.at(x + 1, y));
+            const Point bc = halfway(m.at(x + 1, y), m.at(x + 2, y));
             out.at(x + 1, y) = ab;
             out.at(x + 2, y) = halfway(ab, bc);
             out.at(x + 3, y) = bc;
@@ -259,9 +271,11 @@ bool near(const std::array<float, 3> &a, const std::array<float, 3> &b, float wi
 // neighbouring directions' cross product averaged. Turned to face the way
 // the normal there already does; kept where the shape gives none.
 void meshNormals(PatchGrid &g) {
-    const int w = g.width, h = g.height;
+    const int w = g.width;
+    const int h = g.height;
     auto pos = [&](int x, int y) { return g.points[size_t(y * w + x)].pos; };
-    bool wrapX = true, wrapY = true;
+    bool wrapX = true;
+    bool wrapY = true;
     for (int y = 0; y < h && wrapX; ++y)
         wrapX = near(pos(0, y), pos(w - 1, y), 1.0f);
     for (int x = 0; x < w && wrapY; ++x)
@@ -275,7 +289,8 @@ void meshNormals(PatchGrid &g) {
             bool good[8]{};
             for (int k = 0; k < 8; ++k)
                 for (int step = 1; step <= 3; ++step) {
-                    int nx = x + kAround[k][0] * step, ny = y + kAround[k][1] * step;
+                    int nx = x + kAround[k][0] * step;
+                    int ny = y + kAround[k][1] * step;
                     if (wrapX)
                         nx = nx < 0 ? nx + w - 1 : (nx >= w ? nx - w + 1 : nx);
                     if (wrapY)
@@ -298,7 +313,8 @@ void meshNormals(PatchGrid &g) {
                 const int k2 = (k + 1) & 7;
                 if (!good[k] || !good[k2])
                     continue;
-                const std::array<float, 3> &a = dir[k2], &b = dir[k];
+                const std::array<float, 3> &a = dir[k2];
+                const std::array<float, 3> &b = dir[k];
                 std::array<float, 3> n{a[1] * b[2] - a[2] * b[1], a[2] * b[0] - a[0] * b[2], a[0] * b[1] - a[1] * b[0]};
                 const float len = std::sqrt(n[0] * n[0] + n[1] * n[1] + n[2] * n[2]);
                 if (len < 0.001f)
@@ -397,7 +413,8 @@ bool stitchOne(const PatchGrid &from, PatchGrid &to) {
             continue;
         const std::vector<int> mine = edgePoints(to, eTo);
         for (size_t t = 0; t + 1 < mine.size(); ++t) {
-            const std::array<float, 3> &p = to.points[size_t(mine[t])].pos, &q = to.points[size_t(mine[t + 1])].pos;
+            const std::array<float, 3> &p = to.points[size_t(mine[t])].pos;
+            const std::array<float, 3> &q = to.points[size_t(mine[t + 1])].pos;
             if (near(p, q, 0.01f))
                 continue;
             for (const Edge eFrom : edgesOf(from)) {
@@ -440,7 +457,8 @@ PatchGrid subdividePatch(const BspVertex *control, int width, int height, float 
     for (int i = 0; i < width * height; ++i)
         m.p.push_back(toPoint(control[i]));
     error = std::max(error, 0.01f);
-    std::vector<bool> straightX, straightY;
+    std::vector<bool> straightX;
+    std::vector<bool> straightY;
     subdivideColumns(m, error, straightX);
     m = transposed(m);
     subdivideColumns(m, error, straightY);
@@ -456,7 +474,8 @@ PatchGrid subdividePatch(const BspVertex *control, int width, int height, float 
         for (int x = 1; x + 1 < m.w; x += 2)
             m.at(x, y) = halfway(halfway(m.at(x, y), m.at(x + 1, y)), halfway(m.at(x, y), m.at(x - 1, y)));
 
-    std::vector<int> keepX, keepY;
+    std::vector<int> keepX;
+    std::vector<int> keepY;
     for (int x = 0; x < m.w; ++x)
         if (x == 0 || x == m.w - 1 || !straightX[size_t(x)])
             keepX.push_back(x);

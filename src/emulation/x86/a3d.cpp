@@ -274,7 +274,7 @@ struct A3d::State {
     size_t made = 0;
     std::vector<std::weak_ptr<ComObject>> sources;
     explicit State(Win32Process &p) : process(p), cpu(p.cpu()), com(p) {}
-    uint32_t now() { return process.milliseconds ? process.milliseconds() : 0; }
+    uint32_t now() const { return process.milliseconds ? process.milliseconds() : 0; }
     void update();
 };
 
@@ -430,7 +430,8 @@ public:
         const float side = s->leftHanded ? -1.0f : 1.0f;
         const float right[3] = {side * (f[1] * u[2] - f[2] * u[1]), side * (f[2] * u[0] - f[0] * u[2]),
                                 side * (f[0] * u[1] - f[1] * u[0])};
-        double dx = 0, d = 0;
+        double dx = 0;
+        double d = 0;
         for (int i = 0; i < 3; ++i) {
             const double r = double(position[i] - s->listenerPos[i]);
             dx += r * double(right[i]);
@@ -440,6 +441,7 @@ public:
             return 0;
         return int(std::clamp(dx / std::sqrt(d), -1.0, 1.0) * audio::kMaxPan * 0.8);
     }
+    // NOLINTNEXTLINE(readability-make-member-function-const): sets its sound's volume and pan
     void heard() {
         if (sound != audio::kNoSound && s->mixer) {
             s->mixer->setVolume(sound, volume());
@@ -474,7 +476,8 @@ public:
             return kSOk;
         }
         if (m == "LoadWaveData") { // (data, bytes): a copy of it
-            const uint32_t from = c.arg(1), bytes = c.arg(2);
+            const uint32_t from = c.arg(1);
+            const uint32_t bytes = c.arg(2);
             if (data)
                 s->process.memory().free(data);
             size = bytes;
@@ -521,7 +524,8 @@ public:
         // Lock(offset, bytes, &p1, &n1, &p2, &n2, flags): the part asked
         // for, in two pieces when it wraps round the end.
         if (m == "Lock") {
-            uint32_t offset = c.arg(1), bytes = c.arg(2);
+            uint32_t offset = c.arg(1);
+            uint32_t bytes = c.arg(2);
             const uint32_t flags = c.arg(7);
             if (flags & kFromWriteCursor)
                 offset = cursor();

@@ -107,7 +107,8 @@ private:
             bool &playing;
             ~Stopped() { playing = false; }
         } stopped{playing_};
-        int width = 640, height = 480;
+        int width = 640;
+        int height = 480;
         auto screen = [&] {
             sys_.initGraphics(width, height, PixelFormat::RGBA32);
             screen_.create(width, height, PixelFormat::RGBA32);
@@ -119,7 +120,8 @@ private:
         std::vector<uint32_t> pixels;
         // The game's frames a second, in the window's title: those it
         // shows (flips), counted over each second.
-        uint64_t rateFrom = sys_.getMillis(), rateFrames = player.framesShown();
+        uint64_t rateFrom = sys_.getMillis();
+        uint64_t rateFrames = player.framesShown();
         auto showRate = [&](const std::string &rate) {
             sys_.setWindowTitle("Reluva - " + target_.description + (rate.empty() ? "" : " - " + rate));
         };
@@ -155,7 +157,8 @@ private:
                 }
                 player.input(ev);
             }
-            int w = 0, h = 0;
+            int w = 0;
+            int h = 0;
             if (player.frame(pixels, w, h)) {
                 if (w != width || h != height) {
                     width = w, height = h;

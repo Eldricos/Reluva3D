@@ -215,7 +215,8 @@ void HudScreen::drawMap(Canvas &screen, Mission &mission, const LevelFile &level
     // original draws it.
     const Palette &palette = level.getPalette();
     uint8_t wallColour = palette.findBestColor(104, 252, 252);
-    double cx = (kMap.left + kMap.right) / 2.0, cy = (kMap.top + kMap.bottom) / 2.0;
+    double cx = (kMap.left + kMap.right) / 2.0;
+    double cy = (kMap.top + kMap.bottom) / 2.0;
     double scale = mission.getHud().getMapZoom(_mapZoom);
     auto toScreen = [&](double x, double y, int &sx, int &sy) {
         sx = (int)std::lround(cx + (x - playerX) * scale);
@@ -224,30 +225,38 @@ void HudScreen::drawMap(Canvas &screen, Mission &mission, const LevelFile &level
 
     // Walls marked for the map, in the height band shown (relative to the player).
     const double *levels = mission.getHud().getMapLevels();
-    double low = playerZ + levels[_mapBand * 2], high = playerZ + levels[_mapBand * 2 + 1];
+    double low = playerZ + levels[_mapBand * 2];
+    double high = playerZ + levels[_mapBand * 2 + 1];
     const std::vector<LevelFile::Vertex> &vertices = level.getVertices();
     for (const LevelFile::Wall &wall : level.getWalls()) {
         if (!(wall.flags & LevelFile::kWallOnMap))
             continue;
         if (wall.top / 65536.0 < low || wall.bottom / 65536.0 > high)
             continue;
-        int x1, y1, x2, y2;
+        int x1;
+        int y1;
+        int x2;
+        int y2;
         toScreen(vertices[wall.vertex1].x / 65536.0, vertices[wall.vertex1].y / 65536.0, x1, y1);
         toScreen(vertices[wall.vertex2].x / 65536.0, vertices[wall.vertex2].y / 65536.0, x2, y2);
         // Plot the line, clipped to the map.
         int steps = std::max(std::abs(x2 - x1), std::abs(y2 - y1));
         for (int i = 0; i <= steps; i++) {
-            int x = steps ? x1 + (x2 - x1) * i / steps : x1, y = steps ? y1 + (y2 - y1) * i / steps : y1;
+            int x = steps ? x1 + (x2 - x1) * i / steps : x1;
+            int y = steps ? y1 + (y2 - y1) * i / steps : y1;
             if (kMap.contains(x, y))
                 screen.setPixel(x, y, wallColour);
         }
     }
 
     for (const auto &entry : mission.getHud().getMarkers()) {
-        double x, y, z;
+        double x;
+        double y;
+        double z;
         if (!mission.locate(entry.first, x, y, z))
             continue;
-        int sx, sy;
+        int sx;
+        int sy;
         toScreen(x, y, sx, sy);
         // Each kind shows only while its filter is on.
         if (!_filters[entry.second.kind])
@@ -326,7 +335,8 @@ void HudScreen::drawInventory(Canvas &screen, Mission &mission) {
             continue;
         if (_dragging && slot == _pressedSlot)
             continue;
-        int x = kSlotX[slot % 3], y = kSlotY[slot / 3];
+        int x = kSlotX[slot % 3];
+        int y = kSlotY[slot / 3];
         int icon = mission.getItemIcon(id);
         if (icons && icon >= 0)
             blit(screen, *icons, icon, x, y, kFirstPixel);
@@ -342,7 +352,8 @@ void HudScreen::drawInventory(Canvas &screen, Mission &mission) {
 
 int HudScreen::findSlot(int x, int y) {
     for (int slot = 0; slot < Hud::kSlots; slot++) {
-        int sx = kSlotX[slot % 3], sy = kSlotY[slot / 3];
+        int sx = kSlotX[slot % 3];
+        int sy = kSlotY[slot / 3];
         if (Rect(sx - 2, sy - 2, sx + kIconWidth + 4, sy + kIconHeight + 4).contains(x, y))
             return slot;
     }

@@ -117,7 +117,8 @@ int cmdPlay(int argc, char **argv) {
             sys.key(at, k);
             ++i;
         } else if ((a == "--click" || a == "--rclick") && timeAndRest(v, at, rest)) {
-            int x = 0, y = 0;
+            int x = 0;
+            int y = 0;
             if (std::sscanf(rest.c_str(), "%d,%d", &x, &y) != 2)
                 return 2;
             sys.click(at, x, y, a == "--click" ? MouseButton::Left : MouseButton::Right);

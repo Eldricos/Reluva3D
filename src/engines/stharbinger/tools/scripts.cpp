@@ -539,7 +539,8 @@ SlotKinds learnSlotKinds(const std::vector<SceneSymbols> &scenes) {
     }
     SlotKinds out;
     for (const auto &[key, c] : votes) {
-        int best = -1, n = 0;
+        int best = -1;
+        int n = 0;
         for (const auto &[kind, count] : c.items)
             if (kind >= 0 && count > n) {
                 best = kind;
@@ -615,8 +616,10 @@ std::string stripAscii(const std::string &s) {
 
 // The global CCQ/CCF line list split into per-dialogue blocks, in CCB order.
 bool dialogueBlocks(Resources &res, std::vector<Block> &blocks) {
-    bool haveQ = false, haveF = false;
-    const std::string ccq = wholeArchive(res, "CCQ", haveQ), ccf = wholeArchive(res, "CCF", haveF);
+    bool haveQ = false;
+    bool haveF = false;
+    const std::string ccq = wholeArchive(res, "CCQ", haveQ);
+    const std::string ccf = wholeArchive(res, "CCF", haveF);
     if (!haveQ || !haveF)
         return false;
     const std::vector<std::string> texts = splitOn(ccq, '\0');
@@ -721,7 +724,8 @@ struct Owner {
 };
 
 std::vector<std::string> argumentReference(const std::vector<Owner> &owners, const SlotKinds &slots) {
-    std::map<Key, Counter<std::string>> types, examples;
+    std::map<Key, Counter<std::string>> types;
+    std::map<Key, Counter<std::string>> examples;
     for (const Owner &o : owners)
         for (const DirectiveList *list : o.lists)
             for (const Directive &d : *list)
@@ -854,7 +858,8 @@ int cmdScript(int argc, char **argv) {
     }
 
     summary.push_back(text::format("CC: %u scene slots, %u scripts", ccSlots, unsigned(scenes.size())));
-    int resolved = 0, total = 0;
+    int resolved = 0;
+    int total = 0;
     for (const Scene &s : scenes) {
         const SceneSymbols *sym = symbolsOf(s.slot);
         const std::string name = sym && !sym->name.empty() ? sym->name : text::format("SCENE%02d", s.slot);

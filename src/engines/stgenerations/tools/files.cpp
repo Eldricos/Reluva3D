@@ -293,7 +293,8 @@ bool describeScript(const std::vector<uint8_t> &data, bool verbose, std::string 
         out = "SGEN script (could not be parsed)";
         return true;
     }
-    size_t states = 0, blocks = 0;
+    size_t states = 0;
+    size_t blocks = 0;
     for (const ScriptObject &object : script.getObjects()) {
         states += object.states.size();
         for (const ScriptState &state : object.states)
@@ -452,7 +453,8 @@ int cmdExtract(int argc, char **argv) {
         return 1;
     }
     const std::string pattern = argc > 4 ? argv[4] : "*";
-    int extracted = 0, failed = 0;
+    int extracted = 0;
+    int failed = 0;
     for (const ZipArchive::Entry &entry : zip.entries()) {
         std::string name = entry.name;
         std::replace(name.begin(), name.end(), '\\', '/');

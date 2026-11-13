@@ -542,7 +542,8 @@ bool SpPlayViewer::saveFits(const std::vector<uint8_t> &file) const {
 void SpPlayViewer::sortSaves() const {
     if (ctx_.savePath.empty())
         return;
-    const std::filesystem::path original = ctx_.savePath / "saves", expansion = ctx_.savePath / "expansion" / "saves";
+    const std::filesystem::path original = ctx_.savePath / "saves";
+    const std::filesystem::path expansion = ctx_.savePath / "expansion" / "saves";
     for (const auto &[from, to, wrong] : {std::tuple{original, expansion, eliteforce::SaveKind::Expansion},
                                           std::tuple{expansion, original, eliteforce::SaveKind::Original}}) {
         std::error_code ec;
@@ -591,8 +592,10 @@ std::vector<uint8_t> SpPlayViewer::levelShot(const std::string &map) const {
                 std::memcpy(px, img.pixel(x, y), 4);
                 continue;
             }
-            const int x0 = x * img.w / 256, x1 = std::max(x0 + 1, (x + 1) * img.w / 256);
-            const int y0 = y * img.h / 256, y1 = std::max(y0 + 1, (y + 1) * img.h / 256);
+            const int x0 = x * img.w / 256;
+            const int x1 = std::max(x0 + 1, (x + 1) * img.w / 256);
+            const int y0 = y * img.h / 256;
+            const int y1 = std::max(y0 + 1, (y + 1) * img.h / 256);
             int sum[3] = {};
             for (int sy = y0; sy < y1; ++sy)
                 for (int sx = x0; sx < x1; ++sx)
@@ -678,7 +681,8 @@ void SpPlayViewer::saveGame(const std::string &name, bool autosave) {
     // Written as "current", then renamed, as the original's.
     std::error_code ec;
     std::filesystem::create_directories(saveDir_, ec);
-    const std::filesystem::path file = saveDir_ / (name + ".sav"), temp = saveDir_ / "current.sav";
+    const std::filesystem::path file = saveDir_ / (name + ".sav");
+    const std::filesystem::path temp = saveDir_ / "current.sav";
     {
         std::ofstream out(temp, std::ios::binary);
         out.write(reinterpret_cast<const char *>(w.bytes().data()), std::streamsize(w.bytes().size()));
@@ -909,7 +913,8 @@ void SpPlayViewer::handleEvent(const Event &ev) {
             // frame (the fractions kept for the next move).
             menuMouseX_ += float(ev.moveX) * 640.0f / float(std::max(frameW_, 1));
             menuMouseY_ += float(ev.moveY) * 480.0f / float(std::max(frameH_, 1));
-            const auto dx = int32_t(menuMouseX_), dy = int32_t(menuMouseY_);
+            const auto dx = int32_t(menuMouseX_);
+            const auto dy = int32_t(menuMouseY_);
             menuMouseX_ -= float(dx);
             menuMouseY_ -= float(dy);
             if (dx || dy)
@@ -1045,8 +1050,10 @@ void SpPlayViewer::update(uint64_t nowMs) {
         // then the menu the player asked for; or the next level's loading
         // screen's, then the level change.
         capturing_ = false;
-        std::vector<uint8_t> rgba, shot;
-        const int w = renderer_->width(), h = renderer_->height();
+        std::vector<uint8_t> rgba;
+        std::vector<uint8_t> shot;
+        const int w = renderer_->width();
+        const int h = renderer_->height();
         if (renderer_->takeCapture(rgba) && w > 0 && h > 0 && rgba.size() >= size_t(w) * size_t(h) * 4) {
             shot.resize(eliteforce::SpUiHost::kShotSize);
             for (int y = 0; y < 256; ++y)
@@ -1129,7 +1136,8 @@ void SpPlayViewer::update(uint64_t nowMs) {
         const Scene &scene = game_->scene();
         const auto &pictures = game_->pictures();
         const bool dynamicLights = !cvars_.find("r_dynamiclight") || cvars_.integer("r_dynamiclight") != 0;
-        size_t drawn = 0, shots = 0;
+        size_t drawn = 0;
+        size_t shots = 0;
         bool first = true;
         for (const auto &v : scene.views) {
             drawGamePictures(drawn, shots, v.picturesBefore, time);
@@ -1199,7 +1207,8 @@ void SpPlayViewer::showClientLoading() {
     renderer_->setGamma(brightness(ctx_));
     renderer_->beginFrame(gfx::identity(), {0, 0, 0}, {0, 0, 0});
     scene_->setHandles({&game_->models(), &game_->skins(), &game_->shaders()});
-    size_t drawn = 0, shots = 0;
+    size_t drawn = 0;
+    size_t shots = 0;
     for (const auto &v : game_->scene().views) {
         drawGamePictures(drawn, shots, v.picturesBefore, 0);
         scene_->drawView(game_->scene(), v, 640, 480, 0, true, nullptr, nullptr, false);

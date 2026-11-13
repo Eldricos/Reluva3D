@@ -40,7 +40,8 @@ GpuModel::~GpuModel() {
 
 void GpuModel::skinAndLight(const Pose &pose, const gfx::Mat4 &placement, bool helpers, const SceneLighting *lighting,
                             const Material &material, SkinnedModel &skinned) const {
-    std::vector<std::array<float, 3>> positions, normals;
+    std::vector<std::array<float, 3>> positions;
+    std::vector<std::array<float, 3>> normals;
     if (skinned.owner != this) {
         skinned.release();
         skinned.owner = this;

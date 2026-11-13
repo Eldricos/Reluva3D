@@ -25,7 +25,8 @@ const char *const kEndOfLine = "\n#end"; // marks the end of a directive's token
 bool lex(const std::string &name, const std::string &s, std::vector<BotToken> &out, std::string &error) {
     size_t i = 0;
     int line = 1;
-    bool lineStart = true, space = true;
+    bool lineStart = true;
+    bool space = true;
     auto isNameChar = [](char c) { return std::isalnum(static_cast<unsigned char>(c)) || c == '_'; };
     while (i < s.size()) {
         const char c = s[i];
@@ -693,7 +694,8 @@ bool BotScript::evaluate(const std::vector<BotToken> &tokens, double &value, boo
             ++i;
             const double right = binary(op->precedence);
             const std::string o = op->text;
-            const auto li = int64_t(left), ri = int64_t(right);
+            const auto li = int64_t(left);
+            const auto ri = int64_t(right);
             if (o == "||")
                 left = left != 0 || right != 0;
             else if (o == "&&")

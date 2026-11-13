@@ -138,7 +138,8 @@ int32_t VmFiles::list(Qvm &vm, int32_t folderAddress, int32_t extensionAddress, 
         return int32_t(count);
     }
     const auto names = listNames(files_, folder, vm.string(extensionAddress, 64));
-    int32_t count = 0, used = 0;
+    int32_t count = 0;
+    int32_t used = 0;
     for (const std::string &n : names) {
         const auto need = int32_t(n.size()) + 1;
         if (used + need > size)

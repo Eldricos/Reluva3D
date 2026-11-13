@@ -252,7 +252,9 @@ std::vector<AmbientSets::Sound> AmbientSets::addLocal(std::string_view name, con
         return out;
     }
     // Full within half its radius, then fading to nothing at its edge.
-    const float dx = origin[0] - listener[0], dy = origin[1] - listener[1], dz = origin[2] - listener[2];
+    const float dx = origin[0] - listener[0];
+    const float dy = origin[1] - listener[1];
+    const float dz = origin[2] - listener[2];
     const float dist = std::sqrt(dx * dx + dy * dy + dz * dz);
     const float half = float(set->radius) * 0.5f;
     const float scale = dist < half ? 1.0f : (float(set->radius) - dist) / half;

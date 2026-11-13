@@ -42,7 +42,8 @@ Error readWiseInstaller(const std::filesystem::path &file, std::vector<WiseStrea
     const uint32_t pe = le32(d, 0x3c);
     if (d.size() < 64 || d[0] != 'M' || d[1] != 'Z' || pe + 24 > d.size() || std::memcmp(&d[pe], "PE\0\0", 4) != 0)
         return Error::fail(file.filename().string() + " isn't a Windows program");
-    const size_t sections = size_t(d[pe + 6] | d[pe + 7] << 8), optional = size_t(d[pe + 20] | d[pe + 21] << 8);
+    const size_t sections = size_t(d[pe + 6] | d[pe + 7] << 8);
+    const size_t optional = size_t(d[pe + 20] | d[pe + 21] << 8);
     size_t end = 0;
     for (size_t i = 0; i < sections; ++i) {
         const size_t s = pe + 24 + optional + i * 40;

@@ -66,15 +66,20 @@ void LevelRenderer::buildShadeTables(const Palette &palette, uint8_t r, uint8_t 
         tables[0][i] = (uint8_t)i;
     for (int n = 1; n < LevelFile::kLightLevels; n++) {
         for (int i = 0; i < 256; i++) {
-            uint8_t pr, pg, pb;
+            uint8_t pr;
+            uint8_t pg;
+            uint8_t pb;
             palette.getColor(i, pr, pg, pb);
             int tr = pr + (((int)r - pr) * n >> 3);
             int tg = pg + (((int)g - pg) * n >> 3);
             int tb = pb + (((int)b - pb) * n >> 3);
             // The nearest entry; the first one wins a tie.
-            int best = 0, bestDistance = INT32_MAX;
+            int best = 0;
+            int bestDistance = INT32_MAX;
             for (int j = 0; j < 256; j++) {
-                uint8_t qr, qg, qb;
+                uint8_t qr;
+                uint8_t qg;
+                uint8_t qb;
                 palette.getColor(j, qr, qg, qb);
                 int distance = (tr - qr) * (tr - qr) + (tg - qg) * (tg - qg) + (tb - qb) * (tb - qb);
                 if (distance < bestDistance) {
@@ -89,16 +94,25 @@ void LevelRenderer::buildShadeTables(const Palette &palette, uint8_t r, uint8_t 
 
 void LevelRenderer::buildBlendTable(const Palette &palette, uint8_t table[kBlendColors][256]) {
     for (int k = 0; k < kBlendColors; k++) {
-        uint8_t sr, sg, sb;
+        uint8_t sr;
+        uint8_t sg;
+        uint8_t sb;
         palette.getColor(kBlendFirst + k, sr, sg, sb);
         for (int i = 0; i < 256; i++) {
-            uint8_t pr, pg, pb;
+            uint8_t pr;
+            uint8_t pg;
+            uint8_t pb;
             palette.getColor(i, pr, pg, pb);
-            int tr = (pr + sr) >> 1, tg = (pg + sg) >> 1, tb = (pb + sb) >> 1;
+            int tr = (pr + sr) >> 1;
+            int tg = (pg + sg) >> 1;
+            int tb = (pb + sb) >> 1;
             // The nearest entry; the first one wins a tie.
-            int best = 0, bestDistance = INT32_MAX;
+            int best = 0;
+            int bestDistance = INT32_MAX;
             for (int j = 0; j < 256; j++) {
-                uint8_t qr, qg, qb;
+                uint8_t qr;
+                uint8_t qg;
+                uint8_t qb;
                 palette.getColor(j, qr, qg, qb);
                 int distance = (tr - qr) * (tr - qr) + (tg - qg) * (tg - qg) + (tb - qb) * (tb - qb);
                 if (distance < bestDistance) {
@@ -174,7 +188,8 @@ const LevelRenderer::Texture *LevelRenderer::getTexture(uint16_t id, uint16_t fr
             for (int v = 0; v < texture->height; v++)
                 texture->pixels[(size_t)u * texture->height + v] = (uint8_t)decoded.surface.getPixel(u, v);
         }
-        bool transparent = false, oneRun = true;
+        bool transparent = false;
+        bool oneRun = true;
         for (int u = 0; u < texture->width && oneRun; u++) {
             int runs = 0;
             bool previous = false;
@@ -194,7 +209,8 @@ const LevelRenderer::Texture *LevelRenderer::getTexture(uint16_t id, uint16_t fr
 }
 
 void LevelRenderer::toCamera(double x, double y, double z, Vertex &out) const {
-    double dx = x - _camX, dy = y - _camY;
+    double dx = x - _camX;
+    double dy = y - _camY;
     out.x = dx * _sin - dy * _cos;
     out.z = dx * _cos + dy * _sin;
     out.y = z - _camZ;
@@ -205,7 +221,8 @@ void LevelRenderer::unproject(const Camera &camera, int w, int h, double x, doub
     double focal = w / 2.0;
     double right = (x - (w - 1) / 2.0) * depth / focal;
     double up = ((h - 1) / 2.0 + camera.pitch * focal - y) * depth / focal;
-    double c = std::cos(camera.yaw), s = std::sin(camera.yaw);
+    double c = std::cos(camera.yaw);
+    double s = std::sin(camera.yaw);
     // The inverse of toCamera: ahead is (c, s), right is (s, -c).
     worldX = camera.x + c * depth + s * right;
     worldY = camera.y + s * depth - c * right;
@@ -296,10 +313,12 @@ void LevelRenderer::drawFlats(Canvas &dst, uint32_t time) {
         if (flat.isCeiling() ? height <= _camZ : height >= _camZ)
             continue;
 
-        double uScale = fromFixed(flat.uScale), vScale = fromFixed(flat.vScale);
+        double uScale = fromFixed(flat.uScale);
+        double vScale = fromFixed(flat.vScale);
         double uOffset = fromFixed(flat.uOffset) + scrollOffset(flat.uScroll, time);
         double vOffset = fromFixed(flat.vOffset) + scrollOffset(flat.vScroll, time);
-        double c = 1, s = 0;
+        double c = 1;
+        double s = 0;
         if (flat.rotation) {
             double angle = flat.rotation * 2 * kPi / 65536.0;
             c = std::cos(angle);
@@ -308,11 +327,12 @@ void LevelRenderer::drawFlats(Canvas &dst, uint32_t time) {
 
         // Texture coordinates are in 128ths of the texture, whatever its size.
         const Texture *texture = getTexture(flat.texture, flat.frames, flat.speed, time);
-        double uUnit = texture ? texture->width / kTextureUnits : 1,
-               vUnit = texture ? texture->height / kTextureUnits : 1;
+        double uUnit = texture ? texture->width / kTextureUnits : 1;
+        double vUnit = texture ? texture->height / kTextureUnits : 1;
         poly.clear();
         for (uint16_t index : flat.vertices) {
-            double x = fromFixed(vertices[index].x), y = fromFixed(vertices[index].y);
+            double x = fromFixed(vertices[index].x);
+            double y = fromFixed(vertices[index].y);
             Vertex v;
             toCamera(x, y, height, v);
             v.u = ((x * c + y * s) * uScale + uOffset) * uUnit;
@@ -336,14 +356,17 @@ void LevelRenderer::drawWalls(Canvas &dst, uint32_t time) {
         _owner = Pick();
         _owner.kind = Pick::kWall;
         _owner.index = (int)i;
-        double x1 = fromFixed(vertices[wall.vertex1].x), y1 = fromFixed(vertices[wall.vertex1].y);
-        double x2 = fromFixed(vertices[wall.vertex2].x), y2 = fromFixed(vertices[wall.vertex2].y);
+        double x1 = fromFixed(vertices[wall.vertex1].x);
+        double y1 = fromFixed(vertices[wall.vertex1].y);
+        double x2 = fromFixed(vertices[wall.vertex2].x);
+        double y2 = fromFixed(vertices[wall.vertex2].y);
         // Walls face the side their normal points to and, like the
         // original, are only seen from there unless two-sided.
         bool front = fromFixed(wall.normalX) * _camX + fromFixed(wall.normalY) * _camY + fromFixed(wall.distance) >= 0;
         if (!front && !(wall.flags & LevelFile::kWallTwoSided))
             continue;
-        double top = fromFixed(wall.top), bottom = fromFixed(wall.bottom);
+        double top = fromFixed(wall.top);
+        double bottom = fromFixed(wall.bottom);
         // u at vertex 1 and vertex 2, as 0x4C9393 picks them. From behind
         // the ends swap unless 0x40000 xor 0x20 keeps them as from the
         // front: cap walls in halee1 then keep their dark texture edge on
@@ -351,7 +374,9 @@ void LevelRenderer::drawWalls(Canvas &dst, uint32_t time) {
         bool mirror = (wall.flags & LevelFile::kWallMirror) != 0;
         if (!front)
             mirror = !(mirror != ((wall.flags & LevelFile::kWallMirrorBack) != 0));
-        double u0 = fromFixed(wall.uStart) + scrollOffset(wall.uScroll, time), u1, u2;
+        double u0 = fromFixed(wall.uStart) + scrollOffset(wall.uScroll, time);
+        double u1;
+        double u2;
         if (wall.uEnd1 || wall.uEnd2) {
             double sign = mirror ? 1 : -1;
             u1 = u0 + sign * fromFixed(wall.uEnd2);
@@ -366,7 +391,8 @@ void LevelRenderer::drawWalls(Canvas &dst, uint32_t time) {
         // texture, so walls stacked on one line carry a picture on from one
         // to the next. Rows are stored top first: row = -v, wrapped.
         double vStart = fromFixed(wall.vStart) + scrollOffset(wall.vScroll, time);
-        double v1 = -vStart - fromFixed(wall.vLength), v2 = -vStart;
+        double v1 = -vStart - fromFixed(wall.vLength);
+        double v2 = -vStart;
         // All in 128ths of the texture, whatever its size.
         const Texture *texture = getTexture(wall.texture, wall.frames, wall.speed, time);
         if (texture) {
@@ -415,7 +441,8 @@ void LevelRenderer::drawBillboards(Canvas &dst, uint32_t time) {
             continue;
         Vertex centre;
         toCamera(fromFixed(billboard.x), fromFixed(billboard.y), fromFixed(billboard.z), centre);
-        double half = fromFixed(billboard.halfWidth), height = fromFixed(billboard.height);
+        double half = fromFixed(billboard.halfWidth);
+        double height = fromFixed(billboard.height);
 
         poly.resize(4);
         const double xs[4] = {-half, half, half, -half};
@@ -486,8 +513,10 @@ void LevelRenderer::drawPolygon(std::vector<Vertex> &poly, const Texture *textur
     std::vector<Vertex> clipped;
     clipped.reserve(poly.size() + 2);
     for (size_t i = 0; i < poly.size(); i++) {
-        const Vertex &a = poly[i], &b = poly[(i + 1) % poly.size()];
-        bool aIn = a.z >= kNear, bIn = b.z >= kNear;
+        const Vertex &a = poly[i];
+        const Vertex &b = poly[(i + 1) % poly.size()];
+        bool aIn = a.z >= kNear;
+        bool bIn = b.z >= kNear;
         if (aIn)
             clipped.push_back(a);
         if (aIn != bIn) {
@@ -506,7 +535,10 @@ void LevelRenderer::drawPolygon(std::vector<Vertex> &poly, const Texture *textur
 
     // Project: x and y to the screen; z becomes 1/z and u, v become u/z, v/z
     // so they interpolate linearly across the screen.
-    double minY = 1e30, maxY = -1e30, minX = 1e30, maxX = -1e30;
+    double minY = 1e30;
+    double maxY = -1e30;
+    double minX = 1e30;
+    double maxX = -1e30;
     for (Vertex &v : clipped) {
         double iz = 1.0 / v.z;
         v.x = _centerX + v.x * iz * _focal;
@@ -529,9 +561,11 @@ void LevelRenderer::drawPolygon(std::vector<Vertex> &poly, const Texture *textur
         double sampleY = y + 0.5;
         // The polygon is convex, so each row crosses it in one span.
         bool found = false;
-        Vertex left = {}, right = {};
+        Vertex left = {};
+        Vertex right = {};
         for (size_t i = 0; i < n; i++) {
-            const Vertex &a = clipped[i], &b = clipped[(i + 1) % n];
+            const Vertex &a = clipped[i];
+            const Vertex &b = clipped[(i + 1) % n];
             if ((a.y <= sampleY) == (b.y <= sampleY))
                 continue;
             double t = (sampleY - a.y) / (b.y - a.y);
@@ -555,9 +589,13 @@ void LevelRenderer::drawPolygon(std::vector<Vertex> &poly, const Texture *textur
         int x0 = std::max(0, (int)std::ceil(left.x - 0.5));
         int x1 = std::min<int>(dst.w - 1, (int)std::ceil(right.x - 0.5) - 1);
         double width = right.x - left.x;
-        double dz = (right.z - left.z) / width, du = (right.u - left.u) / width, dv = (right.v - left.v) / width;
+        double dz = (right.z - left.z) / width;
+        double du = (right.u - left.u) / width;
+        double dv = (right.v - left.v) / width;
         double start = x0 + 0.5 - left.x;
-        double iz = left.z + dz * start, uz = left.u + du * start, vz = left.v + dv * start;
+        double iz = left.z + dz * start;
+        double uz = left.u + du * start;
+        double vz = left.v + dv * start;
         uint8_t *out = (uint8_t *)dst.getBasePtr(0, y);
         float *depth = &_depth[(size_t)y * dst.w];
         for (int x = x0; x <= x1; x++, iz += dz, uz += du, vz += dv) {
@@ -570,7 +608,8 @@ void LevelRenderer::drawPolygon(std::vector<Vertex> &poly, const Texture *textur
             uint8_t color = 0;
             if (texture) {
                 double z = 1.0 / iz;
-                int u = (int)std::floor(uz * z), v = (int)std::floor(vz * z);
+                int u = (int)std::floor(uz * z);
+                int v = (int)std::floor(vz * z);
                 if (wrap != kWrapStretch) {
                     // Only one copy down a silhouette: v runs up from the
                     // picture's bottom row at 0 to its top at -height.
@@ -615,7 +654,8 @@ Camera LevelRenderer::getStartCamera(double eyeHeight) const {
         int32_t height;
     };
     std::vector<Floor> floors;
-    std::map<int32_t, double> areaByHeight, largestByHeight;
+    std::map<int32_t, double> areaByHeight;
+    std::map<int32_t, double> largestByHeight;
     const std::vector<LevelFile::Vertex> &vertices = _level.getVertices();
     for (const LevelFile::Sector &flat : _level.getSectors()) {
         if (flat.isCeiling() || flat.vertices.size() < 3)
@@ -623,7 +663,8 @@ Camera LevelRenderer::getStartCamera(double eyeHeight) const {
         Floor floor = {0, 0, 0, flat.height};
         size_t n = flat.vertices.size();
         for (size_t i = 0; i < n; i++) {
-            const LevelFile::Vertex &a = vertices[flat.vertices[i]], &b = vertices[flat.vertices[(i + 1) % n]];
+            const LevelFile::Vertex &a = vertices[flat.vertices[i]];
+            const LevelFile::Vertex &b = vertices[flat.vertices[(i + 1) % n]];
             floor.area += fromFixed(a.x) * fromFixed(b.y) - fromFixed(b.x) * fromFixed(a.y);
             floor.x += fromFixed(a.x);
             floor.y += fromFixed(a.y);
@@ -640,7 +681,8 @@ Camera LevelRenderer::getStartCamera(double eyeHeight) const {
     // height where the most floor area is made of several pieces, and stand
     // in the middle of its largest piece.
     Camera camera;
-    double bestScore = -1, bestArea = -1;
+    double bestScore = -1;
+    double bestArea = -1;
     for (const Floor &floor : floors) {
         double score = areaByHeight[floor.height] - largestByHeight[floor.height];
         if (score > bestScore || (score == bestScore && floor.area > bestArea)) {

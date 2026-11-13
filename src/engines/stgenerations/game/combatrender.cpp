@@ -33,8 +33,10 @@ uint32_t addColour(uint32_t a, uint32_t b) {
 
 void Mat3::rotate(double yaw, double pitch, double roll) {
     auto turn = [](Vec3 &a, Vec3 &b, double angle) {
-        double c = std::cos(angle), s = std::sin(angle);
-        Vec3 na = a * c + b * s, nb = b * c - a * s;
+        double c = std::cos(angle);
+        double s = std::sin(angle);
+        Vec3 na = a * c + b * s;
+        Vec3 nb = b * c - a * s;
         a = na;
         b = nb;
     };
@@ -151,8 +153,10 @@ void CombatRenderer::drawTriangle(const ClipVertex *in, int count, const CombatI
     ClipVertex poly[8];
     int n = 0;
     for (int i = 0; i < count; i++) {
-        const ClipVertex &a = in[i], &b = in[(i + 1) % count];
-        bool aIn = a.view.z >= kNear, bIn = b.view.z >= kNear;
+        const ClipVertex &a = in[i];
+        const ClipVertex &b = in[(i + 1) % count];
+        bool aIn = a.view.z >= kNear;
+        bool bIn = b.view.z >= kNear;
         if (aIn)
             poly[n++] = a;
         if (aIn != bIn && n < 8) {
@@ -180,7 +184,9 @@ void CombatRenderer::drawTriangle(const ClipVertex *in, int count, const CombatI
     }
     uint32_t flat = shadeColour(colour, shade);
     for (int f = 1; f + 1 < n; f++) {
-        const Screen &a = s[0], &b = s[f], &c = s[f + 1];
+        const Screen &a = s[0];
+        const Screen &b = s[f];
+        const Screen &c = s[f + 1];
         double area = (b.x - a.x) * (c.y - a.y) - (b.y - a.y) * (c.x - a.x);
         if (std::fabs(area) < 1e-6)
             continue;
@@ -208,7 +214,8 @@ void CombatRenderer::drawTriangle(const ClipVertex *in, int count, const CombatI
                     continue;
                 uint32_t pixel = flat;
                 if (texture) {
-                    double u = (w0 * a.uz + w1 * b.uz + w2 * c.uz) / iz, v = (w0 * a.vz + w1 * b.vz + w2 * c.vz) / iz;
+                    double u = (w0 * a.uz + w1 * b.uz + w2 * c.uz) / iz;
+                    double v = (w0 * a.vz + w1 * b.vz + w2 * c.vz) / iz;
                     int tx = std::max(0, std::min(texture->w - 1, (int)(u * texture->w)));
                     int ty = std::max(0, std::min(texture->h - 1, (int)(v * texture->h)));
                     uint32_t t = texture->get(tx, ty);
@@ -230,12 +237,16 @@ void CombatRenderer::drawTriangle(const ClipVertex *in, int count, const CombatI
 
 void CombatRenderer::drawBillboard(const Vec3 &world, double size, int w, int h,
                                    const std::function<uint32_t(int, int)> &pixel, bool additive) {
-    double sx, sy, depth;
+    double sx;
+    double sy;
+    double depth;
     if (!_target || !project(world, sx, sy, depth))
         return;
     double pixels = size * _focal / depth;
-    int dw = std::max(1, (int)pixels), dh = std::max(1, (int)(pixels * h / std::max(1, w)));
-    int x0 = (int)(sx - dw / 2.0), y0 = (int)(sy - dh / 2.0);
+    int dw = std::max(1, (int)pixels);
+    int dh = std::max(1, (int)(pixels * h / std::max(1, w)));
+    int x0 = (int)(sx - dw / 2.0);
+    int y0 = (int)(sy - dh / 2.0);
     for (int y = std::max(0, y0); y < std::min(_h, y0 + dh); y++) {
         uint32_t *row = (uint32_t *)_target->getBasePtr(_ox, _oy + y);
         for (int x = std::max(0, x0); x < std::min(_w, x0 + dw); x++) {
@@ -251,19 +262,23 @@ void CombatRenderer::drawBillboard(const Vec3 &world, double size, int w, int h,
 
 void CombatRenderer::drawLine(const Vec3 &a, const Vec3 &b, uint32_t colour, int thickness) {
     // Clip the line to the near plane, then step along it.
-    Vec3 va = _camera.inverse(a - _cameraPos), vb = _camera.inverse(b - _cameraPos);
+    Vec3 va = _camera.inverse(a - _cameraPos);
+    Vec3 vb = _camera.inverse(b - _cameraPos);
     if (va.z < kNear && vb.z < kNear)
         return;
     if (va.z < kNear)
         va = va + (vb - va) * ((kNear - va.z) / (vb.z - va.z));
     if (vb.z < kNear)
         vb = vb + (va - vb) * ((kNear - vb.z) / (va.z - vb.z));
-    double ax = _w / 2.0 + _focal * va.x / va.z, ay = _h / 2.0 - _focal * va.y / va.z;
-    double bx = _w / 2.0 + _focal * vb.x / vb.z, by = _h / 2.0 - _focal * vb.y / vb.z;
+    double ax = _w / 2.0 + _focal * va.x / va.z;
+    double ay = _h / 2.0 - _focal * va.y / va.z;
+    double bx = _w / 2.0 + _focal * vb.x / vb.z;
+    double by = _h / 2.0 - _focal * vb.y / vb.z;
     int steps = (int)std::min(4000.0, std::max(std::fabs(bx - ax), std::fabs(by - ay))) + 1;
     for (int i = 0; i <= steps; i++) {
         double t = (double)i / steps;
-        int x = (int)(ax + (bx - ax) * t), y = (int)(ay + (by - ay) * t);
+        int x = (int)(ax + (bx - ax) * t);
+        int y = (int)(ay + (by - ay) * t);
         for (int k = 0; k < thickness; k++)
             plot(x, y + k, colour);
     }

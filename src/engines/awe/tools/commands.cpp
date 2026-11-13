@@ -137,7 +137,10 @@ bool openGr2(const std::string &file, awe::GrannyDll &dll, awe::Gr2File &gr2) {
 // Summarises a model; optionally poses it with an animation and writes
 // it as Wavefront OBJ (with its textures as TGA files beside it).
 int cmdGr2Model(int argc, char **argv) {
-    std::string file, animFile, objFile, trackBone;
+    std::string file;
+    std::string animFile;
+    std::string objFile;
+    std::string trackBone;
     float time = 0;
     for (int i = 2; i < argc; i++) {
         if (std::strcmp(argv[i], "-anim") == 0 && i + 2 < argc) {
@@ -250,7 +253,8 @@ int cmdGr2Model(int argc, char **argv) {
         }
     }
     size_t base = 1;
-    std::vector<std::array<float, 3>> positions, normals;
+    std::vector<std::array<float, 3>> positions;
+    std::vector<std::array<float, 3>> normals;
     for (const awe::ModelMesh &m : model.meshes) {
         awe::skin(m, pose, positions, normals);
         out << "o " << m.name << "\n";
@@ -423,8 +427,9 @@ int cmdAweShot(int argc, char **argv) {
             k.rfind("rclick:", 0) == 0) {
             // The mouse moved to, clicked at (left or right), or let go at
             // x,y on the screen.
-            const bool right = k.rfind("rclick:", 0) == 0, click = k[0] == 'c' || right,
-                       release = k.rfind("release:", 0) == 0;
+            const bool right = k.rfind("rclick:", 0) == 0;
+            const bool click = k[0] == 'c' || right;
+            const bool release = k.rfind("release:", 0) == 0;
             const char *at = k.c_str() + (right ? 7 : click ? 6 : release ? 8 : 5);
             char *end = nullptr;
             ev.mouseX = int(std::strtol(at, &end, 10));
@@ -487,8 +492,10 @@ int cmdAweRegress(int argc, char **argv) {
         std::fprintf(stderr, "usage: reluva-tool awe game-check <game folder> <route.txt> [-3d] [-quick]\n");
         return 1;
     }
-    const std::string game = argv[2], route = argv[3];
-    bool threeD = false, quick = false;
+    const std::string game = argv[2];
+    const std::string route = argv[3];
+    bool threeD = false;
+    bool quick = false;
     for (int i = 4; i < argc; i++) {
         threeD |= std::strcmp(argv[i], "-3d") == 0;
         quick |= std::strcmp(argv[i], "-quick") == 0;
@@ -578,7 +585,8 @@ int cmdAweBink(int argc, char **argv) {
             failed++;
             continue;
         }
-        int w = 0, h = 0;
+        int w = 0;
+        int h = 0;
         uint32_t frames = 0;
         if (reluva::Error e = dll.open(data, w, h, frames)) {
             std::printf("%s: binkw32.dll: %s\n", movie.c_str(), e.message.c_str());
@@ -590,10 +598,14 @@ int cmdAweBink(int argc, char **argv) {
         auto plane = [&](int i) { return dec.decodedPlane(i).data(); };
         auto stride = [&](int i) { return dec.pitch(i); };
         const bool alpha = bink.hasAlpha(); // an alpha plane: the game's surface 5
-        size_t compared = 0, same = 0, worstFrame = 0;
+        size_t compared = 0;
+        size_t same = 0;
+        size_t worstFrame = 0;
         int worst = 0;
-        uint64_t differing = 0, superwhite = 0;
-        std::vector<uint8_t> theirs, ours;
+        uint64_t differing = 0;
+        uint64_t superwhite = 0;
+        std::vector<uint8_t> theirs;
+        std::vector<uint8_t> ours;
         for (size_t i = 0; i < size_t(bink.frameCount()) && i < frames && i < limit; i++) {
             bool more = false;
             if (reluva::Error e = dec.nextFrame(more)) {
@@ -614,7 +626,8 @@ int cmdAweBink(int argc, char **argv) {
                         const uint8_t *t = theirs.data() + (size_t(y) * size_t(w) + size_t(x & ~1)) * 2;
                         int d = std::abs(int(plane(0)[y * stride(0) + x]) - int(t[(x & 1) * 2]));
                         if ((x & 1) == 0) {
-                            const int cx = x / 2, cy = y / 2;
+                            const int cx = x / 2;
+                            const int cy = y / 2;
                             d = std::max(d, std::abs(int(plane(1)[cy * stride(1) + cx]) - int(t[1])));
                             d = std::max(d, std::abs(int(plane(2)[cy * stride(2) + cx]) - int(t[3])));
                         }
@@ -674,7 +687,9 @@ int cmdAwePose(int argc, char **argv) {
         std::fprintf(stderr, "%s\n", e.message.c_str());
         return 1;
     }
-    std::vector<uint8_t> dllData, modelData, animData;
+    std::vector<uint8_t> dllData;
+    std::vector<uint8_t> modelData;
+    std::vector<uint8_t> animData;
     if (files.read("granny2.dll", dllData) || files.read(argv[3], modelData) || files.read(argv[4], animData)) {
         std::fprintf(stderr, "can't read granny2.dll, %s or %s\n", argv[3], argv[4]);
         return 1;
@@ -684,7 +699,8 @@ int cmdAwePose(int argc, char **argv) {
         std::fprintf(stderr, "%s\n", e.message.c_str());
         return 1;
     }
-    awe::Gr2File modelFile, animFile;
+    awe::Gr2File modelFile;
+    awe::Gr2File animFile;
     awe::Model model;
     awe::Animation anim;
     if (reluva::Error e = modelFile.open(modelData); e || awe::loadModel(modelFile, model)) {
@@ -695,7 +711,8 @@ int cmdAwePose(int argc, char **argv) {
         std::fprintf(stderr, "can't load the animation\n");
         return 1;
     }
-    awe::GrannyDll::LoadedFile dm, da;
+    awe::GrannyDll::LoadedFile dm;
+    awe::GrannyDll::LoadedFile da;
     if (reluva::Error e = dll.loadFile(modelData, dm); e || dll.loadFile(animData, da)) {
         std::fprintf(stderr, "granny2.dll can't load them\n");
         return 1;
@@ -747,7 +764,8 @@ int cmdAweActs(int argc, char **argv) {
         return 1;
     }
     std::vector<std::string> targets;
-    bool verbose = false, hotspots = false;
+    bool verbose = false;
+    bool hotspots = false;
     int explore = 0;
     double limit = 900;
     for (int i = 3; i < argc; i++) {
@@ -780,7 +798,8 @@ int cmdAweActs(int argc, char **argv) {
     // Runs the game on till it settles; false if it sticks.
     auto settle = [&](awe::ScenePage &page, std::vector<std::string> &log, const std::string &what) {
         const uint64_t start = sys.now;
-        uint64_t quietSince = 0, eventSince = sys.now;
+        uint64_t quietSince = 0;
+        uint64_t eventSince = sys.now;
         std::string lastEvent;
         while (sys.now - start < uint64_t(limit * 1000)) {
             sys.now += 40; // 25 frames a second
@@ -977,7 +996,8 @@ int cmdAweCamera(int argc, char **argv) {
                                      std::strtof(argv[i + 2], nullptr)});
         names.push_back("point");
     }
-    float view[16], proj[16];
+    float view[16];
+    float proj[16];
     std::vector<float> window;
     if (reluva::Error e = dll.camera(c, 1024, 768, view, proj, &points, &window)) {
         std::fprintf(stderr, "%s\n", e.message.c_str());
@@ -999,7 +1019,8 @@ int cmdAweCamera(int argc, char **argv) {
     std::printf("Reluva's view matrix differs by at most %g (translations / 100)\n", worst);
     std::printf("screen y from the top; DLL then Reluva:\n");
     for (size_t i = 0; i < names.size(); i++) {
-        float x = 0, y = 0;
+        float x = 0;
+        float y = 0;
         native.project(&points[i * 3], 1024, 768, x, y);
         std::printf("%-50s (%7.1f %7.1f %7.1f) -> (%7.1f, %7.1f)  (%7.1f, %7.1f)\n", names[i].c_str(), points[i * 3],
                     points[i * 3 + 1], points[i * 3 + 2], window[i * 3], 768 - window[i * 3 + 1], x, y);
@@ -1032,8 +1053,11 @@ int cmdBinkInfo(int argc, char **argv) {
         std::printf("  audio track: %d Hz, %d channel%s, %s\n", t.rate, t.channels, t.channels == 1 ? "" : "s",
                     t.dct ? "DCT" : "RDFT");
     bool list = false;
-    std::string yuvFile, tgaPrefix, wavFile;
-    size_t yuvFrames = bink.frameCount(), tgaFrame = 0;
+    std::string yuvFile;
+    std::string tgaPrefix;
+    std::string wavFile;
+    size_t yuvFrames = bink.frameCount();
+    size_t tgaFrame = 0;
     for (int i = 3; i < argc; i++) {
         if (std::strcmp(argv[i], "-frames") == 0)
             list = true;
@@ -1053,7 +1077,8 @@ int cmdBinkInfo(int argc, char **argv) {
         std::vector<int16_t> pcm;
         if (reluva::Error e = bink.decodeAllAudio(pcm))
             std::fprintf(stderr, "%s\n", e.message.c_str());
-        const int rate = bink.audioRate(), channels = bink.audioChannels();
+        const int rate = bink.audioRate();
+        const int channels = bink.audioChannels();
         std::ofstream wav(wavFile, std::ios::binary);
         auto u32 = [&](uint32_t v) { wav.write(reinterpret_cast<const char *>(&v), 4); };
         auto u16 = [&](uint16_t v) { wav.write(reinterpret_cast<const char *>(&v), 2); };
@@ -1079,8 +1104,8 @@ int cmdBinkInfo(int argc, char **argv) {
                 std::fprintf(stderr, "frame %zu: %s\n", i, e.message.c_str());
             if (yuv && i < yuvFrames)
                 for (int p = 0; p < 3; p++) {
-                    const int w = p ? (bink.width() + 1) / 2 : bink.width(),
-                              h = p ? (bink.height() + 1) / 2 : bink.height();
+                    const int w = p ? (bink.width() + 1) / 2 : bink.width();
+                    const int h = p ? (bink.height() + 1) / 2 : bink.height();
                     for (int y = 0; y < h; y++)
                         yuv.write(reinterpret_cast<const char *>(bink.decodedPlane(p).data() + y * bink.pitch(p)), w);
                 }
@@ -1099,7 +1124,8 @@ int cmdBinkInfo(int argc, char **argv) {
         std::printf("decoded %zu frames in %.2f s\n", last,
                     std::chrono::duration<double>(std::chrono::steady_clock::now() - start).count());
     }
-    size_t keyframes = 0, bytes = 0;
+    size_t keyframes = 0;
+    size_t bytes = 0;
     for (uint32_t i = 0; i < bink.frameCount(); i++) {
         const reluva::bink::Movie::FrameInfo f = bink.frameInfo(i);
         keyframes += f.key;

@@ -84,8 +84,23 @@ void DialogueBook::add(const Table &t) {
     // headings say: gen_characters.txt's first is "gen_globalhardman", not
     // Name. gen_characters.txt and gen_antoinette.txt have no Optional
     // column, so their Notes land there (and count as 0).
-    const int name = 0, act = 1, part = 2, thread = 3, nest = 4, speaker = 5, target = 6, line = 7, translation = 8,
-              condition = 9, repeat = 10, before = 11, event = 12, after = 13, duration = 14, optional = 15, notes = 16;
+    const int name = 0;
+    const int act = 1;
+    const int part = 2;
+    const int thread = 3;
+    const int nest = 4;
+    const int speaker = 5;
+    const int target = 6;
+    const int line = 7;
+    const int translation = 8;
+    const int condition = 9;
+    const int repeat = 10;
+    const int before = 11;
+    const int event = 12;
+    const int after = 13;
+    const int duration = 14;
+    const int optional = 15;
+    const int notes = 16;
     DialoguePart *p = nullptr;
     for (size_t r = 0; r < t.rows.size(); r++) {
         DialogueLine l;
@@ -397,8 +412,13 @@ bool DialogueManager::canTalk(const std::string &name, int part, int thread, int
     // changed put back (0x43a600).
     if (active_)
         return false;
-    const bool genBefore = gen_, plusBefore = plus_, greetBefore = greet_;
-    const int numberBefore = number_, alternativeBefore = lastAlternative_, height = boxHeight_, win = window_;
+    const bool genBefore = gen_;
+    const bool plusBefore = plus_;
+    const bool greetBefore = greet_;
+    const int numberBefore = number_;
+    const int alternativeBefore = lastAlternative_;
+    const int height = boxHeight_;
+    const int win = window_;
     const std::string prefixBefore = prefix_;
     dry_ = true;
     gen_ = gen;
@@ -723,8 +743,9 @@ void DialogueManager::lineEnd() {
     Thread &t = part_->threads[size_t(thread_)];
     const DialogueLine &l = t.lines[size_t(line_)];
     const std::string &after = l.after;
-    const bool juncture = contains(after, "juncture"), terminate = contains(after, "terminate"),
-               advance = contains(after, "advance");
+    const bool juncture = contains(after, "juncture");
+    const bool terminate = contains(after, "terminate");
+    const bool advance = contains(after, "advance");
     bool keepBox = false;
     const int next = pickLine(t, l.nestCode + 1, true);
     if (!after.empty()) {

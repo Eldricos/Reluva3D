@@ -106,7 +106,9 @@ Error Board::build(const Level &level) {
     // most of its furniture, the strongest claims first.
     std::vector<bool> partTaken(parts.size());
     for (;;) {
-        int best = 0, bestPart = -1, bestRoom = kNoRoom;
+        int best = 0;
+        int bestPart = -1;
+        int bestRoom = kNoRoom;
         for (size_t k = 0; k < parts.size(); ++k)
             for (int r = 0; r < kRoomCount; ++r)
                 if (!partTaken[k] && roomSquares_[size_t(r)].empty() && votes[k][size_t(r)] > best) {
@@ -137,8 +139,10 @@ Error Board::build(const Level &level) {
         suffix.erase(std::remove(suffix.begin(), suffix.end(), '_'), suffix.end());
         const bool alongX = suffix.empty() || suffix[0] == 'n';
         const bool alongY = suffix.empty() || suffix[0] == 'w';
-        const double gx = double(p.x - kGridOrigin) / kSquareSize, gy = double(p.y - kGridOrigin) / kSquareSize;
-        const int cx = int(std::floor(gx)), cy = int(std::floor(gy));
+        const double gx = double(p.x - kGridOrigin) / kSquareSize;
+        const double gy = double(p.y - kGridOrigin) / kSquareSize;
+        const int cx = int(std::floor(gx));
+        const int cy = int(std::floor(gy));
         std::vector<std::pair<Square, Square>> pairs;
         for (int line : {cy, cy + 1})
             if (alongX)
@@ -189,10 +193,13 @@ Error Board::build(const Level &level) {
         y /= double(roomSquares_[size_t(r)].size());
     };
     for (int a : withPassage) {
-        double ax, ay, best = -1;
+        double ax;
+        double ay;
+        double best = -1;
         centre(a, ax, ay);
         for (int b : withPassage) {
-            double bx, by;
+            double bx;
+            double by;
             centre(b, bx, by);
             const double d = (ax - bx) * (ax - bx) + (ay - by) * (ay - by);
             if (b != a && d > best) {
@@ -229,7 +236,8 @@ Error Board::build(const Level &level) {
         for (const Square &k : kRecorded[r])
             if (roomAt(k) == r)
                 sq.push_back(k);
-        int maxX = INT_MIN, maxY = INT_MIN;
+        int maxX = INT_MIN;
+        int maxY = INT_MIN;
         for (const Square &k : squares) {
             maxX = std::max(maxX, k.x);
             maxY = std::max(maxY, k.y);

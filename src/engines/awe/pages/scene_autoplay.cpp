@@ -105,7 +105,10 @@ std::vector<const Ac2Record *> ScenePage::clickableObjects() const {
         if (!scripted(*o) && o->tag != "PCXX")
             continue;
         const Ac2Value *outline = o->field("listD");
-        int l, t, r, b;
+        int l;
+        int t;
+        int r;
+        int b;
         if (o->tag == "2DOB" && !(outline && outline->numbers.size() >= 3) && !objectRect(*o, l, t, r, b))
             continue;
         out.push_back(o);
@@ -145,7 +148,8 @@ bool ScenePage::pointFor(size_t i, int &x, int &y) const {
     const Ac2Record *target = objects[i];
     // Where the game's mouse can be (handleEvent: x to 1004, y to 748, or
     // 758 in a conversation).
-    const int maxX = 1004, maxY = dialogue_->active() ? 758 : 748;
+    const int maxX = 1004;
+    const int maxY = dialogue_->active() ? 758 : 748;
     auto scan = [&](int left, int top, int right, int bottom, int step) {
         for (int sy = std::max(top, 0); sy < std::min(bottom, maxY + 1); sy += step)
             for (int sx = std::max(left, 0); sx < std::min(right, maxX + 1); sx += step)
@@ -158,11 +162,15 @@ bool ScenePage::pointFor(size_t i, int &x, int &y) const {
     // Only its own rectangle or outline can be hit (0x40ef70); a
     // character without either by its bones, about where it stands.
     // (The outline when it has one: 0x40efa9.)
-    int l, t, r, b;
+    int l;
+    int t;
+    int r;
+    int b;
     if (const Ac2Value *outline = target->field("listD"); outline && outline->numbers.size() >= 3) {
         l = kScreenW, t = kScreenH, r = 0, b = 0;
         for (const auto &[ux, uy] : outline->numbers) {
-            const int px = int32_t(ux), py = int32_t(uy);
+            const int px = int32_t(ux);
+            const int py = int32_t(uy);
             l = std::min(l, px), r = std::max(r, px), t = std::min(t, py), b = std::max(b, py);
         }
         return scan(l, t, r + 1, b + 1, 2);
@@ -175,7 +183,8 @@ bool ScenePage::pointFor(size_t i, int &x, int &y) const {
         if (c.record == target)
             if (const Ac2Record *camr = scene_.camera()) {
                 const float feet[3] = {c.x, c.y, c.z};
-                float fx, fy;
+                float fx;
+                float fy;
                 if (SceneCamera::fromRecord(*camr).project(feet, kScreenW, kScreenH, fx, fy) &&
                     scan(int(fx) - 200, int(fy) - 500, int(fx) + 200, int(fy) + 20, 2))
                     return true;

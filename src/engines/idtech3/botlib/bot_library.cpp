@@ -64,7 +64,8 @@ int BotLibrary::loadMap(const std::string &mapName) {
     // item and weapon descriptions; the level's items.
     modelTypes_.clear();
     for (int e = 1; entityKey && e <= entityCount; ++e) {
-        std::string model, classname;
+        std::string model;
+        std::string classname;
         if (entityKey(e, "model", model) && model.size() > 1 && model[0] == '*' && entityKey(e, "classname", classname))
             modelTypes_[std::atoi(model.c_str() + 1)] = classname;
     }
@@ -135,6 +136,7 @@ BotScript::Loader BotLibrary::scriptLoader() const {
     };
 }
 
+// NOLINTNEXTLINE(readability-make-member-function-const): makes a bot act
 void BotLibrary::command(int client, const std::string &text) {
     if (clientCommand)
         clientCommand(client, text);

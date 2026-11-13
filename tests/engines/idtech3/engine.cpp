@@ -173,8 +173,10 @@ void world(ef::GameHost &game, const Bsp &bsp, Record &rec) {
     for (int x = -320; x <= 320; x += 40)
         for (int y = -96; y <= 96; y += 48)
             for (const float size : {0.f, 8.f, 15.f}) {
-                const Vec3f start{float(x) + 0.25f, float(y), 300}, end{float(x) - 3.5f, float(y) + 1, -200};
-                const Vec3f mins{-size, -size, -size}, maxs{size, size, size};
+                const Vec3f start{float(x) + 0.25f, float(y), 300};
+                const Vec3f end{float(x) - 3.5f, float(y) + 1, -200};
+                const Vec3f mins{-size, -size, -size};
+                const Vec3f maxs{size, size, size};
                 for (int model : {0, 1}) {
                     const TraceResult t = collision.trace(start, end, mins, maxs, model, -1);
                     hits += t.fraction < 1;
@@ -274,7 +276,9 @@ void play(const SearchSet &set, Record &rec) {
     // A stretch of play: the player runs forward, then strafes; every tenth
     // frame, the server's and the client's states go into the record.
     auto playFor = [&](const std::string &step, int frames, int8_t forward, int8_t right) {
-        Hash server, snapshots, scenes;
+        Hash server;
+        Hash snapshots;
+        Hash scenes;
         int got = 0;
         for (int i = 0; i < frames; ++i) {
             ef::GameHost::UserCommand cmd;

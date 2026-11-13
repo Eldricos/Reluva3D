@@ -20,8 +20,9 @@ makes one in build-tidy/ (or --build <folder>), configured with every
 engine enabled, newworlds and other disabled ones included, so no code is
 left unchecked; options after --cmake go to that CMake configure. Only
 Reluva's own files are checked, not SDL's or ImGui's, which the database
-lists too. Needs clang-tidy 18 (and its run-clang-tidy): set CLANG_TIDY
-and RUN_CLANG_TIDY to the programs if they aren't found under those
+lists too. Needs clang-tidy 18 (and its run-clang-tidy, and for --fix
+clang-apply-replacements): set CLANG_TIDY, RUN_CLANG_TIDY and
+CLANG_APPLY_REPLACEMENTS to the programs if they aren't found under those
 names, with or without -18.
 """
 
@@ -116,9 +117,19 @@ def main():
         alts = [re.escape(s) + "$" for s in sources] + [re.escape(f) + r".*\.cpp$" for f in folders]
         pattern = r"^(?!.*/_deps/).*/(" + "|".join(alts) + ")"
 
-    command = [run, "-p", build, "-quiet", f"-clang-tidy-binary={clang_tidy}", *checks]
+    # run-clang-tidy spells it -checks.
+    command = [run, "-p", build, "-quiet", f"-clang-tidy-binary={clang_tidy}",
+               *["-checks=" + c.split("=", 1)[1] for c in checks]]
     if fix:
-        command.append("-fix")
+        # The program that applies the fixes, once each, however many files
+        # include the header they're in.
+        apply = os.environ.get("CLANG_APPLY_REPLACEMENTS") or next(
+            (p for p in ("clang-apply-replacements-18", "clang-apply-replacements")
+             if subprocess.run(["which", p], capture_output=True).returncode == 0), None)
+        if not apply:
+            sys.exit("--fix: clang-apply-replacements (from clang-tidy 18) not found: "
+                     "set CLANG_APPLY_REPLACEMENTS to it")
+        command += ["-fix", f"-clang-apply-replacements-binary={apply}"]
     command.append(pattern)
     print("Running clang-tidy...", flush=True)
     done = subprocess.run(command, capture_output=True, text=True)

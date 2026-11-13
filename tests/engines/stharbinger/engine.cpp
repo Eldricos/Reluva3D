@@ -108,7 +108,8 @@ Event mouse(EventType type, int x, int y) {
 struct Packed {
     std::vector<std::pair<std::string, std::vector<uint8_t>>> files;
     void archive(const std::string &name, const std::vector<std::vector<uint8_t>> &entries) {
-        std::vector<uint8_t> all, lst;
+        std::vector<uint8_t> all;
+        std::vector<uint8_t> lst;
         for (const auto &e : entries) {
             putU32(lst, uint32_t(all.size()));
             all.insert(all.end(), e.begin(), e.end());
@@ -119,7 +120,8 @@ struct Packed {
     }
     // SSE.ALL, .LST and .CAT holding them, as disc 1's installer archive.
     void write(const std::filesystem::path &dir) {
-        std::vector<uint8_t> all, lst;
+        std::vector<uint8_t> all;
+        std::vector<uint8_t> lst;
         std::string cat = std::to_string(files.size()) + "\r\n";
         for (const auto &[name, data] : files) {
             putU32(lst, uint32_t(all.size()));
@@ -136,7 +138,8 @@ struct Packed {
 void makeDiscs(const std::filesystem::path &cd1, const std::filesystem::path &cd2) {
     // Scene S0: the opening video (ACTIONSEQ 28, on disc 2), an animation and
     // a sound, a hotspot to S1. S1 counts its visits.
-    ScriptBuilder s0, s1;
+    ScriptBuilder s0;
+    ScriptBuilder s1;
     s0.cmd(kCmdScene, {sym(0)})
         .cmd(kCmdActionSeq, {num(28), var(0)})
         .cmd(kCmdAnimDef, {sym(0), sym(kAnimModeClear)})

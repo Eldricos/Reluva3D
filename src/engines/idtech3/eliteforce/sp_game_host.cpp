@@ -128,7 +128,7 @@ int SpGameHost::importPosition(int slot) const {
     return slot < SendConsoleCommand ? slot + 1 : slot + 2;
 }
 
-void SpGameHost::import(int slot, std::function<uint32_t(x86::Cpu &)> fn) {
+void SpGameHost::import(int slot, const std::function<uint32_t(x86::Cpu &)> &fn) {
     // cdecl: the caller pops the arguments.
     const uint32_t address = cpu_->addNative("engine[" + std::to_string(slot) + "]", [this, slot, fn](x86::Cpu &c) {
         callCounts_.add(slot);
@@ -358,8 +358,10 @@ void SpGameHost::updateVoiceVolumes() {
     auto threshold = [&](const char *name, float fallback) {
         return cvars_.find(name) ? cvars_.value(name) : fallback;
     };
-    const float t1 = threshold("s_threshold1", 0.5f), t2 = threshold("s_threshold2", 4.0f),
-                t3 = threshold("s_threshold3", 7.0f), t4 = threshold("s_threshold4", 8.0f);
+    const float t1 = threshold("s_threshold1", 0.5f);
+    const float t2 = threshold("s_threshold2", 4.0f);
+    const float t3 = threshold("s_threshold3", 7.0f);
+    const float t4 = threshold("s_threshold4", 8.0f);
     for (auto it = voices_.begin(); it != voices_.end();) {
         const Voice &v = it->second;
         const size_t frames = v.sound->frames();
@@ -370,7 +372,8 @@ void SpGameHost::updateVoiceVolumes() {
             it = voices_.erase(it);
             continue;
         }
-        int sum = 0, n = 0;
+        int sum = 0;
+        int n = 0;
         for (size_t i = at; i < frames && n < 10; i += 100, ++n) {
             const int s = v.sound->samples[i * size_t(v.sound->channels)] >> 8;
             sum += s * s;
@@ -544,7 +547,8 @@ void SpGameHost::linkEntity(uint32_t address) {
     EntityShape shape;
     if (n < 0 || !entityShape(n, shape))
         return;
-    Vec3f absMin{}, absMax{};
+    Vec3f absMin{};
+    Vec3f absMax{};
     serverWorld_.link(n, shape, absMin, absMax);
     writeVec(address + kEntity.absMin, absMin);
     writeVec(address + kEntity.absMax, absMax);
@@ -578,7 +582,8 @@ void SpGameHost::writeTrace(uint32_t r, const TraceResult &t, int32_t hit) {
     writeVec(r + 12, t.endPos);
     writeVec(r + 24, t.normal);
     cpu_->write32(r + 36, floatBits(t.dist));
-    int type = 3, signs = 0;
+    int type = 3;
+    int signs = 0;
     for (int i = 0; i < 3; ++i) {
         if (t.normal[size_t(i)] == 1 || t.normal[size_t(i)] == -1)
             type = i;
@@ -680,6 +685,7 @@ void SpGameHost::writeVmCvar(uint32_t address, const CvarStore::Cvar &cv) {
     cpu_->writeString(address + 16, cv.value, 256);
 }
 
+// NOLINTNEXTLINE(readability-make-member-function-const): starts sounds
 void SpGameHost::playAmbient(const std::vector<raven::AmbientSets::Sound> &sounds) {
     if (!soundSystem)
         return;
@@ -803,7 +809,8 @@ uint32_t SpGameHost::cgameCall(x86::Cpu &c) {
     case 21:   // CM_PointContents(point, model)
     case 22: { // CM_TransformedPointContents(point, model, origin, angles)
         const Vec3f point = readVec(a(0));
-        const Vec3f origin = number == 22 ? readVec(a(2)) : Vec3f{}, angles = number == 22 ? readVec(a(3)) : Vec3f{};
+        const Vec3f origin = number == 22 ? readVec(a(2)) : Vec3f{};
+        const Vec3f angles = number == 22 ? readVec(a(3)) : Vec3f{};
         Vec3f p = point;
         for (int i = 0; i < 3; ++i)
             p[size_t(i)] -= origin[size_t(i)];
@@ -958,7 +965,8 @@ uint32_t SpGameHost::cgameCall(x86::Cpu &c) {
         return 0;
     }
     case 52: { // R_ModelBounds(model, mins, maxs)
-        Vec3f mins{}, maxs{};
+        Vec3f mins{};
+        Vec3f maxs{};
         const std::string &name = models_.name(int32_t(a(0)));
         if (!name.empty() && name[0] == '*') {
             if (world_)
@@ -1091,15 +1099,19 @@ void SpGameHost::clientTrace(x86::Cpu &c, bool transformed) {
     // (results, start, end, mins, maxs, model, brushmask[, origin, angles]):
     // against one model only (the client game adds the entities itself).
     auto a = [&c](int n) { return c.arg(n + 1); };
-    Vec3f start = readVec(a(1)), end = readVec(a(2));
-    const Vec3f mins = a(3) ? readVec(a(3)) : Vec3f{}, maxs = a(4) ? readVec(a(4)) : Vec3f{};
+    Vec3f start = readVec(a(1));
+    Vec3f end = readVec(a(2));
+    const Vec3f mins = a(3) ? readVec(a(3)) : Vec3f{};
+    const Vec3f maxs = a(4) ? readVec(a(4)) : Vec3f{};
     const uint32_t model = a(5);
     const int32_t mask = int32_t(a(6));
-    const Vec3f origin = transformed ? readVec(a(7)) : Vec3f{}, angles = transformed ? readVec(a(8)) : Vec3f{};
+    const Vec3f origin = transformed ? readVec(a(7)) : Vec3f{};
+    const Vec3f angles = transformed ? readVec(a(8)) : Vec3f{};
     TraceResult t;
     if (model == kTempBoxModel) {
         // A box isn't turned, as the original's.
-        Vec3f s = start, e = end;
+        Vec3f s = start;
+        Vec3f e = end;
         for (int i = 0; i < 3; ++i) {
             s[size_t(i)] -= origin[size_t(i)];
             e[size_t(i)] -= origin[size_t(i)];
@@ -1118,7 +1130,8 @@ void SpGameHost::tokenize(const std::string &text) {
     // Words split at spaces, with quoted runs kept whole.
     args_.clear();
     std::string word;
-    bool quoted = false, any = false;
+    bool quoted = false;
+    bool any = false;
     for (char ch : text) {
         if (ch == '"') {
             quoted = !quoted;
@@ -1145,7 +1158,8 @@ void SpGameHost::writeGlconfigTo(x86::Cpu &cpu, uint32_t address) {
     // renderer's, vendor's and version text (1024 each) and the extensions
     // (2048), then Quake III's numbers from 5120 with two more of Elite
     // Force's before the screen size (at 5168 and 5172).
-    constexpr uint32_t kSize = 5196, kNumbers = 5120;
+    constexpr uint32_t kSize = 5196;
+    constexpr uint32_t kNumbers = 5120;
     if (!cpu.valid(address, kSize))
         return;
     std::memset(cpu.memory().data() + address, 0, kSize);
@@ -1170,7 +1184,9 @@ void SpGameHost::writeGameState(uint32_t address) {
     // gameState_t (20100 bytes): each configstring's offset into the text
     // (1024), the text (16000), how much of it is used. Offset 0 is an
     // empty string.
-    constexpr uint32_t kStrings = 1024, kChars = 16000, kSize = 4 * kStrings + kChars + 4;
+    constexpr uint32_t kStrings = 1024;
+    constexpr uint32_t kChars = 16000;
+    constexpr uint32_t kSize = 4 * kStrings + kChars + 4;
     if (!cpu_->valid(address, kSize))
         return;
     std::memset(cpu_->memory().data() + address, 0, kSize);
@@ -1491,7 +1507,8 @@ void SpGameHost::addImports() {
     // Saved games: kept in memory for now.
     import(AppendToSaveGame, [this](x86::Cpu &c) -> uint32_t {
         // (id, data, length): into the saved game being written.
-        const uint32_t data = c.arg(1), length = c.arg(2);
+        const uint32_t data = c.arg(1);
+        const uint32_t length = c.arg(2);
         if (!saveWriter_ || !c.valid(data, length))
             return 0;
         saveWriter_->add(c.arg(0), c.memory().data() + data, length);
@@ -1503,7 +1520,8 @@ void SpGameHost::addImports() {
     // long. Optional (the Expansion Pack's other): a different chunk next
     // is left for later, and 0 returned.
     auto readChunk = [this](x86::Cpu &c, bool optional) -> uint32_t {
-        const uint32_t id = c.arg(0), length = c.arg(2);
+        const uint32_t id = c.arg(0);
+        const uint32_t length = c.arg(2);
         uint32_t buffer = c.arg(1);
         if (optional && (!saveReader_ || !saveReader_->peek(id)))
             return 0;
@@ -1529,7 +1547,7 @@ void SpGameHost::addImports() {
     if (expansion_) {
         // Its slots of their own (not through import(), which places the
         // 1.x slots).
-        auto own = [this](int position, const char *name, std::function<uint32_t(x86::Cpu &)> fn) {
+        auto own = [this](int position, const char *name, const std::function<uint32_t(x86::Cpu &)> &fn) {
             const uint32_t address = cpu_->addNative(name, [fn](x86::Cpu &c) {
                 c.reg[x86::Cpu::EAX] = fn(c);
                 return 0u;
@@ -1542,7 +1560,9 @@ void SpGameHost::addImports() {
             // (path, extension, buffer, size) -> how many, as that
             // engine's (expansionFileList, packFileList); "$modlist": the
             // mods' folders and descriptions (listMods).
-            const uint32_t path = c.arg(0), buffer = c.arg(2), size = c.arg(3);
+            const uint32_t path = c.arg(0);
+            const uint32_t buffer = c.arg(2);
+            const uint32_t size = c.arg(3);
             if (!path || int32_t(size) <= 0 || !c.valid(buffer, size))
                 return 0;
             const std::string folder = str(c, 0, 256);
@@ -1607,7 +1627,8 @@ void SpGameHost::addImports() {
             return 0u;
         }
         const int model = std::atoi(name.c_str() + 1);
-        Vec3f mins{}, maxs{};
+        Vec3f mins{};
+        Vec3f maxs{};
         if (!world_ || model <= 0 || !world_->modelBounds(model, mins, maxs)) {
             c.abort("SetBrushModel: the map has no model " + name);
             return 0u;
@@ -1634,7 +1655,8 @@ void SpGameHost::addImports() {
     auto inPvs = [this](x86::Cpu &c, bool ignorePortals) -> uint32_t {
         if (!world_)
             return 1;
-        const int l1 = world_->leafAt(readVec(c.arg(0))), l2 = world_->leafAt(readVec(c.arg(1)));
+        const int l1 = world_->leafAt(readVec(c.arg(0)));
+        const int l2 = world_->leafAt(readVec(c.arg(1)));
         if (l1 < 0 || l2 < 0)
             return 0;
         if (!map_->clusterVisible(map_->leafs[size_t(l1)].cluster, map_->leafs[size_t(l2)].cluster))
@@ -1663,7 +1685,8 @@ void SpGameHost::addImports() {
     });
     import(EntitiesInBox, [this](x86::Cpu &c) {
         // (mins, maxs, list of entity pointers, max) -> how many
-        const Vec3f mins = readVec(c.arg(0)), maxs = readVec(c.arg(1));
+        const Vec3f mins = readVec(c.arg(0));
+        const Vec3f maxs = readVec(c.arg(1));
         std::vector<int32_t> found;
         serverWorld_.entitiesInBox(mins, maxs, found);
         uint32_t count = 0;
@@ -1675,7 +1698,8 @@ void SpGameHost::addImports() {
         return count;
     });
     import(EntityContact, [this](x86::Cpu &c) -> uint32_t {
-        const Vec3f mins = readVec(c.arg(0)), maxs = readVec(c.arg(1));
+        const Vec3f mins = readVec(c.arg(0));
+        const Vec3f maxs = readVec(c.arg(1));
         const int32_t n = entityNumber(c.arg(2));
         if (n < 0)
             return 0;
@@ -1689,7 +1713,8 @@ void SpGameHost::addImports() {
                        ? 1
                        : 0;
         }
-        const Vec3f absMin = entityVec(n, kEntity.absMin), absMax = entityVec(n, kEntity.absMax);
+        const Vec3f absMin = entityVec(n, kEntity.absMin);
+        const Vec3f absMax = entityVec(n, kEntity.absMax);
         for (int i = 0; i < 3; ++i)
             if (absMin[size_t(i)] > maxs[size_t(i)] || absMax[size_t(i)] < mins[size_t(i)])
                 return 0;
@@ -1754,7 +1779,8 @@ Error writeSaveLevel(SaveWriter &w, SpGameHost &game, bool autosave) {
 }
 
 Error readSaveHeader(SaveReader &r, CvarStore &cvars, SaveHeader &out) {
-    int32_t count = 0, autosave = 0;
+    int32_t count = 0;
+    int32_t autosave = 0;
     if (Error e = r.nextText(chunkId("COMM"), out.comment))
         return e;
     if (Error e = r.next(chunkId("SHOT"), out.shot))
@@ -1764,7 +1790,8 @@ Error readSaveHeader(SaveReader &r, CvarStore &cvars, SaveHeader &out) {
     if (Error e = r.nextInt(chunkId("CVCN"), count))
         return e;
     for (int32_t i = 0; i < count; ++i) {
-        std::string cvar, value;
+        std::string cvar;
+        std::string value;
         if (Error e = r.nextText(chunkId("CVAR"), cvar))
             return e;
         if (Error e = r.nextText(chunkId("VALU"), value))
@@ -1795,7 +1822,9 @@ Error readSaveHeader(SaveReader &r, CvarStore &cvars, SaveHeader &out) {
 
 Error readSaveLevel(SaveReader &r, SpGameHost &game, bool autosave) {
     if (!autosave) {
-        int32_t time = 0, residual = 0, count = 0;
+        int32_t time = 0;
+        int32_t residual = 0;
+        int32_t count = 0;
         std::vector<uint8_t> ignored;
         if (Error e = r.nextInt(chunkId("TIME"), time))
             return e;
@@ -1832,7 +1861,8 @@ std::vector<std::string> expansionFileList(const SearchSet &files, std::string_v
             c = char(std::tolower(static_cast<unsigned char>(c)));
         return out;
     };
-    const std::string base = lower(path), ext = lower(extension);
+    const std::string base = lower(path);
+    const std::string ext = lower(extension);
     const auto baseDepth = depth(path);
     std::vector<std::string> out;
     std::set<std::string> seen;

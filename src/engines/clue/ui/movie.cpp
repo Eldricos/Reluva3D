@@ -48,7 +48,8 @@ Error Movie::audio(audio::Sound &out) const {
     out = {};
     if (!hasAudio())
         return Error::fail("AVI file without sound");
-    const int bits = decoder_.audioBits(), channels = decoder_.audioChannels();
+    const int bits = decoder_.audioBits();
+    const int channels = decoder_.audioChannels();
     if ((bits != 8 && bits != 16) || channels < 1 || channels > 2)
         return Error::fail("AVI sound isn't 8- or 16-bit PCM");
     out.rate = decoder_.audioRate();

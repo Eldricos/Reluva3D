@@ -194,7 +194,8 @@ void SoundViewer::stop() {
 }
 
 void SoundViewer::draw() {
-    const int w = screen_.w, h = screen_.h;
+    const int w = screen_.w;
+    const int h = screen_.h;
     for (int y = 0; y < h; ++y) {
         uint8_t *row = screen_.row(y);
         for (int x = 0; x < w; ++x, row += 4)
@@ -219,16 +220,20 @@ void SoundViewer::draw() {
     if (!sound || !sound->frames())
         return;
     // The waveform: each column's lowest and highest sample (first channel).
-    const size_t n = sound->frames(), ch = size_t(sound->channels);
+    const size_t n = sound->frames();
+    const size_t ch = size_t(sound->channels);
     const size_t playFrame = playing ? size_t(position) : n;
     for (int x = 0; x < w; ++x) {
-        const size_t from = n * size_t(x) / size_t(w), to = std::max(from + 1, n * size_t(x + 1) / size_t(w));
-        int lo = 32767, hi = -32768;
+        const size_t from = n * size_t(x) / size_t(w);
+        const size_t to = std::max(from + 1, n * size_t(x + 1) / size_t(w));
+        int lo = 32767;
+        int hi = -32768;
         for (size_t f = from; f < to && f < n; ++f) {
             lo = std::min(lo, int(sound->samples[f * ch]));
             hi = std::max(hi, int(sound->samples[f * ch]));
         }
-        const int y0 = mid - hi * (h / 2 - 20) / 32768, y1 = mid - lo * (h / 2 - 20) / 32768;
+        const int y0 = mid - hi * (h / 2 - 20) / 32768;
+        const int y1 = mid - lo * (h / 2 - 20) / 32768;
         const bool played = from < playFrame;
         for (int y = y0; y <= y1; ++y)
             plot(x, y, played ? 255 : 120, played ? 200 : 170, played ? 80 : 230);

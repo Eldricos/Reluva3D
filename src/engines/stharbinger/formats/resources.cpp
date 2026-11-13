@@ -88,7 +88,7 @@ bool Resources::hasResource(ListKind kind, const std::string &name) const {
     return !path.empty() && search_.has(path);
 }
 
-bool Resources::loadBackground(const std::string &name, Surface &surface, Palette &palette, bool &paletteLoaded) {
+bool Resources::loadBackground(const std::string &name, Surface &surface, Palette &palette, bool &paletteLoaded) const {
     paletteLoaded = false;
     auto stream = openFile(getResourcePath(kListBackgrounds, name));
     if (!stream)
@@ -104,12 +104,12 @@ bool Resources::loadBackground(const std::string &name, Surface &surface, Palett
     return true;
 }
 
-bool Resources::loadAnimation(const std::string &name, RleAnimation &anim) {
+bool Resources::loadAnimation(const std::string &name, RleAnimation &anim) const {
     auto stream = openFile(getResourcePath(kListAnims, name));
     return stream && anim.load(*stream);
 }
 
-bool Resources::loadSound(const std::string &name, std::vector<uint8_t> &data) {
+bool Resources::loadSound(const std::string &name, std::vector<uint8_t> &data) const {
     auto stream = openFile(getResourcePath(kListSounds, name));
     if (!stream)
         return false;
@@ -225,7 +225,7 @@ const std::vector<std::string> &Resources::getLinkDialogues() {
     return linkDialogues_;
 }
 
-std::vector<std::string> Resources::loadCredits() {
+std::vector<std::string> Resources::loadCredits() const {
     // DEEP.EXE is the DOS/4GW extender followed by the game: an MZ stub whose
     // e_lfanew points to an LE header. LE data page offsets are relative to that
     // stub. The credits are a table of 269 offsets into the data object, each to
@@ -240,7 +240,8 @@ std::vector<std::string> Resources::loadCredits() {
     }
     std::vector<uint8_t> exe = s->readAll();
     auto u32 = [&](size_t o) -> uint32_t { return o + 4 <= exe.size() ? readLE32(&exe[o]) : 0; };
-    size_t mz = 0, le = 0;
+    size_t mz = 0;
+    size_t le = 0;
     for (size_t i = 0; i + 0x40 <= exe.size(); i++) {
         if (exe[i] != 'M' || exe[i + 1] != 'Z')
             continue;
@@ -261,7 +262,9 @@ std::vector<std::string> Resources::loadCredits() {
     size_t dataPages = mz + u32(le + 0x80);
     for (uint32_t i = 0; i < numObjects; i++) {
         size_t o = objects + i * 24;
-        uint32_t size = u32(o), base = u32(o + 4), firstPage = u32(o + 12);
+        uint32_t size = u32(o);
+        uint32_t base = u32(o + 4);
+        uint32_t firstPage = u32(o + 12);
         if (kTableAddress < base || kTableAddress >= base + size)
             continue;
         size_t start = dataPages + size_t(firstPage - 1) * pageSize;

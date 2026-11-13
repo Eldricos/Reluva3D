@@ -252,7 +252,9 @@ static void import_takes_the_whole_installed_file() {
 // The CDs' folders given (STG-Engine's --cd1 and --cd2, the cd1 and cd2
 // settings here): searched as an import's are, the installed files first.
 static void cd_folders_given() {
-    stgtest::TempDir install, cd1, cd2;
+    stgtest::TempDir install;
+    stgtest::TempDir cd1;
+    stgtest::TempDir cd2;
     writeInstall(install, "");
     writeDisc(cd1, "", 1);
     writeDisc(cd2, "", 2);

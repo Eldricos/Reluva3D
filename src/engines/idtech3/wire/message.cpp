@@ -18,7 +18,9 @@ void MessageWriter::bits(uint32_t value, int count) {
         value &= (1u << count) - 1;
     while (count > 0) {
         const size_t index = bit_ >> 3;
-        const int used = int(bit_ & 7), room = 8 - used, take = count < room ? count : room;
+        const int used = int(bit_ & 7);
+        const int room = 8 - used;
+        const int take = count < room ? count : room;
         if (index >= data_.size())
             data_.push_back(0);
         data_[index] = uint8_t(data_[index] | ((value & ((1u << take) - 1)) << used));
@@ -73,7 +75,9 @@ uint32_t MessageReader::bits(int count) {
     int got = 0;
     while (got < count) {
         const size_t index = bit_ >> 3;
-        const int used = int(bit_ & 7), room = 8 - used, take = count - got < room ? count - got : room;
+        const int used = int(bit_ & 7);
+        const int room = 8 - used;
+        const int take = count - got < room ? count - got : room;
         if (index >= data_.size()) {
             overflowed_ = true;
             bit_ += size_t(count - got);

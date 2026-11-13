@@ -204,7 +204,9 @@ private:
 class Part {
 public:
     void init(const uint8_t *header) {
-        const uint32_t h0 = rd32(header), h1 = rd32(header + 4), h2 = rd32(header + 8);
+        const uint32_t h0 = rd32(header);
+        const uint32_t h1 = rd32(header + 4);
+        const uint32_t h2 = rd32(header + 8);
         literalValues_ = h0 & 0x1ff;
         window_ = h0 >> 9;
         lowValues_ = std::min<uint32_t>(window_ + 1, 4);
@@ -246,7 +248,9 @@ public:
         static constexpr uint32_t kLongLengths[4] = {128, 192, 256, 512};
         const uint32_t count = length < 61 ? length + 1 : kLongLengths[length - 61];
         const uint32_t window = std::min(window_, done_);
-        uint32_t low = 0, mid = 0, high = 0;
+        uint32_t low = 0;
+        uint32_t mid = 0;
+        uint32_t high = 0;
         if (!decode(low_, rd, lowValues_, low) || !decode(mid_, rd, (window >> 10) + 1, mid) || mid >= high_.size() ||
             !decode(high_[mid], rd, window < 0x400 ? (window >> 2) + 1 : 0x100, high))
             return false;

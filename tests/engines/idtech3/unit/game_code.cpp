@@ -231,7 +231,8 @@ static void testGameHost(const std::filesystem::path &tmp) {
         game.vm().writeInt(client + 44, 66);
         game.vm().writeInt(client + 48, 166);
         const auto withTimer = game.snapshot(0);
-        int32_t w44 = 0, w48 = -1;
+        int32_t w44 = 0;
+        int32_t w48 = -1;
         std::memcpy(&w44, &withTimer.playerState[44], 4);
         std::memcpy(&w48, &withTimer.playerState[48], 4);
         CHECK(w44 == 66 && w48 == 0 && game.clientInt(0, 48) == 166);

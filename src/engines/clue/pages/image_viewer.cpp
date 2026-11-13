@@ -17,8 +17,10 @@ constexpr int kInfoH = 26; // two lines of the built-in font
 } // namespace
 
 void fillRect(Surface &s, int x, int y, int w, int h, Color c) {
-    const int x0 = std::max(0, x), y0 = std::max(0, y);
-    const int x1 = std::min(s.w, x + w), y1 = std::min(s.h, y + h);
+    const int x0 = std::max(0, x);
+    const int y0 = std::max(0, y);
+    const int x1 = std::min(s.w, x + w);
+    const int y1 = std::min(s.h, y + h);
     for (int yy = y0; yy < y1; ++yy) {
         uint8_t *p = s.row(yy) + x0 * 4;
         for (int xx = x0; xx < x1; ++xx, p += 4) {

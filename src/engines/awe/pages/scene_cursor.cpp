@@ -94,10 +94,15 @@ bool ScenePage::objectRect(const Ac2Record &o, int &left, int &top, int &right, 
         if (c.record != &o)
             continue;
         const SceneCamera cam = SceneCamera::fromRecord(*camr);
-        const float was[3] = {o.f("x"), o.f("y"), o.f("z")}, now[3] = {c.x, c.y, c.z};
-        float x0, y0, x1, y1;
+        const float was[3] = {o.f("x"), o.f("y"), o.f("z")};
+        const float now[3] = {c.x, c.y, c.z};
+        float x0;
+        float y0;
+        float x1;
+        float y1;
         if (cam.project(was, kScreenW, kScreenH, x0, y0) && cam.project(now, kScreenW, kScreenH, x1, y1)) {
-            const int dx = int(std::lround(x1 - x0)), dy = int(std::lround(y1 - y0));
+            const int dx = int(std::lround(x1 - x0));
+            const int dy = int(std::lround(y1 - y0));
             left += dx, right += dx, top += dy, bottom += dy;
         }
         break;
@@ -109,7 +114,10 @@ bool ScenePage::hitObject(const Ac2Record &o, int sx, int sy) const {
     // 0x40ef70: in its outline if it has one, else in its rectangle.
     if (hasOutline(o))
         return inPolygon(o.field("listD")->numbers, sx, sy);
-    int l, t, r, b;
+    int l;
+    int t;
+    int r;
+    int b;
     return objectRect(o, l, t, r, b) && sx >= l && sx < r && sy >= t && sy < b;
 }
 
@@ -143,7 +151,8 @@ bool ScenePage::hitBones(const Ac2Record &o, int sx, int sy) const {
             }
             c.pickFrame = frame_;
         }
-        gfx::Vec3 from, dir;
+        gfx::Vec3 from;
+        gfx::Vec3 dir;
         SceneCamera::fromRecord(*camr).ray(float(sx), float(sy), kScreenW, kScreenH, from, dir);
         for (const Character::PickBox &b : c.pickBoxes)
             if (rayHitsBox(b.m, b.lo, b.hi, from, dir))
@@ -169,7 +178,10 @@ const Ac2Record *ScenePage::pickAt(int sx, int sy) const {
                     c.depth = ch.z;
         c.pickFirst = o->i("pickFirst") != 0;
         c.outline = hasOutline(*o);
-        int l, t, r, b;
+        int l;
+        int t;
+        int r;
+        int b;
         c.rect = objectRect(*o, l, t, r, b);
         c.clickable = clickable(*o);
         c.hit = hitObject(*o, sx, sy);
@@ -191,7 +203,8 @@ bool ScenePage::canUseOn(const std::string &item, const Ac2Record &o) {
     // with this one in hand (0x40e7e0 in use mode), or, for a character,
     // uselist.txt has a row for the item and it whose condition holds
     // (0x41c4b0).
-    const std::string name = fs::toLower(item), was = state_.held;
+    const std::string name = fs::toLower(item);
+    const std::string was = state_.held;
     state_.held = name;
     bool can = false;
     if (const Ac2Value *alternatives = o.field("listB"))
@@ -266,7 +279,8 @@ void ScenePage::drawCursor() {
         return;
     const Ac2Record *under = nullptr;
     const int cursor = cursorUnder(lastMouseX_, lastMouseY_, &under);
-    int x = lastMouseX_, y = lastMouseY_;
+    int x = lastMouseX_;
+    int y = lastMouseY_;
     auto put = [&](const std::string &file, int px, int py) {
         SpriteTransform t;
         t.x = float(px), t.y = float(py);

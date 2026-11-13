@@ -25,8 +25,10 @@ void plot(Surface &s, int x, int y, Color c) {
 }
 
 void line(Surface &s, int x0, int y0, int x1, int y1, Color c) {
-    const int dx = std::abs(x1 - x0), dy = -std::abs(y1 - y0);
-    const int sx = x0 < x1 ? 1 : -1, sy = y0 < y1 ? 1 : -1;
+    const int dx = std::abs(x1 - x0);
+    const int dy = -std::abs(y1 - y0);
+    const int sx = x0 < x1 ? 1 : -1;
+    const int sy = y0 < y1 ? 1 : -1;
     int err = dx + dy;
     for (int guard = 0; guard < 4096; ++guard) {
         plot(s, x0, y0, c);
@@ -102,7 +104,8 @@ void MansionViewer::handleEvent(const Event &ev) {
             // Go to the place clicked.
             const ScreenRect &b = mansion_.bounds();
             const double scale = std::max(double(b.w) / kScreenW, double(b.h) / kAreaH);
-            const int ox = (kScreenW - int(b.w / scale)) / 2, oy = (kAreaH - int(b.h / scale)) / 2;
+            const int ox = (kScreenW - int(b.w / scale)) / 2;
+            const int oy = (kAreaH - int(b.h / scale)) / 2;
             camX_ = b.x + int((ev.mouseX - ox) * scale) - kScreenW / 2;
             camY_ = b.y + int((ev.mouseY - oy) * scale) - kAreaH / 2;
             scroll(0, 0);
@@ -218,13 +221,19 @@ void MansionViewer::drawFootprint(const Mansion::Item &item) {
     const int ys[4] = {b.y, b.y, b.y + b.sizeY, b.y + b.sizeY};
     for (int z : {0, int(b.height)})
         for (int k = 0; k < 4; ++k) {
-            int x0, y0, x1, y1;
+            int x0;
+            int y0;
+            int x1;
+            int y1;
             toScreen(xs[k], ys[k], z, x0, y0);
             toScreen(xs[(k + 1) % 4], ys[(k + 1) % 4], z, x1, y1);
             line(screen_, x0, y0, x1, y1, z ? Color{255, 220, 60} : Color{255, 120, 40});
         }
     for (int k = 0; k < 4; ++k) {
-        int x0, y0, x1, y1;
+        int x0;
+        int y0;
+        int x1;
+        int y1;
         toScreen(xs[k], ys[k], 0, x0, y0);
         toScreen(xs[k], ys[k], b.height, x1, y1);
         line(screen_, x0, y0, x1, y1, {255, 170, 50});
@@ -239,7 +248,8 @@ const Mansion::Item *MansionViewer::pick(int x, int y) const {
             continue;
         // Its frame 0's pieces, where they aren't transparent.
         for (const Mansion::Piece &p : (*item.frames)[0]) {
-            const int px = x - item.anchorX - p.dx, py = y - item.anchorY - p.dy;
+            const int px = x - item.anchorX - p.dx;
+            const int py = y - item.anchorY - p.dy;
             const image::Image &img = p.image->pixels;
             if (px >= 0 && py >= 0 && px < img.w && py < img.h && img.pixel(px, py)[3])
                 return &item;
@@ -258,14 +268,20 @@ void MansionViewer::drawOverview() {
     fillRect(screen_, 0, 0, kScreenW, kAreaH, kBackground);
     // Shrink by averaging the pixels each screen pixel covers.
     const double scale = std::max(double(b.w) / kScreenW, double(b.h) / kAreaH);
-    const int w = int(b.w / scale), h = int(b.h / scale);
-    const int ox = (kScreenW - w) / 2, oy = (kAreaH - h) / 2;
+    const int w = int(b.w / scale);
+    const int h = int(b.h / scale);
+    const int ox = (kScreenW - w) / 2;
+    const int oy = (kAreaH - h) / 2;
     for (int y = 0; y < h; ++y)
         for (int x = 0; x < w; ++x) {
-            const int sx0 = int(x * scale), sy0 = int(y * scale);
+            const int sx0 = int(x * scale);
+            const int sy0 = int(y * scale);
             const int sx1 = std::min(b.w, std::max(sx0 + 1, int((x + 1) * scale)));
             const int sy1 = std::min(b.h, std::max(sy0 + 1, int((y + 1) * scale)));
-            unsigned r = 0, g = 0, bl = 0, n = 0;
+            unsigned r = 0;
+            unsigned g = 0;
+            unsigned bl = 0;
+            unsigned n = 0;
             for (int sy = sy0; sy < sy1; ++sy)
                 for (int sx = sx0; sx < sx1; ++sx) {
                     const uint8_t *p = whole_.row(sy) + sx * 4;
@@ -281,8 +297,10 @@ void MansionViewer::drawOverview() {
             d[3] = 255;
         }
     // Where the view is.
-    const int vx = ox + int((camX_ - b.x) / scale), vy = oy + int((camY_ - b.y) / scale);
-    const int vw = int(kScreenW / scale), vh = int(kAreaH / scale);
+    const int vx = ox + int((camX_ - b.x) / scale);
+    const int vy = oy + int((camY_ - b.y) / scale);
+    const int vw = int(kScreenW / scale);
+    const int vh = int(kAreaH / scale);
     line(screen_, vx, vy, vx + vw, vy, {255, 255, 255});
     line(screen_, vx + vw, vy, vx + vw, vy + vh, {255, 255, 255});
     line(screen_, vx + vw, vy + vh, vx, vy + vh, {255, 255, 255});

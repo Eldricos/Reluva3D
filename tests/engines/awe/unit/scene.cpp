@@ -17,8 +17,9 @@ namespace {
 void testCamera() {
     SceneCamera c;
     c.fovY = 0.645772f, c.nearPlane = 10, c.farPlane = 10000;
-    const float pos[3] = {-8.14098f, 121.795f, 515.485f}, ear[3] = {-0.232019f, -0.0174533f, 0},
-                off[3] = {-10, 276, 990};
+    const float pos[3] = {-8.14098f, 121.795f, 515.485f};
+    const float ear[3] = {-0.232019f, -0.0174533f, 0};
+    const float off[3] = {-10, 276, 990};
     for (int k = 0; k < 3; k++)
         c.position[k] = pos[k], c.elevAzimRoll[k] = ear[k], c.offset[k] = off[k];
     const float dllView[16] = {0.9998f, 0.0040f,  -0.0170f, 0, 0,       0.9732f,    0.2299f,     0,
@@ -31,7 +32,8 @@ void testCamera() {
                                 {-51.637f, 170, -317.618f, 481.2f, 768 - 359.8f},
                                 {-325.8f, 0, 216.3f, 236.6f, 768 - 96.1f}};
     for (const auto &p : points) {
-        float x = 0, y = 0;
+        float x = 0;
+        float y = 0;
         CHECK(c.project(p, 1024, 768, x, y));
         CHECK(std::fabs(x - p[3]) < 0.5f && std::fabs(y - p[4]) < 0.5f);
     }
@@ -46,11 +48,13 @@ void testCamera() {
     for (const auto &p : points) {
         if (p[1] != 0)
             continue;
-        float x = 0, z = 0;
+        float x = 0;
+        float z = 0;
         CHECK(c.floorAt(p[3], p[4], 1024, 768, x, z));
         CHECK(std::fabs(x - p[0]) < 2 && std::fabs(z - p[2]) < 2);
     }
-    float x, z;
+    float x;
+    float z;
     CHECK(!c.floorAt(512, 0, 1024, 768, x, z)); // above the horizon
 }
 
@@ -73,7 +77,8 @@ void testWalkGrid() {
     WalkGrid g;
     CHECK(g.load(camr) && g.cellSize() == 20);
     // The game's conversions: x = (a - 32) * 20 + 10, z = (32 - b) * 20 - 10.
-    float x, z;
+    float x;
+    float z;
     g.centre({31, 0}, x, z);
     CHECK(x == -10 && z == 630);
     WalkGrid::Cell c = g.cellAt(-10, 630);
@@ -173,7 +178,8 @@ void testSprite() {
     // degrees about its top-left corner.
     SpriteTransform t;
     t.x = 100, t.y = 54, t.scaleX = -1.5f, t.scaleY = 1.5f, t.roll = -0.698132f;
-    float x, y;
+    float x;
+    float y;
     t.apply(0, 0, x, y);
     CHECK(x == 100 && y == 54);
     t.apply(256, 256, x, y);
@@ -261,7 +267,8 @@ void testParticles() {
     ParticleSettings b;
     b.mode = 0, b.velocity[1] = 0, b.gravity = 0, b.burst = 1, b.interval = 100, b.spread = 1, b.sway = 0;
     ParticleSystem breath(b);
-    const float mouth[3] = {100, 160, -50}, ahead[3] = {0, 0, 50};
+    const float mouth[3] = {100, 160, -50};
+    const float ahead[3] = {0, 0, 50};
     breath.setEmitter(mouth, ahead);
     breath.update(0.001f);
     breath.update(1);
@@ -321,7 +328,9 @@ void testPicking() {
     gfx::Mat4 m = gfx::identity();
     m[0] = 0, m[1] = 1, m[4] = -1, m[5] = 0; // 90 degrees about z
     m[12] = 100, m[13] = 0, m[14] = 0;
-    const float lo[3] = {0, -5, -5}, hi[3] = {50, 5, 5}; // along the bone's x: the world's +y
+    // along the bone's x: the world's +y
+    const float lo[3] = {0, -5, -5};
+    const float hi[3] = {50, 5, 5};
     CHECK(rayHitsBox(m, lo, hi, {100, 25, -100}, {0, 0, 1}));
     CHECK(!rayHitsBox(m, lo, hi, {100, 60, -100}, {0, 0, 1}));
     CHECK(!rayHitsBox(m, lo, hi, {100, 25, -100}, {0, 0, -1})); // behind the ray's start
@@ -331,9 +340,11 @@ void testPicking() {
     SceneCamera cam;
     cam.fovY = 0.645772f, cam.nearPlane = 10, cam.farPlane = 10000;
     cam.position[1] = 120, cam.elevAzimRoll[0] = -0.23f, cam.offset[1] = 276, cam.offset[2] = 990;
-    gfx::Vec3 from, dir;
+    gfx::Vec3 from;
+    gfx::Vec3 dir;
     cam.ray(400, 600, 1024, 768, from, dir);
-    float x = 0, z = 0;
+    float x = 0;
+    float z = 0;
     CHECK(cam.floorAt(400, 600, 1024, 768, x, z));
     const float k = -from[1] / dir[1];
     CHECK(std::fabs(from[0] + k * dir[0] - x) < 0.01f && std::fabs(from[2] + k * dir[2] - z) < 0.01f);
@@ -365,14 +376,17 @@ void testShadows() {
     CHECK(l[0] == 100 && l[1] == 2000 && l[2] == 0);
     CHECK(shadowLight(Ac2Scene())[1] == 1500);
     // Flattened onto the floor along the line from the light.
-    const float head[3] = {100, 1000, 0}, foot[3] = {30, 0, 40};
+    const float head[3] = {100, 1000, 0};
+    const float foot[3] = {30, 0, 40};
     const std::array<float, 3> p = flattenOntoFloor({0, 2000, 0}, head);
     CHECK(std::abs(p[0] - 200) < 1e-3f && p[1] == 0 && p[2] == 0);
     const std::array<float, 3> q = flattenOntoFloor({0, 2000, 0}, foot);
     CHECK(q[0] == 30 && q[2] == 40);
     // The mask: pixel centres inside, either winding, its box kept.
     CoverageMask m(16, 16);
-    const float a[2] = {0, 0}, b[2] = {8, 0}, c[2] = {0, 8};
+    const float a[2] = {0, 0};
+    const float b[2] = {8, 0};
+    const float c[2] = {0, 8};
     m.fillTriangle(a, c, b);
     CHECK(m.at(1, 1) && m.at(6, 0) && !m.at(7, 7) && !m.at(9, 1));
     CHECK(m.minX() == 0 && m.minY() == 0 && m.maxX() <= 8 && !m.empty());
@@ -390,7 +404,10 @@ void testShadows() {
     // own value and depth, pictures taking it back to 0.
     ShadowStencil st(8, 8);
     auto rect = [&](float x0, float x1, float z, uint8_t ref, bool depth) {
-        const float a0[3] = {x0, 0, z}, a1[3] = {x1, 0, z}, a2[3] = {x1, 8, z}, a3[3] = {x0, 8, z};
+        const float a0[3] = {x0, 0, z};
+        const float a1[3] = {x1, 0, z};
+        const float a2[3] = {x1, 8, z};
+        const float a3[3] = {x0, 8, z};
         st.fillTriangle(a0, a1, a2, ref, depth);
         st.fillTriangle(a0, a2, a3, ref, depth);
     };
@@ -457,7 +474,9 @@ void testLighting() {
     CHECK(lit.lights.size() == 2 && std::abs(lit.ambient[0] - 79 / 255.0f) < 1e-6f && lit.ambient[1] == 127 / 255.0f);
     Material material;
     material.ambient = {0.5f, 0.5f, 0.5f};
-    const float origin[3] = {0, 0, 0}, up[3] = {0, 1, 0}, down[3] = {0, -1, 0};
+    const float origin[3] = {0, 0, 0};
+    const float up[3] = {0, 1, 0};
+    const float down[3] = {0, -1, 0};
     Rgb c = lightVertex(lit, material, origin, up);
     CHECK(std::abs(c[0] - (79 / 510.0f + 0.5f)) < 1e-5f && c[2] == 1);
     c = lightVertex(lit, material, origin, down);

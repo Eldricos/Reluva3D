@@ -46,11 +46,16 @@ constexpr int kA1 = 2896, kA2 = 2217, kA3 = 3784, kA4 = -5352;
 
 template<typename Out, typename Munge>
 void idct8(const int32_t *s, int step, Out *d, int dstep, Munge munge) {
-    const int a0 = s[0] + s[4 * step], a1 = s[0] - s[4 * step];
-    const int a2 = s[2 * step] + s[6 * step], a3 = (kA1 * (s[2 * step] - s[6 * step])) >> 11;
-    const int a4 = s[5 * step] + s[3 * step], a5 = s[5 * step] - s[3 * step];
-    const int a6 = s[1 * step] + s[7 * step], a7 = s[1 * step] - s[7 * step];
-    const int b0 = a4 + a6, b1 = (kA3 * (a5 + a7)) >> 11;
+    const int a0 = s[0] + s[4 * step];
+    const int a1 = s[0] - s[4 * step];
+    const int a2 = s[2 * step] + s[6 * step];
+    const int a3 = (kA1 * (s[2 * step] - s[6 * step])) >> 11;
+    const int a4 = s[5 * step] + s[3 * step];
+    const int a5 = s[5 * step] - s[3 * step];
+    const int a6 = s[1 * step] + s[7 * step];
+    const int a7 = s[1 * step] - s[7 * step];
+    const int b0 = a4 + a6;
+    const int b1 = (kA3 * (a5 + a7)) >> 11;
     const int b2 = ((kA4 * a5) >> 11) - b0 + b1;
     const int b3 = ((kA1 * (a6 - a4)) >> 11) - b2;
     const int b4 = ((kA2 * a7) >> 11) + b3 - b1;
@@ -97,7 +102,8 @@ void inverseFft(std::vector<std::complex<double>> &a) {
         for (size_t i = 0; i < n; i += len) {
             std::complex<double> wn(1, 0);
             for (size_t k = 0; k < len / 2; ++k, wn *= w) {
-                const auto u = a[i + k], v = a[i + k + len / 2] * wn;
+                const auto u = a[i + k];
+                const auto v = a[i + k + len / 2] * wn;
                 a[i + k] = u + v;
                 a[i + k + len / 2] = u - v;
             }
@@ -164,7 +170,8 @@ Error Movie::open(std::vector<uint8_t> file) {
     height_ = int(le32(p + 24));
     rateNum_ = le32(p + 28);
     rateDen_ = le32(p + 32);
-    const uint32_t flags = le32(p + 36), tracks = le32(p + 40);
+    const uint32_t flags = le32(p + 36);
+    const uint32_t tracks = le32(p + 40);
     flags_ = flags;
     if (width_ <= 0 || height_ <= 0 || width_ > 4096 || height_ > 4096 || !rateNum_ || !rateDen_ || tracks > 256)
         return Error::fail("The Bink header is damaged");
@@ -391,7 +398,8 @@ void Movie::toRgba(std::vector<uint8_t> &out, Rgb how) const {
                 const int l =
                     ((std::max(y[size_t(row) * size_t(lumaPitch_) + size_t(col)] - 16, 0) << 2) * 0x4a85) >> 16;
                 const size_t c = size_t(row / 2) * size_t(chromaPitch_) + size_t(col / 2);
-                const int U = u[c], V = v[c];
+                const int U = u[c];
+                const int V = v[c];
                 uint8_t *o = &out[(size_t(row) * size_t(width_) + size_t(col)) * 4];
                 o[0] = clampByte(l + t.r[V]);
                 o[1] = clampByte(l + t.gu[U] + t.gv[V]);
@@ -404,7 +412,8 @@ void Movie::toRgba(std::vector<uint8_t> &out, Rgb how) const {
         for (int col = 0; col < width_; ++col) {
             const int Y = (y[size_t(row) * size_t(lumaPitch_) + size_t(col)] - 16) * 298;
             const size_t c = size_t(row / 2) * size_t(chromaPitch_) + size_t(col / 2);
-            const int U = u[c] - 128, V = v[c] - 128;
+            const int U = u[c] - 128;
+            const int V = v[c] - 128;
             uint8_t *o = &out[(size_t(row) * size_t(width_) + size_t(col)) * 4];
             o[0] = clampByte((Y + 409 * V + 128) >> 8);
             o[1] = clampByte((Y - 100 * U - 208 * V + 128) >> 8);
@@ -437,13 +446,17 @@ void Movie::readTree(Bits &b, Tree &t) {
                 t.symbols[size_t(++n)] = uint8_t(i);
         return;
     }
-    std::array<uint8_t, 16> in = t.symbols, out{};
+    std::array<uint8_t, 16> in = t.symbols;
+    std::array<uint8_t, 16> out{};
     const int depth = int(b.get(2));
     for (int level = 0; level <= depth; ++level) {
         const int size = 1 << level;
         for (int j = 0; j < 16; j += size * 2) {
-            int a = j, c = j + size, o = j;
-            int left = size, right = size;
+            int a = j;
+            int c = j + size;
+            int o = j;
+            int left = size;
+            int right = size;
             while (left && right) {
                 if (!b.bit()) {
                     out[size_t(o++)] = in[size_t(a++)];
@@ -643,7 +656,8 @@ void Movie::decodePlane(Bits &b, int planeIndex, bool chroma) {
                     std::memcpy(d + r * pitch, src + r * pitch, size_t(n));
             };
             auto motion = [&]() {
-                const int dx = int8_t(value(XOff)), dy = int8_t(value(YOff));
+                const int dx = int8_t(value(XOff));
+                const int dy = int8_t(value(YOff));
                 const int from = at + dy * pitch + dx;
                 if (from >= 0 && from + 7 * pitch + 8 <= size)
                     copyFrom(prev + from, 8);
@@ -652,7 +666,8 @@ void Movie::decodePlane(Bits &b, int planeIndex, bool chroma) {
             };
             // Fills an 8x8 block, or (scaled) a 16x16 one at half resolution.
             auto put = [&](int i, int v, bool scaled) {
-                const int x = i & 7, y = i >> 3;
+                const int x = i & 7;
+                const int y = i >> 3;
                 if (!scaled) {
                     d[y * pitch + x] = uint8_t(v);
                 } else {
@@ -681,7 +696,8 @@ void Movie::decodePlane(Bits &b, int planeIndex, bool chroma) {
                     put(*scan, value(Colors), scaled);
             };
             auto pattern = [&](bool scaled) {
-                const int c0 = value(Colors), c1 = value(Colors);
+                const int c0 = value(Colors);
+                const int c1 = value(Colors);
                 for (int y = 0; y < 8; ++y) {
                     int v = value(Pattern);
                     for (int x = 0; x < 8; ++x, v >>= 1)
@@ -693,7 +709,8 @@ void Movie::decodePlane(Bits &b, int planeIndex, bool chroma) {
                     put(i, value(Colors), scaled);
             };
             auto intra = [&](bool scaled) {
-                int32_t block[64] = {}, out[64];
+                int32_t block[64] = {};
+                int32_t out[64];
                 block[0] = value(IntraDC);
                 readDCTCoefficients(b, block, true);
                 idct(block, out);
@@ -758,7 +775,8 @@ void Movie::decodePlane(Bits &b, int planeIndex, bool chroma) {
             }
             case Inter: {
                 motion();
-                int32_t block[64] = {}, out[64];
+                int32_t block[64] = {};
+                int32_t out[64];
                 block[0] = value(InterDC);
                 readDCTCoefficients(b, block, false);
                 idct(block, out);
@@ -783,9 +801,12 @@ void Movie::decodePlane(Bits &b, int planeIndex, bool chroma) {
 void Movie::readDCTCoefficients(Bits &b, int32_t block[64], bool intra) {
     // Coefficients by bit planes, from the top: groups of four split as
     // the bits say (a list of groups to look at, and single ones found).
-    int found[64], foundCount = 0;
-    int listStart = 64, listEnd = 64;
-    int coef[128], mode[128];
+    int found[64];
+    int foundCount = 0;
+    int listStart = 64;
+    int listEnd = 64;
+    int coef[128];
+    int mode[128];
     auto add = [&](int c, int m) {
         coef[listEnd] = c;
         mode[listEnd++] = m;
@@ -857,9 +878,12 @@ void Movie::readResidue(Bits &b, int32_t block[64], int masks) {
     // The difference after motion, bit plane by bit plane from a mask of
     // 1 << (3 bits): first refining those found, then finding more as
     // for the DCT; at most `masks` values in all.
-    int found[64], foundCount = 0;
-    int listStart = 64, listEnd = 64;
-    int coef[128], mode[128];
+    int found[64];
+    int foundCount = 0;
+    int listStart = 64;
+    int listEnd = 64;
+    int coef[128];
+    int mode[128];
     auto add = [&](int c, int m) {
         coef[listEnd] = c;
         mode[listEnd++] = m;

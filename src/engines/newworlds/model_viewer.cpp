@@ -109,7 +109,8 @@ void ModelViewer::show(int index) {
     selectedPoint_ = -1;
 
     // Frame the model: centre of its bounding box, distance to the farthest vertex.
-    float lo[3] = {1e30f, 1e30f, 1e30f}, hi[3] = {-1e30f, -1e30f, -1e30f};
+    float lo[3] = {1e30f, 1e30f, 1e30f};
+    float hi[3] = {-1e30f, -1e30f, -1e30f};
     for (const auto &part : model_.parts)
         for (const auto &v : part.vertices) {
             const float c[3] = {v.x, v.y, v.z};
@@ -393,7 +394,8 @@ void ModelViewer::updateTitle() {
 }
 
 void ModelViewer::render() {
-    const int w = screen_.w, h = screen_.h;
+    const int w = screen_.w;
+    const int h = screen_.h;
     for (int y = 0; y < h; ++y) { // dark blue-grey gradient
         uint8_t *row = screen_.row(y);
         const uint8_t v = uint8_t(20 + 30 * y / h);
@@ -551,7 +553,8 @@ void ModelViewer::render() {
                 continue;
             const ScreenVertex sv = cam.project(v);
             const bool selected = int(i) == selectedPoint_;
-            static const uint8_t kPoint[3] = {255, 210, 40}, kSelected[3] = {255, 60, 60};
+            static const uint8_t kPoint[3] = {255, 210, 40};
+            static const uint8_t kSelected[3] = {255, 60, 60};
             const float r = selected ? 9.0f : 4.0f;
             for (float d = -1; d <= 1; d += 1) { // three pixels thick
                 drawLine(sv.x - r, sv.y + d, sv.x + r, sv.y + d, selected ? kSelected : kPoint);
@@ -564,13 +567,15 @@ void ModelViewer::drawLine(float x0, float y0, float x1, float y1, const uint8_t
     static const uint8_t kOutline[3] = {240, 240, 200};
     if (!colour)
         colour = kOutline;
-    const float dx = x1 - x0, dy = y1 - y0;
+    const float dx = x1 - x0;
+    const float dy = y1 - y0;
     const int steps = int(std::ceil(std::max(std::fabs(dx), std::fabs(dy))));
     if (steps > 4 * (screen_.w + screen_.h))
         return; // nearly behind the camera; not worth drawing
     for (int i = 0; i <= steps; ++i) {
         const float t = steps ? float(i) / float(steps) : 0;
-        const int x = int(x0 + dx * t), y = int(y0 + dy * t);
+        const int x = int(x0 + dx * t);
+        const int y = int(y0 + dy * t);
         if (x < 0 || y < 0 || x >= screen_.w || y >= screen_.h)
             continue;
         uint8_t *p = screen_.row(y) + x * 4;

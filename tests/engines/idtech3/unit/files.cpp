@@ -262,7 +262,8 @@ static void testModList(const std::filesystem::path &tmp) {
 // A mod's files over the game's: the install's, then the home folder's.
 static void testMountMod(const std::filesystem::path &tmp) {
     std::filesystem::remove_all(tmp);
-    const std::filesystem::path install = tmp / "install", home = tmp / "home";
+    const std::filesystem::path install = tmp / "install";
+    const std::filesystem::path home = tmp / "home";
     auto zip = [](const char *name, const char *text) { return test::buildZip({{name, test::toBytes(text), {}}}); };
     test::writeFile(install / "BaseEF" / "pak0.pk3", zip("a.txt", "base"));
     test::writeFile(install / "BaseEF" / "pak1.pk3", zip("b.txt", "base"));

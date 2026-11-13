@@ -153,14 +153,16 @@ Error expandCurve(const CurveData &data, const std::vector<float> &identity, Cur
         // was left out (and its sign), rebuilt as the square root of what
         // the others leave of 1.
         const bool wide = CurveFormat(data.format) == CurveFormat::D4nK16uC15u;
-        const unsigned bits = wide ? 15 : 7, mask = (1u << bits) - 1;
+        const unsigned bits = wide ? 15 : 7;
+        const unsigned mask = (1u << bits) - 1;
         const std::vector<uint16_t> &kc = data.knotsControls;
         const size_t n = kc.size() / 4;
         const float knotScale = float(1.0 / double(data.oneOverKnotScale));
         // Each component's range: four 4-bit entries of the table, x's in
         // the low bits; the scale spread over the values' steps (1/127 or
         // 1/32767, at 0x50055270 and 0x50055268 in the DLL).
-        double scale[4], offset[4];
+        double scale[4];
+        double offset[4];
         for (unsigned c = 0; c < 4; c++) {
             const Range r = quaternionRange((data.packed >> (4 * c)) & 15);
             scale[c] = float(double(r.scale) * double(1.0f / float(mask)));

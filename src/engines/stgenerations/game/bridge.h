@@ -177,7 +177,7 @@ private:
     void drawMap(Canvas &screen);
     void drawPanel(Canvas &screen);
     void drawText(Canvas &screen, const std::string &text, int x, int y, const Rect *clip = nullptr);
-    void drawDisc(Canvas &screen, const RgbImage &texture, int frame, int cx, int cy, int r, double light);
+    void drawDisc(Canvas &screen, const RgbImage &texture, int frame, int cx, int cy, int r, double light) const;
     // The object under (x, y) on the map, or empty.
     std::string hit(int x, int y) const;
     std::vector<std::string> wrapText(const std::string &text, int width) const;

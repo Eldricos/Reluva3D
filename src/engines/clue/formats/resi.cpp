@@ -82,7 +82,8 @@ Error parseResi(const std::vector<uint8_t> &data, Resi &out) {
     Reader r(data);
     for (int i = 0; i < 4; ++i)
         r.u8();
-    const int dialogs = r.u8(), fonts = r.u8();
+    const int dialogs = r.u8();
+    const int fonts = r.u8();
     for (int i = 0; i < fonts && !r.fail(); ++i) {
         ResiFont f;
         f.id = uint32_t(r.i32());

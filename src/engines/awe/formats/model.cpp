@@ -45,7 +45,8 @@ Curve readCurve(const Gr2Object &o) {
     if (!o.valid())
         return c;
     c.degree = int(o.number("Degree"));
-    const uint32_t knots = o.count("Knots"), controls = o.count("Controls");
+    const uint32_t knots = o.count("Knots");
+    const uint32_t controls = o.count("Controls");
     c.knots.reserve(knots);
     for (uint32_t i = 0; i < knots; i++)
         c.knots.push_back(float(o.element("Knots", i).number("Real32")));
@@ -74,7 +75,10 @@ Gr2Object materialTexture(const Gr2Object &material) {
 } // namespace
 
 Mat4 toMatrix(const BoneTransform &t) {
-    const float x = t.orientation[0], y = t.orientation[1], z = t.orientation[2], w = t.orientation[3];
+    const float x = t.orientation[0];
+    const float y = t.orientation[1];
+    const float z = t.orientation[2];
+    const float w = t.orientation[3];
     // The rotation's rows.
     const float r[9] = {1 - 2 * (y * y + z * z), 2 * (x * y - z * w),     2 * (x * z + y * w),
                         2 * (x * y + z * w),     1 - 2 * (x * x + z * z), 2 * (y * z - x * w),
@@ -245,7 +249,8 @@ Error loadModel(const Gr2File &file, Model &out) {
             out_mesh.vertices.push_back(dst);
         }
         const Gr2Object topology = mesh.object("PrimaryTopology");
-        const uint32_t n32 = topology.count("Indices"), n16 = topology.count("Indices16");
+        const uint32_t n32 = topology.count("Indices");
+        const uint32_t n16 = topology.count("Indices16");
         for (uint32_t i = 0; i < n32; i++)
             out_mesh.indices.push_back(uint32_t(topology.element("Indices", i).number("Int32")));
         for (uint32_t i = 0; i < n16; i++)
@@ -309,7 +314,8 @@ void Curve::evaluate(float t, int dimension, float *out, const CurveLoop &loop) 
     const ptrdiff_t real = loop.forward && looping ? n - 1 : n; // knots used as they are
     const ptrdiff_t period = std::max<ptrdiff_t>(1, n - 1);
     bool filled = false;
-    double window[6], values[4][kMaxDimension];
+    double window[6];
+    double values[4][kMaxDimension];
     for (ptrdiff_t j = k - p; j < k + p; j++) {
         ptrdiff_t from = j;
         float offset = 0;
@@ -346,7 +352,8 @@ void Curve::evaluate(float t, int dimension, float *out, const CurveLoop &loop) 
     // floats); window[i] is knot k - p + i.
     for (int r = 1; r <= p; r++)
         for (int j = p; j >= r; j--) {
-            const double lo = window[j - 1], hi = window[j + p - r];
+            const double lo = window[j - 1];
+            const double hi = window[j + p - r];
             const double a = hi > lo ? (double(t) - lo) / (hi - lo) : 0.0;
             for (int c = 0; c < dimension; c++)
                 values[j][c] = (1 - a) * values[j - 1][c] + a * values[j][c];
@@ -428,9 +435,14 @@ Error dllCurveAddresses(const Gr2File &file, GrannyDll &dll, uint32_t fileInfo,
     out.clear();
     // The DLL's structures are its own types, which it converts the older
     // files to: their members' offsets lead to the curves in its memory.
-    const uint32_t infoType = dll.type("GrannyFileInfoType"), animType = dll.type("GrannyAnimationType"),
-                   groupType = dll.type("GrannyTrackGroupType"), trackType = dll.type("GrannyTransformTrackType");
-    uint32_t animations = 0, groups = 0, tracks = 0, curves[3] = {0, 0, 0};
+    const uint32_t infoType = dll.type("GrannyFileInfoType");
+    const uint32_t animType = dll.type("GrannyAnimationType");
+    const uint32_t groupType = dll.type("GrannyTrackGroupType");
+    const uint32_t trackType = dll.type("GrannyTransformTrackType");
+    uint32_t animations = 0;
+    uint32_t groups = 0;
+    uint32_t tracks = 0;
+    uint32_t curves[3] = {0, 0, 0};
     bool found =
         infoType && animType && groupType && trackType && dll.memberOffset(infoType, "Animations", animations) &&
         dll.memberOffset(animType, "TrackGroups", groups) && dll.memberOffset(groupType, "TransformTracks", tracks);
@@ -441,7 +453,8 @@ Error dllCurveAddresses(const Gr2File &file, GrannyDll &dll, uint32_t fileInfo,
     // file info -> Animations[0] -> TrackGroups[0] -> TransformTracks
     const uint32_t animation = dll.read32(dll.read32(fileInfo + animations + 4));
     const uint32_t trackGroup = dll.read32(dll.read32(animation + groups + 4));
-    const uint32_t first = dll.read32(trackGroup + tracks + 4), count = dll.read32(trackGroup + tracks);
+    const uint32_t first = dll.read32(trackGroup + tracks + 4);
+    const uint32_t count = dll.read32(trackGroup + tracks);
     const uint32_t stride = dll.typeSize(trackType);
     const Gr2Object group = file.root().element("Animations", 0).element("TrackGroups", 0);
     if (!animation || !trackGroup || !first || count != group.count("TransformTracks"))
@@ -566,7 +579,9 @@ void skin(const ModelMesh &mesh, const Pose &pose, std::vector<std::array<float,
     normals.resize(mesh.vertices.size());
     for (size_t v = 0; v < mesh.vertices.size(); v++) {
         const ModelVertex &src = mesh.vertices[v];
-        float p[3] = {0, 0, 0}, nrm[3] = {0, 0, 0}, total = 0;
+        float p[3] = {0, 0, 0};
+        float nrm[3] = {0, 0, 0};
+        float total = 0;
         for (int k = 0; k < 4; k++) {
             const float w = src.weights[k];
             if (w <= 0 || src.bones[k] >= pose.skinning.size())

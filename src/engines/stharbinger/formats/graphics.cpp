@@ -32,7 +32,8 @@ bool loadCMP(SeekableReadStream &stream, Surface &surface, Palette *palette, boo
     static const struct {
         int w, h;
     } kSizes[] = {{640, 480}, {640, 400}, {320, 200}, {640, 350}};
-    int w = 0, h = 0;
+    int w = 0;
+    int h = 0;
     bool tail = false;
     for (const auto &s : kSizes) {
         size_t n = size_t(s.w) * s.h;
@@ -132,14 +133,16 @@ void RleAnimation::drawFrameAt(int i, Surface &dst, int ox, int oy, const Rect *
                       std::min(dst.h, clip->bottom));
     const uint8_t *p = f.data.data();
     const uint8_t *end = p + f.data.size();
-    int row = -1, x = 0;
+    int row = -1;
+    int x = 0;
 
     // Writes `n` pixels of the current row, clipped to the frame and the surface.
     auto put = [&](const uint8_t *src, int n, bool run) {
         int sy = oy + row;
         if (row < f.h && sy >= bounds.top && sy < bounds.bottom) {
             for (int k = 0; k < n; k++) {
-                int fx = x + k, sx = ox + fx;
+                int fx = x + k;
+                int sx = ox + fx;
                 if (fx < f.w && sx >= bounds.left && sx < bounds.right)
                     *draw::at(dst, sx, sy) = run ? *src : src[k];
             }
@@ -178,13 +181,16 @@ void RleAnimation::drawFrameAt(int i, Surface &dst, int ox, int oy, const Rect *
 }
 
 void drawPhaserBeam(Surface &dst, int x0, int y0, int x1, int y1, uint8_t color) {
-    int dx = std::abs(x1 - x0), dy = std::abs(y1 - y0);
-    int sx = x0 < x1 ? 1 : -1, sy = y0 < y1 ? 1 : -1;
+    int dx = std::abs(x1 - x0);
+    int dy = std::abs(y1 - y0);
+    int sx = x0 < x1 ? 1 : -1;
+    int sy = y0 < y1 ? 1 : -1;
     int len = std::max(dx, dy);
     int every = std::max(1, len / 12);
     int width = 12;
     int err = dx - dy;
-    int x = x0, y = y0;
+    int x = x0;
+    int y = y0;
     for (int i = 0; i <= len; i++) {
         int half = width >> 1;
         for (int k = -half; k <= half; k++)

@@ -133,7 +133,8 @@ struct Decoder::BigTree {
             nodes.emplace_back();
             return true;
         }
-        SmallTree lo, hi;
+        SmallTree lo;
+        SmallTree hi;
         if (!lo.read(br) || !hi.read(br))
             return false;
         uint16_t escapes[3];
@@ -335,7 +336,8 @@ bool Decoder::decodeNextFrame() {
 void Decoder::decodePalette(const uint8_t *data, uint32_t size) {
     uint8_t old[768];
     std::memcpy(old, palette_, sizeof(old));
-    const uint8_t *p = data, *end = data + size;
+    const uint8_t *p = data;
+    const uint8_t *end = data + size;
     int i = 0;
     while (i < 256 && p < end) {
         uint8_t b = *p++;
@@ -432,7 +434,8 @@ bool Decoder::decodeVideo(const uint8_t *data, uint32_t size) {
     full_->resetCache();
     type_->resetCache();
 
-    int bw = width_ / 4, bh = height_ / 4;
+    int bw = width_ / 4;
+    int bh = height_ / 4;
     int blocks = bw * bh;
     int stride = frame_.pitch;
     int blk = 0;
@@ -447,7 +450,8 @@ bool Decoder::decodeVideo(const uint8_t *data, uint32_t size) {
                 uint16_t clr = mclr_->decode(br);
                 uint16_t map = mmap_->decode(br);
                 uint8_t *out = draw::at(frame_, (blk % bw) * 4, (blk / bw) * 4);
-                uint8_t hi = uint8_t(clr >> 8), lo = uint8_t(clr & 0xFF);
+                uint8_t hi = uint8_t(clr >> 8);
+                uint8_t lo = uint8_t(clr & 0xFF);
                 for (int y = 0; y < 4; y++) {
                     for (int x = 0; x < 4; x++)
                         out[x] = (map & (1 << x)) ? hi : lo;

@@ -66,7 +66,9 @@ public:
 
     // Codes are stored bit-inverted, first bit first (blast.c's decode()).
     int decode(const Huffman &h) {
-        int code = 0, first = 0, index = 0;
+        int code = 0;
+        int first = 0;
+        int index = 0;
         for (int len = 1; len <= kMaxBits; len++) {
             int bit = bits(1);
             if (bit < 0)
@@ -92,7 +94,9 @@ private:
 } // namespace
 
 bool decompressDCL(const uint8_t *src, uint32_t srcSize, std::vector<uint8_t> &out) {
-    static Huffman litCode, lenCode, distCode;
+    static Huffman litCode;
+    static Huffman lenCode;
+    static Huffman distCode;
     static bool built = false;
     if (!built) {
         litCode.construct(kLitLen, sizeof(kLitLen));

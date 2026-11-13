@@ -95,8 +95,10 @@ void Canvas::vLine(int x, int y1, int y2, uint32_t color) {
 
 void Canvas::drawLine(int x0, int y0, int x1, int y1, uint32_t color) {
     // Bresenham's.
-    const int dx = std::abs(x1 - x0), sx = x0 < x1 ? 1 : -1;
-    const int dy = -std::abs(y1 - y0), sy = y0 < y1 ? 1 : -1;
+    const int dx = std::abs(x1 - x0);
+    const int sx = x0 < x1 ? 1 : -1;
+    const int dy = -std::abs(y1 - y0);
+    const int sy = y0 < y1 ? 1 : -1;
     int err = dx + dy;
     while (true) {
         setPixel(x0, y0, color);
@@ -117,7 +119,8 @@ void Canvas::drawLine(int x0, int y0, int x1, int y1, uint32_t color) {
 void Canvas::fillPolygon(const Point *points, int count, uint32_t color) {
     if (count < 3)
         return;
-    int minY = points[0].y, maxY = points[0].y;
+    int minY = points[0].y;
+    int maxY = points[0].y;
     for (int i = 1; i < count; i++) {
         minY = std::min(minY, points[i].y);
         maxY = std::max(maxY, points[i].y);
@@ -129,7 +132,8 @@ void Canvas::fillPolygon(const Point *points, int count, uint32_t color) {
         const double sampleY = y + 0.5;
         crossings.clear();
         for (int i = 0; i < count; i++) {
-            const Point &a = points[i], &b = points[(i + 1) % count];
+            const Point &a = points[i];
+            const Point &b = points[(i + 1) % count];
             if ((a.y <= sampleY) == (b.y <= sampleY))
                 continue;
             const double t = (sampleY - a.y) / double(b.y - a.y);

@@ -112,7 +112,8 @@ void Notebook::settle() {
                 for (int o = 0; o < kOwners; ++o)
                     if (o != h)
                         put(c, o, No);
-            int open = -1, opens = 0;
+            int open = -1;
+            int opens = 0;
             for (int o = 0; o < kOwners; ++o)
                 if (mark(c, o) != No) {
                     open = o;
@@ -123,7 +124,9 @@ void Notebook::settle() {
         }
         // The case file has one card of each kind.
         for (int k = 0; k < 3; ++k) {
-            int yes = -1, open = -1, opens = 0;
+            int yes = -1;
+            int open = -1;
+            int opens = 0;
             for (int c = kKindFirst[k]; c < kKindFirst[k] + kKindCount[k]; ++c) {
                 if (mark(c, kCaseFile) == Yes)
                     yes = c;
@@ -143,7 +146,8 @@ void Notebook::settle() {
             // So many cards each: all found, the rest lacked; as many left
             // open as are still to find, all held.
             for (int o = 0; o < kCaseFile; ++o) {
-                int yes = 0, open = 0;
+                int yes = 0;
+                int open = 0;
                 for (int c = 0; c < kCardCount; ++c) {
                     yes += mark(c, o) == Yes;
                     open += mark(c, o) == Unknown;
@@ -161,7 +165,8 @@ void Notebook::settle() {
         // A wrong accusation: with two of its cards in the case file, the
         // third isn't.
         for (const auto &cards : notAll_) {
-            int in = 0, other = -1;
+            int in = 0;
+            int other = -1;
             for (int c : cards) {
                 if (inCaseFile(c))
                     ++in;
@@ -174,7 +179,8 @@ void Notebook::settle() {
         // Who showed a card not seen holds one of the three: when two are
         // lacked, the third.
         for (const auto &[owner, cards] : oneOf_) {
-            int open = -1, opens = 0;
+            int open = -1;
+            int opens = 0;
             bool held = false;
             for (int c : cards) {
                 held = held || mark(c, owner) == Yes;
@@ -309,7 +315,8 @@ bool ComputerPlayer::ready() const {
 }
 
 void ComputerPlayer::observe(const Game &game) {
-    const int suggester = game.turn(), disprover = game.disprover();
+    const int suggester = game.turn();
+    const int disprover = game.disprover();
     mind_.current = maskOf(game.suggestion());
     // Who couldn't answer holds none of the three (0x418935, all levels).
     for (int p : game.passed())
@@ -441,7 +448,8 @@ int ComputerPlayer::closestRoom(const Game &game) const {
     const Place &at = game.place(me_);
     if (at.inRoom() && game.board().passage(at.room) != kNoRoom)
         return game.board().passage(at.room);
-    int best = kNoRoom, bestD = INT_MAX;
+    int best = kNoRoom;
+    int bestD = INT_MAX;
     for (int r = 0; r < kRoomCount; ++r)
         if (!(at.inRoom() && at.room == r)) {
             const int d = distance(at, r);

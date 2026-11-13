@@ -107,7 +107,8 @@ int cmdGmfInfo(int argc, char **argv) {
     std::vector<Record> records;
     size_t p = 10;
     for (int k = 0; k < 3; ++k) {
-        std::map<uint16_t, unsigned> lengths, thirds;
+        std::map<uint16_t, unsigned> lengths;
+        std::map<uint16_t, unsigned> thirds;
         const size_t start = p;
         for (unsigned i = 0; i < counts[k]; ++i) {
             const Record r{p, rd16(d, p), rd16(d, p + 2), rd16(d, p + 4)};
@@ -178,7 +179,8 @@ int cmdGmfInfo(int argc, char **argv) {
                         "leaving %zu bytes (%.2f per grid cell)\n",
                         n, n, separators, end, d.size() - end,
                         double(d.size() - end) / std::max(1, rd16(d, 6) * rd16(d, 8)));
-            const unsigned w = rd16(d, 6), h = rd16(d, 8);
+            const unsigned w = rd16(d, 6);
+            const unsigned h = rd16(d, 8);
             if (d.size() - end >= size_t(w) * h * 10) {
                 std::map<uint16_t, unsigned> seconds;
                 std::printf("blocks on the grid (rows of %u; 0-9 then a-z, '+' for higher):\n", w);
@@ -259,8 +261,13 @@ int cmdGmfFit(int argc, char **argv) {
         return 2;
     }
     namespace nw = reluva::newworlds;
-    bool archiveOrder = false, table = false, layersMode = false, heightMode = false, jointMode = false,
-         summaryMode = false, rotationScan = false;
+    bool archiveOrder = false;
+    bool table = false;
+    bool layersMode = false;
+    bool heightMode = false;
+    bool jointMode = false;
+    bool summaryMode = false;
+    bool rotationScan = false;
     const char *orderFile = nullptr;
     while (argc >= 3 && argv[2][0] == '-' && argv[2][1] != 0 && argv[2][2] == 0) {
         if (argv[2][1] == 'o' && argc >= 4) {
@@ -285,7 +292,8 @@ int cmdGmfFit(int argc, char **argv) {
         return 1;
     }
     std::vector<std::string> geoNames;
-    std::vector<const nw::CatEntry *> geoEntries, maps;
+    std::vector<const nw::CatEntry *> geoEntries;
+    std::vector<const nw::CatEntry *> maps;
     for (const auto &e : cat.entries()) {
         if (e.tag == nw::cattag::Geometry)
             geoNames.push_back(e.name), geoEntries.push_back(&e);
@@ -427,7 +435,8 @@ int cmdGmfFit(int argc, char **argv) {
             for (int ty = 0; ty < 2 * map.height; ++ty)
                 for (int tx = 0; tx < 2 * map.width; ++tx)
                     for (int sd = 0; sd < 2; ++sd) {
-                        const int a = nw::tileAt(map, tx, ty), b = nw::tileAt(map, tx + (sd == 0), ty + (sd == 1));
+                        const int a = nw::tileAt(map, tx, ty);
+                        const int b = nw::tileAt(map, tx + (sd == 0), ty + (sd == 1));
                         if (a < 0 || b < 0)
                             continue;
                         const auto &ta = map.tiles[size_t(a)];
@@ -469,7 +478,8 @@ int cmdGmfFit(int argc, char **argv) {
             assign[n] = n < order.size() ? order[n] : nw::kNoModel;
         const std::map<uint32_t, size_t> start = assign;
         auto pairMet = [&](const Pair &p) -> int {
-            const size_t ga = assign[p.na], gb = assign[p.nb];
+            const size_t ga = assign[p.na];
+            const size_t gb = assign[p.nb];
             if (ga == nw::kNoModel || gb == nw::kNoModel || !candidate[ga] || !candidate[gb])
                 return 0;
             const auto &sa = sides[ga][size_t(p.ra)];
@@ -540,10 +550,12 @@ int cmdGmfFit(int argc, char **argv) {
             if (!improved)
                 break;
         }
-        int met = 0, seen = 0;
+        int met = 0;
+        int seen = 0;
         for (const auto &p : pairs) {
             met += pairMet(p);
-            const size_t ga = assign[p.na], gb = assign[p.nb];
+            const size_t ga = assign[p.na];
+            const size_t gb = assign[p.nb];
             seen += ga != nw::kNoModel && gb != nw::kNoModel && candidate[ga] && candidate[gb];
         }
         std::printf("%zu maps, %zu tile pairs, %.1f%% of edges meet\n", maps.size(), pairs.size(),
@@ -559,7 +571,10 @@ int cmdGmfFit(int argc, char **argv) {
     if (summaryMode) {
         // -m: only the share of tile edges that meet with this numbering, and
         // of tile cells whose terrain layers match the model's height.
-        unsigned met = 0, seen = 0, cellsOk = 0, cells = 0;
+        unsigned met = 0;
+        unsigned seen = 0;
+        unsigned cellsOk = 0;
+        unsigned cells = 0;
         for (const nw::CatEntry *me : maps) {
             nw::GmfMap map;
             if (cat.read(*me, d) || nw::parseGmf(d, map))
@@ -568,12 +583,14 @@ int cmdGmfFit(int argc, char **argv) {
             for (int ty = 0; ty < 2 * map.height; ++ty)
                 for (int tx = 0; tx < 2 * map.width; ++tx)
                     for (int sd = 0; sd < 2; ++sd) {
-                        const int a = nw::tileAt(map, tx, ty), b = nw::tileAt(map, tx + (sd == 0), ty + (sd == 1));
+                        const int a = nw::tileAt(map, tx, ty);
+                        const int b = nw::tileAt(map, tx + (sd == 0), ty + (sd == 1));
                         if (a < 0 || b < 0)
                             continue;
                         const auto &ta = map.tiles[size_t(a)];
                         const auto &tb = map.tiles[size_t(b)];
-                        const size_t ga = modelOf(ta.model), gb = modelOf(tb.model);
+                        const size_t ga = modelOf(ta.model);
+                        const size_t gb = modelOf(tb.model);
                         ++seen;
                         if (ga == nw::kNoModel || gb == nw::kNoModel || !candidate[ga] || !candidate[gb])
                             continue;
@@ -608,7 +625,8 @@ int cmdGmfFit(int argc, char **argv) {
         for (int ty = 0; ty < 2 * map.height; ++ty)
             for (int tx = 0; tx < 2 * map.width; ++tx)
                 for (int s = 0; s < 2; ++s) {
-                    const int a = nw::tileAt(map, tx, ty), b = nw::tileAt(map, tx + (s == 0), ty + (s == 1));
+                    const int a = nw::tileAt(map, tx, ty);
+                    const int b = nw::tileAt(map, tx + (s == 0), ty + (s == 1));
                     if (a >= 0 && b >= 0)
                         pairs.push_back({a, s, b});
                 }
@@ -678,8 +696,9 @@ int cmdGmfFit(int argc, char **argv) {
                     }
                     std::printf("   ");
                     for (int col = 0; col < 8 && haveGeo; ++col) {
-                        const float cell = nw::kGroundTileSize / 8, x0 = -nw::kGroundTileSize / 2 + col * cell,
-                                    y0 = -nw::kGroundTileSize / 2 + row * cell;
+                        const float cell = nw::kGroundTileSize / 8;
+                        const float x0 = -nw::kGroundTileSize / 2 + col * cell;
+                        const float y0 = -nw::kGroundTileSize / 2 + row * cell;
                         double z = 0;
                         int k = 0;
                         for (const auto &part : geo.parts)
@@ -709,7 +728,8 @@ int cmdGmfFit(int argc, char **argv) {
                     continue;
                 // -h: the share of the number's tiles' cells whose terrain
                 // layer count is the model's height there.
-                unsigned met = 0, seen = 0;
+                unsigned met = 0;
+                unsigned seen = 0;
                 for (const auto &t : map.tiles) {
                     if (t.model != number)
                         continue;
@@ -724,19 +744,23 @@ int cmdGmfFit(int argc, char **argv) {
             for (size_t g = 0; g < geoNames.size() && !heightMode; ++g) {
                 if (!candidate[g])
                     continue;
-                unsigned met = 0, seen = 0;
+                unsigned met = 0;
+                unsigned seen = 0;
                 for (const Pair &p : pairs) {
                     const auto &ta = map.tiles[size_t(p.a)];
                     const auto &tb = map.tiles[size_t(p.b)];
-                    const bool ina = ta.model == number, inb = tb.model == number;
+                    const bool ina = ta.model == number;
+                    const bool inb = tb.model == number;
                     if (ina == inb)
                         continue; // only sides against other numbers
-                    const size_t ga = ina ? g : modelOf(ta.model), gb = inb ? g : modelOf(tb.model);
+                    const size_t ga = ina ? g : modelOf(ta.model);
+                    const size_t gb = inb ? g : modelOf(tb.model);
                     if (ga == nw::kNoModel || gb == nw::kNoModel || !candidate[ga] || !candidate[gb])
                         continue;
                     const auto &sa = sides[ga][size_t(ta.rotation)];
                     const auto &sb = sides[gb][size_t(tb.rotation)];
-                    const int oa = p.side, ob = p.side + 2;
+                    const int oa = p.side;
+                    const int ob = p.side + 2;
                     if (!sa.present[oa] || !sb.present[ob])
                         continue;
                     ++seen;
@@ -793,7 +817,9 @@ int cmdGmfDump(int argc, char **argv) {
     std::vector<uint8_t> data;
     int maps = 0;
     for (const auto &e : cat.entries()) {
-        std::string folder, stem, ext;
+        std::string folder;
+        std::string stem;
+        std::string ext;
         nw::splitName(e.name, folder, stem, ext);
         if (ext != "gmf")
             continue;
@@ -803,8 +829,9 @@ int cmdGmfDump(int argc, char **argv) {
             continue;
         }
         ++maps;
-        std::ofstream tiles(out / (stem + "_tiles.csv")), cells(out / (stem + "_cells.csv")),
-            objects(out / (stem + "_objects.csv"));
+        std::ofstream tiles(out / (stem + "_tiles.csv"));
+        std::ofstream cells(out / (stem + "_cells.csv"));
+        std::ofstream objects(out / (stem + "_objects.csv"));
         tiles << "tx,ty,record,model,name,flags\n";
         for (int ty = 0; ty < map.height * 2; ++ty)
             for (int tx = 0; tx < map.width * 2; ++tx) {
@@ -814,7 +841,9 @@ int cmdGmfDump(int argc, char **argv) {
                 const auto &tile = map.tiles[size_t(t)];
                 std::string name = "?";
                 if (tile.model < order.size() && order[tile.model] != nw::kNoModel) {
-                    std::string f, st, ex;
+                    std::string f;
+                    std::string st;
+                    std::string ex;
                     nw::splitName(geoNames[order[tile.model]], f, st, ex);
                     name = st;
                 }

@@ -103,7 +103,8 @@ void WorldRenderer::buildSky(const ShaderDef &sky) {
         skySideFirst_[size_t(side)] = uint32_t(indices.size());
         for (int j = 0; j <= kSubdiv; ++j)
             for (int i = 0; i <= kSubdiv; ++i) {
-                const float s = float(i) / kSubdiv * 2 - 1, t = float(j) / kSubdiv * 2 - 1;
+                const float s = float(i) / kSubdiv * 2 - 1;
+                const float t = float(j) / kSubdiv * 2 - 1;
                 const float b[3] = {s * kBox, t * kBox, kBox};
                 gfx::Vertex v{};
                 for (int k = 0; k < 3; ++k) {
@@ -113,7 +114,9 @@ void WorldRenderer::buildSky(const ShaderDef &sky) {
                 // Image rows run top to bottom: t = +1 is the top.
                 v.uv[0] = (s + 1) / 2;
                 v.uv[1] = 1 - (t + 1) / 2;
-                const float x = v.pos[0], y = v.pos[1], z = v.pos[2];
+                const float x = v.pos[0];
+                const float y = v.pos[1];
+                const float z = v.pos[2];
                 const float len2 = x * x + y * y + z * z;
                 const float p = (-2 * z * kWorldRadius + 2 * std::sqrt(z * z * kWorldRadius * kWorldRadius +
                                                                        len2 * (2 * kWorldRadius * h + h * h))) /
@@ -323,8 +326,8 @@ Error WorldRenderer::load(const Bsp &bsp, const ShaderLibrary &library) {
         const float *p0 = vertices[indices[r.firstIndex]].pos;
         const float *p1 = vertices[indices[r.firstIndex + 1]].pos;
         const float *p2 = vertices[indices[r.firstIndex + 2]].pos;
-        const std::array<float, 3> e1{p1[0] - p0[0], p1[1] - p0[1], p1[2] - p0[2]},
-            e2{p2[0] - p0[0], p2[1] - p0[1], p2[2] - p0[2]};
+        const std::array<float, 3> e1{p1[0] - p0[0], p1[1] - p0[1], p1[2] - p0[2]};
+        const std::array<float, 3> e2{p2[0] - p0[0], p2[1] - p0[1], p2[2] - p0[2]};
         std::array<float, 3> n{e1[1] * e2[2] - e1[2] * e2[1], e1[2] * e2[0] - e1[0] * e2[2],
                                e1[0] * e2[1] - e1[1] * e2[0]};
         const float len = std::sqrt(n[0] * n[0] + n[1] * n[1] + n[2] * n[2]);
@@ -539,7 +542,9 @@ void WorldRenderer::setView(int slot, const std::array<float, 3> &eye, const std
         return std::array<float, 4>{viewProj[size_t(r)], viewProj[size_t(4 + r)], viewProj[size_t(8 + r)],
                                     viewProj[size_t(12 + r)]};
     };
-    const auto r0 = row(0), r1 = row(1), r3 = row(3);
+    const auto r0 = row(0);
+    const auto r1 = row(1);
+    const auto r3 = row(3);
     std::array<std::array<float, 4>, 4> planes{};
     for (size_t k = 0; k < 4; ++k) {
         planes[0][k] = r3[k] + r0[k];
@@ -709,7 +714,8 @@ void WorldRenderer::drawSprites(float time, float sortMin, float sortMax) const 
                 int nums[2] = {0, 0};
                 float lengths[2] = {1e30f, 1e30f};
                 for (int j = 0; j < 6; ++j) {
-                    const V a = at(in[edge[j][0]]), b = at(in[edge[j][1]]);
+                    const V a = at(in[edge[j][0]]);
+                    const V b = at(in[edge[j][1]]);
                     const float l =
                         (a[0] - b[0]) * (a[0] - b[0]) + (a[1] - b[1]) * (a[1] - b[1]) + (a[2] - b[2]) * (a[2] - b[2]);
                     if (l < lengths[0]) {
@@ -724,7 +730,8 @@ void WorldRenderer::drawSprites(float time, float sortMin, float sortMax) const 
                 }
                 V mid[2];
                 for (int j = 0; j < 2; ++j) {
-                    const V a = at(in[edge[nums[j]][0]]), b = at(in[edge[nums[j]][1]]);
+                    const V a = at(in[edge[nums[j]][0]]);
+                    const V b = at(in[edge[nums[j]][1]]);
                     mid[j] = {(a[0] + b[0]) / 2, (a[1] + b[1]) / 2, (a[2] + b[2]) / 2};
                 }
                 const V major{mid[1][0] - mid[0][0], mid[1][1] - mid[0][1], mid[1][2] - mid[0][2]};
@@ -737,7 +744,8 @@ void WorldRenderer::drawSprites(float time, float sortMin, float sortMax) const 
                         c /= ml;
                 const uint32_t *qi = &sp.indices[q / 4 * 6];
                 for (int j = 0; j < 2; ++j) {
-                    const int e0 = edge[nums[j]][0], e1 = edge[nums[j]][1];
+                    const int e0 = edge[nums[j]][0];
+                    const int e1 = edge[nums[j]][1];
                     const float l = 0.5f * std::sqrt(lengths[j]);
                     // Which way round the edge runs in the triangles says which
                     // way to spread it.

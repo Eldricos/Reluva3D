@@ -746,7 +746,8 @@ std::string FrontEnd::savedName(int slot) const {
     if (savesFolder().empty())
         return {};
     std::ifstream in(saveFile(slot), std::ios::binary);
-    std::string tag, name;
+    std::string tag;
+    std::string name;
     int version = 0;
     if (!(in >> tag >> version) || tag != "reluva-clue-save" || in.get() != '\n' || !saveio::getString(in, name))
         return {};
@@ -759,7 +760,8 @@ Error FrontEnd::saveGame(int slot, const std::string &name) {
     std::error_code ec;
     std::filesystem::create_directories(savesFolder(), ec);
     // Written whole beside it, then put in its place.
-    const std::filesystem::path file = saveFile(slot), part = file.string() + ".part";
+    const std::filesystem::path file = saveFile(slot);
+    const std::filesystem::path part = file.string() + ".part";
     {
         std::ofstream out(part, std::ios::binary);
         out << "reluva-clue-save 1\n";
@@ -775,7 +777,8 @@ Error FrontEnd::saveGame(int slot, const std::string &name) {
 
 Error FrontEnd::loadGame(int slot) {
     std::ifstream in(saveFile(slot), std::ios::binary);
-    std::string tag, name;
+    std::string tag;
+    std::string name;
     int version = 0;
     if (!(in >> tag >> version) || tag != "reluva-clue-save" || version != 1 || in.get() != '\n' ||
         !saveio::getString(in, name))
@@ -1022,7 +1025,8 @@ void FrontEnd::drawCursor() {
     for (int y = 0; y < p.h; ++y)
         for (int x = 0; x < p.w; ++x) {
             const uint8_t *c = p.pixel(x, y);
-            const int sx = mouseX_ + x, sy = mouseY_ + y;
+            const int sx = mouseX_ + x;
+            const int sy = mouseY_ + y;
             if (c[3] == 0 || (c[0] | c[1] | c[2]) == 0 || sx < 0 || sy < 0 || sx >= kW || sy >= kH)
                 continue;
             uint8_t *d = screen_.row(sy) + sx * 4;
@@ -1047,7 +1051,8 @@ void FrontEnd::update(uint64_t nowMs) {
             const image::Image &pic = movie_->picture();
             const int scale = std::max(1, std::min(kW / std::max(1, pic.w), kH / std::max(1, pic.h)));
             fillRect(screen_, 0, 0, kW, kH, {0, 0, 0});
-            const int x0 = (kW - pic.w * scale) / 2, y0 = (kH - pic.h * scale) / 2;
+            const int x0 = (kW - pic.w * scale) / 2;
+            const int y0 = (kH - pic.h * scale) / 2;
             for (int y = 0; y < pic.h * scale; ++y) {
                 uint8_t *d = screen_.row(y0 + y) + x0 * 4;
                 for (int x = 0; x < pic.w * scale; ++x, d += 4) {

@@ -66,7 +66,8 @@ int cmdClueExtract(int argc, char **argv) {
     std::error_code ec;
     std::filesystem::create_directories(dir, ec);
     const std::string filter = argc > 4 ? reluva::fs::toLower(argv[4]) : "";
-    int written = 0, failed = 0;
+    int written = 0;
+    int failed = 0;
     for (const auto &e : drive.entries()) {
         if (!filter.empty() && reluva::fs::toLower(e.name).find(filter) == std::string::npos)
             continue;
@@ -104,7 +105,12 @@ int cmdClueCheck(int argc, char **argv) {
         return 1;
     }
     std::printf("%zu files in %zu folders\n", data.files().size(), data.folders().size());
-    int images = 0, imageFails = 0, anims = 0, animFails = 0, refs = 0, refFails = 0;
+    int images = 0;
+    int imageFails = 0;
+    int anims = 0;
+    int animFails = 0;
+    int refs = 0;
+    int refFails = 0;
     std::map<int, int> versions;
     for (const auto &path : data.withExtension(".res")) {
         const std::string drive = path.stem().string();
@@ -149,7 +155,8 @@ int cmdClueCheck(int argc, char **argv) {
             }
         }
     }
-    int objects = 0, objectFails = 0;
+    int objects = 0;
+    int objectFails = 0;
     for (const auto &path : data.withExtension(".o")) {
         const std::string drive = path.stem().string();
         const reluva::clue::DataDrive *d = data.drive(drive, 'O');
@@ -165,7 +172,8 @@ int cmdClueCheck(int argc, char **argv) {
             }
         }
     }
-    int placements = 0, buildProblems = 0;
+    int placements = 0;
+    int buildProblems = 0;
     bool levelOk = false;
     if (const std::filesystem::path *lvl = data.find("clue.lvl")) {
         reluva::clue::DataDrive file;
@@ -188,7 +196,9 @@ int cmdClueCheck(int argc, char **argv) {
         std::printf("  no clue.lvl\n");
     }
     // dialogInfo.res: every font, background and control picture it names.
-    int dialogs = 0, controls = 0, missing = 0;
+    int dialogs = 0;
+    int controls = 0;
+    int missing = 0;
     bool resiOk = false;
     if (const std::filesystem::path *path = data.find("dialogInfo.res")) {
         std::ifstream in(*path, std::ios::binary);

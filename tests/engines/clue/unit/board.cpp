@@ -47,7 +47,8 @@ static void testBoard() {
     CHECK(board.passage(Kitchen) == Study && board.passage(Study) == Kitchen && board.passage(Hall) == kNoRoom);
     // The chair's square comes last of a room's places to stand.
     CHECK((board.standing(Lounge).back() == Square{4, 0}));
-    int wx, wy;
+    int wx;
+    int wy;
     Board::standingPoint({29, 11}, wx, wy);
     CHECK(wx == 1896 && wy == 744); // where clue.lvl stands Miss Scarlet
     CHECK((Board::squareAt(1896, 744) == Square{29, 11} && Board::squareAt(15, 15) == Square{-1, -1}));
