@@ -14,13 +14,13 @@ constexpr uint32_t kPaletted = 1;          // one layer: palette indices
 constexpr uint32_t kPalettedWithAlpha = 6; // two layers: palette indices, then alpha
 constexpr uint32_t kMaxSide = 4096;
 
-uint32_t rd32(const std::vector<uint8_t>& d, size_t o) {
+uint32_t rd32(const std::vector<uint8_t> &d, size_t o) {
     return uint32_t(d[o]) | uint32_t(d[o + 1]) << 8 | uint32_t(d[o + 2]) << 16 | uint32_t(d[o + 3]) << 24;
 }
 
 } // namespace
 
-Error decodeTexture(const std::vector<uint8_t>& data, Texture& out) {
+Error decodeTexture(const std::vector<uint8_t> &data, Texture &out) {
     out = Texture{};
     if (data.size() < 8)
         return Error::fail("texture too small");
@@ -74,9 +74,9 @@ Error decodeTexture(const std::vector<uint8_t>& data, Texture& out) {
         out.alpha.clear();
     for (size_t i = 0; i < pixels; ++i) {
         const uint8_t index = data[indices + i];
-        uint8_t* px = &out.rgba[i * 4];
+        uint8_t *px = &out.rgba[i * 4];
         if (index < paletteCount) {
-            const uint8_t* entry = &data[palette + size_t(index) * 4]; // blue, green, red, 0
+            const uint8_t *entry = &data[palette + size_t(index) * 4]; // blue, green, red, 0
             px[0] = entry[2];
             px[1] = entry[1];
             px[2] = entry[0];

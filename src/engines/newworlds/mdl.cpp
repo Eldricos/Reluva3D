@@ -15,7 +15,7 @@ constexpr size_t kEntrySize = kNameSize + 4; // name, then a u32 value
 constexpr uint32_t kMaxEntries = 4096;
 
 struct Reader {
-    const std::vector<uint8_t>& d;
+    const std::vector<uint8_t> &d;
     bool has(size_t at, size_t bytes) const { return at <= d.size() && bytes <= d.size() - at; }
     uint32_t u32(size_t o) const {
         return uint32_t(d[o]) | uint32_t(d[o + 1]) << 8 | uint32_t(d[o + 2]) << 16 | uint32_t(d[o + 3]) << 24;
@@ -41,7 +41,7 @@ struct Reader {
 };
 
 // Entries (name, u32 value) up to one named "terminate".
-Error readEntries(const Reader& r, size_t& p, std::vector<MdlModel::Name>& out) {
+Error readEntries(const Reader &r, size_t &p, std::vector<MdlModel::Name> &out) {
     for (uint32_t i = 0; i <= kMaxEntries; ++i) {
         if (!r.has(p, kEntrySize))
             return Error::fail("model ends inside a name list");
@@ -62,14 +62,14 @@ Error readEntries(const Reader& r, size_t& p, std::vector<MdlModel::Name>& out) 
 // written, so the next list is found by its count and first name; then
 // (usually) u32 0, the state count and the states as entries (their names;
 // an unnamed state leaves the list empty).
-Error parseMdl(const std::vector<uint8_t>& data, MdlModel& out) {
+Error parseMdl(const std::vector<uint8_t> &data, MdlModel &out) {
     out = MdlModel{};
     const Reader r{data};
     if (!r.has(0, kNameSize + 4))
         return Error::fail("model too small");
     out.title = r.name(0);
     size_t p = kNameSize;
-    std::vector<MdlModel::Name>* lists[4] = {&out.parts, &out.points, &out.places, &out.animated};
+    std::vector<MdlModel::Name> *lists[4] = {&out.parts, &out.points, &out.places, &out.animated};
     for (int t = 0; t < 4; ++t) {
         if (t == 1) {
             // Skip leftovers: find a count followed by a name or an empty list.

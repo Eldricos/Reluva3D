@@ -20,9 +20,9 @@ namespace reluva::newworlds {
 struct GmfMap {
     static constexpr int kLayers = 5;
     struct Tile {
-        uint32_t model = 0;    // index of its ground model among the archive's .geo files
-        uint32_t flags = 0;    // bits 14-15: rotation; others unknown
-        int rotation = 0;      // quarter turns anticlockwise (bits 14-15 of flags)
+        uint32_t model = 0; // index of its ground model among the archive's .geo files
+        uint32_t flags = 0; // bits 14-15: rotation; others unknown
+        int rotation = 0;   // quarter turns anticlockwise (bits 14-15 of flags)
         // Bit 24 of flags: set only on hole_02 in icewrld, whose texture is
         // transparent around the hole, so presumably "draw ground under it".
         bool underlay = false;
@@ -56,21 +56,21 @@ struct GmfMap {
         uint8_t extra = 0;       // bits 8-13
     };
 
-    int width = 0, height = 0;                 // in blocks
+    int width = 0, height = 0; // in blocks
     std::vector<Tile> tiles;
     std::vector<std::array<uint32_t, 4>> blocks; // four tile numbers each
-    std::vector<Cell> cells;                   // width x height, row by row
-    std::vector<Scenery> scenery;              // cell by cell, row by row
+    std::vector<Cell> cells;                     // width x height, row by row
+    std::vector<Scenery> scenery;                // cell by cell, row by row
     // The colour table at the end of the file (the same in every icewrld
     // map), one RGB colour per terrain code; code 0 is magenta.
     std::vector<std::array<uint8_t, 3>> palette;
 };
 
-Error parseGmf(const std::vector<uint8_t>& data, GmfMap& out);
+Error parseGmf(const std::vector<uint8_t> &data, GmfMap &out);
 
 // The tile record at a tile position (x east, y north, from the map's
 // south-west corner, 2 tiles per block), or -1 outside the map.
-int tileAt(const GmfMap& map, int tx, int ty);
+int tileAt(const GmfMap &map, int tx, int ty);
 
 // How a map's model numbers count its archive's .geo files (full names, in
 // archive order): returns, per model number, an index into geoNames, or
@@ -85,6 +85,6 @@ int tileAt(const GmfMap& map, int tx, int ty);
 // archive order. "base" is the family numbered 01-26 (ice, alpin, des, vol,
 // red, alien).
 constexpr size_t kNoModel = size_t(-1);
-std::vector<size_t> tileModelOrder(const std::vector<std::string>& geoNames);
+std::vector<size_t> tileModelOrder(const std::vector<std::string> &geoNames);
 
 } // namespace reluva::newworlds
