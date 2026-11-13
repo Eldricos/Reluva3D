@@ -20,20 +20,26 @@ constexpr size_t kMaxText = 200;
 
 struct Writer {
     Bytes b;
-    Writer& u8(uint32_t v) { b.push_back(uint8_t(v)); return *this; }
-    Writer& u16(uint32_t v) { return u8(v & 0xff).u8(v >> 8); }
-    Writer& u32(uint32_t v) { return u16(v & 0xffff).u16(v >> 16); }
-    Writer& str(const std::string& s) {
+    Writer &u8(uint32_t v) {
+        b.push_back(uint8_t(v));
+        return *this;
+    }
+    Writer &u16(uint32_t v) { return u8(v & 0xff).u8(v >> 8); }
+    Writer &u32(uint32_t v) { return u16(v & 0xffff).u16(v >> 16); }
+    Writer &str(const std::string &s) {
         const size_t n = std::min(s.size(), kMaxText);
         u8(uint32_t(n));
         b.insert(b.end(), s.begin(), s.begin() + long(n));
         return *this;
     }
-    Writer& bytes(const Bytes& s) { b.insert(b.end(), s.begin(), s.end()); return *this; }
+    Writer &bytes(const Bytes &s) {
+        b.insert(b.end(), s.begin(), s.end());
+        return *this;
+    }
 };
 
 struct Reader {
-    const Bytes& b;
+    const Bytes &b;
     size_t at = 0;
     bool ok = true;
     uint32_t u8() {
@@ -43,8 +49,14 @@ struct Reader {
         }
         return b[at++];
     }
-    uint32_t u16() { const uint32_t lo = u8(); return lo | (u8() << 8); }
-    uint32_t u32() { const uint32_t lo = u16(); return lo | (u16() << 16); }
+    uint32_t u16() {
+        const uint32_t lo = u8();
+        return lo | (u8() << 8);
+    }
+    uint32_t u32() {
+        const uint32_t lo = u16();
+        return lo | (u16() << 16);
+    }
     std::string str() {
         const size_t n = u8();
         if (at + n > b.size()) {
@@ -64,18 +76,18 @@ Writer datagram(Datagram kind) {
     return w;
 }
 
-void writeLobby(Writer& w, const Lobby& l) {
+void writeLobby(Writer &w, const Lobby &l) {
     w.str(l.gameName).u8(l.maxHumans).u8(l.noDieRoll).u8(l.started);
-    for (const Seat& s : l.seats)
+    for (const Seat &s : l.seats)
         w.u8(s.kind).u8(s.level).u8(uint8_t(s.owner)).str(s.name);
 }
 
-bool readLobby(Reader& r, Lobby& l) {
+bool readLobby(Reader &r, Lobby &l) {
     l.gameName = r.str();
     l.maxHumans = uint8_t(r.u8());
     l.noDieRoll = r.u8() != 0;
     l.started = r.u8() != 0;
-    for (Seat& s : l.seats) {
+    for (Seat &s : l.seats) {
         const uint32_t kind = r.u8();
         s.kind = kind <= Seat::Computer ? Seat::Kind(kind) : Seat::None;
         s.level = uint8_t(std::min<uint32_t>(r.u8(), 2));
@@ -89,7 +101,7 @@ bool readLobby(Reader& r, Lobby& l) {
 
 // ---- Commands -----------------------------------------------------------------
 
-Bytes encodeCommand(const Command& c) {
+Bytes encodeCommand(const Command &c) {
     Writer w;
     w.u8(c.type).u8(c.seat).u8(uint32_t(std::min<size_t>(c.args.size(), 64)));
     for (size_t i = 0; i < c.args.size() && i < 64; ++i)
@@ -97,12 +109,12 @@ Bytes encodeCommand(const Command& c) {
     return w.b;
 }
 
-bool decodeCommand(const Bytes& b, size_t& at, Command& c) {
+bool decodeCommand(const Bytes &b, size_t &at, Command &c) {
     Reader r{b, at};
     c.type = uint8_t(r.u8());
     c.seat = uint8_t(r.u8());
     c.args.assign(r.u8(), 0);
-    for (int16_t& a : c.args)
+    for (int16_t &a : c.args)
         a = int16_t(r.u16());
     at = r.at;
     return r.ok && c.type <= Command::RoomWalk && c.seat < kSeats;
@@ -110,7 +122,7 @@ bool decodeCommand(const Bytes& b, size_t& at, Command& c) {
 
 // ---- The channel ------------------------------------------------------------------
 
-void Channel::received(const Bytes& d, uint64_t nowMs, std::vector<Bytes>& out) {
+void Channel::received(const Bytes &d, uint64_t nowMs, std::vector<Bytes> &out) {
     lastHeard_ = nowMs;
     Reader r{d, 5};
     const uint8_t kind = d.size() > 4 ? d[4] : 0;
@@ -138,9 +150,9 @@ void Channel::received(const Bytes& d, uint64_t nowMs, std::vector<Bytes>& out) 
     }
 }
 
-void Channel::update(uint64_t nowMs, net::UdpSocket& socket) {
+void Channel::update(uint64_t nowMs, net::UdpSocket &socket) {
     int sent = 0;
-    for (Pending& p : outgoing_) {
+    for (Pending &p : outgoing_) {
         if (sent >= 32)
             break;
         if (p.sentAt != 0 && nowMs - p.sentAt < kResendMs)
@@ -164,8 +176,8 @@ void Channel::update(uint64_t nowMs, net::UdpSocket& socket) {
 
 // ---- The session ------------------------------------------------------------------
 
-std::unique_ptr<Session> Session::host(std::unique_ptr<net::UdpSocket> socket, const std::string& gameName,
-                                       const std::string& playerName, int maxHumans) {
+std::unique_ptr<Session> Session::host(std::unique_ptr<net::UdpSocket> socket, const std::string &gameName,
+                                       const std::string &playerName, int maxHumans) {
     std::unique_ptr<Session> s(new Session);
     s->socket_ = std::move(socket);
     s->host_ = true;
@@ -177,8 +189,8 @@ std::unique_ptr<Session> Session::host(std::unique_ptr<net::UdpSocket> socket, c
     return s;
 }
 
-std::unique_ptr<Session> Session::join(std::unique_ptr<net::UdpSocket> socket, const net::Address& address,
-                                       const std::string& playerName) {
+std::unique_ptr<Session> Session::join(std::unique_ptr<net::UdpSocket> socket, const net::Address &address,
+                                       const std::string &playerName) {
     std::unique_ptr<Session> s(new Session);
     s->socket_ = std::move(socket);
     s->myName_ = playerName;
@@ -188,7 +200,7 @@ std::unique_ptr<Session> Session::join(std::unique_ptr<net::UdpSocket> socket, c
 }
 
 std::unique_ptr<Session> Session::browse(std::unique_ptr<net::UdpSocket> socket,
-                                         const std::vector<net::Address>& askAt) {
+                                         const std::vector<net::Address> &askAt) {
     std::unique_ptr<Session> s(new Session);
     s->socket_ = std::move(socket);
     s->askAt_ = askAt;
@@ -201,14 +213,14 @@ void Session::refresh() {
     askedAt_ = 0;
 }
 
-void Session::sendTo(int peer, const Bytes& message) {
+void Session::sendTo(int peer, const Bytes &message) {
     auto it = peers_.find(peer);
     if (it != peers_.end())
         it->second.send(message);
 }
 
-void Session::broadcast(const Bytes& message) {
-    for (auto& [id, channel] : peers_)
+void Session::broadcast(const Bytes &message) {
+    for (auto &[id, channel] : peers_)
         channel.send(message);
 }
 
@@ -227,7 +239,7 @@ void Session::update(uint64_t nowMs) {
         return;
     receive(nowMs);
     if (state_ == State::Browsing && (askedAt_ == 0 || nowMs - askedAt_ >= kAskRetryMs)) {
-        for (const net::Address& a : askAt_)
+        for (const net::Address &a : askAt_)
             socket_->send(a, datagram(Ask).b);
         askedAt_ = nowMs;
     }
@@ -245,7 +257,7 @@ void Session::update(uint64_t nowMs) {
         askedAt_ = nowMs;
     }
     for (auto it = peers_.begin(); it != peers_.end();) {
-        Channel& c = it->second;
+        Channel &c = it->second;
         if (c.timedOut(nowMs)) {
             const int peer = it->first;
             ++it;
@@ -265,7 +277,7 @@ void Session::dropPeer(int peer) {
     }
     // Its players: given back in the lobby; in the game, to the computer.
     for (int s = 0; s < kSeats; ++s) {
-        Seat& seat = lobby_.seats[size_t(s)];
+        Seat &seat = lobby_.seats[size_t(s)];
         if (seat.kind != Seat::Human || seat.owner != peer)
             continue;
         if (lobby_.started) {
@@ -303,12 +315,12 @@ void Session::receive(uint64_t nowMs) {
             f.humans = int(r.u8());
             f.maxHumans = int(r.u8());
             f.started = r.u8() != 0;
-            if (r.ok && std::none_of(found_.begin(), found_.end(), [&](const Found& g) { return g.address == from; }))
+            if (r.ok && std::none_of(found_.begin(), found_.end(), [&](const Found &g) { return g.address == from; }))
                 found_.push_back(f);
         } else if (kind == Connect && host_) {
             const std::string name = r.str();
-            const auto known = std::find_if(peers_.begin(), peers_.end(),
-                                            [&](const auto& p) { return p.second.peer() == from; });
+            const auto known =
+                std::find_if(peers_.begin(), peers_.end(), [&](const auto &p) { return p.second.peer() == from; });
             if (known != peers_.end()) {
                 Writer w = datagram(Accept); // its Accept was lost
                 w.u8(uint32_t(known->first));
@@ -337,19 +349,19 @@ void Session::receive(uint64_t nowMs) {
             refusal_ = r.str();
             state_ = State::Refused;
         } else if (kind == Bye) {
-            for (auto& [id, c] : peers_)
+            for (auto &[id, c] : peers_)
                 if (c.peer() == from) {
                     const int peer = id;
                     dropPeer(peer);
                     break;
                 }
         } else if (kind == Data || kind == Ack) {
-            for (auto& [id, c] : peers_)
+            for (auto &[id, c] : peers_)
                 if (c.peer() == from) {
                     std::vector<Bytes> messages;
                     c.received(d, nowMs, messages);
                     const int peer = id;
-                    for (const Bytes& m : messages)
+                    for (const Bytes &m : messages)
                         handle(peer, m);
                     break;
                 }
@@ -357,7 +369,7 @@ void Session::receive(uint64_t nowMs) {
     }
 }
 
-void Session::handle(int from, const Bytes& m) {
+void Session::handle(int from, const Bytes &m) {
     if (m.empty())
         return;
     Reader r{m, 1};
@@ -376,7 +388,7 @@ void Session::handle(int from, const Bytes& m) {
         if (host_) {
             // From a player: said by them, to everyone.
             std::string name = "?";
-            for (const Seat& s : lobby_.seats)
+            for (const Seat &s : lobby_.seats)
                 if (s.kind == Seat::Human && s.owner == from)
                     name = s.name;
             const std::string line = name + ": " + text;
@@ -394,7 +406,7 @@ void Session::handle(int from, const Bytes& m) {
             const std::string name = r.str();
             if (!r.ok)
                 break;
-            for (Seat& s : lobby_.seats)
+            for (Seat &s : lobby_.seats)
                 if (s.kind == Seat::Human && s.owner == from)
                     s = {};
             if (seat >= 0 && seat < kSeats && lobby_.seats[size_t(seat)].kind != Seat::Human)
@@ -419,18 +431,19 @@ void Session::handle(int from, const Bytes& m) {
             break;
         if (host_) {
             // A player's: only for their own suspects.
-            const Seat& s = lobby_.seats[c.seat];
+            const Seat &s = lobby_.seats[c.seat];
             if (lobby_.started && s.kind == Seat::Human && s.owner == from)
                 submit(c);
         } else
             commands_.push_back(c);
         break;
     }
-    default: break;
+    default:
+        break;
     }
 }
 
-void Session::chat(const std::string& text) {
+void Session::chat(const std::string &text) {
     if (text.empty())
         return;
     if (host_) {
@@ -446,7 +459,7 @@ void Session::chat(const std::string& text) {
     }
 }
 
-bool Session::nextChat(std::string& line) {
+bool Session::nextChat(std::string &line) {
     if (chat_.empty())
         return false;
     line = chat_.front();
@@ -458,7 +471,7 @@ void Session::take(int seat) {
     if (lobby_.started)
         return;
     if (host_) {
-        for (Seat& s : lobby_.seats)
+        for (Seat &s : lobby_.seats)
             if (s.kind == Seat::Human && s.owner == 0)
                 s = {};
         if (seat >= 0 && seat < kSeats && lobby_.seats[size_t(seat)].kind != Seat::Human)
@@ -474,7 +487,7 @@ void Session::take(int seat) {
 void Session::setSeat(int seat, Seat::Kind kind, int level) {
     if (!host_ || lobby_.started || seat < 0 || seat >= kSeats)
         return;
-    Seat& s = lobby_.seats[size_t(seat)];
+    Seat &s = lobby_.seats[size_t(seat)];
     if (s.kind == Seat::Human && s.owner != 0)
         return; // a player's own
     if (kind == Seat::Human) {
@@ -496,12 +509,12 @@ bool Session::canStart() const {
     if (!host_ || lobby_.started)
         return false;
     int playing = 0;
-    for (const Seat& s : lobby_.seats)
+    for (const Seat &s : lobby_.seats)
         playing += s.kind != Seat::None;
     // Three suspects at least; every machine that joined has one.
-    for (const auto& [id, c] : peers_)
+    for (const auto &[id, c] : peers_)
         if (std::none_of(lobby_.seats.begin(), lobby_.seats.end(),
-                         [&](const Seat& s) { return s.kind == Seat::Human && s.owner == id; }))
+                         [&](const Seat &s) { return s.kind == Seat::Human && s.owner == id; }))
             return false;
     return playing >= 3;
 }
@@ -518,7 +531,7 @@ void Session::start(uint32_t seed) {
     broadcast(w.b);
 }
 
-void Session::submit(const Command& c) {
+void Session::submit(const Command &c) {
     if (host_) {
         // In order: for everyone, this machine too.
         commands_.push_back(c);
@@ -532,7 +545,7 @@ void Session::submit(const Command& c) {
     }
 }
 
-bool Session::nextCommand(Command& c) {
+bool Session::nextCommand(Command &c) {
     if (commands_.empty())
         return false;
     c = commands_.front();
@@ -554,7 +567,7 @@ void Session::leave() {
     // Three times over: one may well be lost (and if all are, the others
     // find out when it stops answering).
     for (int k = 0; k < 3; ++k)
-        for (auto& [id, c] : peers_)
+        for (auto &[id, c] : peers_)
             socket_->send(c.peer(), datagram(Bye).b);
     peers_.clear();
     socket_.reset();

@@ -27,7 +27,15 @@ struct Timing {
 struct ObjectDef {
     // What an object is, by its type byte, as far as the objects of each
     // type tell (3, 5, 9 and 12 are all furniture of some kind).
-    enum Type : uint8_t { Wall = 0, Floor = 1, Furniture = 5, Character = 6, SecretPassage = 8, TileNumber = 11, Drapes = 12 };
+    enum Type : uint8_t {
+        Wall = 0,
+        Floor = 1,
+        Furniture = 5,
+        Character = 6,
+        SecretPassage = 8,
+        TileNumber = 11,
+        Drapes = 12
+    };
     struct State {
         // 0 the usual one; 1-16 a character's eight idle and eight "mult"
         // ones (a direction each); 19 its pawn; 20-24 an object's others.
@@ -46,9 +54,9 @@ struct ObjectDef {
     std::vector<State> states;
     std::vector<Timing> timings;
 
-    const State* state(uint16_t id) const;
+    const State *state(uint16_t id) const;
 };
-Error parseObject(const std::vector<uint8_t>& record, ObjectDef& out);
+Error parseObject(const std::vector<uint8_t> &record, ObjectDef &out);
 
 // An object placed in the mansion.
 struct Placement {
@@ -60,10 +68,9 @@ struct Placement {
     // things, more for what hangs on walls (lamps 88-97, pictures) or tops
     // a door (its lintel 119-121, the frames being 161 high).
     int16_t z = 0;
-    uint8_t layer = 0;    // 0-1 floors, 3 walls, 4 the walls nearest the camera, 5 furniture,
-                          // 6 the black outside, 7 characters
+    uint8_t layer = 0; // 0-1 floors, 3 walls, 4 the walls nearest the camera, 5 furniture,
+                       // 6 the black outside, 7 characters
     std::vector<Timing> timings;
-
 };
 
 struct Level {
@@ -74,6 +81,6 @@ struct Level {
 };
 // clue.lvl is a DDRV archive of /World.dat, /Objects.dat, /Info.dat and
 // /Workspace.dat.
-Error parseLevel(const DataDrive& drive, Level& out);
+Error parseLevel(const DataDrive &drive, Level &out);
 
 } // namespace reluva::clue

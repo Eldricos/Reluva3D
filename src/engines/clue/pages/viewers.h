@@ -28,11 +28,11 @@ constexpr int kScreenW = 640;
 constexpr int kScreenH = 480;
 
 // Drawing helpers the viewers share (viewer_draw in image_viewer.cpp).
-void fillRect(Surface& s, int x, int y, int w, int h, Color c);
-void drawCheckerboard(Surface& s, int y0, int y1);
-void drawInfo(Surface& s, const std::string& line1, const std::string& line2 = {});
+void fillRect(Surface &s, int x, int y, int w, int h, Color c);
+void drawCheckerboard(Surface &s, int y0, int y1);
+void drawInfo(Surface &s, const std::string &line1, const std::string &line2 = {});
 // An image with its top-left corner at (x, y), scaled up by a whole number.
-void drawImage(Surface& s, const image::Image& img, int x, int y, int scale = 1);
+void drawImage(Surface &s, const image::Image &img, int x, int y, int scale = 1);
 
 // The mansion as clue.lvl places it, its animations playing.
 //   Arrows or a mouse drag: scroll (Shift: faster)   Home: back to the middle
@@ -45,37 +45,41 @@ void drawImage(Surface& s, const image::Image& img, int x, int y, int scale = 1)
 // The info line names what's under the mouse pointer.
 class MansionViewer {
 public:
-    MansionViewer(System& sys, Surface& screen, const GameData& data);
+    MansionViewer(System &sys, Surface &screen, const GameData &data);
     bool loaded() const { return error_.empty(); }
-    const std::string& error() const { return error_; }
+    const std::string &error() const { return error_; }
     bool overview() const { return overview_; }
     void activate();
-    void handleEvent(const Event& ev);
+    void handleEvent(const Event &ev);
     void update(uint64_t nowMs);
 
 private:
-    bool shown(const Mansion::Item& item) const;
+    bool shown(const Mansion::Item &item) const;
     void draw();
-    void drawScene(Surface& target, int camX, int camY);
+    void drawScene(Surface &target, int camX, int camY);
     void drawOverview();
-    void drawFootprint(const Mansion::Item& item);
-    const Mansion::Item* pick(int x, int y) const;
+    void drawFootprint(const Mansion::Item &item);
+    const Mansion::Item *pick(int x, int y) const;
     void centre();
     void scroll(int dx, int dy);
 
-    System& sys_;
-    Surface& screen_;
-    const GameData& data_;
+    System &sys_;
+    Surface &screen_;
+    const GameData &data_;
     DataDrive levelFile_;
     Level level_;
     Mansion mansion_;
     std::string error_;
     int camX_ = 0, camY_ = 0;
     using NearWalls = MansionLook::NearWalls;
-    MansionLook look_ = [] { MansionLook l; l.nearWalls = MansionLook::NearWalls::SeeThrough; return l; }();
+    MansionLook look_ = [] {
+        MansionLook l;
+        l.nearWalls = MansionLook::NearWalls::SeeThrough;
+        return l;
+    }();
     bool footprints_ = false, paused_ = false;
     bool overview_ = false;
-    Surface whole_;          // the whole house, for the overview; made when first asked for
+    Surface whole_; // the whole house, for the overview; made when first asked for
     bool dragging_ = false;
     int dragX_ = 0, dragY_ = 0, mouseX_ = -1, mouseY_ = -1;
     uint64_t now_ = 0, tick_ = 0;
@@ -88,7 +92,7 @@ private:
 //   Z: twice the size or not
 class VideoViewer {
 public:
-    VideoViewer(System& sys, Surface& screen, const GameData& data, audio::Mixer* mixer);
+    VideoViewer(System &sys, Surface &screen, const GameData &data, audio::Mixer *mixer);
     size_t count() const { return files_.size(); }
     void activate();
     void deactivate(); // stops the sound when switching to another viewer
@@ -101,10 +105,10 @@ private:
     void stop();
     void draw();
 
-    System& sys_;
-    Surface& screen_;
-    const GameData& data_;
-    audio::Mixer* mixer_;
+    System &sys_;
+    Surface &screen_;
+    const GameData &data_;
+    audio::Mixer *mixer_;
     std::vector<std::filesystem::path> files_;
     int current_ = 0;
     Movie player_;
@@ -123,7 +127,7 @@ private:
 //   B: background (checks, black, white)
 class ImageViewer {
 public:
-    ImageViewer(System& sys, Surface& screen, const GameData& data);
+    ImageViewer(System &sys, Surface &screen, const GameData &data);
     size_t count() const { return total_; }
     void activate();
     void handleKey(uint32_t key);
@@ -131,9 +135,9 @@ public:
 private:
     void draw();
 
-    System& sys_;
-    Surface& screen_;
-    const GameData& data_;
+    System &sys_;
+    Surface &screen_;
+    const GameData &data_;
     std::vector<std::filesystem::path> files_;
     size_t total_ = 0;
     int file_ = 0, image_ = 0;
@@ -146,7 +150,7 @@ private:
 //   Z: zoom (1x, 2x)   A: show the anchor point   L: show one layer at a time
 class AnimationViewer {
 public:
-    AnimationViewer(System& sys, Surface& screen, const GameData& data);
+    AnimationViewer(System &sys, Surface &screen, const GameData &data);
     size_t count() const { return total_; }
     void activate();
     void handleKey(uint32_t key);
@@ -156,13 +160,13 @@ private:
     void select();
     void draw();
 
-    System& sys_;
-    Surface& screen_;
-    const GameData& data_;
+    System &sys_;
+    Surface &screen_;
+    const GameData &data_;
     std::vector<std::filesystem::path> files_;
     size_t total_ = 0;
     int file_ = 0, anim_ = 0;
-    const Animation* current_ = nullptr;
+    const Animation *current_ = nullptr;
     std::string name_, error_;
     size_t frame_ = 0;
     uint64_t frameStart_ = 0;
@@ -180,7 +184,7 @@ class SoundViewer {
 public:
     // mixer: the engine's, playing into the System's output; nullptr when
     // there's no output.
-    SoundViewer(System& sys, Surface& screen, const GameData& data, audio::Mixer* mixer);
+    SoundViewer(System &sys, Surface &screen, const GameData &data, audio::Mixer *mixer);
     size_t count() const { return files_.size(); }
     void activate();
     void deactivate(); // stops playing when switching to another viewer
@@ -192,10 +196,10 @@ private:
     void stop();
     void draw();
 
-    System& sys_;
-    Surface& screen_;
-    const GameData& data_;
-    audio::Mixer* mixer_;
+    System &sys_;
+    Surface &screen_;
+    const GameData &data_;
+    audio::Mixer *mixer_;
     std::vector<std::filesystem::path> files_;
     int current_ = 0;
     bool autoPlay_ = false;
@@ -210,7 +214,7 @@ private:
 //   PageUp/PageDown: scroll a page   Home/End: top/bottom
 class TextViewer {
 public:
-    TextViewer(System& sys, Surface& screen, const GameData& data);
+    TextViewer(System &sys, Surface &screen, const GameData &data);
     size_t count() const { return files_.size(); }
     void activate();
     void handleKey(uint32_t key);
@@ -219,9 +223,9 @@ private:
     void load();
     void draw();
 
-    System& sys_;
-    Surface& screen_;
-    const GameData& data_;
+    System &sys_;
+    Surface &screen_;
+    const GameData &data_;
     std::vector<std::filesystem::path> files_;
     int current_ = 0;
     std::vector<std::string> lines_; // wrapped, UTF-8

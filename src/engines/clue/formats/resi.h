@@ -24,7 +24,13 @@ struct ResiFont {
 struct ResiControl {
     // The kinds, by what each kind of control is in the game's dialogs.
     enum Type : int32_t {
-        Image = 0, Text = 1, ImageButton = 2, TextButton = 3, Edit = 5, Slider = 7, ScrollKnob = 8,
+        Image = 0,
+        Text = 1,
+        ImageButton = 2,
+        TextButton = 3,
+        Edit = 5,
+        Slider = 7,
+        ScrollKnob = 8,
     };
 
     int32_t type = 0;
@@ -37,13 +43,13 @@ struct ResiControl {
     std::string text, animation;
     std::vector<std::string> items;
     int32_t font = 0, otherFont = 0;
-    int32_t group = 0;         // 1: an alternative the game shows when needed; hidden at first
+    int32_t group = 0; // 1: an alternative the game shows when needed; hidden at first
     // How its text sits in its rectangle (as in recordings: the
     // preferences' labels are left-aligned, the titles centred).
-    int32_t centreX = 0;       // 1: centred across; 0: from the left
-    int32_t centreY = 0;       // 1: centred down; 2: the suggestion window's choices (their name at their foot)
-    int32_t maxLength = 0;     // 32 in many controls, not understood; Reluva takes it as a text box's length limit
-    int32_t style = 0;         // 2 for two-line buttons ("Locally|on this machine")
+    int32_t centreX = 0;           // 1: centred across; 0: from the left
+    int32_t centreY = 0;           // 1: centred down; 2: the suggestion window's choices (their name at their foot)
+    int32_t maxLength = 0;         // 32 in many controls, not understood; Reluva takes it as a text box's length limit
+    int32_t style = 0;             // 2 for two-line buttons ("Locally|on this machine")
     std::array<int32_t, 28> raw{}; // the 112 bytes as stored (pointers among them)
 };
 
@@ -53,17 +59,17 @@ struct ResiDialog {
     std::vector<ResiControl> controls;
     std::array<int32_t, 9> raw{};
 
-    const ResiControl* control(int32_t id) const;
+    const ResiControl *control(int32_t id) const;
 };
 
 struct Resi {
     std::vector<ResiFont> fonts;
     std::vector<ResiDialog> dialogs;
 
-    const ResiDialog* dialog(int32_t id) const;
-    const ResiFont* font(uint32_t id) const;
+    const ResiDialog *dialog(int32_t id) const;
+    const ResiFont *font(uint32_t id) const;
 };
 
-Error parseResi(const std::vector<uint8_t>& data, Resi& out);
+Error parseResi(const std::vector<uint8_t> &data, Resi &out);
 
 } // namespace reluva::clue
