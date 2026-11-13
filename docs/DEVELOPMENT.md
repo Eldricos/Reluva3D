@@ -21,10 +21,36 @@ Notes for developers. Building and running are covered in the
 
 | Program | What it's for |
 |---|---|
-| `reluva` | The launcher and games |
+| `reluva` | The launcher and games: what players get, with no developer tools |
+| `reluva-viewer` | The engines' data viewers and the testbed ([below](#the-data-viewer)) |
 | `reluva-tool` | Developer commands for studying game data and running game code outside the window ([below](#reluva-tool)) |
 | `reluva-render-check` | The 3D renderer's check against reference frames (below) |
 | `reluva-tests` | Every test that needs no game files: the shared code's and each enabled engine's (below) |
+
+## The data viewer
+
+- **Kept out of the game.** Each engine's viewer is a library of its own,
+  `reluva_engine_<engine>_viewers`, which `reluva-viewer`, `reluva-tool`
+  and `reluva-tests` link and `reluva` doesn't: so nothing a player runs
+  can open it, and the game's code can't come to rely on it.
+- **Adding one.** Put the viewer's pages in the engine's `pages/` folder,
+  and declare them in its `CMakeLists.txt`:
+
+  ```cmake
+  reluva_add_engine_viewers(clue
+      ACCESSOR clueMetaViewer
+      SOURCES
+          pages/viewer.cpp
+          pages/image_viewer.cpp)
+  ```
+
+  `clueMetaViewer()` returns the engine's `MetaViewer`
+  (`src/engines/viewer.h`), whose `create` makes an `Engine` that runs
+  the viewer as a game is run. The game's own code never includes a
+  viewer's header.
+- **Running it.** `reluva-viewer` shows the launcher's games, each opened
+  in its engine's viewer; `reluva-viewer <name>` or
+  `reluva-viewer <folder>` opens one directly.
 
 ## reluva-tool
 

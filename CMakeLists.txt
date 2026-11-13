@@ -145,7 +145,7 @@ add_subdirectory(src/backends)
 add_subdirectory(src/gui)
 # reluva: the program (src/base/)
 add_subdirectory(src/base)
-# reluva-render-check and reluva-tool (src/devtools/)
+# reluva-viewer, reluva-render-check and reluva-tool (src/devtools/)
 add_subdirectory(src/devtools)
 
 # --- tests ----------------------------------------------------------------------

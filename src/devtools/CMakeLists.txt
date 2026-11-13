@@ -10,6 +10,13 @@ add_executable(reluva-render-check render_check.cpp)
 target_link_libraries(reluva-render-check PRIVATE reluva_shared reluva_backend_sdl3 reluva_backend_sockets
                                                   reluva_warnings)
 
+# reluva-viewer: the engines' data viewers (reluva_add_engine_viewers),
+# from the launcher's list of games or the command line: viewer.cpp. reluva
+# itself, which players get, is built without them.
+add_executable(reluva-viewer viewer.cpp)
+target_link_libraries(reluva-viewer PRIVATE reluva_gui reluva_viewers reluva_backend_sdl3 reluva_backend_sockets
+                                            imgui SDL3::SDL3 reluva_warnings)
+
 # reluva-tool: the shared commands (here) and each enabled engine's
 # (reluva_add_engine_tools in its CMakeLists.txt).
 reluva_finish_tool(

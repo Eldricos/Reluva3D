@@ -90,14 +90,12 @@ int main(int argc, char **argv) {
     Config config;
     config.load(configPath());
 
-    // `reluva <target>` starts a configured game (or "testbed") directly and
-    // exits when it ends; otherwise the launcher runs.
+    // `reluva <target>` starts a configured game directly and exits when it
+    // ends; otherwise the launcher runs. (The testbed is reluva-viewer's.)
     std::optional<GameTarget> direct;
     if (argc >= 2) {
         std::string name = argv[1];
-        if (name == "testbed")
-            direct = GameTarget{"testbed", "testbed", "testbed", "Testbed", {}, {}, config.settingsFor("testbed")};
-        else if (config.hasSection(name) && name != Config::kGlobalSection && !Config::isEngineSection(name))
+        if (config.hasSection(name) && name != Config::kGlobalSection && !Config::isEngineSection(name))
             direct = GameTarget{name,
                                 config.get(name, "engine"),
                                 config.get(name, "gameid"),

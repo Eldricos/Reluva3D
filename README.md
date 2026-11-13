@@ -249,14 +249,26 @@ In a game:
 - **Ctrl+F5** returns to the launcher.
 - **Alt+Enter** toggles fullscreen.
 
-What each game's pages and keys are is in its engine's docs.
+What each game's keys are is in its engine's docs.
+
+### The data viewer
+
+`reluva-viewer` is for working on the engines: it shows what a game's
+files hold (models, textures, maps, sounds, text) in its engine's
+viewer, from the same list of games as the launcher. `reluva`, the program
+players get, has none of it. Each engine's docs list its viewer's pages
+and keys.
 
 ### From the command line
 
 | Command | What it does |
 |---|---|
 | `reluva <name>` | Starts a game from the launcher's list directly, by its entry's name |
-| `reluva testbed` | The test pattern: **Esc** to exit, **Space** for a tone, **C** for a cursor of its own |
+| `reluva-viewer` | The data viewer, with the launcher's list of games |
+| `reluva-viewer <name>` | A game from the launcher's list in its engine's data viewer |
+| `reluva-viewer <folder>` | The game in a folder in its engine's data viewer, without adding it |
+| `reluva-viewer testbed` | The test pattern: **Esc** to exit, **Space** for a tone, **C** for a cursor of its own |
+| `reluva-viewer --list` | Lists the engines that have a data viewer |
 | `reluva --hash <files...>` | Prints files' detection signatures, for an engine's table of releases |
 | `reluva --detect <folders...>` | Lists the games found in each folder |
 | `reluva-tool` | Developer tools for studying games' files: `reluva-tool <engine> <command>`; alone, it lists the engines and the commands for any game |

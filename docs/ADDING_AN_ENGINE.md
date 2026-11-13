@@ -81,7 +81,7 @@ and adds `<name>=enabled` to `engines.cfg`. Build it: it compiles, and
     render/           drawing: models, scenes, sprites, effects, movies
     audio/            the game's sound and music
     ui/               menus, dialogs, the HUD, the front end
-    pages/            the launcher's pages: data viewers, debug views
+    pages/            the data viewer (reluva-viewer's, never the game's)
     tools/            reluva-tool commands
     <game>/           code for one game of an engine that runs several
   ```
@@ -95,6 +95,11 @@ and adds `<name>=enabled` to `engines.cfg`. Build it: it compiles, and
 - **Developer commands** for studying the game's files go in its `tools/`
   folder, by topic: a function and a line in the table at the end of the
   file. See [DEVELOPMENT.md](DEVELOPMENT.md#reluva-tool).
+- **A data viewer**, pages showing what the game's files hold, goes in its
+  `pages/` folder, built into `reluva-viewer` and never into the game: see
+  [DEVELOPMENT.md](DEVELOPMENT.md#the-data-viewer). The game itself
+  never opens it, and a game whose files are missing or can't be read
+  says so, rather than falling back to the viewer.
 
 ## 4. Test it
 
