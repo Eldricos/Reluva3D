@@ -212,10 +212,11 @@ int cmdProLogic(int argc, char **argv) {
         std::printf("    time   mid  side |     L     C     R     S  S pass | steer   dir rear%%\n");
     for (size_t start = 0; start < frames; start += window) {
         const size_t n = std::min(window, frames - start);
+        // the direction: a mean of 2 theta, by steering
         double e[7] = {};
         double steer = 0;
         double dirX = 0;
-        double dirY = 0; // the direction: a mean of 2 theta, by steering
+        double dirY = 0;
         size_t rear = 0;
         for (size_t i = start; i < start + n; ++i) {
             float *o = &out[4 * i];

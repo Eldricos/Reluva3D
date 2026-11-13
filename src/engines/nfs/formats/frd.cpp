@@ -388,8 +388,9 @@ ViewScreen viewScreen(int left, int top, int width, int height, int viewAngle, b
     const double degree = static_cast<double>(0.017453279f);
     const double w = width;
     const double h = height;
+    // with no angle across: the window's width
     double sx = w;
-    double sy = w; // with no angle across: the window's width
+    double sy = w;
     if (across != 0) {
         const double t = std::tan(across * degree);
         sx = w / t;
@@ -4043,8 +4044,9 @@ bool carBoxTouch(CarBox &a, CarBox &b, Vec3 &point) {
     bool found = false;
     for (int round = 0; round < 4; ++round) {
         const Vec3 d = vSub(b.at, a.at); // 0x4e0000
+        // b's centre in a's frame and in b's (0x5efe60-0x5efe74)
         float da[3];
-        float db[3]; // b's centre in a's frame and in b's (0x5efe60-0x5efe74)
+        float db[3];
         for (int i = 0; i < 3; ++i) {
             da[i] = vDot(*ar[i], d);
             db[i] = vDot(*br[i], d);

@@ -110,10 +110,10 @@ bool boardByName(const std::string &spec, Board &out, bool *desktopClamped) {
     if (desktopClamped)
         *desktopClamped = false;
     const std::string name = spec.substr(0, spec.find(','));
-    int desktop = -1;
+    int desktop = -1; // -1: the board's own
     int desktopW = 0;
     int desktopH = 0;
-    int desktopBits = 0; // -1: the board's own
+    int desktopBits = 0;
     if (name == "voodoo1" || name == "voodoo" || name == "sst1")
         out = voodoo1Board();
     else if (name == "rush" || name == "sst96")

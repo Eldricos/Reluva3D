@@ -73,22 +73,24 @@ int cmdNfsHost(int argc, char **argv) {
     // As the Play page: the game told of a Voodoo 2, so that it draws its sky
     // and fog (docs/engines/nfs/games/nfs3/PLAN.md, Sky and fog).
     options.presentedRenderer = "voodoo2a.dll";
-    int traceCount = 0;
-    int every = 50;              // traceCount: the last instructions kept, for a failure (0: none)
-    std::vector<uint32_t> watch; // addresses at which to print the registers
+    int traceCount = 0; // traceCount: the last instructions kept, for a failure (0: none)
+    int every = 50;
+    std::vector<uint32_t> watch;                        // addresses at which to print the registers
     std::vector<std::pair<uint32_t, uint64_t>> counted; // addresses whose runs are counted (-count)
     int watchLimit = 50;                                // how many times, at most
     std::vector<std::pair<int, uint32_t>> watchReads;   // dwords printed at each watch: register (-1 none) + offset
     std::string dumpFile;                               // the emulated memory, written at the end
     uint32_t slice = 0;                                 // instructions between thread changes (0: the default)
+    // memory whose stores are printed
     uint32_t watchMem = 0;
-    uint32_t watchMemSize = 0; // memory whose stores are printed
-    std::string keyScript;     // "ms:key,ms:key...": each pressed for 100 ms
-    std::string frameLogFile;  // each frame's time and instructions, as CSV
-    std::string wavFile;       // what the game's sound buffers played
-    std::string voicesFile;    // what the game's mixer adds, front and behind, each 100 ms (CSV)
+    uint32_t watchMemSize = 0;
+    std::string keyScript;    // "ms:key,ms:key...": each pressed for 100 ms
+    std::string frameLogFile; // each frame's time and instructions, as CSV
+    std::string wavFile;      // what the game's sound buffers played
+    std::string voicesFile;   // what the game's mixer adds, front and behind, each 100 ms (CSV)
+    // instructions counted by where they run, over this range
     uint64_t hotFrom = 0;
-    uint64_t hotTo = 0; // instructions counted by where they run, over this range
+    uint64_t hotTo = 0;
     bool gpuLog = false;
     uint64_t gpuDumpList = 0; // a list (1 the first) written out in full
     std::string gpuDumpDir;

@@ -376,8 +376,9 @@ public:
 void GameHost::addModem() {
     const char *t = "TAPI32.DLL";
     net::Sockets *net = options_.sockets.get();
+    // the line's and the call's handles
     constexpr uint32_t kLine = 0x4c494e45;
-    constexpr uint32_t kCall = 0x43414c4c; // the line's and the call's handles
+    constexpr uint32_t kCall = 0x43414c4c;
     constexpr uint32_t kLineCallState = 2;
     constexpr uint32_t kLineReply = 12;
     constexpr uint32_t kIdle = 0x1;

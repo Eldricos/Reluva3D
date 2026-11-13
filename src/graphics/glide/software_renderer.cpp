@@ -216,8 +216,9 @@ Rgba SoftwareRenderer::sampleTmu(Setup &su, int tmu, const Values &v, int x, int
     const float T = v.v[kS0 + 3 * tmu + 1];
     const float Q = v.v[kS0 + 3 * tmu + 2];
     const float inv = Q != 0 ? 1.0f / Q : 0.0f;
+    // 0-256 across the texture at every level
     const float ss = S * inv;
-    const float tt = T * inv; // 0-256 across the texture at every level
+    const float tt = T * inv;
     // The level of detail: log2 of how many level-256 texels a pixel
     // spans, plus the bias (grTexLodBiasValue); 0 at the largest level.
     int level = t.info.largeLod;

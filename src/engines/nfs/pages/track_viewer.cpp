@@ -3254,8 +3254,9 @@ void TrackPage::drawMarks(const gfx::Vec3 &eye, const gfx::Vec3 &forward, const 
     call.state.cull = gfx::Cull::None;
     call.state.depthWrite = false;
     // The glows added, over everything drawn but not through it.
+    // ranges of marks
     std::vector<std::pair<uint32_t, uint32_t>> lights;
-    std::vector<std::pair<uint32_t, uint32_t>> sounds; // ranges of marks
+    std::vector<std::pair<uint32_t, uint32_t>> sounds;
     for (size_t i = 0; i < marks_.size(); ++i) {
         auto &list = marks_[i].light ? lights : sounds;
         if (!list.empty() && list.back().second == i)
@@ -4002,8 +4003,9 @@ void TrackPage::prepareWeather(const gfx::Vec3 &eye, const gfx::Vec3 &forward, c
     // The pictures' corners (0, 0), (1, 0), (1, 1), (0, 1), at the texels'
     // centres as the particles' are (inferred: no weather in a list yet).
     const bool rain = weather_.setup().kind == 1;
+    // DRP1 8 x 32, DRP2 8 x 8; SPLn 32 x 32
     const float dropW = 8;
-    const float dropH = rain ? 32.0f : 8.0f; // DRP1 8 x 32, DRP2 8 x 8; SPLn 32 x 32
+    const float dropH = rain ? 32.0f : 8.0f;
     size_t q = 0;
     for (const WeatherPoly &p : polys) {
         if (q >= kQuads)

@@ -306,9 +306,10 @@ void gamePass(const int32_t *in, int32_t *out, int step) {
     const int32_t z12 = in[1] - in[7];
     const int32_t t7 = z11 + z13;
     const int32_t t11 = overRoot2(z11 - z13);
+    // the game's floats
     const float k0 = 0.541196108f;
     const float k1 = 1.306563020f;
-    const float k2 = 0.382683426f; // the game's floats
+    const float k2 = 0.382683426f;
     const double z5 = (static_cast<double>(z12) + z10) * k2;
     const int32_t a = gameRound(static_cast<double>(z10) * k0 + z5);
     const int32_t b = gameRound(static_cast<double>(z12) * k1 - z5);
