@@ -27,6 +27,7 @@
   "ignores": [
     "build/**", "third_party/**", "node_modules/**",
     "**/research/**",             // working notes, kept as they were written
-    "docs/engines/newworlds/**"   // not brought in line yet (tools/check-docs.py)
+    "docs/engines/newworlds/**",  // not brought in line yet (tools/check-docs.py)
+    ".github/pull_request_template.md"  // a pull request's text: its title is the pull request's
   ]
 }

@@ -327,6 +327,8 @@ never include SDL.
 
 - [docs/DEVELOPMENT.md](docs/DEVELOPMENT.md): working on Reluva.
 - [docs/CODING_GUIDE.md](docs/CODING_GUIDE.md): how its code is written.
+- [docs/COMMIT_STANDARD.md](docs/COMMIT_STANDARD.md): how its commits and
+  pull requests are written.
 - [docs/DOCUMENTATION_STANDARD.md](docs/DOCUMENTATION_STANDARD.md): how its
   docs are laid out, named and written.
 - [docs/common/](docs/common/): formats and components shared by engines.
@@ -348,7 +350,9 @@ engine that runs a game.
 
 Read [CONTRIBUTING.md](CONTRIBUTING.md) first: only clean-room work is
 accepted. Code follows [docs/CODING_GUIDE.md](docs/CODING_GUIDE.md), and
-docs follow [docs/DOCUMENTATION_STANDARD.md](docs/DOCUMENTATION_STANDARD.md).
+docs follow [docs/DOCUMENTATION_STANDARD.md](docs/DOCUMENTATION_STANDARD.md),
+and commits and pull requests
+[docs/COMMIT_STANDARD.md](docs/COMMIT_STANDARD.md).
 
 ## License
 
