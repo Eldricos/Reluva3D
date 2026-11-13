@@ -8,24 +8,17 @@
 //
 // LEGO Alpha Team is played by running its own program in the x86
 // interpreter (alphateam/player.h), after the CD's intro movie if it's
-// beside the game (video/movie.h). F12 pauses it and opens the data viewer
-// (viewers.h): the archives, models, textures, sounds and text. Tab moves
-// between the viewer's pages; Esc goes back to the game. Without the
-// program, the engine is the viewer alone, and Esc goes back to the
-// launcher.
+// beside the game (video/movie.h). Its data viewer is in pages/, for
+// reluva-viewer.
 
 #include "engines/engine.h"
 #include "engines/netimmerse/alphateam/player.h"
-#include "engines/netimmerse/formats/pac_archive.h"
-#include "engines/netimmerse/pages/viewers.h"
 #include "audio/mixer.h"
 #include "common/fs.h"
 #include "common/settings.h"
 #include "video/movie.h"
 
-#include <algorithm>
 #include <cstdio>
-#include <map>
 #include <memory>
 #include <string>
 #include <vector>
@@ -33,8 +26,6 @@
 namespace reluva {
 
 namespace {
-
-using netimmerse::PacArchive;
 
 // Built with `reluva --hash`: each entry needs the size and the MD5 of the
 // first kDetectionHashBytes bytes.
@@ -67,8 +58,10 @@ public:
     NetImmerseEngine(System &system, GameTarget target) : _sys(system), _target(std::move(target)) {}
 
     Error run() override {
-        // One mixer for the game and the viewer's pages, for as long as the
-        // engine runs; without an audio device nothing plays.
+        if (!fs::findFile(_target.path, "LEGOATeam.exe"))
+            return Error::fail("LEGO Alpha Team's program, LEGOATeam.exe, isn't in " + _target.path.string());
+        // One mixer for the movie and the game; without an audio device
+        // nothing plays.
         _mixer = std::make_unique<audio::Mixer>(_sys.audioRate());
         _mixer->setMasterVolume(settings::volume(_target.settings, settings::kMasterVolume));
         _audioOut = !audio::startMixerOutput(_sys, *_mixer);
@@ -80,10 +73,6 @@ public:
                     sys.stopAudio();
             }
         } audioStop{_sys, _audioOut};
-        if (!fs::findFile(_target.path, "LEGOATeam.exe")) {
-            bool quit = false;
-            return viewer(quit);
-        }
         // The CD's intro movie first, if it's been copied beside the game
         // (the installer leaves it on the CD); a key or click skips it.
         if (const auto intro = fs::findFile(_target.path, "lmiintro.avi")) {
@@ -102,11 +91,6 @@ private:
     Error play() {
         netimmerse::alphateam::Player player(_target.path, _target.savePath, _audioOut ? _mixer.get() : nullptr);
         player.start();
-        _playing = true;
-        struct Stopped {
-            bool &playing;
-            ~Stopped() { playing = false; }
-        } stopped{_playing};
         int width = 640;
         int height = 480;
         auto screen = [&] {
@@ -142,19 +126,6 @@ private:
                     continue;
                 if (ev.type == EventType::kQuit || ev.type == EventType::kReturnToLauncher)
                     return Error::success();
-                if (ev.type == EventType::kKeyDown && ev.key == key::kF1 + 11 && !ev.repeat) { // F12: the viewer
-                    player.pause(true);
-                    _sys.setRelativeMouse(false);
-                    _sys.setMouseCursorVisible(true);
-                    bool quit = false;
-                    if (Error e = viewer(quit); e || quit)
-                        return e;
-                    screen();
-                    _sys.updateScreen(_screen);
-                    player.pause(false);
-                    rateFrom = _sys.getMillis(), rateFrames = player.framesShown();
-                    continue;
-                }
                 player.input(ev);
             }
             int w = 0;
@@ -185,112 +156,21 @@ private:
     }
 
     // Whether to leave after the window was closed (or, `toLauncher`,
-    // Ctrl+F5 was pressed): while the game runs, the player is asked, as
-    // what it hasn't saved would be lost.
+    // Ctrl+F5 was pressed): the player is asked, as what the game hasn't
+    // saved would be lost.
     bool confirmQuit(bool toLauncher) {
-        return !_playing ||
-               _sys.confirmQuit(_target.description +
+        return _sys.confirmQuit(_target.description +
                                     " is still running. Anything since the game last saved (it saves on finishing a "
                                     "mission, and on leaving through its Exit Game) will be lost.\n\n" +
                                     (toLauncher ? "Return to the launcher anyway?" : "Quit anyway?"),
                                 toLauncher);
     }
 
-    // The data viewer's pages, until Esc (or the player quits: `quit`).
-    Error viewer(bool &quit) {
-        using namespace netimmerse;
-        std::vector<std::pair<std::string, std::string>> lines;
-        std::vector<std::string> errors;
-        if (_archives.empty())
-            openArchives(lines, errors);
-        else
-            for (const auto &[name, pac] : _archives)
-                lines.emplace_back(name, std::to_string(pac->entries().size()) + " entries");
-        if (_archives.empty())
-            errors.push_back("No .pac archives could be read in " + _target.path.string());
-
-        _screen.create(kScreenW, kScreenH, PixelFormat::kRGBA32);
-        ViewerContext ctx{_sys, _screen, _target.description, {}, _files, _audioOut ? _mixer.get() : nullptr};
-        for (const auto &[name, pac] : _archives)
-            ctx.archives[name] = pac;
-        std::vector<std::unique_ptr<Page>> pages;
-        pages.push_back(std::make_unique<ArchivesPage>(ctx, std::move(lines), std::move(errors)));
-        pages.push_back(std::make_unique<ModelPage>(ctx));
-        pages.push_back(std::make_unique<TexturePage>(ctx));
-        pages.push_back(std::make_unique<FontPage>(ctx));
-        pages.push_back(std::make_unique<SoundPage>(ctx));
-        pages.push_back(std::make_unique<TextPage>(ctx));
-
-        size_t page = 0;
-        pages[page]->activate();
-        while (true) {
-            Event ev;
-            while (_sys.pollEvent(ev)) {
-                if ((ev.type == EventType::kQuit || ev.type == EventType::kReturnToLauncher) &&
-                    !confirmQuit(ev.type == EventType::kReturnToLauncher))
-                    continue;
-                if (ev.type == EventType::kQuit || ev.type == EventType::kReturnToLauncher ||
-                    (ev.type == EventType::kKeyDown && (ev.key == key::kEscape || ev.key == key::kF1 + 11))) {
-                    quit = ev.type == EventType::kQuit || ev.type == EventType::kReturnToLauncher;
-                    pages[page]->deactivate();
-                    return Error::success();
-                }
-                if (ev.type == EventType::kKeyDown && ev.key == key::kTab) {
-                    pages[page]->deactivate();
-                    do
-                        page = (page + 1) % pages.size();
-                    while (pages[page]->empty());
-                    pages[page]->activate();
-                    continue;
-                }
-                pages[page]->handleEvent(ev);
-            }
-            pages[page]->update(_sys.getMillis());
-            _sys.delayMillis(5);
-        }
-    }
-
-    // Every .pac in the game folder, opened and joined in one search set;
-    // with what each holds, counted by extension.
-    void openArchives(std::vector<std::pair<std::string, std::string>> &lines, std::vector<std::string> &errors) {
-        std::vector<std::filesystem::path> paths;
-        std::error_code ec;
-        for (std::filesystem::directory_iterator it(_target.path, ec), end; !ec && it != end; it.increment(ec))
-            if (fs::toLower(it->path().extension().string()) == ".pac")
-                paths.push_back(it->path());
-        std::sort(paths.begin(), paths.end());
-
-        for (const auto &path : paths) {
-            auto pac = std::make_unique<PacArchive>();
-            if (Error err = pac->open(path)) {
-                errors.push_back(err.message);
-                continue;
-            }
-            std::map<std::string, size_t> byExtension;
-            for (const auto &e : pac->entries()) {
-                if (e.size == 0)
-                    continue; // the placeholders some archives list for themselves
-                const size_t dot = e.name.rfind('.');
-                ++byExtension[dot == std::string::npos ? std::string("(none)") : e.name.substr(dot + 1)];
-            }
-            std::string holds;
-            for (const auto &[ext, count] : byExtension)
-                holds += (holds.empty() ? "" : ", ") + std::to_string(count) + " " + ext;
-            const std::string name = path.filename().string();
-            lines.emplace_back(name, holds);
-            _archives[name] = pac.get();
-            _files.add(std::move(pac), 0);
-        }
-    }
-
     System &_sys;
     GameTarget _target;
-    bool _playing = false; // the game is running (play())
     Surface _screen;
-    SearchSet _files;
     std::unique_ptr<audio::Mixer> _mixer;
     bool _audioOut = false;
-    std::map<std::string, const PacArchive *> _archives; // owned by files_
 };
 
 class NetImmerseMetaEngine : public MetaEngine {

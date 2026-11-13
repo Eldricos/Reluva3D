@@ -1,12 +1,12 @@
 # LEGO Alpha Team: detection, the archives and the data viewer
 
-> **Status:** done · **Code:** `src/engines/netimmerse/pages/viewers.h`, `src/engines/netimmerse/formats/pac_archive.cpp` · **Checked against:** the retail files · **Confidence:** confirmed unless marked
+> **Status:** done · **Code:** `src/engines/netimmerse/pages/viewers.h`, `src/engines/netimmerse/pages/viewer.cpp`, `src/engines/netimmerse/formats/pac_archive.cpp` · **Checked against:** the retail files · **Confidence:** confirmed unless marked
 
 ## Overview
 
 How Reluva recognises the game and reads its archives, and its data
-viewer of the game's files (F12 in the game, or the engine without
-`LEGOATeam.exe`), which the original doesn't have.
+viewer of the game's files (in `reluva-viewer`: `reluva-viewer <name>` or
+`reluva-viewer <folder>`, Esc to leave), which the original doesn't have.
 
 ## How it works
 
@@ -19,7 +19,7 @@ and each kind of file as its page in [formats/](../formats/) says.
 ### Detection and the archives
 
 - Done: detection by `Locale_en.pac`'s hash, with a fallback by file names
-  for other releases. The launcher finds the game. Starting it opens every
+  for other releases. The launcher finds the game. The viewer opens every
   archive and shows what each holds.
 - Done: the `.pac` format ([pac.md](../formats/pac.md)), checked
   against all eight retail archives.
@@ -36,8 +36,8 @@ and each kind of file as its page in [formats/](../formats/) says.
 ### The data viewer
 
 Like New Worlds and Elite Force before they ran, the engine first opens
-as a viewer; it checks each reader against all the retail files. Started
-from the launcher, the engine now shows these pages (keys in
+as a viewer; it checks each reader against all the retail files. Opened
+in `reluva-viewer`, the viewer shows these pages (keys in
 `src/engines/netimmerse/pages/viewers.h`; Tab moves between them):
 
 - Done: **Archives**: what each `.pac` holds.

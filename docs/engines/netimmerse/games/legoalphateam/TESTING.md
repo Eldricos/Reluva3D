@@ -28,10 +28,11 @@ Run by `ctest` (and CI) with everything else, or alone with
 - **`netimmerse.engine`** (`tests/engines/netimmerse/engine.cpp`), the
   basic engine test. It makes a small install of its own: `.pac` archives
   holding two models, a texture, a font with its page, a sound, a puzzle
-  and the locale's text. It checks that an install is recognised, then
-  runs the engine on it as the launcher would. With no `LEGOATeam.exe`
-  that's the data viewer: every page in turn, stepping through what each
-  shows, showing a model's hidden parts, playing the sound, then Esc. What
+  and the locale's text. It checks that an install is recognised, and
+  that the game, with no `LEGOATeam.exe`, returns an error saying so. Then
+  it opens the data viewer on it as `reluva-viewer` does: every page in
+  turn, stepping through what each shows, showing a model's hidden parts,
+  playing the sound, then Esc. What
   happens (the screens, the 3D renderer's textures, meshes and draws, the
   sound, the window's titles) goes into a record,
   `tests/engines/netimmerse/data/engine-record.txt`. If a change is meant
@@ -205,7 +206,8 @@ before M3010, M0040 before M3060.
 ### In Reluva, around the game
 
 - [ ] The window's title shows the frames a second.
-- [ ] F12 opens the data viewer and pauses the game; Esc goes back.
+- [ ] `reluva-viewer` opens the data viewer on the game's folder; Esc goes
+      back to its list.
 - [ ] Closing the window or Ctrl+F5 while playing asks first.
 - [ ] Alt+Tab away and back while playing.
 

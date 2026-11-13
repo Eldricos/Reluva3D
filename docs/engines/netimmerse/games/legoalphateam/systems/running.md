@@ -134,7 +134,6 @@ reports a Pentium, so any CPU-specific paths stay off).
   - The program's thread hands the input to the process at each frame,
     and whenever the program looks for a message and finds none.
   - The mouse is held by the window, and its movement is passed on.
-  - F12 pauses the game at its next frame and opens the data viewer.
   - Quitting stops the program with `Cpu::requestStop`; an `exit` of its
     own is told from a failure by `Win32Process::exited`.
 
