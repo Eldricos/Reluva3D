@@ -25,17 +25,17 @@ struct GamePart {
 // The parts of the game in `dir`: `dir` itself, or else each of its
 // folders that is one (copies of both CDs side by side, say), in name order;
 // the first takes precedence. None if there's no part of the game.
-std::vector<GamePart> findGameParts(const std::filesystem::path& dir);
+std::vector<GamePart> findGameParts(const std::filesystem::path &dir);
 
 // Enough to play: the scene scripts and the data, from any of the parts.
-bool playable(const std::vector<GamePart>& parts);
+bool playable(const std::vector<GamePart> &parts);
 
 // The release, from a table of the releases' file signatures: each
 // entry's files are looked for in one part's folder (a CD as it is, or an
 // install), so a CD is recognised wherever it is (alone, beside the other,
 // or in Reluva's import as disc1/). The part with the scene scripts is
 // tried first, then the others in order; none if no part matches an entry.
-std::optional<DetectedGame> recogniseRelease(const std::string& engineId, const std::vector<GamePart>& parts,
-                                             const std::vector<GameVariant>& table);
+std::optional<DetectedGame> recogniseRelease(const std::string &engineId, const std::vector<GamePart> &parts,
+                                             const std::vector<GameVariant> &table);
 
 } // namespace reluva::stharbinger

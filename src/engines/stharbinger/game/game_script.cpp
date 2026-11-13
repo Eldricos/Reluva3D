@@ -57,49 +57,58 @@ const uint8_t kCountdown[82][5] = {
 bool compare(uint8_t command, uint16_t a, uint16_t b) {
     switch (command) {
     case kCmdIfE:
-    case kCmdIfESubr: return a == b;
+    case kCmdIfESubr:
+        return a == b;
     case kCmdIfNE:
-    case kCmdIfNESubr: return a != b;
+    case kCmdIfNESubr:
+        return a != b;
     case kCmdIfGT:
-    case kCmdIfGTSubr: return a > b;
+    case kCmdIfGTSubr:
+        return a > b;
     case kCmdIfGE:
-    case kCmdIfGESubr: return a >= b;
+    case kCmdIfGESubr:
+        return a >= b;
     case kCmdIfLT:
-    case kCmdIfLTSubr: return a < b;
+    case kCmdIfLTSubr:
+        return a < b;
     case kCmdIfLE:
-    case kCmdIfLESubr: return a <= b;
-    default: return false;
+    case kCmdIfLESubr:
+        return a <= b;
+    default:
+        return false;
     }
 }
 
-bool isSymbol(const Argument* a) { return a && a->type == kArgSymbol; }
+bool isSymbol(const Argument *a) {
+    return a && a->type == kArgSymbol;
+}
 
 } // namespace
 
 // ---- Values and variables ------------------------------------------------
 
-std::string Game::variableName(const Argument* arg) const {
+std::string Game::variableName(const Argument *arg) const {
     if (!arg)
         return std::string();
-    const auto& vars = scene_->lists[kListVariables];
+    const auto &vars = scene_->lists[kListVariables];
     if (arg->value < vars.size())
         return fs::toLower(vars[arg->value].name);
     return text::format("@%u", arg->value);
 }
 
-uint16_t Game::getVariable(const Argument* arg) const {
+uint16_t Game::getVariable(const Argument *arg) const {
     auto it = variables_.find(variableName(arg));
     return it == variables_.end() ? 0 : it->second;
 }
 
 // A type-02 argument is a variable, anything else its own number (0x12E94).
-uint16_t Game::getValue(const Argument* arg) const {
+uint16_t Game::getValue(const Argument *arg) const {
     if (!arg)
         return 0xFFFF;
     return arg->type == kArgSymbol ? getVariable(arg) : uint16_t(arg->value);
 }
 
-void Game::setVariable(const Argument* arg, uint16_t value) {
+void Game::setVariable(const Argument *arg, uint16_t value) {
     std::string name = variableName(arg);
     if (name.empty())
         return;
@@ -113,8 +122,8 @@ void Game::buildLabels() {
     // LABEL n marks the directive after it as label n (0x10A36).
     labels_.clear();
     for (uint32_t i = 0; i < scene_->script.size(); i++) {
-        const Directive& d = scene_->script[i];
-        const Argument* a = d.getArg(0);
+        const Directive &d = scene_->script[i];
+        const Argument *a = d.getArg(0);
         if (d.command == kCmdLabel && a)
             labels_[a->value] = i + 1;
     }
@@ -133,12 +142,12 @@ void Game::jumpToLabel(int label) {
     thread_.pc = it->second;
 }
 
-bool Game::jumpTo(const Argument* arg) {
+bool Game::jumpTo(const Argument *arg) {
     jumpToLabel(arg ? int(arg->value) : -1);
     return thread_.wait == kWaitNone;
 }
 
-bool Game::gosub(const Argument* arg) {
+bool Game::gosub(const Argument *arg) {
     // A full stack is reported and the call becomes a jump (0x12E2D).
     if (thread_.callStack.size() < kMaxCallDepth)
         thread_.callStack.push_back(thread_.pc);
@@ -151,13 +160,21 @@ bool Game::isWaitOver() {
     switch (thread_.wait) {
     case kWaitAnim:
         return thread_.waitArg < 0 || thread_.waitArg >= int(anims_.size()) || !anims_[thread_.waitArg].suspended;
-    case kWaitFade: return !fade_.active;
-    case kWaitRestart: thread_.pc = 0; return true;
-    case kWaitConversation: return !conv_.active;
-    case kWaitVideo: return !video_.active;
-    case kWaitArcade: return !arcade_;
-    case kWaitCredits: return !credits_.active;
-    default: return true;
+    case kWaitFade:
+        return !fade_.active;
+    case kWaitRestart:
+        thread_.pc = 0;
+        return true;
+    case kWaitConversation:
+        return !conv_.active;
+    case kWaitVideo:
+        return !video_.active;
+    case kWaitArcade:
+        return !arcade_;
+    case kWaitCredits:
+        return !credits_.active;
+    default:
+        return true;
     }
 }
 
@@ -179,32 +196,36 @@ void Game::runThread() {
             thread_.active = false;
             return;
         }
-        const Directive& d = scene_->script[thread_.pc++];
+        const Directive &d = scene_->script[thread_.pc++];
         log::debug(4, "%s %04u: %s", scene_->name.c_str(), thread_.pc - 1, describe(d).c_str());
         if (!executeDirective(d))
             return;
     }
 }
 
-std::string Game::describe(const Directive& d) const {
+std::string Game::describe(const Directive &d) const {
     std::string s = getCommandName(d.command);
-    for (const Argument& a : d.args)
+    for (const Argument &a : d.args)
         s += text::format(" %u:%02X:%u", a.slot, a.type, a.value);
     return s;
 }
 
 // ---- Commands -------------------------------------------------------------
 
-bool Game::executeDirective(const Directive& d) {
-    const Argument* a0 = d.getArg(0);
-    const Argument* a1 = d.getArg(1);
-    const Argument* a2 = d.getArg(2);
-    Timer* timer = a0 && a0->value < timers_.size() ? &timers_[a0->value] : nullptr;
+bool Game::executeDirective(const Directive &d) {
+    const Argument *a0 = d.getArg(0);
+    const Argument *a1 = d.getArg(1);
+    const Argument *a2 = d.getArg(2);
+    Timer *timer = a0 && a0->value < timers_.size() ? &timers_[a0->value] : nullptr;
 
     switch (d.command) {
     // Variables. The destination is always read as a variable.
-    case kCmdLet: setVariable(a1, getValue(a0)); return true;
-    case kCmdAdd: setVariable(a1, uint16_t(getVariable(a1) + getValue(a0))); return true;
+    case kCmdLet:
+        setVariable(a1, getValue(a0));
+        return true;
+    case kCmdAdd:
+        setVariable(a1, uint16_t(getVariable(a1) + getValue(a0)));
+        return true;
     case kCmdSub: {
         uint16_t v = getVariable(a1), n = getValue(a0);
         if (n > v)
@@ -228,24 +249,28 @@ bool Game::executeDirective(const Directive& d) {
     }
 
     // Control flow.
-    case kCmdJump: return jumpTo(a0);
-    case kCmdGosub: return gosub(a0);
+    case kCmdJump:
+        return jumpTo(a0);
+    case kCmdGosub:
+        return gosub(a0);
     case kCmdIfE:
     case kCmdIfNE:
     case kCmdIfGT:
     case kCmdIfGE:
     case kCmdIfLT:
-    case kCmdIfLE: return compare(d.command, getValue(a0), getValue(a1)) ? jumpTo(a2) : true;
+    case kCmdIfLE:
+        return compare(d.command, getValue(a0), getValue(a1)) ? jumpTo(a2) : true;
     case kCmdIfESubr:
     case kCmdIfNESubr:
     case kCmdIfGTSubr:
     case kCmdIfGESubr:
     case kCmdIfLTSubr:
-    case kCmdIfLESubr: return compare(d.command, getValue(a0), getValue(a1)) ? gosub(a2) : true;
+    case kCmdIfLESubr:
+        return compare(d.command, getValue(a0), getValue(a1)) ? gosub(a2) : true;
     case kCmdSwitch: {
         // Jumps to label k if k < 7 and that slot holds one; otherwise falls through.
         uint16_t k = getVariable(a0);
-        const Argument* target = k < 7 ? d.getArg(1 + k) : nullptr;
+        const Argument *target = k < 7 ? d.getArg(1 + k) : nullptr;
         return isSymbol(target) ? jumpTo(target) : true;
     }
     case kCmdReturn:
@@ -274,7 +299,9 @@ bool Game::executeDirective(const Directive& d) {
         thread_.active = false;
         return false;
     }
-    case kCmdBackground: setBackground(a0 ? int(a0->value) : -1, isSymbol(a1) && a1->value == 0); return true;
+    case kCmdBackground:
+        setBackground(a0 ? int(a0->value) : -1, isSymbol(a1) && a1->value == 0);
+        return true;
     case kCmdFadeOut:
     case kCmdFadeIn:
         fade_.active = true;
@@ -285,8 +312,12 @@ bool Game::executeDirective(const Directive& d) {
         applyPalette();
         thread_.wait = kWaitFade;
         return false;
-    case kCmdMapOn: mapEnabled_ = true; return true;
-    case kCmdMapOff: mapEnabled_ = false; return true;
+    case kCmdMapOn:
+        mapEnabled_ = true;
+        return true;
+    case kCmdMapOff:
+        mapEnabled_ = false;
+        return true;
     case kCmdDeath:
         // The game sets its "dead" flag and opens the game menu.
         dead_ = true;
@@ -303,7 +334,7 @@ bool Game::executeDirective(const Directive& d) {
     case kCmdHotspot: {
         if (!a0 || a0->value >= hotspots_.size())
             return true;
-        Hotspot& h = hotspots_[a0->value];
+        Hotspot &h = hotspots_[a0->value];
         if (h.defined) {
             log::debug(1, "%s: duplicate hotspot definition", scene_->name.c_str());
             return true;
@@ -322,7 +353,7 @@ bool Game::executeDirective(const Directive& d) {
         if (a0)
             setRectHotspot_ = int(a0->value); // ACTIONSEQ 0xC2 fires from it
         if (a0 && a0->value < hotspots_.size()) {
-            Hotspot& h = hotspots_[a0->value];
+            Hotspot &h = hotspots_[a0->value];
             h.x = getValue(d.getArg(1));
             h.y = getValue(d.getArg(2));
             h.w = getValue(d.getArg(3));
@@ -331,7 +362,7 @@ bool Game::executeDirective(const Directive& d) {
         return true;
     case kCmdHotOn:
     case kCmdHotOff:
-        for (const Argument& a : d.args)
+        for (const Argument &a : d.args)
             if (a.type == kArgSymbol && a.value < hotspots_.size())
                 hotspots_[a.value].enabled = d.command == kCmdHotOn;
         return true;
@@ -347,7 +378,7 @@ bool Game::executeDirective(const Directive& d) {
             timer->active = true;
             timer->reload = timer->count = getValue(a1);
             timer->label = a2 ? int(a2->value) : -1;
-            const Argument* kind = d.getArg(3);
+            const Argument *kind = d.getArg(3);
             timer->kind = isSymbol(kind) ? int(kind->value) : kTimerScene;
         }
         return true;
@@ -378,7 +409,9 @@ bool Game::executeDirective(const Directive& d) {
         return true;
 
     // Sound.
-    case kCmdSound: playSound(a0 ? int(a0->value) : -1, a1); return true;
+    case kCmdSound:
+        playSound(a0 ? int(a0->value) : -1, a1);
+        return true;
 
     case kCmdConverse:
         // Blocks until the conversation ends; then the script continues, or jumps
@@ -388,7 +421,9 @@ bool Game::executeDirective(const Directive& d) {
         return thread_.active && thread_.wait == kWaitNone;
     // Action sequences (Smacker videos with their arcade parts) are not
     // implemented yet; they return the default result.
-    case kCmdActionSeq: actionSequence(d); return thread_.wait == kWaitNone;
+    case kCmdActionSeq:
+        actionSequence(d);
+        return thread_.wait == kWaitNone;
 
     default:
         if (executeAnimCommand(d))
@@ -398,17 +433,19 @@ bool Game::executeDirective(const Directive& d) {
     }
 }
 
-int Game::randomNumber(int n) { return n > 0 ? watcomRand() % n : 0; }
+int Game::randomNumber(int n) {
+    return n > 0 ? watcomRand() % n : 0;
+}
 
-void Game::drawBeam(Surface& dst, const Beam& b) {
+void Game::drawBeam(Surface &dst, const Beam &b) {
     if (b.enemy)
         drawEnemyBeam(dst, b.x0, b.y0, b.x1, b.y1, b.color, 8, 460, [this](int n) { return randomNumber(n); });
     else
         drawPhaserBeam(dst, b.x0, b.y0, b.x1, b.y1, b.color);
 }
 
-void Game::drawBeams(Surface& dst) {
-    for (const Beam& b : beams_)
+void Game::drawBeams(Surface &dst) {
+    for (const Beam &b : beams_)
         drawBeam(dst, b);
 }
 
@@ -442,27 +479,35 @@ void Game::updateTick() {
     tickPhase_ += 20;
     if (tickPhase_ >= tickPeriod_) {
         tickPhase_ = 0;
-        if (audio::Mixer* mixer = system_->getMixer())
+        if (audio::Mixer *mixer = system_->getMixer())
             if (!tickSound_.empty())
                 mixer->play(makeRawStream(tickSound_), audio::SoundType::Effects);
     }
 }
 
 // RETURNVAL's value for a conversation (0x10E83), with bit 15 set.
-uint16_t Game::evalReturnValue(const Argument* a) const {
+uint16_t Game::evalReturnValue(const Argument *a) const {
     if (!a)
         return 0x8000;
     uint16_t v;
     switch (a->type) {
-    case kArgSymbol: v = getVariable(a); break;
-    case kArgPair08: v = uint16_t((((a->value & 0xFF) << 8) | (a->value >> 8)) + 0x80); break;
-    case kArgPair10: v = uint16_t((((a->value & 0xFF) << 8) | (a->value >> 8)) + 0x40); break;
-    default: v = a->value < 3 ? uint16_t(a->value) : 1; break;
+    case kArgSymbol:
+        v = getVariable(a);
+        break;
+    case kArgPair08:
+        v = uint16_t((((a->value & 0xFF) << 8) | (a->value >> 8)) + 0x80);
+        break;
+    case kArgPair10:
+        v = uint16_t((((a->value & 0xFF) << 8) | (a->value >> 8)) + 0x40);
+        break;
+    default:
+        v = a->value < 3 ? uint16_t(a->value) : 1;
+        break;
     }
     return uint16_t(v | 0x8000);
 }
 
-void Game::actionSequence(const Directive& d) {
+void Game::actionSequence(const Directive &d) {
     uint16_t id = getValue(d.getArg(0));
     int type = id >= 256 ? id >> 8 : id;
     uint16_t result = kActionSeqDefault;
@@ -502,7 +547,7 @@ void Game::actionSequence(const Directive& d) {
         Beam b;
         b.enemy = true;
         if (setRectHotspot_ >= 0 && setRectHotspot_ < int(hotspots_.size())) {
-            const Hotspot& h = hotspots_[setRectHotspot_];
+            const Hotspot &h = hotspots_[setRectHotspot_];
             b.x0 = h.x + h.w / 2;
             b.y0 = h.y + h.h - 5;
         }
@@ -514,7 +559,8 @@ void Game::actionSequence(const Directive& d) {
             result = 0xFFFE;
         break;
     }
-    case 0xC3: break;
+    case 0xC3:
+        break;
     case 0xF0:
         tickPeriod_ = 0xFFFF; // the countdown's tick stops
         break;
@@ -536,7 +582,9 @@ void Game::actionSequence(const Directive& d) {
                 tickSound_ = s->readAll();
         break;
     }
-    default: log::debug(1, "ACTIONSEQ %u: no such function", id); break;
+    default:
+        log::debug(1, "ACTIONSEQ %u: no such function", id);
+        break;
     }
     setVariable(d.getArg(1), result);
 }

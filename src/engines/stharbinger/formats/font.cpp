@@ -5,7 +5,7 @@
 
 namespace reluva::stharbinger {
 
-bool Font::load(SeekableReadStream& stream) {
+bool Font::load(SeekableReadStream &stream) {
     glyphs_.clear();
     int count = stream.readUint16LE();
     if (stream.err() || count <= 0 || count > 224)
@@ -26,22 +26,22 @@ bool Font::load(SeekableReadStream& stream) {
     return true;
 }
 
-const Font::Glyph* Font::getGlyph(char c) const {
+const Font::Glyph *Font::getGlyph(char c) const {
     int index = int(uint8_t(c)) - 0x20;
     if (index < 0 || index >= int(glyphs_.size()))
         index = 0;
     return glyphs_.empty() ? nullptr : &glyphs_[index];
 }
 
-int Font::getStringWidth(const std::string& text) const {
+int Font::getStringWidth(const std::string &text) const {
     int w = 0;
     for (char c : text)
-        if (const Glyph* g = getGlyph(c))
+        if (const Glyph *g = getGlyph(c))
             w += g->width;
     return w;
 }
 
-void Font::drawGlyph(Surface& dst, int x, int y, const Glyph& g, uint8_t color, bool shadow) const {
+void Font::drawGlyph(Surface &dst, int x, int y, const Glyph &g, uint8_t color, bool shadow) const {
     for (int r = 0; r < g.height; r++) {
         for (int c = 0; c < g.pitch * 8; c++) {
             if (!(g.bits[r * g.pitch + c / 8] & (0x80 >> (c % 8))))
@@ -59,12 +59,12 @@ void Font::drawGlyph(Surface& dst, int x, int y, const Glyph& g, uint8_t color, 
     }
 }
 
-void Font::drawString(Surface& dst, int x, int y, const std::string& text, uint8_t color, uint8_t shadow) const {
+void Font::drawString(Surface &dst, int x, int y, const std::string &text, uint8_t color, uint8_t shadow) const {
     // Shadows first, so every character's pixels end up on top.
     for (int pass = 0; pass < 2; pass++) {
         int cx = x;
         for (char ch : text) {
-            const Glyph* g = getGlyph(ch);
+            const Glyph *g = getGlyph(ch);
             if (!g)
                 return;
             drawGlyph(dst, cx, y, *g, pass == 0 ? shadow : color, pass == 0);

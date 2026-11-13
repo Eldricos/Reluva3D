@@ -27,7 +27,7 @@ const uint32_t kCreditsFadeMillis = 500; // 10 steps of 50 ms
 // Deck maps: raw 8-bit images (maps\*.dat), the view shown, and where each
 // location is (DEEP.EXE tables 0x54BF4 / 0x54D20).
 struct DeckMap {
-    const char* file;
+    const char *file;
     int w, h;
     int viewW, viewH;
 };
@@ -89,7 +89,7 @@ void Game::startCredits(bool withBlank, bool fromMenu) {
 }
 
 void Game::drawCredits() {
-    Surface& dst = screen_;
+    Surface &dst = screen_;
     if (credits_.phase == CreditsScreen::kBlank) {
         draw::blit(dst, credits_.blank, 0, 0);
         return;
@@ -180,13 +180,13 @@ void Game::finishCredits() {
 
 bool Game::openDeckMap() {
     int location = mapLocation_;
-    const MapLocation* where = nullptr;
-    for (const MapLocation& l : kMapLocations)
+    const MapLocation *where = nullptr;
+    for (const MapLocation &l : kMapLocations)
         if (l.location == location)
             where = &l;
     if (!where)
         return false;
-    const DeckMap& map = kDeckMaps[location < 20 ? 0 : location < 65 ? 1 : location < 100 ? 2 : location < 150 ? 3 : 0];
+    const DeckMap &map = kDeckMaps[location < 20 ? 0 : location < 65 ? 1 : location < 100 ? 2 : location < 150 ? 3 : 0];
     auto s = resources_.openFile(map.file);
     if (!s) {
         log::warning("%s not found", map.file);

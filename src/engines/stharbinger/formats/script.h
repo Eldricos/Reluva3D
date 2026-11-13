@@ -34,7 +34,7 @@ struct Directive {
     uint8_t command = 0;
     std::vector<Argument> args; // only the slots that hold data
 
-    const Argument* getArg(int slot) const;
+    const Argument *getArg(int slot) const;
 };
 
 typedef std::vector<Directive> DirectiveList;
@@ -63,7 +63,7 @@ enum Command {
     kCmdJump = 0x76,
     kCmdIfNE = 0x77,
     kCmdSwitch = 0x78,
-    kCmdDeath = 0x79,       // DEATH (SOUNDSOFF? in older listings)
+    kCmdDeath = 0x79, // DEATH (SOUNDSOFF? in older listings)
     kCmdAnimDef = 0x7A,
     kCmdActionSeq = 0x7B,
     kCmdRandom = 0x7D,
@@ -154,7 +154,7 @@ enum Cursor {
     kCursorShoot = 16
 };
 
-const char* getCursorName(int cursor);
+const char *getCursorName(int cursor);
 
 // Number of argument slots of a command, or -1 if the byte is not a command
 // (DEEP.EXE table at 0x55140).
@@ -166,8 +166,8 @@ std::string getCommandName(uint8_t command);
 
 // Parses a directive list (u16 count, then the directives) starting at `pos`.
 // On success `pos` is just past the list. On failure `error` says why.
-bool readDirectiveList(const uint8_t* data, uint32_t size, uint32_t& pos, DirectiveList& out,
-                       std::string* error = nullptr);
+bool readDirectiveList(const uint8_t *data, uint32_t size, uint32_t &pos, DirectiveList &out,
+                       std::string *error = nullptr);
 
 // Name-list kinds, in the order of the archives CA ... CV.
 enum ListKind {
@@ -181,8 +181,8 @@ enum ListKind {
     kListKindCount
 };
 
-const char* getListArchiveName(ListKind kind); // "CA" ...
-const char* getListTitle(ListKind kind);       // "animations" ...
+const char *getListArchiveName(ListKind kind); // "CA" ...
+const char *getListTitle(ListKind kind);       // "animations" ...
 
 struct NameEntry {
     std::string name;
@@ -191,7 +191,7 @@ struct NameEntry {
 };
 
 // Name list entries: name NUL, source NUL, flag byte.
-std::vector<NameEntry> readNameList(const uint8_t* data, uint32_t size);
+std::vector<NameEntry> readNameList(const uint8_t *data, uint32_t size);
 
 struct XrefEntry {
     std::string symbol;
@@ -200,10 +200,10 @@ struct XrefEntry {
 };
 
 // CCS entries: symbol NUL, command byte, slot byte.
-std::vector<XrefEntry> readXrefList(const uint8_t* data, uint32_t size);
+std::vector<XrefEntry> readXrefList(const uint8_t *data, uint32_t size);
 
 // The file a resource is stored in, relative to the DS9 directory:
 // ART/X/Y/NAME.CMP, ANIMS/XXXX/NAME.RLE or SOUND/NAME.RAW.
-std::string getResourcePath(ListKind kind, const std::string& name);
+std::string getResourcePath(ListKind kind, const std::string &name);
 
 } // namespace reluva::stharbinger
