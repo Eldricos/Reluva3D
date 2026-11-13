@@ -288,8 +288,17 @@ void engineTest(const stdfs::path &tmp) {
 
     // Played: each page in turn (Tab), with the keys its page takes, then
     // back to the launcher.
-    GameTarget target{"nfs3",        "nfs", found.empty() ? "nfs3" : found[0].gameId, "Need for Speed III", install,
-                      tmp / "saves", {}};
+    // Played from the test's folder with the install named relative to it,
+    // so the Info page, which shows the folders, draws the same on every
+    // machine.
+    struct InFolder {
+        stdfs::path was = stdfs::current_path();
+        explicit InFolder(const stdfs::path &dir) { stdfs::current_path(dir); }
+        ~InFolder() { stdfs::current_path(was); }
+    } inTmp(tmp);
+    GameTarget target{
+        "nfs3",        "nfs", found.empty() ? "nfs3" : found[0].gameId, "Need for Speed III", "Need For Speed III",
+        tmp / "saves", {}};
     PlayingSystem sys;
     uint64_t at = 200;
     for (int page = 0; page < 12; ++page) {

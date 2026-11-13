@@ -55,17 +55,21 @@ GameFolders findFolders(const stdfs::path &install, const std::map<std::string, 
         return out;
     }
 
-    // The parent as the install's own path names it. absolute() and
-    // lexically_normal() settle "." and ".." without asking the file system,
-    // which on Windows could hand back other spellings (long names for short
-    // ones in the temp folder), so the CD found stays under the same prefix.
+    // The parent as the install's own path names it: a relative install
+    // gives a relative CD folder, beside it. Only "." and ".." go through
+    // absolute(), which (unlike canonical forms) doesn't ask the file system,
+    // so Windows can't hand back other spellings (long names for the temp
+    // folder's short ones) and the CD stays under the install's prefix.
     std::error_code ec;
-    stdfs::path self = stdfs::absolute(install, ec);
-    self = (ec ? install : self).lexically_normal();
-    if (!self.has_filename())
-        self = self.parent_path();
+    auto tidy = [](stdfs::path p) {
+        p = p.lexically_normal();
+        return p.has_filename() ? p : p.parent_path();
+    };
+    stdfs::path self = tidy(install);
+    if (self.empty() || self == "." || self.filename() == "..")
+        self = tidy(stdfs::absolute(self.empty() ? stdfs::path(".") : self, ec));
     const stdfs::path parent = self.parent_path();
-    for (const std::string &name : entries(parent, true)) {
+    for (const std::string &name : entries(parent.empty() ? stdfs::path(".") : parent, true)) {
         const stdfs::path dir = parent / name;
         if (stdfs::equivalent(dir, install, ec))
             continue;
