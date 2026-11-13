@@ -196,7 +196,9 @@ jobs:
       - name: Configure
         run: cmake -S . -B build -G Ninja -DCMAKE_BUILD_TYPE=Release -DRELUVA_ENGINES_FILE=$PWD/engines-ci.cfg
       - name: Build
-        # Warnings fail it: a new engine should start clean.
+        # Warnings fail it: a new engine should start clean. bash with
+        # pipefail, so a failed build fails here and not at the tests.
+        shell: bash
         run: |
           cmake --build build 2>&1 | tee build.log
           if grep -E "src/engines/template_check|tests/engines/template_check" build.log | grep -q "warning:"; then

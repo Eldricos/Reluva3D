@@ -11,6 +11,7 @@
 #include "video/indeo5.h"
 #include "tests/support/test.h"
 
+#include <algorithm>
 #include <cstdint>
 #include <cstring>
 #include <memory>

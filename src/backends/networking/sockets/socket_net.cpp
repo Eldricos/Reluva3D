@@ -232,7 +232,7 @@ public:
             if (WSAGetLastError() == WSAEMSGSIZE) { // cut short, as Winsock does it
                 done = size;
                 from = {ntohl(a.sin_addr.s_addr), ntohs(a.sin_port)};
-                return Ok;
+                return kOk;
             }
 #endif
             return error();
@@ -410,31 +410,31 @@ private:
 #ifdef _WIN32
         switch (WSAGetLastError()) {
         case WSAEWOULDBLOCK:
-            return WouldBlock;
+            return kWouldBlock;
         case WSAEINPROGRESS:
         case WSAEALREADY:
-            return InProgress;
+            return kInProgress;
         case WSAECONNREFUSED:
-            return Refused;
+            return kRefused;
         case WSAECONNRESET:
         case WSAECONNABORTED:
         case WSAENETRESET:
-            return Reset;
+            return kReset;
         case WSAENOTCONN:
-            return NotConnected;
+            return kNotConnected;
         case WSAEADDRINUSE:
-            return AddressInUse;
+            return kAddressInUse;
         case WSAEADDRNOTAVAIL:
-            return AddressNotAvailable;
+            return kAddressNotAvailable;
         case WSAENETUNREACH:
         case WSAEHOSTUNREACH:
-            return Unreachable;
+            return kUnreachable;
         case WSAEINVAL:
         case WSAENOTSOCK:
         case WSAEISCONN:
-            return Invalid;
+            return kInvalid;
         default:
-            return Failed;
+            return kFailed;
         }
 #else
         switch (errno) {

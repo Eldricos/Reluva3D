@@ -50,7 +50,7 @@ public:
 
 // Sockets as BSD sockets give them (TCP streams and UDP datagrams, IPv4),
 // for standing in for an old program's own socket calls (Winsock 1.1).
-// Each is a number; none of the calls waits: they say WouldBlock, and
+// Each is a number; none of the calls waits: they say kWouldBlock, and
 // ready() says when to try again.
 class Sockets {
 public:

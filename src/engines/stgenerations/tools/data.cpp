@@ -23,6 +23,7 @@
 #include "engines/stgenerations/formats/sprite.h"
 #include "devtools/tool.h"
 
+#include <algorithm>
 #include <cstdio>
 #include <cstring>
 #include <filesystem>

@@ -81,7 +81,7 @@ StderrLog::StderrLog(const std::filesystem::path &file) : _s(std::make_unique<St
     previous.replace_filename(file.stem().string() + "-previous" + file.extension().string());
     std::filesystem::rename(file, previous, ec); // the run before's, if there was one
 #ifdef _WIN32
-    s_->file = _wfopen(file.c_str(), L"wb");
+    _s->file = _wfopen(file.c_str(), L"wb");
 #else
     _s->file = std::fopen(file.c_str(), "wb");
 #endif

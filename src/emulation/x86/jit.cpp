@@ -185,7 +185,7 @@ Jit::Jit(const Layout &layout) : _layout(layout), _index(size_t(layout.blockMask
     const uint8_t info[] = {0x01, 0x09, 0x04, 0x00, 0x09, 0x32, 0x05, 0xd0, 0x03, 0xc0, 0x01, 0x30};
     w.bytes(info);
     entryAt = 16;
-    w.at = base_ + entryAt;
+    w.at = _base + entryAt;
 #else
     // .eh_frame: a CIE (return address at the CFA - 8, the CFA rsp + 8 on
     // entry) and an FDE for the whole buffer: the pushes (rbx, r12, r13
@@ -296,22 +296,22 @@ Jit::Jit(const Layout &layout) : _layout(layout), _index(size_t(layout.blockMask
     fn->BeginAddress = DWORD(entryAt);
     fn->EndAddress = DWORD(kBufferSize);
     fn->UnwindData = 0;
-    if (!RtlAddFunctionTable(fn, 1, reinterpret_cast<DWORD64>(base_))) {
+    if (!RtlAddFunctionTable(fn, 1, reinterpret_cast<DWORD64>(_base))) {
         delete fn;
-        release(base_, size_);
-        base_ = nullptr;
+        release(_base, _size);
+        _base = nullptr;
         return;
     }
-    unwind_ = fn;
+    _unwind = fn;
 #endif
 #endif
 }
 
 Jit::~Jit() {
 #if defined(RELUVA_JIT_WINDOWS)
-    if (unwind_) {
-        RtlDeleteFunctionTable(static_cast<RUNTIME_FUNCTION *>(unwind_));
-        delete static_cast<RUNTIME_FUNCTION *>(unwind_);
+    if (_unwind) {
+        RtlDeleteFunctionTable(static_cast<RUNTIME_FUNCTION *>(_unwind));
+        delete static_cast<RUNTIME_FUNCTION *>(_unwind);
     }
 #elif defined(RELUVA_JIT_LINUX)
     if (_unwind) {

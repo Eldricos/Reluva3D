@@ -7,6 +7,7 @@
 #include "common/headless_system.h"
 #include "common/types.h"
 
+#include <algorithm>
 #include <cstdint>
 #include <deque>
 #include <functional>
