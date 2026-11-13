@@ -2,6 +2,7 @@
 // Copyright (C) 2026 The Reluva contributors
 
 #include "engines/stgenerations/game/generations.h"
+#include "common/developer.h"
 #include "common/bytes.h"
 
 #include <algorithm>
@@ -923,7 +924,7 @@ bool Generations::handleWalkKey(const KeyState &state, bool down) {
         return true;
     case 'c':
         // Shift+C walks through walls (for testing); C alone crouches.
-        if (state.hasFlags(kKbdShift)) {
+        if (kDeveloperKeys && state.hasFlags(kKbdShift)) {
             if (down) {
                 _walker->setCollisionEnabled(!_walker->isCollisionEnabled());
                 updateWalkStatus();
@@ -935,6 +936,9 @@ bool Generations::handleWalkKey(const KeyState &state, bool down) {
     case 'x':
         return walkAction(KeyMap::kAwayJump, down);
     case 'l':
+        // Lighting off, to see the level's textures as they are (for testing).
+        if (!kDeveloperKeys)
+            return false;
         if (down) {
             _levelRenderer->setLightingEnabled(!_levelRenderer->isLightingEnabled());
             updateWalkStatus();
@@ -1343,8 +1347,15 @@ void Generations::updateWalkStatus() {
     _status = text::format("%s 3D %.0f,%.0f,%.0f %.0fdeg  WASD PgUp/Dn  L: light %s  Shift+C: walls %s", level.c_str(),
                            _camera.x, _camera.y, _camera.z, degrees, _levelRenderer->isLightingEnabled() ? "on" : "off",
                            _walker->isCollisionEnabled() ? "on" : "off");
-    if (_mission) {
+    if (_mission)
         _shownHealth = _mission->getHealth();
+    // The line above is a developer's readout, shown on the HUD's text
+    // line when no one is speaking: players get the HUD's line clear.
+    if (!kDeveloperKeys) {
+        _status.clear();
+        return;
+    }
+    if (_mission) {
         _status += text::format("  health %d", _shownHealth);
         if (_mission->getActiveItem())
             _status += text::format("  item %04x", _mission->getActiveItem());

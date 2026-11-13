@@ -12,6 +12,11 @@ Notes for developers. Building and running are covered in the
   (`./build/reluva` on Linux and macOS, `build\Release\reluva.exe` with
   Visual Studio's generator). There's no need to `cd build`.
 - **After pulling,** `git pull && cmake --build build` rebuilds what changed.
+- **Release builds for players** turn the developer keys off:
+  `-DRELUVA_DEVELOPER_KEYS=OFF` leaves out the games' debug keys and the
+  launcher's *Developer:* settings (`src/common/developer.h`). They're on
+  by default, for working on the engines and for the tests. The data
+  viewer is never in `reluva` either way ([below](#the-data-viewer)).
 - **SDL and Dear ImGui** are fetched and built by CMake. The first configure
   needs internet access and takes a few minutes; later ones reuse them.
   `-DRELUVA_USE_SYSTEM_SDL=ON` uses an installed SDL3 instead, found through

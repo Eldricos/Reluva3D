@@ -8,6 +8,7 @@
 // viewer is in pages/, for reluva-viewer.
 
 #include "audio/mixer.h"
+#include "common/developer.h"
 #include "common/fs.h"
 #include "common/log.h"
 #include "common/settings.h"
@@ -181,7 +182,7 @@ public:
     }
 
     std::vector<GameOption> engineOptions() const override {
-        return {
+        std::vector<GameOption> options = {
             volumeOption(kMusicVolume, "Music volume", "The music, and the movies' soundtracks"),
             volumeOption(kEffectsVolume, "Effects volume", "Every other sound"),
             volumeOption(kSpeechVolume, "Speech volume",
@@ -192,23 +193,28 @@ public:
              true,
              {{"1", "Lieutenant"}, {"0", "Captain"}, {"2", "Ensign"}}},
             {kSubtitles, "Subtitles", "The crew's words written under the picture", true, {}},
-            // Developer settings (docs/engines/stgenerations/README.md):
-            // not part of the game, for studying it.
-            {kDebugLevel,
-             "Developer: console output",
-             "Messages on the console as the game runs",
-             true,
-             {{"0", "None"}, {"1", "Some"}, {"2", "More"}, {"3", "Everything"}}},
-            {kDebugChannels,
-             "Developer: about",
-             "Which topics the console output covers (with it on)",
-             true,
-             {{"", "Warnings only"},
-              {"resources,scripts,sound", "Everything"},
-              {"resources", "Files and archives"},
-              {"scripts", "The missions' scripts"},
-              {"sound", "Sound"}}},
         };
+        // Developer settings (docs/engines/stgenerations/README.md): not
+        // part of the game, for studying it; not in release builds.
+        if (!kDeveloperKeys)
+            return options;
+        options.insert(options.end(), {
+                                          {kDebugLevel,
+                                           "Developer: console output",
+                                           "Messages on the console as the game runs",
+                                           true,
+                                           {{"0", "None"}, {"1", "Some"}, {"2", "More"}, {"3", "Everything"}}},
+                                          {kDebugChannels,
+                                           "Developer: about",
+                                           "Which topics the console output covers (with it on)",
+                                           true,
+                                           {{"", "Warnings only"},
+                                            {"resources,scripts,sound", "Everything"},
+                                            {"resources", "Files and archives"},
+                                            {"scripts", "The missions' scripts"},
+                                            {"sound", "Sound"}}},
+                                      });
+        return options;
     }
 
     std::unique_ptr<Engine> create(System &system, const GameTarget &target) const override {
@@ -219,10 +225,12 @@ public:
 } // namespace
 
 Error runGame(System &system, const GameTarget &target, const MakeGame &make) {
-    log::setDebugLevel(std::atoi(setting(target, kDebugLevel).c_str()));
-    for (const std::string &channel : text::split(setting(target, kDebugChannels), ','))
-        if (!text::trim(channel).empty())
-            enableDebugChannel(text::trim(channel));
+    if (kDeveloperKeys) {
+        log::setDebugLevel(std::atoi(setting(target, kDebugLevel).c_str()));
+        for (const std::string &channel : text::split(setting(target, kDebugChannels), ','))
+            if (!text::trim(channel).empty())
+                enableDebugChannel(text::trim(channel));
+    }
 
     audio::Mixer mixer(system.audioRate());
     mixer.setMasterVolume(settings::volume(target.settings, settings::kMasterVolume));

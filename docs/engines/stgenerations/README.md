@@ -133,7 +133,11 @@ game.
 
 ### Developer settings
 
-Not part of the game, for studying it:
+Not part of the game, for studying it. The launcher's settings here, and
+the 3D view's **L** (lighting off) and **Shift+C** (walk through walls)
+with its readout of the position on the HUD's text line, are only in
+builds with `RELUVA_DEVELOPER_KEYS` on (the default; release builds turn
+it off, [DEVELOPMENT.md](../../DEVELOPMENT.md#build-folders)):
 
 | Setting | Where | What it does |
 |---|---|---|

@@ -115,7 +115,9 @@ game does.
 
 **These exist in the engine for studying the game, and aren't part of it.**
 They show in the launcher's lists with *Developer:* before them, and are off
-unless set.
+unless set. The launcher's two, and the keys they turn on, are only in
+builds with `RELUVA_DEVELOPER_KEYS` on (the default; release builds turn it
+off, [DEVELOPMENT.md](../../DEVELOPMENT.md#build-folders)).
 
 | Setting | `reluva.ini` key | What it does |
 |---|---|---|

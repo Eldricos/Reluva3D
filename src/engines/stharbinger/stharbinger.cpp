@@ -6,6 +6,7 @@
 // it from its CDs, its settings, making an Engine to run it) and its Engine.
 // The game itself is Harbinger (harbinger.h) and Game (game/game.h).
 
+#include "common/developer.h"
 #include "audio/mixer.h"
 #include "common/fs.h"
 #include "common/log.h"
@@ -138,7 +139,7 @@ public:
         if (options.paths.empty())
             return Error::fail("Harbinger isn't found in " + _target.path.string() + " any more");
         options.original = flag(_target, kOriginal);
-        options.debug = flag(_target, kDebug);
+        options.debug = kDeveloperKeys && flag(_target, kDebug);
         options.startScene = setting(_target, kStartScene);
         log::setDebugLevel(options.debug ? std::atoi(setting(_target, kDebugLevel).c_str()) : 0);
 
@@ -243,7 +244,7 @@ public:
     }
 
     std::vector<GameOption> engineOptions() const override {
-        return {
+        std::vector<GameOption> options = {
             {kOriginal,
              "Play exactly as the original",
              "Leaves out what Reluva adds: Esc for the game menu (and back), Y/N/Enter/Esc for its\n"
@@ -254,20 +255,26 @@ public:
             volumeOption(kMusicVolume, "Music volume", "The action sequences' music and the videos' soundtracks"),
             volumeOption(kSpeechVolume, "Speech volume", "The conversations and the action sequences' voices"),
             volumeOption(kEffectsVolume, "Effects volume", "Every other sound"),
-            // Developer settings (docs/engines/stharbinger/README.md): not
-            // part of the game, for studying it.
-            {kDebug,
-             "Developer: debug keys",
-             "F2 shows the hotspots, F10 prints the variables that are set, and the title bar\n"
-             "names the scene, the hotspot under the mouse and anything skipped.",
-             false,
-             {}},
-            {kDebugLevel,
-             "Developer: console output",
-             "How much the engine prints, with the debug keys on.",
-             true,
-             {{"0", "None"}, {"1", "Some"}, {"2", "More"}, {"3", "All"}}},
         };
+        // Developer settings (docs/engines/stharbinger/README.md): not part
+        // of the game, for studying it; not in release builds.
+        if (!kDeveloperKeys)
+            return options;
+        options.insert(options.end(),
+                       {
+                           {kDebug,
+                            "Developer: debug keys",
+                            "F2 shows the hotspots, F10 prints the variables that are set, and the title bar\n"
+                            "names the scene, the hotspot under the mouse and anything skipped.",
+                            false,
+                            {}},
+                           {kDebugLevel,
+                            "Developer: console output",
+                            "How much the engine prints, with the debug keys on.",
+                            true,
+                            {{"0", "None"}, {"1", "Some"}, {"2", "More"}, {"3", "All"}}},
+                       });
+        return options;
     }
 
     std::unique_ptr<Engine> create(System &system, const GameTarget &target) const override {
