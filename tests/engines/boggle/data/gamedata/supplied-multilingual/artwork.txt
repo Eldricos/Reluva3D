@@ -1,1 +1,2 @@
 artwork: 55977527b964bec6 | decoded artwork: 777705ff11b7c3dec6bc1557a9e37a59
+cubes: 0850493e9e53f110 | decoded cubes: e985c393b66b88890345759e0ab219fc

@@ -16,6 +16,7 @@ reluva_add_engine(boggle
         formats/mesh.cpp
         formats/dictionary.cpp
         classic/presentation.cpp
+        classic/cube_geometry.cpp
         classic/layout.cpp
         classic/projection.cpp
         classic/options.cpp
@@ -41,6 +42,7 @@ reluva_add_engine_tools(boggle
         tools/computer.cpp
         tools/competition.cpp
         tools/solver.cpp
+        tools/cube_geometry.cpp
         tools/layout.cpp
         tools/files.cpp
         tools/frontend.cpp

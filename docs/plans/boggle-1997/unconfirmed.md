@@ -308,3 +308,13 @@ The owner confirmed the settled-dice lid build compiles and works. The next
 raised/pressed hand for active human play and restores the system pointer on
 focus/window exit, modal views and round transitions. Exact original dialog
 cursor behavior and whole-screen Windows appearance remain unverified.
+
+### Complete cube geometry preparation
+
+The owner confirmed the human hand-cursor update works. The next
+[cube preparation stage](../../engines/boggle/cube-geometry.md) validates the
+complete rounded/angular meshes, measures uniform scale, identifies six letter
+groups and adds optional script imports. Full cube-body rendering, original
+lighting and the settled full/one-sided visual choice remain unverified. A
+face-only preview omitted the cube shoulders and was rejected; no gameplay
+renderer change from that experiment is included.

@@ -147,3 +147,11 @@ The next [presentation fidelity pass](presentation-fidelity.md) establishes
 original camera/grid settings through isolated contracts and replaces the
 computer arrow with installed raised/pressed hand cursors. The subsequent [playing-camera pass](camera.md) replaces the tray fit after
 verifying final opening adjustments, viewport dimensions and projection math.
+
+## Complete cube geometry preparation
+
+The [cube geometry stage](cube-geometry.md) now validates and normalizes both
+installed cube scripts, retains body polygons and identifies the six letter
+groups. New imports include those scripts when present. A face-only rendering
+experiment was rejected because it omitted the shoulders/body; the playable
+view remains unchanged until a complete renderer is verified.

@@ -6,9 +6,9 @@ in your external game library. The launcher previews the copy plan before
 copying. **Add Game** can still use the original installed folder directly.
 Neither operation runs the Windows installer or original executable.
 
-The plan now copies 54 files (15,893,153 bytes for the supplied release): the current
+The plan now copies 55 files (15,941,518 bytes for the supplied release): the current
 U.S. English Classic Original/Master dependencies plus the existing detection
-markers, the optional game-selection background, publisher intro, five mode-button clips and six optional Classic artwork files plus the handwriting font and optional computer vocabulary. This supports all native Classic options, including both lid clips,
+markers, the optional game-selection background, publisher intro, five mode-button clips and six optional Classic artwork files plus the handwriting font, optional computer vocabulary and two optional cube scripts. This supports all native Classic options, including both lid clips,
 eight effects and fifteen music tracks. Source paths are matched without regard
 to case and destination names are consistent across platforms. The plan is
 stable and does not recursively copy unknown files.
@@ -18,6 +18,7 @@ stable and does not recursively copy unknown files.
 | English rules and music labels | `Dicts/English.dic`, `Language/English.dll` |
 | Computer vocabulary (when present) | `Dicts/AI.dic`; see [computer setup and limits](computers.md) |
 | Original/Master dice and palettes | `Dicts/EngOrg.dst`, `Dicts/EngMas.dst`, `Palettes/ClsO1Pal.pal`, `Palettes/ClsM1Pal.pal` |
+| Cube geometry preparation (when present) | `Scripts/Rounded.x`, `Scripts/Die.x`; see [cube geometry](cube-geometry.md) |
 | Cube lettering | `Textures/Letters.bmp`, `Textures/LettersQu.bmp` |
 | Classic panels and hourglasses (when present) | The six paths in [Classic layout](layout.md) |
 | Word-list handwriting (when present) | `Fonts/KPSI.TTF`; see [font support](fonts.md) |
@@ -73,7 +74,7 @@ reluva-tool boggle import-check /external/Boggle
 To preview filenames use `reluva-tool import /external/CD`; adding a destination
 argument performs the copy just as the launcher does. Keep redirected output
 and any copied files outside Git worktrees. The two supplied sources produce
-54 files / 15,893,153 bytes, checksum `7b5ee8f010ce0863aef6272fb06f0204`.
+55 files / 15,941,518 bytes, checksum `8d14e075a0d60ad2d18085e311de6288`.
 The preceding 52-file set lacks KPSI and has checksum
 `ea3fe01057225b21dfa387e95bf5f620`.
 The preceding 46-file set lacks the six Classic artwork files and has checksum

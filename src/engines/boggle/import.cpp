@@ -57,6 +57,7 @@ Error classicImportPlan(const std::filesystem::path& root, const DetectedGame& g
     }
     for(auto variant:{ClassicVariant::Original,ClassicVariant::Master})
         for(const auto& path:classicArtworkPaths(variant))if(fs::findFile(root,path))add(path);
+    for(const auto* path:{"Scripts/Rounded.x","Scripts/Die.x"})if(fs::findFile(root,path))add(path);
     ImportPlan plan; plan.game = game;
     for (const auto& [key,path] : paths) {
         std::filesystem::path from;

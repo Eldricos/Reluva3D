@@ -216,3 +216,7 @@ is redirected outside the build tree. A relative analysis path or a path
 inside a Git worktree is rejected. Record updates use the shared
 `RELUVA_GAMEDATA_UPDATE=1` workflow, followed by diff review. See
 [DEVELOPMENT.md](../../DEVELOPMENT.md#engine-tests).
+
+The [complete cube geometry preparation](cube-geometry.md) adds optional script
+imports and `cube-check` for the next rendering stage. Cube body rendering and
+lighting remain unfinished; current gameplay continues using the tested view.

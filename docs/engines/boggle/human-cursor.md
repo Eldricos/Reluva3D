@@ -69,7 +69,7 @@ backend smoke check translates window mouse-leave and verifies pointer
 hide/restore through a dummy video device. Both supplied variants also run
 the native human cursor flow through that backend; raised/pressed/released
 previews were inspected outside Git. All 737 installed files retain their
-manifest hashes. Windows owner testing of this human cursor pass is pending.
+manifest hashes. The owner subsequently confirmed the human cursor pass works.
 
 The synthetic Boggle suites and supplied cursor-resource checker also pass
 ASan/UBSan, with leak detection disabled for the execution tracer. The cursor

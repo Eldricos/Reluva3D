@@ -54,6 +54,13 @@ void selection(const std::filesystem::path& tmp) {
     ImportPlan ai;CHECK(!classicImportPlan(root,synthetic,{{"Identity.bin","",-1}},ai));
     CHECK(ai.files.size()==publisher.files.size()+1);
     CHECK(std::count_if(ai.files.begin(),ai.files.end(),[](const auto& f){return f.to=="Dicts/AI.dic";})==1);
+    fixtures::write(root/"Scripts/Rounded.x",fixtures::mesh());
+    fixtures::write(root/"Scripts/Die.x",fixtures::mesh());
+    ImportPlan meshes;CHECK(!classicImportPlan(root,synthetic,{{"Identity.bin","",-1}},meshes));
+    CHECK(meshes.files.size()==ai.files.size()+2);
+    for(const auto* path:{"Scripts/Rounded.x","Scripts/Die.x"})CHECK(std::count_if(meshes.files.begin(),meshes.files.end(),[&](const auto& f){return f.to==path;})==1);
+    CHECK(!runImport(meshes,tmp/"with-meshes",{}));
+    for(const auto* path:{"Scripts/Rounded.x","Scripts/Die.x"})CHECK(fs::md5File(root/path,0)==fs::md5File(tmp/"with-meshes"/path,0));
     uint64_t last=0;
     CHECK(!runImport(plan,dest,[&](uint64_t done,uint64_t expected){CHECK(done>=last && done<=expected);last=done;return true;}));
     CHECK(last==total);

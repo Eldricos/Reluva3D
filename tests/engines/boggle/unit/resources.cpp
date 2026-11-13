@@ -1,6 +1,8 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 // Copyright (C) 2026 The Reluva contributors
 #include "engines/boggle/resources.h"
+#include "engines/boggle/classic/cube_geometry.h"
+#include <limits>
 #include "tests/engines/boggle/fixtures.h"
 #include "tests/support/test.h"
 
@@ -67,6 +69,46 @@ void meshTest() {
     }
     CHECK(bool(readMesh(text + "Mesh {}", mesh)));
 }
+void cubeGeometryTest() {
+    Mesh source;
+    for(unsigned i=0;i<8;++i)source.positions.push_back({(i&1)?.5:-.5,(i&2)?.5:-.5,(i&4)?.5:-.5});
+    source.faces={{1,3,7,5},{0,4,6,2},{2,6,7,3},{0,1,5,4},{4,5,7,6},{0,2,3,1},{0,3,4}};
+    source.normals={{{1,0,0}},{{-1,0,0}},{{0,1,0}},{{0,-1,0}},{{0,0,1}},{{0,0,-1}},{{.707106781,-.707106781,0}}};
+    source.texcoords.assign(8,{.25,.75});source.materials.resize(7);
+    for(auto& material:source.materials)material.diffuse={.8,.7,.6,1};
+    for(unsigned i=0;i<7;++i){source.normalFaces.push_back(std::vector<uint32_t>(source.faces[i].size(),i));source.faceMaterials.push_back(i==6?6:(i+3)%6);}
+    CubeGeometry geometry;CHECK(!geometry.prepare(source,.25));
+    CHECK(geometry.appliedScale==.25 && geometry.mesh.positions[7][0]==.125);
+    CHECK(geometry.mesh.faces==source.faces && geometry.mesh.normals==source.normals);
+    CHECK(geometry.mesh.texcoords==source.texcoords && geometry.mesh.normalFaces==source.normalFaces);
+    CHECK(geometry.mesh.faceMaterials==source.faceMaterials && geometry.mesh.faces.size()==7); // includes the non-letter surface
+    for(size_t d=0;d<6;++d)CHECK(geometry.letters[d]==(d+3)%6);
+    auto subdivided=source;subdivided.positions.push_back({.5,0,-.5});subdivided.texcoords.push_back({.25,.75});
+    subdivided.faces[0].insert(subdivided.faces[0].begin()+1,8);subdivided.normalFaces[0].insert(subdivided.normalFaces[0].begin()+1,0);
+    CHECK(!geometry.prepare(subdivided,1)); // first three corners are collinear
+    CHECK(geometry.mesh.faces[0].size()==5 && geometry.letters[0]==3);
+    CHECK(source.positions[7][0]==.5); // source data stays unchanged
+    for(double bad:{0.,-1.,2.,std::numeric_limits<double>::infinity(),std::numeric_limits<double>::quiet_NaN()}) {
+        CHECK(bool(geometry.prepare(source,bad)) && geometry.mesh.positions.empty() && !geometry.appliedScale);
+    }
+    auto rejects=[&](const Mesh& bad){CHECK(!geometry.prepare(source,1));CHECK(bool(geometry.prepare(bad,1)));CHECK(geometry.mesh.faces.empty() && !geometry.appliedScale);};
+    auto bad=source;bad.positions[0][0]=17;rejects(bad);
+    bad=source;bad.positions[0][0]=1.01;rejects(bad);
+    bad=source;bad.normals[0]={0,0,0};rejects(bad);
+    bad=source;bad.texcoords[0][0]=1.01;rejects(bad);
+    bad=source;bad.texcoords.pop_back();rejects(bad);
+    bad=source;bad.faces[0][0]=99;rejects(bad);
+    bad=source;bad.faces[0]={1,1,1};bad.normalFaces[0]={0,0,0};rejects(bad);
+    bad=source;bad.normalFaces[0][0]=99;rejects(bad);
+    bad=source;bad.faceMaterials[0]=99;rejects(bad);
+    bad=source;bad.faceMaterials[0]=bad.faceMaterials[1];rejects(bad);
+    bad=source;bad.materials[0].diffuse[3]=0;rejects(bad);
+    bad=source;bad.materials[0].power=std::numeric_limits<double>::infinity();rejects(bad);
+    CHECK(classicCubeMeshScale("Scripts/Die.x")==1);
+    CHECK(classicCubeMeshScale("Scripts/Rounded.x")>.138 && classicCubeMeshScale("Scripts/Rounded.x")<.139);
+    Resources missing;CHECK(bool(readClassicCubeGeometry(missing,"unrecognized.x",geometry)) && geometry.mesh.faces.empty());
+    CHECK(bool(readClassicCubeGeometry(missing,"Scripts/Die.x",geometry)) && geometry.mesh.faces.empty());
+}
 void filesTest(const std::filesystem::path& tmp) {
     fixtures::install(tmp);
     Resources resources; CHECK(!resources.open(tmp));
@@ -92,6 +134,7 @@ void filesTest(const std::filesystem::path& tmp) {
 static const test::Suite suite("boggle.unit.resources", {
     {"palette colors, truncation and bounds", [](const auto&) { paletteTest(); }},
     {"dice counts and preserved faces", [](const auto&) { diceTest(); }},
+    {"complete cube normalization, directional groups, body retention and malformed data", [](const auto&) { cubeGeometryTest(); }},
     {"mesh geometry and malformed input", [](const auto&) { meshTest(); }},
     {"case-insensitive resource set and decoded digest", filesTest},
 });
