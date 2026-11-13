@@ -17,7 +17,7 @@ using namespace reluva::tool;
 
 // A payload counts as a container if it splits exactly into chunks whose
 // tags look plausible. Small tag limit keeps random data from qualifying.
-bool tilesIntoChunks(const Bytes& d, size_t begin, size_t end) {
+bool tilesIntoChunks(const Bytes &d, size_t begin, size_t end) {
     if (end - begin < 6)
         return false;
     size_t p = begin;
@@ -33,15 +33,15 @@ bool tilesIntoChunks(const Bytes& d, size_t begin, size_t end) {
     return p == end;
 }
 
-std::string describeWords(const Bytes& d, size_t p, size_t end, int count) {
+std::string describeWords(const Bytes &d, size_t p, size_t end, int count) {
     std::string out;
     char buf[64];
     for (int i = 0; i < count && p + 4 <= end; ++i, p += 4) {
         const uint32_t v = rd32(d, p);
         float f;
         std::memcpy(&f, &v, 4);
-        const bool plausibleFloat = (v & 0x7f800000) != 0 && (v & 0x7f800000) != 0x7f800000 && f > -1e6f &&
-                                    f < 1e6f && (f > 1e-4f || f < -1e-4f);
+        const bool plausibleFloat = (v & 0x7f800000) != 0 && (v & 0x7f800000) != 0x7f800000 && f > -1e6f && f < 1e6f &&
+                                    (f > 1e-4f || f < -1e-4f);
         if (plausibleFloat)
             std::snprintf(buf, sizeof buf, " %gf", double(f));
         else
@@ -51,7 +51,7 @@ std::string describeWords(const Bytes& d, size_t p, size_t end, int count) {
     return out;
 }
 
-void printChunks(const Bytes& d, size_t begin, size_t end, int depth) {
+void printChunks(const Bytes &d, size_t begin, size_t end, int depth) {
     size_t p = begin;
     while (p < end) {
         const uint16_t tag = rd16(d, p);
@@ -68,7 +68,7 @@ void printChunks(const Bytes& d, size_t begin, size_t end, int depth) {
     }
 }
 
-int cmdHexdump(int argc, char** argv) {
+int cmdHexdump(int argc, char **argv) {
     if (argc < 3) {
         std::fprintf(stderr, "usage: reluva-tool hexdump <file> [offset] [length]\n");
         return 2;
@@ -84,7 +84,7 @@ int cmdHexdump(int argc, char** argv) {
     return 0;
 }
 
-int cmdChunks(int argc, char** argv) {
+int cmdChunks(int argc, char **argv) {
     if (argc < 3) {
         std::fprintf(stderr, "usage: reluva-tool chunks <file>\n");
         return 2;
@@ -109,7 +109,7 @@ int cmdChunks(int argc, char** argv) {
     return 0;
 }
 
-int cmdWords(int argc, char** argv) {
+int cmdWords(int argc, char **argv) {
     if (argc < 3) {
         std::fprintf(stderr, "usage: reluva-tool words <file> [offset] [count]\n");
         return 2;
@@ -129,7 +129,7 @@ int cmdWords(int argc, char** argv) {
     return 0;
 }
 
-int cmdTable(int argc, char** argv) {
+int cmdTable(int argc, char **argv) {
     if (argc < 3) {
         std::fprintf(stderr, "usage: reluva-tool table <file> [values per row] [offset]\n");
         return 2;
@@ -159,19 +159,14 @@ int cmdTable(int argc, char** argv) {
     return 0;
 }
 
-const Commands commands("", {
-    {"hexdump", "<file> [offset] [length]",
-     "show a file's bytes as hex and text; the offset may be hex (0x..) or negative (from the end)",
-     cmdHexdump},
-    {"chunks", "<file>",
-     "try to read any file as a (u16 tag, u32 size) chunk tree",
-     cmdChunks},
-    {"words", "<file> [offset] [count]",
-     "show 4-byte values as hex, integer and float",
-     cmdWords},
-    {"table", "<file> [values per row] [offset]",
-     "show 4-byte values compactly, N per row",
-     cmdTable},
-});
+const Commands
+    commands("", {
+                     {"hexdump", "<file> [offset] [length]",
+                      "show a file's bytes as hex and text; the offset may be hex (0x..) or negative (from the end)",
+                      cmdHexdump},
+                     {"chunks", "<file>", "try to read any file as a (u16 tag, u32 size) chunk tree", cmdChunks},
+                     {"words", "<file> [offset] [count]", "show 4-byte values as hex, integer and float", cmdWords},
+                     {"table", "<file> [values per row] [offset]", "show 4-byte values compactly, N per row", cmdTable},
+                 });
 
 } // namespace

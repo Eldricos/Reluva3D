@@ -22,33 +22,33 @@ namespace reluva {
 // share one GPU device.
 class SdlGpuRenderer : public gfx::Renderer3D {
 public:
-    SdlGpuRenderer(SDL_GPUDevice* device, SDL_Renderer* renderer) : device_(device), renderer_(renderer) {}
+    SdlGpuRenderer(SDL_GPUDevice *device, SDL_Renderer *renderer) : device_(device), renderer_(renderer) {}
     ~SdlGpuRenderer() override;
-    SdlGpuRenderer(const SdlGpuRenderer&) = delete;
-    SdlGpuRenderer& operator=(const SdlGpuRenderer&) = delete;
+    SdlGpuRenderer(const SdlGpuRenderer &) = delete;
+    SdlGpuRenderer &operator=(const SdlGpuRenderer &) = delete;
 
     Error init(int width, int height);
     // Called after each frame is drawn into the window, before it's
     // presented (in the frame's coordinates): the backend's software cursor.
     void setBeforePresent(std::function<void()> fn) { beforePresent_ = std::move(fn); }
 
-    Error createTexture(int width, int height, const uint8_t* rgba, const gfx::TextureParams& params,
-                        gfx::TextureId& out) override;
+    Error createTexture(int width, int height, const uint8_t *rgba, const gfx::TextureParams &params,
+                        gfx::TextureId &out) override;
     void destroyTexture(gfx::TextureId id) override;
-    Error createMesh(const std::vector<gfx::Vertex>& vertices, const std::vector<uint32_t>& indices,
-                     gfx::MeshId& out) override;
+    Error createMesh(const std::vector<gfx::Vertex> &vertices, const std::vector<uint32_t> &indices,
+                     gfx::MeshId &out) override;
     void destroyMesh(gfx::MeshId id) override;
-    Error setMeshIndices(gfx::MeshId id, const std::vector<uint32_t>& indices) override;
-    Error setMeshVertices(gfx::MeshId id, const std::vector<gfx::Vertex>& vertices) override;
-    Error createIndexedMesh(gfx::MeshId vertices, const std::vector<uint32_t>& indices, gfx::MeshId& out) override;
+    Error setMeshIndices(gfx::MeshId id, const std::vector<uint32_t> &indices) override;
+    Error setMeshVertices(gfx::MeshId id, const std::vector<gfx::Vertex> &vertices) override;
+    Error createIndexedMesh(gfx::MeshId vertices, const std::vector<uint32_t> &indices, gfx::MeshId &out) override;
     int width() const override { return width_; }
     int height() const override { return height_; }
     std::string deviceName() const override;
-    void beginFrame(const gfx::Mat4& viewProj, const gfx::Vec3& eye, Color clear) override;
-    void draw(const gfx::DrawCall& call) override;
-    void setDynamicLights(const std::vector<gfx::DynamicLight>& lights) override {
-        lights_.assign(lights.begin(), lights.begin() + std::min<ptrdiff_t>(ptrdiff_t(lights.size()),
-                                                                             gfx::kMaxDynamicLights));
+    void beginFrame(const gfx::Mat4 &viewProj, const gfx::Vec3 &eye, Color clear) override;
+    void draw(const gfx::DrawCall &call) override;
+    void setDynamicLights(const std::vector<gfx::DynamicLight> &lights) override {
+        lights_.assign(lights.begin(),
+                       lights.begin() + std::min<ptrdiff_t>(ptrdiff_t(lights.size()), gfx::kMaxDynamicLights));
     }
     void setViewport(int x, int y, int w, int h) override;
     void setDepthRange(float maxDepth) override;
@@ -59,13 +59,13 @@ public:
     void setMirrored(bool mirrored) override { mirrored_ = mirrored; }
     void setGamma(float gamma) override { gamma_ = gamma > 0.05f ? gamma : 1.0f; }
     int setMultisampling(int samples) override;
-    void setView(const gfx::Mat4& viewProj, const gfx::Vec3& eye) override {
+    void setView(const gfx::Mat4 &viewProj, const gfx::Vec3 &eye) override {
         viewProj_ = viewProj;
         eye_ = eye;
     }
-    void endFrame(const Surface* overlay) override;
+    void endFrame(const Surface *overlay) override;
     void captureNextFrame() override { captureWanted_ = true; }
-    bool takeCapture(std::vector<uint8_t>& rgba) override {
+    bool takeCapture(std::vector<uint8_t> &rgba) override {
         if (capture_.empty())
             return false;
         rgba.swap(capture_);
@@ -74,22 +74,22 @@ public:
     }
 
 private:
-    void capture(SDL_GPUTexture* frame);
+    void capture(SDL_GPUTexture *frame);
     // The multisampled targets for samples_ (none for 1), made again
     // when it changes; the pipelines go with them.
     bool makeMultisampleTargets();
     // A pass over the frame: cleared (with `clear`) or kept, its depth
     // cleared, its stencil cleared or kept.
-    SDL_GPURenderPass* beginPass(const SDL_FColor* clear, bool keepStencil);
+    SDL_GPURenderPass *beginPass(const SDL_FColor *clear, bool keepStencil);
     struct Texture {
-        SDL_GPUTexture* texture = nullptr;
+        SDL_GPUTexture *texture = nullptr;
         int sampler = 0; // index into samplers_
     };
     struct Mesh {
-        SDL_GPUBuffer* vertices = nullptr;
-        SDL_GPUBuffer* indices = nullptr;
-        uint32_t indexBytes = 0; // the index buffer's size
-        uint32_t vertexBytes = 0; // the vertex buffer's
+        SDL_GPUBuffer *vertices = nullptr;
+        SDL_GPUBuffer *indices = nullptr;
+        uint32_t indexBytes = 0;     // the index buffer's size
+        uint32_t vertexBytes = 0;    // the vertex buffer's
         bool sharedVertices = false; // another mesh's (createIndexedMesh)
     };
 
@@ -97,40 +97,40 @@ private:
     // the buffer if frames still on the GPU use it. Kept till flush(),
     // which sends all those waiting in one command buffer of their own
     // (done before any draw and at the frame's end, so draws see them).
-    bool upload(const void* data, uint32_t size, SDL_GPUBuffer* buffer, bool cycle = false);
+    bool upload(const void *data, uint32_t size, SDL_GPUBuffer *buffer, bool cycle = false);
     bool flush();
     struct PendingUpload {
-        SDL_GPUBuffer* buffer;
+        SDL_GPUBuffer *buffer;
         uint32_t offset, size; // in staging_
         bool cycle;
     };
     std::vector<PendingUpload> pending_;
     std::vector<uint8_t> staging_;
-    SDL_GPUTransferBuffer* transfer_ = nullptr;
+    SDL_GPUTransferBuffer *transfer_ = nullptr;
     uint32_t transferBytes_ = 0;
-    SDL_GPUGraphicsPipeline* pipeline(const gfx::DrawState& state);
+    SDL_GPUGraphicsPipeline *pipeline(const gfx::DrawState &state);
 
-    SDL_GPUDevice* device_;
-    SDL_Renderer* renderer_;
+    SDL_GPUDevice *device_;
+    SDL_Renderer *renderer_;
     int width_ = 0, height_ = 0;
     SDL_GPUTextureFormat depthFormat_ = SDL_GPU_TEXTUREFORMAT_D16_UNORM;
     bool hasStencil_ = false;
     StencilMode stencilMode_ = StencilMode::None;
-    uint8_t stencilRef_ = 3;     // kStencilMarks: both kinds of mark
-    bool stencilWhole_ = false;  // a reference set this frame: written and compared whole
+    uint8_t stencilRef_ = 3;    // kStencilMarks: both kinds of mark
+    bool stencilWhole_ = false; // a reference set this frame: written and compared whole
     bool mirrored_ = false;
-    SDL_GPUTexture* color_ = nullptr; // the frame, wrapped by colorView_ for the renderer
-    SDL_GPUTexture* depth_ = nullptr;
+    SDL_GPUTexture *color_ = nullptr; // the frame, wrapped by colorView_ for the renderer
+    SDL_GPUTexture *depth_ = nullptr;
     // Multisampling: the count wanted, the count the targets have, and
     // those targets, resolved into color_ at the end of each pass. The
     // passes over the frame use passSamples_ (1 for the brightness pass).
     SDL_GPUSampleCount wantSamples_ = SDL_GPU_SAMPLECOUNT_1;
     SDL_GPUSampleCount samples_ = SDL_GPU_SAMPLECOUNT_1;
     SDL_GPUSampleCount passSamples_ = SDL_GPU_SAMPLECOUNT_1;
-    SDL_GPUTexture* msaaColor_ = nullptr;
-    SDL_GPUTexture* msaaDepth_ = nullptr;
-    SDL_Texture* colorView_ = nullptr;
-    SDL_Texture* overlay_ = nullptr;
+    SDL_GPUTexture *msaaColor_ = nullptr;
+    SDL_GPUTexture *msaaDepth_ = nullptr;
+    SDL_Texture *colorView_ = nullptr;
+    SDL_Texture *overlay_ = nullptr;
     std::function<void()> beforePresent_;
     // The frame through the brightness curve, shown instead when it isn't
     // 1: drawn from the frame (a texture of it, frameTexture_) with a quad
@@ -138,27 +138,27 @@ private:
     SDL_GPUViewport viewport_{};
     float maxDepth_ = 1;
     float gamma_ = 1;
-    SDL_GPUTexture* gammaFrame_ = nullptr;
-    SDL_Texture* gammaView_ = nullptr;
+    SDL_GPUTexture *gammaFrame_ = nullptr;
+    SDL_Texture *gammaView_ = nullptr;
     gfx::TextureId frameTexture_ = 0;
     bool captureWanted_ = false;
     std::vector<uint8_t> capture_; // the frame kept by captureNextFrame()
     gfx::MeshId screenQuad_ = 0;
-    SDL_GPUShader* vertexShader_ = nullptr;
-    SDL_GPUShader* fragmentShader_ = nullptr;
-    SDL_GPUSampler* samplers_[32] = {}; // by clamp | mipmaps << 1 | nearest << 2 | mipNearest << 3 | anisotropic << 4
-    std::unordered_map<uint32_t, SDL_GPUGraphicsPipeline*> pipelines_; // by packed DrawState and pass
+    SDL_GPUShader *vertexShader_ = nullptr;
+    SDL_GPUShader *fragmentShader_ = nullptr;
+    SDL_GPUSampler *samplers_[32] = {}; // by clamp | mipmaps << 1 | nearest << 2 | mipNearest << 3 | anisotropic << 4
+    std::unordered_map<uint32_t, SDL_GPUGraphicsPipeline *> pipelines_; // by packed DrawState and pass
     std::unordered_map<gfx::TextureId, Texture> textures_;
     std::unordered_map<gfx::MeshId, Mesh> meshes_;
     uint32_t nextId_ = 1;
     gfx::TextureId white_ = 0;
 
     // The frame being drawn.
-    SDL_GPUCommandBuffer* cmd_ = nullptr;
-    SDL_GPURenderPass* pass_ = nullptr;
+    SDL_GPUCommandBuffer *cmd_ = nullptr;
+    SDL_GPURenderPass *pass_ = nullptr;
     gfx::Mat4 viewProj_{};
     gfx::Vec3 eye_{};
-    SDL_GPUGraphicsPipeline* boundPipeline_ = nullptr;
+    SDL_GPUGraphicsPipeline *boundPipeline_ = nullptr;
     gfx::MeshId boundMesh_ = 0;
     int32_t boundOffset_ = 0, boundOldOffset_ = 0; // the vertex buffers' bindings, in vertices
     std::vector<gfx::DynamicLight> lights_;

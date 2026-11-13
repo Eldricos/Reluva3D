@@ -63,7 +63,7 @@ struct Rgba {
 // A probe: the average of the 6x6 block around (x, y), and how far each
 // channel may stray from the reference's.
 struct Probe {
-    const char* what;
+    const char *what;
     int x, y;
     int tolerance = 12;
     bool needsStencil = false;
@@ -71,7 +71,7 @@ struct Probe {
 
 class Scene {
 public:
-    explicit Scene(gfx::Renderer3D& r) : r_(r) {}
+    explicit Scene(gfx::Renderer3D &r) : r_(r) {}
     ~Scene() {
         for (gfx::MeshId m : meshes_)
             r_.destroyMesh(m);
@@ -79,9 +79,9 @@ public:
             r_.destroyTexture(t);
     }
 
-    gfx::TextureId texture(int w, int h, const std::vector<Rgba>& pixels, gfx::TextureParams params) {
+    gfx::TextureId texture(int w, int h, const std::vector<Rgba> &pixels, gfx::TextureParams params) {
         gfx::TextureId id = 0;
-        if (Error err = r_.createTexture(w, h, reinterpret_cast<const uint8_t*>(pixels.data()), params, id))
+        if (Error err = r_.createTexture(w, h, reinterpret_cast<const uint8_t *>(pixels.data()), params, id))
             std::fprintf(stderr, "createTexture: %s\n", err.message.c_str());
         textures_.push_back(id);
         return id;
@@ -90,17 +90,20 @@ public:
     // A rectangle in pixels at depth z, its corners' colours (top left,
     // top right, bottom right, bottom left), texture coordinates (u0, v0)
     // to (u1, v1); `flip` winds it the other way round.
-    gfx::MeshId quad(float x0, float y0, float x1, float y1, float z, const std::array<Rgba, 4>& colors,
-                     float u0 = 0, float v0 = 0, float u1 = 1, float v1 = 1, bool flip = false,
-                     gfx::Vec3 normal = {0, 0, 1}) {
+    gfx::MeshId quad(float x0, float y0, float x1, float y1, float z, const std::array<Rgba, 4> &colors, float u0 = 0,
+                     float v0 = 0, float u1 = 1, float v1 = 1, bool flip = false, gfx::Vec3 normal = {0, 0, 1}) {
         const float xs[4] = {x0, x1, x1, x0}, ys[4] = {y0, y0, y1, y1};
         const float us[4] = {u0, u1, u1, u0}, vs[4] = {v0, v0, v1, v1};
         std::vector<gfx::Vertex> v(4);
         for (int i = 0; i < 4; ++i) {
-            v[size_t(i)] = {{xs[i], ys[i], z}, {us[i], vs[i]}, {us[i], vs[i]}, {normal[0], normal[1], normal[2]},
+            v[size_t(i)] = {{xs[i], ys[i], z},
+                            {us[i], vs[i]},
+                            {us[i], vs[i]},
+                            {normal[0], normal[1], normal[2]},
                             {colors[size_t(i)].r, colors[size_t(i)].g, colors[size_t(i)].b, colors[size_t(i)].a}};
         }
-        std::vector<uint32_t> idx = flip ? std::vector<uint32_t>{0, 2, 1, 0, 3, 2} : std::vector<uint32_t>{0, 1, 2, 0, 2, 3};
+        std::vector<uint32_t> idx =
+            flip ? std::vector<uint32_t>{0, 2, 1, 0, 3, 2} : std::vector<uint32_t>{0, 1, 2, 0, 2, 3};
         return mesh(v, idx);
     }
     gfx::MeshId quad(float x0, float y0, float x1, float y1, float z, Rgba color) {
@@ -110,11 +113,12 @@ public:
         std::vector<gfx::Vertex> v(3);
         const gfx::Vec3 p[3] = {a, b, c};
         for (int i = 0; i < 3; ++i)
-            v[size_t(i)] = {{p[i][0], p[i][1], p[i][2]}, {0, 0}, {0, 0}, {0, 0, 1}, {color.r, color.g, color.b, color.a}};
+            v[size_t(i)] = {
+                {p[i][0], p[i][1], p[i][2]}, {0, 0}, {0, 0}, {0, 0, 1}, {color.r, color.g, color.b, color.a}};
         return mesh(v, {0, 1, 2});
     }
 
-    gfx::MeshId mesh(const std::vector<gfx::Vertex>& v, const std::vector<uint32_t>& idx) {
+    gfx::MeshId mesh(const std::vector<gfx::Vertex> &v, const std::vector<uint32_t> &idx) {
         gfx::MeshId id = 0;
         if (Error err = r_.createMesh(v, idx, id))
             std::fprintf(stderr, "createMesh: %s\n", err.message.c_str());
@@ -134,7 +138,7 @@ public:
     }
 
 private:
-    gfx::Renderer3D& r_;
+    gfx::Renderer3D &r_;
     std::vector<gfx::MeshId> meshes_;
     std::vector<gfx::TextureId> textures_;
 };
@@ -143,13 +147,17 @@ constexpr Rgba kRed{255, 0, 0, 255}, kGreen{0, 255, 0, 255}, kBlue{0, 0, 255, 25
     kGrey{64, 64, 64, 255}, kMagenta{255, 0, 255, 255}, kBlack{0, 0, 0, 255};
 
 // The cell at column c, row r: its top left corner.
-float cx(int c) { return float(c * kCell); }
-float cy(int r) { return float(r * kCell); }
+float cx(int c) {
+    return float(c * kCell);
+}
+float cy(int r) {
+    return float(r * kCell);
+}
 
 std::vector<Probe> probes() {
     auto at = [](int c, int r, int x, int y) { return std::pair{c * kCell + x, r * kCell + y}; };
     std::vector<Probe> out;
-    auto add = [&](const char* what, std::pair<int, int> p, int tolerance = 12, bool stencil = false) {
+    auto add = [&](const char *what, std::pair<int, int> p, int tolerance = 12, bool stencil = false) {
         out.push_back({what, p.first, p.second, tolerance, stencil});
     };
     add("texture, nearest: top left (red)", at(0, 0, 20, 20));
@@ -180,7 +188,7 @@ std::vector<Probe> probes() {
     return out;
 }
 
-void drawFrame(gfx::Renderer3D& r, Scene& s) {
+void drawFrame(gfx::Renderer3D &r, Scene &s) {
     using gfx::Blend;
     const gfx::Mat4 proj = pixelProjection();
     r.beginFrame(proj, {0, 0, -1}, kClear);
@@ -249,8 +257,10 @@ void drawFrame(gfx::Renderer3D& r, Scene& s) {
     // (2,1) Culling of back faces: the same triangles wound both ways.
     {
         const float x = cx(2), y = cy(1);
-        gfx::DrawCall a = Scene::call(s.triangle({x + 4, y + 10, 0.5f}, {x + 36, y + 10, 0.5f}, {x + 4, y + 70, 0.5f}, kGreen), 3);
-        gfx::DrawCall b = Scene::call(s.triangle({x + 44, y + 10, 0.5f}, {x + 44, y + 70, 0.5f}, {x + 76, y + 10, 0.5f}, kRed), 3);
+        gfx::DrawCall a =
+            Scene::call(s.triangle({x + 4, y + 10, 0.5f}, {x + 36, y + 10, 0.5f}, {x + 4, y + 70, 0.5f}, kGreen), 3);
+        gfx::DrawCall b =
+            Scene::call(s.triangle({x + 44, y + 10, 0.5f}, {x + 44, y + 70, 0.5f}, {x + 76, y + 10, 0.5f}, kRed), 3);
         a.state.cull = b.state.cull = gfx::Cull::Back;
         r.draw(a);
         r.draw(b);
@@ -260,8 +270,9 @@ void drawFrame(gfx::Renderer3D& r, Scene& s) {
     {
         for (int half = 0; half < 2; ++half) {
             const gfx::Vec3 normal = half == 0 ? gfx::Vec3{0, 0, 1} : gfx::Vec3{0, 0, -1};
-            gfx::DrawCall c = Scene::call(s.quad(cx(3) + 40.0f * float(half), cy(1), cx(3) + 40.0f * float(half + 1), cy(2),
-                                                 0.5f, {kWhite, kWhite, kWhite, kWhite}, 0, 0, 1, 1, false, normal));
+            gfx::DrawCall c =
+                Scene::call(s.quad(cx(3) + 40.0f * float(half), cy(1), cx(3) + 40.0f * float(half + 1), cy(2), 0.5f,
+                                   {kWhite, kWhite, kWhite, kWhite}, 0, 0, 1, 1, false, normal));
             c.rgbSource = gfx::ColorSource::Lighting;
             c.alphaSource = gfx::ColorSource::Constant;
             c.ambientLight = {0.2f, 0.2f, 0.2f};
@@ -278,7 +289,8 @@ void drawFrame(gfx::Renderer3D& r, Scene& s) {
             for (int x = 0; x < 64; ++x)
                 checker[size_t(y * 64 + x)] = ((x / 8) + (y / 8)) % 2 ? kWhite : kBlack;
         const gfx::TextureId t = s.texture(64, 64, checker, gfx::TextureParams{});
-        gfx::DrawCall c = Scene::call(s.quad(cx(0), cy(2), cx(1), cy(3), 0.5f, {kWhite, kWhite, kWhite, kWhite}, 0, 0, 8, 8));
+        gfx::DrawCall c =
+            Scene::call(s.quad(cx(0), cy(2), cx(1), cy(3), 0.5f, {kWhite, kWhite, kWhite, kWhite}, 0, 0, 8, 8));
         c.texture = t;
         c.rgbSource = c.alphaSource = gfx::ColorSource::Constant;
         r.draw(c);
@@ -319,15 +331,17 @@ void drawFrame(gfx::Renderer3D& r, Scene& s) {
 }
 
 // The brightness pass: a frame of mid grey shown at gamma 2.
-void drawGammaFrame(gfx::Renderer3D& r, Scene& s) {
+void drawGammaFrame(gfx::Renderer3D &r, Scene &s) {
     r.beginFrame(pixelProjection(), {0, 0, -1}, kClear);
     r.setGamma(2);
     r.draw(Scene::call(s.quad(0, 0, kWidth, kHeight, 0.5f, Rgba{64, 128, 192, 255})));
 }
 
-std::vector<Probe> gammaProbes() { return {{"gamma 2: colours raised to 1/2", kWidth / 2, kHeight / 2, 12, false}}; }
+std::vector<Probe> gammaProbes() {
+    return {{"gamma 2: colours raised to 1/2", kWidth / 2, kHeight / 2, 12, false}};
+}
 
-bool capture(SdlSystem& system, gfx::Renderer3D& r, Scene& s, void (*draw)(gfx::Renderer3D&, Scene&), Image& out) {
+bool capture(SdlSystem &system, gfx::Renderer3D &r, Scene &s, void (*draw)(gfx::Renderer3D &, Scene &), Image &out) {
     r.captureNextFrame();
     draw(r, s);
     r.endFrame(nullptr);
@@ -341,34 +355,33 @@ bool capture(SdlSystem& system, gfx::Renderer3D& r, Scene& s, void (*draw)(gfx::
         out.rgba[i] = 255;
     r.setGamma(1);
     Event ev;
-    while (system.pollEvent(ev)) {
-    }
+    while (system.pollEvent(ev)) {}
     return true;
 }
 
-std::array<int, 3> average(const Image& img, int x, int y) {
+std::array<int, 3> average(const Image &img, int x, int y) {
     std::array<int, 3> sum{};
     int n = 0;
     for (int dy = -3; dy < 3; ++dy)
         for (int dx = -3; dx < 3; ++dx) {
             const int px = std::clamp(x + dx, 0, img.w - 1), py = std::clamp(y + dy, 0, img.h - 1);
-            const uint8_t* p = img.pixel(px, py);
+            const uint8_t *p = img.pixel(px, py);
             for (int c = 0; c < 3; ++c)
                 sum[size_t(c)] += p[c];
             ++n;
         }
-    for (int& v : sum)
+    for (int &v : sum)
         v /= n;
     return sum;
 }
 
-bool writeFile(const std::filesystem::path& path, const std::vector<uint8_t>& data) {
+bool writeFile(const std::filesystem::path &path, const std::vector<uint8_t> &data) {
     std::ofstream out(path, std::ios::binary);
-    out.write(reinterpret_cast<const char*>(data.data()), std::streamsize(data.size()));
+    out.write(reinterpret_cast<const char *>(data.data()), std::streamsize(data.size()));
     return bool(out);
 }
 
-bool readImage(const std::filesystem::path& path, Image& out) {
+bool readImage(const std::filesystem::path &path, Image &out) {
     std::ifstream in(path, std::ios::binary);
     if (!in)
         return false;
@@ -378,10 +391,10 @@ bool readImage(const std::filesystem::path& path, Image& out) {
 
 // The frame against its reference: each probe, then the whole frame. True
 // if it passes.
-bool compare(const char* name, const Image& got, const Image& want, const std::vector<Probe>& list, bool stencil,
-             const std::filesystem::path& outDir) {
+bool compare(const char *name, const Image &got, const Image &want, const std::vector<Probe> &list, bool stencil,
+             const std::filesystem::path &outDir) {
     bool ok = true;
-    for (const Probe& p : list) {
+    for (const Probe &p : list) {
         if (p.needsStencil && !stencil) {
             std::printf("  skip  %-48s (no stencil buffer)\n", p.what);
             continue;
@@ -409,7 +422,7 @@ bool compare(const char* name, const Image& got, const Image& want, const std::v
             int worst = 0;
             for (int c = 0; c < 3; ++c)
                 worst = std::max(worst, std::abs(int(g[c]) - int(w[c])));
-            uint8_t* d = diff.pixel(x, y);
+            uint8_t *d = diff.pixel(x, y);
             d[0] = d[1] = d[2] = uint8_t(std::min(255, worst * 4));
             d[3] = 255;
         }
@@ -442,7 +455,7 @@ bool compare(const char* name, const Image& got, const Image& want, const std::v
 
 } // namespace
 
-int main(int argc, char** argv) {
+int main(int argc, char **argv) {
     std::filesystem::path refDir, outDir;
     bool update = false;
     for (int i = 1; i < argc; ++i) {
@@ -468,7 +481,7 @@ int main(int argc, char** argv) {
         std::fprintf(stderr, "%s\n", err.message.c_str());
         return 1;
     }
-    gfx::Renderer3D* r = nullptr;
+    gfx::Renderer3D *r = nullptr;
     if (Error err = system.init3D(kWidth, kHeight, r)) {
         std::fprintf(stderr, "%s\n", err.message.c_str());
         return 1;
@@ -476,13 +489,14 @@ int main(int argc, char** argv) {
     std::printf("Renderer: %s, stencil: %s\n", r->deviceName().c_str(), r->hasStencil() ? "yes" : "no");
 
     struct Frame {
-        const char* name;
-        void (*draw)(gfx::Renderer3D&, Scene&);
+        const char *name;
+        void (*draw)(gfx::Renderer3D &, Scene &);
         std::vector<Probe> probes;
     };
-    const Frame frames[] = {{"render-check", drawFrame, probes()}, {"render-check-gamma", drawGammaFrame, gammaProbes()}};
+    const Frame frames[] = {{"render-check", drawFrame, probes()},
+                            {"render-check-gamma", drawGammaFrame, gammaProbes()}};
     bool ok = true;
-    for (const Frame& f : frames) {
+    for (const Frame &f : frames) {
         Image got;
         {
             Scene scene(*r);
