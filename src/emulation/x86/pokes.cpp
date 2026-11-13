@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 // Copyright (C) 2026 The Reluva contributors
 
-#include "common/x86/pokes.h"
+#include "emulation/x86/pokes.h"
 
 #include <cstdio>
 #include <cstdlib>

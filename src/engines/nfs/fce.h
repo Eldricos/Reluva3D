@@ -3,7 +3,7 @@
 
 #pragma once
 
-#include "common/image.h"
+#include "image/image.h"
 #include "common/types.h"
 #include "engines/nfs/particles.h"
 

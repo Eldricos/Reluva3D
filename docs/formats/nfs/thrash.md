@@ -15,7 +15,7 @@ THRASH is the interface between `nfs3.exe` and its renderer DLLs:
   replaces `voodoo2a.dll` with one built for Glide 3 (see The Voodoo3
   patch's voodoo2a.dll). `voodoo2a.dll` runs unchanged under
   `nfs-host -glide` on Reluva's Glide stand-in (The Glide stand-in,
-  below; docs/engines/glide.md).
+  below; docs/common/graphics/glide.md).
 
 The game loads the one the registry names ("Thrash Driver") and finds
 its functions by name with GetProcAddress. Each export is
@@ -241,7 +241,7 @@ other states. A race's list confirms it (`d6-tlog`, Hometown by night,
 0x68 only).
 
 **But the DLL sends them to itself** (November 2026, found running it on
-the Glide stand-in, docs/engines/glide.md). After `setvideomode` it runs
+the Glide stand-in, docs/common/graphics/glide.md). After `setvideomode` it runs
 its own list of `setstate` calls (`0x6000207d`-`0x6000211f`, the same run
 that turns on dithering, Dithering below): 1 0 (no texture), 2 1, **7 1**
 (`0x6000208f`: `grTexFilterMode(0, GR_TEXTUREFILTER_BILINEAR,
@@ -793,7 +793,7 @@ choice's "Thrash Driver" for the game, which Reluva sets itself.
 <game> -glidedll <file>` loads a THRASH DLL file from outside the install
 in `voodoo2a.dll`'s place (the CD's file, never copied into the repo);
 one that names `glide3x.dll` gets Reluva's Glide 3 stand-in on a
-Voodoo3 (docs/engines/glide.md, The Glide 3 front end). The Play page
+Voodoo3 (docs/common/graphics/glide.md, The Glide 3 front end). The Play page
 takes `glidedll=<file>` with `renderer=glide`. Its C library (Microsoft's)
 also needed `CompareStringA`/`W`, `GetWindowThreadProcessId` (to post to
 the window's thread) and `IsProcessorFeaturePresent` (looked up, absent,
@@ -861,7 +861,7 @@ instructions, 3,829 frames) and the code:
   bytes after rounding.
 - **With the extensions and the 16-byte `grTexMaxAddress`** (November
   2026: the stand-in's Voodoo3 offers PALETTE6666 and TEXMIRROR, and
-  `grTexMaxAddress` is 16 MB − 16, docs/engines/glide.md): the same run,
+  `grTexMaxAddress` is 16 MB − 16, docs/common/graphics/glide.md): the same run,
   3,829 frames, menus to the race with the cockpit, 297 s; the budget
   13,090,800. The DLL's one `grTexDownloadTable` goes as the 6666 kind;
   `grTexClampMode` was asked for wrap 4,942 times and clamp 1,655, never
@@ -871,7 +871,7 @@ instructions, 3,829 frames) and the code:
 ## The Glide stand-in
 
 Since November 2026 the retail `voodoo2a.dll` runs unchanged on Reluva's
-stand-in for `glide2x.dll` (`src/common/glide/`, docs/engines/glide.md):
+stand-in for `glide2x.dll` (`src/graphics/glide/`, docs/common/graphics/glide.md):
 `nfs-host -glide`, or the Play page with `renderer=glide`. The game is
 told of `voodoo2a.dll` as with the native drawing, so it sends the same
 THRASH calls; here the DLL turns them into Glide calls and the stand-in
@@ -977,7 +977,7 @@ against 0:08.98 at frame 2,600): the DLLs' own instructions count towards
 Screenshots in the session's scratch folder, not in the repo.
 
 **On the GPU** (November 2026). The stand-in's GPU backend
-(docs/engines/glide.md, The GPU backend) draws the same pixels by the
+(docs/common/graphics/glide.md, The GPU backend) draws the same pixels by the
 same rules. `nfs-host -glidegpucompare out.csv` draws every call on the
 GPU and in software and compares each frame at its buffer swap; the same
 run as above (5 billion instructions, Release build), under this

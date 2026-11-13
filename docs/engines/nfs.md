@@ -470,7 +470,7 @@ What was built, with each format written up in `docs/formats/nfs/`:
 
 - **Decoders**, each checked on every retail file (`nfs-survey`):
   - [bnk.md](../formats/nfs/bnk.md): sound banks. Their codecs are in
-    `common/audio/ea_audio.cpp`:
+    `audio/ea_audio.cpp`:
     - EA-XA ADPCM;
     - EA's MicroTalk speech codec, bit-exact with a public-domain
       reference decoder on all 1,869 English speech sounds;
@@ -640,7 +640,7 @@ Started. Done so far:
 - **Sound to the mixer.** The game's sound DLL (iSND) mixes in software
   into one looping DirectSound buffer: 0.4 seconds of 22050 Hz 16-bit
   stereo. `GameHost::soundStream()` gives that buffer to Reluva's mixer
-  as a stream (`audio::Stream`, new in `common/audio/mixer.h`):
+  as a stream (`audio::Stream`, new in `audio/mixer.h`):
   - the stream reads the buffer at its play cursor, with DirectSound's
     volume and pan;
   - it keeps its own steady pace, resyncing only if it drifts more than
@@ -839,7 +839,7 @@ Started. Done so far:
       same, sample for sample, for the first 41 seconds, and then the
       sounds' phases drift apart (no correlation at any lag up to 0.1
       s), though their levels match window by window.
-    - **Decoding it** (November 2026). `common/audio/prologic.cpp` is a
+    - **Decoding it** (November 2026). `audio/prologic.cpp` is a
       model of a Pro Logic decoder. It is written from the public
       description of the matrix, not from any decoder's code:
       - The passive matrix: left = Lt, right = Rt, centre = (Lt + Rt) /
@@ -1650,7 +1650,7 @@ A shared, clean-room stand-in for 3dfx's Glide library, written from
 Programming Guides, the Voodoo2 and Voodoo3 specifications) and the
 interface values in its public SDK headers, never from Glide's own
 sources or other wrappers and emulators ([glide.md](glide.md)). It is in
-`src/common/glide/` for any engine: a version-neutral Voodoo pipeline (the
+`src/graphics/glide/` for any engine: a version-neutral Voodoo pipeline (the
 16-bit buffers and their dither, texture memory and formats, the combine
 units, fog table, chroma-key, alpha test, z and w buffers, the linear
 frame buffer, gamma) drawn by a software reference rasterizer or by a GPU

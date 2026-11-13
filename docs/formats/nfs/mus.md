@@ -1,7 +1,7 @@
 # Need for Speed III: music (`.mus`, `.map`, `.lin`)
 
 Status: **implemented** (`src/engines/nfs/mus.cpp`; the stereo EA-XA
-block decoder in `src/common/audio/ea_audio.cpp`):
+block decoder in `src/audio/ea_audio.cpp`):
 
 - all 19 music streams on the CD (`gamedata/audio/pc`) read, and their
   1,729 segments decode;

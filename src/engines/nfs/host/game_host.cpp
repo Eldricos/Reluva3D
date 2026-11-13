@@ -4,7 +4,7 @@
 #include "engines/nfs/host/game_host.h"
 
 #include "common/pe.h"
-#include "common/x86/format.h"
+#include "emulation/x86/format.h"
 
 #include <algorithm>
 #include <cmath>

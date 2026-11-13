@@ -15,7 +15,7 @@
 // viewers.h for the keys). Tab switches between them; Esc goes
 // back to the launcher. The Play page runs the game itself (play_page.h).
 
-#include "common/audio/mixer.h"
+#include "audio/mixer.h"
 #include "engines/engine.h"
 #include "engines/nfs/folders.h"
 #include "engines/nfs/game_files.h"

@@ -9,7 +9,7 @@
 // x87), and EMMS tags them all empty. Cpu::Fpu says how the 64 bits are
 // kept beside the doubles.
 
-#include "common/x86/cpu.h"
+#include "emulation/x86/cpu.h"
 
 #include <cmath>
 #include <cstring>

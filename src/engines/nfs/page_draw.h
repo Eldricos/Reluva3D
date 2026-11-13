@@ -6,7 +6,7 @@
 // Drawing shared by the 2D viewer pages: their colours, text with the
 // built-in font, and the title and keys lines.
 
-#include "common/font.h"
+#include "graphics/font.h"
 #include "common/types.h"
 
 #include <algorithm>

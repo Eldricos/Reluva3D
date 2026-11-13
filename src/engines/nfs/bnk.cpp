@@ -3,7 +3,7 @@
 
 #include "engines/nfs/bnk.h"
 
-#include "common/audio/ea_audio.h"
+#include "audio/ea_audio.h"
 
 #include <algorithm>
 #include <cstring>

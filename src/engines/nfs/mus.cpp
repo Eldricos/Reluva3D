@@ -3,7 +3,7 @@
 
 #include "engines/nfs/mus.h"
 
-#include "common/audio/ea_audio.h"
+#include "audio/ea_audio.h"
 
 #include <cstring>
 #include <string>

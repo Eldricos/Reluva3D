@@ -8,7 +8,7 @@
 // utkencode describes it (github.com/daddesio/utkencode, read as a
 // reference): its tables are the format's constants.
 
-#include "common/audio/ea_audio.h"
+#include "audio/ea_audio.h"
 
 #include <algorithm>
 #include <cmath>

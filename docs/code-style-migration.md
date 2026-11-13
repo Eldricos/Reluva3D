@@ -85,7 +85,7 @@ Git carries the branch's edits to moved files across in the merge; the
 tool brings the branch's new code in line (its includes of
 `common/x86/...`, `common/audio/...`), and moves any new file it added
 inside a moved folder. Files a branch added in a new folder of
-`src/common/` (`src/common/glide/`) stay where they are; move them by
+`src/common/` (`src/graphics/glide/`) stay where they are; move them by
 hand if they belong to a subject (graphics, here). Then build.
 
 **newworlds** keeps its flat layout for now: its work is outside the main

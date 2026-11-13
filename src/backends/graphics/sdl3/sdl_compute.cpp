@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 // Copyright (C) 2026 The Reluva contributors
 
-#include "backends/sdl3/sdl_compute.h"
+#include "backends/graphics/sdl3/sdl_compute.h"
 
 #include <SDL3/SDL.h>
 

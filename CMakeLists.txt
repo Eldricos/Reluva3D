@@ -157,6 +157,19 @@ reluva_add_tests(common
         ${PROJECT_SOURCE_DIR}/tests/common/jit.cpp
         ${PROJECT_SOURCE_DIR}/tests/common/windows.cpp
         ${PROJECT_SOURCE_DIR}/tests/common/indeo.cpp
+        ${PROJECT_SOURCE_DIR}/tests/common/x86_more.cpp
+        ${PROJECT_SOURCE_DIR}/tests/common/mmx.cpp
+        ${PROJECT_SOURCE_DIR}/tests/common/drives.cpp
+        ${PROJECT_SOURCE_DIR}/tests/common/mixer.cpp
+        ${PROJECT_SOURCE_DIR}/tests/common/ea_audio.cpp
+        ${PROJECT_SOURCE_DIR}/tests/common/prologic.cpp
+        ${PROJECT_SOURCE_DIR}/tests/common/glide.cpp
+        ${PROJECT_SOURCE_DIR}/tests/common/glide_more.cpp
+        ${PROJECT_SOURCE_DIR}/tests/common/glide_boards.cpp
+        ${PROJECT_SOURCE_DIR}/tests/common/glide_gpu.cpp
+        ${PROJECT_SOURCE_DIR}/tests/common/sockets.cpp
+        ${PROJECT_SOURCE_DIR}/tests/common/sdl_controller.cpp
     TOPICS unit.hashes unit.files unit.archives unit.text unit.audio unit.image unit.video unit.net unit.x86
-        unit.jit unit.windows unit.indeo)
+        unit.jit unit.windows unit.indeo unit.x86_more unit.mmx unit.drives unit.mixer unit.ea_audio unit.prologic
+        unit.glide unit.glide_more unit.glide_boards unit.glide_gpu unit.sockets unit.sdl_controller)
 reluva_finish_tests()

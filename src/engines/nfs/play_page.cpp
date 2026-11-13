@@ -3,8 +3,8 @@
 
 #include "engines/nfs/play_page.h"
 
-#include "common/glide/pipeline.h"
-#include "common/image.h"
+#include "graphics/glide/pipeline.h"
+#include "image/image.h"
 #include "engines/nfs/host/game_host.h"
 #include "engines/nfs/page_draw.h"
 

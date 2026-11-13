@@ -3,7 +3,7 @@
 
 #pragma once
 
-#include "backends/sdl3/sdl_system.h"
+#include "backends/platform/sdl3/sdl_system.h"
 
 namespace reluva {
 

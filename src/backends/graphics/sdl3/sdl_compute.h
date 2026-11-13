@@ -3,7 +3,7 @@
 
 #pragma once
 
-#include "common/gpu_compute.h"
+#include "graphics/gpu_compute.h"
 
 #include <memory>
 #include <string>

@@ -3,7 +3,7 @@
 
 #pragma once
 
-#include "common/gfx3d.h"
+#include "graphics/gfx3d.h"
 #include "engines/nfs/host/thrash_native.h"
 
 #include <map>

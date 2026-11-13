@@ -3,7 +3,7 @@
 Status: **implemented**:
 
 - banks and PT headers: `src/engines/nfs/bnk.cpp`;
-- the codecs: `src/common/audio/ea_audio.cpp`.
+- the codecs: `src/audio/ea_audio.cpp`.
 
 On the install and the CD, all 976 banks read and all 11,775 sounds
 decode (`reluva-tool nfs-survey`).
@@ -267,7 +267,7 @@ every retail sound (50 or 100) gets linear interpolation and the
 nearest-sample routines are never used. With the option at 0, the 182
 sounds at 50 drop to nearest-sample and the 25 at 100 (the traffic
 cars' and `FeData/Plac`'s `car.viv`) stay linear. Reluva's x86 core
-reports a Pentium without MMX by default (`common/x86/cpu.cpp`, CPUID),
+reports a Pentium without MMX by default (`emulation/x86/cpu.cpp`, CPUID),
 so it runs the non-MMX routines; `nfs-host -mmx` reports MMX (below).
 
 **The MMX path is integer throughout** (transcribed October 2026). With

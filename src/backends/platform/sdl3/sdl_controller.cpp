@@ -6,7 +6,7 @@
 // forces they're to give: a wheel's motor through SDL's haptics, a pad's
 // rumble otherwise.
 
-#include "backends/sdl3/sdl_controller.h"
+#include "backends/platform/sdl3/sdl_controller.h"
 
 #include <algorithm>
 #include <cmath>

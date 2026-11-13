@@ -3,7 +3,7 @@
 
 #pragma once
 
-#include "common/x86/cpu.h"
+#include "emulation/x86/cpu.h"
 
 #include <cstdint>
 #include <functional>

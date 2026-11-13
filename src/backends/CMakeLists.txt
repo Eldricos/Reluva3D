@@ -16,6 +16,8 @@ endif()
 # addresses through the sockets backend.
 add_library(reluva_backend_sdl3 STATIC
     platform/sdl3/sdl_system.cpp
-    graphics/sdl3/sdl_gpu.cpp)
+    platform/sdl3/sdl_controller.cpp
+    graphics/sdl3/sdl_gpu.cpp
+    graphics/sdl3/sdl_compute.cpp)
 target_link_libraries(reluva_backend_sdl3 PUBLIC reluva_common reluva_graphics reluva_backend_sockets SDL3::SDL3
                                           PRIVATE reluva_warnings)

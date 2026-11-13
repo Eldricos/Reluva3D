@@ -3,7 +3,7 @@
 
 #include "engines/nfs/viewers.h"
 
-#include "common/font.h"
+#include "graphics/font.h"
 #include "common/fs.h"
 
 #include <algorithm>

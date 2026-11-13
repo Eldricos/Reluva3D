@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 // Copyright (C) 2026 The Reluva contributors
 
-#include "common/audio/prologic.h"
+#include "audio/prologic.h"
 
 #include <algorithm>
 #include <cmath>

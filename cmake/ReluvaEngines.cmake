@@ -62,7 +62,11 @@ function(reluva_finish_tests)
         ${PROJECT_SOURCE_DIR}/tests/support/main.cpp
         ${PROJECT_SOURCE_DIR}/tests/support/record.cpp
         ${sources})
-    target_link_libraries(reluva-tests PRIVATE reluva_engines reluva_backend_sockets reluva_warnings)
+    # The SDL backend too, for the tests of its game controllers (SDL's
+    # virtual joysticks) and GPU compute (the Glide stand-in's GPU
+    # renderer, skipped without a GPU): tests/common/.
+    target_link_libraries(reluva-tests PRIVATE reluva_engines reluva_backend_sockets reluva_backend_sdl3
+                                               reluva_warnings)
     # Test files include their data and helpers from the repository's top
     # ("tests/engines/idtech3/fixtures.h") and find committed records through
     # RELUVA_SOURCE_DIR.

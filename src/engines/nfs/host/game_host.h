@@ -3,14 +3,14 @@
 
 #pragma once
 
-#include "common/audio/mixer.h"
-#include "common/glide/glide2_x86.h"
-#include "common/glide/glide3_x86.h"
-#include "common/glide/gpu_renderer.h"
+#include "audio/mixer.h"
+#include "emulation/x86/glide/glide2_x86.h"
+#include "emulation/x86/glide/glide3_x86.h"
+#include "graphics/glide/gpu_renderer.h"
 #include "common/net.h"
 #include "common/types.h"
-#include "common/x86/cpu.h"
-#include "common/x86/win32.h"
+#include "emulation/x86/cpu.h"
+#include "emulation/x86/win32.h"
 #include "engines/nfs/folders.h"
 #include "engines/nfs/host/force_effects.h"
 #include "engines/nfs/host/sound3d.h"
@@ -92,7 +92,7 @@ public:
         // code is as expected; false runs them all in the interpreter.
         bool nativeRoutines = true;
         // The retail voodoo2a.dll run as the renderer, unchanged, on Reluva's
-        // stand-in for 3dfx's glide2x.dll (common/glide, docs/engines/glide.md)
+        // stand-in for 3dfx's glide2x.dll (graphics/glide, docs/common/graphics/glide.md)
         // rather than any drawing of Reluva's own: its frames are the Glide
         // pipeline's front buffer at each grBufferSwap. Overrides renderer,
         // presentedRenderer and nativeThrash.
@@ -115,7 +115,7 @@ public:
         // DLL's own (a Voodoo2 for Glide 2, a Voodoo3 for Glide 3).
         std::string glideBoard;
         // With glide: what draws Glide's pixels. 0 the software reference
-        // rasterizer; 1 the GPU backend (common/glide/gpu_renderer.h) when
+        // rasterizer; 1 the GPU backend (graphics/glide/gpu_renderer.h) when
         // there's a GPU, else the software one; 2 the GPU, with every call
         // drawn in software too and each frame compared (onGlideComparison).
         int glideGpu = 0;
