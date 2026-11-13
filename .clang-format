@@ -38,8 +38,9 @@ AllowShortBlocksOnASingleLine: Empty
 # may stay on one line inside its class (and `{}` anywhere); a function
 # defined outside its class doesn't
 AllowShortFunctionsOnASingleLine: InlineOnly
-# ...and so may a short lambda passed as an argument
-AllowShortLambdasOnASingleLine: Inline
+# ...and so may a short lambda, wherever it is: an argument, or an entry
+# of a list (a test suite's cases)
+AllowShortLambdasOnASingleLine: All
 # enum values are not statements, so a short enum may stay on one line
 AllowShortEnumsOnASingleLine: true
 

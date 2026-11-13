@@ -11,8 +11,8 @@ breaking the build, the tests or anyone's work in progress.
 | Coding guide: decisions made, contradictions fixed | Done |
 | `.clang-format`, `.clang-tidy` follow the guide | Done |
 | Source layout: shared code by subject, a CMakeLists.txt per library, the same layout inside each engine | Done (newworlds' inside waits; see below) |
-| Phase 1: tooling and CI | Next |
-| Phase 2: formatting | To do |
+| Phase 1: tooling and CI | Done |
+| Phase 2: formatting | Next |
 | Phase 3: small clang-tidy fixes | To do |
 | Phase 4: identifier renames | To do |
 | Phase 5: hand work and enforcement | To do |
@@ -26,7 +26,7 @@ breaking the build, the tests or anyone's work in progress.
 | Public struct fields | No prefix (`target.path`). `_` is for private and protected members. |
 | Fall through | `[[fallthrough]];`. A `// fall through` comment works only with GCC. |
 | Line length | 120 columns (`ColumnLimit: 120`). |
-| Short functions | Allowed on one line when defined inside their class (`int health() const { return _health; }`), and for short lambda arguments. |
+| Short functions | Allowed on one line when defined inside their class (`int health() const { return _health; }`), and for short lambdas. |
 | Doxygen | New code uses it; existing `//` comments are converted as each file is worked on. |
 | Layout | ScummVM's subject folders under `src/` (Option C), the same layout inside every engine (A), a CMakeLists.txt per library (E). |
 
@@ -104,7 +104,7 @@ didn't see newworlds, which is disabled (expect about 10% more).
 | Enum values `kValue` | `Ballroom`, `Rgba32` | 1,085 enum values |
 | Named constants `kValue` | Mostly right | 256 `constexpr`, 85 global, 81 static |
 | Functions `camelCase` | Mostly right | 103 |
-| Formatting: `char *p`, one statement per line, 120 columns | `char* p`, one-line functions outside classes | 25,900 lines in 641 files; pointer and reference alignment is about 10,000 of them |
+| Formatting: `char *p`, one statement per line, 120 columns | `char* p`, one-line functions outside classes | 24,300 lines in 641 files; pointer and reference alignment is about 10,000 of them |
 | Split declarations | `int a, b;` | 1,474 |
 | `const` member functions, `const &` parameters | Mostly right | 16 and 19 |
 | Doxygen on public APIs | `//` comments | As files are worked on |
@@ -115,14 +115,27 @@ and the license header in every file.
 
 ### Found along the way
 
-- **Clang can't compile `src/engines/awe/formats/savegame.cpp`** (lines 189
-  and 191: `std::optional<Placement>::emplace()` on a nested struct with
-  default member initializers). GCC and MSVC accept it; the macOS build
-  (Clang, its CI job switched off) would fail, and clang-tidy skips the
-  file. Fix it before Phase 4 (`emplace(Placement{})`, or move `Placement`
-  out of `SaveGame`).
+- **Clang couldn't compile `src/engines/awe/formats/savegame.cpp`**:
+  `std::optional<SaveGame::Placement>` was instantiated inside `SaveGame`,
+  where Clang can't yet use `Placement`'s default member initializers, so
+  `emplace()` failed. Fixed in Phase 1: the struct is `SavedPlacement`,
+  defined before `SaveGame`, with `SaveGame::Placement` naming it as
+  before. The whole project now builds with Clang (every engine,
+  newworlds too) and all 99 tests pass, so the macOS job (Clang) has
+  nothing known in its way.
+- Clang warns about 8 unused things GCC doesn't: lambda captures
+  (`clue/game/play.cpp:992`, `idtech3/eliteforce/sp_ui_host.cpp:574` and
+  `:593`), constants (`idtech3/eliteforce/game_bots.cpp:166`,
+  `idtech3/eliteforce/ui_host.cpp:88`, `idtech3/pages/play_viewer.cpp:44`,
+  `newworlds/briefing.cpp:67`) and a field (`newworlds/economy.h:96`).
 - `src/emulation/x86/runtime/msvcp60.cpp` defines `THISCALL` and `EXPORT`
   without the `RELUVA_` prefix.
+- **A test suite's cases** (`Suite suite("name", { {...}, });`, and a tool
+  file's `Commands`) can't keep their layout under clang-format 18: the
+  name moves to a line of its own and the list lines up under its first
+  argument, each case still on one line. Accepted: the alternatives
+  (`AlignAfterOpenBracket: BlockIndent`, `Cpp11BracedListStyle: false`)
+  change far more code.
 
 ## The tool configuration
 
@@ -156,18 +169,21 @@ the template, and checks the docs. Every phase keeps all of it passing.
 Mechanical changes and hand changes never share a commit, so a reviewer
 can check a mechanical commit by running its command again.
 
-### Phase 1: Tooling and CI
+### Phase 1: Tooling and CI (done)
 
-1. A CI job, `style`, with clang-format and clang-tidy 18; at first it
-   reports only.
-2. `tools/format.sh` (all files, or the changed ones) and `tools/tidy.sh`
-   (compile database with every engine enabled, newworlds included, then
-   `run-clang-tidy` on Reluva's files).
-3. `.git-blame-ignore-revs`, listing each mechanical commit, so `git blame`
-   and GitHub's blame view skip them. Once per clone:
-   `git config blame.ignoreRevsFile .git-blame-ignore-revs`.
-4. The new-engine template (`cmake/engine-template/`) in the guide's style.
-5. Fix `awe/formats/savegame.cpp` for Clang.
+- `tools/format.py` and `tools/tidy.py` (see
+  [DEVELOPMENT.md](DEVELOPMENT.md#code-style)): all files, the ones named,
+  or `--changed`; both insist on version 18. `tidy.py` makes its compile
+  database with every engine enabled and reports only Reluva's files.
+- CI's "Code style" job: formatting of every file, clang-tidy of the
+  changed ones, counts in the run's summary; it reports without failing
+  the run.
+- `.git-blame-ignore-revs`, empty until Phase 2.
+- The new-engine template in the guide's style: an engine made from it
+  has nothing for either tool to report, builds without warnings, and
+  passes its tests. Its classes have Doxygen comments, its registration
+  objects are `kSuite` and `kCommands` (the other files' follow in Phase 4).
+- `awe/formats/savegame.cpp` fixed for Clang.
 
 ### Phase 2: Formatting (whitespace only)
 
@@ -177,10 +193,11 @@ can check a mechanical commit by running its command again.
 2. **Proof nothing changed:** for every file, the old and new text with
    all whitespace removed are identical (apart from added
    `// namespace x` comments). A script checks it; then CI as usual.
-3. Announce it; for an open branch, run `tools/format.sh` on the branch
-   before merging `main`, so both sides have the same formatting.
-4. The commits go in `.git-blame-ignore-revs`, and the `style` job starts
-   failing on unformatted code.
+3. Announce it; for an open branch, run `python3 tools/format.py` on the
+   branch before merging `main`, so both sides have the same formatting.
+4. The commits go in `.git-blame-ignore-revs`, and the "Code style" job's
+   formatting step starts failing the run (remove its
+   `continue-on-error`).
 
 ### Phase 3: Small clang-tidy fixes
 
@@ -213,5 +230,5 @@ CI for changed files.
 
 - Doxygen comments, as each file is worked on.
 - The 8 non-`const` globals: `g_` prefix, or gone.
-- The `style` job blocks merges; `CONTRIBUTING.md` points to the guide
-  and the tools.
+- The "Code style" job's clang-tidy step fails the run too;
+  `CONTRIBUTING.md` points to the guide and the tools.

@@ -7,6 +7,7 @@ CMakeUserPresets.json
 compile_commands.json
 
 # Compiled files
+__pycache__/
 *.o
 *.obj
 *.a

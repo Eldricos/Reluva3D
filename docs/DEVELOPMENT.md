@@ -56,6 +56,29 @@ Notes for developers. Building and running are covered in the
   `CMakeLists.txt`. Helpers every command can use (`readFile`, `rd32`,
   `hexdump`) are in `src/devtools/tool.h`.
 
+## Code style
+
+Code follows [CODING_GUIDE.md](CODING_GUIDE.md); the plan bringing the
+existing code in line is [code-style-migration.md](code-style-migration.md).
+Two tools check it, both needing version 18 of their LLVM program
+(another lays code out differently):
+
+- **`python3 tools/format.py`** formats with clang-format
+  (`.clang-format`): every file, the ones named
+  (`tools/format.py src/engines/clue`), or `--changed` (those changed since
+  the branch left `main`). `--check` lists what needs formatting instead.
+- **`python3 tools/tidy.py`** checks with clang-tidy (`.clang-tidy`: names,
+  `nullptr`, `override`, const-correctness...): every file, the ones named,
+  or `--changed`. It makes a compile database in `build-tidy/` with every
+  engine enabled. `--fix --checks=-*,<check>` applies one check's fixes.
+
+Run both with `--changed` before a pull request. CI's "Code style" job
+does the same, so far only reporting. Generated files and `third_party/`
+are never formatted (`.clang-format-ignore`). Commits that only reformat
+or rename go in `.git-blame-ignore-revs`; run
+`git config blame.ignoreRevsFile .git-blame-ignore-revs` once, and
+`git blame` passes over them.
+
 ## Tests
 
 - **Names.** Tests come in suites named `<area>.<kind>.<topic>`: the area is

@@ -8,7 +8,7 @@
 // registers its suite with its cases, each a function given a folder of
 // its own to work in:
 //
-//     static const reluva::test::Suite suite("idtech3.unit.collision", {
+//     static const reluva::test::Suite kSuite("idtech3.unit.collision", {
 //         {"traces", [](const std::filesystem::path&) { testCollision(); }},
 //         {"server world", [](const std::filesystem::path& tmp) { testServerWorld(tmp); }},
 //     });

@@ -6,7 +6,7 @@
 // Each file of commands registers them, with what they take and do, as a
 // static object (as engines register themselves):
 //
-//     const reluva::tool::Commands commands("idtech3", {
+//     const reluva::tool::Commands kCommands("idtech3", {
 //         {"bsp-check", "<game folder>", "load every map of a game folder", cmdBspCheck},
 //     });
 //

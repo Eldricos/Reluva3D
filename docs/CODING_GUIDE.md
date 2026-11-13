@@ -318,7 +318,7 @@ if (condition)
 
 ### Exception: short functions in a class
 
-A function defined inside its class, whose body is one short statement, may stay on one line. So may a short lambda passed as an argument. Everywhere else the semicolon rule applies.
+A function defined inside its class, whose body is one short statement, may stay on one line. So may a short lambda (an argument, or an entry in a list such as a test suite's cases). Everywhere else the semicolon rule applies.
 
 ```cpp
 class Actor {

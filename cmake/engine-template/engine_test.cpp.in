@@ -22,11 +22,11 @@ using namespace reluva;
 
 namespace {
 
-void engineTest(const std::filesystem::path& tmp) {
+void engineTest(const std::filesystem::path &tmp) {
     const std::filesystem::path dir = tmp / "install";
     std::filesystem::create_directories(dir);
     test::Record rec;
-    const MetaEngine* engine = findEngine("@ENGINE@");
+    const MetaEngine *engine = findEngine("@ENGINE@");
     if (!engine)
         return test::fail("@ENGINE@ isn't registered");
     rec.add("detect.games", static_cast<int64_t>(engine->detect(dir).size()));
@@ -36,6 +36,7 @@ void engineTest(const std::filesystem::path& tmp) {
 
 } // namespace
 
-static const reluva::test::Suite suite("@ENGINE@.engine", {
-    {"play through", [](const std::filesystem::path& tmp) { engineTest(tmp); }},
-});
+static const reluva::test::Suite kSuite("@ENGINE@.engine",
+                                        {
+                                            {"play through", [](const std::filesystem::path &tmp) { engineTest(tmp); }},
+                                        });

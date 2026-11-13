@@ -13,19 +13,21 @@ using namespace reluva;
 namespace {
 
 void testRegistered() {
-    const MetaEngine* engine = findEngine("@ENGINE@");
+    const MetaEngine *engine = findEngine("@ENGINE@");
     CHECK(engine != nullptr);
 }
 
 // A folder with none of a release's files isn't recognised.
-void testEmptyFolder(const std::filesystem::path& tmp) {
-    const MetaEngine* engine = findEngine("@ENGINE@");
+void testEmptyFolder(const std::filesystem::path &tmp) {
+    const MetaEngine *engine = findEngine("@ENGINE@");
     CHECK(engine && engine->detect(tmp).empty());
 }
 
 } // namespace
 
-static const reluva::test::Suite suite("@ENGINE@.unit.detection", {
-    {"registered", [](const std::filesystem::path&) { testRegistered(); }},
-    {"empty folder", [](const std::filesystem::path& tmp) { testEmptyFolder(tmp); }},
-});
+static const reluva::test::Suite
+    kSuite("@ENGINE@.unit.detection",
+           {
+               {"registered", [](const std::filesystem::path &) { testRegistered(); }},
+               {"empty folder", [](const std::filesystem::path &tmp) { testEmptyFolder(tmp); }},
+           });
