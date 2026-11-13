@@ -177,4 +177,11 @@ reluva_add_tests(common
     TOPICS unit.hashes unit.files unit.archives unit.text unit.audio unit.image unit.video unit.net unit.x86
         unit.jit unit.windows unit.indeo unit.x86_more unit.mmx unit.drives unit.mixer unit.ea_audio unit.prologic
         unit.glide unit.glide_more unit.glide_boards unit.glide_gpu unit.sockets unit.sdl_controller)
+# reluva-viewer's Tests window's planning (src/devtools/test_runs.h).
+reluva_add_tests(devtools
+    SOURCES ${PROJECT_SOURCE_DIR}/tests/devtools/test_runs.cpp
+    TOPICS unit.test_runs)
 reluva_finish_tests()
+if(RELUVA_BUILD_TESTS)
+    target_link_libraries(reluva-tests PRIVATE reluva_test_runs)
+endif()

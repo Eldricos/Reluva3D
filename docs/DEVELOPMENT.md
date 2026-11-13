@@ -166,6 +166,9 @@ or rename go in `.git-blame-ignore-revs`; run
   lists the file in `reluva_add_engine_tests` (`reluva_add_tests` for
   `common`), and the suite's topic in `TOPICS`, so ctest runs it. The
   `tests.coverage` test fails if a suite is missing from `TOPICS`.
+- **From a window.** `reluva-viewer`'s **Tests...** button opens a
+  window of the build's tests, the game-files steps beside the games in
+  the launcher's list (see [below](#the-tests-window)).
 - **CI.** The workflow (`.github/workflows/ci.yml`) builds and runs the
   tests on Linux, macOS and Windows for every push and pull request (macOS
   is off for now: its job has `if: false`, as no macOS runner is available
@@ -285,6 +288,35 @@ Need for Speed III (`nfs`, `RELUVA_NFS3`, see
 - **Repeatable runs.** The game code reads a clock that moves only with the
   game (`reluva-tool idtech3 sp-run -fixedclock`). Floating point is the same on
   every run.
+
+### The Tests window
+
+`reluva-viewer`, run from its build folder, has a **Tests...** button: a
+window that runs the build's tests through `ctest`, as the command line
+does, with the game-files steps on the games in the launcher's list.
+
+- **Picking.** Tick games, then the engines' game-files steps to run on
+  them, and any of the tests that need no game files (by area, or one by
+  one), then **Run Selected**. **Run All** runs every test, and every
+  step on every game in the list. **Test Game**, beside the list, runs
+  every step on the selected game.
+- **Records.** What the steps compare with: the committed records; a
+  baseline of your own (`RELUVA_GAMEDATA_RECORDS_ROOT`, a folder per
+  engine, in the launcher's folder by default), compared with or made
+  anew; or this run's written over the committed ones, which asks first.
+- **Two releases of one game** (two entries for it) run one after the
+  other, as each step reads the game's folder from one variable.
+- **Results.** Each test's result and time as it ends; a failure's
+  output when it's picked, and for a game-files step a button opening
+  its output folder (`build/gamedata/<engine>/`, the previous run's
+  beside it). **Stop** asks `ctest` to stop, then makes it.
+- **How it knows them.** The build writes its tests to
+  `build/reluva-tests.txt` (`reluva_finish_tests`). The window plans the
+  `ctest` runs (`src/devtools/test_runs.h`, tested as
+  `devtools.unit.test_runs`) and runs them on a thread of its own
+  (`src/devtools/ctest_runner.h`), so a run goes on while a game or a
+  viewer is open. A copy of `reluva-viewer` outside its build folder has
+  no tests, and says so.
 
 ### Adding them to a new engine
 

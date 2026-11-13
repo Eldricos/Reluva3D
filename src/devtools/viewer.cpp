@@ -16,6 +16,7 @@
 #include "common/config.h"
 #include "common/log.h"
 #include "common/settings.h"
+#include "devtools/tests_window.h"
 #include "engines/registry.h"
 #include "engines/viewer_registry.h"
 #include "gui/launcher.h"
@@ -108,6 +109,8 @@ int main(int argc, char **argv) {
 
     Launcher launcher(system, config, LauncherPurpose::kView);
     launcher.setLibraryDir(dataDir() / "library");
+    devtools::TestsWindow tests(config, dataDir());
+    launcher.setExtension(&tests);
     while (auto target = direct ? direct : launcher.run()) {
         // The testbed is an engine of its own, with nothing to view.
         const MetaViewer *viewer = findViewer(target->engineId);
