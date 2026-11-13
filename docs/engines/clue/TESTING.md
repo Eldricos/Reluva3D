@@ -89,6 +89,13 @@ itself, both languages). A UK install's would go in `uk-english-2.0` or
 with `RELUVA_GAMEDATA_UPDATE=1`. See
 [DEVELOPMENT.md](../../DEVELOPMENT.md#engine-tests) for the shared helpers.
 
+**A baseline of your own in `reluva-viewer`'s Tests window**
+([DEVELOPMENT.md](../../DEVELOPMENT.md#the-tests-window)) is kept in a folder
+per engine, this engine's in `<the window's folder>/clue/`
+(`RELUVA_GAMEDATA_RECORDS_ROOT`). One made from the command line with
+`RELUVA_GAMEDATA_RECORDS` isn't found there: make it again in the window,
+with **Make my baseline**, before making the changes it's to check.
+
 ### What the automated checks don't cover
 
 Sound and music as heard, timing against the original, network play

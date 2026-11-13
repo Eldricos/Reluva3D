@@ -47,6 +47,13 @@ checksums, counts and summary lines. The play steps run the game's code,
 (see [DEVELOPMENT.md](../../DEVELOPMENT.md#engine-tests)); keep a baseline
 of your own there.
 
+**A baseline of your own in `reluva-viewer`'s Tests window**
+([DEVELOPMENT.md](../../DEVELOPMENT.md#the-tests-window)) is kept in a folder
+per engine, this engine's in `<the window's folder>/stgenerations/`
+(`RELUVA_GAMEDATA_RECORDS_ROOT`). One made from the command line with
+`RELUVA_GAMEDATA_RECORDS` isn't found there: make it again in the window,
+with **Make my baseline**, before making the changes it's to check.
+
 ## A playthrough by hand
 
 ### Still to check

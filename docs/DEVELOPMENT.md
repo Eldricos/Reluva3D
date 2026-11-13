@@ -304,6 +304,11 @@ does, with the game-files steps on the games in the launcher's list.
   baseline of your own (`RELUVA_GAMEDATA_RECORDS_ROOT`, a folder per
   engine, in the launcher's folder by default), compared with or made
   anew; or this run's written over the committed ones, which asks first.
+  A baseline made from the command line with `RELUVA_GAMEDATA_RECORDS`
+  (one engine's records in one folder) isn't found by the window, which
+  looks in a folder per engine: make each engine's again in the window,
+  with **Make my baseline**, before the changes it's to check. Each
+  engine's `TESTING.md` says so too.
 - **Two releases of one game** (two entries for it) run one after the
   other, as each step reads the game's folder from one variable.
 - **Results.** Each test's result and time as it ends; a failure's

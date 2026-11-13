@@ -93,6 +93,13 @@ frame kept. A step passes when its record is the one committed.
   and afterwards run with `RELUVA_GAMEDATA_RECORDS=~/at-records` (and
   without `UPDATE`) to compare against it.
 
+**A baseline of your own in `reluva-viewer`'s Tests window**
+([DEVELOPMENT.md](../../../../DEVELOPMENT.md#the-tests-window)) is kept in a folder
+per engine, this engine's in `<the window's folder>/netimmerse/`
+(`RELUVA_GAMEDATA_RECORDS_ROOT`). One made from the command line with
+`RELUVA_GAMEDATA_RECORDS` isn't found there: make it again in the window,
+with **Make my baseline**, before making the changes it's to check.
+
 ### What the automated checks don't cover
 
 What only playing can check is in
