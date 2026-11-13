@@ -660,7 +660,7 @@ every step. +0x7C0, +0x4EC and +0x4F4 are dot products of it (`0x42cdd0`,
 +0x1A8 × 1024, chopped (`0x42cee9`). `car_ai_model` `0x408600` ramps the
 aim before the heading error. See frd.md "The world velocity".
 
-**Gravity and the body's tilt.** Gravity (`0x4a2a0c`) goes through the rows at +0x190, each × its own y. `0x4a0f30` (from `car_road_dots` `0x4a2690`) makes them the body's own rows (+0xC0, +0xCC, +0xD8) with the road's normal (+0x130) as the up, for a non-human car with +0x10C over 0.9 (`0x53c7f4`). The up part always applies. The forward part applies with the normal's y at least 0.87 (`0x5efdd8`) and the car upright (+0x10C over 0.9); with the normal's y under 0.87 the right and forward parts both apply. On the road, `car_on_road` sets the spins about the world's x (+0xE4 = normal.z − up.z) and z (+0xEC = up.x − normal.x), the normal being the up row of the frame it took the velocity through when the box touches (clearance 0 or less: `0x4a1a2a`'s branch replaces the +0x130 copy it was passed), each held to ±0.5 turn/s, both 0 within 0.02 while upright (`0x53c83c`). `car_integrate_turn` (`0x4a2e20`) turns the rows by (+0xE4, +0xE8, +0xEC)/32 turns about the world's axes. `ai_integrate`'s damping loop: `0x56ec68` is 0 or 1.0, so it does nothing. See frd.md for the page's port.
+**Gravity and the body's tilt.** Gravity (`0x4a2a0c`) goes through the rows at +0x190, each × its own y. `0x4a0f30` (from `car_road_dots` `0x4a2690`) makes them the body's own rows (+0xC0, +0xCC, +0xD8) with the road's normal (+0x130) as the up, for a non-human car with +0x10C over 0.9 (`0x53c7f4`). The up part always applies. The forward part applies with the normal's y at least 0.87 (`0x5efdd8`) and the car upright (+0x10C over 0.9); with the normal's y under 0.87 the right and forward parts both apply. On the road, `car_on_road` sets the spins about the world's x (+0xE4 = normal.z − up.z) and z (+0xEC = up.x − normal.x), the normal being the up row of the frame it took the velocity through when the box touches (clearance 0 or less: `0x4a1a2a`'s branch replaces the +0x130 copy it was passed), each held to ±0.5 turn/s, both 0 within 0.02 while upright (`0x53c83c`). `car_integrate_turn` (`0x4a2e20`) turns the rows by (+0xE4, +0xE8, +0xEC)/32 turns about the world's axes. The road's normal in those rows is +0x130 as it was when `car_road_dots` ran, at the end of the last tick's turn (before the next road contact task moves it to another polygon), and it is the record's 16.16 up, not quite square to its forward, so g × its y × it pushes along the road too (frd.md, Gravity's up row; checked in `i1` `w2` to 2e-6 m/s a call). On its roof the spins are taken from the body's up × the sign of +0x10C (`0x4a1b18`). `ai_integrate`'s damping loop: `0x56ec68` is 0 or 1.0, so it does nothing. See frd.md for the page's port.
 
 **The fields.** +0x7B0 the speed wanted (m/s, below). +0x7B8 the car's
 side offset on the road, +0x7B4 the side offset it wants, +0x7C8 its
@@ -2078,7 +2078,12 @@ November 2026: `callers`, `gxref`, `gdecomp`, the disassembly).
   runs, a car on the ground (+0x164 0, clearance under 5, +0x184 0)
   tipped past 60° (+0x10C under 0.5) also loses 1/64 of each spin a
   tick (`0x4292fb`-`0x429341`, `0x5371d8`; seen in `e10-h6`, Checked
-  in runs).
+  in runs). Read in full and ported to the Track page's computer cars
+  in `s7r` (frd.md, The reset of a tipped car): the timer runs in the
+  impacts task after the hits, 2 more a tick off a road polygon; the
+  reset leaves an upright, settled car alone, and like `0x429100` it
+  raises the car 1.5 m in y. On its roof `car_on_road` holds the body
+  on the side it is on (the sign of +0x10C, `0x4a1b18`).
 - **Seen in the user's copy** (`HP_Disabled`, below, The disabled cop
   seen): a cop rammed up a bank lay on its side 1.4 s, silent, then
   rolled onto its roof; its 0x1E came once, 10.8 s later, when the

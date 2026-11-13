@@ -2934,7 +2934,7 @@ and right), with the box's centre over the road by its clearance and
 turned by its roll and pitch, as the game's +0x98 and +0xC0 are; the
 drawn car is over the road by its clearance. What the page can't do as
 the game does: its place stays on the slice's plane with the height in
-`lift` (the clearance), so a contact's push changes `lift` only; and
+`lift` (the clearance), so a contact's push changed `lift` only (since `s7r` its rest moves the place across the slice's plane: A landing on a corner, below); and
 with no track polygons (the tests) all eight points are tested against
 the car's own plane.
 
@@ -2991,6 +2991,177 @@ cars 1 and 4 rub along each other from 73.8 s and fall to 20-30 m/s
 changes, 895 decisions and 3.35 m/s; the boxes' height and tilt 125, 875
 and 3.30; the air's turn after the dynamics 125, 872 and 3.99. Each is
 the game's code, so all are kept.
+
+**Gravity's up row** (November 2026, `s7r-runs`; read with `asm` of
+`car_dynamics` `0x4a2a0c`-`0x4a2b22`, `car_road_dots` `0x4a2690`,
+`0x4a0f30` and `car_integrate_turn` `0x4a2e20`; checked against
+`i1-runs` `w2`, which reads +0x130 and the gravity rows +0x190-+0x1B0
+at `0x4a2a0c` and the velocity there and at `0x4a2b28`, cars 1-4, 42
+calls each, 51.4-52.7 s; `gup.py`, `gchk.py`). The speeds' drift of
+0.0003-0.0005 m/s a call (The road's vectors are byte / 128, above) was
+put down to gravity's forward part. The forward part is the page's to
+the bit; the up part is not:
+
+- +0x190-+0x1B0 are written only by `0x4a0f30`, from `car_road_dots`,
+  which `car_integrate_turn` calls at the end of the tick's turn. For a
+  computer car with +0x10C over 0.9 (`0x53c7f4`) they are the body's
+  rows with +0x19C = +0x130 **as it is then**. The next tick's road
+  contact task (Sc32 priority 6) may move +0x130 to another polygon
+  before `car_dynamics` (priority 30) adds g × +0x1A0 × +0x19C. In `w2`
+  on each of the 19 calls where +0x130 had changed since the last call,
+  +0x19C was the last call's +0x130 exactly, 0.0017-0.011 from the new.
+- +0x19C is the polygon record's 16.16 up, not square to the record's
+  forward (+0x13C): g × its y × it has a part along the road, which
+  `car_on_road` (taking out the part along its own frame's up) leaves.
+  The page took the unit cross product of +0x13C and +0x124, square to
+  the forward by construction, so it had no such part.
+- With +0x19C as the game's, gravity's change of the velocity along +0x13C
+  is the game's on all 168 calls to 2e-6 m/s. With the page's up it was
+  off by −0.0003 to −0.0011 m/s on every call between polygon changes
+  (the mean by car +0.00006, −0.00017, −0.00061, −0.00034, rms
+  0.0005-0.0009), and up to 0.0027 on a change.
+- +0x10C, which `car_downforce`, `car_flat_or_roof` and gravity's forward
+  part test, is also `car_road_dots`' (the body's up . that +0x130); the
+  test of the road's normal y against 0.87 (`0x5efdd8`) is the current
+  +0x134 (`0x4a2aab`, the copy made at `0x4a2894`).
+
+The page (`AiCar::gravityUp`, set where `aiAdvance` does the tick's turn;
+used in `aiModelSteer`) now does this. A put back or reset leaves it, as
+`car_place_on_slice` (`0x4a0aa0`) doesn't call `car_road_dots`.
+
+Over the fine dumps (`early`, 51.0 to 53.0 s, same dump phase) the
+page's +0x7C4 less the game's changed by −0.043, −0.080, −0.072,
+−0.057, −0.043, −0.006 and −0.039 m/s for cars 1-7 (−0.041, −0.095,
+−0.087, −0.071, −0.042, −0.029, −0.044 before): flatter for five cars,
+so most of the drift is elsewhere (the contact's frame, matched to about
+0.0003 m/s a call in `i1`, is the candidate left). Car 6 still reads
+22.35 m/s at 52.496 s on the page, 52.544 s in the game. The table
+(`all.sh`) is **worse**, kept as the code's: decisions to 56 s 320 of 338
+(324; car 1 picks differently at 55.85 s), to 78 s 906 of 1,568 (913),
+lane changes 126 (120), speeds 2.34 m/s rms over 50-64 s (0.44) and 3.10
+over the window (3.05): after car 1's other pick, cars 1 and 2 meet at
+60.4 s (no hit there in the game) and fall 5-12 m/s behind the game's
+by 62-64 s; hits 23 (38), the first now cars 1 and 2 at 60.38 s instead
+of cars 3 and 4 at 64.94 s (the game's 63.6 s).
+
+**A landing on a corner, the position and the turn** (November 2026,
+`s7r-runs`; read with `gdecomp` and `asm` of `car_landing` `0x4a1ce0`,
+`car_body_under_road` `0x4a1210`, `car_contact_impulse` `0x42ee10`,
+`car_integrate_turn` `0x4a2e20` and `0x4a2cc0`; checked with `landchk`
+against `r1-runs/u1` `u1-a5` and `s5-runs/u1-l5`):
+
+- `car_contact_impulse` moves +0x98 by −depth × the polygon's up
+  (`0x42ee68`-`0x42ee9b`) **before** it tests the momentum (`0x42ef2d`), so a point
+  under the road moving away is pushed out too (in `u1-l5` point 2 at
+  62.016 s), and the push is the whole vector. The page had added only
+  the push's part along the car's polygon's up to `lift`, and only when an
+  impulse was taken. Now (`aiMoveCentre`, from `aiLanding` and
+  `aiCollide`) the part along the polygon's up goes to `lift` and the rest
+  moves the place across the slice's plane (`aiLocate`), whether or not an
+  impulse followed. On Hometown's slice 1 the polygons' ups are within
+  0.008 of the slice's, so this moves the place by under a millimetre in
+  `u1-l5`.
+- **The turn in the air is the rows' turn.** `0x4a2cc0` multiplies all
+  three rows by turns about the world's y, x and z (the spins / 32), so a
+  spin about x or z with a part along the body's up turns the car's
+  forward across the world as well. The page turned its roll and pitch by
+  the spin's parts along its forward and right only (`aiAirTurn`) and so
+  lost that part: seeded from `u1-l5` at 61.837 s (cop B at 47°, spins
+  −0.105, 0.001, 0.113), its forward was 0.03 off the game's +0xD8 one
+  tick after the first touch. Now the unit axes are turned about the spin
+  vector by |w| × 2π / 32 (to first order the game's three turns) and the
+  yaw, roll and pitch are taken from the turned forward and up
+  (`aiSetFrame`, which also seeds a dumped car's yaw so its forward is
+  the dump's; `aiSetWorld`'s yaw is the forward's direction, which for a
+  tilted body isn't the page's yaw).
+- **The hits' boxes are centred on the body's centre.** `car_collisions_task`
+  takes +0x98; the page put its box at the place + (half height +
+  `lift`) along the slice's normal, which for a body tilted 48° is 0.6 m
+  under its centre (the box's reach along the up is 1.37 m, not 0.74).
+  Now the box's centre is the one the landing uses (`aiBodyCentre`: the
+  box's lowest corner on the road polygon's plane, the clearance over
+  it), and the push apart goes through `aiMoveCentre`.
+
+Seeded from `u1-l5`'s dump at 61.837 s with the clearance measured from
+the dumped centre, plane and rows (the dump's +0x15C is taken before the
+tick's moves) and the yaw fitted (`landchk2`, `FITYAW`, `TRUECL`), cars
+2 and 0: the first touch (61.923 s) is point 1 alone at depth −0.0950
+(the game's −0.0952, the point within 6 mm), spins 0.134, 0.003, 0.288
+(0.133, 0.003, 0.288); the next tick points 1 and 2 at −0.0118 and
+−0.2715 (−0.0109, −0.2729) and car A's box meets B's as in the game,
+both cars' spins to 0.001 (B 0.067, 0.007, 0.111; A −0.029, −0.004,
+−0.166; the game's −0.030). Then point 2 at −0.081 (−0.092), and A's
+second hit comes a tick after the game's. Over the next 1.2 s B's
++0x10C follows the game's within 0.01-0.02 (0.651 at its lowest, the
+game's 0.653) and it comes out of air mode on its wheels at 62.74 s
+(62.83 s); before, it rocked at 0.58-0.68 against the game's 0.65-0.78.
+
+The comparison (`s7r-runs/all.sh`): the pushes in full alone (with the
+hits' push apart through `aiMoveCentre`) gave lane changes 129, decisions
+to 78 s 884, the whole window's speeds 3.28 m/s rms, hits 55; the turn
+changed nothing in this window; with the boxes on the body's centre 120
+lane changes (the game's 143; 125 before), decisions to 56 s 324 of 338
+and to 78 s **913** of 1,568 (872), speeds 0.44 m/s rms over 50-64 s and
+**3.05** over the window (3.99), hits 38 (66). The first hit is still
+cars 3 and 4 at 64.94 s.
+
+**The reset of a tipped car** (November 2026, `s7r-runs`; read with
+`gdecomp` and `asm` of `car_impacts_task` `0x42b900`, `car_reset_timer`
+`0x429260`, `car_reset_tipped` `0x428f90`, `0x428970`, `0x429100` and
+`car_on_road` `0x4a1b13`-`0x4a1cc6`; checked against `r1-runs/u1`
+`u1-a1`, where cop 2 rolled on to its roof at 62.24 s and `0x428f90`
+put it back at 65.132 s):
+
+- The impacts task (Sc32 priority 50, after the hits at 40) takes +0x524
+  down by one and calls `car_reset_timer` for each car. While +0x8A0 is
+  over 0 a computer car's loses 1 a tick (+0x200 bit 4 clear), 2 more
+  when its track position is in no polygon (+0x20 or +0x24 0, which
+  `trackpos_surface` with its check reads as surface 1) or on surface 0
+  or 14, and 8 more on the ground (+0x164 0) with +0xB8 + |+0xA8| under
+  1. On the ground with the clearance under 5, +0x184 0 and +0x10C under
+  0.5 the three spins lose 1/64 (`0x5371d8`). At 0 or under,
+  `0x428f90` (not for traffic, +0x200 bit 0x10) and the timer 0, and the
+  task returns. Stopped, it starts at 700 (`0x5efdc0`, `0x42c5f4`; a
+  human's 175, `0x5efdc4`, in a pursuit) when the body's up row . the
+  road polygon's up (+0xCC . +0x130, fresh) is under 0.75 (`0x5371dc`)
+  or the surface (+0x18C) is 0 or 14; +0x184 (only ever written 0 for a
+  car) would give 0x200.
+- `0x428f90` counts +0x2C0 and leaves a car alone that is upright
+  (+0x10C over 0.75, compared as ints), spins under 1 turn/s about x and z
+  (+0xE4, +0xEC; any negative spin passes), on a surface not 0 or 14,
+  +0x184 0, at most 5 air ticks and with the clearance under 0.6. Any
+  other goes 5 slices on the race's way (`0x5efdcc`), `0x428d60`'s free
+  spot (as the put back's), +0x9C + 1.5 (`0x5efdd0`, × 0.5 under cover,
+  `0x420bf0`), the velocity 0, `0x428970` (spins, forces, +0x524 and the
+  impacts 0, the lane, +0x164 1) and +0x174 64. It has none of
+  `0x429100`'s gates (+0x524, a racer finished, the race not started, a
+  pulled-over car) and leaves +0x524 0 where `0x429100` sets 0x20.
+- **The put back is raised too.** `0x429100` adds the same 1.5 m to +0x9C
+  after `0x428d60`; the page had put the car on the road. In `u1-a1`
+  three ticks after the reset cop 2 has +0x164 4, clearance 1.47 and vy
+  −0.92 (three ticks of gravity), on slice 6 (slice 1 + 5).
+- **On its roof the body is held there.** `car_on_road` sets the spins
+  about x and z from the body's up × the sign of +0x10C (1 over 0, else
+  −1) against the road's up, and zeroes them with |+0x10C| over 0.9;
+  the page had taken the up as it is, so a car on its roof was turned
+  back over on to its wheels (seeded from `u1-a1` at 62.271 s it was
+  upright again 1.5 s later; the game's lay on its roof, +0x10C −1.000,
+  until the reset).
+
+In `u1-a1`'s dumps (31 ms apart, 84 pairs with the timer running), 75
+steps of +0x8A0 are one tick of the rule on either dump's state (1 in
+the air or moving, 9 at rest on its roof); the other 9 are 0 or 2 ticks
+between dumps (`tchk.py`). The page (`aiImpacts`, `aiResetTimer`,
+`aiResetTipped`, `AiCar::resetTimer`, `resets`, `putBackHold`; the
+roof's side in `aiTilt`), seeded with `landchk` from cop 2's dumps at
+62.736, 63.108 and 63.945 s (timer 657, 580, 337), resets it at 65.05,
+65.11 and 65.10 s (the game's 65.132; the first is early because the
+page's car came to rest sooner); after it +0x164 4, clearance 1.471, vy
+−0.92 three ticks on and 12, 0.93, −3.37 eleven on (the game's 4, 1.47,
+−0.92 and 12, 0.97, −3.37). In `t6-log`'s window no car tips or is put
+back, so the table (`s7r-runs/all.sh`) is as before: decisions to 56 s
+324 of 338, to 78 s 872 of 1,568, lane changes 125, speeds 0.44 m/s rms
+over 50-64 s and 3.99 over the window, hits 66.
 
 **The roadside cop** (`d7-runs/sim/park`,
 the police car ordered to lay a strip from every 8th slice of Hometown,
