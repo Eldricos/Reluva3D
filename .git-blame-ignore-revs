@@ -5,3 +5,16 @@
 #
 # One full commit hash per line, with a comment saying what it was. Only
 # commits whose changes a script made: never one with a hand edit in it.
+
+# Phase 2: clang-format over every file (one commit per area)
+aa93c1a6a99396e1aee21676409146db8048d979 # Format: shared libraries (common, audio, video, graphics, image, emulation)
+f57d5c19e4d2aa08f3bf307a3a3e13000fd70ea3 # Format: backends and programs (backends, gui, base, devtools, engine interface)
+d258d6d2dcf2ec9ad269a00b2dbbed8a75d14fcc # Format: the testbed engine
+687a597f768be5192fbdba6c74751f05508732e4 # Format: the netimmerse engine
+457ee0b4b4351538e5e151ba6eac6da91318ea55 # Format: the stharbinger engine
+59882eafa28e4cffd20edac7964fd2c8944ef3a0 # Format: the stgenerations engine
+7c6ec345fbe6b33c2fd1ffb84d01d33941fc5297 # Format: the clue engine
+6c599ffc72d275b9543d750f8f1a843fc3ada015 # Format: the awe engine
+c9ffc94899f64a390a73499774f0e2809817420d # Format: the newworlds engine
+6db3e921978f4723971a869843d7e15fa55fbdbf # Format: the idtech3 engine
+53d91d0401769112807413f631494296fd845e9f # Format: tests

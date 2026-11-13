@@ -20,11 +20,12 @@
 # frameworks).
 #
 # The "style" job checks the code against docs/CODING_GUIDE.md:
-# formatting (tools/format.py, clang-format 18) on every file, and
-# clang-tidy 18 (tools/tidy.py) on the files the push or pull request
-# changes. For now it only reports (docs/code-style-migration.md): its
-# steps may fail without failing the run, and the counts are in the run's
-# summary.
+# formatting (tools/format.py, clang-format 18) on every file, which fails
+# the run if any file isn't formatted (run python3 tools/format.py
+# --changed, and commit), and clang-tidy 18 (tools/tidy.py) on the files
+# the push or pull request changes, which for now only reports until the
+# names are brought in line (docs/code-style-migration.md). The counts are
+# in the run's summary.
 #
 # The "docs" job checks the documentation against
 # docs/DOCUMENTATION_STANDARD.md: tools/check-docs.py (links, each engine's
@@ -221,7 +222,7 @@ jobs:
         run: npx --yes markdownlint-cli2@0.23.3
 
   style:
-    name: Code style (report only)
+    name: Code style
     runs-on: ubuntu-24.04
     steps:
       - uses: actions/checkout@v7
@@ -233,13 +234,12 @@ jobs:
           sudo apt-get update
           sudo apt-get install -y ninja-build clang-format-18 clang-tidy-18
       - name: Formatting
-        # Report only until the code is formatted (Phase 2 of the plan).
-        continue-on-error: true
         # bash with pipefail (not the default's plain -e), so | tee keeps
         # the check's exit status.
         shell: bash
         run: python3 tools/format.py --check | tee format.txt
       - name: clang-tidy (changed files)
+        # Report only until the names are brought in line (Phase 4).
         continue-on-error: true
         shell: bash
         env:
